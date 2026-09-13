@@ -1,0 +1,12 @@
+services:
+  dev:
+    build:
+      context: .
+    working_dir: /workspace
+    user: "${LOCAL_UID}:${LOCAL_GID}"
+    environment:
+      HOME: /tmp
+    volumes:
+      - .:/workspace
+    stdin_open: true
+    tty: true
