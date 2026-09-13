@@ -1,15 +1,15 @@
-# Open-GBP — Initial Claude Code Prompt
+# INITIAL_PROMPT.md — Open-GBP First Claude Code Session
 
-Read `CLAUDE.md` completely first.
+Read `CLAUDE.md` completely before doing anything else.
 
-Then read the project documents it references, especially:
+Then read the authoritative project documents referenced by it, especially:
 
-* `README.md`
-* `docs/ROADMAP.md`
-* `docs/RESEARCH_METHOD.md`
-* everything currently present under `docs/research/`
+- `README.md`
+- `docs/ROADMAP.md`
+- `docs/RESEARCH_METHOD.md`
+- everything currently present under `docs/research/`
 
-Treat those files as the authoritative project specification.
+Treat those files as the project specification.
 
 We are beginning **Phase 1 — Project and test infrastructure**.
 
@@ -23,15 +23,15 @@ Do not access undocumented GBP registers during this first milestone.
 
 Your goal for this session is to establish the first autonomous Open-GBP development loop.
 
-## Tasks
+## Confirmed local environment
 
-1. Inspect the repository and existing Docker configuration.
+The project already has a working Docker-based GameCube toolchain.
 
-2. Verify the development environment from inside the project container, including at least:
+Expected container environment includes:
 
 ```text
-DEVKITPRO
-DEVKITPPC
+DEVKITPRO=/opt/devkitpro
+DEVKITPPC=/opt/devkitpro/devkitPPC
 powerpc-eabi-gcc
 powerpc-eabi-g++
 powerpc-eabi-objdump
@@ -40,19 +40,103 @@ make
 $(DEVKITPRO)/libogc2/gamecube_rules
 ```
 
-3. Preserve the existing pinned Docker/libogc2 environment unless there is a concrete technical reason to change it.
+The pinned libogc2 image is:
 
-4. Create the minimum useful host-side testing structure.
+```text
+ghcr.io/extremscorner/libogc2:20260805
+```
 
-5. Create the project's first GameCube proof of concept under something similar to:
+Dolphin is already installed on the host via Flatpak:
+
+```text
+Application ID: org.DolphinEmu.dolphin-emu
+Version: 2606a
+```
+
+Invoke it with:
+
+```bash
+flatpak run org.DolphinEmu.dolphin-emu
+```
+
+The Flatpak already has read-only access to the Open-GBP repository.
+
+Confirmed useful options include:
+
+```text
+--exec=<file>
+--batch
+--debugger
+--logger
+--config=...
+```
+
+For an automated smoke test, a command similar to this is acceptable:
+
+```bash
+timeout 10s \
+  flatpak run org.DolphinEmu.dolphin-emu \
+  --batch \
+  --exec="/absolute/path/to/generated.dol"
+```
+
+A timeout does not itself indicate success or failure. Establish a stronger POC-specific success criterion where practical.
+
+Ghidra is also installed and validated on the host:
+
+```text
+Ghidra 12.1.3 PUBLIC
+Java/OpenJDK 21
+GameCubeLoader version 12.1
+```
+
+Path:
+
+```text
+/home/rafael/Tools/Open-GBP/ghidra_12.1.3_PUBLIC
+```
+
+Headless GameCube DOL imports have been verified with:
+
+```text
+-loader GameCubeLoader
+-loader-autoloadMaps false
+```
+
+However, **Ghidra is not required for this first smoke-test milestone**.
+
+Do not begin analysis of:
+
+```text
+input/gbp-disc.iso
+input/gbi/apps/gbi/gbi.dol
+input/gbi/apps/gbisr/gbisr.dol
+input/gbi/apps/gbihf/gbihf.dol
+```
+
+during Phase 1.
+
+## Tasks
+
+1. Inspect the repository and existing Docker configuration.
+
+2. Verify the development environment from inside the project container.
+
+3. Verify that the known Dolphin Flatpak installation can still be invoked from the host.
+
+4. Preserve the existing pinned Docker/libogc2 environment unless there is a concrete technical reason to change it.
+
+5. Create the minimum useful host-side testing structure.
+
+6. Create the project's first GameCube proof of concept under something similar to:
 
 ```text
 poc/smoke-test/
 ```
 
-Choose the exact naming/layout if a better structure is justified.
+Choose a better naming/layout only if justified.
 
-6. The first POC should remain intentionally simple. Its purpose is to prove:
+7. The first POC must remain intentionally simple. Its purpose is to prove:
 
 ```text
 source
@@ -64,38 +148,51 @@ devkitPPC + libogc2
 ELF
   ↓
 DOL
+  ↓
+Dolphin smoke test
 ```
 
-It should not manipulate undocumented Game Boy Player hardware.
+It must not manipulate undocumented Game Boy Player hardware.
 
-7. Make the build reproducible with a simple documented command.
-
-Prefer a workflow such as:
+8. Give the smoke-test DOL a visible build identity where practical, for example:
 
 ```text
-docker compose run --rm dev make ...
+Open-GBP Smoke Test
+Build: smoke-0001
+Commit: <short hash>
 ```
 
-or an equally simple project-level command.
+9. Make the build reproducible with a simple documented command.
 
-8. Add automated checks that can run without physical hardware.
+Prefer a project-level command or a simple Docker Compose invocation.
 
-At minimum, validate that:
+10. Add automated checks that run without physical hardware.
 
-* host-side tests execute successfully;
-* GameCube source compiles;
-* linking succeeds;
-* the expected ELF exists;
-* the expected DOL exists;
-* obvious binary metadata can be inspected automatically.
+At minimum validate that:
 
-9. Give the generated DOL a visible build identity where practical.
+- host-side tests execute successfully;
+- GameCube source compiles;
+- linking succeeds;
+- the expected ELF exists;
+- the expected DOL exists;
+- useful binary metadata can be inspected automatically.
 
-10. If Dolphin is already available in a way that can be invoked without substantial manual configuration, perform an appropriate smoke test.
+11. Run the generated DOL in Dolphin using the confirmed Flatpak CLI.
 
-Do not spend this first session extensively configuring Dolphin if it is not immediately usable.
+Do not classify the test as PASS only because Dolphin stayed open until a timeout.
 
-11. Update:
+Use whatever autonomous evidence is practical for this minimal POC, such as:
+
+- clean startup without immediate fatal error;
+- deterministic screen output;
+- Dolphin logger output;
+- deterministic application state;
+- generated test artifact;
+- or another clearly documented success condition.
+
+12. If Dolphin testing exposes an issue, debug it autonomously before asking for physical hardware validation.
+
+13. Update:
 
 ```text
 docs/research/DEVLOG.md
@@ -103,35 +200,46 @@ docs/research/DEVLOG.md
 
 with:
 
-* what was created;
-* exact build/test commands;
-* test results;
-* relevant environment/tool versions;
-* unresolved issues;
-* recommended next step.
+- files created/changed;
+- exact build command;
+- exact test commands;
+- tool versions observed;
+- host-test results;
+- PowerPC build result;
+- ELF/DOL paths;
+- Dolphin test method and result;
+- failures or warnings;
+- unresolved issues;
+- recommended next step.
 
-Update other research documentation only if the session produces information that belongs there.
+14. Update other research documentation only if the session produces information that belongs there.
 
-12. Do not request a physical hardware test until all autonomous checks for this milestone have passed.
+15. Do not request a physical hardware test until all reasonable autonomous checks for this milestone have passed.
 
-If hardware validation becomes the next required step, provide a concise deterministic procedure containing:
+If physical validation becomes the next necessary step, provide a concise deterministic request containing:
 
 ```text
-Test ID
-Build ID
-DOL path
-Swiss launch instructions
-Expected screen/result
-What the test proves
+Test ID:
+Build ID:
+DOL path:
+Swiss launch steps:
+Expected screen/result:
+What this test proves:
 ```
 
 ## Important constraints
 
-The final Open-GBP project targets the **physical Game Boy Player**, but this first milestone is only the development infrastructure.
+The final project targets the **physical Game Boy Player**, but this first milestone is only the autonomous development infrastructure.
 
-The user wants minimal manual hardware involvement. Test everything you reasonably can yourself before requesting GameCube validation.
+The user wants minimal manual hardware involvement.
+
+Test everything you reasonably can yourself before requesting GameCube validation.
 
 Do not install system packages with `sudo`.
+
+Do not change Dolphin Flatpak permissions unless there is a demonstrated need.
+
+Do not modify the installed Ghidra/GameCubeLoader environment during Phase 1 unless required to resolve a directly blocking infrastructure issue.
 
 Do not commit or push automatically.
 
@@ -145,6 +253,7 @@ At the end of the session, summarize:
 2. commands used to build;
 3. tests run;
 4. generated artifacts;
-5. anything that failed;
-6. whether physical hardware validation is now justified;
-7. the single highest-value next step.
+5. Dolphin result;
+6. anything that failed;
+7. whether physical hardware validation is now justified;
+8. the single highest-value next step.

@@ -45,19 +45,19 @@ The long-term runtime should support normal Game Boy Player use with functionali
 
 Expected long-term functionality includes:
 
-* real GBA cartridges;
-* real GB cartridges;
-* real GBC cartridges;
-* video;
-* audio;
-* GameCube controller input;
-* physical Link Port peripherals;
-* PicoAdapterGB compatibility;
-* useful configuration/presentation functionality;
-* robust normal Game Boy Player operation;
-* internal serial research;
-* GameCube Broadband Adapter networking;
-* optional Mobile Adapter GB functionality.
+- real GBA cartridges;
+- real GB cartridges;
+- real GBC cartridges;
+- video;
+- audio;
+- GameCube controller input;
+- physical Link Port peripherals;
+- PicoAdapterGB compatibility;
+- useful configuration and presentation functionality;
+- robust normal Game Boy Player operation;
+- internal serial research;
+- GameCube Broadband Adapter networking;
+- optional Mobile Adapter GB functionality.
 
 Mobile Adapter support is an **extension**, not the foundation of the runtime.
 
@@ -129,7 +129,7 @@ Do not begin integrating `libmobile`, PicoAdapterGB Mobile Adapter code, mGBA Mo
 
 The required order is defined by `docs/ROADMAP.md`.
 
-In particular, establish independently:
+Establish independently:
 
 1. reproducible build environment;
 2. test infrastructure;
@@ -212,45 +212,73 @@ However, physical tests should be requested only when necessary.
 
 The user owns an original-disc dump.
 
-Expected local path:
+Local path:
 
 ```text
 input/gbp-disc.iso
 ```
 
-This file is private.
+This file is private and intentionally ignored by Git.
+
+Known SHA-256 at project bootstrap:
+
+```text
+947a5523e7be9b93a986d1e4daca9e335713827df48adcb1dfe79c6a00ed177d
+```
 
 Never:
 
-* commit it;
-* redistribute it;
-* modify it in place;
-* embed its proprietary content into project outputs.
+- commit it;
+- redistribute it;
+- modify it in place;
+- embed its proprietary content into project outputs.
 
 When it becomes useful, analyze it as a primary reference for software that actually controls the physical Game Boy Player.
 
 Relevant research targets may include:
 
-* GBS-DOL initialization;
-* HSP transactions;
-* register access;
-* interrupts;
-* video transfer;
-* audio transfer;
-* keypad/input;
-* SIO/Link-related behavior;
-* timing;
-* startup/shutdown sequences.
+- GBS-DOL initialization;
+- HSP transactions;
+- register access;
+- interrupts;
+- video transfer;
+- audio transfer;
+- keypad/input;
+- SIO/Link-related behavior;
+- timing;
+- startup/shutdown sequences.
 
 Any extracted proprietary executable is also private and must remain outside Git.
 
-Record SHA-256 hashes of analyzed binaries.
+Record SHA-256 hashes of extracted/analyzed binaries.
 
 ---
 
 ### 6.3 Game Boy Interface
 
-The user may later provide a locally owned GBI `.dol`.
+A complete local GBI distribution is available under:
+
+```text
+input/gbi/
+```
+
+Primary binaries currently available:
+
+```text
+input/gbi/apps/gbi/gbi.dol
+input/gbi/apps/gbisr/gbisr.dol
+input/gbi/apps/gbihf/gbihf.dol
+```
+
+Treat them as:
+
+```text
+gbi.dol     -> Standard Edition; primary behavioral/reverse-engineering reference
+gbisr.dol   -> Speedrunning Edition
+gbihf.dol   -> High-Fidelity Edition
+```
+
+Do not delete the rest of the GBI package. It may later provide useful context or supporting assets.
 
 GBI is a behavioral and reverse-engineering reference.
 
@@ -260,19 +288,19 @@ The long-term goal is a standalone open-source implementation.
 
 GBI may be especially useful for:
 
-* compatibility behavior;
-* initialization;
-* optimized hardware handling;
-* video/audio behavior;
-* Link Port handling;
-* networking;
-* configuration;
-* timing;
-* discovering undocumented hardware behavior.
+- compatibility behavior;
+- initialization;
+- optimized hardware handling;
+- video/audio behavior;
+- Link Port handling;
+- networking;
+- configuration;
+- timing;
+- discovering undocumented hardware behavior.
 
-Never redistribute or commit the proprietary input DOL.
+Never redistribute or commit proprietary GBI input binaries.
 
-Never overwrite the original binary.
+Never overwrite the original binaries.
 
 A GBI binary patch may be useful as a temporary experiment, but Open-GBP must not become dependent on proprietary GBI code.
 
@@ -286,12 +314,12 @@ Its Game Boy Player HSP implementation is an important reference.
 
 Use Dolphin for:
 
-* DOL smoke tests;
-* PowerPC execution debugging;
-* generic GameCube testing;
-* HSP model comparison;
-* detecting crashes;
-* validating code that does not depend on missing hardware behavior.
+- DOL smoke tests;
+- PowerPC execution debugging;
+- generic GameCube testing;
+- HSP model comparison;
+- detecting crashes;
+- validating code that does not depend on missing hardware behavior.
 
 Do not assume Dolphin perfectly reproduces all physical GBP behavior.
 
@@ -299,9 +327,214 @@ In particular, incomplete or stubbed functionality in Dolphin must not be treate
 
 When Dolphin and physical GBP behavior differ, document the difference.
 
+#### Local Dolphin environment
+
+Dolphin is installed on the host through Flatpak.
+
+Current installation at project bootstrap:
+
+```text
+Application ID: org.DolphinEmu.dolphin-emu
+Version: 2606a
+Architecture: x86_64
+```
+
+Invoke it with:
+
+```bash
+flatpak run org.DolphinEmu.dolphin-emu
+```
+
+The Flatpak already has **read-only** access to the Open-GBP repository.
+
+Useful CLI options confirmed on this host:
+
+```text
+--exec=<file>       Load the specified file
+--batch             Run without the normal UI
+--debugger          Enable debugger UI
+--logger            Enable logger
+--config=...        Override Dolphin configuration values
+--user=<path>       Set the Dolphin user directory
+```
+
+To launch a generated DOL:
+
+```bash
+flatpak run org.DolphinEmu.dolphin-emu \
+  --exec="/absolute/path/to/generated.dol"
+```
+
+For an automated smoke test:
+
+```bash
+timeout 10s \
+  flatpak run org.DolphinEmu.dolphin-emu \
+  --batch \
+  --exec="/absolute/path/to/generated.dol"
+```
+
+A timeout exit by itself does **not** mean the DOL failed. A homebrew application may intentionally remain running indefinitely.
+
+A successful smoke test should use stronger evidence where practical, for example:
+
+- process starts without immediate crash;
+- expected Dolphin log output;
+- deterministic screen state;
+- deterministic program exit where appropriate;
+- expected file/log artifact;
+- debugger/logger evidence;
+- a POC-specific success condition.
+
+Do not classify a test as PASS only because Dolphin remained open until `timeout`.
+
+Claude may automate Dolphin invocation from the host after building in Docker.
+
+Do not change Flatpak permissions unless there is a demonstrated need.
+
+Dolphin is an intermediate validation layer:
+
+```text
+host tests
+    ↓
+PowerPC build
+    ↓
+Dolphin
+    ↓
+physical GameCube + Game Boy Player
+```
+
+Passing in Dolphin does not prove correct behavior on the physical Game Boy Player.
+
 ---
 
-### 6.5 Enhanced mGBA
+### 6.5 Ghidra and GameCubeLoader
+
+Ghidra is installed on the host for later reverse engineering work.
+
+Current validated environment:
+
+```text
+Ghidra: 12.1.3 PUBLIC
+Java/OpenJDK: 21
+Ghidra path:
+/home/rafael/Tools/Open-GBP/ghidra_12.1.3_PUBLIC
+```
+
+The GameCubeLoader extension is installed at:
+
+```text
+/home/rafael/Tools/Open-GBP/ghidra_12.1.3_PUBLIC/Ghidra/Extensions/GameCubeLoader
+```
+
+The installed extension identifies itself as:
+
+```text
+name=GameCubeLoader
+version=12.1
+```
+
+This exact combination has been verified to successfully import a GameCube DOL in headless mode.
+
+Confirmed loader/language:
+
+```text
+Loader:
+Nintendo GameCube/Wii Binary (Executable)
+
+Language:
+PowerPC:BE:32:Gekko_Broadway:default
+```
+
+#### Headless DOL import
+
+Use:
+
+```bash
+GHIDRA="$HOME/Tools/Open-GBP/ghidra_12.1.3_PUBLIC"
+
+"$GHIDRA/support/analyzeHeadless" \
+  <project-directory> \
+  <project-name> \
+  -import "<dol-path>" \
+  -loader GameCubeLoader \
+  -loader-autoloadMaps false
+```
+
+The `GameCubeLoader` enables automatic symbol-map loading by default.
+
+In headless mode, if no corresponding map file is available, that default behavior can cause the extension to attempt to display a Swing dialog and fail with:
+
+```text
+java.awt.HeadlessException
+```
+
+Therefore, unless a map file is deliberately being supplied, headless DOL imports must use:
+
+```text
+-loader-autoloadMaps false
+```
+
+A disposable no-analysis import test may use:
+
+```bash
+rm -rf /tmp/open-gbp-ghidra-test
+
+"$GHIDRA/support/analyzeHeadless" \
+  /tmp/open-gbp-ghidra-test \
+  LoaderTest \
+  -import "<dol-path>" \
+  -loader GameCubeLoader \
+  -loader-autoloadMaps false \
+  -noanalysis \
+  -deleteProject
+```
+
+The following behavior was verified successfully against:
+
+```text
+input/gbi/apps/gbi/gbi.dol
+```
+
+and produced:
+
+```text
+Using Loader: Nintendo GameCube/Wii Binary (Executable)
+Using Language/Compiler: PowerPC:BE:32:Gekko_Broadway:default
+REPORT: Import succeeded
+```
+
+Do not interpret GameCubeLoader Sleigh warnings such as:
+
+```text
+NOP constructors found
+Unreferenced table
+unnecessary extensions/truncations
+```
+
+as import failure when the import itself succeeds.
+
+Ghidra headless may later be used autonomously for static analysis of locally owned private reference binaries such as:
+
+```text
+input/gbi/apps/gbi/gbi.dol
+input/gbi/apps/gbisr/gbisr.dol
+input/gbi/apps/gbihf/gbihf.dol
+```
+
+and the executable extracted from:
+
+```text
+input/gbp-disc.iso
+```
+
+Do not begin reference-binary reverse engineering before the appropriate roadmap phase.
+
+Prefer headless/scriptable workflows when practical so reverse-engineering results can be reproduced and do not depend on manual GUI actions.
+
+---
+
+### 6.6 Enhanced mGBA
 
 Enhanced mGBA is an emulator-based GameCube/Wii application.
 
@@ -311,13 +544,13 @@ Do not treat it as an implementation of GBS-DOL/HSP hardware control.
 
 It may still be useful as a reference for generic surrounding infrastructure such as:
 
-* GameCube application structure;
-* GX/video code;
-* input;
-* networking;
-* configuration;
-* libogc2 usage;
-* code shared with or historically related to the GBI ecosystem.
+- GameCube application structure;
+- GX/video code;
+- input;
+- networking;
+- configuration;
+- libogc2 usage;
+- code shared with or historically related to the GBI ecosystem.
 
 Files whose names reference GBP do not automatically constitute a physical GBP driver.
 
@@ -325,7 +558,7 @@ Verify semantics before reusing conclusions.
 
 ---
 
-### 6.6 Other reference projects
+### 6.7 Other reference projects
 
 Other locally checked-out reference repositories belong under:
 
@@ -337,12 +570,12 @@ This directory is not vendored into Open-GBP.
 
 Useful references may eventually include:
 
-* Dolphin;
-* libogc2;
-* Game Boy Player Player research;
-* gba-as-controller;
-* Enhanced mGBA;
-* later Mobile Adapter implementations.
+- Dolphin;
+- libogc2;
+- Game Boy Player Player research;
+- gba-as-controller;
+- Enhanced mGBA;
+- later Mobile Adapter implementations.
 
 Prefer recording repository URL and exact commit hash in research notes when conclusions depend on external source.
 
@@ -352,22 +585,22 @@ Prefer recording repository URL and exact commit hash in research notes when con
 
 `input/` is reserved for locally owned analysis inputs.
 
-Examples:
+Current examples:
 
 ```text
 input/gbp-disc.iso
-input/gbi.dol
+input/gbi/
 ```
 
 Rules:
 
-* never commit proprietary binaries;
-* never redistribute them;
-* never overwrite originals;
-* hash inputs before analysis;
-* store extracted private artifacts only in ignored/local analysis locations;
-* independently implement behavior rather than copying proprietary source representation;
-* documentation should describe hardware behavior, not reproduce proprietary implementation text.
+- never commit proprietary binaries;
+- never redistribute them;
+- never overwrite originals;
+- hash inputs before analysis;
+- store extracted private artifacts only in ignored/local analysis locations;
+- independently implement behavior rather than copying proprietary source representation;
+- documentation should describe hardware behavior, not reproduce proprietary implementation text.
 
 ---
 
@@ -415,7 +648,13 @@ Do not install devkitPPC directly on the host unless explicitly requested.
 
 Do not run `sudo` to modify the host development environment.
 
-The repository resides on a filesystem that does not preserve normal POSIX executable permission semantics. Do not treat file-mode differences as meaningful project changes.
+The repository resides on a filesystem mounted through `fuseblk` and does not preserve normal POSIX executable permission semantics. Do not treat file-mode differences as meaningful project changes.
+
+Git is configured locally with:
+
+```text
+core.fileMode=false
+```
 
 ---
 
@@ -432,7 +671,8 @@ Before requesting a physical GameCube test, determine whether the question can b
 5. trace replay;
 6. PowerPC compilation/link validation;
 7. binary inspection;
-8. Dolphin.
+8. Dolphin;
+9. later, Ghidra/static analysis when appropriate to the roadmap phase.
 
 Only request physical hardware testing when the real Game Boy Player behavior is material to the answer.
 
@@ -463,12 +703,12 @@ The purpose is not abstraction for its own sake.
 
 The purpose is to allow:
 
-* deterministic host tests;
-* hardware simulation;
-* failure injection;
-* trace replay;
-* regression testing;
-* less frequent physical hardware access.
+- deterministic host tests;
+- hardware simulation;
+- failure injection;
+- trace replay;
+- regression testing;
+- less frequent physical hardware access.
 
 Timing-sensitive code may require lower-level specialization. Preserve testability where it does not compromise correctness.
 
@@ -480,18 +720,18 @@ Every protocol transformation that can be tested without hardware should have au
 
 Examples include:
 
-* register encoding/decoding;
-* interrupt bit handling;
-* keypad encoding;
-* video packet parsing;
-* frame/buffer boundary handling;
-* ring-buffer wraparound;
-* log encoding;
-* trace parser behavior;
-* timeouts/state machines;
-* malformed data;
-* queue overflow behavior;
-* networking state machines.
+- register encoding/decoding;
+- interrupt bit handling;
+- keypad encoding;
+- video packet parsing;
+- frame/buffer boundary handling;
+- ring-buffer wraparound;
+- log encoding;
+- trace parser behavior;
+- timeouts/state machines;
+- malformed data;
+- queue overflow behavior;
+- networking state machines.
 
 Do not wait until the project is large to add tests.
 
@@ -556,24 +796,24 @@ SD2SP2
 
 Do not:
 
-* allocate memory on every event;
-* write a filesystem record per serial byte;
-* block a serial IRQ on FAT/SD I/O.
+- allocate memory on every event;
+- write a filesystem record per serial byte;
+- block a serial IRQ on FAT/SD I/O.
 
 If the event buffer fills, increment an overflow/lost-event counter rather than blocking the critical path.
 
 A useful log header should contain:
 
-* build ID;
-* Git commit if available;
-* test ID;
-* execution mode;
-* cartridge/test software;
-* physical Link Port state;
-* BBA state;
-* buffer capacity;
-* overflow count;
-* relevant runtime options.
+- build ID;
+- Git commit if available;
+- test ID;
+- execution mode;
+- cartridge/test software;
+- physical Link Port state;
+- BBA state;
+- buffer capacity;
+- overflow count;
+- relevant runtime options.
 
 Also provide an on-screen summary so SD logging failure does not make a test unusable.
 
@@ -583,19 +823,19 @@ Also provide an on-screen summary so SD logging failure does not make a test unu
 
 Assume the user does not have:
 
-* USB Gecko;
-* logic analyzer.
+- USB Gecko;
+- logic analyzer.
 
 Do not design required workflows around them.
 
 Diagnostics should therefore prefer:
 
-* on-screen status;
-* counters;
-* error/status codes;
-* RAM ring-buffer event histories;
-* SD2SP2 logs;
-* later, BBA telemetry when it does not interfere with the behavior under test.
+- on-screen status;
+- counters;
+- error/status codes;
+- RAM ring-buffer event histories;
+- SD2SP2 logs;
+- later, BBA telemetry when it does not interfere with the behavior under test.
 
 Optional support for other debug hardware may be added in the future, but it must not be necessary for normal project development.
 
@@ -640,10 +880,10 @@ After the user reports a result, record it in `docs/research/HARDWARE_TESTS.md`.
 
 Important hardware findings should also be reflected in:
 
-* `EVIDENCE.md`;
-* `UNKNOWNS.md`;
-* `DEVLOG.md`;
-* automated fixtures/tests when practical.
+- `EVIDENCE.md`;
+- `UNKNOWNS.md`;
+- `DEVLOG.md`;
+- automated fixtures/tests when practical.
 
 Do not leave important hardware knowledge only in chat history.
 
@@ -655,9 +895,9 @@ Every hardware-testable DOL should be identifiable.
 
 Prefer embedding or displaying:
 
-* semantic POC/application name;
-* build ID;
-* short Git commit hash when available.
+- semantic POC/application name;
+- build ID;
+- short Git commit hash when available.
 
 Example:
 
@@ -681,13 +921,14 @@ Do not assume an externally prepared hello-world project.
 
 The first program should be deliberately small and prove:
 
-* Docker compilation;
-* Makefile correctness;
-* libogc2 linkage;
-* ELF → DOL generation;
-* predictable build output;
-* basic program execution;
-* simple display/input if appropriate.
+- Docker compilation;
+- Makefile correctness;
+- libogc2 linkage;
+- ELF → DOL generation;
+- predictable build output;
+- basic program execution;
+- simple display/input if appropriate;
+- Dolphin launch/smoke-test workflow.
 
 Do not touch undocumented GBP hardware registers merely to make the first DOL more interesting.
 
@@ -714,13 +955,13 @@ Do not chain multiple unverified assumptions into one hardware test.
 
 Do not assume the following are already solved:
 
-* meaning of all `SIOControl` bits;
-* meaning/width/timing of `SIOData`;
-* Serial IRQ semantics;
-* GBA-mode internal serial behavior;
-* GB/GBC-mode internal serial behavior;
-* external Link Port routing;
-* whether internal handling mirrors, redirects, disables, or competes with the external connector.
+- meaning of all `SIOControl` bits;
+- meaning/width/timing of `SIOData`;
+- Serial IRQ semantics;
+- GBA-mode internal serial behavior;
+- GB/GBC-mode internal serial behavior;
+- external Link Port routing;
+- whether internal handling mirrors, redirects, disables, or competes with the external connector.
 
 The existence of normal external Link communication does not prove GameCube-side internal SIO control.
 
@@ -752,15 +993,15 @@ Before any Mobile Adapter integration, build a standalone BBA/network test with 
 
 Test independently:
 
-* BBA detection/init;
-* IP configuration;
-* UDP;
-* TCP;
-* DNS if required;
-* reconnect behavior;
-* timeout behavior;
-* nonblocking behavior;
-* queues/buffering.
+- BBA detection/init;
+- IP configuration;
+- UDP;
+- TCP;
+- DNS if required;
+- reconnect behavior;
+- timeout behavior;
+- nonblocking behavior;
+- queues/buffering.
 
 Do not perform blocking DNS/TCP/UDP operations from timing-critical serial handling.
 
@@ -790,14 +1031,14 @@ Once the basic GBP runtime works, Open-GBP should progressively aim for practica
 
 Possible areas include:
 
-* presentation modes;
-* scaling;
-* filtering;
-* latency/timing improvements;
-* configuration;
-* compatibility fixes;
-* robust startup/shutdown;
-* runtime usability.
+- presentation modes;
+- scaling;
+- filtering;
+- latency/timing improvements;
+- configuration;
+- compatibility fixes;
+- robust startup/shutdown;
+- runtime usability.
 
 Do not implement cosmetic parity before the underlying hardware runtime is stable.
 
@@ -807,15 +1048,15 @@ Do not implement cosmetic parity before the underlying hardware runtime is stabl
 
 Prefer:
 
-* small modules;
-* explicit fixed-width integer types;
-* explicit endianness handling;
-* documented MMIO/HSP constants;
-* symbolic names only when evidence supports them;
-* no hidden blocking operations in timing-sensitive paths;
-* preallocated buffers where timing matters;
-* warnings enabled;
-* deterministic builds where practical.
+- small modules;
+- explicit fixed-width integer types;
+- explicit endianness handling;
+- documented MMIO/HSP constants;
+- symbolic names only when evidence supports them;
+- no hidden blocking operations in timing-sensitive paths;
+- preallocated buffers where timing matters;
+- warnings enabled;
+- deterministic builds where practical.
 
 Do not silence compiler warnings merely to make builds pass.
 
@@ -872,10 +1113,10 @@ net: add BBA UDP test
 
 Do not mix:
 
-* documentation discoveries;
-* unrelated refactors;
-* experimental register writes;
-* formatting-only changes;
+- documentation discoveries;
+- unrelated refactors;
+- experimental register writes;
+- formatting-only changes;
 
 into one large commit.
 
@@ -893,15 +1134,15 @@ docs/research/DEVLOG.md
 
 Record:
 
-* date;
-* goal;
-* changes;
-* tests executed;
-* result;
-* newly confirmed behavior;
-* rejected hypotheses;
-* new unknowns;
-* next highest-value experiment.
+- date;
+- goal;
+- changes;
+- tests executed;
+- result;
+- newly confirmed behavior;
+- rejected hypotheses;
+- new unknowns;
+- next highest-value experiment.
 
 Avoid turning the devlog into a transcript of every command.
 
@@ -917,11 +1158,13 @@ A later phase may be investigated early only when it directly answers a blocking
 
 If this happens:
 
-* keep the experiment narrow;
-* document why the roadmap was temporarily crossed;
-* do not allow the experiment to become an architectural dependency prematurely.
+- keep the experiment narrow;
+- document why the roadmap was temporarily crossed;
+- do not allow the experiment to become an architectural dependency prematurely.
 
 `libmobile` remains specifically gated until the relevant GBP/SIO/network foundations are validated.
+
+Ghidra being installed and operational does not authorize early reverse engineering outside the roadmap phase.
 
 ---
 
@@ -932,16 +1175,20 @@ On the first development session:
 1. Read the required project documents.
 2. Inspect the repository.
 3. Verify the Docker build environment.
-4. Do not modify private inputs.
-5. Do not require `gbp-disc.iso` or `gbi.dol` for the first build.
-6. Create a minimal host-test structure.
-7. Create the first GameCube smoke-test application.
-8. Compile it entirely through the project Docker environment.
-9. Inspect the generated ELF/DOL.
-10. Run all tests that can be run autonomously.
-11. If Dolphin is available and can be invoked reliably, use it for an appropriate smoke test; do not make Dolphin installation/configuration a blocker for the first build.
-12. Record the work in `DEVLOG.md`.
-13. Report the generated DOL path and exact hardware test procedure if real hardware validation is the next necessary step.
+4. Verify the known Dolphin Flatpak installation and CLI.
+5. Note that Ghidra headless is installed and validated, but do not begin reference-binary reverse engineering.
+6. Do not modify private inputs.
+7. Do not require `gbp-disc.iso` or GBI binaries for the first build.
+8. Create a minimal host-test structure.
+9. Create the first GameCube smoke-test application.
+10. Compile it entirely through the project Docker environment.
+11. Inspect the generated ELF/DOL.
+12. Run all host-side/autonomous tests.
+13. Launch the DOL through Dolphin using the confirmed Flatpak CLI.
+14. Use a bounded `timeout` for unattended runs when appropriate.
+15. Do not call a Dolphin test PASS solely because it survived until timeout.
+16. Record the work in `docs/research/DEVLOG.md`.
+17. Report the generated DOL path and exact hardware test procedure only if real hardware validation is now the highest-value unresolved step.
 
 Do not begin Game Boy Player register experimentation during the first smoke-test milestone.
 
