@@ -201,7 +201,33 @@ functionality is disabled.
 
 This is a permanent regression requirement for later phases.
 
-## Phase 9 — Internal SIO research
+## Phase 9 — GBI-class functional parity
+
+After the basic physical Game Boy Player runtime is stable, expand Open-GBP
+toward functional parity with mature Game Boy Player software such as Game
+Boy Interface.
+
+This phase may include:
+
+- additional video modes and presentation options;
+- scaling and filtering controls;
+- timing and latency improvements;
+- configuration handling;
+- compatibility fixes;
+- runtime robustness;
+- other features useful for normal Game Boy Player operation.
+
+GBI may be analyzed as a behavioral and reverse-engineering reference, but
+Open-GBP should remain an independently implemented open-source project.
+
+Acceptance:
+
+```text
+Open-GBP can be used as a practical replacement for normal Game Boy Player
+operation without requiring proprietary runtime software.
+```
+
+## Phase 10 — Internal SIO research
 
 Investigate whether GameCube-side software can observe and/or drive the cartridge's serial communication internally through GBS-DOL/HSP.
 
@@ -237,7 +263,7 @@ Acceptance milestone C:
 The behavior required for GB/GBC operation is characterized.
 ```
 
-## Phase 10 — Network/BBA
+## Phase 11 — Network/BBA
 
 Network support is developed independently of Mobile Adapter logic.
 
@@ -264,28 +290,43 @@ A standalone GameCube application can reliably exchange test traffic
 with an automated host-side server.
 ```
 
-## Phase 11 — Runtime architecture and integration
+## Phase 12 — Runtime stabilization and architecture
 
-After GBP functionality is understood, decide how the reusable runtime should be exposed.
+At this stage Open-GBP is expected to be a standalone open-source runtime
+for the physical Game Boy Player.
+
+Stabilize the architecture and public boundaries between:
+
+- physical GBP/HSP transport;
+- video, audio, input, and cartridge runtime;
+- Link/SIO handling;
+- networking;
+- application-specific extensions.
 
 Potential outputs include:
 
-* reusable GBP library;
-* diagnostic applications;
-* documentation;
-* trace tools;
-* optional integration with existing frontends.
+- the standalone Open-GBP application;
+- a reusable GBP library;
+- diagnostic applications;
+- documentation;
+- trace and research tools.
 
-Game Boy Interface binary modification should only be investigated if still useful at this stage.
+Integration with other frontends may be explored, but it is secondary to
+the standalone Open-GBP runtime.
+
+Game Boy Interface may continue to be used as a behavioral and
+reverse-engineering reference. Open-GBP must not require GBI or another
+proprietary runtime in order to operate.
 
 Acceptance:
 
 ```text
-The project has a stable, documented API boundary between GBP hardware
-transport, higher-level GBP behavior, and application logic.
+Open-GBP has a stable standalone runtime and documented API boundaries
+between GBP hardware transport, core runtime behavior, networking, and
+application-specific extensions.
 ```
 
-## Phase 12 — Mobile Adapter GB
+## Phase 13 — Mobile Adapter GB
 
 Only after the previous GBP/SIO/network milestones are satisfied should Mobile Adapter integration begin.
 

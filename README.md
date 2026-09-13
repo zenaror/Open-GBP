@@ -4,6 +4,26 @@ Open-source research, documentation, tooling, and software for programming the *
 
 The project focuses on the real Game Boy Player hardware attached to the GameCube High-Speed Port. It does **not** use software emulation of the Game Boy, Game Boy Color, or Game Boy Advance as the final execution path.
 
+## Project scope
+
+The long-term goal of Open-GBP is to provide an open-source runtime for the
+physical Nintendo Game Boy Player with compatibility and functionality
+comparable to mature solutions such as Game Boy Interface.
+
+The project should ultimately support the normal Game Boy Player use cases
+without sacrificing existing hardware functionality:
+
+- real GB, GBC, and GBA cartridges;
+- video;
+- audio;
+- GameCube controller input;
+- physical Link Port peripherals;
+- existing devices such as PicoAdapterGB;
+- configurable presentation and runtime features where practical.
+
+Mobile Adapter GB support is an additional feature built on top of this
+foundation. It must not replace or break the normal physical Link Port path.
+
 ## Goals
 
 Open-GBP aims to:
