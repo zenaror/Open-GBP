@@ -1,0 +1,135 @@
+#include "gbp_replay.h"
+
+#include <stdlib.h>
+#include <string.h>
+
+static int hexval(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+size_t gbp_hex_decode(const char *hex, uint8_t *out, size_t cap)
+{
+    size_t n = 0;
+    while (n < cap) {
+        int h = hexval(hex[0]), l;
+        if (h < 0) break;
+        l = hexval(hex[1]);
+        if (l < 0) break;
+        out[n++] = (uint8_t)((h << 4) | l);
+        hex += 2;
+    }
+    return n;
+}
+
+static gbp_status status_from_name(const char *s)
+{
+    if (strncmp(s, "ok", 2) == 0) return GBP_OK;
+    if (strncmp(s, "timeout", 7) == 0) return GBP_ERR_TIMEOUT;
+    if (strncmp(s, "busy", 4) == 0) return GBP_ERR_BUSY;
+    if (strncmp(s, "param", 5) == 0) return GBP_ERR_PARAM;
+    return GBP_ERR_BACKEND;
+}
+
+/* Returns pointer to the next non-comment line and advances pos past it;
+ * NULL when exhausted. Copies the line into buf (truncated). */
+static const char *next_line(struct gbp_replay *r, char *buf, size_t cap)
+{
+    for (;;) {
+        const char *s = r->script + r->pos;
+        const char *e;
+        size_t len;
+        if (*s == '\0') return 0;
+        e = strchr(s, '\n');
+        len = e ? (size_t)(e - s) : strlen(s);
+        r->pos += len + (e ? 1u : 0u);
+        while (len > 0 && (s[0] == ' ' || s[0] == '\t')) { s++; len--; }
+        if (len == 0 || s[0] == '#') continue;
+        if (len >= cap) len = cap - 1u;
+        memcpy(buf, s, len);
+        buf[len] = '\0';
+        return buf;
+    }
+}
+
+static gbp_status r_read_arinfo(void *ctx, uint16_t *value)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    if (!next_line(r, line, sizeof line)) { r->exhausted++; return GBP_ERR_BACKEND; }
+    r->step++;
+    if (line[0] != 'A' || line[2] != 'r') { r->mismatches++; return GBP_ERR_BACKEND; }
+    *value = (uint16_t)strtoul(line + 4, 0, 16);
+    r->arinfo = *value;
+    return GBP_OK;
+}
+
+static gbp_status r_write_arinfo(void *ctx, uint16_t value)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    if (!next_line(r, line, sizeof line)) { r->exhausted++; return GBP_ERR_BACKEND; }
+    r->step++;
+    if (line[0] != 'A' || line[2] != 'w') { r->mismatches++; return GBP_ERR_BACKEND; }
+    if ((uint16_t)strtoul(line + 4, 0, 16) != value) { r->mismatches++; return GBP_ERR_BACKEND; }
+    r->arinfo = value;
+    return GBP_OK;
+}
+
+static gbp_status r_read_block(void *ctx, uint32_t addr, uint8_t out[GBP_BLOCK_SIZE],
+                               struct gbp_xfer_info *info)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    char *p, *end;
+    gbp_status rc;
+    if (info) memset(info, 0, sizeof *info);
+    if (!next_line(r, line, sizeof line)) { r->exhausted++; return GBP_ERR_BACKEND; }
+    r->step++;
+    if (line[0] != 'R') { r->mismatches++; return GBP_ERR_BACKEND; }
+    p = line + 2;
+    if ((uint32_t)strtoul(p, &end, 16) != addr) { r->mismatches++; return GBP_ERR_BACKEND; }
+    while (*end == ' ') end++;
+    rc = status_from_name(end);
+    p = strchr(end, ' ');
+    memset(out, 0, GBP_BLOCK_SIZE);
+    if (rc == GBP_OK && p) {
+        while (*p == ' ') p++;
+        gbp_hex_decode(p, out, GBP_BLOCK_SIZE);
+    }
+    return rc;
+}
+
+static gbp_status r_write_block(void *ctx, uint32_t addr, const uint8_t in[GBP_BLOCK_SIZE],
+                                struct gbp_xfer_info *info)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    char *end;
+    (void)in;
+    if (info) memset(info, 0, sizeof *info);
+    if (!next_line(r, line, sizeof line)) { r->exhausted++; return GBP_ERR_BACKEND; }
+    r->step++;
+    if (line[0] != 'W') { r->mismatches++; return GBP_ERR_BACKEND; }
+    if ((uint32_t)strtoul(line + 2, &end, 16) != addr) { r->mismatches++; return GBP_ERR_BACKEND; }
+    while (*end == ' ') end++;
+    return status_from_name(end);
+}
+
+void gbp_replay_init(struct gbp_replay *r, const char *script)
+{
+    memset(r, 0, sizeof *r);
+    r->script = script ? script : "";
+}
+
+void gbp_replay_transport(struct gbp_replay *r, struct gbp_transport *t)
+{
+    t->read_arinfo = r_read_arinfo;
+    t->write_arinfo = r_write_arinfo;
+    t->read_block = r_read_block;
+    t->write_block = r_write_block;
+    t->ctx = r;
+}
