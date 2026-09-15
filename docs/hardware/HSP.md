@@ -46,14 +46,26 @@ register).
 
 | Item | Value | Source |
 |------|-------|--------|
-| PI cause / mask bit | 13 (`0x2000`) in `0xCC003000` / `0xCC003004` | YAGCD 6.1.5.2, libogc `irq.c`, Dolphin `INT_CAUSE_HSP`, DISC dispatcher `0x80069ff0` |
-| OS interrupt number | 26 in the Nintendo SDK (DISC `OSSetInterruptHandler(26, …)`) and in libogc (`IRQ_PI_HSP = 26`) | DISC `0x8008a930`, GBI `0x8000bf30` |
-| Acknowledge | write `0x2000` to `0xCC003000` *after* clearing the device-side IRQ register (DISC) or immediately in the raw handler (GBI) | DISC `0x8008af08`, GBI `0x8000b400` |
-| Device-side gating | CONTROL bit `0x10` masks the line (Dolphin: `set_interrupt = !(control & 0x10) && (irq & 0x8000)`) | DISC/GBI usage, Dolphin |
+| PI cause / mask bit | 13 (`0x2000`) in `0xCC003000` (INTSR, cause) / `0xCC003004` (INTMR, mask) | YAGCD PI section, libogc `irq.c`, Dolphin `INT_CAUSE_HSP`, DISC dispatcher `0x80069ff0`, GBI dispatcher `0x80058360` |
+| OS interrupt number | 26 in the Nintendo SDK (DISC `OSSetInterruptHandler(26, …)`, software mask `0x20`) and in libogc (`IRQ_PI_HSP = 26`, `IM_PI_HSP = 0x20`) | DISC `0x8008a930`/`0x80069ca0`, GBI `0x8000bf30`, libogc2 `irq.h`/`irq.c` |
+| Cause vs mask | INTSR shows the cause independently of INTMR; INTMR only gates the CPU exception — **C** (GBP-PI-001) | all three dispatchers test `cause & mask`; the Disc acknowledges while masked; Dolphin model |
+| Clearing INTSR | write 1 to clear — **C** (GBP-PI-002); every known INTSR write is a single-source acknowledge (2, 0x1000, 0x2000) | libogc2 `system.c`/`mmce.c`, DISC `0x8006b1d4`/`0x800a243c`/`0x8008af08`/`0x8008be04`, GBI `0x80052f04`/`0x80053eb0`/`0x8000b400`, Dolphin `cause &= ~val` |
+| Level or latched at the PI | **U** (U-GBP-022): never observed set on hardware; no reference reads INTSR | — |
+| Acknowledge order, Start-up Disc | device IRQ write (`mask \| 0x8000`) → `INTSR := 0x2000` → device IRQ read → device write-back (`pending`) → … → device re-arm (`mask`): **GBP → PI → GBP → GBP** (F, GBP-IRQ-002) | DISC `0x8008af08` |
+| Acknowledge order, GBI | `INTSR := 0x2000` in the raw handler, device write (`pending \| 0x8000`, with KEYPAD) later in a thread: **PI → GBP** (F, GBP-IRQ-003) | GBI `0x8000b400`, `0x8000bf30` |
+| Device-side gating | CONTROL bit `0x10`: set by both references at stop, cleared at start (Dolphin: `set_interrupt = !(control & 0x10) && (irq & 0x8000)`) | DISC/GBI usage, Dolphin |
+| libogc2 dispatch (r2442.094b250, verified in the linked binary) | reads INTSR and INTMR, `cause & mask`, one handler per exception by priority, EE = 0 in the handler, `rfi`; no automatic mask, no automatic acknowledge; INTMR is rebuilt from shadow masks by `__MaskIrq`/`__UnmaskIrq` (never write it directly) | ENV-IRQ-001/002 |
+| Retrigger / storm | a handler returning with `INTSR & INTMR` bit 13 still set re-enters immediately after `rfi`; so does an unmasked bit 13 with no handler. Ended with certainty only by clearing INTMR bit 13 inside the handler (GBP-PI-003) | PowerPC + libogc2/SDK dispatchers |
 
-The line is level-like from the software's point of view: DISC masks it
-at the device (IRQ register bit 15 + CONTROL 0x10) before servicing and
-re-enables afterwards. Whether it is edge or level at the PI is **U**.
+The two references disagree on the order of the PI and device
+acknowledges but agree on the rest: PI is acknowledged by W1C, the
+device register is written back with the value read, CONTROL is read
+and KEYPAD written on every interrupt, and at stop PI is masked before
+the device is touched. Nothing about the physical line (level vs edge,
+assertion duration, effect of the W1C while asserted) has been
+observed; the Dolphin model (cause re-set on every device event,
+cleared on W1C) is a model. Open-GBP's handler rules are in
+`docs/protocol/INITIALIZATION.md` §9.
 
 ## 3. Bandwidth and timing (orientation)
 
@@ -76,6 +88,7 @@ re-enables afterwards. Whether it is edge or level at the PI is **U**.
 | SIODATA read layout | u32 repeated 8× | DISC assembles bytes 0x19/0x1B/0x1D/0x1F (byte-doubled model) |
 | SIOCTL / SIODATA behavior | stubs (log only) | real state machine (DISC), queue (GBI) |
 | Unknown indices | warning | never touched |
+| PI HSP cause | re-set on every device event, cleared on INTSR W1C; `irq & 0x8000` with CONTROL 0x10 clear asserts the line | not observable in the references (INTSR never read); hardware idle IRQ read `0x8AAE` (bit 15 set) with CONTROL 0x10 cleared for 228 µs showed no INTSR bit 13 (GBP-HW-013/014) — the model's assertion condition did not reproduce in that window; level/edge U (U-GBP-022) |
 
 None of these differences is a Dolphin bug for the purpose of running
 the DISC or GBI; they mark where Dolphin is *not* evidence.

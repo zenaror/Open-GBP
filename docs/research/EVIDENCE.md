@@ -17,9 +17,12 @@ ENV-   development environment, toolchain, emulator behavior (not GBP hardware)
 GBP-   physical Game Boy Player / HSP / GBS-DOL behavior
 ```
 
-`GBP-` entries come from Phase 2 static analysis (2026-09-13). None has
-been verified on physical hardware by this project yet; "FACT" below
-means "directly observed in the named source", not "observed on hardware".
+`GBP-` entries up to GBP-SRAM-001 come from Phase 2 static analysis
+(2026-09-13); `GBP-HW-` entries are physical observations (2026-09-14/15);
+`GBP-PI-`, `GBP-IRQ-002/003` and `ENV-IRQ-` entries come from the
+interrupt-path audit of 2026-09-15 (static, no hardware). Unless an entry
+cites a `GBP-HW-` id or a HARDWARE_TESTS run, "FACT" means "directly
+observed in the named source", not "observed on hardware".
 
 Source shorthands used below:
 
@@ -36,8 +39,15 @@ DOLPHIN  dolphin-emu/dolphin master c185d27ede09771fe93a3b520c576f646f937ed9 (20
          2606a c77bbaa0…; Source/Core/Core/HW/HSP/*, HW/DSP.cpp, HW/ProcessorInterface.h,
          Data/Sys/GameSettings/UGP.ini. GBP device added by PR #14535 (jordan-woyak, co-authored
          by endrift, merged 2026-04-01).
-LIBOGC2  extremscorner/libogc2 ca03fb7534a9b67d3348ef76e3a3b379aee9392a (2026-09-12): libogc/aram.c,
-         libogc/irq.c, include/ogc/irq.h, include/ogc/system.h.
+LIBOGC2  extremscorner/libogc2 ca03fb7534a9b67d3348ef76e3a3b379aee9392a (2026-09-12, shallow clone):
+         libogc/aram.c, libogc/irq.c, libogc/irq_handler.S, libogc/exception.c, libogc/system.c,
+         libogc/mmce.c, include/ogc/irq.h, include/ogc/system.h, include/ogc/timesupp.h,
+         include/ogc/machine/processor.h.
+LIBOGC2-BIN
+         the libogc2 actually linked into every Open-GBP DOL: libogc.a from the Docker image
+         ghcr.io/extremscorner/libogc2:20260805, _V_STRING "libogc2 r2442.094b250" (built Aug 5 2026),
+         members irq.o / irq_handler.o disassembled with powerpc-eabi-objdump inside the container
+         (2026-09-15). Commit 094b250 is not in the shallow LIBOGC2 history (U-ENV-005).
 YAGCD    hitmen.c02.at/files/yagcd/yagcd (consulted 2026-09-13): 5 (DSP regs), 6.1.5.2/6.2.1
          (PI/HSP interrupt), 6.2.8 (DSP interrupts), 11/11.1 (HSP devices, "to do").
 GBATEK   mgba-emu/gbatek gh-pages 64b5087aa45cd0187b8b239d77e54ee5eb2917d1: gba.md "GBA Gameboy
@@ -164,6 +174,117 @@ fails the run.
   libogc2 working on real hardware, but is not verified here
   (see UNKNOWNS `U-ENV-001`). It is irrelevant to Open-GBP unless
   Open-GBP writes its own EXI driver.
+
+---
+
+## ENV-IRQ-001 — libogc2 r2442.094b250 external-interrupt dispatch: no automatic mask, no automatic acknowledge, one handler per exception
+
+**Claim:** In the libogc2 linked into Open-GBP DOLs, the external-interrupt
+exception is handled by `irq_exceptionhandler` (irq_handler.S), which
+saves the context, raises the interrupt-nesting count in SPRG0, calls
+`c_irqdispatcher` and returns with `rfi` (the saved SRR1 restores
+MSR[EE]). `c_irqdispatcher` (irq.c) does, in this order: read PI INTSR
+(`0xCC003000`) and clear bit 16; read PI INTMR (`0xCC003004`); if the
+cause is 0 or `cause & mask` is 0, count a spurious interrupt and
+return; translate the cause bits (for PI bit 13: `IRQMASK(IRQ_PI_HSP)` =
+`0x20`); drop the bits that are masked in the software shadows
+(`prevIrqMask | currIrqMask`); pick **one** interrupt by the `_irqPrio`
+priority table (PI HSP is the seventh entry, alone); call
+`g_IRQHandler[irq]` if it is non-NULL; return. It never writes INTSR or
+INTMR, never masks the interrupt it is dispatching, and runs the handler
+with MSR[EE] = 0 on the interrupt stack (0x4000 bytes).
+
+**Status:** FACT (source ca03fb7 and the container binary agree) — **Confidence:** high.
+
+**Sources:**
+
+- LIBOGC2 `libogc/irq.c` `c_irqdispatcher` (lines 119–260), `_irqPrio`,
+  `__irq_init`; `libogc/irq_handler.S` `irq_exceptionhandler`
+  (`bl c_irqdispatcher` … `__thread_dispatch` … `rfi`);
+  `libogc/exception.c:128` (`__exception_sethandler(EX_INT, irq_exceptionhandler)`).
+- LIBOGC2-BIN `irq.o`: `c_irqdispatcher` starts with `lis r10,-13312 ;
+  ori r10,r10,0x3000 ; lwz r9,0(r10) ; lwz r7,4(r10) ; rlwinm. r8,r9,0,16,14
+  ; beq spurious ; and. r8,r8,r7 ; beq spurious`; no store to `0xCC0030xx`
+  anywhere in `c_irqdispatcher`; `irq_handler.o` contains the `bl
+  c_irqdispatcher`, `bl __thread_dispatch` and `rfi` of the source.
+- The same structure exists in the SDK dispatcher of the Start-up Disc
+  (`0x80069ff0`: reads INTSR, masks bit 16, reads INTMR, `cause & mask`,
+  removes `0x800000C4 | 0x800000C8`, priority table `0x801AD740`, one
+  handler call, no INTSR/INTMR write) and in the libogc embedded in GBI
+  (`0x80058360`, identical logic including the spurious counter).
+
+**Hardware tests:** none needed for the software part. The physical
+consequence (what happens on the PI line) is GBP-PI-003 / U-GBP-022.
+
+**Notes:**
+
+- Consequence 1: if the cause bit is still set and unmasked when the
+  handler returns, the exception is taken again immediately after `rfi`
+  (PowerPC external interrupts are level-triggered at the CPU pin).
+- Consequence 2: an unmasked cause with `g_IRQHandler[irq] == NULL` is
+  the same situation — nothing clears the cause — and the CPU never
+  leaves the exception loop. **Never unmask IRQ 26 without a handler
+  installed.**
+- `spuriousIrq` is a static counter; it is not reachable from a POC.
+
+---
+
+## ENV-IRQ-002 — libogc2 IRQ mask API: shadow masks rebuild INTMR; IRQ_Request/IRQ_Free return the previous handler; __MaskIrq is usable from a handler
+
+**Claim:** (1) `__MaskIrq(mask)` / `__UnmaskIrq(mask)` update the
+software shadow `prevIrqMask` and then call `__SetInterrupts`, which
+recomputes the **whole** PI INTMR value from `prevIrqMask | currIrqMask`
+(`imask = 0xF0`, then one bit per unmasked PI source, bit 13 for
+`IM_PI_HSP`) and stores it. A value written directly to `0xCC003004`
+without updating the shadows is therefore overwritten by the next mask
+change of any PI-group interrupt; INTMR observed as `0x1FA` on hardware
+(GBP-HW-012), not the boot value `0xF0`, is such a rebuild. (2)
+`IRQ_Request(nIrq, handler)` stores the new handler and returns the
+previous one; `IRQ_Free(nIrq)` stores NULL and returns the previous one;
+`IRQ_GetHandler(nIrq)` reads it. All three only toggle MSR[EE] around a
+table access. (3) `__MaskIrq` executed inside an interrupt handler is
+safe: it saves MSR, clears EE (already 0 in a handler), loops over
+`__SetInterrupts`, restores the saved EE bit (still 0), uses 16 bytes of
+stack, allocates nothing, blocks nowhere and performs no DMA.
+
+**Status:** FACT (source and container binary) — **Confidence:** high.
+
+**Sources:**
+
+- LIBOGC2 `libogc/irq.c`: `__SetInterrupts` (PI group: `imask = 0xf0; …
+  if(!(nMask&IM_PI_HSP)) imask |= 0x00002000; _piReg[1] = imask;`),
+  `__UnmaskIrq`, `__MaskIrq`, `__irq_init` (`_piReg[1] = 0xf0; __MaskIrq(-32)`),
+  `IRQ_Request`, `IRQ_Free`, `IRQ_GetHandler`; `include/ogc/irq.h`
+  (`IRQ_PI_HSP 26`, `IM_PI_HSP IRQMASK(IRQ_PI_HSP)`, prototypes of
+  `__MaskIrq`/`__UnmaskIrq`, `irq_handler_t` =
+  `void (*)(u32 irq, frame_context *ctx)`).
+- LIBOGC2-BIN `irq.o`: `IRQ_Request` = `mfmsr/rlwinm/mtmsr` (EE off) →
+  `lwzx r3,g_IRQHandler[nIrq]` (return value = old) → `stwx r4` (new) →
+  EE restore → `blr`; `IRQ_Free` identical with `li r7,0` stored;
+  `__MaskIrq`/`__UnmaskIrq`: `stwu r1,-16`, save r30/r31, EE off, update
+  `prevIrqMask` (SDA), `bl __SetInterrupts` in a loop until it returns 0,
+  EE restore, `blr`. Container `libversion.h`: `_V_STRING "libogc2
+  r2442.094b250"`; container `irq.h` line 143:
+  `irq_handler_t IRQ_Request(u32 nIrq, irq_handler_t pHndl);`, lines
+  180–181: `void __MaskIrq(u32 nMask); void __UnmaskIrq(u32 nMask);`.
+- Runtime PI-group mask changes exist in libogc2 itself (`mmce.c` masks
+  and unmasks `IM_PI_DEBUG`; the init-time unmasks of VI/SI/EXI/AI/DSP/
+  MEM/RSW produced the `0x1FA` seen on hardware), so the rebuild is not
+  theoretical.
+- The Start-up Disc's SDK does the same: `0x80069ef0` (`OSMaskInterrupts`)
+  and `0x80069f70` (`OSUnmaskInterrupts`) update the shadow words at
+  `0x800000C4`/`0x800000C8` and call `0x80069ca0`, which rebuilds INTMR
+  (`0xF0` + one bit per unmasked source; OS mask bit `0x20` ↔ INTMR bit
+  13); `0x80069c38` (init) writes `0xF0` and masks everything;
+  `0x80069c0c` (`OSSetInterruptHandler`) returns the previous handler.
+
+**Hardware tests:** none (software behavior). GBP-HW-012 shows the
+rebuilt value on hardware.
+
+**Notes:** libogc2 installs no handler for IRQ 26 itself (no use of
+`IRQ_PI_HSP`/`IM_PI_HSP` outside irq.c/irq.h), so the previous handler
+returned by `IRQ_Request(IRQ_PI_HSP, …)` in a POC is expected to be NULL;
+a POC must still record and restore whatever it gets.
 
 ---
 
@@ -296,8 +417,11 @@ maps cause 0x2000 → index 26) and libogc (`IRQ_PI_HSP = 26`; GBI
 register at index 0xD holds sources on even bits 0/2/4/6/8/10 and their
 masks on the odd bits; software acknowledges by writing the pending value
 back; bit 15 is written together with the mask at IRQ entry. PI is
-acknowledged by writing 0x2000 to `0xCC003000`. CONTROL bit 0x10 masks
-the line.
+acknowledged by writing 0x2000 to `0xCC003000` (W1C). CONTROL bit 0x10
+masks the line. The exact per-driver order of device-side and PI-side
+acknowledges is GBP-IRQ-002 (Start-up Disc: GBP → PI → GBP → GBP) and
+GBP-IRQ-003 (GBI: PI in the raw handler → GBP in a thread); the PI
+semantics are GBP-PI-001…003.
 
 **Status:** CORROBORATED (DISC `0x8008af08`, tables at 0x801B34C8/0x801B34D4
 = {0x0001,0x0040,0x0010,0x0004,0x0400,0x0100} / {0x0002,0x0080,0x0020,
@@ -618,3 +742,183 @@ U-GBP-019 for the candidate explanations (none selected).
 **Claim:** With and without the GBP, every transfer completed with the
 same tick/poll counts (29–34 / 7–9) and CSR 0x0804. **Status:** FACT
 (re-confirms GBP-HW-008).
+
+---
+
+## Static audit of the interrupt path — 2026-09-15 (no hardware)
+
+Inputs: DISC (`0x8008a930`, `0x8008bf84`, `0x8008af08` + helpers
+`0x80089ff4`/`0x8008a31c`/`0x8008a1dc`/`0x80089edc`/`0x80089e40`/
+`0x8008bcc4`, `0x8008be04`, SDK `0x80069ff0`/`0x80069ca0`/`0x80069ef0`/
+`0x80069f70`/`0x80069c38`/`0x8006b1d4`/`0x800a243c`; every reference to
+`0xCC003000` and `0xCC003004` in main.dol enumerated with
+`OpenGbpFunc.java refs`), GBI (`0x8000b400`, `0x8000bf30`, `0x80058360`,
+`0x800580e4`, `0x800586a8`, `0x8005863c`, `0x800585d0`, `0x80058724`,
+`0x80058780`, `0x80058c70`, `0x80058b88`, `0x80053eb0`, `0x80052f04`;
+same enumeration), LIBOGC2 + LIBOGC2-BIN, DOLPHIN
+`ProcessorInterface.cpp`/`HSP_DeviceGBPlayer.cpp`, YAGCD PI section.
+Decompiles under `build/analysis/ghidra/*/decomp/` (ignored, private).
+
+## GBP-PI-001 — PI INTSR is the interrupt-cause register and is visible independently of INTMR; INTMR only gates delivery to the CPU
+
+**Claim:** `0xCC003000` (INTSR) holds one cause bit per PI source (bit 13
+= HSP) plus bit 16 (reset-switch state, read by libogc2
+`SYS_ResetButtonDown`, by GBI `0x8005378c`/`0x80052f04` and by the Disc
+`0x8006b2d0`); `0xCC003004` (INTMR) holds one enable bit per source (bit
+13 = HSP). A cause bit is readable while its mask bit is 0; the mask bit
+decides only whether the CPU external-interrupt exception is raised.
+
+**Status:** CORROBORATED — **Confidence:** high for the software
+contract; no direct hardware observation of bit 13 = 1 yet.
+
+**Sources:**
+
+- YAGCD PI section: INTSR "interrupt cause" and INTMR "interrupt mask"
+  with identical bit lists (bit 13 HSP); no clearing semantics stated.
+- All three dispatchers read INTSR and INTMR separately and test
+  `cause & mask` (ENV-IRQ-001); the test would be meaningless if the
+  hardware already masked the cause register.
+- DISC stop `0x8008be04`: `OSMaskInterrupts(0x20)` **first**, four
+  CONTROL writes, IRQ-register write, then `INTSR := 0x2000` with the
+  mask still off — an acknowledge written while masked presumes the
+  cause can be latched/visible while masked.
+- DOLPHIN `ProcessorInterfaceManager`: `m_interrupt_cause` and
+  `m_interrupt_mask` are separate; `SetInterrupt` sets the cause
+  regardless of the mask; `UpdateException` raises the CPU exception iff
+  `cause & mask` (model).
+- Hardware (GBP-HW-012): INTSR bit 13 read 0 in every snapshot while
+  INTMR bit 13 was 0 — consistent, not a proof of independence.
+
+**Hardware tests:** none dedicated. GBP-INIT-002 (planned) reads INTSR
+before and after unmasking and after re-masking.
+
+**Notes:** IRQ 26 ↔ bit 13 ↔ software mask `0x20` is FACT in the three
+code bases: libogc2 `IRQ_PI_HSP = 26`, `IM_PI_HSP = 0x20`, dispatcher
+`0x2000 → IRQMASK(26)`, `__SetInterrupts` `IM_PI_HSP → 0x2000`; SDK
+dispatcher `0x2000 → 0x20`, `0x80069ca0` `0x20 → 0x2000`, DISC
+`OSSetInterruptHandler(0x1a, 0x8008af08)`; GBI `IRQ_Request(0x1a, 0x8000b400)`,
+`__UnmaskIrq(0x20)`.
+
+## GBP-PI-002 — INTSR bits are cleared by writing 1 (write-1-to-clear)
+
+**Claim:** Writing a value to `0xCC003000` clears the cause bits that are
+set in the value and leaves the others unchanged. Every known INTSR
+write is an acknowledge of one source: libogc2 `_piReg[0] = 2` (reset
+switch, `__RSWHandler`) and `_piReg[0] = 1 << 12` (debugger,
+`mmce.c DbgHandler`); SDK in the Disc `0x8006b1d4` (`:= 2`, reset switch)
+and `0x800a243c` (`:= 0x1000`, debugger); GBI `0x80053eb0`/`0x80052f04`
+(`:= 2`); DISC `0x8008af08`/`0x8008be04` and GBI `0x8000b400`
+(`:= 0x2000`, HSP). These are the **only** INTSR writes in main.dol and
+in gbi.dol (complete reference enumeration, `refs.tsv`).
+
+**Status:** CORROBORATED (four independent code bases + Dolphin
+`m_interrupt_cause &= ~val`) — **Confidence:** high for "write 1 clears";
+whether the HSP bit can be cleared while the device still asserts the
+line is U-GBP-022.
+
+**Hardware tests:** none. GBP-INIT-002 (planned) re-reads INTSR
+immediately after the W1C inside the handler.
+
+## GBP-PI-003 — Retrigger and interrupt-storm mechanics
+
+**Claim:** After a handler returns, `rfi` restores MSR[EE] = 1; if
+`INTSR & INTMR` is still non-zero at that instant the CPU takes the
+external-interrupt exception again before executing the interrupted
+code. Neither libogc2 nor the SDK dispatcher bounds this. The only
+mechanisms that end it are: clearing the cause (INTSR W1C, if the source
+no longer asserts), removing the source at the device, or clearing the
+INTMR bit. Clearing INTMR bit 13 through `__MaskIrq(IM_PI_HSP)` **inside
+the handler** ends it regardless of what the device does — it is the
+mechanism the Disc relies on at stop (mask first, then touch the device)
+and the mechanism every libogc/SDK driver relies on for masking.
+
+**Status:** FACT for the CPU/dispatcher part (PowerPC architecture +
+ENV-IRQ-001); CORROBORATED that INTMR gating stops delivery (libogc2,
+SDK, Dolphin all depend on it; not observed for bit 13 on hardware);
+**UNKNOWN** whether the physical HSP cause is level (follows the GBS-DOL
+line) or latched at the PI (U-GBP-022).
+
+**Notes:** GBI acknowledges PI in the raw handler and writes the device
+IRQ register only later, in a thread, with INTMR bit 13 left enabled; a
+purely level-mirrored cause would keep GBI in the exception loop until
+the thread ran, which cannot happen — so either the PI latches the HSP
+cause and W1C clears it, or the GBS-DOL deasserts by itself shortly
+after asserting. HYPOTHESIS, not promoted; it is one of the two outcomes
+GBP-INIT-002 is designed to distinguish.
+
+## GBP-IRQ-002 — Start-up Disc HSP interrupt service: GBP → PI → GBP → GBP
+
+**Claim:** Handler `0x8008af08` is installed by `0x8008a930` (init) with
+`OSSetInterruptHandler(0x1a, …)` while INTMR bit 13 is masked (the stop
+routine `0x8008be04`, which calls `OSMaskInterrupts(0x20)`, runs earlier
+in the same init). Start `0x8008bf84` executes, in this order:
+`OSUnmaskInterrupts(0x20)` → read IRQ → build two 16-bit shadows from
+the callback table (one starts at `0x8000`, the other at 0) → write
+`IRQ := (read & ~shadowA) | shadowB` → read CONTROL → write CONTROL
+`| 0x04` → write CONTROL `& ~0x10`. The handler, entered with EE = 0 and
+with every GBP access a synchronous polled DMA under
+`OSDisableInterrupts`:
+
+```text
+ 1. write IRQ := shadowB | 0x8000            (device, first action)
+ 2. INTSR := 0x2000                          (PI W1C; INTSR is never read)
+ 3. read IRQ → pending (16-bit: byte 0x1D << 8 | byte 0x1F)
+ 4. if (pending & 0x0555) != 0:
+      write IRQ := pending                   (device: write back the value read)
+      keep = pending & (pending ^ (pending >> 1))   — bit i survives only if bit i+1 is 0
+      write KEYPAD := keypad shadow
+      one-shot callback (if set), then cleared
+      read CONTROL; mask word := map(CONTROL) | 1 | extra   (0x8008bcc4)
+      pre-callback (if set)
+      callback slots 0–3: if keep & tbl[i] and slot set → cb(0)
+      slot 4: if keep & tbl[4] → cb(1) if keep & tbl2[4] else (cb(0) != 0 → suppress); counter4++
+      slot 5: if keep & tbl[5] → (cb(0) != 0 → suppress); counter5++
+ 5. post-callback if slot 4 fired
+ 6. if !suppress: write IRQ := shadowB       (device, last action)
+ 7. return
+```
+
+No wait loop, no re-read; several pending sources are served in one
+pass; an entry with no known source still performs steps 1, 2, 3 and 6.
+
+**Status:** FACT (disassembly + decompile of `0x8008af08`,
+`0x80089ff4` = IRQ write, `0x8008a31c` = IRQ read, `0x8008a1dc` =
+CONTROL read, `0x80089edc` = CONTROL write, `0x80089e40` = KEYPAD write,
+`0x8008bcc4`, `0x8008bf84`, `0x8008be04`, `0x8008a930`) —
+**Confidence:** high.
+
+**Notes:** ACK order classification: **GBP → PI → GBP → GBP** (device
+first, PI second, then two more device writes). Do not summarize it as
+"ack PI". The Nintendo Start-up Disc is the official reference for this
+order. Bit 15 (`0x8000`) is part of the first device write; its meaning
+stays H (U-GBP-007).
+
+## GBP-IRQ-003 — GBI HSP interrupt service: PI first in the raw handler, GBP later in a thread
+
+**Claim:** GBI's worker thread `0x8000bf30` performs `KEYPAD := 0` →
+read CONTROL (vote) → write CONTROL `(v & ~0x18) | 0x0C` →
+`IRQ_Request(0x1a, 0x8000b400)` → `__UnmaskIrq(0x20)`. The raw handler
+`0x8000b400` is four instructions: `INTSR := 0x2000` (W1C, INTSR never
+read) → signal the thread's wait object (`0x80058c70`) → return; no
+mask change, no DMA. The thread, after `wait` (`0x80058b88`, passes
+`0,0,0` to `0x80058a28`; no timeout observed): read IRQ (32 bytes at
+`base+0xD00000`, voted; 16-bit value = vote(bytes ≡1 mod 4) << 8 |
+vote(bytes ≡3 mod 4)) → per bit `0x400` AUDIO read, `0x100` VIDEO read,
+`0x040` SIODATA read (asynchronous ARQ), `0x010` KEYPAD write → one
+64-byte write at `base+0xCFFFE0` (KEYPAD + IRQ := value_read | 0x8000)
+→ 64-byte read at `base+0x4FFFE0` (CONTROL, SIOCTL) → … → 32-byte write
+IRQ := 0 at the end of the iteration → loop. Exit: `__MaskIrq(0x20)` →
+`IRQ_Free(0x1a)` → CONTROL `(v & 0xE3) | 0x10`.
+
+**Status:** FACT (decompiles of `0x8000b400`, `0x8000bf30`, `0x80058c70`,
+`0x80058b88`, `0x80058724` = IRQ_Request, `0x80058780` = IRQ_Free,
+`0x8005863c` = __MaskIrq, `0x800585d0` = __UnmaskIrq) — **Confidence:**
+high for the order; the payload of the 64-byte writes is described only
+to the level needed here.
+
+**Notes:** ACK order classification: **PI (raw handler) → GBP (thread)**,
+with scheduling latency between the two and INTMR bit 13 left enabled
+in between. With no known source pending the thread runs the same
+sequence; with a persistent source there is no protection beyond the PI
+W1C. GBI is an independent, mature implementation, not Nintendo
+software; the order above is GBI's, not an official one.

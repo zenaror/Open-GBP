@@ -55,7 +55,7 @@ Gekko  ──writes DMA regs──►  DSP/ARAM DMA engine  ──ARAM addr ≥ 
 | GBP "registers" are 32-byte blocks reached by ARAM DMA at ARAM address `internal_size + (reg << 20)` (+ intra-block offset for the AV buffers) | C | GBP-HSP-001 (Startup Disc + GBI + Dolphin + YAGCD §11) |
 | Before talking to the GBP, both official and GBI software set ARAM-info register `0xCC005012` bits 3–5 to `3` (expansion size code for 16 MB) | C | GBP-HSP-002 |
 | Every transfer is a multiple of 32 bytes; register writes carry the value in the **last bytes** of the block, register reads replicate the value across the block | C | GBP-HSP-003 |
-| The GBS-DOL raises PI interrupt bit 13 (0x2000, OS interrupt number 26 in both SDK and libogc); software acknowledges by writing 0x2000 to `0xCC003000` after clearing the device-side IRQ register | C | GBP-IRQ-001 |
+| The GBS-DOL raises PI interrupt cause bit 13 (`0xCC003000` bit 13 = 0x2000; mask `0xCC003004` bit 13; OS interrupt number 26 = software mask 0x20 in both SDK and libogc). PI is acknowledged by writing 0x2000 (W1C); the Start-up Disc writes the device-side IRQ register first and then PI (GBP → PI → GBP → GBP), GBI writes PI first in its raw handler and the device register later in a thread (PI → GBP). The cause is visible independently of the mask; whether the line is level or latched at the PI is unknown | C (F for the two orders) | GBP-IRQ-001/002/003, GBP-PI-001/002/003, U-GBP-022 |
 | The HSP interrupt line is described by YAGCD as having 3 sources (TX mailbox, RX mailbox, ID); this project has not observed any of that | U | U-GBP-006 |
 
 ## 3. Data planes

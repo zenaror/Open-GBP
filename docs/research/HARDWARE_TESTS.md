@@ -414,3 +414,83 @@ U-GBP-016 and tells which of GBP-HW-003/004/005 and U-GBP-015 need the
 device. Note: `sdlog.c` opens the report with mode `w`, so the copy of
 `GBP-PROBE-001_probe-0001.log` on the SD card is overwritten — the user
 must confirm a safe copy exists before running.
+
+### GBP-INIT-002 — controlled GBI IRQ path after the validated CONTROL transform (designed 2026-09-15; NOT implemented, NOT released)
+
+Status: design approved conceptually (DEVLOG 2026-09-15, IRQ-path
+audit; rules in `docs/protocol/INITIALIZATION.md` §9). No build exists.
+Nothing may run under this id until a build id, DOL hash and clean
+commit are listed here.
+
+```text
+Question:    After the validated CONTROL transform (0x90 → 0x8C, GBI layout),
+             does the GBS-DOL raise PI INTSR bit 13 once IRQ 26 is unmasked,
+             and what does INTSR do immediately after a W1C of 0x2000 inside the
+             handler, after re-masking, and after CONTROL is restored?
+Answers:     first hardware observation of INTSR bit 13 = 1 (or its absence
+             within T_MAX); part of U-GBP-022 (latched-and-W1C vs level); the
+             latency between unmask and handler entry; U-GBP-021 samples for free.
+Why static analysis cannot answer: Dolphin's PI/HSP model re-sets the cause on
+             every device event and clears it on W1C (model, not hardware); the
+             two references never read INTSR; GBI waits without a timeout.
+Reference order followed: GBI (transform → IRQ_Request → __UnmaskIrq), with a
+             one-shot self-masking handler instead of GBI's thread signal.
+Not done:    idle unmask before the transform (rejected: Option D and the
+             "stage A" variant); any write to the GBP IRQ register, KEYPAD,
+             VIDEO, AUDIO, SIO.
+
+Sequence:
+  1. detection gate: TEST handshake, verdict must be PRESENT (else: no CONTROL
+     write, no handler, no unmask; AR_INFO restored; log + screen)
+  2. AR_INFO bits 3–5 := 3 (read back)
+  3. S0: PI (INTSR, INTMR), CONTROL raw+semantic, IRQ raw+semantic
+     preconditions: INTMR bit 13 == 0, INTSR bit 13 == 0, CONTROL idle shape
+     ((v & 0x10) != 0 && (v & 0x0C) == 0); any failure → abort, never adjust
+  4. old = IRQ_Request(IRQ_PI_HSP, handler)      — recorded; expected NULL
+  5. CONTROL := (v & ~0x10) | 0x0C, GBI byte-replicated layout (validated)
+  6. S1: PI, CONTROL, IRQ (IRQ 26 still masked)
+  7. t_unmask = gettick(); PI read; __UnmaskIrq(IM_PI_HSP)
+  8. wait until fired == 1 or (gettick() - t_unmask) >= T_MAX ticks
+  9. __MaskIrq(IM_PI_HSP)                         — idempotent
+ 10. S2: PI read twice, CONTROL, IRQ; copy handler fields
+     (fired, count, tb_entry, intsr_before, intmr_before, intsr_after, intmr_after)
+ 11. CONTROL := original semantic value (GBI layout)
+ 12. S3: PI, CONTROL, IRQ
+ 13. if INTSR bit 13 == 1: INTSR := 0x2000 (masked; Start-up Disc stop precedent); PI read
+ 14. IRQ_Request(IRQ_PI_HSP, old)
+ 15. AR_INFO restore (read back)
+ 16. S4: PI, CONTROL, IRQ; INTMR compared with S0
+ 17. screen summary; X saves the SD log; START exits
+Handler (one-shot; PI MMIO only; no DMA, filesystem, printf, allocation, blocking):
+     tb_entry = gettick(); intsr_before = INTSR; intmr_before = INTMR; count++;
+     __MaskIrq(IM_PI_HSP); INTSR := 0x2000; intsr_after = INTSR; intmr_after = INTMR;
+     fired = 1; return.   count > 1 → re-mask, return; main records "anomaly".
+Shared state: 32-bit volatile fields only; copied by main after step 9.
+Mandatory order (host regression when implemented):
+     IRQ_Request < CONTROL experimental write < __UnmaskIrq; unmask never without a
+     handler; unmask never before the transform.
+Timeout:     T_MAX = 2000 ms proposed — operational/usability bound, not a hardware
+             property; on expiry the result reads "no IRQ 26 within T_MAX".
+Writes:      AR_INFO bits 3–5; TEST; CONTROL transform + restore; INTMR only via
+             __MaskIrq/__UnmaskIrq; INTSR W1C 0x2000. Nothing else.
+Restore (idempotent, same on every abort path): mask IRQ 26 → CONTROL original →
+             observe PI → INTSR W1C if bit 13 set → previous handler → original mask
+             state (expected masked; unmasked at S0 = abort) → AR_INFO → final
+             snapshot; all before the SD flush and before returning to Swiss.
+Expected records (names may change): PI tag=…, SNAP/RAW as in GBP-INIT-001,
+             HANDLER fired= count= tb_entry= latency_ticks= latency_us=
+             intsr_before= intmr_before= intsr_after= intmr_after=,
+             UNMASK ticks= intsr= intmr=, TIMEOUT t_max_ms=, RESTORE …, INTSR W1C rc.
+Risk:        low-medium — one new class of operation (PI HSP unmask with a
+             handler); storm bounded by the handler's self-mask (INTMR gating is
+             CORROBORATED, not yet observed for bit 13); AGB powered ≤ T_MAX
+             without a cartridge then cut (GBI exit does the same); possible
+             un-acknowledged device state (U-GBP-023) → power-cycle the console
+             after the run.
+Physical setup: identical to GBP-INIT-001 (no cartridge, SD2SP2, Swiss).
+```
+
+Fields to be filled when released: Test ID GBP-INIT-002 · Build ID ·
+DOL path + SHA-256 · commit (clean) · required cartridge: none · Link
+Port: nothing connected · BBA: as in GBP-INIT-001 · steps · expected log
+· question answered.

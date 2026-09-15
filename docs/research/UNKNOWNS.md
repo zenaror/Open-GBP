@@ -43,6 +43,17 @@ from X11 instead (`import -window`), which is sufficient and simpler.
 Frame dumping remains available as an opt-in (`--frame-dump`) for whoever
 wants to debug it.
 
+## U-ENV-005 — `external/libogc2` checkout is not the commit built into the toolchain image
+
+The image `ghcr.io/extremscorner/libogc2:20260805` ships
+`libogc2 r2442.094b250` (libversion.h, Aug 5 2026); the shallow checkout
+under `external/libogc2` is `ca03fb7` (2026-09-12) and `094b250` is not
+in its history, so a source-level diff is not available. For the IRQ
+conclusions (ENV-IRQ-001/002) the container's `irq.o`/`irq_handler.o`
+were disassembled and matched the analyzed source. Low priority: pin the
+checkout to `094b250` (or record the source of the image build) before
+relying on any *other* libogc2 detail at source level.
+
 ---
 
 ## U-GBP-001 (P3) — Semantics of SIOCTL bits and of the serial IRQ
@@ -97,7 +108,14 @@ driven only in the documented order.
 DISC writes `disable` bits as 1 and `enable` bits as 0 (1 = masked?),
 and writes bit 15 with the mask at IRQ entry. Dolphin treats bit 15 as
 "asserted" and clears written bits. Needs a hardware read of the register
-while an IRQ is pending.
+while an IRQ is pending. Audit 2026-09-15 (GBP-IRQ-002/003): both
+references write bit 15 = 1 in their first device-side acknowledge
+write (Disc: `shadowB | 0x8000` at handler entry; GBI: `value_read |
+0x8000` in the thread), and Dolphin clears whatever bits are written
+(`m_irq &= ~value`). Still H. Hardware idle reads `0x8AAE` (bit 15 set)
+with CONTROL 0x10 cleared for 228 µs produced no INTSR bit 13
+(GBP-HW-013/014), so the Dolphin condition `irq & 0x8000` alone did not
+reproduce in that window.
 
 ## U-GBP-008 (P2, partially answered 2026-09-14) — Read block layout
 
@@ -212,3 +230,36 @@ bracketed between 1.4 µs and 68 µs), whether every CONTROL write sets
 it, whether it also follows writes to other windows, and whether it is
 the same phenomenon as the static byte-0 extras. Do not name it busy /
 ready / ack / interrupt / latch.
+
+## U-GBP-022 (P1) — Physical behavior of the PI HSP cause (bit 13): level or latched, and does W1C clear it while the GBS-DOL still asserts?
+
+Known (GBP-PI-001…003): software treats INTSR as a cause register
+visible independently of INTMR (CORROBORATED), clears it by writing 1
+(CORROBORATED), and both references acknowledge it with `0x2000`.
+Unknown: whether the bit follows the device line (level) or is latched
+at the PI (edge); whether a W1C write clears it while the device still
+asserts; how long the GBS-DOL keeps its line asserted; and whether bit
+13 ever reads 1 on this console at all (never observed — every read so
+far was with INTMR bit 13 = 0 and an idle device). Not to be answered
+by unmasking an idle device (rejected 2026-09-15, DEVLOG). To be
+observed in GBP-INIT-002: INTSR inside the handler before and
+immediately after the W1C, twice after re-masking, and after CONTROL is
+restored.
+
+**Safety note (binding for any experimental handler):** if the handler
+returns with INTSR bit 13 = 1 AND INTMR bit 13 = 1, the CPU re-enters
+the exception immediately after `rfi` (GBP-PI-003). The handler must
+therefore re-mask IRQ 26 (`__MaskIrq(IM_PI_HSP)`) **before** relying on
+the INTSR acknowledge, and the acknowledge must be treated as an
+observation, not as the exit condition. Do not state that the physical
+line is level or edge until observed.
+
+## U-GBP-023 (P2) — Does the GBS-DOL keep an unacknowledged interrupt state across an experiment that never writes its IRQ register?
+
+GBP-INIT-002 will, by design, leave the device without the write-back
+that both references perform (Disc: `IRQ := pending`; GBI: `IRQ :=
+value_read | 0x8000`). Whether a pending source then stays set inside
+the GBS-DOL, whether CONTROL bit 0x10 (set again at restore) is enough
+to quiesce it, and whether it survives a console power cycle are
+unknown. Observable: the S0 IRQ read of the next run against the idle
+`0x8AAE` baseline. Mitigation: power-cycle the console after the run.

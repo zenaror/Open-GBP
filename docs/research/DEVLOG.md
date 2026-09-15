@@ -905,3 +905,221 @@ snapshots. C is deferred until the IRQ-block write semantics are
 understood. The handler for D/B must only acknowledge PI (write 0x2000
 to INTSR) and count/timestamp; no device-side IRQ acknowledge until
 authorized separately. Not implemented, not requested.
+
+**Superseded 2026-09-15 (IRQ-path audit, next entry):** Option D is
+rejected as a separate physical test, and the idle-unmask stage is also
+removed from the next experiment. B, redesigned as GBP-INIT-002 with a
+one-shot self-masking handler, is the next step.
+
+---
+
+## 2026-09-15 — IRQ-path audit (analysis only): PI INTSR/INTMR semantics, the two real handlers, the libogc2 dispatcher; Option D rejected; GBP-INIT-002 designed
+
+**Goal.** Before any unmask of PI HSP on hardware: establish what
+triggers IRQ 26, how INTSR and INTMR interact, what must be
+acknowledged, what the Start-up Disc and GBI handlers really do, and
+what the libogc2 actually linked into Open-GBP does when a cause
+persists. No code, no DOL, no hardware.
+
+**Inputs.** Start-up Disc: `0x8008a930` (init/install), `0x8008bf84`
+(start), `0x8008af08` (handler, disassembled instruction by
+instruction), `0x8008be04` (stop), helpers `0x80089ff4` (IRQ write),
+`0x8008a31c` (IRQ read), `0x8008a1dc` (CONTROL read), `0x80089edc`
+(CONTROL write), `0x80089e40` (KEYPAD write), `0x8008bcc4`; SDK
+`0x80069ff0` (dispatcher), `0x80069ca0` (INTMR rebuild), `0x80069ef0`/
+`0x80069f70` (mask/unmask), `0x80069c38` (init), `0x8006b1d4`/
+`0x800a243c` (reset-switch / debugger acknowledges); complete
+enumeration of every reference to `0xCC003000`/`0xCC003004` in main.dol
+(`OpenGbpFunc.java refs`: INTSR written only at `0x8008af08`,
+`0x8008be04`, `0x8006b1d4`, `0x800a243c`; INTMR written only at
+`0x80069c38`, `0x80069ca0`). GBI: `0x8000b400`, `0x8000bf30`,
+`0x80058c70`/`0x80058b88` (signal/wait), `0x80058724`/`0x80058780`
+(IRQ_Request/IRQ_Free), `0x8005863c`/`0x800585d0` (mask/unmask),
+`0x800580e4` (__SetInterrupts), `0x800586a8` (__irq_init), `0x80058360`
+(dispatcher), `0x80053eb0`/`0x80052f04` (reset-switch acknowledges);
+same enumeration (INTSR written only at `0x8000b400`, `0x80053eb0`,
+`0x80052f04`). libogc2: source `ca03fb7` (`irq.c`, `irq_handler.S`,
+`exception.c`, `system.c`, `mmce.c`, headers) **and** the binary that is
+actually linked, `libogc.a` of the toolchain image (`_V_STRING "libogc2
+r2442.094b250"`, `irq.o`/`irq_handler.o` disassembled in the container).
+Dolphin `ProcessorInterface.cpp`, `HSP_DeviceGBPlayer.cpp`. YAGCD PI
+section.
+
+### Findings
+
+1. **PI.** INTSR `0xCC003000` = cause (bit 13 HSP, bit 16 reset-switch
+   state), INTMR `0xCC003004` = mask (bit 13 HSP). IRQ 26 ↔ bit 13 ↔
+   software mask `0x20` in the SDK and in libogc: FACT. Cause visible
+   independently of the mask; mask gates delivery only: CORROBORATED
+   (all three dispatchers test `cause & mask`; the Disc stop writes the
+   acknowledge while masked; Dolphin model). Write-1-to-clear:
+   CORROBORATED (every INTSR write in libogc2, the SDK, GBI and the Disc
+   is a single-bit acknowledge: 2, 0x1000, 0x2000; Dolphin
+   `cause &= ~val`). Physical level/edge and "does W1C clear while the
+   device asserts": UNKNOWN (U-GBP-022). → GBP-PI-001/002/003.
+2. **libogc2 r2442.094b250** (verified in the container binary):
+   `c_irqdispatcher` reads INTSR, reads INTMR, tests `cause & mask`,
+   maps bit 13 to `IRQMASK(26)`, removes the shadow-masked bits, picks
+   one interrupt by priority, calls the handler with EE = 0, returns; it
+   never masks the dispatched interrupt, never writes INTSR/INTMR, and
+   `irq_exceptionhandler` returns by `rfi`. A persisting unmasked cause
+   re-enters immediately; an unmasked cause without a handler does the
+   same. `__MaskIrq`/`__UnmaskIrq` rebuild the whole INTMR from shadows,
+   so a direct INTMR write can be silently undone (INTMR `0x1FA` on
+   hardware is a rebuilt value). `IRQ_Request` returns the previous
+   handler (`lwzx r3` before `stwx r4`), `IRQ_Free` too. `__MaskIrq` is
+   usable inside a handler (EE save/clear/restore, 16 bytes of stack, no
+   allocation, no blocking, no DMA). libogc2 installs no IRQ-26 handler
+   itself. → ENV-IRQ-001/002. The source checkout (`ca03fb7`) is not the
+   image's commit; the binary check covers the difference for irq.o and
+   irq_handler.o only (U-ENV-005).
+3. **Start-up Disc.** Handler installed at init while masked; start does
+   `OSUnmaskInterrupts(0x20)` → IRQ-register programming → CONTROL
+   `| 0x04` → CONTROL `& ~0x10`. Handler: IRQ write (`shadowB | 0x8000`)
+   → `INTSR := 0x2000` → IRQ read → if `pending & 0x0555`: IRQ write
+   (pending), `keep = pending & (pending ^ pending >> 1)`, KEYPAD write,
+   CONTROL read, callbacks by slot → IRQ write (`shadowB`) unless a
+   callback suppressed it. ACK order **GBP → PI → GBP → GBP**; no loop;
+   several sources served in one pass; an entry with nothing pending
+   still performs the two device writes and the PI acknowledge. →
+   GBP-IRQ-002.
+4. **GBI.** Thread: `KEYPAD := 0` → CONTROL `(v & ~0x18) | 0x0C` →
+   `IRQ_Request(26)` → `__UnmaskIrq(0x20)`. Raw handler: `INTSR :=
+   0x2000` → signal → return (no mask change). Thread after wake: IRQ
+   read → AUDIO/VIDEO/SIODATA reads by bit → 64-byte KEYPAD+IRQ write
+   (`IRQ := value_read | 0x8000`) → CONTROL/SIOCTL read → … → `IRQ := 0`
+   → loop; exit `__MaskIrq(0x20)` → `IRQ_Free(26)` → CONTROL
+   `(v & 0xE3) | 0x10`. ACK order **PI (handler) → GBP (thread)**, INTMR
+   bit 13 enabled in between. No storm protection beyond the W1C. GBI is
+   an independent mature implementation, not official software. →
+   GBP-IRQ-003.
+5. **Storm risk.** Real and unbounded in two cases: unmask without a
+   handler; handler returns with `INTSR & INTMR` still set. Ended with
+   certainty only by clearing INTMR bit 13 inside the handler
+   (`__MaskIrq(IM_PI_HSP)`); the INTSR W1C is not a guaranteed exit
+   while U-GBP-022 is open. The Disc masks first at stop; every
+   libogc/SDK driver depends on INTMR gating. → GBP-PI-003, safety note
+   in U-GBP-022.
+6. **Inference (HYPOTHESIS, not promoted).** Because GBI leaves INTMR
+   bit 13 enabled between its PI acknowledge and its device write and
+   does not storm, either the PI latches the HSP cause and W1C clears
+   it, or the GBS-DOL deasserts by itself. GBP-INIT-002 separates these.
+
+### Decisions
+
+- **Option D (unmask the idle device with an acknowledge-only handler)
+  — rejected** as a separate physical test. INTSR bit 13 = 0 in every
+  GBP-INIT-001 snapshot with INTMR bit 13 = 0 already says, given
+  GBP-PI-001, that the idle state (CONTROL `0x90`, IRQ `0x8AAE`) holds
+  no latched cause; unmasking would add risk and state without answering
+  a needed question. An acknowledge-only handler is also unsafe
+  (finding 5).
+- **Idle-unmask stage removed** from the next experiment as well
+  (`__UnmaskIrq` → short idle wait → `__MaskIrq` → transform): the first
+  unmask happens only after the validated CONTROL transform, so the
+  experiment has one state change (the transform) followed by one new
+  observation channel (the unmask).
+- The 340 µs window of GBP-INIT-001 says nothing about interrupt
+  latency after the transform (GBI waits without a timeout). That, not
+  the idle state, is what the next experiment measures.
+- The device-side IRQ register stays **read-only**: neither reference's
+  stop path depends on a prior device-side acknowledge (both mask PI and
+  set CONTROL 0x10). Residual state is U-GBP-023.
+
+### GBP-INIT-002 — design (approved conceptually; not implemented, not released)
+
+Full specification in HARDWARE_TESTS.md "Planned tests"; rules
+promoted to INITIALIZATION.md §9. Sequence:
+
+```text
+PRESENT (validated policy) → AR_INFO exp code 3 → PI snapshot
+→ preconditions: INTMR bit 13 == 0, INTSR bit 13 == 0, CONTROL idle shape (abort otherwise; never adjust silently)
+→ old = IRQ_Request(IRQ_PI_HSP, one-shot handler)        [handler BEFORE any experimental write]
+→ CONTROL := (original & ~0x10) | 0x0C                    [validated transform, GBI layout]
+→ S1: PI, CONTROL, IRQ (still masked)
+→ t_unmask = gettick(); PI read; __UnmaskIrq(IM_PI_HSP)   [unmask AFTER the transform, never before]
+→ wait: fired || gettick() - t_unmask >= T_MAX
+→ __MaskIrq(IM_PI_HSP)  (idempotent; the handler already did it if it ran)
+→ S2: PI (two reads), CONTROL, IRQ; copy of the handler fields
+→ CONTROL := original ; S3: PI, CONTROL, IRQ
+→ if INTSR bit 13 == 1: INTSR := 0x2000 (masked; Disc-stop precedent) → PI read
+→ IRQ_Request(IRQ_PI_HSP, old)  [restore previous handler; expected NULL]
+→ AR_INFO restore → S4: PI, CONTROL, IRQ; INTMR compared with S0
+```
+
+One-shot handler (conceptual; only PI MMIO, no DMA, no logging, no
+allocation, no blocking): `tb_entry = gettick(); intsr_before = INTSR;
+intmr_before = INTMR; count++; __MaskIrq(IM_PI_HSP); INTSR := 0x2000;
+intsr_after = INTSR; intmr_after = INTMR; fired = 1; return`. Shared
+state: `volatile uint32_t fired, count, tb_entry, intsr_before,
+intmr_before, intsr_after, intmr_after` — 32-bit only (the project's
+`gettick()` is the 32-bit time-base low word, `__builtin_ppc_mftb` in
+`timesupp.h`; difference arithmetic wraps every ~106 s at 40.5 MHz; no
+64-bit stores in the handler). The main loop copies the fields only
+after IRQ 26 is masked again. A second entry (`count > 1`) is possible
+only if INTMR gating failed; the handler re-masks and returns, the main
+loop records it as an anomaly.
+
+Mandatory order, to be proven by host regression when implemented:
+`IRQ_Request` before the CONTROL experimental write; the CONTROL
+experimental write before `__UnmaskIrq`; never unmask without a
+handler; never unmask before the transform in this experiment.
+
+Writes allowed: AR_INFO bits 3–5, TEST handshake, CONTROL transform and
+restore (all validated), INTMR only through `__MaskIrq`/`__UnmaskIrq`,
+INTSR W1C `0x2000` (precedent: Disc and GBI). Not written: GBP IRQ,
+KEYPAD, VIDEO, AUDIO, SIO.
+
+W1C policy: CORROBORATED, not a physical FACT; the handler masks first,
+then writes `0x2000`, then re-reads INTSR; bit 13 still 1 after the W1C
+is an observation, not an error — the main loop continues under mask.
+
+Previous-handler policy: `IRQ_Request` returns the previous handler in
+r2442.094b250 (binary-verified) and libogc2 installs none for IRQ 26;
+the POC records the returned value and restores it with
+`IRQ_Request(…, old)` (not `IRQ_Free`, which would drop a non-NULL
+handler). The expected original mask state is "masked"; if IRQ 26 is
+found unmasked at S0 the run aborts as an unexpected precondition.
+
+Timeout: `T_MAX = 2000 ms`, an operational bound (screen + SD log must
+always happen; GBI has none). Result on expiry: "no IRQ 26 observed
+within T_MAX", never "the GBP does not interrupt". Re-evaluate the value
+before implementation; any other value is justified as safety/usability
+only.
+
+Restore plan (idempotent, same order on every abort path): 1. ensure
+IRQ 26 masked; 2. CONTROL original; 3. observe PI; 4. INTSR W1C only if
+bit 13 is set; 5. previous handler; 6. original IRQ-26 mask state;
+7. AR_INFO; 8. final snapshot. Teardown completes before the SD flush
+and before returning to Swiss.
+
+Residual risks: INTMR gating of bit 13 not yet observed on hardware
+(CORROBORATED only); un-acknowledged device state (U-GBP-023, power
+cycle after the run); AGB powered up to T_MAX with no cartridge and
+then cut, as GBI's exit does; a timeout is ambiguous (no IRQ-register
+mask programming is performed, unlike the Disc); libogc2 source/binary
+version mismatch covered only for irq.o/irq_handler.o (U-ENV-005). Bit
+6 of byte 0 (U-GBP-021) and C0/C1 (U-GBP-019) get no dedicated test;
+S1–S4 will record byte 0 anyway.
+
+### Docs updated (this entry)
+
+EVIDENCE (ENV-IRQ-001/002, GBP-PI-001/002/003, GBP-IRQ-002/003; source
+shorthands; GBP-IRQ-001 pointer), UNKNOWNS (U-ENV-005, U-GBP-007 note,
+U-GBP-022, U-GBP-023), HARDWARE_TESTS (planned GBP-INIT-002),
+INITIALIZATION (§2, §4, §6, §8.5, new §9), REGISTERS (§4, §5, header),
+HSP.md (§2, §4), ARCHITECTURE.md (interrupt row), external/README
+(libogc2 versions). No code, no DOL, no commit.
+
+### Next
+
+User checkpoint (commit of this documentation), then the implementation
+of GBP-INIT-002 under the rules of INITIALIZATION.md §9 with host
+regressions first: mock PI with programmable cause behavior (never
+asserts / asserts once and W1C clears / level until CONTROL 0x10 is
+restored / re-asserts after W1C), a storm detector counting handler
+entries while the mock's INTMR bit 13 is set, order assertions
+(request < transform < unmask), replay of the GBP-INIT-001 fixtures
+through the new probe; Dolphin run (model: CONTROL `0x03` shape →
+precondition abort, as for GBP-INIT-001); clean commit; only then a
+hardware request.

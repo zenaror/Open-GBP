@@ -12,8 +12,9 @@ YAGCD  §11 "HSP devices seem to be accessable through the ARAM interface with o
 
 Status: **F** fact (directly observed in a source), **C** corroborated
 (≥2 independent sources agree), **H** hypothesis, **U** unknown. Evidence
-ids refer to `docs/research/EVIDENCE.md`. **Nothing here has been
-verified on physical hardware by this project yet.**
+ids refer to `docs/research/EVIDENCE.md`. **Rows that cite a `GBP-HW-`
+id have been observed on this project's hardware; everything else is
+static analysis.**
 
 Names in this document are neutral working names. Where Dolphin uses a
 different name it is given in parentheses; the Dolphin name is not
@@ -119,19 +120,22 @@ bits 0–1 deliberately; consistent, but unverified on hardware.
 | odd bits 1,3,5,7,9,11 | 0x0002…0x0800 | "mask" bits: DISC computes `enable = Σ(1<<(2k+1))` for sources with a registered callback and `disable` for the others, then writes `(cur & ~enable) \| disable` | — | Dolphin comment: "software appears to use the odd bits to mask the even bits" | C (usage), H (polarity: 1 = masked) |
 | 15 | 0x8000 | written at IRQ entry (`mask \| 0x8000`) | — | `IRQ_ASSERTED`; writing a 1 clears the bit | H |
 
-Acknowledge sequence (DISC, in the PI handler): write IRQ (mask\|0x8000)
-→ write `0x2000` to PI `0xCC003000` → read IRQ → if any of `0x0555` is
-set, **write the read value back** (clears those sources) → dispatch.
-GBI: PI ack in the raw handler, then in the worker thread read IRQ, act,
-write the read value back in the same DMA as KEYPAD, and write 0 to IRQ
-at the end of each loop. Dolphin: `m_irq &= ~written_value`. → **C**.
+Acknowledge sequence, DISC (`0x8008af08`): write IRQ := mask \| 0x8000 →
+PI W1C `0xCC003000 := 0x2000` → read IRQ → if any of `0x0555` is set,
+**write the read value back** → dispatch → write IRQ := mask. Order
+**GBP → PI → GBP → GBP** (F, GBP-IRQ-002). GBI: PI W1C in the raw
+handler `0x8000b400`, then in the worker thread read IRQ, act, write
+`read \| 0x8000` back in the same 64-byte DMA as KEYPAD, and write 0 to
+IRQ at the end of each loop. Order **PI → GBP** (F, GBP-IRQ-003).
+Dolphin: `m_irq &= ~written_value` (model). Common elements → **C**;
+the meaning of bit 15 stays H (U-GBP-007).
 
 ## 5. GameCube-side registers involved
 
 | Address | Name (YAGCD/libogc) | Use here | Status |
 |---------|--------------------|----------|--------|
-| `0xCC003000` | PI INTSR | bit 13 (0x2000) = HSP interrupt; write 1 to acknowledge | C (DISC, GBI, libogc `irq.c`, Dolphin `INT_CAUSE_HSP`, YAGCD 6.1.5.2) |
-| `0xCC003004` | PI INTMR | bit 13 enables the HSP interrupt (OS interrupt number 26 in SDK and libogc) | C |
+| `0xCC003000` | PI INTSR (interrupt **cause**) | bit 13 (0x2000) = HSP; bit 16 = reset-switch state. A cause bit is readable whether or not INTMR enables it (C); writing 1 clears a bit — every INTSR write in libogc2, the SDK, GBI and the Disc is such an acknowledge: 2 (reset switch), 0x1000 (debugger), 0x2000 (HSP) (C); Dolphin `cause &= ~value`. Whether bit 13 is level or latched, and whether W1C clears it while the GBS-DOL still asserts: **U** (U-GBP-022). Never observed as 1 on hardware yet (GBP-HW-012) | C / U (GBP-PI-001/002/003) |
+| `0xCC003004` | PI INTMR (interrupt **mask**) | bit 13 enables delivery of the HSP cause to the CPU; OS interrupt 26 = software mask 0x20 in the SDK and in libogc. libogc2 and the SDK rebuild the whole register from shadow masks — under libogc2 change bit 13 only with `__MaskIrq`/`__UnmaskIrq` (ENV-IRQ-002). Hardware: `0x1FA` throughout GBP-INIT-001 (a libogc2-rebuilt value) | C (F for the software contract) |
 | `0xCC00500A` | DSP CSR | bit 9 DMA busy, bit 5 ARAM-DMA interrupt flag (write 1 to clear) | C (DISC, libogc, YAGCD 6.2.8) |
 | `0xCC005012` | AR_INFO / AR_SIZE | bits 0–2 internal size code (3 = 16 MB), bits 3–5 expansion size code; DISC and GBI write 3 into bits 3–5 | C (libogc2 `__ARCheckSize`, DISC, GBI) |
 | `0xCC005020/24/28` | AR DMA MMADDR / ARADDR / CNT | the transfer itself | C |
