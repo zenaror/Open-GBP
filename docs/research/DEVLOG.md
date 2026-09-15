@@ -1234,3 +1234,216 @@ mismatch covered only for irq.o/irq_handler.o (U-ENV-005). Status:
 **implemented, NOT physically executed.** Next: user checkpoint → clean
 rebuild → HARDWARE_TESTS release fields (commit, DOL SHA-256) → hardware
 request.
+
+---
+
+## 2026-09-15 — GBP-INIT-002 executed: consolidation, GBI start re-audited (semaphore starts at 1), IRQ-register model, next experiment
+
+**Inputs.** `logs/GBP-INIT-002_initirq-0001.log`, 6585 bytes, sha256
+`e7ec3d83212fb183d8209452e2ce46cf391a696ff8a41720fd9f7701dbf1ea1d`
+(computed from `logs/`, matches the expected value; original untouched;
+identical copy in `captures/local/`); DOL `initirq-0001`, clean commit
+`4e3cb43`, sha256 `1bd2bcf3…43f2`. Fixture
+`captures/fixtures/hw-gamecube-gbp-2026-09-15-initirq-0001.gbpreplay`
+(metadata header + the 52 operations of the run). Replay extended only
+as far as the physical observations required: `T <ticks>` lines carry
+the console's time-base values so `since_write`/`since_unmask`/
+`wait_ticks` replay exactly; `I i/u/m/r` carry the interrupt-path
+operations as they happened; the `I u` record is all zeros because the
+handler never ran — **no interrupt is invented**. `tools/probelog.py`
+emits them from SNAP/CTLW/UNMASK/WAIT/IRQ/HANDLER records (the WAIT
+time-base values are emitted before the `I m` that precedes them in the
+log, matching the probe's call order); `tools/blockdiff.py --snapshots`
+now reads the `PI tag=Sn` records of the new probes.
+`test_gbp_init_irq` replays the run: 586 checks (all `now()` calls
+matched by physical values, `tick_polls = 0`, `exhausted = mismatches =
+0`); Python 74 passed (fixture bytes, order, timeline, generator).
+
+### Physical result
+
+`timeout_no_irq_observed` / `no_irq26_within_t_max`, `restore=ok`,
+PRESENT 4/4 both criteria (32/32 only 1/4: `3D 3C…`, `D3 C3…`, `11 00…`,
+`FF`×32 — the whole-block criterion is not a gate), `written=1`,
+`fired=0 count=0 timed_out=1 reentry=0`, every restore ok, 21 transfers,
+0 DMA timeouts/busy, 0 dropped/truncated. **Not an error:** no IRQ 26
+within the 2000 ms operational window.
+
+1. **INTMR gating, physically (GBP-HW-022).** Before the unmask INTSR
+   `0x00010000` / INTMR `0x000001FA`; 33 ticks (0.81 µs) after
+   `__UnmaskIrq(IM_PI_HSP)`: INTMR `0x000021FA` (bit 13 = 1), INTSR
+   unchanged; after `__MaskIrq`: INTMR `0x000001FA` in S2, S2b, S3,
+   MASKCHK, S4. Bits `0x1FA` never changed. The former "INTMR gating of
+   bit 13 not observed physically" is superseded for the mask/unmask
+   effect (now FACT); the delivery gating itself was not exercised (no
+   cause). Not extrapolated to other PI interrupts.
+2. **Window.** `t_max_ticks = 81000000`, `wait_ticks = 81000012` =
+   2.0000003 s at 40.5 MHz (12 ticks = 0.3 µs overshoot); S2 at
+   2.000035 s after the unmask. 13871306 polls = 144 ns per poll: a
+   property of the loop, not of the hardware.
+3. **No IRQ 26 (GBP-HW-023).** Restricted FACT: with the GBP present, no
+   cartridge, CONTROL `0x8C`, expansion code 3, INTMR bit 13 = 1 and the
+   GBP IRQ register never written, no IRQ 26 was observed in 2 s; the
+   handler never entered (all HANDLERPI fields 0); INTSR bit 13 stayed 0
+   in all 12 reads. Not recorded: "the GBP does not generate IRQs",
+   "CONTROL does not generate IRQs".
+4. **IRQ register `0x8AAE → 0x8FAE` (GBP-HW-024).** S1 (124 ticks after
+   the transform, masked): `9B 8A AE AE 8A 8A AE AE …`; S2 (2 s later,
+   masked again): `9F 8F AF AE 8F 8F AF AE …`. 24 of 32 bytes changed,
+   offsets ≡ 3 mod 4 unchanged, XOR per group `05 05 01 00`; semantic
+   `0x8AAE ^ 0x8FAE = 0x0500` = bits 0x0400 and 0x0100 set, odd bits and
+   bit 15 unchanged. The two low copies now differ (`AF AE`): offset ≡ 2
+   mod 4 has bit 0 set; both references read ≡ 1 / ≡ 3 mod 4 and agree on
+   0x8FAE (U-GBP-025). CONTROL was byte-identical in S1 and S2 (`9D 8C×31`).
+   After CONTROL := 0x90, S3 still read 0x8FAE. When inside the window
+   the change happened, and whether elapsed time, the unmask, internal
+   GBS-DOL activity or a combination drove it, is unknown (U-GBP-024);
+   "the unmask caused 0x8FAE" is not asserted.
+5. **AR_INFO restore (GBP-HW-025).** S4 under code 0: CONTROL `00`,
+   IRQ `9090` — the MODE A view for the third time in three different
+   sequences; "code 3 changes the view with the GBP present" is
+   CORROBORATED (U-GBP-004 updated); still not "enable".
+6. **Teardown (GBP-HW-026).** Cleanup W1C not needed (INTSR bit 13 = 0),
+   previous handler (NULL) restored, INTMR final `0x1FA`, AR_INFO
+   `0x0043`, S4 taken before any SD I/O. Byte-0 extras of this run: +0x01,
+   +0x10, +0x11 (CONTROL `91`/`9D`/`11`, IRQ `9B`/`9F`/`91`, TEST `3D`/`D3`/`11`);
+   the transient bit 6 of GBP-INIT-001 did not reproduce → U-GBP-021
+   re-evaluated: byte 0 carries additional, run-dependent bits not
+   representative of the voted value; the 0x40 transient is a historical
+   observation of one run, not a rule (U-GBP-015/020 updated).
+
+### Semantics of 0x0400 / 0x0100 — revalidated in the binaries
+
+GBI thread `0x8000bf30`, after `read IRQ` (`0x80011c14(0xD00000, 0x20)`,
+16-bit value = vote(≡1 mod 4) << 8 | vote(≡3 mod 4), `0x80015c64`):
+`& 0x400` → `0x8000be48(0x800000, 0x8017A320, 0x1000, req, 0x8000b75c)` =
+ARQ read of the AUDIO window, callback = audio consumer (converters
+`0x8000a7e0`/`0x8001094c`/`0x80010a44`, `AUDIO_*` at `0x80051b98`/
+`0x80051c2c`); `& 0x100` → `0x8000be48(0x100000, 0x80179420, 0xF00, req,
+0x8000a8e0)` = VIDEO window read, later tested for the frame-start word
+`0x80800000`; `& 0x40` → `0x8000be48(0x900000, …, 0x20, req, 0x8000fa58)`
+= SIODATA read → message queue; `& 0x10` → 64-byte KEYPAD write
+0x0304/0x0300. Disc: slots keyed by `0x801B34C8 = {0x0001, 0x0040,
+0x0010, 0x0004, 0x0400, 0x0100}`; slot 4 → `0x8008cdc4` → `0x8008a764`:
+DMA read `base + 0x800000`, 0x1000 bytes, 70-entry ring; slot 5 →
+`0x8008ed68` → `0x8008a480`: `base + 0x100000`, 0xF00 bytes, 40-entry ring;
+registered by `0x8008c7c0`/`0x8008e994` from the library init
+`0x8008f1fc`, before start. So the bits that appeared physically are the
+bits both drivers service as AUDIO (0x0400) and VIDEO (0x0100). Kept
+separate: hardware observation = FACT; bit → driver action = FACT (code);
+"the hardware was requesting audio/video" = HYPOTHESIS (no data read).
+→ GBP-IRQ-005.
+
+### Source/mask pairs
+
+| Pair | Source candidate | Paired mask candidate | Polarity (H) | Reference writes | Expected effect on HSP | Confidence |
+|---|---|---|---|---|---|---|
+| bits 8/9 | 0x0100 video (both drivers) | 0x0200 (Disc table `0x801B34D4[5]`) | 1 = masked; idle 1 | Disc start: 0 if slot 5 has a callback (normal), 1 otherwise; GBI: `read \| 0x8000` then 0 | with 0x0200 = 1, a set 0x0100 does not reach PI | pairing C, polarity H |
+| bits 10/11 | 0x0400 audio (both drivers) | 0x0800 (`0x801B34D4[4]`) | idem | idem | idem | idem |
+| bit 15 | — | global flag | 1 = masked/servicing; idle 1 | Disc: 1 at handler entry and at stop, 0 at exit / DMA done; GBI: 1 after reading, 0 with `IRQ := 0` | with 1, nothing reaches PI (H) | H |
+| bits 2/3 | 0x0004 (Disc slot 3 "game pak" stop) | 0x0008 | — | — | pending at idle on this console (no cartridge) | H |
+
+The Disc handler's own filter `keep = pending & (pending ^ (pending >> 1))`
+(bit i kept iff bit i set and bit i+1 clear) is the strongest code
+evidence for the pairing. **Why INTSR bit 13 stayed 0 with 0x0400/0x0100
+set and INTMR bit 13 = 1** — hypotheses weighed: (a) the paired mask bits
+(0x0800, 0x0200) and/or bit 15 block propagation: consistent with the
+idle value, with both references clearing them before waiting, and with
+Dolphin's contrary prediction failing; not separable between "odd bits"
+and "bit 15" yet; (b) sources latched but not IRQ-enabling by
+themselves: subsumed by (a); (c) initialization incomplete: yes, in the
+precise sense of (a) plus GBI's `KEYPAD := 0`; (d) no cartridge: the
+sources asserted without one, so cartridge absence is not needed to
+explain the missing PI IRQ; (e) another missing reference operation:
+found — GBI's first-pass IRQ writes (below); (f) the source/mask
+interpretation is wrong: possible, nothing supports it; the next
+experiment discriminates. No new hypothesis invented.
+
+### GBI re-audit: the operation GBP-INIT-002 omitted
+
+The earlier reading ("GBI waits without programming the IRQ block") was
+wrong. `0x80058b88` is `LWP_SemWait` (blocking, no timeout; `0x80072c8c`
+enqueues when the count is 0), `0x80058c70` is `LWP_SemPost` (called only
+from the raw handler), **and the semaphore is created with
+`LWP_SemInit(&sem, 1, 1)` at `0x800113a0`** (`li r4,1; li r5,1; addi
+r3,r13,344; bl 0x80058ad4`, inside `0x8001123c`, the same function that
+writes AR_INFO `|= 0x18`). The first `LWP_SemWait` therefore returns at
+once and the first pass of the loop runs before any interrupt: read IRQ →
+dispatch by bits → 64-byte write at `0xCFFFE0` = KEYPAD := 0 + **IRQ :=
+read | 0x8000** → 64-byte read at `0x4FFFE0` (CONTROL, SIOCTL) → … →
+**IRQ := 0** (32 bytes at `0xD00000`) → only then block. These are the only
+IRQ-register writes in gbi.dol (`callsites 8000bea4`); no other thread,
+callback or earlier function writes it, and there is no cartridge
+special case. → GBP-IRQ-004; INITIALIZATION.md §3/§4 corrected. GBI
+additionally writes `KEYPAD := 0` before the transform.
+
+### Start-up Disc equivalent
+
+Disc: `OSUnmaskInterrupts(0x20)` → `IRQ := (read & ~(0x8000 | odd bits of
+serviced slots)) | (odd bits of unserviced slots)` → CONTROL `| 0x04` →
+`& ~0x10`. From the physical 0x8AAE: normal flow (all six slots serviced
+before start) → `IRQ := 0x0004`; init mode 3 (no AV callbacks) → `IRQ :=
+0x0A04`; no callbacks at all (never the case in the Disc) → `IRQ :=
+0x0AAE`. Would that programming have let 0x0400/0x0100 propagate to PI
+HSP? Under the polarity hypothesis, yes (0x0800/0x0200 and 0x8000
+cleared); the values are FACT (code), the propagation is HYPOTHESIS —
+CORROBORATED only in the sense that GBI's `IRQ := 0` clears the same bits
+and GBI works. Not applied to hardware.
+
+### Docs updated
+
+HARDWARE_TESTS (executed entry, log verbatim, release fields), EVIDENCE
+(GBP-HW-021…026, GBP-IRQ-004/005, GBP-PI-003 and GBP-IRQ-003 corrected),
+UNKNOWNS (U-GBP-004/007/015/020/021/022/023 updated, U-GBP-024/025 new),
+INITIALIZATION (§3/§4 GBI corrected, §8.5, §9 R6, new §10 register
+model), REGISTERS (§2 IRQ row, §2.1 low-copy asymmetry, §4 bits 8/10/odd/15
+with hardware, §5 INTMR toggle), HSP.md (§2 rows), captures/README, POC
+README (executed, result). GBP-INIT-002 is marked PHYSICALLY EXECUTED.
+
+### Phase 3 — initialization readiness
+
+Physically validated: detection (five runs), AR_INFO expansion-code
+handling and restore, CONTROL transform and restore, one-shot handler
+installation/restoration with the previous handler preserved,
+`__MaskIrq`/`__UnmaskIrq` on INTMR bit 13, safe timeout with full
+teardown, no IRQ under this incomplete sequence, an evolving GBP IRQ
+state (audio/video sources pending) while the AGB is powered. **Still
+missing for "initialization functional":** (1) programming of the GBP IRQ
+register the way a reference does before waiting (masks/bit 15) — no
+IRQ 26 has ever been delivered; (2) the first physical PI HSP cause:
+delivery gating, INTSR W1C with a real (possibly still asserted) source,
+level/edge (U-GBP-022); (3) the device-side acknowledge protocol in
+service (write-back of the pending bits, re-arm) without storms and with
+the audio/video cadence; (4) KEYPAD refresh on every interrupt (both
+references); (5) a documented stop sequence with the device re-masked
+(Disc: `IRQ := read | disable`, CONTROL `& ~0x04`, `& ~0x08`, `| 0x10`,
+`| 0x80`); (6) the meaning of the idle source bit 0x0004 and of a
+cartridge being present (bit 0x02) — untested. Video is not started.
+
+### Next experiment — comparison (after the source/mask analysis above)
+
+| Option | New writes | Risk | Reversible | Reference match | Relevance to normal execution / video | Information |
+|---|---|---|---|---|---|---|
+| A. Program only the necessary GBP IRQ configuration per a reference | 1 IRQ write (GBI: `IRQ := 0`; or the Disc word `0x0004`) + 1 restore write (`IRQ := S0 value`) | medium: enables every source, incl. the idle-pending 0x0004; storms bounded by the one-shot handler's self-mask; device re-masked by the restore write and CONTROL 0x10 | yes (write back the S0 value; CONTROL 0x90; power cycle) | GBI (`IRQ := 0`) or Disc (mask word) | high: it is the step both references take before waiting | first PI HSP delivery, INTSR W1C behavior, mask-model polarity (U-GBP-007/022) |
+| B. Reproduce GBI's first pass more faithfully | `KEYPAD := 0`, `IRQ := read \| 0x8000` (64-byte with KEYPAD), `IRQ := 0`, + restore | medium, more variables (KEYPAD, 64-byte layout) | yes | GBI exactly | high | same as A plus GBI's ack-write semantics; harder to attribute |
+| C. Minimal Start-up Disc sequence | unmask first, then IRQ mask word, CONTROL `\| 0x04` then `& ~0x10` as two writes, stop sequence (4 CONTROL writes + IRQ write + INTSR ack) | medium-high, most writes, unmasked before the device programming | yes (Disc stop) | official Disc | high | official order; confounded by 6+ new writes |
+| D. Repeat with a cartridge | none new | low | yes | — | low now | the sources asserted without a cartridge: not the blocking variable |
+| E. Read-only timing of 0x8AAE → 0x8FAE (masked PI, repeated IRQ reads after the transform) | none | lowest | yes | neither | low (does not advance initialization) | U-GBP-024 only; can be folded into a later probe's snapshots |
+
+**Recommendation: A, in two masked-first steps, as GBP-INIT-003 — one
+new register, two new writes, both with precedent.** After the validated
+sequence up to S1 (handler installed, CONTROL 0x8C, PI masked): (1) write
+`IRQ := 0` (GBI's value, GBI layout 32 × 00) **with PI HSP still masked**,
+then read PI: if INTSR bit 13 becomes 1 while masked, the cause is
+observed with no exception at all (GBP-PI-001 confirmed physically) and
+the device-side masks are shown to gate it; (2) `__UnmaskIrq` with the
+one-shot handler and the same 2000 ms bound (a masked cause would
+deliver at once; latency measured as before); (3) teardown as in
+GBP-INIT-002 plus `IRQ := <S0 value>` written back before CONTROL 0x90
+(restores the idle masks; the Disc's stop writes `read | disable` for
+the same purpose), the cleanup W1C, handler and mask restore, AR_INFO,
+S4; power cycle afterwards. The register's read-only status (R6) is
+lifted only for these two values, only with authorization, and the IRQ
+block keeps being read raw at every snapshot. Expected outcomes are
+kept open: bit 13 = 1 after the write (mask polarity confirmed, first
+cause), or no change (bit 15 or another requirement — then B/C).
+Timeout stays an operational bound. Not implemented, not requested.

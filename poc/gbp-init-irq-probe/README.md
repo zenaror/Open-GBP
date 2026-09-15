@@ -1,9 +1,8 @@
 # poc/gbp-init-irq-probe — GBP-INIT-002
 
-**Test ID:** `GBP-INIT-002` — **Build ID:** `initirq-0001` — **status: implemented, NOT
-physically executed.** No hardware run may use this id until a clean commit, the
-matching DOL SHA-256 and the procedure are recorded in
-`docs/research/HARDWARE_TESTS.md`.
+**Test ID:** `GBP-INIT-002` — **Build ID:** `initirq-0001` — commit `4e3cb43` — DOL SHA-256
+`1bd2bcf3f361e6482c888a523d45ea2fa2dc073f41918ebfab7803b1177343f2` — **executed on hardware
+2026-09-15** (log sha256 `e7ec3d83…ea1d`, 6585 bytes; see "Result" below).
 
 **Question:** after the CONTROL transform validated by GBP-INIT-001
 (`(v & ~0x10) | 0x0C`, GBI layout), is a PI HSP interrupt (IRQ 26) observed within a
@@ -117,8 +116,10 @@ teardown; mask before W1C inside the handler; no DMA while unmasked; GBP IRQ,
 KEYPAD, VIDEO, AUDIO, SIO never touched; INTMR never written directly). Physical
 fixtures (init-0001): the attached fixture drives the gate, S0 and the
 preconditions and stops at the handler install (a replay has no interrupt path)
-without any write; the removed fixture aborts ABSENT verbatim. No physical IRQ-26
-data exists, and none is invented.
+without any write; the removed fixture aborts ABSENT verbatim. The initirq-0001
+fixture (this probe's own physical run, 92 further checks) replays the whole
+sequence with the console's time base and the interrupt path as it happened: no
+interrupt occurred, so none is replayed or invented.
 
 `make initirq-audit` — disassembles `hsp_backend_oneshot_isr` from the linked object
 and checks it calls only `__MaskIrq`, reads the time base and the PI registers, has
@@ -147,3 +148,21 @@ references do (Start-up Disc `0x80089b60` before `0x8008ae3c`; GBI `0x8001123c` 
 `0x80011c94`). Both prerequisites still hold before anything experimental happens,
 the ABSENT path restores AR_INFO, and the physical init-0001 fixtures replay
 verbatim through the gate.
+
+## Result (2026-09-15)
+
+`status=timeout_no_irq_observed reason=no_irq26_within_t_max restore=ok`
+— not an error: no IRQ 26 within the 2000 ms bound. PRESENT 4/4 (both
+criteria); handler installed (previous NULL) and restored; CONTROL `0x90
+→ 0x8C → 0x90`; `__UnmaskIrq` physically set INTMR bit 13 (`0x1FA →
+0x21FA`) and `__MaskIrq` cleared it; INTSR bit 13 never set; handler never
+entered; wait 81000012 ticks = 2.0000003 s; IRQ register `0x8AAE` (S0, S1)
+→ `0x8FAE` (S2, S3: bits 0x0400/0x0100 set under their masks) while
+CONTROL stayed `0x8C`, persisting after the CONTROL restore; S4 under the
+original AR_INFO `00` / `9090`; cleanup not needed; 21 transfers, 0
+errors. Evidence GBP-HW-021…026, GBP-IRQ-004/005; analysis and the next
+experiment (an authorized write of the GBP IRQ register, which both
+references perform before waiting) in DEVLOG 2026-09-15. The fixture
+`captures/fixtures/hw-gamecube-gbp-2026-09-15-initirq-0001.gbpreplay`
+replays the whole run, physical time base included
+(`tests/unit/test_gbp_init_irq.c`, `tests/host/test_hw_fixture.py`).

@@ -63,19 +63,46 @@ class ProbeLog(unittest.TestCase):
         self.assertEqual(fx[-1], "A r 0043")
 
     def test_fixture_init_irq_records(self):
-        # GBP-INIT-002 records: PI reads become "P r", the single main-loop
-        # acknowledge becomes "P a"; handler/mask records produce nothing.
+        # GBP-INIT-002 records: PI reads become "P r"; the unmask becomes
+        # "T t_unmask", "I u <handler record>", "T t_post"; the wait becomes the
+        # loop-exit and t_wait_end time-base values; mask/restore become "I m"/"I r";
+        # the single main-loop acknowledge becomes "P a". HANDLER/HANDLERPI feed "I u".
         _, recs = probelog.parse_lines([
             "000030 PI tag=UNMASKPRE rc=ok intsr=00010000 intmr=000001fa intsr13=0 intmr13=0\n",
             "000031 UNMASK t_unmask=100 rc=ok t_post=110 dt_post=10\n",
             "000032 PI tag=UNMASKPOST rc=ok intsr=00010000 intmr=000021fa intsr13=0 intmr13=1 fired=0\n",
-            "000040 IRQ mask tag=MAIN rc=ok\n",
-            "000041 HANDLER fired=1 count=1 t_entry=120 t_unmask=100 latency_ticks=20 latency_us=0 reentry=0\n",
+            "000033 IRQ mask tag=MAIN rc=ok\n",
+            "000034 WAIT fired=0 timed_out=1 polls=5 wait_ticks=400 wait_us=9 t_max_ms=2000 t_max_ticks=400\n",
+            "000040 HANDLER fired=0 count=0 t_entry=0 t_unmask=100 latency_ticks=0 latency_us=0 reentry=0\n",
+            "000041 HANDLERPI intsr_before_ack=00000000 intmr_at_entry=00000000 intsr_after_ack=00000000 intmr_after_mask=00000000 reentry_intsr=00000000 reentry_intmr=00000000\n",
             "000050 CLEANUP performed=1 value=00002000 rc=ok intsr_before=00012000 intsr_after=00010000 intsr13_after=0\n",
-            "000051 CLEANUP performed=0 intsr=00010000 intsr13=0 intmr13=0\n",
+            "000051 IRQ restore rc=ok ok=1 old_handler=null\n",
+            "000052 CLEANUP performed=0 intsr=00010000 intsr13=0 intmr13=0\n",
         ])
         fx = probelog.fixture(recs).splitlines()[1:]
-        self.assertEqual(fx, ["P r 00010000 000001fa", "P r 00010000 000021fa", "P a 00002000"])
+        self.assertEqual(fx, ["P r 00010000 000001fa",
+                              "T 100",
+                              "I u 0 0 0 00000000 00000000 00000000 00000000 00000000 00000000",
+                              "T 110",
+                              "P r 00010000 000021fa",
+                              "T 500", "T 500",
+                              "I m",
+                              "P a 00002000",
+                              "I r"])
+        # a handler that ran: its record travels on the "I u" line, and the wait ends at the first poll
+        _, recs = probelog.parse_lines([
+            "000031 UNMASK t_unmask=100 rc=ok t_post=110 dt_post=10\n",
+            "000034 WAIT fired=1 timed_out=0 polls=1 wait_ticks=20 wait_us=0 t_max_ms=2000 t_max_ticks=400\n",
+            "000040 HANDLER fired=1 count=1 t_entry=115 t_unmask=100 latency_ticks=15 latency_us=0 reentry=0\n",
+            "000041 HANDLERPI intsr_before_ack=00012000 intmr_at_entry=000021fa intsr_after_ack=00010000 intmr_after_mask=000001fa reentry_intsr=00000000 reentry_intmr=00000000\n",
+            "000042 IRQ install rc=ok old_handler=nonnull\n",
+        ])
+        fx = probelog.fixture(recs).splitlines()[1:]
+        self.assertEqual(fx, ["T 100",
+                              "I u 1 1 115 00012000 000021fa 00010000 000001fa 00000000 00000000",
+                              "T 110",
+                              "T 120",
+                              "I i nonnull"])
 
     def test_check(self):
         findings, anomalies = probelog.check(self.header, self.records)

@@ -55,6 +55,15 @@ static const char *next_line(struct gbp_replay *r, char *buf, size_t cap)
     }
 }
 
+/* Like next_line, but leaves pos untouched. */
+static const char *peek_line(struct gbp_replay *r, char *buf, size_t cap)
+{
+    size_t saved = r->pos;
+    const char *l = next_line(r, buf, cap);
+    r->pos = saved;
+    return l;
+}
+
 static gbp_status r_read_arinfo(void *ctx, uint16_t *value)
 {
     struct gbp_replay *r = (struct gbp_replay *)ctx;
@@ -157,13 +166,106 @@ static gbp_status r_write_intsr(void *ctx, uint32_t v)
 static uint32_t r_ticks(void *ctx)
 {
     struct gbp_replay *r = (struct gbp_replay *)ctx;
-    return r->step * 10u;
+    char line[160];
+    if (!r->timeline) return r->step * 10u;
+    if (peek_line(r, line, sizeof line) && line[0] == 'T' && line[1] == ' ') {
+        next_line(r, line, sizeof line);
+        r->step++;
+        r->last_ticks = (uint32_t)strtoul(line + 2, 0, 10);
+        return r->last_ticks;
+    }
+    r->tick_polls++;
+    r->last_ticks += 1u;
+    return r->last_ticks;
+}
+
+/* ---- interrupt path (only when the script carries "I " lines) ---- */
+
+static int expect_irq_line(struct gbp_replay *r, char op, char *line, size_t cap)
+{
+    if (!next_line(r, line, cap)) { r->exhausted++; return 0; }
+    r->step++;
+    if (line[0] != 'I' || line[1] != ' ' || line[2] != op) { r->mismatches++; return 0; }
+    return 1;
+}
+
+static gbp_status r_irq_install(void *ctx, int *old_was_null)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    if (!expect_irq_line(r, 'i', line, sizeof line)) return GBP_ERR_BACKEND;
+    memset(&r->rec, 0, sizeof r->rec);
+    r->handler_installed = 1;
+    if (old_was_null) *old_was_null = (strncmp(line + 4, "null", 4) == 0) ? 1 : 0;
+    return GBP_OK;
+}
+
+static gbp_status r_irq_restore(void *ctx)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    if (!expect_irq_line(r, 'r', line, sizeof line)) return GBP_ERR_BACKEND;
+    r->handler_installed = 0;
+    return GBP_OK;
+}
+
+static gbp_status r_irq_mask(void *ctx)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    if (!expect_irq_line(r, 'm', line, sizeof line)) return GBP_ERR_BACKEND;
+    return GBP_OK;
+}
+
+static gbp_status r_irq_unmask(void *ctx)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    char *p, *end;
+    uint32_t v[9];
+    unsigned k;
+    if (!expect_irq_line(r, 'u', line, sizeof line)) return GBP_ERR_BACKEND;
+    p = line + 3;
+    for (k = 0; k < 9; k++) {
+        while (*p == ' ') p++;
+        v[k] = (uint32_t)strtoul(p, &end, k < 3 ? 10 : 16);
+        if (end == p) { r->mismatches++; return GBP_ERR_BACKEND; }
+        p = end;
+    }
+    r->rec.count = v[0];
+    r->rec.fired = v[1];
+    r->rec.t_entry = v[2];
+    r->rec.intsr_before_ack = v[3];
+    r->rec.intmr_at_entry = v[4];
+    r->rec.intsr_after_ack = v[5];
+    r->rec.intmr_after_mask = v[6];
+    r->rec.reentry_intsr = v[7];
+    r->rec.reentry_intmr = v[8];
+    return GBP_OK;
+}
+
+static gbp_status r_irq_record(void *ctx, struct gbp_irq_record *out)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    *out = r->rec;
+    return GBP_OK;
 }
 
 void gbp_replay_init(struct gbp_replay *r, const char *script)
 {
+    const char *s;
     memset(r, 0, sizeof *r);
     r->script = script ? script : "";
+    /* Detect the optional sections once: "I " lines enable the interrupt
+     * path, "T " lines enable the physical timeline for ticks(). */
+    for (s = r->script; *s; ) {
+        while (*s == ' ' || *s == '\t') s++;
+        if (s[0] == 'I' && s[1] == ' ') r->has_irq_ops = 1;
+        if (s[0] == 'T' && s[1] == ' ') r->timeline = 1;
+        s = strchr(s, '\n');
+        if (!s) break;
+        s++;
+    }
 }
 
 void gbp_replay_transport(struct gbp_replay *r, struct gbp_transport *t)
@@ -178,11 +280,19 @@ void gbp_replay_transport(struct gbp_replay *r, struct gbp_transport *t)
      * operations, and none may be invented (docs/research/DEVLOG.md
      * 2026-09-15). A probe that needs it stops at its handler-install step. */
     t->write_intsr = r_write_intsr;
-    t->irq_install = 0;
-    t->irq_restore = 0;
-    t->irq_mask = 0;
-    t->irq_unmask = 0;
-    t->irq_record = 0;
+    if (r->has_irq_ops) {
+        t->irq_install = r_irq_install;
+        t->irq_restore = r_irq_restore;
+        t->irq_mask = r_irq_mask;
+        t->irq_unmask = r_irq_unmask;
+        t->irq_record = r_irq_record;
+    } else {
+        t->irq_install = 0;
+        t->irq_restore = 0;
+        t->irq_mask = 0;
+        t->irq_unmask = 0;
+        t->irq_record = 0;
+    }
     t->ticks = r_ticks;
     t->ctx = r;
 }

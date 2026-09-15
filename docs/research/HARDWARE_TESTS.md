@@ -65,7 +65,6 @@ Raw log: transcription kept locally as
 `captures/local/SMOKE-HW-001_smoke-0002.log` (ignored by Git; the
 original file stays on the user's SD card).
 
-
 ### GBP-PROBE-001 — 2026-09-14 — completed (analysis in DEVLOG, evidence GBP-HW-001…006)
 
 ```text
@@ -153,7 +152,6 @@ the byte-level analysis, the backend audit and the interpretation of
 output of the probe-0001 heuristic (all 32 bytes must equal the
 complement), not a statement that the GBP was absent; it was attached.**
 
-
 ### GBP-BASELINE-NOGBP-001 — 2026-09-14 — completed (baseline without the Game Boy Player)
 
 ```text
@@ -235,7 +233,6 @@ Result: every block and every handshake read-back was `C0`×32 in both
 modes; all 28 transfers completed (7–10 polls, 31–38 ticks); AR_INFO
 `0043 → 005b → 0043`. Facts GBP-HW-007…009; pair analysis in the DEVLOG
 entry of 2026-09-15.
-
 
 ### GBP-INIT-001 — 2026-09-15 — completed, GBP attached (status=ok)
 
@@ -365,6 +362,114 @@ Result: every TEST read-back `C1`×32 (previous no-GBP baseline with
 probe-0001: `C0`×32), verdict ABSENT, no CONTROL write, AR_INFO restored
 (GBP-HW-019/020).
 
+### GBP-INIT-002 — 2026-09-15 — completed, GBP attached (status=timeout_no_irq_observed, restore=ok)
+
+```text
+Test ID     GBP-INIT-002
+Build ID    initirq-0001
+Commit      4e3cb43 (clean)
+DOL         build/poc/gbp-init-irq-probe/gbp-init-irq-probe.dol
+SHA-256     1bd2bcf3f361e6482c888a523d45ea2fa2dc073f41918ebfab7803b1177343f2
+Log         logs/GBP-INIT-002_initirq-0001.log, 6585 bytes,
+            sha256 e7ec3d83212fb183d8209452e2ce46cf391a696ff8a41720fd9f7701dbf1ea1d
+            (original untouched; preserved copy captures/local/GBP-INIT-002_initirq-0001.log;
+            fixture captures/fixtures/hw-gamecube-gbp-2026-09-15-initirq-0001.gbpreplay with the
+            physical time base and the interrupt path as it happened — the handler never ran)
+Setup       GBP attached whole run, no Game Pak, Link Port empty, no PicoAdapterGB, BBA attached
+            without Ethernet, 1 controller, 1 Memory Card, SD2SP2, Swiss; no interaction until
+            X (save) / START (exit); console power-cycled afterwards
+T_MAX       2000 ms (81000000 ticks at 40.5 MHz) — operational bound, not a GBP property
+```
+
+Full log (verbatim):
+
+```text
+# OPENGBP-LOG v1
+test_id=GBP-INIT-002
+build_id=initirq-0001
+commit=4e3cb43
+libogc=libogc2 r2442.094b250 gecko=0
+lines=60 dropped=0 truncated=0
+# --- records ---
+000000 IDENT test=GBP-INIT-002 app=gbp-init-irq-probe build=initirq-0001 commit=4e3cb43 libogc=libogc2 r2442.094b250
+000001 ENV bus_hz=162000000 tb_hz=40500000 dma_timeout_ms=200 t_max_ms=2000 csr=0804
+000002 INITIRQ start exp_code=3 clear=10 set=0c idle_shape=1 npatterns=4 t_max_ms=2000 t_max_ticks=81000000 tb_hz=40500000
+000003 ARINFO orig value=0043 size_code=3 exp_code=0 base=01000000
+000004 ARINFO exp value=005b exp_code=3
+000005 TESTW tag=DET idx=0 addr=01000000 pattern=c3 rc=ok ticks=35 polls=7 dspcr=0804
+000006 TESTR tag=DET idx=0 addr=01000000 pattern=c3 expect=3c rc=ok ticks=34 polls=9 dspcr=0804 match_all=0 match_1f=1 match_b1=1 match_vote=1 vote=3c data=3d3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c
+000007 TESTW tag=DET idx=0 addr=01000000 pattern=3c rc=ok ticks=31 polls=8 dspcr=0804
+000008 TESTR tag=DET idx=0 addr=01000000 pattern=3c expect=c3 rc=ok ticks=34 polls=9 dspcr=0804 match_all=0 match_1f=1 match_b1=1 match_vote=1 vote=c3 data=d3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3
+000009 TESTW tag=DET idx=0 addr=01000000 pattern=ff rc=ok ticks=31 polls=8 dspcr=0804
+000010 TESTR tag=DET idx=0 addr=01000000 pattern=ff expect=00 rc=ok ticks=34 polls=9 dspcr=0804 match_all=0 match_1f=1 match_b1=1 match_vote=1 vote=00 data=1100000000000000000000000000000000000000000000000000000000000000
+000011 TESTW tag=DET idx=0 addr=01000000 pattern=00 rc=ok ticks=31 polls=8 dspcr=0804
+000012 TESTR tag=DET idx=0 addr=01000000 pattern=00 expect=ff rc=ok ticks=34 polls=9 dspcr=0804 match_all=1 match_1f=1 match_b1=1 match_vote=1 vote=ff data=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+000013 DET verdict=present run=4 transport_ok=4 vote_ok=4 b1_ok=4 all32_ok=1
+000014 PI tag=PRE intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000015 PRECOND intsr13=0 intmr13=0 irq_path=1 ok=1 reason=-
+000016 SNAP tag=S0 ticks=3267396886 since_write=0 since_unmask=0
+000017 PI tag=S0 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000018 RAW S0 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=90 sem_b1f=90 data=9190909090909090909090909090909090909090909090909090909090909090
+000019 RAW S0 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=9b8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000020 RAW S0 idx=0 addr=01000000 rc=ok ticks=34 polls=9 dspcr=0804 data=1100000000000000000000000000000000000000000000000000000000000000
+000021 CONTROL semantic orig=90 exp=8c method=gbi-majority-vote transform=(v&~10)|0c
+000022 IRQ install rc=ok old_handler=null
+000023 CTLW tag=EXP addr=01400000 semantic=8c rc=ok ticks=31 polls=8 dspcr=0804 layout=gbi-replicated data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000024 SNAP tag=S1 ticks=3267402449 since_write=124 since_unmask=0
+000025 PI tag=S1 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000026 RAW S1 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=9d8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000027 RAW S1 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=9b8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000028 PI tag=UNMASKPRE rc=ok intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000029 UNMASK t_unmask=3267405264 rc=ok t_post=3267405297 dt_post=33
+000030 PI tag=UNMASKPOST rc=ok intsr=00010000 intmr=000021fa intsr13=0 intmr13=1 fired=0
+000031 IRQ mask tag=MAIN rc=ok
+000032 WAIT fired=0 timed_out=1 polls=13871306 wait_ticks=81000012 wait_us=2000000 t_max_ms=2000 t_max_ticks=81000000
+000033 SNAP tag=S2 ticks=3348406686 since_write=81004361 since_unmask=81001422
+000034 PI tag=S2 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000035 PI tag=S2b intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000036 RAW S2 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=9d8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000037 RAW S2 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8fae sem_gbi=8fae data=9f8fafae8f8fafae8f8fafae8f8fafae8f8fafae8f8fafae8f8fafae8f8fafae
+000038 IRQ mask tag=TEARDOWN rc=ok
+000039 HANDLER fired=0 count=0 t_entry=0 t_unmask=3267405264 latency_ticks=0 latency_us=0 reentry=0
+000040 HANDLERPI intsr_before_ack=00000000 intmr_at_entry=00000000 intsr_after_ack=00000000 intmr_after_mask=00000000 reentry_intsr=00000000 reentry_intmr=00000000
+000041 CTLW tag=RESTORE addr=01400000 semantic=90 rc=ok ticks=31 polls=8 dspcr=0804 layout=gbi-replicated data=9090909090909090909090909090909090909090909090909090909090909090
+000042 SNAP tag=S3 ticks=3348412912 since_write=81010587 since_unmask=81007648
+000043 PI tag=S3 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000044 RAW S3 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=90 sem_b1f=90 data=9190909090909090909090909090909090909090909090909090909090909090
+000045 RAW S3 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8fae sem_gbi=8fae data=9f8fafae8f8fafae8f8fafae8f8fafae8f8fafae8f8fafae8f8fafae8f8fafae
+000046 CONTROL restore semantic=90 readback_vote=90 readback_b1f=90 ok=1
+000047 PI tag=CLEANUPCHK intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000048 CLEANUP performed=0 intsr=00010000 intsr13=0 intmr13=0
+000049 IRQ restore rc=ok ok=1 old_handler=null
+000050 PI tag=MASKCHK intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000051 MASK final intmr=000001fa intmr13=0 orig_intmr13=0 ok=1
+000052 ARINFO restore value=0043 rc=ok readback=0043 ok=1
+000053 SNAP tag=S4 ticks=3348418898 since_write=81016573 since_unmask=81013634
+000054 PI tag=S4 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000055 RAW S4 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=00 sem_b1f=00 data=1100000000000000000000000000000000000000000000000000000000000000
+000056 RAW S4 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=9090 sem_gbi=9090 data=9190909090909090909090909090909090909090909090909090909090909090
+000057 FINAL arinfo=0043 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0 control=00 irq=9090
+000058 INITIRQ end status=timeout_no_irq_observed reason=no_irq26_within_t_max restore=ok restore_reason=- written=1 fired=0 count=0 timed_out=1 control_restored=1 handler_restored=1 mask_ok=1 arinfo_restored=1 cleanup=0 errors=0 transport_ok=1
+000059 STATS transfers=21 timeouts=0 busy=0
+# --- end --- dropped=0
+```
+
+Result: `timeout_no_irq_observed` / `no_irq26_within_t_max` — **not an
+error**: no IRQ 26 was observed within the 2000 ms window, nothing more.
+PRESENT 4/4 by both criteria (whole-block 1/4); handler installed with a
+NULL previous handler; CONTROL `0x90 → 0x8C`; `__UnmaskIrq(IM_PI_HSP)`
+physically changed INTMR `0x000001FA → 0x000021FA` and `__MaskIrq` changed it
+back (GBP-HW-022); INTSR stayed `0x00010000` (bit 13 never set) in all 12
+reads; the handler never entered (`fired=0 count=0`, HANDLERPI all zero);
+wait 81000012 ticks = 2.0000003 s over 13871306 polls; the IRQ block read
+`0x8AAE` in S0/S1 and `0x8FAE` in S2/S3 (bits 0x0400 and 0x0100 set, 24/32
+bytes changed) while CONTROL stayed `0x8C`, and `0x8FAE` persisted after
+the CONTROL restore (GBP-HW-024); S4 under the original AR_INFO read
+`00` / `9090` again (GBP-HW-017, third observation); cleanup W1C not needed,
+handler restored, INTMR final `0x1FA`, AR_INFO `0x0043`; 21 transfers, 0
+timeouts/busy/errors, log 60 lines, 0 dropped/truncated (GBP-HW-021…026).
+Analysis and next step: DEVLOG 2026-09-15 "GBP-INIT-002 executed".
+
 ## Planned tests
 
 ### SMOKE-HW-001 — first physical run of `poc/smoke-test` (Phase 3 gate 1)
@@ -415,24 +520,13 @@ device. Note: `sdlog.c` opens the report with mode `w`, so the copy of
 `GBP-PROBE-001_probe-0001.log` on the SD card is overwritten — the user
 must confirm a safe copy exists before running.
 
-### GBP-INIT-002 — controlled GBI IRQ path after the validated CONTROL transform (designed 2026-09-15; implemented 2026-09-15 as build `initirq-0001`; NOT physically executed, NOT released)
+### GBP-INIT-002 — controlled GBI IRQ path after the validated CONTROL transform (designed 2026-09-15; executed 2026-09-15 — see "Executed tests" above)
 
-Status: **implemented, not physically executed.** `poc/gbp-init-irq-probe`
-(build id `initirq-0001`, logic in `src/gbp/gbp_init_irq_probe.c`, handler
-in `src/gbp/gbp_irq_oneshot.h` + `src/platform/hsp_backend.c`) implements
-the sequence below under the rules of `docs/protocol/INITIALIZATION.md`
-§9; validated on the host (`tests/unit/test_gbp_init_irq.c`, 494 checks,
-synthetic interrupt model + the physical init-0001 fixtures for the
-gate), by the static handler audit (`make initirq-audit`: only
-`__MaskIrq` is called, the 0x2000 store follows the mask) and in Dolphin
-(no HSP → `abort_not_present`; GBPlayer model → `abort_control_shape`).
-Nothing may run under this id until the clean commit and the DOL SHA-256
-of the release build are listed here; the development build was dirty
-(commit `21a2f3d-dirty`, DEVLOG 2026-09-15 "GBP-INIT-002 implemented").
-Implementation detail that differs from the numbering below: AR_INFO
-bits 3–5 are set **before** the detection handshake (as GBP-INIT-001 did
-and as both references do), so that the physical fixtures replay
-verbatim; every prerequisite still holds before anything experimental.
+Executed on 2026-09-15 with build `initirq-0001`, clean commit `4e3cb43`,
+DOL SHA-256 `1bd2bcf3…43f2`, log sha256 `e7ec3d83…ea1d` (6585 bytes) — see
+"Executed tests" above. The design below is kept as it was written before
+the run; the implementation sets AR_INFO bits 3–5 before the detection
+handshake (as GBP-INIT-001 did and as both references do).
 
 ```text
 Question:    After the validated CONTROL transform (0x90 → 0x8C, GBI layout),
@@ -502,11 +596,10 @@ Risk:        low-medium — one new class of operation (PI HSP unmask with a
 Physical setup: identical to GBP-INIT-001 (no cartridge, SD2SP2, Swiss).
 ```
 
-Fields to be filled when released: Test ID GBP-INIT-002 · Build ID
-`initirq-0001` · DOL `build/poc/gbp-init-irq-probe/gbp-init-irq-probe.dol`
-+ SHA-256 of the clean build (pending) · commit (clean, pending) ·
-required cartridge: none · Link Port: nothing connected · PicoAdapterGB:
-disconnected · BBA: attached, no cable · 1 controller · 1 Memory Card ·
-SD2SP2 · steps: launch, wait for the summary (≤ ~2 s + DMAs), photograph,
-X to save, START to exit, power-cycle the console, return
-`/open-gbp/GBP-INIT-002_initirq-0001.log` · question answered: see above.
+Release fields: Test ID GBP-INIT-002 · Build ID `initirq-0001` · DOL
+`build/poc/gbp-init-irq-probe/gbp-init-irq-probe.dol` SHA-256
+`1bd2bcf3f361e6482c888a523d45ea2fa2dc073f41918ebfab7803b1177343f2` · commit
+`4e3cb43` · no cartridge · Link Port empty · PicoAdapterGB disconnected · BBA
+attached, no cable · 1 controller · 1 Memory Card · SD2SP2 · executed as
+planned; question answered: no IRQ 26 within 2000 ms under this sequence,
+INTMR bit 13 physically toggled, IRQ block 0x8AAE → 0x8FAE (see the executed entry).

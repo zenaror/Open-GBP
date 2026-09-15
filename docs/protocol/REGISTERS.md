@@ -47,7 +47,7 @@ transfer; byte offsets are within that block.
 | 0x8 | AUDIO | R | 0x1000 bytes | 70 buffers of 0x1000; consumed on IRQ bit 10 | reads 0x1000 on IRQ bit 10 | 0x400 PWM bytes, each mirrored ×4; refilled at 4096 Hz | C (size), H (format) | GBP-AUD-001 |
 | 0x9 | SIODATA | W/R | 32-bit: write bytes 0x1C–0x1F; read assembled from bytes 0x19,0x1B,0x1D,0x1F (DISC) | serial state machine; write data, then SIOCTL \|= 0x80 | read on IRQ bit 6; written from a message queue | stub; read model fills block with the u32 repeated | F (exists), U (byte layout, semantics) | GBP-SIO-001, U-GBP-002 |
 | 0xC | KEYPAD | W | 16-bit at bytes 0x1E–0x1F, 1 = pressed | written on every HSP IRQ and every 5 ms tick | written on every IRQ (with IRQ ack in the same 64-byte block); 0 at start; `0x0304` (= L+R+Select) on sleep IRQ | lo byte = GBA keys 0–7; hi bit0→L(key 9), bit1→R(key 8) | C (existence/format), H (L/R bit order) | GBP-KEY-001 |
-| 0xD | IRQ | W/R | 16-bit: read bytes 0x1D (hi) and 0x1F (lo) (DISC) / vote over bytes ≡1 and ≡3 mod 4 (GBI); write bytes 0x1E–0x1F (DISC) or `hh ll` replicated (GBI) | see §4 | see §4 | see §4 | C; hardware read `90×32` with exp code 0 and `ae 8a ae ae 8a 8a ae ae…` (= `0x8AAE` byte-doubled, byte 0 anomalous) with exp code 3 | GBP-IRQ-001, GBP-HW-004/005 |
+| 0xD | IRQ | W/R | 16-bit: read bytes 0x1D (hi) and 0x1F (lo) (DISC) / vote over bytes ≡1 and ≡3 mod 4 (GBI); write bytes 0x1E–0x1F (DISC) or `hh ll` replicated (GBI) | see §4 | see §4 | see §4 | C; hardware read `90×32` with exp code 0 and `ae 8a ae ae 8a 8a ae ae…` (= `0x8AAE` byte-doubled, byte 0 anomalous) with exp code 3. **2026-09-15:** within 2 s of CONTROL `0x8C` (AGB powered) it read `0x8FAE` — bits 0x0400/0x0100 set, odd bits and bit 15 unchanged — with no PI IRQ (register never written), persisting after CONTROL went back to 0x90 (GBP-HW-024) | GBP-IRQ-001, GBP-IRQ-005, GBP-HW-004/005/024 |
 
 Unused indices (0x2, 0x3, 0x6, 0x7, 0xA, 0xB, 0xE, 0xF) are not touched by
 DISC or GBI; Dolphin logs a warning. Their behavior is **unknown**
@@ -77,6 +77,10 @@ match this; they agree with hardware only at bytes 0x1D/0x1F.
   Neither the Start-up Disc nor GBI consumes byte 0. Do not consume it.
 - Safe positions: byte 1 or any byte ≥ 1 of a uniform fill (8-bit);
   0x1D/0x1F (16-bit); GBI's vote is the most robust known method.
+- **The two "low" copies are not always equal:** in the `0x8FAE` state of
+  GBP-INIT-002 every group read `8F 8F AF AE` — offset ≡ 2 mod 4 carries
+  bit 0 set, offset ≡ 3 mod 4 does not (U-GBP-025). Both references read
+  only offsets ≡ 1 / ≡ 3 mod 4; do the same.
 - SIODATA and VIDEO/AUDIO layouts remain **U** (U-GBP-008).
 
 ### 2.2 VIDEO word format
@@ -115,10 +119,10 @@ bits 0–1 deliberately; consistent, but unverified on hardware.
 | 2 | 0x0004 | callback slot 3: stop sequence + video reset ("game pak" event) | — | `IRQ::GamePak` | C |
 | 4 | 0x0010 | callback slot 2: CONTROL \|= 0x10, state → 3 | write KEYPAD `0x0304` (L+R+Select) | `IRQ::Sleep` | C |
 | 6 | 0x0040 | callback slot 1: serial operation completion | read SIODATA | `IRQ::Serial` | C |
-| 8 | 0x0100 | callback slot 5: read VIDEO block (0xF00) | read VIDEO | `IRQ::Video` (every 4 lines) | C |
-| 10 | 0x0400 | callback slot 4: read AUDIO block (0x1000) | read AUDIO | `IRQ::Audio` | C |
-| odd bits 1,3,5,7,9,11 | 0x0002…0x0800 | "mask" bits: DISC computes `enable = Σ(1<<(2k+1))` for sources with a registered callback and `disable` for the others, then writes `(cur & ~enable) \| disable` | — | Dolphin comment: "software appears to use the odd bits to mask the even bits" | C (usage), H (polarity: 1 = masked) |
-| 15 | 0x8000 | written at IRQ entry (`mask \| 0x8000`) | — | `IRQ_ASSERTED`; writing a 1 clears the bit | H |
+| 8 | 0x0100 | callback slot 5 (`0x8008ed68` → `0x8008a480`): read VIDEO block (0xF00) | read VIDEO 0xF00 (`0x8000be48(0x100000, …)`) | `IRQ::Video` (every 4 lines) | C (driver action F; **hardware:** became set within 2 s of CONTROL 0x8C, GBP-HW-024) |
+| 10 | 0x0400 | callback slot 4 (`0x8008cdc4` → `0x8008a764`): read AUDIO block (0x1000) | read AUDIO 0x1000 (`0x8000be48(0x800000, …)`) | `IRQ::Audio` | C (driver action F; **hardware:** became set within 2 s of CONTROL 0x8C, GBP-HW-024) |
+| odd bits 1,3,5,7,9,11 | 0x0002…0x0800 | "mask" bits paired with the even bit below: DISC computes `enable = Σ(1<<(2k+1))` for sources with a registered callback and `disable` for the others, writes `(cur & ~(0x8000 \| enable)) \| disable` at start, and its handler dispatches a source only if its odd bit is clear (`pending & ~(pending >> 1)`) | first loop pass writes `read \| 0x8000` then `0` (all odd bits cleared) before blocking (GBP-IRQ-004) | Dolphin comment: "software appears to use the odd bits to mask the even bits"; its model ignores them | C (pairing); H (polarity 1 = masked). **Hardware:** all six read 1 at idle (0x0AAA); left set, sources 0x0400/0x0100 pending for up to 2 s produced no PI IRQ (GBP-HW-023/024) |
+| 15 | 0x8000 | written 1 at IRQ entry (`mask \| 0x8000`) and at stop, 0 at exit / DMA done | written 1 after reading (`read \| 0x8000`), 0 with `IRQ := 0` | `IRQ_ASSERTED`; writing a 1 clears the bit | H (global mask / service flag). **Hardware:** reads 1 at idle and throughout GBP-INIT-002 |
 
 Acknowledge sequence, DISC (`0x8008af08`): write IRQ := mask \| 0x8000 →
 PI W1C `0xCC003000 := 0x2000` → read IRQ → if any of `0x0555` is set,
@@ -128,14 +132,18 @@ handler `0x8000b400`, then in the worker thread read IRQ, act, write
 `read \| 0x8000` back in the same 64-byte DMA as KEYPAD, and write 0 to
 IRQ at the end of each loop. Order **PI → GBP** (F, GBP-IRQ-003).
 Dolphin: `m_irq &= ~written_value` (model). Common elements → **C**;
-the meaning of bit 15 stays H (U-GBP-007).
+the meaning of bit 15 stays H (U-GBP-007). Before its first blocking
+wait GBI already writes the register twice (first pass, no interrupt:
+`IRQ := read \| 0x8000`, then `IRQ := 0`), and the Disc programs it at
+start — GBP-INIT-002 wrote nothing there and saw no interrupt
+(INITIALIZATION.md §10).
 
 ## 5. GameCube-side registers involved
 
 | Address | Name (YAGCD/libogc) | Use here | Status |
 |---------|--------------------|----------|--------|
 | `0xCC003000` | PI INTSR (interrupt **cause**) | bit 13 (0x2000) = HSP; bit 16 = reset-switch state. A cause bit is readable whether or not INTMR enables it (C); writing 1 clears a bit — every INTSR write in libogc2, the SDK, GBI and the Disc is such an acknowledge: 2 (reset switch), 0x1000 (debugger), 0x2000 (HSP) (C); Dolphin `cause &= ~value`. Whether bit 13 is level or latched, and whether W1C clears it while the GBS-DOL still asserts: **U** (U-GBP-022). Never observed as 1 on hardware yet (GBP-HW-012) | C / U (GBP-PI-001/002/003) |
-| `0xCC003004` | PI INTMR (interrupt **mask**) | bit 13 enables delivery of the HSP cause to the CPU; OS interrupt 26 = software mask 0x20 in the SDK and in libogc. libogc2 and the SDK rebuild the whole register from shadow masks — under libogc2 change bit 13 only with `__MaskIrq`/`__UnmaskIrq` (ENV-IRQ-002). Hardware: `0x1FA` throughout GBP-INIT-001 (a libogc2-rebuilt value) | C (F for the software contract) |
+| `0xCC003004` | PI INTMR (interrupt **mask**) | bit 13 enables delivery of the HSP cause to the CPU; OS interrupt 26 = software mask 0x20 in the SDK and in libogc. libogc2 and the SDK rebuild the whole register from shadow masks — under libogc2 change bit 13 only with `__MaskIrq`/`__UnmaskIrq` (ENV-IRQ-002). Hardware: `0x1FA` throughout GBP-INIT-001; **`__UnmaskIrq(IM_PI_HSP)` → `0x21FA`, `__MaskIrq` → `0x1FA` in GBP-INIT-002 (F, GBP-HW-022)** | C (F for the software contract and for the bit-13 toggle) |
 | `0xCC00500A` | DSP CSR | bit 9 DMA busy, bit 5 ARAM-DMA interrupt flag (write 1 to clear) | C (DISC, libogc, YAGCD 6.2.8) |
 | `0xCC005012` | AR_INFO / AR_SIZE | bits 0–2 internal size code (3 = 16 MB), bits 3–5 expansion size code; DISC and GBI write 3 into bits 3–5 | C (libogc2 `__ARCheckSize`, DISC, GBI) |
 | `0xCC005020/24/28` | AR DMA MMADDR / ARADDR / CNT | the transfer itself | C |

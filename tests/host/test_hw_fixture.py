@@ -150,3 +150,89 @@ class HardwareFixtureNoGbp(unittest.TestCase):
         rows, same, diff_ = blockdiff.pair_table(b1, b2)
         self.assertEqual((len(rows), same, diff_), (32, [], ["MODE A x"]))
         self.assertTrue(all(x == 0xfc for _, _, _, _, x in rows))
+
+
+INITIRQ = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15-initirq-0001.gbpreplay")
+
+
+class HardwareFixtureInitIrq(unittest.TestCase):
+    """GBP-INIT-002 (2026-09-15, commit 4e3cb43): the physical run of the
+    first PI HSP unmask. The fixture carries the physical time base (T),
+    the interrupt-path operations as they happened (I), and a handler
+    record of zeros — the handler never ran; no interrupt is replayed."""
+
+    def lines(self):
+        return [l.rstrip("\n") for l in open(INITIRQ, encoding="utf-8")]
+
+    def test_metadata_header(self):
+        head = self.lines()[:12]
+        for expect in ("# SOURCE=physical GameCube", "# GBP_PRESENT=yes", "# TEST_ID=GBP-INIT-002",
+                       "# BUILD_ID=initirq-0001", "# COMMIT=4e3cb43",
+                       "# DOL_SHA256=1bd2bcf3f361e6482c888a523d45ea2fa2dc073f41918ebfab7803b1177343f2",
+                       "# LOG_SHA256=e7ec3d83212fb183d8209452e2ce46cf391a696ff8a41720fd9f7701dbf1ea1d",
+                       "# LOG_SIZE=6585"):
+            self.assertIn(expect, head)
+
+    def test_interrupt_path_as_it_happened(self):
+        ls = self.lines()
+        ops = [l for l in ls if l and not l.startswith("#")]
+        self.assertEqual([l for l in ops if l.startswith("I ")],
+                         ["I i null", "I u 0 0 0 00000000 00000000 00000000 00000000 00000000 00000000", "I m", "I m", "I r"])
+        self.assertNotIn("P a 00002000", ops)                       # no main-loop acknowledge was needed
+        pi = [l for l in ops if l.startswith("P r ")]
+        self.assertEqual(pi.count("P r 00010000 000021fa"), 1)      # INTMR bit 13 = 1 exactly once: after __UnmaskIrq
+        self.assertEqual(pi.count("P r 00010000 000001fa"), len(pi) - 1)
+        self.assertTrue(all(l.startswith("P r 00010000 ") for l in pi))   # INTSR bit 13 never set
+        # order: install < CONTROL write < unmask < mask; restore after the last mask, AR_INFO restore after it
+        i = {k: ops.index(k) for k in ("I i null", "I m", "I r")}
+        unmask = next(n for n, l in enumerate(ops) if l.startswith("I u "))
+        ctlw = [n for n, l in enumerate(ops) if l == "W 01400000 ok"]
+        self.assertLess(i["I i null"], ctlw[0])
+        self.assertLess(ctlw[0], unmask)
+        self.assertLess(unmask, i["I m"])
+        last_mask = max(n for n, l in enumerate(ops) if l == "I m")
+        self.assertLess(last_mask, i["I r"])
+        self.assertLess(i["I r"], ops.index("A w 0043"))
+        self.assertLess(ctlw[1], i["I r"])                          # CONTROL restored before the handler is removed
+
+    def test_timeline(self):
+        ts = [int(l.split()[1]) for l in self.lines() if l.startswith("T ")]
+        self.assertEqual(len(ts), 10)
+        self.assertEqual(ts, sorted(ts))
+        self.assertIn(3267405264, ts)                                # t_unmask
+        self.assertEqual(ts.count(3267405264 + 81000012), 2)         # loop exit and t_wait_end: 2.0000003 s at 40.5 MHz
+        self.assertAlmostEqual(81000012 / 40.5e6, 2.0, places=5)
+
+    def test_irq_block_8aae_to_8fae_verbatim(self):
+        rs = [d for a, rc, d in reads(INITIRQ) if a == 0x01d00000]
+        self.assertEqual(len(rs), 5)                                 # S0..S4
+        s1, s2, s3, s4 = rs[1], rs[2], rs[3], rs[4]
+        self.assertEqual(rs[0], s1)
+        self.assertEqual(s1.hex(), "9b8aaeae" + "8a8aaeae" * 7)
+        self.assertEqual(s2.hex(), "9f8fafae" + "8f8fafae" * 7)
+        self.assertEqual(s3, s2)                                     # persists after the CONTROL restore
+        self.assertEqual(s4.hex(), "91" + "90" * 31)                 # expansion code 0 view
+        changed = [k for k in range(32) if s1[k] != s2[k]]
+        self.assertEqual(len(changed), 24)
+        self.assertEqual([k for k in range(32) if s1[k] == s2[k]], [k for k in range(3, 32, 4)])
+        for k in range(1, 8):
+            self.assertEqual([s1[4 * k + j] ^ s2[4 * k + j] for j in range(4)], [0x05, 0x05, 0x01, 0x00])
+        for b, disc, gbi in ((s1, 0x8aae, 0x8aae), (s2, 0x8fae, 0x8fae)):
+            self.assertEqual((b[0x1D] << 8) | b[0x1F], disc)
+            hi = blockdiff.majority_byte(bytes(b[4 * k + 1] for k in range(8)))
+            lo = blockdiff.majority_byte(bytes(b[4 * k + 3] for k in range(8)))
+            self.assertEqual((hi << 8) | lo, gbi)
+        self.assertEqual(0x8aae ^ 0x8fae, 0x0500)
+
+    def test_control_stable_across_the_window(self):
+        cs = [d for a, rc, d in reads(INITIRQ) if a == 0x01400000]
+        self.assertEqual([c.hex()[:4] for c in cs], ["9190", "9d8c", "9d8c", "9190", "1100"])
+        self.assertEqual(cs[1], cs[2])                               # S1 == S2: CONTROL unchanged while IRQ changed
+        for c, sem in zip(cs, (0x90, 0x8c, 0x8c, 0x90, 0x00)):
+            self.assertEqual(c[31], sem)
+            self.assertTrue(all(x == sem for x in c[1:]))
+
+    def test_test_handshake_byte0_extras(self):
+        rs = [d for a, rc, d in reads(INITIRQ) if a == 0x01000000]
+        self.assertEqual([r[0] for r in rs[:4]], [0x3d, 0xd3, 0x11, 0xff])
+        self.assertEqual([r[1] for r in rs[:4]], [0x3c, 0xc3, 0x00, 0xff])

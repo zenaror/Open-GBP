@@ -84,14 +84,22 @@ DISC (0x8008bf84 "start", then 0x8008c26c "run"):
 10. prime the VIDEO ring (dummy first block with the frame-start flag) and the AUDIO ring
 ```
 
-GBI (worker thread 0x8000bf30):
+GBI (worker thread 0x8000bf30; corrected 2026-09-15, GBP-IRQ-004):
 
 ```text
+ 0. the thread's semaphore is created with LWP_SemInit(&sem, 1, 1)   (0x800113a0, inside the GBP init 0x8001123c)
  1. write KEYPAD := 0
  2. read CONTROL
  3. write CONTROL := (read & 0xE7) | 0x0C          (set 0x04|0x08, clear 0x10 and 0x08's old state)
  4. IRQ_Request(26, handler); __UnmaskIrq(0x20)        (handler first; PI HSP was masked during steps 1–3)
+ 5. LWP_SemWait(sem) returns at once (count 1 → 0): the FIRST pass of the service loop (§4) runs
+    before any interrupt — read IRQ, dispatch on its bits, write KEYPAD + IRQ := read | 0x8000
+    (64 bytes at base+0xCFFFE0), read CONTROL + SIOCTL, write IRQ := 0 (32 bytes at base+0xD00000)
+ 6. only then LWP_SemWait blocks until the raw handler posts the semaphore
 ```
+
+Steps 5–6 are GBI's programming of the GBP IRQ register; GBP-INIT-002
+reproduced steps 2–4 and left the register untouched (§10).
 
 Dolphin resets the emulated GBA when bits 0x04|0x08 go from 0 to non-0.
 Status **C** for the bit usage; the physical meaning of 0x04/0x08 (Dolphin
@@ -137,8 +145,10 @@ GBI raw handler 0x8000b400 (four instructions):
  3. return                                        (no mask change, no DMA)
 ```
 
-GBI thread loop 0x8000bf30 (runs later, at thread priority, with PI HSP
-still enabled; the wait has no timeout argument):
+GBI thread loop 0x8000bf30 (the first pass runs before any interrupt
+because the semaphore starts at 1; every later pass blocks in
+`LWP_SemWait` — no timeout — until the raw handler posts; PI HSP stays
+enabled throughout):
 
 ```text
  1. read IRQ (32 bytes at base+0xD00000) → pending = vote(bytes ≡1 mod 4) << 8 | vote(bytes ≡3 mod 4)
@@ -321,11 +331,12 @@ GBP the gate stopped the probe (`C1`×32, ABSENT). The next GBI
 operations (`IRQ_Request(26)`, `__UnmaskIrq(0x20)`) have not been
 reproduced.
 
-Next step: GBP-INIT-002 (HARDWARE_TESTS.md; implemented as
-`poc/gbp-init-irq-probe`, build `initirq-0001`, not yet physically
-executed) — the first unmask of PI HSP, performed only **after** this
-transform, with a one-shot self-masking handler; the idle-unmask variant
-(DEVLOG "Option D") was rejected on 2026-09-15.
+GBP-INIT-002 (`poc/gbp-init-irq-probe`, build `initirq-0001`, executed
+2026-09-15) added the first unmask of PI HSP after this transform, with
+a one-shot self-masking handler and the GBP IRQ register read-only: no
+IRQ 26 in 2 s, INTMR bit 13 physically toggled, IRQ register `0x8AAE →
+0x8FAE` — see §10. The idle-unmask variant (DEVLOG "Option D") was
+rejected on 2026-09-15.
 
 ## 9. Rules for servicing the HSP interrupt in Open-GBP (from the 2026-09-15 audit)
 
@@ -340,7 +351,7 @@ is answered.
 | R3 | In an experimental handler, re-mask IRQ 26 (`__MaskIrq`) **before** relying on the INTSR acknowledge; treat INTSR after the W1C as an observation, not as the exit condition | GBP-PI-003, U-GBP-022 | binding |
 | R4 | The PI acknowledge is `INTSR := 0x2000` (W1C); it has precedent in both references and is CORROBORATED, not a physical FACT | GBP-PI-002 | C |
 | R5 | In the first interrupt experiment the unmask happens only **after** the validated CONTROL transform; no idle unmask (decision 2026-09-15) | DEVLOG 2026-09-15 | decision |
-| R6 | The GBP IRQ register is read-only until a device-side acknowledge is authorized separately; neither reference's stop path depends on a prior device-side ack (both mask PI and set CONTROL 0x10) | GBP-IRQ-002/003, §6 | decision |
+| R6 | The GBP IRQ register is read-only until a device-side write is authorized separately; neither reference's stop path depends on a prior device-side ack (both mask PI and set CONTROL 0x10). GBP-INIT-002 showed that leaving the register at its idle value (bit 15 + all odd bits set) also leaves the device's own masks in place: both references write it before waiting (§10), so the next experiment needs an authorized write | GBP-IRQ-002/003/004/005, §6, §10 | decision |
 | R7 | Teardown order (idempotent, identical on abort): mask IRQ 26 → CONTROL original → observe PI → INTSR W1C only if bit 13 is set → previous handler back (`IRQ_Request(26, old)`) → original mask state → AR_INFO → final snapshot | Disc stop (mask first, ack last) + GBI exit (mask, free, CONTROL) | decision |
 | R8 | A handler does no DMA, no filesystem, no formatting, no allocation, no blocking call; it shares 32-bit `volatile` fields with the main loop, which copies them only after IRQ 26 is masked again | libogc2 handler context (EE = 0, interrupt stack) | decision |
 
@@ -350,3 +361,45 @@ Implementation of these rules for GBP-INIT-002: `src/gbp/gbp_irq_oneshot.h`
 `__MaskIrq`/`__UnmaskIrq`), `src/gbp/gbp_init_irq_probe.c` (sequence and
 teardown), `tests/mocks/gbp_mock.c` (order/invariant detector),
 `tools/isr_audit.py` (static audit of the linked handler).
+
+## 10. GBP-INIT-002 result and the IRQ-register model (2026-09-15)
+
+Physical facts (GBP-HW-021…026, log verbatim in HARDWARE_TESTS.md): with
+the GBP present, no cartridge, expansion code 3, CONTROL `0x90 → 0x8C`
+(GBI transform), a one-shot handler installed and PI HSP unmasked —
+`__UnmaskIrq(IM_PI_HSP)` set INTMR bit 13 and `__MaskIrq` cleared it
+(**F**) — no IRQ 26 arrived within 2000 ms and INTSR bit 13 never read 1;
+during the window the GBP IRQ register went from `0x8AAE` to `0x8FAE`
+(source bits 0x0400 and 0x0100 set; odd bits and bit 15 unchanged) while
+CONTROL stayed `0x8C`; `0x8FAE` persisted after CONTROL went back to
+`0x90`; under expansion code 0 the view was `00` / `9090` again; every
+restore succeeded. The timeout is an operational bound: "no IRQ 26
+within 2 s", nothing more.
+
+Model of the 16-bit IRQ register that fits the references and the
+hardware (status per element):
+
+| Element | References | Hardware 2026-09-15 | Status |
+|---|---|---|---|
+| Even bits = sources | GBI dispatches on 0x0400 → AUDIO read 0x1000, 0x0100 → VIDEO read 0xF00, 0x0040 → SIODATA read, 0x0010 → KEYPAD writes; Disc slots {0x0001, 0x0040, 0x0010, 0x0004, 0x0400, 0x0100}, slot 4 → AUDIO read (`0x8008a764`), slot 5 → VIDEO read (`0x8008a480`) | 0x0400 and 0x0100 became set within 2 s of powering the AGB (CONTROL 0x0C set) | source bit → driver action: **F** (code); "audio/video streams of the AGB": **H** |
+| Odd bits = paired masks (bit i+1 masks bit i) | Disc tables {…} / {0x0002, 0x0080, 0x0020, 0x0008, 0x0800, 0x0200}; handler filter `pending & ~(pending >> 1)`; start writes 1 for slots without a callback, 0 for slots with one | idle 0x0AAA all set; sources pending under set masks → no PI IRQ | pairing **C**; polarity 1 = masked **H** |
+| Bit 15 | Disc: set at handler entry / stop, cleared at exit / DMA done; GBI: set after reading, cleared by `IRQ := 0` | idle 1, unchanged during the run | global mask/service flag **H** (U-GBP-007) |
+| Write semantics | Disc writes full 16-bit words (masks as levels, pending sources written back as 1); GBI writes `read \| 0x8000` then `0`; Dolphin clears the bits written | not tested (register read-only so far) | **U** (even bits W1C **C**; odd bits/bit 15 level **H**) |
+
+What both references do before waiting for an interrupt, and what
+GBP-INIT-002 omitted:
+
+```text
+Disc  start:  OSUnmaskInterrupts(0x20) → IRQ := (read & ~(0x8000 | odd bits of serviced slots)) | (odd bits of unserviced slots)
+              → CONTROL |0x04 → CONTROL &~0x10           from 0x8AAE with all six slots serviced: IRQ := 0x0004
+GBI   start:  KEYPAD := 0 → CONTROL (v&~0x18)|0x0C → IRQ_Request → __UnmaskIrq → first pass: IRQ := read|0x8000 (with KEYPAD) … IRQ := 0
+GBP-INIT-002: CONTROL (v&~0x10)|0x0C → IRQ_Request → __UnmaskIrq → (IRQ register never written) → no IRQ 26 in 2 s
+```
+
+Consequences for an implementation: R6 stands (no IRQ-register write
+without authorization), but the next initialization step is exactly
+such a write; the candidate operations, their risk and the recommended
+order are compared in DEVLOG 2026-09-15 ("GBP-INIT-002 executed"). The
+read layout in the 0x8FAE state is `hh hh ll' ll` with `ll' = ll | 0x01`
+at offsets ≡ 2 mod 4 (U-GBP-025): keep reading offsets ≡ 1 / ≡ 3 mod 4
+as both references do.

@@ -143,10 +143,13 @@ def snapshots_from_log(path):
         f = r["fields"]
         if r["kind"] == "SNAP":
             cur = {"id": f["tag"], "ticks": int(f["ticks"]), "since_write": int(f["since_write"]),
-                   "intsr": None, "intmr": None, "blocks": {}}
+                   "since_unmask": int(f.get("since_unmask", "0")),
+                   "intsr": None, "intmr": None, "intsr2": None, "intmr2": None, "blocks": {}}
             snaps.append(cur)
-        elif r["kind"] == "PI" and cur and r.get("tag") == cur["id"] and "intsr" in f:
+        elif r["kind"] == "PI" and cur and "intsr" in f and (r.get("tag") == cur["id"] or f.get("tag") == cur["id"]):
             cur["intsr"], cur["intmr"] = int(f["intsr"], 16), int(f["intmr"], 16)
+        elif r["kind"] == "PI" and cur and "intsr" in f and f.get("tag") == cur["id"] + "b":
+            cur["intsr2"], cur["intmr2"] = int(f["intsr"], 16), int(f["intmr"], 16)   # second sample (S2b)
         elif r["kind"] == "RAW" and cur and r.get("tag") == cur["id"] and f.get("data_bytes"):
             cur["blocks"][f["idx"]] = (f["data_bytes"], f)
     return snaps

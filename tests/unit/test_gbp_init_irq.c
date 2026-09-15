@@ -608,6 +608,106 @@ static void test_hw_nogbp_fixture(const char *path)
     free(text);
 }
 
+/* Physical run GBP-INIT-002 (2026-09-15, commit 4e3cb43, log sha256 e7ec3d83…ea1d):
+ * the complete run replays through the probe with the physical time base
+ * (T lines) and the interrupt path as it happened — handler installed,
+ * INTMR bit 13 physically 0x1FA → 0x21FA → 0x1FA, no handler entry, timeout
+ * after 81000012 ticks, IRQ block 0x8AAE → 0x8FAE while CONTROL stayed 0x8C,
+ * 0x8FAE persisting after the CONTROL restore, S4 under the original AR_INFO
+ * reading 00 / 9090, every restore ok. Nothing synthetic: the "I u" record
+ * of the fixture is all zeros because the handler never ran. */
+static void test_hw_initirq_gbp(const char *path)
+{
+    char *text = read_file(path);
+    struct gbp_replay r; struct gbp_transport t; struct gbp_initirq_config cfg;
+    struct gbp_initirq_result res; struct ringlog rl;
+    unsigned k, ops = 0, changed = 0;
+    const char *p;
+    if (!text) { fprintf(stderr, "cannot read %s\n", path); failures++; return; }
+    for (p = text; *p; ) {                      /* number of operations in the script */
+        while (*p == ' ') p++;
+        if (*p != '#' && *p != '\n' && *p != '\0') ops++;
+        p = strchr(p, '\n'); if (!p) break; p++;
+    }
+    gbp_replay_init(&r, text);
+    CHECK(r.has_irq_ops == 1 && r.timeline == 1);
+    gbp_replay_transport(&r, &t);
+    CHECK(gbp_transport_has_irq_path(&t) == 1);
+    gbp_initirq_config_default(&cfg);           /* T_MAX 2000 ms = 81000000 ticks at 40.5 MHz, as on the console */
+    CHECK(cfg.t_max_ticks == 81000000u && cfg.tb_hz == 40500000u);
+    ringlog_init(&rl, storage, LINE_LEN, LINES);
+    CHECK(gbp_initirq_probe_run(&t, &rl, &cfg, &res) == 0);
+    /* result */
+    CHECK(res.status == GBP_INITIRQ_TIMEOUT_NO_IRQ_OBSERVED && strcmp(res.reason, "no_irq26_within_t_max") == 0);
+    CHECK(res.restore_ok == 1 && res.errors == 0 && res.transport_ok == 1);
+    CHECK(res.det.verdict == GBP_VERDICT_PRESENT && res.det.run == 4 && res.det.transport_ok == 4 &&
+          res.det.vote_ok == 4 && res.det.b1_ok == 4 && res.det.all32_ok == 1);
+    CHECK(res.arinfo_orig == 0x0043 && res.arinfo_exp == 0x005b && res.arinfo_final == 0x0043 && res.arinfo_restored == 1);
+    CHECK(res.intsr_pre == 0x00010000 && res.intmr_pre == 0x000001fa);
+    /* S0: physical bytes */
+    CHECK(res.snap[0].ticks == 3267396886u);
+    CHECK(res.snap[0].control[0] == 0x91 && res.snap[0].control_vote == 0x90 && res.snap[0].control_b1f == 0x90);
+    for (k = 1; k < GBP_BLOCK_SIZE; k++) CHECK(res.snap[0].control[k] == 0x90);
+    CHECK(res.snap[0].irq[0] == 0x9b && res.snap[0].irq_disc == 0x8aae && res.snap[0].irq_gbi == 0x8aae);
+    CHECK(res.snap[0].has_test && res.snap[0].test[0] == 0x11 && res.snap[0].test[1] == 0x00 && res.snap[0].test[31] == 0x00);
+    CHECK(res.control_orig == 0x90 && res.control_exp == 0x8c && res.write_raw[0] == 0x8c && res.write_raw[31] == 0x8c);
+    /* handler installed with a NULL previous handler, restored at the end */
+    CHECK(res.old_handler_null == 1 && res.handler_restored == 1 && res.handler_installed == 0);
+    /* S1: still masked, CONTROL 0x8C, IRQ unchanged */
+    CHECK(res.snap[1].since_write == 124u && (res.snap[1].intmr & GBP_PI_HSP_BIT) == 0 && res.snap[1].intmr == 0x000001fa);
+    CHECK(res.snap[1].control_vote == 0x8c && res.snap[1].control[0] == 0x9d && res.snap[1].irq_disc == 0x8aae && res.snap[1].irq[0] == 0x9b);
+    /* the physical unmask: INTMR bit 13 0 → 1 through __UnmaskIrq, 33 ticks later still no cause */
+    CHECK(res.intmr_pre_unmask == 0x000001fa && res.intsr_pre_unmask == 0x00010000);
+    CHECK(res.t_unmask == 3267405264u && res.t_post_unmask == 3267405297u);
+    CHECK(res.intmr_post_unmask == 0x000021fa && res.intsr_post_unmask == 0x00010000 && res.unmask_rc == GBP_OK);
+    /* the wait: no handler entry, operational timeout after 81000012 ticks (2.0000003 s) */
+    CHECK(res.fired == 0 && res.rec.count == 0 && res.rec.t_entry == 0 && res.timed_out == 1);
+    CHECK(res.wait_ticks == 81000012u && res.polls == 1 && res.latency_ticks == 0 && res.unexpected_reentry == 0);
+    CHECK(res.rec.intsr_before_ack == 0 && res.rec.intmr_at_entry == 0 && res.rec.intsr_after_ack == 0 && res.rec.intmr_after_mask == 0);
+    /* S2 (masked again): INTMR back to 0x1FA in both samples, CONTROL still 0x8C, IRQ now 0x8FAE */
+    CHECK(res.mask_rc == GBP_OK && res.irq_masked_again == 1);
+    CHECK(res.snap[2].since_unmask == 81001422u && res.snap[2].since_write == 81004361u);
+    CHECK(res.snap[2].intsr == 0x00010000 && res.snap[2].intmr == 0x000001fa && res.snap[2].pi2_ok &&
+          res.snap[2].intsr2 == 0x00010000 && res.snap[2].intmr2 == 0x000001fa);
+    CHECK(res.snap[2].control_vote == 0x8c && res.snap[2].control[0] == 0x9d && memcmp(res.snap[2].control, res.snap[1].control, GBP_BLOCK_SIZE) == 0);
+    CHECK(res.snap[2].irq_disc == 0x8fae && res.snap[2].irq_gbi == 0x8fae && res.snap[2].irq[0] == 0x9f);
+    for (k = 1; k < 8; k++) {
+        CHECK(res.snap[2].irq[4 * k] == 0x8f && res.snap[2].irq[4 * k + 1] == 0x8f &&
+              res.snap[2].irq[4 * k + 2] == 0xaf && res.snap[2].irq[4 * k + 3] == 0xae);
+    }
+    CHECK(res.snap[2].irq[1] == 0x8f && res.snap[2].irq[2] == 0xaf && res.snap[2].irq[3] == 0xae);
+    for (k = 0; k < GBP_BLOCK_SIZE; k++) {
+        if (res.snap[1].irq[k] != res.snap[2].irq[k]) changed++;
+        if ((k & 3u) == 3u) CHECK(res.snap[1].irq[k] == res.snap[2].irq[k]);   /* offsets ≡ 3 mod 4 unchanged */
+    }
+    CHECK(changed == 24);
+    CHECK((res.snap[2].irq_disc ^ res.snap[1].irq_disc) == 0x0500);
+    /* teardown: CONTROL restored to 0x90, IRQ block still 0x8FAE, no cleanup needed, mask verified */
+    CHECK(res.restore_raw[0] == 0x90 && res.restore_raw[31] == 0x90 && res.control_restored == 1);
+    CHECK(res.snap[3].since_unmask == 81007648u && res.snap[3].control_vote == 0x90 && res.snap[3].control[0] == 0x91);
+    CHECK(res.snap[3].irq_disc == 0x8fae && res.snap[3].irq_gbi == 0x8fae && memcmp(res.snap[3].irq, res.snap[2].irq, GBP_BLOCK_SIZE) == 0);
+    CHECK(res.cleanup_ack_performed == 0 && res.pi_ack_performed == 0 && res.cleanup_intsr_before == 0x00010000);
+    CHECK(res.mask_ok == 1 && res.intmr_final == 0x000001fa);
+    /* S4 under the original AR_INFO (expansion code 0): the MODE A view again */
+    CHECK(res.snap[4].since_unmask == 81013634u && res.snap[4].intmr == 0x000001fa && res.snap[4].intsr == 0x00010000);
+    CHECK(res.snap[4].control_vote == 0x00 && res.snap[4].control[0] == 0x11 && res.snap[4].irq_disc == 0x9090 &&
+          res.snap[4].irq_gbi == 0x9090 && res.snap[4].irq[0] == 0x91);
+    /* the replay consumed every line, matched every time-base read, invented nothing */
+    CHECK(r.exhausted == 0 && r.mismatches == 0 && r.tick_polls == 0 && r.step == ops);
+    CHECK(count_lines_with(&rl, "INITIRQ end status=timeout_no_irq_observed") == 1);
+    CHECK(count_lines_with(&rl, "HANDLER fired=0 count=0") == 1 && count_lines_with(&rl, "CLEANUP performed=0") == 1);
+    CHECK(count_lines_with(&rl, "IRQ restore rc=ok ok=1 old_handler=null") == 1 && count_lines_with(&rl, "MASK final intmr=000001fa intmr13=0 orig_intmr13=0 ok=1") == 1);
+    CHECK(count_lines_with(&rl, "PI tag=UNMASKPOST rc=ok intsr=00010000 intmr=000021fa intsr13=0 intmr13=1 fired=0") == 1);
+    CHECK(count_lines_with(&rl, "WAIT fired=0 timed_out=1 polls=1 wait_ticks=81000012 wait_us=2000000") == 1);
+    CHECK(rl.dropped == 0 && rl.truncated == 0);
+    {
+        char s[600];
+        gbp_initirq_summary(&res, s, sizeof s);
+        CHECK(strstr(s, "status=timeout_no_irq_observed reason=no_irq26_within_t_max restore=ok") && strstr(s, "s2_intsr13=0,0 s3_intsr13=0 cleanup=0 reentry=0"));
+    }
+    free(text);
+}
+
 int main(int argc, char **argv)
 {
     test_present_no_irq();
@@ -627,6 +727,7 @@ int main(int argc, char **argv)
     if (argc > 2) {
         test_hw_gbp_fixture_gate(argv[1]);
         test_hw_nogbp_fixture(argv[2]);
+        if (argc > 3) test_hw_initirq_gbp(argv[3]);
     } else {
         fprintf(stderr, "note: physical fixture paths not given, fixture tests skipped\n");
     }

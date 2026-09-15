@@ -50,7 +50,9 @@ register).
 | OS interrupt number | 26 in the Nintendo SDK (DISC `OSSetInterruptHandler(26, …)`, software mask `0x20`) and in libogc (`IRQ_PI_HSP = 26`, `IM_PI_HSP = 0x20`) | DISC `0x8008a930`/`0x80069ca0`, GBI `0x8000bf30`, libogc2 `irq.h`/`irq.c` |
 | Cause vs mask | INTSR shows the cause independently of INTMR; INTMR only gates the CPU exception — **C** (GBP-PI-001) | all three dispatchers test `cause & mask`; the Disc acknowledges while masked; Dolphin model |
 | Clearing INTSR | write 1 to clear — **C** (GBP-PI-002); every known INTSR write is a single-source acknowledge (2, 0x1000, 0x2000) | libogc2 `system.c`/`mmce.c`, DISC `0x8006b1d4`/`0x800a243c`/`0x8008af08`/`0x8008be04`, GBI `0x80052f04`/`0x80053eb0`/`0x8000b400`, Dolphin `cause &= ~val` |
-| Level or latched at the PI | **U** (U-GBP-022): never observed set on hardware; no reference reads INTSR | — |
+| Mask/unmask through libogc2 on hardware | `__UnmaskIrq(IM_PI_HSP)` set INTMR bit 13 (`0x1FA → 0x21FA`), `__MaskIrq` cleared it, other bits unchanged — **F** (GBP-INIT-002, 2026-09-15); not extrapolated to other PI interrupts | GBP-HW-022 |
+| Level or latched at the PI | **U** (U-GBP-022): never observed set on hardware (2 s unmasked window with the GBS-DOL's own IRQ masks left set produced no cause); no reference reads INTSR | GBP-HW-023 |
+| Device-side IRQ register | 16-bit: even bits = sources (audio 0x0400, video 0x0100, serial 0x0040, sleep 0x0010, …), odd bits = paired masks, bit 15 = global flag; idle reads 0x8AAE (all masks + bit 15 set); both references write it before waiting for interrupts (Disc: computed mask word at start; GBI: `read \| 0x8000` then `0` in an unprompted first pass) — **C** for the pairing, **H** for the polarity | GBP-IRQ-004/005, GBP-HW-024 |
 | Acknowledge order, Start-up Disc | device IRQ write (`mask \| 0x8000`) → `INTSR := 0x2000` → device IRQ read → device write-back (`pending`) → … → device re-arm (`mask`): **GBP → PI → GBP → GBP** (F, GBP-IRQ-002) | DISC `0x8008af08` |
 | Acknowledge order, GBI | `INTSR := 0x2000` in the raw handler, device write (`pending \| 0x8000`, with KEYPAD) later in a thread: **PI → GBP** (F, GBP-IRQ-003) | GBI `0x8000b400`, `0x8000bf30` |
 | Device-side gating | CONTROL bit `0x10`: set by both references at stop, cleared at start (Dolphin: `set_interrupt = !(control & 0x10) && (irq & 0x8000)`) | DISC/GBI usage, Dolphin |
@@ -60,12 +62,17 @@ register).
 The two references disagree on the order of the PI and device
 acknowledges but agree on the rest: PI is acknowledged by W1C, the
 device register is written back with the value read, CONTROL is read
-and KEYPAD written on every interrupt, and at stop PI is masked before
-the device is touched. Nothing about the physical line (level vs edge,
-assertion duration, effect of the W1C while asserted) has been
-observed; the Dolphin model (cause re-set on every device event,
-cleared on W1C) is a model. Open-GBP's handler rules are in
-`docs/protocol/INITIALIZATION.md` §9.
+and KEYPAD written on every interrupt, at stop PI is masked before the
+device is touched, and — decisively — both program the device's IRQ
+register before waiting for an interrupt. GBP-INIT-002 (2026-09-15)
+reproduced everything except that programming and saw no interrupt in
+2 s while the register showed the audio/video source bits set under
+their masks (GBP-HW-023/024). Nothing about the physical line (level vs
+edge, assertion duration, effect of the W1C while asserted) has been
+observed; the Dolphin model (cause re-set on every device event, cleared
+on W1C, masks ignored) predicted an interrupt the hardware did not
+produce. Open-GBP's handler rules are in `docs/protocol/INITIALIZATION.md`
+§9; the register model in §10.
 
 ## 3. Bandwidth and timing (orientation)
 
