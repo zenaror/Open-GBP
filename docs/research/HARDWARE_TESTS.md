@@ -604,10 +604,30 @@ attached, no cable · 1 controller · 1 Memory Card · SD2SP2 · executed as
 planned; question answered: no IRQ 26 within 2000 ms under this sequence,
 INTMR bit 13 physically toggled, IRQ block 0x8AAE → 0x8FAE (see the executed entry).
 
-### GBP-INIT-003A — GBP IRQ-register programming with PI HSP masked throughout (designed 2026-09-15; NOT implemented, NOT released)
+### GBP-INIT-003A — GBP IRQ-register programming with PI HSP masked throughout (designed 2026-09-15; IMPLEMENTED 2026-09-15; NOT PHYSICALLY EXECUTED; NOT released)
 
-Status: design consolidated (DEVLOG 2026-09-15 "GBP-INIT-003A design");
-no build, no code. The two experimental writes are literally the values
+Status: **IMPLEMENTED, NOT PHYSICALLY EXECUTED.** Code: `poc/gbp-init-irq-program-probe/`
+(Test ID `GBP-INIT-003A`, Build ID `initirqa-0001`), logic in
+`src/gbp/gbp_initirqa_probe.c`, write primitive `src/gbp/gbp_regwrite.c`
+(GBI u16-replicated layout), base backend `src/platform/hsp_backend.c`
+only (the interrupt-path object `hsp_backend_irq.c` is not linked).
+The build reviewed so far comes from a dirty tree (`commit=664f0de-dirty`)
+and is a review candidate only; the physical candidate is a clean build
+after the review and a separate clean audit, and will be recorded here
+with its SHA-256 before any hardware request. Validation without
+hardware: `tests/unit/test_gbp_initirqa.c` (synthetic source/mask model
+of the IRQ register, every abort/restore path, event order, "never"
+properties, the physical init-0001/initirq-0001 prefixes up to the first
+experimental write), `tools/poc_audit.py` on every linked object (no
+INTMR store, no `__UnmaskIrq`/`IRQ_Request`/`IRQ_Free`/handler reference,
+exactly three IRQ-register write sites), `make initirqa-dolphin` (absent →
+`abort_not_present`; GBPlayer model → `abort_control_shape`, no write),
+`tests/host/test_initirqa_replay.py` (synthetic fixture round trip; no
+physical GBP-INIT-003A fixture exists). Design unchanged from the text
+below; the implementation adds a BASE snapshot before the CONTROL write
+(the IRQ shape is checked there and again at A1PRE), an INTMR bit-13
+re-check at P0 and at A2PRE, and formats every record of the
+experimental region only after the window (`REGION formatted_inside=0`). The two experimental writes are literally the values
 of GBI's first loop pass (GBP-IRQ-004); the stop write is the Start-up
 Disc's (GBP-IRQ-002/006). GBP-INIT-003B (delivery: handler + unmask) is
 future and will be designed only after 003A's physical result.

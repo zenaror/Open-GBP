@@ -14,12 +14,16 @@
  *     stuck-busy after a timeout;
  *   - a full operation trace for assertions (what was written where);
  *   - a SYNTHETIC PI HSP interrupt path (GBP-INIT-002): mask/unmask
- *     state, cause assertion (never / at unmask / N ticks after the
- *     unmask), delivery of the one-shot handler (the same body the real
- *     backend runs, gbp_irq_oneshot.h), write-1-to-clear that does or
- *     does not clear the cause, a second delivery despite the mask, and
- *     an order/invariant checker that flags every violation instead of
- *     hiding it. None of the IRQ behavior is physical data.
+ *     state, cause assertion, delivery of the one-shot handler, etc.;
+ *   - a SYNTHETIC "SOURCE_MASK" model of the GBP IRQ register
+ *     (GBP-INIT-003A): even bits 0..10 = sources, write-1-to-clear; odd
+ *     bits 1..11 = masks, level-written; bit 15 level-written or a W1C
+ *     pending summary, per scenario; a source may (re)assert some ticks
+ *     after the Nth IRQ write; PI INTSR bit 13 is raised when a source is
+ *     pending and its local mask (and bit 15, in the level reading) are
+ *     open, whether or not INTMR enables delivery.
+ *   None of the IRQ behavior is physical data: it only exercises control
+ *   flow (docs/protocol/INITIALIZATION.md §10 keeps the classification).
  */
 #ifndef OPENGBP_GBP_MOCK_H
 #define OPENGBP_GBP_MOCK_H
@@ -56,6 +60,16 @@ enum gbp_mock_irq_mode {
     MOCK_IRQ_AFTER_TICKS = 2    /* the cause asserts irq_after_ticks after the unmask */
 };
 
+/* GBP IRQ-register model (index 0xD) */
+enum gbp_mock_irq_model {
+    MOCK_IRQ_MODEL_STATIC = 0,      /* canned irq_value / irq_block, writes ignored (GBP-INIT-001/002 tests) */
+    MOCK_IRQ_MODEL_SOURCE_MASK = 1  /* synthetic source/mask register, see above */
+};
+enum gbp_mock_bit15_mode {
+    MOCK_BIT15_LEVEL = 0,           /* bit 15 written as a level; 1 blocks every source (global mask reading) */
+    MOCK_BIT15_SUMMARY = 1          /* bit 15 = "any source pending"; W1C; never blocks (pending-summary reading) */
+};
+
 /* Invariant violations the mock detects (bit mask in `violation_mask`). */
 #define GBP_MOCK_VIOL_UNMASK_NO_HANDLER        0x01u  /* unmask with no handler installed */
 #define GBP_MOCK_VIOL_UNMASK_BEFORE_CONTROL    0x02u  /* unmask before any CONTROL write (this experiment) */
@@ -73,7 +87,7 @@ struct gbp_mock {
     int byte_doubled;           /* 1: reads return each byte twice (b0 b0 b1 b1 ...) */
     uint16_t arinfo;
     uint8_t control_byte;       /* value presented by the CONTROL block */
-    uint16_t irq_value;         /* value presented by the IRQ block */
+    uint16_t irq_value;         /* value presented by the IRQ block (STATIC model) */
     uint8_t absent_fill;        /* what a read returns when no GBP answers */
     unsigned fail_at_op;        /* 1-based transfer number that fails (0 = never) */
     gbp_status fail_rc;         /* which failure */
@@ -82,11 +96,12 @@ struct gbp_mock {
     const uint8_t *canned;      /* if set: every read returns exactly these 32 bytes */
     /* CONTROL/IRQ/TEST block models for the init probe (used when set) */
     const uint8_t *control_block;   /* exact 32 bytes returned for CONTROL reads (else control_byte fill) */
-    const uint8_t *irq_block;       /* exact 32 bytes returned for IRQ reads (else irq_value doubled) */
+    const uint8_t *irq_block;       /* exact 32 bytes returned for IRQ reads (STATIC model, else irq_value doubled) */
     int test_byte0_anomaly;         /* TEST read-back: byte 0 gets extra bit 0x40 */
     int control_writes_stick;       /* 1: a CONTROL write updates control_byte (readback follows) */
     unsigned control_write_fail_at; /* Nth CONTROL write (1-based) is ignored (readback unchanged) */
     uint8_t irq_after_write;        /* if nonzero: IRQ block becomes this byte after a CONTROL write */
+    unsigned arinfo_write_fail_at;  /* Nth AR_INFO write (1-based) returns GBP_ERR_BACKEND and is ignored */
     /* PI model */
     uint32_t intsr, intmr;
     int pi_unavailable;             /* read_pi fails */
@@ -106,6 +121,20 @@ struct gbp_mock {
     int control_mask_clears_cause;  /* a CONTROL write with bit 0x10 set deasserts the cause */
     int second_delivery;            /* one more handler entry after the first returns, despite the mask */
     unsigned max_deliveries;        /* storm cap (default 8) */
+    /* ---- GBP IRQ register model (SYNTHETIC; GBP-INIT-003A) ---- */
+    int irq_model;                  /* enum gbp_mock_irq_model */
+    int bit15_mode;                 /* enum gbp_mock_bit15_mode */
+    uint16_t irq_reg;               /* register state (SOURCE_MASK model) */
+    unsigned source_assert_after_write; /* 1-based IRQ write number after which `source_assert_bits` (re)assert; 0 = never */
+    uint32_t source_assert_delay;   /* ticks after that write */
+    uint16_t source_assert_bits;    /* even bits to set then (e.g. 0x0500) */
+    int pi_cause_level;             /* 1: INTSR bit 13 follows the device line (clears when nothing propagates); 0: latched until W1C */
+    unsigned irq_write_fail_at;     /* Nth IRQ-register write (1-based) returns GBP_ERR_TIMEOUT */
+    int irq_write_fail_applies;     /* 1: the failed write still updates the register (DMA started) */
+    int irq_byte0_anomaly;          /* IRQ reads (SOURCE_MASK): byte 0 carries extra bits, as the hardware does */
+    int intsr_w1c_ignored;          /* a main-loop INTSR W1C leaves bit 13 set (sticky-cause model) */
+    int intmr13_set_after_control_write; /* INTMR bit 13 becomes 1 right after the first CONTROL write (external unmask model) */
+    int intmr13_set_after_irq_write;     /* INTMR bit 13 becomes 1 right after the first IRQ-register write */
     /* state */
     uint8_t test_store[GBP_BLOCK_SIZE];
     unsigned transfers;         /* block transfers so far */
@@ -114,8 +143,11 @@ struct gbp_mock {
     unsigned nops;
     unsigned ops_dropped;
     unsigned control_writes;    /* CONTROL block writes seen */
+    unsigned irq_writes;        /* IRQ block writes seen */
+    unsigned arinfo_writes;
     unsigned intmr_writes;
     unsigned intsr_writes;      /* write_intsr calls (main-loop acknowledges) */
+    unsigned intsr_polls;       /* poll_intsr calls */
     uint32_t last_intsr_write;
     uint16_t arinfo_initial;    /* AR_INFO at init (for the restore-order check) */
     int handler_installed;
@@ -130,6 +162,15 @@ struct gbp_mock {
     unsigned violations;        /* count */
     unsigned violation_mask;    /* GBP_MOCK_VIOL_* bits */
     volatile struct gbp_irq_record rec;
+    uint32_t source_assert_at_tick; /* SOURCE_MASK: absolute tick of the pending (re)assertion, 0 = none */
+    int source_asserted_done;
+    uint16_t last_irq_write_value;  /* SOURCE_MASK: 16-bit value of the last IRQ write (bytes 0x1E/0x1F) */
+    int irq_present_u16;            /* STATIC: present irq_value as hh hh ll ll (set by irq_after_write) */
+    /* test hook: invoked at the entry of every write_block, before the mock
+     * decides anything — lets a test observe the caller's state at the
+     * moment the transport is invoked (not after it returned). */
+    void (*write_hook)(struct gbp_mock *m, uint32_t addr, const uint8_t data[GBP_BLOCK_SIZE], void *user);
+    void *write_hook_user;
 };
 
 void gbp_mock_init(struct gbp_mock *m);
@@ -143,6 +184,8 @@ unsigned gbp_mock_writes_outside(const struct gbp_mock *m, uint32_t base, unsign
 int gbp_mock_first_op(const struct gbp_mock *m, enum gbp_mock_op_kind kind, uint32_t base, unsigned block);
 /* Same, last occurrence. */
 int gbp_mock_last_op(const struct gbp_mock *m, enum gbp_mock_op_kind kind, uint32_t base, unsigned block);
+/* Same, Nth occurrence (1-based); -1 if fewer. */
+int gbp_mock_nth_op(const struct gbp_mock *m, enum gbp_mock_op_kind kind, uint32_t base, unsigned block, unsigned n);
 /* Number of block reads or writes (kind MOCK_RD / MOCK_WR) of block index `block`. */
 unsigned gbp_mock_count_block_ops(const struct gbp_mock *m, enum gbp_mock_op_kind kind, uint32_t base, unsigned block);
 

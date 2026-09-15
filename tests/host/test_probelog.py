@@ -104,6 +104,58 @@ class ProbeLog(unittest.TestCase):
                               "T 120",
                               "I i nonnull"])
 
+    def test_fixture_initirqa_records(self):
+        # GBP-INIT-003A records: IRQW becomes "W addr rc" + "T t_after"; CTLW with t_after likewise;
+        # the EVENT snapshot becomes "T ticks" + "P p <polled INTSR>" before its own PI read;
+        # WINDOW tag=A2 gives the t_window_end read. Nothing is emitted for the poll counters.
+        _, recs = probelog.parse_lines([
+            "000020 CTLW tag=EXP addr=01400000 semantic=8c rc=ok ticks=101 polls=1 dspcr=0020 t_after=1300 layout=gbi-replicated data=" + "8c" * 32 + "\n",
+            "000030 RAW A1PRE idx=d addr=01d00000 rc=ok ticks=102 polls=1 dspcr=0020 sem_disc=8aae sem_gbi=8aae data=" + "8a8aaeae" * 8 + "\n",
+            "000031 IRQW tag=A1 addr=01d00000 before=8aae write=8aae layout=gbi-u16-replicated rc=ok ticks=103 polls=1 dspcr=0020 t_after=1400 data=" + "8aae" * 16 + "\n",
+            "000032 SNAP tag=A1-0 ticks=1410 since_control=110 since_a1=10 since_a2=0 polls_before=0\n",
+            "000033 PI tag=A1-0 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0\n",
+            "000040 IRQW tag=A2 addr=01d00000 before=8aaa write=0000 layout=gbi-u16-replicated rc=ok ticks=104 polls=1 dspcr=0020 t_after=1600 data=" + "00" * 32 + "\n",
+            "000041 SNAP tag=EVENT ticks=1900 since_control=600 since_a1=500 since_a2=300 polls_before=30 poll_intsr=00012000\n",
+            "000042 PI tag=EVENT intsr=00012000 intmr=000001fa intsr13=1 intmr13=0\n",
+            "000043 WINDOW tag=A2 deadlines=3/6 polls=30 poll_errors=0 ended_early=1 event=1 t_event=1900 intsr13_seen=1 t_first_intsr13=1900 first_phase=A2 t_end=1910 elapsed_ticks=310 elapsed_us=7 no_timebase=0\n",
+            "000050 IRQW tag=STOP addr=01d00000 before=0100 write=8baa layout=gbi-u16-replicated rc=timeout ticks=105 polls=9 dspcr=0200 t_after=2000 data=" + "8baa" * 16 + "\n",
+        ])
+        fx = probelog.fixture(recs).splitlines()[1:]
+        self.assertEqual(fx, ["W 01400000 ok", "T 1300",
+                              "R 01d00000 ok " + "8a8aaeae" * 8,
+                              "W 01d00000 ok", "T 1400",
+                              "T 1410",
+                              "P r 00010000 000001fa",
+                              "W 01d00000 ok", "T 1600",
+                              "T 1900", "P p 00012000",
+                              "P r 00012000 000001fa",
+                              "T 1910",
+                              "W 01d00000 timeout", "T 2000"])
+
+    def test_fixture_cleanup_ack_between_the_two_pi_reads(self):
+        # The probe reads PI (CLEANUPCHK), writes INTSR once, re-reads PI (CLEANUP),
+        # and only then logs the CLEANUP record: the "P a" line must sit between the
+        # two "P r" lines, and must not be emitted twice.
+        _, recs = probelog.parse_lines([
+            "000060 PI tag=CLEANUPCHK intsr=00012000 intmr=000001fa intsr13=1 intmr13=0\n",
+            "000061 PI tag=CLEANUP intsr=00010000 intmr=000001fa intsr13=0 intmr13=0\n",
+            "000062 CLEANUP performed=1 value=00002000 rc=ok intsr_before=00012000 intsr_after=00010000 intsr13_after=0 sticky=0 ok=1\n",
+        ])
+        self.assertEqual(probelog.fixture(recs).splitlines()[1:],
+                         ["P r 00012000 000001fa", "P a 00002000", "P r 00010000 000001fa"])
+        _, recs = probelog.parse_lines([
+            "000060 PI tag=CLEANUPCHK intsr=00010000 intmr=000001fa intsr13=0 intmr13=0\n",
+            "000062 CLEANUP performed=0 intsr=00010000 intsr13=0 intmr13=0 reason=intsr13_clear\n",
+        ])
+        self.assertEqual(probelog.fixture(recs).splitlines()[1:], ["P r 00010000 000001fa"])
+
+    def test_fixture_note_marks_synthetic_scripts(self):
+        fx = probelog.fixture(self.records, note="SYNTHETIC: host mock, not physical data").splitlines()
+        self.assertEqual(fx[1], "# SYNTHETIC: host mock, not physical data")
+        self.assertEqual(fx[2], "A r 0043")
+        fx = probelog.fixture(self.records, note=["a", "b"]).splitlines()
+        self.assertEqual(fx[1:3], ["# a", "# b"])
+
     def test_check(self):
         findings, anomalies = probelog.check(self.header, self.records)
         self.assertEqual(anomalies, 1)              # the timed-out RAW
@@ -116,6 +168,9 @@ class ProbeLog(unittest.TestCase):
             f.write(LOG)
         self.assertEqual(probelog.main(["fixture", p, os.path.join(d, "x.gbpreplay")]), 0)
         self.assertTrue(os.path.getsize(os.path.join(d, "x.gbpreplay")) > 0)
+        self.assertEqual(probelog.main(["fixture", p, os.path.join(d, "y.gbpreplay"), "--note", "SYNTHETIC test"]), 0)
+        with open(os.path.join(d, "y.gbpreplay")) as f:
+            self.assertEqual(f.read().splitlines()[1], "# SYNTHETIC test")
         self.assertEqual(probelog.main(["check", p]), 1)
 
 

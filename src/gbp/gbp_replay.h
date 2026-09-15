@@ -11,6 +11,9 @@
  *   P r <hex32 intsr> <hex32 intmr>   read_pi -> values
  *   P w <hex32 intmr>             write_intmr -> expected value (mismatch = GBP_ERR_BACKEND)
  *   P a <hex32 value>             write_intsr (W1C acknowledge) -> expected value
+ *   P p <hex32 intsr>             optional: the next poll_intsr returns this value; a
+ *                                 poll_intsr call with no such line pending returns the
+ *                                 INTSR of the last "P r"/"P p" line and consumes nothing
  *   T <ticks>                     next ticks() call returns this value (physical time base);
  *                                 ticks() calls not matched by a T line return the last
  *                                 value + 1 ("timeline mode", enabled by the first T line)
@@ -55,6 +58,8 @@ struct gbp_replay {
     int timeline;         /* script contains "T " lines: ticks() follows them */
     uint32_t last_ticks;  /* last value delivered by ticks() in timeline mode */
     unsigned tick_polls;  /* ticks() calls answered without a T line (timeline mode) */
+    uint32_t poll_increment; /* ticks() advance per unmatched call in timeline mode (default 1) */
+    uint32_t last_intsr;  /* INTSR of the last "P r" / "P p" line, for poll_intsr */
     int handler_installed;
     struct gbp_irq_record rec;   /* handler record after "I u" */
 };

@@ -138,6 +138,7 @@ static gbp_status r_read_pi(void *ctx, uint32_t *intsr, uint32_t *intmr)
     if (line[0] != 'P' || line[2] != 'r') { r->mismatches++; return GBP_ERR_BACKEND; }
     *intsr = (uint32_t)strtoul(line + 4, &end, 16);
     *intmr = (uint32_t)strtoul(end, 0, 16);
+    r->last_intsr = *intsr;
     return GBP_OK;
 }
 
@@ -175,8 +176,21 @@ static uint32_t r_ticks(void *ctx)
         return r->last_ticks;
     }
     r->tick_polls++;
-    r->last_ticks += 1u;
+    r->last_ticks += r->poll_increment ? r->poll_increment : 1u;
     return r->last_ticks;
+}
+
+static gbp_status r_poll_intsr(void *ctx, uint32_t *intsr)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    if (peek_line(r, line, sizeof line) && line[0] == 'P' && line[2] == 'p') {
+        next_line(r, line, sizeof line);
+        r->step++;
+        r->last_intsr = (uint32_t)strtoul(line + 4, 0, 16);
+    }
+    *intsr = r->last_intsr;
+    return GBP_OK;
 }
 
 /* ---- interrupt path (only when the script carries "I " lines) ---- */
@@ -280,6 +294,7 @@ void gbp_replay_transport(struct gbp_replay *r, struct gbp_transport *t)
      * operations, and none may be invented (docs/research/DEVLOG.md
      * 2026-09-15). A probe that needs it stops at its handler-install step. */
     t->write_intsr = r_write_intsr;
+    t->poll_intsr = r_poll_intsr;
     if (r->has_irq_ops) {
         t->irq_install = r_irq_install;
         t->irq_restore = r_irq_restore;

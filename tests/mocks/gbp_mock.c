@@ -20,6 +20,11 @@ static void prim_write_intsr(uint32_t v);
 #define GBP_IRQ_PRIM_WRITE_INTSR(v) prim_write_intsr(v)
 #include "../../src/gbp/gbp_irq_oneshot.h"
 
+#define SOURCE_BITS 0x0555u
+#define MASK_BITS   0x0AAAu
+#define HIGH_BITS   0x7000u
+#define BIT15       0x8000u
+
 static void record_ev(struct gbp_mock *m, enum gbp_mock_op_kind kind, uint32_t addr, uint16_t value,
                       const uint8_t *data, gbp_status rc);
 static void violation(struct gbp_mock *m, unsigned bit);
@@ -41,6 +46,9 @@ void gbp_mock_init(struct gbp_mock *m)
     m->irq_ops_available = 1;
     m->irq_mode = MOCK_IRQ_NONE;
     m->max_deliveries = 8;
+    m->irq_model = MOCK_IRQ_MODEL_STATIC;
+    m->bit15_mode = MOCK_BIT15_LEVEL;
+    m->irq_reg = 0x8AAE;          /* physical idle value (SOURCE_MASK model only) */
     memset(m->test_store, 0xFF, sizeof m->test_store); /* ~0x00 initial */
 }
 
@@ -65,7 +73,50 @@ static void violation(struct gbp_mock *m, unsigned bit)
     m->violation_mask |= bit;
 }
 
-/* ---- PI HSP interrupt model ------------------------------------------ */
+/* ---- GBP IRQ register model (SOURCE_MASK) ---------------------------- */
+
+/* Does the device line reach the PI cause bit under the synthetic model? */
+static int device_line(const struct gbp_mock *m)
+{
+    unsigned i;
+    if (m->bit15_mode == MOCK_BIT15_LEVEL && (m->irq_reg & BIT15)) return 0;   /* global hold */
+    for (i = 0; i <= 10; i += 2) {
+        if ((m->irq_reg & (1u << i)) && !(m->irq_reg & (1u << (i + 1)))) return 1;  /* source pending, mask open */
+    }
+    return 0;
+}
+
+static void reg_after_change(struct gbp_mock *m)
+{
+    if (m->bit15_mode == MOCK_BIT15_SUMMARY) {
+        if (m->irq_reg & SOURCE_BITS) m->irq_reg |= BIT15; else m->irq_reg &= (uint16_t)~BIT15;
+    }
+    if (device_line(m)) m->intsr |= GBP_PI_HSP_BIT;                   /* visible whether or not INTMR enables it */
+    else if (m->pi_cause_level) m->intsr &= ~GBP_PI_HSP_BIT;          /* level reading: follows the line */
+}
+
+static void reg_write(struct gbp_mock *m, uint16_t v)
+{
+    m->last_irq_write_value = v;
+    m->irq_reg &= (uint16_t)~(v & SOURCE_BITS);                        /* sources: write-1-to-clear */
+    m->irq_reg = (uint16_t)((m->irq_reg & ~MASK_BITS) | (v & MASK_BITS)); /* masks: level */
+    m->irq_reg = (uint16_t)((m->irq_reg & ~HIGH_BITS) | (v & HIGH_BITS)); /* bits 12-14: level (unused) */
+    if (m->bit15_mode == MOCK_BIT15_LEVEL) m->irq_reg = (uint16_t)((m->irq_reg & ~BIT15) | (v & BIT15));
+    else if (v & BIT15) m->irq_reg &= (uint16_t)~BIT15;                /* summary: W1C, recomputed below */
+    reg_after_change(m);
+}
+
+static void source_step(struct gbp_mock *m)
+{
+    if (m->irq_model != MOCK_IRQ_MODEL_SOURCE_MASK) return;
+    if (m->source_assert_at_tick && !m->source_asserted_done && (int32_t)(m->tick - m->source_assert_at_tick) >= 0) {   /* wrap-safe */
+        m->source_asserted_done = 1;
+        m->irq_reg |= (uint16_t)(m->source_assert_bits & SOURCE_BITS);
+        reg_after_change(m);
+    }
+}
+
+/* ---- PI HSP interrupt model (delivery) ------------------------------- */
 
 static void mask_core(struct gbp_mock *m)
 {
@@ -78,6 +129,8 @@ static void w1c_core(struct gbp_mock *m, uint32_t v)
     /* Level model: while the device still asserts, bit 13 cannot be
      * cleared by the W1C (synthetic; U-GBP-022 is open). */
     if (m->intsr_sticky_after_w1c && m->cause_asserted) clear &= ~GBP_PI_HSP_BIT;
+    if (m->irq_model == MOCK_IRQ_MODEL_SOURCE_MASK && m->pi_cause_level && device_line(m)) clear &= ~GBP_PI_HSP_BIT;
+    if (m->intsr_w1c_ignored) clear &= ~GBP_PI_HSP_BIT;
     m->intsr &= ~clear;
 }
 
@@ -121,6 +174,7 @@ static void irq_step(struct gbp_mock *m)
 {
     unsigned guard = 0;
     if (m->in_isr) return;
+    source_step(m);
     if (m->irq_mode == MOCK_IRQ_AFTER_TICKS && m->unmasked_once && !m->cause_asserted &&
         (uint32_t)(m->tick - m->unmask_tick) >= m->irq_after_ticks) {
         m->cause_asserted = 1;
@@ -213,6 +267,16 @@ static gbp_status m_write_intsr(void *ctx, uint32_t v)
     return GBP_OK;
 }
 
+static gbp_status m_poll_intsr(void *ctx, uint32_t *intsr)
+{
+    struct gbp_mock *m = (struct gbp_mock *)ctx;
+    if (m->pi_unavailable) return GBP_ERR_BACKEND;
+    m->intsr_polls++;
+    irq_step(m);
+    *intsr = m->intsr;
+    return GBP_OK;
+}
+
 /* ---- registers and blocks ------------------------------------------- */
 
 static gbp_status m_read_arinfo(void *ctx, uint16_t *v)
@@ -226,6 +290,11 @@ static gbp_status m_read_arinfo(void *ctx, uint16_t *v)
 static gbp_status m_write_arinfo(void *ctx, uint16_t v)
 {
     struct gbp_mock *m = (struct gbp_mock *)ctx;
+    m->arinfo_writes++;
+    if (m->arinfo_write_fail_at && m->arinfo_writes == m->arinfo_write_fail_at) {
+        record_ev(m, MOCK_AR_W, 0, v, 0, GBP_ERR_BACKEND);
+        return GBP_ERR_BACKEND;
+    }
     if (v == m->arinfo_initial && v != m->arinfo && (m->handler_installed || (m->intmr & GBP_PI_HSP_BIT)))
         violation(m, GBP_MOCK_VIOL_ARINFO_BEFORE_IRQ_DOWN);
     m->arinfo = v;
@@ -283,6 +352,18 @@ static void present_bytes(const struct gbp_mock *m, const uint8_t *logical, size
     }
 }
 
+/* Hardware-like presentation of a 16-bit register: hh hh ll ll per word. */
+static void present_u16_doubled(uint16_t v, uint8_t out[GBP_BLOCK_SIZE])
+{
+    unsigned k;
+    for (k = 0; k < GBP_BLOCK_SIZE; k += 4u) {
+        out[k] = (uint8_t)(v >> 8);
+        out[k + 1u] = (uint8_t)(v >> 8);
+        out[k + 2u] = (uint8_t)(v & 0xFFu);
+        out[k + 3u] = (uint8_t)(v & 0xFFu);
+    }
+}
+
 static gbp_status m_read_block(void *ctx, uint32_t addr, uint8_t out[GBP_BLOCK_SIZE],
                                struct gbp_xfer_info *info)
 {
@@ -320,7 +401,13 @@ static gbp_status m_read_block(void *ctx, uint32_t addr, uint8_t out[GBP_BLOCK_S
         }
         case 0xD: {
             uint8_t v[2];
+            if (m->irq_model == MOCK_IRQ_MODEL_SOURCE_MASK) {
+                present_u16_doubled(m->irq_reg, out);
+                if (m->irq_byte0_anomaly) out[0] |= 0x11;   /* byte 0 must never feed a decision */
+                break;
+            }
             if (m->irq_block) { memcpy(out, m->irq_block, GBP_BLOCK_SIZE); break; }
+            if (m->irq_present_u16) { present_u16_doubled(m->irq_value, out); break; }
             v[0] = (uint8_t)(m->irq_value >> 8);
             v[1] = (uint8_t)m->irq_value;
             present_bytes(m, v, 2, out);
@@ -341,10 +428,29 @@ static gbp_status m_write_block(void *ctx, uint32_t addr, const uint8_t in[GBP_B
     struct gbp_mock *m = (struct gbp_mock *)ctx;
     uint32_t base = gbp_internal_size_from_arinfo(m->arinfo);
     gbp_status rc;
+    if (m->write_hook) m->write_hook(m, addr, in, m->write_hook_user);
     if (m->intmr & GBP_PI_HSP_BIT) violation(m, GBP_MOCK_VIOL_DMA_WHILE_UNMASKED);
     irq_step(m);
     rc = fault(m, info);
+    if (rc == GBP_OK && answers(m) && index_of(base, addr) == 0xD && m->irq_write_fail_at &&
+        m->irq_writes + 1u == m->irq_write_fail_at) {
+        rc = GBP_ERR_TIMEOUT;                    /* injected failure of the Nth IRQ-register write */
+        if (info) info->dma_status = 0x0200;
+    }
     record_ev(m, MOCK_WR, addr, 0, in, rc);
+    if (answers(m) && index_of(base, addr) == 0xD) {
+        m->irq_writes++;
+        if (m->intmr13_set_after_irq_write && m->irq_writes == 1u) m->intmr |= GBP_PI_HSP_BIT;
+        if (m->irq_model == MOCK_IRQ_MODEL_SOURCE_MASK && (rc == GBP_OK || m->irq_write_fail_applies)) {
+            reg_write(m, (uint16_t)((in[0x1E] << 8) | in[0x1F]));
+            if (m->source_assert_after_write && m->irq_writes == m->source_assert_after_write) {
+                m->source_assert_at_tick = m->tick + m->source_assert_delay;
+                if (m->source_assert_at_tick == 0) m->source_assert_at_tick = 1;
+                m->source_asserted_done = 0;
+                source_step(m);
+            }
+        }
+    }
     if (rc != GBP_OK) return rc;
     if (answers(m) && index_of(base, addr) == 0x0) {
         size_t i;
@@ -352,10 +458,11 @@ static gbp_status m_write_block(void *ctx, uint32_t addr, const uint8_t in[GBP_B
     }
     if (answers(m) && index_of(base, addr) == 0x4) {
         m->control_writes++;
+        if (m->intmr13_set_after_control_write && m->control_writes == 1u) m->intmr |= GBP_PI_HSP_BIT;
         if (m->control_writes_stick && m->control_writes != m->control_write_fail_at) {
             m->control_byte = in[GBP_BLOCK_SIZE - 1u];
             m->control_block = 0;
-            if (m->irq_after_write) { m->irq_block = 0; m->irq_value = (uint16_t)((m->irq_after_write << 8) | m->irq_after_write); }
+            if (m->irq_after_write) { m->irq_block = 0; m->irq_value = (uint16_t)((m->irq_after_write << 8) | m->irq_after_write); m->irq_present_u16 = 1; }
             if (m->intsr_bit13_follows_control) {
                 if (m->control_byte & 0x10u) m->intsr &= ~GBP_PI_HSP_BIT; else m->intsr |= GBP_PI_HSP_BIT;
             }
@@ -398,12 +505,14 @@ static uint32_t m_ticks(void *ctx)
 
 void gbp_mock_transport(struct gbp_mock *m, struct gbp_transport *t)
 {
+    memset(t, 0, sizeof *t);
     t->read_arinfo = m_read_arinfo;
     t->write_arinfo = m_write_arinfo;
     t->read_block = m_read_block;
     t->write_block = m_write_block;
     t->read_pi = m_read_pi;
     t->write_intmr = m_write_intmr;
+    t->poll_intsr = m_poll_intsr;
     if (m->irq_ops_available) {
         t->write_intsr = m_write_intsr;
         t->irq_install = m_irq_install;
@@ -452,6 +561,15 @@ int gbp_mock_last_op(const struct gbp_mock *m, enum gbp_mock_op_kind kind, uint3
     int found = -1;
     for (i = 0; i < m->nops; i++) if (op_matches(&m->ops[i], kind, base, block)) found = (int)i;
     return found;
+}
+
+int gbp_mock_nth_op(const struct gbp_mock *m, enum gbp_mock_op_kind kind, uint32_t base, unsigned block, unsigned n)
+{
+    unsigned i, seen = 0;
+    for (i = 0; i < m->nops; i++) {
+        if (op_matches(&m->ops[i], kind, base, block) && ++seen == n) return (int)i;
+    }
+    return -1;
 }
 
 unsigned gbp_mock_count_block_ops(const struct gbp_mock *m, enum gbp_mock_op_kind kind, uint32_t base, unsigned block)

@@ -7,6 +7,11 @@
  * timeout. libogc's AR/ARQ subsystem is NOT used and must not be
  * initialized by the application (its ARAM interrupt handler would race
  * this polling).
+ *
+ * This object contains no INTMR write and no interrupt-handler code: the
+ * PI HSP interrupt path (write_intmr, irq_install/restore/mask/unmask/
+ * record, the one-shot handler) is hsp_backend_irq.c, linked only by the
+ * POCs whose experiment needs it.
  */
 #ifndef OPENGBP_HSP_BACKEND_H
 #define OPENGBP_HSP_BACKEND_H
@@ -42,10 +47,8 @@ void hsp_backend_transport(struct hsp_backend *b, struct gbp_transport *t);
 /* Raw DSP CSR (0xCC00500A) read, for diagnostics. */
 uint16_t hsp_backend_read_csr(void);
 
-/* The one-shot IRQ-26 handler this backend installs (gbp_irq_oneshot.h
- * body with real PI primitives). Exposed so the link map / disassembly
- * audit can find it by name; never call it. */
-void hsp_backend_oneshot_isr(u32 irq, frame_context *ctx);
+/* The one-shot IRQ-26 handler and the INTMR/handler operations are
+ * declared in hsp_backend_irq.h (separate object). */
 
 #ifdef __cplusplus
 }

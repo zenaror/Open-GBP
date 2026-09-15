@@ -1681,3 +1681,131 @@ runner; yellow-overlay pixels (R > 150, G > 150, B < 90) in the captured
 frames: before ≈ 2400 (rows 21–110, the OSD boxes), after 0 in both
 captures; visual check: only the POC's console text. Recorded as:
 **Dolphin OSD disabled per-run by runner override.**
+
+---
+
+## 2026-09-15 — GBP-INIT-003A implemented (dirty build initirqa-0001); NOT physically executed
+
+**Goal.** Implement the experiment designed in the previous entry as
+`poc/gbp-init-irq-program-probe` (Test ID `GBP-INIT-003A`, Build ID
+`initirqa-0001`) without executing it: A1 `IRQ := read | 0x8000`, A2
+`IRQ := 0`, PI HSP masked for the whole run, Start-up-Disc stop word,
+every write captured with its raw buffer, every outcome a valid
+observation. No hardware run, no hardware request, no commit.
+
+**Changes.**
+- Real backend split: `src/platform/hsp_backend.c` keeps the DMA,
+  AR_INFO, PI reads, the INTSR W1C, a new `poll_intsr` and the time base;
+  `src/platform/hsp_backend_irq.c` holds the INTMR write, the one-shot
+  handler and the `IRQ_Request`/`__MaskIrq`/`__UnmaskIrq` wrappers.
+  GBP-INIT-001/002 link both (`hsp_backend_irq_transport()`); GBP-INIT-003A
+  links only the base, so its binary cannot contain an unmask, a handler
+  install or an INTMR store. `make initirq-audit` now disassembles
+  `hsp_backend_irq.o` (result unchanged: CLEAN, calls only `__MaskIrq`).
+- Transport: optional `poll_intsr` (cheap INTSR read for polling loops);
+  replay grammar `P p <intsr>`, `poll_increment`, `last_intsr`.
+- `src/gbp/gbp_regwrite.{h,c}`: capture-then-log write primitive. IRQ
+  register = the u16 replicated 16× (`hi lo …`, GBI `0x80015da4`; bytes
+  0x1E/0x1F are the Disc's positions), CONTROL = byte ×32. Records `IRQW`
+  / `CTLW … t_after=` are formatted only when the caller asks.
+  `gbp_rawlog.c` split into read and log halves for the same reason.
+- `src/gbp/gbp_initirqa_probe.{h,c}`: AR_INFO 3 → PRESENT gate (ABSENT →
+  `abort_not_present`, else `abort_inconsistent`) → PI preconditions →
+  BASE (PI, CONTROL, IRQ, TEST) → CONTROL shape → IRQ shape
+  (`(v & 0x0AAA) == 0x0AAA`, bit 15 set, `(v & 0x7000) == 0`, Disc reading
+  == GBI reading) → CONTROL `(v & ~0x10) | 0x0C` → P0 (INTMR bit 13
+  re-check) → A1PRE (shape re-check) → A1 → A1-0, +50 µs, +500 µs → A2PRE
+  (INTMR re-check) → A2 → A2-0, +50 µs … +2000 ms with INTSR polling
+  (counter only), EVENT snapshot at the first INTSR bit 13 = 1, early
+  end → teardown: CONTROL restore + readback, IRQ read, `stop = read |
+  0x8AAA`, write, re-read, PI, at most one W1C, AR_INFO, FINAL. The
+  experimental region (A1PRE … end of the window) captures into
+  structures and formats afterwards (`REGION formatted_inside=0`);
+  attempted/completed counted per write; per-step restore flags;
+  `power_cycle_required`; the BASE raw block is never written back.
+- Mock: synthetic SOURCE_MASK model of the IRQ register (even bits W1C,
+  odd bits level, bit 15 level or W1C summary, programmable re-assertion,
+  INTSR bit 13 raised while INTMR stays masked), `poll_intsr`, failure
+  knobs, wrap-safe timers.
+- Tests: `tests/unit/test_gbp_initirqa.c` (14 scenario groups, event
+  order, "never" properties, layouts byte by byte, physical init-0001 and
+  initirq-0001 prefixes up to the first experimental write, `--dump-log`
+  / `--replay` modes); `tests/host/test_poc_audit.py`;
+  `tests/host/test_initirqa_replay.py` (synthetic round trip, files under
+  `build/`); probelog extended (`IRQW`, `CTLW t_after`, `SNAP tag=EVENT
+  poll_intsr`, `WINDOW t_end`, `--note`) with tests; artifact tests.
+- Tools/build: `tools/poc_audit.py`; Makefile targets `initirqa-audit`,
+  `initirqa-dolphin`; POC registered in `POCS`, `all` and the artifact
+  tests. Docs: HARDWARE_TESTS planned entry marked IMPLEMENTED / NOT
+  PHYSICALLY EXECUTED; INITIALIZATION.md pointer; tools, captures and
+  tests READMEs; the POC README.
+
+**Tests executed.** C (host): 9 + 17 + 24 + 143 + 342 + 315 + 586 + 1859
+= 3295 checks, 0 failures; every earlier physical fixture still replays
+(probe-0001 ×2, init-0001 ×2, initirq-0001). Python: 96 tests OK, none
+skipped after the build. `make initirqa-audit`: 0 findings — objects
+`gbp_detect gbp_initirqa_probe gbp_rawlog gbp_regwrite gbp_transport
+hsp_backend main opengbp_ident ringlog sdlog`; `gbp_regwrite_irq_u16`
+called 3× from the probe object only, `gbp_regwrite_control_byte` 2×;
+INTMR stores 0; INTSR stores 1 (`h_write_intsr`); ELF without
+`hsp_backend_oneshot_isr`, `gbp_initirq_probe_run`, `gbp_init_probe_run`,
+`hsp_backend_irq_transport`; `__UnmaskIrq` defined by libogc2 only, no POC
+object references it. Negative control on the real `hsp_backend_irq.o`:
+6 findings (forbidden object, `__UnmaskIrq`, `IRQ_Request`, handler,
+`__MaskIrq` to investigate, INTMR store in `h_write_intmr`). Dolphin
+(runner OSD override, isolated user dir): smoke PASS; probe absent /
+present PASS; init absent / present PASS; initirq absent / present PASS;
+initirqa absent → `abort_inconsistent` PASS; initirqa GBPlayer model →
+`abort_control_shape` PASS; 0 OSD-colored pixels in both new
+screenshots. Divergence recorded: Dolphin without an HSP device answers
+every read with zeros, so the FF handshake matches 1/4 and the verdict
+is INCONSISTENT (the physical console without a GBP answered C1 ×32 =
+ABSENT); GBP-INIT-003A splits the two statuses, GBP-INIT-002 did not.
+
+**Result.** GBP-INIT-003A IMPLEMENTED — NOT PHYSICALLY EXECUTED. DIRTY
+BUILD — NOT A PHYSICAL CANDIDATE: `gbp-init-irq-program-probe`, build
+`initirqa-0001`, `commit=664f0de-dirty`, DOL 367 712 bytes, SHA-256
+`52133dc93c164adb71d0dab52ff3fee0e4837f0cdeda22b7f52a601982923695`
+(review only; the physical candidate is a clean build after the review
+and a separate clean audit).
+
+**Newly confirmed behavior.** None (no hardware run). **Rejected
+hypotheses.** None. **New unknowns.** None; U-GBP-022…026 stay on 003A's
+critical path. **Corrections found while implementing.** (a)
+`tools/probelog.py` emitted the cleanup `P a` after the `PI tag=CLEANUP`
+read; it belongs between the CLEANUPCHK and CLEANUP reads (never hit
+before: no physical run performed a cleanup). (b) GCC encodes the PI
+register stores as `lis; ori; stw 0(r)`, so an audit keyed on
+displacements would miss an INTMR store; `poc_audit.py` tracks register
+values instead and is proven against the real GBP-INIT-002 object.
+
+**Next.** Review of this dirty tree → user checkpoint → separate clean
+audit → clean build = physical candidate with its SHA-256 recorded →
+hardware request per the POC README (power cycle mandatory afterwards).
+
+**Micro-audit of attempted/completed (same day, before the checkpoint).**
+Rule: for every write that may have reached the device, `attempted = 1`
+is stored before the transport is invoked and `completed = 1` only after
+rc == ok (`gbp_regwrite.h`). Found: the per-write flags already obeyed
+it (`do_write` sets `attempted` before `write_block`), but the probe's
+own counters and `control_written` / `power_cycle_required` were updated
+after the call returned — no functional effect in synchronous code, yet a
+deviation from the rule; moved before every transport call (CONTROL exp,
+A1, A2, STOP). Also found and fixed: the single `INITIRQA end` record
+could exceed the 255-byte line in a worst case (longest status + reason +
+restore_reason with 10-digit time-base values), which would have cut
+`power_cycle_required` off its tail — split into `INITIRQA end`,
+`WRITES` (per-write attempted/completed, `uncertain`), `OBSERVED` and
+`RESTORE`; `WINDOW` records shortened. The report's
+`irq_writes_attempted == 0` on the physical-prefix replays is the probe's
+safety counter (no IRQ-register write function was ever invoked on that
+path; the unanswered write there is the CONTROL write, reported
+`attempted=1 completed=0`, power cycle required) — not a mock counter;
+the mock's device-side counter is `irq_writes`. Tests: the mock gained a
+`write_hook` invoked at the entry of `write_block`, and
+`test_attempted_flags_at_call_time` samples the flags at that moment for
+the nominal run and for A1 / A2 / CONTROL / STOP failures;
+`test_worst_case_line_lengths` drives the longest records. Busy refusals
+(returned by `hsp_backend.c` before the DMA is programmed) are treated
+like timeouts: attempted, not completed. `test_gbp_initirqa`: 1951
+checks. DOL rebuilt (still `664f0de-dirty`, review only).

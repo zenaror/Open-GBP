@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 import dolinfo  # noqa: E402
 
-POCS = ("smoke-test", "gbp-probe", "gbp-init-probe", "gbp-init-irq-probe")
+POCS = ("smoke-test", "gbp-probe", "gbp-init-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe")
 OUTDIR = os.path.join(ROOT, "build", "poc", "smoke-test")
 ELF = os.path.join(OUTDIR, "smoke-test.elf")
 DOL = os.path.join(OUTDIR, "smoke-test.dol")
@@ -148,7 +148,8 @@ class EveryPocArtifacts(unittest.TestCase):
             self.assertIn(marker, blob, poc)
             prefix = {"smoke-test": b"OPENGBP-SMOKE READY ", "gbp-probe": b"OPENGBP-PROBE READY ",
                       "gbp-init-probe": b"OPENGBP-INIT READY ",
-                      "gbp-init-irq-probe": b"OPENGBP-INITIRQ READY "}[poc]
+                      "gbp-init-irq-probe": b"OPENGBP-INITIRQ READY ",
+                      "gbp-init-irq-program-probe": b"OPENGBP-INITIRQA READY "}[poc]
             self.assertIn(prefix, blob, poc)
 
     def test_probe_writes_only_documented_things(self):
@@ -173,6 +174,31 @@ class EveryPocArtifacts(unittest.TestCase):
                     b"HANDLER fired=", b"HANDLERPI intsr_before_ack=", b"CLEANUP performed=", b"MASK final intmr="):
             self.assertIn(rec, blob, rec)
         self.assertNotIn(b"libmobile", blob)
+
+    def test_init_irq_program_probe_identity_and_records(self):
+        # GBP-INIT-003A: its own test id and gecko prefix; the record kinds the
+        # log tooling keys on; none of the GBP-INIT-002 interrupt-path records
+        # (that probe module and hsp_backend_irq.c must not be linked); the
+        # mandatory power-cycle banner.
+        dol = os.path.join(ROOT, "build", "poc", "gbp-init-irq-program-probe", "gbp-init-irq-program-probe.dol")
+        with open(dol, "rb") as f:
+            blob = f.read()
+        self.assertIn(b"GBP-INIT-003A", blob)
+        self.assertNotIn(b"GBP-INIT-002", blob)
+        self.assertNotIn(b"GBP-INIT-001", blob)
+        self.assertIn(b"OPENGBP-INITIRQA READY ", blob)
+        for rec in (b"INITIRQA start ", b"INITIRQA end status=", b"IRQSHAPE tag=", b"IRQW ", b"layout=gbi-u16-replicated",
+                    b"SNAP tag=", b"WINDOW tag=", b"REGION log_count_start=", b"TEARDOWN start", b"IRQSTOP pre ",
+                    b"comment=startup-disc-stop-shadow", b"CLEANUP performed=", b"RESTORE control_restore_ok=",
+                    b"WRITES control_written=", b"OBSERVED intsr13_seen=", b"format=attempted/completed",
+                    b"DEVICE STATE UNCERTAIN", b"POWER CYCLE REQUIRED"):
+            self.assertIn(rec, blob, rec)
+        for rec in (b"IRQ install rc=", b"UNMASK t_unmask=", b"HANDLER fired=", b"HANDLERPI intsr_before_ack=",
+                    b"MASK final intmr=", b"INITIRQ start ", b"INIT start "):
+            self.assertNotIn(rec, blob, rec)
+        self.assertNotIn(b"libmobile", blob)
+        bi = read_build_info(os.path.join(ROOT, "build", "poc", "gbp-init-irq-program-probe", "build-info.txt"))
+        self.assertEqual(bi["build_id"], "initirqa-0001")
 
 
 if __name__ == "__main__":

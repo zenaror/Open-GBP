@@ -14,7 +14,8 @@ be executed autonomously by development agents and CI.
 | `gciso.py` | Read-only GameCube disc image parser: `info` and `extract` (boot.bin, bi2.bin, apploader, main.dol, FST, files, manifest with SHA-256) |
 | `gbi_unpack.py` | Recover the executable image from a packed Game Boy Interface DOL (XOR with the 40-byte copyright string, then XZ) |
 | `bin2dol.py` | Wrap a raw PowerPC memory image into a one-section DOL so GameCubeLoader/dolinfo can load it |
-| `probelog.py` | Parse device logs (SD file or USB Gecko capture): `parse` → JSON, `fixture` → replay script for `src/gbp/gbp_replay.c`, `check` → interpretation of TEST/RAW records |
+| `probelog.py` | Parse device logs (SD file or USB Gecko capture): `parse` → JSON, `fixture` → replay script for `src/gbp/gbp_replay.c` (`--note` adds comment lines, used to mark synthetic scripts; GBP-INIT-003A records `IRQW`/`CTLW t_after=`/`SNAP tag=EVENT poll_intsr=`/`WINDOW t_end=` become `W`+`T`, `T`+`P p`, `T`), `check` → interpretation of TEST/RAW records |
+| `poc_audit.py` | Static audit of every object linked into a POC that must keep PI HSP masked (GBP-INIT-003A): forbidden objects/symbols (`hsp_backend_irq.o`, `__UnmaskIrq`, `IRQ_Request`, `IRQ_Free`, the one-shot handler; `__MaskIrq` reported), stores to PI INTMR (register values tracked through `lis`/`ori`/`addi`…), IRQ-register write call sites (exactly 3), CONTROL write call sites (2), ELF symbol presence; `make initirqa-audit` |
 | `blockdiff.py` | Byte/u16/u32 views, distinct values, period and per-offset anomaly detection of 32-byte blocks; `--pair` two logs byte by byte; `--snapshots` S0–S5 timing and bit deltas of a GBP-INIT log |
 | `ghidra/OpenGbpScan.java` | Headless Ghidra: functions, MMIO references, `lis` constants, strings → TSV reports |
 | `ghidra/OpenGbpFunc.java` | Headless Ghidra: `decomp` selected functions, `callsites` with constant arguments, `refs` to an address |

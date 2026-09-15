@@ -80,6 +80,10 @@ struct gbp_transport {
      * acknowledge of the bits set in `value` (GBP-PI-002, CORROBORATED).
      * Main-loop cleanup only; the handler acknowledges by itself. */
     gbp_status (*write_intsr)(void *ctx, uint32_t value);
+    /* Optional (may be NULL): one cheap INTSR read for polling loops that
+     * must not log or transfer anything (a replay answers it from the
+     * last recorded PI read; the real backend reads the register). */
+    gbp_status (*poll_intsr)(void *ctx, uint32_t *intsr);
     /* Optional (may be NULL as a group): the PI HSP interrupt path.
      *   irq_install  installs the backend's one-shot handler for interrupt
      *                26 (libogc2: IRQ_Request(IRQ_PI_HSP, …)), clears the

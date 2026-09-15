@@ -17,7 +17,14 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                   test_gbp_init.c    GBP-INIT-001 logic: preconditions, snapshots, restore, fail-safe,
                                      replay scripts from the physical handshakes
                   test_gbp_replay.c  trace/replay backend (+ replay of the hardware fixture when given as argv[1])
-tests/mocks/    scripted device models behind src/gbp/gbp_transport.h
+                  test_gbp_init_irq.c GBP-INIT-002 logic: one-shot handler order, mask/unmask, synthetic
+                                     interrupt delivery, physical initirq-0001 replay
+                  test_gbp_initirqa.c GBP-INIT-003A logic: A1/A2 writes with PI masked against the
+                                     synthetic source/mask model, every abort/restore path, event order,
+                                     "never" properties, physical prefixes up to the first experimental
+                                     write; --dump-log / --replay modes for the host round trip
+tests/mocks/    scripted device models behind src/gbp/gbp_transport.h (PI model, synthetic
+                interrupt path, synthetic IRQ-register source/mask model, failure injection)
 tests/host/     Python tests (pytest or python3 -m unittest):
                   test_dolinfo.py    synthetic DOL header vectors
                   test_dolpad.py     32-byte padding tool
@@ -26,6 +33,13 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                   test_probelog.py   device-log parser / fixture generator
                   test_hw_fixture.py exact bytes of the 2026-09-14 hardware capture, what each
                                      known driver would read from them, blockdiff findings
+                  test_dolphin_smoke.py runner command line (isolated user dir, OSD override)
+                  test_isr_audit.py  one-shot handler audit (synthetic listings + the built object)
+                  test_poc_audit.py  GBP-INIT-003A object audit (synthetic listings in both GCC
+                                     encodings, the built objects, negative control on the
+                                     GBP-INIT-002 interrupt-path object)
+                  test_initirqa_replay.py synthetic GBP-INIT-003A log → fixture → replay round trip
+                                     (no physical data; files stay under build/)
                   test_artifacts.py  checks on the built ELF/DOL (skipped
                                      until `make build` has run)
 ```

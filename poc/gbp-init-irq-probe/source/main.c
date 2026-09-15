@@ -22,6 +22,7 @@
 #include "gbp_transport.h"
 #include "gbp_init_irq_probe.h"
 #include "hsp_backend.h"
+#include "hsp_backend_irq.h"
 #include "sdlog.h"
 
 #ifndef OPENGBP_APP_NAME
@@ -119,6 +120,7 @@ int main(void)
 
     hsp_backend_init(&hsp, dma_buffer, (uint32_t)millisecs_to_ticks(DMA_TIMEOUT_MS));
     hsp_backend_transport(&hsp, &t);
+    hsp_backend_irq_transport(&hsp, &t);   /* this POC needs INTMR / handler operations */
     gbp_initirq_config_default(&cfg);
     cfg.t_max_ms = T_MAX_MS;
     cfg.t_max_ticks = (uint32_t)millisecs_to_ticks(T_MAX_MS);

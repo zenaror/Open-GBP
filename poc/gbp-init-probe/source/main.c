@@ -19,6 +19,7 @@
 #include "gbp_transport.h"
 #include "gbp_init_probe.h"
 #include "hsp_backend.h"
+#include "hsp_backend_irq.h"
 #include "sdlog.h"
 
 #ifndef OPENGBP_APP_NAME
@@ -114,6 +115,7 @@ int main(void)
 
     hsp_backend_init(&hsp, dma_buffer, (uint32_t)millisecs_to_ticks(DMA_TIMEOUT_MS));
     hsp_backend_transport(&hsp, &t);
+    hsp_backend_irq_transport(&hsp, &t);   /* this POC needs INTMR / handler operations */
     gbp_init_config_default(&cfg);
 
     printf("  Detecting GBP, then GBI CONTROL transform (v&~%02x)|%02x with PI HSP masked ...\n",

@@ -1,5 +1,5 @@
 #---------------------------------------------------------------------------------
-# Open-GBP GBP-INIT-002 — GameCube build (devkitPPC + libogc2)
+# Open-GBP GBP-INIT-003A — GameCube build (devkitPPC + libogc2)
 #
 # Run from inside the project container, e.g. from the repository root:
 #
@@ -7,16 +7,17 @@
 #
 # or directly inside the container:
 #
-#     make -C poc/gbp-init-irq-probe
+#     make -C poc/gbp-init-irq-program-probe
 #
-# Outputs go to build/poc/gbp-init-irq-probe/ (ignored by Git):
-#     gbp-init-irq-probe.elf           linked ELF
-#     gbp-init-irq-probe.unpadded.dol  raw elf2dol output
-#     gbp-init-irq-probe.dol           final DOL, section sizes padded to 32 bytes by
+# Outputs go to build/poc/gbp-init-irq-program-probe/ (ignored by Git):
+#     gbp-init-irq-program-probe.elf           linked ELF
+#     gbp-init-irq-program-probe.unpadded.dol  raw elf2dol output
+#     gbp-init-irq-program-probe.dol           final DOL, section sizes padded to 32 bytes by
 #                                      tools/dolpad.py (required by Dolphin 2606a's
 #                                      DolReader; harmless for physical loaders)
-#     gbp-init-irq-probe.map, build-info.txt, obj/hsp_backend.o (audited by
-#     `make initirq-audit` at the repository root)
+#     gbp-init-irq-program-probe.map, build-info.txt, obj/*.o (every object is audited by
+#     `make initirqa-audit` at the repository root: no INTMR store, no __UnmaskIrq/IRQ_Request/IRQ_Free
+#     reference, exactly three IRQ-register write call sites; hsp_backend_irq.c is NOT linked)
 #---------------------------------------------------------------------------------
 .SUFFIXES:
 
@@ -29,8 +30,8 @@ include $(DEVKITPRO)/libogc2/gamecube_rules
 #---------------------------------------------------------------------------------
 # Identity
 #---------------------------------------------------------------------------------
-APP_NAME   := gbp-init-irq-probe
-BUILD_ID   := initirq-0001
+APP_NAME   := gbp-init-irq-program-probe
+BUILD_ID   := initirqa-0001
 GIT_COMMIT ?= $(shell git -C "$(CURDIR)" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 GIT_DIRTY  ?= $(shell git -C "$(CURDIR)" diff --quiet HEAD -- 2>/dev/null || echo -dirty)
 COMMIT_ID  := $(GIT_COMMIT)$(GIT_DIRTY)
@@ -45,7 +46,7 @@ TARGET  := $(OUTDIR)/$(APP_NAME)
 
 vpath %.c $(CURDIR)/source $(ROOT)/src/common $(ROOT)/src/log $(ROOT)/src/gbp $(ROOT)/src/platform
 
-SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_init_irq_probe.c hsp_backend.c hsp_backend_irq.c sdlog.c
+SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c hsp_backend.c sdlog.c
 OBJS := $(addprefix $(OBJDIR)/,$(SRCS:.c=.o))
 DEPS := $(OBJS:.o=.d)
 

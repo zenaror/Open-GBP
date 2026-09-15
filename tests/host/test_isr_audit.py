@@ -76,7 +76,7 @@ class IsrAuditChecker(unittest.TestCase):
         self.assertIsNone(isr_audit.extract_function(GOOD, "nope"))
 
 
-AUDIT_FILE = os.path.join(ROOT, "build", "poc", "gbp-init-irq-probe", "hsp_backend.objdump.txt")
+AUDIT_FILE = os.path.join(ROOT, "build", "poc", "gbp-init-irq-probe", "hsp_backend_irq.objdump.txt")
 
 
 @unittest.skipUnless(os.path.isfile(AUDIT_FILE), "run `make build initirq-audit` to produce the objdump")
