@@ -28,9 +28,10 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      reused, handler install after the EVENT, one unmask, the extended
                                      one-shot body run by the mock (mask before W1C, one W1C, second read),
                                      device ACK, main W1C budget, every abort/anomaly/restore path, event
-                                     order and "never" properties, the physical 003A fixture as the prefix
-                                     up to the EVENT; --dump-log / --replay modes (synthetic only — no
-                                     physical 003B data exists)
+                                     order and "never" properties, the TEARDOWN pi_policy label, the physical
+                                     003A fixture as the prefix up to the EVENT, the complete physical run
+                                     initirqb-0001 (2026-09-15) replayed with the console's time base and the
+                                     physical handler record; --dump-log / --replay modes
 tests/mocks/    scripted device models behind src/gbp/gbp_transport.h (PI model, synthetic
                 interrupt path with the base and the extended one-shot bodies, synthetic IRQ-register
                 source/mask model with an optional re-latch after a W1C, failure injection)
@@ -41,8 +42,9 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                   test_gbi_unpack.py GBI unpacker and bin2dol (synthetic packed DOL)
                   test_probelog.py   device-log parser / fixture generator
                   test_hw_fixture.py exact bytes of the hardware captures (probe-0001, init-0001,
-                                     initirq-0001, initirqa-0001), what each known driver would read
-                                     from them, blockdiff findings
+                                     initirq-0001, initirqa-0001, initirqb-0001), what each known driver
+                                     would read from them, blockdiff findings, the interrupt path of the
+                                     003B run as it happened, the documented label defect of its log
                   test_dolphin_smoke.py runner command line (isolated user dir, OSD override)
                   test_isr_audit.py  one-shot handler audit (synthetic listings incl. the extended body
                                      with its bounded loop, negative controls: second/missing/wrong-value
@@ -55,7 +57,8 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      (no physical data; files stay under build/)
                   test_initirqb_replay.py synthetic GBP-INIT-003B log → fixture → replay round trip
                                      (14-number "I u" line, POSTACK "P a"); the physical 003A fixture
-                                     through the 003B probe (stops at the handler install)
+                                     through the 003B probe (stops at the handler install); the physical
+                                     003B fixture replayed end to end (111 operations, 0 mismatches)
                   test_artifacts.py  checks on the built ELF/DOL (skipped
                                      until `make build` has run)
 ```

@@ -406,9 +406,9 @@ stop (`IRQ := read | 0x8AAA`; GBP-IRQ-006) — HARDWARE_TESTS.md "Planned
 tests"; implemented and **executed 2026-09-15** as
 `poc/gbp-init-irq-program-probe` (`src/gbp/gbp_initirqa_probe.c`) — result
 and updated model in §11. Delivery (handler + unmask) is GBP-INIT-003B,
-designed and implemented 2026-09-15 (`poc/gbp-init-irq-deliver-probe`,
-`src/gbp/gbp_initirqb_probe.c`; dirty build, NOT physically executed —
-§11 and HARDWARE_TESTS.md). Writing a previously read value back as a "restore" stays
+designed, implemented and **executed 2026-09-15**
+(`poc/gbp-init-irq-deliver-probe`, `src/gbp/gbp_initirqb_probe.c`; result
+and model in §12, log in HARDWARE_TESTS.md). Writing a previously read value back as a "restore" stays
 prohibited. The
 read layout in the 0x8FAE state is `hh hh ll' ll` with `ll' = ll | 0x01`
 at offsets ≡ 2 mod 4 (U-GBP-025): keep reading offsets ≡ 1 / ≡ 3 mod 4
@@ -475,13 +475,11 @@ re-enable `0`, KEYPAD written on every service — KEYPAD has never been
 written) without losing causes; (4) CONTROL bits 0x04/0x08 (Disc start
 `|0x04` then `&~0x10` vs GBI `(v & ~0x18) | 0x0C`, U-GBP-006). Reading
 the AUDIO/VIDEO blocks belongs to Phases 4/6. No move to VIDEO before (1)
-and (2) are answered; the next experiment, GBP-INIT-003B, is specified in
-HARDWARE_TESTS.md "Planned tests — GBP-INIT-003B" (DEVLOG 2026-09-15
-"GBP-INIT-003B designed") and **implemented 2026-09-15** as
-`poc/gbp-init-irq-deliver-probe` / `src/gbp/gbp_initirqb_probe.c` (DEVLOG
-2026-09-15 "GBP-INIT-003B implemented"): a dirty build, audited on the
-host, NOT physically executed and not a physical candidate. Decisions it
-fixes for that experiment, in addition to R1–R8: the handler is installed
+and (2) are answered; the next experiment, GBP-INIT-003B, was specified
+(HARDWARE_TESTS.md "Planned tests — GBP-INIT-003B"), implemented as
+`poc/gbp-init-irq-deliver-probe` / `src/gbp/gbp_initirqb_probe.c`,
+release-audited on the clean build d3da8cd and **executed 2026-09-15**
+(§12). Decisions it fixed, in addition to R1–R8: the handler is installed
 only after a latched cause has been observed with PI masked and is
 unmasked once; the PI W1C budget is one in the handler (after the mask)
 plus at most one in the main loop; the device is acknowledged with `read |
@@ -490,3 +488,84 @@ with the Disc stop word. The implementation reuses the executed 003A
 module for the whole programming sequence (`gbp_initirqa_run_cause` +
 `gbp_initirqa_teardown`), so the physical 003A fixture replays through
 the 003B probe verbatim up to the EVENT.
+
+## 12. GBP-INIT-003B result: CPU delivery, one service cycle, the updated model, initialization readiness (2026-09-15)
+
+Physical facts (GBP-HW-035…041, GBP-PI-005, ENV-IRQ-003, GBP-IRQ-008; log
+verbatim in HARDWARE_TESTS.md; fixture
+`hw-gamecube-gbp-2026-09-15-initirqb-0001.gbpreplay`): the 003A sequence
+reproduced (same read-backs; the first cause 0x0400 at the PI 105.286 ms
+after A2, 12 µs from 003A's value; 0x0100 within 0.9 ms). With the cause
+latched and INTMR bit 13 = 0, the handler was installed
+(`IRQ_Request(26)`, previous NULL), the PREUNMASK state was verified
+(INTSR bit 13 = 1 twice, INTMR bit 13 = 0 twice, CONTROL 0x8C, IRQ 0x0500,
+record clean) and `__UnmaskIrq(IM_PI_HSP)` was called once: **the handler
+ran inside the call** (t_unmask + 78 ticks = 1.926 µs, single
+observation), saw INTSR `0x00012000` and INTMR `0x000021FA`, masked IRQ 26
+with `__MaskIrq` (INTMR `0x000001FA`), wrote one `INTSR := 0x2000` and
+read `0x00010000` at once and 148 ticks later; it was entered once. The
+main loop re-masked (idempotent), copied the record, and 179.7 µs after
+the entry read PI bit 13 = 0 twice with the device still showing IRQ
+0x0500 (both sources pending, odd bits 0, bit 15 = 0, CONTROL 0x8C): **the
+PI cause did not re-assert after the W1C although the device sources
+stayed pending**. The device ACK `IRQ := 0x0500 | 0x8000 = 0x8500` read
+back 0x8000 (sources cleared, bit 15 = 1); PI stayed clear; no main-loop
+W1C. Teardown: CONTROL 0x90; IRQSTOPPRE 0x8500 (sources set again ≤ 143 µs
+after the ACK; no PI cause followed under bit 15 = 1 and CONTROL 0x90 —
+not separable); stop `0x8FAA` → 0x8AAA; handler restored; INTMR final
+`0x000001FA`; AR_INFO restored; FINAL 00 / 9090. Every restore succeeded.
+
+Model of the IRQ register and of the PI cause after this run (evidence
+ids in GBP-IRQ-008):
+
+| Element | Status after 2026-09-15 (003B) |
+|---|---|
+| Even bits 2, 8, 10 = sources, write-1-to-clear | **F** (cleared when written 1 while pending: A1, stop ×2, ACK) |
+| Source functions | F (code): 8 video (Disc slot 5 / GBI VIDEO), 10 audio (slot 4 / GBI AUDIO), 2 game-pak/stop; "0x0400 then 0x0100 are the AGB's audio and video requests": C; requests re-set ≤ 143 µs after an ACK (observation) |
+| Odd bits = paired masks, level-written | pairing C; level-written **F**; polarity 1 = masked / 0 = enabled **C** (bit 15 moved with them in every run) |
+| Bit 15 | level-written and persistent both ways: **F** (A2 → 0, stop → 1, ACK → 1); "global hold, 1 = held": **H**, never isolated (U-GBP-007); "W1C pending summary" rejected |
+| PI INTSR bit 13 | captured while masked, latched, W1C-cleared: **F** (GBP-PI-004); **delivered to the CPU as IRQ 26 on unmask, masked from inside the handler, W1C-cleared while the device sources stayed pending, no re-assert for ≥ 324 µs: F** (GBP-PI-005) |
+| Nature of the device line | simple sustained-level model **rejected**; pulse / edge / transient / separate deassert **U** (U-GBP-022, P2) |
+| Delivery latency | 78 ticks ≈ 1.93 µs, one observation of this software; not a specification |
+| Service cycle | ISR mask → PI W1C → main device ACK `read \| 0x8000` → stop word: one cycle **F**; re-arm `IRQ := 0` and repeated service **never exercised** (U-GBP-027) |
+| Write layout | u16 replicated 16×: F for 0x8AAE, 0x0000, 0x8500, 0x8FAA |
+
+Rules R1–R8 (§9) stand and are refined by the run:
+- R3 (mask before the acknowledge) is physically confirmed: the handler
+  observed INTMR bit 13 = 1 at entry and `__MaskIrq` closed it from
+  inside the handler; no second entry occurred.
+- R8 (handler restrictions) is confirmed as sufficient for delivery: the
+  one-shot body of `gbp_irq_oneshot.h` was delivered, ran and returned
+  with the recorded state; EE stayed 0 throughout (ENV-IRQ-003 for the
+  unmask side).
+- New R9 (acknowledge model): the PI cause is a latched bit cleared by
+  one W1C; it does not follow the device sources. A service loop must
+  therefore read the device register for the pending sources and must
+  not wait for INTSR bit 13 to re-assert; one PI cause may cover several
+  device events (to be measured, U-GBP-027).
+- New R10 (measurement): the latency of a latched cause is measured from
+  a time-base read taken **before** `__UnmaskIrq`; the read after the
+  call may already lie after the handler.
+- R6 (authorized device writes) now covers four forms with physical
+  evidence: `read | 0x8000` (acknowledge, twice), `0` (enable all six
+  slots, bit 15 cleared), `read | 0x8AAA` (Start-up Disc stop word,
+  twice). `IRQ := 0` **after** an acknowledge (GBI's re-arm) has not been
+  written yet and needs its own authorization.
+
+Initialization readiness after 003B — established on hardware: presence
+detection, AR_INFO handling, CONTROL transform and restore, source
+acknowledge by W1C, local mask programming, a real HSP cause (twice,
+≈105.28 ms after A2), PI capture while masked, **CPU IRQ 26 delivery,
+handler entry with the delivered state, ISR mask-first, PI W1C inside the
+ISR with the device still asserting, no reentry, device source ACK, the
+Disc's stop word, handler restoration**, full teardown with power cycle.
+The fundamental initialization and interrupt mechanics are established;
+the runtime layer that is still missing is the steady state: (1) repeated
+service with the re-arm write `IRQ := 0` after the ACK, without losing
+causes (U-GBP-027); (2) KEYPAD, never written (both references write it
+on every service; Phase 5); (3) CONTROL bits 0x04/0x08 at runtime
+(U-GBP-006); (4) AUDIO/VIDEO block reads (Phases 4/6); (5) the serial and
+sleep sources and a cartridge present (Phase 7). The recommended next
+experiment is a bounded service loop that adds only repetition and the
+re-arm to the validated cycle (DEVLOG 2026-09-15 "GBP-INIT-003B
+executed"); not implemented, not authorized yet.

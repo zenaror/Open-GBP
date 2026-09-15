@@ -1,11 +1,12 @@
 # poc/gbp-init-irq-deliver-probe — GBP-INIT-003B
 
-**Test ID:** `GBP-INIT-003B` — **Build ID:** `initirqb-0001` — **IMPLEMENTED 2026-09-15,
-NOT PHYSICALLY EXECUTED.** The build under review is a **DIRTY BUILD — NOT A PHYSICAL
-CANDIDATE** (base HEAD `fa6f35e`, tree dirty; DOL SHA-256
-`ee34d93ad2774a9365fa9afd8485558f78e2f53df939b35ee1a84220f581df80`, 383232 bytes). A
-checkpoint commit, a clean rebuild, a clean audit and a recorded hash precede any physical
-run; nothing here is a hardware request.
+**Test ID:** `GBP-INIT-003B` — **Build ID:** `initirqb-0001` — commit `d3da8cd` (clean,
+release-audited: PHYSICAL CANDIDATE READY) — DOL SHA-256
+`821aa2b2893b6d66fd1398eaeb7de7c475862728e55dc0922d74042d0e9cb757` (383200 bytes) —
+**PHYSICALLY EXECUTED 2026-09-15** (log sha256 `bedb1f01…cf7c`, 17471 bytes; see "Result"
+below). Builds after `d3da8cd` differ from the executed one by the `pi_policy` label of the
+`TEARDOWN start` record (a logging correction, see "Result"); they are not the executed
+binary. No second run is requested.
 
 **Question:** with a real HSP cause already latched at the PI (INTSR bit 13 = 1) while IRQ 26
 is masked (INTMR bit 13 = 0) — the state GBP-INIT-003A produced ≈105 ms after its write A2 —
@@ -178,6 +179,43 @@ write has physical precedent (A1/A2/stop in 003A; the ACK is A1's form). A persi
 with an ineffective mask would hang the CPU whichever handler is installed — the mandatory
 power cycle covers it. Cartridge not introduced; byte 0 kept as raw evidence only.
 
-## Result
+## Result (2026-09-15, commit d3da8cd, DOL 821aa2b2…b757)
 
-None — NOT PHYSICALLY EXECUTED.
+`status=ok_delivery_observed restore=ok`, 51 transfers, 0 errors / timeouts / busy, 140
+lines, 0 dropped / truncated, every write attempted = completed (`ctl_exp 1/1, a1 1/1,
+a2 1/1, ack 1/1, stop 1/1, ctl_restore 1/1, uncertain=0`), `power_cycle_required=1`
+(console power-cycled). The 003A part reproduced: BASE CONTROL `0x90` / IRQ `0x8AAE`, A1
+`0x8AAE → 0x8AAA`, A2 `0x0000` for ≥ 50 ms, EVENT 105.286 ms after A2 with INTSR
+`0x00012000`, INTMR `0x000001FA`, CONTROL `0x8C`, IRQ `0x0400`; the second source `0x0100`
+appeared before PREUNMASK (IRQ `0x0500`). PREUNMASK: INTSR bit 13 = 1,1; INTMR bit 13 =
+0,0; CONTROL `0x8C`; record clean. **Delivery:** `__UnmaskIrq` at `t_unmask=3679931504`
+delivered the handler inside the call: `t_entry=3679931582` (78 ticks ≈ 1.93 µs, one
+observation, not a specification), INTSR at entry `0x00012000`, INTMR at entry
+`0x000021FA`, INTMR after `__MaskIrq` `0x000001FA`, INTSR before the W1C `0x00012000`,
+after the one W1C `0x00010000`, 148 ticks later still `0x00010000` / `0x000001FA`;
+`count=1 fired=1 reentry=0`; `t_post − t_unmask = 257` ticks. **Level / re-assert:** PREACK
+179.7 µs after the entry read PI bit 13 = 0 (both samples) with IRQ `0x0500` still
+pending, CONTROL `0x8C`, masks 0, bit 15 = 0 — no re-assert: the simple sustained-level
+model is rejected; pulse / edge / transient / separate deassert remain open (U-GBP-022).
+**Device ACK** `IRQ := 0x0500 | 0x8000 = 0x8500` read back `0x8000` (sources cleared, bit
+15 = 1); POSTACK PI bit 13 = 0,0; no main-loop W1C (`isr_pi_w1c=1 main_pi_w1c=0`).
+**Teardown:** CONTROL `0x90`; IRQSTOPPRE `0x8500` (sources set again ≤ 143 µs after the
+ACK, after the CONTROL restore; no PI cause followed — not separable from CONTROL 0x10);
+stop `0x8FAA → 0x8AAA`; CLEANUPCHK INTSR `0x00010000` (no cleanup needed); handler restored
+(`old_handler=null`); INTMR final `0x000001FA`; AR_INFO `0x005B → 0x0043`; FINAL under code
+0 `00` / `9090`. Evidence GBP-HW-035…041, GBP-PI-005, ENV-IRQ-003, GBP-IRQ-008; log
+verbatim in HARDWARE_TESTS.md; fixture
+`captures/fixtures/hw-gamecube-gbp-2026-09-15-initirqb-0001.gbpreplay` replays the whole
+run with the console's time base and the physical handler record
+(`tests/unit/test_gbp_initirqb.c`, `tests/host/test_hw_fixture.py`,
+`tests/host/test_initirqb_replay.py`).
+
+**Logging defect of build initirqb-0001:** record `TEARDOWN start … pi_policy=never_unmasked`
+was printed by the shared 003A teardown with its own fixed label, although this run had
+unmasked once (`UNMASK … rc=ok`, `RESTOREB unmasked=1 masked_again=1`) and delivered the
+handler. The label is not evidence; the primary records are. The log is preserved as
+written; later builds print the caller's real policy (`pi_policy=unmasked_once` when the
+run unmasked, `never_unmasked` otherwise), the replay of the fixture through the corrected
+probe reports `unmasked_once`, and the mock scenarios pin the label per path. The same
+record's `irq_attempted=3` counts A1, A2 and the ACK before the stop word; the final
+`WRITES` record counts 4/4 — expected.

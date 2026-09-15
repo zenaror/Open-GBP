@@ -157,6 +157,161 @@ INITIRQ = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15
 
 INITIRQA = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15-initirqa-0001.gbpreplay")
 INITIRQA_LOG = os.path.join(ROOT, "captures", "local", "GBP-INIT-003A_initirqa-0001.log")
+INITIRQB = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15-initirqb-0001.gbpreplay")
+INITIRQB_LOG = os.path.join(ROOT, "captures", "local", "GBP-INIT-003B_initirqb-0001.log")
+
+
+class HardwareFixtureInitIrqB(unittest.TestCase):
+    """GBP-INIT-003B (2026-09-15, build initirqb-0001, commit d3da8cd): the first
+    delivery of a real HSP cause to a CPU handler as IRQ 26. The fixture carries
+    the physical time base (T), the four IRQ-register writes (A1 0x8AAE, A2
+    0x0000, device ACK 0x8500, stop 0x8FAA), the INTSR poll that saw bit 13
+    (P p), the interrupt path as it happened (I i / I u with the physical
+    handler record / I m / I r), no main-loop PI W1C, and every raw block
+    verbatim, including the offset-2 bytes that break the U-GBP-025 pattern."""
+
+    def lines(self):
+        return [l.rstrip("\n") for l in open(INITIRQB, encoding="utf-8")]
+
+    def ops(self):
+        return [l for l in self.lines() if l and not l.startswith("#")]
+
+    def test_metadata_header(self):
+        head = self.lines()[:16]
+        for expect in ("# SOURCE=physical GameCube", "# GBP_PRESENT=yes", "# TEST_ID=GBP-INIT-003B",
+                       "# BUILD_ID=initirqb-0001", "# COMMIT=d3da8cd",
+                       "# DOL_SHA256=821aa2b2893b6d66fd1398eaeb7de7c475862728e55dc0922d74042d0e9cb757",
+                       "# LOG_SHA256=bedb1f013176fec1b3de7c63c4147dfa6770f1eae8c9ec29ee82b027f9d7cf7c",
+                       "# LOG_SIZE=17471"):
+            self.assertIn(expect, head)
+        self.assertTrue(any("pi_policy=never_unmasked" in l and "label defect" in l for l in head))
+        self.assertFalse(any("SYNTHETIC" in l for l in head))
+
+    @unittest.skipUnless(os.path.isfile(INITIRQB_LOG), "raw log not available locally")
+    def test_records_regenerate_from_the_raw_log(self):
+        import hashlib
+        import probelog
+        raw = open(INITIRQB_LOG, "rb").read()
+        self.assertEqual(len(raw), 17471)
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), "bedb1f013176fec1b3de7c63c4147dfa6770f1eae8c9ec29ee82b027f9d7cf7c")
+        header, records = probelog.parse_file(INITIRQB_LOG)
+        self.assertEqual(header["test_id"], "GBP-INIT-003B")
+        self.assertEqual(header["build_id"], "initirqb-0001")
+        self.assertEqual(header["commit"], "d3da8cd")
+        self.assertEqual(len(records), 140)
+        gen = [l for l in probelog.fixture(records).splitlines() if l and not l.startswith("#")]
+        self.assertEqual(gen, self.ops())
+        # label defect of build initirqb-0001: the shared teardown printed its own policy although this run had unmasked once
+        td = [r for r in records if r["kind"] == "TEARDOWN"][0]["fields"]
+        self.assertEqual(td["pi_policy"], "never_unmasked")
+        self.assertEqual((td["irq_attempted"], td["irq_completed"]), ("3", "3"))         # the stop word had not been written yet
+        rb = [r for r in records if r["kind"] == "RESTOREB"][0]["fields"]
+        self.assertEqual((rb["unmasked"], rb["masked_again"], rb["handler_restored"]), ("1", "1", "1"))
+        w = [r for r in records if r["kind"] == "WRITES"][0]["fields"]
+        self.assertEqual((w["irq_attempted"], w["irq_completed"]), ("4", "4"))          # A1, A2, ACK, STOP
+        # the physical handler record, verbatim
+        h = [r for r in records if r["kind"] == "HANDLER"][0]["fields"]
+        self.assertEqual((h["fired"], h["count"], h["t_entry"], h["t_unmask"], h["latency_ticks"], h["reentry"]),
+                         ("1", "1", "3679931582", "3679931504", "78", "0"))
+        hp = [r for r in records if r["kind"] == "HANDLERPI"][0]["fields"]
+        self.assertEqual((hp["intsr_at_entry"], hp["intmr_at_entry"], hp["intmr_after_mask"], hp["intsr_before_w1c"], hp["intsr_after_w1c"]),
+                         ("00012000", "000021fa", "000001fa", "00012000", "00010000"))
+        hp2 = [r for r in records if r["kind"] == "HANDLERPI2"][0]["fields"]
+        self.assertEqual((hp2["t_second"], hp2["dt_second"], hp2["intsr_second"], hp2["intmr_second"], hp2["reentry_t"]),
+                         ("3679931730", "148", "00010000", "000001fa", "0"))
+        # the PI poll counters of the device run stay in the log only (the replay polls once per sample)
+        win = [r for r in records if r["kind"] == "WINDOW" and r["fields"].get("tag") == "A2"][0]["fields"]
+        self.assertEqual((win["polls"], win["intsr13_in_phase"], win["t_event"]), ("709726", "1", "3679890204"))
+
+    def test_interrupt_path_as_it_happened(self):
+        ops = self.ops()
+        self.assertEqual(len(ops), 111)
+        i_lines = [l for l in ops if l.startswith("I ")]
+        self.assertEqual(i_lines, ["I i null",
+                                   "I u 1 1 3679931582 00012000 000021fa 00010000 000001fa 00000000 00000000 00012000 3679931730 00010000 000001fa 0",
+                                   "I m", "I r"])
+        u = ops.index(i_lines[1])
+        self.assertEqual(ops[u - 1], "T 3679931504")                     # t_unmask read before __UnmaskIrq
+        self.assertEqual(ops[u + 1], "T 3679931761")                     # t_post_unmask after the call (257 ticks: the handler ran inside)
+        self.assertEqual(ops[u + 2], "P r 00010000 000001fa")            # UNMASKPOST: cause already cleared by the ISR, mask already closed
+        self.assertEqual(ops[ops.index("I m") - 1], "T 3679933491")      # t_wait_end (t_unmask + 1987), then the main re-mask
+        self.assertEqual(ops[ops.index("I m") + 1], "P r 00010000 000001fa")   # REMASKCHK
+        i = ops.index("I i null")
+        self.assertGreater(i, ops.index("P p 00012000"))                 # installed after the EVENT
+        self.assertLess(i, u)
+        r = ops.index("I r")
+        self.assertGreater(r, ops.index("T 3679954723"))                 # after the stop word's t_after
+        self.assertEqual(ops[r + 1], "P r 00010000 000001fa")            # MASKCHK
+        self.assertEqual(ops[r + 2], "A w 0043")                         # then the AR_INFO restore
+
+    def test_writes_polls_and_acknowledge(self):
+        ops = self.ops()
+        self.assertEqual(ops.count("W 01d00000 ok"), 4)                  # A1, A2, ACK, STOP
+        self.assertEqual(ops.count("W 01400000 ok"), 2)                  # CONTROL transform, restore
+        self.assertEqual(ops.count("W 01000000 ok"), 4)                  # TEST handshake only
+        self.assertEqual(ops.count("P p 00012000"), 1)                   # the poll that saw INTSR bit 13
+        self.assertEqual([l for l in ops if l.startswith("P a")], [])    # no main-loop PI W1C: the ISR's W1C was the only one
+        pi = [l for l in ops if l.startswith("P r ")]
+        self.assertEqual(len(pi), 25)
+        self.assertTrue(all(l.endswith(" 000001fa") for l in pi))        # INTMR bit 13 never set in a main-loop read
+        self.assertEqual(pi.count("P r 00012000 000001fa"), 4)           # EVENT, PREUNMASK ×2, UNMASKPRE
+        self.assertEqual(pi.count("P r 00010000 000001fa"), 21)          # every other read, including every one after the ISR
+        p = ops.index("P p 00012000")
+        self.assertEqual(ops[p - 1], "T 3679890204")
+        self.assertEqual(ops[p + 1], "P r 00012000 000001fa")
+
+    def test_irq_register_reads_verbatim(self):
+        irq = [d for a, rc, d in reads(INITIRQB) if a == 0x01d00000]
+        self.assertEqual(len(irq), 19)
+        hx = [d.hex() for d in irq]
+        self.assertEqual(hx[0], "8a8aaeae" * 8)                          # BASE 0x8AAE — no byte-0 extra in this run
+        self.assertEqual(hx[1], hx[0]); self.assertEqual(hx[2], hx[0])   # P0, A1PRE
+        self.assertEqual(hx[3], "8a8aaaaa" * 8)                          # A1-0: bit 2 cleared by A1
+        for i in (4, 5, 6):                                              # A1-50US, A1-500US, A2PRE
+            self.assertEqual(hx[i], hx[3])
+        for i in range(7, 12):                                           # A2-0 … A2-50MS
+            self.assertEqual(hx[i], "00" * 32)
+        self.assertEqual(hx[12], "04040400" * 8)                         # EVENT 0x0400
+        self.assertEqual(hx[13], "05050000" + "05050500" * 7)            # PREUNMASK 0x0500 (group 0: offset 2 = 00)
+        self.assertEqual(hx[14], "05050500" * 8)                         # PREACK 0x0500: sources still pending after the ISR's W1C
+        self.assertEqual(hx[15], "80800000" * 8)                         # POSTACK 0x8000: sources cleared by the ACK, bit 15 read 1
+        self.assertEqual(hx[16], "85850000" * 2 + "85850400" * 2 + "85850000" + "85850400" + "85850000" + "85850400")   # IRQSTOPPRE 0x8500
+        self.assertEqual(hx[17], "8a8aaaaa" * 8)                         # IRQSTOPPOST 0x8AAA
+        self.assertEqual(hx[18], "90" * 32)                              # FINAL under expansion code 0: 0x9090
+        ctl = [d.hex() for a, rc, d in reads(INITIRQB) if a == 0x01400000]
+        self.assertEqual(len(ctl), 16)
+        self.assertEqual(ctl[0], "90" * 32)
+        self.assertTrue(all(c == "8c" * 32 for c in ctl[1:14]))          # P0 … POSTACK: 0x8C, no byte-0 extra
+        self.assertEqual(ctl[14], "90" * 32)                             # TDCTL after the restore
+        self.assertEqual(ctl[15], "00" * 32)                             # FINAL under expansion code 0
+        test = [d.hex() for a, rc, d in reads(INITIRQB) if a == 0x01000000]
+        self.assertEqual(test[:4], ["3c" * 32, "c3" * 32, "00" * 32, "ff" * 32])   # handshake, no byte-0 extras
+
+    def test_timeline(self):
+        ts = [int(l.split()[1]) for l in self.lines() if l.startswith("T ")]
+        self.assertEqual(len(ts), 25)
+        self.assertEqual(ts, sorted(ts))                                 # no wrap inside this run
+        for t in (3675626133, 3679890204, 3679890512, 3679926960, 3679931504, 3679931761, 3679933491, 3679938859, 3679943682, 3679944700, 3679954723, 3679959967):
+            self.assertIn(t, ts)
+        self.assertEqual(3679890204 - 3675626133, 4264071)               # EVENT 105.29 ms after A2 (003A: 4263568)
+        self.assertEqual(3679931761 - 3679931504, 257)                   # __UnmaskIrq call including the handler
+        self.assertEqual(3679938859 - 3679931582, 7277)                  # PREACK 179.7 us after the handler entry
+
+    def test_offset2_pattern_exceptions_are_documented_not_consumed(self):
+        # U-GBP-025: the empirical `lo | (hi & 0x05)` pattern of the byte at offset 2 of each 4-byte group
+        # holds for the 0x8AAE, 0x8AAA, 0x0000, 0x0400, 0x8000, 0x8AAA and 0x9090 reads of this run and for
+        # groups 1–7 of the PREUNMASK 0x0500 read, but NOT for group 0 of that read (00) and NOT for any
+        # group of the IRQSTOPPRE 0x8500 read (00 or 04 where the pattern predicts 05). Pinned as bytes.
+        irq = [d for a, rc, d in reads(INITIRQB) if a == 0x01d00000]
+        def mids(d):
+            return [d[4 * g + 2] for g in range(8)]
+        def predicted(d):
+            return [d[4 * g + 3] | (d[4 * g + 1] & 0x05) for g in range(8)]
+        for i in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 17, 18):
+            self.assertEqual(mids(irq[i]), predicted(irq[i]), irq[i].hex())
+        self.assertEqual(mids(irq[13]), [0x00] + [0x05] * 7)             # PREUNMASK 0x0500: group 0 breaks the pattern
+        self.assertEqual(mids(irq[16]), [0x00, 0x00, 0x04, 0x04, 0x00, 0x04, 0x00, 0x04])   # IRQSTOPPRE 0x8500: no group follows it
+        self.assertEqual(predicted(irq[16]), [0x05] * 8)
 
 
 class HardwareFixtureInitIrqA(unittest.TestCase):

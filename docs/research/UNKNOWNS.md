@@ -110,7 +110,20 @@ Only the usage is known (GBP-CTL-001). Phase 3 can observe 0x20/0x40
 read-back with/without a cartridge and link cable; 0x04/0x08 should be
 driven only in the documented order.
 
-## U-GBP-007 (P2, updated 2026-09-15 after GBP-INIT-003A) — IRQ register odd-bit polarity and bit 15
+## U-GBP-007 (P2, updated 2026-09-15 after GBP-INIT-003B) — IRQ register odd-bit polarity and bit 15
+
+**2026-09-15, GBP-INIT-003B (GBP-HW-039/040, GBP-IRQ-008):** the device
+ACK `IRQ := 0x0500 | 0x8000` wrote bit 15 = 1 while two sources were
+pending; the read-back 25 µs later showed both sources cleared and bit 15
+= 1 with the odd bits 0 (level-written both ways confirmed a third time).
+Then, with bit 15 still 1, the sources re-set within ≈143 µs and no PI
+cause followed — but CONTROL had been restored to 0x90 (bit 0x10 set) in
+between, so bit 15's hold function is again not isolated from CONTROL
+0x10. Still HYPOTHESIS, do not name it. The isolating observation is the
+state a GBI-style service cycle passes through anyway: sources re-set
+under CONTROL 0x8C with bit 15 = 1 and the odd bits 0, before `IRQ := 0`
+is written — the next experiment (U-GBP-027) reads the PI in exactly that
+state.
 
 **2026-09-15, GBP-INIT-003A (GBP-HW-028…032, GBP-IRQ-007):** the first
 authorized writes answered most of this. Even bits 2, 8 and 10 cleared when
@@ -202,7 +215,14 @@ user's screen/filter settings there. Not analyzed.
 device masks written 0, the first 0x0400 (audio) source rose between 50.00
 and 105.27 ms after A2 (106 ms after the CONTROL transform) and raised PI
 INTSR bit 13; 0x0100 (video) followed within ≈1 ms. One data point; no
-period measured (the window ended at the first cause).
+period measured (the window ended at the first cause). **Second data
+point, GBP-INIT-003B (GBP-HW-035/036/040):** 105.286 ms after A2 (12.4 µs
+later than 003A's 105.273 ms), 0x0100 again within ≤ 0.9 ms; after the
+device ACK cleared both sources they were set again at most ≈143 µs
+later (the interval contains a CONTROL restore, so it bounds the cadence
+only from above). The first-cause delay after the transform is
+repeatable to ≈10 µs across two runs with no cartridge; the period of the
+requests is still unmeasured (U-GBP-027).
 
 
 Dolphin ties video IRQs to the 4096 Hz audio tick and needs a 1.25×
@@ -278,7 +298,11 @@ constant. Every future run with the GBP adds samples. Fifth run
 4), FF response `11`, 00 response clean; CONTROL 0x90 → `91`, 0x8C → `9D`,
 0x00 → `11`; IRQ 0x8AAE → `9B`, 0x8FAE → `9F`, 0x9090 → `91`. Across five runs
 the extras were 0x40, 0x04, 0x08, 0x20, 0x24, 0x01, 0x10, 0x11: not a
-constant, not a single bit.
+constant, not a single bit. **Seventh run with the GBP (GBP-INIT-003B,
+GBP-HW-041): no extra bit in any block of the whole run** — TEST, CONTROL
+0x8C/0x90/0x00 and every IRQ value read byte 0 equal to the voted value.
+The extras are therefore not even guaranteed to be present; a run can be
+entirely clean. No mechanism, no consumption.
 
 ## U-GBP-021 (P2, re-evaluated 2026-09-15) — Byte 0 carries additional, run-dependent bits; the transient bit 6 of GBP-INIT-001 did not reproduce
 
@@ -292,12 +316,35 @@ read byte 0 `9D` / `9D` (CONTROL) and `9B` / `9F` (IRQ), the restore gave
 **byte 0 contains additional, variable bits that are not representative
 of the voted semantic value, and their pattern varied between runs**
 (0x40 transient in one run; 0x01/0x10/0x11 static in another;
-0x04/0x20/0x24 static in GBP-INIT-003A, GBP-HW-034). The
+0x04/0x20/0x24 static in GBP-INIT-003A, GBP-HW-034; none at all in
+GBP-INIT-003B, GBP-HW-041). The
 bit-6 transient stays recorded as a historical observation of one run,
 not as a rule. Do not name any of it busy / ready / ack / interrupt /
 latch; do not consume byte 0; no dedicated experiment.
 
-## U-GBP-022 (P1, partially answered 2026-09-15) — Physical behavior of the PI HSP cause (bit 13): level or latched, and does W1C clear it while the GBS-DOL still asserts?
+## U-GBP-022 (P2, updated 2026-09-15 after GBP-INIT-003B) — Physical behavior of the PI HSP cause (bit 13): level or latched, and does W1C clear it while the GBS-DOL still asserts?
+
+**Answered 2026-09-15 by GBP-INIT-003B (GBP-HW-037/038, GBP-PI-005, FACT
+for bit 13):** the latched cause was delivered to the IRQ 26 handler when
+INTMR bit 13 was opened; inside the handler `__MaskIrq` closed the mask
+and one `INTSR := 0x2000` cleared bit 13 **while both device sources
+(0x0400, 0x0100) were still pending, with the odd bits 0, bit 15 = 0 and
+CONTROL 0x8C — the same device state that had raised the cause** — and
+bit 13 stayed clear in every read for ≥ 179.7 µs before the device was
+acknowledged and ≥ 323.9 µs overall. **Rejected:** the simple
+sustained-level model "the HSP input to the PI stays asserted while an
+enabled source is pending" (it would have re-set the latch after the
+W1C). **Still admissible, not distinguished:** a pulse per event; an
+edge/event assertion; a transient line; a device-side deassert mechanism
+separate from the source latch (a line that drops once captured, or that
+follows something other than the source bits). "HSP is pulse" is not
+FACT. Priority lowered to P2: the service protocol no longer depends on
+the answer (the PI cause is latched and W1C-cleared, the device is
+serviced from its own register), and no experiment is planned for the
+nature of the line alone; the re-arm/repeated-service experiment
+(U-GBP-027) will add data (whether a source that re-sets while bit 13 is
+already clear raises a new cause at once, and whether one cause can
+cover two events). Original text kept below for the history.
 
 **Answered 2026-09-15 (GBP-HW-030/033, GBP-PI-004, FACT for bit 13):** the
 cause is captured with INTMR bit 13 = 0; it is latched at the PI — it
@@ -306,11 +353,10 @@ write — and one `INTSR := 0x2000` cleared it. **Still open:** whether the
 GBS-DOL's HSP line is level or pulse, and what a W1C does while the device
 still asserts (in this run the device sources were cleared before the
 W1C). A handler experiment that acknowledges PI while a source is still
-pending on the device would answer it: GBP-INIT-003B, specified and
-implemented 2026-09-15 (HARDWARE_TESTS.md "Planned tests"; dirty build,
-NOT physically executed), reads INTSR right after the handler's W1C and
-again ≈2.5 µs later and at the main loop's PREACK snapshot, all before
-the device is acknowledged.
+pending on the device would answer it: GBP-INIT-003B (specified,
+implemented and executed 2026-09-15 — answer above) read INTSR right
+after the handler's W1C, again ≈3.7 µs later and at the main loop's
+PREACK snapshot, all before the device was acknowledged.
 
 
 Known (GBP-PI-001…003): software treats INTSR as a cause register
@@ -374,7 +420,12 @@ is excluded for these sources; "elapsed time with CONTROL 0x8C — the AGB's
 audio/video streams starting" remains the consistent HYPOTHESIS
 (CORROBORATED by the driver dispatch of 0x0400/0x0100 to AUDIO/VIDEO). The
 INIT-002 transition time inside its 2 s window is still unmeasured; the
-question is no longer on the critical path.
+question is no longer on the critical path. **GBP-INIT-003B (GBP-HW-035,
+GBP-HW-040):** the same 0x0400-then-0x0100 order at 105.286 ms after A2
+(repeatable to 12 µs), and after the ACK both sources re-set within
+≈143 µs — the register is driven by the running AGB's stream of requests
+(HYPOTHESIS, consistent with the drivers' dispatch; cadence unmeasured,
+U-GBP-027).
 
 
 GBP-INIT-002 only brackets it: 0x8AAE 124 ticks (3 µs) after the CONTROL
@@ -404,7 +455,13 @@ as an observation by `tests/host/test_hw_fixture.py`). An empirical
 pattern with more than one possible explanation (bits 0/2 of the high byte
 copied into the low byte's slot, a wiring artifact, a different register
 phase); no meaning is assigned. Group 0 of the 0x0500 read broke it
-(`05 05 04 00`).
+(`05 05 04 00`). **GBP-INIT-003B (GBP-HW-041) broke it further:** group 0
+of the PREUNMASK 0x0500 read carries `00`, and the IRQSTOPPRE 0x8500 read
+carries `00` or `04` in every group (`85 85 00 00 / 85 85 04 00 …`) where
+the pattern predicts `05` — the byte varies within one 32-byte DMA. The
+pattern is not a rule; the exceptions are pinned byte by byte by the
+003B fixture test. Both references read only offsets ≡ 1 and ≡ 3 mod 4,
+and so does Open-GBP.
 
 ## U-GBP-026 (P2) — Mechanism of the GBP-aware game features (rumble, GBP-dependent modes)
 
@@ -423,3 +480,25 @@ too. To be established from the Disc, GBI, physical behavior and games
 known to exercise the feature (Phase 7/9/10); a GBP-aware compatibility
 matrix, rumble included, is created when those phases are reached. Not
 on the critical path of GBP-INIT-003A.
+
+
+## U-GBP-027 (P1, opened 2026-09-15 after GBP-INIT-003B) — Re-arm after the acknowledge, repeated service and the cadence of the audio/video requests
+
+One full service cycle is physically validated (GBP-PI-005, GBP-IRQ-008):
+cause → delivery → handler mask + PI W1C → device ACK `read | 0x8000` →
+stop word. What both references do next has never been exercised: GBI
+writes `IRQ := 0` after its ACK (odd bits 0, bit 15 0) and waits for the
+next cause; the Disc re-arms with its computed mask word. Unknown: (1)
+whether a source that re-set between the ACK and the re-arm (003B: the
+sources were set again ≤ 143 µs after the ACK) raises the PI cause at
+once when `IRQ := 0` clears bit 15, or only at the next event; (2)
+whether a cause can be lost between the handler's W1C and the re-arm
+(one PI bit for several device events); (3) the period and jitter of the
+0x0400 / 0x0100 requests with no cartridge (first delay repeatable at
+≈105.28 ms after A2; U-GBP-014); (4) as a by-product, whether bit 15 = 1
+alone holds the line — the state "sources re-set, odd bits 0, bit 15 = 1,
+CONTROL 0x8C" occurs naturally between the ACK and the re-arm (U-GBP-007);
+(5) how many cycles the audited mask-first handler sustains without
+reentry. This is the question of the next experiment (DEVLOG 2026-09-15
+"GBP-INIT-003B executed", recommendation): a bounded service loop, no
+AUDIO/VIDEO DMA, no KEYPAD, counters and timestamps per cause.

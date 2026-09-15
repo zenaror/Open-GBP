@@ -268,6 +268,10 @@ struct gbp_initirqa_teardown_opts {
     int pi_cleanup_allowed;                 /* 0: CLEANUPCHK observes only (reason=budget_spent) */
     void (*pre_arinfo_hook)(void *ctx);     /* runs after the PI step, before the AR_INFO restore (NULL: none) */
     void *hook_ctx;
+    const char *pi_policy;                  /* label of "TEARDOWN start … pi_policy="; NULL = "never_unmasked" (this
+                                             * probe's own policy). A caller that unmasked PI HSP passes its real
+                                             * policy: build initirqb-0001 printed "never_unmasked" in a run that had
+                                             * unmasked once (physical log of 2026-09-15, label defect; DEVLOG). */
 };
 
 /* The teardown of §9 R7 as run by the probe (opts NULL = the probe's own

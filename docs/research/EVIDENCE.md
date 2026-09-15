@@ -1317,3 +1317,205 @@ place, PI unmasked) saw no cause in 2 s with the sources pending; 003A
 cause at the PI within 105 ms. The blocker of INIT-002 was the device's
 own IRQ register state, not PI INTMR — **CORROBORATED** (two runs, one
 variable group changed; bit 15 and the odd bits changed together).
+
+## Physical observations — GBP-INIT-003B, 2026-09-15 (GBP attached; first delivery of an HSP cause to the CPU)
+
+Log `logs/GBP-INIT-003B_initirqb-0001.log` (17471 bytes, sha256
+`bedb1f013176fec1b3de7c63c4147dfa6770f1eae8c9ec29ee82b027f9d7cf7c`),
+build `initirqb-0001`, commit `d3da8cd` (clean, release-audited), DOL
+sha256 `821aa2b2893b6d66fd1398eaeb7de7c475862728e55dc0922d74042d0e9cb757`;
+verbatim in HARDWARE_TESTS.md; preserved copy `captures/local/`; fixture
+`captures/fixtures/hw-gamecube-gbp-2026-09-15-initirqb-0001.gbpreplay`
+(111 operations, replays with 0 mismatches, carries the physical handler
+record). Setup identical to GBP-INIT-003A. Time base 40.5 MHz. PI HSP was
+masked until the handler had been installed after a latched cause, then
+unmasked exactly once; INTMR was changed only through libogc2's mask API
+(audited on the objects: one `__UnmaskIrq` call site, no INTMR store).
+Every claim below is **FACT (hardware)** unless marked otherwise;
+interpretations are kept apart from observations. Every µs value is a
+tick count divided by 40.5 MHz; no µs value is a hardware specification.
+
+## GBP-HW-035 — The GBP-INIT-003A sequence reproduced: same baseline, same A1/A2 read-backs, the first cause 105.29 ms after A2
+
+Handshake `C3→3C`, `3C→C3`, `FF→00`, `00→FF`, all 32 bytes uniform (no
+byte-0 extra; vote, byte-1 and whole-block criteria 4/4). PI PRE/BASE/P0
+INTSR `0x00010000`, INTMR `0x000001FA`. BASE CONTROL `90×32` → 0x90; IRQ
+`8A 8A AE AE ×8` → 0x8AAE; TEST `00×32`. CONTROL := 0x8C read back
+`8C×32` (no extra) at P0 and in every later read up to POSTACK. A1
+`IRQ := 0x8AAE` → `8A 8A AA AA ×8` (0x8AAA) at +22 ticks, +50 µs, +500 µs
+and at A2PRE. A2 `IRQ := 0x0000` → `00×32` at +18 ticks, +50 µs, +500 µs,
++5 ms, +50 ms, INTSR bit 13 = 0 throughout. The INTSR poll at time base
+3679890204 (= t_a2 + 4264071 ticks = 105.286 ms after A2; 105.93 ms after
+the CONTROL write; the 709727th poll) returned `0x00012000`; the EVENT
+snapshot read INTSR `0x00012000`, INTMR `0x000001FA`, CONTROL 0x8C, IRQ
+`04 04 04 00 ×8` (0x0400). **FACT:** the A1/A2 read-backs of GBP-HW-028/029
+and the first cause of GBP-HW-030 reproduced in a second run; the
+EVENT-after-A2 interval differed from 003A's by 503 ticks (12.4 µs):
+105.286 ms vs 105.273 ms. Two data points, both with no cartridge; no
+mechanism claimed (U-GBP-014/024).
+
+## GBP-HW-036 — Second source 0x0100 between the EVENT and PREUNMASK; the pre-unmask baseline
+
+PREUNMASK snapshot 36756 ticks (907.6 µs) after the EVENT (the window's
+records were formatted in between), after `IRQ_Request(26, handler)` had
+returned NULL and the record read count 0 / fired 0: INTSR `0x00012000`
+in both PI samples, INTMR `0x000001FA` in both, CONTROL `8C×32` (0x8C),
+IRQ `05 05 00 00 / 05 05 05 00 ×7` → 0x0500 by both readings. **FACT:** bit
+8 (0x0100) rose after the EVENT snapshot and before PREUNMASK (≤ 907.6 µs;
+003A: ≤ ≈1.0 ms), with masks 0 and bit 15 = 0; the latched PI cause did
+not change and the CPU took no exception (INTMR bit 13 = 0). This is the
+state immediately before the first delivery: cause latched, mask closed,
+two sources pending on the device, CONTROL running.
+
+## GBP-HW-037 — `__UnmaskIrq(IM_PI_HSP)` delivered the latched cause to the handler as IRQ 26 inside the call; one entry; the handler observed INTMR bit 13 = 1 and closed it
+
+`t_unmask = 3679931504` read immediately before `__UnmaskIrq`; the call
+returned at `t_post = 3679931761` (257 ticks = 6.35 µs) with INTSR
+`0x00010000`, INTMR `0x000001FA` and the record already `fired=1`. Record
+(copied after the main re-mask, formatted outside the handler):
+`t_entry = 3679931582` (78 ticks = 1.926 µs after t_unmask), INTSR at entry
+`0x00012000`, INTMR at entry `0x000021FA` (bit 13 = 1), INTMR after
+`__MaskIrq` `0x000001FA`, `count=1`, `fired=1`, `reentry_t/intsr/intmr = 0`.
+The wait loop found `fired` at its first poll; `REMASKCHK` read INTMR
+`0x000001FA` (the main re-mask was idempotent). **FACT (restricted):** a
+PI HSP cause that had been latched while INTMR bit 13 = 0 was delivered
+to the registered IRQ 26 handler once `__UnmaskIrq(IM_PI_HSP)` opened the
+mask; the exception was taken before the call returned (ENV-IRQ-003); the
+handler saw INTMR bit 13 = 1 at entry and `__MaskIrq` from inside the
+handler cleared it; the handler was entered exactly once. **Latency
+observed:** 78 ticks ≈ 1.926 µs from the time-base read before the call
+to the handler's own first time-base read — a single observation of this
+software (libogc2 r2442.094b250, this handler, this DOL), not a hardware
+timing specification. Not extrapolated to other PI interrupts.
+
+## GBP-HW-038 — The handler's W1C cleared the latched PI cause while both device sources stayed pending; no re-assert for ≥ 324 µs
+
+Inside the handler, after the mask: INTSR before the W1C `0x00012000`;
+one `INTSR := 0x2000`; INTSR immediately after `0x00010000`; 148 ticks
+(3.654 µs) after the entry: INTSR `0x00010000`, INTMR `0x000001FA`. Main
+loop: UNMASKPOST `0x00010000`, REMASKCHK `0x00010000`, PREACK 7277 ticks
+(179.7 µs) after the entry `0x00010000` in both samples with CONTROL 0x8C
+and IRQ `05 05 05 00 ×8` (0x0500: both device sources still pending, odd
+bits 0, bit 15 = 0 — the same device state in which the cause had been
+raised), POSTACK 13118 ticks (323.9 µs) after the entry `0x00010000` in
+both samples (25 µs after the device ACK). **FACT:** with sources 0x0400
+and 0x0100 pending on the device, masks 0, bit 15 = 0 and CONTROL 0x8C,
+one W1C of INTSR bit 13 cleared it and it stayed clear in every read for
+at least 179.7 µs before the device was acknowledged and 323.9 µs
+overall. **Interpretation (U-GBP-022):** the simple model "the HSP input
+to the PI is a sustained level held while an enabled source is pending"
+is **REJECTED** for these conditions (a held level would have re-set the
+latch after the W1C). Still admissible, not distinguished by this run: a
+pulse per event; an edge/event assertion; a transient line; a device-side
+deassert mechanism separate from the source latch (for instance a line
+that drops once the PI has captured it, or that follows something other
+than the source bits). "HSP is pulse" is **not** promoted to FACT.
+
+## GBP-HW-039 — Device ACK `IRQ := 0x8500` (= 0x0500 | 0x8000) read back 0x8000: both sources cleared, bit 15 read 1, odd bits 0; PI unchanged
+
+PREACK IRQ 0x0500 by both readings (Disc = GBI, `semantic_disagree`
+not raised); write `85 00 ×16` (u16 replicated, one 32-byte DMA,
+completed); POSTACK snapshot 1018 ticks (25 µs) after the write's
+completion: IRQ `80 80 00 00 ×8` → 0x8000 by both readings, CONTROL 0x8C,
+INTSR `0x00010000` twice, INTMR `0x000001FA`. **FACT:** the even bits 8
+and 10 written as 1 while pending cleared (write-1-to-clear, third
+observation for these bits); bit 15 written 1 read 1 with no source
+pending; the odd bits written 0 read 0; the PI cause did not rise. The
+ACK is GBI's form (`read | 0x8000`, GBP-IRQ-003/004) and A1's physically
+validated write; no main-loop PI W1C was needed (`isr_pi_w1c=1
+main_pi_w1c=0`: the only INTSR W1C of the run was the handler's).
+
+## GBP-HW-040 — The device sources re-set within ≈143 µs of the ACK, after CONTROL had been restored; no PI cause followed; stop word validated again
+
+CONTROL := 0x90 (`90×32` read back) 5780 ticks (142.7 µs) after the
+POSTACK snapshot; IRQSTOPPRE, read right after, returned
+`85 85 00 00 / 85 85 00 00 / 85 85 04 00 / 85 85 04 00 / 85 85 00 00 /
+85 85 04 00 / 85 85 00 00 / 85 85 04 00` → 0x8500 by both readings: bits 8
+and 10 set again, bit 15 still 1, odd bits 0. Stop `IRQ := 0x8500 |
+0x8AAA = 0x8FAA` (`8F AA ×16`, completed) → IRQSTOPPOST `8A 8A AA AA ×8`
+(0x8AAA, `masks_readback=1 bit15_readback=1`). CLEANUPCHK, MASKCHK and
+FINAL read INTSR `0x00010000`, INTMR `0x000001FA`. **FACT:** sources
+0x0100 and 0x0400 were set again at most ≈143 µs after having been
+cleared by the ACK (lower bound unknown; the CONTROL restore lies in
+between), and no PI cause was raised afterwards while bit 15 = 1 and
+CONTROL = 0x90; the Start-up Disc stop word cleared them and re-armed the
+odd bits and bit 15 (second physical validation, GBP-HW-032). **Not
+claimed:** which of bit 15 = 1 and CONTROL 0x10 kept the cause away (they
+changed together, as in GBP-INIT-002), or what re-set the sources (the
+running AGB's next audio/video requests is the consistent HYPOTHESIS;
+sources reasserted after the ACK and before the stop, under the teardown
+state — that is all this run shows).
+
+## GBP-HW-041 — Teardown, restores, expansion-code view, byte-0 and offset-2 observations, statistics, logging defect
+
+Handler restore `IRQ_Request(26, NULL)` returned the experiment's handler
+(`ok=1`); MASKCHK INTMR `0x000001FA` (`mask_ok=1`); AR_INFO `0x005B →
+0x0043` read back; FINAL under code 0: CONTROL `00×32`, IRQ `90×32`
+(0x9090), INTSR `0x00010000`, INTMR `0x000001FA` — fifth observation of
+the code-3 → code-0 view change (U-GBP-004). `restore=ok`; writes
+`ctl_exp 1/1, a1 1/1, a2 1/1, ack 1/1, stop 1/1, ctl_restore 1/1,
+uncertain=0`; 51 transfers, 0 timeouts, 0 busy, 0 errors, 140 lines, 0
+dropped, 0 truncated; `REGION formatted_inside=0`. **Byte 0:** no extra
+bit in any block of this run (TEST, CONTROL 0x8C/0x90/0x00, IRQ
+0x8AAE/0x8AAA/0x0400/0x0500/0x8000/0x8500/0x9090) — the first run without
+any (U-GBP-020/021). **Offset ≡ 2 mod 4:** the empirical `lo | (hi &
+0x05)` pattern (U-GBP-025) held for 0x8AAE, 0x8AAA, 0x0000, 0x0400, the
+PREACK 0x0500, 0x8000, 0x8AAA and 0x9090 reads and for groups 1–7 of the
+PREUNMASK 0x0500 read, but not for group 0 of that read (`00`) and not for
+any group of the IRQSTOPPRE 0x8500 read (`00` or `04` where the pattern
+predicts `05`, varying within one 32-byte DMA) — the pattern is not a
+rule; both references ignore that byte. **Logging defect of this build,
+not a hardware observation:** `TEARDOWN start … pi_policy=never_unmasked`
+printed the shared 003A teardown's fixed label in a run that had unmasked
+once (`RESTOREB unmasked=1 masked_again=1`); corrected for later builds
+(`pi_policy=unmasked_once`), the log stays as written (DEVLOG 2026-09-15).
+`irq_attempted=3` in that record counts A1, A2 and the ACK before the stop
+word; the final `WRITES` record counts 4/4.
+
+## GBP-PI-005 — A latched PI HSP cause is delivered to the CPU as IRQ 26 when INTMR bit 13 opens; the handler can close the mask and clear the cause; the cause does not re-assert while the device sources stay pending
+
+**Claim:** with INTSR bit 13 latched and INTMR bit 13 = 0, opening the
+mask with libogc2's `__UnmaskIrq(IM_PI_HSP)` delivered one external
+interrupt to the IRQ 26 handler before the call returned (GBP-HW-037);
+inside the handler INTMR bit 13 read 1, `__MaskIrq(IM_PI_HSP)` cleared it,
+one `INTSR := 0x2000` cleared bit 13 and it stayed clear with the device
+sources still pending (GBP-HW-038); the handler was entered once, the
+device was acknowledged afterwards by the main loop with `read | 0x8000`
+(GBP-HW-039), and the previous handler and the masked state were restored
+(GBP-HW-041). **Status:** FACT (hardware), restricted to bit 13 / HSP on
+this console with libogc2 r2442.094b250 and the one-shot handler of
+`gbp_irq_oneshot.h` — the first physical validation of CPU delivery of
+IRQ 26 in Open-GBP; promotes the delivery half of GBP-PI-003 to FACT for
+bit 13. Latency 78 ticks: one observation, no specification. Not
+extrapolated to other PI sources. **Open (U-GBP-022):** the nature of the
+device line (pulse / edge / transient / separately deasserted); only the
+sustained-level model is rejected.
+
+## ENV-IRQ-003 — Hardware confirmation of the libogc2 unmask analysis: the pending exception is taken inside `__UnmaskIrq`
+
+**Claim:** `__UnmaskIrq` rebuilds INTMR under `_CPU_ISR_Disable` and
+restores MSR[EE] at its end, so a cause that is already latched is taken
+as an exception before the call returns (ENV-IRQ-002, source and binary
+analysis). GBP-HW-037 observed exactly that: the handler's entry time base
+lies between the read before the call and the read after it
+(3679931504 < 3679931582 < 3679931761), and the read after the call
+already showed the handler's effects (INTSR cleared, INTMR closed, record
+fired). **Status:** FACT (hardware) for this libogc2 build. Consequence
+for measurements: a "post-unmask" time base is not a lower bound of the
+delivery; the latency of a latched cause is t_entry − t_unmask, taken
+before the call (the 003B probe does this).
+
+## GBP-IRQ-008 — IRQ-register model after GBP-INIT-003B (per bit; supersedes GBP-IRQ-007 where stated)
+
+| Bit(s) | Hardware observations (003A + 003B, 2026-09-15) | Reference usage (code, FACT) | Status of the semantics |
+|---|---|---|---|
+| 2 (0x0004) | idle 1; written 1 (A1) → 0, twice (GBP-HW-028/035) | Disc slot 3 (stop / video reset); Dolphin GamePak | source, W1C **FACT**; function "game pak / stop event" FACT (code), physically untested |
+| 8 (0x0100) | rose by itself ≤ 1 ms after 0x0400 in both runs; written 1 while pending (stop 003A, ACK 003B, stop 003B) → 0 three times; re-set within ≈143 µs after the ACK (GBP-HW-040) | Disc slot 5 → VIDEO read; GBI VIDEO read 0xF00 | source, W1C **FACT**; "video request of the AGB" **CORROBORATED** (drivers) |
+| 10 (0x0400) | rose by itself 105.27 / 105.29 ms after A2 in both runs and raised PI INTSR bit 13 with masks 0 / bit 15 0 (GBP-HW-030/035); written 1 while pending → 0 three times; re-set within ≈143 µs after the ACK | Disc slot 4 → AUDIO read; GBI AUDIO read 0x1000 | source, W1C **FACT**; propagation to the PI **FACT** (in the A2 state); "audio request of the AGB" **CORROBORATED** (drivers) |
+| 0, 4, 6 | never seen set | Disc slots 0, 2, 1 (user callback, sleep → CONTROL 0x10, serial) | by pairing/code only: **CORROBORATED** W1C, functions per code |
+| 1, 3, 5, 7, 9, 11 (0x0AAA) | idle 1; written 1 (A1, stop) → 1; written 0 (A2, ACK) → 0 for ≥ 50 ms; with all six = 1 (and bit 15 = 1) pending sources raised no PI cause for 2 s (INIT-002); with all six = 0 (and bit 15 = 0) the next 0x0400 raised the cause twice (003A, 003B) | Disc: per-slot mask levels, handler filter `pending & ~(pending >> 1)`; GBI: all 0 before waiting | level-written **FACT**; pairing **CORROBORATED**; polarity 1 = masked / 0 = enabled **CORROBORATED** (bit 15 still moved with them in every run) |
+| 12–14 | written 0 by A2 / ACK / stop → 0; never seen 1 | never used | **UNKNOWN** function; keep 0 |
+| 15 (0x8000) | idle 1; written 0 (A2) → 0 for ≥ 50 ms; written 1 (stop 003A, ACK 003B) → 1 with no source pending; the PI cause arrived twice while it read 0; after the ACK left it 1, the sources re-set under CONTROL 0x90 and no PI cause followed (GBP-HW-040) | Disc: 1 at handler entry and at stop, 0 at start/exit; GBI: `read \| 0x8000` then 0; Dolphin: `IRQ_ASSERTED` | **FACT:** level-written and persistent both ways under the conditions tested (three writes read back). "W1C pending summary" **REJECTED**. Functional reading "global hold / mask, 1 = held" **HYPOTHESIS**: consistent with every run, never isolated (in 003B's IRQSTOPPRE state CONTROL 0x10 had already been set again). Do not name it |
+| PI bit 13 | captured while masked, latched, W1C-cleared (GBP-PI-004); delivered as IRQ 26 on unmask, masked from inside the handler, W1C-cleared while the sources stayed pending, no re-assert ≥ 324 µs (GBP-PI-005) | libogc2 dispatch `cause & mask` (ENV-IRQ-001) | **FACT** for bit 13; device line nature **UNKNOWN** minus the rejected sustained-level model (U-GBP-022) |
+| Service protocol | ISR: mask → one PI W1C; main: `IRQ := read \| 0x8000` under the running CONTROL → stop word — one full cycle validated (GBP-HW-037…040) | GBI order PI → GBP; Disc order GBP → PI → GBP → GBP | one cycle **FACT**; re-arm (`IRQ := 0` after the ACK) and repeated service **never exercised** |
+| Write layout | u16 replicated 16× accepted for 0x8AAE, 0x0000, 0x8500, 0x8FAA; read-back offset-2 byte is not a rule (GBP-HW-041, U-GBP-025) | GBI 0x80015da4 | layout **FACT** for the four values written |

@@ -216,6 +216,7 @@ static void test_nominal_no_cause(void)
     CHECK(res.a1_intsr13_seen == 0 && res.a2_intsr13_seen == 0);
     CHECK(count_lines_with(&rl, "REGION log_count_start=") == 1 && count_lines_with(&rl, "formatted_inside=0") == 1);
     CHECK(count_lines_with(&rl, "TEARDOWN start") == 1 && count_lines_with(&rl, "IRQSTOP pre ") == 1 && count_lines_with(&rl, "IRQSTOP post ") == 1);
+    CHECK(count_lines_with(&rl, "pi_policy=never_unmasked") == 1);        /* this probe's own policy label (opts NULL) */
     CHECK(count_lines_with(&rl, "CLEANUP performed=0") == 1 && count_lines_with(&rl, "ARINFO restore") == 1);
     CHECK(count_lines_with(&rl, "INITIRQA end status=ok_no_pi_cause_observed") == 1 && count_lines_with(&rl, "RESTORE control_restore_ok=1") == 1);
     CHECK(count_lines_with(&rl, "IRQ install") == 0 && count_lines_with(&rl, "UNMASK") == 0 && count_lines_with(&rl, "HANDLER") == 0);

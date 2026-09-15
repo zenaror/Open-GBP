@@ -119,6 +119,7 @@ static void teardown_b(const struct gbp_transport *t, struct ringlog *log, const
     opts.pi_cleanup_allowed = res->main_pi_w1c ? 0 : 1;      /* the main-loop W1C budget: one per run */
     opts.pre_arinfo_hook = teardown_hook;
     opts.hook_ctx = &h;
+    opts.pi_policy = res->irq_unmasked ? "unmasked_once" : "never_unmasked";   /* the run's real policy (label defect of initirqb-0001 fixed) */
     gbp_initirqa_teardown(t, log, &cfg->a, &res->a, &opts);
     if (res->a.pi_cleanup_performed) {
         res->main_pi_w1c = 1;

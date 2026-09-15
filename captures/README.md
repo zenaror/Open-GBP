@@ -23,6 +23,7 @@ Those directories are intentionally ignored by Git.
 | `hw-gamecube-nogbp-2026-09-15-init-0001.gbpreplay` | **SOURCE = physical GameCube, GBP_PRESENT=no**, same DOL, log sha256 `97f7cc70…6c5e` (2090 B) | hardware capture: `C1`×32, aborted before any CONTROL write |
 | `hw-gamecube-gbp-2026-09-15-initirq-0001.gbpreplay` | **SOURCE = physical GameCube, GBP_PRESENT=yes**, GBP-INIT-002 build initirq-0001 commit 4e3cb43, log sha256 `e7ec3d83…ea1d` (6585 B) | hardware capture: detection, PI, S0–S4, CONTROL writes, physical time base (`T`), interrupt path as it happened (`I i/u/m/r`; the handler never ran, so no IRQ is replayed) |
 | `hw-gamecube-gbp-2026-09-15-initirqa-0001.gbpreplay` | **SOURCE = physical GameCube, GBP_PRESENT=yes**, GBP-INIT-003A build initirqa-0001 commit d956b1b, DOL sha256 `8c225bd1…bfa5`, log sha256 `ae911745…2ef8` (13231 B) | hardware capture: detection, PI, BASE/P0, CONTROL transform, IRQ-register writes A1 `0x8AAE` / A2 `0x0000` / stop `0x8FAA` with every raw read, physical time base (`T`), the INTSR poll that saw bit 13 (`P p 00012000`), the single PI W1C (`P a`); PI HSP masked throughout (no `I` lines) |
+| `hw-gamecube-gbp-2026-09-15-initirqb-0001.gbpreplay` | **SOURCE = physical GameCube, GBP_PRESENT=yes**, GBP-INIT-003B build initirqb-0001 commit d3da8cd, DOL sha256 `821aa2b2…b757`, log sha256 `bedb1f01…cf7c` (17471 B) | hardware capture: the 003A sequence again (A1 `0x8AAE`, A2 `0x0000`, first cause `0x0400` at the PI 105.29 ms after A2), the handler installed after the latched cause (`I i null`), one unmask with the physical handler record (`I u …`: delivered with INTMR bit 13 = 1, masked inside the handler, one W1C, PI clear afterwards), the main re-mask (`I m`), device ACK `0x8500` read back `0x8000`, stop `0x8FAA`, handler restored (`I r`); no main-loop PI W1C; the source log's `pi_policy=never_unmasked` label is a documented defect of that build |
 | `hw-gamecube-gbp-2026-09-14-probe-0001.gbpreplay` | **SOURCE = physical GameCube + Game Boy Player**, GBP-PROBE-001 build probe-0001 commit 55ed6c1, derived from the device log sha256 `98ba20d5…f014` (kept unmodified under `captures/local/`) | hardware capture, sanitized (records only; header/setup in HARDWARE_TESTS.md) |
 
 `.gbpreplay` files are scripts for `src/gbp/gbp_replay.c` (format in its
@@ -33,14 +34,19 @@ header prepended; the raw device logs stay unmodified under
 The GBP-INIT-003A fixture above is physical. The same tooling path is also
 exercised by `tests/host/test_initirqa_replay.py` on a script generated
 from the host mock (marked `# SYNTHETIC` by `--note`) and kept under
-`build/`; synthetic scripts are never placed in this directory. **No
-GBP-INIT-003B fixture exists** (the experiment is implemented, not
-executed): `tests/host/test_initirqb_replay.py` round-trips a mock log of
-the delivery stage the same way (its `I u` line carries the extended
-handler record, the POSTACK main-loop W1C becomes `P a`), and the physical
-003A fixture is the real prefix of the 003B probe up to the EVENT — a
-replay of it stops at the handler install because the fixture has no `I`
-lines (the run had no interrupt path). The grammar
+`build/`; synthetic scripts are never placed in this directory.
+`tests/host/test_initirqb_replay.py` round-trips a mock log of the delivery
+stage the same way (its `I u` line carries the extended handler record, the
+POSTACK main-loop W1C becomes `P a`), replays the physical 003A fixture
+through the 003B probe (it is the real prefix up to the EVENT and stops at
+the handler install because that run had no interrupt path) and replays the
+physical 003B fixture end to end. The 003B fixture's source log carries
+`TEARDOWN start … pi_policy=never_unmasked`, a label defect of build
+initirqb-0001 (the shared 003A teardown printed its own fixed policy in a
+run that had unmasked once; the same log's `RESTOREB … unmasked=1
+masked_again=1` is the primary record); the log and the fixture are kept as
+written, later builds print `pi_policy=unmasked_once`, and the replay through
+the corrected probe reports that label. The grammar
 has an optional `P p <intsr>` line (the value the next `poll_intsr`
 returns) for the INTSR-polling loops of that probe; the polling loops
 replay with one time-base read per sample, so poll counters differ from

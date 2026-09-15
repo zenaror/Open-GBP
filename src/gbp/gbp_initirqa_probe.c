@@ -362,8 +362,9 @@ static void teardown(const struct gbp_transport *t, struct ringlog *log, const s
     uint32_t intsr = 0, intmr = 0;
     gbp_status rc;
 
-    ringlog_printf(log, "TEARDOWN start control_written=%d irq_attempted=%u irq_completed=%u uncertain_writes=%u intsr13_seen=%d pi_policy=never_unmasked",
-                   res->control_written, res->irq_writes_attempted, res->irq_writes_completed, count_uncertain(res), res->intsr13_seen);
+    ringlog_printf(log, "TEARDOWN start control_written=%d irq_attempted=%u irq_completed=%u uncertain_writes=%u intsr13_seen=%d pi_policy=%s",
+                   res->control_written, res->irq_writes_attempted, res->irq_writes_completed, count_uncertain(res), res->intsr13_seen,
+                   (opts && opts->pi_policy) ? opts->pi_policy : "never_unmasked");
 
     /* 1. CONTROL back to the ORIGINAL semantic value (GBI layout), then readback */
     if (res->control_written) {

@@ -636,6 +636,240 @@ builds print a phase-local `intsr13_in_phase` field (`src/gbp/gbp_initirqa_probe
 the replay of the fixture through the corrected probe reports
 `WINDOW tag=A1 … intsr13_in_phase=0`.
 
+### GBP-INIT-003B — 2026-09-15 — completed, GBP attached (status=ok_delivery_observed, restore=ok)
+
+```text
+Test ID     GBP-INIT-003B
+Build ID    initirqb-0001
+Commit      d3da8cd (clean; release audit of the same day, PHYSICAL CANDIDATE READY)
+DOL         build/poc/gbp-init-irq-deliver-probe/gbp-init-irq-deliver-probe.dol
+SHA-256     821aa2b2893b6d66fd1398eaeb7de7c475862728e55dc0922d74042d0e9cb757
+Log         logs/GBP-INIT-003B_initirqb-0001.log, 17471 bytes,
+            sha256 bedb1f013176fec1b3de7c63c4147dfa6770f1eae8c9ec29ee82b027f9d7cf7c
+            (original untouched; preserved copy captures/local/GBP-INIT-003B_initirqb-0001.log;
+            fixture captures/fixtures/hw-gamecube-gbp-2026-09-15-initirqb-0001.gbpreplay with the
+            physical time base, the four IRQ-register writes, the INTSR poll that saw bit 13, the
+            interrupt path as it happened (install, unmask with the physical handler record, main
+            re-mask, restore) and no main-loop PI W1C; 111 operations replay with 0 mismatches)
+Setup       GBP attached whole run, no Game Pak, Link Port empty, no PicoAdapterGB, BBA attached
+            without Ethernet, 1 controller, 1 Memory Card, SD2SP2, Swiss; no interaction until
+            X (save) / START (exit); console power-cycled afterwards (mandatory)
+Bounds      A1/A2 samples as 003A; T_DELIVERY 100 ms after the unmask (operational, not a GBP property)
+```
+
+Full log (verbatim):
+
+```text
+# OPENGBP-LOG v1
+test_id=GBP-INIT-003B
+build_id=initirqb-0001
+commit=d3da8cd
+libogc=libogc2 r2442.094b250 gecko=0 power_cycle_required=1
+lines=140 dropped=0 truncated=0
+# --- records ---
+000000 IDENT test=GBP-INIT-003B app=gbp-init-irq-deliver-probe build=initirqb-0001 commit=d3da8cd libogc=libogc2 r2442.094b250
+000001 ENV bus_hz=162000000 tb_hz=40500000 dma_timeout_ms=200 t_max_ms=2000 t_delivery_ms=100 t_delivery_ticks=4050000 a1_obs_us=50,500 a2_obs_us=50,500,5000,50000,500000,2000000 csr=0804
+000002 INITIRQB start t_delivery_ms=100 t_delivery_ticks=4050000 ack_or=8000 src_mask=0555 odd_mask=0aaa bit15_mask=8000 high_mask=7000 install_point=after_latched_cause
+000003 INITIRQA start exp_code=3 clear=10 set=0c idle_shape=1 req_masks=0aaa req_set=8000 req_clear=7000 ack_or=8000 stop_or=8aaa tb_hz=40500000
+000004 INITIRQA window a1_obs_ticks=2025,20250 a2_obs_ticks=2025,20250,202500,2025000,20250000,81000000 n_a1=2 n_a2=6 t_max_ms=2000 poll=1 end_on_event=1
+000005 ARINFO orig value=0043 size_code=3 exp_code=0 base=01000000
+000006 ARINFO exp value=005b exp_code=3
+000007 TESTW tag=DET idx=0 addr=01000000 pattern=c3 rc=ok ticks=30 polls=7 dspcr=0804
+000008 TESTR tag=DET idx=0 addr=01000000 pattern=c3 expect=3c rc=ok ticks=34 polls=9 dspcr=0804 match_all=1 match_1f=1 match_b1=1 match_vote=1 vote=3c data=3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c
+000009 TESTW tag=DET idx=0 addr=01000000 pattern=3c rc=ok ticks=31 polls=8 dspcr=0804
+000010 TESTR tag=DET idx=0 addr=01000000 pattern=3c expect=c3 rc=ok ticks=34 polls=9 dspcr=0804 match_all=1 match_1f=1 match_b1=1 match_vote=1 vote=c3 data=c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3
+000011 TESTW tag=DET idx=0 addr=01000000 pattern=ff rc=ok ticks=31 polls=8 dspcr=0804
+000012 TESTR tag=DET idx=0 addr=01000000 pattern=ff expect=00 rc=ok ticks=34 polls=9 dspcr=0804 match_all=1 match_1f=1 match_b1=1 match_vote=1 vote=00 data=0000000000000000000000000000000000000000000000000000000000000000
+000013 TESTW tag=DET idx=0 addr=01000000 pattern=00 rc=ok ticks=31 polls=8 dspcr=0804
+000014 TESTR tag=DET idx=0 addr=01000000 pattern=00 expect=ff rc=ok ticks=34 polls=9 dspcr=0804 match_all=1 match_1f=1 match_b1=1 match_vote=1 vote=ff data=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+000015 DET verdict=present run=4 transport_ok=4 vote_ok=4 b1_ok=4 all32_ok=4
+000016 PI tag=PRE intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000017 PRECOND intsr13=0 intmr13=0 irq_path_required=0 poll_intsr=1 write_intsr=1 ticks=1 ok=1 reason=-
+000018 SNAP tag=BASE ticks=3675594373 since_control=0 since_a1=0 since_a2=0 polls_before=0
+000019 PI tag=BASE intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000020 RAW BASE idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=90 sem_b1f=90 data=9090909090909090909090909090909090909090909090909090909090909090
+000021 RAW BASE idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000022 RAW BASE idx=0 addr=01000000 rc=ok ticks=34 polls=9 dspcr=0804 data=0000000000000000000000000000000000000000000000000000000000000000
+000023 CONTROL semantic orig=90 exp=8c method=gbi-majority-vote transform=(v&~10)|0c
+000024 IRQSHAPE tag=BASE disc=8aae gbi=8aae agree=1 masks_ok=1 bit15_ok=1 high_ok=1 req_masks=0aaa req_set=8000 req_clear=7000 ok=1 reason=-
+000025 CTLW tag=EXP addr=01400000 semantic=8c rc=ok ticks=30 polls=8 dspcr=0804 t_after=3675599972 layout=gbi-replicated data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000026 SNAP tag=P0 ticks=3675600975 since_control=1003 since_a1=0 since_a2=0 polls_before=0
+000027 PI tag=P0 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000028 RAW P0 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000029 RAW P0 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000030 RAW P0 idx=0 addr=01000000 rc=ok ticks=34 polls=9 dspcr=0804 data=0000000000000000000000000000000000000000000000000000000000000000
+000031 P0CHK intsr13=0 intmr13=0 control=8c irq=8aae ok=1 reason=-
+000032 RAW A1PRE idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000033 IRQSHAPE tag=A1PRE disc=8aae gbi=8aae agree=1 masks_ok=1 bit15_ok=1 high_ok=1 req_masks=0aaa req_set=8000 req_clear=7000 ok=1 reason=-
+000034 A1 before=8aae ack_or=8000 ack_value=8aae formula=read|ack_or
+000035 IRQW tag=A1 addr=01d00000 before=8aae write=8aae layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=3675605385 data=8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae
+000036 SNAP tag=A1-0 ticks=3675605407 since_control=5435 since_a1=22 since_a2=0 polls_before=0
+000037 PI tag=A1-0 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000038 RAW A1-0 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000039 RAW A1-0 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aaa sem_gbi=8aaa data=8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+000040 SNAP tag=A1-50US ticks=3675607411 since_control=7439 since_a1=2026 since_a2=0 polls_before=282
+000041 PI tag=A1-50US intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000042 RAW A1-50US idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000043 RAW A1-50US idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aaa sem_gbi=8aaa data=8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+000044 SNAP tag=A1-500US ticks=3675625637 since_control=25665 since_a1=20252 since_a2=0 polls_before=3271
+000045 PI tag=A1-500US intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000046 RAW A1-500US idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000047 RAW A1-500US idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aaa sem_gbi=8aaa data=8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+000048 WINDOW tag=A1 deadlines=2/2 polls=3271 poll_errors=0 intsr13_in_phase=0 no_timebase=0
+000049 RAW A2PRE idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aaa sem_gbi=8aaa data=8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+000050 PI tag=A2PRE intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000051 A2CHK irq_rc=ok pi_ok=1 intsr13=0 intmr13=0 ok=1
+000052 A2 before=8aaa value=0000 formula=zero
+000053 IRQW tag=A2 addr=01d00000 before=8aaa write=0000 layout=gbi-u16-replicated rc=ok ticks=30 polls=8 dspcr=0804 t_after=3675626133 data=0000000000000000000000000000000000000000000000000000000000000000
+000054 SNAP tag=A2-0 ticks=3675626151 since_control=26179 since_a1=20766 since_a2=18 polls_before=0
+000055 PI tag=A2-0 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000056 RAW A2-0 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000057 RAW A2-0 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0000 sem_gbi=0000 data=0000000000000000000000000000000000000000000000000000000000000000
+000058 SNAP tag=A2-50US ticks=3675628160 since_control=28188 since_a1=22775 since_a2=2027 polls_before=291
+000059 PI tag=A2-50US intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000060 RAW A2-50US idx=4 addr=01400000 rc=ok ticks=37 polls=10 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000061 RAW A2-50US idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0000 sem_gbi=0000 data=0000000000000000000000000000000000000000000000000000000000000000
+000062 SNAP tag=A2-500US ticks=3675646385 since_control=46413 since_a1=41000 since_a2=20252 polls_before=3276
+000063 PI tag=A2-500US intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000064 RAW A2-500US idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000065 RAW A2-500US idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0000 sem_gbi=0000 data=0000000000000000000000000000000000000000000000000000000000000000
+000066 SNAP tag=A2-5MS ticks=3675828637 since_control=228665 since_a1=223252 since_a2=202504 polls_before=33582
+000067 PI tag=A2-5MS intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000068 RAW A2-5MS idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000069 RAW A2-5MS idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0000 sem_gbi=0000 data=0000000000000000000000000000000000000000000000000000000000000000
+000070 SNAP tag=A2-50MS ticks=3677651137 since_control=2051165 since_a1=2045752 since_a2=2025004 polls_before=336966
+000071 PI tag=A2-50MS intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000072 RAW A2-50MS idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000073 RAW A2-50MS idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0000 sem_gbi=0000 data=0000000000000000000000000000000000000000000000000000000000000000
+000074 SNAP tag=EVENT ticks=3679890204 since_control=4290232 since_a1=4284819 since_a2=4264071 polls_before=709726 poll_intsr=00012000
+000075 PI tag=EVENT intsr=00012000 intmr=000001fa intsr13=1 intmr13=0
+000076 RAW EVENT idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000077 RAW EVENT idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0400 sem_gbi=0400 data=0404040004040400040404000404040004040400040404000404040004040400
+000078 WINDOW tag=A2 deadlines=4/6 polls=709726 poll_errors=0 ended_early=1 event=1 t_event=3679890204 intsr13_in_phase=1 t_end=3679890512 elapsed_ticks=4264379 elapsed_us=105293 no_timebase=0
+000079 REGION log_count_start=32 log_count_end=32 formatted_inside=0
+000080 CAUSE t_event=3679890204 since_a2=4264071 intsr=00012000 intmr=000001fa intsr13=1 intmr13=0 control=8c irq=0400
+000081 IRQ install rc=ok old_handler=null record_count=0 record_fired=0
+000082 SNAP tag=PREUNMASK ticks=3679926960 since_control=4326988 since_a1=4321575 since_a2=4300827 polls_before=0
+000083 PI tag=PREUNMASK intsr=00012000 intmr=000001fa intsr13=1 intmr13=0
+000084 PI tag=PREUNMASKb intsr=00012000 intmr=000001fa intsr13=1 intmr13=0
+000085 RAW PREUNMASK idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000086 RAW PREUNMASK idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0500 sem_gbi=0500 data=0505000005050500050505000505050005050500050505000505050005050500
+000087 PREUNMASK ok=1 reason=- intsr13=1,1 intmr13=0,0 control=8c irq=0500/0500 src=0500 odd=0000 bit15=0
+000088 PI tag=UNMASKPRE rc=ok intsr=00012000 intmr=000001fa intsr13=1 intmr13=0
+000089 UNMASK t_unmask=3679931504 rc=ok t_post=3679931761 dt_post=257
+000090 PI tag=UNMASKPOST rc=ok intsr=00010000 intmr=000001fa intsr13=0 intmr13=0 fired=1
+000091 IRQ mask tag=MAIN rc=ok
+000092 WAIT fired=1 timed_out=0 polls=1 wait_ticks=1987 wait_us=49 t_delivery_ms=100 t_delivery_ticks=4050000
+000093 PI tag=REMASKCHK intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000094 HANDLER fired=1 count=1 t_entry=3679931582 t_unmask=3679931504 latency_ticks=78 latency_us=1 reentry=0
+000095 HANDLERPI intsr_at_entry=00012000 intmr_at_entry=000021fa intmr_after_mask=000001fa intsr_before_w1c=00012000 intsr_after_w1c=00010000 reentry_intsr=00000000 reentry_intmr=00000000
+000096 HANDLERPI2 t_second=3679931730 dt_second=148 intsr_second=00010000 intmr_second=000001fa reentry_t=0
+000097 DELIVERY fired=1 count=1 latency_ticks=78 latency_us=1 intsr13_entry=1 intmr13_entry=1 intmr13_after_mask=0 intsr13_before_w1c=1 intsr13_after_w1c=0 intsr13_second=0 intmr13_second=0 main_mask_ok=1 reentry=0
+000098 SNAP tag=PREACK ticks=3679938859 since_control=4338887 since_a1=4333474 since_a2=4312726 polls_before=0
+000099 PI tag=PREACK intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000100 PI tag=PREACKb intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000101 RAW PREACK idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000102 RAW PREACK idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0500 sem_gbi=0500 data=0505050005050500050505000505050005050500050505000505050005050500
+000103 PREACK intsr13=0,0 intmr13=0 control=8c irq=0500/0500 src_pending=0500
+000104 ACK before=0500 ack_or=8000 ack_value=8500 formula=read|ack_or
+000105 IRQW tag=ACK addr=01d00000 before=0500 write=8500 layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=3679943682 data=8500850085008500850085008500850085008500850085008500850085008500
+000106 SNAP tag=POSTACK ticks=3679944700 since_control=4344728 since_a1=4339315 since_a2=4318567 polls_before=0
+000107 PI tag=POSTACK intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000108 PI tag=POSTACKb intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000109 RAW POSTACK idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000110 RAW POSTACK idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8000 sem_gbi=8000 data=8080000080800000808000008080000080800000808000008080000080800000
+000111 POSTACK intsr13=0,0 intmr13=0 control=8c irq=8000/8000 src_pending=0000 bit15=1 ack=1/1
+000112 MAINPICLEANUP site=POSTACK performed=0 intsr13=0 intmr13=0
+000113 TEARDOWN start control_written=1 irq_attempted=3 irq_completed=3 uncertain_writes=0 intsr13_seen=1 pi_policy=never_unmasked
+000114 CTLW tag=RESTORE addr=01400000 semantic=90 rc=ok ticks=30 polls=8 dspcr=0804 t_after=3679950480 layout=gbi-replicated data=9090909090909090909090909090909090909090909090909090909090909090
+000115 RAW TDCTL idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=90 sem_b1f=90 data=9090909090909090909090909090909090909090909090909090909090909090
+000116 CONTROL restore semantic=90 rc=ok readback_rc=ok readback_vote=90 readback_b1f=90 ok=1
+000117 RAW IRQSTOPPRE idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8500 sem_gbi=8500 data=8585000085850000858504008585040085850000858504008585000085850400
+000118 IRQSTOP pre rc=ok disc=8500 gbi=8500 stop_or=8aaa stop_value=8faa formula=read|stop_or comment=startup-disc-stop-shadow
+000119 IRQW tag=STOP addr=01d00000 before=8500 write=8faa layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=3679954723 data=8faa8faa8faa8faa8faa8faa8faa8faa8faa8faa8faa8faa8faa8faa8faa8faa
+000120 RAW IRQSTOPPOST idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aaa sem_gbi=8aaa data=8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+000121 IRQSTOP post rc=ok disc=8aaa gbi=8aaa write_ok=1 readback_ok=1 masks_readback=1 bit15_readback=1
+000122 PI tag=CLEANUPCHK intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000123 CLEANUP performed=0 intsr=00010000 intsr13=0 intmr13=0 reason=intsr13_clear
+000124 IRQ restore rc=ok ok=1 old_handler=null
+000125 PI tag=MASKCHK intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000126 MASK final intmr=000001fa intmr13=0 orig_intmr13=0 ok=1
+000127 ARINFO restore value=0043 rc=ok readback=0043 ok=1
+000128 SNAP tag=FINAL ticks=3679959967 since_control=4359995 since_a1=4354582 since_a2=4333834 polls_before=0
+000129 PI tag=FINAL intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000130 RAW FINAL idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=00 sem_b1f=00 data=0000000000000000000000000000000000000000000000000000000000000000
+000131 RAW FINAL idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=9090 sem_gbi=9090 data=9090909090909090909090909090909090909090909090909090909090909090
+000132 FINAL arinfo=0043 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0 control=00 irq=9090 power_cycle_required=1
+000133 INITIRQB end status=ok_delivery_observed reason=- restore=ok restore_reason=- power_cycle_required=1 errors=0 transport_ok=1
+000134 WRITES control_written=1 irq_attempted=4 irq_completed=4 ctl_exp=1/1 a1=1/1 a2=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 power_cycle_required=1 format=attempted/completed
+000135 OBSERVED intsr13_seen=1 t_first_intsr13=3679890204 first_phase=A2 first_value=00012000 polls_at_first=709726 event=1 ended_early=1
+000136 RESTORE control_restore_ok=1 irq_stop_write_ok=1 irq_stop_readback_ok=1 stop_masks_readback=1 stop_bit15_readback=1 pi_cleanup_performed=0 pi_cleanup_ok=-1 pi_cleanup_sticky=0 arinfo_restore_ok=1
+000137 ACKS ack=1/1 ack_value=8500 irq_pending=0500 skipped=0 reason=- isr_pi_w1c=1 main_pi_w1c=0 site=- sticky=0 uncertain=0
+000138 RESTOREB handler_installed=1 handler_restored=1 old_handler=null mask_ok=1 intmr_final=000001fa pi_sticky_final=0 unmasked=1 masked_again=1
+000139 STATS transfers=51 timeouts=0 busy=0
+# --- end --- dropped=0
+```
+
+Result: `ok_delivery_observed`, `restore=ok`, 51 transfers, 0 timeouts /
+busy / errors, 140 lines, 0 dropped / truncated, every write attempted =
+completed (`ctl_exp 1/1, a1 1/1, a2 1/1, ack 1/1, stop 1/1, ctl_restore
+1/1, uncertain=0`), `power_cycle_required=1`. PRESENT 4/4 by all three
+criteria (no byte-0 extra anywhere in this run). **003A part reproduced:**
+PI `0x00010000` / `0x000001FA` at PRE, BASE, P0; BASE CONTROL `0x90`, IRQ
+`0x8AAE` (`8A 8A AE AE ×8`, byte 0 clean); CONTROL `0x90 → 0x8C`; **A1**
+`IRQ := 0x8AAE` read back `0x8AAA` at +22 ticks, +50 µs, +500 µs; **A2**
+`IRQ := 0x0000` read back `0x0000` at +18 ticks, +50 µs, +500 µs, +5 ms,
++50 ms with CONTROL `0x8C` and INTSR bit 13 = 0; **EVENT** at t =
+3679890204 = 4264071 ticks = 105.286 ms after A2 (003A: 105.273 ms): INTSR
+`0x00012000` with INTMR `0x000001FA`, CONTROL `0x8C`, IRQ `0x0400`
+(`04 04 04 00 ×8`); window ended early (`deadlines=4/6`). **CAUSE →
+install:** `IRQ_Request(26)` returned NULL, record clean. **PREUNMASK**
+907.6 µs after the EVENT: INTSR `0x00012000` in both samples, INTMR
+`0x000001FA` in both, CONTROL `0x8C`, IRQ `0x0500` — the second source
+(0x0100) had appeared between the EVENT and PREUNMASK; all preconditions
+met. **UNMASK** `t_unmask=3679931504`, `__UnmaskIrq` returned at
+`t_post=3679931761` (257 ticks) with INTSR already `0x00010000`, INTMR
+`0x000001FA` and `fired=1`: the handler ran inside the call. **Handler
+record:** `t_entry=3679931582` (78 ticks = 1.926 µs after t_unmask), INTSR
+at entry `0x00012000`, INTMR at entry `0x000021FA` (bit 13 = 1, as
+delivered); after `__MaskIrq` INTMR `0x000001FA`; INTSR before the W1C
+`0x00012000`; after the one W1C `0x00010000`; second read 148 ticks
+(3.654 µs) after the entry: INTSR `0x00010000`, INTMR `0x000001FA`;
+`count=1 fired=1 reentry=0`. Main re-mask idempotent (`REMASKCHK`
+`0x000001FA`). **PREACK** 7277 ticks (179.7 µs) after the handler entry:
+INTSR `0x00010000` in both samples, INTMR `0x000001FA`, CONTROL `0x8C`, IRQ
+`0x0500` (`05 05 05 00 ×8`) — the device sources still pending, PI bit 13
+not re-asserted. **Device ACK** `IRQ := 0x0500 | 0x8000 = 0x8500`
+(`85 00 ×16`, completed); **POSTACK** 25 µs after the write: IRQ `0x8000`
+(`80 80 00 00 ×8`: both sources cleared, bit 15 read 1, odd bits 0), INTSR
+`0x00010000` in both samples, INTMR `0x000001FA`; no main-loop W1C
+(`MAINPICLEANUP performed=0`). **Teardown:** CONTROL `0x90` restored
+(`90 ×32`); IRQSTOPPRE ≈143 µs after POSTACK read IRQ `0x8500`
+(`85 85 00 00 / 85 85 04 00 …`: sources 0x0100 and 0x0400 set again, after
+the CONTROL restore); stop `IRQ := 0x8FAA` read back `0x8AAA`
+(`masks_readback=1 bit15_readback=1`); CLEANUPCHK INTSR `0x00010000`
+(bit 13 clear: no cleanup needed, `reason=intsr13_clear`); handler restored
+(`old_handler=null`, rc ok); MASKCHK INTMR `0x000001FA` (`mask_ok=1`);
+AR_INFO `0x005B → 0x0043`; FINAL under code 0 `00` / `9090`, INTSR
+`0x00010000`, INTMR `0x000001FA`. Evidence GBP-HW-035…041, GBP-PI-005,
+ENV-IRQ-003, GBP-IRQ-008; analysis in DEVLOG 2026-09-15 "GBP-INIT-003B
+executed".
+
+**Logging defect found in this run (build initirqb-0001):** record
+`000113 TEARDOWN start … pi_policy=never_unmasked` was printed by the
+shared 003A teardown with its own fixed label, although this run had
+unmasked PI HSP once (`000089 UNMASK … rc=ok`, `000138 RESTOREB …
+unmasked=1 masked_again=1`) and the handler had been delivered
+(`000094 HANDLER fired=1 count=1`). The label is not evidence of anything;
+the primary records are. The log is preserved as written; later builds
+print the caller's real policy (`pi_policy=unmasked_once` for a run that
+unmasked, `never_unmasked` otherwise — `gbp_initirqa_teardown_opts.pi_policy`,
+regression-tested), and the replay of the fixture through the corrected
+probe reports `pi_policy=unmasked_once`. Also in this record:
+`irq_attempted=3 irq_completed=3` counts A1, A2 and the ACK — the stop
+word is written after it; the final `WRITES` record counts 4/4. Not an
+inconsistency.
+
 ## Planned tests
 
 ### SMOKE-HW-001 — first physical run of `poc/smoke-test` (Phase 3 gate 1)
@@ -869,11 +1103,17 @@ Risks:  a device line asserted for up to ~2 s with PI masked (no CPU effect); a 
 Physical setup: identical to GBP-INIT-002.
 ```
 
-### GBP-INIT-003B — delivery of a latched HSP cause to the CPU as IRQ 26 (designed 2026-09-15; IMPLEMENTED 2026-09-15 as a dirty build; NOT physically executed, NOT released)
+### GBP-INIT-003B — delivery of a latched HSP cause to the CPU as IRQ 26 (designed 2026-09-15; implemented and executed 2026-09-15 — see "Executed tests" above)
 
-Status: **IMPLEMENTED — NOT PHYSICALLY EXECUTED — DIRTY BUILD, NOT A
-PHYSICAL CANDIDATE**; no hardware, no request (DEVLOG 2026-09-15
-"GBP-INIT-003B designed" and "GBP-INIT-003B implemented"). Code:
+Status: **PHYSICALLY EXECUTED 2026-09-15** (build initirqb-0001, commit
+d3da8cd, DOL sha256 `821aa2b2…b757`; result above, evidence
+GBP-HW-035…041, GBP-PI-005, ENV-IRQ-003, GBP-IRQ-008). The paragraph
+below is the pre-execution status kept for the history; the clean build
+of d3da8cd was audited (PHYSICAL CANDIDATE READY, DEVLOG 2026-09-15
+"GBP-INIT-003B release audit") and executed once; no second run is
+requested. Pre-execution status: IMPLEMENTED — NOT PHYSICALLY EXECUTED —
+DIRTY BUILD, NOT A PHYSICAL CANDIDATE; no hardware, no request (DEVLOG
+2026-09-15 "GBP-INIT-003B designed" and "GBP-INIT-003B implemented"). Code:
 `src/gbp/gbp_initirqb_probe.{h,c}` composed on the executed 003A module,
 which was refactored into stages (`gbp_initirqa_run_cause`,
 `gbp_initirqa_teardown`, snapshot helpers) without behavior change — its

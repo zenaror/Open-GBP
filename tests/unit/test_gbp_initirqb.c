@@ -2,12 +2,14 @@
  * GBP-INIT-003B logic (delivery of a latched HSP cause to the CPU) against
  * the mock's SYNTHETIC models: the source/mask IRQ register, the PI cause
  * latch with optional re-latch, and the delivery engine that runs the
- * extended one-shot handler body (gbp_irq_oneshot_service_ext). The
- * physical GBP-INIT-003A fixture drives the pre-delivery part verbatim up
- * to the EVENT; after the EVENT every behavior is synthetic — no physical
- * GBP-INIT-003B data exists and none is invented.
+ * extended one-shot handler body (gbp_irq_oneshot_service_ext); plus the
+ * two physical fixtures: GBP-INIT-003A (2026-09-15) drives the pre-delivery
+ * part verbatim up to the EVENT and stops at the install (no interrupt
+ * path in that run), and GBP-INIT-003B (2026-09-15, initirqb-0001, commit
+ * d3da8cd) replays the whole run including the physical handler record.
+ * The mock scenarios stay synthetic and are never physical evidence.
  *
- * Modes:  test_gbp_initirqb [initirqa-0001 fixture]
+ * Modes:  test_gbp_initirqb [initirqa-0001 fixture] [initirqb-0001 fixture]
  *         test_gbp_initirqb --dump-log <file>   (synthetic delivery scenario, SD-log format)
  *         test_gbp_initirqb --replay <fixture>  (runs the probe on a replay script)
  */
@@ -217,6 +219,9 @@ static void test_normal_delivery(void)
     CHECK(count_lines_with(&rl, "INITIRQB end status=ok_delivery_observed reason=- restore=ok") == 1);
     CHECK(count_lines_with(&rl, "ACKS ack=1/1 ack_value=8400") == 1 && count_lines_with(&rl, "RESTOREB handler_installed=1 handler_restored=1") == 1);
     CHECK(count_lines_with(&rl, "IRQW ") == 4 && count_lines_with(&rl, "layout=gbi-u16-replicated") == 4);
+    /* the shared teardown prints this run's real PI policy (build initirqb-0001 printed never_unmasked here: label defect) */
+    CHECK(count_lines_with(&rl, "TEARDOWN start control_written=1 irq_attempted=3 irq_completed=3 uncertain_writes=0 intsr13_seen=1 pi_policy=unmasked_once") == 1);
+    CHECK(count_lines_with(&rl, "pi_policy=never_unmasked") == 0);
     /* order of the records mirrors the sequence */
     CHECK(line_index_with(&rl, "SNAP tag=EVENT") < line_index_with(&rl, "CAUSE t_event="));
     CHECK(line_index_with(&rl, "CAUSE t_event=") < line_index_with(&rl, "IRQ install"));
@@ -332,6 +337,7 @@ static void test_timeout_and_abort_unmask(void)
     CHECK(res.handler_restored == 1 && res.mask_ok == 1 && res.restore_ok == 1 && res.transport_ok == 1);
     CHECK(count_lines_with(&rl, "WAIT fired=0 timed_out=1") == 1 && count_lines_with(&rl, "INITIRQB end status=delivery_timeout") == 1);
     CHECK(count_lines_with(&rl, "IRQW tag=ACK") == 0);
+    CHECK(count_lines_with(&rl, "pi_policy=unmasked_once") == 1 && count_lines_with(&rl, "pi_policy=never_unmasked") == 0);   /* the unmask happened */
     check_never(&m);
     check_order(&m, &res);
     mock_003b(&m); m.unmask_ignored = 1;
@@ -389,6 +395,7 @@ static void test_install_and_preunmask(void)
     run(&m, &rl, &res);
     CHECK(res.status == GBP_INITIRQB_ABORT_HANDLER_INSTALL && strcmp(res.reason, "irq_ops_unavailable") == 0 && res.irq_unmasked == 0);
     CHECK(count_lines_with(&rl, "IRQ install rc=unavailable") == 1);
+    CHECK(count_lines_with(&rl, "pi_policy=never_unmasked") == 1 && count_lines_with(&rl, "pi_policy=unmasked_once") == 0);
     mock_003b(&m); m.clear_cause_on_install = 1;
     run(&m, &rl, &res);
     CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "cause_lost") == 0);
@@ -480,6 +487,7 @@ static void test_no_cause_and_stage_aborts(void)
     CHECK(res.handler_restored == -1 && res.mask_ok == -1 && res.transport_ok == 1);
     CHECK(count_lines_with(&rl, "IRQ install") == 0 && count_lines_with(&rl, "UNMASK") == 0);
     CHECK(count_lines_with(&rl, "INITIRQB end status=no_cause_within_tmax reason=no_intsr13_within_t_max") == 1);
+    CHECK(count_lines_with(&rl, "pi_policy=never_unmasked") == 1 && count_lines_with(&rl, "pi_policy=unmasked_once") == 0);   /* no unmask on this path */
     check_never(&m);
     gbp_mock_init(&m); m.irq_model = MOCK_IRQ_MODEL_SOURCE_MASK; m.isr_ext = 1; m.present = 0; m.absent_fill = 0xC1;
     run(&m, &rl, &res);
@@ -665,6 +673,117 @@ static void test_hw_initirqa_prefix(const char *path)
     free(text);
 }
 
+/* The physical GBP-INIT-003B run of 2026-09-15 (build initirqb-0001, commit d3da8cd, DOL 821aa2b2…b757,
+ * log 17471 bytes sha256 bedb1f01…cf7c): the first delivery of a real HSP cause to a CPU handler as
+ * IRQ 26. The fixture drives every transport call verbatim — the 003A sequence, the install after the
+ * latched cause, the one unmask with the physical handler record, the main re-mask, the device ACK,
+ * the stop word, the handler restore — with the console's time base. Nothing here is synthetic. */
+static void test_hw_initirqb_gbp(const char *path)
+{
+    char *text = read_file(path);
+    struct gbp_replay r; struct gbp_transport t; struct gbp_initirqb_config cfg;
+    struct gbp_initirqb_result res; struct ringlog rl;
+    const struct gbp_initirqa_snapshot *ev, *fin;
+    unsigned ops = 0; const char *p;
+    if (!text) { fprintf(stderr, "cannot read %s\n", path); failures++; return; }
+    for (p = text; *p; ) { while (*p == ' ') p++; if (*p != '#' && *p != '\n' && *p != '\0') ops++; p = strchr(p, '\n'); if (!p) break; p++; }
+    gbp_replay_init(&r, text);
+    CHECK(r.has_irq_ops == 1 && r.timeline == 1);
+    gbp_replay_transport(&r, &t);
+    gbp_initirqb_config_default(&cfg);                                       /* the console's time base, 40.5 MHz */
+    ringlog_init(&rl, storage, LINE_LEN, LINES);
+    CHECK(gbp_initirqb_probe_run(&t, &rl, &cfg, &res) == 0);
+    CHECK(r.exhausted == 0 && r.mismatches == 0 && r.tick_polls == 0 && r.step == ops && ops == 111u);
+    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && strcmp(res.status_name, "ok_delivery_observed") == 0);
+    CHECK(res.restore_ok == 1 && res.errors == 0 && res.transport_ok == 1 && res.power_cycle_required == 1 && res.stage_a_aborted == 0);
+    /* the 003A sequence as it happened again: BASE 90 / 8AAE, A1 8AAE -> 8AAA, A2 0000, EVENT 0x0400 105.29 ms after A2 */
+    ev = &res.a.snap[GBP_INITIRQA_SNAP_EVENT];
+    fin = &res.a.snap[GBP_INITIRQA_SNAP_FINAL];
+    CHECK(res.a.det.vote_ok == 4 && res.a.det.run == 4 && res.a.control_orig == 0x90 && res.a.control_exp == 0x8c);
+    CHECK(res.a.snap[GBP_INITIRQA_SNAP_BASE].irq_gbi == 0x8aae && res.a.snap[GBP_INITIRQA_SNAP_A1_0].irq_gbi == 0x8aaa);
+    CHECK(res.a.w_a1.value == 0x8aae && res.a.w_a1.completed && res.a.w_a2.value == 0 && res.a.w_a2.completed);
+    CHECK(res.a.t_a2 == 3675626133u && res.a.t_event == 3679890204u && (uint32_t)(res.a.t_event - res.a.t_a2) == 4264071u);
+    CHECK(res.a.event_taken == 1 && res.a.window_ended_early == 1 && res.a.intsr13_seen == 1);
+    CHECK(ev->taken && ev->intsr == 0x00012000u && ev->intmr == 0x000001fau && ev->control_vote == 0x8c && ev->irq_gbi == 0x0400 && ev->irq_disc == 0x0400);
+    /* point B: the handler installed after the cause, previous handler NULL, record clean */
+    CHECK(res.handler_was_installed == 1 && res.old_handler_null == 1 && res.install_count == 0 && res.install_fired == 0);
+    /* PREUNMASK 907.6 us after the EVENT: both PI samples latched and masked, CONTROL 8C, the second source had appeared (0x0500) */
+    CHECK(res.preunmask_ok == 1 && strcmp(res.preunmask_reason, "-") == 0 && res.preunmask.ticks == 3679926960u);
+    CHECK(res.preunmask.intsr == 0x00012000u && res.preunmask.pi2_ok && res.preunmask.intsr2 == 0x00012000u);
+    CHECK(res.preunmask.intmr == 0x000001fau && res.preunmask.intmr2 == 0x000001fau && res.preunmask.control_vote == 0x8c);
+    CHECK(res.preunmask.irq_gbi == 0x0500 && res.preunmask.irq_disc == 0x0500);
+    /* one unmask; the handler ran inside __UnmaskIrq: t_post is after the record's second read */
+    CHECK(res.intsr_pre_unmask == 0x00012000u && res.intmr_pre_unmask == 0x000001fau);
+    CHECK(res.t_unmask == 3679931504u && res.unmask_rc == GBP_OK && res.irq_unmasked == 1 && res.t_post_unmask == 3679931761u);
+    CHECK(res.intsr_post_unmask == 0x00010000u && res.intmr_post_unmask == 0x000001fau);
+    CHECK(res.fired == 1 && res.rec.count == 1 && res.reentry == 0 && res.timed_out == 0 && res.polls == 1 && res.wait_ticks == 1987u);
+    CHECK(res.rec.t_entry == 3679931582u && res.latency_ticks == 78u && res.latency_us == 1u);
+    CHECK(res.rec.intsr_before_ack == 0x00012000u && res.rec.intmr_at_entry == 0x000021fau);      /* delivered: cause + mask open */
+    CHECK(res.rec.intmr_after_mask == 0x000001fau && res.rec.intsr_before_w1c == 0x00012000u);    /* mask first, cause still latched */
+    CHECK(res.rec.intsr_after_ack == 0x00010000u);                                                 /* the ISR's W1C cleared it */
+    CHECK(res.rec.t_second == 3679931730u && (uint32_t)(res.rec.t_second - res.rec.t_entry) == 148u);
+    CHECK(res.rec.intsr_second == 0x00010000u && res.rec.intmr_second == 0x000001fau && res.rec.reentry_t == 0 && res.rec.reentry_intsr == 0);
+    CHECK(res.irq_masked_again == 1 && res.main_mask_ok == 1 && res.remask_retry == 0 && res.intmr_remask == 0x000001fau);
+    /* PREACK 179.7 us after the entry: sources 0x0500 still pending, CONTROL 8C, PI bit 13 clear in both samples (no re-assert) */
+    CHECK(res.preack.ticks == 3679938859u && res.preack.intsr == 0x00010000u && res.preack.intsr2 == 0x00010000u);
+    CHECK(res.preack.intmr == 0x000001fau && res.preack.control_vote == 0x8c && res.preack.irq_gbi == 0x0500 && res.preack.irq_disc == 0x0500);
+    /* device ACK IRQ := 0x0500 | 0x8000 = 0x8500, read back 0x8000: sources cleared, bit 15 read 1; PI still clear; no main W1C */
+    CHECK(res.ack_skipped == 0 && res.irq_pending == 0x0500 && res.ack_value == 0x8500 && res.w_ack.attempted == 1 && res.w_ack.completed == 1);
+    CHECK(res.w_ack.raw[0] == 0x85 && res.w_ack.raw[1] == 0x00 && res.w_ack.raw[30] == 0x85 && res.w_ack.raw[31] == 0x00);
+    CHECK(res.postack.ticks == 3679944700u && res.postack.irq_gbi == 0x8000 && res.postack.irq_disc == 0x8000);
+    CHECK(res.postack.intsr == 0x00010000u && res.postack.intsr2 == 0x00010000u && res.postack.intmr == 0x000001fau && res.postack.control_vote == 0x8c);
+    CHECK(res.main_pi_w1c == 0 && strcmp(res.main_pi_w1c_site, "-") == 0 && res.main_w1c_sticky == 0);
+    /* teardown: CONTROL 90, sources re-set before the stop (IRQSTOPPRE 0x8500), stop 0x8FAA -> 0x8AAA, no cleanup, handler back, masked */
+    CHECK(res.a.control_restore_ok == 1 && res.a.control_restore_vote == 0x90);
+    CHECK(res.a.irq_stop_pre.gbi == 0x8500 && res.a.irq_stop_pre.disc == 0x8500 && res.a.stop_value == 0x8faa && res.a.w_stop.completed);
+    CHECK(res.a.irq_stop_post.gbi == 0x8aaa && res.a.stop_masks_readback == 1 && res.a.stop_bit15_readback == 1);
+    CHECK(res.a.pi_cleanup_performed == 0 && res.a.cleanup_intsr_before == 0x00010000u && res.pi_sticky_final == 0);
+    CHECK(res.handler_restored == 1 && res.handler_restore_rc == GBP_OK && res.mask_ok == 1 && res.intmr_final == 0x000001fau);
+    CHECK(res.a.arinfo_orig == 0x0043 && res.a.arinfo_exp == 0x005b && res.a.arinfo_final == 0x0043 && res.a.arinfo_restore_ok == 1);
+    CHECK(fin->taken && fin->control_vote == 0x00 && fin->irq_gbi == 0x9090 && fin->intsr == 0x00010000u && fin->intmr == 0x000001fau);
+    CHECK(res.a.irq_writes_attempted == 4 && res.a.irq_writes_completed == 4 && res.uncertain_writes == 0);
+    /* records of the corrected probe; the raw log of build initirqb-0001 printed pi_policy=never_unmasked (label defect, documented) */
+    CHECK(count_lines_with(&rl, "TEARDOWN start control_written=1 irq_attempted=3 irq_completed=3 uncertain_writes=0 intsr13_seen=1 pi_policy=unmasked_once") == 1);
+    CHECK(count_lines_with(&rl, "pi_policy=never_unmasked") == 0);
+    CHECK(count_lines_with(&rl, "CAUSE t_event=3679890204 since_a2=4264071 intsr=00012000 intmr=000001fa intsr13=1 intmr13=0 control=8c irq=0400") == 1);
+    CHECK(count_lines_with(&rl, "IRQ install rc=ok old_handler=null record_count=0 record_fired=0") == 1);
+    CHECK(count_lines_with(&rl, "PREUNMASK ok=1 reason=- intsr13=1,1 intmr13=0,0 control=8c irq=0500/0500 src=0500 odd=0000 bit15=0") == 1);
+    CHECK(count_lines_with(&rl, "UNMASK t_unmask=3679931504 rc=ok t_post=3679931761 dt_post=257") == 1);
+    CHECK(count_lines_with(&rl, "PI tag=UNMASKPOST rc=ok intsr=00010000 intmr=000001fa intsr13=0 intmr13=0 fired=1") == 1);
+    CHECK(count_lines_with(&rl, "WAIT fired=1 timed_out=0 polls=1 wait_ticks=1987 wait_us=49 t_delivery_ms=100 t_delivery_ticks=4050000") == 1);
+    CHECK(count_lines_with(&rl, "HANDLER fired=1 count=1 t_entry=3679931582 t_unmask=3679931504 latency_ticks=78 latency_us=1 reentry=0") == 1);
+    CHECK(count_lines_with(&rl, "HANDLERPI intsr_at_entry=00012000 intmr_at_entry=000021fa intmr_after_mask=000001fa intsr_before_w1c=00012000 intsr_after_w1c=00010000 reentry_intsr=00000000 reentry_intmr=00000000") == 1);
+    CHECK(count_lines_with(&rl, "HANDLERPI2 t_second=3679931730 dt_second=148 intsr_second=00010000 intmr_second=000001fa reentry_t=0") == 1);
+    CHECK(count_lines_with(&rl, "DELIVERY fired=1 count=1 latency_ticks=78 latency_us=1 intsr13_entry=1 intmr13_entry=1 intmr13_after_mask=0 intsr13_before_w1c=1 intsr13_after_w1c=0 intsr13_second=0 intmr13_second=0 main_mask_ok=1 reentry=0") == 1);
+    CHECK(count_lines_with(&rl, "PREACK intsr13=0,0 intmr13=0 control=8c irq=0500/0500 src_pending=0500") == 1);
+    CHECK(count_lines_with(&rl, "ACK before=0500 ack_or=8000 ack_value=8500 formula=read|ack_or") == 1);
+    CHECK(count_lines_with(&rl, "POSTACK intsr13=0,0 intmr13=0 control=8c irq=8000/8000 src_pending=0000 bit15=1 ack=1/1") == 1);
+    CHECK(count_lines_with(&rl, "MAINPICLEANUP site=POSTACK performed=0 intsr13=0 intmr13=0") == 1);
+    CHECK(count_lines_with(&rl, "IRQSTOP pre rc=ok disc=8500 gbi=8500 stop_or=8aaa stop_value=8faa formula=read|stop_or comment=startup-disc-stop-shadow") == 1);
+    CHECK(count_lines_with(&rl, "IRQSTOP post rc=ok disc=8aaa gbi=8aaa write_ok=1 readback_ok=1 masks_readback=1 bit15_readback=1") == 1);
+    CHECK(count_lines_with(&rl, "CLEANUP performed=0 intsr=00010000 intsr13=0 intmr13=0 reason=intsr13_clear") == 1);
+    CHECK(count_lines_with(&rl, "IRQ restore rc=ok ok=1 old_handler=null") == 1 && count_lines_with(&rl, "MASK final intmr=000001fa intmr13=0 orig_intmr13=0 ok=1") == 1);
+    CHECK(count_lines_with(&rl, "FINAL arinfo=0043 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0 control=00 irq=9090 power_cycle_required=1") == 1);
+    CHECK(count_lines_with(&rl, "INITIRQB end status=ok_delivery_observed reason=- restore=ok restore_reason=- power_cycle_required=1 errors=0 transport_ok=1") == 1);
+    CHECK(count_lines_with(&rl, "WRITES control_written=1 irq_attempted=4 irq_completed=4 ctl_exp=1/1 a1=1/1 a2=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 power_cycle_required=1 format=attempted/completed") == 1);
+    CHECK(count_lines_with(&rl, "ACKS ack=1/1 ack_value=8500 irq_pending=0500 skipped=0 reason=- isr_pi_w1c=1 main_pi_w1c=0 site=- sticky=0 uncertain=0") == 1);
+    CHECK(count_lines_with(&rl, "RESTOREB handler_installed=1 handler_restored=1 old_handler=null mask_ok=1 intmr_final=000001fa pi_sticky_final=0 unmasked=1 masked_again=1") == 1);
+    CHECK(count_lines_with(&rl, "WINDOW tag=A1 deadlines=2/2 polls=2 poll_errors=0 intsr13_in_phase=0") == 1);
+    CHECK(rl.dropped == 0 && rl.truncated == 0);
+    {
+        char s[1400];
+        CHECK(gbp_initirqb_summary(&res, s, sizeof s) > 0);
+        CHECK(strstr(s, "DONE status=ok_delivery_observed reason=- restore=ok restore_reason=- verdict=present det=4/4 written=1 "
+                        "irq_attempted=4 irq_completed=4 ctl_exp=1/1 a1=1/1 a2=1/1 ack=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 "
+                        "cause=1 t_event=3679890204 handler=1 old=null preunmask=1/- unmasked=1 fired=1 count=1 latency_ticks=78 latency_us=1 "
+                        "intsr13_entry=1 intmr13_entry=1 intmr13_after_mask=0 intsr13_after_w1c=0 intsr13_second=0 "
+                        "preack_irq=0500 ack_value=8500 postack_irq=8000 postack_intsr13=0 main_pi_w1c=0 site=- sticky=0 "
+                        "control_restore_ok=1 irq_stop_write_ok=1 stop_post=8aaa pi_cleanup=0 handler_restored=1 mask_ok=1 arinfo_restore_ok=1 "
+                        "power_cycle_required=1 errors=0 transport_ok=1") != 0);
+    }
+    free(text);
+}
+
 /* ---- host round-trip modes (synthetic) ---- */
 static int dump_log(const char *path)
 {
@@ -721,7 +840,9 @@ int main(int argc, char **argv)
     test_wrap_and_lines();
     test_mock_ext_isr_by_hand();
     if (argc > 1) test_hw_initirqa_prefix(argv[1]);
-    else fprintf(stderr, "note: physical fixture path not given, fixture test skipped\n");
+    else fprintf(stderr, "note: physical 003A fixture path not given, prefix test skipped\n");
+    if (argc > 2) test_hw_initirqb_gbp(argv[2]);
+    else fprintf(stderr, "note: physical 003B fixture path not given, fixture test skipped\n");
     printf("test_gbp_initirqb: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

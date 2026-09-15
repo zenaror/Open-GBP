@@ -1,18 +1,18 @@
 """
-GBP-INIT-003B fixture round trip on SYNTHETIC data, and the physical
-GBP-INIT-003A fixture as the real prefix of the 003B logic.
+GBP-INIT-003B fixture round trip on SYNTHETIC data, the physical
+GBP-INIT-003A fixture as the real prefix of the 003B logic, and the physical
+GBP-INIT-003B fixture (2026-09-15, initirqb-0001) replayed end to end.
 
-No physical GBP-INIT-003B run exists (the experiment is implemented, not
-executed), so no fixture of it exists either and none is invented: the
-host mock run (tests/unit/test_gbp_initirqb.c --dump-log) is written in the
-SD-log format, tools/probelog.py turns it into a replay script (clearly
-marked SYNTHETIC), and the probe logic run on that script reaches the same
-result as the mock run — every time-base read, PI read, interrupt-path
-operation and the handler record answered by the fixture, nothing invented.
-The generated files stay under build/ and are never placed under
-captures/fixtures/. The physical 003A fixture (2026-09-15) drives the 003B
-probe verbatim up to its EVENT and, having no interrupt path, stops at the
-handler install with the 003A teardown.
+The synthetic path: the host mock run (tests/unit/test_gbp_initirqb.c
+--dump-log) is written in the SD-log format, tools/probelog.py turns it into
+a replay script (clearly marked SYNTHETIC), and the probe logic run on that
+script reaches the same result as the mock run — every time-base read, PI
+read, interrupt-path operation and the handler record answered by the
+fixture, nothing invented. The generated files stay under build/ and are
+never placed under captures/fixtures/. The physical 003A fixture drives the
+003B probe verbatim up to its EVENT and, having no interrupt path, stops at
+the handler install with the 003A teardown. The physical 003B fixture
+replays the whole delivery (tests/host/test_hw_fixture.py holds its bytes).
 """
 import glob
 import os
@@ -31,6 +31,7 @@ BIN = os.path.join(ROOT, "build", "tests", "unit", "test_gbp_initirqb")
 OUTDIR = os.path.join(ROOT, "build", "tests", "unit")
 NOTE = "SYNTHETIC: generated from the host mock (tests/unit/test_gbp_initirqb.c --dump-log); NOT physical data"
 PHYSICAL_003A = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15-initirqa-0001.gbpreplay")
+PHYSICAL_003B = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15-initirqb-0001.gbpreplay")
 
 
 @unittest.skipUnless(os.path.isfile(BIN), "run `make -C tests/unit` to build the test binary")
@@ -107,14 +108,28 @@ class InitirqbRoundTrip(unittest.TestCase):
         m = re.search(r"REPLAY step=(\d+) exhausted=(\d+) mismatches=(\d+) tick_polls=(\d+) timeline=(\d+)", run2.stdout)
         self.assertIsNotNone(m, run2.stdout)
         self.assertEqual((m.group(2), m.group(3), m.group(4), m.group(5)), ("0", "0", "0", "1"))
-        # synthetic scripts never enter captures/fixtures; no GBP-INIT-003B fixture exists there
+        # synthetic scripts never enter captures/fixtures: every fixture there is physical or Dolphin model data
         for fx_path in glob.glob(os.path.join(ROOT, "captures", "fixtures", "*.gbpreplay")):
             with open(fx_path, encoding="utf-8") as f:
-                head = f.read(2048)
+                head = f.read(4096)
             self.assertNotIn("SYNTHETIC", head, fx_path)
-            self.assertNotIn("GBP-INIT-003B", head, fx_path)
-            self.assertNotIn("initirqb", os.path.basename(fx_path))
+            self.assertTrue("# SOURCE=physical GameCube" in head or "MODEL DATA, NOT HARDWARE" in head, fx_path)
         self.assertFalse(fx.startswith(os.path.join(ROOT, "captures")))
+
+    @unittest.skipUnless(os.path.isfile(PHYSICAL_003B), "physical GBP-INIT-003B fixture missing")
+    def test_physical_003b_fixture_replays_the_whole_delivery(self):
+        run = subprocess.run([BIN, "--replay", PHYSICAL_003B], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        summary = [l for l in run.stdout.splitlines() if l.startswith("SUMMARY ")][0]
+        self.assertIn("status=ok_delivery_observed reason=- restore=ok restore_reason=- verdict=present det=4/4 written=1 "
+                      "irq_attempted=4 irq_completed=4 ctl_exp=1/1 a1=1/1 a2=1/1 ack=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 "
+                      "cause=1 t_event=3679890204 handler=1 old=null preunmask=1/- unmasked=1 fired=1 count=1 latency_ticks=78 latency_us=1 "
+                      "intsr13_entry=1 intmr13_entry=1 intmr13_after_mask=0 intsr13_after_w1c=0 intsr13_second=0 "
+                      "preack_irq=0500 ack_value=8500 postack_irq=8000 postack_intsr13=0 main_pi_w1c=0 site=- sticky=0 "
+                      "control_restore_ok=1 irq_stop_write_ok=1 stop_post=8aaa pi_cleanup=0 handler_restored=1 mask_ok=1 arinfo_restore_ok=1 "
+                      "power_cycle_required=1 errors=0 transport_ok=1", summary)
+        m = re.search(r"REPLAY step=(\d+) exhausted=(\d+) mismatches=(\d+) tick_polls=(\d+) timeline=(\d+)", run.stdout)
+        self.assertEqual((m.group(1), m.group(2), m.group(3), m.group(4), m.group(5)), ("111", "0", "0", "0", "1"))
 
     @unittest.skipUnless(os.path.isfile(PHYSICAL_003A), "physical GBP-INIT-003A fixture missing")
     def test_physical_003a_fixture_is_the_prefix_up_to_the_event(self):
