@@ -15,7 +15,7 @@ be executed autonomously by development agents and CI.
 | `gbi_unpack.py` | Recover the executable image from a packed Game Boy Interface DOL (XOR with the 40-byte copyright string, then XZ) |
 | `bin2dol.py` | Wrap a raw PowerPC memory image into a one-section DOL so GameCubeLoader/dolinfo can load it |
 | `probelog.py` | Parse device logs (SD file or USB Gecko capture): `parse` → JSON, `fixture` → replay script for `src/gbp/gbp_replay.c`, `check` → interpretation of TEST/RAW records |
-| `blockdiff.py` | Byte/u16/u32 views, distinct values, period and per-offset anomaly detection of 32-byte blocks; pairs MODE A/B from a device log |
+| `blockdiff.py` | Byte/u16/u32 views, distinct values, period and per-offset anomaly detection of 32-byte blocks; `--pair` two logs byte by byte; `--snapshots` S0–S5 timing and bit deltas of a GBP-INIT log |
 | `ghidra/OpenGbpScan.java` | Headless Ghidra: functions, MMIO references, `lis` constants, strings → TSV reports |
 | `ghidra/OpenGbpFunc.java` | Headless Ghidra: `decomp` selected functions, `callsites` with constant arguments, `refs` to an address |
 

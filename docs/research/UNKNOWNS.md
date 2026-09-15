@@ -65,18 +65,18 @@ Unknown whether they share the AGB's single SIO (exclusive), whether
 CONTROL 0x40/0x80 route between them, and whether enabling the internal
 path breaks PicoAdapterGB (regression reference GBP-LINK-001).
 
-## U-GBP-004 (P1, reformulated 2026-09-15) — What is the function of AR_INFO[5:3] on the GBP path?
+## U-GBP-004 (P1, updated 2026-09-15) — What is the function of AR_INFO[5:3] on the GBP path?
 
-Known (GBP-HW-002/003/005/007/009): with the GBP attached, codes 0 and 3
-both let the DMA complete and the TEST handshake pass the official
-criteria; CONTROL and IRQ read differently between code 0 (`00`/`90`
-fills) and code 3 (`90`; `8AAE` byte-doubled). Without the GBP, codes 0
-and 3 give the same `C0`×32 baseline. So the code's observed effect on
-CONTROL/IRQ requires the device, and the code is neither "enable" nor
-"required" for the TEST path. Open: which registers/behaviors are
-selected or modified by the value 3 — decoding of index bits, timing,
-or GBS-DOL state — and whether other values (1, 2, 4) behave
-differently. Do not name the bits.
+Known: with the GBP attached, codes 0 and 3 both complete DMA and pass
+the TEST handshake; the CONTROL/IRQ view differs between them
+(`00`/`9090` vs `0x90`/`0x8AAE`), now observed in two independent
+sequences (GBP-HW-005, GBP-HW-017); without the GBP the code makes no
+difference (`C0`/`C1` uniform fills). So the code changes what CONTROL
+and IRQ return *when the device is present*. Not known: whether it
+selects a decoding of the index bits, a different register set, a
+timing regime, or a device state; whether values 1, 2, 4 differ; and
+whether writes (CONTROL) under code 0 reach the device at all. Do not
+call it "enable".
 
 ## U-GBP-005 (P2) — Unused register indices and full mirroring inside a window
 
@@ -141,17 +141,14 @@ overclock to keep the DISC's 250 ms watchdog quiet. Real cadence, jitter
 and the cost of a missed block are unknown. Phase 4/6: timestamped IRQ
 log to SD2SP2.
 
-## U-GBP-015 (P1) — Byte 0 of a read block sometimes carries extra set bits
+## U-GBP-015 (P1, updated 2026-09-15) — Byte 0 of a read block carries extra set bits
 
-Three of eight TEST read-backs and the MODE B IRQ block had a byte 0
-that differed from bytes 1–31 by additional 1-bits only (`7C` vs `3C`,
-`C7` vs `C3` — once also at byte 6 —, `AE` vs `8A`); the CONTROL first
-read in MODE B had `94` vs `90`. The official Start-up Disc and GBI both avoid byte 0
-(DISC reads byte 1 for TEST, 0x1D/0x1F for 16-bit, 0x1F for 8-bit; GBI
-majority-votes). Unknown: whether it is a bus/DMA first-beat artifact,
-a device feature (cf. the video frame flag on the first pixel), or
-timing-dependent noise. Option B (repeat) measures its stability;
-Option A (no GBP) shows whether it needs the device.
+Confirmed in the third and fourth runs: TEST C3 response `7C 3C…` again
+(bit 6); CONTROL byte 0 `98`/`EC`/`AC`; IRQ byte 0 `AA`/`EA`. Byte 0
+always has *extra* set bits relative to the rest of the block, never
+missing ones. Both references avoid byte 0. The time-dependent part is
+now U-GBP-021; the static part (`+0x08` on CONTROL `90`, `+0x20` on IRQ
+`8A` in S0/S2/S3) is still unexplained. Do not consume byte 0.
 
 ## U-GBP-016 — CLOSED 2026-09-15 (answered by GBP-BASELINE-NOGBP-001)
 
@@ -179,20 +176,39 @@ write, or the probe's zero-fill hid a transfer that wrote nothing. A
 sentinel fill different from 0x00 in the next probe build settles the
 second possibility.
 
-## U-GBP-019 (P2) — Origin of the `0xC0` baseline
+## U-GBP-019 (P2, reformulated 2026-09-15) — Origin of the uniform value read without the GBP
 
-With the GBP removed, every 32-byte read of the expansion window returned
-`C0`, with both expansion codes, and handshake writes had no visible
-effect. Candidates, none selected: an idle/pull-up value of the HSP data
-lines; a value produced by the ARAM/SDRAM controller for an unpopulated
-expansion; a mirror of something else. Distinguishing experiments would
-read other indices and offsets without the GBP and, later, compare with
-a second console. Low priority for the runtime (a `C0` block fails every
-detection criterion), higher for the documentation.
+Without the physical GBP the observed path returns a uniform 32-byte
+value that does not respond semantically to TEST; the value was `0xC0`
+in GBP-BASELINE-NOGBP-001 (probe-0001) and `0xC1` in
+GBP-INIT-BASELINE-NOGBP-001 (init-0001). Differences between the two
+runs that could matter, none selected as the cause (DEVLOG 2026-09-15):
+different DOL (buffer addresses, code size), first transfer under
+expansion code 3 vs 0, no raw reads before the first TEST write in the
+second run, a separate power cycle and re-seating of the GBP, time of
+day. Not open bus / ARAM / HSP default / floating / latch until shown.
+Not blocking: any uniform fill fails both detection criteria.
 
-## U-GBP-020 (P2) — Stability of the byte-0 extra bits across runs
+## U-GBP-020 (P2, updated 2026-09-15) — Stability of the byte-0 extra bits across runs
 
-Only one run with the GBP exists; the baseline shows no such bits. Their
-frequency (3 of 8 handshakes, 1 of 2 IRQ dumps, 1 of 2 CONTROL dumps in
-MODE B) is a single sample. Every future run with the GBP attached will
-add data without a dedicated experiment.
+Four physical runs now exist (two with the GBP). Static extras seen so
+far: TEST C3 response byte 0 `7C` in both GBP runs (2/2 for that
+pattern); 3C response `C7` in the first run (2/2 modes) but clean `C3`
+in the second; IRQ byte 0 `AE`/`AA` (extra 0x24 / 0x20 vs `8A`);
+CONTROL byte 0 `94`/`98` (extra 0x04 / 0x08 vs `90`). The extra bits
+differ between runs for the same register, so they are not a fixed
+constant. Every future run with the GBP adds samples.
+
+## U-GBP-021 (P1) — Origin and semantics of the transient bit 6 in byte 0 of CONTROL and IRQ after CONTROL writes
+
+Observed (GBP-HW-015): ~1.4 µs after the experimental CONTROL write,
+byte 0 of CONTROL and of IRQ both had bit 6 (`0x40`) set (`EC`, `EA`);
+by ~68 µs both had it clear (`AC`, `AA`), unchanged at ~141 µs; a few
+µs after the restore write, IRQ byte 0 had bit 6 set again (`EA`) while
+CONTROL byte 0 read `98`. Hypothesis of *correlation* between CONTROL
+writes and a transient bit 6 in byte 0 — not of function, not of a
+shared physical signal, not of causality. Unknown: its duration (only
+bracketed between 1.4 µs and 68 µs), whether every CONTROL write sets
+it, whether it also follows writes to other windows, and whether it is
+the same phenomenon as the static byte-0 extras. Do not name it busy /
+ready / ack / interrupt / latch.

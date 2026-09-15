@@ -262,3 +262,15 @@ IRQ block, leaves KEYPAD untouched (no dependency found in GBI between
 its `KEYPAD := 0` and the CONTROL value), and restores the original
 semantic value rather than an inverse expression. See
 `poc/gbp-init-probe/README.md` and `src/gbp/gbp_init_probe.h`.
+
+### 8.5 GBP-INIT-001 result (2026-09-15, hardware)
+
+With the GBP attached and PI HSP masked, `CONTROL 0x90 → 0x8C → 0x90`
+(GBI transform and restore) was accepted and read back; IRQ bytes 1–31
+stayed `0x8AAE`; PI INTSR bit 13 stayed 0 in six snapshots up to 340 µs;
+byte 0 of both blocks showed a transient bit 6 after each CONTROL write
+(GBP-HW-013…016, U-GBP-021). Restoring the expansion code to 0 changed
+the CONTROL/IRQ view to `00`/`9090` again (GBP-HW-017). Without the
+GBP the gate stopped the probe (`C1`×32, ABSENT). The next GBI
+operations (`IRQ_Request(26)`, `__UnmaskIrq(0x20)`) have not been
+reproduced.

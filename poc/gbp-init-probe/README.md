@@ -1,6 +1,7 @@
 # poc/gbp-init-probe — GBP-INIT-001
 
-**Test ID:** `GBP-INIT-001` — **Build ID:** `init-0001` (not yet run on hardware)
+**Test ID:** `GBP-INIT-001` — **Build ID:** `init-0001` — commit `a3d9668` — DOL SHA-256
+`6068d1348792928b179bdd054bd2ce013fe5e0b7b25c8da7ac781c5f43b2a1e5` — executed on hardware 2026-09-15 (attached and removed)
 
 **Hypothesis (single variable):** applying GBI's CONTROL transform
 `(v & ~0x10) | 0x0C` to the semantic CONTROL value read at runtime, while
@@ -97,3 +98,15 @@ controller, one Memory Card, SD2SP2, Swiss. Steps: launch, wait for the
 summary, photograph, X to save, START to exit, return
 `/open-gbp/GBP-INIT-001_init-0001.log`. Success = a clean, restorable
 observation, whatever changed or did not.
+
+## Result (2026-09-15)
+
+Attached: PRESENT (4/4 both criteria), `CONTROL 0x90 → 0x8C → 0x90`
+accepted and restored, IRQ bytes 1–31 `0x8AAE` throughout, PI INTSR bit
+13 = 0 in S0–S5 with INTMR untouched (`0x1FA`), transient bit 6 in byte
+0 of CONTROL and IRQ after each CONTROL write, S5 under expansion code 0
+read `00`/`9090`; 23 transfers, 0 errors. Removed: `C1`×32, ABSENT, no
+CONTROL write, AR_INFO restored. Logs, facts and analysis:
+`docs/research/HARDWARE_TESTS.md`, `EVIDENCE.md` GBP-HW-011…020, DEVLOG
+2026-09-15; `tools/blockdiff.py --snapshots <log>` reproduces the
+timing/bit table.

@@ -236,6 +236,135 @@ modes; all 28 transfers completed (7–10 polls, 31–38 ticks); AR_INFO
 `0043 → 005b → 0043`. Facts GBP-HW-007…009; pair analysis in the DEVLOG
 entry of 2026-09-15.
 
+
+### GBP-INIT-001 — 2026-09-15 — completed, GBP attached (status=ok)
+
+```text
+Test ID     GBP-INIT-001
+Build ID    init-0001
+Commit      a3d9668 (clean)
+DOL         build/poc/gbp-init-probe/gbp-init-probe.dol
+SHA-256     6068d1348792928b179bdd054bd2ce013fe5e0b7b25c8da7ac781c5f43b2a1e5
+Log         logs/GBP-INIT-001_init-0001.log, 5497 bytes,
+            sha256 d1e90daf81daa88d5303c9011d78ab245773f07e789e3e180ab7d0c468a7956e
+            (original untouched; preserved copy captures/local/GBP-INIT-001_init-0001.log;
+            fixture captures/fixtures/hw-gamecube-gbp-2026-09-15-init-0001.gbpreplay)
+Setup       same as GBP-PROBE-001: GBP attached whole run, no Game Pak, Link Port empty,
+            no PicoAdapterGB, BBA attached without Ethernet, 1 controller, 1 Memory Card,
+            SD2SP2, Swiss; no interaction until X (save) / START (exit)
+```
+
+Full log (verbatim):
+
+```text
+# OPENGBP-LOG v1
+test_id=GBP-INIT-001
+build_id=init-0001
+commit=a3d9668
+libogc=libogc2 r2442.094b250 gecko=0
+lines=49 dropped=0 truncated=0
+# --- records ---
+000000 IDENT test=GBP-INIT-001 app=gbp-init-probe build=init-0001 commit=a3d9668 libogc=libogc2 r2442.094b250
+000001 ENV bus_hz=162000000 tb_hz=40500000 dma_timeout_ms=200 csr=0804
+000002 INIT start exp_code=3 clear=10 set=0c idle_shape=1 npatterns=4
+000003 ARINFO orig value=0043 size_code=3 exp_code=0 base=01000000
+000004 ARINFO exp value=005b exp_code=3
+000005 TESTW tag=DET idx=0 addr=01000000 pattern=c3 rc=ok ticks=29 polls=7 dspcr=0804
+000006 TESTR tag=DET idx=0 addr=01000000 pattern=c3 expect=3c rc=ok ticks=34 polls=9 dspcr=0804 match_all=0 match_1f=1 match_b1=1 match_vote=1 vote=3c data=7c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c
+000007 TESTW tag=DET idx=0 addr=01000000 pattern=3c rc=ok ticks=30 polls=8 dspcr=0804
+000008 TESTR tag=DET idx=0 addr=01000000 pattern=3c expect=c3 rc=ok ticks=34 polls=9 dspcr=0804 match_all=1 match_1f=1 match_b1=1 match_vote=1 vote=c3 data=c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3
+000009 TESTW tag=DET idx=0 addr=01000000 pattern=ff rc=ok ticks=31 polls=8 dspcr=0804
+000010 TESTR tag=DET idx=0 addr=01000000 pattern=ff expect=00 rc=ok ticks=34 polls=9 dspcr=0804 match_all=1 match_1f=1 match_b1=1 match_vote=1 vote=00 data=0000000000000000000000000000000000000000000000000000000000000000
+000011 TESTW tag=DET idx=0 addr=01000000 pattern=00 rc=ok ticks=31 polls=8 dspcr=0804
+000012 TESTR tag=DET idx=0 addr=01000000 pattern=00 expect=ff rc=ok ticks=34 polls=9 dspcr=0804 match_all=1 match_1f=1 match_b1=1 match_vote=1 vote=ff data=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+000013 DET verdict=present run=4 transport_ok=4 vote_ok=4 b1_ok=4 all32_ok=3
+000014 PI tag=PRE intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000015 INTMR unchanged value=000001fa bit13=0
+000016 SNAP tag=S0 ticks=598792135 since_write=0
+000017 PI S0 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000018 RAW S0 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=90 sem_b1f=90 data=9890909090909090909090909090909090909090909090909090909090909090
+000019 RAW S0 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=aa8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000020 RAW S0 idx=0 addr=01000000 rc=ok ticks=34 polls=9 dspcr=0804 data=0000000000000000000000000000000000000000000000000000000000000000
+000021 CONTROL semantic orig=90 exp=8c method=gbi-majority-vote transform=(v&~10)|0c
+000022 CTLW tag=EXP addr=01400000 semantic=8c rc=ok ticks=31 polls=8 dspcr=0804 layout=gbi-replicated data=8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000023 SNAP tag=S1 ticks=598797204 since_write=56
+000024 PI S1 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000025 RAW S1 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=ec8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000026 RAW S1 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=ea8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000027 SNAP tag=S2 ticks=598799904 since_write=2756
+000028 PI S2 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000029 RAW S2 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=ac8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000030 RAW S2 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=aa8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000031 TRANSITION s1_s2=1
+000032 SNAP tag=S3 ticks=598802867 since_write=5719
+000033 PI S3 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000034 RAW S3 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8c sem_b1f=8c data=ac8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c
+000035 RAW S3 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=aa8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000036 CTLW tag=RESTORE addr=01400000 semantic=90 rc=ok ticks=31 polls=8 dspcr=0804 layout=gbi-replicated data=9090909090909090909090909090909090909090909090909090909090909090
+000037 SNAP tag=S4 ticks=598806379 since_write=9231
+000038 PI S4 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000039 RAW S4 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=90 sem_b1f=90 data=9890909090909090909090909090909090909090909090909090909090909090
+000040 RAW S4 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=ea8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000041 CONTROL restore semantic=90 readback_vote=90 readback_b1f=90 ok=1
+000042 ARINFO restore value=0043 rc=ok readback=0043 ok=1
+000043 INIT end status=ok reason=- written=1 control_restored=1 arinfo_restored=1 intmr_restored=-1 errors=0 transport_ok=1
+000044 SNAP tag=S5 ticks=598810935 since_write=13787
+000045 PI S5 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0
+000046 RAW S5 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=00 sem_b1f=00 data=0000000000000000000000000000000000000000000000000000000000000000
+000047 RAW S5 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=9090 sem_gbi=9090 data=9890909090909090909090909090909090909090909090909090909090909090
+000048 STATS transfers=23 timeouts=0 busy=0
+# --- end --- dropped=0
+```
+
+Facts GBP-HW-011…018; snapshot/bit/timing analysis in the DEVLOG entry
+of 2026-09-15 and `tools/blockdiff.py --snapshots`.
+
+### GBP-INIT-BASELINE-NOGBP-001 — 2026-09-15 — completed, GBP removed (abort_not_present)
+
+```text
+Physical Run ID  GBP-INIT-BASELINE-NOGBP-001 (log says test_id=GBP-INIT-001; same DOL)
+Build / Commit   init-0001 / a3d9668, DOL sha256 6068d134…a1e5
+Log              logs/GBP-INIT-001_init-0001-semGBP.log, 2090 bytes,
+                 sha256 97f7cc70409d6653cc7b723b2ae1012bef513da11398a4c33ae627f1289b6c5e
+                 (preserved copy captures/local/GBP-INIT-001_init-0001-semGBP.log;
+                 fixture captures/fixtures/hw-gamecube-nogbp-2026-09-15-init-0001.gbpreplay)
+Setup            same as above with the Game Boy Player physically removed (console off for the swap)
+```
+
+Full log (verbatim):
+
+```text
+# OPENGBP-LOG v1
+test_id=GBP-INIT-001
+build_id=init-0001
+commit=a3d9668
+libogc=libogc2 r2442.094b250 gecko=0
+lines=17 dropped=0 truncated=0
+# --- records ---
+000000 IDENT test=GBP-INIT-001 app=gbp-init-probe build=init-0001 commit=a3d9668 libogc=libogc2 r2442.094b250
+000001 ENV bus_hz=162000000 tb_hz=40500000 dma_timeout_ms=200 csr=0804
+000002 INIT start exp_code=3 clear=10 set=0c idle_shape=1 npatterns=4
+000003 ARINFO orig value=0043 size_code=3 exp_code=0 base=01000000
+000004 ARINFO exp value=005b exp_code=3
+000005 TESTW tag=DET idx=0 addr=01000000 pattern=c3 rc=ok ticks=29 polls=7 dspcr=0804
+000006 TESTR tag=DET idx=0 addr=01000000 pattern=c3 expect=3c rc=ok ticks=34 polls=9 dspcr=0804 match_all=0 match_1f=0 match_b1=0 match_vote=0 vote=c1 data=c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1
+000007 TESTW tag=DET idx=0 addr=01000000 pattern=3c rc=ok ticks=30 polls=8 dspcr=0804
+000008 TESTR tag=DET idx=0 addr=01000000 pattern=3c expect=c3 rc=ok ticks=34 polls=9 dspcr=0804 match_all=0 match_1f=0 match_b1=0 match_vote=0 vote=c1 data=c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1
+000009 TESTW tag=DET idx=0 addr=01000000 pattern=ff rc=ok ticks=30 polls=8 dspcr=0804
+000010 TESTR tag=DET idx=0 addr=01000000 pattern=ff expect=00 rc=ok ticks=34 polls=9 dspcr=0804 match_all=0 match_1f=0 match_b1=0 match_vote=0 vote=c1 data=c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1
+000011 TESTW tag=DET idx=0 addr=01000000 pattern=00 rc=ok ticks=31 polls=8 dspcr=0804
+000012 TESTR tag=DET idx=0 addr=01000000 pattern=00 expect=ff rc=ok ticks=34 polls=9 dspcr=0804 match_all=0 match_1f=0 match_b1=0 match_vote=0 vote=c1 data=c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1
+000013 DET verdict=absent run=4 transport_ok=4 vote_ok=0 b1_ok=0 all32_ok=0
+000014 ARINFO restore value=0043 rc=ok readback=0043 ok=1
+000015 INIT end status=abort_not_present reason=absent written=0 control_restored=-1 arinfo_restored=1 intmr_restored=-1 errors=0 transport_ok=1
+000016 STATS transfers=8 timeouts=0 busy=0
+# --- end --- dropped=0
+```
+
+Result: every TEST read-back `C1`×32 (previous no-GBP baseline with
+probe-0001: `C0`×32), verdict ABSENT, no CONTROL write, AR_INFO restored
+(GBP-HW-019/020).
+
 ## Planned tests
 
 ### SMOKE-HW-001 — first physical run of `poc/smoke-test` (Phase 3 gate 1)

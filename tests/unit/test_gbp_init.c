@@ -246,7 +246,82 @@ static void test_replay_gbp_reaches_write(void)
     CHECK(res.transition_s1_s2 == 0 && res.arinfo_restored == 1);
 }
 
-int main(void)
+static char *read_file(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    long n; char *buf;
+    if (!f) return 0;
+    fseek(f, 0, SEEK_END); n = ftell(f); fseek(f, 0, SEEK_SET);
+    buf = (char *)malloc((size_t)n + 1u);
+    if (fread(buf, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(buf); return 0; }
+    buf[n] = '\0';
+    fclose(f);
+    return buf;
+}
+
+static void run_fixture(const char *path, struct gbp_init_result *res, struct ringlog *rl, struct gbp_replay *r)
+{
+    char *text = read_file(path);
+    struct gbp_transport t; struct gbp_init_config cfg;
+    if (!text) { fprintf(stderr, "cannot read %s\n", path); failures++; memset(res, 0, sizeof *res); return; }
+    gbp_replay_init(r, text);
+    gbp_replay_transport(r, &t);
+    gbp_init_config_default(&cfg);
+    ringlog_init(rl, storage, LINE_LEN, LINES);
+    CHECK(gbp_init_probe_run(&t, rl, &cfg, res) == 0);
+    CHECK(r->exhausted == 0 && r->mismatches == 0);
+    free(text);
+}
+
+/* Physical run GBP-INIT-001 with the GBP attached (2026-09-15, commit a3d9668). */
+static void test_hw_init_gbp(const char *path)
+{
+    struct gbp_init_result res; struct ringlog rl; struct gbp_replay r;
+    unsigned k, n;
+    run_fixture(path, &res, &rl, &r);
+    CHECK(res.status == GBP_INIT_OK && res.det.verdict == GBP_VERDICT_PRESENT && res.det.vote_ok == 4 && res.det.b1_ok == 4 && res.det.all32_ok == 3);
+    CHECK(res.arinfo_orig == 0x0043 && res.arinfo_exp == 0x005b && res.arinfo_final == 0x0043 && res.arinfo_restored == 1);
+    CHECK(res.intmr_orig == 0x000001fa && res.intmr_changed == 0 && res.intmr_restored == -1);
+    CHECK(res.control_orig == 0x90 && res.control_exp == 0x8c && res.control_written == 1 && res.control_restored == 1);
+    /* semantic values per snapshot: 90, 8c, 8c, 8c, 90, 00 */
+    CHECK(res.snap[0].control_vote == 0x90 && res.snap[1].control_vote == 0x8c && res.snap[2].control_vote == 0x8c &&
+          res.snap[3].control_vote == 0x8c && res.snap[4].control_vote == 0x90 && res.snap[5].control_vote == 0x00);
+    /* bytes 1..31 uniform in every CONTROL block; byte 0 as logged */
+    {
+        static const uint8_t b0[6] = { 0x98, 0xec, 0xac, 0xac, 0x98, 0x00 };
+        for (n = 0; n < 6; n++) {
+            CHECK(res.snap[n].control[0] == b0[n]);
+            for (k = 1; k < GBP_BLOCK_SIZE; k++) CHECK(res.snap[n].control[k] == res.snap[n].control_vote);
+        }
+    }
+    /* IRQ: 8aae in S0..S4 (bytes 1..31 pattern 8a 8a ae ae), 9090 in S5; byte 0 as logged */
+    {
+        static const uint8_t b0[6] = { 0xaa, 0xea, 0xaa, 0xaa, 0xea, 0x98 };
+        for (n = 0; n < 5; n++) CHECK(res.snap[n].irq_disc == 0x8aae);
+        CHECK(res.snap[5].irq_disc == 0x9090);
+        for (n = 0; n < 6; n++) CHECK(res.snap[n].irq[0] == b0[n]);
+    }
+    /* INTSR 0x00010000 (bit 16 RSWST), bit 13 never set; INTMR untouched */
+    for (n = 0; n < 6; n++) CHECK(res.snap[n].intsr == 0x00010000 && res.snap[n].intmr == 0x000001fa);
+    CHECK(res.transition_s1_s2 == 1);          /* byte 0 only */
+    CHECK(res.errors == 0 && res.transport_ok == 1 && rl.dropped == 0 && rl.truncated == 0);
+}
+
+/* Physical baseline without the GBP (2026-09-15): C1×32, abort before any CONTROL write. */
+static void test_hw_init_nogbp(const char *path)
+{
+    struct gbp_init_result res; struct ringlog rl; struct gbp_replay r;
+    unsigned k;
+    run_fixture(path, &res, &rl, &r);
+    CHECK(res.status == GBP_INIT_ABORT_NOT_PRESENT && res.det.verdict == GBP_VERDICT_ABSENT);
+    CHECK(res.det.run == 4 && res.det.transport_ok == 4 && res.det.vote_ok == 0 && res.det.b1_ok == 0);
+    for (k = 0; k < GBP_BLOCK_SIZE; k++) CHECK(res.det.last_resp[k] == 0xc1);
+    CHECK(res.control_written == 0 && res.arinfo_restored == 1 && res.arinfo_final == 0x0043);
+    CHECK(count_lines_with(&rl, "CTLW") == 0 && count_lines_with(&rl, "SNAP") == 0);
+    CHECK(r.step == 13);                        /* 3 AR_INFO ops + 8 handshake transfers + restore write + readback */
+}
+
+int main(int argc, char **argv)
 {
     test_present_normal();
     test_absent_and_inconsistent_never_write();
@@ -255,6 +330,8 @@ int main(void)
     test_timeouts_and_restore_failures();
     test_replay_nogbp_never_writes_control();
     test_replay_gbp_reaches_write();
+    if (argc > 1) test_hw_init_gbp(argv[1]);
+    if (argc > 2) test_hw_init_nogbp(argv[2]);
     printf("test_gbp_init: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

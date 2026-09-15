@@ -4,6 +4,10 @@ blockdiff — deterministic byte/word analysis of 32-byte GBP blocks.
 
     tools/blockdiff.py <device-log>            analyze every RAW/TESTR block, pair MODE A/B
     tools/blockdiff.py --hex <A> [<B>]         analyze one block (64 hex digits), or diff two
+    tools/blockdiff.py --snapshots <log>       GBP-INIT logs: per snapshot S0..S5, ticks since the
+                                               CONTROL write, semantic values, byte-0 extras vs the
+                                               block majority, and bit-level deltas between
+                                               consecutive snapshots (set/cleared bits per offset)
     tools/blockdiff.py --pair <log1> <log2>    byte-by-byte table of every block of log1 vs log2
                                                (offset, value in log1, value in log2, xor);
                                                exit 1 if the two logs are block-for-block identical
@@ -131,11 +135,77 @@ def format_pair(rows, same, diff_, name1, name2):
     return "\n".join(out)
 
 
+def snapshots_from_log(path):
+    """Returns ordered list of dicts {id, ticks, since_write, intsr, intmr, blocks:{idx: (bytes, fields)}}."""
+    header, records = probelog.parse_file(path)
+    snaps, cur = [], None
+    for r in records:
+        f = r["fields"]
+        if r["kind"] == "SNAP":
+            cur = {"id": f["tag"], "ticks": int(f["ticks"]), "since_write": int(f["since_write"]),
+                   "intsr": None, "intmr": None, "blocks": {}}
+            snaps.append(cur)
+        elif r["kind"] == "PI" and cur and r.get("tag") == cur["id"] and "intsr" in f:
+            cur["intsr"], cur["intmr"] = int(f["intsr"], 16), int(f["intmr"], 16)
+        elif r["kind"] == "RAW" and cur and r.get("tag") == cur["id"] and f.get("data_bytes"):
+            cur["blocks"][f["idx"]] = (f["data_bytes"], f)
+    return snaps
+
+
+def majority_byte(b):
+    vals = list(b)
+    return max(set(vals), key=vals.count)
+
+
+def snapshot_report(snaps, tb_hz=40500000):
+    out = []
+    out.append("snap  since_write(ticks)  us      intsr     intmr     ctl.sem  ctl.b0(extra vs maj)  irq.sem  irq.b0(extra vs maj)")
+    for sn in snaps:
+        ctl = sn["blocks"].get("4"); irq = sn["blocks"].get("d")
+        def b0info(blk):
+            if not blk: return "-"
+            b = blk[0]
+            maj = majority_byte(b[1:]) if len(set(b[1:])) == 1 else None
+            if "d" == blk[1].get("idx"):
+                maj = b[1]   # IRQ: compare byte 0 with byte 1 (same class in the hh hh ll ll layout)
+            extra = (b[0] & ~maj) & 0xff if maj is not None else None
+            missing = (maj & ~b[0]) & 0xff if maj is not None else None
+            return "%02x(+%02x -%02x)" % (b[0], extra, missing) if maj is not None else "%02x(?)" % b[0]
+        out.append("%-4s  %7d           %8.2f  %08x  %08x  %-7s  %-20s  %-7s  %s" % (
+            sn["id"], sn["since_write"], sn["since_write"] * 1e6 / tb_hz,
+            sn["intsr"] or 0, sn["intmr"] or 0,
+            ctl[1].get("sem_vote", "-") if ctl else "-", b0info(ctl),
+            irq[1].get("sem_disc", "-") if irq else "-", b0info(irq)))
+    out.append("")
+    out.append("deltas between consecutive snapshots (per offset: set bits / cleared bits):")
+    for a, b in zip(snaps, snaps[1:]):
+        dt = b["since_write"] - a["since_write"]
+        for idx in ("4", "d"):
+            if idx in a["blocks"] and idx in b["blocks"]:
+                x, y = a["blocks"][idx][0], b["blocks"][idx][0]
+                ch = [(i, (~x[i] & y[i]) & 0xff, (x[i] & ~y[i]) & 0xff) for i in range(32) if x[i] != y[i]]
+                if not ch:
+                    out.append("  %s->%s idx=%s (+%d ticks): identical" % (a["id"], b["id"], idx, dt))
+                else:
+                    out.append("  %s->%s idx=%s (+%d ticks): " % (a["id"], b["id"], idx, dt) +
+                               ", ".join("off%d set=%02x clr=%02x" % c for c in ch))
+        if a["intsr"] is not None and b["intsr"] is not None and a["intsr"] != b["intsr"]:
+            out.append("  %s->%s INTSR %08x -> %08x" % (a["id"], b["id"], a["intsr"], b["intsr"]))
+    return "\n".join(out)
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if not argv:
         print(__doc__)
         return 2
+    if argv[0] == "--snapshots":
+        snaps = snapshots_from_log(argv[1])
+        if not snaps:
+            print("no SNAP records")
+            return 1
+        print(snapshot_report(snaps))
+        return 0
     if argv[0] == "--pair":
         b1, b2 = blocks_from_log(argv[1]), blocks_from_log(argv[2])
         rows, same, diff_ = pair_table(b1, b2)

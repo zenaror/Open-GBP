@@ -782,3 +782,126 @@ hardware, so the precondition stops the probe before the write — a
 recorded Dolphin/hardware divergence; the write, snapshot and restore
 paths are exercised by the host mocks and replay scripts, not by Dolphin. Build is `-dirty`; no hardware request until a
 clean commit, rebuild and re-validation.
+
+---
+
+## 2026-09-15 — GBP-INIT-001 executed (attached + removed): consolidation
+
+**Inputs:** `logs/GBP-INIT-001_init-0001.log` (5497 B, sha256
+`d1e90daf…956e`) and `logs/GBP-INIT-001_init-0001-semGBP.log` (2090 B,
+`97f7cc70…6c5e`), hashed from the originals, copied unmodified to
+`captures/local/`; DOL `init-0001` from clean commit `a3d9668`, sha256
+`6068d134…a1e5`. Fixtures `captures/fixtures/hw-gamecube-{gbp,nogbp}-2026-09-15-init-0001.gbpreplay`
+with SOURCE/GBP_PRESENT/TEST_ID/BUILD_ID/COMMIT/log hash/size. Both
+replay exactly through `gbp_init_probe` (`test_gbp_init.c`: attached →
+status ok, 0x90→0x8C→0x90, byte-0 sequence, transition=1, S5 `00`/`9090`,
+INTSR bit 13 = 0 everywhere; removed → ABSENT, no CONTROL write, `C1`×32
+verbatim). `tools/blockdiff.py --snapshots` produces the per-snapshot
+timing/bit table (`build/analysis/init-0001-snapshots.txt`).
+
+### S0–S5 (GBP attached)
+
+| Snap | µs after write | INTSR/INTMR | CONTROL raw → semantic | IRQ raw → semantic |
+|------|---------------|-------------|------------------------|--------------------|
+| S0 | — | 00010000 / 000001FA | `98 90×31` → 0x90 | `AA 8A AE AE …` → 0x8AAE |
+| S1 | 1.38 | same | `EC 8C×31` → 0x8C | `EA 8A AE AE …` → 0x8AAE |
+| S2 | 68.05 | same | `AC 8C×31` → 0x8C | `AA 8A AE AE …` → 0x8AAE |
+| S3 | 141.2 | same | `AC 8C×31` → 0x8C | `AA …` → 0x8AAE |
+| S4 (after RESTORE `90`×32) | 227.9 | same | `98 90×31` → 0x90 | `EA 8A AE AE …` → 0x8AAE |
+| S5 (after AR_INFO → 0043) | 340.4 | same | `00`×32 → 0x00 | `98 90×31` → 0x9090 |
+
+Bitwise deltas (set/cleared per offset): S0→S1 CONTROL every byte
+`+0C −10` plus byte 0 `+64 −10`; IRQ byte 0 `+40`. S1→S2: CONTROL byte 0
+`−40`, IRQ byte 0 `−40`, nothing else. S2→S3: identical. S3→S4: CONTROL
+every byte `+10 −0C`, byte 0 `+10 −24`; IRQ byte 0 `+40`. S4→S5:
+CONTROL every byte `−90` (byte 0 `−98`); IRQ bytes 1–31 `8A→90`/`AE→90`,
+byte 0 `EA→98`.
+
+- **`TRANSITION s1_s2=1` explained:** the probe compares the full 32
+  bytes of CONTROL and IRQ and INTSR; the only difference was bit 6 of
+  byte 0 in both blocks (`EC→AC`, `EA→AA`). Semantic values unchanged.
+- **Bit 6 after the restore:** IRQ byte 0 read `EA` again at S4, taken a
+  few µs after the RESTORE write (the S4 CONTROL read intervened);
+  CONTROL byte 0 read `98`, as in S0. Recorded as a temporal
+  *correlation* only (U-GBP-021); duration bracketed 1.4–68 µs.
+- **S4→S5:** restoring the expansion code to 0 changed the view to
+  `00`/`9090`, matching GBP-PROBE-001 MODE A. Second independent
+  observation → GBP-HW-017 (CORROBORATED). Not "enable".
+- Every DMA 29–34 ticks / 7–9 polls in both states; the snapshot spacing
+  is the cost of formatting log records, not a delay.
+
+### C0 vs C1 without the GBP (no cause selected)
+
+| Aspect | GBP-BASELINE-NOGBP-001 (probe-0001) | GBP-INIT-BASELINE-NOGBP-001 (init-0001) |
+|---|---|---|
+| Uniform value | `C0` in every read (20 reads) | `C1` in every read (4 handshake reads) |
+| Expansion code at first transfer | 0 (MODE A), later 3 | 3 (set before any transfer) |
+| First transfers | three raw reads before any write | a TEST write before any read |
+| DMA path | `hsp_backend.c` DMA/CSR code identical between commits 55ed6c1 and a3d9668 (only PI accessors added) | same |
+| Handshake code | `gbp_probe.c` handshake | `gbp_detect_handshake` (same operations, `addr=` logged) |
+| Buffer | `dma_buffer` 32-aligned, zero-filled+flushed before reads | same, different physical address (`0x800598E0` in init-0001; the probe-0001 address is in the `0x800580xx` region) |
+| Build | different DOL size/layout, same toolchain | |
+| Physical | separate day, separate power cycle, GBP re-seated between runs | |
+| Timing per DMA | 31–38 ticks | 29–34 ticks |
+
+The difference is bit 0 of every byte. Candidates: session/power-cycle
+dependent idle level; dependence on the first access being under code 3
+or on the absence of prior reads; build-dependent address effects. None
+can be selected statically; no dedicated hardware test is proposed for
+it (any uniform fill fails detection). Documentation "no GBP = C0"
+withdrawn (GBP-HW-019, U-GBP-019).
+
+### Facts / hypotheses / unknowns
+
+New FACTs: GBP-HW-011…020. Kept as HYPOTHESIS: bit 6 correlation with
+CONTROL writes; CONTROL/IRQ byte-0 bits as "one signal" — not asserted.
+Unknowns: U-GBP-004 updated (code changes the view with device present;
+function open), U-GBP-015/020 updated, U-GBP-019 reformulated,
+U-GBP-021 new. Not promoted: any meaning for 0x40, 0x90, 0x8AAE, C0/C1,
+bits 0x04/0x08/0x10.
+
+### Phase 3 status
+
+**Detection — ready.** Signal: TEST handshake content; criteria: byte 1
+(Start-up Disc) AND majority vote (GBI), 4 patterns; validated on four
+physical runs (2 attached PRESENT, 2 removed ABSENT) and on the Dolphin
+model; transport success is separate. Limitations: one console; byte 0
+unreliable (U-GBP-015/021); uniform no-GBP value not fixed (U-GBP-019).
+
+**Initialization — started, not done.** Reproduced from known software:
+expansion code 3 (both references), TEST handshake (both), GBI's CONTROL
+transform `(v&~0x10)|0x0C` under a masked PI (one write, restored). Not
+reproduced: the Start-up Disc's IRQ-block mask programming and its
+`|0x04` / `&~0x10` two-write order; `IRQ_Request(26)` + unmask (GBI) /
+handler + unmask (disc) with the device-side IRQ acknowledge protocol;
+the disc's `|0x08` "run" write; any AV/keypad/SIO path. Divergences
+Start-up Disc vs GBI are documented in INITIALIZATION.md §8. Blockers:
+none technical; the next steps require unmasking PI HSP with a handler,
+which is a new class of operation (interrupt service on the device).
+Phase 3 completion criterion (ROADMAP): "reliably detects and
+initializes the physical GBP without proprietary runtime code" —
+detection met; initialization requires the AGB brought to a running
+state with the IRQ path serviced and a documented stop sequence, none of
+which has been executed.
+
+### Next experiment — comparison (proposal only)
+
+| Option | New writes | Variables | Reversible | Reference match | Information |
+|---|---|---|---|---|---|
+| A. Time-resolve bit 6: repeat the same CONTROL write with tighter snapshots (several reads in the first 70 µs, no logging in between) | none new (same 2 CONTROL writes) | 0 new | yes (same restore) | same GBI op | duration/shape of the transient; does not advance initialization |
+| B. Next GBI operation: after the transform, `IRQ_Request(26)` + `__UnmaskIrq(0x20)` with a handler that only acks PI and records INTSR/IRQ, then restore (mask, IRQ_Free, CONTROL 0x90) | INTMR bit 13 set (unmask); PI INTSR ack (0x2000) in the handler | 2 (unmask, handler) | yes (mask + restore control) | GBI start, next step in order | whether the device asserts PI HSP after the transform, first IRQ-block change if any; may not fire at all (no cartridge) |
+| C. Start-up Disc equivalent: IRQ-block mask write, then `|0x04`, `&~0x10` as two writes, with PI unmasked | IRQ block write + 2 CONTROL writes + unmask | 3+ | partially (disc stop sequence, 4 more writes) | official disc | most complete, most confounded |
+| D. Observe IRQ/PI after unmask only (no CONTROL change): unmask bit 13 with an ack-only handler, then re-mask | INTMR bit 13; ack in handler | 1 | yes | neither reference does this alone | tells whether the idle IRQ state (0x8AAE, bit 15 set) already drives the PI line; isolates the PI path from the CONTROL transform |
+
+**Proposed: D, then B.** D changes one variable (INTMR bit 13), writes
+nothing on the GBP side, is fully reversible, and answers the question
+that decides how to interpret B: does the idle device (IRQ `0x8AAE`,
+CONTROL `0x90`) already assert the HSP line when the PI is unmasked?
+Both references clear CONTROL 0x10 and unmask around the same point;
+D separates the PI-side observation from the CONTROL write. B follows
+GBI's actual order and is the real next initialization step. A is
+cheaper but does not advance initialization and can be folded into B's
+snapshots. C is deferred until the IRQ-block write semantics are
+understood. The handler for D/B must only acknowledge PI (write 0x2000
+to INTSR) and count/timestamp; no device-side IRQ acknowledge until
+authorized separately. Not implemented, not requested.

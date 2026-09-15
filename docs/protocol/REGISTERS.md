@@ -41,7 +41,7 @@ transfer; byte offsets are within that block.
 |------:|--------------|-----|---------|------|-----|---------|--------|----------|
 | 0x0 | TEST | W/R | 32 bytes, echoed back **inverted** (`~x`) on the read that follows the write; a later read returned `00` on hardware | write 4 patterns C3/3C/FF/00, read back, compare **byte 1** == ~pattern; repeated every 5 ms as removal detection | write C3, read (majority-vote byte) == ~C3, write ~C3, read == C3; then same with FF | stores `data ^ 0xFF`, returns it persistently | **F (hardware 2026-09-14)**: bytes 1–31 inverted in 8/8 handshakes, byte 0 anomalous in 3/8; second read `00` | GBP-TEST-001, GBP-HW-003, GBP-HW-006 |
 | 0x1 | VIDEO | R | 0xF00 bytes = 4 scanlines × 240 pixels × 4 bytes | 40 buffers of 0xF00 per frame (160 lines) | reads 0xF00 to a frame buffer on IRQ bit 8 | 0x400 × 16-bit RGB5, each byte doubled to 32 bits | C (size/geometry) | GBP-VID-001 |
-| 0x4 | CONTROL | W/R | 1 byte at offset 0x1F (write, DISC) or replicated over the block (GBI); read byte 0x1F (DISC) / majority vote (GBI) / block fill (DOLPHIN) | see §3 | see §3 | see §3 | C; hardware read `00×32` with exp code 0, `94 90×31` then `90×32` with exp code 3 (meaning U-GBP-017) | GBP-CTL-001, GBP-HW-005 |
+| 0x4 | CONTROL | W/R | 1 byte at offset 0x1F (write, DISC) or replicated over the block (GBI); read byte 0x1F (DISC) / majority vote (GBI) / block fill (DOLPHIN) | see §3 | see §3 | see §3 | C; hardware read `00×32` with exp code 0, `94/98 90×31` with exp code 3 (meaning U-GBP-017); GBI-layout writes `8C`×32 / `90`×32 accepted and read back (GBP-HW-013) | GBP-CTL-001, GBP-HW-005/013/017 |
 | 0x5 | SIOCTL | W/R | 1 byte at 0x1F | used by the internal-serial state machine | written together with CONTROL (64-byte DMA) | read → `IGBPlayer::ReadSIOControl` (stub returns 0); write → stub | F (exists), H (semantics) | GBP-SIO-001 |
 | 0x8 | AUDIO | R | 0x1000 bytes | 70 buffers of 0x1000; consumed on IRQ bit 10 | reads 0x1000 on IRQ bit 10 | 0x400 PWM bytes, each mirrored ×4; refilled at 4096 Hz | C (size), H (format) | GBP-AUD-001 |
 | 0x9 | SIODATA | W/R | 32-bit: write bytes 0x1C–0x1F; read assembled from bytes 0x19,0x1B,0x1D,0x1F (DISC) | serial state machine; write data, then SIOCTL \|= 0x80 | read on IRQ bit 6; written from a message queue | stub; read model fills block with the u32 repeated | F (exists), U (byte layout, semantics) | GBP-SIO-001, U-GBP-002 |
@@ -52,11 +52,11 @@ Unused indices (0x2, 0x3, 0x6, 0x7, 0xA, 0xB, 0xE, 0xF) are not touched by
 DISC or GBI; Dolphin logs a warning. Their behavior is **unknown**
 (U-GBP-005). Do not probe them with writes.
 
-**Baseline without a Game Boy Player (hardware, 2026-09-14):** every read
-of the TEST, CONTROL and IRQ windows returned `C0`×32 with either
-expansion code, and TEST writes had no visible effect (GBP-HW-007). The
-origin of `0xC0` is unknown (U-GBP-019); a `C0` block fails every
-detection criterion.
+**Baseline without a Game Boy Player (hardware, 2026-09-14/15):** every
+read returned a uniform fill that does not respond to TEST — `C0`×32 in
+one run (both expansion codes), `C1`×32 in another run/build
+(GBP-HW-007/019). The value is not fixed and its origin is unknown
+(U-GBP-019); any uniform fill fails both detection criteria.
 
 ### 2.1 Read data layout
 
@@ -70,9 +70,10 @@ ll` — and a uniform fill for CONTROL and TEST (GBP-HW-004/005). Dolphin's
 IRQ read model `hh hh hh ll` and its "u32 repeated" SIODATA model do not
 match this; they agree with hardware only at bytes 0x1D/0x1F.
 
-- **Byte 0 of a block is not reliable**: in 4 of 20 hardware reads it
-  carried extra set bits (GBP-HW-003/004, U-GBP-015). Both official
-  drivers never consume byte 0. Do not consume it.
+- **Byte 0 of a block is not reliable**: it carries extra set bits in
+  many hardware reads, and a bit 6 that appears ~1.4 µs after a CONTROL
+  write and is gone by ~68 µs (GBP-HW-003/004/015, U-GBP-015/021).
+  Neither the Start-up Disc nor GBI consumes byte 0. Do not consume it.
 - Safe positions: byte 1 or any byte ≥ 1 of a uniform fill (8-bit);
   0x1D/0x1F (16-bit); GBI's vote is the most robust known method.
 - SIODATA and VIDEO/AUDIO layouts remain **U** (U-GBP-008).

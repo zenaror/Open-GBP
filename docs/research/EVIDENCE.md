@@ -515,3 +515,106 @@ pass 8/8 with the GBP attached and fail 8/8 without it, for all four
 patterns in both modes; the whole-block criterion of probe-0001 passes
 5/8 with the GBP and 0/8 without. **Status:** FACT (computed from the
 captures; `tests/host/test_hw_fixture.py`, `tests/unit/test_gbp_detect.c`).
+
+---
+
+## Physical observations — GBP-INIT-001 (attached) and GBP-INIT-BASELINE-NOGBP-001 (removed), 2026-09-15
+
+Same console and setup as 2026-09-14; DOL `init-0001`, commit `a3d9668`.
+"FACT" = observed in that run; one run per state.
+
+## GBP-HW-011 — The presence policy classified the physical GBP correctly in both states
+
+**Claim:** With the GBP attached, the TEST handshake (C3, 3C, FF, 00, expansion
+code 3) passed the Start-up Disc byte-1 criterion 4/4 and the GBI vote
+criterion 4/4 (whole-block 3/4: the C3 response was `7C 3C…`), verdict
+PRESENT. With the GBP removed both criteria failed 4/4 (all read-backs
+`C1`×32), verdict ABSENT, and the probe wrote nothing to CONTROL and
+restored AR_INFO. **Status:** FACT. This is the physical validation of
+the safety gate of `gbp_init_probe`.
+
+## GBP-HW-012 — PI state during the experiment
+
+**Claim:** `INTSR = 0x00010000` and `INTMR = 0x000001FA` in every read
+(PRE, S0…S5); bit 13 was 0 in both, so INTMR was left untouched. Bit 16
+of INTSR (RSWST per YAGCD) was set throughout. **Status:** FACT.
+
+## GBP-HW-013 — GBI's CONTROL transform was accepted and read back
+
+**Claim:** With expansion code 3, CONTROL read semantically `0x90` (S0
+raw `98 90×31`, vote = byte 0x1F = 0x90). The probe wrote
+`(0x90 & ~0x10) | 0x0C = 0x8C` as `8C`×32 (GBI layout); the transfer
+completed (rc ok, 31 ticks, 8 polls). CONTROL then read `0x8C` in S1,
+S2 and S3 (bytes 1–31 all `8C`). Writing the original `0x90` as `90`×32
+made CONTROL read `0x90` again in S4 (bytes 1–31 all `90`). **Status:**
+FACT. No meaning is attached to bits 0x04/0x08/0x10.
+
+## GBP-HW-014 — No observable PI INTSR bit-13 assertion, IRQ block unchanged in bytes 1–31
+
+**Claim:** In the tested sequence — CONTROL `0x90 → 0x8C` with PI HSP
+masked in INTMR, snapshots at 1.4 µs, 68 µs, 141 µs after the write,
+and after the restore at 228 µs — PI INTSR bit 13 stayed 0 and the IRQ
+block bytes 1–31 stayed `8A 8A AE AE` (semantic `0x8AAE`, both by the
+disc's and GBI's reading). **Status:** FACT, restricted to this
+sequence. It does not say that CONTROL bit 0x10 is unrelated to
+interrupts: the rest of the GBI/Start-up Disc start (IRQ_Request,
+unmask, IRQ-block programming) was not reproduced.
+
+## GBP-HW-015 — Byte 0 of CONTROL and IRQ changed over time after CONTROL writes
+
+**Claim (exact bytes, `tools/blockdiff.py --snapshots`):**
+
+| Snapshot | ticks after EXP write | CONTROL byte 0 (bytes 1–31) | IRQ byte 0 (bytes 1–31 pattern) |
+|---|---|---|---|
+| S0 | before | `98` (`90`) | `AA` (`8A 8A AE AE`) |
+| S1 | 56 (1.38 µs) | `EC` (`8C`) | `EA` (same) |
+| S2 | 2756 (68.05 µs) | `AC` (`8C`) | `AA` (same) |
+| S3 | 5719 (141.2 µs) | `AC` (`8C`) | `AA` (same) |
+| S4 | 9231 (227.9 µs), after the RESTORE write | `98` (`90`) | `EA` (same) |
+| S5 | 13787 (340.4 µs), after AR_INFO → 0x0043 | `00` (`00`) | `98` (`90`) |
+
+Between S1 and S2 the only change in either block was bit 6 (`0x40`)
+clearing in byte 0 of both (`EC→AC`, `EA→AA`); this is what
+`TRANSITION s1_s2=1` recorded. S2→S3: identical. After the restore
+write, IRQ byte 0 read `EA` again (bit 6 set) while CONTROL byte 0 read
+`98` as in S0. **Status:** FACT for the bytes and timings. Bit 6 is not
+named (U-GBP-021); CONTROL and IRQ byte-0 bits are not asserted to be
+one signal.
+
+## GBP-HW-016 — Restoration verified
+
+**Claim:** `control_restored=1` (S4 vote and byte 0x1F = 0x90),
+`arinfo_restored=1` (readback 0x0043), INTMR unchanged, 23 transfers,
+0 timeouts, 0 busy, 0 errors, 0 dropped/truncated records. **Status:** FACT.
+
+## GBP-HW-017 — Expansion code 3 → 0 changed the CONTROL/IRQ view again (second independent observation)
+
+**Claim:** After AR_INFO was restored from 0x005B to 0x0043, S5 read
+CONTROL `00`×32 and IRQ `98 90×31` (semantic `0x9090`), the same view
+GBP-PROBE-001 MODE A showed with code 0 (`00`/`90`), while with code 3
+the view was `0x90`/`0x8AAE` in both runs. **Status:** CORROBORATED by
+two runs with different sequences (code 0 first vs code 3 first).
+Meaning unknown (U-GBP-004); not "enable".
+
+## GBP-HW-018 — Snapshot timing
+
+**Claim:** Time-base ticks since the write at the start of each
+snapshot: S1 56, S2 2756, S3 5719, S4 9231, S5 13787 (40.5 MHz). Every
+DMA took 29–34 ticks (7–9 polls). The gaps between snapshots are the
+probe's own logging cost (four `vsnprintf` records per snapshot), not
+deliberate delays. **Status:** FACT.
+
+## GBP-HW-019 — Without the GBP the uniform value was `C1`, not `C0`
+
+**Claim:** In GBP-INIT-BASELINE-NOGBP-001 all eight TEST read-backs were
+`C1`×32 (with expansion code 3 set before the first transfer); in
+GBP-BASELINE-NOGBP-001 (probe-0001, 2026-09-14) all reads were `C0`×32
+with codes 0 and 3. The two values differ in bit 0 of every byte.
+**Status:** FACT. Generalization "no GBP = C0" is withdrawn; see
+U-GBP-019 for the candidate explanations (none selected).
+
+## GBP-HW-020 — Transport does not distinguish the two states
+
+**Claim:** With and without the GBP, every transfer completed with the
+same tick/poll counts (29–34 / 7–9) and CSR 0x0804. **Status:** FACT
+(re-confirms GBP-HW-008).

@@ -31,9 +31,11 @@ HW_FIXTURE_GBP   := $(ROOT)/captures/fixtures/hw-gamecube-gbp-2026-09-14-probe-0
 HW_FIXTURE_NOGBP := $(ROOT)/captures/fixtures/hw-gamecube-nogbp-2026-09-14-probe-0001.gbpreplay
 MODEL_FIXTURE_P  := $(ROOT)/captures/fixtures/dolphin-2606a-gbplayer-model-present.gbpreplay
 MODEL_FIXTURE_A  := $(ROOT)/captures/fixtures/dolphin-2606a-gbplayer-model-absent.gbpreplay
+HW_INIT_GBP      := $(ROOT)/captures/fixtures/hw-gamecube-gbp-2026-09-15-init-0001.gbpreplay
+HW_INIT_NOGBP    := $(ROOT)/captures/fixtures/hw-gamecube-nogbp-2026-09-15-init-0001.gbpreplay
 
 run: $(BINS)
-	@set -e; for t in $(BINS); do echo "== $$t"; if [ "$$t" = "$(OUTDIR)/test_gbp_replay" ]; then "$$t" "$(HW_FIXTURE_GBP)" "$(HW_FIXTURE_NOGBP)" "$(MODEL_FIXTURE_P)" "$(MODEL_FIXTURE_A)"; else "$$t"; fi; done
+	@set -e; for t in $(BINS); do echo "== $$t"; if [ "$$t" = "$(OUTDIR)/test_gbp_replay" ]; then "$$t" "$(HW_FIXTURE_GBP)" "$(HW_FIXTURE_NOGBP)" "$(MODEL_FIXTURE_P)" "$(MODEL_FIXTURE_A)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_init" ]; then "$$t" "$(HW_INIT_GBP)" "$(HW_INIT_NOGBP)"; else "$$t"; fi; done
 
 $(OUTDIR)/test_ident: test_ident.c $(COMMON_SRC) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_ident.c $(COMMON_SRC)

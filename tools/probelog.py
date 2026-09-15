@@ -79,8 +79,15 @@ def fixture(records):
     for r in records:
         k, f, tag = r["kind"], r["fields"], r.get("tag")
         if k == "ARINFO" and "value" in f:
-            if tag in ("write", "restore"):
+            if tag == "write":                                  # gbp_probe: write, then a separate read record
                 lines.append("A w %s" % f["value"])
+            elif tag == "exp":                                  # gbp_init_probe: write + readback in one record
+                lines.append("A w %s" % f["value"])
+                lines.append("A r %s" % f["value"])
+            elif tag == "restore":
+                lines.append("A w %s" % f["value"])
+                if "readback" in f:                             # gbp_init_probe restore includes the readback
+                    lines.append("A r %s" % f["readback"])
             elif f.get("rc", "ok") == "ok":
                 lines.append("A r %s" % f["value"])
         elif k == "RAW":

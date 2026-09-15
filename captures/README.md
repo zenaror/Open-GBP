@@ -19,6 +19,8 @@ Those directories are intentionally ignored by Git.
 | `dolphin-2606a-gbplayer-model-present.gbpreplay` | Dolphin 2606a, `Core.HSPDevice=2`, probe build probe-0001 | **model data**, not hardware |
 | `dolphin-2606a-gbplayer-model-absent.gbpreplay` | Dolphin 2606a, no HSP device | **model data**, not hardware |
 | `hw-gamecube-nogbp-2026-09-14-probe-0001.gbpreplay` | **SOURCE = physical GameCube, GBP_PRESENT=no** (GBP-BASELINE-NOGBP-001), same DOL probe-0001, log sha256 `03e930ff…c8f9` kept under `captures/local/` | hardware capture, sanitized |
+| `hw-gamecube-gbp-2026-09-15-init-0001.gbpreplay` | **SOURCE = physical GameCube, GBP_PRESENT=yes**, GBP-INIT-001 build init-0001 commit a3d9668, log sha256 `d1e90daf…956e` (5497 B) | hardware capture: detection, PI, S0–S5, CONTROL writes |
+| `hw-gamecube-nogbp-2026-09-15-init-0001.gbpreplay` | **SOURCE = physical GameCube, GBP_PRESENT=no**, same DOL, log sha256 `97f7cc70…6c5e` (2090 B) | hardware capture: `C1`×32, aborted before any CONTROL write |
 | `hw-gamecube-gbp-2026-09-14-probe-0001.gbpreplay` | **SOURCE = physical GameCube + Game Boy Player**, GBP-PROBE-001 build probe-0001 commit 55ed6c1, derived from the device log sha256 `98ba20d5…f014` (kept unmodified under `captures/local/`) | hardware capture, sanitized (records only; header/setup in HARDWARE_TESTS.md) |
 
 `.gbpreplay` files are scripts for `src/gbp/gbp_replay.c` (format in its
