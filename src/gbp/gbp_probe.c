@@ -87,7 +87,7 @@ static void handshake(const struct gbp_transport *t, struct ringlog *log,
         uint8_t pat = cfg->patterns[p];
         uint8_t expect = (uint8_t)~pat;
         gbp_status wrc, rrc;
-        unsigned match_all = 0, match_1f = 0, k;
+        unsigned match_all = 0, match_1f = 0, match_b1 = 0, match_vote = 0, vote = 0;
 
         memset(&wi, 0, sizeof wi);
         memset(&ri, 0, sizeof ri);
@@ -107,22 +107,26 @@ static void handshake(const struct gbp_transport *t, struct ringlog *log,
         }
         rrc = t->read_block(t->ctx, addr, in, &ri);
         if (rrc == GBP_OK) {
-            match_all = 1;
-            for (k = 0; k < GBP_BLOCK_SIZE; k++) {
-                if (in[k] != expect) match_all = 0;
-            }
+            mr->tests_transport_ok++;
+            match_all = (unsigned)gbp_test_whole_block(in, pat);
             match_1f = (in[GBP_BLOCK_SIZE - 1u] == expect) ? 1u : 0u;
+            match_b1 = (unsigned)gbp_test_startup_disc_style(in, pat);
+            match_vote = (unsigned)gbp_test_majority_vote(in, pat);
+            vote = gbp_majority_vote_byte(in);
             mr->tests_match_all += match_all;
             mr->tests_match_1f += match_1f;
+            mr->tests_match_b1 += match_b1;
+            mr->tests_match_vote += match_vote;
         } else {
             mr->tests_failed++;
             res->errors++;
         }
         ringlog_hex(hex, sizeof hex, in, GBP_BLOCK_SIZE);
-        ringlog_printf(log, "TESTR mode=%s idx=%x pattern=%02x expect=%02x rc=%s ticks=%lu polls=%u dspcr=%04x match_all=%u match_1f=%u data=%s",
+        ringlog_printf(log, "TESTR mode=%s idx=%x pattern=%02x expect=%02x rc=%s ticks=%lu polls=%u dspcr=%04x match_all=%u match_1f=%u match_b1=%u match_vote=%u vote=%02x data=%s",
                        mode_name(m), (unsigned)cfg->handshake_index, (unsigned)pat, (unsigned)expect,
                        gbp_status_name(rrc), (unsigned long)ri.ticks, (unsigned)ri.polls,
-                       (unsigned)ri.dma_status, match_all, match_1f, rrc == GBP_OK ? hex : "-");
+                       (unsigned)ri.dma_status, match_all, match_1f, match_b1, match_vote, vote,
+                       rrc == GBP_OK ? hex : "-");
     }
 }
 
@@ -170,10 +174,13 @@ int gbp_probe_run(const struct gbp_transport *t, struct ringlog *log,
         if (read_arinfo_logged(t, log, m == 0 ? "endA" : "endB", &v, res) == GBP_OK) {
             mr->arinfo_after = v;
         }
-        res->present[m] = (mr->tests_run > 0 && mr->tests_match_all == mr->tests_run) ? 1 : 0;
-        ringlog_printf(log, "MODE %s end reads_ok=%u reads_failed=%u tests=%u match_all=%u match_1f=%u tests_failed=%u present=%d",
-                       mode_name(m), mr->reads_ok, mr->reads_failed, mr->tests_run,
-                       mr->tests_match_all, mr->tests_match_1f, mr->tests_failed, res->present[m]);
+        mr->verdict = gbp_presence_verdict(mr->tests_run, mr->tests_transport_ok,
+                                           mr->tests_match_vote, mr->tests_match_b1);
+        res->present[m] = (mr->verdict == GBP_VERDICT_PRESENT) ? 1 : 0;
+        ringlog_printf(log, "MODE %s end reads_ok=%u reads_failed=%u tests=%u transport_ok=%u match_all=%u match_1f=%u match_b1=%u match_vote=%u tests_failed=%u verdict=%s present=%d",
+                       mode_name(m), mr->reads_ok, mr->reads_failed, mr->tests_run, mr->tests_transport_ok,
+                       mr->tests_match_all, mr->tests_match_1f, mr->tests_match_b1, mr->tests_match_vote,
+                       mr->tests_failed, gbp_verdict_name(mr->verdict), res->present[m]);
         res->modes_run++;
     }
 
@@ -189,21 +196,28 @@ int gbp_probe_run(const struct gbp_transport *t, struct ringlog *log,
         res->arinfo_final = 0xFFFF;
     }
     res->arinfo_restored = (res->arinfo_final == res->arinfo_orig) ? 1 : 0;
-    ringlog_printf(log, "PROBE end modes=%u errors=%u changed=%d restored=%d",
-                   res->modes_run, res->errors, res->arinfo_changed, res->arinfo_restored);
+    res->transport_ok = (res->errors == 0) ? 1 : 0;
+    ringlog_printf(log, "PROBE end modes=%u errors=%u transport_ok=%d changed=%d restored=%d",
+                   res->modes_run, res->errors, res->transport_ok, res->arinfo_changed, res->arinfo_restored);
     return 0;
 }
 
 int gbp_probe_summary(const struct gbp_probe_result *res, char *dst, size_t cap)
 {
     return snprintf(dst, cap,
-                    "DONE modes=%u a_present=%d b_present=%d a_match=%u/%u b_match=%u/%u "
-                    "a_reads=%u/%u b_reads=%u/%u errors=%u arinfo=%04x changed=%d restored=%d final=%04x",
+                    "DONE modes=%u a_present=%d b_present=%d a_verdict=%s b_verdict=%s "
+                    "a_vote=%u/%u b_vote=%u/%u a_b1=%u/%u b_b1=%u/%u a_all32=%u/%u b_all32=%u/%u "
+                    "a_reads=%u/%u b_reads=%u/%u errors=%u transport_ok=%d arinfo=%04x changed=%d restored=%d final=%04x",
                     res->modes_run, res->present[0], res->present[1],
+                    gbp_verdict_name(res->mode[0].verdict), gbp_verdict_name(res->mode[1].verdict),
+                    res->mode[0].tests_match_vote, res->mode[0].tests_run,
+                    res->mode[1].tests_match_vote, res->mode[1].tests_run,
+                    res->mode[0].tests_match_b1, res->mode[0].tests_run,
+                    res->mode[1].tests_match_b1, res->mode[1].tests_run,
                     res->mode[0].tests_match_all, res->mode[0].tests_run,
                     res->mode[1].tests_match_all, res->mode[1].tests_run,
                     res->mode[0].reads_ok, res->mode[0].reads_ok + res->mode[0].reads_failed,
                     res->mode[1].reads_ok, res->mode[1].reads_ok + res->mode[1].reads_failed,
-                    res->errors, (unsigned)res->arinfo_orig, res->arinfo_changed,
+                    res->errors, res->transport_ok, (unsigned)res->arinfo_orig, res->arinfo_changed,
                     res->arinfo_restored, (unsigned)res->arinfo_final);
 }

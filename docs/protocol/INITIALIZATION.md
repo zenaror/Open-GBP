@@ -17,12 +17,20 @@ documentation contract.
 2. Read the internal ARAM size code:         0xCC005012 bits 0-2  →  base (retail 0x01000000)
 3. Program the expansion size code:          0xCC005012 bits 3-5 := 3               (DISC 0x80089b60(0x1000000); GBI 0x8001123c)
 4. TEST handshake at base + 0x000000:
-      DISC: for p in C3, 3C, FF, 00: write 32×p ; read ; require byte[0x1F] == ~p      (0x8008ae3c)
-      GBI : for p in C3, FF:  write 32×p ; read ; require ~p ; write 32×~p ; read ; require p   (0x80011c94)
+      DISC: for p in C3, 3C, FF, 00: write 32×p ; read 32 ; require byte[1] == ~p           (0x8008ae3c, `lbz r3,13(r1)` with the buffer at r1+12)
+      GBI : for p in C3, FF:  write 32×p ; read 32 ; vote each bit over the 32 bytes → b ; require b == ~p ;
+            write 32×b ; read ; vote ; require == p                                          (0x80011c94, 0x80015b08)
+   Hardware 2026-09-14 (GBP-HW-003/007/010): with the GBP attached, bytes 1–31 == ~p in 8/8
+   handshakes (byte 0 wrong in 3/8) and both official checks pass 8/8; with the GBP removed
+   every read is C0×32 and both fail 8/8. A whole-block comparison fails 3/8 with the GBP.
+   DMA completion is identical in both cases and is NOT a presence signal (GBP-HW-008).
+   Open-GBP policy: src/gbp/gbp_detect.h — PRESENT only if every handshake completed and
+   passed BOTH criteria; transport success is reported separately.
    Any mismatch ⇒ "no Game Boy Player" (DISC error code 5, GBI "Game Boy Player not detected").
 ```
 
-Status **C**. GBI additionally requires that libogc's `__ARCheckSize`
+Status **C**, first hardware confirmation on 2026-09-14 (with and without
+step 3 — see GBP-HW-002/005 for what step 3 changes). GBI additionally requires that libogc's `__ARCheckSize`
 found **no** ARAM expansion (`AR_GetSize() <= AR_GetInternalSize()`),
 which is what happens when the probes at 16 MB hit the GBP's inverting
 TEST register. DISC does not run a size probe of its own.

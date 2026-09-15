@@ -48,6 +48,8 @@ struct gbp_mock {
     unsigned fail_at_op;        /* 1-based transfer number that fails (0 = never) */
     gbp_status fail_rc;         /* which failure */
     int stuck_after_timeout;    /* subsequent transfers report busy */
+    int silent_reads;           /* 1: read DMA "completes" but never writes the buffer */
+    const uint8_t *canned;      /* if set: every read returns exactly these 32 bytes */
     /* state */
     uint8_t test_store[GBP_BLOCK_SIZE];
     unsigned transfers;         /* block transfers so far */

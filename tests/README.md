@@ -14,7 +14,7 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                   test_ident.c       build identity formatter
                   test_ringlog.c     RAM record log (truncation, drop counter)
                   test_gbp_probe.c   GBP-PROBE-001 logic against tests/mocks/gbp_mock.c
-                  test_gbp_replay.c  trace/replay backend
+                  test_gbp_replay.c  trace/replay backend (+ replay of the hardware fixture when given as argv[1])
 tests/mocks/    scripted device models behind src/gbp/gbp_transport.h
 tests/host/     Python tests (pytest or python3 -m unittest):
                   test_dolinfo.py    synthetic DOL header vectors
@@ -22,6 +22,8 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                   test_gciso.py      disc image parser/extractor (synthetic image)
                   test_gbi_unpack.py GBI unpacker and bin2dol (synthetic packed DOL)
                   test_probelog.py   device-log parser / fixture generator
+                  test_hw_fixture.py exact bytes of the 2026-09-14 hardware capture, what each
+                                     known driver would read from them, blockdiff findings
                   test_artifacts.py  checks on the built ELF/DOL (skipped
                                      until `make build` has run)
 ```

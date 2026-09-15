@@ -86,9 +86,36 @@ depend on it: the build always produces 32-byte-padded DOLs.
   zero bytes and verifies the result. `tools/dolinfo.py --require-aligned`
   checks it.
 
-**Open questions:** none blocking. Whether Swiss/IPL accept the padded DOL
-identically is expected (padding only adds zero bytes into linker gaps or
-BSS) and will be confirmed by the first physical smoke test.
+**Open questions:** none. Swiss loaded and ran the padded DOL on real
+hardware on 2026-09-14 (ENV-HW-001; U-ENV-002 closed). Whether the IPL
+or other loaders behave the same is untested and not needed.
+
+---
+
+## ENV-HW-001 — The build pipeline produces DOLs that run on the real GameCube
+
+**Claim:** A DOL built by the project pipeline (Docker image
+`ghcr.io/extremscorner/libogc2:20260805`, devkitPPC 16.1.0, libogc2
+r2442, `elf2dol`, `tools/dolpad.py` 32-byte padding) loads through Swiss
+on the user's GameCube, initializes libogc2 (video 640×480 NTSC, pad),
+runs its main loop at 60 Hz, writes a file to the SD2SP2 card through
+libfat (`__io_gcsd2`), and returns to Swiss on `exit()`.
+
+**Status:** FACT (physical observation) — **Confidence:** high for this
+artifact; one run, one console.
+
+**Sources:** HARDWARE_TESTS.md SMOKE-HW-001 (2026-09-14): build
+`smoke-0002`, commit `55ed6c1`, DOL SHA-256 `4175f21d…54fe88`; the log
+file written by the GameCube (`IDENT`, `VIDEO 640x480 tvmode=0`,
+`STATE seconds=8 frames=537 lit=7363 buttons_seen=0400`) and the user's
+confirmation that START returned to Swiss.
+
+**Hardware tests:** SMOKE-HW-001.
+
+**Notes:** the same ring-buffer → `sdlog.c` path is used by
+`poc/gbp-probe`; its reliability on hardware is therefore established
+before the first GBP experiment. This entry says nothing about the Game
+Boy Player, the HSP or ARAM DMA (none of them were exercised).
 
 ---
 
@@ -225,10 +252,14 @@ reads are consumed from byte 0x1F (8-bit), 0x1D/0x1F (16-bit) and
 is set.
 
 **Status:** CORROBORATED (DISC wrappers `0x80089e40…0x8008a3c4`; DOLPHIN
-`Write`: `data[0x1f]`, `swap16(data+0x1e)`, `swap32(data+0x1c)`; GBI byte
-helpers `0x80015b08/0x80015c64` read the same positions) —
-**Confidence:** high for the written positions, medium for the read layout
-(U-GBP-008).
+`Write`: `data[0x1f]`, `swap16(data+0x1e)`, `swap32(data+0x1c)`).
+Correction 2026-09-14: GBI does **not** read fixed positions — it majority-
+votes each bit over the 32 bytes for byte registers (`0x80015b08`) and
+over bytes ≡1 mod 4 (high) / ≡3 mod 4 (low) for 16-bit registers
+(`0x80015c64` called on `buf` and `buf+2`); its writes replicate the value
+over the whole block (`0x80015d9c` byte, `0x80015da0` u16 as `hh ll hh ll…`).
+**Confidence:** high for the written positions; the read layout is now a
+hardware observation (GBP-HW-004).
 
 ## GBP-HSP-004 — Registers respond at more than one offset inside their 1 MB window
 
@@ -245,12 +276,16 @@ slot mirrors (U-GBP-005).
 
 **Claim:** Writing a 32-byte block to index 0x0 and reading it back yields
 the bitwise complement. DISC handshakes with patterns C3, 3C, FF, 00 and
-checks byte 0x1F; GBI with C3 and FF in a write/read/write-back/read
-cycle; Dolphin stores `data ^ 0xFF`. DISC repeats one pattern every 5 ms
-while running to detect removal (error 5).
+checks **byte 1** of the 32-byte read (`0x8008ae3c`: `lbz r3,13(r1)` on a
+buffer at `r1+12`; corrected 2026-09-14 — Phase 2 wrongly said 0x1F);
+GBI with C3 and FF in a write/read/write-back/read cycle, comparing a
+byte obtained by **majority vote of each bit over all 32 bytes**
+(`0x80015b08`); Dolphin stores `data ^ 0xFF`. DISC repeats one pattern
+every 5 ms while running to detect removal (error 5).
 
-**Status:** CORROBORATED — **Confidence:** high. **Hardware tests:** none
-(this is the proposed first Phase 3 experiment).
+**Status:** CORROBORATED, and observed on hardware on 2026-09-14
+(GBP-HW-003): bytes 1–31 were the complement in all 8 handshakes; byte 0
+carried extra bits in 3 of them. **Confidence:** high.
 
 ## GBP-IRQ-001 — Interrupt path and IRQ register semantics
 
@@ -360,3 +395,123 @@ addresses).
 settings"), validated as bits 10–14 < 20, bits 6–7 != 3, bits 0–5 < 60.
 **Status:** FACT (LIBOGC2 `system.c`). Not analyzed in DISC yet
 (U-GBP-013).
+
+---
+
+## Physical observations — GBP-PROBE-001, 2026-09-14
+
+All entries below come from one run on the user's GameCube + Game Boy
+Player (setup in HARDWARE_TESTS.md; log sha256 `98ba20d5…f014`). "FACT"
+means observed in that run; one console, one run, no cartridge.
+
+## GBP-HW-001 — AR_INFO state and the controlled A/B change
+
+**Claim:** At probe start `0xCC005012` read `0x0043` (size code 3 = 16 MB,
+expansion code 0, bit 6 set). Writing `(0x0043 & ~0x0038) | 0x0018` gave
+`0x005B` (read back twice); writing `0x0043` back restored it (read back
+`0x0043`). The DSP CSR read `0x0804` throughout (DSPINIT|HALT in libogc2
+naming). **Status:** FACT. **Confidence:** high.
+
+## GBP-HW-002 — All 28 ARAM-DMA transfers to the expansion window completed, in both modes
+
+**Claim:** 12 reads and 8 writes (MODE A and B, TEST/CONTROL/IRQ windows at
+`0x01000000 + idx<<20`) plus 8 handshake reads completed with CSR bit 5
+set after 7–10 polls, 30–37 time-base ticks (≈0.75–0.9 µs at 40.5 MHz)
+each, no timeout, no busy refusal — with AR_INFO expansion code 0 (MODE A)
+as well as 3 (MODE B). **Status:** FACT. **Confidence:** high.
+**Consequence:** the DMA engine does not stall or refuse when the
+expansion code is 0; U-GBP-004 is not "required for the DMA to run".
+
+## GBP-HW-003 — TEST inversion observed in both modes; byte 0 anomalies
+
+**Claim:** For every handshake (C3, 3C, FF, 00 in MODE A and again in
+MODE B) the read-back had bytes 1–31 equal to the complement of the
+pattern. Byte 0 differed in three cases, always by *extra* set bits:
+MODE A C3→`7C` (expected `3C`, extra `0x40`), MODE A 3C→`C7` (expected
+`C3`, extra `0x04`, and byte 6 also `C7`), MODE B 3C→`C7` (extra `0x04`).
+MODE B C3 and all FF/00 handshakes were uniform. **Status:** FACT.
+**Confidence:** high for the bytes; no explanation yet (U-GBP-015).
+Software causes were audited and excluded (DEVLOG 2026-09-14): buffer
+`0x80058080`, 32-byte aligned, own cache line, zero-filled + `dcbf/sc`
+then `dcbi` before the DMA and `dcbi` after; a stale line would show the
+zero fill or the previous 32 bytes, not a single extra bit.
+
+## GBP-HW-004 — Read block layout of the IRQ window is byte-doubled `hh hh ll ll`
+
+**Claim:** In MODE B the IRQ window read `ae 8a ae ae | 8a 8a ae ae ×7`:
+words 1–7 are `8A 8A AE AE`, i.e. a 16-bit value `0x8AAE` with each byte
+repeated; word 0 has the byte-0 anomaly (`AE` where the pattern predicts
+`8A`). Bytes 0x1D/0x1F (DISC) and bytes ≡1/≡3 mod 4 (GBI vote) both yield
+`0x8AAE`. Dolphin's IRQ read model `hh hh hh ll` would put `8A` at
+0x1E; hardware put `AE` there. **Status:** FACT (layout for this register
+in this run). **Confidence:** high for the bytes; the byte-doubling rule
+is CORROBORATED by DISC's parsing and GBI's vote positions and now one
+hardware block — U-GBP-008 partially answered.
+
+## GBP-HW-005 — CONTROL and IRQ windows read differently in MODE A and MODE B
+
+**Claim:** MODE A (exp code 0): CONTROL `00×32` (both dumps), IRQ
+`90×32` (both dumps). MODE B (exp code 3): CONTROL `94 90×31` then
+`90×32`; IRQ `ae 8a ae ae 8a 8a ae ae…` (both dumps). TEST read `00×32`
+in every raw dump of both modes. Changing only AR_INFO bits 3–5 therefore
+changed what the CONTROL and IRQ windows return, while the TEST handshake
+worked in both modes. **Status:** FACT. **Confidence:** high for the
+bytes. **Not established:** whether MODE A values come from the GBS-DOL,
+from the ARAM controller or from the bus (U-GBP-004 reformulated,
+U-GBP-016); what `0x90`, `0x94`, `0x8AAE` mean (U-GBP-017).
+
+## GBP-HW-006 — TEST window reads 00 when not immediately following a write
+
+**Claim:** Every raw TEST dump (before the handshake and right after its
+last read) returned `00×32`, although the last handshake write had been
+32×`00` (whose read-back was `FF×32`). The complement is therefore only
+observed on the read that follows the write; a second read returned
+zeros. **Status:** FACT for this sequence. **Confidence:** medium (the
+zero fill of the DMA buffer is also `00`, so a DMA that transferred
+nothing would look identical — see DEVLOG limitation L2). Dolphin's model
+(persistent `data ^ 0xFF`) would have returned `FF×32`.
+
+---
+
+## Physical observations — GBP-BASELINE-NOGBP-001, 2026-09-14 (GBP removed)
+
+## GBP-HW-007 — Without the Game Boy Player every window read `C0`×32
+
+**Claim:** With the GBP physically removed and everything else unchanged,
+the same DOL (`probe-0001`) read `C0` in all 32 bytes of TEST, CONTROL
+and IRQ, in both raw dumps of both modes, and every TEST handshake
+read-back was also `C0`×32 (0/8 by any criterion). AR_INFO behaved
+identically to the GBP run (`0043 → 005B → 0043`). **Status:** FACT
+for this configuration. **Confidence:** high (one run). **Origin of
+`0xC0` is UNKNOWN** (U-GBP-019) — it is not to be called open-bus, ARAM
+or "HSP default".
+
+## GBP-HW-008 — DMA completion does not depend on the GBP: it is not presence detection
+
+**Claim:** All 28 transfers completed with `rc=ok`, 7–10 polls, 31–38
+time-base ticks, CSR `0x0804` after acknowledge — the same numbers as
+with the GBP attached (GBP-HW-002). **Status:** FACT. **Consequence
+(rule):** *DMA completion is NOT GBP presence detection.* A completed
+transfer only says the ARAM DMA engine finished; presence must be judged
+from the handshake content.
+
+## GBP-HW-009 — Behaviors that depended on the physical presence of the GBP
+
+**Claim:** In the tested configuration, removing only the GBP changed
+every one of the 20 read blocks (640/640 bytes differ,
+`tools/blockdiff.py --pair`): the TEST inversion (bytes 1–31 = ~pattern,
+8/8) disappeared (0/8, `C0`); the byte-0 extra bits disappeared; CONTROL
+`00`/`94`/`90` fills and IRQ `90`/`AE 8A…` patterns were replaced by
+`C0`×32; and the difference between expansion code 0 and 3 in
+CONTROL/IRQ disappeared (both `C0`). **Status:** FACT (dependency
+observed) — no functional meaning is assigned to `90`, `94`, `AE`, `8A`
+or `C0`. **Confidence:** high for the dependency (single pair of runs).
+
+## GBP-HW-010 — Official TEST criteria applied to both physical runs
+
+**Claim:** On the physical blocks, the Start-up Disc criterion (byte 1 ==
+~pattern) and the GBI criterion (per-bit majority vote == ~pattern) both
+pass 8/8 with the GBP attached and fail 8/8 without it, for all four
+patterns in both modes; the whole-block criterion of probe-0001 passes
+5/8 with the GBP and 0/8 without. **Status:** FACT (computed from the
+captures; `tests/host/test_hw_fixture.py`, `tests/unit/test_gbp_detect.c`).

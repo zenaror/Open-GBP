@@ -12,6 +12,12 @@
  *   6. X saves the log to SD2SP2 (sd:/open-gbp/GBP-PROBE-001_<build>.log),
  *      START exits to the loader.
  *
+ * Presence policy (build probe-0002+): gbp_detect.h — a mode is "present"
+ * only if every handshake completed and passed both the Start-up Disc
+ * criterion (byte 1 == ~pattern) and the GBI majority-vote criterion.
+ * DMA completion by itself is never treated as presence (both physical
+ * runs of 2026-09-14 completed all transfers, with and without the GBP).
+ *
  * GBP-side writes: only the TEST block (index 0). No CONTROL, KEYPAD, SIO,
  * video or audio access. GameCube-side writes: AR_INFO bits 3-5 only,
  * restored before exit. Nothing here is timing-critical; every wait has a
@@ -48,7 +54,7 @@ static const char opengbp_ident_marker[] =
 
 #define GECKO_CHANNEL EXI_CHANNEL_1
 #define LOG_LINES 160
-#define LOG_LINE_LEN 200
+#define LOG_LINE_LEN 256
 /* DMA completion timeout: 200 ms in time-base ticks (TB = bus clock / 4). */
 #define DMA_TIMEOUT_MS 200
 
@@ -138,10 +144,11 @@ int main(void)
            res.arinfo_restored ? "yes" : "NO");
     for (m = 0; m < res.modes_run; m++) {
         const struct gbp_probe_mode_result *mr = &res.mode[m];
-        printf("  MODE %c base=%08lx reads %u/%u test match %u/%u (byte1F %u) present=%d\n",
+        printf("  MODE %c base=%08lx reads %u/%u vote %u/%u b1 %u/%u all32 %u/%u -> %s\n",
                m == 0 ? 'A' : 'B', (unsigned long)mr->base, mr->reads_ok,
-               mr->reads_ok + mr->reads_failed, mr->tests_match_all, mr->tests_run,
-               mr->tests_match_1f, res.present[m]);
+               mr->reads_ok + mr->reads_failed, mr->tests_match_vote, mr->tests_run,
+               mr->tests_match_b1, mr->tests_run, mr->tests_match_all, mr->tests_run,
+               gbp_verdict_name(mr->verdict));
         print_raw("TEST", mr->raw[0], mr->raw_rc[0]);
         print_raw("CTRL", mr->raw[1], mr->raw_rc[1]);
         print_raw("IRQ", mr->raw[2], mr->raw_rc[2]);

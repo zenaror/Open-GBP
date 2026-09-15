@@ -15,6 +15,7 @@
 
 #include <stdint.h>
 #include "gbp_transport.h"
+#include "gbp_detect.h"
 #include "../log/ringlog.h"
 
 #ifdef __cplusplus
@@ -45,9 +46,13 @@ struct gbp_probe_mode_result {
     unsigned reads_ok;          /* raw block reads that completed */
     unsigned reads_failed;
     unsigned tests_run;         /* handshake patterns attempted */
-    unsigned tests_match_all;   /* all 32 bytes == ~pattern */
-    unsigned tests_match_1f;    /* byte 0x1F == ~pattern */
+    unsigned tests_transport_ok;/* handshakes whose write and read both completed */
+    unsigned tests_match_all;   /* all 32 bytes == ~pattern (probe-0001 heuristic, reporting only) */
+    unsigned tests_match_1f;    /* byte 0x1F == ~pattern (reporting only) */
+    unsigned tests_match_b1;    /* Start-up Disc criterion: byte 1 == ~pattern */
+    unsigned tests_match_vote;  /* GBI criterion: majority-vote byte == ~pattern */
     unsigned tests_failed;      /* write or read did not complete */
+    gbp_verdict verdict;        /* gbp_presence_verdict() over this mode's handshakes */
     uint8_t raw[GBP_PROBE_MAX_INDICES][GBP_BLOCK_SIZE]; /* last raw dump per index */
     gbp_status raw_rc[GBP_PROBE_MAX_INDICES];
 };
@@ -61,9 +66,11 @@ struct gbp_probe_result {
     struct gbp_probe_mode_result mode[GBP_PROBE_MODES];
     unsigned modes_run;
     unsigned errors;            /* total non-OK transfers */
-    /* Verdict per mode: 1 = every handshake pattern matched on all 32
-     * bytes, 0 = not. Not a hardware fact; a summary of the records. */
+    /* present[m] = 1 iff mode[m].verdict == GBP_VERDICT_PRESENT (policy of
+     * gbp_detect.h: every handshake completed and passed both official
+     * criteria). Transport success alone never sets it. */
     int present[GBP_PROBE_MODES];
+    int transport_ok;           /* 1 iff every transfer of the run completed */
 };
 
 /* Runs the probe. Returns 0 if the sequence completed (whatever the

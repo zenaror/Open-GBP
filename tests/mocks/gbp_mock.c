@@ -101,6 +101,16 @@ static gbp_status m_read_block(void *ctx, uint32_t addr, uint8_t out[GBP_BLOCK_S
     uint32_t base = gbp_internal_size_from_arinfo(m->arinfo);
     gbp_status rc = fault(m, info);
     if (rc != GBP_OK) { memset(out, 0, GBP_BLOCK_SIZE); record(m, MOCK_RD, addr, 0, 0, rc); return rc; }
+    if (m->silent_reads) {
+        /* leave `out` exactly as the caller prepared it */
+        record(m, MOCK_RD, addr, 0, out, GBP_OK);
+        return GBP_OK;
+    }
+    if (m->canned) {
+        memcpy(out, m->canned, GBP_BLOCK_SIZE);
+        record(m, MOCK_RD, addr, 0, out, GBP_OK);
+        return GBP_OK;
+    }
     if (!answers(m)) {
         memset(out, m->absent_fill, GBP_BLOCK_SIZE);
     } else {

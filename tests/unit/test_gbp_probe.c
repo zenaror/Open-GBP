@@ -12,7 +12,7 @@ static int failures, checks;
 #define CHECK(c) do { ++checks; if (!(c)) { ++failures; fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); } } while (0)
 
 #define LINES 128
-#define LINE_LEN 200
+#define LINE_LEN 256
 static char storage[LINES * LINE_LEN];
 
 static int count_lines_with(const struct ringlog *rl, const char *needle)
@@ -66,9 +66,17 @@ static void test_absent(void)
     m.absent_fill = 0x00;
     run(&m, &rl, &res, 1);
     CHECK(res.present[0] == 0 && res.present[1] == 0);
-    CHECK(res.errors == 0);                               /* transfers complete, data just wrong */
-    CHECK(res.mode[0].tests_match_all == 1);              /* pattern 0x00 → ~ = 0xFF? no: fill 0x00 matches ~0xFF */
+    CHECK(res.errors == 0 && res.transport_ok == 1);      /* transfers complete, data just wrong */
+    CHECK(res.mode[0].tests_match_all == 1);              /* zero fill == ~0xFF for the FF pattern only */
+    CHECK(res.mode[0].verdict == GBP_VERDICT_INCONSISTENT);
     CHECK(res.arinfo_restored == 1);
+    /* a 0xC0 fill (what the real GameCube returned without the GBP) → ABSENT */
+    gbp_mock_init(&m);
+    m.present = 0;
+    m.absent_fill = 0xC0;
+    run(&m, &rl, &res, 1);
+    CHECK(res.mode[0].verdict == GBP_VERDICT_ABSENT && res.mode[1].verdict == GBP_VERDICT_ABSENT);
+    CHECK(res.transport_ok == 1 && res.present[0] == 0);
 }
 
 static void test_expansion_required(void)
@@ -78,8 +86,8 @@ static void test_expansion_required(void)
     m.require_expansion = 1;
     m.absent_fill = 0x55;
     run(&m, &rl, &res, 1);
-    CHECK(res.present[0] == 0);
-    CHECK(res.present[1] == 1);
+    CHECK(res.present[0] == 0 && res.mode[0].verdict == GBP_VERDICT_ABSENT);
+    CHECK(res.present[1] == 1 && res.mode[1].verdict == GBP_VERDICT_PRESENT);
     CHECK(res.arinfo_restored == 1);
     /* mode A only: no B, AR_INFO never written */
     gbp_mock_init(&m);
@@ -109,6 +117,7 @@ static void test_timeout_and_stuck(void)
     run(&m, &rl, &res, 1);
     CHECK(res.mode[0].tests_failed == 4);
     CHECK(res.present[0] == 0 && res.present[1] == 0);
+    CHECK(res.mode[0].verdict == GBP_VERDICT_INCONSISTENT && res.transport_ok == 0);
     CHECK(count_lines_with(&rl, "rc=busy") > 0);
     CHECK(res.arinfo_changed == 1 && res.arinfo_restored == 1);   /* restore still happens */
     CHECK(res.errors > 4);
@@ -171,12 +180,73 @@ static void test_summary(void)
     gbp_mock_init(&m);
     run(&m, &rl, &res, 1);
     CHECK(gbp_probe_summary(&res, s, sizeof s) > 0);
-    CHECK(strstr(s, "a_present=1 b_present=1") != 0);
+    CHECK(strstr(s, "a_present=1 b_present=1 a_verdict=present b_verdict=present") != 0);
+    CHECK(strstr(s, "transport_ok=1") != 0);
     CHECK(strstr(s, "changed=1 restored=1") != 0);
+}
+
+/* Sentinel behavior: what the logic reports when the backend completes a
+ * read but the buffer content is not what a real device would return.
+ * Documents a known limitation of probe-0001: the probe zero-fills its
+ * buffers, so a silent DMA is indistinguishable from a device returning
+ * 0x00 (both are logged as rc=ok data=00..00). */
+static void test_sentinel_and_raw_preservation(void)
+{
+    struct gbp_mock m; struct ringlog rl; struct gbp_probe_result res;
+    static const uint8_t partial[GBP_BLOCK_SIZE] = { 0x7c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c,
+        0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c,
+        0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c };
+    static const uint8_t ninety[GBP_BLOCK_SIZE] = { 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+        0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+        0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
+    unsigned k;
+
+    /* silent DMA → logic sees zeros (its own fill), rc ok, "present" false */
+    gbp_mock_init(&m);
+    m.silent_reads = 1;
+    run(&m, &rl, &res, 0);
+    CHECK(res.errors == 0);
+    for (k = 0; k < GBP_BLOCK_SIZE; k++) CHECK(res.mode[0].raw[0][k] == 0x00);
+    CHECK(res.present[0] == 0);
+    CHECK(res.mode[0].tests_match_all == 1);        /* only the 0xFF pattern "matches" zeros */
+    CHECK(count_lines_with(&rl, "data=0000000000000000000000000000000000000000000000000000000000000000") > 0);
+
+    /* device returns 0x90 everywhere: kept verbatim, never mistaken for a match */
+    gbp_mock_init(&m);
+    m.canned = ninety;
+    run(&m, &rl, &res, 0);
+    for (k = 0; k < GBP_BLOCK_SIZE; k++) CHECK(res.mode[0].raw[2][k] == 0x90);
+    CHECK(res.mode[0].tests_match_all == 0 && res.mode[0].tests_match_1f == 0);
+
+    /* partial pattern (byte 0 anomalous, as seen on hardware): match_all=0, match_1f=1, bytes intact */
+    gbp_mock_init(&m);
+    m.canned = partial;
+    run(&m, &rl, &res, 0);
+    CHECK(res.mode[0].tests_match_all == 0);
+    CHECK(res.mode[0].tests_match_1f == 1);          /* only pattern C3 expects 3C at 0x1F */
+    /* every read of the mode (6 raw dumps + 4 handshake reads) logged the block verbatim */
+    CHECK(count_lines_with(&rl, "data=7c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c") == 10);
+    CHECK(res.present[0] == 0);
+}
+
+/* The POC stores records in 256-byte lines; the longest record (TESTR with
+ * a full 64-hex data field) must never be truncated. */
+static void test_record_length_fits(void)
+{
+    struct gbp_mock m; struct ringlog rl; struct gbp_probe_result res;
+    size_t i, longest = 0;
+    gbp_mock_init(&m);
+    run(&m, &rl, &res, 1);
+    CHECK(rl.truncated == 0);
+    for (i = 0; i < rl.count; i++) { size_t n = strlen(ringlog_line(&rl, i)); if (n > longest) longest = n; }
+    CHECK(longest < 256);
+    CHECK(longest > 200);   /* proves the old 200-byte lines would have cut TESTR records */
 }
 
 int main(void)
 {
+    test_record_length_fits();
+    test_sentinel_and_raw_preservation();
     test_present();
     test_absent();
     test_expansion_required();

@@ -62,3 +62,6 @@ __pycache__/
 *~
 *.swp
 *.swo
+
+# Raw hardware logs dropped by the user (originals; copies live in captures/local/)
+/logs/

@@ -1,6 +1,8 @@
 # poc/gbp-probe — GBP-PROBE-001
 
-**Build ID:** `probe-0001`
+**Build ID:** `probe-0002` (detection policy from `src/gbp/gbp_detect.h`; not yet run on hardware).
+Executed on hardware so far: `probe-0001`, commit `55ed6c1`, DOL SHA-256
+`36d8b23b14afbc191899ca0ddf4ad9b845cedf6c09a26b3d6a6187a8c2862994` (two runs, with and without the GBP).
 **Question answered:** does the GBS-DOL answer the ARAM-DMA TEST handshake
 documented in Phase 2, is the `0xCC005012` expansion code required
 (U-GBP-004), and what do raw 32-byte reads of TEST/CONTROL/IRQ look like
@@ -76,15 +78,33 @@ make probe-dolphin  # Dolphin twice: HSPDevice=None → expects a_present=0 b_pr
 Dolphin proves only runtime, flow control, timeouts, logging and absence
 of crashes. It cannot answer U-GBP-004 (it ignores AR_INFO bits 3–5).
 
+## Result of the first run (2026-09-14)
+
+Executed; log and analysis in `docs/research/HARDWARE_TESTS.md` and the
+DEVLOG. Note on `present=`: the heuristic of build probe-0001 demands all
+32 bytes equal to the complement; the hardware returned the complement in
+bytes 1–31 with byte 0 sometimes carrying extra bits, so `present=0` was
+reported although the GBP was attached and answering. The official
+drivers check byte 1 (Start-up Disc) or a majority vote (GBI) and would
+have passed. The heuristic was a reporting bug, not a data bug; the raw
+blocks are the evidence. Build `probe-0002` replaces it with the policy
+of `src/gbp/gbp_detect.h` (both official criteria, all patterns,
+transport reported separately), validated offline against both physical
+captures (attached → present, removed → absent).
+
 ## Hardware test request (only after SMOKE-HW-001 = PASS)
 
 ```text
 Test ID:            GBP-PROBE-001
 Build ID:           probe-0001
-Commit:             see build/poc/gbp-probe/build-info.txt (commit= line) and the screen
-DOL:                build/poc/gbp-probe/gbp-probe.dol  (sha256 in build-info.txt)
-Cartucho:           any GBA cartridge inserted in the GBP, or none — record which
-GBP:                attached, as normally used
+Commit:             55ed6c1
+SHA-256 do DOL:     36d8b23b14afbc191899ca0ddf4ad9b845cedf6c09a26b3d6a6187a8c2862994
+DOL:                build/poc/gbp-probe/gbp-probe.dol
+Cartucho:           NONE. Not required by the implementation (TEST handshake and raw reads of
+                    CONTROL/IRQ do not depend on a Game Pak); running without one removes a
+                    variable. If one is inserted anyway, say which.
+GBP:                attached to the High Speed Port as normally used; record whether it was
+                    attached during the whole run
 Link Port:          nothing connected
 BBA:                irrelevant (not touched)
 SD2SP2:             inserted, FAT32, with the DOL on it

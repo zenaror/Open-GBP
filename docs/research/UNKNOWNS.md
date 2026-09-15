@@ -18,12 +18,10 @@ Not verified on hardware by this project. Low priority: Open-GBP uses
 libogc2's EXI driver and does not need the answer unless it implements
 its own EXI access.
 
-## U-ENV-002 — Physical loader behavior with 32-byte-padded DOLs
+## U-ENV-002 — CLOSED 2026-09-14
 
-`tools/dolpad.py` pads DOL section sizes (see `ENV-DOL-001`). Swiss and the
-IPL are expected to load the padded DOL exactly like the unpadded one,
-because the padding only writes zeros into linker alignment gaps or BSS.
-To be confirmed by the first physical run of `poc/smoke-test`.
+Physical loader behavior with 32-byte-padded DOLs: answered by
+SMOKE-HW-001 (Swiss loads and runs the padded DOL). See ENV-HW-001.
 
 ## U-ENV-003 — Dolphin behavior on `exit()` from a libogc2 DOL
 
@@ -67,11 +65,18 @@ Unknown whether they share the AGB's single SIO (exclusive), whether
 CONTROL 0x40/0x80 route between them, and whether enabling the internal
 path breaks PicoAdapterGB (regression reference GBP-LINK-001).
 
-## U-GBP-004 (P1) — Is the expansion-size code in 0xCC005012 required?
+## U-GBP-004 (P1, reformulated 2026-09-15) — What is the function of AR_INFO[5:3] on the GBP path?
 
-Both drivers write code 3 into bits 3–5 (GBP-HSP-002); Dolphin ignores
-it. Phase 3 test: TEST handshake without the write, then with it. Writes
-only a GameCube register; the GBP side is read-mostly (TEST).
+Known (GBP-HW-002/003/005/007/009): with the GBP attached, codes 0 and 3
+both let the DMA complete and the TEST handshake pass the official
+criteria; CONTROL and IRQ read differently between code 0 (`00`/`90`
+fills) and code 3 (`90`; `8AAE` byte-doubled). Without the GBP, codes 0
+and 3 give the same `C0`×32 baseline. So the code's observed effect on
+CONTROL/IRQ requires the device, and the code is neither "enable" nor
+"required" for the TEST path. Open: which registers/behaviors are
+selected or modified by the value 3 — decoding of index bits, timing,
+or GBS-DOL state — and whether other values (1, 2, 4) behave
+differently. Do not name the bits.
 
 ## U-GBP-005 (P2) — Unused register indices and full mirroring inside a window
 
@@ -94,11 +99,13 @@ and writes bit 15 with the mask at IRQ entry. Dolphin treats bit 15 as
 "asserted" and clears written bits. Needs a hardware read of the register
 while an IRQ is pending.
 
-## U-GBP-008 (P2) — Read block layout beyond the bytes both drivers consume
+## U-GBP-008 (P2, partially answered 2026-09-14) — Read block layout
 
-Byte-doubling (DISC) vs `hh hh hh ll` (Dolphin IRQ) vs repeated u32
-(Dolphin SIODATA). A single 32-byte dump of CONTROL, IRQ and TEST reads on
-hardware answers this.
+Observed for the IRQ window: byte-doubled `hh hh ll ll` per 32-bit word
+(GBP-HW-004), matching DISC's and GBI's parsing and contradicting
+Dolphin's `hh hh hh ll`. Byte registers (CONTROL) read as a uniform fill.
+Still open: SIODATA layout, whether byte 0 of a block is ever reliable
+(U-GBP-015), and whether the layout is the same for VIDEO/AUDIO reads.
 
 ## U-GBP-009 (P3) — Board-revision differences
 
@@ -133,3 +140,59 @@ Dolphin ties video IRQs to the 4096 Hz audio tick and needs a 1.25×
 overclock to keep the DISC's 250 ms watchdog quiet. Real cadence, jitter
 and the cost of a missed block are unknown. Phase 4/6: timestamped IRQ
 log to SD2SP2.
+
+## U-GBP-015 (P1) — Byte 0 of a read block sometimes carries extra set bits
+
+Three of eight TEST read-backs and the MODE B IRQ block had a byte 0
+that differed from bytes 1–31 by additional 1-bits only (`7C` vs `3C`,
+`C7` vs `C3` — once also at byte 6 —, `AE` vs `8A`); the CONTROL first
+read in MODE B had `94` vs `90`. Both official drivers avoid byte 0
+(DISC reads byte 1 for TEST, 0x1D/0x1F for 16-bit, 0x1F for 8-bit; GBI
+majority-votes). Unknown: whether it is a bus/DMA first-beat artifact,
+a device feature (cf. the video frame flag on the first pixel), or
+timing-dependent noise. Option B (repeat) measures its stability;
+Option A (no GBP) shows whether it needs the device.
+
+## U-GBP-016 — CLOSED 2026-09-15 (answered by GBP-BASELINE-NOGBP-001)
+
+The MODE A readings (`00` CONTROL, `90` IRQ) and all MODE B readings
+require the GBP: without it every window reads `C0`×32 (GBP-HW-007/009).
+They are therefore device-dependent responses, not GameCube-side
+constants. What they *mean* remains U-GBP-017; what `C0` is remains
+U-GBP-019.
+
+## U-GBP-017 (P2) — Meaning of CONTROL `0x90`/`0x94` and IRQ `0x8AAE` at idle
+
+Hypothesis only (do not promote): in Dolphin's naming `0x90` = MASK_IRQ |
+"link enable" bits — the same two bits the Start-up Disc sets in its stop
+sequence — and `0x8AAE` = bit 15 | all six odd "mask" bits (0x0AAA) |
+bit 2 (Dolphin: GamePak source), which would be plausible with no Game
+Pak inserted. This is pattern-matching against a model, not evidence.
+Needs: repeat run, run with a cartridge, run after a controlled stop
+sequence — each a separate, justified experiment.
+
+## U-GBP-018 (P2) — Is the TEST complement readable only once?
+
+Raw TEST dumps after the handshake read `00` (GBP-HW-006). Either the
+window clears on read / returns the complement only immediately after a
+write, or the probe's zero-fill hid a transfer that wrote nothing. A
+sentinel fill different from 0x00 in the next probe build settles the
+second possibility.
+
+## U-GBP-019 (P2) — Origin of the `0xC0` baseline
+
+With the GBP removed, every 32-byte read of the expansion window returned
+`C0`, with both expansion codes, and handshake writes had no visible
+effect. Candidates, none selected: an idle/pull-up value of the HSP data
+lines; a value produced by the ARAM/SDRAM controller for an unpopulated
+expansion; a mirror of something else. Distinguishing experiments would
+read other indices and offsets without the GBP and, later, compare with
+a second console. Low priority for the runtime (a `C0` block fails every
+detection criterion), higher for the documentation.
+
+## U-GBP-020 (P2) — Stability of the byte-0 extra bits across runs
+
+Only one run with the GBP exists; the baseline shows no such bits. Their
+frequency (3 of 8 handshakes, 1 of 2 IRQ dumps, 1 of 2 CONTROL dumps in
+MODE B) is a single sample. Every future run with the GBP attached will
+add data without a dedicated experiment.

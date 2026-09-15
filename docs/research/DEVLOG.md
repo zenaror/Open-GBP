@@ -366,3 +366,334 @@ Note: all build identities currently read `a982fb7-dirty` because the
 Phase 1–3 work is uncommitted. Committing before the physical session
 would tie the DOLs to an exact tree; the DOL SHA-256 in
 `build-info.txt` identifies them regardless.
+
+---
+
+## 2026-09-14 — SMOKE-HW-001 passed on the real GameCube; GBP-PROBE-001 released
+
+**Physical result (gate 1):** SMOKE-HW-001 = PASS. Build `smoke-0002`,
+commit `55ed6c1`, DOL SHA-256 `4175f21d…54fe88`, launched through Swiss;
+identity block shown, heartbeat counted (537 frames in 8 s, NTSC), X wrote
+`sd:/open-gbp/SMOKE-HW-001_smoke-0002.log` via SD2SP2, START returned to
+Swiss. Recorded as ENV-HW-001; U-ENV-002 closed; HARDWARE_TESTS.md holds
+the log verbatim. The Game Boy Player was not exercised and no GBP
+evidence changed.
+
+**Code:** none changed. The probe artifact stays
+`build/poc/gbp-probe/gbp-probe.dol`, build `probe-0001`, commit `55ed6c1`,
+SHA-256 `36d8b23b14afbc191899ca0ddf4ad9b845cedf6c09a26b3d6a6187a8c2862994`
+(verified against the working tree; documentation-only edits do not
+affect it).
+
+**Gate 2 released:** GBP-PROBE-001 requested with the procedure in
+`poc/gbp-probe/README.md`. Cartridge: not required by the implementation
+(TEST handshake and raw reads of CONTROL/IRQ do not depend on it); the
+request asks for **no cartridge** to reduce variables, and to record the
+GBP attachment state. Link Port: nothing connected. Primary evidence will
+be the raw 32-byte blocks and AR_INFO values in the device log, not the
+`present=` summary fields.
+
+**When the probe log arrives:** keep the original file untouched, record
+its SHA-256, run `tools/probelog.py check`, derive a `.gbpreplay` fixture
+with `tools/probelog.py fixture`, run the replay backend against it,
+then compare the physical bytes with Start-up Disc, GBI and Dolphin and
+update EVIDENCE/UNKNOWNS (U-GBP-004, U-GBP-008) — hardware is the final
+authority; contradictions are preserved, not smoothed over.
+
+---
+
+## 2026-09-14 — GBP-PROBE-001 executed: first physical observations of the GBS-DOL
+
+**Physical result:** the probe ran to completion on the real GameCube +
+Game Boy Player, 28/28 DMA transfers completed, AR_INFO restored, log
+saved. Setup metadata, the verbatim log and its hash are in
+`HARDWARE_TESTS.md`; facts are GBP-HW-001…006 in `EVIDENCE.md`. **No
+code was changed**; `probe-0001` (`36d8b23b…2994`) remains the executed
+artifact.
+
+### Evidence preservation
+
+| Item | Value |
+|------|-------|
+| Original log (user's copy) | `logs/GBP-PROBE-001_probe-0001.log` (now ignored by Git) |
+| Preserved copy, unmodified | `captures/local/GBP-PROBE-001_probe-0001.log`, 4945 bytes, sha256 `98ba20d5bcc32ba65138962dab37abe360659b634512c25423e1b879b96ff014` |
+| Transcription made before the file arrived | `captures/local/GBP-PROBE-001_probe-0001.transcript.log` — the 20 data blocks are byte-identical to the original; it lacks the per-transfer ticks/polls/dspcr |
+| `tools/probelog.py check` | 45 records, `anomalies=0`; mode A: 2 uniform inverse + 2 "byte1F-only"; mode B: 3 + 1 |
+| Replay fixture (versioned) | `captures/fixtures/hw-gamecube-gbp-2026-09-14-probe-0001.gbpreplay`, SOURCE = physical GameCube + GBP; generated from the original; identical to the one generated from the transcription |
+| Replay result | `test_gbp_replay <fixture>`: probe logic on the host reproduces the device run exactly — AR_INFO 0043→005b→0043, match_all 2/4 and 3/4, match_1f 4/4 and 4/4, present 0/0, errors 0, byte-0 anomalies logged verbatim (see test) |
+| Regressions added | `tests/unit/test_gbp_replay.c` (fixture replay), `tests/unit/test_gbp_probe.c` (sentinel/partial/0x90 blocks kept verbatim), `tests/host/test_hw_fixture.py` (exact bytes, driver readings, blockdiff findings) |
+
+### Byte-level analysis (`tools/blockdiff.py`, full output reproducible from the log)
+
+| Block | MODE A | MODE B | A xor B / note |
+|-------|--------|--------|----------------|
+| TEST raw (before and after) | `00`×32 | `00`×32 | identical; also `00` *after* the handshake in both modes |
+| CONTROL raw #1 | `00`×32 | `94 90`×31 | every byte gains bits 4,7; byte 0 also bit 2 |
+| CONTROL raw #2 | `00`×32 | `90`×32 | `94→90` between the two MODE B reads (handshake in between) |
+| IRQ raw #1, #2 | `90`×32 | `ae 8a ae ae` + `8a 8a ae ae`×7 | period 4 from offset 1; word 0 differs from words 1–7 only in byte 0 (`ae` vs `8a`) |
+| TEST C3 → expect 3C | `7c 3c`×31 | `3c`×32 | A byte 0 has extra bit 6 |
+| TEST 3C → expect C3 | `c7 c3×5 c7 c3×25` | `c7 c3`×31 | extra bit 2 at byte 0 (both modes) and at byte 6 (A only) |
+| TEST FF → expect 00 | `00`×32 | `00`×32 | clean |
+| TEST 00 → expect FF | `ff`×32 | `ff`×32 | clean |
+
+Word views: MODE B IRQ as u32 = `ae8aaeae 8a8aaeae ×7`; as u16 =
+`ae8a aeae 8a8a aeae…`; reading it the Start-up Disc way (bytes
+0x1D/0x1F) or the GBI way (vote over bytes ≡1 and ≡3 mod 4) gives
+`0x8AAE` either way. Every anomaly is an *extra set bit* (never a cleared
+one), always at byte 0 except one occurrence at byte 6.
+
+### Timing recorded on hardware
+
+Every transfer: 7–10 polls, 30–37 time-base ticks (TB = 40.5 MHz →
+0.74–0.91 µs) between programming CNT_L and seeing CSR bit 5; CSR after
+acknowledge `0x0804` (DSPINIT|HALT). Dolphin's model uses 246 CPU cycles
+per 32 bytes (≈0.5 µs at 486 MHz) — same order of magnitude; no
+difference between MODE A and MODE B; no difference between a window
+that answered "nothing" (TEST `00`) and one that answered data.
+
+### DMA/cache backend audit (`src/platform/hsp_backend.c`, compiled object, linker map)
+
+| # | Check | Finding |
+|---|-------|---------|
+| 1–3 | buffer alignment | `dma_buffer` at `0x80058080`, 32 bytes, `ATTRIBUTE_ALIGN(32)`; next symbol at `0x800580a0` → exactly one Gekko cache line (32 B), shared with nothing |
+| 4 | RAM→HSP | `memcpy` into the buffer, then `DCFlushRange` = `dcbf` loop + `sc` (libogc2 `cache_asm.S`), then DMA |
+| 5–7 | HSP→RAM | zero-fill, `DCFlushRange`, `DCInvalidateRange` (`dcbi`) **before** the DMA, DMA, `DCInvalidateRange` **after**, then `lwz`×8 copy-out. Same order as the Start-up Disc's read wrapper (`0x8008a13c`: `DCInvalidateRange` before, none after) and GBI (`dcbi` loop before the ARQ read, `0x8005485c`) |
+| 8–10 | sync/eieio | none between the six `sth` to `0xCC0050xx`; identical to libogc2 `__ARReadDMA` and to the disc's `0x80089c3c` (plain stores). Cache-inhibited/guarded stores are performed in order on the 750; `DCFlushRange` ends with `sc` (sync in the handler) |
+| 11–13 | buffer reuse / stale content | reused for every transfer; before a read it holds the zero fill flushed to RAM; a stale line would return `00` or the previous 32 bytes, never a single extra bit |
+| 14 | line sharing | none (see 1–3) |
+| 15–18 | size/addresses/direction (from the object code) | `CNT_L = 32`; MMADDR = physical buffer address (`& 0x3FF` high, `& 0xFFE0` low); ARADDR = requested; direction bit 15 of CNT_H = 1 for reads, 0 for writes (libogc convention) |
+| 19–20 | CSR bits / completion | refuse on `0x0200` (DMA busy) or `0x0020` (stale flag); poll `0x0020`; acknowledge by writing the CSR with bit 5 set and bits 3/7 cleared (does not ack AI/DSP flags) — same as libogc2 `__ARClearInterrupt` |
+| 21 | CPU read before coherence | copy-out only after the flag, the ack and a second `dcbi`; interrupts disabled throughout; no load of the buffer inside the polling loop |
+| 22–24 | declared alignment / compiler / volatile | registers are `volatile u16`; stores emitted in source order (disassembly checked); the `& 0xFFE0` on the ARADDR low half was folded away by GCC because callers guarantee 32-byte alignment (harmless) |
+
+Conclusion: no software path explains a single extra bit in byte 0 (or
+byte 6). The anomalies are attributed to the bus/device side pending the
+baseline experiment (U-GBP-015). What the audit *did* find as
+limitations of probe-0001 (not defects in the data):
+
+- **L1 — over-strict "present":** requires all 32 bytes equal to the
+  complement; neither official driver does that (below). This is why
+  `present=0` was printed with the GBP attached and answering.
+- **L2 — zero sentinel:** the buffer is zero-filled before each read, so
+  a transfer that moved nothing is indistinguishable from a device
+  returning `00` (relevant to GBP-HW-006, TEST reads `00`).
+- **L3 — CSR logged after the ack:** `dspcr=0804` never shows bit 5;
+  logging the pre-ack value would be more informative.
+- L4 — no `sync` between the completion flag and the copy-out beyond
+  `dcbi`; equal to the official drivers, but cheap to add.
+
+### TEST semantics in the Start-up Disc (`0x8008ae3c`, disassembly)
+
+```text
+for i in 0..3:
+    buf[0..31] = pattern[i]                 // memset(r1+12, p, 32)
+    write_block(base+0, buf)                // 0x80089da8: memcpy → staging, DCFlushRange, DMA, wait
+    read_block(base+0, buf)                 // 0x8008a13c: DCInvalidateRange(staging), DMA, wait, memcpy(buf, staging, 32)
+    if buf[1] != (~pattern[i] & 0xFF): return 5   // lbz r3,13(r1)  ← byte offset 1, 8-bit compare
+return 0
+```
+
+Pattern table at `0x80272878` = `C3 3C FF 00`. The periodic removal
+check (`0x8008b1ac`) does the same with one rotating pattern and also
+compares byte 1. **Phase 2 stated "byte 0x1F"; that was wrong for the
+TEST check** (0x1F is what the CONTROL/IRQ wrappers use). Corrected in
+GBP-TEST-001, REGISTERS.md and INITIALIZATION.md.
+
+### TEST semantics in GBI (`0x80011c94`, `0x80015b08`, `0x80015d9c`)
+
+```text
+write_byte(0, p):  block = 32 × p (u32 replicated, dcbz + stores + dcbf + sync)
+b = read_byte(0):  dcbi block; ARQ read 32 bytes;
+                   for each bit k: count = number of the 32 bytes with bit k set;
+                   bit k of b = (count >= 16)              // majority vote
+if b != ~p: fail
+write_byte(0, b); if read_byte(0) != p: fail
+patterns: C3 then FF
+```
+
+16-bit reads (`0x80015c64` on `buf` and `buf+2`) vote over bytes
+≡1 mod 4 (high byte) and ≡3 mod 4 (low byte). Writes of 16-bit values
+replicate `hh ll` over the block (`0x80015da0`).
+
+### Why `present=0`
+
+The probe's `match_all` needs 32/32 bytes; hardware returned 31/32 (or
+30/32) in three handshakes. Applying the official rules to the physical
+blocks: the disc's byte-1 check passes 8/8; GBI's vote passes 8/8
+(`tests/host/test_hw_fixture.py` computes both). `present=` is therefore
+a reporting artifact of probe-0001; the Game Boy Player answered the TEST
+handshake in both modes.
+
+### Comparison of sources
+
+| Behavior | Hardware (this run) | Start-up Disc | GBI Standard | Dolphin | Class | Conf. |
+|---|---|---|---|---|---|---|
+| AR_INFO expansion code | DMA + TEST work with code 0 and 3; CONTROL/IRQ contents differ | writes 3 first | writes 3 first | ignores bits 3–5 | FACT (effect exists) / UNKNOWN (semantics) | high / — |
+| TEST inversion | bytes 1–31 = ~p, 8/8 | expects byte 1 = ~p | expects vote = ~p | all 32 = ~p | FACT | high |
+| TEST byte semantically used | byte 0 unreliable | byte 1 | vote over 32 | any | FACT (byte 0), CORROB. (avoid byte 0) | high |
+| TEST persistence | second read `00` | reads once per pattern | reads once per pattern | persistent | FACT for this sequence (L2 caveat) | medium |
+| CONTROL read layout | uniform fill (byte 0 transient `94`) | byte 0x1F | vote | fill | FACT | high |
+| CONTROL value at idle | `00` (code 0) / `90` (code 3) | — | — | `00`/`03` depending on ROM | FACT (value) / UNKNOWN (meaning) | — |
+| IRQ read layout | `hh hh ll ll` per u32, byte 0 anomalous | bytes 0x1D/0x1F | bytes ≡1/≡3 mod 4 | `hh hh hh ll` | FACT; **contradicts Dolphin at byte 0x1E** | high |
+| IRQ value at idle | `9090` (code 0) / `8AAE` (code 3) | — | — | `0000` | FACT (value) / UNKNOWN (meaning) | — |
+| DMA size / unit | 32 B, 28/28 ok | 32 B (0xF00/0x1000 for AV) | 32 B (+64 B combined) | 32 B chunks | CORROBORATED + FACT | high |
+| Endianness | big-endian bytes as DMA'd; 16-bit value assembled hi at lower offset | same | same | same | CORROBORATED | high |
+| Readback timing | 0.74–0.91 µs per 32 B | — | — | 246 cycles model | FACT (one console) | medium |
+| Byte-0 extra bits | 4/20 reads | avoided | outvoted | never | FACT; **not modeled anywhere** | high (occurrence) |
+
+### New facts, rejected hypotheses, reformulated unknowns
+
+- Facts: GBP-HW-001…006.
+- Rejected: "the expansion code is required for the DMA/TEST path to
+  work" (GBP-HW-002/003); "TEST returns a persistent inverted copy"
+  (GBP-HW-006, with the L2 caveat); "Dolphin's `hh hh hh ll` IRQ layout"
+  (GBP-HW-004); Phase 2's "DISC checks byte 0x1F of TEST".
+- Reformulated: U-GBP-004 (what does the code change?), U-GBP-008
+  (partially answered). New: U-GBP-015 (byte-0 bits), U-GBP-016 (are
+  MODE A values device responses?), U-GBP-017 (meaning of `90`/`94`/
+  `8AAE`), U-GBP-018 (TEST read-once vs zero-sentinel).
+
+### Next experiment — evaluation
+
+| Option | Information gained | Variables | Risk | Distinguishes |
+|---|---|---|---|---|
+| A — baseline with the GBP physically removed (console off) | whether TEST inversion, `90`/`00` fills, `8AAE` and the byte-0 bits require the device; open-bus/ARAM-controller behaviour of the window with code 0 and 3 | one (device present/absent); same DOL, same setup otherwise | low (unplugging with power off; same writes as today, to a window that then has no device) | (c) "bus values" from (a)/(b) in U-GBP-004; U-GBP-016; whether U-GBP-015 needs the GBP |
+| B — repeat identical run | stability of byte-0 bits, of `94→90`, of `8AAE`; timing spread | none | lowest | only reproducibility; cannot tell device from bus |
+| C — minimal official handshake (byte-1 / vote) | that the official criterion passes | changes the software, not the physics | low | nothing the log does not already prove offline (test_hw_fixture.py) |
+
+**Recommendation: Option A.** Every open question now hinges on knowing
+which of the observed bytes need the Game Boy Player at all: if the TEST
+inversion or the `8AAE` pattern survive without the device, they are
+GameCube-side and the Phase 2 model is wrong in a way no repetition would
+reveal; if they vanish, GBP-HW-003/004/005 become device facts and the
+MODE A fills can be classified. Option B's information (stability) will
+come for free from every later run with the device; Option C adds no
+physical information. Option A also re-runs the same DOL, so it doubles
+as a partial Option B for the GameCube-side behaviour. Not implemented
+and not requested here; awaiting authorization.
+
+---
+
+## 2026-09-15 — Experimental pair: GBP attached vs GBP removed; detection policy rebuilt on official semantics
+
+**Inputs:** GBP-PROBE-001 (GBP attached, log sha256 `98ba20d5…f014`) and
+GBP-BASELINE-NOGBP-001 (GBP removed with the console off, log
+`03e930ff25f10ed25e610cc1ed14e92cd521a4c91d3eef40f4c52079ba19c8f9`,
+4944 bytes, preserved unmodified in `captures/local/`), same DOL
+`probe-0001` (`36d8b23b…2994`), same console/BBA/controller/Memory
+Card/SD2SP2/Swiss, no cartridge, no interaction. Both logs parse with
+`tools/probelog.py` (45 records, anomalies=0) and replay exactly through
+`src/gbp/gbp_replay.c` (`tests/unit/test_gbp_replay.c` with four
+fixtures: two physical, two Dolphin-model).
+
+### Pair diff (`tools/blockdiff.py --pair`, `build/analysis/pair-with-vs-without-gbp.txt`)
+
+| Block | with GBP | without GBP | Allowed interpretation |
+|-------|----------|-------------|------------------------|
+| MODE A TEST initial / final | `00`×32 | `C0`×32 | differs |
+| MODE A CONTROL (both dumps) | `00`×32 | `C0`×32 | `00` needed the GBP |
+| MODE A IRQ (both dumps) | `90`×32 | `C0`×32 | `90` needed the GBP |
+| MODE A TEST C3 / 3C / FF / 00 | `7c 3c…` / `c7 c3…c7…` / `00`×32 / `ff`×32 | `C0`×32 each | inversion needed the GBP |
+| MODE B TEST initial / final | `00`×32 | `C0`×32 | differs |
+| MODE B CONTROL #1 / #2 | `94 90…` / `90`×32 | `C0`×32 | `94`/`90` needed the GBP |
+| MODE B IRQ (both) | `ae 8a ae ae 8a 8a ae ae…` | `C0`×32 | `AE/8A` needed the GBP |
+| MODE B TEST C3 / 3C / FF / 00 | `3c`×32 / `c7 c3…` / `00`×32 / `ff`×32 | `C0`×32 each | inversion needed the GBP |
+| AR_INFO orig / A / B / final | 0043 / 0043 / 005b / 0043 | identical | AR_INFO does not encode presence |
+| transfers / timeouts / busy / errors | 28 / 0 / 0 / 0 | 28 / 0 / 0 / 0 | **DMA completion is NOT GBP presence detection** |
+| per-transfer ticks / polls | 30–37 / 7–10 | 31–38 / 7–10 | indistinguishable |
+
+20 of 20 blocks and 640 of 640 bytes differ. Every physically dependent
+behavior of the first run (inversion, byte-0 extra bits, `00/90/94`,
+`90/8AAE`, the exp-code effect on CONTROL/IRQ) vanished with the device.
+No meaning is assigned to `90`, `94`, `AE`, `8A` or `C0`.
+
+### Official TEST criteria on both runs
+
+| Pattern | Disc criterion (byte 1) with / without | GBI criterion (vote) with / without | whole-block (probe-0001) with / without |
+|---------|----------------|------------------|----------------|
+| A C3 | PASS / FAIL | PASS / FAIL | FAIL / FAIL |
+| A 3C | PASS / FAIL | PASS / FAIL | FAIL / FAIL |
+| A FF | PASS / FAIL | PASS / FAIL | PASS / FAIL |
+| A 00 | PASS / FAIL | PASS / FAIL | PASS / FAIL |
+| B C3 | PASS / FAIL | PASS / FAIL | PASS / FAIL |
+| B 3C | PASS / FAIL | PASS / FAIL | FAIL / FAIL |
+| B FF | PASS / FAIL | PASS / FAIL | PASS / FAIL |
+| B 00 | PASS / FAIL | PASS / FAIL | PASS / FAIL |
+
+Comparison: the disc criterion is one byte compare, exactly Nintendo's;
+it survives the byte-0 anomaly but would fail if byte 1 were ever hit
+(byte 6 was, once). The GBI vote survives up to 15 corrupted bytes, costs
+a 32×8 loop, and is also official (Extrems). Both agree 16/16 on the
+physical data. **Policy adopted (`src/gbp/gbp_detect.h`):** compute both;
+a mode is PRESENT only if every handshake completed *and* both criteria
+passed for every pattern; ABSENT if both failed for every pattern;
+otherwise INCONSISTENT (never treated as present). Transport success
+(`rc=ok`) is reported separately (`transport_ok=`) and never implies
+presence. The whole-block and byte-0x1F counts stay in the log for
+continuity only.
+
+### Code changed (build `probe-0002`)
+
+`src/gbp/gbp_detect.{h,c}` (new; `gbp_test_startup_disc_style`,
+`gbp_test_majority_vote`, `gbp_test_whole_block`, `gbp_presence_verdict`);
+`src/gbp/gbp_probe.{h,c}` (per-handshake `match_b1`, `match_vote`,
+`vote=`, per-mode `verdict=`, `transport_ok=`; `present[]` now follows the
+policy); `poc/gbp-probe/source/main.c` screen line; build id
+`probe-0002`. Raw logging, the transfer sequence, the writes (TEST block
+only, AR_INFO bits 3–5) and the HSP backend are unchanged. One
+regression caught by the host tests before any hardware run: the longer
+`TESTR` records exceeded the 200-byte log line and would have truncated
+the hex data; the ring log line is now 256 bytes and a test asserts the
+longest record fits (`test_record_length_fits`). New DOL:
+`build/poc/gbp-probe/gbp-probe.dol`, sha256
+`3f3c7a4b09a5b0f481a28b7681c1ce6f737186d46891a3d53354042cf30a0dda`,
+commit `55ed6c1-dirty` (uncommitted tree). **Not run on hardware; no
+test requested.**
+
+Validation: C unit tests (ident, ringlog, detect, probe-vs-mock, replay
+of both physical fixtures + both Dolphin-model fixtures), Python 60
+tests (exact bytes of both runs, pair non-equivalence 20/20 blocks and
+640/640 bytes, criteria per pattern), PowerPC build without warnings,
+DOL alignment, `make probe-dolphin`: HSP device absent → `a_present=0
+b_present=0` (Dolphin returns zeros: 1/4 patterns "pass" → INCONSISTENT),
+Dolphin GBPlayer model → `a_present=1 b_present=1`.
+
+Limitations kept as separate items (not causes of anything observed):
+L2 zero sentinel, L3 CSR logged after acknowledge, L4 no explicit `sync`
+before the copy-out.
+
+### Detection readiness (Phase 3, detection part)
+
+| Item | State |
+|------|-------|
+| Signal | content of the TEST window read immediately after writing 32×p at `internal_ARAM_size + 0` |
+| Criteria | byte 1 == ~p (Start-up Disc) AND per-bit majority vote == ~p (GBI), for each of C3, 3C, FF, 00; all handshakes must complete |
+| Corroboration | Start-up Disc `0x8008ae3c`; GBI `0x80011c94`/`0x80015b08`; Dolphin model (uniform inverse) |
+| With physical GBP | 8/8 PASS on both criteria (GBP-HW-003/010), with expansion code 0 and 3 |
+| Without physical GBP | 0/8 (`C0`×32) (GBP-HW-007/010) |
+| What it does not tell | why byte 0 is unreliable (U-GBP-015); what `C0` is (U-GBP-019); which AR_INFO code the runtime should use for the rest of the interface (U-GBP-004) |
+| Sample size | one console, one run per state |
+| Verdict | presence detection is implementable and validated offline on hardware captures; build `probe-0002` carries it but has not been run on hardware |
+
+Phase 3 is **not** complete: initialization (bringing the AGB up and
+observing the device's interrupt/AV state) has not started.
+
+### Next initialization step — proposal only (not implemented, not requested)
+
+Candidates from the official start sequences (INITIALIZATION.md §3):
+
+| Candidate | Writes | Hypothesis tested | Restore | Risk |
+|-----------|--------|-------------------|---------|------|
+| (i) IRQ mask programming: write IRQ := read with all odd bits set, as the disc does before enabling anything | IRQ window | odd bits are writable masks; even bits are acknowledged by writing them | write back the value read | low, but writing even bits acknowledges sources we have not understood |
+| (ii) CONTROL bit 0x10 cleared then restored (`90 → 80 → 90`), PI HSP interrupt kept masked in INTMR, observe PI INTSR bit 13 and the IRQ window before/after | CONTROL (1 bit) | bit 0x10 gates the device's interrupt line to the PI (both drivers clear it in start and set it in stop) | rewrite the original byte | low: no handler, PI mask untouched, no AGB power |
+| (iii) CONTROL \|= 0x04 (disc step 7 / GBI `\|0x0C`) | CONTROL | powers/resets the AGB; IRQ/AV activity appears | disc stop sequence (clear 0x04/0x08, set 0x10/0x80) | medium: starts the AGB with no cartridge; needs the full stop sequence to be trusted |
+
+**Proposed: (ii).** It is the smallest state change both official
+drivers perform, touches one documented bit, is read-only on the PI side
+(INTSR observation with INTMR bit 13 still 0), restores by rewriting the
+byte that was read, and tests exactly one hypothesis whose outcome is
+observable with what we already log (CONTROL, IRQ raw blocks) plus two
+extra PI reads. It also settles whether IRQ `0x8AAE` bit 15 correlates
+with the PI line, which (i) and (iii) would confound. Run with expansion
+code 3 only (the only state where CONTROL/IRQ read as live), restoring
+AR_INFO as today. Awaiting authorization before any build or request.
