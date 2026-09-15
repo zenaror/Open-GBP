@@ -473,5 +473,12 @@ re-enable `0`, KEYPAD written on every service — KEYPAD has never been
 written) without losing causes; (4) CONTROL bits 0x04/0x08 (Disc start
 `|0x04` then `&~0x10` vs GBI `(v & ~0x18) | 0x0C`, U-GBP-006). Reading
 the AUDIO/VIDEO blocks belongs to Phases 4/6. No move to VIDEO before (1)
-and (2) are answered; the next experiment (GBP-INIT-003B) is analyzed,
-not implemented, in DEVLOG 2026-09-15 "GBP-INIT-003A executed".
+and (2) are answered; the next experiment, GBP-INIT-003B, is specified
+(not implemented) in HARDWARE_TESTS.md "Planned tests — GBP-INIT-003B"
+and DEVLOG 2026-09-15 "GBP-INIT-003B designed". Decisions it fixes for
+that experiment, in addition to R1–R8: the handler is installed only
+after a latched cause has been observed with PI masked and is unmasked
+once; the PI W1C budget is one in the handler (after the mask) plus at
+most one in the main loop; the device is acknowledged with `read |
+0x8000` under the running CONTROL before any restore, and the run ends
+with the Disc stop word.

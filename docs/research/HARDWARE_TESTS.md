@@ -867,3 +867,174 @@ Risks:  a device line asserted for up to ~2 s with PI masked (no CPU effect); a 
         raw evidence only.
 Physical setup: identical to GBP-INIT-002.
 ```
+
+### GBP-INIT-003B — delivery of a latched HSP cause to the CPU as IRQ 26 (designed 2026-09-15; NOT implemented, NOT released)
+
+Status: design only (DEVLOG 2026-09-15 "GBP-INIT-003B designed"); no
+code, no build, no hardware, no request. Depends on GBP-INIT-003A
+(executed: GBP-HW-027…034, GBP-PI-004, GBP-IRQ-007), GBP-INIT-002
+(GBP-HW-021…026), ENV-IRQ-001/002 (libogc2 dispatcher and mask API,
+verified against the checkout `external/libogc2/libogc/irq.c`:
+`IRQ_Request` only swaps the table entry under `_CPU_ISR_Disable`;
+`__UnmaskIrq` rebuilds INTMR under `_CPU_ISR_Disable` and restores EE at
+its end, so a pending `cause & mask` is taken as an exception before the
+call returns; `__MaskIrq` is safe inside a handler), GBP-IRQ-002/003
+(reference orders).
+
+```text
+Question:    With a real HSP cause already latched at the PI (INTSR bit 13 = 1) while IRQ 26 is
+             masked (INTMR bit 13 = 0) — the state GBP-INIT-003A produced 105 ms after A2 — does
+             __UnmaskIrq(IM_PI_HSP) deliver it to the CPU handler at once, and what does INTSR do
+             after the handler's W1C while the device source is still pending (level/pulse
+             discriminator, U-GBP-022 remaining part)?
+Separates:   source generation (the 003A sequence, reproduced verbatim with PI masked) from the
+             handler installation and from the unmask. One new variable: delivery.
+Why static analysis cannot answer: libogc2 delivers `cause & mask` (ENV-IRQ-001), but no physical
+             HSP cause has ever reached a CPU handler (INIT-002 unmasked with no cause; 003A had a
+             cause with no unmask); no reference reads INTSR after its own W1C.
+
+Handler installation point (options compared):
+  A) before CONTROL/A1/A2 (GBP-INIT-002 order): inert while masked (IRQ_Request touches only the
+     handler table); safe; but the 003A replica no longer runs "without a handler" and the install
+     sits ~110 ms away from the unmask it serves.
+  B) after INTSR bit 13 = 1 has been observed with PI masked, then unmask: the 003A part is
+     reproduced with the same code path and the same auditable properties; the cause exists before
+     the handler and before the unmask (clean causality); nothing can be lost (PI latch: FACT,
+     GBP-HW-033); the install and the PREUNMASK snapshot (three DMAs, ~100 µs) touch nothing on
+     the device; the precondition is checked after the install.  → CHOSEN.
+  C) immediately before A2: no advantage over A or B, a third ordering with no reference precedent.
+  All options: never unmask without a handler (ENV-IRQ-001 consequence 2); the previous handler is
+  kept verbatim (NULL in GBP-INIT-002) and restored at the end.
+
+Preconditions (abort, never adjust): as 003A — PRESENT (both criteria), INTMR bit 13 == 0 and
+             INTSR bit 13 == 0 at the start, CONTROL idle shape, IRQ shape (BASE and A1PRE), INTMR
+             bit 13 re-checked at P0 and A2PRE. Immediately before the unmask (PREUNMASK snapshot,
+             taken AFTER the install): INTSR bit 13 == 1; INTMR bit 13 == 0; handler installed with
+             record count 0; CONTROL vote == exp (0x8C); IRQ with both readings equal, at least one
+             even source bit set (0x0555 mask — 0x0400 or 0x0500 as observed, not required exactly),
+             odd bits 0 and bit 15 0 as A2 wrote them; raw[32] kept. Anything else →
+             abort_pre_unmask_state (cause_lost / intmr13_unmasked / control_changed /
+             irq_state_unexpected): no unmask, teardown.
+
+Sequence:
+  boot → PRESENT gate → AR_INFO[5:3] := 3 → PI preconditions → BASE → CONTROL := (v & ~0x10) | 0x0C
+  → P0 → A1PRE → A1: IRQ := read | 0x8000 → A1-0, +50 µs, +500 µs → A2PRE → A2: IRQ := 0
+  → A2-0, samples with INTSR polling up to 2000 ms, PI MASKED — exactly 003A
+  → no cause within the bound: NO unmask → teardown → no_cause_within_tmax (valid evidence)
+  → EVENT (first INTSR bit 13 = 1): snapshot as 003A; the window ends
+  → IRQ_Request(IRQ_PI_HSP, oneshot): previous handler kept, record cleared; rc ≠ ok →
+    abort_handler_install, no unmask
+  → PREUNMASK: PI (two samples), CONTROL raw/semantic, IRQ raw/semantic → preconditions above
+  → t_unmask := time base → __UnmaskIrq(IM_PI_HSP) → t_post_unmask := time base → PI (UNMASKPOST)
+    [the exception is taken when __UnmaskIrq restores EE: the handler may run before the call
+     returns, t_post_unmask is then already after it]
+  → wait for record.fired up to T_DELIVERY, polling the record only (no DMA, no formatting)
+  → __MaskIrq(IM_PI_HSP) (idempotent with the handler's own mask) → copy the record → INTMR bit 13
+    must read 0 (else __MaskIrq again + anomaly flag)
+  → PREACK: PI (two samples), CONTROL raw/semantic, IRQ raw/semantic       [pre-device-ack]
+  → device ACK (fired path only): irq_pending := IRQ semantic (GBI vote, must equal the Disc
+    reading, else abort_transport-class stop without the ACK); ack := irq_pending | 0x8000;
+    IRQ := ack, u16 replicated — derived from the read, never hard-coded (0x8400 / 0x8500 expected)
+  → POSTACK: PI (two samples), CONTROL, IRQ
+  → if INTSR bit 13 == 1: ONE main-loop INTSR := 0x2000 + one re-read (main W1C budget spent)
+  → teardown, PI masked: CONTROL := original → IRQ read → stop := read | 0x8AAA → IRQ := stop →
+    IRQ read → CLEANUPCHK: if INTSR bit 13 == 1 and the main budget is unspent, ONE INTSR := 0x2000
+    + re-read, else sticky recorded → IRQ_Request(26, old) → mask state verified (masked) →
+    AR_INFO original → FINAL → screen: POWER CYCLE REQUIRED
+  not fired within T_DELIVERY: __MaskIrq → PI read (did INTMR bit 13 become 1? is INTSR bit 13
+    still 1?) → delivery_timeout (abort_unmask if INTMR bit 13 never became 1) → no device-ACK
+    step (the stop word acknowledges the pending sources) → teardown as above.
+
+ISR (gbp_irq_oneshot.h extended; audited by tools/isr_audit.py; PI MMIO and 32-bit stores only;
+no DMA, no GBP access, no formatting, no allocation, no blocking, no loop except one fixed-count
+time-base read):
+   1. t_entry := time base        2. intsr_at_entry := INTSR      3. intmr_at_entry := INTMR
+   4. count++                     5. __MaskIrq(IM_PI_HSP)         6. intmr_after_mask := INTMR
+   7. INTSR := 0x2000 (once)      8. intsr_after_w1c := INTSR
+   9. fixed ≈100-tick (2.5 µs) time-base read loop → t_second := time base; intsr_second := INTSR;
+      intmr_final := INTMR
+  10. first entry publishes its fields, then fired := 1; a second entry (anomaly) re-masks, does NOT
+      write INTSR again, stores its INTSR/INTMR/time view in reentry fields; return.
+  MASK → W1C order mandatory (R3). ISR W1C per run: exactly 1.
+
+Level/pulse discriminator (U-GBP-022): at step 7 the device source (0x0400 / 0x0500) is still
+  pending — nothing has acknowledged the device. intsr_after_w1c and intsr_second with bit 13 = 0,
+  and PREACK bit 13 = 0 → the W1C clears the latched cause while the device source stays pending:
+  compatible with a pulse/edge-latched cause or with a line deasserted independently of the
+  source latch — NOT a proof of pulse. Bit 13 = 1 again at step 8, step 9 or PREACK (before the
+  device ACK) → strong evidence of a level/re-asserting line. Both outcomes are valid; INTMR bit
+  13 is 0 from step 5 on, so no second delivery can occur either way.
+
+W1C policy (PI INTSR := 0x2000), auditable: ISR exactly 1; main loop at most 1 per run, at the
+  first point where INTSR bit 13 reads 1 while masked — after the device ACK (POSTACK), otherwise
+  at CLEANUPCHK — never both, never repeated; a bit still set after its W1C is recorded (sticky)
+  and left to the power cycle. Maximum 2 per run.
+
+Order ACK / CONTROL restore / STOP: ISR → PREACK → device ACK under CONTROL 0x8C → POSTACK → (main
+  W1C) → CONTROL restore → STOP word → …  GBI acknowledges under the running CONTROL in its thread
+  and never changes CONTROL during service; the Disc's handler acknowledges with CONTROL
+  unchanged; both restore CONTROL 0x10 only at stop. "Restore before ACK" has no precedent.
+
+GBI (GBP-IRQ-003/004): raw handler INTSR := 0x2000 → LWP_SemPost; thread: read IRQ → AUDIO/VIDEO/
+  SIO reads → 64-byte write KEYPAD + IRQ := read | 0x8000 → CONTROL/SIOCTL read → IRQ := 0 → wait.
+  Kept: PI W1C first in the handler; device ACK = read | 0x8000 (IRQ half only, u16 layout).
+  Deliberately dropped: INTMR left open (003B masks first, one-shot), thread/semaphore, KEYPAD
+  write, AUDIO/VIDEO/SIO reads, IRQ := 0 re-enable after the ACK (003B goes to the stop word).
+Start-up Disc (GBP-IRQ-002): handler IRQ := shadowB | 0x8000 (device first) → INTSR := 0x2000 →
+  read IRQ → write pending back → callbacks → IRQ := shadowB. A device-first write would
+  acknowledge/hold the device before the PI W1C and blur the discriminator: 003B keeps GBI's
+  PI-first handler order and the Disc's stop word; the Disc's mask-first stop discipline is already
+  ours (ISR masks first, main stays masked). No element of the Disc order adds safety here.
+
+T_DELIVERY:  100 ms (4 050 000 ticks) — a software margin, not a hardware property (002 measured the
+             unmask call itself at 33 ticks; a latched cause is expected to be delivered inside the
+             call). The cause window before it stays 003A's 2000 ms operational bound.
+
+Statuses:    ok_delivery_observed; delivery_timeout (not a transport error); no_cause_within_tmax
+             (not a transport error); abort_not_present; abort_inconsistent; abort_pi_precondition
+             (start / P0 / A2PRE); abort_control_read; abort_control_shape; abort_irq_shape;
+             abort_transport; abort_handler_install; abort_pre_unmask_state; abort_unmask (INTMR
+             bit 13 never became 1 and nothing fired); anomaly_reentry (count > 1: best-effort
+             teardown, power cycle, no repeat before analysis). Restore reported per step as in
+             003A plus handler_restored, mask_ok, isr_pi_w1c, main_pi_w1c, main_pi_w1c_site.
+
+Records:     count, fired, t_entry, t_unmask, t_post_unmask, latency ticks/µs, intsr_at_entry,
+             intmr_at_entry, intmr_after_mask, intsr_after_w1c, t_second, intsr_second,
+             intmr_final, reentry_intsr/intmr/t; PREUNMASK, UNMASKPOST, PREACK, POSTACK, stop,
+             cleanup and FINAL snapshots with raw[32] and both readings; device ACK value and
+             buffer; W1C sites. No formatting inside the ISR; the main loop formats only after
+             re-masking; the 003A window keeps its no-formatting region.
+
+Writes (complete): AR_INFO bits 3–5 (restored); TEST handshake; CONTROL transform and restore; IRQ
+             register: A1 read | 0x8000, A2 0, device ACK read | 0x8000 (fired path only), stop
+             read | 0x8AAA — four call sites of gbp_regwrite_irq_u16 (three used in the timeout
+             path); INTMR only through __UnmaskIrq (once) and __MaskIrq (ISR, main, teardown);
+             INTSR W1C: ISR 1 + main ≤ 1. Never: KEYPAD, VIDEO, AUDIO, SIOCTL, SIODATA, BBA, a
+             direct INTMR store.
+
+Properties to test automatically when implemented: unmask count = 1, only after the install and
+             only with INTSR bit 13 = 1 observed; ISR mask before W1C (isr_audit) and exactly one ISR
+             W1C; main W1C ≤ 1; INTMR stores = 0; handler installs = 1, restores = 1, restored
+             handler == previous; IRQ write sites = 4; no KEYPAD/VIDEO/AUDIO/SIO access; no DMA
+             while unmasked (mock invariant); the physical 003A fixture drives the probe verbatim
+             up to the EVENT and stops at the install (no "I" lines) — regression of the replica.
+
+Delivery counts as validated iff: fired = 1, count = 1, t_entry − t_unmask small and bounded,
+             intmr_at_entry bit 13 = 1 and intmr_after_mask bit 13 = 0 (mask-first proven in the
+             handler), intsr_at_entry bit 13 = 1, exactly one ISR W1C, INTMR bit 13 = 0 in every
+             main read afterwards, device ACK completed with a consistent read-back (pending sources
+             cleared, bit 15 = 1), handler restored, restore = ok. The level/pulse readings are
+             observations, never pass/fail.
+Still missing afterwards for a functional initialization: repeated service (ACK → IRQ := 0 → next
+             cause) without losing causes; KEYPAD writes (both references write it on every
+             service); CONTROL 0x04/0x08 at runtime (U-GBP-006); AUDIO/VIDEO DMA (Phases 4/6); a
+             runtime-order unmask (source-to-delivery latency); a cartridge present (bit 2); sleep
+             and serial sources.
+Risks:       a storm if the mask-first order failed (mitigated: audited ISR, __MaskIrq physically
+             proven, GBP-HW-022); a level line re-latching after the ISR W1C (no CPU effect, INTMR
+             masked); device masks open with bit 15 = 1 between the ACK and the stop (~1 ms, GBI's
+             steady state); a second source arriving between EVENT and unmask (allowed); every write
+             has physical precedent (A1/A2/stop in 003A; the ACK is A1's form). Power cycle mandatory.
+Physical setup: identical to GBP-INIT-003A. Not to be requested before implementation, audits and a
+             clean candidate.
+```

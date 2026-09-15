@@ -1977,3 +1977,107 @@ hypotheses.** Bit 15 as a W1C pending summary. **New unknowns.** None
 opened; U-GBP-022 narrowed, U-GBP-023 closed, U-GBP-024 narrowed.
 **Next highest-value experiment.** GBP-INIT-003B, option B above,
 pending authorization.
+
+---
+
+## 2026-09-15 — GBP-INIT-003B designed (delivery of a latched HSP cause to the CPU); analysis only
+
+**Goal.** Specify the first controlled delivery of a real HSP cause to a
+CPU handler as IRQ 26, on top of the physically executed GBP-INIT-003A.
+No code, no build, no hardware, no request, no commit. Full
+specification: HARDWARE_TESTS.md "Planned tests — GBP-INIT-003B".
+
+**Decisions.**
+- Handler installation point: **B** — reproduce 003A verbatim with PI
+  masked until INTSR bit 13 = 1 is observed (the EVENT), then
+  `IRQ_Request(26, oneshot)`, then a PREUNMASK snapshot and its
+  preconditions, then one `__UnmaskIrq(IM_PI_HSP)`. Checked against
+  libogc2 (`external/libogc2/libogc/irq.c`, ENV-IRQ-002): `IRQ_Request`
+  only swaps the handler-table entry under `_CPU_ISR_Disable`, so
+  installing while a cause is latched and masked changes nothing;
+  `__UnmaskIrq` rebuilds INTMR under `_CPU_ISR_Disable` and restores EE
+  at its end, so a latched `cause & mask` is taken as an exception before
+  the call returns (t_unmask must be read before the call; t_post_unmask
+  may already be after the handler). Options A (install before the
+  CONTROL write, INIT-002 order) and C (install before A2) are safe but
+  add nothing and change the 003A replica; rejected.
+- Preconditions immediately before the unmask (after the install): INTSR
+  bit 13 = 1, INTMR bit 13 = 0, handler installed with count 0, CONTROL
+  vote = 0x8C, IRQ readings equal with at least one even source bit
+  (0x0555) set, odd bits and bit 15 = 0 as A2 wrote them; otherwise
+  `abort_pre_unmask_state`, no unmask.
+- ISR: the audited one-shot of INIT-002 extended by an INTMR read
+  between the mask and the W1C, and a second INTSR/INTMR read after a
+  fixed ≈100-tick time-base loop; MASK → W1C order kept; exactly one W1C
+  per run; a second entry re-masks, records, does not acknowledge.
+- Level/pulse discriminator: the ISR's W1C happens while the device
+  source is still pending (no device acknowledge before the main loop):
+  bit 13 clear at `intsr_after_w1c`, `intsr_second` and PREACK →
+  compatible with a pulse/edge-latched cause (not a proof of pulse); bit
+  13 set again before the device ACK → strong evidence of a level line.
+- PI W1C budget: ISR exactly 1; main loop at most 1, at the first point
+  where bit 13 reads 1 while masked (after the device ACK, else at
+  CLEANUPCHK); never repeated; sticky recorded; maximum 2 per run.
+- Order: ISR → PREACK → device ACK `read | 0x8000` under CONTROL 0x8C →
+  POSTACK → (main W1C) → CONTROL restore → Disc stop word → cleanup
+  policy → handler restore → mask verified → AR_INFO → FINAL. Both
+  references acknowledge under the running CONTROL and restore CONTROL
+  only at stop; the ACK value is A1's physically validated form.
+- Against GBI: PI-first handler order kept; one-shot mask-first instead
+  of an open INTMR; no thread, no KEYPAD, no AUDIO/VIDEO/SIO reads, no
+  `IRQ := 0` re-enable; stop right after. Against the Disc: its
+  device-first handler write would blur the discriminator, so GBI's order
+  stays for the handler and the Disc's word for the stop; no Disc element
+  adds safety.
+- T_DELIVERY 100 ms (software margin; a latched cause should be delivered
+  inside `__UnmaskIrq`); timeout → `__MaskIrq`, PI read, status
+  `delivery_timeout` (or `abort_unmask` if INTMR bit 13 never rose), no
+  device-ACK step (the stop word acknowledges), teardown. No cause within
+  2000 ms → `no_cause_within_tmax`, no unmask. Neither is a transport
+  error. Handler install failure → no unmask. `count > 1` →
+  `anomaly_reentry`, teardown, power cycle, no repeat before analysis.
+- Writes: A1, A2, device ACK (fired path), stop — four IRQ-register
+  write sites; INTMR only via `__UnmaskIrq` (once) / `__MaskIrq`; INTSR
+  W1C ISR 1 + main ≤ 1; never KEYPAD/VIDEO/AUDIO/SIO/BBA. Power cycle
+  mandatory after any experimental write.
+
+**Validation criteria (fixed in advance).** Delivery validated iff fired
+= 1, count = 1, small bounded latency, INTMR bit 13 = 1 at entry and 0
+after the mask, INTSR bit 13 = 1 at entry, one ISR W1C, INTMR bit 13 = 0
+in every later main read, device ACK completed with a consistent
+read-back, handler restored, restore = ok. Level/pulse readings are
+observations. Still missing afterwards: repeated service, KEYPAD, CONTROL
+0x04/0x08 at runtime, AUDIO/VIDEO DMA, runtime-order unmask latency,
+cartridge present, sleep/serial sources.
+
+**Files the future implementation would touch (listed, not done).**
+`src/gbp/gbp_irq_oneshot.h` (extended body and record), `src/gbp/
+gbp_transport.h` (`gbp_irq_record` fields; replay `I u` extended
+backward-compatibly), `src/platform/hsp_backend_irq.c` (record copy),
+new `src/gbp/gbp_initirqb_probe.{h,c}` (the 003A stages reused through
+`gbp_regwrite`/`gbp_rawlog`/`gbp_detect`, delivery stage added; 003A's
+tested module left untouched), new `poc/gbp-init-irq-deliver-probe/`
+(Test ID GBP-INIT-003B, Build ID initirqb-0001, gecko prefix
+OPENGBP-INITIRQB, links `hsp_backend_irq.c`), `tests/mocks/gbp_mock.{c,h}`
+(delivery on unmask with a latched cause is already modeled by
+`irq_step`; add the re-latch-while-source-pending knob and main W1C
+accounting), new `tests/unit/test_gbp_initirqb.c` + `tests/unit/Makefile`
+(scenarios: pulse, level re-latch, delivery timeout, unmask ineffective,
+no cause, install failure, pre-unmask state lost, reentry, ACK failures,
+W1C budget, teardown, order/never assertions; the physical 003A fixture
+as prefix up to the EVENT), `tests/host/test_artifacts.py`,
+`tools/isr_audit.py` (accept the fixed-count time-base loop and the extra
+PI reads; still only `__MaskIrq` callable), `tools/poc_audit.py` (a 003B
+profile: `hsp_backend_irq.o` allowed, one `__UnmaskIrq` call site, four
+IRQ write sites, no INTMR store), `tools/probelog.py` (new records →
+replay lines), root `Makefile` (`initirqb-dolphin`, `initirqb-audit`,
+POCS), docs (this planned entry → implemented, DEVLOG, INITIALIZATION §9
+rule refinement, POC README).
+
+**Roadmap / governing docs.** `docs/ROADMAP.md` Phase 8 (physical Link
+Port compatibility as the permanent requirement, PicoAdapterGB one
+fixture, the virtual Mobile Adapter additive) untouched; CLAUDE.md and
+README as synchronized in the previous entry. The Makefile dirty-check
+hardening stays a separate follow-up.
+
+**Next.** Await authorization to implement GBP-INIT-003B as specified.

@@ -306,7 +306,10 @@ write — and one `INTSR := 0x2000` cleared it. **Still open:** whether the
 GBS-DOL's HSP line is level or pulse, and what a W1C does while the device
 still asserts (in this run the device sources were cleared before the
 W1C). A handler experiment that acknowledges PI while a source is still
-pending on the device would answer it (GBP-INIT-003B design).
+pending on the device would answer it: GBP-INIT-003B, specified 2026-09-15
+(HARDWARE_TESTS.md "Planned tests"), reads INTSR right after the
+handler's W1C and again ≈2.5 µs later and at the main loop's PREACK
+snapshot, all before the device is acknowledged.
 
 
 Known (GBP-PI-001…003): software treats INTSR as a cause register
