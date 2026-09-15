@@ -15,8 +15,21 @@ Checks, on the instructions of that function only:
     GBP symbols (deny-list on relocation names);
   - the PI registers 0xCC003000/0xCC003004 are referenced (lis -13312 /
     0xcc00) and the time base is read (mftb);
-  - a store of 0x2000 exists after the __MaskIrq call (mask before W1C),
-    judged on instruction order inside the function.
+  - exactly ONE store whose effective address is PI INTSR (0xCC003000),
+    its value 0x2000 (the W1C acknowledge), placed after the first
+    __MaskIrq call (mask before W1C), judged on instruction order inside
+    the function; register values come from tools/poc_audit.py's
+    track_registers (forward data flow over the control-flow graph: lis /
+    li / ori / oris / addi / addis / mr, branch targets merge by
+    agreement, loops converge, calls clobber the volatile GPRs), so both
+    GCC encodings (`lis; ori; stw 0(r)` and `lis; stw disp(r)`) are seen,
+    also when the PI base lives in a callee-saved register across an
+    early-return path;
+  - NO store whose effective address is PI INTMR (0xCC003004): the mask
+    changes only through __MaskIrq.
+Loops (the extended handler of GBP-INIT-003B waits a fixed number of
+time-base ticks) are allowed; the instruction count is reported so the
+handler's size can be compared between builds.
 
 Usage:
     tools/isr_audit.py <objdump.txt> [--report out.txt] [--symbol NAME]
@@ -25,8 +38,12 @@ Exit status 0 = clean, 1 = violation, 2 = function not found / bad input.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from poc_audit import STORE_MNEMONICS, track_registers, store_ea_and_value  # noqa: E402
 
 ALLOWED_CALLS = {"__MaskIrq"}
 DENIED_SUBSTRINGS = ("malloc", "free", "printf", "vsnprintf", "snprintf", "fopen", "fwrite", "fat",
@@ -36,6 +53,34 @@ DENIED_SUBSTRINGS = ("malloc", "free", "printf", "vsnprintf", "snprintf", "fopen
 FUNC_RE = re.compile(r"^[0-9a-f]+ <(?P<name>[^>]+)>:\s*$")
 INSN_RE = re.compile(r"^\s*(?P<off>[0-9a-f]+):\s+(?:[0-9a-f]{2} ){4}\s*(?P<mnem>\S+)(?:\s+(?P<ops>.*))?$")
 RELOC_RE = re.compile(r"^\s*(?P<off>[0-9a-f]+):\s+(?P<type>R_PPC_\w+)\s+(?P<sym>\S+)")
+PI_INTSR = 0xCC003000
+PI_INTMR = 0xCC003004
+
+
+def pi_store_sites(items):
+    """(intsr_stores, intmr_stores): lists of (index, offset, mnemonic, operands, value_or_None)
+    for every store whose effective address is PI INTSR / PI INTMR under the register values
+    track_registers() proves on entry to that store (an unknown address never matches; a
+    store the analysis cannot reach is dead code)."""
+    insns, idxs = [], []
+    relocs = set()
+    for idx, (kind, off, payload) in enumerate(items):
+        if kind == "insn":
+            insns.append((off, payload[0], payload[1]))
+            idxs.append(idx)
+        else:
+            relocs.add(off)
+    states = track_registers(insns, relocs)
+    intsr, intmr = [], []
+    for (off, mn, ops), idx, regs in zip(insns, idxs, states):
+        if regs is None or mn not in STORE_MNEMONICS:
+            continue
+        ea, value = store_ea_and_value(regs, mn, ops)
+        if ea == PI_INTSR:
+            intsr.append((idx, off, mn, ops, value))
+        elif ea == PI_INTMR:
+            intmr.append((idx, off, mn, ops, value))
+    return intsr, intmr
 
 
 def extract_function(text, name):
@@ -71,8 +116,6 @@ def audit(items):
     mftb = False
     pi_ref = False
     mask_index = None
-    w1c_after_mask = False
-    li_2000_seen_after_mask = False
     for idx, (kind, off, payload) in enumerate(items):
         if kind == "reloc":
             rtype, sym = payload
@@ -93,13 +136,8 @@ def audit(items):
             findings.append("indirect call/branch %s at 0x%x" % (mnem, off))
         if mnem == "mftb" or mnem == "mftbl" or (mnem == "mfspr" and "268" in ops):
             mftb = True
-        if mnem == "lis" and ("-13312" in ops or "0xcc00" in ops or "52224" in ops):
+        if mnem == "lis" and ("-13312" in ops or "0xcc00" in ops or "52224" in ops or "-13311" in ops):
             pi_ref = True
-        if mask_index is not None and idx > mask_index:
-            if mnem == "li" and ("8192" in ops or "0x2000" in ops):
-                li_2000_seen_after_mask = True
-            if mnem in ("stw", "stwx") and li_2000_seen_after_mask:
-                w1c_after_mask = True
         if mnem in ("sc",):
             findings.append("system call at 0x%x" % off)
     if not calls:
@@ -108,8 +146,17 @@ def audit(items):
         findings.append("no time-base read (mftb) found")
     if not pi_ref:
         findings.append("no PI register base (0xCC00xxxx) referenced")
-    if mask_index is not None and not w1c_after_mask:
-        findings.append("no 0x2000 store after the __MaskIrq call (mask must precede the W1C)")
+    intsr_stores, intmr_stores = pi_store_sites(items)
+    for st in intmr_stores:
+        findings.append("store to PI INTMR at 0x%x (%s %s): the mask may change only through __MaskIrq" % (st[1], st[2], st[3]))
+    if len(intsr_stores) != 1:
+        findings.append("%d stores to PI INTSR (exactly one W1C acknowledge expected)%s"
+                        % (len(intsr_stores), "" if not intsr_stores else ": " + ", ".join("0x%x" % st[1] for st in intsr_stores)))
+    for st in intsr_stores:
+        if st[4] != 0x2000:
+            findings.append("INTSR store at 0x%x writes %s, not 0x2000" % (st[1], "an untracked value" if st[4] is None else "0x%x" % st[4]))
+        if mask_index is None or st[0] < mask_index:
+            findings.append("INTSR store at 0x%x precedes the __MaskIrq call (mask must precede the W1C)" % st[1])
     return findings, calls
 
 
@@ -127,8 +174,11 @@ def main(argv=None):
         return 2
     findings, calls = audit(items)
     n_insn = sum(1 for k, _, _ in items if k == "insn")
+    intsr_stores, intmr_stores = pi_store_sites(items)
     report = ["isr_audit: %s" % args.symbol, "instructions: %d" % n_insn,
               "calls: %s" % (", ".join(calls) if calls else "none"),
+              "intsr stores: %d (%s)" % (len(intsr_stores), ", ".join("0x%x" % st[1] for st in intsr_stores) or "-"),
+              "intmr stores: %d" % len(intmr_stores),
               "result: %s" % ("CLEAN" if not findings else "VIOLATION")]
     report += ["  - " + f for f in findings]
     report.append("--- listing ---")

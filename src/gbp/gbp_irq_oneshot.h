@@ -61,4 +61,57 @@ static inline void gbp_irq_oneshot_service(volatile struct gbp_irq_record *r)
     /* 11. return — no loop, no wait, no further access */
 }
 
+/*
+ * Extended one-shot body for GBP-INIT-003B (delivery of a cause that is
+ * already latched at the PI). Same primitives, same rules; the entry
+ * state is captured before the mask because the experiment needs
+ * INTSR/INTMR "as delivered" — MSR[EE] is 0 from the exception entry to
+ * the end of c_irqdispatcher (libogc2 irq_handler.S sets only MSR_RI;
+ * ENV-IRQ-001), so nothing can pre-empt these three reads. Nothing is
+ * written before the mask. After the mask: INTMR, INTSR, ONE W1C, INTSR
+ * again, a bounded time-base wait of about GBP_IRQ_SECOND_READ_TICKS
+ * ticks (2.5 µs at 40.5 MHz; capped by GBP_IRQ_SECOND_READ_GUARD
+ * iterations so it cannot hang), then INTSR/INTMR once more. A second
+ * entry re-masks, keeps its view and does NOT write INTSR.
+ */
+#ifndef GBP_IRQ_SECOND_READ_TICKS
+#define GBP_IRQ_SECOND_READ_TICKS 100u
+#endif
+#ifndef GBP_IRQ_SECOND_READ_GUARD
+#define GBP_IRQ_SECOND_READ_GUARD 4096u
+#endif
+
+static inline void gbp_irq_oneshot_service_ext(volatile struct gbp_irq_record *r)
+{
+    uint32_t t = GBP_IRQ_PRIM_TICKS();                  /* 1. entry timestamp                       */
+    uint32_t sr = GBP_IRQ_PRIM_READ_INTSR();            /* 2. INTSR at entry (as delivered)         */
+    uint32_t mr = GBP_IRQ_PRIM_READ_INTMR();            /* 3. INTMR at entry                        */
+    uint32_t n = r->count + 1u;                         /* 4. count this entry                      */
+    r->count = n;
+    GBP_IRQ_PRIM_MASK();                                /* 5. MASK IRQ 26 — before any write        */
+    if (n == 1u) {
+        uint32_t t0, guard = 0u;
+        r->t_entry = t;
+        r->intsr_before_ack = sr;                       /*    intsr_at_entry                        */
+        r->intmr_at_entry = mr;
+        r->intmr_after_mask = GBP_IRQ_PRIM_READ_INTMR();/* 6. INTMR after the mask                  */
+        r->intsr_before_w1c = GBP_IRQ_PRIM_READ_INTSR();/* 7. INTSR before the W1C                  */
+        GBP_IRQ_PRIM_WRITE_INTSR(GBP_PI_HSP_BIT);       /* 8. the ONLY W1C of the run               */
+        r->intsr_after_ack = GBP_IRQ_PRIM_READ_INTSR(); /* 9. INTSR immediately after the W1C       */
+        t0 = GBP_IRQ_PRIM_TICKS();                      /* 10. bounded wait on the time base        */
+        while ((uint32_t)(GBP_IRQ_PRIM_TICKS() - t0) < GBP_IRQ_SECOND_READ_TICKS &&
+               ++guard < GBP_IRQ_SECOND_READ_GUARD) { }
+        r->t_second = GBP_IRQ_PRIM_TICKS();             /* 11. */
+        r->intsr_second = GBP_IRQ_PRIM_READ_INTSR();    /* 12. INTSR at the second read             */
+        r->intmr_second = GBP_IRQ_PRIM_READ_INTMR();    /* 13. INTMR at the second read             */
+        r->fired = 1u;                                  /* 14. published last                       */
+    } else {
+        r->reentry_t = t;                               /* anomaly: second entry — no W1C           */
+        r->reentry_intsr = sr;
+        r->reentry_intmr = mr;
+        r->fired = 1u;
+    }
+    /* 15. return — no loop beyond the bounded wait, no further access */
+}
+
 #endif

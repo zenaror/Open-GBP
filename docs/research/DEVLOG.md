@@ -2081,3 +2081,133 @@ README as synchronized in the previous entry. The Makefile dirty-check
 hardening stays a separate follow-up.
 
 **Next.** Await authorization to implement GBP-INIT-003B as specified.
+
+## 2026-09-15 — GBP-INIT-003B implemented (dirty build initirqb-0001); NOT physically executed
+
+**Goal.** Implement the delivery experiment exactly as specified
+(HARDWARE_TESTS.md "Planned tests — GBP-INIT-003B"), reusing the
+physically executed 003A code path, with every property provable on the
+host and on the final objects. No hardware, no request, no commit, no
+push: the result is a dirty build for review; a checkpoint commit and a
+clean audit precede any physical candidate.
+
+**Changes.**
+- `src/gbp/gbp_initirqa_probe.{h,c}`: the executed module split into
+  stages without behavior change — `gbp_initirqa_run_cause()` (everything
+  up to the EVENT / end of the window), `gbp_initirqa_teardown()` with
+  options (PI-cleanup budget, a hook before the AR_INFO restore), shared
+  snapshot helpers (optional second PI sample logged as `PI tag=<id>b`),
+  `gbp_initirqa_probe_run()` = the two in sequence. Its 2195 checks and
+  the physical initirqa-0001 replay are byte-for-byte unchanged.
+- `src/gbp/gbp_irq_oneshot.h`: `gbp_irq_oneshot_service_ext()` — t_entry,
+  INTSR, INTMR, count++, `__MaskIrq`, INTMR, INTSR, exactly one
+  `INTSR := 0x2000`, INTSR, a bounded ≈100-tick time-base wait (also
+  capped at 4096 reads), t_second, INTSR, INTMR, fired; a second entry
+  re-masks, records `reentry_t/intsr/intmr`, never acknowledges. The
+  GBP-INIT-002 body is untouched. `struct gbp_irq_record` gained
+  `intsr_before_w1c`, `t_second`, `intsr_second`, `intmr_second`,
+  `reentry_t` (appended; the replay `I u` line takes them as five
+  optional numbers, 002 fixtures unchanged).
+- `src/platform/hsp_backend_irq.{h,c}`: `hsp_backend_irq_transport_ext()`
+  registers `hsp_backend_oneshot_isr_ext`; the record copy covers the new
+  fields; the direct INTMR store of GBP-INIT-001 moved to the new
+  `hsp_backend_intmr.{h,c}` (linked by `poc/gbp-init-probe` only), so the
+  interrupt-path object contains no INTMR store at all.
+- New `src/gbp/gbp_initirqb_probe.{h,c}`: 003A stage → `CAUSE` → point-B
+  install (`IRQ_Request`, previous handler kept) → the install must leave
+  a clean record → PREUNMASK (two PI samples, CONTROL, IRQ) with the
+  preconditions → t_unmask, one `__UnmaskIrq`, t_post_unmask → wait on the
+  record only (T_DELIVERY 100 ms operational) → `__MaskIrq` + REMASKCHK
+  (+ one retry) → record copied and formatted → PREACK → device ACK
+  `read | 0x8000` through `gbp_regwrite_irq_u16` (attempted before the
+  call, completed on rc ok; skipped if the read failed or the readings
+  disagree) → POSTACK → at most one main-loop W1C (POSTACK, else
+  CLEANUPCHK via the 003A budget; sticky recorded) → the 003A teardown
+  with the handler restore + mask verification hooked before AR_INFO →
+  `INITIRQB end`, `ACKS`, `RESTOREB`. Statuses: `ok_delivery_observed`,
+  `delivery_timeout`, `no_cause_within_tmax`, the 003A aborts by their
+  own names, `abort_handler_install`, `abort_pre_unmask_state`,
+  `abort_unmask`, `anomaly_reentry`, `anomaly_mask_failure`.
+  `power_cycle_required` is never cleared. No formatting in the ISR; the
+  003A no-formatting window kept (`REGION formatted_inside=0`).
+- New POC `poc/gbp-init-irq-deliver-probe/` (Test ID GBP-INIT-003B,
+  Build ID initirqb-0001, gecko prefix OPENGBP-INITIRQB, 224-line ring,
+  POWER CYCLE REQUIRED banner, X save / START exit; links
+  `hsp_backend_irq.c`, not `hsp_backend_intmr.c`). Root `Makefile`:
+  `initirqb-dolphin`, `initirqb-audit`, POCS, `all`.
+- Mock (`tests/mocks/gbp_mock.{c,h}`): the extended body runs inside the
+  delivery engine with a moving time base; synthetic re-latch after a W1C
+  while the source is pending (`pi_relatch_after_ticks`), delivery
+  suppression, install-time state changes (cause lost, INTMR bit 13 set,
+  CONTROL changed, IRQ changed, readings disagreeing, dirty record),
+  handler W1C counter. Replay: `I u` extended.
+- Tools: `tools/probelog.py` (003B record names, HANDLERPI2 → five extra
+  `I u` numbers, `MAINPICLEANUP performed=1` → `P a`, record kinds may
+  carry a digit — HANDLERPI2, A1/A2, P0CHK were silently dropped before);
+  `tools/isr_audit.py` (exactly one INTSR store of 0x2000 after
+  `__MaskIrq`, no INTMR store, loops allowed, instruction count, store
+  offsets reported); `tools/poc_audit.py` (`--profile 003a|003b`: required
+  / forbidden objects, exact call-site tables for `__UnmaskIrq` /
+  `IRQ_Request` / `__MaskIrq`, INTSR store sites per function, main.o
+  rules). **Audit defect found and fixed:** the register tracker of both
+  tools was a linear scan; the extended handler keeps the PI base in a
+  callee-saved register, and the early-return epilogue of its reentry
+  path (`lwz r30,24(r1)`) sits before the first-entry path in the
+  listing, so the tracker forgot the base and reported *zero* INTSR
+  stores — the same blindness could have hidden an INTMR store. Replaced
+  by a forward data-flow pass over each function's control-flow graph
+  (`track_registers`: branch targets merge by agreement, loops iterate to
+  a fixpoint, calls clobber the volatile GPRs, relocated immediates are
+  unknown); negative controls added on synthetic listings and on the
+  real 001/002 objects.
+- Tests: new `tests/unit/test_gbp_initirqb.c` (1031 checks), new
+  `tests/host/test_initirqb_replay.py`, extended `test_isr_audit.py`,
+  `test_poc_audit.py`, `test_probelog.py`, `test_artifacts.py`,
+  `tests/unit/Makefile`. Docs: this entry, HARDWARE_TESTS.md (003B entry
+  → implemented, precisions listed), INITIALIZATION.md §11, UNKNOWNS.md
+  U-GBP-022 pointer, tools/tests/captures READMEs, the POC README.
+
+**Tests executed (this build).** C: 9 binaries, all green (003A 2195,
+003B 1031 checks; the physical fixtures init-0001 ×2, initirq-0001,
+initirqa-0001, probe-0001 ×2 replayed). Python: 124 passed, 0 skipped
+(artifacts of all six POCs, both audits on the built objects, negative
+controls, synthetic 003A and 003B round trips, the physical 003A fixture
+through the 003B probe → `abort_handler_install / irq_ops_unavailable`,
+every fixture line consumed). `make initirqb-audit`: isr_audit CLEAN for
+`hsp_backend_oneshot_isr_ext` (82 instructions, INTSR store at 0xb8 =
+0x2000 after `__MaskIrq`, INTMR stores 0) and `hsp_backend_oneshot_isr`
+(70, store at 0x68); poc_audit profile 003b 0 findings (`__UnmaskIrq`:
+`h_irq_unmask`=1; `IRQ_Request`: `h_irq_install`=1, `h_irq_restore`=1;
+`__MaskIrq`: `h_irq_mask`=1 + both handlers; INTSR stores exactly
+`h_write_intsr`, the two handlers; INTMR stores 0; IRQ write sites 3 + 1
+= 4; `main.o` references `hsp_backend_irq_transport_ext` and
+`gbp_initirqb_probe_run` only). `make initirqa-audit` / `initirq-audit`
+still clean on the rebuilt 003A / 002 objects. Dolphin (OSD disabled by
+the runner on every run, verified in the 11 reports): 003B absent →
+`abort_inconsistent`, GBPlayer model → `abort_control_shape`, both with
+`written=0 irq_attempted=0 handler=0 unmasked=0 fired=0`; the nine
+previous runs (smoke, probe ×2, init ×2, initirq ×2, initirqa ×2) PASS.
+
+**Result.** GBP-INIT-003B IMPLEMENTED — NOT PHYSICALLY EXECUTED. DIRTY
+BUILD — NOT A PHYSICAL CANDIDATE: DOL sha256
+`ee34d93ad2774a9365fa9afd8485558f78e2f53df939b35ee1a84220f581df80`,
+383232 bytes, commit `fa6f35e-dirty`, devkitPPC GCC 16.1.0, libogc2
+r2442.094b250. Identity anomaly recorded: `build/poc/smoke-test/build-info.txt`
+still says `commit=d956b1b` (clean) because that POC was not rebuilt —
+the commit id is baked at link time and is not a make dependency; the
+Makefile `-dirty`/identity hardening stays the separate follow-up
+already planned.
+
+**Newly confirmed behavior.** None on hardware. Static, on the linked
+binary: the extended handler's instruction order is the designed one
+(t_entry → INTSR → INTMR → count++ → `__MaskIrq` → INTMR → INTSR → one
+W1C → INTSR → bounded wait → t_second → INTSR → INTMR → fired; the
+reentry path masks, records, returns without a W1C).
+
+**Rejected hypotheses / new unknowns.** None; the level/pulse question
+(U-GBP-022) stays open until the physical run.
+
+**Next.** User checkpoint (commit of the reviewed tree) → clean rebuild
+→ clean audit (Max) → recorded hash → only then the physical request per
+the procedure in `poc/gbp-init-irq-deliver-probe/README.md`. No hardware
+request from this dirty build.

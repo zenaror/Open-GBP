@@ -129,6 +129,8 @@ struct gbp_initirqa_snapshot {
     int pi_ok;
     gbp_status pi_rc;
     uint32_t intsr, intmr;
+    int pi2_ok;                   /* second PI sample (only when requested) */
+    uint32_t intsr2, intmr2;
     gbp_status control_rc, irq_rc, test_rc;
     struct gbp_xfer_info control_info, irq_info, test_info;
     int has_test;
@@ -237,6 +239,7 @@ struct gbp_initirqa_result {
     /* proof that the experimental region logged nothing */
     size_t log_count_window_start, log_count_window_end;
     int window_entered;
+    int window_flushed;           /* the window records were formatted (once) */
     unsigned errors;              /* transport failures */
     int transport_ok;
 };
@@ -248,6 +251,39 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
 
 int gbp_initirqa_summary(const struct gbp_initirqa_result *res, char *dst, size_t cap);
 const char *gbp_initirqa_status_name(gbp_initirqa_status s);
+
+/* ---- stage API, for experiments built on this sequence (GBP-INIT-003B) ----
+ * gbp_initirqa_probe_run() == gbp_initirqa_run_cause() followed, when the
+ * window ran, by the standard finish (teardown + end records). */
+typedef enum {
+    GBP_INITIRQA_CAUSE_ABORTED = 0,    /* an abort path ran: teardown and end records already written (res->status) */
+    GBP_INITIRQA_CAUSE_NOT_OBSERVED,   /* the A2 window ended without INTSR bit 13; window records flushed; no teardown yet */
+    GBP_INITIRQA_CAUSE_OBSERVED        /* INTSR bit 13 observed (EVENT); window records flushed; no teardown yet */
+} gbp_initirqa_cause_rc;
+
+gbp_initirqa_cause_rc gbp_initirqa_run_cause(const struct gbp_transport *t, struct ringlog *log,
+                                             const struct gbp_initirqa_config *cfg, struct gbp_initirqa_result *res);
+
+struct gbp_initirqa_teardown_opts {
+    int pi_cleanup_allowed;                 /* 0: CLEANUPCHK observes only (reason=budget_spent) */
+    void (*pre_arinfo_hook)(void *ctx);     /* runs after the PI step, before the AR_INFO restore (NULL: none) */
+    void *hook_ctx;
+};
+
+/* The teardown of §9 R7 as run by the probe (opts NULL = the probe's own
+ * behavior: cleanup allowed, no hook). Never writes end records. */
+void gbp_initirqa_teardown(const struct gbp_transport *t, struct ringlog *log, const struct gbp_initirqa_config *cfg,
+                           struct gbp_initirqa_result *res, const struct gbp_initirqa_teardown_opts *opts);
+
+/* One snapshot into `s` (any storage): PI (twice if two_pi), CONTROL raw,
+ * IRQ raw (+ TEST raw); note_intsr13 bookkeeping as for the fixed slots.
+ * Logged by gbp_initirqa_snapshot_log (SNAP/PI/RAW records). */
+struct gbp_initirqa_snapshot *gbp_initirqa_snapshot_take(const struct gbp_transport *t, struct gbp_initirqa_result *res,
+                                                         struct gbp_initirqa_snapshot *s, const char *id, int with_test, int two_pi);
+void gbp_initirqa_snapshot_log(struct ringlog *log, const struct gbp_initirqa_result *res, const struct gbp_initirqa_snapshot *s);
+
+/* WRITES / OBSERVED / RESTORE records (the probe's finish writes them after its own end line). */
+void gbp_initirqa_log_summary_records(struct ringlog *log, struct gbp_initirqa_result *res);
 
 /* The IRQ-register shape rule (pure; tested on host). Returns 1 if ok,
  * else 0 and *reason names the first failed condition. */

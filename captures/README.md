@@ -33,7 +33,14 @@ header prepended; the raw device logs stay unmodified under
 The GBP-INIT-003A fixture above is physical. The same tooling path is also
 exercised by `tests/host/test_initirqa_replay.py` on a script generated
 from the host mock (marked `# SYNTHETIC` by `--note`) and kept under
-`build/`; synthetic scripts are never placed in this directory. The grammar
+`build/`; synthetic scripts are never placed in this directory. **No
+GBP-INIT-003B fixture exists** (the experiment is implemented, not
+executed): `tests/host/test_initirqb_replay.py` round-trips a mock log of
+the delivery stage the same way (its `I u` line carries the extended
+handler record, the POSTACK main-loop W1C becomes `P a`), and the physical
+003A fixture is the real prefix of the 003B probe up to the EVENT — a
+replay of it stops at the handler install because the fixture has no `I`
+lines (the run had no interrupt path). The grammar
 has an optional `P p <intsr>` line (the value the next `poll_intsr`
 returns) for the INTSR-polling loops of that probe; the polling loops
 replay with one time-base read per sample, so poll counters differ from

@@ -24,8 +24,16 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      "never" properties, physical prefixes up to the first experimental
                                      write, the complete physical run initirqa-0001 (2026-09-15) replayed
                                      with the console's time base; --dump-log / --replay modes
+                  test_gbp_initirqb.c GBP-INIT-003B logic (delivery of a latched HSP cause): the 003A stage
+                                     reused, handler install after the EVENT, one unmask, the extended
+                                     one-shot body run by the mock (mask before W1C, one W1C, second read),
+                                     device ACK, main W1C budget, every abort/anomaly/restore path, event
+                                     order and "never" properties, the physical 003A fixture as the prefix
+                                     up to the EVENT; --dump-log / --replay modes (synthetic only — no
+                                     physical 003B data exists)
 tests/mocks/    scripted device models behind src/gbp/gbp_transport.h (PI model, synthetic
-                interrupt path, synthetic IRQ-register source/mask model, failure injection)
+                interrupt path with the base and the extended one-shot bodies, synthetic IRQ-register
+                source/mask model with an optional re-latch after a W1C, failure injection)
 tests/host/     Python tests (pytest or python3 -m unittest):
                   test_dolinfo.py    synthetic DOL header vectors
                   test_dolpad.py     32-byte padding tool
@@ -36,12 +44,18 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      initirq-0001, initirqa-0001), what each known driver would read
                                      from them, blockdiff findings
                   test_dolphin_smoke.py runner command line (isolated user dir, OSD override)
-                  test_isr_audit.py  one-shot handler audit (synthetic listings + the built object)
-                  test_poc_audit.py  GBP-INIT-003A object audit (synthetic listings in both GCC
-                                     encodings, the built objects, negative control on the
-                                     GBP-INIT-002 interrupt-path object)
+                  test_isr_audit.py  one-shot handler audit (synthetic listings incl. the extended body
+                                     with its bounded loop, negative controls: second/missing/wrong-value
+                                     INTSR store, INTMR store; the built GBP-INIT-002 and 003B objects)
+                  test_poc_audit.py  object audit, profiles 003a and 003b (synthetic listings in both GCC
+                                     encodings, the built objects, negative controls on the GBP-INIT-002
+                                     interrupt-path object and the GBP-INIT-001 INTMR object, profiles
+                                     mutually exclusive on the builds)
                   test_initirqa_replay.py synthetic GBP-INIT-003A log → fixture → replay round trip
                                      (no physical data; files stay under build/)
+                  test_initirqb_replay.py synthetic GBP-INIT-003B log → fixture → replay round trip
+                                     (14-number "I u" line, POSTACK "P a"); the physical 003A fixture
+                                     through the 003B probe (stops at the handler install)
                   test_artifacts.py  checks on the built ELF/DOL (skipped
                                      until `make build` has run)
 ```

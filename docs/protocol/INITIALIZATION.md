@@ -406,7 +406,9 @@ stop (`IRQ := read | 0x8AAA`; GBP-IRQ-006) — HARDWARE_TESTS.md "Planned
 tests"; implemented and **executed 2026-09-15** as
 `poc/gbp-init-irq-program-probe` (`src/gbp/gbp_initirqa_probe.c`) — result
 and updated model in §11. Delivery (handler + unmask) is GBP-INIT-003B,
-analyzed after 003A's result (DEVLOG), not yet designed in detail. Writing a previously read value back as a "restore" stays
+designed and implemented 2026-09-15 (`poc/gbp-init-irq-deliver-probe`,
+`src/gbp/gbp_initirqb_probe.c`; dirty build, NOT physically executed —
+§11 and HARDWARE_TESTS.md). Writing a previously read value back as a "restore" stays
 prohibited. The
 read layout in the 0x8FAE state is `hh hh ll' ll` with `ll' = ll | 0x01`
 at offsets ≡ 2 mod 4 (U-GBP-025): keep reading offsets ≡ 1 / ≡ 3 mod 4
@@ -473,12 +475,18 @@ re-enable `0`, KEYPAD written on every service — KEYPAD has never been
 written) without losing causes; (4) CONTROL bits 0x04/0x08 (Disc start
 `|0x04` then `&~0x10` vs GBI `(v & ~0x18) | 0x0C`, U-GBP-006). Reading
 the AUDIO/VIDEO blocks belongs to Phases 4/6. No move to VIDEO before (1)
-and (2) are answered; the next experiment, GBP-INIT-003B, is specified
-(not implemented) in HARDWARE_TESTS.md "Planned tests — GBP-INIT-003B"
-and DEVLOG 2026-09-15 "GBP-INIT-003B designed". Decisions it fixes for
-that experiment, in addition to R1–R8: the handler is installed only
-after a latched cause has been observed with PI masked and is unmasked
-once; the PI W1C budget is one in the handler (after the mask) plus at
-most one in the main loop; the device is acknowledged with `read |
+and (2) are answered; the next experiment, GBP-INIT-003B, is specified in
+HARDWARE_TESTS.md "Planned tests — GBP-INIT-003B" (DEVLOG 2026-09-15
+"GBP-INIT-003B designed") and **implemented 2026-09-15** as
+`poc/gbp-init-irq-deliver-probe` / `src/gbp/gbp_initirqb_probe.c` (DEVLOG
+2026-09-15 "GBP-INIT-003B implemented"): a dirty build, audited on the
+host, NOT physically executed and not a physical candidate. Decisions it
+fixes for that experiment, in addition to R1–R8: the handler is installed
+only after a latched cause has been observed with PI masked and is
+unmasked once; the PI W1C budget is one in the handler (after the mask)
+plus at most one in the main loop; the device is acknowledged with `read |
 0x8000` under the running CONTROL before any restore, and the run ends
-with the Disc stop word.
+with the Disc stop word. The implementation reuses the executed 003A
+module for the whole programming sequence (`gbp_initirqa_run_cause` +
+`gbp_initirqa_teardown`), so the physical 003A fixture replays through
+the 003B probe verbatim up to the EVENT.

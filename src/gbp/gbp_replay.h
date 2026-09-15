@@ -20,9 +20,12 @@
  *   I i <null|nonnull>            irq_install -> old_was_null
  *   I u <count> <fired> <t_entry> <intsr_before_ack> <intmr_at_entry>
  *       <intsr_after_ack> <intmr_after_mask> <reentry_intsr> <reentry_intmr>
+ *       [<intsr_before_w1c> <t_second> <intsr_second> <intmr_second> <reentry_t>]
  *                                 irq_unmask; the handler record that the physical
  *                                 handler produced during the window (all zero when it
- *                                 never ran) becomes visible to irq_record afterwards
+ *                                 never ran) becomes visible to irq_record afterwards;
+ *                                 the optional five numbers are the extended handler's
+ *                                 fields (GBP-INIT-003B logs; absent in older fixtures)
  *   I m                           irq_mask
  *   I r                           irq_restore
  * irq_record consumes no line. The interrupt-path operations are exposed

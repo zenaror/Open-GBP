@@ -795,8 +795,9 @@ below; the implementation adds a BASE snapshot before the CONTROL write
 re-check at P0 and at A2PRE, and formats every record of the
 experimental region only after the window (`REGION formatted_inside=0`). The two experimental writes are literally the values
 of GBI's first loop pass (GBP-IRQ-004); the stop write is the Start-up
-Disc's (GBP-IRQ-002/006). GBP-INIT-003B (delivery: handler + unmask) is
-future and will be designed only after 003A's physical result.
+Disc's (GBP-IRQ-002/006). GBP-INIT-003B (delivery: handler + unmask) was
+designed after 003A's physical result and implemented 2026-09-15 as a dirty
+build (not executed): its own entry below.
 
 ```text
 Question A1: with PI HSP masked, what does IRQ := irq_read | 0x8000 (GBI's acknowledge,
@@ -868,10 +869,68 @@ Risks:  a device line asserted for up to ~2 s with PI masked (no CPU effect); a 
 Physical setup: identical to GBP-INIT-002.
 ```
 
-### GBP-INIT-003B — delivery of a latched HSP cause to the CPU as IRQ 26 (designed 2026-09-15; NOT implemented, NOT released)
+### GBP-INIT-003B — delivery of a latched HSP cause to the CPU as IRQ 26 (designed 2026-09-15; IMPLEMENTED 2026-09-15 as a dirty build; NOT physically executed, NOT released)
 
-Status: design only (DEVLOG 2026-09-15 "GBP-INIT-003B designed"); no
-code, no build, no hardware, no request. Depends on GBP-INIT-003A
+Status: **IMPLEMENTED — NOT PHYSICALLY EXECUTED — DIRTY BUILD, NOT A
+PHYSICAL CANDIDATE**; no hardware, no request (DEVLOG 2026-09-15
+"GBP-INIT-003B designed" and "GBP-INIT-003B implemented"). Code:
+`src/gbp/gbp_initirqb_probe.{h,c}` composed on the executed 003A module,
+which was refactored into stages (`gbp_initirqa_run_cause`,
+`gbp_initirqa_teardown`, snapshot helpers) without behavior change — its
+2195 host checks and the physical initirqa-0001 replay are unchanged;
+the extended one-shot body `gbp_irq_oneshot_service_ext()`
+(`src/gbp/gbp_irq_oneshot.h`; the GBP-INIT-002 body kept verbatim);
+`src/platform/hsp_backend_irq.c` (`hsp_backend_irq_transport_ext`,
+`hsp_backend_oneshot_isr_ext`; the direct INTMR store of GBP-INIT-001
+moved to `hsp_backend_intmr.c`, so the interrupt-path object holds none);
+POC `poc/gbp-init-irq-deliver-probe/` (Test ID `GBP-INIT-003B`, Build ID
+`initirqb-0001`, gecko prefix `OPENGBP-INITIRQB`, SD file
+`GBP-INIT-003B_initirqb-0001.log`). Build under review: base HEAD
+`fa6f35e`, tree dirty (`fa6f35e-dirty`), DOL sha256
+`ee34d93ad2774a9365fa9afd8485558f78e2f53df939b35ee1a84220f581df80`
+(383232 bytes, entry 0x80003100, 1 text + 1 data section, 32-byte
+aligned, devkitPPC GCC 16.1.0, libogc2 r2442.094b250). Host validation
+of that build: `tests/unit/test_gbp_initirqb.c` 1031 checks (≈40 mock
+scenarios: delivery, level re-assert, delayed re-latch, W1C budget and
+sticky, timeout, unmask ineffective, reentry, mask failure, install
+failure, no IRQ path, every PREUNMASK abort, non-NULL previous handler,
+ACK / stop / CONTROL / handler / AR_INFO restore failures, read failures,
+no cause, stage aborts, call-time attempted/completed, wrapping time
+base, worst-case line widths, ring overflow, event order and "never"
+properties; the physical 003A fixture as the prefix up to the EVENT —
+the probe stops at the handler install because the fixture has no
+interrupt path, and the 003A teardown consumes every remaining line);
+Python 124 tests including the synthetic round trip
+`tests/host/test_initirqb_replay.py` (log → `tools/probelog.py` fixture
+marked SYNTHETIC → replay → identical summary); `make initirqb-audit`:
+`tools/isr_audit.py` on both handlers CLEAN (ext body 82 instructions,
+base 70; only `__MaskIrq` called, exactly one INTSR store of 0x2000
+after the mask, no INTMR store), `tools/poc_audit.py --profile 003b` 0
+findings (`__UnmaskIrq` one call site `h_irq_unmask`, `IRQ_Request` only
+`h_irq_install`/`h_irq_restore`, `__MaskIrq` only `h_irq_mask` + the two
+handlers, INTMR stores 0, IRQ-register write sites 3 + 1, `main.o` uses
+the ext constructor); `make initirqb-dolphin`: no HSP device →
+`abort_inconsistent`, GBPlayer model → `abort_control_shape`, no write,
+no install, no unmask, OSD off. **No physical GBP-INIT-003B fixture
+exists and none is invented.** Before any hardware: a checkpoint commit,
+a clean rebuild, a clean audit and a recorded hash. Precisions of the
+implementation relative to the design below: (1) the ISR record keeps
+the 002 field names `intsr_before_ack` / `intsr_after_ack` for
+`intsr_at_entry` / `intsr_after_w1c` and names `intmr_final`
+`intmr_second` (the log records use the 003B names); (2) an additional
+status `anomaly_mask_failure` (INTMR bit 13 still 1 after the main
+re-mask and one retry: no device ACK, teardown) and the
+`abort_pre_unmask_state` reasons `read_failed` / `record_not_clear` /
+`cause_lost` / `intmr13_unmasked` / `control_changed` /
+`semantic_disagree` / `irq_state_unexpected`; (3) a device ACK whose
+PREACK IRQ read failed or whose two readings disagree is skipped
+(`ACK skipped=1 reason=`), the run continues to the teardown and the stop
+word; (4) the 003A-stage aborts keep 003A's status names; (5) the ISR
+wait is bounded twice (≈100 ticks and 4096 time-base reads); (6) the
+teardown restores the previous handler before verifying the mask, as
+designed, also on the anomaly paths (a persistent cause with an
+ineffective mask hangs the CPU whichever handler is present — the power
+cycle covers it). Design (unchanged) — depends on GBP-INIT-003A
 (executed: GBP-HW-027…034, GBP-PI-004, GBP-IRQ-007), GBP-INIT-002
 (GBP-HW-021…026), ENV-IRQ-001/002 (libogc2 dispatcher and mask API,
 verified against the checkout `external/libogc2/libogc/irq.c`:

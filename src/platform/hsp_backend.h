@@ -38,6 +38,7 @@ struct hsp_backend {
      * verbatim (NULL or not) and put back by irq_restore. */
     irq_handler_t old_handler;
     int handler_installed;
+    int use_ext_isr;           /* 1: irq_install registers the extended one-shot (GBP-INIT-003B) */
 };
 
 /* buffer: 32 bytes, 32-byte aligned (e.g. static u8 b[32] ATTRIBUTE_ALIGN(32)). */

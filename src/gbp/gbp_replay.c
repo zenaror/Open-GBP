@@ -236,16 +236,20 @@ static gbp_status r_irq_unmask(void *ctx)
     struct gbp_replay *r = (struct gbp_replay *)ctx;
     char line[160];
     char *p, *end;
-    uint32_t v[9];
-    unsigned k;
+    uint32_t v[14];
+    unsigned k, n = 9;
     if (!expect_irq_line(r, 'u', line, sizeof line)) return GBP_ERR_BACKEND;
     p = line + 3;
-    for (k = 0; k < 9; k++) {
+    memset(v, 0, sizeof v);
+    for (k = 0; k < 14; k++) {
         while (*p == ' ') p++;
-        v[k] = (uint32_t)strtoul(p, &end, k < 3 ? 10 : 16);
+        if (k >= 9 && *p == '\0') break;                      /* the extended fields are optional */
+        v[k] = (uint32_t)strtoul(p, &end, (k < 3 || k == 10 || k == 13) ? 10 : 16);
         if (end == p) { r->mismatches++; return GBP_ERR_BACKEND; }
         p = end;
+        n = k + 1u;
     }
+    (void)n;
     r->rec.count = v[0];
     r->rec.fired = v[1];
     r->rec.t_entry = v[2];
@@ -255,6 +259,11 @@ static gbp_status r_irq_unmask(void *ctx)
     r->rec.intmr_after_mask = v[6];
     r->rec.reentry_intsr = v[7];
     r->rec.reentry_intmr = v[8];
+    r->rec.intsr_before_w1c = v[9];                          /* extended handler (GBP-INIT-003B): */
+    r->rec.t_second = v[10];                                 /*   intsr_before_w1c t_second intsr_second intmr_second reentry_t */
+    r->rec.intsr_second = v[11];
+    r->rec.intmr_second = v[12];
+    r->rec.reentry_t = v[13];
     return GBP_OK;
 }
 

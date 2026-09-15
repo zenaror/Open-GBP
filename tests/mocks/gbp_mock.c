@@ -131,10 +131,21 @@ static void w1c_core(struct gbp_mock *m, uint32_t v)
     if (m->intsr_sticky_after_w1c && m->cause_asserted) clear &= ~GBP_PI_HSP_BIT;
     if (m->irq_model == MOCK_IRQ_MODEL_SOURCE_MASK && m->pi_cause_level && device_line(m)) clear &= ~GBP_PI_HSP_BIT;
     if (m->intsr_w1c_ignored) clear &= ~GBP_PI_HSP_BIT;
+    if ((clear & GBP_PI_HSP_BIT) && (m->intsr & GBP_PI_HSP_BIT) && m->pi_relatch_after_ticks &&
+        m->irq_model == MOCK_IRQ_MODEL_SOURCE_MASK && device_line(m)) {
+        m->relatch_pending = 1;
+        m->relatch_at_tick = m->tick + m->pi_relatch_after_ticks;
+    }
     m->intsr &= ~clear;
 }
 
-static uint32_t prim_ticks(void) { return isr_mock->tick; }
+static void relatch_step(struct gbp_mock *m);
+static uint32_t prim_ticks(void)
+{
+    struct gbp_mock *m = isr_mock;
+    if (m->isr_ext) { m->tick += 1; relatch_step(m); }       /* the extended body's bounded wait needs a moving time base */
+    return m->tick;
+}
 static uint32_t prim_read_intsr(void) { return isr_mock->intsr; }
 static uint32_t prim_read_intmr(void) { return isr_mock->intmr; }
 static void prim_mask(void)
@@ -148,8 +159,19 @@ static void prim_write_intsr(uint32_t v)
 {
     struct gbp_mock *m = isr_mock;
     if (!m->isr_masked_this_entry) violation(m, GBP_MOCK_VIOL_ISR_W1C_BEFORE_MASK);
+    m->isr_w1c_count++;
     w1c_core(m, v);
     record_ev(m, MOCK_ISR_W1C, 0, (uint16_t)v, 0, GBP_OK);
+}
+
+/* Re-latch model (synthetic): a W1C that cleared bit 13 while the device line
+ * was still up re-sets it pi_relatch_after_ticks later. */
+static void relatch_step(struct gbp_mock *m)
+{
+    if (m->relatch_pending && (int32_t)(m->tick - m->relatch_at_tick) >= 0) {
+        m->relatch_pending = 0;
+        if (device_line(m)) m->intsr |= GBP_PI_HSP_BIT;
+    }
 }
 
 static void deliver(struct gbp_mock *m)
@@ -160,7 +182,8 @@ static void deliver(struct gbp_mock *m)
     m->deliveries++;
     record_ev(m, MOCK_ISR_ENTRY, 0, 0, 0, GBP_OK);
     isr_mock = m;
-    gbp_irq_oneshot_service(&m->rec);
+    if (m->isr_ext) gbp_irq_oneshot_service_ext(&m->rec);
+    else gbp_irq_oneshot_service(&m->rec);
     isr_mock = saved;
     record_ev(m, MOCK_ISR_EXIT, 0, 0, 0, GBP_OK);
     m->in_isr = 0;
@@ -175,12 +198,14 @@ static void irq_step(struct gbp_mock *m)
     unsigned guard = 0;
     if (m->in_isr) return;
     source_step(m);
+    relatch_step(m);
     if (m->irq_mode == MOCK_IRQ_AFTER_TICKS && m->unmasked_once && !m->cause_asserted &&
         (uint32_t)(m->tick - m->unmask_tick) >= m->irq_after_ticks) {
         m->cause_asserted = 1;
         m->intsr |= GBP_PI_HSP_BIT;          /* visible whether or not it is masked */
     }
     while ((m->intsr & GBP_PI_HSP_BIT) && (m->intmr & GBP_PI_HSP_BIT)) {
+        if (m->delivery_suppressed) break;                    /* synthetic: unmasked cause never reaches the CPU */
         if (!m->handler_installed) {
             /* An unmasked cause with no handler: the real CPU would loop in
              * the exception forever (ENV-IRQ-001). Flag it and stop. */
@@ -202,10 +227,16 @@ static void irq_step(struct gbp_mock *m)
 static gbp_status m_irq_install(void *ctx, int *old_was_null)
 {
     struct gbp_mock *m = (struct gbp_mock *)ctx;
+    m->installed_calls++;
     if (m->install_fails) { record_ev(m, MOCK_IRQ_INSTALL, 0, 0, 0, GBP_ERR_BACKEND); return GBP_ERR_BACKEND; }
     if (m->handler_installed) violation(m, GBP_MOCK_VIOL_INSTALL_TWICE);
     m->handler_installed = 1;
     memset((void *)&m->rec, 0, sizeof m->rec);
+    if (m->record_dirty_on_install) m->rec.count = 1;
+    if (m->clear_cause_on_install) m->intsr &= ~GBP_PI_HSP_BIT;               /* synthetic state changes at the install */
+    if (m->intmr13_set_on_install) m->intmr |= GBP_PI_HSP_BIT;
+    if (m->control_on_install) { m->control_byte = m->control_on_install; m->control_block = 0; }
+    if (m->irq_reg_on_install) { m->irq_reg = m->irq_reg_on_install; reg_after_change(m); }
     if (old_was_null) *old_was_null = m->old_handler_nonnull ? 0 : 1;
     record_ev(m, MOCK_IRQ_INSTALL, 0, (uint16_t)(m->old_handler_nonnull ? 1 : 0), 0, GBP_OK);
     irq_step(m);
@@ -404,6 +435,7 @@ static gbp_status m_read_block(void *ctx, uint32_t addr, uint8_t out[GBP_BLOCK_S
             if (m->irq_model == MOCK_IRQ_MODEL_SOURCE_MASK) {
                 present_u16_doubled(m->irq_reg, out);
                 if (m->irq_byte0_anomaly) out[0] |= 0x11;   /* byte 0 must never feed a decision */
+                if (m->irq_disagree_on_install && m->installed_calls) out[0x1F] ^= 0x01;   /* Disc reading != GBI vote */
                 break;
             }
             if (m->irq_block) { memcpy(out, m->irq_block, GBP_BLOCK_SIZE); break; }

@@ -16,7 +16,10 @@
 #   make initirqa-dolphin run the gbp-init-irq-program-probe DOL in Dolphin (absent → abort; GBPlayer model → shape abort)
 #   make initirqa-audit  disassemble every object of gbp-init-irq-program-probe: no INTMR store, no unmask/handler
 #                       symbols, exactly three IRQ-register write sites (tools/poc_audit.py)
-#   make all            test + smoke-dolphin + probe-dolphin + init-dolphin + initirq-dolphin + initirqa-dolphin
+#   make initirqb-dolphin run the gbp-init-irq-deliver-probe DOL in Dolphin (absent → abort_inconsistent; GBPlayer model → shape abort)
+#   make initirqb-audit  audit gbp-init-irq-deliver-probe: both one-shot handlers (tools/isr_audit.py) and every object
+#                       (tools/poc_audit.py --profile 003b: one __UnmaskIrq site, no INTMR store, four IRQ-register write sites)
+#   make all            test + smoke-dolphin + probe-dolphin + init-dolphin + initirq-dolphin + initirqa-dolphin + initirqb-dolphin
 #   make shell          interactive shell in the container
 #   make clean
 
@@ -32,7 +35,9 @@ IN_CONTAINER := $(COMPOSE) run --rm -T dev
 PYTHON ?= python3
 PYTEST := $(shell command -v pytest 2>/dev/null)
 
-POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe
+POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe
+INITIRQB_OUT := build/poc/gbp-init-irq-deliver-probe
+INITIRQB_DOL := $(INITIRQB_OUT)/gbp-init-irq-deliver-probe.dol
 INITIRQA_OUT := build/poc/gbp-init-irq-program-probe
 INITIRQA_DOL := $(INITIRQA_OUT)/gbp-init-irq-program-probe.dol
 INITIRQ_OUT := build/poc/gbp-init-irq-probe
@@ -44,10 +49,10 @@ SMOKE_DOL := $(SMOKE_OUT)/smoke-test.dol
 PROBE_OUT := build/poc/gbp-probe
 PROBE_DOL := $(PROBE_OUT)/gbp-probe.dol
 
-.PHONY: help env-check build inspect test-host test-unit test-python test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit all shell clean
 
 help:
-	@sed -n '2,21p' $(firstword $(MAKEFILE_LIST))
+	@sed -n '2,24p' $(firstword $(MAKEFILE_LIST))
 
 env-check:
 	$(IN_CONTAINER) sh -c 'set -e; \
@@ -126,10 +131,12 @@ initirq-dolphin:
 
 # Static audit of the one-shot handler actually linked into the DOL: the
 # function may only reference the two PI registers, the time base and
-# libogc2's __MaskIrq (docs/protocol/INITIALIZATION.md §9 R8).
+# libogc2's __MaskIrq (docs/protocol/INITIALIZATION.md §9 R8). The same
+# step dumps the GBP-INIT-001 INTMR object (the only direct INTMR store in
+# the tree) as the negative-control input of tests/host/test_poc_audit.py.
 initirq-audit:
 	@test -f $(INITIRQ_OUT)/obj/hsp_backend_irq.o || { echo "missing $(INITIRQ_OUT)/obj/hsp_backend_irq.o; run make build"; exit 1; }
-	$(IN_CONTAINER) sh -c 'powerpc-eabi-objdump -dr $(INITIRQ_OUT)/obj/hsp_backend_irq.o > $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt; powerpc-eabi-nm $(INITIRQ_OUT)/gbp-init-irq-probe.elf > $(INITIRQ_OUT)/gbp-init-irq-probe.nm.txt'
+	$(IN_CONTAINER) sh -c 'powerpc-eabi-objdump -dr $(INITIRQ_OUT)/obj/hsp_backend_irq.o > $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt; powerpc-eabi-nm $(INITIRQ_OUT)/gbp-init-irq-probe.elf > $(INITIRQ_OUT)/gbp-init-irq-probe.nm.txt; test -f $(INIT_OUT)/obj/hsp_backend_intmr.o && powerpc-eabi-objdump -dr $(INIT_OUT)/obj/hsp_backend_intmr.o > $(INIT_OUT)/hsp_backend_intmr.objdump.txt || true'
 	$(PYTHON) tools/isr_audit.py $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt --report $(INITIRQ_OUT)/isr-audit.txt
 
 # GBP-INIT-003A in Dolphin: no HSP device → abort_inconsistent (Dolphin
@@ -161,7 +168,37 @@ initirqa-audit:
 	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(INITIRQA_OUT)/audit; rm -f $(INITIRQA_OUT)/audit/*.objdump.txt; for o in $(INITIRQA_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(INITIRQA_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(INITIRQA_OUT)/gbp-init-irq-program-probe.elf > $(INITIRQA_OUT)/audit/elf.nm.txt'
 	$(PYTHON) tools/poc_audit.py $(INITIRQA_OUT)/audit --report $(INITIRQA_OUT)/poc-audit.txt
 
-all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirqa-dolphin
+# GBP-INIT-003B in Dolphin: the same two stage-A aborts as GBP-INIT-003A
+# (no HSP device → abort_inconsistent; GBPlayer model → abort_control_shape
+# on its idle CONTROL 0x03). Neither run reaches a CONTROL or IRQ write, the
+# handler install or the unmask; the delivery stage is covered by
+# tests/unit/test_gbp_initirqb.c against the synthetic mock. Preconditions
+# are never weakened for Dolphin; the OSD is disabled by the runner.
+initirqb-dolphin:
+	$(PYTHON) tools/dolphin_smoke.py --dol $(INITIRQB_DOL) --build-info $(INITIRQB_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-INITIRQB DONE status=abort_inconsistent reason=inconsistent restore=ok restore_reason=- verdict=inconsistent det=1/4 written=0 irq_attempted=0 irq_completed=0 ctl_exp=0/0 a1=0/0 a2=0/0 ack=0/0 stop=0/0 ctl_restore=0/0 uncertain=0 cause=0 t_event=0 handler=0 old=\? preunmask=0/- unmasked=0 fired=0 count=0 .*main_pi_w1c=0 site=- sticky=0 .*handler_restored=-1 mask_ok=-1 arinfo_restore_ok=1 power_cycle_required=0 errors=0 transport_ok=1' \
+	  --report $(INITIRQB_OUT)/dolphin-report-absent.json --screen-png $(INITIRQB_OUT)/dolphin-screen-absent.png
+	$(PYTHON) tools/dolphin_smoke.py --dol $(INITIRQB_DOL) --build-info $(INITIRQB_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-INITIRQB DONE status=abort_control_shape reason=control_not_idle_shape restore=ok restore_reason=- verdict=present det=4/4 written=0 irq_attempted=0 irq_completed=0 ctl_exp=0/0 a1=0/0 a2=0/0 ack=0/0 stop=0/0 ctl_restore=0/0 uncertain=0 cause=0 t_event=0 handler=0 old=\? preunmask=0/- unmasked=0 fired=0 count=0 .*main_pi_w1c=0 site=- sticky=0 .*handler_restored=-1 mask_ok=-1 arinfo_restore_ok=1 power_cycle_required=0 errors=0 transport_ok=1' \
+	  -C Dolphin.Core.HSPDevice=2 \
+	  --report $(INITIRQB_OUT)/dolphin-report-present.json --screen-png $(INITIRQB_OUT)/dolphin-screen-present.png
+
+# Static audit of gbp-init-irq-deliver-probe: tools/isr_audit.py on both
+# one-shot bodies linked into the DOL (only __MaskIrq called, exactly one
+# INTSR store of 0x2000 after the mask, no INTMR store, loop allowed) and
+# tools/poc_audit.py --profile 003b on every object (hsp_backend_irq.o
+# linked, hsp_backend_intmr.o and the 001/002 probes not; __UnmaskIrq from
+# h_irq_unmask only; IRQ_Request from h_irq_install/h_irq_restore only;
+# __MaskIrq from h_irq_mask and the two handlers only; no INTMR store;
+# gbp_regwrite_irq_u16 3 + 1 call sites; main.o uses the ext constructor).
+initirqb-audit:
+	@test -d $(INITIRQB_OUT)/obj || { echo "missing $(INITIRQB_OUT)/obj; run make build"; exit 1; }
+	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(INITIRQB_OUT)/audit; rm -f $(INITIRQB_OUT)/audit/*.objdump.txt; for o in $(INITIRQB_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(INITIRQB_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(INITIRQB_OUT)/gbp-init-irq-deliver-probe.elf > $(INITIRQB_OUT)/audit/elf.nm.txt'
+	$(PYTHON) tools/isr_audit.py $(INITIRQB_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr_ext --report $(INITIRQB_OUT)/isr-audit-ext.txt
+	$(PYTHON) tools/isr_audit.py $(INITIRQB_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr --report $(INITIRQB_OUT)/isr-audit-base.txt
+	$(PYTHON) tools/poc_audit.py $(INITIRQB_OUT)/audit --profile 003b --report $(INITIRQB_OUT)/poc-audit.txt
+
+all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirqa-dolphin initirqb-dolphin
 
 shell:
 	$(COMPOSE) run --rm dev bash

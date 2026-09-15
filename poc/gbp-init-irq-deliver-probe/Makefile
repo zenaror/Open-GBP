@@ -1,5 +1,5 @@
 #---------------------------------------------------------------------------------
-# Open-GBP GBP-INIT-001 — GameCube build (devkitPPC + libogc2)
+# Open-GBP GBP-INIT-003B — GameCube build (devkitPPC + libogc2)
 #
 # Run from inside the project container, e.g. from the repository root:
 #
@@ -7,15 +7,20 @@
 #
 # or directly inside the container:
 #
-#     make -C poc/gbp-init-probe
+#     make -C poc/gbp-init-irq-deliver-probe
 #
-# Outputs go to build/poc/gbp-init-probe/ (ignored by Git):
-#     gbp-init-probe.elf           linked ELF
-#     gbp-init-probe.unpadded.dol  raw elf2dol output
-#     gbp-init-probe.dol           final DOL, section sizes padded to 32 bytes by
-#                              tools/dolpad.py (required by Dolphin 2606a's
-#                              DolReader; harmless for physical loaders)
-#     gbp-init-probe.map, build-info.txt
+# Outputs go to build/poc/gbp-init-irq-deliver-probe/ (ignored by Git):
+#     gbp-init-irq-deliver-probe.elf           linked ELF
+#     gbp-init-irq-deliver-probe.unpadded.dol  raw elf2dol output
+#     gbp-init-irq-deliver-probe.dol           final DOL, section sizes padded to 32 bytes by
+#                                      tools/dolpad.py (required by Dolphin 2606a's
+#                                      DolReader; harmless for physical loaders)
+#     gbp-init-irq-deliver-probe.map, build-info.txt, obj/*.o (every object is audited by
+#     `make initirqb-audit` at the repository root: profile 003b of tools/poc_audit.py — one
+#     __UnmaskIrq call site, IRQ_Request only from the install/restore pair, __MaskIrq only from
+#     the mask primitive and the two one-shot bodies, no INTMR store, four IRQ-register write
+#     call sites — and tools/isr_audit.py on both one-shot handlers; hsp_backend_irq.c IS linked,
+#     hsp_backend_intmr.c (the direct INTMR store of GBP-INIT-001) is NOT)
 #---------------------------------------------------------------------------------
 .SUFFIXES:
 
@@ -28,8 +33,8 @@ include $(DEVKITPRO)/libogc2/gamecube_rules
 #---------------------------------------------------------------------------------
 # Identity
 #---------------------------------------------------------------------------------
-APP_NAME   := gbp-init-probe
-BUILD_ID   := init-0001
+APP_NAME   := gbp-init-irq-deliver-probe
+BUILD_ID   := initirqb-0001
 GIT_COMMIT ?= $(shell git -C "$(CURDIR)" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 GIT_DIRTY  ?= $(shell git -C "$(CURDIR)" diff --quiet HEAD -- 2>/dev/null || echo -dirty)
 COMMIT_ID  := $(GIT_COMMIT)$(GIT_DIRTY)
@@ -44,7 +49,7 @@ TARGET  := $(OUTDIR)/$(APP_NAME)
 
 vpath %.c $(CURDIR)/source $(ROOT)/src/common $(ROOT)/src/log $(ROOT)/src/gbp $(ROOT)/src/platform
 
-SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_init_probe.c hsp_backend.c hsp_backend_intmr.c sdlog.c
+SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_initirqb_probe.c hsp_backend.c hsp_backend_irq.c sdlog.c
 OBJS := $(addprefix $(OBJDIR)/,$(SRCS:.c=.o))
 DEPS := $(OBJS:.o=.d)
 

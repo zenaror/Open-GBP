@@ -22,6 +22,19 @@ GBP-INIT-003A records (gbp_initirqa_probe.c) map to the replay script as:
 Deadline loops replay with one time-base read per sample (the SNAP's own
 `ticks`), so poll counters differ from the device run and are not part of
 the comparison; nothing else is invented.
+
+GBP-INIT-003B records (gbp_initirqb_probe.c) extend the GBP-INIT-002 rules:
+    HANDLERPI intsr_at_entry= … intsr_after_w1c=   ->  the same "I u" fields as 002's
+                                                       intsr_before_ack / intsr_after_ack
+    HANDLERPI2 t_second= intsr_second= …           ->  five extra "I u" numbers
+                                                       (intsr_before_w1c t_second intsr_second
+                                                       intmr_second reentry_t), only when the
+                                                       record exists (002 logs are unchanged)
+    MAINPICLEANUP site=POSTACK performed=1 value=  ->  P a <value>  (the main-loop W1C, logged
+                                                       before the write and before the
+                                                       "PI tag=MAINCLEANUP" re-read)
+    IRQ mask tag=MAIN|RETRY rc=ok                  ->  I m  (as 002; the WAIT time-base reads
+                                                       precede the MAIN mask)
 """
 from __future__ import annotations
 
@@ -29,7 +42,7 @@ import json
 import re
 import sys
 
-REC_RE = re.compile(r"^(?:(\d{6}) )?([A-Z]+)(?: (.*))?$")
+REC_RE = re.compile(r"^(?:(\d{6}) )?([A-Z][A-Z0-9]*)(?: (.*))?$")   # kinds may carry a digit (HANDLERPI2, A1, P0CHK)
 KV_RE = re.compile(r"(\w+)=(\S+)")
 
 
@@ -82,24 +95,36 @@ def to_json(header, records):
 
 
 def _handler_record(records, start):
-    """Fields of the HANDLER/HANDLERPI records that follow index `start`
-    (the values the physical handler left in its record), as the nine
-    numbers of a replay "I u" line; zeros when the handler never ran."""
-    h = hp = None
-    for r in records[start:]:
+    """Fields of the HANDLER/HANDLERPI(/HANDLERPI2) records that follow
+    index `start` (the values the physical handler left in its record), as
+    the numbers of a replay "I u" line; zeros when the handler never ran.
+    GBP-INIT-002 names (intsr_before_ack / intsr_after_ack) and GBP-INIT-003B
+    names (intsr_at_entry / intsr_after_w1c) denote the same record fields.
+    The five extended numbers are appended only when a HANDLERPI2 record
+    exists (003B), so 002 logs produce the same nine-number line as before.
+    The search stops at the next UNMASK record."""
+    h = hp = hp2 = None
+    for r in records[start + 1:]:
+        if r["kind"] == "UNMASK":
+            break
         if r["kind"] == "HANDLER" and h is None:
             h = r["fields"]
         elif r["kind"] == "HANDLERPI" and hp is None:
             hp = r["fields"]
-        if h and hp:
-            break
+        elif r["kind"] == "HANDLERPI2" and hp2 is None:
+            hp2 = r["fields"]
     h = h or {}
     hp = hp or {}
-    return "%s %s %s %s %s %s %s %s %s" % (
+    line = "%s %s %s %s %s %s %s %s %s" % (
         h.get("count", "0"), h.get("fired", "0"), h.get("t_entry", "0"),
-        hp.get("intsr_before_ack", "00000000"), hp.get("intmr_at_entry", "00000000"),
-        hp.get("intsr_after_ack", "00000000"), hp.get("intmr_after_mask", "00000000"),
+        hp.get("intsr_before_ack", hp.get("intsr_at_entry", "00000000")), hp.get("intmr_at_entry", "00000000"),
+        hp.get("intsr_after_ack", hp.get("intsr_after_w1c", "00000000")), hp.get("intmr_after_mask", "00000000"),
         hp.get("reentry_intsr", "00000000"), hp.get("reentry_intmr", "00000000"))
+    if hp2 is not None:
+        line += " %s %s %s %s %s" % (
+            hp.get("intsr_before_w1c", "00000000"), hp2.get("t_second", "0"), hp2.get("intsr_second", "00000000"),
+            hp2.get("intmr_second", "00000000"), hp2.get("reentry_t", "0"))
+    return line
 
 
 def _write_ticks_after(records, start):
@@ -214,6 +239,8 @@ def fixture(records, note=None):
                         break
         elif k == "INTMR" and tag in ("mask", "restore") and f.get("rc") == "ok":
             lines.append("P w %s" % (f.get("readback") or f.get("wanted") or f.get("value")))
+        elif k == "MAINPICLEANUP" and f.get("performed") == "1" and "value" in f:   # GBP-INIT-003B main-loop W1C (POSTACK)
+            lines.append("P a %s" % f["value"])
         elif k == "CLEANUP" and f.get("performed") == "1" and idx not in cleanup_emitted:   # one INTSR W1C (no CLEANUPCHK record before it)
             lines.append("P a %s" % f["value"])
     return "\n".join(lines) + "\n"

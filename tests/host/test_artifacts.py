@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 import dolinfo  # noqa: E402
 
-POCS = ("smoke-test", "gbp-probe", "gbp-init-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe")
+POCS = ("smoke-test", "gbp-probe", "gbp-init-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-deliver-probe")
 OUTDIR = os.path.join(ROOT, "build", "poc", "smoke-test")
 ELF = os.path.join(OUTDIR, "smoke-test.elf")
 DOL = os.path.join(OUTDIR, "smoke-test.dol")
@@ -149,7 +149,8 @@ class EveryPocArtifacts(unittest.TestCase):
             prefix = {"smoke-test": b"OPENGBP-SMOKE READY ", "gbp-probe": b"OPENGBP-PROBE READY ",
                       "gbp-init-probe": b"OPENGBP-INIT READY ",
                       "gbp-init-irq-probe": b"OPENGBP-INITIRQ READY ",
-                      "gbp-init-irq-program-probe": b"OPENGBP-INITIRQA READY "}[poc]
+                      "gbp-init-irq-program-probe": b"OPENGBP-INITIRQA READY ",
+                      "gbp-init-irq-deliver-probe": b"OPENGBP-INITIRQB READY "}[poc]
             self.assertIn(prefix, blob, poc)
 
     def test_probe_writes_only_documented_things(self):
@@ -199,6 +200,32 @@ class EveryPocArtifacts(unittest.TestCase):
         self.assertNotIn(b"libmobile", blob)
         bi = read_build_info(os.path.join(ROOT, "build", "poc", "gbp-init-irq-program-probe", "build-info.txt"))
         self.assertEqual(bi["build_id"], "initirqa-0001")
+
+    def test_init_irq_deliver_probe_identity_and_records(self):
+        # GBP-INIT-003B: its own test id and gecko prefix; the 003A stage records (reused module) plus the
+        # delivery-stage records the log tooling keys on; none of the GBP-INIT-001/002 probe records nor
+        # the 002 handler field names; the mandatory power-cycle banner; build id initirqb-0001.
+        dol = os.path.join(ROOT, "build", "poc", "gbp-init-irq-deliver-probe", "gbp-init-irq-deliver-probe.dol")
+        with open(dol, "rb") as f:
+            blob = f.read()
+        self.assertIn(b"GBP-INIT-003B", blob)
+        for tid in (b"GBP-INIT-003A", b"GBP-INIT-002", b"GBP-INIT-001"):
+            self.assertNotIn(tid, blob, tid)
+        self.assertIn(b"OPENGBP-INITIRQB READY ", blob)
+        self.assertIn(b"OPENGBP-INITIRQB LOG ", blob)
+        for rec in (b"INITIRQB start ", b"INITIRQB end status=", b"INITIRQA start ", b"CAUSE t_event=", b"IRQ install rc=",
+                    b"PREUNMASK", b"UNMASK t_unmask=", b"IRQ mask tag=MAIN rc=", b"WAIT fired=", b"HANDLER fired=",
+                    b"HANDLERPI intsr_at_entry=", b"HANDLERPI2 t_second=", b"DELIVERY fired=", b"PREACK", b"ACK before=",
+                    b"POSTACK", b"MAINPICLEANUP site=POSTACK performed=", b"IRQW ", b"layout=gbi-u16-replicated",
+                    b"comment=startup-disc-stop-shadow", b"CLEANUP performed=", b"IRQ restore rc=", b"MASK final intmr=",
+                    b"ACKS ack=", b"RESTOREB handler_installed=", b"WRITES control_written=", b"format=attempted/completed",
+                    b"DEVICE STATE UNCERTAIN", b"POWER CYCLE REQUIRED", b"install_point=after_latched_cause"):
+            self.assertIn(rec, blob, rec)
+        for rec in (b"HANDLERPI intsr_before_ack=", b"INITIRQ start ", b"INIT start ", b"INTMR mask ", b"INTMR restore "):
+            self.assertNotIn(rec, blob, rec)
+        self.assertNotIn(b"libmobile", blob)
+        bi = read_build_info(os.path.join(ROOT, "build", "poc", "gbp-init-irq-deliver-probe", "build-info.txt"))
+        self.assertEqual(bi["build_id"], "initirqb-0001")
 
 
 if __name__ == "__main__":

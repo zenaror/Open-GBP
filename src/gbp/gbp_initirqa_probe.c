@@ -143,11 +143,10 @@ static void read_irq_quiet(const struct gbp_transport *t, struct gbp_initirqa_re
 
 /* One snapshot: PI, CONTROL raw, IRQ raw (+ TEST raw). `have_tnow`: the
  * caller already read the time base (deadline loops); else read it here. */
-static struct gbp_initirqa_snapshot *take_snapshot(const struct gbp_transport *t, struct gbp_initirqa_result *res,
-                                                   unsigned slot, const char *id, int have_tnow, uint32_t tnow,
-                                                   int with_test, unsigned polls_before)
+static struct gbp_initirqa_snapshot *snapshot_into(const struct gbp_transport *t, struct gbp_initirqa_result *res,
+                                                   struct gbp_initirqa_snapshot *s, const char *id, int have_tnow, uint32_t tnow,
+                                                   int with_test, unsigned polls_before, int two_pi)
 {
-    struct gbp_initirqa_snapshot *s = &res->snap[slot];
     memset(s, 0, sizeof *s);
     s->id = id;
     s->taken = 1;
@@ -164,6 +163,11 @@ static struct gbp_initirqa_snapshot *take_snapshot(const struct gbp_transport *t
         s->pi_ok = 0;
     }
     if (!s->pi_ok) res->errors++;
+    if (two_pi && t->read_pi) {
+        /* second sample separated only by the bookkeeping of the first: no invented delay */
+        s->pi2_ok = (t->read_pi(t->ctx, &s->intsr2, &s->intmr2) == GBP_OK) ? 1 : 0;
+        if (!s->pi2_ok) res->errors++;
+    }
     s->control_rc = t->read_block(t->ctx, gbp_block_addr(res->base, GBP_IDX_CONTROL, 0), s->control, &s->control_info);
     if (s->control_rc != GBP_OK) res->errors++;
     s->control_vote = gbp_majority_vote_byte(s->control);
@@ -181,6 +185,19 @@ static struct gbp_initirqa_snapshot *take_snapshot(const struct gbp_transport *t
     return s;
 }
 
+static struct gbp_initirqa_snapshot *take_snapshot(const struct gbp_transport *t, struct gbp_initirqa_result *res,
+                                                   unsigned slot, const char *id, int have_tnow, uint32_t tnow,
+                                                   int with_test, unsigned polls_before)
+{
+    return snapshot_into(t, res, &res->snap[slot], id, have_tnow, tnow, with_test, polls_before, 0);
+}
+
+struct gbp_initirqa_snapshot *gbp_initirqa_snapshot_take(const struct gbp_transport *t, struct gbp_initirqa_result *res,
+                                                         struct gbp_initirqa_snapshot *s, const char *id, int with_test, int two_pi)
+{
+    return snapshot_into(t, res, s, id, 0, 0, with_test, 0, two_pi);
+}
+
 /* ---- formatting (after the fact) -------------------------------------- */
 
 static void log_snapshot(struct ringlog *log, const struct gbp_initirqa_result *res, const struct gbp_initirqa_snapshot *s)
@@ -196,12 +213,20 @@ static void log_snapshot(struct ringlog *log, const struct gbp_initirqa_result *
                        s->id, (unsigned long)s->ticks, (unsigned long)s->since_control, (unsigned long)s->since_a1,
                        (unsigned long)s->since_a2, s->polls_before);
     snprintf(tag, sizeof tag, "tag=%s", s->id);
-    gbp_rawlog_log_pi(log, tag, s->pi_ok ? "ok" : (s->pi_rc == GBP_ERR_BACKEND && !s->intsr && !s->intmr ? gbp_status_name(s->pi_rc) : gbp_status_name(s->pi_rc)),
-                      s->intsr, s->intmr);
+    gbp_rawlog_log_pi(log, tag, s->pi_ok ? "ok" : gbp_status_name(s->pi_rc), s->intsr, s->intmr);
+    if (s->pi2_ok || s->intsr2 || s->intmr2) {
+        snprintf(tag, sizeof tag, "tag=%sb", s->id);
+        gbp_rawlog_log_pi(log, tag, s->pi2_ok ? "ok" : "fail", s->intsr2, s->intmr2);
+    }
     gbp_rawlog_log_block(log, s->id, gbp_block_addr(res->base, GBP_IDX_CONTROL, 0), GBP_IDX_CONTROL, s->control_rc, &s->control_info, s->control);
     gbp_rawlog_log_block(log, s->id, gbp_block_addr(res->base, GBP_IDX_IRQ, 0), GBP_IDX_IRQ, s->irq_rc, &s->irq_info, s->irq);
     if (s->has_test)
         gbp_rawlog_log_block(log, s->id, gbp_block_addr(res->base, GBP_IDX_TEST, 0), GBP_IDX_TEST, s->test_rc, &s->test_info, s->test);
+}
+
+void gbp_initirqa_snapshot_log(struct ringlog *log, const struct gbp_initirqa_result *res, const struct gbp_initirqa_snapshot *s)
+{
+    log_snapshot(log, res, s);
 }
 
 static void log_irqread(struct ringlog *log, const struct gbp_initirqa_result *res, const char *tag, const struct gbp_initirqa_irqread *r)
@@ -225,7 +250,8 @@ static void log_irq_shape(struct ringlog *log, const struct gbp_initirqa_config 
 static void flush_window(struct ringlog *log, const struct gbp_initirqa_config *cfg, struct gbp_initirqa_result *res)
 {
     unsigned k;
-    if (!res->window_entered) return;
+    if (!res->window_entered || res->window_flushed) return;
+    res->window_flushed = 1;
     res->log_count_window_end = log->count;
     log_irqread(log, res, "A1PRE", &res->irq_a1pre);
     if (res->irq_shape_a1pre_ok != -1)
@@ -329,9 +355,10 @@ static unsigned count_uncertain(const struct gbp_initirqa_result *res)
 /* ---- teardown, PI still masked --------------------------------------- */
 
 static void teardown(const struct gbp_transport *t, struct ringlog *log, const struct gbp_initirqa_config *cfg,
-                     struct gbp_initirqa_result *res)
+                     struct gbp_initirqa_result *res, const struct gbp_initirqa_teardown_opts *opts)
 {
     int any_exp = (res->control_written || res->irq_writes_attempted) ? 1 : 0;
+    int cleanup_allowed = opts ? opts->pi_cleanup_allowed : 1;
     uint32_t intsr = 0, intmr = 0;
     gbp_status rc;
 
@@ -395,7 +422,7 @@ static void teardown(const struct gbp_transport *t, struct ringlog *log, const s
             res->cleanup_intsr_before = intsr;
             res->cleanup_intmr_before = intmr;
             if (intsr & GBP_PI_HSP_BIT) note_intsr13(res, 0, intsr, "CLEANUPCHK", 0);
-            if ((intsr & GBP_PI_HSP_BIT) && !(intmr & GBP_PI_HSP_BIT) && t->write_intsr) {
+            if ((intsr & GBP_PI_HSP_BIT) && !(intmr & GBP_PI_HSP_BIT) && t->write_intsr && cleanup_allowed) {
                 res->cleanup_rc = t->write_intsr(t->ctx, GBP_PI_HSP_BIT);
                 res->pi_cleanup_performed = 1;
                 if (res->cleanup_rc != GBP_OK) res->errors++;
@@ -411,7 +438,8 @@ static void teardown(const struct gbp_transport *t, struct ringlog *log, const s
             } else {
                 res->cleanup_intsr_after = intsr;
                 res->pi_cleanup_skip_reason = !(intsr & GBP_PI_HSP_BIT) ? "intsr13_clear"
-                                              : (intmr & GBP_PI_HSP_BIT) ? "intmr13_set" : "write_intsr_unavailable";
+                                              : (intmr & GBP_PI_HSP_BIT) ? "intmr13_set"
+                                              : !t->write_intsr ? "write_intsr_unavailable" : "budget_spent";
                 ringlog_printf(log, "CLEANUP performed=0 intsr=%08lx intsr13=%u intmr13=%u reason=%s",
                                (unsigned long)intsr, (intsr & GBP_PI_HSP_BIT) ? 1u : 0u,
                                (intmr & GBP_PI_HSP_BIT) ? 1u : 0u, res->pi_cleanup_skip_reason);
@@ -421,6 +449,9 @@ static void teardown(const struct gbp_transport *t, struct ringlog *log, const s
             res->pi_cleanup_skip_reason = "pi_unreadable";
         }
     }
+
+    /* 7b. caller's step between the PI observation and the AR_INFO restore (GBP-INIT-003B: handler restore + mask check) */
+    if (opts && opts->pre_arinfo_hook) opts->pre_arinfo_hook(opts->hook_ctx);
 
     /* 8. AR_INFO back */
     if (res->arinfo_changed) {
@@ -449,21 +480,15 @@ static void teardown(const struct gbp_transport *t, struct ringlog *log, const s
     }
 }
 
-static void finish(const struct gbp_transport *t, struct ringlog *log, const struct gbp_initirqa_config *cfg,
-                   struct gbp_initirqa_result *res, gbp_initirqa_status st, const char *reason)
+void gbp_initirqa_teardown(const struct gbp_transport *t, struct ringlog *log, const struct gbp_initirqa_config *cfg,
+                           struct gbp_initirqa_result *res, const struct gbp_initirqa_teardown_opts *opts)
 {
-    res->status = st;
-    res->reason = reason;
-    flush_window(log, cfg, res);
-    teardown(t, log, cfg, res);
-    res->transport_ok = (res->errors == 0) ? 1 : 0;
+    teardown(t, log, cfg, res, opts);
+}
+
+void gbp_initirqa_log_summary_records(struct ringlog *log, struct gbp_initirqa_result *res)
+{
     res->uncertain_writes = count_uncertain(res);
-    /* Four short records instead of one: the worst-case field widths of a
-     * single record exceeded the 255-byte line and would have cut off the
-     * safety fields at its end. */
-    ringlog_printf(log, "INITIRQA end status=%s reason=%s restore=%s restore_reason=%s power_cycle_required=%d errors=%u transport_ok=%d",
-                   gbp_initirqa_status_name(st), reason, res->restore_ok ? "ok" : "error", res->restore_reason,
-                   res->power_cycle_required, res->errors, res->transport_ok);
     ringlog_printf(log, "WRITES control_written=%d irq_attempted=%u irq_completed=%u ctl_exp=%d/%d a1=%d/%d a2=%d/%d stop=%d/%d ctl_restore=%d/%d uncertain=%u power_cycle_required=%d format=attempted/completed",
                    res->control_written, res->irq_writes_attempted, res->irq_writes_completed,
                    res->w_ctl_exp.attempted, res->w_ctl_exp.completed, res->w_a1.attempted, res->w_a1.completed,
@@ -479,8 +504,29 @@ static void finish(const struct gbp_transport *t, struct ringlog *log, const str
                    res->arinfo_restore_ok);
 }
 
-int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
-                           const struct gbp_initirqa_config *cfg, struct gbp_initirqa_result *res)
+static void finish(const struct gbp_transport *t, struct ringlog *log, const struct gbp_initirqa_config *cfg,
+                   struct gbp_initirqa_result *res, gbp_initirqa_status st, const char *reason)
+{
+    res->status = st;
+    res->reason = reason;
+    flush_window(log, cfg, res);
+    teardown(t, log, cfg, res, 0);
+    res->transport_ok = (res->errors == 0) ? 1 : 0;
+    res->uncertain_writes = count_uncertain(res);
+    /* Four short records instead of one: the worst-case field widths of a
+     * single record exceeded the 255-byte line and would have cut off the
+     * safety fields at its end. */
+    ringlog_printf(log, "INITIRQA end status=%s reason=%s restore=%s restore_reason=%s power_cycle_required=%d errors=%u transport_ok=%d",
+                   gbp_initirqa_status_name(st), reason, res->restore_ok ? "ok" : "error", res->restore_reason,
+                   res->power_cycle_required, res->errors, res->transport_ok);
+    gbp_initirqa_log_summary_records(log, res);
+}
+
+/* The sequence up to the end of the A2 window. Abort paths call finish()
+ * (teardown + end records) and return CAUSE_ABORTED; the two normal
+ * outcomes flush the window records and return without any teardown. */
+gbp_initirqa_cause_rc gbp_initirqa_run_cause(const struct gbp_transport *t, struct ringlog *log,
+                                             const struct gbp_initirqa_config *cfg, struct gbp_initirqa_result *res)
 {
     uint16_t want;
     gbp_status rc;
@@ -518,7 +564,7 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
         res->status = GBP_INITIRQA_ABORT_ARINFO;
         res->reason = "arinfo_unreadable";
         ringlog_printf(log, "INITIRQA end status=%s reason=%s", gbp_initirqa_status_name(res->status), res->reason);
-        return -1;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     ringlog_printf(log, "ARINFO orig value=%04x size_code=%u exp_code=%u base=%08lx", (unsigned)res->arinfo_orig,
                    (unsigned)(res->arinfo_orig & 7u), (unsigned)((res->arinfo_orig >> 3) & 7u),
@@ -532,7 +578,7 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
             ringlog_printf(log, "ARINFO exp wanted=%04x rc=%s readback=%04x", (unsigned)want, gbp_status_name(rc),
                            (unsigned)res->arinfo_exp);
             finish(t, log, cfg, res, GBP_INITIRQA_ABORT_ARINFO, "arinfo_not_settable");
-            return 0;
+            return GBP_INITIRQA_CAUSE_ABORTED;
         }
     } else {
         res->arinfo_exp = res->arinfo_orig;
@@ -548,11 +594,11 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     res->errors += res->det.failed;
     if (res->det.verdict == GBP_VERDICT_ABSENT) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_NOT_PRESENT, gbp_verdict_name(res->det.verdict));
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     if (res->det.verdict != GBP_VERDICT_PRESENT) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_INCONSISTENT, gbp_verdict_name(res->det.verdict));
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
 
     /* ---- 3. PI preconditions: read only; never adjust ---- */
@@ -560,18 +606,18 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     if (!res->pi_pre_ok) {
         ringlog_printf(log, "PRECOND ok=0 reason=pi_unavailable");
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_PI_PRECONDITION, "pi_unavailable");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     if (res->intmr_pre & GBP_PI_HSP_BIT) {
         ringlog_printf(log, "PRECOND intsr13=%u intmr13=1 ok=0 reason=intmr13_unmasked",
                        (res->intsr_pre & GBP_PI_HSP_BIT) ? 1u : 0u);
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_PI_PRECONDITION, "intmr13_unmasked");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     if (res->intsr_pre & GBP_PI_HSP_BIT) {
         ringlog_printf(log, "PRECOND intsr13=1 intmr13=0 ok=0 reason=intsr13_set");
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_PI_PRECONDITION, "intsr13_set");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     ringlog_printf(log, "PRECOND intsr13=0 intmr13=0 irq_path_required=0 poll_intsr=%d write_intsr=%d ticks=%d ok=1 reason=-",
                    t->poll_intsr ? 1 : 0, t->write_intsr ? 1 : 0, t->ticks ? 1 : 0);
@@ -581,12 +627,12 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     log_snapshot(log, res, s);
     if (s->control_rc != GBP_OK || !s->pi_ok || s->irq_rc != GBP_OK) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_CONTROL_READ, "base_read_failed");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     if (s->control_vote != s->control_b1f) {
         ringlog_printf(log, "CONTROL ambiguous vote=%02x b1f=%02x", (unsigned)s->control_vote, (unsigned)s->control_b1f);
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_CONTROL_READ, "control_ambiguous");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     res->control_orig = s->control_vote;
     res->control_exp = (uint8_t)((res->control_orig & (uint8_t)~cfg->clear_mask) | cfg->set_mask);
@@ -595,18 +641,18 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     if (cfg->require_idle_shape &&
         (((res->control_orig & cfg->clear_mask) == 0) || ((res->control_orig & cfg->set_mask) != 0))) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_CONTROL_SHAPE, "control_not_idle_shape");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     if (res->control_exp == res->control_orig) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_CONTROL_SHAPE, "transform_is_noop");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     res->irq_shape_base_ok = gbp_initirqa_irq_shape(cfg, s->irq_disc, s->irq_gbi, &why);
     log_irq_shape(log, cfg, "BASE", s->irq_disc, s->irq_gbi, res->irq_shape_base_ok, why);
     if (!res->irq_shape_base_ok) {
         res->irq_shape_reason = why;
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_IRQ_SHAPE, why);
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
 
     /* ---- 5. experimental CONTROL write (validated transform, GBI layout) ----
@@ -621,7 +667,7 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     gbp_regwrite_log(log, &res->w_ctl_exp);
     if (!res->w_ctl_exp.completed) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_TRANSPORT, "control_write_failed");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
 
     /* ---- 6. P0 + INTMR re-check ---- */
@@ -631,7 +677,7 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
         ringlog_printf(log, "P0CHK pi_ok=%d control_rc=%s irq_rc=%s ok=0 reason=p0_read_failed", s->pi_ok,
                        gbp_status_name(s->control_rc), gbp_status_name(s->irq_rc));
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_TRANSPORT, "p0_read_failed");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     ringlog_printf(log, "P0CHK intsr13=%u intmr13=%u control=%02x irq=%04x ok=%d reason=%s",
                    (s->intsr & GBP_PI_HSP_BIT) ? 1u : 0u, (s->intmr & GBP_PI_HSP_BIT) ? 1u : 0u,
@@ -639,7 +685,7 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
                    (s->intmr & GBP_PI_HSP_BIT) ? "intmr13_unmasked_p0" : "-");
     if (s->intmr & GBP_PI_HSP_BIT) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_PI_PRECONDITION, "intmr13_unmasked_p0");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
 
     /* ================= experimental region: no formatting until flush_window ================= */
@@ -650,13 +696,13 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     read_irq_quiet(t, res, &res->irq_a1pre);
     if (res->irq_a1pre.rc != GBP_OK) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_TRANSPORT, "a1pre_read_failed");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     res->irq_shape_a1pre_ok = gbp_initirqa_irq_shape(cfg, res->irq_a1pre.disc, res->irq_a1pre.gbi, &why);
     if (!res->irq_shape_a1pre_ok) {
         res->irq_shape_reason = why;
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_IRQ_SHAPE, why);
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
 
     /* ---- 8. A1: IRQ := read | 0x8000 (GBI's acknowledge; u16 replicated 16×) ---- */
@@ -667,7 +713,7 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     res->t_a1 = res->w_a1.t_after;
     if (!res->w_a1.completed) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_TRANSPORT, "a1_write_failed");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     res->irq_writes_completed++;
 
@@ -683,11 +729,11 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     if (res->a2pre_pi_ok && (res->a2pre_intsr & GBP_PI_HSP_BIT)) note_intsr13(res, 0, res->a2pre_intsr, "A2PRE", res->a1_polls);
     if (res->irq_a2pre.rc != GBP_OK || !res->a2pre_pi_ok) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_TRANSPORT, "a2pre_read_failed");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     if (res->a2pre_intmr & GBP_PI_HSP_BIT) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_PI_PRECONDITION, "intmr13_unmasked_a2pre");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
 
     /* ---- 11. A2: IRQ := 0 (GBI's end-of-pass write; 32 × 00) ---- */
@@ -697,7 +743,7 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     res->t_a2 = res->w_a2.t_after;
     if (!res->w_a2.completed) {
         finish(t, log, cfg, res, GBP_INITIRQA_ABORT_TRANSPORT, "a2_write_failed");
-        return 0;
+        return GBP_INITIRQA_CAUSE_ABORTED;
     }
     res->irq_writes_completed++;
 
@@ -707,8 +753,16 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     wait_phase(t, cfg, res, 2);
     res->t_window_end = now(t);
     /* ================= end of the experimental region ================= */
+    flush_window(log, cfg, res);
+    return res->intsr13_seen ? GBP_INITIRQA_CAUSE_OBSERVED : GBP_INITIRQA_CAUSE_NOT_OBSERVED;
+}
 
-    finish(t, log, cfg, res, res->intsr13_seen ? GBP_INITIRQA_OK_PI_CAUSE_OBSERVED : GBP_INITIRQA_OK_NO_PI_CAUSE_OBSERVED, "-");
+int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
+                           const struct gbp_initirqa_config *cfg, struct gbp_initirqa_result *res)
+{
+    gbp_initirqa_cause_rc rc = gbp_initirqa_run_cause(t, log, cfg, res);
+    if (rc == GBP_INITIRQA_CAUSE_ABORTED) return (res->status == GBP_INITIRQA_ABORT_ARINFO && res->reason && strcmp(res->reason, "arinfo_unreadable") == 0) ? -1 : 0;
+    finish(t, log, cfg, res, rc == GBP_INITIRQA_CAUSE_OBSERVED ? GBP_INITIRQA_OK_PI_CAUSE_OBSERVED : GBP_INITIRQA_OK_NO_PI_CAUSE_OBSERVED, "-");
     return 0;
 }
 

@@ -135,6 +135,16 @@ struct gbp_mock {
     int intsr_w1c_ignored;          /* a main-loop INTSR W1C leaves bit 13 set (sticky-cause model) */
     int intmr13_set_after_control_write; /* INTMR bit 13 becomes 1 right after the first CONTROL write (external unmask model) */
     int intmr13_set_after_irq_write;     /* INTMR bit 13 becomes 1 right after the first IRQ-register write */
+    /* ---- delivery experiment (SYNTHETIC; GBP-INIT-003B) ---- */
+    int isr_ext;                    /* 1: deliveries run gbp_irq_oneshot_service_ext (the 003B body); ticks advance by 1 per read inside it */
+    uint32_t pi_relatch_after_ticks;/* after a W1C clears bit 13 while a device source is pending and its mask open, set it again after N ticks (0 = never) */
+    int delivery_suppressed;        /* the cause is set and unmasked but the mock never delivers (delivery-timeout model) */
+    int record_dirty_on_install;    /* synthetic: the install leaves count=1 in the record (must abort before the unmask) */
+    int clear_cause_on_install;     /* INTSR bit 13 is cleared when irq_install is called (cause-lost model) */
+    int intmr13_set_on_install;     /* INTMR bit 13 becomes 1 when irq_install is called */
+    uint8_t control_on_install;     /* if nonzero: CONTROL byte becomes this value when irq_install is called */
+    uint16_t irq_reg_on_install;    /* if nonzero: SOURCE_MASK register becomes this value when irq_install is called */
+    int irq_disagree_on_install;    /* after irq_install, IRQ reads present byte 0x1F ^ 0x01 (Disc/GBI readings disagree) */
     /* state */
     uint8_t test_store[GBP_BLOCK_SIZE];
     unsigned transfers;         /* block transfers so far */
@@ -164,6 +174,10 @@ struct gbp_mock {
     volatile struct gbp_irq_record rec;
     uint32_t source_assert_at_tick; /* SOURCE_MASK: absolute tick of the pending (re)assertion, 0 = none */
     int source_asserted_done;
+    int relatch_pending;            /* a W1C cleared bit 13 while the line was up: re-set it at relatch_at_tick */
+    uint32_t relatch_at_tick;
+    unsigned isr_w1c_count;         /* W1C writes performed from inside delivered handler entries */
+    int installed_calls;            /* irq_install calls seen */
     uint16_t last_irq_write_value;  /* SOURCE_MASK: 16-bit value of the last IRQ write (bytes 0x1E/0x1F) */
     int irq_present_u16;            /* STATIC: present irq_value as hh hh ll ll (set by irq_after_write) */
     /* test hook: invoked at the entry of every write_block, before the mock

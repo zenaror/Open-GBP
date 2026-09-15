@@ -94,6 +94,100 @@ NM_GOOD = """80003100 T _start
 80005100 T __MaskIrq
 """
 
+MAIN_A_GOOD = """
+00000000 <main>:
+   0:	48 00 00 01 	bl      0 <main>
+			0: R_PPC_REL24	gbp_initirqa_probe_run
+   4:	4e 80 00 20 	blr
+"""
+
+# ---- GBP-INIT-003B profile (synthetic listings) ----
+PROBE_B_GOOD = """
+00000000 <gbp_initirqb_probe_run>:
+   0:	94 21 ff f0 	stwu    r1,-16(r1)
+   4:	48 00 00 01 	bl      4 <gbp_initirqb_probe_run+0x4>
+			4: R_PPC_REL24	gbp_initirqa_run_cause
+   8:	48 00 00 01 	bl      8 <gbp_initirqb_probe_run+0x8>
+			8: R_PPC_REL24	gbp_regwrite_irq_u16
+   c:	48 00 00 01 	bl      c <gbp_initirqb_probe_run+0xc>
+			c: R_PPC_REL24	gbp_initirqa_teardown
+  10:	4e 80 00 20 	blr
+"""
+
+IRQ_BACKEND_GOOD = """
+00000000 <h_irq_install>:
+   0:	48 00 00 01 	bl      0 <h_irq_install>
+			0: R_PPC_REL24	IRQ_Request
+   4:	4e 80 00 20 	blr
+
+00000010 <h_irq_restore>:
+  10:	48 00 00 01 	bl      10 <h_irq_restore>
+			10: R_PPC_REL24	IRQ_Request
+  14:	4e 80 00 20 	blr
+
+00000020 <h_irq_mask>:
+  20:	38 60 00 20 	li      r3,32
+  24:	48 00 00 01 	bl      24 <h_irq_mask+0x4>
+			24: R_PPC_REL24	__MaskIrq
+  28:	4e 80 00 20 	blr
+
+00000030 <h_irq_unmask>:
+  30:	38 60 00 20 	li      r3,32
+  34:	48 00 00 01 	bl      34 <h_irq_unmask+0x4>
+			34: R_PPC_REL24	__UnmaskIrq
+  38:	4e 80 00 20 	blr
+
+00000040 <hsp_backend_oneshot_isr>:
+  40:	38 60 00 20 	li      r3,32
+  44:	48 00 00 01 	bl      44 <hsp_backend_oneshot_isr+0x4>
+			44: R_PPC_REL24	__MaskIrq
+  48:	3d 20 cc 00 	lis     r9,-13312
+  4c:	38 00 20 00 	li      r0,8192
+  50:	90 09 30 00 	stw     r0,12288(r9)
+  54:	4e 80 00 20 	blr
+
+00000060 <hsp_backend_oneshot_isr_ext>:
+  60:	38 60 00 20 	li      r3,32
+  64:	48 00 00 01 	bl      64 <hsp_backend_oneshot_isr_ext+0x4>
+			64: R_PPC_REL24	__MaskIrq
+  68:	3d 20 cc 00 	lis     r9,-13312
+  6c:	61 29 30 00 	ori     r9,r9,12288
+  70:	38 00 20 00 	li      r0,8192
+  74:	90 09 00 00 	stw     r0,0(r9)
+  78:	4e 80 00 20 	blr
+"""
+
+MAIN_B_GOOD = """
+00000000 <main>:
+   0:	48 00 00 01 	bl      0 <main>
+			0: R_PPC_REL24	hsp_backend_irq_transport_ext
+   4:	48 00 00 01 	bl      4 <main+0x4>
+			4: R_PPC_REL24	gbp_initirqb_probe_run
+   8:	4e 80 00 20 	blr
+"""
+
+NM_B_GOOD = NM_GOOD + """80004300 T gbp_initirqb_probe_run
+80004400 T gbp_initirqa_run_cause
+80004500 T gbp_initirqa_teardown
+80004600 T hsp_backend_oneshot_isr
+80004700 T hsp_backend_oneshot_isr_ext
+80004800 T hsp_backend_irq_transport
+80004900 T hsp_backend_irq_transport_ext
+80005200 T IRQ_Request
+"""
+
+
+def dir_003b(**override):
+    files = {"gbp_initirqa_probe.objdump.txt": PROBE_GOOD, "gbp_initirqb_probe.objdump.txt": PROBE_B_GOOD,
+             "hsp_backend.objdump.txt": BACKEND_GOOD, "hsp_backend_irq.objdump.txt": IRQ_BACKEND_GOOD,
+             "main.objdump.txt": MAIN_B_GOOD, "elf.nm.txt": NM_B_GOOD}
+    for k, v in override.items():
+        if v is None:
+            files.pop(k)
+        else:
+            files[k] = v
+    return make_dir(files)
+
 
 def make_dir(files):
     d = tempfile.mkdtemp()
@@ -184,11 +278,102 @@ class PocAuditChecker(unittest.TestCase):
         with open(rep) as f:
             text = f.read()
         self.assertIn("poc_audit: 0 finding(s)", text)
+        self.assertIn("profile: 003a", text)
         self.assertIn("gbp_regwrite_irq_u16=3 gbp_regwrite_control_byte=2", text)
+
+    def test_003a_main_and_intsr_site_rules(self):
+        # main.o must call the 003A entry point and nothing of the interrupt path; h_write_intsr is the only INTSR store
+        d = make_dir({"gbp_initirqa_probe.objdump.txt": PROBE_GOOD, "hsp_backend.objdump.txt": BACKEND_GOOD,
+                      "main.objdump.txt": MAIN_A_GOOD, "elf.nm.txt": NM_GOOD})
+        findings, report = poc_audit.audit_dir(d)
+        self.assertEqual(findings, [])
+        self.assertEqual(report["intsr_store_sites"], {"h_write_intsr": 1})
+        d = make_dir({"gbp_initirqa_probe.objdump.txt": PROBE_GOOD, "hsp_backend.objdump.txt": BACKEND_GOOD,
+                      "main.objdump.txt": MAIN_B_GOOD, "elf.nm.txt": NM_GOOD})
+        findings, _ = poc_audit.audit_dir(d)
+        self.assertTrue(any("main.o references hsp_backend_irq_transport_ext" in f for f in findings), findings)
+        self.assertTrue(any("main.o does not reference gbp_initirqa_probe_run" in f for f in findings), findings)
+        d = make_dir({"gbp_initirqa_probe.objdump.txt": PROBE_GOOD, "hsp_backend.objdump.txt": BACKEND_GOOD + IRQ_BACKEND_GOOD.split("00000060")[0].replace("<hsp_backend_oneshot_isr>", "<other_w1c>").split("00000000 <h_irq_install>")[0], "elf.nm.txt": NM_GOOD})
+        d = make_dir({"gbp_initirqa_probe.objdump.txt": PROBE_GOOD, "hsp_backend.objdump.txt": BACKEND_GOOD.replace("<h_write_intsr>", "<h_write_intsr_x>"), "elf.nm.txt": NM_GOOD})
+        findings, _ = poc_audit.audit_dir(d)
+        self.assertTrue(any("PI INTSR store sites" in f for f in findings), findings)
+
+
+class PocAuditChecker003B(unittest.TestCase):
+    def test_clean(self):
+        d = dir_003b()
+        findings, report = poc_audit.audit_dir(d, "003b")
+        self.assertEqual(findings, [])
+        self.assertEqual(report["profile"], "003b")
+        self.assertEqual(report["irq_write_sites_total"], 4)
+        self.assertEqual(report["callsites"]["gbp_initirqb_probe.o"], {"gbp_regwrite_irq_u16": 1, "gbp_regwrite_control_byte": 0})
+        self.assertEqual(report["symbol_callers"], {"__UnmaskIrq": {"h_irq_unmask": 1},
+                                                    "IRQ_Request": {"h_irq_install": 1, "h_irq_restore": 1},
+                                                    "__MaskIrq": {"h_irq_mask": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1}})
+        self.assertEqual(report["intsr_store_sites"], {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1})
+        self.assertEqual(report["intmr_stores"], [])
+        self.assertEqual(poc_audit.main([d, "--profile", "003b"]), 0)
+        self.assertEqual(poc_audit.main([d, "--profile", "nope"]), 2)
+        # the same objects fail the 003A profile (interrupt path linked)
+        findings, _ = poc_audit.audit_dir(d, "003a")
+        self.assertTrue(any("forbidden object linked: hsp_backend_irq.o" in f for f in findings), findings)
+        self.assertTrue(any("forbidden object linked: gbp_initirqb_probe.o" in f for f in findings), findings)
+        self.assertTrue(any("hsp_backend_irq.o references __UnmaskIrq" in f for f in findings), findings)
+        self.assertTrue(any("gbp_initirqb_probe.o calls gbp_regwrite_irq_u16 (1)" in f for f in findings), findings)
+
+    def test_second_unmask_site_is_flagged(self):
+        d = dir_003b(**{"main.objdump.txt": MAIN_B_GOOD.replace("gbp_initirqb_probe_run", "__UnmaskIrq")})
+        findings, _ = poc_audit.audit_dir(d, "003b")
+        self.assertTrue(any(f.startswith("__UnmaskIrq call sites") for f in findings), findings)
+        self.assertTrue(any("main.o does not reference gbp_initirqb_probe_run" in f for f in findings), findings)
+
+    def test_irq_request_from_elsewhere_is_flagged(self):
+        d = dir_003b(**{"hsp_backend_irq.objdump.txt": IRQ_BACKEND_GOOD.replace("<h_irq_restore>", "<h_irq_other>")})
+        findings, _ = poc_audit.audit_dir(d, "003b")
+        self.assertTrue(any(f.startswith("IRQ_Request call sites") for f in findings), findings)
+
+    def test_base_transport_constructor_in_main_is_flagged(self):
+        d = dir_003b(**{"main.objdump.txt": MAIN_B_GOOD.replace("hsp_backend_irq_transport_ext", "hsp_backend_irq_transport")})
+        findings, _ = poc_audit.audit_dir(d, "003b")
+        self.assertTrue(any("main.o references hsp_backend_irq_transport" in f for f in findings), findings)
+        self.assertTrue(any("main.o does not reference hsp_backend_irq_transport_ext" in f for f in findings), findings)
+
+    def test_wrong_irq_write_site_counts(self):
+        d = dir_003b(**{"gbp_initirqb_probe.objdump.txt": PROBE_B_GOOD.replace("gbp_initirqa_teardown", "gbp_regwrite_irq_u16")})
+        findings, _ = poc_audit.audit_dir(d, "003b")
+        self.assertTrue(any("gbp_initirqb_probe.o calls gbp_regwrite_irq_u16 2 times (expected 1)" in f for f in findings), findings)
+        d = dir_003b(**{"gbp_initirqb_probe.objdump.txt": PROBE_B_GOOD.replace("gbp_regwrite_irq_u16", "gbp_regwrite_control_byte")})
+        findings, _ = poc_audit.audit_dir(d, "003b")
+        self.assertTrue(any("gbp_initirqb_probe.o calls gbp_regwrite_control_byte (1)" in f for f in findings), findings)
+
+    def test_handler_without_w1c_or_with_intmr_store_is_flagged(self):
+        d = dir_003b(**{"hsp_backend_irq.objdump.txt": IRQ_BACKEND_GOOD.replace("  74:	90 09 00 00 	stw     r0,0(r9)", "  74:	60 00 00 00 	nop")})
+        findings, _ = poc_audit.audit_dir(d, "003b")
+        self.assertTrue(any("PI INTSR store sites" in f for f in findings), findings)
+        d = dir_003b(**{"hsp_backend_irq.objdump.txt": IRQ_BACKEND_GOOD.replace("  74:	90 09 00 00 	stw     r0,0(r9)", "  74:	90 09 00 04 	stw     r0,4(r9)")})
+        findings, _ = poc_audit.audit_dir(d, "003b")
+        self.assertTrue(any("stores to PI INTMR in hsp_backend_oneshot_isr_ext" in f for f in findings), findings)
+
+    def test_missing_and_forbidden_objects(self):
+        d = dir_003b(**{"hsp_backend_irq.objdump.txt": None})
+        findings, _ = poc_audit.audit_dir(d, "003b")
+        self.assertTrue(any("expected object missing: hsp_backend_irq.o" in f for f in findings), findings)
+        d = dir_003b(**{"hsp_backend_intmr.objdump.txt": BACKEND_BAD_INTMR.split("00000040")[1].join(["\n00000040", ""])})
+        findings, _ = poc_audit.audit_dir(d, "003b")
+        self.assertTrue(any("forbidden object linked: hsp_backend_intmr.o" in f for f in findings), findings)
+        self.assertTrue(any("stores to PI INTMR in h_write_intmr" in f for f in findings), findings)
+        d = dir_003b(**{"elf.nm.txt": NM_B_GOOD + "80006000 T hsp_backend_intmr_transport\n"})
+        findings, _ = poc_audit.audit_dir(d, "003b")
+        self.assertTrue(any("ELF defines hsp_backend_intmr_transport" in f for f in findings), findings)
+        d = dir_003b(**{"elf.nm.txt": NM_GOOD})
+        findings, _ = poc_audit.audit_dir(d, "003b")
+        self.assertTrue(any("ELF does not define hsp_backend_oneshot_isr_ext" in f for f in findings), findings)
 
 
 AUDIT_DIR = os.path.join(ROOT, "build", "poc", "gbp-init-irq-program-probe", "audit")
+AUDIT_DIR_B = os.path.join(ROOT, "build", "poc", "gbp-init-irq-deliver-probe", "audit")
 IRQ_BACKEND_OBJDUMP = os.path.join(ROOT, "build", "poc", "gbp-init-irq-probe", "hsp_backend_irq.objdump.txt")
+INTMR_BACKEND_OBJDUMP = os.path.join(ROOT, "build", "poc", "gbp-init-probe", "hsp_backend_intmr.objdump.txt")
 
 
 @unittest.skipUnless(os.path.isfile(os.path.join(AUDIT_DIR, "elf.nm.txt")), "run `make build initirqa-audit` to produce the audit inputs")
@@ -206,23 +391,66 @@ class PocAuditOnBuild(unittest.TestCase):
         self.assertIsNotNone(report["elf"]["gbp_initirqa_probe_run"])
         self.assertEqual([h[1] for h in report["intsr_stores"]], ["h_write_intsr"])   # the one W1C primitive
 
-    @unittest.skipUnless(os.path.isfile(IRQ_BACKEND_OBJDUMP), "run `make initirq-audit` to produce the GBP-INIT-002 backend objdump")
-    def test_audit_fails_on_the_real_interrupt_path_object(self):
-        # Negative control on real compiler output: the GBP-INIT-002 backend object
-        # (INTMR store, IRQ_Request, __UnmaskIrq, the one-shot handler) must trip every check.
+    @unittest.skipUnless(os.path.isfile(IRQ_BACKEND_OBJDUMP) and os.path.isfile(INTMR_BACKEND_OBJDUMP),
+                         "run `make initirq-audit` to produce the GBP-INIT-002 backend and GBP-INIT-001 INTMR objdumps")
+    def test_audit_fails_on_the_real_interrupt_path_objects(self):
+        # Negative control on real compiler output: the GBP-INIT-002 interrupt-path object
+        # (IRQ_Request, __UnmaskIrq, __MaskIrq, the one-shot handlers) and the GBP-INIT-001
+        # INTMR object (the only direct INTMR store) must trip every 003A check.
         d = tempfile.mkdtemp()
         for name in os.listdir(AUDIT_DIR):
             with open(os.path.join(AUDIT_DIR, name), "rb") as src, open(os.path.join(d, name), "wb") as dst:
                 dst.write(src.read())
         with open(IRQ_BACKEND_OBJDUMP, "rb") as src, open(os.path.join(d, "hsp_backend_irq.objdump.txt"), "wb") as dst:
             dst.write(src.read())
+        with open(INTMR_BACKEND_OBJDUMP, "rb") as src, open(os.path.join(d, "hsp_backend_intmr.objdump.txt"), "wb") as dst:
+            dst.write(src.read())
         findings, report = poc_audit.audit_dir(d)
         self.assertTrue(any("forbidden object linked: hsp_backend_irq.o" in f for f in findings), findings)
+        self.assertTrue(any("forbidden object linked: hsp_backend_intmr.o" in f for f in findings), findings)
         self.assertTrue(any("hsp_backend_irq.o references __UnmaskIrq" in f for f in findings), findings)
         self.assertTrue(any("hsp_backend_irq.o references IRQ_Request" in f for f in findings), findings)
         self.assertTrue(any("__MaskIrq" in f and "investigate" in f for f in findings), findings)
         self.assertTrue(any("stores to PI INTMR in h_write_intmr" in f for f in findings), findings)
+        self.assertTrue(any("PI INTSR store sites" in f for f in findings), findings)     # the two handlers' W1C
         self.assertEqual(len(report["intmr_stores"]), 1)
+        self.assertEqual(report["intmr_stores"][0][0], "hsp_backend_intmr.o")
+
+
+@unittest.skipUnless(os.path.isfile(os.path.join(AUDIT_DIR_B, "elf.nm.txt")), "run `make build initirqb-audit` to produce the audit inputs")
+class PocAuditOnBuild003B(unittest.TestCase):
+    def test_linked_objects_are_clean(self):
+        findings, report = poc_audit.audit_dir(AUDIT_DIR_B, "003b")
+        self.assertEqual(findings, [])
+        for obj in ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_initirqb_probe.o", "main.o"):
+            self.assertIn(obj, report["objects"])
+        for obj in ("hsp_backend_intmr.o", "gbp_init_irq_probe.o", "gbp_init_probe.o"):
+            self.assertNotIn(obj, report["objects"])
+        self.assertEqual(report["callsites"]["gbp_initirqa_probe.o"], {"gbp_regwrite_irq_u16": 3, "gbp_regwrite_control_byte": 2})
+        self.assertEqual(report["callsites"]["gbp_initirqb_probe.o"], {"gbp_regwrite_irq_u16": 1, "gbp_regwrite_control_byte": 0})
+        self.assertEqual(report["irq_write_sites_total"], 4)
+        self.assertEqual(report["intmr_stores"], [])
+        self.assertEqual(report["intsr_store_sites"], {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1})
+        self.assertEqual(report["symbol_callers"], {"__UnmaskIrq": {"h_irq_unmask": 1},
+                                                    "IRQ_Request": {"h_irq_install": 1, "h_irq_restore": 1},
+                                                    "__MaskIrq": {"h_irq_mask": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1}})
+        for s in ("gbp_initirqb_probe_run", "hsp_backend_oneshot_isr_ext", "hsp_backend_irq_transport_ext", "__UnmaskIrq"):
+            self.assertIsNotNone(report["elf"][s], s)
+        for s in ("gbp_initirq_probe_run", "gbp_init_probe_run", "hsp_backend_intmr_transport"):
+            self.assertIsNone(report["elf"][s], s)
+
+    def test_profiles_are_mutually_exclusive_on_the_builds(self):
+        # the 003B objects fail the 003A profile and (when built) the 003A objects fail the 003B profile
+        findings, _ = poc_audit.audit_dir(AUDIT_DIR_B, "003a")
+        self.assertTrue(any("forbidden object linked: hsp_backend_irq.o" in f for f in findings), findings)
+        self.assertTrue(any("forbidden object linked: gbp_initirqb_probe.o" in f for f in findings), findings)
+        self.assertTrue(any("hsp_backend_irq.o references __UnmaskIrq" in f for f in findings), findings)
+        self.assertTrue(any("gbp_initirqb_probe.o calls gbp_regwrite_irq_u16 (1)" in f for f in findings), findings)
+        if os.path.isfile(os.path.join(AUDIT_DIR, "elf.nm.txt")):
+            findings, _ = poc_audit.audit_dir(AUDIT_DIR, "003b")
+            self.assertTrue(any("expected object missing: hsp_backend_irq.o" in f for f in findings), findings)
+            self.assertTrue(any("expected object missing: gbp_initirqb_probe.o" in f for f in findings), findings)
+            self.assertTrue(any(f.startswith("__UnmaskIrq call sites") for f in findings), findings)
 
 
 if __name__ == "__main__":

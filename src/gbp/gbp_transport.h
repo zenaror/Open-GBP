@@ -57,6 +57,15 @@ struct gbp_irq_record {
     uint32_t intmr_after_mask;  /* INTMR re-read after __MaskIrq + W1C (first entry) */
     uint32_t reentry_intsr;     /* INTSR seen at a second entry, if one ever happens (anomaly) */
     uint32_t reentry_intmr;     /* INTMR seen at that second entry */
+    /* Extended handler (gbp_irq_oneshot_service_ext, GBP-INIT-003B) only;
+     * zero when the base handler ran. In the extended handler
+     * intmr_after_mask is read between the mask and the W1C and
+     * intsr_after_ack is the read immediately after the W1C. */
+    uint32_t intsr_before_w1c;  /* INTSR read after the mask, before the W1C */
+    uint32_t t_second;          /* ticks of the second read, ≈100 ticks after the W1C */
+    uint32_t intsr_second;      /* INTSR at the second read */
+    uint32_t intmr_second;      /* INTMR at the second read */
+    uint32_t reentry_t;         /* ticks at a second entry (anomaly) */
 };
 
 struct gbp_transport {

@@ -132,6 +132,63 @@ class ProbeLog(unittest.TestCase):
                               "T 1910",
                               "W 01d00000 timeout", "T 2000"])
 
+    def test_fixture_initirqb_records(self):
+        # GBP-INIT-003B: HANDLERPI names the same record fields intsr_at_entry / intsr_after_w1c, HANDLERPI2
+        # appends five numbers to "I u" (intsr_before_w1c t_second intsr_second intmr_second reentry_t);
+        # the POSTACK main-loop W1C becomes "P a" before the MAINCLEANUP re-read; the MAIN mask keeps
+        # the 002 rule (WAIT time-base reads first).
+        _, recs = probelog.parse_lines([
+            "000075 IRQ install rc=ok old_handler=null\n",
+            "000082 PI tag=UNMASKPRE rc=ok intsr=00012000 intmr=000001fa intsr13=1 intmr13=0\n",
+            "000083 UNMASK t_unmask=1470 rc=ok t_post=1583 dt_post=113\n",
+            "000084 PI tag=UNMASKPOST rc=ok intsr=00010000 intmr=000001fa intsr13=0 intmr13=0 fired=1\n",
+            "000085 IRQ mask tag=MAIN rc=ok\n",
+            "000086 WAIT fired=1 timed_out=0 polls=1 wait_ticks=123 wait_us=3 t_delivery_ms=100 t_delivery_ticks=400\n",
+            "000087 PI tag=REMASKCHK intsr=00010000 intmr=000001fa intsr13=0 intmr13=0\n",
+            "000088 HANDLER fired=1 count=1 t_entry=1471 t_unmask=1470 latency_ticks=1 latency_us=0 reentry=0\n",
+            "000089 HANDLERPI intsr_at_entry=00012000 intmr_at_entry=000021fa intmr_after_mask=000001fa intsr_before_w1c=00012000 intsr_after_w1c=00010000 reentry_intsr=00000000 reentry_intmr=00000000\n",
+            "000090 HANDLERPI2 t_second=1573 dt_second=102 intsr_second=00010000 intmr_second=000001fa reentry_t=0\n",
+            "000106 MAINPICLEANUP site=POSTACK performed=1 value=00002000\n",
+            "000107 PI tag=MAINCLEANUP intsr=00010000 intmr=000001fa intsr13=0 intmr13=0\n",
+            "000108 MAINPICLEANUP result rc=ok intsr_before=00012000 intsr_after=00010000 intsr13_after=0 sticky=0\n",
+            "000118 IRQ restore rc=ok ok=1 old_handler=null\n",
+        ])
+        fx = probelog.fixture(recs).splitlines()[1:]
+        self.assertEqual(fx, ["I i null",
+                              "P r 00012000 000001fa",
+                              "T 1470",
+                              "I u 1 1 1471 00012000 000021fa 00010000 000001fa 00000000 00000000 00012000 1573 00010000 000001fa 0",
+                              "T 1583",
+                              "P r 00010000 000001fa",
+                              "T 1593",
+                              "I m",
+                              "P r 00010000 000001fa",
+                              "P a 00002000",
+                              "P r 00010000 000001fa",
+                              "I r"])
+        # performed=0 emits nothing; a timed-out wait and the RETRY mask replay as in 002
+        _, recs = probelog.parse_lines([
+            "000083 UNMASK t_unmask=1470 rc=ok t_post=1583 dt_post=113\n",
+            "000085 IRQ mask tag=MAIN rc=ok\n",
+            "000086 WAIT fired=0 timed_out=1 polls=40 wait_ticks=400 wait_us=9 t_delivery_ms=100 t_delivery_ticks=400\n",
+            "000087 PI tag=REMASKCHK intsr=00012000 intmr=000021fa intsr13=1 intmr13=1\n",
+            "000088 IRQ mask tag=RETRY rc=ok\n",
+            "000089 PI tag=REMASKCHK2 intsr=00012000 intmr=000001fa intsr13=1 intmr13=0\n",
+            "000090 HANDLER fired=0 count=0 t_entry=0 t_unmask=1470 latency_ticks=0 latency_us=0 reentry=0\n",
+            "000091 HANDLERPI intsr_at_entry=00000000 intmr_at_entry=00000000 intmr_after_mask=00000000 intsr_before_w1c=00000000 intsr_after_w1c=00000000 reentry_intsr=00000000 reentry_intmr=00000000\n",
+            "000092 HANDLERPI2 t_second=0 dt_second=0 intsr_second=00000000 intmr_second=00000000 reentry_t=0\n",
+            "000106 MAINPICLEANUP site=POSTACK performed=0 intsr13=0 intmr13=0\n",
+        ])
+        fx = probelog.fixture(recs).splitlines()[1:]
+        self.assertEqual(fx, ["T 1470",
+                              "I u 0 0 0 00000000 00000000 00000000 00000000 00000000 00000000 00000000 0 00000000 00000000 0",
+                              "T 1583",
+                              "T 1870", "T 1870",
+                              "I m",
+                              "P r 00012000 000021fa",
+                              "I m",
+                              "P r 00012000 000001fa"])
+
     def test_fixture_cleanup_ack_between_the_two_pi_reads(self):
         # The probe reads PI (CLEANUPCHK), writes INTSR once, re-reads PI (CLEANUP),
         # and only then logs the CLEANUP record: the "P a" line must sit between the
