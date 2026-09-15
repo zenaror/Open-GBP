@@ -1447,3 +1447,174 @@ block keeps being read raw at every snapshot. Expected outcomes are
 kept open: bit 13 = 1 after the write (mask polarity confirmed, first
 cause), or no change (bit 15 or another requirement — then B/C).
 Timeout stays an operational bound. Not implemented, not requested.
+
+---
+
+## 2026-09-15 — IRQ-register write/restore analysis before GBP-INIT-003 (analysis only)
+
+**Why.** The previous recommendation ended the teardown with `IRQ := <value
+read in S0>`. That is withdrawn: under the field semantics below, writing
+0x8AAE back is not a restore — it acknowledges every source bit it
+carries (bit 2, pending at idle on this console) and re-writes masks that
+may already differ. No write, no DOL, no hardware in this step.
+
+**Every known write to the IRQ register (index 0xD).** Start-up Disc
+(primitive `0x80089ff4`: bytes 0x1E/0x1F of the staging buffer, the other
+30 bytes stale from the previous transfer, 32-byte DMA to base+0xD00000):
+start `0x8008bf84` → `(read & ~(0x8000 | odd bits of slots with a
+callback)) | (odd bits of slots without)` — reconstructed from the
+callback table, read-derived only for the bits it does not own; handler
+entry `0x8008af08+0x28` → `shadowA | 0x8000` (constant); handler
+write-back `+0x4c` → the 16-bit value just read, unmodified (only when
+`pending & 0x0555`); handler exit `+0x228` → `shadowA` (constant; skipped
+when an AV callback started a DMA); DMA-done `0x8008b14c` → `shadowA`
+(constant); stop `0x8008be04` → `read | (0x8000 | odd bits of serviced
+slots)` — read-derived, OR-ed. GBI (u16 replicated `hh ll` ×16, ARQ
+writes): first and every pass `0x8000c194` → 64 bytes at 0xCFFFE0 =
+KEYPAD := pad state, IRQ := `read | 0x8000` (read-derived, OR); end of
+every pass `0x8000c360` → `IRQ := 0` (constant); no other write anywhere
+(`callsites 8000bea4`), none at exit. Dolphin: `m_irq &= ~value` on every
+write, `AssertIRQ` sets `source | 0x8000`, only Audio/Video are ever
+asserted.
+
+**Per-bit table (0..15).** Even bits 0/2/4/6/8/10 = the six Disc slots
+{0x0001 app callback `0x8008c370`; 0x0004 "game pak" → stop `0x8008bdb0`;
+0x0010 sleep → CONTROL |0x10; 0x0040 serial completion `0x8008c3a4`;
+0x0100 video read; 0x0400 audio read} and GBI's tests {0x0400 audio,
+0x0100 video, 0x0040 SIODATA, 0x0010 KEYPAD wake}; GBI ignores 0x0001,
+0x0004 and every odd bit. Odd bits 1/3/5/7/9/11 = the Disc's paired
+masks (`0x801B34D4`), written as levels, never tested by GBI. Bits 12–14:
+no driver writes 1 or tests them; 0 on hardware. Bit 15: separate (below).
+Hardware (expansion code 3): idle `0x8AAE` = bits 1,2,3,5,7,9,11,15; after
+2 s with the AGB powered `0x8FAE` = same + 8, 10. Under code 0 the window
+returns the uniform value 0x90 (`0x9090`), not an IRQ reading.
+
+**Pairs.** 0/1, 2/3, 4/5, 6/7, 8/9, 10/11: paired by the Disc's two tables
+and by its handler filter `pending & (pending ^ (pending >> 1))` (a source
+is dispatched only when the bit above it is 0) — CORROBORATED; even bit =
+source (both drivers act on it), odd bit = mask (only the Disc writes it,
+as a level); polarity 1 = masked — HYPOTHESIS supported by the idle value
+and by the fact that both references clear the odd bits before waiting;
+source W1C — CORROBORATED (Disc write-back of the pending word, GBI
+`read | 0x8000`, Dolphin); mask level-written — CORROBORATED (Disc writes
+0/1 per slot, GBI writes 0). 12/13 and 14/15 are **not** pairs in any
+driver: the rule is not generalized beyond bits 0–11.
+
+**Bit 15, separately.** Disc: 1 at handler entry and at stop, 0 at start,
+exit and DMA-done, never tested. GBI: 1 right after each read, 0 with
+`IRQ := 0`, never tested. Dolphin: `IRQ_ASSERTED` (set with any source,
+W1C, drives the line — masks ignored). Two readings fit every driver
+write: (i) global hold/mask, level-written, 1 = masked (the Disc's
+"mask → read → ack → unmask" and GBI's "ack+hold → process → release"
+patterns); (ii) "any source pending" summary, W1C (Dolphin's model; the
+hardware's 1 at idle with bit 2 pending and 1 in 0x8FAE fit too). Not
+discriminated by anything observed. A masked write of 0 read back
+decides: 0 → (i); still 1 → (ii). Kept outside the pair model.
+
+**GBI first pass, exact order** (semaphore created with
+`LWP_SemInit(&sem, 1, 1)` at `0x800113a0`):
+
+```text
+0x8000c060  KEYPAD := 0 (32 B, ARQ)                       PI HSP masked
+0x8000c068  v = vote(read CONTROL)
+0x8000c08c  CONTROL := (v & 0xE7) | 0x0C                   AGB powered
+0x8000c09c  IRQ_Request(26, 0x8000b400)
+0x8000c0a4  __UnmaskIrq(0x20)                              PI HSP enabled; GBP register still idle (masks set)
+pass 1:     LWP_SemWait(sem) returns at once (1 → 0)       no interrupt involved
+            read IRQ (0xD00000, 32 B, vote)                D: yes, reads before writing
+            irq & 0x400 → ARQ read AUDIO; & 0x100 → VIDEO; & 0x40 → SIODATA; & 0x10 → KEYPAD wake   E: yes, if already pending
+0x8000c194  write 64 B at 0xCFFFE0: KEYPAD := 0, IRQ := irq | 0x8000    A: first IRQ write, AFTER the unmask (acknowledge + bit 15)
+0x8000c1a4  read 64 B at 0x4FFFE0 (CONTROL, SIOCTL)
+0x8000c214  write 64 B at 0x4FFFE0: CONTROL := value read, SIOCTL := computed   (every pass)
+0x8000c360  IRQ := 0 (32 B)                                B: BEFORE the first blocking wait; masks (and bit 15) → 0
+pass 2:     LWP_SemWait(sem) blocks (count 0) until the raw handler posts
+```
+
+C: yes — from `__UnmaskIrq` until `IRQ := 0` PI is unmasked while the
+device's masks are still the idle ones; under the model nothing can be
+delivered in that window (and if something were, the post would only make
+pass 2 not block). F: `KEYPAD := 0` is GBI's normal state initialization;
+the first pass does not depend on it and rewrites KEYPAD anyway; whether
+the device needs it is unknown (the Disc writes KEYPAD only from its
+handler and its 5 ms tick). Note the context of GBI's `IRQ := 0`: it always
+follows `read | 0x8000`, i.e. the pending sources have just been
+acknowledged; it is an unmask (six masks and, under (i), bit 15), not an
+acknowledge, performed with PI unmasked.
+
+**GBI exit.** After the last completed pass (`IRQ := 0`), the exit path
+`0x8000c37c` does `__MaskIrq(0x20)`, `IRQ_Free(26)`, CONTROL `(v & 0xE3) |
+0x10`; no IRQ write, no restore of masks, no reset: the register is left
+"0-programmed plus whatever the device raised since", gated by PI mask +
+CONTROL 0x10 + the AGB powered off (0x0C cleared). Precedent for "IRQ = 0
++ CONTROL stop" as an exit state; normalization comes from the next
+software's start or a power cycle.
+
+**Disc stop.** Mask PI → CONTROL `&~0x04`, `&~0x08`, `|0x10`, `|0x80` →
+read IRQ → `IRQ := read | 0x8000 | (odd bits of serviced slots)` → INTSR
+W1C. Semantically reconstructed, read-derived only for the source bits
+(written back = acknowledged): not a restore of the pre-start state but a
+**known stop state** — everything masked, pending sources cleared. With
+all six slots serviced the OR value is 0x8AAA.
+
+**`IRQ := 0`, operationally (model):** source bits written 0 → untouched
+(W1C not triggered; pending stays pending); all six masks → 0 (enabled);
+bit 15 → 0 = global unmask under (i), no-op under (ii); not an
+acknowledge. GBI issues it with PI unmasked, after acknowledging. Bits
+12–14 written 0 as both references do.
+
+**0x8FAE.** Sources 2 (game pak), 8 (video), 10 (audio) pending; masks
+1,3,5,7,9,11 set; bit 15 set → explains the absence of any HSP cause under
+the model. Minimal writes that change only the masks of 8/10 without
+acknowledging anything: `IRQ := 0x80AA` (bit 15 kept), or `0x00AA` (bit 15
+cleared too — required under (i)); no driver ever writes such a word.
+
+**Strategies (bits changed from a 0x8FAE-like state, model assumed):**
+
+| Strategy | Value | Bits changed | Writes | Precedent | Reversible | Storm risk (PI masked / unmasked) | Causality | Toward init |
+|---|---|---|---|---|---|---|---|---|
+| A GBI `IRQ := 0` | 0x0000 | bit 15 (if level) + 6 masks = 7; sources untouched | 1 | GBI, every pass (after an ack) | Disc stop write | none / bounded by the one-shot handler | all sources enabled at once | high |
+| B masks of 8/10 only | 0x00AA (or 0x80AA) | 3 (or 2) | 1 | none literal | Disc stop write | none / bounded | best (audio/video only) | medium (model-dependent) |
+| C Disc start word | `read & ~0x8AAA` → 0x0504 | 7 + acknowledges 3 sources = 10 | 1 | official | Disc stop write | none / bounded | ack and unmask confounded; next event needed | high |
+
+**Teardown per strategy (all):** CONTROL := original (0x90) → read IRQ →
+`IRQ := read | 0x8AAA` (Disc stop formula: all masks + bit 15, pending
+acknowledged) → read IRQ → PI read → INTSR W1C once if bit 13 set → PI read →
+AR_INFO → final snapshot → power cycle. Options compared: raw S0 write-back
+— **rejected** (not a restore; acknowledges bit 2); GBI exit (leave 0 +
+CONTROL 0x10) — precedent, but leaves the device unmasked; Disc stop word
+— best supported (official, semantic); computed mask state — same as the
+Disc word; "leave known + power cycle" — the safety net in every case.
+Decision: Disc stop word, power cycle mandatory.
+
+**One run or two.** Split: **GBP-INIT-003A** (PI never unmasked, no handler)
+answers "what does the write change in IRQ/CONTROL/INTSR while delivery
+stays blocked" and discriminates the field semantics by read-back
+(masks 0 → level; bit 15 0 → (i) / 1 → (ii); sources still set → W1C;
+INTSR bit 13 = 1 while masked → cause visible under mask, GBP-PI-001 to
+FACT); it cannot storm (libogc keeps IRQ 26 masked, Swiss too). **003B**
+then reproduces the proven programming with the one-shot handler and the
+unmask. Reason against: one extra physical run; no technical reason.
+Recommended: split, with strategy A in 003A.
+
+**003A sequence (proposal, not implemented):** PRESENT → AR_INFO 3 → PI
+preconditions → S0 (PI, CONTROL, IRQ, TEST) → CONTROL `(v & ~0x10) | 0x0C` →
+S1 → (optional read-only samples of IRQ over ≤ 100 ms for U-GBP-024) →
+read IRQ → `IRQ := 0` (GBI layout, 32 × 00) → S2 immediately (IRQ, PI,
+CONTROL) → reads at ≈ 50 µs, ≈ 500 µs, ≈ 5 ms, ≈ 50 ms, ≈ 500 ms (time-base
+spacing, PI masked, no invented hardware property) → teardown as above →
+power cycle. Residual risks: an asserted line for ≤ 1 s with PI masked
+(no CPU effect), a model error that leaves the device asserted behind
+CONTROL 0x10 (power cycle), bits 12–14 written 0 (both references do it).
+Cartridge not introduced (sources appear without one); byte 0 evidence only.
+
+**Dolphin OSD (permanent requirement).** The yellow overlay lines are OSD
+messages: "Video Info: …" (`OGLConfig.cpp:723`, `OSD::AddMessage`) and
+"USBGecko: Listening on TCP port …" (`EXI_DeviceGecko.cpp:68`,
+`Core::DisplayMessage`); `OSD::DrawMessages` draws them only when
+`Config::MAIN_OSD_MESSAGES` = `[Interface] OnScreenDisplayMessages` is
+true. The runner already passes per-run overrides with `-C
+Dolphin.<Section>.<Key>=<Value>` into an isolated user directory, so the
+fix is one entry in `dolphin_cmd()` of `tools/dolphin_smoke.py`:
+`"Dolphin.Interface.OnScreenDisplayMessages=False"` (proposed, not
+applied; no profile change). Every future screenshot then shows only the
+POC's framebuffer.

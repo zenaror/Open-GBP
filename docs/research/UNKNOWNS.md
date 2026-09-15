@@ -129,7 +129,19 @@ odd bits of the slots it services and bit 15, and GBI's first loop pass
 writes `read | 0x8000` then `0` before it blocks (GBP-IRQ-004). Pairing
 even/odd = source/mask: CORROBORATED; polarity "1 = masked" and bit 15 as
 a global mask: HYPOTHESIS, consistent with every observation, to be tested
-by the first authorized IRQ-register write.
+by the first authorized IRQ-register write. **Field semantics (write
+analysis, DEVLOG 2026-09-15 "IRQ-register write/restore"):** even bits
+write-1-to-clear (CORROBORATED: Disc writes the pending word back, GBI
+writes `read | 0x8000`, Dolphin clears written bits); odd bits
+level-written (CORROBORATED: the Disc computes and writes 0/1 per slot,
+GBI writes 0); pairs exist only for bits 0–11 (six slots); bits 12–14 are
+never used by any driver; bit 15 has two admissible readings — global
+hold/mask (level) or pending summary (W1C) — and must stay outside the
+pair model until a masked write of 0 is read back. Consequence: writing a
+previously read value (0x8AAE) back is **not a restore** — it would
+acknowledge the source bits it carries (bit 2 at idle); the only
+supported end states are the Disc's stop write (`read | 0x8000 | masks`)
+or GBI's "0 + CONTROL stop".
 
 ## U-GBP-008 (P2, partially answered 2026-09-14) — Read block layout
 
