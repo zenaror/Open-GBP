@@ -40,6 +40,25 @@ struct gbp_xfer_info {
     uint16_t polls;        /* completion polls performed */
 };
 
+/*
+ * Fields the one-shot PI HSP interrupt handler (gbp_irq_oneshot.h) shares
+ * with the main loop. All 32-bit so that no store is torn between the
+ * handler and the main loop; the main loop copies them only while the
+ * interrupt is masked again. Names follow the order of the handler's
+ * statements (docs/protocol/INITIALIZATION.md §9 R3/R8).
+ */
+struct gbp_irq_record {
+    uint32_t count;             /* handler entries so far (1 expected) */
+    uint32_t fired;             /* 1 once the first entry has stored every field below */
+    uint32_t t_entry;           /* ticks at the first entry, read before anything else */
+    uint32_t intsr_before_ack;  /* INTSR read at the first entry, before the mask and the W1C */
+    uint32_t intmr_at_entry;    /* INTMR read at the first entry, before the mask */
+    uint32_t intsr_after_ack;   /* INTSR re-read after __MaskIrq + W1C (first entry) */
+    uint32_t intmr_after_mask;  /* INTMR re-read after __MaskIrq + W1C (first entry) */
+    uint32_t reentry_intsr;     /* INTSR seen at a second entry, if one ever happens (anomaly) */
+    uint32_t reentry_intmr;     /* INTMR seen at that second entry */
+};
+
 struct gbp_transport {
     /* ARAM-info register 0xCC005012 (16-bit). */
     gbp_status (*read_arinfo)(void *ctx, uint16_t *value);
@@ -51,13 +70,37 @@ struct gbp_transport {
                               struct gbp_xfer_info *info);
     /* Optional (may be NULL): Processor Interface INTSR (0xCC003000) and
      * INTMR (0xCC003004), raw 32-bit values. write_intmr writes the whole
-     * register; callers preserve every bit they do not intend to change. */
+     * register; callers preserve every bit they do not intend to change.
+     * Under libogc2 a direct INTMR write can be undone by the library's
+     * shadow-mask rebuild (EVIDENCE ENV-IRQ-002): code that needs the HSP
+     * interrupt masked/unmasked must use irq_mask/irq_unmask below. */
     gbp_status (*read_pi)(void *ctx, uint32_t *intsr, uint32_t *intmr);
     gbp_status (*write_intmr)(void *ctx, uint32_t intmr);
+    /* Optional (may be NULL): PI INTSR write — write-1-to-clear
+     * acknowledge of the bits set in `value` (GBP-PI-002, CORROBORATED).
+     * Main-loop cleanup only; the handler acknowledges by itself. */
+    gbp_status (*write_intsr)(void *ctx, uint32_t value);
+    /* Optional (may be NULL as a group): the PI HSP interrupt path.
+     *   irq_install  installs the backend's one-shot handler for interrupt
+     *                26 (libogc2: IRQ_Request(IRQ_PI_HSP, …)), clears the
+     *                backend's gbp_irq_record, and reports whether the
+     *                previous handler was NULL. The previous handler is kept.
+     *   irq_restore  puts the previous handler back (IRQ_Request(26, old)).
+     *   irq_mask     __MaskIrq(IM_PI_HSP)   — through libogc2's shadow masks.
+     *   irq_unmask   __UnmaskIrq(IM_PI_HSP) — idem. Never before irq_install.
+     *   irq_record   copies the shared record (call only while masked). */
+    gbp_status (*irq_install)(void *ctx, int *old_was_null);
+    gbp_status (*irq_restore)(void *ctx);
+    gbp_status (*irq_mask)(void *ctx);
+    gbp_status (*irq_unmask)(void *ctx);
+    gbp_status (*irq_record)(void *ctx, struct gbp_irq_record *out);
     /* Optional (may be NULL): monotonic tick counter (time base on GC). */
     uint32_t (*ticks)(void *ctx);
     void *ctx;
 };
+
+/* 1 if every operation of the PI HSP interrupt path is available. */
+int gbp_transport_has_irq_path(const struct gbp_transport *t);
 
 /* PI bit for the High Speed Port interrupt (YAGCD 6.1.5.2, libogc2 irq.c:
  * INTMR bit set = interrupt enabled; INTSR bit set = pending). */

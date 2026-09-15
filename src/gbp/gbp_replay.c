@@ -143,6 +143,17 @@ static gbp_status r_write_intmr(void *ctx, uint32_t v)
     return GBP_OK;
 }
 
+static gbp_status r_write_intsr(void *ctx, uint32_t v)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    if (!next_line(r, line, sizeof line)) { r->exhausted++; return GBP_ERR_BACKEND; }
+    r->step++;
+    if (line[0] != 'P' || line[2] != 'a') { r->mismatches++; return GBP_ERR_BACKEND; }
+    if ((uint32_t)strtoul(line + 4, 0, 16) != v) { r->mismatches++; return GBP_ERR_BACKEND; }
+    return GBP_OK;
+}
+
 static uint32_t r_ticks(void *ctx)
 {
     struct gbp_replay *r = (struct gbp_replay *)ctx;
@@ -163,6 +174,15 @@ void gbp_replay_transport(struct gbp_replay *r, struct gbp_transport *t)
     t->write_block = r_write_block;
     t->read_pi = r_read_pi;
     t->write_intmr = r_write_intmr;
+    /* No interrupt path in a replay: physical logs record no IRQ
+     * operations, and none may be invented (docs/research/DEVLOG.md
+     * 2026-09-15). A probe that needs it stops at its handler-install step. */
+    t->write_intsr = r_write_intsr;
+    t->irq_install = 0;
+    t->irq_restore = 0;
+    t->irq_mask = 0;
+    t->irq_unmask = 0;
+    t->irq_record = 0;
     t->ticks = r_ticks;
     t->ctx = r;
 }

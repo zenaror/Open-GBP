@@ -11,7 +11,9 @@
 #   make smoke-dolphin  run the smoke-test DOL in Dolphin and verify the success criteria
 #   make probe-dolphin  run the gbp-probe DOL in Dolphin (HSP device absent and present)
 #   make init-dolphin   run the gbp-init-probe DOL in Dolphin (absent → abort; present → full sequence)
-#   make all            test + smoke-dolphin + probe-dolphin + init-dolphin
+#   make initirq-dolphin run the gbp-init-irq-probe DOL in Dolphin (absent → abort; GBPlayer model → shape abort)
+#   make initirq-audit  disassemble the one-shot IRQ handler of gbp-init-irq-probe and check what it calls
+#   make all            test + smoke-dolphin + probe-dolphin + init-dolphin + initirq-dolphin
 #   make shell          interactive shell in the container
 #   make clean
 
@@ -27,7 +29,9 @@ IN_CONTAINER := $(COMPOSE) run --rm -T dev
 PYTHON ?= python3
 PYTEST := $(shell command -v pytest 2>/dev/null)
 
-POCS      := smoke-test gbp-probe gbp-init-probe
+POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe
+INITIRQ_OUT := build/poc/gbp-init-irq-probe
+INITIRQ_DOL := $(INITIRQ_OUT)/gbp-init-irq-probe.dol
 INIT_OUT  := build/poc/gbp-init-probe
 INIT_DOL  := $(INIT_OUT)/gbp-init-probe.dol
 SMOKE_OUT := build/poc/smoke-test
@@ -35,10 +39,10 @@ SMOKE_DOL := $(SMOKE_OUT)/smoke-test.dol
 PROBE_OUT := build/poc/gbp-probe
 PROBE_DOL := $(PROBE_OUT)/gbp-probe.dol
 
-.PHONY: help env-check build inspect test-host test-unit test-python test smoke-dolphin probe-dolphin init-dolphin all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit all shell clean
 
 help:
-	@sed -n '2,16p' $(firstword $(MAKEFILE_LIST))
+	@sed -n '2,18p' $(firstword $(MAKEFILE_LIST))
 
 env-check:
 	$(IN_CONTAINER) sh -c 'set -e; \
@@ -101,7 +105,29 @@ init-dolphin:
 	  -C Dolphin.Core.HSPDevice=2 \
 	  --report $(INIT_OUT)/dolphin-report-present.json --screen-png $(INIT_OUT)/dolphin-screen-present.png
 
-all: test smoke-dolphin probe-dolphin init-dolphin
+# GBP-INIT-002 in Dolphin: no HSP device → abort_not_present; GBPlayer
+# model → abort_control_shape (its idle CONTROL is 0x03, not the 0x90
+# shape seen on hardware). Neither run reaches the handler install or the
+# unmask; the interrupt path is covered by tests/unit/test_gbp_init_irq.c
+# against the synthetic mock. Preconditions are never weakened for Dolphin.
+initirq-dolphin:
+	$(PYTHON) tools/dolphin_smoke.py --dol $(INITIRQ_DOL) --build-info $(INITIRQ_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-INITIRQ DONE status=abort_not_present .*written=0 .*arinfo_restored=1' \
+	  --report $(INITIRQ_OUT)/dolphin-report-absent.json --screen-png $(INITIRQ_OUT)/dolphin-screen-absent.png
+	$(PYTHON) tools/dolphin_smoke.py --dol $(INITIRQ_DOL) --build-info $(INITIRQ_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-INITIRQ DONE status=abort_control_shape reason=control_not_idle_shape restore=ok .*verdict=present det=4/4 written=0 fired=0 .*arinfo_restored=1' \
+	  -C Dolphin.Core.HSPDevice=2 \
+	  --report $(INITIRQ_OUT)/dolphin-report-present.json --screen-png $(INITIRQ_OUT)/dolphin-screen-present.png
+
+# Static audit of the one-shot handler actually linked into the DOL: the
+# function may only reference the two PI registers, the time base and
+# libogc2's __MaskIrq (docs/protocol/INITIALIZATION.md §9 R8).
+initirq-audit:
+	@test -f $(INITIRQ_OUT)/obj/hsp_backend.o || { echo "missing $(INITIRQ_OUT)/obj/hsp_backend.o; run make build"; exit 1; }
+	$(IN_CONTAINER) sh -c 'powerpc-eabi-objdump -dr $(INITIRQ_OUT)/obj/hsp_backend.o > $(INITIRQ_OUT)/hsp_backend.objdump.txt; powerpc-eabi-nm $(INITIRQ_OUT)/gbp-init-irq-probe.elf > $(INITIRQ_OUT)/gbp-init-irq-probe.nm.txt'
+	$(PYTHON) tools/isr_audit.py $(INITIRQ_OUT)/hsp_backend.objdump.txt --report $(INITIRQ_OUT)/isr-audit.txt
+
+all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin
 
 shell:
 	$(COMPOSE) run --rm dev bash

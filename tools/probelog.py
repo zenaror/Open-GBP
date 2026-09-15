@@ -104,6 +104,8 @@ def fixture(records):
             lines.append("P r %s %s" % (f["intsr"], f["intmr"]))
         elif k == "INTMR" and tag in ("mask", "restore") and f.get("rc") == "ok":
             lines.append("P w %s" % (f.get("readback") or f.get("wanted") or f.get("value")))
+        elif k == "CLEANUP" and f.get("performed") == "1":            # gbp_init_irq_probe: one INTSR W1C
+            lines.append("P a %s" % f["value"])
     return "\n".join(lines) + "\n"
 
 

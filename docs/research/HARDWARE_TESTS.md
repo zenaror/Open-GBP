@@ -415,12 +415,24 @@ device. Note: `sdlog.c` opens the report with mode `w`, so the copy of
 `GBP-PROBE-001_probe-0001.log` on the SD card is overwritten — the user
 must confirm a safe copy exists before running.
 
-### GBP-INIT-002 — controlled GBI IRQ path after the validated CONTROL transform (designed 2026-09-15; NOT implemented, NOT released)
+### GBP-INIT-002 — controlled GBI IRQ path after the validated CONTROL transform (designed 2026-09-15; implemented 2026-09-15 as build `initirq-0001`; NOT physically executed, NOT released)
 
-Status: design approved conceptually (DEVLOG 2026-09-15, IRQ-path
-audit; rules in `docs/protocol/INITIALIZATION.md` §9). No build exists.
-Nothing may run under this id until a build id, DOL hash and clean
-commit are listed here.
+Status: **implemented, not physically executed.** `poc/gbp-init-irq-probe`
+(build id `initirq-0001`, logic in `src/gbp/gbp_init_irq_probe.c`, handler
+in `src/gbp/gbp_irq_oneshot.h` + `src/platform/hsp_backend.c`) implements
+the sequence below under the rules of `docs/protocol/INITIALIZATION.md`
+§9; validated on the host (`tests/unit/test_gbp_init_irq.c`, 494 checks,
+synthetic interrupt model + the physical init-0001 fixtures for the
+gate), by the static handler audit (`make initirq-audit`: only
+`__MaskIrq` is called, the 0x2000 store follows the mask) and in Dolphin
+(no HSP → `abort_not_present`; GBPlayer model → `abort_control_shape`).
+Nothing may run under this id until the clean commit and the DOL SHA-256
+of the release build are listed here; the development build was dirty
+(commit `21a2f3d-dirty`, DEVLOG 2026-09-15 "GBP-INIT-002 implemented").
+Implementation detail that differs from the numbering below: AR_INFO
+bits 3–5 are set **before** the detection handshake (as GBP-INIT-001 did
+and as both references do), so that the physical fixtures replay
+verbatim; every prerequisite still holds before anything experimental.
 
 ```text
 Question:    After the validated CONTROL transform (0x90 → 0x8C, GBI layout),
@@ -490,7 +502,11 @@ Risk:        low-medium — one new class of operation (PI HSP unmask with a
 Physical setup: identical to GBP-INIT-001 (no cartridge, SD2SP2, Swiss).
 ```
 
-Fields to be filled when released: Test ID GBP-INIT-002 · Build ID ·
-DOL path + SHA-256 · commit (clean) · required cartridge: none · Link
-Port: nothing connected · BBA: as in GBP-INIT-001 · steps · expected log
-· question answered.
+Fields to be filled when released: Test ID GBP-INIT-002 · Build ID
+`initirq-0001` · DOL `build/poc/gbp-init-irq-probe/gbp-init-irq-probe.dol`
++ SHA-256 of the clean build (pending) · commit (clean, pending) ·
+required cartridge: none · Link Port: nothing connected · PicoAdapterGB:
+disconnected · BBA: attached, no cable · 1 controller · 1 Memory Card ·
+SD2SP2 · steps: launch, wait for the summary (≤ ~2 s + DMAs), photograph,
+X to save, START to exit, power-cycle the console, return
+`/open-gbp/GBP-INIT-002_initirq-0001.log` · question answered: see above.

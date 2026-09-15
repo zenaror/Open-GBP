@@ -36,3 +36,9 @@ const char *gbp_status_name(gbp_status s)
     default: return "?";
     }
 }
+
+int gbp_transport_has_irq_path(const struct gbp_transport *t)
+{
+    return (t && t->read_pi && t->write_intsr && t->irq_install && t->irq_restore &&
+            t->irq_mask && t->irq_unmask && t->irq_record && t->ticks) ? 1 : 0;
+}

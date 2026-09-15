@@ -10,6 +10,9 @@
  *   W <hex32addr> <rc>            write_block -> rc (address must match)
  *   P r <hex32 intsr> <hex32 intmr>   read_pi -> values
  *   P w <hex32 intmr>             write_intmr -> expected value (mismatch = GBP_ERR_BACKEND)
+ *   P a <hex32 value>             write_intsr (W1C acknowledge) -> expected value
+ * There are no interrupt-path operations (irq_install/…): physical logs
+ * carry none, and a probe that needs them stops at its install step.
  *   # comment / blank
  * ticks() returns 10 × operations consumed (no script line).
  *

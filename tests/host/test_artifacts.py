@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 import dolinfo  # noqa: E402
 
-POCS = ("smoke-test", "gbp-probe", "gbp-init-probe")
+POCS = ("smoke-test", "gbp-probe", "gbp-init-probe", "gbp-init-irq-probe")
 OUTDIR = os.path.join(ROOT, "build", "poc", "smoke-test")
 ELF = os.path.join(OUTDIR, "smoke-test.elf")
 DOL = os.path.join(OUTDIR, "smoke-test.dol")
@@ -147,7 +147,8 @@ class EveryPocArtifacts(unittest.TestCase):
             marker = ("OPENGBP-IDENT app=%s build=%s commit=%s" % (bi["app"], bi["build_id"], bi["commit"])).encode()
             self.assertIn(marker, blob, poc)
             prefix = {"smoke-test": b"OPENGBP-SMOKE READY ", "gbp-probe": b"OPENGBP-PROBE READY ",
-                      "gbp-init-probe": b"OPENGBP-INIT READY "}[poc]
+                      "gbp-init-probe": b"OPENGBP-INIT READY ",
+                      "gbp-init-irq-probe": b"OPENGBP-INITIRQ READY "}[poc]
             self.assertIn(prefix, blob, poc)
 
     def test_probe_writes_only_documented_things(self):
@@ -157,6 +158,20 @@ class EveryPocArtifacts(unittest.TestCase):
             blob = f.read()
         self.assertIn(b"GBP-PROBE-001", blob)
         self.assertIn(b"OPENGBP-PROBE READY ", blob)
+        self.assertNotIn(b"libmobile", blob)
+
+    def test_init_irq_probe_identity_and_records(self):
+        # GBP-INIT-002: its own test id, its own gecko prefix, the record
+        # kinds the log tooling and the fixture tests key on.
+        dol = os.path.join(ROOT, "build", "poc", "gbp-init-irq-probe", "gbp-init-irq-probe.dol")
+        with open(dol, "rb") as f:
+            blob = f.read()
+        self.assertIn(b"GBP-INIT-002", blob)
+        self.assertNotIn(b"GBP-INIT-001", blob)
+        self.assertIn(b"OPENGBP-INITIRQ READY ", blob)
+        for rec in (b"INITIRQ start ", b"INITIRQ end status=", b"IRQ install rc=", b"UNMASK t_unmask=",
+                    b"HANDLER fired=", b"HANDLERPI intsr_before_ack=", b"CLEANUP performed=", b"MASK final intmr="):
+            self.assertIn(rec, blob, rec)
         self.assertNotIn(b"libmobile", blob)
 
 

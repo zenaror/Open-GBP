@@ -321,10 +321,11 @@ GBP the gate stopped the probe (`C1`×32, ABSENT). The next GBI
 operations (`IRQ_Request(26)`, `__UnmaskIrq(0x20)`) have not been
 reproduced.
 
-Next step: GBP-INIT-002 (HARDWARE_TESTS.md, planned) — the first unmask
-of PI HSP, performed only **after** this transform, with a one-shot
-self-masking handler; the idle-unmask variant (DEVLOG "Option D") was
-rejected on 2026-09-15.
+Next step: GBP-INIT-002 (HARDWARE_TESTS.md; implemented as
+`poc/gbp-init-irq-probe`, build `initirq-0001`, not yet physically
+executed) — the first unmask of PI HSP, performed only **after** this
+transform, with a one-shot self-masking handler; the idle-unmask variant
+(DEVLOG "Option D") was rejected on 2026-09-15.
 
 ## 9. Rules for servicing the HSP interrupt in Open-GBP (from the 2026-09-15 audit)
 
@@ -342,3 +343,10 @@ is answered.
 | R6 | The GBP IRQ register is read-only until a device-side acknowledge is authorized separately; neither reference's stop path depends on a prior device-side ack (both mask PI and set CONTROL 0x10) | GBP-IRQ-002/003, §6 | decision |
 | R7 | Teardown order (idempotent, identical on abort): mask IRQ 26 → CONTROL original → observe PI → INTSR W1C only if bit 13 is set → previous handler back (`IRQ_Request(26, old)`) → original mask state → AR_INFO → final snapshot | Disc stop (mask first, ack last) + GBI exit (mask, free, CONTROL) | decision |
 | R8 | A handler does no DMA, no filesystem, no formatting, no allocation, no blocking call; it shares 32-bit `volatile` fields with the main loop, which copies them only after IRQ 26 is masked again | libogc2 handler context (EE = 0, interrupt stack) | decision |
+
+Implementation of these rules for GBP-INIT-002: `src/gbp/gbp_irq_oneshot.h`
+(handler body, shared by the real backend and the host mock),
+`src/platform/hsp_backend.c` (`hsp_backend_oneshot_isr`, `IRQ_Request`,
+`__MaskIrq`/`__UnmaskIrq`), `src/gbp/gbp_init_irq_probe.c` (sequence and
+teardown), `tests/mocks/gbp_mock.c` (order/invariant detector),
+`tools/isr_audit.py` (static audit of the linked handler).

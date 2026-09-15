@@ -62,6 +62,21 @@ class ProbeLog(unittest.TestCase):
         self.assertIn("A w 0043", fx)
         self.assertEqual(fx[-1], "A r 0043")
 
+    def test_fixture_init_irq_records(self):
+        # GBP-INIT-002 records: PI reads become "P r", the single main-loop
+        # acknowledge becomes "P a"; handler/mask records produce nothing.
+        _, recs = probelog.parse_lines([
+            "000030 PI tag=UNMASKPRE rc=ok intsr=00010000 intmr=000001fa intsr13=0 intmr13=0\n",
+            "000031 UNMASK t_unmask=100 rc=ok t_post=110 dt_post=10\n",
+            "000032 PI tag=UNMASKPOST rc=ok intsr=00010000 intmr=000021fa intsr13=0 intmr13=1 fired=0\n",
+            "000040 IRQ mask tag=MAIN rc=ok\n",
+            "000041 HANDLER fired=1 count=1 t_entry=120 t_unmask=100 latency_ticks=20 latency_us=0 reentry=0\n",
+            "000050 CLEANUP performed=1 value=00002000 rc=ok intsr_before=00012000 intsr_after=00010000 intsr13_after=0\n",
+            "000051 CLEANUP performed=0 intsr=00010000 intsr13=0 intmr13=0\n",
+        ])
+        fx = probelog.fixture(recs).splitlines()[1:]
+        self.assertEqual(fx, ["P r 00010000 000001fa", "P r 00010000 000021fa", "P a 00002000"])
+
     def test_check(self):
         findings, anomalies = probelog.check(self.header, self.records)
         self.assertEqual(anomalies, 1)              # the timed-out RAW

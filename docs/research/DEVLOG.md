@@ -1123,3 +1123,114 @@ entries while the mock's INTMR bit 13 is set, order assertions
 through the new probe; Dolphin run (model: CONTROL `0x03` shape →
 precondition abort, as for GBP-INIT-001); clean commit; only then a
 hardware request.
+
+---
+
+## 2026-09-15 — GBP-INIT-002 implemented (build `initirq-0001`, NOT run on hardware)
+
+**Base:** clean commit `21a2f3d` (IRQ-path audit checkpoint). Working
+tree dirty during development; the development DOL is
+`build/poc/gbp-init-irq-probe/gbp-init-irq-probe.dol`, commit
+`21a2f3d-dirty`, SHA-256
+`d1011fcb65767ee29969af1429665905238e356d2ed097fcaf06f8539a84c751`
+(not a release artifact: a clean commit, rebuild and re-validation come
+first; no hardware request was made).
+
+**What was built.** `poc/gbp-init-irq-probe` (Test ID `GBP-INIT-002`,
+gecko prefix `OPENGBP-INITIRQ`), `src/gbp/gbp_init_irq_probe.{h,c}`
+(sequence + idempotent teardown), `src/gbp/gbp_irq_oneshot.h` (the
+one-shot handler body, included by the real backend AND by the host
+mock so both execute the same statements), `src/platform/hsp_backend.c`
+(`hsp_backend_oneshot_isr`, `IRQ_Request`/`__MaskIrq`/`__UnmaskIrq`
+operations, INTSR W1C), `src/gbp/gbp_transport.h` (`struct
+gbp_irq_record`, optional `write_intsr` / `irq_install` / `irq_restore` /
+`irq_mask` / `irq_unmask` / `irq_record`; `gbp_transport_has_irq_path`),
+`src/gbp/gbp_rawlog.{h,c}` (logged block/PI reads shared by new probes;
+GBP-INIT-001's executed code kept untouched), `tests/mocks/gbp_mock.*`
+(synthetic interrupt model + order/invariant detector),
+`tests/unit/test_gbp_init_irq.c`, `tools/isr_audit.py` +
+`tests/host/test_isr_audit.py`, replay op `P a` (INTSR acknowledge) in
+`gbp_replay.c` / `probelog.py`, Makefile targets `initirq-dolphin` and
+`initirq-audit`.
+
+**Sequence implemented (mandatory order, proven by the mock trace):**
+AR_INFO bits 3–5 := 3 (readback) → presence gate (PRESENT only) → PI
+preconditions (INTSR bit 13 == 0 AND INTMR bit 13 == 0, else
+`abort_pi_precondition` with reason `intsr13_set` / `intmr13_unmasked` /
+`pi_unavailable`; nothing is masked or acknowledged silently) → S0 (PI,
+CONTROL, IRQ, TEST) + CONTROL shape (vote == byte 0x1F, bit 0x10 set,
+bits 0x0C clear) → `irq_install` (previous handler kept verbatim,
+NULL or not; `abort_handler_install` if the transport has no IRQ path)
+→ CONTROL := (v & ~0x10) | 0x0C, GBI layout → S1 (masked) → PI read,
+`t_unmask`, `__UnmaskIrq(IM_PI_HSP)`, PI read (no formatting inside)
+→ `abort_unmask` if INTMR bit 13 did not become 1 and the handler never
+ran → wait for `fired` or T_MAX (poll of the record + time base, no DMA)
+→ `__MaskIrq` → copy of the record → S2 (INTSR twice) → teardown:
+CONTROL := v → S3 → PI read → single INTSR W1C only if bit 13 is still
+set (never a loop) → previous handler back → mask verified (one retry)
+→ AR_INFO → S4. Result codes: `ok_irq_observed`,
+`timeout_no_irq_observed` ("no IRQ 26 within T_MAX"), the aborts above,
+`abort_control_read/shape`, `transport_error`; restore result separate
+(`restore=ok|error`, reason `mask_failed` / `control_restore_failed` /
+`handler_restore_failed` / `mask_not_restored` / `arinfo_restore_failed`).
+
+**Handler** (code order = statement order): `gettick()` → INTSR → INTMR
+→ `count++` → **`__MaskIrq(IM_PI_HSP)`** → **`INTSR := 0x2000`** → INTSR →
+INTMR → first-entry fields → `fired = 1`. Second entry: re-mask,
+re-acknowledge once, keep its view; main reports `reentry=1`. Shared
+state: nine `uint32_t` fields, copied by the main loop only after the
+re-mask; deltas by wrap-safe 32-bit subtraction, µs computed outside the
+handler. Static audit of the linked object (`make initirq-audit`,
+`build/poc/gbp-init-irq-probe/isr-audit.txt`): 70 instructions, the only
+call is `bl __MaskIrq`, `mftb`, PI base `lis -13312` (0xCC00), `li 8192;
+stw` after the `__MaskIrq` call, no indirect branch, no other symbol —
+CLEAN.
+
+**Tests.** C: `test_gbp_init_irq` 494 checks (present/no IRQ, IRQ at
+unmask, IRQ after N ticks, IRQ past T_MAX, W1C clears / does not clear
+INTSR, second entry despite the mask, mask ignored → storm cap and
+`mask_not_restored`, absent `C1`, inconsistent, handshake transport
+failure, INTSR bit 13 set, INTMR bit 13 unmasked, PI unavailable,
+CONTROL 0x80 / 0x9C / Dolphin 0x03 / ambiguous / read failure, previous
+handler NULL and non-NULL, install failure, transport without IRQ ops,
+failures at the EXP write / S1 / S2, CONTROL restore ignored, handler
+restore failure, unmask ineffective, ring overflow, line lengths with a
+wrapping time base, the mock's inversion detector driven by hand
+[unmask without handler; unmask before CONTROL; restore while unmasked;
+AR_INFO before the IRQ teardown; DMA while unmasked], event-order
+assertions on every full run; physical init-0001 fixtures: attached →
+gate PRESENT, physical S0, preconditions pass, stops at
+`abort_handler_install`/`irq_ops_unavailable` before any write, AR_INFO
+restored, replay clean; removed → ABSENT verbatim, 13 replay steps).
+All older suites unchanged (9+17+24+143+342+315). Python: 68 passed
+(artifact identity/records of the new DOL, probelog `P a`, isr_audit
+checker + the audit of the real object). Dolphin (`make
+initirq-dolphin`): no HSP → `abort_not_present` (reason `inconsistent`,
+Dolphin's zero fill passes the FF pattern), `written=0`,
+`arinfo_restored=1`; GBPlayer model → `abort_control_shape`
+(`control_orig=03`), `verdict=present det=4/4`, `written=0`, no handler
+installed. Regressions `init-dolphin`, `probe-dolphin`, `smoke-dolphin`:
+PASS. `make inspect`: every DOL 32-byte aligned, entry 0x80003100.
+
+**Divergences from the design text.** (1) AR_INFO bits 3–5 are set
+before the handshake (GBP-INIT-001 order; both references; needed for
+verbatim fixture replay), not after the gate as the numbered list says;
+every prerequisite still precedes anything experimental and the ABSENT
+path restores AR_INFO. (2) S3 is taken inside the teardown right after
+the CONTROL restore, and the final snapshot S4 is taken only when
+something experimental happened (handler installed or CONTROL written),
+so early aborts do not add reads that the physical fixtures never
+recorded. (3) The handler also re-acknowledges on a second entry (one
+W1C per entry, never a loop), a defensive addition to the design's
+"re-mask and return". (4) T_MAX stays 2000 ms — re-evaluated: it bounds
+the AGB power-on window and guarantees the screen/SD path; it is not a
+GBP property.
+
+**Residual risks (unchanged, U-GBP-022/023):** INTMR gating of bit 13
+not yet observed on hardware; un-acknowledged device state after the
+run → power-cycle; AGB powered up to T_MAX without a cartridge, then cut
+(as GBI's exit does); a timeout is ambiguous; libogc2 source/binary
+mismatch covered only for irq.o/irq_handler.o (U-ENV-005). Status:
+**implemented, NOT physically executed.** Next: user checkpoint → clean
+rebuild → HARDWARE_TESTS release fields (commit, DOL SHA-256) → hardware
+request.

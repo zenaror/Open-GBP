@@ -12,6 +12,8 @@
 #define OPENGBP_HSP_BACKEND_H
 
 #include <stdint.h>
+#include <gctypes.h>
+#include <ogc/irq.h>
 #include "../gbp/gbp_transport.h"
 
 #ifdef __cplusplus
@@ -26,6 +28,11 @@ struct hsp_backend {
     uint32_t busy_refusals;
     uint16_t last_csr_before;  /* DSP CSR seen before the last transfer */
     uint16_t last_csr_after;
+    /* PI HSP interrupt path (gbp_transport irq_* operations):
+     * the previous IRQ-26 handler as returned by IRQ_Request, kept
+     * verbatim (NULL or not) and put back by irq_restore. */
+    irq_handler_t old_handler;
+    int handler_installed;
 };
 
 /* buffer: 32 bytes, 32-byte aligned (e.g. static u8 b[32] ATTRIBUTE_ALIGN(32)). */
@@ -34,6 +41,11 @@ void hsp_backend_transport(struct hsp_backend *b, struct gbp_transport *t);
 
 /* Raw DSP CSR (0xCC00500A) read, for diagnostics. */
 uint16_t hsp_backend_read_csr(void);
+
+/* The one-shot IRQ-26 handler this backend installs (gbp_irq_oneshot.h
+ * body with real PI primitives). Exposed so the link map / disassembly
+ * audit can find it by name; never call it. */
+void hsp_backend_oneshot_isr(u32 irq, frame_context *ctx);
 
 #ifdef __cplusplus
 }
