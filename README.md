@@ -74,6 +74,15 @@ One important research question is whether GameCube software can independently o
 
 Mobile Adapter GB support is a planned application of the project, not the initial implementation target.
 
+Two different things carry that name. The **physical Mobile Adapter GB** is
+a normal Link Port accessory: it must keep working through the physical
+Game Boy Player Link Port like every other accessory (Link Cable
+multiplayer with another Game Boy, official and compatible third-party
+devices, PicoAdapterGB as one concrete regression case) — physical Link
+Port compatibility is the permanent requirement of `docs/ROADMAP.md`
+Phase 8. The **virtual Mobile Adapter GB over the GameCube BBA** is an
+additional Open-GBP extension; it must not replace or degrade that path.
+
 The development order is intentionally:
 
 ```text

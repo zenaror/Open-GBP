@@ -59,8 +59,10 @@ Expected long-term functionality includes:
 - audio;
 - GameCube controller input;
 - timing and behavior the games expect;
-- physical Link Port peripherals;
-- PicoAdapterGB compatibility;
+- physical Link Port compatibility: Link Cable multiplayer with another
+  physical Game Boy, official and compatible third-party Link Port
+  accessories, the physical Mobile Adapter GB, PicoAdapterGB (one concrete
+  regression fixture, not the scope);
 - rumble through the GameCube controller in GBP-aware games;
 - special modes and Game Boy Player-specific behaviors that games recognize;
 - the IRQs, registers and mechanisms those features require;
@@ -99,9 +101,21 @@ Do not waste research time trying to prove that ordinary external Link Port comm
 
 Instead, preserve it.
 
+**Physical Link Port compatibility is the permanent requirement**
+(`docs/ROADMAP.md` Phase 8). Its scope is the physical Link Port itself and
+every normal use of it: Link Cable multiplayer with another physical Game
+Boy, official accessories, the physical Mobile Adapter GB, compatible
+third-party accessories, PicoAdapterGB, and the other serial modes
+cartridges exercise through the port. PicoAdapterGB is one concrete
+regression fixture with existing physical evidence, not the compatibility
+target.
+
 When Mobile Adapter functionality is disabled, Open-GBP must not prevent normal external Link Port devices from working.
 
-PicoAdapterGB is a permanent regression reference.
+Keep the two Mobile Adapters apart: the **physical Mobile Adapter GB** is
+a normal Link Port accessory that must keep working like any other; the
+**virtual Mobile Adapter GB over the BBA** is an additional, additive
+extension of Open-GBP.
 
 The later Mobile Adapter mode should conceptually add another path:
 
@@ -167,7 +181,8 @@ The purpose of this rule is to prevent Mobile Adapter-specific assumptions from 
 
 The future integration `GBP / GBS-DOL → GameCube → BBA → virtual Mobile
 Adapter GB` is an **additive** feature of Open-GBP. It must not replace,
-break or degrade: the physical Link Port; PicoAdapterGB; rumble; the
+break or degrade: the physical Link Port and every normal accessory on it
+(the physical Mobile Adapter GB and PicoAdapterGB among them); rumble; the
 GBP-aware game features; normal GB/GBC/GBA compatibility; behavior already
 reproduced from the Start-up Disc / GBI. Mobile Adapter / libmobile remains
 a late stage of the project.

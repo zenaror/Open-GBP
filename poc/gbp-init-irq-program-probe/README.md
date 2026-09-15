@@ -1,9 +1,10 @@
 # poc/gbp-init-irq-program-probe — GBP-INIT-003A
 
-**Test ID:** `GBP-INIT-003A` — **Build ID:** `initirqa-0001` — **status: IMPLEMENTED,
-NOT PHYSICALLY EXECUTED, NOT RELEASED.** The DOL produced from a dirty tree is a
-review candidate only (`commit=<hash>-dirty` in its identity); a physical candidate
-is built from a clean checkout after the review and recorded here with its SHA-256.
+**Test ID:** `GBP-INIT-003A` — **Build ID:** `initirqa-0001` — commit `d956b1b` — DOL SHA-256
+`8c225bd101a215982ac59d096630a9e13b34557e3cdf4eb8354298855232bfa5` — **PHYSICALLY EXECUTED
+2026-09-15** (log sha256 `ae911745…2ef8`, 13231 bytes; see "Result" below). Builds after
+`d956b1b` differ from the executed one by the `intsr13_in_phase` field of the WINDOW records
+(a logging correction, see "Result"); they are not the executed binary.
 
 **Question:** with the PI HSP interrupt masked for the whole run, what do the two
 writes of GBI's first loop pass change in the GBP IRQ register as read back —
@@ -142,7 +143,9 @@ tag=FINAL` (+PI, RAW×2), `FINAL …`, `INITIRQA end status= reason= restore= re
 power_cycle_required= errors= transport_ok=`, `WRITES control_written= irq_attempted=
 irq_completed= ctl_exp=a/c a1=a/c a2=a/c stop=a/c ctl_restore=a/c uncertain= power_cycle_required=`,
 `OBSERVED intsr13_seen= t_first_intsr13= first_phase= first_value= polls_at_first= event=
-ended_early=`, `RESTORE control_restore_ok= …`, `STATS`. Every CONTROL/IRQ record carries the raw 32 bytes next
+ended_early=`, `RESTORE control_restore_ok= …`, `STATS`. The `WINDOW` records carry
+`intsr13_in_phase=` (phase-local; build initirqa-0001 printed the run-global
+`intsr13_seen=` there instead — see "Result"). Every CONTROL/IRQ record carries the raw 32 bytes next
 to both readings; the `REGION` record proves that nothing was formatted inside the
 experimental region. Saved on X to `sd:/open-gbp/GBP-INIT-003A_initirqa-0001.log`; dumped
 over USB Gecko as `OPENGBP-INITIRQA LOG …`, summarized as `OPENGBP-INITIRQA DONE …`.
@@ -201,3 +204,33 @@ that leaves the device asserted behind CONTROL 0x10 (the mandatory power cycle c
 it); bits 12–14 written 0 by A2 (both references do the same); a stop word that the
 device answers differently from the model (observed, logged, power cycle). Cartridge
 not introduced; byte 0 kept as raw evidence only.
+
+## Result (2026-09-15, commit d956b1b, DOL 8c225bd1…bfa5)
+
+`status=ok_pi_cause_observed restore=ok`, 44 transfers, 0 errors, every write
+attempted = completed, `power_cycle_required=1` (console power-cycled). PRESENT
+4/4; PI `0x00010000` / `0x000001FA` throughout the preconditions; BASE CONTROL
+`0x90`, IRQ `0x8AAE`; CONTROL `0x90 → 0x8C`. **A1** `IRQ := 0x8AAE` read back
+`0x8AAA` 0.47 µs later and at +50 µs / +500 µs (source bit 0x0004 cleared by
+writing 1; masks and bit 15 kept). **A2** `IRQ := 0x0000` read back `0x0000` at
++0.54 µs, +50 µs, +500 µs, +5 ms, +50 ms with CONTROL `0x8C` and INTSR bit 13 = 0.
+**EVENT** 105.273 ms after A2 (4263568 ticks): INTSR `0x00012000` with INTMR
+`0x000001FA` — the HSP cause captured at the PI while masked, no CPU exception —
+CONTROL `0x8C`, IRQ `0x0400`; window ended early. Teardown: CONTROL `0x90`, IRQ
+read `0x0500` (0x0100 risen after the EVENT), stop `IRQ := 0x8FAA` → `0x8AAA`
+(both sources cleared, masks and bit 15 read 1), INTSR still `0x00012000` after
+the device sources were gone, one `INTSR := 0x2000` → `0x00010000`, AR_INFO
+`0x005B → 0x0043`, FINAL under code 0 `00` / `9090`. Evidence GBP-HW-027…034,
+GBP-PI-004, GBP-IRQ-007; log verbatim in HARDWARE_TESTS.md; fixture
+`captures/fixtures/hw-gamecube-gbp-2026-09-15-initirqa-0001.gbpreplay` replays
+the whole run with the console's time base (`tests/unit/test_gbp_initirqa.c`,
+`tests/host/test_hw_fixture.py`).
+
+**Logging defect of build initirqa-0001:** record `WINDOW tag=A1 … intsr13_seen=1`
+printed the run-global first-sighting flag after the whole window had ended. The
+primary A1 records (A1-0, A1-50US, A1-500US, A2PRE) all read INTSR bit 13 = 0 and
+`OBSERVED first_phase=A2` places the first sighting in the A2 window: there was no
+INTSR bit 13 during A1. The log is preserved as written; later builds print a
+phase-local `intsr13_in_phase=` in both WINDOW records, the replay of the fixture
+through the corrected probe reports `intsr13_in_phase=0` for A1 and `=1` for A2,
+and the mock scenario "cause after A2" pins it.

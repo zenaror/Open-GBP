@@ -403,10 +403,75 @@ first-pass writes separately, `IRQ := read | 0x8000` (acknowledge) then
 `IRQ := 0` (mask/control programming), with PI HSP masked throughout, no
 handler and no unmask, snapshots between them and a Start-up-Disc-style
 stop (`IRQ := read | 0x8AAA`; GBP-IRQ-006) — HARDWARE_TESTS.md "Planned
-tests"; implemented 2026-09-15 as `poc/gbp-init-irq-program-probe`
-(`src/gbp/gbp_initirqa_probe.c`), **not physically executed**. Delivery
-(handler + unmask) is GBP-INIT-003B, designed only after 003A's result. Writing a previously read value back as a "restore" stays
+tests"; implemented and **executed 2026-09-15** as
+`poc/gbp-init-irq-program-probe` (`src/gbp/gbp_initirqa_probe.c`) — result
+and updated model in §11. Delivery (handler + unmask) is GBP-INIT-003B,
+analyzed after 003A's result (DEVLOG), not yet designed in detail. Writing a previously read value back as a "restore" stays
 prohibited. The
 read layout in the 0x8FAE state is `hh hh ll' ll` with `ll' = ll | 0x01`
 at offsets ≡ 2 mod 4 (U-GBP-025): keep reading offsets ≡ 1 / ≡ 3 mod 4
 as both references do.
+
+## 11. GBP-INIT-003A result and the updated IRQ-register model (2026-09-15)
+
+Physical facts (GBP-HW-027…034, GBP-PI-004, GBP-IRQ-007; log verbatim in
+HARDWARE_TESTS.md): with the GBP present, no cartridge, expansion code 3,
+CONTROL `0x90 → 0x8C` and PI HSP masked for the whole run (INTMR bit 13 =
+0, never written), the two writes of GBI's first pass behaved as follows.
+**A1** `IRQ := read | 0x8000` (= 0x8AAE) cleared the pending even bit
+0x0004 and left the six odd bits and bit 15 at 1 (read 0.47 µs, 50 µs and
+500 µs later). **A2** `IRQ := 0` read back 0x0000 for at least 50 ms with
+CONTROL unchanged. Then, 50–105 ms after A2, source 0x0400 was set on the
+device and **PI INTSR bit 13 read 1 with INTMR bit 13 = 0** (captured,
+not delivered; no exception); 0x0100 followed within ≈1 ms. The Start-up
+Disc's stop word `IRQ := read | 0x8AAA` (= 0x8FAA) cleared both sources and
+re-armed the odd bits and bit 15 (read 0x8AAA); INTSR bit 13 stayed set
+after the device sources were gone and one `INTSR := 0x2000` cleared it.
+Every restore succeeded. Combined with GBP-INIT-002 (same CONTROL state,
+register left at 0x8AAE with sources pending, PI unmasked for 2 s, no
+cause): the state that blocked the cause was the device's own IRQ
+register, not PI INTMR — CORROBORATED (bit 15 and the odd bits changed
+together, so they are not separated).
+
+Model of the 16-bit IRQ register after this run (details and evidence
+ids in EVIDENCE.md GBP-IRQ-007):
+
+| Element | Status after 2026-09-15 |
+|---|---|
+| Even bits = sources, write-1-to-clear | **F** for bits 2, 8, 10 (cleared by writing 1 on hardware); C for 0, 4, 6 (pairing + code) |
+| Source functions | F (code): 2 game-pak/stop (Disc slot 3), 8 video (slot 5 / GBI VIDEO), 10 audio (slot 4 / GBI AUDIO); "the physical 0x0400 then 0x0100 were the AGB's audio and video requests": C |
+| Odd bits = paired masks, level-written | pairing C; level-written **F** (written 1 → 1, written 0 → 0 for ≥ 50 ms) |
+| Polarity 1 = masked, 0 = enabled | **C** (INIT-002: all 1, sources pending, no cause in 2 s; 003A: all 0, next source raised the cause) — not F, bit 15 moved with them |
+| Bit 15 | writable and persistent as 0 and as 1 with nothing pending: **F**; "W1C pending summary" **rejected**; "level global hold, 1 = held": **H**, never isolated |
+| Bits 12–14 | written 0, read 0; function U |
+| PI INTSR bit 13 | captured with INTMR bit 13 = 0, latched, cleared by one W1C 0x2000: **F** (GBP-PI-004); device line level/pulse and W1C-while-asserted: U (U-GBP-022) |
+| Write layout | u16 replicated 16× accepted for 0x8AAE, 0x0000, 0x8FAA: F |
+
+Rules R1–R8 (§9) stand. R6 is refined: device-side IRQ-register writes
+are authorized in the three forms that have physical evidence —
+`read | 0x8000` (acknowledge), `0` (enable all six slots, bit 15 cleared)
+and `read | 0x8AAA` (Start-up Disc stop word) — each with the u16
+replicated layout; any other value, and any write while PI HSP is
+unmasked, needs its own authorization. Writing a previously read value
+back as a "restore" stays prohibited (it acknowledges what it carries;
+A1 demonstrated exactly that).
+
+Initialization readiness after 003A — established on hardware: presence
+detection (four runs), AR_INFO handling (four runs, function still
+U-GBP-004), CONTROL transform and restore (three runs), source
+acknowledge by W1C (three bits), mask programming (level writes both
+ways), a real HSP cause captured at the PI while masked, PI acknowledge
+by W1C, the Disc's stop word, full teardown with power cycle. Still
+missing before "initialization" can be called functional: (1) delivery
+of a real HSP cause to the CPU through IRQ 26 with a handler (never
+exercised — INIT-002 unmasked with no cause, 003A had a cause with no
+unmask); (2) the acknowledge protocol while the device still asserts
+(does the PI W1C clear a cause whose source is still pending? does it
+re-latch?), i.e. the remaining half of U-GBP-022; (3) the steady-state
+service loop of the references (device acknowledge `read | 0x8000`,
+re-enable `0`, KEYPAD written on every service — KEYPAD has never been
+written) without losing causes; (4) CONTROL bits 0x04/0x08 (Disc start
+`|0x04` then `&~0x10` vs GBI `(v & ~0x18) | 0x0C`, U-GBP-006). Reading
+the AUDIO/VIDEO blocks belongs to Phases 4/6. No move to VIDEO before (1)
+and (2) are answered; the next experiment (GBP-INIT-003B) is analyzed,
+not implemented, in DEVLOG 2026-09-15 "GBP-INIT-003A executed".

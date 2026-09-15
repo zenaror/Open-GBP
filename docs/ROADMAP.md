@@ -206,30 +206,61 @@ If a game has a special behavior supported by the original Game Boy
 Player or by GBI, Open-GBP must aim to reproduce that behavior.
 ```
 
-## Phase 8 — Physical Link Port regression
+## Phase 8 — Physical Link Port compatibility regression
 
-The user's PicoAdapterGB already proves that the physical GBP Link Port supports normal serial communication.
+The physical Game Boy Link Port is a first-class compatibility requirement.
 
-This phase verifies that Open-GBP has not broken that behavior.
+Open-GBP must preserve the normal external serial behavior of the Game Boy
+Player and must not make the Link Port dependent on Open-GBP-specific hardware
+or protocols.
 
-Tests should include the normal external path:
+PicoAdapterGB is one known-good regression device and provides existing
+physical evidence that normal serial communication through the GBP Link Port
+works, but it is only one test case.
 
-```text
+The scope of this phase is the physical Link Port itself and the normal
+accessories/protocols used through it, including, where applicable:
+
+- Game Boy Link Cable communication with another physical Game Boy;
+- multiplayer/link features used by compatible games;
+- official Game Boy Link Port accessories;
+- physical Mobile Adapter GB;
+- PicoAdapterGB;
+- compatible third-party accessories;
+- other normal serial modes exercised by cartridges through the Link Port.
+
+Normal external communication must remain a transparent hardware path:
+
 cartridge
    ↕
 physical GBP Link Port
    ↕
-PicoAdapterGB
-```
+external accessory / another Game Boy
+
+Open-GBP must not require knowledge of a particular external accessory for this
+path to operate normally.
+
+Tests should therefore include multiple representative Link Port use cases,
+rather than treating PicoAdapterGB as the compatibility target.
 
 Acceptance:
 
-```text
-PicoAdapterGB continues to work when internal Mobile Adapter
-functionality is disabled.
-```
+- normal physical Link Port behavior remains compatible with the original
+  Game Boy Player environment;
+- multiplayer communication with a physical compatible Game Boy continues to
+  work;
+- PicoAdapterGB continues to work;
+- physical accessories are not broken by Open-GBP initialization, IRQ,
+  controller, audio/video, or shutdown handling;
+- future internal serial functionality does not alter the external Link Port
+  path when that functionality is disabled.
 
-This is a permanent regression requirement for later phases.
+The future virtual Mobile Adapter implementation over the GameCube BBA is an
+additive Open-GBP feature. It must not replace the physical Link Port or make
+physical Link Port compatibility dependent on the virtual Mobile Adapter
+implementation.
+
+This is a permanent regression requirement for all later phases.
 
 ## Phase 9 — GBI-class functional parity
 

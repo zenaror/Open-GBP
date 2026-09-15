@@ -1,9 +1,9 @@
 """
 GBP-INIT-003A fixture round trip on SYNTHETIC data.
 
-No physical GBP-INIT-003A log exists (the experiment has not been executed
-on hardware). This test proves the tooling path that a physical log will
-take: the host mock run (tests/unit/test_gbp_initirqa.c --dump-log) is
+The physical GBP-INIT-003A run of 2026-09-15 has its own fixture under
+captures/fixtures (tested by test_hw_fixture.py and tests/unit). This test
+proves the tooling path on a synthetic log independently of it: the host mock run (tests/unit/test_gbp_initirqa.c --dump-log) is
 written in the SD-log format, tools/probelog.py turns it into a replay
 script (clearly marked SYNTHETIC), and the probe logic run on that script
 reaches the same result as the mock run — every time-base read answered
@@ -71,9 +71,14 @@ class InitirqaRoundTrip(unittest.TestCase):
         m = re.search(r"REPLAY step=(\d+) exhausted=(\d+) mismatches=(\d+) tick_polls=(\d+) timeline=(\d+)", run2.stdout)
         self.assertIsNotNone(m, run2.stdout)
         self.assertEqual((m.group(2), m.group(3), m.group(4), m.group(5)), ("0", "0", "0", "1"))
-        # never a fixture under captures/
-        self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "fixtures", "*initirqa*")), [])
-        self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "fixtures", "*003a*")), [])
+        # synthetic scripts never enter captures/fixtures: every fixture there is physical or Dolphin model data,
+        # none carries the SYNTHETIC marker, and the generated files stayed under build/ (or the temp dir)
+        for fx_path in glob.glob(os.path.join(ROOT, "captures", "fixtures", "*.gbpreplay")):
+            with open(fx_path, encoding="utf-8") as f:
+                head = f.read(2048)
+            self.assertNotIn("SYNTHETIC", head, fx_path)
+            self.assertTrue("# SOURCE=physical GameCube" in head or "MODEL DATA, NOT HARDWARE" in head, fx_path)
+        self.assertFalse(fx.startswith(os.path.join(ROOT, "captures")))
 
 
 if __name__ == "__main__":

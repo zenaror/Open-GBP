@@ -107,6 +107,18 @@ static void restore_fail(struct gbp_initirqa_result *res, const char *why)
     res->restore_ok = 0;
 }
 
+/* Phase-local sighting flags: what WINDOW tag=A1 / tag=A2 report. The
+ * global first-sighting record (note_intsr13) is a different thing; build
+ * initirqa-0001 printed the global flag in both WINDOW records, which made
+ * the physical log of 2026-09-15 read "WINDOW tag=A1 … intsr13_seen=1"
+ * although every A1 record had INTSR bit 13 = 0 (DEVLOG 2026-09-15). */
+static void note_phase_intsr13(struct gbp_initirqa_result *res, int phase, uint32_t intsr)
+{
+    if (!(intsr & GBP_PI_HSP_BIT)) return;
+    if (phase == 1) res->a1_intsr13_seen = 1;
+    else if (phase == 2) res->a2_intsr13_seen = 1;
+}
+
 static void note_intsr13(struct gbp_initirqa_result *res, uint32_t tnow, uint32_t intsr, const char *phase, unsigned polls)
 {
     if (res->intsr13_seen) return;
@@ -227,8 +239,8 @@ static void flush_window(struct ringlog *log, const struct gbp_initirqa_config *
     log_snapshot(log, res, &res->snap[GBP_INITIRQA_SNAP_A1_0]);
     for (k = 0; k < res->a1_obs_taken; k++) log_snapshot(log, res, &res->snap[GBP_INITIRQA_SNAP_A1_OBS + k]);
     if (res->w_a1.completed)
-        ringlog_printf(log, "WINDOW tag=A1 deadlines=%u/%u polls=%u poll_errors=%u intsr13_seen=%d no_timebase=%d",
-                       res->a1_obs_taken, cfg->n_a1_obs, res->a1_polls, res->poll_errors, res->intsr13_seen, res->no_timebase);
+        ringlog_printf(log, "WINDOW tag=A1 deadlines=%u/%u polls=%u poll_errors=%u intsr13_in_phase=%d no_timebase=%d",
+                       res->a1_obs_taken, cfg->n_a1_obs, res->a1_polls, res->poll_errors, res->a1_intsr13_seen, res->no_timebase);
     if (res->irq_a2pre.taken) {
         log_irqread(log, res, "A2PRE", &res->irq_a2pre);
         gbp_rawlog_log_pi(log, "tag=A2PRE", res->a2pre_pi_ok ? "ok" : "fail", res->a2pre_intsr, res->a2pre_intmr);
@@ -244,9 +256,9 @@ static void flush_window(struct ringlog *log, const struct gbp_initirqa_config *
     for (k = 0; k < res->n_a2_order; k++) log_snapshot(log, res, &res->snap[res->a2_order[k]]);
     if (res->w_a2.completed) {
         uint32_t elapsed = (uint32_t)(res->t_window_end - res->t_a2);
-        ringlog_printf(log, "WINDOW tag=A2 deadlines=%u/%u polls=%u poll_errors=%u ended_early=%d event=%d t_event=%lu intsr13_seen=%d t_end=%lu elapsed_ticks=%lu elapsed_us=%lu no_timebase=%d",
+        ringlog_printf(log, "WINDOW tag=A2 deadlines=%u/%u polls=%u poll_errors=%u ended_early=%d event=%d t_event=%lu intsr13_in_phase=%d t_end=%lu elapsed_ticks=%lu elapsed_us=%lu no_timebase=%d",
                        res->a2_obs_taken, cfg->n_a2_obs, res->a2_polls, res->poll_errors, res->window_ended_early,
-                       res->event_taken, (unsigned long)res->t_event, res->intsr13_seen, (unsigned long)res->t_window_end,
+                       res->event_taken, (unsigned long)res->t_event, res->a2_intsr13_seen, (unsigned long)res->t_window_end,
                        (unsigned long)elapsed, (unsigned long)ticks_to_us(cfg, elapsed), res->no_timebase);
     }
     ringlog_printf(log, "REGION log_count_start=%lu log_count_end=%lu formatted_inside=%lu", (unsigned long)res->log_count_window_start,
@@ -265,6 +277,7 @@ static void wait_phase(const struct gbp_transport *t, const struct gbp_initirqa_
     unsigned slot0 = (phase == 1) ? GBP_INITIRQA_SNAP_A1_OBS : GBP_INITIRQA_SNAP_A2_OBS;
     unsigned k;
     uint32_t tnow, intsr;
+    struct gbp_initirqa_snapshot *s_obs;
     int can_poll = (cfg->poll_between && t->poll_intsr) ? 1 : 0;
 
     if (!t->ticks) { res->no_timebase = 1; return; }
@@ -276,6 +289,7 @@ static void wait_phase(const struct gbp_transport *t, const struct gbp_initirqa_
                 if (t->poll_intsr(t->ctx, &intsr) == GBP_OK) {
                     (*polls)++;
                     if (intsr & GBP_PI_HSP_BIT) {
+                        note_phase_intsr13(res, phase, intsr);
                         note_intsr13(res, tnow, intsr, (phase == 1) ? "A1" : "A2", *polls);
                         if (phase == 2 && !res->event_taken) {
                             struct gbp_initirqa_snapshot *s;
@@ -294,7 +308,8 @@ static void wait_phase(const struct gbp_transport *t, const struct gbp_initirqa_
             }
             if ((uint32_t)(tnow - t0) >= dl[k]) break;
         }
-        take_snapshot(t, res, slot0 + k, (phase == 1) ? cfg->a1_obs_id[k] : cfg->a2_obs_id[k], 1, tnow, 0, *polls);
+        s_obs = take_snapshot(t, res, slot0 + k, (phase == 1) ? cfg->a1_obs_id[k] : cfg->a2_obs_id[k], 1, tnow, 0, *polls);
+        if (s_obs->pi_ok) note_phase_intsr13(res, phase, s_obs->intsr);
         if (phase == 1) res->a1_obs_taken++;
         else { res->a2_obs_taken++; res->a2_order[res->n_a2_order++] = slot0 + k; }
     }
@@ -657,7 +672,8 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     res->irq_writes_completed++;
 
     /* ---- 9. A1-0 immediately, then the read-only samples ---- */
-    take_snapshot(t, res, GBP_INITIRQA_SNAP_A1_0, "A1-0", 0, 0, 0, 0);
+    s = take_snapshot(t, res, GBP_INITIRQA_SNAP_A1_0, "A1-0", 0, 0, 0, 0);
+    if (s->pi_ok) note_phase_intsr13(res, 1, s->intsr);
     wait_phase(t, cfg, res, 1);
 
     /* ---- 10. A2PRE: irq_before_zero + PI; INTMR must still be masked ---- */
@@ -686,7 +702,8 @@ int gbp_initirqa_probe_run(const struct gbp_transport *t, struct ringlog *log,
     res->irq_writes_completed++;
 
     /* ---- 12. A2-0 immediately, then the temporal window with INTSR polling ---- */
-    take_snapshot(t, res, GBP_INITIRQA_SNAP_A2_0, "A2-0", 0, 0, 0, 0);
+    s = take_snapshot(t, res, GBP_INITIRQA_SNAP_A2_0, "A2-0", 0, 0, 0, 0);
+    if (s->pi_ok) note_phase_intsr13(res, 2, s->intsr);
     wait_phase(t, cfg, res, 2);
     res->t_window_end = now(t);
     /* ================= end of the experimental region ================= */

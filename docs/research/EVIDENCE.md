@@ -1154,3 +1154,166 @@ masked PI; the stop formula `read | 0x8AAA` used by 003A's teardown is
 the same routine's write once all six slots have been enabled (start
 sets `shadow = 0x8000 | odd bits of the slots with a callback` =
 `0x8AAA` in the disc's normal flow).
+
+---
+
+## Physical observations — GBP-INIT-003A, 2026-09-15 (GBP attached, PI HSP masked throughout)
+
+Log `logs/GBP-INIT-003A_initirqa-0001.log` (13231 bytes, sha256
+`ae9117457039727026f00e9ccb349d4af3c85ee6f4f436d290cd40cc0e672ef8`),
+build `initirqa-0001`, commit `d956b1b` (clean), DOL sha256
+`8c225bd101a215982ac59d096630a9e13b34557e3cdf4eb8354298855232bfa5`;
+verbatim in HARDWARE_TESTS.md; preserved copy `captures/local/`; fixture
+`captures/fixtures/hw-gamecube-gbp-2026-09-15-initirqa-0001.gbpreplay`.
+Setup identical to GBP-INIT-002 (no Game Pak, Link Port empty, BBA without
+cable). Time base 40.5 MHz. PI INTMR bit 13 was 0 in every read and was
+never written (no handler, no unmask — audited on the objects). Every
+claim below is **FACT (hardware)** unless marked otherwise; interpretations
+are kept apart from observations.
+
+## GBP-HW-027 — Detection, preconditions and baseline of the run
+
+Handshake: `C3 → 3C`×32; `3C → C7 C3×31` (byte 0 extra 0x04); `FF → 00`×32;
+`00 → FF`×32 — vote 4/4, byte-1 4/4, whole-block 3/4 → PRESENT (the
+whole-block criterion is reporting only, GBP-HW-010). PI `PRE`, `BASE` and
+`P0`: INTSR `0x00010000`, INTMR `0x000001FA`. BASE: CONTROL `90`×32 (no
+byte-0 extra) → 0x90; IRQ `AE 8A AE AE / 8A 8A AE AE ×7` → 0x8AAE by both
+readings; TEST `00`×32; shape checks passed. CONTROL := 0x8C accepted (P0,
+981 ticks later: `AC 8C×31` → 0x8C); IRQ still 0x8AAE at P0 and at A1PRE.
+After GBP-INIT-002 had left the register at 0x8FAE and the console was
+power-cycled, the register read its idle value 0x8AAE again (U-GBP-023).
+
+## GBP-HW-028 — A1 `IRQ := 0x8AAE` (= read | 0x8000) cleared source bit 0x0004 and nothing else
+
+A1PRE 0x8AAE; write `8A AE`×16 (u16 replicated, one 32-byte DMA at
+`base + 0xD00000`, completed); A1-0, 19 ticks (0.47 µs) after the write's
+completion, read `AE 8A AA AA / 8A 8A AA AA ×7` → 0x8AAA by both readings;
+A1-50US (2029 ticks) and A1-500US (20255 ticks) identical; A2PRE 0x8AAA.
+CONTROL `AC 8C×31` in all; INTSR `0x00010000` in all. `0x8AAE ^ 0x8AAA =
+0x0004`: the even bit written as 1 cleared, the six odd bits and bit 15
+written as 1 read back 1. **FACT (hardware):** writing 1 to bit 2 while it
+read 1 cleared it (write-1-to-clear behavior of that bit); bits 1, 3, 5,
+7, 9, 11 and 15 written 1 read 1. **FACT (code), separate:** bit 2 is the
+Disc's callback slot 3 (`0x801B34C8[3] = 0x0004`, stop sequence + video
+reset, "game pak" event; Dolphin `IRQ::GamePak`). The physical function of
+bit 2 was not tested.
+
+## GBP-HW-029 — A2 `IRQ := 0x0000` read back 0x0000 for at least 50 ms; CONTROL unchanged
+
+A2PRE 0x8AAA; write `00`×32 (completed); A2-0 22 ticks (0.54 µs) later
+`00`×32 → 0x0000 by both readings; A2-50US (2025 ticks), A2-500US (20251),
+A2-5MS (202503), A2-50MS (2025005 ticks = 50.0 ms) all `00`×32; CONTROL `AC
+8C×31` in all five; INTSR `0x00010000` in all five. **FACT:** the six odd
+bits and bit 15, which read 1 before, read 0 after being written 0 and
+stayed 0 for ≥ 50 ms with no even bit set; bits 12–14 written 0 read 0. No
+function is claimed from this observation alone.
+
+## GBP-HW-030 — First HSP cause: PI INTSR bit 13 = 1 with INTMR bit 13 = 0, 105.27 ms after A2, IRQ register 0x0400
+
+The INTSR poll at time-base 4155517524 (= t_a2 + 4263568 ticks = 105.2733
+ms after A2's completion; 105.79 ms after A1; 105.92 ms after the CONTROL
+write; the 740497th poll of the window, ≈0.14 µs per poll) returned
+`0x00012000`. The EVENT snapshot taken at once read INTSR `0x00012000`,
+INTMR `0x000001FA`, CONTROL `AC 8C×31` (0x8C), IRQ `04 04 04 00 ×8` →
+0x0400 by both readings. The previous sample (A2-50MS, 50.00 ms after A2)
+had read INTSR bit 13 = 0 and IRQ 0x0000, so the source and the PI bit
+both rose between 50.00 ms and 105.27 ms after A2. Nothing was written
+inside the window; the CPU took no exception (the program continued
+normally; INTMR bit 13 = 0 throughout). **FACT (restricted):** with PI
+HSP masked at the CPU (INTMR bit 13 = 0), after A1 and A2 of the GBI
+pattern, the GBS-DOL produced source 0x0400 and PI INTSR bit 13 was
+observed set ≈105.27 ms after A2. **Not claimed:** delivery of IRQ 26 (it
+was masked and nothing was delivered); the exact rise time inside the
+55 ms gap.
+
+## GBP-HW-031 — Source 0x0100 appeared after the EVENT and before the stop write
+
+IRQSTOPPRE, read ≈1.0 ms after the EVENT (after CONTROL had been restored
+to 0x90 at +0.905 ms), returned `05 05 04 00 / 05 05 05 00 ×7` → 0x0500 by
+both readings. **FACT:** bit 8 (0x0100) rose after the EVENT snapshot and
+before the stop write; no finer timestamp exists (the two reads are not
+temporal samples of the same phase). Order only: 0x0400 first, then
+0x0500. Same pair as GBP-INIT-002's 0x8FAE (GBP-HW-024). **FACT (code):**
+bit 8 is the Disc's slot 5 (`0x8008ed68 → 0x8008a480`, VIDEO block read)
+and GBI's VIDEO read (0xF00); bit 10 is the Disc's slot 4 (`0x8008cdc4 →
+0x8008a764`, AUDIO block read) and GBI's AUDIO read (0x1000) — GBP-IRQ-005.
+**CORROBORATED (interpretation):** the physical event was the GBS-DOL's
+audio (0x0400) followed by video (0x0100) request of the running AGB; not
+FACT because no AUDIO/VIDEO block was read and no cartridge was present.
+
+## GBP-HW-032 — Stop word `IRQ := 0x8FAA` (= 0x0500 | 0x8AAA) read back 0x8AAA
+
+Write `8F AA`×16 (completed); IRQSTOPPOST `AE 8A AA AA / 8A 8A AA AA ×7` →
+0x8AAA by both readings (`masks_readback=1 bit15_readback=1`). **FACT:**
+the even bits 8 and 10 written as 1 cleared (second and third even bits
+with write-1-to-clear behavior after bit 2); the odd bits and bit 15
+written 1 read 1 with no even bit set. The Start-up Disc's stop formula
+(`read | 0x8AAA`, GBP-IRQ-006) therefore did what the code analysis
+predicted on the device side.
+
+## GBP-HW-033 — PI INTSR bit 13 stayed set after the device sources were cleared and was cleared by a single W1C 0x2000
+
+CLEANUPCHK, read after CONTROL := 0x90 and after the stop write had
+cleared 0x0500 from the device register: INTSR `0x00012000`, INTMR
+`0x000001FA`. One `INTSR := 0x2000`; re-read `0x00010000`; `sticky=0`, no
+second write. **FACT:** the PI keeps bit 13 set after the device-side
+sources are gone (latched at the PI, not a live mirror of the device
+register's even bits), and one write-1-to-clear of 0x2000 cleared it.
+**Not resolved:** whether the GBS-DOL line is level or pulse, and what a
+W1C does while the device still asserts (the sources had been cleared on
+the device side before the W1C) — U-GBP-022 remaining part.
+
+## GBP-HW-034 — Teardown, expansion-code view, byte-0 extras, statistics
+
+CONTROL restore 0x90 → readback `90`×32; stop and cleanup as above; AR_INFO
+`0x005B → 0x0043` read back; FINAL under code 0: CONTROL `00`×32, IRQ
+`90`×32 (0x9090), INTSR `0x00010000`, INTMR `0x000001FA` — fourth
+observation of the code-3 → code-0 view change (U-GBP-004). `restore=ok`;
+every write attempted = completed (`ctl_exp 1/1, a1 1/1, a2 1/1, stop 1/1,
+ctl_restore 1/1, uncertain=0`); 44 transfers, 0 timeouts, 0 busy, 0
+errors, 102 lines, 0 dropped, 0 truncated; `REGION formatted_inside=0`.
+Byte-0 extras of this run: CONTROL 0x8C → `AC` (+0x20), 0x90 → `90` and
+0x00 → `00` (none); IRQ 0x8A → `AE` (+0x24) in every 0x8AAE/0x8AAA read,
+0x04 → `04`, 0x05 → `05`, 0x90 → `90` (none); TEST C3 → `C7` (+0x04),
+others none — a fourth distinct pattern across runs (U-GBP-021). One
+group-0 anomaly: the 0x0500 read has `05 05 04 00` in group 0 against
+`05 05 05 00` in groups 1–7 (offset 2 of group 0 differs, U-GBP-025).
+**Logging defect of this build, not a hardware observation:** the record
+`WINDOW tag=A1 … intsr13_seen=1` printed the run-global flag after the
+window had ended; every A1 record (A1-0, A1-50US, A1-500US, A2PRE) has
+INTSR bit 13 = 0 and `OBSERVED first_phase=A2 t_first_intsr13=4155517524`;
+there was no INTSR bit 13 during A1 (DEVLOG 2026-09-15). Corrected for
+later builds (`intsr13_in_phase`); the log stays as written.
+
+## GBP-PI-004 — PI INTSR bit 13 is captured independently of INTMR bit 13, latched, and cleared by W1C 0x2000 (hardware)
+
+**Claim:** the HSP cause bit of INTSR (bit 13) was observed set while
+INTMR bit 13 was 0 (GBP-HW-030), stayed set after the device-side sources
+had been cleared (GBP-HW-033), and was cleared by one `INTSR := 0x2000`
+(GBP-HW-033); no CPU exception occurred while it was set with the mask
+closed. **Status:** FACT (hardware), restricted to bit 13 / HSP on this
+console — promotes GBP-PI-001 (cause visible independently of the mask)
+and GBP-PI-002 (write-1-to-clear) to FACT for bit 13, and the "masked
+cause is not delivered" part of GBP-PI-003 to FACT for bit 13. Not
+extrapolated to other PI sources. **Open:** level/pulse nature of the
+GBS-DOL line and W1C-while-asserted (U-GBP-022).
+
+## GBP-IRQ-007 — IRQ-register field semantics after GBP-INIT-003A (model update)
+
+| Bit(s) | Observation (hardware, 2026-09-15) | Reference usage (code, FACT) | Status of the semantics |
+|---|---|---|---|
+| 2 (0x0004) | read 1 at idle; written 1 (A1) → read 0 (GBP-HW-028) | Disc slot 3 (stop / video reset); Dolphin GamePak | W1C **FACT**; function "game pak / stop event" FACT (code), physically untested |
+| 8 (0x0100) | rose by itself with CONTROL 0x8C (GBP-INIT-002: within 2 s; 003A: between the EVENT and +1.0 ms); written 1 (stop) → read 0 (GBP-HW-032) | Disc slot 5 → VIDEO read; GBI VIDEO read 0xF00 | W1C **FACT**; "video request of the AGB" **CORROBORATED** |
+| 10 (0x0400) | rose by itself 50–105 ms after A2 and raised PI INTSR bit 13 with masks 0 / bit 15 0 (GBP-HW-030); written 1 (stop) → read 0 | Disc slot 4 → AUDIO read; GBI AUDIO read 0x1000 | W1C **FACT**; propagation to PI **FACT** (in the A2 state); "audio request of the AGB" **CORROBORATED** |
+| 0, 4, 6 | never seen set | Disc slots 0, 2, 1 (user callback, sleep → CONTROL 0x10, serial) | by pairing/code only: **CORROBORATED** W1C, functions per code |
+| 1, 3, 5, 7, 9, 11 (0x0AAA) | idle 1; written 1 (A1, stop) → 1; written 0 (A2) → 0 for ≥ 50 ms; with all six = 1 (and bit 15 = 1) pending 0x0400/0x0100 raised no PI cause for 2 s (INIT-002); with all six = 0 (and bit 15 = 0) the next 0x0400 raised the PI cause (003A) | Disc: per-slot mask levels, handler filter `pending & ~(pending >> 1)`; GBI: all 0 before waiting | level-written **FACT**; pairing **CORROBORATED**; polarity 1 = masked / 0 = enabled **CORROBORATED** — not FACT because the two runs also differ in bit 15, so the odd bits alone were not isolated |
+| 12–14 | written 0 by A2 → 0; never seen 1 | never used | **UNKNOWN** function; keep 0 |
+| 15 (0x8000) | idle 1; written 0 (A2) → 0 for ≥ 50 ms with no source pending; written 1 (stop) → 1 with no source pending (GBP-HW-029/032); the PI cause arrived while it read 0 | Disc: 1 at handler entry and at stop, 0 at start/exit; GBI: `read \| 0x8000` then 0; Dolphin: `IRQ_ASSERTED`, set by any source, W1C, drives the line | **FACT:** writable and persistent as 0 and as 1 under the conditions tested. Reading (ii) "W1C pending summary" **REJECTED** (a summary written 1 with nothing pending would not read 1; it read 1). Reading (i) "level-written global hold/mask, 1 = held" remains consistent — **HYPOTHESIS**, because its effect was never isolated from the odd bits. Dolphin's condition `irq & 0x8000` for asserting the line is contradicted (the cause came with bit 15 = 0) |
+| Write layout | u16 replicated 16× (`hi lo …`) accepted for 0x8AAE, 0x0000, 0x8FAA; read-back layout `hh hh ll' ll` with `ll' = ll \| (hi & 0x05)` in all six states seen (U-GBP-025, pattern only) | GBI 0x80015da4 | layout **FACT** for the three values written |
+
+**Consequence for initialization:** GBP-INIT-002 (idle masks left in
+place, PI unmasked) saw no cause in 2 s with the sources pending; 003A
+(sources acknowledged, masks and bit 15 written 0, PI masked) saw the
+cause at the PI within 105 ms. The blocker of INIT-002 was the device's
+own IRQ register state, not PI INTMR — **CORROBORATED** (two runs, one
+variable group changed; bit 15 and the odd bits changed together).

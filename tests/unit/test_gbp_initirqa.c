@@ -3,7 +3,8 @@
  * the GBP IRQ register and against the physical fixtures of GBP-INIT-001
  * and GBP-INIT-002 (detection gate, PI preconditions, BASE snapshot and
  * the CONTROL/IRQ shape checks: everything before the first experimental
- * write — no physical GBP-INIT-003A data exists, and none is invented).
+ * write), and against the complete physical run of GBP-INIT-003A itself
+ * (initirqa-0001, 2026-09-15) when its fixture is given as argv[4].
  *
  * Every scenario of the implementation brief is covered, plus the
  * event-order assertions (AR_INFO exp < handshake < CONTROL exp < P0 reads
@@ -211,6 +212,8 @@ static void test_nominal_no_cause(void)
     CHECK(count_lines_with(&rl, "SNAP tag=") == 2 + 1 + 2 + 1 + 6 + 1);
     CHECK(count_lines_with(&rl, "RAW A1PRE idx=d") == 1 && count_lines_with(&rl, "RAW A2PRE idx=d") == 1);
     CHECK(count_lines_with(&rl, "WINDOW tag=A1 deadlines=2/2") == 1 && count_lines_with(&rl, "WINDOW tag=A2 deadlines=6/6") == 1);
+    CHECK(count_lines_with(&rl, "intsr13_in_phase=0") == 2 && count_lines_with(&rl, "intsr13_in_phase=1") == 0);
+    CHECK(res.a1_intsr13_seen == 0 && res.a2_intsr13_seen == 0);
     CHECK(count_lines_with(&rl, "REGION log_count_start=") == 1 && count_lines_with(&rl, "formatted_inside=0") == 1);
     CHECK(count_lines_with(&rl, "TEARDOWN start") == 1 && count_lines_with(&rl, "IRQSTOP pre ") == 1 && count_lines_with(&rl, "IRQSTOP post ") == 1);
     CHECK(count_lines_with(&rl, "CLEANUP performed=0") == 1 && count_lines_with(&rl, "ARINFO restore") == 1);
@@ -282,6 +285,9 @@ static void test_cause_after_a2(void)
     CHECK(line_index_with(&rl, "SNAP tag=A2-5MS") < line_index_with(&rl, "SNAP tag=EVENT"));
     CHECK(line_index_with(&rl, "SNAP tag=EVENT") < line_index_with(&rl, "WINDOW tag=A2"));
     CHECK(count_lines_with(&rl, "WINDOW tag=A2 deadlines=3/6") == 1 && count_lines_with(&rl, "ended_early=1 event=1") == 1);
+    CHECK(res.a1_intsr13_seen == 0 && res.a2_intsr13_seen == 1 && res.intsr13_seen == 1);
+    CHECK(count_lines_with(&rl, "WINDOW tag=A1 deadlines=2/2 polls=") == 1 && count_lines_with(&rl, "poll_errors=0 intsr13_in_phase=0 no_timebase=0") == 1);
+    CHECK(count_lines_with(&rl, "t_event=") == 1 && count_lines_with(&rl, "intsr13_in_phase=1 t_end=") == 1);
     CHECK(count_lines_with(&rl, "CLEANUP performed=1") == 1 && count_lines_with(&rl, "sticky=0 ok=1") == 1);
     CHECK(count_lines_with(&rl, "INITIRQA end status=ok_pi_cause_observed") == 1);
     CHECK(count_lines_with(&rl, "SNAP tag=A2-50MS") == 0);
@@ -324,6 +330,7 @@ static void test_cause_visible_at_a2_0(void)
     CHECK(res.snap[GBP_INITIRQA_SNAP_A2_0].irq_gbi == 0x0100 && (res.snap[GBP_INITIRQA_SNAP_A2_0].intsr & GBP_PI_HSP_BIT) != 0);
     CHECK(strcmp(res.first_intsr13_phase, "A2-0") == 0 && res.t_first_intsr13 == res.snap[GBP_INITIRQA_SNAP_A2_0].ticks);
     CHECK(res.event_taken == 1 && res.a2_obs_taken == 0 && res.n_a2_order == 1 && res.window_ended_early == 1);
+    CHECK(res.a1_intsr13_seen == 0 && res.a2_intsr13_seen == 1);
     CHECK(res.stop_value == 0x8baa && res.irq_stop_post.gbi == 0x8aaa);
     check_never(&m);
     check_order(&m, &res);
@@ -684,6 +691,13 @@ static void test_transport_variants(void)
     CHECK((res.snap[GBP_INITIRQA_SNAP_A2_OBS + 3].intsr & GBP_PI_HSP_BIT) != 0 && res.snap[GBP_INITIRQA_SNAP_A2_OBS + 3].irq_gbi == 0x0100);
     check_never(&m);
     check_order(&m, &res);
+    /* a cause visible from the CONTROL write on (synthetic): P0 notes it first, both windows report it */
+    mock_003a(&m); m.intsr_bit13_follows_control = 1;
+    run(&m, &rl, &res);
+    CHECK(res.status == GBP_INITIRQA_OK_PI_CAUSE_OBSERVED && strcmp(res.first_intsr13_phase, "P0") == 0);
+    CHECK(res.a1_intsr13_seen == 1 && res.a2_intsr13_seen == 1);
+    CHECK(count_lines_with(&rl, "WINDOW tag=A1 deadlines=2/2 polls=") == 1 && count_lines_with(&rl, "intsr13_in_phase=1") == 2);
+    check_never(&m);
     /* poll failures are counted, not fatal */
     mock_003a(&m); gbp_mock_transport(&m, &t);
     test_config(&cfg); ringlog_init(&rl, storage, LINE_LEN, LINES);
@@ -930,7 +944,7 @@ static char *read_file(const char *path)
  * point (CONTROL restore, its readback, the PI check, the AR_INFO
  * restore, FINAL) is likewise unanswered: exactly 8 exhausted calls, no
  * mismatch, the AR_INFO restore reported as failed for that reason only.
- * No GBP-INIT-003A physical data exists and none is appended. */
+ * Nothing is appended to the physical prefixes. */
 static void test_hw_gbp_fixture_prefix(const char *path, uint8_t control_byte0)
 {
     char *text = read_file(path);
@@ -1001,6 +1015,130 @@ static void test_hw_nogbp_fixture(const char *path)
     free(text);
 }
 
+/* Physical run GBP-INIT-003A (2026-09-15, commit d956b1b, DOL sha256 8c225bd1…bfa5,
+ * log sha256 ae911745…2ef8, 13231 bytes): the complete run replays through the
+ * probe with the console's time base — every ticks() read answered by a T line,
+ * the INTSR poll that saw bit 13 answered by the fixture's "P p" line, nothing
+ * invented. Values below are the physical ones (raw bytes included); the poll
+ * counters are the replay's own (one poll per sample), the device run's counters
+ * (295 / 3407 / … / 740497) live in the log only. */
+static void test_hw_initirqa_gbp(const char *path)
+{
+    char *text = read_file(path);
+    struct gbp_replay r; struct gbp_transport t; struct gbp_initirqa_config cfg;
+    struct gbp_initirqa_result res; struct ringlog rl;
+    const struct gbp_initirqa_snapshot *s;
+    unsigned k, ops = 0;
+    const char *p;
+    if (!text) { fprintf(stderr, "cannot read %s\n", path); failures++; return; }
+    for (p = text; *p; ) {                      /* number of operations in the script */
+        while (*p == ' ') p++;
+        if (*p != '#' && *p != '\n' && *p != '\0') ops++;
+        p = strchr(p, '\n'); if (!p) break; p++;
+    }
+    CHECK(ops == 85);
+    gbp_replay_init(&r, text);
+    CHECK(r.has_irq_ops == 0 && r.timeline == 1);
+    gbp_replay_transport(&r, &t);
+    gbp_initirqa_config_default(&cfg);          /* the console's deadlines: 2025 … 81000000 ticks at 40.5 MHz */
+    CHECK(cfg.a2_obs_ticks[3] == 2025000u && cfg.a2_obs_ticks[4] == 20250000u);
+    ringlog_init(&rl, storage, LINE_LEN, LINES);
+    CHECK(gbp_initirqa_probe_run(&t, &rl, &cfg, &res) == 0);
+    /* result */
+    CHECK(res.status == GBP_INITIRQA_OK_PI_CAUSE_OBSERVED && strcmp(res.reason, "-") == 0);
+    CHECK(res.restore_ok == 1 && res.errors == 0 && res.transport_ok == 1 && res.power_cycle_required == 1);
+    CHECK(res.det.verdict == GBP_VERDICT_PRESENT && res.det.run == 4 && res.det.vote_ok == 4 && res.det.b1_ok == 4 && res.det.all32_ok == 3);
+    CHECK(res.arinfo_orig == 0x0043 && res.arinfo_exp == 0x005b && res.arinfo_final == 0x0043 && res.arinfo_restore_ok == 1);
+    CHECK(res.intsr_pre == 0x00010000 && res.intmr_pre == 0x000001fa);
+    /* BASE: physical bytes, no byte-0 extra on CONTROL, 0x24 extra on IRQ byte 0 */
+    s = &res.snap[GBP_INITIRQA_SNAP_BASE];
+    CHECK(s->ticks == 4151222197u && s->intsr == 0x00010000 && s->intmr == 0x000001fa);
+    CHECK(s->control_vote == 0x90 && s->control_b1f == 0x90 && s->control[0] == 0x90);
+    CHECK(s->irq_disc == 0x8aae && s->irq_gbi == 0x8aae && s->irq[0] == 0xae && s->irq[1] == 0x8a && s->irq[2] == 0xae && s->irq[3] == 0xae);
+    for (k = 1; k < 8; k++) CHECK(s->irq[4 * k] == 0x8a && s->irq[4 * k + 1] == 0x8a && s->irq[4 * k + 2] == 0xae && s->irq[4 * k + 3] == 0xae);
+    CHECK(s->has_test && s->test[0] == 0x00 && s->test[31] == 0x00);
+    CHECK(res.irq_shape_base_ok == 1 && res.control_orig == 0x90 && res.control_exp == 0x8c);
+    /* CONTROL := 0x8C, P0 981 ticks later */
+    CHECK(res.w_ctl_exp.completed == 1 && res.w_ctl_exp.raw[0] == 0x8c && res.w_ctl_exp.raw[31] == 0x8c && res.t_control == 4151227779u);
+    s = &res.snap[GBP_INITIRQA_SNAP_P0];
+    CHECK(s->ticks == 4151228760u && s->since_control == 981u && s->control_vote == 0x8c && s->control[0] == 0xac && s->irq_gbi == 0x8aae);
+    CHECK((s->intsr & GBP_PI_HSP_BIT) == 0 && (s->intmr & GBP_PI_HSP_BIT) == 0);
+    /* A1: read 0x8AAE, write 0x8AAE (u16 replicated), read back 0x8AAA 19 ticks later, stable at +2029 and +20255 */
+    CHECK(res.irq_a1pre.gbi == 0x8aae && res.irq_a1pre.disc == 0x8aae && res.irq_shape_a1pre_ok == 1);
+    CHECK(res.ack_value == 0x8aae && res.w_a1.completed == 1 && res.t_a1 == 4151233210u);
+    for (k = 0; k < 32; k += 2) CHECK(res.w_a1.raw[k] == 0x8a && res.w_a1.raw[k + 1] == 0xae);
+    s = &res.snap[GBP_INITIRQA_SNAP_A1_0];
+    CHECK(s->ticks == 4151233229u && s->since_a1 == 19u && s->since_control == 5450u);
+    CHECK(s->irq_gbi == 0x8aaa && s->irq_disc == 0x8aaa && s->control_vote == 0x8c && (s->intsr & GBP_PI_HSP_BIT) == 0);
+    CHECK(s->irq[0] == 0xae && s->irq[1] == 0x8a && s->irq[2] == 0xaa && s->irq[3] == 0xaa);
+    for (k = 1; k < 8; k++) CHECK(s->irq[4 * k] == 0x8a && s->irq[4 * k + 1] == 0x8a && s->irq[4 * k + 2] == 0xaa && s->irq[4 * k + 3] == 0xaa);
+    s = &res.snap[GBP_INITIRQA_SNAP_A1_OBS];
+    CHECK(s->ticks == 4151235239u && s->since_a1 == 2029u && s->irq_gbi == 0x8aaa && (s->intsr & GBP_PI_HSP_BIT) == 0 && s->polls_before == 1);
+    s = &res.snap[GBP_INITIRQA_SNAP_A1_OBS + 1];
+    CHECK(s->ticks == 4151253465u && s->since_a1 == 20255u && s->irq_gbi == 0x8aaa && (s->intsr & GBP_PI_HSP_BIT) == 0 && s->polls_before == 2);
+    CHECK(res.a1_obs_taken == 2 && res.a1_polls == 2 && res.a1_intsr13_seen == 0);
+    /* A2PRE, A2 := 0, read back 0 at +22 ticks and at every sample up to +2025005 (50 ms) */
+    CHECK(res.irq_a2pre.gbi == 0x8aaa && res.a2pre_intsr == 0x00010000 && res.a2pre_intmr == 0x000001fa);
+    CHECK(res.w_a2.completed == 1 && res.w_a2.value == 0 && res.t_a2 == 4151253956u);
+    for (k = 0; k < 32; k++) CHECK(res.w_a2.raw[k] == 0x00);
+    s = &res.snap[GBP_INITIRQA_SNAP_A2_0];
+    CHECK(s->ticks == 4151253978u && s->since_a2 == 22u && s->irq_gbi == 0 && s->irq_disc == 0 && s->control_vote == 0x8c && (s->intsr & GBP_PI_HSP_BIT) == 0);
+    for (k = 0; k < 32; k++) CHECK(s->irq[k] == 0x00);
+    {
+        static const uint32_t ticks[4] = { 4151255981u, 4151274207u, 4151456459u, 4153278961u };
+        static const uint32_t since[4] = { 2025u, 20251u, 202503u, 2025005u };
+        for (k = 0; k < 4; k++) {
+            s = &res.snap[GBP_INITIRQA_SNAP_A2_OBS + k];
+            CHECK(s->taken && s->ticks == ticks[k] && s->since_a2 == since[k] && s->irq_gbi == 0 && s->control_vote == 0x8c);
+            CHECK(s->intsr == 0x00010000 && s->intmr == 0x000001fa && s->polls_before == k + 1);
+        }
+    }
+    CHECK(!res.snap[GBP_INITIRQA_SNAP_A2_OBS + 4].taken && !res.snap[GBP_INITIRQA_SNAP_A2_OBS + 5].taken);
+    /* EVENT: the poll saw INTSR 0x00012000 with INTMR 0x000001FA, 4263568 ticks (105.27 ms) after A2; IRQ 0x0400, CONTROL 0x8C */
+    s = &res.snap[GBP_INITIRQA_SNAP_EVENT];
+    CHECK(s->taken && s->is_event && s->ticks == 4155517524u && s->since_a2 == 4263568u && s->since_a1 == 4284314u && s->since_control == 4289745u);
+    CHECK(s->poll_intsr == 0x00012000 && s->intsr == 0x00012000 && s->intmr == 0x000001fa);
+    CHECK(s->control_vote == 0x8c && s->control[0] == 0xac && s->irq_gbi == 0x0400 && s->irq_disc == 0x0400);
+    for (k = 0; k < 8; k++) CHECK(s->irq[4 * k] == 0x04 && s->irq[4 * k + 1] == 0x04 && s->irq[4 * k + 2] == 0x04 && s->irq[4 * k + 3] == 0x00);
+    CHECK(res.event_taken == 1 && res.t_event == 4155517524u && res.window_ended_early == 1);
+    CHECK(res.a2_obs_taken == 4 && res.n_a2_order == 5 && res.a2_order[4] == GBP_INITIRQA_SNAP_EVENT);
+    CHECK(res.intsr13_seen == 1 && res.t_first_intsr13 == 4155517524u && strcmp(res.first_intsr13_phase, "A2") == 0 && res.first_intsr13_value == 0x00012000);
+    CHECK(res.a1_intsr13_seen == 0 && res.a2_intsr13_seen == 1 && res.a2_polls == 5 && res.polls_at_first_intsr13 == 5);
+    CHECK(res.t_window_end == 4155517831u);
+    /* teardown: CONTROL 0x90 back, IRQ read 0x0500, stop 0x8FAA, read back 0x8AAA, one PI W1C, AR_INFO back, FINAL under code 0 */
+    CHECK(res.w_ctl_restore.completed == 1 && res.w_ctl_restore.t_after == 4155554189u && res.control_restore_vote == 0x90 && res.control_restore_ok == 1);
+    CHECK(res.irq_stop_pre.gbi == 0x0500 && res.irq_stop_pre.disc == 0x0500);
+    CHECK(res.irq_stop_pre.raw[0] == 0x05 && res.irq_stop_pre.raw[1] == 0x05 && res.irq_stop_pre.raw[2] == 0x04 && res.irq_stop_pre.raw[3] == 0x00);
+    for (k = 1; k < 8; k++) CHECK(res.irq_stop_pre.raw[4 * k] == 0x05 && res.irq_stop_pre.raw[4 * k + 1] == 0x05 && res.irq_stop_pre.raw[4 * k + 2] == 0x05 && res.irq_stop_pre.raw[4 * k + 3] == 0x00);
+    CHECK(res.stop_value == 0x8faa && res.w_stop.completed == 1 && res.w_stop.t_after == 4155558446u);
+    for (k = 0; k < 32; k += 2) CHECK(res.w_stop.raw[k] == 0x8f && res.w_stop.raw[k + 1] == 0xaa);
+    CHECK(res.irq_stop_post.gbi == 0x8aaa && res.irq_stop_post.disc == 0x8aaa && res.irq_stop_post.raw[0] == 0xae && res.irq_stop_post.raw[1] == 0x8a);
+    for (k = 1; k < 8; k++) CHECK(res.irq_stop_post.raw[4 * k] == 0x8a && res.irq_stop_post.raw[4 * k + 1] == 0x8a && res.irq_stop_post.raw[4 * k + 2] == 0xaa && res.irq_stop_post.raw[4 * k + 3] == 0xaa);
+    CHECK(res.irq_stop_write_ok == 1 && res.irq_stop_readback_ok == 1 && res.stop_masks_readback == 1 && res.stop_bit15_readback == 1);
+    CHECK(res.pi_cleanup_performed == 1 && res.cleanup_intsr_before == 0x00012000 && res.cleanup_intmr_before == 0x000001fa);
+    CHECK(res.cleanup_intsr_after == 0x00010000 && res.pi_cleanup_sticky == 0 && res.pi_cleanup_ok == 1);
+    s = &res.snap[GBP_INITIRQA_SNAP_FINAL];
+    CHECK(s->ticks == 4155563096u && s->control_vote == 0x00 && s->control[0] == 0x00 && s->irq_gbi == 0x9090 && s->irq[0] == 0x90);
+    CHECK(s->intsr == 0x00010000 && s->intmr == 0x000001fa);
+    CHECK(res.irq_writes_attempted == 3 && res.irq_writes_completed == 3 && res.uncertain_writes == 0 && res.control_written == 1);
+    /* the replay consumed every line, matched every time-base read, invented nothing */
+    CHECK(r.exhausted == 0 && r.mismatches == 0 && r.tick_polls == 0 && r.step == ops);
+    /* records of the replayed run (the corrected formatter: phase-local INTSR flags) */
+    CHECK(count_lines_with(&rl, "WINDOW tag=A1 deadlines=2/2 polls=2 poll_errors=0 intsr13_in_phase=0 no_timebase=0") == 1);
+    CHECK(count_lines_with(&rl, "WINDOW tag=A2 deadlines=4/6 polls=5 poll_errors=0 ended_early=1 event=1 t_event=4155517524 intsr13_in_phase=1 t_end=4155517831 elapsed_ticks=4263875 elapsed_us=105280 no_timebase=0") == 1);
+    CHECK(count_lines_with(&rl, "OBSERVED intsr13_seen=1 t_first_intsr13=4155517524 first_phase=A2 first_value=00012000 polls_at_first=5 event=1 ended_early=1") == 1);
+    CHECK(count_lines_with(&rl, "SNAP tag=EVENT ticks=4155517524 since_control=4289745 since_a1=4284314 since_a2=4263568 polls_before=5 poll_intsr=00012000") == 1);
+    CHECK(count_lines_with(&rl, "IRQSTOP pre rc=ok disc=0500 gbi=0500 stop_or=8aaa stop_value=8faa formula=read|stop_or") == 1);
+    CHECK(count_lines_with(&rl, "IRQSTOP post rc=ok disc=8aaa gbi=8aaa write_ok=1 readback_ok=1 masks_readback=1 bit15_readback=1") == 1);
+    CHECK(count_lines_with(&rl, "CLEANUP performed=1 value=00002000 rc=ok intsr_before=00012000 intsr_after=00010000 intsr13_after=0 sticky=0 ok=1") == 1);
+    CHECK(count_lines_with(&rl, "WRITES control_written=1 irq_attempted=3 irq_completed=3 ctl_exp=1/1 a1=1/1 a2=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 power_cycle_required=1") == 1);
+    CHECK(count_lines_with(&rl, "INITIRQA end status=ok_pi_cause_observed reason=- restore=ok restore_reason=- power_cycle_required=1 errors=0 transport_ok=1") == 1);
+    CHECK(count_lines_with(&rl, "formatted_inside=0") == 1);   /* absolute counts differ: the harness writes no IDENT/ENV records */
+    CHECK(count_lines_with(&rl, "FINAL arinfo=0043 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0 control=00 irq=9090 power_cycle_required=1") == 1);
+    CHECK(rl.dropped == 0 && rl.truncated == 0);
+    free(text);
+}
+
 /* ---- modes for the host round trip (tests/host/test_initirqa_replay.py) ---- */
 static int dump_log(const char *path)
 {
@@ -1065,6 +1203,7 @@ int main(int argc, char **argv)
         test_hw_gbp_fixture_prefix(argv[1], 0x98);      /* init-0001: CONTROL 98 90 90 … */
         test_hw_nogbp_fixture(argv[2]);
         test_hw_gbp_fixture_prefix(argv[3], 0x91);      /* initirq-0001: CONTROL 91 90 90 … */
+        if (argc > 4) test_hw_initirqa_gbp(argv[4]);    /* initirqa-0001: the complete physical run */
     } else {
         fprintf(stderr, "note: physical fixture paths not given, fixture tests skipped\n");
     }

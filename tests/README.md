@@ -22,7 +22,8 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                   test_gbp_initirqa.c GBP-INIT-003A logic: A1/A2 writes with PI masked against the
                                      synthetic source/mask model, every abort/restore path, event order,
                                      "never" properties, physical prefixes up to the first experimental
-                                     write; --dump-log / --replay modes for the host round trip
+                                     write, the complete physical run initirqa-0001 (2026-09-15) replayed
+                                     with the console's time base; --dump-log / --replay modes
 tests/mocks/    scripted device models behind src/gbp/gbp_transport.h (PI model, synthetic
                 interrupt path, synthetic IRQ-register source/mask model, failure injection)
 tests/host/     Python tests (pytest or python3 -m unittest):
@@ -31,8 +32,9 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                   test_gciso.py      disc image parser/extractor (synthetic image)
                   test_gbi_unpack.py GBI unpacker and bin2dol (synthetic packed DOL)
                   test_probelog.py   device-log parser / fixture generator
-                  test_hw_fixture.py exact bytes of the 2026-09-14 hardware capture, what each
-                                     known driver would read from them, blockdiff findings
+                  test_hw_fixture.py exact bytes of the hardware captures (probe-0001, init-0001,
+                                     initirq-0001, initirqa-0001), what each known driver would read
+                                     from them, blockdiff findings
                   test_dolphin_smoke.py runner command line (isolated user dir, OSD override)
                   test_isr_audit.py  one-shot handler audit (synthetic listings + the built object)
                   test_poc_audit.py  GBP-INIT-003A object audit (synthetic listings in both GCC

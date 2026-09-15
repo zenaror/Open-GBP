@@ -209,7 +209,9 @@ struct gbp_initirqa_result {
     int no_timebase;              /* transport has no ticks(): deadline loops skipped */
     unsigned a1_polls, a2_polls, poll_errors;
     unsigned a1_obs_taken, a2_obs_taken;
-    int intsr13_seen;             /* INTSR bit 13 observed set at any point after the CONTROL write */
+    int intsr13_seen;             /* INTSR bit 13 observed set at any point after the CONTROL write (global, first sighting kept) */
+    int a1_intsr13_seen;          /* INTSR bit 13 observed set during the A1 phase only (A1-0, its samples, its polls) */
+    int a2_intsr13_seen;          /* INTSR bit 13 observed set during the A2 phase only (A2-0, samples, polls, EVENT) */
     uint32_t t_first_intsr13;
     const char *first_intsr13_phase;   /* "P0", "A1", "A1-0", "A2PRE", "A2", "A2-0", … or "-" */
     uint32_t first_intsr13_value;

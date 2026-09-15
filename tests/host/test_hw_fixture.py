@@ -155,6 +155,114 @@ class HardwareFixtureNoGbp(unittest.TestCase):
 INITIRQ = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15-initirq-0001.gbpreplay")
 
 
+INITIRQA = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15-initirqa-0001.gbpreplay")
+INITIRQA_LOG = os.path.join(ROOT, "captures", "local", "GBP-INIT-003A_initirqa-0001.log")
+
+
+class HardwareFixtureInitIrqA(unittest.TestCase):
+    """GBP-INIT-003A (2026-09-15, commit d956b1b): the first physical write of the
+    GBP IRQ register with PI HSP masked throughout. The fixture carries the
+    physical time base (T), the three IRQ-register writes (A1 0x8AAE, A2 0x0000,
+    stop 0x8FAA), the INTSR poll that saw bit 13 (P p), the single PI W1C (P a)
+    and every raw block verbatim."""
+
+    def lines(self):
+        return [l.rstrip("\n") for l in open(INITIRQA, encoding="utf-8")]
+
+    def ops(self):
+        return [l for l in self.lines() if l and not l.startswith("#")]
+
+    def test_metadata_header(self):
+        head = self.lines()[:16]
+        for expect in ("# SOURCE=physical GameCube", "# GBP_PRESENT=yes", "# TEST_ID=GBP-INIT-003A",
+                       "# BUILD_ID=initirqa-0001", "# COMMIT=d956b1b",
+                       "# DOL_SHA256=8c225bd101a215982ac59d096630a9e13b34557e3cdf4eb8354298855232bfa5",
+                       "# LOG_SHA256=ae9117457039727026f00e9ccb349d4af3c85ee6f4f436d290cd40cc0e672ef8",
+                       "# LOG_SIZE=13231"):
+            self.assertIn(expect, head)
+        self.assertTrue(any("WINDOW tag=A1 intsr13_seen=1" in l and "formatter defect" in l for l in head))
+
+    @unittest.skipUnless(os.path.isfile(INITIRQA_LOG), "raw log not available locally")
+    def test_records_regenerate_from_the_raw_log(self):
+        import hashlib
+        import probelog
+        raw = open(INITIRQA_LOG, "rb").read()
+        self.assertEqual(len(raw), 13231)
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), "ae9117457039727026f00e9ccb349d4af3c85ee6f4f436d290cd40cc0e672ef8")
+        _, records = probelog.parse_file(INITIRQA_LOG)
+        gen = [l for l in probelog.fixture(records).splitlines() if l and not l.startswith("#")]
+        self.assertEqual(gen, self.ops())
+        # the source log's WINDOW A1 record carries the global flag (build defect), the primary records do not
+        win = [r for r in records if r["kind"] == "WINDOW" and r["fields"].get("tag") == "A1"]
+        self.assertEqual(win[0]["fields"]["intsr13_seen"], "1")
+        a1_pi = [r for r in records if r["kind"] == "PI" and r["fields"].get("tag") in ("A1-0", "A1-50US", "A1-500US", "A2PRE")]
+        self.assertEqual(len(a1_pi), 4)
+        self.assertTrue(all(r["fields"]["intsr13"] == "0" for r in a1_pi))
+        obs = [r for r in records if r["kind"] == "OBSERVED"][0]["fields"]
+        self.assertEqual((obs["first_phase"], obs["t_first_intsr13"]), ("A2", "4155517524"))
+
+    def test_writes_polls_and_acknowledge(self):
+        ops = self.ops()
+        self.assertEqual(len(ops), 85)
+        self.assertEqual(ops.count("W 01d00000 ok"), 3)               # A1, A2, STOP
+        self.assertEqual(ops.count("W 01400000 ok"), 2)               # CONTROL transform, restore
+        self.assertEqual(ops.count("W 01000000 ok"), 4)               # TEST handshake only
+        self.assertEqual(ops.count("P p 00012000"), 1)                # the poll that saw INTSR bit 13
+        self.assertEqual(ops.count("P a 00002000"), 1)                # one PI W1C
+        self.assertEqual([l for l in ops if l.startswith("I ")], [])  # no interrupt path: PI stayed masked
+        a = ops.index("P a 00002000")
+        self.assertEqual(ops[a - 1], "P r 00012000 000001fa")         # CLEANUPCHK: latched cause, INTMR masked
+        self.assertEqual(ops[a + 1], "P r 00010000 000001fa")         # cleared by the W1C
+        pi = [l for l in ops if l.startswith("P r ")]
+        self.assertTrue(all(l.endswith(" 000001fa") for l in pi))      # INTMR bit 13 never set
+        self.assertEqual(pi.count("P r 00012000 000001fa"), 2)        # EVENT snapshot and CLEANUPCHK
+        # the P p line sits right after the EVENT time-base read and before the EVENT PI read
+        p = ops.index("P p 00012000")
+        self.assertEqual(ops[p - 1], "T 4155517524")
+        self.assertEqual(ops[p + 1], "P r 00012000 000001fa")
+
+    def test_irq_register_reads_verbatim(self):
+        irq = [d for a, rc, d in reads(INITIRQA) if a == 0x01d00000]
+        self.assertEqual(len(irq), 16)
+        hx = [d.hex() for d in irq]
+        self.assertEqual(hx[0], "ae8aaeae" + "8a8aaeae" * 7)          # BASE 0x8AAE
+        self.assertEqual(hx[1], hx[0])                                 # P0
+        self.assertEqual(hx[2], hx[0])                                 # A1PRE
+        self.assertEqual(hx[3], "ae8aaaaa" + "8a8aaaaa" * 7)          # A1-0: bit 2 cleared by A1
+        self.assertEqual(hx[4], hx[3]); self.assertEqual(hx[5], hx[3]); self.assertEqual(hx[6], hx[3])   # A1-50US, A1-500US, A2PRE
+        for i in range(7, 12):                                          # A2-0, +50us, +500us, +5ms, +50ms
+            self.assertEqual(hx[i], "00" * 32)
+        self.assertEqual(hx[12], "04040400" * 8)                       # EVENT 0x0400
+        self.assertEqual(hx[13], "05050400" + "05050500" * 7)          # IRQSTOPPRE 0x0500
+        self.assertEqual(hx[14], "ae8aaaaa" + "8a8aaaaa" * 7)          # IRQSTOPPOST 0x8AAA
+        self.assertEqual(hx[15], "90" * 32)                            # FINAL under expansion code 0: 0x9090
+        ctl = [d.hex() for a, rc, d in reads(INITIRQA) if a == 0x01400000]
+        self.assertEqual(ctl[0], "90" * 32)
+        self.assertTrue(all(c == "ac" + "8c" * 31 for c in ctl[1:11]))   # P0 … EVENT: 0x8C with byte-0 extra 0x20
+        self.assertEqual(ctl[11], "90" * 32)                           # TDCTL after the restore
+        self.assertEqual(ctl[12], "00" * 32)                           # FINAL under expansion code 0
+
+    def test_timeline_and_deadlines(self):
+        ts = [int(l.split()[1]) for l in self.lines() if l.startswith("T ")]
+        self.assertEqual(len(ts), 18)
+        self.assertEqual(ts, sorted(ts))                               # no wrap inside this run
+        self.assertIn(4155517524, ts)                                  # EVENT
+        self.assertIn(4155517831, ts)                                  # end of the window
+        t_a2 = 4151253956
+        self.assertEqual(4155517524 - t_a2, 4263568)                   # 105.27 ms at 40.5 MHz
+        self.assertNotIn(4151253956 + 20250000, ts)                    # the 500 ms sample was never reached
+
+    def test_offset2_pattern_is_documented_not_consumed(self):
+        # U-GBP-025: in every state recorded so far the byte at offset 2 of each 4-byte group equals
+        # lo | (hi & 0x05); this test pins the observation, it does not assert a meaning.
+        for a, rc, d in reads(INITIRQA):
+            if a != 0x01d00000:
+                continue
+            for g in range(1, 8):
+                hi, lo, mid = d[4 * g + 1], d[4 * g + 3], d[4 * g + 2]
+                self.assertEqual(mid, lo | (hi & 0x05), d.hex())
+
+
 class HardwareFixtureInitIrq(unittest.TestCase):
     """GBP-INIT-002 (2026-09-15, commit 4e3cb43): the physical run of the
     first PI HSP unmask. The fixture carries the physical time base (T),

@@ -92,7 +92,9 @@ GBP-INIT-002 read `00` / `9090` again right after code 3 → 0 while the same
 registers had just read 0x90 / 0x8FAE — the *reproducibility* of the
 view change is now CORROBORATED (three runs, three sequences); the
 function is still unknown, and every experiment uses code 3 as both
-references do.
+references do. Fourth observation 2026-09-15 (GBP-HW-034, GBP-INIT-003A):
+FINAL under code 0 read `00` / `9090` again right after code 3 had shown
+0x90 / 0x8AAA. Still not "enable": nothing shows what the code selects.
 
 ## U-GBP-005 (P2) — Unused register indices and full mirroring inside a window
 
@@ -108,7 +110,23 @@ Only the usage is known (GBP-CTL-001). Phase 3 can observe 0x20/0x40
 read-back with/without a cartridge and link cable; 0x04/0x08 should be
 driven only in the documented order.
 
-## U-GBP-007 (P2) — IRQ register odd-bit polarity and bit 15
+## U-GBP-007 (P2, updated 2026-09-15 after GBP-INIT-003A) — IRQ register odd-bit polarity and bit 15
+
+**2026-09-15, GBP-INIT-003A (GBP-HW-028…032, GBP-IRQ-007):** the first
+authorized writes answered most of this. Even bits 2, 8 and 10 cleared when
+written 1 (write-1-to-clear: FACT). The odd bits read 1 after being written
+1 and 0 after being written 0, for ≥ 50 ms (level-written: FACT). With all
+six odd bits (and bit 15) written 0, the next 0x0400 source raised PI INTSR
+bit 13; with all six (and bit 15) left at 1 in GBP-INIT-002 the pending
+sources raised nothing in 2 s → polarity "1 = masked, 0 = enabled":
+CORROBORATED, not FACT, because bit 15 changed together with the odd bits
+in both runs. Bit 15: written 0 it read 0 with nothing pending, written 1
+it read 1 with nothing pending → the "W1C pending summary" reading is
+REJECTED; "level-written global hold, 1 = held" stays the consistent
+HYPOTHESIS, unproven in isolation (an experiment writing the odd bits 0
+with bit 15 = 1, or the reverse, would separate them; not scheduled). Do not
+name bit 15 functionally yet. Original text kept below for the history.
+
 
 DISC writes `disable` bits as 1 and `enable` bits as 0 (1 = masked?),
 and writes bit 15 with the mask at IRQ entry. Dolphin treats bit 15 as
@@ -178,7 +196,14 @@ Phase 6: capture blocks while the AGB plays a known tone.
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the
 user's screen/filter settings there. Not analyzed.
 
-## U-GBP-014 (P2) — VIDEO/AUDIO IRQ timing on hardware
+## U-GBP-014 (P2, first data point 2026-09-15) — VIDEO/AUDIO IRQ timing on hardware
+
+**2026-09-15 (GBP-HW-030/031):** with no cartridge, CONTROL 0x8C and the
+device masks written 0, the first 0x0400 (audio) source rose between 50.00
+and 105.27 ms after A2 (106 ms after the CONTROL transform) and raised PI
+INTSR bit 13; 0x0100 (video) followed within ≈1 ms. One data point; no
+period measured (the window ended at the first cause).
+
 
 Dolphin ties video IRQs to the 4096 Hz audio tick and needs a 1.25×
 overclock to keep the DISC's 250 ms watchdog quiet. Real cadence, jitter
@@ -196,6 +221,10 @@ now U-GBP-021; the static part (`+0x08` on CONTROL `90`, `+0x20` on IRQ
 GBP-INIT-002 (GBP-HW-026): extras of 0x01, 0x10 or 0x11 — CONTROL `91`,
 `9D`, `11`; IRQ `9B`, `9F`, `91`; TEST `3D`, `D3`, `11`, `FF` — again all
 *extra* set bits, again different from the previous runs.
+GBP-INIT-003A (GBP-HW-034): extras of 0x04, 0x20 or 0x24 — CONTROL `AC` on
+0x8C, none on 0x90/0x00; IRQ `AE` on 0x8A (every 0x8AAE/0x8AAA read), none
+on 0x04/0x05/0x90; TEST `C7` on C3, none on the other three — a fourth
+distinct pattern, again only extra set bits.
 
 ## U-GBP-016 — CLOSED 2026-09-15 (answered by GBP-BASELINE-NOGBP-001)
 
@@ -262,12 +291,23 @@ read byte 0 `9D` / `9D` (CONTROL) and `9B` / `9F` (IRQ), the restore gave
 `91` / `9F`, and no snapshot had bit 6 extra. The safest statement is:
 **byte 0 contains additional, variable bits that are not representative
 of the voted semantic value, and their pattern varied between runs**
-(0x40 transient in one run; 0x01/0x10/0x11 static in another). The
+(0x40 transient in one run; 0x01/0x10/0x11 static in another;
+0x04/0x20/0x24 static in GBP-INIT-003A, GBP-HW-034). The
 bit-6 transient stays recorded as a historical observation of one run,
 not as a rule. Do not name any of it busy / ready / ack / interrupt /
 latch; do not consume byte 0; no dedicated experiment.
 
-## U-GBP-022 (P1) — Physical behavior of the PI HSP cause (bit 13): level or latched, and does W1C clear it while the GBS-DOL still asserts?
+## U-GBP-022 (P1, partially answered 2026-09-15) — Physical behavior of the PI HSP cause (bit 13): level or latched, and does W1C clear it while the GBS-DOL still asserts?
+
+**Answered 2026-09-15 (GBP-HW-030/033, GBP-PI-004, FACT for bit 13):** the
+cause is captured with INTMR bit 13 = 0; it is latched at the PI — it
+stayed set after the device-side sources had been cleared by the stop
+write — and one `INTSR := 0x2000` cleared it. **Still open:** whether the
+GBS-DOL's HSP line is level or pulse, and what a W1C does while the device
+still asserts (in this run the device sources were cleared before the
+W1C). A handler experiment that acknowledges PI while a source is still
+pending on the device would answer it (GBP-INIT-003B design).
+
 
 Known (GBP-PI-001…003): software treats INTSR as a cause register
 visible independently of INTMR (CORROBORATED), clears it by writing 1
@@ -297,7 +337,14 @@ level/edge question, the W1C behavior with an asserted line and the
 delivery gating stay open. The GBP's own IRQ register was left with its
 idle masks (GBP-IRQ-005); the next experiment programs it.
 
-## U-GBP-023 (P2) — Does the GBS-DOL keep an unacknowledged interrupt state across an experiment that never writes its IRQ register?
+## U-GBP-023 — CLOSED 2026-09-15 (answered by GBP-INIT-003A's baseline)
+
+After GBP-INIT-002 left the register at 0x8FAE and the console was
+power-cycled, GBP-INIT-003A read the idle 0x8AAE at BASE (GBP-HW-027): the
+pending sources did not survive the power cycle. Whether they would survive
+without a power cycle was not tested and is no longer needed — every
+experiment ends with an authorized stop write and a power cycle.
+
 
 GBP-INIT-002 will, by design, leave the device without the write-back
 that both references perform (Disc: `IRQ := pending`; GBI: `IRQ :=
@@ -312,7 +359,19 @@ unknown. Observable: the S0 IRQ read of the next run against the idle
 power-cycled. Whether `0x8FAE` or `0x8AAE` is read at the next run's S0
 tells whether the pending sources survive a power cycle.
 
-## U-GBP-024 (P1) — When, inside the window, does the IRQ register go from 0x8AAE to 0x8FAE, and what drives it?
+## U-GBP-024 (P2, partially answered 2026-09-15) — When, inside the window, does the IRQ register go from 0x8AAE to 0x8FAE, and what drives it?
+
+**2026-09-15 (GBP-HW-028…031):** after A1 acknowledged bit 2 and A2 wrote
+the masks and bit 15 to 0 (0.5 ms after the CONTROL transform), the register
+stayed 0x0000 for 50 ms, then 0x0400 was set (and the PI cause raised)
+between 50.00 and 105.27 ms after A2, and 0x0500 read ≈1 ms later. The PI
+mask state was constant (masked) in this run, so "the PI unmask drives it"
+is excluded for these sources; "elapsed time with CONTROL 0x8C — the AGB's
+audio/video streams starting" remains the consistent HYPOTHESIS
+(CORROBORATED by the driver dispatch of 0x0400/0x0100 to AUDIO/VIDEO). The
+INIT-002 transition time inside its 2 s window is still unmeasured; the
+question is no longer on the critical path.
+
 
 GBP-INIT-002 only brackets it: 0x8AAE 124 ticks (3 µs) after the CONTROL
 transform (S1, before the unmask) and 0x8FAE 2.000035 s after the unmask
@@ -333,6 +392,15 @@ offsets ≡ 1 and ≡ 3 mod 4 (Disc: bytes 0x1D/0x1F; GBI: majority votes
 over those classes) and therefore agree on 0x8FAE; the meaning of the
 extra bit at ≡ 2 mod 4 (a second register phase? a different bit of the
 same word? noise?) is unknown. Do not consume offset ≡ 2 mod 4.
+**2026-09-15 (GBP-HW-028…034):** four more states read on hardware —
+0x8AAA `8A 8A AA AA`, 0x0400 `04 04 04 00`, 0x0500 `05 05 05 00`, plus
+0x8AAE `8A 8A AE AE` and 0x9090 `90 90 90 90` again — and in all six states
+seen so far the byte at offset ≡ 2 mod 4 equals `lo | (hi & 0x05)` (pinned
+as an observation by `tests/host/test_hw_fixture.py`). An empirical
+pattern with more than one possible explanation (bits 0/2 of the high byte
+copied into the low byte's slot, a wiring artifact, a different register
+phase); no meaning is assigned. Group 0 of the 0x0500 read broke it
+(`05 05 04 00`).
 
 ## U-GBP-026 (P2) — Mechanism of the GBP-aware game features (rumble, GBP-dependent modes)
 
