@@ -12,6 +12,10 @@ void gbp_mock_init(struct gbp_mock *m)
     m->control_byte = 0x02;       /* "cartridge inserted" per Phase 2 usage */
     m->irq_value = 0x0000;
     m->absent_fill = 0x00;
+    m->control_byte = 0x90;       /* idle value observed on hardware 2026-09-14 (exp code 3) */
+    m->intmr = 0x000000f0;        /* libogc2 __irq_init: HSP bit 13 masked */
+    m->intsr = 0x00000000;
+    m->control_writes_stick = 1;
     memset(m->test_store, 0xFF, sizeof m->test_store); /* ~0x00 initial */
 }
 
@@ -117,14 +121,18 @@ static gbp_status m_read_block(void *ctx, uint32_t addr, uint8_t out[GBP_BLOCK_S
         switch (index_of(base, addr)) {
         case 0x0:
             memcpy(out, m->test_store, GBP_BLOCK_SIZE);
+            if (m->test_byte0_anomaly) out[0] |= 0x40;
             break;
         case 0x4: {
             uint8_t v = m->control_byte;
-            present_bytes(m, &v, 1, out);
+            if (m->control_block) memcpy(out, m->control_block, GBP_BLOCK_SIZE);
+            else if (m->byte_doubled) memset(out, v, GBP_BLOCK_SIZE);   /* hardware: uniform fill */
+            else present_bytes(m, &v, 1, out);
             break;
         }
         case 0xD: {
             uint8_t v[2];
+            if (m->irq_block) { memcpy(out, m->irq_block, GBP_BLOCK_SIZE); break; }
             v[0] = (uint8_t)(m->irq_value >> 8);
             v[1] = (uint8_t)m->irq_value;
             present_bytes(m, v, 2, out);
@@ -151,7 +159,42 @@ static gbp_status m_write_block(void *ctx, uint32_t addr, const uint8_t in[GBP_B
         size_t i;
         for (i = 0; i < GBP_BLOCK_SIZE; i++) m->test_store[i] = (uint8_t)~in[i];
     }
+    if (answers(m) && index_of(base, addr) == 0x4) {
+        m->control_writes++;
+        if (m->control_writes_stick && m->control_writes != m->control_write_fail_at) {
+            m->control_byte = in[GBP_BLOCK_SIZE - 1u];
+            m->control_block = 0;
+            if (m->irq_after_write) { m->irq_block = 0; m->irq_value = (uint16_t)((m->irq_after_write << 8) | m->irq_after_write); }
+            if (m->intsr_bit13_follows_control) {
+                if (m->control_byte & 0x10u) m->intsr &= ~GBP_PI_HSP_BIT; else m->intsr |= GBP_PI_HSP_BIT;
+            }
+        }
+    }
     return GBP_OK;
+}
+
+static gbp_status m_read_pi(void *ctx, uint32_t *intsr, uint32_t *intmr)
+{
+    struct gbp_mock *m = (struct gbp_mock *)ctx;
+    if (m->pi_unavailable) return GBP_ERR_BACKEND;
+    *intsr = m->intsr;
+    *intmr = m->intmr;
+    return GBP_OK;
+}
+
+static gbp_status m_write_intmr(void *ctx, uint32_t v)
+{
+    struct gbp_mock *m = (struct gbp_mock *)ctx;
+    m->intmr_writes++;
+    if (!m->intmr_write_ignored) m->intmr = v;
+    return GBP_OK;
+}
+
+static uint32_t m_ticks(void *ctx)
+{
+    struct gbp_mock *m = (struct gbp_mock *)ctx;
+    m->tick += 10;
+    return m->tick;
 }
 
 void gbp_mock_transport(struct gbp_mock *m, struct gbp_transport *t)
@@ -160,6 +203,9 @@ void gbp_mock_transport(struct gbp_mock *m, struct gbp_transport *t)
     t->write_arinfo = m_write_arinfo;
     t->read_block = m_read_block;
     t->write_block = m_write_block;
+    t->read_pi = m_read_pi;
+    t->write_intmr = m_write_intmr;
+    t->ticks = m_ticks;
     t->ctx = m;
 }
 

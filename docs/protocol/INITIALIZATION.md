@@ -176,3 +176,89 @@ not analyzed). Dolphin's SIO paths are stubs. The AGB-side protocol that
 GBATEK documents for the GBP (SIO normal 32-bit, "NINTENDO" handshake,
 rumble) is presumably what travels here, but that link is **not
 established**. See U-GBP-001..003. Phase 10 starts here — read-only.
+
+## 8. Provenance of every CONTROL bit 0x10 manipulation (2026-09-15, disassembly)
+
+Neutral name: *CONTROL bit 0x10*. No semantics assigned here.
+
+### 8.1 Start-up Disc (`main.dol` sha256 3dd3692f…)
+
+Access primitives (both use the 32-byte staging buffer at `0x801E4A60`
+and the DMA routine `0x80089c3c`, transfers of exactly 32 bytes, ARAM
+address `base + 0x400000`):
+
+```text
+write CONTROL  0x80089edc:  stb  value,0x1F(staging)     ← only byte 0x1F is updated; bytes 0..0x1E
+                            DCFlushRange(staging,32)        keep whatever the previous transfer left there
+                            DMA MRAM→ARAM 32 bytes, wait (bit 5 of DSP CSR, 1 s timeout)
+read CONTROL   0x8008a1dc:  DCInvalidateRange(staging,32); DMA ARAM→MRAM 32 bytes; wait
+                            lbz value,0x1F(staging)       ← semantic value = byte 0x1F
+```
+
+Every manipulation of bit 0x10 (read-modify-write on that byte):
+
+| Site | Sequence (exact order) | INTMR state at the write | IRQ block | Delay |
+|------|------------------------|--------------------------|-----------|-------|
+| start `0x8008bf84` (+0x260…+0x2b4) | … `OSUnmaskInterrupts(0x20)` [interrupt 26 = PI HSP] → read IRQ → write IRQ := (read & ~enable) \| disable → read CONTROL → write CONTROL := v \| 0x04 → write CONTROL := v & ~0x10 (`rlwinm r0,r0,0,28,26`) → state \|= 8 | PI HSP **enabled** (unmasked a few instructions earlier, handler `0x8008af08` installed since init) | written (mask programming) just before | none besides DMA completion |
+| run `0x8008c26c` | read CONTROL → write := v \| 0x08 → state := 2 | enabled | — | — |
+| stop `0x8008be04` (+0xa4…+0x120) | `OSMaskInterrupts(0x20)` → read CONTROL → write v & ~0x04 → write v & ~0x08 → write v \| 0x10 → write v \| 0x80 → read IRQ → write IRQ := read \| disable → PI INTSR := 0x2000 (ack) | PI HSP **masked** just before | written after | none |
+| sleep-IRQ callback `0x8008bd50` | read CONTROL → write := v \| 0x10 → state := 3 | enabled (inside the HSP handler) | handled by the caller | — |
+
+INTSR is never read for observation; it is only written (0x2000) to acknowledge.
+
+### 8.2 GBI Standard (`gbi-unpacked` sha256 0b2c44ea…)
+
+Access primitives: byte written replicated over all 32 bytes
+(`0x80015d9c`: u32 `bb bb bb bb` ×8, `dcbz`+stores+`dcbf`+`sync`) and
+queued through libogc ARQ (`0x8000bea4`); byte read by per-bit majority
+vote over the 32 bytes (`0x80015b08`, `0x80011c6c`). In the running loop
+CONTROL is written together with SIOCTL as one 64-byte block at
+`base + 0x4FFFE0`.
+
+| Site | Sequence (exact order, `0x8000c03c…`) | INTMR state at the write | IRQ block | Delay |
+|------|-----------|-----------|-----------|-------|
+| thread start `+0x1c…+0x68` | write KEYPAD := 0 → read CONTROL (vote) → write CONTROL := (v & ~0x10) \| 0x04 \| 0x08 (`rlwinm …,28,26` ; `ori 4` ; `rlwimi …,3,28,28`) → `IRQ_Request(26, handler)` → `__UnmaskIrq(0x20)` | PI HSP **masked** (unmasked *after* the write) | not written | none |
+| thread exit `0x8000c37c` | `__MaskIrq(0x20)` → `IRQ_Free(26)` → (if not running) read CONTROL → write := (v & ~0x04 & ~0x08) \| 0x10 (`rlwimi` ×3) | masked | not written | none |
+
+### 8.3 Comparison and consequence for the proposed experiment
+
+| Aspect | Start-up Disc | GBI | Same? |
+|--------|---------------|-----|-------|
+| Semantic value | byte 0x1F of the block | majority vote of 32 bytes | different method, same 8-bit value on hardware |
+| Write layout | byte 0x1F only, other 31 bytes stale | byte replicated ×32 | **different** |
+| How bit 0x10 is cleared | own write, *after* a separate `\| 0x04` write | in the same write as `\| 0x04 \| 0x08` | **different** |
+| PI HSP interrupt when 0x10 is cleared | already unmasked, handler installed | still masked; unmasked afterwards | **different** |
+| IRQ block before clearing 0x10 | mask bits written | untouched | **different** |
+| Isolated toggle `0x90 → 0x80 → 0x90` | not present | not present | neither |
+| Isolated *set* of 0x10 (`v \| 0x10` alone) | yes (sleep callback) | no (combined with clearing 0x0C) | — |
+| Delays | none (DMA completion only) | none | same |
+
+Neither reference (official disc or GBI) ever clears bit 0x10 while leaving bits 0x04/0x08 as
+they were; both clear it as part of powering the AGB (0x04, 0x08 set),
+and they disagree on the order relative to the PI mask and on whether
+the IRQ block is programmed first. The experiment "clear only bit 0x10,
+observe INTSR bit 13, restore" is therefore **not an operation observed
+in known software**. Per the Phase 3 rules it was not implemented;
+see DEVLOG 2026-09-15 for the options put to the user.
+
+### 8.4 Experiment selected for GBP-INIT-001 (2026-09-15)
+
+```text
+Selected reference for experiment:
+GBI Standard control-write semantics
+
+Reason:
+write occurs before PI IRQ unmask,
+does not require GBP IRQ block writes,
+uses a known working implementation,
+and is more causally isolated than the Startup Disc start sequence.
+```
+
+This choice does not make GBI official software: the Nintendo Game Boy
+Player Start-up Disc is the official reference; GBI is an independent
+mature implementation. The probe applies only `(v & ~0x10) | 0x0C` with
+the GBI byte-replicated layout, keeps PI HSP masked, never writes the
+IRQ block, leaves KEYPAD untouched (no dependency found in GBI between
+its `KEYPAD := 0` and the CONTROL value), and restores the original
+semantic value rather than an inverse expression. See
+`poc/gbp-init-probe/README.md` and `src/gbp/gbp_init_probe.h`.

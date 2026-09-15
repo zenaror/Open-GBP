@@ -54,8 +54,8 @@ static void test_present(void)
     CHECK(count_lines_with(&rl, "TESTR mode=B") == 4);
     CHECK(count_lines_with(&rl, "ARINFO restore") == 1);
     CHECK(rl.dropped == 0);
-    /* the CONTROL raw block keeps the mock's byte-doubled layout verbatim */
-    CHECK(res.mode[0].raw[1][31] == 0x02 && res.mode[0].raw[1][30] == 0x02 && res.mode[0].raw[1][29] == 0x00);
+    /* the CONTROL raw block is kept verbatim (mock: uniform 0x90 fill, as the hardware showed) */
+    CHECK(res.mode[0].raw[1][31] == 0x90 && res.mode[0].raw[1][30] == 0x90 && res.mode[0].raw[1][0] == 0x90);
 }
 
 static void test_absent(void)

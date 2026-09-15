@@ -1,7 +1,8 @@
 /*
  * gbp_detect.h — TEST-handshake interpretation and presence policy.
  *
- * Derived from the two official drivers (docs/protocol/INITIALIZATION.md §1):
+ * Derived from the official Nintendo Start-up Disc and from GBI, an
+ * independent mature implementation (docs/protocol/INITIALIZATION.md §1):
  *
  *   Start-up Disc (0x8008ae3c): after writing 32×p and reading 32 bytes,
  *       require  block[1] == ~p                      (one byte, offset 1)
@@ -22,6 +23,7 @@
 
 #include <stdint.h>
 #include "gbp_transport.h"
+#include "../log/ringlog.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,6 +31,8 @@ extern "C" {
 
 /* Byte obtained by GBI's per-bit majority vote over the 32 bytes. */
 uint8_t gbp_majority_vote_byte(const uint8_t block[GBP_BLOCK_SIZE]);
+/* Same vote over n bytes (GBI's 16-bit reads vote over 8 bytes each). */
+uint8_t gbp_majority_vote_byte_n(const uint8_t *bytes, unsigned n);
 
 /* 1 if the response satisfies the Start-up Disc criterion for `pattern`. */
 int gbp_test_startup_disc_style(const uint8_t resp[GBP_BLOCK_SIZE], uint8_t pattern);
@@ -60,6 +64,21 @@ gbp_verdict gbp_presence_verdict(unsigned n_handshakes, unsigned n_transport_ok,
                                  unsigned n_vote_ok, unsigned n_disc_ok);
 
 const char *gbp_verdict_name(gbp_verdict v);
+
+/* Result of one TEST handshake sequence (write 32×p, read, judge). */
+struct gbp_handshake_result {
+    unsigned run, transport_ok, vote_ok, b1_ok, all32_ok, b1f_ok, failed;
+    uint8_t last_resp[GBP_BLOCK_SIZE];
+    gbp_verdict verdict;
+};
+
+/* Performs the handshake for every pattern against block `index` (0 =
+ * TEST) at `base`, logging one "TESTW <tag> ..." and one "TESTR <tag> ..."
+ * record per pattern (tag e.g. "mode=A" or "tag=DET"), and fills `out`
+ * including the presence verdict. Only the TEST block is written. */
+void gbp_detect_handshake(const struct gbp_transport *t, struct ringlog *log, const char *tag,
+                          uint32_t base, unsigned index, const uint8_t *patterns, unsigned npatterns,
+                          struct gbp_handshake_result *out);
 
 #ifdef __cplusplus
 }

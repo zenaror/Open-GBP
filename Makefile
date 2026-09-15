@@ -10,7 +10,8 @@
 #   make test           build + inspect + test-host   (no emulator, no hardware)
 #   make smoke-dolphin  run the smoke-test DOL in Dolphin and verify the success criteria
 #   make probe-dolphin  run the gbp-probe DOL in Dolphin (HSP device absent and present)
-#   make all            test + smoke-dolphin + probe-dolphin
+#   make init-dolphin   run the gbp-init-probe DOL in Dolphin (absent → abort; present → full sequence)
+#   make all            test + smoke-dolphin + probe-dolphin + init-dolphin
 #   make shell          interactive shell in the container
 #   make clean
 
@@ -26,13 +27,15 @@ IN_CONTAINER := $(COMPOSE) run --rm -T dev
 PYTHON ?= python3
 PYTEST := $(shell command -v pytest 2>/dev/null)
 
-POCS      := smoke-test gbp-probe
+POCS      := smoke-test gbp-probe gbp-init-probe
+INIT_OUT  := build/poc/gbp-init-probe
+INIT_DOL  := $(INIT_OUT)/gbp-init-probe.dol
 SMOKE_OUT := build/poc/smoke-test
 SMOKE_DOL := $(SMOKE_OUT)/smoke-test.dol
 PROBE_OUT := build/poc/gbp-probe
 PROBE_DOL := $(PROBE_OUT)/gbp-probe.dol
 
-.PHONY: help env-check build inspect test-host test-unit test-python test smoke-dolphin probe-dolphin all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test smoke-dolphin probe-dolphin init-dolphin all shell clean
 
 help:
 	@sed -n '2,16p' $(firstword $(MAKEFILE_LIST))
@@ -83,7 +86,22 @@ probe-dolphin:
 	  -C Dolphin.Core.HSPDevice=2 \
 	  --report $(PROBE_OUT)/dolphin-report-present.json --screen-png $(PROBE_OUT)/dolphin-screen-present.png
 
-all: test smoke-dolphin probe-dolphin
+# Dolphin only validates runtime/flow/restore paths for the init probe; its
+# GBPlayer model says nothing about the physical CONTROL/IRQ/INTSR behavior.
+# Run 2 note: Dolphin's model presents CONTROL = 0x03 at idle (mGBA cartridge
+# bits), not the idle shape 0x90 seen on hardware, so the probe correctly
+# stops at the shape precondition; the write/restore path is covered by the
+# host mocks and replay scripts (tests/unit/test_gbp_init.c).
+init-dolphin:
+	$(PYTHON) tools/dolphin_smoke.py --dol $(INIT_DOL) --build-info $(INIT_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-INIT DONE status=abort_not_present .*written=0 .*arinfo_restored=1' \
+	  --report $(INIT_OUT)/dolphin-report-absent.json --screen-png $(INIT_OUT)/dolphin-screen-absent.png
+	$(PYTHON) tools/dolphin_smoke.py --dol $(INIT_DOL) --build-info $(INIT_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-INIT DONE status=abort_control_shape reason=control_not_idle_shape verdict=present det=4/4 written=0 .*arinfo_restored=1' \
+	  -C Dolphin.Core.HSPDevice=2 \
+	  --report $(INIT_OUT)/dolphin-report-present.json --screen-png $(INIT_OUT)/dolphin-screen-present.png
+
+all: test smoke-dolphin probe-dolphin init-dolphin
 
 shell:
 	$(COMPOSE) run --rm dev bash

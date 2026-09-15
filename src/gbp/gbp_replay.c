@@ -119,6 +119,36 @@ static gbp_status r_write_block(void *ctx, uint32_t addr, const uint8_t in[GBP_B
     return status_from_name(end);
 }
 
+static gbp_status r_read_pi(void *ctx, uint32_t *intsr, uint32_t *intmr)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    char *end;
+    if (!next_line(r, line, sizeof line)) { r->exhausted++; return GBP_ERR_BACKEND; }
+    r->step++;
+    if (line[0] != 'P' || line[2] != 'r') { r->mismatches++; return GBP_ERR_BACKEND; }
+    *intsr = (uint32_t)strtoul(line + 4, &end, 16);
+    *intmr = (uint32_t)strtoul(end, 0, 16);
+    return GBP_OK;
+}
+
+static gbp_status r_write_intmr(void *ctx, uint32_t v)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    if (!next_line(r, line, sizeof line)) { r->exhausted++; return GBP_ERR_BACKEND; }
+    r->step++;
+    if (line[0] != 'P' || line[2] != 'w') { r->mismatches++; return GBP_ERR_BACKEND; }
+    if ((uint32_t)strtoul(line + 4, 0, 16) != v) { r->mismatches++; return GBP_ERR_BACKEND; }
+    return GBP_OK;
+}
+
+static uint32_t r_ticks(void *ctx)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    return r->step * 10u;
+}
+
 void gbp_replay_init(struct gbp_replay *r, const char *script)
 {
     memset(r, 0, sizeof *r);
@@ -131,5 +161,8 @@ void gbp_replay_transport(struct gbp_replay *r, struct gbp_transport *t)
     t->write_arinfo = r_write_arinfo;
     t->read_block = r_read_block;
     t->write_block = r_write_block;
+    t->read_pi = r_read_pi;
+    t->write_intmr = r_write_intmr;
+    t->ticks = r_ticks;
     t->ctx = r;
 }

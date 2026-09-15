@@ -16,12 +16,12 @@ CC       ?= cc
 CFLAGS   ?= -std=gnu11 -O1 -g -Wall -Wextra -Wpedantic -Wshadow -Wconversion
 CPPFLAGS += -I$(ROOT)/src/common -I$(ROOT)/src/log -I$(ROOT)/src/gbp -I$(ROOT)/tests/mocks
 
-TESTS    := test_ident test_ringlog test_gbp_detect test_gbp_probe test_gbp_replay
+TESTS    := test_ident test_ringlog test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init
 BINS     := $(addprefix $(OUTDIR)/,$(TESTS))
 
 COMMON_SRC := $(ROOT)/src/common/opengbp_ident.c
 LOG_SRC    := $(ROOT)/src/log/ringlog.c
-GBP_SRC    := $(ROOT)/src/gbp/gbp_transport.c $(ROOT)/src/gbp/gbp_probe.c $(ROOT)/src/gbp/gbp_replay.c $(ROOT)/src/gbp/gbp_detect.c
+GBP_SRC    := $(ROOT)/src/gbp/gbp_transport.c $(ROOT)/src/gbp/gbp_probe.c $(ROOT)/src/gbp/gbp_replay.c $(ROOT)/src/gbp/gbp_detect.c $(ROOT)/src/gbp/gbp_init_probe.c
 MOCK_SRC   := $(ROOT)/tests/mocks/gbp_mock.c
 
 .PHONY: all run clean
@@ -49,6 +49,9 @@ $(OUTDIR)/test_gbp_probe: test_gbp_probe.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC) | $
 
 $(OUTDIR)/test_gbp_replay: test_gbp_replay.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_replay.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC)
+
+$(OUTDIR)/test_gbp_init: test_gbp_init.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC) | $(OUTDIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_init.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC)
 
 $(OUTDIR):
 	mkdir -p $@

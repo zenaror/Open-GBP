@@ -146,7 +146,7 @@ log to SD2SP2.
 Three of eight TEST read-backs and the MODE B IRQ block had a byte 0
 that differed from bytes 1–31 by additional 1-bits only (`7C` vs `3C`,
 `C7` vs `C3` — once also at byte 6 —, `AE` vs `8A`); the CONTROL first
-read in MODE B had `94` vs `90`. Both official drivers avoid byte 0
+read in MODE B had `94` vs `90`. The official Start-up Disc and GBI both avoid byte 0
 (DISC reads byte 1 for TEST, 0x1D/0x1F for 16-bit, 0x1F for 8-bit; GBI
 majority-votes). Unknown: whether it is a bus/DMA first-beat artifact,
 a device feature (cf. the video frame flag on the first pixel), or

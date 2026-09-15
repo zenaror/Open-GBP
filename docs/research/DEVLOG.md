@@ -210,7 +210,7 @@ wrappers and the GBI ARQ calls with their constant offsets).
 - TEST echoes the complement; DISC patterns C3/3C/FF/00, GBI C3/FF. (GBP-TEST-001)
 - PI bit 13 ↔ OS interrupt 26 in SDK and libogc; IRQ register even bits = sources {0x1,0x4,0x10,0x40,0x100,0x400}, odd bits = masks, ack by writing back. (GBP-IRQ-001)
 - VIDEO: 4 lines × 240 px × 32-bit, 40 blocks/frame, frame-start flag 0x80800000 on the first word; DISC pre-fills a dummy block with it. (GBP-VID-001)
-- KEYPAD rewritten on every IRQ by both drivers; GBI presses L+R+Select (0x0304) on the sleep IRQ. (GBP-KEY-001)
+- KEYPAD rewritten on every IRQ by the Start-up Disc and GBI; GBI presses L+R+Select (0x0304) on the sleep IRQ. (GBP-KEY-001)
 - DISC runs a 200 Hz watchdog: 50 unchanged IRQ counts (≈250 ms) → stream failure; a TEST pattern every tick → removal detection. Dolphin needs a 1.25× overclock to satisfy it.
 - DISC drives an internal serial path (SIODATA write → SIOCTL|=0x80 → IRQ bit 6 → read) with a 1 s timeout. Dolphin stubs it. (GBP-SIO-001)
 - GBI HSP raw handler only acks PI and wakes a thread; the thread does 64-byte combined DMAs (KEYPAD+IRQ at 0xCFFFE0, CONTROL+SIOCTL at 0x4FFFE0). (GBP-HSP-004)
@@ -234,7 +234,7 @@ the necessity of the AR_INFO write; YAGCD's "3 HSP interrupt sources".
   0x19/0x1B/0x1D/0x1F); Dolphin's IRQ read is `hh hh hh ll` and its
   SIODATA read repeats the u32 — both satisfy DISC only at bytes 0x1D/0x1F.
 - YAGCD 6.2.1 describes HSP interrupt "mailboxes"; no driver uses anything like them.
-- Dolphin ignores `0xCC005012` bits 3–5; both drivers set them.
+- Dolphin ignores `0xCC005012` bits 3–5; the Start-up Disc and GBI set them.
 
 ### Unknowns opened
 
@@ -480,7 +480,7 @@ limitations of probe-0001 (not defects in the data):
 - **L3 — CSR logged after the ack:** `dspcr=0804` never shows bit 5;
   logging the pre-ack value would be more informative.
 - L4 — no `sync` between the completion flag and the copy-out beyond
-  `dcbi`; equal to the official drivers, but cheap to add.
+  `dcbi`; equal to the Start-up Disc and GBI, but cheap to add.
 
 ### TEST semantics in the Start-up Disc (`0x8008ae3c`, disassembly)
 
@@ -685,7 +685,7 @@ Candidates from the official start sequences (INITIALIZATION.md §3):
 | Candidate | Writes | Hypothesis tested | Restore | Risk |
 |-----------|--------|-------------------|---------|------|
 | (i) IRQ mask programming: write IRQ := read with all odd bits set, as the disc does before enabling anything | IRQ window | odd bits are writable masks; even bits are acknowledged by writing them | write back the value read | low, but writing even bits acknowledges sources we have not understood |
-| (ii) CONTROL bit 0x10 cleared then restored (`90 → 80 → 90`), PI HSP interrupt kept masked in INTMR, observe PI INTSR bit 13 and the IRQ window before/after | CONTROL (1 bit) | bit 0x10 gates the device's interrupt line to the PI (both drivers clear it in start and set it in stop) | rewrite the original byte | low: no handler, PI mask untouched, no AGB power |
+| (ii) CONTROL bit 0x10 cleared then restored (`90 → 80 → 90`), PI HSP interrupt kept masked in INTMR, observe PI INTSR bit 13 and the IRQ window before/after | CONTROL (1 bit) | bit 0x10 gates the device's interrupt line to the PI (the Start-up Disc and GBI clear it in start and set it in stop) | rewrite the original byte | low: no handler, PI mask untouched, no AGB power |
 | (iii) CONTROL \|= 0x04 (disc step 7 / GBI `\|0x0C`) | CONTROL | powers/resets the AGB; IRQ/AV activity appears | disc stop sequence (clear 0x04/0x08, set 0x10/0x80) | medium: starts the AGB with no cartridge; needs the full stop sequence to be trusted |
 
 **Proposed: (ii).** It is the smallest state change both official
@@ -697,3 +697,88 @@ extra PI reads. It also settles whether IRQ `0x8AAE` bit 15 correlates
 with the PI line, which (i) and (iii) would confound. Run with expansion
 code 3 only (the only state where CONTROL/IRQ read as live), restoring
 AR_INFO as today. Awaiting authorization before any build or request.
+
+---
+
+## 2026-09-15 — GBP-INIT-001 (CONTROL bit 0x10): provenance check stopped the implementation
+
+**Task:** investigate whether clearing only CONTROL bit 0x10, "using the
+same operation observed in the known drivers", changes the observable
+interrupt state. Rule: if the Start-up Disc and GBI differ materially,
+stop and report before implementing.
+
+**Finding (INITIALIZATION.md §8, from disassembly of `0x8008bf84`,
+`0x8008be04`, `0x8008bd50`, `0x80089edc`, `0x8008a1dc` and GBI
+`0x8000c03c…`, `0x8000c37c…`):** the isolated operation
+`0x90 → 0x80 → 0x90` exists in neither driver. The disc clears 0x10 in
+its own write but only after `| 0x04` and with PI HSP already unmasked
+and the IRQ mask bits written; GBI clears 0x10 in the same write that
+sets 0x04|0x08, with PI still masked. Write layouts also differ (byte
+0x1F only vs byte replicated ×32). Only the *set* direction (`| 0x10`)
+appears alone (disc sleep callback), which would not change the idle
+value 0x90 observed on hardware.
+
+**Decision:** no POC created, no write designed, no build. Options for
+the user (none chosen by the agent):
+
+1. Authorize the isolated 0x10 toggle explicitly as a *non-official*
+   experiment (single bit, PI masked, restore by rewriting the semantic
+   byte). Cleanest for the hypothesis, but outside both references.
+2. Follow GBI: one write `(v & ~0x10) | 0x0C` with PI masked, then
+   restore via GBI's exit write `(v & ~0x0C) | 0x10`. Official, but the
+   variable is no longer a single bit: it powers the AGB (bits 0x04/0x08).
+3. Follow the disc: `| 0x04` then `& ~0x10` as two writes, restore with
+   the disc's stop sequence (`& ~0x04`, `& ~0x08`, `| 0x10`, `| 0x80`).
+   Official, but it also programs the IRQ mask bits first and expects
+   the PI interrupt unmasked — two more variables and an IRQ-block write
+   the current rules forbid.
+
+Nothing else changed; artifacts `probe-0001` (executed) and
+`probe-0002` (host/Dolphin validated) remain as documented.
+
+---
+
+## 2026-09-15 — GBP-INIT-001 implemented (build init-0001, not run on hardware)
+
+**Decision received:** conservative variant of option 2 — GBI's CONTROL
+transform under a masked PI HSP interrupt. Terminology: the Start-up Disc
+is the official Nintendo reference; GBI is an independent mature
+implementation (wording fixed across docs).
+
+**Provenance used:** GBI `0x8000c03c…`: read CONTROL (vote) → write
+`(v & ~0x10) | 0x04 | 0x08` (byte replicated ×32) → `IRQ_Request(26)` →
+`__UnmaskIrq(0x20)`. Only the write is reproduced, in the PI-masked
+regime; the two following calls are not executed. KEYPAD (`:= 0` in GBI
+just before) is not reproduced: no functional dependency exists in the
+code (separate ARQ transfers; the CONTROL value derives only from the
+CONTROL read). INTMR polarity from libogc2 `__SetInterrupts`
+(`if(!(nMask&IM_PI_HSP)) imask |= 0x2000; _piReg[1] = imask` → bit set =
+enabled) and `__irq_init` (`_piReg[1] = 0xf0` → bit 13 masked at boot).
+
+**Implementation:** `src/gbp/gbp_init_probe.{h,c}` (experiment logic,
+S0–S5, fail-safe, restore of the original semantic value, GBI layout);
+`src/gbp/gbp_detect.{h,c}` (shared `gbp_detect_handshake`, vote over n
+bytes; `gbp_probe.c` now uses it, adding `addr=` to TESTW/TESTR records);
+`src/gbp/gbp_transport.h` (+ optional `read_pi`, `write_intmr`, `ticks`);
+`src/platform/hsp_backend.c` (PI at `0xCC003000/04`, `gettick`);
+`tests/mocks/gbp_mock.{h,c}` (CONTROL/IRQ block models, PI model, faults);
+`src/gbp/gbp_replay.{h,c}` (`P r`/`P w` records); `tools/probelog.py`
+(PI/CTLW records, `addr=` preference); `poc/gbp-init-probe/*`; `Makefile`
+(`init-dolphin`); `tests/unit/test_gbp_init.c`; `tests/host/test_artifacts.py`.
+
+**Preconditions for the single new write:** verdict PRESENT (both
+criteria, 4/4, all transfers ok); PI readable; INTMR bit 13 clear (only
+that bit cleared if needed, readback-confirmed, restored later); CONTROL
+vote == byte 0x1F; idle shape `(v & 0x10) != 0 && (v & 0x0C) == 0`;
+transform not a no-op. Snapshots S1–S3 back to back without delay
+(neither reference has one), then restore with the original value, S4,
+INTMR/AR_INFO restore, S5.
+
+**Validation:** see the report of this session (C/Python counts). Dolphin
+without HSP device → `abort_not_present` (zeros → inconsistent). Dolphin
+GBPlayer model → `abort_control_shape`: its CONTROL reads `0x03` at idle
+(mGBA cartridge bits) instead of the `0x90` idle shape observed on
+hardware, so the precondition stops the probe before the write — a
+recorded Dolphin/hardware divergence; the write, snapshot and restore
+paths are exercised by the host mocks and replay scripts, not by Dolphin. Build is `-dirty`; no hardware request until a
+clean commit, rebuild and re-validation.

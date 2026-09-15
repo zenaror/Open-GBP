@@ -238,7 +238,7 @@ GBI `0x8001123c` → `(v & 0xFFC7) | 0x18`. In LIBOGC2 `__ARCheckSize` the
 same bits encode the detected expansion ARAM size (0x18 = 16 MB). Dolphin
 does not consult these bits for HSP routing.
 
-**Status:** CORROBORATED (both drivers) — **Confidence:** high for the
+**Status:** CORROBORATED (Start-up Disc + GBI) — **Confidence:** high for the
 write, **HYPOTHESIS** that it is required (U-GBP-004).
 
 ## GBP-HSP-003 — Transfer format: 32-byte blocks, value in the last bytes, completion via DSP CSR bit 5

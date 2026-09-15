@@ -49,8 +49,19 @@ struct gbp_transport {
                              struct gbp_xfer_info *info);
     gbp_status (*write_block)(void *ctx, uint32_t aram_addr, const uint8_t in[GBP_BLOCK_SIZE],
                               struct gbp_xfer_info *info);
+    /* Optional (may be NULL): Processor Interface INTSR (0xCC003000) and
+     * INTMR (0xCC003004), raw 32-bit values. write_intmr writes the whole
+     * register; callers preserve every bit they do not intend to change. */
+    gbp_status (*read_pi)(void *ctx, uint32_t *intsr, uint32_t *intmr);
+    gbp_status (*write_intmr)(void *ctx, uint32_t intmr);
+    /* Optional (may be NULL): monotonic tick counter (time base on GC). */
+    uint32_t (*ticks)(void *ctx);
     void *ctx;
 };
+
+/* PI bit for the High Speed Port interrupt (YAGCD 6.1.5.2, libogc2 irq.c:
+ * INTMR bit set = interrupt enabled; INTSR bit set = pending). */
+#define GBP_PI_HSP_BIT 0x00002000u
 
 /* ---- address helpers (pure, tested on host) --------------------------- */
 

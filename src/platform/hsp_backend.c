@@ -25,6 +25,9 @@
 #define CSR_DSPINT  0x0080u   /* DSP interrupt flag (write 1 clears)      */
 #define CSR_DSPDMA  0x0200u   /* ARAM DMA in progress                     */
 
+#define PI_INTSR (*(vu32 *)0xCC003000u)
+#define PI_INTMR (*(vu32 *)0xCC003004u)
+
 #define DIR_MRAM_TO_ARAM 0u
 #define DIR_ARAM_TO_MRAM 1u
 
@@ -131,6 +134,28 @@ static gbp_status h_write_block(void *ctx, uint32_t aram_addr, const uint8_t in[
     return dma(b, DIR_MRAM_TO_ARAM, aram_addr, info);
 }
 
+static gbp_status h_read_pi(void *ctx, uint32_t *intsr, uint32_t *intmr)
+{
+    (void)ctx;
+    *intsr = PI_INTSR;
+    *intmr = PI_INTMR;
+    return GBP_OK;
+}
+
+static gbp_status h_write_intmr(void *ctx, uint32_t intmr)
+{
+    (void)ctx;
+    /* Same register write libogc2's __SetInterrupts performs (_piReg[1] = imask). */
+    PI_INTMR = intmr;
+    return GBP_OK;
+}
+
+static uint32_t h_ticks(void *ctx)
+{
+    (void)ctx;
+    return gettick();
+}
+
 void hsp_backend_init(struct hsp_backend *b, uint8_t *buffer, uint32_t timeout_ticks)
 {
     memset(b, 0, sizeof *b);
@@ -144,5 +169,8 @@ void hsp_backend_transport(struct hsp_backend *b, struct gbp_transport *t)
     t->write_arinfo = h_write_arinfo;
     t->read_block = h_read_block;
     t->write_block = h_write_block;
+    t->read_pi = h_read_pi;
+    t->write_intmr = h_write_intmr;
+    t->ticks = h_ticks;
     t->ctx = b;
 }

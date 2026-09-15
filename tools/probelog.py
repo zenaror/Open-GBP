@@ -87,10 +87,16 @@ def fixture(records):
             data = f.get("data", "-") if f.get("rc") == "ok" else ""
             lines.append(("R %s %s %s" % (f["addr"], f["rc"], data)).rstrip())
         elif k == "TESTW":
-            lines.append("W %s %s" % (_hs_addr(records, r), f["rc"]))
+            lines.append("W %s %s" % (f.get("addr") or _hs_addr(records, r), f["rc"]))
         elif k == "TESTR":
             data = f.get("data", "-") if f.get("rc") == "ok" else ""
-            lines.append(("R %s %s %s" % (_hs_addr(records, r), f["rc"], data)).rstrip())
+            lines.append(("R %s %s %s" % (f.get("addr") or _hs_addr(records, r), f["rc"], data)).rstrip())
+        elif k == "CTLW":
+            lines.append("W %s %s" % (f["addr"], f["rc"]))
+        elif k == "PI" and "intsr" in f:
+            lines.append("P r %s %s" % (f["intsr"], f["intmr"]))
+        elif k == "INTMR" and tag in ("mask", "restore") and f.get("rc") == "ok":
+            lines.append("P w %s" % (f.get("readback") or f.get("wanted") or f.get("value")))
     return "\n".join(lines) + "\n"
 
 

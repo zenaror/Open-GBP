@@ -76,58 +76,20 @@ static void handshake(const struct gbp_transport *t, struct ringlog *log,
                       const struct gbp_probe_config *cfg, unsigned m,
                       struct gbp_probe_mode_result *mr, struct gbp_probe_result *res)
 {
-    unsigned p;
-    uint8_t out[GBP_BLOCK_SIZE];
-    uint8_t in[GBP_BLOCK_SIZE];
-    char hex[GBP_BLOCK_SIZE * 2 + 1];
-    uint32_t addr = gbp_block_addr(mr->base, (unsigned)cfg->handshake_index, 0);
+    struct gbp_handshake_result hs;
+    char tag[16];
 
-    for (p = 0; p < cfg->npatterns && p < GBP_PROBE_MAX_PATTERNS; p++) {
-        struct gbp_xfer_info wi, ri;
-        uint8_t pat = cfg->patterns[p];
-        uint8_t expect = (uint8_t)~pat;
-        gbp_status wrc, rrc;
-        unsigned match_all = 0, match_1f = 0, match_b1 = 0, match_vote = 0, vote = 0;
-
-        memset(&wi, 0, sizeof wi);
-        memset(&ri, 0, sizeof ri);
-        memset(out, pat, sizeof out);
-        memset(in, 0, sizeof in);
-        mr->tests_run++;
-
-        wrc = t->write_block(t->ctx, addr, out, &wi);
-        ringlog_printf(log, "TESTW mode=%s idx=%x pattern=%02x rc=%s ticks=%lu polls=%u dspcr=%04x",
-                       mode_name(m), (unsigned)cfg->handshake_index, (unsigned)pat,
-                       gbp_status_name(wrc), (unsigned long)wi.ticks, (unsigned)wi.polls,
-                       (unsigned)wi.dma_status);
-        if (wrc != GBP_OK) {
-            mr->tests_failed++;
-            res->errors++;
-            continue;
-        }
-        rrc = t->read_block(t->ctx, addr, in, &ri);
-        if (rrc == GBP_OK) {
-            mr->tests_transport_ok++;
-            match_all = (unsigned)gbp_test_whole_block(in, pat);
-            match_1f = (in[GBP_BLOCK_SIZE - 1u] == expect) ? 1u : 0u;
-            match_b1 = (unsigned)gbp_test_startup_disc_style(in, pat);
-            match_vote = (unsigned)gbp_test_majority_vote(in, pat);
-            vote = gbp_majority_vote_byte(in);
-            mr->tests_match_all += match_all;
-            mr->tests_match_1f += match_1f;
-            mr->tests_match_b1 += match_b1;
-            mr->tests_match_vote += match_vote;
-        } else {
-            mr->tests_failed++;
-            res->errors++;
-        }
-        ringlog_hex(hex, sizeof hex, in, GBP_BLOCK_SIZE);
-        ringlog_printf(log, "TESTR mode=%s idx=%x pattern=%02x expect=%02x rc=%s ticks=%lu polls=%u dspcr=%04x match_all=%u match_1f=%u match_b1=%u match_vote=%u vote=%02x data=%s",
-                       mode_name(m), (unsigned)cfg->handshake_index, (unsigned)pat, (unsigned)expect,
-                       gbp_status_name(rrc), (unsigned long)ri.ticks, (unsigned)ri.polls,
-                       (unsigned)ri.dma_status, match_all, match_1f, match_b1, match_vote, vote,
-                       rrc == GBP_OK ? hex : "-");
-    }
+    snprintf(tag, sizeof tag, "mode=%s", mode_name(m));
+    gbp_detect_handshake(t, log, tag, mr->base, (unsigned)cfg->handshake_index, cfg->patterns,
+                         cfg->npatterns < GBP_PROBE_MAX_PATTERNS ? cfg->npatterns : GBP_PROBE_MAX_PATTERNS, &hs);
+    mr->tests_run += hs.run;
+    mr->tests_transport_ok += hs.transport_ok;
+    mr->tests_match_all += hs.all32_ok;
+    mr->tests_match_1f += hs.b1f_ok;
+    mr->tests_match_b1 += hs.b1_ok;
+    mr->tests_match_vote += hs.vote_ok;
+    mr->tests_failed += hs.failed;
+    res->errors += hs.failed;
 }
 
 int gbp_probe_run(const struct gbp_transport *t, struct ringlog *log,

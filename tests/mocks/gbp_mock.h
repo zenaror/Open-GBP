@@ -50,6 +50,19 @@ struct gbp_mock {
     int stuck_after_timeout;    /* subsequent transfers report busy */
     int silent_reads;           /* 1: read DMA "completes" but never writes the buffer */
     const uint8_t *canned;      /* if set: every read returns exactly these 32 bytes */
+    /* CONTROL/IRQ/TEST block models for the init probe (used when set) */
+    const uint8_t *control_block;   /* exact 32 bytes returned for CONTROL reads (else control_byte fill) */
+    const uint8_t *irq_block;       /* exact 32 bytes returned for IRQ reads (else irq_value doubled) */
+    int test_byte0_anomaly;         /* TEST read-back: byte 0 gets extra bit 0x40 */
+    int control_writes_stick;       /* 1: a CONTROL write updates control_byte (readback follows) */
+    unsigned control_write_fail_at; /* Nth CONTROL write (1-based) is ignored (readback unchanged) */
+    uint8_t irq_after_write;        /* if nonzero: IRQ block becomes this byte after a CONTROL write */
+    /* PI model */
+    uint32_t intsr, intmr;
+    int pi_unavailable;             /* read_pi fails */
+    int intmr_write_ignored;        /* write_intmr "succeeds" but the value does not change */
+    int intsr_bit13_follows_control;/* bit 13 set while control bit 0x10 is clear */
+    uint32_t tick;
     /* state */
     uint8_t test_store[GBP_BLOCK_SIZE];
     unsigned transfers;         /* block transfers so far */
@@ -57,6 +70,8 @@ struct gbp_mock {
     struct gbp_mock_op ops[GBP_MOCK_MAX_OPS];
     unsigned nops;
     unsigned ops_dropped;
+    unsigned control_writes;    /* CONTROL block writes seen */
+    unsigned intmr_writes;
 };
 
 void gbp_mock_init(struct gbp_mock *m);

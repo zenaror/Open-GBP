@@ -8,7 +8,10 @@
  *   A w <hex16>            write_arinfo -> expected value (mismatch = GBP_ERR_BACKEND)
  *   R <hex32addr> <rc> <64hex>    read_block  -> data, rc (rc: ok|timeout|busy|param|backend)
  *   W <hex32addr> <rc>            write_block -> rc (address must match)
+ *   P r <hex32 intsr> <hex32 intmr>   read_pi -> values
+ *   P w <hex32 intmr>             write_intmr -> expected value (mismatch = GBP_ERR_BACKEND)
  *   # comment / blank
+ * ticks() returns 10 × operations consumed (no script line).
  *
  * tools/probelog.py can generate such a script from a device log
  * (captures/fixtures/, .gbpreplay files). When the script is exhausted every call

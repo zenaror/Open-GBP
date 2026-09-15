@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 import dolinfo  # noqa: E402
 
-POCS = ("smoke-test", "gbp-probe")
+POCS = ("smoke-test", "gbp-probe", "gbp-init-probe")
 OUTDIR = os.path.join(ROOT, "build", "poc", "smoke-test")
 ELF = os.path.join(OUTDIR, "smoke-test.elf")
 DOL = os.path.join(OUTDIR, "smoke-test.dol")
@@ -146,7 +146,8 @@ class EveryPocArtifacts(unittest.TestCase):
                 blob = f.read()
             marker = ("OPENGBP-IDENT app=%s build=%s commit=%s" % (bi["app"], bi["build_id"], bi["commit"])).encode()
             self.assertIn(marker, blob, poc)
-            prefix = {"smoke-test": b"OPENGBP-SMOKE READY ", "gbp-probe": b"OPENGBP-PROBE READY "}[poc]
+            prefix = {"smoke-test": b"OPENGBP-SMOKE READY ", "gbp-probe": b"OPENGBP-PROBE READY ",
+                      "gbp-init-probe": b"OPENGBP-INIT READY "}[poc]
             self.assertIn(prefix, blob, poc)
 
     def test_probe_writes_only_documented_things(self):

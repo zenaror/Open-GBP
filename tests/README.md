@@ -14,6 +14,8 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                   test_ident.c       build identity formatter
                   test_ringlog.c     RAM record log (truncation, drop counter)
                   test_gbp_probe.c   GBP-PROBE-001 logic against tests/mocks/gbp_mock.c
+                  test_gbp_init.c    GBP-INIT-001 logic: preconditions, snapshots, restore, fail-safe,
+                                     replay scripts from the physical handshakes
                   test_gbp_replay.c  trace/replay backend (+ replay of the hardware fixture when given as argv[1])
 tests/mocks/    scripted device models behind src/gbp/gbp_transport.h
 tests/host/     Python tests (pytest or python3 -m unittest):
