@@ -43,6 +43,13 @@ Open-GBP must not use GBA/GB/GBC software emulation as the final execution path.
 
 The long-term runtime should support normal Game Boy Player use with functionality comparable to mature software such as Game Boy Interface, while remaining independently implemented and open source.
 
+The compatibility goal is functional parity with the Nintendo Game Boy
+Player Start-up Disc and with GBI for normal Game Boy Player use, plus the
+additional future extension over the GameCube BBA that implements a virtual
+Mobile Adapter GB. The goal is NOT merely "boot games and show video": the
+final runtime must aim to reproduce every relevant behavior the existing
+implementations already support.
+
 Expected long-term functionality includes:
 
 - real GBA cartridges;
@@ -51,13 +58,22 @@ Expected long-term functionality includes:
 - video;
 - audio;
 - GameCube controller input;
+- timing and behavior the games expect;
 - physical Link Port peripherals;
 - PicoAdapterGB compatibility;
+- rumble through the GameCube controller in GBP-aware games;
+- special modes and Game Boy Player-specific behaviors that games recognize;
+- the IRQs, registers and mechanisms those features require;
+- correct startup and stop sequences;
 - useful configuration and presentation functionality;
 - robust normal Game Boy Player operation;
+- every other feature supported by the Start-up Disc and/or GBI;
 - internal serial research;
 - GameCube Broadband Adapter networking;
 - optional Mobile Adapter GB functionality.
+
+Do not assume in advance how rumble or the other special modes work:
+research the mechanisms from the references and from the hardware.
 
 Mobile Adapter support is an **extension**, not the foundation of the runtime.
 
@@ -149,6 +165,13 @@ Only after those foundations are sufficiently understood should Mobile Adapter p
 
 The purpose of this rule is to prevent Mobile Adapter-specific assumptions from contaminating the Game Boy Player research.
 
+The future integration `GBP / GBS-DOL → GameCube → BBA → virtual Mobile
+Adapter GB` is an **additive** feature of Open-GBP. It must not replace,
+break or degrade: the physical Link Port; PicoAdapterGB; rumble; the
+GBP-aware game features; normal GB/GBC/GBA compatibility; behavior already
+reproduced from the Start-up Disc / GBI. Mobile Adapter / libmobile remains
+a late stage of the project.
+
 ---
 
 ## 5. Documentation is a primary deliverable
@@ -205,6 +228,15 @@ Use multiple independent sources where possible.
 Physical GameCube + Game Boy Player behavior is the final authority for the target runtime.
 
 However, physical tests should be requested only when necessary.
+
+Evidence authority, in order: physical hardware is the final authority; the
+official Nintendo Start-up Disc is the primary software reference; GBI is
+an independent mature implementation, not official software; Dolphin is
+auxiliary and never replaces physical observation. Divergences between
+hardware, Start-up Disc, GBI and Dolphin are preserved and documented,
+never resolved by silently picking one. Every claim is classified as
+FACT, CORROBORATED, HYPOTHESIS or UNKNOWN (`docs/RESEARCH_METHOD.md`); an
+inference is never promoted to FACT.
 
 ---
 
@@ -405,6 +437,14 @@ physical GameCube + Game Boy Player
 ```
 
 Passing in Dolphin does not prove correct behavior on the physical Game Boy Player.
+
+Every automated Dolphin run disables the on-screen display through the
+per-run override `Dolphin.Interface.OnScreenDisplayMessages=False`, which
+`tools/dolphin_smoke.py` applies automatically: screenshots must show only
+the Open-GBP framebuffer, never Dolphin's yellow messages. Dolphin stays an
+auxiliary tool for execution flow, logging, error paths, screenshots and
+regressions; the behavior of its Game Boy Player model is never physical
+truth.
 
 ---
 
@@ -772,6 +812,18 @@ Never commit private information or proprietary binary data unintentionally.
 
 Trace formats should be documented and machine-readable where practical.
 
+Physical logs follow one permanent workflow:
+
+- `logs/` (repository root): the raw input handed over by the user — never
+  edited, never normalized, never versioned; hashes are computed directly
+  from the original;
+- `captures/local/`: the preserved local copy (ignored by Git);
+- `captures/fixtures/`: derived replay fixtures, versioned when appropriate,
+  identified by the hash and size of the raw log they come from.
+
+Raw bytes are the primary evidence; semantic values are derived and stay
+separate from them.
+
 ---
 
 ## 13. SD2SP2 logging
@@ -948,6 +1000,19 @@ When interacting with undocumented hardware:
 8. provide a clear reset/recovery procedure where relevant.
 
 Do not chain multiple unverified assumptions into one hardware test.
+
+Permanent rules for physical experiments:
+
+- a new physical write needs a justification in a known reference or an
+  explicit experimental authorization;
+- prefer one new variable per experiment;
+- preserve and restore state whenever possible;
+- no unbounded wait: every wait has an operational bound, never presented
+  as a hardware property;
+- hardware is never tested with a `-dirty` build; a physical candidate
+  requires a clean commit, a rebuild, passing tests and a recorded hash;
+- after an experiment that may leave device state not fully acknowledged,
+  the console is power-cycled when the procedure specifies it.
 
 ---
 
@@ -1208,3 +1273,19 @@ When choosing what to do next, prefer the task that:
 6. minimizes unnecessary physical user intervention.
 
 When uncertain, document the uncertainty rather than hiding it.
+
+---
+
+## 29. Where the current state lives
+
+`CLAUDE.md` holds permanent policies only. Detailed experimental results,
+open questions and the next planned step are recovered from:
+
+- `docs/research/DEVLOG.md` — chronological decisions and the latest status;
+- `docs/research/EVIDENCE.md` — classified claims;
+- `docs/research/HARDWARE_TESTS.md` — executed and planned physical tests;
+- `docs/research/UNKNOWNS.md` — open questions;
+- `docs/protocol/INITIALIZATION.md` and `docs/protocol/REGISTERS.md` — the
+  consolidated protocol reference.
+
+Read them before proposing the next experiment.

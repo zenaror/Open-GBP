@@ -333,3 +333,21 @@ offsets ≡ 1 and ≡ 3 mod 4 (Disc: bytes 0x1D/0x1F; GBI: majority votes
 over those classes) and therefore agree on 0x8FAE; the meaning of the
 extra bit at ≡ 2 mod 4 (a second register phase? a different bit of the
 same word? noise?) is unknown. Do not consume offset ≡ 2 mod 4.
+
+## U-GBP-026 (P2) — Mechanism of the GBP-aware game features (rumble, GBP-dependent modes)
+
+Requirement (ROADMAP Phase 7): reproduce the special behaviors a game
+shows when it runs on a Game Boy Player and the Start-up Disc / GBI
+support them — GameCube-controller rumble first of all — including the
+GBS-DOL signals, registers, IRQs and paths involved. Not assumed: which
+path carries the game's GBP detection and its rumble commands. Leading
+candidate from the accepted references: the AGB-side protocol GBATEK
+documents under "GBA Gameboy Player" (SIO normal 32-bit mode, "NINTENDO"
+handshake, rumble commands), which would travel over the internal serial
+path the Start-up Disc drives (GBP-SIO-001, U-GBP-001…003) — the Disc's
+serial state machine `0x8008c42c` and the *serial* IRQ (bit 0x0040) are
+the natural places to look, and GBI's SIODATA read → message queue path
+too. To be established from the Disc, GBI, physical behavior and games
+known to exercise the feature (Phase 7/9/10); a GBP-aware compatibility
+matrix, rumble included, is created when those phases are reached. Not
+on the critical path of GBP-INIT-003A.

@@ -603,3 +603,81 @@ Release fields: Test ID GBP-INIT-002 · Build ID `initirq-0001` · DOL
 attached, no cable · 1 controller · 1 Memory Card · SD2SP2 · executed as
 planned; question answered: no IRQ 26 within 2000 ms under this sequence,
 INTMR bit 13 physically toggled, IRQ block 0x8AAE → 0x8FAE (see the executed entry).
+
+### GBP-INIT-003A — GBP IRQ-register programming with PI HSP masked throughout (designed 2026-09-15; NOT implemented, NOT released)
+
+Status: design consolidated (DEVLOG 2026-09-15 "GBP-INIT-003A design");
+no build, no code. The two experimental writes are literally the values
+of GBI's first loop pass (GBP-IRQ-004); the stop write is the Start-up
+Disc's (GBP-IRQ-002/006). GBP-INIT-003B (delivery: handler + unmask) is
+future and will be designed only after 003A's physical result.
+
+```text
+Question A1: with PI HSP masked, what does IRQ := irq_read | 0x8000 (GBI's acknowledge,
+             u16 replicated 16×) change in the IRQ read-back — which source bits clear
+             (0x0004; 0x0100/0x0400 if pending), do the odd masks and bit 15 stay, does
+             INTSR bit 13 stay 0?
+Question A2: after that acknowledge, what does IRQ := 0 (GBI's end-of-pass write, 32 × 00)
+             change — masks 1/3/5/7/9/11 to 0? bit 15 to 0 or back to 1? sources kept /
+             re-asserted? — and does a source that becomes visible afterwards raise INTSR
+             bit 13 while delivery to the CPU stays masked?
+Separates:   source acknowledge (A1) from mask/control programming (A2); never one write.
+Why static analysis cannot answer: no reference reads the register back between its
+             writes; Dolphin models neither masks nor bit 15 as the hardware shows them.
+Protection:  PI HSP masked for the whole run — no handler, no __UnmaskIrq, no INTMR write;
+             INTSR bit 13 = 1 can only be observed, never delivered. libogc2 keeps IRQ 26
+             masked on its own (ENV-IRQ-002); Swiss does too.
+
+Preconditions (abort, never adjust): PRESENT (both criteria); INTMR bit 13 == 0;
+             INTSR bit 13 == 0; CONTROL idle shape ((v & 0x10) != 0, (v & 0x0C) == 0,
+             vote == byte 0x1F).
+
+Sequence:
+  boot → PRESENT gate → AR_INFO bits 3–5 := 3 (readback) → PI preconditions → CONTROL baseline
+  → CONTROL := (v & ~0x10) | 0x0C  (validated transform, GBI layout)
+  → P0: ticks, INTSR, INTMR, CONTROL raw+semantic, IRQ raw+semantic
+  → A1: irq_before_ack = IRQ read (raw kept); ack_value = irq_before_ack | 0x8000;
+        IRQ := ack_value  — GBI 16-bit layout: the u16 replicated 16× (hh ll hh ll …), one
+        32-byte DMA at base+0xD00000 (the IRQ half of GBI's 64-byte write); the source bits
+        that read 1 are written as 1 on purpose (that is the W1C acknowledge GBI performs)
+  → A1-0 immediately: ticks, INTSR, INTMR, CONTROL, IRQ; then one or two read-only samples
+        within a short window (to tell W1C from re-assertion) — time-base spacing only
+  → irq_before_zero = IRQ read (raw kept; sources may have re-asserted — recorded, not required
+        to be 0)
+  → A2: IRQ := 0  (32 × 00, GBI's FUN_80015da0 layout)
+  → A2-0 immediately: ticks, INTSR, INTMR, CONTROL, IRQ
+  → temporal samples, PI still masked: ≈ 50 µs, ≈ 500 µs, ≈ 5 ms, ≈ 50 ms, ≈ 500 ms, up to
+        ≈ 2000 ms only while still useful; absolute/delta time base, busy-wait, structured
+        records only (no formatting inside the window; the main loop formats afterwards)
+  → teardown (PI still masked): CONTROL := original semantic value (GBI layout) → IRQ read →
+        stop_irq = irq_read | 0x8AAA (Start-up Disc stop: masks of the six slots + bit 15;
+        pending sources written as 1 = acknowledged under the W1C model) → IRQ := stop_irq
+        (16-bit layout) → IRQ read → INTSR read → if bit 13 == 1: ONE INTSR := 0x2000, re-read
+        → AR_INFO original (readback) → final snapshot
+  → console power cycle: MANDATORY before any other software or test (shown on screen and in
+        the README)
+If INTSR bit 13 becomes 1 inside the window: no W1C, PI is masked; keep at least one snapshot
+        with INTSR bit 13 = 1 together with the IRQ and CONTROL of the same moment; the window
+        may then end early.
+Valid outcomes (none is an error): sources cleared or not cleared or re-asserted by A1;
+        masks answering or not answering A2; bit 15 changing in any way; INTSR bit 13
+        staying 0 or rising at any point; CONTROL changing; another block layout.
+Properties, to be tested automatically when implemented:
+        irq handler installs = 0; __UnmaskIrq calls = 0; INTMR writes/toggles = 0 (INTMR is
+        only read); CONTROL writes = 2; IRQ-register writes = 3 (A1, A2, stop); INTSR W1C ≤ 1
+        (teardown only, only if bit 13 set); KEYPAD, VIDEO, AUDIO, SIOCTL, SIODATA, BBA:
+        never touched; every DMA with the 200 ms timeout; screen and SD only after the
+        teardown.
+Writes (complete): AR_INFO bits 3–5; TEST (gate); CONTROL transform; IRQ A1 = read | 0x8000;
+        IRQ A2 = 0; CONTROL restore; IRQ stop = read | 0x8AAA; PI INTSR W1C once if needed;
+        AR_INFO restore. Never: INTMR, KEYPAD, VIDEO, AUDIO, SIO, BBA/network.
+GBI fidelity: NOT a full reproduction — PI masked throughout; no KEYPAD := 0; no VIDEO/AUDIO/
+        SIO transfers; snapshots between the operations; Start-up-Disc-style stop. The two
+        experimental writes are literally GBI's first-pass values, in GBI's order:
+        read | 0x8000, then 0.
+Risks:  a device line asserted for up to ~2 s with PI masked (no CPU effect); a model error
+        that leaves the device asserted behind CONTROL 0x10 (power cycle); bits 12–14
+        written 0 (both references do the same). Cartridge not introduced; byte 0 kept as
+        raw evidence only.
+Physical setup: identical to GBP-INIT-002.
+```

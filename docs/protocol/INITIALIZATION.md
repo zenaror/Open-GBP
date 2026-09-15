@@ -398,8 +398,14 @@ GBP-INIT-002: CONTROL (v&~0x10)|0x0C → IRQ_Request → __UnmaskIrq → (IRQ re
 
 Consequences for an implementation: R6 stands (no IRQ-register write
 without authorization), but the next initialization step is exactly
-such a write; the candidate operations, their risk and the recommended
-order are compared in DEVLOG 2026-09-15 ("GBP-INIT-002 executed"). The
+such a write. Decided 2026-09-15: GBP-INIT-003A performs GBI's two
+first-pass writes separately, `IRQ := read | 0x8000` (acknowledge) then
+`IRQ := 0` (mask/control programming), with PI HSP masked throughout, no
+handler and no unmask, snapshots between them and a Start-up-Disc-style
+stop (`IRQ := read | 0x8AAA`; GBP-IRQ-006) — HARDWARE_TESTS.md "Planned
+tests". Delivery (handler + unmask) is GBP-INIT-003B, designed only after
+003A's result. Writing a previously read value back as a "restore" stays
+prohibited. The
 read layout in the 0x8FAE state is `hh hh ll' ll` with `ll' = ll | 0x01`
 at offsets ≡ 2 mod 4 (U-GBP-025): keep reading offsets ≡ 1 / ≡ 3 mod 4
 as both references do.

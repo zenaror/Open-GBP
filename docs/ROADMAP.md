@@ -176,6 +176,36 @@ Representative GBA and GB/GBC cartridges run with video, input,
 and audio through the physical Game Boy Player.
 ```
 
+### GBP-aware game features (requirement added 2026-09-15)
+
+Parity with the Nintendo Game Boy Player Start-up Disc and with GBI is not
+limited to video, audio, input and cartridge boot. Some games behave
+differently when they detect that they run on a Game Boy Player, and the
+Start-up Disc / GBI support that behavior; the runtime must aim to
+reproduce it as part of normal compatibility, not as an optional feature:
+
+* rumble on the GameCube controller for games that support it through
+  the Game Boy Player;
+* any GBP-dependent game mode or behavior supported by the Start-up Disc
+  and/or GBI;
+* the controller/input behavior associated with those features;
+* every GBS-DOL signal, register, IRQ or path required to reproduce them.
+
+The mechanism (which path carries the GBP detection and the rumble
+commands — the internal serial path documented by GBATEK's "GBA Gameboy
+Player" section is the leading candidate, U-GBP-026) is not assumed; it
+is researched from the Start-up Disc, GBI, physical behavior, games known
+to exercise the feature, and the references already accepted. When the
+controller/cartridge-compatibility phases are reached, a compatibility
+matrix specific to GBP-aware features, rumble included, is created.
+
+Compatibility goal:
+
+```text
+If a game has a special behavior supported by the original Game Boy
+Player or by GBI, Open-GBP must aim to reproduce that behavior.
+```
+
 ## Phase 8 — Physical Link Port regression
 
 The user's PicoAdapterGB already proves that the physical GBP Link Port supports normal serial communication.
@@ -226,6 +256,11 @@ Acceptance:
 Open-GBP can be used as a practical replacement for normal Game Boy Player
 operation without requiring proprietary runtime software.
 ```
+
+GBI-class parity includes the GBP-aware game features listed under
+Phase 7 (rumble and GBP-dependent modes); their compatibility matrix
+belongs to this phase and to Phase 7, with Phase 10 supplying the serial
+mechanism if that is where the feature lives.
 
 ## Phase 10 — Internal SIO research
 
@@ -329,6 +364,11 @@ application-specific extensions.
 ## Phase 13 — Mobile Adapter GB
 
 Only after the previous GBP/SIO/network milestones are satisfied should Mobile Adapter integration begin.
+
+The Mobile Adapter extension over the BBA is **additive**. It must not
+break or replace: the physical Link Port; PicoAdapterGB; rumble and the
+other GBP-aware game features; normal GB/GBC/GBA operation; behavior
+compatible with the Start-up Disc / GBI.
 
 Existing work from other projects/agents may then be consulted, including:
 

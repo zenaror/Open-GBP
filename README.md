@@ -19,6 +19,9 @@ without sacrificing existing hardware functionality:
 - GameCube controller input;
 - physical Link Port peripherals;
 - existing devices such as PicoAdapterGB;
+- GBP-aware game features supported by the Start-up Disc and/or GBI, such as
+  rumble on the GameCube controller and GBP-dependent game modes, with their
+  controller/input behavior (part of normal compatibility, not an option);
 - configurable presentation and runtime features where practical.
 
 Mobile Adapter GB support is an additional feature built on top of this

@@ -10,7 +10,7 @@ be executed autonomously by development agents and CI.
 |------|---------|
 | `dolinfo.py` | Parse/validate a GameCube DOL header; `--json` for machine output; `--require-aligned` enforces Dolphin's 32-byte rule |
 | `dolpad.py` | Pad DOL section sizes to 32-byte multiples (build step; see ENV-DOL-001) |
-| `dolphin_smoke.py` | Run a DOL in the Dolphin Flatpak with an isolated user directory, collect USB Gecko output, Dolphin log and an X11 screenshot, and judge a POC-specific success condition |
+| `dolphin_smoke.py` | Run a DOL in the Dolphin Flatpak with an isolated user directory, collect USB Gecko output, Dolphin log and an X11 screenshot, and judge a POC-specific success condition. Dolphin's on-screen display is disabled per run by the runner's own override (`Dolphin.Interface.OnScreenDisplayMessages=False`), so screenshots show only the POC's framebuffer |
 | `gciso.py` | Read-only GameCube disc image parser: `info` and `extract` (boot.bin, bi2.bin, apploader, main.dol, FST, files, manifest with SHA-256) |
 | `gbi_unpack.py` | Recover the executable image from a packed Game Boy Interface DOL (XOR with the 40-byte copyright string, then XZ) |
 | `bin2dol.py` | Wrap a raw PowerPC memory image into a one-section DOL so GameCubeLoader/dolinfo can load it |

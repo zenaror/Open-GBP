@@ -1127,3 +1127,30 @@ model (`m_irq &= ~value` on any write; line asserted iff `irq & 0x8000
 && !(control & 0x10)`) ignores the odd bits and predicts an interrupt for
 the hardware's idle state; the hardware showed none for 2 s — the model
 is not evidence here.
+
+## GBP-IRQ-006 — The Start-up Disc's first IRQ-register write is a write-back of the value read, with PI HSP masked
+
+**Claim:** The library init `0x8008a930` calls the stop routine
+`0x8008be04` right after the TEST handshake, before any callback is
+registered and before any start. Stop does `OSMaskInterrupts(0x20)`,
+four CONTROL writes (`& ~0x04`, `& ~0x08`, `| 0x10`, `| 0x80` — no change
+from the idle value 0x90), reads the IRQ register and writes
+`read | shadow` where `shadow` (SDA `r13 - 0x7050`, address
+`0x80272050`) is 0 at that moment: it lives in the DOL's BSS (zero at
+load; `_SDA_BASE_` = `0x802790A0` from `lis r13,0x8027 ; ori
+r13,r13,0x90a0` at `0x80003288`) and is only set by start and cleared by
+stop. The official disc's first write to the register is therefore
+`IRQ := value_read`, issued with PI HSP masked, followed by `INTSR :=
+0x2000`. Under the field model (GBP-IRQ-005) it acknowledges the pending
+sources and leaves masks and bit 15 as read; for the idle value seen on
+this console (0x8AAE, bit 15 already 1) it is byte-for-byte the value
+GBI's first pass writes (`read | 0x8000`, GBP-IRQ-004).
+
+**Status:** FACT (decompiles `0x8008a930`, `0x8008be04`, `0x8008bf84`;
+DOL section map) — **Confidence:** high.
+
+**Notes:** precedent for GBP-INIT-003A's write A1 (`read | 0x8000`) under a
+masked PI; the stop formula `read | 0x8AAA` used by 003A's teardown is
+the same routine's write once all six slots have been enabled (start
+sets `shadow = 0x8000 | odd bits of the slots with a callback` =
+`0x8AAA` in the disc's normal flow).

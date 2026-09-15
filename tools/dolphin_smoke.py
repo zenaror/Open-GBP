@@ -91,6 +91,7 @@ def dolphin_cmd(dol, user_dir, extra_config, frame_dump=False):
         "Dolphin.Analytics.PermissionAsked=True",
         "Dolphin.Analytics.Enabled=False",
         "Dolphin.Interface.UsePanicHandlers=False",  # never block on a modal dialog
+        "Dolphin.Interface.OnScreenDisplayMessages=False",  # no OSD overlay ("Video Info", "USBGecko: Listening…") in screenshots
         "Logger.Options.WriteToFile=True",
         "Logger.Options.WriteToConsole=False",
         "Logger.Options.Verbosity=3",       # up to warnings; errors always shown

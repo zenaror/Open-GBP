@@ -1618,3 +1618,66 @@ fix is one entry in `dolphin_cmd()` of `tools/dolphin_smoke.py`:
 `"Dolphin.Interface.OnScreenDisplayMessages=False"` (proposed, not
 applied; no profile change). Every future screenshot then shows only the
 POC's framebuffer.
+
+---
+
+## 2026-09-15 — GBP-INIT-003A design consolidated (A1/A2 with PI masked); Dolphin OSD disabled per run
+
+**Decision applied.** GBP-INIT-003A does not write `IRQ := 0` over the
+initial read-back. It reproduces GBI's first loop pass as two separate
+writes with PI HSP masked for the whole run: A1 `IRQ := irq_read |
+0x8000` (source acknowledge, the W1C GBI performs with the bits it read
+as 1), snapshot, one or two read-only samples, `irq_before_zero` read,
+then A2 `IRQ := 0` (mask/control programming), snapshot, temporal
+samples (≈ 50 µs … ≤ 2 s, time-base spacing, structured records only),
+then the Start-up-Disc-style stop. No handler, no `__UnmaskIrq`, no INTMR
+write; INTMR bit 13 = 1 at the start aborts. An INTSR bit 13 = 1 inside
+the window is observed only (no W1C there), with at least one snapshot
+of INTSR + IRQ + CONTROL of the same moment; the window may end early
+afterwards. Every outcome is valid; none is an error. GBP-INIT-003B
+(handler + unmask + delivery) is future and depends on 003A's result.
+Full sequence, properties and write list: HARDWARE_TESTS.md "Planned
+tests — GBP-INIT-003A".
+
+**Stop formula confirmed.** Disc stop `0x8008be04` writes `IRQ := read |
+shadow`, `shadow = 0x8000 | odd bits of the slots with a callback` as
+set by start `0x8008bf84`; with the six slots serviced (the disc's normal
+flow, and the state 003A creates with A2 = 0) `shadow = 0x8AAA`, so
+`stop_irq = read | 0x8AAA` is the applicable formula: masks of the six
+slots + bit 15, pending sources written as 1 (acknowledged under W1C).
+No slot/callback detail makes 0x8AAA inadequate for that configuration
+(mode 3 of the disc, no AV callbacks, would give 0x80AA — not our case).
+New fact (GBP-IRQ-006): the disc's init calls stop with `shadow = 0`
+(`r13 - 0x7050` at `0x80272050` is BSS; `_SDA_BASE_ = 0x802790A0`), i.e.
+its first IRQ write is `IRQ := read` with PI masked — for the idle value
+0x8AAE byte-identical to GBI's `read | 0x8000`. Official precedent for A1
+under a masked PI.
+
+**GBI write layouts, from the binary.** 16-bit register writes (IRQ,
+KEYPAD): the u16 replicated 16 times, `hh ll hh ll …` over 32 bytes
+(`0x80015da4` fills 8 words of `value << 16 | value`); `IRQ := 0`:
+`0x80015da0(buf, 0)` = 32 × 00; the KEYPAD+IRQ write is one 64-byte block
+(`0x80015ddc`: first half keypad u16 replicated, second half irq u16
+replicated) DMA'd at base+0xCFFFE0 so that the second half lands at
+base+0xD00000; CONTROL/SIOCTL: byte replicated ×32 per half (`0x80015d9c`,
+`0x80015dd4`). 003A writes only the 32-byte IRQ half at base+0xD00000 with
+the same u16-replicated layout (bytes 0x1E/0x1F = hi/lo, the positions
+the disc writes). Raw S0 write-back stays prohibited; the only end
+states with precedent are the disc's stop word and GBI's "0 + CONTROL
+stop"; 003A uses the disc's.
+
+**Dolphin OSD (permanent requirement, applied).** `tools/dolphin_smoke.py`
+now adds `Dolphin.Interface.OnScreenDisplayMessages=False` to the
+per-run overrides (next to `UsePanicHandlers=False`); the key gates
+`OSD::DrawMessages` (VideoCommon/OnScreenDisplay.cpp), which drew "Video
+Info: …" (OGLConfig.cpp) and "USBGecko: Listening on TCP port …"
+(EXI_DeviceGecko.cpp via Core::DisplayMessage). No other Dolphin setting
+changed; nothing in the user's profile — the override lives in the
+runner's isolated user directory for every run.
+`tests/host/test_dolphin_smoke.py` asserts the command line carries the
+override (and only the two Interface keys). Validation: `make
+smoke-dolphin` PASS and a GBP-INIT-002 absent run PASS with the patched
+runner; yellow-overlay pixels (R > 150, G > 150, B < 90) in the captured
+frames: before ≈ 2400 (rows 21–110, the OSD boxes), after 0 in both
+captures; visual check: only the POC's console text. Recorded as:
+**Dolphin OSD disabled per-run by runner override.**
