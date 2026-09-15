@@ -1337,3 +1337,359 @@ Risks:       a storm if the mask-first order failed (mitigated: audited ISR, __M
 Physical setup: identical to GBP-INIT-003A. Not to be requested before implementation, audits and a
              clean candidate.
 ```
+
+### GBP-INIT-004 — bounded repeated HSP service: acknowledge, local re-arm, next cause, next delivery (designed 2026-09-15; NOT implemented, NOT released)
+
+Status: design only (DEVLOG 2026-09-15 "GBP-INIT-004 designed"); no code,
+no build, no hardware, no request. Depends on GBP-INIT-003B (executed:
+GBP-HW-035…041, GBP-PI-005, ENV-IRQ-003, GBP-IRQ-008), GBP-INIT-003A,
+GBP-INIT-002 and the reference service loops re-read from the binaries
+on 2026-09-15 (GBI worker thread `0x8000bf30`, raw handler `0x8000b400`,
+IRQ write helper `0x80015da0`; Start-up Disc handler `0x8008af08`, start
+`0x8008bf84`, stop `0x8008be04`, mask-word builder `0x8008bcc4`;
+decompiles under `build/analysis/`, never committed).
+
+```text
+Question:    After a real HSP cause has been delivered and serviced (ISR mask + PI W1C, device
+             acknowledge IRQ := read | 0x8000) and the device has been re-armed with GBI's write
+             IRQ := 0, does the GBS-DOL produce a NEW cause that is captured, delivered and serviced
+             again — repeatedly, without a storm, without a lost cause and without accumulated
+             state — and how long after the re-arm does the next cause arrive?
+Not asked:   the first delivery (FACT, GBP-PI-005); the semantics of the sources, the masks, the
+             W1C (FACT, GBP-IRQ-008); AUDIO/VIDEO/SIO data, KEYPAD, cartridge, callbacks, a runtime.
+Why static analysis cannot answer: both references re-arm with bit 15 = 0 and wait unmasked; no
+             reference reads the PI or the device between the re-arm and the next cause; the
+             cadence of the requests and the effect of IRQ := 0 on a source that re-set since the
+             acknowledge (003B: within ≤ 143 µs) exist only on the hardware.
+
+Reference loops as re-read from the binaries (FACT, code):
+  GBI thread 0x8000bf30, per pass (INTMR bit 13 open throughout; the first pass runs before any
+  interrupt, GBP-IRQ-004):
+    LWP_SemWait ← posted by the raw handler 0x8000b400 (INTSR := 0x2000, one PI W1C per interrupt,
+      nothing else)
+    → read IRQ (32 bytes at D00000; pending = vote(bytes ≡1 mod 4) << 8 | vote(bytes ≡3 mod 4))
+    → dispatch on the value read: 0x0400 ARQ read AUDIO, 0x0100 ARQ read VIDEO, 0x0040 ARQ read
+      SIODATA, 0x0010 64-byte KEYPAD write 0x0304/0x0300
+    → ONE 64-byte write at CFFFE0: KEYPAD := pad state, IRQ := pending | 0x8000     (device ACK)
+    → 64-byte read at 4FFFE0: CONTROL, SIOCTL (votes)
+    → optional SIODATA write from a message queue
+    → 64-byte write at 4FFFE0: CONTROL := value read (write-back), SIOCTL := value read (| 0x80)
+    → video frame bookkeeping (RAM)
+    → 32-byte write IRQ := 0 at D00000                                                (re-arm)
+    → back to LWP_SemWait
+  Exit: __MaskIrq(0x20) → IRQ_Free(26) → CONTROL := (read & 0xE3) | 0x10; no IRQ write.
+  Facts used: (a) IRQ := 0 is the LAST device access of every pass, after the ACK, after the
+  CONTROL/SIOCTL write-back; it is the step that returns the register to the waiting state
+  (odd bits 0, bit 15 0); (b) the only PI W1C per interrupt is the raw handler's, taken before
+  the thread runs; (c) CONTROL is written every pass with the value just read (write-back, no
+  change); (d) KEYPAD is written every pass inside the ACK DMA; (e) immediately before waiting:
+  IRQ = 0x0000, CONTROL as read (0x8C), INTMR bit 13 = 1, INTSR bit 13 = 0 unless a new event
+  arrived during the pass (then the raw handler runs again at once and the thread loops).
+  Start-up Disc handler 0x8008af08, per interrupt (EE = 0, DMAs under OSDisableInterrupts):
+    IRQ := shadowB | 0x8000 (shadowB = odd bits of slots WITHOUT callback, 0 in the normal flow)
+    → INTSR := 0x2000 → read IRQ → if pending & 0x0555: IRQ := pending (write-back = ACK),
+      KEYPAD := pad, read CONTROL, callbacks (audio slot 4, video slot 5; a non-zero return
+      suppresses the re-arm) → IRQ := shadowB (re-arm, bit 15 := 0) unless suppressed → return.
+  Start 0x8008bf84: OSUnmaskInterrupts(0x20) FIRST, then read IRQ, IRQ := (read & ~shadowA) |
+  shadowB (shadowA = 0x8000 | odd bits of slots WITH callback = 0x8AAA normally → IRQ := 0x0004
+  from 0x8AAE: bit 15 and the odd bits cleared, the pending bit 2 written back), CONTROL |= 0x04,
+  CONTROL &= ~0x10. Stop 0x8008be04: OSMaskInterrupts(0x20) → CONTROL &~4, &~8, |0x10, |0x80 →
+  IRQ := read | shadowA → INTSR := 0x2000 → previous handler back.
+  Common protocol (CORROBORATED by two independent implementations): PI W1C once per interrupt
+  and before the re-arm; device ACK = write back the sources read (GBI with bit 15 = 1, the Disc
+  after having set bit 15 at entry); bit 15 = 1 during the service, re-arm = bit 15 := 0 with
+  the odd bits as the wait state (GBI 0, Disc shadowB); the Disc keeps bit 15 = 1 ("suppress")
+  when an AV ring is full — bit 15 as a hold while servicing is the consistent reading of both
+  drivers (still HYPOTHESIS physically, U-GBP-007). Both wait with INTMR bit 13 OPEN.
+
+Choices of this experiment and why:
+  Sources policy (AV-only continuation): this POC implements the service semantics of no source.
+    The steady-state cycles may CONTINUE only on the two sources the drivers treat as the
+    audio/video requests: AV_SOURCE_MASK = 0x0500 (0x0400, 0x0100, or both = 0x0500, in any
+    order). At every point where the IRQ register is read after A2 (NEXTCAUSE-n, PREUNMASK-n,
+    PREACK-n, POSTACK-n, REARMPOST-n) the probe computes
+    `unexpected = irq & (0x0555 & ~0x0500)`; if it is not 0 (game pak 0x0004, sleep 0x0010,
+    serial 0x0040, user 0x0001 — sources whose functional meaning this POC does not implement),
+    the run keeps raw[32] and the PI/CONTROL/IRQ snapshot, records the source, and ends in the
+    safe teardown: no unmask if no delivery of that cycle has happened yet, no REARM if it was
+    seen after a delivery. Status anomaly_unexpected_source, reason unexpected_source_cycle_N.
+    Not a transport failure and not an "invalid" source: it may be perfectly valid hardware
+    behavior, only outside the scope of this experiment. The rule applies to the SERVICE causes
+    after A2 and after every REARM; the initialization state is exempt: BASE 0x8AAE with the idle
+    bit 2 set, A1 = read | 0x8000 acknowledging it (physically validated), A2 = 0 — the known
+    physical path BASE 8AAE → A1 8AAA → A2 0000 → AV cause is kept verbatim.
+  Order per cycle: ISR (mask → one PI W1C) → main re-mask → PREACK → device ACK `read | 0x8000`
+    → POSTACK (clean boundary, below) → PI clean (≤ 1 main W1C, only if INTSR bit 13 reads 1) →
+    REARM `IRQ := 0` → REARMPOST → masked wait for the next cause → PREUNMASK → unmask → ISR.
+    Causal boundary of cycle N: delivery → ACK → POSTACK with the acknowledged AV sources gone →
+    PI bit 13 = 0 → t_rearm → IRQ := 0  |  → new source / new PI bit 13 → t_next_cause → cycle
+    N+1. A cause counts as evidence of the re-arm only if every step before the bar was
+    established and t_next_cause > t_rearm; otherwise the run ends without crediting it. GBI's order for the
+    ACK/re-arm pair (ACK first, re-arm last); the Disc's principle "PI cleared before the re-arm"
+    (both references) → option A of the design question: guarantee INTSR bit 13 = 0 before the
+    REARM, so that any bit 13 seen afterwards is a NEW cause. The Disc's entry write
+    `shadowB | 0x8000` (hold first) is not reproduced: it would put a device write before the PI
+    W1C and blur the 003B discriminator; GBI's order was physically validated in 003B.
+  REARM formula: `IRQ := 0x0000`, u16 replicated 16× (32 × 00) — byte-identical to A2 (physically
+    validated write) at a different point of the protocol (after an ACK, sources possibly pending).
+    Logged as its own record kind (REARM / IRQW tag=REARM), never called A2 after cycle 1.
+  CPU stays MASKED between cycles (INTMR bit 13 = 0 from the ISR's mask until the next PREUNMASK):
+    causality and the 003B safety strategy are kept (unmask only with a latched cause, delivery
+    inside __UnmaskIrq, one entry per cycle). Difference from the runtime (both references wait
+    with the mask open and take the cause as it happens): documented, not a claim about the
+    runtime; the measured re-arm-to-cause interval is unaffected (the PI latches while masked).
+  Cycle 1 = the 003B path verbatim (CONTROL 0x8C → A1 → A2 → masked window → CAUSE → install →
+    PREUNMASK → unmask → ISR → PREACK → ACK → POSTACK): no new variable before the first
+    delivery. The new variables enter only after the first ACK: REARM, masked wait, next cause.
+  MAX_CYCLES = 3 delivered causes (fixed constant): cycle 1 = the validated first delivery,
+    cycle 2 = the first re-arm, cycle 3 = the re-arm repeated once (distinguishes "works once"
+    from "works again"); REARMS = 2 (after cycles 1 and 2; none after cycle 3, so the run ends
+    in 003B's acknowledged state and its validated teardown). 2 cycles cannot show repetition of
+    the re-arm; 4 adds one more unmask window and no new question.
+  Handler: ONE install for the whole run (option A): `IRQ_Request(26, multicycle)` after the first
+    latched cause, restored at the teardown; the audited one-shot body of 003B is kept
+    byte-for-byte for the first entry of each cycle (t_entry → INTSR → INTMR → count → __MaskIrq →
+    INTMR → INTSR → one W1C → INTSR → ≈100-tick wait → t_second → INTSR → INTMR → fired) and
+    wrapped by a slot selector. Generation semantics (unambiguous): cycles are indexed
+    0…MAX_CYCLES−1; `records[i]` is write-once — zeroed at the install while masked, never reused,
+    never cleared afterwards; `expected_gen` (the slot the next entry must use) is published by
+    the main loop ONLY while INTMR bit 13 = 0, and is never changed while IRQ 26 could enter;
+    the ISR reads `expected_gen` exactly once at entry and uses only that slot; a generation
+    out of range → the anomaly slot (mask, entry state, NO W1C) → anomaly_reentry with reason
+    generation_error; a slot already fired → the body's reentry branch (mask, reentry fields, NO
+    W1C) → anomaly_reentry; `completed_cycles` is a COUNT (cycles whose slot was fired, copied
+    by the main loop, acknowledged, and — for cycles 1 and 2 — re-armed and validated), not an
+    index: the next `expected_gen` (= completed_cycles) is published only after cycle N was
+    consumed by the main loop, with the CPU still masked, after POSTACK-N passed its boundary
+    conditions, after the PI was verified clear and after REARM-N was executed and validated;
+    `entries_total` counts every entry for reporting only and is never a decision input. The
+    second ≈100-tick read stays (no new variable in an audited object; one more level/re-assert
+    sample per cycle at no cost).
+  Preconditions before EVERY unmask (cycle N; abort, never adjust): for N ≥ 1 the cause is
+    later than the corresponding t_rearm (t_next_cause > t_rearm, wrap-safe); INTSR bit 13 = 1 in
+    both PI samples; INTMR bit 13 = 0 in both; CONTROL vote = 0x8C and = byte 0x1F; IRQ readings
+    equal; `irq & 0x0500` ≠ 0 and `irq & (0x0555 & ~0x0500)` = 0 (AV sources only, any of 0x0100 /
+    0x0400 / 0x0500, never a fixed order); odd bits 0; bit 15 0; bits 12–14 0; `records[N]` clean
+    (count 0, fired 0); expected_gen = N = completed_cycles. Failure → abort_pre_unmask_state with
+    the cycle index and reason (an unexpected source → anomaly_unexpected_source instead); no
+    unmask; teardown.
+  PI W1C budget: ISR exactly 1 per delivered cycle (per slot, enforced by the body); main ≤ 1 per
+    cycle, only at POSTACK-N if INTSR bit 13 reads 1 while masked, then ONE re-read; still 1 →
+    anomaly_pi_sticky_after_ack, NO REARM, teardown (so that any bit 13 seen after `IRQ := 0`
+    belongs to an occurrence later than the re-arm boundary, never to the previous cycle's
+    latch); never at REARMPOST (a bit 13 there is the next cause, not garbage); teardown: the
+    003A CLEANUPCHK budget of 1. Absolute maximum per run: 2 × MAX_CYCLES + 1 = 7, each site
+    guarded by a flag, no loop.
+  REARM-N is executed only after the clean boundary: POSTACK-N AV sources cleared, INTSR bit 13 =
+    0 (after at most one main W1C), INTMR bit 13 = 0, CONTROL 0x8C, CPU masked, no reentry, no
+    unexpected source. `IRQ := 0x0000` u16 replicated; t_rearm := the time base read immediately
+    before the write; attempted/completed recorded.
+  REARMPOST-N at once: time base, PI INTSR/INTMR (two samples), CONTROL raw + semantic, IRQ raw +
+    semantic. Required to CONTINUE: CONTROL = 0x8C, INTMR bit 13 = 0, Disc = GBI reading, odd bits
+    0, bit 15 0, bits 12–14 0. NOT required: IRQ source bits = 0 — a source that re-set since the
+    ACK survives a write of 0 (W1C needs 1) and a new AV request may arrive immediately. Valid
+    outcomes: (A) sources 0, INTSR bit 13 = 0 → start the masked wait; (B) AV source(s) ≠ 0 and
+    INTSR bit 13 = 1 → a practically immediate cause: t_next_cause := REARMPOST's time base,
+    NEXTCAUSE-N = this snapshot (the strongest bit-15-hold evidence, U-GBP-007: sources pending,
+    odd bits 0, CONTROL 0x8C constant, only bit 15 changed 1 → 0); (C) AV source(s) ≠ 0 and INTSR
+    bit 13 = 0 → preserved, keep polling the PI within T_NEXT_CAUSE, no mechanism assumed;
+    (D) any source outside AV_SOURCE_MASK → anomaly_unexpected_source, teardown; (E) odd bits or
+    bit 15 not 0, bits 12–14 set, CONTROL changed → anomaly_rearm_state, teardown (best-effort
+    STOP with the current readback, no second re-arm). In (A)/(C) the poll that sees bit 13 gives
+    t_next_cause and a NEXTCAUSE-N snapshot (PI, CONTROL, IRQ) as 003A's EVENT; the AV-only rule
+    is applied to that snapshot too. No cause within T_NEXT_CAUSE → no_next_cause (cycle N; valid
+    evidence: the re-armed device produced no request — the AV blocks are never consumed here,
+    so a stream that stalls after unconsumed blocks would show exactly this), no unmask, teardown.
+  CONTROL: 0x8C for the whole run; read at every snapshot; never written between the transform
+    and the final restore (GBI's per-pass write-back writes the value it read — a no-op in value
+    — and is not reproduced: no new write). A vote ≠ 0x8C at any cycle snapshot →
+    anomaly_control_changed (cycle N), teardown (which restores the original value as always).
+  KEYPAD, AUDIO/VIDEO/SIODATA reads, SIOCTL: not touched (never written/read so far; 003B showed
+    the sources re-setting without any of them). Accepted deviation from both references,
+    documented; KEYPAD belongs to Phase 5.
+  Device ACK-N: read IRQ (PREACK-N, both readings must agree, else the ACK is skipped and the
+    cycles stop; an unexpected source here → anomaly_unexpected_source, no ACK, teardown);
+    ack := pending | 0x8000; u16 replicated; attempted before the call, completed on rc ok;
+    exactly ONE ACK per cycle, never repeated. Failure → no REARM, abort_transport
+    ack_write_failed (cycle N), teardown, power cycle.
+  POSTACK-N as a clean boundary: read IRQ, read PI (two samples). REARM is allowed only if: ACK
+    completed; Disc = GBI reading; CONTROL = 0x8C; INTMR bit 13 = 0; no reentry in the slot; the
+    main re-mask confirmed; and the acknowledged AV source bits are gone — `irq & 0x0555` = 0
+    (physically what 003B showed: 0x0500 → write 0x8500 → read back 0x8000). Source bits still
+    set → anomaly_source_not_cleared, reason source_pending_after_ack_cycle_N, NO REARM, teardown
+    (no second ACK); an unexpected source → anomaly_unexpected_source. Then the PI: INTSR bit 13 =
+    1 → the cycle's single main W1C and one re-read; still 1 → anomaly_pi_sticky_after_ack, NO
+    REARM. REARM-N: attempted/completed, readback; failure → no further unmask, abort_transport
+    rearm_write_failed, teardown.
+  Bit 15 as a by-product only: ACK-N leaves bit 15 = 1 (read back), REARM-N writes it 0 (read
+    back), the next cause arrives with bit 15 = 0; the REARMPOST/NEXTCAUSE readings under a
+    constant CONTROL 0x8C are the isolation U-GBP-007 lacked. No isolated bit-15 write.
+
+Timeouts (operational bounds, never hardware properties):
+  T_CAUSE_FIRST = 2000 ms after A2 (003A/003B: 105.27 / 105.29 ms);
+  T_DELIVERY    = 100 ms after each unmask (003B: inside the call, 78 ticks);
+  T_NEXT_CAUSE  = 500 ms after each REARM (003B: sources re-set ≤ 143 µs after the ACK; a
+                  4096 Hz audio tick or a 60 Hz frame are both ≪ 500 ms; 2000 ms would only
+                  lengthen the masked wait of a failing cycle). Worst-case run ≈ 2 + 3×0.1 +
+                  2×0.5 = 3.3 s of experiment.
+
+Statuses:    ok_cycles_completed (MAX_CYCLES delivered and acknowledged, REARMS re-arms, teardown
+             ok); no_initial_cause (= 003B's no_cause_within_tmax, no install, no unmask);
+             no_next_cause (cycle N: REARM done, no cause within T_NEXT_CAUSE; not a transport
+             error); delivery_timeout / abort_unmask (cycle N, as 003B); abort_pre_unmask_state
+             (cycle N + reason: read_failed / record_not_clear / generation_mismatch /
+             cause_lost / intmr13_unmasked / control_changed / semantic_disagree /
+             irq_state_unexpected / cause_before_rearm); anomaly_unexpected_source (cycle N,
+             reason unexpected_source_cycle_N: a source outside AV_SOURCE_MASK at a service
+             read — observed, preserved, not serviced; no unmask / no REARM); anomaly_reentry
+             (cycle N; a fired slot re-entered, or generation_error for a generation out of
+             range; no further cycle); anomaly_mask_failure (cycle N);
+             anomaly_source_not_cleared (cycle N, reason source_pending_after_ack_cycle_N; one
+             ACK only, no REARM); anomaly_pi_sticky_after_ack (cycle N; no REARM);
+             anomaly_rearm_state (cycle N: odd bits / bit 15 / bits 12–14 / CONTROL wrong at
+             REARMPOST; no unmask, best-effort STOP); anomaly_control_changed (cycle N);
+             abort_transport (ack_write_failed / rearm_write_failed / read failures, cycle N);
+             the 003A-stage aborts by their own names. None of the anomalies is a transport
+             failure. Every status ends in the teardown.
+
+Teardown at every point (CPU masked first in every case — the ISR's mask, the main re-mask,
+  then MASKCHK with one retry; the local re-arm never left open):
+  S0 stage-A abort (no CONTROL write): 003A teardown (AR_INFO only).
+  S1 A1/A2 done, no initial cause: CONTROL restore → IRQ read → STOP := read | 0x8AAA (read = 0 →
+     0x8AAA: the Disc's formula with nothing pending; supported by the field semantics — odd bits
+     and bit 15 level-written, even bits written 0 are no-ops — and by the physical stop words
+     0x8FAA/0x8FAA; the exact word 0x8AAA has not been written yet) → CLEANUPCHK → AR_INFO → FINAL.
+  S2 cycle N delivered, before its ACK (reentry / mask failure): no ACK, no REARM → 003B teardown
+     (the STOP word acknowledges the pending sources) → CLEANUPCHK (≤ 1) → handler restore →
+     MASKCHK → AR_INFO → FINAL.
+  S3 ACK-N done, before REARM-N (source not cleared / unexpected source after the delivery /
+     sticky PI / control changed): bit 15 = 1, odd bits 0, sources as read → CONTROL restore →
+     IRQ read → STOP := read | 0x8AAA (closes the odd bits; acknowledges whatever is pending,
+     including a source this POC does not service) → as S2. No second ACK, no REARM.
+  S4a REARM-N completed, IRQ still 0, no cause within T_NEXT_CAUSE: device armed (odd bits 0,
+     bit 15 0) → CPU masked (already) → CONTROL restore → IRQ read = 0 → STOP := 0 | 0x8AAA =
+     0x8AAA (the Disc's formula with nothing pending; supported by the field semantics — S1
+     argument) → CLEANUPCHK (bit 13 expected 0; if a cause latched meanwhile: one W1C) → handler
+     restore → MASKCHK → AR_INFO → FINAL.
+  S4b REARM-N completed and a new source appeared (AV, PI latched or not) but no unmask happened
+     (pre-unmask abort, cause before t_rearm, no_next_cause with a source pending, or an
+     unexpected source after the re-arm): device: sources pending, armed; PI: bit 13 = 1 or 0,
+     INTMR bit 13 = 0 → CONTROL restore → IRQ read → STOP := read | 0x8AAA (acknowledges and
+     closes the source(s)) → CLEANUPCHK: bit 13 = 1 while masked → ONE W1C, re-read, sticky
+     recorded → handler restore → MASKCHK → AR_INFO → FINAL (the Disc's stop order: device write,
+     then INTSR := 0x2000). No unmask, no re-arm.
+  S4c REARM-N read back an invalid state (anomaly_rearm_state): best-effort STOP with the current
+     readback (`read | 0x8AAA` on whatever was read; if the read failed, 0x8AAA alone as 003A's
+     rule), no second re-arm, no unmask, then as S4b. No ACK loop anywhere.
+  S5 all cycles done (after ACK-3, POSTACK-3 boundary passed, no REARM): identical to 003B's
+     validated teardown.
+  Every path: power_cycle_required = 1 from the first experimental attempt, never cleared.
+
+ISR (gbp_irq_oneshot.h, new multicycle wrapper around the unchanged extended body; audited by
+  tools/isr_audit.py: only __MaskIrq callable, exactly one INTSR store of 0x2000 after the
+  mask, no INTMR store, loops allowed; no DMA, no GBP access, no formatting, no allocation, no
+  callbacks, no semaphores):
+   gen := expected_gen (volatile read) ; entries_total++
+   if gen < MAX_CYCLES: gbp_irq_oneshot_service_ext(&records[gen])   — first entry of the slot:
+        the 003B sequence with its single W1C; a second entry of the same slot: mask, reentry
+        fields, no W1C
+   else: gbp_irq_oneshot_service_ext(&anomaly_slot) — same body, same guarantees
+   return. Main reads records[gen] only after its own __MaskIrq and MASKCHK.
+
+Records per cycle (fixed array in RAM, no allocation): cycle index; t_cause / t_next_cause
+  (poll that saw bit 13), IRQ semantic at the cause, since_rearm and since_prev_cause;
+  PREUNMASK snapshot (PI × 2, CONTROL, IRQ); t_unmask, t_post_unmask, latency; the slot's
+  record (entry INTSR/INTMR, INTMR after mask, INTSR before/after the W1C, t_second, second
+  INTSR/INTMR, count, reentry fields); REMASKCHK; PREACK snapshot; irq_pending, ack value,
+  attempted/completed; POSTACK snapshot and its boundary verdict (av_cleared, unexpected,
+  pi_clear); main W1C (site, sticky); t_rearm, REARM attempted/completed, REARMPOST snapshot
+  (IRQ readback, CONTROL, PI × 2) and its outcome (A–E); the unexpected source value and the
+  site where it was seen, if any; per-cycle timeouts. Run totals: cycles requested/completed
+  (count), causes, deliveries, acks, rearms, boundaries established, reentries, unexpected
+  sources, timeouts, ISR W1C, main W1C.
+
+Log records (per cycle, short lines, raw[32] kept for every CONTROL/IRQ read): CYCLE start n=,
+  CAUSE n= (cycle 1) / NEXTCAUSE n= t_next_cause= since_rearm= since_prev= irq= intsr= intmr=,
+  SNAP tag=PREUNMASK-n (+ PI ×2, RAW ×2), PREUNMASK n= ok= reason=, PREPARE n= gen=,
+  UNMASK n= t_unmask= t_post=, PI tag=UNMASKPOST-n, IRQ mask tag=MAIN n=, WAIT n=, PI
+  tag=REMASKCHK-n, HANDLER n= …, HANDLERPI n= …, HANDLERPI2 n= …, DELIVERY n= …, SNAP
+  tag=PREACK-n (+ PI ×2, RAW ×2), PREACK n= …, ACK n= before= ack_value=, IRQW tag=ACK-n …,
+  SNAP tag=POSTACK-n, POSTACK n= … av_cleared= unexpected= boundary_ok=, MAINPICLEANUP n=
+  site=POSTACK performed=, REARM n= t_rearm= value=0000, IRQW tag=REARM-n …, SNAP
+  tag=REARMPOST-n (+ PI ×2, RAW ×2), REARMPOST n= irq= av= unexpected= odd= bit15= intsr13=
+  outcome=A|B|C|D|E, UNEXPECTED n= site= irq= (raw block kept in the RAW record of that
+  snapshot) …; end: CYCLES requested= completed= causes= deliveries= acks= boundaries= rearms=
+  unexpected= reentry= sticky= timeouts= isr_w1c= main_w1c=, plus the 003A/003B end records
+  (TEARDOWN with the
+  real pi_policy label, WRITES, OBSERVED, RESTORE, ACKS, RESTOREB, FINAL). A REGION record per
+  masked wait proves nothing was formatted inside it. Replay: the fixture grammar gains one
+  optional line `I p <gen>` (PREPARE → the generation handed to the backend while masked); `I u`
+  per cycle carries that cycle's slot record (the fixture generator already stops the record
+  search at the next UNMASK).
+
+Timing observations (individual values, no statistics beyond min/max with 2–3 samples, never a
+  hardware specification): per cycle latency t_entry − t_unmask; dt_second; PREACK − t_entry;
+  t_rearm − t_ack; **t_next_cause − t_rearm** (the new measurement: immediate vs. one request
+  period); cause-to-cause interval; the first cause after A2 (third data point for U-GBP-014).
+
+Writes (complete): the 003B set (AR_INFO bits 3–5 + restore; TEST handshake; CONTROL transform +
+  final restore; IRQ A1, A2, ACK per cycle, STOP) plus REARM `IRQ := 0` after cycles 1 and 2 —
+  IRQ-register write call sites: 3 (003A stage) + 1 (ACK) + 1 (REARM) = 5; INTMR only through one
+  __UnmaskIrq per cycle (3 calls of one call site) and __MaskIrq; INTSR W1C: ISR 1 per delivery +
+  main ≤ 1 per cycle + teardown ≤ 1. Never: KEYPAD, VIDEO, AUDIO, SIOCTL, SIODATA, BBA, a direct
+  INTMR store, CONTROL between transform and restore.
+
+Properties to test automatically when implemented: one install, one restore, restored handler ==
+  previous; unmask count == deliveries ≤ MAX_CYCLES, each only after its own latched cause and
+  PREUNMASK; ISR mask before W1C and exactly one W1C per delivered slot (isr_audit + mock);
+  main W1C ≤ 1 per cycle; INTMR stores 0; IRQ write sites 5; REARM never before the cycle's ACK
+  completed, never with a source bit still set at POSTACK, never with INTSR bit 13 = 1, never
+  after an unexpected source; a cause with t_next_cause ≤ t_rearm never credited; no unmask on
+  a non-AV source; one ACK per cycle; expected_gen written only while INTMR bit 13 = 0 and only
+  after REARM validation; completed_cycles a count; no DMA while unmasked (mock invariant); no
+  cycle beyond MAX_CYCLES; teardown from every state S0–S5 (S4a/b/c); the physical 003B fixture
+  as the prefix up to its ACK/POSTACK (the run then diverges: REARM instead of the stop — the
+  fixture ends there, replay stops cleanly at the first REARM as "unanswered" → abort_transport
+  in the test, no line invented); mock scenarios: immediate cause at REARM (B), delayed cause
+  (fixed delay, jittered), source pending at REARM without a PI bit (C), no cause after REARM
+  (no_next_cause), unexpected source at the first cause / at NEXTCAUSE / at REARMPOST / at
+  POSTACK / at PREACK (each: observed, no unmask or no REARM, teardown), source not cleared by
+  the ACK, PI re-latch after ACK (cleared by the one W1C, and sticky), REARM state anomaly (odd
+  bits or bit 15 read back 1), generation error, reentry in cycle 1/2/3, control change in
+  cycle 2, ACK/REARM failures per cycle, delivery timeout in cycle 2, ring overflow, worst-case
+  line widths with three cycles, wrapping time base across cycles.
+
+Validation criteria (fixed in advance): `ok_cycles_completed` requires, all together: 3 valid
+  deliveries (count 1 per slot, entries_total = 3, zero reentry); 2 complete boundaries
+  ACK → POSTACK with the AV sources cleared → PI bit 13 = 0 → REARM read back with bit 15 = 0
+  and odd bits 0; 2 subsequent causes each attributable in time to its own REARM (t_next_cause >
+  t_rearm, within T_NEXT_CAUSE) and delivered after a clean PREUNMASK; zero unexpected sources
+  at every service read; zero sticky PI; zero transport uncertainty (every write attempted =
+  completed); CONTROL 0x8C at every cycle snapshot; INTMR bit 13 = 0 in every main-loop read;
+  no PI W1C beyond the budget; handler restored; restore = ok. This is a causal criterion, not
+  "count == 3". The timing values and the bit-15 readings are observations. no_next_cause in
+  cycle 2 or 3 is a valid result (it would mean the device stops requesting when its blocks are
+  not consumed — decisive for Phase 4's design), not a failure of the mechanics already
+  validated; so is anomaly_unexpected_source (a source this POC does not service appeared).
+
+Phase-3 closure criterion (proposed): if GBP-INIT-004 validates as above, the fundamental
+  initialization and interrupt mechanics of the GBP path are closed (detection, AR_INFO,
+  CONTROL start/restore, source W1C, local masks, cause generation, PI capture, CPU delivery,
+  mask-first service, PI W1C, device ACK, local re-arm, repeated delivery, stop, restore) and
+  Phase 4 (VIDEO) may start on the 004 service loop: reading the VIDEO block on 0x0100 is the
+  next variable. Not required before Phase 4: the exact function of bit 15 (follow the
+  references' pattern: 1 while servicing, 0 while waiting), the nature of the device line
+  (U-GBP-022, P2), the byte-0/offset-2 patterns, KEYPAD (Phase 5), CONTROL 0x04/0x08 (U-GBP-006;
+  the transform already sets them), AUDIO (Phase 6), SIO (Phase 10), a cartridge (Phase 7).
+Risks:       a storm if the mask-first order failed in any cycle (mitigated: audited body, three
+             physical entries expected); a level line held with the CPU masked (no effect); a
+             cause lost between the ISR W1C and the ACK (one PI cause covers several device
+             events — the ACK acknowledges all pending sources; recorded, not a loss for the
+             device); the device stalling without AV consumption (valid result); the sleep (0x0010),
+             game-pak (0x0004), serial (0x0040) or user (0x0001) sources appearing at a service
+             read (observed and preserved, never serviced: anomaly_unexpected_source, teardown,
+             the stop word acknowledges them); every write has physical precedent (0x0000 = A2,
+             `read | 0x8000` = A1/ACK, `read | 0x8AAA` = stop); power cycle mandatory.
+Physical setup: identical to GBP-INIT-003B; ≈ 3.5 s worst case; X to save, START, power off. Not
+             to be requested before implementation, audits and a clean candidate.
+```

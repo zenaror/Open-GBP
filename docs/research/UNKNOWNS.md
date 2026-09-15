@@ -499,6 +499,14 @@ whether a cause can be lost between the handler's W1C and the re-arm
 alone holds the line — the state "sources re-set, odd bits 0, bit 15 = 1,
 CONTROL 0x8C" occurs naturally between the ACK and the re-arm (U-GBP-007);
 (5) how many cycles the audited mask-first handler sustains without
-reentry. This is the question of the next experiment (DEVLOG 2026-09-15
-"GBP-INIT-003B executed", recommendation): a bounded service loop, no
-AUDIO/VIDEO DMA, no KEYPAD, counters and timestamps per cause.
+reentry. This is the question of the next experiment: **GBP-INIT-004,
+specified 2026-09-15** (HARDWARE_TESTS.md "Planned tests — GBP-INIT-004";
+DEVLOG 2026-09-15 "GBP-INIT-004 designed"; not implemented): three
+delivered causes, two re-arms `IRQ := 0`, the CPU masked between cycles,
+continuation restricted to the audio/video sources (AV_SOURCE_MASK
+0x0500; any other source at a service read ends the run as
+anomaly_unexpected_source — observed, not serviced), a clean boundary
+before every re-arm (acknowledged sources gone at POSTACK, PI bit 13 =
+0, at most one main W1C), t_next_cause − t_rearm measured per cycle
+and credited only when later than the re-arm, bit 15 observed under a
+constant CONTROL 0x8C as a by-product, no AUDIO/VIDEO DMA, no KEYPAD.

@@ -565,7 +565,14 @@ service with the re-arm write `IRQ := 0` after the ACK, without losing
 causes (U-GBP-027); (2) KEYPAD, never written (both references write it
 on every service; Phase 5); (3) CONTROL bits 0x04/0x08 at runtime
 (U-GBP-006); (4) AUDIO/VIDEO block reads (Phases 4/6); (5) the serial and
-sleep sources and a cartridge present (Phase 7). The recommended next
-experiment is a bounded service loop that adds only repetition and the
-re-arm to the validated cycle (DEVLOG 2026-09-15 "GBP-INIT-003B
-executed"); not implemented, not authorized yet.
+sleep sources and a cartridge present (Phase 7). The next experiment is
+specified as GBP-INIT-004 (HARDWARE_TESTS.md "Planned tests — GBP-INIT-004",
+DEVLOG 2026-09-15 "GBP-INIT-004 designed"): a bounded service loop that
+adds only repetition and the re-arm `IRQ := 0` to the validated cycle
+(three deliveries, two re-arms, CPU masked between cycles, continuation
+only on the audio/video sources 0x0100/0x0400 with any other source
+ending the run as an observed anomaly, a clean boundary before every
+re-arm: acknowledged sources gone at POSTACK and PI bit 13 = 0); not
+implemented, not authorized yet. Its causal success criterion and the
+proposed closure of the fundamental part of Phase 3 with the start of
+Phase 4 are stated there.

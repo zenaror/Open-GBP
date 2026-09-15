@@ -2444,3 +2444,147 @@ GBP-PI-005, ENV-IRQ-003, GBP-IRQ-008), UNKNOWNS.md (U-GBP-007, 014, 020,
 and new §12, REGISTERS.md §4/§5, HSP.md §2/§4, captures/README.md,
 tests/README.md, the POC README. Git: nothing committed; the tree carries
 the consolidation for the user's checkpoint.
+
+## 2026-09-15 — GBP-INIT-004 designed (bounded repeated service: ACK → local re-arm → next cause → next delivery); analysis only
+
+**Goal.** Specify the first steady-state experiment of Phase 3 on top of
+the physically validated single cycle of GBP-INIT-003B. No code, no
+build, no hardware, no request, no commit. Full specification:
+HARDWARE_TESTS.md "Planned tests — GBP-INIT-004".
+
+**Reference loops re-read from the binaries (Ghidra headless,
+`build/analysis/`, not committed).** GBI thread `0x8000bf30`: after
+`LWP_SemWait` (posted by the raw handler `0x8000b400`, whose only action
+is `INTSR := 0x2000`) it reads IRQ, dispatches the ARQ reads (0x0400
+AUDIO, 0x0100 VIDEO, 0x0040 SIODATA) and the sleep KEYPAD write (0x0010),
+writes one 64-byte DMA at CFFFE0 = KEYPAD := pad state + IRQ := read |
+0x8000 (the ACK), reads CONTROL+SIOCTL at 4FFFE0, optionally writes
+SIODATA, writes CONTROL+SIOCTL back with the values read, does its video
+bookkeeping, and **ends every pass with `IRQ := 0` (32 × 00 at D00000)**
+before waiting again; the mask stays open; no second PI W1C; CONTROL is
+written back unchanged every pass; KEYPAD every pass. Start-up Disc
+handler `0x8008af08`: `IRQ := shadowB | 0x8000` → `INTSR := 0x2000` →
+read IRQ → write back `pending` (ACK) → KEYPAD → callbacks → `IRQ :=
+shadowB` (re-arm, bit 15 := 0; skipped when a callback signals a full
+ring). Both references clear PI before the re-arm, set bit 15 = 1 while
+servicing and 0 while waiting, and wait with INTMR bit 13 open.
+
+**Decisions.**
+- Cycle = ISR (mask → one PI W1C) → main re-mask → PREACK → ACK `read |
+  0x8000` (one per cycle) → POSTACK as a clean boundary (ACK completed,
+  readings agree, CONTROL 0x8C, INTMR bit 13 = 0, no reentry, mask
+  confirmed, the acknowledged AV source bits gone — as 003B's 0x0500 →
+  0x8500 → 0x8000; sources still set → anomaly_source_not_cleared, no
+  REARM) → PI clean (≤ 1 main W1C only if bit 13 reads 1, one re-read;
+  still 1 → anomaly_pi_sticky_after_ack, no REARM) → REARM `IRQ := 0`
+  (GBI's write, u16 replicated, byte-identical to A2, its own record
+  kind, t_rearm read before it) → REARMPOST (CONTROL 0x8C, INTMR bit 13
+  = 0, odd bits 0, bit 15 0 required; source bits not required to be 0;
+  outcomes A–E, E = anomaly_rearm_state) → masked wait for the next
+  cause → PREUNMASK → unmask → ISR. Causal boundary: delivery → ACK →
+  POSTACK clean → PI clear → t_rearm → IRQ := 0 | new source / PI →
+  t_next_cause → next cycle; a cause is credited to a re-arm only when
+  everything before the bar was established and t_next_cause > t_rearm.
+  Option A of the ordering question (PI clear guaranteed before the
+  re-arm), matching both references' principle; the Disc's hold-first
+  entry write is not reproduced.
+- Sources policy, AV-only continuation: AV_SOURCE_MASK = 0x0500 (0x0100,
+  0x0400 or both, any order). At every service read after A2 or a REARM,
+  `unexpected = irq & (0x0555 & ~0x0500)` ≠ 0 → anomaly_unexpected_source
+  (reason unexpected_source_cycle_N): raw[32] and the snapshot preserved,
+  the source recorded, no unmask if that cycle was not delivered yet, no
+  REARM if it was seen after a delivery, safe teardown. Not a transport
+  failure, not an "invalid" source — valid hardware outside this POC's
+  scope (game pak, sleep, serial, user are not implemented). The
+  initialization state is exempt: BASE 0x8AAE with the idle bit 2, A1 =
+  read | 0x8000, A2 = 0 stay the physically validated path.
+- MAX_CYCLES = 3 delivered causes, REARMS = 2 (none after cycle 3, so
+  the run ends in 003B's validated state). Cycle 1 is the 003B path
+  verbatim; the new variables (REARM, masked wait, next cause) enter
+  only after the first ACK.
+- One handler install for the run (option A); the audited extended
+  one-shot body kept byte-for-byte per slot, wrapped by a generation
+  selector. Generation semantics: cycles 0…MAX_CYCLES−1; slots write-once,
+  zeroed at the install, never reused or cleared; `expected_gen`
+  published by the main loop only while INTMR bit 13 = 0 and never
+  changed while IRQ 26 could enter; the ISR reads it once at entry and
+  uses only that slot; out of range → generation_error (anomaly_reentry
+  class); a fired slot re-entered → the body's no-W1C reentry branch →
+  anomaly_reentry; `completed_cycles` is a count, and the next
+  `expected_gen` (= that count) is published only after the cycle was
+  consumed by the main loop, with the CPU still masked, POSTACK passed,
+  PI clear, REARM executed and validated; `entries_total` reports only.
+- CPU masked between cycles (unmask only with a latched cause, as 003B);
+  documented as a difference from the runtime, which waits unmasked.
+- Per-unmask preconditions (cycles 2/3) = 003B's plus: the cause later
+  than the corresponding t_rearm; source within AV_SOURCE_MASK and ≠ 0
+  (any order), nothing outside it; odd bits 0, bit 15 0; the cycle's
+  record clean; expected_gen correct. CONTROL must read 0x8C at every
+  snapshot (never rewritten inside the run); KEYPAD/AV/SIO not touched
+  (accepted deviation from the references).
+- PI W1C budget per cycle: ISR 1, main ≤ 1 at POSTACK, none at
+  REARMPOST (a bit 13 there is the next cause), teardown ≤ 1; maximum 7.
+- Timeouts: T_CAUSE_FIRST 2000 ms, T_DELIVERY 100 ms per cycle,
+  T_NEXT_CAUSE 500 ms per re-arm (operational). Statuses per cycle:
+  ok_cycles_completed, no_initial_cause, no_next_cause, delivery_timeout,
+  abort_unmask, abort_pre_unmask_state (+ generation_mismatch /
+  cause_before_rearm), anomaly_unexpected_source, anomaly_reentry (+
+  generation_error), anomaly_mask_failure, anomaly_source_not_cleared,
+  anomaly_pi_sticky_after_ack, anomaly_rearm_state,
+  anomaly_control_changed, abort_transport (ack/rearm write failures);
+  none of the anomalies is a transport failure.
+- Teardown from every state S0–S5 (no cause, delivered-not-acked,
+  acked-not-rearmed, and after a REARM: (a) IRQ still 0 and no cause →
+  STOP := 0 | 0x8AAA = 0x8AAA; (b) a new source appeared but no unmask →
+  STOP := read | 0x8AAA acknowledges and closes it, then ≤ 1 PI W1C;
+  (c) invalid REARM state → best-effort STOP with the current readback,
+  no second re-arm; and all cycles done): CPU masked first, CONTROL
+  restore, the STOP word, CLEANUPCHK ≤ 1 W1C, handler restore, MASKCHK,
+  AR_INFO, FINAL. No ACK loop, one ACK per cycle.
+- New measurement: t_next_cause − t_rearm per cycle (immediate = bit 15
+  held the line; one request period = event-driven), plus cause-to-cause
+  intervals — individual observations, no statistics. Bit 15 is observed
+  as a by-product under a constant CONTROL 0x8C (the isolation U-GBP-007
+  lacked); no isolated bit-15 write.
+- The second ≈100-tick ISR read stays (audited object unchanged).
+
+**Success criterion.** `ok_cycles_completed` = 3 valid deliveries; 2
+complete boundaries ACK → POSTACK sources cleared → PI clear → REARM
+validated; 2 subsequent causes attributable in time to their REARM and
+delivered; zero unexpected sources, zero reentry, zero sticky PI, zero
+transport uncertainty; CONTROL 0x8C throughout the cycles; final restore
+ok — a causal criterion, stronger than a count of three.
+
+**Phase-3 closure and Phase 4.** If 004 validates under that criterion,
+the fundamental initialization/IRQ mechanics of Phase 3 are closed and
+Phase 4 (VIDEO) starts on the 004 service loop with the VIDEO block read
+as the next variable. Not blockers: bit 15's exact function, the line's
+nature (P2), byte-0/offset-2 patterns, KEYPAD, CONTROL 0x04/0x08, AUDIO,
+SIO, cartridge. A `no_next_cause` in cycle 2/3 would itself be decisive
+for Phase 4's design (the stream needs consumption).
+
+**Implementation impact (listed, not done).** Extract the 003B cycle
+service (PREUNMASK check, unmask/wait/remask/record copy, PREACK/ACK/
+POSTACK, main W1C) from `gbp_initirqb_probe.c` into a small internal
+module (`src/gbp/gbp_irq_service.{h,c}`) reused by 003B (behavior
+pinned by its physical fixture) and by the new `gbp_initirq4_probe.{h,c}`;
+`gbp_irq_oneshot.h` gains a multicycle wrapper around the unchanged
+extended body; `gbp_transport.h` two optional ops (`irq_prepare(gen)`,
+`irq_record_slot(slot)`); `hsp_backend_irq.c` a records array, the
+multicycle handler and its constructor; mock (records array, generation,
+cause-after-rearm knobs, sticky-after-ACK, control change); replay `I p
+<gen>`; probelog (PREPARE record, per-cycle `I u`); isr_audit on the new
+symbol; poc_audit profile `004` (5 IRQ write sites, 4 INTSR store
+functions); new POC `poc/gbp-init-irq-service-probe/` (Test ID
+GBP-INIT-004, Build ID initsvc-0001, gecko prefix OPENGBP-INITSVC); root
+Makefile targets; tests (≥ 40 mock scenarios, S0–S5 teardowns, the
+physical 003B fixture as the prefix up to its POSTACK); docs.
+
+**Requirements preserved.** Start-up Disc / GBI parity as the
+compatibility goal; physical Link Port compatibility (Link Cable
+multiplayer, official and third-party accessories, the physical Mobile
+Adapter GB, PicoAdapterGB as one fixture) permanent; rumble and GBP-aware
+game features; the virtual Mobile Adapter over the BBA additive. None of
+them touched by this experiment.
+
+**Next.** Await authorization to implement GBP-INIT-004 as specified.
