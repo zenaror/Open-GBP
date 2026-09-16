@@ -57,7 +57,20 @@ libogc2 itself defines and uses __UnmaskIrq (VIDEO/PAD/EXI setup); that
 is library-internal and outside "our" objects, so the symbol checks are
 done on the POC's objects (relocations), not on the ELF.
 
-Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b|004] [--report FILE] [--json]
+Profile avsvc (GBP-AV-SERVICE-001): hsp_backend_irq.o linked again (the
+003B extended one-shot is the handler; a second delivery is forbidden, so
+no generation wrapper); hsp_backend_irq_multi.o, hsp_backend_intmr.o and
+the 001/002/003B/004 probe objects forbidden; the whole-block read
+gbp_avblock_read is called exactly twice from the probe (AUDIO, VIDEO),
+gbp_irq_service_deliver and gbp_irq_service_ack_write_postack exactly once
+from it, gbp_irq_service_ack (the PREACK variant) never from the probe;
+five IRQ-register write sites (A1/A2/STOP, ACK in the shared service, REARM
+in the probe); no object references an ARQ_/AR_/AUDIO_/ASND/AESND/GX_/net_/
+DSP_/SI_/SIO symbol (no libogc ARAM queue, no audio output, no GX, no
+network, no serial); main.o uses the ext constructor, the probe entry and
+the sidecar writer.
+
+Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b|004|avsvc] [--report FILE] [--json]
 Exit status 0 when there is no finding.
 """
 from __future__ import annotations
@@ -133,6 +146,43 @@ PROFILES = {
         "main_must_call": ("hsp_backend_irq_transport_multi", "gbp_initirq4_probe_run"),
         "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_irq_transport_ext", "hsp_backend_intmr_transport",
                                "gbp_initirqa_probe_run", "gbp_initirqb_probe_run", "gbp_initirq_probe_run"),
+    },
+    # GBP-AV-SERVICE-001: the 003B interrupt object (its extended one-shot is the installed handler) is linked; the 004
+    # multi-cycle object and the direct INTMR store are not; the whole-block read is reached only through
+    # gbp_avblock_read (two call sites in the probe: AUDIO then VIDEO); the ACK is written from the PRESVC value through
+    # gbp_irq_service_ack_write_postack (the PREACK variant gbp_irq_service_ack is never called); no ARAM queue, audio
+    # output, GX, network or serial symbol anywhere in the POC's objects.
+    "avsvc": {
+        "forbidden_objects": ("hsp_backend_irq_multi.o", "hsp_backend_intmr.o", "gbp_initirqb_probe.o", "gbp_initirq4_probe.o",
+                              "gbp_init_irq_probe.o", "gbp_init_probe.o"),
+        "required_objects": ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o", "gbp_avblock.o",
+                             "gbp_avdump.o", "gbp_crc32.o", "gbp_avsvc_probe.o", "sdlog.o", "main.o"),
+        "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_irq_transport_multi", "hsp_backend_intmr_transport",
+                              "hsp_backend_oneshot_isr_multi", "gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run",
+                              "gbp_initirq4_probe_run"),
+        "forbidden_symbol_prefixes": ("ARQ_", "AR_", "AUDIO_", "ASND", "AESND", "GX_", "net_", "DSP_", "SI_", "SIO"),
+        "investigate_symbols": (),
+        "symbol_callers": {"__UnmaskIrq": {"h_irq_unmask": 1},
+                           "IRQ_Request": {"h_irq_install": 1, "h_irq_restore": 1},
+                           "__MaskIrq": {"h_irq_mask": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+                           "gbp_avblock_read": {"gbp_avsvc_probe_run": 2},
+                           "gbp_irq_service_deliver": {"gbp_avsvc_probe_run": 1},
+                           "gbp_irq_service_ack_write_postack": {"gbp_avsvc_probe_run": 1, "gbp_irq_service_ack": 1},
+                           "gbp_irq_service_ack": {}},
+        "elf_required": ("gbp_avsvc_probe_run", "gbp_avblock_read", "gbp_avdump_serialize", "gbp_crc32", "gbp_initirqa_run_cause",
+                         "gbp_initirqa_teardown", "gbp_irq_service_deliver", "gbp_irq_service_ack_write_postack", "gbp_regwrite_irq_u16",
+                         "gbp_regwrite_control_byte", "hsp_backend_oneshot_isr_ext", "hsp_backend_irq_transport_ext", "sdlog_save_blob",
+                         "__UnmaskIrq", "__MaskIrq", "IRQ_Request"),
+        "elf_forbidden": ("gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run", "gbp_initirq4_probe_run",
+                          "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi", "hsp_backend_irq_transport_multi",
+                          "hsp_backend_irq_transport", "ARQ_Init", "AR_Init", "AUDIO_Init", "ASND_Init", "GX_Init", "net_init"),
+        "irq_write_sites": {"gbp_initirqa_probe.o": 3, "gbp_irq_service.o": 1, "gbp_avsvc_probe.o": 1},
+        "control_write_sites": {"gbp_initirqa_probe.o": 2},
+        "intsr_store_sites": {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+        "main_must_call": ("hsp_backend_irq_transport_ext", "gbp_avsvc_probe_run", "gbp_avdump_serialize", "sdlog_save_blob"),
+        "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_irq_transport_multi", "hsp_backend_intmr_transport",
+                               "gbp_initirqa_probe_run", "gbp_initirqb_probe_run", "gbp_initirq4_probe_run", "gbp_initirq_probe_run",
+                               "gbp_irq_service_ack"),
     },
 }
 # the GBP-INIT-003A names, kept for callers that import them
@@ -435,6 +485,11 @@ def audit_dir(path, profile="003a"):
             if s in syms:
                 findings.append("%s references %s — investigate (from %s)" % (obj, s, ", ".join(sorted(set(syms[s])))))
                 report["symbols"].setdefault(obj, []).append(s)
+        for pref in prof.get("forbidden_symbol_prefixes", ()):
+            for s in sorted(syms):
+                if s.startswith(pref):
+                    findings.append("%s references %s (forbidden prefix %s; from %s)" % (obj, s, pref, ", ".join(sorted(set(syms[s])))))
+                    report["symbols"].setdefault(obj, []).append(s)
         for s in prof["symbol_callers"]:
             for fn, n in call_sites(funcs, s).items():
                 callers[s][fn] = callers[s].get(fn, 0) + n

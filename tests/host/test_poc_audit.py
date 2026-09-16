@@ -550,9 +550,163 @@ class PocAuditChecker004(unittest.TestCase):
         self.assertEqual(findings, [])                                    # the count of mask sites is what the profile pins, not their layout
 
 
+# ---- GBP-AV-SERVICE-001 profile (synthetic listings): the 003B interrupt object again, the whole-block read from the probe ----
+PROBE_AV_GOOD = """
+00000000 <gbp_avsvc_probe_run>:
+   0:	94 21 ff f0 	stwu    r1,-16(r1)
+   4:	48 00 00 01 	bl      4 <gbp_avsvc_probe_run+0x4>
+			4: R_PPC_REL24	gbp_initirqa_run_cause
+   8:	48 00 00 01 	bl      8 <gbp_avsvc_probe_run+0x8>
+			8: R_PPC_REL24	gbp_irq_service_deliver
+   c:	48 00 00 01 	bl      c <gbp_avsvc_probe_run+0xc>
+			c: R_PPC_REL24	gbp_avblock_read
+  10:	48 00 00 01 	bl      10 <gbp_avsvc_probe_run+0x10>
+			10: R_PPC_REL24	gbp_avblock_read
+  14:	48 00 00 01 	bl      14 <gbp_avsvc_probe_run+0x14>
+			14: R_PPC_REL24	gbp_irq_service_ack_write_postack
+  18:	48 00 00 01 	bl      18 <gbp_avsvc_probe_run+0x18>
+			18: R_PPC_REL24	gbp_regwrite_irq_u16
+  1c:	48 00 00 01 	bl      1c <gbp_avsvc_probe_run+0x1c>
+			1c: R_PPC_REL24	gbp_initirqa_teardown
+  20:	4e 80 00 20 	blr
+"""
+
+SERVICE_AV_GOOD = """
+00000000 <gbp_irq_service_deliver>:
+   0:	48 00 00 01 	bl      0 <gbp_irq_service_deliver>
+			0: R_PPC_REL24	gbp_rawlog_read_pi
+   4:	4e 80 00 20 	blr
+
+00000010 <gbp_irq_service_ack>:
+  10:	48 00 00 01 	bl      10 <gbp_irq_service_ack>
+			10: R_PPC_REL24	gbp_irq_service_ack_write_postack
+  14:	4e 80 00 20 	blr
+
+00000020 <gbp_irq_service_ack_write_postack>:
+  20:	48 00 00 01 	bl      20 <gbp_irq_service_ack_write_postack>
+			20: R_PPC_REL24	gbp_regwrite_irq_u16
+  24:	4e 80 00 20 	blr
+"""
+
+AVBLOCK_GOOD = """
+00000000 <gbp_avblock_read>:
+   0:	48 00 00 01 	bl      0 <gbp_avblock_read>
+			0: R_PPC_REL24	gbp_block_addr
+   4:	4e 80 00 20 	blr
+"""
+
+SMALL_GOOD = """
+00000000 <f>:
+   0:	4e 80 00 20 	blr
+"""
+
+MAIN_AV_GOOD = """
+00000000 <main>:
+   0:	48 00 00 01 	bl      0 <main>
+			0: R_PPC_REL24	hsp_backend_irq_transport_ext
+   4:	48 00 00 01 	bl      4 <main+0x4>
+			4: R_PPC_REL24	gbp_avsvc_probe_run
+   8:	48 00 00 01 	bl      8 <main+0x8>
+			8: R_PPC_REL24	gbp_avdump_serialize
+   c:	48 00 00 01 	bl      c <main+0xc>
+			c: R_PPC_REL24	sdlog_save_blob
+  10:	4e 80 00 20 	blr
+"""
+
+NM_AV_GOOD = NM_GOOD + """80004300 T gbp_avsvc_probe_run
+80004400 T gbp_initirqa_run_cause
+80004500 T gbp_initirqa_teardown
+80004550 T gbp_irq_service_deliver
+80004560 T gbp_irq_service_ack_write_postack
+80004570 T gbp_avblock_read
+80004580 T gbp_avdump_serialize
+80004590 T gbp_crc32
+80004600 T hsp_backend_oneshot_isr
+80004700 T hsp_backend_oneshot_isr_ext
+80004900 T hsp_backend_irq_transport_ext
+80005000 T sdlog_save_blob
+80005200 T IRQ_Request
+"""
+
+
+def dir_avsvc(**override):
+    files = {"gbp_initirqa_probe.objdump.txt": PROBE_GOOD, "gbp_irq_service.objdump.txt": SERVICE_AV_GOOD,
+             "gbp_avsvc_probe.objdump.txt": PROBE_AV_GOOD, "gbp_avblock.objdump.txt": AVBLOCK_GOOD, "gbp_avdump.objdump.txt": SMALL_GOOD,
+             "gbp_crc32.objdump.txt": SMALL_GOOD, "sdlog.objdump.txt": SMALL_GOOD, "hsp_backend.objdump.txt": BACKEND_GOOD,
+             "hsp_backend_irq.objdump.txt": IRQ_BACKEND_GOOD, "main.objdump.txt": MAIN_AV_GOOD, "elf.nm.txt": NM_AV_GOOD}
+    for k, v in override.items():
+        if v is None:
+            files.pop(k)
+        else:
+            files[k] = v
+    return make_dir(files)
+
+
+class PocAuditCheckerAVSVC(unittest.TestCase):
+    """GBP-AV-SERVICE-001 profile on synthetic listings: hsp_backend_irq.o (the 003B extended one-shot) linked, the
+    multi-cycle object forbidden, one __UnmaskIrq site, __MaskIrq from the mask primitive and the two handlers, the
+    whole-block read exactly twice from the probe, the deliver and the ACK-from-a-value services exactly once from
+    it, the PREACK ACK variant never called, 3 + 1 + 1 IRQ write sites, no INTMR store, no ARQ/AR/GX/audio/net symbol."""
+
+    def test_clean(self):
+        d = dir_avsvc()
+        findings, report = poc_audit.audit_dir(d, "avsvc")
+        self.assertEqual(findings, [])
+        self.assertEqual(report["profile"], "avsvc")
+        self.assertEqual(report["callsites"]["gbp_avsvc_probe.o"], {"gbp_regwrite_irq_u16": 1, "gbp_regwrite_control_byte": 0})
+        self.assertEqual(report["irq_write_sites_total"], 5)
+        self.assertEqual(report["intsr_store_sites"], {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1})
+        self.assertEqual(report["symbol_callers"]["gbp_avblock_read"], {"gbp_avsvc_probe_run": 2})
+        self.assertEqual(report["symbol_callers"]["gbp_irq_service_deliver"], {"gbp_avsvc_probe_run": 1})
+        self.assertEqual(report["symbol_callers"]["gbp_irq_service_ack_write_postack"], {"gbp_avsvc_probe_run": 1, "gbp_irq_service_ack": 1})
+        self.assertEqual(report["symbol_callers"]["gbp_irq_service_ack"], {})
+        self.assertEqual(poc_audit.main([d, "--profile", "avsvc"]), 0)
+
+    def test_second_unmask_or_second_delivery_path_is_flagged(self):
+        d = dir_avsvc(**{"gbp_avsvc_probe.objdump.txt": PROBE_AV_GOOD.replace("gbp_initirqa_teardown", "__UnmaskIrq")})
+        findings, _ = poc_audit.audit_dir(d, "avsvc")
+        self.assertTrue(any(f.startswith("__UnmaskIrq call sites") for f in findings), findings)
+        d = dir_avsvc(**{"gbp_avsvc_probe.objdump.txt": PROBE_AV_GOOD.replace("gbp_initirqa_teardown", "gbp_irq_service_deliver")})
+        findings, _ = poc_audit.audit_dir(d, "avsvc")
+        self.assertTrue(any(f.startswith("gbp_irq_service_deliver call sites") for f in findings), findings)
+
+    def test_wrong_bulk_read_or_ack_variant_is_flagged(self):
+        d = dir_avsvc(**{"gbp_avsvc_probe.objdump.txt": PROBE_AV_GOOD.replace("gbp_initirqa_teardown", "gbp_avblock_read")})
+        findings, _ = poc_audit.audit_dir(d, "avsvc")
+        self.assertTrue(any(f.startswith("gbp_avblock_read call sites") for f in findings), findings)
+        d = dir_avsvc(**{"gbp_avsvc_probe.objdump.txt": PROBE_AV_GOOD.replace("gbp_irq_service_ack_write_postack", "gbp_irq_service_ack")})
+        findings, _ = poc_audit.audit_dir(d, "avsvc")
+        self.assertTrue(any(f.startswith("gbp_irq_service_ack call sites") for f in findings), findings)
+        self.assertTrue(any(f.startswith("gbp_irq_service_ack_write_postack call sites") for f in findings), findings)
+        d = dir_avsvc(**{"main.objdump.txt": MAIN_AV_GOOD.replace("sdlog_save_blob", "gbp_irq_service_ack")})
+        findings, _ = poc_audit.audit_dir(d, "avsvc")
+        self.assertTrue(any("main.o references gbp_irq_service_ack" in f for f in findings), findings)
+        self.assertTrue(any("main.o does not reference sdlog_save_blob" in f for f in findings), findings)
+
+    def test_forbidden_objects_symbols_and_prefixes(self):
+        d = dir_avsvc(**{"hsp_backend_irq_multi.objdump.txt": IRQ_MULTI_BACKEND_GOOD})
+        findings, _ = poc_audit.audit_dir(d, "avsvc")
+        self.assertTrue(any("forbidden object linked: hsp_backend_irq_multi.o" in f for f in findings), findings)
+        d = dir_avsvc(**{"gbp_avblock.objdump.txt": None})
+        findings, _ = poc_audit.audit_dir(d, "avsvc")
+        self.assertTrue(any("expected object missing: gbp_avblock.o" in f for f in findings), findings)
+        for bad in ("ARQ_PostRequestAsync", "AR_StartDMA", "AUDIO_Init", "ASND_Init", "GX_Init", "net_init", "DSP_Init", "SI_Transfer", "SIOCTL_x"):
+            d = dir_avsvc(**{"gbp_avblock.objdump.txt": AVBLOCK_GOOD.replace("gbp_block_addr", bad)})
+            findings, _ = poc_audit.audit_dir(d, "avsvc")
+            self.assertTrue(any("gbp_avblock.o references %s (forbidden prefix" % bad in f for f in findings), (bad, findings))
+        d = dir_avsvc(**{"elf.nm.txt": NM_AV_GOOD + "80006000 T hsp_backend_oneshot_isr_multi\n80006100 T GX_Init\n"})
+        findings, _ = poc_audit.audit_dir(d, "avsvc")
+        self.assertTrue(any("ELF defines hsp_backend_oneshot_isr_multi" in f for f in findings), findings)
+        self.assertTrue(any("ELF defines GX_Init" in f for f in findings), findings)
+        d = dir_avsvc(**{"hsp_backend_irq.objdump.txt": IRQ_BACKEND_GOOD.replace("  74:	90 09 00 00 	stw     r0,0(r9)", "  74:	90 09 00 04 	stw     r0,4(r9)")})
+        findings, _ = poc_audit.audit_dir(d, "avsvc")
+        self.assertTrue(any("stores to PI INTMR in hsp_backend_oneshot_isr_ext" in f for f in findings), findings)
+
+
 AUDIT_DIR = os.path.join(ROOT, "build", "poc", "gbp-init-irq-program-probe", "audit")
 AUDIT_DIR_B = os.path.join(ROOT, "build", "poc", "gbp-init-irq-deliver-probe", "audit")
 AUDIT_DIR_4 = os.path.join(ROOT, "build", "poc", "gbp-init-irq-service-probe", "audit")
+AUDIT_DIR_AV = os.path.join(ROOT, "build", "poc", "gbp-av-service-probe", "audit")
 IRQ_BACKEND_OBJDUMP = os.path.join(ROOT, "build", "poc", "gbp-init-irq-probe", "hsp_backend_irq.objdump.txt")
 INTMR_BACKEND_OBJDUMP = os.path.join(ROOT, "build", "poc", "gbp-init-probe", "hsp_backend_intmr.objdump.txt")
 
@@ -673,6 +827,95 @@ class PocAuditOnBuild004(unittest.TestCase):
             self.assertTrue(any("forbidden object linked: hsp_backend_irq.o" in f for f in findings), findings)
             self.assertTrue(any("expected object missing: hsp_backend_irq_multi.o" in f for f in findings), findings)
             self.assertTrue(any("forbidden object linked: gbp_initirqb_probe.o" in f for f in findings), findings)
+
+
+@unittest.skipUnless(os.path.isfile(os.path.join(AUDIT_DIR_AV, "elf.nm.txt")), "run `make build avsvc-audit` to produce the audit inputs")
+class PocAuditOnBuildAVSVC(unittest.TestCase):
+    def test_linked_objects_are_clean(self):
+        findings, report = poc_audit.audit_dir(AUDIT_DIR_AV, "avsvc")
+        self.assertEqual(findings, [])
+        for obj in ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o", "gbp_avblock.o", "gbp_avdump.o",
+                    "gbp_crc32.o", "gbp_avsvc_probe.o", "sdlog.o", "main.o"):
+            self.assertIn(obj, report["objects"])
+        for obj in ("hsp_backend_irq_multi.o", "hsp_backend_intmr.o", "gbp_initirqb_probe.o", "gbp_initirq4_probe.o", "gbp_init_irq_probe.o",
+                    "gbp_init_probe.o"):
+            self.assertNotIn(obj, report["objects"])
+        self.assertEqual(report["callsites"]["gbp_initirqa_probe.o"], {"gbp_regwrite_irq_u16": 3, "gbp_regwrite_control_byte": 2})
+        self.assertEqual(report["callsites"]["gbp_irq_service.o"], {"gbp_regwrite_irq_u16": 1, "gbp_regwrite_control_byte": 0})
+        self.assertEqual(report["callsites"]["gbp_avsvc_probe.o"], {"gbp_regwrite_irq_u16": 1, "gbp_regwrite_control_byte": 0})
+        self.assertEqual(report["irq_write_sites_total"], 5)          # A1, A2, STOP (stage) + ACK (service) + REARM (probe)
+        self.assertEqual(report["intmr_stores"], [])
+        self.assertEqual(report["intsr_store_sites"], {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1})
+        self.assertEqual(report["symbol_callers"], {"__UnmaskIrq": {"h_irq_unmask": 1},
+                                                    "IRQ_Request": {"h_irq_install": 1, "h_irq_restore": 1},
+                                                    "__MaskIrq": {"h_irq_mask": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+                                                    "gbp_avblock_read": {"gbp_avsvc_probe_run": 2},
+                                                    "gbp_irq_service_deliver": {"gbp_avsvc_probe_run": 1},
+                                                    "gbp_irq_service_ack_write_postack": {"gbp_avsvc_probe_run": 1, "gbp_irq_service_ack": 1},
+                                                    "gbp_irq_service_ack": {}})
+        for s in ("gbp_avsvc_probe_run", "gbp_avblock_read", "gbp_avdump_serialize", "gbp_crc32", "hsp_backend_oneshot_isr_ext",
+                  "hsp_backend_irq_transport_ext", "sdlog_save_blob", "__UnmaskIrq"):
+            self.assertIsNotNone(report["elf"][s], s)
+        for s in ("gbp_initirq4_probe_run", "gbp_initirqb_probe_run", "hsp_backend_oneshot_isr_multi", "hsp_backend_irq_transport_multi",
+                  "hsp_backend_intmr_transport", "ARQ_Init", "AR_Init", "AUDIO_Init", "ASND_Init", "GX_Init", "net_init"):
+            self.assertIsNone(report["elf"][s], s)
+
+    def test_whole_block_read_cache_sequence_and_single_dma_routine(self):
+        # the compiled whole-block read: argument rule, DCFlushRange (write back + invalidate) BEFORE the one DMA,
+        # DCInvalidateRange AFTER it, nothing else; the 32-byte read keeps its own flush/invalidate pair
+        with open(os.path.join(AUDIT_DIR_AV, "hsp_backend.objdump.txt"), "r", encoding="utf-8", errors="replace") as f:
+            funcs = poc_audit.parse_objdump(f.read())
+        self.assertIn("h_read_bulk", funcs)
+        calls = [it[3] for it in funcs["h_read_bulk"] if it[0] == "reloc" and it[2] == "R_PPC_REL24"]
+        self.assertEqual(calls, ["gbp_bulk_args_ok", "DCFlushRange", ".text.dma_len", "DCInvalidateRange"], calls)
+        self.assertIn("dma_len", funcs)                                    # one DMA routine shared with the 32-byte accesses
+        calls32 = [it[3] for it in funcs["h_read_block"] if it[0] == "reloc" and it[2] == "R_PPC_REL24"]
+        self.assertGreaterEqual(calls32.count("DCInvalidateRange"), 2)
+        self.assertEqual(calls32.count("DCFlushRange"), 1)
+        for name, items in funcs.items():
+            for it in items:
+                if it[0] == "reloc":
+                    self.assertFalse(it[3].startswith(("AR_", "ARQ_")), (name, it[3]))   # libogc's ARAM subsystem never touched
+
+    def test_sidecar_written_only_after_the_run_and_never_by_the_service_objects(self):
+        # main.o: every save call sits after the probe entry in the instruction stream (the X/START loop);
+        # the objects that run the experiment reference no file, SD, serializer or gecko symbol at all
+        def calls(obj):
+            with open(os.path.join(AUDIT_DIR_AV, obj + ".objdump.txt"), "r", encoding="utf-8", errors="replace") as f:
+                funcs = poc_audit.parse_objdump(f.read())
+            return [(name, it[1], it[3]) for name, items in funcs.items() for it in items if it[0] == "reloc" and it[2] == "R_PPC_REL24"]
+        main_calls = calls("main")
+        offs = {sym: off for name, off, sym in main_calls if name == "main"}
+        for sym in ("gbp_avsvc_probe_run", "sdlog_save", "gbp_avsvc_dump_info", "gbp_avdump_serialize", "sdlog_save_blob", "PAD_ScanPads"):
+            self.assertIn(sym, offs, sym)
+        self.assertLess(offs["gbp_avsvc_probe_run"], offs["sdlog_save"])
+        self.assertLess(offs["sdlog_save"], offs["gbp_avsvc_dump_info"])
+        self.assertLess(offs["gbp_avsvc_dump_info"], offs["gbp_avdump_serialize"])
+        self.assertLess(offs["gbp_avdump_serialize"], offs["sdlog_save_blob"])
+        self.assertEqual(sum(1 for name, _o, sym in main_calls if sym == "gbp_avsvc_probe_run"), 1)
+        self.assertEqual(sum(1 for name, _o, sym in main_calls if sym == "sdlog_save_blob"), 1)
+        forbidden = ("sdlog_", "fopen", "fwrite", "fclose", "fatMount", "fatUnmount", "gbp_avdump_serialize", "gbp_avdump_parse",
+                     "usb_", "printf", "malloc", "free")
+        for obj in ("gbp_avsvc_probe", "gbp_avblock", "gbp_irq_service", "gbp_initirqa_probe", "hsp_backend", "hsp_backend_irq", "gbp_crc32"):
+            for _name, _off, sym in calls(obj):
+                self.assertFalse(any(sym.startswith(f) for f in forbidden), (obj, sym))
+
+    def test_profiles_are_mutually_exclusive_on_the_builds(self):
+        findings, _ = poc_audit.audit_dir(AUDIT_DIR_AV, "004")
+        self.assertTrue(any("forbidden object linked: hsp_backend_irq.o" in f for f in findings), findings)
+        self.assertTrue(any("expected object missing: hsp_backend_irq_multi.o" in f for f in findings), findings)
+        findings, _ = poc_audit.audit_dir(AUDIT_DIR_AV, "003b")
+        self.assertTrue(any("expected object missing: gbp_initirqb_probe.o" in f for f in findings), findings)
+        findings, _ = poc_audit.audit_dir(AUDIT_DIR_AV, "003a")
+        self.assertTrue(any("hsp_backend_irq.o references __UnmaskIrq" in f for f in findings), findings)
+        if os.path.isfile(os.path.join(AUDIT_DIR_4, "elf.nm.txt")):
+            findings, _ = poc_audit.audit_dir(AUDIT_DIR_4, "avsvc")
+            self.assertTrue(any("forbidden object linked: hsp_backend_irq_multi.o" in f for f in findings), findings)
+            self.assertTrue(any("expected object missing: gbp_avblock.o" in f for f in findings), findings)
+        if os.path.isfile(os.path.join(AUDIT_DIR_B, "elf.nm.txt")):
+            findings, _ = poc_audit.audit_dir(AUDIT_DIR_B, "avsvc")
+            self.assertTrue(any("forbidden object linked: gbp_initirqb_probe.o" in f for f in findings), findings)
+            self.assertTrue(any("expected object missing: gbp_avsvc_probe.o" in f for f in findings), findings)
 
 
 if __name__ == "__main__":

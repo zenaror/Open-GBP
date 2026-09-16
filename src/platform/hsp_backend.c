@@ -40,11 +40,16 @@ uint16_t hsp_backend_read_csr(void)
     return DSP_CSR;
 }
 
-static gbp_status dma(struct hsp_backend *b, unsigned dir, uint32_t aram_addr,
-                      struct gbp_xfer_info *info)
+/* One ARAM DMA of `len` bytes between the physical main-memory address `mem`
+ * and `aram_addr`, programmed and completed exactly as the Start-up Disc does
+ * (0x80089c3c / 0x80089cc8): interrupts disabled, refuse if the engine is busy
+ * or a stale completion flag is set, poll CSR bit 5 with the operational
+ * timeout, clear only that flag. The 32-byte register accesses and the
+ * whole-block reads share this one routine (len = 32 or a multiple of 32). */
+static gbp_status dma_len(struct hsp_backend *b, unsigned dir, uint32_t mem, uint32_t aram_addr, uint32_t len,
+                          struct gbp_xfer_info *info)
 {
     uint32_t level;
-    uint32_t mem = MEM_VIRTUAL_TO_PHYSICAL(b->buffer);
     uint32_t t0, now;
     uint16_t csr;
     unsigned polls = 0;
@@ -56,6 +61,7 @@ static gbp_status dma(struct hsp_backend *b, unsigned dir, uint32_t aram_addr,
     _CPU_ISR_Disable(level);
     csr = DSP_CSR;
     b->last_csr_before = csr;
+    if (info) info->dma_status_before = csr;
     if (csr & (CSR_DSPDMA | CSR_ARINT)) {
         /* Engine busy or a stale completion flag: refuse, like the disc. */
         _CPU_ISR_Restore(level);
@@ -67,8 +73,8 @@ static gbp_status dma(struct hsp_backend *b, unsigned dir, uint32_t aram_addr,
     DSP_AR_MMADDR_L = (u16)(mem & 0xFFE0u);
     DSP_AR_ARADDR_H = (u16)((aram_addr >> 16) & 0x03FFu);
     DSP_AR_ARADDR_L = (u16)(aram_addr & 0xFFE0u);
-    DSP_AR_CNT_H    = (u16)(((dir & 1u) << 15) | ((GBP_BLOCK_SIZE >> 16) & 0x03FFu));
-    DSP_AR_CNT_L    = (u16)(GBP_BLOCK_SIZE & 0xFFE0u);   /* writing CNT_L starts the DMA */
+    DSP_AR_CNT_H    = (u16)(((dir & 1u) << 15) | ((len >> 16) & 0x03FFu));
+    DSP_AR_CNT_L    = (u16)(len & 0xFFE0u);              /* writing CNT_L starts the DMA */
 
     t0 = gettick();
     for (;;) {
@@ -97,6 +103,13 @@ static gbp_status dma(struct hsp_backend *b, unsigned dir, uint32_t aram_addr,
         info->dma_status = b->last_csr_after;
     }
     return rc;
+}
+
+/* The 32-byte register access: the backend's own aligned buffer. */
+static gbp_status dma(struct hsp_backend *b, unsigned dir, uint32_t aram_addr,
+                      struct gbp_xfer_info *info)
+{
+    return dma_len(b, dir, MEM_VIRTUAL_TO_PHYSICAL(b->buffer), aram_addr, GBP_BLOCK_SIZE, info);
 }
 
 static gbp_status h_read_arinfo(void *ctx, uint16_t *value)
@@ -136,6 +149,27 @@ static gbp_status h_write_block(void *ctx, uint32_t aram_addr, const uint8_t in[
     memcpy(b->buffer, in, GBP_BLOCK_SIZE);
     DCFlushRange(b->buffer, GBP_BLOCK_SIZE);
     return dma(b, DIR_MRAM_TO_ARAM, aram_addr, info);
+}
+
+/* Whole-block read into the caller's buffer (GBP-AV-SERVICE-001): argument
+ * rule first (nothing programmed on a bad argument), then the cache sequence
+ * described in the header — dcbf over the range before the DMA, one DMA of
+ * the whole length, dcbi over the range after it. No retry, no chunking. */
+static gbp_status h_read_bulk(void *ctx, uint32_t aram_addr, uint8_t *out, uint32_t len,
+                              struct gbp_xfer_info *info)
+{
+    struct hsp_backend *b = (struct hsp_backend *)ctx;
+    gbp_status rc;
+    if (!gbp_bulk_args_ok(aram_addr, out, len)) {
+        if (info) memset(info, 0, sizeof *info);
+        return GBP_ERR_PARAM;
+    }
+    b->bulk_transfers++;
+    b->bulk_bytes += len;
+    DCFlushRange(out, len);                       /* write back + invalidate: no dirty line left, pre-fill in memory */
+    rc = dma_len(b, DIR_ARAM_TO_MRAM, MEM_VIRTUAL_TO_PHYSICAL(out), aram_addr, len, info);
+    DCInvalidateRange(out, len);                  /* the CPU reads what the DMA wrote (the Disc's DMA-done step) */
+    return rc;
 }
 
 static gbp_status h_read_pi(void *ctx, uint32_t *intsr, uint32_t *intmr)
@@ -182,6 +216,7 @@ void hsp_backend_transport(struct hsp_backend *b, struct gbp_transport *t)
     t->write_arinfo = h_write_arinfo;
     t->read_block = h_read_block;
     t->write_block = h_write_block;
+    t->read_bulk = h_read_bulk;
     t->read_pi = h_read_pi;
     t->poll_intsr = h_poll_intsr;
     t->write_intsr = h_write_intsr;

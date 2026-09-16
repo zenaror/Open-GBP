@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 import dolinfo  # noqa: E402
 
 POCS = ("smoke-test", "gbp-probe", "gbp-init-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-deliver-probe",
-        "gbp-init-irq-service-probe")
+        "gbp-init-irq-service-probe", "gbp-av-service-probe")
 OUTDIR = os.path.join(ROOT, "build", "poc", "smoke-test")
 ELF = os.path.join(OUTDIR, "smoke-test.elf")
 DOL = os.path.join(OUTDIR, "smoke-test.dol")
@@ -130,6 +130,75 @@ class SmokeTestArtifacts(unittest.TestCase):
 
 @unittest.skipUnless(all(os.path.isdir(os.path.join(ROOT, "build", "poc", p)) for p in POCS),
                      "build output missing; run `make build` first")
+def elf_loads(path):
+    """PT_LOAD segments of a 32-bit big-endian ELF as (offset, vaddr, filesz, memsz)."""
+    import struct
+    with open(path, "rb") as f:
+        elf = f.read()
+    e_phoff = struct.unpack(">I", elf[0x1C:0x20])[0]
+    e_phentsize, e_phnum = struct.unpack(">HH", elf[0x2A:0x2E])
+    out = []
+    for i in range(e_phnum):
+        p = elf[e_phoff + i * e_phentsize: e_phoff + (i + 1) * e_phentsize]
+        p_type, p_offset, p_vaddr, _p_paddr, p_filesz, p_memsz, _f, _a = struct.unpack(">8I", p)
+        if p_type == 1:
+            out.append((p_offset, p_vaddr, p_filesz, p_memsz))
+    return elf, out
+
+
+@unittest.skipUnless(os.path.isdir(OUTDIR), "build output missing; run `make build` first")
+class EveryPocSectionMap(unittest.TestCase):
+    """DOL sections against the ELF program headers, for every POC: the loaded payload is exactly the
+    ELF's file-backed bytes; the only bytes a DOL section adds are tools/dolpad.py's zero padding, which
+    may extend into the BSS start (the runtime zeroes BSS after the load: libogc2 ogc_crt0.S memsets
+    __bss_start..__bss_end) but never over another loaded section; every section lives in MEM1."""
+
+    def test_loaded_bytes_never_overlap_bss_except_zero_padding(self):
+        import struct
+        for poc in POCS:
+            dol_path = os.path.join(ROOT, "build", "poc", poc, poc + ".dol")
+            elf_path = os.path.join(ROOT, "build", "poc", poc, poc + ".elf")
+            if not (os.path.isfile(dol_path) and os.path.isfile(elf_path)):
+                continue
+            info = dolinfo.parse_dol_file(dol_path)
+            with open(dol_path, "rb") as f:
+                dol = f.read()
+            elf, loads = elf_loads(elf_path)
+            bss_lo, bss_hi = info.bss_address, info.bss_address + info.bss_size
+            self.assertGreater(info.bss_size, 0, poc)
+            self.assertEqual(info.entry_point, 0x80003100, poc)
+            for s in info.sections:
+                self.assertTrue(0x80003100 <= s.load_address and s.end_address <= 0x81800000, (poc, s.kind, s.index))
+                self.assertEqual(s.load_address % 32, 0, (poc, s.kind))
+                self.assertEqual(s.size % 32, 0, (poc, s.kind))
+                payload = dol[s.file_offset:s.file_offset + s.size]
+                # every ELF file-backed byte inside this section is reproduced verbatim
+                backed = bytearray(s.size)
+                for off, vaddr, filesz, _memsz in loads:
+                    lo, hi = max(vaddr, s.load_address), min(vaddr + filesz, s.end_address)
+                    if lo < hi:
+                        self.assertEqual(payload[lo - s.load_address:hi - s.load_address], elf[off + (lo - vaddr):off + (hi - vaddr)], (poc, s.kind))
+                        for i in range(lo - s.load_address, hi - s.load_address):
+                            backed[i] = 1
+                # the bytes the DOL adds (padding) are zero, and a file-backed byte is never inside BSS
+                for i, b in enumerate(backed):
+                    a = s.load_address + i
+                    if not b:
+                        self.assertEqual(payload[i], 0, (poc, s.kind, hex(a)))
+                    else:
+                        self.assertFalse(bss_lo <= a < bss_hi, (poc, s.kind, hex(a)))
+            # no two DOL sections overlap; the BSS never overlaps a file-backed range
+            spans = sorted((s.load_address, s.end_address) for s in info.sections)
+            for (a0, a1), (b0, b1) in zip(spans, spans[1:]):
+                self.assertLessEqual(a1, b0, (poc, hex(a0), hex(a1), hex(b0), hex(b1)))
+            for _off, vaddr, filesz, _memsz in loads:
+                if filesz:
+                    self.assertTrue(vaddr + filesz <= bss_lo or vaddr >= bss_hi, (poc, hex(vaddr), hex(filesz)))
+            # the ELF BSS segment is the DOL BSS
+            nobits = [(vaddr, memsz) for _o, vaddr, filesz, memsz in loads if filesz == 0 and memsz]
+            self.assertEqual(nobits, [(bss_lo, info.bss_size)], poc)
+
+
 class EveryPocArtifacts(unittest.TestCase):
     """Common checks for every POC: valid, Dolphin-loadable DOL, identity
     marker, hash, and the READY line prefix the Dolphin runner keys on."""
@@ -152,7 +221,7 @@ class EveryPocArtifacts(unittest.TestCase):
                       "gbp-init-irq-probe": b"OPENGBP-INITIRQ READY ",
                       "gbp-init-irq-program-probe": b"OPENGBP-INITIRQA READY ",
                       "gbp-init-irq-deliver-probe": b"OPENGBP-INITIRQB READY ",
-                      "gbp-init-irq-service-probe": b"OPENGBP-INITIRQ4 READY "}[poc]
+                      "gbp-init-irq-service-probe": b"OPENGBP-INITIRQ4 READY ", "gbp-av-service-probe": b"OPENGBP-AVSVC READY "}[poc]
             self.assertIn(prefix, blob, poc)
 
     def test_probe_writes_only_documented_things(self):
@@ -262,6 +331,41 @@ class EveryPocArtifacts(unittest.TestCase):
         self.assertNotIn(b"libmobile", blob)
         bi = read_build_info(os.path.join(ROOT, "build", "poc", "gbp-init-irq-service-probe", "build-info.txt"))
         self.assertEqual(bi["build_id"], "initirq4-0001")
+
+    def test_av_service_probe_identity_and_records(self):
+        # GBP-AV-SERVICE-001: its own test id and gecko prefix; the 003A stage records (reused module), the 003B
+        # delivery / ACK records (shared module, empty cycle field), the service records, the block records, the
+        # sidecar name; none of the other probes' test ids, records or the multi-cycle handler's strings; the
+        # mandatory power-cycle banner; build id avsvc-0001; no framebuffer/GX/audio-output/network string.
+        dol = os.path.join(ROOT, "build", "poc", "gbp-av-service-probe", "gbp-av-service-probe.dol")
+        with open(dol, "rb") as f:
+            blob = f.read()
+        self.assertIn(b"GBP-AV-SERVICE-001", blob)
+        for tid in (b"GBP-INIT-004", b"GBP-INIT-003B", b"GBP-INIT-003A", b"GBP-INIT-002", b"GBP-INIT-001"):
+            self.assertNotIn(tid, blob, tid)
+        self.assertIn(b"OPENGBP-AVSVC READY ", blob)
+        self.assertIn(b"OPENGBP-AVSVC LOG ", blob)
+        self.assertIn(b"OPENGBP-AVSVC SAVEBLOCKS rc=", blob)
+        for rec in (b"AVSVC start t_delivery_ms=", b"AVSVC blocks audio_idx=", b"AVSVC policy handler=003b_ext_installed_once",
+                    b"AVSVC end status=", b"INITIRQA start ", b"CAUSE t_event=", b"IRQ install rc=", b"PREUNMASK%s ok=", b"PREUNMASKAV av=",
+                    b"UNMASK%s t_unmask=", b"IRQ mask tag=MAIN%s rc=", b"WAIT%s fired=", b"HANDLER%s fired=", b"HANDLERPI%s intsr_at_entry=",
+                    b"HANDLERPI2%s t_second=", b"DELIVERY%s fired=", b"SVC start pending=", b"ack_source=PRESVC", b"SVC abort reason=bulk_read_unavailable",
+                    b"AUDIOREAD", b"VIDEOREAD", b"SVCEND drain=", b"POSTDRAIN observation_only=1", b"ACK%s before=", b"POSTACK%s intsr13=",
+                    b"MAINPICLEANUP%s site=POSTACK performed=", b"POSTACKAV boundary=", b"requirement=none", b"PICLEAN intsr=",
+                    b"REARM t_rearm=", b"after=drain_ack_pi_clean", b"REARMPOST t=", b"NEXTCAUSE found=1 immediate=", b"delivered=0",
+                    b"NEXTCAUSE found=0 timed_out=1", b"TEARDOWNAV variant=", b"SERVICE pass pending=", b"SERVICE rearm relatch_postdrain=",
+                    b"COUNTERS unmasks=", b"BLOCK kind=", b"BLOCKW kind=", b"gbi_frame_start=", b"TIMING cause_to_isr=", b"RESTOREAV handler_installed=",
+                    b"IRQW ", b"layout=gbi-u16-replicated", b"comment=startup-disc-stop-shadow", b"CLEANUP performed=", b"IRQ restore rc=",
+                    b"MASK final intmr=", b"WRITES control_written=", b"format=attempted/completed", b"DEVICE STATE UNCERTAIN",
+                    b"POWER CYCLE REQUIRED", b"NOT A PHYSICAL CANDIDATE", b"-blocks.bin", b"OGBPBLK1", b"OGBPEND1", b"NEVER delivered"):
+            self.assertIn(rec, blob, rec)
+        for rec in (b"INITIRQ4 start ", b"INITIRQB start ", b"INITIRQ start ", b"INIT start ", b"INTMR mask ", b"INTMR restore ",
+                    b"PREPARE n=", b"MULTI install expected_gen=", b"TEARDOWN4 variant=", b"CYCLE n=", b"hsp_backend_oneshot_isr_multi",
+                    b"anomaly_source_not_cleared", b"install_point=after_latched_cause", b"HANDLERPI intsr_before_ack=",
+                    b"GX_Init", b"AUDIO_Init", b"ASND_Init", b"ARQ_Init", b"libmobile", b"net_init"):
+            self.assertNotIn(rec, blob, rec)
+        bi = read_build_info(os.path.join(ROOT, "build", "poc", "gbp-av-service-probe", "build-info.txt"))
+        self.assertEqual(bi["build_id"], "avsvc-0001")
 
 
 if __name__ == "__main__":

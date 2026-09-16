@@ -164,15 +164,16 @@ void gbp_irq_service_deliver(const struct gbp_transport *t, struct ringlog *log,
                    bit13(r->intsr_after_ack), bit13(r->intsr_second), bit13(r->intmr_second), d->main_mask_ok, d->reentry);
 }
 
+static void postack_and_w1c(const struct gbp_transport *t, struct ringlog *log, struct gbp_initirqa_result *a,
+                            uint16_t src_mask, const char *nfield, const char *tag_postack, const char *sfx,
+                            struct gbp_irq_ack *k, unsigned *errors);
+
 void gbp_irq_service_ack(const struct gbp_transport *t, struct ringlog *log, struct gbp_initirqa_result *a,
                          uint16_t ack_or, uint16_t src_mask, uint16_t allowed_src, int require_source,
                          int require_control, uint8_t control_exp,
                          const char *nfield, const char *tag_preack, const char *tag_postack, const char *tag_ack,
                          const char *sfx, struct gbp_irq_ack *k, unsigned *errors)
 {
-    uint32_t intsr = 0, intmr = 0;
-    char tag[32];
-
     /* ---- 9. PREACK: the device has not been acknowledged; PI, CONTROL, IRQ as they are now ---- */
     gbp_initirqa_snapshot_take(t, a, &k->preack, tag_preack, 0, 1);
     gbp_initirqa_snapshot_log(log, a, &k->preack);
@@ -199,18 +200,39 @@ void gbp_irq_service_ack(const struct gbp_transport *t, struct ringlog *log, str
         } else if (require_source && k->source_zero) {
             k->ack_skipped = 1; k->ack_skip_reason = "source_lost";
         } else {
-            k->irq_pending = k->preack.irq_gbi;
-            k->ack_value = (uint16_t)(k->irq_pending | ack_or);
-            ringlog_printf(log, "ACK%s before=%04x ack_or=%04x ack_value=%04x formula=read|ack_or", nfield, (unsigned)k->irq_pending,
-                           (unsigned)ack_or, (unsigned)k->ack_value);
-            a->irq_writes_attempted++;              /* before the transport call, as in 003A */
-            a->power_cycle_required = 1;
-            gbp_regwrite_irq_u16(t, tag_ack, a->base, k->irq_pending, k->ack_value, &k->w_ack, errors);
-            if (k->w_ack.completed) a->irq_writes_completed++;
-            gbp_regwrite_log(log, &k->w_ack);
+            gbp_irq_service_ack_write_postack(t, log, a, k->preack.irq_gbi, ack_or, src_mask, nfield, tag_postack, tag_ack, sfx, k, errors);
+            return;
         }
     }
-    if (k->ack_skipped) ringlog_printf(log, "ACK%s skipped=1 reason=%s", nfield, k->ack_skip_reason);
+    ringlog_printf(log, "ACK%s skipped=1 reason=%s", nfield, k->ack_skip_reason);
+    postack_and_w1c(t, log, a, src_mask, nfield, tag_postack, sfx, k, errors);
+}
+
+void gbp_irq_service_ack_write_postack(const struct gbp_transport *t, struct ringlog *log, struct gbp_initirqa_result *a,
+                                       uint16_t pending, uint16_t ack_or, uint16_t src_mask,
+                                       const char *nfield, const char *tag_postack, const char *tag_ack, const char *sfx,
+                                       struct gbp_irq_ack *k, unsigned *errors)
+{
+    /* ---- 10. device ACK: IRQ := pending | ack_or (GBI's form; A1's physically validated write), derived from a read ---- */
+    k->irq_pending = pending;
+    k->ack_value = (uint16_t)(k->irq_pending | ack_or);
+    ringlog_printf(log, "ACK%s before=%04x ack_or=%04x ack_value=%04x formula=read|ack_or", nfield, (unsigned)k->irq_pending,
+                   (unsigned)ack_or, (unsigned)k->ack_value);
+    a->irq_writes_attempted++;              /* before the transport call, as in 003A */
+    a->power_cycle_required = 1;
+    gbp_regwrite_irq_u16(t, tag_ack, a->base, k->irq_pending, k->ack_value, &k->w_ack, errors);
+    if (k->w_ack.completed) a->irq_writes_completed++;
+    gbp_regwrite_log(log, &k->w_ack);
+    postack_and_w1c(t, log, a, src_mask, nfield, tag_postack, sfx, k, errors);
+}
+
+/* ---- 11.–12. POSTACK snapshot and the cycle's single main-loop W1C ---- */
+static void postack_and_w1c(const struct gbp_transport *t, struct ringlog *log, struct gbp_initirqa_result *a,
+                            uint16_t src_mask, const char *nfield, const char *tag_postack, const char *sfx,
+                            struct gbp_irq_ack *k, unsigned *errors)
+{
+    uint32_t intsr = 0, intmr = 0;
+    char tag[32];
 
     /* ---- 11. POSTACK ---- */
     gbp_initirqa_snapshot_take(t, a, &k->postack, tag_postack, 0, 1);

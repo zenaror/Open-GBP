@@ -8,6 +8,19 @@
  * initialized by the application (its ARAM interrupt handler would race
  * this polling).
  *
+ * Whole-block reads (read_bulk, GBP-AV-SERVICE-001): the same register
+ * programming and the same polled completion with the caller's 32-byte
+ * aligned buffer and a length that is a multiple of 32 — one DMA of the
+ * whole length, as both references issue for the AUDIO (0x1000) and VIDEO
+ * (0xF00) blocks. Cache maintenance for a device -> main-memory transfer:
+ * DCFlushRange (dcbf: write back + invalidate every line of the range, so
+ * no dirty line can be written back over the DMA data later and no stale
+ * line can serve a CPU read; the caller's pre-fill reaches memory) BEFORE
+ * the DMA, DCInvalidateRange (dcbi) AFTER completion — the Start-up Disc
+ * invalidates (dcbi, 0x800687dc) before its block DMA and again in the
+ * DMA-done callback, libogc2 invalidates before every EXI/ARAM read DMA
+ * (exi.c, aram.c). The buffer must not be touched while the DMA runs.
+ *
  * This object contains no INTMR write and no interrupt-handler code: the
  * PI HSP interrupt path (write_intmr, irq_install/restore/mask/unmask/
  * record, the one-shot handler) is hsp_backend_irq.c, linked only by the
@@ -28,9 +41,11 @@ extern "C" {
 struct hsp_backend {
     uint32_t timeout_ticks;    /* completion timeout in time-base ticks */
     uint8_t *buffer;           /* 32-byte aligned, 32 bytes, caller-provided */
-    uint32_t transfers;        /* statistics */
+    uint32_t transfers;        /* statistics (every DMA: 32-byte and bulk) */
     uint32_t timeouts;
     uint32_t busy_refusals;
+    uint32_t bulk_transfers;   /* whole-block reads started */
+    uint32_t bulk_bytes;       /* bytes requested by them */
     uint16_t last_csr_before;  /* DSP CSR seen before the last transfer */
     uint16_t last_csr_after;
     /* PI HSP interrupt path (gbp_transport irq_* operations):

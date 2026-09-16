@@ -126,6 +126,19 @@ void gbp_irq_service_ack(const struct gbp_transport *t, struct ringlog *log, str
                          const char *nfield, const char *tag_preack, const char *tag_postack, const char *tag_ack,
                          const char *sfx, struct gbp_irq_ack *k, unsigned *errors);
 
+/* Steps 10–12 alone, for a caller that already holds the value to acknowledge
+ * (GBP-AV-SERVICE-001: the PRESVC read taken BEFORE the block drains — the
+ * references acknowledge the value they read before consuming the blocks and
+ * never re-read it): the ACK record, the device write `pending | ack_or`
+ * (attempted before the transport call, completed on rc ok), the POSTACK
+ * snapshot and its record, the single main-loop INTSR W1C when bit 13 reads
+ * 1 there while masked. gbp_irq_service_ack() calls this after its PREACK
+ * decision; the records are the same in both paths. */
+void gbp_irq_service_ack_write_postack(const struct gbp_transport *t, struct ringlog *log, struct gbp_initirqa_result *a,
+                                       uint16_t pending, uint16_t ack_or, uint16_t src_mask,
+                                       const char *nfield, const char *tag_postack, const char *tag_ack, const char *sfx,
+                                       struct gbp_irq_ack *k, unsigned *errors);
+
 /* Teardown step between the PI check and the AR_INFO restore: the previous
  * handler back (verbatim), then the mask state verified with one retry when
  * `engaged`. Returns the first failure reason ("handler_restore_failed",

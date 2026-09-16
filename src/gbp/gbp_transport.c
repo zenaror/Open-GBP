@@ -42,6 +42,22 @@ int gbp_transport_has_irq_multi_path(const struct gbp_transport *t)
     return (gbp_transport_has_irq_path(t) && t->irq_prepare && t->irq_record_slot && t->irq_multi_status) ? 1 : 0;
 }
 
+int gbp_transport_has_bulk_read(const struct gbp_transport *t)
+{
+    return (t && t->read_bulk) ? 1 : 0;
+}
+
+int gbp_bulk_args_ok(uint32_t aram_addr, const void *out, uint32_t len)
+{
+    if (out == 0 || len == 0u || (len & (GBP_BLOCK_SIZE - 1u)) != 0u || len > GBP_BULK_MAX_LEN) return 0;
+    if ((aram_addr & (GBP_BLOCK_SIZE - 1u)) != 0u) return 0;
+    if (((uintptr_t)out & (uintptr_t)(GBP_BLOCK_SIZE - 1u)) != 0u) return 0;
+    if (aram_addr > 0xFFFFFFFFu - len) return 0;                                  /* source range wraps */
+    if ((uintptr_t)out > (uintptr_t)-1 - (uintptr_t)len) return 0;                /* destination range wraps */
+    if ((aram_addr & 0xFFFFFu) + len > 0x100000u) return 0;                       /* crosses the 1 MB register window */
+    return 1;
+}
+
 int gbp_transport_has_irq_path(const struct gbp_transport *t)
 {
     return (t && t->read_pi && t->write_intsr && t->irq_install && t->irq_restore &&

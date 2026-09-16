@@ -244,6 +244,30 @@ class ProbeLog(unittest.TestCase):
                               "T 4800",
                               "I r"])
 
+    def test_fixture_avsvc_records(self):
+        # GBP-AV-SERVICE-001: a whole-block read is one "B" line between the two time-base reads that
+        # bracket the call; its crc32 comes from the run's BLOCK record (only for a completed read); the
+        # bytes are never in the script. The other service records emit nothing of their own.
+        _, recs = probelog.parse_lines([
+            "000095 SNAP tag=PRESVC ticks=1603 since_control=583 since_a1=563 since_a2=453 polls_before=0\n",
+            "000101 SVC start pending=0500 drain=0500 audio=1 video=1 order=audio_then_video ack_value=8500 ack_source=PRESVC t=1603\n",
+            "000102 AUDIOREAD idx=8 addr=01800000 len=1000 selected=1 attempted=1 completed=1 rc=ok t_start=1613 t_end=1623 dt=10 wait_ticks=384 polls=128 csr_before=0000 csr_after=0020\n",
+            "000103 VIDEOREAD idx=1 addr=01100000 len=0f00 selected=1 attempted=1 completed=0 rc=timeout t_start=1633 t_end=1643 dt=10 wait_ticks=360 polls=120 csr_before=0000 csr_after=0200\n",
+            "000104 SVCEND drain=0500 selected=2 attempted=2 completed=1 ok=0 t_end=1643 dt_service=40 audio_rc=ok video_rc=timeout\n",
+            "000126 REARM t_rearm=1683 before=8000 value=0000 layout=gbi-u16-replicated after=drain_ack_pi_clean\n",
+            "000141 NEXTCAUSE found=0 timed_out=1 t_end=3700 since_rearm=2017 polls=200 rearmpost=A_quiet t_next_cause_ticks=2000\n",
+            "000170 BLOCK kind=audio idx=8 len=1000 present=1 valid=1 crc32=9897b144 zeros=17 distinct=256 w_off=0000,0540,0aa0,0fe0 first_word=dbe2e9f0 gbi_frame_start=1\n",
+            "000171 BLOCKW kind=audio off=0000 data=dbe2e9f0f7fe050c131a21282f363d444b525960676e757c838a91989fa6adb4\n",
+            "000175 BLOCK kind=video idx=1 len=0f00 present=1 valid=0 rc=timeout summary=-\n",
+            "000180 VIDEOREAD idx=1 addr=01100000 len=0f00 selected=0 attempted=0 rc=-\n",
+        ])
+        fx = probelog.fixture(recs).splitlines()[1:]
+        self.assertEqual(fx, ["T 1603",
+                              "T 1613", "B 01800000 00001000 ok 9897b144", "T 1623",
+                              "T 1633", "B 01100000 00000f00 timeout", "T 1643",
+                              "T 1683",
+                              "T 3700"])
+
     def test_fixture_cleanup_ack_between_the_two_pi_reads(self):
         # The probe reads PI (CLEANUPCHK), writes INTSR once, re-reads PI (CLEANUP),
         # and only then logs the CLEANUP record: the "P a" line must sit between the

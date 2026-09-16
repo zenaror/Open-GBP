@@ -3284,3 +3284,380 @@ checkpoint (host-side first: transport bulk read with mock / replay,
 service pass, probe, tests, audits, Dolphin) → dirty build for review →
 user checkpoint → clean rebuild and release audit → only then a possible
 authorization of one physical run. Not requested here.
+
+## 2026-09-16 — GBP-AV-SERVICE-001 implemented (dirty build avsvc-0001); NOT physically executed
+
+**Goal.** Implement the Phase 4 entry probe specified in the previous entry
+(HARDWARE_TESTS.md "Planned tests — GBP-AV-SERVICE-001"): one delivery of
+an HSP cause, the PRESVC snapshot, the whole-block drains of the pending
+AUDIO / VIDEO blocks, the ACK from the PRESVC value, POSTACK without a
+source requirement, the PI cleanup budget, the re-arm, REARMPOST, the next
+cause observed and never delivered, the teardown. No hardware, no
+request, no commit. Working tree at the start: clean, HEAD `5ed9d93`
+("research: design bounded GBP AV service probe"). Statuses confirmed
+before coding: GBP-INIT-003A / 003B / 004 PHYSICALLY EXECUTED;
+GBP-AV-SERVICE-001 planned, not implemented; Phase 3 "IRQ core validated,
+re-arm carried into the Phase 4 entry".
+
+**Architecture and reuse (no fourth copy of the initialization).** The
+003A stage runs verbatim through `gbp_initirqa_run_cause`; the delivery,
+the ACK / POSTACK / single-main-W1C step and the teardown hook are the
+shared 003B service (`gbp_irq_service.{h,c}`), whose ACK step was split
+into `gbp_irq_service_ack_write_postack` (the write + POSTACK + main W1C
+for a value the caller already holds) called by the unchanged
+`gbp_irq_service_ack` — the 003B and 004 physical fixtures still pin every
+record byte for byte; the teardown is the 003A one with the 003B hook. New
+modules: `gbp_avblock` (one raw block: whole-block read through the
+transport, summary after the timed region, records), `gbp_avdump` (the
+block sidecar), `gbp_crc32`, `gbp_avsvc_probe` (the probe). The transport
+gained `read_bulk` (device → main memory, `len` a multiple of 32, aligned
+buffer, one transfer, no retry) and `gbp_bulk_args_ok`; `gbp_xfer_info`
+gained `dma_status_before`.
+
+**Handler chosen.** The 003B extended one-shot (`hsp_backend_oneshot_isr_ext`,
+physically executed 2026-09-15), installed once after the first latched
+cause — the least ISR change: zero. A second delivery is forbidden by
+design, so the 004 generation wrapper and `hsp_backend_irq_multi.c` are
+not linked. `__UnmaskIrq` has one call site (`h_irq_unmask`), reached only
+from `gbp_irq_service_deliver`, called exactly once by the probe (pinned
+by the audit profile); INTMR is never stored directly.
+
+**Backend DMA and cache (audited before coding).** The 32-byte routine
+became `dma_len` (physical main-memory address, ARAM address, length): the
+32-byte accesses call it with the backend's own buffer and 32, the
+whole-block read with the caller's buffer and 0x1000 / 0xF00. Same
+register programming (`0xCC005020/24/28` in 16-bit halves, direction bit
+15 of CNT_H), same busy refusal (CSR bit 9 or bit 5 set), same polled
+completion with the operational 200 ms bound, same single flag clear. The
+references issue one DMA of the whole length: the Disc's `0x80089c3c`
+with `len`, GBI's ARQ **hi queue** (`0x800617b4` starts `AR_StartDMA` with
+the full length; the chunked `0x80061820` is the lo queue, never used for
+the GBP — HSP.md §3 corrected). Cache: the Disc's `0x800687dc` is a `dcbi`
+loop (before its block DMA and in its DMA-done callback), its `0x80068808`
+a `dcbf` + `sync` loop (before writes); libogc2 invalidates before every
+EXI / ARAM read DMA. Open-GBP: `DCFlushRange` before the DMA (write back +
+invalidate: no dirty line can be written back over the DMA data, the zero
+pre-fill reaches memory), `DCInvalidateRange` after; the compiled sequence
+`gbp_bulk_args_ok → DCFlushRange → dma_len → DCInvalidateRange` is pinned
+by `test_poc_audit.py` on the build.
+
+**The service pass.** PRESVC (PI ×2, CONTROL, IRQ) is the single
+authoritative snapshot: reads ok, Disc = GBI, CONTROL 0x8C, INTMR bit 13 =
+0, no source outside AV, an AV source pending, odd / bit 15 / high bits 0;
+`pending_irq` selects the block set and is the ACK value — never a later
+read (a source that appears during a drain is observed at POSTDRAIN and
+not added; the ACK does not acknowledge it). Drains AUDIO then VIDEO, one
+DMA each, nothing formatted until both are done, VIDEO never started after
+a failed AUDIO read; a failed drain ends the run without ACK or re-arm
+(`audio_dma_busy|timeout|error`, `video_…`, `drain_uncertain` on a timeout,
+teardown `S3_dma_failed`). POSTDRAIN observation only (with the mandatory
+consistency checks). ACK `pending | 0x8000` (attempted before the call,
+completed on rc ok; `ack_write_failed` otherwise, uncertain, no re-arm).
+POSTACK: no source requirement (`boundary=clean|pending_av` is data), shape
+mandatory (odd 0, bit 15 = 1, high 0 → else `anomaly_postack_shape`).
+PICLEAN: ≤ 1 main W1C, sticky → `anomaly_pi_sticky_after_service`. REARM
+`IRQ := 0x0000` once; REARMPOST A–F as 004; NEXTCAUSE polled ≤ 500 ms
+while masked, valid with INTSR bit 13 + an AV source + nothing outside AV;
+none → `no_next_cause_after_service` (observation class). The second cause
+stays latched: no second unmask, no second ISR, no second service — the
+teardown's stop word and single W1C close it. W1C budget: ISR 1, main ≤ 1,
+NEXTCAUSE 0, teardown ≤ 1 (three at most; the relatch scenario reaches
+exactly three). Statuses carry a class (ok / observation / errors / abort
+/ transport / dma / anomaly).
+
+**Sidecar.** `GBP-AV-SERVICE-001_avsvc-0001-blocks.bin`, written on X
+after the log, outside every timed region: `OGBPBLK1`, a 128-byte
+big-endian header (version, flags present/valid per block, pending mask,
+drain mask, lengths, per-block CRC-32, rc, wait and dt ticks, tb_hz,
+identity ×3, indices, header CRC-32), the AUDIO then the VIDEO bytes, an
+`OGBPEND1` footer with the total CRC-32; a block never read has length 0
+(nothing uninitialized), a failed read is stored as left and flagged not
+valid. Parser: `tools/avdump.py` (info / json / extract). The text log
+carries only CRC-32 and four 32-byte windows per block (`BLOCK`, `BLOCKW`);
+the on-screen summary shows both CRC-32s so a failed SD write still leaves
+a checkable value; a partial save (log only) is reported as such.
+
+**Mock, replay, probelog, audits.** Mock: a whole-block read model
+(deterministic pattern per index, per-index rc, partial-on-timeout,
+drain-clears-the-source, a source asserting during the Nth read, a phantom
+PI cause, a dropped bit 15). Replay: `B <addr> <len> <rc> [<crc32>]`
+answered from an attached block source (the sidecar), missing blocks and
+CRC mismatches counted, the operation exposed only by a script that has
+such a line — older fixtures untouched. probelog: `AUDIOREAD` /
+`VIDEOREAD` → `T`, `B`, `T`. poc_audit: profile `avsvc` (objects,
+forbidden symbols and prefixes ARQ_/AR_/AUDIO_/ASND/AESND/GX_/net_/DSP_/
+SI_/SIO, call-site counts: `gbp_avblock_read` ×2, `gbp_irq_service_deliver`
+×1, `gbp_irq_service_ack_write_postack` ×1 from the probe and ×1 from the
+shared ACK, `gbp_irq_service_ack` never, IRQ write sites 3 + 1 + 1, INTSR
+stores in `h_write_intsr` and the two handlers, main.o calls the ext
+constructor, the probe, the sidecar writer).
+
+**Tests executed.** C: 12 binaries, 15046 checks, 0 failures
+(`test_gbp_avsvc` 3046 incl. the three physical prefixes; `test_gbp_avdump`
+3935; the earlier ten unchanged: 003A/003B/004 physical fixtures replay to
+their recorded results). Python: 171 tests OK (`test_avsvc_replay.py`:
+synthetic log → fixture + sidecar → replay to the identical summary, the
+blocks reported missing without the sidecar, a tampered sidecar rejected,
+the physical 003B / 004 prefixes to `abort_bulk_unavailable` with 0
+mismatches, no AVSVC fixture under captures/; `test_avdump.py`;
+`test_poc_audit.py` profile `avsvc` synthetic and on the build;
+`test_isr_audit.py` both handlers of the build; `test_probelog.py`;
+`test_artifacts.py`). Docker build: eight POCs, 0 warnings; `make
+avsvc-audit`: 0 findings, `hsp_backend_oneshot_isr_ext` (82 instructions)
+and `hsp_backend_oneshot_isr` (70) CLEAN; the 003A / 003B / 004 / 002
+audits still clean on the rebuilt objects. Dolphin (OSD off): absent →
+`abort_inconsistent`, GBPlayer model → `abort_control_shape`, both PASS —
+Dolphin never reaches the service (preconditions not weakened).
+
+**Dirty DOL identity.** app `gbp-av-service-probe`, Test ID
+GBP-AV-SERVICE-001, Build ID avsvc-0001, base HEAD `5ed9d93`, describe
+`5ed9d93-dirty`; DOL 403968 bytes, entry 0x80003100, one text section
+0x80003100–0x8004E560, one data section 0x8004E560–0x80065A00, BSS
+0x800659F0 + 0x479C8, sections 32-byte aligned (Dolphin-loadable);
+devkitPPC gcc 16.1.0, libogc2 r2442.094b250; SHA-256
+`f2e2de0a233c5e0bc63d36de60c11c9fe3349d9c5924d1930dedcbcbaf69dbc0`.
+**NOT A PHYSICAL CANDIDATE.**
+
+**Residual risks (for the review).** The whole-block DMA is the one new
+variable class on hardware: the register programming and the completion
+routine are those of every 32-byte access so far, but a 0x1000 / 0xF00
+transfer through the HSP has never been executed by Open-GBP (the
+references do it on every pass). The device semantics of a block read
+(whether the drain clears the status bit before the ACK) are unknown and
+observed, not assumed (POSTDRAIN / POSTACK). A DMA timeout may leave the
+engine busy for the teardown's 32-byte accesses (best-effort, power
+cycle). The main-loop W1C and the teardown W1C are the same budget as 004.
+The mock's synthetic semantics (a drain clears nothing by default; the
+level bit-15 model re-latches the PI only on register changes) are not
+physical data.
+
+**Documents updated.** HARDWARE_TESTS.md (planned entry status →
+IMPLEMENTED — NOT PHYSICALLY EXECUTED, implementation notes a–h),
+HSP.md §3 (the ARQ hi-queue precision replacing the old chunk sentence;
+the cache sequence), `poc/gbp-av-service-probe/README.md`, tests/README.md,
+captures/README.md (the `B` grammar and the sidecar association; no
+fixture yet), this entry. Phase 3 stays "IRQ core validated, re-arm
+carried into the Phase 4 entry"; no physical re-arm is claimed.
+Requirements preserved: Start-up Disc / GBI parity; physical Link Port
+compatibility (no SIOCTL / SIODATA / KEYPAD access); rumble / GBP-aware
+features; the virtual Mobile Adapter over the BBA additive — none touched.
+
+**Next.** Review of this implementation → micro-audit if needed → user
+checkpoint → clean rebuild and release audit → only then a possible
+authorization of one physical run. Not requested here.
+
+## 2026-09-16 — GBP-AV-SERVICE-001 micro-audit (DMA / buffers / teardown): passed; two rules tightened, no defect
+
+**Goal.** Before the implementation checkpoint, audit the properties this
+POC introduces — the whole-block DMA, the raw buffers, the cache
+sequence, the timeout / busy behavior of the teardown, the one-shot
+delivery, the snapshot immutability, the sidecar — on the dirty build's
+ELF, DOL and objects, with the host suites and the mock. No hardware, no
+request, no commit. Base HEAD `5ed9d93`, tree clean before the
+implementation; the tree stays dirty (the same files plus this entry).
+
+**DATA / BSS.** ELF: `.sdata` ends at 0x800659F0 = the RW `PT_LOAD`'s
+file-backed end; `.sbss` (NOBITS) starts there; the BSS `PT_LOAD` is
+[0x800659F0, 0x800AD3B8). DOL: one data section [0x8004E560, 0x80065A00)
+— 16 bytes longer than the ELF's file-backed range because
+`tools/dolpad.py` rounds section sizes up to 32 bytes with zeros (Dolphin
+refuses unaligned sizes). Those 16 bytes are the only DOL bytes inside the
+BSS range: they are zero in the file, they are not ELF content (the DOL
+payload equals the ELF segment bytes, verified), and libogc2's
+`ogc_crt0.S` memsets `__bss_start..__bss_end` after the load. No loaded
+content byte is in a zeroed region. The same padding exists in every
+earlier build (8 to 24 bytes; 003B 16, 004 24 — both physically executed);
+`tests/host/test_artifacts.py` now proves it for every POC (payload =
+ELF bytes; added bytes are zero; no file-backed byte inside BSS; no
+section overlap; BSS segment = DOL BSS; entry 0x80003100; MEM1). After the
+rebuild the layout moved by 0x20 (text 0x80003100–0x8004E580, data
+0x8004E580–0x80065A20 with the same 16-byte zero padding, BSS
+0x80065A10 + 0x479C8). Not a blocker: rounding, not aggregation, not content.
+
+**Buffers (nm, after the rebuild).** `audio_raw` 0x80068FE0 (0x1000),
+`video_raw` 0x800680E0 (0xF00), `dma_buffer` 0x80069FE0 (0x20),
+`log_storage` 0x8006A000 (0x14000), `dump_buffer` 0x80066148 (0x1F8C,
+not a DMA target) — all static `.bss` symbols, 32-byte aligned where a
+DMA lands, full lengths, adjacent without overlap, inside the BSS segment,
+never on the stack, never shared with the ring log or the records.
+
+**Source address.** `gbp_block_addr(base, index, 0)` = base + (index <<
+20): AUDIO 0x01800000, VIDEO 0x01100000 under expansion code 3 (base
+0x01000000), logged in the `AUDIOREAD` / `VIDEOREAD` records and pinned by
+the tests; 0x1000 / 0xF00 stay inside their 1 MB windows. The argument
+rule was tightened during this audit: `gbp_bulk_args_ok` now also refuses
+a transfer whose source or destination range wraps and one that crosses
+its register window (the compiled backend checks the rule before it
+programs anything).
+
+**DMA registers, direction, length (dma_len listing).** The CSR test
+`andi. r10,r9,0x220` (bits 9 and 5) branches to the refusal path
+(counter, `dma_status`, return BUSY) before any store; then six `sth` to
+0xCC005020…0xCC00502A: MMADDR = destination physical address (>> 16 &
+0x3FF / & 0xFFE0), ARADDR = source, CNT_H = (len >> 16 & 0x3FF) |
+(dir << 15) with dir = 1 (ARAM → main memory, the Disc's `param_4 << 15`
+and libogc's `AR_ARAMTOMRAM`), CNT_L = len & 0xFFE0 — one store, one
+start, no loop over chunks. The 32-byte path calls the same routine with
+its own buffer and 32; the poll clears bit 5 only on completion, never on
+timeout.
+
+**Cache.** libogc2 `cache_asm.S`: `DCFlushRange` = `dcbf` per 32-byte line
++ `sc` (the flush completion barrier), `DCInvalidateRange` = `dcbi` per
+line; both cover the range rounded to lines. Compiled `h_read_bulk`:
+`gbp_bulk_args_ok → DCFlushRange → dma_len → DCInvalidateRange` (pinned by
+`test_poc_audit.py`). The zero pre-fill (`memset` in the probe's first
+lines, before the 003A stage) precedes the flush by the whole
+initialization; between the flush and the completion nothing touches the
+buffers (the probe only records `t_start`, calls, records `t_end`); the
+first CPU read of a block is `gbp_avblock_summarize`, called from the end
+records after the teardown, i.e. after the invalidate. No dirty line can
+be written back over DMA data (flushed before), no stale line can be read
+(invalidated after). Not a blocker.
+
+**Timeout / error.** A timed-out read keeps `attempted = 1, completed =
+0`, `drain_uncertain = 1`; the block is present, not valid, never
+summarized (no CRC as if complete), stored in the sidecar as left in memory
+with its rc; a busy refusal programs nothing. New test: an AUDIO timeout
+that leaves the engine busy — every later transfer (CONTROL restore, IRQ
+reads, STOP) is refused without a register store, none started, no retry,
+no VIDEO, no ACK, no re-arm, the teardown's fixed set of accesses bounded
+(≤ 12 refused transfers), the interrupt path restored, `power_cycle_required
+= 1`, `restore = error`, `uncertain = 2`. Every wait is bounded by the
+200 ms transfer timeout; no loop waits for the engine.
+
+**One-shot delivery.** `h_irq_install` loads
+`hsp_backend_oneshot_isr_ext` when `use_ext_isr` (offset 40 of the
+backend) is set — `hsp_backend_irq_transport_ext` stores 1 there and
+main.o calls only that constructor — else the base handler; both symbols
+are therefore referenced by the object and linked, the base one dead for
+this POC (the 003B build, physically executed, had the same object). One
+install, one `__UnmaskIrq` site reached once, mask before the single W1C
+(isr_audit CLEAN on both bodies), no direct INTMR store, no DMA inside the
+handler (its only calls: `__MaskIrq`).
+
+**Immutability / order / ACK / POSTACK / PI / REARM / NEXTCAUSE.**
+`pending_irq`, `drain_mask`, `audio.selected`, `video.selected` are each
+assigned once (PRESVC); the ACK value is computed by the shared service
+from that argument; POSTDRAIN assigns none of them. The event-order test
+proves AUDIO start/complete < VIDEO start/complete < ACK < POSTACK <
+PICLEAN < REARM < REARMPOST < NEXTCAUSE < teardown, with no IRQ write
+between the drains. POSTACK 0x8000 / 0x8100 / 0x8400 / 0x8500 all accepted
+(tests); no `irq & 0x0555 == 0` rule anywhere in the probe. PICLEAN: ≤ 1
+main W1C, sticky aborts. `irq_unmask` has one call site in the tree
+(`gbp_irq_service_deliver`), `write_intsr` two (POSTACK, teardown) plus
+the handler: the absolute budget is three by construction and counted at
+runtime (`COUNTERS w1c_total`).
+
+**Sidecar.** Written only from main.c's X branch after
+`gbp_avsvc_probe_run` returned (static order pinned by the on-build test:
+probe entry < `sdlog_save` < `gbp_avsvc_dump_info` < `gbp_avdump_serialize`
+< `sdlog_save_blob`); the service objects reference no file, SD,
+serializer or gecko symbol. Buffer writers: the pre-fill memset and the
+DMA, nothing else (the teardown never touches them; the summary and the
+serializer read). Format audited field by field (big-endian put16/put32,
+zeroed 128-byte header, 16-byte NUL-padded identities, no pointer, no
+struct copy, absent block = length 0), C ↔ Python round trips; CRC-32 =
+zlib variant (poly 0xEDB88320 reflected, init/xorout 0xFFFFFFFF, check
+value 0xCBF43926) on `uint8_t`. Partial save: the log first, then the
+blob; the screen and the gecko lines report each result and mark a
+log-only save as PARTIAL; the run's result is unaffected.
+
+**Replay / fixtures / mock.** `B` lines: exact address, length and rc
+must match (mismatch counted), bytes only from the attached sidecar and
+verified against the line's CRC-32, missing blocks counted and the
+harness fails (zeros are never silent evidence); scripts without `B`
+expose no bulk read (every older fixture replays unchanged). The physical
+003B / 004 prefixes end before their device ACK — before any operation
+those runs never made — with an explicit BOUNDARY comment. The mock now
+refuses a bulk read that does not name the block's exact address (offset
+0 of its window) and counts it; the tests assert the exact addresses and
+lengths of every bulk operation.
+
+**Audits / Dolphin (rebuilt).** Docker rebuild 0 warnings; `avsvc-audit`
+0 findings, both handlers CLEAN; the 002/003A/003B/004 audits clean on the
+rebuilt objects; Dolphin absent → `abort_inconsistent`, GBPlayer model →
+`abort_control_shape`, no write, no unmask, no bulk read. Tests: C 12
+binaries, 15385 checks, 0 failures; Python 174 tests OK. Dirty DOL after
+the audit: 404000 bytes, entry 0x80003100, sha256
+`4564e42a2c8239161ee19440d9292818d42d18ac31a7b9b73bfc3dd5c34eb52d`
+(commit `5ed9d93-dirty`) — **NOT A PHYSICAL CANDIDATE**.
+
+**Result.** GBP-AV-SERVICE-001 MICRO-AUDIT PASSED — READY FOR
+IMPLEMENTATION CHECKPOINT — NOT A PHYSICAL CANDIDATE. Changes made by the
+audit: the bulk argument rule (wrap / window), the mock's exact-address
+rule, the new tests (section map, timeout-then-busy teardown, save
+timing, exact addresses); no probe logic changed.
+
+## 2026-09-16 — GBP-AV-SERVICE-001 sidecar / cache audit: identity fields were truncating (fixed, format version 2); the `sc` after `dcbf` confirmed
+
+**Identity fields — defect found and fixed.** The sidecar's version-1
+header held three 16-byte identity fields (test_id 0x40, build_id 0x50,
+commit 0x60, NUL padded) and both the serializer and the probe's
+description helper copied at most 16 characters: the official Test ID
+`GBP-AV-SERVICE-001` (18 characters) was stored as `GBP-AV-SERVICE-0` —
+a silent truncation of an identity used to correlate evidence, i.e. a
+material format defect (the tests even asserted the truncated string).
+Version 1 was never produced on hardware (no physical run) and no file of
+it exists outside `build/`. Fix: **format version 2** — 256-byte header,
+four 32-byte fields at 0x40 (test_id), 0x60 (build_id), 0x80 (app, new),
+0xA0 (commit), indices at 0xC0/0xC4, 52 reserved zero bytes, header
+CRC-32 at 0xFC, payload from 0x100, the same footer. Identity rule: 1 to
+31 characters of printable ASCII without spaces (0x21..0x7E) for test_id
+and build_id, 0 to 31 for app and commit, zero padded to the field (a NUL
+is always present); a string that does not fit, an empty required field
+or a bad byte is an ERROR — serializer `-2`, parser `-8`, Python
+`ValueError` — never a truncation. `gbp_avdump_set_identity` /
+`gbp_avsvc_dump_info` store nothing and set `identity_error` when a
+string does not fit; main.c reports "identity does not fit the format"
+instead of writing a sidecar. Round trips now compare byte by byte
+`GBP-AV-SERVICE-001`, `avsvc-0001`, `gbp-av-service-probe` and
+`5ed9d93-dirty` (C and Python; the C dump parsed by tools/avdump.py);
+boundaries tested: 31 characters fit exactly, 32 are refused, required
+empty refused, optional empty allowed, a space or a non-ASCII byte
+refused, a field without NUL / with non-zero padding / non-zero reserved
+bytes / version 1 refused by the parsers. The header is memset to zero
+before the field-by-field writes (no struct copy, no pointer, no
+uninitialized byte); the layout was re-verified byte by byte in the tests.
+
+**Correlation log ↔ fixture ↔ sidecar ↔ DOL.** The sidecar carries the
+full Test ID, Build ID, app and commit — the same strings as the log
+header (`test_id=`, `build_id=`, `commit=`, `IDENT app=`), the DOL's
+`OPENGBP-IDENT` marker and build-info, and a future fixture's header
+(`# TEST_ID`, `# BUILD_ID`, `# COMMIT`, `# DOL_SHA256`, to which
+`# BLOCKS_SHA256` will be added) — plus the pending / drain masks and the
+per-block CRC-32 that the log's `SVC start` and `BLOCK` records also
+carry. No SHA-256 of the DOL inside the sidecar (not part of the design).
+
+**`sc` after `dcbf` — not a typo.** libogc2 `cache_asm.S` `DCFlushRange`:
+`dcbf` per 32-byte line, then the `sc` instruction (0x44000002 in the
+linked binary at 0x8002422C), then `blr`. libogc2 installs its own
+system-call vector at 0xC00 (`exception.c` `__systemcall_init` →
+`exception_handler.S` `systemcallhandler_start`): `mfhid0 r9; ori
+r10,r9,0x0008; mthid0 r10; isync; sync; mthid0 r9; rfi` — HID0 bit 0x0008
+(data cache flush assist) set, `isync` + `sync`, DCFA cleared — the SDK's
+flush-completion idiom; the exception entry and `rfi` are context
+synchronizing. So the pre-DMA flush ends with a full `sync` inside the
+vector before the DMA registers are programmed. `DCInvalidateRange` is a
+`dcbi` loop without a barrier, as in the SDK and the Start-up Disc
+(`0x800687dc`); the first CPU read of a block (`gbp_avblock_summarize`,
+after the teardown) is program-ordered after it. Sequence re-confirmed on
+the rebuilt object: zero pre-fill (probe start) → `DCFlushRange` →
+`dma_len` (one DMA, device → main memory) → completion → `DCInvalidateRange`
+→ first CPU read after the teardown; no CPU access to the raw buffers in
+between (writers: the pre-fill memset and the DMA only). No change to the
+cache policy.
+
+**Regression (the DOL changed).** C: 12 binaries, 15606 checks, 0
+failures (`test_gbp_avdump` 4161 incl. the identity suite, `test_gbp_avsvc`
+3380). Python: 175 tests OK. Docker rebuild: 0 warnings; audits avsvc /
+004 / 003B / 003A / 002 clean; Dolphin absent → `abort_inconsistent`,
+GBPlayer model → `abort_control_shape`, both PASS. New dirty DOL: 404736
+bytes, entry 0x80003100, text 0x80003100–0x8004E780, data
+0x8004E780–0x80065D00 (24 zero padding bytes into `.sbss`, verified), BSS
+0x80065CE8 + 0x47A50, sha256
+`969805185e281b0ae25c22c22d07403673929dccbacf56c60d773e463309a76b`
+(commit `5ed9d93-dirty`); the previous dirty hash `4564e42a…b52d` is
+discarded. **NOT A PHYSICAL CANDIDATE.**
+
+**Result.** GBP-AV-SERVICE-001 SIDECAR/CACHE AUDIT PASSED — READY FOR
+IMPLEMENTATION CHECKPOINT — NOT A PHYSICAL CANDIDATE.

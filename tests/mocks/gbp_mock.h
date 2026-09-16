@@ -22,6 +22,12 @@
  *     after the Nth IRQ write; PI INTSR bit 13 is raised when a source is
  *     pending and its local mask (and bit 15, in the level reading) are
  *     open, whether or not INTMR enables delivery.
+ *   - a SYNTHETIC whole-block read model (GBP-AV-SERVICE-001): read_bulk
+ *     answers a deterministic byte pattern per block index, with per-index
+ *     failure injection (busy / timeout / backend), an optional "the drain
+ *     clears the source bit" rule, a source that (re)asserts while the Nth
+ *     bulk read is in progress, and a phantom PI cause after the Nth
+ *     IRQ-register write.
  *   None of the IRQ behavior is physical data: it only exercises control
  *   flow (docs/protocol/INITIALIZATION.md §10 keeps the classification).
  */
@@ -44,12 +50,15 @@ enum gbp_mock_op_kind {
     /* events generated inside a delivered handler entry */
     MOCK_ISR_ENTRY, MOCK_ISR_MASK, MOCK_ISR_W1C, MOCK_ISR_EXIT,
     /* multi-cycle path (GBP-INIT-004): the generation published by the main loop (value = gen) */
-    MOCK_IRQ_PREPARE
+    MOCK_IRQ_PREPARE,
+    /* whole-block read (GBP-AV-SERVICE-001): addr, len, rc, data = the first 32 bytes delivered */
+    MOCK_RD_BULK
 };
 
 struct gbp_mock_op {
     enum gbp_mock_op_kind kind;
     uint32_t addr;
+    uint32_t len;               /* MOCK_RD_BULK: bytes requested */
     uint16_t value;             /* AR_INFO value for AR ops */
     uint8_t data[GBP_BLOCK_SIZE];
     gbp_status rc;
@@ -172,6 +181,22 @@ struct gbp_mock {
     unsigned suppress_delivery_at;  /* the Nth delivery (1-based) never reaches the CPU although cause and mask are open */
     unsigned source_clear_at_delivery; /* right after the Nth delivered handler entry returns, every source drops (source-lost model) */
     unsigned irq_disagree_from_write;  /* from the Nth IRQ write on, IRQ reads present byte 0x1F ^ 0x01 (Disc != GBI) */
+    /* ---- whole-block reads (SYNTHETIC; GBP-AV-SERVICE-001) ---- */
+    int bulk_ops_available;         /* 0: the transport exposes no read_bulk (like a replay without "B" lines); default 1 */
+    int bulk_any_offset;            /* 1: accept a bulk read at any offset of a window; default 0 = the exact block address only
+                                     * (base + index << 20, as both references read the AUDIO / VIDEO blocks), else GBP_ERR_PARAM */
+    unsigned bulk_bad_addr;         /* bulk reads refused because their address was not a block's exact address */
+    gbp_status bulk_rc[16];         /* status returned by a bulk read of block index i (default GBP_OK) */
+    int bulk_partial_on_fail;       /* a failed bulk read still delivered its first 32 bytes (DMA-started model) */
+    uint32_t bulk_ticks_per_line;   /* wait ticks reported per 32 bytes (default 3) */
+    uint8_t bulk_seed;              /* byte-pattern seed (gbp_mock_bulk_byte) */
+    int bulk_clears_source;         /* 1: reading block 0x8 clears source 0x0400 and block 0x1 clears 0x0100 (drain-clears model) */
+    unsigned bulk_assert_at_read;   /* 1-based bulk read number during which bulk_assert_bits (re)assert (0 = never) */
+    uint16_t bulk_assert_bits;      /* even source bits set then, e.g. 0x0100 */
+    int bulk_assert_after;          /* 1: the assertion happens after that read completed, else before it starts */
+    unsigned bit15_drop_at_write;   /* 1-based IRQ-register write whose bit 15 is not retained (reads 0 afterwards; 0 = never) */
+    unsigned pi_phantom_after_write;/* 1-based IRQ-register write after which INTSR bit 13 is set with no source (0 = never) */
+    uint32_t pi_phantom_delay;      /* ticks after that write */
     /* state */
     uint8_t test_store[GBP_BLOCK_SIZE];
     unsigned transfers;         /* block transfers so far */
@@ -215,6 +240,10 @@ struct gbp_mock {
     unsigned mask_calls;            /* mask primitive calls (handler + main), for mask_ignored_from_call */
     unsigned unmask_calls;          /* irq_unmask calls seen */
     unsigned isr_entries_multi;     /* handler entries served through the multi-cycle body */
+    unsigned bulk_reads;            /* bulk reads seen (attempted) */
+    uint32_t bulk_bytes;            /* bytes delivered by completed bulk reads */
+    int pi_phantom_pending;
+    uint32_t pi_phantom_at_tick;
     /* test hook: invoked at the entry of every write_block, before the mock
      * decides anything — lets a test observe the caller's state at the
      * moment the transport is invoked (not after it returned). */
@@ -224,6 +253,9 @@ struct gbp_mock {
 
 void gbp_mock_init(struct gbp_mock *m);
 void gbp_mock_transport(struct gbp_mock *m, struct gbp_transport *t);
+
+/* Byte k of the synthetic pattern a bulk read of block `index` delivers (seed = m->bulk_seed). */
+uint8_t gbp_mock_bulk_byte(unsigned index, uint8_t seed, uint32_t k);
 
 /* Counts of block writes outside index 'allowed' (relative to base). */
 unsigned gbp_mock_writes_outside(const struct gbp_mock *m, uint32_t base, unsigned allowed_index);

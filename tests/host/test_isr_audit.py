@@ -211,6 +211,43 @@ class IsrAuditOnBuild003B(unittest.TestCase):
         self.assertEqual(sorted(h[0] for h in intsr), ["hsp_backend_oneshot_isr", "hsp_backend_oneshot_isr_ext"])
 
 
+AUDIT_FILE_AV = os.path.join(ROOT, "build", "poc", "gbp-av-service-probe", "audit", "hsp_backend_irq.objdump.txt")
+
+
+@unittest.skipUnless(os.path.isfile(AUDIT_FILE_AV), "run `make build avsvc-audit` to produce the objdump")
+class IsrAuditOnBuildAVSVC(unittest.TestCase):
+    """GBP-AV-SERVICE-001 links the 002/003B interrupt object again (the extended one-shot is the
+    handler installed; one delivery, no generation wrapper): both bodies clean, the multi-cycle
+    handler absent from the object and from this build."""
+
+    def _audit(self, symbol):
+        with open(AUDIT_FILE_AV, "r", encoding="utf-8", errors="replace") as f:
+            text = f.read()
+        items = isr_audit.extract_function(text, symbol)
+        self.assertIsNotNone(items, "%s not in the objdump" % symbol)
+        findings, calls = isr_audit.audit(items)
+        self.assertEqual(findings, [], symbol)
+        self.assertEqual(calls, ["__MaskIrq"], symbol)
+        intsr, intmr = isr_audit.pi_store_sites(items)
+        self.assertEqual([st[4] for st in intsr], [0x2000], symbol)
+        self.assertEqual(intmr, [], symbol)
+        return text
+
+    def test_both_handlers_are_clean_and_the_multicycle_one_is_absent(self):
+        text = self._audit("hsp_backend_oneshot_isr_ext")
+        self._audit("hsp_backend_oneshot_isr")
+        self.assertIsNone(isr_audit.extract_function(text, "hsp_backend_oneshot_isr_multi"))
+        self.assertFalse(os.path.isfile(os.path.join(os.path.dirname(AUDIT_FILE_AV), "hsp_backend_irq_multi.objdump.txt")))
+
+    def test_no_intmr_store_anywhere_in_the_object(self):
+        import poc_audit
+        with open(AUDIT_FILE_AV, "r", encoding="utf-8", errors="replace") as f:
+            funcs = poc_audit.parse_objdump(f.read())
+        intmr, intsr = poc_audit.pi_stores(funcs)
+        self.assertEqual(intmr, [])
+        self.assertEqual(sorted(h[0] for h in intsr), ["hsp_backend_oneshot_isr", "hsp_backend_oneshot_isr_ext"])
+
+
 AUDIT_FILE_4 = os.path.join(ROOT, "build", "poc", "gbp-init-irq-service-probe", "audit", "hsp_backend_irq_multi.objdump.txt")
 
 

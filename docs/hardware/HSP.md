@@ -107,8 +107,30 @@ in 003A and 003B. Open-GBP's handler rules are in
   frames/s ≈ 9.2 MB/s, AUDIO 0x1000 bytes × 4096 blocks/s ≈ 16.8 MB/s.
   Model numbers, not measurements (**H**, U-GBP-014).
 - DISC waits for each register DMA synchronously with interrupts disabled
-  and a 1 s timeout; GBI queues them through libogc ARQ (chunk size 0x3C0)
-  and processes IRQs in a thread.
+  and a 1 s timeout; GBI queues every GBP access through libogc's ARQ at
+  priority 1 = the **hi queue**, whose service (`0x800617b4`) starts
+  `AR_StartDMA` with the request's **full length** — one DMA of 0x1000 for
+  the AUDIO block and of 0xF00 for the VIDEO block, the ACK and the
+  register accesses as single transfers behind them in the same FIFO. The
+  chunked service (`0x80061820`, chunk size held at `r13+0x3380`, earlier
+  noted here as 0x3C0) belongs to the **lo queue**, which GBI never uses for
+  the Game Boy Player (static evidence, decompiles re-read 2026-09-16;
+  DEVLOG "next step after GBP-INIT-004 decided"). The Start-up Disc also
+  reads each block with one DMA of the whole length (`0x80089c3c(buf,
+  base+off, len, 1)`). GBI processes IRQs in a thread.
+- Whole-block reads in Open-GBP (GBP-AV-SERVICE-001, implemented 2026-09-16,
+  not yet executed physically): the same register programming and the same
+  polled completion as the 32-byte accesses, with the length field set to
+  0x1000 / 0xF00 and the caller's 32-byte-aligned buffer as the destination;
+  one transfer, no retry, no chunking. Cache maintenance for a device →
+  main-memory DMA, audited on 2026-09-16: the Start-up Disc invalidates
+  (`0x800687dc` = a `dcbi` loop) before its block DMA and again in its
+  DMA-done callback, and flushes (`0x80068808` = `dcbf` + `sync`) before its
+  writes; libogc2 invalidates before every EXI / ARAM read DMA (`exi.c`,
+  `aram.c`). Open-GBP uses `DCFlushRange` (dcbf: write back + invalidate —
+  no dirty line can be written back over the DMA data and the pre-fill
+  reaches memory) before the DMA and `DCInvalidateRange` (dcbi) after
+  completion; the buffer is not touched by the CPU in between.
 
 ## 4. Differences between the Dolphin model and the two real drivers
 

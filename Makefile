@@ -22,7 +22,11 @@
 #   make initirq4-dolphin run the gbp-init-irq-service-probe DOL in Dolphin (absent → abort_inconsistent; GBPlayer model → shape abort)
 #   make initirq4-audit  audit gbp-init-irq-service-probe: the multi-cycle handler (tools/isr_audit.py) and every object
 #                       (tools/poc_audit.py --profile 004: one __UnmaskIrq site, no INTMR store, five IRQ-register write sites)
-#   make all            test + smoke-dolphin + probe-dolphin + init-dolphin + initirq-dolphin + initirqa-dolphin + initirqb-dolphin + initirq4-dolphin
+#   make avsvc-dolphin  run the gbp-av-service-probe DOL in Dolphin (absent → abort_inconsistent; GBPlayer model → shape abort)
+#   make avsvc-audit    audit gbp-av-service-probe: both 002/003B handlers (tools/isr_audit.py) and every object
+#                       (tools/poc_audit.py --profile avsvc: one __UnmaskIrq site, no INTMR store, five IRQ-register write sites,
+#                       two whole-block read sites, no KEYPAD/SIO/BBA/GX/audio-output symbol)
+#   make all            test + smoke-dolphin + probe-dolphin + init-dolphin + initirq-dolphin + initirqa-dolphin + initirqb-dolphin + initirq4-dolphin + avsvc-dolphin
 #   make shell          interactive shell in the container
 #   make clean
 
@@ -38,7 +42,9 @@ IN_CONTAINER := $(COMPOSE) run --rm -T dev
 PYTHON ?= python3
 PYTEST := $(shell command -v pytest 2>/dev/null)
 
-POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe
+POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe gbp-av-service-probe
+AVSVC_OUT := build/poc/gbp-av-service-probe
+AVSVC_DOL := $(AVSVC_OUT)/gbp-av-service-probe.dol
 INITIRQ4_OUT := build/poc/gbp-init-irq-service-probe
 INITIRQ4_DOL := $(INITIRQ4_OUT)/gbp-init-irq-service-probe.dol
 INITIRQB_OUT := build/poc/gbp-init-irq-deliver-probe
@@ -54,10 +60,10 @@ SMOKE_DOL := $(SMOKE_OUT)/smoke-test.dol
 PROBE_OUT := build/poc/gbp-probe
 PROBE_DOL := $(PROBE_OUT)/gbp-probe.dol
 
-.PHONY: help env-check build inspect test-host test-unit test-python test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit all shell clean
 
 help:
-	@sed -n '2,27p' $(firstword $(MAKEFILE_LIST))
+	@sed -n '2,31p' $(firstword $(MAKEFILE_LIST))
 
 env-check:
 	$(IN_CONTAINER) sh -c 'set -e; \
@@ -233,7 +239,42 @@ initirq4-audit:
 	$(PYTHON) tools/isr_audit.py $(INITIRQ4_OUT)/audit/hsp_backend_irq_multi.objdump.txt --symbol hsp_backend_oneshot_isr_multi --report $(INITIRQ4_OUT)/isr-audit-multi.txt
 	$(PYTHON) tools/poc_audit.py $(INITIRQ4_OUT)/audit --profile 004 --report $(INITIRQ4_OUT)/poc-audit.txt
 
-all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirqa-dolphin initirqb-dolphin initirq4-dolphin
+# GBP-AV-SERVICE-001 in Dolphin: the same two stage-A aborts as GBP-INIT-003A/003B/004
+# (no HSP device → abort_inconsistent; GBPlayer model → abort_control_shape on its
+# idle CONTROL 0x03). Neither run reaches a CONTROL or IRQ write, the handler
+# install, the unmask or a whole-block read; the service is covered by
+# tests/unit/test_gbp_avsvc.c against the synthetic mock. Preconditions are never
+# weakened for Dolphin (it is acceptable that Dolphin never executes the service);
+# the OSD is disabled by the runner.
+avsvc-dolphin:
+	$(PYTHON) tools/dolphin_smoke.py --dol $(AVSVC_DOL) --build-info $(AVSVC_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-AVSVC DONE status=abort_inconsistent class=abort reason=inconsistent restore=ok restore_reason=- teardown=stage_a verdict=inconsistent det=1/4 written=0 irq_attempted=0 irq_completed=0 ctl_exp=0/0 a1=0/0 a2=0/0 ack=0/0 rearm=0/0 stop=0/0 ctl_restore=0/0 uncertain=0 cause=0 t_event=0 handler=0 old=\? unmasked=0 fired=0 count=0 latency_ticks=0 pending=0000 drain=0000 drains=0/0/0 audio=-/0000 video=-/0000 drain_uncertain=0 ack_value=0000 postack_irq=0000 source_after_ack=0000 relatch=0/0 main_w1c=0 pi_clean=0 sticky=0 rearmpost=- next_cause=0 immediate=0 dt_next=0 unexpected=0000 site=- isr_w1c=0 teardown_w1c=0 control_ok=1 pi_sticky_final=0 .*arinfo_restore_ok=1 power_cycle_required=0 errors=0 transport_ok=1' \
+	  --report $(AVSVC_OUT)/dolphin-report-absent.json --screen-png $(AVSVC_OUT)/dolphin-screen-absent.png
+	$(PYTHON) tools/dolphin_smoke.py --dol $(AVSVC_DOL) --build-info $(AVSVC_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-AVSVC DONE status=abort_control_shape class=abort reason=control_not_idle_shape restore=ok restore_reason=- teardown=stage_a verdict=present det=4/4 written=0 irq_attempted=0 irq_completed=0 ctl_exp=0/0 a1=0/0 a2=0/0 ack=0/0 rearm=0/0 stop=0/0 ctl_restore=0/0 uncertain=0 cause=0 t_event=0 handler=0 old=\? unmasked=0 fired=0 count=0 latency_ticks=0 pending=0000 drain=0000 drains=0/0/0 audio=-/0000 video=-/0000 drain_uncertain=0 ack_value=0000 postack_irq=0000 source_after_ack=0000 relatch=0/0 main_w1c=0 pi_clean=0 sticky=0 rearmpost=- next_cause=0 immediate=0 dt_next=0 unexpected=0000 site=- isr_w1c=0 teardown_w1c=0 control_ok=1 pi_sticky_final=0 .*arinfo_restore_ok=1 power_cycle_required=0 errors=0 transport_ok=1' \
+	  -C Dolphin.Core.HSPDevice=2 \
+	  --report $(AVSVC_OUT)/dolphin-report-present.json --screen-png $(AVSVC_OUT)/dolphin-screen-present.png
+
+# Static audit of gbp-av-service-probe: tools/isr_audit.py on both one-shot
+# bodies of hsp_backend_irq.o (the 003B extended one is the handler installed;
+# only __MaskIrq called, exactly one INTSR store of 0x2000 after the mask, no
+# INTMR store) and tools/poc_audit.py --profile avsvc on every object
+# (hsp_backend_irq.o linked; hsp_backend_irq_multi.o, hsp_backend_intmr.o and
+# the 001/002/003B/004 probe objects not; __UnmaskIrq from h_irq_unmask only;
+# IRQ_Request from h_irq_install/h_irq_restore only; __MaskIrq from h_irq_mask
+# and the two handlers only; no INTMR store; gbp_regwrite_irq_u16 3 + 1 + 1
+# call sites; gbp_avblock_read exactly twice from the probe; the deliver and
+# the ACK-from-a-given-value service functions exactly once from the probe;
+# no ARQ/AR/AUDIO/ASND/GX/net/DSP/SI symbol in any object; main.o uses the ext
+# constructor, the probe entry and the sidecar writer).
+avsvc-audit:
+	@test -d $(AVSVC_OUT)/obj || { echo "missing $(AVSVC_OUT)/obj; run make build"; exit 1; }
+	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(AVSVC_OUT)/audit; rm -f $(AVSVC_OUT)/audit/*.objdump.txt; for o in $(AVSVC_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(AVSVC_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(AVSVC_OUT)/gbp-av-service-probe.elf > $(AVSVC_OUT)/audit/elf.nm.txt'
+	$(PYTHON) tools/isr_audit.py $(AVSVC_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr_ext --report $(AVSVC_OUT)/isr-audit-ext.txt
+	$(PYTHON) tools/isr_audit.py $(AVSVC_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr --report $(AVSVC_OUT)/isr-audit-base.txt
+	$(PYTHON) tools/poc_audit.py $(AVSVC_OUT)/audit --profile avsvc --report $(AVSVC_OUT)/poc-audit.txt
+
+all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirqa-dolphin initirqb-dolphin initirq4-dolphin avsvc-dolphin
 
 shell:
 	$(COMPOSE) run --rm dev bash

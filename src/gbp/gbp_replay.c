@@ -112,6 +112,49 @@ static gbp_status r_read_block(void *ctx, uint32_t addr, uint8_t out[GBP_BLOCK_S
     return rc;
 }
 
+/* B <addr> <len> <rc> [<crc32>] — the bytes come from the attached block source. */
+static gbp_status r_read_bulk(void *ctx, uint32_t addr, uint8_t *out, uint32_t len, struct gbp_xfer_info *info)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    char *end;
+    gbp_status rc;
+    uint32_t want_len, base, got = 0;
+    int has_crc = 0;
+    uint32_t crc = 0;
+    if (info) memset(info, 0, sizeof *info);
+    if (!gbp_bulk_args_ok(addr, out, len)) return GBP_ERR_PARAM;
+    if (!next_line(r, line, sizeof line)) { r->exhausted++; return GBP_ERR_BACKEND; }
+    r->step++;
+    if (line[0] != 'B' || line[1] != ' ') { r->mismatches++; return GBP_ERR_BACKEND; }
+    if ((uint32_t)strtoul(line + 2, &end, 16) != addr) { r->mismatches++; return GBP_ERR_BACKEND; }
+    want_len = (uint32_t)strtoul(end, &end, 16);
+    if (want_len != len) { r->mismatches++; return GBP_ERR_BACKEND; }
+    while (*end == ' ') end++;
+    rc = status_from_name(end);
+    end = strchr(end, ' ');
+    if (end) {
+        while (*end == ' ') end++;
+        if (*end) { crc = (uint32_t)strtoul(end, 0, 16); has_crc = 1; }
+    }
+    r->bulk_reads++;
+    memset(out, 0, len);
+    if (rc == GBP_OK) {
+        base = gbp_internal_size_from_arinfo(r->arinfo);
+        if (r->block_source) got = r->block_source(r->block_ctx, base, addr, len, out);
+        if (got != len) { r->blocks_missing++; memset(out, 0, len); }
+        else if (has_crc) {
+            /* the sidecar must be the one the script was generated from: verify against the recorded CRC-32 */
+            uint32_t c = 0xFFFFFFFFu;
+            uint32_t i;
+            unsigned k;
+            for (i = 0; i < len; i++) { c ^= out[i]; for (k = 0; k < 8; k++) c = (c >> 1) ^ (0xEDB88320u & (0u - (c & 1u))); }
+            if ((c ^ 0xFFFFFFFFu) != crc) r->block_crc_mismatches++;
+        }
+    }
+    return rc;
+}
+
 static gbp_status r_write_block(void *ctx, uint32_t addr, const uint8_t in[GBP_BLOCK_SIZE],
                                 struct gbp_xfer_info *info)
 {
@@ -324,6 +367,7 @@ void gbp_replay_init(struct gbp_replay *r, const char *script)
         while (*s == ' ' || *s == '\t') s++;
         if (s[0] == 'I' && s[1] == ' ') r->has_irq_ops = 1;
         if (s[0] == 'T' && s[1] == ' ') r->timeline = 1;
+        if (s[0] == 'B' && s[1] == ' ') r->has_bulk_ops = 1;
         s = strchr(s, '\n');
         if (!s) break;
         s++;
@@ -336,6 +380,7 @@ void gbp_replay_transport(struct gbp_replay *r, struct gbp_transport *t)
     t->write_arinfo = r_write_arinfo;
     t->read_block = r_read_block;
     t->write_block = r_write_block;
+    t->read_bulk = r->has_bulk_ops ? r_read_bulk : 0;
     t->read_pi = r_read_pi;
     t->write_intmr = r_write_intmr;
     /* No interrupt path in a replay: physical logs record no IRQ

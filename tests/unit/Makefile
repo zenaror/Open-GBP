@@ -16,12 +16,12 @@ CC       ?= cc
 CFLAGS   ?= -std=gnu11 -O1 -g -Wall -Wextra -Wpedantic -Wshadow -Wconversion
 CPPFLAGS += -I$(ROOT)/src/common -I$(ROOT)/src/log -I$(ROOT)/src/gbp -I$(ROOT)/tests/mocks
 
-TESTS    := test_ident test_ringlog test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4
+TESTS    := test_ident test_ringlog test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4 test_gbp_avdump test_gbp_avsvc
 BINS     := $(addprefix $(OUTDIR)/,$(TESTS))
 
 COMMON_SRC := $(ROOT)/src/common/opengbp_ident.c
 LOG_SRC    := $(ROOT)/src/log/ringlog.c
-GBP_SRC    := $(ROOT)/src/gbp/gbp_transport.c $(ROOT)/src/gbp/gbp_probe.c $(ROOT)/src/gbp/gbp_replay.c $(ROOT)/src/gbp/gbp_detect.c $(ROOT)/src/gbp/gbp_init_probe.c $(ROOT)/src/gbp/gbp_rawlog.c $(ROOT)/src/gbp/gbp_init_irq_probe.c $(ROOT)/src/gbp/gbp_regwrite.c $(ROOT)/src/gbp/gbp_initirqa_probe.c $(ROOT)/src/gbp/gbp_irq_service.c $(ROOT)/src/gbp/gbp_initirqb_probe.c $(ROOT)/src/gbp/gbp_initirq4_probe.c
+GBP_SRC    := $(ROOT)/src/gbp/gbp_transport.c $(ROOT)/src/gbp/gbp_probe.c $(ROOT)/src/gbp/gbp_replay.c $(ROOT)/src/gbp/gbp_detect.c $(ROOT)/src/gbp/gbp_init_probe.c $(ROOT)/src/gbp/gbp_rawlog.c $(ROOT)/src/gbp/gbp_init_irq_probe.c $(ROOT)/src/gbp/gbp_regwrite.c $(ROOT)/src/gbp/gbp_initirqa_probe.c $(ROOT)/src/gbp/gbp_irq_service.c $(ROOT)/src/gbp/gbp_initirqb_probe.c $(ROOT)/src/gbp/gbp_initirq4_probe.c $(ROOT)/src/gbp/gbp_crc32.c $(ROOT)/src/gbp/gbp_avblock.c $(ROOT)/src/gbp/gbp_avdump.c $(ROOT)/src/gbp/gbp_avsvc_probe.c
 MOCK_SRC   := $(ROOT)/tests/mocks/gbp_mock.c
 
 .PHONY: all run clean
@@ -39,7 +39,7 @@ HW_INITIRQB_GBP  := $(ROOT)/captures/fixtures/hw-gamecube-gbp-2026-09-15-initirq
 HW_INITIRQ4_GBP  := $(ROOT)/captures/fixtures/hw-gamecube-gbp-2026-09-16-initirq4-0001.gbpreplay
 
 run: $(BINS)
-	@set -e; for t in $(BINS); do echo "== $$t"; if [ "$$t" = "$(OUTDIR)/test_gbp_replay" ]; then "$$t" "$(HW_FIXTURE_GBP)" "$(HW_FIXTURE_NOGBP)" "$(MODEL_FIXTURE_P)" "$(MODEL_FIXTURE_A)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_init" ]; then "$$t" "$(HW_INIT_GBP)" "$(HW_INIT_NOGBP)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_init_irq" ]; then "$$t" "$(HW_INIT_GBP)" "$(HW_INIT_NOGBP)" "$(HW_INITIRQ_GBP)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_initirqa" ]; then "$$t" "$(HW_INIT_GBP)" "$(HW_INIT_NOGBP)" "$(HW_INITIRQ_GBP)" "$(HW_INITIRQA_GBP)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_initirqb" ]; then "$$t" "$(HW_INITIRQA_GBP)" "$(HW_INITIRQB_GBP)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_initirq4" ]; then "$$t" "$(HW_INITIRQA_GBP)" "$(HW_INITIRQB_GBP)" "$(HW_INITIRQ4_GBP)"; else "$$t"; fi; done
+	@set -e; for t in $(BINS); do echo "== $$t"; if [ "$$t" = "$(OUTDIR)/test_gbp_replay" ]; then "$$t" "$(HW_FIXTURE_GBP)" "$(HW_FIXTURE_NOGBP)" "$(MODEL_FIXTURE_P)" "$(MODEL_FIXTURE_A)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_init" ]; then "$$t" "$(HW_INIT_GBP)" "$(HW_INIT_NOGBP)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_init_irq" ]; then "$$t" "$(HW_INIT_GBP)" "$(HW_INIT_NOGBP)" "$(HW_INITIRQ_GBP)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_initirqa" ]; then "$$t" "$(HW_INIT_GBP)" "$(HW_INIT_NOGBP)" "$(HW_INITIRQ_GBP)" "$(HW_INITIRQA_GBP)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_initirqb" ]; then "$$t" "$(HW_INITIRQA_GBP)" "$(HW_INITIRQB_GBP)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_initirq4" ]; then "$$t" "$(HW_INITIRQA_GBP)" "$(HW_INITIRQB_GBP)" "$(HW_INITIRQ4_GBP)"; elif [ "$$t" = "$(OUTDIR)/test_gbp_avsvc" ]; then "$$t" "$(HW_INITIRQA_GBP)" "$(HW_INITIRQB_GBP)" "$(HW_INITIRQ4_GBP)"; else "$$t"; fi; done
 
 $(OUTDIR)/test_ident: test_ident.c $(COMMON_SRC) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_ident.c $(COMMON_SRC)
@@ -70,6 +70,12 @@ $(OUTDIR)/test_gbp_initirqb: test_gbp_initirqb.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SR
 
 $(OUTDIR)/test_gbp_initirq4: test_gbp_initirq4.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC) $(ROOT)/src/gbp/gbp_irq_oneshot.h | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_initirq4.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC)
+
+$(OUTDIR)/test_gbp_avdump: test_gbp_avdump.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC) | $(OUTDIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_avdump.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC)
+
+$(OUTDIR)/test_gbp_avsvc: test_gbp_avsvc.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC) $(ROOT)/src/gbp/gbp_irq_oneshot.h | $(OUTDIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_avsvc.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC)
 
 $(OUTDIR):
 	mkdir -p $@

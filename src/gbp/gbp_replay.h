@@ -31,6 +31,16 @@
  *   I p <gen>                     optional (GBP-INIT-004): irq_prepare publishes generation
  *                                 <gen>; an irq_prepare call with no such line pending
  *                                 consumes nothing (older fixtures never carry one)
+ *   B <hex32addr> <hex32len> <rc> [<hex32 crc32>]
+ *                                 read_bulk (GBP-AV-SERVICE-001): one whole-block read of
+ *                                 <len> bytes at <addr>; the bytes are NOT in the script —
+ *                                 they come from the block source the harness attaches
+ *                                 (gbp_replay.block_source, fed by the run's `-blocks.bin`
+ *                                 sidecar, tools/avdump.py / src/gbp/gbp_avdump.h); with no
+ *                                 source the buffer is zero-filled and `blocks_missing`
+ *                                 counts it; a crc32 that does not match the bytes delivered
+ *                                 counts in `block_crc_mismatches`. The operation is exposed
+ *                                 only when the script contains a "B " line.
  * irq_record consumes no line; irq_record_slot returns the "I u" record of the
  * generation that was current when it was consumed (all zero for any other slot);
  * irq_multi_status reports the current generation and the entries consumed so far. The interrupt-path operations are exposed
@@ -73,6 +83,13 @@ struct gbp_replay {
     uint32_t gen;                /* generation published by the last "I p" (0 after the install) */
     unsigned entries;            /* sum of the "I u" record counts since the install */
     struct gbp_irq_record slots[GBP_IRQ_MULTI_SLOTS];   /* the "I u" record of each generation */
+    /* whole-block reads ("B" lines): the bytes come from the attached block source */
+    int has_bulk_ops;            /* script contains "B " lines: read_bulk is exposed */
+    uint32_t (*block_source)(void *ctx, uint32_t base, uint32_t aram_addr, uint32_t len, uint8_t *out);
+    void *block_ctx;             /* returns the bytes copied (0 = unavailable) */
+    unsigned bulk_reads;         /* "B" lines consumed */
+    unsigned blocks_missing;     /* bulk reads answered with zeros (no source / no bytes) */
+    unsigned block_crc_mismatches; /* bulk reads whose bytes did not match the script's crc32 */
 };
 
 void gbp_replay_init(struct gbp_replay *r, const char *script);

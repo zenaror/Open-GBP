@@ -45,17 +45,41 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      initirq4-0001 (2026-09-16) replayed to its real result: one delivery, one
                                      ACK, POSTACK 0x8400, anomaly_source_not_cleared, no re-arm; --dump-log /
                                      --replay modes
+                  test_gbp_avdump.c  CRC-32 vectors, the raw AV block helpers (window offsets, summary, records),
+                                     the block sidecar (serialize → parse round trips: audio only / video only /
+                                     both / none / failed read, every error code), the mock's whole-block read
+                                     model, the replay's "B" line with an attached block source
+                  test_gbp_avsvc.c   GBP-AV-SERVICE-001 logic (one delivery → PRESVC → AUDIO/VIDEO whole-block
+                                     drains → ACK from the PRESVC value → POSTACK → PI clean → re-arm → next cause
+                                     observed, never delivered): the success paths, the §35 event order, snapshot
+                                     immutability, unexpected sources at every site, every DMA failure, write and
+                                     restore failures, POSTACK 0x8000/0x8100/0x8400/0x8500, the PI cleanup budget,
+                                     REARMPOST A–F, next cause immediate / delayed / none, zero second unmask or
+                                     delivery, the teardown closing a latched cause, attempted/completed at the
+                                     transport call, raw buffers preserved, wrap, worst-case lines, ring overflow,
+                                     the "never" properties; the physical 003A fixture (stops at the install) and
+                                     the physical 003B / 004 fixtures cut before their ACK as prefixes up to the
+                                     PRESVC reads; --dump-log (log + sidecar) / --replay (fixture [+ sidecar]) modes
 tests/mocks/    scripted device models behind src/gbp/gbp_transport.h (PI model, synthetic
                 interrupt path with the base, the extended and the multi-cycle handler bodies, synthetic
                 IRQ-register source/mask model with an optional re-latch after a W1C, scheduled source
                 (re)assertions after the Nth IRQ write, a PI latch lagging the source, ineffective ACK,
-                sticky re-arm read-back, generation corruption, CONTROL changing by itself, failure injection)
+                sticky re-arm read-back, generation corruption, CONTROL changing by itself, failure injection,
+                a whole-block read model with a deterministic pattern per block, per-index failure injection,
+                a drain-clears-the-source rule, a source asserting during the Nth read, a phantom PI cause)
 tests/host/     Python tests (pytest or python3 -m unittest):
                   test_dolinfo.py    synthetic DOL header vectors
                   test_dolpad.py     32-byte padding tool
                   test_gciso.py      disc image parser/extractor (synthetic image)
                   test_gbi_unpack.py GBI unpacker and bin2dol (synthetic packed DOL)
-                  test_probelog.py   device-log parser / fixture generator
+                  test_probelog.py   device-log parser / fixture generator (incl. the "B" whole-block read lines)
+                  test_avdump.py     tools/avdump.py: the block sidecar parser against the C serializer and against
+                                     synthetic files (every error code, the CLI)
+                  test_avsvc_replay.py synthetic GBP-AV-SERVICE-001 log → fixture + sidecar → replay round trip
+                                     (the same result with the sidecar; missing blocks reported without it; a
+                                     tampered sidecar rejected); the physical 003A fixture (stops at the install)
+                                     and the physical 003B / 004 fixtures cut before their ACK through the probe
+                                     (abort_bulk_unavailable at the drain, 0 mismatches); no AVSVC fixture exists
                   test_hw_fixture.py exact bytes of the hardware captures (probe-0001, init-0001,
                                      initirq-0001, initirqa-0001, initirqb-0001, initirq4-0001), what each known driver
                                      would read from them, blockdiff findings, the interrupt path of the
@@ -63,13 +87,15 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                   test_dolphin_smoke.py runner command line (isolated user dir, OSD override)
                   test_isr_audit.py  one-shot handler audit (synthetic listings incl. the extended body
                                      with its bounded loop, negative controls: second/missing/wrong-value
-                                     INTSR store, INTMR store; the built GBP-INIT-002, 003B and 004 objects —
-                                     the multi-cycle handler with its two compiler-duplicated mask sites)
-                  test_poc_audit.py  object audit, profiles 003a, 003b and 004 (synthetic listings in both GCC
-                                     encodings, the built objects, negative controls on the GBP-INIT-002
+                                     INTSR store, INTMR store; the built GBP-INIT-002, 003B, 004 and
+                                     GBP-AV-SERVICE-001 objects — the multi-cycle handler with its two
+                                     compiler-duplicated mask sites; both handlers of the AVSVC build)
+                  test_poc_audit.py  object audit, profiles 003a, 003b, 004 and avsvc (synthetic listings in both
+                                     GCC encodings, the built objects, negative controls on the GBP-INIT-002
                                      interrupt-path object and the GBP-INIT-001 INTMR object, profiles
                                      mutually exclusive on the builds; the ACK call site in the shared
-                                     service object since GBP-INIT-004)
+                                     service object since GBP-INIT-004; the avsvc call-site counts, forbidden
+                                     symbol prefixes and the compiled cache sequence of the whole-block read)
                   test_initirqa_replay.py synthetic GBP-INIT-003A log → fixture → replay round trip
                                      (no physical data; files stay under build/)
                   test_initirqb_replay.py synthetic GBP-INIT-003B log → fixture → replay round trip

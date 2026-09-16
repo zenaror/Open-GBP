@@ -23,6 +23,9 @@ extern "C" {
 #endif
 
 #define GBP_BLOCK_SIZE 32u
+/* Largest bulk (whole-block) read a transport must accept: one register
+ * window (1 MB). The AUDIO block is 0x1000 bytes, the VIDEO block 0xF00. */
+#define GBP_BULK_MAX_LEN 0x100000u
 
 typedef enum {
     GBP_OK = 0,
@@ -38,6 +41,8 @@ struct gbp_xfer_info {
     uint32_t ticks;        /* time spent waiting for completion (backend units) */
     uint16_t dma_status;   /* raw DSP CSR (0xCC00500A) after the transfer, if applicable */
     uint16_t polls;        /* completion polls performed */
+    uint16_t dma_status_before; /* raw DSP CSR before the transfer was programmed (GBP-AV-SERVICE-001 bulk reads log it) */
+    uint16_t reserved;
 };
 
 /*
@@ -98,6 +103,19 @@ struct gbp_transport {
                              struct gbp_xfer_info *info);
     gbp_status (*write_block)(void *ctx, uint32_t aram_addr, const uint8_t in[GBP_BLOCK_SIZE],
                               struct gbp_xfer_info *info);
+    /* Optional (may be NULL): one whole-block read of `len` bytes, device
+     * (ARAM-side window) -> main memory, into the caller's buffer `out`
+     * (GBP-AV-SERVICE-001: AUDIO 0x1000 at index 0x8, VIDEO 0xF00 at index
+     * 0x1 — both references issue exactly one DMA of the whole length).
+     * `len` must be a multiple of 32, > 0 and <= GBP_BULK_MAX_LEN; `out`
+     * 32-byte aligned; aram_addr 32-byte aligned — GBP_ERR_PARAM otherwise.
+     * One transfer, no retry, no chunking; the 32-byte read_block /
+     * write_block keep their semantics untouched. The real backend refuses
+     * to start while the DMA engine is busy (GBP_ERR_BUSY) and bounds the
+     * completion wait (GBP_ERR_TIMEOUT); the buffer must not be touched by
+     * the caller while the call is in progress. */
+    gbp_status (*read_bulk)(void *ctx, uint32_t aram_addr, uint8_t *out, uint32_t len,
+                            struct gbp_xfer_info *info);
     /* Optional (may be NULL): Processor Interface INTSR (0xCC003000) and
      * INTMR (0xCC003004), raw 32-bit values. write_intmr writes the whole
      * register; callers preserve every bit they do not intend to change.
@@ -146,6 +164,14 @@ struct gbp_transport {
 int gbp_transport_has_irq_path(const struct gbp_transport *t);
 /* 1 if the interrupt path and the three multi-cycle operations are available. */
 int gbp_transport_has_irq_multi_path(const struct gbp_transport *t);
+/* 1 if the whole-block read operation is available. */
+int gbp_transport_has_bulk_read(const struct gbp_transport *t);
+/* Argument rule of read_bulk (pure): 1 when aram_addr / out / len satisfy it —
+ * len > 0, a multiple of 32, <= GBP_BULK_MAX_LEN; aram_addr and out 32-byte
+ * aligned; neither aram_addr + len nor out + len wraps; the transfer stays
+ * inside the 1 MB register window of aram_addr (a block never crosses into
+ * the next register index). */
+int gbp_bulk_args_ok(uint32_t aram_addr, const void *out, uint32_t len);
 
 /* PI bit for the High Speed Port interrupt (YAGCD 6.1.5.2, libogc2 irq.c:
  * INTMR bit set = interrupt enabled; INTSR bit set = pending). */

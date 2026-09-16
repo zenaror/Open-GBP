@@ -42,6 +42,16 @@ GBP-INIT-004 records (gbp_initirq4_probe.c) add, per cycle:
     NEXTCAUSE n= found=0 … t_end=                  ->  T <t_end> (the poll loop's last time-base read, bound reached)
     the per-cycle UNMASK/HANDLER*/IRQW/SNAP records follow the rules above (the handler
     record search stops at the next UNMASK, so each "I u" carries its own cycle's record)
+GBP-AV-SERVICE-001 records (gbp_avsvc_probe.c / gbp_avblock.c) add:
+    AUDIOREAD / VIDEOREAD … attempted=1 addr= len= rc= t_start= t_end=
+                                                   ->  T <t_start>, B <addr> <len> <rc> [<crc32>], T <t_end>
+                                                       (the crc32 comes from the run's BLOCK kind= record when the
+                                                       read completed; the bytes themselves live in the run's
+                                                       "-blocks.bin" sidecar, never in the script)
+    SVC / SVCEND / POSTDRAIN / POSTACKAV / PICLEAN / SERVICE / COUNTERS / BLOCK / BLOCKW / AVSVC
+                                                   ->  no replay operation (the snapshots they summarize are
+                                                       replayed by their own SNAP / PI / RAW records)
+    REARM t_rearm= and NEXTCAUSE found=0 t_end=    ->  as the GBP-INIT-004 rules (no n= field)
 """
 from __future__ import annotations
 
@@ -154,6 +164,14 @@ def _wait_lines(f, t_unmask):
     return out
 
 
+def _block_crc(records, kind):
+    """crc32 of the completed block `kind` ("audio" / "video") from the run's BLOCK record, or None."""
+    for r in records:
+        if r["kind"] == "BLOCK" and r["fields"].get("kind") == kind and r["fields"].get("valid") == "1" and "crc32" in r["fields"]:
+            return r["fields"]["crc32"]
+    return None
+
+
 def fixture(records, note=None):
     """Replay script: reproduces the transport calls the probe made, in
     order, so gbp_replay + the probe logic on the host reach the same
@@ -253,6 +271,11 @@ def fixture(records, note=None):
         elif k == "REARM" and "t_rearm" in f:                              # GBP-INIT-004: time base read before the re-arm write
             lines.append("T %s" % f["t_rearm"])
         elif k == "NEXTCAUSE" and f.get("found") == "0" and "t_end" in f:  # GBP-INIT-004: the poll loop met its bound (last now())
+            lines.append("T %s" % f["t_end"])
+        elif k in ("AUDIOREAD", "VIDEOREAD") and f.get("attempted") == "1":  # GBP-AV-SERVICE-001: one whole-block read, timed around the call
+            crc = _block_crc(records, "audio" if k == "AUDIOREAD" else "video") if f.get("rc") == "ok" else None
+            lines.append("T %s" % f["t_start"])
+            lines.append(("B %s %08x %s %s" % (f["addr"], int(f["len"], 16), f["rc"], crc or "")).rstrip())
             lines.append("T %s" % f["t_end"])
         elif k == "CLEANUP" and f.get("performed") == "1" and idx not in cleanup_emitted:   # one INTSR W1C (no CLEANUPCHK record before it)
             lines.append("P a %s" % f["value"])

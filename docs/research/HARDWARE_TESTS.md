@@ -2157,10 +2157,59 @@ Physical setup: identical to GBP-INIT-004; ≈ 3.5 s worst case; X to save, STAR
              to POSTACK-0 with the boundary marked), audits and a clean candidate.
 ```
 
-### GBP-AV-SERVICE-001 — first drained HSP service: read the pending AUDIO/VIDEO blocks, acknowledge, re-arm, observe the next cause (Phase 4 entry; designed 2026-09-16; NOT implemented, NOT released)
+### GBP-AV-SERVICE-001 — first drained HSP service: read the pending AUDIO/VIDEO blocks, acknowledge, re-arm, observe the next cause (Phase 4 entry; designed 2026-09-16; implemented 2026-09-16; NOT physically executed)
 
-Status: design only (DEVLOG 2026-09-16 "next step after GBP-INIT-004
-decided"); no code, no build, no hardware, no request. The scheduled
+Status: **IMPLEMENTED 2026-09-16 — NOT PHYSICALLY EXECUTED. DIRTY BUILD —
+NOT A PHYSICAL CANDIDATE** (DEVLOG 2026-09-16 "GBP-AV-SERVICE-001
+implemented", micro-audit DEVLOG 2026-09-16 "GBP-AV-SERVICE-001
+micro-audit"; the build of the working tree, commit `5ed9d93-dirty`, DOL
+sha256 `4564e42a2c8239161ee19440d9292818d42d18ac31a7b9b73bfc3dd5c34eb52d`,
+404000 bytes, exists for review only and must never reach the hardware).
+The implementation lives in `poc/gbp-av-service-probe/` (Test ID
+`GBP-AV-SERVICE-001`, Build ID `avsvc-0001`, gecko prefix `OPENGBP-AVSVC`),
+`src/gbp/gbp_avsvc_probe.{h,c}` (the probe: statuses, teardowns, the
+service pass), `src/gbp/gbp_avblock.{h,c}` (one raw block: whole-block read
+through the transport, summary, records), `src/gbp/gbp_avdump.{h,c}` (the
+block sidecar), `src/gbp/gbp_crc32.{h,c}`, the transport's `read_bulk`
+operation (`src/gbp/gbp_transport.h`) with its real backend
+(`src/platform/hsp_backend.c`: the same DMA routine as every 32-byte
+access with a length parameter; `DCFlushRange` before, `DCInvalidateRange`
+after), the shared service's split ACK step
+(`gbp_irq_service_ack_write_postack`: the 003B / 004 records unchanged,
+pinned by their physical fixtures), the mock's bulk model, the replay's
+`B` line, `tools/probelog.py` rules, `tools/avdump.py`, `tools/poc_audit.py`
+profile `avsvc`, `sdlog_save_blob`. Implementation notes against the
+design below: (a) the handler is the 003B extended one-shot installed once
+(a second delivery is forbidden by design, so no generation wrapper — the
+004 multi-cycle object is not linked); (b) PRESVC is the single
+authoritative snapshot: the block set and the ACK value derive from it and
+never from a later read (a source appearing during a drain is observed at
+POSTDRAIN and never added to the pass — the references' single read); (c)
+POSTDRAIN was added as an observation-only snapshot with the mandatory
+consistency checks (a source outside AV there means no ACK); (d) the drain
+failure statuses are named per source and per cause (`audio_dma_busy`,
+`audio_dma_timeout`, `audio_dma_error`, the VIDEO three), VIDEO is never
+started after a failed AUDIO read, `drain_uncertain` marks a timeout; (e)
+`abort_presvc_state`, `anomaly_postack_shape` and
+`anomaly_pi_sticky_after_service` name the PRESVC / POSTACK / PI-clean
+deviations; `anomaly_source_not_cleared` does not exist; (f) the records
+are `SVC start`, `AUDIOREAD`, `VIDEOREAD`, `SVCEND`, `POSTDRAIN`,
+`POSTACKAV`, `PICLEAN`, `REARM`, `REARMPOST`, `NEXTCAUSE`, `TEARDOWNAV`,
+`SERVICE`, `COUNTERS`, `BLOCK` / `BLOCKW`, `TIMING`, `RESTOREAV`, `AVSVC`
+(the DUMP record of the design became the `SAVEBLOCKS` gecko line and the
+on-screen status: the sidecar is written on X, after the run); (g) the
+sidecar format is fixed and documented in `src/gbp/gbp_avdump.h` (format
+version 2 after the micro-audit of 2026-09-16: magic `OGBPBLK1`, 256-byte
+big-endian header with four 32-byte identity fields — Test ID, Build ID,
+app, commit, 1..31 printable ASCII characters each, never truncated —
+pending mask, lengths, per-block CRC-32, rc and timings, the two blocks, a
+`OGBPEND1` footer with a total CRC-32) — a block never read has length 0; (h) the
+physical 003B and 004 fixtures, cut before their device ACK, drive the
+probe up to its PRESVC reads (the physical PREACK values) and its drain
+then meets a transport without whole-block reads (`abort_bulk_unavailable`):
+NO physical GBP-AV-SERVICE-001 fixture exists and none is fabricated. No
+physical run is requested from this build. The design text follows
+unchanged. Pre-implementation status: design only. The scheduled
 successor of GBP-INIT-004; it replaces GBP-INIT-004B (above, now optional)
 as the next physical experiment and is the entry experiment of Phase 4
 (ROADMAP: "recorded hardware trace replay" and "buffer boundaries" start
