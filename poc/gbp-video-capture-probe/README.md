@@ -1,11 +1,14 @@
 # poc/gbp-video-capture-probe — GBP-VIDEO-001
 
-**Test ID:** `GBP-VIDEO-001` — **Build ID:** `video-0001` — **IMPLEMENTED, NOT PHYSICALLY
-EXECUTED.** The build reviewed here comes from a dirty tree (`commit=bd841b6-dirty`): it is a
-**DIRTY BUILD — NOT A PHYSICAL CANDIDATE**. A physical candidate requires a clean commit, a clean
-rebuild, the audits below on that build, a recorded DOL SHA-256 and an explicit authorization
-(`docs/research/HARDWARE_TESTS.md`, CLAUDE.md §18). No hardware has been requested and none is
-requested here.
+**Test ID:** `GBP-VIDEO-001` — **Build ID:** `video-0001` — **PHYSICALLY EXECUTED
+2026-09-16** on the clean candidate commit `6930dde` (DOL SHA-256
+`856d3e912626c5d0c686196e683bf4f398e9203ae9e835e0975e170ba760b5a6`; release audit of 2026-09-16,
+PHYSICAL CANDIDATE READY). Result: `ok_video_sequence_capture`, `capture=target_reached`,
+`restore=ok` — 209 cycles, 88 VIDEO and 144 AUDIO blocks, one complete 40-block frame-start
+interval at 59.547 Hz. See "Result" below and `docs/research/HARDWARE_TESTS.md` "Executed tests —
+GBP-VIDEO-001". Any later build of a modified tree is a new, unaudited artifact: a physical
+candidate requires a clean commit, a clean rebuild, the audits below on that build, a recorded hash
+and an explicit authorization.
 
 **Question:** over a bounded sequence of delivered HSP causes serviced the reference way — read
 the IRQ register, drain AUDIO if `0x0400`, drain VIDEO if `0x0100`, acknowledge `pending |
@@ -21,6 +24,37 @@ blocks arrive, at what intervals do the sources appear, and does the repeated se
 Comparing the captured blocks with the idle-screen frame both references embed happens **offline**,
 in `tools/avseq.py oracle`, and only when the private inputs are present; without them the verdict
 is `reference_content=unavailable`. Bytes that do not match are new evidence, never a failure.
+
+## Result (2026-09-16, one physical run)
+
+| Dimension | Value |
+|---|---|
+| SERVICE | ok — 209 cycles, 0 reentry, 0 unexpected source, 0 uncertain write, 0 DMA failure |
+| CAPTURE | `target_reached` — 88 VIDEO, 144 AUDIO, 209 deliveries, next cause latched at the end |
+| BOUNDARIES_GBI / _DISC | 3 each, positions 0, 25, 65, intervals 25 and 40, **0 divergences over 88 blocks** |
+| COMPLETE_INTERVAL | yes for both predicates — one interval of exactly **40** blocks (seq25 → seq65) |
+| REFERENCE_CONTENT | offline: matches both references exactly where they are white, differs exactly at their logotype blocks |
+| RESTORE | ok — handler restored once, INTMR bit 13 = 0, AR_INFO `005b → 0043` |
+
+Counters: 209 unmasks / 209 ISR entries / 209 ACK / 209 re-arms; W1C ISR 209,
+main 0, teardown 1. `bulk_transfers=232`, `bulk_bytes=927744`. ISR latency 34
+ticks median (0.84 µs). Log 1794 of 3000 ring lines, 0 dropped, 0 truncated.
+
+Timing of that run: one frame = 680 138 ticks = 16.794 ms = **59.547 Hz**, made
+of 39 block gaps of ~11 891 ticks (0.294 ms) and one closing gap of 216 079
+ticks (5.335 ms) spanned by 22 consecutive AUDIO-only cycles.
+
+Payload: exactly two semantic payloads over the 88 blocks — 960 × `0x7FFF`, and
+`0xFFFF` + 959 × `0x7FFF` on the three frame starts. The complete frame is a
+uniformly white 240 × 160 image under the references' geometry. Byte 0 differed
+from byte 1 in 688 of 84 480 words (always `ff`/`7f`, never on the first word of
+a 32-byte DMA line) without changing that payload.
+
+**Known follow-up, not a defect of the run:** `finish()` computes the summaries
+and formats the lean-cycle records **before** the hardware teardown, which added
+64.99 ms between the last observation and the CONTROL restore. The teardown then
+succeeded and the latched cause was closed normally. A future build should tear
+the hardware down first and summarise afterwards.
 
 ## Provenance and rules
 

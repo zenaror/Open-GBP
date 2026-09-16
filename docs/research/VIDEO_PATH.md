@@ -294,10 +294,32 @@ values (the run's own extras) favor (b), but nothing proves it; formally
 
 ## Experiment status
 
-**GBP-VIDEO-001** — the bounded repeated drained service that measures the
-physical block sequence, both frame-start predicate lists and the interval
-between consecutive boundaries — is **implemented (2026-09-16) and NOT
-physically executed**: `poc/gbp-video-capture-probe/`,
+**GBP-VIDEO-001 — PHYSICALLY EXECUTED 2026-09-16** (build `video-0001`, commit
+`6930dde`). Result `ok_video_sequence_capture`, 209 cycles, 88 VIDEO and 144
+AUDIO blocks, target reached, restore ok. What it settled about this document:
+
+* **The byte picking is right.** Transforming our physical blocks by byte 1 :
+  byte 3 and computing GBI's per-block checksum reproduces the references'
+  all-white entries exactly: `0xFF0FFF0F` (no flag) and `0x7F0FFF10` (with the
+  flag) — table A entries 1 and 0. A wrong geometry or a wrong byte pick could
+  not produce those values.
+* **40 blocks per frame is CORROBORATED by hardware.** Both predicates agree on
+  all 88 captured blocks and give one complete boundary-to-boundary interval of
+  exactly 40 blocks (seq25 → seq65, 16.794 ms, 59.547 Hz in that run).
+* **Both frame-start predicates agreed everywhere** — 0 divergences over 88
+  blocks. §2.2 and §3.1 describe the same physical event on this data.
+* **The embedded frames are the logotype screen; the hardware showed white.**
+  Aligned on the complete interval, the capture matches the references at every
+  block they define as white and differs at exactly blocks 14..25 (Disc and
+  table A) and 12..19 (table B) — precisely the logotype blocks of §2.4 and
+  §3.3. The divergence identifies a different AGB state (U-GBP-031), not a
+  fault, and independently confirms the table layouts described here.
+* **Colour is still not settled.** The captured frame is uniform white, which
+  carries no colour information. §2.3's R-high reading stays CORROBORATED and
+  needs a known-colour source.
+
+The pre-execution status paragraph follows, kept for the history: implemented
+(2026-09-16) and NOT physically executed: `poc/gbp-video-capture-probe/`,
 `docs/research/HARDWARE_TESTS.md` "Planned tests — GBP-VIDEO-001". Nothing in
 this document has been promoted by that implementation; every claim here keeps
 the status `docs/research/EVIDENCE.md` gives it. In particular **40 blocks per

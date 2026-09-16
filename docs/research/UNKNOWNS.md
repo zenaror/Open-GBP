@@ -796,3 +796,52 @@ words: reproducibility across 88 blocks (same positions? only bytes 0/2?
 never bytes 1/3? a Disc = 1 / GBI = 0 block?) is the test; the offline
 boundary lists are kept per predicate, none chosen silently. The runtime rule
 stands regardless: read pixels from bytes 1 and 3, as the references do.
+
+### U-GBP-030 — how many VIDEO blocks were lost during the startup transient? — OPEN (not blocking)
+
+GBP-VIDEO-001 (2026-09-16) captured frame starts at sequence positions 0, 25 and
+65. The 25 is **not** a 25-block frame: the four VERIFY cycles at the start cost
+34 792 ticks each against 3 101 for a lean cycle, and the device VIDEO block is
+single-buffered, so blocks produced while the probe was still servicing were
+overwritten without generating separate causes. At the steady cadence (11 891
+ticks per block) the first interval's 628 474 ticks would carry ~37 blocks and 25
+were captured; the interval is also shorter in time than a full frame period
+(680 138 ticks), so "one 40-block frame minus 15" does not fit either. The probe
+drained every VIDEO source it saw (88/88/88), so nothing was lost on our side and
+the log cannot prove the device-side count. Resolving it needs a run whose first
+cycles are not the slow verify ones — for example verify cycles placed later, or
+fewer of them. Does not affect the complete interval seq25 → seq65, which is a
+clean 40 (GBP-HW-066).
+
+### U-GBP-031 — which AGB state produces the all-white frame? — OPEN (not blocking)
+
+The physical frame of GBP-VIDEO-001 is uniformly white with the frame-start
+marker (GBP-HW-069) and matches both references exactly at every block they
+define as white, differing exactly at the blocks where they embed the "GAME BOY /
+Nintendo" logotype (GBP-HW-071). With no Game Pak inserted, the references'
+embedded frame is the boot/idle logotype; the hardware showed a blank screen
+instead. Whether that is a later phase of the same boot sequence, a state entered
+without a cartridge, a pre-logotype state, or an AGB held in reset is unknown.
+This is new evidence about the device state, not a fault: the transport, the
+geometry and the byte picking all agree with the references.
+
+---
+
+**2026-09-16 refinements from GBP-VIDEO-001:**
+
+* **U-GBP-029 (byte 0 extras in block reads)** — considerably narrowed. Over 84 480
+  physical pixel words the exception is **always** `ff` where byte 1 reads `7f`,
+  never the reverse, byte 2/byte 3 never disagree, and the exception **never**
+  falls on the first word of a 32-byte DMA line (0 of 10 560; ~0.9 % at each of
+  the other seven). Two physically independent captures of the same all-white
+  flagged block differ in their raw bytes (5 vs 9 exceptions, CRC `fe45ff08` vs
+  `ef18fc8d`) yet produce byte-identical byte 1 / byte 3 payloads and the same GBI
+  checksum `0x7F0FFF10`. So the extras never reach what either reference reads.
+  Still open: the mechanism. The 32-byte-line structure points at the transfer
+  path rather than at the device's pixel data, but this is not established.
+
+* **U-GBP-027 (repeated service stability)** — answered for a bounded sequence:
+  209 consecutive deliveries through one installed one-shot handler with 0
+  reentry, 0 lost cause, 0 uncertain write and a strict per-cycle W1C budget
+  (GBP-HW-062, GBP-HW-063). Longer runs, and runs with a cartridge driving a
+  moving image, remain untested.

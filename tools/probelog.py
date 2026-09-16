@@ -164,6 +164,22 @@ def _wait_lines(f, t_unmask):
     return out
 
 
+def _raw_crc_at(records, kind, t_start):
+    """CRC-32 of the block a whole-block read produced, found by joining on the physical t_start of
+    the transfer: `VBLK ... t_start=` for VIDEO, `ABLK ... t_start=` for AUDIO (GBP-VIDEO-001).
+    Returns "" when no summary record carries a CRC for that transfer — which is the honest answer
+    for an AUDIO drain whose payload was not preserved (only the first 8 and the last valid one are).
+    A CRC is NEVER invented: a zero field means "not measured", not "the CRC is zero"."""
+    want = "VBLK" if kind == "video" else "ABLK"
+    for r in records:
+        if r["kind"] == want and r["fields"].get("t_start") == str(t_start):
+            c = r["fields"].get("crc32", "")
+            if c and c != "00000000":
+                return c
+            return ""
+    return ""
+
+
 def _block_crc(records, kind):
     """crc32 of the completed block `kind` ("audio" / "video") from the run's BLOCK record, or None."""
     for r in records:
@@ -346,7 +362,10 @@ def fixture(records, note=None):
             a, v, ack = g["a"], g["v"], g["ack"]
             if a[1] == "1":                                           # AUDIO attempted: t_start, one whole-block read, t_end
                 lines.append("T %s" % a[5])
-                lines.append(("B %s %08x %s %s" % (a[9], 0x1000, a[3], a[8] if a[2] == "1" else "")).rstrip())
+                # the AUDIO CRC is emitted ONLY when this drain's payload was preserved (the first 8
+                # and the last valid one); audio_crc32 == 0 means "not measured" and must stay blank
+                acrc = a[8] if (a[2] == "1" and a[8] != "00000000") else ""
+                lines.append(("B %s %08x %s %s" % (a[9], 0x1000, a[3], acrc)).rstrip())
                 lines.append("T %s" % a[6])
             if v[1] == "1":                                           # VIDEO attempted
                 lines.append("T %s" % v[5])
@@ -376,8 +395,13 @@ def fixture(records, note=None):
                 lines.append("T %s" % f["t_next"])                     # the poll that ended the wait
                 if f.get("observed") == "1":
                     lines.append("P p %s" % f["intsr"])
-        elif k in ("AUDIOREAD", "VIDEOREAD") and f.get("attempted") == "1":  # GBP-AV-SERVICE-001: one whole-block read, timed around the call
-            crc = _block_crc(records, "audio" if k == "AUDIOREAD" else "video") if f.get("rc") == "ok" else None
+        elif k in ("AUDIOREAD", "VIDEOREAD") and f.get("attempted") == "1":  # one whole-block read, timed around the call
+            kind = "audio" if k == "AUDIOREAD" else "video"
+            crc = None
+            if f.get("rc") == "ok":
+                # GBP-AV-SERVICE-001 logs a BLOCK record per block; GBP-VIDEO-001 logs VBLK / ABLK
+                # summaries instead, joined to this transfer by its physical t_start
+                crc = _block_crc(records, kind) or _raw_crc_at(records, kind, f.get("t_start"))
             lines.append("T %s" % f["t_start"])
             lines.append(("B %s %08x %s %s" % (f["addr"], int(f["len"], 16), f["rc"], crc or "")).rstrip())
             lines.append("T %s" % f["t_end"])

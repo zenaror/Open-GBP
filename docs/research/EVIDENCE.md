@@ -2015,3 +2015,112 @@ classification — block data vs an artifact of the read path in the byte
 positions the references discard — is **UNKNOWN** (U-GBP-029); the
 positional coincidence with the register reads' extras is noted as
 HYPOTHESIS; no byte is corrected; GBP-VIDEO-001 tests reproducibility.
+
+### GBP-HW-062 — repeated drained service is stable over 209 cycles — FACT
+
+GBP-VIDEO-001 (2026-09-16, `video-0001`, commit `6930dde`). One install of the
+003B extended one-shot handler served **209 consecutive deliveries**: 209
+unmasks, 209 handler entries, 209 ACKs (`pending | 0x8000`), 209 re-arms
+(`IRQ := 0x0000`), 0 reentry, 0 missed entry, 0 unexpected source, 0 uncertain
+write. Every cycle read INTSR bit 13 set at the ISR entry and clear after the
+handler's single W1C. Restricted to this run and this sequence length.
+
+### GBP-HW-063 — the W1C budget held for every cycle — FACT
+
+Same run: ISR W1C 209 (exactly one per delivery), main-loop W1C **0**, teardown
+W1C 1 — 210 total. No main-loop PI write occurred between a re-arm and the next
+unmask in any of the 209 cycles.
+
+### GBP-HW-064 — 88 VIDEO and 144 AUDIO whole-block DMAs, all successful — FACT
+
+Same run: 88 VIDEO blocks of 0xF00 at `0x01100000` and 144 AUDIO blocks of
+0x1000 at `0x01800000`, every one completed; 0 timeouts, 0 busy, 0 backend
+errors. `bulk_transfers=232`, `bulk_bytes=927744` = 88 × 0xF00 + 144 × 0x1000.
+
+### GBP-HW-065 — source distribution of this run — FACT (measurement, not a rate)
+
+Same run, 209 pending snapshots: 121 × `0x0400` (AUDIO only), 65 × `0x0100`
+(VIDEO only), 23 × `0x0500` (both). This is one run's distribution; nothing about
+a universal AUDIO : VIDEO ratio follows from it.
+
+### GBP-HW-066 — one physical frame-start interval of exactly 40 VIDEO blocks — FACT
+
+Same run: both frame-start predicates (GBI's bit 7 of bytes 0 AND 1; the Disc's
+bit 7 of byte 1) are true on blocks 0, 25 and 65 of the captured sequence and
+**agree on all 88 blocks — 0 divergences**. The interval seq25 → seq65 contains
+exactly **40** VIDEO blocks. The general "40 blocks per frame" model is
+CORROBORATED (Disc constants + GBI constants + this interval); one interval does
+not establish a period.
+
+### GBP-HW-067 — frame timing of this run — FACT (measurement)
+
+Same run, time base 40.5 MHz: seq25 → seq65 = 680 138 ticks = 16.794 ms =
+**59.547 Hz**; within it, seq25 → seq64 = 464 059 ticks (11.458 ms) over 39
+block gaps and seq64 → seq65 = 216 079 ticks (5.335 ms). Steady per-block gap
+11 891 ticks (0.294 ms) median.
+
+### GBP-HW-068 — a 22-cycle AUDIO-only gap closes the frame — FACT
+
+Same run: between the VIDEO blocks seq64 (cycle 141) and seq65 (cycle 164) there
+are exactly 22 consecutive cycles whose pending value is `0x0400`, with no VIDEO
+source, spanning the 5.335 ms gap of GBP-HW-067. Reading that gap as the AGB's
+vertical blanking is CORROBORATED by both references' frame structure, not
+established by this run alone.
+
+### GBP-HW-069 — the captured frame is semantically uniform — FACT
+
+Same run: under the byte 1 / byte 3 picking both references perform, the 88
+blocks carry exactly two payloads — 85 × (960 × `0x7FFF`) and 3 × (`0xFFFF` +
+959 × `0x7FFF`), the latter exactly on the three frame starts. The complete
+frame seq25..seq64 is 38 400 elements, uniform apart from the start marker.
+
+### GBP-HW-070 — byte 0 varies without changing the payload — FACT
+
+Same run: over 84 480 pixel words, byte 0 differs from byte 1 in **688** words,
+always `ff`/`7f`; byte 2 never differs from byte 3 (0 cases). The exceptions
+never fall on the first word of a 32-byte DMA line (0 of 10 560) and appear at
+~0.9 % at each of the other seven positions. The byte 1 / byte 3 payload of the
+first captured block is **byte-identical** to the GBP-AV-SERVICE-001 physical
+block though the raw CRC-32s differ (`fe45ff08` vs `ef18fc8d`) and the exception
+counts differ (5 vs 9); both yield GBI checksum `0x7F0FFF10`. Byte 0 variability
+therefore does not alter what either reference reads. Its cause stays open
+(U-GBP-029); nothing here identifies a DMA fault.
+
+### GBP-HW-071 — the physical frame matches the references exactly where they are white — CORROBORATED
+
+Same run, offline comparison with the private inputs, aligned on the complete
+interval (seq25 = frame position 0): GBI table A matches 28/40 with the 12
+mismatches **exactly at blocks 14..25**; table B 32/40 with the 8 mismatches
+**exactly at blocks 12..19**; the Disc's embedded frame 28/40 with mismatches
+**exactly at 14..25**. Those are precisely the blocks the static analysis says
+carry the "GAME BOY / Nintendo" logotype. The physical per-block checksums are
+exactly `0xFF0FFF0F` (39 blocks) and `0x7F0FFF10` (1 block) — table A entries 1
+and 0, the all-white block without and with the frame flag. Conclusion: the AGB
+was displaying a **blank white screen**, a device state different from the boot
+logotype the references embed. This corroborates the block geometry, the byte
+picking and the 40-block frame model; it does not indicate any fault.
+
+### GBP-HW-072 — the final latched cause was closed by the teardown, never delivered — FACT
+
+Same run: the capture stopped at `target_reached` with a 210th cause latched at
+the PI. The admission point refused it, no further unmask occurred, and the
+teardown closed it with its single W1C (`00012000 → 00010000`, not sticky) after
+the stop word `IRQ := 0x8FAA` read back `0x8AAA`. Handler restored once, INTMR
+bit 13 = 0, AR_INFO `005b → 0043`, `restore=ok`.
+
+### GBP-VID-008 — the OGBPSEQ1 sidecar of a physical run is self-verifying — FACT
+
+The GBP-VIDEO-001 sidecar (403 948 B, sha256 `ce5134ff…e229`) parses with the
+documented layout, header CRC `593d4082` and total CRC `d38bf828` both
+recomputed, all 12 reserved bytes zero, no trailing byte, and **every one of the
+88 VIDEO blocks re-CRCed against its table entry**. The 135 AUDIO drains whose
+payload was not preserved carry `raw_index = 0xFFFF` and `crc32 = 0`: absence of
+a measurement, never a fabricated one.
+
+### GBP-VID-009 — the AUDIO last-valid policy behaved as designed on hardware — FACT
+
+Same run: of 144 successful AUDIO drains, exactly 9 payloads were preserved —
+the first 8 (cycles 0, 1, 2, 3, 4, 6, 8, 10) and the last valid one (cycle 207).
+The first eight carry 16–36 nonzero bytes of 4096; the last carries 2178. No
+audio format is inferred.
+

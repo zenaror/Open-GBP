@@ -17,6 +17,128 @@ Conclusion and follow-ups (EVIDENCE / UNKNOWNS ids)
 
 ## Executed tests
 
+### GBP-VIDEO-001 — 2026-09-16 — PASS (`ok_video_sequence_capture`)
+
+**Physically executed 2026-09-16**, one run, no Game Pak. Build `video-0001`,
+clean commit `6930dde` (`6930dde3074ae25ca2e3b3a1501a58ca055918b3`), DOL SHA-256
+`856d3e91…fd65`. Raw evidence: log sha256
+`ec3c366c8e885dea2631db74cc974d1cd2262cae59a6ee4732e08536a4bd6527` (270 580 B),
+sequence sidecar sha256
+`ce5134ff12f8a0b78a1f60c3c3f4be658fa1ecb66e078ae50a241f037edfe229` (403 948 B,
+`OGBPSEQ1` v1). Fixture: `captures/fixtures/hw-gamecube-gbp-2026-09-16-video-0001.gbpreplay`
+with its sidecar; the sidecar in `captures/fixtures/` is a byte-identical copy of
+the console's file. Power cycle performed by the user.
+
+**Operational result (FACT, this run).** 209 admitted cycles, 209 unmasks, 209
+handler entries, 209 ACKs, 209 re-arms, 0 reentry, 0 missed entry, 0 unexpected
+source, 0 uncertain write, 0 DMA timeout, 0 busy, `errors=0`, `transport_ok=1`,
+`control_ok=1`. W1C budget: ISR 209 (one per delivery), main 0, teardown 1 —
+210 in total. 88 VIDEO blocks (0xF00 at `0x01100000`) and 144 AUDIO blocks
+(0x1000 at `0x01800000`), all completed; `bulk_transfers=232`,
+`bulk_bytes=927744` = 88 × 0xF00 + 144 × 0x1000 exactly. Capture ended at
+`target_reached` with the 210th cause latched and refused at the admission
+point; no 89th VIDEO block was captured. `restore=ok`. ISR latency 34 ticks
+median (0.84 µs), 95 maximum (2.3 µs). The log used 1794 of the ring's 3000
+lines, 0 dropped, 0 truncated.
+
+**Source distribution (measurement of this run, not a universal rate).** Of the
+209 pending snapshots: 121 × `0x0400` (AUDIO only), 65 × `0x0100` (VIDEO only),
+23 × `0x0500` (both). 121 + 23 = 144 AUDIO and 65 + 23 = 88 VIDEO, matching the
+drain counts exactly.
+
+**Frame-start boundaries (FACT, this run).** Recomputed from the raw first four
+bytes of all 88 blocks: GBI's predicate and the Start-up Disc's predicate agree
+on **every one of the 88 blocks (0 divergences)** and both give positions
+0, 25, 65 — intervals 25 and 40. **One complete boundary-to-boundary interval of
+exactly 40 VIDEO blocks was observed** (seq25 → seq65). The general "40 blocks
+per frame" model is therefore CORROBORATED by three independent sources: the
+Disc's constants, GBI's constants and this physical interval.
+
+**The first interval of 25 is a startup transient, not a 25-block frame.** The
+four VERIFY cycles at the start cost 34 792 ticks each against 3 101 for a lean
+cycle (11×); the device's VIDEO block is single-buffered, so blocks produced
+while the probe was still servicing were overwritten and never signalled as
+separate causes. At the steady cadence (11 891 ticks per block) the 628 474
+ticks of the first interval would carry ~37 blocks; 25 were captured. The probe
+drained every VIDEO source it saw (88 selected, 88 attempted, 88 completed), so
+the loss is on the device side, not ours. The log does not let the count of lost
+blocks be proven exactly — see U-GBP-030.
+
+**Timing (measurements of this run).**
+
+| Interval | Ticks | ms | Note |
+|---|---|---|---|
+| seq0 → seq25 | 628 474 | 15.518 | startup transient, not one frame |
+| seq25 → seq65 | 680 138 | 16.794 | one complete frame = **59.547 Hz** |
+| seq25 → seq64 | 464 059 | 11.458 | the 39 active block gaps |
+| seq64 → seq65 | 216 079 | 5.335 | the long gap that closes the frame |
+
+Steady per-block gap: 11 891 ticks (0.294 ms) median over seq26..seq64.
+
+**AUDIO-only gap.** Between the VIDEO block seq64 (cycle 141) and seq65 (cycle
+164) there are exactly **22 consecutive AUDIO-only `0x0400` cycles** (142..163)
+and no VIDEO source, spanning the 5.335 ms gap above. Reading that gap as the
+AGB's vertical blanking is CORROBORATED by both references' frame structure; it
+is not established by this single run alone.
+
+**VIDEO payload (FACT, this run).** Under the byte 1 / byte 3 picking both
+references perform, the 88 blocks carry exactly **two** semantic payloads:
+85 blocks of 960 × `0x7FFF`, and 3 blocks — precisely seq 0, 25 and 65, the
+frame starts — of `0xFFFF` followed by 959 × `0x7FFF`. The complete frame
+seq25..seq64 is 40 blocks = 38 400 elements, uniform apart from the start marker
+on its first element. Under the static 4 × 240 geometry that is 160 lines × 240,
+all white; the geometry itself remains CORROBORATED from the references and is
+not validated visually by this run.
+
+**Byte 0 variability (FACT, this run).** Over the 84 480 pixel words of the 88
+blocks, byte 0 differs from byte 1 in **688 words, always `ff`/`7f`**, and byte 2
+never differs from byte 3 (0 cases). The exceptions **never** occur at the first
+word of a 32-byte DMA line (0 of 10 560) and occur at a ~0.9 % rate at each of
+the other seven positions. Crucially, the byte 1 / byte 3 payload of seq0 is
+**byte-identical** to the GBP-AV-SERVICE-001 physical block although the raw
+CRC-32s differ (`fe45ff08` vs `ef18fc8d`) and the exception counts differ (5 vs
+9); both blocks give GBI checksum `0x7F0FFF10`. Byte 0 variability therefore does
+**not** alter the payload either reference consumes. Whether it is a bus/DMA
+artefact remains open — see U-GBP-029.
+
+**Offline oracle (not a gate).** With the private inputs and the capture aligned
+on its complete interval (seq25 = frame position 0), the physical frame matches
+the references at exactly the positions they define as white and differs at
+exactly the positions where they embed the logotype: GBI table A 28/40, the 12
+mismatches being **exactly blocks 14..25**; table B 32/40, the 8 mismatches being
+**exactly blocks 12..19**; the Disc's embedded frame 28/40, mismatches **exactly
+14..25**. The physical per-block checksums are exactly two values — `0xFF0FFF0F`
+(39 blocks) and `0x7F0FFF10` (1 block) — which are precisely table A entry 1
+(all-white without the flag) and entry 0 (all-white with the flag). The AGB was
+showing a **blank white screen**, not the boot logotype the references embed.
+Nothing indicates a hardware or capture fault; the divergence identifies a
+different device state. Note that `tools/avseq.py oracle` aligns on the first
+boundary and reported `partial_match` using the transient 25 interval; the
+corrected alignment above is the meaningful one — see the follow-up in the DEVLOG.
+
+**AUDIO.** 144 drains, all completed, 9 payloads preserved by design (the first
+8 successful drains and the last valid one): CRC-32 `46976584`, `6c7d6969`,
+`93ae870e`, `eb52f01e`, `e6e2e1af`, `51669894`, `889c3d29`, `ae982577`,
+`e36172fa`. The first eight (cycles 0,1,2,3,4,6,8,10) carry 16–36 nonzero bytes
+of 4096; the last (cycle 207) carries 2178. No format or PCM interpretation is
+attempted here. The other 135 drains have metadata and **no recorded bytes**.
+
+**Teardown.** CPU masked, CONTROL `8c → 90`, IRQSTOPPRE `0x0500`, stop word
+`IRQ := 0x8FAA` (`0x0500 | 0x8AAA`) read back `0x8AAA` with masks and bit 15
+confirmed, one PI cleanup W1C (`00012000 → 00010000`, not sticky), handler
+restored, INTMR bit 13 = 0 (`000001fa`), AR_INFO `005b → 0043` read back, FINAL
+CONTROL `00` IRQ `9090`. The 210th cause was never delivered: it was latched,
+refused at the admission point and closed by that single W1C.
+
+**Implementation follow-up (not a defect of this run).** 2 632 017 ticks
+(64.99 ms) elapse between the last WAIT_NEXT observation and the teardown's first
+hardware write. `finish()` runs `summarize()` (CRC-32 and scans over 374 784
+bytes) and `log_lean_cycles()` (1 230 formatted records) **before**
+`teardown_video()`. The device stayed in the experimental CONTROL state and the
+cause stayed latched for that extra 65 ms; the teardown then succeeded and
+`restore=ok`. A future build should perform the hardware teardown first and
+compute the summaries afterwards.
+
 ### SMOKE-HW-001 — 2026-09-14 — PASS
 
 ```text
@@ -2931,10 +3053,13 @@ service pass; R11 promotion if observed), REGISTERS.md (VIDEO / AUDIO rows: hard
 HSP.md (§3: the ARQ hi-queue precision and the first measured bandwidth), captures/README.md
 (fixture + sidecar format), tests/README.md, poc/README.md.
 
-### GBP-VIDEO-001 — bounded VIDEO block sequence capture: repeated drained service, frame boundaries, block order and cadence, no cartridge (Phase 4; designed 2026-09-16, specification reviewed twice the same day; IMPLEMENTED 2026-09-16, NOT PHYSICALLY EXECUTED)
+### GBP-VIDEO-001 — bounded VIDEO block sequence capture: repeated drained service, frame boundaries, block order and cadence, no cartridge (Phase 4; designed, implemented and PHYSICALLY EXECUTED 2026-09-16)
 
-Status: **IMPLEMENTED 2026-09-16 — NOT PHYSICALLY EXECUTED — DIRTY BUILD, NOT A
-PHYSICAL CANDIDATE.** No hardware has been run and none is requested. Code:
+Status: **PHYSICALLY EXECUTED 2026-09-16** (build `video-0001`, clean commit
+`6930dde`, DOL SHA-256 `856d3e91…fd65`); the result is recorded under "Executed
+tests — GBP-VIDEO-001" above. The paragraph below is the pre-execution status,
+kept for the history: IMPLEMENTED 2026-09-16 — NOT PHYSICALLY EXECUTED — DIRTY
+BUILD, NOT A PHYSICAL CANDIDATE, at the time it was written. Code:
 `poc/gbp-video-capture-probe/` (Test ID `GBP-VIDEO-001`, Build ID `video-0001`,
 gecko prefix `OPENGBP-VIDEO`), logic in `src/gbp/gbp_video_probe.{h,c}`, the
 sequence core (records, buffers, predicates, boundaries, compact log lines) in

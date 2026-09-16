@@ -4203,3 +4203,110 @@ physical run — the first bounded sequence of the GBP video stream.
 VIDEO_PATH.md (experiment status), captures/README.md (the `OGBPSEQ1` sidecar
 and the rule that no GBP-VIDEO-001 fixture may exist yet), tests/README.md,
 tools/README.md, the POC README, this entry. No commit, no push.
+
+---
+
+## 2026-09-16 — GBP-VIDEO-001 physically executed and consolidated
+
+**Goal:** run the released candidate on hardware and consolidate the first
+physical VIDEO block sequence of the project.
+
+**Result:** executed once, `ok_video_sequence_capture`, `capture=target_reached`,
+`restore=ok`, `errors=0`. Build `video-0001`, clean commit `6930dde`, DOL SHA-256
+`856d3e91…fd65`. Raw evidence preserved: log `ec3c366c…6527` (270 580 B) and
+sequence sidecar `ce5134ff…e229` (403 948 B), both recomputed here and both
+byte-identical in `captures/local/` and, for the sidecar, in `captures/fixtures/`.
+
+### What the run settled
+
+The repeated drained service is stable: **209 cycles through one installed
+handler**, 209 unmasks / entries / ACKs / re-arms, 0 reentry, 0 unexpected
+source, 0 uncertain write, 0 DMA failure. W1C: 209 ISR, **0 main**, 1 teardown.
+232 whole-block DMAs moved exactly 927 744 bytes. That answers U-GBP-027 for a
+bounded sequence (GBP-HW-062/063/064).
+
+**One complete frame-start interval of exactly 40 VIDEO blocks** was captured
+(seq25 → seq65), with GBI's predicate and the Disc's agreeing on **all 88
+blocks, 0 divergences**. 40 blocks per frame moves from a constant read out of
+two decompilations to CORROBORATED by hardware (GBP-HW-066). The frame took
+680 138 ticks = 16.794 ms = **59.547 Hz**, made of 39 gaps of ~0.294 ms and one
+closing gap of 5.335 ms spanned by exactly 22 consecutive AUDIO-only causes
+(GBP-HW-067/068).
+
+### The first interval of 25 is a startup transient, not a 25-block frame
+
+The four VERIFY cycles cost 34 792 ticks each against 3 101 for a lean cycle.
+The device's VIDEO block is single-buffered, so blocks produced while the probe
+was still servicing were overwritten and never signalled. At the steady cadence
+the first interval's time would carry ~37 blocks and 25 were captured — but the
+interval is also *shorter in time* than a full frame, so "one frame minus 15"
+does not fit either. The probe drained every source it saw (88/88/88): the loss
+is on the device side and the log cannot pin the count. Opened as U-GBP-030. The
+practical lesson for the next build: do not put the slow verify cycles at the
+start of a capture.
+
+### The reverse engineering checked out, and the AGB was showing white
+
+Transforming our physical blocks by byte 1 : byte 3 and computing GBI's
+per-block checksum reproduces the references' own all-white entries exactly —
+`0xFF0FFF0F` (no flag) and `0x7F0FFF10` (with the flag), table A entries 1 and 0.
+Aligned on the complete interval, the capture matches GBI table A at 28/40 with
+the 12 mismatches **exactly at blocks 14..25**, table B at 32/40 with mismatches
+**exactly at 12..19**, and the Disc's embedded frame at 28/40 with mismatches
+**exactly at 14..25** — precisely the logotype blocks the static analysis
+identified. So the geometry, the byte picking and the table layouts are all
+confirmed, and the divergence is a **device-state** finding: the AGB was
+displaying a blank white screen, not the boot logotype (GBP-HW-071, U-GBP-031).
+Colour is untouched by this run: a uniform white frame carries no colour
+information.
+
+### Byte 0 narrowed considerably
+
+Over 84 480 physical pixel words, byte 0 differs from byte 1 in **688**, always
+`ff` against `7f`, never the reverse; byte 2 never differs from byte 3. The
+exceptions **never** land on the first word of a 32-byte DMA line (0 of 10 560)
+and sit at ~0.9 % on each of the other seven. Two physically independent captures
+of the same block (this run's seq0 and the GBP-AV-SERVICE-001 block) have
+different raw bytes and different exception counts yet **byte-identical byte 1 /
+byte 3 payloads and the same GBI checksum**. The extras never reach what either
+reference reads. The mechanism stays open (U-GBP-029); the 32-byte-line structure
+points at the transfer path, which is a lead, not a conclusion. Nothing here
+justifies calling it a DMA bug.
+
+### Two defects found while consolidating
+
+- **`tools/probelog.py` fabricated CRC-32 values.** 135 of the 144 AUDIO drains
+  preserve no payload by design, and their cycle records carry `audio_crc32 = 0`.
+  The fixture generator copied that zero onto the `B` line as if it were a
+  measurement. It now emits a CRC only where one was actually taken: 88/88 VIDEO
+  and 9/144 AUDIO lines, a blank field meaning "not measured". The same fix gave
+  the four verify cycles' VIDEO reads their real CRCs (they were bare before,
+  because the rule looked for an AVSVC-only `BLOCK` record); the new join is on
+  the physical `t_start` of the transfer.
+- **`finish()` summarises before it tears the hardware down.** 64.99 ms elapse
+  between the last WAIT_NEXT and the teardown's first write, spent on CRC-32 and
+  scans over 374 784 bytes plus 1 230 formatted records. The run is not
+  invalidated — the cause stayed latched and the teardown succeeded — but the
+  device sits in the experimental CONTROL state longer than it needs to. A
+  future build should tear down first and summarise afterwards. Not changed now:
+  altering the runtime during consolidation would invalidate the artefact this
+  evidence belongs to.
+
+Also noted: `tools/avseq.py oracle` aligns on the first boundary, so it used the
+transient 25 interval and reported `partial_match`. The meaningful comparison is
+the one above, aligned on the complete interval. The tool should prefer a
+complete interval or accept an explicit phase — a follow-up, not a defect of the
+run.
+
+### Tests and fixtures
+
+`captures/fixtures/hw-gamecube-gbp-2026-09-16-video-0001.gbpreplay` plus its
+`OGBPSEQ1` sidecar replay the whole run: 0 mismatches, 0 exhausted, 232 bulk
+reads, all 88 VIDEO CRCs verified, and **135 AUDIO reads reported missing**
+because their payload was never preserved — never invented. Suites after the
+consolidation: C 14 binaries / 20 789 checks / 0 failures; Python 239 passed, 0
+skipped.
+
+**Next highest-value step:** decide GBP-VIDEO-002. The uniform white frame means
+a known-colour source is still needed for the colour question, but the transport,
+the geometry and the frame structure no longer are. Not started here.

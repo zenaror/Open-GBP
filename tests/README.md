@@ -62,7 +62,12 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      lifecycle, the sidecar of a real run and the log capacity; plus the PHYSICAL
                                      GBP-AV-SERVICE-001 fixture replayed as the exact prefix of cycle 0 (that run
                                      is one cycle of this loop: 132 operations, 0 mismatches, the second cycle
-                                     refused at the admission point). Every mock scenario is SYNTHETIC.
+                                     refused at the admission point), and the PHYSICAL GBP-VIDEO-001 run of
+                                     2026-09-16 (video-0001, commit 6930dde) replayed end to end from its own
+                                     fixture and OGBPSEQ1 sidecar: 209 cycles, 232 whole-block reads, 88 VIDEO
+                                     CRCs verified, 135 AUDIO reads reported missing because their payload was
+                                     never preserved, boundaries 0/25/65, the 40-block frame and the 688 byte-0
+                                     exceptions all pinned. Every mock scenario is SYNTHETIC.
                   test_gbp_avsvc.c   GBP-AV-SERVICE-001 logic (one delivery → PRESVC → AUDIO/VIDEO whole-block
                                      drains → ACK from the PRESVC value → POSTACK → PI clean → re-arm → next cause
                                      observed, never delivered): the success paths, the §35 event order, snapshot

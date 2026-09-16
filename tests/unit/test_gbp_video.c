@@ -919,6 +919,157 @@ static void test_hw_avsvc_as_first_cycle(const char *path, const char *blocks_pa
     free(text);
 }
 
+struct seqcar { struct gbp_avseqdump_info info; const uint8_t *vraw, *araw; const uint8_t *vt, *at; unsigned vcalls, acalls, amissing; };
+/* The Nth VIDEO read is the Nth stored block (they are contiguous in sequence order). The Nth AUDIO
+ * read is the Nth AUDIO record, and only the records whose raw_index is not 0xFFFF have a preserved
+ * payload — the first 8 successful drains and the last valid one. For every other drain the source
+ * returns nothing, so the replay counts it as a missing block instead of inventing bytes. */
+static uint32_t seq_source(void *ctx, uint32_t base, uint32_t addr, uint32_t len, uint8_t *out)
+{
+    struct seqcar *sc = (struct seqcar *)ctx;
+    unsigned idx = (unsigned)((addr - base) >> 20) & 0xFu;
+    if (idx == GBP_AVSEQ_VIDEO_INDEX && len == GBP_AVSEQ_VIDEO_BLOCK_SIZE && sc->vraw && sc->vcalls < sc->info.video_raw_stored) {
+        memcpy(out, sc->vraw + (size_t)sc->vcalls * GBP_AVSEQ_VIDEO_BLOCK_SIZE, len);
+        sc->vcalls++;
+        return len;
+    }
+    if (idx == GBP_AVSEQ_AUDIO_INDEX && len == GBP_AVSEQ_AUDIO_BLOCK_SIZE && sc->at && sc->acalls < sc->info.audio_count) {
+        struct gbp_avseq_ablock a;
+        unsigned n = sc->acalls++;
+        gbp_avseqdump_decode_ablock(sc->at + (size_t)n * GBP_AVSEQDUMP_AUDIO_REC, &a);
+        if (a.raw_index != 0xFFFFu && sc->araw && a.raw_index < sc->info.audio_raw_count) {
+            memcpy(out, sc->araw + (size_t)a.raw_index * GBP_AVSEQ_AUDIO_BLOCK_SIZE, len);
+            return len;
+        }
+        sc->amissing++;                 /* payload not preserved by design: never invented */
+        return 0;
+    }
+    return 0;
+}
+
+/* ---- the physical GBP-VIDEO-001 fixture (2026-09-16, video-0001, commit 6930dde) ---- */
+static void test_hw_video_001(const char *path, const char *seq_path)
+{
+    char *text = read_file(path);
+    struct gbp_replay r; struct gbp_transport t; struct gbp_video_config cfg; struct gbp_video_result res; struct ringlog rl;
+    struct seqcar sc; static uint8_t raw[GBP_AVSEQDUMP_MAX_SIZE + 64]; long n; FILE *f;
+    unsigned i, starts = 0, disagree = 0, a_only = 0, v_only = 0, both = 0;
+    memset(&sc, 0, sizeof sc);
+    if (!text) { fprintf(stderr, "cannot read %s\n", path); failures++; return; }
+    f = fopen(seq_path, "rb");
+    if (!f) { fprintf(stderr, "cannot read %s\n", seq_path); failures++; free(text); return; }
+    n = (long)fread(raw, 1, sizeof raw, f);
+    fclose(f);
+    CHECK(n == 403948);
+    CHECK(gbp_avseqdump_parse(raw, (size_t)n, &sc.info, 0, &sc.vt, &sc.at, &sc.vraw, &sc.araw) == 0);
+    if (!sc.vt || !sc.at) { free(text); return; }
+    /* the console's own sidecar: identity, counts and both CRCs */
+    CHECK(sc.info.version == 1u && sc.info.tb_hz == 40500000u);
+    CHECK(strcmp(sc.info.test_id, "GBP-VIDEO-001") == 0 && strcmp(sc.info.build_id, "video-0001") == 0);
+    CHECK(strcmp(sc.info.app, "gbp-video-capture-probe") == 0 && strcmp(sc.info.commit, "6930dde") == 0);
+    CHECK(sc.info.cycle_count == 209u && sc.info.video_count == 88u && sc.info.audio_count == 144u);
+    CHECK(sc.info.audio_raw_count == 9u && sc.info.video_raw_stored == 88u);
+    CHECK(sc.info.capture_result == GBP_AVSEQ_END_TARGET_REACHED && sc.info.boundaries_gbi == 3u && sc.info.boundaries_disc == 3u);
+    CHECK(sc.info.header_crc32 == 0x593d4082u && sc.info.total_crc32 == 0xd38bf828u);
+    CHECK(sc.info.target_video_blocks == 88u && sc.info.max_deliveries == 320u && sc.info.t0 == 1853935409u);
+    /* the sidecar's own tables: the three frame starts, both predicates agreeing on all 88 blocks */
+    for (i = 0; i < sc.info.video_count; i++) {
+        struct gbp_avseq_vblock v; uint32_t roff = 0, rlen = 0;
+        gbp_avseqdump_decode_vblock(sc.vt + (size_t)i * GBP_AVSEQDUMP_VIDEO_REC, &v, &roff, &rlen);
+        CHECK(v.seq == i && v.completed == 1 && rlen == GBP_AVSEQ_VIDEO_BLOCK_SIZE);
+        CHECK(gbp_crc32(raw + roff, rlen) == v.crc32);                      /* every VIDEO block against its entry */
+        CHECK(v.flag_gbi == gbp_avseq_flag_gbi(v.raw_first4) && v.flag_disc == gbp_avseq_flag_disc(v.raw_first4));
+        if (v.flag_gbi != v.flag_disc) disagree++;
+        if (v.flag_gbi) { CHECK(i == 0 || i == 25 || i == 65); starts++; }
+    }
+    CHECK(starts == 3 && disagree == 0);
+    /* only 9 AUDIO records carry a payload; the other 135 have metadata and no bytes */
+    {
+        unsigned kept = 0;
+        for (i = 0; i < sc.info.audio_count; i++) {
+            struct gbp_avseq_ablock a;
+            gbp_avseqdump_decode_ablock(sc.at + (size_t)i * GBP_AVSEQDUMP_AUDIO_REC, &a);
+            CHECK(a.selected && a.attempted && a.completed && a.rc == 0);
+            if (a.raw_index != 0xFFFFu) {
+                kept++;
+                CHECK(gbp_crc32(raw + sc.info.off_audio_raw + (size_t)a.raw_index * GBP_AVSEQ_AUDIO_BLOCK_SIZE,
+                                GBP_AVSEQ_AUDIO_BLOCK_SIZE) == a.crc32);
+            } else {
+                CHECK(a.crc32 == 0 && a.raw_kept == 0);                     /* never a fabricated measurement */
+            }
+        }
+        CHECK(kept == 9);
+    }
+    /* replay the whole physical run */
+    gbp_replay_init(&r, text);
+    r.block_source = seq_source; r.block_ctx = &sc;
+    gbp_replay_transport(&r, &t);
+    gbp_avseq_store_init(&store, video_raw, sizeof video_raw, audio_raw, sizeof audio_raw);
+    gbp_video_config_default(&cfg);
+    cfg.store = &store;
+    ringlog_init(&rl, storage, LINE_LEN, LINES);
+    CHECK(gbp_video_probe_run(&t, &rl, &cfg, &res) == 0);
+    CHECK(r.mismatches == 0 && r.exhausted == 0 && r.step == count_ops(text) && r.timeline == 1);
+    CHECK(r.bulk_reads == 232u && r.block_crc_mismatches == 0u);
+    CHECK(r.blocks_missing == 135u && sc.amissing == 135u);                 /* the unpreserved AUDIO payloads, never invented */
+    CHECK(r.record_resets == 208u);                                          /* one per admitted cycle after the first */
+    /* the physical operational result */
+    CHECK(res.status == GBP_VIDEO_OK_SEQUENCE_CAPTURE && strcmp(res.status_class, "ok") == 0);
+    CHECK(res.capture == GBP_AVSEQ_END_TARGET_REACHED && res.service_ok == 1 && res.restore_ok == 1);
+    CHECK(res.deliveries == 209 && res.unmasks == 209 && res.acks == 209 && res.rearms == 209);
+    CHECK(res.video_blocks == 88 && res.video_completed == 88 && res.audio_drains == 144 && res.audio_completed == 144);
+    CHECK(res.isr_w1c == 209 && res.main_w1c == 0 && res.teardown_w1c == 1);
+    CHECK(res.unexpected == 0 && res.uncertain_writes == 0 && res.errors == 0 && res.control_ok == 1 && res.pi_sticky_final == 0);
+    CHECK(res.next_cause_at_end == 1 && strcmp(res.refusal, "target_reached") == 0 && res.refusals == 1 && res.admissions == 209);
+    CHECK(res.verify_cycles_done == 4 && res.lean_cycles == 205);
+    CHECK(res.t0 == 1853935409u && res.admission_deadline == 1853935409u + 40500000u);
+    CHECK(res.h.handler_was_installed == 1 && res.h.handler_restored == 1 && res.h.mask_ok == 1 && res.power_cycle_required == 1);
+    CHECK(strcmp(res.teardown_variant, "S5_capture_end") == 0);
+    /* the source distribution measured in this run */
+    for (i = 0; i < store.cycles_n; i++) {
+        uint16_t p = store.cycles[i].pending;
+        if (p == 0x0400) a_only++; else if (p == 0x0100) v_only++; else if (p == 0x0500) both++;
+        CHECK(store.cycles[i].isr_count == 1 && store.cycles[i].isr_reentry == 0 && store.cycles[i].admitted == 1);
+        CHECK(store.cycles[i].ack_value == (uint16_t)(p | 0x8000) && store.cycles[i].ack_completed == 1);
+        CHECK(store.cycles[i].rearm_completed == 1 && store.cycles[i].main_w1c == 0 && store.cycles[i].pi_sticky == 0);
+    }
+    CHECK(a_only == 121 && v_only == 65 && both == 23);
+    CHECK(a_only + both == 144 && v_only + both == 88);
+    /* the boundaries recomputed by the probe from the replayed bytes */
+    CHECK(res.b_gbi.count == 3 && res.b_gbi.positions[0] == 0 && res.b_gbi.positions[1] == 25 && res.b_gbi.positions[2] == 65);
+    CHECK(res.b_gbi.intervals_n == 2 && res.b_gbi.intervals[0] == 25 && res.b_gbi.intervals[1] == 40 && res.b_gbi.complete_interval == 1);
+    CHECK(res.b_disc.count == 3 && res.b_disc.positions[1] == 25 && res.b_disc.positions[2] == 65);
+    CHECK(res.b_disc.intervals[1] == 40 && res.b_disc.complete_interval == 1);
+    /* the ONE complete physical frame: 40 blocks, semantically uniform apart from its start marker */
+    {
+        unsigned uniform = 0, k;
+        for (i = 25; i <= 64; i++) {
+            const uint8_t *b = gbp_avseq_video_bytes(&store, i);
+            int ok = 1;
+            for (k = (i == 25) ? 4u : 0u; k + 3u < GBP_AVSEQ_VIDEO_BLOCK_SIZE; k += 4u)
+                if (b[k + 1u] != 0x7f || b[k + 3u] != 0xff) { ok = 0; break; }
+            if (ok) uniform++;
+        }
+        CHECK(uniform == 40);                                                /* every element 0x7FFF apart from the marker */
+        CHECK(gbp_avseq_video_bytes(&store, 25)[1] == 0xff && gbp_avseq_video_bytes(&store, 25)[3] == 0xff);
+    }
+    /* byte 0 variability: 688 words, always ff/7f, byte 2 never differs from byte 3 */
+    {
+        unsigned b01 = 0, b23 = 0, ff7f = 0, at0 = 0, k;
+        for (i = 0; i < store.vblocks_n; i++) {
+            const uint8_t *b = gbp_avseq_video_bytes(&store, i);
+            for (k = 0; k + 3u < GBP_AVSEQ_VIDEO_BLOCK_SIZE; k += 4u) {
+                if (b[k] != b[k + 1u]) { b01++; if (b[k] == 0xff && b[k + 1u] == 0x7f) ff7f++; if (k % 32u == 0u) at0++; }
+                if (b[k + 2u] != b[k + 3u]) b23++;
+            }
+        }
+        CHECK(b01 == 688 && ff7f == 688 && b23 == 0);
+        CHECK(at0 == 0);                    /* never the first word of a 32-byte DMA line */
+    }
+    CHECK(rl.dropped == 0 && rl.truncated == 0);
+    free(text);
+}
+
 /* ---- host round-trip modes (synthetic) ---- */
 static int dump_log(const char *path, const char *seq_path)
 {
@@ -956,24 +1107,6 @@ static int dump_log(const char *path, const char *seq_path)
     printf("SEQ cycles=%lu video=%lu audio=%lu audio_raw=%lu bytes=%ld total_crc32=%08lx\n",
            (unsigned long)info.cycle_count, (unsigned long)info.video_count, (unsigned long)info.audio_count,
            (unsigned long)info.audio_raw_count, n, (unsigned long)info.total_crc32);
-    return 0;
-}
-
-struct seqcar { struct gbp_avseqdump_info info; const uint8_t *vraw, *araw; const uint8_t *vt, *at; unsigned vcalls, acalls; };
-static uint32_t seq_source(void *ctx, uint32_t base, uint32_t addr, uint32_t len, uint8_t *out)
-{
-    struct seqcar *sc = (struct seqcar *)ctx;
-    unsigned idx = (unsigned)((addr - base) >> 20) & 0xFu;
-    if (idx == GBP_AVSEQ_VIDEO_INDEX && len == GBP_AVSEQ_VIDEO_BLOCK_SIZE && sc->vraw && sc->vcalls < sc->info.video_raw_stored) {
-        memcpy(out, sc->vraw + (size_t)sc->vcalls * GBP_AVSEQ_VIDEO_BLOCK_SIZE, len);
-        sc->vcalls++;
-        return len;
-    }
-    if (idx == GBP_AVSEQ_AUDIO_INDEX && len == GBP_AVSEQ_AUDIO_BLOCK_SIZE && sc->araw && sc->acalls < sc->info.audio_raw_count) {
-        memcpy(out, sc->araw + (size_t)sc->acalls * GBP_AVSEQ_AUDIO_BLOCK_SIZE, len);
-        sc->acalls++;
-        return len;
-    }
     return 0;
 }
 
@@ -1033,6 +1166,8 @@ int main(int argc, char **argv)
     test_log_capacity();
     if (argc > 2) test_hw_avsvc_as_first_cycle(argv[1], argv[2]);
     else fprintf(stderr, "note: physical GBP-AV-SERVICE-001 fixture / sidecar paths not given, prefix test skipped\n");
+    if (argc > 4) test_hw_video_001(argv[3], argv[4]);
+    else fprintf(stderr, "note: physical GBP-VIDEO-001 fixture / sidecar paths not given, replay test skipped\n");
     printf("test_gbp_video: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

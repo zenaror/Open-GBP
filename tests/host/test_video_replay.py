@@ -11,12 +11,17 @@ run — every time-base read, PI read, interrupt-path operation, whole-block rea
 answered by the fixture and the sidecar, nothing invented. The generated files stay under build/
 and are never placed under captures/fixtures/.
 
-The physical path: the GBP-AV-SERVICE-001 fixture of 2026-09-16 (build avsvc-0001, commit d3a6d23)
-is the EXACT PREFIX of cycle 0 of this state machine — that physical run is one cycle of this
-loop. With max_deliveries = 1 it replays end to end: every one of its operations is consumed in
-order, the second cycle is refused at the admission point, and the cause the device left latched
-is acknowledged by the teardown. NO physical GBP-VIDEO-001 fixture exists; none is invented here.
+The physical path, two fixtures:
+  * GBP-AV-SERVICE-001 (2026-09-16, avsvc-0001, commit d3a6d23) is the EXACT PREFIX of cycle 0 of
+    this state machine — that run is one cycle of this loop. With max_deliveries = 1 it replays end
+    to end, the second cycle is refused at the admission point, and the latched cause is closed by
+    the teardown.
+  * GBP-VIDEO-001 (2026-09-16, video-0001, commit 6930dde) is the experiment's own run: 209 cycles,
+    88 VIDEO and 144 AUDIO drains, target reached. Only 9 of the 144 AUDIO payloads were preserved
+    by design, so 135 of its whole-block reads have metadata and no bytes; the replay reports them
+    as missing blocks and the fixture carries a CRC-32 only where one was actually measured.
 """
+import hashlib
 import os
 import re
 import subprocess
@@ -152,10 +157,46 @@ class PhysicalFirstCycle(unittest.TestCase):
         subprocess.run([BIN, PHYSICAL_AVSVC, PHYSICAL_AVSVC_BLOCKS], capture_output=True)
         self.assertEqual((os.stat(PHYSICAL_AVSVC).st_mtime_ns, os.path.getsize(PHYSICAL_AVSVC)), before)
 
-    def test_no_physical_video_001_fixture_exists(self):
-        names = os.listdir(os.path.join(ROOT, "captures", "fixtures"))
-        self.assertFalse([n for n in names if "video" in n.lower()],
-                         "GBP-VIDEO-001 has not been physically executed: no fixture may exist")
+    def test_the_physical_video_001_fixture_is_the_recorded_run(self):
+        """GBP-VIDEO-001 was physically executed on 2026-09-16. Its fixture and sequence sidecar
+        must be exactly the artefacts of that run: the sidecar byte-identical to the console's file,
+        and the header carrying the identity and the hashes of the raw evidence."""
+        fx = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-video-0001.gbpreplay")
+        seq = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-video-0001-seq.bin")
+        self.assertTrue(os.path.isfile(fx) and os.path.isfile(seq))
+        with open(seq, "rb") as f:
+            blob = f.read()
+        self.assertEqual(len(blob), 403948)
+        self.assertEqual(hashlib.sha256(blob).hexdigest(),
+                         "ce5134ff12f8a0b78a1f60c3c3f4be658fa1ecb66e078ae50a241f037edfe229")
+        with open(fx, encoding="utf-8") as f:
+            text = f.read()
+        for field in ("# SOURCE=physical GameCube", "# TEST_ID=GBP-VIDEO-001", "# BUILD_ID=video-0001",
+                      "# COMMIT=6930dde",
+                      "# DOL_SHA256=856d3e912626c5d0c686196e683bf4f398e9203ae9e835e0975e170ba760b5a6",
+                      "# LOG_SHA256=ec3c366c8e885dea2631db74cc974d1cd2262cae59a6ee4732e08536a4bd6527",
+                      "# LOG_SIZE=270580",
+                      "# BLOCKS_SHA256=ce5134ff12f8a0b78a1f60c3c3f4be658fa1ecb66e078ae50a241f037edfe229",
+                      "# BLOCKS_SIZE=403948"):
+            self.assertIn(field, text, field)
+        self.assertNotIn("SYNTHETIC", text[:4096])
+        d = avseq.parse(blob)
+        self.assertEqual((d["test_id"], d["build_id"], d["commit"]), ("GBP-VIDEO-001", "video-0001", "6930dde"))
+        self.assertEqual((d["cycle_count"], d["video_count"], d["audio_count"], d["audio_raw_count"]), (209, 88, 144, 9))
+
+    def test_no_audio_payload_is_invented_in_the_fixture(self):
+        """Only 9 of the 144 AUDIO drains preserved a payload. A "B" line may carry a CRC-32 only
+        when the payload was actually measured: a blank field means "not measured", and a fabricated
+        zero CRC would turn the absence of a measurement into a false one."""
+        fx = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-video-0001.gbpreplay")
+        with open(fx, encoding="utf-8") as f:
+            b = [l.split() for l in f if l.startswith("B ")]
+        video = [l for l in b if l[1] == "01100000"]
+        audio = [l for l in b if l[1] == "01800000"]
+        self.assertEqual((len(video), len(audio)), (88, 144))
+        self.assertTrue(all(len(l) == 5 for l in video))                  # every VIDEO payload was preserved
+        self.assertEqual(sum(1 for l in audio if len(l) == 5), 9)         # exactly the 9 preserved AUDIO payloads
+        self.assertFalse([l for l in b if len(l) == 5 and l[4] == "00000000"])   # never a fabricated CRC
 
 
 if __name__ == "__main__":

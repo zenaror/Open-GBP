@@ -131,7 +131,9 @@ on real hardware without relying on proprietary runtime code.
 
 ## Phase 4 — Video
 
-**Status: IN PROGRESS (entered 2026-09-16).** The entry experiment
+**Status: IN PROGRESS (entered 2026-09-16).** Transport and block
+sequence are now physically established (GBP-AV-SERVICE-001, GBP-VIDEO-001);
+rendering, colour and a moving image are not. The entry experiment
 GBP-AV-SERVICE-001 captured the first physical VIDEO (0xF00) and AUDIO
 (0x1000) blocks with one whole-block DMA each and preserved them raw
 (fixture + sidecar). Static basis fixed on 2026-09-16
@@ -140,8 +142,12 @@ lines × 240 pixels × 4 bytes (bytes 1/3 of each word), 40 blocks per frame,
 frame flag on the first pixel, 15-bit color in GX RGB5A3 order; both embed
 the AGB idle screen (an offline oracle without a cartridge). Short sequence:
 
-* **GBP-VIDEO-001** (designed 2026-09-16, HARDWARE_TESTS.md; **implemented
-  2026-09-16, not physically executed**; `poc/gbp-video-capture-probe/`):
+* **GBP-VIDEO-001** (**PHYSICALLY EXECUTED 2026-09-16**, `video-0001`, commit
+  `6930dde`; `poc/gbp-video-capture-probe/`): 209 cycles of repeated drained
+  service, 88 VIDEO and 144 AUDIO blocks, one complete 40-block frame-start
+  interval at 59.547 Hz, both predicates agreeing on all 88 blocks, a uniformly
+  white frame matching the references exactly where they are white. Originally
+  planned as:
   bounded repeated drained service, no cartridge — up to 88
   VIDEO blocks with timestamps, both frame-start predicates, the source
   pattern per cause; establishes blocks per frame, order, boundaries,
