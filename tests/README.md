@@ -41,8 +41,10 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      transport call for every ACK and re-arm, worst-case lines, wrap, ring
                                      overflow; the physical 003A fixture (stops at the install) and the physical
                                      003B fixture as the real prefix of cycle 0 (cut before its CONTROL restore:
-                                     the first re-arm meets an exhausted script — no physical 004 fixture
-                                     exists and none is fabricated); --dump-log / --replay modes
+                                     the first re-arm meets an exhausted script) and the physical 004 run
+                                     initirq4-0001 (2026-09-16) replayed to its real result: one delivery, one
+                                     ACK, POSTACK 0x8400, anomaly_source_not_cleared, no re-arm; --dump-log /
+                                     --replay modes
 tests/mocks/    scripted device models behind src/gbp/gbp_transport.h (PI model, synthetic
                 interrupt path with the base, the extended and the multi-cycle handler bodies, synthetic
                 IRQ-register source/mask model with an optional re-latch after a W1C, scheduled source
@@ -55,7 +57,7 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                   test_gbi_unpack.py GBI unpacker and bin2dol (synthetic packed DOL)
                   test_probelog.py   device-log parser / fixture generator
                   test_hw_fixture.py exact bytes of the hardware captures (probe-0001, init-0001,
-                                     initirq-0001, initirqa-0001, initirqb-0001), what each known driver
+                                     initirq-0001, initirqa-0001, initirqb-0001, initirq4-0001), what each known driver
                                      would read from them, blockdiff findings, the interrupt path of the
                                      003B run as it happened, the documented label defect of its log
                   test_dolphin_smoke.py runner command line (isolated user dir, OSD override)
@@ -78,7 +80,8 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      trip (optional "I p <gen>" lines, identical without them); the physical
                                      003A fixture through the 004 probe (stops at the install); the physical
                                      003B fixture as the prefix of cycle 0 (exhausted at the first re-arm,
-                                     0 mismatches); no physical 004 fixture exists
+                                     0 mismatches); the physical 004 fixture (2026-09-16) replayed end to end
+                                     to its real result (112 operations, 0 mismatches, no re-arm)
                   test_artifacts.py  checks on the built ELF/DOL (skipped
                                      until `make build` has run)
 ```

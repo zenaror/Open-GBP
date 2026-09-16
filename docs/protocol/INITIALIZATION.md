@@ -578,3 +578,84 @@ implemented on 2026-09-15 as a dirty build (`initirq4-0001`, DEVLOG
 candidate, not authorized. Its causal success criterion and the
 proposed closure of the fundamental part of Phase 3 with the start of
 Phase 4 are stated there.
+
+## 13. GBP-INIT-004 result: a second serviced cycle, the state after the acknowledge, the clean-boundary premise re-examined (2026-09-16)
+
+Physical facts (GBP-HW-042…047, GBP-IRQ-009; log verbatim in
+HARDWARE_TESTS.md; fixture `hw-gamecube-gbp-2026-09-16-initirq4-0001.gbpreplay`):
+the 003A sequence reproduced a third time (first cause 105.283 ms after
+A2, 0x0100 within 0.97 ms); the handler installed once (the multi-cycle
+body of `gbp_irq_oneshot.h` behind its generation wrapper), generation 0
+published with INTMR bit 13 = 0, PREUNMASK-0 verified, one
+`__UnmaskIrq`: **the handler ran inside the call** (89 ticks = 2.198 µs;
+second value after 003B's 78), saw INTSR `0x00012000` / INTMR
+`0x000021FA`, masked, wrote its one W1C and read PI clear at once and 142
+ticks later; slot 0 fired once, no generation error. PREACK-0 209.8 µs
+later: sources 0x0500 still pending, PI clear (bit 15 = 0). Device ACK
+`IRQ := 0x8500` completed. **POSTACK-0, 26.0 µs after the ACK: IRQ 0x8400
+— 0x0400 present, 0x0100 absent, bit 15 = 1, odd bits 0 — with CONTROL
+0x8C and PI bit 13 = 0 in two samples;** the 004 clean boundary
+(`irq & 0x0555 == 0` before any re-arm) was not met, the run ended with
+`anomaly_source_not_cleared`, **no re-arm was written**, and the teardown
+restored everything (stop `0x8400 | 0x8AAA = 0x8EAA` → 0x8AAA). No PI cause
+was captured from the handler's W1C to FINAL (≥ 0.76 ms) with 0x0400
+present, first under bit 15 = 1 / CONTROL 0x8C, then under CONTROL 0x90.
+
+What the run adds to the model (§12 table, deltas):
+
+| Element | Status after 2026-09-16 (004) |
+|---|---|
+| CPU delivery, mask-first, single W1C, latched PI bit | **F**, second run, different handler body (GBP-HW-043) |
+| Delivery latency | 78 and 89 ticks (≈1.9–2.2 µs) in two runs of two builds — observations, not a specification |
+| Sources after an ACK without a drain | 0x0400 read 1 again 26 µs after `IRQ := 0x8500` while 0x0100 read 0 (GBP-HW-045): "cleared and re-set within 26 µs" vs "never cleared" **U** (U-GBP-028) |
+| Bit 15 | with bit 15 = 1, masks 0, CONTROL 0x8C and 0x0400 present: no PI cause (≥ 140 µs), and none afterwards to FINAL — "hold / gate" **H** observed for the first time without the CONTROL change; "present source ⇒ PI latched" **rejected** under bit 15 = 1 (U-GBP-007) |
+| Stop word | `read \| 0x8AAA` validated from a third pre-state (0x8400 → 0x8EAA → 0x8AAA) |
+| Re-arm `IRQ := 0` after an ACK, repeated service | **never written; U-GBP-027 stays open** |
+
+**The clean-boundary premise, re-examined against the references
+(decompiles re-read 2026-09-16, DEVLOG "GBP-INIT-004 executed").** The
+004 design required, before any re-arm, that the acknowledged sources read
+0. Neither reference does that:
+
+- GBI thread `0x8000bf30`, per pass: `LWP_SemWait` → read IRQ (`0x80011c14
+  (0xD00000, 0x20)`) → for 0x0400 / 0x0100 / 0x0040 post **asynchronous ARQ
+  reads** of AUDIO 0x1000 (`0x800000`), VIDEO 0xF00 (`0x100000`), SIODATA
+  (`0x8000be48` → `ARQ_PostRequestAsync`, priority 1) → then the **synchronous**
+  64-byte write KEYPAD + `IRQ := read | 0x8000` at `0xCFFFE0` (`0x8000bea4` →
+  `ARQ_PostRequest`, same priority, waits for completion: FIFO behind the
+  reads, so the blocks are drained before the ACK write completes) → read
+  CONTROL/SIOCTL → optional SIODATA write → CONTROL/SIOCTL write-back → **`IRQ
+  := 0`** (`0x80015da0(buf, 0)` + `0x8000bea4(0xD00000, buf, 0x20)`) as the last
+  device access → wait again. No read of the IRQ register after the ACK.
+- Start-up Disc handler `0x8008af08`: `IRQ := shadowB | 0x8000` (bit 15 = 1
+  first) → `INTSR := 0x2000` → read IRQ → write the value read back (ACK) →
+  KEYPAD → CONTROL read → callbacks: the audio slot (`0x8008cdc4` →
+  `0x8008a764`) and the video slot (`0x8008ed68` → `0x8008a480`) **start the
+  block DMA read** (0x1000 at `0x800000`, 0xF00 at `0x100000`, ring of 70 / 40
+  buffers) and return non-zero, which **suppresses the handler's own re-arm**
+  (`IRQ := shadowB`, the last statement, skipped when a read is in flight);
+  the re-arm is then written from the DMA-done path (bit 15 → 0 "at DMA
+  done", GBP-IRQ-002; DMA completion callbacks `0x8008ce3c` / `0x8008edac`
+  invalidate the buffer and post it to the consumer's message queue). The
+  register is never read again before the re-arm.
+
+Consequence: **both references drain the event's block before the re-arm
+and never require the source bits to read 0** — the drain, not a clean
+read-back, is their boundary; bit 15 is 1 during the whole service and
+returns to 0 with the re-arm. A POC that drains nothing (004) sees the
+audio status again 26 µs after its ACK and cannot expect 0. The
+requirement "sources == 0 before re-arming" was therefore an artificial
+condition of the 004 design, not a hardware or reference property; it is
+withdrawn for the successor. Rules R1–R10 (§9, §12) stand; draft R11 for
+the runtime (HYPOTHESIS until 004B / Phase 4): the re-arm follows the
+consumption of the block(s), as in both references, and the PI cause is
+expected to return only after the re-arm (bit 15 → 0) — whether a source
+still pending at the re-arm produces the cause at once, at its next event,
+or only after a drain is exactly what GBP-INIT-004B measures.
+
+Initialization readiness after 004: unchanged from §12 plus a second
+delivered cycle and the post-ACK state. Still missing for the steady
+state: the re-arm and repeated service (004B), KEYPAD (Phase 5), CONTROL
+0x04/0x08 at runtime (U-GBP-006), the AUDIO/VIDEO block reads (Phases 4/6,
+now known to be the references' boundary before their re-arm). Phase 3 is
+**not** concluded by this run.

@@ -143,8 +143,18 @@ start — GBP-INIT-002 wrote nothing there and saw no interrupt
 (after `__MaskIrq`), then `IRQ := 0x0500 \| 0x8000` from the main loop
 under CONTROL 0x8C, then the Disc's stop word — is **F**; the PI cause did
 not re-assert after its W1C although the device sources stayed pending
-until the ACK. GBI's re-arm `IRQ := 0` after the ACK has not been
-exercised (U-GBP-027).
+until the ACK. **Hardware 2026-09-16, GBP-INIT-004 (GBP-HW-042…047,
+GBP-IRQ-009):** the same cycle a second time through the multi-cycle
+handler; 26 µs after the ACK `IRQ := 0x8500` the register read **0x8400**
+(0x0400 set again or never cleared, 0x0100 cleared, bit 15 = 1, odd bits 0)
+with CONTROL 0x8C and PI bit 13 = 0 in two samples, and no PI cause
+followed to the end of the run (U-GBP-007: bit 15 = 1 observed with a
+pending source and without the CONTROL change; U-GBP-028: cleared-and-re-set
+vs never-cleared undetermined); the stop word from 0x8400 wrote 0x8EAA and
+read back 0x8AAA. GBI's re-arm `IRQ := 0` after the ACK has **still not**
+been exercised — the 004 run stopped on its clean-boundary rule before it
+(U-GBP-027); the references drain the AUDIO/VIDEO block before their
+re-arm and never require the sources to read 0 (INITIALIZATION.md §13).
 
 ## 5. GameCube-side registers involved
 

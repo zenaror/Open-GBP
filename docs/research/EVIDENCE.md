@@ -1519,3 +1519,125 @@ before the call (the 003B probe does this).
 | PI bit 13 | captured while masked, latched, W1C-cleared (GBP-PI-004); delivered as IRQ 26 on unmask, masked from inside the handler, W1C-cleared while the sources stayed pending, no re-assert ≥ 324 µs (GBP-PI-005) | libogc2 dispatch `cause & mask` (ENV-IRQ-001) | **FACT** for bit 13; device line nature **UNKNOWN** minus the rejected sustained-level model (U-GBP-022) |
 | Service protocol | ISR: mask → one PI W1C; main: `IRQ := read \| 0x8000` under the running CONTROL → stop word — one full cycle validated (GBP-HW-037…040) | GBI order PI → GBP; Disc order GBP → PI → GBP → GBP | one cycle **FACT**; re-arm (`IRQ := 0` after the ACK) and repeated service **never exercised** |
 | Write layout | u16 replicated 16× accepted for 0x8AAE, 0x0000, 0x8500, 0x8FAA; read-back offset-2 byte is not a rule (GBP-HW-041, U-GBP-025) | GBI 0x80015da4 | layout **FACT** for the four values written |
+
+## GBP-HW-042 — GBP-INIT-004 (2026-09-16): the 003A sequence and the first cause reproduced a third time; byte-0 extras present
+
+**Observation** (log `logs/GBP-INIT-004_initirq4-0001.log`, 19247 bytes,
+sha256 `c9167224…775b`; build initirq4-0001, commit 741630b, DOL
+`1da0d7b4…010c`; fixture
+`hw-gamecube-gbp-2026-09-16-initirq4-0001.gbpreplay`, 112 operations, 0
+mismatches): PRESENT 4/4 (one byte-0 extra in the handshake: pattern 3C
+read `C7 C3 …`, `all32_ok=3`); PI `0x00010000` / `0x000001FA`; BASE
+CONTROL 0x90, IRQ 0x8AAE (`8E 8A AE AE …`); CONTROL 0x90 → 0x8C (every 0x8C
+read `AC 8C 8C …`); A1 `IRQ := 0x8AAE` → 0x8AAA at +18 ticks / +50 µs /
++500 µs; A2 `IRQ := 0x0000` (`t_after=1048847666`) → 0x0000 at +18 ticks …
++50 ms with CONTROL 0x8C and INTSR bit 13 = 0; EVENT at 1053111645 =
+4263979 ticks = **105.283 ms** after A2 (003A 105.273, 003B 105.286):
+INTSR `0x00012000`, INTMR `0x000001FA`, CONTROL 0x8C, IRQ 0x0400; 0x0100
+appeared within 971.8 µs (PREUNMASK-0 read 0x0500). **Status:** FACT
+(hardware), third observation of the same sequence and cadence
+(GBP-HW-028…031, GBP-HW-035/036). The delay after A2 is repeatable to
+≈13 µs across three runs with no cartridge (U-GBP-014).
+
+## GBP-HW-043 — Second CPU delivery of a latched HSP cause, through the multi-cycle handler with its generation bookkeeping
+
+**Observation:** `IRQ_Request(26, hsp_backend_oneshot_isr_multi)` returned
+NULL after the latched cause; slot 0 clean; generation 0 published with
+INTMR bit 13 = 0; PREUNMASK-0: INTSR bit 13 = 1 twice, INTMR bit 13 = 0
+twice, CONTROL 0x8C, IRQ 0x0500, Disc == GBI. `__UnmaskIrq(IM_PI_HSP)` at
+`t_unmask=1053156576` delivered IRQ 26 inside the call (`t_post` +256
+ticks with INTSR `0x00010000`, INTMR `0x000001FA`, `fired=1` — ENV-IRQ-003
+again). Handler record, slot 0: `t_entry=1053156665` (89 ticks = 2.198 µs;
+003B: 78), INTSR at entry `0x00012000`, INTMR at entry `0x000021FA`, INTMR
+after `__MaskIrq` `0x000001FA`, INTSR before the W1C `0x00012000`, after
+the one W1C `0x00010000`, second read 142 ticks (3.506 µs) after the entry
+`0x00010000` / `0x000001FA`; `count=1 fired=1 reentry=0`;
+`expected_gen=0 entries_total=1 generation_errors=0 anomaly_count=1
+anomaly_fired=0`. Main re-mask idempotent (`main_mask_ok=1`). **Status:**
+FACT (hardware) — a physical confirmation of GBP-PI-005 with a different
+handler body (the 003B extended body behind the generation wrapper of
+`gbp_irq_oneshot.h`): the mask-first / one-W1C / latched-and-cleared
+mechanics hold; the bookkeeping (one entry, slot 0, no generation error)
+worked. An additional observation of the same semantics, not a new
+independent discovery. Latency 89 ticks: one observation, no
+specification (two values so far: 78, 89).
+
+## GBP-HW-044 — PREACK: both AV sources still pending 209.8 µs after the entry, PI bit 13 clear; no incidental acknowledge
+
+**Observation:** PREACK-0 at 1053165161 (8496 ticks after the entry):
+INTSR `0x00010000` in both samples, INTMR `0x000001FA`, CONTROL 0x8C, IRQ
+0x0500 (Disc == GBI; `85 05 04 00 / 05 05 05 00 ×7`). The handler had
+written only `INTSR := 0x2000`; no device write happened between the
+delivery and this read. **Status:** FACT (hardware), second observation of
+GBP-HW-039 (the PI cause does not re-assert after its W1C while the device
+sources stay pending under bit 15 = 0, masks 0, CONTROL 0x8C).
+
+## GBP-HW-045 — After the ACK: 0x0400 present with bit 15 = 1, CONTROL 0x8C and PI INTSR bit 13 = 0 (26 µs); 0x0100 absent; no PI cause through the end of the run
+
+**Observation:** ACK-0 `IRQ := 0x0500 | 0x8000 = 0x8500` (u16 replicated,
+rc ok, attempted 1 / completed 1, `t_after=1053170192`). POSTACK-0 snapshot
+at 1053171245 = **1053 ticks = 26.000 µs later**: IRQ **0x8400** (`84 84 04
+00 ×8`, Disc == GBI), INTSR `0x00010000` in **both** samples, INTMR
+`0x000001FA`, CONTROL 0x8C. IRQSTOPPRE, after the CONTROL restore (≈+195 µs
+after the ACK): 0x8400 again. CLEANUPCHK and FINAL (≥ 0.76 ms after the
+handler's W1C): INTSR `0x00010000`; the main loop never wrote INTSR
+(`main_w1c=0 teardown_w1c=0`), and bit 13 is latched (GBP-HW-033), so no
+HSP cause was captured in that interval. **Status:** FACT (hardware),
+restricted to the observed conditions: **a source 0x0400 can be present in
+the IRQ register with CONTROL 0x8C and bit 15 = 1 (odd bits 0) while PI
+INTSR bit 13 remains 0**; the source 0x0100 was cleared by the same write
+and stayed clear for ≥ 195 µs. **Not distinguished by this run:** (A) the
+W1C of bit 10 in the ACK did not clear 0x0400, from (B) 0x0400 cleared and
+re-asserted within the 26 µs before the sample (U-GBP-028). **Not claimed:**
+"the ACK failed" (the write completed and cleared bit 8); the mechanism of
+the reappearance; a period. **Model consequence:** "a present source implies
+an immediately latched HSP cause" is rejected under bit 15 = 1 / CONTROL
+0x8C; the hypotheses "bit 15 holds or gates the request", "status and
+request generation are separate", "the re-request needs a new event or the
+drain of the block" stay HYPOTHESIS (U-GBP-007, U-GBP-027). Compared with
+003B (0x8000 at +25.1 µs, both sources back at ≈+168 µs after CONTROL 0x90),
+the reappearance no longer requires the CONTROL change; two runs establish
+no cadence.
+
+## GBP-HW-046 — Teardown of the aborted cycle: STOP 0x8400 | 0x8AAA = 0x8EAA → 0x8AAA; every restore ok; no re-arm written
+
+**Observation:** teardown variant `S3_cycle_aborted` with the CPU masked:
+CONTROL 0x8C → 0x90 (`t_after=1053177991`, read back `90 ×32`); IRQSTOPPRE
+0x8400; stop word `IRQ := 0x8EAA` read back 0x8AAA (`masks_readback=1
+bit15_readback=1`); CLEANUPCHK INTSR `0x00010000` → no cleanup; handler
+restored (`old_handler=null`); MASKCHK INTMR `0x000001FA`; AR_INFO 0x005B →
+0x0043; FINAL under code 0 `00` / `9090`. `restore=ok`, 51 transfers, 0
+timeouts / busy / errors, 152 lines, 0 dropped / truncated, `WRITES
+irq_attempted=4 irq_completed=4 uncertain=0` (A1, A2, ACK, STOP),
+`rearms 0/0`, `next_causes 0`, `completed_cycles 0` (the boundary was not
+reached; one delivery and one ACK happened). **Status:** FACT (hardware).
+Third stop-word combination validated physically (0x8FAA twice before);
+**no `IRQ := 0` after an acknowledge was written in this run** — nothing
+here is evidence about the re-arm (U-GBP-027).
+
+## GBP-HW-047 — Byte 0 and offset-2 observations of GBP-INIT-004
+
+**Observation:** byte-0 extras in this run: TEST `C7` (3C pattern), CONTROL
+`AC` in all thirteen 0x8C reads, IRQ `8E` in every 0x8AAE / 0x8AAA read
+(BASE, P0, A1PRE, A1-0 … A2PRE, IRQSTOPPOST), `8D` at PREUNMASK-0 (0x0500),
+`85` at PREACK-0 (0x0500); none at EVENT (0x0400), POSTACK-0 / IRQSTOPPRE
+(0x8400), FINAL (0x9090), CONTROL 0x90 / 0x00, TEST 3C / 00 / FF. Disc and
+GBI readings agreed in every read, `vote == byte 0x1F` everywhere; no
+decision used byte 0. Offset ≡ 2 mod 4: the `lo | (hi & 0x05)` pattern
+held for every read except group 0 of the two 0x0500 reads (`04` where it
+predicts `05`; 003B: `00`). **Status:** FACT (hardware) for the bytes;
+the extras are run-dependent (none in 003B, GBP-HW-041; 0x04/0x20/0x24 in
+003A, GBP-HW-034; 0x04/0x20/0x80/0x88 here) — U-GBP-020/021/025 unchanged
+in substance: byte 0 is not a reliable source for semantic decisions.
+
+## GBP-IRQ-009 — IRQ-register model after GBP-INIT-004 (delta over GBP-IRQ-008)
+
+| Element | Added by GBP-INIT-004 (2026-09-16) | Status |
+|---|---|---|
+| Bit 10 (0x0400) | rose 105.283 ms after A2 (third run); cleared by A1 twice before; after the ACK `0x8500` it read **1 again 26 µs later** while bit 8 read 0 (GBP-HW-045) — cleared-and-re-set or never cleared: undetermined | source, W1C **F** (three runs); behavior after an ACK without a drain: **U** (U-GBP-028) |
+| Bit 8 (0x0100) | appeared within 0.97 ms of 0x0400; cleared by the ACK and absent for ≥ 195 µs (003B: back within ≈143 µs after the CONTROL restore) | W1C **F**; re-set timing **U** |
+| Bit 15 (0x8000) | written 1 by the ACK; **with bit 15 = 1, odd bits 0, CONTROL 0x8C and 0x0400 present, no PI cause for ≥ 140 µs; with CONTROL 0x90 afterwards, none through FINAL (≥ 0.76 ms from the handler's W1C)** | level-written **F**; "hold / gate" **H** (consistent again, still not isolated); "source present ⇒ PI latched" **rejected** under bit 15 = 1 |
+| PI bit 13 | delivered a second time (multi-cycle handler), cleared by the handler's single W1C while two sources were pending, no re-assert with the sources pending under bit 15 = 0 (209.8 µs) nor with 0x0400 present under bit 15 = 1 (to FINAL) | GBP-PI-005 **F** confirmed; latched-bit semantics **F** |
+| Service cycle | cause → delivery → mask-first → one W1C → device ACK `read \| 0x8000`: **second physical cycle**; the ACK's readback contradicts "sources zero after an ACK" as a general property | one cycle **F** (×2); **re-arm `IRQ := 0` after an ACK never written** (U-GBP-027) |
+| Stop word | `read \| 0x8AAA` from 0x8400 → wrote 0x8EAA → read 0x8AAA | layout / effect **F** (third value) |
+| Clean-boundary premise of 004 | "acknowledged sources gone at POSTACK" did not hold 26 µs after the ACK; the references never read the register between the ACK and the re-arm and never require it (decompiles, DEVLOG 2026-09-16) | design premise **rejected as a requirement** (not a hardware property) |

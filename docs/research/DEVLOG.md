@@ -2792,3 +2792,271 @@ additive. Nothing of them touched.
 **Next.** User checkpoint (commit of the reviewed tree) → Ultracode →
 Max → clean rebuild → release-candidate audit → only then a possible
 hardware authorization of GBP-INIT-004. Not requested here.
+
+---
+
+## 2026-09-16 — GBP-INIT-004 release audit on the clean build 741630b: PHYSICAL CANDIDATE READY
+
+**Goal.** Decide whether the checkpoint `741630b` ("probe: add bounded GBP
+IRQ service experiment", parent `23990c9`, 41 files) could become the
+physical candidate. Mode: audit only; no hardware, no commit.
+
+**Done.** Clean tree verified; `make clean` and a full Docker rebuild of
+the seven POCs twice: 0 warnings, every identity `741630b` (no `-dirty`),
+21 artefacts (dol / elf / unpadded dol) hash-identical between the two
+builds, the 004 DOL byte-identical; `make inspect` 7/7 aligned, entry
+0x80003100. Regression on the final artefacts: C 10 binaries 7983 checks
+(003A 2196, 003B 1107 with its physical fixture replayed at 111 ops / 0
+mismatches / 0 exhausted, 004 3244), Python 145 passed, synthetic round
+trips 004 (182 ops) and 003B (109 ops) with identical summaries, physical
+003A through the 004 probe (85 ops, stops at the install), physical 003B
+prefix through the 004 probe (95 ops consumed, exhausted at REARM-0, 0
+mismatches, `rearms 0/1` documented as a synthetic boundary), `isr_audit`
+CLEAN on the three handlers (multi-cycle: 107 instructions, one INTSR
+store of 0x2000 at 0x11c after both mask calls, no INTMR store),
+`poc_audit` 0 findings on the 003a / 003b / 004 profiles (004: 5 logical
+IRQ-write sites), 13 Dolphin runs PASS with the OSD override and grayscale
+captures. On the clean objects: `hm_irq_install` zeroes the slots and
+poisons `anomaly.count = 1` before `IRQ_Request`; `hm_irq_prepare` bounds-
+checks and stores once; the probe publishes the generation before the
+PREUNMASK reads and the unmask (call order in the object); the handler
+loads `expected_gen` once (0x10), bounds-checks (0x1c/0x40) before the slot
+arithmetic (0x44–0x4c), masks before any PI store, stores `fired` last
+(0x198); CFG enumeration: every path executes exactly one `__MaskIrq` and
+at most one W1C (the out-of-range path reaches the W1C only with
+`anomaly.count == 0`, excluded by the install poison — the only writers are
+the install and the handler's increment; the symbol is local to its
+object); libogc2: the exception stub sets IR/DR only, `irq_exceptionhandler`
+sets RI only, `c_irqdispatcher` has no `mtmsr`, `__MaskIrq` restores the
+saved EE bit. The ISR auditor's coverage was measured by mutation
+(catches: missing / extra / wrong-value / pre-mask INTSR store, INTMR
+store, no mask, indirect branch, foreign call; does not check: per-path
+mask count, re-routed W1C, single generation load, bounds-before-index,
+`fired` order — covered by CFG / manual reading).
+
+**Result.** PHYSICAL CANDIDATE READY: Test ID GBP-INIT-004, Build ID
+initirq4-0001, commit 741630b, DOL
+`build/poc/gbp-init-irq-service-probe/gbp-init-irq-service-probe.dol`,
+397280 bytes, entry 0x80003100, text 0x04A400 @ 0x80003100, data 0x016AE0 @
+0x8004D500, bss 277512, devkitPPC GCC 16.1.0, libogc2 r2442.094b250, sha256
+`1da0d7b4f47200e914aba46510921b4a49a9bb8f01fd40940ebf50bd94ad010c`
+(different from the dirty `da19add0…0ef4`). Expected writes of a
+successful physical run: AR_INFO exp + restore, TEST handshake, CONTROL
+EXP + restore, IRQ A1 ×1 / A2 ×1 / ACK ×3 / REARM ×2 / STOP ×1 = 8, PI W1C
+3 (ISR) + ≤ 3 (main) + ≤ 1 (teardown), INTMR only through the mask APIs,
+handler install 1 / restore 1, power cycle mandatory. Recorded after the
+fact (the audit itself modified no tracked file).
+
+---
+
+## 2026-09-16 — GBP-INIT-004 executed: second CPU delivery through the multi-cycle handler, ACK, 0x0400 present under bit 15 = 1 at POSTACK; the clean boundary stopped the run before any re-arm; premise re-examined; GBP-INIT-004B designed
+
+**Goal.** Consolidate the single physical run of GBP-INIT-004 (build
+initirq4-0001, commit 741630b, DOL `1da0d7b4…010c`), preserve the raw
+evidence, decide what the run does and does not establish, re-read the
+reference service loops on the point the run raised, and design the next
+step. No implementation, no DOL, no hardware, no request, no commit.
+
+**Preservation.** Raw log `logs/GBP-INIT-004_initirq4-0001.log`, 19247
+bytes, sha256 `c9167224cb57f1c0df4858fbb147bbe0f1cd1f544b04a71a594786f4f2ee775b`
+(computed from `logs/`, matching the announced values), untouched; copy
+`captures/local/GBP-INIT-004_initirq4-0001.log` (byte-identical); fixture
+`captures/fixtures/hw-gamecube-gbp-2026-09-16-initirq4-0001.gbpreplay`
+(metadata header with build / commit / DOL and log hashes; raw blocks
+verbatim, never normalized; the interrupt path as it happened: `I i null`,
+`I p 0`, `I u` with the physical multi-cycle handler record, `I m`, `I r`;
+no `P a`; the four IRQ-register writes — A1, A2, ACK, STOP — and no re-arm).
+Replay through the 004 probe: 112 operations, 0 mismatches, 0 exhausted, 0
+unmatched polls, the physical result reproduced (`anomaly_source_not_cleared`
+/ `source_pending_after_ack_cycle_0`, `restore=ok`, 149 log lines); the
+fixture regenerates from the raw log with `tools/probelog.py` (152 records,
+53 record kinds incl. the digit-suffixed ones). Log verbatim in
+HARDWARE_TESTS.md "Executed tests — GBP-INIT-004"; evidence GBP-HW-042…047,
+GBP-IRQ-009; unknowns U-GBP-007/014/021/022/027 refined, U-GBP-028 opened;
+INITIALIZATION.md §13; REGISTERS.md / HSP.md notes; POC README result.
+**GBP-INIT-004 — PHYSICALLY EXECUTED 2026-09-16.**
+
+**Integrity.** `dropped=0 truncated=0 errors=0 transport_ok=1 uncertain=0
+timeouts=0 busy=0 power_cycle_required=1`, 51 transfers; counters
+`requested=3 completed=0 causes=1 deliveries=1 acks=1 rearms=0
+next_causes=0 reentry=0 unexpected=0 isr_w1c=1 main_w1c=0 teardown_w1c=0`.
+`completed=0` is correct: `completed_cycles` counts a cycle only after its
+clean boundary (ACK → POSTACK with the acknowledged sources gone → PI
+clean); one delivery and one ACK occurred, the boundary did not. **No
+re-arm was executed** (`rearm_attempted=0 rearm_completed=0`). The
+experiment did not fail technically: its conservative clean boundary
+prevented the re-arm.
+
+**Result, step by step.** A1 `0x8AAE → 0x8AAA`; A2 `0x0000`
+(`t_after=1048847666`); first cause at `t_event=1053111645`, **4263979
+ticks = 105.283 ms** after A2 (one more point of the initial cadence: 003A
+105.273, 003B 105.286); EVENT INTSR13=1, INTMR13=0, CONTROL 0x8C, IRQ
+0x0400; PREUNMASK-0 (971.8 µs later) IRQ 0x0500. **Cycle 0 delivery:**
+`t_unmask=1053156576`, `t_entry=1053156665` — **89 ticks ≈ 2.198 µs**;
+`fired=1 count=1 reentry=0`; INTSR at entry `0x00012000`, INTMR at entry
+`0x000021FA`, INTMR after the mask `0x000001FA`, INTSR before the W1C
+`0x00012000`, after it `0x00010000`; second sample 142 ticks ≈ 3.506 µs
+later, INTSR13 still 0; generation 0, `entries_total=1`, no generation
+error. This physically confirms the 003B mechanism through the multi-cycle
+handler — an additional confirmation, not a new independent discovery.
+**PREACK-0:** IRQ 0x0500 (VIDEO 0x0100 + AUDIO 0x0400), INTSR13=0,
+INTMR13=0, CONTROL 0x8C; no incidental acknowledge by the ISR. **ACK-0:**
+`0x0500 | 0x8000 = 0x8500`, rc ok, attempted / completed correct — not a
+transport failure. **POSTACK-0 (the central new result):** ACK
+`t_after=1053170192`, snapshot `1053171245`: **1053 ticks = 26.000 µs**;
+IRQ `0x8400`, INTSR13=0 in both samples, INTMR13=0, CONTROL 0x8C. At that
+instant bit 15 = 1, source 0x0400 present, source 0x0100 absent, the PI HSP
+latch clear, CONTROL still in the running state. Promoted as a restricted
+FACT (GBP-HW-045): *a source 0x0400 can be present in the IRQ register with
+CONTROL 0x8C and bit 15 = 1 while PI INTSR13 stays 0.* Not concluded: that
+bit 15 is definitively a global interrupt hold.
+
+**Not "ACK failed".** The POC's operational status is
+`anomaly_source_not_cleared`, but the evidence does not distinguish (A)
+0x0400 never cleared by the ACK's W1C from (B) 0x0400 cleared and
+re-asserted within the 26 µs before the sample; the transport and the
+write succeeded and bit 8 was cleared by the same write. Recorded as
+U-GBP-028, explicitly not blocking.
+
+**Comparison with 003B.** 003B: PREACK 0x0500, ACK 0x8500, POSTACK
+≈25.1 µs later 0x8000; the sources reappeared before the stop (≈+168 µs)
+but CONTROL had already been restored to 0x90. 004: PREACK 0x0500, ACK
+0x8500, POSTACK 26.0 µs later **0x8400 with CONTROL still 0x8C**. The
+CONTROL change 0x8C → 0x90 is therefore not a necessary condition for the
+later presence of the source. No periodicity is concluded from two runs;
+0x0100, present at 003B's IRQSTOPPRE, was absent in 004 at +26 µs and at
+IRQSTOPPRE (≈+195 µs).
+
+**Bit 15 (U-GBP-007), refined with caution.** The state IRQ 0x8400 /
+CONTROL 0x8C / PI INTSR13=0 was observed and persisted; no PI cause was
+captured from the handler's W1C to FINAL (≥ 0.76 ms; no main W1C, bit 13 is
+latched). Source status can coexist with bit 15 = 1 without an HSP latch
+in that window. Compatible hypotheses, none promoted to FACT: bit 15 acts
+as a hold / gate of the external request; source status and request
+generation have separate logic; another re-request condition (a new event,
+the drain) had not occurred. Rejected in the observed conditions: "source
+present implies HSP immediately latched".
+
+**Byte 0 / raw variability (U-GBP-021).** Extras this run: TEST `C7 C3…`,
+CONTROL 0x8C `AC 8C…` (all thirteen reads), IRQ 0x8AAE `8E 8A AE AE…`,
+0x8AAA `8E 8A AA AA…`, PREUNMASK-0 `8D 05 04 00…`, PREACK-0 `85 05 04 00…`;
+none on 0x0400, 0x8400, 0x9090, CONTROL 0x90/0x00. Disc / GBI semantics
+agreed, vote == byte 0x1F, detection PRESENT: byte 0 is not a reliable
+source for semantic decisions; the extra-free 003B run does not change
+that. Offset-2 pattern (U-GBP-025): broken only in group 0 of the two
+0x0500 reads (`04`).
+
+**Teardown.** `variant=S3_cycle_aborted`: CONTROL 0x8C → 0x90 ok;
+IRQSTOPPRE 0x8400; STOP `0x8400 | 0x8AAA = 0x8EAA`, readback 0x8AAA (a
+third physically validated stop combination); PI cleanup not needed;
+handler restored; INTMR13=0; AR_INFO 0x005B → 0x0043; FINAL CONTROL 00 /
+IRQ 9090; `restore=ok`.
+
+**The 004 did not test the re-arm — explicit.** `REARM attempted=0
+completed=0`. This run provides no physical evidence about `IRQ := 0`
+after the ACK, nor about ACK → re-arm → next HSP. Mock / synthetic replays
+are not evidence. **U-GBP-027 remains open.**
+
+**The clean-source premise re-evaluated against the binaries (decompiles
+under `build/analysis/ghidra/`, re-read 2026-09-16).**
+- *GBI thread `0x8000bf30`*: after `LWP_SemWait` it reads IRQ
+  (`0x80011c14(0xD00000, 0x20)`); for 0x0400 / 0x0100 / 0x0040 it posts
+  asynchronous ARQ reads of AUDIO 0x1000 at `0x800000`, VIDEO 0xF00 at
+  `0x100000`, SIODATA (`0x8000be48` → `ARQ_PostRequestAsync`, priority 1);
+  then the 64-byte KEYPAD + `IRQ := read | 0x8000` write at `0xCFFFE0`
+  (`0x8000bea4` → `ARQ_PostRequest`, priority 1, **synchronous**: it waits
+  for its own completion, and the queue is FIFO per priority, so the block
+  reads complete before the ACK write does); CONTROL/SIOCTL read; optional
+  SIODATA write; CONTROL/SIOCTL write-back; finally `IRQ := 0`
+  (`0x80015da0(buf, 0)`, `0x8000bea4(0xD00000, buf, 0x20)`), the last device
+  access of the pass. Bit 15 is 1 from the ACK write to the re-arm. The
+  register is never read after the ACK.
+- *Start-up Disc handler `0x8008af08`*: `IRQ := shadowB | 0x8000` (bit 15
+  = 1 first) → `INTSR := 0x2000` → read IRQ → write the value read back
+  (ACK) → KEYPAD → CONTROL read → callbacks: the audio slot (`0x8008cdc4` →
+  `0x8008a764`: ring of 70 × 0x1000 buffers, DMA read from `0x800000`) and
+  the video slot (`0x8008ed68` → `0x8008a480`: ring of 40 × 0xF00 buffers,
+  DMA read from `0x100000`) **start the block DMA** and return non-zero,
+  which suppresses the handler's final `IRQ := shadowB`; the ARAM-DMA-done
+  handler `0x8008b14c` (interrupt 6, installed by the start routine) then
+  runs the completion callback (`0x8008ce3c` / `0x8008edac`: invalidate the
+  buffer, post it to the consumer queue) and **writes the re-arm `IRQ :=
+  shadowB` (bit 15 = 0)** unless the stop flag is set. Bit 15 is 1 from
+  the entry write to that DMA-done re-arm. The register is never read
+  after the ACK.
+- Conclusion: **both references drain the event's block(s) before their
+  re-arm and neither requires the source bits to read 0** — their boundary
+  is the drain, not a clean read-back. The 004 requirement "sources == 0 at
+  POSTACK before REARM" was an artificial condition of a POC that drains
+  nothing; the audio status read 26 µs after the ACK is what such a POC
+  should expect. The premise is withdrawn for the successor.
+
+**Three candidate designs compared.**
+- *A) GBP-INIT-004B, pending-source re-arm.* After the ACK, continue if
+  the CPU is masked, INTMR13=0, PI INTSR13=0, CONTROL 0x8C, Disc == GBI,
+  bit 15 = 1, odd masks 0, the sources are only AV (0x0100 / 0x0400 /
+  0x0500) and `unexpected == 0`; do not require `source == 0`. Then
+  `t_rearm` → `IRQ := 0` → observe, CPU still masked, whether the HSP
+  latches with the source pending. Question: "does clearing bit 15 /
+  re-arming the block turn an already pending AV source into a new HSP
+  request?" One new variable (the re-arm itself, in the state the run
+  reached), no AV DMA, bounded, CPU masked while observing, the next cause
+  classified `rearm_of_pending_source` (never `new_source_occurrence`).
+  Outcomes distinguishable by `t_hsp − t_rearm`: microseconds (the hold
+  released a pending request — then the runtime must drain before each
+  re-arm or it re-interrupts at once, which is what the references do
+  anyway), milliseconds (event-driven request generation, the status bit is
+  only status), none within 500 ms (the request needs the drain — Phase 4
+  must start with the drain). Two clean re-arms would close the
+  fundamental re-arm mechanics of Phase 3.
+- *B) Minimal AV drain before the ACK.* Read (and discard) the AUDIO 0x1000
+  / VIDEO 0xF00 blocks of the pending sources before the ACK, as the
+  references do, to try to reach `POSTACK source == 0`, then re-arm with the
+  clean boundary. It represents the runtime more faithfully, but it crosses
+  into Phase 4 / 6 (the block reads themselves: 128 + 120 DMAs of 32 bytes
+  with the current backend, timing against the device's refill, buffer
+  handling), introduces several variables at once, and still does not tell
+  whether the re-arm works with a pending source — the very question A
+  isolates. B is the natural *next* step after A, as the entry experiment of
+  Phase 4 (VIDEO on 0x0100).
+- *C) Ultra-fine POSTACK sampling.* Several reads in the first 30 µs after
+  the ACK to separate "never cleared" from "cleared and re-asserted". Real
+  gain: small — the references never read the register after their ACK and
+  re-arm regardless, and A works with the source pending either way. Only if
+  A's outcome makes the distinction decisive.
+
+**Recommendation.** **A — GBP-INIT-004B — maximizes gain per variable:**
+it reuses 004 verbatim except the POSTACK acceptance rule and the cause
+classification, adds no DMA, keeps the CPU masked while the cause is
+observed, tests directly the still-unknown re-arm semantics (U-GBP-027)
+and clarifies bit 15 as a by-product (U-GBP-007). B is required later to
+represent the runtime (the references' boundary is the drain), not to
+answer the re-arm question; C only if A leaves the clear-then-reassert
+question blocking. Conceptual design, safety envelope, statuses and the
+success criterion: HARDWARE_TESTS.md "Planned tests — GBP-INIT-004B".
+
+**Phase 3.** Not closed by this run. It confirmed the multi-cycle handler
+(cycle 0), the ACK, the safety policy and the teardown; it did not execute
+a re-arm, a next HSP cause or a second delivery. If 004B physically shows
+two cycles of "ACK with PI clear → `IRQ := 0` → HSP latch → delivery"
+repeatedly and safely, re-evaluate whether that suffices to close the
+fundamental IRQ mechanics without an AV drain (the drain then opens Phase
+4).
+
+**Tests executed.** C: 10 binaries, all green (7983 → 8065 checks: 004
+3326 with the physical 004 fixture replayed in full — 112 ops, 0
+mismatches — the physical 003B prefix and the physical 003A prefix; 003A
+2196, 003B 1107 unchanged). Python: 153 passed (new
+`HardwareFixtureInitIrq4`: header, regeneration from the raw log, interrupt
+path as it happened, writes / polls / acknowledge, IRQ and CONTROL reads
+verbatim, timeline, offset-2 exceptions; `test_initirq4_replay.py`: the
+physical 004 fixture to its result). No source, no DOL; the fixture and the
+tests are the only new code. Requirements preserved: Start-up Disc / GBI
+parity; physical Link Port compatibility (Link Cable multiplayer, official
+and third-party accessories, the physical Mobile Adapter GB, PicoAdapterGB
+as one fixture); rumble / GBP-aware features; the virtual Mobile Adapter
+over the BBA additive — none touched.
+
+**Next.** Design checkpoint by the user → implementation of GBP-INIT-004B
+(a policy delta on the 004 probe) → dirty build for review → clean rebuild
+and release audit → only then a possible authorization. Not requested here.

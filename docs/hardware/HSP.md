@@ -52,7 +52,7 @@ register).
 | Clearing INTSR | write 1 to clear — **F** for bit 13 (one `INTSR := 0x2000` cleared a latched cause after the device sources were gone, GBP-HW-033, and one written from inside the handler cleared it while both device sources were still pending, with no re-assert for ≥ 324 µs, GBP-HW-038); C for the other sources (GBP-PI-002); every known INTSR write is a single-source acknowledge (2, 0x1000, 0x2000) | libogc2 `system.c`/`mmce.c`, DISC `0x8006b1d4`/`0x800a243c`/`0x8008af08`/`0x8008be04`, GBI `0x80052f04`/`0x80053eb0`/`0x8000b400`, Dolphin `cause &= ~val`, hardware GBP-HW-033/038 |
 | Mask/unmask through libogc2 on hardware | `__UnmaskIrq(IM_PI_HSP)` set INTMR bit 13 (`0x1FA → 0x21FA`), `__MaskIrq` cleared it, other bits unchanged — **F** (GBP-INIT-002, 2026-09-15); with a cause already latched, `__UnmaskIrq` delivered IRQ 26 **inside the call** (the handler's time base lies between the reads before and after it) and `__MaskIrq` from inside the handler closed the mask (INTMR `0x21FA` at entry → `0x1FA`) — **F** (GBP-INIT-003B, GBP-HW-037, ENV-IRQ-003); not extrapolated to other PI interrupts | GBP-HW-022/037 |
 | Level or latched at the PI | **Latched at the PI — F** (GBP-HW-033): bit 13 stayed set after the device-side sources had been cleared and was cleared only by the W1C. **W1C while the device still asserts — F** (GBP-HW-038): the handler's W1C cleared bit 13 with both sources pending (odd bits 0, bit 15 = 0, CONTROL 0x8C) and it stayed clear ≥ 179.7 µs before the device ACK, ≥ 323.9 µs overall. The simple sustained-level model of the device line is **rejected**; pulse / edge / transient / separate deassert remain **U** (U-GBP-022, P2) | GBP-INIT-003A/003B 2026-09-15 |
-| Delivery latency | 78 ticks ≈ 1.93 µs from the time-base read before `__UnmaskIrq` to the handler's first read (libogc2 dispatcher + this one-shot handler) — a single observation of this software, **not a hardware specification** | GBP-HW-037 |
+| Delivery latency | 78 ticks ≈ 1.93 µs (GBP-INIT-003B, one-shot handler) and 89 ticks ≈ 2.20 µs (GBP-INIT-004, multi-cycle handler) from the time-base read before `__UnmaskIrq` to the handler's first read — two observations of this software and toolchain, **not a hardware specification** | GBP-HW-037, GBP-HW-043 |
 | Device-side IRQ register | 16-bit: even bits = sources (audio 0x0400, video 0x0100, game-pak/stop 0x0004, serial 0x0040, sleep 0x0010, …), write-1-to-clear (**F** for bits 2, 8, 10 — cleared by A1, by the stop word twice and by the 003B acknowledge `read \| 0x8000` while pending); odd bits = paired masks, level-written (**F**), 1 = masked / 0 = enabled (**C**); bit 15 level-writable and persistent both ways (**F**: A2 → 0, stop → 1, ACK → 1), function **H** (global hold, never isolated); idle reads 0x8AAE; both references write it before waiting for interrupts (Disc: computed mask word at start; GBI: `read \| 0x8000` then `0` in an unprompted first pass) — with the GBI pair of writes applied and PI masked, the first 0x0400 source raised the PI cause ≈105.28 ms after the second write in two runs (GBP-HW-030/035), 0x0100 followed within 1 ms, and after the 003B acknowledge both sources were set again within ≈143 µs (GBP-HW-040) | GBP-IRQ-004/005/007/008, GBP-HW-024/028…040 |
 | Acknowledge order, Start-up Disc | device IRQ write (`mask \| 0x8000`) → `INTSR := 0x2000` → device IRQ read → device write-back (`pending`) → … → device re-arm (`mask`): **GBP → PI → GBP → GBP** (F, GBP-IRQ-002) | DISC `0x8008af08` |
 | Acknowledge order, GBI | `INTSR := 0x2000` in the raw handler, device write (`pending \| 0x8000`, with KEYPAD) later in a thread: **PI → GBP** (F, GBP-IRQ-003) | GBI `0x8000b400`, `0x8000bf30` |
@@ -81,8 +81,16 @@ while both device sources were still pending and the PI bit stayed clear
 (the sustained-level model is out; the line's exact nature is still
 open), the main loop acknowledged the device with `read | 0x8000` (sources
 cleared, bit 15 = 1) and the Disc's stop word closed the run
-(GBP-HW-035…041, GBP-PI-005). Not yet exercised: GBI's re-arm `IRQ := 0`
-after the acknowledge and repeated service (U-GBP-027). The Dolphin model
+(GBP-HW-035…041, GBP-PI-005). GBP-INIT-004 (2026-09-16) repeated the cycle
+through a multi-cycle handler (second delivery, 89 ticks) and, 26 µs after
+its acknowledge, read the audio source set again under bit 15 = 1 with
+CONTROL 0x8C and the PI cause clear; its conservative rule "sources must
+read 0 before a re-arm" ended the run there — a rule neither reference
+applies: both drain the AUDIO/VIDEO block and re-arm without reading the
+register (GBP-HW-042…047, GBP-IRQ-009, INITIALIZATION.md §13). Still not
+exercised: GBI's re-arm `IRQ := 0` after the acknowledge and repeated
+service (U-GBP-027; next experiment GBP-INIT-004B, a re-arm with the source
+pending). The Dolphin model
 (cause re-set on every device event, masks ignored, line asserted only
 with bit 15 = 1) predicted an interrupt the hardware did not produce in
 INIT-002 and asserts on a condition (bit 15 = 1) the hardware contradicted

@@ -110,7 +110,26 @@ Only the usage is known (GBP-CTL-001). Phase 3 can observe 0x20/0x40
 read-back with/without a cartridge and link cable; 0x04/0x08 should be
 driven only in the documented order.
 
-## U-GBP-007 (P2, updated 2026-09-15 after GBP-INIT-003B) — IRQ register odd-bit polarity and bit 15
+## U-GBP-007 (P2, updated 2026-09-16 after GBP-INIT-004) — IRQ register odd-bit polarity and bit 15
+
+**2026-09-16, GBP-INIT-004 (GBP-HW-045, GBP-IRQ-009):** the isolating
+state predicted below did occur: 26 µs after the ACK `0x8500` the register
+read `0x8400` — source 0x0400 present, odd bits 0, **bit 15 = 1, CONTROL
+still 0x8C** — and PI INTSR bit 13 read 0 in two samples; it stayed 0 while
+that state persisted (≥ 140 µs, until the CONTROL restore) and afterwards to
+the end of the run (≥ 0.76 ms after the handler's W1C, no main-loop W1C in
+between). So a present AV source with bit 15 = 1 raised no HSP cause, this
+time **without** CONTROL 0x10 in the picture. Compatible readings, none
+promoted: bit 15 = 1 holds or gates the external request (the consistent
+hypothesis since 003A, now observed without the CONTROL change); source
+status and request generation are separate mechanisms (a request needs a
+new event or the drain of the block); the re-request condition had simply
+not occurred. What is rejected under these conditions: "a present source
+implies an immediately latched HSP cause". Still HYPOTHESIS; do not name
+bit 15 functionally. The next experiment (GBP-INIT-004B, U-GBP-027) writes
+`IRQ := 0` in exactly this state and reads the PI with the CPU masked: a
+cause within microseconds would show the hold released a pending request;
+one at the next event, or none, would separate the other readings.
 
 **2026-09-15, GBP-INIT-003B (GBP-HW-039/040, GBP-IRQ-008):** the device
 ACK `IRQ := 0x0500 | 0x8000` wrote bit 15 = 1 while two sources were
@@ -209,7 +228,16 @@ Phase 6: capture blocks while the AGB plays a known tone.
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the
 user's screen/filter settings there. Not analyzed.
 
-## U-GBP-014 (P2, first data point 2026-09-15) — VIDEO/AUDIO IRQ timing on hardware
+## U-GBP-014 (P2, three data points 2026-09-16) — VIDEO/AUDIO IRQ timing on hardware
+
+**Third data point, GBP-INIT-004 (GBP-HW-042/045):** 105.283 ms after A2
+(003A 105.273, 003B 105.286 — repeatable to ≈13 µs over three runs with no
+cartridge); 0x0100 within 0.97 ms. After the ACK, 0x0400 read set again
+26.0 µs later while 0x0100 stayed clear for ≥ 195 µs; in 003B both were
+clear at +25.1 µs and both set at ≈+168 µs. Two post-ACK samples in two
+runs do not establish a period, a mechanism (re-assertion or never
+cleared, U-GBP-028) or the relation between the two sources; no cadence is
+claimed. The period of the requests stays unmeasured.
 
 **2026-09-15 (GBP-HW-030/031):** with no cartridge, CONTROL 0x8C and the
 device masks written 0, the first 0x0400 (audio) source rose between 50.00
@@ -304,7 +332,18 @@ GBP-HW-041): no extra bit in any block of the whole run** — TEST, CONTROL
 The extras are therefore not even guaranteed to be present; a run can be
 entirely clean. No mechanism, no consumption.
 
-## U-GBP-021 (P2, re-evaluated 2026-09-15) — Byte 0 carries additional, run-dependent bits; the transient bit 6 of GBP-INIT-001 did not reproduce
+## U-GBP-021 (P2, re-evaluated 2026-09-16) — Byte 0 carries additional, run-dependent bits; the transient bit 6 of GBP-INIT-001 did not reproduce
+
+**2026-09-16, GBP-INIT-004 (GBP-HW-047):** extras again, and different
+ones: TEST `C7` (0x04 over C3), CONTROL `AC` (0x20 over 8C) in every 0x8C
+read, IRQ `8E` (0x04 over 8A) in every 0x8AAE/0x8AAA read, `8D` (0x88 over
+05) at PREUNMASK-0 and `85` (0x80 over 05) at PREACK-0; none on 0x0400,
+0x8400, 0x9090, CONTROL 0x90/0x00 or the other TEST patterns. Every
+semantic reading (Disc, GBI vote, byte 0x1F) agreed and the detection was
+PRESENT: byte 0 fed no decision. The 003B run without any extra
+(GBP-HW-041) and this run with several are both consistent with the
+statement below; nothing changes except the catalogue of observed values
+(0x04, 0x20, 0x80, 0x88 added).
 
 Observed once (GBP-HW-015, GBP-INIT-001): ~1.4 µs after the experimental
 CONTROL write, byte 0 of CONTROL and of IRQ both had bit 6 (`0x40`) set
@@ -322,7 +361,16 @@ bit-6 transient stays recorded as a historical observation of one run,
 not as a rule. Do not name any of it busy / ready / ack / interrupt /
 latch; do not consume byte 0; no dedicated experiment.
 
-## U-GBP-022 (P2, updated 2026-09-15 after GBP-INIT-003B) — Physical behavior of the PI HSP cause (bit 13): level or latched, and does W1C clear it while the GBS-DOL still asserts?
+## U-GBP-022 (P2, updated 2026-09-16 after GBP-INIT-004) — Physical behavior of the PI HSP cause (bit 13): level or latched, and does W1C clear it while the GBS-DOL still asserts?
+
+**2026-09-16, GBP-INIT-004 (GBP-HW-043/044/045):** second observation of
+the same facts with a different handler body: the W1C inside the handler
+cleared bit 13 while both sources (0x0500) were pending under bit 15 = 0,
+and bit 13 stayed clear for 209.8 µs until the ACK; after the ACK it stayed
+clear with 0x0400 present under bit 15 = 1 (CONTROL 0x8C, then 0x90) to the
+end of the run. The sustained-level model stays rejected; the line's
+nature stays open and unscheduled; GBP-INIT-004B adds the missing data
+point (a re-arm with a source pending).
 
 **Answered 2026-09-15 by GBP-INIT-003B (GBP-HW-037/038, GBP-PI-005, FACT
 for bit 13):** the latched cause was delivered to the IRQ 26 handler when
@@ -482,7 +530,30 @@ matrix, rumble included, is created when those phases are reached. Not
 on the critical path of GBP-INIT-003A.
 
 
-## U-GBP-027 (P1, opened 2026-09-15 after GBP-INIT-003B) — Re-arm after the acknowledge, repeated service and the cadence of the audio/video requests
+## U-GBP-027 (P1, updated 2026-09-16 after GBP-INIT-004) — Re-arm after the acknowledge, repeated service and the cadence of the audio/video requests
+
+**2026-09-16, GBP-INIT-004 executed (GBP-HW-042…047, GBP-IRQ-009): STILL
+OPEN — the run wrote no re-arm.** One cycle was delivered and acknowledged;
+26 µs after the ACK the register read 0x8400 (0x0400 present, bit 15 = 1,
+CONTROL 0x8C, PI clear) and the conservative clean boundary of the design
+("acknowledged sources gone before any re-arm") ended the run with
+`anomaly_source_not_cleared`, `rearms 0/0`. Nothing of (1), (2), (5) and
+the re-arm half of (4) was exercised; synthetic replays prove nothing here.
+**Premise re-evaluated against the references (decompiles, DEVLOG
+2026-09-16):** neither reference reads the IRQ register between its ACK
+and its re-arm, and neither requires the sources to read 0; both drain the
+AUDIO/VIDEO block before the re-arm (GBI: ARQ reads posted before the
+synchronous ACK write, same queue; Disc: the immediate re-arm is suppressed
+while a block DMA is in flight and written from the DMA-done path). The
+"source == 0" boundary was an artificial requirement of a POC that drains
+nothing. **Reformulated question (GBP-INIT-004B, designed 2026-09-16):**
+with a pending AV source under bit 15 = 1, PI clear and the CPU masked,
+does `IRQ := 0` (bit 15 → 0, masks 0) produce a PI HSP cause — at once
+(hold released: `rearm_of_pending_source`), at the next event (~ms), or
+not at all within 500 ms (the drain is needed)? Each outcome is
+distinguishable by `t_hsp − t_rearm`. Sub-question kept: whether the
+0x0400 status at +26 µs is a level that the ACK never cleared or a
+re-assertion (U-GBP-028; not blocking for 004B).
 
 One full service cycle is physically validated (GBP-PI-005, GBP-IRQ-008):
 cause → delivery → handler mask + PI W1C → device ACK `read | 0x8000` →
@@ -512,3 +583,20 @@ before every re-arm (acknowledged sources gone at POSTACK, PI bit 13 =
 0, at most one main W1C), t_next_cause − t_rearm measured per cycle
 and credited only when later than the re-arm, bit 15 observed under a
 constant CONTROL 0x8C as a by-product, no AUDIO/VIDEO DMA, no KEYPAD.
+
+## U-GBP-028 (P2, opened 2026-09-16 after GBP-INIT-004) — After an acknowledge without a drain: is the audio source status "never cleared" or "cleared and re-asserted within 26 µs"?
+
+GBP-HW-045: `IRQ := 0x8500` (W1C of bits 8 and 10 with bit 15 := 1) was
+followed 26.0 µs later by a read of 0x8400: bit 8 clear, bit 10 set, bit 15
+set, PI clear. Either the write did not clear bit 10 (a level status that
+stays asserted while the audio block is unread, or a source that is not
+W1C-clearable while pending), or it did and the source re-asserted within
+26 µs (003B read 0x8000 at +25.1 µs and 0x8500 at ≈+168 µs, so a
+re-assertion faster than 26 µs would be a new observation). A
+finer-grained POSTACK sampling (several reads in the first 30 µs after the
+ACK) would separate the two; it is **not blocking**: the references never
+read the register after their ACK and re-arm regardless, and GBP-INIT-004B
+works with the source pending either way. Scheduled only if 004B's outcome
+makes the distinction decisive for the runtime (e.g. an immediate re-request
+on every re-arm would mean the runtime must drain before re-arming — which
+the references do anyway).

@@ -1,10 +1,12 @@
 # poc/gbp-init-irq-service-probe — GBP-INIT-004
 
-**Test ID:** `GBP-INIT-004` — **Build ID:** `initirq4-0001` — **IMPLEMENTED, NOT PHYSICALLY
-EXECUTED.** The current build is a **DIRTY BUILD — NOT A PHYSICAL CANDIDATE**: it was produced
-from an uncommitted tree for review only. A physical candidate requires the user's checkpoint,
-a clean rebuild, the release-candidate audit and an explicit authorization
-(`docs/research/HARDWARE_TESTS.md` "Planned tests — GBP-INIT-004"). No hardware run is requested.
+**Test ID:** `GBP-INIT-004` — **Build ID:** `initirq4-0001` — commit `741630b` (clean,
+release-audited 2026-09-16: PHYSICAL CANDIDATE READY) — DOL SHA-256
+`1da0d7b4f47200e914aba46510921b4a49a9bb8f01fd40940ebf50bd94ad010c` (397280 bytes) —
+**PHYSICALLY EXECUTED 2026-09-16** once (log sha256 `c9167224…775b`, 19247 bytes; see "Result"
+below): one cycle delivered and acknowledged, `anomaly_source_not_cleared` at POSTACK-0, **no
+re-arm written**. No second run of this design is requested; its successor is GBP-INIT-004B
+(pending-source re-arm, `docs/research/HARDWARE_TESTS.md` "Planned tests").
 
 **Question:** after a real HSP cause has been delivered and serviced as in GBP-INIT-003B
 (physically executed 2026-09-15: latched cause → IRQ 26 → handler mask + one PI W1C → device
@@ -220,3 +222,42 @@ reads 0 → 0x8AAA); a source outside AV raised by the re-arm (observed, never a
 device masks open with bit 15 = 0 while the CPU is masked between cycles (GBI's steady state
 with the CPU unmasked — here shorter than the bound). A persistent cause with an ineffective
 mask would hang the CPU whichever handler is installed — the mandatory power cycle covers it.
+
+## Result (2026-09-16, commit 741630b, DOL 1da0d7b4…010c)
+
+`status=anomaly_source_not_cleared reason=source_pending_after_ack_cycle_0 restore=ok
+teardown=S3_cycle_aborted`, 51 transfers, 0 errors / timeouts / busy, 152 lines, 0 dropped /
+truncated, every write attempted = completed (`ctl_exp 1/1, a1 1/1, a2 1/1, ack 1/1, stop 1/1,
+ctl_restore 1/1, uncertain=0`), `power_cycle_required=1` (console power-cycled). Counters:
+`requested=3 completed=0 causes=1 deliveries=1 acks=1 rearms=0 next_causes=0 reentry=0
+unexpected=0 isr_w1c=1 main_w1c=0 teardown_w1c=0` — `completed=0` because a cycle counts only
+after its clean boundary; the delivery and the ACK happened. **This is the conservative clean
+boundary stopping the run, not a technical failure and not "ACK failed".**
+
+The 003A part reproduced: BASE CONTROL `0x90` / IRQ `0x8AAE`, A1 `0x8AAE → 0x8AAA`, A2
+`0x0000`, EVENT 105.283 ms after A2 with INTSR `0x00012000`, INTMR `0x000001FA`, CONTROL
+`0x8C`, IRQ `0x0400`; PREUNMASK-0 read `0x0500`. **Delivery (cycle 0):** generation 0
+published masked; `__UnmaskIrq` at `t_unmask=1053156576` delivered the multi-cycle handler
+inside the call: `t_entry=1053156665` (89 ticks ≈ 2.20 µs), INTSR at entry `0x00012000`, INTMR
+at entry `0x000021FA`, INTMR after `__MaskIrq` `0x000001FA`, one W1C, INTSR `0x00010000` at
+once and 142 ticks later; `count=1 fired=1 reentry=0`, `entries_total=1`,
+`generation_errors=0` — the 003B mechanism confirmed through the multi-cycle body.
+**PREACK-0** 209.8 µs after the entry: IRQ `0x0500`, PI clear, CONTROL `0x8C`. **ACK-0**
+`IRQ := 0x8500`, rc ok. **POSTACK-0, 26.0 µs after the ACK: IRQ `0x8400`** — source 0x0400
+present, 0x0100 absent, bit 15 = 1, odd bits 0 — with CONTROL `0x8C` and PI bit 13 = 0 in both
+samples: the boundary rule `irq & 0x0555 == 0` was not met; no second ACK, no re-arm, teardown
+S3 with the CPU masked: CONTROL `0x90`, IRQSTOPPRE `0x8400`, stop `0x8400 | 0x8AAA = 0x8EAA →
+0x8AAA`, no PI cleanup needed, handler restored (`old_handler=null`), INTMR `0x000001FA`,
+AR_INFO `0x005B → 0x0043`, FINAL `00` / `9090`. No PI cause was captured from the handler's W1C
+to FINAL with 0x0400 present (bit 15 = 1, CONTROL 0x8C, then CONTROL 0x90).
+
+**What the run does not say:** whether the ACK's W1C failed to clear 0x0400 or 0x0400
+re-asserted within 26 µs (U-GBP-028); anything about `IRQ := 0` after an ACK, a next HSP cause
+or a second delivery — `rearm_attempted=0`: U-GBP-027 stays open. The premise "sources read 0
+before a re-arm" was re-examined against the references (both drain the block and re-arm
+without reading the register) and withdrawn for the successor GBP-INIT-004B. Byte-0 extras of
+this run (`C7`, `AC`, `8E`, `8D`, `85`) never fed a decision (U-GBP-021). Evidence
+GBP-HW-042…047, GBP-IRQ-009; log verbatim in HARDWARE_TESTS.md; fixture
+`captures/fixtures/hw-gamecube-gbp-2026-09-16-initirq4-0001.gbpreplay` replays the whole run
+(112 operations, 0 mismatches) to this result (`tests/unit/test_gbp_initirq4.c`,
+`tests/host/test_hw_fixture.py`, `tests/host/test_initirq4_replay.py`).

@@ -1081,6 +1081,127 @@ static void test_hw_initirqb_prefix(const char *path)
     free(text);
 }
 
+/* The physical GBP-INIT-004 run of 2026-09-16 (build initirq4-0001, commit 741630b, DOL 1da0d7b4…010c, log 19247 bytes
+ * sha256 c9167224…775b): the 003A sequence, the install after the latched cause, the generation published masked (I p 0),
+ * the one unmask with the physical multi-cycle handler record, the main re-mask, PREACK-0 0x0500, the device ACK 0x8500 and,
+ * 26.0 us later, POSTACK-0 reading 0x8400 with PI bit 13 clear — the conservative clean boundary stopped the run:
+ * anomaly_source_not_cleared, NO re-arm, teardown S3. Every transport call replays verbatim with the console's time base.
+ * Nothing after the physical record is invented; the multi-cycle continuation stays synthetic. */
+static void test_hw_initirq4_gbp(const char *path)
+{
+    char *text = read_file(path);
+    struct gbp_replay r; struct gbp_transport t; struct gbp_initirq4_config cfg; struct gbp_initirq4_result res; struct ringlog rl;
+    const struct gbp_initirq4_cycle *c; const struct gbp_initirqa_snapshot *ev, *fin;
+    unsigned ops;
+    if (!text) { fprintf(stderr, "cannot read %s\n", path); failures++; return; }
+    ops = count_ops(text);
+    gbp_replay_init(&r, text);
+    CHECK(r.has_irq_ops == 1 && r.timeline == 1);
+    gbp_replay_transport(&r, &t);
+    gbp_initirq4_config_default(&cfg);                                       /* the console's time base, 40.5 MHz, the physical bounds */
+    ringlog_init(&rl, storage, LINE_LEN, LINES);
+    CHECK(gbp_initirq4_probe_run(&t, &rl, &cfg, &res) == 0);
+    CHECK(r.exhausted == 0 && r.mismatches == 0 && r.tick_polls == 0 && r.step == ops && ops == 112u);
+    c = &res.cycles[0]; ev = &res.a.snap[GBP_INITIRQA_SNAP_EVENT]; fin = &res.a.snap[GBP_INITIRQA_SNAP_FINAL];
+    /* the physical result: the conservative clean boundary stopped the run at POSTACK-0 — not a transport failure, not "ACK failed" */
+    CHECK(res.status == GBP_INITIRQ4_ANOMALY_SOURCE_NOT_CLEARED && strcmp(res.status_name, "anomaly_source_not_cleared") == 0);
+    CHECK(strcmp(res.reason, "source_pending_after_ack_cycle_0") == 0 && strcmp(res.teardown_variant, "S3_cycle_aborted") == 0);
+    CHECK(res.restore_ok == 1 && res.errors == 0 && res.transport_ok == 1 && res.uncertain_writes == 0 && res.power_cycle_required == 1 && res.stage_a_aborted == 0);
+    CHECK(res.cycles_requested == 3 && res.cycles_started == 1 && res.completed_cycles == 0 && res.causes == 1 && res.deliveries == 1 && res.acks == 1);
+    CHECK(res.rearms_attempted == 0 && res.rearms_completed == 0 && res.next_causes == 0 && res.reentries == 0 && res.unexpected_sources == 0 && res.timeouts == 0);
+    CHECK(res.unmasks == 1 && res.isr_w1c == 1 && res.main_w1c == 0 && res.teardown_w1c == 0 && res.entries_total == 1 && res.generation_errors == 0 && res.control_ok == 1);
+    /* the 003A sequence as it happened: BASE 90 / 8AAE, A1 8AAE -> 8AAA, A2 0000, EVENT 0x0400 105.283 ms after A2 */
+    CHECK(res.a.det.vote_ok == 4 && res.a.det.run == 4 && res.a.control_orig == 0x90 && res.a.control_exp == 0x8c);
+    CHECK(res.a.snap[GBP_INITIRQA_SNAP_BASE].irq_gbi == 0x8aae && res.a.snap[GBP_INITIRQA_SNAP_A1_0].irq_gbi == 0x8aaa);
+    CHECK(res.a.w_a1.value == 0x8aae && res.a.w_a1.completed && res.a.w_a2.value == 0 && res.a.w_a2.completed);
+    CHECK(res.a.t_a2 == 1048847666u && res.a.t_event == 1053111645u && (uint32_t)(res.a.t_event - res.a.t_a2) == 4263979u);
+    CHECK(ev->taken && ev->intsr == 0x00012000u && ev->intmr == 0x000001fau && ev->control_vote == 0x8c && ev->irq_gbi == 0x0400 && ev->irq_disc == 0x0400);
+    CHECK(c->cause_ready == 1 && c->t_cause == 1053111645u && c->cause_irq == 0x0400 && c->cause_immediate == 0);
+    /* install once, generation 0 published masked, slot clean */
+    CHECK(res.h.handler_was_installed == 1 && res.h.old_handler_null == 1 && res.h.install_count == 0 && res.h.install_fired == 0);
+    CHECK(c->prepared == 1 && c->prepare_rc == GBP_OK && c->multi_before.expected_gen == 0 && c->multi_before.entries_total == 0 && c->slot_before.count == 0);
+    /* PREUNMASK-0 971.8 us after the EVENT: both PI samples latched and masked, CONTROL 8C, the second source had appeared (0x0500) */
+    CHECK(c->preunmask_ok == 1 && c->preunmask.ticks == 1053151004u && c->preunmask.intsr == 0x00012000u && c->preunmask.intsr2 == 0x00012000u);
+    CHECK(c->preunmask.intmr == 0x000001fau && c->preunmask.intmr2 == 0x000001fau && c->preunmask.control_vote == 0x8c && c->preunmask.irq_gbi == 0x0500 && c->preunmask.irq_disc == 0x0500);
+    /* one unmask; the multi-cycle handler ran inside __UnmaskIrq: t_post after the record's second read */
+    CHECK(c->d.t_unmask == 1053156576u && c->d.unmask_rc == GBP_OK && c->d.t_post_unmask == 1053156832u && c->d.intsr_post_unmask == 0x00010000u);
+    CHECK(c->d.fired == 1 && c->d.rec.count == 1 && c->d.reentry == 0 && c->d.timed_out == 0 && c->d.polls == 1 && c->d.wait_ticks == 2101u);
+    CHECK(c->d.rec.t_entry == 1053156665u && c->d.latency_ticks == 89u && c->d.latency_us == 2u);
+    CHECK(c->d.rec.intsr_before_ack == 0x00012000u && c->d.rec.intmr_at_entry == 0x000021fau && c->d.rec.intmr_after_mask == 0x000001fau);
+    CHECK(c->d.rec.intsr_before_w1c == 0x00012000u && c->d.rec.intsr_after_ack == 0x00010000u);
+    CHECK(c->d.rec.t_second == 1053156807u && (uint32_t)(c->d.rec.t_second - c->d.rec.t_entry) == 142u && c->d.rec.intsr_second == 0x00010000u && c->d.rec.intmr_second == 0x000001fau);
+    CHECK(c->d.rec.reentry_t == 0 && c->d.main_mask_ok == 1 && c->d.remask_retry == 0 && c->d.intmr_remask == 0x000001fau && c->delivered == 1);
+    CHECK(c->multi_after.expected_gen == 0 && c->multi_after.entries_total == 1 && c->multi_after.generation_errors == 0 && c->multi_after.anomaly.count == 1 && c->multi_after.anomaly.fired == 0);
+    /* PREACK-0 209.8 us after the entry: sources 0x0500 still pending, PI clear in both samples, CONTROL 8C */
+    CHECK(c->k.preack.ticks == 1053165161u && c->k.preack.intsr == 0x00010000u && c->k.preack.intsr2 == 0x00010000u && c->k.preack.intmr == 0x000001fau);
+    CHECK(c->k.preack.control_vote == 0x8c && c->k.preack.irq_gbi == 0x0500 && c->k.preack.irq_disc == 0x0500);
+    /* device ACK 0x0500 | 0x8000 = 0x8500 (completed); POSTACK-0 1053 ticks = 26.0 us later: 0x8400 — 0x0400 present, 0x0100 absent, bit 15 = 1, PI clear */
+    CHECK(c->k.ack_skipped == 0 && c->k.irq_pending == 0x0500 && c->k.ack_value == 0x8500 && c->k.w_ack.attempted == 1 && c->k.w_ack.completed == 1 && c->k.w_ack.t_after == 1053170192u);
+    CHECK(c->k.w_ack.raw[0x1e] == 0x85 && c->k.w_ack.raw[0x1f] == 0x00 && c->acked == 1);
+    CHECK(c->k.postack.ticks == 1053171245u && (uint32_t)(c->k.postack.ticks - c->k.w_ack.t_after) == 1053u);
+    CHECK(c->k.postack.irq_gbi == 0x8400 && c->k.postack.irq_disc == 0x8400 && c->k.postack.intsr == 0x00010000u && c->k.postack.intsr2 == 0x00010000u);
+    CHECK(c->k.postack.intmr == 0x000001fau && c->k.postack.control_vote == 0x8c && c->k.main_pi_w1c == 0 && c->k.main_w1c_sticky == 0);
+    CHECK(c->source_not_cleared == 1 && c->boundary_ok == 0 && c->pi_clean == 0 && c->unexpected == 0 && strcmp(c->unexpected_site, "-") == 0);
+    CHECK(c->rearm_attempted == 0 && c->rearm_completed == 0 && c->rearmpost_outcome == GBP_INITIRQ4_REARMPOST_NONE && res.cycles[1].started == 0);
+    CHECK(c->dt_cause_to_isr == 45020u && c->dt_isr_second == 142u && c->dt_isr_to_preack == 8496u && c->dt_ack_to_postack == 1053u && c->dt_postack_to_rearm == 0);
+    /* teardown S3: CONTROL 90, IRQSTOPPRE 0x8400 (0x0400 still set), stop 0x8400 | 0x8AAA = 0x8EAA -> 0x8AAA, no PI cleanup, handler back, masked */
+    CHECK(res.a.control_restore_ok == 1 && res.a.control_restore_vote == 0x90 && res.a.w_ctl_restore.t_after == 1053177991u);
+    CHECK(res.a.irq_stop_pre.gbi == 0x8400 && res.a.irq_stop_pre.disc == 0x8400 && res.a.stop_value == 0x8eaa && res.a.w_stop.completed && res.a.w_stop.t_after == 1053182290u);
+    CHECK(res.a.irq_stop_post.gbi == 0x8aaa && res.a.stop_masks_readback == 1 && res.a.stop_bit15_readback == 1);
+    CHECK(res.a.pi_cleanup_performed == 0 && res.a.cleanup_intsr_before == 0x00010000u && res.pi_sticky_final == 0);
+    CHECK(res.h.handler_restored == 1 && res.h.handler_restore_rc == GBP_OK && res.h.mask_ok == 1 && res.h.intmr_final == 0x000001fau);
+    CHECK(res.a.arinfo_orig == 0x0043 && res.a.arinfo_exp == 0x005b && res.a.arinfo_final == 0x0043 && res.a.arinfo_restore_ok == 1);
+    CHECK(fin->taken && fin->ticks == 1053187586u && fin->control_vote == 0x00 && fin->irq_gbi == 0x9090 && fin->intsr == 0x00010000u && fin->intmr == 0x000001fau);
+    CHECK(res.a.irq_writes_attempted == 4 && res.a.irq_writes_completed == 4);      /* A1, A2, ACK, STOP: no re-arm was written */
+    /* records, as the console logged them (the replay reproduces them verbatim) */
+    CHECK(count_lines_with(&rl, "CAUSE n=0 t_cause=1053111645 since_a2=4263979 intsr=00012000 intmr=000001fa intsr13=1 intmr13=0 control=8c irq=0400/0400 av=0400 unexpected=0000") == 1);
+    CHECK(count_lines_with(&rl, "IRQ install rc=ok old_handler=null record_count=0 record_fired=0") == 1);
+    CHECK(count_lines_with(&rl, "MULTI install expected_gen=0 entries_total=0 generation_errors=0 anomaly_count=1 anomaly_fired=0 slots=3") == 1);
+    CHECK(count_lines_with(&rl, "PREPARE n=0 gen=0 rc=ok intmr13=0 expected_gen=0 entries_total=0 generation_errors=0 slot_count=0 slot_fired=0") == 1);
+    CHECK(count_lines_with(&rl, "PREUNMASK n=0 ok=1 reason=- intsr13=1,1 intmr13=0,0 control=8c irq=0500/0500 src=0500 odd=0000 bit15=0") == 1);
+    CHECK(count_lines_with(&rl, "PREUNMASK4 n=0 av=0500 unexpected=0000 expected_gen=0 slot_clean=1 t_cause=1053111645 since_rearm=0 ok=1") == 1);
+    CHECK(count_lines_with(&rl, "UNMASK n=0 t_unmask=1053156576 rc=ok t_post=1053156832 dt_post=256") == 1);
+    CHECK(count_lines_with(&rl, "PI tag=UNMASKPOST-0 rc=ok intsr=00010000 intmr=000001fa intsr13=0 intmr13=0 fired=1") == 1);
+    CHECK(count_lines_with(&rl, "WAIT n=0 fired=1 timed_out=0 polls=1 wait_ticks=2101 wait_us=51 t_delivery_ms=100 t_delivery_ticks=4050000") == 1);
+    CHECK(count_lines_with(&rl, "HANDLER n=0 fired=1 count=1 t_entry=1053156665 t_unmask=1053156576 latency_ticks=89 latency_us=2 reentry=0") == 1);
+    CHECK(count_lines_with(&rl, "HANDLERPI n=0 intsr_at_entry=00012000 intmr_at_entry=000021fa intmr_after_mask=000001fa intsr_before_w1c=00012000 intsr_after_w1c=00010000 reentry_intsr=00000000 reentry_intmr=00000000") == 1);
+    CHECK(count_lines_with(&rl, "HANDLERPI2 n=0 t_second=1053156807 dt_second=142 intsr_second=00010000 intmr_second=000001fa reentry_t=0") == 1);
+    CHECK(count_lines_with(&rl, "DELIVERY n=0 fired=1 count=1 latency_ticks=89 latency_us=2 intsr13_entry=1 intmr13_entry=1 intmr13_after_mask=0 intsr13_before_w1c=1 intsr13_after_w1c=0 intsr13_second=0 intmr13_second=0 main_mask_ok=1 reentry=0") == 1);
+    CHECK(count_lines_with(&rl, "HANDLER4 n=0 expected_gen=0 entries_total=1 generation_errors=0 anomaly_count=1 anomaly_fired=0 deliveries_before=0") == 1);
+    CHECK(count_lines_with(&rl, "PREACK n=0 intsr13=0,0 intmr13=0 control=8c irq=0500/0500 src_pending=0500") == 1);
+    CHECK(count_lines_with(&rl, "ACK n=0 before=0500 ack_or=8000 ack_value=8500 formula=read|ack_or") == 1);
+    CHECK(count_lines_with(&rl, "POSTACK n=0 intsr13=0,0 intmr13=0 control=8c irq=8400/8400 src_pending=0400 bit15=1 ack=1/1") == 1);
+    CHECK(count_lines_with(&rl, "MAINPICLEANUP n=0 site=POSTACK performed=0 intsr13=0 intmr13=0") == 1);
+    CHECK(count_lines_with(&rl, "PICLEAN n=") == 0 && count_lines_with(&rl, "BOUNDARY") == 0 && count_lines_with(&rl, "REARM n=") == 0 && count_lines_with(&rl, "IRQW tag=REARM") == 0);
+    CHECK(count_lines_with(&rl, "SNAP tag=REARMPOST") == 0 && count_lines_with(&rl, "NEXTCAUSE") == 0 && count_lines_with(&rl, "CYCLE n=1 start") == 0);
+    CHECK(count_lines_with(&rl, "TEARDOWN4 variant=S3_cycle_aborted cycles_started=1 cycles_completed=0 rearms=0/0 deliveries=1 acks=1 unmasks=1") == 1);
+    CHECK(count_lines_with(&rl, "TEARDOWN start control_written=1 irq_attempted=3 irq_completed=3 uncertain_writes=0 intsr13_seen=1 pi_policy=unmasked_per_cycle") == 1);
+    CHECK(count_lines_with(&rl, "IRQSTOP pre rc=ok disc=8400 gbi=8400 stop_or=8aaa stop_value=8eaa formula=read|stop_or comment=startup-disc-stop-shadow") == 1);
+    CHECK(count_lines_with(&rl, "IRQSTOP post rc=ok disc=8aaa gbi=8aaa write_ok=1 readback_ok=1 masks_readback=1 bit15_readback=1") == 1);
+    CHECK(count_lines_with(&rl, "CLEANUP performed=0 intsr=00010000 intsr13=0 intmr13=0 reason=intsr13_clear") == 1);
+    CHECK(count_lines_with(&rl, "IRQ restore rc=ok ok=1 old_handler=null") == 1 && count_lines_with(&rl, "MASK final intmr=000001fa intmr13=0 orig_intmr13=0 ok=1") == 1);
+    CHECK(count_lines_with(&rl, "FINAL arinfo=0043 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0 control=00 irq=9090 power_cycle_required=1") == 1);
+    CHECK(count_lines_with(&rl, "INITIRQ4 end status=anomaly_source_not_cleared reason=source_pending_after_ack_cycle_0 restore=ok restore_reason=- teardown=S3_cycle_aborted power_cycle_required=1 errors=0 transport_ok=1") == 1);
+    CHECK(count_lines_with(&rl, "WRITES control_written=1 irq_attempted=4 irq_completed=4 ctl_exp=1/1 a1=1/1 a2=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 power_cycle_required=1 format=attempted/completed") == 1);
+    CHECK(count_lines_with(&rl, "CYCLES requested=3 completed=0 causes=1 deliveries=1 acks=1 rearms=0 next_causes=0 reentry=0 unexpected=0 timeouts=0 isr_w1c=1 main_w1c=0 teardown_w1c=0") == 1);
+    CHECK(count_lines_with(&rl, "CYCLE n=0 ack=1/1 ack_value=8500 pending=0500 skipped=0 reason=- postack_irq=8400 main_w1c=0 sticky=0 unexpected=0000 site=- boundary=0") == 1);
+    CHECK(count_lines_with(&rl, "TIMING n=0 cause_to_isr=45020/1111us isr_second=142 isr_to_preack=8496 ack_to_postack=1053 postack_to_rearm=0 rearm_to_next_cause=0/0us") == 1);
+    CHECK(count_lines_with(&rl, "MULTI expected_gen=0 entries_total=1 generation_errors=0 anomaly_count=1 anomaly_fired=0 unmasks=1") == 1);
+    CHECK(count_lines_with(&rl, "IRQW ") == 4 && count_lines_with(&rl, "IRQW tag=ACK-0 ") == 1 && count_lines_with(&rl, "IRQW tag=STOP ") == 1);
+    CHECK(rl.dropped == 0 && rl.truncated == 0 && rl.count == 149u);
+    {
+        char s[1600];
+        CHECK(gbp_initirq4_summary(&res, s, sizeof s) > 0);
+        CHECK(strstr(s, "DONE status=anomaly_source_not_cleared reason=source_pending_after_ack_cycle_0 restore=ok restore_reason=- teardown=S3_cycle_aborted "
+                        "verdict=present det=4/4 written=1 irq_attempted=4 irq_completed=4 ctl_exp=1/1 a1=1/1 a2=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 "
+                        "cause=1 t_event=1053111645 handler=1 old=null cycles=1/3 completed=0 deliveries=1 acks=1 rearms=0/0 next_causes=0 unexpected=0 "
+                        "reentry=0 timeouts=0 gen_errors=0 entries=1 isr_w1c=1 main_w1c=0 teardown_w1c=0 control_ok=1 pi_sticky_final=0 control_restore_ok=1 "
+                        "irq_stop_write_ok=1 stop_post=8aaa pi_cleanup=0 handler_restored=1 mask_ok=1 arinfo_restore_ok=1 power_cycle_required=1 errors=0 "
+                        "transport_ok=1") != 0);
+    }
+    free(text);
+}
+
 /* ---- host round-trip modes (synthetic) ---- */
 static int dump_log(const char *path)
 {
@@ -1147,6 +1268,8 @@ int main(int argc, char **argv)
     else fprintf(stderr, "note: physical 003A fixture path not given, prefix test skipped\n");
     if (argc > 2) test_hw_initirqb_prefix(argv[2]);
     else fprintf(stderr, "note: physical 003B fixture path not given, prefix test skipped\n");
+    if (argc > 3) test_hw_initirq4_gbp(argv[3]);
+    else fprintf(stderr, "note: physical 004 fixture path not given, fixture test skipped\n");
     printf("test_gbp_initirq4: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

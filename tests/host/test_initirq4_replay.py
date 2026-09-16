@@ -36,6 +36,7 @@ OUTDIR = os.path.join(ROOT, "build", "tests", "unit")
 NOTE = "SYNTHETIC: generated from the host mock (tests/unit/test_gbp_initirq4.c --dump-log); NOT physical data"
 PHYSICAL_003A = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15-initirqa-0001.gbpreplay")
 PHYSICAL_003B = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15-initirqb-0001.gbpreplay")
+PHYSICAL_004 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-initirq4-0001.gbpreplay")
 
 
 @unittest.skipUnless(os.path.isfile(BIN), "run `make -C tests/unit` to build the test binary")
@@ -133,8 +134,28 @@ class Initirq4RoundTrip(unittest.TestCase):
             with open(fx_path, encoding="utf-8") as f:
                 head = f.read(4096)
             self.assertNotIn("SYNTHETIC", head, fx_path)
-            self.assertNotIn("GBP-INIT-004", head, fx_path)             # no physical 004 fixture exists
+            self.assertTrue("# SOURCE=physical GameCube" in head or "MODEL DATA, NOT HARDWARE" in head, fx_path)
         self.assertFalse(fx.startswith(os.path.join(ROOT, "captures")))
+
+    @unittest.skipUnless(os.path.isfile(PHYSICAL_004), "physical GBP-INIT-004 fixture missing")
+    def test_physical_004_fixture_replays_to_the_physical_result(self):
+        # 2026-09-16, initirq4-0001, commit 741630b: one delivery, one ACK, POSTACK-0 0x8400 with PI clear 26.0 us after the
+        # ACK, anomaly_source_not_cleared, NO re-arm; every recorded operation replays, nothing after the record is invented
+        run = subprocess.run([BIN, "--replay", PHYSICAL_004], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        summary = [l for l in run.stdout.splitlines() if l.startswith("SUMMARY ")][0]
+        self.assertIn("status=anomaly_source_not_cleared reason=source_pending_after_ack_cycle_0 restore=ok restore_reason=- teardown=S3_cycle_aborted "
+                      "verdict=present det=4/4 written=1 irq_attempted=4 irq_completed=4 ctl_exp=1/1 a1=1/1 a2=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 "
+                      "cause=1 t_event=1053111645 handler=1 old=null cycles=1/3 completed=0 deliveries=1 acks=1 rearms=0/0 next_causes=0 unexpected=0 "
+                      "reentry=0 timeouts=0 gen_errors=0 entries=1 isr_w1c=1 main_w1c=0 teardown_w1c=0 control_ok=1 pi_sticky_final=0 "
+                      "control_restore_ok=1 irq_stop_write_ok=1 stop_post=8aaa pi_cleanup=0 handler_restored=1 mask_ok=1 arinfo_restore_ok=1 "
+                      "power_cycle_required=1 errors=0 transport_ok=1", summary)
+        m = re.search(r"REPLAY step=(\d+) exhausted=(\d+) mismatches=(\d+) tick_polls=(\d+) timeline=(\d+)", run.stdout)
+        self.assertEqual((m.group(1), m.group(2), m.group(3), m.group(4), m.group(5)), ("112", "0", "0", "0", "1"))
+        with open(PHYSICAL_004, encoding="utf-8") as f:
+            head = f.read(4096)
+        self.assertIn("# SOURCE=physical GameCube", head)
+        self.assertNotIn("SYNTHETIC", head)
 
     @unittest.skipUnless(os.path.isfile(PHYSICAL_003B), "physical GBP-INIT-003B fixture missing")
     def test_physical_003b_fixture_is_the_prefix_of_cycle_0(self):

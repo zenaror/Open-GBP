@@ -24,6 +24,7 @@ Those directories are intentionally ignored by Git.
 | `hw-gamecube-gbp-2026-09-15-initirq-0001.gbpreplay` | **SOURCE = physical GameCube, GBP_PRESENT=yes**, GBP-INIT-002 build initirq-0001 commit 4e3cb43, log sha256 `e7ec3d83…ea1d` (6585 B) | hardware capture: detection, PI, S0–S4, CONTROL writes, physical time base (`T`), interrupt path as it happened (`I i/u/m/r`; the handler never ran, so no IRQ is replayed) |
 | `hw-gamecube-gbp-2026-09-15-initirqa-0001.gbpreplay` | **SOURCE = physical GameCube, GBP_PRESENT=yes**, GBP-INIT-003A build initirqa-0001 commit d956b1b, DOL sha256 `8c225bd1…bfa5`, log sha256 `ae911745…2ef8` (13231 B) | hardware capture: detection, PI, BASE/P0, CONTROL transform, IRQ-register writes A1 `0x8AAE` / A2 `0x0000` / stop `0x8FAA` with every raw read, physical time base (`T`), the INTSR poll that saw bit 13 (`P p 00012000`), the single PI W1C (`P a`); PI HSP masked throughout (no `I` lines) |
 | `hw-gamecube-gbp-2026-09-15-initirqb-0001.gbpreplay` | **SOURCE = physical GameCube, GBP_PRESENT=yes**, GBP-INIT-003B build initirqb-0001 commit d3da8cd, DOL sha256 `821aa2b2…b757`, log sha256 `bedb1f01…cf7c` (17471 B) | hardware capture: the 003A sequence again (A1 `0x8AAE`, A2 `0x0000`, first cause `0x0400` at the PI 105.29 ms after A2), the handler installed after the latched cause (`I i null`), one unmask with the physical handler record (`I u …`: delivered with INTMR bit 13 = 1, masked inside the handler, one W1C, PI clear afterwards), the main re-mask (`I m`), device ACK `0x8500` read back `0x8000`, stop `0x8FAA`, handler restored (`I r`); no main-loop PI W1C; the source log's `pi_policy=never_unmasked` label is a documented defect of that build |
+| `hw-gamecube-gbp-2026-09-16-initirq4-0001.gbpreplay` | **SOURCE = physical GameCube, GBP_PRESENT=yes**, GBP-INIT-004 build initirq4-0001 commit 741630b, DOL sha256 `1da0d7b4…010c`, log sha256 `c9167224…775b` (19247 B) | hardware capture: the 003A sequence again (first cause `0x0400` 105.283 ms after A2, `0x0500` by PREUNMASK-0), the handler installed once (`I i null`), the generation published masked (`I p 0`), one unmask with the physical multi-cycle handler record (`I u …`: delivered with INTMR bit 13 = 1, masked inside, one W1C, PI clear 142 ticks later; latency 89 ticks), the main re-mask (`I m`), device ACK `0x8500` and — 26.0 µs later — POSTACK-0 `0x8400` (source 0x0400 present under bit 15 = 1, CONTROL 0x8C, PI bit 13 clear): the conservative clean boundary ended the run (`anomaly_source_not_cleared`), **no re-arm was written** (4 IRQ writes: A1, A2, ACK, stop `0x8EAA`), handler restored (`I r`); the multi-cycle continuation stays SYNTHETIC |
 | `hw-gamecube-gbp-2026-09-14-probe-0001.gbpreplay` | **SOURCE = physical GameCube + Game Boy Player**, GBP-PROBE-001 build probe-0001 commit 55ed6c1, derived from the device log sha256 `98ba20d5…f014` (kept unmodified under `captures/local/`) | hardware capture, sanitized (records only; header/setup in HARDWARE_TESTS.md) |
 
 `.gbpreplay` files are scripts for `src/gbp/gbp_replay.c` (format in its
@@ -46,13 +47,17 @@ initirqb-0001 (the shared 003A teardown printed its own fixed policy in a
 run that had unmasked once; the same log's `RESTOREB … unmasked=1
 masked_again=1` is the primary record); the log and the fixture are kept as
 written, later builds print `pi_policy=unmasked_once`, and the replay through
-the corrected probe reports that label. **No GBP-INIT-004 fixture exists**
-(the experiment is implemented, not executed): `tests/host/test_initirq4_replay.py`
-round-trips a synthetic three-cycle mock log (with the optional `I p <gen>`
-generation lines) under `build/` and drives the 004 probe with the physical
-003B fixture cut before its CONTROL restore — cycle 0 verbatim up to the
-POSTACK, then the first re-arm meets an exhausted script; nothing after the
-physical record is invented. The grammar
+the corrected probe reports that label. The GBP-INIT-004 fixture (2026-09-16)
+replays the whole physical run to its real result: one delivery and one ACK,
+then `anomaly_source_not_cleared` at POSTACK-0 with no re-arm written — it
+carries `I p 0` (the generation publication) and the multi-cycle handler's
+record, and no evidence whatsoever about `IRQ := 0` after an ACK or about a
+second delivery. `tests/host/test_initirq4_replay.py` also round-trips a
+synthetic three-cycle mock log (with the optional `I p <gen>` lines) under
+`build/` and drives the 004 probe with the physical 003B fixture cut before
+its CONTROL restore — cycle 0 verbatim up to the POSTACK, then the first
+re-arm meets an exhausted script; nothing after a physical record is ever
+invented. The grammar
 has an optional `P p <intsr>` line (the value the next `poll_intsr`
 returns) for the INTSR-polling loops of that probe; the polling loops
 replay with one time-base read per sample, so poll counters differ from
