@@ -285,6 +285,12 @@ void gbp_initirqa_teardown(const struct gbp_transport *t, struct ringlog *log, c
 struct gbp_initirqa_snapshot *gbp_initirqa_snapshot_take(const struct gbp_transport *t, struct gbp_initirqa_result *res,
                                                          struct gbp_initirqa_snapshot *s, const char *id, int with_test, int two_pi);
 void gbp_initirqa_snapshot_log(struct ringlog *log, const struct gbp_initirqa_result *res, const struct gbp_initirqa_snapshot *s);
+/* Same, but stamped with a time base the caller already read (the poll that
+ * saw INTSR bit 13) and logged as an event snapshot (poll_intsr= field), as
+ * the 003A EVENT is: no second time-base read, so a replay stays exact. */
+struct gbp_initirqa_snapshot *gbp_initirqa_snapshot_take_at(const struct gbp_transport *t, struct gbp_initirqa_result *res,
+                                                            struct gbp_initirqa_snapshot *s, const char *id, int with_test, int two_pi,
+                                                            uint32_t tnow, uint32_t poll_intsr, unsigned polls_before);
 
 /* WRITES / OBSERVED / RESTORE records (the probe's finish writes them after its own end line). */
 void gbp_initirqa_log_summary_records(struct ringlog *log, struct gbp_initirqa_result *res);

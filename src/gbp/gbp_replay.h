@@ -28,7 +28,12 @@
  *                                 fields (GBP-INIT-003B logs; absent in older fixtures)
  *   I m                           irq_mask
  *   I r                           irq_restore
- * irq_record consumes no line. The interrupt-path operations are exposed
+ *   I p <gen>                     optional (GBP-INIT-004): irq_prepare publishes generation
+ *                                 <gen>; an irq_prepare call with no such line pending
+ *                                 consumes nothing (older fixtures never carry one)
+ * irq_record consumes no line; irq_record_slot returns the "I u" record of the
+ * generation that was current when it was consumed (all zero for any other slot);
+ * irq_multi_status reports the current generation and the entries consumed so far. The interrupt-path operations are exposed
  * only when the script contains an "I " line (physical logs of
  * GBP-INIT-002 and later); older fixtures keep the transport without an
  * interrupt path, and a probe that needs it stops at its install step.
@@ -65,6 +70,9 @@ struct gbp_replay {
     uint32_t last_intsr;  /* INTSR of the last "P r" / "P p" line, for poll_intsr */
     int handler_installed;
     struct gbp_irq_record rec;   /* handler record after "I u" */
+    uint32_t gen;                /* generation published by the last "I p" (0 after the install) */
+    unsigned entries;            /* sum of the "I u" record counts since the install */
+    struct gbp_irq_record slots[GBP_IRQ_MULTI_SLOTS];   /* the "I u" record of each generation */
 };
 
 void gbp_replay_init(struct gbp_replay *r, const char *script);

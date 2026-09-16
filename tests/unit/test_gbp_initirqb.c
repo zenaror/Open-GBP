@@ -142,7 +142,7 @@ static void check_order(const struct gbp_mock *m, const struct gbp_initirqb_resu
             CHECK(entry > unm && imask > entry);                             /* UNMASK < ISR_ENTRY < ISR_MASK */
             if (iw1c >= 0) CHECK(iw1c > imask);                              /* ISR_MASK < ISR_PI_W1C */
             CHECK(mmask > iexit);                                            /* MAIN_REMASK after the handler */
-            if (res->w_ack.attempted) {
+            if (res->k.w_ack.attempted) {
                 int ack = gbp_mock_nth_op(m, MOCK_WR, BASE, 0xD, 3);
                 CHECK(ack > mmask && ack > iexit);                           /* device ACK never before fired / re-mask */
                 CHECK(ctl_rest > ack);                                       /* CONTROL restore after the device ACK */
@@ -170,34 +170,34 @@ static void test_normal_delivery(void)
     CHECK(res.a.intsr13_seen == 1 && res.a.event_taken == 1 && res.a.snap[GBP_INITIRQA_SNAP_EVENT].irq_gbi == 0x0400);
     CHECK(res.a.w_a1.completed && res.a.w_a2.completed && res.a.control_written == 1);
     /* handler installed after the cause, previous NULL */
-    CHECK(res.handler_was_installed == 1 && res.old_handler_null == 1 && m.installed_calls == 1);
+    CHECK(res.h.handler_was_installed == 1 && res.h.old_handler_null == 1 && m.installed_calls == 1);
     /* PREUNMASK: cause latched, masked, CONTROL 0x8C, source pending with masks 0 */
     CHECK(res.preunmask_ok == 1 && strcmp(res.preunmask_reason, "-") == 0);
     CHECK((res.preunmask.intsr & GBP_PI_HSP_BIT) && res.preunmask.pi2_ok && (res.preunmask.intsr2 & GBP_PI_HSP_BIT));
     CHECK((res.preunmask.intmr & GBP_PI_HSP_BIT) == 0 && res.preunmask.control_vote == 0x8c && res.preunmask.irq_gbi == 0x0400);
     /* unmask → delivery at once */
-    CHECK(res.irq_unmasked == 1 && res.unmask_rc == GBP_OK && res.fired == 1 && res.rec.count == 1 && res.reentry == 0);
-    CHECK(res.timed_out == 0 && res.polls == 1 && m.deliveries == 1);
-    CHECK(res.latency_ticks == (uint32_t)(res.rec.t_entry - res.t_unmask) && res.latency_ticks < T_DELIVERY);
+    CHECK(res.d.irq_unmasked == 1 && res.d.unmask_rc == GBP_OK && res.d.fired == 1 && res.d.rec.count == 1 && res.d.reentry == 0);
+    CHECK(res.d.timed_out == 0 && res.d.polls == 1 && m.deliveries == 1);
+    CHECK(res.d.latency_ticks == (uint32_t)(res.d.rec.t_entry - res.d.t_unmask) && res.d.latency_ticks < T_DELIVERY);
     /* entry state as delivered, mask first, one W1C, clear afterwards, still clear at the second read */
-    CHECK((res.rec.intsr_before_ack & GBP_PI_HSP_BIT) != 0 && (res.rec.intmr_at_entry & GBP_PI_HSP_BIT) != 0);
-    CHECK((res.rec.intmr_after_mask & GBP_PI_HSP_BIT) == 0 && (res.rec.intsr_before_w1c & GBP_PI_HSP_BIT) != 0);
-    CHECK((res.rec.intsr_after_ack & GBP_PI_HSP_BIT) == 0 && (res.rec.intsr_second & GBP_PI_HSP_BIT) == 0);
-    CHECK((res.rec.intmr_second & GBP_PI_HSP_BIT) == 0 && res.rec.t_second >= res.rec.t_entry + 100u);
+    CHECK((res.d.rec.intsr_before_ack & GBP_PI_HSP_BIT) != 0 && (res.d.rec.intmr_at_entry & GBP_PI_HSP_BIT) != 0);
+    CHECK((res.d.rec.intmr_after_mask & GBP_PI_HSP_BIT) == 0 && (res.d.rec.intsr_before_w1c & GBP_PI_HSP_BIT) != 0);
+    CHECK((res.d.rec.intsr_after_ack & GBP_PI_HSP_BIT) == 0 && (res.d.rec.intsr_second & GBP_PI_HSP_BIT) == 0);
+    CHECK((res.d.rec.intmr_second & GBP_PI_HSP_BIT) == 0 && res.d.rec.t_second >= res.d.rec.t_entry + 100u);
     CHECK(m.isr_w1c_count == 1 && (m.violation_mask & GBP_MOCK_VIOL_ISR_W1C_BEFORE_MASK) == 0);
     /* main re-mask verified, record copied while masked */
-    CHECK(res.irq_masked_again == 1 && res.main_mask_ok == 1 && res.remask_retry == 0 && (res.intmr_remask & GBP_PI_HSP_BIT) == 0);
+    CHECK(res.d.irq_masked_again == 1 && res.d.main_mask_ok == 1 && res.d.remask_retry == 0 && (res.d.intmr_remask & GBP_PI_HSP_BIT) == 0);
     /* PREACK: the source is still pending on the device, PI clean, CONTROL 0x8C */
-    CHECK(res.preack.irq_gbi == 0x0400 && (res.preack.intsr & GBP_PI_HSP_BIT) == 0 && res.preack.control_vote == 0x8c);
+    CHECK(res.k.preack.irq_gbi == 0x0400 && (res.k.preack.intsr & GBP_PI_HSP_BIT) == 0 && res.k.preack.control_vote == 0x8c);
     /* device ACK derived from the read: 0x0400 | 0x8000 */
-    CHECK(res.ack_skipped == 0 && res.irq_pending == 0x0400 && res.ack_value == 0x8400);
-    CHECK(res.w_ack.attempted == 1 && res.w_ack.completed == 1 && res.w_ack.value == 0x8400 && res.w_ack.raw[0] == 0x84 && res.w_ack.raw[1] == 0x00);
+    CHECK(res.k.ack_skipped == 0 && res.k.irq_pending == 0x0400 && res.k.ack_value == 0x8400);
+    CHECK(res.k.w_ack.attempted == 1 && res.k.w_ack.completed == 1 && res.k.w_ack.value == 0x8400 && res.k.w_ack.raw[0] == 0x84 && res.k.w_ack.raw[1] == 0x00);
     /* POSTACK: source cleared, bit 15 set, PI still clean → no main W1C */
-    CHECK(res.postack.irq_gbi == 0x8000 && (res.postack.intsr & GBP_PI_HSP_BIT) == 0);
-    CHECK(res.main_pi_w1c == 0 && strcmp(res.main_pi_w1c_site, "-") == 0 && m.intsr_writes == 0);
+    CHECK(res.k.postack.irq_gbi == 0x8000 && (res.k.postack.intsr & GBP_PI_HSP_BIT) == 0);
+    CHECK(res.k.main_pi_w1c == 0 && strcmp(res.k.main_pi_w1c_site, "-") == 0 && m.intsr_writes == 0);
     /* teardown */
     CHECK(res.a.control_restore_ok == 1 && res.a.irq_stop_pre.gbi == 0x8000 && res.a.stop_value == 0x8aaa && res.a.irq_stop_post.gbi == 0x8aaa);
-    CHECK(res.a.pi_cleanup_performed == 0 && res.handler_restored == 1 && res.mask_ok == 1 && res.a.arinfo_restore_ok == 1);
+    CHECK(res.a.pi_cleanup_performed == 0 && res.h.handler_restored == 1 && res.h.mask_ok == 1 && res.a.arinfo_restore_ok == 1);
     CHECK(res.a.irq_writes_attempted == 4 && res.a.irq_writes_completed == 4 && res.uncertain_writes == 0);
     CHECK(m.handler_installed == 0 && (m.intmr & GBP_PI_HSP_BIT) == 0 && m.arinfo == 0x0043 && m.irq_reg == 0x8aaa);
     check_never(&m);
@@ -258,12 +258,12 @@ static void test_level_immediate_reassert(void)
     struct gbp_mock m; struct ringlog rl; struct gbp_initirqb_result res;
     mock_003b(&m); m.pi_cause_level = 1;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.fired == 1 && res.rec.count == 1);
-    CHECK((res.rec.intsr_after_ack & GBP_PI_HSP_BIT) != 0 && (res.rec.intsr_second & GBP_PI_HSP_BIT) != 0);   /* observation */
-    CHECK((res.rec.intmr_after_mask & GBP_PI_HSP_BIT) == 0 && m.deliveries == 1);                              /* masked: no second delivery */
-    CHECK((res.preack.intsr & GBP_PI_HSP_BIT) != 0 && res.preack.irq_gbi == 0x0400);
-    CHECK(res.ack_value == 0x8400 && (res.postack.intsr & GBP_PI_HSP_BIT) == 0);   /* level model: line drops with the ACK */
-    CHECK(res.main_pi_w1c == 0 && res.restore_ok == 1);
+    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.d.fired == 1 && res.d.rec.count == 1);
+    CHECK((res.d.rec.intsr_after_ack & GBP_PI_HSP_BIT) != 0 && (res.d.rec.intsr_second & GBP_PI_HSP_BIT) != 0);   /* observation */
+    CHECK((res.d.rec.intmr_after_mask & GBP_PI_HSP_BIT) == 0 && m.deliveries == 1);                              /* masked: no second delivery */
+    CHECK((res.k.preack.intsr & GBP_PI_HSP_BIT) != 0 && res.k.preack.irq_gbi == 0x0400);
+    CHECK(res.k.ack_value == 0x8400 && (res.k.postack.intsr & GBP_PI_HSP_BIT) == 0);   /* level model: line drops with the ACK */
+    CHECK(res.k.main_pi_w1c == 0 && res.restore_ok == 1);
     CHECK(count_lines_with(&rl, "intsr13_after_w1c=1 intsr13_second=1") == 1);
     check_never(&m);
     check_order(&m, &res);
@@ -275,11 +275,11 @@ static void test_delayed_relatch(void)
     struct gbp_mock m; struct ringlog rl; struct gbp_initirqb_result res;
     mock_003b(&m); m.pi_relatch_after_ticks = 50;                            /* inside the handler's ≈100-tick wait */
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.fired == 1);
-    CHECK((res.rec.intsr_after_ack & GBP_PI_HSP_BIT) == 0 && (res.rec.intsr_second & GBP_PI_HSP_BIT) != 0);
-    CHECK((res.preack.intsr & GBP_PI_HSP_BIT) != 0);
-    CHECK(res.w_ack.completed == 1 && (res.postack.intsr & GBP_PI_HSP_BIT) != 0);   /* latched: stays until a W1C */
-    CHECK(res.main_pi_w1c == 1 && strcmp(res.main_pi_w1c_site, "POSTACK") == 0 && res.main_w1c_sticky == 0 && m.intsr_writes == 1);
+    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.d.fired == 1);
+    CHECK((res.d.rec.intsr_after_ack & GBP_PI_HSP_BIT) == 0 && (res.d.rec.intsr_second & GBP_PI_HSP_BIT) != 0);
+    CHECK((res.k.preack.intsr & GBP_PI_HSP_BIT) != 0);
+    CHECK(res.k.w_ack.completed == 1 && (res.k.postack.intsr & GBP_PI_HSP_BIT) != 0);   /* latched: stays until a W1C */
+    CHECK(res.k.main_pi_w1c == 1 && strcmp(res.k.main_pi_w1c_site, "POSTACK") == 0 && res.k.main_w1c_sticky == 0 && m.intsr_writes == 1);
     CHECK(res.a.pi_cleanup_performed == 0 && res.pi_sticky_final == 0 && res.restore_ok == 1);
     CHECK(count_lines_with(&rl, "MAINPICLEANUP site=POSTACK performed=1 value=00002000") == 1);
     CHECK(count_lines_with(&rl, "MAINPICLEANUP result rc=ok") == 1 && count_lines_with(&rl, "sticky=0") >= 1);
@@ -291,8 +291,8 @@ static void test_delayed_relatch(void)
     mock_003b(&m); m.pi_relatch_after_ticks = 110;
     run(&m, &rl, &res);
     CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED);
-    CHECK((res.rec.intsr_after_ack & GBP_PI_HSP_BIT) == 0 && (res.rec.intsr_second & GBP_PI_HSP_BIT) == 0);
-    CHECK((res.preack.intsr & GBP_PI_HSP_BIT) != 0 && res.main_pi_w1c == 1 && strcmp(res.main_pi_w1c_site, "POSTACK") == 0);
+    CHECK((res.d.rec.intsr_after_ack & GBP_PI_HSP_BIT) == 0 && (res.d.rec.intsr_second & GBP_PI_HSP_BIT) == 0);
+    CHECK((res.k.preack.intsr & GBP_PI_HSP_BIT) != 0 && res.k.main_pi_w1c == 1 && strcmp(res.k.main_pi_w1c_site, "POSTACK") == 0);
     CHECK(count_lines_with(&rl, "intsr13_after_w1c=0 intsr13_second=0") == 1 && count_lines_with(&rl, "MAINPICLEANUP site=POSTACK performed=1") == 1);
     check_never(&m);
     check_order(&m, &res);
@@ -305,16 +305,16 @@ static void test_cleanup_budget(void)
     /* timeout path: nothing acknowledged the PI before the teardown → the teardown W1C is the main W1C */
     mock_003b(&m); m.delivery_suppressed = 1;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_DELIVERY_TIMEOUT && res.fired == 0);
-    CHECK(res.w_ack.attempted == 0 && res.a.pi_cleanup_performed == 1 && res.main_pi_w1c == 1 && strcmp(res.main_pi_w1c_site, "CLEANUP") == 0);
-    CHECK(m.intsr_writes == 1 && m.isr_w1c_count == 0 && res.main_w1c_sticky == 0);
+    CHECK(res.status == GBP_INITIRQB_DELIVERY_TIMEOUT && res.d.fired == 0);
+    CHECK(res.k.w_ack.attempted == 0 && res.a.pi_cleanup_performed == 1 && res.k.main_pi_w1c == 1 && strcmp(res.k.main_pi_w1c_site, "CLEANUP") == 0);
+    CHECK(m.intsr_writes == 1 && m.isr_w1c_count == 0 && res.k.main_w1c_sticky == 0);
     check_never(&m);
     /* every W1C ignored: handler W1C ineffective, POSTACK W1C sticky, CLEANUPCHK must not spend a second one */
     mock_003b(&m); m.intsr_w1c_ignored = 1;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.fired == 1);
-    CHECK((res.rec.intsr_after_ack & GBP_PI_HSP_BIT) != 0 && (res.postack.intsr & GBP_PI_HSP_BIT) != 0);
-    CHECK(res.main_pi_w1c == 1 && strcmp(res.main_pi_w1c_site, "POSTACK") == 0 && res.main_w1c_sticky == 1);
+    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.d.fired == 1);
+    CHECK((res.d.rec.intsr_after_ack & GBP_PI_HSP_BIT) != 0 && (res.k.postack.intsr & GBP_PI_HSP_BIT) != 0);
+    CHECK(res.k.main_pi_w1c == 1 && strcmp(res.k.main_pi_w1c_site, "POSTACK") == 0 && res.k.main_w1c_sticky == 1);
     CHECK(res.a.pi_cleanup_performed == 0 && res.pi_sticky_final == 1 && m.intsr_writes == 1);
     CHECK(res.restore_ok == 1);                                              /* sticky is an observation */
     CHECK(count_lines_with(&rl, "CLEANUP performed=0") == 1 && count_lines_with(&rl, "reason=budget_spent") == 1);
@@ -330,11 +330,11 @@ static void test_timeout_and_abort_unmask(void)
     mock_003b(&m); m.delivery_suppressed = 1;
     run(&m, &rl, &res);
     CHECK(res.status == GBP_INITIRQB_DELIVERY_TIMEOUT && strcmp(res.reason, "no_delivery_within_t_delivery") == 0);
-    CHECK((res.intmr_post_unmask & GBP_PI_HSP_BIT) != 0 && res.timed_out == 1 && res.wait_ticks >= T_DELIVERY);
-    CHECK(res.irq_masked_again == 1 && res.main_mask_ok == 1 && res.rec.count == 0);
-    CHECK(res.w_ack.attempted == 0 && res.ack_skipped == 0);                /* no device ACK on this path */
+    CHECK((res.d.intmr_post_unmask & GBP_PI_HSP_BIT) != 0 && res.d.timed_out == 1 && res.d.wait_ticks >= T_DELIVERY);
+    CHECK(res.d.irq_masked_again == 1 && res.d.main_mask_ok == 1 && res.d.rec.count == 0);
+    CHECK(res.k.w_ack.attempted == 0 && res.k.ack_skipped == 0);                /* no device ACK on this path */
     CHECK(res.a.stop_value == 0x8eaa && res.a.irq_stop_post.gbi == 0x8aaa);  /* the stop word acknowledges the pending source */
-    CHECK(res.handler_restored == 1 && res.mask_ok == 1 && res.restore_ok == 1 && res.transport_ok == 1);
+    CHECK(res.h.handler_restored == 1 && res.h.mask_ok == 1 && res.restore_ok == 1 && res.transport_ok == 1);
     CHECK(count_lines_with(&rl, "WAIT fired=0 timed_out=1") == 1 && count_lines_with(&rl, "INITIRQB end status=delivery_timeout") == 1);
     CHECK(count_lines_with(&rl, "IRQW tag=ACK") == 0);
     CHECK(count_lines_with(&rl, "pi_policy=unmasked_once") == 1 && count_lines_with(&rl, "pi_policy=never_unmasked") == 0);   /* the unmask happened */
@@ -343,8 +343,8 @@ static void test_timeout_and_abort_unmask(void)
     mock_003b(&m); m.unmask_ignored = 1;
     run(&m, &rl, &res);
     CHECK(res.status == GBP_INITIRQB_ABORT_UNMASK && strcmp(res.reason, "unmask_not_effective") == 0);
-    CHECK((res.intmr_post_unmask & GBP_PI_HSP_BIT) == 0 && res.fired == 0 && m.deliveries == 0);
-    CHECK(res.handler_restored == 1 && res.mask_ok == 1 && res.w_ack.attempted == 0);
+    CHECK((res.d.intmr_post_unmask & GBP_PI_HSP_BIT) == 0 && res.d.fired == 0 && m.deliveries == 0);
+    CHECK(res.h.handler_restored == 1 && res.h.mask_ok == 1 && res.k.w_ack.attempted == 0);
     check_never(&m);
 }
 
@@ -354,19 +354,19 @@ static void test_reentry_and_mask_failure(void)
     struct gbp_mock m; struct ringlog rl; struct gbp_initirqb_result res;
     mock_003b(&m); m.second_delivery = 1;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_ANOMALY_REENTRY && res.fired == 1 && res.rec.count == 2 && res.reentry == 1);
+    CHECK(res.status == GBP_INITIRQB_ANOMALY_REENTRY && res.d.fired == 1 && res.d.rec.count == 2 && res.d.reentry == 1);
     CHECK(m.deliveries == 2 && m.isr_w1c_count == 1);                        /* the second entry did not acknowledge */
-    CHECK(res.rec.reentry_t != 0 && (res.rec.reentry_intsr | res.rec.reentry_intmr) != 0);
-    CHECK(res.w_ack.attempted == 0);                                         /* no device ACK after a reentry */
-    CHECK(res.a.irq_stop_write_ok == 1 && res.handler_restored == 1 && res.mask_ok == 1);
+    CHECK(res.d.rec.reentry_t != 0 && (res.d.rec.reentry_intsr | res.d.rec.reentry_intmr) != 0);
+    CHECK(res.k.w_ack.attempted == 0);                                         /* no device ACK after a reentry */
+    CHECK(res.a.irq_stop_write_ok == 1 && res.h.handler_restored == 1 && res.h.mask_ok == 1);
     CHECK(count_lines_with(&rl, "reentry=1") >= 1 && count_lines_with(&rl, "INITIRQB end status=anomaly_reentry") == 1);
     check_never(&m);
     /* the mask has no effect (handler, main, retry): the W1C cleared the cause, so one delivery — mask failure, no ACK */
     mock_003b(&m); m.mask_ignored = 1;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_ANOMALY_MASK_FAILURE && res.fired == 1 && res.rec.count == 1 && m.deliveries == 1);
-    CHECK((res.rec.intmr_after_mask & GBP_PI_HSP_BIT) != 0 && res.main_mask_ok == 0 && res.remask_retry == 1 && res.w_ack.attempted == 0);
-    CHECK(res.mask_ok == 0 && res.restore_ok == 0 && strcmp(res.restore_reason, "mask_not_restored") == 0);
+    CHECK(res.status == GBP_INITIRQB_ANOMALY_MASK_FAILURE && res.d.fired == 1 && res.d.rec.count == 1 && m.deliveries == 1);
+    CHECK((res.d.rec.intmr_after_mask & GBP_PI_HSP_BIT) != 0 && res.d.main_mask_ok == 0 && res.d.remask_retry == 1 && res.k.w_ack.attempted == 0);
+    CHECK(res.h.mask_ok == 0 && res.restore_ok == 0 && strcmp(res.restore_reason, "mask_not_restored") == 0);
     CHECK(res.a.irq_stop_write_ok == 1 && res.a.stop_value == 0x8eaa && res.a.irq_stop_post.gbi == 0x8aaa);
     CHECK(count_lines_with(&rl, "IRQ mask tag=RETRY") == 2 && count_lines_with(&rl, "INITIRQB end status=anomaly_mask_failure") == 1);
     CHECK(count_lines_with(&rl, "IRQW tag=ACK") == 0 && count_lines_with(&rl, "MASK final intmr=000020f0 intmr13=1 orig_intmr13=0 ok=0") == 1);
@@ -374,9 +374,9 @@ static void test_reentry_and_mask_failure(void)
     /* ... and with a level cause that the W1C cannot clear: the real CPU would loop; the mock's storm cap (1) bounds it */
     mock_003b(&m); m.mask_ignored = 1; m.pi_cause_level = 1; m.max_deliveries = 1;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_ANOMALY_MASK_FAILURE && res.fired == 1 && res.rec.count == 1 && m.deliveries == 1);
-    CHECK((m.violation_mask & GBP_MOCK_VIOL_STORM) != 0 && (res.rec.intsr_after_ack & GBP_PI_HSP_BIT) != 0);
-    CHECK(res.w_ack.attempted == 0 && res.handler_restored == 1 && res.mask_ok == 0 && res.restore_ok == 0);
+    CHECK(res.status == GBP_INITIRQB_ANOMALY_MASK_FAILURE && res.d.fired == 1 && res.d.rec.count == 1 && m.deliveries == 1);
+    CHECK((m.violation_mask & GBP_MOCK_VIOL_STORM) != 0 && (res.d.rec.intsr_after_ack & GBP_PI_HSP_BIT) != 0);
+    CHECK(res.k.w_ack.attempted == 0 && res.h.handler_restored == 1 && res.h.mask_ok == 0 && res.restore_ok == 0);
     CHECK(m.isr_w1c_count == 1 && m.intsr_writes <= 1);
 }
 
@@ -387,43 +387,43 @@ static void test_install_and_preunmask(void)
     mock_003b(&m); m.install_fails = 1;
     run(&m, &rl, &res);
     CHECK(res.status == GBP_INITIRQB_ABORT_HANDLER_INSTALL && strcmp(res.reason, "install_failed") == 0);
-    CHECK(res.irq_unmasked == 0 && gbp_mock_first_op(&m, MOCK_IRQ_UNMASK, BASE, 16) < 0 && res.w_ack.attempted == 0);
-    CHECK(res.a.pi_cleanup_performed == 1 && res.main_pi_w1c == 1 && strcmp(res.main_pi_w1c_site, "CLEANUP") == 0);   /* latched cause cleared in the teardown */
-    CHECK(res.a.irq_stop_write_ok == 1 && res.handler_restored == -1 && res.a.arinfo_restore_ok == 1);
+    CHECK(res.d.irq_unmasked == 0 && gbp_mock_first_op(&m, MOCK_IRQ_UNMASK, BASE, 16) < 0 && res.k.w_ack.attempted == 0);
+    CHECK(res.a.pi_cleanup_performed == 1 && res.k.main_pi_w1c == 1 && strcmp(res.k.main_pi_w1c_site, "CLEANUP") == 0);   /* latched cause cleared in the teardown */
+    CHECK(res.a.irq_stop_write_ok == 1 && res.h.handler_restored == -1 && res.a.arinfo_restore_ok == 1);
     check_never(&m);
     mock_003b(&m); m.irq_ops_available = 0;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_ABORT_HANDLER_INSTALL && strcmp(res.reason, "irq_ops_unavailable") == 0 && res.irq_unmasked == 0);
+    CHECK(res.status == GBP_INITIRQB_ABORT_HANDLER_INSTALL && strcmp(res.reason, "irq_ops_unavailable") == 0 && res.d.irq_unmasked == 0);
     CHECK(count_lines_with(&rl, "IRQ install rc=unavailable") == 1);
     CHECK(count_lines_with(&rl, "pi_policy=never_unmasked") == 1 && count_lines_with(&rl, "pi_policy=unmasked_once") == 0);
     mock_003b(&m); m.clear_cause_on_install = 1;
     run(&m, &rl, &res);
     CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "cause_lost") == 0);
-    CHECK(res.irq_unmasked == 0 && res.handler_restored == 1 && res.mask_ok == 1 && m.handler_installed == 0);
+    CHECK(res.d.irq_unmasked == 0 && res.h.handler_restored == 1 && res.h.mask_ok == 1 && m.handler_installed == 0);
     CHECK(count_lines_with(&rl, "PREUNMASK ok=0 reason=cause_lost") == 1);
     check_never(&m);
     mock_003b(&m); m.intmr13_set_on_install = 1; m.delivery_suppressed = 1;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "intmr13_unmasked") == 0 && res.irq_unmasked == 0);
-    CHECK(res.mask_ok == 1);                                                 /* the teardown re-masked it */
+    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "intmr13_unmasked") == 0 && res.d.irq_unmasked == 0);
+    CHECK(res.h.mask_ok == 1);                                                 /* the teardown re-masked it */
     mock_003b(&m); m.control_on_install = 0x90;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "control_changed") == 0 && res.irq_unmasked == 0);
+    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "control_changed") == 0 && res.d.irq_unmasked == 0);
     mock_003b(&m); m.irq_reg_on_install = 0x8400;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "irq_state_unexpected") == 0 && res.irq_unmasked == 0);
+    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "irq_state_unexpected") == 0 && res.d.irq_unmasked == 0);
     mock_003b(&m); m.irq_disagree_on_install = 1;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "semantic_disagree") == 0 && res.irq_unmasked == 0);
+    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "semantic_disagree") == 0 && res.d.irq_unmasked == 0);
     mock_003b(&m); m.record_dirty_on_install = 1;                            /* the record is not clean after the install */
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "record_not_clear") == 0 && res.irq_unmasked == 0);
-    CHECK(res.install_count == 1 && res.handler_restored == 1 && m.deliveries == 0);
+    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "record_not_clear") == 0 && res.d.irq_unmasked == 0);
+    CHECK(res.h.install_count == 1 && res.h.handler_restored == 1 && m.deliveries == 0);
     CHECK(count_lines_with(&rl, "IRQ install rc=ok old_handler=null record_count=1 record_fired=0") == 1);
     check_never(&m);
     mock_003b(&m); m.old_handler_nonnull = 1;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.old_handler_null == 0 && res.handler_restored == 1);
+    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.h.old_handler_null == 0 && res.h.handler_restored == 1);
     CHECK(count_lines_with(&rl, "IRQ install rc=ok old_handler=nonnull") == 1 && count_lines_with(&rl, "IRQ restore rc=ok ok=1 old_handler=nonnull") == 1);
     check_order(&m, &res);
 }
@@ -434,9 +434,9 @@ static void test_failures(void)
     struct gbp_mock m; struct ringlog rl; struct gbp_initirqb_result res;
     mock_003b(&m); m.irq_write_fail_at = 3;                                  /* the device ACK */
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.w_ack.attempted == 1 && res.w_ack.completed == 0);
+    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.k.w_ack.attempted == 1 && res.k.w_ack.completed == 0);
     CHECK(res.uncertain_writes == 1 && res.transport_ok == 0 && res.a.irq_writes_attempted == 4 && res.a.irq_writes_completed == 3);
-    CHECK(res.postack.irq_gbi == 0x0400 && res.a.stop_value == 0x8eaa && res.a.irq_stop_post.gbi == 0x8aaa);   /* stop word acknowledged it */
+    CHECK(res.k.postack.irq_gbi == 0x0400 && res.a.stop_value == 0x8eaa && res.a.irq_stop_post.gbi == 0x8aaa);   /* stop word acknowledged it */
     CHECK(res.restore_ok == 1 && res.power_cycle_required == 1);
     CHECK(count_lines_with(&rl, "ACKS ack=1/0") == 1);
     check_never(&m);
@@ -444,34 +444,34 @@ static void test_failures(void)
     mock_003b(&m); m.irq_write_fail_at = 4;                                  /* the stop word */
     run(&m, &rl, &res);
     CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.a.irq_stop_write_ok == 0 && res.restore_ok == 0);
-    CHECK(strcmp(res.restore_reason, "irq_stop_write_failed") == 0 && res.handler_restored == 1 && res.a.arinfo_restore_ok == 1);
+    CHECK(strcmp(res.restore_reason, "irq_stop_write_failed") == 0 && res.h.handler_restored == 1 && res.a.arinfo_restore_ok == 1);
     mock_003b(&m); m.control_write_fail_at = 2;
     run(&m, &rl, &res);
     CHECK(res.a.control_restore_ok == 0 && res.restore_ok == 0 && strcmp(res.restore_reason, "control_restore_failed") == 0);
     mock_003b(&m); m.restore_fails = 1;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.handler_restored == 0 && res.restore_ok == 0);
-    CHECK(strcmp(res.restore_reason, "handler_restore_failed") == 0 && res.mask_ok == 1 && res.a.arinfo_restore_ok == 1);
+    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.h.handler_restored == 0 && res.restore_ok == 0);
+    CHECK(strcmp(res.restore_reason, "handler_restore_failed") == 0 && res.h.mask_ok == 1 && res.a.arinfo_restore_ok == 1);
     CHECK(count_lines_with(&rl, "IRQ restore rc=backend ok=0") == 1);
     mock_003b(&m); m.arinfo_write_fail_at = 2;
     run(&m, &rl, &res);
     CHECK(res.a.arinfo_restore_ok == 0 && res.restore_ok == 0 && strcmp(res.restore_reason, "arinfo_restore_failed") == 0);
-    CHECK(res.handler_restored == 1 && res.mask_ok == 1);
+    CHECK(res.h.handler_restored == 1 && res.h.mask_ok == 1);
     /* the PREACK IRQ read (block transfer 39 of this scenario) fails: no device ACK (its value would be invented), the rest proceeds */
     mock_003b(&m); m.fail_at_op = 39; m.fail_rc = GBP_ERR_TIMEOUT;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.fired == 1 && res.preack.irq_rc != GBP_OK);
-    CHECK(res.ack_skipped == 1 && strcmp(res.ack_skip_reason, "irq_read_failed") == 0 && res.w_ack.attempted == 0);
+    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.d.fired == 1 && res.k.preack.irq_rc != GBP_OK);
+    CHECK(res.k.ack_skipped == 1 && strcmp(res.k.ack_skip_reason, "irq_read_failed") == 0 && res.k.w_ack.attempted == 0);
     CHECK(res.a.irq_writes_attempted == 3 && res.a.irq_writes_completed == 3 && res.a.stop_value == 0x8eaa);
-    CHECK(res.errors >= 1 && res.transport_ok == 0 && res.handler_restored == 1 && res.mask_ok == 1 && res.restore_ok == 1);
+    CHECK(res.errors >= 1 && res.transport_ok == 0 && res.h.handler_restored == 1 && res.h.mask_ok == 1 && res.restore_ok == 1);
     CHECK(count_lines_with(&rl, "ACK skipped=1 reason=irq_read_failed") == 1 && count_lines_with(&rl, "IRQW tag=ACK") == 0);
     CHECK(count_lines_with(&rl, "ACKS ack=0/0") == 1);
     check_never(&m);
     /* the PREUNMASK IRQ read (transfer 37) fails: read_failed, no unmask */
     mock_003b(&m); m.fail_at_op = 37; m.fail_rc = GBP_ERR_TIMEOUT;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "read_failed") == 0 && res.irq_unmasked == 0);
-    CHECK(res.handler_restored == 1 && res.transport_ok == 0);
+    CHECK(res.status == GBP_INITIRQB_ABORT_PRE_UNMASK_STATE && strcmp(res.reason, "read_failed") == 0 && res.d.irq_unmasked == 0);
+    CHECK(res.h.handler_restored == 1 && res.transport_ok == 0);
     check_never(&m);
 }
 
@@ -482,9 +482,9 @@ static void test_no_cause_and_stage_aborts(void)
     gbp_mock_init(&m); m.irq_model = MOCK_IRQ_MODEL_SOURCE_MASK; m.isr_ext = 1;   /* no source ever asserts */
     run(&m, &rl, &res);
     CHECK(res.status == GBP_INITIRQB_NO_CAUSE_WITHIN_TMAX && strcmp(res.status_name, "no_cause_within_tmax") == 0);
-    CHECK(res.a.a2_obs_taken == 6 && res.a.intsr13_seen == 0 && m.installed_calls == 0 && res.irq_unmasked == 0);
+    CHECK(res.a.a2_obs_taken == 6 && res.a.intsr13_seen == 0 && m.installed_calls == 0 && res.d.irq_unmasked == 0);
     CHECK(res.a.irq_writes_attempted == 3 && res.a.control_restore_ok == 1 && res.a.arinfo_restore_ok == 1 && res.restore_ok == 1);
-    CHECK(res.handler_restored == -1 && res.mask_ok == -1 && res.transport_ok == 1);
+    CHECK(res.h.handler_restored == -1 && res.h.mask_ok == -1 && res.transport_ok == 1);
     CHECK(count_lines_with(&rl, "IRQ install") == 0 && count_lines_with(&rl, "UNMASK") == 0);
     CHECK(count_lines_with(&rl, "INITIRQB end status=no_cause_within_tmax reason=no_intsr13_within_t_max") == 1);
     CHECK(count_lines_with(&rl, "pi_policy=never_unmasked") == 1 && count_lines_with(&rl, "pi_policy=unmasked_once") == 0);   /* no unmask on this path */
@@ -494,7 +494,7 @@ static void test_no_cause_and_stage_aborts(void)
     CHECK(res.status == GBP_INITIRQB_ABORT_STAGE_A && res.stage_a_aborted == 1 && strcmp(res.status_name, "abort_not_present") == 0);
     CHECK(res.a.control_written == 0 && res.power_cycle_required == 0 && m.installed_calls == 0 && res.a.arinfo_restore_ok == 1);
     CHECK(count_lines_with(&rl, "INITIRQA end status=abort_not_present") == 1 && count_lines_with(&rl, "INITIRQB end status=abort_not_present") == 1);
-    CHECK(res.handler_restored == -1 && res.mask_ok == -1 && res.old_handler_null == -1 && res.preunmask_ok == 0);
+    CHECK(res.h.handler_restored == -1 && res.h.mask_ok == -1 && res.h.old_handler_null == -1 && res.preunmask_ok == 0);
     {   /* the summary a Dolphin run without an HSP device / with the GBPlayer model produces (stage-A aborts) */
         char s[1400];
         CHECK(gbp_initirqb_summary(&res, s, sizeof s) > 0);
@@ -534,7 +534,7 @@ static void sample_hook(struct gbp_mock *m, uint32_t addr, const uint8_t *data, 
     if (idx != 0xDu || nsamples >= 8u) return;
     s = &samples[nsamples++];
     s->idx = idx;
-    s->ack_att = hook_res->w_ack.attempted; s->ack_comp = hook_res->w_ack.completed;
+    s->ack_att = hook_res->k.w_ack.attempted; s->ack_comp = hook_res->k.w_ack.completed;
     s->pcr = hook_res->a.power_cycle_required;
     s->irq_att = hook_res->a.irq_writes_attempted; s->irq_comp = hook_res->a.irq_writes_completed;
 }
@@ -552,7 +552,7 @@ static void test_attempted_at_call_time(void)
     mock_003b(&m); m.write_hook = sample_hook; m.irq_write_fail_at = 3; nsamples = 0;
     gbp_mock_transport(&m, &t); ringlog_init(&rl, storage, LINE_LEN, LINES);
     gbp_initirqb_probe_run(&t, &rl, &cfg, &res);
-    CHECK(samples[2].ack_att == 1 && samples[2].ack_comp == 0 && res.w_ack.completed == 0 && res.power_cycle_required == 1);
+    CHECK(samples[2].ack_att == 1 && samples[2].ack_comp == 0 && res.k.w_ack.completed == 0 && res.power_cycle_required == 1);
     m.write_hook = 0;
 }
 
@@ -563,8 +563,8 @@ static void test_wrap_and_lines(void)
     mock_003b(&m); m.pi_relatch_after_ticks = 50; m.intsr_w1c_ignored = 0; m.old_handler_nonnull = 1;
     m.tick = 0xFFFFFF00u; m.intsr = 0x00010000u; m.intmr = 0x000001fau;
     run(&m, &rl, &res);
-    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.latency_ticks < 1000u);   /* wrap-safe latency */
-    CHECK((uint32_t)(res.rec.t_second - res.rec.t_entry) >= 100u && (uint32_t)(res.rec.t_second - res.rec.t_entry) < 1000u);
+    CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.d.latency_ticks < 1000u);   /* wrap-safe latency */
+    CHECK((uint32_t)(res.d.rec.t_second - res.d.rec.t_entry) >= 100u && (uint32_t)(res.d.rec.t_second - res.d.rec.t_entry) < 1000u);
     CHECK(rl.truncated == 0 && rl.dropped == 0 && max_line_len(&rl) < LINE_LEN - 1);
     CHECK(res.power_cycle_required == 1);
     {
@@ -590,7 +590,7 @@ static void test_wrap_and_lines(void)
         static char tiny[8 * LINE_LEN]; struct gbp_transport t; struct gbp_initirqb_config cfg;
         mock_003b(&m); test_config(&cfg); gbp_mock_transport(&m, &t); ringlog_init(&rl, tiny, LINE_LEN, 8);
         gbp_initirqb_probe_run(&t, &rl, &cfg, &res);
-        CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.handler_restored == 1 && rl.dropped > 0 && rl.count == 8);
+        CHECK(res.status == GBP_INITIRQB_OK_DELIVERY_OBSERVED && res.h.handler_restored == 1 && rl.dropped > 0 && rl.count == 8);
         check_never(&m);
     }
     /* config: the delivery bound at the console's time base */
@@ -659,10 +659,10 @@ static void test_hw_initirqa_prefix(const char *path)
     CHECK(res.a.snap[GBP_INITIRQA_SNAP_EVENT].irq_gbi == 0x0400 && res.a.snap[GBP_INITIRQA_SNAP_EVENT].intsr == 0x00012000);
     CHECK(res.a.snap[GBP_INITIRQA_SNAP_BASE].irq_gbi == 0x8aae && res.a.snap[GBP_INITIRQA_SNAP_A1_0].irq_gbi == 0x8aaa);
     CHECK(res.a.w_a1.value == 0x8aae && res.a.w_a2.value == 0 && res.a.t_a2 == 4151253956u);
-    CHECK(res.handler_was_installed == 0 && res.irq_unmasked == 0 && res.w_ack.attempted == 0 && res.fired == 0);
+    CHECK(res.h.handler_was_installed == 0 && res.d.irq_unmasked == 0 && res.k.w_ack.attempted == 0 && res.d.fired == 0);
     CHECK(res.a.irq_stop_pre.gbi == 0x0500 && res.a.stop_value == 0x8faa && res.a.irq_stop_post.gbi == 0x8aaa);
-    CHECK(res.a.pi_cleanup_performed == 1 && res.main_pi_w1c == 1 && strcmp(res.main_pi_w1c_site, "CLEANUP") == 0 && res.pi_sticky_final == 0);
-    CHECK(res.a.arinfo_final == 0x0043 && res.a.arinfo_restore_ok == 1 && res.handler_restored == -1 && res.mask_ok == -1);
+    CHECK(res.a.pi_cleanup_performed == 1 && res.k.main_pi_w1c == 1 && strcmp(res.k.main_pi_w1c_site, "CLEANUP") == 0 && res.pi_sticky_final == 0);
+    CHECK(res.a.arinfo_final == 0x0043 && res.a.arinfo_restore_ok == 1 && res.h.handler_restored == -1 && res.h.mask_ok == -1);
     CHECK(res.a.irq_writes_attempted == 3 && res.a.irq_writes_completed == 3 && res.uncertain_writes == 0 && res.restore_ok == 1);
     CHECK(r.exhausted == 0 && r.mismatches == 0 && r.tick_polls == 0 && r.step == ops);
     CHECK(count_lines_with(&rl, "CAUSE t_event=4155517524 since_a2=4263568 intsr=00012000 intmr=000001fa intsr13=1 intmr13=0 control=8c irq=0400") == 1);
@@ -706,39 +706,39 @@ static void test_hw_initirqb_gbp(const char *path)
     CHECK(res.a.event_taken == 1 && res.a.window_ended_early == 1 && res.a.intsr13_seen == 1);
     CHECK(ev->taken && ev->intsr == 0x00012000u && ev->intmr == 0x000001fau && ev->control_vote == 0x8c && ev->irq_gbi == 0x0400 && ev->irq_disc == 0x0400);
     /* point B: the handler installed after the cause, previous handler NULL, record clean */
-    CHECK(res.handler_was_installed == 1 && res.old_handler_null == 1 && res.install_count == 0 && res.install_fired == 0);
+    CHECK(res.h.handler_was_installed == 1 && res.h.old_handler_null == 1 && res.h.install_count == 0 && res.h.install_fired == 0);
     /* PREUNMASK 907.6 us after the EVENT: both PI samples latched and masked, CONTROL 8C, the second source had appeared (0x0500) */
     CHECK(res.preunmask_ok == 1 && strcmp(res.preunmask_reason, "-") == 0 && res.preunmask.ticks == 3679926960u);
     CHECK(res.preunmask.intsr == 0x00012000u && res.preunmask.pi2_ok && res.preunmask.intsr2 == 0x00012000u);
     CHECK(res.preunmask.intmr == 0x000001fau && res.preunmask.intmr2 == 0x000001fau && res.preunmask.control_vote == 0x8c);
     CHECK(res.preunmask.irq_gbi == 0x0500 && res.preunmask.irq_disc == 0x0500);
     /* one unmask; the handler ran inside __UnmaskIrq: t_post is after the record's second read */
-    CHECK(res.intsr_pre_unmask == 0x00012000u && res.intmr_pre_unmask == 0x000001fau);
-    CHECK(res.t_unmask == 3679931504u && res.unmask_rc == GBP_OK && res.irq_unmasked == 1 && res.t_post_unmask == 3679931761u);
-    CHECK(res.intsr_post_unmask == 0x00010000u && res.intmr_post_unmask == 0x000001fau);
-    CHECK(res.fired == 1 && res.rec.count == 1 && res.reentry == 0 && res.timed_out == 0 && res.polls == 1 && res.wait_ticks == 1987u);
-    CHECK(res.rec.t_entry == 3679931582u && res.latency_ticks == 78u && res.latency_us == 1u);
-    CHECK(res.rec.intsr_before_ack == 0x00012000u && res.rec.intmr_at_entry == 0x000021fau);      /* delivered: cause + mask open */
-    CHECK(res.rec.intmr_after_mask == 0x000001fau && res.rec.intsr_before_w1c == 0x00012000u);    /* mask first, cause still latched */
-    CHECK(res.rec.intsr_after_ack == 0x00010000u);                                                 /* the ISR's W1C cleared it */
-    CHECK(res.rec.t_second == 3679931730u && (uint32_t)(res.rec.t_second - res.rec.t_entry) == 148u);
-    CHECK(res.rec.intsr_second == 0x00010000u && res.rec.intmr_second == 0x000001fau && res.rec.reentry_t == 0 && res.rec.reentry_intsr == 0);
-    CHECK(res.irq_masked_again == 1 && res.main_mask_ok == 1 && res.remask_retry == 0 && res.intmr_remask == 0x000001fau);
+    CHECK(res.d.intsr_pre_unmask == 0x00012000u && res.d.intmr_pre_unmask == 0x000001fau);
+    CHECK(res.d.t_unmask == 3679931504u && res.d.unmask_rc == GBP_OK && res.d.irq_unmasked == 1 && res.d.t_post_unmask == 3679931761u);
+    CHECK(res.d.intsr_post_unmask == 0x00010000u && res.d.intmr_post_unmask == 0x000001fau);
+    CHECK(res.d.fired == 1 && res.d.rec.count == 1 && res.d.reentry == 0 && res.d.timed_out == 0 && res.d.polls == 1 && res.d.wait_ticks == 1987u);
+    CHECK(res.d.rec.t_entry == 3679931582u && res.d.latency_ticks == 78u && res.d.latency_us == 1u);
+    CHECK(res.d.rec.intsr_before_ack == 0x00012000u && res.d.rec.intmr_at_entry == 0x000021fau);      /* delivered: cause + mask open */
+    CHECK(res.d.rec.intmr_after_mask == 0x000001fau && res.d.rec.intsr_before_w1c == 0x00012000u);    /* mask first, cause still latched */
+    CHECK(res.d.rec.intsr_after_ack == 0x00010000u);                                                 /* the ISR's W1C cleared it */
+    CHECK(res.d.rec.t_second == 3679931730u && (uint32_t)(res.d.rec.t_second - res.d.rec.t_entry) == 148u);
+    CHECK(res.d.rec.intsr_second == 0x00010000u && res.d.rec.intmr_second == 0x000001fau && res.d.rec.reentry_t == 0 && res.d.rec.reentry_intsr == 0);
+    CHECK(res.d.irq_masked_again == 1 && res.d.main_mask_ok == 1 && res.d.remask_retry == 0 && res.d.intmr_remask == 0x000001fau);
     /* PREACK 179.7 us after the entry: sources 0x0500 still pending, CONTROL 8C, PI bit 13 clear in both samples (no re-assert) */
-    CHECK(res.preack.ticks == 3679938859u && res.preack.intsr == 0x00010000u && res.preack.intsr2 == 0x00010000u);
-    CHECK(res.preack.intmr == 0x000001fau && res.preack.control_vote == 0x8c && res.preack.irq_gbi == 0x0500 && res.preack.irq_disc == 0x0500);
+    CHECK(res.k.preack.ticks == 3679938859u && res.k.preack.intsr == 0x00010000u && res.k.preack.intsr2 == 0x00010000u);
+    CHECK(res.k.preack.intmr == 0x000001fau && res.k.preack.control_vote == 0x8c && res.k.preack.irq_gbi == 0x0500 && res.k.preack.irq_disc == 0x0500);
     /* device ACK IRQ := 0x0500 | 0x8000 = 0x8500, read back 0x8000: sources cleared, bit 15 read 1; PI still clear; no main W1C */
-    CHECK(res.ack_skipped == 0 && res.irq_pending == 0x0500 && res.ack_value == 0x8500 && res.w_ack.attempted == 1 && res.w_ack.completed == 1);
-    CHECK(res.w_ack.raw[0] == 0x85 && res.w_ack.raw[1] == 0x00 && res.w_ack.raw[30] == 0x85 && res.w_ack.raw[31] == 0x00);
-    CHECK(res.postack.ticks == 3679944700u && res.postack.irq_gbi == 0x8000 && res.postack.irq_disc == 0x8000);
-    CHECK(res.postack.intsr == 0x00010000u && res.postack.intsr2 == 0x00010000u && res.postack.intmr == 0x000001fau && res.postack.control_vote == 0x8c);
-    CHECK(res.main_pi_w1c == 0 && strcmp(res.main_pi_w1c_site, "-") == 0 && res.main_w1c_sticky == 0);
+    CHECK(res.k.ack_skipped == 0 && res.k.irq_pending == 0x0500 && res.k.ack_value == 0x8500 && res.k.w_ack.attempted == 1 && res.k.w_ack.completed == 1);
+    CHECK(res.k.w_ack.raw[0] == 0x85 && res.k.w_ack.raw[1] == 0x00 && res.k.w_ack.raw[30] == 0x85 && res.k.w_ack.raw[31] == 0x00);
+    CHECK(res.k.postack.ticks == 3679944700u && res.k.postack.irq_gbi == 0x8000 && res.k.postack.irq_disc == 0x8000);
+    CHECK(res.k.postack.intsr == 0x00010000u && res.k.postack.intsr2 == 0x00010000u && res.k.postack.intmr == 0x000001fau && res.k.postack.control_vote == 0x8c);
+    CHECK(res.k.main_pi_w1c == 0 && strcmp(res.k.main_pi_w1c_site, "-") == 0 && res.k.main_w1c_sticky == 0);
     /* teardown: CONTROL 90, sources re-set before the stop (IRQSTOPPRE 0x8500), stop 0x8FAA -> 0x8AAA, no cleanup, handler back, masked */
     CHECK(res.a.control_restore_ok == 1 && res.a.control_restore_vote == 0x90);
     CHECK(res.a.irq_stop_pre.gbi == 0x8500 && res.a.irq_stop_pre.disc == 0x8500 && res.a.stop_value == 0x8faa && res.a.w_stop.completed);
     CHECK(res.a.irq_stop_post.gbi == 0x8aaa && res.a.stop_masks_readback == 1 && res.a.stop_bit15_readback == 1);
     CHECK(res.a.pi_cleanup_performed == 0 && res.a.cleanup_intsr_before == 0x00010000u && res.pi_sticky_final == 0);
-    CHECK(res.handler_restored == 1 && res.handler_restore_rc == GBP_OK && res.mask_ok == 1 && res.intmr_final == 0x000001fau);
+    CHECK(res.h.handler_restored == 1 && res.h.handler_restore_rc == GBP_OK && res.h.mask_ok == 1 && res.h.intmr_final == 0x000001fau);
     CHECK(res.a.arinfo_orig == 0x0043 && res.a.arinfo_exp == 0x005b && res.a.arinfo_final == 0x0043 && res.a.arinfo_restore_ok == 1);
     CHECK(fin->taken && fin->control_vote == 0x00 && fin->irq_gbi == 0x9090 && fin->intsr == 0x00010000u && fin->intmr == 0x000001fau);
     CHECK(res.a.irq_writes_attempted == 4 && res.a.irq_writes_completed == 4 && res.uncertain_writes == 0);

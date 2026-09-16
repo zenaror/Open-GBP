@@ -198,6 +198,16 @@ struct gbp_initirqa_snapshot *gbp_initirqa_snapshot_take(const struct gbp_transp
     return snapshot_into(t, res, s, id, 0, 0, with_test, 0, two_pi);
 }
 
+struct gbp_initirqa_snapshot *gbp_initirqa_snapshot_take_at(const struct gbp_transport *t, struct gbp_initirqa_result *res,
+                                                            struct gbp_initirqa_snapshot *s, const char *id, int with_test, int two_pi,
+                                                            uint32_t tnow, uint32_t poll_intsr, unsigned polls_before)
+{
+    struct gbp_initirqa_snapshot *out = snapshot_into(t, res, s, id, 1, tnow, with_test, polls_before, two_pi);
+    out->is_event = 1;
+    out->poll_intsr = poll_intsr;
+    return out;
+}
+
 /* ---- formatting (after the fact) -------------------------------------- */
 
 static void log_snapshot(struct ringlog *log, const struct gbp_initirqa_result *res, const struct gbp_initirqa_snapshot *s)

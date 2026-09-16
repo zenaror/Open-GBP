@@ -189,6 +189,61 @@ class ProbeLog(unittest.TestCase):
                               "I m",
                               "P r 00012000 000001fa"])
 
+    def test_fixture_initirq4_records(self):
+        # GBP-INIT-004: PREPARE publishes the generation ("I p", optional in a replay); the per-cycle records keep
+        # the 003B kinds with an " n=" field and "-n" tags, so the rules above apply per cycle (each "I u" carries
+        # its own cycle's HANDLER* record: the search stops at the next UNMASK); REARM's time base precedes the
+        # IRQW tag=REARM-n write; a NEXTCAUSE snapshot is an EVENT-style snapshot (T + P p); a timed-out wait
+        # emits the loop's last time-base read.
+        _, recs = probelog.parse_lines([
+            "000075 IRQ install rc=ok old_handler=null record_count=0 record_fired=0\n",
+            "000076 PREPARE n=0 gen=0 rc=ok intmr13=0 expected_gen=0 entries_total=0 generation_errors=0 slot_count=0 slot_fired=0\n",
+            "000083 UNMASK n=0 t_unmask=1470 rc=ok t_post=1583 dt_post=113\n",
+            "000085 IRQ mask tag=MAIN n=0 rc=ok\n",
+            "000086 WAIT n=0 fired=1 timed_out=0 polls=1 wait_ticks=123 wait_us=3 t_delivery_ms=100 t_delivery_ticks=400\n",
+            "000088 HANDLER n=0 fired=1 count=1 t_entry=1471 t_unmask=1470 latency_ticks=1 latency_us=0 reentry=0\n",
+            "000089 HANDLERPI n=0 intsr_at_entry=00012000 intmr_at_entry=000021fa intmr_after_mask=000001fa intsr_before_w1c=00012000 intsr_after_w1c=00010000 reentry_intsr=00000000 reentry_intmr=00000000\n",
+            "000090 HANDLERPI2 n=0 t_second=1573 dt_second=102 intsr_second=00010000 intmr_second=000001fa reentry_t=0\n",
+            "000100 IRQW tag=ACK-0 addr=01d00000 before=0500 write=8500 layout=gbi-u16-replicated rc=ok ticks=30 polls=8 dspcr=0804 t_after=1700 data=-\n",
+            "000110 REARM n=0 t_rearm=1800 before=8000 value=0000 layout=gbi-u16-replicated after=clean_boundary\n",
+            "000111 IRQW tag=REARM-0 addr=01d00000 before=8000 write=0000 layout=gbi-u16-replicated rc=ok ticks=30 polls=8 dspcr=0804 t_after=1810 data=-\n",
+            "000112 SNAP tag=REARMPOST-0 ticks=1820 since_control=100 since_a1=90 since_a2=80 polls_before=0\n",
+            "000120 SNAP tag=NEXTCAUSE-0 ticks=1900 since_control=100 since_a1=90 since_a2=80 polls_before=8 poll_intsr=00012000\n",
+            "000121 NEXTCAUSE n=0 found=1 immediate=0 t_next_cause=1900 since_rearm=100 since_prev_cause=500 intsr=00012000 control=8c irq=0500/0500 av=0500 unexpected=0000 polls=8\n",
+            "000122 PREPARE n=1 gen=1 rc=ok intmr13=0 expected_gen=1 entries_total=1 generation_errors=0 slot_count=0 slot_fired=0\n",
+            "000130 UNMASK n=1 t_unmask=2470 rc=ok t_post=2583 dt_post=113\n",
+            "000131 IRQ mask tag=MAIN n=1 rc=ok\n",
+            "000132 WAIT n=1 fired=1 timed_out=0 polls=1 wait_ticks=123 wait_us=3 t_delivery_ms=100 t_delivery_ticks=400\n",
+            "000133 HANDLER n=1 fired=1 count=1 t_entry=2471 t_unmask=2470 latency_ticks=1 latency_us=0 reentry=0\n",
+            "000134 HANDLERPI n=1 intsr_at_entry=00012000 intmr_at_entry=000021fa intmr_after_mask=000001fa intsr_before_w1c=00012000 intsr_after_w1c=00010000 reentry_intsr=00000000 reentry_intmr=00000000\n",
+            "000135 HANDLERPI2 n=1 t_second=2573 dt_second=102 intsr_second=00010000 intmr_second=000001fa reentry_t=0\n",
+            "000140 REARM n=1 t_rearm=2800 before=8000 value=0000 layout=gbi-u16-replicated after=clean_boundary\n",
+            "000141 NEXTCAUSE n=1 found=0 timed_out=1 t_end=4800 since_rearm=2000 polls=200 rearmpost=A_quiet t_next_cause_ticks=2000\n",
+            "000150 IRQ restore rc=ok ok=1 old_handler=null\n",
+        ])
+        fx = probelog.fixture(recs).splitlines()[1:]
+        self.assertEqual(fx, ["I i null",
+                              "I p 0",
+                              "T 1470",
+                              "I u 1 1 1471 00012000 000021fa 00010000 000001fa 00000000 00000000 00012000 1573 00010000 000001fa 0",
+                              "T 1583",
+                              "T 1593",
+                              "I m",
+                              "W 01d00000 ok", "T 1700",
+                              "T 1800",
+                              "W 01d00000 ok", "T 1810",
+                              "T 1820",
+                              "T 1900", "P p 00012000",
+                              "I p 1",
+                              "T 2470",
+                              "I u 1 1 2471 00012000 000021fa 00010000 000001fa 00000000 00000000 00012000 2573 00010000 000001fa 0",
+                              "T 2583",
+                              "T 2593",
+                              "I m",
+                              "T 2800",
+                              "T 4800",
+                              "I r"])
+
     def test_fixture_cleanup_ack_between_the_two_pi_reads(self):
         # The probe reads PI (CLEANUPCHK), writes INTSR once, re-reads PI (CLEANUP),
         # and only then logs the CLEANUP record: the "P a" line must sit between the

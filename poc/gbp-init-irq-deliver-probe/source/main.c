@@ -180,27 +180,27 @@ int main(void)
            a->intsr13_seen, a->first_intsr13_phase ? a->first_intsr13_phase : "-", (unsigned long)a->t_first_intsr13,
            a->event_taken, (unsigned long)(uint32_t)(a->t_first_intsr13 - a->t_a2), a->a1_polls, a->a2_polls);
     printf("  handler: installed=%d old=%s preunmask=%d/%s unmasked=%d t_unmask=%lu fired=%d count=%lu latency=%lu ticks (%lu us) timeout=%d\n",
-           res.handler_was_installed, res.old_handler_null == 1 ? "null" : res.old_handler_null == 0 ? "nonnull" : "?",
-           res.preunmask_ok, res.preunmask_reason ? res.preunmask_reason : "-", res.irq_unmasked, (unsigned long)res.t_unmask,
-           res.fired, (unsigned long)res.rec.count, (unsigned long)res.latency_ticks, (unsigned long)res.latency_us, res.timed_out);
+           res.h.handler_was_installed, res.h.old_handler_null == 1 ? "null" : res.h.old_handler_null == 0 ? "nonnull" : "?",
+           res.preunmask_ok, res.preunmask_reason ? res.preunmask_reason : "-", res.d.irq_unmasked, (unsigned long)res.d.t_unmask,
+           res.d.fired, (unsigned long)res.d.rec.count, (unsigned long)res.d.latency_ticks, (unsigned long)res.d.latency_us, res.d.timed_out);
     printf("  ISR: intsr13 entry=%u before_w1c=%u after_w1c=%u second=%u  intmr13 entry=%u after_mask=%u second=%u  dt_second=%lu reentry=%d\n",
-           b13(res.rec.intsr_before_ack), b13(res.rec.intsr_before_w1c), b13(res.rec.intsr_after_ack), b13(res.rec.intsr_second),
-           b13(res.rec.intmr_at_entry), b13(res.rec.intmr_after_mask), b13(res.rec.intmr_second),
-           (unsigned long)(uint32_t)(res.rec.t_second - res.rec.t_entry), res.reentry);
+           b13(res.d.rec.intsr_before_ack), b13(res.d.rec.intsr_before_w1c), b13(res.d.rec.intsr_after_ack), b13(res.d.rec.intsr_second),
+           b13(res.d.rec.intmr_at_entry), b13(res.d.rec.intmr_after_mask), b13(res.d.rec.intmr_second),
+           (unsigned long)(uint32_t)(res.d.rec.t_second - res.d.rec.t_entry), res.d.reentry);
     printf("  main: remask ok=%d retry=%d  ACK=%04x(%s) skipped=%d(%s)  main_w1c=%d site=%s sticky=%d\n",
-           res.main_mask_ok, res.remask_retry, res.ack_value, wr(&res.w_ack), res.ack_skipped,
-           res.ack_skip_reason ? res.ack_skip_reason : "-", res.main_pi_w1c, res.main_pi_w1c_site ? res.main_pi_w1c_site : "-",
-           res.main_w1c_sticky);
+           res.d.main_mask_ok, res.d.remask_retry, res.k.ack_value, wr(&res.k.w_ack), res.k.ack_skipped,
+           res.k.ack_skip_reason ? res.k.ack_skip_reason : "-", res.k.main_pi_w1c, res.k.main_pi_w1c_site ? res.k.main_pi_w1c_site : "-",
+           res.k.main_w1c_sticky);
     print_snap2(&a->snap[GBP_INITIRQA_SNAP_EVENT], &res.preunmask);
-    print_snap2(&res.preack, &res.postack);
+    print_snap2(&res.k.preack, &res.k.postack);
     printf("  writes attempted/completed: CONTROL %d/%d  A1 %d/%d  A2 %d/%d  ACK %d/%d  STOP %d/%d  restore %d/%d  uncertain=%u%s\n",
            a->w_ctl_exp.attempted, a->w_ctl_exp.completed, a->w_a1.attempted, a->w_a1.completed,
-           a->w_a2.attempted, a->w_a2.completed, res.w_ack.attempted, res.w_ack.completed,
+           a->w_a2.attempted, a->w_a2.completed, res.k.w_ack.attempted, res.k.w_ack.completed,
            a->w_stop.attempted, a->w_stop.completed, a->w_ctl_restore.attempted, a->w_ctl_restore.completed,
            res.uncertain_writes, res.uncertain_writes ? "  DEVICE STATE UNCERTAIN" : "");
     printf("  restore: control=%d stop=%d cleanup performed=%d sticky=%d handler_restored=%d mask_ok=%d intmr_final=%08lx arinfo=%d\n",
            a->control_restore_ok, a->irq_stop_write_ok, a->pi_cleanup_performed, res.pi_sticky_final,
-           res.handler_restored, res.mask_ok, (unsigned long)res.intmr_final, a->arinfo_restore_ok);
+           res.h.handler_restored, res.h.mask_ok, (unsigned long)res.h.intmr_final, a->arinfo_restore_ok);
     printf("  errors=%u transfers=%lu timeouts=%lu busy=%lu log=%u dropped=%u truncated=%u\n",
            res.errors, (unsigned long)hsp.transfers, (unsigned long)hsp.timeouts,
            (unsigned long)hsp.busy_refusals, (unsigned)rl.count, (unsigned)rl.dropped, (unsigned)rl.truncated);

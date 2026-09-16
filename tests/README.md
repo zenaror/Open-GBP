@@ -32,9 +32,22 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      003A fixture as the prefix up to the EVENT, the complete physical run
                                      initirqb-0001 (2026-09-15) replayed with the console's time base and the
                                      physical handler record; --dump-log / --replay modes
+                  test_gbp_initirq4.c GBP-INIT-004 logic (bounded repeated service: three cycles, two re-arms,
+                                     one installed handler): the 003A stage and the 003B cycle service reused,
+                                     generation discipline of the multi-cycle handler run by the mock (write-once
+                                     slots, poisoned out-of-range slot, one W1C per delivery), REARMPOST A–F,
+                                     next-cause wait, every abort/anomaly/restore path of the specification,
+                                     the §43 event order and the "never" properties, attempted/completed at the
+                                     transport call for every ACK and re-arm, worst-case lines, wrap, ring
+                                     overflow; the physical 003A fixture (stops at the install) and the physical
+                                     003B fixture as the real prefix of cycle 0 (cut before its CONTROL restore:
+                                     the first re-arm meets an exhausted script — no physical 004 fixture
+                                     exists and none is fabricated); --dump-log / --replay modes
 tests/mocks/    scripted device models behind src/gbp/gbp_transport.h (PI model, synthetic
-                interrupt path with the base and the extended one-shot bodies, synthetic IRQ-register
-                source/mask model with an optional re-latch after a W1C, failure injection)
+                interrupt path with the base, the extended and the multi-cycle handler bodies, synthetic
+                IRQ-register source/mask model with an optional re-latch after a W1C, scheduled source
+                (re)assertions after the Nth IRQ write, a PI latch lagging the source, ineffective ACK,
+                sticky re-arm read-back, generation corruption, CONTROL changing by itself, failure injection)
 tests/host/     Python tests (pytest or python3 -m unittest):
                   test_dolinfo.py    synthetic DOL header vectors
                   test_dolpad.py     32-byte padding tool
@@ -48,17 +61,24 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                   test_dolphin_smoke.py runner command line (isolated user dir, OSD override)
                   test_isr_audit.py  one-shot handler audit (synthetic listings incl. the extended body
                                      with its bounded loop, negative controls: second/missing/wrong-value
-                                     INTSR store, INTMR store; the built GBP-INIT-002 and 003B objects)
-                  test_poc_audit.py  object audit, profiles 003a and 003b (synthetic listings in both GCC
+                                     INTSR store, INTMR store; the built GBP-INIT-002, 003B and 004 objects —
+                                     the multi-cycle handler with its two compiler-duplicated mask sites)
+                  test_poc_audit.py  object audit, profiles 003a, 003b and 004 (synthetic listings in both GCC
                                      encodings, the built objects, negative controls on the GBP-INIT-002
                                      interrupt-path object and the GBP-INIT-001 INTMR object, profiles
-                                     mutually exclusive on the builds)
+                                     mutually exclusive on the builds; the ACK call site in the shared
+                                     service object since GBP-INIT-004)
                   test_initirqa_replay.py synthetic GBP-INIT-003A log → fixture → replay round trip
                                      (no physical data; files stay under build/)
                   test_initirqb_replay.py synthetic GBP-INIT-003B log → fixture → replay round trip
                                      (14-number "I u" line, POSTACK "P a"); the physical 003A fixture
                                      through the 003B probe (stops at the handler install); the physical
                                      003B fixture replayed end to end (111 operations, 0 mismatches)
+                  test_initirq4_replay.py synthetic GBP-INIT-004 three-cycle log → fixture → replay round
+                                     trip (optional "I p <gen>" lines, identical without them); the physical
+                                     003A fixture through the 004 probe (stops at the install); the physical
+                                     003B fixture as the prefix of cycle 0 (exhausted at the first re-arm,
+                                     0 mismatches); no physical 004 fixture exists
                   test_artifacts.py  checks on the built ELF/DOL (skipped
                                      until `make build` has run)
 ```

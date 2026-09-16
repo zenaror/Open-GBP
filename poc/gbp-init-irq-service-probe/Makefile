@@ -1,5 +1,5 @@
 #---------------------------------------------------------------------------------
-# Open-GBP GBP-INIT-003B — GameCube build (devkitPPC + libogc2)
+# Open-GBP GBP-INIT-004 — GameCube build (devkitPPC + libogc2)
 #
 # Run from inside the project container, e.g. from the repository root:
 #
@@ -7,22 +7,21 @@
 #
 # or directly inside the container:
 #
-#     make -C poc/gbp-init-irq-deliver-probe
+#     make -C poc/gbp-init-irq-service-probe
 #
-# Outputs go to build/poc/gbp-init-irq-deliver-probe/ (ignored by Git):
-#     gbp-init-irq-deliver-probe.elf           linked ELF
-#     gbp-init-irq-deliver-probe.unpadded.dol  raw elf2dol output
-#     gbp-init-irq-deliver-probe.dol           final DOL, section sizes padded to 32 bytes by
+# Outputs go to build/poc/gbp-init-irq-service-probe/ (ignored by Git):
+#     gbp-init-irq-service-probe.elf           linked ELF
+#     gbp-init-irq-service-probe.unpadded.dol  raw elf2dol output
+#     gbp-init-irq-service-probe.dol           final DOL, section sizes padded to 32 bytes by
 #                                      tools/dolpad.py (required by Dolphin 2606a's
 #                                      DolReader; harmless for physical loaders)
-#     gbp-init-irq-deliver-probe.map, build-info.txt, obj/*.o (every object is audited by
-#     `make initirqb-audit` at the repository root: profile 003b of tools/poc_audit.py — one
+#     gbp-init-irq-service-probe.map, build-info.txt, obj/*.o (every object is audited by
+#     `make initirq4-audit` at the repository root: profile 004 of tools/poc_audit.py — one
 #     __UnmaskIrq call site, IRQ_Request only from the install/restore pair, __MaskIrq only from
-#     the mask primitive and the two one-shot bodies, no INTMR store, four IRQ-register write
-#     call sites (A1/A2/STOP in gbp_initirqa_probe.o, the ACK in gbp_irq_service.o — the cycle
-#     service extracted for GBP-INIT-004; build d3da8cd had it in gbp_initirqb_probe.o) — and
-#     tools/isr_audit.py on both one-shot handlers; hsp_backend_irq.c IS linked,
-#     hsp_backend_intmr.c (the direct INTMR store of GBP-INIT-001) is NOT)
+#     the mask primitive and the multi-cycle handler, no INTMR store, 3 + 1 + 1 IRQ-register write
+#     call sites (A1/A2/STOP, ACK, REARM) — and tools/isr_audit.py on hsp_backend_oneshot_isr_multi;
+#     hsp_backend_irq_multi.c IS linked, hsp_backend_irq.c (the 002/003B handlers) and
+#     hsp_backend_intmr.c (the direct INTMR store of GBP-INIT-001) are NOT)
 #---------------------------------------------------------------------------------
 .SUFFIXES:
 
@@ -35,8 +34,8 @@ include $(DEVKITPRO)/libogc2/gamecube_rules
 #---------------------------------------------------------------------------------
 # Identity
 #---------------------------------------------------------------------------------
-APP_NAME   := gbp-init-irq-deliver-probe
-BUILD_ID   := initirqb-0001
+APP_NAME   := gbp-init-irq-service-probe
+BUILD_ID   := initirq4-0001
 GIT_COMMIT ?= $(shell git -C "$(CURDIR)" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 GIT_DIRTY  ?= $(shell git -C "$(CURDIR)" diff --quiet HEAD -- 2>/dev/null || echo -dirty)
 COMMIT_ID  := $(GIT_COMMIT)$(GIT_DIRTY)
@@ -51,7 +50,7 @@ TARGET  := $(OUTDIR)/$(APP_NAME)
 
 vpath %.c $(CURDIR)/source $(ROOT)/src/common $(ROOT)/src/log $(ROOT)/src/gbp $(ROOT)/src/platform
 
-SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_initirqb_probe.c hsp_backend.c hsp_backend_irq.c sdlog.c
+SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_initirq4_probe.c hsp_backend.c hsp_backend_irq_multi.c sdlog.c
 OBJS := $(addprefix $(OBJDIR)/,$(SRCS:.c=.o))
 DEPS := $(OBJS:.o=.d)
 

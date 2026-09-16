@@ -153,6 +153,13 @@ GBP-INIT-001 INTMR object and the 001/002 probes not; `__UnmaskIrq` only from `h
 `IRQ_Request` only from `h_irq_install` / `h_irq_restore`; `__MaskIrq` only from `h_irq_mask`
 and the two handlers; INTMR stores 0; INTSR stores exactly in `h_write_intsr` and the two
 handlers; `gbp_regwrite_irq_u16` 3 + 1 call sites; `main.o` uses `hsp_backend_irq_transport_ext`).
+Since GBP-INIT-004 (2026-09-15) the cycle service of this probe (unmask → delivery → re-mask →
+record, PREACK → ACK → POSTACK → main W1C budget, the teardown hook) lives in
+`src/gbp/gbp_irq_service.{h,c}`, extracted verbatim and called by `gbp_initirqb_probe.c`; the
+ACK call site of `gbp_regwrite_irq_u16` is therefore in `gbp_irq_service.o` in rebuilt binaries
+(the executed `d3da8cd` had it in `gbp_initirqb_probe.o`; the profile counts 3 + 1 either way),
+the format strings in the binary carry an empty cycle field, and the log lines are unchanged —
+the physical fixture replays byte for byte through the refactored probe.
 
 `make initirqb-dolphin` — no HSP device → `abort_inconsistent`; Dolphin GBPlayer model →
 `abort_control_shape` (idle CONTROL 0x03). Neither run writes CONTROL or the IRQ register,

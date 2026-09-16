@@ -114,4 +114,33 @@ static inline void gbp_irq_oneshot_service_ext(volatile struct gbp_irq_record *r
     /* 15. return — no loop beyond the bounded wait, no further access */
 }
 
+/*
+ * Multi-cycle wrapper (GBP-INIT-004). The main loop publishes the slot
+ * index the next entry must use (`expected_gen`) only while INTMR bit 13 =
+ * 0; the handler reads it exactly once at entry and services that slot
+ * with the unchanged extended body above (first entry of a slot: the 003B
+ * sequence with its single W1C; a second entry of the same slot: the
+ * body's reentry branch, no W1C). Slots are write-once: zeroed at the
+ * install, never cleared afterwards. A generation out of range never
+ * indexes the array: it is counted and serviced through `anomaly`, a slot
+ * the install "poisons" with count = 1 so that the body always takes its
+ * no-W1C reentry branch there. Exactly one call of the body (one inlined
+ * W1C store) so tools/isr_audit.py can prove "one INTSR store".
+ */
+#define GBP_IRQ_MAX_CYCLES GBP_IRQ_MULTI_SLOTS   /* struct gbp_irq_multi: gbp_transport.h */
+
+static inline void gbp_irq_multicycle_service(volatile struct gbp_irq_multi *m)
+{
+    uint32_t gen = m->expected_gen;                 /* read once */
+    volatile struct gbp_irq_record *slot;
+    m->entries_total = m->entries_total + 1u;
+    if (gen < GBP_IRQ_MAX_CYCLES) {
+        slot = &m->slots[gen];                      /* bounds checked before the pointer arithmetic */
+    } else {
+        m->generation_errors = m->generation_errors + 1u;
+        slot = &m->anomaly;
+    }
+    gbp_irq_oneshot_service_ext(slot);
+}
+
 #endif

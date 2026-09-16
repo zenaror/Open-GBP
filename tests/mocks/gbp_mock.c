@@ -91,14 +91,30 @@ static void reg_after_change(struct gbp_mock *m)
     if (m->bit15_mode == MOCK_BIT15_SUMMARY) {
         if (m->irq_reg & SOURCE_BITS) m->irq_reg |= BIT15; else m->irq_reg &= (uint16_t)~BIT15;
     }
-    if (device_line(m)) m->intsr |= GBP_PI_HSP_BIT;                   /* visible whether or not INTMR enables it */
-    else if (m->pi_cause_level) m->intsr &= ~GBP_PI_HSP_BIT;          /* level reading: follows the line */
+    if (device_line(m)) {
+        if (m->source_pi_delay && !(m->intsr & GBP_PI_HSP_BIT)) {      /* GBP-INIT-004 model: the PI latch lags the source */
+            if (!m->pi_latch_pending) { m->pi_latch_pending = 1; m->pi_latch_at_tick = m->tick + m->source_pi_delay; }
+        } else {
+            m->intsr |= GBP_PI_HSP_BIT;                                /* visible whether or not INTMR enables it */
+        }
+    } else {
+        m->pi_latch_pending = 0;                                       /* the line dropped before the latch */
+        if (m->pi_cause_level) m->intsr &= ~GBP_PI_HSP_BIT;            /* level reading: follows the line */
+    }
 }
 
-static void reg_write(struct gbp_mock *m, uint16_t v)
+static void pi_latch_step(struct gbp_mock *m)
+{
+    if (m->pi_latch_pending && (int32_t)(m->tick - m->pi_latch_at_tick) >= 0) {
+        m->pi_latch_pending = 0;
+        if (device_line(m)) m->intsr |= GBP_PI_HSP_BIT;
+    }
+}
+
+static void reg_write(struct gbp_mock *m, uint16_t v, int honor_w1c)
 {
     m->last_irq_write_value = v;
-    m->irq_reg &= (uint16_t)~(v & SOURCE_BITS);                        /* sources: write-1-to-clear */
+    if (honor_w1c) m->irq_reg &= (uint16_t)~(v & SOURCE_BITS);         /* sources: write-1-to-clear */
     m->irq_reg = (uint16_t)((m->irq_reg & ~MASK_BITS) | (v & MASK_BITS)); /* masks: level */
     m->irq_reg = (uint16_t)((m->irq_reg & ~HIGH_BITS) | (v & HIGH_BITS)); /* bits 12-14: level (unused) */
     if (m->bit15_mode == MOCK_BIT15_LEVEL) m->irq_reg = (uint16_t)((m->irq_reg & ~BIT15) | (v & BIT15));
@@ -108,19 +124,32 @@ static void reg_write(struct gbp_mock *m, uint16_t v)
 
 static void source_step(struct gbp_mock *m)
 {
+    unsigned i;
     if (m->irq_model != MOCK_IRQ_MODEL_SOURCE_MASK) return;
     if (m->source_assert_at_tick && !m->source_asserted_done && (int32_t)(m->tick - m->source_assert_at_tick) >= 0) {   /* wrap-safe */
         m->source_asserted_done = 1;
         m->irq_reg |= (uint16_t)(m->source_assert_bits & SOURCE_BITS);
         reg_after_change(m);
     }
+    for (i = 0; i < m->n_src_sched && i < 8u; i++) {
+        struct gbp_mock_src_sched *s = &m->src_sched[i];
+        if (s->armed && !s->done && (int32_t)(m->tick - s->at_tick) >= 0) {
+            s->done = 1;
+            m->irq_reg |= (uint16_t)(s->bits & SOURCE_BITS);
+            reg_after_change(m);
+        }
+    }
+    pi_latch_step(m);
 }
 
 /* ---- PI HSP interrupt model (delivery) ------------------------------- */
 
 static void mask_core(struct gbp_mock *m)
 {
-    if (!m->mask_ignored) m->intmr &= ~GBP_PI_HSP_BIT;
+    m->mask_calls++;
+    if (m->mask_ignored) return;
+    if (m->mask_ignored_from_call && m->mask_calls >= m->mask_ignored_from_call) return;
+    m->intmr &= ~GBP_PI_HSP_BIT;
 }
 
 static void w1c_core(struct gbp_mock *m, uint32_t v)
@@ -143,7 +172,7 @@ static void relatch_step(struct gbp_mock *m);
 static uint32_t prim_ticks(void)
 {
     struct gbp_mock *m = isr_mock;
-    if (m->isr_ext) { m->tick += 1; relatch_step(m); }       /* the extended body's bounded wait needs a moving time base */
+    if (m->isr_ext || m->isr_multi) { m->tick += 1; relatch_step(m); pi_latch_step(m); }   /* the extended body's bounded wait needs a moving time base */
     return m->tick;
 }
 static uint32_t prim_read_intsr(void) { return isr_mock->intsr; }
@@ -182,11 +211,16 @@ static void deliver(struct gbp_mock *m)
     m->deliveries++;
     record_ev(m, MOCK_ISR_ENTRY, 0, 0, 0, GBP_OK);
     isr_mock = m;
-    if (m->isr_ext) gbp_irq_oneshot_service_ext(&m->rec);
+    if (m->isr_multi) { m->isr_entries_multi++; gbp_irq_multicycle_service(&m->multi); }
+    else if (m->isr_ext) gbp_irq_oneshot_service_ext(&m->rec);
     else gbp_irq_oneshot_service(&m->rec);
     isr_mock = saved;
     record_ev(m, MOCK_ISR_EXIT, 0, 0, 0, GBP_OK);
     m->in_isr = 0;
+    if (m->source_clear_at_delivery && m->deliveries == m->source_clear_at_delivery && m->irq_model == MOCK_IRQ_MODEL_SOURCE_MASK) {
+        m->irq_reg &= (uint16_t)~SOURCE_BITS;                    /* synthetic: the source vanishes before the main loop looks */
+        reg_after_change(m);
+    }
 }
 
 /* Advances the synthetic device and delivers the interrupt whenever the
@@ -206,6 +240,7 @@ static void irq_step(struct gbp_mock *m)
     }
     while ((m->intsr & GBP_PI_HSP_BIT) && (m->intmr & GBP_PI_HSP_BIT)) {
         if (m->delivery_suppressed) break;                    /* synthetic: unmasked cause never reaches the CPU */
+        if (m->suppress_delivery_at && m->deliveries + 1u == m->suppress_delivery_at) break;
         if (!m->handler_installed) {
             /* An unmasked cause with no handler: the real CPU would loop in
              * the exception forever (ENV-IRQ-001). Flag it and stop. */
@@ -217,7 +252,8 @@ static void irq_step(struct gbp_mock *m)
         deliver(m);
         if (++guard > 64) break;
     }
-    if (m->second_delivery && m->deliveries == 1 && !m->second_delivered && m->handler_installed) {
+    if (((m->second_delivery && m->deliveries == 1) || (m->second_delivery_at && m->deliveries == m->second_delivery_at)) &&
+        !m->second_delivered && m->handler_installed) {
         /* gating-failure model: one more entry although the handler masked */
         m->second_delivered = 1;
         deliver(m);
@@ -232,7 +268,9 @@ static gbp_status m_irq_install(void *ctx, int *old_was_null)
     if (m->handler_installed) violation(m, GBP_MOCK_VIOL_INSTALL_TWICE);
     m->handler_installed = 1;
     memset((void *)&m->rec, 0, sizeof m->rec);
-    if (m->record_dirty_on_install) m->rec.count = 1;
+    memset((void *)&m->multi, 0, sizeof m->multi);
+    m->multi.anomaly.count = 1;                     /* poisoned, as the real install does: never acknowledges */
+    if (m->record_dirty_on_install) { m->rec.count = 1; m->multi.slots[0].count = 1; }
     if (m->clear_cause_on_install) m->intsr &= ~GBP_PI_HSP_BIT;               /* synthetic state changes at the install */
     if (m->intmr13_set_on_install) m->intmr |= GBP_PI_HSP_BIT;
     if (m->control_on_install) { m->control_byte = m->control_on_install; m->control_block = 0; }
@@ -268,6 +306,11 @@ static gbp_status m_irq_unmask(void *ctx)
     if (!m->handler_installed) violation(m, GBP_MOCK_VIOL_UNMASK_NO_HANDLER);
     if (m->control_writes == 0) violation(m, GBP_MOCK_VIOL_UNMASK_BEFORE_CONTROL);
     if (!m->unmask_ignored) m->intmr |= GBP_PI_HSP_BIT;
+    m->unmask_calls++;
+    if (m->force_gen_valid && (m->force_gen_at_unmask == 0 || m->force_gen_at_unmask == m->unmask_calls)) {
+        m->multi.expected_gen = m->force_expected_gen;          /* synthetic corruption of the published generation, once */
+        m->force_gen_valid = 0;
+    }
     m->unmasked_once = 1;
     m->unmask_tick = m->tick;
     if (m->irq_mode == MOCK_IRQ_ON_UNMASK && !m->cause_asserted) {
@@ -283,7 +326,47 @@ static gbp_status m_irq_record(void *ctx, struct gbp_irq_record *out)
 {
     struct gbp_mock *m = (struct gbp_mock *)ctx;
     irq_step(m);
+    if (m->isr_multi) {
+        uint32_t gen = m->multi.expected_gen;
+        if (gen < GBP_IRQ_MAX_CYCLES) memcpy(out, (const void *)&m->multi.slots[gen], sizeof *out);
+        else memcpy(out, (const void *)&m->multi.anomaly, sizeof *out);
+        return GBP_OK;
+    }
     memcpy(out, (const void *)&m->rec, sizeof *out);
+    return GBP_OK;
+}
+
+/* ---- multi-cycle operations (GBP-INIT-004) ---- */
+static gbp_status m_irq_prepare(void *ctx, uint32_t gen)
+{
+    struct gbp_mock *m = (struct gbp_mock *)ctx;
+    m->prepare_calls++;
+    m->last_prepare_gen = gen;
+    if (m->intmr & GBP_PI_HSP_BIT) violation(m, GBP_MOCK_VIOL_PREPARE_WHILE_UNMASKED);
+    record_ev(m, MOCK_IRQ_PREPARE, 0, (uint16_t)gen, 0, gen < GBP_IRQ_MAX_CYCLES ? GBP_OK : GBP_ERR_PARAM);
+    if (gen >= GBP_IRQ_MAX_CYCLES) return GBP_ERR_PARAM;
+    m->multi.expected_gen = gen;
+    irq_step(m);
+    return GBP_OK;
+}
+
+static gbp_status m_irq_record_slot(void *ctx, uint32_t slot, struct gbp_irq_record *out)
+{
+    struct gbp_mock *m = (struct gbp_mock *)ctx;
+    irq_step(m);
+    if (slot >= GBP_IRQ_MAX_CYCLES) return GBP_ERR_PARAM;
+    memcpy(out, (const void *)&m->multi.slots[slot], sizeof *out);
+    return GBP_OK;
+}
+
+static gbp_status m_irq_multi_status(void *ctx, struct gbp_irq_multi_status *out)
+{
+    struct gbp_mock *m = (struct gbp_mock *)ctx;
+    irq_step(m);
+    out->expected_gen = m->multi.expected_gen;
+    out->entries_total = m->multi.entries_total;
+    out->generation_errors = m->multi.generation_errors;
+    memcpy(&out->anomaly, (const void *)&m->multi.anomaly, sizeof out->anomaly);
     return GBP_OK;
 }
 
@@ -436,6 +519,7 @@ static gbp_status m_read_block(void *ctx, uint32_t addr, uint8_t out[GBP_BLOCK_S
                 present_u16_doubled(m->irq_reg, out);
                 if (m->irq_byte0_anomaly) out[0] |= 0x11;   /* byte 0 must never feed a decision */
                 if (m->irq_disagree_on_install && m->installed_calls) out[0x1F] ^= 0x01;   /* Disc reading != GBI vote */
+                if (m->irq_disagree_from_write && m->irq_writes >= m->irq_disagree_from_write) out[0x1F] ^= 0x01;
                 break;
             }
             if (m->irq_block) { memcpy(out, m->irq_block, GBP_BLOCK_SIZE); break; }
@@ -474,13 +558,31 @@ static gbp_status m_write_block(void *ctx, uint32_t addr, const uint8_t in[GBP_B
         m->irq_writes++;
         if (m->intmr13_set_after_irq_write && m->irq_writes == 1u) m->intmr |= GBP_PI_HSP_BIT;
         if (m->irq_model == MOCK_IRQ_MODEL_SOURCE_MASK && (rc == GBP_OK || m->irq_write_fail_applies)) {
-            reg_write(m, (uint16_t)((in[0x1E] << 8) | in[0x1F]));
+            uint16_t v = (uint16_t)((in[0x1E] << 8) | in[0x1F]);
+            unsigned i;
+            reg_write(m, v, (m->ack_ignored_at_write && m->irq_writes == m->ack_ignored_at_write) ? 0 : 1);
+            if (v == 0 && m->rearm_sticky_bits && m->irq_writes >= m->rearm_sticky_from_write) {   /* invalid re-arm read-back */
+                m->irq_reg |= m->rearm_sticky_bits;
+                reg_after_change(m);
+            }
             if (m->source_assert_after_write && m->irq_writes == m->source_assert_after_write) {
                 m->source_assert_at_tick = m->tick + m->source_assert_delay;
                 if (m->source_assert_at_tick == 0) m->source_assert_at_tick = 1;
                 m->source_asserted_done = 0;
-                source_step(m);
             }
+            for (i = 0; i < m->n_src_sched && i < 8u; i++) {
+                struct gbp_mock_src_sched *s = &m->src_sched[i];
+                if (s->after_write && s->after_write == m->irq_writes && !s->armed) {
+                    s->at_tick = m->tick + s->delay;
+                    if (s->at_tick == 0) s->at_tick = 1;
+                    s->armed = 1;
+                }
+            }
+            source_step(m);
+        }
+        if (m->control_change_after_irq_write && m->irq_writes == m->control_change_after_irq_write) {
+            m->control_byte = m->control_change_value;                 /* CONTROL changes by itself (synthetic) */
+            m->control_block = 0;
         }
     }
     if (rc != GBP_OK) return rc;
@@ -552,6 +654,9 @@ void gbp_mock_transport(struct gbp_mock *m, struct gbp_transport *t)
         t->irq_mask = m_irq_mask;
         t->irq_unmask = m_irq_unmask;
         t->irq_record = m_irq_record;
+        t->irq_prepare = m_irq_prepare;
+        t->irq_record_slot = m_irq_record_slot;
+        t->irq_multi_status = m_irq_multi_status;
     } else {
         t->write_intsr = 0;
         t->irq_install = 0;
@@ -559,6 +664,9 @@ void gbp_mock_transport(struct gbp_mock *m, struct gbp_transport *t)
         t->irq_mask = 0;
         t->irq_unmask = 0;
         t->irq_record = 0;
+        t->irq_prepare = 0;
+        t->irq_record_slot = 0;
+        t->irq_multi_status = 0;
     }
     t->ticks = m_ticks;
     t->ctx = m;

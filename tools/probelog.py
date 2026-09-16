@@ -35,6 +35,13 @@ GBP-INIT-003B records (gbp_initirqb_probe.c) extend the GBP-INIT-002 rules:
                                                        "PI tag=MAINCLEANUP" re-read)
     IRQ mask tag=MAIN|RETRY rc=ok                  ->  I m  (as 002; the WAIT time-base reads
                                                        precede the MAIN mask)
+GBP-INIT-004 records (gbp_initirq4_probe.c) add, per cycle:
+    PREPARE n= gen=                                ->  I p <gen>   (optional in the replay)
+    REARM n= t_rearm=                              ->  T <t_rearm> (read before the IRQW tag=REARM-n write)
+    SNAP tag=NEXTCAUSE-n … poll_intsr=             ->  T <ticks>, P p <poll_intsr> (the SNAP rule: the poll that saw bit 13)
+    NEXTCAUSE n= found=0 … t_end=                  ->  T <t_end> (the poll loop's last time-base read, bound reached)
+    the per-cycle UNMASK/HANDLER*/IRQW/SNAP records follow the rules above (the handler
+    record search stops at the next UNMASK, so each "I u" carries its own cycle's record)
 """
 from __future__ import annotations
 
@@ -241,6 +248,12 @@ def fixture(records, note=None):
             lines.append("P w %s" % (f.get("readback") or f.get("wanted") or f.get("value")))
         elif k == "MAINPICLEANUP" and f.get("performed") == "1" and "value" in f:   # GBP-INIT-003B main-loop W1C (POSTACK)
             lines.append("P a %s" % f["value"])
+        elif k == "PREPARE" and "gen" in f:                                # GBP-INIT-004: generation published while masked
+            lines.append("I p %s" % f["gen"])
+        elif k == "REARM" and "t_rearm" in f:                              # GBP-INIT-004: time base read before the re-arm write
+            lines.append("T %s" % f["t_rearm"])
+        elif k == "NEXTCAUSE" and f.get("found") == "0" and "t_end" in f:  # GBP-INIT-004: the poll loop met its bound (last now())
+            lines.append("T %s" % f["t_end"])
         elif k == "CLEANUP" and f.get("performed") == "1" and idx not in cleanup_emitted:   # one INTSR W1C (no CLEANUPCHK record before it)
             lines.append("P a %s" % f["value"])
     return "\n".join(lines) + "\n"

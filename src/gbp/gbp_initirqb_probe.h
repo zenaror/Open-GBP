@@ -43,6 +43,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "gbp_initirqa_probe.h"
+#include "gbp_irq_service.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -82,52 +83,13 @@ struct gbp_initirqb_result {
     int stage_a_aborted;
     int restore_ok;                /* a.restore_ok and handler restored and mask ok */
     const char *restore_reason;
-    /* handler */
-    int irq_path_available;
-    gbp_status install_rc;
-    int handler_installed;         /* currently installed */
-    int handler_was_installed;     /* installed at some point (teardown restores) */
-    int old_handler_null;          /* 1 NULL, 0 non-NULL, -1 unknown */
-    uint32_t install_count, install_fired;   /* the record right after the install: must be 0/0 before the unmask */
-    gbp_status handler_restore_rc;
-    int handler_restored;          /* -1 not attempted, 1 ok, 0 failed */
+    struct gbp_irq_handler_state h;    /* install / restore / final mask (gbp_irq_service.h) */
     /* pre-unmask */
     struct gbp_initirqa_snapshot preunmask;
     int preunmask_ok;
     const char *preunmask_reason;
-    /* unmask and wait */
-    int pi_pre_unmask_ok, pi_post_unmask_ok;
-    uint32_t intsr_pre_unmask, intmr_pre_unmask, intsr_post_unmask, intmr_post_unmask;
-    uint32_t t_unmask, t_post_unmask, t_wait_end, wait_ticks;
-    gbp_status unmask_rc;
-    int irq_unmasked;
-    unsigned polls;
-    int timed_out;
-    /* main re-mask */
-    gbp_status mask_rc;
-    int irq_masked_again;
-    int main_mask_ok;              /* -1 not checked, 1 INTMR bit 13 = 0 after the re-mask, 0 not */
-    int remask_retry;
-    uint32_t intsr_remask, intmr_remask;
-    /* handler record (copied while masked) */
-    struct gbp_irq_record rec;
-    int fired, reentry;
-    uint32_t latency_ticks, latency_us;
-    /* pre-ack / ack / post-ack */
-    struct gbp_initirqa_snapshot preack, postack;
-    uint16_t irq_pending, ack_value;
-    struct gbp_regwrite_result w_ack;
-    int ack_skipped;
-    const char *ack_skip_reason;
-    /* main-loop PI W1C (budget: one per run) */
-    int main_pi_w1c;
-    const char *main_pi_w1c_site;  /* "POSTACK", "CLEANUP" or "-" */
-    gbp_status main_w1c_rc;
-    uint32_t main_w1c_intsr_before, main_w1c_intsr_after;
-    int main_w1c_sticky;
-    /* teardown extras */
-    int mask_ok;                   /* -1 not checked, 1 INTMR bit 13 = 0 at the end, 0 not */
-    uint32_t intmr_final;
+    struct gbp_irq_delivery d;         /* one unmask → delivery → re-mask → record (gbp_irq_service.h) */
+    struct gbp_irq_ack k;              /* PREACK → device ACK → POSTACK → main W1C budget (gbp_irq_service.h) */
     int pi_sticky_final;           /* INTSR bit 13 still 1 at the end of the PI step (no W1C left in the budget) */
     /* totals */
     unsigned uncertain_writes;
@@ -136,7 +98,11 @@ struct gbp_initirqb_result {
     int power_cycle_required;
 };
 
-/* Runs the experiment; always returns after the teardown. */
+/* The cycle service (unmask/deliver/re-mask/record, PREACK/ACK/POSTACK/main
+ * W1C, teardown hook) lives in gbp_irq_service.{h,c} since GBP-INIT-004: the
+ * functions were extracted from this module verbatim; the physical fixture of
+ * the 2026-09-15 run pins the behavior and every log line of this probe.
+ * Runs the experiment; always returns after the teardown. */
 int gbp_initirqb_probe_run(const struct gbp_transport *t, struct ringlog *log,
                            const struct gbp_initirqb_config *cfg, struct gbp_initirqb_result *res);
 

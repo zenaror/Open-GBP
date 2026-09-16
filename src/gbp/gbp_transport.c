@@ -37,6 +37,11 @@ const char *gbp_status_name(gbp_status s)
     }
 }
 
+int gbp_transport_has_irq_multi_path(const struct gbp_transport *t)
+{
+    return (gbp_transport_has_irq_path(t) && t->irq_prepare && t->irq_record_slot && t->irq_multi_status) ? 1 : 0;
+}
+
 int gbp_transport_has_irq_path(const struct gbp_transport *t)
 {
     return (t && t->read_pi && t->write_intsr && t->irq_install && t->irq_restore &&

@@ -209,6 +209,9 @@ static gbp_status r_irq_install(void *ctx, int *old_was_null)
     char line[160];
     if (!expect_irq_line(r, 'i', line, sizeof line)) return GBP_ERR_BACKEND;
     memset(&r->rec, 0, sizeof r->rec);
+    memset(r->slots, 0, sizeof r->slots);
+    r->gen = 0;
+    r->entries = 0;
     r->handler_installed = 1;
     if (old_was_null) *old_was_null = (strncmp(line + 4, "null", 4) == 0) ? 1 : 0;
     return GBP_OK;
@@ -264,6 +267,8 @@ static gbp_status r_irq_unmask(void *ctx)
     r->rec.intsr_second = v[11];
     r->rec.intmr_second = v[12];
     r->rec.reentry_t = v[13];
+    if (r->gen < GBP_IRQ_MULTI_SLOTS) r->slots[r->gen] = r->rec;
+    r->entries += r->rec.count;
     return GBP_OK;
 }
 
@@ -271,6 +276,40 @@ static gbp_status r_irq_record(void *ctx, struct gbp_irq_record *out)
 {
     struct gbp_replay *r = (struct gbp_replay *)ctx;
     *out = r->rec;
+    return GBP_OK;
+}
+
+/* ---- multi-cycle operations (GBP-INIT-004); "I p" is optional in the script ---- */
+static gbp_status r_irq_prepare(void *ctx, uint32_t gen)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    char line[160];
+    if (gen >= GBP_IRQ_MULTI_SLOTS) return GBP_ERR_PARAM;
+    if (peek_line(r, line, sizeof line) && line[0] == 'I' && line[1] == ' ' && line[2] == 'p') {
+        next_line(r, line, sizeof line);
+        r->step++;
+        if ((uint32_t)strtoul(line + 3, 0, 10) != gen) r->mismatches++;
+    }
+    r->gen = gen;
+    return GBP_OK;
+}
+
+static gbp_status r_irq_record_slot(void *ctx, uint32_t slot, struct gbp_irq_record *out)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    if (slot >= GBP_IRQ_MULTI_SLOTS) return GBP_ERR_PARAM;
+    *out = r->slots[slot];
+    return GBP_OK;
+}
+
+static gbp_status r_irq_multi_status(void *ctx, struct gbp_irq_multi_status *out)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    memset(out, 0, sizeof *out);
+    out->expected_gen = r->gen;
+    out->entries_total = r->entries;
+    out->generation_errors = 0;
+    out->anomaly.count = 1;                          /* the poisoned slot of the real install, never fired */
     return GBP_OK;
 }
 
@@ -310,12 +349,18 @@ void gbp_replay_transport(struct gbp_replay *r, struct gbp_transport *t)
         t->irq_mask = r_irq_mask;
         t->irq_unmask = r_irq_unmask;
         t->irq_record = r_irq_record;
+        t->irq_prepare = r_irq_prepare;
+        t->irq_record_slot = r_irq_record_slot;
+        t->irq_multi_status = r_irq_multi_status;
     } else {
         t->irq_install = 0;
         t->irq_restore = 0;
         t->irq_mask = 0;
         t->irq_unmask = 0;
         t->irq_record = 0;
+        t->irq_prepare = 0;
+        t->irq_record_slot = 0;
+        t->irq_multi_status = 0;
     }
     t->ticks = r_ticks;
     t->ctx = r;

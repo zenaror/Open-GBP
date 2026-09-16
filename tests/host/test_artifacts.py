@@ -17,7 +17,8 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 import dolinfo  # noqa: E402
 
-POCS = ("smoke-test", "gbp-probe", "gbp-init-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-deliver-probe")
+POCS = ("smoke-test", "gbp-probe", "gbp-init-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-deliver-probe",
+        "gbp-init-irq-service-probe")
 OUTDIR = os.path.join(ROOT, "build", "poc", "smoke-test")
 ELF = os.path.join(OUTDIR, "smoke-test.elf")
 DOL = os.path.join(OUTDIR, "smoke-test.dol")
@@ -150,7 +151,8 @@ class EveryPocArtifacts(unittest.TestCase):
                       "gbp-init-probe": b"OPENGBP-INIT READY ",
                       "gbp-init-irq-probe": b"OPENGBP-INITIRQ READY ",
                       "gbp-init-irq-program-probe": b"OPENGBP-INITIRQA READY ",
-                      "gbp-init-irq-deliver-probe": b"OPENGBP-INITIRQB READY "}[poc]
+                      "gbp-init-irq-deliver-probe": b"OPENGBP-INITIRQB READY ",
+                      "gbp-init-irq-service-probe": b"OPENGBP-INITIRQ4 READY "}[poc]
             self.assertIn(prefix, blob, poc)
 
     def test_probe_writes_only_documented_things(self):
@@ -213,10 +215,13 @@ class EveryPocArtifacts(unittest.TestCase):
             self.assertNotIn(tid, blob, tid)
         self.assertIn(b"OPENGBP-INITIRQB READY ", blob)
         self.assertIn(b"OPENGBP-INITIRQB LOG ", blob)
+        # since GBP-INIT-004 the cycle records are formatted by the shared service module with a "%s" cycle field
+        # (empty for 003B: the log lines are unchanged, pinned by the physical fixture), so the format strings in the
+        # binary carry the placeholder
         for rec in (b"INITIRQB start ", b"INITIRQB end status=", b"INITIRQA start ", b"CAUSE t_event=", b"IRQ install rc=",
-                    b"PREUNMASK", b"UNMASK t_unmask=", b"IRQ mask tag=MAIN rc=", b"WAIT fired=", b"HANDLER fired=",
-                    b"HANDLERPI intsr_at_entry=", b"HANDLERPI2 t_second=", b"DELIVERY fired=", b"PREACK", b"ACK before=",
-                    b"POSTACK", b"MAINPICLEANUP site=POSTACK performed=", b"IRQW ", b"layout=gbi-u16-replicated",
+                    b"PREUNMASK%s ok=", b"UNMASK%s t_unmask=", b"IRQ mask tag=MAIN%s rc=", b"WAIT%s fired=", b"HANDLER%s fired=",
+                    b"HANDLERPI%s intsr_at_entry=", b"HANDLERPI2%s t_second=", b"DELIVERY%s fired=", b"PREACK%s intsr13=", b"ACK%s before=",
+                    b"POSTACK%s intsr13=", b"MAINPICLEANUP%s site=POSTACK performed=", b"IRQW ", b"layout=gbi-u16-replicated",
                     b"comment=startup-disc-stop-shadow", b"CLEANUP performed=", b"IRQ restore rc=", b"MASK final intmr=",
                     b"ACKS ack=", b"RESTOREB handler_installed=", b"WRITES control_written=", b"format=attempted/completed",
                     b"DEVICE STATE UNCERTAIN", b"POWER CYCLE REQUIRED", b"install_point=after_latched_cause"):
@@ -226,6 +231,37 @@ class EveryPocArtifacts(unittest.TestCase):
         self.assertNotIn(b"libmobile", blob)
         bi = read_build_info(os.path.join(ROOT, "build", "poc", "gbp-init-irq-deliver-probe", "build-info.txt"))
         self.assertEqual(bi["build_id"], "initirqb-0001")
+
+    def test_init_irq_service_probe_identity_and_records(self):
+        # GBP-INIT-004: its own test id and gecko prefix; the 003A stage records (reused module), the per-cycle
+        # service records (shared module, " n=" field / "-n" tags), the 004 records; none of the other probes'
+        # test ids, records or handler symbols' strings; the mandatory power-cycle banner; build id initirq4-0001.
+        dol = os.path.join(ROOT, "build", "poc", "gbp-init-irq-service-probe", "gbp-init-irq-service-probe.dol")
+        with open(dol, "rb") as f:
+            blob = f.read()
+        self.assertIn(b"GBP-INIT-004", blob)
+        for tid in (b"GBP-INIT-003B", b"GBP-INIT-003A", b"GBP-INIT-002", b"GBP-INIT-001"):
+            self.assertNotIn(tid, blob, tid)
+        self.assertIn(b"OPENGBP-INITIRQ4 READY ", blob)
+        self.assertIn(b"OPENGBP-INITIRQ4 LOG ", blob)
+        for rec in (b"INITIRQ4 start max_cycles=", b"INITIRQ4 policy handler=installed_once", b"INITIRQ4 end status=",
+                    b"INITIRQA start ", b"CAUSE n=0 t_cause=", b"IRQ install rc=", b"MULTI install expected_gen=",
+                    b"CYCLE n=%u start", b"PREPARE n=%u gen=%u rc=", b"PREUNMASK%s ok=", b"PREUNMASK4 n=", b"UNMASK%s t_unmask=",
+                    b"IRQ mask tag=MAIN%s rc=", b"WAIT%s fired=", b"HANDLER%s fired=", b"HANDLERPI%s intsr_at_entry=",
+                    b"HANDLERPI2%s t_second=", b"DELIVERY%s fired=", b"HANDLER4 n=", b"PREACK%s intsr13=", b"ACK%s before=",
+                    b"POSTACK%s intsr13=", b"MAINPICLEANUP%s site=POSTACK performed=", b"PICLEAN n=", b"BOUNDARY n=",
+                    b"REARM n=%u t_rearm=", b"REARMPOST n=", b"NEXTCAUSE n=%u found=1", b"NEXTCAUSE n=%u found=0 timed_out=1",
+                    b"TEARDOWN4 variant=", b"CYCLES requested=", b"TIMING n=", b"MULTI expected_gen=", b"RESTORE4 handler_installed=",
+                    b"IRQW ", b"layout=gbi-u16-replicated", b"comment=startup-disc-stop-shadow", b"CLEANUP performed=",
+                    b"IRQ restore rc=", b"MASK final intmr=", b"WRITES control_written=", b"format=attempted/completed",
+                    b"DEVICE STATE UNCERTAIN", b"POWER CYCLE REQUIRED", b"NOT A PHYSICAL CANDIDATE"):
+            self.assertIn(rec, blob, rec)
+        for rec in (b"INITIRQB start ", b"INITIRQ start ", b"INIT start ", b"INTMR mask ", b"INTMR restore ",
+                    b"install_point=after_latched_cause", b"HANDLERPI intsr_before_ack="):
+            self.assertNotIn(rec, blob, rec)
+        self.assertNotIn(b"libmobile", blob)
+        bi = read_build_info(os.path.join(ROOT, "build", "poc", "gbp-init-irq-service-probe", "build-info.txt"))
+        self.assertEqual(bi["build_id"], "initirq4-0001")
 
 
 if __name__ == "__main__":

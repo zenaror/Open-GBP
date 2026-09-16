@@ -211,5 +211,41 @@ class IsrAuditOnBuild003B(unittest.TestCase):
         self.assertEqual(sorted(h[0] for h in intsr), ["hsp_backend_oneshot_isr", "hsp_backend_oneshot_isr_ext"])
 
 
+AUDIT_FILE_4 = os.path.join(ROOT, "build", "poc", "gbp-init-irq-service-probe", "audit", "hsp_backend_irq_multi.objdump.txt")
+
+
+@unittest.skipUnless(os.path.isfile(AUDIT_FILE_4), "run `make build initirq4-audit` to produce the objdump")
+class IsrAuditOnBuild004(unittest.TestCase):
+    """The multi-cycle handler as linked into gbp-init-irq-service-probe (GBP-INIT-004): the
+    generation wrapper around the unchanged extended body — only __MaskIrq called, no indirect
+    call, exactly one INTSR store of 0x2000 after the mask, no INTMR store; the whole object stores
+    INTSR only from that handler and from h_write_intsr, never INTMR. The 002/003B handlers are
+    not in this object (they live in hsp_backend_irq.c, which the 004 POC does not link)."""
+
+    def test_multicycle_handler_is_clean(self):
+        with open(AUDIT_FILE_4, "r", encoding="utf-8", errors="replace") as f:
+            text = f.read()
+        items = isr_audit.extract_function(text, "hsp_backend_oneshot_isr_multi")
+        self.assertIsNotNone(items, "hsp_backend_oneshot_isr_multi not in the objdump")
+        findings, calls = isr_audit.audit(items)
+        self.assertEqual(findings, [])
+        # two __MaskIrq call sites: GCC duplicates the entry sequence (time base, PI reads, count++, mask) into the
+        # in-range and the out-of-range slot paths; both precede the single W1C store (manual inspection, DEVLOG)
+        self.assertEqual(calls, ["__MaskIrq", "__MaskIrq"])
+        intsr, intmr = isr_audit.pi_store_sites(items)
+        self.assertEqual([st[4] for st in intsr], [0x2000])
+        self.assertEqual(intmr, [])
+        self.assertIsNone(isr_audit.extract_function(text, "hsp_backend_oneshot_isr"))
+        self.assertIsNone(isr_audit.extract_function(text, "hsp_backend_oneshot_isr_ext"))
+
+    def test_no_intmr_store_anywhere_in_the_object(self):
+        import poc_audit
+        with open(AUDIT_FILE_4, "r", encoding="utf-8", errors="replace") as f:
+            funcs = poc_audit.parse_objdump(f.read())
+        intmr, intsr = poc_audit.pi_stores(funcs)
+        self.assertEqual(intmr, [])
+        self.assertEqual(sorted(h[0] for h in intsr), ["hsp_backend_oneshot_isr_multi"])
+
+
 if __name__ == "__main__":
     unittest.main()

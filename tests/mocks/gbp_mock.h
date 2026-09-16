@@ -42,7 +42,9 @@ enum gbp_mock_op_kind {
     /* PI HSP interrupt path (main-loop operations) */
     MOCK_INTSR_W, MOCK_IRQ_INSTALL, MOCK_IRQ_RESTORE, MOCK_IRQ_MASK, MOCK_IRQ_UNMASK,
     /* events generated inside a delivered handler entry */
-    MOCK_ISR_ENTRY, MOCK_ISR_MASK, MOCK_ISR_W1C, MOCK_ISR_EXIT
+    MOCK_ISR_ENTRY, MOCK_ISR_MASK, MOCK_ISR_W1C, MOCK_ISR_EXIT,
+    /* multi-cycle path (GBP-INIT-004): the generation published by the main loop (value = gen) */
+    MOCK_IRQ_PREPARE
 };
 
 struct gbp_mock_op {
@@ -79,6 +81,7 @@ enum gbp_mock_bit15_mode {
 #define GBP_MOCK_VIOL_STORM                    0x20u  /* deliveries exceeded max_deliveries */
 #define GBP_MOCK_VIOL_DMA_WHILE_UNMASKED       0x40u  /* block transfer while INTMR bit 13 is enabled */
 #define GBP_MOCK_VIOL_INSTALL_TWICE            0x80u  /* irq_install while already installed */
+#define GBP_MOCK_VIOL_PREPARE_WHILE_UNMASKED   0x100u /* generation published while INTMR bit 13 is enabled (GBP-INIT-004) */
 
 struct gbp_mock {
     /* configuration */
@@ -145,6 +148,30 @@ struct gbp_mock {
     uint8_t control_on_install;     /* if nonzero: CONTROL byte becomes this value when irq_install is called */
     uint16_t irq_reg_on_install;    /* if nonzero: SOURCE_MASK register becomes this value when irq_install is called */
     int irq_disagree_on_install;    /* after irq_install, IRQ reads present byte 0x1F ^ 0x01 (Disc/GBI readings disagree) */
+    /* ---- multi-cycle service (SYNTHETIC; GBP-INIT-004) ---- */
+    int isr_multi;                  /* 1: deliveries run gbp_irq_multicycle_service on `multi` (ticks advance as with isr_ext) */
+    struct gbp_mock_src_sched {     /* sources that (re)assert `delay` ticks after the Nth IRQ-register write (any number of them) */
+        unsigned after_write;       /* 1-based IRQ write number; 0 = unused entry */
+        uint32_t delay;
+        uint16_t bits;              /* even source bits, e.g. 0x0500 */
+        uint32_t at_tick;           /* armed: absolute tick of the assertion */
+        int armed, done;
+    } src_sched[8];
+    unsigned n_src_sched;
+    uint32_t source_pi_delay;       /* the PI latch follows a device source by N ticks (0 = same instant): "source visible before PI" model */
+    unsigned ack_ignored_at_write;  /* the Nth IRQ write completes (rc ok) but clears no source: "ACK ineffective" model */
+    uint16_t rearm_sticky_bits;     /* bits that read 1 right after an IRQ := 0x0000 write: "invalid re-arm read-back" model */
+    unsigned rearm_sticky_from_write;  /* ... only for zero writes numbered >= this (1-based; 0 = every zero write, A2 included) */
+    int force_gen_valid;            /* 1: at the next unmask the handler sees generation force_expected_gen (synthetic corruption) */
+    uint32_t force_expected_gen;
+    unsigned second_delivery_at;    /* one more handler entry after the Nth delivery returns (second_delivery = at 1) */
+    unsigned control_change_after_irq_write;  /* CONTROL byte becomes control_change_value by itself after the Nth IRQ write */
+    uint8_t control_change_value;
+    unsigned mask_ignored_from_call;/* every mask (handler or main) from the Nth mask call on has no effect (0 = never) */
+    unsigned force_gen_at_unmask;   /* force_gen_valid applies at the Nth unmask call (0 = the next one) */
+    unsigned suppress_delivery_at;  /* the Nth delivery (1-based) never reaches the CPU although cause and mask are open */
+    unsigned source_clear_at_delivery; /* right after the Nth delivered handler entry returns, every source drops (source-lost model) */
+    unsigned irq_disagree_from_write;  /* from the Nth IRQ write on, IRQ reads present byte 0x1F ^ 0x01 (Disc != GBI) */
     /* state */
     uint8_t test_store[GBP_BLOCK_SIZE];
     unsigned transfers;         /* block transfers so far */
@@ -180,6 +207,14 @@ struct gbp_mock {
     int installed_calls;            /* irq_install calls seen */
     uint16_t last_irq_write_value;  /* SOURCE_MASK: 16-bit value of the last IRQ write (bytes 0x1E/0x1F) */
     int irq_present_u16;            /* STATIC: present irq_value as hh hh ll ll (set by irq_after_write) */
+    volatile struct gbp_irq_multi multi;   /* the multi-cycle handler's bookkeeping and slots (isr_multi) */
+    int pi_latch_pending;           /* source_pi_delay: a latch is due at pi_latch_at_tick */
+    uint32_t pi_latch_at_tick;
+    unsigned prepare_calls;         /* irq_prepare calls seen */
+    uint32_t last_prepare_gen;
+    unsigned mask_calls;            /* mask primitive calls (handler + main), for mask_ignored_from_call */
+    unsigned unmask_calls;          /* irq_unmask calls seen */
+    unsigned isr_entries_multi;     /* handler entries served through the multi-cycle body */
     /* test hook: invoked at the entry of every write_block, before the mock
      * decides anything — lets a test observe the caller's state at the
      * moment the transport is invoked (not after it returned). */

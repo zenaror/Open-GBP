@@ -68,6 +68,27 @@ struct gbp_irq_record {
     uint32_t reentry_t;         /* ticks at a second entry (anomaly) */
 };
 
+/* The multi-cycle handler's bookkeeping (GBP-INIT-004; the handler body is
+ * gbp_irq_multicycle_service in gbp_irq_oneshot.h). One static instance in
+ * the real backend and in the mock; written by the handler, read by the
+ * main loop through the transport operations below. */
+#define GBP_IRQ_MULTI_SLOTS 3u          /* write-once record slots: one per service cycle */
+struct gbp_irq_multi {
+    uint32_t expected_gen;                          /* slot index of the next valid entry (published while masked) */
+    uint32_t entries_total;                         /* every entry (reporting only) */
+    uint32_t generation_errors;                     /* entries with expected_gen >= GBP_IRQ_MULTI_SLOTS */
+    struct gbp_irq_record slots[GBP_IRQ_MULTI_SLOTS];
+    struct gbp_irq_record anomaly;                  /* count = 1 after the install: never acknowledges */
+};
+
+/* Generation bookkeeping as copied out for the main loop. */
+struct gbp_irq_multi_status {
+    uint32_t expected_gen;         /* slot index the next entry uses */
+    uint32_t entries_total;        /* every handler entry (reporting only) */
+    uint32_t generation_errors;    /* entries that found expected_gen out of range */
+    struct gbp_irq_record anomaly; /* the slot those entries used (never acknowledges) */
+};
+
 struct gbp_transport {
     /* ARAM-info register 0xCC005012 (16-bit). */
     gbp_status (*read_arinfo)(void *ctx, uint16_t *value);
@@ -107,6 +128,15 @@ struct gbp_transport {
     gbp_status (*irq_mask)(void *ctx);
     gbp_status (*irq_unmask)(void *ctx);
     gbp_status (*irq_record)(void *ctx, struct gbp_irq_record *out);
+    /* Optional multi-cycle interrupt path (GBP-INIT-004; NULL elsewhere):
+     *   irq_prepare      publishes the generation (slot index) the next handler
+     *                    entry must use — the caller calls it only while INTMR
+     *                    bit 13 = 0 and never while an entry could happen;
+     *   irq_record_slot  copies one write-once slot record (call only while masked);
+     *   irq_multi_status copies the generation bookkeeping and the anomaly slot. */
+    gbp_status (*irq_prepare)(void *ctx, uint32_t gen);
+    gbp_status (*irq_record_slot)(void *ctx, uint32_t slot, struct gbp_irq_record *out);
+    gbp_status (*irq_multi_status)(void *ctx, struct gbp_irq_multi_status *out);
     /* Optional (may be NULL): monotonic tick counter (time base on GC). */
     uint32_t (*ticks)(void *ctx);
     void *ctx;
@@ -114,6 +144,8 @@ struct gbp_transport {
 
 /* 1 if every operation of the PI HSP interrupt path is available. */
 int gbp_transport_has_irq_path(const struct gbp_transport *t);
+/* 1 if the interrupt path and the three multi-cycle operations are available. */
+int gbp_transport_has_irq_multi_path(const struct gbp_transport *t);
 
 /* PI bit for the High Speed Port interrupt (YAGCD 6.1.5.2, libogc2 irq.c:
  * INTMR bit set = interrupt enabled; INTSR bit set = pending). */

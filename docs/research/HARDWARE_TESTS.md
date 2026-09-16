@@ -1338,10 +1338,64 @@ Physical setup: identical to GBP-INIT-003A. Not to be requested before implement
              clean candidate.
 ```
 
-### GBP-INIT-004 — bounded repeated HSP service: acknowledge, local re-arm, next cause, next delivery (designed 2026-09-15; NOT implemented, NOT released)
+### GBP-INIT-004 — bounded repeated HSP service: acknowledge, local re-arm, next cause, next delivery (designed 2026-09-15; implemented 2026-09-15 as DIRTY BUILD initirq4-0001; NOT physically executed, NOT released)
 
-Status: design only (DEVLOG 2026-09-15 "GBP-INIT-004 designed"); no code,
-no build, no hardware, no request. Depends on GBP-INIT-003B (executed:
+Status: **IMPLEMENTED — NOT PHYSICALLY EXECUTED. DIRTY BUILD — NOT A
+PHYSICAL CANDIDATE** (DEVLOG 2026-09-15 "GBP-INIT-004 implemented"). The
+design below is the specification; the implementation lives in
+`poc/gbp-init-irq-service-probe/` (Test ID `GBP-INIT-004`, Build ID
+`initirq4-0001`, gecko prefix `OPENGBP-INITIRQ4` — the provisional names
+`initsvc-0001` / `OPENGBP-INITSVC` of the design entry were replaced by the
+implementation request), `src/gbp/gbp_initirq4_probe.{h,c}`,
+`src/gbp/gbp_irq_service.{h,c}` (the 003B cycle service extracted
+verbatim; the 003B probe calls it and its physical fixture still pins every
+record byte for byte), `src/gbp/gbp_irq_oneshot.h`
+(`gbp_irq_multicycle_service`: generation wrapper around the unchanged
+003B body), `src/platform/hsp_backend_irq_multi.{h,c}` (linked instead of
+`hsp_backend_irq.c`), mock / replay (`I p <gen>`, optional) / probelog
+(`PREPARE`, `REARM t_rearm`, `NEXTCAUSE t_end`) / audit profile `004`
+extensions. The dirty build of 2026-09-15 (commit `23990c9-dirty`, DOL
+sha256 `da19add0add883cf79c03bc1310b48adcac193cb3109f58cc025f39959ca0ef4`,
+397280 bytes) exists for review only: it must never reach the hardware. No
+physical GBP-INIT-004 fixture exists; the physical 003B fixture drives
+cycle 0 of the 004 logic up to its POSTACK (cut before the CONTROL restore,
+the first re-arm meets an exhausted script: the physical prefix ends before
+the first re-arm variable, `rearms 0/1` is a synthetic boundary, never
+evidence of a re-arm) and nothing after it is invented. The first cycle is
+semantically equivalent to 003B at the protocol level (same device
+transactions in the same order up to the POSTACK), not a byte-identical
+handler. Implementation notes against this design: (a) the statuses
+`abort_read_inconsistent` (Disc ≠ GBI at a per-cycle read) and
+`cycles_completed_with_errors` (every cycle completed but restore /
+transport / uncertainty not clean — the causal criterion below is never
+reduced to "count == 3") were added; `delivery_timeout` carries its cycle
+in the reason; (b) the generation is published with the last PI read as
+the INTMR evidence (EVENT for cycle 0 — `IRQ_Request` cannot change INTMR,
+ENV-IRQ-002 — REARMPOST / NEXTCAUSE afterwards), the two PREUNMASK samples
+re-check it before any unmask; (c) REARMPOST classifies A/B/C/D/E and a
+sixth case F (PI bit 13 = 1 with no source visible → `anomaly_rearm_state`),
+and a NEXTCAUSE poll that saw bit 13 with no AV source is the same anomaly
+(`nextcause_pi_without_source_cycle_N`); (d) the teardown variants are
+labelled `TEARDOWN4 variant=` (`final_cycle`, `S2_before_unmask`,
+`S3_cycle_aborted`, `S4_rearm_failed`, `S4A_rearmed_no_next_cause`,
+`S4B_next_cause_latched`, `S4C_rearmpost_invalid`, `stage_a`); (e) on the
+linked handler GCC duplicated the entry sequence (time base, PI reads,
+count++, `__MaskIrq`) into the in-range and the out-of-range slot paths —
+two `__MaskIrq` call sites, both before the single INTSR store; the audit
+profile pins that count and the listing was inspected by hand; (f) the
+executed 003B binary `d3da8cd` had the ACK call site in
+`gbp_initirqb_probe.o`; rebuilt 003B binaries have it in `gbp_irq_service.o`
+(profile `003b` updated) — they are not the executed binary either way.
+Validation of the dirty build (host only): `tests/unit/test_gbp_initirq4.c`
+3210 checks (C suite 7949 in 10 binaries, 003B still 1107 with its
+physical fixture), Python 145 passed, `isr_audit` CLEAN on
+`hsp_backend_oneshot_isr_multi` (107 instructions, one INTSR store of
+0x2000 at 0x11c after the mask calls, no INTMR store, bounds check before
+the slot arithmetic, `fired` stored last), `poc_audit --profile 004` 0
+findings (5 IRQ-register write sites: A1/A2/STOP, ACK, REARM), 13 Dolphin
+runs PASS with the OSD override (the two 004 runs end in the stage-A
+aborts, never reaching a write, the install or the multi-cycle path),
+the synthetic log → fixture → replay round trip identical. Depends on GBP-INIT-003B (executed:
 GBP-HW-035…041, GBP-PI-005, ENV-IRQ-003, GBP-IRQ-008), GBP-INIT-003A,
 GBP-INIT-002 and the reference service loops re-read from the binaries
 on 2026-09-15 (GBI worker thread `0x8000bf30`, raw handler `0x8000b400`,

@@ -57,7 +57,7 @@ libogc2 itself defines and uses __UnmaskIrq (VIDEO/PAD/EXI setup); that
 is library-internal and outside "our" objects, so the symbol checks are
 done on the POC's objects (relocations), not on the ELF.
 
-Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b] [--report FILE] [--json]
+Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b|004] [--report FILE] [--json]
 Exit status 0 when there is no finding.
 """
 from __future__ import annotations
@@ -86,8 +86,8 @@ PROFILES = {
         "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_irq_transport_ext", "hsp_backend_intmr_transport", "gbp_initirqb_probe_run"),
     },
     "003b": {
-        "forbidden_objects": ("hsp_backend_intmr.o", "gbp_init_irq_probe.o", "gbp_init_probe.o"),
-        "required_objects": ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_initirqb_probe.o", "main.o"),
+        "forbidden_objects": ("hsp_backend_intmr.o", "hsp_backend_irq_multi.o", "gbp_init_irq_probe.o", "gbp_init_probe.o", "gbp_initirq4_probe.o"),
+        "required_objects": ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o", "gbp_initirqb_probe.o", "main.o"),
         "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_intmr_transport", "gbp_initirq_probe_run", "gbp_init_probe_run"),
         "investigate_symbols": (),
         "symbol_callers": {"__UnmaskIrq": {"h_irq_unmask": 1},
@@ -96,11 +96,43 @@ PROFILES = {
         "elf_required": ("gbp_initirqb_probe_run", "gbp_initirqa_run_cause", "gbp_initirqa_teardown", "gbp_regwrite_irq_u16",
                          "gbp_regwrite_control_byte", "hsp_backend_oneshot_isr_ext", "hsp_backend_irq_transport_ext", "__UnmaskIrq", "__MaskIrq", "IRQ_Request"),
         "elf_forbidden": ("gbp_initirq_probe_run", "gbp_init_probe_run", "hsp_backend_intmr_transport"),
-        "irq_write_sites": {"gbp_initirqa_probe.o": 3, "gbp_initirqb_probe.o": 1},
+        # the device ACK call site moved from gbp_initirqb_probe.o to gbp_irq_service.o when the cycle service was
+        # extracted for GBP-INIT-004 (the executed build d3da8cd had it in the probe object: 3 + 1 sites either way)
+        "irq_write_sites": {"gbp_initirqa_probe.o": 3, "gbp_irq_service.o": 1},
         "control_write_sites": {"gbp_initirqa_probe.o": 2},
         "intsr_store_sites": {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
         "main_must_call": ("hsp_backend_irq_transport_ext", "gbp_initirqb_probe_run"),
         "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_intmr_transport", "gbp_initirqa_probe_run", "gbp_initirq_probe_run"),
+    },
+    # GBP-INIT-004: the multi-cycle interrupt object hsp_backend_irq_multi.o is linked INSTEAD of hsp_backend_irq.o
+    # (the 002/003B object and its two handlers must not be in the binary); one __UnmaskIrq site; IRQ_Request from the
+    # install/restore pair only; __MaskIrq from the mask primitive and the multi-cycle handler only; no INTMR store;
+    # INTSR stores exactly in h_write_intsr and the handler; gbp_regwrite_irq_u16 at 3 (A1, A2, STOP) + 1 (ACK, in the
+    # shared service) + 1 (REARM, in the 004 probe) LOGICAL call sites — execution counts are the log's business.
+    "004": {
+        "forbidden_objects": ("hsp_backend_irq.o", "hsp_backend_intmr.o", "gbp_initirqb_probe.o", "gbp_init_irq_probe.o", "gbp_init_probe.o"),
+        "required_objects": ("hsp_backend_irq_multi.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o", "gbp_initirq4_probe.o", "main.o"),
+        "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_irq_transport_ext", "hsp_backend_intmr_transport",
+                              "hsp_backend_oneshot_isr", "hsp_backend_oneshot_isr_ext", "gbp_initirq_probe_run", "gbp_init_probe_run",
+                              "gbp_initirqb_probe_run"),
+        "investigate_symbols": (),
+        "symbol_callers": {"__UnmaskIrq": {"hm_irq_unmask": 1},
+                           "IRQ_Request": {"hm_irq_install": 1, "hm_irq_restore": 1},
+                           # two call sites in the handler: GCC duplicates the shared entry sequence (time base, PI reads,
+                           # count++, mask) into the in-range and the out-of-range slot paths; both precede the single W1C
+                           # store and every path masks before any store (manual inspection of the listing, DEVLOG 2026-09-15)
+                           "__MaskIrq": {"hm_irq_mask": 1, "hsp_backend_oneshot_isr_multi": 2}},
+        "elf_required": ("gbp_initirq4_probe_run", "gbp_initirqa_run_cause", "gbp_initirqa_teardown", "gbp_irq_service_deliver",
+                         "gbp_irq_service_ack", "gbp_regwrite_irq_u16", "gbp_regwrite_control_byte", "hsp_backend_oneshot_isr_multi",
+                         "hsp_backend_irq_transport_multi", "__UnmaskIrq", "__MaskIrq", "IRQ_Request"),
+        "elf_forbidden": ("gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run", "hsp_backend_intmr_transport",
+                          "hsp_backend_oneshot_isr", "hsp_backend_oneshot_isr_ext", "hsp_backend_irq_transport", "hsp_backend_irq_transport_ext"),
+        "irq_write_sites": {"gbp_initirqa_probe.o": 3, "gbp_irq_service.o": 1, "gbp_initirq4_probe.o": 1},
+        "control_write_sites": {"gbp_initirqa_probe.o": 2},
+        "intsr_store_sites": {"h_write_intsr": 1, "hsp_backend_oneshot_isr_multi": 1},
+        "main_must_call": ("hsp_backend_irq_transport_multi", "gbp_initirq4_probe_run"),
+        "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_irq_transport_ext", "hsp_backend_intmr_transport",
+                               "gbp_initirqa_probe_run", "gbp_initirqb_probe_run", "gbp_initirq_probe_run"),
     },
 }
 # the GBP-INIT-003A names, kept for callers that import them

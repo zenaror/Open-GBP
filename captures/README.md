@@ -46,7 +46,13 @@ initirqb-0001 (the shared 003A teardown printed its own fixed policy in a
 run that had unmasked once; the same log's `RESTOREB … unmasked=1
 masked_again=1` is the primary record); the log and the fixture are kept as
 written, later builds print `pi_policy=unmasked_once`, and the replay through
-the corrected probe reports that label. The grammar
+the corrected probe reports that label. **No GBP-INIT-004 fixture exists**
+(the experiment is implemented, not executed): `tests/host/test_initirq4_replay.py`
+round-trips a synthetic three-cycle mock log (with the optional `I p <gen>`
+generation lines) under `build/` and drives the 004 probe with the physical
+003B fixture cut before its CONTROL restore — cycle 0 verbatim up to the
+POSTACK, then the first re-arm meets an exhausted script; nothing after the
+physical record is invented. The grammar
 has an optional `P p <intsr>` line (the value the next `poll_intsr`
 returns) for the INTSR-polling loops of that probe; the polling loops
 replay with one time-base read per sample, so poll counters differ from

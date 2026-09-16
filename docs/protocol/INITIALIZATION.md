@@ -572,7 +572,9 @@ adds only repetition and the re-arm `IRQ := 0` to the validated cycle
 (three deliveries, two re-arms, CPU masked between cycles, continuation
 only on the audio/video sources 0x0100/0x0400 with any other source
 ending the run as an observed anomaly, a clean boundary before every
-re-arm: acknowledged sources gone at POSTACK and PI bit 13 = 0); not
-implemented, not authorized yet. Its causal success criterion and the
+re-arm: acknowledged sources gone at POSTACK and PI bit 13 = 0);
+implemented on 2026-09-15 as a dirty build (`initirq4-0001`, DEVLOG
+"GBP-INIT-004 implemented"), NOT physically executed, not a physical
+candidate, not authorized. Its causal success criterion and the
 proposed closure of the fundamental part of Phase 3 with the start of
 Phase 4 are stated there.

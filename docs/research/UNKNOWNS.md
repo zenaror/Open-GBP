@@ -501,7 +501,9 @@ CONTROL 0x8C" occurs naturally between the ACK and the re-arm (U-GBP-007);
 (5) how many cycles the audited mask-first handler sustains without
 reentry. This is the question of the next experiment: **GBP-INIT-004,
 specified 2026-09-15** (HARDWARE_TESTS.md "Planned tests — GBP-INIT-004";
-DEVLOG 2026-09-15 "GBP-INIT-004 designed"; not implemented): three
+DEVLOG 2026-09-15 "GBP-INIT-004 designed"; implemented 2026-09-15 as a
+dirty build, DEVLOG "GBP-INIT-004 implemented"; NOT physically executed):
+three
 delivered causes, two re-arms `IRQ := 0`, the CPU masked between cycles,
 continuation restricted to the audio/video sources (AV_SOURCE_MASK
 0x0500; any other source at a service read ends the run as

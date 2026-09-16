@@ -2588,3 +2588,207 @@ game features; the virtual Mobile Adapter over the BBA additive. None of
 them touched by this experiment.
 
 **Next.** Await authorization to implement GBP-INIT-004 as specified.
+
+---
+
+## 2026-09-15 — GBP-INIT-004 implemented (dirty build initirq4-0001); NOT physically executed
+
+**Goal.** Implement the bounded repeated-service experiment exactly as
+specified (HARDWARE_TESTS.md "Planned tests — GBP-INIT-004"), reusing
+the physically executed 003A stage and the physically executed 003B cycle
+without a third copy of the sequence, with every property provable on the
+host, on the replay of the physical fixtures and on the final objects.
+No hardware, no request, no commit, no push: the result is a DIRTY BUILD
+for review; a user checkpoint, a clean rebuild and a release-candidate
+audit precede any physical candidate.
+
+**Changes.**
+- New `src/gbp/gbp_irq_service.{h,c}`: the 003B cycle service extracted
+  verbatim from `gbp_initirqb_probe.c` — `gbp_irq_service_preunmask_check`
+  / `_log_preunmask`, `gbp_irq_service_deliver` (UNMASKPRE, one unmask,
+  UNMASKPOST, the record-only wait, the main re-mask with one retry, the
+  record copy while masked, HANDLER/HANDLERPI/HANDLERPI2/DELIVERY),
+  `gbp_irq_service_ack` (PREACK, `read | ack_or` through
+  `gbp_regwrite_irq_u16`, POSTACK, the cycle's single main W1C; new
+  optional `require_control` precondition for 004: CONTROL == 0x8C in
+  both readings and INTMR bit 13 = 0 at PREACK, else skip reasons
+  `control_changed` / `intmr13_set`), `gbp_irq_service_teardown_hook`.
+  Two decorations (` n=N` after the record kind, `-N` on the tags) are
+  empty for 003B. `gbp_initirqb_probe.{h,c}` now embed
+  `struct gbp_irq_handler_state h`, `struct gbp_irq_delivery d`,
+  `struct gbp_irq_ack k` and call the service. Equivalence proof: the
+  physical initirqb-0001 fixture replays through the refactored probe
+  with an identical summary, 111 steps, 0 mismatches, 137 log lines,
+  and the `--dump-log` output of the synthetic scenario is byte-identical
+  to the HEAD build's (diffed); the 1107 checks are unchanged.
+- `src/gbp/gbp_transport.h`: `struct gbp_irq_multi` (expected_gen,
+  entries_total, generation_errors, `slots[GBP_IRQ_MULTI_SLOTS = 3]`,
+  `anomaly`), `struct gbp_irq_multi_status`, three optional operations
+  `irq_prepare(gen)`, `irq_record_slot(slot)`, `irq_multi_status`,
+  `gbp_transport_has_irq_multi_path()`.
+- `src/gbp/gbp_irq_oneshot.h`: `gbp_irq_multicycle_service()` — reads
+  `expected_gen` once, `entries_total++`, bounds check before any pointer
+  arithmetic (out of range → `generation_errors++`, the poisoned
+  `anomaly` slot), then ONE call of the unchanged 003B extended body. The
+  002 and 003B bodies are untouched.
+- New `src/platform/hsp_backend_irq_multi.{h,c}`: one static
+  `struct gbp_irq_multi`, `hsp_backend_oneshot_isr_multi`, install (slots
+  zeroed, `anomaly.count = 1`, `expected_gen = 0`, `IRQ_Request` with the
+  previous handler kept), restore (exactly the previous handler),
+  `__MaskIrq` / `__UnmaskIrq` primitives, prepare (rejects gen ≥ 3),
+  slot copy, status copy; `hsp_backend_irq_transport_multi()`. The 002/003B
+  object `hsp_backend_irq.c` is untouched and NOT linked by the 004 POC.
+- New `src/gbp/gbp_initirq4_probe.{h,c}` (per the specification): 003A
+  stage → `CAUSE n=0` → install once → per cycle PREPARE (INTMR bit 13 = 0
+  by the last PI read, slot n clean, `expected_gen == n`, `entries_total ==
+  deliveries`) → PREUNMASK-n (003B checks + AV source pending, no source
+  outside AV, cause after the previous re-arm) → service deliver (slot n)
+  → fired / reentry / generation / mask checks → service ack (AV only,
+  source required, CONTROL required) → POSTACK clean boundary (`irq &
+  0x0555 == 0`, CONTROL 0x8C, INTMR 13 = 0, Disc = GBI) → PICLEAN (after at
+  most the cycle's one main W1C) → `completed_cycles++` → cycles 0/1:
+  `t_rearm`, `IRQ := 0x0000` (attempted/completed), REARMPOST-n (A/B/C/D/
+  E/F, never a W1C) → NEXTCAUSE-n (INTSR polled masked ≤ 500 ms, one
+  snapshot at the poll's time base, AV validated) → cycle n+1; after cycle
+  2 no re-arm. Every path ends in the 003A teardown with the 003B hook,
+  labelled `TEARDOWN4 variant=`. Status `ok_cycles_completed` only under
+  the causal criterion of the design; `cycles_completed_with_errors` when
+  the cycles completed but restore / transport / uncertainty / CONTROL did
+  not hold; `abort_read_inconsistent` for Disc ≠ GBI at a per-cycle read;
+  every per-cycle reason carries `_cycle_N`. CONTROL is never rewritten
+  per cycle (intentional difference from GBI). Records: `CYCLE n= start`,
+  `PREPARE`, `PREUNMASK4`, `HANDLER4`, `PICLEAN`, `BOUNDARY`, `REARM`,
+  `REARMPOST`, `NEXTCAUSE`, `TEARDOWN4`, `CYCLES`, `CYCLE n= end` (×3),
+  `TIMING n=` (individual deltas, no statistics), `MULTI`, `RESTORE4`;
+  nothing formatted in the handler, between an unmask and its re-mask, or
+  per poll. W1C budget by control flow: handler 1 per delivery, main ≤ 1
+  per cycle (POSTACK), none at REARMPOST, teardown ≤ 1 (max 7).
+- `src/gbp/gbp_initirqa_probe.{h,c}`: `gbp_initirqa_snapshot_take_at()`
+  (a snapshot stamped with the poll's own time base, logged as an EVENT-
+  style snapshot) — the NEXTCAUSE snapshot; nothing else changed.
+- Mock (`tests/mocks/gbp_mock.{h,c}`): `isr_multi` (deliveries run the
+  multi-cycle body on `multi`), `MOCK_IRQ_PREPARE` op and the violation
+  `PREPARE_WHILE_UNMASKED`, `src_sched[8]` (sources after the Nth IRQ
+  write), `source_pi_delay` (PI latch lagging the source),
+  `ack_ignored_at_write`, `rearm_sticky_bits` (+ `_from_write`),
+  `force_expected_gen` (+ `force_gen_at_unmask`), `second_delivery_at`,
+  `control_change_after_irq_write`, `mask_ignored_from_call`,
+  `suppress_delivery_at`, `source_clear_at_delivery`,
+  `irq_disagree_from_write`, the three multi operations. Everything
+  SYNTHETIC; the 003A/003B suites are unchanged (2196 / 1107).
+- Replay (`src/gbp/gbp_replay.{h,c}`): optional `I p <gen>` (consumed
+  only when next; old fixtures never carry one), per-generation `I u`
+  records, `irq_record_slot`, `irq_multi_status`; exposed with the
+  interrupt path. `tools/probelog.py`: `PREPARE gen=` → `I p`, `REARM
+  t_rearm=` → `T`, `NEXTCAUSE found=0 t_end=` → `T`; the per-cycle 003B
+  records follow the existing rules (the handler-record search already
+  stops at the next UNMASK). Old physical fixtures regenerate unchanged.
+- Audits: `tools/poc_audit.py` profile `004` (`hsp_backend_irq_multi.o`
+  required, `hsp_backend_irq.o` / `hsp_backend_intmr.o` / 001/002/003B
+  probes forbidden, `__UnmaskIrq` from `hm_irq_unmask` only,
+  `IRQ_Request` from `hm_irq_install` / `hm_irq_restore` only,
+  `__MaskIrq` from `hm_irq_mask` and the handler — two sites there, see
+  below — INTMR stores 0, INTSR stores exactly `h_write_intsr` + the
+  handler, `gbp_regwrite_irq_u16` 3 + 1 + 1 logical sites, `main.o`
+  uses the multi constructor); profile `003b` follows the moved ACK site
+  (`gbp_irq_service.o`). `isr_audit` on `hsp_backend_oneshot_isr_multi`.
+- New POC `poc/gbp-init-irq-service-probe/` (Test ID `GBP-INIT-004`, Build
+  ID `initirq4-0001`, prefix `OPENGBP-INITIRQ4`, 320-line ring, the
+  power-cycle banner also on a completed run, "NOT A PHYSICAL CANDIDATE"
+  on screen); the 003B POC links `gbp_irq_service.c`. Root Makefile:
+  POCS, `initirq4-dolphin`, `initirq4-audit`, `all`, help.
+- Tests: `tests/unit/test_gbp_initirq4.c` (3210 checks, 17 groups: the
+  §42 scenarios, the §43 event-order proofs, the "never" properties, the
+  physical 003A fixture up to the EVENT, the physical 003B fixture cut
+  before its CONTROL restore as the prefix of cycle 0 — exhausted at
+  REARM-0, 0 mismatches — `--dump-log` / `--replay` modes marked
+  SYNTHETIC); `tests/host/test_initirq4_replay.py` (round trip with and
+  without the `I p` lines, both physical fixtures); `test_probelog.py`,
+  `test_poc_audit.py` (profile 004 + negative controls, 003B layout),
+  `test_isr_audit.py`, `test_artifacts.py` (004 identity; the 003B
+  strings now carry the empty cycle field). READMEs of poc / tests /
+  tools / captures; HARDWARE_TESTS, INITIALIZATION, UNKNOWNS pointers.
+
+**Tests executed (this build).** C: 10 binaries, all green (7949
+checks: 003A 2196, 003B 1107 with its physical fixture, 004 3210).
+Python: 145 passed, 0 failed. `make build` (Docker, all seven POCs,
+0 warnings), `make inspect` (every DOL 32-byte aligned, entry
+0x80003100). Audits: `initirq-audit`, `initirqa-audit`, `initirqb-audit`
+(profile 003b, 0 findings with the moved ACK site) and `initirq4-audit`:
+`isr_audit` CLEAN on `hsp_backend_oneshot_isr_multi` — 107 instructions,
+calls `__MaskIrq` twice, one INTSR store of 0x2000 at 0x11c after both,
+no INTMR store — and `poc_audit --profile 004` 0 findings. Manual
+inspection of the multi-cycle handler listing: `expected_gen` loaded once
+(`lwz r31,0(r9)`), `entries_total++`, `cmplwi r31,2 / bgt` BEFORE the slot
+arithmetic (`mulli r31,r31,56 / addi 12 / add`), no other index use; the
+out-of-range path increments `generation_errors` and selects `&anomaly`
+(offset 180 = 12 + 3 × 56); GCC duplicated the entry sequence (mftb, INTSR
+and INTMR loads, count++, `bl __MaskIrq`) into both paths, each of which
+masks before any store; the reentry path (count ≠ 1) stores
+reentry_t/intsr/intmr and `fired` and returns without touching INTSR; the
+first-entry path stores t_entry, the entry reads, INTMR-after-mask,
+INTSR-before-W1C, the single `stw 0(r30)` of 0x2000, INTSR-after, the
+bounded wait (ctr 2048 × 2 reads = the 4096 guard, 100-tick bound),
+t_second, the second reads, `fired` last; no `mtmsr`, no indirect branch,
+only loads at INTMR. Dolphin: 13 runs PASS (11 previous + the two 004
+runs: `abort_inconsistent` without an HSP device, `abort_control_shape`
+with the GBPlayer model — no write, no install, no unmask), every command
+carrying `Dolphin.Interface.OnScreenDisplayMessages=False`; every
+captured render window is a grayscale PNG (ImageMagick writes colour type
+0 only when no pixel has colour — the OSD text is yellow), i.e. 0 yellow
+pixels in all 13 screenshots. Synthetic 004 round trip: mock summary ==
+replay summary, 182 steps, 0 mismatches, 0 unmatched polls. Physical
+fixtures: 003A through the 004 probe (every line consumed, `irq_multi_ops_
+unavailable`, the 003A teardown), 003B prefix (cycle 0 reproduces the
+003B values: t_unmask 3679931504, latency 78 ticks, ACK 0x8500 → 0x8000,
+POSTACK PI clear; then `abort_transport rearm_write_failed_cycle_0` with
+`completed_cycles = 1`, `rearms 0/1`: the script is exhausted only after
+the last recorded operation, the re-arm write is answered "unavailable" —
+the physical prefix ends before the first re-arm variable, `attempted = 1`
+is a synthetic boundary and never evidence of a re-arm). The first cycle
+of 004 is **semantically equivalent to 003B at the protocol level** (the
+same device transactions in the same order up to the POSTACK), NOT a
+byte-identical handler: the multi-cycle body loads the generation, checks
+the bounds, selects the slot and counts the entry before the entry
+timestamp (107 instructions against 82); the main loop adds the PREPARE
+publication and two bookkeeping copies (no device access) before
+PREUNMASK, the AV rule at PREUNMASK/PREACK/POSTACK and the CONTROL/INTMR
+precondition at PREACK. The static audit proves the 5 logical
+`gbp_regwrite_irq_u16` call sites; the 8 executions of a complete run (A1,
+A2, ACK ×3, REARM ×2, STOP) are proven by the unit tests' operation trace
+and by the `WRITES irq_attempted=8` record, never by the audit.
+Worst-case line widths (10-digit ticks, longest status / reason /
+restore reason / variant) < 255 in every scenario; ring overflow and a
+wrapping time base across the cycles handled.
+
+**Result.** GBP-INIT-004 IMPLEMENTED — NOT PHYSICALLY EXECUTED. DIRTY
+BUILD — NOT A PHYSICAL CANDIDATE: `gbp-init-irq-service-probe.dol`, Test
+ID GBP-INIT-004, Build ID initirq4-0001, commit `23990c9-dirty` (base HEAD
+`23990c9`, `git describe` `23990c9-dirty` — the dirty marker is correct,
+no identity anomaly), 397280 bytes, entry 0x80003100, text 0x04A400 at
+0x80003100 + data 0x016AE0 at 0x8004D500 (bss 277496 bytes), 32-byte
+aligned, devkitPPC GCC 16.1.0, libogc2 r2442.094b250, sha256
+`da19add0add883cf79c03bc1310b48adcac193cb3109f58cc025f39959ca0ef4`.
+Rebuilt 003B binaries (commit `23990c9-dirty`, sha256 `402faf67…afa4`)
+are not the executed `d3da8cd` binary and are not candidates either.
+Phase 3 is not concluded; the mock is never evidence; no hardware run is
+requested.
+
+**Newly confirmed behavior.** None on hardware. Static, on the linked
+binary: the multi-cycle handler keeps the 003B invariants (mask first,
+exactly one INTSR store, no INTMR store, `fired` last) and adds the
+generation bounds check before any slot access.
+
+**Rejected hypotheses / new unknowns.** None; U-GBP-027 (repeated
+service after the re-arm) stays open until the physical run.
+
+**Requirements preserved.** Start-up Disc / GBI parity as the
+compatibility goal; physical Link Port compatibility (Link Cable
+multiplayer, official and third-party accessories, the physical Mobile
+Adapter GB, PicoAdapterGB as one fixture) permanent; rumble and the
+GBP-aware game features; the virtual Mobile Adapter over the BBA
+additive. Nothing of them touched.
+
+**Next.** User checkpoint (commit of the reviewed tree) → Ultracode →
+Max → clean rebuild → release-candidate audit → only then a possible
+hardware authorization of GBP-INIT-004. Not requested here.
