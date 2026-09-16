@@ -2124,3 +2124,78 @@ the first 8 (cycles 0, 1, 2, 3, 4, 6, 8, 10) and the last valid one (cycle 207).
 The first eight carry 16–36 nonzero bytes of 4096; the last carries 2178. No
 audio format is inferred.
 
+### GBP-VID-010 — the Disc's embedded frame is a comparison oracle, never drawn — FACT (static)
+
+Start-up Disc `main.dol`, traced 2026-09-16. `0x801B45A0` carries no data
+reference; it appears as the arithmetic immediate `-0x7FE4BA60` in the video
+service loop `FUN_8008EDE8`. That loop converts each live block into the frame
+buffer (`FUN_8008EFB4`, the only writer of the frame buffer) and then, when a
+gate byte is set, calls `FUN_8008F080(converted_block, 0x801B45A0 + blk*0x780,
+blk)`. `FUN_8008F080` compares 960 halfwords — one block — and sets a "detected"
+flag only after **40 consecutive blocks** match; any mismatch resets it. The
+reference is never copied to a frame buffer and never rendered.
+
+### GBP-VID-011 — the detection drives KEYPAD injection — FACT (static)
+
+Same binary. `FUN_8008C26C` (session start) reads CONTROL (`base + 0x400000`
+byte 0x1F), sets bit `0x08`, writes it back and arms the detector. `FUN_8008B1AC`
+polls the flag for up to **24 000 invocations of a 5.000 ms periodic callback
+(120.0 s)**; on the rising edge it calls
+`FUN_8008C31C`, which drives bits `0xF0` of a 16-bit value in a 5-frames-on /
+5-frames-off cycle; that value reaches `FUN_80089E40`, which writes a 32-byte
+block to **`base + 0xC00000` — KEYPAD (index 0xC)**. So the Disc recognises one
+AGB screen in order to press buttons past it. No KEYPAD write is needed to
+*reach* the screen; KEYPAD is used only to dismiss it.
+
+### GBP-VID-012 — GBI's two tables are 40-entry screen signatures with one reader — FACT (static)
+
+`gbi-unpacked.dol`. Table A (`0x800B0E78`) is read only at `0x8000CE68` and
+table B (`0x800B0F18`) only at `0x8000CDA0`, both inside the video service thread
+`FUN_8000BF30`. Each is a 40-iteration word-by-word comparison against the run's
+per-block checksums in which **all 40 must match**; any mismatch exits
+immediately. The selection is by configuration, not content: a byte at `r13+885`
+selects table A, otherwise a word at `r13+896` equal to `-2` or `-1` selects
+table B.
+
+### GBP-VID-013 — the Disc's embedded frame and GBI's table A are the same screen — FACT (derived)
+
+Computing GBI's own per-block checksum over the Disc's embedded frame, with bit
+15 cleared to match GBI's service-thread convention, reproduces **39 of the 40
+entries of table A**; the only difference is block 0, where table A stores the
+all-white-with-frame-flag value and the Disc's copy stores it without the flag
+(the Disc takes the frame start from the live stream instead). Against table B
+the same computation matches 25 of 40. Structurally the Disc's frame is uniform
+outside blocks 14..25 and carries content inside them, table A's non-uniform
+entries are exactly blocks 14..25, and table B's are exactly blocks 12..19: table
+A and the Disc frame describe one screen, table B a second, different one. Which
+AGB states they correspond to is not decided by the code read so far
+(U-GBP-031). No reference pixel or table value is stored in this repository.
+
+### GBP-HW-073 — GBP-VIDEO-001 observed 39.2 ms starting 107 ms after the AGB was started — FACT
+
+Recomputed from the physical log: the CONTROL transform `0x90 → 0x8C` at
+t = 1 849 601 875, A2 at +0.645 ms, the first HSP cause 105.285 ms after A2, the
+first unmask (t0) at t = 1 853 935 409 and the last observation at
+t = 1 855 524 244. So the whole 209-cycle capture spanned **1 588 835 ticks =
+39.230 ms ≈ 2.34 frames**, beginning **107.001 ms** after the AGB was started.
+The uniform payload of that run is therefore a statement about a very short,
+very early window, not about the session as a whole.
+
+### GBP-VID-014 — the Disc's detector window is 120 s, not a frame count — FACT (static)
+
+Start-up Disc `main.dol`. The window is 24 000 iterations of the counter at
+`r13-0x7014`, incremented once per invocation of `FUN_8008B1AC` while the session
+state is 2 and no completion callback is pending. `FUN_8008B1AC` is not a
+per-frame callback: `FUN_8008A930` registers it through `FUN_80067F24` — which
+stores its sixth argument as a period at `struct+0x1C` and takes its seventh as
+the callback — with a period computed from the bus clock at `0x800000F8` as
+`((bus >> 2) / 125000) * 5000 >> 3`. With the measured bus clock of 162 MHz that
+is **202 500 ticks of the 40.5 MHz time base = 5.000 ms exactly**, so the window
+is nominally **24 000 x 5 ms = 120.000 s**. `FUN_80067C4C`, the scheduler insert,
+detects a deadline already past, divides the lateness by the period and advances
+the next fire time by (lateness / period) + 1 periods: missed periods are
+**dropped, never replayed**. Reaching 24 000 therefore takes **at least** 120 s
+and longer whenever an invocation is skipped, so 120 s is a LOWER bound and the
+value 24 000 establishes no upper wall-clock bound. Two earlier notes in this
+repository are withdrawn: one read the counter as per-frame and gave ~400 s, the
+other called 120 s an upper bound.
