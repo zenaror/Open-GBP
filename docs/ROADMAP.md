@@ -153,14 +153,34 @@ the AGB idle screen (an offline oracle without a cartridge). Short sequence:
   pattern per cause; establishes blocks per frame, order, boundaries,
   cadence and repeated-service stability; offline assembly against the
   embedded idle screen.
-* **GBP-VIDEO-002**: first rendered frames on the GameCube (GX RGB5A3
-  texture from bytes 1/3, as the references) plus a known-color cartridge or
-  test ROM for the pixel semantics (color order → FACT); KEYPAD writes
-  enter here or in a dedicated Phase 5 probe, not before.
-* **GBP-VIDEO-003**: sustained streaming with a real cartridge (frame
+* **GBP-VIDEO-002** (designed and hardened 2026-09-16, HARDWARE_TESTS.md; not
+  implemented): a **120-second** frame-signature scan without a Game Pak, sized
+  to the nominal interval of the Start-up Disc's own detector window (24 000
+  invocations of a 5.000 ms periodic callback, proved from the binary; 120 s is a
+  lower bound because the scheduler drops missed periods). Per-frame signatures of 40
+  checksums instead of per-delivery records (~639 000 deliveries are expected),
+  a u64 time base because a u32 tick wraps at 106 s, a learned baseline, and an
+  episode state machine that preserves raw frames around a change and closes when
+  the changed state repeats, with **no early stop** — the runtime has no oracle,
+  so it cannot know which stable state is the one sought, and the run observes
+  the whole window and records every episode for offline classification. The
+  120 s are counted **after** baseline_valid,
+  because only then is there a reference to compare against; the frame store and
+  a 180 s hard wall-clock limit are safety caps, not the window. Answers whether the screen
+  both references recognise ever reaches the VIDEO stream without a cartridge
+  (U-GBP-031) and gives a cadence uniform from the first useful frame
+  (U-GBP-030).
+* **GBP-VIDEO-003**: colour. Needs a source whose true appearance is known
+  independently of the references (a static pattern with saturated red, green
+  and blue plus white, black and greys), because a reference comparison can only
+  show that two encodings agree, never which channel is which. Also the first
+  rendered frames on the GameCube (GX RGB5A3 texture from bytes 1/3, as the
+  references). KEYPAD writes enter here or in a dedicated Phase 5 probe, not
+  before.
+* **GBP-VIDEO-004**: sustained streaming with a real cartridge (frame
   pacing, dropped-block policy, output modes) — the bridge to Phase 7.
 
-No further micro-probes unless VIDEO-001 raises a blocking question.
+No further micro-probes unless one of these raises a blocking question.
 
 Implement and document the physical GBP video path.
 

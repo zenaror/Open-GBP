@@ -3053,38 +3053,592 @@ service pass; R11 promotion if observed), REGISTERS.md (VIDEO / AUDIO rows: hard
 HSP.md (§3: the ARQ hi-queue precision and the first measured bandwidth), captures/README.md
 (fixture + sidecar format), tests/README.md, poc/README.md.
 
-### GBP-VIDEO-001 — bounded VIDEO block sequence capture: repeated drained service, frame boundaries, block order and cadence, no cartridge (Phase 4; designed, implemented and PHYSICALLY EXECUTED 2026-09-16)
+### GBP-VIDEO-002 — does the AGB's own logotype screen ever reach the VIDEO stream without a Game Pak? A frame-signature scan over at least the nominal detector interval (Phase 4; designed and twice hardened 2026-09-16; NOT implemented, NOT released)
 
-Status: **PHYSICALLY EXECUTED 2026-09-16** (build `video-0001`, clean commit
-`6930dde`, DOL SHA-256 `856d3e91…fd65`); the result is recorded under "Executed
-tests — GBP-VIDEO-001" above. The paragraph below is the pre-execution status,
-kept for the history: IMPLEMENTED 2026-09-16 — NOT PHYSICALLY EXECUTED — DIRTY
-BUILD, NOT A PHYSICAL CANDIDATE, at the time it was written. Code:
-`poc/gbp-video-capture-probe/` (Test ID `GBP-VIDEO-001`, Build ID `video-0001`,
-gecko prefix `OPENGBP-VIDEO`), logic in `src/gbp/gbp_video_probe.{h,c}`, the
-sequence core (records, buffers, predicates, boundaries, compact log lines) in
-`src/gbp/gbp_avseq.{h,c}`, the `OGBPSEQ1` sidecar in `src/gbp/gbp_avseqdump.{h,c}`,
-the offline oracle in `tools/avseq.py`. The build reviewed so far comes from a
-dirty tree (`commit=bd841b6-dirty`, DOL SHA-256
-`962bea74aa6ba5c76b2514bb7ad01c13f59591b1a3c870fb7647c1f212d5fd65`) and is a
-review candidate only. Implementation record: `docs/research/DEVLOG.md`
-2026-09-16 "GBP-VIDEO-001 implemented"; procedure and rules:
-`poc/gbp-video-capture-probe/README.md`. The design text below is kept as it was
-written before the implementation; the notes after it record what the
-implementation added. Static basis: `docs/research/VIDEO_PATH.md` (the VIDEO path
-of both references re-read from the decompilations, Dolphin's model, the
-physical block of GBP-AV-SERVICE-001 against the references' embedded
-idle-screen frame); evidence GBP-VID-002…007, GBP-HW-061; DEVLOG 2026-09-16
-"GBP-VIDEO-001 designed", "specification review" and "admission budget".
-Depends on GBP-AV-SERVICE-001 (the drained service pass, re-arm and next
-cause, F hw) and on GBP-INIT-003B / 004 (delivery). The first review fixed:
-operational success separated from the content oracle; 88 blocks as a
-capture target, a complete frame interval = two consecutive boundaries;
-both frame-start predicates per block with the raw first four bytes; the
-state machine, PI-latch policy and handler-record reuse made explicit. The
-second review replaced the "hard wall-clock bound" by a **service-loop
-admission budget**: MAX_RUNTIME_MS gates the admission of NEW cycles; an
-admitted cycle is a bounded transaction that always completes.
+Status: **DESIGNED 2026-09-16 — NOT IMPLEMENTED.** Basis: GBP-VIDEO-001's
+physical run (GBP-HW-062…073), the static trace of both references' recognition
+machinery (`docs/research/VIDEO_PATH.md` §9) and U-GBP-030 / U-GBP-031. No
+hardware is requested by this entry.
+
+```text
+Question:    GBP-VIDEO-001 observed 39.2 ms of VIDEO — about 2.3 frames — starting 107 ms after the
+             CONTROL transform that starts the AGB, and every captured block was uniform apart from
+             the frame-start marker. Both references embed a recognisable screen and arm a detector
+             for it at session start. So: over an observation at least as long as the nominal
+             interval the Disc's own detector spans, in a session WITHOUT a Game Pak, does the VIDEO
+             stream ever carry a frame other than the uniform one, and if so when, for how long and
+             with what content?
+Answers:     U-GBP-031; gives U-GBP-030 a run whose cadence is uniform from the first useful frame;
+             and, if a structured frame is captured, the first physical check that the capture
+             preserves structure inside a frame at all — with a uniform frame a reordering,
+             duplication or loss of blocks is invisible.
+Not asked:   colour naming (GBP-VIDEO-003 with a controlled source); rendering on the GameCube;
+             KEYPAD writes; audio format; a cartridge.
+
+--- 1. The detector interval: 120 s is a LOWER bound, and why -----------------------------------
+The Disc's detector window is 24 000 iterations of the counter at r13-0x7014, incremented once per
+invocation of FUN_8008B1AC while the session state is 2 and no completion callback is pending.
+FUN_8008A930 registers that function through FUN_80067F24 — which stores its sixth argument as a
+period at struct+0x1C and takes its seventh as the callback — with a period computed from the bus
+clock at 0x800000F8 as ((bus >> 2) / 125000) * 5000 >> 3 = 202 500 ticks of the 40.5 MHz time base
+= **5.000 ms exactly**.
+             **There is no catch-up.** FUN_80067C4C, the scheduler insert, explicitly detects a
+             deadline already in the past, divides the lateness by the period and advances the next
+             fire time by (lateness / period) + 1 periods. Missed periods are DROPPED, never
+             replayed. The counter therefore advances at most once per 5 ms.
+             Consequences, stated separately so the earlier inversion cannot return:
+               * nominal detector interval                    24 000 x 5 ms = **120.000 s**
+               * minimum elapsed time to reach 24 000         **>= 120.000 s** (equality only if
+                                                              every expected period increments)
+               * actual wall-clock duration                   may be LONGER if invocations are
+                                                              skipped or the state gates the counter
+               * an upper wall-clock bound                    **NOT established** by the value 24 000
+             A previous revision of this entry called 120 s an upper bound. That was inverted and is
+             withdrawn.
+
+--- 2. The scientific target, separated from the safety caps -------------------------------------
+             **Scientific target.** MIN_VALID_OBSERVATION = **120.000 s measured on the u64 time
+             base, accumulated AFTER baseline_valid.** The negative claim this experiment can make is
+             "a structured state did not appear during a valid window of comparison", and before
+             baseline_valid there is no reference to compare against, so that time cannot support
+             the claim. The clock therefore starts at baseline_valid, not at capture start.
+             Consequence, stated rather than hidden: the total capture necessarily lasts longer than
+             120 s, by however long the baseline took.
+             **This window is not placed where the Disc's is.** The Disc arms its detector at
+             session start and its counter runs from there, because the Disc does not learn a
+             baseline — it has the reference embedded. Our window starts later. Frames observed
+             before baseline_valid are NOT discarded: they are recorded in full with the
+             pre_baseline flag, and one that differs from its neighbours opens an EARLY_CANDIDATE
+             episode with its raw frames (section 9). So an early screen is still captured as
+             evidence; it simply does not count toward the 120 s of negative evidence.
+             **Safety caps are a different thing** (section 19) and are never described as the
+             official window: the frame store, the event store, the episode caps and a wall-clock
+             admission budget exist to keep a hardware experiment bounded, not to define the
+             observation.
+
+--- 2b. Stop condition, normative, in strict precedence order -----------------------------------
+             Evaluated once per admitted cycle. Higher rules win outright when several hold.
+
+               1. fatal service error (the GBP-VIDEO-001 failure policy, unchanged)
+                      -> stop  failure
+               2. HARD_WALLCLOCK_LIMIT expired                                   (section 19)
+                      -> stop  safety_budget.  This wins over an open episode and over the
+                         finalisation tail: the state available is snapshotted, the episode is
+                         marked truncated_by_safety, and the teardown runs immediately. A hard cap
+                         that could be extended by 60 more frames would not be hard.
+               3. frame store full  or  event store full
+                      -> stop  frame_store_cap / event_store_cap.  If this happens during a
+                         finalisation tail the tail ends there, tail_truncated_by_cap is set, and
+                         this is NOT a fatal service error.
+               4. baseline_valid and valid_observation_elapsed >= MIN_VALID_OBSERVATION
+                      -> if no episode is open:  stop  nominal_negative
+                      -> if an episode IS open:  enter the bounded finalisation tail — no new
+                         episode may open, the current one closes on stabilisation or at
+                         EPISODE_MAX_FRAMES, and the run then stops nominal_negative
+               5. no next cause within T_NEXT_CAUSE with budget left
+                      -> stop  no_next_cause
+               6. delivery guard reached
+                      -> stop  delivery_cap
+
+             There is **no positive early stop** (section 6c). After the stop, in every case: the
+             minimal RAM snapshot, then the hardware teardown immediately (section 16).
+             The tail never raises the scientific requirement. Reported separately:
+             valid_observation_at_target, tail_frames, tail_ticks, final capture_elapsed.
+
+--- 3. Scale, corrected, and explicitly estimates -----------------------------------------------
+             From GBP-VIDEO-001's measured rates — 5 327 deliveries/s, 2 243 VIDEO blocks/s,
+             3 671 AUDIO blocks/s, 16.794 ms per frame — 120 s implies about **639 000 deliveries,
+             269 000 VIDEO blocks, 440 000 AUDIO blocks and 7 150 complete frames**.
+             These are ESTIMATES derived from one physical run. They are not physical caps and not
+             properties of the device. GBP-VIDEO-002's own caps are set separately, below.
+
+--- 4. Time base ---------------------------------------------------------------------------------
+             2^32 / 40.5 MHz = **106.049 s**, shorter than 120 s: a u32 tick counter wraps inside a
+             single run. Every recorded timestamp is **u64**.
+             Mechanism: the 64-bit PowerPC time base read as the standard three-instruction retry —
+             read TBU, read TBL, read TBU again, repeat while the two TBU reads differ — which is
+             what libogc2's gettime() does. Monotonicity across the low-word wrap follows from the
+             retry: a carry from TBL into TBU between the two TBU reads is detected and the read is
+             repeated, so the pair is never taken from either side of the carry. The design uses
+             libogc2's existing u64 API if its implementation is confirmed to be exactly that loop,
+             and the explicit loop otherwise; the choice is recorded in the implementation, not left
+             as "use u64".
+             The transport keeps its existing u32 `ticks` operation for the bounded per-operation
+             waits (T_DMA, T_DELIVERY, T_NEXT_CAUSE), where a wrap-safe unsigned difference over a
+             sub-second interval is already correct and physically exercised. That contract is
+             explicit: **u32 deltas for short waits, u64 for every recorded timestamp.**
+
+--- 5. Frame-signature store: capacity, not a temporal target -----------------------------------
+             Per observed frame, 192 bytes:
+                 frame index                        u32
+                 t_first_block, t_last_block        u64, u64
+                 blocks in the frame                u16
+                 flags (complete, disagreement, anomaly, pre_baseline, resync)   u16
+                 40 semantic block checksums        40 x u32
+             **16 384 frames = 3.00 MB.** At the one frame rate we have measured that is about
+             275 s of wall time, but **that number is capacity, not a target**: the probe is not
+             expected or required to consume it. The capacity exists for baseline acquisition and
+             startup, for real variation in frame cadence, for incomplete intervals that still
+             occupy slots, for the episode finalisation tail, and for structural margin. Chosen over
+             8 192 frames (1.50 MB) because at that size the cap would likely have been the stop
+             rather than a backstop.
+             A frame carrying more than 40 blocks stores the first 40 and sets the anomaly flag; the
+             block count is kept so nothing is silently dropped.
+             **At the cap:** no overwrite, no silent wrap. The run stops, the hardware teardown runs
+             immediately, FRAME_CAPTURE reports `frame_store_cap`, and SERVICE may still be `ok`.
+             If the cap is reached **before** valid_observation_elapsed has reached 120 s, the
+             negative result is **inconclusive** — `insufficient_observation_window` — and is
+             reported as such. The classification always keys on valid_observation_elapsed, never on
+             which cap fired.
+
+--- 6. The signature, and why byte 0 cannot forge a change --------------------------------------
+             The per-block signature is GBI's own checksum, over the semantic payload only: for each
+             group of four bytes it consumes **byte 1 and byte 3** and nothing else, packing two
+             consecutive pixels into a 32-bit word, accumulating 240 such pairs in 64 bits and
+             storing the low 32 bits plus the carry count. Byte 0 and byte 2 are never read, so the
+             688 byte-0 exceptions GBP-HW-070 measured **cannot** produce a structured-change false
+             positive — that is a property of the algorithm, not a tuning choice. The function is
+             physically verified: the GBP-AV-SERVICE-001 block and VIDEO-001 seq0, whose raw bytes
+             differ, both give 0x7F0FFF10.
+             Frame-start bit: it lives in byte 1 of the block's first word, so it is inside the
+             checksum by construction (0xFFFF versus 0x7FFF changed block 0's value from
+             0xFF0FFF0F to 0x7F0FFF10 in the physical run). Within a frame, block 0 always carries
+             it, so frame-to-frame comparison at the same block position sees it consistently on
+             both sides and it can never by itself mark a frame as changed. Both predicates are also
+             recorded per block, separately from the checksum.
+             The result is directly comparable offline with GBI's tables without any private data
+             being embedded in the runtime.
+
+--- 6b. The three clocks, and what counts as valid observation ----------------------------------
+             All u64 on the 64-bit time base:
+                 capture_elapsed            capture_start -> stop
+                 baseline_elapsed           capture_start -> baseline_valid
+                 valid_observation_elapsed  accumulated, and the only one the negative result uses
+             valid_observation_elapsed advances ONLY while all of these hold: SERVICE is still ok,
+             baseline_valid is set, and the stream is currently interpretable. It is accumulated per
+             completed frame — the frame's own duration is added when the frame closes complete and
+             interpretable — so a period that was not interpretable is never silently counted as
+             negative evidence.
+             **Anomaly accounting, deliberately conservative, three classes only:**
+               (a) frame-invalidating — a predicate disagreement inside the frame, a frame closed
+                   incomplete (no boundary within 48 blocks), or a frame carrying more than 40
+                   blocks. The frame is recorded and flagged, it is NOT counted as a complete frame,
+                   and **its duration is excluded** from valid_observation_elapsed.
+               (b) region-invalidating — the frame assembler lost synchronisation (a boundary
+                   arrived at an unexpected position mid-frame). The frame being assembled is
+                   discarded, and valid_observation_elapsed stays paused until a complete 40-block
+                   frame with an observed boundary is seen again. That resync gap is bounded by the
+                   assembler itself and is reported as resync_frames.
+               (c) run-ending — every failure GBP-VIDEO-001 already treats as fatal, unchanged: DMA
+                   busy/timeout/error, ACK or re-arm not completed, PI sticky after one W1C,
+                   reentry, missed entry, unexpected source, capacity. These stop the run.
+             Nothing else pauses the clock. The rule is conservative on purpose: when in doubt the
+             time does not count, so a negative result can only ever understate the observation.
+
+--- 6c. There is no early positive stop, and why -------------------------------------------------
+             A previous revision stopped the run as soon as an episode closed with stable_found.
+             That is **withdrawn**, because the runtime contains no oracle and therefore cannot know
+             that the first stable changed state is the state that motivated the experiment. The
+             failure mode is concrete: baseline uniform -> an intermediate stable screen -> the
+             expected screen twenty frames later. Stopping at the first stable state would preserve
+             the intermediate screen and lose the one we came for.
+             Every oracle-free alternative was considered and rejected:
+               * "stop on the first stable change" — the case above;
+               * "stop when MAX_EPISODES is reached" — a capacity condition, not a scientific one,
+                 and section 10 does not stop there anyway;
+               * "stop when a frame shows content in the block range the references use" — that is
+                 the private layout smuggled into the runtime; refused on the same grounds as the
+                 tables themselves;
+               * "stop when a frame's block checksums are unusually diverse" — an arbitrary
+                 heuristic that would fire on noise and still could not tell the intermediate screen
+                 from the expected one.
+             **No objective, oracle-free early-positive condition exists**, so the experiment has
+             none. The probe runs until the scientific target, a cap, or a failure. Offline,
+             tools/avseq.py classifies each preserved episode against the Disc's embedded frame and
+             GBI tables A and B. This maximises the information a single physical run yields and
+             keeps every private comparison off the console.
+
+--- 7. Where the checksum runs — decided by the references, not by preference -------------------
+             Traced in both binaries:
+               * GBI (FUN_8000BF30), in source order: read IRQ (0xD00000) -> ARQ read AUDIO
+                 (0x800000, 0x1000) -> ARQ read VIDEO (0x100000, 0xF00) -> **ACK**, the 64-byte write
+                 at 0xCFFFE0 that spans the end of the KEYPAD window into the IRQ window ->
+                 conversion and per-block checksum (stride 0x780) -> at block 0x27 the 40-entry table
+                 comparison -> blk = (blk + 1) % 0x28 -> **RE-ARM**, the write at 0xD00000, which is
+                 the LAST device access of the pass.
+               * Start-up Disc: the compare does not sit in the service path at all. FUN_8008EDE8 is
+                 a thread that blocks on a queue, converts and compares one block per message,
+                 decoupled from the acknowledge and re-arm entirely.
+             So GBI, the only reference with a single serial path, puts the work **between the ACK
+             and the RE-ARM**. GBP-VIDEO-002 adopts that position:
+                 READ -> AUDIO -> VIDEO DMA -> ACK -> PICLEAN -> **checksum** -> REARM -> WAIT_NEXT
+             This does not lengthen DMA->ACK, and it does not leave a latched cause waiting: the
+             re-arm is what invites the next cause, so deferring it defers the next cause rather
+             than delaying the service of one already latched. The previous revision put the
+             checksum after REARM; GBP-VIDEO-001 showed the next cause can latch almost immediately
+             after a re-arm, so that position would have left it waiting. Withdrawn.
+             **The checksum never runs inside the ISR.** The raw ring provides the buffering, so the
+             block being hashed is never the block the next DMA targets.
+
+--- 8. Checksum cost: measured and compared, with no invented threshold -------------------------
+             The ~20 us figure quoted earlier is an estimate and is treated as one. A previous
+             revision of this entry required "p95 below 25 % of the median lean cycle". That number
+             had no physical basis and is **withdrawn**: there is nothing in the hardware evidence
+             that makes 25 % meaningful rather than 15 % or 40 %.
+             What is required instead is a measurement and a comparison, both mandatory before any
+             physical candidate:
+               (a) the per-block checksum cost in time-base ticks over at least 10 000 blocks,
+                   reported as **min, median, p95 and max**, on the host and again on the built DOL;
+               (b) the same synthetic scenario run **with and without** the checksum in the cycle,
+                   comparing: service cadence (delivery-to-delivery interval), VIDEO block rate,
+                   AUDIO block rate, the ACK-to-REARM interval, next-cause timing after the re-arm,
+                   the latched interval, and any change in timeout or reentry behaviour.
+             Reference points from GBP-VIDEO-001 for that comparison: 294 us median between VIDEO
+             blocks, 77 us median lean cycle, 2 485 ticks (61 us) of VIDEO DMA, 5 327 deliveries/s.
+             The gate is a review gate, not a number: the benchmark report accompanies the release
+             audit, and a physical candidate is not released while any of those quantities has moved
+             in a way the reviewer has not explicitly examined and accepted. If the cadence does
+             move materially, the remedies are the ones already identified — hashing outside the
+             cycle from the ring, or hashing only the halfwords a signature needs — and the choice
+             is made with the measurements in hand rather than in advance.
+
+--- 9. Baseline ----------------------------------------------------------------------------------
+             baseline_valid is set only after **three consecutive complete frames**, each with an
+             observed boundary, exactly 40 blocks, and identical 40-checksum vectors. That vector is
+             the baseline. Frames observed before baseline_valid are fully recorded with the
+             pre_baseline flag, and one that differs from its neighbours is preserved as an
+             **EARLY_CANDIDATE** with its raw frames. Baseline learning never overwrites or discards
+             such a frame. If baseline_valid is never reached, the run says so and every frame stays
+             in the store.
+
+--- 10. Episodes: a state machine, and monitoring never stops at the raw cap ---------------------
+             Two signatures are kept, and they are not the same thing:
+                 **original_baseline_signature** — the vector fixed once at baseline_valid. It is
+                     never overwritten. It documents what the machine was showing when the valid
+                     window opened, and every episode is reported relative to it.
+                 **current_reference_signature** — initialised to the original baseline and replaced
+                     by each closed episode's final stable signature. It is what change detection
+                     compares against, so a second transition is detected relative to the state the
+                     device actually settled into, not relative to the long-gone original.
+             The state machine:
+                 ARMED        current signature == current_reference_signature
+                 CHANGED      a frame's signature differs from current_reference_signature
+                              -> open an episode; preserve the last reference frame from the ring
+                                 and this first changed frame; candidate := this signature;
+                                 stable_count := 1
+                 STABILISING  for each following frame:
+                                 signature == candidate -> stable_count++
+                                 otherwise              -> candidate := this signature,
+                                                           stable_count := 1, and preserve this
+                                                           frame if the episode's raw budget allows
+                              when stable_count reaches **N_STABLE = 3** -> preserve one raw frame of
+                              that stable state, mark stable_found, close the episode
+                 CLOSED       current_reference_signature := the episode's final signature (or is
+                              left unchanged if the episode closed unstable), and the machine
+                              re-arms immediately. **The run does not stop here** (section 6c).
+             N_STABLE = 3 because that is the same evidence threshold the baseline uses, so "stable"
+             means one thing in both places; at 59.5 Hz it is 50 ms, short enough not to miss a
+             brief screen. **Hard cap:** an episode closes unconditionally after
+             **EPISODE_MAX_FRAMES = 60** frames (about 1 s) marked `unstable`. Episodes are never
+             unbounded.
+             **MAX_EPISODES = 4.** Raised from 3 for a named reason: the scenario that removed the
+             early stop needs at least two episodes (intermediate screen, then the expected one),
+             and GBP-VIDEO-001 showed an early transient that can plausibly consume one, so four
+             leaves one spare. Footprint: up to 4 preserved raw frames per episode x 48 x 0xF00 =
+             737 280 B per episode, x 4 = **2 949 120 B = 2.81 MiB** (section 21).
+             **When the episode raw store is full — policy B, chosen over stopping.** The run does
+             NOT end. `episode_store_full` is set, no further raw frames are preserved, and the
+             signature monitor keeps running to the scientific target or a cap, counting further
+             episodes in `episodes_not_preserved`. The justification is that the per-frame
+             signatures are themselves primary evidence: GBI's table comparison is a checksum
+             comparison, so an unpreserved episode still yields a directly comparable signature
+             vector offline — only the pixels and the Disc's halfword comparison are lost. Ending
+             the run at the raw cap would discard the remaining seconds of signature evidence for no
+             safety benefit. **No episode is ever overwritten.**
+
+--- 11. Raw preservation -------------------------------------------------------------------------
+             VIDEO blocks are assembled into a ring of **3 raw frame slots**, each 48 x 0xF00 =
+             180 KB (48 rather than 40 so an over-long frame is still captured whole). A partial
+             frame is never preserved as if it were a frame.
+             Per episode, up to **4** frames are copied out of the ring:
+                 the last reference frame before the change; the first changed frame; the frame
+                 immediately after it (context); and the stable-state frame, if one was found.
+             Where those coincide the slot is reused, so 4 is an upper bound.
+             3 episodes x 4 slots = 12 slots = **2.11 MB**, plus the 0.53 MB ring.
+
+--- 12. AUDIO during a long run ------------------------------------------------------------------
+             Every selected AUDIO source is drained, exactly as now — the protocol is unchanged and
+             physically validated. No per-drain record and no per-drain raw. Aggregate counters only,
+             plus the raw payload of the **first** and the **last** successful drain (two 0x1000
+             buffers, 8 KB), with the existing rule that a failed drain never overwrites a valid one.
+
+--- 13. Frame segmentation and predicate disagreement -------------------------------------------
+             Both predicates are computed and recorded for every block. **The Start-up Disc
+             predicate (bit 7 of byte 1) is the segmentation signal**, justified physically:
+             GBP-HW-070 found byte 0 disagreeing with byte 1 in 688 of 84 480 words while byte 2
+             never disagreed with byte 3, so byte 0 is the unstable byte; GBI's predicate depends on
+             bytes 0 AND 1, the Disc's on byte 1 alone.
+             On disagreement (which can only be GBI = 0 with Disc = 1, since GBI implies Disc):
+             segmentation continues on the Disc predicate and **no boundary is fabricated or
+             suppressed**; the frame is flagged `disagreement` but is NOT marked incomplete, because
+             the boundary is real under the stable byte. Recorded: the total count, the first
+             occurrence with its frame and block index, and the raw first four bytes of that block.
+             If 40 blocks pass with no boundary at all, the frame is closed as **incomplete** and
+             flagged; a boundary is never synthesised from an assumed period.
+
+--- 14. Counters and widths ---------------------------------------------------------------------
+             u64: every absolute timestamp, total elapsed ticks, total bytes transferred.
+             u32: deliveries, audio drains, video drains, acks, rearms, isr_w1c, main_w1c, errors,
+                  unexpected, reentry, timeouts, busy, frames observed, frames complete, frames
+                  incomplete, episodes, events, every cap counter. At the estimated 639 000
+                  deliveries a u32 has more than three orders of magnitude of margin, and each
+                  counter carries an explicit overflow guard that ends the run rather than wrapping.
+             u16 is used ONLY for per-frame quantities bounded by construction (block count <= 48,
+             flag words). **No u16 counts anything that accumulates over the run.**
+
+--- 15. Event store -----------------------------------------------------------------------------
+             A bounded ring of **4 096 events x 64 B = 256 KB**. Never one event per delivery.
+             Event types: capture_start, baseline_candidate, baseline_valid, early_candidate,
+             predicate_disagreement, incomplete_interval, episode_open, episode_stable,
+             episode_close, anomaly, cap_reached, stop, teardown_begin, teardown_end.
+             Each event: **monotonic u32 sequence number** assigned when the operation is performed,
+             u64 timestamp, type, and a small fixed payload. Detailed per-cycle records exist only
+             for the first 8 cycles, the last 8 cycles, anomalies and the cycles inside a preserved
+             episode. Textual formatting happens after the teardown.
+
+--- 16. Teardown ordering -----------------------------------------------------------------------
+             **stop condition -> minimal RAM snapshot -> HARDWARE TEARDOWN -> only then global
+             checksums, summaries, textual formatting and the sidecar save.**
+             Snapshotted before the teardown: final counters, last frame index and its timestamps,
+             stop reason, baseline_valid and the baseline vector, episode descriptors, the PI state
+             the last WAIT_NEXT observed, and the identity fields. The teardown depends on none of
+             them. Dependency audit on the current code: summarize() reads only the store and the
+             raw buffers and writes only records; log_lean_cycles() reads only the cycle records and
+             the two block addresses, which the teardown does not change; the teardown reads no
+             field either produces. Nothing needed for analysis is lost by tearing down first.
+
+--- 17. Sidecar: streamed, never a second full copy in MEM1 -------------------------------------
+             The file is about 5.5 MB — larger than any staging buffer that would be reasonable.
+             After the teardown: open the output, write the header, then write the frame-signature
+             store, the preserved episode frames and the event records **directly in chunks**
+             through a single small buffer (64 KB), maintaining a running CRC-32 across everything
+             written, then the footer carrying that CRC. No second integral copy of the sidecar
+             exists in MEM1 at any point.
+             Filesystem access remains forbidden during capture and service; the save happens only
+             after the teardown has completed, on the user's keypress as today.
+             OGBPSEQ1 is extended, not replaced: the existing header, cycle/VIDEO/AUDIO tables and
+             raw sections keep their layout; new optional sections carry the frame-signature store,
+             the episode descriptors and the event records; the header gains the u64 time-base
+             fields and the sequence-number range. Format version 2; version 1 files stay readable
+             and the v2 block sidecar of GBP-AV-SERVICE-001 is untouched.
+
+--- 18. Save failure is not a hardware failure --------------------------------------------------
+             Because the save happens after the teardown, a filesystem or card failure cannot
+             invalidate the hardware result held in RAM. The two are reported separately:
+             **hardware_result** (SERVICE / FRAME_CAPTURE / BASELINE / STRUCTURED_CHANGE / RESTORE)
+             and **save_result** (ok / partial(sections written) / failed(reason)). A partial save
+             names exactly which sections reached the card. There is never an automatic re-run: the
+             hardware state after a run is not the state a fresh run starts from.
+
+--- 19. Safety caps, kept separate from the scientific target ------------------------------------
+             None of these defines the observation window. All exist so a hardware experiment is
+             bounded whatever the device does. **None is derived from the 24 000 callbacks**: that
+             number describes the Start-up Disc's detector, not our safety policy.
+             **Why a wall-clock cap is necessary:** valid_observation_elapsed only advances while
+             the stream is interpretable (section 6b), so a pathological stream — frames never
+             completing, or a long region-invalidating gap — could accumulate the 120 s arbitrarily
+             slowly while the frame store also fills slowly. Without a wall-clock bound the run
+             would have no guaranteed end.
+
+                 **HARD_WALLCLOCK_LIMIT_SECONDS = 180**
+                 **HARD_WALLCLOCK_LIMIT_TICKS_U64 = 7 290 000 000** (180 x 40 500 000)
+
+             Counted from **t_control_transform**, the first experimental write — the CONTROL
+             transform 0x90 -> 0x8C that starts the AGB — because that is when the device leaves its
+             idle state and a bounded hardware experiment genuinely begins. Counting from the first
+             unmask would leave the 003A cause wait (up to T_FIRST_CAUSE = 2000 ms) outside the
+             bound. The existing admission-budget mechanism, physically exercised in
+             GBP-VIDEO-001, is reused with this epoch: it gates the admission of NEW cycles, an
+             admitted cycle is transactional, and the budget never interrupts one.
+             **Why 180 s**, as an experiment-safety policy and nothing else:
+                 normal worst case      baseline (5 s generous) + 120 s target + 1 s tail = 126 s
+                 margin over that       +54 s, so a slower cadence or a slow baseline does not trip
+                                        the safety cap spuriously
+                 against the store      180 s is 65 % of the frame store's ~275 s of capacity at the
+                                        one cadence we have measured, which gives a clean three-way
+                                        separation: the normal run ends on the scientific target
+                                        with neither cap firing; a slow-clock pathology hits the
+                                        180 s safety cap first; a fast-frame pathology (many short
+                                        or incomplete frames) hits frame_store_cap first
+             Note that 7 290 000 000 does not fit in 32 bits — an independent confirmation that the
+             u64 time base of section 4 is mandatory rather than tidy.
+                 MAX_FRAMES 16 384 · MAX_EVENTS 4 096 · MAX_EPISODES 4 · EPISODE_MAX_FRAMES 60 ·
+                 N_STABLE 3 · MAX_DELIVERIES 2 000 000 (a guard, u32).
+                 T_DELIVERY 100 ms, T_NEXT_CAUSE 100 ms, T_DMA 200 ms, T_FIRST_CAUSE 2000 ms —
+                 unchanged and already physically exercised.
+             **Safety versus the scientific target:** if HARD_WALLCLOCK_LIMIT fires before
+             valid_observation_elapsed reaches MIN_VALID_OBSERVATION, the result is
+             `ok_no_change_inconclusive` with stop reason `safety_budget` — **never**
+             `nominal_negative`. Every stop records capture_elapsed, baseline_elapsed,
+             valid_observation_elapsed and the stop reason.
+             Stop reasons: `nominal_negative` · `frame_store_cap` · `event_store_cap` ·
+             `safety_budget` · `delivery_cap` · `no_next_cause` · `failure`.
+
+--- 20. Result matrix ---------------------------------------------------------------------------
+             SERVICE            ok / failed(<reason>)
+             FRAME_CAPTURE      ok / frame_store_cap / event_store_cap, with frames observed,
+                                complete, incomplete, resync_frames, the interval histogram and the
+                                disagreement count
+             BASELINE           valid(after N frames, baseline_elapsed) / never_established
+             STRUCTURED_CHANGE  **not a boolean.** A status plus counts:
+                                    status            not_observed / observed
+                                    episode_count     episodes opened
+                                    stable_episodes   closed with stable_found
+                                    unstable_episodes closed at EPISODE_MAX_FRAMES
+                                    episodes_not_preserved  seen after the raw store filled
+                                    episode_store_full      flag, may coexist with observed
+                                    truncated_by_safety / tail_truncated_by_cap  flags
+                                An episode is a change **relative to the reference signature of the
+                                moment**, nothing more. It never means "the official frame was
+                                found": only the offline oracle can say that.
+             REFERENCE_MATCH    offline only: not_applicable / unavailable / not_observed / partial /
+                                full, reported per preserved episode
+             RESTORE            ok / failed
+             SAVE               ok / partial(sections written) / failed(reason)
+             Always reported: capture_elapsed, baseline_elapsed, valid_observation_elapsed,
+             valid_observation_at_target, tail_frames, tail_ticks, complete and incomplete frames,
+             anomalies by class, resync_frames, and the stop reason.
+             Main statuses: `ok_structured_change_observed` (episode_count >= 1 and the run reached
+             its target or a non-safety cap) · `ok_no_change_nominal_interval`
+             (valid_observation_elapsed >= 120.000 s, episode_count == 0) ·
+             `ok_no_change_inconclusive` (valid_observation_elapsed < 120.000 s for any reason,
+             including any cap firing first) · plus the GBP-VIDEO-001 failure statuses unchanged.
+
+             Worked examples:
+               A. no episode, target reached
+                    SERVICE=ok · FRAME_CAPTURE=ok · BASELINE=valid · STRUCTURED_CHANGE=not_observed
+                    (episode_count=0) · REFERENCE_MATCH=not_applicable · RESTORE=ok · SAVE=ok
+                    status ok_no_change_nominal_interval; wording "no structured change observed
+                    during >= 120 s of valid post-baseline observation in this physical
+                    configuration".
+               B. several episodes, target reached
+                    STRUCTURED_CHANGE=observed, episode_count=3, stable_episodes=2,
+                    unstable_episodes=1 · REFERENCE_MATCH decided offline per episode ·
+                    status ok_structured_change_observed. The run did NOT stop at the first stable
+                    episode; each is classified offline.
+               C. safety budget before the target
+                    stop reason safety_budget · valid_observation_elapsed < 120 s ·
+                    status ok_no_change_inconclusive (never nominal_negative) · RESTORE reported
+                    independently.
+               D. episode raw store full, monitoring continued
+                    STRUCTURED_CHANGE=observed, episode_count=6, episode_store_full=1,
+                    episodes_not_preserved=2 · the four preserved episodes have raw; the other two
+                    have signatures only, which still support the GBI-table comparison offline.
+                    That distinction is never collapsed.
+               E. hard safety fired with an episode open
+                    stop reason safety_budget · the open episode marked truncated_by_safety ·
+                    status ok_no_change_inconclusive if the target was not reached, otherwise
+                    ok_structured_change_observed · RESTORE reported independently of either.
+
+--- 21. Memory budget, with the final episode policy --------------------------------------------
+             Resident during capture:
+                 text + data (GBP-VIDEO-001 measured 419 KB)                     ~0.45 MiB
+                 frame-signature store 16 384 x 192 B                             3.00 MiB
+                 raw working ring 3 x 48 x 0xF00                                  0.53 MiB
+                 preserved episodes 4 x 4 x 48 x 0xF00                            2.81 MiB
+                 event store 4 096 x 64 B                                         0.25 MiB
+                 AUDIO first + last 2 x 0x1000                                    0.01 MiB
+                 stack and libogc runtime                                        ~0.30 MiB
+                                                                                ---------
+                 resident subtotal                                               ~7.35 MiB
+             Temporary, only after the teardown:
+                 sidecar streaming chunk buffer                                   0.06 MiB
+                                                                                ---------
+                 total                                                           ~7.41 MiB of 24 MiB,
+             leaving about **16.6 MiB**. GBP-VIDEO-001's image occupied 2.21 MiB. The sidecar file
+             itself is roughly 6.3 MiB (signatures 3.00 + preserved raw 2.81 + events 0.25 + the
+             existing sections) and is **never resident in full**: it is streamed in 64 KiB chunks
+             with a running CRC after the teardown (section 17).
+
+Physical setup: identical to GBP-VIDEO-001 — GameCube, GBP attached, NO Game Pak, Link Port empty,
+             PicoAdapterGB disconnected, BBA attached without cable, 1 controller, 1 Memory Card,
+             SD2SP2, Swiss. Power cycle mandatory afterwards. Expect two to five minutes of
+             unattended running, then a multi-megabyte SD write on the keypress.
+
+Risks:       by far the longest run attempted, bounded by the admission budget, the store caps and
+             the per-operation timeouts, all physically exercised; a u32 timestamp anywhere would
+             silently corrupt ordering after 106 s, which is why the width is both a requirement and
+             a test; the checksum cost could perturb the cadence, which is why it is measured with a
+             stated review trigger before any hardware request; the screen may never appear, which
+             is itself the answer to U-GBP-031; a multi-megabyte SD write after the run.
+
+Host tests to add with the implementation (all synthetic, none physical evidence):
+             (1)  time base crossing the low-word wrap 0xFFFFFFFF -> 0x00000000: timestamps,
+                  differences and ordering stay correct, and a deliberately truncated u32 path fails;
+                  HARD_WALLCLOCK_LIMIT_TICKS_U64 = 7 290 000 000 is itself outside u32 and the test
+                  asserts the comparison is done in 64 bits;
+             (2)  a full nominal scan with ~639 000 synthetic deliveries: no counter overflows, no
+                  per-delivery record, the event ring stays bounded;
+             (3)  modelled callback progress delayed beyond 120 s: the run still reports its elapsed
+                  valid observation correctly and the classification uses it;
+             (4)  baseline takes several seconds: baseline_elapsed reflects it and
+                  valid_observation_elapsed is still zero throughout;
+             (5)  the 120 s clock starts only at baseline_valid; capture_elapsed exceeds it by
+                  baseline_elapsed;
+             (6)  the temporal target is reached exactly with no episode open: stop
+                  nominal_negative on the first cycle at or past MIN_VALID_OBSERVATION;
+             (7)  the target is reached with an episode OPEN: no cut mid-episode, the bounded tail
+                  runs, no new episode opens during it, tail_frames and tail_ticks are reported and
+                  the tail never exceeds EPISODE_MAX_FRAMES;
+             (8)  **frame store cap during a tail**: the tail ends, tail_truncated_by_cap is set,
+                  and it is NOT reported as a fatal service error;
+             (9)  **HARD_WALLCLOCK_LIMIT fires with an episode open**: the safety cap wins over the
+                  tail, the episode is marked truncated_by_safety and the teardown is immediate;
+             (10) **safety budget before the target**: status ok_no_change_inconclusive with stop
+                  reason safety_budget, never nominal_negative;
+             (11) **no early stop on stable_found alone**: an episode closes with stable_found and
+                  the run continues to the target, opening further episodes;
+             (12) **the first stable change is not the desired one**: baseline -> intermediate
+                  stable screen -> a different stable screen 20 frames later; both are preserved as
+                  separate episodes and the withdrawn early-stop rule would have lost the second;
+             (13) episode 1 closes, monitoring continues, episode 2 is opened and preserved;
+             (14) **original_baseline_signature is never overwritten** while
+                  current_reference_signature advances to each closed episode's final signature;
+             (15) a change detected relative to current_reference_signature, not to the original
+                  baseline, after one episode has closed;
+             (16) **MAX_EPISODES reached**: the run does NOT stop; episode_store_full is set, no
+                  further raw is preserved, signature monitoring continues and
+                  episodes_not_preserved counts the rest; no episode is overwritten;
+             (17) an episode that never stabilises closes at EPISODE_MAX_FRAMES marked unstable;
+             (18) 120 s reached with several episodes already closed: status
+                  ok_structured_change_observed with the per-episode counts intact;
+             (19) frame_store_cap before the target: stop frame_store_cap, no overwrite, no wrap,
+                  negative result classified ok_no_change_inconclusive;
+             (20) an anomalous frame is not counted as negative evidence: class (a) excludes its
+                  duration, class (b) pauses the clock until a clean complete frame returns;
+             (21) byte-0 variation across a frame changes no semantic signature and opens no episode;
+             (22) baseline formation: three identical complete 40-block frames set it; two do not; a
+                  39- or 41-block interval does not;
+             (23) a structured frame arriving before baseline_valid is preserved as EARLY_CANDIDATE;
+             (24) predicate disagreement: recorded with count, first occurrence and raw_first4;
+                  segmentation unaffected; the frame flagged but not incomplete;
+             (25) an interval other than 40: histogram only, never a failure, no synthesised
+                  boundary;
+             (26) ACK -> checksum -> REARM ordering is what the cycle performs, and the
+                  ACK-to-REARM interval is measured with and without the checksum;
+             (27) the checksum benchmark reports min/median/p95/max and the with/without cadence
+                  comparison, and asserts **no fixed threshold** — the test checks the report is
+                  complete, not that a number is below a constant;
+             (28) immediate teardown: no store, summary or format call occurs between the stop
+                  condition and the first teardown hardware write;
+             (29) deferred formatting preserves event ordering, including two events sharing one
+                  tick, reconstructed from the sequence numbers;
+             (30) sidecar streaming of a file larger than 1 MiB with a running CRC, and no second
+                  full copy resident;
+             (31) save failure after a successful teardown: hardware_result intact, save_result
+                  failed or partial naming the sections written;
+             (32) exact MEM1 capacity: the static footprint matches section 21, no overlap, DMA
+                  targets 32-byte aligned.
 
 ```text
 Question:    Over a bounded sequence of delivered HSP causes serviced the reference way (read IRQ →

@@ -334,3 +334,103 @@ of GBP-AV-SERVICE-001 — the value §6 records as entry 0 of both tables. Read
 from the private inputs at run time, table A carries content in blocks 14–25
 and table B in 12–19, and the embedded frame at `0x801B45A0` begins white:
 three independent confirmations of §2.4 and §3.3 from the binaries themselves.
+
+## 9. What the embedded frame and the checksum tables actually are (static trace, 2026-09-16)
+
+Traced headless in Ghidra from the private inputs. No reference pixel data,
+table value or decompiled text is reproduced here; only behaviour, addresses
+and derived measurements.
+
+### 9.1 Start-up Disc — `0x801B45A0` is a comparison oracle, not an asset that is drawn
+
+The address carries **no data reference** in the binary: it appears as the
+arithmetic immediate `-0x7FE4BA60` inside the video service loop `FUN_8008ede8`,
+which is why a reference search finds nothing. The loop does, per incoming block:
+
+```text
+blk := 0 when FUN_8008a588(first halfword) says frame start
+if blk < 0x28:
+    dst := FB[fb] + blk * 0x780
+    FUN_8008efb4(live block, dst)                  # convert: this is the ONLY writer of the frame buffer
+    if detector_enabled:                            # r13-0x6FB8
+        FUN_8008f080(dst, 0x801B45A0 + blk * 0x780, blk)
+blk := blk + 1 ; at 0x28 the frame buffer index advances (5 buffers)
+```
+
+`FUN_8008f080` compares **960 halfwords** (0x3C0, six at a time, 160 rounds) —
+exactly one block — between the just-converted block and the reference at the
+same block index. On a full match it advances a counter; **when the counter
+passes 0x27, i.e. 40 consecutive blocks matched, it sets the "detected" flag**
+(r13-0x6FB7). Any mismatch resets flag and counter, and the whole thing is
+cleared while the gate byte is 0.
+
+The reference is therefore **never copied into a frame buffer and never
+rendered**. In the taxonomy that matters here it is a *comparison oracle* for
+an *expected AGB frame*, not a local image asset, not a fallback and not a
+rendered image.
+
+### 9.2 What the detection is used for: KEYPAD injection
+
+* `FUN_8008ed4c(v)` arms/disarms the detector and clears its state.
+* `FUN_8008ed60()` returns the detected flag.
+* `FUN_8008c26c` — session start — reads CONTROL (`base + 0x400000`, byte 0x1F),
+  sets bit `0x08`, writes it back, sets the session state to 2 and **arms the
+  detector**, zeroing a frame counter.
+* `FUN_8008b1ac` — the session loop — while that counter is below **24 000**:
+  reads the flag each frame; on the rising edge not-detected → detected it calls
+  `FUN_8008c31c(1)`, and while it stays detected `FUN_8008c31c(0)`. At 24 000 it
+  disarms the detector and stops.
+* `FUN_8008c31c` drives bits `0xF0` of a 16-bit value in a **5 frames on / 5
+  frames off** cycle; that value reaches `FUN_80089e40`, which writes a 32-byte
+  block to **`base + 0xC00000` — the KEYPAD register (index 0xC)**.
+
+So the Disc watches the VIDEO stream for one specific AGB screen and, when it
+recognises it, presses buttons to get past it. The window is 24 000 invocations of a callback registered with a period of
+**202 500 ticks = 5.000 ms exactly** (the registrar `FUN_80067F24` stores that
+period and takes `FUN_8008B1AC` as its callback), so it is **120.0 s**, not the
+~400 s a per-frame reading would give. The counter advances once per invocation
+while the session is in state 2 and no completion callback is pending, and the
+scheduler (`FUN_80067C4C`) explicitly skips missed periods forward rather than
+replaying them, so **120 s is a LOWER bound**: reaching 24 000 takes at least
+that long and longer if invocations are skipped. No upper wall-clock bound
+follows from the value 24 000. **Nothing in this path is needed to reach the screen** — KEYPAD is
+written only to dismiss it.
+
+### 9.3 GBI — two 40-entry signature tables, one reader
+
+Both tables are read from exactly one place, the video service thread
+`FUN_8000BF30`: table A at `0x8000CE68`, table B at `0x8000CDA0`. Each is a
+40-entry loop comparing the run's per-block checksums against the table word by
+word; **all 40 must match**, and any mismatch leaves the loop immediately. The
+selection is by configuration, not by content: a byte at `r13+885` selects
+table A, otherwise a word at `r13+896` equal to `-2` or `-1` selects table B.
+The tables are signatures of two different screens, used the same way the Disc
+uses its frame — to recognise a screen — at a 160× lower storage cost, because a
+checksum per block replaces the pixels.
+
+### 9.4 The Disc's frame and GBI's table A are the same image
+
+Computing GBI's own per-block checksum over the Disc's embedded frame, with bit
+15 cleared to match GBI's service-thread convention, reproduces **39 of the 40
+entries of table A**. The single difference is block 0: table A stores the
+all-white-**with**-frame-flag value while the Disc's copy stores the block
+without it — the Disc does not need the flag inside its reference because it
+gets the frame start from the live stream (`FUN_8008A588`) and resets its block
+index there. Against table B the same computation matches only 25 of 40.
+
+Structure, measured and not reproduced: the Disc's frame is uniform background
+outside blocks 14..25 and carries content inside them; table A's non-uniform
+entries are exactly blocks 14..25; table B's are exactly blocks 12..19. Table A
+and the Disc frame describe one screen; table B describes a second, different
+one. Which AGB states they correspond to is not decided by the code read so far
+(U-GBP-031).
+
+### 9.5 Consequence for GBP-VIDEO-001's uniform capture
+
+GBP-VIDEO-001 matched both references at every block they define as background
+and differed at exactly their content blocks. With the trace above, the reading
+is a timing one rather than a contradiction: the capture observed **39.2 ms,
+about 2.3 frames, starting 107 ms after the CONTROL transform that starts the
+AGB**, while the Disc keeps its own detector armed for 120 s. Whether
+the screen appears later in a session without a Game Pak is the open question
+GBP-VIDEO-002 targets.

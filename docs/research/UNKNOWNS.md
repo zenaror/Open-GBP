@@ -797,21 +797,32 @@ never bytes 1/3? a Disc = 1 / GBI = 0 block?) is the test; the offline
 boundary lists are kept per predicate, none chosen silently. The runtime rule
 stands regardless: read pixels from bytes 1 and 3, as the references do.
 
-### U-GBP-030 — how many VIDEO blocks were lost during the startup transient? — OPEN (not blocking)
+### U-GBP-030 — why were only 25 VIDEO blocks observed between the first two frame starts? — OPEN (not blocking)
 
-GBP-VIDEO-001 (2026-09-16) captured frame starts at sequence positions 0, 25 and
-65. The 25 is **not** a 25-block frame: the four VERIFY cycles at the start cost
-34 792 ticks each against 3 101 for a lean cycle, and the device VIDEO block is
-single-buffered, so blocks produced while the probe was still servicing were
-overwritten without generating separate causes. At the steady cadence (11 891
-ticks per block) the first interval's 628 474 ticks would carry ~37 blocks and 25
-were captured; the interval is also shorter in time than a full frame period
-(680 138 ticks), so "one 40-block frame minus 15" does not fit either. The probe
-drained every VIDEO source it saw (88/88/88), so nothing was lost on our side and
-the log cannot prove the device-side count. Resolving it needs a run whose first
-cycles are not the slow verify ones — for example verify cycles placed later, or
-fewer of them. Does not affect the complete interval seq25 → seq65, which is a
-clean 40 (GBP-HW-066).
+GBP-VIDEO-001 (2026-09-16) observed frame-start predicates true at captured
+sequence positions 0, 25 and 65. The interval 25 is **not** a 25-block frame and
+**no loss has been proven**. What the run establishes is narrower: *the host
+observed only 25 VIDEO blocks between the first two frame-start predicates,
+during the region where the four VERIFY cycles run.*
+
+Facts around it: a verify cycle cost 34 792 ticks against 3 101 for a lean cycle;
+the probe drained every VIDEO source it was signalled (88 selected, 88 attempted,
+88 completed); the steady per-block cadence later in the run was 11 891 ticks;
+the first interval spanned 628 474 ticks, which is **shorter** than the one
+complete frame period measured afterwards (680 138 ticks).
+
+The run does **not** distinguish between:
+
+* source/event coalescing — several device blocks reported through one cause;
+* the GBS-DOL advancing or overwriting its VIDEO block before the host drained it;
+* a startup transient in which the device does not yet emit a full 40-block frame;
+* some other behaviour not yet identified.
+
+Nothing observed attributes the difference to the device rather than to the
+host's timing, and the log carries no counter that would. Resolving it needs a
+run whose first cycles are not the slow verify ones, so that the cadence is
+uniform from the first useful frame. Does not affect the complete interval
+seq25 → seq65, which is a clean 40 (GBP-HW-066).
 
 ### U-GBP-031 — which AGB state produces the all-white frame? — OPEN (not blocking)
 
@@ -824,6 +835,20 @@ instead. Whether that is a later phase of the same boot sequence, a state entere
 without a cartridge, a pre-logotype state, or an AGB held in reset is unknown.
 This is new evidence about the device state, not a fault: the transport, the
 geometry and the byte picking all agree with the references.
+
+**2026-09-16 static follow-up.** The reference asset is now traced (VIDEO_PATH.md
+§9). In the Start-up Disc it is a *comparison oracle*: never drawn, compared
+block by block against the converted live block, and when 40 consecutive blocks
+match, the Disc injects KEYPAD bits to dismiss the screen. The detector is armed
+at session start and kept armed for 24 000 invocations of a 5.000 ms periodic
+callback — a nominal **120.0 s**, and a lower bound on the wall time since the
+scheduler drops missed periods instead of replaying them — so the Disc itself
+does not assume the screen appears promptly. Meanwhile GBP-VIDEO-001's capture window was
+**39.2 ms (about 2.3 frames) starting 107 ms after the CONTROL transform that
+starts the AGB**. The uniform payload is therefore consistent with having looked
+very early and very briefly, and the question becomes a timing question: *when,
+if ever, does the logotype screen appear on the VIDEO stream of a GBP session
+without a Game Pak?* That is what GBP-VIDEO-002 is designed to answer.
 
 ---
 

@@ -4310,3 +4310,444 @@ skipped.
 **Next highest-value step:** decide GBP-VIDEO-002. The uniform white frame means
 a known-colour source is still needed for the colour question, but the transport,
 the geometry and the frame structure no longer are. Not started here.
+
+---
+
+## 2026-09-16 — Phase 4 next step: the references' assets traced, GBP-VIDEO-002 designed
+
+**Goal:** decide what follows GBP-VIDEO-001. The physical run captured a
+uniform frame that matched both references exactly where they are background and
+differed exactly where they hold a logotype. Before designing anything, find out
+what those embedded assets actually are.
+
+**Result:** the assets are recognition machinery, and the "divergence" is very
+probably a timing artefact of our own capture window. GBP-VIDEO-002 is designed
+as a long, low-memory scan. Nothing implemented, no hardware requested.
+
+### The Disc's embedded frame is a comparison oracle
+
+`0x801B45A0` has no data reference in the binary — it is the immediate
+`-0x7FE4BA60` inside the video service loop. That loop converts each live block
+into the frame buffer and then compares the converted block against the
+reference at the same block index, 960 halfwords at a time. Forty consecutive
+matching blocks set a "detected" flag. The reference is never drawn. When the
+flag rises, the Disc drives bits `0xF0` of the KEYPAD register in a 5-on/5-off
+cycle: it recognises one AGB screen in order to press buttons past it, and it
+keeps the detector armed for 24 000 invocations of a 5 ms periodic callback, so
+it plainly does not assume the screen shows up promptly.
+
+Note for our own experiments: **no KEYPAD write is needed to reach that screen**;
+KEYPAD is used only to dismiss it. GBP-VIDEO-001 already set CONTROL bit `0x08`
+as part of the 003A transform, which is exactly what the Disc sets at session
+start.
+
+### GBI's two tables, and the fact they answer
+
+Both tables are read from a single place each, inside the video service thread,
+as 40-entry all-or-nothing comparisons against the run's per-block checksums.
+Selection is by configuration, not content. Computing GBI's own checksum over
+the Disc's embedded frame reproduces **39 of table A's 40 entries** — the one
+difference being block 0, where table A carries the frame-start flag and the
+Disc's copy does not. So the Disc's frame and GBI's table A are the same screen;
+table B is a different one (content at blocks 12..19 rather than 14..25).
+
+### The real reason our capture was uniform
+
+Recomputing the timeline from the physical log: the capture spanned **39.2 ms,
+about 2.3 frames, starting 107 ms after the CONTROL transform that starts the
+AGB**. We looked very early and very briefly, at a device whose own driver is
+prepared to wait two minutes for the screen in question. That reframes
+U-GBP-031 from "the references describe a different state" to a timing question,
+and it is the question GBP-VIDEO-002 asks.
+
+I also corrected U-GBP-030. The previous wording said the block loss was "on the
+device side"; the run does not show that. What it shows is narrower: the host
+observed only 25 VIDEO blocks between the first two frame starts, during the
+region where the four slow verify cycles run. Coalescing, an overwrite before
+the drain, a startup transient and other behaviour are all still open.
+
+### GBP-VIDEO-002: scan, do not hoard
+
+Raw-capturing seconds of VIDEO is impossible — one second is about 9.1 MB. The
+way through is the one both references already use: reduce each block to a
+checksum. The design records checksum + flags + timestamp per block (12 bytes,
+so a 65 536-entry ring covers ~27 s) and keeps raw bytes only for a baseline
+frame, the first frames that differ from it, and a closing frame — three frames,
+460 800 B. The checksum function is GBI's own and is already verified against
+physical data.
+
+Two deliberate changes from GBP-VIDEO-001, both from its own findings:
+
+* **The verify cycles move out of the capture.** They cost 34 792 ticks against
+  3 101 for a lean cycle and they sat exactly where the anomalous first interval
+  appeared. The scanned interval must not contain a cycle 11× slower than its
+  neighbours.
+* **The hardware teardown runs first, summaries afterwards.** I audited the
+  dependencies: `summarize()` reads only the store and the raw buffers,
+  `log_lean_cycles()` reads only the cycle records and the two block addresses,
+  and the teardown reads nothing either produces — so the reorder is safe. The
+  one real coupling is the log order, because `tools/probelog.py` emits
+  operations in record order; moving the per-cycle records after the teardown
+  requires probelog to sort by the absolute timestamps those records already
+  carry. That belongs to VIDEO-002, not to VIDEO-001's artefact.
+
+### Why not go straight to a colour cartridge
+
+Colour needs a source whose true appearance is known independently of the
+references — a reference comparison can only show that two encodings agree,
+never which channel is which. That is real, and it is designed as a follow-on
+(GBP-VIDEO-003) with a concrete pattern requirement. But it should not come
+first: our only physical frame is uniform, so a block reordering, duplication or
+loss *inside* a frame would currently be invisible. A structured frame validates
+that the capture preserves structure, and VIDEO-002 gets one without any new
+hardware. Running a colour test on an unvalidated geometry risks reading a
+geometry error as a colour error.
+
+**Next step:** review the GBP-VIDEO-002 design, then implement it. No hardware
+is requested until it is implemented, audited on a clean commit and authorised.
+
+---
+
+## 2026-09-16 — GBP-VIDEO-002 hardened before the checkpoint
+
+**Goal:** make the scan design survive contact with the real time scale, and
+fix an ambiguity I introduced myself.
+
+**Result:** the envelope is proved rather than assumed, and it is **120 s, not
+~400 s**. Several parts of the design changed as a consequence. Still nothing
+implemented, no hardware requested.
+
+### I had the detector window wrong
+
+The previous entry said the Disc keeps its detector armed for "24 000 frames,
+about 400 seconds". The 24 000 is real but it does not count frames. The counter
+at `r13-0x7014` advances once per invocation of `FUN_8008B1AC`, and that function
+is registered by `FUN_8008A930` through `FUN_80067F24` — which stores a period at
+`struct+0x1C` and takes the callback as its seventh argument — with a period
+computed from the bus clock as `((bus >> 2) / 125000) * 5000 >> 3`. At the
+measured 162 MHz bus that is **202 500 ticks = 5.000 ms exactly**, so the window
+is **120.0 s**. Corrected in VIDEO_PATH.md, UNKNOWNS, EVIDENCE (new GBP-VID-014)
+and here. Good outcome: the target is half of what I claimed and the design gets
+easier, not harder.
+
+### What 120 s actually costs
+
+From GBP-VIDEO-001's measured rates — 5 327 deliveries/s, 2 243 VIDEO blocks/s,
+3 671 AUDIO blocks/s, 16.794 ms per frame — a 120 s run means about **639 000
+deliveries, 269 000 VIDEO blocks and 7 150 frames**. A cycle record per delivery
+and a log line per delivery are both out of the question. The store becomes
+per-frame: 40 semantic checksums plus metadata, 192 bytes a frame, 8 192 frames
+= 1.5 MB covering 137 s. Detailed records survive only for the first and last
+few cycles, anomalies and preserved episodes.
+
+### The time base was a real bug waiting to happen
+
+A u32 tick counter at 40.5 MHz wraps at **106.049 s** — *inside* a 120 s run,
+1.13 times. Every recorded timestamp becomes u64 from the 64-bit PowerPC time
+base. The transport keeps its u32 `ticks` for the bounded per-operation waits,
+where the wrap-safe difference is already correct and physically exercised; only
+recorded timestamps change width. This gets an explicit test, including one that
+fails if a u32 path sneaks back in.
+
+### Other hardening
+
+* **Segmentation on the Disc predicate**, with a physical reason rather than a
+  preference: GBP-HW-070 found byte 0 disagreeing with byte 1 in 688 of 84 480
+  words while byte 2 never disagreed with byte 3. Byte 0 is the unstable one;
+  GBI's predicate uses bytes 0 and 1, the Disc's uses byte 1 alone. Both are
+  still recorded and any disagreement is an event.
+* **Baseline is learned, not assumed**: three consecutive complete 40-block
+  intervals with identical checksum vectors. A structured frame arriving before
+  that is kept as an early-change candidate, not discarded — VIDEO-001's first
+  interval was exactly the kind of transient that would have poisoned a
+  first-frame baseline.
+* **Raw retention is whole frames, previous/trigger/next**, from a 3-slot ring
+  of 48-block frames, and up to **three episodes** with a 30-frame separation —
+  because the first difference may be only a transition and the stable screen
+  may follow.
+* **The checksum runs after REARM**, never between the DMA and the acknowledge,
+  with the raw ring providing the double buffering. The ~20 µs estimate against
+  a 294 µs block period is an estimate and the design says so: it must be
+  measured before implementation. That is the VERIFY_CYCLES lesson applied in
+  advance.
+* **No private table in the runtime.** The console only decides "this frame
+  differs from what this machine has been showing". Matching against the Disc
+  and GBI tables stays offline.
+* **Immediate teardown**, with the list of fields that must be snapshotted to
+  RAM first, and a **monotonic sequence number** on every event so probelog can
+  reconstruct the operation order once formatting happens after the teardown.
+  Sorting by timestamp alone is not enough: two operations can share a tick.
+* **Negative result is defined in advance.** Below 120 s, "no structured frame"
+  is `insufficient_observation_window` and proves nothing. At or above it, it is
+  a physical negative for that configuration, never a claim of impossibility.
+
+Memory budget comes to about 4.87 MB of 24 MB, against 2.21 MB for
+GBP-VIDEO-001 — a fourfold increase with over 19 MB left.
+
+### Numbering audit
+
+`GBP-VIDEO-003` existed only as a future roadmap bullet introduced in `bd841b6`;
+it was never implemented, never executed, has no evidence ID and no executed-test
+entry. Renumbering it to `GBP-VIDEO-004` was therefore legitimate. `GBP-VIDEO-003`
+is now the colour experiment.
+
+**Next step:** review this design, then implement it.
+
+---
+
+## 2026-09-16 — GBP-VIDEO-002 final correction before the checkpoint
+
+**Goal:** close an inverted claim I wrote, and settle four design points that
+were still soft.
+
+**Result:** the design is corrected in six documents. Two of my own statements
+are withdrawn. Still nothing implemented, no hardware requested.
+
+### The 120 s bound was inverted, and the mechanism says so
+
+I wrote that "skipped callbacks only delay the counter, therefore 120 s is an
+upper bound". That is backwards: if skips prevent increments, reaching 24 000
+takes *at least* 120 s.
+
+The code settles it rather than the logic alone. `FUN_80067C4C`, the scheduler
+insert, explicitly detects a deadline already in the past, divides the lateness
+by the period and advances the next fire time by `(lateness / period) + 1`
+periods. **Missed periods are dropped, never replayed — there is no catch-up.**
+So the counter advances at most once per 5 ms and:
+
+* nominal detector interval = 120.000 s
+* minimum elapsed time to reach 24 000 = **≥ 120.000 s**
+* actual wall time may be longer
+* no upper wall-clock bound follows from the value 24 000 at all
+
+Corrected in HARDWARE_TESTS, VIDEO_PATH, UNKNOWNS, EVIDENCE and ROADMAP — not
+just retracted here, which was the other thing I got wrong last round.
+
+### The checksum position was wrong too, and the references say where it goes
+
+I had put the checksum after the re-arm to keep DMA→ACK short. Tracing GBI's
+service thread in order: read IRQ (0xD00000) → ARQ read AUDIO → ARQ read VIDEO →
+**ACK**, the 64-byte write at 0xCFFFE0 that spans the end of the KEYPAD window
+into the IRQ window → conversion and per-block checksum → at block 0x27 the
+40-entry table comparison → **RE-ARM** at 0xD00000, the last device access of
+the pass.
+
+So GBI does the work *between* the ACK and the re-arm. The Disc does not
+serialise it at all — its compare lives in a thread fed by a queue. GBI is the
+only reference with a single serial path, so it is the one that maps onto our
+probe, and GBP-VIDEO-002 now does the same:
+
+```
+READ → AUDIO → VIDEO DMA → ACK → PICLEAN → checksum → REARM → WAIT_NEXT
+```
+
+This is also the safer position on its own terms: the re-arm is what invites the
+next cause, so deferring it defers the next cause instead of leaving one latched
+while we hash. GBP-VIDEO-001 showed a cause can latch almost immediately after a
+re-arm, which is exactly the risk my previous position carried.
+
+### The 30-frame cooldown could have hidden the answer
+
+"Up to 3 episodes separated by 30 frames" would open an episode on a transition
+frame and then skip the stable screen arriving two frames later. Replaced by a
+state machine: ARMED → CHANGED → STABILISING → CLOSED, where a signature
+repeating three times marks the state stable, one raw frame of it is preserved,
+and the episode closes and immediately re-arms against its own final signature.
+`N_STABLE = 3` is the same evidence threshold the baseline uses, so "stable"
+means one thing in both places. A hard cap of 60 frames closes an episode that
+never stabilises, so nothing is unbounded.
+
+### Smaller things now pinned
+
+* **Time base**: the mechanism is named — TBU/TBL/TBU with retry, which is what
+  libogc2's `gettime()` does — and monotonicity across the low-word carry follows
+  from the retry itself. u32 deltas stay legal for the short per-operation waits,
+  and that contract is written down rather than implied.
+* **Signature**: byte 1 and byte 3 only. Byte 0 is never read, so the 688
+  exceptions GBP-HW-070 measured cannot forge a structured change — a property of
+  the algorithm, not a tuning choice. The frame-start bit is inside the checksum
+  by construction and, since block 0 always carries it, cannot by itself mark a
+  frame changed.
+* **Frame store** grows to 16 384 entries (3.00 MB, 275 s). At 8 192 the cap was
+  likely to be the stop; now it is a backstop. Filling it stops the run cleanly
+  with `frame_store_cap`, no overwrite and no wrap, and the negative-result
+  classification keys on **elapsed valid observation**, never on which cap fired.
+* **Sidecar is streamed**: the file is ~5.5 MB, written in 64 KB chunks with a
+  running CRC after the teardown. No second full copy in MEM1 — the old 0.25 MB
+  "staging buffer" obviously could not have held it.
+* **Save is separate from hardware**: `hardware_result` and `save_result` are
+  reported independently, a partial save names the sections written, and there is
+  never an automatic re-run.
+* **Checksum cost** gets a measurement plan (min/median/p95/max over ≥10 000
+  blocks) and a review trigger stated in advance: p95 above 25 % of the median
+  lean-cycle duration sends the position back for revision before any hardware
+  request.
+
+Memory comes to ~6.71 MB of 24 MB, ~17.3 MB free.
+
+**Next step:** review this design, then implement it.
+
+---
+
+## 2026-09-16 — GBP-VIDEO-002: the stop condition made explicit, the 25 % gate withdrawn
+
+**Goal:** close the last two ambiguities before the checkpoint. Nothing
+implemented, no hardware requested.
+
+### Where the 120 s start, and when the run ends
+
+The target was stated but its starting point was not. It is now
+**MIN_VALID_OBSERVATION = 120.000 s accumulated after baseline_valid**, not from
+capture start. The reason is what the negative claim actually asserts: "a
+structured state did not appear during a valid window of comparison". Before
+baseline_valid there is no reference to compare against, so that time cannot
+support the claim.
+
+This means our window is **not placed where the Disc's is** — the Disc arms its
+detector at session start because it does not learn a baseline, it has the
+reference embedded. I wrote that difference down rather than papering over it.
+Pre-baseline frames are not lost: they are recorded in full with a flag, and one
+that differs from its neighbours opens an EARLY_CANDIDATE episode with raw
+frames. An early screen is still captured as evidence; it just does not count as
+negative evidence.
+
+The stop condition is now a normative ladder — fatal error, positive episode,
+temporal target, frame store, event store, safety budget, no next cause — and it
+answers the case I had left open: if an episode is **open** when the target is
+reached, the run does not cut mid-episode. It runs a bounded finalisation tail
+governed by the EPISODE_MAX_FRAMES = 60 cap already defined, opens no new
+episode, reports tail_frames separately, then tears down.
+
+I also added the three clocks explicitly (capture_elapsed, baseline_elapsed,
+valid_observation_elapsed, all u64) and a deliberately conservative anomaly
+policy in three classes: a frame-invalidating anomaly excludes that frame's
+duration, a resync pauses the clock until a clean complete frame returns, and
+the existing fatal set ends the run. When in doubt the time does not count, so a
+negative result can only understate the observation.
+
+### The 25 % threshold is withdrawn
+
+I had required "checksum p95 below 25 % of the median lean cycle". That number
+had no physical basis — nothing in the evidence makes 25 % meaningful rather
+than 15 % or 40 %, and inventing a gate is worse than having none because it
+looks like a measurement.
+
+What replaces it is a measurement and a comparison, both mandatory before a
+physical candidate: the per-block cost as min/median/p95/max over at least
+10 000 blocks, on host and on the built DOL; and the same synthetic scenario run
+**with and without** the checksum, comparing service cadence, VIDEO and AUDIO
+block rates, the ACK-to-REARM interval, next-cause timing, the latched interval
+and any change in timeout or reentry behaviour. The gate is a review gate: the
+report accompanies the release audit and no candidate ships while any of those
+quantities has moved in a way the reviewer has not examined and accepted.
+
+### Smaller consequences
+
+* The frame store is now described as **capacity, not a temporal target**. Its
+  ~275 s exist for baseline acquisition, cadence variation, incomplete intervals,
+  the episode tail and structural margin. If it fills before the target the
+  result is `ok_no_change_inconclusive`, and the classification always keys on
+  valid_observation_elapsed rather than on which cap fired.
+* A **wall-clock safety cap is kept**, with a concrete justification rather than
+  habit: because valid_observation_elapsed only advances while the stream is
+  interpretable, a pathological stream could accumulate 120 s arbitrarily slowly
+  while the store fills slowly too, leaving the run with no guaranteed end. It is
+  labelled a safety cap and never "the official window".
+* **Positive stop** is defined: change detected, stabilised at N_STABLE, every
+  owed raw frame preserved, episode closed, nothing mandatory outstanding. An
+  episode that closed `unstable` at the 60-frame cap is explicitly not a positive
+  stop. A positive stop stands independently of any private comparison; offline
+  decides which screen it was.
+* `ok_no_change_short_run` is renamed `ok_no_change_inconclusive`, because the
+  run may be long and still inconclusive if a cap fired first.
+
+Test list grew to 25, including the target reached with an episode open, the
+bounded tail, the clock starting only at baseline_valid, an anomalous frame not
+counting as negative evidence, and a benchmark test that asserts the report is
+complete rather than that a number is below a constant.
+
+**Next step:** review this design, then implement it.
+
+---
+
+## 2026-09-16 — GBP-VIDEO-002 closed: the safety limit fixed, the early stop removed
+
+**Goal:** resolve the last two normative ambiguities. Nothing implemented, no
+hardware requested.
+
+### The hard wall-clock limit
+
+**HARD_WALLCLOCK_LIMIT = 180 s = 7 290 000 000 ticks**, counted from
+`t_control_transform` — the CONTROL write `0x90 → 0x8C` that starts the AGB.
+That epoch rather than the first unmask, because a *safety* bound should cover
+the whole time the device is out of its idle state, including the 003A cause
+wait of up to 2 s.
+
+The value is an experiment-safety policy and is **not** derived from the 24 000
+callbacks. The reasoning is a three-way separation:
+
+| scenario | what stops it |
+|---|---|
+| normal run | the scientific target at ~126 s, neither cap fires |
+| slow-clock pathology | the 180 s safety cap |
+| fast-frame pathology | frame_store_cap |
+
+Normal worst case is baseline (5 s generous) + 120 s target + 1 s tail = 126 s,
+so 180 s leaves +54 s of margin, and it sits at 65 % of the frame store's ~275 s
+of capacity. Incidentally 7 290 000 000 does not fit in 32 bits, which is an
+independent confirmation that the u64 base is mandatory and not merely tidy.
+
+If the safety cap fires before the target, the result is
+`ok_no_change_inconclusive` with stop reason `safety_budget` — never
+`nominal_negative`.
+
+### The early positive stop is gone
+
+The conflict was real and I had created it. The runtime holds no oracle, so it
+cannot know that the first stable changed state is the one the experiment is
+about. Concretely: baseline uniform → an intermediate stable screen → the
+expected screen twenty frames later. Stopping at the first stable state would
+have preserved the intermediate screen and lost the one we came for.
+
+I looked for any oracle-free condition that could justify an early stop and
+found none worth having. "Stop on the first stable change" fails the case above.
+"Stop at MAX_EPISODES" is a capacity condition wearing a scientific hat.
+"Stop when a frame has content in the block range the references use" is the
+private layout smuggled into the runtime. "Stop when the block checksums look
+diverse" is an arbitrary heuristic that would fire on noise and still could not
+tell the two screens apart. So **there is no early positive stop**: the probe
+runs to the target, a cap, or a failure, and every episode is classified
+offline. That is the outcome that gets the most out of one physical run.
+
+### Consequences
+
+* **MAX_EPISODES = 4**, up from 3, for a named reason: the scenario that removed
+  the early stop needs two episodes, and VIDEO-001 showed an early transient that
+  can consume one, so four leaves a spare. 4 preserved raw frames per episode ×
+  48 × 0xF00 × 4 episodes = 2.81 MiB.
+* **Filling the episode raw store does not end the run.** `episode_store_full`
+  is set, raw preservation stops, and signature monitoring continues, counting
+  `episodes_not_preserved`. The signatures are themselves primary evidence —
+  GBI's table comparison is a checksum comparison — so an unpreserved episode
+  still yields a comparable vector offline; only pixels are lost. Ending the run
+  there would discard the remaining signature evidence for no safety benefit.
+  No episode is ever overwritten.
+* **Two signatures, kept apart**: `original_baseline_signature` is fixed at
+  baseline_valid and never overwritten; `current_reference_signature` advances to
+  each closed episode's final stable signature, so a second transition is detected
+  relative to the state the device actually settled into.
+* **STRUCTURED_CHANGE is no longer a boolean**: status plus episode_count,
+  stable_episodes, unstable_episodes, episodes_not_preserved, and the
+  episode_store_full / truncated_by_safety / tail_truncated_by_cap flags. An
+  episode means "a change relative to the reference signature of the moment",
+  never "the official frame was found".
+* **Precedence is explicit**: fatal error > safety budget > store caps >
+  scientific target > no_next_cause > delivery guard. The safety cap wins over an
+  open episode's finalisation tail, because a hard cap extendable by 60 frames
+  would not be hard. A store cap during a tail sets `tail_truncated_by_cap` and is
+  not a fatal error.
+
+Memory comes to ~7.41 MiB of 24 MiB, ~16.6 MiB free. The sidecar is ~6.3 MiB and
+is streamed, never resident. The test list is now 32 items.
+
+**Next step:** review, then implement.
