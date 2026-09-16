@@ -74,16 +74,13 @@ void gbp_irq_service_log_preunmask(struct ringlog *log, const char *nfield, cons
                    (unsigned)((s->irq_gbi & bit15_mask) ? 1u : 0u));
 }
 
-void gbp_irq_service_deliver(const struct gbp_transport *t, struct ringlog *log, uint32_t tb_hz,
-                             uint32_t t_delivery_ms, uint32_t t_delivery_ticks, int slot,
-                             const char *nfield, const char *sfx, struct gbp_irq_delivery *d, unsigned *errors)
+void gbp_irq_service_deliver_quiet(const struct gbp_transport *t, uint32_t tb_hz, uint32_t t_delivery_ticks, int slot,
+                                   struct gbp_irq_delivery *d, unsigned *errors)
 {
     struct gbp_irq_record rec0;
     const struct gbp_irq_record *r;
-    uint32_t intsr = 0, intmr = 0;
-    char tag[32];
 
-    /* ---- 5. one unmask; values first, formatting afterwards ---- */
+    /* ---- 5. one unmask; values only ---- */
     d->pi_pre_unmask_ok = (t->read_pi(t->ctx, &d->intsr_pre_unmask, &d->intmr_pre_unmask) == GBP_OK) ? 1 : 0;
     d->t_unmask = now(t);
     d->unmask_rc = t->irq_unmask(t->ctx);
@@ -91,15 +88,7 @@ void gbp_irq_service_deliver(const struct gbp_transport *t, struct ringlog *log,
     d->t_post_unmask = now(t);                   /* the handler may already have run inside __UnmaskIrq */
     d->pi_post_unmask_ok = (t->read_pi(t->ctx, &d->intsr_post_unmask, &d->intmr_post_unmask) == GBP_OK) ? 1 : 0;
     read_record(t, slot, &rec0);
-    ringlog_printf(log, "PI tag=UNMASKPRE%s rc=%s intsr=%08lx intmr=%08lx intsr13=%u intmr13=%u", sfx,
-                   d->pi_pre_unmask_ok ? "ok" : "fail", (unsigned long)d->intsr_pre_unmask, (unsigned long)d->intmr_pre_unmask,
-                   bit13(d->intsr_pre_unmask), bit13(d->intmr_pre_unmask));
-    ringlog_printf(log, "UNMASK%s t_unmask=%lu rc=%s t_post=%lu dt_post=%lu", nfield, (unsigned long)d->t_unmask,
-                   gbp_status_name(d->unmask_rc), (unsigned long)d->t_post_unmask,
-                   (unsigned long)(uint32_t)(d->t_post_unmask - d->t_unmask));
-    ringlog_printf(log, "PI tag=UNMASKPOST%s rc=%s intsr=%08lx intmr=%08lx intsr13=%u intmr13=%u fired=%lu", sfx,
-                   d->pi_post_unmask_ok ? "ok" : "fail", (unsigned long)d->intsr_post_unmask, (unsigned long)d->intmr_post_unmask,
-                   bit13(d->intsr_post_unmask), bit13(d->intmr_post_unmask), (unsigned long)rec0.fired);
+    d->rec0_fired = rec0.fired;
     if (!d->pi_pre_unmask_ok || !d->pi_post_unmask_ok) (*errors)++;
 
     /* ---- 6. wait for the handler or the operational bound; no DMA, no formatting in here ---- */
@@ -119,27 +108,30 @@ void gbp_irq_service_deliver(const struct gbp_transport *t, struct ringlog *log,
 
     /* ---- 7. IRQ 26 masked again by the main loop (idempotent with the handler's own mask), then verified ---- */
     d->mask_rc = t->irq_mask(t->ctx);
-    ringlog_printf(log, "IRQ mask tag=MAIN%s rc=%s", nfield, gbp_status_name(d->mask_rc));
     if (d->mask_rc == GBP_OK) d->irq_masked_again = 1; else (*errors)++;
-    ringlog_printf(log, "WAIT%s fired=%d timed_out=%d polls=%u wait_ticks=%lu wait_us=%lu t_delivery_ms=%lu t_delivery_ticks=%lu",
-                   nfield, d->timed_out ? 0 : 1, d->timed_out, d->polls, (unsigned long)d->wait_ticks,
-                   (unsigned long)ticks_to_us(tb_hz, d->wait_ticks), (unsigned long)t_delivery_ms, (unsigned long)t_delivery_ticks);
-    snprintf(tag, sizeof tag, "tag=REMASKCHK%s", sfx);
-    if (gbp_rawlog_read_pi(t, log, tag, &intsr, &intmr)) {
-        d->intsr_remask = intsr; d->intmr_remask = intmr;
-        d->main_mask_ok = bit13(intmr) ? 0 : 1;
-        if (!d->main_mask_ok) {
-            gbp_status rc = t->irq_mask(t->ctx);
-            d->remask_retry = 1;
-            ringlog_printf(log, "IRQ mask tag=RETRY%s rc=%s", nfield, gbp_status_name(rc));
-            snprintf(tag, sizeof tag, "tag=REMASKCHK2%s", sfx);
-            if (gbp_rawlog_read_pi(t, log, tag, &intsr, &intmr)) { d->intsr_remask = intsr; d->intmr_remask = intmr; d->main_mask_ok = bit13(intmr) ? 0 : 1; }
-        }
-    } else {
+    if (!t->read_pi) {
+        d->remask_unavailable = 1;
+        d->remask_rc = GBP_ERR_BACKEND;
         (*errors)++;
+    } else {
+        d->remask_rc = t->read_pi(t->ctx, &d->intsr_remask_first, &d->intmr_remask_first);
+        if (d->remask_rc != GBP_OK) {
+            (*errors)++;
+        } else {
+            d->intsr_remask = d->intsr_remask_first; d->intmr_remask = d->intmr_remask_first;
+            d->main_mask_ok = bit13(d->intmr_remask) ? 0 : 1;
+            if (!d->main_mask_ok) {
+                uint32_t intsr = 0, intmr = 0;
+                d->retry_rc = t->irq_mask(t->ctx);
+                d->remask_retry = 1;
+                d->remask2_read = 1;
+                d->remask2_rc = t->read_pi(t->ctx, &intsr, &intmr);
+                if (d->remask2_rc == GBP_OK) { d->intsr_remask = intsr; d->intmr_remask = intmr; d->main_mask_ok = bit13(intmr) ? 0 : 1; }
+            }
+        }
     }
 
-    /* ---- 8. the record, copied only now (masked); formatted here, outside the handler ---- */
+    /* ---- 8. the record, copied only now (masked) ---- */
     read_record(t, slot, &d->rec);
     r = &d->rec;
     d->fired = r->fired ? 1 : 0;
@@ -147,6 +139,36 @@ void gbp_irq_service_deliver(const struct gbp_transport *t, struct ringlog *log,
     if (d->fired) {
         d->latency_ticks = (uint32_t)(r->t_entry - d->t_unmask);   /* wrap-safe; never from t_post_unmask */
         d->latency_us = ticks_to_us(tb_hz, d->latency_ticks);
+    }
+}
+
+void gbp_irq_service_deliver_log(struct ringlog *log, uint32_t tb_hz, uint32_t t_delivery_ms, uint32_t t_delivery_ticks,
+                                 const char *nfield, const char *sfx, const struct gbp_irq_delivery *d)
+{
+    const struct gbp_irq_record *r = &d->rec;
+    char tag[32];
+    ringlog_printf(log, "PI tag=UNMASKPRE%s rc=%s intsr=%08lx intmr=%08lx intsr13=%u intmr13=%u", sfx,
+                   d->pi_pre_unmask_ok ? "ok" : "fail", (unsigned long)d->intsr_pre_unmask, (unsigned long)d->intmr_pre_unmask,
+                   bit13(d->intsr_pre_unmask), bit13(d->intmr_pre_unmask));
+    ringlog_printf(log, "UNMASK%s t_unmask=%lu rc=%s t_post=%lu dt_post=%lu", nfield, (unsigned long)d->t_unmask,
+                   gbp_status_name(d->unmask_rc), (unsigned long)d->t_post_unmask,
+                   (unsigned long)(uint32_t)(d->t_post_unmask - d->t_unmask));
+    ringlog_printf(log, "PI tag=UNMASKPOST%s rc=%s intsr=%08lx intmr=%08lx intsr13=%u intmr13=%u fired=%lu", sfx,
+                   d->pi_post_unmask_ok ? "ok" : "fail", (unsigned long)d->intsr_post_unmask, (unsigned long)d->intmr_post_unmask,
+                   bit13(d->intsr_post_unmask), bit13(d->intmr_post_unmask), (unsigned long)d->rec0_fired);
+    ringlog_printf(log, "IRQ mask tag=MAIN%s rc=%s", nfield, gbp_status_name(d->mask_rc));
+    ringlog_printf(log, "WAIT%s fired=%d timed_out=%d polls=%u wait_ticks=%lu wait_us=%lu t_delivery_ms=%lu t_delivery_ticks=%lu",
+                   nfield, d->timed_out ? 0 : 1, d->timed_out, d->polls, (unsigned long)d->wait_ticks,
+                   (unsigned long)ticks_to_us(tb_hz, d->wait_ticks), (unsigned long)t_delivery_ms, (unsigned long)t_delivery_ticks);
+    snprintf(tag, sizeof tag, "tag=REMASKCHK%s", sfx);
+    if (d->remask_unavailable) gbp_rawlog_log_pi(log, tag, "unavailable", 0, 0);
+    else if (d->remask_rc != GBP_OK) gbp_rawlog_log_pi(log, tag, gbp_status_name(d->remask_rc), 0, 0);
+    else gbp_rawlog_log_pi(log, tag, "ok", d->intsr_remask_first, d->intmr_remask_first);
+    if (d->remask_retry) {
+        ringlog_printf(log, "IRQ mask tag=RETRY%s rc=%s", nfield, gbp_status_name(d->retry_rc));
+        snprintf(tag, sizeof tag, "tag=REMASKCHK2%s", sfx);
+        if (d->remask2_rc != GBP_OK) gbp_rawlog_log_pi(log, tag, gbp_status_name(d->remask2_rc), 0, 0);
+        else gbp_rawlog_log_pi(log, tag, "ok", d->intsr_remask, d->intmr_remask);
     }
     ringlog_printf(log, "HANDLER%s fired=%lu count=%lu t_entry=%lu t_unmask=%lu latency_ticks=%lu latency_us=%lu reentry=%d",
                    nfield, (unsigned long)r->fired, (unsigned long)r->count, (unsigned long)r->t_entry,
@@ -162,6 +184,14 @@ void gbp_irq_service_deliver(const struct gbp_transport *t, struct ringlog *log,
                    nfield, d->fired, (unsigned long)r->count, (unsigned long)d->latency_ticks, (unsigned long)d->latency_us,
                    bit13(r->intsr_before_ack), bit13(r->intmr_at_entry), bit13(r->intmr_after_mask), bit13(r->intsr_before_w1c),
                    bit13(r->intsr_after_ack), bit13(r->intsr_second), bit13(r->intmr_second), d->main_mask_ok, d->reentry);
+}
+
+void gbp_irq_service_deliver(const struct gbp_transport *t, struct ringlog *log, uint32_t tb_hz,
+                             uint32_t t_delivery_ms, uint32_t t_delivery_ticks, int slot,
+                             const char *nfield, const char *sfx, struct gbp_irq_delivery *d, unsigned *errors)
+{
+    gbp_irq_service_deliver_quiet(t, tb_hz, t_delivery_ticks, slot, d, errors);
+    gbp_irq_service_deliver_log(log, tb_hz, t_delivery_ms, t_delivery_ticks, nfield, sfx, d);
 }
 
 static void postack_and_w1c(const struct gbp_transport *t, struct ringlog *log, struct gbp_initirqa_result *a,

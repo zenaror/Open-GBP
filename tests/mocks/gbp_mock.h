@@ -41,7 +41,7 @@
 extern "C" {
 #endif
 
-#define GBP_MOCK_MAX_OPS 512
+#define GBP_MOCK_MAX_OPS 8192   /* GBP-VIDEO-001: hundreds of cycles of a dozen operations each */
 
 enum gbp_mock_op_kind {
     MOCK_AR_R, MOCK_AR_W, MOCK_RD, MOCK_WR,
@@ -52,7 +52,9 @@ enum gbp_mock_op_kind {
     /* multi-cycle path (GBP-INIT-004): the generation published by the main loop (value = gen) */
     MOCK_IRQ_PREPARE,
     /* whole-block read (GBP-AV-SERVICE-001): addr, len, rc, data = the first 32 bytes delivered */
-    MOCK_RD_BULK
+    MOCK_RD_BULK,
+    /* the one-shot record reset between deliveries (GBP-VIDEO-001; memory only) */
+    MOCK_IRQ_RESET
 };
 
 struct gbp_mock_op {
@@ -91,6 +93,9 @@ enum gbp_mock_bit15_mode {
 #define GBP_MOCK_VIOL_DMA_WHILE_UNMASKED       0x40u  /* block transfer while INTMR bit 13 is enabled */
 #define GBP_MOCK_VIOL_INSTALL_TWICE            0x80u  /* irq_install while already installed */
 #define GBP_MOCK_VIOL_PREPARE_WHILE_UNMASKED   0x100u /* generation published while INTMR bit 13 is enabled (GBP-INIT-004) */
+#define GBP_MOCK_VIOL_RESET_WHILE_UNMASKED     0x200u /* record reset while INTMR bit 13 is enabled (GBP-VIDEO-001) */
+#define GBP_MOCK_VIOL_W1C_BETWEEN_CAUSE_UNMASK 0x400u /* main-loop INTSR W1C between a re-arm and the next unmask (GBP-VIDEO-001); the
+                                                       * window closes at the teardown's stop word, whose own single W1C is legal */
 
 struct gbp_mock {
     /* configuration */
@@ -197,6 +202,37 @@ struct gbp_mock {
     unsigned bit15_drop_at_write;   /* 1-based IRQ-register write whose bit 15 is not retained (reads 0 afterwards; 0 = never) */
     unsigned pi_phantom_after_write;/* 1-based IRQ-register write after which INTSR bit 13 is set with no source (0 = never) */
     uint32_t pi_phantom_delay;      /* ticks after that write */
+    /* ---- repeated service (SYNTHETIC; GBP-VIDEO-001) ----
+     * A cause scheduled after every re-arm (a zero-value IRQ write after A2): re-arm k (0-based) arms
+     * seq_steps[k % seq_len] — its even source bits `delay` ticks later — for k < seq_stop_after (0 = every
+     * re-arm). VIDEO blocks (index 1) get a frame flag in their first four bytes by period / phase or at
+     * one read; AUDIO/VIDEO bulk reads count separately; a bulk read may fail by number; the clock may jump
+     * inside a bulk read or after a re-arm (admission-deadline models). None of it is physical data. */
+    struct gbp_mock_seq_step { uint16_t bits; uint32_t delay; } seq_steps[16];
+    unsigned seq_len;
+    unsigned seq_stop_after;        /* re-arms that get a cause (0 = all) */
+    int seq_pending;                /* an armed step */
+    uint32_t seq_pending_at_tick;
+    uint16_t seq_pending_bits;
+    unsigned zero_irq_writes;       /* zero-value IRQ writes seen (the first is A2, the rest are re-arms) */
+    unsigned rearms;                /* re-arms seen */
+    unsigned video_reads, audio_reads;   /* bulk reads of index 1 / 8 seen (attempted) */
+    uint32_t video_flag_period;     /* VIDEO read n (0-based) carries the flag when (n + video_flag_phase) % period == 0 (0 = never by period) */
+    uint32_t video_flag_phase;
+    uint32_t video_flag_only_at;    /* 1-based VIDEO read that carries the flag (0 = unused) */
+    int video_flag_style;           /* 0: both copies set (gbi = disc = 1); 1: byte 1 only (disc = 1, gbi = 0); 2: byte 0 only (both 0) */
+    int video_first4_model;         /* 1: the first four bytes of every VIDEO block follow the flag model (7f 7f ff ff when no flag); 0: the pattern */
+    uint32_t video_byte0_extra_at;  /* 1-based VIDEO read whose byte 0 gets bit 0x80 with byte 1 untouched (0 = never) */
+    unsigned bulk_fail_at_read;     /* 1-based bulk read number that fails with bulk_fail_rc (0 = never) */
+    gbp_status bulk_fail_rc;
+    unsigned bulk_tick_jump_at_read;/* 1-based bulk read number during which the clock jumps by bulk_tick_jump (0 = never) */
+    uint32_t bulk_tick_jump;
+    unsigned tick_jump_at_rearm;    /* 1-based re-arm after which the clock jumps by tick_jump_rearm (0 = never) */
+    uint32_t tick_jump_rearm;
+    unsigned record_resets;         /* irq_record_reset calls seen */
+    int reset_ignored;              /* synthetic fault: the reset leaves the record untouched */
+    int cause_latched_after_rearm;  /* INTSR bit 13 rose after the last re-arm and no unmask consumed it yet */
+    int rearm_window;               /* between a re-arm and the next unmask (or the teardown's stop word): no main W1C allowed */
     /* state */
     uint8_t test_store[GBP_BLOCK_SIZE];
     unsigned transfers;         /* block transfers so far */

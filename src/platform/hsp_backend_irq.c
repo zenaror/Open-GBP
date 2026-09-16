@@ -9,6 +9,10 @@
 /*
  * ---- PI HSP interrupt path -------------------------------------------
  *
+ * The record can be reset between deliveries (irq_record_reset, GBP-VIDEO-001):
+ * a memory-only clear, legal only while INTMR bit 13 = 0, so the same handler
+ * serves every delivery of a repeated service with its unchanged body.
+ *
  * Two one-shot handlers for OS interrupt 26 (libogc2 IRQ_PI_HSP), both
  * with bodies shared with the host mock (src/gbp/gbp_irq_oneshot.h):
  *   hsp_backend_oneshot_isr      GBP-INIT-002 body (audited, executed)
@@ -127,6 +131,20 @@ static gbp_status h_irq_record(void *ctx, struct gbp_irq_record *out)
     return GBP_OK;
 }
 
+/* GBP-VIDEO-001 (repeated service with the one installed handler): the
+ * record back to the state the install left it in — memory only. Refused
+ * while IRQ 26 is enabled (INTMR bit 13 read 1: the record belongs to the
+ * handler then) and when no handler is installed. This function READS
+ * INTMR and never stores to it. */
+static gbp_status h_irq_record_reset(void *ctx)
+{
+    struct hsp_backend *b = (struct hsp_backend *)ctx;
+    if (!b->handler_installed) return GBP_ERR_PARAM;
+    if (PI_INTMR & GBP_PI_HSP_BIT) return GBP_ERR_BUSY;
+    irq_rec_clear();
+    return GBP_OK;
+}
+
 void hsp_backend_irq_transport(struct hsp_backend *b, struct gbp_transport *t)
 {
     b->use_ext_isr = 0;
@@ -135,6 +153,7 @@ void hsp_backend_irq_transport(struct hsp_backend *b, struct gbp_transport *t)
     t->irq_mask = h_irq_mask;
     t->irq_unmask = h_irq_unmask;
     t->irq_record = h_irq_record;
+    t->irq_record_reset = h_irq_record_reset;
 }
 
 void hsp_backend_irq_transport_ext(struct hsp_backend *b, struct gbp_transport *t)

@@ -211,6 +211,7 @@ class IsrAuditOnBuild003B(unittest.TestCase):
         self.assertEqual(sorted(h[0] for h in intsr), ["hsp_backend_oneshot_isr", "hsp_backend_oneshot_isr_ext"])
 
 
+AUDIT_FILE_VIDEO = os.path.join(ROOT, "build", "poc", "gbp-video-capture-probe", "audit", "hsp_backend_irq.objdump.txt")
 AUDIT_FILE_AV = os.path.join(ROOT, "build", "poc", "gbp-av-service-probe", "audit", "hsp_backend_irq.objdump.txt")
 
 
@@ -282,6 +283,50 @@ class IsrAuditOnBuild004(unittest.TestCase):
         intmr, intsr = poc_audit.pi_stores(funcs)
         self.assertEqual(intmr, [])
         self.assertEqual(sorted(h[0] for h in intsr), ["hsp_backend_oneshot_isr_multi"])
+
+
+@unittest.skipUnless(os.path.isfile(AUDIT_FILE_VIDEO), "run `make build video-audit` to produce the objdump")
+class IsrAuditOnBuildVIDEO(unittest.TestCase):
+    """GBP-VIDEO-001 reuses the 002/003B interrupt object unchanged: the extended one-shot is the
+    handler installed ONCE and re-armed between deliveries by a memory-only record reset, so both
+    bodies must still be clean and byte-identical to the GBP-AV-SERVICE-001 build's."""
+
+    def _audit(self, symbol):
+        with open(AUDIT_FILE_VIDEO, "r", encoding="utf-8", errors="replace") as f:
+            text = f.read()
+        items = isr_audit.extract_function(text, symbol)
+        self.assertIsNotNone(items, "%s not in the objdump" % symbol)
+        findings, calls = isr_audit.audit(items)
+        self.assertEqual(findings, [], symbol)
+        self.assertEqual(calls, ["__MaskIrq"], symbol)
+        intsr, intmr = isr_audit.pi_store_sites(items)
+        self.assertEqual([st[4] for st in intsr], [0x2000], symbol)
+        self.assertEqual(intmr, [], symbol)
+        return text
+
+    def test_both_handlers_are_clean_and_the_multicycle_one_is_absent(self):
+        text = self._audit("hsp_backend_oneshot_isr_ext")
+        self._audit("hsp_backend_oneshot_isr")
+        self.assertIsNone(isr_audit.extract_function(text, "hsp_backend_oneshot_isr_multi"))
+        self.assertFalse(os.path.isfile(os.path.join(os.path.dirname(AUDIT_FILE_VIDEO), "hsp_backend_irq_multi.objdump.txt")))
+
+    @unittest.skipUnless(os.path.isfile(AUDIT_FILE_AV), "run `make build avsvc-audit` too")
+    def test_the_handlers_are_unchanged_since_the_avsvc_build(self):
+        # the repeated service adds a record reset to the transport, never a line to the ISR
+        with open(AUDIT_FILE_VIDEO, "r", encoding="utf-8", errors="replace") as f:
+            a = f.read()
+        with open(AUDIT_FILE_AV, "r", encoding="utf-8", errors="replace") as f:
+            b = f.read()
+        for symbol in ("hsp_backend_oneshot_isr", "hsp_backend_oneshot_isr_ext"):
+            self.assertEqual(isr_audit.extract_function(a, symbol), isr_audit.extract_function(b, symbol), symbol)
+
+    def test_no_intmr_store_anywhere_in_the_object(self):
+        import poc_audit
+        with open(AUDIT_FILE_VIDEO, "r", encoding="utf-8", errors="replace") as f:
+            funcs = poc_audit.parse_objdump(f.read())
+        intmr, intsr = poc_audit.pi_stores(funcs)
+        self.assertEqual(intmr, [])
+        self.assertEqual(sorted(h[0] for h in intsr), ["hsp_backend_oneshot_isr", "hsp_backend_oneshot_isr_ext"])
 
 
 if __name__ == "__main__":

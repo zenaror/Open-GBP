@@ -707,6 +707,7 @@ AUDIT_DIR = os.path.join(ROOT, "build", "poc", "gbp-init-irq-program-probe", "au
 AUDIT_DIR_B = os.path.join(ROOT, "build", "poc", "gbp-init-irq-deliver-probe", "audit")
 AUDIT_DIR_4 = os.path.join(ROOT, "build", "poc", "gbp-init-irq-service-probe", "audit")
 AUDIT_DIR_AV = os.path.join(ROOT, "build", "poc", "gbp-av-service-probe", "audit")
+AUDIT_DIR_VIDEO = os.path.join(ROOT, "build", "poc", "gbp-video-capture-probe", "audit")
 IRQ_BACKEND_OBJDUMP = os.path.join(ROOT, "build", "poc", "gbp-init-irq-probe", "hsp_backend_irq.objdump.txt")
 INTMR_BACKEND_OBJDUMP = os.path.join(ROOT, "build", "poc", "gbp-init-probe", "hsp_backend_intmr.objdump.txt")
 
@@ -915,6 +916,199 @@ class PocAuditOnBuildAVSVC(unittest.TestCase):
         if os.path.isfile(os.path.join(AUDIT_DIR_B, "elf.nm.txt")):
             findings, _ = poc_audit.audit_dir(AUDIT_DIR_B, "avsvc")
             self.assertTrue(any("forbidden object linked: gbp_initirqb_probe.o" in f for f in findings), findings)
+            self.assertTrue(any("expected object missing: gbp_avsvc_probe.o" in f for f in findings), findings)
+
+
+# ---- GBP-VIDEO-001 (profile video): the repeated drained service ----
+PROBE_VIDEO_GOOD = """
+00000000 <gbp_video_probe_run>:
+   0:	94 21 ff f0 	stwu    r1,-16(r1)
+   4:	48 00 00 01 	bl      4 <gbp_video_probe_run+0x4>
+			4: R_PPC_REL24	gbp_initirqa_run_cause
+   8:	48 00 00 01 	bl      8 <gbp_video_probe_run+0x8>
+			8: R_PPC_REL24	gbp_irq_service_deliver_quiet
+   c:	48 00 00 01 	bl      c <gbp_video_probe_run+0xc>
+			c: R_PPC_REL24	gbp_irq_service_deliver_quiet
+  10:	48 00 00 01 	bl      10 <gbp_video_probe_run+0x10>
+			10: R_PPC_REL24	gbp_avblock_read
+  14:	48 00 00 01 	bl      14 <gbp_video_probe_run+0x14>
+			14: R_PPC_REL24	gbp_avblock_read
+  18:	48 00 00 01 	bl      18 <gbp_video_probe_run+0x18>
+			18: R_PPC_REL24	gbp_irq_service_ack_write_postack
+  1c:	48 00 00 01 	bl      1c <gbp_video_probe_run+0x1c>
+			1c: R_PPC_REL24	gbp_regwrite_irq_u16
+  20:	48 00 00 01 	bl      20 <gbp_video_probe_run+0x20>
+			20: R_PPC_REL24	gbp_regwrite_irq_u16
+  24:	48 00 00 01 	bl      24 <gbp_video_probe_run+0x24>
+			24: R_PPC_REL24	gbp_initirqa_teardown
+  28:	4e 80 00 20 	blr
+"""
+
+SERVICE_VIDEO_GOOD = """
+00000000 <gbp_irq_service_deliver_quiet>:
+   0:	48 00 00 01 	bl      0 <gbp_irq_service_deliver_quiet>
+			0: R_PPC_REL24	gbp_rawlog_read_pi
+   4:	4e 80 00 20 	blr
+
+00000008 <gbp_irq_service_deliver>:
+   8:	48 00 00 01 	bl      8 <gbp_irq_service_deliver>
+			8: R_PPC_REL24	gbp_irq_service_deliver_quiet
+   c:	4e 80 00 20 	blr
+
+00000010 <gbp_irq_service_ack>:
+  10:	48 00 00 01 	bl      10 <gbp_irq_service_ack>
+			10: R_PPC_REL24	gbp_irq_service_ack_write_postack
+  14:	4e 80 00 20 	blr
+
+00000020 <gbp_irq_service_ack_write_postack>:
+  20:	48 00 00 01 	bl      20 <gbp_irq_service_ack_write_postack>
+			20: R_PPC_REL24	gbp_regwrite_irq_u16
+  24:	4e 80 00 20 	blr
+"""
+
+MAIN_VIDEO_GOOD = """
+00000000 <main>:
+   0:	48 00 00 01 	bl      0 <main>
+			0: R_PPC_REL24	hsp_backend_irq_transport_ext
+   4:	48 00 00 01 	bl      4 <main+0x4>
+			4: R_PPC_REL24	gbp_video_probe_run
+   8:	48 00 00 01 	bl      8 <main+0x8>
+			8: R_PPC_REL24	gbp_avseqdump_serialize
+   c:	48 00 00 01 	bl      c <main+0xc>
+			c: R_PPC_REL24	sdlog_save_blob
+  10:	4e 80 00 20 	blr
+"""
+
+NM_VIDEO_GOOD = NM_GOOD + """80004300 T gbp_video_probe_run
+80004400 T gbp_initirqa_run_cause
+80004500 T gbp_initirqa_teardown
+80004550 T gbp_irq_service_deliver_quiet
+80004560 T gbp_irq_service_ack_write_postack
+80004570 T gbp_avblock_read
+80004580 T gbp_avseqdump_serialize
+80004585 T gbp_avseq_summarize
+80004588 T gbp_avseq_boundaries
+80004590 T gbp_crc32
+80004600 T hsp_backend_oneshot_isr
+80004700 T hsp_backend_oneshot_isr_ext
+80004900 T hsp_backend_irq_transport_ext
+80005000 T sdlog_save_blob
+80005200 T IRQ_Request
+"""
+
+
+def dir_video(**override):
+    files = {"gbp_initirqa_probe.objdump.txt": PROBE_GOOD, "gbp_irq_service.objdump.txt": SERVICE_VIDEO_GOOD,
+             "gbp_video_probe.objdump.txt": PROBE_VIDEO_GOOD, "gbp_avblock.objdump.txt": AVBLOCK_GOOD,
+             "gbp_avseq.objdump.txt": SMALL_GOOD, "gbp_avseqdump.objdump.txt": SMALL_GOOD,
+             "gbp_crc32.objdump.txt": SMALL_GOOD, "sdlog.objdump.txt": SMALL_GOOD, "hsp_backend.objdump.txt": BACKEND_GOOD,
+             "hsp_backend_irq.objdump.txt": IRQ_BACKEND_GOOD, "main.objdump.txt": MAIN_VIDEO_GOOD, "elf.nm.txt": NM_VIDEO_GOOD}
+    for k, v in override.items():
+        if v is None:
+            files.pop(k)
+        else:
+            files[k] = v
+    return make_dir(files)
+
+
+class PocAuditCheckerVIDEO(unittest.TestCase):
+    """GBP-VIDEO-001 profile on synthetic listings: the AVSVC interrupt path, the sequence core and the
+    OGBPSEQ1 sidecar linked; the AVSVC probe and the v2 sidecar forbidden; the QUIET delivery called from
+    the probe (the formatting one never); the whole-block read exactly twice from the probe; six IRQ-register
+    write sites (3 stage + 1 shared service + 2 probe); no INTMR store; no ARQ/AR/GX/audio/net symbol."""
+
+    def test_clean_build(self):
+        d = dir_video()
+        findings, report = poc_audit.audit_dir(d, "video")
+        self.assertEqual(findings, [])
+        self.assertEqual(report["profile"], "video")
+        self.assertEqual(report["callsites"]["gbp_video_probe.o"], {"gbp_regwrite_irq_u16": 2, "gbp_regwrite_control_byte": 0})
+        self.assertEqual(report["symbol_callers"]["gbp_avblock_read"], {"gbp_video_probe_run": 2})
+        self.assertEqual(report["symbol_callers"]["gbp_irq_service_deliver_quiet"],
+                         {"gbp_video_probe_run": 2, "gbp_irq_service_deliver": 1})
+        self.assertEqual(report["symbol_callers"]["gbp_irq_service_deliver"], {})
+        self.assertEqual(report["symbol_callers"]["gbp_irq_service_ack"], {})
+        self.assertEqual(poc_audit.main([d, "--profile", "video"]), 0)
+
+    def test_the_avsvc_probe_and_the_v2_sidecar_are_forbidden(self):
+        for obj in ("gbp_avsvc_probe.objdump.txt", "gbp_avdump.objdump.txt"):
+            d = dir_video(**{obj: SMALL_GOOD})
+            findings, _ = poc_audit.audit_dir(d, "video")
+            self.assertTrue(any("forbidden object linked" in f for f in findings), (obj, findings))
+
+    def test_a_missing_sequence_object_is_reported(self):
+        for obj in ("gbp_avseq.objdump.txt", "gbp_avseqdump.objdump.txt", "gbp_video_probe.objdump.txt"):
+            d = dir_video(**{obj: None})
+            findings, _ = poc_audit.audit_dir(d, "video")
+            self.assertTrue(any("expected object missing" in f for f in findings), (obj, findings))
+
+    def test_an_unmask_from_the_probe_is_flagged(self):
+        d = dir_video(**{"gbp_video_probe.objdump.txt": PROBE_VIDEO_GOOD.replace("gbp_initirqa_teardown", "__UnmaskIrq")})
+        findings, _ = poc_audit.audit_dir(d, "video")
+        self.assertTrue(any("__UnmaskIrq" in f for f in findings), findings)
+
+    def test_the_formatting_delivery_from_the_probe_is_flagged(self):
+        # nothing may be formatted between the unmask and the re-mask: the probe calls the quiet variant only
+        d = dir_video(**{"gbp_video_probe.objdump.txt":
+                         PROBE_VIDEO_GOOD.replace("\t\t\t1c: R_PPC_REL24\tgbp_regwrite_irq_u16",
+                                                  "\t\t\t1c: R_PPC_REL24\tgbp_irq_service_deliver")})
+        findings, _ = poc_audit.audit_dir(d, "video")
+        self.assertTrue(any("gbp_irq_service_deliver " in f or "gbp_irq_service_deliver call sites" in f for f in findings), findings)
+
+    def test_an_extra_block_read_is_flagged(self):
+        d = dir_video(**{"gbp_video_probe.objdump.txt": PROBE_VIDEO_GOOD.replace("gbp_initirqa_teardown", "gbp_avblock_read")})
+        findings, _ = poc_audit.audit_dir(d, "video")
+        self.assertTrue(any("gbp_avblock_read" in f for f in findings), findings)
+
+    def test_a_forbidden_elf_symbol_is_flagged(self):
+        d = dir_video(**{"elf.nm.txt": NM_VIDEO_GOOD + "80006000 T gbp_avsvc_probe_run\n80006100 T GX_Init\n"})
+        findings, _ = poc_audit.audit_dir(d, "video")
+        self.assertTrue(any("gbp_avsvc_probe_run" in f for f in findings), findings)
+        self.assertTrue(any("GX_Init" in f for f in findings), findings)
+
+    def test_an_intmr_store_is_flagged(self):
+        d = dir_video(**{"hsp_backend_irq.objdump.txt":
+                         IRQ_BACKEND_GOOD.replace("  74:\t90 09 00 00 \tstw     r0,0(r9)", "  74:\t90 09 00 04 \tstw     r0,4(r9)")})
+        findings, _ = poc_audit.audit_dir(d, "video")
+        self.assertTrue(findings)
+
+
+@unittest.skipUnless(os.path.isfile(os.path.join(AUDIT_DIR_VIDEO, "elf.nm.txt")), "run `make build video-audit` to produce the audit inputs")
+class PocAuditOnBuildVIDEO(unittest.TestCase):
+    def test_linked_objects_are_clean(self):
+        findings, report = poc_audit.audit_dir(AUDIT_DIR_VIDEO, "video")
+        self.assertEqual(findings, [])
+        for obj in ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o", "gbp_avblock.o",
+                    "gbp_avseq.o", "gbp_avseqdump.o", "gbp_crc32.o", "gbp_video_probe.o", "sdlog.o", "main.o"):
+            self.assertIn(obj, report["objects"])
+        for obj in ("hsp_backend_irq_multi.o", "hsp_backend_intmr.o", "gbp_avsvc_probe.o", "gbp_avdump.o",
+                    "gbp_initirqb_probe.o", "gbp_initirq4_probe.o", "gbp_init_irq_probe.o", "gbp_init_probe.o"):
+            self.assertNotIn(obj, report["objects"])
+
+    def test_the_write_and_call_sites_are_pinned(self):
+        _findings, report = poc_audit.audit_dir(AUDIT_DIR_VIDEO, "video")
+        self.assertEqual(report["callsites"]["gbp_initirqa_probe.o"], {"gbp_regwrite_irq_u16": 3, "gbp_regwrite_control_byte": 2})
+        self.assertEqual(report["callsites"]["gbp_irq_service.o"], {"gbp_regwrite_irq_u16": 1, "gbp_regwrite_control_byte": 0})
+        # two in the probe: the lean cycles' ACK (written without any formatting) and the re-arm
+        self.assertEqual(report["callsites"]["gbp_video_probe.o"], {"gbp_regwrite_irq_u16": 2, "gbp_regwrite_control_byte": 0})
+        self.assertEqual(report["symbol_callers"]["__UnmaskIrq"], {"h_irq_unmask": 1})
+        self.assertEqual(report["symbol_callers"]["IRQ_Request"], {"h_irq_install": 1, "h_irq_restore": 1})
+        self.assertEqual(report["symbol_callers"]["gbp_avblock_read"], {"gbp_video_probe_run": 2})
+        self.assertEqual(report["symbol_callers"]["gbp_irq_service_ack"], {})
+        self.assertEqual(report["symbol_callers"]["gbp_irq_service_deliver"], {})
+
+    def test_no_intmr_store_and_the_intsr_stores_are_the_known_three(self):
+        _findings, report = poc_audit.audit_dir(AUDIT_DIR_VIDEO, "video")
+        self.assertEqual(report["intmr_stores"], [])
+        self.assertEqual(sorted(h[1] for h in report["intsr_stores"]),
+                         ["h_write_intsr", "hsp_backend_oneshot_isr", "hsp_backend_oneshot_isr_ext"])
+        self.assertEqual(sorted(set(h[0] for h in report["intsr_stores"])), ["hsp_backend.o", "hsp_backend_irq.o"])
+
+    def test_the_avsvc_build_fails_this_profile_and_vice_versa(self):
+        if os.path.isfile(os.path.join(AUDIT_DIR_AV, "elf.nm.txt")):
+            findings, _ = poc_audit.audit_dir(AUDIT_DIR_AV, "video")
+            self.assertTrue(any("expected object missing: gbp_video_probe.o" in f for f in findings), findings)
+            findings, _ = poc_audit.audit_dir(AUDIT_DIR_VIDEO, "avsvc")
             self.assertTrue(any("expected object missing: gbp_avsvc_probe.o" in f for f in findings), findings)
 
 

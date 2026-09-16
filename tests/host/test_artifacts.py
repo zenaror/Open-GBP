@@ -18,7 +18,8 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 import dolinfo  # noqa: E402
 
 POCS = ("smoke-test", "gbp-probe", "gbp-init-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-deliver-probe",
-        "gbp-init-irq-service-probe", "gbp-av-service-probe")
+        "gbp-init-irq-service-probe", "gbp-av-service-probe",
+        "gbp-video-capture-probe")
 OUTDIR = os.path.join(ROOT, "build", "poc", "smoke-test")
 ELF = os.path.join(OUTDIR, "smoke-test.elf")
 DOL = os.path.join(OUTDIR, "smoke-test.dol")
@@ -221,7 +222,8 @@ class EveryPocArtifacts(unittest.TestCase):
                       "gbp-init-irq-probe": b"OPENGBP-INITIRQ READY ",
                       "gbp-init-irq-program-probe": b"OPENGBP-INITIRQA READY ",
                       "gbp-init-irq-deliver-probe": b"OPENGBP-INITIRQB READY ",
-                      "gbp-init-irq-service-probe": b"OPENGBP-INITIRQ4 READY ", "gbp-av-service-probe": b"OPENGBP-AVSVC READY "}[poc]
+                      "gbp-init-irq-service-probe": b"OPENGBP-INITIRQ4 READY ", "gbp-av-service-probe": b"OPENGBP-AVSVC READY ",
+                      "gbp-video-capture-probe": b"OPENGBP-VIDEO READY "}[poc]
             self.assertIn(prefix, blob, poc)
 
     def test_probe_writes_only_documented_things(self):
@@ -366,6 +368,41 @@ class EveryPocArtifacts(unittest.TestCase):
             self.assertNotIn(rec, blob, rec)
         bi = read_build_info(os.path.join(ROOT, "build", "poc", "gbp-av-service-probe", "build-info.txt"))
         self.assertEqual(bi["build_id"], "avsvc-0001")
+
+    def test_video_capture_probe_identity_and_records(self):
+        # GBP-VIDEO-001: its own test id and gecko prefix; the 003A stage records (reused module), the 003B
+        # delivery records (shared module), the repeated-service records, the compact per-cycle records, the
+        # boundary and matrix records, the sequence sidecar name and magic; none of the other probes' test
+        # ids or records, no AVSVC record or v2 sidecar magic; the mandatory power-cycle banner; build id
+        # video-0001; no framebuffer/GX/audio-output/network string.
+        dol = os.path.join(ROOT, "build", "poc", "gbp-video-capture-probe", "gbp-video-capture-probe.dol")
+        with open(dol, "rb") as f:
+            blob = f.read()
+        self.assertIn(b"GBP-VIDEO-001", blob)
+        for tid in (b"GBP-AV-SERVICE-001", b"GBP-INIT-004", b"GBP-INIT-003B", b"GBP-INIT-003A", b"GBP-INIT-002", b"GBP-INIT-001"):
+            self.assertNotIn(tid, blob, tid)
+        self.assertIn(b"OPENGBP-VIDEO READY ", blob)
+        self.assertIn(b"OPENGBP-VIDEO LOG ", blob)
+        self.assertIn(b"OPENGBP-VIDEO SAVESEQ rc=", blob)
+        for rec in (b"VIDEO start target=", b"VIDEO masks ack_or=", b"VIDEO blocks audio_idx=",
+                    b"VIDEO policy handler=003b_ext_installed_once", b"VIDEO policy2 admission=before_unmask",
+                    b"VIDEO end status=", b"INITIRQA start ", b"CAUSE t_event=", b"IRQ install rc=",
+                    b"PREUNMASK%s ok=", b"PREUNMASKAV av=", b"UNMASK%s t_unmask=", b"WAIT%s fired=", b"HANDLER%s fired=",
+                    b"ADMIT n=", b"PREPARE n=", b"SVC n=", b"AUDIOREAD", b"VIDEOREAD", b"PICLEAN ", b"REARM n=",
+                    b"REARMPOST n=", b"NEXT n=", b"CYCU n=", b"CYCW n=", b"CYCH n=", b"CYCD n=", b"CYCR n=",
+                    b"VBLK seq=", b"ABLK cyc=", b"BOUNDARIES ", b"BPOS", b"BINT", b"ADMISSION t0=", b"MATRIX service=",
+                    b"reference_content=offline", b"COUNTERS unmasks=", b"TIMING first_cause_to_isr=",
+                    b"RESTOREVIDEO handler_installed=", b"TEARDOWNVIDEO variant=", b"IRQW ", b"layout=gbi-u16-replicated",
+                    b"CLEANUP performed=", b"IRQ restore rc=", b"MASK final intmr=", b"-seq.bin", b"OGBPSEQ1", b"OGBPEND1",
+                    b"POWER CYCLE REQUIRED", b"NOT A PHYSICAL CANDIDATE", b"never delivered"):
+            self.assertIn(rec, blob, rec)
+        for rec in (b"OGBPBLK1", b"AVSVC start ", b"SVC start pending=", b"TEARDOWNAV variant=", b"SERVICE pass pending=",
+                    b"INITIRQ4 start ", b"INITIRQB start ", b"INITIRQ start ", b"INIT start ", b"INTMR mask ",
+                    b"MULTI install expected_gen=", b"TEARDOWN4 variant=", b"CYCLE n=", b"hsp_backend_oneshot_isr_multi",
+                    b"GX_Init", b"AUDIO_Init", b"ASND_Init", b"ARQ_Init", b"libmobile", b"net_init"):
+            self.assertNotIn(rec, blob, rec)
+        bi = read_build_info(os.path.join(ROOT, "build", "poc", "gbp-video-capture-probe", "build-info.txt"))
+        self.assertEqual(bi["build_id"], "video-0001")
 
 
 if __name__ == "__main__":

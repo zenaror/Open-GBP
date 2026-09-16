@@ -4089,3 +4089,117 @@ GBP-VIDEO-001", supersedes the "hard bound" wording of the previous entry):
 **Docs.** HARDWARE_TESTS.md (entry rewritten), this entry. No code, no DOL,
 no hardware, no commit. **GBP-VIDEO-001 SPEC — ADMISSION BUDGET FIXED — NOT
 IMPLEMENTED — NOT RELEASED.** Stopped for review.
+
+---
+
+## 2026-09-16 — GBP-VIDEO-001 implemented (not physically executed)
+
+**Goal:** implement the repeated drained service designed and twice reviewed
+earlier the same day, with no new initialization and no new ISR, and validate
+it entirely without hardware.
+
+**Result:** implemented. `GBP-VIDEO-001 IMPLEMENTED — NOT PHYSICALLY EXECUTED
+— DIRTY BUILD, NOT A PHYSICAL CANDIDATE.` No hardware was run and none is
+requested.
+
+### What was built
+
+| Piece | File |
+|---|---|
+| Sequence core: records, buffers, both predicates, boundary lists, compact log lines | `src/gbp/gbp_avseq.{h,c}` |
+| `OGBPSEQ1` sidecar (format 1, independent of the v2 block sidecar) | `src/gbp/gbp_avseqdump.{h,c}` |
+| The state machine: admission point, statuses, matrix, teardowns, summaries | `src/gbp/gbp_video_probe.{h,c}` |
+| GameCube POC (`video-0001`, prefix `OPENGBP-VIDEO`) | `poc/gbp-video-capture-probe/` |
+| Parser, listings, boundary lists, frame grouping, offline oracle | `tools/avseq.py` |
+
+Reuse, not repetition: the 003A stage, the 003B extended one-shot handler, the
+shared cycle service, `gbp_avblock` and the 003A teardown are all unchanged.
+
+### Decisions taken during the implementation
+
+- **The handler is installed once and its record reused.** A new transport
+  operation `irq_record_reset` clears the shared one-shot record between
+  deliveries — **memory only**; the real backend refuses it while INTMR bit 13
+  reads 1 and when no handler is installed. Both ISR bodies came out
+  byte-identical to the GBP-AV-SERVICE-001 build's, and the ISR audit reports
+  CLEAN. The audit of the handler was the precondition for the whole design,
+  and it held.
+- **The delivery step was split** into a quiet variant (transport operations
+  only) and a logging one. `gbp_irq_service_deliver` is now the two in
+  sequence and is byte-identical to before: the physical 003B, 004 and AVSVC
+  fixtures still replay unchanged. The probe calls the quiet variant only, so
+  nothing is formatted between the unmask and the re-mask.
+- **CHECK_ADMISSION had to move before the cycle record is bound.** The first
+  version bound `cycles[n]` first and a full table therefore ended the run as
+  `abort_capacity`; that is wrong — reaching the delivery cap is a normal end
+  (`ok_target_not_reached_delivery_cap`). The 320-delivery test found it. A
+  refused cycle now performs no record reset and no PI access at all.
+- **Five compact records per cycle, not one.** The design said "one line per
+  cycle"; five (`CYCU`, `CYCW`, `CYCH`, `CYCD`, `CYCR`) plus a `RAW READ-n`
+  line for lean cycles carry every transport value, which is what lets a
+  physical log regenerate a replay fixture. `tools/probelog.py` turns them
+  into the same operation stream a verify cycle's detailed records produce and
+  skips a verify cycle's compact records so nothing is emitted twice. Proven
+  by the round trip, not by inspection.
+- **Six IRQ-register write sites, not five.** The lean cycles write their ACK
+  directly (no snapshot, no formatting), so the probe object has two sites
+  (ACK and re-arm) beside the stage's three and the shared service's one. The
+  audit pins six with the reason recorded.
+- **The mock's "no main W1C between the re-arm and the next unmask" detector
+  was wrong** and flagged the teardown's own legal W1C. The window now opens
+  at a re-arm and closes at the next unmask **or at the next non-zero
+  IRQ-register write** (the teardown's stop word).
+
+### Validated without hardware
+
+- C unit suite: 14 binaries, **19182 checks, 0 failures** (003A / 003B / 004 /
+  AVSVC regressions unchanged).
+- Python host suite: **235 passed, 0 skipped** (all audit listings generated).
+- Static audits: `poc_audit --profile video` and `isr_audit` on both handler
+  bodies — 0 findings; `avsvc`, `003b` and `004` still 0 findings.
+- Docker build of all nine POCs, **zero warnings**; DOL padded, SHA-256
+  recorded in the hardware-test entry.
+- `make video-dolphin`: both runs abort in the 003A stage as designed
+  (`abort_inconsistent` with no HSP device, `abort_control_shape` with
+  Dolphin's GBPlayer model). Preconditions were not weakened for Dolphin.
+
+### The physical AVSVC run is one cycle of this loop
+
+The clearest validation available without new hardware: the physical
+GBP-AV-SERVICE-001 fixture (2026-09-16, `avsvc-0001`, commit `d3a6d23`) is the
+**exact prefix of cycle 0** of the repeated service. With `max_deliveries = 1`
+it replays end to end — 132 operations consumed in order, 0 mismatches, 0
+exhaustion, the physical blocks delivered from its sidecar, the second cycle
+refused at the admission point, `next_cause_at_end = yes`, and the cause the
+device left latched acknowledged by the teardown's single W1C. Every physical
+number of that run (cause at 3391329164, entry at 3391371694, latency 72 ticks,
+both block CRC-32s, the ACK `0x8500`, the re-arm, REARMPOST `0x0400`) is
+asserted unchanged.
+
+### The offline oracle is real, and it confirms the static reverse engineering
+
+`tools/avseq.py oracle` implements GBI's per-block checksum exactly as
+`VIDEO_PATH.md` §3.1 describes it: the repacked byte 1 : byte 3 words
+accumulated in 64 bits, **stored as the low 32 bits plus the carry count**.
+That last detail was recovered by the implementation — the naive low-32 sum is
+short by exactly the carry count — and it makes the physical
+GBP-AV-SERVICE-001 block produce `0x7F0FFF10`, the value §6 records as entry 0
+of both of GBI's reference tables.
+
+Read from the private inputs at run time (and never stored in this repository):
+table A carries content in blocks 14–25, table B in 12–19, and the Disc's
+embedded frame at `0x801B45A0` begins white. Three independent confirmations of
+§2.4 and §3.3 straight from the binaries.
+
+**No promotion.** None of this is a physical result for GBP-VIDEO-001. 40
+blocks per frame remains a HYPOTHESIS, the colour naming remains CORROBORATED,
+and the physical block format remains what the single AVSVC block showed.
+
+**Next highest-value step:** a release audit on a clean commit (rebuild,
+recorded DOL SHA-256, audits on that build) and then, if authorized, the
+physical run — the first bounded sequence of the GBP video stream.
+
+**Docs.** HARDWARE_TESTS.md (status and implementation notes), ROADMAP Phase 4,
+VIDEO_PATH.md (experiment status), captures/README.md (the `OGBPSEQ1` sidecar
+and the rule that no GBP-VIDEO-001 fixture may exist yet), tests/README.md,
+tools/README.md, the POC README, this entry. No commit, no push.

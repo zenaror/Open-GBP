@@ -49,6 +49,20 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      the block sidecar (serialize → parse round trips: audio only / video only /
                                      both / none / failed read, every error code), the mock's whole-block read
                                      model, the replay's "B" line with an attached block source
+                  test_gbp_avseq.c   GBP-VIDEO-001 sequence core: the VIDEO slots and the AUDIO ping-pong
+                                     (a failed drain never overwrites the last valid capture), both frame-start
+                                     predicates over all 65536 byte pairs (GBI ⇒ Disc; byte 0 alone never decides),
+                                     the boundary lists and intervals, the post-loop summaries, and the OGBPSEQ1
+                                     sidecar (round trip, the maximal store, every parse error, identities never
+                                     truncated, deterministic bytes)
+                  test_gbp_video.c   GBP-VIDEO-001 state machine against the mock: one cycle, the 88-block capture
+                                     target, 320 record reuses, alternating and combined sources, snapshot
+                                     immutability, eleven predicate cases, the seven admission-budget cases, the
+                                     caps, the AUDIO ping-pong, every anomaly and early abort, the handler
+                                     lifecycle, the sidecar of a real run and the log capacity; plus the PHYSICAL
+                                     GBP-AV-SERVICE-001 fixture replayed as the exact prefix of cycle 0 (that run
+                                     is one cycle of this loop: 132 operations, 0 mismatches, the second cycle
+                                     refused at the admission point). Every mock scenario is SYNTHETIC.
                   test_gbp_avsvc.c   GBP-AV-SERVICE-001 logic (one delivery → PRESVC → AUDIO/VIDEO whole-block
                                      drains → ACK from the PRESVC value → POSTACK → PI clean → re-arm → next cause
                                      observed, never delivered): the success paths, the §35 event order, snapshot
@@ -79,6 +93,14 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                   test_avdump.py     tools/avdump.py: the block sidecar parser against the C serializer and against
                                      synthetic files (every error code, the CLI); the physical avsvc-0001 sidecar
                                      (identities whole, every CRC, the raw byte positions recorded not interpreted)
+                  test_avseq.py      tools/avseq.py: the Python parser against the C writer on a real synthetic
+                                     run, both predicates, the boundary lists, the reference transform and GBI's
+                                     per-block checksum (anchored to the PHYSICAL avsvc-0001 block, 0x7F0FFF10 =
+                                     entry 0 of both reference tables), and the offline oracle — which reports
+                                     reference_content=unavailable without the private inputs and is never a gate
+                  test_video_replay.py synthetic GBP-VIDEO-001 log → fixture + sequence sidecar → replay round trip
+                                     (the regenerated run equals the original) and the physical GBP-AV-SERVICE-001
+                                     fixture as the first cycle; asserts that no GBP-VIDEO-001 fixture exists
                   test_avsvc_replay.py synthetic GBP-AV-SERVICE-001 log → fixture + sidecar → replay round trip
                                      (the same result with the sidecar; missing blocks reported without it; a
                                      tampered sidecar rejected); the physical 003A fixture (stops at the install)
@@ -87,7 +109,7 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      fixture of 2026-09-16 with its sidecar (the physical result, 0 mismatches),
                                      without it (blocks missing, exit 1) and with a tampered sidecar (rejected)
                   test_hw_fixture.py exact bytes of the hardware captures (probe-0001, init-0001,
-                                     initirq-0001, initirqa-0001, initirqb-0001, initirq4-0001, avsvc-0001 with its
+                                     initirq-0001, initirqa-0001, initirqb-0001, initirq4-0001, video-0001, avsvc-0001 with its
                                      block sidecar: header hashes, regeneration from the raw log, the "B" lines,
                                      the sidecar windows, the raw block positions), what each known driver
                                      would read from them, blockdiff findings, the interrupt path of the
@@ -98,7 +120,7 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      INTSR store, INTMR store; the built GBP-INIT-002, 003B, 004 and
                                      GBP-AV-SERVICE-001 objects — the multi-cycle handler with its two
                                      compiler-duplicated mask sites; both handlers of the AVSVC build)
-                  test_poc_audit.py  object audit, profiles 003a, 003b, 004 and avsvc (synthetic listings in both
+                  test_poc_audit.py  object audit, profiles 003a, 003b, 004, avsvc and video (synthetic listings in both
                                      GCC encodings, the built objects, negative controls on the GBP-INIT-002
                                      interrupt-path object and the GBP-INIT-001 INTMR object, profiles
                                      mutually exclusive on the builds; the ACK call site in the shared

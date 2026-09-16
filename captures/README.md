@@ -49,7 +49,21 @@ test file also round-trips a synthetic log and sidecar under `build/` and
 drives the probe with the physical 003B and 004 fixtures cut before their
 device ACK (the delivery and the PRESVC reads are physical; the drain meets
 a transport without whole-block reads — nothing after a physical record is
-invented). The raw AUDIO / VIDEO bytes of the sidecar are evidence,
+invented). GBP-VIDEO-001 (implemented 2026-09-16, **not physically executed**) uses a
+second, independent sidecar format for a whole bounded capture: `OGBPSEQ1`
+(`<TestID>_<BuildID>-seq.bin`, format 1 — the cycle table, the VIDEO and AUDIO
+tables and the raw blocks; layout `src/gbp/gbp_avseqdump.h`, parser
+`tools/avseq.py`). It does not replace or change the `OGBPBLK1` block sidecar
+of GBP-AV-SERVICE-001, which stays at format 2 and byte-identical. **No
+GBP-VIDEO-001 fixture exists and none may be created before a physical run**:
+`tests/host/test_video_replay.py` asserts that no file under
+`captures/fixtures/` names that experiment. Its host round trip writes its log,
+fixture and sidecar under `build/` only. The physical GBP-AV-SERVICE-001
+fixture above doubles as the exact prefix of that experiment's first cycle —
+that run is one cycle of its repeated service — and replays through it end to
+end with 0 mismatches.
+
+The raw AUDIO / VIDEO bytes of the sidecar are evidence,
 recorded and not interpreted (EVIDENCE.md GBP-HW-057/058).
 
 The GBP-INIT-003A fixture above is physical. The same tooling path is also

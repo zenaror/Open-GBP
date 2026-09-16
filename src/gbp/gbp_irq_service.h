@@ -54,6 +54,14 @@ struct gbp_irq_delivery {
     struct gbp_irq_record rec;     /* the handler record, copied while masked */
     int fired, reentry;
     uint32_t latency_ticks, latency_us;
+    /* captured by gbp_irq_service_deliver_quiet for the post-hoc records (GBP-VIDEO-001 lean cycles) */
+    uint32_t rec0_fired;           /* the record's `fired` right after the unmask returned */
+    int remask_unavailable;        /* the transport has no read_pi */
+    gbp_status remask_rc;          /* the REMASKCHK read */
+    uint32_t intsr_remask_first, intmr_remask_first;   /* the REMASKCHK values (intsr_remask/intmr_remask hold the last read) */
+    gbp_status retry_rc;           /* the RETRY mask, when performed */
+    gbp_status remask2_rc;         /* the REMASKCHK2 read, when performed */
+    int remask2_read;              /* 1: a REMASKCHK2 read was performed */
 };
 
 /* PREACK → device ACK → POSTACK → main-loop W1C budget (GBP-INIT-003B steps 9–12). */
@@ -111,6 +119,16 @@ void gbp_irq_service_log_preunmask(struct ringlog *log, const char *nfield, cons
 void gbp_irq_service_deliver(const struct gbp_transport *t, struct ringlog *log, uint32_t tb_hz,
                              uint32_t t_delivery_ms, uint32_t t_delivery_ticks, int slot,
                              const char *nfield, const char *sfx, struct gbp_irq_delivery *d, unsigned *errors);
+
+/* The same transport operations, in the same order, without any formatting
+ * (GBP-VIDEO-001 lean cycles: nothing is formatted inside the service loop);
+ * gbp_irq_service_deliver() == deliver_quiet() followed by deliver_log(), so
+ * the two paths cannot diverge. deliver_log() writes the very records the
+ * combined function writes, from the values the quiet call captured. */
+void gbp_irq_service_deliver_quiet(const struct gbp_transport *t, uint32_t tb_hz, uint32_t t_delivery_ticks, int slot,
+                                   struct gbp_irq_delivery *d, unsigned *errors);
+void gbp_irq_service_deliver_log(struct ringlog *log, uint32_t tb_hz, uint32_t t_delivery_ms, uint32_t t_delivery_ticks,
+                                 const char *nfield, const char *sfx, const struct gbp_irq_delivery *d);
 
 /* Steps 9–12: PREACK snapshot (two PI samples), device ACK `pending | ack_or`
  * (skipped when the IRQ read failed, when the two readings disagree, when a

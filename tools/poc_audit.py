@@ -57,6 +57,15 @@ libogc2 itself defines and uses __UnmaskIrq (VIDEO/PAD/EXI setup); that
 is library-internal and outside "our" objects, so the symbol checks are
 done on the POC's objects (relocations), not on the ELF.
 
+Profile video (GBP-VIDEO-001): the repeated drained service — the avsvc
+interrupt path plus the memory-only record reset, the sequence core
+gbp_avseq.o, the OGBPSEQ1 sidecar gbp_avseqdump.o and gbp_video_probe.o;
+gbp_avsvc_probe.o and the v2 sidecar gbp_avdump.o are forbidden; the
+delivery called from the probe is the QUIET variant (nothing is formatted
+between the unmask and the re-mask); gbp_avblock_read exactly twice from
+the probe; six IRQ-register write sites (3 stage + 1 shared service + 2 probe:
+the lean cycles' ACK and the re-arm).
+
 Profile avsvc (GBP-AV-SERVICE-001): hsp_backend_irq.o linked again (the
 003B extended one-shot is the handler; a second delivery is forbidden, so
 no generation wrapper); hsp_backend_irq_multi.o, hsp_backend_intmr.o and
@@ -70,7 +79,7 @@ DSP_/SI_/SIO symbol (no libogc ARAM queue, no audio output, no GX, no
 network, no serial); main.o uses the ext constructor, the probe entry and
 the sidecar writer.
 
-Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b|004|avsvc] [--report FILE] [--json]
+Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b|004|avsvc|video] [--report FILE] [--json]
 Exit status 0 when there is no finding.
 """
 from __future__ import annotations
@@ -183,6 +192,54 @@ PROFILES = {
         "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_irq_transport_multi", "hsp_backend_intmr_transport",
                                "gbp_initirqa_probe_run", "gbp_initirqb_probe_run", "gbp_initirq4_probe_run", "gbp_initirq_probe_run",
                                "gbp_irq_service_ack"),
+    },
+    # Profile video (GBP-VIDEO-001): the repeated drained service. Same interrupt path as avsvc
+    # (the 003B extended one-shot, installed once) plus the memory-only record reset; the sequence
+    # core gbp_avseq.o, the OGBPSEQ1 sidecar gbp_avseqdump.o and the probe gbp_video_probe.o replace
+    # the AVSVC probe and its v2 sidecar, which are forbidden here. gbp_avblock_read is called
+    # exactly twice from the probe (AUDIO, VIDEO); the delivery is the QUIET variant (the formatting
+    # one is never called from the probe: nothing is formatted between the unmask and the re-mask).
+    # SIX IRQ-register write sites: 3 in the stage (A1/A2/STOP), 1 in the shared service (the verify
+    # cycles' ACK, which also takes the POSTACK snapshot) and 2 in the probe (the lean cycles' ACK,
+    # written without any formatting, and the re-arm). The deliver-quiet entry shows TWO relocations
+    # in the probe object for ONE source call site: GCC peels the first loop iteration (which has no
+    # admission read) from the rest and duplicates the body — as it does for the 004 handler's entry
+    # sequence. The property that bounds the experiment is the single __UnmaskIrq call site
+    # (h_irq_unmask), pinned below and asserted per cycle by tests/unit/test_gbp_video.c.
+    "video": {
+        "forbidden_objects": ("hsp_backend_irq_multi.o", "hsp_backend_intmr.o", "gbp_initirqb_probe.o", "gbp_initirq4_probe.o",
+                              "gbp_init_irq_probe.o", "gbp_init_probe.o", "gbp_avsvc_probe.o", "gbp_avdump.o"),
+        "required_objects": ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o", "gbp_avblock.o",
+                             "gbp_avseq.o", "gbp_avseqdump.o", "gbp_crc32.o", "gbp_video_probe.o", "sdlog.o", "main.o"),
+        "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_irq_transport_multi", "hsp_backend_intmr_transport",
+                              "hsp_backend_oneshot_isr_multi", "gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run",
+                              "gbp_initirq4_probe_run", "gbp_avsvc_probe_run", "gbp_avdump_serialize"),
+        "forbidden_symbol_prefixes": ("ARQ_", "AR_", "AUDIO_", "ASND", "AESND", "GX_", "net_", "DSP_", "SI_", "SIO"),
+        "investigate_symbols": (),
+        "symbol_callers": {"__UnmaskIrq": {"h_irq_unmask": 1},
+                           "IRQ_Request": {"h_irq_install": 1, "h_irq_restore": 1},
+                           "__MaskIrq": {"h_irq_mask": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+                           "gbp_avblock_read": {"gbp_video_probe_run": 2},
+                           "gbp_irq_service_deliver_quiet": {"gbp_video_probe_run": 2, "gbp_irq_service_deliver": 1},
+                           "gbp_irq_service_ack_write_postack": {"gbp_video_probe_run": 1, "gbp_irq_service_ack": 1},
+                           "gbp_irq_service_deliver": {},
+                           "gbp_irq_service_ack": {}},
+        "elf_required": ("gbp_video_probe_run", "gbp_avblock_read", "gbp_avseqdump_serialize", "gbp_avseq_summarize", "gbp_avseq_boundaries",
+                         "gbp_crc32", "gbp_initirqa_run_cause", "gbp_initirqa_teardown", "gbp_irq_service_deliver_quiet",
+                         "gbp_irq_service_ack_write_postack", "gbp_regwrite_irq_u16", "gbp_regwrite_control_byte",
+                         "hsp_backend_oneshot_isr_ext", "hsp_backend_irq_transport_ext", "sdlog_save_blob",
+                         "__UnmaskIrq", "__MaskIrq", "IRQ_Request"),
+        "elf_forbidden": ("gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run", "gbp_initirq4_probe_run",
+                          "gbp_avsvc_probe_run", "gbp_avdump_serialize", "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi",
+                          "hsp_backend_irq_transport_multi", "hsp_backend_irq_transport", "ARQ_Init", "AR_Init", "AUDIO_Init",
+                          "ASND_Init", "GX_Init", "net_init"),
+        "irq_write_sites": {"gbp_initirqa_probe.o": 3, "gbp_irq_service.o": 1, "gbp_video_probe.o": 2},
+        "control_write_sites": {"gbp_initirqa_probe.o": 2},
+        "intsr_store_sites": {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+        "main_must_call": ("hsp_backend_irq_transport_ext", "gbp_video_probe_run", "gbp_avseqdump_serialize", "sdlog_save_blob"),
+        "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_irq_transport_multi", "hsp_backend_intmr_transport",
+                               "gbp_initirqa_probe_run", "gbp_initirqb_probe_run", "gbp_initirq4_probe_run", "gbp_initirq_probe_run",
+                               "gbp_avsvc_probe_run", "gbp_irq_service_ack"),
     },
 }
 # the GBP-INIT-003A names, kept for callers that import them

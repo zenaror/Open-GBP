@@ -172,6 +172,46 @@ def _block_crc(records, kind):
     return None
 
 
+def _cyc_fields(rec):
+    """The slash-separated groups of a CYCU / CYCD / CYCR record, as {key: [parts]}."""
+    out = {}
+    for k, v in rec["fields"].items():
+        out[k] = v.split("/") if "/" in v else [v]
+    return out
+
+
+def _is_verify(records, n):
+    """True when cycle `n` is one of the verify cycles (its CYCU record says verify=1)."""
+    for r in records:
+        if r["kind"] == "CYCU" and r["fields"].get("n") == n:
+            return r["fields"].get("verify") == "1"
+    return False
+
+
+def _vblk_crc(records, seq):
+    """CRC-32 of the VIDEO block of sequence index `seq`, from its VBLK record (logged after
+    the cycles); "" when the block did not complete."""
+    for r in records:
+        if r["kind"] == "VBLK" and r["fields"].get("seq") == seq and r["fields"].get("completed") == "1":
+            return r["fields"].get("crc32", "")
+    return ""
+
+
+def _irq_addr(video_addr):
+    """The IRQ register block address (base + 0xD00000) behind a VIDEO block address (base + 0x100000)."""
+    return "%08x" % ((int(video_addr, 16) - (1 << 20)) + (0xD << 20))
+
+
+def _cyc_record(records, start, n):
+    """The "I u" argument list of lean cycle `n`, from its CYCH record (already in the
+    order a replay line expects: count fired t_entry intsr_at_entry intmr_at_entry
+    intsr_after_ack intmr_after_mask reentry_intsr reentry_intmr + the five extended fields)."""
+    for r in records[start:]:
+        if r["kind"] == "CYCH" and r["fields"].get("n") == n:
+            return " ".join(r["fields"]["rec"].split(","))
+    return None
+
+
 def fixture(records, note=None):
     """Replay script: reproduces the transport calls the probe made, in
     order, so gbp_replay + the probe logic on the host reach the same
@@ -186,6 +226,7 @@ def fixture(records, note=None):
         for n in ([note] if isinstance(note, str) else note):
             lines.append("# " + n)
     t_unmask = None
+    irq_addr = None                  # the IRQ register block address, taken from each CYCD record
     wait_done = False
     cleanup_emitted = set()          # indices of CLEANUP records whose "P a" was already placed
     for idx, r in enumerate(records):
@@ -272,6 +313,69 @@ def fixture(records, note=None):
             lines.append("T %s" % f["t_rearm"])
         elif k == "NEXTCAUSE" and f.get("found") == "0" and "t_end" in f:  # GBP-INIT-004: the poll loop met its bound (last now())
             lines.append("T %s" % f["t_end"])
+        elif k == "ADMIT" and "t_adm" in f and "prep_intsr" in f:   # GBP-VIDEO-001 verify cycle: the admission read, then PREPARE's PI read
+            lines.append("T %s" % f["t_adm"])                         # t_adm = now()
+            lines.append("P r %s %s" % (f["prep_intsr"], f["prep_intmr"]))   # the record reset itself consumes no line
+        elif k == "CYCU" and f.get("verify") == "0":                  # GBP-VIDEO-001 lean cycle: admission, PREPARE, the unmask
+            # (a verify cycle logs the same operations through its detailed AVSVC records, so its
+            #  compact CYC* records are skipped here: they would emit every operation twice)
+            g = _cyc_fields(r)
+            if f.get("t_adm", "0") != "0":
+                lines.append("T %s" % f["t_adm"])                     # t_adm = now() (absent in cycle 0)
+                lines.append("P r %s %s" % (g["prep"][0], g["prep"][1]))
+            lines.append("P r %s %s" % (g["pre"][0], g["pre"][1]))    # the pre-unmask PI read
+            lines.append("T %s" % f["t_unmask"])
+            rec = _cyc_record(records, idx, f["n"])
+            if rec:
+                lines.append("I u " + rec)
+            lines.append("T %s" % f["t_post"])
+            lines.append("P r %s %s" % (g["post"][0], g["post"][1]))  # the post-unmask PI read; the record polls consume no line
+        elif k == "CYCW" and not _is_verify(records, f.get("n")):                                             # the bounded wait and the main re-mask
+            g = _cyc_fields(r)
+            if f.get("timed_out") == "1":
+                lines.append("T %s" % f["t_wait_end"])                # the loop-exit now() that met the bound
+            lines.append("T %s" % f["t_wait_end"])                    # t_wait_end = now()
+            lines.append("I m")
+            lines.append("P r %s %s" % (g["remask"][0], g["remask"][1]))
+            if f.get("retry") == "1":
+                lines.append("I m")
+                lines.append("P r %s %s" % (g["remask"][0], g["remask"][1]))
+        elif k == "CYCD" and not _is_verify(records, f.get("n")):                                             # the pending read (its "RAW READ-n" line precedes this record), the drains, the ACK
+            g = _cyc_fields(r)
+            lines.append("T %s" % f["t_read"])                        # t_read = now(), after the block read
+            a, v, ack = g["a"], g["v"], g["ack"]
+            if a[1] == "1":                                           # AUDIO attempted: t_start, one whole-block read, t_end
+                lines.append("T %s" % a[5])
+                lines.append(("B %s %08x %s %s" % (a[9], 0x1000, a[3], a[8] if a[2] == "1" else "")).rstrip())
+                lines.append("T %s" % a[6])
+            if v[1] == "1":                                           # VIDEO attempted
+                lines.append("T %s" % v[5])
+                lines.append(("B %s %08x %s %s" % (v[8], 0x0F00, v[3], _vblk_crc(records, v[4]))).rstrip())
+                lines.append("T %s" % v[6])
+            irq_addr = _irq_addr(v[8])
+            if ack[0] == "1":                                         # the ACK write, then t_after
+                lines.append("W %s %s" % (irq_addr, "ok" if ack[1] == "1" else "backend"))
+                lines.append("T %s" % ack[3])
+        elif k == "CYCR" and not _is_verify(records, f.get("n")):                                             # PI clean, the re-arm, WAIT_NEXT
+            g = _cyc_fields(r)
+            pi, rearm, nxt = g["pi"], g["rearm"], g["next"]
+            lines.append("P r %s %s" % (pi[0], pi[1]))                # the PICLEAN read
+            if f.get("w1c") == "1":
+                lines.append("P a 00002000")                          # the single main W1C, then the re-read
+                lines.append("P r %s %s" % (f["after"], pi[1]))
+            if rearm[0] == "1" and irq_addr:
+                lines.append("T %s" % rearm[2])                       # t_rearm = now()
+                lines.append("W %s %s" % (irq_addr, "ok" if rearm[1] == "1" else "backend"))
+                lines.append("T %s" % rearm[3])
+            if nxt[1] != "-":                                         # WAIT_NEXT: one poll answered by the recorded values
+                lines.append("T %s" % nxt[2])
+                if nxt[0] == "1":
+                    lines.append("P p %s" % nxt[3])
+        elif k == "NEXT" and "polls" in f:                             # GBP-VIDEO-001 verify cycle: WAIT_NEXT (nothing when REARMPOST already saw the cause)
+            if f["polls"] != "0":
+                lines.append("T %s" % f["t_next"])                     # the poll that ended the wait
+                if f.get("observed") == "1":
+                    lines.append("P p %s" % f["intsr"])
         elif k in ("AUDIOREAD", "VIDEOREAD") and f.get("attempted") == "1":  # GBP-AV-SERVICE-001: one whole-block read, timed around the call
             crc = _block_crc(records, "audio" if k == "AUDIOREAD" else "video") if f.get("rc") == "ok" else None
             lines.append("T %s" % f["t_start"])

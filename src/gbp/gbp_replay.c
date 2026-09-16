@@ -322,6 +322,18 @@ static gbp_status r_irq_record(void *ctx, struct gbp_irq_record *out)
     return GBP_OK;
 }
 
+/* GBP-VIDEO-001: the record reset between deliveries consumes no script line
+ * (a memory-only operation on the device side); the next "I u" line carries
+ * the record the physical handler produced for the next delivery. */
+static gbp_status r_irq_record_reset(void *ctx)
+{
+    struct gbp_replay *r = (struct gbp_replay *)ctx;
+    if (!r->handler_installed) return GBP_ERR_PARAM;
+    memset(&r->rec, 0, sizeof r->rec);
+    r->record_resets++;
+    return GBP_OK;
+}
+
 /* ---- multi-cycle operations (GBP-INIT-004); "I p" is optional in the script ---- */
 static gbp_status r_irq_prepare(void *ctx, uint32_t gen)
 {
@@ -397,6 +409,7 @@ void gbp_replay_transport(struct gbp_replay *r, struct gbp_transport *t)
         t->irq_prepare = r_irq_prepare;
         t->irq_record_slot = r_irq_record_slot;
         t->irq_multi_status = r_irq_multi_status;
+        t->irq_record_reset = r_irq_record_reset;
     } else {
         t->irq_install = 0;
         t->irq_restore = 0;
@@ -406,6 +419,7 @@ void gbp_replay_transport(struct gbp_replay *r, struct gbp_transport *t)
         t->irq_prepare = 0;
         t->irq_record_slot = 0;
         t->irq_multi_status = 0;
+        t->irq_record_reset = 0;
     }
     t->ticks = r_ticks;
     t->ctx = r;

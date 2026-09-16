@@ -2931,10 +2931,22 @@ service pass; R11 promotion if observed), REGISTERS.md (VIDEO / AUDIO rows: hard
 HSP.md (§3: the ARQ hi-queue precision and the first measured bandwidth), captures/README.md
 (fixture + sidecar format), tests/README.md, poc/README.md.
 
-### GBP-VIDEO-001 — bounded VIDEO block sequence capture: repeated drained service, frame boundaries, block order and cadence, no cartridge (Phase 4; designed 2026-09-16, specification reviewed twice the same day; NOT implemented, NOT released)
+### GBP-VIDEO-001 — bounded VIDEO block sequence capture: repeated drained service, frame boundaries, block order and cadence, no cartridge (Phase 4; designed 2026-09-16, specification reviewed twice the same day; IMPLEMENTED 2026-09-16, NOT PHYSICALLY EXECUTED)
 
-Status: **DESIGNED 2026-09-16, SPEC REVIEWED 2026-09-16 (twice) — NOT
-IMPLEMENTED.** Static basis: `docs/research/VIDEO_PATH.md` (the VIDEO path
+Status: **IMPLEMENTED 2026-09-16 — NOT PHYSICALLY EXECUTED — DIRTY BUILD, NOT A
+PHYSICAL CANDIDATE.** No hardware has been run and none is requested. Code:
+`poc/gbp-video-capture-probe/` (Test ID `GBP-VIDEO-001`, Build ID `video-0001`,
+gecko prefix `OPENGBP-VIDEO`), logic in `src/gbp/gbp_video_probe.{h,c}`, the
+sequence core (records, buffers, predicates, boundaries, compact log lines) in
+`src/gbp/gbp_avseq.{h,c}`, the `OGBPSEQ1` sidecar in `src/gbp/gbp_avseqdump.{h,c}`,
+the offline oracle in `tools/avseq.py`. The build reviewed so far comes from a
+dirty tree (`commit=bd841b6-dirty`, DOL SHA-256
+`962bea74aa6ba5c76b2514bb7ad01c13f59591b1a3c870fb7647c1f212d5fd65`) and is a
+review candidate only. Implementation record: `docs/research/DEVLOG.md`
+2026-09-16 "GBP-VIDEO-001 implemented"; procedure and rules:
+`poc/gbp-video-capture-probe/README.md`. The design text below is kept as it was
+written before the implementation; the notes after it record what the
+implementation added. Static basis: `docs/research/VIDEO_PATH.md` (the VIDEO path
 of both references re-read from the decompilations, Dolphin's model, the
 physical block of GBP-AV-SERVICE-001 against the references' embedded
 idle-screen frame); evidence GBP-VID-002…007, GBP-HW-061; DEVLOG 2026-09-16
@@ -3277,7 +3289,64 @@ Risks:       the first sustained loop (bounded by the admission budget, the caps
              blocks (never decide; recorded per block with both predicates).
 ```
 
-Host tests to add with the implementation (mock scenarios, every one a
+Implementation notes (2026-09-16, what the code added to the design above; nothing
+here is a physical result):
+
+- **No new ISR.** The 003B extended one-shot is installed ONCE and reused; between
+  deliveries its record is cleared through a new transport operation
+  `irq_record_reset` — **memory only**, refused by the real backend
+  (`src/platform/hsp_backend_irq.c`) while INTMR bit 13 reads 1, and refused when no
+  handler is installed. Both handler bodies are byte-identical to the
+  GBP-AV-SERVICE-001 build's, pinned by `tests/host/test_isr_audit.py`; the ISR audit
+  reports CLEAN (82 instructions, only `__MaskIrq` called, one INTSR store of 0x2000
+  after the mask, no INTMR store).
+- **The delivery step was split** into `gbp_irq_service_deliver_quiet` (transport
+  operations and values only) and `gbp_irq_service_deliver_log` (formatting).
+  `gbp_irq_service_deliver` is now the two in sequence, byte-identical to before —
+  the physical 003B / 004 / AVSVC fixtures still replay unchanged. The probe calls
+  the QUIET variant only: nothing is formatted between the unmask and the re-mask.
+- **CHECK_ADMISSION is evaluated before the cycle record is bound**, so a full cycle
+  table ends the loop as `delivery_cap` (a normal end), never as a capacity failure.
+  A refused cycle performs no record reset and no PI access at all.
+- **Log:** each cycle is five compact records formatted after the loop — `CYCU`
+  (admission, PREPARE, the unmask), `CYCW` (the bounded wait and the re-mask), `CYCH`
+  (the handler record in a replay line's field order), `CYCD` (the pending read, the
+  drains, the ACK) and `CYCR` (PI clean, the re-arm, WAIT_NEXT) — plus a `RAW READ-n`
+  line carrying the pending read verbatim (lean cycles only; a verify cycle's PRESVC
+  snapshot already logged it). The design said "one line per cycle"; five carry every
+  transport value, which is what lets a physical log regenerate a replay fixture.
+  `tools/probelog.py` turns them into the same operation stream a verify cycle's
+  detailed records produce, and skips a verify cycle's compact records so no
+  operation is emitted twice. Ring: 3000 lines x 256 bytes in the POC — sized from the worst
+  reachable demand (2614 lines measured, ~2658 derived: 320 deliveries with VIDEO on part
+  of them), because a dropped line would break the log -> fixture -> replay chain.
+- **Boundary lists too long for one line** are emitted as a `BOUNDARIES … positions=BPOS
+  intervals=BINT` summary followed by chunked `BPOS` / `BINT` lines: nothing is truncated.
+- **Six IRQ-register write sites**, not five: 3 in the stage (A1/A2/STOP), 1 in the
+  shared service (the verify cycles' ACK, which also takes the POSTACK snapshot) and
+  2 in the probe (the lean cycles' ACK, written without any formatting, and the
+  re-arm). Pinned by `tools/poc_audit.py --profile video`.
+- **The physical GBP-AV-SERVICE-001 fixture replays as the exact prefix of cycle 0**
+  (`tests/unit/test_gbp_video.c`): with `max_deliveries = 1` all 132 of its operations
+  are consumed in order, 0 mismatches, 0 exhaustion, the physical blocks delivered from
+  its sidecar, the second cycle refused at the admission point, `next_cause_at_end = yes`
+  and the latched cause acknowledged by the teardown's single W1C. That physical run is
+  literally one cycle of this loop.
+- **The offline oracle is real and anchored.** `tools/avseq.py` implements GBI's
+  per-block checksum (the repacked byte 1 : byte 3 words accumulated in 64 bits, stored
+  as the low 32 bits **plus the carry count**) and reproduces `0x7F0FFF10` for the
+  physical GBP-AV-SERVICE-001 block — the value VIDEO_PATH.md §6 records as entry 0 of
+  both of GBI's reference tables. Read at run time from the private inputs (never
+  stored here), table A has content in blocks 14–25 and table B in 12–19, and the
+  Disc's embedded frame at `0x801B45A0` reads white at its start: all three match the
+  static description exactly. Without the private inputs the verdict is
+  `reference_content=unavailable`.
+- **Not promoted.** Nothing above is a physical result for GBP-VIDEO-001. The 40
+  blocks per frame, the colour order and the physical block format remain as
+  `docs/research/EVIDENCE.md` classifies them today.
+
+
+Host tests added with the implementation (mock scenarios, every one a
 bounded synthetic run; none is physical evidence): (1) a true predicate on
 the first block; (2) the first true predicate on block 39 (0-based) and the
 second on 79 — the worst-case phase that 88 still covers; (3) two flags 40
@@ -3314,17 +3383,20 @@ latched after the last re-arm (final observation, no unmask, teardown
 acknowledges), and the physical AVSVC fixture as the prefix of the first
 cycle.
 
-Future files (not created now): `src/gbp/gbp_avseq.{h,c}` (bounded sequence
-capture core: the state machine with its admission point, records,
-buffers), `src/gbp/gbp_video_probe.{h,c}` (the probe: bounds, statuses,
-matrix, teardowns, summaries), `src/gbp/gbp_avseqdump.{h,c}` (the `OGBPSEQ1`
-sidecar), `poc/gbp-video-capture-probe/` (Test ID `GBP-VIDEO-001`, Build ID
-`video-0001`, prefix `OPENGBP-VIDEO`), `tools/avseq.py` (parser; block
-listing; both boundary lists; the offline oracle; frame assembly under the
-references' interpretation and under alternatives; PNG only under an
-explicit label), mock extensions (block sequence per cycle, predicates per
-block, source-pattern scripts, dropped block, wrap, caps, a scripted clock
-for the admission cases, ping-pong AUDIO), `tests/unit/test_gbp_avseq.c`,
-`tests/host/test_avseq.py`. Future docs: the executed entry here, EVIDENCE
-GBP-HW-06x, VIDEO_PATH.md §6–8 updates, `docs/protocol/VIDEO.md` once
-physical, REGISTERS.md §2.2, ROADMAP Phase 4.
+Files created by the implementation: `src/gbp/gbp_avseq.{h,c}` (the bounded
+sequence core: records, buffers, both predicates, the boundary lists, the
+compact log lines), `src/gbp/gbp_video_probe.{h,c}` (the state machine with
+its admission point, statuses, matrix, teardowns, summaries),
+`src/gbp/gbp_avseqdump.{h,c}` (the `OGBPSEQ1` sidecar),
+`poc/gbp-video-capture-probe/` (Test ID `GBP-VIDEO-001`, Build ID
+`video-0001`, prefix `OPENGBP-VIDEO`), `tools/avseq.py` (parser; cycle,
+block and boundary listings; the offline oracle; frame grouping under the
+references' hypothesis), mock extensions (a per-re-arm cause sequence, the
+VIDEO first-four-bytes flag model with its three styles and a byte-0 extra,
+per-read bulk failures, a scripted clock for the admission cases, the
+record-reset operation and the "no main W1C between the re-arm and the next
+unmask" detector), `tests/unit/test_gbp_avseq.c`,
+`tests/unit/test_gbp_video.c`, `tests/host/test_avseq.py`,
+`tests/host/test_video_replay.py`. Still future: the executed entry here,
+EVIDENCE GBP-HW-06x, VIDEO_PATH.md §6–8 updates, `docs/protocol/VIDEO.md`
+once physical, REGISTERS.md §2.2 — all of them only after a physical run.

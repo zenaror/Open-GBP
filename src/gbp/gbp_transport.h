@@ -155,6 +155,17 @@ struct gbp_transport {
     gbp_status (*irq_prepare)(void *ctx, uint32_t gen);
     gbp_status (*irq_record_slot)(void *ctx, uint32_t slot, struct gbp_irq_record *out);
     gbp_status (*irq_multi_status)(void *ctx, struct gbp_irq_multi_status *out);
+    /* Optional (may be NULL): resets the backend's shared one-shot record to
+     * all-zero (count, fired, timestamps, PI fields) — a memory write only,
+     * never a PI register write — so that the SAME installed handler serves
+     * the next delivery (GBP-VIDEO-001: repeated service with one handler).
+     * Legal only while INTMR bit 13 = 0 (the handler cannot run): the caller
+     * guarantees it, the real backend re-checks it by READING INTMR and
+     * refuses with GBP_ERR_BUSY otherwise; GBP_ERR_PARAM when no handler is
+     * installed. The handler body itself is unchanged: its first entry after
+     * a reset takes the count == 1 branch again (one W1C), exactly as after
+     * the install. */
+    gbp_status (*irq_record_reset)(void *ctx);
     /* Optional (may be NULL): monotonic tick counter (time base on GC). */
     uint32_t (*ticks)(void *ctx);
     void *ctx;
@@ -164,6 +175,8 @@ struct gbp_transport {
 int gbp_transport_has_irq_path(const struct gbp_transport *t);
 /* 1 if the interrupt path and the three multi-cycle operations are available. */
 int gbp_transport_has_irq_multi_path(const struct gbp_transport *t);
+/* 1 if the interrupt path and the record-reset operation are available (repeated service). */
+int gbp_transport_has_irq_reset(const struct gbp_transport *t);
 /* 1 if the whole-block read operation is available. */
 int gbp_transport_has_bulk_read(const struct gbp_transport *t);
 /* Argument rule of read_bulk (pure): 1 when aram_addr / out / len satisfy it —

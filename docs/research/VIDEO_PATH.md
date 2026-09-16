@@ -291,3 +291,24 @@ values (the run's own extras) favor (b), but nothing proves it; formally
    not match the embedded frame are new evidence, never a transport
    failure. Whether a byte-for-byte match of a complete idle frame is
    enough to raise the color-order status is decided after the run.
+
+## Experiment status
+
+**GBP-VIDEO-001** — the bounded repeated drained service that measures the
+physical block sequence, both frame-start predicate lists and the interval
+between consecutive boundaries — is **implemented (2026-09-16) and NOT
+physically executed**: `poc/gbp-video-capture-probe/`,
+`docs/research/HARDWARE_TESTS.md` "Planned tests — GBP-VIDEO-001". Nothing in
+this document has been promoted by that implementation; every claim here keeps
+the status `docs/research/EVIDENCE.md` gives it. In particular **40 blocks per
+frame stays a HYPOTHESIS** drawn from the references' constants, the colour
+naming stays CORROBORATED, and the physical block format stays what the single
+GBP-AV-SERVICE-001 block showed.
+
+The offline oracle `tools/avseq.py` implements §3.1's per-block checksum (the
+repacked byte 1 : byte 3 words accumulated in 64 bits, stored as the low 32
+bits plus the carry count) and reproduces `0x7F0FFF10` for the physical block
+of GBP-AV-SERVICE-001 — the value §6 records as entry 0 of both tables. Read
+from the private inputs at run time, table A carries content in blocks 14–25
+and table B in 12–19, and the embedded frame at `0x801B45A0` begins white:
+three independent confirmations of §2.4 and §3.3 from the binaries themselves.

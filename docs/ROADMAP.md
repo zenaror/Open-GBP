@@ -140,8 +140,9 @@ lines × 240 pixels × 4 bytes (bytes 1/3 of each word), 40 blocks per frame,
 frame flag on the first pixel, 15-bit color in GX RGB5A3 order; both embed
 the AGB idle screen (an offline oracle without a cartridge). Short sequence:
 
-* **GBP-VIDEO-001** (designed 2026-09-16, HARDWARE_TESTS.md; not
-  implemented): bounded repeated drained service, no cartridge — up to 88
+* **GBP-VIDEO-001** (designed 2026-09-16, HARDWARE_TESTS.md; **implemented
+  2026-09-16, not physically executed**; `poc/gbp-video-capture-probe/`):
+  bounded repeated drained service, no cartridge — up to 88
   VIDEO blocks with timestamps, both frame-start predicates, the source
   pattern per cause; establishes blocks per frame, order, boundaries,
   cadence and repeated-service stability; offline assembly against the

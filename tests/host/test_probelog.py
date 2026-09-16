@@ -268,6 +268,75 @@ class ProbeLog(unittest.TestCase):
                               "T 1683",
                               "T 3700"])
 
+    def test_fixture_video_records(self):
+        """GBP-VIDEO-001: a lean cycle's compact records become the same operation stream a verify
+        cycle's detailed records do — admission read, PREPARE PI read, the unmask and its handler
+        record, the bounded wait, the re-mask, the pending read, the two whole-block reads, the ACK,
+        the PI clean, the re-arm and WAIT_NEXT. A verify cycle's compact records are SKIPPED: its
+        detailed records already produced those operations, and emitting both would double them."""
+        log = """# OPENGBP-LOG v1
+test_id=GBP-VIDEO-001
+build_id=synthetic
+# --- records ---
+000000 CYCU n=5 verify=0 t_adm=1000 prep=00012000/000001fa/ok pre=00012000/000001fa t_unmask=1010 t_post=1020 post=00012000/000021fa rec0=0
+000001 CYCW n=5 polls=1 timed_out=0 t_wait_end=1030 remask=00010000/000001fa retry=0 mask_ok=1
+000002 CYCH n=5 rec=1,1,1015,00012000,000021fa,00010000,000001fa,00000000,00000000,00012000,0,00000000,00000000,0 lat=5 reentry=0
+000003 RAW READ-5 idx=d addr=01d00000 rc=ok ticks=3 polls=1 dspcr=0020 sem_disc=0500 sem_gbi=0500 data=1705010005050500050505000505050005050500050505000505050005050500
+000004 CYCD n=5 pend=0500 disc=0500 gbi=0500 b0=17 o2=01 t_read=1040 a=1/1/1/ok/5/1050/1060/2475/aabbccdd/01800000 v=1/1/1/ok/3/1070/1080/2319/01100000 ack=1/1/8500/1090
+000005 CYCR n=5 pi=00010000/000001fa w1c=0 after=00010000 sticky=0 relatch=0/0 rearm=1/1/1100/1110 next=1/cause/1120/00012000/1 end=-
+000006 VBLK seq=3 cyc=5 pend=0500 rc=ok completed=1 t_start=1070 t_end=1080 dt=10 wait=2319 polls=120 csr=0000/0020 crc32=deadbeef f4=ffffffff gbi=1 disc=1 agree=1 x0=0 und=0
+# --- end --- dropped=0
+"""
+        header, records = probelog.parse_lines(log.splitlines())
+        text = probelog.fixture(records)
+        lines = [l for l in text.splitlines() if l and not l.startswith("#")]
+        self.assertEqual(lines, [
+            "T 1000",                                   # t_adm = now()
+            "P r 00012000 000001fa",                    # PREPARE: the record reset writes no register
+            "P r 00012000 000001fa",                    # the pre-unmask PI read
+            "T 1010",                                   # t_unmask
+            "I u 1 1 1015 00012000 000021fa 00010000 000001fa 00000000 00000000 00012000 0 00000000 00000000 0",
+            "T 1020",                                   # t_post_unmask
+            "P r 00012000 000021fa",
+            "T 1030",                                   # t_wait_end
+            "I m",
+            "P r 00010000 000001fa",                    # the re-mask read
+            "R 01d00000 ok 1705010005050500050505000505050005050500050505000505050005050500",
+            "T 1040",                                   # t_read, after the block read
+            "T 1050", "B 01800000 00001000 ok aabbccdd", "T 1060",      # AUDIO first
+            "T 1070", "B 01100000 00000f00 ok deadbeef", "T 1080",      # then VIDEO, its CRC from the VBLK record
+            "W 01d00000 ok", "T 1090",                  # the ACK, then t_after
+            "P r 00010000 000001fa",                    # PICLEAN: bit 13 clear, so no W1C
+            "T 1100", "W 01d00000 ok", "T 1110",        # t_rearm, the re-arm, t_after
+            "T 1120", "P p 00012000",                   # WAIT_NEXT: the poll that saw the next cause
+        ])
+
+    def test_fixture_skips_a_verify_cycle_compact_records(self):
+        log = """# OPENGBP-LOG v1
+test_id=GBP-VIDEO-001
+# --- records ---
+000000 CYCU n=0 verify=1 t_adm=0 prep=00000000/00000000/ok pre=00012000/000001fa t_unmask=1010 t_post=1020 post=00012000/000021fa rec0=0
+000001 CYCW n=0 polls=1 timed_out=0 t_wait_end=1030 remask=00010000/000001fa retry=0 mask_ok=1
+000002 CYCD n=0 pend=0500 disc=0500 gbi=0500 b0=17 o2=01 t_read=1040 a=1/1/1/ok/0/1050/1060/2475/aabbccdd/01800000 v=1/1/1/ok/0/1070/1080/2319/01100000 ack=1/1/8500/1090
+000003 CYCR n=0 pi=00010000/000001fa w1c=0 after=00010000 sticky=0 relatch=0/0 rearm=1/1/1100/1110 next=1/cause/1120/00012000/0 end=-
+# --- end --- dropped=0
+"""
+        header, records = probelog.parse_lines(log.splitlines())
+        lines = [l for l in probelog.fixture(records).splitlines() if l and not l.startswith("#")]
+        self.assertEqual(lines, [])
+
+    def test_fixture_video_admit_record(self):
+        """A verify cycle's own ADMIT record carries the admission read and the PREPARE PI read."""
+        log = """# OPENGBP-LOG v1
+test_id=GBP-VIDEO-001
+# --- records ---
+000000 ADMIT n=2 t_adm=2000 remaining=500 deliveries=2 video=2 prep_intsr=00012000 prep_intmr=000001fa record=0/0
+# --- end --- dropped=0
+"""
+        header, records = probelog.parse_lines(log.splitlines())
+        lines = [l for l in probelog.fixture(records).splitlines() if l and not l.startswith("#")]
+        self.assertEqual(lines, ["T 2000", "P r 00012000 000001fa"])
+
     def test_fixture_cleanup_ack_between_the_two_pi_reads(self):
         # The probe reads PI (CLEANUPCHK), writes INTSR once, re-reads PI (CLEANUP),
         # and only then logs the CLEANUP record: the "P a" line must sit between the

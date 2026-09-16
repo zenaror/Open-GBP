@@ -104,6 +104,7 @@ static void reg_after_change(struct gbp_mock *m)
         if (m->source_pi_delay && !(m->intsr & GBP_PI_HSP_BIT)) {      /* GBP-INIT-004 model: the PI latch lags the source */
             if (!m->pi_latch_pending) { m->pi_latch_pending = 1; m->pi_latch_at_tick = m->tick + m->source_pi_delay; }
         } else {
+            if (!(m->intsr & GBP_PI_HSP_BIT) && m->rearms) m->cause_latched_after_rearm = 1;
             m->intsr |= GBP_PI_HSP_BIT;                                /* visible whether or not INTMR enables it */
         }
     } else {
@@ -116,7 +117,10 @@ static void pi_latch_step(struct gbp_mock *m)
 {
     if (m->pi_latch_pending && (int32_t)(m->tick - m->pi_latch_at_tick) >= 0) {
         m->pi_latch_pending = 0;
-        if (device_line(m)) m->intsr |= GBP_PI_HSP_BIT;
+        if (device_line(m)) {
+            if (!(m->intsr & GBP_PI_HSP_BIT) && m->rearms) m->cause_latched_after_rearm = 1;
+            m->intsr |= GBP_PI_HSP_BIT;
+        }
     }
 }
 
@@ -139,11 +143,21 @@ static void phantom_step(struct gbp_mock *m)
     }
 }
 
+static void seq_step(struct gbp_mock *m)
+{
+    if (m->seq_pending && (int32_t)(m->tick - m->seq_pending_at_tick) >= 0) {
+        m->seq_pending = 0;
+        m->irq_reg |= (uint16_t)(m->seq_pending_bits & SOURCE_BITS);
+        reg_after_change(m);
+    }
+}
+
 static void source_step(struct gbp_mock *m)
 {
     unsigned i;
     phantom_step(m);
     if (m->irq_model != MOCK_IRQ_MODEL_SOURCE_MASK) return;
+    seq_step(m);
     if (m->source_assert_at_tick && !m->source_asserted_done && (int32_t)(m->tick - m->source_assert_at_tick) >= 0) {   /* wrap-safe */
         m->source_asserted_done = 1;
         m->irq_reg |= (uint16_t)(m->source_assert_bits & SOURCE_BITS);
@@ -331,12 +345,25 @@ static gbp_status m_irq_unmask(void *ctx)
     }
     m->unmasked_once = 1;
     m->unmask_tick = m->tick;
+    m->cause_latched_after_rearm = 0;                           /* the latched cause is being delivered now */
+    m->rearm_window = 0;
     if (m->irq_mode == MOCK_IRQ_ON_UNMASK && !m->cause_asserted) {
         m->cause_asserted = 1;
         m->intsr |= GBP_PI_HSP_BIT;
     }
     record_ev(m, MOCK_IRQ_UNMASK, 0, 0, 0, GBP_OK);
     irq_step(m);
+    return GBP_OK;
+}
+
+static gbp_status m_irq_record_reset(void *ctx)
+{
+    struct gbp_mock *m = (struct gbp_mock *)ctx;
+    m->record_resets++;
+    if (m->intmr & GBP_PI_HSP_BIT) { violation(m, GBP_MOCK_VIOL_RESET_WHILE_UNMASKED); record_ev(m, MOCK_IRQ_RESET, 0, 0, 0, GBP_ERR_BUSY); return GBP_ERR_BUSY; }
+    if (!m->handler_installed) { record_ev(m, MOCK_IRQ_RESET, 0, 0, 0, GBP_ERR_PARAM); return GBP_ERR_PARAM; }
+    if (!m->reset_ignored) memset((void *)&m->rec, 0, sizeof m->rec);   /* memory only: PI untouched, no irq_step here */
+    record_ev(m, MOCK_IRQ_RESET, 0, 0, 0, GBP_OK);
     return GBP_OK;
 }
 
@@ -393,6 +420,8 @@ static gbp_status m_write_intsr(void *ctx, uint32_t v)
     struct gbp_mock *m = (struct gbp_mock *)ctx;
     m->intsr_writes++;
     m->last_intsr_write = v;
+    if ((v & GBP_PI_HSP_BIT) && m->rearm_window && m->handler_installed)
+        violation(m, GBP_MOCK_VIOL_W1C_BETWEEN_CAUSE_UNMASK);   /* the window closes at the next unmask and at the teardown's stop word */
     w1c_core(m, v);
     record_ev(m, MOCK_INTSR_W, 0, (uint16_t)v, 0, GBP_OK);
     irq_step(m);
@@ -604,6 +633,22 @@ static gbp_status m_write_block(void *ctx, uint32_t addr, const uint8_t in[GBP_B
                     s->armed = 1;
                 }
             }
+            if (v == 0) {
+                m->zero_irq_writes++;
+                if (m->zero_irq_writes >= 2u) {                       /* the first zero write is A2; the rest are re-arms */
+                    unsigned k = m->rearms++;
+                    m->cause_latched_after_rearm = 0;
+                    m->rearm_window = 1;                              /* until the next unmask, the main loop must not touch the PI */
+                    if (m->seq_len && (m->seq_stop_after == 0 || k < m->seq_stop_after)) {
+                        const struct gbp_mock_seq_step *st = &m->seq_steps[k % m->seq_len];
+                        m->seq_pending = 1;
+                        m->seq_pending_bits = st->bits;
+                        m->seq_pending_at_tick = m->tick + st->delay;
+                    }
+                    if (m->tick_jump_at_rearm && m->rearms == m->tick_jump_at_rearm) m->tick += m->tick_jump_rearm;
+                }
+            }
+            if (v != 0) m->rearm_window = 0;                      /* the teardown's stop word ends the window: its own W1C is allowed */
             source_step(m);
         }
         if (m->control_change_after_irq_write && m->irq_writes == m->control_change_after_irq_write) {
@@ -661,10 +706,14 @@ static gbp_status m_read_bulk(void *ctx, uint32_t addr, uint8_t *out, uint32_t l
     }
     if (m->intmr & GBP_PI_HSP_BIT) violation(m, GBP_MOCK_VIOL_DMA_WHILE_UNMASKED);
     m->bulk_reads++;
+    if (idx == 0x1u) m->video_reads++;
+    if (idx == 0x8u) m->audio_reads++;
+    if (m->bulk_tick_jump_at_read && m->bulk_reads == m->bulk_tick_jump_at_read) m->tick += m->bulk_tick_jump;   /* a long DMA (deadline models) */
     if (m->bulk_assert_at_read && m->bulk_reads == m->bulk_assert_at_read && !m->bulk_assert_after) bulk_assert(m);
     irq_step(m);
     rc = fault(m, info);
     if (rc == GBP_OK) rc = m->bulk_rc[idx & 15u];
+    if (rc == GBP_OK && m->bulk_fail_at_read && m->bulk_reads == m->bulk_fail_at_read) rc = m->bulk_fail_rc;
     if (info) {
         info->ticks = (len / GBP_BLOCK_SIZE) * m->bulk_ticks_per_line;
         info->polls = (uint16_t)(len / GBP_BLOCK_SIZE);
@@ -680,6 +729,19 @@ static gbp_status m_read_bulk(void *ctx, uint32_t addr, uint8_t *out, uint32_t l
     }
     if (!answers(m)) memset(out, m->absent_fill, len);
     else for (k = 0; k < len; k++) out[k] = gbp_mock_bulk_byte(idx, m->bulk_seed, k);
+    if (answers(m) && idx == 0x1u && len >= 4u && (m->video_first4_model || m->video_flag_period || m->video_flag_only_at)) {
+        /* the first four bytes of a VIDEO block under the flag model: `7f 7f ff ff` (no flag) or the frame-start variants */
+        unsigned n = m->video_reads;                                  /* 1-based number of this VIDEO read */
+        int flag = (m->video_flag_period && ((n - 1u) + m->video_flag_phase) % m->video_flag_period == 0u) ||
+                   (m->video_flag_only_at && n == m->video_flag_only_at);
+        out[0] = 0x7f; out[1] = 0x7f; out[2] = 0xff; out[3] = 0xff;
+        if (flag) {
+            if (m->video_flag_style == 0) { out[0] = 0xff; out[1] = 0xff; }
+            else if (m->video_flag_style == 1) { out[1] = 0xff; }        /* byte 1 only: Disc = 1, GBI = 0 */
+            else { out[0] = 0xff; }                                       /* byte 0 only: both predicates 0 */
+        }
+        if (m->video_byte0_extra_at && n == m->video_byte0_extra_at) out[0] |= 0x80;   /* byte 0 altered, byte 1 untouched */
+    }
     m->bulk_bytes += len;
     record_ev(m, MOCK_RD_BULK, addr, 0, out, GBP_OK);
     m->ops[m->nops ? m->nops - 1u : 0].len = len;
@@ -742,6 +804,7 @@ void gbp_mock_transport(struct gbp_mock *m, struct gbp_transport *t)
         t->irq_prepare = m_irq_prepare;
         t->irq_record_slot = m_irq_record_slot;
         t->irq_multi_status = m_irq_multi_status;
+        t->irq_record_reset = m_irq_record_reset;
     } else {
         t->write_intsr = 0;
         t->irq_install = 0;
@@ -752,6 +815,7 @@ void gbp_mock_transport(struct gbp_mock *m, struct gbp_transport *t)
         t->irq_prepare = 0;
         t->irq_record_slot = 0;
         t->irq_multi_status = 0;
+        t->irq_record_reset = 0;
     }
     t->ticks = m_ticks;
     t->ctx = m;
