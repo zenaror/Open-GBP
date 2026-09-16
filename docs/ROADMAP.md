@@ -134,11 +134,26 @@ on real hardware without relying on proprietary runtime code.
 **Status: IN PROGRESS (entered 2026-09-16).** The entry experiment
 GBP-AV-SERVICE-001 captured the first physical VIDEO (0xF00) and AUDIO
 (0x1000) blocks with one whole-block DMA each and preserved them raw
-(fixture + sidecar). Next: GBP-VIDEO-001 — direction only so far (DEVLOG
-2026-09-16 "GBP-AV-SERVICE-001 executed"): the structure of the 0xF00
-block, the temporal block sequence and the frame-start flag under repeated
-service, then a controlled cartridge when the content question requires
-it; not designed yet.
+(fixture + sidecar). Static basis fixed on 2026-09-16
+(`docs/research/VIDEO_PATH.md`): both references read a block as 4 raster
+lines × 240 pixels × 4 bytes (bytes 1/3 of each word), 40 blocks per frame,
+frame flag on the first pixel, 15-bit color in GX RGB5A3 order; both embed
+the AGB idle screen (an offline oracle without a cartridge). Short sequence:
+
+* **GBP-VIDEO-001** (designed 2026-09-16, HARDWARE_TESTS.md; not
+  implemented): bounded repeated drained service, no cartridge — up to 88
+  VIDEO blocks with timestamps, both frame-start predicates, the source
+  pattern per cause; establishes blocks per frame, order, boundaries,
+  cadence and repeated-service stability; offline assembly against the
+  embedded idle screen.
+* **GBP-VIDEO-002**: first rendered frames on the GameCube (GX RGB5A3
+  texture from bytes 1/3, as the references) plus a known-color cartridge or
+  test ROM for the pixel semantics (color order → FACT); KEYPAD writes
+  enter here or in a dedicated Phase 5 probe, not before.
+* **GBP-VIDEO-003**: sustained streaming with a real cartridge (frame
+  pacing, dropped-block policy, output modes) — the bridge to Phase 7.
+
+No further micro-probes unless VIDEO-001 raises a blocking question.
 
 Implement and document the physical GBP video path.
 

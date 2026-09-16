@@ -212,7 +212,17 @@ acknowledge the source bits it carries (bit 2 at idle); the only
 supported end states are the Disc's stop write (`read | 0x8000 | masks`)
 or GBI's "0 + CONTROL stop".
 
-## U-GBP-008 (P2, partially answered 2026-09-14) — Read block layout
+## U-GBP-008 (P2, statically answered for the AV blocks 2026-09-16; physical geometry pending GBP-VIDEO-001) — Read block layout
+
+**2026-09-16, static (GBP-VID-002/003/004, `docs/research/VIDEO_PATH.md`):**
+both references read a VIDEO block as 4 raster lines of 240 pixels × 4
+bytes (line stride 960 bytes; Disc conversion loop, GBI copy + tiler) and a
+pixel word as `hh hh ll ll` of which **only bytes 1 and 3 are consumed** —
+the same classes as the register reads; the frame flag is bit 7 of byte 1
+(Disc) / of bytes 0 and 1 (GBI). The physical block is consistent (955/960
+words doubled, the 5 exceptions in byte 0). The physical geometry (lines
+per block, blocks per frame, order) is what GBP-VIDEO-001 captures; the
+AUDIO block's layout stays open (U-GBP-012).
 
 Observed for the IRQ window: byte-doubled `hh hh ll ll` per 32-bit word
 (GBP-HW-004), matching DISC's and GBI's parsing and contradicting
@@ -237,7 +247,24 @@ difference is documented anywhere; the user's unit revision is unknown.
 Dolphin maps hi byte bit 0 → L and bit 1 → R (swapped vs GBA KEYINPUT);
 GBI's 0x0304 sets both. Phase 5 test with a game that distinguishes L/R.
 
-## U-GBP-011 (P2) — VIDEO color bit order and exact word content
+## U-GBP-011 (P2, re-evaluated 2026-09-16: R-high order CORROBORATED by two references; FACT needs a known-color cartridge) — VIDEO color bit order and exact word content
+
+**2026-09-16, static (GBP-VID-003/006, VIDEO_PATH.md §2.3–2.4, §3.2):** the
+Disc draws the 16-bit pixel (bytes 1/3, bit 15 forced to 1) as a GX RGB5A3
+texture with no visible channel swap, and its embedded idle-screen frame
+shows the boot logo in R = 12 / G = 0 / B = 25 under that reading — indigo,
+the logo's real color; the GBA-native order (bits 0–4 R) would make it
+crimson. GBI's PNG writer maps bits 14–10 → R. So the hardware pixel is
+read by both programs as **bit 15 flag, bits 14–10 R, 9–5 G, 4–0 B** (GX
+order, not the GBA order Dolphin's mGBA macro may produce — GBP-VID-007).
+CORROBORATED, not FACT: no physical pixel of a known color has been
+captured; VIDEO-002 with a known-color cartridge or test ROM closes it.
+GBP-VIDEO-001 (no cartridge) checks the raw values of the logo pixels
+against the Disc's frame (0x3019 for the main color), which fixes the
+bytes but not their color name; if a complete idle frame matches the
+Disc's RGB5A3 frame byte for byte, the confidence increase is documented
+and the decision whether that is enough for a promotion, or the controlled
+cartridge stays necessary, is taken after the run — not anticipated here.
 
 Dolphin uses GBA palette order (R in bits 0–4). GBI's frame-start test only
 proves the byte-doubling of the high byte. Phase 4: capture one block
@@ -266,7 +293,15 @@ transfer's byte-0 phenomenon (U-GBP-021) — undecidable from one block.
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the
 user's screen/filter settings there. Not analyzed.
 
-## U-GBP-014 (P2, four data points 2026-09-16) — VIDEO/AUDIO IRQ timing on hardware
+## U-GBP-014 (P2, four data points 2026-09-16; first cadence capture designed: GBP-VIDEO-001) — VIDEO/AUDIO IRQ timing on hardware
+
+**Next data: GBP-VIDEO-001 (designed 2026-09-16, HARDWARE_TESTS.md)** —
+per-cycle pending values and time-base reads over up to 320 causes / 88
+VIDEO blocks give the first VIDEO→VIDEO, flag→flag and AUDIO→AUDIO
+intervals and the source pattern (0x0400 / 0x0100 / 0x0500 …) of one run;
+reported as measurements, not frequencies. For orientation only (H, GBA
+side, not GBP): a GBA frame is 16.74 ms, four visible lines 293.7 µs, the
+vertical blank 4.99 ms; Dolphin's audio block rate is 4096 Hz.
 
 **Fourth data point, GBP-AV-SERVICE-001 (GBP-HW-048/052/055/056):** 105.289
 ms after A2 (four runs within 16 µs, no cartridge); 0x0100 within 0.92 ms.
@@ -736,3 +771,28 @@ the next data point. Scheduled only if that outcome makes the distinction
 decisive for the runtime (e.g. an immediate re-request
 on every re-arm would mean the runtime must drain before re-arming — which
 the references do anyway).
+
+## U-GBP-029 (P2, opened 2026-09-16 after GBP-AV-SERVICE-001) — Are the byte-0 / offset-2 deviations inside whole-block DMAs block data or a read-path artifact?
+
+GBP-HW-061 / VIDEO_PATH.md §7: in the first physical VIDEO block the only
+deviations from a uniform picture are five `+0x80` in byte 0 of a pixel word
+(offset ≡ 0 mod 4); in the first AUDIO block the non-zero bytes sit at
+offset 0 of 123 of the 128 32-byte units (`01` / `11`) plus four isolated
+bytes at ≡ 0 or ≡ 2 mod 4; the same run's 32-byte register reads carried
+extras of the same values in byte 0 and deviations at offset 2 (U-GBP-021,
+U-GBP-025). Both references consume only bytes 1 and 3 of a pixel word and
+only offsets ≡ 1 / ≡ 3 mod 4 of a register block, so whichever it is, the
+references never see it — but for the AUDIO format (U-GBP-012) and for any
+future use of a whole block it matters whether those bytes are (a) data,
+(b) an artifact of the DMA / read path, or (c) undecidable. Evidence for
+(b): positions (bytes the references discard; the first byte of 32-byte
+units, as in the register reads), values (this run's own extras), the
+AUDIO block otherwise all zero. Evidence for (a): none, but none against
+either. **UNKNOWN.** Raw bytes stay the authority and are never corrected.
+GBP-VIDEO-001 records per block the raw first four bytes, both frame-start
+predicates separately (GBI: bytes 0 and 1; Disc: byte 1) and their
+agreement, the count and positions of byte-0 exceptions and of undoubled
+words: reproducibility across 88 blocks (same positions? only bytes 0/2?
+never bytes 1/3? a Disc = 1 / GBI = 0 block?) is the test; the offline
+boundary lists are kept per predicate, none chosen silently. The runtime rule
+stands regardless: read pixels from bytes 1 and 3, as the references do.

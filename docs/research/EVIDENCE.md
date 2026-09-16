@@ -468,12 +468,14 @@ for the L/R bit order (Dolphin swaps: hi bit0 → L, hi bit1 → R; U-GBP-010).
 16-bit color with both bytes doubled; bit 15 of the first pixel of a
 frame's first block is set (mask 0x80800000 after doubling).
 
-**Status:** CORROBORATED (DISC: 0xF00 reads, 40 ring buffers of 0xF00,
-frame buffer stride 0x25800 = 240×160×4, dummy first block with byte 0
-|= 0x80; GBI: 0xF00 reads on bit 0x100, frame-start test
-`(word0 & 0x80800000) == 0x80800000`, 40-entry ring `% 0x28`; DOLPHIN
-`PrepareScanlineData`/`Read(Video)`; PR #14535 "mirroring aligns with actual
-hardware behavior per hardware researcher consultation") —
+**Status:** CORROBORATED (DISC: 0xF00 reads, a ring of 40 × 0xF00 = 0x25800
+bytes, frame buffers of 0x12C00 = 240×160×2 (RGB5A3), a dummy first block
+whose first halfword is OR-ed with 0x0080 = bit 7 of byte 1; GBI: 0xF00
+reads on bit 0x100, frame-start test `(word0 & 0x80800000) == 0x80800000`,
+block index `(i + 1) % 0x28`; DOLPHIN `PrepareScanlineData`/`Read(Video)`;
+PR #14535 "mirroring aligns with actual hardware behavior per hardware
+researcher consultation"; corrected and detailed 2026-09-16 in
+`docs/research/VIDEO_PATH.md`, GBP-VID-002…007) —
 **Confidence:** high for geometry/flag, medium for color bit order (Dolphin
 `M_RGB8_TO_RGB5`, GBA palette order) — U-GBP-011. **Hardware 2026-09-16
 (GBP-AV-SERVICE-001, GBP-HW-051/058):** one DMA of 0xF00 bytes from index
@@ -1890,3 +1892,126 @@ console; version 1 (truncating identities) never reached hardware.
 | Whole-block reads | one DMA of the full length from index 0x8 and 0x1, 66.5 / 61.4 µs, CSR 0x0804 before/after, content recorded raw | transfer **F**; block size / geometry unchanged (**C**); content **U** |
 | Stop word | `read \| 0x8AAA` from 0x0500 with a latched PI cause → wrote 0x8FAA → read 0x8AAA; one W1C cleared the cause | layout / effect **F** (fourth value) |
 | Phase 3 | delivery (003B/004) + service, re-arm, next cause (this run): the criterion of DEVLOG 2026-09-16 met | **COMPLETE 2026-09-16**; microscopic unknowns non-blocking |
+
+## Static observations — the VIDEO path of the references, 2026-09-16 (GBP-VIDEO-001 design; `docs/research/VIDEO_PATH.md`)
+
+Source: Ghidra decompilations of the Start-up Disc `main.dol` and GBI
+`gbi-unpacked.dol` (private, `build/analysis/ghidra/`), Dolphin
+`HSP_DeviceGBPlayer.cpp` (`external/dolphin` c185d27), and the physical
+block of GBP-AV-SERVICE-001. "F (code)" = what the software does; nothing
+below is a physical fact about the Game Boy Player.
+
+## GBP-VID-002 — Block geometry in both references: 4 raster lines of 240 pixels × 4 bytes, line stride 960 bytes, 40 blocks of 4 lines per frame
+
+**Observation:** Disc `FUN_8008EFB4` converts a block with an outer loop of
+60 groups of 4 pixels (240 per line), an inner loop of 4 rows that advances
+the source by 0x1E0 halfwords (960 bytes) per row, and writes 4 × 4 texels
+(one GX tile, 32 bytes) per group — 0x780 bytes per block, 40 blocks per
+0x12C00 frame; its consumer (`FUN_8008EDE8`) places block `i` at `i × 0x780`
+and accepts `i < 0x28`. GBI (`FUN_8000BF30`) consumes the block as 240 groups
+of 4 consecutive pixels into a linear 16-bit raster at `blk × 0x780` (480
+bytes per line), completes a frame at `blk == 0x27`, wraps with `% 0x28`; its
+renderer tiles 4 linear rows at a time. Dolphin fills 960 pixels of 4
+scanlines in raster order. **Status:** F (code) for the references' model,
+CORROBORATED for the hardware format (three independent models agree; a
+physical block cannot show geometry until a frame is captured —
+GBP-VIDEO-001). The constant 40 is explicit in both binaries (`0x27` /
+`0x28`, ring of 40, queue of 41, 40-entry tables), i.e. 160 / 4 written
+out, not a measured value.
+
+## GBP-VID-003 — Pixel word: both references consume only bytes 1 and 3; 16-bit pixel = bit 15 flag + 5-5-5 color in GX RGB5A3 order (R high)
+
+**Observation:** Disc: `pixel = (b3) | FILL | ((hw0 << 9) >> 1)` = byte 3 |
+byte 1 << 8, FILL forced into every pixel, the frame drawn as
+`GX_TF_RGB5A3` (format 5) 240×160 textures with no non-identity swap-table
+call in the presenter; its embedded reference frame has bit 15 set in every
+halfword (FILL = 0x8000, C) and shows the boot logo in the color R = 12, G =
+0, B = 25 (of 31) under the RGB5A3 reading — the logo's indigo; under the
+GBA-native order it would be crimson. GBI: the thread packs `b1 << 8 | b3`
+per pixel, the renderer emits 4×4 RGB5A3 tiles with `| 0x80008000`, and the
+PNG writer maps bits 14–10 → R, 9–5 → G, 4–0 → B. Bytes 0 and 2 of a pixel
+word are read by neither program (the register reads: same classes ≡ 1 / ≡ 3
+mod 4). Dolphin writes `b0 = b1 = hi`, `b2 = b3 = lo`; its color order comes
+from mGBA's `M_RGB8_TO_RGB5` on mGBA's 32-bit buffer — GBA-native (R low) if
+mGBA's default format applies, i.e. the opposite of the references (not
+verified: the macro is outside the sparse checkout). **Status:** bytes 1/3
+and the `hh hh ll ll` doubling: F (code) ×2, physical bytes consistent
+(GBP-HW-058); R-high color order: CORROBORATED (two references + the
+reference frame's color), FACT only after a known-color cartridge
+(U-GBP-011, VIDEO-002); Dolphin's order: H, flagged divergence.
+
+## GBP-VID-004 — Frame-start predicates, exact
+
+**Observation:** GBI: `(u32 at offset 0 & 0x80800000) == 0x80800000` — bit 7
+of byte 0 AND bit 7 of byte 1; on true the block index is reset to 0.
+Disc: `FUN_8008A588(u16 at offset 0) = (hw >> 7) & 1` — bit 7 of byte 1
+only; its synthetic first block sets that bit by `halfword |= 0x0080`
+(earlier project notes said "byte 0": wrong). Dolphin sets pixel 0 `|=
+0x8000` on the frame's first block, which after doubling sets bit 7 of
+bytes 0 and 1. Open-GBP's `gbi_frame_start` is GBI's predicate exactly; the
+physical first word `FF FF FF FF` satisfies both predicates (a mask test,
+not an equality with 0x80800000). **Status:** F (code) ×2; physical
+occurrence on one block F (hw); absence on the other blocks of a frame: U
+until GBP-VIDEO-001.
+
+## GBP-VID-005 — Order, wrap and drop policies
+
+**Observation:** Disc: block `i` → lines `4i..4i+3`; index reset only by the
+flag; after 40 blocks without a flag the extra blocks are consumed and
+freed but not converted (dropped) until the next flag; the frame buffer
+(five of them) advances after the 40th block; a block whose ring slot is
+still owned by the consumer is not read at all (skipped); no repeat. GBI:
+same placement; wraps `% 40` without a flag (keeps overwriting from the
+top); one buffer, conversion in the thread before the next pass; a frame is
+dropped when the render queue refuses it (triple buffer). **Status:** F
+(code); the hardware's own behavior on a missed block: U.
+
+## GBP-VID-006 — Both references embed the AGB idle screen; the physical block equals its first block in both
+
+**Observation:** the Disc keeps a 240×160 RGB5A3 frame at `0x801B45A0`
+(0x12C00 bytes, before its frame-buffer table): white everywhere except
+lines 56–100 / columns 39–201 (the "GAME BOY" logotype and "Nintendo®",
+one main color plus 42 anti-aliasing shades), compared block by block with
+the converted stream when enabled (40 consecutive matches raise a flag).
+GBI keeps two 40-entry tables of per-block checksums (`0x800B0E78`: content
+in blocks 14–25 — the Disc frame's layout; `0x800B0F18`: content in blocks
+12–19), every other entry equal to the checksum of a white block, entry 0
+equal to a white block with the flag; on a match it injects key states
+(boot-screen automation). Host checks 2026-09-16: the GBI-style checksum of
+the physical VIDEO block is `0x7F0FFF10` = entry 0 of both tables; the
+Disc-style conversion of the physical block (FILL 0x8000) equals the
+reference frame's block 0 byte for byte. **Status:** F (code) for the
+embedded data; CORROBORATED that the physical block is the first block of
+the idle screen as both references model it (the five byte-0 deviations
+are in bytes neither program reads). **Consequence:** GBP-VIDEO-001 has an
+offline oracle without a cartridge — a captured frame can be checked block
+by block against two independent references (the assets themselves stay
+private; only the comparison results are documented).
+
+## GBP-VID-007 — Dolphin's video model, divergences to keep in mind
+
+**Observation:** video IRQ scheduled on the audio IRQ phase ("separately
+timed video IRQs break the game"); blocks of 4 raster lines; flag on pixel
+0; color order via mGBA's macro (see GBP-VID-003); 32-byte reads modelled
+without byte-0 extras. **Status:** model data; never physical truth; the
+color-order divergence is testable by a Dolphin screenshot of the Disc's
+logo, not scheduled.
+
+## GBP-HW-061 — Positional statistics of the two physical blocks (from GBP-HW-057/058)
+
+**Observation:** VIDEO: 5 deviations from the uniform pattern, all `+0x80`,
+all at offset ≡ 0 mod 4 (byte 0 of a pixel word: absolute 0x0A4, 0x294,
+0x2E8, 0x6A8, 0x908; in-unit offsets 4, 20, 8, 8, 8 of their 32-byte
+units), none at bytes 1–3; bytes ≡ 1 mod 4 are `7F` in 959 of 960 words (the
+flagged pixel excepted), bytes ≡ 2 and ≡ 3 mod 4 are `FF` in all 960.
+AUDIO: 127 non-zero bytes — 123 at ≡ 0 mod 32 (`01` ×121, `11` ×2; five
+32-byte units without one), two at ≡ 0 mod 4 (0x08C, 0x8A8) and two at ≡ 2
+mod 4 (0x49E, 0xCBA); period-match fractions 0.994–0.995 for periods that
+are multiples of 32 and 0.938 otherwise, i.e. the only structure is the
+32-byte unit. The same run's 32-byte register reads carried byte-0 extras
+`0x01 / 0x03 / 0x10 / 0x11 / 0x12 / 0x13 / 0x43` and offset-2 deviations
+(GBP-HW-059). **Status:** FACT (hardware) for the positions and values; the
+classification — block data vs an artifact of the read path in the byte
+positions the references discard — is **UNKNOWN** (U-GBP-029); the
+positional coincidence with the register reads' extras is noted as
+HYPOTHESIS; no byte is corrected; GBP-VIDEO-001 tests reproducibility.

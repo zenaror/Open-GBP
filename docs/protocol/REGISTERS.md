@@ -87,10 +87,11 @@ match this; they agree with hardware only at bytes 0x1D/0x1F.
 
 | Bits (32-bit word, big-endian) | Meaning | Status |
 |---|---|---|
-| 31–24 and 23–16 | high byte of a 16-bit color, doubled | C (DOLPHIN + GBI check `& 0x80800000`) |
-| 15–8 and 7–0 | low byte of the color, doubled | C |
-| bit 15 of the 16-bit color (→ mask `0x80800000` after doubling) on the **first pixel** of a 0xF00 block | first scanline of a frame | C (DOLPHIN sets it; GBI tests it; DISC pre-fills a dummy first block with `0x80` in byte 0) |
-| color encoding | GBA palette order (bits 0–4 red, 5–9 green, 10–14 blue) in DOLPHIN (`M_RGB8_TO_RGB5`) | H |
+| 31–24 and 23–16 | high byte of a 16-bit color, doubled; **both references consume byte 1 (bits 23–16) only**; GBI's frame test also reads byte 0 | C (DISC + GBI code, DOLPHIN writes both; physical block consistent — GBP-VID-003, GBP-HW-058) |
+| 15–8 and 7–0 | low byte of the color, doubled; **both references consume byte 3 (bits 7–0) only** | C (same) |
+| bit 15 of the 16-bit color on the **first pixel** of a 0xF00 block | first block of a frame: block index := 0 | C (DOLPHIN sets it; GBI tests `(w & 0x80800000) == 0x80800000` = bytes 0 and 1; DISC tests `(hw >> 7) & 1` = byte 1 and pre-fills its dummy first block with `halfword |= 0x0080`; physical first block: set — GBP-VID-004) |
+| color encoding | **bits 14–10 R, 9–5 G, 4–0 B (GX RGB5A3 order)**: DISC uploads bytes 1/3 with bit 15 forced as `GX_TF_RGB5A3` with no visible swap and its embedded idle-screen frame is indigo under this order (crimson under the GBA order); GBI's PNG writer maps bits 14–10 → R; DOLPHIN's mGBA macro may yield the GBA order (bits 0–4 R) — divergence to verify | C (two references); FACT after a known-color cartridge (VIDEO-002) — U-GBP-011 |
+| geometry of a block | 4 raster lines × 240 pixels × 4 bytes, line stride 960 bytes; 40 blocks per 160-line frame; block `i` → lines `4i..4i+3` | C (DISC conversion loop, GBI copy + tiler, DOLPHIN); physical: GBP-VIDEO-001 (designed) — GBP-VID-002/005 |
 
 ## 3. CONTROL register bits
 

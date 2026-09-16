@@ -32,7 +32,7 @@ provenance). Status letters: F/C/H/U.
 | Interrupt mask | CONTROL bit 0x10 | 1 = masked | C |
 | Sleep / link related | CONTROL bits 0x20, 0x40, 0x80 | read/written by DISC around serial operations and stop; names from Dolphin comments only | H |
 | Keypad injection | KEYPAD (16-bit, 1 = pressed, GBA key order low byte; L/R in bits 8/9, order per Dolphin swapped) | refreshed on every IRQ by the Start-up Disc and GBI; `0x0304` used to wake from sleep (GBI) | C / H (L/R order) |
-| Video capture | VIDEO window, 4 lines × 240 px × 32-bit per 0xF00 read, frame-start flag on the first pixel, IRQ bit 8 per batch (40 per frame) | the Start-up Disc and GBI; Dolphin format cross-checked with GBI's `0x80800000` test | C |
+| Video capture | VIDEO window, 4 raster lines × 240 px × 32-bit per 0xF00 read (line stride 960 B), pixel word `hh hh ll ll` of which both references consume bytes 1/3, 15-bit color in GX RGB5A3 order (R high) with bit 15 = frame-start flag on the first pixel of a frame, IRQ bit 8 per block (40 per frame) | the Start-up Disc and GBI (`docs/research/VIDEO_PATH.md`); Dolphin format cross-checked; one physical block read (GBP-HW-051/058), the sequence pending GBP-VIDEO-001 | C; block read F (hw) |
 | Audio capture | AUDIO window, 0x1000 bytes per IRQ bit 10; PWM bit-stream per Dolphin | the Start-up Disc and GBI read 0x1000; format H | C / H |
 | Serial bridge to the AGB SIO | SIOCTL (byte) + SIODATA (32-bit) + IRQ bit 6 | DISC drives a write/start/read protocol; GBI reads on IRQ; Dolphin stubs | F (exists) / U (semantics) |
 | Game Pak event | IRQ bit 2 | DISC stops on it | C |

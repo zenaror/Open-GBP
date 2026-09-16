@@ -2930,3 +2930,401 @@ blocks), UNKNOWNS.md (U-GBP-027 closure or reformulation, U-GBP-028 data point, 
 service pass; R11 promotion if observed), REGISTERS.md (VIDEO / AUDIO rows: hardware column),
 HSP.md (§3: the ARQ hi-queue precision and the first measured bandwidth), captures/README.md
 (fixture + sidecar format), tests/README.md, poc/README.md.
+
+### GBP-VIDEO-001 — bounded VIDEO block sequence capture: repeated drained service, frame boundaries, block order and cadence, no cartridge (Phase 4; designed 2026-09-16, specification reviewed twice the same day; NOT implemented, NOT released)
+
+Status: **DESIGNED 2026-09-16, SPEC REVIEWED 2026-09-16 (twice) — NOT
+IMPLEMENTED.** Static basis: `docs/research/VIDEO_PATH.md` (the VIDEO path
+of both references re-read from the decompilations, Dolphin's model, the
+physical block of GBP-AV-SERVICE-001 against the references' embedded
+idle-screen frame); evidence GBP-VID-002…007, GBP-HW-061; DEVLOG 2026-09-16
+"GBP-VIDEO-001 designed", "specification review" and "admission budget".
+Depends on GBP-AV-SERVICE-001 (the drained service pass, re-arm and next
+cause, F hw) and on GBP-INIT-003B / 004 (delivery). The first review fixed:
+operational success separated from the content oracle; 88 blocks as a
+capture target, a complete frame interval = two consecutive boundaries;
+both frame-start predicates per block with the raw first four bytes; the
+state machine, PI-latch policy and handler-record reuse made explicit. The
+second review replaced the "hard wall-clock bound" by a **service-loop
+admission budget**: MAX_RUNTIME_MS gates the admission of NEW cycles; an
+admitted cycle is a bounded transaction that always completes.
+
+```text
+Question:    Over a bounded sequence of delivered HSP causes serviced the reference way (read IRQ →
+             drain AUDIO if 0x0400 → drain VIDEO if 0x0100 → ACK pending | 0x8000 → PI clean →
+             IRQ := 0 → next cause), what is the physical VIDEO block stream: on which blocks a
+             frame-start predicate is true (GBI's and the Disc's, separately), how many blocks lie
+             between two consecutive true predicates, in which order the blocks arrive, at what
+             intervals VIDEO and AUDIO sources appear, and does the repeated service stay stable
+             (no reentry, no lost cause, no transport uncertainty)? Offline, and only offline, the
+             captured blocks are compared with the idle screen both references embed
+             (VIDEO_PATH.md §2.4, §3.3): an oracle for the content, never a gate for the hardware.
+Not asked:   rendering on the GameCube; the color naming (R/G/B bit order stays C until a
+             known-color cartridge, VIDEO-002 — and the decision whether VIDEO-001's data can
+             raise it is taken after the run, not before); KEYPAD writes (kept out: one new
+             variable — repetition); SIO; a cartridge; a second delivery per cycle; the AUDIO
+             format.
+Why not static / Dolphin: the references' constants say 40 blocks of 4 lines; the physical
+             cadence, the predicates' occurrence, dropped or duplicated blocks and the source
+             pattern per cause are hardware behavior; Dolphin ties its video IRQ to the audio
+             phase and its blocks are model data.
+
+New variable class (ONE): repetition of the validated pass over dozens of cycles with the CPU
+             masked between deliveries. Everything else is the AVSVC sequence: same handler
+             (003B extended one-shot), same drains (one DMA each), same ACK / PI clean / re-arm
+             writes, same teardown family. No KEYPAD, no CONTROL change beyond the transform and
+             its restore, no write without physical precedent.
+
+Capture target and caps (operational; none is a hardware property; all evaluated at the
+admission point, never in the middle of an accepted cycle):
+             TARGET_VIDEO_BLOCKS = MAX_VIDEO_BLOCKS = 88 — the capacity of the block array and the
+                 loop's normal end. Rationale, under the references' period of 40 as a working
+                 HYPOTHESIS: the capture starts at an arbitrary phase, so the first true
+                 predicate can come as late as the 40th block, and the next one 40 blocks later;
+                 80 blocks guarantee one complete boundary→boundary interval only if the period is
+                 40; 88 leaves 8 of margin. 48 blocks would guarantee at most ONE boundary and
+                 never a complete interval; the earlier phrase "48 = one frame + 8" was wrong and
+                 is withdrawn. 88 is capacity, not a hardware truth: if the physical period
+                 differs, the boundary result reports what was seen. Target reached → no further
+                 delivery is admitted "to look for something else": the final bounded observation
+                 (WAIT_NEXT of the last cycle, below) runs, then the teardown, which acknowledges a
+                 cause latched after the last re-arm.
+             MAX_DELIVERIES 320 (AUDIO-only causes may outnumber VIDEO ones ≈ 2–3 : 1 if the
+                 audio block rate is near Dolphin's 4096 Hz model — unknown; the bound protects,
+                 the ratio is an observation). Reached → no further admission →
+                 `ok_target_not_reached_delivery_cap` (SERVICE ok, CAPTURE delivery_cap), never a
+                 transport failure. The AUDIO and cycle tables have MAX_DELIVERIES entries and
+                 each admitted cycle drains at most one AUDIO block, so no separate AUDIO cap is
+                 needed (MAX_AUDIO_BLOCKS = MAX_DELIVERIES by construction).
+             MAX_RUNTIME_MS 1000 — the SERVICE-LOOP ADMISSION BUDGET (semantics below): the limit
+                 for STARTING new cycles, not a wall-clock kill of a cycle already accepted.
+                 Expired at the admission point → `ok_target_not_reached_runtime_cap` (SERVICE ok,
+                 CAPTURE runtime_cap).
+             T_NEXT_CAUSE 100 ms: the masked, read-only poll for the next cause after a re-arm,
+                 part of the cycle that re-armed; it runs to min(T_NEXT_CAUSE, remaining admission
+                 budget). Expired with budget left → `observation_no_next_cause` (nothing is
+                 fabricated: no unmask without a latched cause, no write to provoke one).
+             T_DELIVERY 100 ms: bound on the handler-entry wait after an unmask (the cause is
+                 already latched, so the entry is expected inside the call; the bound only
+                 catches an environment fault → anomaly_missed_entry).
+             T_FIRST_CAUSE 2000 ms (the 003A stage, before the loop; as 003A/AVSVC).
+             T_DMA 200 ms per transfer (as AVSVC); 32-byte transfers keep the transport's 200 ms
+                 operational timeout; no retries anywhere.
+             VERIFY_CYCLES 4: the first four admitted cycles take the AVSVC snapshots (PRESVC +
+                 POSTDRAIN + POSTACK + REARMPOST with CONTROL / IRQ / PI reads and the AVSVC
+                 checks); the remaining cycles run the lean path.
+
+Service-loop admission budget — semantics (simple, testable):
+             t0 := the time-base value at the first admission (the first unmask of the loop);
+             ADMISSION_DEADLINE := t0 + MAX_RUNTIME_TICKS; remaining(t) := ADMISSION_DEADLINE − t as
+             a wrap-safe unsigned difference on the 32-bit time base (as every probe so far).
+             (1) CHECK_ADMISSION, evaluated before PREPARE / UNMASK of every cycle: a new cycle is
+                 admitted only if remaining > 0, deliveries < MAX_DELIVERIES and video_blocks <
+                 TARGET_VIDEO_BLOCKS; otherwise the loop ends normally (runtime_cap /
+                 delivery_cap / target_reached) and the teardown follows — no unmask, no new
+                 delivery; a cause already latched at the PI stays latched and is acknowledged by
+                 the teardown (recorded as next_cause_at_end = yes, deliveries unchanged). A next
+                 cause observed is NOT a cycle admitted.
+             (2) An admitted cycle — the unmask executed and CONFIRM satisfied (fired == 1, count ==
+                 1, reentry == 0) — is TRANSACTIONAL: READ → AUDIO if selected → VIDEO if selected →
+                 ACK → PICLEAN → REARM completes in full even if the admission deadline expires
+                 meanwhile. The deadline expiring between AUDIO and VIDEO changes nothing: VIDEO is
+                 drained, the ACK is `pending | 0x8000` for the whole pending value (never a partial
+                 ACK), the re-arm is written. The cycle is never abandoned because the deadline
+                 passed; it ends only by completion or by a real failure (failure teardown).
+             (3) Every step of the accepted cycle keeps its own bound, without retries: each DMA ≤
+                 T_DMA (AUDIO ≤ 200 ms, VIDEO ≤ 200 ms), each 32-byte transfer ≤ its 200 ms
+                 transport timeout (READ, ACK, REARM, the verify snapshots), PI cleanup = at most
+                 one W1C and one re-read, handler-entry wait ≤ T_DELIVERY.
+             (4) WAIT_NEXT after the re-arm belongs to the completion / observation of the cycle
+                 that re-armed: a masked read-only poll of INTSR13 to min(T_NEXT_CAUSE, remaining).
+                 If remaining is already 0 when it would start, it degenerates to a single read
+                 (the observation is still recorded). If the deadline arrives during the wait
+                 with no cause → the loop ends as runtime_cap with next_cause_at_end = no
+                 ("no next cause before the cap") — no unmask, nothing fabricated. If the cause
+                 appears before the deadline it stays latched and CHECK_ADMISSION decides; the
+                 admission may still be refused (the deadline expired between the observation and
+                 the admission, or a cap): the cause is left latched for the teardown.
+             (5) Bounded overrun past ADMISSION_DEADLINE = the remaining work of the one cycle in
+                 flight + WAIT_NEXT (never beyond the deadline) + the teardown. Conservative upper
+                 bound, counting EVERY transfer at its 200 ms operational timeout (each such
+                 timeout would also be a failure; typical values are microseconds): lean cycle
+                 T_DELIVERY 0.1 s + READ 0.2 + AUDIO 0.2 + VIDEO 0.2 + ACK 0.2 + REARM 0.2 = 1.1 s;
+                 verify cycle + 3 snapshots × 2 transfers = + 1.2 s → 2.3 s; teardown (CONTROL
+                 restore, IRQSTOPPRE, STOP, IRQSTOPPOST, two FINAL reads) ≤ 1.2 s. Worst case wall
+                 time of the loop and teardown ≈ 1.0 + 2.3 + 1.2 = 4.5 s; typical overrun < 1 ms.
+                 The SD save (on X) is outside the budget.
+
+State machine of the repeated service (CPU masked everywhere except inside the unmask call):
+
+             INIT_ENTRY        the validated 003A stage found the first cause (PI13 = 1, INTMR13 =
+                               0, PREUNMASK checks as AVSVC); t0 is taken at the first admission
+             CHECK_ADMISSION   remaining > 0 ∧ deliveries < MAX_DELIVERIES ∧ video_blocks < TARGET
+                               ∧ a cause is latched (PI13 = 1 observed) → PREPARE; otherwise →
+                               TEARDOWN with CAPTURE = runtime_cap / delivery_cap /
+                               target_reached (a latched cause stays latched: next_cause_at_end =
+                               yes) or no_next_cause (WAIT_NEXT expired with budget left)
+             PREPARE           verify INTMR13 == 0 by a read; verify the previous record was
+                               consumed; reset the record (fired := 0, count := 0, reentry := 0,
+                               timestamps and INTSR / INTMR fields := 0) — memory writes only, NO
+                               write to INTSR or INTMR; PI13 == 1 is left INTACT
+             UNMASK            one __UnmaskIrq: the latched cause is taken inside the call
+                               (ENV-IRQ-003, F hw ×3); the ISR masks first, performs its ONE W1C,
+                               records; t_unmask before, t_post_unmask after; entry wait ≤ T_DELIVERY
+             CONFIRM           main re-mask (idempotent), read INTMR13 == 0; copy the record;
+                               require fired == 1, count == 1, reentry == 0, INTSR at entry with
+                               bit 13, INTMR at entry with bit 13, after-mask INTMR13 == 0,
+                               after-W1C INTSR13 == 0; any other value → anomaly_reentry (count >
+                               1), anomaly_missed_entry (fired == 0), anomaly_isr_state (the rest)
+                               → failure TEARDOWN. Satisfied → deliveries := deliveries + 1; the
+                               cycle is now ADMITTED and transactional
+             SERVICE_TRANSACTION (completes in full regardless of the admission deadline):
+               READ            read IRQ (32 B, Disc == GBI vote required) → pending; keep byte 0
+                               and the group-0 offset-2 byte; pending & ~0x0500 ≠ 0 →
+                               anomaly_unexpected_source (observed, not serviced: no ACK, no
+                               re-arm); pending == 0 → anomaly_cause_without_source
+               AUDIO           if pending & 0x0400: one DMA 0x1000 (destination per the AUDIO
+                               policy)
+               VIDEO           if pending & 0x0100: one DMA 0xF00 into video_blocks[n]; n := n + 1
+               ACK             IRQ := pending | 0x8000 — the whole pending value, never partial
+                               (attempted / completed counted; not completed → ack_write_failed)
+               PICLEAN         read INTSR / INTMR; INTSR13 == 1 → ONE main W1C (counted as
+                               relatch_postack) and re-read; still 1 → anomaly_pi_sticky; INTMR13
+                               must read 0 in every main-loop read
+               REARM           IRQ := 0x0000 (not completed → rearm_write_failed); t_rearm
+             WAIT_NEXT         masked read-only poll of INTSR13 until 1 or min(T_NEXT_CAUSE,
+                               remaining) (a single read if remaining == 0); the poll that sees 1
+                               gives t_cause of the candidate next cycle and next_cause_observed
+                               := yes; nothing is written to the PI here → CHECK_ADMISSION
+             TEARDOWN          normal (cap / target / no next cause) or failure: CONTROL restore,
+                               STOP word `read | 0x8AAA`, CLEANUPCHK → ≤ 1 W1C for a latched
+                               cause, handler restore, AR_INFO restore; then the save
+             W1C budget per cycle: ISR 1 (UNMASK), main ≤ 1 (PICLEAN only); NONE between
+             WAIT_NEXT and the next UNMASK; the teardown ≤ 1. PI13 == 1 with an invalid source is
+             an anomaly at READ, never cleared "to continue". A cycle admitted (CONFIRM
+             satisfied) is never aborted because the deadline expired afterwards.
+
+Handler and record reuse (`hsp_backend_oneshot_isr_ext`, 003B extended one-shot, installed once):
+             Invariants before every unmask (PREPARE, all verified and logged on violation): CPU
+             masked (INTMR bit 13 read 0); the previous record consumed (copied to the cycle
+             record at CONFIRM); fired == 0, count == 0, reentry == 0; t_entry, t_second and the
+             INTSR / INTMR fields zeroed (known); the handler still installed (installed once at
+             the loop entry, never re-installed, never restored before the teardown); INTSR bit
+             13 already 1 from a valid next cause (WAIT_NEXT) and admission granted. The
+             preparation writes only the record in memory — never a PI register. Expected after
+             the ISR (CONFIRM): fired == 1, count == 1, reentry == 0; anything else stops the loop.
+             Why the reuse is safe: the ISR can run only between __UnmaskIrq (UNMASK) and its own
+             first instruction __MaskIrq; main touches the record only after its own re-mask and
+             an INTMR read showing bit 13 = 0 (CONFIRM, PREPARE), so no IRQ 26 can be taken while
+             main reads or resets the record — exclusive access follows from the mask state,
+             which is read, not assumed, before every access. No generation counter, no slot
+             array (the 004 multi-cycle body is not linked); no second ISR.
+
+Records (compact, binary, preallocated; formatted only after the loop):
+             cycle[320]  : idx, pending, irq_byte0, irq_off2_g0, t_cause, t_unmask, t_entry,
+                           latency, t_read, audio {selected, attempted, completed, rc, slot,
+                           t_start, t_end, wait, crc32 when completed}, video {selected, attempted,
+                           completed, rc, seq, t_start, t_end, wait}, ack {attempted, completed,
+                           t_after}, pi {intsr_postack, main_w1c, intsr_after}, rearm {attempted,
+                           completed, t_after}, wait_next {next_cause_observed, t_next, polls,
+                           ended_by: cause / t_next_cause / admission_deadline}, isr {fired, count,
+                           reentry, intsr_entry, intmr_entry, intsr_after_w1c}, flags (verify /
+                           end reason)                                                      (~104 B)
+             vblock[88]  : seq, cycle, pending, t_start, t_end, dt, wait, rc, crc32,
+                           raw_first4[4], flag_gbi, flag_disc, flags_agree, byte0_exceptions,
+                           undoubled_words (computed after the loop)                       (~48 B)
+             ablock[320] : cycle, selected, attempted, completed, rc, slot, dt, crc32, first_word,
+                           nonzero, unit0_nonzero                                          (~32 B)
+             Buffers: `static uint8_t video_blocks[88][0xF00] ALIGN(32)` (337 920 B),
+             `audio_first[8][0x1000]`, `audio_last[2][0x1000]` (ping-pong), all 32-byte aligned,
+             bounds checked before each DMA; no malloc; no overwrite of a captured VIDEO block.
+
+Frame-start predicates (recorded per VIDEO block, both, from raw_first4, raw never corrected):
+             gbi_frame_start  := (u32_be(raw_first4) & 0x80800000) == 0x80800000
+                                 — bit 7 of byte 0 AND bit 7 of byte 1 (GBI `FUN_8000BF30`)
+             disc_frame_start := ((u16_be(raw_first4[0..1]) >> 7) & 1) != 0
+                                 — bit 7 of byte 1 (Disc `FUN_8008A588`)
+             flags_agree      := gbi_frame_start == disc_frame_start
+             Note: gbi ⇒ disc by construction (GBI's condition contains the Disc's); disc = 1 with
+             gbi = 0 means byte 1 has the bit and byte 0 does not — relevant precisely because the
+             observed variability sits in byte 0 (GBP-HW-061, U-GBP-029). Neither predicate is
+             chosen as the physical truth; both lists are reported.
+
+AUDIO policy: AUDIO is drained on every cycle it is pending (before VIDEO, the references' order)
+             and never left pending to simplify VIDEO. Raw preservation: the first 8 SUCCESSFUL
+             AUDIO drains (audio_first[k], k advances only on rc == ok) and the LAST SUCCESSFUL
+             one: drains beyond the first 8 alternate between audio_last[0] and audio_last[1];
+             last_valid points to the buffer of the last COMPLETED drain and is updated only after
+             the completion was seen (rc == ok, completion flag observed); a timeout / error lands
+             in the other buffer and never overwrites the last valid capture nor is attributed to
+             it. Per cycle the metadata records selected, attempted, completed, rc, slot, crc32
+             (only when completed), first word, unit-0 statistic; the sidecar's AUDIO table
+             carries them for every drain and names the cycle of each raw block kept.
+
+Log:         one line per cycle (`CYC n=… pend=… lat=… isr=… a=… v=… ack=… pi=… rearm=… next=…
+             end=…`), one per VIDEO block (`VBLK seq=… cyc=… dt=… crc=… f4=… gbi=… disc=… agree=…
+             x0=… und=…`), the AVSVC records for the verify cycles, summaries (`SEQ`, `BOUNDARIES
+             gbi=…`, `BOUNDARIES disc=…`, `SOURCES`, `TIMING`, `COUNTERS`, `ADMISSION` (t0,
+             deadline, the reason and time of the last refusal), `MATRIX`, `RESTORE`), anomalies
+             in detail only when they occur; ring ≥ 640 lines × 192 bytes; nothing formatted
+             inside the loop; the ISR unchanged.
+
+Sidecar:     a NEW sequence format (magic `OGBPSEQ1`, format 3 of the family; v2 untouched):
+             256-byte header (identities as v2: Test ID / Build ID / app / commit, 32 bytes each,
+             never truncated; tb_hz; counts: cycles, video blocks, audio drains, audio raw kept;
+             sizes 0xF00 / 0x1000; section offsets; end reason and next_cause_at_end; flags;
+             header CRC-32), the cycle table, the VIDEO table (per block: seq, cycle, pending,
+             t_start, t_end, wait, rc, raw_first4[4], flag_gbi, flag_disc, flags_agree, CRC-32),
+             the AUDIO table (per drain: cycle, selected/attempted/completed, rc, slot, dt,
+             CRC-32, first word), the raw VIDEO blocks contiguous in sequence order, the raw
+             AUDIO blocks kept (first 8 + last valid, each named by its cycle), footer
+             `OGBPEND1` + CRC-32 of everything before it. Deterministic layout; partial saves
+             carry the actual counts. Written on X after the log, as in AVSVC.
+
+Failure policy (SERVICE failed): unexpected source, cause without source, DMA busy / timeout /
+             error, ACK or re-arm write not completed, PI sticky after one W1C, reentry / missed
+             entry / bad ISR state, record or buffer capacity reached before a cap (defensive) →
+             stop the loop → bounded teardown (CONTROL restore, STOP word `read | 0x8AAA`, PI
+             cleanup ≤ 1 W1C, handler restore, AR_INFO restore) → save everything captured so
+             far. No run is discarded for a late failure. The caps, the admission deadline and
+             the next-cause timeout are NOT failures; neither is a cause latched but not admitted.
+
+Result matrix (every dimension always reported; the main status never hides one):
+             SERVICE            ok / failed(<reason>)          — repeated service: exactly one ISR
+                                entry per admitted delivery, 0 reentry, 0 unexpected source, 0
+                                uncertain writes, 0 DMA timeout / busy / error, every admitted
+                                cycle's ACK and re-arm completed, INTMR13 == 0 in every main read
+             CAPTURE            target_reached / delivery_cap / runtime_cap / no_next_cause /
+                                early_failure, with counts (deliveries, video blocks, audio drains)
+                                and next_cause_at_end (yes / no: a cause latched when the loop
+                                ended, acknowledged by the teardown, never counted as a delivery)
+             BOUNDARIES_GBI     count + positions[] (sequence indices) + intervals[]
+             BOUNDARIES_DISC    count + positions[] + intervals[]
+             COMPLETE_INTERVAL  yes / no per predicate: yes iff count ≥ 2 (two consecutive true
+                                predicates in the captured sequence give a complete interval); the
+                                interval's length is the observation — 40 is the references'
+                                hypothesis, NOT a requirement; N ≠ 40 is an important physical
+                                result, never a failure; 0 or 1 boundary in 88 blocks leaves the
+                                objective "complete frame interval observed" unsatisfied with the
+                                capture operationally valid
+             REFERENCE_CONTENT  full_match / partial_match / mismatch / insufficient_data —
+                                computed OFFLINE by the host tool (below), never by the probe,
+                                never a gate for SERVICE or CAPTURE
+             RESTORE            ok / failed
+             Main status (from SERVICE, CAPTURE and RESTORE only):
+               ok_video_sequence_capture          SERVICE ok, CAPTURE target_reached, RESTORE ok,
+                                                  raw blocks preserved, sidecar intact
+               ok_target_not_reached_delivery_cap SERVICE ok, CAPTURE delivery_cap, RESTORE ok
+               ok_target_not_reached_runtime_cap  SERVICE ok, CAPTURE runtime_cap, RESTORE ok —
+                                                  with next_cause_at_end yes (a cause latched
+                                                  after the last re-arm, admission refused) or
+                                                  no (the deadline arrived during WAIT_NEXT
+                                                  without a cause: "no next cause before the cap")
+               observation_no_next_cause          SERVICE ok up to the last admitted cycle, the
+                                                  device produced no cause within T_NEXT_CAUSE
+                                                  with admission budget left
+               <failure statuses>                 SERVICE failed (anomaly_* / *_dma_* /
+                                                  *_write_failed / abort_*), CAPTURE early_failure
+               plus restore_failed variants when the teardown did not restore
+             Bytes that do not match the embedded idle screen are NEW EVIDENCE, not a failure.
+             Example (not a failure): cycle N completed and its re-arm succeeded, WAIT_NEXT saw
+             the next cause latched, the admission deadline expired before the next UNMASK →
+             SERVICE ok, CAPTURE runtime_cap, next_cause_at_end yes, deliveries unchanged, the
+             teardown's CLEANUPCHK acknowledges the latched cause with its single W1C.
+
+Content oracle (offline, `tools/avseq.py`, after the run): using the boundary lists (per predicate)
+             to align blocks to frame positions, compare block by block the physical payload
+             transformed as the references do (bytes 1/3 → 16-bit, bit 15 forced, 4×4 tiled) with
+             the Disc's embedded frame, and the GBI-style per-block checksum with GBI's tables; the
+             reference data is read from the private inputs at tool run time (`input/extracted/…`
+             at the documented addresses) and is never stored in the repository. Report per
+             predicate: matches_disc (blocks matched / compared), matches_gbi, first_mismatch_block,
+             first_mismatch_offset (byte offset inside the transformed block), and the verdict
+             full_match (a complete frame matched block by block) / partial_match / mismatch /
+             insufficient_data (no complete interval); when no boundary exists, a phase search
+             over the 40 alignments is reported separately as best_phase, never applied silently.
+             The tool also lists the blocks and both boundary lists, assembles a tentative frame
+             under the references' interpretation and under alternatives side by side, and writes
+             a PNG only under an explicit interpretation label. Our capture's checksums and the
+             comparison results are ours to record; the references' assets stay private.
+
+Color status: geometry and byte picking are statically strong in both references (GBP-VID-002/
+             003). The color naming stays CORROBORATED. If VIDEO-001 captures a complete idle
+             frame and the transformed physical frame equals the Disc's RGB5A3 frame byte for
+             byte, that raises confidence and is documented as such; whether it is enough for a
+             promotion or the controlled cartridge stays necessary is decided after the run, not
+             now.
+
+Cartridge:   NONE (Link Port untouched, BBA idle, no Game Pak): the AGB's idle screen is a known
+             frame in both references — transport, order and boundaries are testable against
+             it offline; a cartridge adds a moving image and content unknowns. A controlled
+             cartridge or test ROM comes with VIDEO-002 for the pixel semantics only.
+
+Procedure (once implemented, audited on a clean commit, hash recorded, authorized):
+             1. Copy the DOL to the SD card, launch through Swiss, GBP attached, no Game Pak.
+             2. Do not touch anything until the screen reports the status (≤ 6 s worst case).
+             3. Press X once (log, then the sequence sidecar ≈ 0.4 MB), press START, power OFF.
+             Expected files: sd:/open-gbp/GBP-VIDEO-001_video-0001.log and
+             sd:/open-gbp/GBP-VIDEO-001_video-0001-seq.bin.
+
+Risks:       the first sustained loop (bounded by the admission budget, the caps and the
+             per-operation timeouts); AUDIO blocks overwritten by the device when a cycle lags
+             (harmless for this experiment, visible in the cadence); a missed VIDEO block (the
+             predicates resync the offline alignment; the sequence shows the gap); no KEYPAD
+             writes (if the device needs them to keep streaming, the loop ends by T_NEXT_CAUSE —
+             a finding, observation_no_next_cause); an SD write of ≈ 0.4 MB after the run; ring or
+             table capacity (bounded, ends the loop with the data kept); byte-0 extras inside
+             blocks (never decide; recorded per block with both predicates).
+```
+
+Host tests to add with the implementation (mock scenarios, every one a
+bounded synthetic run; none is physical evidence): (1) a true predicate on
+the first block; (2) the first true predicate on block 39 (0-based) and the
+second on 79 — the worst-case phase that 88 still covers; (3) two flags 40
+apart; (4) two flags N ≠ 40 apart — reported as an interval, SERVICE ok; (5)
+one flag in 88 blocks — COMPLETE_INTERVAL no, main status unchanged; (6)
+zero flags in 88 — same; (7) Disc = 1 / GBI = 0 (byte 1 bit 7 set, byte 0
+clear) — both recorded, flags_agree = 0, no correction; (8) Disc = 1 / GBI =
+1; (9) byte 0 altered without byte 1 (extras) — predicates unchanged when
+byte 1 is unchanged, exceptions counted; (10) record reuse over ≥ 320 cycles
+with the invariants checked before every unmask; (11) the PI latch preserved
+between cycles — the mock asserts no INTSR write between WAIT_NEXT and
+UNMASK; (12) no main W1C between the next cause and the next unmask (any
+write there fails the test); (13) delivery cap before the target →
+`ok_target_not_reached_delivery_cap`, the latched cause left for the
+teardown; (14) runtime cap before the target → `ok_target_not_reached_runtime_cap`;
+(15) the last valid AUDIO buffer preserved when the next AUDIO drain fails
+(ping-pong, last_valid unchanged, the failed cycle's metadata says completed
+= 0). Admission-budget cases: (16) the deadline already reached before the
+first new cycle after t0 → zero new deliveries, CAPTURE runtime_cap; (17)
+pending = 0x0500 with the deadline expiring during the AUDIO DMA → VIDEO
+still drained, ACK 0x8500, re-arm written, then runtime_cap at the next
+admission; (18) the deadline expiring after AUDIO and before VIDEO → same
+property; (19) the deadline expiring during the VIDEO DMA → the cycle ends
+bounded (its own T_DMA), ACK and re-arm written; (20) the next cause latched
+before the deadline but the deadline expiring before the next UNMASK → no
+new delivery, deliveries unchanged, the cause preserved and acknowledged by
+the teardown, next_cause_at_end = yes; (21) the deadline expiring during
+WAIT_NEXT without a cause → runtime_cap with next_cause_at_end = no, no
+additional unmask; (22) never a partial ACK for pending = 0x0500 (the mock
+asserts the ACK value equals pending | 0x8000 in every cycle, whatever the
+clock); plus reentry (count = 2), missed entry, cause without source,
+unexpected source, PI sticky, no next cause, target reached with a cause
+latched after the last re-arm (final observation, no unmask, teardown
+acknowledges), and the physical AVSVC fixture as the prefix of the first
+cycle.
+
+Future files (not created now): `src/gbp/gbp_avseq.{h,c}` (bounded sequence
+capture core: the state machine with its admission point, records,
+buffers), `src/gbp/gbp_video_probe.{h,c}` (the probe: bounds, statuses,
+matrix, teardowns, summaries), `src/gbp/gbp_avseqdump.{h,c}` (the `OGBPSEQ1`
+sidecar), `poc/gbp-video-capture-probe/` (Test ID `GBP-VIDEO-001`, Build ID
+`video-0001`, prefix `OPENGBP-VIDEO`), `tools/avseq.py` (parser; block
+listing; both boundary lists; the offline oracle; frame assembly under the
+references' interpretation and under alternatives; PNG only under an
+explicit label), mock extensions (block sequence per cycle, predicates per
+block, source-pattern scripts, dropped block, wrap, caps, a scripted clock
+for the admission cases, ping-pong AUDIO), `tests/unit/test_gbp_avseq.c`,
+`tests/host/test_avseq.py`. Future docs: the executed entry here, EVIDENCE
+GBP-HW-06x, VIDEO_PATH.md §6–8 updates, `docs/protocol/VIDEO.md` once
+physical, REGISTERS.md §2.2, ROADMAP Phase 4.
