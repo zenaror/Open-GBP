@@ -666,4 +666,68 @@ now known to be the references' boundary before their re-arm). Phase 3 is
 IRQ core validated; the re-arm validation is carried into the Phase 4
 entry (GBP-AV-SERVICE-001); Phase 3 is not formally closed** — it closes
 with the first physical service → re-arm → next cause; no intermediate
-phase is created.
+phase is created. (Closed the same day by GBP-AV-SERVICE-001: §14.)
+
+## 14. GBP-AV-SERVICE-001 result: the drained service, the re-arm and the next cause; Phase 3 complete (2026-09-16)
+
+Physical facts (GBP-HW-048…060, GBP-IRQ-010; log and sidecar verbatim /
+described in HARDWARE_TESTS.md; fixture
+`hw-gamecube-gbp-2026-09-16-avsvc-0001.gbpreplay` + `-blocks.bin`): the
+003A sequence reproduced a fourth time (first cause 105.289 ms after A2,
+0x0500 within 0.92 ms); one delivery through the 003B extended one-shot
+(72 ticks = 1.78 µs; mask-first, one W1C, no reentry); **PRESVC 0x0500** with
+PI clear 188 µs after the entry — the single authoritative read; **AUDIO
+0x1000 from index 0x8 and VIDEO 0xF00 from index 0x1 each read by ONE DMA of
+the full length** (66.5 / 61.4 µs around the call, CSR 0x0804 before and
+after, no timeout, no busy, AUDIO completed before VIDEO started);
+**POSTDRAIN 0x0500, PI clear** ≈ 93 µs after the last completion (the drain
+alone did not clear the source bits; no cause latched during the drain);
+**ACK `IRQ := 0x8500` → 0x8000 at +25.9 µs**, PI clear, no main W1C (004
+without a drain: 0x8400 at +26.0 µs); PI clean verified; **re-arm `IRQ :=
+0x0000` completed**; **43.9 µs later PI INTSR bit 13 = 1 with IRQ 0x0400**,
+INTMR bit 13 = 0, CONTROL 0x8C (REARMPOST B) — the next cause found at once,
+never delivered; teardown S4B: CONTROL 0x90, IRQSTOPPRE 0x0500 (0x0100 back
+within ≤ 301 µs of REARMPOST), stop 0x8FAA → 0x8AAA, one PI W1C, handler
+restored, AR_INFO 0x0043, FINAL 00 / 9090; `restore=ok`, 0 errors, 0
+uncertain, `w1c_total=2`. Raw blocks: AUDIO 3969 zero bytes with one
+non-zero byte at offset 0 of 123 of 128 lines; VIDEO `7F 7F FF FF` groups
+with `FF FF FF FF` first (GBI frame-start predicate true) and five
+undoubled groups — recorded, not interpreted (§ EVIDENCE GBP-HW-057/058).
+
+What the run adds to the model (§13 table, deltas):
+
+| Element | Status after 2026-09-16 (AVSVC) |
+|---|---|
+| Whole-block reads AUDIO 0x1000 / VIDEO 0xF00, one DMA each, same routine as the 32-byte accesses | **F** (one run each; durations are measurements of this probe) |
+| Drain then ACK `read \| 0x8000` | **F**: 0x8000 read back 25.9 µs after the ACK, PI clear — the drained pass differs from 004's undrained one at the same distance; no microscopic causality claimed (U-GBP-028 partially closed) |
+| Re-arm `IRQ := 0` after a drained, acknowledged cycle with PI clean | **F**: first physical re-arm, completed |
+| Next HSP cause after the re-arm | **F** (one run): captured by the PI within 43.9 µs of `IRQ := 0` while IRQ 26 stayed masked; retained-and-released vs new request **U** (non-blocking) |
+| Bit 15 | 1 from the ACK to the re-arm with sources 0 and no cause (≥ 203 µs); 0 after the re-arm with a cause within 43.9 µs — "holds / gates" **H** again, still unnamed |
+| PI bit 13 | not re-latched by pending sources under bit 15 = 0 (≥ 552 µs, drain included); latched after the re-arm; cleared once at the teardown, nothing sticky — latched **F** (three runs) |
+| Stop word from 0x0500 with a latched cause | `0x8FAA → 0x8AAA`, one W1C — **F** (fourth stop-word value) |
+| Complete reference-style service cycle (cause → delivery → drain → ACK → re-arm → next cause) | **F** for one cycle; repeated service **U** |
+
+**R11 promoted (2026-09-16, one cycle):** the re-arm follows the consumption
+of the event's block(s), as in both references (§13); after the drain the
+ACK `read | 0x8000` may leave the sources reading 0, and the next PI cause
+returns after `IRQ := 0` (43.9 µs in this run) and is captured while the
+CPU is masked. Rule for the runtime: **drain every block named by the
+service read → ACK `pending | 0x8000` → verify PI clean (≤ 1 W1C) →
+`IRQ := 0` → wait for the next PI cause with the mask closed** (R1–R10
+unchanged). Not part of the rule (unknown, non-blocking): whether the
+first cause after a re-arm is a retained request or a new event; the
+request period; the behavior of a re-arm with an unconsumed block (004B,
+optional).
+
+**Initialization readiness after GBP-AV-SERVICE-001:** detection, the
+CONTROL transform, the IRQ programming (A1 / A2), delivery, drained service,
+ACK, re-arm, next cause and the stop sequence are all physically exercised.
+**Phase 3 COMPLETE (2026-09-16)** by the criterion recorded in the DEVLOG
+("next step after GBP-INIT-004 decided": first physical service → re-arm →
+next cause): IRQ core validated by 003B / 004, service, re-arm and next
+cause by this run; the remaining microscopic unknowns (U-GBP-027
+investigative sub-items, U-GBP-028, U-GBP-007's mechanism) are
+non-blocking. Still missing for the steady state, now Phase 4 and later
+work: repeated service and its cadence, block interpretation and frame
+timing (GBP-VIDEO-001 direction, DEVLOG 2026-09-16), KEYPAD (Phase 5),
+CONTROL 0x04/0x08 at runtime (U-GBP-006), audio (Phase 6).

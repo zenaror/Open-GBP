@@ -3661,3 +3661,166 @@ discarded. **NOT A PHYSICAL CANDIDATE.**
 
 **Result.** GBP-AV-SERVICE-001 SIDECAR/CACHE AUDIT PASSED — READY FOR
 IMPLEMENTATION CHECKPOINT — NOT A PHYSICAL CANDIDATE.
+
+## 2026-09-16 — GBP-AV-SERVICE-001 executed: first drained service, first re-arm, next HSP cause 43.9 µs after `IRQ := 0`; Phase 3 COMPLETE; consolidation
+
+**Goal.** Consolidate the single physical run of GBP-AV-SERVICE-001 (build
+avsvc-0001, clean commit d3a6d23 = `d3a6d237fbec43e512ac85da2bbe93a903ff0f0c`,
+DOL `d9e6dccd6f6ac2a729cc1be904214dbaf6f0bd88ee2929244b185a5ba39556ff`):
+preserve the raw evidence, verify every number from the files, decide what
+the run establishes, close what it closes, and give the direction of the
+next Phase 4 experiment. No implementation, no DOL, no hardware, no request,
+no commit.
+
+**Preservation.** Raw log `logs/GBP-AV-SERVICE-001_avsvc-0001.log`, 23154
+bytes, sha256 `d0324b6d12f02984a0d748f896f1c16f724d69c0e3022bef5460f8ed32a03713`,
+and raw sidecar `logs/GBP-AV-SERVICE-001_avsvc-0001-blocks.bin`, 8204 bytes,
+sha256 `1c17a2d77fa60b4446863032ced62cc3d2390625de2a42b120a195eb074edc1e`
+(both computed from `logs/`, matching the announced values, untouched);
+copies `captures/local/GBP-AV-SERVICE-001_avsvc-0001.log` and
+`…-blocks.bin` (byte-identical); fixture
+`captures/fixtures/hw-gamecube-gbp-2026-09-16-avsvc-0001.gbpreplay`
+(metadata header with build / commit / DOL, log and sidecar hashes and
+sizes, `# BLOCKS=hw-gamecube-gbp-2026-09-16-avsvc-0001-blocks.bin`; raw
+blocks verbatim; the interrupt path as it happened — `I i null`, `I u` with
+the physical one-shot record, `I m`, `I r`; the two whole-block reads as `B
+01800000 00001000 ok fec5e4e7` / `B 01100000 00000f00 ok fe45ff08` between
+their time-base reads, bytes NOT in the script; five IRQ-register writes
+A1, A2, ACK, RE-ARM, STOP; one teardown `P a 00002000`) next to
+`hw-gamecube-gbp-2026-09-16-avsvc-0001-blocks.bin`, a byte-identical copy of
+the console's sidecar. Replay through the AVSVC probe with the sidecar: 132
+operations, **0 mismatches, 0 exhausted, 0 unmatched polls, 2 bulk reads, 0
+blocks missing, 0 CRC mismatches**, the physical result reproduced
+(`ok_service_rearm_cause_observed`, `restore=ok`, 179 log lines, every
+record equal to the console's up to the poll counters of a scripted
+transport); without the sidecar both blocks are reported missing and the
+run exits 1 (the buffers keep the pre-fill; nothing is invented). The
+fixture regenerates from the raw log with `tools/probelog.py` (182
+records). **GBP-AV-SERVICE-001 — PHYSICALLY EXECUTED 2026-09-16.**
+
+**Integrity.** `lines=182 dropped=0 truncated=0`; `AVSVC end
+status=ok_service_rearm_cause_observed class=ok restore=ok
+teardown=S4B_next_cause_latched errors=0 transport_ok=1`; `WRITES
+irq_attempted=5 irq_completed=5 uncertain=0`; `STATS transfers=58
+timeouts=0 busy=0 bulk_transfers=2 bulk_bytes=7936`; `COUNTERS unmasks=1
+deliveries=1 acks=1 rearms=1 next_causes=1 unexpected=0000 isr_w1c=1
+main_w1c=0 teardown_w1c=1 w1c_total=2 control_ok=1 uncertain=0`;
+`power_cycle_required=1` (performed). **Sidecar:** magic `OGBPBLK1`, version
+2, header 0x100, flags 0xF, 8204 = 0x100 + 0x1000 + 0xF00 + 12, identities
+whole (`GBP-AV-SERVICE-001` / `avsvc-0001` / `gbp-av-service-probe` /
+`d3a6d23`), header CRC `6174E52D`, AUDIO `FEC5E4E7`, VIDEO `FE45FF08`, total
+`18E966CF` — all four recomputed independently on the host and equal; the
+log's BLOCK / BLOCKW records equal the sidecar's summaries and windows
+(GBP-HW-060).
+
+**What the run established (every number from the files; evidence
+GBP-HW-048…060, GBP-IRQ-010).** (1) 003A sequence reproduced a fourth time;
+first cause **4264215 ticks = 105.289 ms after A2** (four runs within 16 µs),
+IRQ 0x0400, then 0x0500 within 0.92 ms; delivery inside `__UnmaskIrq`, entry
+**72 ticks = 1.778 µs** after t_unmask, INTSR `0x00012000` / INTMR
+`0x000021FA`, mask-first, one W1C, no reentry (GBP-HW-048 — a confirmation of
+established mechanics, not a discovery). (2) **PRESVC 0x0500**, PI clear, bit
+15 = 0, 188 µs after the entry — the authoritative read (GBP-HW-049). (3)
+**AUDIO 0x1000 from index 0x8 by one DMA: 2692 ticks = 66.47 µs around the
+call, 2475 of wait, 760 polls, CSR 0x0804 before/after; VIDEO 0xF00 from
+index 0x1: 2485 ticks = 61.36 µs, 2319, 712** — no timeout, no busy, AUDIO
+completed before VIDEO started (GBP-HW-050/051, FACT for the transfers; ≈ 21
+time-base ticks per 32 bytes, close to Dolphin's model, one run each, no
+rate promoted). (4) `dt_service=10997` ticks = 271.5 µs — a measurement of
+this probe. (5) **POSTDRAIN still 0x0500, PI clear** ≈ 93 µs after the last
+completion: the drain alone did not clear the source bits in that window
+and raised no cause; not concluded that a read never alters the internal
+state (GBP-HW-052). (6) **ACK `0x8500` → 0x8000 at +25.9 µs**, PI clear, no
+main W1C; 004's undrained ACK read 0x8400 at +26.0 µs, 003B's undrained
+0x8000 at +25.1 µs: the drained pass produced a source-clean read-back
+consistently with the references' order — no microscopic causality claimed
+(GBP-HW-053). (7) **First physical re-arm `IRQ := 0` after a serviced cycle**,
+with PI clean verified before (GBP-HW-054). (8) **REARMPOST 43.90 µs after
+t_rearm: INTSR bit 13 = 1 in two reads, INTMR bit 13 = 0, IRQ 0x0400, CONTROL
+0x8C — outcome B**, the next cause found at once and never delivered
+(GBP-HW-055); whether that request was retained under bit 15 = 1 and
+released or a new event is undetermined (not sampled in between) and
+non-blocking. (9) Teardown with the second cause latched: CONTROL 0x90,
+IRQSTOPPRE 0x0500 (0x0100 back within ≤ 301 µs of REARMPOST), **stop 0x8FAA →
+0x8AAA**, **one W1C** `00012000 → 00010000`, handler restored, INTMR
+`0x000001FA`, AR_INFO 0x005B → 0x0043, FINAL 00 / 9090, `restore=ok`
+(GBP-HW-056). (10) Raw AUDIO: 3969 zero bytes, values 00/01/11, one non-zero
+byte at offset 0 of 123 of the 128 32-byte lines plus four isolated bytes
+(GBP-HW-057); raw VIDEO: `7F 7F FF FF` ×954, `FF FF FF FF` first (GBI
+frame-start predicate true), `FF 7F FF FF` ×5 (GBP-HW-058) — recorded, not
+interpreted. (11) Byte-0 extras in every register class (0x01 / 0x03 / 0x10 /
+0x11 / 0x12 / 0x13 / 0x43), offset-2 exceptions (A2PRE `BB`, group 0 `00` /
+`01`, POSTDRAIN group 5 `04`); no decision fed by them (GBP-HW-059).
+
+**Unknowns.** U-GBP-027: functional part CLOSED (delivery → drained service
+→ ACK → PI clean → re-arm → next cause, one cycle); investigative sub-items
+(retained vs new request, period, missed-block cost, sustained cycles)
+non-blocking follow-ups. U-GBP-028: partially closed (an ACK after a drain
+can produce a source-clean snapshot; the undrained case stays undetermined,
+priority lowered). U-GBP-007: bit 15 = 1 with sources 0 raised no cause for
+≥ 203 µs, bit 15 → 0 was followed by one within 43.9 µs — still H, unnamed.
+U-GBP-014: fourth data point; first post-drain intervals; no period.
+U-GBP-021 / 025: new catalogue values, reinforced non-blocking; the AUDIO
+per-line byte 0 noted as a hypothesis (payload vs transfer phenomenon).
+U-GBP-022: latched model, three runs; cause captured after a re-arm. U-GBP-
+008 / 011 / 012: first raw data, open.
+
+**Phase 3 — formal decision.** The criterion recorded in "next step after
+GBP-INIT-004 decided" (Phase 3 closes with the first physical service →
+re-arm → next cause) is met: **PHASE 3 COMPLETE (2026-09-16)** — IRQ core
+validated by 003B / 004, service, re-arm and next cause validated by this
+run, remaining microscopic unknowns non-blocking. Phase 4 was entered by
+this probe (first physical AUDIO/VIDEO blocks) and is not concluded.
+ROADMAP Phase 3 marked COMPLETE, Phase 4 IN PROGRESS; INITIALIZATION.md §14
+(R11 promoted for one cycle); CLAUDE.md untouched (no phase marker).
+
+**Documentation.** HARDWARE_TESTS.md (executed entry with the log verbatim
+and the analysis; planned entry → executed), EVIDENCE.md (GBP-HW-048…060,
+GBP-IRQ-010; hardware notes on GBP-VID-001 / GBP-AUD-001), UNKNOWNS.md
+(U-GBP-007/008/011/012/014/021/022/025/027/028), INITIALIZATION.md §13
+pointer + §14, REGISTERS.md (VIDEO / AUDIO rows, §4 drained cycle), HSP.md
+(§3 measured whole-block DMAs, §4 PI row), ROADMAP.md, captures/README.md
+(fixture row, sidecar paragraph), tests/README.md, the POC README (status,
+Result), this entry.
+
+**Tests.** New: `tests/unit/test_gbp_avsvc.c` `test_hw_avsvc_gbp(fixture,
+sidecar)` (argv[4]/[5]; every result field, the sidecar identities / CRCs,
+the raw bytes in the buffers, the records, and the same script without the
+sidecar → blocks missing), `tests/unit/Makefile` (`HW_AVSVC_GBP`,
+`HW_AVSVC_BLOCKS`); `tests/host/test_hw_fixture.py` `HardwareFixtureAvsvc`
+(header hashes, regeneration from the raw log, the interrupt path and the
+`B` lines, writes / polls / ACK / re-arm, the 21 IRQ reads verbatim, the
+timeline, the offset-2 exceptions); `tests/host/test_avsvc_replay.py`
+(physical fixture with the sidecar → physical result; without → missing,
+exit 1; tampered → rejected; the fixture-directory rule now admits exactly
+the physical AVSVC fixture and its sidecar, and `B` lines only in a script
+that names a sidecar); `tests/host/test_avdump.py` `AvdumpPhysicalSidecar`
+(identities, every CRC, the raw byte positions, the CLI). Earlier fixtures
+untouched. Results: C 12 binaries, **15682 checks, 0 failures**
+(`test_gbp_avsvc` 3456, `test_gbp_avdump` 4161); Python **172 passed, 17
+skipped** (every skip is an object-audit test that needs the Docker
+`make build <poc>-audit` listings / objdumps, not produced in this session —
+no build was run). No runtime code changed.
+
+**GBP-VIDEO-001 — direction only (not designed).** From the physical data:
+(a) the structure of the 0xF00 block — the references' 4 lines × 240
+pixels × 4 bytes is untested by one DMA; a sequence of consecutive blocks is
+needed; (b) the temporal block sequence under a bounded repeated service —
+first the frame-start flag periodicity (every 40th block per the
+references) and the per-block CRC / first word / flag in the log, with the
+raw bytes kept (the sidecar generalized to N blocks or a ring is a design
+decision, not taken here); (c) the request cadence as a by-product
+(U-GBP-014, U-GBP-027 sub-items) with the same masked, drained, re-armed
+cycle validated here; (d) the byte-doubling exceptions and the AUDIO
+per-line byte 0 checked for reproducibility across blocks (content vs
+transfer phenomenon, U-GBP-021); (e) the first controlled cartridge
+(known-color pattern) only when the content question requires it —
+cartridge-less captures come first. Everything else (buffer strategy,
+bounds, second delivery, the KEYPAD write) is a new decision for the design
+step.
+
+**Git.** No commit, no push, no hardware. Expected working-tree changes:
+the physical fixture and its sidecar (new), the raw copies under
+`captures/local/` (ignored), the tests and Makefile above, the documents
+above. **GBP-AV-SERVICE-001 PHYSICALLY EXECUTED 2026-09-16 — PHASE 3
+COMPLETE — consolidation ready for review.**

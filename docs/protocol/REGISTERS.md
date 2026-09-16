@@ -41,10 +41,10 @@ transfer; byte offsets are within that block.
 | Index | Working name | Dir | Payload | DISC | GBI | DOLPHIN | Status | Evidence |
 |------:|--------------|-----|---------|------|-----|---------|--------|----------|
 | 0x0 | TEST | W/R | 32 bytes, echoed back **inverted** (`~x`) on the read that follows the write; a later read returned `00` on hardware | write 4 patterns C3/3C/FF/00, read back, compare **byte 1** == ~pattern; repeated every 5 ms as removal detection | write C3, read (majority-vote byte) == ~C3, write ~C3, read == C3; then same with FF | stores `data ^ 0xFF`, returns it persistently | **F (hardware 2026-09-14)**: bytes 1–31 inverted in 8/8 handshakes, byte 0 anomalous in 3/8; second read `00` | GBP-TEST-001, GBP-HW-003, GBP-HW-006 |
-| 0x1 | VIDEO | R | 0xF00 bytes = 4 scanlines × 240 pixels × 4 bytes | 40 buffers of 0xF00 per frame (160 lines) | reads 0xF00 to a frame buffer on IRQ bit 8 | 0x400 × 16-bit RGB5, each byte doubled to 32 bits | C (size/geometry) | GBP-VID-001 |
+| 0x1 | VIDEO | R | 0xF00 bytes = 4 scanlines × 240 pixels × 4 bytes | 40 buffers of 0xF00 per frame (160 lines) | reads 0xF00 to a frame buffer on IRQ bit 8 | 0x400 × 16-bit RGB5, each byte doubled to 32 bits | C (size/geometry); **hardware 2026-09-16:** one DMA of 0xF00 from this index completed (61.4 µs around the call), first word `FFFFFFFF` (GBI frame-start predicate true), content recorded raw — the size/geometry stays C (a DMA of the requested length completes regardless) | GBP-VID-001, GBP-HW-051/058 |
 | 0x4 | CONTROL | W/R | 1 byte at offset 0x1F (write, DISC) or replicated over the block (GBI); read byte 0x1F (DISC) / majority vote (GBI) / block fill (DOLPHIN) | see §3 | see §3 | see §3 | C; hardware read `00×32` with exp code 0, `94/98 90×31` with exp code 3 (meaning U-GBP-017); GBI-layout writes `8C`×32 / `90`×32 accepted and read back (GBP-HW-013) | GBP-CTL-001, GBP-HW-005/013/017 |
 | 0x5 | SIOCTL | W/R | 1 byte at 0x1F | used by the internal-serial state machine | written together with CONTROL (64-byte DMA) | read → `IGBPlayer::ReadSIOControl` (stub returns 0); write → stub | F (exists), H (semantics) | GBP-SIO-001 |
-| 0x8 | AUDIO | R | 0x1000 bytes | 70 buffers of 0x1000; consumed on IRQ bit 10 | reads 0x1000 on IRQ bit 10 | 0x400 PWM bytes, each mirrored ×4; refilled at 4096 Hz | C (size), H (format) | GBP-AUD-001 |
+| 0x8 | AUDIO | R | 0x1000 bytes | 70 buffers of 0x1000; consumed on IRQ bit 10 | reads 0x1000 on IRQ bit 10 | 0x400 PWM bytes, each mirrored ×4; refilled at 4096 Hz | C (size), H (format); **hardware 2026-09-16:** one DMA of 0x1000 from this index completed (66.5 µs), 3969 of 4096 bytes zero, content recorded raw | GBP-AUD-001, GBP-HW-050/057 |
 | 0x9 | SIODATA | W/R | 32-bit: write bytes 0x1C–0x1F; read assembled from bytes 0x19,0x1B,0x1D,0x1F (DISC) | serial state machine; write data, then SIOCTL \|= 0x80 | read on IRQ bit 6; written from a message queue | stub; read model fills block with the u32 repeated | F (exists), U (byte layout, semantics) | GBP-SIO-001, U-GBP-002 |
 | 0xC | KEYPAD | W | 16-bit at bytes 0x1E–0x1F, 1 = pressed | written on every HSP IRQ and every 5 ms tick | written on every IRQ (with IRQ ack in the same 64-byte block); 0 at start; `0x0304` (= L+R+Select) on sleep IRQ | lo byte = GBA keys 0–7; hi bit0→L(key 9), bit1→R(key 8) | C (existence/format), H (L/R bit order) | GBP-KEY-001 |
 | 0xD | IRQ | W/R | 16-bit: read bytes 0x1D (hi) and 0x1F (lo) (DISC) / vote over bytes ≡1 and ≡3 mod 4 (GBI); write bytes 0x1E–0x1F (DISC) or `hh ll` replicated (GBI) | see §4 | see §4 | see §4 | C; hardware read `90×32` with exp code 0 and `ae 8a ae ae 8a 8a ae ae…` (= `0x8AAE` byte-doubled, byte 0 anomalous) with exp code 3. **2026-09-15:** within 2 s of CONTROL `0x8C` (AGB powered) it read `0x8FAE` — bits 0x0400/0x0100 set, odd bits and bit 15 unchanged — with no PI IRQ (register never written), persisting after CONTROL went back to 0x90 (GBP-HW-024) | GBP-IRQ-001, GBP-IRQ-005, GBP-HW-004/005/024 |
@@ -151,10 +151,23 @@ with CONTROL 0x8C and PI bit 13 = 0 in two samples, and no PI cause
 followed to the end of the run (U-GBP-007: bit 15 = 1 observed with a
 pending source and without the CONTROL change; U-GBP-028: cleared-and-re-set
 vs never-cleared undetermined); the stop word from 0x8400 wrote 0x8EAA and
-read back 0x8AAA. GBI's re-arm `IRQ := 0` after the ACK has **still not**
-been exercised — the 004 run stopped on its clean-boundary rule before it
-(U-GBP-027); the references drain the AUDIO/VIDEO block before their
-re-arm and never require the sources to read 0 (INITIALIZATION.md §13).
+read back 0x8AAA. GBI's re-arm `IRQ := 0` after the ACK was not exercised
+by 004 (the run stopped on its clean-boundary rule before it); the
+references drain the AUDIO/VIDEO block before their re-arm and never
+require the sources to read 0 (INITIALIZATION.md §13). **Hardware
+2026-09-16, GBP-AV-SERVICE-001 (GBP-HW-048…060, GBP-IRQ-010; INITIALIZATION.md
+§14):** the first complete reference-style cycle — PRESVC **0x0500** (PI
+clear, bit 15 = 0) → AUDIO 0x1000 and VIDEO 0xF00 read by one DMA each →
+POSTDRAIN still **0x0500**, PI clear (the drain alone did not clear the
+status within ≈ 93 µs) → ACK `IRQ := 0x8500` → **0x8000** 25.9 µs later, PI
+clear, no main W1C (the undrained ACK of 004 read 0x8400 at the same
+distance) → PI clean → **re-arm `IRQ := 0x0000`** (first physical) → **43.9
+µs later 0x0400 with PI INTSR bit 13 = 1**, INTMR bit 13 = 0, CONTROL 0x8C
+(the next cause, captured while masked, never delivered) → by the stop
+0x0500 again (≤ 301 µs) → stop `0x0500 \| 0x8AAA = 0x8FAA` read back 0x8AAA,
+one PI W1C. Whether the post-re-arm 0x0400 was a request held under bit
+15 = 1 and released by the write or a new event is **U** and non-blocking
+(U-GBP-007/027); the model of bit 15 stays H. Phase 3 complete.
 
 ## 5. GameCube-side registers involved
 

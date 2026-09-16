@@ -475,7 +475,15 @@ frame buffer stride 0x25800 = 240×160×4, dummy first block with byte 0
 `PrepareScanlineData`/`Read(Video)`; PR #14535 "mirroring aligns with actual
 hardware behavior per hardware researcher consultation") —
 **Confidence:** high for geometry/flag, medium for color bit order (Dolphin
-`M_RGB8_TO_RGB5`, GBA palette order) — U-GBP-011.
+`M_RGB8_TO_RGB5`, GBA palette order) — U-GBP-011. **Hardware 2026-09-16
+(GBP-AV-SERVICE-001, GBP-HW-051/058):** one DMA of 0xF00 bytes from index
+0x1 completed (61.4 µs around the call) on the first VIDEO request after
+the initialization, with no cartridge; first word `0xFFFFFFFF` — the GBI
+frame-start predicate true on the first block read; 954 of the 960 groups
+`7F 7F FF FF`, five `FF 7F FF FF` (byte doubling broken in those five),
+no zero byte. Recorded raw, not interpreted; the geometry (4 lines × 240)
+is not tested by one block (a DMA of the requested length completes
+regardless), so the status stays CORROBORATED.
 
 ## GBP-AUD-001 — AUDIO data size and cadence
 
@@ -486,7 +494,12 @@ produced at 4096 Hz, 1 bit per 32-bit word after mirroring, and notes the
 DISC only accepts words whose 1-bits are contiguous and leading.
 
 **Status:** CORROBORATED for size/IRQ; **HYPOTHESIS** for the PWM format
-(Dolphin only) — U-GBP-012.
+(Dolphin only) — U-GBP-012. **Hardware 2026-09-16 (GBP-AV-SERVICE-001,
+GBP-HW-050/057):** one DMA of 0x1000 bytes from index 0x8 completed
+(66.5 µs around the call) on the first AUDIO request, no cartridge; 3969
+zero bytes, values `00`/`01`/`11` only, the non-zero bytes at offset 0 of
+123 of the 128 32-byte lines plus four isolated bytes. Recorded raw; the
+PWM model is neither confirmed nor rejected by it.
 
 ## GBP-SIO-001 — Internal serial path exists and is used by the official disc
 
@@ -1641,3 +1654,239 @@ in substance: byte 0 is not a reliable source for semantic decisions.
 | Service cycle | cause → delivery → mask-first → one W1C → device ACK `read \| 0x8000`: **second physical cycle**; the ACK's readback contradicts "sources zero after an ACK" as a general property | one cycle **F** (×2); **re-arm `IRQ := 0` after an ACK never written** (U-GBP-027) |
 | Stop word | `read \| 0x8AAA` from 0x8400 → wrote 0x8EAA → read 0x8AAA | layout / effect **F** (third value) |
 | Clean-boundary premise of 004 | "acknowledged sources gone at POSTACK" did not hold 26 µs after the ACK; the references never read the register between the ACK and the re-arm and never require it (decompiles, DEVLOG 2026-09-16) | design premise **rejected as a requirement** (not a hardware property) |
+
+## Physical observations — GBP-AV-SERVICE-001, 2026-09-16 (GBP attached; first drained service, first re-arm, next cause)
+
+Source for every entry: `logs/GBP-AV-SERVICE-001_avsvc-0001.log` (23154
+bytes, sha256 `d0324b6d…3713`) and the block sidecar
+`logs/GBP-AV-SERVICE-001_avsvc-0001-blocks.bin` (8204 bytes, sha256
+`1c17a2d7…dc1e`), build avsvc-0001, commit d3a6d23, DOL `d9e6dccd…56ff`;
+log verbatim in HARDWARE_TESTS.md; fixture
+`hw-gamecube-gbp-2026-09-16-avsvc-0001.gbpreplay` + `-blocks.bin` (132
+operations, 0 mismatches, 0 exhausted, 0 blocks missing, 0 CRC mismatches).
+Time base 40.5 MHz (1 tick = 24.69 ns). One run: no entry below claims a
+period, a rate or a universal temporal rule.
+
+## GBP-HW-048 — The 003A sequence and the first cause reproduced a fourth time; third CPU delivery, through the 003B extended one-shot
+
+**Observation:** detection PRESENT (4/4), AR_INFO 0x0043 → 0x005B, BASE
+CONTROL 0x90 / IRQ 0x8AAE, transform to 0x8C, A1 `IRQ := 0x8AAE` → 0x8AAA,
+A2 `IRQ := 0` → 0x0000 in five samples; PI INTSR bit 13 = 1 with INTMR bit
+13 = 0 at `t_event=3391329164` = **4264215 ticks = 105.289 ms after A2**
+(003A 105.273, 003B 105.286, 004 105.283 ms; four runs within 16 µs, no
+cartridge), IRQ 0x0400; 0x0500 at PREUNMASK 0.92 ms later with the PI cause
+still latched. `__UnmaskIrq` delivered the cause inside the call: entry
+**72 ticks = 1.778 µs** after t_unmask (003B 78, 004 89), INTSR
+`0x00012000`, INTMR `0x000021FA`; mask-first, one W1C → `0x00010000`,
+second read 147 ticks later unchanged, `count=1 reentry=0`; the main
+re-mask idempotent. **Status:** FACT (hardware), fourth / third observation
+of GBP-HW-030/035/042 and GBP-PI-005; the latencies are observations of
+three builds, not a specification.
+
+## GBP-HW-049 — PRESVC: both AV sources pending 188.0 µs after the handler entry, PI clear, bit 15 = 0 — the authoritative service read
+
+**Observation:** snapshot at 3391379306 (7612 ticks after the entry): INTSR
+`0x00010000` in two samples, INTMR `0x000001FA`, CONTROL 0x8C, IRQ
+**0x0500** (`17 05 01 00 / 05 05 05 00 ×7`, Disc == GBI), odd bits 0, bit
+15 = 0, high bits 0. The pass derived `pending=0500 drain=0500 ack=8500`
+from this read alone. **Status:** FACT (hardware); the same device state as
+003B's PREACK (+179.7 µs) and 004's PREACK-0 (+209.8 µs): a pending pair
+does not re-latch the PI after the handler's W1C under bit 15 = 0.
+
+## GBP-HW-050 — First whole-block AUDIO read: one DMA of 0x1000 bytes from index 0x8 completed in 66.5 µs
+
+**Observation:** `AUDIOREAD idx=8 addr=01800000 len=1000 selected=1
+attempted=1 completed=1 rc=ok t_start=3391385098 t_end=3391387790 dt=2692
+wait_ticks=2475 polls=760 csr_before=0804 csr_after=0804`: one ARAM → main
+memory DMA of the whole block (the 32-byte routine with the length field
+0x1000; `DCFlushRange` before, `DCInvalidateRange` after), **2692 ticks =
+66.47 µs around the call, 2475 ticks (61.1 µs) of completion wait**, DSP CSR
+0x0804 before and after (no DMA in progress, no stale flag), no timeout, no
+busy refusal; the 4096 bytes reached the buffer (CRC-32 `FEC5E4E7` in the
+log's BLOCK record and in the sidecar, windows equal). ≈ 21.0 time-base
+ticks (519 ns) per 32 bytes. **Status:** FACT (hardware) for the transfer
+(the device accepts a single DMA of 0x1000 from the AUDIO index and
+completes it; GBP-AUD-001 size corroborated by a completed read of that
+length, not proven by it). **Not claimed:** a transfer rate (one run, call
+overhead included; Dolphin's model gives 506 ns per 32 bytes — a
+coincidence to note, not a promotion); the content (GBP-HW-057).
+
+## GBP-HW-051 — First whole-block VIDEO read: one DMA of 0xF00 bytes from index 0x1 completed in 61.4 µs
+
+**Observation:** `VIDEOREAD idx=1 addr=01100000 len=0f00 selected=1
+attempted=1 completed=1 rc=ok t_start=3391387818 t_end=3391390303 dt=2485
+wait_ticks=2319 polls=712 csr_before=0804 csr_after=0804`: **2485 ticks =
+61.36 µs around the call, 2319 ticks (57.3 µs) of wait**, started 28 ticks
+after the AUDIO completion (never two DMAs in flight), CRC-32 `FE45FF08`
+in the log and the sidecar. Service `dt_service=10997` ticks = 271.5 µs
+from the PRESVC snapshot to this completion (the probe's own reads and
+logging included). **Status:** FACT (hardware) for the transfer; the
+duration and the service time are measurements of this probe, not
+hardware properties; the block's true size and geometry are not tested by
+a DMA of the requested length (GBP-VID-001 stays CORROBORATED).
+
+## GBP-HW-052 — POSTDRAIN: after both blocks were read the register still read 0x0500 and no PI cause latched during the drain
+
+**Observation:** snapshot at 3391394064, 3761 ticks = 92.9 µs after the
+VIDEO completion: IRQ **0x0500** (`17 05 01 00 / 05 05 05 00 ×4 / 05 05 04
+00 / 05 05 05 00 ×2`), INTSR `0x00010000` twice, INTMR `0x000001FA`, CONTROL
+0x8C; `relatch=0`. From the handler's W1C to this read (≥ 552 µs) both
+sources stayed pending under bit 15 = 0 and the PI captured nothing.
+**Status:** FACT (hardware), observational: reading the two blocks did not
+by itself clear the source bits within ≈ 93 µs, and did not raise a PI
+cause. **Not concluded:** that a block read never changes the device's
+internal state (request bookkeeping, buffer pointers, the next event) —
+only the register's bits at one instant were observed; the references
+never read the register here.
+
+## GBP-HW-053 — ACK after the drain: `IRQ := 0x8500` read back 0x8000 25.9 µs later, PI clear, no main W1C; contrast with the undrained ACK of GBP-INIT-004
+
+**Observation:** `IRQ := 0x0500 | 0x8000 = 0x8500` (u16 replicated, rc ok,
+`t_after=3391399980`); POSTACK at 3391401028 = **1048 ticks = 25.88 µs**:
+IRQ **0x8000** (`81 80 00 00 / 80 80 00 00 ×7`, Disc == GBI) — both sources
+0, bit 15 = 1, odd bits 0, high bits 0 — INTSR `0x00010000` in both
+samples, INTMR `0x000001FA`, CONTROL 0x8C; `source_after_ack=0000
+relatch=0 main_w1c=0`; PICLEAN (177 µs later, immediately before the
+re-arm) INTSR `0x00010000` / INTMR `0x000001FA`. Bit 15 read 1 with sources
+0 and PI clear for the whole ACK → re-arm interval (≥ 203 µs).
+**Status:** FACT (hardware) for the readings. **Safe conclusion:** in this
+run a service that drained both blocks before its ACK was followed by a
+source-clean read-back at the distance at which the undrained ACK of 004
+read 0x8400 (26.0 µs; the undrained ACK of 003B read 0x8000 at 25.1 µs):
+the observable state after the ACK differed between the drained and the
+undrained pass in the direction the references' order (drain before the
+re-arm) predicts. **Not concluded:** a microscopic causality (that the
+drain consumed or released the 0x0400 request; that 004's 0x0400 was a
+level the drain would have cleared; a period). U-GBP-028 partially closed:
+an ACK after a drain can produce a source-clean snapshot; the undrained
+case stays undetermined and non-blocking.
+
+## GBP-HW-054 — First physical re-arm `IRQ := 0x0000` after a serviced cycle
+
+**Observation:** with `pi_clean=1` (INTSR `0x00010000`, INTMR `0x000001FA`)
+verified immediately before, `IRQW tag=REARM before=8000 write=0000` (`00
+×32`), rc ok, attempted 1 / completed 1, `t_rearm=3391408218`,
+`t_after=3391408974`, 7190 ticks = 177.5 µs after the POSTACK snapshot —
+GBI's `IRQ := 0` after its ACK, written for the first time by Open-GBP after
+an acknowledged and drained cycle (004 stopped before it). **Status:** FACT
+(hardware) for the write and its completion; its effect is GBP-HW-055.
+
+## GBP-HW-055 — Next HSP cause after the re-arm: PI INTSR bit 13 = 1 with IRQ 0x0400, 43.9 µs after `IRQ := 0`, IRQ 26 masked, never delivered (REARMPOST outcome B)
+
+**Observation:** REARMPOST snapshot at 3391409996 = **1778 ticks = 43.90 µs
+after t_rearm**: INTSR **`0x00012000` in both samples**, INTMR `0x000001FA`
+(bit 13 = 0), CONTROL 0x8C, IRQ **0x0400** (`15 04 00 00 / 04 04 04 00 ×7`),
+odd bits 0, bit 15 = 0, high bits 0, unexpected 0 → `outcome=B_latched`;
+`NEXTCAUSE found=1 immediate=1 since_rearm=1778 polls=0 delivered=0`;
+`unmasks=1 deliveries=1`: no second unmask, no second handler entry; the
+cause stayed latched until the teardown's W1C (GBP-HW-056). **Status:**
+FACT (hardware): after delivery → drained service → ACK → PI clean →
+`IRQ := 0`, a new HSP cause with a valid AV source was captured by the PI
+within 43.9 µs while the CPU stayed masked, and a masked latched cause
+survives to be cleared later. **Not concluded:** that the 0x0400 request
+arose after the re-arm (a new event) rather than being held under bit 15 =
+1 and released by the write — the register was not sampled between PICLEAN
+and REARMPOST and the 43.9 µs include the write; a period; what a second
+cycle would show. Data point for U-GBP-007 (bit 15: 1 with sources 0 and
+no cause for ≥ 203 µs; 0 with a cause within 43.9 µs), U-GBP-022 (bit 13
+latched again after the re-arm, cleared once), U-GBP-014 and U-GBP-027.
+
+## GBP-HW-056 — Teardown with the second cause latched: stop 0x0500 | 0x8AAA = 0x8FAA → 0x8AAA, one PI W1C, every restore ok
+
+**Observation:** variant `S4B_next_cause_latched`, CPU masked: CONTROL 0x8C
+→ 0x90 (`t_after=3391417891`, read back 0x90); IRQSTOPPRE **0x0500** —
+0x0100 had joined 0x0400 between the REARMPOST read and this one (≤ 12203
+ticks = 301 µs after REARMPOST, an upper bound; 003B: both sources back
+≈ 168 µs after its ACK, 004: 0x0100 absent for ≥ 195 µs); stop `IRQ :=
+0x8FAA` (`8F AA ×16`) read back **0x8AAA** (`masks_readback=1
+bit15_readback=1`; fourth stop-word validation: 0x8FAA ×3, 0x8EAA ×1);
+CLEANUPCHK INTSR `0x00012000` → **one W1C 0x2000 → `0x00010000`, `sticky=0`**;
+handler restored (`old_handler=null`); MASKCHK INTMR `0x000001FA`; AR_INFO
+0x005B → 0x0043 (read back); FINAL under code 0 `00` / `9090`, INTSR
+`0x00010000`; `restore=ok`, 58 transfers (2 whole-block, 7936 bytes), 0
+timeouts / busy / errors, 182 lines, 0 dropped / truncated, `WRITES
+irq_attempted=5 irq_completed=5 uncertain=0` (A1, A2, ACK, RE-ARM, STOP),
+`w1c_total=2` (ISR 1, main 0, teardown 1; budget 3). **Status:** FACT
+(hardware): a latched, undelivered HSP cause is cleared by one W1C after
+the device was stopped, with nothing sticky.
+
+## GBP-HW-057 — Raw content of the first AUDIO block (recorded, not interpreted)
+
+**Observation:** 4096 bytes, CRC-32 `FEC5E4E7` (log BLOCK record ==
+sidecar), 3969 zero bytes, 3 distinct values (`00`, `01`, `11`), first word
+`0x01000000`. The 127 non-zero bytes: 123 at offset 0 of a 32-byte line
+(`01` in 121 lines, `11` in lines 31 and 61; lines 3, 22, 33, 41, 74
+entirely zero) and four isolated `01` at absolute offsets 0x08C, 0x49E,
+0x8A8, 0xCBA (in-line offsets 12, 30, 8, 26). Log windows 0x000 / 0x540 /
+0xAA0 / 0xFE0 == sidecar bytes. **Status:** FACT (hardware) for the bytes
+of one block, no cartridge, first request after initialization.
+**Not claimed:** PCM, PWM, silence, a sample rate, a word format
+(U-GBP-012 stays HYPOTHESIS); whether the per-line byte 0 is payload or
+the transfer's byte-0 phenomenon (U-GBP-021: one nearly constant non-zero
+byte per 32-byte transfer unit resembles the register reads' extras — a
+hypothesis for repeated captures, not a fact).
+
+## GBP-HW-058 — Raw content of the first VIDEO block (recorded, not interpreted)
+
+**Observation:** 3840 bytes, CRC-32 `FE45FF08`, 0 zero bytes, 2 distinct
+values (`7F`, `FF`), first word **`0xFFFFFFFF`**, GBI frame-start predicate
+`(w & 0x80800000) == 0x80800000` **true**. 960 four-byte groups: group 0
+`FF FF FF FF`, 954 groups `7F 7F FF FF`, five groups `FF 7F FF FF` (groups
+41, 165, 186, 426, 578; in-line offsets 4, 20, 8, 8, 8). Byte doubling `hh
+hh ll ll` (GBP-HW-004 for the register reads) holds in 955 groups and
+breaks in those five (byte 0 ≠ byte 1); windows 0x000 / 0x500 / 0xA00 /
+0xEE0 == sidecar. **Status:** FACT (hardware) for the bytes of one block,
+no cartridge. **Not claimed:** the image or its colors (U-GBP-011), the
+line geometry (U-GBP-008: a DMA of 0xF00 completes whatever the block's
+true size), the meaning of the five undoubled groups (content, transfer
+artifact, or the byte-0 class of U-GBP-021).
+
+## GBP-HW-059 — Byte 0 and offset-2 observations of GBP-AV-SERVICE-001
+
+**Observation:** byte-0 extras — TEST `7F` (0x43 over 3C), `D3` (0x10 over
+C3), `11` (0x11 over 00), none over FF, `01` over 00 at BASE/P0; CONTROL `93`
+(0x03 over 90), `9F` (0x13 over 8C) in all fifteen 0x8C reads, `91` (0x01
+over 90) at TDCTL, `01` over 00 at FINAL; IRQ `9B` (0x11 over 8A) in every
+0x8AAE / 0x8AAA read, `01` over 00 in the five 0x0000 reads, `15` (0x11 over
+04) in both 0x0400 reads, `17` (0x12 over 05) in the five 0x0500 reads, `81`
+(0x01 over 80) at POSTACK, `91` (0x01 over 90) at FINAL. Disc and GBI agreed
+in every read, `vote == byte 0x1F` everywhere; no decision used byte 0.
+Offset ≡ 2 mod 4: `lo | (hi & 0x05)` held for every 0x8AAE / 0x8AAA /
+0x0000 / 0x8000 / 0x9090 read except group 0 of A2PRE (`BB` for `AA`; that
+read took 41 ticks / 11 polls instead of 34 / 9), for groups 1–7 of the
+0x0400 / 0x0500 reads (group 0 `00` / `01` for `04` / `05`), and broke in
+group 5 of POSTDRAIN (`04` for `05`). **Status:** FACT (hardware) for the
+bytes (pinned by `tests/host/test_hw_fixture.py`); the extras are
+run-dependent (none in 003B; 0x04/0x20/0x24 in 003A; 0x04/0x20/0x80/0x88 in
+004; 0x01/0x03/0x10/0x11/0x12/0x13/0x43 here) — U-GBP-020/021/025 unchanged
+in substance and non-blocking: byte 0 and offset 2 of a raw block never
+decide.
+
+## GBP-HW-060 — The block sidecar written on hardware: format 2 intact, identities whole, every CRC verified
+
+**Observation:** `GBP-AV-SERVICE-001_avsvc-0001-blocks.bin`, 8204 bytes =
+0x100 header + 0x1000 + 0xF00 + 12 footer; magic `OGBPBLK1`, version 2,
+header size 0x100, flags 0xF (both blocks present and valid),
+pending/drain 0x0500, lengths 0x1000 / 0xF00, indices 8 / 1, rc ok / ok,
+wait 2475 / 2319, dt 2692 / 2485, tb_hz 40500000; identity fields
+`GBP-AV-SERVICE-001` (18 characters, whole), `avsvc-0001`,
+`gbp-av-service-probe`, `d3a6d23`, zero padded; header CRC-32 `6174E52D`,
+AUDIO `FEC5E4E7`, VIDEO `FE45FF08`, footer `OGBPEND1` + total `18E966CF` —
+all four recomputed on the host and equal; the log's BLOCK / BLOCKW
+records equal the sidecar's summaries and windows; the log header names
+the sidecar. **Status:** FACT (tooling on hardware): the SD write path
+(log first, sidecar second) and the format-2 serializer worked on the
+console; version 1 (truncating identities) never reached hardware.
+
+## GBP-IRQ-010 — IRQ-register model after GBP-AV-SERVICE-001 (delta over GBP-IRQ-009)
+
+| Element | Added by GBP-AV-SERVICE-001 (2026-09-16) | Status |
+|---|---|---|
+| Bit 10 (0x0400) | rose 105.289 ms after A2 (fourth run); pending at PRESVC under bit 15 = 0; **still 1 ≈ 93 µs after its block was read** (POSTDRAIN); cleared by the drained ACK `0x8500` (0 at +25.9 µs); **1 again 43.9 µs after the re-arm `IRQ := 0`, with the PI cause latched** | source, W1C **F**; "a drain alone clears the status" **rejected** for ≤ 93 µs (one run); post-re-arm request retained vs new **U** |
+| Bit 8 (0x0100) | joined within 0.92 ms; still 1 at POSTDRAIN; cleared by the ACK; absent at REARMPOST (+43.9 µs after the re-arm); back by IRQSTOPPRE (≤ 301 µs after REARMPOST) | W1C **F**; re-set timing **U** (upper bounds only) |
+| Bit 15 (0x8000) | 0 during the drain (PRESVC, POSTDRAIN); **1 from the ACK to the re-arm with both sources 0, PI clear, no cause for ≥ 203 µs**; 0 after `IRQ := 0` with a cause captured within 43.9 µs | level-written **F**; "holds / gates the request" **H** (consistent again, still not named) |
+| PI bit 13 | not re-latched by two pending sources under bit 15 = 0 for ≥ 552 µs (drain included); not latched by bit 15 = 1 with sources 0 (≥ 203 µs); **latched within 43.9 µs of the re-arm with 0x0400 visible, the CPU masked**; cleared once by the teardown W1C, nothing sticky | latched, W1C **F**; capture after a re-arm **F** (one run); line nature **U** |
+| Service cycle | cause → delivery → mask-first → one W1C → **drain AUDIO 0x1000 + VIDEO 0xF00 (one DMA each)** → ACK `read \| 0x8000` → **re-arm `IRQ := 0`** → next cause: the **first complete reference-style cycle** on hardware | one cycle **F**; repeated service **U** (never run) |
+| Whole-block reads | one DMA of the full length from index 0x8 and 0x1, 66.5 / 61.4 µs, CSR 0x0804 before/after, content recorded raw | transfer **F**; block size / geometry unchanged (**C**); content **U** |
+| Stop word | `read \| 0x8AAA` from 0x0500 with a latched PI cause → wrote 0x8FAA → read 0x8AAA; one W1C cleared the cause | layout / effect **F** (fourth value) |
+| Phase 3 | delivery (003B/004) + service, re-arm, next cause (this run): the criterion of DEVLOG 2026-09-16 met | **COMPLETE 2026-09-16**; microscopic unknowns non-blocking |

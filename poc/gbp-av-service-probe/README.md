@@ -1,11 +1,11 @@
 # poc/gbp-av-service-probe — GBP-AV-SERVICE-001
 
-**Test ID:** `GBP-AV-SERVICE-001` — **Build ID:** `avsvc-0001` — **IMPLEMENTED 2026-09-16 — NOT
-PHYSICALLY EXECUTED.** The build of this working tree is a **DIRTY BUILD — NOT A PHYSICAL
-CANDIDATE** (commit `5ed9d93-dirty`, DOL SHA-256
-`4564e42a2c8239161ee19440d9292818d42d18ac31a7b9b73bfc3dd5c34eb52d`, 404000 bytes, after the
-micro-audit of 2026-09-16): it exists for
-review only and must never reach the hardware. A physical candidate requires a clean commit, a
+**Test ID:** `GBP-AV-SERVICE-001` — **Build ID:** `avsvc-0001` — **PHYSICALLY EXECUTED
+2026-09-16** on the clean candidate commit `d3a6d23` (DOL SHA-256
+`d9e6dccd6f6ac2a729cc1be904214dbaf6f0bd88ee2929244b185a5ba39556ff`; release audit of 2026-09-16,
+PHYSICAL CANDIDATE READY). Result: `ok_service_rearm_cause_observed`, `restore=ok` — see "Result"
+below and `docs/research/HARDWARE_TESTS.md` "Executed tests — GBP-AV-SERVICE-001". Any later build
+of a modified tree is a new, unaudited artifact: a physical candidate requires a clean commit, a
 clean rebuild, the audits below on that build, a recorded hash and an explicit authorization.
 
 **Question:** after one validated delivery of an HSP cause (GBP-INIT-003B / 004, FACT), does ONE
@@ -166,7 +166,7 @@ bytes come from the sidecar (`tools/avdump.py`).
 
 ## Validation (host, no hardware)
 
-`tests/unit/test_gbp_avsvc.c` (3046 checks): the success paths (audio only, video only, both),
+`tests/unit/test_gbp_avsvc.c` (3456 checks): the success paths (audio only, video only, both),
 the §35 event order, snapshot immutability (0x0400 → 0x0500 during the AUDIO DMA; 0x0500 with a
 source change), unexpected sources at PREUNMASK / PRESVC / POSTDRAIN / POSTACK / REARMPOST /
 NEXTCAUSE, every DMA failure (busy / timeout / error, AUDIO and VIDEO), ACK / REARM / STOP /
@@ -176,21 +176,48 @@ unmask and delivery, the teardown closing a latched cause, the early aborts, att
 at the transport call, raw buffers preserved, time-base wrap, worst-case lines, ring overflow, the
 "never" properties on every run, and the physical prefixes (003A stops at the install; 003B and
 004 cut before their ACK: the delivery and the PRESVC reads are physical, the drain meets a
-transport with no whole-block read). `tests/unit/test_gbp_avdump.c` (3935 checks): CRC-32
+transport with no whole-block read), and the physical GBP-AV-SERVICE-001 fixture with its sidecar
+end to end (every result field, the raw bytes, the records; without the sidecar both blocks
+missing). `tests/unit/test_gbp_avdump.c` (4161 checks): CRC-32
 vectors, block summaries, the sidecar round trips and error codes, the mock's bulk model, the
 replay's `B` line. Python: `test_avsvc_replay.py` (synthetic log → fixture + sidecar → replay to
 the same result; without the sidecar the blocks are reported missing; the physical prefixes),
-`test_avdump.py`, `test_poc_audit.py` (profile `avsvc`, synthetic and on the build, the compiled
-cache sequence), `test_isr_audit.py` (both handlers of the build), `test_probelog.py`,
+`test_avdump.py` (the physical sidecar included), `test_hw_fixture.py` (the physical fixture: header
+hashes, regeneration from the raw log, the `B` lines, the sidecar windows, the raw block
+positions), `test_poc_audit.py` (profile `avsvc`, synthetic and on the build, the compiled cache
+sequence), `test_isr_audit.py` (both handlers of the build), `test_probelog.py`,
 `test_artifacts.py`. `make avsvc-audit`: 0 findings; both handlers CLEAN. `make avsvc-dolphin`:
 absent → `abort_inconsistent`, GBPlayer model → `abort_control_shape` (Dolphin never reaches the
 service; preconditions are never weakened for it).
 
-## Physical procedure (NOT to be requested from this dirty build)
+## Result (2026-09-16, hardware — one run)
+
+Log `logs/GBP-AV-SERVICE-001_avsvc-0001.log` (23154 bytes, sha256 `d0324b6d…3713`, 182 lines, 0
+dropped / truncated) and sidecar `logs/GBP-AV-SERVICE-001_avsvc-0001-blocks.bin` (8204 bytes,
+sha256 `1c17a2d7…dc1e`, format 2, every CRC intact, identities whole); preserved under
+`captures/local/`, fixture `captures/fixtures/hw-gamecube-gbp-2026-09-16-avsvc-0001.gbpreplay` +
+`-blocks.bin` (132 operations, 0 mismatches / exhausted / missing / CRC mismatches). The 003A
+sequence reproduced (first cause 105.289 ms after A2); one delivery (72 ticks); PRESVC `0x0500`;
+**AUDIO 0x1000 read by one DMA in 2692 ticks = 66.5 µs around the call (2475 of wait), VIDEO 0xF00
+in 2485 ticks = 61.4 µs (2319)**, CSR 0x0804 before and after, no timeout / busy; POSTDRAIN still
+`0x0500`, PI clear; ACK `0x8500` → **`0x8000` 25.9 µs later**, PI clear, no main W1C; PI clean;
+**re-arm `IRQ := 0` completed; 43.9 µs later PI INTSR bit 13 = 1 with IRQ `0x0400`, INTMR bit 13 =
+0 (REARMPOST B)** — the next cause found at once, never delivered; teardown S4B: CONTROL 0x90,
+IRQSTOPPRE `0x0500`, stop `0x8FAA` → `0x8AAA`, one PI W1C (`00012000 → 00010000`), handler
+restored, AR_INFO `0x0043`, FINAL `00` / `9090`; `errors=0 transport_ok=1 uncertain=0`, `COUNTERS
+unmasks=1 deliveries=1 acks=1 rearms=1 next_causes=1 isr_w1c=1 main_w1c=0 teardown_w1c=1`, 58
+transfers (2 whole-block, 7936 bytes). Raw blocks: AUDIO CRC `fec5e4e7`, 3969 zero bytes, values
+00/01/11 (one non-zero byte at offset 0 of 123 of 128 lines); VIDEO CRC `fe45ff08`, no zero byte,
+`7f 7f ff ff` groups with `ff ff ff ff` first (GBI frame-start predicate true), five `ff 7f ff ff`
+groups — recorded, not interpreted. Byte-0 extras present in every register class; no decision
+used them. Evidence GBP-HW-048…060, GBP-IRQ-010; U-GBP-027 functional part closed, U-GBP-028
+partially closed; **Phase 3 COMPLETE**; the console was power-cycled afterwards.
+
+## Physical procedure (executed 2026-09-16 on the candidate above)
 
 Identical to GBP-INIT-004: GBP attached, no cartridge, PicoAdapterGB in the Link Port untouched,
-BBA idle, one controller, one Memory Card, SD2SP2, Swiss. Steps, once a clean, audited and
-authorized candidate exists: launch, do not press anything until the screen reports the status
+BBA idle, one controller, one Memory Card, SD2SP2, Swiss. Steps, for a clean, audited and
+authorized candidate: launch, do not press anything until the screen reports the status
 (≈ 3 s worst case), press X once (log + sidecar), press START, switch the console OFF. Expected
 files: `sd:/open-gbp/GBP-AV-SERVICE-001_avsvc-0001.log` and
 `sd:/open-gbp/GBP-AV-SERVICE-001_avsvc-0001-blocks.bin`.

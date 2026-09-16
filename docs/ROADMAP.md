@@ -92,6 +92,20 @@ confidence level, and an automated representation where practical.
 
 ## Phase 3 — Physical GBP detection and initialization
 
+**Status: COMPLETE (2026-09-16).** Detection (seven GBP-attached runs, two
+without the GBP), the CONTROL transform and the IRQ programming
+(GBP-INIT-001…003A), the delivery of an HSP cause to the CPU (GBP-INIT-003B,
+004) and the first complete service — drained AUDIO/VIDEO blocks,
+acknowledge, re-arm, next cause captured while masked, stop sequence
+(GBP-AV-SERVICE-001) — were executed on the physical GameCube + Game Boy
+Player with independent code (`docs/research/HARDWARE_TESTS.md`,
+`docs/protocol/INITIALIZATION.md` §14, DEVLOG 2026-09-16 "GBP-AV-SERVICE-001
+executed"). The closing criterion recorded in the DEVLOG (first physical
+service → re-arm → next cause) is met; the remaining microscopic unknowns
+(U-GBP-027 investigative sub-items, U-GBP-028, the bit-15 mechanism of
+U-GBP-007) are documented as non-blocking. Sustained operation over many
+cycles is Phase 4 and later work.
+
 Create a standalone open-source GBP runtime/probe.
 
 Goals:
@@ -116,6 +130,15 @@ on real hardware without relying on proprietary runtime code.
 ```
 
 ## Phase 4 — Video
+
+**Status: IN PROGRESS (entered 2026-09-16).** The entry experiment
+GBP-AV-SERVICE-001 captured the first physical VIDEO (0xF00) and AUDIO
+(0x1000) blocks with one whole-block DMA each and preserved them raw
+(fixture + sidecar). Next: GBP-VIDEO-001 — direction only so far (DEVLOG
+2026-09-16 "GBP-AV-SERVICE-001 executed"): the structure of the 0xF00
+block, the temporal block sequence and the frame-start flag under repeated
+service, then a controlled cartridge when the content question requires
+it; not designed yet.
 
 Implement and document the physical GBP video path.
 

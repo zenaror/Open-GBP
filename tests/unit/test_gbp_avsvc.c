@@ -15,6 +15,7 @@
  * Modes:  test_gbp_avsvc [initirqa-0001] [initirqb-0001] [initirq4-0001]
  *         test_gbp_avsvc --dump-log <log> <blocks.bin>   (synthetic run, SD-log format + sidecar)
  *         test_gbp_avsvc --replay <fixture> [<blocks.bin>]
+ *         test_gbp_avsvc <003A fixture> <003B fixture> <004 fixture> [<AVSVC fixture> <AVSVC blocks.bin>]
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -969,6 +970,120 @@ static int replay_fixture(const char *path, const char *blocks_path)
     return (r.exhausted || r.mismatches || r.blocks_missing || r.block_crc_mismatches) ? 1 : 0;
 }
 
+/* ---- the physical GBP-AV-SERVICE-001 fixture (2026-09-16, avsvc-0001, commit d3a6d23) with its block sidecar ---- */
+static void test_hw_avsvc_gbp(const char *path, const char *blocks_path)
+{
+    char *text = read_file(path);
+    struct gbp_replay r; struct gbp_transport t; struct gbp_avsvc_config cfg; struct gbp_avsvc_result res; struct ringlog rl;
+    struct sidecar sc; static uint8_t raw[GBP_AVDUMP_MAX_SIZE + 64]; long n; FILE *f; unsigned i, nz = 0, line0_01 = 0, line0_11 = 0;
+    memset(&sc, 0, sizeof sc);
+    if (!text) { fprintf(stderr, "cannot read %s\n", path); failures++; return; }
+    f = fopen(blocks_path, "rb");
+    if (!f) { fprintf(stderr, "cannot read %s\n", blocks_path); failures++; free(text); return; }
+    n = (long)fread(raw, 1, sizeof raw, f);
+    fclose(f);
+    CHECK(n == 8204);
+    CHECK(gbp_avdump_parse(raw, (size_t)n, &sc.info, &sc.audio, &sc.video) == 0);
+    if (!sc.audio || !sc.video) { free(text); return; }
+    /* sidecar identity and header: the console's file, format version 2, both blocks valid */
+    CHECK(sc.info.version == 2u && sc.info.pending_irq == 0x0500 && sc.info.drain_mask == 0x0500 && sc.info.tb_hz == 40500000u);
+    CHECK(strcmp(sc.info.test_id, "GBP-AV-SERVICE-001") == 0 && strcmp(sc.info.build_id, "avsvc-0001") == 0);
+    CHECK(strcmp(sc.info.app, "gbp-av-service-probe") == 0 && strcmp(sc.info.commit, "d3a6d23") == 0);
+    CHECK(sc.info.audio_index == 8u && sc.info.audio_len == 0x1000u && sc.info.audio_rc == 0u && sc.info.audio_wait_ticks == 2475u && sc.info.audio_dt_ticks == 2692u);
+    CHECK(sc.info.video_index == 1u && sc.info.video_len == 0x0F00u && sc.info.video_rc == 0u && sc.info.video_wait_ticks == 2319u && sc.info.video_dt_ticks == 2485u);
+    CHECK(sc.info.audio_crc32 == 0xfec5e4e7u && sc.info.video_crc32 == 0xfe45ff08u);
+    CHECK(gbp_crc32(sc.audio, 0x1000u) == 0xfec5e4e7u && gbp_crc32(sc.video, 0x0F00u) == 0xfe45ff08u);
+    CHECK(sc.info.header_crc32 == 0x6174e52du && sc.info.total_crc32 == 0x18e966cfu);
+    /* replay end to end */
+    memset(audio_buf, 0xC1, sizeof audio_buf); memset(video_buf, 0xC1, sizeof video_buf);
+    gbp_replay_init(&r, text);
+    r.block_source = sidecar_source; r.block_ctx = &sc;
+    gbp_replay_transport(&r, &t);
+    gbp_avsvc_config_default(&cfg); cfg.audio_buf = audio_buf; cfg.audio_cap = sizeof audio_buf; cfg.video_buf = video_buf; cfg.video_cap = sizeof video_buf;
+    ringlog_init(&rl, storage, LINE_LEN, LINES);
+    CHECK(gbp_avsvc_probe_run(&t, &rl, &cfg, &res) == 0);
+    CHECK(r.mismatches == 0 && r.exhausted == 0 && r.step == 132u && r.step == count_ops(text) && r.tick_polls == 0 && r.timeline == 1);
+    CHECK(r.bulk_reads == 2u && r.blocks_missing == 0u && r.block_crc_mismatches == 0u && sc.calls == 2u);
+    CHECK(res.status == GBP_AVSVC_OK_SERVICE_REARM_CAUSE_OBSERVED && strcmp(res.status_class, "ok") == 0 && res.restore_ok == 1 && res.errors == 0);
+    CHECK(strcmp(res.teardown_variant, "S4B_next_cause_latched") == 0 && res.transport_ok == 1 && res.uncertain_writes == 0 && res.power_cycle_required == 1);
+    /* first cause and delivery */
+    CHECK(res.a.t_event == 3391329164u && res.cause_irq == 0x0400 && res.preunmask.irq_gbi == 0x0500 && res.preunmask_ok);
+    CHECK(res.d.fired == 1 && res.d.reentry == 0 && res.d.rec.t_entry == 3391371694u && res.d.t_unmask == 3391371622u && res.d.latency_ticks == 72u);
+    CHECK(res.d.rec.intsr_after_ack == 0x00010000u && res.d.intsr_post_unmask == 0x00010000u && res.d.intmr_post_unmask == 0x000001fau && res.delivered == 1);
+    CHECK(res.dt_cause_to_isr == 42530u && res.dt_isr_to_presvc == 7612u);
+    /* PRESVC: the authoritative snapshot */
+    CHECK(res.presvc.ticks == 3391379306u && res.presvc.irq_gbi == 0x0500 && res.presvc.irq_disc == 0x0500 && res.presvc.control_vote == 0x8c);
+    CHECK(res.presvc.intsr == 0x00010000u && res.presvc.intsr2 == 0x00010000u && res.presvc_ok && res.pending_irq == 0x0500 && res.drain_mask == 0x0500);
+    /* the two whole-block reads */
+    CHECK(res.audio.selected && res.audio.attempted && res.audio.completed && res.audio.rc == GBP_OK && res.audio.addr == 0x01800000u && res.audio.len == 0x1000u);
+    CHECK(res.audio.t_start == 3391385098u && res.audio.t_end == 3391387790u);
+    CHECK(res.video.selected && res.video.attempted && res.video.completed && res.video.rc == GBP_OK && res.video.addr == 0x01100000u && res.video.len == 0x0F00u);
+    CHECK(res.video.t_start == 3391387818u && res.video.t_end == 3391390303u);
+    CHECK(res.drains_selected == 2 && res.drains_attempted == 2 && res.drains_completed == 2 && res.drain_uncertain == 0 && res.t_service_end == 3391390303u);
+    CHECK(res.dt_service == 10997u && res.dt_presvc_to_ack == 20674u);
+    CHECK(memcmp(audio_buf, sc.audio, 0x1000u) == 0 && memcmp(video_buf, sc.video, 0x0F00u) == 0);   /* the sidecar bytes, not a pre-fill */
+    CHECK(res.audio.summarized && res.audio.crc32 == 0xfec5e4e7u && res.audio.zeros == 3969u && res.audio.distinct == 3u && res.audio.first_word == 0x01000000u && res.audio.gbi_frame_start == 0);
+    CHECK(res.video.summarized && res.video.crc32 == 0xfe45ff08u && res.video.zeros == 0u && res.video.distinct == 2u && res.video.first_word == 0xffffffffu && res.video.gbi_frame_start == 1);
+    for (i = 0; i < 0x1000u; i++) if (audio_buf[i]) nz++;
+    for (i = 0; i < 0x1000u; i += 32u) { if (audio_buf[i] == 0x01) line0_01++; else if (audio_buf[i] == 0x11) line0_11++; }
+    CHECK(nz == 127u && line0_01 == 121u && line0_11 == 2u);                     /* raw positions, not a format */
+    CHECK(video_buf[0] == 0xff && video_buf[1] == 0xff && video_buf[2] == 0xff && video_buf[3] == 0xff && video_buf[4] == 0x7f && video_buf[5] == 0x7f && video_buf[6] == 0xff && video_buf[7] == 0xff);
+    /* POSTDRAIN (observation), ACK, POSTACK, PI clean */
+    CHECK(res.postdrain.ticks == 3391394064u && res.postdrain.irq_gbi == 0x0500 && res.postdrain.intsr == 0x00010000u && res.postdrain_ok && res.relatch_postdrain == 0);
+    CHECK(res.k.irq_pending == 0x0500 && res.k.ack_value == 0x8500 && res.k.w_ack.attempted == 1 && res.k.w_ack.completed == 1 && res.k.w_ack.value == 0x8500 && res.k.w_ack.before == 0x0500);
+    CHECK(res.k.w_ack.t_after == 3391399980u && res.acked == 1 && res.k.ack_skipped == 0);
+    CHECK(res.k.postack.ticks == 3391401028u && res.k.postack.irq_gbi == 0x8000 && res.k.postack.intsr == 0x00010000u && res.k.postack.intsr2 == 0x00010000u && res.k.postack.control_vote == 0x8c);
+    CHECK(res.postack_ok && res.source_after_ack == 0x0000 && res.relatch_postack == 0 && res.k.main_pi_w1c == 0 && res.dt_ack_to_postack == 1048u);
+    CHECK(res.pi_clean == 1 && res.pi_sticky == 0 && res.pi_clean_intsr == 0x00010000u && res.pi_clean_intmr == 0x000001fau);
+    /* re-arm, REARMPOST B, the next cause found at once and never delivered */
+    CHECK(res.rearm_attempted == 1 && res.rearm_completed == 1 && res.t_rearm == 3391408218u && res.rearm_before == 0x8000 && res.w_rearm.value == 0x0000 && res.w_rearm.t_after == 3391408974u);
+    CHECK(res.dt_postack_to_rearm == 7190u);
+    CHECK(res.rearmpost.ticks == 3391409996u && res.rearmpost.intsr == 0x00012000u && res.rearmpost.intsr2 == 0x00012000u && res.rearmpost.intmr == 0x000001fau);
+    CHECK(res.rearmpost.irq_gbi == 0x0400 && res.rearmpost.irq_disc == 0x0400 && res.rearmpost.control_vote == 0x8c && res.rearmpost_outcome == GBP_AVSVC_REARMPOST_B_LATCHED && res.rearmpost_ok);
+    CHECK(res.next_cause_found == 1 && res.next_cause_immediate == 1 && res.next_cause_timed_out == 0 && res.next_cause_polls == 0);
+    CHECK(res.t_next_cause == 3391409996u && res.dt_rearm_to_next_cause == 1778u && res.next_cause_irq == 0x0400 && res.next_cause_intsr == 0x00012000u);
+    CHECK(res.unmasks == 1 && res.deliveries == 1 && res.acks == 1 && res.isr_w1c == 1 && res.main_w1c == 0 && res.teardown_w1c == 1 && res.unexpected == 0 && res.control_ok == 1 && res.pi_sticky_final == 0);
+    /* the records of the replay are the console's (the poll counters and transport info of a scripted transport aside) */
+    CHECK(count_lines_with(&rl, "PRESVC t=3391379306 intsr13=0,0 intmr13=0,0 control=8c irq=0500/0500 src=0500 av=0500 unexpected=0000 odd=0000 bit15=0 high=0000") == 1);
+    CHECK(count_lines_with(&rl, "SVC start pending=0500 drain=0500 audio=1 video=1 order=audio_then_video ack_value=8500 ack_source=PRESVC t=3391379306") == 1);
+    CHECK(count_lines_with(&rl, "AUDIOREAD idx=8 addr=01800000 len=1000 selected=1 attempted=1 completed=1 rc=ok t_start=3391385098 t_end=3391387790 dt=2692") == 1);
+    CHECK(count_lines_with(&rl, "VIDEOREAD idx=1 addr=01100000 len=0f00 selected=1 attempted=1 completed=1 rc=ok t_start=3391387818 t_end=3391390303 dt=2485") == 1);
+    CHECK(count_lines_with(&rl, "SVCEND drain=0500 selected=2 attempted=2 completed=2 ok=1 t_end=3391390303 dt_service=10997 audio_rc=ok video_rc=ok") == 1);
+    CHECK(count_lines_with(&rl, "POSTDRAIN t=3391394064 intsr13=0,0 intmr13=0,0 control=8c irq=0500/0500 src=0500 av=0500 unexpected=0000 odd=0000 bit15=0 high=0000") == 1);
+    CHECK(count_lines_with(&rl, "POSTDRAIN observation_only=1 relatch=0 av_after_drain=0500 pending_kept=0500") == 1);
+    CHECK(count_lines_with(&rl, "POSTACKAV t=3391401028 intsr13=0,0 intmr13=0,0 control=8c irq=8000/8000 src=0000 av=0000 unexpected=0000 odd=0000 bit15=1 high=0000") == 1);
+    CHECK(count_lines_with(&rl, "PICLEAN intsr=00010000 intmr=000001fa intsr13=0 intmr13=0 main_w1c=0 sticky=0 ok=1") == 1);
+    CHECK(count_lines_with(&rl, "REARM t_rearm=3391408218 before=8000 value=0000 layout=gbi-u16-replicated after=drain_ack_pi_clean") == 1);
+    CHECK(count_lines_with(&rl, "REARMPOST t=3391409996 since_rearm=1778 intsr13=1,1 intmr13=0,0 control=8c irq=0400/0400 src=0400 av=0400 unexpected=0000 odd=0000 bit15=0 high=0000 outcome=B_latched ok=1") == 1);
+    CHECK(count_lines_with(&rl, "NEXTCAUSE found=1 immediate=1 t_next_cause=3391409996 since_rearm=1778 intsr=00012000 control=8c irq=0400/0400 av=0400 unexpected=0000 polls=0 delivered=0") == 1);
+    CHECK(count_lines_with(&rl, "TEARDOWNAV variant=S4B_next_cause_latched deliveries=1 drained=2/2 acks=1 rearms=1/1 next_cause=1 unmasks=1") == 1);
+    CHECK(count_lines_with(&rl, "IRQSTOP pre rc=ok disc=0500 gbi=0500 stop_or=8aaa stop_value=8faa formula=read|stop_or") == 1);
+    CHECK(count_lines_with(&rl, "IRQSTOP post rc=ok disc=8aaa gbi=8aaa write_ok=1 readback_ok=1 masks_readback=1 bit15_readback=1") == 1);
+    CHECK(count_lines_with(&rl, "CLEANUP performed=1 value=00002000 rc=ok intsr_before=00012000 intsr_after=00010000 intsr13_after=0 sticky=0 ok=1") == 1);
+    CHECK(count_lines_with(&rl, "FINAL arinfo=0043 intsr=00010000 intmr=000001fa intsr13=0 intmr13=0 control=00 irq=9090 power_cycle_required=1") == 1);
+    CHECK(count_lines_with(&rl, "AVSVC end status=ok_service_rearm_cause_observed class=ok reason=- restore=ok restore_reason=- teardown=S4B_next_cause_latched power_cycle_required=1 errors=0 transport_ok=1") == 1);
+    CHECK(count_lines_with(&rl, "SERVICE pass pending=0500 drain=0500 selected=2 attempted=2 completed=2 drain_uncertain=0 ack=1/1 ack_value=8500 source_after_ack=0000") == 1);
+    CHECK(count_lines_with(&rl, "SERVICE rearm relatch_postdrain=0 relatch_postack=0 pi_clean=1 pi_sticky=0 rearm=1/1 rearmpost=B_latched next_cause=1 immediate=1 timed_out=0") == 1);
+    CHECK(count_lines_with(&rl, "COUNTERS unmasks=1 deliveries=1 acks=1 rearms=1 next_causes=1 unexpected=0000 site=- isr_w1c=1 main_w1c=0 teardown_w1c=1 w1c_total=2 control_ok=1 uncertain=0") == 1);
+    CHECK(count_lines_with(&rl, "BLOCK kind=audio idx=8 len=1000 present=1 valid=1 crc32=fec5e4e7 zeros=3969 distinct=3 w_off=0000,0540,0aa0,0fe0 first_word=01000000 gbi_frame_start=0") == 1);
+    CHECK(count_lines_with(&rl, "BLOCKW kind=audio off=0000 data=0100000000000000000000000000000000000000000000000000000000000000") == 1);
+    CHECK(count_lines_with(&rl, "BLOCK kind=video idx=1 len=0f00 present=1 valid=1 crc32=fe45ff08 zeros=0 distinct=2 w_off=0000,0500,0a00,0ee0 first_word=ffffffff gbi_frame_start=1") == 1);
+    CHECK(count_lines_with(&rl, "BLOCKW kind=video off=0000 data=ffffffff7f7fffff7f7fffff7f7fffff7f7fffff7f7fffff7f7fffff7f7fffff") == 1);
+    CHECK(count_lines_with(&rl, "BLOCKW kind=video off=0ee0 data=7f7fffff7f7fffff7f7fffff7f7fffff7f7fffff7f7fffff7f7fffff7f7fffff") == 1);
+    CHECK(count_lines_with(&rl, "TIMING cause_to_isr=42530/1050us isr_to_presvc=7612 presvc_to_ack=20674 service=10997/271us ack_to_postack=1048 postack_to_rearm=7190 rearm_to_next_cause=1778/43us") == 1);
+    CHECK(count_lines_with(&rl, "RESTOREAV handler_installed=1 handler_restored=1 old_handler=null mask_ok=1 intmr_final=000001fa pi_sticky_final=0 unmasked=1 masked_again=1") == 1);
+    CHECK(rl.dropped == 0 && rl.truncated == 0 && rl.count == 179u);
+    /* the same script without the sidecar: both blocks reported missing, the pre-fill never passed off as physical bytes */
+    memset(audio_buf, 0xC1, sizeof audio_buf); memset(video_buf, 0xC1, sizeof video_buf);
+    gbp_replay_init(&r, text);
+    gbp_replay_transport(&r, &t);
+    ringlog_init(&rl, storage, LINE_LEN, LINES);
+    gbp_avsvc_probe_run(&t, &rl, &cfg, &res);
+    CHECK(r.mismatches == 0 && r.exhausted == 0 && r.bulk_reads == 2u && r.blocks_missing == 2u && r.block_crc_mismatches == 0u);
+    CHECK(res.audio.crc32 != 0xfec5e4e7u && res.video.crc32 != 0xfe45ff08u);
+    free(text);
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 4 && strcmp(argv[1], "--dump-log") == 0) return dump_log(argv[2], argv[3]);
@@ -994,6 +1109,8 @@ int main(int argc, char **argv)
     else fprintf(stderr, "note: physical 003B fixture path not given, prefix test skipped\n");
     if (argc > 3) test_hw_initirq4_prefix(argv[3]);
     else fprintf(stderr, "note: physical 004 fixture path not given, prefix test skipped\n");
+    if (argc > 5) test_hw_avsvc_gbp(argv[4], argv[5]);
+    else fprintf(stderr, "note: physical GBP-AV-SERVICE-001 fixture / sidecar paths not given, replay test skipped\n");
     printf("test_gbp_avsvc: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

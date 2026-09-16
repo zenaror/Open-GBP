@@ -17,8 +17,10 @@ under captures/fixtures/.
 The physical GBP-INIT-003A fixture (no interrupt path) stops at the install.
 The physical GBP-INIT-003B and GBP-INIT-004 fixtures, cut before their device
 ACK, are the real prefixes up to the delivery and the PRESVC reads; the drain
-then meets a transport without whole-block reads (abort_bulk_unavailable) —
-NO physical GBP-AV-SERVICE-001 fixture exists and none is fabricated here.
+then meets a transport without whole-block reads (abort_bulk_unavailable).
+The physical path: the GBP-AV-SERVICE-001 fixture of 2026-09-16 (build avsvc-0001,
+commit d3a6d23) with its block sidecar replays end to end to the physical result;
+without the sidecar the two blocks are reported missing (exit 1), never invented.
 """
 import glob
 import os
@@ -40,6 +42,8 @@ NOTE = "SYNTHETIC: generated from the host mock (tests/unit/test_gbp_avsvc.c --d
 PHYSICAL_003A = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15-initirqa-0001.gbpreplay")
 PHYSICAL_003B = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-15-initirqb-0001.gbpreplay")
 PHYSICAL_004 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-initirq4-0001.gbpreplay")
+PHYSICAL_AVSVC = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-avsvc-0001.gbpreplay")
+PHYSICAL_AVSVC_BLOCKS = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-avsvc-0001-blocks.bin")
 REPLAY_RE = re.compile(r"REPLAY step=(\d+) exhausted=(\d+) mismatches=(\d+) tick_polls=(\d+) timeline=(\d+) log_lines=(\d+) "
                        r"bulk_reads=(\d+) blocks_missing=(\d+) block_crc_mismatches=(\d+)")
 
@@ -187,14 +191,21 @@ class AvsvcRoundTrip(unittest.TestCase):
         run4 = subprocess.run([BIN, "--replay", fx, bad], capture_output=True, text=True)
         self.assertEqual(run4.returncode, 1)
         self.assertIn("bad sidecar", run4.stderr)
-        # synthetic scripts never enter captures/fixtures: every fixture there is physical or Dolphin model data; no AVSVC fixture exists
+        # synthetic scripts never enter captures/fixtures: every fixture there is physical or Dolphin model data; the only
+        # AVSVC files there are the physical fixture of 2026-09-16 and its sidecar, and only a script that names a sidecar
+        # (# BLOCKS=) may carry "B" lines
         for fx_path in glob.glob(os.path.join(ROOT, "captures", "fixtures", "*")):
-            self.assertNotIn("avsvc", os.path.basename(fx_path).lower())
+            name = os.path.basename(fx_path)
+            if "avsvc" in name.lower():
+                self.assertIn(fx_path, (PHYSICAL_AVSVC, PHYSICAL_AVSVC_BLOCKS), fx_path)
             if fx_path.endswith(".gbpreplay"):
                 with open(fx_path, encoding="utf-8") as f:
-                    head = f.read(4096)
-                self.assertNotIn("SYNTHETIC", head, fx_path)
-                self.assertNotIn("\nB ", head, fx_path)
+                    text = f.read()
+                self.assertNotIn("SYNTHETIC", text[:4096], fx_path)
+                if "\nB " in text:
+                    self.assertIn("# SOURCE=physical GameCube", text[:4096], fx_path)
+                    self.assertIn("# BLOCKS=", text[:4096], fx_path)
+                    self.assertEqual(fx_path, PHYSICAL_AVSVC)
         self.assertFalse(fx.startswith(os.path.join(ROOT, "captures")))
 
     @unittest.skipUnless(os.path.isfile(PHYSICAL_003B), "physical GBP-INIT-003B fixture missing")
@@ -234,6 +245,53 @@ class AvsvcRoundTrip(unittest.TestCase):
         m = REPLAY_RE.search(run.stdout)
         self.assertEqual((m.group(3), m.group(7), m.group(8)), ("0", "0", "0"))
         self.assertGreater(int(m.group(2)), 0)
+
+    @unittest.skipUnless(os.path.isfile(PHYSICAL_AVSVC) and os.path.isfile(PHYSICAL_AVSVC_BLOCKS), "physical GBP-AV-SERVICE-001 fixture missing")
+    def test_physical_avsvc_fixture_replays_to_the_physical_result(self):
+        # 2026-09-16, avsvc-0001, commit d3a6d23: one delivery (72 ticks), PRESVC 0x0500, AUDIO 0x1000 then VIDEO 0xF00 by one
+        # whole-block DMA each (bytes from the sidecar, CRCs fec5e4e7 / fe45ff08), POSTDRAIN still 0x0500, ACK 0x8500,
+        # POSTACK 0x8000 with PI clear, no main W1C, re-arm 0x0000, REARMPOST B (INTSR bit 13 = 1, IRQ 0x0400) 1778 ticks
+        # later, the next cause found at once and never delivered, teardown S4B with one W1C; every recorded operation
+        # replays, nothing is invented
+        run = subprocess.run([BIN, "--replay", PHYSICAL_AVSVC, PHYSICAL_AVSVC_BLOCKS], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        summary = [l for l in run.stdout.splitlines() if l.startswith("SUMMARY ")][0]
+        for part in ("status=ok_service_rearm_cause_observed class=ok reason=- restore=ok restore_reason=- teardown=S4B_next_cause_latched",
+                     "irq_attempted=5 irq_completed=5 ctl_exp=1/1 a1=1/1 a2=1/1 ack=1/1 rearm=1/1 stop=1/1 ctl_restore=1/1 uncertain=0",
+                     "cause=1 t_event=3391329164 handler=1 old=null unmasked=1 fired=1 count=1 latency_ticks=72",
+                     "pending=0500 drain=0500 drains=2/2/2 audio=ok/e4e7 video=ok/ff08 drain_uncertain=0 ack_value=8500 postack_irq=8000",
+                     "source_after_ack=0000 relatch=0/0 main_w1c=0 pi_clean=1 sticky=0 rearmpost=B_latched next_cause=1 immediate=1 dt_next=1778",
+                     "unexpected=0000 site=- isr_w1c=1 teardown_w1c=1 control_ok=1 pi_sticky_final=0",
+                     "stop_post=8aaa pi_cleanup=1 handler_restored=1 mask_ok=1 arinfo_restore_ok=1 power_cycle_required=1 errors=0 transport_ok=1"):
+            self.assertIn(part, summary)
+        m = REPLAY_RE.search(run.stdout)
+        self.assertIsNotNone(m, run.stdout)
+        self.assertEqual(m.groups(), ("132", "0", "0", "0", "1", "179", "2", "0", "0"))
+
+    @unittest.skipUnless(os.path.isfile(PHYSICAL_AVSVC), "physical GBP-AV-SERVICE-001 fixture missing")
+    def test_physical_avsvc_fixture_without_its_sidecar_reports_the_blocks_missing(self):
+        # the script carries no block bytes: without the sidecar both whole-block reads are counted missing and the
+        # run exits 1; the buffers keep the probe's pre-fill (CRC suffixes 0011 / 3467), never the physical bytes
+        run = subprocess.run([BIN, "--replay", PHYSICAL_AVSVC], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+        summary = [l for l in run.stdout.splitlines() if l.startswith("SUMMARY ")][0]
+        self.assertIn("drains=2/2/2 audio=ok/0011 video=ok/3467", summary)
+        self.assertNotIn("audio=ok/e4e7", summary)
+        m = REPLAY_RE.search(run.stdout)
+        self.assertEqual((m.group(1), m.group(2), m.group(3), m.group(7), m.group(8), m.group(9)), ("132", "0", "0", "2", "2", "0"))
+
+    @unittest.skipUnless(os.path.isfile(PHYSICAL_AVSVC) and os.path.isfile(PHYSICAL_AVSVC_BLOCKS), "physical GBP-AV-SERVICE-001 fixture missing")
+    def test_physical_avsvc_fixture_rejects_a_tampered_sidecar(self):
+        with open(PHYSICAL_AVSVC_BLOCKS, "rb") as f:
+            raw = bytearray(f.read())
+        raw[0x100 + 0x20] ^= 0x01                                        # one audio payload bit
+        bad = os.path.join(outdir(), "avsvc-0001-blocks-tampered.bin")
+        with open(bad, "wb") as f:
+            f.write(raw)
+        run = subprocess.run([BIN, "--replay", PHYSICAL_AVSVC, bad], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 1)
+        self.assertIn("bad sidecar", run.stderr)
+        self.assertFalse(bad.startswith(os.path.join(ROOT, "captures")))
 
     @unittest.skipUnless(os.path.isfile(PHYSICAL_003A), "physical GBP-INIT-003A fixture missing")
     def test_physical_003a_fixture_stops_at_the_install(self):

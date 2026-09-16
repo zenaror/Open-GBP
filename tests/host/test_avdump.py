@@ -172,5 +172,91 @@ class AvdumpAgainstTheCSerializer(unittest.TestCase):
         self.assertEqual(int(blk["video"]["first_word"], 16), int.from_bytes(info["video"][:4], "big"))
 
 
+PHYSICAL_BLOCKS = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-avsvc-0001-blocks.bin")
+PHYSICAL_FIXTURE = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-avsvc-0001.gbpreplay")
+
+
+@unittest.skipUnless(os.path.isfile(PHYSICAL_BLOCKS), "physical GBP-AV-SERVICE-001 sidecar missing")
+class AvdumpPhysicalSidecar(unittest.TestCase):
+    """The block sidecar written by the console on 2026-09-16 (GBP-AV-SERVICE-001, build
+    avsvc-0001, commit d3a6d23): a byte-identical copy of GBP-AV-SERVICE-001_avsvc-0001-blocks.bin,
+    format version 2, both blocks present and valid, every CRC intact."""
+
+    def setUp(self):
+        with open(PHYSICAL_BLOCKS, "rb") as f:
+            self.raw = f.read()
+        self.info = avdump.parse(self.raw)
+
+    def test_identity_and_hash(self):
+        import hashlib
+        self.assertEqual(len(self.raw), 8204)
+        self.assertEqual(hashlib.sha256(self.raw).hexdigest(), "1c17a2d77fa60b4446863032ced62cc3d2390625de2a42b120a195eb074edc1e")
+        self.assertEqual(self.raw[:8], b"OGBPBLK1")
+        self.assertEqual(self.raw[0x100 + 0x1000 + 0xF00:0x100 + 0x1000 + 0xF00 + 8], b"OGBPEND1")
+        i = self.info
+        self.assertEqual((i["version"], i["size"], i["trailing_bytes"]), (2, 8204, 0))
+        self.assertEqual((i["test_id"], i["build_id"], i["app"], i["commit"]), ("GBP-AV-SERVICE-001", "avsvc-0001", "gbp-av-service-probe", "d3a6d23"))
+        self.assertEqual(self.raw[0x40:0x40 + 18], b"GBP-AV-SERVICE-001")       # the 18-character Test ID, whole (format 2)
+        self.assertEqual(self.raw[0x40 + 18:0x60], bytes(14))
+        with open(PHYSICAL_FIXTURE, encoding="utf-8") as f:
+            head = f.read(4096)
+        self.assertIn("# BLOCKS=hw-gamecube-gbp-2026-09-16-avsvc-0001-blocks.bin\n", head)
+        self.assertIn("# BLOCKS_SHA256=1c17a2d77fa60b4446863032ced62cc3d2390625de2a42b120a195eb074edc1e\n", head)
+        self.assertIn("# BLOCKS_SIZE=8204\n", head)
+
+    def test_blocks_and_crcs(self):
+        i = self.info
+        self.assertEqual((i["flags"], i["pending_irq"], i["drain_mask"]), (0xF, 0x0500, 0x0500))
+        self.assertTrue(i["audio_present"] and i["audio_valid"] and i["video_present"] and i["video_valid"])
+        self.assertEqual((i["audio_index"], i["audio_len"], i["audio_rc"], i["audio_wait_ticks"], i["audio_dt_ticks"]), (8, 0x1000, "ok", 2475, 2692))
+        self.assertEqual((i["video_index"], i["video_len"], i["video_rc"], i["video_wait_ticks"], i["video_dt_ticks"]), (1, 0xF00, "ok", 2319, 2485))
+        self.assertEqual(i["tb_hz"], 40500000)
+        self.assertEqual((i["audio_crc32"], i["video_crc32"]), (0xFEC5E4E7, 0xFE45FF08))
+        self.assertEqual(avdump.crc32(i["audio"]), 0xFEC5E4E7)
+        self.assertEqual(avdump.crc32(i["video"]), 0xFE45FF08)
+        self.assertEqual((i["header_crc32"], i["total_crc32"]), (0x6174E52D, 0x18E966CF))
+        self.assertEqual(avdump.crc32(self.raw[:0xFC]), 0x6174E52D)
+        self.assertEqual(avdump.crc32(self.raw[:0x100 + 0x1000 + 0xF00]), 0x18E966CF)     # everything before the footer
+        # the fixture's "B" lines carry the same CRCs
+        with open(PHYSICAL_FIXTURE, encoding="utf-8") as f:
+            b_lines = [l.rstrip("\n") for l in f if l.startswith("B ")]
+        self.assertEqual(b_lines, ["B 01800000 00001000 ok fec5e4e7", "B 01100000 00000f00 ok fe45ff08"])
+
+    def test_raw_content_is_recorded_not_interpreted(self):
+        audio, video = self.info["audio"], self.info["video"]
+        # AUDIO: 3969 zero bytes, three distinct values; the 127 non-zero bytes sit at offset 0 of 123 of the 128
+        # 32-byte lines (0x01 in 121, 0x11 in lines 31 and 61; lines 3, 22, 33, 41, 74 all zero) plus four isolated
+        # 0x01 at in-line offsets 12, 30, 8, 26 — positions, not a format
+        self.assertEqual((audio.count(0), len(set(audio)), sorted(set(audio))), (3969, 3, [0x00, 0x01, 0x11]))
+        self.assertEqual(audio[:4], b"\x01\x00\x00\x00")
+        line0 = [audio[l * 32] for l in range(128)]
+        self.assertEqual((line0.count(0x01), line0.count(0x11), line0.count(0x00)), (121, 2, 5))
+        self.assertEqual([l for l in range(128) if line0[l] == 0x11], [31, 61])
+        self.assertEqual([l for l in range(128) if line0[l] == 0x00], [3, 22, 33, 41, 74])
+        strays = [(i, audio[i]) for i in range(len(audio)) if audio[i] and i % 32]
+        self.assertEqual(strays, [(0x8C, 1), (0x49E, 1), (0x8A8, 1), (0xCBA, 1)])
+        # VIDEO: no zero byte, two distinct values; 960 four-byte groups: the first ff ff ff ff (GBI frame-start
+        # predicate true), 954 × 7f 7f ff ff, five × ff 7f ff ff (groups 41, 165, 186, 426, 578)
+        self.assertEqual((video.count(0), sorted(set(video))), (0, [0x7F, 0xFF]))
+        groups = [video[i:i + 4] for i in range(0, len(video), 4)]
+        self.assertEqual(len(groups), 960)
+        self.assertEqual(groups[0], b"\xff\xff\xff\xff")
+        self.assertEqual((int.from_bytes(groups[0], "big") & 0x80800000), 0x80800000)
+        self.assertEqual(groups.count(b"\x7f\x7f\xff\xff"), 954)
+        self.assertEqual([g for g in range(960) if groups[g] == b"\xff\x7f\xff\xff"], [41, 165, 186, 426, 578])
+        self.assertEqual(sum(1 for g in groups if g[0] != g[1] or g[2] != g[3]), 5)
+
+    def test_cli_info_on_the_physical_file(self):
+        import io
+        import contextlib
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = avdump.main(["info", PHYSICAL_BLOCKS])
+        self.assertEqual(rc, 0)
+        text = out.getvalue()
+        for needle in ("GBP-AV-SERVICE-001", "avsvc-0001", "d3a6d23", "fec5e4e7", "fe45ff08"):
+            self.assertIn(needle, text)
+
+
 if __name__ == "__main__":
     unittest.main()

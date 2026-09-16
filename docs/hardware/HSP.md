@@ -105,7 +105,12 @@ in 003A and 003B. Open-GBP's handler rules are in
   `DSP.cpp`), i.e. about 63 MB/s at 486 MHz. The GBP's demand under the
   Dolphin timing model is modest: VIDEO 0xF00 bytes × 40 blocks × ~60
   frames/s ≈ 9.2 MB/s, AUDIO 0x1000 bytes × 4096 blocks/s ≈ 16.8 MB/s.
-  Model numbers, not measurements (**H**, U-GBP-014).
+  Model numbers, not measurements (**H**, U-GBP-014). The first physical
+  whole-block transfers (GBP-AV-SERVICE-001, 2026-09-16, GBP-HW-050/051)
+  took 2692 ticks of the 40.5 MHz time base for 0x1000 bytes and 2485 for
+  0xF00 around the call (≈ 519 / 512 ns per 32 bytes, call overhead
+  included) — consistent with the model's 506 ns; one run each, no rate
+  promoted.
 - DISC waits for each register DMA synchronously with interrupts disabled
   and a 1 s timeout; GBI queues every GBP access through libogc's ARQ at
   priority 1 = the **hi queue**, whose service (`0x800617b4`) starts
@@ -118,11 +123,15 @@ in 003A and 003B. Open-GBP's handler rules are in
   DEVLOG "next step after GBP-INIT-004 decided"). The Start-up Disc also
   reads each block with one DMA of the whole length (`0x80089c3c(buf,
   base+off, len, 1)`). GBI processes IRQs in a thread.
-- Whole-block reads in Open-GBP (GBP-AV-SERVICE-001, implemented 2026-09-16,
-  not yet executed physically): the same register programming and the same
-  polled completion as the 32-byte accesses, with the length field set to
-  0x1000 / 0xF00 and the caller's 32-byte-aligned buffer as the destination;
-  one transfer, no retry, no chunking. Cache maintenance for a device →
+- Whole-block reads in Open-GBP (GBP-AV-SERVICE-001, executed 2026-09-16:
+  AUDIO 0x1000 from index 0x8 in 66.5 µs around the call — 61.1 µs of
+  completion wait, 760 CSR polls — and VIDEO 0xF00 from index 0x1 in
+  61.4 µs — 57.3 µs, 712 polls — CSR 0x0804 before and after, no timeout, no
+  busy, AUDIO completed before VIDEO started; GBP-HW-050/051, **F**): the
+  same register programming and the same polled completion as the 32-byte
+  accesses, with the length field set to 0x1000 / 0xF00 and the caller's
+  32-byte-aligned buffer as the destination; one transfer, no retry, no
+  chunking. Cache maintenance for a device →
   main-memory DMA, audited on 2026-09-16: the Start-up Disc invalidates
   (`0x800687dc` = a `dcbi` loop) before its block DMA and again in its
   DMA-done callback, and flushes (`0x80068808` = `dcbf` + `sync`) before its
@@ -142,7 +151,7 @@ in 003A and 003B. Open-GBP's handler rules are in
 | SIODATA read layout | u32 repeated 8× | DISC assembles bytes 0x19/0x1B/0x1D/0x1F (byte-doubled model) |
 | SIOCTL / SIODATA behavior | stubs (log only) | real state machine (DISC), queue (GBI) |
 | Unknown indices | warning | never touched |
-| PI HSP cause | re-set on every device event, cleared on INTSR W1C; `irq & 0x8000` with CONTROL 0x10 clear asserts the line | hardware: the cause is latched at the PI and cleared by W1C (agrees, GBP-HW-033/038); it rose with bit 15 = 0 and the odd bits = 0 (GBP-HW-030/035) and did not rise in 2 s with bit 15 = 1 and the odd bits = 1 (GBP-HW-023) — the model's assertion condition is not the hardware's; delivery to the CPU on unmask agrees (GBP-HW-037); after the handler's W1C the hardware showed no re-assert with the sources pending (GBP-HW-038); the device line itself (pulse / edge / transient / separate deassert) is still U (U-GBP-022) |
+| PI HSP cause | re-set on every device event, cleared on INTSR W1C; `irq & 0x8000` with CONTROL 0x10 clear asserts the line | hardware: the cause is latched at the PI and cleared by W1C (agrees, GBP-HW-033/038); it rose with bit 15 = 0 and the odd bits = 0 (GBP-HW-030/035) and did not rise in 2 s with bit 15 = 1 and the odd bits = 1 (GBP-HW-023) — the model's assertion condition is not the hardware's; delivery to the CPU on unmask agrees (GBP-HW-037); after the handler's W1C the hardware showed no re-assert with the sources pending (GBP-HW-038); the device line itself (pulse / edge / transient / separate deassert) is still U (U-GBP-022); after a drained service, ACK and re-arm `IRQ := 0` the next cause was captured within 43.9 µs while the CPU stayed masked (GBP-HW-055) |
 
 None of these differences is a Dolphin bug for the purpose of running
 the DISC or GBI; they mark where Dolphin is *not* evidence.

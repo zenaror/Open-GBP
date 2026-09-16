@@ -59,7 +59,10 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      transport call, raw buffers preserved, wrap, worst-case lines, ring overflow,
                                      the "never" properties; the physical 003A fixture (stops at the install) and
                                      the physical 003B / 004 fixtures cut before their ACK as prefixes up to the
-                                     PRESVC reads; --dump-log (log + sidecar) / --replay (fixture [+ sidecar]) modes
+                                     PRESVC reads; the physical GBP-AV-SERVICE-001 fixture with its sidecar end to
+                                     end (every result field, the sidecar identities/CRCs, the raw bytes in the
+                                     buffers, the records; without the sidecar both blocks missing); --dump-log
+                                     (log + sidecar) / --replay (fixture [+ sidecar]) modes
 tests/mocks/    scripted device models behind src/gbp/gbp_transport.h (PI model, synthetic
                 interrupt path with the base, the extended and the multi-cycle handler bodies, synthetic
                 IRQ-register source/mask model with an optional re-latch after a W1C, scheduled source
@@ -74,14 +77,19 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                   test_gbi_unpack.py GBI unpacker and bin2dol (synthetic packed DOL)
                   test_probelog.py   device-log parser / fixture generator (incl. the "B" whole-block read lines)
                   test_avdump.py     tools/avdump.py: the block sidecar parser against the C serializer and against
-                                     synthetic files (every error code, the CLI)
+                                     synthetic files (every error code, the CLI); the physical avsvc-0001 sidecar
+                                     (identities whole, every CRC, the raw byte positions recorded not interpreted)
                   test_avsvc_replay.py synthetic GBP-AV-SERVICE-001 log → fixture + sidecar → replay round trip
                                      (the same result with the sidecar; missing blocks reported without it; a
                                      tampered sidecar rejected); the physical 003A fixture (stops at the install)
                                      and the physical 003B / 004 fixtures cut before their ACK through the probe
-                                     (abort_bulk_unavailable at the drain, 0 mismatches); no AVSVC fixture exists
+                                     (abort_bulk_unavailable at the drain, 0 mismatches); the physical AVSVC
+                                     fixture of 2026-09-16 with its sidecar (the physical result, 0 mismatches),
+                                     without it (blocks missing, exit 1) and with a tampered sidecar (rejected)
                   test_hw_fixture.py exact bytes of the hardware captures (probe-0001, init-0001,
-                                     initirq-0001, initirqa-0001, initirqb-0001, initirq4-0001), what each known driver
+                                     initirq-0001, initirqa-0001, initirqb-0001, initirq4-0001, avsvc-0001 with its
+                                     block sidecar: header hashes, regeneration from the raw log, the "B" lines,
+                                     the sidecar windows, the raw block positions), what each known driver
                                      would read from them, blockdiff findings, the interrupt path of the
                                      003B run as it happened, the documented label defect of its log
                   test_dolphin_smoke.py runner command line (isolated user dir, OSD override)
