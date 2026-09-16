@@ -89,8 +89,10 @@ read 0 before a re-arm" ended the run there — a rule neither reference
 applies: both drain the AUDIO/VIDEO block and re-arm without reading the
 register (GBP-HW-042…047, GBP-IRQ-009, INITIALIZATION.md §13). Still not
 exercised: GBI's re-arm `IRQ := 0` after the acknowledge and repeated
-service (U-GBP-027; next experiment GBP-INIT-004B, a re-arm with the source
-pending). The Dolphin model
+service (U-GBP-027; next experiment GBP-AV-SERVICE-001, a drained service —
+AUDIO 0x1000 then VIDEO 0xF00, one whole-block DMA each, as both references
+— followed by the re-arm; GBP-INIT-004B, a re-arm with the source pending,
+is optional). The Dolphin model
 (cause re-set on every device event, masks ignored, line asserted only
 with bit 15 = 1) predicted an interrupt the hardware did not produce in
 INIT-002 and asserts on a condition (bit 15 = 1) the hardware contradicted

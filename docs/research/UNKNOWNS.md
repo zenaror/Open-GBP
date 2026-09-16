@@ -126,10 +126,13 @@ status and request generation are separate mechanisms (a request needs a
 new event or the drain of the block); the re-request condition had simply
 not occurred. What is rejected under these conditions: "a present source
 implies an immediately latched HSP cause". Still HYPOTHESIS; do not name
-bit 15 functionally. The next experiment (GBP-INIT-004B, U-GBP-027) writes
-`IRQ := 0` in exactly this state and reads the PI with the CPU masked: a
-cause within microseconds would show the hold released a pending request;
-one at the next event, or none, would separate the other readings.
+bit 15 functionally. GBP-INIT-004B (designed 2026-09-16, now OPTIONAL and
+not scheduled) would write `IRQ := 0` in exactly this state and read the
+PI with the CPU masked; the scheduled next experiment, GBP-AV-SERVICE-001
+(the Phase 4 entry, DEVLOG 2026-09-16 "next step after GBP-INIT-004
+decided"), drains the blocks first and re-arms as the references do — bit
+15 is observed there only as a by-product (1 from the ACK to the re-arm,
+0 after, under a constant CONTROL 0x8C), which is all the runtime needs.
 
 **2026-09-15, GBP-INIT-003B (GBP-HW-039/040, GBP-IRQ-008):** the device
 ACK `IRQ := 0x0500 | 0x8000` wrote bit 15 = 1 while two sources were
@@ -369,8 +372,11 @@ cleared bit 13 while both sources (0x0500) were pending under bit 15 = 0,
 and bit 13 stayed clear for 209.8 µs until the ACK; after the ACK it stayed
 clear with 0x0400 present under bit 15 = 1 (CONTROL 0x8C, then 0x90) to the
 end of the run. The sustained-level model stays rejected; the line's
-nature stays open and unscheduled; GBP-INIT-004B adds the missing data
-point (a re-arm with a source pending).
+nature stays open and unscheduled; GBP-AV-SERVICE-001 (drained service,
+re-arm, next cause; designed 2026-09-16) adds the next data points —
+whether a cause latches during the drain with bit 15 = 0, and how soon
+after the re-arm the next cause arrives; GBP-INIT-004B (a re-arm with a
+source pending) is optional, not scheduled.
 
 **Answered 2026-09-15 by GBP-INIT-003B (GBP-HW-037/038, GBP-PI-005, FACT
 for bit 13):** the latched cause was delivered to the IRQ 26 handler when
@@ -530,7 +536,19 @@ matrix, rumble included, is created when those phases are reached. Not
 on the critical path of GBP-INIT-003A.
 
 
-## U-GBP-027 (P1, updated 2026-09-16 after GBP-INIT-004) — Re-arm after the acknowledge, repeated service and the cadence of the audio/video requests
+## U-GBP-027 (P1, updated 2026-09-16: next step decided) — Re-arm after the acknowledge, repeated service and the cadence of the audio/video requests
+
+**2026-09-16, next step decided (DEVLOG "next step after GBP-INIT-004
+decided"): the scheduled experiment is GBP-AV-SERVICE-001** — one
+reference-style service pass (read IRQ → drain AUDIO 0x1000 then VIDEO
+0xF00 with one whole-block DMA each → ACK `pending | 0x8000` → re-arm
+`IRQ := 0`), the CPU masked, then the next PI HSP cause observed and left
+undelivered (HARDWARE_TESTS.md "Planned tests — GBP-AV-SERVICE-001"). If
+it succeeds it answers (1) and (2) below for one cycle and (4) as a
+by-product, and closes Phase 3; (3) and (5) need the repeated-service
+experiment that follows. GBP-INIT-004B (below) is now optional, not
+scheduled: it would re-arm with an unconsumed block, a state neither
+reference enters.
 
 **2026-09-16, GBP-INIT-004 executed (GBP-HW-042…047, GBP-IRQ-009): STILL
 OPEN — the run wrote no re-arm.** One cycle was delivered and acknowledged;
@@ -546,7 +564,7 @@ AUDIO/VIDEO block before the re-arm (GBI: ARQ reads posted before the
 synchronous ACK write, same queue; Disc: the immediate re-arm is suppressed
 while a block DMA is in flight and written from the DMA-done path). The
 "source == 0" boundary was an artificial requirement of a POC that drains
-nothing. **Reformulated question (GBP-INIT-004B, designed 2026-09-16):**
+nothing. **Reformulated question (GBP-INIT-004B, designed 2026-09-16, now optional):**
 with a pending AV source under bit 15 = 1, PI clear and the CPU masked,
 does `IRQ := 0` (bit 15 → 0, masks 0) produce a PI HSP cause — at once
 (hold released: `rearm_of_pending_source`), at the next event (~ms), or
@@ -595,8 +613,10 @@ W1C-clearable while pending), or it did and the source re-asserted within
 re-assertion faster than 26 µs would be a new observation). A
 finer-grained POSTACK sampling (several reads in the first 30 µs after the
 ACK) would separate the two; it is **not blocking**: the references never
-read the register after their ACK and re-arm regardless, and GBP-INIT-004B
-works with the source pending either way. Scheduled only if 004B's outcome
-makes the distinction decisive for the runtime (e.g. an immediate re-request
+read the register after their ACK and re-arm regardless, and the drained
+service of GBP-AV-SERVICE-001 (the scheduled next step; 004B is optional)
+works either way — its POSTACK read after the drain, 0x8000 or 0x8400, is
+the next data point. Scheduled only if that outcome makes the distinction
+decisive for the runtime (e.g. an immediate re-request
 on every re-arm would mean the runtime must drain before re-arming — which
 the references do anyway).

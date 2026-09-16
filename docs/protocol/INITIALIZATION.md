@@ -647,15 +647,23 @@ audio status again 26 µs after its ACK and cannot expect 0. The
 requirement "sources == 0 before re-arming" was therefore an artificial
 condition of the 004 design, not a hardware or reference property; it is
 withdrawn for the successor. Rules R1–R10 (§9, §12) stand; draft R11 for
-the runtime (HYPOTHESIS until 004B / Phase 4): the re-arm follows the
+the runtime (HYPOTHESIS until GBP-AV-SERVICE-001, the Phase 4 entry): the re-arm follows the
 consumption of the block(s), as in both references, and the PI cause is
 expected to return only after the re-arm (bit 15 → 0) — whether a source
 still pending at the re-arm produces the cause at once, at its next event,
-or only after a drain is exactly what GBP-INIT-004B measures.
+or only after a drain is what GBP-INIT-004B (optional, not scheduled)
+would isolate; GBP-AV-SERVICE-001 measures the reference case — the re-arm
+after the drain — which is the one the runtime needs (DEVLOG 2026-09-16
+"next step after GBP-INIT-004 decided").
 
 Initialization readiness after 004: unchanged from §12 plus a second
 delivered cycle and the post-ACK state. Still missing for the steady
-state: the re-arm and repeated service (004B), KEYPAD (Phase 5), CONTROL
+state: the re-arm after a drained service (GBP-AV-SERVICE-001), then
+repeated service, KEYPAD (Phase 5), CONTROL
 0x04/0x08 at runtime (U-GBP-006), the AUDIO/VIDEO block reads (Phases 4/6,
 now known to be the references' boundary before their re-arm). Phase 3 is
-**not** concluded by this run.
+**not** concluded by this run. State decided on 2026-09-16: **Phase 3
+IRQ core validated; the re-arm validation is carried into the Phase 4
+entry (GBP-AV-SERVICE-001); Phase 3 is not formally closed** — it closes
+with the first physical service → re-arm → next cause; no intermediate
+phase is created.

@@ -1168,8 +1168,11 @@ INTMR `0x000001FA`; AR_INFO `0x005B → 0x0043`; FINAL under code 0 `00` /
 ACK; there is no physical evidence in this run about the re-arm, about a
 next HSP cause after a re-arm or about a second delivery. The multi-cycle
 continuation exists only in the host mock; **U-GBP-027 stays open.** The
-next experiment is GBP-INIT-004B (pending-source re-arm), designed below
-(DEVLOG 2026-09-16 "GBP-INIT-004 executed").
+next experiment is GBP-AV-SERVICE-001 (drained service → re-arm → next
+cause, the Phase 4 entry), designed below (DEVLOG 2026-09-16 "next step
+after GBP-INIT-004 decided"); GBP-INIT-004B (pending-source re-arm,
+designed the same day) is kept below as an optional experiment, not
+scheduled.
 
 **Byte 0 / offset 2 (U-GBP-021 / U-GBP-025):** extras in this run — TEST
 `C7` (pattern 3C read, `all32_ok=3`), CONTROL `AC` in all thirteen 0x8C reads,
@@ -1659,8 +1662,9 @@ acknowledged, `anomaly_source_not_cleared` at POSTACK-0, **no re-arm
 written**, evidence GBP-HW-042…047, GBP-IRQ-009). The clean build of
 741630b was audited (PHYSICAL CANDIDATE READY, DEVLOG 2026-09-16
 "GBP-INIT-004 release audit") and executed once; no second run of this
-design is requested — the successor GBP-INIT-004B (pending-source re-arm,
-below) replaces the clean-boundary premise. The paragraph below is the
+design is requested — the successor GBP-AV-SERVICE-001 (drained service,
+below) replaces the clean-boundary premise; GBP-INIT-004B (below) stays
+optional, not scheduled. The paragraph below is the
 pre-execution status kept for the history. Pre-execution status:
 IMPLEMENTED — NOT PHYSICALLY EXECUTED. DIRTY BUILD — NOT A PHYSICAL
 CANDIDATE (DEVLOG 2026-09-15 "GBP-INIT-004 implemented"). The
@@ -2070,10 +2074,16 @@ Physical setup: identical to GBP-INIT-003B; ≈ 3.5 s worst case; X to save, STA
              to be requested before implementation, audits and a clean candidate.
 ```
 
-### GBP-INIT-004B — pending-source re-arm: `IRQ := 0` with an AV source still pending, PI clear and the CPU masked (designed 2026-09-16; NOT implemented, NOT released)
+### GBP-INIT-004B — pending-source re-arm: `IRQ := 0` with an AV source still pending, PI clear and the CPU masked (designed 2026-09-16; OPTIONAL, not scheduled — superseded as the next step by GBP-AV-SERVICE-001 the same day; NOT implemented, NOT released)
 
-Status: design only (DEVLOG 2026-09-16 "GBP-INIT-004 executed"); no code,
-no build, no hardware, no request. Successor of GBP-INIT-004 (executed
+Status: design only, **OPTIONAL and not scheduled** (decision DEVLOG
+2026-09-16 "next step after GBP-INIT-004 decided": the drained service
+probe GBP-AV-SERVICE-001, below, is the next step; 004B would test a state
+neither reference enters — a re-arm with an unconsumed block — whose
+negative outcome would be ambiguous and whose positive outcome would
+mainly characterize bit 15, which blocks nothing; kept as a later bit-15
+experiment if ever needed); no code, no build, no hardware, no request.
+The original design text follows unchanged. Successor of GBP-INIT-004 (executed
 2026-09-16: one cycle delivered and acknowledged, POSTACK-0 read 0x8400
 with CONTROL 0x8C and PI clear, the clean boundary "sources == 0" stopped
 the run before any re-arm — GBP-HW-045). Depends on GBP-INIT-003B and 004
@@ -2146,3 +2156,271 @@ Physical setup: identical to GBP-INIT-004; ≈ 3.5 s worst case; X to save, STAR
              outcome: clean, pending AV, non-AV, sticky PI; the physical 004 fixture as the prefix up
              to POSTACK-0 with the boundary marked), audits and a clean candidate.
 ```
+
+### GBP-AV-SERVICE-001 — first drained HSP service: read the pending AUDIO/VIDEO blocks, acknowledge, re-arm, observe the next cause (Phase 4 entry; designed 2026-09-16; NOT implemented, NOT released)
+
+Status: design only (DEVLOG 2026-09-16 "next step after GBP-INIT-004
+decided"); no code, no build, no hardware, no request. The scheduled
+successor of GBP-INIT-004; it replaces GBP-INIT-004B (above, now optional)
+as the next physical experiment and is the entry experiment of Phase 4
+(ROADMAP: "recorded hardware trace replay" and "buffer boundaries" start
+with the first physically captured VIDEO block). Depends on GBP-INIT-003B
+and 004 (GBP-PI-005, GBP-IRQ-008/009) and on the reference service loops
+(INITIALIZATION.md §4 and §13; decompiles re-read 2026-09-16: GBI
+`0x8000bf30` with `0x8000be48` / `0x8000bea4` / `0x80011c14` and the ARQ
+`0x80061a68` / `0x800617b4` / `0x80061820` / `0x80061b3c`; Disc `0x8008af08`
+with `0x8008cdc4` / `0x8008a764` / `0x8008a654` / `0x8008ed68` / `0x8008a480`
+/ `0x8008b14c` / `0x80089c3c` / `0x80089cc8` / `0x80089ff4` / `0x8008a31c`).
+
+Name: **GBP-AV-SERVICE-001**, not GBP-VIDEO-001 — with no cartridge both
+AV sources are pending at the first delivery (0x0500 in 003B and 004) and
+a VIDEO-only drain would leave the AUDIO block unconsumed, i.e. exactly the
+untested pending-source re-arm of 004B; not GBP-SERVICE-001 — only the two
+AV sources are serviced (a source outside 0x0500 is observed, never
+serviced). GBP-VIDEO-001 stays reserved for the first VIDEO-content
+experiment of Phase 4 (frame structure, with a cartridge). There is no
+intermediate phase: this is the Phase 4 entry, and it carries the re-arm
+validation that Phase 3 left open.
+
+```text
+Question:    After the validated delivery of an HSP cause, does ONE reference-style service pass —
+             read IRQ (pending), drain every pending AV block with one whole-block DMA each (AUDIO
+             0x1000 at base+0x800000, then VIDEO 0xF00 at base+0x100000: GBI order), ACK `IRQ :=
+             pending | 0x8000`, re-arm `IRQ := 0x0000` — lead to a NEW PI HSP cause with a valid AV
+             source within a bound, with the CPU masked throughout and no second delivery?
+             Secondary: the raw content of the two blocks (length, DMA duration, CRC32, byte
+             windows, whole bytes in a binary dump) preserved for the host, not interpreted.
+Not asked:   the first delivery (FACT ×2); the meaning of the block bytes (U-GBP-008/011/012:
+             recorded raw only); the cadence of the requests (one interval only, U-GBP-014); the
+             re-arm with an unconsumed block (004B, optional); whether the drained block can be
+             read a second time; KEYPAD, SIO, cartridge, BBA, rendering, playback, a second service.
+Why static analysis cannot answer: both references drain and re-arm without reading the register
+             back; whether the re-arm after a drain produces the next cause, and how soon, is
+             hardware behavior. Why Dolphin cannot: its model re-sets the cause on every device
+             event and ignores the masks (HSP.md §4); its blocks are model data.
+Source mapping (revalidated): 0x0100 → VIDEO block (index 0x1, 0xF00) and 0x0400 → AUDIO block
+             (index 0x8, 0x1000) is FACT in both reference codes (GBP-IRQ-005: Disc slot table
+             0x0400 → 0x8008cdc4 → 0x8008a764 (base+0x800000, 0x1000), 0x0100 → 0x8008ed68 →
+             0x8008a480 (base+0x100000, 0xF00); GBI `pending & 0x400` → 0x800000/0x1000, `& 0x100`
+             → 0x100000/0xF00). On hardware only the OCCURRENCE is FACT: 0x0400 first, 0x0100 ≤ 1 ms
+             later (GBP-HW-030/035/042) — the order of appearance says nothing about which block is
+             which. The probe reads, for each bit, the block the references read for that bit, and
+             never infers a mapping from timing.
+Blocks (revalidated, GBP-VID-001 / GBP-AUD-001, REGISTERS.md §2): AUDIO = index 0x8 = base +
+             0x800000, 0x1000 bytes; VIDEO = index 0x1 = base + 0x100000, 0xF00 bytes; both
+             multiples of 32; direction ARAM → main memory (`0xCC005028` bit 15 = 1, the Disc's
+             `0x80089c3c(buf, base+off, len, 1)`, `AR_StartDMA` dir 1); destination a 32-byte-
+             aligned main-memory buffer, cache-invalidated (Disc `0x800687dc(buf, len)` before the
+             DMA and again in the completion callback; GBI: ARQ). Both references issue ONE DMA of
+             the whole length: the Disc programs `len` and polls `0x80089cc8` (1 s bound); GBI
+             posts at priority 1 = the hi queue, whose service `0x800617b4` starts `AR_StartDMA`
+             with the request's full length — the chunking of `0x80061820` (lo queue, chunk
+             `0x3380`) is never used for GBP accesses (HSP.md §3 "chunk size 0x3C0" to be made
+             precise). Reading a block as 120 / 128 separate 32-byte DMAs is not reference
+             behavior and is not done.
+GBI pass order (`0x8000bf30`, FACT code): SemWait → read IRQ (32 B at 0xD00000, voted) → set bit 15
+             in the local copy → if 0x0400: post async AUDIO read (hi queue, callback 0x8000b75c)
+             → if 0x0100: post async VIDEO read (callback 0x8000a8e0) → if 0x0040: SIODATA read →
+             if 0x0010: KEYPAD 0x0304 / 0x0300 → SYNCHRONOUS 64-byte write at 0xCFFFE0 (KEYPAD :=
+             pad state, IRQ := pending | 0x8000): it enters the same FIFO behind the block reads
+             and its busy-wait (`0x80061b3c`, state == 2) returns only after it completed, so every
+             drain is complete before the ACK completes → sync 64-byte read CONTROL + SIOCTL →
+             optional SIODATA write → sync CONTROL + SIOCTL write-back → sync `IRQ := 0` (last
+             device access) → loop. PI HSP stays unmasked (the raw handler only W1Cs and posts);
+             the register is never re-read after the ACK; bit 15 is 0 during the drain (the
+             previous pass ended with 0) and 1 from the ACK to the re-arm.
+Disc order (`0x8008af08`, FACT code): `IRQ := shadowB | 0x8000` → PI W1C → read IRQ → write-back
+             `IRQ := pending` (the ACK, BEFORE any drain) → KEYPAD → CONTROL read → slot 4
+             (0x0400): when 0x0100 is pending as well (`0x801b34ca[4]` = 0x0100) the AUDIO block is
+             read SYNCHRONOUSLY (`0x8008a654`: DMA + polled wait + message), otherwise
+             asynchronously (`0x8008a764`, completion callback, return 1 suppresses the immediate
+             re-arm) → slot 5 (0x0100): VIDEO read asynchronously (`0x8008a480`, callback, suppress)
+             → `IRQ := shadowB` only when nothing is in flight; otherwise the ARAM-DMA-done
+             handler `0x8008b14c` runs the completion callback (invalidate + message) and writes
+             the re-arm. The Disc, too, orders AUDIO before VIDEO, never has two block DMAs in
+             flight, and re-arms only after the LAST block DMA completed; bit 15 is 1 from the
+             entry write to the re-arm. Under 0x0500 the whole service is the audio DMA (polled),
+             the video DMA (interrupt) and the re-arm at video DMA done.
+Strategy:    A — GBI-like: drain → ACK → REARM. Both references complete the drain before the
+             re-arm; they differ only in whether the ACK precedes (Disc) or follows (GBI) the
+             drain. A is chosen because (1) it keeps the 004 sequence ACK → POSTACK → REARM →
+             REARMPOST → NEXTCAUSE unchanged and only inserts the drain before the ACK; (2) after
+             a drain the ACK's W1C acts on consumed blocks, so the POSTACK read is a free data
+             point for U-GBP-028; (3) the ACK value is the pre-drain read in both references. The
+             physical 004 result (0x0400 present 26 µs after an ACK without drain, with bit 15 =
+             1, PI clear) is what the Disc order lives with; it is not an argument against B, only
+             against "sources == 0". Recorded deviations from GBI: the CPU stays masked from the
+             delivery to the end (observability); the ACK is the 32-byte IRQ-only write of 003B /
+             004, not GBI's 64-byte KEYPAD + IRQ write (KEYPAD untouched); CONTROL is read, not
+             written back; SIOCTL / SIODATA untouched.
+Sequence:    Stage A verbatim from 004 (detection, A1, A2 `IRQ := 0`, handler install, PREUNMASK-0,
+             unmask, delivery through the audited multi-cycle handler, main re-mask + REMASKCHK);
+             then SERVICE-0 with the CPU masked (INTMR bit 13 = 0 verified before every device
+             write; T_DELIVERY 100 ms as 004):
+  PRESVC     read IRQ (Disc and GBI readings must agree) → pending; read PI, CONTROL. Accept:
+             (pending & 0x0555) ≠ 0; (pending & 0x0555 & ~0x0500) = 0 — else
+             anomaly_unexpected_source: observed, nothing drained, teardown S3; odd bits 0, bit 15
+             0, bits 12–14 0 (A2 wrote 0 and nothing wrote since) — else abort_presvc_state,
+             teardown S3; CONTROL 0x8C — else anomaly_control_changed, teardown S3.
+  AUDIOREAD  if pending & 0x0400: ONE DMA ARAM → MRAM, base+0x800000, 0x1000 bytes, into
+             audio_raw[0x1000] (static, 32-byte aligned, zero-filled, flushed and invalidated
+             before, invalidated after); completion by polling DSP CSR bit 5 with the existing
+             backend rules (refuse if bit 9 or bit 5 is already set; T_DMA = 200 ms per transfer,
+             operational — the Disc bounds at 1 s; clear bit 5 afterwards); t_start, t_end, polls,
+             CSR before / after recorded.
+  VIDEOREAD  if pending & 0x0100: the same with base+0x100000, 0xF00 bytes, into video_raw[0xF00].
+             AUDIO then VIDEO as both references; one transfer per pending source, no retry, no
+             second read of either block in this run; nothing else touches ARAM meanwhile
+             (libogc AR / ARQ never initialized).
+  SVCEND     every transfer completed (rc ok, no timeout, no busy refusal, CSR consistent) — else
+             transport_failure_during_drain (audio_dma_failed | video_dma_failed): no ACK, no
+             re-arm, teardown S3-DMA.
+  ACK        `IRQ := pending | 0x8000` (u16 replicated ×16, one 32-byte write at base+0xD00000),
+             pending = the PRESVC value, never a re-read: GBI writes `pending | 0x8000`, the Disc
+             writes back the value it read; both use the pre-drain read. Attempted = completed
+             required (else ack_write_failed: no re-arm, teardown S4-ACK).
+  POSTACK    PI ×2, CONTROL, IRQ (observation; NO source requirement): accept CONTROL 0x8C; bit
+             15 = 1; odd 0; bits 12–14 0; (irq & 0x0555 & ~0x0500) = 0; INTMR bit 13 = 0; zero
+             reentry; INTSR bit 13 = 0 after at most ONE main W1C — a bit 13 = 1 here is recorded
+             as relatch=1 (a cause latched during the service with bit 15 = 0, something GBI's
+             unmasked design tolerates), cleared once, re-read; still 1 → anomaly_pi_sticky_
+             after_ack, no re-arm, teardown S3-PI. The AV bits read anything: boundary=clean
+             (0x8000) or pending_av (0x8100 / 0x8400 / 0x8500) — both accepted, both recorded
+             (the U-GBP-028 data point after a drain). anomaly_source_not_cleared does not exist
+             in this design.
+  REARM      precondition: INTSR bit 13 = 0 and INTMR bit 13 = 0 on a fresh read; `IRQ := 0x0000`
+             (GBI's value; u16 replicated), t_rearm; then REARMPOST exactly as 004 (PI ×2, CONTROL,
+             IRQ; no W1C): A quiet / B PI latched with an AV source / C source present without PI
+             / D unexpected source / E invalid read-back (odd bits or bit 15 read 1) / F PI without
+             a source. E, D and F end the run (anomaly_rearm_state / anomaly_unexpected_source,
+             teardown S4C).
+  NEXTCAUSE  CPU still masked; INTSR polled (no W1C) ≤ T_NEXT_CAUSE = 500 ms (operational); on bit
+             13 = 1: read IRQ once (src1) and CONTROL, t_hsp. Valid next cause iff INTSR bit 13 = 1
+             AND (src1 & 0x0500) ≠ 0 AND (src1 & 0x0555 & ~0x0500) = 0 AND t_hsp > t_rearm (wrap-
+             safe); B at REARMPOST counts, with t_hsp = the REARMPOST sample; C then a latch counts
+             from the poll that saw bit 13. The cause is NOT unmasked, NOT delivered, NOT
+             acknowledged: the run ends here (teardown S4B). No cause in 500 ms → S4A.
+Cycles:      MAX_CYCLES 1, MAX_REARMS 1, deliveries 1: one full service + one re-arm + the
+             observation of the next cause; no second delivery (the second cause stays latched and
+             is acknowledged only by the teardown's PI W1C, after the stop word). Repeated,
+             sustained service is the experiment after this one.
+Data capture: audio_raw / video_raw are never modified after their DMA (raw evidence). After the
+             timed region (teardown done, interrupts back to normal): CRC32 of each buffer,
+             zero-byte count, distinct-value count, four 32-byte windows per block (offsets 0,
+             0x20, the middle 32 bytes, the last 32 bytes), for VIDEO the first 32-bit word and the
+             result of GBI's frame-start test `(w0 & 0x80800000) == 0x80800000` recorded as a raw
+             flag (GBI's test, not a claim); then the text log to SD (ringlog → sdlog) and a
+             binary dump `<test_id>_<build_id>.bin` (16-byte header: magic "OGBPBLK1", audio
+             length, video length, flags; then audio_raw, then video_raw) written by a new sdlog
+             blob function after the log file, never inside the timed region. No block bytes in
+             the ringlog beyond the windows; no formatting inside the timed region; the on-screen
+             summary shows both CRC32s so a failed SD write still leaves a checkable value. The
+             fixture derived on the host: the `.gbpreplay` script plus a `-blocks.bin` sidecar
+             (device output with no cartridge — not proprietary), SHA-256 of the raw log and of
+             the dump computed on the host from `logs/`.
+Records:     SVC start irq= pi= control= t=; AUDIOREAD addr=01800000 len=1000 rc= ticks= polls=
+             csr_before= csr_after= t_start= t_end=; VIDEOREAD addr=01100000 len=0f00 (same
+             fields); SVCEND drained= transfers= t_end=; ACK value= rc= t_after= (as 004);
+             POSTACK … boundary=clean|pending_av relatch=0|1 (as 004 minus the source rule);
+             PICLEAN n=; REARM value=0000 rc= t_rearm=; REARMPOST class= irq= pi= control=;
+             NEXTCAUSE found=1 t_hsp= dt_rearm= irq= control= | found=0 t_end=; BLOCK
+             kind=audio|video len= crc32= zeros= distinct= w0= w1= wmid= wlast= [first_word=
+             gbi_frame_start=]; DUMP file= bytes= rc=; TEARDOWN …; STATS transfers= timeouts=
+             busy=; AVSVC end status= …. Every record carries the time-base ticks of its sample;
+             dt values are also given in µs (derived on the device from the known time base, the
+             ticks stay primary).
+PI policy:   CPU (INTMR bit 13) masked from the ISR's mask to the end; INTSR bit 13 observed after
+             the ISR's W1C at PRESVC / POSTACK / REARMPOST / NEXTCAUSE and never delivered; a
+             relatch during the service is recorded, not a failure; W1C budget: ISR 1, main ≤ 1 at
+             POSTACK, none after the re-arm, teardown ≤ 1; no W1C loop. This is the probe's
+             observability policy, not the runtime's (GBI never masks; the Disc services inside
+             the handler with the mask untouched).
+Statuses:    ok_service_rearm_next_cause (success); no_next_cause_after_service (re-arm completed,
+             no cause in 500 ms — a VALID physical result, "one drained service + re-arm does not
+             lead to a new request within 500 ms", reported as such, not as a failure); abort_*
+             as 004 (stage A, handler install, pre-unmask state, unmask, read inconsistent,
+             transport before the drain) plus abort_presvc_state; anomaly_unexpected_source
+             (PRESVC / POSTACK / REARMPOST / NEXTCAUSE); transport_failure_during_drain
+             (audio_dma_failed | video_dma_failed: timeout, busy refusal, CSR inconsistency);
+             ack_write_failed; anomaly_pi_sticky_after_ack; rearm_write_failed;
+             anomaly_rearm_state (E / F); anomaly_reentry / anomaly_generation /
+             anomaly_mask_failure / anomaly_control_changed as 004;
+             service_completed_with_errors (chain complete but restore / transport statistics /
+             uncertainty not clean — never reduced to a count).
+Success criterion (all together, fixed in advance): first delivery valid (generation 0, one entry,
+             mask-first, one ISR W1C, zero reentry); PRESVC AV-only with odd bits 0 / bit 15 0;
+             every pending AV block read by one completed DMA of the full length (0x1000 / 0xF00),
+             no timeout, no busy refusal, ticks recorded; ACK completed (attempted = completed,
+             Disc = GBI); POSTACK accepted (CONTROL 0x8C, PI clean after ≤ 1 W1C, bit 15 = 1, odd
+             0, unexpected 0); REARM completed with REARMPOST A or B; a valid next cause within
+             500 ms with t_hsp > t_rearm; INTMR bit 13 = 0 in every main-loop read; teardown
+             complete, restore ok, transport errors 0, uncertain 0; the two blocks preserved (dump
+             written, or CRC32 + windows in the log when the SD write fails). Then the re-arm
+             mechanics after a drained service are physically established — U-GBP-027 items (1)
+             and (2) for one cycle, (4) as a by-product; (3) cadence and (5) sustained service
+             remain — Phase 3 closes, and Phase 4 continues with block interpretation, frame
+             timing and repeated service. The value of t_hsp − t_rearm is the observation; no
+             periodicity from one interval.
+Safety:      CPU masked during the drain, the ACK, the re-arm and the wait; ONE new variable
+             class: a whole-block ARAM → MRAM read of 0x1000 / 0xF00 — a read, reference-backed in
+             both drivers, on the same DMA engine, the same register programming and the same
+             polled-completion routine as every 32-byte access so far; static aligned buffers, no
+             allocation; one transfer per source, no retry; T_DMA 200 ms per transfer, never a
+             hardware property; no concurrent ARAM access; every device write has physical
+             precedent (0x0000 = A2, `read | 0x8000` = A1 / ACK, `read | 0x8AAA` = stop); on any
+             DMA failure: no ACK, no re-arm, STOP best-effort, restore, power cycle. A block read
+             is a logical consumption in the references (the ACK then clears the status bit); it
+             is never assumed destructive or non-destructive — the POSTACK / NEXTCAUSE readings
+             are what says whether a drained source re-requests. Not tested here: reading a block
+             twice.
+Teardowns:   S3 (PRESVC rejected: unexpected source / state / CONTROL — nothing drained, no ACK, no
+             re-arm), S3-DMA (a block DMA failed: no ACK, no re-arm), S4-ACK (ACK failed: no
+             re-arm), S3-PI (sticky PI at POSTACK: no re-arm), S4C (REARMPOST invalid), S4A
+             (re-armed, no cause in 500 ms), S4B (cause latched, not serviced — also the success
+             path's teardown); all with the CPU masked first, STOP `read | 0x8AAA` best-effort
+             from whatever the register shows, ≤ 1 teardown PI W1C, CONTROL restore, handler
+             restore, AR_INFO restore, `power_cycle_required` never cleared.
+Host validation before any candidate: mock scenarios (both sources pending / audio only / video
+             only; DMA timeout on audio / on video; busy refusal; CSR inconsistency; unexpected
+             source at each read; relatch during the service cleared by the one W1C, and sticky;
+             REARMPOST A / B / C / D / E / F; no next cause; next cause with and without an AV
+             source; ACK / REARM write failures; generation error; reentry; CONTROL change; ring
+             overflow; worst-case line widths; wrapping time base; dump write failure); the
+             physical 004 fixture as the prefix up to the delivery (cut before PREACK-0, the
+             boundary marked — the drain and everything after it are never physical evidence
+             before this probe runs); Dolphin execution of the whole path (model blocks, never
+             truth; OSD off); isr_audit (handler unchanged from 004), poc_audit profile `avsvc`
+             (5 logical IRQ write sites: A1, A2, ACK, REARM, STOP; 2 bulk-read sites; no other
+             device write); reproducible build, 0 warnings; clean commit before any candidate.
+Physical setup: identical to GBP-INIT-004 (GBP attached, no cartridge, PicoAdapterGB in the Link
+             Port untouched, BBA idle, one controller, SD2SP2, Swiss); timed region ≈ 0.7 s worst
+             case; X saves the log and the dump; START; power off. Not to be requested before
+             implementation, host tests, audits and a clean candidate.
+Compatibility: no SIOCTL / SIODATA / KEYPAD / BBA access; CONTROL only the validated transform and
+             restore; the physical Link Port and every accessory on it untouched; Start-up Disc /
+             GBI parity, rumble / GBP-aware features and the additive virtual Mobile Adapter
+             unaffected; nothing of the probe becomes runtime architecture (Phase 4 starts from
+             the evidence, not from the POC).
+```
+
+Files this design will need when implemented (listed, not created): `src/gbp/gbp_transport.h`
+(a bulk read operation: `read_bulk(ctx, aram_addr, out, len, info)` with `len` a multiple of
+32 and `out` 32-byte aligned; mock / replay / real implementations; a capability query),
+`src/platform/hsp_backend.c` (the same DMA routine with a length parameter and a caller
+buffer; cache maintenance over `len`), `src/gbp/gbp_av_service.{h,c}` (the service pass over
+the transport: PRESVC → drains → ACK → POSTACK → REARM → REARMPOST → NEXTCAUSE, reusing the
+003B/004 records and `gbp_irq_service_ack`), `src/gbp/gbp_avsvc_probe.{h,c}` (statuses,
+teardowns, block summaries), `poc/gbp-av-service-probe/` (Test ID `GBP-AV-SERVICE-001`, Build
+ID `avsvc-0001`, prefix `OPENGBP-AVSVC`), `src/platform/sdlog.c` (a blob writer for the dump),
+mock knobs (per-source block content pattern and DMA duration, failure at transfer n, source
+cleared or kept by the drain, relatch during the drain), replay op for a bulk read with the
+payload in a `-blocks.bin` sidecar, `tools/probelog.py` rules for the new records and the
+sidecar, `tools/poc_audit.py` profile `avsvc`, tests `tests/unit/test_gbp_avsvc.c` and
+`tests/host/test_avsvc_replay.py`, Makefile targets `avsvc-dolphin` / `avsvc-audit`. Documents
+to update after implementation and after execution: this file (executed entry), EVIDENCE.md
+(GBP-HW-048 onwards; the first measured block DMA durations; a `GBP-AV-…` entry for the raw
+blocks), UNKNOWNS.md (U-GBP-027 closure or reformulation, U-GBP-028 data point, U-GBP-008 /
+011 / 012 first raw data, U-GBP-014 one interval), DEVLOG.md, INITIALIZATION.md (§14: the
+service pass; R11 promotion if observed), REGISTERS.md (VIDEO / AUDIO rows: hardware column),
+HSP.md (§3: the ARQ hi-queue precision and the first measured bandwidth), captures/README.md
+(fixture + sidecar format), tests/README.md, poc/README.md.

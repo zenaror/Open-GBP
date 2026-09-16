@@ -5,8 +5,9 @@ release-audited 2026-09-16: PHYSICAL CANDIDATE READY) — DOL SHA-256
 `1da0d7b4f47200e914aba46510921b4a49a9bb8f01fd40940ebf50bd94ad010c` (397280 bytes) —
 **PHYSICALLY EXECUTED 2026-09-16** once (log sha256 `c9167224…775b`, 19247 bytes; see "Result"
 below): one cycle delivered and acknowledged, `anomaly_source_not_cleared` at POSTACK-0, **no
-re-arm written**. No second run of this design is requested; its successor is GBP-INIT-004B
-(pending-source re-arm, `docs/research/HARDWARE_TESTS.md` "Planned tests").
+re-arm written**. No second run of this design is requested; its successor is GBP-AV-SERVICE-001
+(drained service → re-arm → next cause, `docs/research/HARDWARE_TESTS.md` "Planned tests";
+GBP-INIT-004B, the pending-source re-arm, is optional and not scheduled).
 
 **Question:** after a real HSP cause has been delivered and serviced as in GBP-INIT-003B
 (physically executed 2026-09-15: latched cause → IRQ 26 → handler mask + one PI W1C → device
@@ -255,7 +256,7 @@ to FINAL with 0x0400 present (bit 15 = 1, CONTROL 0x8C, then CONTROL 0x90).
 re-asserted within 26 µs (U-GBP-028); anything about `IRQ := 0` after an ACK, a next HSP cause
 or a second delivery — `rearm_attempted=0`: U-GBP-027 stays open. The premise "sources read 0
 before a re-arm" was re-examined against the references (both drain the block and re-arm
-without reading the register) and withdrawn for the successor GBP-INIT-004B. Byte-0 extras of
+without reading the register) and withdrawn for the successor GBP-AV-SERVICE-001. Byte-0 extras of
 this run (`C7`, `AC`, `8E`, `8D`, `85`) never fed a decision (U-GBP-021). Evidence
 GBP-HW-042…047, GBP-IRQ-009; log verbatim in HARDWARE_TESTS.md; fixture
 `captures/fixtures/hw-gamecube-gbp-2026-09-16-initirq4-0001.gbpreplay` replays the whole run
