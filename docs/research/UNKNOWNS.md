@@ -964,7 +964,7 @@ stand on (U-GBP-033 and GBP-HW-096) and is analysed in the DEVLOG entry of
 
 ---
 
-### U-GBP-033 — what mechanism produces semantic non-uniformity among the eight replicas of the IRQ window? — OPEN (mechanism unknown; the SERVICE POLICY it blocked is addressed separately by the vstate-0003 design)
+### U-GBP-033 — what mechanism produces semantic non-uniformity among the eight replicas of the IRQ window? — OPEN (mechanism unknown; the SERVICE POLICY it once blocked was addressed separately and PHYSICALLY EXECUTED in vstate-0003, 23 events survived)
 
 Two physical runs have now ended on a read whose eight replicas did not all carry
 the same 16-bit value, and the second preserved the bytes. The question is **not**
@@ -1006,6 +1006,41 @@ succession around a disagreement (which the current design forbids, for good
 reason — the first requirement was preservation), or an experiment that correlates
 the disagreeing group index with an independently timed source assertion. Neither
 is designed yet, and neither is GBP-VIDEO-003.
+
+**2026-09-17, refined by twenty-three physical events.** The `vstate-0003` run
+produced 23 semantic disagreements in 1 114 007 deliveries and survived all of
+them, so for the first time the phenomenon can be described from a population
+rather than from single events (GBP-HW-100, GBP-HW-101).
+
+**FACT, recomputed from each record's own 32 bytes:**
+
+* 23 events, every one of them `Disc = 0x0500` against `GBI majority = 0x0100`,
+  i.e. the same direction as both earlier events: the last replica carries a source
+  the majority does not;
+* the differing source is AUDIO `0x0400` in all 23;
+* the `0x0500` replicas always form a **contiguous suffix at the end of the
+  32-byte window** — never scattered, never a prefix, never interleaved;
+* the suffix length distribution is 21 × 1, 1 × 2 (cycle 839 272), 1 × 3
+  (cycle 1 015 782);
+* the omitted AUDIO source was present in the next ordinary read in 23 of 23
+  (GBP-HW-102), and no next cause contained VIDEO.
+
+**CORROBORATED:** the non-uniformity is *ordered*. A window is not a set of eight
+independently noisy copies; whatever produces the difference produces it at the
+tail, in a run of consecutive replicas.
+
+**Still UNKNOWN, and the point of this entry:** the mechanism. The contiguous
+suffix constrains the space of explanations considerably, but it does not choose
+among them, and this repository does not claim it does. Specifically it is NOT
+established that the suffix is "the newer value": that reading requires knowing the
+order in which the device updates the replicas, the order in which the transfer
+reads them, and whether the source changed during the transfer. None of the three
+has been observed. A suffix would look the same if the *first* groups were the
+newer ones and the tail were stale.
+
+What would separate them: an experiment that correlates the suffix boundary with
+an independently timed source assertion, or one that reads the window twice around
+a disagreement. Neither is designed, and neither is GBP-VIDEO-003.
 
 **2026-09-17, separation of concerns.** This unknown was first written as though
 it blocked the service policy. It does not, and treating it that way would hold

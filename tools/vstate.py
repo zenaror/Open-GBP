@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""vstate.py — read and analyse a GBP-VIDEO-002 sidecar (OGBPSEQ1 format 2 or 3).
+"""vstate.py — read and analyse a GBP-VIDEO-002 sidecar (OGBPSEQ1 format 2, 3 or 4).
 
     tools/vstate.py info       <file>            header, clocks, counters, the result matrix
     tools/vstate.py frames     <file> [--limit N] the per-frame signature store
@@ -14,11 +14,18 @@
     tools/vstate.py extract    <file> <outdir>   the preserved raw frames and AUDIO blocks
     tools/vstate.py json       <file>            everything except the raw bytes
 
-Two versions of the family are read here, dispatched explicitly and each strict:
+Three versions of the family are read here, dispatched explicitly and each strict:
   v2  the FROZEN format of build vstate-0001, the first physical run. Not one
       byte of its contract moves.
   v3  v2 plus one section carrying the semantic-disagreement diagnostic
       (U-GBP-032), written by the instrumented build vstate-0002.
+  v4  v3's successor, written by build vstate-0003: the 1024-byte semantic block
+      and the 160-byte diagnostic record array. FROZEN and HISTORICAL, with a
+      KNOWN PRODUCER DEFECT (GBP-HW-104) — a record's current-cycle fields may
+      have been overwritten by a later service cycle. The parser is deliberately
+      NOT tightened for it: refusing the only physical v4 file would destroy the
+      evidence. `diag` reports the contradictions as non-fatal PRODUCER WARNINGS
+      instead, and the trusted/untrusted split is GBP-HW-105.
 Version 1 (GBP-VIDEO-001, tools/avseq.py) is a different layout and is NOT read
 here. Every parser checks `version` and `header_size` before anything else, so
 no file of one version can be read as another.
@@ -554,6 +561,36 @@ def explain_diag(d):
     return out
 
 
+def producer_warnings(d):
+    """Cross-field checks that the v4 parser deliberately does NOT enforce.
+
+    OGBPSEQ1 v4 is historical and physically executed; making these fatal would
+    turn a real capture into a parse failure. They are reported instead, so an
+    analysis can see that a record's current-cycle fields do not belong to the
+    cycle that opened it. Returns a list of (record index, code, detail).
+
+    The known producer defect of build vstate-0003: gbp_vstate_diag_service/_ack/
+    _rearm address the newest record and run on every service cycle, so a record
+    keeps absorbing later cycles until the next disagreement opens a new one.
+    """
+    out = []
+    if d["version"] != 4:
+        return out
+    for i, g in enumerate(d.get("diags") or []):
+        if (g["record_flags"] & 0x0040) and g["followup_state_code"] in (1, 2) and g["t_ack"] > g["t_next_cause"]:
+            out.append((i, "ack_after_next_cause",
+                        "t_ack %#x is later than t_next_cause %#x" % (g["t_ack"], g["t_next_cause"])))
+        if g["read_kind"] in ("READ", "PRESVC") and \
+           (g["authoritative_value"] & SRC_MASK) != (g["gbi_value"] & SRC_MASK):
+            out.append((i, "authority_not_majority",
+                        "authoritative sources %04x are not the GBI majority %04x"
+                        % (g["authoritative_value"] & SRC_MASK, g["gbi_value"] & SRC_MASK)))
+        if (g["record_flags"] & 0x0080) and g["followup_state_code"] in (1, 2) and g["t_rearm"] > g["t_next_cause"]:
+            out.append((i, "rearm_after_next_cause",
+                        "t_rearm %#x is later than t_next_cause %#x" % (g["t_rearm"], g["t_next_cause"])))
+    return out
+
+
 def diag_text_v4(d):
     """Every preserved record of a v4 file, plus the aggregates. States what was
     observed; asserts no physical cause."""
@@ -624,6 +661,20 @@ def diag_text_v4(d):
             out.append("  payload served only by the majority: source %04x crc32 %08x first word %08x"
                        % (g["payload_source"], g["payload_crc32"], g["payload_first_word"]))
             out.append("    SUSPECT: this data must not be used as scientific evidence.")
+        out.append("")
+    w = producer_warnings(d)
+    if w:
+        out.append("PRODUCER WARNINGS (%d): this file's current-cycle fields do not all belong to"
+                   % len(w))
+        out.append("the cycle that opened their record. The file is structurally valid and its CRCs")
+        out.append("verify; this is an attribution defect of the writer, not corruption.")
+        for i, code, detail in w[:12]:
+            out.append("  record %-3d %-24s %s" % (i, code, detail))
+        if len(w) > 12:
+            out.append("  ... and %d more" % (len(w) - 12))
+        out.append("Fields that remain trustworthy: everything written at open (raw32, disc, gbi,")
+        out.append("delta, extras, classification, context, gap snapshot) and everything written")
+        out.append("through the follow-up handle (t_next_cause, next_pending_*, followup_*).")
         out.append("")
     out.append("This describes WHAT was observed. It asserts no physical cause: U-GBP-033 stays open.")
     return "\n".join(out)

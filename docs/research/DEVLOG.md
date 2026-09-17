@@ -5660,3 +5660,107 @@ diagnostic still recomputes to `disc 0500 / gbi 0100` from its own bytes.
 
 The DOL changed because runtime code changed: the previously reported
 `48982a56…` is discarded.
+
+---
+
+## 2026-09-17 — vstate-0003 executed: the target reached, the policy survived, the diagnostics misattributed
+
+**Goal:** consolidate the physical `vstate-0003` run, freeze OGBPSEQ1 v4 as a
+historical format with a known producer defect, and close the design of the fix.
+No runtime change, no new DOL, no hardware.
+
+### What the run did
+
+The first run of GBP-VIDEO-002 to reach its scientific target: **1 114 007
+admitted cycles over 175.848 s**, of which **120.009 s of valid post-baseline
+observation** against a 120 s target, `stop=nominal_negative`,
+`status=ok_structured_change_observed`, SERVICE ok, RESTORE ok, 0 errors, 0
+reentry, 0 timeouts, 0 uncertain writes, 0 counter overflows, one teardown W1C.
+420 073 VIDEO and 720 210 AUDIO whole-block drains; 10 503 frames, 9 episodes,
+7 stable. The structured change was observed again (GBP-HW-098/099/107).
+
+**Twenty-three semantic disagreements, none of them fatal.** All 23 are
+`SOURCE_SERVICED`, and all 23 recompute from their own preserved 32 bytes —
+without trusting any stored field — to Disc `0x0500`, GBI majority `0x0100`,
+delta `0x0400`, `disc_extra` `0x0400` (AUDIO), `majority_extra` `0x0000`. That is
+the policy R3 was built for, executed on hardware 23 times without stopping the
+service (GBP-HW-100).
+
+Two structural results came free with them. The replica non-uniformity is a
+**contiguous suffix** in every single event — 21 of length 1, one of length 2
+(cycle 839 272), one of length 3 (cycle 1 015 782) — which makes the ordering a
+fact and the mechanism still unknown (GBP-HW-101, U-GBP-033). And the source the
+majority omitted was present in the **next** ordinary read in **23 of 23** events,
+at 3 492 to 4 310 ticks (86.22 to 106.42 µs) measured on the two clocks that
+survive the defect below (GBP-HW-102, GBP-HW-103).
+
+### The defect the run exposed
+
+The v4 producer addresses the current cycle's diagnostic as *the newest record*:
+every current-cycle setter does `d = &s->diags[s->diags_n - 1u]`, and those
+setters run on **every** service cycle, not only on cycles that opened a record.
+A record therefore keeps absorbing the authoritative value, service decision, ACK
+and re-arm of later cycles until the next disagreement opens a new one. The
+signature is unmistakable in the file: `t_ack > t_next_cause` in **23 of 23**
+records, by seconds; `authoritative & SRC_MASK != gbi & SRC_MASK` in 22 of 23
+(GBP-HW-104).
+
+The file itself is not corrupted. Both CRCs verify, every section is exactly
+contiguous with zero overlap and zero orphan bytes, the footer lands on the last
+byte, and the log dropped nothing. The defect is producer **attribution**, not
+storage, layout or CRC — which is why the fields written once at open (`t`,
+`cycle`, `disc_value`, `gbi_value`, `raw[32]`, the classification, the deltas,
+the gap snapshot) and the follow-up fields written through a handle cleared in the
+same act (`t_next_cause`, `next_pending_*`, `followup_*`) remain trustworthy, and
+the five current-cycle fields do not (GBP-HW-105).
+
+The honest consequence for R3: **policy behaviour strongly corroborated,
+diagnostic attribution failed, validation incomplete.** And one claim I could have
+over-stated stays demoted: no next cause of the 23 events contained VIDEO
+`0x0100`, which requires the ACK to have cleared it — but none of those 23 cycles
+appears among the 80 sampled cycle records, so there is no independent observation
+of the ACK. Correct hardware service is **CORROBORATED (strong)**, not FACT
+(GBP-HW-106).
+
+### What was preserved, and what was deliberately not changed
+
+The raw log (`9f81f19f…2e57`, 86 378 B) and the sidecar (`0a45d487…e6bc`,
+4 359 724 B) were copied to `captures/local/` and the sidecar to
+`captures/fixtures/` byte for byte. The fixture's header NOTEs state the run's
+facts, the defect, and the **exact trusted/untrusted field split**, so a reader who
+finds this file in five years cannot mistake a contaminated field for a
+measurement.
+
+**OGBPSEQ1 v4 and its parser are frozen exactly as they were.** Adding the
+cross-field invariants that would catch this defect would make the parser refuse
+the only physical v4 file that exists — destroying evidence to enforce a rule
+written after the evidence. Instead `tools/vstate.py diag` grew a non-fatal
+**PRODUCER WARNINGS** section (`ack_after_next_cause`, `rearm_after_next_cause`,
+`authority_not_majority`; 23, 23 and 22 on this file), and
+`tests/host/test_vstate.py::PhysicalV4` pins both halves: the file still parses,
+and the defect is still detectable offline.
+
+### The fix, designed and not implemented
+
+`GBP-VIDEO-002-R4` / build `vstate-0004` / OGBPSEQ1 **v5** (HARDWARE_TESTS §R4.1
+to §R4.10): an explicit record handle carried by the cycle replaces "the newest
+record", the two lifetimes are separated (current-cycle fields end with the cycle,
+follow-up fields stay open across cycles), and v5 records which fields each record
+actually owns. Observed policy behaviour does not move: same three classes, same
+authority composition, same independent pending guard, same quarantine. Nothing
+of it is implemented and nothing it produces is evidence yet.
+
+GBP-VIDEO-003 stays **GATED**, now behind a successful `vstate-0004` run rather
+than `vstate-0003`.
+
+**Tests:** Python **312 passed, 0 skipped** (10 new in `PhysicalV4`); C
+**671 997 checks across 17 binaries, 0 failures**. No runtime source changed in
+this round, so no DOL was rebuilt and no Dolphin or Docker run was part of it.
+
+One correction to the previous entry: it published **692 795** C checks "after the
+fixes". That figure does not reproduce at this commit — the C sources are
+untouched since it, the binaries are deterministic across repeated runs, and the
+suite gives 671 997. The measurement was evidently taken before the last
+`gbp_vstate.c` fix of that round (the quarantine-ordering change, which alters how
+many per-frame invariants the suite iterates over). **671 997 is the reproducible
+figure**; the published one is withdrawn.

@@ -39,11 +39,15 @@ DESIGNED / NOT IMPLEMENTED  a specification only. No code, no DOL, no observatio
 
 As of 2026-09-17 the project has executed physical runs through Phase 4
 (detection, initialization, the interrupt path, one complete service cycle, a
-VIDEO sequence capture and two long-run video state scans), and the next step —
-`GBP-VIDEO-002-R3` / build `vstate-0003` — is **DESIGNED and HARDENED, NOT
-IMPLEMENTED, NOT PHYSICALLY EXECUTED**. Its normative binary layouts (the
-160-byte diagnostic record, the 1024-byte semantic block, the OGBPSEQ1 v4 header)
-live in that file as subsections R3.24 to R3.29.
+VIDEO sequence capture and three long-run video state scans). The third scan,
+`GBP-VIDEO-002-R3` / build `vstate-0003`, is **PHYSICALLY EXECUTED 2026-09-17**:
+it reached the 120 s scientific target, its nonfatal-disagreement policy is
+strongly corroborated, and its diagnostic attribution failed, so its R3 validation
+is **INCOMPLETE**. Its normative binary layouts (the 160-byte diagnostic record,
+the 1024-byte semantic block, the OGBPSEQ1 v4 header) live in that file as
+subsections R3.24 to R3.29. The next step — `GBP-VIDEO-002-R4` / build
+`vstate-0004` — is **DESIGNED 2026-09-17, NOT IMPLEMENTED, NOT PHYSICALLY
+EXECUTED** (§R4.1 to §R4.10), and `GBP-VIDEO-003` is **GATED** behind it.
 
 Sidecar formats of the GBP-VIDEO family, all dispatched strictly by version and
 none able to read another's file:
@@ -52,5 +56,17 @@ none able to read another's file:
 OGBPSEQ1 v1   GBP-VIDEO-001, build video-0001    historical, frozen
 OGBPSEQ1 v2   GBP-VIDEO-002, build vstate-0001   historical, frozen
 OGBPSEQ1 v3   GBP-VIDEO-002, build vstate-0002   historical, frozen
-OGBPSEQ1 v4   GBP-VIDEO-002-R3, vstate-0003      implemented, not physically executed
+OGBPSEQ1 v4   GBP-VIDEO-002-R3, vstate-0003      historical, frozen, PHYSICALLY
+                                                 EXECUTED, KNOWN PRODUCER DEFECT
+OGBPSEQ1 v5   GBP-VIDEO-002-R4, vstate-0004      designed, not implemented
 ```
+
+The v4 defect is GBP-HW-104: in the physical `vstate-0003` file the current-cycle
+fields of a diagnostic record (authoritative value, service decision, ACK and
+re-arm words and their timestamps) may belong to a **later** cycle than the
+disagreement the record opened. The format stays frozen and its parser keeps
+accepting the file exactly as before — refusing real evidence would lose it.
+`tools/vstate.py diag` instead reports the cross-field contradictions as
+**PRODUCER WARNINGS**, so the defect is detectable offline without a reparse
+rule. The trusted and untrusted field split for that file is written into
+`captures/fixtures/hw-gamecube-gbp-2026-09-17-vstate-0003.gbpreplay`.

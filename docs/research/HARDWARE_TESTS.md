@@ -4351,7 +4351,7 @@ EVIDENCE GBP-HW-06x, VIDEO_PATH.md §6–8 updates, `docs/protocol/VIDEO.md`
 once physical, REGISTERS.md §2.2 — all of them only after a physical run.
 
 ---
-### GBP-VIDEO-002-R3 (build `vstate-0003`) — service the IRQ window under semantic disagreement without ending the run — DESIGNED and HARDENED 2026-09-17, IMPLEMENTED 2026-09-17, NOT PHYSICALLY EXECUTED
+### GBP-VIDEO-002-R3 (build `vstate-0003`) — service the IRQ window under semantic disagreement without ending the run — DESIGNED, HARDENED and IMPLEMENTED 2026-09-17; PHYSICALLY EXECUTED 2026-09-17; POLICY STRONGLY CORROBORATED, DIAGNOSTIC ATTRIBUTION FAILED, VALIDATION INCOMPLETE
 
 Two physical runs of GBP-VIDEO-002 ended on the same condition: one 32-byte read
 of the IRQ window whose eight replicas did not all carry the same value. The
@@ -4360,15 +4360,50 @@ characterised. This revision exists to make that condition survivable **without
 losing evidence and without inventing semantics**, so that the 120 s scientific
 window and, after it, GBP-VIDEO-003 become reachable.
 
+**PHYSICALLY EXECUTED 2026-09-17** (commit `8c25df2`, DOL SHA-256
+`baea30f5…b486`, log `9f81f19f…2e57` 86 378 B, sidecar `0a45d487…e6bc`
+4 359 724 B). Result:
+
+```text
+GBP-VIDEO-002-R3 vstate-0003 PHYSICALLY EXECUTED
+SCIENTIFIC TARGET REACHED — 120.009 s of valid observation in 175.848 s of capture
+SERVICE ok, RESTORE ok, structured change OBSERVED (9 episodes, 7 stable)
+23 SEMANTIC DISAGREEMENTS, ALL SOURCE_SERVICED, ALL SURVIVED (GBP-HW-100)
+  the omitted AUDIO source was present in the next ordinary read 23/23 (GBP-HW-102)
+DIAGNOSTIC CURRENT-CYCLE ATTRIBUTION FAILED — known producer defect (GBP-HW-104)
+```
+
+**The policy worked and the bookkeeping did not, and the two must not be
+conflated.** The run is the first of this test to reach its target, the first to
+survive a semantic disagreement at all, and it survived twenty-three. But the
+records it produced carry `authoritative_value`, `service_selected`, `ack_value`,
+`t_ack` and `t_rearm` belonging to a *later* cycle, so the versioned success
+criterion of §R3.21 — that each event's ACK and re-arm be preserved — is **not**
+satisfied. R3's physical validation is therefore **INCOMPLETE**; the policy
+behaviour is **strongly corroborated** (GBP-HW-106) and the diagnostic fidelity
+objective **failed**.
+
+Root cause, in the committed source: `gbp_vstate_diag_service()`,
+`_ack()`, `_rearm()` — and equally `_payload()`, `_quarantined()`, `_deferred()` —
+address `diags[diags_n - 1]`, "the newest record", and are called on **every**
+service cycle. A record therefore keeps absorbing later cycles until the next
+disagreement opens a new one. The fix is `vstate-0004` / OGBPSEQ1 v5, designed
+below; it is RAM bookkeeping only and touches no hardware ordering.
+
+Evidence: GBP-HW-098…107. The trusted/untrusted field split is GBP-HW-105, and it
+follows from the number of write sites in the code, not from the data.
+
 **Implementation status, 2026-09-17.** The design below is now implemented in
 `src/gbp/gbp_vstate.{h,c}`, `src/gbp/gbp_vstate_probe.c`,
 `src/gbp/gbp_vstatedump.{h,c}`, `poc/gbp-video-state-probe/` (Build ID
 `vstate-0003`) and `tools/vstate.py`, with the host battery in
-`tests/unit/test_gbp_video_state.c` and `tests/host/test_vstate.py`. It has
-**not** been executed on hardware: no observation in this repository comes from
-it, and none of its synthetic scenarios is evidence about the device. The
-measured cost is in R3.15. What follows is the specification the implementation
-must match, and it stays the authority.
+`tests/unit/test_gbp_video_state.c` and `tests/host/test_vstate.py`, and it **has
+now been executed on hardware** (the result block above; evidence
+GBP-HW-098…107). Its synthetic scenarios remain synthetic and are still not
+evidence about the device; only the physical run is. The measured cost is in
+R3.15. What follows is the specification the implementation was built to match,
+and it stays the authority for R3 — including for the criterion the run did not
+meet.
 
 #### R3.1 The masks, taken from the versioned contract — not invented here
 
@@ -5312,3 +5347,238 @@ completeness, does not fabricate a block, does not claim the deferred source was
 later recovered, and is not an input to any stop or classification rule. It exists
 so the offline analysis can line up a short interval with the disagreement that
 preceded it.
+
+---
+
+### GBP-VIDEO-002-R4 (build `vstate-0004`, OGBPSEQ1 v5) — give every diagnostic field an owner — DESIGNED 2026-09-17, NOT IMPLEMENTED, NOT PHYSICALLY EXECUTED
+
+`vstate-0003` proved the service policy on hardware and produced records whose
+current-cycle fields belong to the wrong cycle (GBP-HW-104). This revision fixes
+the attribution and nothing else. It is **RAM bookkeeping and format only**: not
+one hardware operation, ordering, count or timing changes, and the ISR is not
+touched.
+
+Nothing below is implemented.
+
+#### R4.1 The defect, stated exactly
+
+```c
+/* vstate-0003, all six current-cycle setters */
+d = &s->diags[s->diags_n - 1u];     /* "the newest record" */
+```
+
+called unconditionally from the service loop on every cycle. The lifecycle that
+produces is:
+
+```text
+cycle N  disagreement  -> record N opened; its auth/service/ACK/re-arm are correct
+cycles N+1 .. M-1      -> every one of them OVERWRITES record N's current-cycle fields
+cycle M  disagreement  -> record M opened; N stops being overwritten, M starts
+```
+
+so what survives in record N is the state of cycle M−1. The measured signature
+matches exactly: `t_ack(i)` sits 118–170 µs before the read of disagreement *i+1*,
+and 96 µs before the stop for the last record.
+
+#### R4.2 The API: an explicit handle, never "the latest record"
+
+`diag_open()` returns a handle — an index, or `GBP_VSTATE_DIAG_INVALID` — and
+**every current-cycle setter takes that handle explicitly**:
+
+```text
+handle = gbp_vstate_diag_open(...)                  /* or INVALID */
+gbp_vstate_diag_service   (s, handle, authoritative, selected, incomplete)
+gbp_vstate_diag_payload   (s, handle, source, crc32, first_word)
+gbp_vstate_diag_quarantined(s, handle)
+gbp_vstate_diag_deferred  (s, handle)
+gbp_vstate_diag_ack       (s, handle, ack_value, t_ack)
+gbp_vstate_diag_rearm     (s, handle, t_rearm)
+```
+
+An `INVALID` handle is a documented, bounded no-op — the ordinary case, since most
+cycles open no record. This is deliberately preferred over a
+`current_diag_index` member: a global would be one more piece of state that can be
+stale, and the whole defect being fixed is stale state. No API may derive the
+target from `diags_n`.
+
+#### R4.3 Two handles, two lifetimes
+
+```text
+service_diag_handle    belongs to the CURRENT transaction; receives the
+                       current-cycle fields; conceptually dies at WAIT_NEXT and is
+                       never inferred from "the latest record"
+followup_wait_index    survives until the NEXT ordinary read; receives ONLY
+                       t_next_cause, next_pending_*, followup_state/reason; is
+                       cleared when filled
+```
+
+Neither substitutes for the other. A normal cycle that opens no record must not be
+able to touch any field of a record that is merely waiting for its follow-up.
+
+#### R4.4 Two diagnostics in one transaction
+
+A service-selecting disagreement at READ/PRESVC can be followed, in the **same**
+transaction, by an observational one at POSTDRAIN or POSTACK. The observational
+record must not capture `service_diag_handle`:
+
+```text
+service_diag_handle    keeps pointing at the record that took the service decision
+observational record   gets its own handle for its own read context, and receives
+                       NO service, ACK, re-arm, payload or quarantine field
+```
+
+This is a second, independent reason the setters must take an explicit handle.
+Required test cases: READ + POSTDRAIN, READ + POSTACK, PRESVC + POSTACK.
+
+#### R4.5 Observational records in v5 — closed semantics
+
+For a POSTDRAIN/POSTACK disagreement the record preserves its read — raw bytes,
+both readings, delta, the two extra masks, classification, and the authoritative
+interpretation of that read where it is defined — and asserts nothing about
+service:
+
+```text
+service_selected   0          ACK_WRITTEN     0        REARM_WRITTEN 0
+payload_valid      0          quarantine/deferred flags 0
+followup_state     FU_UNKNOWN, reason observational_site
+```
+
+This closes a question the R3 design left open only implicitly, and it makes the
+v5 invariants below simple enough to be checkable.
+
+#### R4.6 The v5 producer lifecycle
+
+```text
+service_handle = INVALID
+
+READ (one read, unchanged)
+    fill the pending follow-up from THIS read FIRST
+    classify, compose, guards                       (unchanged)
+    if this read disagrees:
+        h = diag_open(...)
+        if the site selects service:  service_handle = h
+        else:                         close h as FU_UNKNOWN/observational_site
+
+    if service_handle valid: diag_service(service_handle, ...)
+AUDIO drain, VIDEO drain                            (unchanged order)
+    if service_handle valid: diag_payload / quarantined / deferred(service_handle, ...)
+ACK                                                 (unchanged)
+    if service_handle valid: diag_ack(service_handle, ...)
+semantic / frame processing                         (unchanged)
+REARM                                               (unchanged)
+    if service_handle valid: diag_rearm(service_handle, ...)
+    if service_handle valid and it has disc_extra and the re-arm was written:
+        followup_wait_index = service_handle
+    service_handle = INVALID
+WAIT_NEXT
+```
+
+Store full: `service_handle` is `INVALID`, the counters still move, and no new
+waiter is created. A record already waiting is still filled after the cap.
+
+#### R4.7 OGBPSEQ1 v5
+
+Same 160-byte record and same 1 024-byte semantic block — no new field is needed,
+because the defect was never a missing field. The version exists to separate two
+producers:
+
+```text
+v4   HISTORICAL, PHYSICALLY EXECUTED, KNOWN PRODUCER DEFECT
+     current-cycle authoritative/service/ACK/REARM may belong to a later cycle
+v5   correct attribution, enforced by strict cross-field invariants
+```
+
+v1, v2, v3 and v4 are **not** changed retroactively, and the v4 parser does **not**
+acquire the new invariants: making them fatal would turn a real physical capture
+into a parse failure. `tools/vstate.py` reports them as warnings for v4 instead
+(`producer_warnings()`), which is how this file's defect is surfaced offline
+without refusing the evidence.
+
+#### R4.8 The v5 cross-field invariants
+
+Recomputed, not trusted:
+
+```text
+from raw32          disc_value and gbi_value must EQUAL the recomputation
+then                delta, disc_extra_sources, majority_extra_sources and
+                    classification must equal their recomputation from those two
+```
+
+Authority, at a service-selecting site:
+
+```text
+(authoritative_value & SRC_MASK) == (gbi_value & SRC_MASK)
+service_selected == authoritative_value & AV_MASK
+non-source bits composed per §R3.3
+```
+
+Acknowledge:
+
+```text
+ACK_WRITTEN     -> ack_value == authoritative_value | 0x8000
+not ACK_WRITTEN -> ack_value and t_ack carry the documented invalid encoding;
+                   a plausible timestamp without its flag is refused
+```
+
+Timing — and this rule is **read-kind dependent**, which is the subtlety the v4
+file exposes:
+
+```text
+service-selecting READ/PRESVC, fields valid:   t <= t_ack <= t_rearm
+  and when a next cause exists:                t_rearm <= t_next_cause
+observational POSTDRAIN/POSTACK:               NO such chain is required, because
+  that read can legitimately happen after the ACK. §R4.5 makes ACK/REARM invalid
+  in those records, so the chain does not apply at all.
+```
+
+There is deliberately **no** universal `t <= t_ack` rule for every read kind.
+
+Follow-up:
+
+```text
+service-selecting with disc_extra != 0 and followup PRESENT/ABSENT
+   -> REARM_WRITTEN set, t_next_cause valid, next_pending_* valid
+   present = disc_extra_sources &  (next_pending_gbi & SRC_MASK)
+   absent  = disc_extra_sources & ~(next_pending_gbi & SRC_MASK)
+   PRESENT -> absent == 0        ABSENT -> absent != 0
+FU_PENDING in a saved file       -> refused, as in v4
+observational                    -> FU_UNKNOWN / observational_site
+```
+
+Majority-extra:
+
+```text
+payload_valid          -> payload_source is a source that was majority-extra,
+                          selected, and whose drain completed
+frame_quarantined      -> majority_extra_sources contains VIDEO
+source_deferred_marked -> disc_extra_sources contains VIDEO
+```
+
+Whether a frame was open when the deferral happened is producer state that is not
+serialized, and the parser does not pretend to check it.
+
+#### R4.9 What the fix may not change
+
+The device operation stream of a run without disagreements must stay
+**byte-identical** to `vstate-0003`'s, and the stream of a run with them must stay
+equivalent to the policy already validated: same READ count, same AUDIO and VIDEO
+ordering, same ACK, same PI clean, same semantic/frame processing, same re-arm,
+same WAIT_NEXT, same ISR, same INTMR handling. No retry, no second read.
+
+#### R4.10 Test plan additions
+
+Beyond the whole R3 battery, which must keep passing:
+
+```text
+the defect itself      a record is opened, several ordinary cycles run, and the
+                       record's auth/service/ACK/re-arm are asserted UNCHANGED
+same-transaction pairs READ+POSTDRAIN, READ+POSTACK, PRESVC+POSTACK: the
+                       observational record gets no service fields and the
+                       service record keeps its own
+v5 parser              every cross-field invariant of §R4.8, each with both CRCs
+                       recomputed so only the rule can refuse
+a v4-shaped forgery    a v5 file carrying the v4 defect (t_ack > t_next, authority
+                       not the majority) must be REFUSED by the v5 parser
+the physical v4 file   must keep parsing under the v4 rules, unchanged, and must
+                       keep producing its producer warnings
+```

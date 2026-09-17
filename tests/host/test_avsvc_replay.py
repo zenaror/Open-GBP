@@ -47,6 +47,7 @@ PHYSICAL_AVSVC_BLOCKS = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-
 PHYSICAL_VIDEO = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-video-0001.gbpreplay")
 PHYSICAL_VSTATE = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-vstate-0001.gbpreplay")
 PHYSICAL_VSTATE2 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-17-vstate-0002.gbpreplay")
+PHYSICAL_VSTATE3 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-17-vstate-0003.gbpreplay")
 REPLAY_RE = re.compile(r"REPLAY step=(\d+) exhausted=(\d+) mismatches=(\d+) tick_polls=(\d+) timeline=(\d+) log_lines=(\d+) "
                        r"bulk_reads=(\d+) blocks_missing=(\d+) block_crc_mismatches=(\d+)")
 
@@ -208,16 +209,16 @@ class AvsvcRoundTrip(unittest.TestCase):
                 if "\nB " in text:
                     self.assertIn("# SOURCE=physical GameCube", text[:4096], fx_path)
                     self.assertIn("# BLOCKS=", text[:4096], fx_path)
-                    # four physical fixtures carry whole-block reads today: GBP-AV-SERVICE-001
+                    # five physical fixtures carry whole-block reads today: GBP-AV-SERVICE-001
                     # (one AUDIO + one VIDEO block), GBP-VIDEO-001 (88 VIDEO + 144 AUDIO reads, of
-                    # which only 9 AUDIO payloads were preserved by design) and the two
+                    # which only 9 AUDIO payloads were preserved by design) and the three
                     # GBP-VIDEO-002 runs, whose scripts are only the prefix each log records: the
                     # 003A stage, the FOUR verify cycles (8 block reads, none of them
                     # payload-backed) and the teardown. Their lean cycles - 51746 in vstate-0001,
-                    # 513 in vstate-0002 - kept no per-delivery record by design, so they are not
-                    # in the scripts and are not invented.
+                    # 513 in vstate-0002, 1114003 in vstate-0003 - kept no per-delivery record by
+                    # design, so they are not in the scripts and are not invented.
                     self.assertIn(fx_path, (PHYSICAL_AVSVC, PHYSICAL_VIDEO, PHYSICAL_VSTATE,
-                                            PHYSICAL_VSTATE2), fx_path)
+                                            PHYSICAL_VSTATE2, PHYSICAL_VSTATE3), fx_path)
         self.assertFalse(fx.startswith(os.path.join(ROOT, "captures")))
 
     @unittest.skipUnless(os.path.isfile(PHYSICAL_003B), "physical GBP-INIT-003B fixture missing")
