@@ -5490,3 +5490,173 @@ nothing about the 1-on-0 case, performs no extra read to investigate it, and
 preserves everything needed to describe the first occurrence.
 
 Next: implementation, with its own ultracode pass, microaudit and release audit.
+
+---
+
+## 2026-09-17 — vstate-0003 implemented: a disagreement is now survivable, and nothing else moved
+
+The design of GBP-VIDEO-002-R3 is implemented. No hardware, no physical
+candidate, no commit. The versioned specification stayed the authority
+throughout, and where the code and the specification disagreed the code changed.
+
+### The shape of the change
+
+One gate, in one place, in the normative order: classify, refuse the classes that
+have no contract, compose the authoritative value, apply the pending guard, and
+only then decide whether the disagreement is survivable. `semantic_gate()` in
+`gbp_vstate_probe.c` is that order, and both read paths go through it — the lean
+READ and the verify PRESVC — so it cannot drift between them.
+
+The pending guard is the part most easily got wrong, and the implementation makes
+it impossible to get wrong by accident: it fires on the **authoritative value**,
+not on the delta, so `Disc = GBI = 0x0104` is still a fatal
+`anomaly_unexpected_source`. That is a test, not a comment.
+
+### What surprised me
+
+Very little, which is the point of having specified the byte layouts first. Two
+things worth recording:
+
+**The log lines did not fit.** The first version of the disagreement records
+overran the ring's 256-byte lines and the invariant check caught it immediately —
+`truncated == 0` is asserted by every scenario. Split into four short lines
+(`READDISAGREE`, `…RAW`, `…PI`, `…FU`) rather than made shorter by dropping
+fields.
+
+**A v4 file relabelled as v3 is refused by v3's own rule**, not by the version
+check: `0x1EA..0x1FB` carry `diag_flags`, `off_semantic` and `semantic_size`, and
+v3 requires that area to be zero. I had expected `-2` and got `-8`. The
+expectation was wrong and the behaviour is exactly what the freeze is for, so the
+test now pins `-8` and says why.
+
+### The quarantine needed no new machinery
+
+A VIDEO block drained only because the majority carried a source the Disc reading
+did not sets `F_MAJORITY_EXTRA` **and** `F_ANOMALY` on the frame that consumes it.
+`F_ANOMALY` already clears `clean`, and `clean` already gates `F_COUNTED`, the
+baseline search and every episode decision. So the frame is out of the scientific
+path through the existing rules rather than through a parallel one — 7 frames
+quarantined in the synthetic scenario, 0 counted, 0 baseline, 0 episodes.
+
+The mirror case fabricates nothing: when the majority omits VIDEO the drain simply
+does not happen, `F_SOURCE_DEFERRED` marks the frame **only if one is open**, and
+the assembler's own incomplete/resync rules decide what the short interval means.
+
+### Cost, measured rather than estimated
+
+```text
+.bss        7 472 388 -> 7 515 316 B   +42 928 B (41.9 KiB)
+diag_store                   40 960 B  exactly 256 x 160
+struct gbp_vstate    4 248 -> 5 176 B  +928 for the aggregates and bookkeeping
+```
+
+The design estimated ~42 020 B and labelled the remainder `estimated bookkeeping
+overhead`; the real figure is 652–908 bytes above it. The linker map is the
+authority and the estimate is not being retrofitted to match.
+
+### What did not change
+
+The ISR and both one-shot bodies are byte-identical to the physically validated
+GBP-VIDEO-001 build — `make vstate-audit` diffs them and says so. With no
+disagreement the device operation stream is identical, operation for operation, to
+vstate-0002's. With a disagreement the only difference is the service selection
+the majority dictates: the same 44 IRQ reads, the same operation count, the same
+transfers, no retry, no second read, no extra ACK or re-arm. Both are tests.
+
+### Numbers
+
+C 692 664 checks across 17 binaries, 0 failures. Python 302 passed. Seven audit
+profiles, 0 findings. Docker, all POCs, zero warnings. Dolphin 19/19 PASS, both
+vstate scenarios still stopping at the stage-A gate without reaching the
+experimental path.
+
+U-GBP-033 remains open — nothing here explains why the replicas differ. The build
+is dirty and is not a physical candidate; the microaudit comes next.
+
+---
+
+## 2026-09-17 — microaudit of vstate-0003: two real defects, both in the parts that decide what counts as evidence
+
+Audit of the implementation against the versioned design. Two defects found and
+fixed, one defensive change, one published number corrected, and one suspected
+design gap closed by measurement rather than by argument.
+
+### Defect 1 — the quarantine could land on the wrong frame
+
+`gbp_vstate_block()` applied `F_MAJORITY_EXTRA | F_ANOMALY` at the top of the
+function, **before** the boundary logic. When the suspect VIDEO block was itself a
+frame boundary, the flags therefore went onto `cur_flags` while it still belonged
+to the *previous* frame — invalidating a frame that never contained the block, and
+leaving the frame that did contain it apparently clean and eligible for the
+baseline.
+
+Fixed by moving the flag application to the point where the block is actually
+accumulated, after any boundary has closed the previous frame. The test that would
+have caught it exists now: a 40-block clean frame, then a majority-extra block
+that is itself a boundary, then assertions that frame 0 is untouched and complete
+and that the *new* frame carries the flags and never gets `F_COUNTED` or
+`F_BASELINE`. A second case covers a suspect block in the middle of a frame: 20
+clean blocks do not save the frame.
+
+### Defect 2 — the follow-up collapsed multiple omitted sources into one answer
+
+A disagreement can omit **more than one** source. The implementation asked
+`if ((next_gbi | next_disc) & disc_extra_sources)` and called that
+`FU_SOURCE_PRESENT_NEXT`. Two things wrong with it: it ORed the two readings of
+the next cycle — mixing the two authorities inside one series, which is exactly
+what this policy exists to prevent — and with `disc_extra = 0x0500` and a next
+cause of `0x0100` it would have reported "present" although AUDIO never came back.
+
+Fixed: the comparison is per source bit, against the **authoritative** source set
+of the next read (`next_pending_gbi & SRC_MASK`), and the aggregate state is now
+defined narrowly — `PRESENT_NEXT` only when **every** omitted source was there,
+anything less is `ABSENT_NEXT`, which therefore covers the partial case. The
+aggregate can no longer over-claim recovery. The exact split is derivable from two
+stored fields, `tools/vstate.py` prints both masks and flags the partial case, and
+R3.21's release gate now says to read the masks rather than the state.
+
+### One defensive change
+
+The stage-A abort returns without reaching `finish()`. No record can exist there —
+the stage's reads never go through `semantic_gate()` — but the closing call is made
+anyway, so "no record reaches the report as `FU_PENDING`" is a structural property
+of every exit instead of an argument about one.
+
+### The suspected design gap (§47) was not one
+
+A nonfatal condition that can occur on a large fraction of cycles could, if it
+emitted an event each time, fill the 4 096-entry event store and convert itself
+into an `event_store_cap` stop — a silent behaviour change. It does not: the
+semantic path emits **no** event, verified in the call graph and in the objdump of
+the gate, and now pinned by a test. The 681-disagreement run uses 9 event slots.
+The ring log prints the first 8 records in full plus one summary line and nothing
+else scales with the count. Both bounds are now normative in R3.15b.
+
+### A number I had published was wrong
+
+I reported the vstate-0002 `.bss` baseline as 7 472 388 B. Rebuilding commits
+`8cbb28d` and `caacbba` with the same command both give **7 472 372 B**; the figure
+was 16 bytes off. The reconciliation now closes exactly, with no "misc" term:
+
+```text
+diag_store +40 960   sb.0 +1 024   vstate +936   res.2 +16   info.0 +8
+sum +42 944   inter-symbol padding 14 677 -> 14 693 = +16   total +42 960
+.bss 7 472 372 -> 7 515 332 = +42 960     residual 0
+```
+
+`sb.0` is the 1 024-byte staging buffer of the semantic block; it is write-only,
+derived from `st->sem` immediately before the emit, touched only after the
+teardown, and its purpose is documented at its definition. The service loop's
+stack frame did not grow at all (568 B before and after); the only new frames are
+`gbp_vstate_diag_open` at 96 B, on the disagreement path only, and 8 to 32 bytes
+in the serializer and parser. Nothing scales with the number of disagreements.
+
+### After the fixes
+
+C 692 795 checks across 17 binaries, 0 failures. Python 302 passed. Seven audit
+profiles, 0 findings, ISR byte-identical. Docker all POCs, zero warnings. Dolphin
+19/19 PASS at the stage-A gate. v1, v2 and v3 unchanged, and the physical v3
+diagnostic still recomputes to `disc 0500 / gbi 0100` from its own bytes.
+
+The DOL changed because runtime code changed: the previously reported
+`48982a56…` is discarded.

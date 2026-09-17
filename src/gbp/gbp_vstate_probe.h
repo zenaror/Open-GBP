@@ -278,6 +278,14 @@ struct gbp_vstate_result {
     uint64_t bytes_video, bytes_audio;
     uint32_t counter_overflow;           /* non-zero ends the run rather than wrapping */
     uint32_t uncertain_writes, errors;
+    /* semantic coherence is an INDEPENDENT dimension of the result (§R3.17): a
+     * run that saw source-serviced disagreements and handled them is not a
+     * service failure. */
+    uint32_t semantic_disagreements;     /* every disagreement, preserved or not */
+    uint16_t last_majority_extra;        /* sources the majority had and the Disc did not,
+                                          * for THIS cycle; 0 in every ordinary cycle */
+    uint16_t last_disc_extra;            /* the mirror: sources the majority omitted */
+    int semantic_failed;                 /* a NON_SOURCE or SOURCE_OTHER ended the run */
     uint16_t unexpected;
     const char *unexpected_site;
     uint32_t unexpected_cycle;

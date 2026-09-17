@@ -86,11 +86,11 @@ class Header(unittest.TestCase):
         self.d = vstate.parse(sidecar_bytes())
 
     def test_identity_and_version(self):
-        """The instrumented build writes format 3; the physical vstate-0001 file stays format 2."""
-        self.assertEqual(self.d["version"], 3)
+        """vstate-0003 writes format 4; the physical vstate-0001 and vstate-0002 files stay 2 and 3."""
+        self.assertEqual(self.d["version"], 4)
         self.assertEqual(self.d["header_size"], 0x200)
         self.assertEqual(self.d["test_id"], "GBP-VIDEO-002")
-        self.assertEqual(self.d["build_id"], "vstate-0002")
+        self.assertEqual(self.d["build_id"], "vstate-0003")
         self.assertEqual(self.d["app"], "gbp-video-state-probe")
 
     def test_record_sizes_are_the_contract(self):
@@ -106,8 +106,9 @@ class Header(unittest.TestCase):
         self.assertEqual(d["off_events"], d["off_frames"] + d["frame_count"] * 192)
         self.assertEqual(d["off_episodes"], d["off_events"] + d["event_count"] * 64)
         self.assertEqual(d["off_cycles"], d["off_episodes"] + d["episode_count"] * 512)
-        self.assertEqual(d["off_diag"], d["off_cycles"] + d["cycle_count"] * 128)
-        self.assertEqual(d["off_video_raw"], d["off_diag"] + d["diag_count"] * 96)
+        self.assertEqual(d["off_semantic"], d["off_cycles"] + d["cycle_count"] * 128)
+        self.assertEqual(d["off_diag"], d["off_semantic"] + 1024)
+        self.assertEqual(d["off_video_raw"], d["off_diag"] + d["diag_count"] * 160)
         self.assertEqual(d["off_footer"] + 12, len(sidecar_bytes()))
 
     def test_clocks_are_64_bit_and_consistent(self):
@@ -321,7 +322,7 @@ class Cli(unittest.TestCase):
         return r.stdout
 
     def test_subcommands(self):
-        self.assertIn("OGBPSEQ1 v3", self.run_cmd("info"))
+        self.assertIn("OGBPSEQ1 v4", self.run_cmd("info"))
         self.assertIn("frame", self.run_cmd("frames"))
         self.assertIn("seq", self.run_cmd("events"))
         self.assertIn("episode", self.run_cmd("episodes"))
@@ -349,20 +350,49 @@ class Cli(unittest.TestCase):
 
 
 @unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first")
-class DiagnosticV3(unittest.TestCase):
-    """U-GBP-032: format 3 carries the bytes of a semantic disagreement, and the tool explains them
-    from those bytes alone. Every file here is SYNTHETIC; the physical run never preserved them."""
+class DiagnosticV4(unittest.TestCase):
+    """Format 4 carries every preserved disagreement and the aggregate block. Every file here is
+    SYNTHETIC. The frozen physical v2 and v3 files are covered by their own classes below."""
 
     def setUp(self):
         self.d = vstate.parse(diag_bytes())
 
-    def test_it_is_version_3_with_one_record(self):
-        self.assertEqual(self.d["version"], 3)
+    def test_it_is_version_4_with_the_block_and_the_array(self):
+        self.assertEqual(self.d["version"], 4)
         self.assertEqual(self.d["diag_count"], 1)
-        self.assertEqual(self.d["diag_rec_size"], 96)
+        self.assertEqual(self.d["diag_rec_size"], 160)
+        self.assertEqual(self.d["semantic_size"], 1024)
         self.assertIsNotNone(self.d["diag"])
-        self.assertEqual(self.d["off_diag"], self.d["off_cycles"] + self.d["cycle_count"] * 128)
-        self.assertEqual(self.d["off_video_raw"], self.d["off_diag"] + 96)
+        self.assertIsNotNone(self.d["semantic"])
+        self.assertEqual(self.d["off_semantic"], self.d["off_cycles"] + self.d["cycle_count"] * 128)
+        self.assertEqual(self.d["off_diag"], self.d["off_semantic"] + 1024)
+        self.assertEqual(self.d["off_video_raw"], self.d["off_diag"] + 160)
+
+    def test_the_record_carries_the_policy_fields(self):
+        g = self.d["diags"][0]
+        self.assertIn(g["classification"], ("source_serviced", "source_other", "non_source"))
+        self.assertEqual(g["delta"], g["disc_value"] ^ g["gbi_value"])
+        self.assertEqual(g["disc_extra_sources"],
+                         (g["disc_value"] & 0x0555) & ~(g["gbi_value"] & 0x0555))
+        self.assertEqual(g["majority_extra_sources"],
+                         (g["gbi_value"] & 0x0555) & ~(g["disc_value"] & 0x0555))
+        self.assertNotEqual(g["followup_state"], "pending")   # never serialized
+
+    def test_the_aggregate_block(self):
+        m = self.d["semantic"]
+        self.assertEqual(m["disagreements_total"], 1)
+        self.assertEqual(m["diagnostics_preserved"], 1)
+        self.assertFalse(m["store_capped"])
+        self.assertEqual(len(m["gaps"]), 6)
+        self.assertEqual([g["source"] for g in m["gaps"]], [1, 4, 16, 64, 256, 1024])
+        self.assertEqual(len(m["delta_hist"]), 64)
+        self.assertEqual(m["delta_hist"][vstate.hist_index(self.d["diags"][0]["delta"])], 1)
+
+    def test_the_histogram_index_is_the_documented_one(self):
+        self.assertEqual([vstate.hist_index(v) for v in (0, 1, 4, 16, 64, 0x100, 0x400, 0x500)],
+                         [0, 1, 2, 4, 8, 16, 32, 48])
+        self.assertEqual(sorted(vstate.hist_index(sum((1 << (2 * k)) for k in range(6) if i >> k & 1))
+                                for i in range(64)), list(range(64)))
 
     def test_the_raw_window_is_thirty_two_bytes(self):
         self.assertEqual(len(self.d["diag"]["raw"]), 32)
@@ -426,10 +456,11 @@ class DiagnosticV3(unittest.TestCase):
         r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "vstate.py"), "diag",
                             _CACHE["diag_path"]], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("semantic disagreement at cycle", r.stdout)
-        self.assertIn("CONSUMED byte", r.stdout)
-        self.assertIn("U-GBP-032 stays open", r.stdout)
+        self.assertIn("semantic coherence:", r.stdout)
+        self.assertIn("record 0:", r.stdout)
+        self.assertIn("raw 32 bytes:", r.stdout)
         self.assertIn("asserts no physical cause", r.stdout)
+        self.assertNotIn("too fast", r.stdout.lower())
 
 
 @unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first (make -C tests/unit)")
@@ -448,40 +479,74 @@ class DiagnosticIsStrict(unittest.TestCase):
         return _refix(b, self.foot)
 
     def test_off_diag_may_not_move(self):
-        for value in (0, self.d["off_diag"] + 96, self.d["off_diag"] - 96, 0xFFFFFF00):
+        for value in (0, self.d["off_diag"] + 160, self.d["off_diag"] - 160, 0xFFFFFF00):
             with self.assertRaises(ValueError):
                 vstate.parse(self._tampered(0x1E0, struct.pack(">I", value)))
 
-    def test_there_is_at_most_one_record(self):
+    def test_the_record_count_is_bounded(self):
         with self.assertRaises(ValueError):
-            vstate.parse(self._tampered(0x1E4, struct.pack(">I", 2)))
-        with self.assertRaises(ValueError):    # denying the record leaves 96 orphan bytes
+            vstate.parse(self._tampered(0x1E4, struct.pack(">I", 257)))
+        with self.assertRaises(ValueError):    # denying the record leaves 160 orphan bytes
             vstate.parse(self._tampered(0x1E4, struct.pack(">I", 0)))
 
-    def test_the_record_size_is_ninety_six(self):
-        for value in (0, 95, 97, 12345):
+    def test_the_record_size_is_one_hundred_and_sixty(self):
+        for value in (0, 96, 159, 161, 12345):
             with self.assertRaises(ValueError):
                 vstate.parse(self._tampered(0x1E8, struct.pack(">H", value)))
 
-    def test_with_no_record_the_size_rule_still_holds(self):
-        """The C parser accepts 0 or 96 there and nothing else; Python must agree exactly."""
-        data = bytearray(sidecar_bytes())
-        d = vstate.parse(bytes(data))
-        self.assertEqual(d["version"], 3)
-        self.assertEqual(d["diag_count"], 0)
-        self.assertEqual(d["off_diag"], d["off_video_raw"])     # a zero-length section
-        foot = d["off_footer"]
-        for value in (0, 96):
-            b = bytearray(data)
-            b[0x1E8:0x1EA] = struct.pack(">H", value)
-            self.assertEqual(vstate.parse(_refix(b, foot))["diag_count"], 0)
-        for value in (95, 12345):
-            b = bytearray(data)
-            b[0x1E8:0x1EA] = struct.pack(">H", value)
+    def test_the_semantic_block_is_exactly_one_kilobyte(self):
+        for value in (0, 512, 1023, 1025, 65536):
             with self.assertRaises(ValueError):
-                vstate.parse(_refix(b, foot))
+                vstate.parse(self._tampered(0x1F0, struct.pack(">I", value)))
 
-    def test_the_records_reserved_word_must_be_zero(self):
+    def test_the_semantic_block_must_be_where_the_header_says(self):
+        for value in (0, self.d["off_semantic"] + 16, 0xFFFFFF00):
+            with self.assertRaises(ValueError):
+                vstate.parse(self._tampered(0x1EC, struct.pack(">I", value)))
+
+    def test_unknown_flag_bits_are_refused(self):
+        for bit in (0x0002, 0x8000):
+            with self.assertRaises(ValueError):
+                vstate.parse(self._tampered(0x1EA, struct.pack(">H", bit)))
+        for bit in (0x0100, 0x8000):     # record_flags
+            with self.assertRaises(ValueError):
+                vstate.parse(self._tampered(self.d["off_diag"] + 0x6E, struct.pack(">H", bit)))
+        for bit in (0x0002, 0x8000):     # the block's own flags
+            with self.assertRaises(ValueError):
+                vstate.parse(self._tampered(self.d["off_semantic"] + 6, struct.pack(">H", bit)))
+
+    def test_invalid_enums_are_refused(self):
+        off = self.d["off_diag"]
+        for value in (0, 4, 0xFFFF):     # classification
+            with self.assertRaises(ValueError):
+                vstate.parse(self._tampered(off + 0x66, struct.pack(">H", value)))
+        for value in (0, 5, 255):        # followup_state, 0 = FU_PENDING
+            with self.assertRaises(ValueError):
+                vstate.parse(self._tampered(off + 0x8C, bytes([value])))
+        for value in (5, 255):           # followup_reason
+            with self.assertRaises(ValueError):
+                vstate.parse(self._tampered(off + 0x8D, bytes([value])))
+        for value in (0x0010, 0x0001):   # payload_source
+            with self.assertRaises(ValueError):
+                vstate.parse(self._tampered(off + 0x8E, struct.pack(">H", value)))
+
+    def test_the_semantic_block_structure(self):
+        off = self.d["off_semantic"]
+        with self.assertRaises(ValueError):
+            vstate.parse(self._tampered(off, struct.pack(">I", 0)))            # tag
+        with self.assertRaises(ValueError):
+            vstate.parse(self._tampered(off + 4, struct.pack(">H", 2)))        # block version
+        with self.assertRaises(ValueError):
+            vstate.parse(self._tampered(off + 0x05C, b"\x01"))                 # reserved
+        with self.assertRaises(ValueError):
+            vstate.parse(self._tampered(off + 0x070, struct.pack(">H", 2)))    # gap slot bit
+
+    def test_the_records_reserved_words_must_be_zero(self):
+        for off in (self.d["off_diag"] + 0x9E, self.d["off_diag"] + 0x9F):
+            b = bytearray(self.data)
+            b[off] = 0xAB
+            with self.assertRaises(ValueError):
+                vstate.parse(_refix(b, self.foot))
         off = self.d["off_diag"] + 0x5C
         for k in range(4):
             b = bytearray(self.data)
@@ -490,7 +555,7 @@ class DiagnosticIsStrict(unittest.TestCase):
                 vstate.parse(_refix(b, self.foot))
 
     def test_a_version_nobody_defined_is_refused(self):
-        for value in (0, 1, 4, 0xFFFF):
+        for value in (0, 1, 5, 0xFFFF):
             with self.assertRaises(ValueError):
                 vstate.parse(self._tampered(0x008, struct.pack(">H", value)))
 
@@ -519,7 +584,7 @@ class DiagnosticIsRecomputed(unittest.TestCase):
         self.assertEqual(e["recomputed_disc"], 0x0501)
         text = vstate.diag_text(d)
         self.assertIn("INCONSISTENT", text)
-        self.assertIn("Do not use this record", text)
+        self.assertIn("do not use this record", text.lower())
 
     def test_a_tampered_gbi_value_is_caught(self):
         d = self._altered(0x12, 0x0501)

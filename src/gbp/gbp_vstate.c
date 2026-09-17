@@ -6,7 +6,12 @@
  * padded them differently must fail the build, not produce a different file. */
 typedef char gbp_vstate_frame_size_check[(sizeof(struct gbp_vstate_frame) == GBP_VSTATE_FRAME_REC) ? 1 : -1];
 typedef char gbp_vstate_event_size_check[(sizeof(struct gbp_vstate_event) == GBP_VSTATE_EVENT_REC) ? 1 : -1];
-typedef char gbp_vstate_diag_size_check[(sizeof(struct gbp_vstate_diag) == GBP_VSTATE_DIAG_REC) ? 1 : -1];
+typedef char gbp_vstate_diag_size_check[(sizeof(struct gbp_vstate_diag) == GBP_VSTATE_DIAG_REC_V4) ? 1 : -1];
+/* the v4 record IS the v3 record plus 64 bytes, and the split is normative */
+typedef char gbp_vstate_diag_split_check[(GBP_VSTATE_DIAG_REC_V4 - GBP_VSTATE_DIAG_REC == 64u) ? 1 : -1];
+typedef char gbp_vstate_mask_check[((GBP_VSTATE_SRC_MASK | GBP_VSTATE_ODD_MASK | GBP_VSTATE_HIGH_MASK |
+                                    GBP_VSTATE_BIT15_MASK) == 0xFFFFu) ? 1 : -1];
+typedef char gbp_vstate_av_check[((GBP_VSTATE_AV_MASK & ~GBP_VSTATE_SRC_MASK) == 0u) ? 1 : -1];
 
 #define ASM_SEEKING 0      /* no anchor: no Disc boundary has been observed yet */
 #define ASM_IN_FRAME 1     /* anchored: a boundary told the assembler where this frame starts */
@@ -39,6 +44,10 @@ void gbp_vstate_init(struct gbp_vstate *s,
     s->audio_raw = audio_raw; s->audio_raw_cap = audio_raw_cap;
     s->asm_state = ASM_SEEKING;
     s->prev_slot = -1;
+    s->diag_wait = -1;
+    {   unsigned k;
+        for (k = 0u; k < GBP_VSTATE_GAP_SLOTS; k++) s->sem.gap[k].min_ticks = GBP_VSTATE_GAP_NONE;
+    }
     s->audio.last_valid = -1;
     s->audio.last_next = 1u;
     gbp_vsig_cost_init(&s->cost);
@@ -114,22 +123,377 @@ const char *gbp_vstate_event_name(unsigned type)
     }
 }
 
-int gbp_vstate_diag_capture(struct gbp_vstate *s, uint32_t cycle, uint64_t t, const uint8_t *raw,
-                            uint16_t disc, uint16_t gbi, uint16_t read_kind)
+/* ======================================================================
+ * The semantic-disagreement policy (HARDWARE_TESTS GBP-VIDEO-002-R3).
+ * Everything here is pure RAM: no I/O, no formatting, no second read, and no
+ * value is ever re-derived from the device. The two readings arrive already
+ * computed from the 32 bytes the transport delivered once.
+ * ====================================================================== */
+
+unsigned gbp_vstate_classify(uint16_t disc, uint16_t gbi)
 {
-    if (!s || !raw) return 0;
-    if (s->diag.attempts != 0xFFFFu) s->diag.attempts++;
-    if (s->diag.valid) return 0;              /* first wins: the bytes already held are the evidence */
-    s->diag.t = t;
-    s->diag.cycle = cycle;
-    s->diag.disc_value = disc;
-    s->diag.gbi_value = gbi;
-    s->diag.read_kind = read_kind;
-    memcpy(s->diag.raw, raw, GBP_BLOCK_SIZE);  /* verbatim, before any reduction */
-    s->diag.frame_index = s->frames_n;
-    s->diag.block_in_frame = s->cur_blocks;
-    s->diag.valid = 1u;
+    uint16_t delta = (uint16_t)(disc ^ gbi);
+    if (delta == 0u) return GBP_VSTATE_DIS_NONE;
+    /* Order matters and is normative (§R3.2): the bits with no contract come
+     * first, because a difference there is never negotiable. */
+    if ((delta & (uint16_t)~GBP_VSTATE_SRC_MASK) != 0u) return GBP_VSTATE_DIS_NON_SOURCE;
+    if ((delta & (uint16_t)(GBP_VSTATE_SRC_MASK & ~GBP_VSTATE_AV_MASK)) != 0u)
+        return GBP_VSTATE_DIS_SOURCE_OTHER;
+    return GBP_VSTATE_DIS_SOURCE_SERVICED;
+}
+
+uint16_t gbp_vstate_authoritative(uint16_t disc, uint16_t gbi)
+{
+    /* Outside SRC_MASK nothing is chosen. By the time this is called the caller
+     * has established that the two readings AGREE there - anything else is
+     * NON_SOURCE and fatal - so `disc & ~SRC_MASK` and `gbi & ~SRC_MASK` are the
+     * same bits and taking either is taking the agreed value, not a vote. Inside
+     * SRC_MASK the bitwise majority wins. This is PROJECT POLICY, not a fact
+     * about what the hardware intends (§R3.3). */
+    uint16_t agreed_non_source = (uint16_t)(disc & (uint16_t)~GBP_VSTATE_SRC_MASK);
+    uint16_t authoritative_sources = (uint16_t)(gbi & GBP_VSTATE_SRC_MASK);
+    return (uint16_t)(agreed_non_source | authoritative_sources);
+}
+
+const char *gbp_vstate_class_name(unsigned c)
+{
+    switch (c) {
+    case GBP_VSTATE_DIS_NONE: return "none";
+    case GBP_VSTATE_DIS_SOURCE_SERVICED: return "source_serviced";
+    case GBP_VSTATE_DIS_SOURCE_OTHER: return "source_other";
+    case GBP_VSTATE_DIS_NON_SOURCE: return "non_source";
+    default: return "?";
+    }
+}
+
+const char *gbp_vstate_fu_name(unsigned st)
+{
+    switch (st) {
+    case GBP_VSTATE_FU_PENDING: return "pending";
+    case GBP_VSTATE_FU_SOURCE_PRESENT_NEXT: return "source_present_next";
+    case GBP_VSTATE_FU_SOURCE_ABSENT_NEXT: return "source_absent_next";
+    case GBP_VSTATE_FU_NO_NEXT_CAUSE: return "no_next_cause";
+    case GBP_VSTATE_FU_UNKNOWN: return "unknown";
+    default: return "?";
+    }
+}
+
+const char *gbp_vstate_fur_name(unsigned r)
+{
+    switch (r) {
+    case GBP_VSTATE_FUR_NONE: return "-";
+    case GBP_VSTATE_FUR_OBSERVATIONAL: return "observational_site";
+    case GBP_VSTATE_FUR_RUN_ABORTED: return "run_aborted";
+    case GBP_VSTATE_FUR_NOT_APPLICABLE: return "not_applicable";
+    case GBP_VSTATE_FUR_INTERNAL: return "internal_condition";
+    default: return "?";
+    }
+}
+
+unsigned gbp_vstate_hist_index(uint16_t v)
+{
+    /* source bit 2k -> index bit k, for k = 0..5 (§R3.28) */
+    unsigned k, idx = 0u;
+    for (k = 0u; k < GBP_VSTATE_GAP_SLOTS; k++)
+        if (v & (uint16_t)(1u << (2u * k))) idx |= 1u << k;
+    return idx;
+}
+
+uint16_t gbp_vstate_gap_slot_bit(unsigned slot)
+{
+    return (slot < GBP_VSTATE_GAP_SLOTS) ? (uint16_t)(1u << (2u * slot)) : 0u;
+}
+
+void gbp_vstate_diag_store(struct gbp_vstate *s, struct gbp_vstate_diag *store, uint32_t cap)
+{
+    unsigned k;
+    if (!s) return;
+    s->diags = store;
+    s->diags_cap = store ? cap : 0u;
+    s->diags_n = 0u;
+    s->diag_wait = -1;
+    if (store && cap) memset(store, 0, (size_t)cap * sizeof *store);
+    for (k = 0u; k < GBP_VSTATE_GAP_SLOTS; k++) {
+        s->sem.gap[k].count = 0u;
+        s->sem.gap[k].min_ticks = GBP_VSTATE_GAP_NONE;
+        s->sem.gap[k].max_ticks = 0u;
+        s->sem.gap[k].last_ticks = 0u;
+        s->sem.gap[k].last_cause_t = 0u;
+    }
+}
+
+const struct gbp_vstate_diag *gbp_vstate_diag_first(const struct gbp_vstate *s)
+{
+    if (!s || !s->diags || s->diags_n == 0u) return 0;
+    return &s->diags[0];
+}
+
+void gbp_vstate_block_majority_extra(struct gbp_vstate *s)
+{
+    if (s) s->next_block_majority_extra = GBP_VSTATE_B_MAJORITY_EXTRA;
+}
+
+int gbp_vstate_mark_source_deferred(struct gbp_vstate *s)
+{
+    /* No frame open means no frame is created: a marker never invents a frame
+     * (§R3.29). The event still exists in the diagnostic record. */
+    if (!s || s->cur_blocks == 0u) return 0;
+    s->cur_flags |= GBP_VSTATE_F_SOURCE_DEFERRED;
+    s->sem.frames_source_deferred++;
     return 1;
+}
+
+void gbp_vstate_gap_observe(struct gbp_vstate *s, uint16_t sources, uint64_t t_cause)
+{
+    unsigned k;
+    if (!s) return;
+    for (k = 0u; k < GBP_VSTATE_GAP_SLOTS; k++) {
+        struct gbp_vstate_gap *g = &s->sem.gap[k];
+        uint64_t d;
+        if (!(sources & (uint16_t)(1u << (2u * k)))) continue;
+        if (g->last_cause_t != 0u && t_cause > g->last_cause_t) {
+            d = t_cause - g->last_cause_t;
+            /* saturate rather than wrap: a gap this long cannot occur inside the
+             * experiment's caps, and a silent wrap would be a lie (§R3.28) */
+            g->last_ticks = (d >= (uint64_t)GBP_VSTATE_GAP_SAT) ? GBP_VSTATE_GAP_SAT : (uint32_t)d;
+            if (g->count == 0u || g->last_ticks < g->min_ticks) g->min_ticks = g->last_ticks;
+            if (g->last_ticks > g->max_ticks) g->max_ticks = g->last_ticks;
+            if (g->count != 0xFFFFFFFFu) g->count++;
+        }
+        g->last_cause_t = t_cause;
+    }
+}
+
+/* The gap statistic of the source a disagreement omitted, as it stood BEFORE the
+ * event. When several bits were omitted the lowest one is described, and the
+ * choice is documented rather than arbitrary. */
+static void gap_snapshot(const struct gbp_vstate *s, uint16_t omitted, uint32_t *min, uint16_t *count)
+{
+    unsigned k;
+    *min = GBP_VSTATE_GAP_NONE;
+    *count = 0u;
+    for (k = 0u; k < GBP_VSTATE_GAP_SLOTS; k++) {
+        if (!(omitted & (uint16_t)(1u << (2u * k)))) continue;
+        *min = s->sem.gap[k].min_ticks;
+        *count = (s->sem.gap[k].count > 0xFFFFu) ? 0xFFFFu : (uint16_t)s->sem.gap[k].count;
+        return;
+    }
+}
+
+static int read_selects_service(uint16_t read_kind)
+{
+    return read_kind == GBP_VSTATE_DIAG_READ_LEAN || read_kind == GBP_VSTATE_DIAG_READ_PRESVC;
+}
+
+int gbp_vstate_diag_open(struct gbp_vstate *s, uint32_t cycle, uint64_t t, const uint8_t *raw,
+                         uint16_t disc, uint16_t gbi, uint16_t read_kind, unsigned classification)
+{
+    struct gbp_vstate_diag *d;
+    uint16_t delta, disc_extra, maj_extra;
+    int idx;
+    if (!s || !raw) return -1;
+
+    delta = (uint16_t)(disc ^ gbi);
+    disc_extra = (uint16_t)((disc & GBP_VSTATE_SRC_MASK) & ~(gbi & GBP_VSTATE_SRC_MASK));
+    maj_extra = (uint16_t)((gbi & GBP_VSTATE_SRC_MASK) & ~(disc & GBP_VSTATE_SRC_MASK));
+
+    /* Counters and histograms move for EVERY disagreement, preserved or not. */
+    if (s->sem.disagreements_total != 0xFFFFFFFFu) s->sem.disagreements_total++;
+    switch (classification) {
+    case GBP_VSTATE_DIS_SOURCE_SERVICED: s->sem.source_serviced++; break;
+    case GBP_VSTATE_DIS_SOURCE_OTHER: s->sem.source_other++; break;
+    case GBP_VSTATE_DIS_NON_SOURCE: s->sem.non_source++; break;
+    default: break;
+    }
+    if (disc_extra) s->sem.disc_extra_events++;
+    if (maj_extra) s->sem.majority_extra_events++;
+    if (disc_extra && maj_extra) s->sem.both_direction_events++;
+    if (read_selects_service(read_kind)) s->sem.service_selecting_disagreements++;
+    else s->sem.observational_disagreements++;
+    s->sem.delta_hist[gbp_vstate_hist_index(delta)]++;
+    s->sem.disc_extra_hist[gbp_vstate_hist_index(disc_extra)]++;
+    s->sem.majority_extra_hist[gbp_vstate_hist_index(maj_extra)]++;
+
+    if (!s->diags || s->diags_n >= s->diags_cap) {
+        /* Store full or absent: nothing is overwritten, the flag is sticky, the
+         * run does not stop, and a record already waiting can still be closed. */
+        s->sem.diagnostics_not_preserved++;
+        s->sem.store_capped = 1u;
+        return -1;
+    }
+    idx = (int)s->diags_n;
+    d = &s->diags[idx];
+    memset(d, 0, sizeof *d);
+    d->t = t;
+    d->cycle = cycle;
+    d->valid = 1u;
+    d->disc_value = disc;
+    d->gbi_value = gbi;
+    d->read_kind = read_kind;
+    d->attempts = 1u;
+    memcpy(d->raw, raw, GBP_BLOCK_SIZE);          /* verbatim, before any reduction */
+    d->frame_index = s->frames_n;
+    d->block_in_frame = s->cur_blocks;
+    d->delta = delta;
+    d->disc_extra_sources = disc_extra;
+    d->majority_extra_sources = maj_extra;
+    d->classification = (uint16_t)classification;
+    d->authoritative_value = gbp_vstate_authoritative(disc, gbi);
+    gap_snapshot(s, disc_extra, &d->gap_min_before_ticks, &d->gap_count_before);
+    if (!read_selects_service(read_kind)) {
+        /* No service decision was taken here, so no follow-up chain exists and
+         * the record must not be readable as though it had one (§R3.10). */
+        d->followup_state = GBP_VSTATE_FU_UNKNOWN;
+        d->followup_reason = GBP_VSTATE_FUR_OBSERVATIONAL;
+        s->sem.followup_unknown++;
+    } else if (disc_extra == 0u) {
+        /* The majority omitted nothing: there is no omitted source to look for. */
+        d->followup_state = GBP_VSTATE_FU_UNKNOWN;
+        d->followup_reason = GBP_VSTATE_FUR_NOT_APPLICABLE;
+        s->sem.followup_unknown++;
+    } else {
+        d->followup_state = GBP_VSTATE_FU_PENDING;
+        d->followup_reason = GBP_VSTATE_FUR_NONE;
+        s->diag_wait = idx;                        /* at most one at a time */
+    }
+    s->diags_n++;
+    s->sem.diagnostics_preserved++;
+    return idx;
+}
+
+void gbp_vstate_diag_service(struct gbp_vstate *s, uint16_t authoritative, uint16_t service_selected,
+                             unsigned incomplete)
+{
+    struct gbp_vstate_diag *d;
+    if (!s || !s->diags || s->diags_n == 0u) { if (s && incomplete) s->sem.service_incomplete_events++; return; }
+    d = &s->diags[s->diags_n - 1u];
+    d->authoritative_value = authoritative;
+    d->service_selected = service_selected;
+    if (incomplete) {
+        d->record_flags |= GBP_VSTATE_DF_SERVICE_INCOMPLETE;
+        s->sem.service_incomplete_events++;
+    }
+}
+
+void gbp_vstate_diag_ack(struct gbp_vstate *s, uint16_t ack_value, uint64_t t_ack)
+{
+    struct gbp_vstate_diag *d;
+    if (!s || !s->diags || s->diags_n == 0u) return;
+    d = &s->diags[s->diags_n - 1u];
+    d->ack_value = ack_value;
+    d->t_ack = t_ack;
+    d->record_flags |= GBP_VSTATE_DF_ACK_WRITTEN;
+}
+
+void gbp_vstate_diag_rearm(struct gbp_vstate *s, uint64_t t_rearm)
+{
+    struct gbp_vstate_diag *d;
+    if (!s || !s->diags || s->diags_n == 0u) return;
+    d = &s->diags[s->diags_n - 1u];
+    d->t_rearm = t_rearm;
+    d->record_flags |= GBP_VSTATE_DF_REARM_WRITTEN;
+}
+
+void gbp_vstate_diag_payload(struct gbp_vstate *s, uint16_t source, uint32_t crc32, uint32_t first_word)
+{
+    struct gbp_vstate_diag *d;
+    if (!s) return;
+    if (source == GBP_VSTATE_SRC_VIDEO) s->sem.majority_extra_video_services++;
+    else if (source == GBP_VSTATE_SRC_AUDIO) s->sem.majority_extra_audio_services++;
+    if (!s->diags || s->diags_n == 0u) return;
+    d = &s->diags[s->diags_n - 1u];
+    if (d->record_flags & GBP_VSTATE_DF_PAYLOAD_VALID) {
+        /* The slot is taken. Priority is normative and fixed so it cannot drift
+         * between runs (§R3.23): VIDEO keeps the slot, because it is the one the
+         * scientific path has to reason about. */
+        if (source == GBP_VSTATE_SRC_VIDEO && d->payload_source != GBP_VSTATE_SRC_VIDEO) {
+            d->payload_source = source;
+            d->payload_crc32 = crc32;
+            d->payload_first_word = first_word;
+        }
+        d->record_flags |= GBP_VSTATE_DF_PAYLOAD_SECOND;
+        return;
+    }
+    d->payload_source = source;
+    d->payload_crc32 = crc32;
+    d->payload_first_word = first_word;
+    d->record_flags |= GBP_VSTATE_DF_PAYLOAD_VALID;
+    s->sem.payload_diagnostics_captured++;
+}
+
+void gbp_vstate_diag_quarantined(struct gbp_vstate *s)
+{
+    if (!s || !s->diags || s->diags_n == 0u) return;
+    s->diags[s->diags_n - 1u].record_flags |= GBP_VSTATE_DF_FRAME_QUARANTINED;
+}
+
+void gbp_vstate_diag_deferred(struct gbp_vstate *s)
+{
+    if (!s || !s->diags || s->diags_n == 0u) return;
+    s->diags[s->diags_n - 1u].record_flags |= GBP_VSTATE_DF_SOURCE_DEFERRED;
+}
+
+int gbp_vstate_diag_followup(struct gbp_vstate *s, uint64_t t_cause, uint16_t next_gbi, uint16_t next_disc)
+{
+    struct gbp_vstate_diag *d;
+    if (!s || s->diag_wait < 0) return 0;
+    if (!s->diags || (uint32_t)s->diag_wait >= s->diags_n) { s->diag_wait = -1; return 0; }
+    d = &s->diags[s->diag_wait];
+    d->t_next_cause = t_cause;
+    d->next_pending_gbi = next_gbi;
+    d->next_pending_disc = next_disc;
+    /*
+     * Presence or absence, PER SOURCE BIT, against the AUTHORITATIVE source set of
+     * the next read - `next_gbi & SRC_MASK`, the same reading the service loop
+     * acts on. The Disc value of the next read is stored beside it but is NOT
+     * consulted here: mixing the two authorities inside one series is exactly the
+     * conflation this policy exists to avoid.
+     *
+     * The aggregate enum is defined narrowly so it can never be read as more than
+     * it is (§R3.7):
+     *   FU_SOURCE_PRESENT_NEXT  EVERY omitted source was present in that set
+     *   FU_SOURCE_ABSENT_NEXT   at least one omitted source was NOT present -
+     *                           which includes the partial case
+     * The exact split is always derivable offline from two stored fields:
+     *   present = disc_extra_sources &  (next_pending_gbi & SRC_MASK)
+     *   absent  = disc_extra_sources & ~(next_pending_gbi & SRC_MASK)
+     * and tools/vstate.py prints both. Nothing here says the source that came back
+     * is the same assertion; it says it was observed after the re-arm.
+     */
+    {
+        uint16_t next_sources = (uint16_t)(next_gbi & GBP_VSTATE_SRC_MASK);
+        uint16_t present = (uint16_t)(d->disc_extra_sources & next_sources);
+        if (present == d->disc_extra_sources) {
+            d->followup_state = GBP_VSTATE_FU_SOURCE_PRESENT_NEXT;
+            s->sem.followup_present++;
+        } else {
+            d->followup_state = GBP_VSTATE_FU_SOURCE_ABSENT_NEXT;
+            s->sem.followup_absent++;
+            if (present != 0u) s->sem.followup_partial++;   /* some came back, some did not */
+        }
+    }
+    d->followup_reason = GBP_VSTATE_FUR_NONE;
+    d->record_flags |= GBP_VSTATE_DF_FOLLOWUP_FILLED;
+    s->diag_wait = -1;
+    return 1;
+}
+
+void gbp_vstate_diag_close(struct gbp_vstate *s, unsigned aborted)
+{
+    struct gbp_vstate_diag *d;
+    if (!s || s->diag_wait < 0) return;
+    if (!s->diags || (uint32_t)s->diag_wait >= s->diags_n) { s->diag_wait = -1; return; }
+    d = &s->diags[s->diag_wait];
+    if (aborted) {
+        d->followup_state = GBP_VSTATE_FU_UNKNOWN;
+        d->followup_reason = GBP_VSTATE_FUR_RUN_ABORTED;
+        s->sem.followup_unknown++;
+    } else {
+        d->followup_state = GBP_VSTATE_FU_NO_NEXT_CAUSE;
+        d->followup_reason = GBP_VSTATE_FUR_NONE;
+        s->sem.followup_no_next++;
+    }
+    s->diag_wait = -1;
 }
 
 const char *gbp_vstate_diag_read_name(unsigned kind)
@@ -590,6 +954,19 @@ int gbp_vstate_block(struct gbp_vstate *s, const uint8_t *block, uint32_t len, c
         unsigned i;
         for (i = 1; i < GBP_VSTATE_FRAME_SIGS; i++) s->cur_sig[i] = 0u;
         s->cur_t_first = t;
+    }
+    /* §R3.11/§R3.12: provenance travels with the block, and the flag is applied
+     * HERE - after any boundary has closed the previous frame - so it lands on
+     * the frame that actually ACCUMULATES this block. Doing it earlier would put
+     * it on the previous frame whenever the suspect block is itself a boundary,
+     * invalidating the wrong frame and leaving the right one apparently clean.
+     * F_MAJORITY_EXTRA plus F_ANOMALY: the existing machinery then keeps the
+     * frame out of F_COUNTED, out of the baseline and out of every
+     * structured-change decision, before any of those run for it. */
+    if (s->next_block_majority_extra) {
+        s->next_block_majority_extra = 0u;
+        s->cur_flags |= (uint16_t)(GBP_VSTATE_F_MAJORITY_EXTRA | GBP_VSTATE_F_ANOMALY);
+        s->sem.frames_quarantined++;
     }
     s->cur_blocks++;
     s->cur_t_last = t;
