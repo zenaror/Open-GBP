@@ -29,6 +29,7 @@ import vstate  # noqa: E402
 BIN = os.path.join(ROOT, "build", "tests", "unit", "test_gbp_video_state")
 PHYSICAL_V2 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-vstate-0001-vstate.bin")
 PHYSICAL_V3 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-17-vstate-0002-vstate.bin")
+PHYSICAL_V4 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-17-vstate-0003-vstate.bin")
 VIDEO_BIN = os.path.join(ROOT, "build", "tests", "unit", "test_gbp_video")
 OUTDIR = os.path.join(ROOT, "build", "tests", "unit")
 
@@ -798,6 +799,137 @@ class PhysicalV3(unittest.TestCase):
         self.assertEqual(self.d["episode_count"], 0)
         self.assertEqual(self.d["frame_count"], 5)
         self.assertLess(self.d["capture_elapsed"] / self.d["tb_hz"], 0.2)
+
+@unittest.skipUnless(os.path.isfile(PHYSICAL_V4), "the physical v4 sidecar is not present")
+class PhysicalV4(unittest.TestCase):
+    """The third physical GBP-VIDEO-002 run (build vstate-0003, 2026-09-17): the first to reach its
+    scientific target, the first with several disagreements survived, and the first with a KNOWN
+    PRODUCER DEFECT. Everything asserted here is recomputed from the bytes on disk."""
+
+    def setUp(self):
+        with open(PHYSICAL_V4, "rb") as f:
+            self.data = f.read()
+        self.d = vstate.parse(self.data)
+
+    def test_identity_and_integrity(self):
+        self.assertEqual(len(self.data), 4359724)
+        self.assertEqual(self.d["version"], 4)
+        self.assertEqual(self.d["test_id"], "GBP-VIDEO-002")
+        self.assertEqual(self.d["build_id"], "vstate-0003")
+        self.assertEqual(self.d["commit"], "8c25df2")
+        self.assertEqual(self.d["header_crc32"], 0x888AFEB1)
+        self.assertEqual(self.d["total_crc32"], 0xDF719B16)
+        self.assertEqual(self.d["diag_count"], 23)
+        self.assertEqual(self.d["diag_rec_size"], 160)
+        self.assertEqual(self.d["semantic_size"], 1024)
+
+    def test_the_layout_is_exactly_contiguous(self):
+        d = self.d
+        self.assertEqual(d["off_frames"], 0x200)
+        self.assertEqual(d["off_events"], d["off_frames"] + d["frame_count"] * 192)
+        self.assertEqual(d["off_episodes"], d["off_events"] + d["event_count"] * 64)
+        self.assertEqual(d["off_cycles"], d["off_episodes"] + d["episode_count"] * 512)
+        self.assertEqual(d["off_semantic"], d["off_cycles"] + d["cycle_count"] * 128)
+        self.assertEqual(d["off_diag"], d["off_semantic"] + 1024)
+        self.assertEqual(d["off_video_raw"], d["off_diag"] + 23 * 160)
+        self.assertEqual(d["off_footer"] + 12, len(self.data))
+        self.assertEqual((d["frame_count"], d["event_count"], d["episode_count"], d["cycle_count"]),
+                         (10503, 210, 4, 80))
+
+    def test_the_run_reached_its_target(self):
+        m = self.d["semantic"]
+        self.assertEqual(self.d["deliveries"], 1114007)
+        self.assertEqual(self.d["video_completed"], 420073)
+        self.assertEqual(self.d["audio_drains"], 720210)
+        self.assertGreaterEqual(self.d["valid_observation_elapsed"] / self.d["tb_hz"], 120.0)
+        self.assertEqual(m["disagreements_total"], 23)
+        self.assertEqual(m["source_serviced"], 23)
+        self.assertEqual(m["source_other"], 0)
+        self.assertEqual(m["non_source"], 0)
+        self.assertEqual(m["disc_extra_events"], 23)
+        self.assertEqual(m["majority_extra_events"], 0)
+        self.assertEqual(m["diagnostics_preserved"], 23)
+        self.assertEqual(m["diagnostics_not_preserved"], 0)
+        self.assertFalse(m["store_capped"])
+
+    def test_all_twenty_three_recompute_from_their_own_bytes(self):
+        """Nothing here trusts a stored value: the two readings and every derived field are
+        recomputed from raw32 alone."""
+        for i, g in enumerate(self.d["diags"]):
+            raw = g["raw"]
+            disc = vstate.read_disc(raw)
+            gbi = vstate.read_gbi(raw)
+            self.assertEqual((disc, gbi), (0x0500, 0x0100), i)
+            self.assertEqual(disc ^ gbi, 0x0400, i)
+            self.assertEqual((disc & 0x0555) & ~(gbi & 0x0555), 0x0400, i)
+            self.assertEqual((gbi & 0x0555) & ~(disc & 0x0555), 0x0000, i)
+            self.assertEqual(g["classification"], "source_serviced", i)
+            # and the stored copies agree with the recomputation
+            self.assertEqual((g["disc_value"], g["gbi_value"]), (disc, gbi), i)
+            self.assertEqual(g["delta"], 0x0400, i)
+
+    def test_the_deviation_is_a_contiguous_suffix(self):
+        lengths = []
+        for g in self.d["diags"]:
+            raw = g["raw"]
+            sem = [(raw[4 * k + 1] << 8) | raw[4 * k + 3] for k in range(8)]
+            n = 0
+            for v in reversed(sem):
+                if v == 0x0500:
+                    n += 1
+                else:
+                    break
+            self.assertEqual(sem, [0x0100] * (8 - n) + [0x0500] * n)   # contiguous, at the END
+            lengths.append(n)
+        self.assertEqual(sorted(lengths), [1] * 21 + [2, 3])
+        by_cycle = {g["cycle"]: n for g, n in zip(self.d["diags"], lengths)}
+        self.assertEqual(by_cycle[839272], 2)
+        self.assertEqual(by_cycle[1015782], 3)
+
+    def test_the_omitted_audio_was_present_in_the_next_read(self):
+        for i, g in enumerate(self.d["diags"]):
+            self.assertEqual(g["next_pending_gbi"], 0x0400, i)
+            self.assertEqual(g["next_pending_disc"], 0x0400, i)
+            self.assertEqual(g["followup_state"], "source_present_next", i)
+            self.assertEqual(g["followup_present_sources"], 0x0400, i)
+            self.assertEqual(g["followup_absent_sources"], 0x0000, i)
+            self.assertFalse(g["followup_partial"], i)
+
+    def test_the_trustworthy_timing(self):
+        """Only t (the read) and t_next_cause may be used: t_ack and t_rearm are contaminated."""
+        deltas = [g["t_next_cause"] - g["t"] for g in self.d["diags"]]
+        self.assertEqual(min(deltas), 3492)
+        self.assertEqual(max(deltas), 4310)
+        for g, dt in zip(self.d["diags"], deltas):
+            self.assertLess(dt, g["gap_min_before_ticks"])     # shorter than any AUDIO gap so far
+
+    def test_the_known_producer_defect_is_detectable_offline(self):
+        """The file parses - it is structurally perfect - and the defect is reported, not fatal."""
+        w = vstate.producer_warnings(self.d)
+        codes = [c for _, c, _ in w]
+        self.assertEqual(codes.count("ack_after_next_cause"), 23)
+        self.assertEqual(codes.count("rearm_after_next_cause"), 23)
+        self.assertEqual(codes.count("authority_not_majority"), 22)
+        # 22 of 23, because one overwriting cycle happened to carry the same value
+        matching = [i for i, g in enumerate(self.d["diags"])
+                    if (g["authoritative_value"] & 0x0555) == (g["gbi_value"] & 0x0555)]
+        self.assertEqual(len(matching), 1)
+        self.assertEqual(self.d["diags"][matching[0]]["cycle"], 1098203)
+
+    def test_the_contaminated_fields_are_internally_consistent(self):
+        """They agree with each other and still belong to another cycle: internal consistency is
+        not evidence of correct attribution."""
+        for g in self.d["diags"]:
+            self.assertEqual(g["ack_value"], (g["authoritative_value"] | 0x8000) & 0xFFFF)
+            self.assertEqual(g["service_selected"], g["authoritative_value"] & 0x0500)
+
+    def test_the_cli_reports_the_defect(self):
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "vstate.py"), "diag",
+                            PHYSICAL_V4], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("PRODUCER WARNINGS", r.stdout)
+        self.assertIn("attribution defect of the writer, not corruption", r.stdout)
+        self.assertIn("asserts no physical cause", r.stdout)
 
 if __name__ == "__main__":
     unittest.main()

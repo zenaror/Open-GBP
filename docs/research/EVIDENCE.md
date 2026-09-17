@@ -2516,3 +2516,184 @@ to the one GBP-VIDEO-001, GBP-AV-SERVICE-001 and vstate-0001 reached. The
 teardown took 15 145 ticks = 0.37 ms and began 51 ticks after the stop. A service
 failure caused by the diagnostic abort left the device in the same state a
 successful run does.
+
+## GBP-VIDEO-002-R3 vstate-0003 — the policy survived, the bookkeeping did not (2026-09-17)
+
+Third physical run of GBP-VIDEO-002, build `vstate-0003`, commit `8c25df2`, DOL
+SHA-256 `baea30f5…b486`. Log `9f81f19f…2e57` (86 378 B), sidecar `0a45d487…e6bc`
+(4 359 724 B). The first run of this test to reach its scientific target, and the
+first to carry a **known producer defect**. Every value below is recomputed from
+those two files; where a field of the sidecar is contaminated it is named as such
+and is not used.
+
+### GBP-HW-098 — the OGBPSEQ1 v4 sidecar, written and structurally validated on hardware — FACT
+
+4 359 724 bytes streamed after the teardown. Recomputed on analysis: header CRC
+`888afeb1` and total CRC `df719b16` both verify; magic `OGBPSEQ1`, version 4,
+header 0x200; `diag_count` 23, `diag_rec_size` 160, `semantic_size` 1024,
+`diag_flags` 0, header bytes 0x1F4..0x1FB zero. Sections exactly contiguous with
+zero overlap and zero orphan bytes: header `0x000000`, frames `0x000200`
+(10 503 × 192), events `0x1EC740` (210 × 64), episodes `0x1EFBC0` (4 × 512),
+cycles `0x1F03C0` (80 × 128), **semantic block** `0x1F2BC0` (1 024),
+**diagnostics** `0x1F2FC0` (23 × 160), raw VIDEO `0x1F3E20` (2 304 000), raw AUDIO
+`0x426620` (8 192), footer `OGBPEND1` at `0x428620`, ending exactly at the file
+size. The log recorded 657 of 1 024 ring lines with **0 dropped and 0 truncated**.
+**The format is sound**: the defect recorded in GBP-HW-104 is producer
+attribution, not storage, layout or CRC.
+
+### GBP-HW-099 — the scientific target was reached, with the service never interrupted — FACT
+
+1 114 007 admitted cycles over **175.848 s**, of which **120.009 s** of valid
+post-baseline observation against a 120 s target; `stop=nominal_negative`,
+`status=ok_structured_change_observed`, SERVICE ok, RESTORE ok, `transport_ok=1`,
+`errors=0`. 1 114 007 unmasks, deliveries, ISR entries, ACKs and re-arms — the four
+counts are equal — with 1 114 003 lean cycles and 4 verify. 420 073 VIDEO and
+720 210 AUDIO whole-block drains (1 140 283 bulk transfers, 268 093 184 bytes,
+4 482 370 transfers total). **0 reentry, 0 timeouts, 0 busy, 0 uncertain writes,
+0 main-loop W1C, 1 teardown W1C, 0 counter overflows.** Frame capture: 10 503
+frames, 10 491 complete, 12 incomplete, 24 resync, 10 476 counted, baseline valid
+at 0.077 s; structured change **observed**, 9 episodes, 7 stable, 2 unstable.
+
+### GBP-HW-100 — twenty-three semantic disagreements, all survived — FACT
+
+23 disagreements in the run, **all** classified `SOURCE_SERVICED`, 0
+`SOURCE_OTHER`, 0 `NON_SOURCE`; 23 with a Disc-extra source, 0 with a
+majority-extra source, 0 in both directions; 23 preserved, 0 not preserved, the
+store never capped. Recomputed **directly from each record's own 32 bytes**,
+without trusting any stored value: `Disc = 0x0500`, `GBI majority = 0x0100`,
+`delta = 0x0400`, `disc_extra = 0x0400` (AUDIO), `majority_extra = 0x0000`,
+class `SOURCE_SERVICED` — in 23 of 23. The stored copies of those derived fields
+agree with the recomputation in all 23.
+
+**Frequency, descriptive only.** In this run: 23 events in 1 114 007 deliveries
+(≈ 1 per 48 435) and 23 in 175.848 s (≈ 1 per 7.65 s). These are two ratios of
+this one run, **not a rate**: nothing here models an arrival process, a
+probability per cycle or a per-second expectation, and no such model is implied by
+their being computable. They are also **not comparable** with the denominators of
+`vstate-0001` (51 751 cycles) or `vstate-0002` (518 cycles): those runs **stopped
+at their first event**, so their denominators are the time to the first
+disagreement, not an exposure over which further events could have been counted.
+
+### GBP-HW-101 — the non-uniformity is a contiguous suffix, in every event — FACT
+
+Decomposing each window into its eight replicas, the `0x0500` values always form a
+**contiguous suffix at the end of the window**:
+
+```text
+21 records   0100 0100 0100 0100 0100 0100 0100 0500     suffix length 1
+ 1 record    0100 0100 0100 0100 0100 0100 0500 0500     suffix 2, cycle 839272
+ 1 record    0100 0100 0100 0100 0100 0500 0500 0500     suffix 3, cycle 1015782
+```
+
+Never scattered, never a prefix, never interleaved. **CORROBORATED:** the
+non-uniformity is ordered rather than randomly distributed across replicas.
+**UNKNOWN and not claimed here:** that the suffix is "the newer value", the real
+temporal order, the replica update order, the order the DMA reads them, whether
+the source changed during the transfer, and the mechanism inside GBS-DOL
+(U-GBP-033).
+
+### GBP-HW-102 — the omitted AUDIO source was present in the next ordinary read, 23 of 23 — FACT
+
+Every record carries `next_pending_gbi = next_pending_disc = 0x0400` and
+`followup_state = source_present_next`; derived per bit, `present = 0x0400` and
+`absent = 0x0000` in all 23. These fields are trustworthy under this producer
+because they are written once, through the follow-up handle, which is cleared in
+the same act (GBP-HW-105). **No next cause of any of the 23 events contained
+VIDEO `0x0100`.**
+
+### GBP-HW-103 — read-to-next-cause, measured on the two clocks that are trustworthy — FACT
+
+Using only the diagnostic's own `t` and `t_next_cause`: **3 492 to 4 310 ticks,
+86.22 to 106.42 µs**. The per-record AUDIO gap snapshot taken before each event is
+5 858 ticks for the first record and 5 480 for the rest, so in **23 of 23** the
+read-to-next-cause interval was shorter than the shortest AUDIO cause-to-cause gap
+observed up to that point of the run. The re-arm necessarily happens after the
+read, so the true re-arm-to-next-cause is shorter still — **but the persisted
+`t_rearm` is contaminated (GBP-HW-104) and is not used here**. This is a
+description of two measured clocks; it is **not** evidence that the source
+observed afterwards is the same assertion.
+
+### GBP-HW-104 — the diagnostic's current-cycle fields do not belong to the cycle that opened the record — FACT (defect)
+
+Measured over the 23 records of this file:
+
+```text
+t_ack  > t_next_cause                                23/23   (by seconds, not microseconds)
+t_rearm > t_next_cause                               23/23
+(authoritative & SRC_MASK) != (gbi & SRC_MASK)       22/23
+ack_value != authoritative | 0x8000                   0/23
+service_selected != authoritative & AV_MASK           0/23
+ACK_WRITTEN or REARM_WRITTEN missing                  0/23
+```
+
+Record 0 is typical: the read is at `t = 0x7949e3aaf935bc`, its next cause at
+`0x7949e3aaf94692` (4 310 ticks later), and the stored `t_ack` is
+`0x7949e3d695702e` — **18.066 s after its own next cause**, which is impossible for
+one transaction. The persisted `t_ack` of record *i* falls **118 to 170 µs before
+the read of disagreement *i+1***, and for the last record 96.1 µs before the run's
+stop: the signature of a record that keeps absorbing later cycles. The stored
+values are internally coherent with each other (`ack == auth | 0x8000` in 23/23),
+which is precisely why internal consistency cannot be used as evidence of correct
+attribution. 22 of 23 carry `auth = 0x0400`; the one that carries `0x0100`
+(cycle 1 098 203) matches by coincidence because the overwriting cycle happened to
+be VIDEO-only.
+
+### GBP-HW-105 — which fields of this file are trustworthy — FACT (from the committed source)
+
+```text
+TRUSTED, written once at open:      t, cycle, valid, disc_value, gbi_value, read_kind,
+                                    attempts, raw[32], intsr_entry, intsr_after_w1c,
+                                    intmr_entry, latency_ticks, xfer_ticks, xfer_polls,
+                                    dma_status, dma_status_before, control_exp,
+                                    frame_index, block_in_frame, delta, disc_extra_sources,
+                                    majority_extra_sources, classification,
+                                    gap_min_before_ticks, gap_count_before
+TRUSTED, written once through the follow-up handle, which is cleared in the same act:
+                                    t_next_cause, next_pending_gbi, next_pending_disc,
+                                    followup_state, followup_reason, record_flags bit 0
+NOT RELIABLE for current-cycle attribution:
+                                    authoritative_value, service_selected, ack_value,
+                                    t_ack, t_rearm
+POTENTIALLY CONTAMINATED under the same defect, never exercised in this run:
+                                    payload_source/crc32/first_word and record_flags
+                                    bits 1..5 (payload, quarantine, deferred, incomplete)
+```
+
+The split follows from the committed code, not from the data: the first group has
+exactly one write site, in `gbp_vstate_diag_open()`; the second has exactly one, in
+`gbp_vstate_diag_followup()`, which clears `diag_wait`; the third is written by
+setters that address `diags[diags_n - 1]` and run on every service cycle.
+
+### GBP-HW-106 — the hardware service itself — CORROBORATED (strong), not FACT
+
+The evidence that the runtime really serviced VIDEO and acknowledged `0x8100` in
+each of the 23 disagreement cycles, rather than the `0x8400` its contaminated
+record claims:
+
+* the next cause of every one of the 23 events is `0x0400` in **both** readings and
+  contains no VIDEO bit. Had the cycle acknowledged only AUDIO, the VIDEO bit would
+  not have been written as 1, would not have been cleared (GBP-HW-028) and would
+  have appeared in that next cause;
+* the follow-up is filled by the immediately following read, 86–106 µs later, so no
+  intervening cycle could have cleared it;
+* in the committed source the service and the ACK use a cycle-local value derived
+  from the majority, and the defective setters write only the RAM record — they
+  cannot change what was sent to the device;
+* the run continued for 1.1 M deliveries with 0 errors and reached its target.
+
+**Why it is not FACT:** none of the 23 disagreement cycles appears in the 80
+sampled cycle records (they are the first 8, last 8, anomalies and episode
+cycles), so no independent record of the acknowledge word exists for them. The
+exact ACK value was not observed twice, and this project does not promote an
+inference to FACT.
+
+### GBP-HW-107 — clean teardown after a successful long run — FACT
+
+CONTROL restored 0x8C → 0x90 with a confirming readback; the stop word written and
+read back with its masks and bit 15; PI cleanup **performed** this time
+(`intsr_before=00012000 → intsr_after=00010000`, sticky 0, ok 1) because a next
+cause was latched at the end; the handler restored once; INTMR bit 13 read 0;
+AR_INFO restored to 0x0043 with a confirming readback. FINAL state
+`arinfo=0043 intsr=00010000 intmr=000001fa control=00 irq=9090`, byte-identical to
+the one GBP-VIDEO-001, GBP-AV-SERVICE-001, vstate-0001 and vstate-0002 reached.
+Teardown variant `S5_target`, `next_cause_at_end=1`.

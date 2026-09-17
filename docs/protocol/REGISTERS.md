@@ -201,6 +201,21 @@ between groups of a single read on windows where both readings agree. Any code
 that reads this register must therefore choose a reading explicitly and must not
 assume the window is one instant's snapshot. The mechanism is **U** (U-GBP-033).
 
+**Hardware 2026-09-17, GBP-VIDEO-002-R3 build vstate-0003 (GBP-HW-100…103,
+GBP-HW-106):** the same condition occurred **23 times** in one 175.848 s run and
+the service survived every one of them under the majority-authoritative policy.
+All 23 recompute from their own preserved bytes to Disc `0x0500` / GBI `0x0100` /
+delta `0x0400`, and in **all 23** the `0x0500` replicas form a **contiguous suffix**
+at the end of the window (21 of length 1, one of length 2, one of length 3): the
+non-uniformity is **ordered**, not scattered. That the suffix is "the newer value"
+is **not** established, and neither is the mechanism. In **23 of 23** the AUDIO
+source the majority omitted was present in the **next** ordinary read, 3 492 to
+4 310 ticks (86.22 to 106.42 µs) later, so servicing the majority value costs one
+extra cycle and loses no source — measured, not assumed. Frequency in that run,
+descriptive only: 23 in 1 114 007 deliveries (≈ 1 per 48 435) and 23 in 175.848 s
+(≈ 1 per 7.65 s). **No rate is modelled from it**, and those denominators are not
+comparable with the earlier runs, which stopped at their first event.
+
 ## 5. GameCube-side registers involved
 
 | Address | Name (YAGCD/libogc) | Use here | Status |

@@ -133,8 +133,11 @@ on real hardware without relying on proprietary runtime code.
 
 **Status: IN PROGRESS (entered 2026-09-16).** Transport and block
 sequence are now physically established (GBP-AV-SERVICE-001, GBP-VIDEO-001);
-rendering, colour and a moving image are not. GBP-VIDEO-002 is implemented and
-awaiting a physical run; nothing it produces is evidence until then. The entry experiment
+rendering, colour and a moving image are not. GBP-VIDEO-002 has now been run
+physically three times (`vstate-0001`, `vstate-0002`, `vstate-0003`); the third
+reached its 120 s target, and the fix that closes its diagnostic attribution
+(`vstate-0004`) is designed but not implemented, so nothing that revision
+produces is evidence yet. The entry experiment
 GBP-AV-SERVICE-001 captured the first physical VIDEO (0xF00) and AUDIO
 (0x1000) blocks with one whole-block DMA each and preserved them raw
 (fixture + sidecar). Static basis fixed on 2026-09-16
@@ -185,10 +188,13 @@ the AGB idle screen (an offline oracle without a cartridge). Short sequence:
   inside the window, tears the hardware down before it summarises anything, and
   streams its multi-megabyte sidecar rather than staging it. Its full nominal
   scan runs in the host suite at about 800 000 synthetic deliveries.
-* **GBP-VIDEO-003**: colour. **Gated by a successful `vstate-0003` run**, not by
-  U-GBP-033 — the mechanism behind the replica non-uniformity does not have to be
-  understood, only survived (gate conditions in HARDWARE_TESTS, GBP-VIDEO-002-R3
-  §R3.21). Needs a source whose true
+* **GBP-VIDEO-003**: colour. **GATED.** The gate was a successful `vstate-0003`
+  run; that run happened on 2026-09-17 and its survival behaviour passed, but its
+  diagnostic attribution failed (GBP-HW-104), so the gate now stands on a
+  successful **`vstate-0004`** run instead. It is still not gated on U-GBP-033 —
+  the mechanism behind the replica non-uniformity does not have to be understood,
+  only survived (gate conditions in HARDWARE_TESTS, GBP-VIDEO-002-R3 §R3.21 and
+  GBP-VIDEO-002-R4 §R4.10). Needs a source whose true
   appearance is known independently of the references (a static pattern with
   saturated red, green and blue plus white, black and greys), because a reference
   comparison can only show that two encodings agree, never which channel is which.
@@ -199,8 +205,14 @@ the AGB idle screen (an offline oracle without a cartridge). Short sequence:
   2026-09-17 at cycle 517), a colour experiment needs a long uninterrupted
   observation of the same service loop, and with the current fatal policy the same
   abort would end it at an arbitrary point.
-* **GBP-VIDEO-002-R3** (build `vstate-0003`): the intervening step, **designed and
-  hardened 2026-09-17, IMPLEMENTED 2026-09-17, not physically executed**. Makes a disagreement confined to the two
+* **GBP-VIDEO-002-R3** (build `vstate-0003`): the intervening step, **PHYSICALLY
+  EXECUTED 2026-09-17**. It reached the 120 s scientific target, observed the
+  structured change again, and survived 23 semantic disagreements without stopping
+  — the policy behaviour is strongly corroborated. Its diagnostic records, however,
+  carry current-cycle fields belonging to later cycles (GBP-HW-104), so R3's
+  physical validation is **INCOMPLETE** and **GBP-VIDEO-002-R4** (build
+  `vstate-0004`, OGBPSEQ1 v5, **designed 2026-09-17, not implemented**) must fix the
+  attribution and be run before the gate below opens. Makes a disagreement confined to the two
   serviced source bits a counted, preserved, nonfatal anomaly serviced from GBI's
   bitwise majority; keeps every other difference fatal, and keeps the independent
   `anomaly_unexpected_source` guard firing on the authoritative value whatever the
@@ -211,6 +223,19 @@ the AGB idle screen (an offline oracle without a cartridge). Short sequence:
   it can never form a baseline, count toward valid observation, validate a
   structured change or feed colour evidence. Adds a bounded 256-record diagnostic
   store (+41 728 B) and OGBPSEQ1 v4; v1, v2 and v3 stay frozen.
+* **GBP-VIDEO-002-R4** (build `vstate-0004`): **DESIGNED 2026-09-17, NOT
+  IMPLEMENTED, NOT PHYSICALLY EXECUTED.** Fixes the one defect the physical
+  `vstate-0003` run exposed: the v4 producer addresses the current cycle's
+  diagnostic record as "the last record opened", so a record that is not closed in
+  its own cycle absorbs the authoritative value, service decision, ACK and re-arm
+  of later cycles (GBP-HW-104). R4 replaces that with an explicit record handle
+  carried by the cycle, separates the two lifetimes (current-cycle fields end with
+  the cycle, follow-up fields stay open across cycles) and emits OGBPSEQ1 v5, whose
+  semantic block records which fields each record actually owns. The observed
+  policy behaviour does not change: the same three disagreement classes, the same
+  authority composition, the same independent pending guard, the same
+  quarantine. OGBPSEQ1 v4 stays frozen as the historical format of the
+  `vstate-0003` run. Design in HARDWARE_TESTS §R4.1 to §R4.10.
 * **GBP-VIDEO-004**: sustained streaming with a real cartridge (frame
   pacing, dropped-block policy, output modes) — the bridge to Phase 7.
 

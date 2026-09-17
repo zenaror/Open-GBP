@@ -140,14 +140,22 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      files, the frame / event / episode / cycle decoders, the interval histogram,
                                      the ordering of events by sequence number, the offline oracle, the proof that
                                      the three formats can never misread each other, and the byte-0 property
-                                     re-checked on the host implementation. Also the two PHYSICAL sidecars: the
+                                     re-checked on the host implementation. Also the three PHYSICAL sidecars: the
                                      frozen v2 of build vstate-0001 (2026-09-16) must keep parsing with the same
                                      CRCs and section offsets it had the day it was consolidated, and the v3 of
                                      build vstate-0002 (2026-09-17) is re-derived from disk — identity, CRCs,
                                      bounds, the 96-byte semantic-disagreement record, its eight replicas, both
-                                     readings and the 0x0400 difference between them. Format 4 (vstate-0003,
-                                     not physically executed) adds the 160-byte record array, the 1024-byte
-                                     semantic block, the histogram index and every strictness rule of R3.19
+                                     readings and the 0x0400 difference between them. Format 4 adds the 160-byte
+                                     record array, the 1024-byte semantic block, the histogram index and every
+                                     strictness rule of R3.19, and class PhysicalV4 covers the PHYSICAL v4 file of
+                                     build vstate-0003 (2026-09-17): identity and both CRCs, the contiguous
+                                     section layout, the 120 s target reached, all 23 disagreements recomputed
+                                     from their own raw 32 bytes (never from a stored field), the contiguous-suffix
+                                     replica distribution including the two multi-replica events, the omitted AUDIO
+                                     source present in the next read 23/23, the timing that remains trustworthy,
+                                     and the KNOWN PRODUCER DEFECT (GBP-HW-104) — which must stay detectable
+                                     offline (23 ack_after_next_cause, 23 rearm_after_next_cause, 22
+                                     authority_not_majority) while the frozen v4 parser keeps accepting the file
                   test_video_replay.py synthetic GBP-VIDEO-001 log → fixture + sequence sidecar → replay round trip
                                      (the regenerated run equals the original) and the physical GBP-AV-SERVICE-001
                                      fixture as the first cycle; asserts that no GBP-VIDEO-001 fixture exists
