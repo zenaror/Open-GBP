@@ -57,7 +57,29 @@ extern "C" {
 
 #define GBP_VSTATEDUMP_MAGIC "OGBPSEQ1"
 #define GBP_VSTATEDUMP_END "OGBPEND1"
-#define GBP_VSTATEDUMP_VERSION 2u
+/*
+ * VERSIONS OF THE FAMILY, and why this is version 3 rather than a new magic.
+ *   v1  GBP-VIDEO-001 (src/gbp/gbp_avseqdump.h): per-delivery cycle/VIDEO/AUDIO
+ *       tables plus raw blocks. Header 0x100. Untouched.
+ *   v2  GBP-VIDEO-002 build vstate-0001, the FIRST PHYSICAL RUN. Header 0x200:
+ *       frame signatures, events, episodes, sampled cycles, preserved raw.
+ *       **FROZEN.** The physical sidecar of 2026-09-16 must keep parsing exactly
+ *       as it did the day it was consolidated, so not one byte of the v2
+ *       contract moves: same offsets, same CRC coverage, same reserved meaning.
+ *   v3  GBP-VIDEO-002 build vstate-0002, this instrumented build. Everything v2
+ *       has, at the same offsets, plus ONE new section carrying the semantic
+ *       disagreement diagnostic (U-GBP-032), and three header fields that
+ *       describe it taken from v2's reserved area.
+ * It is a version and not a new magic because v3 is v2 plus a section: the
+ * header, every table, the identity rule, the CRC scheme and the footer are
+ * unchanged, and a reader that understands v2 understands all of v3 except that
+ * one section. A new magic would claim a break that does not exist. Both
+ * versions are dispatched explicitly and each is strict; neither can read the
+ * other's file by accident, because the version is checked before anything.
+ */
+#define GBP_VSTATEDUMP_VERSION 3u          /* what this build WRITES */
+#define GBP_VSTATEDUMP_VERSION_V2 2u       /* the frozen physical format, still read */
+#define GBP_VSTATEDUMP_DIAG_REC GBP_VSTATE_DIAG_REC   /* 96 */
 #define GBP_VSTATEDUMP_HEADER_SIZE 0x200u
 #define GBP_VSTATEDUMP_FOOTER_SIZE 12u
 #define GBP_VSTATEDUMP_FRAME_REC GBP_VSTATE_FRAME_REC      /* 192 */
@@ -89,6 +111,8 @@ struct gbp_vstatedump_info {
     uint32_t video_block_size, audio_block_size, frame_max_blocks;
     uint16_t status_code, stop_reason;
     uint32_t off_frames, off_events, off_episodes, off_cycles, off_video_raw, off_audio_raw, off_footer;
+    /* v3 only; zero and absent in v2 */
+    uint32_t off_diag, diag_count, diag_rec_size;
     uint64_t total_size;
     char test_id[GBP_VSTATEDUMP_ID_FIELD];
     char build_id[GBP_VSTATEDUMP_ID_FIELD];
@@ -144,6 +168,14 @@ long gbp_vstatedump_stream(struct gbp_vstatedump_info *info, const struct gbp_vs
 int gbp_vstatedump_parse(const uint8_t *in, size_t n, struct gbp_vstatedump_info *info,
                          const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
                          const uint8_t **cycles, const uint8_t **video_raw, const uint8_t **audio_raw);
+/* Same, plus the v3 diagnostic section (NULL in a v2 file or when no record was captured). */
+int gbp_vstatedump_parse_v3(const uint8_t *in, size_t n, struct gbp_vstatedump_info *info,
+                            const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
+                            const uint8_t **cycles, const uint8_t **diag,
+                            const uint8_t **video_raw, const uint8_t **audio_raw);
+
+/* The v3 diagnostic record. Returns 1 when the file carried a valid one. */
+int gbp_vstatedump_decode_diag(const uint8_t *rec, struct gbp_vstate_diag *out);
 
 /* Decoders for one serialized record. */
 void gbp_vstatedump_decode_frame(const uint8_t *rec, struct gbp_vstate_frame *out);

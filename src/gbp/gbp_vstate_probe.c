@@ -444,6 +444,22 @@ void gbp_vstate_report(struct ringlog *log, const struct gbp_vstate_config *cfg,
                            st->event_store_full, (unsigned long)st->event_seq);
         }
     }
+    if (st && st->diag.valid) {
+        /* AFTER the teardown, never before: the bytes come from the preserved record, never from
+         * a reconstruction, and the offline tool (tools/vstate.py diag) explains them. */
+        char hex[GBP_BLOCK_SIZE * 2 + 1];
+        ringlog_hex(hex, sizeof hex, st->diag.raw, GBP_BLOCK_SIZE);
+        ringlog_printf(log, "READDISAGREE cycle=%lu read=%s t=%llx disc=%04x gbi=%04x attempts=%u frame=%lu blk=%lu lat=%lu xfer=%lu/%u dspcr=%04x/%04x raw=%s",
+                       (unsigned long)st->diag.cycle, gbp_vstate_diag_read_name(st->diag.read_kind),
+                       (unsigned long long)st->diag.t, (unsigned)st->diag.disc_value, (unsigned)st->diag.gbi_value,
+                       (unsigned)st->diag.attempts, (unsigned long)st->diag.frame_index,
+                       (unsigned long)st->diag.block_in_frame, (unsigned long)st->diag.latency_ticks,
+                       (unsigned long)st->diag.xfer_ticks, (unsigned)st->diag.xfer_polls,
+                       (unsigned)st->diag.dma_status_before, (unsigned)st->diag.dma_status, hex);
+        ringlog_printf(log, "READDISAGREEPI intsr_entry=%08lx intsr_after_w1c=%08lx intmr_entry=%08lx control_exp=%02x",
+                       (unsigned long)st->diag.intsr_entry, (unsigned long)st->diag.intsr_after_w1c,
+                       (unsigned long)st->diag.intmr_entry, (unsigned)st->diag.control_exp);
+    }
     log_cycles(log, "CYCF", cfg->cyc_first, res->cyc_first_n);
     log_cycles(log, "CYCL", cfg->cyc_last, res->cyc_last_n);
     log_cycles(log, "CYCA", cfg->cyc_anomaly, res->cyc_anomaly_n);
@@ -491,6 +507,36 @@ static void finish(struct run_ctx *x, gbp_vstate_status st, const char *reason, 
     gbp_vstate_report(x->log, x->cfg, res);
 }
 
+
+/*
+ * The U-GBP-032 diagnostic. Called at the instant a disagreement is detected,
+ * from the buffer the transport already filled: no extra read, no re-read, no
+ * retry, no change to the number or order of hardware operations. Field stores
+ * and one 32-byte memcpy; nothing is formatted here. The extra context comes
+ * only from values already resident in RAM.
+ */
+static void capture_disagreement(struct run_ctx *x, uint32_t n, const uint8_t *raw,
+                                 uint16_t disc, uint16_t gbi, uint16_t kind,
+                                 const struct gbp_xfer_info *info)
+{
+    struct gbp_vstate_result *res = x->res;
+    struct gbp_vstate *st = x->st;
+    if (!st) return;
+    if (gbp_vstate_diag_capture(st, n, now64(x->t), raw, disc, gbi, kind)) {
+        st->diag.intsr_entry = res->d.rec.intsr_before_ack;
+        st->diag.intsr_after_w1c = res->d.rec.intsr_after_ack;
+        st->diag.intmr_entry = res->d.rec.intmr_at_entry;
+        st->diag.latency_ticks = res->d.latency_ticks;
+        st->diag.control_exp = res->a.control_exp;
+        if (info) {
+            st->diag.xfer_ticks = info->ticks;
+            st->diag.xfer_polls = info->polls;
+            st->diag.dma_status = info->dma_status;
+            st->diag.dma_status_before = info->dma_status_before;
+        }
+    }
+}
+
 /* ---- snapshot checks of the verify cycles (as GBP-VIDEO-001) --------- */
 static int common_checks(struct run_ctx *x, const struct gbp_initirqa_snapshot *s, const char *site, uint32_t n,
                          gbp_vstate_status *st, const char **reason)
@@ -504,6 +550,13 @@ static int common_checks(struct run_ctx *x, const struct gbp_initirqa_snapshot *
         *st = GBP_VSTATE_ABORT_TRANSPORT; *reason = res->reason_buf; return 0;
     }
     if (s->irq_disc != s->irq_gbi) {
+        /* U-GBP-032: secure the bytes FIRST, from the snapshot the read already filled */
+        capture_disagreement(x, n, s->irq, s->irq_disc, s->irq_gbi,
+                             (uint16_t)(strcmp(site, "PRESVC") == 0 ? GBP_VSTATE_DIAG_READ_PRESVC :
+                                        strcmp(site, "POSTDRAIN") == 0 ? GBP_VSTATE_DIAG_READ_POSTDRAIN :
+                                        strcmp(site, "POSTACK") == 0 ? GBP_VSTATE_DIAG_READ_POSTACK :
+                                        GBP_VSTATE_DIAG_READ_OTHER),
+                             &s->irq_info);
         snprintf(res->reason_buf, sizeof res->reason_buf, "%s_semantic_disagree_cycle_%lu", site, (unsigned long)n);
         *st = GBP_VSTATE_ABORT_READ_INCONSISTENT; *reason = res->reason_buf; return 0;
     }
@@ -894,7 +947,16 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             if (rc != GBP_OK) { res->a.errors++; cycle_record(x, &cyc, GBP_VSTATE_CYC_KIND_ANOMALY); snprintf(res->reason_buf, sizeof res->reason_buf, "READ_failed_cycle_%lu", (unsigned long)n); finish(x, GBP_VSTATE_ABORT_TRANSPORT, res->reason_buf, "S3_service_aborted", GBP_VSTATE_STOP_FAILURE); return 0; }
             disc = gbp_irq_value_disc(irq_raw);
             gbi = gbp_irq_value_gbi(irq_raw);
-            if (disc != gbi) { cycle_record(x, &cyc, GBP_VSTATE_CYC_KIND_ANOMALY); snprintf(res->reason_buf, sizeof res->reason_buf, "READ_semantic_disagree_cycle_%lu", (unsigned long)n); finish(x, GBP_VSTATE_ABORT_READ_INCONSISTENT, res->reason_buf, "S3_service_aborted", GBP_VSTATE_STOP_FAILURE); return 0; }
+            if (disc != gbi) {
+                /* U-GBP-032: the 32 bytes are still exactly as the transport delivered them into
+                 * irq_raw. Copy them out BEFORE anything else touches the cycle record or the
+                 * reason string; nothing here reads the device again. */
+                capture_disagreement(x, n, irq_raw, disc, gbi, GBP_VSTATE_DIAG_READ_LEAN, &info);
+                cycle_record(x, &cyc, GBP_VSTATE_CYC_KIND_ANOMALY);
+                snprintf(res->reason_buf, sizeof res->reason_buf, "READ_semantic_disagree_cycle_%lu", (unsigned long)n);
+                finish(x, GBP_VSTATE_ABORT_READ_INCONSISTENT, res->reason_buf, "S3_service_aborted", GBP_VSTATE_STOP_FAILURE);
+                return 0;
+            }
             pending = gbi;
             if ((uint16_t)(pending & cfg->src_mask & (uint16_t)~cfg->av_mask) != 0u) {
                 res->unexpected = (uint16_t)(pending & cfg->src_mask & (uint16_t)~cfg->av_mask);

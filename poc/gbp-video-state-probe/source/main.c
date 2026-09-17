@@ -1,5 +1,13 @@
 /*
- * Open-GBP GBP-VIDEO-002 — a long-duration VIDEO state scan under the
+ * Open-GBP GBP-VIDEO-002, build vstate-0002 — the SAME experiment as the
+ * physically executed vstate-0001, plus one piece of instrumentation: when the
+ * two semantic readings of the IRQ register disagree, the 32 raw bytes that
+ * caused it are preserved (U-GBP-032). The first physical run aborted on
+ * exactly that event at cycle 51750 and the bytes were lost. Nothing else
+ * changes: the disagreement stays fatal, no retry, no re-read, no second
+ * opinion, and no extra access to the device.
+ *
+ * A long-duration VIDEO state scan under the
  * repeated drained service of the GBP HSP interrupt: the GBP-INIT-003A
  * sequence verbatim (PI masked, no handler) until INTSR bit 13 = 1, then ONE
  * handler install (the 003B extended one-shot) and a long loop of admitted
@@ -262,6 +270,12 @@ int main(void)
            a->control_restore_ok, a->irq_stop_write_ok, a->pi_cleanup_performed, a->arinfo_restore_ok,
            res.h.handler_restored, res.h.mask_ok, (unsigned long)res.errors, (unsigned long)res.uncertain_writes,
            (unsigned long)res.counter_overflow);
+    if (vstate.diag.valid) {
+        /* U-GBP-032: the bytes are held; the explanation is offline (tools/vstate.py diag). */
+        printf("  DIAGNOSTIC semantic disagreement at cycle %lu (%s): disc=%04x gbi=%04x, the 32 raw bytes ARE preserved\n",
+               (unsigned long)vstate.diag.cycle, gbp_vstate_diag_read_name(vstate.diag.read_kind),
+               vstate.diag.disc_value, vstate.diag.gbi_value);
+    }
     printf("  LOG %u lines, dropped=%u truncated=%u\n", (unsigned)rl.count, (unsigned)rl.dropped, (unsigned)rl.truncated);
     if (res.power_cycle_required) {
         printf("\n  ******************************************************************\n");

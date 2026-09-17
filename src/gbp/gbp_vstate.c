@@ -6,6 +6,7 @@
  * padded them differently must fail the build, not produce a different file. */
 typedef char gbp_vstate_frame_size_check[(sizeof(struct gbp_vstate_frame) == GBP_VSTATE_FRAME_REC) ? 1 : -1];
 typedef char gbp_vstate_event_size_check[(sizeof(struct gbp_vstate_event) == GBP_VSTATE_EVENT_REC) ? 1 : -1];
+typedef char gbp_vstate_diag_size_check[(sizeof(struct gbp_vstate_diag) == GBP_VSTATE_DIAG_REC) ? 1 : -1];
 
 #define ASM_SEEKING 0      /* no anchor: no Disc boundary has been observed yet */
 #define ASM_IN_FRAME 1     /* anchored: a boundary told the assembler where this frame starts */
@@ -110,6 +111,35 @@ const char *gbp_vstate_event_name(unsigned type)
     case GBP_VSTATE_EV_TEARDOWN_BEGIN: return "teardown_begin";
     case GBP_VSTATE_EV_TEARDOWN_END: return "teardown_end";
     default: return "none";
+    }
+}
+
+int gbp_vstate_diag_capture(struct gbp_vstate *s, uint32_t cycle, uint64_t t, const uint8_t *raw,
+                            uint16_t disc, uint16_t gbi, uint16_t read_kind)
+{
+    if (!s || !raw) return 0;
+    if (s->diag.attempts != 0xFFFFu) s->diag.attempts++;
+    if (s->diag.valid) return 0;              /* first wins: the bytes already held are the evidence */
+    s->diag.t = t;
+    s->diag.cycle = cycle;
+    s->diag.disc_value = disc;
+    s->diag.gbi_value = gbi;
+    s->diag.read_kind = read_kind;
+    memcpy(s->diag.raw, raw, GBP_BLOCK_SIZE);  /* verbatim, before any reduction */
+    s->diag.frame_index = s->frames_n;
+    s->diag.block_in_frame = s->cur_blocks;
+    s->diag.valid = 1u;
+    return 1;
+}
+
+const char *gbp_vstate_diag_read_name(unsigned kind)
+{
+    switch (kind) {
+    case GBP_VSTATE_DIAG_READ_LEAN: return "READ";
+    case GBP_VSTATE_DIAG_READ_PRESVC: return "PRESVC";
+    case GBP_VSTATE_DIAG_READ_POSTDRAIN: return "POSTDRAIN";
+    case GBP_VSTATE_DIAG_READ_POSTACK: return "POSTACK";
+    default: return "OTHER";
     }
 }
 

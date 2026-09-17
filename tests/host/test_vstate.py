@@ -27,6 +27,7 @@ import avseq  # noqa: E402
 import vstate  # noqa: E402
 
 BIN = os.path.join(ROOT, "build", "tests", "unit", "test_gbp_video_state")
+PHYSICAL_V2 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-vstate-0001-vstate.bin")
 VIDEO_BIN = os.path.join(ROOT, "build", "tests", "unit", "test_gbp_video")
 OUTDIR = os.path.join(ROOT, "build", "tests", "unit")
 
@@ -35,6 +36,36 @@ _CACHE = {}
 
 def outdir():
     return OUTDIR if os.path.isdir(OUTDIR) else tempfile.mkdtemp()
+
+
+def diag_bytes():
+    """A SYNTHETIC v3 file carrying a disagreement, written by the C serializer."""
+    if "diag" not in _CACHE:
+        path = os.path.join(outdir(), "vstate-host-diag.bin")
+        subprocess.run([BIN, "--dump-diag", path], check=True, capture_output=True)
+        with open(path, "rb") as f:
+            _CACHE["diag"] = f.read()
+        _CACHE["diag_path"] = path
+    return _CACHE["diag"]
+
+
+def distinct_bytes():
+    """A SYNTHETIC v3 file whose diagnostic holds 32 DISTINCT bytes, written by the C serializer:
+    any transposition, truncation or normalisation on the way here would show."""
+    if "distinct" not in _CACHE:
+        path = os.path.join(outdir(), "vstate-host-diag-distinct.bin")
+        subprocess.run([BIN, "--dump-diag-distinct", path], check=True, capture_output=True)
+        with open(path, "rb") as f:
+            _CACHE["distinct"] = f.read()
+        _CACHE["distinct_path"] = path
+    return _CACHE["distinct"]
+
+
+def _refix(b, off_footer):
+    """Recomputes both CRCs so that ONLY the structural rules can reject the tampered file."""
+    b[0x1FC:0x200] = struct.pack(">I", vstate.crc32(bytes(b[:0x1FC])))
+    b[off_footer + 8:off_footer + 12] = struct.pack(">I", vstate.crc32(bytes(b[:off_footer])))
+    return bytes(b)
 
 
 def sidecar_bytes():
@@ -54,10 +85,11 @@ class Header(unittest.TestCase):
         self.d = vstate.parse(sidecar_bytes())
 
     def test_identity_and_version(self):
-        self.assertEqual(self.d["version"], 2)
+        """The instrumented build writes format 3; the physical vstate-0001 file stays format 2."""
+        self.assertEqual(self.d["version"], 3)
         self.assertEqual(self.d["header_size"], 0x200)
         self.assertEqual(self.d["test_id"], "GBP-VIDEO-002")
-        self.assertEqual(self.d["build_id"], "vstate-0001")
+        self.assertEqual(self.d["build_id"], "vstate-0002")
         self.assertEqual(self.d["app"], "gbp-video-state-probe")
 
     def test_record_sizes_are_the_contract(self):
@@ -73,7 +105,8 @@ class Header(unittest.TestCase):
         self.assertEqual(d["off_events"], d["off_frames"] + d["frame_count"] * 192)
         self.assertEqual(d["off_episodes"], d["off_events"] + d["event_count"] * 64)
         self.assertEqual(d["off_cycles"], d["off_episodes"] + d["episode_count"] * 512)
-        self.assertEqual(d["off_video_raw"], d["off_cycles"] + d["cycle_count"] * 128)
+        self.assertEqual(d["off_diag"], d["off_cycles"] + d["cycle_count"] * 128)
+        self.assertEqual(d["off_video_raw"], d["off_diag"] + d["diag_count"] * 96)
         self.assertEqual(d["off_footer"] + 12, len(sidecar_bytes()))
 
     def test_clocks_are_64_bit_and_consistent(self):
@@ -215,9 +248,9 @@ class StrictParsing(unittest.TestCase):
         with self.assertRaises(ValueError):
             vstate.parse(bytes(bad))                             # trailing bytes
 
-    def test_format_1_and_format_2_never_misread_each_other(self):
+    def test_the_formats_never_misread_each_other(self):
         """A GBP-VIDEO-001 sidecar is format 1 with a 0x100 header; this parser must refuse it, and
-        avseq must refuse a format 2 file. Both check version and header size before anything."""
+        avseq must refuse a format 2 or 3 file. Every parser checks version and header size first."""
         with self.assertRaises(ValueError):
             avseq.parse(sidecar_bytes())
         if os.path.isfile(VIDEO_BIN):
@@ -287,7 +320,7 @@ class Cli(unittest.TestCase):
         return r.stdout
 
     def test_subcommands(self):
-        self.assertIn("OGBPSEQ1 v2", self.run_cmd("info"))
+        self.assertIn("OGBPSEQ1 v3", self.run_cmd("info"))
         self.assertIn("frame", self.run_cmd("frames"))
         self.assertIn("seq", self.run_cmd("events"))
         self.assertIn("episode", self.run_cmd("episodes"))
@@ -312,6 +345,297 @@ class Cli(unittest.TestCase):
         self.assertTrue(any(f.startswith("episode-") for f in files))
         self.assertTrue(any(f.startswith("audio-") for f in files))
         del out
+
+
+@unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first")
+class DiagnosticV3(unittest.TestCase):
+    """U-GBP-032: format 3 carries the bytes of a semantic disagreement, and the tool explains them
+    from those bytes alone. Every file here is SYNTHETIC; the physical run never preserved them."""
+
+    def setUp(self):
+        self.d = vstate.parse(diag_bytes())
+
+    def test_it_is_version_3_with_one_record(self):
+        self.assertEqual(self.d["version"], 3)
+        self.assertEqual(self.d["diag_count"], 1)
+        self.assertEqual(self.d["diag_rec_size"], 96)
+        self.assertIsNotNone(self.d["diag"])
+        self.assertEqual(self.d["off_diag"], self.d["off_cycles"] + self.d["cycle_count"] * 128)
+        self.assertEqual(self.d["off_video_raw"], self.d["off_diag"] + 96)
+
+    def test_the_raw_window_is_thirty_two_bytes(self):
+        self.assertEqual(len(self.d["diag"]["raw"]), 32)
+
+    def test_the_stored_values_are_what_the_bytes_recompute_to(self):
+        """The whole point: the serializer must agree with the decision the runtime took."""
+        e = vstate.explain_diag(self.d["diag"])
+        self.assertTrue(e["consistent"], e)
+        self.assertEqual(e["recomputed_disc"], self.d["diag"]["disc_value"])
+        self.assertEqual(e["recomputed_gbi"], self.d["diag"]["gbi_value"])
+        self.assertNotEqual(e["recomputed_disc"], e["recomputed_gbi"])
+
+    def test_the_explanation_names_the_offending_replica(self):
+        e = vstate.explain_diag(self.d["diag"])
+        self.assertEqual(e["replicas_differing_low"] + e["replicas_differing_high"], [7])
+        self.assertTrue(e["disc_low_differs"] or e["disc_high_differs"])
+        self.assertEqual(len(e["replicas"]), 8)
+        self.assertEqual(e["discarded_bytes_differing"], [])
+
+    def test_the_two_readings_are_the_runtime_ones(self):
+        """Pinned against the C implementation's own behaviour, not re-derived."""
+        raw = [0x05, 0x05, 0x00, 0x00] * 8
+        self.assertEqual(vstate.read_disc(raw), 0x0500)
+        self.assertEqual(vstate.read_gbi(raw), 0x0500)
+        bad = list(raw)
+        bad[0x1F] ^= 0x01
+        self.assertEqual(vstate.read_disc(bad), 0x0501)
+        self.assertEqual(vstate.read_gbi(bad), 0x0500)
+        # the historical case: only the discarded bytes move
+        hist = list(raw)
+        for k in range(8):
+            hist[4 * k] ^= 0x80
+            hist[4 * k + 2] ^= 0x5A
+        self.assertEqual(vstate.read_disc(hist), vstate.read_gbi(hist))
+        # the vote is bitwise, and a tie resolves to 0
+        tie = [0] * 32
+        for k in range(4):
+            tie[4 * k + 3] = 0x0F
+        self.assertEqual(vstate.read_gbi(tie), 0x0000)
+        five = [0] * 32
+        for k in range(5):
+            five[4 * k + 3] = 0x0F
+        self.assertEqual(vstate.read_gbi(five), 0x000F)
+
+    def test_corruption_of_the_diagnostic_is_detected(self):
+        data = bytearray(diag_bytes())
+        off = self.d["off_diag"]
+        undetected = 0
+        for k in range(96):
+            bad = bytearray(data)
+            bad[off + k] ^= 0x01
+            try:
+                vstate.parse(bytes(bad))
+                undetected += 1
+            except ValueError:
+                pass
+        self.assertEqual(undetected, 0)
+
+    def test_the_cli_explains_it(self):
+        diag_bytes()
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "vstate.py"), "diag",
+                            _CACHE["diag_path"]], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("semantic disagreement at cycle", r.stdout)
+        self.assertIn("CONSUMED byte", r.stdout)
+        self.assertIn("U-GBP-032 stays open", r.stdout)
+        self.assertIn("asserts no physical cause", r.stdout)
+
+
+@unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first (make -C tests/unit)")
+class DiagnosticIsStrict(unittest.TestCase):
+    """What the parser must refuse, and what the tool must notice. Every tampered file here has
+    BOTH CRCs recomputed, so a rejection can only come from a structural or semantic rule."""
+
+    def setUp(self):
+        self.data = diag_bytes()
+        self.d = vstate.parse(self.data)
+        self.foot = self.d["off_footer"]
+
+    def _tampered(self, off, packed):
+        b = bytearray(self.data)
+        b[off:off + len(packed)] = packed
+        return _refix(b, self.foot)
+
+    def test_off_diag_may_not_move(self):
+        for value in (0, self.d["off_diag"] + 96, self.d["off_diag"] - 96, 0xFFFFFF00):
+            with self.assertRaises(ValueError):
+                vstate.parse(self._tampered(0x1E0, struct.pack(">I", value)))
+
+    def test_there_is_at_most_one_record(self):
+        with self.assertRaises(ValueError):
+            vstate.parse(self._tampered(0x1E4, struct.pack(">I", 2)))
+        with self.assertRaises(ValueError):    # denying the record leaves 96 orphan bytes
+            vstate.parse(self._tampered(0x1E4, struct.pack(">I", 0)))
+
+    def test_the_record_size_is_ninety_six(self):
+        for value in (0, 95, 97, 12345):
+            with self.assertRaises(ValueError):
+                vstate.parse(self._tampered(0x1E8, struct.pack(">H", value)))
+
+    def test_with_no_record_the_size_rule_still_holds(self):
+        """The C parser accepts 0 or 96 there and nothing else; Python must agree exactly."""
+        data = bytearray(sidecar_bytes())
+        d = vstate.parse(bytes(data))
+        self.assertEqual(d["version"], 3)
+        self.assertEqual(d["diag_count"], 0)
+        self.assertEqual(d["off_diag"], d["off_video_raw"])     # a zero-length section
+        foot = d["off_footer"]
+        for value in (0, 96):
+            b = bytearray(data)
+            b[0x1E8:0x1EA] = struct.pack(">H", value)
+            self.assertEqual(vstate.parse(_refix(b, foot))["diag_count"], 0)
+        for value in (95, 12345):
+            b = bytearray(data)
+            b[0x1E8:0x1EA] = struct.pack(">H", value)
+            with self.assertRaises(ValueError):
+                vstate.parse(_refix(b, foot))
+
+    def test_the_records_reserved_word_must_be_zero(self):
+        off = self.d["off_diag"] + 0x5C
+        for k in range(4):
+            b = bytearray(self.data)
+            b[off + k] = 0xAB
+            with self.assertRaises(ValueError):
+                vstate.parse(_refix(b, self.foot))
+
+    def test_a_version_nobody_defined_is_refused(self):
+        for value in (0, 1, 4, 0xFFFF):
+            with self.assertRaises(ValueError):
+                vstate.parse(self._tampered(0x008, struct.pack(">H", value)))
+
+
+@unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first (make -C tests/unit)")
+class DiagnosticIsRecomputed(unittest.TestCase):
+    """Section 24: the tool must read the BYTES, not the conclusion. A file whose persisted values
+    were altered - with both CRCs made valid again - must still be caught."""
+
+    def setUp(self):
+        self.data = diag_bytes()
+        self.d = vstate.parse(self.data)
+        self.foot = self.d["off_footer"]
+        self.off = self.d["off_diag"]
+
+    def _altered(self, field_off, value):
+        b = bytearray(self.data)
+        b[self.off + field_off:self.off + field_off + 2] = struct.pack(">H", value)
+        return vstate.parse(_refix(b, self.foot))
+
+    def test_a_tampered_disc_value_is_caught(self):
+        d = self._altered(0x10, 0x0500)          # claim the two readings agreed after all
+        e = vstate.explain_diag(d["diag"])
+        self.assertFalse(e["consistent"])
+        self.assertEqual(e["stored_disc"], 0x0500)
+        self.assertEqual(e["recomputed_disc"], 0x0501)
+        text = vstate.diag_text(d)
+        self.assertIn("INCONSISTENT", text)
+        self.assertIn("Do not use this record", text)
+
+    def test_a_tampered_gbi_value_is_caught(self):
+        d = self._altered(0x12, 0x0501)
+        e = vstate.explain_diag(d["diag"])
+        self.assertFalse(e["consistent"])
+        self.assertEqual(e["recomputed_gbi"], 0x0500)
+
+    def test_the_explanation_follows_the_bytes(self):
+        """Change a raw byte and the recomputation must move with it, not with the stored value."""
+        b = bytearray(self.data)
+        b[self.off + 0x18 + 0x1F] ^= 0x01
+        d = vstate.parse(_refix(b, self.foot))
+        e = vstate.explain_diag(d["diag"])
+        self.assertEqual(e["recomputed_disc"], 0x0500)
+        self.assertEqual(e["stored_disc"], 0x0501)
+        self.assertFalse(e["consistent"])
+
+
+@unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first (make -C tests/unit)")
+class ThirtyTwoDistinctBytes(unittest.TestCase):
+    """Section 3: the last leg of the chain. The C side proved transport buffer -> RAM -> sidecar
+    -> C parser with 32 distinct bytes; this is the same file arriving in the Python tool."""
+
+    def setUp(self):
+        self.d = vstate.parse(distinct_bytes())
+        self.expected = [(0x11 + 7 * i) & 0xFF for i in range(32)]
+
+    def test_every_byte_is_where_it_was(self):
+        self.assertEqual(len(set(self.expected)), 32)
+        self.assertEqual(self.d["diag"]["raw"], self.expected)
+
+    def test_the_readings_are_recomputed_from_those_bytes(self):
+        e = vstate.explain_diag(self.d["diag"])
+        self.assertTrue(e["consistent"])
+        self.assertEqual(e["recomputed_disc"], (self.expected[0x1D] << 8) | self.expected[0x1F])
+        # eight replicas all different: the bitwise majority need not be any of them, and is not
+        self.assertNotIn("%04x" % e["recomputed_gbi"],
+                         [r["consumed"] for r in e["replicas"]])
+
+    def test_the_wide_timestamp_survives(self):
+        self.assertEqual(self.d["diag"]["t"], 0x1FFFFFFFF)     # past the 32-bit wrap
+        self.assertEqual(self.d["diag"]["read_kind"], "POSTDRAIN")
+
+
+class MajorityRule(unittest.TestCase):
+    """Section 7: the vote, exhaustively. Not a re-implementation check - the same 2048 cases are
+    pinned on the C side, and both must give the textbook answer."""
+
+    def test_every_subset_of_the_eight_replicas(self):
+        mismatches = 0
+        for bit in range(8):
+            for subset in range(256):
+                values = [(1 << bit) if (subset >> k) & 1 else 0 for k in range(8)]
+                popcount = bin(subset).count("1")
+                expect = (1 << bit) if popcount > 4 else 0
+                if vstate.majority_byte(values) != expect:
+                    mismatches += 1
+        self.assertEqual(mismatches, 0)
+
+    def test_a_tie_at_four_is_not_a_majority(self):
+        self.assertEqual(vstate.majority_byte([0xFF] * 4 + [0x00] * 4), 0x00)
+        self.assertEqual(vstate.majority_byte([0xFF] * 5 + [0x00] * 3), 0xFF)
+
+    def test_the_result_need_not_be_any_sample(self):
+        samples = [0b011] * 3 + [0b101] * 3 + [0b110] * 2
+        self.assertEqual(vstate.majority_byte(samples), 0b111)
+        self.assertNotIn(0b111, samples)
+
+
+@unittest.skipUnless(os.path.isfile(PHYSICAL_V2), "the physical v2 sidecar is not present")
+class PhysicalV2IsFrozen(unittest.TestCase):
+    """The first physical run's sidecar must keep parsing byte for byte as it did the day it was
+    consolidated. Adding format 3 may not move one field of format 2."""
+
+    def setUp(self):
+        with open(PHYSICAL_V2, "rb") as f:
+            self.data = f.read()
+        self.d = vstate.parse(self.data)
+
+    def test_identity_and_version(self):
+        self.assertEqual(self.d["version"], 2)
+        self.assertEqual(self.d["header_size"], 0x200)
+        self.assertEqual(self.d["test_id"], "GBP-VIDEO-002")
+        self.assertEqual(self.d["build_id"], "vstate-0001")
+        self.assertEqual(self.d["commit"], "e8f3a69")
+
+    def test_the_counts_and_crcs_are_unchanged(self):
+        self.assertEqual(self.d["frame_count"], 489)
+        self.assertEqual(self.d["event_count"], 209)
+        self.assertEqual(self.d["episode_count"], 4)
+        self.assertEqual(self.d["cycle_count"], 81)
+        self.assertEqual(self.d["video_raw_frames"], 15)
+        self.assertEqual(self.d["audio_raw_count"], 2)
+        self.assertEqual(self.d["header_crc32"], 0x947083C4)
+        self.assertEqual(self.d["total_crc32"], 0x9BEF714B)
+        self.assertEqual(len(self.data), 2432396)
+
+    def test_v2_has_no_diagnostic_and_says_so(self):
+        self.assertEqual(self.d["diag_count"], 0)
+        self.assertIsNone(self.d["diag"])
+        text = vstate.diag_text(self.d)
+        self.assertIn("format 2", text)
+        self.assertIn("did NOT preserve the bytes", text)
+        self.assertIn("U-GBP-032", text)
+
+    def test_v2_reserved_area_must_stay_zero(self):
+        bad = bytearray(self.data)
+        bad[0x1E0] = 1
+        with self.assertRaises(ValueError):
+            vstate.parse(bytes(bad))          # caught by the header CRC first, and by the rule after
+
+    def test_an_unknown_version_is_refused(self):
+        for v in (0, 1, 4, 99):
+            bad = bytearray(self.data)
+            struct.pack_into(">H", bad, 0x008, v)
+            with self.assertRaises(ValueError):
+                vstate.parse(bytes(bad))
 
 
 if __name__ == "__main__":

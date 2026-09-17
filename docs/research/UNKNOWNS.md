@@ -913,6 +913,26 @@ byte they read.
 anomaly, or be retried. A retry would overwrite the very register state that
 would explain it, so the first requirement is preservation, not recovery.
 
+**Instrumented on 2026-09-16 — the question is unchanged, the evidence path is
+not.** Build `vstate-0002` of the same probe preserves, at the moment of
+detection and from the buffer the transport had already filled, the 32 raw bytes
+of the offending read plus the context that describes the read: the two
+conflicting 16-bit values, which of the two read sites saw it, the cycle, the
+64-bit timestamp, the frame and block position, INTSR at ISR entry and after the
+W1C, INTMR at entry, the IRQ latency, the transfer's ticks and polls, the DMA
+status before and after, and the expected CONTROL shape. One record, the first
+disagreement wins, later attempts are only counted. Nothing else moved: no
+retry, no re-read, no second opinion, no extra access to the device, and the
+disagreement remains fatal exactly as in `vstate-0001` — the operation stream of
+an instrumented run is identical to that of a run without the capture. The
+record travels in the sidecar as OGBPSEQ1 **v3**, under the same CRC as every
+other section, and `tools/vstate.py diag` recomputes both readings offline and
+names the replicas that differ. The physical cause is still UNKNOWN: the
+instrumented build has not been executed on hardware, and the question closes
+only when a physical run reproduces the event and the preserved bytes are read.
+If a run never reproduces it, the unknown stays open — absence in one run is not
+an answer.
+
 ---
 
 **2026-09-16 refinements from GBP-VIDEO-001:**
