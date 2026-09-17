@@ -4901,3 +4901,89 @@ address.
 
 A physical GBP-VIDEO-002 run, once the tree is committed clean, rebuilt,
 release-audited and explicitly authorized. Until then nothing here is evidence.
+
+---
+
+## 2026-09-16 — GBP-VIDEO-002 executed: the screen is real, and the service aborted on one register read
+
+**Goal:** run the long VIDEO state scan on the physical Game Boy Player, no
+Game Pak, and find out whether a structured frame ever reaches the stream.
+
+**Result:** the screen is there, and it is GBI's table B. The service aborted
+before the scientific target.
+
+### What the run found
+
+The stream was uniform white for 0.48 s, changed structurally at **frame 30,
+0.5014 s after capture start**, animated through 156 distinct signature vectors
+for about three seconds, and settled into a state it held for **274 consecutive
+frames, 4.582 s**. That settled vector matches **GBI reference table B in all
+forty blocks**. It matches neither table A (28/40 at best) nor the Start-up
+Disc's embedded frame (27/40).
+
+Reconstructing the preserved raw frames the way both references read them —
+pixel = byte 1 : byte 3, bit 15 the frame marker, 4 lines of 240 pixels per
+block, 40 blocks — produces a **legible animated GAME BOY logotype at
+240 × 160**. That is what promotes the geometry from "the references' constants"
+to a physical fact: no wrong line count, pixel count, block order or byte pick
+produces readable text.
+
+**The design decision that removed the early positive stop is now validated by
+hardware.** Five intermediate states were stable by the probe's own threshold of
+three identical frames, each lasting 45 to 78 ms, all differing from uniform in
+blocks 12..19, and **none of them matching table B**. A probe that stopped at the
+first stable state would have captured an animation frame and missed the screen
+it was built to find, by about half a second.
+
+### What went wrong
+
+At cycle 51 750 of 51 751 the two semantic readings of the 32-byte IRQ register
+disagreed and the probe stopped. The ISR, the PI and the transport all behaved
+normally; only the interpretations differed. The Disc reading takes bytes 0x1D
+and 0x1F, GBI's takes a majority vote over eight replicas, so the last replica
+differed from the majority on a byte both programs consume.
+
+**The offending bytes were not preserved.** That is the single real defect this
+run exposed, and it is an instrumentation defect, not a transport one: the cycle
+record holds `pend=0000` and no payload, so the two conflicting values are
+unrecoverable. U-GBP-032 is open and is deliberately narrow: nothing is assumed
+about what the bytes were.
+
+Context that does not close it: across the 353 IRQ-window reads whose bytes any
+physical log has ever recorded there are 220 byte-level deviations from the
+majority replica, and **every one landed on a byte neither reading consumes**.
+Two are in this run's own log. Deviations there are ordinary and have always been
+absorbed; this is the first one that appears to have reached a consumed byte. But
+only 29 of this run's 51 751 reads were logged, so that says nothing about a rate.
+
+### What held up
+
+Everything else. 51 751 cycles on one installed handler with 0 reentry, 0
+main-loop W1C, 0 timeouts, 0 uncertain writes, 0 counter overflows. Both
+frame-start predicates agreed on all 19 513 blocks. The episode raw store filled
+after four episodes and the monitor kept running, classifying all nine, never
+overwriting one, with all 600 preserved blocks reproducing their signatures
+exactly. The teardown after the failure reached the same final device state as
+GBP-VIDEO-001 and GBP-AV-SERVICE-001. The 2.4 MB sidecar streamed out after the
+teardown with both CRCs verifying. The log used 621 of 1024 ring lines.
+
+And the signature cost is now a physical number: **19.2 µs per block**, 0.121 %
+of a frame period, against a pre-run estimate of "about 20 µs". The histogram's
+median and p95 are bucket upper bounds with 1.58 µs resolution and are reported
+as approximations, not exact quantiles.
+
+### What this does not settle
+
+**Colour.** The logotype pixels are all of the form `xx1f`: one channel
+saturated, one zero, one ramping. Under the references' reading that is indigo;
+under the GBA-native order it is crimson. There is no pixel-level asset for table
+B — only checksums — and a checksum cannot resolve a channel permutation, because
+it is computed over the same bytes either way. The colour order stays
+CORROBORATED and GBP-VIDEO-003 with a known-colour source is still required.
+
+### Next
+
+Preserve first, then decide. The next run must record the raw bytes and both
+values of any semantic disagreement before it tears down. Whether a disagreement
+should stay fatal is a separate question that should not be answered before one
+has been captured.

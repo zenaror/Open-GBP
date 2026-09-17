@@ -850,6 +850,20 @@ very early and very briefly, and the question becomes a timing question: *when,
 if ever, does the logotype screen appear on the VIDEO stream of a GBP session
 without a Game Pak?* That is what GBP-VIDEO-002 is designed to answer.
 
+**2026-09-16 — ANSWERED observationally by the physical GBP-VIDEO-002 run.** A
+structured state does reach the VIDEO stream without a Game Pak: the screen
+appeared 0.5014 s after capture start, animated for about three seconds, and
+settled into a state held for 274 consecutive frames (4.582 s) that matches
+**GBI reference table B in all forty blocks** (GBP-HW-079, GBP-HW-080). It
+matches neither table A (28/40 at best) nor the Start-up Disc's embedded frame
+(27/40). So the two references describe two different screens and the hardware,
+without a cartridge, produces table B's. What remains open under this heading is
+narrower: which AGB state table B corresponds to, and why the Disc arms a
+detector for a screen (table A / its embedded frame) that this configuration
+never produced. GBP-VIDEO-001's uniform white capture is now explained as timing:
+it observed 39.2 ms starting 107 ms after the AGB was started, ending long before
+the 0.5 s mark where the change begins.
+
 **2026-09-16 implementation status.** GBP-VIDEO-002 is now implemented
 (`poc/gbp-video-state-probe/`, Build ID `vstate-0001`) and passes every host
 test, audit and Dolphin gate. It has **not** been physically executed, so
@@ -860,6 +874,44 @@ has an instrument — 120 s of valid post-baseline observation, a cadence unifor
 from the first useful frame (which is what U-GBP-030 asks for), per-frame
 signatures over the whole window, and bounded raw preservation around any
 structured change — waiting on a clean commit and an authorization.
+
+### U-GBP-032 — one IRQ-register read whose two semantic interpretations disagreed, with the bytes not preserved — OPEN (blocking a clean long run)
+
+At cycle 51 750 of GBP-VIDEO-002 the 32-byte read of the IRQ window returned
+`rc=ok`, the ISR and the PI behaved exactly as in the 51 750 cycles before it
+(latency 34 ticks, INTSR bit 13 set at entry and cleared by the handler's single
+W1C), and the two readings of that block disagreed:
+
+* the **Start-up Disc** reading takes bytes 0x1D and 0x1F — the last replica;
+* the **GBI** reading takes a majority vote over the eight replicas at offsets
+  ≡ 1 and ≡ 3 mod 4.
+
+A disagreement therefore means the last replica differed from the majority of the
+other seven, on a byte that both programs actually consume.
+
+**What is not known, and cannot be recovered from this run:** the 32 raw bytes,
+the two conflicting 16-bit values, and the pending source. The probe records
+`pend=0000` for that cycle and keeps no payload for it, so nothing distinguishes
+between a one-bit flip, a whole-byte substitution, a stale replica, a torn DMA
+line and a genuine change of the register between replicas. **None of those is
+assumed and no value is reconstructed.**
+
+Context that does not resolve it (GBP-HW-084): across the 353 IRQ-window reads
+whose bytes are recorded in every physical log to date there are 220 byte-level
+deviations from the majority replica, and **every one landed on an offset ≡ 0 or
+≡ 2 mod 4 — bytes neither reading consumes**. Two appear in this run's own log.
+So deviations in that window are common and have always been absorbed; this is
+the first observation of one reaching a consumed byte, if that is what it was.
+But only 29 of this run's 51 751 reads had their bytes logged, so the sample says
+nothing about the rate on consumed bytes.
+
+Related: U-GBP-029 (byte-0 extras in block reads), which this narrows rather than
+answers — U-GBP-029 concerns bytes the references discard, and this concerns a
+byte they read.
+
+**Not decided here:** whether a disagreement should stay fatal, become a counted
+anomaly, or be retried. A retry would overwrite the very register state that
+would explain it, so the first requirement is preservation, not recovery.
 
 ---
 

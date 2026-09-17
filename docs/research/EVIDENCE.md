@@ -2199,3 +2199,175 @@ and longer whenever an invocation is skipped, so 120 s is a LOWER bound and the
 value 24 000 establishes no upper wall-clock bound. Two earlier notes in this
 repository are withdrawn: one read the counter as per-frame and gave ~400 s, the
 other called 120 s an upper bound.
+
+---
+
+## GBP-VIDEO-002 — first long-run physical observation (2026-09-16)
+
+Source for every entry below: the single physical run of `GBP-VIDEO-002`,
+build `vstate-0001`, commit `e8f3a69e3ba190daf5db6954015a6fdae9aef6d7`, DOL
+SHA-256 `c73d49fa…19b9`, GameCube + Game Boy Player, **no Game Pak**. Raw
+inputs `logs/GBP-VIDEO-002_vstate-0001.log` (81 380 B, SHA-256 `4f30d1cd…6cfc`)
+and `logs/GBP-VIDEO-002_vstate-0001-vstate.bin` (2 432 396 B, SHA-256
+`6406f244…2639`), preserved in `captures/local/` and derived into
+`captures/fixtures/hw-gamecube-gbp-2026-09-16-vstate-0001*`. Every number was
+recomputed from those bytes, not copied from the run's own summary.
+
+### GBP-HW-074 — 51 751 consecutive admitted service cycles on one installed handler — FACT
+
+The repeated drained service ran **51 751 cycles in 8.187 s** through a single
+installed 003B one-shot handler: 51 751 unmasks, 51 751 ISR entries, **0
+reentry**, 51 750 ACKs and 51 750 re-arms completed, **0 main-loop W1C**, 0
+teardown W1C, 0 DMA timeouts, 0 busy refusals, 0 uncertain writes, 0 counter
+overflows, 208 298 transfers and 52 981 whole-block reads totalling
+212 014 848 bytes. The 51 751st cycle is the one that aborted (GBP-HW-083);
+every cycle before it completed in full. GBP-VIDEO-001 had shown 209 cycles;
+this extends the observation by two orders of magnitude.
+
+### GBP-HW-075 — the source pattern over 51 750 serviced causes — FACT
+
+Derived from the counters: **AUDIO-only 32 237, VIDEO-only 18 282, both
+1 231**, giving 33 468 AUDIO and 19 513 VIDEO drains. AUDIO outnumbers VIDEO
+**1.715 : 1**. Only 2.4 % of causes carried both sources. This is a
+measurement of this run, not a device property.
+
+### GBP-HW-076 — 489 frame intervals, 477 of exactly 40 VIDEO blocks — FACT
+
+Segmentation on the Start-up Disc predicate produced **490 boundaries** over
+19 513 VIDEO blocks and 489 intervals: **477 of exactly 40 blocks**, one of 30,
+four of 34, seven of 38. No boundary was ever synthesised and no interval was
+corrected. This raises "40 blocks per frame" from a reference constant to a
+directly and repeatedly observed physical interval.
+
+### GBP-HW-077 — both frame-start predicates agreed on all 19 513 blocks — FACT
+
+GBI's predicate (bit 7 of bytes 0 AND 1) and the Disc's (bit 7 of byte 1) each
+gave **490 boundaries** and **zero disagreements** over 19 513 physical blocks.
+Together with GBP-VIDEO-001's 88 blocks that is 19 601 blocks with no observed
+divergence.
+
+### GBP-HW-078 — frame cadence 59.727 Hz in this run — FACT
+
+Over **465 consecutive pairs of complete 40-block frames**: median 678 084
+ticks = **16.7428 ms = 59.727 Hz**; min 16.6743 ms, max 16.8116 ms, p5 16.6788,
+p95 16.8069. GBP-VIDEO-001's single interval gave 59.547 Hz. The two runs differ
+by 0.30 %. Reported as two measurements; no universal frequency is claimed.
+
+### GBP-HW-079 — the AGB reaches a structured screen without a Game Pak — FACT
+
+The stream began uniform (frames 1..29, 0.480 s), changed structurally at
+**frame 30, 0.5014 s after capture start**, animated through 156 distinct
+signature vectors, and settled. Seven states were stable by the probe's own
+threshold of three identical consecutive complete frames:
+
+| frames | n | start | duration | content blocks |
+|---|---|---|---|---|
+| 1..29 | 29 | 0.016 s | 0.480 s | none (uniform) |
+| 187..189 | 3 | 3.130 s | 0.045 s | 12..19 |
+| 196..199 | 4 | 3.281 s | 0.062 s | 12..19 |
+| 200..204 | 5 | 3.348 s | 0.078 s | 12..19 |
+| 205..209 | 5 | 3.431 s | 0.078 s | 12..19 |
+| 210..214 | 5 | 3.515 s | 0.078 s | 12..19 |
+| 215..488 | **274** | 3.599 s | **4.582 s** | 12..19 |
+
+This answers the observational half of U-GBP-031: a structured state does reach
+the VIDEO stream of a session without a cartridge, about half a second after the
+AGB is started.
+
+### GBP-HW-080 — the settled state matches GBI reference table B in all forty blocks — FACT
+
+The vector held for frames 215..488 is, block for block,
+`7f0fff10`, `ff0fff0f` ×11, then `d7447c83 86c6c4c5 cc9a6539 fe7375d1 45e5ce86
+a11718b6 56c6f385 f703c183` at blocks 12..19, then `ff0fff0f` ×20. Compared at
+analysis time against the private inputs (read from `input/extracted/`, never
+stored here):
+
+| reference | exact 40/40 matches | best partial |
+|---|---|---|
+| **GBI table B** | **274 frames, 215..488, 4.5823 s, contiguous** | 40/40 |
+| GBI table A | none | 28/40 |
+| Start-up Disc embedded frame | none | 27/40 |
+
+This is the first physical observation of the Game Boy Player producing a frame
+that a reference program's recognition machinery would accept. It also confirms
+from hardware the static finding that table B's content occupies blocks 12..19
+while table A and the Disc's frame occupy 14..25.
+
+### GBP-HW-081 — the physical geometry, reconstructed and legible — FACT
+
+Reading the preserved raw frames exactly as both references do — 0xF00 bytes as
+4 raster lines of 240 pixels of 4 bytes, pixel = **byte 1 : byte 3**, bit 15 the
+frame marker, 40 blocks per frame — produces a **legible, animated "GAME BOY"
+logotype at 240 × 160**. The marker was set on block 0 and on no other block of
+every reconstructed frame. A wrong line count, pixel count, block count, block
+order or byte pick could not produce coherent readable text. This promotes the
+geometry from the references' constants to a physical fact: 0xF00 = 960 semantic
+pixels, 4 lines per block, 240 pixels per line, 40 blocks and 160 lines per
+frame, blocks in ascending order from the frame marker.
+
+### GBP-HW-082 — the signature cost on real hardware — FACT
+
+19 513 samples on the 40.5 MHz time base: **min 777 ticks (19.185 µs)**, max 868
+ticks (21.432 µs), mean 778 ticks (19.212 µs). The histogram reports median and
+p95 as the upper bound of bucket 241 (ticks 760..823), i.e. **≤ 20.321 µs with a
+64-tick, 1.58 µs resolution — an approximation, not an exact quantile**; the
+sampled per-cycle values (min 777, median 778, max 808) place the true median at
+about 19.2 µs. The cost is **0.121 % of a frame period** and 4.85 % of one
+inter-block gap. In the sampled cycles ACK→REARM measured 20.395 µs median with
+a VIDEO block and 0.272 µs without: the signature accounts for the entire
+difference and runs only where a block arrived. The design's pre-run estimate was
+"about 20 µs".
+
+### GBP-HW-083 — one semantic disagreement in the IRQ register after 51 750 clean reads — FACT
+
+At cycle 51 750 the ISR fired normally (latency 34 ticks, the run's usual value;
+INTSR bit 13 set at entry, cleared by the handler's single W1C), the 32-byte read
+of the IRQ window returned `rc=ok`, and the two semantic interpretations of that
+block disagreed. The probe treats that as fatal: it stopped before any ACK or
+re-arm. The two readings are
+`gbp_irq_value_disc` = bytes 0x1D and 0x1F, and `gbp_irq_value_gbi` = a majority
+vote over the eight replicas at offsets ≡1 and ≡3 mod 4. **The offending 32
+bytes, the two conflicting values and the pending source were not recorded**
+(U-GBP-032).
+
+### GBP-HW-084 — replica deviations in the IRQ window have always landed on discarded bytes — FACT
+
+Across **353 IRQ-window reads whose bytes are recorded in every physical log to
+date** (003A, 003B, 004, AVSVC, VIDEO-001, VIDEO-002) there are **220 byte-level
+deviations** from the majority replica group, and **every one falls on an offset
+≡ 0 or ≡ 2 mod 4** — bytes that neither semantic reading consumes. Zero landed on
+a consumed byte. Two such absorbed deviations appear in this run's own log,
+including one at the teardown's IRQSTOPPRE read. The disagreement of GBP-HW-083
+requires a deviation on a consumed byte, which no logged read has ever shown;
+but only 29 of this run's 51 751 reads had their bytes recorded, so the logged
+sample cannot establish a rate.
+
+### GBP-HW-085 — the episode raw store filled and monitoring continued — FACT
+
+Nine episodes were opened; four received descriptors and raw frames, and from the
+fifth on `episode_store_full` was set and `episodes_not_preserved` counted five.
+All nine were still classified (seven stable, two capped at
+EPISODE_MAX_FRAMES = 60). No earlier episode was overwritten: the four
+descriptors hold 15 raw frames and **all 600 preserved blocks reproduce their
+stored signatures exactly**. The run did not stop for this. The design's policy B
+behaved as specified on hardware.
+
+### GBP-HW-086 — clean teardown after a service failure — FACT
+
+After the abort: CONTROL restored 0x8C → 0x90 with a confirming readback; the IRQ
+window still showed `0x0500` pending (the cause that was never acknowledged); the
+stop word `0x0500 | 0x8AAA = 0x8FAA` was written and read back as `0x8AAA` with
+its masks and bit 15 set; CLEANUPCHK found INTSR bit 13 already clear so **no
+teardown W1C was needed**; the handler was restored once; INTMR bit 13 read 0;
+AR_INFO restored to 0x0043. The FINAL state is byte-identical to the one
+GBP-VIDEO-001 and GBP-AV-SERVICE-001 reached: `arinfo=0043 intsr=00010000
+intmr=000001fa control=00 irq=9090`.
+
+### GBP-HW-087 — the OGBPSEQ1 v2 sidecar survived a real multi-megabyte streamed save — FACT
+
+2 432 396 bytes written after the teardown in 64 KiB chunks. Recomputed on
+analysis: header CRC `947083c4` and total CRC `9bef714b` both verify, every
+section is contiguous and monotonic with zero overlap (489 frames × 192, 209
+events × 64, 4 episodes × 512, 81 cycles × 128, 15 × 40 × 0xF00 of raw, 2 ×
+0x1000 of AUDIO), the strict parser accepts it, and the log recorded 621 of 1024
+ring lines with **0 dropped and 0 truncated**.
