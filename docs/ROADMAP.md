@@ -200,7 +200,7 @@ the AGB idle screen (an offline oracle without a cartridge). Short sequence:
   observation of the same service loop, and with the current fatal policy the same
   abort would end it at an arbitrary point.
 * **GBP-VIDEO-002-R3** (build `vstate-0003`): the intervening step, **designed and
-  hardened 2026-09-17, not implemented**. Makes a disagreement confined to the two
+  hardened 2026-09-17, IMPLEMENTED 2026-09-17, not physically executed**. Makes a disagreement confined to the two
   serviced source bits a counted, preserved, nonfatal anomaly serviced from GBI's
   bitwise majority; keeps every other difference fatal, and keeps the independent
   `anomaly_unexpected_source` guard firing on the authoritative value whatever the

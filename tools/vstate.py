@@ -8,7 +8,8 @@
     tools/vstate.py cycles     <file>            the bounded cycle records
     tools/vstate.py intervals  <file>            the observed boundary-to-boundary interval histogram
     tools/vstate.py signatures <file> [--frame N] one frame's 40 signatures
-    tools/vstate.py diag       <file>            the semantic-disagreement diagnostic, explained (v3)
+    tools/vstate.py diag       <file>            the semantic-disagreement diagnostics, explained (v3/v4)
+    tools/vstate.py semantic   <file>            the aggregate semantic-coherence block (v4)
     tools/vstate.py oracle     <file> [--refdir D] the OFFLINE reference classification per episode
     tools/vstate.py extract    <file> <outdir>   the preserved raw frames and AUDIO blocks
     tools/vstate.py json       <file>            everything except the raw bytes
@@ -37,9 +38,37 @@ import sys
 
 MAGIC = b"OGBPSEQ1"
 FOOTER = b"OGBPEND1"
-VERSIONS = (2, 3)          # 2 = the frozen physical format, 3 = the instrumented build
-VERSION = 3
-DIAG_REC = 96
+VERSIONS = (2, 3, 4)       # 2 and 3 are frozen physical formats; 4 is what vstate-0003 writes
+VERSION = 4
+DIAG_REC = 96              # the v3 record
+DIAG_REC_V4 = 160          # the v4 record: the v3 one plus a 64-byte follow-up block
+MAX_DIAGS = 256
+SEMANTIC_SIZE = 1024
+SEMANTIC_TAG = 0x4F475342  # "OGSB"
+SEMANTIC_VERSION = 1
+DIAGF_ALL = 0x0001         # bit 0 = store_capped
+RECORD_FLAGS_ALL = 0x00FF
+SRC_MASK = 0x0555
+AV_MASK = 0x0500
+GAP_NONE = 0xFFFFFFFF
+GAP_SLOT_BITS = (0x0001, 0x0004, 0x0010, 0x0040, 0x0100, 0x0400)
+CLASS_NAMES = {1: "source_serviced", 2: "source_other", 3: "non_source"}
+FU_NAMES = {0: "pending", 1: "source_present_next", 2: "source_absent_next",
+            3: "no_next_cause", 4: "unknown"}
+FUR_NAMES = {0: "-", 1: "observational_site", 2: "run_aborted", 3: "not_applicable",
+             4: "internal_condition"}
+RECORD_FLAG_NAMES = ((0x0001, "followup_filled"), (0x0002, "payload_valid"),
+                     (0x0004, "payload_second_omitted"), (0x0008, "frame_quarantined"),
+                     (0x0010, "source_deferred"), (0x0020, "service_incomplete"),
+                     (0x0040, "ack_written"), (0x0080, "rearm_written"))
+SEM_COUNTERS = ("disagreements_total", "source_serviced", "source_other", "non_source",
+                "disc_extra_events", "majority_extra_events", "both_direction_events",
+                "majority_extra_video_services", "majority_extra_audio_services",
+                "frames_quarantined", "frames_source_deferred", "diagnostics_preserved",
+                "diagnostics_not_preserved", "followup_present", "followup_absent",
+                "followup_no_next", "followup_unknown", "observational_disagreements",
+                "service_selecting_disagreements", "payload_diagnostics_captured",
+                "service_incomplete_events")
 HEADER_SIZE = 0x200
 FOOTER_SIZE = 12
 FRAME_REC = 192
@@ -129,12 +158,31 @@ def parse(data):
             raise ValueError("unexpected %s record size %u" % (what, _u16(data, off)))
     if crc32(data[:HEADER_SIZE - 4]) != _u32(data, 0x1FC):
         raise ValueError("header CRC mismatch")
+    d["off_semantic"] = d["semantic_size"] = d["diag_flags"] = 0
     if d["version"] == 2:
         # v2 is FROZEN: the whole area is reserved and must be zero, exactly as the physical
         # sidecar of 2026-09-16 has it.
         if any(data[0x1E0:0x1FC]):
             raise ValueError("v2 reserved header bytes are not zero")
         d["off_diag"] = d["diag_count"] = d["diag_rec_size"] = 0
+    elif d["version"] == 4:
+        # v4: every v3 field keeps its meaning and its offset; the block is new.
+        d["off_diag"] = _u32(data, 0x1E0)
+        d["diag_count"] = _u32(data, 0x1E4)
+        d["diag_rec_size"] = _u16(data, 0x1E8)
+        d["diag_flags"] = _u16(data, 0x1EA)
+        d["off_semantic"] = _u32(data, 0x1EC)
+        d["semantic_size"] = _u32(data, 0x1F0)
+        if any(data[0x1F4:0x1FC]):
+            raise ValueError("v4 reserved header bytes are not zero")
+        if d["diag_count"] > MAX_DIAGS:
+            raise ValueError("at most %u diagnostic records (%u claimed)" % (MAX_DIAGS, d["diag_count"]))
+        if d["diag_rec_size"] != DIAG_REC_V4:
+            raise ValueError("unexpected diagnostic record size %u in a v4 file" % d["diag_rec_size"])
+        if d["semantic_size"] != SEMANTIC_SIZE:
+            raise ValueError("unexpected semantic block size %u" % d["semantic_size"])
+        if d["diag_flags"] & ~DIAGF_ALL:
+            raise ValueError("unknown diag_flags bit set (%04x)" % d["diag_flags"])
     else:
         d["off_diag"] = _u32(data, 0x1E0)
         d["diag_count"] = _u32(data, 0x1E4)
@@ -217,6 +265,13 @@ def parse(data):
         if need != d["off_diag"]:
             raise ValueError("diagnostic offset does not follow the cycle table")
         need += d["diag_count"] * DIAG_REC
+    elif d["version"] == 4:
+        if need != d["off_semantic"]:
+            raise ValueError("semantic block does not follow the cycle table")
+        need += SEMANTIC_SIZE
+        if need != d["off_diag"]:
+            raise ValueError("diagnostic array does not follow the semantic block")
+        need += d["diag_count"] * DIAG_REC_V4
     if need != d["off_video_raw"]:
         raise ValueError("raw VIDEO offset does not follow the %s" % ("diagnostic section" if d["version"] == 3 else "cycle table"))
     if d["cyc_first_n"] + d["cyc_last_n"] + d["cyc_anomaly_n"] + d["cyc_episode_n"] != d["cycle_count"]:
@@ -234,6 +289,13 @@ def parse(data):
     d["episodes"] = [_episode(data, d["off_episodes"] + i * EPISODE_REC) for i in range(d["episode_count"])]
     d["cycles"] = [_cycle(data, d["off_cycles"] + i * CYCLE_REC) for i in range(d["cycle_count"])]
     d["diag"] = _diag(data, d["off_diag"]) if d["version"] == 3 and d["diag_count"] else None
+    d["diags"] = []
+    d["semantic"] = None
+    if d["version"] == 4:
+        d["semantic"] = _semantic(data, d["off_semantic"])
+        d["diags"] = [_diag_v4(data, d["off_diag"] + i * DIAG_REC_V4) for i in range(d["diag_count"])]
+        if d["diags"]:
+            d["diag"] = d["diags"][0]
     raw = 0
     for ep in d["episodes"]:
         for k in range(ep["raw_frames"]):
@@ -331,6 +393,105 @@ def _diag(b, o):
     return d
 
 
+def _diag_v4(b, o):
+    """One v4 record: the v3 half at the same offsets plus the follow-up block."""
+    d = _diag(b, o)
+    d["delta"] = _u16(b, o + 0x60)
+    d["disc_extra_sources"] = _u16(b, o + 0x62)
+    d["majority_extra_sources"] = _u16(b, o + 0x64)
+    d["classification_code"] = _u16(b, o + 0x66)
+    d["classification"] = CLASS_NAMES.get(d["classification_code"], "?")
+    d["authoritative_value"] = _u16(b, o + 0x68)
+    d["ack_value"] = _u16(b, o + 0x6A)
+    d["service_selected"] = _u16(b, o + 0x6C)
+    d["record_flags"] = _u16(b, o + 0x6E)
+    d["t_ack"] = _u64(b, o + 0x70)
+    d["t_rearm"] = _u64(b, o + 0x78)
+    d["t_next_cause"] = _u64(b, o + 0x80)
+    d["next_pending_gbi"] = _u16(b, o + 0x88)
+    d["next_pending_disc"] = _u16(b, o + 0x8A)
+    d["followup_state_code"] = b[o + 0x8C]
+    d["followup_state"] = FU_NAMES.get(d["followup_state_code"], "?")
+    d["followup_reason_code"] = b[o + 0x8D]
+    d["followup_reason"] = FUR_NAMES.get(d["followup_reason_code"], "?")
+    d["payload_source"] = _u16(b, o + 0x8E)
+    d["payload_crc32"] = _u32(b, o + 0x90)
+    d["payload_first_word"] = _u32(b, o + 0x94)
+    d["gap_min_before_ticks"] = _u32(b, o + 0x98)
+    d["gap_count_before"] = _u16(b, o + 0x9C)
+    if any(b[o + 0x9E:o + DIAG_REC_V4]):
+        raise ValueError("v4 record reserved bytes are not zero")
+    # The same rules the C parser applies, so neither can accept what the other refuses.
+    if d["record_flags"] & ~RECORD_FLAGS_ALL:
+        raise ValueError("unknown record flag bit set (%04x)" % d["record_flags"])
+    if d["classification_code"] not in CLASS_NAMES:
+        raise ValueError("invalid classification %u" % d["classification_code"])
+    if d["followup_state_code"] == 0 or d["followup_state_code"] not in FU_NAMES:
+        raise ValueError("invalid follow-up state %u (FU_PENDING may never be serialized)"
+                         % d["followup_state_code"])
+    if d["followup_reason_code"] not in FUR_NAMES:
+        raise ValueError("invalid follow-up reason %u" % d["followup_reason_code"])
+    if d["payload_source"] not in (0, 0x0100, 0x0400):
+        raise ValueError("invalid payload source %04x" % d["payload_source"])
+    if (d["record_flags"] & 0x0002) and d["payload_source"] == 0:
+        raise ValueError("payload_valid with no payload source")
+    if (d["record_flags"] & 0x0001) and d["followup_state_code"] not in (1, 2):
+        raise ValueError("followup_filled with state %s" % d["followup_state"])
+    if d["gap_count_before"] == 0 and d["gap_min_before_ticks"] != GAP_NONE:
+        raise ValueError("gap sentinel expected when gap_count_before is 0")
+    d["flag_names"] = [n for m, n in RECORD_FLAG_NAMES if d["record_flags"] & m]
+    # PER SOURCE BIT, derived from two stored fields and never from the aggregate
+    # state: an event can omit more than one source, and "present" must never be
+    # read as "all of them came back" unless it really was all of them.
+    next_sources = d["next_pending_gbi"] & SRC_MASK
+    d["followup_present_sources"] = d["disc_extra_sources"] & next_sources
+    d["followup_absent_sources"] = d["disc_extra_sources"] & ~next_sources & 0xFFFF
+    d["followup_partial"] = bool(d["followup_present_sources"]) and bool(d["followup_absent_sources"])
+    # derived, never stored: a second source of truth can go inconsistent
+    d["next_delta"] = d["next_pending_gbi"] ^ d["next_pending_disc"]
+    d["rearm_to_next_ticks"] = (d["t_next_cause"] - d["t_rearm"]
+                                if (d["record_flags"] & 0x0080) and d["followup_state_code"] in (1, 2)
+                                else None)
+    return d
+
+
+def _semantic(b, o):
+    """The fixed 1024-byte aggregate block."""
+    if _u32(b, o) != SEMANTIC_TAG:
+        raise ValueError("semantic block tag missing")
+    if _u16(b, o + 4) != SEMANTIC_VERSION:
+        raise ValueError("unsupported semantic block version %u" % _u16(b, o + 4))
+    flags = _u16(b, o + 6)
+    if flags & ~DIAGF_ALL:
+        raise ValueError("unknown semantic block flag set (%04x)" % flags)
+    if any(b[o + 0x05C:o + 0x070]):
+        raise ValueError("semantic block reserved bytes are not zero")
+    m = {"store_capped": bool(flags & 0x0001)}
+    for i, name in enumerate(SEM_COUNTERS):
+        m[name] = _u32(b, o + 0x008 + 4 * i)
+    m["gaps"] = []
+    for i, bit in enumerate(GAP_SLOT_BITS):
+        g = o + 0x070 + 24 * i
+        if _u16(b, g) != bit:
+            raise ValueError("gap slot %u describes %04x, expected %04x" % (i, _u16(b, g), bit))
+        if any(b[g + 2:g + 4]) or any(b[g + 0x14:g + 0x18]):
+            raise ValueError("gap slot reserved bytes are not zero")
+        slot = {"source": bit, "count": _u32(b, g + 4), "min_ticks": _u32(b, g + 8),
+                "max_ticks": _u32(b, g + 12), "last_ticks": _u32(b, g + 16)}
+        if slot["count"] == 0 and slot["min_ticks"] != GAP_NONE:
+            raise ValueError("gap slot %04x has no samples but a minimum" % bit)
+        m["gaps"].append(slot)
+    m["delta_hist"] = [_u32(b, o + 0x100 + 4 * i) for i in range(64)]
+    m["disc_extra_hist"] = [_u32(b, o + 0x200 + 4 * i) for i in range(64)]
+    m["majority_extra_hist"] = [_u32(b, o + 0x300 + 4 * i) for i in range(64)]
+    return m
+
+
+def hist_index(v):
+    """The six source bits compressed to six index bits: source bit 2k -> index bit k."""
+    return sum(((v >> (2 * k)) & 1) << k for k in range(6))
+
+
 def read_disc(raw):
     """The Start-up Disc reading: the LAST replica, bytes 0x1D and 0x1F. Nothing else."""
     return (raw[0x1D] << 8) | raw[0x1F]
@@ -393,7 +554,84 @@ def explain_diag(d):
     return out
 
 
+def diag_text_v4(d):
+    """Every preserved record of a v4 file, plus the aggregates. States what was
+    observed; asserts no physical cause."""
+    out = []
+    m = d["semantic"]
+    out.append("semantic coherence: %u disagreement(s) — %u source_serviced, %u source_other, %u non_source"
+               % (m["disagreements_total"], m["source_serviced"], m["source_other"], m["non_source"]))
+    out.append("  directions: %u disc-extra, %u majority-extra, %u both; services: %u VIDEO, %u AUDIO"
+               % (m["disc_extra_events"], m["majority_extra_events"], m["both_direction_events"],
+                  m["majority_extra_video_services"], m["majority_extra_audio_services"]))
+    out.append("  frames: %u quarantined, %u marked source-deferred" % (m["frames_quarantined"],
+                                                                        m["frames_source_deferred"]))
+    out.append("  records: %u preserved, %u not preserved%s"
+               % (m["diagnostics_preserved"], m["diagnostics_not_preserved"],
+                  "  (STORE CAPPED)" if m["store_capped"] else ""))
+    out.append("  follow-up: %u present, %u absent, %u no-next, %u unknown"
+               % (m["followup_present"], m["followup_absent"], m["followup_no_next"],
+                  m["followup_unknown"]))
+    gaps = [g for g in m["gaps"] if g["count"]]
+    if gaps:
+        out.append("  cause->cause gaps measured in this run (data, NOT a bound on anything):")
+        for g in gaps:
+            out.append("    source %04x  n=%-6u min=%-10u max=%-10u last=%u"
+                       % (g["source"], g["count"], g["min_ticks"], g["max_ticks"], g["last_ticks"]))
+    out.append("")
+    for i, g in enumerate(d["diags"]):
+        out.append("record %u: cycle %u, read %s, class %s, t=%#x" % (i, g["cycle"], g["read_kind"],
+                                                                      g["classification"], g["t"]))
+        out.append("  raw 32 bytes: %s" % "".join("%02x" % b for b in g["raw"]))
+        out.append("  disc=%04x gbi=%04x delta=%04x  disc-extra=%04x majority-extra=%04x"
+                   % (g["disc_value"], g["gbi_value"], g["delta"], g["disc_extra_sources"],
+                      g["majority_extra_sources"]))
+        out.append("  authoritative=%04x ack=%s serviced=%04x  flags: %s"
+                   % (g["authoritative_value"],
+                      "%04x" % g["ack_value"] if g["record_flags"] & 0x0040 else "not written",
+                      g["service_selected"], ", ".join(g["flag_names"]) or "none"))
+        e = explain_diag(g)
+        out.append("  recomputed from the bytes: disc=%04x gbi=%04x  consistent: %s"
+                   % (e["recomputed_disc"], e["recomputed_gbi"], e["consistent"]))
+        if not e["consistent"]:
+            out.append("  INCONSISTENT: do not use this record until that is explained.")
+        out.append("  follow-up: %s%s" % (g["followup_state"],
+                                          "" if g["followup_reason"] == "-" else " (%s)" % g["followup_reason"]))
+        if g["followup_state_code"] in (1, 2):
+            gap = ("%u" % g["gap_min_before_ticks"]) if g["gap_count_before"] else "no statistic yet"
+            ratio = ""
+            if g["gap_count_before"] and g["rearm_to_next_ticks"]:
+                ratio = "  (%.1fx the smallest gap seen so far)" % (
+                    g["gap_min_before_ticks"] / float(g["rearm_to_next_ticks"]))
+            out.append("    the omitted source %s in the next cause; re-arm -> next cause = %s ticks%s"
+                       % ("WAS present" if g["followup_state_code"] == 1 else "was NOT present",
+                          g["rearm_to_next_ticks"], ratio))
+            out.append("    smallest gap previously measured for that source: %s ticks (n=%u)"
+                       % (gap, g["gap_count_before"]))
+            out.append("    PRESENT means EVERY omitted source was in the next authoritative set;")
+            out.append("    anything less is ABSENT, which includes the partial case.")
+            out.append("    per source bit: present %04x, absent %04x%s"
+                       % (g["followup_present_sources"], g["followup_absent_sources"],
+                          "   <-- PARTIAL: some came back and some did not"
+                          if g["followup_partial"] else ""))
+            out.append("    presence proves the source was observed AFTER the re-arm. It does not")
+            out.append("    prove it is the same assertion, and this tool does not claim it is.")
+            out.append("    the next read's own Disc value was %04x; it is preserved but never"
+                       % g["next_pending_disc"])
+            out.append("    decides this, and a next read of its own fatal class must be read")
+            out.append("    with its own classification in hand.")
+        if g["record_flags"] & 0x0002:
+            out.append("  payload served only by the majority: source %04x crc32 %08x first word %08x"
+                       % (g["payload_source"], g["payload_crc32"], g["payload_first_word"]))
+            out.append("    SUSPECT: this data must not be used as scientific evidence.")
+        out.append("")
+    out.append("This describes WHAT was observed. It asserts no physical cause: U-GBP-033 stays open.")
+    return "\n".join(out)
+
+
 def diag_text(d):
+    if d["version"] == 4:
+        return diag_text_v4(d)
     if not d.get("diag"):
         if d["version"] != 3:
             return ("this file is format %u: the semantic-disagreement diagnostic exists only in "
@@ -679,6 +917,12 @@ def main(argv=None):
             print("  block %2u  %08x" % (k, f["sig"][k]))
     elif cmd == "diag":
         print(diag_text(d))
+    elif cmd == "semantic":
+        if d["version"] != 4:
+            print("this file is format %u: the semantic-coherence block exists only in format 4"
+                  % d["version"])
+        else:
+            print(json.dumps(d["semantic"], indent=1))
     elif cmd == "oracle":
         refdir = argv[argv.index("--refdir") + 1] if "--refdir" in argv else None
         print(json.dumps(oracle(d, refdir), indent=1))

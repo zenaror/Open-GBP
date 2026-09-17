@@ -4351,7 +4351,7 @@ EVIDENCE GBP-HW-06x, VIDEO_PATH.md §6–8 updates, `docs/protocol/VIDEO.md`
 once physical, REGISTERS.md §2.2 — all of them only after a physical run.
 
 ---
-### GBP-VIDEO-002-R3 (build `vstate-0003`) — service the IRQ window under semantic disagreement without ending the run — DESIGNED 2026-09-17, HARDENED 2026-09-17, NOT IMPLEMENTED, NOT PHYSICALLY EXECUTED
+### GBP-VIDEO-002-R3 (build `vstate-0003`) — service the IRQ window under semantic disagreement without ending the run — DESIGNED and HARDENED 2026-09-17, IMPLEMENTED 2026-09-17, NOT PHYSICALLY EXECUTED
 
 Two physical runs of GBP-VIDEO-002 ended on the same condition: one 32-byte read
 of the IRQ window whose eight replicas did not all carry the same value. The
@@ -4360,8 +4360,15 @@ characterised. This revision exists to make that condition survivable **without
 losing evidence and without inventing semantics**, so that the 120 s scientific
 window and, after it, GBP-VIDEO-003 become reachable.
 
-Nothing below is implemented. Everything below is a design to be reviewed,
-audited and given its own physical candidate.
+**Implementation status, 2026-09-17.** The design below is now implemented in
+`src/gbp/gbp_vstate.{h,c}`, `src/gbp/gbp_vstate_probe.c`,
+`src/gbp/gbp_vstatedump.{h,c}`, `poc/gbp-video-state-probe/` (Build ID
+`vstate-0003`) and `tools/vstate.py`, with the host battery in
+`tests/unit/test_gbp_video_state.c` and `tests/host/test_vstate.py`. It has
+**not** been executed on hardware: no observation in this repository comes from
+it, and none of its synthetic scenarios is evidence about the device. The
+measured cost is in R3.15. What follows is the specification the implementation
+must match, and it stays the authority.
 
 #### R3.1 The masks, taken from the versioned contract — not invented here
 
@@ -4523,11 +4530,36 @@ The runtime records **what was observed**, never an inference about identity:
 
 ```text
 FU_PENDING                 the record exists; the next cycle has not happened yet
-FU_SOURCE_PRESENT_NEXT     the omitted source is present in the next cause
-FU_SOURCE_ABSENT_NEXT      the omitted source is not in the next cause
+FU_SOURCE_PRESENT_NEXT     EVERY omitted source was present in the next cause
+FU_SOURCE_ABSENT_NEXT      at least one omitted source was NOT present, which
+                           includes the partial case
 FU_NO_NEXT_CAUSE           the run ended before a next cause
 FU_UNKNOWN                 the follow-up could not be determined (documented reason)
 ```
+
+**An event can omit more than one source, and the aggregate state must never be
+read as more than it says.** `FU_SOURCE_PRESENT_NEXT` means *all* of them were
+back; anything less is `FU_SOURCE_ABSENT_NEXT`, which therefore covers "none came
+back" and "some came back" alike. That is deliberate: the aggregate can never
+over-claim recovery. The exact split is always derivable from two stored fields
+and is never guessed:
+
+```text
+present = disc_extra_sources &  (next_pending_gbi & SRC_MASK)
+absent  = disc_extra_sources & ~(next_pending_gbi & SRC_MASK)
+```
+
+`tools/vstate.py` prints both masks and flags the partial case explicitly, and the
+GBP-VIDEO-003 release analysis (§R3.21) must read those masks, **not** the
+aggregate state alone.
+
+**Which authority the comparison uses.** The next read's *authoritative source
+set* — `next_pending_gbi & SRC_MASK`, the same reading the service loop acts on.
+The next read's Disc value is stored beside it and is never consulted for this
+decision: mixing the two authorities inside one series is the conflation this
+whole policy exists to avoid. When the next read is itself `SOURCE_OTHER` or
+`NON_SOURCE`, its own classification must be read alongside — the record preserves
+both values so that is always possible.
 
 There is **no runtime classification derived from a divisor of the observed gap**,
 no `min_observed_gap / 8`, and no label asserting that a source "could not be
@@ -4710,9 +4742,54 @@ estimated_R3_increment        ~42 020 B  the table above, including an explicitl
                                          estimated bookkeeping allowance
 estimated_total_bss         ~7 514 408 B ≈ 7.166 MiB, BEFORE the linker's alignment
                                          padding. AN ESTIMATE, not a measurement
-measured_total_bss_after_implementation   to be taken from the linker map; the
-                                         implementation must report the real number and
-                                         this design must not be read as predicting it
+MEASURED after implementation (2026-09-17), reconciled symbol by symbol against a
+baseline built from commit `caacbba` with the same toolchain in the same session:
+
+```text
+symbol            vstate-0002   vstate-0003     delta   what it is
+diag_store                  0        40 960   +40 960   256 x 160, the bounded store
+sb.0                        0         1 024   + 1 024   the semantic block's staging
+                                                        buffer in gbp_vstatedump_stream
+vstate                  4 248         5 184   +   936   struct gbp_vstate: the aggregate
+                                                        counters, 6 gap slots and 3x64 histograms
+res.2                   6 728         6 744   +    16   struct gbp_vstate_result: the two
+                                                        new provenance fields
+info.0                    504           512   +     8   struct gbp_vstatedump_info: the
+                                                        three new v4 header fields
+hdr.0 -> hdr.1            512           512   +     0   the same 512-byte header buffer,
+                                                        renamed by the compiler
+                                        sum   +42 944
+inter-symbol padding   14 677 B      14 693 B  +    16   measured as (section - Σ symbols)
+                                      TOTAL   +42 960
+.bss                7 472 372     7 515 332   +42 960   exact, no residual
+```
+
+There is no "misc" term: the sum of the symbol deltas plus the measured change in
+inter-symbol padding is the section delta exactly.
+
+**Correction.** An earlier report of this project gave the vstate-0002 baseline as
+`.bss = 7 472 388 B`. Rebuilding commits `8cbb28d` and `caacbba` now, with the same
+command, both give **7 472 372 B**; the 7 472 388 figure was 16 bytes off and is
+superseded. The increment is therefore 42 944 B (41.9 KiB), not 42 928.
+
+The increment exceeds the design estimate of ~42 020 B by 940 bytes, which is the
+allowance this design labelled `estimated bookkeeping overhead`; the largest single
+item inside it is the 1 024-byte staging buffer, whose purpose is documented at its
+definition in `gbp_vstatedump_stream()` — write-only, derived from `st->sem`
+immediately before the emit, touched only after the teardown, never a second source
+of truth for any counter. The linker map is the authority and
+the estimate is not retrofitted to match it.
+
+Largest stack frames, measured, against the same baseline:
+
+```text
+gbp_vstate_probe_run        568 B -> 568 B   the service loop did NOT grow
+gbp_vstate_diag_open            - ->  96 B   only on a disagreement
+gbp_vstatedump_stream       840 B -> 872 B   the 160-byte record buffer
+gbp_vstatedump_parse_v4     920 B -> 928 B   (as parse_v3 before; now a 24-byte forwarder)
+```
+
+Nothing grows with the number of disagreements.
 MEM1_headroom               unchanged in kind: see the GBP-VIDEO-002 memory note above.
                                          R3 moves the resident stores by ~0.61 % and
                                          `.bss` by ~0.56 %; neither is near any limit
@@ -4724,6 +4801,21 @@ occurrences (1 in 518 deliveries) 256 records would cover the first ~132 600
 deliveries, about 21 s of a 120 s run, after which the counters continue alone; at
 the sparser (1 in 51 751) a full 120 s run would produce about 14. Nothing is
 stored per normal delivery.
+
+#### R3.15b Events, log lines and the report are bounded independently of the store
+
+A semantic disagreement emits **no event into the event store**. The only
+disagreement event in this runtime is `EV_PREDICATE_DISAGREEMENT`, which belongs
+to the frame-start predicates and is bounded by blocks, not by semantic events.
+This is deliberate and normative: a nonfatal condition that can occur on a large
+fraction of cycles must not be able to fill a 4 096-entry store and convert itself
+into an `event_store_cap` stop. The run of 681 disagreements used 9 event slots.
+
+The ring log prints the first `GBP_VSTATE_DIAG_LOG_MAX` = 8 records in full (four
+lines each) plus one summary line, and nothing else scales with the number of
+disagreements — neither with `diagnostics_preserved` nor with
+`diagnostics_not_preserved`. The aggregate counters and the gap statistics are
+two fixed lines plus at most six. Every record still reaches the sidecar.
 
 #### R3.16 Stop conditions
 

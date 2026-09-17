@@ -52,5 +52,5 @@ none able to read another's file:
 OGBPSEQ1 v1   GBP-VIDEO-001, build video-0001    historical, frozen
 OGBPSEQ1 v2   GBP-VIDEO-002, build vstate-0001   historical, frozen
 OGBPSEQ1 v3   GBP-VIDEO-002, build vstate-0002   historical, frozen
-OGBPSEQ1 v4   GBP-VIDEO-002-R3, vstate-0003      designed, not implemented
+OGBPSEQ1 v4   GBP-VIDEO-002-R3, vstate-0003      implemented, not physically executed
 ```

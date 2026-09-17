@@ -90,6 +90,18 @@ enum gbp_vstate_completeness {
 #define GBP_VSTATE_F_COUNTED         0x0200u   /* its duration was added to valid_observation_elapsed */
 #define GBP_VSTATE_F_TAIL            0x0400u   /* observed during the bounded finalisation tail */
 #define GBP_VSTATE_F_EPISODE_CHANGE  0x0800u   /* the frame that opened an episode */
+#define GBP_VSTATE_F_MAJORITY_EXTRA  0x1000u   /* §R3.12: contains a VIDEO block drained ONLY
+                                                * because the majority carried a source the Disc
+                                                * reading did not. Always set together with
+                                                * F_ANOMALY: quarantined from every scientific use */
+/* Per-block provenance (§R3.11). The store carries no per-block flag word, so
+ * the marker is a one-shot on the state consumed by the next block and then
+ * recorded on the frame that consumed it and in the diagnostic record. */
+#define GBP_VSTATE_B_MAJORITY_EXTRA  0x0001u
+#define GBP_VSTATE_F_SOURCE_DEFERRED 0x2000u   /* §R3.13/§R3.29: a disagreement inside this frame
+                                                * deferred a VIDEO drain. DESCRIPTIVE ONLY - it does
+                                                * not change completeness, fabricate a block, claim
+                                                * recovery, or feed any stop rule */
 #define GBP_VSTATE_F_EPISODE_STABLE  0x1000u   /* the frame that closed an episode as stable */
 
 /* Exactly 192 bytes, by construction and by a compile-time check in the .c. */
@@ -213,7 +225,57 @@ struct gbp_vstate_audio {
  * order of hardware operations. Exactly one record is kept - the first
  * disagreement ends the run, so a second can only mean a defect, and the first
  * is never overwritten. */
-#define GBP_VSTATE_DIAG_REC 96u          /* bytes on the wire and in RAM */
+#define GBP_VSTATE_DIAG_REC 96u          /* the v3 record: still the first 96 bytes of v4 */
+#define GBP_VSTATE_DIAG_REC_V4 160u      /* HARDWARE_TESTS GBP-VIDEO-002-R3 §R3.24 */
+#define GBP_VSTATE_MAX_DISAGREEMENTS 256u /* §R3.15: chosen from footprint, not from a rate */
+
+/* ---- the masks, from docs/protocol/REGISTERS.md §4 (§R3.1) -------------
+ * Exhaustive and disjoint: SRC|ODD|HIGH|BIT15 == 0xFFFF. Nothing here is new
+ * vocabulary; the probes already configure exactly these values. */
+#define GBP_VSTATE_SRC_MASK   0x0555u    /* the six even source slots */
+#define GBP_VSTATE_AV_MASK    0x0500u    /* VIDEO 0x0100 + AUDIO 0x0400: the ONLY drained sources */
+#define GBP_VSTATE_ODD_MASK   0x0AAAu
+#define GBP_VSTATE_HIGH_MASK  0x7000u
+#define GBP_VSTATE_BIT15_MASK 0x8000u
+#define GBP_VSTATE_SRC_VIDEO  0x0100u
+#define GBP_VSTATE_SRC_AUDIO  0x0400u
+
+/* ---- how a disagreement is classified (§R3.2). 0 is NOT a valid stored value. */
+#define GBP_VSTATE_DIS_NONE            0u
+#define GBP_VSTATE_DIS_SOURCE_SERVICED 1u   /* delta confined to AV_MASK -> NONFATAL */
+#define GBP_VSTATE_DIS_SOURCE_OTHER    2u   /* a source slot with no drain -> FATAL */
+#define GBP_VSTATE_DIS_NON_SOURCE      3u   /* odd / bit15 / high differ    -> FATAL */
+
+/* ---- follow-up, purely descriptive (§R3.7). No state is derived from any
+ * divisor of an observed gap, and none asserts that a source could not be new. */
+#define GBP_VSTATE_FU_PENDING            0u  /* never allowed in a serialized file */
+#define GBP_VSTATE_FU_SOURCE_PRESENT_NEXT 1u
+#define GBP_VSTATE_FU_SOURCE_ABSENT_NEXT 2u
+#define GBP_VSTATE_FU_NO_NEXT_CAUSE      3u
+#define GBP_VSTATE_FU_UNKNOWN            4u
+#define GBP_VSTATE_FUR_NONE              0u
+#define GBP_VSTATE_FUR_OBSERVATIONAL     1u
+#define GBP_VSTATE_FUR_RUN_ABORTED       2u
+#define GBP_VSTATE_FUR_NOT_APPLICABLE    3u  /* the majority omitted nothing */
+#define GBP_VSTATE_FUR_INTERNAL          4u
+
+/* ---- record_flags (§R3.24). Bits 8..15 are reserved and must stay zero. */
+#define GBP_VSTATE_DF_FOLLOWUP_FILLED    0x0001u
+#define GBP_VSTATE_DF_PAYLOAD_VALID      0x0002u
+#define GBP_VSTATE_DF_PAYLOAD_SECOND     0x0004u
+#define GBP_VSTATE_DF_FRAME_QUARANTINED  0x0008u
+#define GBP_VSTATE_DF_SOURCE_DEFERRED    0x0010u
+#define GBP_VSTATE_DF_SERVICE_INCOMPLETE 0x0020u
+#define GBP_VSTATE_DF_ACK_WRITTEN        0x0040u
+#define GBP_VSTATE_DF_REARM_WRITTEN      0x0080u
+#define GBP_VSTATE_DF_ALL                0x00FFu
+
+#define GBP_VSTATE_GAP_NONE   0xFFFFFFFFu /* sentinel: no gap has been measured */
+#define GBP_VSTATE_GAP_SAT    0xFFFFFFFEu /* saturation instead of a silent wrap */
+#define GBP_VSTATE_GAP_SLOTS  6u          /* one per SRC_MASK bit, ascending */
+#define GBP_VSTATE_HIST_ENTRIES 64u
+#define GBP_VSTATE_DIAG_LOG_MAX 8u        /* records printed in full in the ring log */       /* the six source bits compressed to six index bits */
+
 /* which read produced the disagreement; the value is recorded, never inferred */
 #define GBP_VSTATE_DIAG_READ_LEAN     0u /* the lean cycle's own IRQ read */
 #define GBP_VSTATE_DIAG_READ_PRESVC   1u /* a verify cycle's PRESVC snapshot */
@@ -242,6 +304,75 @@ struct gbp_vstate_diag {
     uint32_t frame_index;        /* 0x54 frame being assembled */
     uint32_t block_in_frame;     /* 0x58 */
     uint32_t reserved;           /* 0x5C zero */
+    /* ---- the v4 extension, 0x60..0x9F (§R3.24). Every field's validity is
+     * governed by record_flags or followup_state, never by its own value. */
+    uint16_t delta;                  /* 0x60 disc ^ gbi; always valid */
+    uint16_t disc_extra_sources;     /* 0x62 disc & ~gbi & SRC_MASK */
+    uint16_t majority_extra_sources; /* 0x64 gbi & ~disc & SRC_MASK */
+    uint16_t classification;         /* 0x66 GBP_VSTATE_DIS_*, never 0 once stored */
+    uint16_t authoritative_value;    /* 0x68 the composed u16 of §R3.3 */
+    uint16_t ack_value;              /* 0x6A valid iff DF_ACK_WRITTEN */
+    uint16_t service_selected;       /* 0x6C sources actually drained; 0 IS a measurement */
+    uint16_t record_flags;           /* 0x6E GBP_VSTATE_DF_* */
+    uint64_t t_ack;                  /* 0x70 valid iff DF_ACK_WRITTEN */
+    uint64_t t_rearm;                /* 0x78 valid iff DF_REARM_WRITTEN */
+    uint64_t t_next_cause;           /* 0x80 valid iff followup_state is PRESENT/ABSENT */
+    uint16_t next_pending_gbi;       /* 0x88 same validity */
+    uint16_t next_pending_disc;      /* 0x8A same validity */
+    uint8_t followup_state;          /* 0x8C GBP_VSTATE_FU_* */
+    uint8_t followup_reason;         /* 0x8D GBP_VSTATE_FUR_* */
+    uint16_t payload_source;         /* 0x8E the ONE source the payload describes, or 0 */
+    uint32_t payload_crc32;          /* 0x90 valid iff DF_PAYLOAD_VALID */
+    uint32_t payload_first_word;     /* 0x94 valid iff DF_PAYLOAD_VALID */
+    uint32_t gap_min_before_ticks;   /* 0x98 GBP_VSTATE_GAP_NONE when gap_count_before == 0 */
+    uint16_t gap_count_before;       /* 0x9C 0 means "no statistic", never "a zero gap" */
+    uint16_t reserved1;              /* 0x9E zero */
+};
+
+/* Per-source cause->cause statistics (§R3.28). Measurements of ONE run; nothing
+ * here is a physical bound and no runtime decision reads them. */
+struct gbp_vstate_gap {
+    uint64_t last_cause_t;  /* RAM only; the wire carries the derived values */
+    uint32_t count;         /* number of GAPS, so a source seen once has count 0 */
+    uint32_t min_ticks;     /* GBP_VSTATE_GAP_NONE while count == 0 */
+    uint32_t max_ticks;
+    uint32_t last_ticks;
+};
+
+/* The aggregate counters of the semantic block, in the normative order of §R3.27. */
+struct gbp_vstate_semantic {
+    uint32_t disagreements_total;
+    uint32_t source_serviced;
+    uint32_t source_other;
+    uint32_t non_source;
+    uint32_t disc_extra_events;
+    uint32_t majority_extra_events;
+    uint32_t both_direction_events;
+    uint32_t majority_extra_video_services;
+    uint32_t majority_extra_audio_services;
+    uint32_t frames_quarantined;
+    uint32_t frames_source_deferred;
+    uint32_t diagnostics_preserved;
+    uint32_t diagnostics_not_preserved;
+    uint32_t followup_present;
+    uint32_t followup_absent;
+    uint32_t followup_no_next;
+    uint32_t followup_unknown;
+    uint32_t observational_disagreements;
+    uint32_t service_selecting_disagreements;
+    uint32_t payload_diagnostics_captured;
+    uint32_t service_incomplete_events;
+    /* Not one of the 21 serialized counters: a RAM-side convenience that the
+     * offline tool re-derives per record from disc_extra_sources and
+     * next_pending_gbi. Kept so the on-screen summary can say it without
+     * re-walking the store. */
+    uint32_t followup_partial;
+    /* not serialized as counters: the flag lives in the block's own flags word */
+    uint32_t store_capped;
+    struct gbp_vstate_gap gap[GBP_VSTATE_GAP_SLOTS];
+    uint32_t delta_hist[GBP_VSTATE_HIST_ENTRIES];
+    uint32_t disc_extra_hist[GBP_VSTATE_HIST_ENTRIES];
+    uint32_t majority_extra_hist[GBP_VSTATE_HIST_ENTRIES];
 };
 
 /* ---- the whole state ------------------------------------------------- */
@@ -346,9 +477,18 @@ struct gbp_vstate {
     /* signature cost */
     struct gbp_vsig_cost cost;
 
-    /* the one semantic-disagreement diagnostic (U-GBP-032). 96 bytes, always resident,
-     * written only on the event that ends the run. */
-    struct gbp_vstate_diag diag;
+    /* ---- the semantic-disagreement store (U-GBP-032 answered; §R3.15) ----
+     * Caller-owned, bounded, never allocated here, never written per delivery.
+     * `diag` stays as the FIRST record so every v3-era reader of this struct
+     * keeps working; the array is the same type. */
+    struct gbp_vstate_diag *diags;       /* GBP_VSTATE_MAX_DISAGREEMENTS entries */
+    uint32_t diags_cap;
+    uint32_t diags_n;                    /* records actually stored (<= cap) */
+    int32_t diag_wait;                   /* index of the ONE record in FU_PENDING, or -1 */
+    uint32_t next_block_majority_extra;  /* one-shot provenance for the next VIDEO block */
+    struct gbp_vstate_semantic sem;      /* aggregate counters, gap stats, histograms */
+    /* There is deliberately NO second copy of "the first record": the store is
+     * the single source of truth, and gbp_vstate_diag_first() reads diags[0]. */
 
     /* the previous closed frame's ring slot and identity, for "the last reference frame" */
     int prev_slot;                       /* -1 none */
@@ -404,6 +544,18 @@ struct gbp_vstate_step {
 int gbp_vstate_block(struct gbp_vstate *s, const uint8_t *block, uint32_t len, const uint8_t first4[4],
                      uint64_t t, uint32_t sig, uint32_t sig_cost_ticks, struct gbp_vstate_step *step);
 
+/* Marks the NEXT block handed to gbp_vstate_block() as drained only because the
+ * majority carried a source the Disc reading did not (§R3.11). One-shot: it is
+ * consumed by that call. The frame that receives such a block is quarantined -
+ * F_MAJORITY_EXTRA plus F_ANOMALY - so it never counts toward valid observation,
+ * never forms a baseline and never validates a structured change. */
+void gbp_vstate_block_majority_extra(struct gbp_vstate *s);
+/* Marks the frame being assembled, if any, as having deferred a VIDEO drain
+ * (§R3.13/§R3.29). Descriptive: it changes no completeness and fabricates
+ * nothing. With no frame open it does nothing and creates no frame. Returns 1
+ * when a frame was marked. */
+int gbp_vstate_mark_source_deferred(struct gbp_vstate *s);
+
 /* The scientific target arrived. With no episode open the caller stops; with one open this opens
  * the bounded finalisation tail (no new episode may open, the current one closes on stabilisation
  * or at EPISODE_MAX_FRAMES). Returns 1 when a tail was opened, 0 when the caller may stop now. */
@@ -424,13 +576,69 @@ const uint8_t *gbp_vstate_audio_bytes(const struct gbp_vstate *s, unsigned slot)
 /* Raw AUDIO slots worth storing: 0 (first) plus the last valid ping-pong slot when there is one. */
 unsigned gbp_vstate_audio_raw_count(const struct gbp_vstate *s);
 
-/* Captures the ONE diagnostic, from bytes the transport has already delivered.
- * `raw` must be the buffer the read filled, untouched. Returns 1 when this call
- * stored the record, 0 when one was already held (first wins) or an argument is
- * bad. `attempts` counts every call, so a second disagreement is visible even
- * though its bytes are not kept. Performs no I/O and no formatting. */
-int gbp_vstate_diag_capture(struct gbp_vstate *s, uint32_t cycle, uint64_t t, const uint8_t *raw,
-                            uint16_t disc, uint16_t gbi, uint16_t read_kind);
+/* ---- the semantic-disagreement policy (§R3.2, §R3.3) ------------------
+ * Pure functions: no I/O, no state, no formatting. `disc` and `gbi` are the two
+ * readings of ONE 32-byte window, already computed by the caller from bytes the
+ * transport delivered. Nothing here re-reads anything.
+ *
+ * gbp_vstate_classify() returns GBP_VSTATE_DIS_*: NON_SOURCE when the two
+ * readings differ outside SRC_MASK, SOURCE_OTHER when they differ on a source
+ * slot this probe cannot drain, SOURCE_SERVICED when every difference is inside
+ * AV_MASK, NONE when they agree.
+ *
+ * gbp_vstate_authoritative() composes the value the runtime acts on: outside
+ * SRC_MASK the two readings MUST already agree (the caller has classified), so
+ * the agreed bits are used verbatim and NOTHING is voted there; inside SRC_MASK
+ * the bitwise majority wins. THIS IS PROJECT POLICY, not a fact about what the
+ * hardware intends (HARDWARE_TESTS §R3.3). */
+unsigned gbp_vstate_classify(uint16_t disc, uint16_t gbi);
+uint16_t gbp_vstate_authoritative(uint16_t disc, uint16_t gbi);
+const char *gbp_vstate_class_name(unsigned c);
+const char *gbp_vstate_fu_name(unsigned st);
+const char *gbp_vstate_fur_name(unsigned r);
+/* The six even source bits compressed to six index bits: source bit 2k -> index
+ * bit k (§R3.28). Bits outside SRC_MASK are ignored. */
+unsigned gbp_vstate_hist_index(uint16_t v);
+
+/* Attaches the bounded disagreement store. Without it the probe still runs and
+ * still counts, but preserves no record (diagnostics_not_preserved counts them). */
+void gbp_vstate_diag_store(struct gbp_vstate *s, struct gbp_vstate_diag *store, uint32_t cap);
+/* The first stored record, or NULL when none was preserved. */
+const struct gbp_vstate_diag *gbp_vstate_diag_first(const struct gbp_vstate *s);
+
+/* Opens a record for a disagreement, from bytes the transport already delivered.
+ * Returns the index of the new record, or -1 when the store is full or absent
+ * (counters still move). Fills the v3 half plus delta/extra/classification and
+ * leaves followup_state = FU_PENDING for a service-selecting site; an
+ * observational site is closed immediately as FU_UNKNOWN/observational_site.
+ * Performs no I/O and no formatting. */
+int gbp_vstate_diag_open(struct gbp_vstate *s, uint32_t cycle, uint64_t t, const uint8_t *raw,
+                         uint16_t disc, uint16_t gbi, uint16_t read_kind, unsigned classification);
+/* Records the ACK / re-arm of the cycle that a pending record belongs to. */
+void gbp_vstate_diag_service(struct gbp_vstate *s, uint16_t authoritative, uint16_t service_selected,
+                             unsigned incomplete);
+void gbp_vstate_diag_ack(struct gbp_vstate *s, uint16_t ack_value, uint64_t t_ack);
+void gbp_vstate_diag_rearm(struct gbp_vstate *s, uint64_t t_rearm);
+/* Attaches the bounded payload diagnostic of a block drained ONLY because the
+ * majority carried a source the Disc reading did not (§R3.11, §R3.22, §R3.23). */
+void gbp_vstate_diag_payload(struct gbp_vstate *s, uint16_t source, uint32_t crc32, uint32_t first_word);
+/* Marks the record of the current cycle: a VIDEO block of it was quarantined, or
+ * a VIDEO drain was deferred. Both are descriptive (§R3.12, §R3.13). */
+void gbp_vstate_diag_quarantined(struct gbp_vstate *s);
+void gbp_vstate_diag_deferred(struct gbp_vstate *s);
+/* The source bit a gap slot describes, or 0. */
+uint16_t gbp_vstate_gap_slot_bit(unsigned slot);
+/* Fills the follow-up of the ONE pending record from the NEXT cycle's ordinary
+ * read. No extra hardware access exists for this. Returns 1 when a record was
+ * closed. Call this BEFORE opening a record for the same read (§R3.8). */
+int gbp_vstate_diag_followup(struct gbp_vstate *s, uint64_t t_cause, uint16_t next_gbi, uint16_t next_disc);
+/* Closes any still-pending record at teardown: FU_NO_NEXT_CAUSE, or FU_UNKNOWN
+ * with a reason. No record may reach the file as FU_PENDING (§R3.14). */
+void gbp_vstate_diag_close(struct gbp_vstate *s, unsigned aborted);
+/* cause -> cause statistics per source slot (§R3.28). Called once per delivery
+ * with the authoritative pending value; disagreement cycles are included. */
+void gbp_vstate_gap_observe(struct gbp_vstate *s, uint16_t sources, uint64_t t_cause);
+
 const char *gbp_vstate_diag_read_name(unsigned kind);
 
 /* ---- reporting helpers (pure) ---------------------------------------- */

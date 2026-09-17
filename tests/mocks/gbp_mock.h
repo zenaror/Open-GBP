@@ -186,6 +186,16 @@ struct gbp_mock {
     unsigned suppress_delivery_at;  /* the Nth delivery (1-based) never reaches the CPU although cause and mask are open */
     unsigned source_clear_at_delivery; /* right after the Nth delivered handler entry returns, every source drops (source-lost model) */
     unsigned irq_disagree_from_write;  /* from the Nth IRQ write on, IRQ reads present byte 0x1F ^ 0x01 (Disc != GBI) */
+    /* GBP-VIDEO-002-R3 scenarios. The window is built from the register value as
+     * always; these only shape the LAST replica and the value the majority sees,
+     * which is exactly how both physical events looked. */
+    unsigned irq_last_replica_from_write; /* from the Nth IRQ write on, apply irq_last_replica_xor */
+    uint16_t irq_last_replica_xor;        /* XORed into the LAST replica's 16-bit value only */
+    unsigned irq_force_value_from_write;  /* from the Nth IRQ write on, the window presents ... */
+    uint16_t irq_forced_value;            /* ... this value in every replica (before the XOR above) */
+    unsigned irq_extra_source_from_write; /* from the Nth IRQ write on, BOTH readings carry 0x0004 */
+    unsigned irq_nonsource_from_write;    /* from the Nth IRQ write on, the last replica also
+                                           * flips an ODD bit: a NON_SOURCE disagreement */
     /* ---- whole-block reads (SYNTHETIC; GBP-AV-SERVICE-001) ---- */
     int bulk_ops_available;         /* 0: the transport exposes no read_bulk (like a replay without "B" lines); default 1 */
     int bulk_any_offset;            /* 1: accept a bulk read at any offset of a window; default 0 = the exact block address only

@@ -75,6 +75,13 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      buckets, never from the mean), and the 64-bit time base across the low-word
                                      wrap 0xFFFFFFFF → 0x00000000, including the retry and the proof that a
                                      truncated u32 path really would see time go backwards
+                  test_gbp_video_state.c also the GBP-VIDEO-002-R3 policy: the three disagreement classes,
+                                     the authoritative composition, the independent unexpected-source guard
+                                     (fatal even when the two readings AGREE on 0x0104), the nonfatal
+                                     source-serviced path, the majority-extra VIDEO quarantine, the
+                                     disc-extra deferral that fabricates nothing, the follow-up lifecycle
+                                     across consecutive disagreements, the bounded store and its cap, the
+                                     gap statistics, and the v4 round trip and strictness
                   test_gbp_vstate.c  GBP-VIDEO-002 state model: the frame assembler (complete_40, incomplete short
                                      and long, an interval that is not 40, resync, predicate disagreement — 40 is
                                      never assumed and no boundary is ever synthesised), the baseline of three, the
@@ -129,7 +136,7 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      per-block checksum (anchored to the PHYSICAL avsvc-0001 block, 0x7F0FFF10 =
                                      entry 0 of both reference tables), and the offline oracle — which reports
                                      reference_content=unavailable without the private inputs and is never a gate
-                  test_vstate.py     tools/vstate.py: the format-2 AND format-3 parsers against the C writer's own
+                  test_vstate.py     tools/vstate.py: the format-2, format-3 AND format-4 parsers against the C writer's own
                                      files, the frame / event / episode / cycle decoders, the interval histogram,
                                      the ordering of events by sequence number, the offline oracle, the proof that
                                      the three formats can never misread each other, and the byte-0 property
@@ -138,7 +145,9 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      CRCs and section offsets it had the day it was consolidated, and the v3 of
                                      build vstate-0002 (2026-09-17) is re-derived from disk — identity, CRCs,
                                      bounds, the 96-byte semantic-disagreement record, its eight replicas, both
-                                     readings and the 0x0400 difference between them
+                                     readings and the 0x0400 difference between them. Format 4 (vstate-0003,
+                                     not physically executed) adds the 160-byte record array, the 1024-byte
+                                     semantic block, the histogram index and every strictness rule of R3.19
                   test_video_replay.py synthetic GBP-VIDEO-001 log → fixture + sequence sidecar → replay round trip
                                      (the regenerated run equals the original) and the physical GBP-AV-SERVICE-001
                                      fixture as the first cycle; asserts that no GBP-VIDEO-001 fixture exists

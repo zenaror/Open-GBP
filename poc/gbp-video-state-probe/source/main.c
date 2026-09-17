@@ -1,5 +1,5 @@
 /*
- * Open-GBP GBP-VIDEO-002, build vstate-0002 — the SAME experiment as the
+ * Open-GBP GBP-VIDEO-002-R3, build vstate-0003 — the SAME experiment as the
  * physically executed vstate-0001, plus one piece of instrumentation: when the
  * two semantic readings of the IRQ register disagree, the 32 raw bytes that
  * caused it are preserved (U-GBP-032). The first physical run aborted on
@@ -120,6 +120,9 @@ static struct gbp_vstate_cycle cyc_episode[GBP_VSTATE_CYC_EPISODE];
 static uint8_t dump_chunk[GBP_VSTATEDUMP_CHUNK] ATTRIBUTE_ALIGN(32);
 
 static struct gbp_vstate vstate;
+/* The bounded semantic-disagreement store (§R3.15). 256 x 160 = 40 960 B, static,
+ * never allocated, never written per delivery. */
+static struct gbp_vstate_diag diag_store[GBP_VSTATE_MAX_DISAGREEMENTS];
 
 static void *xfb;
 static GXRModeObj *rmode;
@@ -185,6 +188,7 @@ int main(void)
     gbp_vstate_config_timebase(&cfg, tb_hz);
     gbp_vstate_init(&vstate, frame_store, GBP_VSTATE_MAX_FRAMES, event_store, GBP_VSTATE_MAX_EVENTS,
                     raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw, audio_raw, sizeof audio_raw);
+    gbp_vstate_diag_store(&vstate, diag_store, GBP_VSTATE_MAX_DISAGREEMENTS);
     cfg.st = &vstate;
     cfg.cyc_first = cyc_first;
     cfg.cyc_last = cyc_last;
@@ -270,11 +274,21 @@ int main(void)
            a->control_restore_ok, a->irq_stop_write_ok, a->pi_cleanup_performed, a->arinfo_restore_ok,
            res.h.handler_restored, res.h.mask_ok, (unsigned long)res.errors, (unsigned long)res.uncertain_writes,
            (unsigned long)res.counter_overflow);
-    if (vstate.diag.valid) {
-        /* U-GBP-032: the bytes are held; the explanation is offline (tools/vstate.py diag). */
-        printf("  DIAGNOSTIC semantic disagreement at cycle %lu (%s): disc=%04x gbi=%04x, the 32 raw bytes ARE preserved\n",
-               (unsigned long)vstate.diag.cycle, gbp_vstate_diag_read_name(vstate.diag.read_kind),
-               vstate.diag.disc_value, vstate.diag.gbi_value);
+    if (vstate.sem.disagreements_total) {
+        const struct gbp_vstate_diag *d0 = gbp_vstate_diag_first(&vstate);
+        /* The bytes are held; the explanation is offline (tools/vstate.py diag). */
+        printf("  SEMANTIC %lu disagreement(s): %lu serviced, %lu other, %lu non-source; %lu preserved%s\n",
+               (unsigned long)vstate.sem.disagreements_total, (unsigned long)vstate.sem.source_serviced,
+               (unsigned long)vstate.sem.source_other, (unsigned long)vstate.sem.non_source,
+               (unsigned long)vstate.sem.diagnostics_preserved,
+               vstate.sem.store_capped ? " (store capped)" : "");
+        if (d0)
+            printf("  FIRST at cycle %lu (%s, %s): disc=%04x gbi=%04x delta=%04x, the 32 raw bytes ARE preserved\n",
+                   (unsigned long)d0->cycle, gbp_vstate_diag_read_name(d0->read_kind),
+                   gbp_vstate_class_name(d0->classification), d0->disc_value, d0->gbi_value, d0->delta);
+        if (vstate.sem.frames_quarantined)
+            printf("  QUARANTINE %lu frame(s) carried a VIDEO block served only by the majority\n",
+                   (unsigned long)vstate.sem.frames_quarantined);
     }
     printf("  LOG %u lines, dropped=%u truncated=%u\n", (unsigned)rl.count, (unsigned)rl.dropped, (unsigned)rl.truncated);
     if (res.power_cycle_required) {

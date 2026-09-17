@@ -572,10 +572,27 @@ static gbp_status m_read_block(void *ctx, uint32_t addr, uint8_t out[GBP_BLOCK_S
         case 0xD: {
             uint8_t v[2];
             if (m->irq_model == MOCK_IRQ_MODEL_SOURCE_MASK) {
-                present_u16_doubled(m->irq_reg, out);
+                uint16_t iv = m->irq_reg;
+                if (m->irq_force_value_from_write && m->irq_writes >= m->irq_force_value_from_write)
+                    iv = m->irq_forced_value;
+                if (m->irq_extra_source_from_write && m->irq_writes >= m->irq_extra_source_from_write)
+                    iv |= 0x0004u;                           /* a source with no drain, in BOTH readings */
+                present_u16_doubled(iv, out);
                 if (m->irq_byte0_anomaly) out[0] |= 0x11;   /* byte 0 must never feed a decision */
                 if (m->irq_disagree_on_install && m->installed_calls) out[0x1F] ^= 0x01;   /* Disc reading != GBI vote */
                 if (m->irq_disagree_from_write && m->irq_writes >= m->irq_disagree_from_write) out[0x1F] ^= 0x01;
+                if (m->irq_last_replica_from_write && m->irq_writes >= m->irq_last_replica_from_write) {
+                    /* the LAST replica alone carries a different 16-bit value: seven
+                     * replicas say one thing and the eighth says another, which is
+                     * the shape both physical events had */
+                    uint16_t last = (uint16_t)(iv ^ m->irq_last_replica_xor);
+                    if (m->irq_nonsource_from_write && m->irq_writes >= m->irq_nonsource_from_write)
+                        last ^= 0x0002u;              /* an odd bit: NON_SOURCE */
+                    out[0x1C] = (uint8_t)(last >> 8);
+                    out[0x1D] = (uint8_t)(last >> 8);
+                    out[0x1E] = (uint8_t)last;
+                    out[0x1F] = (uint8_t)last;
+                }
                 break;
             }
             if (m->irq_block) { memcpy(out, m->irq_block, GBP_BLOCK_SIZE); break; }
