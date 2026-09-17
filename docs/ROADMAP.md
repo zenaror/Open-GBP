@@ -190,8 +190,16 @@ device (U-GBP-011, settled by GBP-VIDEO-003); both embed the AGB idle screen
   inside the window, tears the hardware down before it summarises anything, and
   streams its multi-megabyte sidecar rather than staging it. Its full nominal
   scan runs in the host suite at about 800 000 synthetic deliveries.
-* **GBP-VIDEO-003**: colour. **DESIGN FINALIZED 2026-09-17 (HARDWARE_TESTS §V3.0
-  to §V3.22), NOT IMPLEMENTED, NOT PHYSICALLY EXECUTED.** A controlled AGB Mode 3
+* **GBP-VIDEO-003**: colour. **DESIGN FINALIZED and IMPLEMENTED 2026-09-17
+  (HARDWARE_TESTS §V3.0 to §V3.25), NOT PHYSICALLY EXECUTED.** The first
+  implementation was blocked by the microaudit for doing full-frame
+  `memcmp`/`memcpy` between the ACK and the RE-ARM; the capture now decides
+  stability from the 40 per-block signatures the model already computes, never
+  touches a frame's bytes, and the certified frames stay in a four-slot ring
+  until the writer streams them after the teardown (§V3.23 to §V3.25). Three components
+  exist: the AGB stimulus (`stimulus/agb-color-bars`), the probe
+  (`poc/gbp-video-color-probe`, Build ID `color-0001`) and the offline analyser
+  (`tools/vcolor.py`), with the `OGBPCOL1` v1 sidecar between them. A controlled AGB Mode 3
   stimulus of eight 30-pixel bars — three full 5-bit groups, three single low
   bits, plus `0x0000` and `0x7FFF` as permutation-invariant controls, with bit 15
   never written — captured through the validated service path into a dedicated

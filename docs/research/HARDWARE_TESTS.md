@@ -5734,11 +5734,241 @@ the physical v4 file   must keep parsing under the v4 rules, unchanged, and must
 
 ---
 
-### GBP-VIDEO-003 (build `color-0001`, sidecar `OGBPCOL1` v1) — controlled colour mapping — DESIGN FINALIZED 2026-09-17, NOT IMPLEMENTED, NOT PHYSICALLY EXECUTED
+### GBP-VIDEO-003 (build `color-0001`, sidecar `OGBPCOL1` v1) — controlled colour mapping — DESIGN FINALIZED, **IMPLEMENTED 2026-09-17, STRUCTURAL TIMING FIX APPLIED, NOT PHYSICALLY EXECUTED**
 
-Everything below is a specification. No code exists for it, no ROM has been
-built, no hardware has run it, and nothing in this section is evidence about the
-device.
+**Implementation status, 2026-09-17.** The three components of §V3 exist and are
+built by the project's own toolchain; **none of it has run on hardware**, no
+observation in this repository comes from it, and no evidence ID belongs to it:
+
+```text
+stimulus   stimulus/agb-color-bars/           AGB Mode 3, devkitARM 15.2.0 in the
+                                              project container, 1 076 B, header
+                                              audited by tools/gbahdr.py
+probe      poc/gbp-video-color-probe/         Test ID GBP-VIDEO-003, Build ID color-0001
+capture    src/gbp/gbp_vcolor.{h,c}           eligibility, stability, hold, raw budget
+format     src/gbp/gbp_vcoldump.{h,c}         OGBPCOL1 v1, writer and strict parser
+analyser   tools/vcolor.py                    the offline decision, exact and unscored
+tests      tests/unit/test_gbp_vcolor.c       capture + format, 281 checks
+           tests/host/test_vcolor.py          analyser + parser + synthetic corpus
+```
+
+The probe reuses the service path of GBP-VIDEO-002 **as the same code**, not as a
+copy: `gbp_vstate_probe_run()` gained a capture hook that is `NULL` in every
+GBP-VIDEO-002 build, so the device operations, their order and the R3 policy are
+literally the ones `vstate-0004` executed. A synthetic scenario runs the same
+mock twice, with and without the capture attached, and requires identical IRQ
+reads, whole-block drains, IRQ writes, operations and transfers.
+
+**MICROAUDIT BLOCKER, 2026-09-17 — RAISED AND FIXED THE SAME DAY.** The first
+implementation did full-frame work in the service-critical window and the
+microaudit refused it. What it found, kept here because the refusal is the
+useful part:
+
+`gbp_vcolor_frame()` was called between the ACK and the RE-ARM and did up to
+`memcmp` 153 600 + `memcpy` 153 600 bytes there, at every eligible frame close,
+plus a 153 600-byte `memcmp` for each of 60 hold frames. Two ratios settled it,
+and neither needs a memory-throughput assumption:
+
+* **Bytes in that window rose ~81×** ((3 840 + 307 200) / 3 840). The only work
+  ever measured there is the per-block signature — 3 840 bytes, median **823
+  ticks** over 420 073 physical samples in `vstate-0004`.
+* **Frequency of full-frame copies rose ~700×.** The architecture already had one
+  there, `preserve_frame()`, and it was physically survived — but it ran **15
+  times in 175.848 s**, not 59.73 times a second.
+
+For scale, on the same run: RE-ARM → next cause was **77..94 ticks
+(1.90..2.32 µs)** in 29/29 `SOURCE_SERVICED` events, a VIDEO block arrived every
+**418.6 µs**, and a frame closed every **16.74 ms**. Operation-stream equivalence
+with `vstate-0004` was proven and is *not* evidence about CPU time.
+
+#### V3.23 The fix: the capture cannot touch a frame
+
+`gbp_vcolor_frame()` now takes a frame record and a **slot index**. There is no
+pointer parameter, so there is no capability through which 153 600 bytes could
+reach it; a host test reads the declaration and pins that. Its whole cost is the
+eligibility test, at most **40 word comparisons (160 bytes)** against the run's
+reference signature vector, and a 40-byte record write.
+
+The comparison uses `sig[40]`, the per-block checksum the state model already
+computes in that same window, so the signature itself costs nothing new.
+
+**A measurement boundary that must not be blurred.** The physical figure *median
+823 ticks over 420 073 samples* belongs to `gbp_vsig_block()`, the existing
+per-VIDEO-BLOCK signature. The new per-frame-close comparison of 40 words has
+**not** been measured on hardware and is not described here as timing-neutral,
+timing-equivalent or sub-tick. What is stated is what is true by construction:
+bounded at 40 word comparisons and at most 160 bytes copied, no additional device
+operation, replacing paths that moved 153 600 and 307 200 bytes.
+
+The work table, per path, between ACK and RE-ARM — exact counts, read from the
+generated code, not estimates:
+
+| path | word comparisons | bytes copied | bytes zeroed | colour calls |
+| --- | --- | --- | --- | --- |
+| VIDEO block that closes no frame | 0 | 0 | 0 | none (hook not entered) |
+| frame close, not eligible | 0 | 0 | 40 | `eligible`, `record` |
+| frame close, no ring slot | 0 | 0 | 40 | `eligible`, `record` |
+| frame close, starts a run | ≤ 40 | 160 (`ref_sig`) + 32 (`cert[0]`) | 40 | `eligible`, `record` |
+| frame close, signature differs | ≤ 40 | 160 + 32 | 40 | `eligible`, `record` |
+| frame close, second matching | 40 | 32 (`cert[1]`) | 40 | `eligible`, `record` |
+| frame close, certification | 40 | 32 (`cert[2]`) | 40 | `eligible`, `record` |
+
+The comparison loop is `li r11,40 / mtctr` in the generated code — exactly 40
+iterations, early-exit on the first difference. `record()`'s one `memset` is
+`li r5,40`, bounded by `sizeof(struct gbp_vcolor_frame)`. `gbp_vcolor_frame` is
+170 instructions, `gbp_vcolor_eligible` 27 (leaf), `record` 69.
+
+`gbp_vcolor_frame` is 170 PowerPC instructions and calls only
+`gbp_vcolor_eligible` (27) and `record` (69, whose one `memset` is 40 bytes
+bounded by its own type). Nothing in that path calls `memcpy`, `memcmp` or
+`memmove`. The pre-existing 3 840-byte boundary-block copy inside
+`gbp_vstate_block()` is unchanged and is the only bulk operation left in the
+window.
+
+#### V3.24 Where the certified bytes live, and why the ring has four slots
+
+**Nothing is copied during capture.** The three certified frames stay where the
+DMA wrote them, in the state model's ring, and the OGBPCOL1 writer streams them
+from there after the teardown. The 460 800-byte staging buffer is gone.
+
+That works only because of a lifecycle fact, and the fact is now a test rather
+than an argument. On the boundary block that closes frame C, the assembler
+**first** copies that block into slot `cur+1` and **then** closes C. With three
+slots, `cur+1` is the slot holding frame A — so A is destroyed at the exact
+instant the third consecutive frame closes, which is the instant it becomes
+evidence. Driving the real assembler proves it both ways:
+
+```text
+4 slots   A=0  B=1  C=2   filling=3   -> all three intact, gbp_vcolor_slots_ok() = 1
+3 slots   A=0  B=1  C=2   filling=0   -> A is the slot being filled, slots_ok() = 0
+```
+
+So the ring needs **four** slots — and only for this experiment. The count is no
+longer a compile-time constant: it is derived at init from the size of the buffer
+the caller supplies, clamped to [3, 4]. The vstate probe passes the same
+552 960-byte buffer it always did and behaves exactly as before; the colour probe
+passes 737 280 bytes. Net memory: **+184 320** for the fourth slot, **−460 800**
+for the staging buffer that is gone.
+
+**The stop position.** Certification happens inside the frame-close hook. The
+current transaction then finishes normatively — signature, RE-ARM, diagnostic
+close, follow-up arm, WAIT_NEXT — and the next `CHECK_ADMISSION` ends the run
+*before* another delivery is admitted. No VIDEO block is drained after
+certification, so the ring is frozen where certification left it. `next_cause_at_end`
+records that a cause was pending, which is the shape every previous run used.
+
+**The hold window is removed**, and the reason is structural, not a trim: serving
+60 more frames would rotate the ring over A, B and C long before the window
+ended. It was `REPORT ONLY` and was never part of the success condition, so
+nothing that was evidence is lost. Its header fields stay at their offsets, must
+be zero, and both parsers refuse a file that uses them. `0x164` is repurposed as
+`sig_mismatches`.
+
+**When the slots do not survive**, `gbp_vcolor_slots_ok()` says so before
+anything is written: the file then carries the frame table and the diagnostics,
+**no raw**, and the header flag `raw_unrecoverable`. A certified run with no raw
+is legal in that one shape and in no other.
+
+#### V3.25 What the runtime claims, and what the analyser claims
+
+These are different sentences and the implementation keeps them apart:
+
+```text
+runtime    three signature-identical eligible frames
+offline    the three certified raw frames are byte-for-byte equal
+```
+
+A checksum can collide; the bytes cannot. `tools/vcolor.py` therefore compares
+all three certified frames byte for byte — 153 600 each — **before** one pixel is
+interpreted, and reports `inconclusive_certified_raw_mismatch` with the first
+differing offset if they are not equal. A host test builds exactly that case:
+three certified records whose raw differs in one byte, and no mapping is
+attempted. That is what makes the cheap runtime check safe.
+
+**One refusal label is shadowed, and it is written down rather than left to be
+discovered.** `gbp_vstate_block()` sets `F_MAJORITY_EXTRA` and `F_ANOMALY` on the
+same frame, and the eligibility predicate reports the FIRST fault it finds, so a
+frame quarantined by the majority is refused under `ANOMALY` and
+`frames_refused[MAJORITY_EXTRA]` stays **0** in any real run. The exclusion
+itself is unaffected — the frame is refused, which is the whole point — and the
+authoritative count of quarantined frames is the state model's
+`frames_quarantined`, carried in the sidecar at `0x1AC`. The predicate order is
+the design's and was not changed to chase a nicer label. `SOURCE_DEFERRED`, by
+contrast, is set without `F_ANOMALY` and IS produced.
+
+`F_PRE_BASELINE` is no longer an eligibility exclusion. It was inherited from the
+vstate change detector, which answers a different question; whether *that*
+experiment's baseline had settled says nothing about this frame's integrity, the
+protocol's correctness or the raw lifecycle. Refusal code 7 is retired, stays
+reserved so the layout does not move, and both parsers refuse a file that uses
+it. `FRAME_CAP` also gained its own stop reason: "the table filled" and "the
+clock ran out" are different observations.
+
+**The physical delivery dependency is untouched by all of this** and remains
+UNRESOLVED (§V3.7).
+
+#### V3.26 PHYSICAL PROCEDURE DEPENDENCY — the run can certify the wrong picture
+
+A consequence of stopping at certification, found by the second microaudit and
+recorded rather than patched over.
+
+**The probe cannot see what the AGB is executing.** It certifies the first three
+consecutive eligible frames whose block signatures agree, and it holds no
+stimulus value by design (§V3.11) — that is what keeps the experiment
+non-circular. So *any* still picture qualifies: a BIOS screen, a flash-cart menu
+sitting idle, a blank or white framebuffer, a paused loader. At the 59.73 Hz the
+physical runs measured, three frames span **~50 ms**, so this can happen almost
+immediately after the first frame closes.
+
+The timeline, from the code:
+
+```text
+stage A: CONTROL 0x90 -> 0x8C          the safety epoch
+first admitted unmask                  t_capture_start, and the SEARCH_WINDOW starts here
+first Disc boundary                    the assembler anchors
++40 VIDEO blocks                       frame 0 closes, the capture sees its first frame
++3 eligible frames with equal sig      certification, stop
+```
+
+There is **no readiness gate**: nothing in the protocol state tells the probe
+that the controlled stimulus is the thing on screen, and adding one that
+recognised the stimulus would re-introduce exactly the circularity §V3.11
+forbids.
+
+**What this does and does not cost.** It cannot produce a false scientific
+result: the offline analyser refuses a frame whose eight bars are not uniform and
+refuses any frame that fits no hypothesis, so a menu certifies and then resolves
+to `inconclusive_bar_not_uniform` or `inconclusive_no_hypothesis`. What it costs
+is the RUN: it ends inconclusive without ever having looked at the stimulus.
+
+**Requirement, to be resolved together with the ROM delivery method (§V3.7):**
+
+```text
+PHYSICAL PROCEDURE DEPENDENCY: the controlled stimulus must be displayed
+                               BEFORE the probe's capture begins
+STATUS: unresolved, owned by the operator, blocks EXECUTION ONLY
+```
+
+Routes considered, none implemented and none verified here:
+
+* **A — the delivery route boots the ROM directly**, so the AGB is already
+  showing the bars when the GameCube side starts. Costs nothing and needs no
+  code; whether any available route does this is part of §V3.7.
+* **B — a GameCube-side arming step**, separating setup from capture. The probe
+  deliberately reads no controller input before its teardown returns, so this
+  would be a real design change and is NOT made here.
+* **C — an objective protocol readiness signal.** None exists. Everything the
+  model can observe about a picture is a signature, and a signature cannot say
+  *which* picture without being told, which is the circularity again.
+* **D — none of the above is proven.**
+
+No arbitrary delay is added to hide this. The 10 s SEARCH_WINDOW is a bound on
+how long a stable image is searched for, measured from `t_capture_start` (the
+first admitted unmask); it is **not** time in which to boot a menu, choose a ROM
+or navigate a loader, and it is not changed here.
+
+Everything below the implementation notes is the specification the code was
+written against, and it stays the authority.
 
 #### V3.0 What this experiment is for
 
@@ -6046,6 +6276,22 @@ HOLD         continue for HOLD_FRAMES = 60 more frames (~1 s, the project's
              already preserved.
 STOP         immediately after the hold window: status ok_color_frames_captured.
 ```
+
+> **SUPERSEDED — the HOLD and STOP lines above are NOT what the implementation
+> does, and must not be read as the current contract.** The design text is kept
+> verbatim because it is what the implementation was reviewed against, but
+> §V3.24 replaced both: there is **no hold window**, and the run **stops at
+> certification**. The reason is structural, not a trim — serving 60 further
+> frames would rotate the raw ring over the very frames the hold was meant to be
+> confirming, so the hold and the preservation could not both exist. HOLD was
+> `REPORT ONLY` and never part of the success condition, so nothing that was
+> evidence was lost. The stop status is `color_certified`.
+>
+> The CERTIFY line above, by contrast, is unchanged and was always right: the
+> design said "consecutive eligible frames whose raw per-block signatures are
+> identical". The first implementation over-implemented it with a full-frame
+> `memcmp`; the fix brought the code back to the specification rather than
+> changing it.
 
 Caps, each justified rather than inherited:
 

@@ -138,6 +138,9 @@ const char *gbp_vstate_stop_name(int stop)
     case GBP_VSTATE_STOP_DELIVERY_CAP: return "delivery_cap";
     case GBP_VSTATE_STOP_NO_NEXT_CAUSE: return "no_next_cause";
     case GBP_VSTATE_STOP_FAILURE: return "failure";
+    case GBP_VSTATE_STOP_COLOR_CERTIFIED: return "color_certified";
+    case GBP_VSTATE_STOP_COLOR_SEARCH_WINDOW: return "color_search_window";
+    case GBP_VSTATE_STOP_COLOR_FRAME_CAP: return "color_frame_cap";
     default: return "none";
     }
 }
@@ -767,6 +770,8 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
     gbp_irq_service_delivery_init(&res->d);
     gbp_irq_service_ack_init(&res->k);
 
+    res->target_s = cfg->min_valid_observation_s;
+    res->limit_s = cfg->hard_wallclock_s;
     ringlog_printf(log, "VSTATE start test=GBP-VIDEO-002 target_s=%lu limit_s=%lu limit_ticks=%llx max_deliveries=%lu verify=%lu t_delivery_ms=%lu t_next_cause_ms=%lu",
                    (unsigned long)cfg->min_valid_observation_s, (unsigned long)cfg->hard_wallclock_s,
                    (unsigned long long)cfg->hard_wallclock_ticks, (unsigned long)cfg->max_deliveries,
@@ -775,7 +780,7 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
                    (unsigned long)GBP_VSTATE_MAX_FRAMES, (unsigned long)GBP_VSTATE_FRAME_REC,
                    (unsigned long)GBP_VSTATE_MAX_EVENTS, (unsigned long)GBP_VSTATE_EVENT_REC,
                    (unsigned long)GBP_VSTATE_MAX_EPISODES, (unsigned long)GBP_VSTATE_EPISODE_RAW_SLOTS,
-                   (unsigned long)GBP_VSTATE_RAW_RING_SLOTS, (unsigned long)GBP_VSTATE_RAW_FRAME_BYTES,
+                   (unsigned long)gbp_vstate_ring_slots(st), (unsigned long)GBP_VSTATE_RAW_FRAME_BYTES,
                    (unsigned long)GBP_VSTATE_AUDIO_RAW_SLOTS, (unsigned long)GBP_VSTATE_N_STABLE,
                    (unsigned long)GBP_VSTATE_EPISODE_MAX_FRAMES, (unsigned long long)gbp_vstate_static_bytes());
     ringlog_printf(log, "VSTATE policy handler=003b_ext_installed_once record=reset_under_mask order=read_audio_video_ack_piclean_sign_rearm_waitnext checksum=between_ack_and_rearm oracle=offline_only early_positive_stop=none");
@@ -802,7 +807,7 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
         return 0;
     }
     /* known state of every raw slot before the run, outside the timed region */
-    memset(st->raw_ring, 0, GBP_VSTATE_RAW_RING_BYTES);
+    memset(st->raw_ring, 0, (size_t)gbp_vstate_ring_slots(st) * GBP_VSTATE_RAW_FRAME_BYTES);
     memset(st->episode_raw, 0, GBP_VSTATE_EPISODE_RAW_BYTES);
     memset(st->audio_raw, 0, GBP_VSTATE_AUDIO_RAW_BYTES);
 
@@ -965,6 +970,37 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
                 if (st->tail_active) gbp_vstate_tail_truncate(st, tnow);
                 finish(x, GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE, "-", "S5_event_store_cap", GBP_VSTATE_STOP_EVENT_STORE_CAP);
                 return 0;
+            }
+            /* 3b. GBP-VIDEO-003's own stop conditions. They sit AFTER the safety
+             *     budget and the store caps deliberately: safety always wins over
+             *     success (§V3.12), and a run that fills a store has already lost
+             *     the bookkeeping the evidence depends on. With cfg->color NULL
+             *     this block does not exist for GBP-VIDEO-002. */
+            if (cfg->color) {
+                if (gbp_vcolor_done(cfg->color)) {
+                    res->next_cause_at_end = 1;
+                    finish(x, GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE, "-", "S5_color_certified",
+                           GBP_VSTATE_STOP_COLOR_CERTIFIED);
+                    return 0;
+                }
+                if (cfg->color->frames_total >= GBP_VCOLOR_MAX_FRAMES) {
+                    /* FRAME_CAP: the capture's own bound, independent of the state
+                     * model's much larger stores (§V3.12). It has its OWN stop
+                     * reason: "the table filled" and "the clock ran out" are
+                     * different observations and a reader must not have to guess
+                     * which one a file records. */
+                    res->next_cause_at_end = 1;
+                    finish(x, GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE, "-", "S5_color_frame_cap",
+                           GBP_VSTATE_STOP_COLOR_FRAME_CAP);
+                    return 0;
+                }
+                if (!cfg->color->certified && cfg->color_search_ticks &&
+                    gbp_time64_reached(res->t_capture_start, cfg->color_search_ticks, tnow)) {
+                    res->next_cause_at_end = 1;
+                    finish(x, GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE, "-", "S5_color_search_window",
+                           GBP_VSTATE_STOP_COLOR_SEARCH_WINDOW);
+                    return 0;
+                }
             }
             /* 4. the scientific target, measured on valid observation only */
             if (st->baseline_valid && st->valid_observation_elapsed >= cfg->min_valid_observation_ticks) {
@@ -1270,6 +1306,25 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             cyc.sig_ticks = (uint32_t)(c1 - c0);
             if (video_majority_extra) { gbp_vstate_block_majority_extra(st); gbp_vstate_diag_quarantined(st, service_handle); }
             gbp_vstate_block(st, blk, GBP_VSTATE_VIDEO_BLOCK_SIZE, first4, now64(t), sig, cyc.sig_ticks, &step);
+            /* GBP-VIDEO-003 (§V3.23): the ONE extra thing the colour capture
+             * does per cycle, and it happens only when a frame closed.
+             *
+             * BOUNDED BY CONSTRUCTION. What crosses into this window is a frame
+             * RECORD and a SLOT INDEX - an integer. `gbp_vstate_closed_frame_slot`
+             * forms no pointer into the ring and reads no frame byte, and the
+             * capture's whole cost is an eligibility test plus at most 40 word
+             * comparisons. The 153 600-byte memcmp/memcpy the first
+             * implementation did here is gone; the certified bytes are read
+             * once, after the teardown, straight out of the ring.
+             *
+             * No device access, no second read, no clock read of its own. */
+            if (cfg->color && step.frame_closed && st->frames_n > 0u) {
+                uint32_t fr_blocks = 0u;
+                int fr_slot = gbp_vstate_closed_frame_slot(st, &fr_blocks);
+                const struct gbp_vstate_frame *fr = &st->frames[st->frames_n - 1u];
+                if (fr_blocks != GBP_VCOLOR_BLOCKS) fr_slot = -1;
+                (void)gbp_vcolor_frame(cfg->color, fr, fr_slot, now64(t));
+            }
         }
 
         /* ---- REARM: IRQ := 0x0000, the last device access of the pass ---- */
@@ -1345,7 +1400,7 @@ int gbp_vstate_summary(const struct gbp_vstate_result *res, char *dst, size_t ca
                     (unsigned long)gbp_time64_seconds(tb, res->valid_observation_elapsed), (unsigned long)gbp_time64_millis_part(tb, res->valid_observation_elapsed),
                     (unsigned long)gbp_time64_seconds(tb, res->capture_elapsed), (unsigned long)gbp_time64_millis_part(tb, res->capture_elapsed),
                     (unsigned long)gbp_time64_seconds(tb, res->safety_elapsed), (unsigned long)gbp_time64_millis_part(tb, res->safety_elapsed),
-                    (unsigned long)GBP_VSTATE_MIN_VALID_OBSERVATION_SECONDS, (unsigned long)GBP_VSTATE_HARD_WALLCLOCK_LIMIT_SECONDS,
+                    (unsigned long)res->target_s, (unsigned long)res->limit_s,
                     (st && st->episode_count) ? "observed" : "not_observed",
                     (unsigned long)(st ? st->episode_count : 0u), (unsigned long)(st ? st->stable_episodes : 0u),
                     (unsigned long)(st ? st->unstable_episodes : 0u), (unsigned long)(st ? st->episodes_not_preserved : 0u),

@@ -223,6 +223,12 @@ int gbp_vstatedump_parse_v5(const uint8_t *in, size_t n, struct gbp_vstatedump_i
                             const uint8_t **cycles, const uint8_t **semantic, const uint8_t **diag,
                             const uint8_t **video_raw, const uint8_t **audio_raw);
 
+/* Encodes one diagnostic record into the 160 bytes of the v4/v5 contract. The
+ * RECORD is shared with GBP-VIDEO-003's OGBPCOL1 sidecar because the R3 policy
+ * it describes is shared and was physically validated (GBP-HW-111); the
+ * CONTAINER is not shared, and neither format may be called the other. One
+ * encoder, so the two files can never drift apart. */
+void gbp_vstatedump_encode_diag(uint8_t *rec, const struct gbp_vstate_diag *d);
 /* One diagnostic record. `rec_size` selects the contract: 96 decodes the v3
  * half only, 160 decodes the whole v4 record. Returns 1 when the record is
  * valid. */

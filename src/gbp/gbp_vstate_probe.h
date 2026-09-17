@@ -76,6 +76,7 @@
 #include "gbp_irq_service.h"
 #include "gbp_avblock.h"
 #include "gbp_vstate.h"
+#include "gbp_vcolor.h"
 #include "gbp_time64.h"
 
 #ifdef __cplusplus
@@ -160,7 +161,11 @@ enum gbp_vstate_stop {
     GBP_VSTATE_STOP_SAFETY_BUDGET,
     GBP_VSTATE_STOP_DELIVERY_CAP,
     GBP_VSTATE_STOP_NO_NEXT_CAUSE,
-    GBP_VSTATE_STOP_FAILURE
+    GBP_VSTATE_STOP_FAILURE,
+    /* GBP-VIDEO-003 only. Never reachable with cfg->color == NULL. */
+    GBP_VSTATE_STOP_COLOR_CERTIFIED,     /* three signature-identical eligible frames */
+    GBP_VSTATE_STOP_COLOR_SEARCH_WINDOW, /* the search window expired with nothing certified */
+    GBP_VSTATE_STOP_COLOR_FRAME_CAP      /* the capture's frame table filled first */
 };
 
 typedef enum {
@@ -219,6 +224,16 @@ struct gbp_vstate_config {
     uint16_t ack_or, src_mask, av_mask, audio_src, video_src, odd_mask, bit15_mask, high_mask;
     uint32_t audio_index, video_index, audio_len, video_len;
     struct gbp_vstate *st;               /* caller's state model and storage */
+    /* ---- GBP-VIDEO-003 capture mode (HARDWARE_TESTS §V3) ----
+     * NULL in every GBP-VIDEO-002 build, and then this probe behaves exactly as
+     * it did when vstate-0004 was physically validated: the device operations,
+     * their order, the policy and the stop conditions are untouched. When the
+     * colour POC supplies a state here, ONE extra thing happens per closed frame
+     * (a RAM-only eligibility test and, at most, a memcpy of the frame's own
+     * bytes) and TWO extra stop conditions are evaluated in CHECK_ADMISSION,
+     * after the safety budget. No hardware access is added anywhere (§V3.13). */
+    struct gbp_vcolor *color;
+    uint64_t color_search_ticks;         /* SEARCH_WINDOW: certification must start by then */
     struct gbp_vstate_cycle *cyc_first, *cyc_last, *cyc_anomaly, *cyc_episode;   /* caller's bounded records */
     /* BENCHMARK ONLY. Section 8 of the design requires the same synthetic scenario to be run WITH
      * and WITHOUT the per-block signature so the cadence can be compared. This flag is how the
@@ -246,6 +261,10 @@ struct gbp_vstate_result {
     /* ---- the result matrix (§20) ---- */
     int service_ok;
     const char *service_reason;
+    /* The caps this run actually used. The summary printed them from the build's
+     * constants until GBP-VIDEO-003 arrived with different ones; a report that
+     * names a limit the run did not use is a report that cannot be checked. */
+    uint32_t target_s, limit_s;
     int stop;                            /* enum gbp_vstate_stop */
     const char *stop_name;
     int next_cause_at_end;
