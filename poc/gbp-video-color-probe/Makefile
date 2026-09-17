@@ -1,5 +1,5 @@
 #---------------------------------------------------------------------------------
-# Open-GBP GBP-VIDEO-002 — GameCube build (devkitPPC + libogc2)
+# Open-GBP GBP-VIDEO-003 — GameCube build (devkitPPC + libogc2)
 #
 # Run from inside the project container, e.g. from the repository root:
 #
@@ -7,15 +7,15 @@
 #
 # or directly inside the container:
 #
-#     make -C poc/gbp-video-state-probe
+#     make -C poc/gbp-video-color-probe
 #
-# Outputs go to build/poc/gbp-video-state-probe/ (ignored by Git):
-#     gbp-video-state-probe.elf           linked ELF
-#     gbp-video-state-probe.unpadded.dol  raw elf2dol output
-#     gbp-video-state-probe.dol           final DOL, section sizes padded to 32 bytes by
+# Outputs go to build/poc/gbp-video-color-probe/ (ignored by Git):
+#     gbp-video-color-probe.elf           linked ELF
+#     gbp-video-color-probe.unpadded.dol  raw elf2dol output
+#     gbp-video-color-probe.dol           final DOL, section sizes padded to 32 bytes by
 #                                      tools/dolpad.py (required by Dolphin 2606a's
 #                                      DolReader; harmless for physical loaders)
-#     gbp-video-state-probe.map, build-info.txt, obj/*.o (every object is audited by
+#     gbp-video-color-probe.map, build-info.txt, obj/*.o (every object is audited by
 #     `make vstate-audit` at the repository root: profile vstate of tools/poc_audit.py — one
 #     __UnmaskIrq call site, IRQ_Request only from the install/restore pair, __MaskIrq only from
 #     the mask primitive and the two 002/003B handlers, no INTMR store, 3 + 1 + 1 IRQ-register
@@ -35,8 +35,8 @@ include $(DEVKITPRO)/libogc2/gamecube_rules
 #---------------------------------------------------------------------------------
 # Identity
 #---------------------------------------------------------------------------------
-APP_NAME   := gbp-video-state-probe
-BUILD_ID   := vstate-0004
+APP_NAME   := gbp-video-color-probe
+BUILD_ID   := color-0001
 GIT_COMMIT ?= $(shell git -C "$(CURDIR)" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 GIT_DIRTY  ?= $(shell git -C "$(CURDIR)" diff --quiet HEAD -- 2>/dev/null || echo -dirty)
 COMMIT_ID  := $(GIT_COMMIT)$(GIT_DIRTY)
@@ -51,7 +51,7 @@ TARGET  := $(OUTDIR)/$(APP_NAME)
 
 vpath %.c $(CURDIR)/source $(ROOT)/src/common $(ROOT)/src/log $(ROOT)/src/gbp $(ROOT)/src/platform
 
-SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vcolor.c gbp_vstate_probe.c gbp_vstatedump.c hsp_backend.c hsp_backend_irq.c sdlog.c
+SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vcolor.c gbp_vstate_probe.c gbp_vstatedump.c gbp_vcoldump.c hsp_backend.c hsp_backend_irq.c sdlog.c
 OBJS := $(addprefix $(OBJDIR)/,$(SRCS:.c=.o))
 DEPS := $(OBJS:.o=.d)
 

@@ -53,10 +53,26 @@ extern "C" {
 #define GBP_VSTATE_EPISODE_MAX_FRAMES 60u
 #define GBP_VSTATE_N_STABLE           3u     /* the same evidence threshold the baseline uses */
 #define GBP_VSTATE_BASELINE_FRAMES    3u
+/* The working ring. THREE slots is what GBP-VIDEO-002 needs and what every
+ * physical run so far used: the frame filling, the frame just closed, and the
+ * one before it. GBP-VIDEO-003 needs FOUR, and the reason is a lifecycle fact,
+ * not a preference (§V3.23): on the boundary block that closes frame C the
+ * assembler first copies that block into slot (cur+1) and only then closes C,
+ * so with three slots the frame TWO closes ago is destroyed at the instant the
+ * third consecutive frame closes - exactly the instant a colour run certifies.
+ * With four, A, B and C are all still intact when C closes.
+ *
+ * The count is therefore NOT a global constant any more: it is derived at init
+ * from the size of the buffer the caller supplied, so the vstate probe keeps
+ * three slots and its byte count unchanged, and only the colour probe pays for
+ * the fourth. Nothing else in the model depends on the number. */
 #define GBP_VSTATE_RAW_RING_SLOTS     3u     /* previous closed frame, frame just closed, frame filling */
+#define GBP_VSTATE_RAW_RING_SLOTS_MIN 3u     /* below this the model refuses to run */
+#define GBP_VSTATE_RAW_RING_SLOTS_MAX 4u     /* GBP-VIDEO-003: A, B, C intact at certification */
 #define GBP_VSTATE_EPISODE_RAW_SLOTS  4u     /* per episode: reference, first changed, context, stable */
 #define GBP_VSTATE_RAW_FRAME_BYTES    (GBP_VSTATE_FRAME_MAX_BLOCKS * GBP_VSTATE_VIDEO_BLOCK_SIZE)   /* 184320 */
 #define GBP_VSTATE_RAW_RING_BYTES     (GBP_VSTATE_RAW_RING_SLOTS * GBP_VSTATE_RAW_FRAME_BYTES)      /* 552960 = 0.53 MiB */
+#define GBP_VSTATE_RAW_RING_BYTES_4   (GBP_VSTATE_RAW_RING_SLOTS_MAX * GBP_VSTATE_RAW_FRAME_BYTES)  /* 737280 = 0.70 MiB */
 #define GBP_VSTATE_EPISODE_RAW_BYTES  (GBP_VSTATE_MAX_EPISODES * GBP_VSTATE_EPISODE_RAW_SLOTS * GBP_VSTATE_RAW_FRAME_BYTES)
                                                                                                      /* 2949120 = 2.81 MiB */
 /* AUDIO raw: the first successful drain, then a ping-pong pair for the last successful one.
@@ -389,8 +405,9 @@ struct gbp_vstate {
     uint32_t frames_cap;
     struct gbp_vstate_event *events;     /* GBP_VSTATE_MAX_EVENTS entries */
     uint32_t events_cap;
-    uint8_t *raw_ring;                   /* GBP_VSTATE_RAW_RING_BYTES, 32-byte aligned */
+    uint8_t *raw_ring;                   /* >= GBP_VSTATE_RAW_RING_BYTES, 32-byte aligned */
     uint32_t raw_ring_cap;
+    uint32_t raw_ring_slots;             /* derived from raw_ring_cap at init, 3 or 4, 0 when unusable */
     uint8_t *episode_raw;                /* GBP_VSTATE_EPISODE_RAW_BYTES, 32-byte aligned */
     uint32_t episode_raw_cap;
     uint8_t *audio_raw;                  /* GBP_VSTATE_AUDIO_RAW_BYTES, 32-byte aligned */
@@ -530,6 +547,30 @@ const char *gbp_vstate_event_name(unsigned type);
  * NULL when the frame already holds GBP_VSTATE_FRAME_MAX_BLOCKS blocks — the caller must close
  * the frame first, which gbp_vstate_block() does automatically before it returns a target. */
 uint8_t *gbp_vstate_video_target(struct gbp_vstate *s);
+/* The raw bytes of the frame that was JUST closed, in the ring slot it occupies,
+ * or NULL when no frame has closed yet. `*blocks` receives how many blocks that
+ * frame holds, so the caller can refuse anything that is not a whole frame. The
+ * pointer is valid until the ring wraps onto that slot again.
+ * Read-only: nothing outside this module ever writes the ring.
+ *
+ * NOTE for timing-critical callers: this returns a POINTER, and following it is
+ * a 153 600-byte operation. GBP-VIDEO-003 deliberately does NOT call this from
+ * inside the service path any more (§V3.23); it takes the SLOT INDEX below,
+ * which is an integer, and reads the bytes only after the teardown. */
+const uint8_t *gbp_vstate_closed_frame_raw(const struct gbp_vstate *s, uint32_t *blocks);
+/* The ring slot index of the frame that was JUST closed, or -1 when none has.
+ * `*blocks` receives that frame's block count. This is the O(1) form of the
+ * call above: it identifies the bytes without touching one of them. */
+int gbp_vstate_closed_frame_slot(const struct gbp_vstate *s, uint32_t *blocks);
+/* The slot the assembler is currently filling, and the slot count in use. A
+ * preserved slot must never be either the current one or out of range; the
+ * colour capture checks exactly that before it serializes (§V3.24). */
+uint32_t gbp_vstate_current_slot(const struct gbp_vstate *s);
+uint32_t gbp_vstate_ring_slots(const struct gbp_vstate *s);
+/* Read-only base of one whole ring slot, or NULL when the slot does not exist.
+ * The OGBPCOL1 writer streams the certified frames straight from here, after
+ * the hardware is down: no copy is ever made during capture. */
+const uint8_t *gbp_vstate_ring_frame(const struct gbp_vstate *s, uint32_t slot);
 /* Byte address of one block of one ring slot / one episode raw slot (read-only helpers). */
 const uint8_t *gbp_vstate_ring_block(const struct gbp_vstate *s, uint32_t slot, uint32_t block);
 const uint8_t *gbp_vstate_episode_block(const struct gbp_vstate *s, uint32_t raw_slot, uint32_t block);
@@ -710,6 +751,9 @@ const char *gbp_vstate_completeness_name(unsigned c);
 const char *gbp_vstate_episode_state_name(unsigned st);
 /* Static footprint in bytes of every resident store, for the memory audit. */
 uint64_t gbp_vstate_static_bytes(void);
+/* The same budget for a ring of `slots` frames (3 or 4); 0 for any other value.
+ * The colour probe reports this so its log never understates its own ring. */
+uint64_t gbp_vstate_static_bytes_for(uint32_t slots);
 
 #ifdef __cplusplus
 }

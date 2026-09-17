@@ -46,8 +46,13 @@ nonfatal-disagreement policy but produced contaminated diagnostics (GBP-HW-104);
 attribution — **29 disagreements survived, 29 of 29 records internally coherent,
 sidecar strict-valid** — which makes **R3's physical validation COMPLETE** and
 **unblocks `GBP-VIDEO-003`** (GBP-HW-108…115), whose controlled-colour
-experiment is now **DESIGN FINALIZED 2026-09-17, NOT IMPLEMENTED, NOT PHYSICALLY
-EXECUTED** (§V3.0 to §V3.22) and whose execution waits on one documented
+experiment is now **DESIGNED and IMPLEMENTED 2026-09-17, NOT PHYSICALLY
+EXECUTED** (§V3.0 to §V3.25): an AGB stimulus ROM, a GameCube probe reusing the
+validated service path, the `OGBPCOL1` v1 sidecar and an offline analyser that
+decides the mapping from raw bytes alone. Its first implementation was blocked by
+a microaudit for doing full-frame work between the ACK and the RE-ARM; the
+capture now decides stability from the per-block signatures the model already
+computes and never touches a frame's bytes (§V3.23 to §V3.25). Execution waits on one documented
 dependency: a way to deliver a controlled GBA ROM to the physical unit. The normative binary layouts (the
 160-byte diagnostic record, the 1024-byte semantic block, the OGBPSEQ1 v4/v5
 header) live in that file as subsections R3.24 to R3.29 and R4.7.
@@ -61,6 +66,15 @@ OGBPSEQ1 v2   GBP-VIDEO-002, build vstate-0001   historical, frozen
 OGBPSEQ1 v3   GBP-VIDEO-002, build vstate-0002   historical, frozen
 OGBPSEQ1 v4   GBP-VIDEO-002-R3, vstate-0003      historical, frozen, PHYSICALLY
                                                  EXECUTED, KNOWN PRODUCER DEFECT
+OGBPCOL1 v1   GBP-VIDEO-003, color-0001         IMPLEMENTED, not physically executed;
+                                                 LAYOUT FROZEN at the implementation
+                                                 checkpoint - a later change is a new
+                                                 version, never an edit of v1;
+                                                 a DEDICATED format - frame history,
+                                                 certified window (slot, order and
+                                                 signatures), the shared R3 record and
+                                                 whole raw frames streamed straight from
+                                                 the state model's ring. Never OGBPSEQ1
 OGBPSEQ1 v5   GBP-VIDEO-002-R4, vstate-0004      PHYSICALLY EXECUTED 2026-09-17;
                                                  same layout as v4, stricter producer
                                                  contract enforced by cross-field invariants;

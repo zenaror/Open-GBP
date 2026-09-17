@@ -20,6 +20,7 @@
 
 #include "gbp_vstate_probe.h"
 #include "gbp_vstatedump.h"
+#include "gbp_vcolor.h"
 #include "gbp_rawlog.h"
 #include "gbp_crc32.h"
 #include "gbp_mock.h"
@@ -175,6 +176,34 @@ static int line_index(const struct ringlog *rl, const char *needle)
 
 /* the bounded disagreement store every scenario attaches (§R3.15) */
 static struct gbp_vstate_diag diag_store[GBP_VSTATE_MAX_DISAGREEMENTS];
+
+/* GBP-VIDEO-003 needs a FOUR-slot ring and its own state, so the colour success
+ * trace does not disturb the vstate harness above (which stays at three). */
+static uint8_t colour_ring[GBP_VSTATE_RAW_RING_BYTES_4] __attribute__((aligned(32)));
+static struct gbp_vstate colour_vstate;
+static struct gbp_vstate_frame colour_frames_store[GBP_VSTATE_MAX_FRAMES];
+static struct gbp_vstate_event colour_events_store[GBP_VSTATE_MAX_EVENTS];
+static struct gbp_vstate_diag colour_diag_store[GBP_VSTATE_MAX_DISAGREEMENTS];
+
+static void run_cfg_colour(struct gbp_mock *m, struct ringlog *rl, struct gbp_vstate_result *res,
+                           struct gbp_vstate_config *cfg)
+{
+    struct gbp_transport t;
+    gbp_mock_transport(m, &t);
+    gbp_vstate_init(&colour_vstate, colour_frames_store, GBP_VSTATE_MAX_FRAMES,
+                    colour_events_store, GBP_VSTATE_MAX_EVENTS,
+                    colour_ring, sizeof colour_ring, episode_raw, sizeof episode_raw,
+                    audio_raw, sizeof audio_raw);
+    gbp_vstate_diag_store(&colour_vstate, colour_diag_store, GBP_VSTATE_MAX_DISAGREEMENTS);
+    cfg->st = &colour_vstate;
+    ringlog_init(rl, storage, LINE_LEN, LINES);
+    memset(&witness, 0, sizeof witness);
+    witness.rl = rl;
+    witness.base = gbp_internal_size_from_arinfo(m->arinfo);
+    m->write_hook = on_write;
+    m->write_hook_user = &witness;
+    gbp_vstate_probe_run(&t, rl, cfg, res);
+}
 
 static void run_cfg(struct gbp_mock *m, struct ringlog *rl, struct gbp_vstate_result *res, struct gbp_vstate_config *cfg)
 {
@@ -1761,6 +1790,164 @@ static void test_v4_strictness(void)
         CHECK(gbp_vstatedump_parse(bad, (size_t)n, 0, 0, 0, 0, 0, 0, 0) != 0);
     }
     printf("   28 structural tampers refused, histogram corruption caught by the CRC\n");
+}
+
+/*
+ * §47 (GBP-VIDEO-003): THE COLOUR CAPTURE COSTS NO DEVICE OPERATION.
+ *
+ * The colour probe reuses this service loop rather than reimplementing it, and
+ * the only thing it adds is RAM bookkeeping per closed frame. The way to prove
+ * that is not to read the code: it is to run the SAME mock scenario twice, once
+ * with the capture attached and once without, and require the device streams to
+ * be identical - reads, whole-block drains, IRQ writes, operations, transfers.
+ *
+ * The capture is attached WITHOUT a raw buffer here, so it can never certify and
+ * can never end the run early: both halves then stop on the same delivery cap
+ * and the comparison is over the whole run rather than a prefix.
+ */
+/*
+ * §35 / §15 / §13 of the second microaudit: the COLOUR SUCCESS TRACE, which is a
+ * different question from the operation-equivalence test below.
+ *
+ * A still picture, the real probe, the real teardown. What must be true:
+ *   - certification happens in the frame-close hook, between the ACK and the
+ *     RE-ARM of the transaction that closed the third frame;
+ *   - that transaction still ACKs, still RE-ARMs, still arms its follow-up and
+ *     still runs WAIT_NEXT;
+ *   - NO FURTHER SERVICE TRANSACTION follows: no IRQ-data read, no drain, no
+ *     ACK, no RE-ARM, no gbp_vstate_block, and the ring does not advance;
+ *   - the teardown does not touch one byte of A, B or C.
+ */
+static void test_colour_success_trace_and_raw_immutability(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    struct gbp_vcolor colour;
+    static struct gbp_vcolor_frame ctab[64];
+    static uint8_t snap[GBP_VCOLOR_CERT_FRAMES][GBP_VCOLOR_FRAME_BYTES];
+    const uint16_t bits[1] = { 0x0500u };
+    unsigned k, slots, cur;
+    printf("-- the colour success trace: certify, finish the transaction, stop, and keep the bytes\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 60;   /* the vstate target must not fire */
+    cfg.max_deliveries = 4000u;
+    gbp_vcolor_init(&colour, ctab, 64u);
+    cfg.color = &colour;
+    cfg.color_search_ticks = 0u;
+    sched_reset(0xFFu);                                    /* a STILL picture */
+    mock_vstate(&m, bits, 1u, 50u);
+    run_cfg_colour(&m, &rl, &res, &cfg);
+
+    /* it certified, and the run ended because of that and nothing else */
+    CHECK(colour.certified == 1);
+    CHECK(colour.cert_n == GBP_VCOLOR_CERT_FRAMES);
+    CHECK(res.stop == GBP_VSTATE_STOP_COLOR_CERTIFIED);
+    CHECK(res.service_ok == 1);
+    CHECK(res.restore_ok == 1);
+    /* §14: a cause WAS pending at the stop, and that is normal, not an error */
+    CHECK(res.next_cause_at_end == 1);
+    CHECK(res.a.power_cycle_required == 1);
+    CHECK(res.h.handler_restored == 1);
+    CHECK(res.h.mask_ok == 1);
+
+    /* §13: the certifying transaction completed - every ACK has its RE-ARM */
+    CHECK(res.acks == res.rearms);
+    CHECK(res.deliveries == res.acks);
+    CHECK(res.isr_w1c == res.deliveries);
+    /* the third certified frame is the LAST frame the model closed: no frame was
+     * assembled after certification, so no VIDEO block was drained after it */
+    CHECK(colour.cert[2].frame_index == colour_vstate.frames_n - 1u);
+    CHECK(colour_vstate.cur_blocks == 1u);                 /* only D's boundary block */
+
+    /* §4: the relation, at whatever rotation this run happened to reach */
+    slots = gbp_vstate_ring_slots(&colour_vstate);
+    cur = gbp_vstate_current_slot(&colour_vstate);
+    CHECK(slots == 4u);
+    CHECK(colour.cert[1].ring_slot == (colour.cert[0].ring_slot + 1u) % slots);
+    CHECK(colour.cert[2].ring_slot == (colour.cert[1].ring_slot + 1u) % slots);
+    CHECK(cur == (colour.cert[2].ring_slot + 1u) % slots);
+    CHECK(gbp_vcolor_slots_ok(&colour, &colour_vstate) == 1);
+
+    /* §15: the bytes are the ones the DMA wrote, AFTER the whole teardown ran */
+    for (k = 0; k < GBP_VCOLOR_CERT_FRAMES; k++) {
+        const uint8_t *r = gbp_vstate_ring_frame(&colour_vstate, colour.cert[k].ring_slot);
+        CHECK(r != 0);
+        memcpy(snap[k], r, GBP_VCOLOR_FRAME_BYTES);
+    }
+    CHECK(memcmp(snap[0], snap[1], GBP_VCOLOR_FRAME_BYTES) == 0);
+    CHECK(memcmp(snap[0], snap[2], GBP_VCOLOR_FRAME_BYTES) == 0);
+    /* and they are what the mock painted: byte 1 and byte 3 of every group */
+    CHECK(snap[0][1] == 0xFFu);                            /* block 0 carries the boundary */
+    CHECK(snap[0][GBP_VSTATE_VIDEO_BLOCK_SIZE + 3u] == 0xFFu);
+    printf("   certified at frame %lu, slots %u/%u/%u, filling %u, %lu deliveries, %lu acks = %lu rearms\n",
+           (unsigned long)colour.cert[2].frame_index, colour.cert[0].ring_slot,
+           colour.cert[1].ring_slot, colour.cert[2].ring_slot, cur,
+           (unsigned long)res.deliveries, (unsigned long)res.acks, (unsigned long)res.rearms);
+}
+
+static void test_colour_capture_adds_no_operation(void)
+{
+    struct gbp_mock ref, col;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    struct gbp_vcolor colour;
+    const uint16_t bits[1] = { 0x0500u };
+    unsigned ref_reads, col_reads, ref_deliveries;
+    printf("-- the colour capture attached: the same device stream, to the operation\n");
+    /* The screen changes every frame in BOTH runs. That is what keeps the
+     * comparison meaningful since the timing fix: with a still picture the
+     * capture would certify at the third frame and stop the run early, which is
+     * a scientific stop, not a device-operation difference. Here neither run can
+     * certify, so both end on the same delivery cap and every operation of one
+     * has to match the other. */
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 200u;
+    sched_reset(0xFFu);
+    sched.chaos_from = 1u;
+    mock_vstate(&ref, bits, 1u, 50u);
+    run_cfg(&ref, &rl, &res, &cfg);
+    CHECK(res.service_ok == 1);
+    ref_reads = irq_reads(&ref);
+    ref_deliveries = res.deliveries;
+
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 200u;
+    gbp_vcolor_init(&colour, 0, 0u);             /* counts, keeps no table */
+    cfg.color = &colour;
+    cfg.color_search_ticks = 0u;                 /* no search deadline in this comparison */
+    sched_reset(0xFFu);
+    sched.chaos_from = 1u;
+    mock_vstate(&col, bits, 1u, 50u);
+    run_cfg(&col, &rl, &res, &cfg);
+    CHECK(res.service_ok == 1);
+    col_reads = irq_reads(&col);
+
+    CHECK(col_reads == ref_reads);
+    CHECK(col.nops == ref.nops);
+    CHECK(col.bulk_reads == ref.bulk_reads);
+    CHECK(col.irq_writes == ref.irq_writes);
+    CHECK(col.transfers == ref.transfers);
+    CHECK(col.violation_mask == 0u);
+    CHECK(res.deliveries == ref_deliveries);
+    /* and the capture did see the frames: a changing picture simply never gives
+     * it three in a row, so it observes everything and certifies nothing */
+    CHECK(colour.frames_total > 0u);
+    CHECK(colour.frames_eligible > 0u);
+    CHECK(colour.certified == 0);
+    CHECK(colour.sig_mismatches > 0u);           /* every frame broke the previous run */
+    {   /* the reasons partition the frames exactly once each */
+        unsigned k, sum = 0;
+        for (k = 0; k < GBP_VCOLOR_REASONS; k++) sum += colour.frames_refused[k];
+        CHECK(sum == colour.frames_total);
+        CHECK(colour.frames_refused[GBP_VCOLOR_RETIRED_PRE_BASELINE] == 0u);
+    }
+    printf("   %u IRQ reads, %u operations, %u bulk reads either way, %lu frames observed\n",
+           col_reads, col.nops, col.bulk_reads, (unsigned long)colour.frames_total);
 }
 
 /*
@@ -3376,6 +3563,8 @@ int main(int argc, char **argv)
     test_disc_extra_video_fabricates_nothing();
     test_followup_lifecycle();
     test_followup_is_per_source_bit();
+    test_colour_success_trace_and_raw_immutability();
+    test_colour_capture_adds_no_operation();
     test_ownership_survives_a_store_that_runs_out();
     test_diag_close_touches_only_the_followup();
     test_majority_extra_only_never_waits();

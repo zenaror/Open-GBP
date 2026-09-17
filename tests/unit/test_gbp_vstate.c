@@ -545,6 +545,11 @@ static void test_memory_arithmetic(void)
     eq_u32(sizeof(struct gbp_vstate_event), GBP_VSTATE_EVENT_REC, "one event record is exactly 64 bytes");
     eq_u64((uint64_t)GBP_VSTATE_RAW_FRAME_BYTES, 184320u, "a raw frame slot is 48 x 0xF00 = 184 320 B");
     eq_u64((uint64_t)GBP_VSTATE_RAW_RING_BYTES, 552960u, "the working ring is 3 slots = 552 960 B = 0.53 MiB");
+    /* GBP-VIDEO-002 runs at THREE slots and the refactor that made the count
+     * configurable must never have moved it: this state was initialised from the
+     * same 552 960-byte buffer every physical run used. */
+    eq_u64(gbp_vstate_ring_slots(&st), 3u, "this experiment's ring is three slots, as it always was");
+    ok(gbp_vstate_storage_ok(&st) == 1, "and the storage contract accepts it");
     eq_u64((uint64_t)GBP_VSTATE_EPISODE_RAW_BYTES, 2949120u, "the episode store is 4 x 4 x 184 320 = 2 949 120 B = 2.81 MiB");
     eq_u64((uint64_t)GBP_VSTATE_AUDIO_RAW_BYTES, 12288u, "AUDIO raw is 3 x 0x1000 = 12 KiB");
     eq_u64(gbp_vstate_static_bytes(), 3145728u + 262144u + 552960u + 2949120u + 12288u,

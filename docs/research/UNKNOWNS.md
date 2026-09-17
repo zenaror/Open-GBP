@@ -247,7 +247,7 @@ difference is documented anywhere; the user's unit revision is unknown.
 Dolphin maps hi byte bit 0 → L and bit 1 → R (swapped vs GBA KEYINPUT);
 GBI's 0x0304 sets both. Phase 5 test with a game that distinguishes L/R.
 
-## U-GBP-011 (P2, re-evaluated 2026-09-17: R-high order CORROBORATED by two references; the experiment that settles it is DESIGNED — GBP-VIDEO-003) — VIDEO color bit order and exact word content
+## U-GBP-011 (P2, re-evaluated 2026-09-17: R-high order CORROBORATED by two references; the experiment that settles it is DESIGNED and IMPLEMENTED — GBP-VIDEO-003, the capture's timing blocker is FIXED, and what remains is the unresolved ROM delivery method) — VIDEO color bit order and exact word content
 
 **2026-09-16, static (GBP-VID-003/006, VIDEO_PATH.md §2.3–2.4, §3.2):** the
 Disc draws the 16-bit pixel (bytes 1/3, bit 15 forced to 1) as a GX RGB5A3
@@ -283,8 +283,15 @@ Nothing about the answer is anticipated: the design requires **exactly one**
 candidate transformation to reproduce all eight observed values, and calls the
 run INCONCLUSIVE if two fit or none does. It is blocked for execution only by a
 documented **dependency**: this repository knows no way to run a controlled GBA
-ROM on the physical unit (§V3.7), and the design deliberately does not invent
-one.
+ROM on the physical unit (§V3.7), and neither the design nor the implementation
+invents one.
+
+**2026-09-17, implemented.** The stimulus ROM, the probe, the `OGBPCOL1` v1
+sidecar and the offline analyser all exist and are exercised by host tests; none
+of it has touched hardware. The analyser reaches a verdict only when exactly one
+candidate transformation reproduces all eight observed values, and its synthetic
+corpus includes the cases where it must refuse to: two survivors, none, a bar
+that is not uniform, and a mirrored frame.
 
 Dolphin uses GBA palette order (R in bits 0–4). GBI's frame-start test only
 proves the byte-doubling of the high byte. Phase 4: capture one block

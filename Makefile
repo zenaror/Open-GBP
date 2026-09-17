@@ -48,13 +48,17 @@ IN_CONTAINER := $(COMPOSE) run --rm -T dev
 PYTHON ?= python3
 PYTEST := $(shell command -v pytest 2>/dev/null)
 
-POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe gbp-av-service-probe gbp-video-capture-probe gbp-video-state-probe
+POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe gbp-av-service-probe gbp-video-capture-probe gbp-video-state-probe gbp-video-color-probe
 AVSVC_OUT := build/poc/gbp-av-service-probe
 AVSVC_DOL := $(AVSVC_OUT)/gbp-av-service-probe.dol
 VIDEO_OUT := build/poc/gbp-video-capture-probe
 VIDEO_DOL := $(VIDEO_OUT)/gbp-video-capture-probe.dol
 VSTATE_OUT := build/poc/gbp-video-state-probe
 VSTATE_DOL := $(VSTATE_OUT)/gbp-video-state-probe.dol
+COLOR_OUT := build/poc/gbp-video-color-probe
+COLOR_DOL := $(COLOR_OUT)/gbp-video-color-probe.dol
+STIM_OUT  := build/stimulus/agb-color-bars
+STIM_ROM  := $(STIM_OUT)/agb-color-bars.gba
 INITIRQ4_OUT := build/poc/gbp-init-irq-service-probe
 INITIRQ4_DOL := $(INITIRQ4_OUT)/gbp-init-irq-service-probe.dol
 INITIRQB_OUT := build/poc/gbp-init-irq-deliver-probe
@@ -70,7 +74,7 @@ SMOKE_DOL := $(SMOKE_OUT)/smoke-test.dol
 PROBE_OUT := build/poc/gbp-probe
 PROBE_DOL := $(PROBE_OUT)/gbp-probe.dol
 
-.PHONY: help env-check build inspect test-host test-unit test-python test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus color-dolphin color-audit smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit all shell clean
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -332,6 +336,31 @@ vstate-dolphin:
 	  -C Dolphin.Core.HSPDevice=2 \
 	  --report $(VSTATE_OUT)/dolphin-report-present.json --screen-png $(VSTATE_OUT)/dolphin-screen-present.png
 
+# The controlled AGB stimulus of GBP-VIDEO-003 (devkitARM, inside the same container).
+# The ROM is a DEVELOPMENT ARTIFACT: it has never run on hardware, and this repository
+# documents no way to deliver it to the Game Boy Player's internal AGB (HARDWARE_TESTS §V3.7).
+stimulus:
+	$(IN_CONTAINER) sh -c 'set -e; export DEVKITARM=$$DEVKITPRO/devkitARM; make --no-print-directory -C stimulus/agb-color-bars'
+	@$(PYTHON) tools/gbahdr.py show $(STIM_ROM)
+
+# GBP-VIDEO-003 colour probe under Dolphin. AUXILIARY ONLY: Dolphin's GBPlayer model is
+# not physical truth and CANNOT say anything about colour mapping (§54 of the
+# implementation contract). Both runs abort in the 003A stage exactly as the vstate
+# probe does, which is what is being checked here: startup, the state machine's refusal
+# to certify anything, the stop path and the teardown.
+color-dolphin:
+	$(PYTHON) tools/dolphin_smoke.py --dol $(COLOR_DOL) --build-info $(COLOR_OUT)/build-info.txt 	  --heartbeats 0 --expect 'OPENGBP-COLOR DONE status=abort_inconsistent class=abort reason=inconsistent stop=failure' 	  --report $(COLOR_OUT)/dolphin-report-absent.json --screen-png $(COLOR_OUT)/dolphin-screen-absent.png
+	$(PYTHON) tools/dolphin_smoke.py --dol $(COLOR_DOL) --build-info $(COLOR_OUT)/build-info.txt 	  --heartbeats 0 --expect 'OPENGBP-COLOR DONE status=abort_control_shape class=abort reason=control_not_idle_shape stop=failure' 	  -C Dolphin.Core.HSPDevice=2 	  --report $(COLOR_OUT)/dolphin-report-present.json --screen-png $(COLOR_OUT)/dolphin-screen-present.png
+
+color-audit:
+	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(COLOR_OUT)/audit; rm -f $(COLOR_OUT)/audit/*.objdump.txt; for o in $(COLOR_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(COLOR_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(COLOR_OUT)/gbp-video-color-probe.elf > $(COLOR_OUT)/audit/elf.nm.txt'
+	$(PYTHON) tools/isr_audit.py $(COLOR_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr_ext --report $(COLOR_OUT)/isr-audit-ext.txt
+	$(PYTHON) tools/isr_audit.py $(COLOR_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr --report $(COLOR_OUT)/isr-audit-base.txt
+	$(PYTHON) tools/poc_audit.py $(COLOR_OUT)/audit --profile color --report $(COLOR_OUT)/poc-audit.txt
+	@echo "-- the interrupt path must be identical to the physically validated GBP-VIDEO-001 build:"
+	@cmp -s $(COLOR_OUT)/isr-audit-ext.txt $(VIDEO_OUT)/isr-audit-ext.txt && echo "   ext one-shot: identical" || { echo "   ext one-shot: DIFFERENT"; exit 1; }
+	@cmp -s $(COLOR_OUT)/isr-audit-base.txt $(VIDEO_OUT)/isr-audit-base.txt && echo "   base one-shot: identical" || { echo "   base one-shot: DIFFERENT"; exit 1; }
+
 # Static audit of gbp-video-state-probe (GBP-VIDEO-002): tools/isr_audit.py on both one-shot
 # bodies of hsp_backend_irq.o — which must stay BYTE-IDENTICAL to the GBP-VIDEO-001 build's, since
 # that path was physically validated — and tools/poc_audit.py --profile vstate on every object.
@@ -345,7 +374,7 @@ vstate-audit:
 	@diff $(VSTATE_OUT)/isr-audit-ext.txt $(VIDEO_OUT)/isr-audit-ext.txt && echo "   ext one-shot: identical"
 	@diff $(VSTATE_OUT)/isr-audit-base.txt $(VIDEO_OUT)/isr-audit-base.txt && echo "   base one-shot: identical"
 
-all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirqa-dolphin initirqb-dolphin initirq4-dolphin avsvc-dolphin video-dolphin vstate-dolphin
+all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirqa-dolphin initirqb-dolphin initirq4-dolphin avsvc-dolphin video-dolphin vstate-dolphin color-dolphin
 
 shell:
 	$(COMPOSE) run --rm dev bash

@@ -40,6 +40,20 @@ void gbp_vstate_init(struct gbp_vstate *s,
     s->frames = frames; s->frames_cap = frames_cap;
     s->events = events; s->events_cap = events_cap;
     s->raw_ring = raw_ring; s->raw_ring_cap = raw_ring_cap;
+    /* The slot count is DERIVED, never assumed: whatever whole frames the
+     * caller's buffer holds, capped at the maximum the model knows how to
+     * rotate. Three keeps GBP-VIDEO-002 exactly as it was; four is what
+     * GBP-VIDEO-003 supplies so that A, B and C survive certification. */
+    if (raw_ring) {
+        /* EXACTLY three or four whole frames, and nothing else. An earlier draft
+         * clamped anything larger down to four, which would have accepted a
+         * mis-sized buffer in silence - the one failure mode a derived size must
+         * not have. A buffer this model cannot describe leaves raw_ring_slots at
+         * zero, and gbp_vstate_storage_ok() then refuses the run. */
+        uint32_t slots = raw_ring_cap / GBP_VSTATE_RAW_FRAME_BYTES;
+        s->raw_ring_slots = (slots == GBP_VSTATE_RAW_RING_SLOTS_MIN ||
+                             slots == GBP_VSTATE_RAW_RING_SLOTS_MAX) ? slots : 0u;
+    }
     s->episode_raw = episode_raw; s->episode_raw_cap = episode_raw_cap;
     s->audio_raw = audio_raw; s->audio_raw_cap = audio_raw_cap;
     s->asm_state = ASM_SEEKING;
@@ -58,11 +72,16 @@ int gbp_vstate_storage_ok(const struct gbp_vstate *s)
     if (!s || !s->frames || !s->events || !s->raw_ring || !s->episode_raw || !s->audio_raw) return 0;
     if (s->frames_cap < GBP_VSTATE_MAX_FRAMES || s->events_cap < GBP_VSTATE_MAX_EVENTS) return 0;
     if (s->raw_ring_cap < GBP_VSTATE_RAW_RING_BYTES) return 0;
+    if (s->raw_ring_slots < GBP_VSTATE_RAW_RING_SLOTS_MIN) return 0;
     if (s->episode_raw_cap < GBP_VSTATE_EPISODE_RAW_BYTES) return 0;
     if (s->audio_raw_cap < GBP_VSTATE_AUDIO_RAW_BYTES) return 0;
     return 1;
 }
 
+/* The resident budget of a THREE-slot model, which is what GBP-VIDEO-002 uses
+ * and what every physical run so far reported. GBP-VIDEO-003 supplies a fourth
+ * slot, so its own log adds the difference explicitly rather than letting this
+ * number quietly mean two things. */
 uint64_t gbp_vstate_static_bytes(void)
 {
     return (uint64_t)GBP_VSTATE_MAX_FRAMES * GBP_VSTATE_FRAME_REC
@@ -220,6 +239,41 @@ void gbp_vstate_diag_store(struct gbp_vstate *s, struct gbp_vstate_diag *store, 
         s->sem.gap[k].last_ticks = 0u;
         s->sem.gap[k].last_cause_t = 0u;
     }
+}
+
+const uint8_t *gbp_vstate_closed_frame_raw(const struct gbp_vstate *s, uint32_t *blocks)
+{
+    if (blocks) *blocks = 0u;
+    if (!s || !s->raw_ring || s->prev_slot < 0) return 0;
+    if ((uint32_t)s->prev_slot >= s->raw_ring_slots) return 0;
+    if (blocks) *blocks = s->prev_frame_blocks;
+    return s->raw_ring + (size_t)(uint32_t)s->prev_slot * GBP_VSTATE_RAW_FRAME_BYTES;
+}
+
+int gbp_vstate_closed_frame_slot(const struct gbp_vstate *s, uint32_t *blocks)
+{
+    if (blocks) *blocks = 0u;
+    if (!s || !s->raw_ring || s->prev_slot < 0) return -1;
+    if ((uint32_t)s->prev_slot >= s->raw_ring_slots) return -1;
+    if (blocks) *blocks = s->prev_frame_blocks;
+    return s->prev_slot;
+}
+
+uint32_t gbp_vstate_current_slot(const struct gbp_vstate *s) { return s ? s->cur_slot : 0u; }
+uint32_t gbp_vstate_ring_slots(const struct gbp_vstate *s) { return s ? s->raw_ring_slots : 0u; }
+
+uint64_t gbp_vstate_static_bytes_for(uint32_t slots)
+{
+    if (slots != GBP_VSTATE_RAW_RING_SLOTS_MIN && slots != GBP_VSTATE_RAW_RING_SLOTS_MAX) return 0u;
+    return gbp_vstate_static_bytes()
+         - (uint64_t)GBP_VSTATE_RAW_RING_BYTES
+         + (uint64_t)slots * GBP_VSTATE_RAW_FRAME_BYTES;
+}
+
+const uint8_t *gbp_vstate_ring_frame(const struct gbp_vstate *s, uint32_t slot)
+{
+    if (!s || !s->raw_ring || slot >= s->raw_ring_slots) return 0;
+    return s->raw_ring + (size_t)slot * GBP_VSTATE_RAW_FRAME_BYTES;
 }
 
 const struct gbp_vstate_diag *gbp_vstate_diag_first(const struct gbp_vstate *s)
@@ -641,7 +695,7 @@ static uint8_t *ring_slot(struct gbp_vstate *s, uint32_t slot)
 
 const uint8_t *gbp_vstate_ring_block(const struct gbp_vstate *s, uint32_t slot, uint32_t block)
 {
-    if (!s || !s->raw_ring || slot >= GBP_VSTATE_RAW_RING_SLOTS || block >= GBP_VSTATE_FRAME_MAX_BLOCKS) return 0;
+    if (!s || !s->raw_ring || slot >= s->raw_ring_slots || block >= GBP_VSTATE_FRAME_MAX_BLOCKS) return 0;
     return s->raw_ring + (size_t)slot * GBP_VSTATE_RAW_FRAME_BYTES + (size_t)block * GBP_VSTATE_VIDEO_BLOCK_SIZE;
 }
 
@@ -1033,7 +1087,7 @@ int gbp_vstate_block(struct gbp_vstate *s, const uint8_t *block, uint32_t len, c
         if (s->cur_blocks > 0u) {
             uint32_t src_slot = s->cur_slot;
             uint32_t at = s->cur_blocks;
-            uint32_t next_slot = (s->cur_slot + 1u) % GBP_VSTATE_RAW_RING_SLOTS;
+            uint32_t next_slot = (s->cur_slot + 1u) % s->raw_ring_slots;
             /* The boundary block was DMA'd at position `at` of the slot the previous interval was
              * filling; it is block 0 of the NEXT frame, so it moves once — one 0xF00 copy per
              * frame, about 60 per second, and never a copy per block. */
@@ -1100,7 +1154,7 @@ int gbp_vstate_block(struct gbp_vstate *s, const uint8_t *block, uint32_t len, c
             s->cur_blocks = 0; s->cur_flags = 0; s->cur_disagreements = 0;
         }
         s->asm_state = ASM_SEEKING;
-        s->cur_slot = (s->cur_slot + 1u) % GBP_VSTATE_RAW_RING_SLOTS;
+        s->cur_slot = (s->cur_slot + 1u) % s->raw_ring_slots;
     }
     if (step) {
         step->frame_store_full = s->frame_store_full ? 1 : step->frame_store_full;

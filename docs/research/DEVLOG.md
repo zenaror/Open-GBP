@@ -6098,3 +6098,240 @@ implementation and review are not.
 **Status: GBP-VIDEO-003 DESIGN FINALIZED — NOT IMPLEMENTED — NOT PHYSICALLY
 EXECUTED.** R3 stays COMPLETE, U-GBP-033 stays OPEN, U-GBP-011 now names the
 experiment that closes it, and no evidence ID was created.
+
+---
+
+## 2026-09-17 — GBP-VIDEO-003 implemented: a stimulus, a probe that cannot recognise it, and an analyser that can
+
+**Goal:** implement the controlled colour experiment from the design versioned at
+`1b1199f`. No hardware, no candidate DOL, no claim that the ROM can be delivered.
+
+### Three programs that must not know each other
+
+The experiment only works if the pieces stay ignorant of one another, so that is
+how they were built:
+
+```text
+stimulus/agb-color-bars      writes eight known 15-bit values, never sets bit 15,
+                             knows nothing about the GBP
+poc/gbp-video-color-probe    preserves three identical eligible frames, knows
+                             nothing about the eight values
+tools/vcolor.py              holds the eight values and the hypotheses, and never
+                             touches hardware
+```
+
+The middle one is the interesting constraint. A probe that could recognise the
+colour bars would need the values, and a runtime holding `0x001F` on the wire
+would be deciding the experiment's question with the experiment's answer. So the
+capture module decides only three things: is this frame eligible, are these bytes
+identical to the last, and have three in a row arrived. A flash-cart menu that
+held still for 50 ms would certify just as happily — and that costs nothing,
+because the analyser is what decides whether the preserved bytes are the pattern.
+A host test greps the runtime for `0x03E0` and `0x7C00`, the two stimulus values
+that collide with nothing else in this project, and fails if either appears.
+
+### Reuse that is actually reuse
+
+`poc/gbp-video-color-probe` does not reimplement the service loop; it runs the
+same one. `gbp_vstate_probe_run()` gained a capture hook that is `NULL` in every
+GBP-VIDEO-002 build, so detection, the 003A stage, the 003B handler, the drains,
+the ACK, the PI clean, the re-arm, WAIT_NEXT, the teardown and the whole R3
+policy are the code `vstate-0004` executed on hardware — not a copy of it.
+
+The proof is a test rather than a claim: the same mock scenario runs twice, with
+and without the capture attached, and the device streams must match exactly.
+They do — 224 IRQ reads, 2 471 operations, 400 whole-block reads either way.
+
+### What the capture refuses
+
+A frame becomes evidence only if it is complete at 40 blocks, unresynced,
+anomaly-free, not quarantined by the majority-extra rule, not contaminated by a
+deferred VIDEO drain, past the baseline and backed by real bytes. One predicate
+answers that question, in the design's order, so the recorded reason is always
+the *first* thing wrong with a frame. Fifty identical frames that carry a
+majority-extra VIDEO block certify nothing at all, and there is a test that runs
+exactly that.
+
+Stability is `memcmp` over the whole 153 600 bytes — not a signature, not a
+checksum, not a tolerance. The strongest comparison available, on the same bytes
+that will later carry the conclusion.
+
+### The format, and a bug the tests caught
+
+`OGBPCOL1` v1 is a dedicated container: frame history, the certified window, the
+shared R3 diagnostic record and the raw frames, with the same discipline as the
+rest of the family (big-endian, fixed offsets, reserved bytes zero, header CRC,
+total CRC, footer, streamed after the teardown). It is **not** OGBPSEQ1: that
+contract belongs to the vstate experiment. The record is shared because the
+policy is shared; the container is not, and neither may be called the other.
+
+The round-trip test caught a real defect immediately: the writer computed the
+total CRC *after* emitting the footer, so the value stored in the info struct
+covered the footer bytes too. The file on disk was right and the parser agreed
+with itself, which is exactly the kind of bug that survives a careless test.
+
+### What the analyser will and will not say
+
+It reaches a verdict only when **exactly one** candidate transformation
+reproduces all eight observed values. Two survivors, none, a bar that is not
+uniform, or a mirrored orientation are each reported as their own kind of
+inconclusive, with the raw preserved. There is no score, no distance and no
+closest fit anywhere in it.
+
+The synthetic corpus covers identity, outer-group swap, byte swap, intra-group
+reversal, complement, a transformation nobody proposed, a single damaged pixel,
+a mirrored frame, and bit 15 present, absent and everywhere.
+
+One test earns its place by proving a design claim mechanically: with only the
+three full-group bars and the two references, **identity and intra-group reversal
+predict the same five values** — indistinguishable. The three single-bit bars are
+the entire reason the experiment can refuse H4, and a pattern of red, green and
+blue alone would have looked complete while being unable to falsify one of its
+own hypotheses.
+
+The same test found something the design had not stated: a **byte swap is not a
+permutation of the fifteen colour bits**. The high byte carries only seven of
+them, so `0x7FFF` comes back as `0x7F7F` with one bit lost — which means the
+white control discriminates the byte-swap family too. Recorded where it belongs,
+in the test that discovered it.
+
+### The dependency, still refused
+
+devkitARM lives in the project container, so the ROM is built by the project's own
+toolchain and is byte-identical across clean rebuilds. Its **physical delivery
+format is unresolved**: the header is structurally valid, but the image is not
+cartridge-bootable (devkitARM's crt0 leaves the 156-byte Nintendo logo area zero,
+those bytes are Nintendo's, and CLAUDE.md §7 forbids vendoring them) and it is
+not a BIOS multiboot image either, because `gba.specs` links it through
+`gba_cart.ld` at 0x08000000 while multiboot runs from 0x02000000. The
+implementation round called it "multiboot-ready"; the microaudit read the link
+map, found that unsupported, and withdrew it from the tool and from both
+documents. `tools/gbahdr.py` now computes the complement check, audits the
+structural fields, says whether the logo area is empty as a byte test, and
+classifies no boot format at all.
+
+**This repository still documents no way to deliver a controlled GBA ROM to the
+Game Boy Player's internal AGB.** The implementation does not invent one. Nothing
+here can run until the operator resolves it.
+
+**Status: GBP-VIDEO-003 / color-0001 IMPLEMENTED — NOT PHYSICALLY EXECUTED.
+OGBPCOL1 v1 IMPLEMENTED — NOT PHYSICALLY EXECUTED. The stimulus IMPLEMENTED —
+NOT PHYSICALLY EXECUTED. DIRTY BUILD — NOT A PHYSICAL CANDIDATE.** U-GBP-011
+stays open, U-GBP-033 stays open, R3 stays COMPLETE, and no evidence ID was
+created.
+
+### Microaudit, same day: the capture is held
+
+The directed microaudit passed every structural gate — circularity, the shared R3
+record, the OGBPCOL1 layout and its checked arithmetic, the C/Python parser
+parity, the hypothesis algebra, the ISR (byte-identical to the validated
+reference), CONTROL, stop precedence, filesystem isolation, determinism — and
+failed the one that matters most.
+
+`gbp_vcolor_frame()` runs between the ACK and the RE-ARM and does up to
+`memcmp` 153 600 + `memcpy` 153 600 there, at **every** eligible frame close. The
+only work ever measured in that window is the 3 840-byte signature (median 823
+ticks over 420 073 physical samples), and the only full-frame copy the
+architecture already had there, `preserve_frame()`, ran **15 times in 175.848 s**
+— not 60 times a second. That is ~81× the bytes and ~700× the frequency, in the
+window that invites the next cause 1.90..2.32 µs later. Operation-stream
+equivalence says nothing about this and was never evidence for it.
+
+It is also avoidable: `sig[40]` already exists per frame, so stability can be
+decided from 160 bytes in the runtime and byte-exact equality proven offline from
+the preserved raw. **Decision: STRUCTURAL FIX REQUIRED — RETURN TO ULTRACODE. No
+checkpoint, nothing committed, HEAD stays `1b1199f`.**
+
+### The fix, same day
+
+The capture no longer has a way to touch a frame. `gbp_vcolor_frame()` takes a
+frame record and a **slot index**; the pointer parameter is gone, so the property
+is enforced by the signature rather than measured after the fact. Stability is
+decided from `sig[40]` — 40 word comparisons — and the whole hook is 170
+instructions calling only a 27-instruction predicate and a 69-instruction record
+writer. No `memcpy`, `memcmp` or `memmove` is reachable from it.
+
+The certified frames are never copied. They stay in the state model's ring and
+the sidecar streams them out after the teardown. That needed one lifecycle fact
+to be established rather than assumed, and driving the real assembler settles it:
+on the boundary block that closes C the assembler copies that block into
+`cur+1` **before** closing C, so with three slots frame A dies at the instant it
+becomes evidence (`A=0 B=1 C=2 filling=0`), and with four it does not
+(`A=0 B=1 C=2 filling=3`). The slot count is now derived from the buffer the
+caller supplies, so the vstate probe keeps three slots and its exact previous
+behaviour while the colour probe passes four. Net BSS: +184 320 for the slot,
+−460 800 for the staging buffer that no longer exists.
+
+Two things fell out of that and both are improvements. The **hold window is
+gone** — holding for 60 frames would have rotated the ring over the frames it was
+protecting, and it was `REPORT ONLY`, never part of the success condition. And
+**`F_PRE_BASELINE` is no longer an exclusion**: it was inherited from the vstate
+change detector, which asks a different question.
+
+The scientific claim is now split explicitly. The runtime says *three
+signature-identical eligible frames*; `tools/vcolor.py` says *the three certified
+raw frames are byte-for-byte equal*, checked over all 3 × 153 600 bytes before a
+single pixel is interpreted, with `inconclusive_certified_raw_mismatch` and the
+first differing offset when they are not. A host test builds a deliberate
+signature collision to prove the offline gate is what makes the cheap runtime
+check safe.
+
+**Status: STRUCTURAL TIMING FIX IMPLEMENTED, NOT PHYSICALLY EXECUTED, DIRTY.**
+Nothing was committed; the next step is a fresh microaudit.
+
+### Second microaudit, same day
+
+The timing fix held: no full-frame work in the capture path, A/B/C intact through
+the teardown at every rotation of the ring, the writer reading them straight out
+of the slots, and the offline byte-equality gate doing the job the runtime no
+longer does. Five things were found and fixed, none of them structural.
+
+The **slot count silently clamped**: a buffer of five slots was accepted as four.
+A derived size whose one failure mode is silent reinterpretation is worse than a
+constant, so the contract is now exactly three or four and anything else leaves
+the model unusable — with a test over 0, 1, 2, 3, 4, 5, a partial frame and NULL.
+
+The **timing wording overreached**. The first report said the new comparison sat
+"below the resolution of one tick". That is not measured. The 823-tick figure
+belongs to the existing per-VIDEO-BLOCK signature and to nothing else; the new
+per-frame-close work is described only by what is true of it by construction —
+40 word comparisons, ≤160 bytes copied, no device operation — and the header now
+forbids the other phrasing explicitly.
+
+The **design's HOLD lines still read as current** even though §V3.24 had replaced
+them; they are kept verbatim, because they are what the implementation was
+reviewed against, and annotated SUPERSEDED. Worth noting: the CERTIFY line was
+always right — the design said "consecutive eligible frames whose raw per-block
+signatures are identical", so the fix returned the code to the specification
+rather than changing it.
+
+The **Python analyser printed the stop reason as a bare number**, which made the
+new `color_frame_cap` indistinguishable from `color_search_window` to a reader,
+and `audio_raw_count` had no accepted-value test. Both closed.
+
+And one that is documentation, not a bug: `GBP_VCOLOR_MAJORITY_EXTRA` is
+**shadowed by construction**. The state model sets `F_MAJORITY_EXTRA` and
+`F_ANOMALY` together and the predicate reports the first fault, so a quarantined
+frame is refused under ANOMALY and that counter reads 0 in any real run. The
+exclusion happens either way; the authoritative count is `frames_quarantined` at
+0x1AC. Pinned by a test so nobody reads the zero as "none were quarantined".
+
+Finally, a new **PHYSICAL PROCEDURE DEPENDENCY** (§V3.26). Because the run now
+stops at certification, and because the probe holds no stimulus value by design,
+any still picture that precedes the stimulus — a BIOS screen, an idle flash-cart
+menu, a blank framebuffer — can certify within ~50 ms and end the run. It cannot
+produce a false result (the analyser refuses non-uniform bars), but it wastes the
+run. There is no readiness gate and one that recognised the stimulus would be the
+circularity the design forbids. Recorded as a requirement to resolve alongside
+ROM delivery; no arbitrary delay was added to hide it.
+
+The microaudit also withdrew the "multiboot-ready" claim (see above) and recorded
+two procedural caveats the design must carry: a menu-driven flash cart is not
+automatically a delivery route, because this phase has no GameCube→AGB input; and
+the 10 s SEARCH_WINDOW starts at capture start, so the stimulus has to be running
+before the capture begins.
+
+**Tests:** C 18 binaries, 673 035 checks, 0 failures; Python 366 passed; audits
+69 passed with both ISR bodies identical to the physically validated build and
+the new `color` profile at 0 findings; Docker 11 POCs plus the ROM, 0 warnings;
+Dolphin 21/21 PASS.

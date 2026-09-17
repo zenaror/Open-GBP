@@ -90,6 +90,23 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      the service, the four disagreement directions costing no device operation,
                                      the ACK/re-arm failure lifecycle, the INVALID handle leaving the store
                                      byte-identical, and nine tampers a v5 parser must refuse
+                  test_gbp_vcolor.c  GBP-VIDEO-003 capture and the OGBPCOL1 v1 sidecar: the ONE
+                                     eligibility predicate and each of its six exclusions in the
+                                     design's order (a quarantined or source-deferred frame can never
+                                     become colour evidence; PRE_BASELINE is retired), A,A,A
+                                     certifying from sig[40] alone with zero frame bytes read, A,A,B
+                                     restarting at the frame that differs, A,B,B,B certifying on the
+                                     last three, six ways to break a sequence plus a missing ring
+                                     slot, 50 identical quarantined frames certifying nothing, the
+                                     frame table capping without losing the evidence, and TWO ring
+                                     lifecycle tests driving the real assembler: with four slots A,
+                                     B and C are intact at certification (A=0 B=1 C=2 filling=3) and
+                                     with three the first is already overwritten, which is why the
+                                     colour probe supplies four. Then the sidecar round trip with the
+                                     raw byte-identical on the way back, 42 structural tampers
+                                     refused with both CRCs recomputed (including every retired
+                                     field), six partial-save failure points leaving the capture
+                                     untouched, and an uncertified run still producing a strict file
                   test_gbp_vstate.c  GBP-VIDEO-002 state model: the frame assembler (complete_40, incomplete short
                                      and long, an interval that is not 40, resync, predicate disagreement — 40 is
                                      never assumed and no boundary is ever synthesised), the baseline of three, the
@@ -144,6 +161,30 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      per-block checksum (anchored to the PHYSICAL avsvc-0001 block, 0x7F0FFF10 =
                                      entry 0 of both reference tables), and the offline oracle — which reports
                                      reference_content=unavailable without the private inputs and is never a gate
+                  test_vcolor.py     tools/vcolor.py and the OGBPCOL1 parser: the seven candidate
+                                     transformations predicting seven DISTINCT eight-value vectors;
+                                     the proof that the three full-group bars alone cannot separate
+                                     identity from intra-group reversal, which is why the low-bit bars
+                                     exist; black and white as fixed points of every bit permutation
+                                     (and the byte swap that is not one, losing a bit from 0x7FFF);
+                                     the byte-exact gate that makes the cheap runtime check safe —
+                                     three certified raw frames compared 153 600 bytes each before a
+                                     pixel is interpreted, with a deliberate signature collision
+                                     producing inconclusive_certified_raw_mismatch; the retired hold
+                                     and PRE_BASELINE fields refused; the certified record's slot,
+                                     order and signatures; and a source audit that pins the timing
+                                     contract — no memcmp/memcpy/memmove in the capture module, no
+                                     byte pointer in the hook's declaration, and the service path
+                                     using the slot form rather than the raw form;
+                                     a synthetic corpus painting identity, outer swap, byte swap,
+                                     reversal, complement, an unproposed transformation, a single
+                                     damaged pixel, a mirrored frame and three bit-15 patterns, each
+                                     with the verdict it must produce; b1/b3 reported per bar and the
+                                     discarded bytes preserved without entering the decision; the
+                                     reference comparison stated per outcome; THE CIRCULARITY GATE -
+                                     the runtime may not contain 0x03E0 or 0x7C00 - and the file the
+                                     real C writer produces parsed by the real Python parser, carrying
+                                     the shared R3 record intact
                   test_vstate.py     tools/vstate.py: the format-2, format-3 AND format-4 parsers against the C writer's own
                                      files, the frame / event / episode / cycle decoders, the interval histogram,
                                      the ordering of events by sequence number, the offline oracle, the proof that

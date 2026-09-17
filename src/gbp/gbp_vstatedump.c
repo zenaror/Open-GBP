@@ -354,6 +354,13 @@ static void cycle_rec(uint8_t *r, const struct gbp_vstate_cycle *c)
 }
 
 
+static void diag_rec(uint8_t *r, const struct gbp_vstate_diag *d);
+
+void gbp_vstatedump_encode_diag(uint8_t *rec, const struct gbp_vstate_diag *d)
+{
+    if (rec && d) diag_rec(rec, d);
+}
+
 static void diag_rec(uint8_t *r, const struct gbp_vstate_diag *d)
 {
     unsigned i;
