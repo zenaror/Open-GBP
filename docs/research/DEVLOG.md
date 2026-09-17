@@ -6002,3 +6002,99 @@ actually ran and how the probe derives the SD filenames.
 skipped** (13 new in `PhysicalV5`); audits 69 passed; Docker 10 POCs, 0 warnings;
 Dolphin 19/19 PASS. The physical v4 file still parses with its 68 non-fatal
 producer warnings, and v1, v2 and v3 are untouched.
+
+---
+
+## 2026-09-17 — GBP-VIDEO-003 designed: eight bars that cannot be misread
+
+**Goal:** close the design of the controlled colour experiment from the checkpoint
+`dee1f08`. No probe, no ROM, no hardware, no evidence IDs.
+
+### The question, stated honestly
+
+Four physical runs have established where the bytes are: 0xF00 per block, 240 ×
+160 in 40 blocks of 4 raster lines, the word taken from bytes 1 and 3, bit 15
+carrying the frame-start flag. What none of them established is what the fifteen
+colour bits *mean* — and the reason is worth writing down, because it is the kind
+of blind spot that is invisible until someone looks for it.
+
+**Every check this project has made so far is invariant under exchanging the two
+outer 5-bit groups.** The frame-start predicates read bit 15 only. The
+byte-for-byte comparison against the Disc's embedded frame was made on a uniformly
+white screen, and `0x7FFF` maps to itself under *any* bit permutation. The block
+checksums agree with the reference tables because the bytes agree, which says
+nothing about which bits are which channel. Four runs of white are four runs of no
+information about colour order.
+
+The two reference decoders do agree that R sits in bits 14–10 — but they agree
+with each other, implementing the same convention, not with a pixel of known
+colour. `VIDEO_PATH.md` §10 now says this in one place instead of leaving it
+spread across three sections.
+
+### The stimulus, and why these eight values
+
+A static AGB Mode 3 image, eight vertical bars of 30 pixels: `0x0000`, `0x001F`,
+`0x03E0`, `0x7C00`, `0x7FFF`, `0x0001`, `0x0020`, `0x0400`. All 160 lines
+identical. Bit 15 never written.
+
+Three of them isolate the 5-bit groups; three isolate the *least significant bit*
+of each group; two are references. The low-bit bars are the ones that matter most
+and are the easiest to leave out: an intra-channel bit reversal maps `0x001F` to
+`0x001F`, so a pattern of full-scale primaries alone cannot see it, while
+`0x0001` → `0x0010` makes it unmistakable. A design with only red, green and
+blue bars would have looked complete and would have been unable to falsify one of
+its own candidate hypotheses.
+
+`0x0000` and `0x7FFF` earn their place for the same kind of reason: they are
+invariant under every bit permutation, so they cannot help identify the
+permutation — which is exactly what makes them good controls for the failures a
+permutation cannot explain (complement, stuck bits, fill behaviour).
+
+### Recognising the pattern without assuming the answer
+
+The probe has to know the stimulus is on screen before it certifies a frame, and
+the obvious way to do that — decode it and look for red — would decide the
+question it is asking. Three properties avoid the circle, and all three survive
+any bit permutation:
+
+```text
+structure   8 runs of exactly 30 identical groups, boundaries at x = 0,30,...,210
+repetition  the 4 rows of a block identical; all 40 blocks identical except the
+            frame-start flag in block 0
+popcount    the multiset of popcounts of the eight values is {0,1,1,1,5,5,5,15}
+```
+
+A permutation moves bits; it cannot change how many are set. The popcount
+fingerprint identifies the pattern while saying nothing about where anything went,
+and the two invariant bars anchor orientation: the popcount-0 bar must be at
+x 0–29 and the popcount-15 bar at x 120–149, or the analyser is mirrored. No
+"wait a few seconds" rule appears anywhere in the design.
+
+### What the design refuses to do
+
+It does not name a GBP bit group "red" anywhere — they are `C14_10`, `C9_5` and
+`C4_0` until a measurement says otherwise. It does not pick the hypothesis that
+fits best: exactly one candidate must reproduce **all eight** observed values, and
+two fits or zero fits are both INCONCLUSIVE with the raw preserved. It does not
+inherit the vstate probe's 120 s and 180 s, which came from the Start-up Disc's
+detector window and have nothing to do with this question; the caps here are a
+10 s search window, a 30 s wall clock and three preserved frames, each justified
+where it is written. And it does not stretch OGBPSEQ1: that contract belongs to
+the vstate experiment, so VIDEO-003 gets a dedicated `OGBPCOL1` modelled on the
+v1 discipline, reusing only the one piece that is genuinely shared — the 160-byte
+disagreement record, because the R3 policy is shared and was physically validated.
+
+### The dependency the design will not invent
+
+**This repository documents no way to run a controlled GBA ROM on the physical
+unit.** No flash cart, no multiboot cable, no loader of any kind appears in any
+document or any executed test; every run so far was explicitly without a Game
+Pak. The design records that as a **PHYSICAL EXECUTION DEPENDENCY**, lists the
+candidate routes without claiming the operator owns any of them, and notes that
+one of them — multiboot over the Link Port, the mechanism `gba-as-controller`
+uses — would itself need proving on this hardware. Execution is blocked; design,
+implementation and review are not.
+
+**Status: GBP-VIDEO-003 DESIGN FINALIZED — NOT IMPLEMENTED — NOT PHYSICALLY
+EXECUTED.** R3 stays COMPLETE, U-GBP-033 stays OPEN, U-GBP-011 now names the
+experiment that closes it, and no evidence ID was created.

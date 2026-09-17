@@ -247,7 +247,7 @@ difference is documented anywhere; the user's unit revision is unknown.
 Dolphin maps hi byte bit 0 → L and bit 1 → R (swapped vs GBA KEYINPUT);
 GBI's 0x0304 sets both. Phase 5 test with a game that distinguishes L/R.
 
-## U-GBP-011 (P2, re-evaluated 2026-09-16: R-high order CORROBORATED by two references; FACT needs a known-color cartridge) — VIDEO color bit order and exact word content
+## U-GBP-011 (P2, re-evaluated 2026-09-17: R-high order CORROBORATED by two references; the experiment that settles it is DESIGNED — GBP-VIDEO-003) — VIDEO color bit order and exact word content
 
 **2026-09-16, static (GBP-VID-003/006, VIDEO_PATH.md §2.3–2.4, §3.2):** the
 Disc draws the 16-bit pixel (bytes 1/3, bit 15 forced to 1) as a GX RGB5A3
@@ -265,6 +265,26 @@ bytes but not their color name; if a complete idle frame matches the
 Disc's RGB5A3 frame byte for byte, the confidence increase is documented
 and the decision whether that is enough for a promotion, or the controlled
 cartridge stays necessary, is taken after the run — not anticipated here.
+
+**2026-09-17: the experiment is designed (GBP-VIDEO-003, HARDWARE_TESTS §V3).**
+Four physical runs have now established the transport, the geometry and the
+policy, and not one of them could touch this question: every check made so far —
+frame-start predicates, block checksums, the byte-for-byte comparison against the
+Disc's embedded frame — is **invariant under exchanging the outer 5-bit groups**,
+which is exactly the difference between the two candidate readings. The design
+answers it with a controlled AGB Mode 3 stimulus of eight 30-pixel bars whose
+values are known by construction, three of which carry a single bit each so that
+an intra-channel reversal cannot hide behind full-scale primaries, and two of
+which (`0x0000`, `0x7FFF`) are invariant under any bit permutation and therefore
+serve as complement and stuck-bit controls. The stimulus never writes bit 15, so
+whatever bit 15 the window carries is observably not the colour value.
+
+Nothing about the answer is anticipated: the design requires **exactly one**
+candidate transformation to reproduce all eight observed values, and calls the
+run INCONCLUSIVE if two fit or none does. It is blocked for execution only by a
+documented **dependency**: this repository knows no way to run a controlled GBA
+ROM on the physical unit (§V3.7), and the design deliberately does not invent
+one.
 
 Dolphin uses GBA palette order (R in bits 0–4). GBI's frame-start test only
 proves the byte-doubling of the high byte. Phase 4: capture one block

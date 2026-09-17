@@ -45,7 +45,10 @@ nonfatal-disagreement policy but produced contaminated diagnostics (GBP-HW-104);
 `GBP-VIDEO-002-R4` / build `vstate-0004` re-ran the same policy with correct
 attribution — **29 disagreements survived, 29 of 29 records internally coherent,
 sidecar strict-valid** — which makes **R3's physical validation COMPLETE** and
-**unblocks `GBP-VIDEO-003`** (GBP-HW-108…115). The normative binary layouts (the
+**unblocks `GBP-VIDEO-003`** (GBP-HW-108…115), whose controlled-colour
+experiment is now **DESIGN FINALIZED 2026-09-17, NOT IMPLEMENTED, NOT PHYSICALLY
+EXECUTED** (§V3.0 to §V3.22) and whose execution waits on one documented
+dependency: a way to deliver a controlled GBA ROM to the physical unit. The normative binary layouts (the
 160-byte diagnostic record, the 1024-byte semantic block, the OGBPSEQ1 v4/v5
 header) live in that file as subsections R3.24 to R3.29 and R4.7.
 
