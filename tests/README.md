@@ -68,6 +68,32 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      CRCs verified, 135 AUDIO reads reported missing because their payload was
                                      never preserved, boundaries 0/25/65, the 40-block frame and the 688 byte-0
                                      exceptions all pinned. Every mock scenario is SYNTHETIC.
+                  test_gbp_vsig.c    GBP-VIDEO-002 signature and time base: the per-block checksum against its
+                                     PHYSICAL anchor (0xFF0FFF0F / 0x7F0FFF10, reproduced from constructed bytes),
+                                     the proof that byte 0 and byte 2 are never read, both predicates exhaustively
+                                     over 65 536 byte pairs, the bounded cost histogram (median and p95 taken from
+                                     buckets, never from the mean), and the 64-bit time base across the low-word
+                                     wrap 0xFFFFFFFF → 0x00000000, including the retry and the proof that a
+                                     truncated u32 path really would see time go backwards
+                  test_gbp_vstate.c  GBP-VIDEO-002 state model: the frame assembler (complete_40, incomplete short
+                                     and long, an interval that is not 40, resync, predicate disagreement — 40 is
+                                     never assumed and no boundary is ever synthesised), the baseline of three, the
+                                     early candidate, the episode state machine with N_STABLE = 3 and
+                                     EPISODE_MAX_FRAMES = 60, MAX_EPISODES = 4 with the monitor continuing past it,
+                                     the frame and event store caps (which do end a run), the bounded tail, the
+                                     safety cap winning over both, the AUDIO ping-pong and the exact memory
+                                     arithmetic of every resident store. Every scenario is SYNTHETIC.
+                  test_gbp_video_state.c  GBP-VIDEO-002 probe against the mock: nominal_negative, the safety cap
+                                     before the target and with an episode open, the two-episode scenario that
+                                     removed the early positive stop, the bounded finalisation tail,
+                                     no_next_cause, the delivery guard, the AUDIO aggregate policy, predicate
+                                     disagreements, byte-0 immunity, the streamed sidecar with its strict parser
+                                     and every corruption code, a save failure after a successful teardown, the
+                                     immediate-teardown ordering asserted at the hardware moment, and the FULL
+                                     nominal scan (798 640 synthetic deliveries, 399 321 VIDEO blocks, 9 983
+                                     frames, 120.0 s of valid observation, absolute timestamps crossing the
+                                     32-bit boundary, no counter overflow). Every scenario is SYNTHETIC and
+                                     there is NO physical GBP-VIDEO-002 fixture.
                   test_gbp_avsvc.c   GBP-AV-SERVICE-001 logic (one delivery → PRESVC → AUDIO/VIDEO whole-block
                                      drains → ACK from the PRESVC value → POSTACK → PI clean → re-arm → next cause
                                      observed, never delivered): the success paths, the §35 event order, snapshot
@@ -103,6 +129,11 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      per-block checksum (anchored to the PHYSICAL avsvc-0001 block, 0x7F0FFF10 =
                                      entry 0 of both reference tables), and the offline oracle — which reports
                                      reference_content=unavailable without the private inputs and is never a gate
+                  test_vstate.py     tools/vstate.py: the format-2 parser against the C writer's own file, the
+                                     frame / event / episode / cycle decoders, the interval histogram, the ordering
+                                     of events by sequence number, the offline oracle, the proof that format 1 and
+                                     format 2 can never misread each other, and the byte-0 property re-checked on
+                                     the host implementation
                   test_video_replay.py synthetic GBP-VIDEO-001 log → fixture + sequence sidecar → replay round trip
                                      (the regenerated run equals the original) and the physical GBP-AV-SERVICE-001
                                      fixture as the first cycle; asserts that no GBP-VIDEO-001 fixture exists

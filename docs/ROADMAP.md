@@ -133,7 +133,8 @@ on real hardware without relying on proprietary runtime code.
 
 **Status: IN PROGRESS (entered 2026-09-16).** Transport and block
 sequence are now physically established (GBP-AV-SERVICE-001, GBP-VIDEO-001);
-rendering, colour and a moving image are not. The entry experiment
+rendering, colour and a moving image are not. GBP-VIDEO-002 is implemented and
+awaiting a physical run; nothing it produces is evidence until then. The entry experiment
 GBP-AV-SERVICE-001 captured the first physical VIDEO (0xF00) and AUDIO
 (0x1000) blocks with one whole-block DMA each and preserved them raw
 (fixture + sidecar). Static basis fixed on 2026-09-16
@@ -153,8 +154,10 @@ the AGB idle screen (an offline oracle without a cartridge). Short sequence:
   pattern per cause; establishes blocks per frame, order, boundaries,
   cadence and repeated-service stability; offline assembly against the
   embedded idle screen.
-* **GBP-VIDEO-002** (designed and hardened 2026-09-16, HARDWARE_TESTS.md; not
-  implemented): a **120-second** frame-signature scan without a Game Pak, sized
+* **GBP-VIDEO-002** (designed and hardened four times 2026-09-16; **IMPLEMENTED
+  2026-09-16, NOT PHYSICALLY EXECUTED**, `vstate-0001`,
+  `poc/gbp-video-state-probe/`; no hardware has run it and no physical evidence
+  exists for it): a **120-second** frame-signature scan without a Game Pak, sized
   to the nominal interval of the Start-up Disc's own detector window (24 000
   invocations of a 5.000 ms periodic callback, proved from the binary; 120 s is a
   lower bound because the scheduler drops missed periods). Per-frame signatures of 40
@@ -169,7 +172,11 @@ the AGB idle screen (an offline oracle without a cartridge). Short sequence:
   a 180 s hard wall-clock limit are safety caps, not the window. Answers whether the screen
   both references recognise ever reaches the VIDEO stream without a cartridge
   (U-GBP-031) and gives a cadence uniform from the first useful frame
-  (U-GBP-030).
+  (U-GBP-030). The implementation reuses the physically validated interrupt path
+  byte for byte, adds a 64-bit time base because a 32-bit tick counter wraps
+  inside the window, tears the hardware down before it summarises anything, and
+  streams its multi-megabyte sidecar rather than staging it. Its full nominal
+  scan runs in the host suite at about 800 000 synthetic deliveries.
 * **GBP-VIDEO-003**: colour. Needs a source whose true appearance is known
   independently of the references (a static pattern with saturated red, green
   and blue plus white, black and greys), because a reference comparison can only

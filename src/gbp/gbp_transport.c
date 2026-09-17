@@ -52,6 +52,11 @@ int gbp_transport_has_bulk_read(const struct gbp_transport *t)
     return (t && t->read_bulk) ? 1 : 0;
 }
 
+int gbp_transport_has_time64(const struct gbp_transport *t)
+{
+    return (t && t->ticks64) ? 1 : 0;
+}
+
 int gbp_bulk_args_ok(uint32_t aram_addr, const void *out, uint32_t len)
 {
     if (out == 0 || len == 0u || (len & (GBP_BLOCK_SIZE - 1u)) != 0u || len > GBP_BULK_MAX_LEN) return 0;

@@ -850,6 +850,17 @@ very early and very briefly, and the question becomes a timing question: *when,
 if ever, does the logotype screen appear on the VIDEO stream of a GBP session
 without a Game Pak?* That is what GBP-VIDEO-002 is designed to answer.
 
+**2026-09-16 implementation status.** GBP-VIDEO-002 is now implemented
+(`poc/gbp-video-state-probe/`, Build ID `vstate-0001`) and passes every host
+test, audit and Dolphin gate. It has **not** been physically executed, so
+U-GBP-030 and U-GBP-031 stay exactly as open as they were: no observation in
+this repository comes from it, and none of its synthetic scenarios is evidence
+about the device. What the implementation does change is that the question now
+has an instrument — 120 s of valid post-baseline observation, a cadence uniform
+from the first useful frame (which is what U-GBP-030 asks for), per-frame
+signatures over the whole window, and bounded raw preservation around any
+structured change — waiting on a clean commit and an authorization.
+
 ---
 
 **2026-09-16 refinements from GBP-VIDEO-001:**

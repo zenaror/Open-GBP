@@ -3,6 +3,7 @@
 #include <string.h>
 #include <gccore.h>
 #include <ogc/lwp_watchdog.h>
+#include <ogc/timesupp.h>   /* gettime(): the TBU/TBL/TBU retry loop (see h_ticks64) */
 #include <ogc/machine/processor.h>
 
 /*
@@ -202,6 +203,21 @@ static uint32_t h_ticks(void *ctx)
     return gettick();
 }
 
+/*
+ * The 64-bit time base (src/common/gbp_time64.h). libogc2's gettime()
+ * (external/libogc2/libogc/timesupp.c, commit ca03fb75) is EXACTLY the
+ * TBU/TBL/TBU retry loop the design requires —
+ *     1: mftbu %0 ; mftb %1 ; mftbu %2 ; cmpw %0,%2 ; bne 1b
+ * — so this backend calls it rather than adding a second hand-written copy
+ * of the same five instructions. Verified by reading that source, not
+ * assumed from the name; the choice is recorded in gbp_time64.h.
+ */
+static uint64_t h_ticks64(void *ctx)
+{
+    (void)ctx;
+    return gettime();
+}
+
 void hsp_backend_init(struct hsp_backend *b, uint8_t *buffer, uint32_t timeout_ticks)
 {
     memset(b, 0, sizeof *b);
@@ -223,5 +239,6 @@ void hsp_backend_transport(struct hsp_backend *b, struct gbp_transport *t)
     /* write_intmr and the irq_* operations stay NULL unless the POC also
      * links hsp_backend_irq.c and calls hsp_backend_irq_transport(). */
     t->ticks = h_ticks;
+    t->ticks64 = h_ticks64;
     t->ctx = b;
 }

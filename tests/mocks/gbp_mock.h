@@ -231,6 +231,19 @@ struct gbp_mock {
     uint32_t tick_jump_rearm;
     unsigned record_resets;         /* irq_record_reset calls seen */
     int reset_ignored;              /* synthetic fault: the reset leaves the record untouched */
+    /* ---- long-run models (SYNTHETIC; GBP-VIDEO-002) ----
+     * A 120 s scan needs a clock that really advances (4.86e9 ticks: past 2^32) and a VIDEO
+     * payload that can change from frame to frame without costing a byte-by-byte generator per
+     * block. `tick64` is the mock's 64-bit time base; `tick` stays its low 32 bits plus
+     * `tick64_origin`, which a test sets near 0xFFFFFFFF to exercise the low-word wrap.
+     * `bulk_tick_advance[i]` advances the clock on every bulk read of register index i (the
+     * inter-block cadence), and `video_fill` replaces the default byte pattern for index 1.
+     * None of it is physical data. */
+    uint64_t tick64;                /* ticks since init (64-bit, never wraps in a run) */
+    uint64_t tick64_origin;         /* value ticks64 reports at tick64 == 0 */
+    uint32_t bulk_tick_advance[16]; /* ticks added to the clock by one bulk read of that index */
+    void (*video_fill)(struct gbp_mock *m, uint8_t *out, uint32_t len, unsigned video_read_n, void *user);
+    void *video_fill_user;
     int cause_latched_after_rearm;  /* INTSR bit 13 rose after the last re-arm and no unmask consumed it yet */
     int rearm_window;               /* between a re-arm and the next unmask (or the teardown's stop word): no main W1C allowed */
     /* state */

@@ -388,6 +388,12 @@ void gbp_replay_init(struct gbp_replay *r, const char *script)
 
 void gbp_replay_transport(struct gbp_replay *r, struct gbp_transport *t)
 {
+    /* A FULL constructor, like hsp_backend_transport() and gbp_mock_transport(): every operation
+     * this backend does not provide must read back as NULL, not as whatever the caller's stack
+     * held. Callers declare `struct gbp_transport t;` without initialising it, so any field this
+     * function forgets would be indeterminate and gbp_transport_has_*() would answer from garbage.
+     * Zeroing first makes that impossible for every field, present and future. */
+    memset(t, 0, sizeof *t);
     t->read_arinfo = r_read_arinfo;
     t->write_arinfo = r_write_arinfo;
     t->read_block = r_read_block;

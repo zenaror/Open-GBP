@@ -3053,12 +3053,17 @@ service pass; R11 promotion if observed), REGISTERS.md (VIDEO / AUDIO rows: hard
 HSP.md (§3: the ARQ hi-queue precision and the first measured bandwidth), captures/README.md
 (fixture + sidecar format), tests/README.md, poc/README.md.
 
-### GBP-VIDEO-002 — does the AGB's own logotype screen ever reach the VIDEO stream without a Game Pak? A frame-signature scan over at least the nominal detector interval (Phase 4; designed and twice hardened 2026-09-16; NOT implemented, NOT released)
+### GBP-VIDEO-002 — does the AGB's own logotype screen ever reach the VIDEO stream without a Game Pak? A frame-signature scan over at least the nominal detector interval (Phase 4; designed and hardened four times 2026-09-16; IMPLEMENTED 2026-09-16, NOT PHYSICALLY EXECUTED)
 
-Status: **DESIGNED 2026-09-16 — NOT IMPLEMENTED.** Basis: GBP-VIDEO-001's
+Status: **IMPLEMENTED 2026-09-16 — NOT PHYSICALLY EXECUTED. DIRTY BUILD — NOT A
+PHYSICAL CANDIDATE.** The probe exists (`poc/gbp-video-state-probe/`, Build ID
+`vstate-0001`) and passes every host test, audit and Dolphin gate; no hardware
+has run it, no physical evidence exists for it, and this entry requests none. A
+physical candidate requires a clean commit, a clean rebuild, the audits on that
+build, a recorded hash and an explicit authorization (CLAUDE.md §18). The
+implementation notes are at the end of this entry. Basis: GBP-VIDEO-001's
 physical run (GBP-HW-062…073), the static trace of both references' recognition
-machinery (`docs/research/VIDEO_PATH.md` §9) and U-GBP-030 / U-GBP-031. No
-hardware is requested by this entry.
+machinery (`docs/research/VIDEO_PATH.md` §9) and U-GBP-030 / U-GBP-031.
 
 ```text
 Question:    GBP-VIDEO-001 observed 39.2 ms of VIDEO — about 2.3 frames — starting 107 ms after the
@@ -3639,6 +3644,182 @@ Host tests to add with the implementation (all synthetic, none physical evidence
                   failed or partial naming the sections written;
              (32) exact MEM1 capacity: the static footprint matches section 21, no overlap, DMA
                   targets 32-byte aligned.
+
+Implementation notes (2026-09-16 — what the code added to the design above;
+nothing here is a physical result, and NO physical GBP-VIDEO-002 data exists):
+
+- **Files created.** `src/common/gbp_time64.{h,c}` (the 64-bit time base and its
+  wrap-safe arithmetic), `src/gbp/gbp_vsig.{h,c}` (the per-block signature, both
+  predicates, the bounded cost histogram), `src/gbp/gbp_vstate.{h,c}` (the frame
+  assembler, the frame-signature store, the event store, the baseline, the
+  episode state machine, the raw preservation policy, the AUDIO aggregate),
+  `src/gbp/gbp_vstate_probe.{h,c}` (the service loop, the three clocks, the stop
+  precedence, the immediate teardown, the bounded cycle records),
+  `src/gbp/gbp_vstatedump.{h,c}` (the streamed sidecar and its strict parser),
+  `poc/gbp-video-state-probe/` (Test ID `GBP-VIDEO-002`, Build ID `vstate-0001`,
+  log prefix `OPENGBP-VSTATE`), `tools/vstate.py`, `tests/unit/test_gbp_vsig.c`,
+  `tests/unit/test_gbp_vstate.c`, `tests/unit/test_gbp_video_state.c`,
+  `tests/host/test_vstate.py`. Modified: the transport gained the optional
+  `ticks64` operation, `sdlog` gained a streaming writer, the mock gained a
+  64-bit clock, a per-index tick advance and a VIDEO fill hook, `poc_audit.py`
+  gained the `vstate` profile and a per-object "must not reference" rule.
+  `gbp_avseq*`, `gbp_video_probe` and `gbp_avseqdump` (GBP-VIDEO-001) are
+  **untouched** and are not linked into this POC.
+
+- **THE INTERRUPT PATH IS BYTE-IDENTICAL** to the build GBP-VIDEO-001 executed
+  physically. `make vstate-audit` diffs both one-shot bodies against that build's
+  and reports them identical (82 instructions, one `__MaskIrq` call, one INTSR
+  store of 0x2000 after the mask, no INTMR store). One `__UnmaskIrq` call site,
+  `IRQ_Request` only from the install/restore pair, no INTMR store anywhere.
+
+- **The u64 time base is libogc2's `gettime()`**, and the choice is recorded
+  rather than left open: its source (external/libogc2, commit ca03fb75) is
+  EXACTLY the required loop — `mftbu / mftb / mftbu / cmpw / bne` — so the
+  backend calls it instead of adding a second hand-written copy. The composition
+  and retry RULE lives in `gbp_time64.c` as a pure function and is tested on the
+  host across the low-word wrap. The audit pins one call site, in `h_ticks64`.
+
+- **Seven IRQ-register write sites**, not six: 3 in the stage (A1/A2/STOP), 1 in
+  the shared service (the verify cycles' ACK) and 3 in the probe. The third is
+  not a new write path: GCC duplicates the single re-arm statement across the
+  verify branch, and the disassembly shows `li r7,0` at both copies, so both
+  write 0x0000. Pinned by `tools/poc_audit.py --profile vstate`.
+
+- **Filesystem isolation is audited, not asserted.** The profile refuses any
+  reference to `fopen`, `fwrite`, `fat*`, `sdlog_*` and their relatives from
+  every object of the capture path; only `sdlog.o` may have them, and `main.o`
+  calls it after the probe has returned from its teardown.
+
+- **Three buffers for AUDIO raw, not two.** The design's budget line says "first
+  + last, 2 x 0x1000". Two buffers cannot satisfy that same section's rule that a
+  failed drain never overwrites a valid capture, because a drain writes before
+  its status is known, so the implementation uses the first slot plus a ping-pong
+  pair — 12 KiB, which still rounds to the same 0.01 MiB.
+
+- **An early candidate consumes at most one episode descriptor.** Section 9 asks
+  for a differing pre-baseline frame to be preserved with its raw. Preserving
+  every such frame could exhaust all four descriptors before the baseline exists
+  and leave none for a real episode, so the FIRST one keeps its raw and the rest
+  are counted in `early_candidates`. Deliberate, bounded and reported.
+
+- **"No boundary within 48 blocks" also pauses the clock.** Section 6b classifies
+  it as frame-invalidating (class a). It also leaves the assembler without an
+  anchor, so the implementation additionally raises the region anomaly, which is
+  the direction section 6b's own principle requires — when in doubt the time does
+  not count. Both counters are incremented, so neither reading is hidden.
+
+- **Detailed cycle records:** the first 8, a rolling window of the last 8, up to
+  8 anomalies and up to 64 cycles observed while an episode is open — 88 records
+  of 128 bytes, against about 639 000 deliveries.
+
+- **Sidecar: the OGBPSEQ1 family at version 2**, as section 17 asks. Same magic,
+  same `OGBPEND1` footer, same identity rule, big-endian field by field, a
+  0x200 header with the u64 clocks, a header CRC and a total CRC. The content is
+  what the evidence became: a frame table, an event table, an episode table, the
+  bounded cycle table and the preserved raw. Version 1 is untouched, still
+  written by GBP-VIDEO-001 and still read by `tools/avseq.py`; both parsers check
+  `version` and `header_size` first, and a host test proves neither can read the
+  other. Streamed in 64 KiB chunks with a running CRC, only after the teardown.
+
+- **Measured on the built DOL** (not predicted): text + data 0.41 MiB; the five
+  evidence stores 6.602 MiB and every static of the probe 6.929 MiB; image ending
+  at 0x8078D038, **MEM1 headroom 16.449 MiB**; zero overlaps; every DMA target
+  32-byte aligned; the only static objects above 1 MB are the frame store and the
+  episode raw store, so no second full copy of the sidecar exists. The design
+  predicted ~7.41 MiB resident and ~16.6 MiB free.
+
+- **The log does not grow with the run.** Measured at 200, 2 000, 20 000 and
+  200 000 deliveries, the ring holds **214 lines at the moment of the teardown in
+  every one of them**, and 293 when the report has been written; 0 dropped. The
+  1024-line ring has more than three times the margin it needs, and nothing in the
+  capture path formats per delivery.
+
+- **The full nominal scan runs in the test suite**: about 800 000 synthetic
+  deliveries, 399 000 VIDEO blocks, 9 983 frames, 120.0 s of accumulated valid
+  observation, a run whose absolute timestamps cross 0x100000000, and no counter
+  overflow. Every scenario is SYNTHETIC.
+
+- **The signature cost is measured, and no threshold is applied.** Section 8
+  requires (a) the per-block cost over at least 10 000 blocks as min / median /
+  p95 / max and (b) the same scenario with and without the signature. Both run in
+  the test suite. (a) on the host, over 20 000 blocks:
+
+      min 260 ns   median 263 ns   p95 271 ns   max 4 489 ns   mean 267 ns
+
+  taken from the bounded 1 KiB histogram, never from the mean, with each value
+  carrying its own bucket width. (b) the same 4 000-delivery scenario twice:
+
+      quantity              with      without     delta
+      deliveries            4000      4000        0
+      VIDEO blocks          2001      2001        0
+      AUDIO drains          4000      4000        0
+      frames assembled        50         0       +50
+      ACK -> REARM (mean)     28        10       +18   (mock ticks)
+      REARM -> next (mean)    60        60         0
+      cause -> ACK (mean)    489       489         0
+
+  The signature lengthens ACK -> REARM, which is where GBI does the equivalent
+  work, and leaves the re-arm-to-next-cause and cause-to-ACK intervals untouched.
+  **These are HOST and MOCK figures, not hardware ones**, and Dolphin's timing
+  would not be a hardware figure either. The physical half needs the real 40.5 MHz
+  base and a real run; the probe already records sig_ticks per cycle and
+  min / median / p95 / max in the sidecar header, so it needs no new code. The
+  gate stays a review gate: the report must be complete and a reviewer must accept
+  it, and the arbitrary 25 % threshold stays withdrawn.
+
+Microaudit of the dirty implementation (2026-09-16, source + objects + tests).
+Six defects were found and fixed; all are small and unequivocal, and none
+required a structural change. Every one is a variant of the same mistake —
+**a derived or reconstructed value being reported as if it were measured**:
+
+1. **The safety epoch was fabricated when no CONTROL write happened.** The u64
+   epoch is reconstructed from the stage's 32-bit timestamp; that arithmetic ran
+   even on the abort paths, where the timestamp is still 0, producing an epoch
+   about 25 s in the FUTURE (observed in the Dolphin runs:
+   `t_control_transform=7947f7fffffffe` against `t64_pre=7947f7c37eefa7`). The
+   loop is never entered on those paths, so no safety decision was ever wrong,
+   but the value reached the log and would have reached the sidecar header. Now
+   the reconstruction runs only when the write completed, and the field carries
+   the probe's own start with `epoch_ok = -1` otherwise.
+2. **The reconstruction was not checked, only bounded by argument.** It now has
+   a MEASURED bracket: two real u64 reads are taken around the stage, and the
+   reconstructed epoch must land between them. If it does not, the earlier end
+   is used — earlier than the true write, so the safety budget is over-counted
+   and the cap fires sooner, never later. Independently, the window itself is
+   bounded: 12 block transfers, each bounded by the transport's own operational
+   timeout, with no polling loop, so a worst case of 2.4 s against the 106.049 s
+   at which a 32-bit difference could become ambiguous — a factor of 44.
+3. **`capture_elapsed` was derived from an unset start.** On an abort the
+   capture clock never starts, and subtracting it from a real stop produced the
+   absolute time base read back as a duration (`capture_s=842908848.305` in
+   Dolphin). Every derived interval now requires both endpoints to be real.
+4. **`gbp_replay_transport()` did not zero the transport struct**, unlike the
+   other two full constructors. Callers declare it uninitialised, so the newly
+   added `ticks64` operation came back indeterminate on a replay and
+   `gbp_transport_has_time64()` would answer from garbage. Fixed with a `memset`
+   and pinned by a poison test that also covers any operation added later.
+5. **One log line was formatted between the stop decision and the first teardown
+   write.** GBP-VIDEO-001's defect was 64.99 ms of summarising there; one
+   fixed-size line is four orders of magnitude smaller, but the rule is now
+   absolute: the probe formats NOTHING before the hardware is safe. The status
+   line moved after the teardown.
+6. **A comment overstated the delivery guard's margin** as "three orders of
+   magnitude". The real figures are 3.13x over the 120 s estimate and 2.08x over
+   the 180 s envelope at the one measured rate; three orders of magnitude is the
+   margin of the u32 TYPE, which is what the design's section 14 says.
+
+Re-verified after the fixes: C 17 binaries / 691 801 checks / 0 failures,
+Python 260 passed, every audit 0 findings, both one-shot handler bodies still
+byte-identical to the GBP-VIDEO-001 build's, both Dolphin gates PASS, and the
+full synthetic scan unchanged at 798 640 deliveries with peak host memory
+14.2 MiB. The DOL changed, so the hash recorded before the microaudit is
+withdrawn.
+
+
+- **Not promoted.** Nothing above is a physical result. U-GBP-030 and U-GBP-031
+  stay open, 40 blocks per frame keeps the status `docs/research/EVIDENCE.md`
+  gives it, and the colour naming stays CORROBORATED.
+
 
 ```text
 Question:    Over a bounded sequence of delivered HSP causes serviced the reference way (read IRQ →

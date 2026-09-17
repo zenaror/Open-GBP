@@ -25,6 +25,10 @@
 #   make avsvc-dolphin  run the gbp-av-service-probe DOL in Dolphin (absent → abort_inconsistent; GBPlayer model → shape abort)
 #   make video-dolphin  run the gbp-video-capture-probe DOL in Dolphin (absent → abort_inconsistent; GBPlayer model → shape abort)
 #   make video-audit    audit gbp-video-capture-probe: both 002/003B handlers and every object (profile video)
+#   make vstate-dolphin run the gbp-video-state-probe DOL in Dolphin (absent -> abort_inconsistent; GBPlayer model -> shape abort)
+#   make vstate-audit   audit gbp-video-state-probe: both 002/003B handlers and every object (profile vstate:
+#                       one __UnmaskIrq site, no INTMR store, 3 + 1 + 3 IRQ-register write sites, the 64-bit
+#                       time base through gettime() only, and NO filesystem reference in the capture path)
 #   make avsvc-audit    audit gbp-av-service-probe: both 002/003B handlers (tools/isr_audit.py) and every object
 #                       (tools/poc_audit.py --profile avsvc: one __UnmaskIrq site, no INTMR store, five IRQ-register write sites,
 #                       two whole-block read sites, no KEYPAD/SIO/BBA/GX/audio-output symbol)
@@ -44,11 +48,13 @@ IN_CONTAINER := $(COMPOSE) run --rm -T dev
 PYTHON ?= python3
 PYTEST := $(shell command -v pytest 2>/dev/null)
 
-POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe gbp-av-service-probe gbp-video-capture-probe
+POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe gbp-av-service-probe gbp-video-capture-probe gbp-video-state-probe
 AVSVC_OUT := build/poc/gbp-av-service-probe
 AVSVC_DOL := $(AVSVC_OUT)/gbp-av-service-probe.dol
 VIDEO_OUT := build/poc/gbp-video-capture-probe
 VIDEO_DOL := $(VIDEO_OUT)/gbp-video-capture-probe.dol
+VSTATE_OUT := build/poc/gbp-video-state-probe
+VSTATE_DOL := $(VSTATE_OUT)/gbp-video-state-probe.dol
 INITIRQ4_OUT := build/poc/gbp-init-irq-service-probe
 INITIRQ4_DOL := $(INITIRQ4_OUT)/gbp-init-irq-service-probe.dol
 INITIRQB_OUT := build/poc/gbp-init-irq-deliver-probe
@@ -64,10 +70,10 @@ SMOKE_DOL := $(SMOKE_OUT)/smoke-test.dol
 PROBE_OUT := build/poc/gbp-probe
 PROBE_DOL := $(PROBE_OUT)/gbp-probe.dol
 
-.PHONY: help env-check build inspect test-host test-unit test-python test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit all shell clean
 
 help:
-	@sed -n '2,31p' $(firstword $(MAKEFILE_LIST))
+	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
 
 env-check:
 	$(IN_CONTAINER) sh -c 'set -e; \
@@ -311,7 +317,35 @@ video-audit:
 	$(PYTHON) tools/isr_audit.py $(VIDEO_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr --report $(VIDEO_OUT)/isr-audit-base.txt
 	$(PYTHON) tools/poc_audit.py $(VIDEO_OUT)/audit --profile video --report $(VIDEO_OUT)/poc-audit.txt
 
-all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirqa-dolphin initirqb-dolphin initirq4-dolphin avsvc-dolphin video-dolphin
+# GBP-VIDEO-002 in Dolphin: the same two stage-A aborts as every probe since GBP-INIT-003A.
+# Dolphin's GBPlayer model says nothing about the physical VIDEO stream, and the 003A
+# preconditions are NEVER relaxed to make it "pass": both runs stop before any CONTROL or IRQ
+# write, before the handler install, before any unmask and before any whole-block read, so the
+# long scan itself is never entered. Its logic is covered by tests/unit/test_gbp_video_state.c
+# against the synthetic mock. OSD messages are off (tools/dolphin_smoke.py).
+vstate-dolphin:
+	$(PYTHON) tools/dolphin_smoke.py --dol $(VSTATE_DOL) --build-info $(VSTATE_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-VSTATE DONE status=abort_inconsistent class=abort reason=inconsistent stop=failure restore=ok restore_reason=- teardown=stage_a verdict=inconsistent det=1/4 service=failed service_reason=inconsistent deliveries=0 video=0/0 audio=0 frames=0 complete=0 incomplete=0 resync=0 baseline=never_established baseline_s=0.000 valid_s=0.000 capture_s=0.000 safety_s=0.000 target_s=120 limit_s=180 structured=not_observed episodes=0 stable=0 unstable=0 not_preserved=0 episode_store_full=0 tail_frames=0 tail_truncated=0 frame_store_full=0 event_store_full=0 events=0 boundaries_disc=0 boundaries_gbi=0 disagreements=0 reference_match=offline next_cause_at_end=0 handler=0 restored=-1 mask_ok=-1 isr_w1c=0 main_w1c=0 teardown_w1c=0 control_ok=1 pi_sticky_final=0 uncertain=0 overflow=0 arinfo_restore_ok=1 power_cycle_required=0 errors=0 transport_ok=1' \
+	  --report $(VSTATE_OUT)/dolphin-report-absent.json --screen-png $(VSTATE_OUT)/dolphin-screen-absent.png
+	$(PYTHON) tools/dolphin_smoke.py --dol $(VSTATE_DOL) --build-info $(VSTATE_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-VSTATE DONE status=abort_control_shape class=abort reason=control_not_idle_shape stop=failure restore=ok restore_reason=- teardown=stage_a verdict=present det=4/4 service=failed service_reason=control_not_idle_shape deliveries=0 video=0/0 audio=0 frames=0 complete=0 incomplete=0 resync=0 baseline=never_established baseline_s=0.000 valid_s=0.000 capture_s=0.000 safety_s=0.000 target_s=120 limit_s=180 structured=not_observed episodes=0 stable=0 unstable=0 not_preserved=0 episode_store_full=0 tail_frames=0 tail_truncated=0 frame_store_full=0 event_store_full=0 events=0 boundaries_disc=0 boundaries_gbi=0 disagreements=0 reference_match=offline next_cause_at_end=0 handler=0 restored=-1 mask_ok=-1 isr_w1c=0 main_w1c=0 teardown_w1c=0 control_ok=1 pi_sticky_final=0 uncertain=0 overflow=0 arinfo_restore_ok=1 power_cycle_required=0 errors=0 transport_ok=1' \
+	  -C Dolphin.Core.HSPDevice=2 \
+	  --report $(VSTATE_OUT)/dolphin-report-present.json --screen-png $(VSTATE_OUT)/dolphin-screen-present.png
+
+# Static audit of gbp-video-state-probe (GBP-VIDEO-002): tools/isr_audit.py on both one-shot
+# bodies of hsp_backend_irq.o — which must stay BYTE-IDENTICAL to the GBP-VIDEO-001 build's, since
+# that path was physically validated — and tools/poc_audit.py --profile vstate on every object.
+vstate-audit:
+	@test -d $(VSTATE_OUT)/obj || { echo "missing $(VSTATE_OUT)/obj; run make build"; exit 1; }
+	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(VSTATE_OUT)/audit; rm -f $(VSTATE_OUT)/audit/*.objdump.txt; for o in $(VSTATE_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(VSTATE_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(VSTATE_OUT)/gbp-video-state-probe.elf > $(VSTATE_OUT)/audit/elf.nm.txt'
+	$(PYTHON) tools/isr_audit.py $(VSTATE_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr_ext --report $(VSTATE_OUT)/isr-audit-ext.txt
+	$(PYTHON) tools/isr_audit.py $(VSTATE_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr --report $(VSTATE_OUT)/isr-audit-base.txt
+	$(PYTHON) tools/poc_audit.py $(VSTATE_OUT)/audit --profile vstate --report $(VSTATE_OUT)/poc-audit.txt
+	@echo "-- the interrupt path must be identical to the physically validated GBP-VIDEO-001 build:"
+	@diff $(VSTATE_OUT)/isr-audit-ext.txt $(VIDEO_OUT)/isr-audit-ext.txt && echo "   ext one-shot: identical"
+	@diff $(VSTATE_OUT)/isr-audit-base.txt $(VIDEO_OUT)/isr-audit-base.txt && echo "   base one-shot: identical"
+
+all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirqa-dolphin initirqb-dolphin initirq4-dolphin avsvc-dolphin video-dolphin vstate-dolphin
 
 shell:
 	$(COMPOSE) run --rm dev bash

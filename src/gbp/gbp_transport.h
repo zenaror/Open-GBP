@@ -166,8 +166,19 @@ struct gbp_transport {
      * a reset takes the count == 1 branch again (one W1C), exactly as after
      * the install. */
     gbp_status (*irq_record_reset)(void *ctx);
-    /* Optional (may be NULL): monotonic tick counter (time base on GC). */
+    /* Optional (may be NULL): monotonic tick counter (time base on GC).
+     * 32 bits: correct for the bounded per-operation waits (T_DMA,
+     * T_DELIVERY, T_NEXT_CAUSE), where a wrap-safe unsigned difference over
+     * a sub-second interval is exact and physically exercised. */
     uint32_t (*ticks)(void *ctx);
+    /* Optional (may be NULL): the same monotonic time base read as 64 bits
+     * (src/common/gbp_time64.h). Required by any experiment whose recorded
+     * timestamps outlive 2^32 ticks = 106.049 s at 40.5 MHz — GBP-VIDEO-002
+     * observes 120 s and bounds itself at 180 s, so every persistent
+     * timestamp of that experiment comes from here and never from `ticks`.
+     * The real backend reads the PowerPC time base with the TBU/TBL/TBU
+     * retry loop; the mock keeps a scripted 64-bit counter. */
+    uint64_t (*ticks64)(void *ctx);
     void *ctx;
 };
 
@@ -179,6 +190,8 @@ int gbp_transport_has_irq_multi_path(const struct gbp_transport *t);
 int gbp_transport_has_irq_reset(const struct gbp_transport *t);
 /* 1 if the whole-block read operation is available. */
 int gbp_transport_has_bulk_read(const struct gbp_transport *t);
+/* 1 if the 64-bit time base is available (GBP-VIDEO-002 refuses to run without it). */
+int gbp_transport_has_time64(const struct gbp_transport *t);
 /* Argument rule of read_bulk (pure): 1 when aram_addr / out / len satisfy it —
  * len > 0, a multiple of 32, <= GBP_BULK_MAX_LEN; aram_addr and out 32-byte
  * aligned; neither aram_addr + len nor out + len wraps; the transfer stays
