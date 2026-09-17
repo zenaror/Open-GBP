@@ -3055,7 +3055,25 @@ HSP.md (§3: the ARQ hi-queue precision and the first measured bandwidth), captu
 
 ### GBP-VIDEO-002 — does the AGB's own logotype screen ever reach the VIDEO stream without a Game Pak? A frame-signature scan over at least the nominal detector interval (Phase 4; designed and hardened four times 2026-09-16; IMPLEMENTED 2026-09-16, NOT PHYSICALLY EXECUTED)
 
-Status: **IMPLEMENTED 2026-09-16 — NOT PHYSICALLY EXECUTED. DIRTY BUILD — NOT A
+Status: **PHYSICALLY EXECUTED 2026-09-16** (build `vstate-0001`, commit
+`e8f3a69`, DOL SHA-256 `c73d49fa…19b9`). Result:
+
+```text
+GBP-VIDEO-002 PHYSICALLY EXECUTED
+SERVICE ABORTED  — READ SEMANTIC DISAGREEMENT at cycle 51750 (GBP-HW-083)
+FRAME CAPTURE VALID UNTIL ABORT — 489 frames, 477 of exactly 40 blocks
+STRUCTURED STATE OBSERVED — settled vector matches GBI table B, 40/40 (GBP-HW-080)
+RESTORE OK
+```
+
+The scientific negative target of 120 s of valid observation was **NOT REACHED**
+(5.292 s accumulated), so this run makes **no negative claim**. The positive
+objective — locate a structured state — was achieved observationally. The
+executed entry and every measurement are in `docs/research/EVIDENCE.md`
+(GBP-HW-074…087); the one thing the run could not record is U-GBP-032.
+
+The pre-execution status paragraph follows, kept for the history:
+**IMPLEMENTED 2026-09-16 — NOT PHYSICALLY EXECUTED. DIRTY BUILD — NOT A
 PHYSICAL CANDIDATE.** The probe exists (`poc/gbp-video-state-probe/`, Build ID
 `vstate-0001`) and passes every host test, audit and Dolphin gate; no hardware
 has run it, no physical evidence exists for it, and this entry requests none. A

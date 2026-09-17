@@ -154,10 +154,18 @@ the AGB idle screen (an offline oracle without a cartridge). Short sequence:
   pattern per cause; establishes blocks per frame, order, boundaries,
   cadence and repeated-service stability; offline assembly against the
   embedded idle screen.
-* **GBP-VIDEO-002** (designed and hardened four times 2026-09-16; **IMPLEMENTED
-  2026-09-16, NOT PHYSICALLY EXECUTED**, `vstate-0001`,
-  `poc/gbp-video-state-probe/`; no hardware has run it and no physical evidence
-  exists for it): a **120-second** frame-signature scan without a Game Pak, sized
+* **GBP-VIDEO-002** (**PHYSICALLY EXECUTED 2026-09-16**, `vstate-0001`, commit
+  `e8f3a69`, `poc/gbp-video-state-probe/`): 51 751 service cycles over 8.187 s,
+  489 frames, 477 intervals of exactly 40 blocks at 59.727 Hz, and a structured
+  screen that appears 0.5 s after the AGB starts, animates, and settles into a
+  state matching **GBI reference table B in all forty blocks**. Reconstructing
+  the preserved raw frames gives a legible animated GAME BOY logotype at
+  240 × 160, which promotes the block geometry to a physical fact
+  (GBP-HW-074…087). The service ABORTED at cycle 51 750 on a semantic
+  disagreement between the two readings of the IRQ register whose bytes were not
+  preserved (U-GBP-032), so the 120 s negative target was not reached and this
+  run makes no negative claim. Originally designed as: a **120-second**
+  frame-signature scan without a Game Pak, sized
   to the nominal interval of the Start-up Disc's own detector window (24 000
   invocations of a 5.000 ms periodic callback, proved from the binary; 120 s is a
   lower bound because the scheduler drops missed periods). Per-frame signatures of 40
