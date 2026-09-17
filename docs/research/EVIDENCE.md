@@ -2471,21 +2471,37 @@ transfers, **0 timeouts, 0 busy, 0 uncertain writes, 0 counter overflows**, and
 `transport_ok`. At the transport level the fatal read is indistinguishable from
 the 517 that preceded it.
 
-### GBP-HW-096 — an un-acknowledged source survives the re-arm and fires within ~2 µs — FACT
+### GBP-HW-096 — a source present after an ACK that did not write it, and a next cause 74 ticks after the re-arm — FACT (measurement) / CORROBORATED (the model)
 
-Measured from the 64-bit clocks of this run's cycle records. When a cycle
-acknowledged only AUDIO (`pending 0x0400`, ACK `0x8400`), the next cause was
-observed **74 ticks = 1.8 µs** after the re-arm (cycles 5 and 7), and it was
-`0x0100` — VIDEO, which had been pending and was not in the ACK value. When a
-cycle acknowledged both sources (`0x0500`, ACK `0x8500`), the next cause took
-26–28 µs (cycles 0–3) or 215 µs (cycle 4); when it acknowledged only VIDEO, 71 µs.
-The physical source cadence in this run is ~244–279 µs for AUDIO and ~252–294 µs
-for VIDEO, so 1.8 µs is three orders of magnitude too fast to be a fresh source.
-Together with GBP-HW-028 (writing 1 to a source bit that reads 1 clears it), this
-says: **the ACK clears exactly the source bits it writes as 1, the others stay
-pending, and the re-arm `IRQ := 0x0000` releases them immediately.** Directly
-observed corroboration: the verify cycle 3 acknowledged `0x0500` and POSTACK read
-`0x8100` — VIDEO pending again — and the run continued normally.
+**FACT — what was measured**, from the 64-bit clocks of this run's cycle records
+and from the verify cycles' own reads:
+
+* verify cycle 3 acknowledged `0x0500` (ACK `0x8500`) and the POSTACK read
+  returned `0x8100`: a source **present in the register after** an acknowledge,
+  with bit 15 set and CONTROL 0x8C. The run continued normally;
+* when a cycle acknowledged only AUDIO (`pending 0x0400`, ACK `0x8400`), the next
+  cause was observed **74 ticks = 1.83 µs** after the re-arm (cycles 5 and 7), and
+  it carried `0x0100` — VIDEO, which was not in the ACK value;
+* when a cycle acknowledged both sources, the next cause took 26–28 µs (cycles
+  0–3) or 215 µs (cycle 4); when it acknowledged only VIDEO, 71 µs;
+* gaps between causes of the same source, as observed in that window: AUDIO
+  9 885–11 303 ticks (244.1–279.1 µs), VIDEO 10 202–11 896 ticks (251.9–293.7 µs).
+
+So the 74 ticks are **134× to 153× shorter than any previously observed
+AUDIO-source gap in this run** — about 2.1 orders of magnitude. That is a
+comparison against what this run happened to observe. **No physical lower bound on
+how soon a genuinely new source may arrive has been established**, here or
+anywhere in this repository, and none is claimed.
+
+**CORROBORATED — the model these measurements support**, together with GBP-HW-028
+(writing 1 to a source bit that reads 1 clears it): the ACK clears exactly the
+source bits it writes as 1, the others stay pending, and the re-arm
+`IRQ := 0x0000` releases them. The POSTACK observation is direct; the 74-tick
+latency is consistent with it and with nothing else that has been observed, but a
+new assertion arriving in that interval has not been excluded by any measurement.
+
+**UNKNOWN, and not covered here:** the effect of an ACK writing 1 to a source bit
+that reads 0. GBP-HW-028 established only the 1-on-1 case.
 
 ### GBP-HW-097 — clean teardown after the diagnostic abort — FACT
 

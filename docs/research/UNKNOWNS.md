@@ -964,11 +964,13 @@ stand on (U-GBP-033 and GBP-HW-096) and is analysed in the DEVLOG entry of
 
 ---
 
-### U-GBP-033 — is the replicated IRQ window an atomic snapshot? — OPEN (blocks the semantic-disagreement policy, and therefore GBP-VIDEO-003)
+### U-GBP-033 — what mechanism produces semantic non-uniformity among the eight replicas of the IRQ window? — OPEN (mechanism unknown; the SERVICE POLICY it blocked is addressed separately by the vstate-0003 design)
 
 Two physical runs have now ended on a read whose eight replicas did not all carry
-the same 16-bit value, and the second preserved the bytes. The open question is
-the mechanism:
+the same 16-bit value, and the second preserved the bytes. The question is **not**
+a yes/no about atomicity — "is it a snapshot?" would be answered `no` by
+GBP-HW-090 and GBP-HW-093 and would teach nothing. The question is what produces
+the non-uniformity:
 
 * does the source register change **during** the transfer, so that different
   groups of one 32-byte read reflect different instants?
@@ -1004,6 +1006,16 @@ succession around a disagreement (which the current design forbids, for good
 reason — the first requirement was preservation), or an experiment that correlates
 the disagreeing group index with an independently timed source assertion. Neither
 is designed yet, and neither is GBP-VIDEO-003.
+
+**2026-09-17, separation of concerns.** This unknown was first written as though
+it blocked the service policy. It does not, and treating it that way would hold
+the project hostage to a question about the device's internals. The policy
+question — *which reading is authoritative, and must a disagreement end the run?*
+— can be answered from the lifecycle evidence we already have (GBP-HW-028,
+GBP-HW-096) without knowing the mechanism, and the `vstate-0003` design in
+HARDWARE_TESTS does exactly that. The mechanism stays UNKNOWN here, and a future
+experiment may still address it; nothing in the policy design claims to explain
+it.
 
 Related: U-GBP-029 (byte-0 extras) and GBP-HW-093 are very likely the same
 phenomenon seen on bytes that are discarded; if they are, this unknown subsumes

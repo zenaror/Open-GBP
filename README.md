@@ -185,3 +185,13 @@ They must remain under `input/`, must not be committed, and must not be redistri
 Early research and infrastructure stage.
 
 The first implementation milestone is an open-source program capable of initializing and controlling the physical Game Boy Player while building a documented and testable understanding of the hardware interface.
+
+## AI Notice
+
+AI tools such as Claude were used in this project.
+
+They were used for research, analysis of captured hardware evidence, documentation
+and code. Every hardware claim in `docs/` is classified (FACT, CORROBORATED,
+HYPOTHESIS, UNKNOWN) and traceable to a physical log or a named reference, and the
+physical logs under `logs/` and the fixtures under `captures/fixtures/` come from
+the real console, not from a model.

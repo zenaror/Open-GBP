@@ -185,7 +185,10 @@ the AGB idle screen (an offline oracle without a cartridge). Short sequence:
   inside the window, tears the hardware down before it summarises anything, and
   streams its multi-megabyte sidecar rather than staging it. Its full nominal
   scan runs in the host suite at about 800 000 synthetic deliveries.
-* **GBP-VIDEO-003**: colour. **Gated by U-GBP-033.** Needs a source whose true
+* **GBP-VIDEO-003**: colour. **Gated by a successful `vstate-0003` run**, not by
+  U-GBP-033 — the mechanism behind the replica non-uniformity does not have to be
+  understood, only survived (gate conditions in HARDWARE_TESTS, GBP-VIDEO-002-R3
+  §R3.21). Needs a source whose true
   appearance is known independently of the references (a static pattern with
   saturated red, green and blue plus white, black and greys), because a reference
   comparison can only show that two encodings agree, never which channel is which.
@@ -195,8 +198,19 @@ the AGB idle screen (an offline oracle without a cartridge). Short sequence:
   ended on a semantic disagreement of the IRQ window (2026-09-16 at cycle 51 750,
   2026-09-17 at cycle 517), a colour experiment needs a long uninterrupted
   observation of the same service loop, and with the current fatal policy the same
-  abort would end it at an arbitrary point. The policy decision — which reading is
-  authoritative, and whether a disagreement aborts at all — comes first.
+  abort would end it at an arbitrary point.
+* **GBP-VIDEO-002-R3** (build `vstate-0003`): the intervening step, **designed and
+  hardened 2026-09-17, not implemented**. Makes a disagreement confined to the two
+  serviced source bits a counted, preserved, nonfatal anomaly serviced from GBI's
+  bitwise majority; keeps every other difference fatal, and keeps the independent
+  `anomaly_unexpected_source` guard firing on the authoritative value whatever the
+  delta is. Records, for each event, whether the source the majority omitted was
+  present in the next cause and how long after the re-arm — as observations, with
+  no runtime label claiming a source could not be new. Quarantines any VIDEO block
+  drained only because the majority carried a source the Disc reading did not, so
+  it can never form a baseline, count toward valid observation, validate a
+  structured change or feed colour evidence. Adds a bounded 256-record diagnostic
+  store (+41 728 B) and OGBPSEQ1 v4; v1, v2 and v3 stay frozen.
 * **GBP-VIDEO-004**: sustained streaming with a real cartridge (frame
   pacing, dropped-block policy, output modes) — the bridge to Phase 7.
 

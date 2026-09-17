@@ -175,8 +175,10 @@ bit that the ACK does **not** write as 1 survives the acknowledge and the re-arm
 and fires again almost immediately. In two cycles of that run the ACK carried only
 AUDIO (`pending 0x0400`, `IRQ := 0x8400`) and the next cause — `0x0100`, VIDEO —
 was observed **74 ticks = 1.8 µs** after the re-arm `IRQ := 0x0000`, against a
-physical source cadence of 244–294 µs in the same window, so it cannot be a fresh
-event; a third cycle acknowledged `0x0500` and read `0x8100` back at POSTACK, VIDEO
+physical source cadence of 244–294 µs in the same window — the 74 ticks are 134 to
+153 times shorter than any previously observed gap between causes of that source in
+that run, about 2.1 orders of magnitude, though no lower bound on how soon a new
+source may arrive has been established; a third cycle acknowledged `0x0500` and read `0x8100` back at POSTACK, VIDEO
 pending again, and continued normally. With GBP-HW-028 (writing 1 to a source bit
 that reads 1 clears it) this gives the working model: **the ACK clears exactly the
 source bits it writes as 1, the others stay pending, and the re-arm releases them
