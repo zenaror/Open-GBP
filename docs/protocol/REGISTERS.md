@@ -216,6 +216,29 @@ descriptive only: 23 in 1 114 007 deliveries (≈ 1 per 48 435) and 23 in 175.84
 (≈ 1 per 7.65 s). **No rate is modelled from it**, and those denominators are not
 comparable with the earlier runs, which stopped at their first event.
 
+**Hardware 2026-09-17, GBP-VIDEO-002-R4 build vstate-0004 (GBP-HW-110…114):** the
+same condition occurred **29 times** in a second 175.848 s run, again all
+`SOURCE_SERVICED`, again all Disc `0x0500` against the majority's `0x0100`, and
+again with the `0x0500` replicas forming a contiguous suffix (24 × 1, 2 × 2,
+3 × 3). Across the two long runs the physical corpus is **52 events, 45/3/4,
+contiguous in 52 of 52, with AUDIO present in the next ordinary read in 52 of
+52**. This run's diagnostics are the first with correct per-cycle attribution, so
+the whole service transaction can be timed on trustworthy clocks:
+
+```text
+READ  -> ACK          2 600 .. 2 756 ticks     64.20 ..  68.05 us
+ACK   -> REARM          828 .. 1 445 ticks     20.44 ..  35.68 us
+REARM -> NEXT CAUSE        77 ..    94 ticks     1.90 ..   2.32 us
+READ  -> NEXT CAUSE     3 505 .. 4 128 ticks    86.54 .. 101.93 us
+```
+
+A model in which the ACK clears VIDEO, the AUDIO assertion survives it and the
+re-arm releases the pending source accounts for all 52 events and for that
+ordering — **CORROBORATED, very strong, and still not FACT**: nothing observed
+here distinguishes a source that survived the ACK from a new assertion arriving
+in that 1.9 to 2.3 µs window. Servicing the majority value therefore costs one
+extra cycle and loses no source, measured twice, on two producers.
+
 ## 5. GameCube-side registers involved
 
 | Address | Name (YAGCD/libogc) | Use here | Status |

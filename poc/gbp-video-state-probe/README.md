@@ -1,10 +1,16 @@
 # poc/gbp-video-state-probe — GBP-VIDEO-002
 
-**Test ID:** `GBP-VIDEO-002` — **Build ID:** `vstate-0001` — **IMPLEMENTED 2026-09-16, NOT
-PHYSICALLY EXECUTED. DIRTY BUILD — NOT A PHYSICAL CANDIDATE.** No hardware has run this code and
-no physical evidence exists for it. A physical candidate requires a clean commit, a clean rebuild,
-the audits below on that build, a recorded hash and an explicit authorization
-(`docs/research/HARDWARE_TESTS.md`, CLAUDE.md §18).
+**Test ID:** `GBP-VIDEO-002` — **Build ID:** `vstate-0004` — **PHYSICALLY EXECUTED 2026-09-17
+(commit `b017e38`); PHYSICAL VALIDATION PASSED.** This probe has now run on hardware four times:
+`vstate-0001` (2026-09-16, aborted on a semantic disagreement of the IRQ window), `vstate-0002`
+(2026-09-17, the same abort with the bytes preserved), `vstate-0003` (2026-09-17, 120 s target
+reached, 23 disagreements survived, diagnostics contaminated by a producer defect) and
+`vstate-0004` (2026-09-17, 120 s target reached, **29 disagreements survived with correct
+per-cycle attribution**, sidecar strict-valid as OGBPSEQ1 v5 — GBP-HW-108…115).
+
+Every future physical candidate still requires a clean commit, a clean rebuild, the audits below
+on that build, a recorded hash and an explicit authorization (`docs/research/HARDWARE_TESTS.md`,
+CLAUDE.md §18). A `-dirty` build is never a candidate.
 
 **Question:** over an observation at least as long as the nominal interval the Start-up Disc's own
 detector spans, in a session **without a Game Pak**, does the VIDEO stream ever carry a frame other
@@ -177,7 +183,7 @@ Every mock scenario is SYNTHETIC and none of it is physical evidence.
 
 ```text
 Test ID:  GBP-VIDEO-002
-Build ID: vstate-0001
+Build ID: vstate-0004          (the identity the build embeds; check build-info.txt)
 DOL:      build/poc/gbp-video-state-probe/gbp-video-state-probe.dol
 Cartridge / Game Pak: NONE
 Physical Link Port:   empty (PicoAdapterGB disconnected)
@@ -186,8 +192,10 @@ Steps:
   1. Copy the DOL to the SD card, launch through Swiss, GBP attached, no Game Pak.
   2. Do not touch anything until the screen reports the status. EXPECT TWO TO FIVE MINUTES.
   3. Press X once (the log, then the streamed sidecar of several MB), press START, power OFF.
-Expected files: sd:/open-gbp/GBP-VIDEO-002_vstate-0001.log
-                sd:/open-gbp/GBP-VIDEO-002_vstate-0001-vstate.bin
+Expected files: sd:/open-gbp/GBP-VIDEO-002_<BuildID>.log
+                sd:/open-gbp/GBP-VIDEO-002_<BuildID>-vstate.bin
+                (the probe names them from its own Build ID: the 2026-09-17 run
+                 wrote GBP-VIDEO-002_vstate-0004.log and …-vstate.bin)
 Question answered: whether a structured VIDEO state other than the uniform one ever reaches the
                    stream without a Game Pak, over at least 120 s of valid post-baseline
                    observation, and if so when, for how long and with what signature.

@@ -173,7 +173,21 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      normative one - and requires BOTH parsers to refuse each one, the C verdict
                                      read back through `test_gbp_video_state --parse`. FrozenFormatsStayReadable
                                      keeps v2, v3 and v4 parsing in both implementations and keeps the v4 defect
-                                     a non-fatal report derived from the content, never from a hash
+                                     a non-fatal report derived from the content, never from a hash.
+                                     Class PhysicalV5 covers the PHYSICAL v5 file of build vstate-0004
+                                     (2026-09-17, commit b017e38), the run that completed R3's physical
+                                     validation: identity and both CRCs, the exact contiguous layout, the
+                                     operational result (1 114 005 deliveries, 120.009 s valid), all 29
+                                     disagreements recomputed from their own raw 32 bytes, the correct
+                                     current-cycle attribution 29/29 (auth 0100 / service 0100 / ACK 8100 /
+                                     flags 01c1), the timing chain 29/29, the measured intervals
+                                     (READ->ACK 2600..2756, ACK->REARM 828..1445, REARM->NEXT 77..94,
+                                     READ->NEXT 3505..4128 ticks), the contiguous-suffix distribution
+                                     24/2/3 with its cycle numbers, the semantic block agreeing with the
+                                     records, ZERO producer warnings, both parsers strict-validating it,
+                                     the fixture naming what the run did NOT exercise, and the combined
+                                     52-event corpus with the previous run (45/3/4, contiguous 52/52,
+                                     next AUDIO 52/52)
                   test_video_replay.py synthetic GBP-VIDEO-001 log → fixture + sequence sidecar → replay round trip
                                      (the regenerated run equals the original) and the physical GBP-AV-SERVICE-001
                                      fixture as the first cycle; asserts that no GBP-VIDEO-001 fixture exists

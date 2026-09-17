@@ -13,6 +13,7 @@ entry 0 of both of GBI's reference tables; it needs no private input. The compar
 references' embedded data runs only when the private inputs are present under input/extracted/,
 and without them the verdict is `reference_content=unavailable`, which is never a failure of a run.
 """
+import hashlib
 import os
 import struct
 import subprocess
@@ -30,6 +31,8 @@ BIN = os.path.join(ROOT, "build", "tests", "unit", "test_gbp_video_state")
 PHYSICAL_V2 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-vstate-0001-vstate.bin")
 PHYSICAL_V3 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-17-vstate-0002-vstate.bin")
 PHYSICAL_V4 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-17-vstate-0003-vstate.bin")
+PHYSICAL_V5 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-17-vstate-0004-vstate.bin")
+PHYSICAL_V5_FIXTURE = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-17-vstate-0004.gbpreplay")
 VIDEO_BIN = os.path.join(ROOT, "build", "tests", "unit", "test_gbp_video")
 OUTDIR = os.path.join(ROOT, "build", "tests", "unit")
 
@@ -1216,6 +1219,220 @@ class ParserParity(unittest.TestCase):
                 disagreements.append("%s: C rc=%d, Python %s (%s)" % (what, c_rc, py_ok, why))
             self.assertEqual(py_ok, expect_ok, "%s: %s" % (what, why))
         self.assertEqual(disagreements, [], "the two parsers disagree: %s" % disagreements)
+
+
+@unittest.skipUnless(os.path.isfile(PHYSICAL_V5), "the physical v5 sidecar is not present")
+class PhysicalV5(unittest.TestCase):
+    """The fourth physical GBP-VIDEO-002 run (build vstate-0004, commit b017e38, 2026-09-17): the
+    run that completed R3's physical validation. Everything asserted here is recomputed from the
+    bytes on disk — never from a stored derived value — because that is the whole point of the
+    producer this run was built to prove."""
+
+    SHA = "9d744a289899eb2d2e8f38ce5d44a5a3a838487e662aa23c3f5194102785aaa1"
+    SIZE = 4360684
+
+    def setUp(self):
+        with open(PHYSICAL_V5, "rb") as f:
+            self.data = f.read()
+        self.d = vstate.parse(self.data)
+
+    def test_identity_and_crcs(self):
+        self.assertEqual(len(self.data), self.SIZE)
+        self.assertEqual(hashlib.sha256(self.data).hexdigest(), self.SHA)
+        self.assertEqual(self.d["version"], 5)
+        self.assertEqual(self.d["header_size"], 0x200)
+        self.assertEqual(self.d["test_id"], "GBP-VIDEO-002")
+        self.assertEqual(self.d["build_id"], "vstate-0004")
+        self.assertEqual(self.d["commit"], "b017e38")
+        self.assertEqual(self.d["header_crc32"], 0x5BAA1A83)
+        self.assertEqual(self.d["total_crc32"], 0x1E16AEE5)
+        self.assertEqual(vstate.crc32(self.data[:self.d["off_footer"]]), self.d["total_crc32"])
+        self.assertEqual(self.data[self.d["off_footer"]:self.d["off_footer"] + 8], b"OGBPEND1")
+
+    def test_the_layout_is_contiguous(self):
+        d = self.d
+        self.assertEqual(d["diag_count"], 29)
+        self.assertEqual(d["diag_rec_size"], 160)
+        self.assertEqual(d["semantic_size"], 1024)
+        self.assertEqual(d["off_frames"], 0x000200)
+        self.assertEqual(d["off_events"], 0x1EC740)
+        self.assertEqual(d["off_episodes"], 0x1EFBC0)
+        self.assertEqual(d["off_cycles"], 0x1F03C0)
+        self.assertEqual(d["off_semantic"], 0x1F2BC0)
+        self.assertEqual(d["off_diag"], 0x1F2FC0)
+        self.assertEqual(d["off_video_raw"], 0x1F41E0)
+        self.assertEqual(d["off_audio_raw"], 0x4269E0)
+        self.assertEqual(d["off_footer"], 0x4289E0)
+        self.assertEqual(d["off_footer"] + 12, self.SIZE)
+
+    def test_the_operational_result(self):
+        d = self.d
+        self.assertEqual(d["deliveries"], 1114005)
+        self.assertEqual(d["video_completed"], 420073)
+        self.assertEqual(d["audio_drains"], 720210)
+        self.assertEqual(d["isr_w1c"], 1114005)
+        self.assertEqual(d["main_w1c"], 0)
+        self.assertEqual(d["stop"], "nominal_negative")
+        self.assertIn("service_ok", d["flag_names"])
+        self.assertIn("restore_ok", d["flag_names"])
+        self.assertIn("baseline_valid", d["flag_names"])
+        self.assertGreaterEqual(d["valid_observation_elapsed"], d["min_valid_observation_ticks"])
+        # the same truncation the probe and the tool print, not a rounding of it
+        self.assertEqual(vstate.seconds(d, d["capture_elapsed"]), "175.848")
+        self.assertEqual(vstate.seconds(d, d["valid_observation_elapsed"]), "120.009")
+
+    def test_all_29_recomputed_from_their_own_raw_bytes(self):
+        """Not one stored derived value is trusted: the readings come from raw[32] and everything
+        else from those two, with the same normative functions the runtime used."""
+        self.assertEqual(len(self.d["diags"]), 29)
+        for i, g in enumerate(self.d["diags"]):
+            raw = bytes(g["raw"])
+            disc, gbi = vstate.read_disc(raw), vstate.read_gbi(raw)
+            self.assertEqual((disc, gbi), (0x0500, 0x0100), i)
+            self.assertEqual(g["disc_value"], disc, i)
+            self.assertEqual(g["gbi_value"], gbi, i)
+            self.assertEqual(g["delta"], 0x0400, i)
+            self.assertEqual(g["disc_extra_sources"], 0x0400, i)
+            self.assertEqual(g["majority_extra_sources"], 0x0000, i)
+            self.assertEqual(g["classification"], "source_serviced", i)
+            self.assertEqual(g["classification_code"], vstate.classify(disc, gbi), i)
+            self.assertEqual(g["read_kind"], "READ", i)
+            self.assertEqual(g["attempts"], 1, i)
+
+    def test_the_current_cycle_attribution_is_correct_29_of_29(self):
+        """The defect of vstate-0003 (GBP-HW-104), which this build exists to remove, must not
+        appear once: every record carries the values of ITS OWN cycle."""
+        for i, g in enumerate(self.d["diags"]):
+            auth = vstate.authoritative(g["disc_value"], g["gbi_value"])
+            self.assertEqual(auth, 0x0100, i)
+            self.assertEqual(g["authoritative_value"], auth, i)
+            self.assertEqual(g["service_selected"], auth & 0x0500, i)
+            self.assertEqual(g["ack_value"], auth | 0x8000, i)
+            self.assertEqual(g["ack_value"], 0x8100, i)
+            self.assertEqual(g["record_flags"], 0x01C1, i)   # service|ack|rearm|followup_filled
+            self.assertEqual(g["followup_state"], "source_present_next", i)
+            self.assertEqual(g["next_pending_gbi"], 0x0400, i)
+            self.assertEqual(g["next_pending_disc"], 0x0400, i)
+            self.assertEqual(g["followup_absent_sources"], 0, i)
+            self.assertEqual(g["followup_present_sources"], 0x0400, i)
+
+    def test_the_timing_chain_holds_29_of_29(self):
+        for i, g in enumerate(self.d["diags"]):
+            self.assertLessEqual(g["t"], g["t_ack"], i)
+            self.assertLessEqual(g["t_ack"], g["t_rearm"], i)
+            self.assertLessEqual(g["t_rearm"], g["t_next_cause"], i)
+
+    def test_the_measured_intervals(self):
+        """The whole service transaction, on clocks that all belong to the same cycle."""
+        tb = self.d["tb_hz"]
+        self.assertEqual(tb, 40500000)
+        r2a = [g["t_ack"] - g["t"] for g in self.d["diags"]]
+        a2r = [g["t_rearm"] - g["t_ack"] for g in self.d["diags"]]
+        r2n = [g["t_next_cause"] - g["t_rearm"] for g in self.d["diags"]]
+        rd2n = [g["t_next_cause"] - g["t"] for g in self.d["diags"]]
+        self.assertEqual((min(r2a), max(r2a)), (2600, 2756))
+        self.assertEqual((min(a2r), max(a2r)), (828, 1445))
+        self.assertEqual((min(r2n), max(r2n)), (77, 94))
+        self.assertEqual((min(rd2n), max(rd2n)), (3505, 4128))
+
+    def test_the_suffix_distribution(self):
+        lengths, cycles = [], {}
+        for g in self.d["diags"]:
+            raw = bytes(g["raw"])
+            reps = [(raw[4 * k + 1] << 8) | raw[4 * k + 3] for k in range(8)]
+            k = 0
+            for v in reversed(reps):
+                if v != 0x0500:
+                    break
+                k += 1
+            # contiguous: exactly the last k are 0x0500 and none before them
+            self.assertTrue(all(v == 0x0500 for v in reps[8 - k:]))
+            self.assertTrue(all(v != 0x0500 for v in reps[:8 - k]))
+            lengths.append(k)
+            cycles.setdefault(k, []).append(g["cycle"])
+        self.assertEqual(lengths.count(1), 24)
+        self.assertEqual(lengths.count(2), 2)
+        self.assertEqual(lengths.count(3), 3)
+        self.assertEqual(sorted(cycles[2]), [113805, 1030312])
+        self.assertEqual(sorted(cycles[3]), [941104, 1042937, 1110826])
+
+    def test_the_semantic_block_agrees_with_the_records(self):
+        m = self.d["semantic"]
+        self.assertEqual(m["disagreements_total"], 29)
+        self.assertEqual(m["source_serviced"], 29)
+        self.assertEqual(m["source_other"], 0)
+        self.assertEqual(m["non_source"], 0)
+        self.assertEqual(m["disc_extra_events"], 29)
+        self.assertEqual(m["majority_extra_events"], 0)
+        self.assertEqual(m["observational_disagreements"], 0)
+        self.assertEqual(m["service_selecting_disagreements"], 29)
+        self.assertEqual(m["diagnostics_preserved"], 29)
+        self.assertEqual(m["diagnostics_not_preserved"], 0)
+        self.assertEqual(m["followup_present"], 29)
+        self.assertEqual(m["followup_absent"], 0)
+        self.assertEqual(m["frames_quarantined"], 0)
+        self.assertEqual(m["payload_diagnostics_captured"], 0)
+        self.assertFalse(m["store_capped"])
+
+    def test_zero_producer_warnings(self):
+        """producer_warnings() describes the v4 defect. This file is v5 and, independently, none
+        of the three contradictions it looks for exists here."""
+        self.assertEqual(vstate.producer_warnings(self.d), [])
+        for g in self.d["diags"]:
+            self.assertLessEqual(g["t_ack"], g["t_next_cause"])
+            self.assertLessEqual(g["t_rearm"], g["t_next_cause"])
+            self.assertEqual(g["authoritative_value"] & 0x0555, g["gbi_value"] & 0x0555)
+
+    @unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first")
+    def test_both_parsers_strict_validate_it(self):
+        r = subprocess.run([BIN, "--parse", PHYSICAL_V5], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(int(r.stdout.strip().split("=")[1]), 0)
+
+    @unittest.skipUnless(os.path.isfile(PHYSICAL_V5_FIXTURE), "the v5 replay fixture is missing")
+    def test_the_fixture_declares_the_run_honestly(self):
+        with open(PHYSICAL_V5_FIXTURE, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("# SOURCE=physical GameCube", text)
+        self.assertIn("# BUILD_ID=vstate-0004", text)
+        self.assertIn("# COMMIT_FULL=b017e38e509f7b32fee2fdda2bb9eb29cb475139", text)
+        self.assertIn("# BLOCKS_SHA256=" + self.SHA, text)
+        self.assertIn("LOG_SHA256=e8d9e2dd7d6ae5002cfb23015eaf9d01483f3681dbd90c6dec7f5b3ebe65c1a4", text)
+        self.assertIn("THIS SCRIPT IS A PREFIX, NOT THE RUN", text)
+        # the branches this run did NOT exercise must be named, not implied
+        self.assertIn("WHAT THIS RUN DID NOT EXERCISE", text)
+
+    def test_the_combined_corpus_with_the_previous_run(self):
+        """Two long runs, one description. No rate and no distribution is claimed from it."""
+        if not os.path.isfile(PHYSICAL_V4):
+            self.skipTest("the physical v4 sidecar is not present")
+        with open(PHYSICAL_V4, "rb") as f:
+            v4 = vstate.parse(f.read())
+
+        def suffixes(d):
+            out = []
+            for g in d["diags"]:
+                raw = bytes(g["raw"])
+                reps = [(raw[4 * k + 1] << 8) | raw[4 * k + 3] for k in range(8)]
+                k = 0
+                for v in reversed(reps):
+                    if v != 0x0500:
+                        break
+                    k += 1
+                contiguous = all(v == 0x0500 for v in reps[8 - k:]) and \
+                    all(v != 0x0500 for v in reps[:8 - k])
+                out.append((k, contiguous, g["next_pending_gbi"] == 0x0400))
+            return out
+
+        a, b = suffixes(v4), suffixes(self.d)
+        self.assertEqual((len(a), len(b)), (23, 29))
+        comb = a + b
+        self.assertEqual(len(comb), 52)
+        self.assertEqual(sum(1 for k, _, _ in comb if k == 1), 45)
+        self.assertEqual(sum(1 for k, _, _ in comb if k == 2), 3)
+        self.assertEqual(sum(1 for k, _, _ in comb if k == 3), 4)
+        self.assertTrue(all(c for _, c, _ in comb))          # contiguous 52/52
+        self.assertTrue(all(n for _, _, n in comb))          # next AUDIO 52/52
 
 
 if __name__ == "__main__":

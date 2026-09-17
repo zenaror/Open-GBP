@@ -4351,7 +4351,7 @@ EVIDENCE GBP-HW-06x, VIDEO_PATH.md §6–8 updates, `docs/protocol/VIDEO.md`
 once physical, REGISTERS.md §2.2 — all of them only after a physical run.
 
 ---
-### GBP-VIDEO-002-R3 (build `vstate-0003`) — service the IRQ window under semantic disagreement without ending the run — DESIGNED, HARDENED and IMPLEMENTED 2026-09-17; PHYSICALLY EXECUTED 2026-09-17; POLICY STRONGLY CORROBORATED, DIAGNOSTIC ATTRIBUTION FAILED, VALIDATION INCOMPLETE
+### GBP-VIDEO-002-R3 (build `vstate-0003`) — service the IRQ window under semantic disagreement without ending the run — DESIGNED, HARDENED and IMPLEMENTED 2026-09-17; PHYSICALLY EXECUTED 2026-09-17; **PHYSICAL VALIDATION COMPLETE 2026-09-17 through the R4 re-run**
 
 Two physical runs of GBP-VIDEO-002 ended on the same condition: one 32-byte read
 of the IRQ window whose eight replicas did not all carry the same value. The
@@ -4373,15 +4373,45 @@ SERVICE ok, RESTORE ok, structured change OBSERVED (9 episodes, 7 stable)
 DIAGNOSTIC CURRENT-CYCLE ATTRIBUTION FAILED — known producer defect (GBP-HW-104)
 ```
 
+**PHYSICAL VALIDATION COMPLETE (2026-09-17).** R3's own run left the policy
+strongly corroborated and its diagnostic attribution unproven, because the records
+it produced were contaminated by the producer defect described below. The
+`vstate-0004` run (GBP-VIDEO-002-R4) closed exactly that gap on the same hardware,
+with the same policy and the same device operations: **29 `SOURCE_SERVICED`
+disagreements, none fatal, every one carrying the authoritative value, service
+decision, ACK and re-arm of its own cycle, in a sidecar that strict-validates
+under the v5 cross-field rules** (GBP-HW-108…115). Every condition of §R3.21 is
+now met:
+
+```text
+>= 1 SOURCE_SERVICED observed                   29
+the run did not stop for them                   stop=nominal_negative
+current-cycle attribution correct               29/29, 0 invariant failures
+sidecar strict-valid                            C and Python v5 parsers
+service continued                               1 114 005 cycles, errors=0
+ACK and re-arm coherent with the record         29/29, t <= t_ack <= t_rearm <= t_next
+follow-up per source correct                    29/29 PRESENT, absent = 0x0000
+zero unexpected SOURCE_OTHER / NON_SOURCE       0 and 0
+valid target reached                            120.009 s of 120 s
+restore ok                                      handler restored, INTMR clean
+```
+
+One criterion was **conditional and did not arise**: no majority-extra
+disagreement occurred in either run, so the quarantine path has never been
+exercised physically. It stays host- and mock-tested, and nothing here claims
+otherwise.
+
 **The policy worked and the bookkeeping did not, and the two must not be
 conflated.** The run is the first of this test to reach its target, the first to
 survive a semantic disagreement at all, and it survived twenty-three. But the
 records it produced carry `authoritative_value`, `service_selected`, `ack_value`,
 `t_ack` and `t_rearm` belonging to a *later* cycle, so the versioned success
 criterion of §R3.21 — that each event's ACK and re-arm be preserved — is **not**
-satisfied. R3's physical validation is therefore **INCOMPLETE**; the policy
-behaviour is **strongly corroborated** (GBP-HW-106) and the diagnostic fidelity
-objective **failed**.
+satisfied. R3's physical validation was therefore **INCOMPLETE at the time of its
+own run**; the policy behaviour was **strongly corroborated** (GBP-HW-106) and the
+diagnostic fidelity objective **failed**. The R4 re-run above is what completed
+it — and it completed it by re-observing the same policy on hardware, not by
+argument.
 
 Root cause, in the committed source: `gbp_vstate_diag_service()`,
 `_ack()`, `_rearm()` — and equally `_payload()`, `_quarantined()`, `_deferred()` —
@@ -5350,7 +5380,7 @@ preceded it.
 
 ---
 
-### GBP-VIDEO-002-R4 (build `vstate-0004`, OGBPSEQ1 v5) — give every diagnostic field an owner — DESIGNED and IMPLEMENTED 2026-09-17, NOT PHYSICALLY EXECUTED
+### GBP-VIDEO-002-R4 (build `vstate-0004`, OGBPSEQ1 v5) — give every diagnostic field an owner — DESIGNED, IMPLEMENTED and **PHYSICALLY EXECUTED 2026-09-17; PHYSICAL VALIDATION PASSED**
 
 `vstate-0003` proved the service policy on hardware and produced records whose
 current-cycle fields belong to the wrong cycle (GBP-HW-104). This revision fixes
@@ -5358,14 +5388,39 @@ the attribution and nothing else. It is **RAM bookkeeping and format only**: not
 one hardware operation, ordering, count or timing changes, and the ISR is not
 touched.
 
-**Implementation status, 2026-09-17.** The design below is now implemented in
+**PHYSICALLY EXECUTED 2026-09-17** (commit `b017e38`, DOL SHA-256
+`b0ed33f0…97c5`, log `e8d9e2dd…c1a4` 86 390 B, sidecar `9d744a28…aaa1`
+4 360 684 B, OGBPSEQ1 v5). Result:
+
+```text
+GBP-VIDEO-002-R4 vstate-0004 PHYSICALLY EXECUTED
+SCIENTIFIC TARGET REACHED — 120.009 s of valid observation in 175.848 s of capture
+SERVICE ok, RESTORE ok, structured change OBSERVED (9 episodes, 7 stable)
+29 SEMANTIC DISAGREEMENTS, ALL SOURCE_SERVICED, ALL SURVIVED (GBP-HW-110)
+  auth 0100 / service 0100 / ACK 8100 / flags 01c1 in 29 of 29 (GBP-HW-111)
+  t <= t_ack <= t_rearm <= t_next_cause in 29 of 29, ZERO invariant failures
+  the omitted AUDIO source present in the next ordinary read 29/29 (GBP-HW-113)
+THE vstate-0003 PRODUCER DEFECT DOES NOT OCCUR ONCE
+```
+
+**What this validated, and what it did not.** The exercised path is
+`SOURCE_SERVICED` with a **Disc-extra** source, 29 times. The v5 producer's other
+branches did **not** occur in this run and are therefore not physically
+validated: majority-extra disagreements (0), observational POSTDRAIN/POSTACK
+disagreements (0), `SOURCE_OTHER` (0), `NON_SOURCE` (0), the payload diagnostic
+(0), the quarantine and deferred markers (0) and every failure path. Those remain
+host- and mock-tested only; §R4.10a lists the batteries that cover them.
+
+Evidence: GBP-HW-108…115. The fixture is
+`captures/fixtures/hw-gamecube-gbp-2026-09-17-vstate-0004.gbpreplay`.
+
+**Implementation status, 2026-09-17.** The design below is implemented in
 `src/gbp/gbp_vstate.{h,c}`, `src/gbp/gbp_vstate_probe.c`,
 `src/gbp/gbp_vstatedump.{h,c}`, `poc/gbp-video-state-probe/` (Build ID
 `vstate-0004`) and `tools/vstate.py`, with the host battery in
-`tests/unit/test_gbp_video_state.c` and `tests/host/test_vstate.py`. It has
-**NOT** been executed on hardware: no observation in this repository comes from
-it, no evidence ID belongs to it, and none of its synthetic scenarios is evidence
-about the device. What the implementation measured about ITSELF:
+`tests/unit/test_gbp_video_state.c` and `tests/host/test_vstate.py`. Its
+synthetic scenarios remain synthetic and are not evidence about the device; only
+the physical run above is. What the implementation measured about ITSELF:
 
 ```text
                           vstate-0003 (HEAD 1ed1629)   vstate-0004 (dirty)   delta

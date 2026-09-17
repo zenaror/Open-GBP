@@ -2697,3 +2697,121 @@ AR_INFO restored to 0x0043 with a confirming readback. FINAL state
 `arinfo=0043 intsr=00010000 intmr=000001fa control=00 irq=9090`, byte-identical to
 the one GBP-VIDEO-001, GBP-AV-SERVICE-001, vstate-0001 and vstate-0002 reached.
 Teardown variant `S5_target`, `next_cause_at_end=1`.
+
+### GBP-HW-108 — the OGBPSEQ1 v5 sidecar, written and structurally validated on hardware — FACT
+
+4 360 684 bytes streamed after the teardown by build `vstate-0004` (commit
+`b017e38`, DOL `b0ed33f0…97c5`). Recomputed on analysis, independently of this
+repository's parser: magic `OGBPSEQ1`, version **5**, header 0x200, `diag_count`
+**29**, `diag_rec_size` 160, `semantic_size` 1024, `diag_flags` 0; header CRC
+`5baa1a83` and total CRC `1e16aee5` both verify; footer `OGBPEND1` at
+`0x004289E0`, ending exactly at the file size. Sections exactly contiguous with
+zero overlap and zero orphan bytes: header `0x000000`, frames `0x000200`
+(10 503 × 192), events `0x1EC740` (210 × 64), episodes `0x1EFBC0` (4 × 512),
+cycles `0x1F03C0` (80 × 128), semantic block `0x1F2BC0` (1 024), diagnostics
+`0x1F2FC0` (29 × 160), raw VIDEO `0x1F41E0` (2 304 000), raw AUDIO `0x4269E0`
+(8 192), footer `0x4289E0`. The log recorded 657 of 1 024 ring lines with **0
+dropped and 0 truncated**. Both parsers of this repository — C
+(`gbp_vstatedump_parse_v5`) and Python (`tools/vstate.py`) — **strict-validate**
+it, which for a v5 file includes every cross-field invariant of §R4.8.
+
+### GBP-HW-109 — the scientific target reached again, with the service never interrupted — FACT
+
+**1 114 005** admitted cycles over **175.848 s**, of which **120.009 s** of valid
+post-baseline observation against a 120 s target; `stop=nominal_negative`,
+`status=ok_structured_change_observed`, SERVICE ok, RESTORE ok, `transport_ok=1`,
+`errors=0`. 1 114 005 unmasks, deliveries, ACKs, re-arms and ISR entries — the
+five counts are equal — with 1 114 001 lean cycles and 4 verify. 420 073 VIDEO and
+720 210 AUDIO whole-block drains (1 140 283 bulk transfers, 268 093 184 bytes,
+4 482 364 transfers total). **0 reentry, 0 timeouts, 0 busy, 0 uncertain writes,
+0 main-loop W1C, 1 teardown W1C, 0 counter overflows.** Frame capture: 10 503
+frames, 10 491 complete, 12 incomplete, 24 resync, baseline valid at 0.077 s;
+structured change **observed**, 9 episodes, 7 stable, 2 unstable.
+
+### GBP-HW-110 — twenty-nine semantic disagreements, all survived — FACT
+
+29 disagreements, **all** classified `SOURCE_SERVICED`, 0 `SOURCE_OTHER`, 0
+`NON_SOURCE`, 0 majority-extra, 0 observational; 29 preserved, 0 not preserved,
+the store never capped. Recomputed **directly from each record's own 32 bytes**,
+without trusting any stored value: `Disc = 0x0500`, `GBI majority = 0x0100`,
+`delta = 0x0400`, `disc_extra = 0x0400` (AUDIO), `majority_extra = 0x0000`, class
+`SOURCE_SERVICED` — in 29 of 29. The run did not stop for any of them, and the
+first and last are 1 106 523 cycles apart (4 303 and 1 110 826).
+
+### GBP-HW-111 — the current-cycle attribution is correct in this producer — FACT
+
+The defect of `vstate-0003` (GBP-HW-104) **does not occur once** in this file.
+In 29 of 29 records, recomputed from the record's own bytes:
+
+```text
+authoritative_value  0x0100   == (disc & ~SRC_MASK) | (gbi & SRC_MASK)
+service_selected     0x0100   == authoritative & AV_MASK
+ack_value            0x8100   == authoritative | 0x8000
+record_flags         0x01c1   = SERVICE_WRITTEN | ACK_WRITTEN | REARM_WRITTEN | FOLLOWUP_FILLED
+timing chain                    t <= t_ack <= t_rearm <= t_next_cause
+```
+
+Zero cross-field invariant failures in either parser. For comparison, the v4 file
+of the previous run had `t_ack > t_next_cause` in 23 of 23 records and an
+authoritative value that was not the majority in 22 of 23. Here: **0 of 29 and
+0 of 29**. `tools/vstate.py diag` reports **zero producer warnings**.
+
+### GBP-HW-112 — the timing of one service transaction, on clocks that are all trustworthy — FACT
+
+Measured over the 29 events, time base 40.5 MHz, using only fields this producer
+writes once in the cycle that owns them:
+
+```text
+READ  -> ACK          2 600 .. 2 756 ticks     64.20 ..  68.05 us
+ACK   -> REARM          828 .. 1 445 ticks     20.44 ..  35.68 us
+REARM -> NEXT CAUSE        77 ..    94 ticks     1.90 ..   2.32 us
+READ  -> NEXT CAUSE     3 505 .. 4 128 ticks    86.54 .. 101.93 us
+```
+
+These are measurements of this run. They are **not** physical bounds, and no
+internal causality is asserted from them.
+
+### GBP-HW-113 — the omitted AUDIO source was present in the next ordinary read, 29 of 29 — FACT
+
+`next_pending_gbi = next_pending_disc = 0x0400` in every one of the 29 records,
+and the follow-up state is `FU_SOURCE_PRESENT_NEXT` in 29 of 29 with
+`DF_FOLLOWUP_FILLED` set — the per-source split leaves `absent = 0x0000`. The
+next cause arrives **77 to 94 ticks (1.90 to 2.32 µs) after the re-arm**, and
+this time the re-arm timestamp belongs to the same cycle as the read, so the
+interval is measured rather than inferred.
+
+**What this supports, and how strongly.** A model in which the ACK clears VIDEO,
+the AUDIO assertion stays pending across it, and the re-arm is what releases the
+pending source, is **CORROBORATED — VERY STRONG**: it accounts for 29 of 29
+events, for the ordering of all four intervals above, and for the 23 events of
+the previous run. It is **not** FACT: no observation in this repository
+distinguishes a source that survived the ACK from a new assertion arriving in
+that 1.9 to 2.3 µs window, and nothing here reads the device's internal state.
+The distinction stays **UNKNOWN** (U-GBP-033).
+
+### GBP-HW-114 — the non-uniformity is a contiguous suffix again, and the corpus is now 52 events — FACT
+
+Decomposing each window into its eight replicas, the `0x0500` values always form
+a **contiguous suffix at the end of the 32-byte window**: 29 of 29 in this run,
+with lengths 24 × 1, 2 × 2 (cycles 113 805 and 1 030 312) and 3 × 3 (cycles
+941 104, 1 042 937 and 1 110 826). Combined with `vstate-0003` (23 events,
+21 × 1, 1 × 2, 1 × 3) the physical corpus is:
+
+```text
+52 physical semantic disagreements, two long runs, one build family
+45 x suffix length 1     3 x length 2     4 x length 3
+52/52 contiguous 0x0500 suffix
+52/52 AUDIO present in the next ordinary read
+```
+
+This is a description of two runs, not a model: no rate, no distribution and no
+extrapolation is claimed from it, and only `vstate-0004` has a trustworthy
+`t_rearm`, so the REARM-to-next interval above is stated for its 29 events alone.
+
+### GBP-HW-115 — clean teardown after the second successful long run — FACT
+
+Handler installed once and restored once (`old_handler=null`), `mask_ok=1`,
+`intmr_final=0x000001FA`, `pi_sticky_final=0`, one teardown W1C, AR_INFO restored
+with a confirming readback, `power_cycle_required=1`, teardown variant
+`S5_target`, `next_cause_at_end=1`. The final state matches the one every
+physical run of this family has reached.

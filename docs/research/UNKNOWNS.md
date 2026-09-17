@@ -964,7 +964,7 @@ stand on (U-GBP-033 and GBP-HW-096) and is analysed in the DEVLOG entry of
 
 ---
 
-### U-GBP-033 — what mechanism produces semantic non-uniformity among the eight replicas of the IRQ window? — OPEN (mechanism unknown; the SERVICE POLICY it once blocked was addressed separately and PHYSICALLY EXECUTED in vstate-0003, 23 events survived)
+### U-GBP-033 — what mechanism produces semantic non-uniformity among the eight replicas of the IRQ window? — OPEN (mechanism unknown; the SERVICE POLICY it once blocked is now PHYSICALLY VALIDATED — 52 events survived across vstate-0003 and vstate-0004)
 
 Two physical runs have now ended on a read whose eight replicas did not all carry
 the same 16-bit value, and the second preserved the bytes. The question is **not**
@@ -1041,6 +1041,40 @@ newer ones and the tail were stale.
 What would separate them: an experiment that correlates the suffix boundary with
 an independently timed source assertion, or one that reads the window twice around
 a disagreement. Neither is designed, and neither is GBP-VIDEO-003.
+
+**2026-09-17, a second long run: 29 more events, and the same shape.** Build
+`vstate-0004` reproduced the phenomenon 29 times in 1 114 005 deliveries, this
+time with a producer whose per-record attribution is correct (GBP-HW-110,
+GBP-HW-114).
+
+**FACT, recomputed from each record's own 32 bytes:**
+
+* 29 events, every one `Disc = 0x0500` against `GBI majority = 0x0100`, the same
+  direction as all 23 of the previous run;
+* the `0x0500` replicas form a **contiguous suffix** in 29 of 29, with lengths
+  24 × 1, 2 × 2 (cycles 113 805, 1 030 312) and 3 × 3 (cycles 941 104, 1 042 937,
+  1 110 826);
+* the omitted AUDIO source was present in the next ordinary read in 29 of 29;
+* **combined corpus across the two long runs: 52 events, 45 × 1 / 3 × 2 / 4 × 3,
+  contiguous in 52 of 52, AUDIO present in the next read in 52 of 52**;
+* in `vstate-0004` only — where `t_rearm` belongs to the record's own cycle —
+  the re-arm-to-next-cause interval is **77 to 94 ticks (1.90 to 2.32 µs)**
+  (GBP-HW-112).
+
+**CORROBORATED:** the non-uniformity is *ordered*. Two independent long runs, two
+different producers, 52 events, and not one scattered pattern.
+
+**Still UNKNOWN, and the point of this entry:**
+
+* the internal mechanism;
+* the temporal direction — whether the suffix is the newer value or the older
+  one. The 1.9 to 2.3 µs figure does not settle it: it measures our own re-arm
+  against our own next cause, not the order in which the device fills the window;
+* the order in which the eight replicas are updated;
+* how the DMA that reads the window interleaves with that update.
+
+A second run reproducing the same shape **narrows nothing about the mechanism**.
+It makes the shape a robust observation, which is what a corpus is for.
 
 **2026-09-17, separation of concerns.** This unknown was first written as though
 it blocked the service policy. It does not, and treating it that way would hold
