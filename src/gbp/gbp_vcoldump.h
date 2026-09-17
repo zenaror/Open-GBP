@@ -21,7 +21,7 @@
  *
  *   header            0x200 bytes
  *   frame table       frame_count x 48
- *   certified table   cert_count  x 32       (cert_count <= 3)
+ *   certified table   cert_count  x 40       (cert_count <= 3)
  *   diagnostics       diag_count  x 160      (the shared R3 record, v5 contract)
  *   raw VIDEO         cert_count x 40 x 0xF00
  *   raw AUDIO         audio_raw_count x 0x1000   (0 in this experiment)
@@ -51,7 +51,7 @@
  *   0x024  u32      video_block_size (0xF00)
  *   0x028  u32      audio_block_size (0x1000)
  *   0x02C  u32      blocks_per_frame (40)
- *   0x030  u16      frame_rec_size (48)   0x032 u16 cert_rec_size (32)
+ *   0x030  u16      frame_rec_size (48)   0x032 u16 cert_rec_size (40)
  *   0x034  u16      diag_rec_size (160)   0x036 u16 status_code
  *   0x038  u16      stop_reason           0x03A u16 n_stable (3)
  *   0x03C  u16      cert_budget (3)       0x03E u16 hold_frames_cfg (RETIRED, 0)
