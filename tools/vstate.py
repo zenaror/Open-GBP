@@ -1123,8 +1123,10 @@ def main(argv=None):
     elif cmd == "diag":
         print(diag_text(d))
     elif cmd == "semantic":
-        if d["version"] != 4:
-            print("this file is format %u: the semantic-coherence block exists only in format 4"
+        # v4 and v5 both carry the block, at the same offset and with the same
+        # layout; only the producer contract differs between them.
+        if d["version"] not in (4, 5):
+            print("this file is format %u: the semantic-coherence block exists only in formats 4 and 5"
                   % d["version"])
         else:
             print(json.dumps(d["semantic"], indent=1))

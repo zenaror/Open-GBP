@@ -5903,3 +5903,102 @@ with zero warnings; Dolphin **19/19 PASS**.
 **Status: IMPLEMENTED — NOT PHYSICALLY EXECUTED. DIRTY BUILD — NOT A PHYSICAL
 CANDIDATE.** No evidence ID was created, U-GBP-033 stays open, and GBP-VIDEO-003
 stays gated.
+
+---
+
+## 2026-09-17 — vstate-0004 executed: the policy is now physically validated, and GBP-VIDEO-003 is unblocked
+
+**Goal:** consolidate the physical `vstate-0004` run, complete R3's physical
+validation and release the colour gate. No hardware, no GBP-VIDEO-003 work, no
+runtime change.
+
+### What the run did
+
+1 114 005 admitted cycles over 175.848 s, of which **120.009 s of valid
+post-baseline observation** against a 120 s target; `stop=nominal_negative`,
+`status=ok_structured_change_observed`, SERVICE ok, RESTORE ok, `transport_ok=1`,
+0 errors, 0 timeouts, 0 busy, 0 uncertain writes, 0 counter overflows, 0 reentry,
+0 main-loop W1C. 420 073 VIDEO and 720 210 AUDIO drains. 10 503 frames, 9
+episodes, 7 stable (GBP-HW-108/109/115).
+
+**Twenty-nine semantic disagreements, all survived — and this time the records
+can be believed.** All 29 recompute from their own 32 preserved bytes to Disc
+`0x0500`, GBI `0x0100`, delta `0x0400`, `disc_extra` `0x0400`, class
+`SOURCE_SERVICED`, and all 29 carry `authoritative = 0x0100`,
+`service_selected = 0x0100`, `ack = 0x8100`, `record_flags = 0x01C1` and
+`t ≤ t_ack ≤ t_rearm ≤ t_next_cause`. **Zero cross-field invariant failures in
+either parser; zero producer warnings** (GBP-HW-110/111).
+
+The defect of `vstate-0003` is simply absent. In the v4 file, 23 of 23 records
+had `t_ack` after `t_next_cause` and 22 of 23 had an authoritative value that was
+not the majority. Here: **0 of 29 and 0 of 29**. The explicit-handle design did
+what it was built to do, and it did it on hardware.
+
+### The transaction, timed on clocks that finally belong together
+
+```text
+READ  -> ACK          2 600 .. 2 756 ticks     64.20 ..  68.05 us
+ACK   -> REARM          828 .. 1 445 ticks     20.44 ..  35.68 us
+REARM -> NEXT CAUSE        77 ..    94 ticks     1.90 ..   2.32 us
+READ  -> NEXT CAUSE     3 505 .. 4 128 ticks    86.54 .. 101.93 us
+```
+
+That third line is the one worth pausing on. The omitted AUDIO source appears in
+the next ordinary read **29 times out of 29**, between 1.90 and 2.32 µs after our
+re-arm — and unlike the previous run, the re-arm timestamp belongs to the same
+cycle as the read, so this is measured rather than reconstructed.
+
+A model in which the ACK clears VIDEO, the AUDIO assertion survives it, and the
+re-arm releases the pending source accounts for all 52 physical events across the
+two runs and for the ordering of all four intervals. It is **CORROBORATED, very
+strong — and not FACT.** Nothing in this repository distinguishes a source that
+survived the ACK from a new assertion arriving inside that 2 µs window, and
+nothing here reads the device's internal state. Writing it down as a mechanism
+would be the same mistake this project has avoided for four runs.
+
+### The corpus, and what it does not buy
+
+```text
+vstate-0003   23 events   21 x 1  1 x 2  1 x 3
+vstate-0004   29 events   24 x 1  2 x 2  3 x 3
+combined      52 events   45 x 1  3 x 2  4 x 3
+              52/52 contiguous 0x0500 suffix
+              52/52 AUDIO present in the next ordinary read
+```
+
+Two long runs, two producers, the same shape. That makes the *shape* a robust
+observation — and it narrows nothing about the mechanism. U-GBP-033 stays
+**OPEN**: the internal mechanism, the temporal direction (whether the suffix is
+the newer value or the older one), the replica update order and the DMA
+interleaving are all still unknown, and the 1.9 µs figure does not settle any of
+them because it measures our own re-arm against our own next cause.
+
+### What changed in the status, and what deliberately did not
+
+**GBP-VIDEO-002-R3: PHYSICAL VALIDATION COMPLETE.** Every condition of §R3.21 is
+met, by re-observing the same policy on the same hardware with a producer whose
+records are trustworthy. One criterion was conditional and never arose: no
+majority-extra disagreement has ever occurred physically, so the quarantine path
+remains host- and mock-tested, and the entry says so.
+
+**OGBPSEQ1 v5: PHYSICALLY EXECUTED, validated on the exercised path.** The wording
+is deliberately narrow. What ran was `SOURCE_SERVICED` with a Disc-extra source,
+29 times. Majority-extra, observational POSTDRAIN/POSTACK, `SOURCE_OTHER`,
+`NON_SOURCE`, the payload diagnostic and every failure path did **not** occur, and
+claiming "v5 is validated" without that qualifier would be exactly the kind of
+overreach the v4 file punished.
+
+**GBP-VIDEO-003 is UNBLOCKED** — ready for a controlled colour experiment to be
+designed and executed. It was never gated on understanding U-GBP-033, only on
+surviving it, and it has now been survived 52 times.
+
+One small offline-tool fix belonged to this round: `tools/vstate.py semantic`
+still refused a v5 file, although v5 carries the same block at the same offset.
+It now serves versions 4 and 5. And the POC README's procedure block, which had
+said `Build ID: vstate-0001` since the first run, now names the build that
+actually ran and how the probe derives the SD filenames.
+
+**Tests:** C 17 binaries, 672 740 checks, 0 failures; Python **341 passed, 0
+skipped** (13 new in `PhysicalV5`); audits 69 passed; Docker 10 POCs, 0 warnings;
+Dolphin 19/19 PASS. The physical v4 file still parses with its 68 non-fatal
+producer warnings, and v1, v2 and v3 are untouched.

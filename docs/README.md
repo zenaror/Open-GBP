@@ -39,15 +39,15 @@ DESIGNED / NOT IMPLEMENTED  a specification only. No code, no DOL, no observatio
 
 As of 2026-09-17 the project has executed physical runs through Phase 4
 (detection, initialization, the interrupt path, one complete service cycle, a
-VIDEO sequence capture and three long-run video state scans). The third scan,
-`GBP-VIDEO-002-R3` / build `vstate-0003`, is **PHYSICALLY EXECUTED 2026-09-17**:
-it reached the 120 s scientific target, its nonfatal-disagreement policy is
-strongly corroborated, and its diagnostic attribution failed, so its R3 validation
-is **INCOMPLETE**. Its normative binary layouts (the 160-byte diagnostic record,
-the 1024-byte semantic block, the OGBPSEQ1 v4 header) live in that file as
-subsections R3.24 to R3.29. The next step — `GBP-VIDEO-002-R4` / build
-`vstate-0004` — is **IMPLEMENTED 2026-09-17, NOT PHYSICALLY EXECUTED** (§R4.1 to
-§R4.10), and `GBP-VIDEO-003` is **GATED** behind a successful run of it.
+VIDEO sequence capture and four long-run video state scans). The last two reached
+the 120 s scientific target. `GBP-VIDEO-002-R3` / build `vstate-0003` proved the
+nonfatal-disagreement policy but produced contaminated diagnostics (GBP-HW-104);
+`GBP-VIDEO-002-R4` / build `vstate-0004` re-ran the same policy with correct
+attribution — **29 disagreements survived, 29 of 29 records internally coherent,
+sidecar strict-valid** — which makes **R3's physical validation COMPLETE** and
+**unblocks `GBP-VIDEO-003`** (GBP-HW-108…115). The normative binary layouts (the
+160-byte diagnostic record, the 1024-byte semantic block, the OGBPSEQ1 v4/v5
+header) live in that file as subsections R3.24 to R3.29 and R4.7.
 
 Sidecar formats of the GBP-VIDEO family, all dispatched strictly by version and
 none able to read another's file:
@@ -58,9 +58,11 @@ OGBPSEQ1 v2   GBP-VIDEO-002, build vstate-0001   historical, frozen
 OGBPSEQ1 v3   GBP-VIDEO-002, build vstate-0002   historical, frozen
 OGBPSEQ1 v4   GBP-VIDEO-002-R3, vstate-0003      historical, frozen, PHYSICALLY
                                                  EXECUTED, KNOWN PRODUCER DEFECT
-OGBPSEQ1 v5   GBP-VIDEO-002-R4, vstate-0004      IMPLEMENTED, not physically executed;
+OGBPSEQ1 v5   GBP-VIDEO-002-R4, vstate-0004      PHYSICALLY EXECUTED 2026-09-17;
                                                  same layout as v4, stricter producer
-                                                 contract enforced by cross-field invariants
+                                                 contract enforced by cross-field invariants;
+                                                 VALIDATED ON THE EXERCISED
+                                                 SOURCE_SERVICED / Disc-extra PATH
 ```
 
 The v4 defect is GBP-HW-104: in the physical `vstate-0003` file the current-cycle
