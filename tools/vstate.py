@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""vstate.py — read and analyse a GBP-VIDEO-002 sidecar (OGBPSEQ1 format 2).
+"""vstate.py — read and analyse a GBP-VIDEO-002 sidecar (OGBPSEQ1 format 2 or 3).
 
     tools/vstate.py info       <file>            header, clocks, counters, the result matrix
     tools/vstate.py frames     <file> [--limit N] the per-frame signature store
@@ -8,15 +8,19 @@
     tools/vstate.py cycles     <file>            the bounded cycle records
     tools/vstate.py intervals  <file>            the observed boundary-to-boundary interval histogram
     tools/vstate.py signatures <file> [--frame N] one frame's 40 signatures
+    tools/vstate.py diag       <file>            the semantic-disagreement diagnostic, explained (v3)
     tools/vstate.py oracle     <file> [--refdir D] the OFFLINE reference classification per episode
     tools/vstate.py extract    <file> <outdir>   the preserved raw frames and AUDIO blocks
     tools/vstate.py json       <file>            everything except the raw bytes
 
-The sidecar is the OGBPSEQ1 family at version 2: same magic, same "OGBPEND1"
-footer, same 32-byte identity fields, big-endian field by field, a header CRC
-and a total CRC. Version 1 (GBP-VIDEO-001, tools/avseq.py) is a different
-layout and is NOT read here; each parser checks `version` and `header_size`
-before anything else, so neither can ever misread the other.
+Two versions of the family are read here, dispatched explicitly and each strict:
+  v2  the FROZEN format of build vstate-0001, the first physical run. Not one
+      byte of its contract moves.
+  v3  v2 plus one section carrying the semantic-disagreement diagnostic
+      (U-GBP-032), written by the instrumented build vstate-0002.
+Version 1 (GBP-VIDEO-001, tools/avseq.py) is a different layout and is NOT read
+here. Every parser checks `version` and `header_size` before anything else, so
+no file of one version can be read as another.
 
 THE ORACLE IS HERE AND ONLY HERE. The probe carries no reference table,
 checksum, pixel or block range. `oracle` reads the private inputs from
@@ -33,7 +37,9 @@ import sys
 
 MAGIC = b"OGBPSEQ1"
 FOOTER = b"OGBPEND1"
-VERSION = 2
+VERSIONS = (2, 3)          # 2 = the frozen physical format, 3 = the instrumented build
+VERSION = 3
+DIAG_REC = 96
 HEADER_SIZE = 0x200
 FOOTER_SIZE = 12
 FRAME_REC = 192
@@ -110,8 +116,11 @@ def parse(data):
     if len(data) < HEADER_SIZE + FOOTER_SIZE or data[:8] != MAGIC:
         raise ValueError("not an OGBPSEQ1 file")
     d = {"version": _u16(data, 0x008), "header_size": _u16(data, 0x00A)}
-    if d["version"] != VERSION or d["header_size"] != HEADER_SIZE:
-        raise ValueError("unsupported version %u / header size 0x%X (this tool reads format 2; "
+    # Explicit dispatch. v2 is the frozen physical format of build vstate-0001; v3 is v2 plus the
+    # diagnostic section, written by the instrumented build. Neither is ever read as the other, and
+    # GBP-VIDEO-001's format 1 belongs to tools/avseq.py.
+    if d["version"] not in VERSIONS or d["header_size"] != HEADER_SIZE:
+        raise ValueError("unsupported version %u / header size 0x%X (this tool reads formats 2 and 3; "
                          "GBP-VIDEO-001 files are format 1, read by tools/avseq.py)"
                          % (d["version"], d["header_size"]))
     for off, want, what in ((0x02C, FRAME_REC, "frame"), (0x02E, EVENT_REC, "event"),
@@ -120,8 +129,27 @@ def parse(data):
             raise ValueError("unexpected %s record size %u" % (what, _u16(data, off)))
     if crc32(data[:HEADER_SIZE - 4]) != _u32(data, 0x1FC):
         raise ValueError("header CRC mismatch")
-    if any(data[0x1E0:0x1FC]):
-        raise ValueError("reserved header bytes are not zero")
+    if d["version"] == 2:
+        # v2 is FROZEN: the whole area is reserved and must be zero, exactly as the physical
+        # sidecar of 2026-09-16 has it.
+        if any(data[0x1E0:0x1FC]):
+            raise ValueError("v2 reserved header bytes are not zero")
+        d["off_diag"] = d["diag_count"] = d["diag_rec_size"] = 0
+    else:
+        d["off_diag"] = _u32(data, 0x1E0)
+        d["diag_count"] = _u32(data, 0x1E4)
+        d["diag_rec_size"] = _u16(data, 0x1E8)
+        if any(data[0x1EA:0x1FC]):
+            raise ValueError("v3 reserved header bytes are not zero")
+        if d["diag_count"] > 1:
+            raise ValueError("at most one diagnostic record may exist (%u claimed)" % d["diag_count"])
+        # The same rule the C parser applies, so the two never disagree on what is a valid file:
+        # with a record present the size is exactly 96; with no record the writer still states 96,
+        # and 0 is tolerated, but nothing else is.
+        if d["diag_count"] and d["diag_rec_size"] != DIAG_REC:
+            raise ValueError("unexpected diagnostic record size %u" % d["diag_rec_size"])
+        if not d["diag_count"] and d["diag_rec_size"] not in (0, DIAG_REC):
+            raise ValueError("unexpected diagnostic record size %u with no record" % d["diag_rec_size"])
     d["flags"] = _u32(data, 0x00C)
     d["flag_names"] = _names(d["flags"], HEADER_FLAGS)
     d["tb_hz"] = _u32(data, 0x010)
@@ -185,8 +213,12 @@ def parse(data):
     if need != d["off_cycles"]:
         raise ValueError("cycle table offset does not follow the episode table")
     need += d["cycle_count"] * CYCLE_REC
+    if d["version"] == 3:
+        if need != d["off_diag"]:
+            raise ValueError("diagnostic offset does not follow the cycle table")
+        need += d["diag_count"] * DIAG_REC
     if need != d["off_video_raw"]:
-        raise ValueError("raw VIDEO offset does not follow the cycle table")
+        raise ValueError("raw VIDEO offset does not follow the %s" % ("diagnostic section" if d["version"] == 3 else "cycle table"))
     if d["cyc_first_n"] + d["cyc_last_n"] + d["cyc_anomaly_n"] + d["cyc_episode_n"] != d["cycle_count"]:
         raise ValueError("the four cycle-record counts do not add up to cycle_count")
     if d["off_footer"] + FOOTER_SIZE != len(data):
@@ -201,6 +233,7 @@ def parse(data):
     d["events"] = [_event(data, d["off_events"] + i * EVENT_REC) for i in range(d["event_count"])]
     d["episodes"] = [_episode(data, d["off_episodes"] + i * EPISODE_REC) for i in range(d["episode_count"])]
     d["cycles"] = [_cycle(data, d["off_cycles"] + i * CYCLE_REC) for i in range(d["cycle_count"])]
+    d["diag"] = _diag(data, d["off_diag"]) if d["version"] == 3 and d["diag_count"] else None
     raw = 0
     for ep in d["episodes"]:
         for k in range(ep["raw_frames"]):
@@ -274,6 +307,133 @@ def _cycle(b, o):
     c["kind"] = {0: "first", 1: "last", 2: "anomaly", 3: "episode"}.get(c["kind_code"], "?")
     return c
 
+
+
+READ_KINDS = {0: "READ", 1: "PRESVC", 2: "POSTDRAIN", 3: "POSTACK", 4: "OTHER"}
+
+
+def _diag(b, o):
+    d = {"t": _u64(b, o + 0x00), "cycle": _u32(b, o + 0x08), "valid": _u32(b, o + 0x0C),
+         "disc_value": _u16(b, o + 0x10), "gbi_value": _u16(b, o + 0x12),
+         "read_kind_code": _u16(b, o + 0x14), "attempts": _u16(b, o + 0x16),
+         "raw": list(b[o + 0x18:o + 0x38]),
+         "intsr_entry": _u32(b, o + 0x38), "intsr_after_w1c": _u32(b, o + 0x3C),
+         "intmr_entry": _u32(b, o + 0x40), "latency_ticks": _u32(b, o + 0x44),
+         "xfer_ticks": _u32(b, o + 0x48), "xfer_polls": _u16(b, o + 0x4C),
+         "dma_status": _u16(b, o + 0x4E), "dma_status_before": _u16(b, o + 0x50),
+         "control_exp": _u16(b, o + 0x52), "frame_index": _u32(b, o + 0x54),
+         "block_in_frame": _u32(b, o + 0x58)}
+    d["read_kind"] = READ_KINDS.get(d["read_kind_code"], "?")
+    if len(d["raw"]) != 32:
+        raise ValueError("diagnostic record does not carry 32 raw bytes")
+    if any(b[o + 0x5C:o + DIAG_REC]):
+        raise ValueError("diagnostic reserved bytes are not zero")
+    return d
+
+
+def read_disc(raw):
+    """The Start-up Disc reading: the LAST replica, bytes 0x1D and 0x1F. Nothing else."""
+    return (raw[0x1D] << 8) | raw[0x1F]
+
+
+def majority_byte(values):
+    """GBI's vote, BITWISE over n samples: a bit is 1 only when strictly more than half carry it,
+    so a tie resolves to 0 and the result need not equal any sample that was actually read."""
+    out = 0
+    n = len(values)
+    for bit in range(8):
+        if sum((v >> bit) & 1 for v in values) > n // 2:
+            out |= 1 << bit
+    return out
+
+
+def read_gbi(raw):
+    hi = [raw[4 * k + 1] for k in range(8)]
+    lo = [raw[4 * k + 3] for k in range(8)]
+    return (majority_byte(hi) << 8) | majority_byte(lo)
+
+
+def explain_diag(d):
+    """Explains a disagreement from the 32 preserved bytes alone. Recomputes both readings and
+    checks them against the values the runtime persisted; a mismatch is reported as an
+    inconsistency, never smoothed over. States no physical cause."""
+    raw = d["raw"]
+    out = {"cycle": d["cycle"], "read": d["read_kind"], "t": d["t"], "attempts": d["attempts"],
+           "raw_hex": "".join("%02x" % b for b in raw),
+           "stored_disc": d["disc_value"], "stored_gbi": d["gbi_value"]}
+    out["recomputed_disc"] = read_disc(raw)
+    out["recomputed_gbi"] = read_gbi(raw)
+    out["consistent"] = (out["recomputed_disc"] == d["disc_value"] and
+                         out["recomputed_gbi"] == d["gbi_value"])
+    reps = []
+    for k in range(8):
+        reps.append({"replica": k,
+                     "bytes": ["%02x" % raw[4 * k + j] for j in range(4)],
+                     "value_if_this_replica": (raw[4 * k + 1] << 8) | raw[4 * k + 3],
+                     "consumed": "%02x%02x" % (raw[4 * k + 1], raw[4 * k + 3]),
+                     "discarded": "%02x %02x" % (raw[4 * k], raw[4 * k + 2])})
+    out["replicas"] = reps
+    hi = [raw[4 * k + 1] for k in range(8)]
+    lo = [raw[4 * k + 3] for k in range(8)]
+    out["majority_high"] = majority_byte(hi)
+    out["majority_low"] = majority_byte(lo)
+    # which consumed bytes differ from the majority, and which replicas they belong to
+    odd_hi = [k for k in range(8) if hi[k] != out["majority_high"]]
+    odd_lo = [k for k in range(8) if lo[k] != out["majority_low"]]
+    out["replicas_differing_high"] = odd_hi
+    out["replicas_differing_low"] = odd_lo
+    out["disc_replica"] = 7
+    out["disc_high_differs"] = 7 in odd_hi
+    out["disc_low_differs"] = 7 in odd_lo
+    out["differing_bits"] = out["recomputed_disc"] ^ out["recomputed_gbi"]
+    # the bytes neither reading consumes, for comparison with the historical record
+    out["discarded_bytes_differing"] = [
+        4 * k + j for k in range(8) for j in (0, 2)
+        if raw[4 * k + j] != majority_byte([raw[4 * i + j] for i in range(8)])]
+    return out
+
+
+def diag_text(d):
+    if not d.get("diag"):
+        if d["version"] != 3:
+            return ("this file is format %u: the semantic-disagreement diagnostic exists only in "
+                    "format 3, written by the instrumented build. The physical run of build "
+                    "vstate-0001 is format 2 and did NOT preserve the bytes (U-GBP-032)." % d["version"])
+        return "format 3, but no disagreement was captured in this run."
+    e = explain_diag(d["diag"])
+    out = ["semantic disagreement at cycle %u, read %s, t=%#x (attempts %u)"
+           % (e["cycle"], e["read"], e["t"], e["attempts"]),
+           "raw 32 bytes: %s" % e["raw_hex"], ""]
+    out.append("the eight replicas (the window carries the 16-bit value eight times):")
+    out.append("  %-3s %-14s %-9s %-9s" % ("k", "bytes", "consumed", "discarded"))
+    for r in e["replicas"]:
+        mark = ""
+        if r["replica"] in e["replicas_differing_high"] or r["replica"] in e["replicas_differing_low"]:
+            mark = "  <-- differs from the majority on a CONSUMED byte"
+        out.append("  %-3d %-14s %-9s %-9s%s"
+                   % (r["replica"], " ".join(r["bytes"]), r["consumed"], r["discarded"], mark))
+    out += ["",
+            "Start-up Disc reading: bytes 0x1D/0x1F (replica 7 only)  -> %04x" % e["recomputed_disc"],
+            "GBI reading: bitwise majority over the eight replicas    -> %04x" % e["recomputed_gbi"],
+            "  majority high byte %02x, majority low byte %02x" % (e["majority_high"], e["majority_low"]),
+            "  replicas differing on the high byte: %s" % (e["replicas_differing_high"] or "none"),
+            "  replicas differing on the low  byte: %s" % (e["replicas_differing_low"] or "none"),
+            "  bits where the two readings differ: %04x" % e["differing_bits"],
+            "",
+            "bytes at offsets 4k+0 / 4k+2, which NEITHER reading consumes, that differ from their",
+            "own majority: %s" % (e["discarded_bytes_differing"] or "none"),
+            "  (every one of the 220 deviations logged before this build landed there)",
+            ""]
+    if e["consistent"]:
+        out.append("the recomputed readings MATCH the values the runtime persisted: the record is")
+        out.append("self-consistent and the serializer agrees with the decision that was taken.")
+    else:
+        out.append("INCONSISTENT: recomputed disc=%04x gbi=%04x against stored disc=%04x gbi=%04x."
+                   % (e["recomputed_disc"], e["recomputed_gbi"], e["stored_disc"], e["stored_gbi"]))
+        out.append("Do not use this record until that is explained.")
+    out.append("")
+    out.append("This describes WHAT the bytes were. It asserts no physical cause: U-GBP-032 stays open.")
+    return "\n".join(out)
 
 def episode_raw(d, ep_index, slot):
     """The bytes of one preserved raw frame (all its blocks, contiguous)."""
@@ -517,6 +677,8 @@ def main(argv=None):
         print("frame %u blocks=%u %s" % (f["index"], f["blocks"], f["completeness"]))
         for k in range(FRAME_SIGS):
             print("  block %2u  %08x" % (k, f["sig"][k]))
+    elif cmd == "diag":
+        print(diag_text(d))
     elif cmd == "oracle":
         refdir = argv[argv.index("--refdir") + 1] if "--refdir" in argv else None
         print(json.dumps(oracle(d, refdir), indent=1))

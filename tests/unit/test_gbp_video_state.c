@@ -20,6 +20,8 @@
 
 #include "gbp_vstate_probe.h"
 #include "gbp_vstatedump.h"
+#include "gbp_rawlog.h"
+#include "gbp_crc32.h"
 #include "gbp_mock.h"
 
 static int failures, checks;
@@ -576,7 +578,7 @@ static void test_sidecar(void)
     CHECK(vstate.episode_count >= 3u);
 
     memset(&info, 0, sizeof info);
-    CHECK(gbp_vstatedump_set_identity(&info, "GBP-VIDEO-002", "vstate-0001", "gbp-video-state-probe", "e581778-dirty") == 0);
+    CHECK(gbp_vstatedump_set_identity(&info, "GBP-VIDEO-002", "vstate-0002", "gbp-video-state-probe", "e581778-dirty") == 0);
     sink.buf = sidecar; sink.cap = sizeof sidecar; sink.n = 0; sink.fail_after = 0; sink.failed = 0;
     n = gbp_vstatedump_stream(&info, &vstate, &res, &cfg, chunk, sizeof chunk, sink_mem, &sink, &written);
     CHECK(n > 0);
@@ -595,7 +597,7 @@ static void test_sidecar(void)
         struct gbp_vstatedump_info info2;
         long n2;
         memset(&info2, 0, sizeof info2);
-        gbp_vstatedump_set_identity(&info2, "GBP-VIDEO-002", "vstate-0001", "gbp-video-state-probe", "e581778-dirty");
+        gbp_vstatedump_set_identity(&info2, "GBP-VIDEO-002", "vstate-0002", "gbp-video-state-probe", "e581778-dirty");
         s2.buf = again; s2.cap = sizeof again; s2.n = 0; s2.fail_after = 0; s2.failed = 0;
         n2 = gbp_vstatedump_stream(&info2, &vstate, &res, &cfg, chunk, sizeof chunk, sink_mem, &s2, 0);
         CHECK(n2 == n);
@@ -610,7 +612,7 @@ static void test_sidecar(void)
         struct gbp_vstatedump_info info3;
         long n3;
         memset(&info3, 0, sizeof info3);
-        gbp_vstatedump_set_identity(&info3, "GBP-VIDEO-002", "vstate-0001", "gbp-video-state-probe", "e581778-dirty");
+        gbp_vstatedump_set_identity(&info3, "GBP-VIDEO-002", "vstate-0002", "gbp-video-state-probe", "e581778-dirty");
         s3.buf = again; s3.cap = sizeof again; s3.n = 0; s3.fail_after = 0; s3.failed = 0;
         n3 = gbp_vstatedump_stream(&info3, &vstate, &res, &cfg, small_chunk, sizeof small_chunk, sink_mem, &s3, 0);
         CHECK(n3 == n);
@@ -625,6 +627,7 @@ static void test_sidecar(void)
     CHECK(parsed.episode_count == info.episode_count);
     CHECK(parsed.total_crc32 == info.total_crc32);
     CHECK(strcmp(parsed.test_id, "GBP-VIDEO-002") == 0);
+    CHECK(parsed.version == GBP_VSTATEDUMP_VERSION);
     CHECK(parsed.valid_observation_elapsed == res.valid_observation_elapsed);
     CHECK(parsed.t_control_transform == res.t_control_transform);
     CHECK(parsed.hard_wallclock_ticks == cfg.hard_wallclock_ticks);
@@ -697,7 +700,7 @@ static void test_sidecar(void)
         struct gbp_vstatedump_info info4;
         long rc;
         memset(&info4, 0, sizeof info4);
-        gbp_vstatedump_set_identity(&info4, "GBP-VIDEO-002", "vstate-0001", "gbp-video-state-probe", "e581778-dirty");
+        gbp_vstatedump_set_identity(&info4, "GBP-VIDEO-002", "vstate-0002", "gbp-video-state-probe", "e581778-dirty");
         sink.n = 0; sink.failed = 0; sink.fail_after = 300000;      /* the card dies part way */
         rc = gbp_vstatedump_stream(&info4, &vstate, &res, &cfg, chunk, sizeof chunk, sink_mem, &sink, &written);
         CHECK(rc == -4);
@@ -707,6 +710,580 @@ static void test_sidecar(void)
         CHECK(res.valid_observation_elapsed == before_valid);
         CHECK(vstate.frames_n == info.frame_count);                 /* and so is everything in RAM */
         sink.fail_after = 0;
+    }
+}
+
+
+
+/* Section 13: the two readings, pinned exactly as they are, on synthetic windows.
+ * NOTHING here changes the algorithm; these cases document it and would fail if it moved. */
+static void fill_window(uint8_t w[GBP_BLOCK_SIZE], uint8_t hi, uint8_t lo)
+{
+    unsigned k;
+    for (k = 0; k < 8u; k++) { w[4*k] = hi; w[4*k+1] = hi; w[4*k+2] = lo; w[4*k+3] = lo; }
+}
+
+static void test_read_semantics(void)
+{
+    uint8_t w[GBP_BLOCK_SIZE];
+    unsigned k;
+    printf("-- the two readings of the 32-byte IRQ window, pinned\n");
+
+    /* A: all eight replicas identical -> agree */
+    fill_window(w, 0x05, 0x00);
+    CHECK(gbp_irq_value_disc(w) == 0x0500u);
+    CHECK(gbp_irq_value_gbi(w) == 0x0500u);
+
+    /* B: deviations ONLY on offsets 0 and 2 - the bytes neither reading consumes. This is the
+     * historical case: 220 such deviations across every physical log, none ever disagreed. */
+    fill_window(w, 0x05, 0x00);
+    for (k = 0; k < 8u; k++) { w[4*k] ^= 0x80u; w[4*k+2] ^= 0x5Au; }
+    CHECK(gbp_irq_value_disc(w) == 0x0500u);
+    CHECK(gbp_irq_value_gbi(w) == 0x0500u);
+    CHECK(gbp_irq_value_disc(w) == gbp_irq_value_gbi(w));
+
+    /* C: the LAST replica differs on a consumed byte, the majority holds - the shape of the
+     * physical abort of cycle 51750 */
+    fill_window(w, 0x05, 0x00);
+    w[0x1F] ^= 0x01u;
+    CHECK(gbp_irq_value_disc(w) == 0x0501u);        /* the Disc reads exactly that byte */
+    CHECK(gbp_irq_value_gbi(w) == 0x0500u);         /* GBI votes it down 7 to 1 */
+    CHECK(gbp_irq_value_disc(w) != gbp_irq_value_gbi(w));
+    fill_window(w, 0x05, 0x00);
+    w[0x1D] ^= 0x80u;                                /* the high byte of the last replica */
+    CHECK(gbp_irq_value_disc(w) == 0x8500u);
+    CHECK(gbp_irq_value_gbi(w) == 0x0500u);
+
+    /* D: the majority itself moves, the last replica stays - they disagree the other way */
+    fill_window(w, 0x05, 0x00);
+    for (k = 0; k < 7u; k++) w[4*k+3] = 0x02u;      /* seven of eight low replicas change */
+    CHECK(gbp_irq_value_disc(w) == 0x0500u);
+    CHECK(gbp_irq_value_gbi(w) == 0x0502u);
+
+    /* E: the vote is BITWISE and a tie at four resolves to 0, so the result need not equal any
+     * replica that was actually read. This is a property of the algorithm, not a choice made here. */
+    fill_window(w, 0x00, 0x00);
+    for (k = 0; k < 4u; k++) w[4*k+3] = 0x0Fu;      /* exactly four of eight carry bits 0..3 */
+    CHECK(gbp_irq_value_gbi(w) == 0x0000u);         /* a tie is not a majority */
+    fill_window(w, 0x00, 0x00);
+    for (k = 0; k < 5u; k++) w[4*k+3] = 0x0Fu;      /* five of eight */
+    CHECK(gbp_irq_value_gbi(w) == 0x000Fu);
+    fill_window(w, 0x00, 0x00);
+    for (k = 0; k < 4u; k++) w[4*k+3] = 0x0Fu;      /* four carry the low nibble ... */
+    for (k = 4; k < 8u; k++) w[4*k+3] = 0xF0u;      /* ... and four the high nibble */
+    CHECK(gbp_irq_value_gbi(w) == 0x0000u);         /* neither half wins: a value no replica held */
+    CHECK(gbp_irq_value_disc(w) == 0x00F0u);        /* while the Disc simply reads the last one */
+
+    /* the offsets each reading touches, stated as a test rather than as a comment */
+    {
+        unsigned disc_sensitive = 0, gbi_sensitive = 0;
+        for (k = 0; k < GBP_BLOCK_SIZE; k++) {
+            uint8_t a[GBP_BLOCK_SIZE], b[GBP_BLOCK_SIZE];
+            fill_window(a, 0x05, 0x00);
+            memcpy(b, a, sizeof b);
+            b[k] ^= 0xFFu;
+            if (gbp_irq_value_disc(a) != gbp_irq_value_disc(b)) disc_sensitive |= 1u << (k & 3u);
+            if (gbp_irq_value_gbi(a) != gbp_irq_value_gbi(b)) gbi_sensitive |= 1u << (k & 3u);
+        }
+        CHECK(disc_sensitive == ((1u << 1) | (1u << 3)));   /* only offsets 1 and 3 mod 4 ... */
+        CHECK(gbi_sensitive == 0u);                          /* ... and GBI survives ANY single byte */
+    }
+}
+
+/* ===================================================================== */
+/* U-GBP-032: the semantic-disagreement diagnostic. Purely observational. */
+/* ===================================================================== */
+
+/* How many block reads of the IRQ window the mock performed. */
+static unsigned irq_reads(const struct gbp_mock *m)
+{
+    uint32_t base = gbp_internal_size_from_arinfo(m->arinfo);
+    return gbp_mock_count_block_ops(m, MOCK_RD, base, GBP_IDX_IRQ);
+}
+
+static void test_historical_deviation_does_not_disagree(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    printf("-- the historical case: deviations on bytes NEITHER reading consumes stay agreeing\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 60u;
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    m.irq_byte0_anomaly = 1;                 /* byte 0 of every group carries extra bits */
+    run_cfg(&m, &rl, &res, &cfg);
+    CHECK(res.service_ok == 1);              /* 220 such deviations are on record; none ever disagreed */
+    CHECK(res.stop == GBP_VSTATE_STOP_DELIVERY_CAP);
+    CHECK(vstate.diag.valid == 0u);          /* nothing to diagnose */
+    CHECK(vstate.diag.attempts == 0u);
+    check_invariants(&m, &res, &rl);
+}
+
+static void test_disagreement_captures_the_bytes(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    unsigned reads_before;
+    printf("-- a deviation on a CONSUMED byte: fatal as before, and now the bytes are kept\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 400u;
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    /* from the 40th IRQ-register write on, the LAST low replica (byte 0x1F) flips one bit: the
+     * Disc reads exactly that byte, GBI votes it down 7 to 1 */
+    m.irq_disagree_from_write = 40u;
+    run_cfg(&m, &rl, &res, &cfg);
+
+    /* fatal behaviour UNCHANGED */
+    CHECK(res.service_ok == 0);
+    CHECK(res.status == GBP_VSTATE_ABORT_READ_INCONSISTENT);
+    CHECK(res.stop == GBP_VSTATE_STOP_FAILURE);
+    CHECK(strstr(res.reason, "semantic_disagree") != 0);
+    CHECK(res.deliveries == res.acks + 1u);          /* no ACK for the offending cycle */
+    CHECK(res.rearms == res.acks);                   /* and no re-arm */
+
+    /* the diagnostic */
+    CHECK(vstate.diag.valid == 1u);
+    CHECK(vstate.diag.attempts == 1u);
+    CHECK(vstate.diag.cycle == res.deliveries - 1u);
+    CHECK(vstate.diag.t > 0u);
+    CHECK(vstate.diag.disc_value != vstate.diag.gbi_value);
+    /* the persisted values are what the runtime decided on: recompute them from the kept bytes */
+    CHECK(gbp_irq_value_disc(vstate.diag.raw) == vstate.diag.disc_value);
+    CHECK(gbp_irq_value_gbi(vstate.diag.raw) == vstate.diag.gbi_value);
+    /* and the disagreement really is the last replica against the majority */
+    CHECK((vstate.diag.disc_value ^ vstate.diag.gbi_value) == 0x0001u);
+    CHECK(vstate.diag.read_kind == GBP_VSTATE_DIAG_READ_LEAN);
+    CHECK(vstate.diag.frame_index <= vstate.frames_n);
+
+    /* Section 5: the timestamp is evidence, and it must fall inside the run it describes. It is
+     * never compared against anything by the probe; this is the only place it is checked at all. */
+    CHECK(vstate.diag.t > res.t_capture_start);
+    CHECK(vstate.diag.t <= res.t_stop);
+
+    /* NO extra hardware operation was made for the diagnostic. These are not plausibility bounds:
+     * they are the numbers the vstate-0001 build (commit 80c356f) produces for this exact
+     * scenario, measured by running it against that build's sources. If the instrumentation ever
+     * costs the device one access, one of them moves. */
+    reads_before = irq_reads(&m);
+    CHECK(reads_before == 44u);          /* IRQ-window block reads, whole run including teardown */
+    CHECK(m.nops == 306u);               /* every recorded device operation */
+    CHECK(m.bulk_reads == 38u);
+    CHECK(m.irq_writes == 41u);
+    CHECK(m.transfers == 160u);
+    CHECK(res.deliveries == 20u && res.acks == 19u && res.rearms == 19u);
+    CHECK(m.violation_mask == 0u);
+
+    /* the log line comes AFTER the teardown and out of the preserved record */
+    {
+        int td = line_index(&rl, "TEARDOWNVSTATE ");
+        int dg = line_index(&rl, "READDISAGREE ");
+        CHECK(dg > 0);
+        CHECK(td >= 0 && dg > td);
+    }
+    check_invariants(&m, &res, &rl);
+    printf("   cycle=%lu disc=%04x gbi=%04x raw[0x1F]=%02x raw[0x1B]=%02x; the operation stream is the\n"
+           "   vstate-0001 one: %u IRQ reads, %u operations, %lu transfers, identical to the build\n"
+           "   that ran on hardware\n",
+           (unsigned long)vstate.diag.cycle, vstate.diag.disc_value, vstate.diag.gbi_value,
+           vstate.diag.raw[0x1F], vstate.diag.raw[0x1B], reads_before, m.nops,
+           (unsigned long)m.transfers);
+}
+
+static void test_raw32_is_byte_identical(void)
+{
+    struct gbp_vstate st2;
+    static struct gbp_vstate_frame f2[GBP_VSTATE_MAX_FRAMES];
+    static struct gbp_vstate_event e2[GBP_VSTATE_MAX_EVENTS];
+    uint8_t pattern[GBP_BLOCK_SIZE];
+    unsigned i;
+    printf("-- the 32 bytes are kept verbatim, every one of them\n");
+    for (i = 0; i < GBP_BLOCK_SIZE; i++) pattern[i] = (uint8_t)(0xA5u ^ (i * 37u) ^ (i << 3));
+    gbp_vstate_init(&st2, f2, GBP_VSTATE_MAX_FRAMES, e2, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw, audio_raw, sizeof audio_raw);
+    CHECK(gbp_vstate_diag_capture(&st2, 1234u, 0x123456789AULL, pattern, 0x1234u, 0x5678u,
+                                  GBP_VSTATE_DIAG_READ_LEAN) == 1);
+    CHECK(memcmp(st2.diag.raw, pattern, GBP_BLOCK_SIZE) == 0);
+    CHECK(st2.diag.cycle == 1234u);
+    CHECK(st2.diag.t == 0x123456789AULL);
+    CHECK(st2.diag.disc_value == 0x1234u && st2.diag.gbi_value == 0x5678u);
+    CHECK(st2.diag.valid == 1u && st2.diag.attempts == 1u);
+
+    printf("-- FIRST WINS: a second capture never overwrites the evidence\n");
+    {
+        uint8_t other[GBP_BLOCK_SIZE];
+        memset(other, 0x5A, sizeof other);
+        CHECK(gbp_vstate_diag_capture(&st2, 9999u, 1ULL, other, 0xFFFFu, 0x0000u,
+                                      GBP_VSTATE_DIAG_READ_POSTACK) == 0);
+        CHECK(memcmp(st2.diag.raw, pattern, GBP_BLOCK_SIZE) == 0);   /* untouched */
+        CHECK(st2.diag.cycle == 1234u);
+        CHECK(st2.diag.attempts == 2u);                              /* but it IS counted */
+    }
+    CHECK(sizeof(struct gbp_vstate_diag) == GBP_VSTATE_DIAG_REC);
+    CHECK(GBP_VSTATE_DIAG_REC == 96u);
+}
+
+/* big-endian writers, for the tamper cases below: the format is big-endian field by field */
+static void put32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)(v >> 24); p[1] = (uint8_t)(v >> 16); p[2] = (uint8_t)(v >> 8); p[3] = (uint8_t)v; }
+static void put16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)(v >> 8); p[1] = (uint8_t)v; }
+
+/* Section 7: the vote is a bitwise majority of eight samples with a strict "more than half", and
+ * that rule is checked EXHAUSTIVELY: for every one of the 256 ways the eight replicas can carry a
+ * bit, and for every bit position, the result must be 1 exactly when more than four carry it. */
+static void test_majority_is_exhaustively_the_rule(void)
+{
+    uint8_t w[GBP_BLOCK_SIZE];
+    unsigned subset, bit, k, mismatches = 0, cases = 0;
+    printf("-- the majority rule, exhaustively: all 256 replica subsets x 8 bit positions\n");
+    for (bit = 0; bit < 8u; bit++) {
+        for (subset = 0; subset < 256u; subset++) {
+            unsigned popcount = 0, expect;
+            uint16_t lo, hi;
+            memset(w, 0, sizeof w);
+            for (k = 0; k < 8u; k++) {
+                if (subset & (1u << k)) {
+                    w[4u * k + 3u] = (uint8_t)(1u << bit);   /* low byte of replica k */
+                    w[4u * k + 1u] = (uint8_t)(1u << bit);   /* high byte of the same replica */
+                    popcount++;
+                }
+            }
+            expect = (popcount > 4u) ? (1u << bit) : 0u;
+            lo = (uint16_t)(gbp_irq_value_gbi(w) & 0xFFu);
+            hi = (uint16_t)((gbp_irq_value_gbi(w) >> 8) & 0xFFu);
+            if (lo != expect || hi != expect) mismatches++;
+            cases++;
+        }
+    }
+    CHECK(mismatches == 0u);
+    CHECK(cases == 2048u);
+    printf("   %u cases, %u mismatches; a tie at four is never a majority\n", cases, mismatches);
+}
+
+/* Section 10: exactly one record is kept, and the attempt counter saturates instead of wrapping. */
+static void test_attempts_saturate_without_wrapping(void)
+{
+    struct gbp_vstate st2;
+    static struct gbp_vstate_frame f2[GBP_VSTATE_MAX_FRAMES];
+    static struct gbp_vstate_event e2[GBP_VSTATE_MAX_EVENTS];
+    uint8_t first[GBP_BLOCK_SIZE], other[GBP_BLOCK_SIZE];
+    unsigned i;
+    printf("-- the attempt counter saturates at 65535 and never wraps to zero\n");
+    for (i = 0; i < GBP_BLOCK_SIZE; i++) first[i] = (uint8_t)(0xA5u ^ (i * 37u) ^ (i << 3));
+    memset(other, 0x5A, sizeof other);
+    gbp_vstate_init(&st2, f2, GBP_VSTATE_MAX_FRAMES, e2, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw, audio_raw, sizeof audio_raw);
+    CHECK(st2.diag.attempts == 0u);
+    CHECK(gbp_vstate_diag_capture(&st2, 1u, 1ULL, first, 0x1111u, 0x2222u, GBP_VSTATE_DIAG_READ_LEAN) == 1);
+    CHECK(st2.diag.attempts == 1u);
+    CHECK(gbp_vstate_diag_capture(&st2, 2u, 2ULL, other, 0x3333u, 0x4444u, GBP_VSTATE_DIAG_READ_LEAN) == 0);
+    CHECK(st2.diag.attempts == 2u);
+    for (i = 2u; i < 65535u; i++)
+        (void)gbp_vstate_diag_capture(&st2, i, (uint64_t)i, other, 0u, 1u, GBP_VSTATE_DIAG_READ_OTHER);
+    CHECK(st2.diag.attempts == 65535u);
+    /* the 65536th and every one after it: the counter holds, the evidence holds */
+    for (i = 0; i < 4u; i++)
+        CHECK(gbp_vstate_diag_capture(&st2, 7u, 7ULL, other, 0u, 1u, GBP_VSTATE_DIAG_READ_OTHER) == 0);
+    CHECK(st2.diag.attempts == 65535u);
+    CHECK(memcmp(st2.diag.raw, first, GBP_BLOCK_SIZE) == 0);
+    CHECK(st2.diag.cycle == 1u && st2.diag.t == 1ULL);
+    CHECK(st2.diag.disc_value == 0x1111u && st2.diag.gbi_value == 0x2222u);
+    CHECK(st2.diag.read_kind == GBP_VSTATE_DIAG_READ_LEAN);
+    printf("   65539 capture calls, attempts=%u, the first record untouched\n", st2.diag.attempts);
+}
+
+/* Builds a minimal but strictly valid v3 sidecar whose diagnostic holds `raw`, through the REAL
+ * capture entry point and the REAL serializer. Returns its length, or 0. */
+static long diag_only_sidecar(const uint8_t *raw, uint8_t *out, size_t cap, struct gbp_vstatedump_info *info)
+{
+    static struct gbp_vstate st2;
+    static struct gbp_vstate_frame f2[GBP_VSTATE_MAX_FRAMES];
+    static struct gbp_vstate_event e2[GBP_VSTATE_MAX_EVENTS];
+    static struct gbp_vstate_result r2;
+    struct gbp_vstate_config c2;
+    struct memsink sink;
+    long n;
+    memset(&r2, 0, sizeof r2);
+    cfg_default(&c2);
+    gbp_vstate_init(&st2, f2, GBP_VSTATE_MAX_FRAMES, e2, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw, audio_raw, sizeof audio_raw);
+    if (!gbp_vstate_diag_capture(&st2, 4242u, 0x00000001FFFFFFFFULL, raw,
+                                 gbp_irq_value_disc(raw), gbp_irq_value_gbi(raw),
+                                 GBP_VSTATE_DIAG_READ_POSTDRAIN)) return 0;
+    memset(info, 0, sizeof *info);
+    if (gbp_vstatedump_set_identity(info, "GBP-VIDEO-002", "vstate-0002", "gbp-video-state-probe", "synthetic") != 0)
+        return 0;
+    sink.buf = out; sink.cap = cap; sink.n = 0; sink.fail_after = 0; sink.failed = 0;
+    n = gbp_vstatedump_stream(info, &st2, &r2, &c2, chunk, sizeof chunk, sink_mem, &sink, 0);
+    return n;
+}
+
+/* Section 3: 32 bytes ALL DIFFERENT, so a transposition, a truncation or a normalisation anywhere
+ * in the chain would be visible. transport buffer -> diagnostic RAM -> v3 sidecar -> parser. The
+ * last leg, into tools/vstate.py, is checked by tests/host/test_vstate.py on the same file. */
+static void test_distinct_bytes_survive_the_whole_chain(void)
+{
+    static uint8_t file[1u << 20];
+    struct gbp_vstatedump_info info, parsed;
+    struct gbp_vstate_diag back;
+    const uint8_t *dg = 0;
+    uint8_t pattern[GBP_BLOCK_SIZE];
+    unsigned i, j;
+    long n;
+    printf("-- 32 distinct bytes survive RAM, the serializer and the parser, in order\n");
+    for (i = 0; i < GBP_BLOCK_SIZE; i++) pattern[i] = (uint8_t)(0x11u + i * 7u);
+    for (i = 0; i < GBP_BLOCK_SIZE; i++)
+        for (j = i + 1u; j < GBP_BLOCK_SIZE; j++) CHECK(pattern[i] != pattern[j]);
+    n = diag_only_sidecar(pattern, file, sizeof file, &info);
+    CHECK(n > 0);
+    CHECK(info.diag_count == 1u);
+    CHECK(gbp_vstatedump_parse_v3(file, (size_t)n, &parsed, 0, 0, 0, 0, &dg, 0, 0) == 0);
+    CHECK(dg != 0);
+    CHECK(gbp_vstatedump_decode_diag(dg, &back) == 1);
+    for (i = 0; i < GBP_BLOCK_SIZE; i++) CHECK(back.raw[i] == pattern[i]);
+    CHECK(memcmp(dg + 0x18, pattern, GBP_BLOCK_SIZE) == 0);   /* and verbatim ON THE WIRE */
+    CHECK(back.disc_value == gbp_irq_value_disc(pattern));
+    CHECK(back.gbi_value == gbp_irq_value_gbi(pattern));
+    CHECK(back.t == 0x00000001FFFFFFFFULL);                   /* the u64 crosses the 32-bit wrap */
+    CHECK(back.cycle == 4242u);
+    CHECK(back.read_kind == GBP_VSTATE_DIAG_READ_POSTDRAIN);
+    printf("   raw[0]=%02x raw[31]=%02x disc=%04x gbi=%04x, 32/32 bytes in place\n",
+           back.raw[0], back.raw[31], back.disc_value, back.gbi_value);
+}
+
+/* Sections 20, 21 and 22: what a strict parser must refuse, and what a card failure inside the
+ * diagnostic section must produce. Every tampering here recomputes BOTH CRCs, so only the
+ * structural rules can reject the file. */
+static void test_diagnostic_strictness(void)
+{
+    static uint8_t file[1u << 20];
+    static uint8_t bad[1u << 20];
+    struct gbp_vstatedump_info info, parsed;
+    uint8_t pattern[GBP_BLOCK_SIZE];
+    unsigned i;
+    long n;
+    printf("-- the strict parser refuses every malformed diagnostic, CRCs recomputed\n");
+    for (i = 0; i < GBP_BLOCK_SIZE; i++) pattern[i] = (uint8_t)(0x11u + i * 7u);
+    n = diag_only_sidecar(pattern, file, sizeof file, &info);
+    CHECK(n > 0);
+    CHECK(gbp_vstatedump_parse_v3(file, (size_t)n, &parsed, 0, 0, 0, 0, 0, 0, 0) == 0);
+
+#define REFIX(b, len) do { \
+        put32((b) + 0x1FC, gbp_crc32((b), 0x1FCu)); \
+        put32((b) + info.off_footer + 8u, gbp_crc32((b), info.off_footer)); \
+        (void)(len); } while (0)
+
+    /* the record's reserved word: zero, or the file is refused - the rule tools/vstate.py applies */
+    memcpy(bad, file, (size_t)n);
+    bad[info.off_diag + 0x5Cu] = 0xABu;
+    REFIX(bad, n);
+    CHECK(gbp_vstatedump_parse_v3(bad, (size_t)n, &parsed, 0, 0, 0, 0, 0, 0, 0) == -8);
+
+    /* the header fields that describe the section */
+    memcpy(bad, file, (size_t)n);
+    put32(bad + 0x1E0, info.off_diag + 96u);                 /* off_diag moved */
+    REFIX(bad, n);
+    CHECK(gbp_vstatedump_parse_v3(bad, (size_t)n, &parsed, 0, 0, 0, 0, 0, 0, 0) == -4);
+
+    memcpy(bad, file, (size_t)n);
+    put32(bad + 0x1E4, 2u);                                  /* two records claimed */
+    REFIX(bad, n);
+    CHECK(gbp_vstatedump_parse_v3(bad, (size_t)n, &parsed, 0, 0, 0, 0, 0, 0, 0) == -9);
+
+    memcpy(bad, file, (size_t)n);
+    put32(bad + 0x1E4, 0u);                                  /* the record denied, the bytes still there */
+    REFIX(bad, n);
+    CHECK(gbp_vstatedump_parse_v3(bad, (size_t)n, &parsed, 0, 0, 0, 0, 0, 0, 0) == -4);
+
+    memcpy(bad, file, (size_t)n);
+    put16(bad + 0x1E8, 95u);                                 /* a record size that is not 96 */
+    REFIX(bad, n);
+    CHECK(gbp_vstatedump_parse_v3(bad, (size_t)n, &parsed, 0, 0, 0, 0, 0, 0, 0) == -2);
+
+    /* v2 may never carry the fields, and v3 may never be read as v2 */
+    memcpy(bad, file, (size_t)n);
+    put16(bad + 0x008, 2u);                                  /* claim the frozen version */
+    REFIX(bad, n);
+    CHECK(gbp_vstatedump_parse_v3(bad, (size_t)n, &parsed, 0, 0, 0, 0, 0, 0, 0) == -8);
+    memcpy(bad, file, (size_t)n);
+    put16(bad + 0x008, 4u);                                  /* a version nobody defined */
+    REFIX(bad, n);
+    CHECK(gbp_vstatedump_parse_v3(bad, (size_t)n, &parsed, 0, 0, 0, 0, 0, 0, 0) == -2);
+#undef REFIX
+
+    printf("-- a card that dies BEFORE the diagnostic section reaches it: partial save, result intact\n");
+    {
+        struct gbp_mock m;
+        struct ringlog rl;
+        static struct gbp_vstate_result r3;
+        struct gbp_vstate_config c3;
+        struct gbp_vstatedump_info i3;
+        struct memsink sink;
+        static uint8_t small[1024];
+        const uint16_t bits[1] = { 0x0500u };
+        uint64_t written = 0;
+        long full, rc;
+        /* a real aborted run, so the file has every section; a 1 KiB streaming buffer, so the sink
+         * can be failed at a chosen point instead of at chunk granularity */
+        cfg_default(&c3);
+        c3.min_valid_observation_ticks = (uint64_t)1 << 40;
+        c3.max_deliveries = 400u;
+        sched_reset(0xFFu);
+        mock_vstate(&m, bits, 1u, 50u);
+        m.irq_disagree_from_write = 40u;
+        run_cfg(&m, &rl, &r3, &c3);
+        CHECK(vstate.diag.valid == 1u);
+        memset(&i3, 0, sizeof i3);
+        gbp_vstatedump_set_identity(&i3, "GBP-VIDEO-002", "vstate-0002", "gbp-video-state-probe", "synthetic");
+        sink.buf = bad; sink.cap = sizeof bad; sink.n = 0; sink.failed = 0; sink.fail_after = 0;
+        full = gbp_vstatedump_stream(&i3, &vstate, &r3, &c3, small, sizeof small, sink_mem, &sink, 0);
+        CHECK(full > 0);
+        CHECK(i3.diag_count == 1u);
+        /* now the same save, with the card refusing at the last whole buffer before the section */
+        sink.n = 0; sink.failed = 0;
+        sink.fail_after = (int)((i3.off_diag / sizeof small) * sizeof small);
+        rc = gbp_vstatedump_stream(&i3, &vstate, &r3, &c3, small, sizeof small, sink_mem, &sink, &written);
+        CHECK(rc == -4);                                      /* the sink refused */
+        CHECK(sink.failed == 1);
+        CHECK(written == (uint64_t)sink.n);                   /* exactly what reached the card */
+        CHECK(written <= (uint64_t)i3.off_diag);              /* the diagnostic never got there */
+        CHECK(written < (uint64_t)full);
+        CHECK(vstate.diag.valid == 1u);                       /* the result in RAM is untouched */
+        CHECK(gbp_irq_value_disc(vstate.diag.raw) == vstate.diag.disc_value);
+        /* and the truncated file is not a sidecar: the strict parser refuses it */
+        CHECK(gbp_vstatedump_parse_v3(bad, (size_t)sink.n, &parsed, 0, 0, 0, 0, 0, 0, 0) < 0);
+        printf("   %lu of %lu bytes written (off_diag %lu), parser refuses the partial file\n",
+               (unsigned long)written, (unsigned long)full, (unsigned long)i3.off_diag);
+    }
+}
+
+/* Section 15: the instrumentation is side-effect free on the normal path. Two runs of the SAME
+ * scenario, one with the disagreement armed far beyond the end, must produce identical operation
+ * streams. */
+static void test_operationally_side_effect_free(void)
+{
+    struct gbp_mock a, b;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    unsigned i, diffs = 0;
+    printf("-- the diagnostic path costs the normal path nothing: identical operation streams\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 80u;
+    sched_reset(0xFFu);
+    mock_vstate(&a, bits, 1u, 50u);
+    run_cfg(&a, &rl, &res, &cfg);
+    CHECK(res.service_ok == 1);
+    sched_reset(0xFFu);
+    mock_vstate(&b, bits, 1u, 50u);
+    b.irq_disagree_from_write = 100000u;      /* armed, but never reached */
+    run_cfg(&b, &rl, &res, &cfg);
+    CHECK(res.service_ok == 1);
+    CHECK(a.nops == b.nops);
+    for (i = 0; i < a.nops && i < b.nops; i++) {
+        const struct gbp_mock_op *p = &a.ops[i], *q = &b.ops[i];
+        if (p->kind != q->kind || p->addr != q->addr || p->len != q->len || p->rc != q->rc ||
+            memcmp(p->data, q->data, GBP_BLOCK_SIZE) != 0) diffs++;
+    }
+    CHECK(diffs == 0);
+    CHECK(a.bulk_reads == b.bulk_reads);
+    CHECK(a.irq_writes == b.irq_writes);
+    CHECK(a.transfers == b.transfers);
+    CHECK(vstate.diag.valid == 0u);
+    printf("   %u operations compared, %u differences\n", a.nops, diffs);
+}
+
+static void test_sidecar_v3_diagnostic(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    struct gbp_vstatedump_info info, parsed;
+    struct memsink sink;
+    const uint16_t bits[1] = { 0x0500u };
+    const uint8_t *fr = 0, *ev = 0, *ep = 0, *cy = 0, *dg = 0, *vr = 0, *ar = 0;
+    struct gbp_vstate_diag back;
+    long n;
+    printf("-- the v3 sidecar carries the diagnostic, inside the CRC, in its own section\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 400u;
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    m.irq_disagree_from_write = 40u;
+    run_cfg(&m, &rl, &res, &cfg);
+    CHECK(vstate.diag.valid == 1u);
+
+    memset(&info, 0, sizeof info);
+    CHECK(gbp_vstatedump_set_identity(&info, "GBP-VIDEO-002", "vstate-0002", "gbp-video-state-probe", "synthetic") == 0);
+    sink.buf = sidecar; sink.cap = sizeof sidecar; sink.n = 0; sink.fail_after = 0; sink.failed = 0;
+    n = gbp_vstatedump_stream(&info, &vstate, &res, &cfg, chunk, sizeof chunk, sink_mem, &sink, 0);
+    CHECK(n > 0);
+    CHECK(info.version == 3u);
+    CHECK(info.diag_count == 1u);
+    CHECK(info.diag_rec_size == GBP_VSTATEDUMP_DIAG_REC);
+    CHECK(info.off_diag == info.off_cycles + info.cycle_count * GBP_VSTATEDUMP_CYCLE_REC);
+    CHECK(info.off_video_raw == info.off_diag + GBP_VSTATEDUMP_DIAG_REC);
+
+    CHECK(gbp_vstatedump_parse_v3(sidecar, (size_t)n, &parsed, &fr, &ev, &ep, &cy, &dg, &vr, &ar) == 0);
+    CHECK(parsed.version == 3u);
+    CHECK(dg != 0);
+    CHECK(gbp_vstatedump_decode_diag(dg, &back) == 1);
+    CHECK(memcmp(back.raw, vstate.diag.raw, GBP_BLOCK_SIZE) == 0);    /* byte-identical round trip */
+    CHECK(back.cycle == vstate.diag.cycle);
+    CHECK(back.t == vstate.diag.t);
+    CHECK(back.disc_value == vstate.diag.disc_value);
+    CHECK(back.gbi_value == vstate.diag.gbi_value);
+    CHECK(back.read_kind == vstate.diag.read_kind);
+    CHECK(back.attempts == vstate.diag.attempts);
+    CHECK(back.latency_ticks == vstate.diag.latency_ticks);
+    /* the recomputed readings agree with the persisted ones: the serializer matches the decision */
+    CHECK(gbp_irq_value_disc(back.raw) == back.disc_value);
+    CHECK(gbp_irq_value_gbi(back.raw) == back.gbi_value);
+
+    printf("-- every byte of the diagnostic is covered by the CRC\n");
+    {
+        static uint8_t bad[sizeof sidecar];
+        unsigned k, undetected = 0;
+        for (k = 0; k < GBP_VSTATEDUMP_DIAG_REC; k++) {
+            memcpy(bad, sidecar, (size_t)n);
+            bad[info.off_diag + k] ^= 0x01u;
+            if (gbp_vstatedump_parse(bad, (size_t)n, 0, 0, 0, 0, 0, 0, 0) == 0) undetected++;
+        }
+        CHECK(undetected == 0);
+        printf("   96 of 96 bytes flipped one at a time, %u undetected\n", undetected);
+    }
+
+    printf("-- a run with NO disagreement writes v3 with an empty diagnostic section\n");
+    {
+        struct gbp_vstatedump_info i2, p2;
+        const uint8_t *d2 = (const uint8_t *)1;
+        long n2;
+        sched_reset(0xFFu);
+        mock_vstate(&m, bits, 1u, 50u);
+        cfg.max_deliveries = 60u;
+        run_cfg(&m, &rl, &res, &cfg);
+        CHECK(vstate.diag.valid == 0u);
+        memset(&i2, 0, sizeof i2);
+        gbp_vstatedump_set_identity(&i2, "GBP-VIDEO-002", "vstate-0002", "gbp-video-state-probe", "synthetic");
+        sink.n = 0; sink.failed = 0;
+        n2 = gbp_vstatedump_stream(&i2, &vstate, &res, &cfg, chunk, sizeof chunk, sink_mem, &sink, 0);
+        CHECK(n2 > 0);
+        CHECK(i2.diag_count == 0u);
+        CHECK(i2.off_video_raw == i2.off_diag);              /* a zero-length section */
+        CHECK(gbp_vstatedump_parse_v3(sidecar, (size_t)n2, &p2, 0, 0, 0, 0, &d2, 0, 0) == 0);
+        CHECK(d2 == 0);
+        CHECK(p2.diag_count == 0u);
     }
 }
 
@@ -806,7 +1383,7 @@ static int dump_sidecar(const char *path)
     mock_vstate(&m, bits, 2u, 50u);
     run_cfg(&m, &rl, &res, &cfg);
     memset(&info, 0, sizeof info);
-    if (gbp_vstatedump_set_identity(&info, "GBP-VIDEO-002", "vstate-0001", "gbp-video-state-probe", "host-synthetic") != 0)
+    if (gbp_vstatedump_set_identity(&info, "GBP-VIDEO-002", "vstate-0002", "gbp-video-state-probe", "host-synthetic") != 0)
         return 2;
     sink.buf = sidecar; sink.cap = sizeof sidecar; sink.n = 0; sink.fail_after = 0; sink.failed = 0;
     n = gbp_vstatedump_stream(&info, &vstate, &res, &cfg, chunk, sizeof chunk, sink_mem, &sink, 0);
@@ -997,10 +1574,72 @@ static void test_frame_store_cap_boundary(void)
            (unsigned long)res.deliveries, gbp_vstate_stop_name(res.stop));
 }
 
+/* A SYNTHETIC v3 sidecar carrying a disagreement, so the host tool can be tested against the
+ * real C writer. Synthetic: the mock flips one bit of the last low replica. */
+/* The same file the C round-trip test builds: a v3 sidecar whose diagnostic holds 32 DISTINCT
+ * bytes, so tests/host/test_vstate.py can close the chain into the Python tool. */
+static int dump_sidecar_diag_distinct(const char *path)
+{
+    static uint8_t file[1u << 20];
+    struct gbp_vstatedump_info info;
+    uint8_t pattern[GBP_BLOCK_SIZE];
+    unsigned i;
+    long n;
+    FILE *f;
+    for (i = 0; i < GBP_BLOCK_SIZE; i++) pattern[i] = (uint8_t)(0x11u + i * 7u);
+    n = diag_only_sidecar(pattern, file, sizeof file, &info);
+    if (n <= 0) return 3;
+    f = fopen(path, "wb");
+    if (!f) return 4;
+    if (fwrite(file, 1, (size_t)n, f) != (size_t)n) { fclose(f); return 5; }
+    fclose(f);
+    printf("wrote %ld bytes: v%u diag_count=%lu 32 distinct bytes, disc=%04x gbi=%04x\n", n,
+           info.version, (unsigned long)info.diag_count,
+           gbp_irq_value_disc(pattern), gbp_irq_value_gbi(pattern));
+    return 0;
+}
+
+static int dump_sidecar_diag(const char *path)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    struct gbp_vstatedump_info info;
+    struct memsink sink;
+    const uint16_t bits[1] = { 0x0500u };
+    FILE *f;
+    long n;
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 400u;
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    m.irq_disagree_from_write = 40u;
+    run_cfg(&m, &rl, &res, &cfg);
+    if (!vstate.diag.valid) return 6;
+    memset(&info, 0, sizeof info);
+    if (gbp_vstatedump_set_identity(&info, "GBP-VIDEO-002", "vstate-0002", "gbp-video-state-probe", "synthetic") != 0)
+        return 2;
+    sink.buf = sidecar; sink.cap = sizeof sidecar; sink.n = 0; sink.fail_after = 0; sink.failed = 0;
+    n = gbp_vstatedump_stream(&info, &vstate, &res, &cfg, chunk, sizeof chunk, sink_mem, &sink, 0);
+    if (n <= 0) return 3;
+    f = fopen(path, "wb");
+    if (!f) return 4;
+    if (fwrite(sidecar, 1, (size_t)n, f) != (size_t)n) { fclose(f); return 5; }
+    fclose(f);
+    printf("wrote %ld bytes: v%u diag_count=%lu cycle=%lu disc=%04x gbi=%04x\n", n, info.version,
+           (unsigned long)info.diag_count, (unsigned long)vstate.diag.cycle,
+           vstate.diag.disc_value, vstate.diag.gbi_value);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     int do_long = (argc > 1 && strcmp(argv[1], "--long") == 0);
     if (argc > 2 && strcmp(argv[1], "--dump") == 0) return dump_sidecar(argv[2]);
+    if (argc > 2 && strcmp(argv[1], "--dump-diag") == 0) return dump_sidecar_diag(argv[2]);
+    if (argc > 2 && strcmp(argv[1], "--dump-diag-distinct") == 0) return dump_sidecar_diag_distinct(argv[2]);
     printf("== test_gbp_video_state (GBP-VIDEO-002 probe; every scenario SYNTHETIC)\n");
     {   /* the benchmark bypass is OFF by default, so no build can ever ship with it on */
         struct gbp_vstate_config defaults;
@@ -1027,6 +1666,16 @@ int main(int argc, char **argv)
     test_disagreement_and_intervals();
     test_byte0_opens_no_episode();
     test_sidecar();
+    test_read_semantics();
+    test_historical_deviation_does_not_disagree();
+    test_disagreement_captures_the_bytes();
+    test_raw32_is_byte_identical();
+    test_majority_is_exhaustively_the_rule();
+    test_attempts_saturate_without_wrapping();
+    test_distinct_bytes_survive_the_whole_chain();
+    test_diagnostic_strictness();
+    test_operationally_side_effect_free();
+    test_sidecar_v3_diagnostic();
     test_epoch_never_fabricated();
     test_frame_store_cap_boundary();
     test_bench_with_without();

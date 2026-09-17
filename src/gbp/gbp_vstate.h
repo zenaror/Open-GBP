@@ -34,6 +34,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "gbp_vsig.h"
+#include "gbp_transport.h"   /* GBP_BLOCK_SIZE: the diagnostic keeps one whole register window */
 
 #ifdef __cplusplus
 extern "C" {
@@ -190,6 +191,59 @@ struct gbp_vstate_audio {
     uint64_t first_cycle, last_cycle;
 };
 
+
+/* ---- the semantic-disagreement diagnostic (U-GBP-032) ----------------
+ * GBP-VIDEO-002's first physical run aborted at cycle 51750 because the two
+ * readings of one 32-byte IRQ-register window disagreed, and the bytes that
+ * caused it were never recorded. This record fixes that, and ONLY that: it is
+ * purely observational. It changes nothing about when a disagreement happens,
+ * what it means, or that it is fatal.
+ *
+ * The two readings, unchanged (src/gbp/gbp_rawlog.c):
+ *   Disc : (block[0x1D] << 8) | block[0x1F]   - the LAST replica, two bytes.
+ *   GBI  : a BITWISE majority over the eight replicas at offsets 4k+1 (high
+ *          byte) and 4k+3 (low byte), k = 0..7; a bit is 1 only when strictly
+ *          more than four of the eight carry it, so a tie at four resolves to
+ *          0 and the result need not equal any replica that was actually read.
+ * Everything else about the window - bytes at offsets 4k+0 and 4k+2 - is read
+ * by neither, which is where all 220 deviations logged so far have landed.
+ *
+ * The bytes are copied from the buffer the transport already filled. NO extra
+ * read, no re-read, no retry: the capture cannot change the number or the
+ * order of hardware operations. Exactly one record is kept - the first
+ * disagreement ends the run, so a second can only mean a defect, and the first
+ * is never overwritten. */
+#define GBP_VSTATE_DIAG_REC 96u          /* bytes on the wire and in RAM */
+/* which read produced the disagreement; the value is recorded, never inferred */
+#define GBP_VSTATE_DIAG_READ_LEAN     0u /* the lean cycle's own IRQ read */
+#define GBP_VSTATE_DIAG_READ_PRESVC   1u /* a verify cycle's PRESVC snapshot */
+#define GBP_VSTATE_DIAG_READ_POSTDRAIN 2u
+#define GBP_VSTATE_DIAG_READ_POSTACK  3u
+#define GBP_VSTATE_DIAG_READ_OTHER    4u
+
+struct gbp_vstate_diag {
+    uint64_t t;                  /* 0x00 the u64 time base at the read */
+    uint32_t cycle;              /* 0x08 delivery ordinal */
+    uint32_t valid;              /* 0x0C 1 once captured; first wins, never overwritten */
+    uint16_t disc_value;         /* 0x10 what the runtime computed, persisted so the */
+    uint16_t gbi_value;          /* 0x12 offline tool can prove it recomputes the same */
+    uint16_t read_kind;          /* 0x14 GBP_VSTATE_DIAG_READ_* */
+    uint16_t attempts;           /* 0x16 disagreements seen (a second one would be a defect) */
+    uint8_t raw[GBP_BLOCK_SIZE]; /* 0x18..0x37 the 32 bytes VERBATIM, before any reduction */
+    uint32_t intsr_entry;        /* 0x38 from the ISR record already in RAM */
+    uint32_t intsr_after_w1c;    /* 0x3C */
+    uint32_t intmr_entry;        /* 0x40 */
+    uint32_t latency_ticks;      /* 0x44 */
+    uint32_t xfer_ticks;         /* 0x48 transport info of THAT read */
+    uint16_t xfer_polls;         /* 0x4C */
+    uint16_t dma_status;         /* 0x4E */
+    uint16_t dma_status_before;  /* 0x50 */
+    uint16_t control_exp;        /* 0x52 the CONTROL byte the stage established */
+    uint32_t frame_index;        /* 0x54 frame being assembled */
+    uint32_t block_in_frame;     /* 0x58 */
+    uint32_t reserved;           /* 0x5C zero */
+};
+
 /* ---- the whole state ------------------------------------------------- */
 struct gbp_vstate {
     /* caller-owned storage, all static, none allocated here */
@@ -292,6 +346,10 @@ struct gbp_vstate {
     /* signature cost */
     struct gbp_vsig_cost cost;
 
+    /* the one semantic-disagreement diagnostic (U-GBP-032). 96 bytes, always resident,
+     * written only on the event that ends the run. */
+    struct gbp_vstate_diag diag;
+
     /* the previous closed frame's ring slot and identity, for "the last reference frame" */
     int prev_slot;                       /* -1 none */
     uint32_t prev_frame_index, prev_frame_blocks;
@@ -365,6 +423,15 @@ void gbp_vstate_audio_commit(struct gbp_vstate *s, unsigned slot, int completed,
 const uint8_t *gbp_vstate_audio_bytes(const struct gbp_vstate *s, unsigned slot);
 /* Raw AUDIO slots worth storing: 0 (first) plus the last valid ping-pong slot when there is one. */
 unsigned gbp_vstate_audio_raw_count(const struct gbp_vstate *s);
+
+/* Captures the ONE diagnostic, from bytes the transport has already delivered.
+ * `raw` must be the buffer the read filled, untouched. Returns 1 when this call
+ * stored the record, 0 when one was already held (first wins) or an argument is
+ * bad. `attempts` counts every call, so a second disagreement is visible even
+ * though its bytes are not kept. Performs no I/O and no formatting. */
+int gbp_vstate_diag_capture(struct gbp_vstate *s, uint32_t cycle, uint64_t t, const uint8_t *raw,
+                            uint16_t disc, uint16_t gbi, uint16_t read_kind);
+const char *gbp_vstate_diag_read_name(unsigned kind);
 
 /* ---- reporting helpers (pure) ---------------------------------------- */
 const char *gbp_vstate_completeness_name(unsigned c);

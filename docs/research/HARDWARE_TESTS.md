@@ -3053,7 +3053,7 @@ service pass; R11 promotion if observed), REGISTERS.md (VIDEO / AUDIO rows: hard
 HSP.md (§3: the ARQ hi-queue precision and the first measured bandwidth), captures/README.md
 (fixture + sidecar format), tests/README.md, poc/README.md.
 
-### GBP-VIDEO-002 — does the AGB's own logotype screen ever reach the VIDEO stream without a Game Pak? A frame-signature scan over at least the nominal detector interval (Phase 4; designed and hardened four times 2026-09-16; IMPLEMENTED 2026-09-16, NOT PHYSICALLY EXECUTED)
+### GBP-VIDEO-002 — does the AGB's own logotype screen ever reach the VIDEO stream without a Game Pak? A frame-signature scan over at least the nominal detector interval (Phase 4; designed and hardened four times 2026-09-16; build `vstate-0001` PHYSICALLY EXECUTED 2026-09-16, aborted; build `vstate-0002` instrumented 2026-09-16, NOT PHYSICALLY EXECUTED)
 
 Status: **PHYSICALLY EXECUTED 2026-09-16** (build `vstate-0001`, commit
 `e8f3a69`, DOL SHA-256 `c73d49fa…19b9`). Result:
@@ -3071,6 +3071,45 @@ The scientific negative target of 120 s of valid observation was **NOT REACHED**
 objective — locate a structured state — was achieved observationally. The
 executed entry and every measurement are in `docs/research/EVIDENCE.md`
 (GBP-HW-074…087); the one thing the run could not record is U-GBP-032.
+
+**Build `vstate-0002` — the same experiment, instrumented. NOT PHYSICALLY
+EXECUTED.** The abort above is the only thing standing between this test and its
+target, and the run could not say what caused it because the bytes were gone by
+the time the probe reported. `vstate-0002` changes exactly one thing: at the
+moment a semantic disagreement is detected, the 32 raw bytes already in the
+transport's buffer are copied into a 96-byte record, together with the context
+that describes that read (both 16-bit values, the read site, the cycle, the
+64-bit timestamp, the frame and block position, INTSR at ISR entry and after the
+W1C, INTMR at entry, the latency, the transfer's ticks and polls, the DMA status
+before and after, and the expected CONTROL shape). One record; the first
+disagreement wins; later attempts are only counted.
+
+What did NOT change, and is the reason this build may replace the other in a
+physical run without reopening anything already established: the disagreement is
+still fatal and still aborts at the same point; there is no retry, no re-read, no
+second opinion and no extra device access; the experiment, the caps, the
+admission rule, the service cycle, the teardown and the stop precedence are
+untouched; the ISR and the whole interrupt path are BYTE-IDENTICAL to the
+GBP-VIDEO-001 build that was physically validated (`make vstate-audit` diffs both
+one-shot bodies against `build/poc/gbp-video-capture-probe` and reports
+"identical"); and a host run with the capture armed produces an operation stream
+identical, operation by operation, to one without it. The cost is 96 bytes of
+.bss (`struct gbp_vstate` 4 152 → 4 248 bytes; no other store changed) and no
+work at all on the normal path — nothing is copied per delivery.
+
+The sidecar carries the record as OGBPSEQ1 **v3**: v2 plus one section, at the
+same offsets, under the same CRC, with three header fields taken from v2's
+reserved area. v2 is frozen — the physical file of 2026-09-16 parses byte for
+byte as it did the day it was consolidated — and the two versions are dispatched
+explicitly so neither can read the other's file. `tools/vstate.py diag`
+recomputes both readings offline from the preserved bytes and names the replicas
+that differ.
+
+Dirty build for audit only, NOT a physical candidate: `vstate-0002`, commit
+`80c356f-dirty`, DOL SHA-256
+`6f2f6b2cc7f604072b6719a95a6fb80905e8187d7ba10c8bcd3380e8cf786fe1`. A physical
+candidate requires a clean commit, a rebuild, the release audit and an explicit
+authorization, as always.
 
 The pre-execution status paragraph follows, kept for the history:
 **IMPLEMENTED 2026-09-16 — NOT PHYSICALLY EXECUTED. DIRTY BUILD — NOT A

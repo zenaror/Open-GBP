@@ -188,6 +188,12 @@ int gbp_vstatedump_layout(struct gbp_vstatedump_info *info, const struct gbp_vst
     off += (uint64_t)info->episode_count * GBP_VSTATEDUMP_EPISODE_REC;
     info->off_cycles = (uint32_t)off;
     off += (uint64_t)info->cycle_count * GBP_VSTATEDUMP_CYCLE_REC;
+    /* v3: the one diagnostic record, if the run captured one. Its bytes are inside the total CRC
+     * like every other section; nothing lives in a reserved area without a contract. */
+    info->diag_rec_size = GBP_VSTATEDUMP_DIAG_REC;
+    info->diag_count = (st->diag.valid ? 1u : 0u);
+    info->off_diag = (uint32_t)off;
+    off += (uint64_t)info->diag_count * GBP_VSTATEDUMP_DIAG_REC;
     info->off_video_raw = (uint32_t)off;
     off += raw_bytes;
     info->off_audio_raw = (uint32_t)off;
@@ -197,7 +203,8 @@ int gbp_vstatedump_layout(struct gbp_vstatedump_info *info, const struct gbp_vst
     info->total_size = off;
     if (off > 0xFFFFFFFFu) return -1;
     if (info->off_frames > info->off_events || info->off_events > info->off_episodes ||
-        info->off_episodes > info->off_cycles || info->off_cycles > info->off_video_raw ||
+        info->off_episodes > info->off_cycles || info->off_cycles > info->off_diag ||
+        info->off_diag > info->off_video_raw ||
         info->off_video_raw > info->off_audio_raw || info->off_audio_raw > info->off_footer) return -1;
     return 0;
 }
@@ -337,6 +344,59 @@ static void cycle_rec(uint8_t *r, const struct gbp_vstate_cycle *c)
     put_u32(r + 0x74, c->rc);
 }
 
+
+static void diag_rec(uint8_t *r, const struct gbp_vstate_diag *d)
+{
+    unsigned i;
+    memset(r, 0, GBP_VSTATEDUMP_DIAG_REC);
+    put_u64(r + 0x00, d->t);
+    put_u32(r + 0x08, d->cycle);
+    put_u32(r + 0x0C, d->valid);
+    put_u16(r + 0x10, d->disc_value);
+    put_u16(r + 0x12, d->gbi_value);
+    put_u16(r + 0x14, d->read_kind);
+    put_u16(r + 0x16, d->attempts);
+    for (i = 0; i < GBP_BLOCK_SIZE; i++) r[0x18 + i] = d->raw[i];   /* verbatim */
+    put_u32(r + 0x38, d->intsr_entry);
+    put_u32(r + 0x3C, d->intsr_after_w1c);
+    put_u32(r + 0x40, d->intmr_entry);
+    put_u32(r + 0x44, d->latency_ticks);
+    put_u32(r + 0x48, d->xfer_ticks);
+    put_u16(r + 0x4C, d->xfer_polls);
+    put_u16(r + 0x4E, d->dma_status);
+    put_u16(r + 0x50, d->dma_status_before);
+    put_u16(r + 0x52, d->control_exp);
+    put_u32(r + 0x54, d->frame_index);
+    put_u32(r + 0x58, d->block_in_frame);
+}
+
+int gbp_vstatedump_decode_diag(const uint8_t *rec, struct gbp_vstate_diag *out)
+{
+    unsigned i;
+    if (!rec || !out) return 0;
+    memset(out, 0, sizeof *out);
+    out->t = get_u64(rec + 0x00);
+    out->cycle = get_u32(rec + 0x08);
+    out->valid = get_u32(rec + 0x0C);
+    out->disc_value = get_u16(rec + 0x10);
+    out->gbi_value = get_u16(rec + 0x12);
+    out->read_kind = get_u16(rec + 0x14);
+    out->attempts = get_u16(rec + 0x16);
+    for (i = 0; i < GBP_BLOCK_SIZE; i++) out->raw[i] = rec[0x18 + i];
+    out->intsr_entry = get_u32(rec + 0x38);
+    out->intsr_after_w1c = get_u32(rec + 0x3C);
+    out->intmr_entry = get_u32(rec + 0x40);
+    out->latency_ticks = get_u32(rec + 0x44);
+    out->xfer_ticks = get_u32(rec + 0x48);
+    out->xfer_polls = get_u16(rec + 0x4C);
+    out->dma_status = get_u16(rec + 0x4E);
+    out->dma_status_before = get_u16(rec + 0x50);
+    out->control_exp = get_u16(rec + 0x52);
+    out->frame_index = get_u32(rec + 0x54);
+    out->block_in_frame = get_u32(rec + 0x58);
+    return out->valid ? 1 : 0;
+}
+
 static void header_bytes(uint8_t *h, const struct gbp_vstatedump_info *in)
 {
     memset(h, 0, GBP_VSTATEDUMP_HEADER_SIZE);
@@ -419,7 +479,11 @@ static void header_bytes(uint8_t *h, const struct gbp_vstatedump_info *in)
     put_u32(h + 0x1D4, in->baseline_sig39);
     put_u32(h + 0x1D8, in->main_w1c);
     put_u32(h + 0x1DC, in->isr_w1c);
-    /* 0x1E0..0x1FB reserved, already zero */
+    /* v3 fields, taken from v2's reserved area and given an explicit contract */
+    put_u32(h + 0x1E0, in->off_diag);
+    put_u32(h + 0x1E4, in->diag_count);
+    put_u16(h + 0x1E8, (uint16_t)in->diag_rec_size);
+    /* 0x1EA..0x1FB reserved, already zero */
     put_u32(h + 0x1FC, gbp_crc32(h, GBP_VSTATEDUMP_HEADER_SIZE - 4u));
 }
 
@@ -484,6 +548,11 @@ long gbp_vstatedump_stream(struct gbp_vstatedump_info *info, const struct gbp_vs
             }
         }
     }
+    if (!e.failed && info->diag_count) {
+        uint8_t dr[GBP_VSTATEDUMP_DIAG_REC];
+        diag_rec(dr, &st->diag);
+        emit(&e, dr, GBP_VSTATEDUMP_DIAG_REC);
+    }
     /* the preserved raw frames, streamed block by block straight out of the episode store */
     for (i = 0; i < info->episode_count && !e.failed; i++) {
         const struct gbp_vstate_episode *ep = &st->episodes[i];
@@ -542,6 +611,14 @@ int gbp_vstatedump_parse(const uint8_t *in, size_t n, struct gbp_vstatedump_info
                          const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
                          const uint8_t **cycles, const uint8_t **video_raw, const uint8_t **audio_raw)
 {
+    return gbp_vstatedump_parse_v3(in, n, info, frames, events, episodes, cycles, 0, video_raw, audio_raw);
+}
+
+int gbp_vstatedump_parse_v3(const uint8_t *in, size_t n, struct gbp_vstatedump_info *info,
+                            const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
+                            const uint8_t **cycles, const uint8_t **diag,
+                            const uint8_t **video_raw, const uint8_t **audio_raw)
+{
     struct gbp_vstatedump_info d;
     uint64_t need;
     uint32_t i;
@@ -550,11 +627,27 @@ int gbp_vstatedump_parse(const uint8_t *in, size_t n, struct gbp_vstatedump_info
     memset(&d, 0, sizeof d);
     d.version = get_u16(in + 0x008);
     d.header_size = get_u16(in + 0x00A);
-    if (d.version != GBP_VSTATEDUMP_VERSION || d.header_size != GBP_VSTATEDUMP_HEADER_SIZE) return -2;
+    /* Explicit dispatch, never a silent reinterpretation: v2 is the FROZEN physical format and v3
+     * is v2 plus the diagnostic section. Any other version is refused here, before a single field
+     * is read, so no file of one version can be parsed as another. */
+    if ((d.version != GBP_VSTATEDUMP_VERSION && d.version != GBP_VSTATEDUMP_VERSION_V2) ||
+        d.header_size != GBP_VSTATEDUMP_HEADER_SIZE) return -2;
     if (get_u16(in + 0x02C) != GBP_VSTATEDUMP_FRAME_REC || get_u16(in + 0x02E) != GBP_VSTATEDUMP_EVENT_REC ||
         get_u16(in + 0x030) != GBP_VSTATEDUMP_EPISODE_REC || get_u16(in + 0x032) != GBP_VSTATEDUMP_CYCLE_REC) return -2;
     if (gbp_crc32(in, GBP_VSTATEDUMP_HEADER_SIZE - 4u) != get_u32(in + 0x1FC)) return -3;
-    if (!reserved_zero(in + 0x1E0, 0x1FCu - 0x1E0u)) return -8;
+    if (d.version == GBP_VSTATEDUMP_VERSION_V2) {
+        /* v2: the whole 0x1E0..0x1FB area is reserved and must be zero, exactly as the physical
+         * sidecar of 2026-09-16 has it. This check is what freezes the format. */
+        if (!reserved_zero(in + 0x1E0, 0x1FCu - 0x1E0u)) return -8;
+    } else {
+        d.off_diag = get_u32(in + 0x1E0);
+        d.diag_count = get_u32(in + 0x1E4);
+        d.diag_rec_size = get_u16(in + 0x1E8);
+        if (!reserved_zero(in + 0x1EA, 0x1FCu - 0x1EAu)) return -8;
+        if (d.diag_count > 1u) return -9;                                   /* at most one record */
+        if (d.diag_count && d.diag_rec_size != GBP_VSTATEDUMP_DIAG_REC) return -2;
+        if (!d.diag_count && d.diag_rec_size != GBP_VSTATEDUMP_DIAG_REC && d.diag_rec_size != 0u) return -2;
+    }
 
     d.flags = get_u32(in + 0x00C);
     d.tb_hz = get_u32(in + 0x010);
@@ -637,6 +730,10 @@ int gbp_vstatedump_parse(const uint8_t *in, size_t n, struct gbp_vstatedump_info
     need += (uint64_t)d.episode_count * GBP_VSTATEDUMP_EPISODE_REC;
     if (need != d.off_cycles) return -4;
     need += (uint64_t)d.cycle_count * GBP_VSTATEDUMP_CYCLE_REC;
+    if (d.version == GBP_VSTATEDUMP_VERSION) {
+        if (need != d.off_diag) return -4;
+        need += (uint64_t)d.diag_count * GBP_VSTATEDUMP_DIAG_REC;
+    }
     if (need != d.off_video_raw) return -4;
     if (d.cyc_first_n + d.cyc_last_n + d.cyc_anomaly_n + d.cyc_episode_n != d.cycle_count) return -9;
     if (d.off_video_raw > d.off_audio_raw || d.off_audio_raw > d.off_footer) return -4;
@@ -669,6 +766,12 @@ int gbp_vstatedump_parse(const uint8_t *in, size_t n, struct gbp_vstatedump_info
     if (events) *events = in + d.off_events;
     if (episodes) *episodes = in + d.off_episodes;
     if (cycles) *cycles = in + d.off_cycles;
+    /* The record's own reserved word obeys the same rule as the header's reserved area: zero, or
+     * the file is refused. A future field there is a new version, never a silent reinterpretation.
+     * tools/vstate.py enforces exactly this, and the two parsers must agree on what is valid. */
+    if (d.version == GBP_VSTATEDUMP_VERSION && d.diag_count &&
+        !reserved_zero(in + d.off_diag + 0x5Cu, GBP_VSTATEDUMP_DIAG_REC - 0x5Cu)) return -8;
+    if (diag) *diag = (d.version == GBP_VSTATEDUMP_VERSION && d.diag_count) ? in + d.off_diag : 0;
     if (video_raw) *video_raw = in + d.off_video_raw;
     if (audio_raw) *audio_raw = in + d.off_audio_raw;
     return 0;

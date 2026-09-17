@@ -4987,3 +4987,151 @@ Preserve first, then decide. The next run must record the raw bytes and both
 values of any semantic disagreement before it tears down. Whether a disagreement
 should stay fatal is a separate question that should not be answered before one
 has been captured.
+
+---
+
+## 2026-09-16 — U-GBP-032 instrumented: the bytes will be kept, the question is not answered
+
+Goal: make the next physical GBP-VIDEO-002 run able to explain the abort that
+ended the first one, without changing anything the first one observed. Build
+`vstate-0002`. Not executed on hardware.
+
+### What was added
+
+One 96-byte record in `struct gbp_vstate`, written at the instant a semantic
+disagreement is detected, from the buffer the transport had already filled. It
+holds the 32 raw bytes verbatim plus what describes that read: both conflicting
+16-bit values, which of the two read sites saw it, the cycle, the 64-bit
+timestamp, the frame index and block-in-frame, INTSR at ISR entry and after the
+W1C, INTMR at entry, the IRQ latency, the transfer's ticks and polls, the DMA
+status before and after, and the expected CONTROL shape. The first disagreement
+wins; later ones increment a counter and change nothing.
+
+Both detection sites are covered: the verify path inside `common_checks()` and
+the lean READ path, which uses its untouched 32-byte stack local. The capture
+happens before any formatting and before the teardown, because that is the only
+point at which the bytes still exist.
+
+### What deliberately did not change
+
+The disagreement is still fatal at the same point. No retry, no re-read, no
+second opinion, no masking of the condition, no extra access to the device. The
+experiment, caps, admission rule, service cycle, stop precedence and teardown are
+untouched, and the interrupt path stays byte-identical to the GBP-VIDEO-001 build
+that was physically validated — `make vstate-audit` diffs both one-shot bodies
+against that build's and reports "identical". A host run with the capture armed
+produces an operation stream identical, operation by operation, to one with the
+disagreement armed past the end of the run: 1 031 operations compared, 0
+differences.
+
+Cost: 96 bytes of .bss and nothing on the normal path. `struct gbp_vstate` goes
+from 4 152 to 4 248 bytes, and it is the only `.bss` symbol that moved.
+
+### The sidecar
+
+OGBPSEQ1 **v3**: v2 plus one section, every existing offset unchanged, the new
+section under the same CRC, three header fields taken from v2's reserved area.
+v2 is frozen and stays readable — the physical file of this morning parses with
+the same header and total CRCs — and the two versions are dispatched explicitly,
+so neither can read the other's file by accident. `tools/vstate.py diag`
+recomputes both readings offline from the preserved bytes, checks them against
+the stored values, lists the eight replicas and names which ones differ and on
+which offsets. Run against the physical v2 file it says plainly that this format
+did not preserve the bytes.
+
+### Tests
+
+609 C checks and 272 Python tests pass. The new ones pin the two readings against
+each other (including the fact that a majority tie at four resolves to 0, so the
+GBI value need not equal any replica), prove that the historical deviations on
+offsets ≡ 0 and ≡ 2 mod 4 cannot produce a disagreement, prove the 32 bytes reach
+the sidecar byte-identical, prove first-wins, prove operational equivalence, and
+prove all 96 bytes of the record are CRC-covered. Every static audit profile
+passes and all 19 Dolphin scenarios pass.
+
+### What this does not do
+
+It does not explain the disagreement, and nothing here should be read as
+narrowing it: no cause is assumed, no value is reconstructed, and whether a
+disagreement should stay fatal is still undecided — that question should not be
+answered before one has been captured. The build is dirty and is not a physical
+candidate. U-GBP-032 remains OPEN.
+
+### Next
+
+A clean commit, a rebuild, the release audit, and only then the authorization for
+a physical run. If that run reproduces the event, the record explains it; if it
+does not, the unknown stays open, because absence in one run is not an answer.
+
+---
+
+## 2026-09-17 — microaudit of the U-GBP-032 instrumentation: two parser defects, and the abort path proved identical
+
+Goal: decide whether build `vstate-0002` is observational in fact and not only by
+intention. Nothing was implemented; two defects were fixed and the weak parts of
+the evidence were replaced by measurements.
+
+### What the audit proved that the implementation had only asserted
+
+The disagreement path of `vstate-0002` is not merely "semantically equal" to
+`vstate-0001`: it is **operationally identical**. The same scenario was run
+against both builds — the committed one in a throwaway worktree at `80c356f`,
+the instrumented one here — and every quantity matches: 44 IRQ-window reads, 306
+recorded device operations, 38 bulk reads, 41 IRQ writes, 160 transfers, 20
+deliveries, 19 ACKs, 19 re-arms, the same status, the same reason string, and
+the same 306-operation stream (kind and address) byte for byte. Those numbers
+are now pinned in the test instead of the bound that was there before, which
+accepted any read count at or above the delivery count and therefore tested
+nothing.
+
+At machine level the capture contains exactly two calls: the 64-bit time base
+and the store function. The store function has no relocations at all — the
+32-byte copy was inlined. There is no MMIO, no DMA, no PI access anywhere in it.
+
+### The two defects
+
+Both are the same kind: the C and the Python parser of one format disagreed
+about what a valid file is.
+
+1. A v3 diagnostic record whose reserved word is not zero was **accepted by C and
+   rejected by Python**. The format's rule everywhere else is that reserved means
+   zero, so C now refuses it too (`-8`, the code it already used for the header's
+   reserved area).
+2. With no record present, C accepted `diag_rec_size` of 0 or 96 and refused
+   anything else, while **Python accepted any value**. Python now applies the same
+   rule.
+
+Neither can change the hardware build, and the rebuild proves it: the linker
+drops both parsers from the DOL — they are in `gbp_vstatedump.o` and absent from
+the ELF — so the DOL is bit-identical to the one built before the fixes, SHA-256
+`6f2f6b2c…6fe1`, 433 376 bytes.
+
+### What was added to the evidence
+
+The majority rule is now checked exhaustively on both sides: all 256 ways the
+eight replicas can carry a bit, for all 8 bit positions, against "strictly more
+than four". The 220 historical deviations are covered by an exhaustive
+perturbation of every discarded byte over all 256 values — 4 096 cases, none of
+which moves either reading. The 32 bytes are followed from the capture entry
+point through the serializer, the C parser and into `tools/vstate.py` with 32
+**distinct** values, so a transposition would be visible; that file also carries a
+timestamp past the 32-bit wrap. The attempt counter is driven to 65 539 calls and
+saturates at 65 535 without wrapping, with the first record untouched. A card
+that fails before the diagnostic section reaches it yields a partial save, an
+intact result in RAM and a file the strict parser refuses. And every structural
+tampering — `off_diag`, `diag_count`, `diag_rec_size`, the record's reserved
+word, the version field — is refused **with both CRCs recomputed**, so only the
+rules can be doing the refusing. The same applies to a record whose persisted
+`disc_value` or `gbi_value` was altered with valid CRCs: the tool recomputes from
+the bytes and reports the inconsistency rather than printing the stored value.
+
+### Unchanged
+
+The ISR and both one-shot bodies remain byte-identical to the physically
+validated GBP-VIDEO-001 build. The frozen v2 sidecar still parses with header CRC
+`947083c4` and total CRC `9bef714b` over 2 432 396 bytes. The transport, the
+mocks and the GBP-VIDEO-001 format are untouched. 19 Dolphin scenarios pass and
+both vstate runs still abort at the stage-A gate without reaching the
+experimental path.
+
+U-GBP-032 remains OPEN. The build is dirty and is not a physical candidate.
