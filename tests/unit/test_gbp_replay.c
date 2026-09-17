@@ -162,6 +162,38 @@ int main(int argc, char **argv)
     CHECK(t.write_arinfo(t.ctx, 0x005b) == GBP_OK);
     CHECK(t.write_arinfo(t.ctx, 0x0000) == GBP_ERR_BACKEND);
 
+    /* A FULL constructor must leave every operation it does not provide reading back as NULL, not
+     * as whatever the caller's stack held: callers declare `struct gbp_transport t;` without
+     * initialising it, and gbp_transport_has_*() answers from those fields. Poison the struct and
+     * prove the constructor zeroes it — this is what keeps a newly added transport operation from
+     * silently becoming a garbage pointer on a replay. */
+    {
+        struct gbp_transport poisoned;
+        struct gbp_replay rr;
+        memset(&poisoned, 0xAB, sizeof poisoned);
+        gbp_replay_init(&rr, "R 01000000 ok 00\n");
+        gbp_replay_transport(&rr, &poisoned);
+        CHECK(poisoned.ctx == &rr);
+        CHECK(poisoned.ticks == t.ticks);
+        CHECK(poisoned.ticks64 == 0);                    /* a replay has no 64-bit time base */
+        CHECK(gbp_transport_has_time64(&poisoned) == 0);
+        CHECK(poisoned.irq_install == 0);                /* and no interrupt path */
+        CHECK(gbp_transport_has_irq_path(&poisoned) == 0);
+        CHECK(poisoned.read_bulk == 0);                  /* this script has no bulk lines */
+        CHECK(gbp_transport_has_bulk_read(&poisoned) == 0);
+        /* and not one poison byte survives anywhere in the struct, so a field added tomorrow
+         * cannot come back indeterminate either */
+        {
+            const unsigned char *p = (const unsigned char *)&poisoned;
+            size_t k, run = 0, worst = 0;
+            for (k = 0; k < sizeof poisoned; k++) {
+                run = (p[k] == 0xABu) ? run + 1u : 0u;
+                if (run > worst) worst = run;
+            }
+            CHECK(worst < sizeof(void *));     /* no whole pointer-sized field left as poison */
+        }
+    }
+
     if (argc > 1) test_hardware_fixture_gbp(argv[1]);
     if (argc > 2) test_hardware_fixture_nogbp(argv[2]);
     if (argc > 4) test_model_fixtures(argv[3], argv[4]);

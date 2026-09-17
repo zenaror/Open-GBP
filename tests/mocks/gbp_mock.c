@@ -25,6 +25,15 @@ static void prim_write_intsr(uint32_t v);
 #define HIGH_BITS   0x7000u
 #define BIT15       0x8000u
 
+/* The mock's clock: `tick` is the 32-bit view every existing test uses (it may wrap, exactly
+ * like the hardware one), `tick64` the 64-bit one GBP-VIDEO-002 reads. Both always advance
+ * together, so the two views can never disagree about an interval. */
+static void tick_add(struct gbp_mock *m, uint32_t d)
+{
+    m->tick += d;
+    m->tick64 += (uint64_t)d;
+}
+
 static void record_ev(struct gbp_mock *m, enum gbp_mock_op_kind kind, uint32_t addr, uint16_t value,
                       const uint8_t *data, gbp_status rc);
 static void violation(struct gbp_mock *m, unsigned bit);
@@ -204,7 +213,7 @@ static void relatch_step(struct gbp_mock *m);
 static uint32_t prim_ticks(void)
 {
     struct gbp_mock *m = isr_mock;
-    if (m->isr_ext || m->isr_multi) { m->tick += 1; relatch_step(m); pi_latch_step(m); }   /* the extended body's bounded wait needs a moving time base */
+    if (m->isr_ext || m->isr_multi) { tick_add(m, 1); relatch_step(m); pi_latch_step(m); }   /* the extended body's bounded wait needs a moving time base */
     return m->tick;
 }
 static uint32_t prim_read_intsr(void) { return isr_mock->intsr; }
@@ -645,7 +654,7 @@ static gbp_status m_write_block(void *ctx, uint32_t addr, const uint8_t in[GBP_B
                         m->seq_pending_bits = st->bits;
                         m->seq_pending_at_tick = m->tick + st->delay;
                     }
-                    if (m->tick_jump_at_rearm && m->rearms == m->tick_jump_at_rearm) m->tick += m->tick_jump_rearm;
+                    if (m->tick_jump_at_rearm && m->rearms == m->tick_jump_at_rearm) tick_add(m, m->tick_jump_rearm);
                 }
             }
             if (v != 0) m->rearm_window = 0;                      /* the teardown's stop word ends the window: its own W1C is allowed */
@@ -708,7 +717,8 @@ static gbp_status m_read_bulk(void *ctx, uint32_t addr, uint8_t *out, uint32_t l
     m->bulk_reads++;
     if (idx == 0x1u) m->video_reads++;
     if (idx == 0x8u) m->audio_reads++;
-    if (m->bulk_tick_jump_at_read && m->bulk_reads == m->bulk_tick_jump_at_read) m->tick += m->bulk_tick_jump;   /* a long DMA (deadline models) */
+    if (m->bulk_tick_jump_at_read && m->bulk_reads == m->bulk_tick_jump_at_read) tick_add(m, m->bulk_tick_jump);   /* a long DMA (deadline models) */
+    if (m->bulk_tick_advance[idx & 15u]) tick_add(m, m->bulk_tick_advance[idx & 15u]);   /* the modelled inter-block cadence (GBP-VIDEO-002) */
     if (m->bulk_assert_at_read && m->bulk_reads == m->bulk_assert_at_read && !m->bulk_assert_after) bulk_assert(m);
     irq_step(m);
     rc = fault(m, info);
@@ -728,8 +738,9 @@ static gbp_status m_read_bulk(void *ctx, uint32_t addr, uint8_t *out, uint32_t l
         return rc;
     }
     if (!answers(m)) memset(out, m->absent_fill, len);
+    else if (idx == 0x1u && m->video_fill) m->video_fill(m, out, len, m->video_reads, m->video_fill_user);
     else for (k = 0; k < len; k++) out[k] = gbp_mock_bulk_byte(idx, m->bulk_seed, k);
-    if (answers(m) && idx == 0x1u && len >= 4u && (m->video_first4_model || m->video_flag_period || m->video_flag_only_at)) {
+    if (answers(m) && idx == 0x1u && !m->video_fill && len >= 4u && (m->video_first4_model || m->video_flag_period || m->video_flag_only_at)) {
         /* the first four bytes of a VIDEO block under the flag model: `7f 7f ff ff` (no flag) or the frame-start variants */
         unsigned n = m->video_reads;                                  /* 1-based number of this VIDEO read */
         int flag = (m->video_flag_period && ((n - 1u) + m->video_flag_phase) % m->video_flag_period == 0u) ||
@@ -778,9 +789,20 @@ static gbp_status m_write_intmr(void *ctx, uint32_t v)
 static uint32_t m_ticks(void *ctx)
 {
     struct gbp_mock *m = (struct gbp_mock *)ctx;
-    m->tick += 10;
+    tick_add(m, 10);
     irq_step(m);
     return m->tick;
+}
+
+/* The 64-bit view of the same clock. It advances by the same 10 ticks a `ticks` call costs, so a
+ * probe that mixes the two never sees them disagree, and `tick64_origin` lets a test start the
+ * run just below 0xFFFFFFFF to cross the low-word wrap inside the run. */
+static uint64_t m_ticks64(void *ctx)
+{
+    struct gbp_mock *m = (struct gbp_mock *)ctx;
+    tick_add(m, 10);
+    irq_step(m);
+    return m->tick64_origin + m->tick64;
 }
 
 void gbp_mock_transport(struct gbp_mock *m, struct gbp_transport *t)
@@ -818,6 +840,7 @@ void gbp_mock_transport(struct gbp_mock *m, struct gbp_transport *t)
         t->irq_record_reset = 0;
     }
     t->ticks = m_ticks;
+    t->ticks64 = m_ticks64;
     t->ctx = m;
 }
 

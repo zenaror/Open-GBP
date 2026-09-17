@@ -79,7 +79,7 @@ DSP_/SI_/SIO symbol (no libogc ARAM queue, no audio output, no GX, no
 network, no serial); main.o uses the ext constructor, the probe entry and
 the sidecar writer.
 
-Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b|004|avsvc|video] [--report FILE] [--json]
+Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b|004|avsvc|video|vstate] [--report FILE] [--json]
 Exit status 0 when there is no finding.
 """
 from __future__ import annotations
@@ -89,6 +89,12 @@ import json
 import os
 import re
 import sys
+
+# Symbols that mean "this object can reach the filesystem". No object of the capture path may
+# reference any of them: the save happens only after the teardown, from main, through sdlog.o.
+_FS_SYMBOLS = ("fopen", "fwrite", "fread", "fclose", "fprintf", "fputs", "fputc", "remove", "rename",
+               "mkdir", "opendir", "fatMountSimple", "fatUnmount", "fatInitDefault",
+               "sdlog_save", "sdlog_save_blob", "sdlog_stream_open", "sdlog_stream_write", "sdlog_stream_close")
 
 PROFILES = {
     "003a": {
@@ -240,6 +246,87 @@ PROFILES = {
         "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_irq_transport_multi", "hsp_backend_intmr_transport",
                                "gbp_initirqa_probe_run", "gbp_initirqb_probe_run", "gbp_initirq4_probe_run", "gbp_initirq_probe_run",
                                "gbp_avsvc_probe_run", "gbp_irq_service_ack"),
+    },
+    "vstate": {
+        # GBP-VIDEO-002. The interrupt path is byte-for-byte the one GBP-VIDEO-001 executed
+        # physically: one __UnmaskIrq call site, IRQ_Request only from the install/restore pair,
+        # __MaskIrq only from the mask primitive and the two 002/003B handler bodies, no INTMR
+        # store anywhere, and the same three INTSR store sites. Any change there is a BLOCKER.
+        "forbidden_objects": ("hsp_backend_irq_multi.o", "hsp_backend_intmr.o", "gbp_initirqb_probe.o",
+                              "gbp_initirq4_probe.o", "gbp_init_irq_probe.o", "gbp_init_probe.o",
+                              "gbp_avsvc_probe.o", "gbp_avdump.o", "gbp_avseq.o", "gbp_avseqdump.o",
+                              "gbp_video_probe.o"),
+        "required_objects": ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o",
+                             "gbp_avblock.o", "gbp_time64.o", "gbp_vsig.o", "gbp_vstate.o",
+                             "gbp_vstate_probe.o", "gbp_vstatedump.o", "gbp_crc32.o", "sdlog.o", "main.o"),
+        "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
+                              "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi",
+                              "gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run",
+                              "gbp_initirq4_probe_run", "gbp_avsvc_probe_run", "gbp_avdump_serialize",
+                              "gbp_video_probe_run", "gbp_avseqdump_serialize"),
+        "forbidden_symbol_prefixes": ("ARQ_", "AR_", "AUDIO_", "ASND", "AESND", "GX_", "net_", "DSP_", "SI_", "SIO"),
+        "investigate_symbols": (),
+        "symbol_callers": {"__UnmaskIrq": {"h_irq_unmask": 1},
+                           "IRQ_Request": {"h_irq_install": 1, "h_irq_restore": 1},
+                           "__MaskIrq": {"h_irq_mask": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+                           "gbp_avblock_read": {"gbp_vstate_probe_run": 2},
+                           "gbp_irq_service_deliver_quiet": {"gbp_vstate_probe_run": 2, "gbp_irq_service_deliver": 1},
+                           "gbp_irq_service_ack_write_postack": {"gbp_vstate_probe_run": 1, "gbp_irq_service_ack": 1},
+                           "gbp_irq_service_deliver": {},
+                           "gbp_irq_service_ack": {},
+                           # the signature and the state step run ONCE per cycle, in the probe, never
+                           # in a handler and never in the sidecar writer
+                           "gbp_vsig_block": {"gbp_vstate_probe_run": 1},
+                           "gbp_vstate_block": {"gbp_vstate_probe_run": 1},
+                           # the 64-bit time base comes from libogc2's gettime(), which is exactly the
+                           # TBU/TBL/TBU retry loop; one wrapper, one call site
+                           "gettime": {"h_ticks64": 1},
+                           # the sidecar is streamed from main, after the teardown, and the sink is
+                           # the only thing that writes to the card during the save
+                           "gbp_vstatedump_stream": {"main": 1},
+                           "sdlog_stream_write": {"sink_sd": 1}},
+        "elf_required": ("gbp_vstate_probe_run", "gbp_vstate_report", "gbp_vstate_block", "gbp_vsig_block",
+                         "gbp_vsig_flag_gbi", "gbp_vsig_flag_disc", "gbp_vsig_cost_add", "gbp_vsig_cost_quantile",
+                         "gbp_vstate_target_reached", "gbp_vstate_safety_stop", "gbp_vstate_tail_truncate",
+                         "gbp_vstatedump_stream", "gbp_vstatedump_layout", "gbp_avblock_read", "gbp_crc32",
+                         "gbp_initirqa_run_cause", "gbp_initirqa_teardown", "gbp_irq_service_deliver_quiet",
+                         "gbp_irq_service_ack_write_postack", "gbp_regwrite_irq_u16", "gbp_regwrite_control_byte",
+                         "hsp_backend_oneshot_isr_ext", "hsp_backend_irq_transport_ext",
+                         "sdlog_save", "sdlog_stream_open", "sdlog_stream_write", "sdlog_stream_close",
+                         "gettime", "__UnmaskIrq", "__MaskIrq", "IRQ_Request"),
+        "elf_forbidden": ("gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run",
+                          "gbp_initirq4_probe_run", "gbp_avsvc_probe_run", "gbp_avdump_serialize",
+                          "gbp_video_probe_run", "gbp_avseqdump_serialize", "hsp_backend_intmr_transport",
+                          "hsp_backend_oneshot_isr_multi", "hsp_backend_irq_transport_multi",
+                          "hsp_backend_irq_transport", "ARQ_Init", "AR_Init", "AUDIO_Init", "ASND_Init",
+                          "GX_Init", "net_init"),
+        # 3 in the stage (A1 / A2 / STOP), 1 in the shared service (the verify cycles' ACK), and 3 in
+        # the probe: the lean ACK plus the re-arm, which GCC duplicates across the verify branch
+        # (both copies write 0x0000, confirmed in the disassembly: `li r7,0` at each).
+        "irq_write_sites": {"gbp_initirqa_probe.o": 3, "gbp_irq_service.o": 1, "gbp_vstate_probe.o": 3},
+        "control_write_sites": {"gbp_initirqa_probe.o": 2},
+        "intsr_store_sites": {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+        # FILESYSTEM ISOLATION: no object in the capture path may reference the filesystem, directly
+        # or transitively. Only sdlog.o may, and main.o calls it only after the probe has returned
+        # from its teardown.
+        "object_must_not_reference": {
+            "gbp_vstate_probe.o": _FS_SYMBOLS,
+            "gbp_vstate.o": _FS_SYMBOLS,
+            "gbp_vsig.o": _FS_SYMBOLS,
+            "gbp_vstatedump.o": _FS_SYMBOLS,
+            "gbp_time64.o": _FS_SYMBOLS,
+            "gbp_avblock.o": _FS_SYMBOLS,
+            "gbp_irq_service.o": _FS_SYMBOLS,
+            "gbp_initirqa_probe.o": _FS_SYMBOLS,
+            "hsp_backend.o": _FS_SYMBOLS,
+            "hsp_backend_irq.o": _FS_SYMBOLS,
+        },
+        "main_must_call": ("hsp_backend_irq_transport_ext", "gbp_vstate_probe_run", "gbp_vstatedump_stream",
+                           "sdlog_stream_open", "sdlog_save"),
+        "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
+                               "hsp_backend_intmr_transport", "gbp_initirqa_probe_run", "gbp_initirqb_probe_run",
+                               "gbp_initirq4_probe_run", "gbp_initirq_probe_run", "gbp_avsvc_probe_run",
+                               "gbp_video_probe_run", "gbp_irq_service_ack"),
     },
 }
 # the GBP-INIT-003A names, kept for callers that import them
@@ -542,6 +629,11 @@ def audit_dir(path, profile="003a"):
             if s in syms:
                 findings.append("%s references %s — investigate (from %s)" % (obj, s, ", ".join(sorted(set(syms[s])))))
                 report["symbols"].setdefault(obj, []).append(s)
+        for s_bad in prof.get("object_must_not_reference", {}).get(obj, ()):
+            if s_bad in syms:
+                findings.append("%s references %s — the capture path must not reach the filesystem (from %s)"
+                                % (obj, s_bad, ", ".join(sorted(set(syms[s_bad])))))
+                report["symbols"].setdefault(obj, []).append(s_bad)
         for pref in prof.get("forbidden_symbol_prefixes", ()):
             for s in sorted(syms):
                 if s.startswith(pref):

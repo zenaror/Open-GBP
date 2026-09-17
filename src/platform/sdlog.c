@@ -84,3 +84,59 @@ int sdlog_save_blob(const char *test_id, const char *build_id, const char *suffi
     if (path_out && path_cap) { strncpy(path_out, path, path_cap - 1); path_out[path_cap - 1] = '\0'; }
     return 0;
 }
+
+/* ---- streaming writer (GBP-VIDEO-002) -------------------------------- */
+int sdlog_stream_open(struct sdlog_stream *s, const char *test_id, const char *build_id, const char *suffix,
+                      char *status, size_t status_cap)
+{
+    FILE *f;
+    if (!s) return -1;
+    memset(s, 0, sizeof *s);
+    if (!fatMountSimple("sd", &__io_gcsd2)) {
+        snprintf(status, status_cap, "SD mount failed (no SD2SP2 / no card / not FAT)");
+        s->failed = 1;
+        return -1;
+    }
+    s->mounted = 1;
+    mkdir("sd:/open-gbp", 0777);   /* ignore EEXIST */
+    snprintf(s->path, sizeof s->path, "sd:/open-gbp/%s_%s%s", test_id, build_id, suffix);
+    f = fopen(s->path, "wb");
+    if (!f) {
+        snprintf(status, status_cap, "open %s failed errno=%d", s->path, errno);
+        fatUnmount("sd");
+        s->mounted = 0;
+        s->failed = 1;
+        return -2;
+    }
+    s->fp = f;
+    snprintf(status, status_cap, "writing %s", s->path);
+    return 0;
+}
+
+int sdlog_stream_write(struct sdlog_stream *s, const uint8_t *data, uint32_t len)
+{
+    size_t n;
+    if (!s || s->failed || !s->fp) return -1;
+    if (!len) return 0;
+    n = fwrite(data, 1, len, (FILE *)s->fp);
+    s->written += (uint64_t)n;
+    if (n != (size_t)len) { s->failed = 1; return -1; }
+    return 0;
+}
+
+int sdlog_stream_close(struct sdlog_stream *s, char *status, size_t status_cap)
+{
+    int rc = 0;
+    if (!s) return -1;
+    if (s->fp) {
+        if (fclose((FILE *)s->fp) != 0) { s->failed = 1; rc = -3; }
+        s->fp = 0;
+    } else {
+        rc = -2;
+    }
+    if (s->mounted) { fatUnmount("sd"); s->mounted = 0; }
+    if (s->failed && rc == 0) rc = -4;
+    if (rc == 0) snprintf(status, status_cap, "saved %lu bytes to %s", (unsigned long)s->written, s->path);
+    else snprintf(status, status_cap, "PARTIAL %lu bytes to %s (rc=%d errno=%d)", (unsigned long)s->written, s->path, rc, errno);
+    return rc;
+}

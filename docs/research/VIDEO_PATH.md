@@ -434,3 +434,14 @@ about 2.3 frames, starting 107 ms after the CONTROL transform that starts the
 AGB**, while the Disc keeps its own detector armed for 120 s. Whether
 the screen appears later in a session without a Game Pak is the open question
 GBP-VIDEO-002 targets.
+
+**2026-09-16:** GBP-VIDEO-002 is implemented (`poc/gbp-video-state-probe/`,
+Build ID `vstate-0001`) and **not physically executed**. Nothing in this
+document is promoted by that: the geometry, the byte picking, the 40-block
+period and the colour naming all keep the status `docs/research/EVIDENCE.md`
+gives them today. The one thing the implementation contributes here is a
+re-derivation of the per-block checksum in the runtime, whose host tests
+reproduce §6's physically anchored values `0xFF0FFF0F` (all-white, no flag) and
+`0x7F0FFF10` (all-white with the flag) from bytes the tests construct — the same
+function `tools/avseq.py` computes, so a future physical capture and the offline
+oracle are directly comparable.
