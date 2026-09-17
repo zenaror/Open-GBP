@@ -4349,3 +4349,874 @@ unmask" detector), `tests/unit/test_gbp_avseq.c`,
 `tests/host/test_video_replay.py`. Still future: the executed entry here,
 EVIDENCE GBP-HW-06x, VIDEO_PATH.md §6–8 updates, `docs/protocol/VIDEO.md`
 once physical, REGISTERS.md §2.2 — all of them only after a physical run.
+
+---
+### GBP-VIDEO-002-R3 (build `vstate-0003`) — service the IRQ window under semantic disagreement without ending the run — DESIGNED 2026-09-17, HARDENED 2026-09-17, NOT IMPLEMENTED, NOT PHYSICALLY EXECUTED
+
+Two physical runs of GBP-VIDEO-002 ended on the same condition: one 32-byte read
+of the IRQ window whose eight replicas did not all carry the same value. The
+second preserved the bytes (GBP-HW-089…092) and the abort is now fully
+characterised. This revision exists to make that condition survivable **without
+losing evidence and without inventing semantics**, so that the 120 s scientific
+window and, after it, GBP-VIDEO-003 become reachable.
+
+Nothing below is implemented. Everything below is a design to be reviewed,
+audited and given its own physical candidate.
+
+#### R3.1 The masks, taken from the versioned contract — not invented here
+
+`docs/protocol/REGISTERS.md` §4 and the probe configuration already partition the
+16 bits, and the four masks are exhaustive and disjoint
+(`0x0555 | 0x0AAA | 0x7000 | 0x8000 = 0xFFFF`):
+
+```text
+SRC_MASK    0x0555   even bits 0,2,4,6,8,10 — the callback/source slots; the Disc's
+                     own dispatch mask is `pending & 0x0555`
+AV_MASK     0x0500   VIDEO 0x0100 + AUDIO 0x0400 — the two sources THIS experiment
+                     services, and the only two whose full lifecycle is physically
+                     established (observed pending, observed cleared by an ACK that
+                     writes them as 1, observed re-delivered when not written)
+ODD_MASK    0x0AAA   the "mask" bits paired with each source
+HIGH_MASK   0x7000   bits 12-14, never observed set, never written
+BIT15_MASK  0x8000   the entry/stop bit
+```
+
+Physical W1C evidence exists for `0x0004` (GBP-HW-028), `0x0100` and `0x0400`
+(every ACK of GBP-AV-SERVICE-001, GBP-VIDEO-001 and both GBP-VIDEO-002 runs).
+`0x0001`, `0x0010` and `0x0040` are source slots in the references' code and have
+**never been observed set on this hardware**.
+
+#### R3.2 The order of checks — the pending guard is independent of the delta
+
+This ordering is normative, and it is the part most easily got wrong. Classifying
+the disagreement does **not** replace any existing check; it is inserted between
+them.
+
+```text
+1. transport            rc != GBP_OK                       -> FATAL (unchanged)
+2. compose              authoritative per R3.3 (needs the non-source bits to agree)
+3. shape / non-source   delta touches ~SRC_MASK             -> FATAL  NON_SOURCE
+4. source class         delta touches SRC_MASK & ~AV_MASK   -> FATAL  SOURCE_OTHER
+5. PENDING GUARD        (authoritative & SRC_MASK & ~AV_MASK) != 0
+                                                            -> FATAL  anomaly_unexpected_source
+6. disagreement class   delta != 0 and (delta & ~AV_MASK) == 0
+                                                            -> NONFATAL SOURCE_SERVICED
+7. service              drain the sources in authoritative & AV_MASK
+```
+
+Step 5 fires **on the authoritative value, whatever the delta is — including
+`delta == 0`**. A read where both interpretations agree on `0x0104` is still fatal
+`anomaly_unexpected_source`, exactly as today, because `0x0004` has no drain in
+this probe. Nothing about the disagreement machinery weakens that guard, and the
+test plan pins the `Disc = 0x0104, GBI = 0x0104, delta = 0x0000` case explicitly
+(R3.22).
+
+Classification, for the record:
+
+```text
+SOURCE_SERVICED    delta != 0 and (delta & ~AV_MASK) == 0     -> NONFATAL
+SOURCE_OTHER       delta ⊆ SRC_MASK, (delta & ~AV_MASK) != 0  -> FATAL
+NON_SOURCE         (delta & ~SRC_MASK) != 0                   -> FATAL
+```
+
+`SOURCE_OTHER` stays fatal for the same reason step 5 exists: such a source ends
+the run under an independent rule anyway, and relaxing the disagreement rule there
+would open a path past a source with no drain.
+
+#### R3.3 Authority — and exactly how the u16 is composed
+
+The rule is **not** "use the majority value". It is:
+
+```text
+outside SRC_MASK   the two readings MUST AGREE. They are not voted, not merged and
+                   not chosen between: if they differ the class is NON_SOURCE and
+                   the run ends. The value used is the agreed value, so no
+                   semantics is invented for a field whose contract is open.
+inside SRC_MASK    authoritative_sources = gbi_value & SRC_MASK   (bitwise majority)
+
+authoritative = (agreed_value & ~SRC_MASK) | authoritative_sources
+```
+
+The Disc's last-replica value is **never overwritten and never discarded**: it is
+carried in every record as `disc_value`, with `delta`,
+`disc_extra_sources = disc & ~gbi & SRC_MASK` and
+`majority_extra_sources = gbi & ~disc & SRC_MASK`.
+
+**This is a design decision with a physical basis, not a FACT about what the
+hardware intends.** It is a deliberate divergence from the Start-up Disc's
+last-replica policy, recorded as such, and the basis is R3.5.
+
+The probe **already** derives its service value from the GBI reading at both read
+sites (`gbp_vstate_probe.c:937` and `:960`); today it simply refuses to proceed
+unless the Disc reading agrees. R3 removes that refusal for `SOURCE_SERVICED` and
+keeps everything else.
+
+#### R3.4 ACK
+
+Unchanged in form: `ack_value = authoritative | BIT15_MASK`. Only the source bits
+of `authoritative` can differ from today's value, and only in a `SOURCE_SERVICED`
+disagreement. The re-arm stays `IRQ := 0x0000`. No second read, no retry, no
+re-read of any kind (R3.14).
+
+#### R3.5 The two directions are not symmetric
+
+**Disc extra — the observed case.** `gbi = 0x0100`, `disc = 0x0500`,
+`disc_extra_sources = 0x0400`. The runtime services VIDEO, acknowledges `0x8100`
+and re-arms. The AUDIO bit is never written as 1, so by GBP-HW-028 it is not
+cleared; if it was genuinely asserted it stays pending, and GBP-HW-096 recorded
+what followed a comparable re-arm: the next cause **74 ticks (1.83 µs)** later,
+against AUDIO-source gaps of **9 885 to 11 303 ticks (244.1 to 279.1 µs)**
+previously observed in that same run — **134× to 153× shorter, about 2.1 orders of
+magnitude, far shorter than any previously observed AUDIO-source gap in that
+run**. That is a description of what was measured. It is **not** a lower bound on
+how soon a genuinely new source may arrive: no such bound has been established,
+and none is claimed anywhere in this design.
+
+**Majority extra — never observed.** `gbi = 0x0500`, `disc = 0x0100`,
+`majority_extra_sources = 0x0400`. Here the majority would be the stale side if
+five or more replicas carry a source the device has already cleared. Two distinct
+consequences, and both are treated as open:
+
+* the runtime drains a block the device may not have republished — handled by
+  R3.11 (SUSPECT marking) and R3.12 (VIDEO quarantine);
+* the ACK writes 1 to a source bit whose last replica reads 0. **GBP-HW-028 does
+  not cover this**: it established only that writing 1 to a bit that *reads 1*
+  clears it. The 1-on-0 case has never been exercised on this hardware, and this
+  design does not assume it is a no-op. It is carried as an open item (R3.23) and
+  the record preserves everything needed to describe the first occurrence: the
+  `majority_extra` bit, the ACK value, the drained block's identity, the next
+  cause and the next cycle's ordinary reading. **No extra read is performed to
+  investigate it.**
+
+**Both directions at once** is possible — `gbi = 0x0100`, `disc = 0x0400` gives
+`delta = 0x0500` with one extra on each side — and the record carries the two
+directions separately rather than a single signed difference.
+
+#### R3.6 The follow-up episode — fields
+
+Every nonfatal disagreement produces one bounded record, filled **only** from
+values the normal path already produces. No extra hardware read exists to complete
+a diagnostic, and a field that was not measured is written as a documented
+sentinel rather than as a plausible number.
+
+```text
+from the disagreement cycle   cycle, t, raw32 verbatim, disc_value, gbi_value,
+                              delta, disc_extra_sources, majority_extra_sources,
+                              classification, authoritative, ack_value,
+                              service_selected, read_kind, intsr/intmr/latency/
+                              xfer/dma context (as in v3), frame_index,
+                              block_in_frame, t_ack, t_rearm
+from the NEXT cycle           t_next_cause, rearm_to_next_ticks,
+                              next_pending_gbi, next_pending_disc, next_delta,
+                              followup_state
+gap statistics (this run)     min_gap_ticks / max_gap_ticks / count, per source,
+                              as measured BEFORE this event — carried as data,
+                              never as a threshold
+```
+
+`next_pending_disc` costs nothing: the next cycle's own read computes both
+readings anyway.
+
+#### R3.7 Follow-up states — factual only
+
+The runtime records **what was observed**, never an inference about identity:
+
+```text
+FU_PENDING                 the record exists; the next cycle has not happened yet
+FU_SOURCE_PRESENT_NEXT     the omitted source is present in the next cause
+FU_SOURCE_ABSENT_NEXT      the omitted source is not in the next cause
+FU_NO_NEXT_CAUSE           the run ended before a next cause
+FU_UNKNOWN                 the follow-up could not be determined (documented reason)
+```
+
+There is **no runtime classification derived from a divisor of the observed gap**,
+no `min_observed_gap / 8`, and no label asserting that a source "could not be
+fresh". An earlier draft of this design had one; it was wrong, because it turned
+the smallest gap a run happened to observe into a physical lower bound.
+
+What is persisted so the offline tool can reason: `rearm_to_next_ticks`, the
+presence or absence of each source in the next cause, and this run's own gap
+statistics per source up to that moment. The quantitative comparison — "this
+latency is N× shorter than the shortest gap seen so far" — is computed **offline**
+by `tools/vstate.py`, presented as a ratio, and never stored as a verdict.
+
+#### R3.8 Follow-up lifecycle, including consecutive disagreements
+
+Each record has an explicit lifecycle, and the ordering when disagreements occur
+back to back is normative:
+
+```text
+OPEN            created at the disagreement, follow-up fields = sentinel
+WAIT_NEXT       the cycle closed (ACK, re-arm) and t_rearm is recorded
+FILLED          the NEXT cycle's read supplied the follow-up fields
+CLOSED_NO_NEXT  the run ended first -> FU_NO_NEXT_CAUSE
+```
+
+At most one record is in `WAIT_NEXT` at any time. When cycle *n+1* also disagrees,
+the order is mandatory and not negotiable:
+
+```text
+1. use cycle n+1's normal read to FILL the follow-up of record N;
+2. only then create record N+1 from that same read;
+3. record N+1 enters WAIT_NEXT and waits for cycle n+2.
+```
+
+One read therefore serves two roles — it closes the previous record and opens the
+next — and never fills the wrong one. Three consecutive disagreements
+(N, N+1, N+2) are a required test case (R3.22).
+
+#### R3.9 Store full and a pending follow-up
+
+When `MAX_DISAGREEMENTS` has been reached, no new full record is created and the
+counters continue. **Store-full must not prevent a record that already exists from
+being completed.** The record in `WAIT_NEXT` is finalised from the next cycle's
+read exactly as it would have been, and only the creation of a *new* record is
+suppressed. The case "store full, last preserved record still waiting" is a
+required test (R3.22).
+
+#### R3.10 Read sites, and what a follow-up may support
+
+```text
+LEAN READ   selects service      -> majority-authoritative; SOURCE_SERVICED nonfatal;
+                                    a full follow-up chain is meaningful here
+PRESVC      selects service in a verify cycle -> same rule (it already uses the GBI value)
+POSTDRAIN   observational        -> recorded and counted; never re-selects service
+POSTACK     observational        -> same; its "source cleared" check compares against
+                                    the authoritative value that was acknowledged,
+                                    with the Disc value recorded beside it
+```
+
+A disagreement at an **observational** site is preserved and counted, but its
+record carries `read_kind` and its follow-up state is `FU_UNKNOWN` with the reason
+`observational_site`: the chain *omitted source → service decision → ACK → re-arm
+→ next cause* did not happen there, and the record must not be readable as though
+it had. Only disagreements from the read that actually selected service can carry
+that narrative.
+
+#### R3.11 Majority-extra service is SUSPECT
+
+When `majority_extra_sources != 0`, the drains performed **only because of that
+difference** are marked at the point of service:
+
+```text
+block flag   GBP_VSTATE_B_MAJORITY_EXTRA   on the AUDIO and/or VIDEO block drained
+                                           for a source the Disc reading did not have
+```
+
+The service still happens — the policy is majority-authoritative and the design
+does not want a second policy branch on the critical path — but the resulting data
+**may not silently become scientific evidence**. For AUDIO, the bounded diagnostic
+of R3.6 plus the block's CRC-32 and first word are kept, and nothing else changes,
+because AUDIO payloads are not part of this experiment's scientific claim. For
+VIDEO, R3.12 applies.
+
+#### R3.12 VIDEO quarantine
+
+A VIDEO block drained because the majority carried `0x0100` and the Disc reading
+did not is quarantined, and so is the frame that contains it. This reuses the
+frame-flag machinery that already exists rather than inventing a parallel one:
+
+```text
+new block flag   GBP_VSTATE_B_MAJORITY_EXTRA
+new frame flag   GBP_VSTATE_F_MAJORITY_EXTRA  (set on the frame containing such a block)
+consequence      the frame is ALSO treated as class (a) — GBP_VSTATE_F_ANOMALY:
+                   * it never sets GBP_VSTATE_F_COUNTED, so its duration does not
+                     enter valid_observation_elapsed;
+                   * it is rejected as a baseline candidate and can never set
+                     GBP_VSTATE_F_BASELINE;
+                   * it cannot open, close or validate a structured-change episode;
+                   * GBP-VIDEO-003 must exclude it from colour evidence.
+preserved        its 40 signatures and, within the existing raw budget, its raw
+                 blocks: the quarantine removes it from the scientific path, not
+                 from the record
+resync           nothing special. The frame is closed by the next boundary like any
+                 other, the assembler state is untouched, no block is fabricated,
+                 and the next frame starts clean. If the quarantined frame was the
+                 reference the baseline search was building on, the search simply
+                 continues from the next eligible frame, exactly as it does after
+                 any class (a) anomaly.
+storage          no new raw storage: the quarantined frame competes for the same
+                 bounded episode/raw budget as any other frame
+```
+
+#### R3.13 Disc-extra VIDEO — the deferred drain
+
+The mirror case: the Disc reading has `0x0100` and the majority does not. The
+runtime does **not** drain VIDEO in that cycle. If the source was real it is not in
+the ACK, so it stays pending and is serviced when it is next delivered.
+
+The frame assembler is not told anything special and **no block is fabricated**.
+The interval simply contains one fewer VIDEO block at that point, and the existing
+rules decide what that means: a short interval becomes `incomplete`, and the
+boundary logic may declare `resync` — the same outcomes the assembler already
+produces for any interval that does not contain 40 blocks. What R3 adds is a
+correlation marker so the offline analysis can tie the two together:
+
+```text
+new frame flag   GBP_VSTATE_F_SOURCE_DEFERRED   a disagreement inside this frame
+                                                deferred a VIDEO drain
+```
+
+The flag is descriptive. It does not change completeness, does not invalidate the
+frame by itself, and does not claim the deferred block was later recovered.
+
+#### R3.14 What does not change
+
+No retry. No second read. No re-read. No extra device access of any kind for
+diagnostic purposes. The device operation stream of a run without disagreements
+must remain **identical** to vstate-0002's, and the stream of a run with them must
+differ only by the service selection the majority dictates and its ACK value. The
+ISR and the whole interrupt path stay byte-identical to the GBP-VIDEO-001 build.
+
+#### R3.15 Bounded store and memory budget
+
+Every item of new RAM this design knows about, and nothing hidden in a rounding:
+
+```text
+what                                      bytes    basis
+----------------------------------------- -------- ------------------------------------
+diagnostic array  256 x 160                40 960  R3.24, exact
+delta / disc_extra / majority_extra hists   3 x 256    768  R3.27, exact
+aggregate counters  21 x u32                    84  R3.27, exact
+gap statistics in RAM  6 slots                 192  24 B on the wire + a u64 last_cause_t
+                                                    per source, rounded to 32 B per slot
+follow-up bookkeeping                           16  wait_index, wait_active, capped flag,
+                                                    diag_count
+----------------------------------------- --------
+known subtotal                              42 020
+estimated bookkeeping overhead                <256  alignment, any small field the
+                                                    implementation needs that this design
+                                                    did not name
+----------------------------------------- --------
+estimated_R3_increment                    ~42 020 to 42 276 B  (~41 KiB)
+```
+
+Per-frame and per-block markers (`F_MAJORITY_EXTRA`, `F_SOURCE_DEFERRED`,
+`B_MAJORITY_EXTRA`) are **new bits in existing flag words** and cost no bytes.
+
+The quantities, named precisely, because an earlier draft conflated two of them
+and called a subtotal a total:
+
+```text
+resident_store_bytes        6 922 240 B  the probe's own stores (frames, events, raw ring,
+                                         episode raw, audio raw, cycle buffers) as reported
+                                         by gbp_vstate_static_bytes() and logged as
+                                         `static_bytes` — NOT the program's static memory
+measured_total_bss          7 472 388 B  the `.bss` of the CLEAN vstate-0002 ELF; `.sbss`
+                                         is a further 1 804 B, and the DOL header's BSS
+                                         region, covering both plus alignment, is
+                                         0x720C10 = 7 474 192 B
+estimated_R3_increment        ~42 020 B  the table above, including an explicitly
+                                         estimated bookkeeping allowance
+estimated_total_bss         ~7 514 408 B ≈ 7.166 MiB, BEFORE the linker's alignment
+                                         padding. AN ESTIMATE, not a measurement
+measured_total_bss_after_implementation   to be taken from the linker map; the
+                                         implementation must report the real number and
+                                         this design must not be read as predicting it
+MEM1_headroom               unchanged in kind: see the GBP-VIDEO-002 memory note above.
+                                         R3 moves the resident stores by ~0.61 % and
+                                         `.bss` by ~0.56 %; neither is near any limit
+```
+
+`N = 256` is chosen from footprint, not from a predicted rate — two events in two
+runs support no rate at all. For scale only: at the **denser** of the two observed
+occurrences (1 in 518 deliveries) 256 records would cover the first ~132 600
+deliveries, about 21 s of a 120 s run, after which the counters continue alone; at
+the sparser (1 in 51 751) a full 120 s run would produce about 14. Nothing is
+stored per normal delivery.
+
+#### R3.16 Stop conditions
+
+A `SOURCE_SERVICED` disagreement **does not stop the run**. The stop precedence is
+otherwise untouched: fatal > safety_budget > frame/event_store_cap > scientific
+target > no_next_cause > delivery_cap. `diagnostic_store_full` behaves exactly like
+`episode_store_full`: it is a flag and a counter, never a stop.
+
+#### R3.17 Status matrix
+
+`SEMANTIC_COHERENCE` becomes an independent dimension, so that a run that saw
+disagreements and serviced them correctly is not reported as a service failure:
+
+```text
+SERVICE              ok | failed(reason)
+FRAME_CAPTURE        ok | partial | invalid
+SEMANTIC_COHERENCE   uniform | source_disagreements_observed(N) | failed(class,reason)
+STRUCTURED_CHANGE    observed | not_observed
+RESTORE              ok | failed
+SAVE                 ok | partial | failed
+```
+
+`SERVICE=ok SEMANTIC_COHERENCE=source_disagreements_observed semantic_disagreements=N`
+is a **successful** run. A `NON_SOURCE` or `SOURCE_OTHER` disagreement gives
+`SERVICE=failed reason=READ_non_source_semantic_disagree_cycle_N` (or
+`READ_source_other_…`) with `SEMANTIC_COHERENCE=failed`.
+
+#### R3.18 Counters
+
+```text
+semantic_disagreements_total      source_serviced_disagreements
+source_other_disagreements        non_source_disagreements
+disc_extra_source_events          majority_extra_source_events
+both_direction_events             majority_extra_video_services
+majority_extra_audio_services     frames_quarantined
+frames_source_deferred            diagnostics_preserved
+diagnostics_not_preserved         diagnostic_store_full (flag)
+followup_present / absent / no_next / unknown
+delta_hist[64] / disc_extra_hist[64] / majority_extra_hist[64]
+per-source gap statistics: min / max / count / last
+```
+
+All fixed-size; none grows with deliveries.
+
+#### R3.19 OGBPSEQ1 v4
+
+The single-record v3 section cannot carry an array, so the sidecar becomes
+**version 4**. v1 (GBP-VIDEO-001), v2 (vstate-0001) and v3 (vstate-0002) are
+historical and frozen; each is dispatched by its own strict rules and none can be
+read as another. **No v3 field changes meaning in v4** — v4 only adds:
+
+```text
+0x1E0 u32 off_diag        same meaning as v3 (now the start of the record ARRAY)
+0x1E4 u32 diag_count      same meaning (0..MAX_DISAGREEMENTS)
+0x1E8 u16 diag_rec_size   same meaning (160 in v4, 96 in v3)
+0x1EA u16 diag_flags      NEW: bit 0 = store capped
+0x1EC u32 off_semantic    NEW: the fixed semantic-coherence block
+0x1F0 u32 semantic_size   NEW: 1024
+0x1F4..0x1FB reserved, must be zero
+0x1FC u32 header CRC
+```
+
+Section order, contiguous and checked as today:
+
+```text
+header / frames / events / episodes / cycles / SEMANTIC BLOCK (1024)
+      / diagnostics (diag_count x 160) / video raw / audio raw / footer
+```
+
+The 1 024-byte semantic block holds the counters and the three 64-entry histograms
+(768 B of histogram plus counters, zero-padded). **The complete, normative byte
+layouts of the v4 record and of that block are R3.24 to R3.29 below**; they are
+part of this design, not of the implementation. To be revalidated at
+implementation: header offsets, strict version dispatch for 1/2/3/4, checked
+arithmetic, full CRC coverage of both new sections, `diag_count == 0`,
+`diag_count == MAX`, the store-capped flag, and reserved-area zeroing.
+
+`diag_flags`: **bit 0 = store_capped** (sticky, set the first time a disagreement
+is not preserved because the array was full). Every other bit MUST be zero in this
+version, and the parser **rejects a file carrying an unknown flag bit** rather than
+ignoring it — a future meaning must arrive with a version, not silently.
+
+**Sizing, named precisely** (an earlier draft mislabelled this). The complete v4
+sidecar is:
+
+```text
+size = 0x200                                   header
+     + frame_count    x 192                    frame table
+     + event_count    x  64                    event table
+     + episode_count  x 512                    episode descriptors
+     + cycle_count    x 128                    sampled cycles
+     + 1024                                    semantic block          <- v4
+     + diag_count     x 160                    diagnostic records      <- v4
+     + Σ(preserved frames) blocks x 0xF00      raw VIDEO
+     + audio_raw_count x 0x1000                raw AUDIO
+     + 12                                      footer
+```
+
+and therefore:
+
+```text
+maximum v4 semantic/diagnostic EXTENSION payload = 1 024 + 256 x 160 = 41 984 B
+```
+
+That is the **extension only**, not a maximum sidecar size: the file's total is
+dominated by the preserved raw and the frame table, and a full-length run is
+expected in the megabytes (the GBP-VIDEO-002 design note estimates ~6.3 MB for a
+120 s run). No maximum total is invented here, because it depends on stores this
+design does not change.
+
+#### R3.20 The physical objective of vstate-0003
+
+One question, and it is not the mechanism:
+
+> **Does a majority-authoritative service policy survive real semantic
+> disagreements without losing an observable source?**
+
+Success looks like: the run reaches its scientific target or its safety cap rather
+than a disagreement; every disagreement is classified and the first 256 are
+preserved with their bytes; for each `disc_extra` event the follow-up records
+whether the omitted source was present in the next cause and how long after the
+re-arm; RESTORE ok. A run with **zero** disagreements is an inconclusive result for
+this question, not a success — the policy would be untested — and must be reported
+as such.
+
+#### R3.21 Release gate for GBP-VIDEO-003
+
+Objective and checkable, with no dependence on any runtime causal label, and
+deliberately **not** requiring U-GBP-033 to be answered:
+
+```text
+1. one physical vstate-0003 run that observes >= 1 SOURCE_SERVICED disagreement
+   and does not stop for it;
+2. no observable source loss: for every disc_extra event the follow-up is
+   FU_SOURCE_PRESENT_NEXT, or the FU_SOURCE_ABSENT_NEXT / FU_NO_NEXT_CAUSE cases
+   are individually accounted for in the analysis;
+3. zero NON_SOURCE and zero SOURCE_OTHER disagreements, or a documented decision
+   about any that occurred;
+4. if any majority-extra VIDEO service occurred: the quarantine behaved as
+   specified (frame not counted, not a baseline, not structural) and the case is
+   analysed explicitly BEFORE the colour experiment is authorised;
+5. RESTORE ok and the same final device state as every previous run;
+6. diagnostics preserved and the sidecar parsing strictly;
+7. an observation window long enough to be relevant — the scientific target, or a
+   stop the design already recognises as legitimate.
+```
+
+Colour needs a long uninterrupted observation of this service loop; it does not
+need to know why the replicas differ.
+
+#### R3.22 Test plan (host, synthetic, before any hardware)
+
+```text
+no disagreement                 the whole operation stream identical to vstate-0002's
+Disc extra 0x0400               service VIDEO, ACK 0x8100, nonfatal, record + follow-up
+Disc extra 0x0100               service AUDIO, ACK 0x8400, nonfatal; NO VIDEO block is
+                                fabricated; the assembler reports the short interval
+                                through its existing incomplete/resync rules and the
+                                frame carries F_SOURCE_DEFERRED
+majority extra 0x0400           service AUDIO+VIDEO, ACK 0x8500, nonfatal; the AUDIO
+                                block is flagged B_MAJORITY_EXTRA and its CRC/first
+                                word are kept
+majority extra 0x0100           service occurs; the VIDEO block is flagged; the frame
+                                gets F_MAJORITY_EXTRA + F_ANOMALY, never F_COUNTED,
+                                never F_BASELINE, cannot validate structured change
+both directions in one read     disc_extra and majority_extra both non-zero
+multiple source bits            delta = 0x0500 handled as ONE event, not two
+agreed unexpected source        Disc = 0x0104, GBI = 0x0104, delta = 0x0000
+                                -> FATAL anomaly_unexpected_source (the guard is
+                                independent of the delta)
+disagreement only 0x0004        SOURCE_OTHER -> FATAL, reason names the class
+delta outside SRC_MASK          NON_SOURCE -> FATAL (odd bit, bit 15, high bit, each)
+mask-bit / bit15 / 0x1000       FATAL, one case each
+three consecutive disagreements record N is FILLED from cycle N+1's read BEFORE
+                                record N+1 is created; N+1 from N+2; no record ever
+                                receives another's follow-up
+store full + pending follow-up  with the store capped, the record still in WAIT_NEXT
+                                is finalised; only NEW records are suppressed
+N+1 disagreements               first N preserved byte-for-byte, counters keep
+                                counting, diagnostic_store_full set, run continues
+observational POSTACK disagree  recorded and counted; read_kind says so; follow-up is
+                                FU_UNKNOWN/observational_site; no service narrative
+no runtime gap-ratio label      no state is derived from a divisor of any observed
+                                gap; the gap statistics are persisted as data and the
+                                ratio is computed offline
+no retry / no extra read        proven from the operation stream, as in vstate-0002
+service selection by majority   the ONLY difference in the stream vs. the Disc policy
+OGBPSEQ1 v3 frozen              the physical v3 file still parses, byte for byte
+old physical fixtures           v1, v2, v3 and every replay unchanged
+```
+
+v4 strictness, as its own block of cases (R3.24, R3.27, R3.19):
+
+```text
+version dispatch        1, 2, 3 read by their own rules; 4 by v4's; 0, 5, 0xFFFF rejected
+diag_count              0 accepted (no disagreement), 1 accepted, 256 accepted,
+                        257 rejected
+diag_rec_size           160 accepted; 96, 159, 161 and 0 rejected in a v4 file
+semantic_size           1024 accepted; anything else rejected, including 0
+semantic block tag      0x4F475342 required; block_version 1 required
+record fields           classification in {1,2,3}; followup_state in {0..4} and never 0
+                        in a saved file; followup_reason in {0..4};
+                        payload_source in {0, 0x0100, 0x0400}
+reserved areas          header 0x1F4..0x1FB, record 0x5C and 0x9E, semantic block
+                        0x05C..0x06F and the per-slot reserved words: each rejected
+                        when non-zero, one case per area
+unknown flag bits       diag_flags bit 1..15 set -> rejected;
+                        record_flags bit 8..15 set -> rejected;
+                        semantic flags bit 1..15 set -> rejected
+sentinel coherence      gap_count == 0 with gap_min != 0xFFFFFFFF -> rejected
+                        followup_filled set with followup_state in {0,3,4} -> rejected
+                        payload_valid set with payload_source == 0 -> rejected
+offsets tampered        off_diag, off_semantic, diag_count, diag_rec_size and
+                        semantic_size each moved with BOTH CRCs recomputed -> each
+                        rejected by a structural rule, not by the CRC
+section bounds          exact contiguity, zero overlap, footer ending exactly at the
+                        file size, every section inside the total CRC
+```
+
+#### R3.23 Open items this design does not close
+
+* **U-GBP-033** — the mechanism behind the replica non-uniformity. Untouched.
+* **W1C 1-on-0** — the effect of an ACK writing 1 to a source bit whose last
+  replica reads 0. GBP-HW-028 covers only 1-on-1. R3 will produce the first
+  physical description of this case if it occurs, and assumes nothing about it.
+* **Identity of a re-observed source** — that a source omitted by the majority
+  appears in the next cause proves it was observed after the re-arm, and nothing
+  more. Whether it is the same assertion is an offline question, to be classified
+  CORROBORATED or HYPOTHESIS on the aggregate, never asserted by the runtime.
+* **Majority-extra in general** — never observed. Its handling here is designed to
+  describe the first occurrence safely, not to declare it benign.
+
+This design does not explain the non-uniformity, does not assert that the majority
+reading is what the hardware "means", and does not touch the runtime:
+implementation, audit and a physical candidate are separate steps.
+
+#### R3.24 Normative layout of the v4 diagnostic record — 160 bytes
+
+Big-endian on the wire, written **field by field**; no native struct is ever
+serialized, and no compiler padding reaches the file. Offsets `0x00..0x5F` are the
+v3 record **verbatim** — same offsets, same types, same meanings — so the first 96
+bytes of a v4 record and of a v3 record describe the same things. That is
+structural continuity, not compatibility: see R3.25.
+
+```text
+off   size type  field                    meaning / validity
+----- ---- ----- ------------------------ -------------------------------------------------
+0x00    8  u64   t                        v3: time base at the read
+0x08    4  u32   cycle                    v3: delivery ordinal
+0x0C    4  u32   valid                    v3: 1 when the record is occupied
+0x10    2  u16   disc_value               v3: the Start-up Disc reading
+0x12    2  u16   gbi_value                v3: GBI's bitwise majority
+0x14    2  u16   read_kind                v3: 0 LEAN, 1 PRESVC, 2 POSTDRAIN, 3 POSTACK, 4 OTHER
+0x16    2  u16   attempts                 v3: disagreements seen, saturating at 0xFFFF
+0x18   32  u8[]  raw                      v3: the 32 bytes verbatim
+0x38    4  u32   intsr_entry              v3
+0x3C    4  u32   intsr_after_w1c          v3
+0x40    4  u32   intmr_entry              v3
+0x44    4  u32   latency_ticks            v3
+0x48    4  u32   xfer_ticks               v3
+0x4C    2  u16   xfer_polls               v3
+0x4E    2  u16   dma_status               v3
+0x50    2  u16   dma_status_before        v3
+0x52    2  u16   control_exp              v3
+0x54    4  u32   frame_index              v3
+0x58    4  u32   block_in_frame           v3
+0x5C    4  u32   reserved0                v3: MUST be zero
+----- ---- ----- ------------------------ -------------------------------------------------
+0x60    2  u16   delta                    disc_value ^ gbi_value; always valid
+0x62    2  u16   disc_extra_sources       disc & ~gbi & SRC_MASK; always valid
+0x64    2  u16   majority_extra_sources   gbi & ~disc & SRC_MASK; always valid
+0x66    2  u16   classification           1 SOURCE_SERVICED, 2 SOURCE_OTHER, 3 NON_SOURCE
+                                          (0 is not a valid value)
+0x68    2  u16   authoritative_value      the composed u16 of R3.3; always valid
+0x6A    2  u16   ack_value                authoritative | 0x8000, or 0 when no ACK was
+                                          written (fatal classes); validity = flag bit 6
+0x6C    2  u16   service_selected         the source bits actually drained this cycle;
+                                          0 is meaningful (nothing drained)
+0x6E    2  u16   record_flags             see below
+0x70    8  u64   t_ack                    valid iff flag bit 6 (ack_written)
+0x78    8  u64   t_rearm                  valid iff flag bit 7 (rearm_written)
+0x80    8  u64   t_next_cause             valid iff followup_state == FU_SOURCE_PRESENT_NEXT
+                                          or FU_SOURCE_ABSENT_NEXT
+0x88    2  u16   next_pending_gbi         valid under the same condition as t_next_cause
+0x8A    2  u16   next_pending_disc        valid under the same condition
+0x8C    1  u8    followup_state           0 FU_PENDING, 1 FU_SOURCE_PRESENT_NEXT,
+                                          2 FU_SOURCE_ABSENT_NEXT, 3 FU_NO_NEXT_CAUSE,
+                                          4 FU_UNKNOWN
+0x8D    1  u8    followup_reason          0 none, 1 observational_site, 2 run_aborted,
+                                          3 not_applicable (no source was omitted),
+                                          4 internal_condition
+0x8E    2  u16   payload_source           the single source bit the payload diagnostic
+                                          describes (0x0100 or 0x0400); 0 = none
+0x90    4  u32   payload_crc32            valid iff flag bit 1
+0x94    4  u32   payload_first_word       valid iff flag bit 1
+0x98    4  u32   gap_min_before_ticks     the smallest gap between causes of the OMITTED
+                                          source observed in this run BEFORE this event;
+                                          sentinel 0xFFFFFFFF when gap_count_before == 0
+0x9C    2  u16   gap_count_before         how many gaps that statistic is built on;
+                                          0 means "no statistic", never "a gap of zero"
+0x9E    2  u16   reserved1                MUST be zero
+----- ---- ----- ------------------------ -------------------------------------------------
+                                          total 0xA0 = 160
+```
+
+`record_flags` bits, all others reserved and MUST be zero:
+
+```text
+bit 0  followup_filled          the 0x80..0x8B fields were written from a real next cycle
+bit 1  payload_valid            payload_source / crc32 / first_word are measurements
+bit 2  payload_second_omitted   both AV sources were majority-extra; only one is described
+bit 3  frame_quarantined        a VIDEO block of this event was quarantined (R3.12)
+bit 4  source_deferred_marked   a frame carried F_SOURCE_DEFERRED for this event (R3.13)
+bit 5  service_incomplete       a selected drain did not complete
+bit 6  ack_written              ack_value and t_ack are measurements
+bit 7  rearm_written            t_rearm is a measurement
+```
+
+**Deliberately not stored, because they are exact functions of stored fields** —
+storing them would create a second source of truth that can go inconsistent:
+`next_delta = next_pending_gbi ^ next_pending_disc`, and
+`rearm_to_next_ticks = t_next_cause - t_rearm` (valid when both are).
+
+**Sentinel discipline.** No field uses `0` both as a measurement and as "absent".
+Every field whose validity is conditional is governed by an explicit flag or by
+`followup_state`, never by its own value; `gap_min_before_ticks` uses an explicit
+out-of-range sentinel; `service_selected == 0` is a real measurement (nothing was
+drained) and is always valid.
+
+**Assertions the implementation is expected to carry** (compile-time where the
+language allows, test-time otherwise):
+
+```text
+sizeof(record)            == 160
+offsetof(delta)           == 0x60      offsetof(reserved1) == 0x9E
+the first 96 bytes        byte-identical in layout to the v3 record
+reserved0, reserved1      zero on write and rejected non-zero on parse
+classification            in {1,2,3}   followup_state in {0..4}
+followup_reason           in {0..4}    record_flags & ~0x00FF == 0
+payload_source            in {0, 0x0100, 0x0400}
+gap_count_before == 0     implies gap_min_before_ticks == 0xFFFFFFFF
+```
+
+#### R3.25 What "the first 96 bytes are v3" does and does not mean
+
+It means the format evolved consciously: a reader that knows the v3 record knows
+16 of the 20 fields of a v4 record, at the same offsets, with the same meanings.
+
+It does **not** mean a v3 parser may read a v4 file, and the design forbids trying:
+version dispatch happens before any field is read, `diag_rec_size` differs (96
+against 160), and `diag_count` has different bounds. There is **no retroactive
+semantics**:
+
+```text
+v3   diag_count <= 1      diag_rec_size == 96    single fatal diagnostic
+v4   diag_count <= 256    diag_rec_size == 160   nonfatal, multiple, with follow-up
+```
+
+#### R3.26 Follow-up lifecycle, in the format
+
+The state machine of R3.8 is represented by `followup_state` plus `record_flags`
+bit 0, with no free text anywhere in the sidecar:
+
+```text
+runtime state    on the wire                              when it is written
+---------------- ---------------------------------------- ----------------------------
+OPEN             followup_state = FU_PENDING (0)          at the disagreement
+                 bit 0 clear, 0x80..0x8B zero
+WAIT_NEXT        unchanged on the wire; bit 7 set once     after the re-arm
+                 t_rearm is measured
+FILLED           followup_state = 1 or 2, bit 0 set,       from the NEXT cycle's read
+                 0x80..0x8B are measurements
+CLOSED_NO_NEXT   followup_state = FU_NO_NEXT_CAUSE (3)     at teardown, if still WAIT_NEXT
+                 bit 0 clear, 0x80..0x8B zero
+not applicable   followup_state = FU_UNKNOWN (4) with      at the disagreement, for an
+                 followup_reason = 1 (observational_site)  observational read site,
+                 or 3 (not_applicable) when the majority   or when disc_extra == 0
+                 omitted nothing
+```
+
+A record that reaches the file with `followup_state == FU_PENDING` is a defect and
+the strict parser rejects it: the teardown must resolve every record to 1, 2, 3
+or 4.
+
+#### R3.27 Normative layout of the semantic block — 1024 bytes
+
+Fixed size, always present in a v4 file, always exactly 1024 bytes, entirely
+inside the total CRC. Big-endian, field by field.
+
+```text
+off     size  field
+------- ----- --------------------------------------------------------------
+0x000     4   tag = 0x4F475342 ("OGSB")
+0x004     2   block_version = 1
+0x006     2   flags: bit 0 store_capped (sticky); all other bits MUST be zero
+0x008     4   semantic_disagreements_total
+0x00C     4   source_serviced_disagreements
+0x010     4   source_other_disagreements
+0x014     4   non_source_disagreements
+0x018     4   disc_extra_source_events
+0x01C     4   majority_extra_source_events
+0x020     4   both_direction_events
+0x024     4   majority_extra_video_services
+0x028     4   majority_extra_audio_services
+0x02C     4   frames_quarantined
+0x030     4   frames_source_deferred
+0x034     4   diagnostics_preserved
+0x038     4   diagnostics_not_preserved
+0x03C     4   followup_present
+0x040     4   followup_absent
+0x044     4   followup_no_next
+0x048     4   followup_unknown
+0x04C     4   observational_disagreements
+0x050     4   service_selecting_disagreements
+0x054     4   payload_diagnostics_captured
+0x058     4   service_incomplete_events
+0x05C    20   reserved, MUST be zero
+0x070   144   gap statistics: 6 slots of 24 bytes, one per SRC_MASK bit, in
+              ascending bit order (0x0001, 0x0004, 0x0010, 0x0040, 0x0100, 0x0400):
+                  +0x00  2  u16 source_bit        the bit this slot describes
+                  +0x02  2  u16 reserved          MUST be zero
+                  +0x04  4  u32 gap_count         number of gaps measured
+                  +0x08  4  u32 gap_min_ticks     0xFFFFFFFF when gap_count == 0
+                  +0x0C  4  u32 gap_max_ticks     0 when gap_count == 0
+                  +0x10  4  u32 gap_last_ticks    0 when gap_count == 0
+                  +0x14  4  u32 reserved          MUST be zero
+0x100   256   delta_hist[64], u32 each
+0x200   256   disc_extra_hist[64], u32 each
+0x300   256   majority_extra_hist[64], u32 each
+------- ----- --------------------------------------------------------------
+              total 0x400 = 1024
+```
+
+**Histogram index.** The six source bits of `SRC_MASK` are compressed to six index
+bits, source bit `2k` to index bit `k`:
+
+```text
+idx(v) = Σ over k in 0..5 of  ((v >> (2*k)) & 1) << k
+
+0x0001 -> 1     0x0004 -> 2     0x0010 -> 4
+0x0040 -> 8     0x0100 -> 16    0x0400 -> 32
+0x0500 -> 48    0x0000 -> 0
+```
+
+Index 0 therefore means "no source bits", which for `delta_hist` cannot occur (a
+record only exists when `delta != 0` within the mask) and for the two directional
+histograms means "no extra on that side" — a legitimate and frequent value.
+
+`semantic_size` is exactly 1024 in v4; the parser rejects any other value rather
+than trusting the header.
+
+#### R3.28 Gap statistics — semantics
+
+```text
+what is measured   cause -> cause, per source bit: the interval between the
+                   `t_cause` of two consecutive cycles whose authoritative pending
+                   contained that bit. It is NOT ACK->ACK and NOT re-arm->cause
+type               u32 ticks; the interval is a difference of two u64 clocks, and a
+                   gap that does not fit in u32 (106 s at 40.5 MHz) saturates at
+                   0xFFFFFFFE and sets no flag of its own — such a gap cannot occur
+                   inside this experiment's caps, and saturation is preferable to a
+                   silent wrap
+when it starts     empty; the FIRST cause of a source produces no gap. gap_count is
+                   the number of gaps, so a source seen once has gap_count == 0
+sentinel           gap_count == 0 -> gap_min = 0xFFFFFFFF, gap_max = gap_last = 0.
+                   A gap of 0 ticks is impossible between distinct causes, so 0 is
+                   never a valid minimum
+disagreement cycles are INCLUDED: the cause of a cycle that disagreed is a cause
+                   like any other. Excluding them would bias the statistic toward
+                   the quiet part of the run
+per record         `gap_min_before_ticks` / `gap_count_before` are a snapshot of the
+                   OMITTED source's statistic as it stood BEFORE the event, so the
+                   offline ratio compares against what was known at that moment
+status             these are measurements of one run. **No statistic here is a
+                   physical lower bound on how soon a source may be asserted**, and
+                   no runtime decision reads them
+```
+
+#### R3.29 Where `F_SOURCE_DEFERRED` lives, and what it may not imply
+
+The deferred VIDEO block was never drained, so the marker cannot live on a block.
+It lives on the frame **being assembled at the moment of the disagreement**:
+
+```text
+if a frame is open        that frame gets GBP_VSTATE_F_SOURCE_DEFERRED, and the
+                          record sets record_flags bit 4
+if no frame is open       no frame is created. The event exists only in the
+                          diagnostic record (disc_extra_sources names the source)
+                          and in the event store; record_flags bit 4 stays clear
+```
+
+No fictitious frame is ever created to carry a flag. The marker does not change
+completeness, does not fabricate a block, does not claim the deferred source was
+later recovered, and is not an input to any stop or classification rule. It exists
+so the offline analysis can line up a short interval with the disagreement that
+preceded it.

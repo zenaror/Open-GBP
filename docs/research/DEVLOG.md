@@ -5183,9 +5183,11 @@ Timing the re-arms of this run produced something the design had reasoned about
 but never observed (GBP-HW-096): **a source bit that is not in the ACK value
 survives, and fires again within 1.8 µs of the re-arm.** Cycles 5 and 7
 acknowledged AUDIO only (`0x8400`) and the next cause arrived 74 ticks later,
-carrying VIDEO — three orders of magnitude faster than the ~250 µs source
-cadence, so it cannot be a fresh source. Verify cycle 3 shows the same thing from
-the other side: it acknowledged `0x0500` and POSTACK read `0x8100`, VIDEO pending
+carrying VIDEO — **134 to 153 times** faster than the shortest observed AUDIO
+gap in the same window (9 885 to 11 303 ticks against 74), about 2.1 orders of
+magnitude — far shorter than any previously observed AUDIO-source gap in that run,
+though no lower bound on a new source's arrival has been established. Verify cycle 3
+shows the direct half of it: it acknowledged `0x0500` and POSTACK read `0x8100`, VIDEO pending
 again, and the run continued normally.
 
 With GBP-HW-028 (writing 1 to a source bit that reads 1 clears it), the model is:
@@ -5270,3 +5272,221 @@ re-derives the identity, the CRCs, the section bounds, the 96-byte record, the
 eight replicas, both readings and the `0x0400` difference from the file on disk.
 287 → 295 host tests. No runtime code changed; no format changed; v1, v2 and the
 vstate-0001 fixture are untouched.
+
+---
+
+## 2026-09-17 — vstate-0003 designed: a disagreement stops being an abort, without inventing semantics
+
+Design only. No runtime, no DOL, no hardware. The full specification is
+GBP-VIDEO-002-R3 in HARDWARE_TESTS; this entry records the decisions and the two
+places where the previous consolidation had to be corrected.
+
+### Two corrections to what I wrote yesterday
+
+**Arithmetic.** I described 1.8 µs against a 244–279 µs source cadence as "three
+orders of magnitude". It is 134× to 153×, about **2.1** orders of magnitude. The
+qualitative conclusion is unchanged — 74 ticks is far shorter than any previously
+observed gap between causes of that source in that run — but the number was wrong
+and is now right in EVIDENCE, DEVLOG and REGISTERS.
+
+**U-GBP-033's framing.** I wrote it as "is the replicated IRQ window an atomic
+snapshot?", which is a yes/no that GBP-HW-090 and GBP-HW-093 already answer with
+`no` while teaching nothing. Reworded to *what mechanism produces semantic
+non-uniformity among the eight replicas?* — and, more importantly, decoupled from
+the policy. Holding the service policy hostage to a question about the device's
+internals would have blocked the project on something we may never get to observe
+directly. The policy can be settled from the lifecycle evidence we already have.
+
+### The scope decision that took the most thought
+
+The tempting design is "any `disc != gbi` becomes nonfatal". That would be wrong.
+The classification is three-way, on masks that already exist in the versioned
+contract (`SRC_MASK 0x0555`, `AV_MASK 0x0500`, `ODD_MASK 0x0AAA`, `HIGH 0x7000`,
+`BIT15 0x8000` — exhaustive and disjoint):
+
+* **SOURCE_SERVICED** — the difference is inside `AV_MASK`, the two bits whose
+  whole lifecycle is physically established. Nonfatal, majority-authoritative.
+* **SOURCE_OTHER** — a source slot we do not drain (`0x0001`, `0x0004`, `0x0010`,
+  `0x0040`). Stays fatal, and not out of timidity: such a source **already** ends
+  the run through the independent `anomaly_unexpected_source` rule, so relaxing
+  the disagreement rule there would open a path past a source with no drain.
+* **NON_SOURCE** — anything touching the odd bits, bit 15 or the high bits. Stays
+  fatal.
+
+### How the authoritative value is composed
+
+Not "use the majority". Outside `SRC_MASK` the two readings **must agree** — they
+are never voted, never merged, never chosen between — and if they differ the run
+ends. Only inside `SRC_MASK` is a choice made, and there it is GBI's bitwise
+majority. So no field whose contract is still open (the odd bits, bit 15, bits
+12–14) ever has semantics invented for it by a vote.
+
+Worth recording: the probe **already** takes its service value from the GBI
+reading at both read sites. What R3 removes is the refusal to proceed when the
+Disc reading disagrees — a smaller change than the discussion around it suggests.
+
+### Why majority, stated as what it is
+
+A design decision with a physical basis, **not** a FACT about hardware intent.
+The basis is the asymmetry of the two failure modes, and only one side of it has
+been observed:
+
+* majority omits a source the last replica has → the ACK never writes that bit as
+  1, so by GBP-HW-028 it is not cleared, and by GBP-HW-096 the next cause follows
+  the re-arm in 74 ticks, 134–153× faster than the shortest observed gap for that
+  source. One extra cycle, nothing lost.
+* majority carries a source the last replica has dropped → **never observed**. The
+  runtime would drain a buffer the device may not have republished and would write
+  1 to a source bit reading 0, a case GBP-HW-028 does not cover. Serving late is
+  recoverable; serving phantom data is not.
+
+That second case is made nonfatal too — ending the run would teach nothing — but
+it is not declared safe by symmetry. It gets its own counters, its own histogram
+and, uniquely, the CRC-32 and first word of the block that was drained for the
+extra source, so the first physical occurrence arrives fully described.
+
+### The follow-up record, and what it deliberately does not say
+
+Each nonfatal event records whether the omitted source was **present in the next
+cause**, the latency from the re-arm, and this run's own gap statistics for that
+source up to that moment. The states are factual only — `FU_SOURCE_PRESENT_NEXT`,
+`FU_SOURCE_ABSENT_NEXT`, `FU_NO_NEXT_CAUSE`, `FU_UNKNOWN` — and **no runtime label
+is derived from any divisor of an observed gap**. An earlier draft of this design
+had such a label; it was wrong, because it turned the smallest gap a run happened
+to observe into a physical lower bound on how soon a new source may arrive. No such
+bound exists. The quantitative comparison is computed offline, as a ratio, and
+presented as a ratio.
+
+Presence in the next cause proves the source was **observed after the re-arm** and
+nothing more: whether it is the same assertion is an offline question, to be
+classified CORROBORATED or HYPOTHESIS on the aggregate.
+
+### Cost, with the quantities named properly
+
+160-byte record (the v3 record's 96 bytes at the same offsets plus a 64-byte
+follow-up block), 256 of them = 40 960 B, plus 768 B of histograms: an increment
+of **41 728 B = 40.8 KiB**. Nothing per normal delivery. N was chosen from
+footprint, not from a predicted rate — two events in two runs support no rate at
+all.
+
+An earlier draft of this entry called the result a "new static_bytes" against
+6 922 240 B. That conflated two different things and is corrected in the design:
+
+```text
+resident_store_bytes  6 922 240 B  the probe's own stores, what gbp_vstate_static_bytes()
+                                   reports and the log prints as `static_bytes`
+total_bss (measured)  7 472 388 B  the .bss of the CLEAN vstate-0002 ELF (.sbss is a
+                                   further 1 804 B; the DOL's BSS region is 7 474 192 B)
+estimate after R3     7 514 116 B  ≈ 7.166 MiB, BEFORE alignment padding
+authoritative value                from the linker map, at implementation time
+```
+
+The increment is 0.60 % of the resident stores and 0.56 % of `.bss`; either way it
+is not close to any limit.
+
+The sidecar becomes **OGBPSEQ1 v4**, which only adds: every v3 header field keeps
+its meaning and its offset, and a fixed 1 024-byte semantic-coherence block joins
+the layout before the record array. v1, v2 and v3 are historical and frozen. Also
+named properly: `1 024 + 256 × 160 = 41 984 B` is the **maximum v4
+semantic/diagnostic extension payload**, not a maximum sidecar size — the file
+still carries the header, all four tables, the preserved raw and the footer, and
+runs to megabytes at full length.
+
+### The gate this unblocks
+
+GBP-VIDEO-003 no longer waits on U-GBP-033. It waits on a vstate-0003 run that
+observes at least one `SOURCE_SERVICED` disagreement, does not stop for it, loses
+no observable source, restores cleanly and reaches a relevant window. A run with
+zero disagreements would be *inconclusive*, not a pass — the policy would be
+untested — and the design says so.
+
+Next: implementation is a separate step, with its own ultracode pass, its own
+microaudit and its own release audit. Nothing about the runtime has changed today.
+
+---
+
+## 2026-09-17 — R3 hardened: an inference I had smuggled in as a runtime label, and four mislabelled quantities
+
+Design review of the vstate-0003 specification. Still no runtime, no build, no
+hardware. Everything below is a correction to the design I wrote earlier today.
+
+### The one that mattered
+
+I had specified a follow-up state called `FU_TOO_FAST_FOR_FRESH`, awarded when the
+re-arm→next-cause latency fell below **one eighth of the smallest gap that run had
+happened to observe** for that source. That is exactly the move this project
+forbids: it turns an observed minimum into a physical lower bound and then lets
+the *runtime* stamp a causal conclusion on the evidence. No lower bound on how
+soon a new source may arrive has ever been established here.
+
+Removed. The follow-up states are now purely factual —
+`FU_SOURCE_PRESENT_NEXT`, `FU_SOURCE_ABSENT_NEXT`, `FU_NO_NEXT_CAUSE`,
+`FU_UNKNOWN`, plus `FU_PENDING` during the lifecycle — and what gets persisted is
+`rearm_to_next_ticks`, presence or absence per source, and the run's own gap
+statistics as **data**. The ratio ("134× shorter than anything seen so far") is
+computed offline and presented as a ratio. GBP-HW-096 was rewritten the same way:
+FACT for the measurements, CORROBORATED for the model they support, and an
+explicit note that a new assertion arriving in that interval has not been excluded
+by any measurement. The phrase "cannot be a fresh source" is gone from EVIDENCE,
+DEVLOG and REGISTERS.
+
+Presence in the next cause proves the source was observed after the re-arm. It
+does not prove it is the same assertion, and nothing in the runtime may say it
+does.
+
+### The guard I described as a consequence when it is a precondition
+
+I justified keeping `SOURCE_OTHER` fatal by pointing at the existing
+`anomaly_unexpected_source` rule — but I never wrote down that the guard fires
+**independently of the delta**. It has to, and now the order of checks is
+normative: compose → non-source class → source class → **pending guard on the
+authoritative value** → disagreement class → service. A read where both
+interpretations agree on `0x0104` is still fatal, because `0x0004` has no drain in
+this probe. That case is now a required test.
+
+### The gap in the science path
+
+If the majority carries a source the Disc reading does not, the runtime drains a
+block the device may not have republished — and I had specified only a CRC and a
+first word for it. That is enough to *notice* the case and not enough to keep it
+out of the results. Now: the block is flagged `B_MAJORITY_EXTRA` at the point of
+service, and for VIDEO the containing frame is flagged `F_MAJORITY_EXTRA` **and**
+treated as an existing class (a) anomaly, so it never counts toward valid
+observation, never forms a baseline, never validates a structured change, and is
+excluded from colour evidence in GBP-VIDEO-003. Signatures and raw are still
+preserved — quarantine removes it from the scientific path, not from the record —
+and resync needs no special case: the frame closes on the next boundary like any
+other and no block is fabricated.
+
+The mirror case got the same treatment in the other direction: when the majority
+omits VIDEO the drain is simply deferred, nothing is fabricated, and the
+assembler's existing incomplete/resync rules decide what the short interval means.
+A descriptive `F_SOURCE_DEFERRED` flag lets the offline analysis correlate the
+two, and claims nothing about recovery.
+
+### Ordering, which I had left implicit
+
+Consecutive disagreements now have a mandatory sequence — cycle *n+1*'s read fills
+record N's follow-up **before** record N+1 is created from that same read — and a
+store that is full may still finalise a record already waiting. Both are required
+tests, as is the rule that an observational (POSTDRAIN/POSTACK) disagreement is
+counted and preserved but never carries a service-selection narrative, because no
+service decision was taken there.
+
+### Four quantities that were mislabelled
+
+`6 922 240 B` is the probe's **resident stores**, not its static memory; the CLEAN
+audit measured `.bss` at `7 472 388 B`. The post-R3 estimate is `7 514 116 B ≈
+7.166 MiB` before alignment, and the authoritative number must come from the
+linker map at implementation. And `41 984 B` is the **maximum v4 extension
+payload**, not a maximum sidecar size. All four names are now explicit in the
+design.
+
+### Also recorded as open
+
+The effect of an ACK writing 1 to a source bit whose last replica reads 0.
+GBP-HW-028 covers 1-on-1 only, and I had leaned on it once too far. R3 assumes
+nothing about the 1-on-0 case, performs no extra read to investigate it, and
+preserves everything needed to describe the first occurrence.
+
+Next: implementation, with its own ultracode pass, microaudit and release audit.
