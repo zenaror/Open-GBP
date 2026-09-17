@@ -143,8 +143,10 @@ GBP-AV-SERVICE-001 captured the first physical VIDEO (0xF00) and AUDIO
 (fixture + sidecar). Static basis fixed on 2026-09-16
 (`docs/research/VIDEO_PATH.md`): both references read a block as 4 raster
 lines × 240 pixels × 4 bytes (bytes 1/3 of each word), 40 blocks per frame,
-frame flag on the first pixel, 15-bit color in GX RGB5A3 order; both embed
-the AGB idle screen (an offline oracle without a cartridge). Short sequence:
+frame flag on the first pixel, and 15 colour bits which both *read* in GX
+RGB5A3 order — a property of the two decoders, not yet a measurement of the
+device (U-GBP-011, settled by GBP-VIDEO-003); both embed the AGB idle screen
+(an offline oracle without a cartridge). Short sequence:
 
 * **GBP-VIDEO-001** (**PHYSICALLY EXECUTED 2026-09-16**, `video-0001`, commit
   `6930dde`; `poc/gbp-video-capture-probe/`): 209 cycles of repeated drained
@@ -188,25 +190,40 @@ the AGB idle screen (an offline oracle without a cartridge). Short sequence:
   inside the window, tears the hardware down before it summarises anything, and
   streams its multi-megabyte sidecar rather than staging it. Its full nominal
   scan runs in the host suite at about 800 000 synthetic deliveries.
-* **GBP-VIDEO-003**: colour. **UNBLOCKED 2026-09-17 — READY FOR A CONTROLLED
-  COLOUR EXPERIMENT (design and execution).** The gate was a run that survives the
-  semantic disagreement of the IRQ window with trustworthy diagnostics; the
-  `vstate-0004` run delivered it: **29 `SOURCE_SERVICED` disagreements, none
-  fatal, correct current-cycle attribution in 29 of 29, 120.009 s of valid
-  observation** (GBP-HW-108…115). It was never gated on U-GBP-033, which stays
-  open: the mechanism behind the replica non-uniformity does not have to be
-  understood, only survived — and it has now been survived 52 times across two
-  long runs. Needs a source whose true
-  appearance is known independently of the references (a static pattern with
-  saturated red, green and blue plus white, black and greys), because a reference
-  comparison can only show that two encodings agree, never which channel is which.
-  Also the first rendered frames on the GameCube (GX RGB5A3 texture from bytes
-  1/3, as the references). KEYPAD writes enter here or in a dedicated Phase 5
-  probe, not before. The gate is not optional: both physical GBP-VIDEO-002 runs
-  ended on a semantic disagreement of the IRQ window (2026-09-16 at cycle 51 750,
-  2026-09-17 at cycle 517), a colour experiment needs a long uninterrupted
-  observation of the same service loop, and with the current fatal policy the same
-  abort would end it at an arbitrary point.
+* **GBP-VIDEO-003**: colour. **DESIGN FINALIZED 2026-09-17 (HARDWARE_TESTS §V3.0
+  to §V3.22), NOT IMPLEMENTED, NOT PHYSICALLY EXECUTED.** A controlled AGB Mode 3
+  stimulus of eight 30-pixel bars — three full 5-bit groups, three single low
+  bits, plus `0x0000` and `0x7FFF` as permutation-invariant controls, with bit 15
+  never written — captured through the validated service path into a dedicated
+  `OGBPCOL1` sidecar that preserves whole raw blocks. Exactly one candidate
+  transformation must reproduce all eight observed values or the run is
+  INCONCLUSIVE. **Execution is blocked by one documented dependency**: this
+  repository knows no way to deliver a controlled GBA ROM to the physical unit
+  (§V3.7), and the design does not invent one.
+
+  The gate that used to block this step is gone. It was a run surviving the
+  semantic disagreement of the IRQ window with trustworthy diagnostics, and
+  `vstate-0004` delivered it: **29 `SOURCE_SERVICED` disagreements, none fatal,
+  correct current-cycle attribution in 29 of 29, 120.009 s of valid observation**
+  (GBP-HW-108…115). It was never gated on U-GBP-033, which stays open — the
+  mechanism behind the replica non-uniformity does not have to be understood,
+  only survived, and it has now been survived 52 times across two long runs.
+
+  The experiment needs a source whose true appearance is known independently of
+  the references, because a reference comparison can only show that two encodings
+  agree, never which channel is which. That is what the eight-bar stimulus is:
+  every value known by construction, the low-bit bars making an intra-channel
+  reversal falsifiable, and the popcount fingerprint letting the probe recognise
+  the pattern without assuming the answer.
+  Rendering the frames on the GameCube is deliberately **not** part of this
+  experiment: the mapping is decided from preserved raw bytes offline, and a
+  texture drawn under an assumed channel order would prove nothing about the
+  device. First rendered frames and KEYPAD writes belong to a later step. The
+  gate that guarded this one existed because both early GBP-VIDEO-002 runs ended
+  on a semantic disagreement of the IRQ window (2026-09-16 at cycle 51 750,
+  2026-09-17 at cycle 517), and a colour capture cannot afford an abort at an
+  arbitrary point; the nonfatal policy validated by `vstate-0004` is what removed
+  that risk, and GBP-VIDEO-003 reuses it unchanged (§V3.9).
 * **GBP-VIDEO-002-R3** (build `vstate-0003`): the intervening step, **PHYSICALLY
   EXECUTED 2026-09-17**. It reached the 120 s scientific target, observed the
   structured change again, and survived 23 semantic disagreements without stopping

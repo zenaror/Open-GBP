@@ -5731,3 +5731,578 @@ a v4-shaped forgery    a v5 file carrying the v4 defect (t_ack > t_next, authori
 the physical v4 file   must keep parsing under the v4 rules, unchanged, and must
                        keep producing its producer warnings
 ```
+
+---
+
+### GBP-VIDEO-003 (build `color-0001`, sidecar `OGBPCOL1` v1) — controlled colour mapping — DESIGN FINALIZED 2026-09-17, NOT IMPLEMENTED, NOT PHYSICALLY EXECUTED
+
+Everything below is a specification. No code exists for it, no ROM has been
+built, no hardware has run it, and nothing in this section is evidence about the
+device.
+
+#### V3.0 What this experiment is for
+
+Four physical runs have established the VIDEO transport: the block is 0xF00
+bytes, the geometry is 240 × 160 pixels in 40 blocks of 4 raster lines, the
+stride is 240 × 4 bytes, both reference decoders consume **byte 1 and byte 3** of
+each 4-byte group as `word = (b1 << 8) | b3`, and bit 15 of that word carries the
+frame-start flag on the first word of block 0. **None of that is reopened here.**
+
+What is still unresolved is the one thing no capture without a cartridge can
+settle: **which five of the fifteen colour bits are which channel, and whether
+the path applies any transformation on the way out**. Two reference decoders
+agree on a reading (bits 14–10 = R), but they agree with each other, not with a
+measurement: no pixel of a *known* colour has ever been captured. U-GBP-011 has
+said exactly this since 2026-09-16 and is what this experiment closes.
+
+#### V3.1 Three spaces, kept apart by name
+
+The single most common way to get this wrong is to call a group of GBP bits
+"red" before the experiment has said so. This design forbids it:
+
+```text
+1. STIMULUS VALUE     the 15-bit value software writes into AGB VRAM.
+                      The AGB's own framebuffer layout is documented hardware
+                      (BGR555: bits 0-4 R, 5-9 G, 10-14 B) and is used ONLY to
+                      say what the stimulus writes - never to name a GBP bit.
+2. GBP SOURCE WORD    (b1 << 8) | b3, reconstructed from the raw 0xF00 block.
+                      Its fifteen colour bits are called C14_10, C9_5 and C4_0.
+                      They have NO channel name until V3.14 assigns one.
+3. DISPLAY INTERPRET. which human channel a group of GBP bits corresponds to.
+                      This is what the references assert and what the experiment
+                      measures.
+```
+
+Until this experiment succeeds, no document may write "bits 14–10 are red" as a
+statement about the GBP. It may write "both references *read* bits 14–10 as red",
+which is a fact about the references.
+
+#### V3.2 The hypotheses the references actually support
+
+Extracted from `docs/research/VIDEO_PATH.md` §2.3, §2.4, §3.2 and §4 — not
+invented here, and deliberately not extended into arbitrary permutations:
+
+| # | Hypothesis | Source-bit mapping (stimulus → GBP word) | Byte order | Channel mapping asserted | Evidence source |
+|---|---|---|---|---|---|
+| H1 | **Channel swap on the path** (the references' reading is the displayed truth) | stimulus `b` → GBP `b` with C14_10 ↔ C4_0 exchanged relative to the AGB framebuffer | `(b1 << 8) \| b3` | C14_10 = R, C9_5 = G, C4_0 = B | Disc draws the word as `GX_TF_RGB5A3` (§2.3); GBI's renderer writes RGB5A3 tiles and its PNG writer uses R = bits 14–10 (§3.2); the Disc's embedded idle frame renders its logo indigo under that reading (§2.4) |
+| H2 | **Verbatim AGB order** (the GBP hands the framebuffer value through unchanged) | identity: GBP word = stimulus value | `(b1 << 8) \| b3` | C4_0 = R, C9_5 = G, C14_10 = B | the AGB's documented BGR555 framebuffer; Dolphin's model with mGBA's default `0x00BBGGRR` would produce this (§4, unverified, flagged as a divergence) |
+| H3 | **Byte swap** | GBP word = `(b3 << 8) \| b1` of the stimulus, i.e. the two consumed bytes exchanged | reversed | whatever H1/H2 then implies | not asserted by any reference; included because the window doubles each byte (`hh hh ll ll`) and a swap would be invisible to every check made so far |
+| H4 | **Intra-channel bit reversal** | within each 5-bit group, bit *k* → bit 4−*k* | `(b1 << 8) \| b3` | — | not asserted by any reference; included because no observation so far could have detected it |
+| H5 | **Complement / stuck bits** | GBP word = `~stimulus & 0x7FFF`, or bits stuck at 0/1 | — | — | not asserted; the cheapest failure mode to rule out, and the one a single all-white capture would hide |
+
+H1 and H2 differ **only** by exchanging the outer groups; every check performed
+in this project so far — frame-start predicates, block checksums, byte-for-byte
+comparison against the Disc's embedded frame — is invariant under that exchange,
+which is precisely why four physical runs could not decide it.
+
+**The prior, stated as a prior and not as a result.** The references' reading
+renders the Disc's embedded logo indigo, and `VIDEO_PATH.md` §2.4 records indigo
+as the real boot logo's colour; under H2 the same bytes would be crimson. That
+makes H1 the expected outcome. It is an inference from a reference's embedded
+asset, it is not physical evidence, and this experiment is designed to be
+decisive either way — including the outcome where neither H1 nor H2 fits.
+
+#### V3.3 The stimulus: eight vertical bars, 30 pixels each
+
+A static AGB Mode 3 image, 240 × 160, 16-bit direct colour, no palette, no
+scaling, all 160 lines identical:
+
+```text
+x 000..029   0x0000    zero reference          popcount 0
+x 030..059   0x001F    low group, all five     popcount 5
+x 060..089   0x03E0    middle group, all five  popcount 5
+x 090..119   0x7C00    high group, all five    popcount 5
+x 120..149   0x7FFF    all-bits reference      popcount 15
+x 150..179   0x0001    bit 0 alone             popcount 1
+x 180..209   0x0020    bit 5 alone             popcount 1
+x 210..239   0x0400    bit 10 alone            popcount 1
+```
+
+Eight bars of 30 fill exactly 240 pixels. In the AGB's own documented order
+those values are black, red, green, blue, white and the least significant bit of
+red, of green and of blue — **written here for the record of what the AGB stores,
+and never used by the analyser to name a GBP bit** (V3.1).
+
+Why these eight and not others:
+
+* `0x001F`, `0x03E0`, `0x7C00` isolate the three 5-bit groups: they reveal where
+  each group lands **as a set**, which separates H1 from H2 and detects any
+  group-level rearrangement;
+* `0x0001`, `0x0020`, `0x0400` isolate the least significant bit of each group.
+  Under H4 (intra-channel reversal) bit 0 would be observed at position 4, and
+  the three full-group bars could never show it: **the low-bit bars are what make
+  H4 falsifiable**, and without them a full-scale-primary-only pattern would
+  leave a reversal indistinguishable from identity;
+* `0x0000` and `0x7FFF` are the complement and stuck-bit controls (H5). Zero must
+  stay zero and all-ones must stay all-ones under *any* bit permutation; if
+  either fails, no permutation hypothesis can be true and the run says so instead
+  of forcing one.
+
+**What the eight bars determine, exactly.** They pin the image of bits 0, 5 and
+10 individually, and the image of each 5-bit group as a set. They do **not** pin
+a permutation that fixes bits 0, 5 and 10 and rearranges only bits 1–4 inside a
+group. No reference suggests such a transformation and this design does not
+chase it; V3.19 specifies the optional second pattern that would close it if
+anyone ever needs to.
+
+#### V3.4 Bit 15 is never written by the stimulus
+
+Every pixel the stimulus writes has **bit 15 = 0**. That is not a detail: it is
+what makes the flag observable. Any `bit15 = 1` seen in the GBP window then
+cannot have come from the colour value, and its position — first word of block 0,
+or elsewhere — is an independent observation about the frame-start flag
+(GBP-HW-058 recorded the bytes; nothing has yet separated flag from colour).
+Writing `0x8000` or `0xFFFF` as a colour would destroy that separation. A
+deliberate experiment on what happens when VRAM *does* carry bit 15 is a
+different test and is not mixed into this gate.
+
+#### V3.5 Orientation
+
+The bars have a known left-to-right order and the geometry is not reopened. The
+analyser therefore checks x orientation as a *consequence*, not as an assumption:
+the observed run boundaries must fall at x = 0, 30, 60, 90, 120, 150, 180 and
+210, and the two invariant bars (`0x0000` at x 0–29 and `0x7FFF` at x 120–149)
+must appear at those positions and nowhere else. A mirrored analyser would place
+them at x 210–239 and x 90–119 and be refused. No extra spatial marker is added:
+the pattern already carries the asymmetry, and a marker would add a colour value
+whose interpretation is exactly what is under test.
+
+#### V3.6 The stimulus ROM, specified deterministically
+
+```text
+target        AGB / GBA, 32-bit ARM or Thumb, no BIOS call that alters video
+entry         standard GBA header, entry branch to main
+display       REG_DISPCNT (0x04000000) := 0x0403
+                mode 3 (bits 0-2 = 3), BG2 enabled (bit 10), everything else 0:
+                no OBJ, no BG0/1/3, no window, no forced blank after setup
+blending      REG_BLDCNT (0x04000050) := 0x0000, REG_MOSAIC := 0x0000
+scroll/affine untouched: mode 3 has no scroll registers that affect the bitmap
+palette       never read in mode 3 - there is no palette indirection to get wrong
+VRAM writes   0x06000000 + (y * 240 + x) * 2 := bar value, for all y in 0..159
+              and all x in 0..239, written once before the final loop
+sprites       OAM cleared, OBJ disabled in DISPCNT
+interrupts    REG_IE := 0, REG_IME := 0; no handler is installed and nothing
+              after the initial fill writes VRAM again
+sound         untouched; the GBP AUDIO window is drained by the probe but this
+              experiment interprets nothing from it (V3.13)
+final state   `for (;;) { }` - a tight infinite loop, no VBlank wait needed
+              because nothing changes after the fill
+```
+
+The source must be one small auditable file with no graphics framework. Built in
+the project's Docker environment with devkitARM if it is added there, or by any
+reproducible toolchain that is recorded; the build records **ROM size, SHA-256,
+toolchain identity and the source path**, and the run envelope carries that
+SHA-256 so a capture can never be attributed to an unidentified image.
+
+`.gba` header note: the ROM must carry a valid Nintendo logo header area or the
+AGB refuses to boot it. That is a property of the delivery method (a flash cart
+supplies a compliant header; a multiboot image is loaded past that check) and is
+recorded with the ROM identity, not assumed.
+
+#### V3.7 PHYSICAL EXECUTION DEPENDENCY — how the ROM reaches the AGB
+
+**This repository documents no way to run a controlled GBA ROM on the physical
+hardware.** There is no flash cart, no EverDrive, no EZ-Flash, no multiboot cable
+and no ROM-delivery procedure anywhere in `docs/`, `CLAUDE.md` or any executed
+test. Every physical run so far was explicitly *without a Game Pak*.
+
+The design does not invent one. It records:
+
+```text
+PHYSICAL EXECUTION DEPENDENCY: controlled GBA ROM delivery method
+STATUS: unresolved, owned by the operator, blocks EXECUTION ONLY - not design,
+        not implementation, not review
+```
+
+Candidate routes, none verified here, listed so the operator can choose:
+
+1. **A flash cart in the GBP's Game Pak slot.** The simplest route if one exists.
+   Consequence for the probe: the cartridge-sensing bits of CONTROL (0x01 GB-type,
+   0x02 present, `docs/hardware/GBS-DOL.md`) will differ from every previous run
+   — see V3.8.
+2. **Multiboot over the Link Port** from the GameCube through a GC↔GBA link
+   cable, the mechanism the `gba-as-controller` family of projects uses and which
+   CLAUDE.md §6.7 already names as a reference. Whether the *GBP's internal AGB*
+   accepts a multiboot image in the state the Start-up-Disc-equivalent
+   initialization leaves it in is **UNKNOWN**, and proving it would itself be an
+   experiment.
+3. **Any other loader the operator owns.** Recorded with its identity if used.
+
+Routes 1 and 2 differ in one way that matters to this experiment: route 2 leaves
+the Game Pak slot empty, so CONTROL keeps the shape all four previous runs saw.
+Route 1 changes it. Both are acceptable; the run envelope records which was used.
+
+#### V3.8 The probe, and what it may not redesign
+
+New POC, `poc/gbp-video-color-probe/`, Test ID **GBP-VIDEO-003**, Build ID
+`color-0001` (the family convention; the implementation round fixes it). It is a
+new POC because its capture, its stop rule and its sidecar differ from
+GBP-VIDEO-002's — **not** because anything in the service path changes.
+
+It reuses, unchanged and without a second opinion, the path validated across
+GBP-INIT-003A/003B/004, GBP-AV-SERVICE-001, GBP-VIDEO-001 and the four
+GBP-VIDEO-002 runs:
+
+```text
+GBP detection and the AR_INFO expansion handling
+the 003A stage: CONTROL read, shape checks, control_exp = (orig & ~0x10) | 0x0C
+the 003B extended one-shot handler, byte-identical
+__MaskIrq / __UnmaskIrq through libogc2 only
+READ of the IRQ window (one read, 32 bytes)
+AUDIO 0x1000 drain when pending, VIDEO 0xF00 drain when pending
+ACK = pending | 0x8000, PI clean, REARM = IRQ := 0, WAIT_NEXT
+the 003A teardown extended by the handler restore and the mask check
+```
+
+**The CONTROL byte with a Game Pak present.** `control_exp` is computed from what
+the device reports — `(control_orig & ~0x10) | 0x0C` — so a cartridge-present
+byte flows through the same transform with no code change. Its value will differ
+from the `0x90 → 0x8C` every previous run saw, and that value is an
+**observation of this run**, recorded, never a precondition. The stage's own
+shape checks and the CONTROL readback still decide whether the run continues.
+
+#### V3.9 The R3 policy is not relaxed for colour
+
+GBP-VIDEO-003 reuses the semantic-disagreement policy exactly as physically
+validated by `vstate-0004`:
+
+```text
+SOURCE_SERVICED (delta within AV_MASK)  nonfatal, counted, preserved; the run continues
+Disc-extra                              the majority is authoritative; the omitted
+                                        source is a recorded observation
+majority-extra VIDEO                    the block is drained and the frame it lands in
+                                        is QUARANTINED: it may never become colour evidence
+SOURCE_OTHER / NON_SOURCE               fatal, exactly as today
+the independent pending guard           fires on the authoritative value whatever the
+                                        delta is, including delta == 0
+```
+
+A colour experiment is not a reason to weaken any of it. The one addition is a
+consequence, not an exception: **a quarantined frame is excluded from evidence
+selection** (V3.10), so a disagreement can cost the run a frame but can never
+contaminate the mapping.
+
+#### V3.10 What makes a frame eligible as colour evidence
+
+A frame may be used for mapping only if **all** of these hold:
+
+```text
+complete                 exactly 40 blocks, in order, one frame-start boundary
+no resync                the assembler was anchored throughout
+no transport anomaly     every drain completed, rc ok, no timeout, no busy
+F_ANOMALY                clear
+F_MAJORITY_EXTRA         clear  (no block drained only because of the majority)
+source-deferred          no VIDEO deferral inside the frame
+quarantine               absent
+stability                the frame belongs to a certified stable window (V3.11)
+```
+
+Anything short of that is recorded and not used. The probe never repairs a frame,
+never fills a missing block and never averages: the mapping is an exact
+comparison or it is nothing.
+
+#### V3.11 Recognising the stimulus without assuming the answer
+
+The probe must know the pattern is on screen without using the channel order it
+is trying to measure. Three properties do that, and all three are invariant under
+**any** bit permutation of the fifteen colour bits:
+
+```text
+1. STRUCTURE   each scanline is 8 runs of exactly 30 identical 4-byte groups,
+               with boundaries at x = 0, 30, 60, 90, 120, 150, 180, 210, and the
+               eight run values pairwise distinct
+2. REPETITION  the 4 scanlines of a block are byte-identical to each other, and
+               all 40 blocks of the frame are byte-identical except block 0's
+               first word, which may differ only in the frame-start flag bits
+3. POPCOUNT    the multiset of popcounts of the eight observed colour15 values is
+               exactly { 0, 1, 1, 1, 5, 5, 5, 15 }
+```
+
+Property 3 is the elegant one: a permutation moves bits, it cannot change how
+many are set, so the fingerprint identifies the pattern while saying nothing
+about which bit went where. Together with the two invariant bars — the only
+value with popcount 0 must sit at x 0–29 and the only one with popcount 15 at
+x 120–149 — the probe can assert "this is the stimulus" with **zero** circularity.
+
+A flash-cart menu, a BIOS screen or a partially drawn framebuffer fails property
+1 or 3 immediately. No "wait a few seconds" rule is used anywhere.
+
+#### V3.12 Stability, certification and the stop rule
+
+```text
+SEARCH       from the first admitted cycle, assemble frames and test V3.11 on
+             each complete clean one. Bounded by the search window below.
+CERTIFY      N_STABLE = 3 consecutive eligible frames whose raw per-block
+             signatures are identical. N = 3 is the project's existing evidence
+             threshold (GBP_VSTATE_N_STABLE / BASELINE_FRAMES, HARDWARE_TESTS
+             §R2), not a new number invented here; at ~59.7 Hz it spans ~50 ms.
+PRESERVE     the raw 0xF00 of all 40 blocks of the certified frame and of the two
+             that follow it, if they are also eligible and identical - three
+             frames of independent confirmation (V3.13).
+HOLD         continue for HOLD_FRAMES = 60 more frames (~1 s, the project's
+             existing EPISODE_MAX_FRAMES) and record whether the signature still
+             holds. A change is REPORTED, never fatal, and never edits what was
+             already preserved.
+STOP         immediately after the hold window: status ok_color_frames_captured.
+```
+
+Caps, each justified rather than inherited:
+
+```text
+SEARCH_WINDOW      10 s   two orders of magnitude more than the ~50 ms a visible
+                          pattern needs to certify; enough for an operator to be
+                          slow, short enough that a failed run costs nothing
+HARD_WALLCLOCK     30 s   search + hold + teardown with a wide margin. The 120 s
+                          and 180 s of the vstate probe are NOT inherited: that
+                          target came from the Start-up Disc's detector window,
+                          which has nothing to do with this question
+FRAME_CAP        1 024    ~17 s of frames; the store only ever holds signatures
+DELIVERY_CAP   250 000    ~40 s at the 6 336 deliveries/s measured in vstate-0004
+RAW_BUDGET   3 frames    3 x 40 x 0xF00 = 460 800 B, plus 2 AUDIO blocks (8 KiB)
+```
+
+If the search window expires without a certified frame the run ends
+`ok_stimulus_not_recognised` — operationally valid, scientifically
+**INCONCLUSIVE**, and it says which of the three properties failed.
+
+#### V3.13 Raw is the evidence
+
+The sidecar preserves the **whole 0xF00 of all 40 blocks** for each certified
+frame, exactly as the transport delivered them, plus the per-block context the
+existing probes already record (cycle, pending value, predicates, transfer
+timings, ISR fields). It preserves no converted image and no RGB triple: every
+reconstruction — `word = (b1 << 8) | b3`, the split of bit 15, the per-bar
+values, the hypothesis tests — happens offline from those bytes, so the decision
+can be redone, and disputed, without the console.
+
+Bytes 0 and 2 of every group, which no reference consumes, are preserved with the
+rest. They are not interpreted; they have carried surprises before (GBP-HW-093)
+and discarding them would be discarding evidence.
+
+AUDIO is drained whenever pending, exactly as the validated path requires, and
+summarised; its bytes are not interpreted by this experiment.
+
+#### V3.14 The offline analysis, step by step
+
+```text
+1. load the certified frame's 40 raw blocks from the sidecar
+2. rebuild the 240 x 160 grid of source words:
+     block b, row r, pixel x  ->  offset b*0xF00 + r*960 + x*4
+     word = (b1 << 8) | b3          b1 = byte 1, b3 = byte 3 of that group
+3. split every word:   flag15 = word & 0x8000      color15 = word & 0x7FFF
+4. structure check (V3.11) on every one of the 160 rows, independently
+5. per bar, collect the set of color15 values over its 30 x 160 pixels.
+   EXACT uniformity is required: one set, one element. Any second value is
+   reported with its coordinates and the run is INCONCLUSIVE - no averaging,
+   no majority, no tolerance
+6. build the observed vector O = (o0 .. o7) in bar order
+7. for each candidate hypothesis H, apply H to the stimulus vector
+     S = (0x0000, 0x001F, 0x03E0, 0x7C00, 0x7FFF, 0x0001, 0x0020, 0x0400)
+   and require H(S) == O in ALL EIGHT positions
+8. report every hypothesis that survives, with the full table
+9. map flag15 separately: the set of coordinates where it is 1, compared with
+   the frame-start predicate's expectation (first word of block 0)
+10. b1 and b3 are also recorded per bar, so a byte-swap hypothesis (H3) is
+    testable without re-deriving the word
+```
+
+Step 7 is an exact equality over eight values, not a similarity score. "Closest
+match" is not a decision procedure and is not used.
+
+#### V3.15 How each hypothesis is distinguished
+
+With `S` as above, the eight expected vectors are distinct for every candidate:
+
+```text
+stimulus      H2 identity   H1 group swap   H4 intra-reversal   H5 complement
+0x0000        0x0000        0x0000          0x0000              0x7FFF
+0x001F        0x001F        0x7C00          0x001F              0x7FE0
+0x03E0        0x03E0        0x03E0          0x03E0              0x7C1F
+0x7C00        0x7C00        0x001F          0x7C00              0x03FF
+0x7FFF        0x7FFF        0x7FFF          0x7FFF              0x0000
+0x0001        0x0001        0x0400          0x0010              0x7FFE
+0x0020        0x0020        0x0020          0x0200              0x7FDF
+0x0400        0x0400        0x0001          0x4000              0x7BFF
+```
+
+Read the table by column and the discriminations are immediate:
+
+* **H1 vs H2** — the three full-group bars already separate them (`0x001F` is
+  observed as `0x001F` or as `0x7C00`), and the low-bit bars confirm it
+  independently (`0x0001` observed as `0x0001` or as `0x0400`). Two independent
+  witnesses for the same conclusion, which is why a full-scale-only pattern would
+  have been weaker;
+* **H4** — invisible to the group bars (`0x001F` reversed is still `0x001F`) and
+  unmistakable on the low-bit bars (`0x0001` → `0x0010`). This is the whole
+  reason the low-bit bars exist;
+* **H5** — announces itself on the two reference bars (`0x0000` → `0x7FFF`);
+* **H3** — tested on the preserved `b1`/`b3` pair, not on the assembled word;
+* **combinations** (say group swap *and* byte swap) are generated and tested
+  mechanically from the same eight values; the table above lists the pure forms.
+
+#### V3.16 When the experiment answers, and when it does not
+
+**Success requires all of:**
+
+```text
+ROM identity known (size, SHA-256, toolchain) and recorded in the run envelope
+the eight stimulus values known exactly, by construction
+>= 1 certified eligible frame, raw bytes of all 40 blocks preserved
+every bar exactly uniform across its 30 x 160 pixels
+the low-bit controls consistent with the group controls
+0x0000 and 0x7FFF behaving as the controls require
+EXACTLY ONE candidate hypothesis reproducing all eight observed values
+bit 15 analysed separately and never folded into a colour comparison
+no quarantined, incomplete, resynced or anomalous frame used
+restore ok, handler restored, INTMR clean, teardown complete
+```
+
+**INCONCLUSIVE if any of:** more than one hypothesis fits (the stimulus did not
+discriminate — refine it, do not choose); none fits (preserve the raw, open a new
+unknown, do not force an interpretation); a bar is not uniform; no frame is
+certified; the pattern is never recognised; the run aborts on the disagreement
+policy. Inconclusive is a result and is reported as one.
+
+#### V3.17 What becomes FACT, and what stays open
+
+On success the promotions are narrow and literal:
+
+```text
+FACT   the association between each observed group of GBP bits and the exact
+       15-bit value the AGB framebuffer held, for this stimulus, on this unit,
+       through this path
+FACT   the exact transformation (identity, group exchange, byte order, ...) the
+       physical path applied to those values
+FACT   whatever bit 15 did while the stimulus never set it
+```
+
+Only **after** that may a document write "C14_10 is red", and only because the
+AGB's own documented framebuffer layout says which channel the stimulus wrote.
+
+**Still open afterwards:** whether the same mapping holds for AGB video modes
+other than Mode 3, for GB/GBC titles, for a different GBP board revision or under
+a different GBS-DOL state. One stimulus mode is evidence about that mode and this
+path; extending it is a separate claim that needs its own justification.
+
+**U-GBP-011** is the unknown this closes. **U-GBP-033 is untouched**: the replica
+non-uniformity has nothing to do with colour order, and this experiment neither
+needs it answered nor contributes to it.
+
+#### V3.18 Comparing with the Start-up Disc and GBI
+
+Once the transformation is known, the comparison is mechanical and is stated in
+advance so the result cannot be chosen after the fact:
+
+```text
+both references read   word = (b1 << 8) | b3, force bit 15, treat bits 14-10 as R
+                       (Disc: GX_TF_RGB5A3 texture; GBI: RGB5A3 tiles + PNG writer)
+if H1 is confirmed     both references display the stimulus correctly; the GBP
+                       path exchanges the outer groups relative to AGB VRAM, and
+                       the references' reading is the displayed truth
+if H2 is confirmed     both references render AGB red as blue and vice versa.
+                       That is a claim about a display convention, checked against
+                       the Disc's own embedded frame before it is called anything:
+                       the same bytes decoded both ways, side by side
+if neither fits        the references are consistent with each other and with
+                       neither reading of the physical bytes: preserve, report,
+                       open an unknown
+```
+
+A divergence between the physical result and a reference is **documented as a
+divergence**, never called a bug in the reference without the analysis that
+earns the word (`CLAUDE.md` §6.1). Dolphin's model is auxiliary throughout: its
+mGBA-derived order (§4 of VIDEO_PATH) is a known suspected divergence and is
+never evidence.
+
+#### V3.19 Optional follow-up, not part of this gate
+
+A second pattern with `0x0002 / 0x0004 / 0x0008 / 0x0010` (and the equivalents in
+the other two groups) would pin every one of the fifteen bits individually rather
+than three of them plus three sets. It is **not** required: no reference suggests
+a transformation that fixes bits 0, 5 and 10 while rearranging bits 1–4, and this
+design does not manufacture hypotheses to defeat. It is recorded here so that, if
+the first run ever produces a residual ambiguity, the next step is already
+written.
+
+#### V3.20 Sidecar: a dedicated format, and why not OGBPSEQ1
+
+Three options were considered:
+
+```text
+A. OGBPSEQ1 v5 (vstate)   REJECTED. Its contract is the vstate probe's: frame
+                          signatures, a learned baseline, episodes, a structured
+                          change, a 1024-byte semantic block about disagreement
+                          policy. None of that describes this capture, and
+                          stretching a versioned contract to fit a different
+                          experiment is how formats stop meaning anything
+B. OGBPSEQ1 v1 (VIDEO-001) CLOSE, but not reused: its shape - bounded cycle
+                          table, VIDEO/AUDIO tables, raw blocks - is right, yet
+                          it is the frozen format of a physically executed run
+                          and it carries no notion of a certified frame
+C. a new dedicated format  ADOPTED
+```
+
+`OGBPCOL1` version 1, modelled on v1's proven discipline (big-endian, fixed
+offsets, field by field, no struct copy, no pointer, no RAM address, no padding,
+reserved bytes zero, identity that does not fit is an error, header CRC + total
+CRC + `OGBPEND1`-style footer, streamed after the teardown):
+
+```text
+header          identity, toolchain, tb_hz, counters, the stimulus ROM SHA-256,
+                the eight expected stimulus values, the caps of V3.12, the
+                certification result and the teardown record
+frame table     one record per assembled frame: index, blocks, flags, eligibility,
+                per-block raw signature, the structure/popcount verdict of V3.11
+certified table one record per preserved frame: which frame, its 40 block offsets,
+                the per-bar observed words and b1/b3 pairs as the PROBE saw them
+                (a cross-check of the offline reconstruction, never its source)
+cycle table     the bounded per-cycle records of the certified window
+diag table      the R3 disagreement records, same 160-byte layout and the same
+                v5 cross-field contract - the policy is shared, so its evidence
+                format is shared
+raw VIDEO       3 x 40 x 0xF00 whole blocks, verbatim
+raw AUDIO       2 blocks, summarised elsewhere
+footer          magic + CRC-32 of everything before it
+```
+
+The diagnostic record is reused deliberately: it is the one part of the vstate
+contract that is genuinely about the shared service policy rather than about the
+vstate experiment, and it has been physically validated (GBP-HW-111).
+
+#### V3.21 Replay and offline reproducibility
+
+The raw log becomes a versioned `.gbpreplay` fixture under `captures/fixtures/`
+by the existing rule (raw in `logs/`, copy in `captures/local/`, fixture
+identified by the raw hash and size), and the sidecar is preserved byte-identical
+beside it. The host battery must then be able to:
+
+```text
+re-parse the sidecar strictly and refuse any tampering
+rebuild the 240 x 160 words from the raw bytes alone
+re-run the structure, popcount, uniformity and orientation checks
+re-run every hypothesis in V3.15 and reproduce the same unique answer
+reproduce the bit-15 map
+do all of it with no console, no screenshot and no reference to the text log
+```
+
+A screenshot is never evidence here. The conclusion must survive as bytes.
+
+#### V3.22 Run envelope (for the implementation round, not an authorization)
+
+```text
+Test ID:   GBP-VIDEO-003            Build ID: color-0001 (to be fixed at build)
+DOL:       poc/gbp-video-color-probe (does not exist yet)
+Stimulus:  the Mode 3 ROM of V3.3/V3.6, identity recorded, bit15 never written
+Cartridge: depends on the delivery route chosen in V3.7 - recorded, not assumed
+Link Port: empty unless the route needs it (route 2 uses it); recorded either way
+BBA:       attached, no cable, as in every previous run
+Steps:     launch through Swiss with the stimulus already running and visible,
+           wait for the probe to report, press X to save, START, power OFF
+After:     POWER CYCLE MANDATORY (CONTROL transform and IRQ writes, CLAUDE.md §18)
+Answers:   which five bits are which channel, and what the path does to them
+```
+
+**This is a design, not a request.** No hardware run is authorized by this
+section, the probe does not exist, the ROM does not exist, and the delivery
+dependency of V3.7 is unresolved.

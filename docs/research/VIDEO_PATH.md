@@ -445,3 +445,66 @@ reproduce §6's physically anchored values `0xFF0FFF0F` (all-white, no flag) and
 `0x7F0FFF10` (all-white with the flag) from bytes the tests construct — the same
 function `tools/avseq.py` computes, so a future physical capture and the offline
 oracle are directly comparable.
+
+---
+
+## 10. The colour-order question, isolated (2026-09-17, design input for GBP-VIDEO-003)
+
+Four physical runs later, everything in §2 to §6 about *where the bytes are* has
+held. What none of them could touch is *what the fifteen colour bits mean*, and
+this section states exactly why, so the experiment that settles it
+(`HARDWARE_TESTS.md` §V3) can be read against the references rather than against
+an assumption.
+
+### 10.1 What the two references actually do
+
+```text
+Disc  FUN_8008efb4   pixel := (u16)b3 | FILL | ((b1 << 8) & 0xFFFF), FILL = 0x8000
+                     output is a GX_TF_RGB5A3 texture, drawn with no TEV swap
+GBI   FUN_8000BF30   pixel := (b1 << 8) | b3 packed two per word
+      FUN_80003444   RGB5A3 tiles, bit 15 forced in both halves
+      FUN_8000FACC   PNG writer: R = bits 14-10, G = bits 9-5, B = bits 4-0
+```
+
+Both therefore **read** the GBP word with R in the high group. That is a fact
+about the two decoders. It is not a measurement of the device, and the two are
+not independent of each other in the way that matters: they agree because they
+implement the same convention, not because either was checked against a pixel of
+known colour.
+
+### 10.2 Why every check made so far is blind to it
+
+| Check | Physically executed | Invariant under exchanging C14_10 and C4_0? |
+|---|---|---|
+| frame-start predicate `(w & 0x80800000) == 0x80800000` | yes, 4 runs | **yes** — bit 15 only |
+| Disc predicate `(hw >> 7) & 1` | yes | **yes** — bit 15 only |
+| per-block checksum (sum of 32-bit words) | yes | **no**, but both reference tables were computed from the *same* bytes, so agreement proves the bytes, not the naming |
+| byte-for-byte match against the Disc's embedded frame | yes (uniform white) | **yes** — white is `0x7FFF`, symmetric under any bit permutation |
+| the idle screen's logo colour `0x3019` | static only | **no** — but the decoded colour is only meaningful under an assumed reading |
+
+The uniform white frame that GBP-VIDEO-001 captured is the clearest case: white
+is the one colour that cannot distinguish any of the hypotheses, because
+`0x7FFF` maps to itself under every bit permutation. Four runs of white are four
+runs of no information about channel order.
+
+### 10.3 The prior, and its exact standing
+
+`§2.4` decodes the Disc's embedded reference frame and finds the logo in
+`0x3019`: R = 12, G = 0, B = 25 under the references' reading — indigo, which
+matches the real boot logo; under the AGB's own framebuffer order the same bytes
+would be crimson. That is the strongest argument available today for the
+references' reading being the displayed truth, and it is still an **inference
+from a reference's embedded asset**, two steps removed from the device: it
+assumes the asset was authored from a correct capture, and it assumes the remembered
+colour of the boot logo. `EVIDENCE.md` keeps it CORROBORATED for exactly that
+reason, and GBP-VIDEO-003 is designed to be decisive whichever way it falls —
+including the case where neither candidate reading fits the bytes.
+
+### 10.4 How the physical result will be compared with the references
+
+Specified in advance so it cannot be chosen afterwards (`HARDWARE_TESTS` §V3.18):
+the same certified frame is decoded twice, once under each reading, side by side
+with the Disc's embedded frame and GBI's tables; a divergence is documented as a
+divergence between a measurement and a decoder convention, never called a bug in
+a reference without the analysis that earns the word. Dolphin stays auxiliary:
+its mGBA-derived order (§4) is a suspected divergence and is never evidence.
