@@ -82,6 +82,14 @@ tests/unit/     C unit tests for hardware-independent modules under src/,
                                      disc-extra deferral that fabricates nothing, the follow-up lifecycle
                                      across consecutive disagreements, the bounded store and its cap, the
                                      gap statistics, and the v4 round trip and strictness
+                  test_gbp_video_state.c (probe) also carries the GBP-VIDEO-002-R4 battery: the
+                                     defect's own shape (isolated disagreements with many ordinary cycles
+                                     between them, then one event followed by thousands of cycles - every
+                                     record keeps the ACK and re-arm of ITS OWN cycle), PRESVC+POSTDRAIN+POSTACK
+                                     in one transaction, the markers landing only on the record that selected
+                                     the service, the four disagreement directions costing no device operation,
+                                     the ACK/re-arm failure lifecycle, the INVALID handle leaving the store
+                                     byte-identical, and nine tampers a v5 parser must refuse
                   test_gbp_vstate.c  GBP-VIDEO-002 state model: the frame assembler (complete_40, incomplete short
                                      and long, an interval that is not 40, resync, predicate disagreement — 40 is
                                      never assumed and no boundary is ever synthesised), the baseline of three, the
@@ -155,7 +163,17 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      source present in the next read 23/23, the timing that remains trustworthy,
                                      and the KNOWN PRODUCER DEFECT (GBP-HW-104) — which must stay detectable
                                      offline (23 ack_after_next_cause, 23 rearm_after_next_cause, 22
-                                     authority_not_majority) while the frozen v4 parser keeps accepting the file
+                                     authority_not_majority) while the frozen v4 parser keeps accepting the file.
+                                     Format 5 (vstate-0004, implemented, NOT physically executed) has v4's
+                                     layout and a stricter contract: class V5RejectsTheV4Defect tampers a real
+                                     v5 file into each shape the physical v4 file has - authority that is not
+                                     the majority, an ACK after the re-arm, an ACK that is not
+                                     authoritative|0x8000, an observational record claiming a service effect, a
+                                     reading the raw bytes do not produce, a classification that is not the
+                                     normative one - and requires BOTH parsers to refuse each one, the C verdict
+                                     read back through `test_gbp_video_state --parse`. FrozenFormatsStayReadable
+                                     keeps v2, v3 and v4 parsing in both implementations and keeps the v4 defect
+                                     a non-fatal report derived from the content, never from a hash
                   test_video_replay.py synthetic GBP-VIDEO-001 log → fixture + sequence sidecar → replay round trip
                                      (the regenerated run equals the original) and the physical GBP-AV-SERVICE-001
                                      fixture as the first cycle; asserts that no GBP-VIDEO-001 fixture exists

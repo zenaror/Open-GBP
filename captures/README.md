@@ -73,8 +73,11 @@ recorded and not interpreted (EVIDENCE.md GBP-HW-057/058).
 GBP-VIDEO-002 extends the same sidecar family, one frozen version per physical
 build: `OGBPSEQ1` **v2** (`vstate-0001`), **v3** (`vstate-0002`, adds the 96-byte
 semantic-disagreement diagnostic) and **v4** (`vstate-0003`, adds the 1 024-byte
-semantic block and the 160-byte diagnostic array). Each version is dispatched
-strictly and none can read another's file. The physical v4 file above carries a
+semantic block and the 160-byte diagnostic array) and **v5** (`vstate-0004`,
+implemented 2026-09-17 and not physically executed: v4's layout byte for byte,
+under a producer contract the parser enforces with cross-field invariants). Each
+version is dispatched strictly and every file is judged by its own version's
+rules; no file is ever read under another version's contract. The physical v4 file above carries a
 **known producer defect** (EVIDENCE.md GBP-HW-104): a diagnostic record's
 current-cycle fields may have been overwritten by a later service cycle. The
 format and its parser stay **frozen and unchanged** — adding a cross-field rule

@@ -2,6 +2,10 @@
 
 #include <string.h>
 #include "gbp_crc32.h"
+/* The v5 cross-field invariants recompute both readings from the preserved raw
+ * bytes with the SAME functions the runtime used, never with a second copy of
+ * the rule (§R4.8). */
+#include "gbp_rawlog.h"
 
 /*
  * Header offsets (big-endian throughout). Everything not listed is reserved
@@ -756,10 +760,25 @@ int gbp_vstatedump_parse_v3(const uint8_t *in, size_t n, struct gbp_vstatedump_i
                                    video_raw, audio_raw);
 }
 
-int gbp_vstatedump_parse_v4(const uint8_t *in, size_t n, struct gbp_vstatedump_info *info,
-                            const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
-                            const uint8_t **cycles, const uint8_t **semantic, const uint8_t **diag,
-                            const uint8_t **video_raw, const uint8_t **audio_raw)
+/* v4 and v5 share one layout exactly; only the producer contract differs, so the
+ * structural rules below are written once and asked this question instead of the
+ * version number. */
+static int has_semantic_block(uint16_t version)
+{
+    return version == GBP_VSTATEDUMP_VERSION_V4 || version == GBP_VSTATEDUMP_VERSION_V5;
+}
+
+/*
+ * The one parser. THE FILE'S OWN VERSION DECIDES THE RULES - always, whichever
+ * entry point was called: a v2 file is checked as v2, a v5 file as v5, and no
+ * file is ever read under another version's contract. The four public entries
+ * differ only in which sections they hand back.
+ */
+static int parse_core(const uint8_t *in, size_t n,
+                      struct gbp_vstatedump_info *info,
+                      const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
+                      const uint8_t **cycles, const uint8_t **semantic, const uint8_t **diag,
+                      const uint8_t **video_raw, const uint8_t **audio_raw)
 {
     struct gbp_vstatedump_info d;
     uint64_t need;
@@ -772,8 +791,8 @@ int gbp_vstatedump_parse_v4(const uint8_t *in, size_t n, struct gbp_vstatedump_i
     /* Explicit dispatch, never a silent reinterpretation: v2 is the FROZEN physical format and v3
      * is v2 plus the diagnostic section. Any other version is refused here, before a single field
      * is read, so no file of one version can be parsed as another. */
-    if ((d.version != GBP_VSTATEDUMP_VERSION && d.version != GBP_VSTATEDUMP_VERSION_V2 &&
-         d.version != GBP_VSTATEDUMP_VERSION_V3) ||
+    if ((d.version != GBP_VSTATEDUMP_VERSION_V2 && d.version != GBP_VSTATEDUMP_VERSION_V3 &&
+         d.version != GBP_VSTATEDUMP_VERSION_V4 && d.version != GBP_VSTATEDUMP_VERSION_V5) ||
         d.header_size != GBP_VSTATEDUMP_HEADER_SIZE) return -2;
     if (get_u16(in + 0x02C) != GBP_VSTATEDUMP_FRAME_REC || get_u16(in + 0x02E) != GBP_VSTATEDUMP_EVENT_REC ||
         get_u16(in + 0x030) != GBP_VSTATEDUMP_EPISODE_REC || get_u16(in + 0x032) != GBP_VSTATEDUMP_CYCLE_REC) return -2;
@@ -792,7 +811,7 @@ int gbp_vstatedump_parse_v4(const uint8_t *in, size_t n, struct gbp_vstatedump_i
         if (d.diag_count && d.diag_rec_size != GBP_VSTATEDUMP_DIAG_REC) return -2;
         if (!d.diag_count && d.diag_rec_size != GBP_VSTATEDUMP_DIAG_REC && d.diag_rec_size != 0u) return -2;
     } else {
-        /* v4: the same three fields with the same meanings, plus the block. */
+        /* v4 and v5: the same three fields with the same meanings, plus the block. */
         d.off_diag = get_u32(in + 0x1E0);
         d.diag_count = get_u32(in + 0x1E4);
         d.diag_rec_size = get_u16(in + 0x1E8);
@@ -890,7 +909,7 @@ int gbp_vstatedump_parse_v4(const uint8_t *in, size_t n, struct gbp_vstatedump_i
     if (d.version == GBP_VSTATEDUMP_VERSION_V3) {
         if (need != d.off_diag) return -4;
         need += (uint64_t)d.diag_count * GBP_VSTATEDUMP_DIAG_REC;
-    } else if (d.version == GBP_VSTATEDUMP_VERSION) {
+    } else if (has_semantic_block(d.version)) {
         if (need != d.off_semantic) return -4;
         need += GBP_VSTATEDUMP_SEMANTIC_SIZE;
         if (need != d.off_diag) return -4;
@@ -934,7 +953,7 @@ int gbp_vstatedump_parse_v4(const uint8_t *in, size_t n, struct gbp_vstatedump_i
      * the two parsers must agree on what is valid. */
     if (d.version == GBP_VSTATEDUMP_VERSION_V3 && d.diag_count &&
         !reserved_zero(in + d.off_diag + 0x5Cu, GBP_VSTATEDUMP_DIAG_REC - 0x5Cu)) return -8;
-    if (d.version == GBP_VSTATEDUMP_VERSION) {
+    if (has_semantic_block(d.version)) {
         uint32_t vi;
         const uint8_t *sb = in + d.off_semantic;
         if (get_u32(sb + 0x000) != GBP_VSTATEDUMP_SEMANTIC_TAG) return -9;
@@ -953,7 +972,10 @@ int gbp_vstatedump_parse_v4(const uint8_t *in, size_t n, struct gbp_vstatedump_i
             uint16_t cls = get_u16(r + 0x66);
             uint8_t fu = r[0x8C], fur = r[0x8D];
             if (!reserved_zero(r + 0x5C, 4u) || !reserved_zero(r + 0x9E, 2u)) return -8;
-            if (fl & (uint16_t)~GBP_VSTATE_DF_ALL) return -8;        /* unknown record flag */
+            /* DF_SERVICE_WRITTEN exists only in v5: a v4 file must still carry
+             * zero in bits 8..15, exactly as the physical one does. */
+            if (fl & (uint16_t)~(d.version == GBP_VSTATEDUMP_VERSION_V5 ?
+                                 GBP_VSTATE_DF_ALL_V5 : GBP_VSTATE_DF_ALL)) return -8;
             if (cls < 1u || cls > 3u) return -9;
             if (fu == GBP_VSTATE_FU_PENDING || fu > GBP_VSTATE_FU_UNKNOWN) return -9;
             if (fur > GBP_VSTATE_FUR_INTERNAL) return -9;
@@ -963,14 +985,123 @@ int gbp_vstatedump_parse_v4(const uint8_t *in, size_t n, struct gbp_vstatedump_i
             if ((fl & GBP_VSTATE_DF_FOLLOWUP_FILLED) &&
                 fu != GBP_VSTATE_FU_SOURCE_PRESENT_NEXT && fu != GBP_VSTATE_FU_SOURCE_ABSENT_NEXT) return -9;
             if (get_u16(r + 0x9C) == 0u && get_u32(r + 0x98) != GBP_VSTATE_GAP_NONE) return -9;
+            /* ---- v5 ONLY: the cross-field invariants of §R4.8 ----
+             * Everything below is RECOMPUTED from the 32 preserved bytes and
+             * from the normative functions; not one of them trusts a stored
+             * derived value. A v4 file never reaches here. */
+            if (d.version == GBP_VSTATEDUMP_VERSION_V5) {
+                const uint8_t *raw = r + 0x18;
+                uint16_t disc = get_u16(r + 0x10), gbi = get_u16(r + 0x12);
+                uint16_t kind = get_u16(r + 0x14);
+                uint16_t auth = get_u16(r + 0x68), ack = get_u16(r + 0x6A);
+                uint16_t svc = get_u16(r + 0x6C);
+                uint16_t delta = get_u16(r + 0x60);
+                uint16_t disc_x = get_u16(r + 0x62), maj_x = get_u16(r + 0x64);
+                uint64_t t = get_u64(r + 0x00), t_ack = get_u64(r + 0x70);
+                uint64_t t_rearm = get_u64(r + 0x78), t_next = get_u64(r + 0x80);
+                uint16_t next_gbi = get_u16(r + 0x88);
+                int selects = (kind == GBP_VSTATE_DIAG_READ_LEAN || kind == GBP_VSTATE_DIAG_READ_PRESVC);
+                /* 1. both readings, from the bytes themselves */
+                if (gbp_irq_value_disc(raw) != disc || gbp_irq_value_gbi(raw) != gbi) return -10;
+                /* 2. every derived field, from those two */
+                if (delta != (uint16_t)(disc ^ gbi)) return -10;
+                if (disc_x != (uint16_t)((disc & GBP_VSTATE_SRC_MASK) & ~(gbi & GBP_VSTATE_SRC_MASK))) return -10;
+                if (maj_x != (uint16_t)((gbi & GBP_VSTATE_SRC_MASK) & ~(disc & GBP_VSTATE_SRC_MASK))) return -10;
+                if (cls != (uint16_t)gbp_vstate_classify(disc, gbi)) return -10;
+                /* 3. the composed authoritative value: agreed outside SRC_MASK,
+                 *    the majority inside it. This is the invariant the physical
+                 *    v4 file fails in 22 of its 23 records. */
+                if (auth != gbp_vstate_authoritative(disc, gbi)) return -10;
+                /* 4. the service decision, and the zero that must not be ambiguous */
+                if (fl & GBP_VSTATE_DF_SERVICE_WRITTEN) {
+                    if (!selects) return -10;                       /* observational claims service */
+                    if (svc != (uint16_t)(auth & GBP_VSTATE_AV_MASK)) return -10;
+                } else if (svc != 0u) {
+                    return -10;                                     /* a decision with no record of one */
+                }
+                /* 5. the ACK identity and its invalid encoding */
+                if (fl & GBP_VSTATE_DF_ACK_WRITTEN) {
+                    if (!(fl & GBP_VSTATE_DF_SERVICE_WRITTEN)) return -10;
+                    if (ack != (uint16_t)(auth | GBP_VSTATE_BIT15_MASK)) return -10;
+                    if (t_ack < t) return -10;
+                } else if (ack != 0u || t_ack != 0u) {
+                    return -10;             /* a plausible ACK without its flag */
+                }
+                /* 6. the re-arm: never before the ACK, invalid without its flag */
+                if (fl & GBP_VSTATE_DF_REARM_WRITTEN) {
+                    if (!(fl & GBP_VSTATE_DF_ACK_WRITTEN)) return -10;
+                    if (t_rearm < t_ack) return -10;
+                } else if (t_rearm != 0u) {
+                    return -10;
+                }
+                /* 7. the follow-up, per source bit and against the majority only */
+                if (fu == GBP_VSTATE_FU_SOURCE_PRESENT_NEXT || fu == GBP_VSTATE_FU_SOURCE_ABSENT_NEXT) {
+                    uint16_t absent = (uint16_t)(disc_x & ~(next_gbi & GBP_VSTATE_SRC_MASK));
+                    if (!selects || disc_x == 0u) return -10;
+                    if (!(fl & GBP_VSTATE_DF_REARM_WRITTEN)) return -10;  /* no re-arm, no next cause */
+                    if (!(fl & GBP_VSTATE_DF_FOLLOWUP_FILLED)) return -10;
+                    if (t_next < t_rearm) return -10;
+                    if ((fu == GBP_VSTATE_FU_SOURCE_PRESENT_NEXT) != (absent == 0u)) return -10;
+                } else {
+                    /* no next cause was observed: the next fields stay at their
+                     * invalid encoding, so nothing can be read out of them */
+                    if (t_next != 0u || next_gbi != 0u || get_u16(r + 0x8A) != 0u) return -10;
+                    if (fu == GBP_VSTATE_FU_NO_NEXT_CAUSE && !(fl & GBP_VSTATE_DF_REARM_WRITTEN)) return -10;
+                }
+                /* 8. the observational contract: it asserts nothing about service */
+                if (!selects) {
+                    if (fl & (GBP_VSTATE_DF_SERVICE_WRITTEN | GBP_VSTATE_DF_ACK_WRITTEN |
+                              GBP_VSTATE_DF_REARM_WRITTEN | GBP_VSTATE_DF_PAYLOAD_VALID |
+                              GBP_VSTATE_DF_PAYLOAD_SECOND | GBP_VSTATE_DF_FRAME_QUARANTINED |
+                              GBP_VSTATE_DF_SOURCE_DEFERRED | GBP_VSTATE_DF_SERVICE_INCOMPLETE)) return -10;
+                    if (fu != GBP_VSTATE_FU_UNKNOWN || fur != GBP_VSTATE_FUR_OBSERVATIONAL) return -10;
+                }
+                /* 9. the payload provenance, and the two markers */
+                if (fl & GBP_VSTATE_DF_PAYLOAD_VALID) {
+                    uint16_t psrc = get_u16(r + 0x8E);
+                    if (!(fl & GBP_VSTATE_DF_SERVICE_WRITTEN)) return -10;
+                    if ((psrc & maj_x) == 0u) return -10;           /* not a majority-extra source */
+                    if ((psrc & svc) == 0u) return -10;             /* not actually serviced */
+                    if ((fl & GBP_VSTATE_DF_PAYLOAD_SECOND) &&
+                        (maj_x & GBP_VSTATE_AV_MASK) != GBP_VSTATE_AV_MASK) return -10;
+                } else if (fl & GBP_VSTATE_DF_PAYLOAD_SECOND) {
+                    return -10;
+                }
+                if ((fl & GBP_VSTATE_DF_FRAME_QUARANTINED) &&
+                    !(maj_x & GBP_VSTATE_SRC_VIDEO)) return -10;
+                if ((fl & GBP_VSTATE_DF_SOURCE_DEFERRED) &&
+                    !(disc_x & GBP_VSTATE_SRC_VIDEO)) return -10;
+                /* 10. a fatal class ends its transaction where it happened, so it
+                 *     can never carry an ACK or a re-arm. */
+                if (cls != GBP_VSTATE_DIS_SOURCE_SERVICED &&
+                    (fl & (GBP_VSTATE_DF_ACK_WRITTEN | GBP_VSTATE_DF_REARM_WRITTEN))) return -10;
+            }
         }
     }
-    if (semantic) *semantic = (d.version == GBP_VSTATEDUMP_VERSION) ? in + d.off_semantic : 0;
-    if (diag) *diag = ((d.version == GBP_VSTATEDUMP_VERSION_V3 || d.version == GBP_VSTATEDUMP_VERSION) &&
+    if (semantic) *semantic = has_semantic_block(d.version) ? in + d.off_semantic : 0;
+    if (diag) *diag = ((d.version == GBP_VSTATEDUMP_VERSION_V3 || has_semantic_block(d.version)) &&
                        d.diag_count) ? in + d.off_diag : 0;
     if (video_raw) *video_raw = in + d.off_video_raw;
     if (audio_raw) *audio_raw = in + d.off_audio_raw;
     return 0;
+}
+
+int gbp_vstatedump_parse_v4(const uint8_t *in, size_t n, struct gbp_vstatedump_info *info,
+                            const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
+                            const uint8_t **cycles, const uint8_t **semantic, const uint8_t **diag,
+                            const uint8_t **video_raw, const uint8_t **audio_raw)
+{
+    return parse_core(in, n, info, frames, events, episodes, cycles,
+                      semantic, diag, video_raw, audio_raw);
+}
+
+int gbp_vstatedump_parse_v5(const uint8_t *in, size_t n, struct gbp_vstatedump_info *info,
+                            const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
+                            const uint8_t **cycles, const uint8_t **semantic, const uint8_t **diag,
+                            const uint8_t **video_raw, const uint8_t **audio_raw)
+{
+    return parse_core(in, n, info, frames, events, episodes, cycles,
+                      semantic, diag, video_raw, audio_raw);
 }
 
 void gbp_vstatedump_decode_frame(const uint8_t *rec, struct gbp_vstate_frame *out)

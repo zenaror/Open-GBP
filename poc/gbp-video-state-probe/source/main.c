@@ -1,11 +1,22 @@
 /*
- * Open-GBP GBP-VIDEO-002-R3, build vstate-0003 — the SAME experiment as the
- * physically executed vstate-0001, plus one piece of instrumentation: when the
- * two semantic readings of the IRQ register disagree, the 32 raw bytes that
- * caused it are preserved (U-GBP-032). The first physical run aborted on
- * exactly that event at cycle 51750 and the bytes were lost. Nothing else
- * changes: the disagreement stays fatal, no retry, no re-read, no second
- * opinion, and no extra access to the device.
+ * Open-GBP GBP-VIDEO-002-R4, build vstate-0004 — the SAME experiment and the
+ * SAME policy as the physically executed vstate-0003, with one defect removed:
+ * the diagnostic bookkeeping. In vstate-0003 every current-cycle setter
+ * addressed "the newest record" and ran on every service cycle, so a record
+ * kept absorbing the authoritative value, service decision, ACK and re-arm of
+ * later cycles (GBP-HW-104). Here the cycle carries an EXPLICIT handle and
+ * every setter takes it, so a record can only be written by the transaction
+ * that opened it. The file it produces is OGBPSEQ1 v5, whose parser enforces
+ * that promise with cross-field invariants recomputed from the preserved raw
+ * bytes. NOT ONE HARDWARE OPERATION, ORDER, COUNT OR TIMING CHANGES, the ISR is
+ * untouched, and the observed policy - three classes, authority composition,
+ * the independent pending guard, the quarantine - is exactly vstate-0003's.
+ *
+ * The disagreement instrumentation it inherits: when the two semantic readings
+ * of the IRQ register disagree, the 32 raw bytes that caused it are preserved
+ * (U-GBP-032), a disagreement confined to the two serviced source bits is
+ * survivable, and every other one is still fatal. No retry, no re-read, no
+ * second opinion, and no extra access to the device.
  *
  * A long-duration VIDEO state scan under the
  * repeated drained service of the GBP HSP interrupt: the GBP-INIT-003A
@@ -326,8 +337,13 @@ int main(void)
             long n = -1;
             int rc, rc2 = -9;
             res.save_attempted = 1;
-            snprintf(extra, sizeof extra, "libogc=%s gecko=%d power_cycle_required=%d sidecar=%s_%s-vstate.bin",
-                     _V_STRING, gecko_present, res.power_cycle_required, TEST_ID, OPENGBP_BUILD_ID);
+            /* The log names the sidecar AND its format: v4 and v5 share a layout,
+             * so the version is the only thing that says which producer contract
+             * the file was written under. */
+            snprintf(extra, sizeof extra,
+                     "libogc=%s gecko=%d power_cycle_required=%d sidecar=%s_%s-vstate.bin format=OGBPSEQ1_v%u",
+                     _V_STRING, gecko_present, res.power_cycle_required, TEST_ID, OPENGBP_BUILD_ID,
+                     (unsigned)GBP_VSTATEDUMP_VERSION);
             rc = sdlog_save(TEST_ID, OPENGBP_BUILD_ID, OPENGBP_GIT_COMMIT, extra, &rl,
                             status, sizeof status, path, sizeof path);
             res.save_log_ok = (rc == 0) ? 1 : 0;
@@ -352,7 +368,7 @@ int main(void)
             /* hardware_result is NOT touched by any of this (§18/§26): a card failure after a
              * successful teardown cannot invalidate what is in RAM, and nothing re-runs. */
             printf("\x1b[28;1H  SD log     : %s\n", status);
-            printf("  SD sidecar : %s\n", status2);
+            printf("  SD sidecar : %s   (OGBPSEQ1 v%u)\n", status2, (unsigned)GBP_VSTATEDUMP_VERSION);
             printf("  SAVE RESULT: %s   (hardware_result unchanged: %s / %s)\n",
                    saved ? "complete" : (res.save_log_ok || written) ? "PARTIAL" : "FAILED",
                    res.status_name, res.restore_ok ? "restore ok" : "restore FAILED");

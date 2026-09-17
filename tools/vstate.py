@@ -45,16 +45,18 @@ import sys
 
 MAGIC = b"OGBPSEQ1"
 FOOTER = b"OGBPEND1"
-VERSIONS = (2, 3, 4)       # 2 and 3 are frozen physical formats; 4 is what vstate-0003 writes
-VERSION = 4
+VERSIONS = (2, 3, 4, 5)    # 2, 3 and 4 are frozen physical formats; 5 is what vstate-0004 writes
+VERSION = 5
 DIAG_REC = 96              # the v3 record
 DIAG_REC_V4 = 160          # the v4 record: the v3 one plus a 64-byte follow-up block
+DIAG_REC_V5 = 160          # v5 keeps it, byte for byte: no field was ever missing
 MAX_DIAGS = 256
 SEMANTIC_SIZE = 1024
 SEMANTIC_TAG = 0x4F475342  # "OGSB"
 SEMANTIC_VERSION = 1
 DIAGF_ALL = 0x0001         # bit 0 = store_capped
-RECORD_FLAGS_ALL = 0x00FF
+RECORD_FLAGS_ALL = 0x00FF      # v4: bits 8..15 reserved and zero
+RECORD_FLAGS_ALL_V5 = 0x01FF   # v5 adds service_written (0x0100)
 SRC_MASK = 0x0555
 AV_MASK = 0x0500
 GAP_NONE = 0xFFFFFFFF
@@ -67,7 +69,20 @@ FUR_NAMES = {0: "-", 1: "observational_site", 2: "run_aborted", 3: "not_applicab
 RECORD_FLAG_NAMES = ((0x0001, "followup_filled"), (0x0002, "payload_valid"),
                      (0x0004, "payload_second_omitted"), (0x0008, "frame_quarantined"),
                      (0x0010, "source_deferred"), (0x0020, "service_incomplete"),
-                     (0x0040, "ack_written"), (0x0080, "rearm_written"))
+                     (0x0040, "ack_written"), (0x0080, "rearm_written"),
+                     (0x0100, "service_written"))
+DF_FOLLOWUP_FILLED = 0x0001
+DF_PAYLOAD_VALID = 0x0002
+DF_PAYLOAD_SECOND = 0x0004
+DF_FRAME_QUARANTINED = 0x0008
+DF_SOURCE_DEFERRED = 0x0010
+DF_SERVICE_INCOMPLETE = 0x0020
+DF_ACK_WRITTEN = 0x0040
+DF_REARM_WRITTEN = 0x0080
+DF_SERVICE_WRITTEN = 0x0100
+BIT15_MASK = 0x8000
+SRC_VIDEO = 0x0100
+SRC_AUDIO = 0x0400
 SEM_COUNTERS = ("disagreements_total", "source_serviced", "source_other", "non_source",
                 "disc_extra_events", "majority_extra_events", "both_direction_events",
                 "majority_extra_video_services", "majority_extra_audio_services",
@@ -156,8 +171,8 @@ def parse(data):
     # diagnostic section, written by the instrumented build. Neither is ever read as the other, and
     # GBP-VIDEO-001's format 1 belongs to tools/avseq.py.
     if d["version"] not in VERSIONS or d["header_size"] != HEADER_SIZE:
-        raise ValueError("unsupported version %u / header size 0x%X (this tool reads formats 2 and 3; "
-                         "GBP-VIDEO-001 files are format 1, read by tools/avseq.py)"
+        raise ValueError("unsupported version %u / header size 0x%X (this tool reads formats 2, 3, 4 "
+                         "and 5; GBP-VIDEO-001 files are format 1, read by tools/avseq.py)"
                          % (d["version"], d["header_size"]))
     for off, want, what in ((0x02C, FRAME_REC, "frame"), (0x02E, EVENT_REC, "event"),
                             (0x030, EPISODE_REC, "episode"), (0x032, CYCLE_REC, "cycle")):
@@ -172,8 +187,10 @@ def parse(data):
         if any(data[0x1E0:0x1FC]):
             raise ValueError("v2 reserved header bytes are not zero")
         d["off_diag"] = d["diag_count"] = d["diag_rec_size"] = 0
-    elif d["version"] == 4:
-        # v4: every v3 field keeps its meaning and its offset; the block is new.
+    elif d["version"] in (4, 5):
+        # v4 and v5 share ONE layout: every v3 field keeps its meaning and its
+        # offset, and the block is at the same place in both. What separates them
+        # is the producer contract, enforced per record below.
         d["off_diag"] = _u32(data, 0x1E0)
         d["diag_count"] = _u32(data, 0x1E4)
         d["diag_rec_size"] = _u16(data, 0x1E8)
@@ -181,11 +198,12 @@ def parse(data):
         d["off_semantic"] = _u32(data, 0x1EC)
         d["semantic_size"] = _u32(data, 0x1F0)
         if any(data[0x1F4:0x1FC]):
-            raise ValueError("v4 reserved header bytes are not zero")
+            raise ValueError("v%u reserved header bytes are not zero" % d["version"])
         if d["diag_count"] > MAX_DIAGS:
             raise ValueError("at most %u diagnostic records (%u claimed)" % (MAX_DIAGS, d["diag_count"]))
         if d["diag_rec_size"] != DIAG_REC_V4:
-            raise ValueError("unexpected diagnostic record size %u in a v4 file" % d["diag_rec_size"])
+            raise ValueError("unexpected diagnostic record size %u in a v%u file"
+                             % (d["diag_rec_size"], d["version"]))
         if d["semantic_size"] != SEMANTIC_SIZE:
             raise ValueError("unexpected semantic block size %u" % d["semantic_size"])
         if d["diag_flags"] & ~DIAGF_ALL:
@@ -272,7 +290,7 @@ def parse(data):
         if need != d["off_diag"]:
             raise ValueError("diagnostic offset does not follow the cycle table")
         need += d["diag_count"] * DIAG_REC
-    elif d["version"] == 4:
+    elif d["version"] in (4, 5):
         if need != d["off_semantic"]:
             raise ValueError("semantic block does not follow the cycle table")
         need += SEMANTIC_SIZE
@@ -298,9 +316,10 @@ def parse(data):
     d["diag"] = _diag(data, d["off_diag"]) if d["version"] == 3 and d["diag_count"] else None
     d["diags"] = []
     d["semantic"] = None
-    if d["version"] == 4:
+    if d["version"] in (4, 5):
         d["semantic"] = _semantic(data, d["off_semantic"])
-        d["diags"] = [_diag_v4(data, d["off_diag"] + i * DIAG_REC_V4) for i in range(d["diag_count"])]
+        d["diags"] = [_diag_v4(data, d["off_diag"] + i * DIAG_REC_V4, d["version"], i)
+                      for i in range(d["diag_count"])]
         if d["diags"]:
             d["diag"] = d["diags"][0]
     raw = 0
@@ -400,8 +419,138 @@ def _diag(b, o):
     return d
 
 
-def _diag_v4(b, o):
-    """One v4 record: the v3 half at the same offsets plus the follow-up block."""
+def classify(disc, gbi):
+    """The normative classification of §R3.2, in the normative ORDER: the bits with no
+    contract first. 0 means the two readings agree."""
+    delta = disc ^ gbi
+    if delta == 0:
+        return 0
+    if delta & ~SRC_MASK & 0xFFFF:
+        return 3                                     # non_source
+    if delta & (SRC_MASK & ~AV_MASK) & 0xFFFF:
+        return 2                                     # source_other
+    return 1                                         # source_serviced
+
+
+def authoritative(disc, gbi):
+    """The composition of §R3.3: outside SRC_MASK the two readings must already agree, so
+    taking either is taking the AGREED value and never a vote; inside SRC_MASK the bitwise
+    majority wins. Project policy, not a fact about what the hardware intends."""
+    return ((disc & ~SRC_MASK) | (gbi & SRC_MASK)) & 0xFFFF
+
+
+def _validate_v5(d, i):
+    """The v5 cross-field invariants of §R4.8, recomputed from the record's own 32 bytes and
+    from the normative functions above — never from a stored derived value.
+
+    They exist because a v4 producer could write a record whose current-cycle fields belonged
+    to a LATER cycle (GBP-HW-104) and no rule refused it. In v5 each of these is fatal. They
+    are NEVER applied to v2, v3 or v4: a frozen physical file keeps parsing as it always did.
+    """
+    def bad(msg):
+        raise ValueError("v5 record %u: %s" % (i, msg))
+    raw = bytes(d["raw"])
+    fl = d["record_flags"]
+    disc, gbi = d["disc_value"], d["gbi_value"]
+    selects = d["read_kind"] in ("READ", "PRESVC")
+    # 1. both readings, from the bytes themselves
+    if read_disc(raw) != disc or read_gbi(raw) != gbi:
+        bad("the stored readings are not what raw[32] recomputes (%04x/%04x vs %04x/%04x)"
+            % (disc, gbi, read_disc(raw), read_gbi(raw)))
+    # 2. every derived field, from those two
+    if d["delta"] != (disc ^ gbi):
+        bad("delta %04x is not disc ^ gbi" % d["delta"])
+    if d["disc_extra_sources"] != (disc & SRC_MASK) & ~(gbi & SRC_MASK) & 0xFFFF:
+        bad("disc_extra_sources %04x is not recomputable" % d["disc_extra_sources"])
+    if d["majority_extra_sources"] != (gbi & SRC_MASK) & ~(disc & SRC_MASK) & 0xFFFF:
+        bad("majority_extra_sources %04x is not recomputable" % d["majority_extra_sources"])
+    if d["classification_code"] != classify(disc, gbi):
+        bad("classification %u is not the normative one (%u)"
+            % (d["classification_code"], classify(disc, gbi)))
+    # 3. the composed authoritative value — the invariant the physical v4 file fails
+    auth = authoritative(disc, gbi)
+    if d["authoritative_value"] != auth:
+        bad("authoritative %04x is not the composition of the two readings (%04x)"
+            % (d["authoritative_value"], auth))
+    # 4. the service decision, and the zero that must not be ambiguous
+    if fl & DF_SERVICE_WRITTEN:
+        if not selects:
+            bad("an observational record claims a service decision")
+        if d["service_selected"] != (auth & AV_MASK):
+            bad("service_selected %04x is not authoritative & AV_MASK (%04x)"
+                % (d["service_selected"], auth & AV_MASK))
+    elif d["service_selected"] != 0:
+        bad("service_selected %04x with no recorded service decision" % d["service_selected"])
+    # 5. the ACK identity and its invalid encoding
+    if fl & DF_ACK_WRITTEN:
+        if not fl & DF_SERVICE_WRITTEN:
+            bad("an ACK with no service decision")
+        if d["ack_value"] != (auth | BIT15_MASK):
+            bad("ack_value %04x is not authoritative | 0x8000 (%04x)"
+                % (d["ack_value"], auth | BIT15_MASK))
+        if d["t_ack"] < d["t"]:
+            bad("t_ack is before the read that opened the record")
+    elif d["ack_value"] or d["t_ack"]:
+        bad("a plausible ACK without ACK_WRITTEN")
+    # 6. the re-arm: never before the ACK, invalid without its flag
+    if fl & DF_REARM_WRITTEN:
+        if not fl & DF_ACK_WRITTEN:
+            bad("a re-arm with no ACK")
+        if d["t_rearm"] < d["t_ack"]:
+            bad("t_rearm is before t_ack")
+    elif d["t_rearm"]:
+        bad("a plausible re-arm without REARM_WRITTEN")
+    # 7. the follow-up, per source bit and against the majority only
+    if d["followup_state_code"] in (1, 2):
+        if not selects or d["disc_extra_sources"] == 0:
+            bad("a follow-up verdict where no source was omitted")
+        if not fl & DF_REARM_WRITTEN:
+            bad("a next cause after a re-arm that was never written")
+        if not fl & DF_FOLLOWUP_FILLED:
+            bad("a follow-up verdict without followup_filled")
+        if d["t_next_cause"] < d["t_rearm"]:
+            bad("t_next_cause is before the re-arm")
+        absent = d["disc_extra_sources"] & ~(d["next_pending_gbi"] & SRC_MASK) & 0xFFFF
+        if (d["followup_state_code"] == 1) != (absent == 0):
+            bad("the aggregate follow-up state contradicts the per-bit split")
+    else:
+        if d["t_next_cause"] or d["next_pending_gbi"] or d["next_pending_disc"]:
+            bad("next-cause fields are set although no next cause was observed")
+        if d["followup_state_code"] == 3 and not fl & DF_REARM_WRITTEN:
+            bad("no_next_cause without a written re-arm")
+    # 8. the observational contract
+    if not selects:
+        forbidden = (DF_SERVICE_WRITTEN | DF_ACK_WRITTEN | DF_REARM_WRITTEN | DF_PAYLOAD_VALID |
+                     DF_PAYLOAD_SECOND | DF_FRAME_QUARANTINED | DF_SOURCE_DEFERRED |
+                     DF_SERVICE_INCOMPLETE)
+        if fl & forbidden:
+            bad("an observational record claims current-service effects (%04x)" % (fl & forbidden))
+        if d["followup_state_code"] != 4 or d["followup_reason_code"] != 1:
+            bad("an observational record must be FU_UNKNOWN / observational_site")
+    # 9. the payload provenance, and the two markers
+    if fl & DF_PAYLOAD_VALID:
+        if not fl & DF_SERVICE_WRITTEN:
+            bad("a payload with no service decision")
+        if not d["payload_source"] & d["majority_extra_sources"]:
+            bad("payload_source %04x is not a majority-extra source" % d["payload_source"])
+        if not d["payload_source"] & d["service_selected"]:
+            bad("payload_source %04x was not serviced" % d["payload_source"])
+        if (fl & DF_PAYLOAD_SECOND) and (d["majority_extra_sources"] & AV_MASK) != AV_MASK:
+            bad("payload_second_omitted with only one eligible majority-extra source")
+    elif fl & DF_PAYLOAD_SECOND:
+        bad("payload_second_omitted without a payload")
+    if (fl & DF_FRAME_QUARANTINED) and not d["majority_extra_sources"] & SRC_VIDEO:
+        bad("frame_quarantined without majority-extra VIDEO")
+    if (fl & DF_SOURCE_DEFERRED) and not d["disc_extra_sources"] & SRC_VIDEO:
+        bad("source_deferred without Disc-extra VIDEO")
+    # 10. a fatal class ends its transaction where it happened
+    if d["classification_code"] != 1 and fl & (DF_ACK_WRITTEN | DF_REARM_WRITTEN):
+        bad("a fatal-class record carries an ACK or a re-arm")
+
+
+def _diag_v4(b, o, version=4, index=0):
+    """One v4 or v5 record: the v3 half at the same offsets plus the follow-up block.
+    The LAYOUT is identical; what differs is how strictly the fields must agree."""
     d = _diag(b, o)
     d["delta"] = _u16(b, o + 0x60)
     d["disc_extra_sources"] = _u16(b, o + 0x62)
@@ -427,9 +576,11 @@ def _diag_v4(b, o):
     d["gap_min_before_ticks"] = _u32(b, o + 0x98)
     d["gap_count_before"] = _u16(b, o + 0x9C)
     if any(b[o + 0x9E:o + DIAG_REC_V4]):
-        raise ValueError("v4 record reserved bytes are not zero")
+        raise ValueError("v%u record reserved bytes are not zero" % version)
     # The same rules the C parser applies, so neither can accept what the other refuses.
-    if d["record_flags"] & ~RECORD_FLAGS_ALL:
+    # service_written (0x0100) exists only in v5; a v4 file keeps bits 8..15 zero.
+    allowed = RECORD_FLAGS_ALL_V5 if version == 5 else RECORD_FLAGS_ALL
+    if d["record_flags"] & ~allowed:
         raise ValueError("unknown record flag bit set (%04x)" % d["record_flags"])
     if d["classification_code"] not in CLASS_NAMES:
         raise ValueError("invalid classification %u" % d["classification_code"])
@@ -459,6 +610,9 @@ def _diag_v4(b, o):
     d["rearm_to_next_ticks"] = (d["t_next_cause"] - d["t_rearm"]
                                 if (d["record_flags"] & 0x0080) and d["followup_state_code"] in (1, 2)
                                 else None)
+    d["version"] = version
+    if version == 5:
+        _validate_v5(d, index)
     return d
 
 
@@ -681,7 +835,7 @@ def diag_text_v4(d):
 
 
 def diag_text(d):
-    if d["version"] == 4:
+    if d["version"] in (4, 5):
         return diag_text_v4(d)
     if not d.get("diag"):
         if d["version"] != 3:

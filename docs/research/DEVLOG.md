@@ -5764,3 +5764,142 @@ suite gives 671 997. The measurement was evidently taken before the last
 `gbp_vstate.c` fix of that round (the quarantine-ordering change, which alters how
 many per-frame invariants the suite iterates over). **671 997 is the reproducible
 figure**; the published one is withdrawn.
+
+---
+
+## 2026-09-17 — vstate-0004 implemented: the diagnostic record gets an owner, and nothing else moves
+
+**Goal:** implement GBP-VIDEO-002-R4 / OGBPSEQ1 v5 from the design versioned at
+`1ed1629`, fixing the producer defect the physical `vstate-0003` run exposed
+(GBP-HW-104) without touching one hardware operation. No hardware, no candidate,
+no commit.
+
+### The defect, and why a patch would not have been enough
+
+In `vstate-0003` every current-cycle setter resolved its own target:
+
+```c
+d = &s->diags[s->diags_n - 1u];     /* "the newest record" */
+```
+
+and the service loop called all six of them on **every** cycle. A record
+therefore kept absorbing the authoritative value, service decision, ACK and
+re-arm of later cycles until the next disagreement opened a new one. It would
+have been easy to patch the symptom — stop updating after the follow-up, say —
+and that patch would have left the same class of error one refactor away. The
+fix is structural: **the target is named by the caller and by nobody else.**
+
+`diag_open()` returns a `gbp_vstate_diag_handle`, every current-cycle setter takes
+it explicitly, `GBP_VSTATE_DIAG_INVALID` is a bounded no-op, and there is exactly
+one function in the file that turns a handle into a record. No `diags_n`
+arithmetic, no "latest" fallback, no current-record member: there is none to read.
+The cycle carries the handle in a local that is born INVALID, receives a value
+only from the read that selects the service, and dies with the iteration.
+
+The microaudit of this work found one gap in that discipline and closed it: the
+probe still wrote the read's transport and ISR context by indexing
+`st->diags[idx]` directly — correct, because `idx` came from the `diag_open()` on
+the line above, but it was the one record write that did not go through the
+resolver. It is now `gbp_vstate_diag_context()`, a handle-taking setter like the
+others, and **no file outside `gbp_vstate.c` writes a diagnostic record any
+more**. The serializer and the ring log only read, through `const` pointers.
+
+### Two lifetimes, kept apart
+
+The service handle belongs to one transaction. The follow-up waiter belongs to
+the *next* read and receives only `t_next_cause`, `next_pending_*` and
+`followup_state/reason`. R4.6 also moved when the waiter is armed: after a
+**written** re-arm, never at open — installing it earlier would claim a next cause
+is expected after a re-arm that may never happen.
+
+That change opened a hole worth naming: a record whose transaction dies before
+the re-arm never becomes the waiter, so nothing would ever close it, and
+`FU_PENDING` may not reach a file. `gbp_vstate_diag_close()` now closes the waiter
+**and then sweeps** the store for any record still pending — bounded by 256, once,
+after the teardown. "No record reaches the file as FU_PENDING" became a structural
+property of every exit instead of an argument about one.
+
+The same honesty rule was applied to the writes themselves: `diag_ack` is now
+called only after the ACK write completed and `diag_rearm` only after the re-arm
+completed. Before, both flags were set before the write was known to have
+succeeded — a smaller instance of exactly the defect being fixed.
+
+### OGBPSEQ1 v5: the same 160 bytes, a stricter promise
+
+No field was missing, so no field was added. v5 has v4's layout byte for byte;
+what it adds is a contract the parser enforces. Every derived value is
+**recomputed** — both readings from `raw[32]`, then the delta, the two extra
+masks, the classification, the composed authoritative value — and a record that
+does not agree with its own bytes is refused. So are: an ACK that is not
+`authoritative | 0x8000`, an ACK or re-arm flag with an invalid timestamp, a
+plausible timestamp without its flag, a timing chain out of order, a follow-up
+verdict that contradicts the per-bit split, a payload whose source was not
+majority-extra or not serviced, a fatal-class record carrying an ACK, and an
+observational record claiming any current-service effect.
+
+One new record-flag bit was needed after all, and it is worth the paragraph:
+`DF_SERVICE_WRITTEN` (0x0100, in v4's reserved byte). Without it
+`service_selected == 0` is ambiguous between "no source was selected" and "no
+decision was ever recorded here" — precisely the kind of zero §29 refuses to
+leave undecidable. v4 files must still carry zero in bits 8..15, and their parser
+still says so.
+
+**The timing rule is read-kind dependent**, which is the subtlety the physical
+file exposed: the chain `t ≤ t_ack ≤ t_rearm ≤ t_next_cause` applies to a
+service-selecting record, and an observational POSTDRAIN/POSTACK record has no
+such chain because those reads legitimately happen after the ACK. There is
+deliberately no universal rule.
+
+**v1, v2, v3 and v4 did not move.** Every entry point of the family judges a file
+by its own version: the physical v4 sidecar still parses in both implementations,
+and its defect is still a non-fatal **PRODUCER WARNING** (23 / 23 / 22, 68 in
+total). Refusing it to enforce a rule written after it would destroy evidence.
+
+### What did not change, and how that is known
+
+The device stream. Four disagreement directions — Disc-extra AUDIO, majority-extra
+AUDIO, majority-extra VIDEO, Disc-extra VIDEO — were run against reference runs
+that agree on the value the policy services, and each pair has identical IRQ
+reads, operations, bulk reads, IRQ writes and transfers. The setters compile to
+leaf functions with **zero calls**; the capture path has one `bctrl`, which is the
+time-base read it always had, plus `memset`. The ISR objects are **identical** to
+the physically validated GBP-VIDEO-001 build's, ext and base, and no source under
+`src/platform/` was touched. `.bss` did not grow by one byte (7 515 332, the same
+figure a rebuild of `1ed1629` gives); `.text` grew 672 B and
+`gbp_vstate_probe_run`'s frame 16 B.
+
+One correction to the request's baseline figures: it quoted `.bss` 7 515 340 and
+DOL BSS 7 517 144. Rebuilding `1ed1629` in a clean worktree gives **7 515 332**
+and **7 517 136** — 8 bytes lower. The measured values are used here.
+
+### Tests
+
+New C batteries reproduce the physical defect's own shape (isolated events with
+many ordinary cycles between them, and one event followed by thousands of
+cycles), the three-record same-transaction case, the marker ownership, the
+failure lifecycle, the INVALID-handle sweep and nine tampers a v5 parser must
+refuse. The Python side runs the same tampers and puts **every one of them through
+the C parser too** (`test_gbp_video_state --parse`), because two parsers that
+disagree about what is a valid file are worse than one.
+
+The microaudit added more: ownership through a store that runs out mid
+transaction (0, 1, 2 and 3 free slots, with A keeping its markers whenever A
+fitted at all), a byte-level proof that the teardown sweep touches only follow-up
+bytes and an already-closed record not at all, the majority-extra-only case that
+must never wait for a source nobody omitted, a 256-record v5 file that
+strict-parses, and a whole-corpus parity check in which every physical file,
+every synthetic file and every tamper is put through both parsers and they must
+give the same verdict.
+
+That corpus also settles how dispatch works, and the proof is pleasing: the
+physical v4 file **violates v5's cross-field rules in 22 of its 23 records**, and
+it is accepted by the entry point named for v5 — which is only possible because
+the rules applied are the file's own, never the caller's.
+
+C **672 740 checks across 17 binaries, 0 failures**; Python **328 passed, 0
+skipped**; audits 69 passed with the ISR objects identical; Docker built every POC
+with zero warnings; Dolphin **19/19 PASS**.
+
+**Status: IMPLEMENTED — NOT PHYSICALLY EXECUTED. DIRTY BUILD — NOT A PHYSICAL
+CANDIDATE.** No evidence ID was created, U-GBP-033 stays open, and GBP-VIDEO-003
+stays gated.

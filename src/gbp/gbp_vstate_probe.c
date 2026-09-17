@@ -571,30 +571,23 @@ static void finish(struct run_ctx *x, gbp_vstate_status st, const char *reason, 
  * and one 32-byte memcpy; nothing is formatted here. The extra context comes
  * only from values already resident in RAM.
  */
-static int capture_disagreement(struct run_ctx *x, uint32_t n, const uint8_t *raw,
-                                uint16_t disc, uint16_t gbi, uint16_t kind, unsigned classification,
-                                const struct gbp_xfer_info *info)
+static gbp_vstate_diag_handle capture_disagreement(struct run_ctx *x, uint32_t n, const uint8_t *raw,
+                                                  uint16_t disc, uint16_t gbi, uint16_t kind,
+                                                  unsigned classification,
+                                                  const struct gbp_xfer_info *info)
 {
     struct gbp_vstate_result *res = x->res;
     struct gbp_vstate *st = x->st;
-    int idx;
-    if (!st) return -1;
+    gbp_vstate_diag_handle idx;
+    if (!st) return GBP_VSTATE_DIAG_INVALID;
     idx = gbp_vstate_diag_open(st, n, now64(x->t), raw, disc, gbi, kind, classification);
     res->semantic_disagreements = st->sem.disagreements_total;
-    if (idx >= 0) {
-        struct gbp_vstate_diag *d = &st->diags[idx];
-        d->intsr_entry = res->d.rec.intsr_before_ack;
-        d->intsr_after_w1c = res->d.rec.intsr_after_ack;
-        d->intmr_entry = res->d.rec.intmr_at_entry;
-        d->latency_ticks = res->d.latency_ticks;
-        d->control_exp = res->a.control_exp;
-        if (info) {
-            d->xfer_ticks = info->ticks;
-            d->xfer_polls = info->polls;
-            d->dma_status = info->dma_status;
-            d->dma_status_before = info->dma_status_before;
-        }
-    }
+    /* The context of THIS read, into the record this call just opened and named.
+     * It goes through the same handle-taking setter as everything else: this
+     * file never indexes the diagnostic store. */
+    gbp_vstate_diag_context(st, idx, res->d.rec.intsr_before_ack, res->d.rec.intsr_after_ack,
+                            res->d.rec.intmr_at_entry, res->d.latency_ticks, res->a.control_exp,
+                            info);
     return idx;
 }
 
@@ -608,18 +601,27 @@ static int capture_disagreement(struct run_ctx *x, uint32_t n, const uint8_t *ra
 static int semantic_gate(struct run_ctx *x, uint32_t n, const char *site, uint16_t kind,
                          const uint8_t *raw, uint16_t disc, uint16_t gbi,
                          const struct gbp_xfer_info *info, uint16_t *authoritative,
-                         gbp_vstate_status *status, const char **reason)
+                         gbp_vstate_status *status, const char **reason,
+                         gbp_vstate_diag_handle *opened)
 {
     struct gbp_vstate_result *res = x->res;
     const struct gbp_vstate_config *cfg = x->cfg;
     unsigned cls = gbp_vstate_classify(disc, gbi);
     uint16_t unexpected;
 
+    /* The handle of the record THIS read opens, if any. The caller decides what
+     * it means: a service-selecting site keeps it for the whole transaction, an
+     * observational site drops it, because an observational record receives no
+     * current-cycle field at all (§R4.4, §R4.5). */
+    if (opened) *opened = GBP_VSTATE_DIAG_INVALID;
     *authoritative = gbp_vstate_authoritative(disc, gbi);
     res->last_disc_extra = (uint16_t)((disc & GBP_VSTATE_SRC_MASK) & ~(gbi & GBP_VSTATE_SRC_MASK));
     res->last_majority_extra = (uint16_t)((gbi & GBP_VSTATE_SRC_MASK) & ~(disc & GBP_VSTATE_SRC_MASK));
 
     if (cls == GBP_VSTATE_DIS_NON_SOURCE || cls == GBP_VSTATE_DIS_SOURCE_OTHER) {
+        /* Fatal: the record preserves the read and the transaction ends here, so
+         * it never receives a service decision, an ACK or a re-arm (§R4.9). Its
+         * handle is not published - there is no transaction left to own it. */
         (void)capture_disagreement(x, n, raw, disc, gbi, kind, cls, info);
         snprintf(res->reason_buf, sizeof res->reason_buf, "READ_%s_semantic_disagree_%s_cycle_%lu",
                  cls == GBP_VSTATE_DIS_NON_SOURCE ? "non_source" : "source_other",
@@ -647,14 +649,16 @@ static int semantic_gate(struct run_ctx *x, uint32_t n, const char *site, uint16
 
     if (cls == GBP_VSTATE_DIS_SOURCE_SERVICED) {
         /* Survivable, counted, preserved. The run does not stop for it. */
-        (void)capture_disagreement(x, n, raw, disc, gbi, kind, cls, info);
+        gbp_vstate_diag_handle h = capture_disagreement(x, n, raw, disc, gbi, kind, cls, info);
+        if (opened) *opened = h;
     }
     return 1;
 }
 
 /* ---- snapshot checks of the verify cycles (as GBP-VIDEO-001) --------- */
 static int common_checks(struct run_ctx *x, const struct gbp_initirqa_snapshot *s, const char *site, uint32_t n,
-                         gbp_vstate_status *st, const char **reason, uint16_t *authoritative)
+                         gbp_vstate_status *st, const char **reason, uint16_t *authoritative,
+                         gbp_vstate_diag_handle *service_handle)
 {
     struct gbp_vstate_result *res = x->res;
     uint16_t kind = (uint16_t)(strcmp(site, "PRESVC") == 0 ? GBP_VSTATE_DIAG_READ_PRESVC :
@@ -662,6 +666,7 @@ static int common_checks(struct run_ctx *x, const struct gbp_initirqa_snapshot *
                                strcmp(site, "POSTACK") == 0 ? GBP_VSTATE_DIAG_READ_POSTACK :
                                GBP_VSTATE_DIAG_READ_OTHER);
     uint16_t auth = 0u;
+    gbp_vstate_diag_handle opened = GBP_VSTATE_DIAG_INVALID;
     note_control(res, s);
     if (!s->pi_ok || s->control_rc != GBP_OK || s->irq_rc != GBP_OK) {
         snprintf(res->reason_buf, sizeof res->reason_buf, "%s_read_failed_cycle_%lu", site, (unsigned long)n);
@@ -670,8 +675,13 @@ static int common_checks(struct run_ctx *x, const struct gbp_initirqa_snapshot *
     /* The whole semantic policy, in the normative order, from the bytes this read
      * already delivered. No second read exists here or anywhere. */
     if (!semantic_gate(x, n, site, kind, s->irq, s->irq_disc, s->irq_gbi, &s->irq_info,
-                       &auth, st, reason)) return 0;
+                       &auth, st, reason, &opened)) return 0;
     if (authoritative) *authoritative = auth;
+    /* ONLY the PRESVC caller passes a service handle, because only PRESVC
+     * selects the service of this transaction. A POSTDRAIN or POSTACK record is
+     * complete when it is opened: it keeps its own read and claims nothing about
+     * service, so its handle is deliberately dropped here (§R4.4). */
+    if (service_handle) *service_handle = opened;
     if (s->control_vote != res->a.control_exp || s->control_vote != s->control_b1f) {
         snprintf(res->reason_buf, sizeof res->reason_buf, "control_changed_%s_cycle_%lu", site, (unsigned long)n);
         *st = GBP_VSTATE_ANOMALY_CONTROL_CHANGED; *reason = res->reason_buf; return 0;
@@ -915,6 +925,12 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
         uint16_t pending;
         uint16_t majority_extra = 0u;      /* sources selected ONLY by the majority */
         int video_majority_extra = 0;      /* this cycle's VIDEO block is quarantined */
+        /* The ONE record this transaction owns (§R4.3). It is born INVALID,
+         * receives a value only from the read that selects the service, is the
+         * only handle any current-cycle setter below is given, and dies with the
+         * iteration: nothing carries it into the next cycle, and no store member
+         * mirrors it. */
+        gbp_vstate_diag_handle service_handle = GBP_VSTATE_DIAG_INVALID;
         uint32_t t_ref32;
         uint64_t tnow;
 
@@ -1048,7 +1064,7 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             /* the follow-up of a record still waiting is filled from THIS read,
              * before anything else may open a new one (§R3.8) */
             (void)gbp_vstate_diag_followup(st, cyc.t_cause, res->presvc.irq_gbi, res->presvc.irq_disc);
-            if (!common_checks(x, &res->presvc, "PRESVC", n, &status, &why, &pending)) { cycle_record(x, &cyc, GBP_VSTATE_CYC_KIND_ANOMALY); finish(x, status, why, "S3_service_aborted", GBP_VSTATE_STOP_FAILURE); return 0; }
+            if (!common_checks(x, &res->presvc, "PRESVC", n, &status, &why, &pending, &service_handle)) { cycle_record(x, &cyc, GBP_VSTATE_CYC_KIND_ANOMALY); finish(x, status, why, "S3_service_aborted", GBP_VSTATE_STOP_FAILURE); return 0; }
             cyc.t_read = now64(t);
         } else {
             uint8_t irq_raw[GBP_BLOCK_SIZE];
@@ -1069,7 +1085,7 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
              * irq_raw; the gate copies them out before anything else touches the
              * cycle record or the reason string, and never reads the device. */
             if (!semantic_gate(x, n, "READ", GBP_VSTATE_DIAG_READ_LEAN, irq_raw, disc, gbi, &info,
-                               &pending, &status, &why)) {
+                               &pending, &status, &why, &service_handle)) {
                 cycle_record(x, &cyc, GBP_VSTATE_CYC_KIND_ANOMALY);
                 finish(x, status, why, "S3_service_aborted", GBP_VSTATE_STOP_FAILURE);
                 return 0;
@@ -1085,6 +1101,12 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
         cyc.audio_selected = (uint8_t)((pending & cfg->audio_src) ? 1u : 0u);
         cyc.video_selected = (uint8_t)((pending & cfg->video_src) ? 1u : 0u);
         cyc.ack_value = (uint16_t)(pending | cfg->ack_or);
+        /* The service decision of THIS transaction, written to the record this
+         * transaction owns and to no other (§R4.6). `pending` is the composed
+         * authoritative value of the read above, so the v5 invariant
+         * service_selected == authoritative & AV_MASK holds by construction and
+         * is checked offline against the raw bytes, never against this call. */
+        gbp_vstate_diag_service(st, service_handle, pending, (uint16_t)(pending & cfg->av_mask), 0u);
         /* cause -> cause statistics, for every delivery, disagreements included.
          * Data only: no runtime decision reads them (§R3.28). */
         gbp_vstate_gap_observe(st, (uint16_t)(pending & cfg->src_mask), cyc.t_cause);
@@ -1095,7 +1117,7 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             /* The Disc reading had VIDEO and the majority did not, so no VIDEO is
              * drained this cycle. Nothing is fabricated: the marker is descriptive
              * and the assembler's own rules decide what the short interval means. */
-            if (gbp_vstate_mark_source_deferred(st)) gbp_vstate_diag_deferred(st);
+            if (gbp_vstate_mark_source_deferred(st)) gbp_vstate_diag_deferred(st, service_handle);
         }
 
         /* ---- AUDIO: drained whenever selected, aggregate counters only ---- */
@@ -1116,11 +1138,15 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             if ((majority_extra & cfg->audio_src) && res->audio.completed) {
                 /* §R3.22: a completed drain gives a real CRC; a failed one is
                  * fatal by the existing transport rule and records no CRC. */
-                gbp_vstate_diag_payload(st, GBP_VSTATE_SRC_AUDIO, res->audio.crc32,
+                gbp_vstate_diag_payload(st, service_handle, GBP_VSTATE_SRC_AUDIO, res->audio.crc32,
                                         res->audio.first_word);
             }
             if (verify) gbp_avblock_log_read(log, "AUDIOREAD", &res->audio);
             if (!res->audio.completed) {
+                /* A source this cycle selected was not drained. The transaction
+                 * ends here, so the flag is the record's last word about its own
+                 * service; no ACK and no re-arm will follow it. */
+                gbp_vstate_diag_service_incomplete(st, service_handle);
                 cycle_record(x, &cyc, GBP_VSTATE_CYC_KIND_ANOMALY);
                 snprintf(res->reason_buf, sizeof res->reason_buf, "audio_read_failed_cycle_%lu", (unsigned long)n);
                 finish(x, dma_status(1, res->audio.rc), res->reason_buf, "S3_dma_failed", GBP_VSTATE_STOP_FAILURE);
@@ -1141,6 +1167,7 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             cyc.rc |= (uint32_t)res->video.rc << 8;
             if (verify) gbp_avblock_log_read(log, "VIDEOREAD", &res->video);
             if (!res->video.completed) {
+                gbp_vstate_diag_service_incomplete(st, service_handle);
                 cycle_record(x, &cyc, GBP_VSTATE_CYC_KIND_ANOMALY);
                 snprintf(res->reason_buf, sizeof res->reason_buf, "video_read_failed_cycle_%lu", (unsigned long)n);
                 finish(x, dma_status(0, res->video.rc), res->reason_buf, "S3_dma_failed", GBP_VSTATE_STOP_FAILURE);
@@ -1153,7 +1180,7 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
                  * Its provenance travels with it into the assembler so the frame
                  * that consumes it can be quarantined. */
                 video_majority_extra = 1;
-                gbp_vstate_diag_payload(st, GBP_VSTATE_SRC_VIDEO, res->video.crc32,
+                gbp_vstate_diag_payload(st, service_handle, GBP_VSTATE_SRC_VIDEO, res->video.crc32,
                                         res->video.first_word);
             }
         }
@@ -1162,7 +1189,7 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
         if (verify) {
             gbp_initirqa_snapshot_take(t, &res->a, &res->postdrain, res->id_postdrain, 0, 1);
             gbp_initirqa_snapshot_log(log, &res->a, &res->postdrain);
-            if (!common_checks(x, &res->postdrain, "POSTDRAIN", n, &status, &why, 0)) { finish(x, status, why, "S3_service_aborted", GBP_VSTATE_STOP_FAILURE); return 0; }
+            if (!common_checks(x, &res->postdrain, "POSTDRAIN", n, &status, &why, 0, 0)) { finish(x, status, why, "S3_service_aborted", GBP_VSTATE_STOP_FAILURE); return 0; }
         }
 
         /* ---- ACK := pending | 0x8000 (the whole value, never partial) ---- */
@@ -1178,22 +1205,26 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             if (res->w_ack.completed) res->a.irq_writes_completed++;
         }
         cyc.t_ack = now64(t);
-        /* the ACK of the cycle a record belongs to; a no-op in every other cycle */
-        gbp_vstate_diag_service(st, pending, (uint16_t)(pending & cfg->av_mask), 0u);
-        gbp_vstate_diag_ack(st, cyc.ack_value, cyc.t_ack);
         cyc.rc |= (uint32_t)(res->w_ack.completed ? 0u : 1u) << 16;
         if (!res->w_ack.completed) {
+            /* No ACK happened. The record keeps ACK_WRITTEN clear and its t_ack
+             * and ack_value at the documented invalid encoding (zero), so the
+             * file can never be read as though this cycle had acknowledged. */
             res->uncertain_writes++;
             cycle_record(x, &cyc, GBP_VSTATE_CYC_KIND_ANOMALY);
             finish(x, GBP_VSTATE_ACK_WRITE_FAILED, "ack_write_failed", "S4_ack_failed", GBP_VSTATE_STOP_FAILURE);
             return 0;
         }
+        /* The ACK of the transaction that owns `service_handle`, recorded only
+         * after the write completed: a flag that tracked the intention rather
+         * than the write would be the same class of claim this revision removes. */
+        gbp_vstate_diag_ack(st, service_handle, cyc.ack_value, cyc.t_ack);
         bump(res, &res->acks);
 
         /* ---- PICLEAN: at most one main-loop W1C ---- */
         if (verify) {
             const struct gbp_initirqa_snapshot *ps = &res->k.postack;
-            if (!common_checks(x, ps, "POSTACK", n, &status, &why, 0)) { finish(x, status, why, "S3_service_aborted", GBP_VSTATE_STOP_FAILURE); return 0; }
+            if (!common_checks(x, ps, "POSTACK", n, &status, &why, 0, 0)) { finish(x, status, why, "S3_service_aborted", GBP_VSTATE_STOP_FAILURE); return 0; }
             if ((ps->irq_gbi & cfg->odd_mask) != 0u || (ps->irq_gbi & cfg->bit15_mask) == 0u || (ps->irq_gbi & cfg->high_mask) != 0u) {
                 snprintf(res->reason_buf, sizeof res->reason_buf, "postack_shape_cycle_%lu", (unsigned long)n);
                 finish(x, GBP_VSTATE_ANOMALY_POSTACK_SHAPE, res->reason_buf, "S3_service_aborted", GBP_VSTATE_STOP_FAILURE); return 0;
@@ -1237,13 +1268,12 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             sig = gbp_vsig_block(blk, GBP_VSTATE_VIDEO_BLOCK_SIZE);
             c1 = now32(t);
             cyc.sig_ticks = (uint32_t)(c1 - c0);
-            if (video_majority_extra) { gbp_vstate_block_majority_extra(st); gbp_vstate_diag_quarantined(st); }
+            if (video_majority_extra) { gbp_vstate_block_majority_extra(st); gbp_vstate_diag_quarantined(st, service_handle); }
             gbp_vstate_block(st, blk, GBP_VSTATE_VIDEO_BLOCK_SIZE, first4, now64(t), sig, cyc.sig_ticks, &step);
         }
 
         /* ---- REARM: IRQ := 0x0000, the last device access of the pass ---- */
         cyc.t_rearm = now64(t);
-        gbp_vstate_diag_rearm(st, cyc.t_rearm);
         res->a.irq_writes_attempted++;
         res->a.power_cycle_required = 1;
         gbp_regwrite_irq_u16(t, verify ? res->tag_rearm : "tag=REARM", res->a.base,
@@ -1252,11 +1282,22 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
         if (res->w_rearm.completed) { res->a.irq_writes_completed++; bump(res, &res->rearms); }
         if (verify) gbp_regwrite_log(log, &res->w_rearm);
         if (!res->w_rearm.completed) {
+            /* No re-arm happened, so no next cause was ever invited: the record
+             * keeps REARM_WRITTEN clear, t_rearm stays at the invalid encoding,
+             * and it does NOT become a follow-up waiter. The teardown closes it
+             * as FU_UNKNOWN / run_aborted. */
             res->uncertain_writes++;
             cycle_record(x, &cyc, GBP_VSTATE_CYC_KIND_ANOMALY);
             finish(x, GBP_VSTATE_REARM_WRITE_FAILED, "rearm_write_failed", "S4_rearm_failed", GBP_VSTATE_STOP_FAILURE);
             return 0;
         }
+        /* The re-arm of the transaction that owns `service_handle`, then the ONE
+         * place a follow-up waiter is armed (§R4.6). From here the record's
+         * current-cycle fields are final; only the follow-up block, written
+         * through the separate waiter, may still change - once. */
+        gbp_vstate_diag_rearm(st, service_handle, cyc.t_rearm);
+        (void)gbp_vstate_diag_arm_followup(st, service_handle);
+        service_handle = GBP_VSTATE_DIAG_INVALID;   /* the transaction's handle dies here */
         t_ref32 = res->w_rearm.t_after;
 
         /* ---- WAIT_NEXT: masked, read-only ---- */
