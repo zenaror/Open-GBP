@@ -129,11 +129,16 @@ tests/host/     Python tests (pytest or python3 -m unittest):
                                      per-block checksum (anchored to the PHYSICAL avsvc-0001 block, 0x7F0FFF10 =
                                      entry 0 of both reference tables), and the offline oracle — which reports
                                      reference_content=unavailable without the private inputs and is never a gate
-                  test_vstate.py     tools/vstate.py: the format-2 parser against the C writer's own file, the
-                                     frame / event / episode / cycle decoders, the interval histogram, the ordering
-                                     of events by sequence number, the offline oracle, the proof that format 1 and
-                                     format 2 can never misread each other, and the byte-0 property re-checked on
-                                     the host implementation
+                  test_vstate.py     tools/vstate.py: the format-2 AND format-3 parsers against the C writer's own
+                                     files, the frame / event / episode / cycle decoders, the interval histogram,
+                                     the ordering of events by sequence number, the offline oracle, the proof that
+                                     the three formats can never misread each other, and the byte-0 property
+                                     re-checked on the host implementation. Also the two PHYSICAL sidecars: the
+                                     frozen v2 of build vstate-0001 (2026-09-16) must keep parsing with the same
+                                     CRCs and section offsets it had the day it was consolidated, and the v3 of
+                                     build vstate-0002 (2026-09-17) is re-derived from disk — identity, CRCs,
+                                     bounds, the 96-byte semantic-disagreement record, its eight replicas, both
+                                     readings and the 0x0400 difference between them
                   test_video_replay.py synthetic GBP-VIDEO-001 log → fixture + sequence sidecar → replay round trip
                                      (the regenerated run equals the original) and the physical GBP-AV-SERVICE-001
                                      fixture as the first cycle; asserts that no GBP-VIDEO-001 fixture exists

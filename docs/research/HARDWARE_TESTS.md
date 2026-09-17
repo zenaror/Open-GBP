@@ -3053,7 +3053,7 @@ service pass; R11 promotion if observed), REGISTERS.md (VIDEO / AUDIO rows: hard
 HSP.md (§3: the ARQ hi-queue precision and the first measured bandwidth), captures/README.md
 (fixture + sidecar format), tests/README.md, poc/README.md.
 
-### GBP-VIDEO-002 — does the AGB's own logotype screen ever reach the VIDEO stream without a Game Pak? A frame-signature scan over at least the nominal detector interval (Phase 4; designed and hardened four times 2026-09-16; build `vstate-0001` PHYSICALLY EXECUTED 2026-09-16, aborted; build `vstate-0002` instrumented 2026-09-16, NOT PHYSICALLY EXECUTED)
+### GBP-VIDEO-002 — does the AGB's own logotype screen ever reach the VIDEO stream without a Game Pak? A frame-signature scan over at least the nominal detector interval (Phase 4; designed and hardened four times 2026-09-16; build `vstate-0001` PHYSICALLY EXECUTED 2026-09-16, aborted; build `vstate-0002` PHYSICALLY EXECUTED 2026-09-17, aborted again — with the bytes)
 
 Status: **PHYSICALLY EXECUTED 2026-09-16** (build `vstate-0001`, commit
 `e8f3a69`, DOL SHA-256 `c73d49fa…19b9`). Result:
@@ -3072,8 +3072,39 @@ objective — locate a structured state — was achieved observationally. The
 executed entry and every measurement are in `docs/research/EVIDENCE.md`
 (GBP-HW-074…087); the one thing the run could not record is U-GBP-032.
 
-**Build `vstate-0002` — the same experiment, instrumented. NOT PHYSICALLY
-EXECUTED.** The abort above is the only thing standing between this test and its
+**Build `vstate-0002` — the same experiment, instrumented. PHYSICALLY EXECUTED
+2026-09-17** (commit `8cbb28d`, DOL SHA-256 `8661e914…b91b`, log `fb127d79…de2a`
+40 013 B, sidecar `f2ed596e…8c91` 12 588 B). Result:
+
+```text
+GBP-VIDEO-002 vstate-0002 PHYSICALLY EXECUTED
+SERVICE ABORTED — READ SEMANTIC DISAGREEMENT at cycle 517 of 518 (GBP-HW-089)
+DIAGNOSTIC OBJECTIVE: SUCCESS — the 32 raw bytes were preserved
+  seven replicas 0x0100, the eighth 0x0500; Disc 0x0500 vs GBI 0x0100; XOR 0x0400 = AUDIO
+RESTORE OK — the same final device state as every previous run
+```
+
+The service failure is **not** a failure of this build's experiment. The build
+existed to answer one question — *what did the read that aborts this test
+actually return?* — and it answered it on the first attempt, in 0.0842 s. The
+scientific target (120 s of valid observation) was not approached and this run
+makes **no** negative claim; it also makes no positive claim about the screen,
+because it stopped 0.42 s before the change that vstate-0001 recorded. Nothing
+here revises the geometry, the table B match or the animation: this run neither
+confirms nor contradicts them. Evidence: GBP-HW-088…097. U-GBP-032 is answered;
+U-GBP-033 is the mechanism, and it is open.
+
+Operationally the run was clean: 518 unmasks, 518 deliveries, 518 ISR entries,
+517 ACKs, 517 re-arms, 513 lean cycles + 4 verify, 336 AUDIO and 195 VIDEO drains
+(531 bulk transfers, 2 125 056 bytes), 2 149 transfers, **0 reentry, 0 timeouts,
+0 busy, 0 uncertain writes, 0 main-loop W1C, 0 teardown W1C, 0 counter
+overflows**. Frame capture up to the abort: 5 frames, 4 complete, 1 incomplete, 2
+resync, baseline valid at 0.077 s. Of the 517 completed cycles, 14 served both
+sources, 322 AUDIO only and 181 VIDEO only — derived from the bulk counts
+(336 + 195 − 517), and the byte total confirms it exactly
+(336 × 0x1000 + 195 × 0xF00 = 2 125 056).
+
+**What the previous, pre-execution description said, kept for the history:** The abort above is the only thing standing between this test and its
 target, and the run could not say what caused it because the bytes were gone by
 the time the probe reported. `vstate-0002` changes exactly one thing: at the
 moment a semantic disagreement is detected, the 32 raw bytes already in the
@@ -3105,11 +3136,12 @@ explicitly so neither can read the other's file. `tools/vstate.py diag`
 recomputes both readings offline from the preserved bytes and names the replicas
 that differ.
 
-Dirty build for audit only, NOT a physical candidate: `vstate-0002`, commit
-`80c356f-dirty`, DOL SHA-256
-`6f2f6b2cc7f604072b6719a95a6fb80905e8187d7ba10c8bcd3380e8cf786fe1`. A physical
-candidate requires a clean commit, a rebuild, the release audit and an explicit
-authorization, as always.
+That description was written against a dirty build. The physical candidate was
+the CLEAN build of commit `8cbb28d`: DOL SHA-256
+`8661e91413a2bb7f97bab86b3819813d38128cd033dacae40e68c1664e48b91b`, 433 376
+bytes, entry `0x80003100`, reproduced byte-identically by two independent clean
+rebuilds and released by the audit of 2026-09-17. The earlier dirty hash
+`6f2f6b2c…6fe1` is discarded and must not be used to identify anything.
 
 The pre-execution status paragraph follows, kept for the history:
 **IMPLEMENTED 2026-09-16 — NOT PHYSICALLY EXECUTED. DIRTY BUILD — NOT A

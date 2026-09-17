@@ -2371,3 +2371,132 @@ section is contiguous and monotonic with zero overlap (489 frames × 192, 209
 events × 64, 4 episodes × 512, 81 cycles × 128, 15 × 40 × 0xF00 of raw, 2 ×
 0x1000 of AUDIO), the strict parser accepts it, and the log recorded 621 of 1024
 ring lines with **0 dropped and 0 truncated**.
+
+## GBP-VIDEO-002 vstate-0002 — the semantic disagreement, caught with its bytes (2026-09-17)
+
+Second physical run of GBP-VIDEO-002, build `vstate-0002`, commit `8cbb28d`, DOL
+SHA-256 `8661e914…b91b`. Log `fb127d79…de2a` (40 013 B), sidecar `f2ed596e…8c91`
+(12 588 B). The run ended the same way the first one did — `READ_semantic_disagree`
+— but this time the read that caused it was preserved. Everything below is
+recomputed from those two files, not taken from the run's own summary.
+
+### GBP-HW-088 — the OGBPSEQ1 v3 sidecar written and validated on hardware — FACT
+
+12 588 bytes streamed after the teardown. Recomputed on analysis: header CRC
+`bd2a5f27` and total CRC `08514baa` both verify; magic `OGBPSEQ1`, version 3,
+header 0x200; the sections are exactly contiguous with zero overlap (5 frames ×
+192 at 512, 10 events × 64 at 1472, 0 episodes, 17 cycles × 128 at 2112, **one
+96-byte diagnostic at 0x10C0**, 0 raw VIDEO, 2 × 0x1000 AUDIO at 4384, footer
+`OGBPEND1` at 12 576); `off_diag` = 0x10C0, `diag_count` = 1, `diag_rec_size` =
+96, and the header bytes 0x1EA..0x1FB are zero. The strict parser accepts it, and
+the log recorded 308 of 1024 ring lines with **0 dropped and 0 truncated**. This
+is the first physical file of the family to carry a diagnostic section.
+
+### GBP-HW-089 — the 32 bytes of a semantic disagreement, preserved — FACT
+
+At cycle 517 the IRQ-window read returned, verbatim:
+
+```text
+01 01 01 00  01 01 01 00  01 01 01 00  01 01 01 00
+01 01 01 00  01 01 01 00  01 01 01 00  05 05 05 00
+```
+
+The same 32 bytes appear in the sidecar's diagnostic record and in the log's
+`READDISAGREE` line, written through two independent paths, and they agree byte
+for byte. Context recorded with them: read site LEAN/READ, attempts 1, frame 5,
+block-in-frame 5, `t = 0x794981cf07f9e7`, latency 35 ticks, transfer 34 ticks /
+9 polls, DSPCR `0804` before and after, INTSR `0x00012000` at ISR entry and
+`0x00010000` after the handler's single W1C, INTMR `0x000021FA` at entry, CONTROL
+`0x8C`. This closes the recording half of U-GBP-032.
+
+### GBP-HW-090 — seven replicas held one value and the eighth held another, coherently — FACT
+
+Decomposing that window into its eight 4-byte groups: groups 0..6 are
+`01 01 01 00` and group 7 is `05 05 05 00`. Under the reading both references
+use — high byte at offset `4k+1`, low byte at `4k+3` — the eight semantic values
+are `0100 ×7` then `0500`. The eighth group is **not malformed**: its first three
+bytes moved together exactly as the first three of every other group do, and its
+fourth byte is `00` like all the others. A one-bit flip, a torn byte or a garbled
+DMA line would be expected to break that intra-group agreement; this did not.
+
+### GBP-HW-091 — the two references' readings of ONE read: 0x0500 and 0x0100 — FACT
+
+From those bytes, recomputed offline: the Start-up Disc's reading
+`(raw[0x1D] << 8) | raw[0x1F]` = **0x0500**; GBI's bitwise majority over the eight
+replicas = **0x0100** (the high byte's bit 2 is set in 1 of 8 replicas and is
+voted down 7 : 1; the low byte is `00` in all eight). Both values were also
+computed by the runtime at the moment of the read and persisted in the record,
+and the recomputation reproduces both exactly. This is the first physical
+demonstration that the two mature references can derive different values from a
+single 32-byte read.
+
+### GBP-HW-092 — the difference is exactly the AUDIO source bit — FACT
+
+`0x0500 ^ 0x0100 = 0x0400`. With the project's established source map (0x0100 →
+VIDEO read, 0x0400 → AUDIO read; GBP-HW-024/065), the majority says VIDEO-only
+and the last replica says VIDEO + AUDIO. The disagreement is not an arbitrary bit:
+it is one source present in one reading and absent in the other. **No physical
+cause is claimed here** — this records what the two readings were, not why.
+
+### GBP-HW-093 — the discarded bytes move WITHIN a single block, in this same run — FACT
+
+Of the 15 IRQ windows this run logged in full, the ones reading `0x0500` show the
+byte at offset `4k+2` — which neither reference consumes — taking different values
+in different groups of the *same* 32-byte read: `04 05 05 05 05 04 00 05`,
+`04 05 05 05 00 05 05 05`, `04 04 05 05 00 05 05 05`, `05 05 04 05 05 05 05 05`
+and `04 05 05 04 05 05 00 05` are five such blocks, while the consumed bytes stay
+constant across all eight groups and both readings agree. The windows reading
+`0x8AAE`, `0x8AAA`, `0x8000`, `0x8100`, `0x0400`, `0x0000` and `0x9090` are
+uniform except for the known byte-0 extra (U-GBP-029). So a single block is
+**already known not to be uniform** in this run, on bytes that are discarded — and
+the fatal read is the first time the non-uniformity reached a consumed byte.
+
+### GBP-HW-094 — the event recurs across independent runs, at very different times — FACT
+
+Two runs, two physically distinct sessions, same class of event: vstate-0001 at
+cycle 51 750 after 8.186 s of capture, vstate-0002 at cycle 517 after 0.0842 s.
+The second run's abort came long before the structured screen that dominated the
+first (first change at 0.5014 s), so the event is not tied to the logotype
+content. **Two events support recurrence and nothing else**: no rate, no
+distribution and no dependence on anything is claimed from n = 2.
+
+### GBP-HW-095 — no transport anomaly at the fatal read — FACT
+
+The read reported `rc=ok`, 34 ticks, 9 polls, DSPCR `0804` before and after. Every
+one of the 61 fully logged block reads of this run has the identical signature
+(34 ticks, 9 polls, `0804`); the 17 register writes have 30–31 ticks and 7–8
+polls. The ISR fired once (INTSR bit 13 set at entry, cleared by its single W1C,
+INTMR bit 13 set at entry), latency 35 ticks, 0 reentry. Run totals: 2 149
+transfers, **0 timeouts, 0 busy, 0 uncertain writes, 0 counter overflows**, and
+`transport_ok`. At the transport level the fatal read is indistinguishable from
+the 517 that preceded it.
+
+### GBP-HW-096 — an un-acknowledged source survives the re-arm and fires within ~2 µs — FACT
+
+Measured from the 64-bit clocks of this run's cycle records. When a cycle
+acknowledged only AUDIO (`pending 0x0400`, ACK `0x8400`), the next cause was
+observed **74 ticks = 1.8 µs** after the re-arm (cycles 5 and 7), and it was
+`0x0100` — VIDEO, which had been pending and was not in the ACK value. When a
+cycle acknowledged both sources (`0x0500`, ACK `0x8500`), the next cause took
+26–28 µs (cycles 0–3) or 215 µs (cycle 4); when it acknowledged only VIDEO, 71 µs.
+The physical source cadence in this run is ~244–279 µs for AUDIO and ~252–294 µs
+for VIDEO, so 1.8 µs is three orders of magnitude too fast to be a fresh source.
+Together with GBP-HW-028 (writing 1 to a source bit that reads 1 clears it), this
+says: **the ACK clears exactly the source bits it writes as 1, the others stay
+pending, and the re-arm `IRQ := 0x0000` releases them immediately.** Directly
+observed corroboration: the verify cycle 3 acknowledged `0x0500` and POSTACK read
+`0x8100` — VIDEO pending again — and the run continued normally.
+
+### GBP-HW-097 — clean teardown after the diagnostic abort — FACT
+
+CONTROL restored 0x8C → 0x90 with a confirming readback (vote and byte 0x1F both
+0x90); the IRQ window read `0x0500` and the stop word `0x0500 | 0x8AAA = 0x8FAA`
+was written and read back as `0x8AAA` with its masks and bit 15 set; CLEANUPCHK
+found INTSR bit 13 already clear so **no teardown W1C was needed**; the handler
+was restored once (old handler null); INTMR bit 13 read 0 against an original 0;
+AR_INFO restored to 0x0043 with a confirming readback. FINAL state
+`arinfo=0043 intsr=00010000 intmr=000001fa control=00 irq=9090`, byte-identical
+to the one GBP-VIDEO-001, GBP-AV-SERVICE-001 and vstate-0001 reached. The
+teardown took 15 145 ticks = 0.37 ms and began 51 ticks after the stop. A service
+failure caused by the diagnostic abort left the device in the same state a
+successful run does.

@@ -5135,3 +5135,138 @@ both vstate runs still abort at the stage-A gate without reaching the
 experimental path.
 
 U-GBP-032 remains OPEN. The build is dirty and is not a physical candidate.
+
+---
+
+## 2026-09-17 — GBP-VIDEO-002 vstate-0002 executed: the bytes are in hand, and the policy question is now answerable
+
+The instrumented build ran and the event it was built to catch happened on the
+first attempt, at cycle 517 of 518, 0.0842 s into the capture. The diagnostic
+objective **succeeded**; the service abort is the same abort as before and is not
+a failure of this experiment.
+
+```text
+raw 32 bytes   01 01 01 00 ×7  then  05 05 05 00
+semantic       0100 ×7  then  0500
+Start-up Disc  0x0500      GBI majority  0x0100      XOR  0x0400 = AUDIO source
+```
+
+Everything was recomputed from the log and the sidecar, independently of the
+run's own summary, and the two channels agree byte for byte. Evidence
+GBP-HW-088…097; the run is in HARDWARE_TESTS.
+
+### What the bytes settled
+
+The eighth group is **not damaged**. Its first three bytes moved together exactly
+as every other group's do, and its fourth byte is `00` like all the others. That
+rules out, by observation rather than argument, the one-bit flip and the torn or
+garbled byte that U-GBP-032 listed and refused to choose between. What the read
+returned is eight well-formed replicas carrying two different values.
+
+It also turns out a block was **already** known not to be one instant's snapshot,
+in this very run: on windows reading `0x0500`, the byte at `4k+2` — which neither
+reference consumes — takes different values in different groups of the same read,
+with no monotone order (`04 05 05 05 05 04 00 05` is one of five such blocks,
+GBP-HW-093). The fatal read is the first time that non-uniformity reached a byte
+somebody reads. U-GBP-029's byte-0 extras are very likely the same phenomenon.
+
+U-GBP-032 is answered. The mechanism is now U-GBP-033, and it is open: the timing
+does not decide it. The transfer is 0.84 µs against a ~142 µs mean interval
+between causes, and the AUDIO cadence of the same window puts the next AUDIO
+34–70 µs *after* this read rather than during it — so "the source changed inside
+the transfer" is a hypothesis the data neither supports nor refutes, and the
+physical fill order of the window has never been established.
+
+### The measurement that changes the policy discussion
+
+Timing the re-arms of this run produced something the design had reasoned about
+but never observed (GBP-HW-096): **a source bit that is not in the ACK value
+survives, and fires again within 1.8 µs of the re-arm.** Cycles 5 and 7
+acknowledged AUDIO only (`0x8400`) and the next cause arrived 74 ticks later,
+carrying VIDEO — three orders of magnitude faster than the ~250 µs source
+cadence, so it cannot be a fresh source. Verify cycle 3 shows the same thing from
+the other side: it acknowledged `0x0500` and POSTACK read `0x8100`, VIDEO pending
+again, and the run continued normally.
+
+With GBP-HW-028 (writing 1 to a source bit that reads 1 clears it), the model is:
+the ACK clears exactly the bits it writes as 1; the rest stay pending; the re-arm
+`IRQ := 0x0000` releases them immediately.
+
+### What that implies for the two policies (analysis only — nothing implemented)
+
+**If the runtime takes GBI's majority (`0x0100`) and ACKs `0x8100` while AUDIO
+really was asserted:** the AUDIO bit is never written as 1, so it is not cleared.
+It stays pending and is delivered as the next cause microseconds after the
+re-arm. The cost is one extra service cycle and a sub-2 µs delay. **No source is
+lost.** That is not a deduction from the datasheet we do not have — it is what
+cycles 5 and 7 did on hardware.
+
+**If the runtime takes the Disc's last replica (`0x0500`) and ACKs `0x8500` while
+AUDIO was *not* asserted:** it performs a 0x1000 AUDIO block read for a buffer the
+device may not have published, and that data enters the capture as if it were
+real. It also writes 1 to a source bit that reads 0, whose effect has never been
+tested (GBP-HW-028 only established the 1-on-1 case). The failure mode is
+therefore silent contamination rather than a missed interrupt.
+
+The asymmetry is the whole argument: majority errs toward *serving later*,
+last-replica errs toward *serving something that may not be there*. For a
+research runtime whose output is evidence, serving late is recoverable and
+serving phantom data is not.
+
+**Option A — GBI majority authoritative, Disc value kept as diagnostic.**
+Preferred on the evidence. No source loss (GBP-HW-096), no phantom read, robust
+against exactly the replica variability this hardware demonstrably has
+(GBP-HW-090, GBP-HW-093), and it matches the mature independent implementation.
+Costs: one extra cycle when the minority replica was the truthful one, and a
+deliberate divergence from the Start-up Disc.
+
+**Option B — Disc last replica authoritative, majority diagnostic.** Matches the
+primary software reference, which is not a small thing: the Disc ships, works,
+and reads exactly those two bytes. But every disagreement observed so far has the
+minority on the *last* replica, which is the one B trusts, and B's failure mode
+is the unrecoverable one.
+
+**Option C — configurable, with a reference mode.** Attractive for research: run
+the same capture twice under both readings and compare. Costs a policy branch in
+the service path and doubles the behaviours any regression has to cover. Worth
+having as an experiment switch, not as the runtime default.
+
+**Option D — something better, proven.** Nothing qualifies yet. The obvious
+candidate ("take the union, `disc | gbi`, and ACK both") is *not* neutral: it
+ACKs a source that may never have been asserted, i.e. option B's failure mode
+with extra steps.
+
+### The second decision, kept separate
+
+Whether a disagreement should **abort** is not the same question as which value
+is authoritative, and the answer now looks different from the day the probe was
+written. A disagreement is no longer an unexplained event with no evidence: it is
+a known, recurring, transport-clean condition whose bytes we can preserve, and
+under option A it has a defined, non-destructive outcome. The natural shape is
+*authoritative = majority; disagreement = a counted, bounded diagnostic anomaly
+that preserves its bytes and does not stop the run*. Two runs have now been ended
+by a condition that, under that policy, would have cost one extra cycle.
+
+**Nothing is implemented.** This is the analysis, not the change; the change
+needs its own design, its own audit and its own physical candidate.
+
+### GBP-VIDEO-003 is gated on this
+
+Confirmed, not assumed. The colour experiment needs a long uninterrupted
+observation of the same service loop, and both physical runs of GBP-VIDEO-002
+ended on this condition — one after 8.19 s, one after 0.084 s. With the current
+fatal policy the colour run would end at an arbitrary point, and a third run
+spent re-learning that would answer nothing. The ROADMAP now records the gate.
+
+### Preservation and tests
+
+Raw log and sidecar copied to `captures/local/`; versioned fixture
+`hw-gamecube-gbp-2026-09-17-vstate-0002.gbpreplay` + its byte-identical v3
+sidecar added under `captures/fixtures/`, with a header that states plainly what
+the script is (the logged prefix; the 513 lean cycles are not in it) and what the
+run did and did not observe. The fixture is registered in the physical-fixture
+allow-list, and `tests/host/test_vstate.py` gained a `PhysicalV3` class that
+re-derives the identity, the CRCs, the section bounds, the 96-byte record, the
+eight replicas, both readings and the `0x0400` difference from the file on disk.
+287 → 295 host tests. No runtime code changed; no format changed; v1, v2 and the
+vstate-0001 fixture are untouched.
