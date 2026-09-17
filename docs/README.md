@@ -46,8 +46,8 @@ strongly corroborated, and its diagnostic attribution failed, so its R3 validati
 is **INCOMPLETE**. Its normative binary layouts (the 160-byte diagnostic record,
 the 1024-byte semantic block, the OGBPSEQ1 v4 header) live in that file as
 subsections R3.24 to R3.29. The next step — `GBP-VIDEO-002-R4` / build
-`vstate-0004` — is **DESIGNED 2026-09-17, NOT IMPLEMENTED, NOT PHYSICALLY
-EXECUTED** (§R4.1 to §R4.10), and `GBP-VIDEO-003` is **GATED** behind it.
+`vstate-0004` — is **IMPLEMENTED 2026-09-17, NOT PHYSICALLY EXECUTED** (§R4.1 to
+§R4.10), and `GBP-VIDEO-003` is **GATED** behind a successful run of it.
 
 Sidecar formats of the GBP-VIDEO family, all dispatched strictly by version and
 none able to read another's file:
@@ -58,7 +58,9 @@ OGBPSEQ1 v2   GBP-VIDEO-002, build vstate-0001   historical, frozen
 OGBPSEQ1 v3   GBP-VIDEO-002, build vstate-0002   historical, frozen
 OGBPSEQ1 v4   GBP-VIDEO-002-R3, vstate-0003      historical, frozen, PHYSICALLY
                                                  EXECUTED, KNOWN PRODUCER DEFECT
-OGBPSEQ1 v5   GBP-VIDEO-002-R4, vstate-0004      designed, not implemented
+OGBPSEQ1 v5   GBP-VIDEO-002-R4, vstate-0004      IMPLEMENTED, not physically executed;
+                                                 same layout as v4, stricter producer
+                                                 contract enforced by cross-field invariants
 ```
 
 The v4 defect is GBP-HW-104: in the physical `vstate-0003` file the current-cycle

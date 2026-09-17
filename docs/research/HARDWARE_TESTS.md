@@ -5350,7 +5350,7 @@ preceded it.
 
 ---
 
-### GBP-VIDEO-002-R4 (build `vstate-0004`, OGBPSEQ1 v5) — give every diagnostic field an owner — DESIGNED 2026-09-17, NOT IMPLEMENTED, NOT PHYSICALLY EXECUTED
+### GBP-VIDEO-002-R4 (build `vstate-0004`, OGBPSEQ1 v5) — give every diagnostic field an owner — DESIGNED and IMPLEMENTED 2026-09-17, NOT PHYSICALLY EXECUTED
 
 `vstate-0003` proved the service policy on hardware and produced records whose
 current-cycle fields belong to the wrong cycle (GBP-HW-104). This revision fixes
@@ -5358,7 +5358,32 @@ the attribution and nothing else. It is **RAM bookkeeping and format only**: not
 one hardware operation, ordering, count or timing changes, and the ISR is not
 touched.
 
-Nothing below is implemented.
+**Implementation status, 2026-09-17.** The design below is now implemented in
+`src/gbp/gbp_vstate.{h,c}`, `src/gbp/gbp_vstate_probe.c`,
+`src/gbp/gbp_vstatedump.{h,c}`, `poc/gbp-video-state-probe/` (Build ID
+`vstate-0004`) and `tools/vstate.py`, with the host battery in
+`tests/unit/test_gbp_video_state.c` and `tests/host/test_vstate.py`. It has
+**NOT** been executed on hardware: no observation in this repository comes from
+it, no evidence ID belongs to it, and none of its synthetic scenarios is evidence
+about the device. What the implementation measured about ITSELF:
+
+```text
+                          vstate-0003 (HEAD 1ed1629)   vstate-0004 (dirty)   delta
+.text                                       337 824               338 496     +672
+.data                                        11 428                11 428        0
+.sbss                                         1 804                 1 804        0
+.bss                                      7 515 332             7 515 332        0
+DOL BSS                                   7 517 136             7 517 136        0
+stack: gbp_vstate_probe_run                     568                   584      +16
+stack: gbp_vstate_diag_open                      96                    88       -8
+stack: every current-cycle setter           leaf, no frame    leaf, no frame      0
+code:  gbp_vstate_probe_run                  12 328                12 516     +188
+```
+
+Not one byte of resident storage was added: the fix is an argument, not a buffer.
+The `.text` growth is the handle plumbing plus the v5 cross-field invariants,
+which live in the same translation unit as the writer. No allocation anywhere
+scales with the number of diagnostics.
 
 #### R4.1 The defect, stated exactly
 
@@ -5379,6 +5404,16 @@ cycle M  disagreement  -> record M opened; N stops being overwritten, M starts
 so what survives in record N is the state of cycle M−1. The measured signature
 matches exactly: `t_ack(i)` sits 118–170 µs before the read of disagreement *i+1*,
 and 96 µs before the stop for the last record.
+
+#### R4.2a Every record write goes through the handle
+
+One consequence is worth stating separately, because it is what makes the rule
+checkable rather than merely intended: **no translation unit other than
+`src/gbp/gbp_vstate.c` writes a diagnostic record.** The probe's transport and
+ISR context for the read that opened a record arrives through
+`gbp_vstate_diag_context()`, a handle-taking setter like every other; the
+serializer and the ring log hold `const` pointers and only read. The store is
+indexed from exactly one place, `diag_at()`, which is bounds-checked and total.
 
 #### R4.2 The API: an explicit handle, never "the latest record"
 
@@ -5564,6 +5599,65 @@ The device operation stream of a run without disagreements must stay
 equivalent to the policy already validated: same READ count, same AUDIO and VIDEO
 ordering, same ACK, same PI clean, same semantic/frame processing, same re-arm,
 same WAIT_NEXT, same ISR, same INTMR handling. No retry, no second read.
+
+#### R4.10a What the implementation added to the batteries
+
+Executed, all synthetic:
+
+```text
+C  test_current_cycle_fields_survive_later_cycles   the defect's own shape: isolated
+                                                    disagreements with many ordinary cycles
+                                                    between them; every record keeps the ACK
+                                                    and re-arm of ITS OWN cycle, and the
+                                                    physical inversion (t_ack after the next
+                                                    cause) must be absent. A second phase runs
+                                                    one event and then thousands of cycles.
+C  test_same_cycle_multiple_diagnostics             PRESVC + POSTDRAIN + POSTACK in one
+                                                    transaction, three times over: one owner,
+                                                    two witnesses, and no extra operation
+C  test_markers_land_on_the_service_record_only     quarantine, deferral and payload go to the
+                                                    record that selected the service; the
+                                                    witnesses receive none of them
+C  test_every_direction_costs_no_operation          the four directions against a reference run
+                                                    that agrees on the serviced value: identical
+                                                    reads, operations, bulk reads, IRQ writes
+C  test_ack_and_rearm_failures_leave_no_false_claim a write that did not complete never becomes
+                                                    a flag that says it did, and no waiter is
+                                                    armed after a re-arm that never happened
+C  test_v5_rejects_the_v4_defect                    nine tampers into the physical defect's
+                                                    shapes, both CRCs recomputed each time
+C  test_v5_record_round_trip                        a three-record file: observational with 32
+                                                    distinct bytes, majority-extra with a
+                                                    payload, Disc-extra with a filled follow-up
+C  the INVALID-handle sweep                         every setter called with GBP_VSTATE_DIAG_
+                                                    INVALID leaves the store byte-identical
+C  test_ownership_survives_a_store_that_runs_out    A + B + C in one transaction with 0, 1, 2 and
+                                                    3 free slots: whatever fitted, the markers of
+                                                    the transaction reach A and every other
+                                                    record is byte-identical
+C  test_diag_close_touches_only_the_followup        the teardown sweep may move follow-up bytes
+                                                    and nothing else; an already-closed record
+                                                    does not move at all
+C  test_majority_extra_only_never_waits             a record that omitted nothing is closed at
+                                                    open as unknown/not_applicable and can never
+                                                    be armed
+C  the 256-record file                              a full store serializes and strict-parses;
+                                                    257 declared is refused
+py V5RejectsTheV4Defect                             the same tampers through the Python parser,
+                                                    each one also put through the C parser
+                                                    (`--parse`) so the two cannot disagree
+py FrozenFormatsStayReadable                        v2, v3 and v4 still parse in BOTH
+                                                    implementations, and the v4 defect stays a
+                                                    non-fatal report derived from the content;
+                                                    a v4 file that sets the v5 service flag is
+                                                    refused by both, and the physical v4 file
+                                                    proves dispatch is by CONTENT - it breaks
+                                                    v5's rules in 22 records and is still
+                                                    accepted through the v5 entry point
+py ParserParity                                     one corpus - three physical files, three
+                                                    synthetic files, seven tampers and a format-1
+                                                    file - one verdict from each parser
+```
 
 #### R4.10 Test plan additions
 

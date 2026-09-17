@@ -63,6 +63,19 @@ def distinct_bytes():
     return _CACHE["distinct"]
 
 
+def v5_bytes():
+    """A SYNTHETIC v5 file with BOTH record shapes - one service-selecting record carrying the
+    whole narrative of its cycle, one observational record claiming none of it - written by the C
+    serializer, so the tampers below start from a file the producer really emits."""
+    if "v5" not in _CACHE:
+        path = os.path.join(outdir(), "vstate-host-v5.bin")
+        subprocess.run([BIN, "--dump-v5", path], check=True, capture_output=True)
+        with open(path, "rb") as f:
+            _CACHE["v5"] = f.read()
+        _CACHE["v5_path"] = path
+    return _CACHE["v5"]
+
+
 def _refix(b, off_footer):
     """Recomputes both CRCs so that ONLY the structural rules can reject the tampered file."""
     b[0x1FC:0x200] = struct.pack(">I", vstate.crc32(bytes(b[:0x1FC])))
@@ -87,11 +100,11 @@ class Header(unittest.TestCase):
         self.d = vstate.parse(sidecar_bytes())
 
     def test_identity_and_version(self):
-        """vstate-0003 writes format 4; the physical vstate-0001 and vstate-0002 files stay 2 and 3."""
-        self.assertEqual(self.d["version"], 4)
+        """vstate-0004 writes format 5; the physical vstate-0001/0002/0003 files stay 2, 3 and 4."""
+        self.assertEqual(self.d["version"], 5)
         self.assertEqual(self.d["header_size"], 0x200)
         self.assertEqual(self.d["test_id"], "GBP-VIDEO-002")
-        self.assertEqual(self.d["build_id"], "vstate-0003")
+        self.assertEqual(self.d["build_id"], "vstate-0004")
         self.assertEqual(self.d["app"], "gbp-video-state-probe")
 
     def test_record_sizes_are_the_contract(self):
@@ -323,7 +336,7 @@ class Cli(unittest.TestCase):
         return r.stdout
 
     def test_subcommands(self):
-        self.assertIn("OGBPSEQ1 v4", self.run_cmd("info"))
+        self.assertIn("OGBPSEQ1 v5", self.run_cmd("info"))
         self.assertIn("frame", self.run_cmd("frames"))
         self.assertIn("seq", self.run_cmd("events"))
         self.assertIn("episode", self.run_cmd("episodes"))
@@ -351,15 +364,16 @@ class Cli(unittest.TestCase):
 
 
 @unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first")
-class DiagnosticV4(unittest.TestCase):
-    """Format 4 carries every preserved disagreement and the aggregate block. Every file here is
-    SYNTHETIC. The frozen physical v2 and v3 files are covered by their own classes below."""
+class DiagnosticV5(unittest.TestCase):
+    """Format 5 carries every preserved disagreement and the aggregate block, in v4's layout and
+    under a stricter producer contract. Every file here is SYNTHETIC. The frozen physical v2, v3
+    and v4 files are covered by their own classes below."""
 
     def setUp(self):
         self.d = vstate.parse(diag_bytes())
 
-    def test_it_is_version_4_with_the_block_and_the_array(self):
-        self.assertEqual(self.d["version"], 4)
+    def test_it_is_version_5_with_the_block_and_the_array(self):
+        self.assertEqual(self.d["version"], 5)
         self.assertEqual(self.d["diag_count"], 1)
         self.assertEqual(self.d["diag_rec_size"], 160)
         self.assertEqual(self.d["semantic_size"], 1024)
@@ -556,9 +570,22 @@ class DiagnosticIsStrict(unittest.TestCase):
                 vstate.parse(_refix(b, self.foot))
 
     def test_a_version_nobody_defined_is_refused(self):
-        for value in (0, 1, 5, 0xFFFF):
+        # 1 belongs to GBP-VIDEO-001 and tools/avseq.py; 0, 6 and 0xFFFF are nobody's.
+        for value in (0, 1, 6, 0xFFFF):
             with self.assertRaises(ValueError):
                 vstate.parse(self._tampered(0x008, struct.pack(">H", value)))
+
+    def test_a_v5_file_relabelled_v4_loses_its_flag(self):
+        """v4 and v5 share a layout, so relabelling is not a structural error - and that is
+        exactly why the label may only be trusted for the PRODUCER contract. Under the v4 label
+        the cross-field rules stop running and bit 8 of record_flags becomes illegal."""
+        data = self._tampered(0x008, struct.pack(">H", 4))
+        flags = struct.unpack_from(">H", data, self.d["off_diag"] + 0x6E)[0]
+        if flags & 0x0100:
+            with self.assertRaises(ValueError):
+                vstate.parse(data)
+        else:
+            self.assertEqual(vstate.parse(data)["version"], 4)
 
 
 @unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first (make -C tests/unit)")
@@ -577,31 +604,48 @@ class DiagnosticIsRecomputed(unittest.TestCase):
         b[self.off + field_off:self.off + field_off + 2] = struct.pack(">H", value)
         return vstate.parse(_refix(b, self.foot))
 
-    def test_a_tampered_disc_value_is_caught(self):
-        d = self._altered(0x10, 0x0500)          # claim the two readings agreed after all
+    def _tampered_bytes(self, field_off, value):
+        b = bytearray(self.data)
+        b[self.off + field_off:self.off + field_off + 2] = struct.pack(">H", value)
+        return _refix(b, self.foot)
+
+    def test_a_tampered_disc_value_is_REFUSED_in_v5(self):
+        """In v5 this is no longer a soft report: a stored reading the bytes do not produce is a
+        parse failure, because that is precisely the class of lie the v4 file could tell."""
+        with self.assertRaises(ValueError) as cm:
+            self._altered(0x10, 0x0500)          # claim the two readings agreed after all
+        self.assertIn("raw[32] recomputes", str(cm.exception))
+
+    def test_a_tampered_gbi_value_is_REFUSED_in_v5(self):
+        with self.assertRaises(ValueError) as cm:
+            self._altered(0x12, 0x0501)
+        self.assertIn("raw[32] recomputes", str(cm.exception))
+
+    def test_a_tampered_raw_byte_is_REFUSED_in_v5(self):
+        b = bytearray(self.data)
+        b[self.off + 0x18 + 0x1F] ^= 0x01
+        with self.assertRaises(ValueError):
+            vstate.parse(_refix(b, self.foot))
+
+    def test_the_explanation_still_follows_the_bytes_in_a_frozen_file(self):
+        """The soft report is not gone: it is what a FROZEN format gets, because refusing a
+        physical file to enforce a rule written after it would destroy evidence. Here the v3
+        physical sidecar is tampered and the tool reports the inconsistency instead."""
+        if not os.path.isfile(PHYSICAL_V3):
+            self.skipTest("physical v3 sidecar missing")
+        with open(PHYSICAL_V3, "rb") as f:
+            data = bytearray(f.read())
+        d0 = vstate.parse(bytes(data))
+        off = d0["off_diag"]
+        stored = struct.unpack_from(">H", data, off + 0x10)[0]
+        struct.pack_into(">H", data, off + 0x10, stored ^ 0x0001)
+        d = vstate.parse(_refix(data, d0["off_footer"]))
         e = vstate.explain_diag(d["diag"])
         self.assertFalse(e["consistent"])
-        self.assertEqual(e["stored_disc"], 0x0500)
-        self.assertEqual(e["recomputed_disc"], 0x0501)
+        self.assertEqual(e["recomputed_disc"], stored)
         text = vstate.diag_text(d)
         self.assertIn("INCONSISTENT", text)
         self.assertIn("do not use this record", text.lower())
-
-    def test_a_tampered_gbi_value_is_caught(self):
-        d = self._altered(0x12, 0x0501)
-        e = vstate.explain_diag(d["diag"])
-        self.assertFalse(e["consistent"])
-        self.assertEqual(e["recomputed_gbi"], 0x0500)
-
-    def test_the_explanation_follows_the_bytes(self):
-        """Change a raw byte and the recomputation must move with it, not with the stored value."""
-        b = bytearray(self.data)
-        b[self.off + 0x18 + 0x1F] ^= 0x01
-        d = vstate.parse(_refix(b, self.foot))
-        e = vstate.explain_diag(d["diag"])
-        self.assertEqual(e["recomputed_disc"], 0x0500)
-        self.assertEqual(e["stored_disc"], 0x0501)
-        self.assertFalse(e["consistent"])
 
 
 @unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first (make -C tests/unit)")
@@ -930,6 +974,249 @@ class PhysicalV4(unittest.TestCase):
         self.assertIn("PRODUCER WARNINGS", r.stdout)
         self.assertIn("attribution defect of the writer, not corruption", r.stdout)
         self.assertIn("asserts no physical cause", r.stdout)
+
+@unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first (make -C tests/unit)")
+class V5RejectsTheV4Defect(unittest.TestCase):
+    """Section 31: a valid v5 file, tampered into each shape the PHYSICAL v4 file actually has,
+    with both CRCs recomputed so that only a cross-field rule can refuse it. Every case is put
+    through BOTH implementations: a file the two parsers judge differently would be worse than
+    one strict parser, so the C verdict is required to match."""
+
+    def setUp(self):
+        self.data = v5_bytes()
+        self.d = vstate.parse(self.data)
+        self.off = self.d["off_diag"]
+        self.foot = self.d["off_footer"]
+
+    def _c_verdict(self, data):
+        path = os.path.join(outdir(), "vstate-v5-tamper.bin")
+        with open(path, "wb") as f:
+            f.write(data)
+        r = subprocess.run([BIN, "--parse", path], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return int(r.stdout.strip().split("=")[1])
+
+    def _both_refuse(self, mutate, what):
+        b = bytearray(self.data)
+        mutate(b)
+        data = _refix(b, self.foot)
+        with self.assertRaises(ValueError, msg=what):
+            vstate.parse(data)
+        self.assertEqual(self._c_verdict(data), -10, what)
+
+    def test_the_untampered_file_is_valid_in_both(self):
+        self.assertEqual(self.d["version"], 5)
+        self.assertEqual(self._c_verdict(self.data), 0)
+
+    def test_A_authority_that_is_not_the_majority(self):
+        """22 of the 23 physical v4 records look exactly like this."""
+        g = self.d["diags"][0]
+        auth, gbi = g["authoritative_value"], g["gbi_value"]
+        other = (auth ^ 0x0400) & 0xFFFF
+        self.assertNotEqual(other & 0x0555, gbi & 0x0555)
+
+        def mutate(b):
+            struct.pack_into(">H", b, self.off + 0x68, other)                 # authoritative
+            struct.pack_into(">H", b, self.off + 0x6C, other & 0x0500)        # service_selected
+            struct.pack_into(">H", b, self.off + 0x6A, other | 0x8000)        # ack_value
+        self._both_refuse(mutate, "authority is not the majority")
+
+    def test_B_a_timing_chain_that_belongs_to_a_later_cycle(self):
+        """t_ack after t_rearm - the inversion measured in 23 of 23 physical records."""
+        g = self.d["diags"][0]
+        if not g["record_flags"] & 0x0040:
+            self.skipTest("this synthetic record carries no ACK")
+        later = g["t_rearm"] + 1000
+        self._both_refuse(lambda b: struct.pack_into(">Q", b, self.off + 0x70, later),
+                          "ACK after the re-arm")
+
+    def test_C_an_ack_that_is_not_the_authoritative_value(self):
+        g = self.d["diags"][0]
+        if not g["record_flags"] & 0x0040:
+            self.skipTest("this synthetic record carries no ACK")
+        self._both_refuse(lambda b: struct.pack_into(">H", b, self.off + 0x6A,
+                                                     (g["ack_value"] ^ 1) & 0xFFFF),
+                          "ack != authoritative | 0x8000")
+
+    def test_D_an_observational_record_claiming_a_service_effect(self):
+        idx = [i for i, g in enumerate(self.d["diags"]) if g["read_kind"] in ("POSTDRAIN", "POSTACK")]
+        if not idx:
+            self.skipTest("this synthetic file has no observational record")
+        off = self.off + idx[0] * 160
+        self._both_refuse(lambda b: struct.pack_into(">H", b, off + 0x6E, 0x0040),
+                          "observational record with an ACK")
+
+    def test_E_a_service_decision_nobody_recorded(self):
+        g = self.d["diags"][0]
+        flags = g["record_flags"] & ~0x0100
+        self._both_refuse(lambda b: struct.pack_into(">H", b, self.off + 0x6E, flags),
+                          "service_selected with no service_written")
+
+    def test_F_a_stored_reading_the_bytes_do_not_produce(self):
+        g = self.d["diags"][0]
+        self._both_refuse(lambda b: struct.pack_into(">H", b, self.off + 0x12,
+                                                     (g["gbi_value"] ^ 0x0400) & 0xFFFF),
+                          "gbi_value is not what raw[32] recomputes")
+
+    def test_G_a_classification_that_is_not_the_normative_one(self):
+        g = self.d["diags"][0]
+        other = 1 if g["classification_code"] != 1 else 3
+        self._both_refuse(lambda b: struct.pack_into(">H", b, self.off + 0x66, other),
+                          "classification is not the normative one")
+
+
+@unittest.skipUnless(os.path.isfile(PHYSICAL_V4), "physical v4 sidecar missing")
+@unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first (make -C tests/unit)")
+class FrozenFormatsStayReadable(unittest.TestCase):
+    """Section 19 / 32 / 43: the three physical files keep parsing EXACTLY as they did, in both
+    implementations, and the v4 defect stays a non-fatal report. A v5 rule that refused a physical
+    capture would destroy evidence to enforce a contract written after it."""
+
+    def _c_verdict(self, path):
+        r = subprocess.run([BIN, "--parse", path], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return int(r.stdout.strip().split("=")[1])
+
+    def test_every_physical_sidecar_still_parses_in_both(self):
+        for path, version in ((PHYSICAL_V2, 2), (PHYSICAL_V3, 3), (PHYSICAL_V4, 4)):
+            if not os.path.isfile(path):
+                continue
+            with open(path, "rb") as f:
+                d = vstate.parse(f.read())
+            self.assertEqual(d["version"], version, path)
+            self.assertEqual(self._c_verdict(path), 0, path)
+
+    def test_the_v4_defect_is_reported_and_not_fatal(self):
+        with open(PHYSICAL_V4, "rb") as f:
+            d = vstate.parse(f.read())
+        w = vstate.producer_warnings(d)
+        kinds = {}
+        for _, code, _ in w:
+            kinds[code] = kinds.get(code, 0) + 1
+        self.assertEqual(kinds.get("ack_after_next_cause"), 23)
+        self.assertEqual(kinds.get("rearm_after_next_cause"), 23)
+        self.assertEqual(kinds.get("authority_not_majority"), 22)
+        self.assertEqual(len(w), 68)
+
+    def test_the_dispatch_is_by_content_not_by_entry_point(self):
+        """Section 38, decisively: the physical v4 file VIOLATES v5's cross-field rules in 23 of
+        its 23 records. It is parsed here through the entry point named for v5 — and it is
+        accepted, which is only possible because the rules applied are the FILE's, not the
+        caller's. The same call on a v5 file applies v5's rules (proved by the tampers)."""
+        r = subprocess.run([BIN, "--parse", PHYSICAL_V4], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(int(r.stdout.strip().split("=")[1]), 0)
+        with open(PHYSICAL_V4, "rb") as f:
+            d = vstate.parse(f.read())
+        self.assertEqual(d["version"], 4)
+        offenders = [i for i, g in enumerate(d["diags"])
+                     if (g["authoritative_value"] & 0x0555) != (g["gbi_value"] & 0x0555)]
+        self.assertEqual(len(offenders), 22)     # would be fatal under v5, and is not applied
+
+    def test_a_v4_file_may_not_carry_the_v5_service_flag(self):
+        """Section 21: DF_SERVICE_WRITTEN (0x0100) lives in v4's RESERVED byte. A v4 file that
+        sets it - even the physical one, tampered in memory with both CRCs made valid again -
+        must be refused by the v4 contract in BOTH parsers. The bit is not retroactively legal."""
+        with open(PHYSICAL_V4, "rb") as f:
+            data = bytearray(f.read())
+        d = vstate.parse(bytes(data))
+        self.assertEqual(d["version"], 4)
+        off = d["off_diag"] + 0x6E
+        flags = struct.unpack_from(">H", data, off)[0]
+        self.assertEqual(flags & 0x0100, 0)                 # the physical file does not set it
+        struct.pack_into(">H", data, off, flags | 0x0100)
+        tampered = _refix(data, d["off_footer"])
+        with self.assertRaises(ValueError) as cm:
+            vstate.parse(tampered)
+        self.assertIn("record flag", str(cm.exception))
+        path = os.path.join(outdir(), "vstate-v4-with-v5-flag.bin")
+        with open(path, "wb") as f:
+            f.write(tampered)
+        r = subprocess.run([BIN, "--parse", path], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(int(r.stdout.strip().split("=")[1]), -8)   # reserved bits, v4 rules
+
+    def test_the_warning_is_derived_from_the_content_not_from_a_hash(self):
+        """The same analysis must flag ANY inconsistent v4 record, not just this file's."""
+        with open(PHYSICAL_V3, "rb") as f:
+            data = bytearray(f.read())
+        d0 = vstate.parse(bytes(data))
+        self.assertEqual(d0["version"], 3)
+        self.assertEqual(vstate.producer_warnings(d0), [])     # v3 has no v4 record to check
+        # a synthetic v4 record with a clean authority produces no warning at all
+        with open(PHYSICAL_V4, "rb") as f:
+            v4 = vstate.parse(f.read())
+        clean = [g for g in v4["diags"]
+                 if (g["authoritative_value"] & 0x0555) == (g["gbi_value"] & 0x0555)]
+        self.assertEqual(len(clean), 1)                        # exactly one of the 23
+        self.assertEqual(len([1 for i, code, _ in vstate.producer_warnings(v4)
+                              if code == "authority_not_majority"]), 22)
+
+
+@unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first (make -C tests/unit)")
+class ParserParity(unittest.TestCase):
+    """Section 37: one corpus, two parsers, one verdict. Every file below is put through both
+    implementations and they must agree on accept/reject. A file the two judge differently would
+    be worse than a single strict parser, because an analysis would depend on which one ran."""
+
+    def _c(self, data):
+        path = os.path.join(outdir(), "vstate-parity.bin")
+        with open(path, "wb") as f:
+            f.write(data)
+        r = subprocess.run([BIN, "--parse", path], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return int(r.stdout.strip().split("=")[1])
+
+    def _py(self, data):
+        try:
+            vstate.parse(data)
+            return True, ""
+        except ValueError as e:
+            return False, str(e)
+
+    def test_the_whole_corpus_agrees(self):
+        corpus = []
+        for path, what in ((PHYSICAL_V2, "physical v2"), (PHYSICAL_V3, "physical v3"),
+                           (PHYSICAL_V4, "physical v4")):
+            if os.path.isfile(path):
+                with open(path, "rb") as f:
+                    corpus.append((what, f.read(), True))
+        corpus.append(("synthetic v5 (two shapes)", v5_bytes(), True))
+        corpus.append(("synthetic v5 (fatal record)", diag_bytes(), True))
+        corpus.append(("synthetic v5 (32 distinct bytes)", distinct_bytes(), True))
+        # and the tampers: each must be refused by both
+        base = bytearray(v5_bytes())
+        d = vstate.parse(bytes(base))
+        off, foot = d["off_diag"], d["off_footer"]
+        g = d["diags"][0]
+        obs = [i for i, x in enumerate(d["diags"]) if x["read_kind"] in ("POSTDRAIN", "POSTACK")][0]
+        tampers = (
+            ("authority not the majority", off + 0x68, ">H", (g["authoritative_value"] ^ 0x0400) & 0xFFFF),
+            ("ack not auth|8000", off + 0x6A, ">H", (g["ack_value"] ^ 1) & 0xFFFF),
+            ("gbi not recomputable", off + 0x12, ">H", (g["gbi_value"] ^ 0x0400) & 0xFFFF),
+            ("t_ack after t_rearm", off + 0x70, ">Q", g["t_rearm"] + 1000),
+            ("t_next before t_rearm", off + 0x80, ">Q", max(g["t_rearm"] - 1, 0)),
+            ("observational with an ACK", off + obs * 160 + 0x6E, ">H", 0x0040),
+            ("unknown record flag", off + 0x6E, ">H", 0x0200),
+        )
+        for what, at, fmt, value in tampers:
+            b = bytearray(base)
+            struct.pack_into(fmt, b, at, value)
+            corpus.append((what, _refix(b, foot), False))
+        # a v1 file belongs to another tool entirely
+        v1 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-video-0001-seq.bin")
+        if os.path.isfile(v1):
+            with open(v1, "rb") as f:
+                corpus.append(("GBP-VIDEO-001 format 1", f.read(), False))
+        disagreements = []
+        for what, data, expect_ok in corpus:
+            c_rc = self._c(data)
+            py_ok, why = self._py(data)
+            if (c_rc == 0) != py_ok:
+                disagreements.append("%s: C rc=%d, Python %s (%s)" % (what, c_rc, py_ok, why))
+            self.assertEqual(py_ok, expect_ok, "%s: %s" % (what, why))
+        self.assertEqual(disagreements, [], "the two parsers disagree: %s" % disagreements)
+
 
 if __name__ == "__main__":
     unittest.main()

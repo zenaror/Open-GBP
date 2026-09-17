@@ -581,7 +581,9 @@ static gbp_status m_read_block(void *ctx, uint32_t addr, uint8_t out[GBP_BLOCK_S
                 if (m->irq_byte0_anomaly) out[0] |= 0x11;   /* byte 0 must never feed a decision */
                 if (m->irq_disagree_on_install && m->installed_calls) out[0x1F] ^= 0x01;   /* Disc reading != GBI vote */
                 if (m->irq_disagree_from_write && m->irq_writes >= m->irq_disagree_from_write) out[0x1F] ^= 0x01;
-                if (m->irq_last_replica_from_write && m->irq_writes >= m->irq_last_replica_from_write) {
+                if (m->irq_last_replica_from_write && m->irq_writes >= m->irq_last_replica_from_write &&
+                    (m->irq_last_replica_period == 0u ||
+                     ((m->irq_writes - m->irq_last_replica_from_write) % m->irq_last_replica_period) == 0u)) {
                     /* the LAST replica alone carries a different 16-bit value: seven
                      * replicas say one thing and the eighth says another, which is
                      * the shape both physical events had */

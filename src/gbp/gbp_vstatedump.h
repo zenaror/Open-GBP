@@ -66,10 +66,25 @@ extern "C" {
  *       **FROZEN.** The physical sidecar of 2026-09-16 must keep parsing exactly
  *       as it did the day it was consolidated, so not one byte of the v2
  *       contract moves: same offsets, same CRC coverage, same reserved meaning.
- *   v3  GBP-VIDEO-002 build vstate-0002, this instrumented build. Everything v2
+ *   v3  GBP-VIDEO-002 build vstate-0002, the instrumented build. Everything v2
  *       has, at the same offsets, plus ONE new section carrying the semantic
  *       disagreement diagnostic (U-GBP-032), and three header fields that
- *       describe it taken from v2's reserved area.
+ *       describe it taken from v2's reserved area. **FROZEN.**
+ *   v4  GBP-VIDEO-002-R3 build vstate-0003, PHYSICALLY EXECUTED 2026-09-17:
+ *       v3 plus the 1024-byte semantic block and the 160-byte diagnostic array.
+ *       **FROZEN and HISTORICAL, with a KNOWN PRODUCER DEFECT** (GBP-HW-104):
+ *       its current-cycle fields (authoritative/service/ACK/re-arm) may belong
+ *       to a LATER cycle than the record that carries them. The v4 parser does
+ *       NOT acquire the v5 cross-field rules: making them fatal would turn the
+ *       only physical v4 capture into a parse failure, which would destroy
+ *       evidence to enforce a rule written after it. tools/vstate.py reports
+ *       them as non-fatal PRODUCER WARNINGS instead.
+ *   v5  GBP-VIDEO-002-R4 build vstate-0004. **The same layout as v4, byte for
+ *       byte** - same header, same 160-byte record, same 1024-byte block. The
+ *       version exists to separate two PRODUCERS, not two layouts: a v5 file
+ *       promises that every current-cycle field belongs to the cycle that opened
+ *       its record, and its parser enforces that promise with cross-field
+ *       invariants that recompute from the preserved raw bytes (§R4.8).
  * It is a version and not a new magic because v3 is v2 plus a section: the
  * header, every table, the identity rule, the CRC scheme and the footer are
  * unchanged, and a reader that understands v2 understands all of v3 except that
@@ -77,11 +92,14 @@ extern "C" {
  * versions are dispatched explicitly and each is strict; neither can read the
  * other's file by accident, because the version is checked before anything.
  */
-#define GBP_VSTATEDUMP_VERSION 4u          /* what this build WRITES */
+#define GBP_VSTATEDUMP_VERSION 5u          /* what this build WRITES */
 #define GBP_VSTATEDUMP_VERSION_V2 2u       /* the frozen physical format of vstate-0001 */
 #define GBP_VSTATEDUMP_VERSION_V3 3u       /* the frozen physical format of vstate-0002 */
+#define GBP_VSTATEDUMP_VERSION_V4 4u       /* the frozen physical format of vstate-0003 */
+#define GBP_VSTATEDUMP_VERSION_V5 5u       /* what vstate-0004 writes */
 #define GBP_VSTATEDUMP_DIAG_REC GBP_VSTATE_DIAG_REC        /* 96: the v3 record */
 #define GBP_VSTATEDUMP_DIAG_REC_V4 GBP_VSTATE_DIAG_REC_V4  /* 160: v3 plus the follow-up block */
+#define GBP_VSTATEDUMP_DIAG_REC_V5 GBP_VSTATE_DIAG_REC_V4  /* v5 keeps it: no field was missing */
 #define GBP_VSTATEDUMP_MAX_DIAGS GBP_VSTATE_MAX_DISAGREEMENTS  /* 256 */
 #define GBP_VSTATEDUMP_SEMANTIC_SIZE 1024u /* the fixed semantic-coherence block */
 #define GBP_VSTATEDUMP_SEMANTIC_TAG 0x4F475342u  /* "OGSB" */
@@ -175,7 +193,7 @@ long gbp_vstatedump_stream(struct gbp_vstatedump_info *info, const struct gbp_vs
  * size, -3 header CRC mismatch, -4 a section falls outside the file or
  * overlaps, -5 footer magic missing, -6 total CRC mismatch, -7 an identity
  * field breaks the rule, -8 reserved bytes not zero, -9 a table's internal
- * bounds are inconsistent. */
+ * bounds are inconsistent, -10 a v5 cross-field invariant fails (v5 only). */
 int gbp_vstatedump_parse(const uint8_t *in, size_t n, struct gbp_vstatedump_info *info,
                          const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
                          const uint8_t **cycles, const uint8_t **video_raw, const uint8_t **audio_raw);
@@ -186,8 +204,21 @@ int gbp_vstatedump_parse_v3(const uint8_t *in, size_t n, struct gbp_vstatedump_i
                             const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
                             const uint8_t **cycles, const uint8_t **diag,
                             const uint8_t **video_raw, const uint8_t **audio_raw);
-/* Same, plus the v4 semantic block (NULL in v2/v3). */
+/* Same, plus the semantic block of v4/v5 (NULL in v2/v3). */
 int gbp_vstatedump_parse_v4(const uint8_t *in, size_t n, struct gbp_vstatedump_info *info,
+                            const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
+                            const uint8_t **cycles, const uint8_t **semantic, const uint8_t **diag,
+                            const uint8_t **video_raw, const uint8_t **audio_raw);
+/* The same function under the name of the current format. EVERY entry point of
+ * this family reads v2, v3, v4 and v5 and checks each file under ITS OWN
+ * version's rules - the entry points differ only in which sections they hand
+ * back, never in how strictly a given file is judged. On a v5 file that includes
+ * every cross-field invariant of §R4.8 - both readings recomputed from raw[32], the derived masks
+ * and classification recomputed from those, the composed authoritative value,
+ * the ACK identity, the read-kind-dependent timing chain, the follow-up split
+ * and the observational contract - and returns -10 when one fails. Those rules
+ * are NEVER applied to v2, v3 or v4. */
+int gbp_vstatedump_parse_v5(const uint8_t *in, size_t n, struct gbp_vstatedump_info *info,
                             const uint8_t **frames, const uint8_t **events, const uint8_t **episodes,
                             const uint8_t **cycles, const uint8_t **semantic, const uint8_t **diag,
                             const uint8_t **video_raw, const uint8_t **audio_raw);

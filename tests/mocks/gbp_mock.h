@@ -191,6 +191,12 @@ struct gbp_mock {
      * which is exactly how both physical events looked. */
     unsigned irq_last_replica_from_write; /* from the Nth IRQ write on, apply irq_last_replica_xor */
     uint16_t irq_last_replica_xor;        /* XORed into the LAST replica's 16-bit value only */
+    /* 0: every read from `from_write` on (the default). N>0: only the reads where
+     * (irq_writes - from_write) % N == 0, so a disagreement can be ISOLATED with
+     * many ordinary cycles between two of them - the shape the physical run had
+     * (23 events in 1 114 007 deliveries) and the one that exposes a diagnostic
+     * setter writing into the wrong record. */
+    unsigned irq_last_replica_period;
     unsigned irq_force_value_from_write;  /* from the Nth IRQ write on, the window presents ... */
     uint16_t irq_forced_value;            /* ... this value in every replica (before the XOR above) */
     unsigned irq_extra_source_from_write; /* from the Nth IRQ write on, BOTH readings carry 0x0004 */

@@ -228,6 +228,33 @@ const struct gbp_vstate_diag *gbp_vstate_diag_first(const struct gbp_vstate *s)
     return &s->diags[0];
 }
 
+/*
+ * The ONE place that turns a handle into a record (§R4.2). Every current-cycle
+ * setter goes through it and nothing else does. It is total: an invalid handle,
+ * an absent store or an out-of-range index give NULL, never a substitute record.
+ * There is deliberately no "latest", no diags_n arithmetic and no current-record
+ * member anywhere in this file - a fallback is what produced GBP-HW-104.
+ */
+static struct gbp_vstate_diag *diag_at(struct gbp_vstate *s, gbp_vstate_diag_handle h)
+{
+    if (!s || !s->diags) return 0;
+    if (h < 0) return 0;                       /* GBP_VSTATE_DIAG_INVALID and anything below */
+    if ((uint32_t)h >= s->diags_n) return 0;   /* bounds, against the records that EXIST */
+    return &s->diags[h];
+}
+
+int gbp_vstate_diag_handle_valid(const struct gbp_vstate *s, gbp_vstate_diag_handle h)
+{
+    if (!s || !s->diags || h < 0) return 0;
+    return ((uint32_t)h < s->diags_n) ? 1 : 0;
+}
+
+const struct gbp_vstate_diag *gbp_vstate_diag_at(const struct gbp_vstate *s, gbp_vstate_diag_handle h)
+{
+    if (!gbp_vstate_diag_handle_valid(s, h)) return 0;
+    return &s->diags[h];
+}
+
 void gbp_vstate_block_majority_extra(struct gbp_vstate *s)
 {
     if (s) s->next_block_majority_extra = GBP_VSTATE_B_MAJORITY_EXTRA;
@@ -285,13 +312,14 @@ static int read_selects_service(uint16_t read_kind)
     return read_kind == GBP_VSTATE_DIAG_READ_LEAN || read_kind == GBP_VSTATE_DIAG_READ_PRESVC;
 }
 
-int gbp_vstate_diag_open(struct gbp_vstate *s, uint32_t cycle, uint64_t t, const uint8_t *raw,
-                         uint16_t disc, uint16_t gbi, uint16_t read_kind, unsigned classification)
+gbp_vstate_diag_handle gbp_vstate_diag_open(struct gbp_vstate *s, uint32_t cycle, uint64_t t,
+                                            const uint8_t *raw, uint16_t disc, uint16_t gbi,
+                                            uint16_t read_kind, unsigned classification)
 {
     struct gbp_vstate_diag *d;
     uint16_t delta, disc_extra, maj_extra;
-    int idx;
-    if (!s || !raw) return -1;
+    gbp_vstate_diag_handle idx;
+    if (!s || !raw) return GBP_VSTATE_DIAG_INVALID;
 
     delta = (uint16_t)(disc ^ gbi);
     disc_extra = (uint16_t)((disc & GBP_VSTATE_SRC_MASK) & ~(gbi & GBP_VSTATE_SRC_MASK));
@@ -319,9 +347,9 @@ int gbp_vstate_diag_open(struct gbp_vstate *s, uint32_t cycle, uint64_t t, const
          * run does not stop, and a record already waiting can still be closed. */
         s->sem.diagnostics_not_preserved++;
         s->sem.store_capped = 1u;
-        return -1;
+        return GBP_VSTATE_DIAG_INVALID;
     }
-    idx = (int)s->diags_n;
+    idx = (gbp_vstate_diag_handle)s->diags_n;
     d = &s->diags[idx];
     memset(d, 0, sizeof *d);
     d->t = t;
@@ -352,56 +380,90 @@ int gbp_vstate_diag_open(struct gbp_vstate *s, uint32_t cycle, uint64_t t, const
         d->followup_reason = GBP_VSTATE_FUR_NOT_APPLICABLE;
         s->sem.followup_unknown++;
     } else {
+        /* The majority omitted something, so a follow-up is meaningful - but the
+         * record does NOT become the waiter here. It becomes one only if this
+         * transaction reaches a WRITTEN re-arm (gbp_vstate_diag_arm_followup,
+         * §R4.6): a waiter installed at open would claim that a next cause is
+         * expected after a re-arm that may never happen. If the transaction ends
+         * first, gbp_vstate_diag_close() sweeps this record. */
         d->followup_state = GBP_VSTATE_FU_PENDING;
         d->followup_reason = GBP_VSTATE_FUR_NONE;
-        s->diag_wait = idx;                        /* at most one at a time */
     }
     s->diags_n++;
     s->sem.diagnostics_preserved++;
     return idx;
 }
 
-void gbp_vstate_diag_service(struct gbp_vstate *s, uint16_t authoritative, uint16_t service_selected,
-                             unsigned incomplete)
+void gbp_vstate_diag_context(struct gbp_vstate *s, gbp_vstate_diag_handle h,
+                             uint32_t intsr_entry, uint32_t intsr_after_w1c, uint32_t intmr_entry,
+                             uint32_t latency_ticks, uint16_t control_exp,
+                             const struct gbp_xfer_info *info)
 {
-    struct gbp_vstate_diag *d;
-    if (!s || !s->diags || s->diags_n == 0u) { if (s && incomplete) s->sem.service_incomplete_events++; return; }
-    d = &s->diags[s->diags_n - 1u];
-    d->authoritative_value = authoritative;
-    d->service_selected = service_selected;
-    if (incomplete) {
-        d->record_flags |= GBP_VSTATE_DF_SERVICE_INCOMPLETE;
-        s->sem.service_incomplete_events++;
+    struct gbp_vstate_diag *d = diag_at(s, h);
+    if (!d) return;
+    d->intsr_entry = intsr_entry;
+    d->intsr_after_w1c = intsr_after_w1c;
+    d->intmr_entry = intmr_entry;
+    d->latency_ticks = latency_ticks;
+    d->control_exp = control_exp;
+    if (info) {
+        d->xfer_ticks = info->ticks;
+        d->xfer_polls = info->polls;
+        d->dma_status = info->dma_status;
+        d->dma_status_before = info->dma_status_before;
     }
 }
 
-void gbp_vstate_diag_ack(struct gbp_vstate *s, uint16_t ack_value, uint64_t t_ack)
+void gbp_vstate_diag_service(struct gbp_vstate *s, gbp_vstate_diag_handle h, uint16_t authoritative,
+                             uint16_t service_selected, unsigned incomplete)
 {
-    struct gbp_vstate_diag *d;
-    if (!s || !s->diags || s->diags_n == 0u) return;
-    d = &s->diags[s->diags_n - 1u];
+    struct gbp_vstate_diag *d = diag_at(s, h);
+    /* The aggregate counter describes the RUN and moves whether or not a record
+     * was preserved; the record fields below belong to `h` alone. */
+    if (s && incomplete) s->sem.service_incomplete_events++;
+    if (!d) return;
+    d->authoritative_value = authoritative;
+    d->service_selected = service_selected;
+    d->record_flags |= GBP_VSTATE_DF_SERVICE_WRITTEN;
+    if (incomplete) d->record_flags |= GBP_VSTATE_DF_SERVICE_INCOMPLETE;
+}
+
+void gbp_vstate_diag_service_incomplete(struct gbp_vstate *s, gbp_vstate_diag_handle h)
+{
+    struct gbp_vstate_diag *d = diag_at(s, h);
+    if (s) s->sem.service_incomplete_events++;
+    if (!d) return;
+    d->record_flags |= GBP_VSTATE_DF_SERVICE_INCOMPLETE;
+}
+
+void gbp_vstate_diag_ack(struct gbp_vstate *s, gbp_vstate_diag_handle h, uint16_t ack_value, uint64_t t_ack)
+{
+    struct gbp_vstate_diag *d = diag_at(s, h);
+    if (!d) return;
     d->ack_value = ack_value;
     d->t_ack = t_ack;
     d->record_flags |= GBP_VSTATE_DF_ACK_WRITTEN;
 }
 
-void gbp_vstate_diag_rearm(struct gbp_vstate *s, uint64_t t_rearm)
+void gbp_vstate_diag_rearm(struct gbp_vstate *s, gbp_vstate_diag_handle h, uint64_t t_rearm)
 {
-    struct gbp_vstate_diag *d;
-    if (!s || !s->diags || s->diags_n == 0u) return;
-    d = &s->diags[s->diags_n - 1u];
+    struct gbp_vstate_diag *d = diag_at(s, h);
+    if (!d) return;
     d->t_rearm = t_rearm;
     d->record_flags |= GBP_VSTATE_DF_REARM_WRITTEN;
 }
 
-void gbp_vstate_diag_payload(struct gbp_vstate *s, uint16_t source, uint32_t crc32, uint32_t first_word)
+void gbp_vstate_diag_payload(struct gbp_vstate *s, gbp_vstate_diag_handle h, uint16_t source,
+                             uint32_t crc32, uint32_t first_word)
 {
     struct gbp_vstate_diag *d;
     if (!s) return;
+    /* These two count SERVICES, not records: a service that happened with the
+     * store full is still a service. */
     if (source == GBP_VSTATE_SRC_VIDEO) s->sem.majority_extra_video_services++;
     else if (source == GBP_VSTATE_SRC_AUDIO) s->sem.majority_extra_audio_services++;
-    if (!s->diags || s->diags_n == 0u) return;
-    d = &s->diags[s->diags_n - 1u];
+    d = diag_at(s, h);
+    if (!d) return;
     if (d->record_flags & GBP_VSTATE_DF_PAYLOAD_VALID) {
         /* The slot is taken. Priority is normative and fixed so it cannot drift
          * between runs (§R3.23): VIDEO keeps the slot, because it is the one the
@@ -421,16 +483,34 @@ void gbp_vstate_diag_payload(struct gbp_vstate *s, uint16_t source, uint32_t crc
     s->sem.payload_diagnostics_captured++;
 }
 
-void gbp_vstate_diag_quarantined(struct gbp_vstate *s)
+void gbp_vstate_diag_quarantined(struct gbp_vstate *s, gbp_vstate_diag_handle h)
 {
-    if (!s || !s->diags || s->diags_n == 0u) return;
-    s->diags[s->diags_n - 1u].record_flags |= GBP_VSTATE_DF_FRAME_QUARANTINED;
+    struct gbp_vstate_diag *d = diag_at(s, h);
+    if (!d) return;
+    d->record_flags |= GBP_VSTATE_DF_FRAME_QUARANTINED;
 }
 
-void gbp_vstate_diag_deferred(struct gbp_vstate *s)
+void gbp_vstate_diag_deferred(struct gbp_vstate *s, gbp_vstate_diag_handle h)
 {
-    if (!s || !s->diags || s->diags_n == 0u) return;
-    s->diags[s->diags_n - 1u].record_flags |= GBP_VSTATE_DF_SOURCE_DEFERRED;
+    struct gbp_vstate_diag *d = diag_at(s, h);
+    if (!d) return;
+    d->record_flags |= GBP_VSTATE_DF_SOURCE_DEFERRED;
+}
+
+int gbp_vstate_diag_arm_followup(struct gbp_vstate *s, gbp_vstate_diag_handle h)
+{
+    struct gbp_vstate_diag *d = diag_at(s, h);
+    if (!d) return 0;
+    /* Only a record that is still PENDING - a service-selecting site whose
+     * majority omitted something - can wait for a next cause. An observational
+     * record, or one the majority omitted nothing at, was closed at open and is
+     * never armed. At most one waiter exists at a time, and the previous one
+     * cannot still be open here: it was filled or closed by the read of this
+     * very cycle, before this record was opened (§R3.8). */
+    if (d->followup_state != GBP_VSTATE_FU_PENDING) return 0;
+    if (!(d->record_flags & GBP_VSTATE_DF_REARM_WRITTEN)) return 0;
+    s->diag_wait = (int32_t)h;
+    return 1;
 }
 
 int gbp_vstate_diag_followup(struct gbp_vstate *s, uint64_t t_cause, uint16_t next_gbi, uint16_t next_disc)
@@ -480,20 +560,43 @@ int gbp_vstate_diag_followup(struct gbp_vstate *s, uint64_t t_cause, uint16_t ne
 
 void gbp_vstate_diag_close(struct gbp_vstate *s, unsigned aborted)
 {
-    struct gbp_vstate_diag *d;
-    if (!s || s->diag_wait < 0) return;
-    if (!s->diags || (uint32_t)s->diag_wait >= s->diags_n) { s->diag_wait = -1; return; }
-    d = &s->diags[s->diag_wait];
-    if (aborted) {
-        d->followup_state = GBP_VSTATE_FU_UNKNOWN;
-        d->followup_reason = GBP_VSTATE_FUR_RUN_ABORTED;
-        s->sem.followup_unknown++;
-    } else {
-        d->followup_state = GBP_VSTATE_FU_NO_NEXT_CAUSE;
-        d->followup_reason = GBP_VSTATE_FUR_NONE;
-        s->sem.followup_no_next++;
+    uint32_t i;
+    if (!s) return;
+    /* 1. The waiter, which is the only record that was ever promised a next
+     *    cause: it re-armed and the run ended before one arrived. */
+    if (s->diag_wait >= 0) {
+        if (!s->diags || (uint32_t)s->diag_wait >= s->diags_n) {
+            s->diag_wait = -1;
+        } else {
+            struct gbp_vstate_diag *d = &s->diags[s->diag_wait];
+            if (aborted) {
+                d->followup_state = GBP_VSTATE_FU_UNKNOWN;
+                d->followup_reason = GBP_VSTATE_FUR_RUN_ABORTED;
+                s->sem.followup_unknown++;
+            } else {
+                d->followup_state = GBP_VSTATE_FU_NO_NEXT_CAUSE;
+                d->followup_reason = GBP_VSTATE_FUR_NONE;
+                s->sem.followup_no_next++;
+            }
+            s->diag_wait = -1;
+        }
     }
-    s->diag_wait = -1;
+    /* 2. Any record whose transaction ended BEFORE its re-arm was written: it
+     *    never became the waiter, so nothing else would ever close it, and
+     *    FU_PENDING may not reach the file (§R3.14). The run cannot have invited
+     *    a next cause for it, so RUN_ABORTED is the truthful reason; on a
+     *    nominal stop such a record would be a producer defect, and INTERNAL
+     *    says exactly that instead of hiding it. This sweep is bounded by the
+     *    store (256), runs once, after the hardware teardown, and writes no
+     *    current-cycle field. */
+    if (!s->diags) return;
+    for (i = 0; i < s->diags_n; i++) {
+        struct gbp_vstate_diag *d = &s->diags[i];
+        if (d->followup_state != GBP_VSTATE_FU_PENDING) continue;
+        d->followup_state = GBP_VSTATE_FU_UNKNOWN;
+        d->followup_reason = aborted ? GBP_VSTATE_FUR_RUN_ABORTED : GBP_VSTATE_FUR_INTERNAL;
+        s->sem.followup_unknown++;
+    }
 }
 
 const char *gbp_vstate_diag_read_name(unsigned kind)

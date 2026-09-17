@@ -268,7 +268,14 @@ struct gbp_vstate_audio {
 #define GBP_VSTATE_DF_SERVICE_INCOMPLETE 0x0020u
 #define GBP_VSTATE_DF_ACK_WRITTEN        0x0040u
 #define GBP_VSTATE_DF_REARM_WRITTEN      0x0080u
-#define GBP_VSTATE_DF_ALL                0x00FFu
+#define GBP_VSTATE_DF_ALL                0x00FFu   /* the v4 set: bits 8..15 reserved, zero */
+/* v5 only (§R4.8). The service decision of a cycle was written to THIS record.
+ * Without it `service_selected == 0` would be ambiguous between "no source was
+ * selected" and "no decision was ever recorded here" - which is exactly the kind
+ * of zero the v5 contract refuses to leave undecidable. A v4 file must still
+ * carry zero in bits 8..15 and its parser still refuses anything else. */
+#define GBP_VSTATE_DF_SERVICE_WRITTEN    0x0100u
+#define GBP_VSTATE_DF_ALL_V5             0x01FFu
 
 #define GBP_VSTATE_GAP_NONE   0xFFFFFFFFu /* sentinel: no gap has been measured */
 #define GBP_VSTATE_GAP_SAT    0xFFFFFFFEu /* saturation instead of a silent wrap */
@@ -484,7 +491,12 @@ struct gbp_vstate {
     struct gbp_vstate_diag *diags;       /* GBP_VSTATE_MAX_DISAGREEMENTS entries */
     uint32_t diags_cap;
     uint32_t diags_n;                    /* records actually stored (<= cap) */
-    int32_t diag_wait;                   /* index of the ONE record in FU_PENDING, or -1 */
+    /* The follow-up waiter: the ONE record armed after a written re-arm and
+     * waiting for the next ordinary read (§R4.3). It is a SEPARATE lifetime from
+     * the service handle of a transaction, it receives ONLY t_next_cause,
+     * next_pending_*, followup_state/reason and DF_FOLLOWUP_FILLED, and no
+     * current-cycle setter may ever resolve through it. -1 when none. */
+    int32_t diag_wait;
     uint32_t next_block_majority_extra;  /* one-shot provenance for the next VIDEO block */
     struct gbp_vstate_semantic sem;      /* aggregate counters, gap stats, histograms */
     /* There is deliberately NO second copy of "the first record": the store is
@@ -606,34 +618,86 @@ void gbp_vstate_diag_store(struct gbp_vstate *s, struct gbp_vstate_diag *store, 
 /* The first stored record, or NULL when none was preserved. */
 const struct gbp_vstate_diag *gbp_vstate_diag_first(const struct gbp_vstate *s);
 
+/* ---- the explicit diagnostic handle (§R4.2) ---------------------------
+ * The whole point of vstate-0004. In vstate-0003 every current-cycle setter
+ * resolved its target as `diags[diags_n - 1]`, "the newest record", and ran on
+ * EVERY service cycle: a record kept absorbing the authoritative value, service
+ * decision, ACK and re-arm of later cycles until the next disagreement opened a
+ * new one (GBP-HW-104). Here the target is named by the caller and by nobody
+ * else:
+ *   - a handle identifies exactly ONE record; the store is append-only and no
+ *     index is ever reused inside a run;
+ *   - GBP_VSTATE_DIAG_INVALID never selects a record, and a setter given it is a
+ *     bounded no-op over the store (aggregate counters may still move; not one
+ *     byte of any record does);
+ *   - no setter falls back to "the latest record", derives its target from
+ *     diags_n, or reads a current-record global. There is none to read. */
+typedef int gbp_vstate_diag_handle;
+#define GBP_VSTATE_DIAG_INVALID (-1)
+
+/* 1 when the handle addresses a record that exists in the store. */
+int gbp_vstate_diag_handle_valid(const struct gbp_vstate *s, gbp_vstate_diag_handle h);
+/* The record a handle names, or NULL. Read-only: the setters below are the only
+ * writers, and each of them takes its handle explicitly. */
+const struct gbp_vstate_diag *gbp_vstate_diag_at(const struct gbp_vstate *s, gbp_vstate_diag_handle h);
+
 /* Opens a record for a disagreement, from bytes the transport already delivered.
- * Returns the index of the new record, or -1 when the store is full or absent
- * (counters still move). Fills the v3 half plus delta/extra/classification and
+ * Returns the HANDLE of the new record, or GBP_VSTATE_DIAG_INVALID when the
+ * store is full or absent (counters still move, the flag is sticky, and no
+ * waiter is created). Fills the v3 half plus delta/extra/classification and
  * leaves followup_state = FU_PENDING for a service-selecting site; an
  * observational site is closed immediately as FU_UNKNOWN/observational_site.
  * Performs no I/O and no formatting. */
-int gbp_vstate_diag_open(struct gbp_vstate *s, uint32_t cycle, uint64_t t, const uint8_t *raw,
-                         uint16_t disc, uint16_t gbi, uint16_t read_kind, unsigned classification);
-/* Records the ACK / re-arm of the cycle that a pending record belongs to. */
-void gbp_vstate_diag_service(struct gbp_vstate *s, uint16_t authoritative, uint16_t service_selected,
-                             unsigned incomplete);
-void gbp_vstate_diag_ack(struct gbp_vstate *s, uint16_t ack_value, uint64_t t_ack);
-void gbp_vstate_diag_rearm(struct gbp_vstate *s, uint64_t t_rearm);
+gbp_vstate_diag_handle gbp_vstate_diag_open(struct gbp_vstate *s, uint32_t cycle, uint64_t t,
+                                            const uint8_t *raw, uint16_t disc, uint16_t gbi,
+                                            uint16_t read_kind, unsigned classification);
+/* The transport and ISR context of the READ that opened the record `h` names.
+ * Those values live in the probe's result, not in this state, so they arrive
+ * here instead of inside gbp_vstate_diag_open() - but they arrive through the
+ * same handle and the same resolver as every other write, because "the store is
+ * indexed from exactly one place" is the property this revision exists to keep.
+ * Written once, by the cycle that opened the record; a no-op on an invalid
+ * handle. `info` may be NULL when the read carried no transport record. */
+void gbp_vstate_diag_context(struct gbp_vstate *s, gbp_vstate_diag_handle h,
+                             uint32_t intsr_entry, uint32_t intsr_after_w1c, uint32_t intmr_entry,
+                             uint32_t latency_ticks, uint16_t control_exp,
+                             const struct gbp_xfer_info *info);
+/* The current-cycle setters. Each one writes the record `h` names and NOTHING
+ * else; each is a no-op when `h` is invalid. They are called at most once per
+ * transaction, from the cycle that owns the record. */
+void gbp_vstate_diag_service(struct gbp_vstate *s, gbp_vstate_diag_handle h, uint16_t authoritative,
+                             uint16_t service_selected, unsigned incomplete);
+/* A selected drain that did not complete. The transaction ends here, so the flag
+ * is the record's last word about its own service. */
+void gbp_vstate_diag_service_incomplete(struct gbp_vstate *s, gbp_vstate_diag_handle h);
+void gbp_vstate_diag_ack(struct gbp_vstate *s, gbp_vstate_diag_handle h, uint16_t ack_value, uint64_t t_ack);
+void gbp_vstate_diag_rearm(struct gbp_vstate *s, gbp_vstate_diag_handle h, uint64_t t_rearm);
 /* Attaches the bounded payload diagnostic of a block drained ONLY because the
  * majority carried a source the Disc reading did not (§R3.11, §R3.22, §R3.23). */
-void gbp_vstate_diag_payload(struct gbp_vstate *s, uint16_t source, uint32_t crc32, uint32_t first_word);
+void gbp_vstate_diag_payload(struct gbp_vstate *s, gbp_vstate_diag_handle h, uint16_t source,
+                             uint32_t crc32, uint32_t first_word);
 /* Marks the record of the current cycle: a VIDEO block of it was quarantined, or
  * a VIDEO drain was deferred. Both are descriptive (§R3.12, §R3.13). */
-void gbp_vstate_diag_quarantined(struct gbp_vstate *s);
-void gbp_vstate_diag_deferred(struct gbp_vstate *s);
+void gbp_vstate_diag_quarantined(struct gbp_vstate *s, gbp_vstate_diag_handle h);
+void gbp_vstate_diag_deferred(struct gbp_vstate *s, gbp_vstate_diag_handle h);
 /* The source bit a gap slot describes, or 0. */
 uint16_t gbp_vstate_gap_slot_bit(unsigned slot);
-/* Fills the follow-up of the ONE pending record from the NEXT cycle's ordinary
+/* Arms the follow-up waiter on the record `h` names, at the END of its
+ * transaction and only when its re-arm was actually written (§R4.6). Installing
+ * it any earlier would claim that a next cause is expected after a re-arm that
+ * never happened. Returns 1 when the record became the waiter. The waiter is a
+ * SEPARATE lifetime from the service handle and receives only follow-up
+ * fields. */
+int gbp_vstate_diag_arm_followup(struct gbp_vstate *s, gbp_vstate_diag_handle h);
+/* Fills the follow-up of the ONE waiting record from the NEXT cycle's ordinary
  * read. No extra hardware access exists for this. Returns 1 when a record was
  * closed. Call this BEFORE opening a record for the same read (§R3.8). */
 int gbp_vstate_diag_followup(struct gbp_vstate *s, uint64_t t_cause, uint16_t next_gbi, uint16_t next_disc);
-/* Closes any still-pending record at teardown: FU_NO_NEXT_CAUSE, or FU_UNKNOWN
- * with a reason. No record may reach the file as FU_PENDING (§R3.14). */
+/* Closes the waiter at teardown - FU_NO_NEXT_CAUSE, or FU_UNKNOWN with a reason
+ * - and then SWEEPS the store so that no record can reach the file as
+ * FU_PENDING (§R3.14): a record whose transaction ended before its re-arm never
+ * became the waiter, and closing it is a property of every exit rather than an
+ * argument about one. */
 void gbp_vstate_diag_close(struct gbp_vstate *s, unsigned aborted);
 /* cause -> cause statistics per source slot (§R3.28). Called once per delivery
  * with the authoritative pending value; disagreement cycles are included. */
