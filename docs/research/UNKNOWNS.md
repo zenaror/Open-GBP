@@ -875,7 +875,7 @@ from the first useful frame (which is what U-GBP-030 asks for), per-frame
 signatures over the whole window, and bounded raw preservation around any
 structured change — waiting on a clean commit and an authorization.
 
-### U-GBP-032 — one IRQ-register read whose two semantic interpretations disagreed, with the bytes not preserved — OPEN (blocking a clean long run)
+### U-GBP-032 — one IRQ-register read whose two semantic interpretations disagreed, with the bytes not preserved — ANSWERED 2026-09-17 (the bytes exist; the mechanism moved to U-GBP-033)
 
 At cycle 51 750 of GBP-VIDEO-002 the 32-byte read of the IRQ window returned
 `rc=ok`, the ISR and the PI behaved exactly as in the 51 750 cycles before it
@@ -932,6 +932,82 @@ instrumented build has not been executed on hardware, and the question closes
 only when a physical run reproduces the event and the preserved bytes are read.
 If a run never reproduces it, the unknown stays open — absence in one run is not
 an answer.
+
+**2026-09-17 — ANSWERED. The bytes were caught.** The instrumented build ran and
+the event recurred, at cycle 517 of 518 after 0.0842 s of capture. The 32 bytes
+are GBP-HW-089:
+
+```text
+01 01 01 00  01 01 01 00  01 01 01 00  01 01 01 00
+01 01 01 00  01 01 01 00  01 01 01 00  05 05 05 00
+```
+
+Every part of this entry's "what is not known" list is now known **for this
+occurrence**: the raw bytes, both conflicting values (Disc `0x0500`, GBI
+`0x0100`, GBP-HW-091) and the pending source — the two readings differ by exactly
+`0x0400`, the AUDIO source bit (GBP-HW-092). The list of candidates this entry
+refused to choose between has also narrowed by observation rather than by
+argument: it is **not** a one-bit flip and **not** a torn or garbled byte, because
+the eighth group is internally coherent — its first three bytes moved together
+exactly as every other group's do, and its fourth byte is `00` like all the others
+(GBP-HW-090). What the read returned is eight well-formed replicas of which seven
+carry one value and one carries another.
+
+What that leaves is a question this entry never asked, because it could not: **why
+do the replicas of one 32-byte read disagree at all?** That is a question about
+the device, not about our instrumentation, and it is now U-GBP-033.
+
+**Still not decided here**, and deliberately: whether a disagreement should stay
+fatal, become a counted anomaly, or be retried. That decision now has evidence to
+stand on (U-GBP-033 and GBP-HW-096) and is analysed in the DEVLOG entry of
+2026-09-17, but nothing in the runtime has changed.
+
+---
+
+### U-GBP-033 — is the replicated IRQ window an atomic snapshot? — OPEN (blocks the semantic-disagreement policy, and therefore GBP-VIDEO-003)
+
+Two physical runs have now ended on a read whose eight replicas did not all carry
+the same 16-bit value, and the second preserved the bytes. The open question is
+the mechanism:
+
+* does the source register change **during** the transfer, so that different
+  groups of one 32-byte read reflect different instants?
+* does GBS-DOL (or whatever publishes the window) update the eight replicas
+  **non-atomically**, so that a read can catch the update half-done?
+* is the replication itself a bus or fabric artefact, so that "replica" is the
+  wrong mental model entirely?
+* something else.
+
+**Nothing here chooses.** The evidence that exists:
+
+* the fatal read is transport-normal in every measurable way (GBP-HW-095): same
+  34 ticks, same 9 polls, same DSPCR `0804` as all 61 fully logged reads;
+* the transfer occupies 34 ticks = 0.84 µs, about 0.6 % of the ~142 µs mean
+  interval between causes in the same window — so a change landing inside it is
+  rare but not extraordinary;
+* the same run shows **intra-block non-uniformity that is ordinary**: on windows
+  reading `0x0500` the discarded byte at `4k+2` takes different values in
+  different groups of the same read (GBP-HW-093), with no monotone order —
+  `04 05 05 05 05 04 00 05` is one observed block. A block is therefore already
+  known not to be one instant's snapshot, on bytes nobody consumes;
+* the changed group is the **last** one, and the AUDIO/VIDEO alternation would
+  have put a VIDEO cause at cycle 517 (509–516 alternate strictly), which matches
+  the majority, with AUDIO appearing only in the last group. That is consistent
+  with "group 7 is the most recent", but the AUDIO cadence in the same window
+  (244–279 µs since the previous AUDIO cause) puts the next AUDIO **34–70 µs
+  after** this read, not during it. The timing therefore neither supports nor
+  refutes the temporal story, and the physical fill order of the window has never
+  been established. **HYPOTHESIS, not more.**
+
+What would answer it: a probe that reads the same window twice in quick
+succession around a disagreement (which the current design forbids, for good
+reason — the first requirement was preservation), or an experiment that correlates
+the disagreeing group index with an independently timed source assertion. Neither
+is designed yet, and neither is GBP-VIDEO-003.
+
+Related: U-GBP-029 (byte-0 extras) and GBP-HW-093 are very likely the same
+phenomenon seen on bytes that are discarded; if they are, this unknown subsumes
+both. That connection is itself a HYPOTHESIS.
 
 ---
 

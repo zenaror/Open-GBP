@@ -28,6 +28,7 @@ import vstate  # noqa: E402
 
 BIN = os.path.join(ROOT, "build", "tests", "unit", "test_gbp_video_state")
 PHYSICAL_V2 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-16-vstate-0001-vstate.bin")
+PHYSICAL_V3 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-17-vstate-0002-vstate.bin")
 VIDEO_BIN = os.path.join(ROOT, "build", "tests", "unit", "test_gbp_video")
 OUTDIR = os.path.join(ROOT, "build", "tests", "unit")
 
@@ -637,6 +638,101 @@ class PhysicalV2IsFrozen(unittest.TestCase):
             with self.assertRaises(ValueError):
                 vstate.parse(bytes(bad))
 
+
+@unittest.skipUnless(os.path.isfile(PHYSICAL_V3), "the physical v3 sidecar is not present")
+class PhysicalV3(unittest.TestCase):
+    """The second physical GBP-VIDEO-002 run (build vstate-0002, 2026-09-17). This is the FIRST
+    physical file of the family that carries a semantic-disagreement diagnostic, and the first
+    physical evidence of what the eight replicas held when the two readings disagreed. Everything
+    asserted here is recomputed from the bytes on disk; nothing is taken from the run's own
+    summary."""
+
+    def setUp(self):
+        with open(PHYSICAL_V3, "rb") as f:
+            self.data = f.read()
+        self.d = vstate.parse(self.data)
+
+    def test_identity_and_integrity(self):
+        self.assertEqual(len(self.data), 12588)
+        self.assertEqual(self.d["version"], 3)
+        self.assertEqual(self.d["header_size"], 0x200)
+        self.assertEqual(self.d["test_id"], "GBP-VIDEO-002")
+        self.assertEqual(self.d["build_id"], "vstate-0002")
+        self.assertEqual(self.d["commit"], "8cbb28d")
+        self.assertEqual(self.d["header_crc32"], 0xBD2A5F27)
+        self.assertEqual(self.d["total_crc32"], 0x08514BAA)
+
+    def test_the_sections_are_where_the_header_says(self):
+        d = self.d
+        self.assertEqual(d["off_frames"], 512)
+        self.assertEqual(d["off_events"], d["off_frames"] + d["frame_count"] * 192)
+        self.assertEqual(d["off_episodes"], d["off_events"] + d["event_count"] * 64)
+        self.assertEqual(d["off_cycles"], d["off_episodes"] + d["episode_count"] * 512)
+        self.assertEqual(d["off_diag"], d["off_cycles"] + d["cycle_count"] * 128)
+        self.assertEqual(d["off_diag"], 0x10C0)
+        self.assertEqual(d["off_video_raw"], d["off_diag"] + 96)
+        self.assertEqual(d["off_footer"] + 12, len(self.data))
+        self.assertEqual((d["frame_count"], d["event_count"], d["episode_count"], d["cycle_count"]),
+                         (5, 10, 0, 17))
+
+    def test_the_diagnostic_is_the_one_the_run_reported(self):
+        g = self.d["diag"]
+        self.assertEqual(self.d["diag_count"], 1)
+        self.assertEqual(g["cycle"], 517)
+        self.assertEqual(g["valid"], 1)
+        self.assertEqual(g["attempts"], 1)
+        self.assertEqual(g["read_kind"], "READ")
+        self.assertEqual(g["disc_value"], 0x0500)
+        self.assertEqual(g["gbi_value"], 0x0100)
+        self.assertEqual(g["frame_index"], 5)
+        self.assertEqual(g["block_in_frame"], 5)
+        self.assertEqual(g["latency_ticks"], 35)
+        self.assertEqual((g["xfer_ticks"], g["xfer_polls"]), (34, 9))
+        self.assertEqual((g["dma_status_before"], g["dma_status"]), (0x0804, 0x0804))
+        self.assertEqual(g["intsr_entry"], 0x00012000)
+        self.assertEqual(g["intsr_after_w1c"], 0x00010000)
+        self.assertEqual(g["intmr_entry"], 0x000021FA)
+        self.assertEqual(g["control_exp"], 0x8C)
+
+    def test_the_thirty_two_bytes(self):
+        raw = self.d["diag"]["raw"]
+        self.assertEqual(bytes(raw).hex(),
+                         "0101010001010100010101000101010001010100010101000101010005050500")
+
+    def test_seven_replicas_say_video_and_the_eighth_says_video_plus_audio(self):
+        raw = self.d["diag"]["raw"]
+        semantic = [(raw[4 * k + 1] << 8) | raw[4 * k + 3] for k in range(8)]
+        self.assertEqual(semantic, [0x0100] * 7 + [0x0500])
+        # and the eighth group is internally coherent, not a mangled copy: its first three bytes
+        # move together, exactly as the first three of every other group do
+        self.assertEqual(list(raw[28:32]), [0x05, 0x05, 0x05, 0x00])
+        for k in range(7):
+            self.assertEqual(list(raw[4 * k:4 * k + 4]), [0x01, 0x01, 0x01, 0x00])
+
+    def test_both_readings_recompute_to_what_the_runtime_stored(self):
+        e = vstate.explain_diag(self.d["diag"])
+        self.assertTrue(e["consistent"], e)
+        self.assertEqual(e["recomputed_disc"], 0x0500)
+        self.assertEqual(e["recomputed_gbi"], 0x0100)
+        self.assertEqual(e["differing_bits"], 0x0400)      # exactly the AUDIO source bit
+        self.assertEqual(e["replicas_differing_high"], [7])
+        self.assertEqual(e["replicas_differing_low"], [])
+        self.assertTrue(e["disc_high_differs"])
+
+    def test_the_tool_explains_it_without_asserting_a_cause(self):
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "vstate.py"), "diag",
+                            PHYSICAL_V3], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("semantic disagreement at cycle 517", r.stdout)
+        self.assertIn("CONSUMED byte", r.stdout)
+        self.assertIn("asserts no physical cause", r.stdout)
+
+    def test_this_run_observed_no_structured_state_and_claims_none(self):
+        """The abort came at 0.084 s; vstate-0001's screen first appeared at 0.5014 s. This file
+        must not be read as contradicting that run - it stopped before the interesting window."""
+        self.assertEqual(self.d["episode_count"], 0)
+        self.assertEqual(self.d["frame_count"], 5)
+        self.assertLess(self.d["capture_elapsed"] / self.d["tb_hz"], 0.2)
 
 if __name__ == "__main__":
     unittest.main()

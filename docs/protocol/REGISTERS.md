@@ -170,6 +170,35 @@ one PI W1C. Whether the post-re-arm 0x0400 was a request held under bit
 15 = 1 and released by the write or a new event is **U** and non-blocking
 (U-GBP-007/027); the model of bit 15 stays H. Phase 3 complete.
 
+**Hardware 2026-09-17, GBP-VIDEO-002 build vstate-0002 (GBP-HW-096):** a source
+bit that the ACK does **not** write as 1 survives the acknowledge and the re-arm,
+and fires again almost immediately. In two cycles of that run the ACK carried only
+AUDIO (`pending 0x0400`, `IRQ := 0x8400`) and the next cause — `0x0100`, VIDEO —
+was observed **74 ticks = 1.8 µs** after the re-arm `IRQ := 0x0000`, against a
+physical source cadence of 244–294 µs in the same window, so it cannot be a fresh
+event; a third cycle acknowledged `0x0500` and read `0x8100` back at POSTACK, VIDEO
+pending again, and continued normally. With GBP-HW-028 (writing 1 to a source bit
+that reads 1 clears it) this gives the working model: **the ACK clears exactly the
+source bits it writes as 1, the others stay pending, and the re-arm releases them
+within microseconds** — **F** for "an un-ACKed source is not lost", **H** for the
+per-bit clear mechanism. This does not settle U-GBP-028 (cleared-and-re-set vs
+never-cleared for a bit the ACK *did* write), which remains **U**. Its practical
+consequence is recorded with the semantic-disagreement policy analysis in the
+DEVLOG of 2026-09-17: acknowledging the majority value when a minority replica
+claimed an extra source costs one extra service cycle and loses nothing.
+
+**Hardware 2026-09-16/17, both GBP-VIDEO-002 runs (GBP-HW-089…093, U-GBP-033):**
+the eight replicas of one 32-byte read of this register are **not guaranteed to
+carry the same value**. Preserved bytes from the second run: seven groups
+`01 01 01 00` and one `05 05 05 00`, i.e. `0x0100` seven times and `0x0500` once,
+from which the Start-up Disc's reading (bytes 0x1D/0x1F) derives `0x0500` and
+GBI's bitwise majority derives `0x0100` — a difference of exactly `0x0400`, the
+AUDIO source bit. The eighth group is internally coherent, so this is not a flipped
+or torn byte. The same run also shows the non-consumed byte at `4k+2` differing
+between groups of a single read on windows where both readings agree. Any code
+that reads this register must therefore choose a reading explicitly and must not
+assume the window is one instant's snapshot. The mechanism is **U** (U-GBP-033).
+
 ## 5. GameCube-side registers involved
 
 | Address | Name (YAGCD/libogc) | Use here | Status |
