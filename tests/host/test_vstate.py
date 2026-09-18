@@ -355,7 +355,10 @@ class Cli(unittest.TestCase):
 
     def test_extract_writes_only_our_own_bytes(self):
         d = tempfile.mkdtemp()
-        out = self.run_cmd("extract", d) if False else None   # extract takes the dir before the file
+        # `extract` takes the directory before the file, so run_cmd (which appends
+        # the path last) cannot be used here. Build the sidecar first: _CACHE
+        # is only filled as a side effect, and this test may run before any other.
+        sidecar_bytes()
         path = _CACHE["path"]
         r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "vstate.py"), "extract", path, d],
                            capture_output=True, text=True)
@@ -363,7 +366,6 @@ class Cli(unittest.TestCase):
         files = sorted(os.listdir(d))
         self.assertTrue(any(f.startswith("episode-") for f in files))
         self.assertTrue(any(f.startswith("audio-") for f in files))
-        del out
 
 
 @unittest.skipUnless(os.path.isfile(BIN), "build the unit tests first")
