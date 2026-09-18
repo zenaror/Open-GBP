@@ -21,6 +21,7 @@ void gbp_vqueue_init(struct gbp_vqueue *q, uint32_t slots)
     q->slots = slots;
     q->publish_interval_min = 0xFFFFFFFFu;
     q->convert_ticks_min = 0xFFFFFFFFu;
+    q->pump_ticks_min = 0xFFFFFFFFu;
 }
 
 enum gbp_vqueue_reject gbp_vqueue_classify(uint32_t blocks, uint32_t flags, int slot)
@@ -133,9 +134,38 @@ int gbp_vqueue_commit(struct gbp_vqueue *q, int still_valid, uint32_t convert_ti
     return 1;
 }
 
-void gbp_vqueue_pump(struct gbp_vqueue *q)
+void gbp_vqueue_pump(struct gbp_vqueue *q, int cause_pending)
 {
-    if (q && q->pump) q->pump(q->pump_user);
+    if (!q) return;
+    q->pump_calls++;
+    if (cause_pending) {
+        q->cause_pending_before_pump++;
+        /* THE GBP COMES FIRST. A latched cause means the device is already
+         * waiting; the consumer yields the cycle rather than adding to the
+         * delay. Measured on 34 % of physical cycles (§V5.26.3). */
+        q->pump_skipped_cause_pending++;
+        return;
+    }
+    if (q->pump) q->pump(q->pump_user);
+}
+
+void gbp_vqueue_pump_slice(struct gbp_vqueue *q, uint32_t ticks, int completed)
+{
+    if (!q) return;
+    q->pump_slices_started++;
+    if (completed) q->pump_slices_completed++;
+    if (ticks != 0u) {
+        if (ticks < q->pump_ticks_min) q->pump_ticks_min = ticks;
+        if (ticks > q->pump_ticks_max) q->pump_ticks_max = ticks;
+        q->pump_ticks_sum += ticks;
+        q->pump_ticks_n++;
+    }
+}
+
+uint32_t gbp_vqueue_pump_ticks_mean(const struct gbp_vqueue *q)
+{
+    if (!q || q->pump_ticks_n == 0u) return 0u;
+    return (uint32_t)(q->pump_ticks_sum / q->pump_ticks_n);
 }
 
 void gbp_vqueue_note_presented(struct gbp_vqueue *q)

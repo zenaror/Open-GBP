@@ -1432,14 +1432,37 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
         service_handle = GBP_VSTATE_DIAG_INVALID;   /* the transaction's handle dies here */
         t_ref32 = res->w_rearm.t_after;
 
-        /* GBP-VIDEO-004 (§V5.7): the consumer's slice, and the only place it may
-         * run in a single-threaded probe. The RE-ARM above was the pass's last
-         * device access and the next cause is already invited, so nothing on the
-         * device is waiting here. It is never reached between the ACK and the
-         * RE-ARM, it does one BOUNDED slice, and with no stream configured it
-         * does not exist: the operation stream vstate-0004 executed is
-         * unchanged. */
-        if (cfg->stream) gbp_vqueue_pump(cfg->stream);
+        /* GBP-VIDEO-004 (§V5.7, §V5.26): the consumer's slice, and the only place
+         * it may run in a single-threaded probe. The RE-ARM above was the pass's
+         * last device access, so nothing on the device is waiting for US here —
+         * but the pre-hardware audit measured the RE-ARM→next-cause window at
+         * 1.9 us on 34 % of physical cycles, which means the next cause is
+         * usually ALREADY LATCHED at this point.
+         *
+         * So the cause is read first and the slice runs only when nothing is
+         * waiting. One extra `poll_intsr` per cycle buys that priority; the
+         * value is also recorded either side of the slice so the first physical
+         * run can measure what the consumer cost, instead of assuming it.
+         *
+         * With no stream configured none of this exists and the operation
+         * stream vstate-0004 executed is unchanged. */
+        if (cfg->stream) {
+            uint32_t intsr_pre = 0, intsr_post = 0;
+            int pending_pre = 0, pending_post = 0;
+            if (t->poll_intsr(t->ctx, &intsr_pre) == GBP_OK)
+                pending_pre = (intsr_pre & GBP_PI_HSP_BIT) ? 1 : 0;
+            gbp_vqueue_pump(cfg->stream, pending_pre);
+            if (!pending_pre) {
+                if (t->poll_intsr(t->ctx, &intsr_post) == GBP_OK)
+                    pending_post = (intsr_post & GBP_PI_HSP_BIT) ? 1 : 0;
+                if (pending_post) {
+                    cfg->stream->cause_pending_after_pump++;
+                    /* Defined mechanically and claiming nothing more: it was not
+                     * pending before the slice and it is pending after. */
+                    cfg->stream->cause_arrived_during_pump++;
+                }
+            }
+        }
 
         /* ---- WAIT_NEXT: masked, read-only ---- */
         {
