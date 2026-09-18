@@ -7383,7 +7383,7 @@ interrupt → mask → read source → drain AUDIO → drain VIDEO → ACK
 | What sets bit 15 | **UNKNOWN** | U-GBP-034 |
 | Mechanism of IRQ-window replica non-uniformity | **UNKNOWN** | U-GBP-033 |
 | Sustained streaming with a moving image | **UNKNOWN — this experiment** | — |
-| Any GX pipeline in this repository | **DOES NOT EXIST**: every POC uses `VIDEO_Init` + `CON_Init` on one XFB and prints text. No POC has ever called `GX_Init`. | verified across `poc/` and `src/` |
+| Any GX pipeline in this repository | **DID NOT EXIST** when this design was written: every POC used `VIDEO_Init` + `CON_Init` on one XFB and printed text, and no POC had ever called `GX_Init`. **Changed 2026-09-18 by the implementation of this design** — `poc/gbp-video-stream-probe` is the first, and `main.o` is the only object in the tree permitted to name `GX_` (§V5.15, audit profile `stream`). | verified across `poc/` and `src/` |
 
 **Nothing in this matrix needs re-running.** The two genuinely new things are a
 *moving* source and a *consumer*.

@@ -84,18 +84,22 @@ class ItCommitsNothingItHasNotDone(unittest.TestCase):
         self.assertIn("Timing is NOT budgeted here", flat(t))
         self.assertIn("measures", t.split("### V5.22")[1].split("### V5.23")[0])
 
-    def test_the_poc_is_described_as_not_existing(self):
+    def test_the_design_still_describes_the_poc_it_specified(self):
+        """§V5.20 names the POC and the two modules. They were written on
+        2026-09-18, the round after the design; the names must still match, or
+        the design and the code have drifted apart."""
         t = v5().split("### V5.20")[1].split("### V5.21")[0]
-        self.assertIn("does not exist yet", flat(t))
-        for path in ("poc/gbp-video-stream-probe/",):
-            self.assertFalse(os.path.exists(os.path.join(ROOT, path)),
-                             "%s exists; the design says it does not" % path)
+        for name in ("poc/gbp-video-stream-probe/", "src/gbp/gbp_vpix",
+                     "src/gbp/gbp_vqueue", "stream-0001", "GBP-VIDEO-004"):
+            self.assertIn(name, t, "§V5.20 no longer names %r" % name)
 
-    def test_the_proposed_modules_are_not_implemented(self):
+    def test_the_specified_files_were_built_where_the_design_said(self):
         for rel in ("src/gbp/gbp_vpix.h", "src/gbp/gbp_vpix.c",
-                    "src/gbp/gbp_vqueue.h", "src/gbp/gbp_vqueue.c"):
-            self.assertFalse(os.path.exists(os.path.join(ROOT, rel)),
-                             "%s exists; this round was design only" % rel)
+                    "src/gbp/gbp_vqueue.h", "src/gbp/gbp_vqueue.c",
+                    "poc/gbp-video-stream-probe/Makefile",
+                    "poc/gbp-video-stream-probe/source/main.c"):
+            self.assertTrue(os.path.exists(os.path.join(ROOT, rel)),
+                            "%s was specified by §V5.20 and does not exist" % rel)
 
 
 class OpenDecisionsStayOpen(unittest.TestCase):
@@ -166,16 +170,17 @@ class GroundedInRealArtifacts(unittest.TestCase):
             self.assertIn(h, t)
         self.assertIn("GX_TF_RGB5A3", t)
 
-    def test_no_poc_actually_uses_gx_today(self):
-        """§V5.4 asserts this; if it ever stops being true the design must be
-        revisited rather than silently contradicted."""
+    def test_exactly_one_poc_initialises_gx_and_the_design_records_that(self):
+        """§V5.4 originally said no POC had ever called GX_Init. Implementing the
+        design made that false, which is recorded there with its date rather than
+        rewritten. What must stay true is that there is exactly ONE such POC."""
         hits = []
         for root, _dirs, files in os.walk(os.path.join(ROOT, "poc")):
             for fn in files:
-                if fn.endswith((".c", ".h")):
-                    if "GX_Init" in read(os.path.join(root, fn)):
-                        hits.append(os.path.relpath(os.path.join(root, fn), ROOT))
-        self.assertEqual(hits, [], "a POC now initialises GX: §V5.4 and §V5.15 are stale")
+                if fn.endswith((".c", ".h")) and "GX_Init" in read(os.path.join(root, fn)):
+                    hits.append(os.path.relpath(os.path.join(root, fn), ROOT))
+        self.assertEqual(hits, ["poc/gbp-video-stream-probe/source/main.c"], hits)
+        self.assertIn("Changed 2026-09-18 by the implementation of this design", flat(v5()))
 
     def test_the_cadence_arithmetic_is_right(self):
         t = v5()

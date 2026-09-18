@@ -658,6 +658,14 @@ class PreHandlerWait(unittest.TestCase):
                 continue
             if d == "gbp-video-color-probe":
                 continue
+            # GBP-VIDEO-004 reuses the SAME physically validated wait, because
+            # §V5.20 says so: a streaming run has the same problem the colour run
+            # had, which is that the capture must not open inside the cartridge's
+            # boot. It is a deliberate reuse, not a second invention — the value
+            # and the position are the ones GBP-HW-120 validated.
+            if d == "gbp-video-stream-probe":
+                self.assertIn("cfg.prehandler_wait_ms = 5000u;", text)
+                continue
             # the vstate POC carries the diagnostic hook, whose default is 0 and
             # which only a dedicated diagnostic build overrides
             if d == "gbp-video-state-probe":
