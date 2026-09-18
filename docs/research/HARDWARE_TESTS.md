@@ -6552,3 +6552,109 @@ Answers:   which five bits are which channel, and what the path does to them
 **This is a design, not a request.** No hardware run is authorized by this
 section, the probe does not exist, the ROM does not exist, and the delivery
 dependency of V3.7 is unresolved.
+
+---
+
+### PRE-HANDLER MASKED WAIT (build `vstate-prewait-5000`) — does the unit tolerate seconds between stage A and the handler? — **PHYSICALLY EXECUTED 2026-09-18; PASS for 5000 ms at that position**
+
+**Why this run existed.** GBP-VIDEO-003 certifies on three consecutive
+signature-identical eligible frames, and the probe itself starts the AGB
+(CONTROL `0x90 -> 0x8C`, `gbp_initirqa_probe.c:649`). Capture opens 107 ms later
+at the first unmask, and `vstate-0004` measured three identical clean frames
+77 ms after that — so the colour capture would certify inside the AGB's boot
+(§V3.26). The only position where an operator step could sit is between stage A
+and the handler install: the AGB is already running, PI is masked, and nothing is
+in flight. Whether the hardware tolerates *sitting* there was UNKNOWN. This run
+answers that and only that.
+
+```text
+Test ID   GBP-VIDEO-002 (the vstate probe, unchanged apart from the wait)
+Build ID  vstate-prewait-5000          commit 500429a
+DOL       build/poc/gbp-video-state-probe-prewait/gbp-video-state-probe.dol
+          sha256 b5f0060a46d2e6429f494a9fa53d14acf07a97f61d01847acf0b6cb807a48709
+log       logs/GBP-VIDEO-002_vstate-prewait-5000.log
+          45 943 B   sha256 20b5e2a78047fe355a16328021092a01cb7da3d5f790e1cd957c8858f3f7555d
+sidecar   logs/GBP-VIDEO-002_vstate-prewait-5000-vstate.bin
+          2 024 204 B  sha256 79a44f82eceeff4c81fcc4b40c6d58b2fcf68405f4c9b6a85cb9d83c63e69a28
+          OGBPSEQ1 v5, header CRC valid, footer OGBPEND1, total CRC 4315e14a valid
+```
+
+**Result: PASS.** 5.000 000 22 s elapsed against 5 000 ms requested; CONTROL,
+IRQ, INTSR and INTMR identical either side; handler install, PREUNMASK, first
+unmask and first delivery all normal; 1 108 063 unmasks = deliveries = acks =
+rearms; clean restore (GBP-HW-116 to GBP-HW-119).
+
+**What this does NOT establish.** Only the duration and the position exercised.
+Not 10 s, not 30 s, not an unbounded wait. And nothing about what the AGB was
+displaying: the probe reads no VIDEO before the handler exists.
+
+#### How this run must be classified
+
+It ended on `stop=safety_budget`, `status=ok_no_change_inconclusive`, with
+`capture_s=174.892`, `valid_s=119.608` against a 120 s target and
+`valid_at_target=0`. **It is not a vstate run that reached its scientific
+target**, and it must never be counted as one: the 5 s pause is inside the
+180 s safety budget, so the budget expired 0.392 s of valid observation short.
+That is the expected arithmetic of the diagnostic, not a failure — the question
+it was built to answer is answered by the first six seconds of the run.
+
+Classification, in full: **PREHANDLER MASKED-WAIT 5000 ms — PHYSICAL DIAGNOSTIC
+PASS.** Nothing else.
+
+#### Instrumentation defect, non-blocking
+
+The log records `truncated=1`. The truncated line is `PREHANDLERWAIT`, which hit
+the logger's 255-character line limit and ends at `intmr_po`. It costs nothing:
+the `WAITPRE` and `WAITPOST` snapshots record CONTROL, IRQ, INTSR **and INTMR**
+separately and in full, on their own lines, which is where the values quoted
+above come from. Registered as an **INSTRUMENTATION DEFECT / NON-BLOCKING**; the
+physical test does not need repeating. If the diagnostic is kept for further
+runs, the fix is to split `PREHANDLERWAIT` into two shorter lines rather than to
+widen the logger.
+
+#### V3.27 The observability premise, tested and REJECTED
+
+The arming audit had assumed an operator could watch for the colour bars and
+press a button. That premise is false under Open-GBP, and the source says so:
+
+* the Game Boy Player has no display of its own — AGB video reaches the
+  GameCube only through the VIDEO window, over HSP;
+* during the pre-handler wait the probe has drained nothing: every
+  `gbp_avblock_read` and `gbp_vstate_video_target` call site is inside the
+  service loop (`gbp_vstate_probe.c:1168, 1195, 1200, 1298`), which begins at the
+  first unmask;
+* and even afterwards nothing renders it. The GameCube framebuffer is a text
+  console (`CON_Init`, `poc/gbp-video-color-probe/source/main.c:167-179`), and a
+  repository-wide search finds exactly one `VIDEO_SetNextFramebuffer`, the
+  console's own at line 174. No code path anywhere draws a captured VIDEO block.
+
+So the answer to "can the operator see the bars while the probe waits?" is **B —
+not visible**. The operator saw the bars in the delivery tests because GBI and
+the Start-up Disc read the VIDEO window and render it; Open-GBP's probe does
+neither.
+
+**Consequence.** A controller-arm justified by "press when the bars appear" would
+be a button pressed with no observability — no better than a fixed delay, and
+worse for pretending to be evidence. It is not implemented.
+
+What remains, and the recommendation:
+
+| option | what it is | cost | verdict |
+| --- | --- | --- | --- |
+| **F — fixed pre-handler wait** | the mechanism this run just validated, enabled in the colour build | one config value | **recommended** |
+| P — pre-arm preview/service | service and render VIDEO before arming, so the operator really can see | a display path, and the capture path running before the scientific window | large surface, new questions |
+| C — stimulus recognition | the runtime waits until it sees the bars | — | **forbidden**: it is the circularity §V3.11 exists to prevent |
+
+Option F audited against the colour build, all five answers YES: `t_capture_start`
+is the first unmask (`gbp_vstate_probe.c:1065`) and therefore lands after the
+wait; the SEARCH_WINDOW is measured from it (`:998`); no colour state exists
+before the wait, because every `gbp_vstate_block` call is inside the loop; the
+analyser still requires exactly uniform bars, an exact hypothesis match and
+byte-identical A/B/C; and a capture that caught boot or a transition resolves to
+`inconclusive_bar_not_uniform`, `inconclusive_no_hypothesis` or
+`inconclusive_certified_raw_mismatch` — never a false mapping.
+
+**Not yet enabled, and not yet claimed.** That 5 s is *enough* for the BIOS plus
+cartridge boot to reach the bars is NOT established by anything here; only the
+first physical colour run, or further physical evidence, can establish it. What
+is established is that waiting 5 s there is safe.
