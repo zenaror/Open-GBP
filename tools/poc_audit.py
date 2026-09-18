@@ -312,6 +312,7 @@ PROFILES = {
         "object_must_not_reference": {
             "gbp_vstate_probe.o": _FS_SYMBOLS,
             "gbp_vstate.o": _FS_SYMBOLS,
+            "gbp_vqueue.o": _FS_SYMBOLS,
             "gbp_vsig.o": _FS_SYMBOLS,
             "gbp_vstatedump.o": _FS_SYMBOLS,
             "gbp_time64.o": _FS_SYMBOLS,
@@ -386,6 +387,7 @@ PROFILES = {
         "object_must_not_reference": {
             "gbp_vstate_probe.o": _FS_SYMBOLS,
             "gbp_vstate.o": _FS_SYMBOLS,
+            "gbp_vqueue.o": _FS_SYMBOLS,
             "gbp_vcolor.o": _FS_SYMBOLS,
             "gbp_vsig.o": _FS_SYMBOLS,
             "gbp_vstatedump.o": _FS_SYMBOLS,
@@ -403,6 +405,97 @@ PROFILES = {
                                "hsp_backend_intmr_transport", "gbp_initirqa_probe_run", "gbp_initirqb_probe_run",
                                "gbp_initirq4_probe_run", "gbp_initirq_probe_run", "gbp_avsvc_probe_run",
                                "gbp_video_probe_run", "gbp_irq_service_ack", "gbp_vstatedump_stream"),
+    },
+    # GBP-VIDEO-004 (§V5). Everything the `color` profile pins about the service
+    # path, plus the one architectural boundary this experiment introduces:
+    # GX_ and VIDEO_ may appear in main.o and NOWHERE ELSE. That is §V5.7 turned
+    # into a machine check — the display path lives in the POC, and no object
+    # under src/gbp may reach the graphics pipeline.
+    "stream": {
+        "forbidden_objects": ("hsp_backend_irq_multi.o", "hsp_backend_intmr.o", "gbp_initirqb_probe.o",
+                              "gbp_initirq4_probe.o", "gbp_init_irq_probe.o", "gbp_init_probe.o",
+                              "gbp_avsvc_probe.o", "gbp_video_probe.o", "gbp_avdump.o", "gbp_avseq.o",
+                              "gbp_avseqdump.o", "gbp_vcoldump.o"),
+        "required_objects": ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o",
+                             "gbp_avblock.o", "gbp_time64.o", "gbp_vsig.o", "gbp_vstate.o",
+                             "gbp_vstate_probe.o", "gbp_vstatedump.o", "gbp_vpix.o", "gbp_vqueue.o",
+                             "gbp_crc32.o", "sdlog.o", "main.o"),
+        "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
+                              "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi",
+                              "gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run",
+                              "gbp_initirq4_probe_run", "gbp_avsvc_probe_run", "gbp_video_probe_run",
+                              "gbp_vcoldump_stream"),
+        "forbidden_symbol_prefixes": ("ARQ_", "AR_", "AUDIO_", "ASND", "AESND", "GX_", "net_", "DSP_", "SI_", "SIO"),
+        # The ONLY exemption in any profile, and it is the point of this one:
+        # main.o owns the display path. Every other object still may not name GX_
+        # or VIDEO_, which is how §V5.7's boundary is proved rather than asserted.
+        "prefix_exempt_objects": {"main.o": ("GX_", "SI_")},
+        "investigate_symbols": (),
+        "symbol_callers": {"__UnmaskIrq": {"h_irq_unmask": 1},
+                           "IRQ_Request": {"h_irq_install": 1, "h_irq_restore": 1},
+                           "__MaskIrq": {"h_irq_mask": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+                           "gbp_avblock_read": {"gbp_vstate_probe_run": 2},
+                           "gbp_irq_service_deliver_quiet": {"gbp_vstate_probe_run": 2, "gbp_irq_service_deliver": 1},
+                           "gbp_irq_service_ack_write_postack": {"gbp_vstate_probe_run": 1, "gbp_irq_service_ack": 1},
+                           "gbp_irq_service_deliver": {},
+                           "gbp_irq_service_ack": {},
+                           "gbp_vsig_block": {"gbp_vstate_probe_run": 1},
+                           "gbp_vstate_block": {"gbp_vstate_probe_run": 1},
+                           # §V5.7: the publish is ONE call site, in the service
+                           # path, and nothing else in the runtime may publish.
+                           "gbp_vqueue_publish": {"gbp_vstate_probe_run": 1},
+                           # The conversion is CONSUMER ONLY. The POC converts one
+                           # TILE ROW per slice, so `pump` is the single call site
+                           # and no object under src/gbp may call it at all —
+                           # which is the half of §V5.7 that keeps pixels out of
+                           # the service path.
+                           # `gbp_vpix_frame` is the whole-frame helper the HOST tests use; on
+                           # the target the POC converts a tile row at a time, so the
+                           # linker drops the frame helper and `pump` is the only
+                           # caller that ships. Both sites are named so the split is
+                           # explicit rather than incidental.
+                           "gbp_vpix_block": {"pump": 1, "gbp_vpix_frame": 1},
+                           "gettime": {"h_ticks64": 1},
+                           "sdlog_save": {"main": 1}},
+        "elf_required": ("gbp_vstate_probe_run", "gbp_vstate_report", "gbp_vstate_block", "gbp_vsig_block",
+                         "gbp_vqueue_publish", "gbp_vqueue_take", "gbp_vqueue_commit", "gbp_vpix_block",
+                         "gbp_initirqa_run_cause", "gbp_initirqa_teardown", "gbp_regwrite_irq_u16",
+                         "gbp_regwrite_control_byte", "hsp_backend_oneshot_isr_ext",
+                         "hsp_backend_irq_transport_ext", "__UnmaskIrq", "__MaskIrq", "IRQ_Request",
+                         "GX_Init", "GX_InitTexObj", "GX_LoadTexObj", "DCFlushRange"),
+        "elf_forbidden": ("gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run",
+                          "gbp_initirq4_probe_run", "gbp_avsvc_probe_run", "gbp_avdump_serialize",
+                          "gbp_video_probe_run", "gbp_avseqdump_serialize", "gbp_vcoldump_stream",
+                          "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi",
+                          "hsp_backend_irq_transport_multi", "hsp_backend_irq_transport",
+                          "ARQ_Init", "AR_Init", "AUDIO_Init", "ASND_Init", "net_init"),
+        "irq_write_sites": {"gbp_initirqa_probe.o": 3, "gbp_irq_service.o": 1, "gbp_vstate_probe.o": 3},
+        "control_write_sites": {"gbp_initirqa_probe.o": 2},
+        "intsr_store_sites": {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+        "object_must_not_reference": {
+            "gbp_vstate_probe.o": _FS_SYMBOLS,
+            "gbp_vstate.o": _FS_SYMBOLS,
+            "gbp_vpix.o": _FS_SYMBOLS,
+            "gbp_vqueue.o": _FS_SYMBOLS,
+            "gbp_vsig.o": _FS_SYMBOLS,
+            "gbp_vstatedump.o": _FS_SYMBOLS,
+            "gbp_time64.o": _FS_SYMBOLS,
+            "gbp_avblock.o": _FS_SYMBOLS,
+            "gbp_irq_service.o": _FS_SYMBOLS,
+            "gbp_initirqa_probe.o": _FS_SYMBOLS,
+            "hsp_backend.o": _FS_SYMBOLS,
+            "hsp_backend_irq.o": _FS_SYMBOLS,
+        },
+        # No sidecar: §V5.24 creates a new frozen format only when the existing
+        # ones cannot hold the data, and this experiment's result is counters and
+        # bounded aggregates that the log carries in full.
+        "main_must_call": ("hsp_backend_irq_transport_ext", "gbp_vstate_probe_run", "sdlog_save",
+                           "GX_Init", "GX_InitTexObj", "GX_LoadTexObj", "DCFlushRange",
+                           "GX_SetDrawDoneCallback", "GX_SetDrawDone"),
+        "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
+                               "hsp_backend_intmr_transport", "gbp_initirqa_probe_run", "gbp_initirqb_probe_run",
+                               "gbp_initirq4_probe_run", "gbp_initirq_probe_run", "gbp_avsvc_probe_run",
+                               "gbp_video_probe_run", "gbp_irq_service_ack", "gbp_vqueue_publish"),
     },
 }
 # the GBP-INIT-003A names, kept for callers that import them
@@ -710,7 +803,10 @@ def audit_dir(path, profile="003a"):
                 findings.append("%s references %s — the capture path must not reach the filesystem (from %s)"
                                 % (obj, s_bad, ", ".join(sorted(set(syms[s_bad])))))
                 report["symbols"].setdefault(obj, []).append(s_bad)
+        exempt = prof.get("prefix_exempt_objects", {}).get(obj, ())
         for pref in prof.get("forbidden_symbol_prefixes", ()):
+            if pref in exempt:
+                continue          # this object is ALLOWED this prefix, by design
             for s in sorted(syms):
                 if s.startswith(pref):
                     findings.append("%s references %s (forbidden prefix %s; from %s)" % (obj, s, pref, ", ".join(sorted(set(syms[s])))))
