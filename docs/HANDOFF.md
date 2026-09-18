@@ -167,8 +167,13 @@ OGBPCOL1 v1, analyser — was never altered.
 
 ## Current blocker / current question
 
-> Pre-register `color-0002`: an analysis contract that states its acceptance gate
-> **before** the run, then a fresh physical run judged by it.
+> Decide whether raw bytes 0/2 and the systematic bit 15 belong to the scientific
+> colour variable or are transport-side fields — **and write that decision down as
+> the acceptance gate of `color-0002` before that run happens**, not after.
+
+That is one question with two halves, and the second half is what makes it a
+blocker rather than a curiosity: the gate has to be fixed in advance, because
+`color-0001` already exists and its bytes are already known.
 
 `color-0001` certified cleanly and the analyser refused it, because the three
 certified frames differ over the full raw frame. Every difference is in byte 0 or
