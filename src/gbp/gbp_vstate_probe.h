@@ -105,6 +105,10 @@ extern "C" {
 #define GBP_VSTATE_VERIFY_CYCLES    4u
 #define GBP_VSTATE_VIDEO_SRC        0x0100u
 #define GBP_VSTATE_AUDIO_SRC        0x0400u
+/* The pre-handler wait can never be unbounded: the loop exits on the time base
+ * OR on this many iterations, whichever comes first. A transport whose 64-bit
+ * clock never advances therefore cannot hang the probe. */
+#define GBP_VSTATE_PREHANDLER_WAIT_MAX_ITERS  200000000u
 #define GBP_VSTATE_VIDEO_INDEX      1u
 #define GBP_VSTATE_AUDIO_INDEX      8u
 
@@ -234,6 +238,22 @@ struct gbp_vstate_config {
      * after the safety budget. No hardware access is added anywhere (§V3.13). */
     struct gbp_vcolor *color;
     uint64_t color_search_ticks;         /* SEARCH_WINDOW: certification must start by then */
+    /* ---- PRE-HANDLER MASKED WAIT: a DIAGNOSTIC, and nothing else ----
+     * 0 in every ordinary build, and then this field does not exist as far as
+     * the device is concerned: no wait, no extra read, no log line, the same
+     * operation stream vstate-0004 executed.
+     *
+     * Non-zero inserts a bounded wait in ONE place - after stage A has put
+     * CONTROL in the running shape and BEFORE the 003B handler is installed -
+     * to answer one question and no other (HARDWARE_TESTS, the pre-handler wait
+     * diagnostic): does the Game Boy Player tolerate several seconds there, with
+     * PI still masked, and then service normally?
+     *
+     * That position is not arbitrary: it is exactly where a future operator
+     * ARMING step would have to sit, because it is the only point at which the
+     * AGB is already running and no service transaction is in flight. Nothing
+     * here reads the controller, and nothing here belongs to GBP-VIDEO-003. */
+    uint32_t prehandler_wait_ms;
     struct gbp_vstate_cycle *cyc_first, *cyc_last, *cyc_anomaly, *cyc_episode;   /* caller's bounded records */
     /* BENCHMARK ONLY. Section 8 of the design requires the same synthetic scenario to be run WITH
      * and WITHOUT the per-block signature so the cadence can be compared. This flag is how the
@@ -317,6 +337,14 @@ struct gbp_vstate_result {
     uint32_t t_cause32;
     uint16_t cause_irq;
     struct gbp_initirqa_snapshot preunmask;
+    /* The pre-handler wait diagnostic. All zero when prehandler_wait_ms is 0,
+     * and the two snapshots are then never taken. These live in RAM and in the
+     * text log only: OGBPSEQ1 v5 is FROZEN and carries none of them. */
+    uint32_t prehandler_wait_ms;         /* what was configured */
+    uint32_t prehandler_wait_iters;      /* loop iterations actually spent */
+    int prehandler_wait_done;            /* 1 = the bound was reached, 0 = skipped, -1 = iteration cap hit */
+    uint64_t t_prehandler_wait_begin, t_prehandler_wait_end;
+    struct gbp_initirqa_snapshot waitpre, waitpost;   /* read-only state either side of the wait */
     int preunmask_ok;
     const char *preunmask_reason;
 
