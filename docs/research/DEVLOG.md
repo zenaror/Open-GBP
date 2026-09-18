@@ -6899,7 +6899,7 @@ COMPLETE · PHYSICAL CANDIDATE READY · NOT PHYSICALLY EXECUTED.** No evidence i
 not a hardware run. Three previous audits each found something that would have
 cost one. U-GBP-029, U-GBP-033 and U-GBP-034 stay OPEN.
 
-## 2026-09-18 — the focused re-audit of stream-0002: cleared, with one footnote that has to be written down first
+## 2026-09-18 — the focused re-audit of stream-0002: DECISION A, with one reporting condition pre-registered
 
 **Goal.** Decide whether the exact `stream-0002` artifact is safe enough and
 observable enough for **one** supervised physical smoke. Not whether streaming
@@ -6933,29 +6933,36 @@ maximum of **one** simultaneously `SUBMITTED` buffer and no main-side write to a
 buffer the GP owns. The checker was validated by injecting the defects into the
 model: they break it.
 
-**Result: DECISION C — conditionally cleared for ONE supervised smoke.**
+**Result: DECISION A — `stream-0002` is safe enough for the first supervised
+physical smoke**, with one known reporting condition recorded before execution.
 
-**The finding that decided it (R1, HIGH).** `display_selftest()` calls
-`submit_ready()`, whose success path calls `gbp_vqueue_note_presented()`. The
-self-test frame is synthetic and never passes through the queue, so
-`consumer_frames_converted` is not incremented — and
-`gbp_vqueue_balanced()`'s identity `converted == presented + overrun` is false
-from the first instruction of every run, off by exactly one, for ever. The
-candidate binary already proves it: under Dolphin, with no Game Boy Player
-attached, it prints `presented=1 … counters DO NOT BALANCE` on screen.
+The audit found **no defect in the service path, none in the ownership machine
+and none in the teardown**. Every safety property it set out to check was proved.
+That is what A means; it does not mean nothing was found — eight findings are
+recorded in §V5.28.13.
 
-Nothing is corrupted and no invariant is touched — but the headline
-counter-accounting indicator of §V5.21 reads a false failure. The correction is
-exact, and the run itself prints the field that selects it (`SELFTEST … xfb=`),
-so it was **pre-registered before the run** rather than rationalised after:
+**The reporting condition (R1, HIGH — reporting, not service or ownership).**
+`display_selftest()` calls `submit_ready()`, whose success path calls
+`gbp_vqueue_note_presented()`. The self-test frame is synthetic and never passes
+through the queue, so `consumer_frames_converted` is not incremented — and
+`gbp_vqueue_balanced()` carries a **deterministic +1 presentation offset** for the
+whole run. The candidate binary already proves it: under Dolphin, with no Game
+Boy Player attached, it prints `presented=1 … counters DO NOT BALANCE` on screen.
+
+Nothing is corrupted, no invariant is touched and the device cannot observe it.
+The raw counters remain authoritative; `gbp_vqueue_balanced()` is a derived
+predicate and is the only thing the offset touches. The correction is exact, and
+the run itself prints the field that selects it (`SELFTEST … xfb=`), so it was
+**pre-registered before physical execution** rather than rationalised after:
 
 ```text
 converted == (presented - SELFTEST.xfb) + overrun
 ```
 
-Not decision A, because a first physical result should not need a footnote to be
-readable. Not decision B, because rejecting a candidate over a reporting defect
-would cost a rebuild, a new identity and a fourth audit round.
+**Frozen until that run exists:** artifact identity unchanged (`stream-0002`,
+`2457d51`, 466 272 B, `76fa1ff7…`); **no rebuild**; **no `src/`, `poc/` or
+`tools/` change**. The artifact that was audited is the artifact that runs. R1 and
+R8 land in `stream-0003`, after the first run.
 
 **Seven more findings, none blocking.** R3 is the one to watch: `IRQ_PI_PEFINISH`
 is unmasked by `__GX_PEInit` and is never masked here, so the draw-done callback
@@ -6989,9 +6996,9 @@ file**.
 
 **New unknowns.** None promoted. U-GBP-029, U-GBP-033 and U-GBP-034 stay OPEN.
 
-**Next:** the physical run is now the highest-value step, under §V5.20/§V5.21 with
-the R1 correction recorded. R1 and R8 land in `stream-0003` before any second
-run; R3 is read out of this run's cycle histogram before anyone calls the design
-timing-safe. The CONTROLLED indexed motion stimulus of §V5.18 still does not
+**Next:** run the first supervised physical smoke of the exact `stream-0002`
+artifact, under §V5.20/§V5.21, with the pre-registered R1 identity applied when
+the report is read. R1 and R8 land in `stream-0003` afterwards; R3 is read out of
+this run's cycle histogram before anyone calls the design timing-safe. The CONTROLLED indexed motion stimulus of §V5.18 still does not
 exist, so no result from this run may be cited as evidence of zero dropped source
 frames.

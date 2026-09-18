@@ -8239,7 +8239,7 @@ only that its name appeared in the source. The lesson is not "write more tests";
 it is that a contract enforced by an invariant somewhere else still needs its own
 test, or the invariant becomes load-bearing without anyone knowing.
 
-### V5.28 PRE-HARDWARE RE-AUDIT of `stream-0002` — 2026-09-18 — **DECISION: C, CONDITIONALLY CLEARED FOR ONE SUPERVISED SMOKE**
+### V5.28 PRE-HARDWARE RE-AUDIT of `stream-0002` — 2026-09-18 — **DECISION: A, STREAM-0002 SAFE ENOUGH FOR FIRST SUPERVISED PHYSICAL SMOKE**
 
 The third audit of this experiment, and the first one whose subject is a
 candidate that a previous audit already rejected and a fix already repaired. Its
@@ -8255,9 +8255,14 @@ RGB5A3, the tile mapping, R3, the colour mapping and the memory design were NOT
 re-audited: `stream-0002` did not touch them and re-opening a settled decision
 without new evidence is how an audit becomes a preference.
 
-**No functional source was changed in this round.** One finding requires a
-functional correction and is reported rather than fixed, per the round's own
-rule.
+**No functional source was changed in this round, and none may be changed before
+the run.** One finding (R1) would benefit from a functional correction; it is a
+REPORTING defect, it is reported rather than fixed, and its correction is
+pre-registered in §V5.28.10 and §V5.28.14 instead. The audited artifact is the
+artifact that runs: **no rebuild, and no change under `src/`, `poc/` or `tools/`,
+is permitted before the first physical smoke.**
+
+**The answer to the question asked is YES.** The classification is **A**.
 
 #### V5.28.1 The artifact, and that it is the one that was audited
 
@@ -8570,9 +8575,15 @@ CONSUMER taken=0 converted=0 presented=1  overrun=0 superseded=0 repeats=0  coun
 **Consequence.** §V5.21's PASS clause "the consumer operated under the declared
 policy … with every non-presented frame accounted for by a named counter" is the
 clause `balanced` exists to answer, and the run's own indicator will read
-`DO NOT BALANCE` on a perfectly good run. Nothing is corrupted, no ownership
-invariant is touched and no hardware is at risk — but the headline
-counter-accounting indicator is dead on arrival.
+`DO NOT BALANCE` on a perfectly good run.
+
+**Its class, stated once and for all: R1 is a REPORTING defect, not a service
+defect and not an ownership defect.** Nothing is corrupted, no ownership
+invariant is touched, no hardware is at risk, and the device cannot observe it.
+It is fully contained in one derived predicate: the raw counters the predicate is
+computed from are all printed individually and are all correct. `converted`,
+`presented`, `overrun`, `taken`, `published`, `dropped_before_convert` and every
+other counter **remain authoritative**.
 
 **The correction is NOT applied in this round** (the round forbids functional
 changes). The smallest fix is that the self-test must not write into the queue's
@@ -8581,7 +8592,7 @@ the queue" parameter, or the self-test performs its own present. A second option
 snapshotting `vq` after the self-test and reporting deltas — is larger and worse,
 because it hides the crossing instead of removing it.
 
-**Why it is not a blocker.** The offset is exactly `+1`, it is deterministic, it
+**Why it does not change the classification.** The offset is exactly `+1`, it is deterministic, it
 is provable before the run, the affected counter is the only one the self-test
 touches (every other `vq` counter is still `0` after it, verified), and the run
 itself prints which correction applies: the `SELFTEST … xfb=` field is `1` when
@@ -8674,7 +8685,7 @@ the restored tree still passes, which is now a mandatory step.
 
 | id | severity | finding | fix required before hardware? |
 | --- | --- | --- | --- |
-| **R1** | **HIGH** | the display self-test increments `consumer_frames_presented`, so `gbp_vqueue_balanced()` is false for every run, off by exactly one | **No**, given the pre-registered correction of §V5.28.10. **Yes** before the second run. |
+| **R1** | **HIGH** (reporting) | the display self-test increments `consumer_frames_presented`, so `gbp_vqueue_balanced()` carries a deterministic **+1** offset and is false for every run | **No.** Covered by the pre-registered corrected identity of §V5.28.10; raw counters are unaffected. Fixed in `stream-0003`, after the first run. |
 | **R2** | MEDIUM | `cause_pending_after_pump` ≡ `cause_arrived_during_pump` by construction; both labels over-promise | No |
 | **R3** | MEDIUM | PE FINISH is unmasked during the GBP service path, so the draw-done callback can preempt ACK → RE-ARM (~6 % of cycles, ≤ 16 instructions) | No — but the first run must be read for it |
 | **R4** | LOW | the teardown's `GX_DrawDone()` is an unbounded wait, contrary to `CLAUDE.md` §18 | No (after the GBP is restored, operator present) |
@@ -8700,29 +8711,76 @@ the restored tree still passes, which is now a mandatory step.
 #### V5.28.14 DECISION
 
 ```text
-DECISION: C — CONDITIONALLY CLEARED FOR ONE SUPERVISED PHYSICAL SMOKE
+DECISION: A — STREAM-0002 SAFE ENOUGH FOR FIRST SUPERVISED PHYSICAL SMOKE
 
-stream-0002 may be run ONCE, supervised, provided the correction of §V5.28.10 is
-recorded BEFORE the run:
+with one KNOWN REPORTING CONDITION, defined here BEFORE physical execution:
 
-    the run WILL print `counters DO NOT BALANCE`; that is R1 and is expected.
-    The identity to evaluate is
-        converted == (presented - SELFTEST.xfb) + overrun
-    and every other §V5.21 clause is evaluated unchanged.
+  gbp_vqueue_balanced() carries a DETERMINISTIC +1 presentation offset, caused
+  by the pre-probe display self-test. The run WILL print
+  `counters DO NOT BALANCE`. That is R1 and it is NOT a FAIL.
 
-R1 must be fixed in stream-0003 before any SECOND run. R3 must be read out of the
-cycle histogram of this run before anyone calls the design timing-safe.
+  The pre-registered corrected identity for the first physical run is
+
+      converted == (presented - SELFTEST.xfb) + overrun
+
+  Every other clause of §V5.21 is evaluated unchanged. If the CORRECTED identity
+  does not hold, that IS a FAIL.
 ```
 
-Not decision A, because the run's own headline counter-accounting indicator is
-known false and a first physical result should not need a footnote to be
-readable. Not decision B, because R1 endangers nothing, touches no invariant the
-audit proved, is off by an exactly known constant, and the run itself prints the
-field that selects the correction — rejecting the candidate would cost a rebuild,
-a new identity and a fourth audit round to fix a reporting defect that can be
-pre-registered away in four lines. If the operator prefers no ambiguity at all,
-**B is defensible and the fix is small**; that is a judgement about tolerance for
-footnotes, not about safety, and it is the operator's to make.
+**The classification, stated so a later reader cannot misread it.** The audit
+found no defect in the service path, no defect in the ownership machine and no
+defect in the teardown. Every safety property it set out to check was proved:
+the one-token rule by exhaustive enumeration (§V5.28.3), the compiler ordering
+from the shipped instruction stream (§V5.28.4), the libogc2 semantics from the
+pinned source (§V5.28.5), the XFB model against the real VI behaviour
+(§V5.28.7), the cache ordering and the teardown order in machine code (§V5.28.8,
+§V5.28.9). A candidate whose safety properties all hold is **A**, and labelling
+it otherwise because one printed line needs a known correction would confuse a
+reporting defect with a hardware risk. It is A.
+
+**What R1 is, and what it is not.**
+
+```text
+R1 IS      a REPORTING defect: one counter in the CONSUMER domain is written by
+           the pre-probe self-test, which is not a queue frame.
+R1 IS NOT  a service defect, an ownership defect, a timing defect or anything
+           the device can observe. It is fully contained in how one derived
+           predicate prints.
+```
+
+**What stands, and what must not be done to it:**
+
+```text
+RAW COUNTERS REMAIN AUTHORITATIVE.  Every counter in STREAMSRC, STREAMCONS,
+    STREAMOWN, STREAMGX, STREAMPUMP, STREAMPUMPT and STREAMPACE is printed
+    individually and is unaffected by R1. `gbp_vqueue_balanced()` is a DERIVED
+    predicate over them, and it is the only thing the offset touches.
+
+ARTIFACT IDENTITY IS UNCHANGED.
+    build id  stream-0002
+    commit    2457d51   (clean, no -dirty)
+    size      466 272 B
+    sha256    76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d
+
+NO REBUILD IS PERMITTED before this run. The artifact that was audited is the
+    artifact that runs; a rebuild would produce a different identity and would
+    invalidate every hash in §V5.28.1.
+
+NO src/, poc/ OR tools/ CHANGE IS PERMITTED before this run, for the same
+    reason. R1 and R8 are fixed in `stream-0003`, AFTER the first run exists.
+
+THE CORRECTION WAS DEFINED BEFORE PHYSICAL EXECUTION. It is recorded here, in
+    docs/HANDOFF.md and in docs/research/DEVLOG.md, at commit `f179393` and
+    refined in the commit carrying this section — in every case before any
+    physical run of `stream-0002`. It is a pre-registration, not a
+    post-hoc rationalisation, and it may not be re-derived after seeing a
+    result.
+```
+
+R3 must still be read out of this run's cycle histogram before anyone calls the
+design timing-safe, and R8 means the run reports the invariants at its final
+instant rather than throughout. Neither changes the classification: both are
+things the first run is *for*.
 
 #### V5.28.15 What a first run still cannot claim
 

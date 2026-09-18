@@ -91,7 +91,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
-| **GBP-VIDEO-004** (sustained streaming) | **`stream-0002` RE-AUDITED 2026-09-18 — DECISION C, CONDITIONALLY CLEARED FOR ONE SUPERVISED SMOKE · NOT PHYSICALLY EXECUTED.** The condition is R1: the run WILL print `counters DO NOT BALANCE`, and the identity to evaluate is `converted == (presented − SELFTEST.xfb) + overrun` | `HARDWARE_TESTS.md` §V5.28 |
+| **GBP-VIDEO-004** (sustained streaming) | **`stream-0002` RE-AUDITED 2026-09-18 — DECISION A: SAFE ENOUGH FOR FIRST SUPERVISED PHYSICAL SMOKE · NOT PHYSICALLY EXECUTED.** One known REPORTING condition (R1): the run WILL print `counters DO NOT BALANCE`, and the pre-registered identity is `converted == (presented − SELFTEST.xfb) + overrun` | `HARDWARE_TESTS.md` §V5.28 |
 | **`stream-0001`** | **REJECTED before hardware — DO NOT RUN.** Historical; its identity is preserved and was not reused | §V5.26; `stream-0002` supersedes it |
 | **Texture ownership** | **FIXED and TESTABLE**: moved to `src/gbp/gbp_vpresent.{h,c}`, at most ONE draw-done token in flight, the callback releases exactly one buffer by index | §V5.27.1 |
 | **Physical ROM delivery dependency (§V3.7)** | **RESOLVED** — route 1, EZ-Flash Omega DE NOR / Mode B, two physical runs | §V3.7 resolution note |
@@ -151,7 +151,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-003 | `color-0001` | `9d8302d` | `cc88e4c45559f11047ca657b78045e2fd2c5d646a1b68e7e453fcf796d177cf4` | **PHYSICALLY EXECUTED 2026-09-18** | GBP-HW-120…125 |
 | GBP-VIDEO-003 | `color-0002` | `39f1980` | `d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1` | **PHYSICALLY EXECUTED 2026-09-18 — the confirmatory run** | GBP-HW-127…133 |
 | GBP-VIDEO-004 | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **REJECTED before hardware — DO NOT RUN** | `HARDWARE_TESTS.md` §V5.26 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **NOT PHYSICALLY EXECUTED** — re-audited, DECISION C, cleared for ONE supervised smoke under the R1 correction; reproduces byte-for-byte from a clean `2457d51` worktree | `HARDWARE_TESTS.md` §V5.28 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **NOT PHYSICALLY EXECUTED** — re-audited, **DECISION A**, safe enough for the first supervised smoke under the pre-registered R1 identity; 466 272 B; reproduces byte-for-byte from a clean `2457d51` worktree. **NO REBUILD** | `HARDWARE_TESTS.md` §V5.28 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -231,29 +231,31 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **The physical run. `stream-0002` has been re-audited and is CONDITIONALLY
-> CLEARED for ONE supervised smoke (§V5.28, DECISION C). The condition is
-> written below and must be recorded BEFORE the run, not after it.**
+> **The first supervised physical smoke of the exact `stream-0002` artifact.
+> §V5.28 re-audited it and the classification is DECISION A: SAFE ENOUGH FOR
+> FIRST SUPERVISED PHYSICAL SMOKE.**
 
-Three audits have now read this experiment and each found something. The third
-(§V5.28) found eight items, none of which endangers the device or breaks an
-invariant, and one of which changes how the run must be read.
+Three audits have now read this experiment. The third (§V5.28) found no defect in
+the service path, none in the ownership machine and none in the teardown; every
+safety property it set out to check was proved. It found eight items, one of
+which changes how the run's report must be read and none of which is a hardware
+risk.
 
-### The condition — R1, and why it is a footnote rather than a rebuild
+### The known reporting condition — R1, pre-registered before physical execution
 
 `display_selftest()` presents one synthetic frame before the capture opens, and
 its success path calls `gbp_vqueue_note_presented()`. That frame never passed
 through the queue, so `consumer_frames_converted` was never incremented, and
-`gbp_vqueue_balanced()`'s identity is false from the first instruction of every
-run, off by exactly one, for ever. The candidate binary already demonstrates it:
-under Dolphin, with no Game Boy Player attached, it prints
+`gbp_vqueue_balanced()` carries a **deterministic +1 presentation offset** for the
+whole run. The candidate binary already demonstrates it: under Dolphin, with no
+Game Boy Player attached, it prints
 `presented=1 … counters DO NOT BALANCE`.
 
 ```text
-PRE-REGISTERED, BEFORE THE RUN:
+PRE-REGISTERED, BEFORE PHYSICAL EXECUTION:
 
-  stream-0002 WILL print `counters DO NOT BALANCE`. That is R1 and is NOT a FAIL.
-  The identity to evaluate is
+  stream-0002 WILL print `counters DO NOT BALANCE`. That is R1 and it is NOT a
+  FAIL. The identity to evaluate for the first physical run is
 
       consumer_frames_converted == (consumer_frames_presented - SELFTEST.xfb)
                                  + consumer_slot_overrun
@@ -263,9 +265,39 @@ PRE-REGISTERED, BEFORE THE RUN:
   does not hold, that IS a FAIL.
 ```
 
-Nothing is corrupted, no ownership invariant is affected, and every raw counter
-is printed individually. R1 must be fixed in `stream-0003` before any **second**
-run; it does not justify rebuilding before the first one.
+```text
+R1 IS      a REPORTING defect. One counter in the CONSUMER domain is written by
+           the pre-probe self-test, which is not a queue frame.
+R1 IS NOT  a service defect, an ownership defect or a timing defect. The device
+           cannot observe it.
+
+RAW COUNTERS REMAIN AUTHORITATIVE. Every counter in STREAMSRC, STREAMCONS,
+           STREAMOWN, STREAMGX, STREAMPUMP, STREAMPUMPT and STREAMPACE is printed
+           individually and is unaffected. `gbp_vqueue_balanced()` is a DERIVED
+           predicate, and it is the only thing the offset touches.
+
+THIS CORRECTION WAS DEFINED BEFORE PHYSICAL EXECUTION — §V5.28.10 and §V5.28.14,
+           commit `f179393` and the commit carrying this text, both before any
+           physical run. It is a pre-registration and may not be re-derived after
+           seeing a result.
+```
+
+### Rules that hold until the first run exists
+
+```text
+ARTIFACT IDENTITY IS UNCHANGED AND FROZEN
+    build id  stream-0002
+    commit    2457d51   (clean, no -dirty)
+    size      466 272 B
+    sha256    76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d
+    Swiss     build/swiss/12-stream/boot.dol  (byte-identical copy)
+
+NO REBUILD IS PERMITTED.  The artifact that was audited is the artifact that
+    runs. A rebuild produces a different identity and invalidates §V5.28.1.
+
+NO src/, poc/ OR tools/ CHANGE IS PERMITTED.  R1 and R8 are fixed in
+    `stream-0003`, AFTER the first run exists.
+```
 
 ### What the first run must be read for
 
@@ -322,10 +354,24 @@ measurable, not to have settled it.
 
 ## Next safe action
 
-Request **one** physical run of `stream-0002` under §V5.20 / §V5.21, with the R1
-correction above recorded first.
+**Run the first supervised physical smoke of the exact `stream-0002` artifact**,
+under §V5.20 / §V5.21, with the pre-registered R1 identity above applied when the
+report is read.
 
-Then, and only after that run exists, `stream-0003` with R1 and R8 fixed.
+```text
+Test ID     GBP-VIDEO-004
+Build ID    stream-0002
+DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+            466 272 B
+            sha256 76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d
+Swiss       build/swiss/12-stream/boot.dol   (byte-identical copy)
+DO NOT      rebuild it, and do not change src/, poc/ or tools/ first.
+```
+
+The full operator procedure is in §V5.20; the artifact block is in
+"Exact physical artifacts" above.
+
+After that run exists: `stream-0003` with R1 and R8 fixed.
 
 Separately, and required before the experiment can CLOSE rather than before it
 runs: the CONTROLLED indexed motion stimulus of §V5.18 still does not exist —
@@ -423,9 +469,14 @@ believe one is wrong, argue against the source, do not re-run the discovery.
   ownership machine by exhaustive enumeration. None of that says anything about
   the device.
 - **That `counters DO NOT BALANCE` on a `stream-0002` run means the run failed.**
-  It does not. R1 makes that line appear on every run, off by exactly one, before
-  the capture even opens (§V5.28.10). The identity to evaluate is
-  `converted == (presented − SELFTEST.xfb) + overrun`.
+  It does not. R1 is a **reporting** defect: it makes that line appear on every
+  run, off by exactly one, before the capture even opens (§V5.28.10). The
+  pre-registered identity is `converted == (presented − SELFTEST.xfb) + overrun`,
+  and the raw counters it is computed from remain authoritative.
+- **That the audit's DECISION A means nothing was found.** Eight findings were
+  recorded (§V5.28.13). A means every *safety* property held: nothing in the
+  service path, the ownership machine or the teardown was defective. R1 and R8
+  are reporting defects and are fixed in `stream-0003`, after the first run.
 - **That `OWNER invariants HOLD` means they held for the whole run.** It means
   they held at the final instant; `gbp_vpresent_consistent()` is never evaluated
   during the capture (R8, §V5.28.16).
