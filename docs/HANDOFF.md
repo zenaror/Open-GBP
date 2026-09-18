@@ -151,7 +151,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-003 | `color-0001` | `9d8302d` | `cc88e4c45559f11047ca657b78045e2fd2c5d646a1b68e7e453fcf796d177cf4` | **PHYSICALLY EXECUTED 2026-09-18** | GBP-HW-120…125 |
 | GBP-VIDEO-003 | `color-0002` | `39f1980` | `d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1` | **PHYSICALLY EXECUTED 2026-09-18 — the confirmatory run** | GBP-HW-127…133 |
 | GBP-VIDEO-004 | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **REJECTED before hardware — DO NOT RUN** | `HARDWARE_TESTS.md` §V5.26 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0002` | see below | see below | **NOT PHYSICALLY EXECUTED** — fix complete, host validated | `HARDWARE_TESTS.md` §V5.27 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0002` | __C__ | __H__ | **NOT PHYSICALLY EXECUTED** — fix complete, host validated, re-audit pending | `HARDWARE_TESTS.md` §V5.27 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -169,9 +169,9 @@ keeps.
 ```text
 Test ID     GBP-VIDEO-004
 Build ID    stream-0002              (stream-0001 is REJECTED and never rebuilt)
-commit      recorded by the commit that follows this one — see below
+commit      see the row in 'Exact physical artifacts' above
 DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
-            size and sha256 recorded by the commit that follows this one
+            466 272 B   sha256 recorded in the row above
 Swiss       build/swiss/12-stream/boot.dol   (byte-identical copy, hash verified)
 toolchain   powerpc-eabi-gcc (devkitPPC) 16.1.0, libogc2 r2442.094b250,
             ghcr.io/extremscorner/libogc2:20260805 — zero warnings
