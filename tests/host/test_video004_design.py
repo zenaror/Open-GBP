@@ -235,27 +235,25 @@ class PointersResolve(unittest.TestCase):
         t = read(HW)
         self.assertIn("STATUS: RESOLVED (route 1, EZ-Flash Omega DE NOR / Mode B)", t)
 
-    def test_the_handoff_names_the_active_experiment_and_the_audit_outcome(self):
-        """The pre-hardware audit rejected the candidate, so the handoff must say
-        so unambiguously and must not read as though the candidate were ready.
-        A reader who skims this file has to come away knowing not to run it."""
+    def test_the_handoff_names_the_active_candidate_and_keeps_the_rejected_one(self):
+        """Two builds now exist for one Test ID. A reader who skims this file must
+        come away knowing which to run and which never to."""
         t = flat(read(HANDOFF))
         self.assertIn("GBP-VIDEO-004", t)
         self.assertIn("HARDWARE_TESTS.md` §V5", t)
-        self.assertIn("PRE-HARDWARE AUDIT FAILED", t)
-        self.assertIn("NOT RELEASED FOR A PHYSICAL RUN", t)
-        self.assertIn("REJECTED by the pre-hardware audit — do not run it", t)
-        self.assertIn("BLOCKER", t)
+        self.assertIn("stream-0002", t)
+        self.assertIn("REJECTED before hardware — DO NOT RUN", t)
+        self.assertIn("NOT PHYSICALLY EXECUTED", t)
+        self.assertIn("0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275", t)
 
     def test_the_handoff_keeps_the_corrected_slack_number(self):
-        """The 164 us figure was the mean cycle period, not slack. The handoff must
-        carry the MEASURED window and must say the old number was wrong — quoting
-        the wrong number is how a correction works, so this checks for the
-        correction rather than for the string's absence."""
+        """The 164 us figure was the mean cycle period, not slack. The MEASURED
+        window must survive in the handoff, or a later round will reuse the wrong
+        one — which is how it got in."""
         t = flat(read(HANDOFF))
         self.assertIn("42.8", t)
         self.assertIn("p25 = 1.9", t)
-        self.assertIn("mean cycle *period*, not slack", t)
+        self.assertIn("PLAUSIBLE BUT UNMEASURED", t)
 
 
 if __name__ == "__main__":
