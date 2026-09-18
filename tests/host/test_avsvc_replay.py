@@ -54,6 +54,8 @@ PHYSICAL_VSTATE4 = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2
 # valid_s short of the target, and it answers only whether the unit tolerates a
 # 5 s masked pause between stage A and the handler install.
 PHYSICAL_PREWAIT = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-18-vstate-prewait-5000.gbpreplay")
+PHYSICAL_COLOR = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-18-color-0001.gbpreplay")
+PHYSICAL_COLOR_SIDECAR = os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-18-color-0001-color.bin")
 REPLAY_RE = re.compile(r"REPLAY step=(\d+) exhausted=(\d+) mismatches=(\d+) tick_polls=(\d+) timeline=(\d+) log_lines=(\d+) "
                        r"bulk_reads=(\d+) blocks_missing=(\d+) block_crc_mismatches=(\d+)")
 
@@ -223,11 +225,14 @@ class AvsvcRoundTrip(unittest.TestCase):
                     # payload-backed) and the teardown. Their lean cycles - 51746 in vstate-0001,
                     # 513 in vstate-0002, 1114003 in vstate-0003, 1114001 in vstate-0004 - kept no
                     # per-delivery record by design, so they are not in the scripts and are not
-                    # invented. The seventh is the pre-handler masked-wait diagnostic, which
-                    # follows the same rule.
+                    # invented. The seventh is the pre-handler masked-wait diagnostic and the
+                    # eighth is GBP-VIDEO-003 / color-0001, which follow the same rule: their 440
+                    # service cycles kept no per-delivery log record, so the script is the prefix
+                    # and the OGBPCOL1 sidecar is the evidence for the rest.
                     self.assertIn(fx_path, (PHYSICAL_AVSVC, PHYSICAL_VIDEO, PHYSICAL_VSTATE,
                                             PHYSICAL_VSTATE2, PHYSICAL_VSTATE3,
-                                            PHYSICAL_VSTATE4, PHYSICAL_PREWAIT), fx_path)
+                                            PHYSICAL_VSTATE4, PHYSICAL_PREWAIT,
+                                            PHYSICAL_COLOR), fx_path)
         self.assertFalse(fx.startswith(os.path.join(ROOT, "captures")))
 
     @unittest.skipUnless(os.path.isfile(PHYSICAL_003B), "physical GBP-INIT-003B fixture missing")
