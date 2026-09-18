@@ -13,18 +13,20 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   3c66d4f699d6a9b2b1b0646288fc3af24c1a26cb
+STATE BASELINE COMMIT   ee1d46b2d86c3287a88fff5526df206184791d9f
 ```
 
-Meaning: the project's scientific and operational state was audited **through
-that commit**, immediately before the commit that introduced this file. The
-baseline deliberately is not this file's own commit — a document cannot contain
-its own hash.
+**What that means, precisely:** it is the **last commit whose scientific and
+operational state was audited before this handoff snapshot was written**. It is
+*not* "the expected current HEAD", and it is deliberately not this file's own
+commit — a document cannot contain the hash of the commit that adds it. Expect
+HEAD to be at least one commit ahead: the one carrying this text.
 
 ```text
 LAST PHYSICAL EVIDENCE INGESTED
   PRE-HANDLER MASKED WAIT 5000 ms, executed 2026-09-18
   GBP-HW-116, GBP-HW-117, GBP-HW-118, GBP-HW-119
+  (no physical run since; the colour experiment has never run)
 ```
 
 ### Staleness check — run this before trusting anything below
@@ -35,7 +37,7 @@ This file is **not automatically true because it exists**. Before relying on the
 ```sh
 git rev-parse HEAD
 git status --short
-git log --oneline 3c66d4f699d6a9b2b1b0646288fc3af24c1a26cb..HEAD
+git log --oneline ee1d46b2d86c3287a88fff5526df206184791d9f..HEAD
 ```
 
 If that range contains commits, read them and decide whether any changes the
@@ -80,9 +82,9 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-002-R3** (semantic disagreement policy) | **PHYSICAL VALIDATION COMPLETE** | `HARDWARE_TESTS.md` §R3/§R4; GBP-HW-108…115 |
 | **PRE-HANDLER MASKED WAIT 5000 ms** | **PHYSICALLY VALIDATED — only for the 5 s duration and the position exercised** | `HARDWARE_TESTS.md`, "PRE-HANDLER MASKED WAIT"; GBP-HW-116…119 |
 | **Physical delivery of a controlled GBA ROM** | **RESOLVED** for the validated EZ-Flash Omega DE NOR / Mode B route | `HARDWARE_TESTS.md` §V3.7 and the route section below |
-| **GBP-VIDEO-003** (controlled colour mapping) | **CLEAN SOFTWARE CANDIDATE — NOT PHYSICALLY EXECUTED** | `HARDWARE_TESTS.md` §V3 |
+| **GBP-VIDEO-003** (controlled colour mapping) | **PHYSICAL CANDIDATE READY — NOT PHYSICALLY EXECUTED** | `HARDWARE_TESTS.md` §V3, §V3.28, §V3.29 |
 | **Operator visual arming** | **REJECTED**: the stimulus is not observable during the pre-handler interval | `HARDWARE_TESTS.md` §V3.27 |
-| **Arming procedure** | fixed pre-handler wait **recommended**, not yet validated as sufficient for the colour stimulus | `HARDWARE_TESTS.md` §V3.26, §V3.27 |
+| **Procedure** | **FIXED PRE-HANDLER WAIT 5000 ms IMPLEMENTED — SOFTWARE/HOST VALIDATED. Physical sufficiency for the colour stimulus UNKNOWN.** | `HARDWARE_TESTS.md` §V3.28 |
 | **U-GBP-011** — VIDEO colour bit order | **OPEN** | `UNKNOWNS.md` |
 | **U-GBP-033** — mechanism behind semantic non-uniformity | **OPEN** | `UNKNOWNS.md` |
 
@@ -127,7 +129,15 @@ different hash. Match the SHA-256 before saying "physically tested".
 | --- | --- | --- | --- | --- | --- |
 | GBP-VIDEO-002-R4 | `vstate-0004` | `b017e38` | `b0ed33f06e257d1e775d382f86116a59b756d90b528c0be3f233e086d00597c5` | PHYSICALLY EXECUTED | GBP-HW-108…115 |
 | pre-handler masked wait | `vstate-prewait-5000` | `500429a` | `b5f0060a46d2e6429f494a9fa53d14acf07a97f61d01847acf0b6cb807a48709` | PHYSICALLY EXECUTED | GBP-HW-116…119 |
-| GBP-VIDEO-003 | `color-0001` | `e10423c` | `32ea371cd3b51c52f8459e5b67e91c8a046b2ea8ab58a48668494290f668164b` | **NOT** physically executed (clean build candidate) | `HARDWARE_TESTS.md` §V3 |
+| GBP-VIDEO-003 | `color-0001` | `e10423c` | `32ea371cd3b51c52f8459e5b67e91c8a046b2ea8ab58a48668494290f668164b` | superseded: no pre-handler wait | `HARDWARE_TESTS.md` §V3 |
+| GBP-VIDEO-003 **physical candidate** | `color-0001` | see below | see below | **READY, NOT physically executed** | `HARDWARE_TESTS.md` §V3.28, §V3.29 |
+
+The colour candidate's exact hash belongs to the commit it is built from, so it
+is recorded where it cannot drift: rebuild with `make build`, read
+`build/poc/gbp-video-color-probe/build-info.txt`, and check the commit there
+matches HEAD before the run. `build_id` stays **`color-0001`**: the experiment —
+stimulus, hypotheses, `N_STABLE`, OGBPCOL1 v1, analyser — is unchanged, and only
+the procedure moved (§V3.28).
 
 ## Open questions
 
@@ -137,27 +147,30 @@ different hash. Match the SHA-256 before saying "physically tested".
 - **U-GBP-033** — what mechanism produces semantic non-uniformity among the
   eight replicas of the IRQ window. Three physical runs corroborate the
   *policy*; none explains the *cause*.
-- Whether a fixed 5 s pre-handler wait is **sufficient** for the cartridge boot
-  to reach the static bars. Unestablished.
+- Whether the fixed 5000 ms pre-handler wait is **sufficient** for the cartridge
+  boot to reach the static bars. Implemented and host-validated; physically
+  unestablished, and the first colour run is what settles it.
 - What the Game Boy Player does with PI masked for **longer** than 5 s at that
   position. Only 5 s was exercised.
 
 ## Current blocker / current question
 
-> Decide whether to enable a fixed 5000 ms pre-handler wait in the
-> `color-0001` build, and then establish — on real hardware — whether that wait
-> is long enough for the controlled stimulus to have reached its static bars
-> before GBP-VIDEO-003 begins admitting frames.
+> Execute the first physical GBP-VIDEO-003 colour run.
 
-Everything else for the first physical colour run is ready.
+The wait is implemented and host-validated; whether 5000 ms is *enough* for the
+cartridge boot to reach the static bars is the thing that run establishes. If it
+is not, the analyser returns an inconclusive verdict rather than a mapping
+(§V3.28), so the cost of being wrong is a spent run, not a false result.
 
 ## Next safe action
 
-Enable `prehandler_wait_ms = 5000` in the colour POC only (the mechanism already
-exists, is default-off, and was physically validated at that exact position),
-re-run the full regression, and produce a clean colour candidate for the first
-physical GBP-VIDEO-003 run. Do **not** implement controller arming: §V3.27
-established the operator cannot see the stimulus at that point.
+Run the exact recorded colour DOL on the real Game Boy Player, with the derived
+Mode-B stimulus image in the EZ-Flash Omega DE. The full procedure — setup,
+both ROM hashes and the eleven steps — is `HARDWARE_TESTS.md` §V3.29. Nothing is
+pressed during the run.
+
+Do **not** implement controller arming (§V3.27), a preview path, or any stimulus
+recognition in the runtime (§V3.11).
 
 ## Do not rediscover
 
@@ -175,12 +188,14 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 | EZ-Flash Omega DE NOR / Mode B boots the derived image on GBA and on the GBP | delivery route above |
 | A 5 s masked pause between stage A and the handler install is tolerated | GBP-HW-116…118 |
 | The operator cannot see the stimulus during the pre-handler interval | `HARDWARE_TESTS.md` §V3.27 |
+| The colour capture opens only after the fixed wait, and holds no state before it | `HARDWARE_TESTS.md` §V3.28 |
 | `frames_refused[MAJORITY_EXTRA]` reads 0 in real runs; `frames_quarantined` is the real counter | `HARDWARE_TESTS.md` §V3.24 |
 
 ## Do not assume
 
-- **That 5 s guarantees the bars are already on screen.** Not established by
-  anything in this repository.
+- **That 5000 ms guarantees the bars are already on screen.** Not established by
+  anything in this repository. The wait is implemented because the position was
+  validated, not because the duration was proven sufficient.
 - **That a rebuilt DOL equals the historical physical DOL.** It does not; the
   commit is embedded. Compare hashes.
 - **That mGBA closes U-GBP-011.** mGBA knows the GBA's native framebuffer
@@ -198,14 +213,22 @@ fixture header. The raw logs themselves live in `logs/` (never versioned) and
 `captures/local/` (ignored) — the policy is in `captures/README.md`.
 
 ```text
-RAW EVIDENCE AVAILABILITY:  RECOVERABLE FROM A CLONE
+PHYSICAL REPLAY EVIDENCE:  RECOVERABLE FROM A CLONE
+RAW TEXT LOG:              NOT STORED IN GIT — IDENTITY PRESERVED BY SHA-256
 ```
 
-A fresh clone gets, for every physical run: the `.gbpreplay` script, the sidecar
-binary where one exists, and the metadata header tying both to a DOL hash, a log
-hash and a commit. What a clone does **not** get is the byte-for-byte raw device
-log; its SHA-256 is recorded so a copy can be verified if the operator supplies
-one. A hash alone does not permit replay — the fixture does.
+Those are two different things and the distinction matters to anyone verifying a
+claim. A fresh clone **does** get, for every physical run: the `.gbpreplay`
+replay script, the sidecar binary where the run produced one, and a metadata
+header tying both to a DOL hash, a log hash, a size and a commit — enough to
+replay the run and recompute the evidence.
+
+A clone **does not** get the original device text log. Those live in `logs/`
+(never versioned) and `captures/local/` (ignored), and only their SHA-256 and
+size are recorded. A hash does not permit replay; it permits *verification* of a
+copy the operator supplies. So a claim traced to a fixture is re-checkable from
+a clone alone; a claim traced only to a raw log line is not, until someone
+provides the log.
 
 ## Swiss operator layout
 
