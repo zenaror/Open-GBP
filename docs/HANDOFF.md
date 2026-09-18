@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   39f1980c0706bacc4059d4fe9e68e9e935fd125a
+STATE BASELINE COMMIT   ef328b4dd58aa79683f3207c99c4ccaae1bea549
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -90,6 +90,9 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **Physical delivery of a controlled GBA ROM** | **RESOLVED** for the validated EZ-Flash Omega DE NOR / Mode B route | `HARDWARE_TESTS.md` §V3.7 and the route section below |
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
+| **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
+| **GBP-VIDEO-004** (sustained streaming) | **DESIGN / PRE-REGISTERED 2026-09-18 — NOT IMPLEMENTED, NOT RUN.** Active experiment | `HARDWARE_TESTS.md` §V5 |
+| **Physical ROM delivery dependency (§V3.7)** | **RESOLVED** — route 1, EZ-Flash Omega DE NOR / Mode B, two physical runs | §V3.7 resolution note |
 | **VIDEO colour bit order** | **FACT** — measured with a known-colour stimulus, twice; promoted into `docs/hardware/GBS-DOL.md` and `docs/protocol/REGISTERS.md` | GBP-HW-131 |
 | **Operator visual arming** | **REJECTED**: the stimulus is not observable during the pre-handler interval | `HARDWARE_TESTS.md` §V3.27 |
 | **Procedure** | **FIXED PRE-HANDLER WAIT 5000 ms — PHYSICALLY SUFFICIENT for this stimulus at this position** | GBP-HW-120 |
@@ -191,45 +194,68 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **GBP-VIDEO-004 — sustained streaming with a real cartridge: frame pacing, the
-> dropped-block policy and output modes.**
+> **Implement the smallest GBP-VIDEO-004 POC defined by the pre-registered design
+> in `HARDWARE_TESTS.md` §V5.**
 
-This is the item `docs/ROADMAP.md` already names as following GBP-VIDEO-003
-inside Phase 4, and it is the bridge to Phase 7. Everything the colour work
-established feeds it directly: the transport, the block geometry, the 40-block
-frame, the service policy, the raw-ring lifecycle and now the colour mapping.
-What it adds is the part no experiment has touched — a *moving* image, sustained
-over time, with a policy for what happens when a block is late or lost.
+The design is written and nothing about it has been implemented or run. §V5 fixes
+the parts that are decisions rather than code — the producer/consumer boundary,
+the buffering shape, the frame-loss policy, the output scope, the pass criterion —
+so that implementation is engineering rather than improvisation.
 
-Nothing in it depends on U-GBP-029, U-GBP-033 or U-GBP-034, all of which stay
-OPEN and none of which blocks it.
+**Three items in §V5 are explicitly DESIGN DECISION REQUIRED** and must be settled
+before or during the first implementation, each with a reason recorded:
 
-**The colour question is finished.** `color-0002` passed the contract that was
-pre-registered before it ran, U-GBP-011 is closed, and the order is FACT in
-`docs/hardware/GBS-DOL.md` and `docs/protocol/REGISTERS.md`. Do not re-open it,
-re-run it, or re-derive it from the fixtures.
+1. **Run duration** (§V5.5) — justified against a real interval, the way
+   GBP-VIDEO-002's 120 s was justified against the Disc's own detector window. Not
+   a number that feels long.
+2. **Converted-queue depth** (§V5.8) — deferred until the first measurement of
+   conversion cost, because this repository has measured none.
+3. **How the text report and the GX pipeline share the framebuffer** (§V5.15) —
+   every existing probe calls `CON_Init` on the XFB, and GX wants it. **This may
+   not be solved by moving reporting into the service path.**
+
+**The colour question is finished and the delivery dependency is closed.**
+GBP-VIDEO-003 is COMPLETE for its controlled colour objective, U-GBP-011 is
+CLOSED, and §V3.7's ROM-delivery dependency is RESOLVED (route 1, EZ-Flash Omega
+DE NOR / Mode B).
 
 ## Next safe action
 
-Design GBP-VIDEO-004 before implementing any of it, in `HARDWARE_TESTS.md`,
-following the pattern the last three experiments used and that worked: state the
-question, state the acceptance criterion **before** the run, enumerate every
-inconclusive reason in advance, and keep the runtime incapable of recognising its
-own expected answer.
+Implement the first streaming POC exactly as §V5.20 specifies, and no more than
+that:
 
-Open questions worth settling on paper first, none of which needs hardware:
+```text
+Test ID    GBP-VIDEO-004        Build ID  stream-0001   (not yet in any Makefile)
+POC        poc/gbp-video-stream-probe/                  (does not exist yet)
+new, pure, host-tested:  src/gbp/gbp_vpix.{h,c}    raster -> RGB5A3 tile
+                         src/gbp/gbp_vqueue.{h,c}  bounded frame queue + counters
+reused byte for byte:    gbp_vstate_probe, gbp_vstate, gbp_vsig, gbp_avblock,
+                         gbp_irq_service, gbp_initirqa, the R3 policy, the teardown
+```
 
-1. what "sustained" means operationally — how many seconds, at what frame rate,
-   and what makes the run inconclusive rather than negative;
-2. the dropped-block policy: what the runtime does when a block does not arrive,
-   and how a drop is distinguished from a slow frame in the record;
-3. whether the existing `OGBPSEQ1`/`OGBPCOL1` sidecars can carry the result or a
-   new frozen format is needed — and if a new one, why the existing ones cannot.
+Build the two pure modules and their host tests **first**, against synthetic
+frames and against the physical `color-0002` fixture — which already carries eight
+known colours in known positions and is therefore a real conversion oracle. Only
+then add the POC and the GX path.
 
-Do **not** edit `OGBPCOL1` v1, `tools/vcolor.py`, `tools/vcolor2.py` or the §V4
-contract; do not re-label or re-analyse `color-0001` or `color-0002`; do not
-implement controller arming (§V3.27), a preview path, or stimulus recognition in
-the runtime (§V3.11).
+Hard rules carried from §V5, none of them negotiable:
+
+- **Nothing new enters the service path.** No GX, no texture upload, no
+  filesystem, no networking, no PAD, no full-frame work, no wait of any kind
+  between the ACK and the RE-ARM. The handoff to the consumer is an integer
+  (§V5.7), exactly as §V3.23 forced for the colour capture.
+- **Never synthesise pixels.** An incomplete frame is recorded and not displayed;
+  the previous frame is held and the hold is counted (§V5.9).
+- **Never block the producer** to rescue a picture (§V5.14).
+- A quarantined frame (`F_MAJORITY_EXTRA`) may never reach the screen, for the
+  same reason it may never become colour evidence.
+- Do **not** implement scaling, aspect correction, audio playback, A/V sync,
+  KEYPAD or any network path. They are Phases 6, 9 and 11.
+- Do **not** edit `OGBPCOL1` v1, `tools/vcolor.py`, `tools/vcolor2.py`, the §V4
+  contract, or any existing fixture.
+
+No hardware run is requested until the POC exists, its host tests pass, the tree
+is clean and the build carries no `-dirty` suffix.
 
 ## Do not rediscover
 
@@ -255,6 +281,11 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 | **The VIDEO window exchanges the two outer 5-bit colour groups relative to the AGB framebuffer** — measured, twice, with a known-colour stimulus | GBP-HW-131; `HARDWARE_TESTS.md` §V4.10 |
 | The references' GX RGB5A3 reading is therefore the displayed colour, and Dolphin's mGBA-derived order is the divergent model | GBP-HW-131; GBP-VID-007 |
 | Both physical colour runs deliver the identical picture in the consumed projection, 38 400/38 400 | GBP-HW-132 |
+| A GBP word needs **no channel arithmetic** to become a `GX_TF_RGB5A3` texel — `texel = word \| 0x8000`; the device already swapped the groups | GBP-HW-131; §V5.10 |
+| The AGB (~59.727 Hz) and the GameCube VI (~59.94 Hz) are not synchronised: ≈ 26 repeated display frames per 120 s are arithmetic, not loss | GBP-PHY-003; GBP-HW-078; §V5.6 |
+| No POC in this repository has ever initialised GX; every one uses `VIDEO_Init` + `CON_Init` on a single XFB | verified across `poc/` and `src/`; §V5.4 |
+| The frame assembler already classifies COMPLETE_40 / SHORT / LONG / PREDICATE_ANOMALY / RESYNC — streaming needs a *display* policy, not a new classification | `src/gbp/gbp_vstate.h`; §V5.9 |
+| The ROM-delivery route is route 1, EZ-Flash Omega DE NOR / Mode B, and it sets `CONTROL orig=92` | §V3.7 resolution; GBP-HW-127 |
 
 ## Do not assume
 
@@ -277,6 +308,11 @@ believe one is wrong, argue against the source, do not re-run the discovery.
   set; a permutation fixing those three and rearranging only bits 1–4 is not
   excluded. §V3.19 holds the pattern that would close it, and it is not
   scheduled.
+- **That §V5 has been validated by anything.** It is a design. Not one line of it
+  is implemented, nothing has run, and its estimates — conversion cost above all —
+  are explicitly *not* budgeted as properties (§V5.22).
+- **That a commercial cartridge has been chosen.** §V5.18 records the properties
+  one must have and deliberately names no title; the operator owns that choice.
 - **That bytes 0 and 2 are don't-care in general.** §V4 places them outside the
   dependent variable of *this experiment* only. U-GBP-029 is open, they are
   preserved in full, and every run reports the full-raw comparison.

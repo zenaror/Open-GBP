@@ -194,7 +194,8 @@ measured the device and confirmed it (U-GBP-011 CLOSED); both embed the AGB idle
   streams its multi-megabyte sidecar rather than staging it. Its full nominal
   scan runs in the host suite at about 800 000 synthetic deliveries.
 * **GBP-VIDEO-003**: colour. **DESIGN FINALIZED and IMPLEMENTED 2026-09-17
-  (HARDWARE_TESTS §V3.0 to §V3.25), NOT PHYSICALLY EXECUTED.** The first
+  (HARDWARE_TESTS §V3.0 to §V3.25); PHYSICALLY EXECUTED twice on 2026-09-18 — the
+  result is in the dedicated bullet below and in §V4.10.** The first
   implementation was blocked by the microaudit for doing full-frame
   `memcmp`/`memcpy` between the ACK and the RE-ARM; the capture now decides
   stability from the 40 per-block signatures the model already computes, never
@@ -208,9 +209,10 @@ measured the device and confirmed it (U-GBP-011 CLOSED); both embed the AGB idle
   never written — captured through the validated service path into a dedicated
   `OGBPCOL1` sidecar that preserves whole raw blocks. Exactly one candidate
   transformation must reproduce all eight observed values or the run is
-  INCONCLUSIVE. **Execution is blocked by one documented dependency**: this
-  repository knows no way to deliver a controlled GBA ROM to the physical unit
-  (§V3.7), and the design does not invent one.
+  INCONCLUSIVE. The execution dependency this bullet used to carry — no known way
+  to deliver a controlled GBA ROM to the physical unit — was **RESOLVED on
+  2026-09-18** by the operator's EZ-Flash Omega DE in NOR / Mode B, route 1 of
+  §V3.7, with the predicted `CONTROL orig=92` presence bit observed.
 
   The gate that used to block this step is gone. It was a run surviving the
   semantic disagreement of the IRQ window with trustworthy diagnostics, and
@@ -281,6 +283,15 @@ measured the device and confirmed it (U-GBP-011 CLOSED); both embed the AGB idle
   (GBP-HW-120…126, GBP-HW-127…133).
 * **GBP-VIDEO-004** — **NEXT**: sustained streaming with a real cartridge (frame
   pacing, dropped-block policy, output modes) — the bridge to Phase 7.
+  **DESIGN / PRE-REGISTRATION written 2026-09-18, HARDWARE_TESTS §V5; not
+  implemented, not run.** It defines the producer/consumer boundary that keeps
+  every frame operation out of the validated service path, a bounded drop-oldest
+  queue, `HOLD_PREVIOUS_FRAME` as the display policy with no synthesised pixels, a
+  `GX_TF_RGB5A3` output path that needs no channel arithmetic because GBP-HW-131
+  established the device already performs the swap, and a CONTROLLED motion
+  stimulus with an embedded frame index so that frame loss is measured rather
+  than inferred. This is also where the "first rendered frames" that
+  GBP-VIDEO-003 deliberately deferred belong.
 
 No further micro-probes unless one of these raises a blocking question.
 
