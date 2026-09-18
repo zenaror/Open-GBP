@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   0816cbe8ac7ed667c0114ff310aa4c7b0d0b4bb8
+STATE BASELINE COMMIT   22308c62a9d0332bf6f02e4bc3d4b07cde0df2fe
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -91,7 +91,8 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
-| **GBP-VIDEO-004** (sustained streaming) | **IMPLEMENTED · SOFTWARE/HOST VALIDATED · PHYSICAL CANDIDATE READY · NOT PHYSICALLY VALIDATED.** Active experiment | `HARDWARE_TESTS.md` §V5; `poc/gbp-video-stream-probe` |
+| **GBP-VIDEO-004** (sustained streaming) | **IMPLEMENTED · PRE-HARDWARE AUDIT FAILED 2026-09-18 · NOT RELEASED FOR A PHYSICAL RUN.** One BLOCKER and three HIGH findings | `HARDWARE_TESTS.md` §V5.26 |
+| **`stream-0001` texture ownership** | **BLOCKER (FACT)**: the draw-done callback frees every SUBMITTED buffer, so with two frames in flight the CPU can refill a texture the GP still owns — and nothing in the log records it | §V5.26.2; `main.c:195-200` |
 | **Physical ROM delivery dependency (§V3.7)** | **RESOLVED** — route 1, EZ-Flash Omega DE NOR / Mode B, two physical runs | §V3.7 resolution note |
 | **VIDEO colour bit order** | **FACT** — measured with a known-colour stimulus, twice; promoted into `docs/hardware/GBS-DOL.md` and `docs/protocol/REGISTERS.md` | GBP-HW-131 |
 | **Operator visual arming** | **REJECTED**: the stimulus is not observable during the pre-handler interval | `HARDWARE_TESTS.md` §V3.27 |
@@ -148,7 +149,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-003 | `color-0001` | `e10423c` | `32ea371cd3b51c52f8459e5b67e91c8a046b2ea8ab58a48668494290f668164b` | superseded: no pre-handler wait | `HARDWARE_TESTS.md` §V3 |
 | GBP-VIDEO-003 | `color-0001` | `9d8302d` | `cc88e4c45559f11047ca657b78045e2fd2c5d646a1b68e7e453fcf796d177cf4` | **PHYSICALLY EXECUTED 2026-09-18** | GBP-HW-120…125 |
 | GBP-VIDEO-003 | `color-0002` | `39f1980` | `d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1` | **PHYSICALLY EXECUTED 2026-09-18 — the confirmatory run** | GBP-HW-127…133 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **NOT PHYSICALLY EXECUTED** — implemented and host-validated only | `HARDWARE_TESTS.md` §V5 |
+| GBP-VIDEO-004 candidate | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **REJECTED by the pre-hardware audit — do not run it** | `HARDWARE_TESTS.md` §V5.26 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -224,77 +225,71 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **Independent pre-hardware audit of the GBP-VIDEO-004 candidate `stream-0001`.**
+> **Fix the `stream-0001` BLOCKER and the three HIGH findings of `HARDWARE_TESTS.md`
+> §V5.26, then rebuild and re-audit. The candidate is NOT released for hardware.**
 
-The implementation exists and passes everything the host can decide. What it has
-not had is a reading by someone who did not write it, and this project has twice
-found that worth doing: the §V3.23 microaudit refused a 153 600-byte `memcmp` in
-the service path, and the §V4 audit refused a gate that was stricter than its own
-question. Both were caught before hardware, and both would have cost a physical
-run otherwise.
+The pre-hardware audit did what the two before it did: it found something that
+would have cost a physical run. In the order they must be dealt with —
 
-**Two of §V5's three DESIGN DECISIONS were resolved by the implementation, and
-the audit should check the reasoning rather than inherit it:**
+1. **BLOCKER — texture ownership** (§V5.26.2, `main.c:195-200`). `on_draw_done()`
+   frees **every** buffer in `TEX_SUBMITTED`, but a DrawDone token certifies only
+   the commands queued before it. With two frames in flight, the first token frees
+   both, and the CPU then refills a texture the GP may still be reading. Simulated
+   on the real state machine, the violation lands on the fourth frame. Worse, it is
+   **invisible**: `no_free_buffer` does not increment in that sequence, so the only
+   symptom is a torn frame — which §V5.21 refuses as a criterion. Fix direction: a
+   per-submission token (`GX_SetDrawSync` / `GX_GetDrawSync`), a FIFO of submitted
+   buffers, or refusing to submit while one is in flight.
+2. **HIGH — the slice justification is void** (§V5.26.3). Measured from
+   `vstate-0004`'s 80 physical cycles, the real RE-ARM→next-cause idle window is
+   **median 42.8 µs with p25 = 1.9 µs**, and **34 % of cycles have 1.9 µs** — the
+   next cause is already latched when the RE-ARM completes. The "164 µs of slack"
+   was `capture_elapsed / deliveries`, i.e. the mean cycle *period*, not slack.
+   Nothing is lost (the cause latches and `wait_next` polls), but the placement is
+   **PLAUSIBLE BUT UNMEASURED**, not proven safe, and the design must say so.
+3. **HIGH — the display path has never executed** (§V5.26.4). Dolphin matched a
+   line printed *before* the probe runs; without a GBP model no frame closes, so
+   `pump()` never ran. The blocker lives entirely in unexecuted code.
+4. **HIGH — the run cannot measure its own perturbation** (§V5.26.5). Only 16
+   per-cycle timing records are kept out of ~183 000, and there is no count of
+   "a cause was already pending while the slice ran".
 
-- **Converted-queue depth → 2.** §V5.8 called two "the minimum that lets the
-  display read one while the consumer writes another"; the implementation takes
-  that minimum and makes the descriptor mailbox depth 1, because
-  newest-complete-frame-wins and a deeper queue would show *older* frames.
-- **Text report versus GX framebuffer → two framebuffers.** GX copies into one,
-  the console owns the other, and the probe switches between them. §V5.15 said
-  this must not be solved by moving reporting into the service path, and it was
-  not.
-
-**Three things in the candidate are decisions, not code, and the audit should
-attack them first:**
-
-1. **The consumer's execution site.** §V5 fixed the boundary and the policy but
-   not where a single-threaded consumer runs. The implementation puts a bounded
-   slice immediately after the RE-ARM, arguing that this is the pass's last device
-   access and that one tile row is the same order of work as `gbp_vsig_block`,
-   which cost 777–799 ticks there in `color-0002` against 164 µs of slack. **That
-   is an argument, not a measurement of this code.**
-2. **Run duration — the one DESIGN DECISION REQUIRED that is still open.** 30 s is marked
-   PROVISIONAL in the source. §V5.5 wants a duration justified against a real
-   interval, the way GBP-VIDEO-002's 120 s was justified against the Start-up
-   Disc's detector window. Nothing has supplied one.
-3. **The texture-ownership scheme.** `GX_SetDrawDone()` plus a draw-done callback
-   is the non-blocking form, chosen because `GX_DrawDone()` blocks and §V5.7
-   forbids a wait here. Whether the callback really fires before the CPU wants
-   the buffer back is untested on hardware; the code counts `no_free_buffer`
-   rather than assuming it.
-
-**Also unresolved, and it blocks the DECISIVE run rather than the first one:**
-the CONTROLLED motion stimulus of §V5.18 does not exist. Without it a streaming
-run has no ground truth, so frame loss can be *counted* but not *verified* — the
-same difference that made `color-0002` decisive and an ordinary capture not. A
-first run against any cartridge still exercises the machinery and measures the
-slice cost, which is worth doing; it just cannot close the experiment.
+**What the audit cleared**, so it is not re-litigated: RGB5A3 byte order (verified
+against the physical `color-0002` frame — no conversion needed), the tile mapping,
+preemption (producer and consumer are the same thread; the pump runs with IRQ 26
+already masked), publication ordering (no barrier needed), the R3 policy, cache
+flush size and ordering, instrumentation cost, and memory. Eight mutations of the
+two pure modules were all caught.
 
 ## Next safe action
 
-**Audit the exact candidate before it is executed.** Read
-`poc/gbp-video-stream-probe/source/main.c`, `src/gbp/gbp_vpix.{h,c}` and
-`src/gbp/gbp_vqueue.{h,c}` against `HARDWARE_TESTS.md` §V5, and check in
-particular:
+Open an implementation round for the §V5.26.9 list, in that order, and **do not
+request hardware until it is done and re-audited**:
 
-- that nothing new reaches the service path — `tools/poc_audit.py --profile
-  stream` says so about the objects, but read the call sites too;
-- that the pump cannot exceed its slice under any input;
-- that a partially converted texture cannot reach the screen on any path;
-- that the counters cannot double-count or lose a frame (`gbp_vqueue_balanced()`
-  is the invariant, and it is asserted, not assumed);
-- that the flush size, the flush ordering and the buffer states are right;
-- that the GX initialisation cannot perturb the capture, given it happens once,
-  before the first unmask.
+1. fix the texture-ownership scheme;
+2. make the two-in-flight condition observable whatever the fix is;
+3. add the perturbation counter §V5.26.5 identifies — at minimum a count of cycles
+   whose cause was already latched when the pump began, which the pump is already
+   positioned to read;
+4. correct the `main.c:324` comment and decide whether the abandon path should
+   reject rather than commit;
+5. restate the slice justification from the measured idle window.
 
-**Do not request a physical run in the same round as the audit.** Fix what the
-audit finds, rebuild clean, re-record the hash, and request the run after that.
+**The one thing that would make the fix testable** is the gap that let the blocker
+in: `main.c` has no behavioural test, and the host tests only assert that the
+callback's *name* appears in the source. Either the ownership state machine moves
+into a pure, host-testable module, or a test has to drive it directly. A fix
+without that is a fix nobody can check.
+
+Separately, and required before the experiment can CLOSE rather than before it
+runs: the CONTROLLED indexed motion stimulus of §V5.18 does not exist, so a first
+run can validate service, GX and pacing but **cannot** measure source-frame loss
+against ground truth. A first smoke must never later be cited as evidence of zero
+dropped source frames.
 
 Do **not** implement scaling, aspect correction, filtering, audio playback, A/V
 sync, KEYPAD or any network path; do not edit `OGBPCOL1` v1, `tools/vcolor.py`,
-`tools/vcolor2.py`, the §V4 contract or any fixture; do not change the §V5
-contract to match the implementation — if they disagree, that is a finding.
+`tools/vcolor2.py`, the §V4 contract or any fixture.
 
 ## Do not rediscover
 
@@ -322,12 +317,16 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 | Both physical colour runs deliver the identical picture in the consumed projection, 38 400/38 400 | GBP-HW-132 |
 | A GBP word needs **no channel arithmetic** to become a `GX_TF_RGB5A3` texel — `texel = word \| 0x8000`; the device already swapped the groups | GBP-HW-131; §V5.10 |
 | The AGB (~59.727 Hz) and the GameCube VI (~59.94 Hz) are not synchronised: ≈ 26 repeated display frames per 120 s are arithmetic, not loss | GBP-PHY-003; GBP-HW-078; §V5.6 |
-| No POC in this repository has ever initialised GX; every one uses `VIDEO_Init` + `CON_Init` on a single XFB | verified across `poc/` and `src/`; §V5.4 |
+| `poc/gbp-video-stream-probe` is the ONLY POC that initialises GX, and `main.o` is the only object permitted to name `GX_`; every other POC uses `VIDEO_Init` + `CON_Init` on a single XFB | `poc_audit` profile `stream`; §V5.4 |
 | The frame assembler already classifies COMPLETE_40 / SHORT / LONG / PREDICATE_ANOMALY / RESYNC — streaming needs a *display* policy, not a new classification | `src/gbp/gbp_vstate.h`; §V5.9 |
 | The ROM-delivery route is route 1, EZ-Flash Omega DE NOR / Mode B, and it sets `CONTROL orig=92` | §V3.7 resolution; GBP-HW-127 |
 | A GBP word becomes a `GX_TF_RGB5A3` texel with `\| 0x8000` and no channel arithmetic; the only work is the 4×4 tile permutation | GBP-HW-131; `src/gbp/gbp_vpix.c` |
 | `GX_DrawDone()` blocks and `GX_SetDrawDone()` + `GX_SetDrawDoneCallback()` do not — that is why the texture ownership uses the callback form | `ogc/gx.h` in `libogc2:20260805` |
 | One block is exactly one 4×4 tile row: 0xF00 raw bytes → 0x780 tiled bytes, the same as the Disc's own converter | `VIDEO_PATH.md` §2.3; `gbp_vpix.h` |
+| The pump runs with IRQ 26 ALREADY MASKED, so the GBP ISR cannot preempt a conversion; producer and consumer are one thread and need no barrier | `gbp_irq_service.c` step 7; §V5.26.1 |
+| `wait_next()` is a busy poll on INTSR, so a cause arriving during a slice LATCHES and is found late rather than lost | `gbp_vstate_probe.c` `wait_next`; §V5.26.1 |
+| The real RE-ARM→next-cause idle window is median 42.8 µs, p25 1.9 µs — NOT the 164 µs mean cycle period | `vstate-0004` cycle records; §V5.26.3 |
+| A GBP word needs no byte-order conversion to be a GX_TF_RGB5A3 texel on PowerPC; verified against the physical `color-0002` frame | §V5.26.7 |
 
 ## Do not assume
 
@@ -350,18 +349,25 @@ believe one is wrong, argue against the source, do not re-run the discovery.
   set; a permutation fixing those three and rearranging only bits 1–4 is not
   excluded. §V3.19 holds the pattern that would close it, and it is not
   scheduled.
-- **That §V5 has been validated by anything.** It is a design. Not one line of it
-  is implemented, nothing has run, and its estimates — conversion cost above all —
-  are explicitly *not* budgeted as properties (§V5.22).
+- **That §V5 has been validated by anything.** It was implemented on 2026-09-18
+  and the candidate was then REJECTED by its own pre-hardware audit. Nothing has
+  run, and its estimates — conversion cost above all — are still explicitly *not*
+  budgeted as properties (§V5.22).
 - **That a commercial cartridge has been chosen.** §V5.18 records the properties
   one must have and deliberately names no title; the operator owns that choice.
 - **That `stream-0001` has been validated on hardware.** It has not run. It is
   implemented and host-validated, no evidence id is allocated to it, and its
   30 s capture duration is still a DESIGN DECISION.
-- **That the slice fits.** The argument for one tile row per service cycle rests
-  on `gbp_vsig_block`'s measured cost for the same byte count in the same path.
-  This code's own cost has never been measured; the probe instruments it so the
-  first run can.
+- **That the slice fits.** The argument for one tile row per service cycle rested
+  on a misread number. The measured RE-ARM→next-cause idle window is median
+  42.8 µs with **p25 = 1.9 µs**; 34 % of cycles have no usable slack at all
+  (§V5.26.3). Nothing is lost, because the cause latches, but the placement is
+  unmeasured.
+- **That `stream-0001` is ready to run.** The pre-hardware audit rejected it:
+  one BLOCKER and three HIGH findings (§V5.26).
+- **That the display path works because the build and the tests are green.** It
+  has never executed — not on hardware, not in Dolphin, not on the host
+  (§V5.26.4).
 - **That bytes 0 and 2 are don't-care in general.** §V4 places them outside the
   dependent variable of *this experiment* only. U-GBP-029 is open, they are
   preserved in full, and every run reports the full-raw comparison.
