@@ -418,7 +418,7 @@ PROFILES = {
                               "gbp_avseqdump.o", "gbp_vcoldump.o"),
         "required_objects": ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o",
                              "gbp_avblock.o", "gbp_time64.o", "gbp_vsig.o", "gbp_vstate.o",
-                             "gbp_vstate_probe.o", "gbp_vstatedump.o", "gbp_vpix.o", "gbp_vqueue.o",
+                             "gbp_vstate_probe.o", "gbp_vstatedump.o", "gbp_vpix.o", "gbp_vqueue.o", "gbp_vpresent.o",
                              "gbp_crc32.o", "sdlog.o", "main.o"),
         "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
                               "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi",
@@ -444,6 +444,16 @@ PROFILES = {
                            # §V5.7: the publish is ONE call site, in the service
                            # path, and nothing else in the runtime may publish.
                            "gbp_vqueue_publish": {"gbp_vstate_probe_run": 1},
+                           # The ownership machine is reached from main.o only,
+                           # and the callback calls exactly ONE function — which
+                           # is the whole of the stream-0001 fix (§V5.26.2).
+                           "gbp_vpresent_draw_done": {"on_draw_done": 1},
+                           # `submit_ready` is inlined by the compiler, so the
+                           # sites are its two callers: the pump (the re-offer of
+                           # a blocked READY buffer, and the completion path) and
+                           # main (the display self-test). What matters is the
+                           # one that is ABSENT: gbp_vstate_probe_run.
+                           "gbp_vpresent_submit": {"pump": 2, "main": 1},
                            # The conversion is CONSUMER ONLY. The POC converts one
                            # TILE ROW per slice, so `pump` is the single call site
                            # and no object under src/gbp may call it at all —
@@ -459,6 +469,8 @@ PROFILES = {
                            "sdlog_save": {"main": 1}},
         "elf_required": ("gbp_vstate_probe_run", "gbp_vstate_report", "gbp_vstate_block", "gbp_vsig_block",
                          "gbp_vqueue_publish", "gbp_vqueue_take", "gbp_vqueue_commit", "gbp_vpix_block",
+                         "gbp_vpresent_acquire", "gbp_vpresent_submit", "gbp_vpresent_draw_done",
+                         "gbp_vpresent_xfb_target", "gbp_vpresent_shutdown", "GX_SetDrawDoneCallback",
                          "gbp_initirqa_run_cause", "gbp_initirqa_teardown", "gbp_regwrite_irq_u16",
                          "gbp_regwrite_control_byte", "hsp_backend_oneshot_isr_ext",
                          "hsp_backend_irq_transport_ext", "__UnmaskIrq", "__MaskIrq", "IRQ_Request",
@@ -477,6 +489,7 @@ PROFILES = {
             "gbp_vstate.o": _FS_SYMBOLS,
             "gbp_vpix.o": _FS_SYMBOLS,
             "gbp_vqueue.o": _FS_SYMBOLS,
+            "gbp_vpresent.o": _FS_SYMBOLS,
             "gbp_vsig.o": _FS_SYMBOLS,
             "gbp_vstatedump.o": _FS_SYMBOLS,
             "gbp_time64.o": _FS_SYMBOLS,
