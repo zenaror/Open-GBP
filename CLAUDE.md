@@ -1,5 +1,18 @@
 # CLAUDE.md — Open-GBP Development Rules
 
+> **Read [`AGENTS.md`](AGENTS.md) and [`docs/HANDOFF.md`](docs/HANDOFF.md)
+> first.** `AGENTS.md` is the agent-neutral entry point — the authority
+> hierarchy, the evidence vocabulary and the rules every agent must follow, not
+> only Claude. `docs/HANDOFF.md` carries the current state, the current blocker
+> and the next safe action.
+>
+> This file holds the **permanent project policies**: build environment, private
+> inputs, testing and commit discipline, hardware-safety rules. They apply to
+> every agent and to human contributors; nothing here is Claude-specific except
+> the file's name and history. Where this file and `AGENTS.md` overlap,
+> `AGENTS.md` is the authority on evidence handling and `CLAUDE.md` on project
+> policy.
+
 ## 1. Read this first
 
 Before modifying code or documentation, read completely:
@@ -13,6 +26,9 @@ Before modifying code or documentation, read completely:
 7. `docs/research/DEVLOG.md`
 
 These files define the project scope, research methodology, development order, and current knowledge.
+
+`docs/HANDOFF.md` indexes where the project currently stands and what the next
+safe action is; read it alongside the list above.
 
 Do not infer project goals solely from source code or previous conversation context.
 

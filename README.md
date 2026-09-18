@@ -186,6 +186,28 @@ Early research and infrastructure stage.
 
 The first implementation milestone is an open-source program capable of initializing and controlling the physical Game Boy Player while building a documented and testable understanding of the hardware interface.
 
+## Continuing development with an AI or code agent
+
+The supported way to pick this project up — with no chat history, by any agent
+or by a person — is the handoff:
+
+- **[`AGENTS.md`](AGENTS.md)** — the rules any agent must read before touching
+  anything: the authority hierarchy, the evidence vocabulary, and what must
+  never be claimed.
+- **[`docs/HANDOFF.md`](docs/HANDOFF.md)** — the current scientific and
+  operational state, the frozen contracts, the exact artifacts that were
+  physically executed, the current blocker and the next safe action.
+
+`docs/HANDOFF.md` is an index, not evidence: every entry points at the document
+that owns it. It also carries a staleness check, because a handoff is not true
+merely because it exists.
+
+To hand the project to a new agent, paste the **canonical resume prompt** from
+[`docs/HANDOFF.md`](docs/HANDOFF.md#canonical-resume-prompt). It is
+vendor-neutral, it tells the agent to reconstruct the state from the repository
+rather than from anyone's memory, and it stops the agent before implementation
+so you can confirm what it reconstructed.
+
 ## AI Notice
 
 AI tools such as Claude were used in this project.
