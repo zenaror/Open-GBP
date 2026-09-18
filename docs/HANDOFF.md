@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   87e68db548f1f4cc1a2b5f278f4a6c23340f6f06
+STATE BASELINE COMMIT   03b32a9b99a27b3191bb44d978d62f60aa500c51
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -26,8 +26,8 @@ HEAD to be at least one commit ahead: the one carrying this text.
 LAST PHYSICAL EVIDENCE INGESTED
   GBP-VIDEO-004 / stream-0002, executed 2026-09-18 — THE FIRST STREAMING SMOKE
   GBP-HW-134 … GBP-HW-137
-  STANDING: ABORTED PRE-SERVICE
-  REASON:   store_or_bounds_invalid  (gbp_vstate_probe.c:790)
+  STANDING: ABORTED PRE-SERVICE — corrected in stream-0003 (§V5.30)
+  REASON:   store_or_bounds_invalid  (gbp_vstate_probe.c:790, field=episode_raw_null)
   GX self-test PHYSICALLY PASSED; GBP stream capture NEVER STARTED;
   deliveries=0 acks=0 rearms=0 handler_installed=0.
   NO claim about video, streaming, pacing or the service path follows from it.
@@ -157,7 +157,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-003 | `color-0002` | `39f1980` | `d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1` | **PHYSICALLY EXECUTED 2026-09-18 — the confirmatory run** | GBP-HW-127…133 |
 | GBP-VIDEO-004 | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **REJECTED before hardware — DO NOT RUN** | `HARDWARE_TESTS.md` §V5.26 |
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0003` | `STREAM0003_COMMIT` | `STREAM0003_SHA` | **NOT PHYSICALLY EXECUTED** — storage contract satisfied, R1 retired, R8 latched; awaiting a small focused pre-hardware audit | `HARDWARE_TESTS.md` §V5.30 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **NOT PHYSICALLY EXECUTED** — storage contract satisfied, R1 retired, R8 latched; awaiting a small focused pre-hardware audit | `HARDWARE_TESTS.md` §V5.30 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -176,15 +176,18 @@ keeps.
 Test ID     GBP-VIDEO-004
 Build ID    stream-0003     (stream-0001 REJECTED; stream-0002 EXECUTED and
                              ABORTED PRE-SERVICE — neither is ever rebuilt)
-commit      STREAM0003_COMMIT   (CLEAN, no -dirty suffix)
+commit      03b32a9   (CLEAN, no -dirty suffix)
 DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
-            STREAM0003_SIZE B   sha256 STREAM0003_SHA
+            471 648 B   sha256 2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3
 Swiss       build/swiss/12-stream/boot.dol   (byte-identical copy, hash verified)
 toolchain   powerpc-eabi-gcc (devkitPPC) 16.1.0, libogc2 r2442.094b250,
             ghcr.io/extremscorner/libogc2:20260805 — zero warnings
 memory      text 363 744 B, data 107 680 B, bss 8 204 404 B
             three framebuffers (two for the stream, one for the console) 1.76 MiB
             MEM1 committed 10.03 MiB of 24.00; 13.96 MiB of arena left
+            bss measured 8 204 412 B at the clean build (8 204 404 at the dirty
+            one; the 8 B are the shorter commit string, and 40 B above the
+            5 308 416 prediction is linker alignment)
 fix         §V5.30: the full GBP-VIDEO-002 store set (16384 frame records AND the
             2.81 MiB episode store, the two things stream-0002 omitted); the
             capacities derived from the arrays; six _Static_asserts over the
@@ -251,121 +254,97 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **Identify and correct the `stream-0002` preflight `store_or_bounds_invalid`
-> abort before repeating hardware. The cause IS identified (§V5.29); what
-> remains is the correction, in a new candidate.**
+> **A SMALL focused pre-hardware audit of `stream-0003`. Hardware is NOT
+> authorised by this checkpoint.**
 
-The first physical smoke ran on 2026-09-18 and **aborted at the first gate of the
-probe, before any device access**. Its correct description, in full:
+`stream-0002`'s physical run identified its own blocker precisely (§V5.29), and
+§V5.30 corrected it. What has not happened is a reading by someone who did not
+write it — and the §V5.29 finding was, exactly, that a scope rule applied against
+the wrong baseline let a storage defect through three audits.
 
-```text
-PHYSICAL EXECUTION ATTEMPTED
-GX SELF-TEST PHYSICALLY PASSED
-GBP STREAM CAPTURE NOT STARTED
-ABORTED PRE-SERVICE: store_or_bounds_invalid
-
-NOT "streaming failed". NOT "video failed". NOT "service failed".
-deliveries=0 acks=0 rearms=0 frames=0 handler_installed=0.
-```
-
-### The cause, located exactly
+### What the audit must cover, and it is much less than last time
 
 ```text
-poc/gbp-video-stream-probe/source/main.c:652  gbp_vstate_probe_run()
-  -> src/gbp/gbp_vstate_probe.c:790           !st || !gbp_vstate_storage_ok(st)
-  -> src/gbp/gbp_vstate.c:72                  !s->episode_raw     <- THIS ONE FIRED
+1. the ACTUAL storage configuration, compared against vstate-0004 and
+   color-0002 — never against the previous candidate;
+2. address/range sanity of the new layout (episode_raw is 2.81 MiB and moved
+   everything above it);
+3. R1 isolation — that nothing reaches `vq` except through `account`;
+4. the R8 latch — that it observes and never writes a state bit;
+5. the ownership and timing instrumentation, UNCHANGED;
+6. the exact artifact identity.
 ```
 
-`main.c:569-570` passes `episode_raw = NULL, episode_raw_cap = 0` and
-`frames_cap = STREAM_MAX_FRAMES = 4096` against a required `GBP_VSTATE_MAX_FRAMES
-= 16384`. Three of the validator's twelve predicates are false; short-circuit
-evaluation makes the NULL episode store the one that fires. Reproduced on the
-host bit for bit, including the logged `static_bytes=6922240`.
+§V5.28 already proved the ownership machine by exhaustive enumeration, the
+compiler ordering from the instruction stream, the libogc2 semantics from the
+pinned source, the XFB model, the cache ordering and the teardown order.
+**`stream-0003` did not touch any of them**, and this audit should not re-derive
+them.
 
-### The gate was RIGHT — do not relax it
-
-Two sites dereference `episode_raw` with no NULL check:
+### What `stream-0003` changed, in one place
 
 ```text
-src/gbp/gbp_vstate_probe.c:812   memset(st->episode_raw, 0, 2 949 120)
-src/gbp/gbp_vstate.c:739         preserve_frame() writes one 184 320 B frame
+STORAGE   frame_store[GBP_VSTATE_MAX_FRAMES] and episode_raw[EPISODE_RAW_BYTES]
+          now exist and are passed to gbp_vstate_init(); capacities derived from
+          the arrays; six _Static_asserts over the actual arrays. The gate was
+          NOT weakened — gbp_vstate_storage_ok() is now DEFINED as
+          "gbp_vstate_storage_fault() returns NULL".
+NAMING    gbp_vstate_static_bytes() -> gbp_vstate_required_capacity_bytes()
+          (same value, 6 922 240, so historical logs keep their meaning), beside
+          gbp_vstate_configured_bytes(s), which counts only stores that exist.
+LOGGING   VSTATE storecfg and ENVSTORE carry configured/required side by side;
+          the abort now reads `field=episode_raw_null` instead of naming only
+          the gate.
+R1        submit_ready(buf, account); the self-test passes NULL and counts its
+          own presents/repeats; gbp_vqueue_pristine() asserts the queue is clean
+          when the probe is entered.
+R8        gbp_vpresent audits every transition and LATCHES a failure that heals;
+          main and ISR counted apart; the report separates consistent_at_end
+          from invariant_failures.
 ```
 
-Had the run started, the probe would have memset 2.81 MiB over GameCube low
-memory **before the first device access**. A diagnostic unit test now pins this
-(`tests/unit/test_gbp_vstate.c`, `test_a_null_episode_store_must_stay_refused`).
+### What it must confirm is UNCHANGED
 
-### What this was NOT
+R3's PE FINISH behaviour, the post-RE-ARM pump placement, the one-tile-row slice,
+the RGB5A3 mapping, the generation guard, the source-disagreement and
+`F_SOURCE_DEFERRED` policies, the mailbox semantics, R5's `GX_CopyDisp`, R7's
+READY selection order, the controlled-stimulus design, and **every timing
+counter** — the next physical run must still report `pump calls / slices /
+completed / skipped_cause_pending / pending_before / pending_after /
+arrived_during / ticks min·max·mean`.
 
-```text
-NOT a memory shortage   2.78 MiB of MEM1's 24 MiB was in use; about 21 MiB free.
-NOT an overlap          every region is contiguous and disjoint (§V5.29.5).
-NOT a misalignment      every DMA/GX target is 32-byte aligned.
-NOT an overflow         every start+size < 2^32.
-NOT the GX self-test    the predicate reads only fields fixed at main.c:569,
-                        BEFORE the self-test at main.c:585; src/gbp/ contains no
-                        allocation of any kind.
-```
-
-### Two traps this left behind
-
-1. **`static_bytes=6922240` is a capacity CONSTANT, not a footprint.**
-   `gbp_vstate_static_bytes()` is computed entirely from `#define`s. This build
-   allocated **1 798 144**. The 5 124 096 difference is a frame table and an
-   episode store that do not exist.
-2. **`VSTATE stores frames=16384 …` printed the constant, not `s->frames_cap`.**
-   The build had 4096. **The log line that should have exposed the defect
-   concealed it.** Fix the logging in the same round as the stores.
-
-### Why three audits missed it
-
-`git show 0816cbe` proves the same configuration shipped in **`stream-0001`** —
-the defect is as old as the first streaming candidate. §V5.28 scoped the memory
-design out because "`stream-0002` did not touch it", which was true and beside
-the point: it had changed relative to `color-0002` and `vstate-0004`, both
-physically validated, both of which pass 16384 frames and a real 2.81 MiB episode
-store. **An audit's "unchanged, therefore out of scope" must be measured against
-the last physically validated build, not against the previous candidate.**
+**And the slice position is still what it was: PLAUSIBLE BUT UNMEASURED.** The
+measured RE-ARM→next-cause window is median 42.8 µs with **p25 = 1.9 µs**; the
+precheck removes the *already latched* case but not a cause arriving mid-slice,
+and this code's own cost has still never been measured on hardware. **The
+placement is not claimed to be timing-safe.**
 
 ## Next safe action
 
-Build **`stream-0003`**, carrying three corrections and nothing else:
+Run the small focused pre-hardware audit of `stream-0003` above. **Only if it
+passes**, request the physical run under §V5.20 / §V5.21.
 
 ```text
-1. THE STORE FIX (this blocker). poc/-only, no change to src/:
-     frame_store[GBP_VSTATE_MAX_FRAMES]                 (was STREAM_MAX_FRAMES 4096)
-     episode_raw[GBP_VSTATE_EPISODE_RAW_BYTES]          (was absent)
-     gbp_vstate_init(..., episode_raw, sizeof episode_raw, ...)
-   cost +5 308 416 B; bss 2 895 948 -> 8 204 364 (7.82 MiB); about 10.0 MiB of 24.
-
-2. R1  the display self-test must not write gbp_vqueue_note_presented().
-3. R8  evaluate gbp_vpresent_consistent() during the capture, not only at the end.
-
-Plus the observability repairs the abort exposed:
-   - log s->frames_cap / events_cap / raw_ring_cap / episode_raw_cap /
-     audio_raw_cap BESIDE the constants;
-   - make gbp_vstate_static_bytes() report what was ALLOCATED, or rename it;
-   - a host guard that parses the POC's gbp_vstate_init() call and requires a
-     non-NULL episode store and frames_cap >= GBP_VSTATE_MAX_FRAMES.
+Test ID   GBP-VIDEO-004
+Build ID  stream-0003
+commit    03b32a9   (CLEAN, no -dirty)
+DOL       build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+          471 648 B
+          sha256 2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3
+Swiss     build/swiss/12-stream/boot.dol — byte-identical, verified
 ```
 
-Then a pre-hardware audit of `stream-0003` whose scoping rule is measured against
-`color-0002` / `vstate-0004`, **not** against `stream-0002`.
-
-`stream-0002` stays historical: commit `2457d51`, 466 272 B, sha256
-`76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d`. It is never
-rebuilt, never re-labelled and never re-run, and its first-run log is preserved as
-the evidence behind GBP-HW-134…137.
-
-**And the slice position is still what it was: PLAUSIBLE BUT UNMEASURED.** The
-run never reached the service path, so it measured nothing about it. The measured
-RE-ARM→next-cause window is median 42.8 µs with **p25 = 1.9 µs**; the precheck
-removes the *already latched* case but not a cause arriving mid-slice, and this
-code's own cost has still never been measured on hardware.
+`stream-0001` (REJECTED before hardware) and `stream-0002` (EXECUTED, ABORTED
+PRE-SERVICE) are historical. Neither is ever rebuilt, re-labelled or re-run, and
+**`stream-0002` is not a streaming failure** — streaming was never reached.
+GBP-HW-134…137 remain its evidence and keep their meaning, including the
+pre-registered R1 correction for reading *that* log.
 
 Separately, and required before the experiment can CLOSE rather than before it
 runs: the CONTROLLED indexed motion stimulus of §V5.18 still does not exist —
 `stimulus/` holds only `agb-color-bars`, the static eight-bar GBP-VIDEO-003 ROM.
+A first successful run can measure service, GX, pacing and the consumer's cost;
+it **cannot** measure source-frame loss against ground truth.
 
 Do **not** implement scaling, aspect correction, filtering, audio playback, A/V
 sync, KEYPAD or any network path; do not edit `OGBPCOL1` v1, `tools/vcolor.py`,

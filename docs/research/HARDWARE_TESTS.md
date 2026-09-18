@@ -9439,6 +9439,32 @@ binary.
 Dolphin remains auxiliary and provides no GBP device. Nothing here is evidence
 about sustained streaming.
 
+#### V5.30.8b The exact candidate identity
+
+```text
+Test ID     GBP-VIDEO-004
+Build ID    stream-0003
+source      commit 03b32a9   (CLEAN, no -dirty suffix)
+DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+            471 648 B
+            sha256 2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3
+Swiss       build/swiss/12-stream/boot.dol — byte-identical, hash verified.
+            The slot is NOT renumbered; 12-stream now holds stream-0003, and
+            stream-0001 / stream-0002 keep their identities in this document
+            and in docs/HANDOFF.md.
+toolchain   powerpc-eabi-gcc (devkitPPC) 16.1.0
+            libogc2 r2442.094b250
+            ghcr.io/extremscorner/libogc2:20260805
+            ZERO warnings at -Wall -Wextra -Wshadow
+text        0x058CE0    363 744 B
+data        0x01A480    107 648 B
+bss         0x7D307C  8 204 412 B     0x8007625C ..
+```
+
+The clean build's bss is 8 bytes above the dirty one measured in §V5.30.3,
+because the embedded commit string is shorter; both are within 48 B of the
+5 308 416-byte prediction, and the difference is linker alignment.
+
 #### V5.30.9 Status
 
 ```text

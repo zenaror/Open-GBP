@@ -124,11 +124,51 @@ class ThePolicyIsTheAssemblersNotACopy(unittest.TestCase):
                          "the queue is inventing its own frame flags")
 
     def test_the_r3_policy_source_is_untouched_by_this_round(self):
-        """gbp_vstate.c carries the physically validated disagreement policy. If
-        this checkpoint changed it, that is a different experiment."""
-        r = subprocess.run(["git", "log", "--oneline", "-1", "--", "src/gbp/gbp_vstate.c"],
+        """gbp_vstate.c carries the physically validated disagreement policy. If a
+        streaming round changed it, that is a different experiment.
+
+        This used to check the file's last commit message, which became too coarse
+        once stream-0003 had to touch the SAME FILE for the storage validator
+        (§V5.30.1). The check is now on the content: no CODE line added or removed
+        since the last physically validated build, `39f1980` (color-0002), may
+        mention the R3 policy at all. Comments are exempt — they may explain."""
+        r = subprocess.run(["git", "diff", "39f1980..HEAD", "--", "src/gbp/gbp_vstate.c"],
                            cwd=ROOT, capture_output=True, text=True)
-        self.assertNotIn("stream", r.stdout.lower())
+        self.assertEqual(r.returncode, 0, r.stderr)
+        touched = []
+        for line in r.stdout.splitlines():
+            if not line or line[0] not in "+-" or line[:3] in ("+++", "---"):
+                continue
+            body = line[1:].strip()
+            if body.startswith(("*", "/*", "//")):      # a comment line
+                continue
+            if re.search(r"diag|disagree|semantic|\bsem\.|gap\[|R3", body, re.I):
+                touched.append(line)
+        self.assertEqual(touched, [],
+                         "a streaming round changed the R3 disagreement policy")
+
+    def test_only_the_storage_api_changed_in_the_validated_state_model(self):
+        """The positive half of the same claim: what DID change since `39f1980`
+        is the storage validator and the capacity naming, and nothing else."""
+        r = subprocess.run(["git", "diff", "39f1980..HEAD", "--", "src/gbp/gbp_vstate.c"],
+                           cwd=ROOT, capture_output=True, text=True)
+        allowed = re.compile(
+            r"storage_fault|storage_ok|static_bytes|required_capacity_bytes|configured_bytes"
+            r"|frames_cap|events_cap|raw_ring_cap|raw_ring_slots|episode_raw|audio_raw"
+            r"|s->frames|s->events|s->raw_ring|frames_null|events_null|raw_ring_null"
+            r"|GBP_VSTATE_(MAX_FRAMES|MAX_EVENTS|RAW_RING|EPISODE_RAW|AUDIO_RAW|FRAME_REC|EVENT_REC|RAW_FRAME_BYTES)"
+            r"|^\}$|^\{$|^return|^s->frames|^if \(!s\)|^const char|^uint64_t|^int ", re.I)
+        stray = []
+        for line in r.stdout.splitlines():
+            if not line or line[0] not in "+-" or line[:3] in ("+++", "---"):
+                continue
+            body = line[1:].strip()
+            if not body or body.startswith(("*", "/*", "//")):
+                continue
+            if not allowed.search(body):
+                stray.append(body)
+        self.assertEqual(stray, [],
+                         "gbp_vstate.c changed outside the storage/capacity API")
 
 
 class HistoricalProbesAreUnchanged(unittest.TestCase):
