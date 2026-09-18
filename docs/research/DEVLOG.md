@@ -7179,3 +7179,100 @@ output was trusted until a clean rebuild reproduced it.
 configuration against `vstate-0004`/`color-0002`, the address ranges, R1
 isolation, the R8 latch, the unchanged instrumentation and the exact artifact
 identity. Then, and only then, the physical run.
+
+## 2026-09-18 — stream-0003 audited (DECISION A), and Dolphin turns out to have a Game Boy Player
+
+**Two things, deliberately kept apart.** A short pre-hardware audit of the
+`stream-0003` candidate, and the correction of a premise this project had been
+carrying: that Dolphin has no Game Boy Player.
+
+**The audit is short because §V5.28 already did the long one.** The ownership
+machine, the compiler ordering, the libogc2 semantics, the XFB model, the cache
+ordering and the teardown were proved there, and `stream-0003` did not touch any
+of them. What was checked here is what changed:
+
+```text
+storage   frames_cap 16384, events_cap 4096, raw_ring 737280 (4 slots),
+          episode_raw non-NULL 2 949 120, audio_raw 12288
+          gbp_vstate_storage_fault() == NULL, storage_ok() == 1
+R1        after the self-test's exact shape every scientific counter is 0,
+          gbp_vqueue_pristine() == 1, balanced == 1 with NO correction
+R8        a valid lifecycle latches 0 in 4 checks; an injected two-SUBMITTED
+          state is LATCHED, survives healing, and consistent_at_end still
+          recovers to 1 — the two claims are finally separate
+memory    no overlap, no misalignment, all inside BSS; 10.03 MiB of 24.00
+parity    gbp_vpix untouched; the pump placement, slice, cause precheck, timing
+          counters, R3, PE FINISH policy, mailbox and generation guard unchanged
+```
+
+The candidate also **reproduced byte-for-byte** — `2f8e362e…` from the same
+source with `GIT_COMMIT=03b32a9` — after a warning check accidentally rebuilt it
+at HEAD. The exact artifact was restored and the accident became a proof.
+
+**DECISION A: `stream-0003` is ready for the first physical GBP stream smoke.**
+
+**Now the premise.** "Dolphin has no GBP" was wrong about the emulator and only
+ever true of the launch configuration the smokes used — and
+`docs/protocol/REGISTERS.md` had been citing Dolphin's GBP model for register
+semantics all along, which should have been the clue.
+
+The installed Flatpak (`stable`, **2606a**, flatpak commit `88a604c2…`, built
+2026-08-11) contains `HSP::CHSPDevice_GBPlayer`, `HSP::CGBPlayer_mGBA` and the
+config keys `HSPDevice` and `GBPlayerRom` — read out of the installed binary, not
+inferred from master. Enabling it needs two session settings and nothing else:
+
+```text
+Dolphin.Core.HSPDevice  = 2    (None 0, ARAMExpansion 1, GBPlayer 2)
+Dolphin.GBA.GBPlayerRom = <a .gba>
+
+no GBA BIOS       GBACore sets useBios = 0 — mGBA's HLE BIOS is used
+no Start-up Disc  HSPManager::Init() creates the device at hardware init
+reachable         through ARAM DMA, which is the path Open-GBP already uses
+```
+
+**And it works, in the sense that matters: the emulated GBP is visible to
+Open-GBP's protocol.** With everything else identical and an isolated Dolphin
+profile:
+
+```text
+HSPDevice=0 (None)                → abort_inconsistent   / inconsistent
+HSPDevice=2 + AGS-rom.gba         → abort_control_shape  / control_not_idle_shape
+HSPDevice=2 + colour-bars cart    → abort_control_shape  / control_not_idle_shape
+```
+
+The abort changes and the only variable is the HSP device. AR_INFO succeeds, the
+probe reads CONTROL from the emulated device, and rejects it.
+
+**The first divergence, named exactly.** Open-GBP's 003A idle gate requires
+CONTROL bit `0x10` (MASK_IRQ) SET and bits `0x0C` (3V|5V) CLEAR — hardware
+presents `0x90`. Dolphin's model zero-initialises `m_control`, stores
+`value & 0xFC` on a write, and ORs in only `0x02`/`0x01` on a read, so a host
+reads `0x02` at power-on and **bit 0x10 is never set by the model**. The gate
+fires deterministically.
+
+That is a **model divergence, not an Open-GBP omission**, and nothing was
+changed: relaxing a physically grounded gate to satisfy an emulator would invert
+the authority hierarchy. A diagnostic-only emulator mode is a design question for
+another round.
+
+**A second divergence, recorded before someone trips on it:** Dolphin's VIDEO
+read sets byte0 = byte1 and byte2 = byte3. Physically they differ (GBP-HW-133).
+**Dolphin can never be evidence about U-GBP-029**, in either direction.
+
+**Newly available, and worth having:** `make stream-dolphin-gbp` — the emulated
+GBP as a reproducible pre-hardware gate, in an isolated profile with session-only
+overrides that never touch the operator's own configuration. It cannot replace
+hardware and cannot promote a FACT, but it now exercises strictly more of the
+runtime than the old smoke did.
+
+**Not claimed.** No video frame was produced by the emulated GBP — the probe
+stops at the CONTROL gate — so there is no AGS picture to report and none is
+asserted. Sustained streaming still works nowhere.
+
+**Tests.** 19 unit binaries / 792 077 checks / 0 failures; 575 host tests OK;
+`stream-audit` clean with both one-shot ISRs byte-identical to the physically
+validated GBP-VIDEO-001 build; `stream-dolphin` PASS; zero compiler warnings.
+
+**Next:** the first physical GBP stream smoke of the exact `stream-0003`
+artifact — short, supervised, no rebuild, operational/timing/display only, and
+explicitly not a decisive frame-loss validation.

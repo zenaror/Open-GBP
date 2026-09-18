@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   03b32a9b99a27b3191bb44d978d62f60aa500c51
+STATE BASELINE COMMIT   06b035ad44347e4db6722c02b8bbb6f616f8e0c9
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -95,7 +95,8 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
-| **GBP-VIDEO-004** (sustained streaming) | **`stream-0003` IMPLEMENTED · SOFTWARE/HOST VALIDATED · PRE-SERVICE STORAGE FIXED · PHYSICAL CANDIDATE READY · NOT PHYSICALLY EXECUTED.** Sustained streaming is NOT claimed to work | `HARDWARE_TESTS.md` §V5.30 |
+| **GBP-VIDEO-004** (sustained streaming) | **`stream-0003` AUDITED 2026-09-18 — DECISION A: READY FOR THE FIRST PHYSICAL GBP STREAM SMOKE · NOT PHYSICALLY EXECUTED.** Sustained streaming is NOT claimed to work | `HARDWARE_TESTS.md` §V5.30, §V5.31 |
+| **Dolphin's emulated Game Boy Player** | **EXISTS and is REACHABLE from a homebrew DOL** in the installed 2606a (`HSPDevice=2` + `GBPlayerRom`; no BIOS, no Start-up Disc). The exact `stream-0003` reaches the CONTROL gate on it and stops there: Dolphin's power-on CONTROL is `0x02`, hardware's is `0x90`. **AUXILIARY only** | `HARDWARE_TESTS.md` §V5.31 |
 | **`stream-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE: `store_or_bounds_invalid`.** GX self-test physically PASSED; **GBP stream capture never started**; `deliveries=0 acks=0 rearms=0 handler_installed=0`. Historical; never rebuilt, never re-labelled, and **not** a streaming failure | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | **`stream-0001`** | **REJECTED before hardware — DO NOT RUN.** Historical; its identity is preserved and was not reused | §V5.26; `stream-0002` supersedes it |
 | **Texture ownership** | **FIXED and TESTABLE**: moved to `src/gbp/gbp_vpresent.{h,c}`, at most ONE draw-done token in flight, the callback releases exactly one buffer by index | §V5.27.1 |
@@ -157,7 +158,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-003 | `color-0002` | `39f1980` | `d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1` | **PHYSICALLY EXECUTED 2026-09-18 — the confirmatory run** | GBP-HW-127…133 |
 | GBP-VIDEO-004 | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **REJECTED before hardware — DO NOT RUN** | `HARDWARE_TESTS.md` §V5.26 |
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **NOT PHYSICALLY EXECUTED** — storage contract satisfied, R1 retired, R8 latched; awaiting a small focused pre-hardware audit | `HARDWARE_TESTS.md` §V5.30 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **NOT PHYSICALLY EXECUTED — AUDITED, DECISION A.** 471 648 B; reproduced byte-for-byte from the same source; storage contract satisfied, R1 retired, R8 latched. **NO REBUILD** | `HARDWARE_TESTS.md` §V5.30, §V5.31 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -254,97 +255,117 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **A SMALL focused pre-hardware audit of `stream-0003`. Hardware is NOT
-> authorised by this checkpoint.**
+> **The first physical GBP stream smoke of the exact `stream-0003` artifact.
+> §V5.31 audited it and the classification is DECISION A: READY. No software
+> defect was found.**
 
-`stream-0002`'s physical run identified its own blocker precisely (§V5.29), and
-§V5.30 corrected it. What has not happened is a reading by someone who did not
-write it — and the §V5.29 finding was, exactly, that a scope rule applied against
-the wrong baseline let a storage defect through three audits.
-
-### What the audit must cover, and it is much less than last time
+### What the audit established
 
 ```text
-1. the ACTUAL storage configuration, compared against vstate-0004 and
-   color-0002 — never against the previous candidate;
-2. address/range sanity of the new layout (episode_raw is 2.81 MiB and moved
-   everything above it);
-3. R1 isolation — that nothing reaches `vq` except through `account`;
-4. the R8 latch — that it observes and never writes a state bit;
-5. the ownership and timing instrumentation, UNCHANGED;
-6. the exact artifact identity.
+storage   frames_cap 16384 · events_cap 4096 · raw_ring 737 280 (4 slots)
+          episode_raw non-NULL, 2 949 120 · audio_raw 12 288
+          gbp_vstate_storage_fault() == NULL · storage_ok() == 1
+R1        the queue is PRISTINE entering the probe; balanced == 1 with NO
+          correction. The `presented − SELFTEST.xfb` rule belongs to
+          stream-0002's history and to nothing else.
+R8        a valid lifecycle latches 0; an injected impossible state is LATCHED
+          and survives healing, while consistent_at_end recovers to 1 — the run
+          can finally distinguish the two.
+memory    no overlap, no misalignment, all inside BSS; 10.03 MiB of 24.00
+parity    gbp_vpix untouched; pump placement, slice, cause precheck, timing
+          counters, R3, PE FINISH policy, mailbox, generation guard unchanged
+artifact  reproduced BYTE-FOR-BYTE from the same source at GIT_COMMIT=03b32a9
 ```
 
-§V5.28 already proved the ownership machine by exhaustive enumeration, the
-compiler ordering from the instruction stream, the libogc2 semantics from the
-pinned source, the XFB model, the cache ordering and the teardown order.
-**`stream-0003` did not touch any of them**, and this audit should not re-derive
-them.
+**The pump placement is still PLAUSIBLE BUT UNMEASURED.** The measured
+RE-ARM→next-cause window is median 42.8 µs with **p25 = 1.9 µs**; the precheck
+removes the *already latched* case but not a cause arriving mid-slice, and this
+code's own cost has never been measured on hardware.
 
-### What `stream-0003` changed, in one place
+### Dolphin HAS an emulated Game Boy Player — correct the old premise
+
+"Dolphin has no GBP" was wrong about the emulator and only ever true of the
+launch configuration the smokes used. The installed Flatpak (`stable`, **2606a**,
+flatpak commit `88a604c2…`) ships `HSP::CHSPDevice_GBPlayer` backed by libmgba.
 
 ```text
-STORAGE   frame_store[GBP_VSTATE_MAX_FRAMES] and episode_raw[EPISODE_RAW_BYTES]
-          now exist and are passed to gbp_vstate_init(); capacities derived from
-          the arrays; six _Static_asserts over the actual arrays. The gate was
-          NOT weakened — gbp_vstate_storage_ok() is now DEFINED as
-          "gbp_vstate_storage_fault() returns NULL".
-NAMING    gbp_vstate_static_bytes() -> gbp_vstate_required_capacity_bytes()
-          (same value, 6 922 240, so historical logs keep their meaning), beside
-          gbp_vstate_configured_bytes(s), which counts only stores that exist.
-LOGGING   VSTATE storecfg and ENVSTORE carry configured/required side by side;
-          the abort now reads `field=episode_raw_null` instead of naming only
-          the gate.
-R1        submit_ready(buf, account); the self-test passes NULL and counts its
-          own presents/repeats; gbp_vqueue_pristine() asserts the queue is clean
-          when the probe is entered.
-R8        gbp_vpresent audits every transition and LATCHES a failure that heals;
-          main and ISR counted apart; the report separates consistent_at_end
-          from invariant_failures.
+Dolphin.Core.HSPDevice  = 2      None 0 · ARAMExpansion 1 · GBPlayer 2
+Dolphin.GBA.GBPlayerRom = <.gba>
+
+no GBA BIOS       GBACore sets useBios = 0; mGBA's HLE BIOS is used
+no Start-up Disc  HSPManager::Init() creates the device at hardware init
+reachable         through ARAM DMA — the path Open-GBP already uses
+
+  make stream-dolphin-gbp                  the AGS aging cartridge
+  make stream-dolphin-gbp GBP_ROM=<path>   any other cartridge
+  make stream-dolphin-gbp GBP_HSP=0        the A/B control
+
+isolated by construction: its own --user-dir and session-only -C overrides;
+the operator's Dolphin configuration is never touched and nothing persists.
 ```
 
-### What it must confirm is UNCHANGED
+**It reaches further than the old smoke, and stops at a named divergence:**
 
-R3's PE FINISH behaviour, the post-RE-ARM pump placement, the one-tile-row slice,
-the RGB5A3 mapping, the generation guard, the source-disagreement and
-`F_SOURCE_DEFERRED` policies, the mailbox semantics, R5's `GX_CopyDisp`, R7's
-READY selection order, the controlled-stimulus design, and **every timing
-counter** — the next physical run must still report `pump calls / slices /
-completed / skipped_cause_pending / pending_before / pending_after /
-arrived_during / ticks min·max·mean`.
+```text
+HSPDevice=0 (None)               → abort_inconsistent  / inconsistent
+HSPDevice=2 + AGS-rom.gba        → abort_control_shape / control_not_idle_shape
+HSPDevice=2 + colour-bars cart   → abort_control_shape / control_not_idle_shape
+```
 
-**And the slice position is still what it was: PLAUSIBLE BUT UNMEASURED.** The
-measured RE-ARM→next-cause window is median 42.8 µs with **p25 = 1.9 µs**; the
-precheck removes the *already latched* case but not a cause arriving mid-slice,
-and this code's own cost has still never been measured on hardware. **The
-placement is not claimed to be timing-safe.**
+The abort changes with the HSP device alone, so the emulated GBP **is** visible
+to Open-GBP's protocol. The gate that stops it: Open-GBP's 003A requires CONTROL
+bit `0x10` SET and `0x0C` CLEAR (hardware presents `0x90`); Dolphin's model
+zero-initialises `m_control`, writes `value & 0xFC`, and ORs in only `0x02`/`0x01`
+on a read — so bit `0x10` is never set and a host reads `0x02`.
+
+**That is a MODEL divergence, not an Open-GBP omission**, and nothing in
+Open-GBP was changed. A diagnostic-only emulator mode that relaxes
+`require_idle_shape` is a design question for another round; it would have to be
+opt-in, labelled EMULATOR, and never the default.
+
+**Second divergence, so nobody trips on it:** Dolphin's VIDEO read sets
+byte 0 = byte 1 and byte 2 = byte 3. Physically they differ (GBP-HW-133).
+**Dolphin can never be evidence about U-GBP-029.**
+
+**No video frame was produced by the emulated GBP** — the probe stops at the
+CONTROL gate — so there is no AGS picture to report and none is claimed.
 
 ## Next safe action
 
-Run the small focused pre-hardware audit of `stream-0003` above. **Only if it
-passes**, request the physical run under §V5.20 / §V5.21.
+**Run the first physical GBP stream smoke of the exact `stream-0003` artifact.**
 
 ```text
-Test ID   GBP-VIDEO-004
-Build ID  stream-0003
-commit    03b32a9   (CLEAN, no -dirty)
-DOL       build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
-          471 648 B
-          sha256 2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3
-Swiss     build/swiss/12-stream/boot.dol — byte-identical, verified
+Test ID     GBP-VIDEO-004
+Build ID    stream-0003     — the EXACT artifact, NO rebuild
+commit      03b32a9   (CLEAN, no -dirty)
+DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+            471 648 B
+            sha256 2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3
+Swiss       build/swiss/12-stream/boot.dol — byte-identical, verified
+
+Cartridge   the operator's choice; §V5.18 names properties, not a title. The
+            controlled colour-bars cart is a reasonable first pick because a
+            physical correspondence already exists for it.
+Steps       1. copy boot.dol to SD as 12-stream
+            2. launch through Swiss with the cartridge already running
+            3. DO NOT press anything for the 30 s capture
+            4. press X to save the log, then START
+            5. POWER CYCLE the console
+Duration    SHORT and SUPERVISED: 30 s capture, 60 s safety cap
+Objective   OPERATIONAL, TIMING and DISPLAY behaviour only.
+            NOT a decisive frame-loss validation — the CONTROLLED indexed
+            motion stimulus of §V5.18 does not exist, so source-frame loss
+            cannot be measured against ground truth.
+Read it     with §V5.21, unchanged. stream-0003 needs NO counter correction:
+            `counters BALANCE` is expected, and `DO NOT BALANCE` would now be
+            a real finding.
+Watch for   the per-cycle t_cause/t_ack/t_rearm histogram (R3) and
+            STREAMINV failures=0 (R8) — the two things the run is for.
 ```
 
 `stream-0001` (REJECTED before hardware) and `stream-0002` (EXECUTED, ABORTED
 PRE-SERVICE) are historical. Neither is ever rebuilt, re-labelled or re-run, and
 **`stream-0002` is not a streaming failure** — streaming was never reached.
-GBP-HW-134…137 remain its evidence and keep their meaning, including the
-pre-registered R1 correction for reading *that* log.
-
-Separately, and required before the experiment can CLOSE rather than before it
-runs: the CONTROLLED indexed motion stimulus of §V5.18 still does not exist —
-`stimulus/` holds only `agb-color-bars`, the static eight-bar GBP-VIDEO-003 ROM.
-A first successful run can measure service, GX, pacing and the consumer's cost;
-it **cannot** measure source-frame loss against ground truth.
 
 Do **not** implement scaling, aspect correction, filtering, audio playback, A/V
 sync, KEYPAD or any network path; do not edit `OGBPCOL1` v1, `tools/vcolor.py`,
@@ -429,6 +450,17 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 - **That `stream-0001` is ready to run.** The pre-hardware audit rejected it:
   one BLOCKER and three HIGH findings (§V5.26). `stream-0002` supersedes it and
   `stream-0001` is never rebuilt or re-labelled.
+- **That Dolphin has no Game Boy Player.** It does: 2606a ships
+  `HSP::CHSPDevice_GBPlayer` backed by libmgba, reachable from a homebrew DOL
+  with `Dolphin.Core.HSPDevice=2` and `Dolphin.GBA.GBPlayerRom`, with no BIOS and
+  no Start-up Disc (§V5.31.5). The old claim was about the launch configuration,
+  not the emulator.
+- **That the emulated GBP can settle anything physical.** It cannot. Its
+  power-on CONTROL is `0x02` where hardware presents `0x90`, and its VIDEO read
+  duplicates bytes 0↔1 and 2↔3 where hardware does not — so it can never inform
+  U-GBP-029, R3, the RE-ARM timing, bit 15 or frame loss (§V5.31.7, §V5.31.8).
+- **That `stream-0003` needs the R1 correction.** It does not. `balanced=1` with
+  no subtraction; `presented − SELFTEST.xfb` belongs to `stream-0002`'s log only.
 - **That `stream-0002` is proved because its predecessor's blocker is fixed.**
   The fix is host-validated, Dolphin executes the display path end to end
   including the draw-done callback, and §V5.28 re-audited it and cleared the

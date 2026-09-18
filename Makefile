@@ -83,7 +83,7 @@ SMOKE_DOL := $(SMOKE_OUT)/smoke-test.dol
 PROBE_OUT := build/poc/gbp-probe
 PROBE_DOL := $(PROBE_OUT)/gbp-probe.dol
 
-.PHONY: help env-check build inspect test-host test-unit test-python test stimulus color-dolphin color-audit stream-audit stream-dolphin smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait swiss swiss-check all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait swiss swiss-check all shell clean
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -438,6 +438,43 @@ stream-dolphin:
 	  --heartbeats 0 --expect 'OPENGBP-STREAM SELFTEST ok=1' --expect 'sci_clean=1' --expect 'inv_fail=0' \
 	  --expect 'COUNTERS balanced=1' --expect 'storage_fault=-' \
 	  --report $(STREAM_OUT)/dolphin-report-absent.json --screen-png $(STREAM_OUT)/dolphin-screen-absent.png
+
+# GBP-VIDEO-004 against Dolphin's EMULATED Game Boy Player (Dolphin >= 2606).
+#
+# Dolphin 2606a ships a real HSP GBP device (HSP::CHSPDevice_GBPlayer, backed by
+# libmgba). `Dolphin.Core.HSPDevice=2` selects it and `Dolphin.GBA.GBPlayerRom`
+# gives it a cartridge; no Start-up Disc and no GBA BIOS are required, and the
+# device is created in HSPManager::Init() regardless of what software boots — so
+# a homebrew DOL sees it.
+#
+# ISOLATED BY CONSTRUCTION: a separate --user-dir, and every setting passed as a
+# session-only -C override. The operator's own Dolphin configuration is never
+# touched, and nothing is persisted into the profile.
+#
+# AUXILIARY, ALWAYS. Dolphin's GBP model is not hardware truth and its known
+# divergences are recorded in HARDWARE_TESTS §V5.31. Nothing from this target
+# may promote a physical FACT.
+#
+#   make stream-dolphin-gbp                     (the AGS aging cartridge)
+#   make stream-dolphin-gbp GBP_ROM=<path>      (any other cartridge image)
+#   make stream-dolphin-gbp GBP_HSP=0           (the A/B control: no GBP device)
+GBP_ROM ?= $(CURDIR)/input/AGS-rom.gba
+GBP_HSP ?= 2
+GBP_USER_DIR ?= $(HOME)/.var/app/org.DolphinEmu.dolphin-emu/data/open-gbp/dolphin-user-gbp
+GBP_OUT ?= captures/local/dolphin-gbp
+
+stream-dolphin-gbp:
+	@mkdir -p $(GBP_OUT)
+	$(PYTHON) tools/dolphin_smoke.py --dol $(STREAM_DOL) --build-info $(STREAM_OUT)/build-info.txt \
+	  --user-dir "$(GBP_USER_DIR)" --timeout 120 --heartbeats 0 \
+	  --expect 'OPENGBP-STREAM COUNTERS' \
+	  -C 'Dolphin.Core.HSPDevice=$(GBP_HSP)' \
+	  $(if $(filter 0,$(GBP_HSP)),,-C 'Dolphin.GBA.GBPlayerRom=$(GBP_ROM)') \
+	  --report $(GBP_OUT)/report-hsp$(GBP_HSP).json --screen-png $(GBP_OUT)/screen-hsp$(GBP_HSP).png
+	@cp -f "$(GBP_USER_DIR)/Logs/dolphin.log" $(GBP_OUT)/dolphin-hsp$(GBP_HSP).log 2>/dev/null || true
+	@echo "-- EMULATOR/AUXILIARY evidence, never physical:"
+	@sha256sum $(GBP_OUT)/report-hsp$(GBP_HSP).json $(GBP_OUT)/screen-hsp$(GBP_HSP).png \
+	           $(GBP_OUT)/dolphin-hsp$(GBP_HSP).log 2>/dev/null || true
 
 stream-audit:
 	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(STREAM_OUT)/audit; rm -f $(STREAM_OUT)/audit/*.objdump.txt; for o in $(STREAM_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(STREAM_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(STREAM_OUT)/gbp-video-stream-probe.elf > $(STREAM_OUT)/audit/elf.nm.txt'
