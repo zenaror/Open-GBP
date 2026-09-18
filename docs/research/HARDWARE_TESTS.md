@@ -6908,3 +6908,251 @@ before the cut, and only the trailing `intmr_post` value is lost while INTMR is
 reported in full elsewhere in the same log. Recorded as an INSTRUMENTATION DEFECT
 and not as a result of the experiment; the fix belongs to whichever round touches
 the logger, not to this one.
+
+---
+
+## V4 — GBP-VIDEO-003 / color-0002: PRE-REGISTERED CONFIRMATORY CONTRACT
+
+**This section is written BEFORE the physical run it judges, and it is frozen by
+the commit that adds it.** Its purpose is to remove one specific way of being
+wrong: `color-0001`'s bytes are already known, so an acceptance criterion written
+now could be shaped — deliberately or not — to fit them. Writing the criterion
+down first, in a versioned file, with a distinct build id, is the only thing that
+makes the next run's result mean anything.
+
+**Any change to this contract after `color-0002` has physically run requires a
+new experiment id (`color-0003`).** Editing §V4 after seeing its own data is
+exactly the failure it exists to prevent.
+
+### V4.1 Why there is a second experiment at all
+
+`color-0001` ran on 2026-09-18 (§"GBP-VIDEO-003 / color-0001"). The capture did
+everything it was designed to do — `stop=color_certified`, three eligible frames
+with identical `sig[40]`, clean service and restore. Its **offline contract**
+refused it: the gate required the three certified frames to be byte-identical
+over all 153 600 raw bytes, and they differ in 2125 / 2073 / 2137 bytes pairwise
+(GBP-HW-122).
+
+Every one of those bytes is in position 0 or 2 of its four-byte group. Bytes 1
+and 3 — the only bytes either reference decoder reads — differ in **zero**
+positions, so the picture itself was identical in all three frames (GBP-HW-123).
+
+**The root cause, named plainly.** The runtime's stability filter `sig[40]`
+(`src/gbp/gbp_vsig.c`) consumes bytes 1 and 3 and nothing else, and always has.
+`color-0001`'s offline gate compared all four. The two halves of the experiment
+were looking at different data, and the mismatch — not the device, not the
+capture — is what produced the refusal. `color-0002` makes them look at the same
+bytes while keeping the offline comparison exact and authoritative.
+
+### V4.2 What does NOT change
+
+Everything except the offline contract. This is deliberate: two runs that differ
+in one variable are comparable, and a stimulus or hypothesis tuned after seeing
+`color-0001` would destroy that.
+
+```text
+stimulus            stimulus/agb-color-bars, unchanged
+                    canonical    sha256 867bb8d681e815793792e5e85bf031967eec11c07d00dcb16e68b6c96520f3ba  (1076 B)
+                    derived      sha256 bb741770e92ecdcf10f74ae32b01e338384047d8d82e4f14f2162ba9ec234fe3  (1076 B)
+                                 the derived image is the canonical one with the header's logo area
+                                 filled by official devkitPro gbafix; the payload past 0x0C0 is
+                                 byte-identical, it is NEVER committed, and no proprietary bytes
+                                 enter this repository at any point
+values              0x0000 0x001F 0x03E0 0x7C00 0x7FFF 0x0001 0x0020 0x0400
+                    eight 30-pixel bars, AGB Mode 3, bit 15 never written by the stimulus
+hypotheses          the seven pre-registered transformations in tools/vcolor.py, frozen at bfbca70,
+                    imported by tools/vcolor2.py as the same objects and never redefined
+runtime             poc/gbp-video-color-probe, functionally unchanged
+                    N_STABLE = 3, CERT_FRAMES = 3, SEARCH 10 s, HARD WALL-CLOCK 30 s
+                    pre-handler wait = 5000 ms (GBP-VCOLOR_PREHANDLER_WAIT_MS)
+                    the runtime still holds no stimulus value and cannot recognise a bar
+sidecar             OGBPCOL1 v1, FROZEN at e10423c, unchanged
+delivery            EZ-Flash Omega DE, NOR / Mode B, physical GBA and physical Game Boy Player
+build id            color-0002   (the ONLY functional difference from color-0001)
+```
+
+**Why a new build id when the binary differs only in metadata.** Because the
+build id is what `tools/vcolor2.py` keys its standing on. A contract written
+after `color-0001` may not confirm `color-0001`, and the cleanest enforcement is
+mechanical: the analyser emits a confirmatory verdict only for a sidecar whose
+`build_id` is `color-0002`, and labels everything else RETROSPECTIVE.
+
+### V4.3 The three domains
+
+**A. TRANSPORT RAW DOMAIN** — the raw group `[b0 b1 b2 b3]`.
+
+Bytes 0 and 2 are read by neither reference pixel decoder (GBP-VID-003,
+2026-09-16), are physically variable (GBP-HW-058, GBP-HW-070, GBP-HW-126) and
+remain semantically **UNKNOWN** (U-GBP-029). They are therefore **outside the
+dependent variable of this experiment**.
+
+This is *not* a claim that they are don't-care in general, and nothing here
+licenses discarding them. They are preserved byte for byte in the sidecar, and
+the full-raw comparison is computed and **reported on every run** as a mandatory
+diagnostic — which is how U-GBP-029 keeps being fed rather than quietly closed.
+
+**B. CONSUMED-WORD STABILITY DOMAIN** — the acceptance gate.
+
+```text
+word16 = (b1 << 8) | b3,  for each of the 240 x 160 = 38400 pixels
+
+REQUIRE  A.word16[x,y] == B.word16[x,y] == C.word16[x,y]   for ALL 38400
+```
+
+**Bit 15 is inside this comparison and is not masked.** Any difference gives
+`INCONCLUSIVE_CONSUMED_WORD_MISMATCH` and the analysis stops before a single
+hypothesis is evaluated.
+
+The projection is not invented here: GBP-VID-003 recorded it from both reference
+decoders on 2026-09-16, before any colour run existed, and `src/gbp/gbp_vsig.h`
+has excluded bytes 0 and 2 from the runtime signature since GBP-VIDEO-002 citing
+the same evidence.
+
+**C. COLOR MAPPING DOMAIN** — only after B and the flag check.
+
+```text
+flag15  = word16 & 0x8000        reported, never interpreted
+color15 = word16 & 0x7FFF        the only thing the hypotheses ever see
+```
+
+Each of the eight 30-pixel bars must hold exactly **one** `color15` value across
+its 160 rows. Comparison against the hypotheses is exact equality on all eight
+values. **There is no score, no distance and no nearest fit.**
+
+### V4.4 The flag15 rule, stated in advance
+
+Before any mapping is evaluated:
+
+- count the set flags in A, B and C;
+- record their coordinates;
+- require the three bitmaps to be **identical** → `FLAG15_STABLE`.
+
+That equality already follows from the domain-B gate. It is asserted and reported
+separately anyway, because "the flag map was stable" is a claim the record should
+carry explicitly rather than by implication.
+
+**`flag_count == 0` is NOT required.** Physical evidence already contradicts it:
+every certified frame of `color-0001` carries exactly one set flag at x=0, y=0,
+and so does every earlier physical frame (GBP-HW-125). A contract demanding zero
+would refuse every real run.
+
+**`FLAG15_STABLE` means reproducible across three frames of one run. It does not
+mean understood.** No meaning is inferred here, and the status of what bit 15 *is*
+stays exactly where GBP-VID-004 and GBP-HW-125 leave it.
+
+### V4.5 The pre-registered hypothesis set and what each predicts
+
+Exact vectors, computed from the frozen transformations and the frozen stimulus,
+recorded here so that the prediction cannot be adjusted afterwards:
+
+```text
+                         bar0 bar1 bar2 bar3 bar4 bar5 bar6 bar7
+stimulus                 0000 001F 03E0 7C00 7FFF 0001 0020 0400
+H2_identity              0000 001F 03E0 7C00 7FFF 0001 0020 0400
+H1_outer_group_swap      0000 7C00 03E0 001F 7FFF 0400 0020 0001
+H3_byte_swap             0000 1F00 6003 007C 7F7F 0100 2000 0004
+H4_intra_group_reversal  0000 001F 03E0 7C00 7FFF 0010 0200 4000
+H5_complement            7FFF 7FE0 7C1F 03FF 0000 7FFE 7FDF 7BFF
+H1_H4                    0000 7C00 03E0 001F 7FFF 4000 0200 0010
+H1_H3                    0000 007C 6003 1F00 7F7F 0004 2000 0100
+```
+
+No two of these seven vectors are equal, so the stimulus discriminates the whole
+pre-registered set: an ambiguous verdict would mean something went wrong, not
+that the experiment was weak. `tests/host/test_vcolor2.py` pins that property.
+
+**`color-0001`'s diagnostic projection produced the H1 row.** That is stated as
+the reason to run a confirmatory experiment and for no other purpose. It may not
+be used to change the stimulus, the hypotheses, the gate, a tolerance, a pixel
+selection, a bar selection or an exception. **`color-0002` must be able to
+falsify H1**, and it can: any of the seven can win, and so can none of them.
+
+### V4.6 Exact success criterion
+
+A confirmatory result requires **every** one of these:
+
+```text
+1  the sidecar parses under OGBPCOL1 v1, both CRCs recomputed and matching
+2  exactly 3 certified frames, all with their raw preserved
+3  consumed-word equality: 38400 of 38400 words identical across all three pairs
+4  flag15 bitmaps identical across A, B and C
+5  geometry valid: 40 blocks, 160 rows, 240 columns
+6  all eight bars uniform in colour15
+7  EXACTLY ONE pre-registered hypothesis reproduces all eight values exactly
+8  the sidecar's build_id is color-0002
+
+-> CONFIRMED_EXACT_<hypothesis>
+```
+
+### V4.7 Every inconclusive reason, enumerated in advance
+
+```text
+no_certified_frame                      the run preserved nothing to judge
+inconclusive_certified_frame_count      not exactly three certified raw frames
+inconclusive_consumed_word_mismatch     a consumed word differs between A, B or C
+                                        (including a difference in bit 15 alone)
+inconclusive_flag15_unstable            the flag bitmaps differ although the words do not
+                                        — the two checks disagree, so the file is not trusted
+inconclusive_geometry                   the frame does not reconstruct as 240 x 160
+inconclusive_bar_not_uniform            a bar holds more than one colour15
+inconclusive_no_hypothesis              none of the seven reproduces all eight values
+inconclusive_ambiguous                  more than one does
+retrospective_*                         the sidecar is not from build color-0002
+```
+
+An inconclusive run is a real outcome and is recorded as one. It is never
+rescued by relaxing anything above.
+
+### V4.8 What stays untouched
+
+- `tools/vcolor.py` is **not modified** and gains **no new option**. Running it
+  on `color-0001` must keep printing `INCONCLUSIVE - CERTIFIED RAW MISMATCH`
+  forever; `tests/host/test_vcolor2.py` asserts that through the CLI, and also
+  asserts the file has not changed since `bfbca70`.
+- `OGBPCOL1` v1 is **not modified**. It already carries everything this contract
+  reads: three certified records, three raw frames of 153 600 bytes with bytes 0
+  and 2 intact, the identity fields and both CRCs. No v2 is needed, and the
+  frozen header has not changed since `e10423c`.
+- `color-0001` is **never re-labelled, re-judged or re-analysed as evidence**.
+  Its fixture, its sidecar and its verdict stay exactly as ingested.
+
+### V4.9 Physical procedure — identical to `color-0001`
+
+```text
+Test ID           GBP-VIDEO-003
+Build ID          color-0002
+DOL               build/poc/gbp-video-color-probe/gbp-video-color-probe.dol
+                  exported as build/swiss/11-color/boot.dol (byte-identical copy)
+                  the exact hash belongs to the commit it is built from: rebuild with
+                  `make build`, read build/poc/gbp-video-color-probe/build-info.txt,
+                  and confirm the commit there matches HEAD before the run
+Cartridge         EZ-Flash Omega DE, NOR / Mode B
+ROM               the derived stimulus image, sha256
+                  bb741770e92ecdcf10f74ae32b01e338384047d8d82e4f14f2162ba9ec234fe3
+                  built locally into an ignored path, never committed
+Console           GameCube + Game Boy Player DOL-017
+Link Port         EMPTY
+BBA               ABSENT
+Controller        connected, but NOTHING is pressed during the run
+Logging           SD2SP2, launched through Swiss
+
+Steps
+  1  build, confirm the tree is clean and the commit in build-info.txt matches HEAD
+  2  `make swiss`, copy build/swiss/11-color/boot.dol to the SD card
+  3  put the derived stimulus image on the EZ-Flash Omega DE, NOR / Mode B
+  4  insert the flash cart in the Game Boy Player
+  5  power on, launch 11-color through Swiss
+  6  DO NOT PRESS ANYTHING during the run: the probe starts the AGB itself and
+     waits 5000 ms before the capture opens
+  7  wait for the on-screen summary
+  8  press X to write the log and the OGBPCOL1 sidecar
+  9  press START to exit
+ 10  POWER CYCLE the console (the probe always requires it)
+ 11  return both files: GBP-VIDEO-003_color-0002.log and
+     GBP-VIDEO-003_color-0002-color.bin
+
+Question answered
+  Under the contract above, and only under it: does exactly one pre-registered
+  transformation reproduce all eight stimulus values? U-GBP-011 is closed by a
+  CONFIRMED_EXACT verdict and by nothing else.
+```
