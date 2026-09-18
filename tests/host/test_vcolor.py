@@ -10,6 +10,7 @@ then writing a real OGBPCOL1 file around it, so the parser, the reconstruction
 and the decision are exercised on the same bytes a console would produce.
 """
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -620,6 +621,109 @@ class TimingContract(unittest.TestCase):
         code = "\n".join(l for l in src.splitlines() if not l.strip().startswith("*"))
         self.assertIn("gbp_vstate_closed_frame_slot", code)
         self.assertNotIn("gbp_vstate_closed_frame_raw", code)
+
+
+class PreHandlerWait(unittest.TestCase):
+    """§V3.28: the fixed pre-handler wait belongs to THIS experiment and to no
+    other build, and enabling it changed nothing about the format, the stimulus
+    or the analyser."""
+
+    def _read(self, rel):
+        with open(os.path.join(ROOT, rel)) as f:
+            return f.read()
+
+    def test_the_colour_build_asks_for_5000_ms(self):
+        h = self._read("src/gbp/gbp_vcolor.h")
+        m = re.search(r"#define\s+GBP_VCOLOR_PREHANDLER_WAIT_MS\s+(\d+)u", h)
+        self.assertIsNotNone(m, "the colour build declares no pre-handler wait")
+        self.assertEqual(int(m.group(1)), 5000)
+        poc = self._read("poc/gbp-video-color-probe/source/main.c")
+        self.assertIn("cfg.prehandler_wait_ms = GBP_VCOLOR_PREHANDLER_WAIT_MS;", poc)
+
+    def test_the_shared_default_is_still_zero(self):
+        """Every other build must be unaffected: the probe's own default is 0,
+        so nothing inherits this experiment's procedure by accident."""
+        c = self._read("src/gbp/gbp_vstate_probe.c")
+        self.assertIn("cfg->prehandler_wait_ms = 0u;", c)
+
+    def test_no_other_poc_enables_a_wait(self):
+        enabled = []
+        pocdir = os.path.join(ROOT, "poc")
+        for d in sorted(os.listdir(pocdir)):
+            main = os.path.join(pocdir, d, "source", "main.c")
+            if not os.path.exists(main):
+                continue
+            text = open(main).read()
+            if "prehandler_wait_ms" not in text:
+                continue
+            if d == "gbp-video-color-probe":
+                continue
+            # the vstate POC carries the diagnostic hook, whose default is 0 and
+            # which only a dedicated diagnostic build overrides
+            if d == "gbp-video-state-probe":
+                self.assertIn("#define GBP_VSTATE_PREHANDLER_WAIT_MS 0", text)
+                continue
+            enabled.append(d)
+        self.assertEqual(enabled, [], "these POCs set a pre-handler wait: %s" % enabled)
+
+    def test_the_wait_is_not_in_the_service_loop(self):
+        """It sits between stage A and the handler install. If it ever moved
+        into the loop it would be delaying live transactions."""
+        c = self._read("src/gbp/gbp_vstate_probe.c")
+        wait = c.index("res->prehandler_wait_ms = cfg->prehandler_wait_ms;")
+        install = c.index("res->h.install_rc = t->irq_install")
+        loop = c.index("/* ---- CHECK_ADMISSION")
+        stage_a = c.index("crc = gbp_initirqa_run_cause(")
+        self.assertLess(stage_a, wait, "the wait must come after stage A")
+        self.assertLess(wait, install, "the wait must come before the handler install")
+        self.assertLess(install, loop, "the service loop must come after both")
+
+    def test_no_controller_input_reaches_the_probe(self):
+        """Arming by button was rejected (§V3.27), so the run must not depend on
+        one. The shared probe has no PAD at all; in the colour POC the only
+        controller reads before the run are PAD_Init and the fatal-transport
+        gate, which exits instead of continuing."""
+        self.assertNotIn("PAD_", self._read("src/gbp/gbp_vstate_probe.c"))
+        poc = self._read("poc/gbp-video-color-probe/source/main.c")
+        run = poc.index("gbp_vstate_probe_run(")
+        fatal_exit = poc.rindex("exit(1);", 0, run)
+        # nothing between the last abort path and the run may touch the controller:
+        # that is the stretch a real run actually executes
+        live = poc[fatal_exit:run]
+        self.assertNotIn("PAD_", live,
+                         "a controller read was added on the path that reaches the run")
+        # and every PAD before that point is one of the known, non-scientific uses
+        for hit in re.finditer(r"PAD_[A-Za-z_]+", poc[:fatal_exit]):
+            self.assertIn(hit.group(0),
+                          ("PAD_Init", "PAD_ScanPads", "PAD_ButtonsDown", "PAD_BUTTON_START"),
+                          hit.group(0))
+
+    def test_the_frozen_format_did_not_move(self):
+        self.assertEqual(vcolor.CERT_REC, 40)
+        self.assertEqual(vcolor.FRAME_REC, 48)
+        self.assertEqual(vcolor.DIAG_REC, 160)
+        self.assertEqual(vcolor.HEADER_SIZE, 0x200)
+        self.assertEqual(vcolor.VERSION, 1)
+        h = self._read("src/gbp/gbp_vcoldump.h")
+        self.assertIn("#define GBP_VCOLDUMP_CERT_REC     40u", h)
+        self.assertIn("#define GBP_VCOLDUMP_VERSION      1u", h)
+
+    def test_the_experiment_itself_did_not_move(self):
+        self.assertEqual(list(vcolor.STIMULUS), [0x0000, 0x001F, 0x03E0, 0x7C00, 0x7FFF,
+                                                 0x0001, 0x0020, 0x0400])
+        self.assertEqual(len(vcolor.HYPOTHESES), 7)
+        h = self._read("src/gbp/gbp_vcolor.h")
+        self.assertIn("#define GBP_VCOLOR_N_STABLE      3u", h)
+        self.assertIn("#define GBP_VCOLOR_BLOCKS        40u", h)
+
+    def test_the_runtime_still_does_not_know_the_stimulus(self):
+        """Enabling a wait must not have smuggled the answer into the runtime."""
+        for rel in ("src/gbp/gbp_vcolor.c", "src/gbp/gbp_vcolor.h",
+                    "poc/gbp-video-color-probe/source/main.c"):
+            code = "\n".join(l for l in self._read(rel).splitlines()
+                              if not l.strip().startswith(("*", "/*", "//")))
+            for value in ("0x03E0", "0x7C00", "0x7FFF"):
+                self.assertNotIn(value, code, "%s now contains %s" % (rel, value))
 
 
 if __name__ == "__main__":

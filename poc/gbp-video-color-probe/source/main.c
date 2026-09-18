@@ -232,6 +232,14 @@ int main(void)
      * target logic is pushed out of reach so that the ONLY success path is
      * certification. */
     cfg.color = &color;
+    /* The fixed pre-handler wait (§V3.28), and the ONLY place this experiment
+     * sets it: the shared probe's own default is 0, so no other build inherits
+     * it. It lands after stage A has started the AGB and before the handler is
+     * installed - the position GBP-HW-116..118 physically validated - so the
+     * capture cannot open inside the AGB's boot. t_capture_start is still the
+     * first unmask, and the SEARCH_WINDOW is still measured from there, both of
+     * which happen after the wait ends. */
+    cfg.prehandler_wait_ms = GBP_VCOLOR_PREHANDLER_WAIT_MS;
     cfg.color_search_ticks = (uint64_t)tb_hz * GBP_VCOLOR_SEARCH_SECONDS;
     cfg.hard_wallclock_s = GBP_VCOLOR_HARD_WALLCLOCK_SECONDS;
     cfg.hard_wallclock_ticks = (uint64_t)tb_hz * GBP_VCOLOR_HARD_WALLCLOCK_SECONDS;
@@ -275,6 +283,9 @@ int main(void)
     printf("            -> until %lu s of VALID post-baseline observation, the %lu s hard safety cap,\n",
            (unsigned long)cfg.min_valid_observation_s, (unsigned long)cfg.hard_wallclock_s);
     printf("               a store cap, no next cause, or a failure -> IMMEDIATE teardown -> then summaries.\n");
+    printf("  Pre-handler wait: %lu ms with the AGB running and PI masked, BEFORE any capture,\n",
+           (unsigned long)cfg.prehandler_wait_ms);
+    printf("  so the cartridge has time to reach a static picture. Nothing is pressed for this.\n");
     printf("  Expect two to five minutes of unattended running. DO NOT PRESS ANYTHING.\n");
     if (!gbp_transport_has_bulk_read(&t) || !gbp_transport_has_irq_reset(&t) || !gbp_transport_has_time64(&t)) {
         printf("\n  FATAL: the transport lacks the whole-block read, the record reset or the 64-bit time base.\n");

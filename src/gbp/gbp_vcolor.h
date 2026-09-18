@@ -102,6 +102,27 @@ extern "C" {
  * None of them is inherited from the vstate probe: that experiment's 120 s came
  * from the Start-up Disc's detector window, and this one only has to find three
  * stable frames and stop. */
+/* ---- the fixed pre-handler wait (§V3.28) --------------------------------
+ * The probe itself starts the AGB: stage A writes CONTROL 0x90 -> 0x8C, and
+ * capture opens 107 ms later at the first unmask. `vstate-0004` measured three
+ * consecutive signature-identical clean frames 77 ms after that, so without a
+ * wait this experiment would certify inside the AGB's boot animation - a run
+ * spent on a picture that is not the stimulus (§V3.26).
+ *
+ * The operator cannot fix that by watching: nothing renders the AGB's video at
+ * that point, which §V3.27 established from the source. So the capture is
+ * delayed instead, in the one position where the AGB is already running and no
+ * service transaction is in flight, and where 5000 ms was PHYSICALLY TOLERATED
+ * by the Game Boy Player (GBP-HW-116 to GBP-HW-118).
+ *
+ * WHAT THIS NUMBER IS AND IS NOT. That the position tolerates 5 s is FACT. That
+ * 5 s is ENOUGH for the cartridge boot to reach the static bars is UNKNOWN, and
+ * the first physical run of this experiment is what establishes it. If it is
+ * not enough, the analyser refuses the window rather than mapping it: a boot or
+ * transition frame is not eight uniform bars, and a non-uniform bar is
+ * `inconclusive_bar_not_uniform`. A wrong answer is not among the outcomes. */
+#define GBP_VCOLOR_PREHANDLER_WAIT_MS   5000u
+
 #define GBP_VCOLOR_SEARCH_SECONDS        10u      /* SEARCH_WINDOW */
 #define GBP_VCOLOR_HARD_WALLCLOCK_SECONDS 30u     /* safety, and it always wins */
 #define GBP_VCOLOR_MAX_DELIVERIES    250000u      /* ~40 s at the rate vstate-0004 measured */

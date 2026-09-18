@@ -6666,3 +6666,112 @@ byte-identical A/B/C; and a capture that caught boot or a transition resolves to
 cartridge boot to reach the bars is NOT established by anything here; only the
 first physical colour run, or further physical evidence, can establish it. What
 is established is that waiting 5 s there is safe.
+
+#### V3.28 The fixed pre-handler wait, and the procedure for the first physical run
+
+**What changed.** `color-0001` now sets `prehandler_wait_ms = 5000`. Nothing
+else about the experiment moved: the stimulus, the eight bar values, the seven
+hypotheses, `N_STABLE = 3`, the OGBPCOL1 v1 layout and every analyser gate are
+byte-for-byte what the release audit at `e10423c` verified.
+
+**Why, in one line.** The probe starts the AGB itself, capture opens 107 ms
+later, and three signature-identical clean frames appear 77 ms after that
+(§V3.26) — so without a wait the run certifies inside the boot animation. The
+operator cannot compensate by watching, because nothing renders the AGB's video
+at that point (§V3.27). The capture is therefore delayed, in the one position
+where the AGB is running and no transaction is in flight.
+
+**Where it sits, proven by test:**
+
+```text
+stage A (CONTROL 0x90 -> 0x8C, the AGB starts)
+   -> fixed 5000 ms wait, PI masked, no handler, nothing in flight
+   -> 003B handler install
+   -> PREUNMASK
+   -> first UNMASK  ==  t_capture_start
+   -> first admitted service
+   -> first closed frame reaches the colour hook
+```
+
+`t_control_transform <= wait_begin < wait_end <= t_capture_start` is asserted in
+`tests/unit/test_gbp_video_state.c`, and a second test stops the run at the
+first admitted delivery and shows the colour module still holds nothing: zero
+frames, zero eligible, `run_len` zero, `ref_sig` untouched, no ring slot owned,
+`gbp_vcolor_slots_ok()` false. The SEARCH_WINDOW is still measured from
+`t_capture_start`, so it is unaffected by the wait.
+
+**What 5000 ms means, stated exactly:**
+
+| claim | status |
+| --- | --- |
+| the pre-handler position tolerates 5000 ms on this unit | **FACT** — GBP-HW-116…118 |
+| 5000 ms is *enough* for the cartridge boot to reach the static bars | **UNKNOWN** |
+
+The first colour run is therefore still an experiment, and "5 s is sufficient"
+must not be written before physical evidence says so.
+
+**The fail-safe if it is not enough.** A capture that opens on a boot screen, a
+transition, or anything that is not the stimulus resolves to an INCONCLUSIVE
+verdict, never to a mapping. The gates, in the order the analyser applies them:
+
+1. fewer than three certified raw frames, or `raw A != raw B != raw C` byte for
+   byte → `inconclusive_certified_raw_mismatch`, **before** any pixel is
+   interpreted;
+2. any of the eight 30-pixel bars not holding exactly one `color15` value →
+   `inconclusive_bar_not_uniform` (a boot screen is not eight uniform bars);
+3. an observed vector matching no hypothesis → `inconclusive_no_hypothesis`;
+4. more than one hypothesis matching → `inconclusive_ambiguous`.
+
+A wrong answer is not among the outcomes. The cost of an insufficient wait is a
+spent run, not a false result.
+
+**Build ID: still `color-0001`.** The identity names the experiment, and the
+experiment is unchanged — same stimulus, same hypotheses, same frozen sidecar,
+same analyser. What changed is *when capture opens*, which is procedure, not
+experiment. A new id would suggest the scientific content moved and would break
+the continuity between this candidate and the `e10423c` release audit. The
+procedure is distinguished instead by the commit and the DOL hash, which is the
+distinction this project already relies on.
+
+#### V3.29 Physical procedure — first GBP-VIDEO-003 run
+
+```text
+Test ID:        GBP-VIDEO-003
+Build ID:       color-0001
+Cartridge:      EZ-Flash Omega DE, Mode B / NOR, holding the DERIVED delivery image
+                sha256 bb741770e92ecdcf10f74ae32b01e338384047d8d82e4f14f2162ba9ec234fe3
+                NOT the canonical stimulus 867bb8d6...f3ba, which has no Nintendo
+                logo and will not boot from Mode B
+Console:        physical GameCube + Game Boy Player DOL-017
+Link Port:      nothing attached
+BBA:            absent
+Controller:     connected (port 1), used only for START/X after the run
+Storage:        SD2SP2 with the DOL and space for the log and the sidecar;
+                Memory Card as usual for Swiss
+Launch:         Swiss
+```
+
+Steps:
+
+```text
+1.  cold power cycle
+2.  Omega DE in Mode B / NOR with the derived delivery image
+3.  launch the GBP-VIDEO-003 DOL through Swiss
+4.  PRESS NOTHING from here until the run ends
+5.  stage A starts the AGB
+6.  the probe waits 5000 ms with PI masked - this is expected and silent
+7.  capture begins automatically
+8.  let the run finish on its own
+9.  X saves the log and the sidecar
+10. START exits
+11. power-cycle the console
+12. return both files
+```
+
+The operator does **not** need to see the bars, and could not: §V3.27. No input
+enters the scientific window.
+
+Expected on success: `stop=color_certified`, three certified frames, and a
+sidecar that `tools/vcolor.py analyse` resolves to exactly one hypothesis. Every
+other outcome is an inconclusive verdict that still produces a valid, strictly
+parseable file — which is itself evidence about the wait.

@@ -2012,6 +2012,103 @@ static void test_prehandler_wait_cannot_be_reached_without_a_clock(void)
 }
 
 
+/*
+ * §V3.28: the colour capture opens AFTER the fixed pre-handler wait, and no
+ * colour state exists before it. The ordering is the whole point - a capture
+ * that opened during the wait would be capturing the AGB's boot, which is what
+ * the wait exists to avoid.
+ */
+static void test_colour_capture_starts_after_the_prehandler_wait(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    struct gbp_vcolor colour;
+    static struct gbp_vcolor_frame ctab[64];
+    const uint16_t bits[1] = { 0x0500u };
+    uint64_t want;
+    printf("-- the colour capture opens only after the pre-handler wait, with no state before it\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 60;
+    cfg.max_deliveries = 4000u;
+    gbp_vcolor_init(&colour, ctab, 64u);
+    cfg.color = &colour;
+    cfg.color_search_ticks = 0u;
+    cfg.prehandler_wait_ms = 2u;              /* small: the mock clock moves 10 ticks a call */
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    run_cfg_colour(&m, &rl, &res, &cfg);
+
+    /* the wait happened, and it happened in the validated position */
+    want = ((uint64_t)cfg.a.tb_hz * 2u) / 1000u;
+    CHECK(res.prehandler_wait_ms == 2u);
+    CHECK(res.prehandler_wait_done == 1);
+    CHECK(res.t_prehandler_wait_end - res.t_prehandler_wait_begin >= want);
+    /* THE ORDER, end to end */
+    CHECK(res.t_control_transform <= res.t_prehandler_wait_begin);
+    CHECK(res.t_prehandler_wait_begin < res.t_prehandler_wait_end);
+    CHECK(res.t_prehandler_wait_end <= res.t_capture_start);   /* capture opens AFTER the wait */
+    CHECK(res.t_capture_start > 0u);
+    /* the handler was installed after the wait, never before */
+    CHECK(res.h.handler_was_installed == 1);
+    /* and the run still worked */
+    CHECK(res.service_ok == 1);
+    CHECK(res.deliveries > 0u);
+    CHECK(res.acks == res.rearms);
+    CHECK(m.violation_mask == 0u);
+    printf("   control %llu -> wait [%llu..%llu] -> capture %llu, %lu deliveries\n",
+           (unsigned long long)res.t_control_transform,
+           (unsigned long long)res.t_prehandler_wait_begin,
+           (unsigned long long)res.t_prehandler_wait_end,
+           (unsigned long long)res.t_capture_start, (unsigned long)res.deliveries);
+}
+
+/* The same run, but asking what the colour module had done by the time the wait
+ * ended. The answer must be: nothing at all. */
+static void test_no_colour_state_exists_before_capture_start(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    struct gbp_vcolor colour, fresh;
+    static struct gbp_vcolor_frame ctab[64];
+    const uint16_t bits[1] = { 0x0500u };
+    printf("-- nothing in the colour capture exists before the capture opens\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 60;
+    cfg.max_deliveries = 1u;                  /* stop at the very first admitted cycle */
+    gbp_vcolor_init(&colour, ctab, 64u);
+    gbp_vcolor_init(&fresh, 0, 0u);           /* what "untouched" looks like */
+    cfg.color = &colour;
+    cfg.color_search_ticks = 0u;
+    cfg.prehandler_wait_ms = 2u;
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    run_cfg_colour(&m, &rl, &res, &cfg);
+
+    /* one delivery cannot close a 40-block frame, so the hook never ran */
+    CHECK(colour.frames_total == 0u);
+    CHECK(colour.frames_eligible == 0u);
+    CHECK(colour.run_len == 0u);
+    CHECK(colour.certified == 0);
+    CHECK(colour.cert_n == 0u);
+    CHECK(colour.resets == 0u);
+    CHECK(colour.sig_mismatches == 0u);
+    CHECK(colour.t_certified == 0u);
+    {   /* the reference signature vector is still all zero: no signature was taken */
+        unsigned i, nonzero = 0;
+        for (i = 0; i < GBP_VSTATE_FRAME_SIGS; i++) if (colour.ref_sig[i]) nonzero++;
+        CHECK(nonzero == 0u);
+        CHECK(memcmp(colour.ref_sig, fresh.ref_sig, sizeof fresh.ref_sig) == 0);
+    }
+    /* and the state model owns no closed frame yet, so no ring slot is evidence */
+    CHECK(colour_vstate.frames_n == 0u);
+    CHECK(gbp_vcolor_slots_ok(&colour, &colour_vstate) == 0);
+    printf("   0 frames, 0 eligible, run_len 0, ref_sig untouched, no slot owned\n");
+}
+
 static void test_colour_capture_adds_no_operation(void)
 {
     struct gbp_mock ref, col;
@@ -3691,6 +3788,8 @@ int main(int argc, char **argv)
     test_prehandler_wait_default_changes_nothing();
     test_prehandler_wait_waits_then_serves_normally();
     test_prehandler_wait_cannot_be_reached_without_a_clock();
+    test_colour_capture_starts_after_the_prehandler_wait();
+    test_no_colour_state_exists_before_capture_start();
     test_colour_success_trace_and_raw_immutability();
     test_colour_capture_adds_no_operation();
     test_ownership_survives_a_store_that_runs_out();
