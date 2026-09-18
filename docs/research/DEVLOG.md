@@ -6395,3 +6395,77 @@ size padding. Entry, BSS and section addresses are identical between the two.
 **Next:** the first physical GBP-VIDEO-003 run is now gated on one decision —
 whether to enable the fixed 5 s wait in `color-0001` — and on nothing else.
 U-GBP-011 and U-GBP-033 stay OPEN.
+
+## 2026-09-18 — color-0001 ran: the probe passed, the analyser refused, and the refusal is the right answer
+
+**Goal:** execute and ingest the first physical GBP-VIDEO-003 run.
+
+**What happened on the hardware.** Everything the runtime was built to do, it
+did. The 5000 ms pre-handler wait elapsed in 5.000 000 20 s with CONTROL, IRQ and
+INTSR unchanged across it; capture opened; the frames went `not_complete`,
+`resync`, then three consecutive eligible frames with identical `sig[40]`;
+`stop=color_certified`. 440 deliveries = acks = rearms = unmasks, zero errors of
+any class, zero R3 disagreements, clean restore. The sidecar validates on every
+CRC. This is the first run in the project to reach a colour target at all
+(GBP-HW-120, GBP-HW-121).
+
+**And the analyser said INCONCLUSIVE.** `tools/vcolor.py`, unmodified, compares
+the three certified frames byte for byte over the full 153 600-byte raw frame
+before interpreting a pixel, and they are not equal: 2125 / 2073 / 2137 differing
+bytes pairwise, first at `0x108`. The gate did exactly what it was written to do
+(GBP-HW-122).
+
+**Where the differences are is the whole story.** Every single one is in byte 0
+or byte 2 of its four-byte group. Bytes 1 and 3 — the only bytes the Start-up
+Disc and GBI read — differ in **zero** positions across all three pairs. Under
+the projection `word = (b1 << 8) | b3` the three frames are identical in 38 400
+of 38 400 words (GBP-HW-123). Read through that projection, the eight bars come
+back as the outer-group swap of the stimulus on 8/8 bars — H1 exactly, with H2
+surviving only on the four colours that are swap-invariant and therefore say
+nothing (GBP-HW-124).
+
+**Why that is not being written down as the answer.** The experiment
+pre-registered its acceptance criterion. The run failed it. Reading the same
+bytes again under a criterion chosen after seeing them is choosing the analysis
+to fit the data, and this project does not get to do that on the one question
+four previous runs were structurally blind to. U-GBP-011 stays OPEN, the order
+stays CORROBORATED where 2026-09-17 left it, and the projection is recorded as a
+strong observation that agrees with it.
+
+**The historical audit, which is what makes the case clean.** Bytes 0 and 2 were
+not discovered by this run. GBP-VID-003 (2026-09-16) records that neither
+reference decoder reads them. GBP-HW-058 records the physical byte-doubling
+break; GBP-HW-070 measures 688 byte-0 exceptions in 84 480 words and states they
+do not alter what either reference reads; U-GBP-021 forbids consuming byte 0;
+U-GBP-029 holds the open question and already answers it operationally; and
+`src/gbp/gbp_vsig.h` excludes bytes 0 and 2 from the runtime signature citing
+exactly that. Re-measured this round on sig-identical pairs of the already
+committed fixtures, the shape is the same as this run's: `vstate-0001` 584/0/46/0,
+`vstate-0003` 97/0/25/0, `vstate-0004` 292/0/19/0 by byte class, and
+GBP-VIDEO-001 reproduces GBP-HW-070's 688 exactly from the stored bytes. One
+thing is genuinely new: **byte 2 deviates too**, which GBP-HW-070 had measured as
+zero cases, and which was latent and unmeasured in the September 16–17 fixtures.
+Registered as GBP-HW-126 against U-GBP-029, which stays OPEN.
+
+**Free result.** The flag word at x=0, y=0 is exactly `0x8000` here — flag set,
+colour 0 — because bar 0 is black and the stimulus never writes bit 15. Every
+earlier physical frame had `0xFFFF` there, where the flag cannot be told from
+white. First physical separation of bit 15 from the colour payload (GBP-HW-125).
+
+**Ingested:** replay fixture and OGBPCOL1 sidecar versioned under
+`captures/fixtures/`, raw log local and hashed, six evidence entries plus the
+historical one, `HARDWARE_TESTS.md` result section, `U-GBP-011` and `U-GBP-029`
+updated, and `tests/host/test_vcolor.py::PhysicalColor0001` pinning the gate
+refusal, the byte-class distribution, the consumed-projection equality, the bar
+vector and the flag word — so a future relaxation of the gate fails loudly
+instead of quietly re-labelling this run.
+
+**Noted, not changed:** `truncated=1` again, same `PREHANDLERWAIT` line, same
+255-character limit, same conclusion — non-blocking, every value that matters is
+intact before the cut. It belongs to whichever round touches the logger.
+
+**Next:** pre-register `color-0002` — a new analyser version whose gate is the
+consumed projection, justified from the evidence as it stood *before* any colour
+run, with the full-raw comparison kept as a reported diagnostic; then a fresh
+physical run judged by it. `OGBPCOL1` v1 stays FROZEN and `color-0001` is never
+re-labelled. U-GBP-011, U-GBP-029 and U-GBP-033 stay OPEN.

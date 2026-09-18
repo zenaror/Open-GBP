@@ -726,5 +726,100 @@ class PreHandlerWait(unittest.TestCase):
                 self.assertNotIn(value, code, "%s now contains %s" % (rel, value))
 
 
+class PhysicalColor0001(unittest.TestCase):
+    """The first physical GBP-VIDEO-003 run, pinned against its versioned sidecar.
+
+    This class asserts what was MEASURED, not what it means. The official gate
+    did not pass on this run, so nothing here closes U-GBP-011: the bar vector
+    below is a post-gate diagnostic projection and is labelled as one wherever
+    the project writes it down.
+    """
+
+    SIDECAR = os.path.join(ROOT, "captures", "fixtures",
+                           "hw-gamecube-gbp-2026-09-18-color-0001-color.bin")
+    SHA256 = "95595f9d9eb4945e42ee1653ade5a1cd72a3646d698cad254d32c84ba0762bb7"
+    STIMULUS = (0x0000, 0x001F, 0x03E0, 0x7C00, 0x7FFF, 0x0001, 0x0020, 0x0400)
+    # H1: exchange bits 14-10 with bits 4-0, green (bits 9-5) fixed
+    H1 = (0x0000, 0x7C00, 0x03E0, 0x001F, 0x7FFF, 0x0400, 0x0020, 0x0001)
+
+    @classmethod
+    def setUpClass(cls):
+        if not os.path.isfile(cls.SIDECAR):
+            raise unittest.SkipTest("physical color-0001 sidecar missing")
+        with open(cls.SIDECAR, "rb") as f:
+            cls.raw = f.read()
+        cls.d = vcolor.parse(cls.raw)
+        cls.frames = [vcolor.raw_frame(cls.d, i) for i in range(3)]
+
+    def test_the_fixture_is_the_ingested_bytes(self):
+        import hashlib
+        self.assertEqual(hashlib.sha256(self.raw).hexdigest(), self.SHA256)
+
+    def test_the_official_gate_still_refuses_this_run(self):
+        """Regression against a silent reinterpretation: if someone ever relaxes
+        certified_raw_equal(), this run must stop being INCONCLUSIVE loudly."""
+        r = vcolor.certified_raw_equal(self.d)
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["n"], 3)
+        fd = r["first_diff"]
+        self.assertEqual(fd["pair"], (0, 1))
+        self.assertEqual(fd["offset"], 0x108)
+        self.assertEqual((fd["block"], fd["x"], fd["y"]), (0, 66, 0))
+        self.assertEqual((fd["a"], fd["b"]), (0x83, 0x03))
+        # the analyser already says it itself: the byte that stopped the run is
+        # one neither reference decoder reads
+        self.assertEqual(fd["byte_in_group"], 0)
+        self.assertFalse(fd["consumed"])
+
+    def test_every_raw_difference_is_in_a_byte_no_decoder_reads(self):
+        counts = {}
+        for a, b in ((0, 1), (1, 2), (0, 2)):
+            c = [0, 0, 0, 0]
+            x, y = self.frames[a], self.frames[b]
+            for i in range(0, len(x), 4):
+                for k in range(4):
+                    if x[i + k] != y[i + k]:
+                        c[k] += 1
+            counts[(a, b)] = c
+        self.assertEqual(counts[(0, 1)], [1878, 0, 247, 0])
+        self.assertEqual(counts[(1, 2)], [1815, 0, 258, 0])
+        self.assertEqual(counts[(0, 2)], [1860, 0, 277, 0])
+
+    def test_the_consumed_projection_is_identical_in_all_three_frames(self):
+        """word = (b1 << 8) | b3 is not invented here: GBP-VID-003 recorded it
+        from both reference decoders on 2026-09-16, before this run."""
+        proj = [[(f[i] << 8) | f[i + 2] for i in range(1, len(f), 4)] for f in self.frames]
+        self.assertEqual(len(proj[0]), 240 * 160)
+        self.assertEqual(proj[0], proj[1])
+        self.assertEqual(proj[1], proj[2])
+
+    def test_flag15_is_one_word_per_frame_at_the_origin_over_a_black_pixel(self):
+        for f in self.frames:
+            w = [(f[i] << 8) | f[i + 2] for i in range(1, len(f), 4)]
+            hits = [i for i, v in enumerate(w) if v & 0x8000]
+            self.assertEqual(hits, [0])
+            # the first run in which bit 15 is separable from the colour: the
+            # earlier physical frames all had 0xFFFF here, where it is not
+            self.assertEqual(w[0], 0x8000)
+
+    def test_the_post_gate_diagnostic_bar_vector(self):
+        for f in self.frames:
+            w = [((f[i] << 8) | f[i + 2]) & 0x7FFF for i in range(1, len(f), 4)]
+            for bar in range(8):
+                seen = {w[y * 240 + x] for y in range(160)
+                        for x in range(bar * 30, bar * 30 + 30)}
+                self.assertEqual(len(seen), 1, "bar %d is not uniform" % bar)
+                self.assertEqual(seen.pop(), self.H1[bar])
+        # H2, the verbatim AGB reading, survives only on the swap-invariant bars
+        agree = sum(1 for b in range(8) if self.H1[b] == self.STIMULUS[b])
+        self.assertEqual(agree, 4)
+
+    def test_the_run_certified_three_frames(self):
+        self.assertEqual(len(self.d["cert"]), 3)
+        self.assertEqual([c["frame_index"] for c in self.d["cert"]], [2, 3, 4])
+        self.assertEqual([c["blocks"] for c in self.d["cert"]], [40, 40, 40])
+        self.assertEqual([c["ring_slot"] for c in self.d["cert"]], [2, 3, 0])
+
+
 if __name__ == "__main__":
     unittest.main()

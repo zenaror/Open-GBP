@@ -2884,3 +2884,140 @@ quarantined 0   deferred 0   follow-up present 38/38
 This is a third corroboration of the policy under an unusual startup, not new
 information about the mechanism: **U-GBP-033 stays OPEN** and nothing here is
 used to argue a cause.
+
+## GBP-VIDEO-003 / color-0001 — first physical run, 2026-09-18
+
+Build `color-0001`, commit `9d8302d`, DOL sha256 `cc88e4c4...`, on the physical
+unit with a Game Pak present (`CONTROL orig=92`, bit `0x02` set) carrying the
+controlled eight-bar AGB colour stimulus. Fixture
+`captures/fixtures/hw-gamecube-gbp-2026-09-18-color-0001.gbpreplay` and its
+OGBPCOL1 v1 sidecar `…-color-0001-color.bin` (sha256 `95595f9d…`, 461 684 B).
+Raw log `GBP-VIDEO-003_color-0001.log`, sha256 `28c5a06c…`, 40 790 B, kept in
+`captures/local/` and never versioned.
+
+### GBP-HW-120 — a fixed 5000 ms pre-handler wait was sufficient in its intended position — FACT
+
+`PREHANDLERWAIT ms=5000 want_ticks=202500000 elapsed=202500008` — 5.000 000 20 s
+at 40.5 MHz — `iters=78307393 done=1`, the time bound and not the iteration cap.
+Read-only snapshots either side: `CONTROL 8e -> 8e`, IRQ semantic `0500 -> 0500`,
+`INTSR 00012000 -> 00012000`. Capture then opened and the frame sequence was
+`0 not_complete (1 block) · 1 resync · 2, 3, 4 eligible`, certifying on the
+third consecutive eligible frame. **The claim is the duration and the position
+exercised, and nothing more:** 5000 ms at that point, on this unit, under these
+conditions, with this stimulus. Nothing here licenses another duration, and
+nothing here says the AGB had finished booting rather than merely reached a
+state whose picture stayed stable — the probe reads no VIDEO before the handler
+exists.
+
+### GBP-HW-121 — the runtime certified, serviced and restored cleanly — FACT
+
+`stop=color_certified (8)`. Capture 0.072 s; 5.179 s of the 30 s safety budget
+consumed, nearly all of it the wait. 440 deliveries = acks = rearms = unmasks
+(162 VIDEO, 288 AUDIO); 0 timeouts, 0 busy, 0 uncertain, 0 overflow, 0 errors;
+R3 reported **0** semantic disagreements in this run. Teardown restored CONTROL,
+IRQ, PI, AR_INFO and the handler with readback, `intmr_final=000001fa`. The
+sidecar validates offline: magic `OGBPCOL1`, version 1, header `0x200`, header
+CRC `96002fc9` and total CRC `19ebfbda` both recomputed and matching, footer
+`OGBPCEND` at `0x70B68`, size == `off_footer + 12`. Three certified records,
+frame_index 2/3/4, 40 blocks each, raw offsets 0 / 153 600 / 307 200, ring slots
+2 / 3 / 0, all three with `sig0 7780f781` and `sig39 f780f780`.
+
+### GBP-HW-122 — the three certified frames are NOT byte-identical over the full raw frame — FACT
+
+`tools/vcolor.py`, run unmodified, reports `VERDICT: INCONCLUSIVE - CERTIFIED
+RAW MISMATCH`. First difference at byte `0x108` — block 0, x = 66, y = 0, byte 0
+of the group — `83` vs `03`. Pairwise differing bytes: A/B **2125**, B/C
+**2073**, A/C **2137**, touching all 40 blocks and all 160 rows. The runtime's
+`sig[40]` agreement was therefore not byte agreement, which is exactly the case
+the gate exists to catch. **This run is INCONCLUSIVE under the frozen analyser
+and stays that way**; no result below changes that verdict.
+
+### GBP-HW-123 — every one of those differences is in a byte neither reference decoder reads — FACT
+
+Differing bytes by position in the four-byte group:
+
+```text
+pair    byte0   byte1   byte2   byte3
+A/B      1878       0     247       0
+B/C      1815       0     258       0
+A/C      1860       0     277       0
+```
+
+Bytes 1 and 3 — the only bytes the Start-up Disc and GBI consume (GBP-VID-003,
+recorded 2026-09-16, two days before this run) — differ in **zero** positions
+across all three pairs. Under the pre-existing projection
+`word = (b1 << 8) | b3` the three certified frames are identical in **38 400 of
+38 400** words. This is a recomputable property of the versioned sidecar, pinned
+by `tests/host/test_vcolor.py::PhysicalColor0001`.
+
+### GBP-HW-124 — post-gate diagnostic projection of the eight bars — FACT for the vector, HYPOTHESIS for the mapping
+
+Because GBP-HW-122 did not pass, what follows is a **diagnostic projection and
+not a measurement the experiment's own gate accepted**. Every bar is uniform —
+one distinct `colour15` across its 30 × 160 pixels — and identical in A, B and C:
+
+```text
+bar        0       1       2       3       4       5       6       7
+stimulus  0x0000  0x001F  0x03E0  0x7C00  0x7FFF  0x0001  0x0020  0x0400
+observed  0x0000  0x7C00  0x03E0  0x001F  0x7FFF  0x0400  0x0020  0x0001
+```
+
+H1 — the outer-group swap, i.e. the references' RGB5A3 reading with R = bits
+14–10 — matches **8/8** bars exactly. H2 — verbatim AGB BGR555 — matches 4/8,
+and those four (`0x0000`, `0x03E0`, `0x7FFF`, `0x0020`) are precisely the
+swap-invariant colours, which carry no discriminating information at all; H2
+fails on every bar that can tell the two apart. The popcount multiset is
+preserved, so no bit was gained or lost.
+
+**Status:** FACT for the observed vector (a recomputable property of the
+versioned sidecar); **HYPOTHESIS** for "the Game Boy Player presents colour in
+the references' order", because the run that produced it did not satisfy its own
+pre-registered acceptance gate. The correct sentence is *the post-gate
+diagnostic projection matches H1 exactly*. **U-GBP-011 remains OPEN.**
+
+### GBP-HW-125 — bit 15 observed separated from the colour payload for the first time — FACT
+
+Exactly one word per certified frame has bit 15 set, at x = 0, y = 0, and here
+that word is exactly **`0x8000`**: flag set, `colour15 = 0x0000`, because the
+stimulus paints bar 0 black and writes bit 15 as zero everywhere. Every earlier
+physical frame had `0xFFFF` at that word — the flag over white `0x7FFF`, where
+bit 15 is indistinguishable from the colour. Count and position reproduce the
+earlier fixtures exactly: one per frame at word 0 in `vstate-0001` / `-0003` /
+`-0004`, and 3 of 88 stored blocks in GBP-VIDEO-001, all at word 0.
+
+**Status:** FACT for the count, the position and the value in this run.
+Everything beyond that — that bit 15 is a frame-start marker the device sets
+rather than a colour bit the AGB happened not to write, and that it would behave
+this way for any picture — stays as it was: the predicates are F (code) ×2
+(GBP-VID-004) and the device-side meaning is not isolated by this run. The
+stimulus writing bit 15 as zero is what makes the separation visible; it does
+not prove who sets it.
+
+### GBP-HW-126 — bytes 0 and 2 vary between consumed-identical physical frames, in earlier fixtures as well — FACT
+
+Re-measured this round over the already-versioned fixtures, restricted to frame
+pairs the runtime's own `sig[40]` calls identical, differing bytes by group
+position:
+
+```text
+fixture                    byte0  byte1  byte2  byte3   blocks touched
+vstate-0001 f190 vs f194     584      0     46      0        40/40
+vstate-0003 f190 vs f194      97      0     25      0         8/40
+vstate-0004 f190 vs f194     292      0     19      0        39/40
+color-0001  A vs B          1878      0    247      0        40/40
+```
+
+GBP-VIDEO-001, at block granularity over 88 stored blocks and 84 480 words:
+byte 0 differs from byte 1 in **688** words and byte 2 never differs from byte 3
+— reproducing GBP-HW-070 exactly from the stored fixture — and between blocks
+with an identical consumed projection only byte 0 differs (11–15 bytes per pair).
+
+**Byte 0 is pre-existing evidence** (GBP-HW-058, GBP-HW-070, cause open in
+U-GBP-029; U-GBP-021 already forbids consuming it, and `src/gbp/gbp_vsig.h`
+excludes bytes 0 and 2 from the runtime signature citing exactly that).
+**Byte 2 variability is NEW**: GBP-HW-070 recorded zero cases in GBP-VIDEO-001,
+and it is present in the 2026-09-16/17 vstate fixtures (8712, 8679 and 8907
+words of 576 000) and in this run. It was latent in bytes already committed and
+had never been measured or registered. Nothing here says the device changed —
+the earlier measurement was made on a different, uniform picture. Recorded
+against **U-GBP-029**, which stays OPEN.

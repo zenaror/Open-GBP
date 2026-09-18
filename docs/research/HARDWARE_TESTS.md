@@ -5734,7 +5734,7 @@ the physical v4 file   must keep parsing under the v4 rules, unchanged, and must
 
 ---
 
-### GBP-VIDEO-003 (build `color-0001`, sidecar `OGBPCOL1` v1) — controlled colour mapping — DESIGN FINALIZED, **IMPLEMENTED 2026-09-17, STRUCTURAL TIMING FIX APPLIED, NOT PHYSICALLY EXECUTED**
+### GBP-VIDEO-003 (build `color-0001`, sidecar `OGBPCOL1` v1) — controlled colour mapping — DESIGN FINALIZED, IMPLEMENTED 2026-09-17, STRUCTURAL TIMING FIX APPLIED, **PHYSICALLY EXECUTED 2026-09-18 — the run CERTIFIED but the analyser REFUSED it at its own gate; see "GBP-VIDEO-003 / color-0001 — first physical run" at the end of this file**
 
 **Implementation status, 2026-09-17.** The three components of §V3 exist and are
 built by the project's own toolchain; **none of it has run on hardware**, no
@@ -6775,3 +6775,124 @@ Expected on success: `stop=color_certified`, three certified frames, and a
 sidecar that `tools/vcolor.py analyse` resolves to exactly one hypothesis. Every
 other outcome is an inconclusive verdict that still produces a valid, strictly
 parseable file — which is itself evidence about the wait.
+
+---
+
+### GBP-VIDEO-003 / color-0001 — first physical run — **EXECUTED 2026-09-18; the runtime PASSED, the analyser REFUSED, the verdict is INCONCLUSIVE**
+
+```text
+Test ID   GBP-VIDEO-003
+Build ID  color-0001                   commit 9d8302d
+DOL       build/poc/gbp-video-color-probe/gbp-video-color-probe.dol
+          442 560 B   sha256 cc88e4c45559f11047ca657b78045e2fd2c5d646a1b68e7e453fcf796d177cf4
+          IDENTITY WARNING: the device log records the commit and the build id,
+          not a DOL hash, so the hash above is the build tree's at the declared
+          commit 9d8302d. A rebuild at any other commit produces a DIFFERENT
+          hash, because the commit identity is embedded in the image, and
+          inherits the source behaviour but NOT the physical status. Compare
+          hashes before calling any rebuilt DOL the tested artifact.
+          build/swiss/11-color/boot.dol is a byte copy, not a second identity.
+cartridge the controlled eight-bar AGB Mode 3 colour stimulus; CONTROL orig=92,
+          i.e. the Game Pak presence bit 0x02 set (it reads 90 with no cartridge)
+log       logs/GBP-VIDEO-003_color-0001.log
+          40 790 B   sha256 28c5a06c8c852802b014fe8c97780d8e3a751166ad41be2e979e71ecb3f3bb8c
+          kept in captures/local/, never versioned
+sidecar   logs/GBP-VIDEO-003_color-0001-color.bin
+          461 684 B  sha256 95595f9d9eb4945e42ee1653ade5a1cd72a3646d698cad254d32c84ba0762bb7
+          OGBPCOL1 v1, header CRC 96002fc9 valid, footer OGBPCEND at 0x70B68,
+          total CRC 19ebfbda valid, size == off_footer + 12
+fixture   captures/fixtures/hw-gamecube-gbp-2026-09-18-color-0001.gbpreplay
+          captures/fixtures/hw-gamecube-gbp-2026-09-18-color-0001-color.bin
+```
+
+**The runtime reached its target.** `stop=color_certified (8)`. The fixed 5000 ms
+pre-handler wait elapsed in 202 500 008 ticks (5.000 000 20 s) with CONTROL, IRQ
+and INTSR unchanged across it; capture then opened, frames went
+`0 not_complete · 1 resync · 2, 3, 4 eligible`, and certification took the three
+consecutive signature-identical eligible frames the design asks for. 440
+deliveries = acks = rearms = unmasks (162 VIDEO, 288 AUDIO), 0 errors of any
+class, 0 R3 disagreements, clean restore, `intmr_final=000001fa`. Capture 0.072 s
+inside a 5.179 s / 30 s safety budget. GBP-HW-120, GBP-HW-121.
+
+**The analyser refused it.** `tools/vcolor.py`, run unmodified:
+
+```text
+VERDICT: INCONCLUSIVE - CERTIFIED RAW MISMATCH
+certified frames A and B are NOT byte-identical, so the runtime's signature
+agreement was not byte agreement
+first difference at byte 0x108 - block 0, x=66, y=0, byte_in_group 0,
+consumed=False, a=83 b=03
+```
+
+Pairwise differing bytes A/B 2125, B/C 2073, A/C 2137, over all 40 blocks and all
+160 rows. **This verdict stands.** GBP-HW-122.
+
+**Where the differences are.** Every one of them is in byte 0 or byte 2 of its
+four-byte group; bytes 1 and 3 — the only bytes either reference decoder reads —
+differ in zero positions across all three pairs, so under
+`word = (b1 << 8) | b3` the three certified frames are identical in 38 400 of
+38 400 words. GBP-HW-123.
+
+**Post-gate diagnostic projection, not the result.** Read through that
+projection, each bar is uniform and identical in A, B and C, and the eight bars
+map `0x0000 0x001F 0x03E0 0x7C00 0x7FFF 0x0001 0x0020 0x0400` →
+`0x0000 0x7C00 0x03E0 0x001F 0x7FFF 0x0400 0x0020 0x0001`: the outer-group swap,
+H1, on 8/8 bars; H2 survives only on the four swap-invariant controls. The
+correct sentence is **"the post-gate diagnostic projection matches H1 exactly"**,
+never "GBP colour mapping = H1". GBP-HW-124. **U-GBP-011 stays OPEN.**
+
+**One thing this run isolated for free.** The flag word at x=0, y=0 is exactly
+`0x8000` here — flag set, colour 0 — because bar 0 is black and the stimulus
+never writes bit 15. Every earlier physical frame had `0xFFFF` there, where the
+flag is indistinguishable from white. GBP-HW-125.
+
+#### Why the gate is not being relaxed for this run
+
+The gate's documented purpose is in §V3.25 and in `tools/vcolor.py` itself: *"a
+checksum can collide; the bytes cannot"*. It exists to stop a `sig[40]` collision
+from passing as frame stability — **not** as a claim that bytes 0 and 2 are part
+of the picture. It is therefore stricter than the question it guards, and the
+project's own pre-existing evidence already said so: GBP-VID-003 (2026-09-16)
+records that bytes 0 and 2 are read by neither reference decoder; GBP-HW-058 and
+GBP-HW-070 record the physical byte-0 deviations and state they do not alter what
+either reference reads; U-GBP-021 forbids consuming byte 0; U-GBP-029 holds the
+open question and already answers it operationally with *"the runtime rule stands
+regardless: read pixels from bytes 1 and 3, as the references do"*; and
+`src/gbp/gbp_vsig.h` excludes bytes 0 and 2 from the runtime signature citing
+exactly that. None of this was discovered by `color-0001`.
+
+That is precisely why the gate is not moved now. The criterion was pre-registered,
+the run failed it, and re-reading the same bytes under a criterion chosen after
+seeing them is not the experiment that was designed. `OGBPCOL1` v1 and
+`tools/vcolor.py` stay frozen; `color-0001` stays INCONCLUSIVE; the fixture and
+its measurements are pinned by `tests/host/test_vcolor.py::PhysicalColor0001` so
+that a future relaxation of the gate fails loudly instead of quietly re-labelling
+this run.
+
+#### The next experiment — `color-0002`, pre-registered
+
+1. **Write the contract first.** A new analyser version (`vcolor2` / `OGBPCOL2`,
+   never an edit to v1) whose acceptance gate is the **consumed projection**
+   `word = (b1 << 8) | b3`, justified in the document by GBP-VID-003 and
+   U-GBP-029 *as they stood before any colour run*, with the full-raw comparison
+   kept and reported as a separate mandatory diagnostic. State in advance what
+   makes the run INCONCLUSIVE: a bar that is not uniform, two surviving
+   hypotheses, none, or any difference in bytes 1/3.
+2. **Do not reuse `color-0001` as the confirmation.** It is the run that
+   motivated the contract; a new physical run judges it.
+3. **Keep the stimulus unchanged** so the two runs are comparable, and keep the
+   5000 ms wait, whose sufficiency in this position is now physical (GBP-HW-120).
+4. **Report bytes 0/2 either way**, since U-GBP-029 is still open and every run
+   with a non-uniform picture is new information for it.
+
+#### Known instrumentation defect in this run — NON-BLOCKING
+
+The log header declares `truncated=1`. The truncated line is `PREHANDLERWAIT`,
+which hit the logger's 255-character limit and ends mid-token at `intmr_po`. This
+is the same defect already registered for the `vstate-prewait-5000` run and it
+costs nothing here either: `ms`, `want_ticks`, `begin`, `end`, `elapsed`, `iters`,
+`done` and the CONTROL / IRQ / INTSR snapshots on both sides are all complete
+before the cut, and only the trailing `intmr_post` value is lost while INTMR is
+reported in full elsewhere in the same log. Recorded as an INSTRUMENTATION DEFECT
+and not as a result of the experiment; the fix belongs to whichever round touches
+the logger, not to this one.

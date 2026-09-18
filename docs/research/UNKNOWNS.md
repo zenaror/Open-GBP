@@ -247,7 +247,7 @@ difference is documented anywhere; the user's unit revision is unknown.
 Dolphin maps hi byte bit 0 → L and bit 1 → R (swapped vs GBA KEYINPUT);
 GBI's 0x0304 sets both. Phase 5 test with a game that distinguishes L/R.
 
-## U-GBP-011 (P2, re-evaluated 2026-09-17: R-high order CORROBORATED by two references; the experiment that settles it is DESIGNED and IMPLEMENTED — GBP-VIDEO-003, the capture's timing blocker is FIXED and the ROM delivery route is RESOLVED; what remains is executing the first physical colour run, whose capture is now gated by a fixed 5000 ms pre-handler wait whose SUFFICIENCY for the stimulus is itself unestablished) — VIDEO color bit order and exact word content
+## U-GBP-011 (P2, re-evaluated 2026-09-18: the first physical colour run EXECUTED and did NOT satisfy its own acceptance gate; the post-gate diagnostic projection matches H1 exactly and is NOT accepted as the answer; a pre-registered colour-0002 under a stated gate is the next step) — VIDEO color bit order and exact word content
 
 **2026-09-16, static (GBP-VID-003/006, VIDEO_PATH.md §2.3–2.4, §3.2):** the
 Disc draws the 16-bit pixel (bytes 1/3, bit 15 forced to 1) as a GX RGB5A3
@@ -292,6 +292,41 @@ of it has touched hardware. The analyser reaches a verdict only when exactly one
 candidate transformation reproduces all eight observed values, and its synthetic
 corpus includes the cases where it must refuse to: two survivors, none, a bar
 that is not uniform, and a mirrored frame.
+
+**2026-09-18, EXECUTED — and the answer is still not taken.** `color-0001` ran on
+the physical unit with the stimulus cartridge. The runtime reached its own target
+(`stop=color_certified`, three eligible frames with identical `sig[40]`, clean
+service and restore — GBP-HW-120, GBP-HW-121). The **analyser refused it**: the
+three certified frames are not byte-identical over the full 153 600-byte raw
+frame, so `tools/vcolor.py` stopped at `inconclusive_certified_raw_mismatch`
+before interpreting one pixel (GBP-HW-122). That verdict stands and this item is
+**not closed by it**.
+
+What the run does show, as a *post-gate diagnostic projection* only: every
+differing byte is in position 0 or 2 of its group, never 1 or 3, so under the
+pre-existing consumer projection `word = (b1 << 8) | b3` the three frames are
+identical in 38 400 of 38 400 words (GBP-HW-123); and the eight bars then read
+`0x0000 0x7C00 0x03E0 0x001F 0x7FFF 0x0400 0x0020 0x0001` against a stimulus of
+`0x0000 0x001F 0x03E0 0x7C00 0x7FFF 0x0001 0x0020 0x0400` — the outer-group swap,
+H1, on **8/8** bars, with H2 surviving only on the four swap-invariant controls
+(GBP-HW-124).
+
+**Why that is not promoted.** The experiment pre-registered its acceptance
+criterion, the run failed it, and a result that is read only after relaxing the
+criterion that rejected it is not the result the experiment was designed to
+produce. Changing the gate now and calling the same bytes conclusive would be
+choosing the analysis after seeing the data. The order therefore stays
+**CORROBORATED** exactly where 2026-09-17 left it, and the projection above is
+recorded as a strong, reproducible, independently pinned observation that
+*agrees* with it.
+
+**What closes it.** A pre-registered `color-0002`: an analysis contract written
+down *before* the run that states which bytes are in the acceptance gate and
+why (the consumed projection, on the pre-existing authority of GBP-VID-003 and
+U-GBP-029, with the full-raw comparison kept and reported as a separate
+diagnostic rather than as the gate), a new analyser version rather than an edit
+to the frozen one, and a fresh physical run judged by it. `OGBPCOL1` v1 stays
+FROZEN and `color-0001` is never re-labelled.
 
 Dolphin uses GBA palette order (R in bits 0–4). GBI's frame-start test only
 proves the byte-doubling of the high byte. Phase 4: capture one block
@@ -799,7 +834,7 @@ decisive for the runtime (e.g. an immediate re-request
 on every re-arm would mean the runtime must drain before re-arming — which
 the references do anyway).
 
-## U-GBP-029 (P2, opened 2026-09-16 after GBP-AV-SERVICE-001) — Are the byte-0 / offset-2 deviations inside whole-block DMAs block data or a read-path artifact?
+## U-GBP-029 (P2, opened 2026-09-16 after GBP-AV-SERVICE-001; re-measured 2026-09-18 on a NON-UNIFORM picture, the strongest test so far — the deviations are still confined to bytes 0 and 2) — Are the byte-0 / offset-2 deviations inside whole-block DMAs block data or a read-path artifact?
 
 GBP-HW-061 / VIDEO_PATH.md §7: in the first physical VIDEO block the only
 deviations from a uniform picture are five `+0x80` in byte 0 of a pixel word
@@ -823,6 +858,25 @@ words: reproducibility across 88 blocks (same positions? only bytes 0/2?
 never bytes 1/3? a Disc = 1 / GBI = 0 block?) is the test; the offline
 boundary lists are kept per predicate, none chosen silently. The runtime rule
 stands regardless: read pixels from bytes 1 and 3, as the references do.
+
+**2026-09-18, GBP-VIDEO-003 / color-0001 (GBP-HW-123, GBP-HW-126).** The
+reproducibility question this item posed — *"only bytes 0/2? never bytes 1/3?"*
+— now has its strongest answer. Three certified frames of a **non-uniform**
+picture, 153 600 bytes each: 2125, 2073 and 2137 differing bytes pairwise, and
+every single one of them at position 0 or 2 of its group. Bytes 1 and 3 differ in
+**zero** positions across all three pairs, so the consumed projection is
+identical in 38 400 of 38 400 words. Every earlier test of this was made on an
+essentially uniform white screen, where most of the payload cannot show a
+difference; this one was not.
+
+That is consistent with (b), a read-path artifact, and it is **still not
+decisive**: nothing here excludes bytes 0 and 2 carrying data the references
+simply ignore, and nothing here identifies a mechanism. **UNKNOWN stands.** Two
+things are new and recorded rather than folded in: byte 2 deviates too, which
+GBP-HW-070 had measured as zero cases on GBP-VIDEO-001 and which was latent and
+unmeasured in the 2026-09-16/17 `vstate` fixtures; and the deviation rate rises
+with picture complexity (~0.6 % of words on white, ~1.4 % here), which is a
+correlation over four runs and not a rule.
 
 ### U-GBP-030 — why were only 25 VIDEO blocks observed between the first two frame starts? — OPEN (not blocking)
 
