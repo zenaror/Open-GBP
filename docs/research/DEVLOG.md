@@ -6898,3 +6898,100 @@ COMPLETE · PHYSICAL CANDIDATE READY · NOT PHYSICALLY EXECUTED.** No evidence i
 **Next:** a focused re-audit of ownership, timing observability and teardown —
 not a hardware run. Three previous audits each found something that would have
 cost one. U-GBP-029, U-GBP-033 and U-GBP-034 stay OPEN.
+
+## 2026-09-18 — the focused re-audit of stream-0002: cleared, with one footnote that has to be written down first
+
+**Goal.** Decide whether the exact `stream-0002` artifact is safe enough and
+observable enough for **one** supervised physical smoke. Not whether streaming
+works — that is §V5.21's job, after a run exists. No hardware, no functional
+change, no `stream-0003`.
+
+**What was done.** §V5.28, in six areas: texture ownership and the one-token
+rule, main ↔ callback synchronisation, XFB ownership, pump priority and
+observability, the teardown callback lifecycle, and whether the display self-test
+is valid. Everything else `stream-0002` did not touch was left alone.
+
+**Method, and why it is worth naming.** Three things in this round were proved
+from artifacts rather than from reasoning:
+
+- the candidate **reproduces byte-for-byte** from a detached worktree at
+  `2457d51` — 466 272 B, sha256 `76fa1ff7…` — once the embedded identity string is
+  supplied, because inside the container a worktree cannot resolve `HEAD` and the
+  Makefile falls back to `unknown-dirty`;
+- the **compiler ordering** was read out of `powerpc-eabi-objdump`: both volatile
+  stores in `gbp_vpresent_submit` retire before `blr`, and `GX_SetDrawDone()`
+  lives behind a control dependency on that function's return value. "Single-core"
+  was never used as the argument, because single-core settles preemption, not
+  reordering;
+- the **libogc2 semantics** every non-blocking claim rests on were re-read from
+  the pinned source (`external/libogc2` @ `ca03fb75`), not from memory.
+
+A breadth-first enumeration of a **superset** of the ownership machine — main may
+start any entry point at any time, the interrupt may fire between any two shared
+accesses, including adversarially with no token armed — visits 705 states with a
+maximum of **one** simultaneously `SUBMITTED` buffer and no main-side write to a
+buffer the GP owns. The checker was validated by injecting the defects into the
+model: they break it.
+
+**Result: DECISION C — conditionally cleared for ONE supervised smoke.**
+
+**The finding that decided it (R1, HIGH).** `display_selftest()` calls
+`submit_ready()`, whose success path calls `gbp_vqueue_note_presented()`. The
+self-test frame is synthetic and never passes through the queue, so
+`consumer_frames_converted` is not incremented — and
+`gbp_vqueue_balanced()`'s identity `converted == presented + overrun` is false
+from the first instruction of every run, off by exactly one, for ever. The
+candidate binary already proves it: under Dolphin, with no Game Boy Player
+attached, it prints `presented=1 … counters DO NOT BALANCE` on screen.
+
+Nothing is corrupted and no invariant is touched — but the headline
+counter-accounting indicator of §V5.21 reads a false failure. The correction is
+exact, and the run itself prints the field that selects it (`SELFTEST … xfb=`),
+so it was **pre-registered before the run** rather than rationalised after:
+
+```text
+converted == (presented - SELFTEST.xfb) + overrun
+```
+
+Not decision A, because a first physical result should not need a footnote to be
+readable. Not decision B, because rejecting a candidate over a reporting defect
+would cost a rebuild, a new identity and a fourth audit round.
+
+**Seven more findings, none blocking.** R3 is the one to watch: `IRQ_PI_PEFINISH`
+is unmasked by `__GX_PEInit` and is never masked here, so the draw-done callback
+**can** preempt the GBP service path between the ACK and the RE-ARM — a new
+interrupt source `vstate-0004` did not have, ≤ 16 instructions, on roughly 6 % of
+cycles, and visible afterwards as outliers in the existing per-cycle histogram.
+R8: `gbp_vpresent_consistent()` is evaluated only in the self-test and the final
+report, so the run can claim the invariants hold **at end**, not throughout. R7:
+the re-offer loop takes the lowest-index `READY` buffer, so two simultaneously
+ready buffers can be shown out of order. R2, R4, R5 are observability and
+cosmetics.
+
+**Newly confirmed.** The display path genuinely runs and the callback genuinely
+comes from hardware: `on_draw_done` appears exactly once in the whole linked
+image — as its own symbol — with no call site anywhere, so `drawdone=1` can only
+have come from libogc2's PE FINISH handler. The teardown order
+(shutdown → stop feeds → drain → restore) is confirmed in machine code, including
+the case where `GX_DrawDone()`'s own second token fires after the restore.
+
+**Rejected.** That a green suite meant the mutations were caught: the harness
+restored files with `shutil.copy2`, which preserves mtime, so `make` re-ran the
+**previous** mutant's binary and three of the seven results were stale. Fixed,
+baseline rebuilt green, all seven re-run: **7/7 caught**, including A1 — the exact
+`stream-0001` defect that the previous round's suite did **not** catch.
+
+**Tests executed.** 19 unit binaries, 0 failures; 556 host tests, OK; Dolphin
+smoke re-run on the exact candidate: PASS, `SELFTEST ok=1 converted=1 released=1
+submits=1 drawdone=1 releases=1 xfb=1`. `make -C tests/unit` and `git status`
+verified clean after every mutation, by sha256, with **no `git checkout` on any
+file**.
+
+**New unknowns.** None promoted. U-GBP-029, U-GBP-033 and U-GBP-034 stay OPEN.
+
+**Next:** the physical run is now the highest-value step, under §V5.20/§V5.21 with
+the R1 correction recorded. R1 and R8 land in `stream-0003` before any second
+run; R3 is read out of this run's cycle histogram before anyone calls the design
+timing-safe. The CONTROLLED indexed motion stimulus of §V5.18 still does not
+exist, so no result from this run may be cited as evidence of zero dropped source
+frames.

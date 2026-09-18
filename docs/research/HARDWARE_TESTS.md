@@ -8238,3 +8238,553 @@ for exactly the same reason in reverse: nothing asserted the callback's contract
 only that its name appeared in the source. The lesson is not "write more tests";
 it is that a contract enforced by an invariant somewhere else still needs its own
 test, or the invariant becomes load-bearing without anyone knowing.
+
+### V5.28 PRE-HARDWARE RE-AUDIT of `stream-0002` — 2026-09-18 — **DECISION: C, CONDITIONALLY CLEARED FOR ONE SUPERVISED SMOKE**
+
+The third audit of this experiment, and the first one whose subject is a
+candidate that a previous audit already rejected and a fix already repaired. Its
+question was narrow and was set before any evidence was gathered: **is the exact
+`stream-0002` artifact safe enough, and observable enough, for ONE supervised
+physical smoke?** Not "is it correct", not "is streaming validated" — those are
+§V5.21's job, offline, after a run exists.
+
+Scope was limited to six areas: texture ownership and the one-token rule;
+main ↔ callback synchronisation; XFB ownership; pump priority and observability;
+the teardown callback lifecycle; and the validity of the display self-test.
+RGB5A3, the tile mapping, R3, the colour mapping and the memory design were NOT
+re-audited: `stream-0002` did not touch them and re-opening a settled decision
+without new evidence is how an audit becomes a preference.
+
+**No functional source was changed in this round.** One finding requires a
+functional correction and is reported rather than fixed, per the round's own
+rule.
+
+#### V5.28.1 The artifact, and that it is the one that was audited
+
+```text
+DOL          build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+size         466 272 B
+sha256       76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d
+build id     stream-0002
+commit       2457d51          (no -dirty)
+swiss        build/swiss/12-stream/boot.dol — byte-identical
+```
+
+`git diff --name-only 2457d51..HEAD -- src/ poc/ tools/ tests/` is **empty**; the
+only commit after the candidate touches `docs/HANDOFF.md`. The candidate's
+identity therefore still holds at HEAD.
+
+**Reproducibility (§V5.28 method note).** A detached worktree at `2457d51`, built
+in the project container without touching the candidate tree, produced a
+**byte-identical** DOL: 466 272 B, sha256 `76fa1ff7…`. The first attempt did not,
+and the reason is worth recording because it will recur: inside the container a
+`git worktree` cannot resolve `HEAD`, because its `.git` file points at a host
+absolute path that does not exist in the container, so the Makefile's
+`GIT_COMMIT`/`GIT_DIRTY` shell-outs fell back to `unknown` + `-dirty` and the
+embedded identity string changed. With `GIT_COMMIT=2457d51 GIT_DIRTY=` the build
+reproduces exactly. **The build is deterministic; the identity string is an
+input to it.**
+
+#### V5.28.2 Ownership — every transition, with its guard
+
+| # | transition | code | guard | actor |
+| --- | --- | --- | --- | --- |
+| T1 | `—` → `CPU_FILLING` | `gbp_vpresent.c:37` | `!shutting_down` (`:34`), `tex[i]==FREE` (`:36`) | main |
+| T2 | `CPU_FILLING` → `READY` | `gbp_vpresent.c:52` | `tex[idx]==CPU_FILLING` (`:51`) | main, **after** `DCFlushRange` (`main.c:388`, `:489`) |
+| T3 | `CPU_FILLING` → `FREE` | `gbp_vpresent.c:64` | `tex[idx]!=SUBMITTED` (`:63`) | main (`main.c:384`, `:424`, `:446`, `:474`) |
+| T4 | `READY` → `SUBMITTED` | `gbp_vpresent.c:81` | `!shutting_down` (`:73`), `tex[idx]==READY` (`:74`), `submitted<0` (`:78`) | main (`main.c:506`) |
+| T5 | `submitted := idx` | `gbp_vpresent.c:82` | same call, one instruction after T4 | main |
+| T6 | token armed | `main.c:516` `GX_SetDrawDone()` | reached only when T4/T5 returned 1 | main |
+| T7 | `submitted := -1` | `gbp_vpresent.c:99` | `submitted>=0` (`:93`), else `drawdone_spurious` | **PE FINISH ISR** |
+| T8 | `SUBMITTED` → `FREE` | `gbp_vpresent.c:100` | the **one** index read from `submitted` | **PE FINISH ISR** |
+| T9 | XFB candidate chosen | `gbp_vpresent.c:111-115` | `i != current` **and** `i != xfb_pending` | main |
+| T10 | `xfb_pending := idx` | `gbp_vpresent.c:124` | after `VIDEO_SetNextFramebuffer` + `VIDEO_Flush` (`main.c:524-525`) | main |
+| T11 | `xfb_pending := -1` | `gbp_vpresent.c:134` | `xfb_pending == current` | main |
+| T12 | `shutting_down := 1` | `gbp_vpresent.c:21` | — | main (`main.c:668`) |
+
+The interrupt writes exactly two locations, T7 and T8, and T8's index comes from
+T7's read. Everything else is main-side. That disjointness is the whole safety
+argument, and it is machine-checked below rather than asserted.
+
+#### V5.28.3 Exhaustive state enumeration — machine-checked, not argued
+
+A breadth-first enumeration of a **superset** of the program was run: main may
+begin any entry point with any index at any moment it is not already inside one,
+and the draw-done interrupt may fire between **any two shared-memory accesses**
+of any main-side function — including, adversarially, when no token is armed at
+all. Every guard was transcribed from `gbp_vpresent.c` line by line.
+
+```text
+reachable states                        705
+max simultaneously SUBMITTED buffers      1
+P1  at most one tex[] entry SUBMITTED             HOLDS
+P2  `submitted` agrees with tex[]                 HOLDS (outside the deliberate
+                                                  :81→:82 transient)
+P3  no MAIN-side write ever targets a SUBMITTED   HOLDS
+```
+
+The checker is not vacuous: injecting `stream-0001`-class defects into the
+**model** breaks it exactly where it should. Removing the one-token guard makes
+`max simultaneously SUBMITTED = 2` reachable in 54 states; letting `acquire()`
+take a `SUBMITTED` buffer produces 393 P2/P3 violations, the first of them
+`('P3', 'acquire:37', [SUBMITTED, FREE])`.
+
+#### V5.28.4 Compiler ordering — PROVEN from the disassembly, not from "single core"
+
+The question §8 asked is real and is **not** answered by "PowerPC is single-core":
+single-core settles CPU atomicity and preemption, not whether the compiler may
+sink the `SUBMITTED` marking past `GX_SetDrawDone()`.
+
+Three independent facts, all read out of the shipped objects:
+
+1. **No LTO.** `poc/gbp-video-stream-probe/Makefile:59` is `-std=gnu11 -g -O2
+   -Wall -Wextra -Wshadow`. `gbp_vpresent_submit` lives in its own translation
+   unit, so from `main.o` it is an opaque external call — a hard compiler barrier
+   for anything it might touch.
+2. **The stores retire before the return.** `powerpc-eabi-objdump -d` of the
+   linked ELF, `gbp_vpresent_submit` at `0x8000e5cc`:
+
+   ```text
+   8000e614:  li    r10,3          ; SUBMITTED
+   8000e618:  li    r3,1           ; the return value
+   8000e61c:  stbx  r10,r9,r4      ; tex[idx] = SUBMITTED     <- volatile store 1
+   8000e620:  stw   r4,4(r9)       ; submitted  = idx         <- volatile store 2
+   8000e624:  lwz   r10,40(r9)     ; submit_success++
+   8000e62c:  stw   r10,40(r9)
+   8000e630:  blr
+   ```
+
+   Both volatile stores precede `blr`, in the source order ("mark first, arm
+   second"), and the compiler emitted them as single naturally-aligned stores.
+3. **The arming is strictly after the return, through a data dependency on the
+   return value.** At the `main`/self-test site:
+
+   ```text
+   800039dc:  bl    8000e5cc <gbp_vpresent_submit>
+   800039e0:  cmpwi r3,0
+   800039e4:  bne   80004544            ; only when it returned non-zero
+   ...
+   80004544:  mr    r3,r24
+   80004548:  bl    80004794 <submit_ready.part.0>   ; which arms at 80004908
+   ```
+
+   and at the `pump` site, `80004c2c bl gbp_vpresent_submit` / `80004c34 beq` /
+   tail-call to `submit_ready.part.0`. `GX_SetDrawDone()` is at `0x80004908`,
+   inside `.part.0`, i.e. unreachable except through a return of 1.
+
+**Classification: PROVEN.** Not "plausible", not "by convention": the ordering is
+visible in the shipped instruction stream and is enforced by a control dependency
+the compiler cannot break.
+
+#### V5.28.5 libogc2 semantics, revalidated against the real source
+
+Consulted: `external/libogc2` at commit `ca03fb7534a9b67d3348ef76e3a3b379aee9392a`
+(2026-09-12), `libogc/gx.c` and `libogc/video.c`. This matches the toolchain the
+candidate links against (`libogc2 r2442.094b250`).
+
+```text
+GX_SetDrawDone()          gx.c:1606  IRQs off, GX_LOAD_BP_REG(0x45000002),
+                                     GX_Flush(), _gxfinished = 0, return.
+                                     NON-BLOCKING.                        CONFIRMED
+GX_DrawDone()             gx.c:1629  the same, then LWP_ThreadSleep until
+                                     _gxfinished. BLOCKING.               CONFIRMED
+GX_SetDrawDoneCallback()  gx.c:1645  IRQs off, swaps drawDoneCB, RETURNS
+                                     THE PREVIOUS ONE.                    CONFIRMED
+the callback runs from    gx.c:450   __GXFinishInterruptHandler, i.e. the
+                                     PE FINISH interrupt, in IRQ context.
+IRQ_PI_PEFINISH           gx.c:470   IRQ_Request + __UnmaskIrq, _peReg[5]=0x0F.
+                                     It is genuinely enabled.             CONFIRMED
+VIDEO_SetNextFramebuffer  video.c:3337 HorVer.bufAddr = fb, shadow regs only.
+                                     Touches NO VI register.              CONFIRMED
+VIDEO_Flush()             video.c:3361 copies regs -> shdw_regs, flushFlag = 1,
+                                     nextFb = HorVer.bufAddr. Still no VI
+                                     register write, no wait.             CONFIRMED
+the VI register write     video.c:3042 __VIRetraceHandler: if (flushFlag)
+                                     __VISetRegs()
+__VISetRegs()             video.c:2922 writes _viReg[] and THEN currentFb = nextFb
+VIDEO_GetCurrentFramebuffer video.c:3072 returns currentFb
+```
+
+The last three lines are the ones that matter, and they say something stronger
+than the design assumed: **`currentFb` changes at the same instant the VI
+registers are written**, inside the retrace handler. So `VIDEO_GetCurrentFramebuffer()`
+is not an approximation of "what the VI is scanning" — it is exactly the buffer
+whose address the VI registers now hold.
+
+One consequence must be written down because the teardown depends on it:
+`drawDoneCB` is called on **every** PE FINISH, with no association to a
+particular token, and `GX_DrawDone()` arms one of its own. §V5.28.9 works that
+through.
+
+#### V5.28.6 Five preemption timelines
+
+| | timeline | reachable? | effect |
+| --- | --- | --- | --- |
+| **A** | callback fires between `submit()` returning 1 and `GX_SetDrawDone()` | **NO** | `submit()` returned 1 only because it read `submitted < 0` at `:78`. `submitted < 0` means the previous token has already been consumed, and the one-token rule forbids a second, so no unconsumed draw-done token exists in the FIFO and PE FINISH cannot assert. Modelled adversarially anyway in §V5.28.3: no state corruption even then. |
+| **B** | callback fires between `GX_SetDrawDone()` and `GX_CopyDisp()` | **YES**, routinely | `draw_done` frees the texture and clears `submitted`. Nothing below that line in `submit_ready()` touches `tex[]`; the freed buffer may legitimately be re-acquired, because the token certified the GP finished reading it. **SAFE.** |
+| **C** | callback fires inside `submit()`, between `:81` and `:82` | **NO** (same argument as A) | modelled: `submitted` is still `-1`, so `draw_done` counts `drawdone_spurious` and frees **nothing**; `:82` repairs the transient one instruction later. `gbp_vpresent_consistent()` is never called from the ISR, so the transient is unobservable. **SAFE.** |
+| **D** | callback fires inside `gbp_vpix_block()` | **YES**, routinely | the ISR touches only `tex[submitted]` and `submitted`; the conversion writes only the pixels of a buffer in `CPU_FILLING`. Disjoint by P3. **SAFE.** |
+| **E** | callback fires inside the GBP service path, between the ACK and the RE-ARM | **YES** | see below — the one timeline that is a real new risk. |
+
+**Timeline E, stated honestly.** IRQ 26 (PI HSP) is masked for the whole probe
+loop, which busy-polls INTSR (`gbp_vstate_probe.c:719`, `:1467`) — so the GBP
+handler cannot preempt anything. But `IRQ_PI_PEFINISH` is unmasked by
+`__GX_PEInit` and is never masked by this program, so the draw-done callback
+**can** preempt the service path, including the ACK → RE-ARM window.
+
+What that costs is bounded and visible: `on_draw_done` is a tail-call to
+`gbp_vpresent_draw_done`, which the disassembly shows as ≤ 16 instructions, no
+loop, no allocation, no device access, plus libogc's IRQ dispatch. It can happen
+at most once per submitted frame — about 60/s against roughly 1000 service cycles
+per second, so on the order of 6 % of cycles.
+
+**This is a new interrupt source that `vstate-0004` did not have, and it is the
+single thing the first physical run must be read for.** It is measurable after
+the fact: the per-cycle records already carry `t_cause`, `t_ack` and `t_rearm`,
+so a preempted cycle appears as an outlier in the existing histogram. Recorded as
+finding **R3**; it is not a blocker, and it must not be described as "proved
+harmless" until that histogram has been looked at.
+
+#### V5.28.7 XFB ownership, against the VI semantics just established
+
+The rule in `gbp_vpresent_xfb_target()` is: a buffer is unsafe if the VI is
+scanning it (`current`), and unsafe if we handed it over and the VI has not yet
+picked it up (`xfb_pending`). With the real semantics of §V5.28.5 those two
+conditions are exactly `currentFb` and `nextFb`, which is the complete set of
+buffers the VI may read. Nothing else in the program writes `nextFb` while the
+capture runs — the only other `VIDEO_SetNextFramebuffer` calls are in
+`video_setup()` and in the teardown, neither concurrent with the pump — so
+`currentFb` can only ever become a buffer this code deliberately handed over.
+
+The skip path (§11) is `-1` → `GX_Flush()` → `gbp_vqueue_note_repeat()`, a tail
+call, with no loop and no `VIDEO_WaitVSync` anywhere in `submit_ready.part.0`
+(`0x800049b0`..`0x800049e4`). Nothing can get stuck: `xfb_pending` is retired by
+the next `xfb_target()` call, which observes `current` first, and the retrace that
+retires it is at most one field away.
+
+One residue is real and is recorded as **R5**: `GX_CopyDisp()` is queued and
+`VIDEO_SetNextFramebuffer()` + `VIDEO_Flush()` follow immediately, without
+waiting for the copy to complete. A retrace landing inside the copy window would
+show one torn field. It is cosmetic, it is bounded to a single field, and §V5.21
+already refuses "looks smooth" as a criterion — but it should not be described as
+impossible.
+
+#### V5.28.8 Cache ordering — also read out of the machine code
+
+```text
+80004c08:  bl   8002b178 <DCFlushRange>      ; r4 = 0x12C00 = 76 800 = exactly the buffer
+80004c0c:  lbz  r4,36(r31)                   ; conv.buf
+80004c14:  bl   8000e54c <gbp_vpresent_fill_done>
+80004c2c:  bl   8000e5cc <gbp_vpresent_submit>
+80004c34:  beq  ... else tail-call submit_ready.part.0 -> GX_SetDrawDone
+```
+
+The flush precedes the ownership hand-over and the token, in the shipped
+instruction stream. Both are external calls, so the compiler could not have sunk
+the flush past them, and it did not. The size is exact: `GBP_VPIX_TEX_BYTES %
+32 == 0` is statically asserted (`main.c:184`), so the flush never touches memory
+the buffer does not own.
+
+#### V5.28.9 Teardown — the declared order, confirmed in machine code
+
+```text
+80003d90:  bl   gbp_vstate_probe_run     ; returns only after the GBP teardown + restore
+80003d98:  bl   gbp_vpresent_shutdown    ; 1. no new fills, no new submissions
+80003da4:  stw  r9(=0),344(r29)          ;    cfg.stream = 0
+80003da8:  stw  r9(=0),4(r31)            ;    vq.pump    = 0
+80003dac:  bl   gbp_vpresent_inflight
+80003db4:  bne  80004534 -> bl GX_DrawDone ; 2. drain, BLOCKING, only now
+80003dc0:  lwz  r3,-8480(r9)             ;    gx_prev_drawdone_cb
+80003dc4:  bl   GX_SetDrawDoneCallback   ; 3. restore
+80003dd4:  bl   VIDEO_SetNextFramebuffer ;    back to the console
+```
+
+The one subtlety §V5.28.5 forced into the open: `GX_DrawDone()` arms a **second**
+token, and `_gxfinished` is satisfied by the **first** PE FINISH to arrive, which
+may be the older one. So the second token can fire after `drawDoneCB` has been
+restored. Both outcomes are safe and are counted: if the callback is still
+installed, `gbp_vpresent_draw_done()` finds `submitted == -1` and increments
+`drawdone_spurious` without freeing anything; if it has been restored,
+`gx_prev_drawdone_cb` is `NULL` (nothing in libogc2 installs one) and the
+interrupt does nothing. `drawdone_spurious` in the report is exactly the
+observable that will say which happened.
+
+`test_shutdown_stops_new_work_but_not_the_gp()` and
+`test_a_spurious_callback_frees_nothing()` cover both, and the A9 mutation —
+leaving the callback installed — is caught by the host guard that asserts the
+probe → shutdown → drain → restore order.
+
+Finding **R4 (LOW)**: that `GX_DrawDone()` is an **unbounded** wait, which
+`CLAUDE.md` §18 forbids as a general rule. It runs after the Game Boy Player has
+been restored, so the device is not at risk and the worst case is a hang at the
+report stage with the operator present — but it is a rule this build does not
+satisfy, and it is cheaper to bound it than to argue about it.
+
+#### V5.28.10 The display self-test — and the one finding that needs a fix
+
+The self-test does execute, and it executes the real path. Confirmed twice on the
+exact candidate binary, once from the stored report and once by re-running the
+Dolphin smoke in this round:
+
+```text
+OPENGBP-STREAM SELFTEST ok=1 converted=1 released=1 submits=1 drawdone=1 releases=1 xfb=1
+```
+
+`drawdone=1` is not self-reported bookkeeping. `on_draw_done` appears exactly
+once in the whole linked disassembly — as its own symbol at `0x80004788`. There is
+no `bl on_draw_done` and no branch to that address anywhere in the image; the
+only materialisation of its address is `80003700 lis r3,-32768 / addi r3,r3,18312
+/ bl GX_SetDrawDoneCallback`, i.e. `main.c:319`. **The callback can only have been
+invoked by libogc2's PE FINISH handler.**
+
+##### R1 — HIGH — the self-test permanently falsifies `gbp_vqueue_balanced()`
+
+`display_selftest()` (`main.c:585`, before anything else) calls `submit_ready()`,
+whose success path calls `gbp_vqueue_note_presented()` (`main.c:527`). That
+increments `vq.consumer_frames_presented` for a **synthetic** frame that never
+passed through `gbp_vqueue_take()` or `gbp_vqueue_commit()`, so
+`consumer_frames_converted` is **not** incremented.
+
+`gbp_vqueue_balanced()` (`gbp_vqueue.c:197`) asserts
+
+```text
+consumer_frames_converted == consumer_frames_presented + consumer_slot_overrun
+```
+
+which is therefore false from the first instruction of every run and stays false,
+off by exactly one, for every subsequent frame. A host diagnostic reproducing the
+exact call sequence gives:
+
+```text
+after self-test:     converted=0 presented=1 overrun=0   balanced=0
+after 1 real frame:  converted=1 presented=2 overrun=0   balanced=0
+```
+
+and the candidate binary itself, under Dolphin with no Game Boy Player attached,
+already prints on screen:
+
+```text
+CONSUMER taken=0 converted=0 presented=1  overrun=0 superseded=0 repeats=0  counters DO NOT BALANCE
+```
+
+**Consequence.** §V5.21's PASS clause "the consumer operated under the declared
+policy … with every non-presented frame accounted for by a named counter" is the
+clause `balanced` exists to answer, and the run's own indicator will read
+`DO NOT BALANCE` on a perfectly good run. Nothing is corrupted, no ownership
+invariant is touched and no hardware is at risk — but the headline
+counter-accounting indicator is dead on arrival.
+
+**The correction is NOT applied in this round** (the round forbids functional
+changes). The smallest fix is that the self-test must not write into the queue's
+consumer domain: either `submit_ready()` gains a "this frame did not come from
+the queue" parameter, or the self-test performs its own present. A second option —
+snapshotting `vq` after the self-test and reporting deltas — is larger and worse,
+because it hides the crossing instead of removing it.
+
+**Why it is not a blocker.** The offset is exactly `+1`, it is deterministic, it
+is provable before the run, the affected counter is the only one the self-test
+touches (every other `vq` counter is still `0` after it, verified), and the run
+itself prints which correction applies: the `SELFTEST … xfb=` field is `1` when
+the self-test took the presenting path and `0` when it took the repeat path. So
+the identity can be pre-registered now, before the run, rather than rationalised
+afterwards — which is the only form in which a correction like this is
+acceptable:
+
+```text
+PRE-REGISTERED, BEFORE THE RUN:
+  stream-0002 will print `counters DO NOT BALANCE`. That is expected and is NOT
+  a FAIL. The identity to evaluate is
+
+      consumer_frames_converted == (consumer_frames_presented - SELFTEST.xfb)
+                                 + consumer_slot_overrun
+
+  Every other clause of §V5.21 is evaluated unchanged. If the corrected identity
+  does not hold, THAT is a FAIL.
+```
+
+##### Residual state after the self-test
+
+`present` returns to all-`FREE` with `submitted == -1` (`selftest_released=1`,
+`gbp_vpresent_consistent()` asserted in `selftest_ok`). `xfb_pending` is left at
+the buffer the self-test handed over; it is retired by the first `xfb_target()`
+of the run, one comparison, no wait. The `present.*` counters carry the
+self-test's `+1` too, but consistently on both sides of every identity a reader
+would form (`submit_success == texture_releases`,
+`drawdone_callbacks == texture_releases + drawdone_spurious`), so only the queue
+identity of R1 is affected.
+
+#### V5.28.11 Observability and counter domains
+
+The three domains — what the DEVICE did (`STREAMSRC`), what WE did to its frames
+(`STREAMCONS`), what the SCREEN did (`STREAMGX`, `STREAMOWN`) — are correctly
+separated in the report, with one leak, which is R1: the self-test writes into
+the consumer domain.
+
+**R2 — MEDIUM — two counters that can never differ.** In
+`gbp_vstate_probe.c:1455-1463`, `cause_pending_after_pump` and
+`cause_arrived_during_pump` are incremented under the *same* condition and are
+therefore numerically identical by construction. The report prints both, side by
+side, inviting a comparison that has no content. Worse, the first name
+over-promises: the post-pump poll only happens when a cause was **not** pending
+before, so `cause_pending_after_pump` is not "cycles with a cause pending after
+the pump" — it is exactly `cause_arrived_during_pump`. The printed label "arrived
+DURING a slice" is also loose: the counter also covers pump calls that started no
+slice at all (`pump_slices_started` distinguishes those). Observability and
+labelling only; no behaviour depends on it.
+
+What the run **would** show if the ownership machine failed: `consistent=0`,
+`inflight_at_end=1`, `drawdone_spurious > 0`, and `acquire_no_free_texture`
+climbing. What it does **not** show directly is timeline E; that has to be read
+out of the cycle histogram.
+
+#### V5.28.12 Mutations — seven, re-run, all caught
+
+Backup-based harness; **no `git checkout` was used on any file**, tracked or not.
+Every file is restored from a byte copy and the restoration is verified by sha256
+before the next mutation.
+
+| | mutation | C unit | host guard | verdict |
+| --- | --- | --- | --- | --- |
+| A1 | `draw_done()` frees **every** `SUBMITTED` buffer — the exact `stream-0001` defect | 2 | 0 | **CAUGHT** |
+| A2 | allow two tokens in flight | 2008 | 0 | **CAUGHT** |
+| A3 | `acquire()` reuses a `SUBMITTED` texture | 680 | 0 | **CAUGHT** |
+| A4 | remove the generation check | 3 | 0 | **CAUGHT** |
+| A5 | flush **after** the ownership hand-over | 0 | 1 | **CAUGHT** |
+| A9 | draw-done callback left installed after teardown | 0 | 1 | **CAUGHT** |
+| A10 | pump ignores a latched cause | 2 | 0 | **CAUGHT** |
+
+A1 is the one that matters: in the `stream-0001` round it was **NOT CAUGHT**, and
+the white-box test `test_the_callback_releases_only_the_indexed_buffer()` added
+in `stream-0002` now catches it. A5 and A9 live in `main.c`, which no C unit test
+compiles, and are caught only by the host audit guards — which is exactly the
+division those guards exist for.
+
+**R6 — the harness itself had a defect, found and fixed in this round.** The
+first pass restored files with `shutil.copy2`, which preserves mtime; `make` then
+considered the restored source older than the mutant object and re-ran the
+**previous mutant's binary**. That invalidated the C column of A3, A5 and A9 in
+the first pass (all three reported a stale `C=680`). The harness now stamps
+`os.utime(path, None)` after both the mutation and the restoration, the baseline
+was rebuilt green (19 binaries, 670 468 + 118 713 + … checks, **0 failures**), and
+every number in the table above is from the corrected run. This is the second
+stale-build defect this harness has produced; both were caught by checking that
+the restored tree still passes, which is now a mandatory step.
+
+#### V5.28.13 Findings
+
+| id | severity | finding | fix required before hardware? |
+| --- | --- | --- | --- |
+| **R1** | **HIGH** | the display self-test increments `consumer_frames_presented`, so `gbp_vqueue_balanced()` is false for every run, off by exactly one | **No**, given the pre-registered correction of §V5.28.10. **Yes** before the second run. |
+| **R2** | MEDIUM | `cause_pending_after_pump` ≡ `cause_arrived_during_pump` by construction; both labels over-promise | No |
+| **R3** | MEDIUM | PE FINISH is unmasked during the GBP service path, so the draw-done callback can preempt ACK → RE-ARM (~6 % of cycles, ≤ 16 instructions) | No — but the first run must be read for it |
+| **R4** | LOW | the teardown's `GX_DrawDone()` is an unbounded wait, contrary to `CLAUDE.md` §18 | No (after the GBP is restored, operator present) |
+| **R5** | LOW | `GX_CopyDisp()` is not awaited before `VIDEO_SetNextFramebuffer()`; a retrace inside the copy shows one torn field | No |
+| **R6** | — | the mutation harness's stale-build defect (audit method, not the candidate) | fixed in this round |
+| **R7** | LOW | the re-offer loop takes the lowest-index `READY` buffer, not the newest, so with both buffers `READY` an older frame can be shown after a newer one | No |
+| **R8** | MEDIUM | `gbp_vpresent_consistent()` is evaluated only in the self-test and in the final report, so the run can say the invariants hold **at the end**, not throughout — and the printed word "HOLD" reads as the stronger claim | No |
+
+**What the re-audit CLEARED, positively:**
+
+- the one-token rule, by exhaustive enumeration of a superset of the program
+  (705 states, max 1 `SUBMITTED`, no main-side write to a GP-owned buffer);
+- the compiler ordering, PROVEN from the shipped instruction stream;
+- the libogc2 semantics every non-blocking claim rests on, re-read from the
+  pinned source rather than from memory;
+- the XFB model, which turns out to correspond exactly to `currentFb`/`nextFb`;
+- the cache-flush ordering, in machine code;
+- the teardown order, in machine code, including the second-token case;
+- that the display path really executes and the callback really comes from the
+  hardware interrupt;
+- the test suite's ability to detect all seven focused regressions.
+
+#### V5.28.14 DECISION
+
+```text
+DECISION: C — CONDITIONALLY CLEARED FOR ONE SUPERVISED PHYSICAL SMOKE
+
+stream-0002 may be run ONCE, supervised, provided the correction of §V5.28.10 is
+recorded BEFORE the run:
+
+    the run WILL print `counters DO NOT BALANCE`; that is R1 and is expected.
+    The identity to evaluate is
+        converted == (presented - SELFTEST.xfb) + overrun
+    and every other §V5.21 clause is evaluated unchanged.
+
+R1 must be fixed in stream-0003 before any SECOND run. R3 must be read out of the
+cycle histogram of this run before anyone calls the design timing-safe.
+```
+
+Not decision A, because the run's own headline counter-accounting indicator is
+known false and a first physical result should not need a footnote to be
+readable. Not decision B, because R1 endangers nothing, touches no invariant the
+audit proved, is off by an exactly known constant, and the run itself prints the
+field that selects the correction — rejecting the candidate would cost a rebuild,
+a new identity and a fourth audit round to fix a reporting defect that can be
+pre-registered away in four lines. If the operator prefers no ambiguity at all,
+**B is defensible and the fix is small**; that is a judgement about tolerance for
+footnotes, not about safety, and it is the operator's to make.
+
+#### V5.28.15 What a first run still cannot claim
+
+The **CONTROLLED indexed motion stimulus of §V5.18 still does not exist** —
+`stimulus/` contains only `agb-color-bars`, the static eight-bar GBP-VIDEO-003
+ROM. A first run can therefore validate the service path, the GX path, the
+ownership machine and operational pacing, but it **cannot** measure source-frame
+loss against ground truth. No result from this run may later be described as
+evidence of zero dropped source frames.
+
+#### V5.28.16 The four questions the handoff pre-registered, answered
+
+The previous handoff named four seams to attack first. They were attacked, and
+two of them produced findings.
+
+**1. The `submit_ready()` re-offer path — can a READY buffer be lost or
+double-submitted?** Neither. `gbp_vpresent_submit()` refuses anything that is not
+`READY`, so the state moves `READY → SUBMITTED` once and a second offer of the
+same buffer is a no-op returning 0. A `READY` buffer cannot be lost either:
+`acquire()` only takes `FREE`, so nothing overwrites it.
+
+It *can*, however, be shown **out of order**, and that is **R7**. The re-offer
+loop (`main.c:409-413`) scans `i = 0 … TEX_BUFFERS` and submits the **first**
+`READY` buffer, not the newest. Both buffers can be `READY` simultaneously: if a
+token is still pending when a conversion completes, that buffer stays `READY`,
+the next pump acquires the other one and converts a newer frame into it, and if
+the token clears in between, the newer frame can be submitted first — leaving the
+older one to be re-offered, and shown, afterwards. Reaching it requires a
+draw-done token to stay pending across a whole 40-slice frame conversion, which a
+single textured quad makes very unlikely; it is structurally possible rather than
+expected, it costs one out-of-order frame on screen, and it disturbs no counter
+identity. Recorded, not fixed.
+
+**2. The XFB rule when `VIDEO_GetCurrentFramebuffer()` returns neither stream
+buffer.** `xfb_current_index()` (`main.c:189-197`) returns `-1`, and
+`gbp_vpresent_xfb_target()` then excludes nothing on the `current` test and only
+`xfb_pending` on the second. That is **correct**: if the VI is scanning `xfb_text`
+then neither stream buffer is being read, and the only unsafe one is a hand-over
+the VI has not yet picked up. The disassembly confirms the three-way lowering:
+`800049e8 li r4,0` / `800049f0 li r4,1` / `8000492c li r4,-1`.
+
+This is also the state during the report, and the teardown's
+`VIDEO_SetNextFramebuffer(xfb_text)` at `80003dd4` runs **after**
+`GX_SetDrawDoneCallback` has been restored, so no present can race it.
+
+**3. Can `display_selftest()` be reached later?** No. It is called exactly once,
+from `main` at `main.c:585`, and the compiler inlined it into `main` with no
+loop back to it; the only `bl submit_ready.part.0` in `main` is at `80004548`,
+inside the straight-line self-test sequence that falls through to the bounded
+`VIDEO_WaitVSync` spin at `800039f0`. That spin is `600` iterations maximum and
+sits before the capture opens.
+
+**4. Is `gbp_vpresent_consistent()` checked often enough?** **No — this is R8.**
+It is called from exactly three places (`main.c:398`, `:719`, `:772`): once inside
+the self-test, and twice while formatting the final report. During the whole
+30 s capture it is never evaluated. §V5.28.3 proves no reachable state violates
+the invariants, so a periodic check is defence in depth rather than a necessity —
+but the report prints `OWNER invariants HOLD`, which reads as a statement about
+the run, and the evidence only supports a statement about its final instant. A
+transient violation that repaired itself would be invisible.
+
+The cheapest honest fix is not a new counter but a changed word: the run can only
+claim `invariants hold AT END`. Evaluating the predicate inside `pump()` and
+latching a sticky `consistent_violations` counter would let it claim the stronger
+thing, and that belongs in `stream-0003` together with R1.

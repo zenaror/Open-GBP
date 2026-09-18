@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   ef348a0a77b5a6ec07a1a69c7332495497da511a
+STATE BASELINE COMMIT   6f4eb0a9525cb0bd4aca502711bdd336ed218c0d
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -91,7 +91,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
-| **GBP-VIDEO-004** (sustained streaming) | **`stream-0002` IMPLEMENTED · SOFTWARE/HOST VALIDATED · PRE-HARDWARE FIX COMPLETE · PHYSICAL CANDIDATE READY · NOT PHYSICALLY EXECUTED** | `HARDWARE_TESTS.md` §V5.27 |
+| **GBP-VIDEO-004** (sustained streaming) | **`stream-0002` RE-AUDITED 2026-09-18 — DECISION C, CONDITIONALLY CLEARED FOR ONE SUPERVISED SMOKE · NOT PHYSICALLY EXECUTED.** The condition is R1: the run WILL print `counters DO NOT BALANCE`, and the identity to evaluate is `converted == (presented − SELFTEST.xfb) + overrun` | `HARDWARE_TESTS.md` §V5.28 |
 | **`stream-0001`** | **REJECTED before hardware — DO NOT RUN.** Historical; its identity is preserved and was not reused | §V5.26; `stream-0002` supersedes it |
 | **Texture ownership** | **FIXED and TESTABLE**: moved to `src/gbp/gbp_vpresent.{h,c}`, at most ONE draw-done token in flight, the callback releases exactly one buffer by index | §V5.27.1 |
 | **Physical ROM delivery dependency (§V3.7)** | **RESOLVED** — route 1, EZ-Flash Omega DE NOR / Mode B, two physical runs | §V3.7 resolution note |
@@ -151,7 +151,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-003 | `color-0001` | `9d8302d` | `cc88e4c45559f11047ca657b78045e2fd2c5d646a1b68e7e453fcf796d177cf4` | **PHYSICALLY EXECUTED 2026-09-18** | GBP-HW-120…125 |
 | GBP-VIDEO-003 | `color-0002` | `39f1980` | `d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1` | **PHYSICALLY EXECUTED 2026-09-18 — the confirmatory run** | GBP-HW-127…133 |
 | GBP-VIDEO-004 | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **REJECTED before hardware — DO NOT RUN** | `HARDWARE_TESTS.md` §V5.26 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **NOT PHYSICALLY EXECUTED** — fix complete, host validated, re-audit pending | `HARDWARE_TESTS.md` §V5.27 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **NOT PHYSICALLY EXECUTED** — re-audited, DECISION C, cleared for ONE supervised smoke under the R1 correction; reproduces byte-for-byte from a clean `2457d51` worktree | `HARDWARE_TESTS.md` §V5.28 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -231,63 +231,106 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **Focused re-audit of the `stream-0002` candidate: ownership, timing
-> observability and teardown. Hardware is NOT authorised by this checkpoint.**
+> **The physical run. `stream-0002` has been re-audited and is CONDITIONALLY
+> CLEARED for ONE supervised smoke (§V5.28, DECISION C). The condition is
+> written below and must be recorded BEFORE the run, not after it.**
 
-The §V5.26 findings are fixed and the fix is described in §V5.27. What has not
-happened is a reading by someone who did not write it, and this project's record
-is that such a reading finds something: the §V3.23 microaudit, the §V4 gate
-audit, and §V5.26 itself all caught things that would have cost a physical run.
+Three audits have now read this experiment and each found something. The third
+(§V5.28) found eight items, none of which endangers the device or breaks an
+invariant, and one of which changes how the run must be read.
 
-The re-audit can be narrower than the last one. Three areas carry the change:
+### The condition — R1, and why it is a footnote rather than a rebuild
 
-1. **The ownership machine** (`src/gbp/gbp_vpresent.{h,c}`). One token in flight;
-   the callback releases exactly the buffer `submitted` names; `abandon` and
-   `fill_done` both refuse a SUBMITTED buffer. The field-by-field synchronisation
-   table is §V5.27.2 — check it rather than inherit it, in particular the claim
-   that no barrier is needed because the only asynchrony is one core and its own
-   interrupt handler.
-2. **Timing observability** (§V5.27.4, §V5.27.5). The pump now reads the GBP
-   cause first and does nothing when one is pending. Check that this cannot
-   itself perturb anything, that the counters cannot double-count, and that
-   `cause_arrived_during_pump` claims no more than its mechanical definition.
-3. **Teardown** (§V5.27.6). `GX_DrawDone()` appears exactly once, after the probe
-   has restored the device; the previous callback is captured and restored.
+`display_selftest()` presents one synthetic frame before the capture opens, and
+its success path calls `gbp_vqueue_note_presented()`. That frame never passed
+through the queue, so `consumer_frames_converted` was never incremented, and
+`gbp_vqueue_balanced()`'s identity is false from the first instruction of every
+run, off by exactly one, for ever. The candidate binary already demonstrates it:
+under Dolphin, with no Game Boy Player attached, it prints
+`presented=1 … counters DO NOT BALANCE`.
 
-**What is still NOT proved, and must not be quietly inherited.** The slice
-position remains **PLAUSIBLE BUT UNMEASURED**: the measured RE-ARM→next-cause
-window is median 42.8 µs with p25 = 1.9 µs, the precheck removes the *already
-latched* case but not a cause arriving mid-slice, and this code's own cost has
-never been measured on hardware. `stream-0002` exists to make that measurable,
-not to have settled it.
+```text
+PRE-REGISTERED, BEFORE THE RUN:
+
+  stream-0002 WILL print `counters DO NOT BALANCE`. That is R1 and is NOT a FAIL.
+  The identity to evaluate is
+
+      consumer_frames_converted == (consumer_frames_presented - SELFTEST.xfb)
+                                 + consumer_slot_overrun
+
+  where SELFTEST.xfb is the field the run itself prints on the SELFTEST line.
+  Every other clause of §V5.21 is evaluated unchanged. If the CORRECTED identity
+  does not hold, that IS a FAIL.
+```
+
+Nothing is corrupted, no ownership invariant is affected, and every raw counter
+is printed individually. R1 must be fixed in `stream-0003` before any **second**
+run; it does not justify rebuilding before the first one.
+
+### What the first run must be read for
+
+**R3 — the draw-done interrupt can preempt the GBP service path.** `IRQ_PI_PEFINISH`
+is unmasked by libogc2's `__GX_PEInit` and is never masked by this program, so
+`on_draw_done` can land between the ACK and the RE-ARM. It is ≤ 16 instructions
+with no loop, no allocation and no device access, at most once per submitted frame
+— roughly 6 % of cycles — but it is a new interrupt source `vstate-0004` did not
+have. It is visible afterwards as outliers in the per-cycle `t_cause` / `t_ack` /
+`t_rearm` records. **Do not call the design timing-safe until that histogram has
+been looked at.**
+
+**R8 — the run reports the invariants at its final instant, not throughout.**
+`gbp_vpresent_consistent()` is evaluated in the self-test and in the report, and
+nowhere during the 30 s capture. `OWNER invariants HOLD` therefore means "held at
+end". §V5.28.3 proves no reachable state violates them, so this is defence in
+depth rather than a gap in the proof — but the wording over-claims.
+
+The remaining findings (R2, R4, R5, R7) are observability, labelling and one
+possible torn field; all are recorded in §V5.28.13 and none blocks a run.
+
+**And the slice position is still what it was: PLAUSIBLE BUT UNMEASURED.** The
+re-audit did not change that and did not try to. The measured RE-ARM→next-cause
+window is median 42.8 µs with **p25 = 1.9 µs**; the precheck removes the
+*already latched* case but not a cause arriving mid-slice, and this code's own
+cost has never been measured on hardware. `stream-0002` exists to make that
+measurable, not to have settled it.
+
+### What the re-audit settled, so it is not re-derived
+
+- **the one-token rule**, by exhaustive enumeration of a *superset* of the
+  program: 705 reachable states, maximum **one** `SUBMITTED` buffer, and no
+  main-side write to a buffer the GP owns — with the interrupt permitted between
+  any two shared accesses and even with no token armed;
+- **the compiler ordering**, PROVEN from `powerpc-eabi-objdump`, not from
+  "PowerPC is single-core": both volatile stores retire before `blr`, and
+  `GX_SetDrawDone()` sits behind a control dependency on the return value;
+- **the libogc2 semantics**, re-read from `external/libogc2` @ `ca03fb75`:
+  `GX_SetDrawDone` non-blocking, `GX_DrawDone` blocking,
+  `GX_SetDrawDoneCallback` returns the previous callback, `VIDEO_SetNextFramebuffer`
+  and `VIDEO_Flush` touch no VI register, and `currentFb` changes in the retrace
+  handler at the instant the registers are written;
+- **the XFB model**, which corresponds exactly to `currentFb` / `nextFb`;
+- **the cache-flush ordering** and **the teardown order**, both in machine code;
+- **that the display path really executes**: `on_draw_done` appears once in the
+  whole linked image, as its own symbol, with no call site — so `drawdone=1` can
+  only have come from the PE FINISH interrupt;
+- **the test suite**: 7/7 focused mutations caught, including A1, the exact
+  `stream-0001` defect the previous round's suite did **not** catch;
+- **build determinism**: the candidate reproduces byte-for-byte from a detached
+  worktree at `2457d51` once `GIT_COMMIT`/`GIT_DIRTY` are supplied — inside the
+  container a worktree cannot resolve `HEAD`, and the identity string is an input
+  to the build.
 
 ## Next safe action
 
-Audit the exact `stream-0002` candidate against §V5.27, then — only if it passes
-— request one physical run under §V5.20 / §V5.21.
+Request **one** physical run of `stream-0002` under §V5.20 / §V5.21, with the R1
+correction above recorded first.
 
-Worth attacking first, because they are the seams this round created:
-
-- the `submit_ready()` re-offer path: can a READY buffer be lost or double-submitted?
-- the XFB target rule when `VIDEO_GetCurrentFramebuffer()` returns something that
-  is neither stream buffer (the console), which is the state during the report;
-- `display_selftest()`: it runs before the capture and spins on `VIDEO_WaitVSync`,
-  which is safe there and would not be anywhere else — confirm it cannot be
-  reached later;
-- whether `gbp_vpresent_consistent()` is actually checked often enough to catch a
-  violation during a run, rather than only at the end.
-
-**One gap this round found in its own tests and closed, worth re-checking:** a
-mutation that restored `stream-0001`'s "free every SUBMITTED buffer" callback was
-**not** caught by the behavioural suite, because the one-token rule means two
-buffers can never both be SUBMITTED in a legitimate sequence — the defect is
-neutralised by the architecture rather than detected. A white-box test now
-constructs that state directly and requires the callback to release exactly the
-indexed buffer. Defence in depth, not one rule carrying everything.
+Then, and only after that run exists, `stream-0003` with R1 and R8 fixed.
 
 Separately, and required before the experiment can CLOSE rather than before it
-runs: the CONTROLLED indexed motion stimulus of §V5.18 still does not exist. A
-first run can measure service, GX, pacing and the consumer's cost; it **cannot**
+runs: the CONTROLLED indexed motion stimulus of §V5.18 still does not exist —
+`stimulus/` holds only `agb-color-bars`, the static eight-bar GBP-VIDEO-003 ROM.
+A first run can measure service, GX, pacing and the consumer's cost; it **cannot**
 measure source-frame loss against ground truth, and must never later be cited as
 evidence of zero dropped source frames.
 
@@ -375,9 +418,20 @@ believe one is wrong, argue against the source, do not re-run the discovery.
   one BLOCKER and three HIGH findings (§V5.26). `stream-0002` supersedes it and
   `stream-0001` is never rebuilt or re-labelled.
 - **That `stream-0002` is proved because its predecessor's blocker is fixed.**
-  The fix is host-validated and Dolphin now executes the display path end to end,
-  including the draw-done callback. Neither says anything about the device, and a
-  focused re-audit is the next step, not a run.
+  The fix is host-validated, Dolphin executes the display path end to end
+  including the draw-done callback, and §V5.28 re-audited it and cleared the
+  ownership machine by exhaustive enumeration. None of that says anything about
+  the device.
+- **That `counters DO NOT BALANCE` on a `stream-0002` run means the run failed.**
+  It does not. R1 makes that line appear on every run, off by exactly one, before
+  the capture even opens (§V5.28.10). The identity to evaluate is
+  `converted == (presented − SELFTEST.xfb) + overrun`.
+- **That `OWNER invariants HOLD` means they held for the whole run.** It means
+  they held at the final instant; `gbp_vpresent_consistent()` is never evaluated
+  during the capture (R8, §V5.28.16).
+- **That the draw-done callback cannot disturb the service path.** `IRQ_PI_PEFINISH`
+  is unmasked and is never masked by this program, so it can preempt the ACK →
+  RE-ARM window (R3). It is small and bounded, and it is unmeasured.
 - **That the slice position is settled.** It is not. The precheck removes the
   *already latched* case; a cause arriving mid-slice is counted, not prevented,
   and the slice's own cost has never been measured on hardware (§V5.27.4).
