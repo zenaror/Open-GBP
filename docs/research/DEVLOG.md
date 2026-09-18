@@ -6469,3 +6469,66 @@ consumed projection, justified from the evidence as it stood *before* any colour
 run, with the full-raw comparison kept as a reported diagnostic; then a fresh
 physical run judged by it. `OGBPCOL1` v1 stays FROZEN and `color-0001` is never
 re-labelled. U-GBP-011, U-GBP-029 and U-GBP-033 stay OPEN.
+
+## 2026-09-18 — color-0002 pre-registered: the gate written down before the run that judges it
+
+**Goal:** make the next colour run mean something, without touching the last one.
+
+**The problem, stated exactly.** `color-0001`'s bytes are known. Any acceptance
+criterion written now can be shaped by them — not necessarily dishonestly, just
+by knowing how it will come out. The only defence is to write the criterion first,
+in a versioned file, under a distinct experiment id, and to make the analyser
+mechanically incapable of applying it to the old run.
+
+**What was decided, and on what authority.** Bytes 0 and 2 sit **outside the
+dependent variable of this experiment**, resting entirely on evidence that
+pre-dates any colour run: GBP-VID-003 (2026-09-16) records that neither reference
+decoder reads them; GBP-HW-058 and GBP-HW-070 record their physical variability;
+U-GBP-021 forbids consuming byte 0; U-GBP-029 holds the open question and already
+answers it operationally. They are *not* declared don't-care in general — they
+are preserved in full and the full-raw comparison is now a mandatory reported
+diagnostic on every run, which is how U-GBP-029 keeps being fed. **Bit 15 is
+inside the gate** and is never masked.
+
+**The root cause, which had not been named before.** The runtime's stability
+filter `sig[40]` has always consumed bytes 1 and 3 and nothing else
+(`gbp_vsig.c:15`, odd indices only). `color-0001`'s offline gate compared all
+four. The two halves of the experiment were looking at different data, and that
+mismatch — not the device, not the capture — produced the refusal. Under §V4 they
+look at the same bytes, and the offline comparison stays exact and authoritative
+because a checksum can still collide.
+
+**Implemented as a separate file, deliberately.** `tools/vcolor2.py`.
+`tools/vcolor.py` is not modified and gains no option, so `color-0001`'s verdict
+stays reproducible forever — a test asserts it through the CLI and asserts the
+file has not changed since `bfbca70`. The stimulus and the seven hypotheses are
+*imported from it as the same objects*, which is how the record shows they were
+not tuned. A confirmatory verdict is keyed to `build_id == color-0002`; anything
+else comes back `RETROSPECTIVE` with a verdict string of `retrospective_exact_*`,
+never `confirmed_*`.
+
+**The retrospective run, and what it is worth.** Running the new contract on the
+`color-0001` fixture passes the gate 38 400/38 400, finds `FLAG15_STABLE` with one
+flag per frame, and matches H1 on 8/8 bars. **That proves the analyser, not the
+hypothesis**, and the tool says so in its own output. U-GBP-011 is untouched.
+
+**`color-0002` can falsify H1.** A verbatim frame confirms H2 instead; one bar
+off confirms nothing. No two of the seven hypotheses produce the same eight
+values, so the stimulus discriminates the whole set and an ambiguous verdict
+would mean something went wrong rather than that the experiment was weak.
+
+**Also this round, two maintenance defects, in their own commits.** The
+`PREHANDLERWAIT` record hit the logger's 255-character line in two physical runs;
+it is now two records, split by subject, and a test drives the probe at the
+physical magnitudes and asserts `truncated == 0` — it fails against the old
+single line, which is how it was checked. And `test_vstate.py` had an ordering
+dependency that only `unittest discover` exposed, plus two lines of dead refactor
+residue that made it invisible; both runners are green now.
+
+**Noted:** `EVIDENCE.md` uses `##` for its older 61 entries and `###` for the
+newer 65. The handoff's citation check only accepted `###`, which it got away
+with until the handoff cited GBP-HW-058. The check now scans both depths.
+
+**Next:** one physical run of `color-0002` under §V4.9. `OGBPCOL1` v1,
+`tools/vcolor.py` and the §V4 contract are all frozen for it; changing §V4 after
+that run requires `color-0003`. U-GBP-011, U-GBP-029 and U-GBP-033 stay OPEN.
