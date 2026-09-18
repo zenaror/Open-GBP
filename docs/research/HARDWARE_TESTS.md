@@ -6570,8 +6570,16 @@ answers that and only that.
 ```text
 Test ID   GBP-VIDEO-002 (the vstate probe, unchanged apart from the wait)
 Build ID  vstate-prewait-5000          commit 500429a
-DOL       build/poc/gbp-video-state-probe-prewait/gbp-video-state-probe.dol
-          sha256 b5f0060a46d2e6429f494a9fa53d14acf07a97f61d01847acf0b6cb807a48709
+DOL       sha256 b5f0060a46d2e6429f494a9fa53d14acf07a97f61d01847acf0b6cb807a48709
+          443 968 B, built from commit 500429a
+          IDENTITY WARNING: the build path that produced it,
+          build/poc/gbp-video-state-probe-prewait/gbp-video-state-probe.dol,
+          rebuilds to a DIFFERENT hash at any other commit, because the commit
+          identity is embedded in the image. What was physically validated is the
+          vstate-prewait-5000 VARIANT at commit 500429a with the hash above. A
+          rebuilt DOL inherits the source behaviour and NOT the physical status:
+          compare its hash against b5f0060a... before calling it the tested
+          artifact.
 log       logs/GBP-VIDEO-002_vstate-prewait-5000.log
           45 943 B   sha256 20b5e2a78047fe355a16328021092a01cb7da3d5f790e1cd957c8858f3f7555d
 sidecar   logs/GBP-VIDEO-002_vstate-prewait-5000-vstate.bin
