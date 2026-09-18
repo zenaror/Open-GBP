@@ -106,6 +106,27 @@ struct gbp_vqueue {
     void (*pump)(void *user);
     void *pump_user;
 
+    /* ---- pump observability (§V5.26.5) ----
+     * `stream-0001` could measure its own slice cost but NOT the delay that
+     * slice imposed on the service, because only 16 per-cycle timing records
+     * survive out of ~183 000. These counters close that gap without a log line
+     * per slice: every one is a bounded increment.
+     *
+     * `cause_arrived_during_pump` is defined mechanically and means nothing
+     * more: pending was 0 before the slice and 1 after it. It is a coincidence
+     * count, not a causal claim. */
+    uint32_t pump_calls;
+    uint32_t pump_slices_started;
+    uint32_t pump_slices_completed;
+    uint32_t pump_skipped_cause_pending;   /* §V5.26/§11: the GBP came first */
+    uint32_t cause_pending_before_pump;
+    uint32_t cause_pending_after_pump;
+    uint32_t cause_arrived_during_pump;    /* before == 0 AND after == 1 */
+    uint32_t pump_ticks_min;
+    uint32_t pump_ticks_max;
+    uint32_t pump_ticks_n;
+    uint64_t pump_ticks_sum;
+
     /* ---- the depth-one mailbox ---- */
     struct gbp_vqueue_desc pending;
     int      has_pending;
@@ -182,10 +203,27 @@ int gbp_vqueue_still_valid(const struct gbp_vqueue *q, const struct gbp_vqueue_d
  * `convert_ticks` feeds the bounded aggregate; pass 0 if not measured. */
 int gbp_vqueue_commit(struct gbp_vqueue *q, int still_valid, uint32_t convert_ticks);
 
-/* Called by the service loop once per cycle, after the RE-ARM. Invokes `pump`
- * when one is installed, and does nothing at all otherwise — every earlier
- * build behaves exactly as it did. */
-void gbp_vqueue_pump(struct gbp_vqueue *q);
+/* Called by the service loop once per cycle, after the RE-ARM.
+ *
+ * `cause_pending` is the GBP cause bit the caller has just read, and it is the
+ * whole of §V5.26/§11's priority rule: WHEN A CAUSE IS ALREADY LATCHED, NO SLICE
+ * RUNS. The physical measurement is what forced this — `vstate-0004` shows the
+ * RE-ARM→next-cause window at 1.9 us on 34 % of cycles, i.e. the next cause is
+ * usually already waiting, and on those cycles the consumer must simply get out
+ * of the way. It does not remove the race of a cause arriving DURING a slice;
+ * `cause_arrived_during_pump` counts that instead of hiding it.
+ *
+ * With no pump installed this does nothing at all, and every earlier build
+ * behaves exactly as it did. */
+void gbp_vqueue_pump(struct gbp_vqueue *q, int cause_pending);
+
+/* The pump callback reports its own slice back through this, so the cost lives
+ * in a bounded aggregate rather than in a log line per slice. `completed` is 1
+ * when the slice finished a frame's conversion. */
+void gbp_vqueue_pump_slice(struct gbp_vqueue *q, uint32_t ticks, int completed);
+
+/* Mean slice cost in the caller's tick unit, or 0 when nothing was sampled. */
+uint32_t gbp_vqueue_pump_ticks_mean(const struct gbp_vqueue *q);
 
 /* The frame reached the screen. */
 void gbp_vqueue_note_presented(struct gbp_vqueue *q);
