@@ -6682,3 +6682,78 @@ EXECUTED. Both now say what happened, with the historical text preserved.
 synthetic frames and against the physical `color-0002` fixture, which carries
 eight known colours in known positions and is therefore a real conversion oracle.
 Only then the POC and the GX path. U-GBP-029, U-GBP-033 and U-GBP-034 stay OPEN.
+
+## 2026-09-18 — GBP-VIDEO-004 implemented: a consumer, a screen, and the first GX in this repository
+
+**Goal:** build the smallest POC §V5 specified. No hardware, no redesign.
+
+**What was built.** Two pure modules and a POC. `gbp_vpix` converts a raw frame
+to a `GX_TF_RGB5A3` tiled texture and turns out to be almost nothing, because
+`color-0002` already established the device exchanges the outer 5-bit groups
+(GBP-HW-131): the delivered word *is* RGB5A3 order, so the colour step is
+`texel = word | 0x8000` with no channel arithmetic and the only real work is the
+raster→4×4-tile permutation — 0xF00 bytes in, 0x780 out per block, the same
+transformation the Start-up Disc's own converter performs. `gbp_vqueue` is the
+producer/consumer boundary, a depth-one mailbox because newest-complete-frame
+wins, with the generation guard §V5.7 pre-registered. The POC owns every graphics
+call in the program.
+
+**The first GX pipeline here.** Every earlier probe ran `VIDEO_Init` +
+`CON_Init` on one framebuffer and printed text. This one initialises GX minimally
+— one texture, one quad, orthographic, `GX_REPLACE`, no lighting or filter — from
+the sequence in libogc2's own texture example.
+
+**Two of §V5's three open decisions got resolved, and the reasoning is recorded
+rather than assumed.** Converted-queue depth is 2, the minimum §V5.8 itself
+named. The text report and GX get **two framebuffers**, which answers §V5.15's
+question without moving reporting into the service path.
+
+**The decision §V5 did not make at all: where a single-threaded consumer
+executes.** It fixed the boundary and the policy but not the site, and
+`gbp_vstate_probe_run()` owns the loop. The implementation puts a bounded slice —
+one tile row — immediately after the RE-ARM, the pass's last device access, with
+the next cause already invited. The slice size is argued from measurement:
+`gbp_vsig_block` already reads 3840 bytes in that same path and cost 777–799
+ticks in `color-0002`, against 164 µs of slack between deliveries. **That is an
+argument for the size, not a measurement of this code**, and the probe
+instruments itself so the first run measures it.
+
+**Texture ownership on the real API, not on a guess.** `GX_DrawDone()` would be
+simpler and it *blocks*, which §V5.7 forbids here. `GX_SetDrawDone()` plus
+`GX_SetDrawDoneCallback()` is the non-blocking form: the GP moves a buffer from
+SUBMITTED back to FREE, the CPU only ever fills a FREE one, and with none free the
+descriptor is left in the mailbox so the newest-wins rule decides rather than this
+code.
+
+**The architecture is machine-checked, not conventional.** `tools/poc_audit.py`
+gained a `stream` profile and a per-object prefix exemption: `GX_` is permitted in
+`main.o` and forbidden in every other object, `gbp_vqueue_publish` has exactly one
+call site inside `gbp_vstate_probe_run`, and `gbp_vpix_block` has none there.
+0 findings, and both one-shot ISRs are byte-identical to the physically validated
+GBP-VIDEO-001 build.
+
+**Tests found two real defects, both fixed in the module rather than accommodated:**
+the pacing aggregate used `t_last_publish != 0` as "have we seen one", silently
+discarding a frame published at tick 0; and my own wrap test miscounted the ring
+distance. The strongest test uses the physical `color-0002` fixture as a
+conversion oracle — converting it produces the eight bars measured on the device,
+and converting its two certified frames, which differ in 2434 raw bytes all in
+bytes 0 and 2, produces identical textures.
+
+**Real memory, from the build rather than the estimate:** text 356 672 B, data
+104 192 B, bss 2 742 204 B → **3.07 MiB of 24**, about 20.9 MiB free. The colour
+probe used 8.20 MiB; dropping the episode store and shrinking the frame table is
+where the difference went.
+
+**Status, and its ceiling:** `stream-0001` at commit `0816cbe`, sha256
+`0dc2c501…`, IMPLEMENTED · SOFTWARE/HOST VALIDATED · PHYSICAL CANDIDATE READY ·
+**NOT PHYSICALLY VALIDATED**. No evidence id is allocated to it. Dolphin smoke
+passes and says only that it boots and that GX init survives.
+
+**Next:** an independent pre-hardware audit of the exact candidate. Two previous
+audits caught things that would have cost a physical run — a 153 600-byte memcmp
+in the service path, and a gate stricter than its own question — and this one has
+three specific things to attack: the consumer's execution site, the still-open
+run duration, and the texture-ownership scheme. Separately, the CONTROLLED motion
+stimulus of §V5.18 does not exist yet, so a first run can measure the machinery
+but cannot verify frame loss. U-GBP-029, U-GBP-033 and U-GBP-034 stay OPEN.
