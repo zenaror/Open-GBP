@@ -6616,9 +6616,21 @@ the logger's 255-character line limit and ends at `intmr_po`. It costs nothing:
 the `WAITPRE` and `WAITPOST` snapshots record CONTROL, IRQ, INTSR **and INTMR**
 separately and in full, on their own lines, which is where the values quoted
 above come from. Registered as an **INSTRUMENTATION DEFECT / NON-BLOCKING**; the
-physical test does not need repeating. If the diagnostic is kept for further
-runs, the fix is to split `PREHANDLERWAIT` into two shorter lines rather than to
-widen the logger.
+physical test does not need repeating.
+
+**FIXED 2026-09-18**, after the defect recurred in `color-0001`. The record is
+now split by subject into `PREHANDLERWAIT` (ms, want_ticks, begin, end, elapsed,
+iters, done) and `PREHANDLERWAITSTATE` (the CONTROL / IRQ / INTSR / INTMR pair),
+each well inside the 255-character line at every field's maximum width, and the
+logger was **not** widened. Both are written after the wait ends and before the
+handler is installed, so nothing moved in the critical path.
+`tests/unit/test_gbp_video_state.c::test_prehandler_wait_records_fit_the_logger`
+drives the probe at the physical magnitudes — the real 40.5 MHz base, the real
+5000 ms wait, a clock origin that prints both timestamps at full width — and
+asserts `truncated == 0`; it fails against the old single-line record, which is
+how it was checked. **The two physical logs keep their `truncated=1` exactly as
+recorded**: a log written before this change has one line, a log written after
+has two, and the fixtures are never edited to match the newer code.
 
 #### V3.27 The observability premise, tested and REJECTED
 

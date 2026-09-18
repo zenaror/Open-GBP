@@ -919,15 +919,23 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
         gbp_initirqa_snapshot_take(t, &res->a, &res->waitpost, "WAITPOST", 0, 1);
         gbp_initirqa_snapshot_log(log, &res->a, &res->waitpost);
         note_control(res, &res->waitpost);
+        /* TWO records, not one. The single combined line reached 266 characters on
+         * the physical runs - the timestamps alone are 14 hex digits at 40.5 MHz -
+         * and the logger cut it at its 255-character line, setting truncated=1 in
+         * two physical logs (the vstate-prewait-5000 and color-0001 runs). Split
+         * by subject, each half fits with room to spare at every field's maximum
+         * width, and neither costs anything in the critical path: both are written
+         * after the wait has ended and before the handler is installed. */
         ringlog_printf(log,
-                       "PREHANDLERWAIT ms=%lu want_ticks=%llu begin=%llx end=%llx elapsed=%llu iters=%lu done=%d "
-                       "control_pre=%02x control_post=%02x irq_pre=%04x irq_post=%04x intsr_pre=%08lx intsr_post=%08lx "
-                       "intmr_pre=%08lx intmr_post=%08lx",
+                       "PREHANDLERWAIT ms=%lu want_ticks=%llu begin=%llx end=%llx elapsed=%llu iters=%lu done=%d",
                        (unsigned long)cfg->prehandler_wait_ms, (unsigned long long)want,
                        (unsigned long long)res->t_prehandler_wait_begin,
                        (unsigned long long)res->t_prehandler_wait_end,
                        (unsigned long long)gbp_time64_delta(res->t_prehandler_wait_begin, res->t_prehandler_wait_end),
-                       (unsigned long)iters, res->prehandler_wait_done,
+                       (unsigned long)iters, res->prehandler_wait_done);
+        ringlog_printf(log,
+                       "PREHANDLERWAITSTATE control_pre=%02x control_post=%02x irq_pre=%04x irq_post=%04x "
+                       "intsr_pre=%08lx intsr_post=%08lx intmr_pre=%08lx intmr_post=%08lx",
                        (unsigned)res->waitpre.control_vote, (unsigned)res->waitpost.control_vote,
                        (unsigned)res->waitpre.irq_gbi, (unsigned)res->waitpost.irq_gbi,
                        (unsigned long)res->waitpre.intsr, (unsigned long)res->waitpost.intsr,

@@ -1975,6 +1975,62 @@ static void test_prehandler_wait_waits_then_serves_normally(void)
            (unsigned long)res.prehandler_wait_iters, (unsigned long)res.deliveries);
 }
 
+static void test_prehandler_wait_records_fit_the_logger(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    int a, b;
+    printf("-- the pre-handler records fit the logger at the PHYSICAL magnitudes\n");
+    /* THE DEFECT THIS REPRODUCES. As one line, the pre-handler record reached 266
+     * characters on hardware and the logger cut it at 255, setting truncated=1 in
+     * the vstate-prewait-5000 and color-0001 logs. The widths are what did it, so
+     * this scenario uses the physical ones and nothing smaller: the real 40.5 MHz
+     * time base, the real 5000 ms wait, and a 64-bit clock origin high enough that
+     * both timestamps print at full width. The earlier wait tests run at 2 ms on a
+     * small clock, where the single line still fit - which is exactly why they
+     * never caught it. */
+    cfg_default(&cfg);
+    cfg.a.tb_hz = GBP_TIME64_NOMINAL_HZ;
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 200u;
+    cfg.prehandler_wait_ms = 5000u;
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    m.tick64_origin = (uint64_t)0x8000000000000000ull;   /* begin/end print 16 hex digits */
+    run_cfg(&m, &rl, &res, &cfg);
+    /* the run really carried the physical magnitudes */
+    CHECK(res.prehandler_wait_ms == 5000u);
+    CHECK(res.prehandler_wait_done == 1);
+    CHECK(res.t_prehandler_wait_begin >= (uint64_t)0x8000000000000000ull);
+    CHECK(gbp_time64_delta(res.t_prehandler_wait_begin, res.t_prehandler_wait_end)
+          >= ((uint64_t)GBP_TIME64_NOMINAL_HZ * 5000u) / 1000u);
+    CHECK(res.prehandler_wait_iters > 1000000u);
+    /* and NOTHING the run wrote was cut or lost */
+    CHECK(rl.truncated == 0);
+    CHECK(rl.dropped == 0);
+    /* the two records exist, separately, and in order */
+    a = line_index(&rl, "PREHANDLERWAIT ");
+    b = line_index(&rl, "PREHANDLERWAITSTATE ");
+    CHECK(a >= 0);
+    CHECK(b >= 0);
+    CHECK(b > a);
+    /* each carries its own subject and neither carries the other's */
+    CHECK(strstr(ringlog_line(&rl, (size_t)a), "elapsed=") != 0);
+    CHECK(strstr(ringlog_line(&rl, (size_t)a), "control_pre=") == 0);
+    CHECK(strstr(ringlog_line(&rl, (size_t)b), "intmr_post=") != 0);
+    CHECK(strstr(ringlog_line(&rl, (size_t)b), "want_ticks=") == 0);
+    /* the service path is still untouched by any of this */
+    CHECK(res.service_ok == 1);
+    CHECK(res.acks == res.rearms);
+    CHECK(m.violation_mask == 0u);
+    printf("   %lu iterations, both records written, longest line %u chars, truncated=%u\n",
+           (unsigned long)res.prehandler_wait_iters,
+           (unsigned)strlen(ringlog_line(&rl, (size_t)b)), (unsigned)rl.truncated);
+}
+
 static void test_prehandler_wait_cannot_be_reached_without_a_clock(void)
 {
     struct gbp_mock m;
@@ -3788,6 +3844,7 @@ int main(int argc, char **argv)
     test_prehandler_wait_default_changes_nothing();
     test_prehandler_wait_waits_then_serves_normally();
     test_prehandler_wait_cannot_be_reached_without_a_clock();
+    test_prehandler_wait_records_fit_the_logger();
     test_colour_capture_starts_after_the_prehandler_wait();
     test_no_colour_state_exists_before_capture_start();
     test_colour_success_trace_and_raw_immutability();
