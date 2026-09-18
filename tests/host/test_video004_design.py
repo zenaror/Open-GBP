@@ -235,18 +235,27 @@ class PointersResolve(unittest.TestCase):
         t = read(HW)
         self.assertIn("STATUS: RESOLVED (route 1, EZ-Flash Omega DE NOR / Mode B)", t)
 
-    def test_the_handoff_names_the_active_experiment_and_its_open_decisions(self):
-        """The design left three decisions open. The implementation resolved two
-        of them, so the handoff must now say which two were resolved and which
-        one is still open — losing either half would let the next agent inherit a
-        choice without knowing it was one."""
+    def test_the_handoff_names_the_active_experiment_and_the_audit_outcome(self):
+        """The pre-hardware audit rejected the candidate, so the handoff must say
+        so unambiguously and must not read as though the candidate were ready.
+        A reader who skims this file has to come away knowing not to run it."""
         t = flat(read(HANDOFF))
         self.assertIn("GBP-VIDEO-004", t)
         self.assertIn("HARDWARE_TESTS.md` §V5", t)
-        self.assertIn("DESIGN DECISION REQUIRED", t)
-        self.assertIn("Converted-queue depth → 2", t)
-        self.assertIn("Text report versus GX framebuffer → two framebuffers", t)
-        self.assertIn("Run duration — the one DESIGN DECISION REQUIRED that is still open", t)
+        self.assertIn("PRE-HARDWARE AUDIT FAILED", t)
+        self.assertIn("NOT RELEASED FOR A PHYSICAL RUN", t)
+        self.assertIn("REJECTED by the pre-hardware audit — do not run it", t)
+        self.assertIn("BLOCKER", t)
+
+    def test_the_handoff_keeps_the_corrected_slack_number(self):
+        """The 164 us figure was the mean cycle period, not slack. The handoff must
+        carry the MEASURED window and must say the old number was wrong — quoting
+        the wrong number is how a correction works, so this checks for the
+        correction rather than for the string's absence."""
+        t = flat(read(HANDOFF))
+        self.assertIn("42.8", t)
+        self.assertIn("p25 = 1.9", t)
+        self.assertIn("mean cycle *period*, not slack", t)
 
 
 if __name__ == "__main__":

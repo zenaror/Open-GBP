@@ -6757,3 +6757,63 @@ three specific things to attack: the consumer's execution site, the still-open
 run duration, and the texture-ownership scheme. Separately, the CONTROLLED motion
 stimulus of §V5.18 does not exist yet, so a first run can measure the machinery
 but cannot verify frame loss. U-GBP-029, U-GBP-033 and U-GBP-034 stay OPEN.
+
+## 2026-09-18 — the pre-hardware audit of stream-0001 found a blocker
+
+**Goal:** try to invalidate the candidate before spending a physical run. No
+hardware, no functional change.
+
+**It worked, for the third time.** The §V3.23 microaudit refused a 153 600-byte
+`memcmp` in the service path; the §V4 audit refused a gate stricter than its own
+question; this one refused a texture-ownership scheme that can hand the CPU a
+buffer the GPU is still reading.
+
+**The blocker.** `on_draw_done()` frees *every* buffer in `TEX_SUBMITTED`, but a
+DrawDone token certifies only the commands queued before it. Simulating the real
+state machine: frame 1 submits buffer 0, frame 2 submits buffer 1 before token1
+fires, token1 then frees **both**, and frame 4 refills buffer 1 while the GP may
+still be reading it. Two things make it worse than the arithmetic suggests. It is
+**invisible** — `no_free_buffer` does not increment in that sequence, so the only
+symptom is a torn frame, which §V5.21 refuses as a criterion. And it lives in code
+that has **never executed**: Dolphin matched a line printed before the probe runs,
+so `pump()` and every GX call inside it have never run anywhere.
+
+**The number I got wrong last round, corrected from physical data.** I justified
+the slice placement with "164 µs of slack between deliveries". That figure is
+`capture_elapsed / deliveries` — the mean cycle *period*, work plus idle. The real
+idle window is the RE-ARM→next-cause gap, and `vstate-0004`'s 80 cycle records
+give median **42.8 µs with p25 = 1.9 µs**: on **34 % of cycles the next cause is
+already latched when the RE-ARM completes**. A ~20 µs slice exceeds the whole
+window a third of the time. Nothing is lost — `wait_next()` is a busy poll and the
+cause latches — but the justification was void and the placement is PLAUSIBLE BUT
+UNMEASURED, not proven safe.
+
+**Two things the audit established that simplify the design.** The pump runs with
+IRQ 26 **already masked** (`gbp_irq_service.c` step 7 re-masks before the drain),
+so the GBP ISR cannot preempt a conversion; and producer and consumer are the
+**same thread**, so the queue needs no barrier, no `volatile` and no critical
+section. The entire synchronisation surface is one `volatile uint8_t[2]` — and it
+has exactly one bug.
+
+**What the audit cleared, so it is not re-litigated.** RGB5A3 byte order:
+decoding the physical `color-0002` frame through the real tile mapping gives bytes
+`80 00 / FC 00 / 83 E0 / 80 1F / …`, which GX reads as the eight measured colours
+— big-endian `uint16_t` stores are exactly right and no conversion is needed. The
+tile mapping, exhaustively. The flush size and ordering. The R3 policy, with both
+one-shot ISRs byte-identical to the GBP-VIDEO-001 build and the `stream` audit
+profile at 0 findings. Instrumentation cost: four `mulli`, zero `divw`. Memory:
+4.23 MiB of 24 including both framebuffers.
+
+**Test quality.** Eight mutations of the two pure modules — generation check
+removed, incomplete published, quarantined published, tile row/column swapped,
+byte 0 read instead of byte 1, presentation bit dropped, flag15 uncounted, mailbox
+keeping the oldest — **all eight caught**. And the one that matters most cannot be
+run: `main.c` has no behavioural test, and the host tests assert only that
+`on_draw_done` *appears* in the source. That is exactly how the blocker got in,
+and any fix that does not close that gap is a fix nobody can check.
+
+**Decision: B — SOFTWARE FIX REQUIRED BEFORE HARDWARE.** Full finding list and
+the fix order in `HARDWARE_TESTS.md` §V5.26.
+
+**Next:** an implementation round for §V5.26.9, then a re-audit. U-GBP-029,
+U-GBP-033 and U-GBP-034 stay OPEN and none of them is involved.

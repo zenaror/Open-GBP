@@ -7816,3 +7816,187 @@ reason **not** to implement either of them now.
 5. Whether a commercial reference cartridge is needed for Phase 4's acceptance or
    only for Phase 7 — the roadmap's acceptance sentence says "a real cartridge",
    and this design does not decide it unilaterally.
+
+### V5.26 PRE-HARDWARE AUDIT of `stream-0001` — 2026-09-18 — **DECISION: B, SOFTWARE FIX REQUIRED BEFORE HARDWARE**
+
+Audited at HEAD `22308c6` against the candidate built at `0816cbe`
+(`gbp-video-stream-probe.dol`, 461 120 B, sha256 `0dc2c501…`, Swiss
+`12-stream/boot.dol` byte-identical). No code was changed by this audit.
+
+**One BLOCKER, three HIGH.** The candidate is not released for a physical run.
+
+#### V5.26.1 The timeline, reconstructed from source rather than from the report
+
+```text
+unmask -> handler -> MASK IRQ 26 -> READ -> AUDIO -> VIDEO -> ACK -> PI clean
+       -> signature + assembly -> [PUBLISH]  -> RE-ARM -> [PUMP slice] -> wait_next (busy poll)
+```
+
+Two facts the earlier report did not state, both load-bearing:
+
+1. **The pump runs with IRQ 26 already masked.** `gbp_irq_service.c` step 7
+   re-masks before the drain, so the GBP ISR **cannot** preempt the conversion.
+   The §3 scenario of a handler firing mid-slice does not arise.
+2. **`wait_next()` is a busy-poll on INTSR**, not an interrupt wait. A cause that
+   arrives during the slice **latches** and is found by the next poll. Nothing is
+   lost; detection is merely late.
+
+Producer and consumer are therefore **the same thread**, sequentially. No memory
+barrier, no `volatile` and no critical section is required for the queue. The only
+asynchronous agent in the whole program is the GX draw-done callback, which
+touches exactly one array — and that is where the blocker is.
+
+#### V5.26.2 BLOCKER — the draw-done callback frees a buffer the GP still owns
+
+`poc/gbp-video-stream-probe/source/main.c:195-200`
+
+```c
+static void on_draw_done(void)
+{
+    uint32_t i;
+    for (i = 0; i < STREAM_TEX_BUFFERS; i++)
+        if (tex_state[i] == TEX_SUBMITTED) tex_state[i] = TEX_FREE;
+}
+```
+
+A DrawDone token certifies only the commands queued **before that token**. The
+callback frees **every** submitted buffer. Simulating the real state machine:
+
+```text
+frame 1 -> buffer 0 SUBMITTED, token1 queued        state [S, F]  inflight [0]
+frame 2 -> buffer 1 SUBMITTED, token2 queued        state [S, S]  inflight [0,1]
+token1 fires -> the callback frees BOTH             state [F, F]  inflight [1]
+frame 3 -> buffer 0   (genuinely free)              state [S, F]
+frame 4 -> buffer 1   <-- the GP may still be reading it
+```
+
+The CPU refills a texture the GP still owns, which is precisely the collision the
+implementation brief required to be impossible. Two aggravating properties:
+
+- **It is invisible.** `no_free_buffer` does **not** increment in that sequence
+  (the callback frees both before the next pump), so nothing in the log records
+  it. The only symptom is a torn frame on screen — and §V5.21 explicitly refuses
+  visual impression as a criterion.
+- **The code has never run** (§V5.26.4).
+
+The window requires token1 not to have fired within the ~6.6 ms the next frame's
+40 slices take. The GP finishes one textured quad in microseconds, so it is
+narrow — but `hsp_backend.c:62` holds `_CPU_ISR_Disable` across each ARAM DMA
+(~61 µs per block read, GBP-HW-051), so GP interrupt delivery is deferred for a
+substantial fraction of every cycle. Narrow is not absent, and the contract is
+unsound regardless of the probability.
+
+**Fix direction, NOT applied:** a per-submission token (`GX_SetDrawSync` /
+`GX_GetDrawSync`), or a FIFO of submitted buffers so the callback frees only the
+oldest, or refusing to submit while one frame is in flight.
+
+#### V5.26.3 HIGH — the "164 µs of slack" justification is void
+
+Measured from the 80 physical cycle records of `vstate-0004`:
+
+```text
+cause -> RE-ARM   (probe WORK)   min  76.6   median  78.3   max 2189.8 us
+RE-ARM -> next    (real IDLE)    min   1.9   median  42.8   max  167.7 us
+                                 p25   1.9   p75     88.6   p90  121.1 us
+```
+
+**34 % of cycles have an idle window of 1.9 µs** — the next cause is already
+latched when the RE-ARM completes. The 164 µs quoted in the implementation round
+is `capture_elapsed / deliveries`, i.e. the mean cycle **period** (work + idle),
+not slack. A ~20 µs slice therefore exceeds the entire idle window on roughly a
+third of cycles.
+
+This is not by itself a defect: the cause latches and `wait_next` polls, so
+nothing is lost. But the design's argument for the slice placement does not hold,
+and whether the GBS-DOL tolerates late service is **UNKNOWN**. Classification of
+the slice placement: **PLAUSIBLE BUT UNMEASURED**, not PROVEN SAFE.
+
+#### V5.26.4 HIGH — the display path has never executed anywhere
+
+The Dolphin smoke matched `OPENGBP-STREAM READY`, which is printed **before**
+`gbp_vstate_probe_run()`. With no GBP model the probe aborts before any frame
+closes, so `pump()` never runs. `GX_InitTexObj`, `GX_LoadTexObj`, `draw_quad`,
+`GX_SetDrawDone`, `GX_CopyDisp` and `on_draw_done` have therefore **never been
+executed** — not on hardware, not in Dolphin, not on the host. Only `GX_Init` and
+`gx_setup()` are smoke-tested. The blocker of §V5.26.2 lives entirely inside that
+unexecuted code.
+
+#### V5.26.5 HIGH — the run cannot measure the perturbation it needs to measure
+
+`GBP_VSTATE_CYC_FIRST = 8` and `GBP_VSTATE_CYC_LAST = 8`: sixteen per-cycle
+timing records, both windows at the extremes, out of roughly 183 000 cycles in a
+30 s run. The probe records aggregate slice min/max but **no** count of "a cause
+was already pending while the slice ran" and no RE-ARM→next-cause distribution.
+
+The question "did the consumer perturb the service?" is therefore answerable only
+*indirectly*, through consequences already recorded: `frames_incomplete`, the
+`INTERVALS` histogram, `timeouts`, and unmasks = deliveries = acks = rearms. That
+is real evidence and it is the evidence that matters scientifically, but the
+direct measurement the design promised is absent.
+
+#### V5.26.6 MEDIUM and below
+
+| id | severity | where | finding |
+| --- | --- | --- | --- |
+| F5 | MEDIUM | `main.c:324` | `if (!blk) { conv.next_row = GBP_VPIX_BLOCKS; break; } /* guard below rejects */` — the generation guard checks publish distance, not conversion completeness. If `gbp_vstate_ring_block()` ever returned NULL mid-frame, a half-converted texture would be committed and presented, mixing two generations. Unreachable in practice; the comment asserts a protection that does not exist. |
+| F6 | MEDIUM | `main.c:268` | `GX_SetDrawDoneCallback()` is never uninstalled. After `main` returns the callback can still fire and write `tex_state[]`. Not a memory-safety fault (static BSS), but a dangling handler, and the teardown has never been exercised with GX active. |
+| F7 | LOW | `main.c:307` | `no_free_buffer` cannot serve as evidence that the two-in-flight condition did not occur — see §V5.26.2. |
+| F8 | LOW | `main.c:370` | `GX_CopyDisp(xfb_stream, …)` writes the framebuffer VI is scanning out. Tearing is expected and harmless, consistent with §V5.16, but it must never be read as frame loss. |
+| F9 | INFO | `gbp_vqueue.c:33-38` | `gbp_vqueue_classify()` does not exclude `F_SOURCE_DEFERRED`, which `gbp_vcolor_eligible()` does. Design-sanctioned (§V5.9: "descriptive only"), so a frame refused as colour evidence may still be displayed. Stated here so it is a decision and not an oversight. |
+
+#### V5.26.7 What the audit CLEARED
+
+| item | verdict |
+| --- | --- |
+| RGB5A3 byte order (§12) | **CORRECT.** Decoding the physical `color-0002` frame through the real tile mapping gives bytes `80 00 / FC 00 / 83 E0 / 80 1F / FF FF / 84 00 / 80 20 / 80 01`, which GX reads as the eight measured colours with R in bits 14–10. Big-endian `uint16_t` stores are exactly what GX expects; no conversion is needed. |
+| tile mapping (§13) | **CORRECT.** 240 % 4 = 0, 160 % 4 = 0, 60 × 40 tiles, 60 × 40 × 16 = 38 400 texels, 76 800 bytes, max index 38 399. Verified exhaustively: every pixel maps to a distinct texel and the texture is fully covered. |
+| preemption / reentrancy (§4) | **NO DEFECT.** Producer and consumer are the same thread; the only asynchronous agent is the draw-done callback on a `volatile uint8_t` array, whose single-byte stores are atomic on PowerPC. |
+| publication ordering (§9) | **NO BARRIER NEEDED**, for the same reason. `has_pending` is written last and read first, but the ordering is irrelevant within one thread. |
+| R3 / eligibility (§10) | **PRESERVED.** The service order string is unchanged, both one-shot ISRs are byte-identical to the GBP-VIDEO-001 build, `poc_audit --profile stream` reports 0 findings, and the queue uses the assembler's flags rather than a copy. |
+| cache coherency (§11) | **CORRECT ORDER.** `DCFlushRange(tex_buf[conv.buf], GBP_VPIX_TEX_BYTES)` is after the fill and the commit check and before `GX_InitTexObj`; 76 800 is a whole number of 32-byte lines, pinned by a static assertion. |
+| instrumentation cost (§15) | **CHEAP.** `gbp_vpix.o` contains four `mulli` and **zero** `divw`; the /4 and %4 reduced to shifts. Two `gettick()` reads per slice, no printf, no filesystem, no GX in the service path. |
+| memory (§18) | text 356 672 + data 104 192 + bss 2 742 204 = **3.05 MiB**, plus two XFBs of 614 400 from the arena = **4.23 MiB of 24**. No large stack arrays in `pump()` or `draw_quad()`. |
+
+#### V5.26.8 Test quality — eight mutations, and the one that cannot be tested
+
+| mutation | caught? |
+| --- | --- |
+| M1 remove the final generation check | CAUGHT (3 C) |
+| M2 publish an incomplete frame | CAUGHT (6 C, 1 host) |
+| M3 publish a quarantined frame | CAUGHT (5 C, 1 host) |
+| M4 swap row/column inside a tile | CAUGHT (4 C) |
+| M5 read byte 0 instead of byte 1 | CAUGHT (7 C) |
+| M6 drop the presentation bit | CAUGHT (3 C) |
+| M7 stop counting flag15 separately | CAUGHT (4 C) |
+| M8 mailbox keeps the oldest, not the newest | CAUGHT (5 C) |
+
+Every mutation of the two pure modules is caught. **The mutation that matters
+most cannot be run at all**: `main.c` is target-only code with no behavioural
+test, and the three host tests naming `on_draw_done`, `TEX_SUBMITTED` and
+`TEX_FREE` assert only that those strings appear in the source. Breaking the
+callback's logic is undetectable by the suite — which is exactly how the blocker
+of §V5.26.2 got in.
+
+#### V5.26.9 Decision
+
+**B — CANDIDATE REQUIRES SOFTWARE FIX BEFORE HARDWARE.**
+
+Required before a physical run:
+
+1. **Fix the texture-ownership scheme** (§V5.26.2). This is the blocker.
+2. **Make the two-in-flight condition observable** whatever the fix, so the log
+   can show it did not occur.
+3. **Add the perturbation counter** §V5.26.5 identifies — at minimum, a count of
+   cycles in which a cause was already latched when the pump began, which is one
+   `poll_intsr` read the pump already has the position for.
+4. **Correct the §V5.26.6 F5 comment** and decide whether the abandon path should
+   reject rather than commit.
+5. **Restate the slice justification** from the measured idle window (§V5.26.3)
+   instead of the mean cycle period, and re-classify it as PLAUSIBLE BUT
+   UNMEASURED in the design.
+
+Not required before a first run, but required before the experiment can close:
+the CONTROLLED indexed motion stimulus of §V5.18 still does not exist, so a first
+run can validate service, GX and operational pacing but **cannot** measure
+source-frame loss against ground truth. A first smoke must never later be
+described as evidence of zero dropped source frames.
