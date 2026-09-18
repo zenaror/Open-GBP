@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   9d8302d6cf05b7f4eb913080cb024bb4951954c6
+STATE BASELINE COMMIT   7a95311c1470797af9e957ec1256492c761f03df
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -29,6 +29,9 @@ LAST PHYSICAL EVIDENCE INGESTED
   The runtime CERTIFIED. The analyser REFUSED it at its own gate.
   VERDICT: INCONCLUSIVE - CERTIFIED RAW MISMATCH. U-GBP-011 stays OPEN.
   Previous: PRE-HANDLER MASKED WAIT 5000 ms, GBP-HW-116 … GBP-HW-119
+
+  NOTHING PHYSICAL HAS RUN SINCE. color-0002 is pre-registered and host
+  validated; it has never touched hardware and holds no evidence id.
 ```
 
 ### Staleness check — run this before trusting anything below
@@ -84,7 +87,8 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-002-R3** (semantic disagreement policy) | **PHYSICAL VALIDATION COMPLETE** | `HARDWARE_TESTS.md` §R3/§R4; GBP-HW-108…115 |
 | **PRE-HANDLER MASKED WAIT 5000 ms** | **PHYSICALLY VALIDATED — only for the 5 s duration and the position exercised** | `HARDWARE_TESTS.md`, "PRE-HANDLER MASKED WAIT"; GBP-HW-116…119 |
 | **Physical delivery of a controlled GBA ROM** | **RESOLVED** for the validated EZ-Flash Omega DE NOR / Mode B route | `HARDWARE_TESTS.md` §V3.7 and the route section below |
-| **GBP-VIDEO-003** (controlled colour mapping) | **PHYSICALLY EXECUTED 2026-09-18 — runtime PASSED, analyser REFUSED; verdict INCONCLUSIVE, and it is NOT re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…125 |
+| **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS FROZEN CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…125 |
+| **GBP-VIDEO-003 / `color-0002`** | **PREREGISTERED · SOFTWARE/HOST VALIDATED · PHYSICAL CANDIDATE READY · NOT PHYSICALLY EXECUTED** | `HARDWARE_TESTS.md` §V4; `tools/vcolor2.py` |
 | **Operator visual arming** | **REJECTED**: the stimulus is not observable during the pre-handler interval | `HARDWARE_TESTS.md` §V3.27 |
 | **Procedure** | **FIXED PRE-HANDLER WAIT 5000 ms — PHYSICALLY SUFFICIENT for this stimulus at this position** | GBP-HW-120 |
 | **Bytes 0/2 of a pixel word** | **vary between consumed-identical physical frames, in this run and in earlier fixtures; cause UNKNOWN** | GBP-HW-126; `UNKNOWNS.md` U-GBP-029 |
@@ -122,6 +126,8 @@ Changing any of these means a **new version**, never an edit.
 | --- | --- | --- |
 | **OGBPSEQ1 v5** | physically produced; v2/v3/v4 are historical and frozen with their known defects | `src/gbp/gbp_vstatedump.h`, `tools/vstate.py` |
 | **OGBPCOL1 v1** | frozen at the implementation checkpoint `e10423c`; `cert_rec` is **40** bytes | `src/gbp/gbp_vcoldump.h`, `tools/vcolor.py` |
+| **`color-0001` analysis contract** | frozen at `bfbca70`; full-raw A/B/C byte equality. It refused `color-0001` and that verdict is permanent — `tools/vcolor.py` gains no option that could change it | `tools/vcolor.py`, `HARDWARE_TESTS.md` §V3.25 |
+| **`color-0002` analysis contract** | pre-registered before the run it judges; consumed-word equality over 38 400 words, bit 15 included. Changing it after `color-0002` has run requires **`color-0003`** | `tools/vcolor2.py`, `HARDWARE_TESTS.md` §V4 |
 
 ## Exact physical artifacts
 
@@ -135,23 +141,36 @@ different hash. Match the SHA-256 before saying "physically tested".
 | pre-handler masked wait | `vstate-prewait-5000` | `500429a` | `b5f0060a46d2e6429f494a9fa53d14acf07a97f61d01847acf0b6cb807a48709` | PHYSICALLY EXECUTED | GBP-HW-116…119 |
 | GBP-VIDEO-003 | `color-0001` | `e10423c` | `32ea371cd3b51c52f8459e5b67e91c8a046b2ea8ab58a48668494290f668164b` | superseded: no pre-handler wait | `HARDWARE_TESTS.md` §V3 |
 | GBP-VIDEO-003 | `color-0001` | `9d8302d` | `cc88e4c45559f11047ca657b78045e2fd2c5d646a1b68e7e453fcf796d177cf4` | **PHYSICALLY EXECUTED 2026-09-18** | GBP-HW-120…125 |
+| GBP-VIDEO-003 **physical candidate** | `color-0002` | see below | see below | **READY, NOT physically executed** | `HARDWARE_TESTS.md` §V4 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
 Rebuild with `make build` and compare `build/poc/gbp-video-color-probe/build-info.txt`
 before calling any DOL the tested artifact; `build/swiss/11-color/boot.dol` is a
-byte copy of it, not a second identity. `build_id` stayed **`color-0001`** across
-the procedure change: the experiment — stimulus, hypotheses, `N_STABLE`,
-OGBPCOL1 v1, analyser — was never altered.
+byte copy of it, not a second identity.
+
+**`color-0001` can no longer be built from HEAD**, and that is deliberate: the
+POC now declares `color-0002`. A run that has already happened should not be
+silently reproducible under its own id. Its DOL hash above is what the record
+keeps.
+
+**The `color-0002` candidate's hash is not pre-recorded here**, for the same
+reason `color-0001`'s was not: the commit identity is embedded in the image, so
+any hash written into this file is stale the moment the file is committed.
+Instead: run `make build`, read `build/poc/gbp-video-color-probe/build-info.txt`,
+confirm `build_id=color-0002` and that its `commit` matches HEAD with **no**
+`-dirty` suffix, and record that hash with the run. Hardware is never tested with
+a dirty build (`CLAUDE.md` §18).
 
 ## Open questions
 
-- **U-GBP-011** — the VIDEO colour bit order and the exact word content. The
-  experiment ran on 2026-09-18 and **did not satisfy its own acceptance gate**.
-  The post-gate diagnostic projection matches H1 (the references' RGB5A3 order)
-  on 8/8 bars, and that is recorded as an observation, **not** as the answer:
-  re-reading the same bytes under a gate chosen after seeing them would be
-  choosing the analysis to fit the data. A pre-registered `color-0002` closes it.
+- **U-GBP-011** — the VIDEO colour bit order and the exact word content.
+  **OPEN.** `color-0001` ran on 2026-09-18 and did not satisfy its own acceptance
+  gate. Its post-gate diagnostic projection matches H1 (the references' RGB5A3
+  order) on 8/8 bars, and that is an observation, **not** the answer. `color-0002`
+  is now pre-registered (§V4) and host validated; it closes this item only with a
+  `CONFIRMED_EXACT` verdict on a physical run, and it can equally come back
+  inconclusive or select a different hypothesis.
 - **U-GBP-029** — are the byte-0 / byte-2 deviations block data or a read-path
   artifact? `color-0001` is the strongest test so far (a non-uniform picture,
   every deviation confined to bytes 0 and 2, none in 1 or 3) and still not
@@ -167,41 +186,43 @@ OGBPCOL1 v1, analyser — was never altered.
 
 ## Current blocker / current question
 
-> Decide whether raw bytes 0/2 and the systematic bit 15 belong to the scientific
-> colour variable or are transport-side fields — **and write that decision down as
-> the acceptance gate of `color-0002` before that run happens**, not after.
+> **Execute the pre-registered `color-0002` on physical hardware.**
 
-That is one question with two halves, and the second half is what makes it a
-blocker rather than a curiosity: the gate has to be fixed in advance, because
-`color-0001` already exists and its bytes are already known.
+The question that was open last round — whether raw bytes 0/2 and the systematic
+bit 15 belong to the colour variable or are transport-side fields — has been
+answered *as a decision*, written down in `HARDWARE_TESTS.md` §V4 **before** the
+run it judges, and implemented in `tools/vcolor2.py`:
 
-`color-0001` certified cleanly and the analyser refused it, because the three
-certified frames differ over the full raw frame. Every difference is in byte 0 or
-2 of the group; bytes 1 and 3 — the only bytes either reference decoder reads —
-differ nowhere, so the picture itself is identical in all three frames. The gate
-is therefore stricter than the question it guards, which §V3.25 says in its own
-words: *"a checksum can collide; the bytes cannot"* — it protects the runtime's
-`sig[40]` decision, not a claim about bytes 0 and 2.
+- bytes 0 and 2 are **outside the dependent variable of this experiment**, on the
+  pre-existing authority of GBP-VID-003 and U-GBP-029. They are not declared
+  don't-care in general, they are preserved in full, and the full-raw comparison
+  is reported on every run as a mandatory diagnostic;
+- **bit 15 is inside the gate** and is never masked;
+- the gate is the 38 400 consumed words `(b1 << 8) | b3`, exact equality across
+  A, B and C.
 
-**The gate is not being relaxed for this run.** The criterion was pre-registered,
-the run failed it, and re-judging the same bytes under a criterion picked
-afterwards is choosing the analysis to fit the data. `color-0001` stays
-INCONCLUSIVE permanently.
+Nothing about that decision is confirmed by data yet. `color-0002` is what tests
+it, and it can come back inconclusive, or select a hypothesis other than H1.
+
+**`color-0001` is finished.** It was judged by the contract it pre-registered, it
+failed that contract, and it stays INCONCLUSIVE permanently. `tools/vcolor.py` is
+frozen and gains no option; `tests/host/test_vcolor2.py` asserts through the CLI
+that it still prints the same verdict.
 
 ## Next safe action
 
-1. Write the `color-0002` contract **first**: a new analyser version
-   (`OGBPCOL2` / `vcolor2`, never an edit to the frozen v1) whose gate is the
-   consumed projection `word = (b1 << 8) | b3`, justified from GBP-VID-003 and
-   U-GBP-029 *as they stood before any colour run*, with the full-raw comparison
-   retained and reported as a separate mandatory diagnostic. State in advance
-   every condition that makes the run INCONCLUSIVE.
-2. Keep the stimulus and the 5000 ms wait unchanged so the runs are comparable.
-3. Then, and only then, request one physical run and judge it by that contract.
+Run the exact `color-0002` DOL on the real Game Boy Player, with the derived
+Mode-B stimulus image in the EZ-Flash Omega DE. The full procedure — setup, both
+ROM hashes and the eleven steps — is `HARDWARE_TESTS.md` §V4.9. Nothing is
+pressed during the run.
 
-Do **not** edit `OGBPCOL1` v1 or `tools/vcolor.py`, re-label `color-0001`,
-implement controller arming (§V3.27), a preview path, or any stimulus
-recognition in the runtime (§V3.11).
+Before the run: `make build`, confirm `build-info.txt` says `build_id=color-0002`
+and that its commit matches HEAD with **no `-dirty` suffix**, then `make swiss`
+and copy `build/swiss/11-color/boot.dol`.
+
+Do **not** edit `OGBPCOL1` v1, `tools/vcolor.py` or the §V4 contract; do not
+re-label or re-analyse `color-0001`; do not implement controller arming (§V3.27),
+a preview path, or any stimulus recognition in the runtime (§V3.11).
 
 ## Do not rediscover
 
@@ -221,12 +242,15 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 | The operator cannot see the stimulus during the pre-handler interval | `HARDWARE_TESTS.md` §V3.27 |
 | The colour capture opens only after the fixed wait, and holds no state before it | `HARDWARE_TESTS.md` §V3.28 |
 | `frames_refused[MAJORITY_EXTRA]` reads 0 in real runs; `frames_quarantined` is the real counter | `HARDWARE_TESTS.md` §V3.24 |
+| Bytes 0 and 2 of a pixel word are read by neither reference decoder, vary physically, and are NOT the picture | GBP-VID-003; GBP-HW-058/070/123/126 |
+| `color-0001` failed its own pre-registered gate and stays INCONCLUSIVE; the H1 projection is a diagnostic, not a result | GBP-HW-122/124; `HARDWARE_TESTS.md` §V4.1 |
+| The runtime's `sig[40]` consumes bytes 1 and 3 only — the same bytes the §V4 gate compares | `src/gbp/gbp_vsig.c:15`; §V4.1 |
 
 ## Do not assume
 
-- **That 5000 ms guarantees the bars are already on screen.** Not established by
-  anything in this repository. The wait is implemented because the position was
-  validated, not because the duration was proven sufficient.
+- **That 5000 ms guarantees the bars are already on screen.** `color-0001`
+  showed 5000 ms was *sufficient in that setup* (GBP-HW-120). That is one run on
+  one unit with one cartridge, not a boot-time guarantee.
 - **That a rebuilt DOL equals the historical physical DOL.** It does not; the
   commit is embedded. Compare hashes.
 - **That mGBA closes U-GBP-011.** mGBA knows the GBA's native framebuffer
@@ -235,6 +259,13 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 - **That the "pending source" model is FACT.** It is not; U-GBP-033 is open.
 - **That the absence of majority-extra in one run proves it cannot happen.**
 - **That a longer masked wait is safe** because 5 s was.
+- **That the §V4 contract is confirmed by `color-0001`.** It is not, and it
+  cannot be: `tools/vcolor2.py` reports any build other than `color-0002` as
+  RETROSPECTIVE and never emits a `confirmed_*` verdict for it. The retrospective
+  run on the `color-0001` fixture proves the analyser, not the hypothesis.
+- **That bytes 0 and 2 are don't-care in general.** §V4 places them outside the
+  dependent variable of *this experiment* only. U-GBP-029 is open, they are
+  preserved in full, and every run reports the full-raw comparison.
 
 ## Raw evidence availability after a clone
 

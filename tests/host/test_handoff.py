@@ -74,10 +74,15 @@ class Links(unittest.TestCase):
 
 class References(unittest.TestCase):
     def test_referenced_evidence_ids_exist(self):
+        """EVIDENCE.md uses `##` for its older entries and `###` for the newer
+        ones, so the check is "defined as a heading", not "defined at one depth":
+        a citation of GBP-HW-058 is as valid as one of GBP-HW-120."""
         ev = read(EVIDENCE)
+        defined = set(re.findall(r"^#{2,3} (GBP-HW-\d{3})", ev, re.M))
         ids = set(re.findall(r"GBP-HW-\d{3}", read(HANDOFF)))
         self.assertTrue(ids, "the handoff cites no evidence at all")
-        missing = [i for i in sorted(ids) if ("### %s" % i) not in ev]
+        self.assertGreater(len(defined), 100, "the heading scan found almost nothing")
+        missing = sorted(ids - defined)
         self.assertEqual(missing, [], "cited but not defined in EVIDENCE.md: %s" % missing)
 
     def test_referenced_unknowns_exist(self):
