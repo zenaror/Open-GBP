@@ -1,8 +1,31 @@
 /*
- * Open-GBP GBP-VIDEO-003, build color-0001 — the controlled colour experiment
+ * Open-GBP GBP-VIDEO-003, build color-0002 — the controlled colour experiment
  * (HARDWARE_TESTS §V3). It answers ONE question that four physical runs could
  * not touch: which five of the fifteen colour bits the Game Boy Player presents
  * are which channel, and whether the path transforms them on the way out.
+ *
+ * WHY THE BUILD ID MOVED, AND WHAT DID NOT. `color-0001` ran on 2026-09-18. The
+ * capture worked exactly as designed and the OFFLINE CONTRACT refused it: its
+ * gate required the three certified frames to be byte-identical over all 153 600
+ * raw bytes, and they differ in 2125 bytes - every one of them in position 0 or 2
+ * of its group, which neither reference decoder reads, none in bytes 1 or 3
+ * (GBP-HW-122, GBP-HW-123). So the picture was stable and the gate still said no.
+ *
+ * `color-0002` changes the OFFLINE CONTRACT and nothing else. This program is
+ * byte-for-byte the same experiment: same stimulus, same hypotheses, same
+ * N_STABLE, same 5000 ms pre-handler wait, same OGBPCOL1 v1, same capture state
+ * machine, same runtime that still cannot recognise a colour bar. The new build
+ * id exists so that a contract written AFTER color-0001's bytes were known can
+ * never be applied to color-0001 and called a confirmation: tools/vcolor2.py
+ * confirms only a file whose build id is color-0002, and reports anything else
+ * as RETROSPECTIVE (HARDWARE_TESTS §V4).
+ *
+ * One thing worth naming, because it is the root cause: the runtime's stability
+ * filter (`sig[40]`, gbp_vsig.c) has always consumed bytes 1 and 3 and nothing
+ * else, while color-0001's offline gate compared all four. The runtime and the
+ * gate were looking at different data. Under color-0002 they look at the same
+ * bytes, and the offline gate remains the authority - a checksum can still
+ * collide, so the 38 400 consumed words are compared exactly, bit 15 included.
  *
  * WHAT THIS PROGRAM DOES NOT KNOW. It holds no stimulus value, no channel name
  * and no hypothesis. It cannot recognise the colour bars, and that is the point:

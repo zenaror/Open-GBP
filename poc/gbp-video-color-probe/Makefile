@@ -36,7 +36,7 @@ include $(DEVKITPRO)/libogc2/gamecube_rules
 # Identity
 #---------------------------------------------------------------------------------
 APP_NAME   := gbp-video-color-probe
-BUILD_ID   := color-0001
+BUILD_ID   := color-0002
 GIT_COMMIT ?= $(shell git -C "$(CURDIR)" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 GIT_DIRTY  ?= $(shell git -C "$(CURDIR)" diff --quiet HEAD -- 2>/dev/null || echo -dirty)
 COMMIT_ID  := $(GIT_COMMIT)$(GIT_DIRTY)
