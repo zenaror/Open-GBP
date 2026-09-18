@@ -6335,3 +6335,63 @@ before the capture begins.
 69 passed with both ISR bodies identical to the physically validated build and
 the new `color` profile at 0 findings; Docker 11 POCs plus the ROM, 0 warnings;
 Dolphin 21/21 PASS.
+
+## 2026-09-18 — the masked pause is safe, and the premise behind arming was wrong
+
+**Goal.** Answer the one UNKNOWN blocking the GBP-VIDEO-003 arming decision: does
+the unit tolerate several seconds between stage A and the handler install, with
+PI masked?
+
+**Result: yes, for 5 s at that position.** Build `vstate-prewait-5000`, commit
+`500429a`, on the physical Game Boy Player. 5.000 000 22 s elapsed against 5 000
+requested; CONTROL `8c`, IRQ `0500`, INTSR `00012000` and INTMR `000001fa`
+identical either side; then handler install, PREUNMASK, first unmask and a first
+delivery at 89 ticks of latency, followed by 1 108 063 transactions with
+unmasks = deliveries = acks = rearms and a clean restore. GBP-HW-116 to
+GBP-HW-119. The claim is the duration and the position exercised and nothing
+more — not 10 s, not unbounded.
+
+**Classified honestly:** the run ended on `safety_budget` with `valid_s=119.608`
+against a 120 s target, because the 5 s pause sits inside the 180 s safety
+budget. It is a diagnostic PASS, **not** a vstate run that reached its target,
+and the docs say so in those words.
+
+**A premise died, which is the more useful outcome.** The arming audit had
+assumed the operator could watch for the colour bars and press a button. Reading
+the source rather than assuming: the GBP has no display of its own; the probe
+drains no VIDEO before the handler exists (every drain call site is inside the
+service loop); and nothing in the repository ever renders a captured block — the
+GameCube framebuffer is a text console and there is exactly one
+`VIDEO_SetNextFramebuffer` in the tree, the console's own. The operator saw the
+bars in the delivery tests because GBI and the Start-up Disc render them.
+Open-GBP does not.
+
+So controller-arm-on-sight is **not** implementable as reasoned, and I did not
+implement it. The recommendation is Option F, the fixed pre-handler wait this run
+just validated, audited against the colour build on five points (capture start
+after the wait, search window measured from it, no colour state before it,
+analyser protections intact, and a bad window resolving to INCONCLUSIVE rather
+than a false mapping). **Not enabled yet**: that 5 s is *enough* for the cartridge
+boot to reach the bars is not established by anything here.
+
+**Also this round:** a Swiss launch layout. The build directories are named for
+the source tree, and in a truncated list `gbp-init-irq-program-probe` and
+`gbp-init-irq-deliver-probe` are the same thing — picking wrong spends a physical
+run. `make swiss` now exports every launchable DOL as
+`build/swiss/NN-short/boot.dol` with an `INDEX.txt`, numbered by the versioned
+manifest `tools/swiss-layout.tsv`. Two digits because Swiss sorts lexically;
+numbers are stable and never reused; 01-69 canonical, 80-89 physical
+diagnostics. The copy is byte for byte and verified by hash — `build/poc` stays
+the authority and nothing gains a second identity.
+
+**Noted, not changed:** the log's `PREHANDLERWAIT` line hit the logger's
+255-character limit (`truncated=1`). The WAITPRE/WAITPOST snapshots carry every
+value it lost, so the run stands; if the diagnostic is kept, split the line.
+Separately, `.unpadded.dol` being *larger* than `.dol` is documented behaviour,
+not a bug: `dolpad` rounds section sizes up to 32 bytes **and** re-aligns file
+offsets, and here removing a 32-byte inter-section gap outweighed 16 bytes of
+size padding. Entry, BSS and section addresses are identical between the two.
+
+**Next:** the first physical GBP-VIDEO-003 run is now gated on one decision —
+whether to enable the fixed 5 s wait in `color-0001` — and on nothing else.
+U-GBP-011 and U-GBP-033 stay OPEN.

@@ -2815,3 +2815,72 @@ Handler installed once and restored once (`old_handler=null`), `mask_ok=1`,
 with a confirming readback, `power_cycle_required=1`, teardown variant
 `S5_target`, `next_cause_at_end=1`. The final state matches the one every
 physical run of this family has reached.
+
+### GBP-HW-116 — the Game Boy Player tolerated a 5-second masked pause between stage A and the handler install, and nothing observable moved — FACT
+
+Build `vstate-prewait-5000`, commit `500429a`, on the physical unit. After stage
+A put CONTROL in the running shape the probe waited, with PI still masked, no
+handler installed and no service transaction in flight:
+
+```text
+requested    5000 ms          want_ticks   202 500 000
+elapsed      202 500 009 ticks @ 40.5 MHz = 5.000 000 22 s
+iterations   78 307 256       done=1 (the time bound, not the iteration cap)
+```
+
+Read-only snapshots either side of the pause (`WAITPRE` / `WAITPOST`):
+
+```text
+CONTROL      8c -> 8c
+IRQ semantic 0500 -> 0500      (Disc and GBI readings agreed on both)
+INTSR        00012000 -> 00012000
+INTMR        000001fa -> 000001fa
+```
+
+The pause began 4 325 699 ticks (106.8 ms) after the CONTROL transform and ended
+206 829 535 ticks (5.107 s) after it. **The claim is exactly the duration and the
+position exercised**: 5 s at that point, on this unit, under these conditions.
+Nothing here licenses 10 s, 30 s or an unbounded wait, and nothing here says what
+the AGB was displaying — the probe reads no VIDEO before the handler exists.
+
+### GBP-HW-117 — normal service resumed after the pause and stayed 1:1 for 1 108 063 transactions — FACT
+
+Immediately after the wait the handler installed (`rc=ok`, `old_handler=null`),
+PREUNMASK passed (`ok=1`, `control=8c`, `irq=0500/0500`), and the first delivery
+arrived with a handler latency of **89 ticks (~2 µs)** — the same shape every
+earlier run of this family measured.
+
+```text
+unmasks 1 108 063   deliveries 1 108 063   acks 1 108 063   rearms 1 108 063
+transport  timeouts 0   busy 0   uncertain 0   overflow 0
+frames     10 446 observed (10 445 complete, 1 incomplete, 2 resync)
+baseline   valid at frame 4
+```
+
+Every ACK has its RE-ARM and every delivery has both. A pause of this length at
+this position did not leave the device in a state that broke the sequence that
+follows it.
+
+### GBP-HW-118 — clean teardown and restore after the diagnostic — FACT
+
+`CONTROL restore semantic=90 rc=ok readback_vote=90 ok=1`; IRQ stop written and
+read back (`write_ok=1 readback_ok=1 masks_readback=1 bit15_readback=1`); PI
+cleanup performed with no sticky bit; AR_INFO restored to `0043` with a
+confirming readback; handler restored; `mask_ok=1`; `intmr_final=000001fa`;
+`next_cause_at_end=1`; `power_cycle_required=1`. The final state matches every
+physical run of this family.
+
+### GBP-HW-119 — the R3 policy behaved identically in a third long run — CORROBORATED
+
+38 semantic disagreements preserved, and the shape is the one `vstate-0003` and
+`vstate-0004` established:
+
+```text
+total 38   SOURCE_SERVICED 38   SOURCE_OTHER 0   NON_SOURCE 0
+disc-extra 38   majority-extra 0   both-direction 0
+quarantined 0   deferred 0   follow-up present 38/38
+```
+
+This is a third corroboration of the policy under an unusual startup, not new
+information about the mechanism: **U-GBP-033 stays OPEN** and nothing here is
+used to argue a cause.
