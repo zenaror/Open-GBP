@@ -565,6 +565,51 @@ static void test_memory_arithmetic(void)
     }
 }
 
+/* DIAGNOSTIC, added after the first physical smoke of `stream-0002` aborted with
+ * `store_or_bounds_invalid` (HARDWARE_TESTS §V5.29).
+ *
+ * The POC had supplied episode_raw = NULL, because §V5.22 proposed dropping the
+ * episode store for a streaming run. `gbp_vstate_storage_ok()` refused, and it
+ * was RIGHT to: the model dereferences `episode_raw` in two places that check
+ * nothing —
+ *
+ *     gbp_vstate_probe.c:812   memset(st->episode_raw, 0, 2 949 120)
+ *     gbp_vstate.c:739         preserve_frame() writes one 184 320 B frame
+ *
+ * — so a NULL store is not a smaller model, it is a write to address 0. This
+ * test exists to stop the tempting wrong fix: relaxing the validator instead of
+ * giving the model the buffer it dereferences. If the episode store is ever
+ * made genuinely optional, BOTH sites must be guarded first, and only then may
+ * this expectation change. */
+static void test_a_null_episode_store_must_stay_refused(void)
+{
+    struct gbp_vstate cut;
+    printf("-- a NULL episode store is refused, because two sites dereference it unguarded\n");
+    gbp_vstate_init(&cut, frames, GBP_VSTATE_MAX_FRAMES, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, 0, 0, audio_raw, sizeof audio_raw);
+    ok(cut.episode_raw == 0, "the store really is absent");
+    eq_u32(cut.episode_raw_cap, 0u, "and its capacity is zero");
+    ok(gbp_vstate_storage_ok(&cut) == 0, "storage_ok() refuses it");
+
+    /* the exact configuration stream-0002 shipped: reduced frame table too */
+    gbp_vstate_init(&cut, frames, 4096u, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, 0, 0, audio_raw, sizeof audio_raw);
+    ok(gbp_vstate_storage_ok(&cut) == 0, "and refuses the stream-0002 configuration verbatim");
+
+    /* the same reduced frame table WITH the episode store is still refused, so
+     * the frame-table capacity is a second, independent reason */
+    gbp_vstate_init(&cut, frames, 4096u, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw,
+                    audio_raw, sizeof audio_raw);
+    ok(gbp_vstate_storage_ok(&cut) == 0, "a 4096-entry frame table is refused on its own");
+
+    /* and the full model is accepted, so the refusals above are not vacuous */
+    gbp_vstate_init(&cut, frames, GBP_VSTATE_MAX_FRAMES, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw,
+                    audio_raw, sizeof audio_raw);
+    ok(gbp_vstate_storage_ok(&cut) == 1, "while the complete store set is accepted");
+}
+
 int main(void)
 {
     printf("== test_gbp_vstate (GBP-VIDEO-002 state model; every scenario SYNTHETIC)\n");
@@ -578,6 +623,7 @@ int main(void)
     test_tail_and_safety();
     test_audio();
     test_memory_arithmetic();
+    test_a_null_episode_store_must_stay_refused();
     printf("%u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;
 }

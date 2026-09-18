@@ -8846,3 +8846,375 @@ The cheapest honest fix is not a new counter but a changed word: the run can onl
 claim `invariants hold AT END`. Evaluating the predicate inside `pump()` and
 latching a sticky `consistent_violations` counter would let it claim the stronger
 thing, and that belongs in `stream-0003` together with R1.
+
+### V5.29 FIRST PHYSICAL SMOKE of `stream-0002` — 2026-09-18 — **ABORTED PRE-SERVICE: `store_or_bounds_invalid`**
+
+```text
+STATUS OF THE RUN
+
+  PHYSICAL EXECUTION ATTEMPTED              yes
+  GX SELF-TEST PHYSICALLY PASSED            yes
+  GBP STREAM CAPTURE NOT STARTED            correct — it never opened
+  ABORTED PRE-SERVICE                       store_or_bounds_invalid
+
+  NOT "streaming failed". NOT "video failed". NOT "service failed".
+  None of the three was exercised. No sustained-video claim of any kind may be
+  attached to this run.
+```
+
+Artifact, unchanged and confirmed: `stream-0002`, commit `2457d51`, 466 272 B,
+sha256 `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d`.
+
+#### V5.29.1 The abort path, exactly
+
+There is exactly **one** site in the whole source that can produce this pair of
+strings, and it is the first gate of the probe:
+
+```text
+poc/gbp-video-stream-probe/source/main.c:652   gbp_vstate_probe_run(&t, &rl, &cfg, &res)
+  -> src/gbp/gbp_vstate_probe.c:790            if (!st || !gbp_vstate_storage_ok(st))
+  -> src/gbp/gbp_vstate_probe.c:791              set_status(..., GBP_VSTATE_ABORT_STORE_UNAVAILABLE,
+                                                            "store_or_bounds_invalid")
+  -> src/gbp/gbp_vstate_probe.c:796              ringlog "VSTATE abort reason=store_or_bounds_invalid"
+  -> src/gbp/gbp_vstate_probe.c:70               status name "abort_store_unavailable"
+```
+
+`gbp_video_probe.c:481` carries the same two strings but belongs to
+GBP-VIDEO-001's probe, which this POC does not link into its run path. The
+vstate site is the one that fired.
+
+#### V5.29.2 Every predicate that can produce it
+
+`gbp_vstate_storage_ok()` (`src/gbp/gbp_vstate.c:70-79`) is a conjunction of
+twelve conditions, evaluated in this order:
+
+| # | line | predicate | on this run |
+| --- | --- | --- | --- |
+| 0 | 790 | `!st` | false |
+| 1 | 72 | `!s->frames` | false |
+| 2 | 72 | `!s->events` | false |
+| 3 | 72 | `!s->raw_ring` | false |
+| 4 | 72 | `!s->episode_raw` | **TRUE — this is the one that fired** |
+| 5 | 72 | `!s->audio_raw` | false |
+| 6 | 73 | `s->frames_cap < GBP_VSTATE_MAX_FRAMES` | **TRUE** (4096 < 16384) |
+| 7 | 73 | `s->events_cap < GBP_VSTATE_MAX_EVENTS` | false |
+| 8 | 74 | `s->raw_ring_cap < GBP_VSTATE_RAW_RING_BYTES` | false |
+| 9 | 75 | `s->raw_ring_slots < GBP_VSTATE_RAW_RING_SLOTS_MIN` | false |
+| 10 | 76 | `s->episode_raw_cap < GBP_VSTATE_EPISODE_RAW_BYTES` | **TRUE** (0 < 2 949 120) |
+| 11 | 77 | `s->audio_raw_cap < GBP_VSTATE_AUDIO_RAW_BYTES` | false |
+
+**Three of the twelve fail. Short-circuit evaluation means #4 is the one that
+actually fired**, at `gbp_vstate.c:72`.
+
+#### V5.29.3 Why — read off the caller, not inferred
+
+```c
+/* poc/gbp-video-stream-probe/source/main.c:569-570 */
+gbp_vstate_init(&vstate, frame_store, STREAM_MAX_FRAMES, event_store, GBP_VSTATE_MAX_EVENTS,
+                raw_ring, sizeof raw_ring, 0, 0, audio_raw, sizeof audio_raw);
+/*                                        ^^^^^ episode_raw = NULL, episode_raw_cap = 0 */
+```
+
+with `#define STREAM_MAX_FRAMES 4096u` (`main.c:163`), against
+`GBP_VSTATE_MAX_FRAMES 16384u`.
+
+This was **deliberate and documented**: `main.c:157-162` says "Streaming does not
+need GBP-VIDEO-002's change detector, so the episode raw store (2.81 MiB) is not
+allocated at all and the frame table is far smaller than the colour probe's 16384
+entries", and §V5.22 proposed exactly that reduction. What nobody did was ask the
+validator, or the model, whether the reduction was supported.
+
+#### V5.29.4 It is supported by neither — the validator was RIGHT to refuse
+
+Two sites dereference `episode_raw` with **no NULL check at all**:
+
+```text
+src/gbp/gbp_vstate_probe.c:812   memset(st->episode_raw, 0, GBP_VSTATE_EPISODE_RAW_BYTES);
+                                 -> a 2 949 120-byte write starting at address 0
+
+src/gbp/gbp_vstate.c:739         dst = s->episode_raw + (ep->raw_slot + ep->raw_frames) * 184320;
+                                 memcpy(dst, src, n * 0xF00);
+                                 -> preserve_frame(), reached whenever an episode opens
+```
+
+`preserve_frame()`'s only guard is `ep->raw_slot == 0xFFFFFFFFu`, and `raw_slot` is
+assigned from `episodes_n` alone (`gbp_vstate.c:941`, `:964`) without ever
+consulting `episode_raw`. Episodes open on ordinary signature changes, which a
+moving picture produces constantly.
+
+**So a NULL episode store is not a smaller model — it is a write to low memory.**
+Had `gbp_vstate_storage_ok()` let the run start, `gbp_vstate_probe.c:812` would
+have memset 2.81 MiB over the GameCube's exception vectors and OS low memory
+**before the first device access**. The gate did its job.
+
+This is stated in full because the tempting fix — relaxing the validator — is the
+dangerous one. A diagnostic unit test now pins it
+(`tests/unit/test_gbp_vstate.c`, `test_a_null_episode_store_must_stay_refused`).
+
+#### V5.29.5 The physical bounds, reconstructed from the log
+
+`ENVBUF` prints `MEM_VIRTUAL_TO_PHYSICAL(...)`, so every address below is
+physical; add `0x80000000` for the cached virtual address. Sizes are the
+`sizeof`s the build actually compiled.
+
+```text
+region         start        end       size  align  note
+gx_fifo     0x0009df00 0x000ddf00   262144     32
+tex_buf[0]  0x000de000 0x000f0c00    76800     32  gap 0x100 after gx_fifo
+tex_buf[1]  0x000f0c00 0x00103800    76800     32  contiguous after tex_buf[0]
+audio_raw   0x00111920 0x00114920    12288     32  gap 0xe120 after tex_buf[1]
+raw_ring    0x00114920 0x001c8920   737280     32  contiguous after audio_raw
+event_store 0x001c8920 0x00208920   262144      4  contiguous after raw_ring
+frame_store 0x00208920 0x002c8920   786432      4  contiguous after event_store
+```
+
+```text
+overlap                    NONE
+alignment violation        NONE   (every DMA/GX target is 32-byte aligned)
+out-of-range               NONE   (highest static byte 0x002c8920 = 2.78 MiB of 24 MiB)
+integer overflow           NONE   (every start+size < 2^32; no product overflows)
+wrong count / wrong sizeof NONE   (each size is exactly count x record, verified below)
+BSS containment            OK     (BSS 0x80074d4c .. 0x80337d98, 2 895 948 B; every
+                                  region above lies inside it)
+```
+
+The three XFBs come from `SYS_AllocateFramebuffer()` in the arena, above the BSS,
+and are not part of this table.
+
+**The memory layout is correct.** Nothing here is the problem, and the abort is
+not a bounds violation in the ordinary sense: the word "bounds" in the reason
+string covers the *capacity contract*, not an address range.
+
+#### V5.29.6 `static_bytes=6922240`, decomposed
+
+```text
+gbp_vstate_static_bytes()  (src/gbp/gbp_vstate.c:85-92)
+
+    frames       16384 x 192  =  3 145 728
+  + events        4096 x  64  =    262 144
+  + raw_ring   THREE slots    =    552 960
+  + episode_raw               =  2 949 120
+  + audio_raw                 =     12 288
+                                ----------
+                                  6 922 240     = the logged value, exactly
+```
+
+**What it measures: the CAPACITY CONSTANTS of the GBP-VIDEO-002 store model.**
+It is computed entirely from `#define`s. It does not read `s`, it is not this
+build's footprint, and it is not the BSS.
+
+What `stream-0002` actually allocated:
+
+```text
+    frames        4096 x 192  =    786 432
+  + events        4096 x  64  =    262 144
+  + raw_ring    FOUR slots    =    737 280
+  + episode_raw               =          0   NOT ALLOCATED
+  + audio_raw                 =     12 288
+                                ----------
+                                  1 798 144
+```
+
+```text
+difference  6 922 240 - 1 798 144 = 5 124 096
+  frame table never allocated   (16384-4096) x 192  = +2 359 296
+  episode store never allocated                      = +2 949 120
+  raw ring larger than counted  (737 280 - 552 960)  =   -184 320
+                                                       ----------
+                                                        5 124 096
+```
+
+Answering §4's questions directly:
+
+- **does it include memory outside the BSS?** No. Every term corresponds to a BSS
+  array *in the colour and state probes*. In `stream-0002` two of the five terms
+  correspond to nothing at all.
+- **was the earlier memory report incomplete?** The earlier §V5.22 figures were
+  measured on `gbp-video-color-probe` at commit `39f1980` (bss 7 741 712) and were
+  never about this build. `stream-0002`'s real figures are text 0x057E40
+  (360 000), data 0x019E20 (106 016), **bss 0x2C304C (2 895 948)**, plus three
+  XFBs. The two numbers were never comparable and should not have been placed
+  beside each other.
+- **is there double counting?** No — but there is *phantom* counting: 5 124 096 B
+  of the 6 922 240 does not exist in this build.
+- **is any store dynamic?** No. `grep` over `src/gbp/` finds no `malloc`,
+  `calloc`, `memalign`, `sbrk` or `SYS_GetArena*` anywhere. Every store is a
+  static array supplied by the caller.
+- **is the value only theoretical capacity?** **Yes.** For every build before this
+  one the constants and the allocation happened to coincide (`gbp_vstate.c:81-84`
+  already flags the 3-vs-4 slot discrepancy), so the number was accidentally true.
+  For `stream-0002` it is a pure capacity constant and is **misleading in the log**.
+
+#### V5.29.7 Comparison with the physically validated builds
+
+Read from source, not from memory:
+
+| build | frame table | raw ring | episode store | outcome |
+| --- | --- | --- | --- | --- |
+| `vstate-0004` — `poc/gbp-video-state-probe/source/main.c:129-133` | `GBP_VSTATE_MAX_FRAMES` = 16384 | `RAW_RING_BYTES`, 3 slots | `EPISODE_RAW_BYTES`, 2.81 MiB | **physically validated** |
+| `color-0002` — `poc/gbp-video-color-probe/source/main.c:148-158` | 16384 | `RAW_RING_BYTES_4`, 4 slots | 2.81 MiB | **physically validated** |
+| `stream-0002` — `poc/gbp-video-stream-probe/source/main.c:163-167` | **4096** | 4 slots | **absent (NULL, cap 0)** | **aborted pre-service** |
+
+- **Did the same validator exist?** Yes, identical. `gbp_vstate_storage_ok()`'s
+  `!s->episode_raw` and `frames_cap < MAX_FRAMES` checks date from `e8f3a69`, the
+  original GBP-VIDEO-002 probe; `bfbca70` (colour) only *added* the
+  `raw_ring_slots` check. It was never relaxed.
+- **Did the same sizes exist?** No. `stream-0002` is the only build that ever
+  supplied a reduced frame table or omitted the episode store.
+- **Which GBP-VIDEO-004 change made the preflight fail?** `d611d8f`
+  ("probe: add sustained GBP video display candidate") — i.e. **`stream-0001`**,
+  the very first streaming candidate. `git show 0816cbe:…/main.c` confirms
+  `STREAM_MAX_FRAMES 4096u` and `…, 0, 0, …` were already there. **`stream-0001`
+  would have aborted identically.**
+
+**Why three audits missed it.** §V5.26 audited the new code; §V5.28 explicitly
+scoped the memory design out, on the stated grounds that "`stream-0002` did not
+touch them". That grounds was applied against the wrong baseline: the memory
+design *had* changed — in `stream-0001` — relative to every physically validated
+build. **An audit's "unchanged, so out of scope" must be measured against the
+last physically validated build, not against the previous candidate.** No host
+test covered it either: `gbp_vstate_storage_ok()` has unit tests
+(`test_gbp_vstate.c:552-565`), but nothing anywhere checked the POC's *call* to
+it, and `main()` is not host-compiled.
+
+#### V5.29.8 The GX self-test did not cause this
+
+Checked objectively rather than assumed:
+
+1. **`gbp_vstate_storage_ok()` reads no runtime state.** It reads six pointer
+   fields and five capacities, all set by `gbp_vstate_init()`. It never calls an
+   arena, heap or VI function.
+2. **There is no runtime allocation anywhere in `src/gbp/`.** `grep` for `malloc`,
+   `calloc`, `memalign`, `sbrk`, `SYS_GetArena`, `SYS_AllocateFramebuffer` returns
+   only comments saying so.
+3. **The ordering makes it impossible anyway.** `main()` runs `video_setup()`
+   (`:551`, which performs all three `SYS_AllocateFramebuffer` calls),
+   `gx_setup()` (`:552`), then `gbp_vstate_init()` (`:569`) — and only then
+   `display_selftest()` (`:585`). The fields the predicate reads were fixed
+   **before** the self-test ran.
+
+**The validation does not depend on arena bounds, so no before/after arena
+comparison is needed.** The self-test is not implicated, and its physical pass
+stands on its own.
+
+#### V5.29.9 Host reproduction
+
+A diagnostic reproducing `main.c:569-570` verbatim and evaluating each predicate
+separately:
+
+```text
+frames=… cap=4096          (GBP_VSTATE_MAX_FRAMES = 16384)
+events=… cap=4096          (GBP_VSTATE_MAX_EVENTS = 4096)
+raw_ring=… cap=737280 slots=4
+episode_raw=(nil) cap=0    (GBP_VSTATE_EPISODE_RAW_BYTES = 2949120)
+audio_raw=… cap=12288
+
+  !s->episode_raw                                 *** TRUE -> REFUSES THE RUN ***
+  frames_cap < GBP_VSTATE_MAX_FRAMES              *** TRUE -> REFUSES THE RUN ***
+  episode_raw_cap < GBP_VSTATE_EPISODE_RAW_BYTES  *** TRUE -> REFUSES THE RUN ***
+  (the other nine: false)
+
+storage_ok() = 0
+SHORT-CIRCUIT: the predicate that actually fires is #4  !s->episode_raw
+gbp_vstate_static_bytes() = 6922240
+```
+
+The host reproduces the logged `static_bytes` **exactly**, which confirms the
+reconstruction is of the same build and not an approximation. The predicate
+evaluation needs no MEM1 addresses: it reads pointers for NULL-ness and integers
+for magnitude, and the physical addresses in §V5.29.5 are all non-NULL.
+
+#### V5.29.10 Classification
+
+```text
+C — ALLOCATION / CONFIGURATION BUG IN THE POC
+    (with a contributing D — a stale capacity assumption in a DESIGN DOCUMENT)
+
+NOT A — validator bug.       The validator is correct and protective; two
+                             unguarded dereferences prove the store is required.
+NOT B — overlap/bounds bug.  The physical layout is clean: no overlap, no
+                             misalignment, no overflow, 2.78 MiB of 24 MiB used.
+NOT E — insufficient memory. Roughly 21 MiB of MEM1 is free.
+```
+
+The two halves differ and should not be merged:
+
+- **the episode store (C).** Omitting it is *unsupported by the model*, not merely
+  unvalidated. §V5.22's claim that it "is not needed by a streaming run" was never
+  checked against the dereference sites and is **false as the model is written**.
+- **the frame table (D).** Reducing it to 4096 is *safe* — `gbp_vstate.c:824` bounds
+  every write and raises `frame_store_full` — but `gbp_vstate_storage_ok()`
+  enforces GBP-VIDEO-002's "the store holds the whole run" contract
+  unconditionally, and nobody told it that a streaming run may stop earlier.
+
+#### V5.29.11 The smallest correction — PROPOSED, NOT APPLIED
+
+This round is not authorised to change `src/` or `poc/`. The patch below is the
+proposal for the next round.
+
+**Preferred: `poc/`-only, zero change to physically validated code.**
+
+```diff
+-#define STREAM_MAX_FRAMES 4096u
+-static struct gbp_vstate_frame frame_store[STREAM_MAX_FRAMES];
++static struct gbp_vstate_frame frame_store[GBP_VSTATE_MAX_FRAMES];
+ static struct gbp_vstate_event event_store[GBP_VSTATE_MAX_EVENTS];
+ static uint8_t raw_ring[GBP_VSTATE_RAW_RING_BYTES_4] ATTRIBUTE_ALIGN(32);
++static uint8_t episode_raw[GBP_VSTATE_EPISODE_RAW_BYTES] ATTRIBUTE_ALIGN(32);
+ static uint8_t audio_raw[GBP_VSTATE_AUDIO_RAW_BYTES] ATTRIBUTE_ALIGN(32);
+@@
+-    gbp_vstate_init(&vstate, frame_store, STREAM_MAX_FRAMES, event_store, GBP_VSTATE_MAX_EVENTS,
+-                    raw_ring, sizeof raw_ring, 0, 0, audio_raw, sizeof audio_raw);
++    gbp_vstate_init(&vstate, frame_store, GBP_VSTATE_MAX_FRAMES, event_store, GBP_VSTATE_MAX_EVENTS,
++                    raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw,
++                    audio_raw, sizeof audio_raw);
+```
+
+Cost, exactly:
+
+```text
+frame table   (16384 - 4096) x 192  = +2 359 296
+episode store                       = +2 949 120
+                                      ----------
+                                      +5 308 416 B  (+5.06 MiB)
+
+bss  2 895 948 -> 8 204 364  (7.82 MiB)
+plus text 360 000 + data 106 016 + three XFBs (about 1 843 200 B)
+total about 10.0 MiB of MEM1's 24 MiB — comparable to the physically validated
+colour probe (bss 7 741 712) and with roughly 14 MiB free.
+```
+
+**Required alongside it**, because the log is what a later reader will trust:
+
+1. log the **actual** capacities, not only the constants. `VSTATE stores frames=…`
+   currently prints `GBP_VSTATE_MAX_FRAMES` while the build had 4096 — the line
+   that should have exposed this defect actively concealed it. It must print
+   `s->frames_cap`, `s->events_cap`, `s->raw_ring_cap`, `s->episode_raw_cap`,
+   `s->audio_raw_cap` beside the constants.
+2. either make `gbp_vstate_static_bytes()` take the `struct gbp_vstate *` and
+   report what was allocated, or rename it so it cannot be read as a footprint.
+3. a host guard that parses the POC's `gbp_vstate_init()` call and requires a
+   non-NULL episode store and `frames_cap >= GBP_VSTATE_MAX_FRAMES` — the check
+   that was missing.
+
+**Rejected alternative: relaxing the validator.** Making the episode store
+genuinely optional requires guarding `gbp_vstate_probe.c:812` and
+`gbp_vstate.c:739` *first*, in code shared with `vstate-0004` and `color-0002`,
+both physically validated. That is a larger change with a re-audit cost, for a
+2.81 MiB saving in a build with 14 MiB spare. It is not worth it now.
+
+#### V5.29.12 Build-ID impact
+
+```text
+stream-0002 is now HISTORICAL: PHYSICALLY EXECUTED 2026-09-18, ABORTED
+PRE-SERVICE. Its identity is preserved and is never reused or re-labelled:
+commit 2457d51, 466 272 B, sha256 76fa1ff7...
+
+The correction produces a NEW candidate, stream-0003, with a new commit and a
+new hash. stream-0002 is never rebuilt.
+```
+
+`stream-0003` carries three changes, not one: this store fix, R1 (the
+`gbp_vqueue_balanced()` +1 offset) and R8 (the invariants checked only at the
+end). It needs its own pre-hardware audit, and that audit's scoping rule must be
+measured against `color-0002`/`vstate-0004`, not against `stream-0002`.
