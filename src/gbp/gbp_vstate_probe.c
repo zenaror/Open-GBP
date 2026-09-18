@@ -1388,6 +1388,20 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
                 if (fr_blocks != GBP_VCOLOR_BLOCKS) fr_slot = -1;
                 (void)gbp_vcolor_frame(cfg->color, fr, fr_slot, now64(t));
             }
+            /* GBP-VIDEO-004 (§V5.7): the streaming publish, the same shape and
+             * the same cost class as the colour hook above. It classifies
+             * integers the assembler already computed and writes one small
+             * descriptor. It reads NO frame byte, forms no pointer into the
+             * ring, reads no clock of its own (the frame's own timestamps are
+             * used) and cannot block. A consumer that is behind loses a frame
+             * here; the device never waits for it. */
+            if (cfg->stream && step.frame_closed && st->frames_n > 0u) {
+                uint32_t fr_blocks = 0u;
+                int fr_slot = gbp_vstate_closed_frame_slot(st, &fr_blocks);
+                const struct gbp_vstate_frame *fr = &st->frames[st->frames_n - 1u];
+                (void)gbp_vqueue_publish(cfg->stream, fr->index, fr_blocks, fr->flags,
+                                         fr_slot, fr->t_first_block, fr->t_last_block);
+            }
         }
 
         /* ---- REARM: IRQ := 0x0000, the last device access of the pass ---- */
@@ -1417,6 +1431,15 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
         (void)gbp_vstate_diag_arm_followup(st, service_handle);
         service_handle = GBP_VSTATE_DIAG_INVALID;   /* the transaction's handle dies here */
         t_ref32 = res->w_rearm.t_after;
+
+        /* GBP-VIDEO-004 (§V5.7): the consumer's slice, and the only place it may
+         * run in a single-threaded probe. The RE-ARM above was the pass's last
+         * device access and the next cause is already invited, so nothing on the
+         * device is waiting here. It is never reached between the ACK and the
+         * RE-ARM, it does one BOUNDED slice, and with no stream configured it
+         * does not exist: the operation stream vstate-0004 executed is
+         * unchanged. */
+        if (cfg->stream) gbp_vqueue_pump(cfg->stream);
 
         /* ---- WAIT_NEXT: masked, read-only ---- */
         {
