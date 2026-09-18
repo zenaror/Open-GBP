@@ -6532,3 +6532,73 @@ with until the handoff cited GBP-HW-058. The check now scans both depths.
 **Next:** one physical run of `color-0002` under §V4.9. `OGBPCOL1` v1,
 `tools/vcolor.py` and the §V4 contract are all frozen for it; changing §V4 after
 that run requires `color-0003`. U-GBP-011, U-GBP-029 and U-GBP-033 stay OPEN.
+
+## 2026-09-18 — color-0002: the contract held, and U-GBP-011 is closed
+
+**Goal:** ingest and judge the confirmatory run.
+
+**The run.** Build `color-0002`, commit `39f1980`, DOL `d3c1f09e…` — built clean
+at that exact commit before the run, the first colour candidate whose hash was
+fixed that way. `stop=color_certified`, 440 deliveries = acks = rearms = unmasks,
+0 errors, 0 R3 disagreements, clean restore, certification 66.635 ms after the
+capture opened. The pre-handler wait elapsed 5.000 000 27 s, and the header reads
+**`truncated=0`** — the first physical proof that splitting `PREHANDLERWAIT` into
+two records fixed the defect that marked both earlier physical logs.
+
+**The verdict, from an analyser nobody touched.** `tools/vcolor2.py` last changed
+at `a86b079`, the commit that pre-registered it; `tools/vcolor.py` at `bfbca70`.
+Run unmodified:
+
+```text
+STANDING: CONFIRMATORY
+VERDICT:  CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP
+```
+
+The gate passed 38 400 of 38 400 consumed words, all eight bars uniform over all
+4800 of their pixels in all three certified frames, `FLAG15_STABLE`, and exactly
+one of the seven pre-registered transformations reproducing all eight values.
+Every number was recomputed from the raw bytes before being accepted, not taken
+from the analyser's own output.
+
+**The answer.** The VIDEO window delivers the AGB's fifteen colour bits with the
+two outer 5-bit groups exchanged: what the AGB wrote in bits 4–0 arrives in bits
+14–10 and vice versa, bits 9–5 unchanged. So the reading both references
+implement is the displayed colour, and Dolphin's mGBA-derived order is the
+divergent model. **CORROBORATED → FACT**, which is exactly the promotion
+U-GBP-011's own text said it was waiting for: *"no physical pixel of a known
+color has been captured"*. Eight have now been captured, twice.
+
+**U-GBP-011 is CLOSED**, and it closed on conditions it set for itself before the
+data existed: a contract written down first, a new analyser rather than an edit
+to the frozen one, and a fresh run judged by it. Promoted into
+`docs/hardware/GBS-DOL.md` and `docs/protocol/REGISTERS.md`.
+
+**What I deliberately did not close.** Bytes 0 and 2 — U-GBP-029 stays OPEN, and
+this run is its fifth corroboration, not its answer: the full raws differ in
+2434 / 2483 / 2485 bytes, entirely in bytes 0 and 2, never in 1 or 3. Bit 15 —
+the run shows it is not the colour value and is added on the path, since the AGB
+wrote zero there, and nothing more; **U-GBP-034 opened** for its origin, because
+closing U-GBP-011 without naming that residual would have lost it. U-GBP-033 is
+untouched. And within a 5-bit group, a permutation fixing bits 0, 5 and 10 while
+rearranging bits 1–4 is not excluded — a limit §V3.19 wrote down *before* the
+run, with the follow-up pattern already recorded; the run produced no residual
+ambiguity, so it is not triggered.
+
+**Cross-run, as corroboration only.** The three certified frames of `color-0001`
+and `color-0002` are byte-identical in the consumed projection, 38 400 of 38 400
+in all three pairs, across two runs at two commits with separate power cycles —
+while their full raws differ in 2514, 2449 and 2481 bytes, again only in bytes 0
+and 2. The device delivered the same picture twice and different bytes 0/2 twice.
+`color-0002` confirms itself without this; it is recorded because it is what
+U-GBP-029 needs.
+
+**`color-0001` is not re-judged.** It failed its own pre-registered gate and stays
+`INCONCLUSIVE_CERTIFIED_RAW_MISMATCH` permanently. The analyser refuses to do
+otherwise: any build other than `color-0002` comes back RETROSPECTIVE.
+
+**Next:** the colour question is answered, so the next real blocker is the one
+the roadmap already names as following it inside Phase 4 — **GBP-VIDEO-004**,
+sustained streaming with a real cartridge: frame pacing, the dropped-block policy
+and output modes, which is the bridge to Phase 7. Everything the colour work
+established feeds it directly, and nothing in it depends on U-GBP-029, U-GBP-033
+or U-GBP-034, all of which stay OPEN.

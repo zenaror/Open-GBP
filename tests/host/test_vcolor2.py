@@ -390,5 +390,99 @@ class Cli(unittest.TestCase):
         self.assertIn("RETROSPECTIVE_EXACT_H1_OUTER_GROUP_SWAP", r.stdout)
 
 
+class PhysicalColor0002(unittest.TestCase):
+    """The confirmatory physical run, pinned against its versioned sidecar.
+
+    This is the evidence U-GBP-011 was closed on, so the properties below are not
+    conveniences: if a future change makes any of them stop holding, the closure
+    it supports has to be revisited rather than quietly inherited.
+    """
+
+    SIDECAR = os.path.join(ROOT, "captures", "fixtures",
+                           "hw-gamecube-gbp-2026-09-18-color-0002-color.bin")
+    SHA256 = "f49c4cf2887ff1bdf2425cc7b0bbdad3a8d82a57c39f7d8894336147e3d48fd0"
+    OBSERVED = (0x0000, 0x7C00, 0x03E0, 0x001F, 0x7FFF, 0x0400, 0x0020, 0x0001)
+
+    @classmethod
+    def setUpClass(cls):
+        if not os.path.isfile(cls.SIDECAR):
+            raise unittest.SkipTest("physical color-0002 sidecar missing")
+        with open(cls.SIDECAR, "rb") as f:
+            cls.raw = f.read()
+        cls.d = vcolor.parse(cls.raw)
+        cls.a = vcolor2.analyse(cls.d)
+
+    def test_the_fixture_is_the_ingested_bytes(self):
+        import hashlib
+        self.assertEqual(hashlib.sha256(self.raw).hexdigest(), self.SHA256)
+        self.assertEqual(len(self.raw), 461684)
+
+    def test_the_run_is_confirmatory_by_its_own_identity(self):
+        self.assertEqual(self.d["build_id"], "color-0002")
+        self.assertEqual(self.d["test_id"], "GBP-VIDEO-003")
+        self.assertEqual(self.d["commit"], "39f1980")
+        self.assertTrue(self.a["confirmatory"])
+        self.assertEqual(self.a["standing"], "CONFIRMATORY")
+
+    def test_the_verdict(self):
+        self.assertEqual(self.a["verdict"], "confirmed_exact_H1_outer_group_swap")
+        self.assertEqual(self.a["survivors"], ["H1_outer_group_swap"])
+        self.assertEqual(tuple(self.a["observed"]), self.OBSERVED)
+
+    def test_the_gate_passed_on_all_thirty_eight_thousand_four_hundred_words(self):
+        g = self.a["consumed_words_equal"]
+        self.assertTrue(g["ok"])
+        self.assertEqual(g["compared"], 38400)
+        self.assertIsNone(g["first_diff"])
+        # recomputed here rather than trusted: the three frames, pairwise
+        raws = [vcolor.raw_frame(self.d, i) for i in range(3)]
+        for a, b in ((0, 1), (1, 2), (0, 2)):
+            self.assertEqual(raws[a][1::2], raws[b][1::2])
+
+    def test_every_bar_is_uniform_over_every_one_of_its_pixels(self):
+        for which in range(3):
+            raw = vcolor.raw_frame(self.d, which)
+            w = [((raw[i] << 8) | raw[i + 2]) & 0x7FFF for i in range(1, len(raw), 4)]
+            for bar in range(8):
+                seen = {w[y * 240 + x] for y in range(160)
+                        for x in range(bar * 30, bar * 30 + 30)}
+                self.assertEqual(len(seen), 1, "bar %d frame %d" % (bar, which))
+                self.assertEqual(seen.pop(), self.OBSERVED[bar])
+
+    def test_flag15_is_one_word_at_the_origin_over_black(self):
+        self.assertEqual(self.a["flag15"]["status"], "FLAG15_STABLE")
+        self.assertEqual(self.a["flag15"]["counts"], [1, 1, 1])
+        self.assertEqual(self.a["flag15"]["coords"][0], [(0, 0)])
+        for which in range(3):
+            raw = vcolor.raw_frame(self.d, which)
+            self.assertEqual((raw[1] << 8) | raw[3], 0x8000)
+
+    def test_the_full_raw_diagnostic_is_reported_and_confined_to_bytes_0_and_2(self):
+        fr = self.a["full_raw_diagnostic"]
+        self.assertFalse(fr["equal"])
+        self.assertEqual(fr["pairs"]["A/B"], [2222, 0, 212, 0])
+        self.assertEqual(fr["pairs"]["B/C"], [2244, 0, 239, 0])
+        self.assertEqual(fr["pairs"]["A/C"], [2264, 0, 221, 0])
+        self.assertEqual(fr["by_byte_in_group"][1], 0)
+        self.assertEqual(fr["by_byte_in_group"][3], 0)
+
+    def test_the_two_physical_runs_carry_the_same_picture(self):
+        """GBP-HW-132, and the reason color-0001 is still NOT re-judged."""
+        other = os.path.join(ROOT, "captures", "fixtures",
+                             "hw-gamecube-gbp-2026-09-18-color-0001-color.bin")
+        if not os.path.isfile(other):
+            self.skipTest("color-0001 sidecar missing")
+        d1 = vcolor.parse(open(other, "rb").read())
+        for i in range(3):
+            a = vcolor.raw_frame(d1, i)
+            b = vcolor.raw_frame(self.d, i)
+            self.assertEqual(a[1::2], b[1::2], "frame %s differs in the picture" % "ABC"[i])
+            self.assertNotEqual(a, b, "frame %s: the full raws are identical, which "
+                                      "would contradict GBP-HW-132" % "ABC"[i])
+        # and color-0001 still fails its own contract, on its own terms
+        self.assertFalse(vcolor.certified_raw_equal(d1)["ok"])
+        self.assertEqual(vcolor.analyse(d1)["verdict"], "inconclusive_certified_raw_mismatch")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -6911,7 +6911,7 @@ the logger, not to this one.
 
 ---
 
-## V4 — GBP-VIDEO-003 / color-0002: PRE-REGISTERED CONFIRMATORY CONTRACT
+## V4 — GBP-VIDEO-003 / color-0002: PRE-REGISTERED CONFIRMATORY CONTRACT — **EXECUTED 2026-09-18, CONTRACT PASSED, `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`** (result in §V4.10)
 
 **This section is written BEFORE the physical run it judges, and it is frozen by
 the commit that adds it.** Its purpose is to remove one specific way of being
@@ -7156,3 +7156,121 @@ Question answered
   transformation reproduce all eight stimulus values? U-GBP-011 is closed by a
   CONFIRMED_EXACT verdict and by nothing else.
 ```
+
+### V4.10 RESULT — executed 2026-09-18, the contract passed
+
+```text
+Test ID   GBP-VIDEO-003
+Build ID  color-0002                   commit 39f1980
+DOL       build/poc/gbp-video-color-probe/gbp-video-color-probe.dol
+          442 592 B   sha256 d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1
+          Built CLEAN at commit 39f1980 before the run, with no -dirty suffix, and
+          build/swiss/11-color/boot.dol is a byte-identical copy of it. The log
+          declares the same commit and build id. This is the first colour run whose
+          candidate hash was fixed by a clean build at the exact commit the log names.
+cartridge the controlled eight-bar AGB Mode 3 colour stimulus, derived image
+          sha256 bb741770e92ecdcf10f74ae32b01e338384047d8d82e4f14f2162ba9ec234fe3
+log       logs/GBP-VIDEO-003_color-0002.log
+          40 900 B   sha256 194f92f916bbe77b2d445df98df46e00168b9b86197974cfe0c0795ded9b8ea1
+          kept in captures/local/, never versioned
+sidecar   logs/GBP-VIDEO-003_color-0002-color.bin
+          461 684 B  sha256 f49c4cf2887ff1bdf2425cc7b0bbdad3a8d82a57c39f7d8894336147e3d48fd0
+          OGBPCOL1 v1, header CRC f834e435, footer OGBPCEND at 0x70B68,
+          total CRC f3f85d64 — all recomputed on ingestion, size == off_footer + 12
+fixture   captures/fixtures/hw-gamecube-gbp-2026-09-18-color-0002.gbpreplay
+          captures/fixtures/hw-gamecube-gbp-2026-09-18-color-0002-color.bin
+```
+
+**Neither the contract nor the analyser was touched between the pre-registration
+and the run.** `tools/vcolor2.py` last changed at `a86b079`, the commit that
+pre-registered it; `tools/vcolor.py` last changed at `bfbca70`. Verified by
+`git log` and by an empty diff before the analysis was run.
+
+#### The verdict, from the analyser run unmodified
+
+```text
+GBP-VIDEO-003 color analysis - CONTRACT color-0002 (tools/vcolor2.py)
+file: test=GBP-VIDEO-003 build=color-0002 commit=39f1980
+
+STANDING: CONFIRMATORY
+B. CONSUMED-WORD STABILITY GATE   PASS: 38400 of 38400 words identical in A, B and C
+C. FLAG15                         FLAG15_STABLE, count [1, 1, 1] at (0, 0)
+D. BARS                           all eight uniform
+   stimulus  0000 001F 03E0 7C00 7FFF 0001 0020 0400
+   observed  0000 7C00 03E0 001F 7FFF 0400 0020 0001
+E. HYPOTHESES                     H1_outer_group_swap ALL EIGHT; the other six fail
+   orientation consistent: True
+
+VERDICT: CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP
+```
+
+Exit status 0. Every number above was **recomputed independently from the raw
+bytes** before being accepted, including the per-bar colour over all 4800 pixels
+of each bar in each of the three certified frames.
+
+#### Each success criterion of §V4.6, checked
+
+```text
+1  sidecar parses under OGBPCOL1 v1, both CRCs recomputed and matching   PASS
+2  exactly 3 certified frames, all with raw preserved (idx 2, 3, 4)      PASS
+3  consumed-word equality 38400/38400 across all three pairs             PASS
+4  flag15 bitmaps identical across A, B and C                            PASS
+5  geometry valid: 40 blocks, 160 rows, 240 columns                      PASS
+6  all eight bars uniform in colour15                                    PASS
+7  exactly ONE pre-registered hypothesis reproduces all eight values     PASS
+8  the sidecar's build_id is color-0002                                  PASS
+```
+
+#### Runtime, wait and restore
+
+`stop=color_certified`; 440 unmasks = deliveries = acks = rearms (162/162 VIDEO,
+288 AUDIO); 1840 transfers, 0 timeouts, 0 busy, 0 uncertain, 0 overflow,
+`errors=0`, `transport_ok=1`, `SEMANTIC total=0`. Clean restore with readbacks,
+`mask_ok=1`, `intmr_final=000001fa`, `pi_sticky_final=0`. Certification completed
+66.635 ms after the capture opened; capture 0.072 s of a 5.179 s / 30 s budget.
+GBP-HW-127.
+
+The pre-handler wait elapsed 202 500 011 ticks (5.000 000 27 s) against 202 500 000
+requested, `done=1`, with CONTROL, IRQ, INTSR and INTMR identical either side.
+**The log header reads `truncated=0`** — the first physical confirmation that
+splitting `PREHANDLERWAIT` into two records fixed the defect that marked both
+earlier physical logs, with the trailing `intmr_post` now intact.
+
+#### The full-raw diagnostic, reported as §V4A requires
+
+```text
+pair    total   byte0   byte1   byte2   byte3
+A/B      2434    2222       0     212       0
+B/C      2483    2244       0     239       0
+A/C      2485    2264       0     221       0
+```
+
+40 of 40 blocks, 160 of 160 lines; first difference at `0x110`, block 0, x = 68,
+y = 0, byte 0, `83` vs `03`. Bytes 1 and 3 differ nowhere. Evidence for
+U-GBP-029, which stays OPEN. GBP-HW-133.
+
+#### Cross-run corroboration, which the confirmation did not need
+
+The three certified frames of `color-0001` and `color-0002` are byte-identical in
+the consumed projection — 38 400 of 38 400 words in all three corresponding pairs
+— across two physical runs at two commits with separate power cycles, while their
+full raws differ in 2514, 2449 and 2481 bytes, again only in bytes 0 and 2.
+GBP-HW-132. **`color-0001` is not re-judged by this**: it failed its own
+pre-registered gate and stays `INCONCLUSIVE_CERTIFIED_RAW_MISMATCH` permanently.
+
+#### What this run does NOT prove
+
+- **Nothing about byte 0 or byte 2.** U-GBP-029 stays OPEN; this is its fifth
+  corroboration and identifies no mechanism.
+- **Nothing about why bit 15 is set.** The run shows the bit is not the colour
+  value and is added on the path — the AGB wrote zero there — and that is all.
+  The origin question is now **U-GBP-034**.
+- **Nothing about U-GBP-033.** The pending-source mechanism is untouched.
+- **No mapping outside what the stimulus discriminates.** Within a 5-bit group it
+  pins bit 0, bit 5 and bit 10 individually and each group as a set; a permutation
+  fixing those three while rearranging only bits 1–4 inside a group is not
+  excluded. §V3.19 wrote that limit down before the run and holds the follow-up
+  pattern; the run produced no residual ambiguity, so it is not triggered.
+- **It does not make `color-0001` confirmatory in retrospect.** The analyser
+  refuses to: `tools/vcolor2.py` reports any build other than `color-0002` as
+  RETROSPECTIVE and never emits a `confirmed_*` verdict for it.
