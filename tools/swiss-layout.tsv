@@ -1,0 +1,45 @@
+# swiss-layout.tsv - the numbered launch layout `make swiss` exports.
+#
+# WHY THIS FILE EXISTS. Swiss shows a directory list, and the build directories
+# are named for the source tree, not for a person standing in front of a
+# television: `gbp-init-irq-program-probe` and `gbp-init-irq-deliver-probe`
+# differ in one word in the middle, and a truncated list makes them look the
+# same. Picking the wrong DOL wastes a physical run, so the operator-facing
+# names live here, versioned, instead of being invented at export time.
+#
+# THE NUMBER IS AN OPERATIONAL INTERFACE. Once a build has a number it keeps it:
+# a new POC takes the next free number and nothing is renumbered, so a written
+# procedure stays valid. A retired number is never reused for a different test.
+# Two digits always, because Swiss sorts lexically and `10-` sorts before `2-`.
+#
+# Ranges:
+#   01-69   canonical POCs, in the order the research went
+#   80-89   physical diagnostics: real builds, real runs, narrow questions
+#   90-99   short-lived/special diagnostics
+#
+# Columns (tab separated):
+#   number        two digits, unique, stable
+#   short_name    the rest of the directory name; the whole `NN-short` stays short
+#   source_poc    directory under poc/
+#   dol           the launchable DOL, relative to build/poc/<out_dir>/
+#   out_dir       directory under build/poc/ (differs from source_poc for variants)
+#   make_target   what builds it (`build` for the ordinary POCs)
+#   enabled       1 = exported, 0 = present but not exported
+#
+# The export copies the DOL byte for byte and verifies the hash; it never
+# rewrites a build id, a commit or a single byte of the image. Authority stays
+# with build/poc/<out_dir>/<dol>.
+#
+#number	short_name	source_poc	dol	out_dir	make_target	enabled
+01	smoke	smoke-test	smoke-test.dol	smoke-test	build	1
+02	probe	gbp-probe	gbp-probe.dol	gbp-probe	build	1
+03	init	gbp-init-probe	gbp-init-probe.dol	gbp-init-probe	build	1
+04	irq	gbp-init-irq-probe	gbp-init-irq-probe.dol	gbp-init-irq-probe	build	1
+05	irq-a	gbp-init-irq-program-probe	gbp-init-irq-program-probe.dol	gbp-init-irq-program-probe	build	1
+06	irq-b	gbp-init-irq-deliver-probe	gbp-init-irq-deliver-probe.dol	gbp-init-irq-deliver-probe	build	1
+07	irq-svc	gbp-init-irq-service-probe	gbp-init-irq-service-probe.dol	gbp-init-irq-service-probe	build	1
+08	av	gbp-av-service-probe	gbp-av-service-probe.dol	gbp-av-service-probe	build	1
+09	video	gbp-video-capture-probe	gbp-video-capture-probe.dol	gbp-video-capture-probe	build	1
+10	vstate	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe	build	1
+11	color	gbp-video-color-probe	gbp-video-color-probe.dol	gbp-video-color-probe	build	1
+80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1

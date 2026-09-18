@@ -26,6 +26,10 @@
 #   make video-dolphin  run the gbp-video-capture-probe DOL in Dolphin (absent → abort_inconsistent; GBPlayer model → shape abort)
 #   make video-audit    audit gbp-video-capture-probe: both 002/003B handlers and every object (profile video)
 #   make vstate-dolphin run the gbp-video-state-probe DOL in Dolphin (absent -> abort_inconsistent; GBPlayer model -> shape abort)
+#   make swiss          export every built DOL to build/swiss/NN-short/boot.dol with an
+#                       INDEX.txt, so the right build is obvious in Swiss (numbers are
+#                       stable; the copy is byte-identical and build/poc stays the authority)
+#   make swiss-check    validate tools/swiss-layout.tsv without building anything
 #   make prehandler-wait build the pre-handler masked-wait DIAGNOSTIC (default 5000 ms;
 #                       PREWAIT_MS=N to change). Separate build id and directory: it is
 #                       NOT GBP-VIDEO-003 and NOT the vstate-0004 reference DOL
@@ -77,7 +81,7 @@ SMOKE_DOL := $(SMOKE_OUT)/smoke-test.dol
 PROBE_OUT := build/poc/gbp-probe
 PROBE_DOL := $(PROBE_OUT)/gbp-probe.dol
 
-.PHONY: help env-check build inspect test-host test-unit test-python test stimulus color-dolphin color-audit smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus color-dolphin color-audit smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait swiss swiss-check all shell clean
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -338,6 +342,25 @@ vstate-dolphin:
 	  --heartbeats 0 --expect 'OPENGBP-VSTATE DONE status=abort_control_shape class=abort reason=control_not_idle_shape stop=failure restore=ok restore_reason=- teardown=stage_a verdict=present det=4/4 service=failed service_reason=control_not_idle_shape deliveries=0 video=0/0 audio=0 frames=0 complete=0 incomplete=0 resync=0 baseline=never_established baseline_s=0.000 valid_s=0.000 capture_s=0.000 safety_s=0.000 target_s=120 limit_s=180 structured=not_observed episodes=0 stable=0 unstable=0 not_preserved=0 episode_store_full=0 tail_frames=0 tail_truncated=0 frame_store_full=0 event_store_full=0 events=0 boundaries_disc=0 boundaries_gbi=0 disagreements=0 reference_match=offline next_cause_at_end=0 handler=0 restored=-1 mask_ok=-1 isr_w1c=0 main_w1c=0 teardown_w1c=0 control_ok=1 pi_sticky_final=0 uncertain=0 overflow=0 arinfo_restore_ok=1 power_cycle_required=0 errors=0 transport_ok=1' \
 	  -C Dolphin.Core.HSPDevice=2 \
 	  --report $(VSTATE_OUT)/dolphin-report-present.json --screen-png $(VSTATE_OUT)/dolphin-screen-present.png
+
+# ---------------------------------------------------------------------------
+# SWISS LAUNCH LAYOUT
+#
+# Swiss lists directories, and the build tree is named for the source: in a
+# truncated list `gbp-init-irq-program-probe` and `gbp-init-irq-deliver-probe`
+# look the same, and picking the wrong one spends a physical run. This exports
+# every launchable DOL as build/swiss/NN-short/boot.dol, numbered by the
+# versioned manifest tools/swiss-layout.tsv.
+#
+# The copy is byte for byte and the hash is verified afterwards: no build id, no
+# commit and no byte of the image changes. The AUTHORITY stays build/poc/...;
+# build/swiss is presentation, is ignored by Git, and is safe to delete.
+swiss:
+	$(PYTHON) tools/swiss_export.py --root .
+
+# The manifest alone, without needing anything built.
+swiss-check:
+	$(PYTHON) tools/swiss_export.py --check
 
 # ---------------------------------------------------------------------------
 # PRE-HANDLER MASKED-WAIT DIAGNOSTIC
