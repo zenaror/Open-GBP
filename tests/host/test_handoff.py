@@ -85,17 +85,33 @@ class References(unittest.TestCase):
         for u in sorted(set(re.findall(r"U-GBP-\d{3}", read(HANDOFF)))):
             self.assertIn(u, unk, "%s cited by the handoff is not in UNKNOWNS.md" % u)
 
-    def test_referenced_build_ids_exist_in_the_tree(self):
-        """A build id in the artifact table must be findable: either a POC
-        Makefile declares it, or the Swiss manifest builds it as a variant."""
+    def _buildable(self):
+        """Every build id this tree can actually produce: a POC Makefile declares
+        it, or the Swiss manifest builds it as a variant."""
         layout = read(os.path.join(ROOT, "tools", "swiss-layout.tsv"))
         makefiles = "".join(read(os.path.join(ROOT, "poc", d, "Makefile"))
                             for d in os.listdir(os.path.join(ROOT, "poc"))
                             if os.path.exists(os.path.join(ROOT, "poc", d, "Makefile")))
-        haystack = layout + makefiles + read(os.path.join(ROOT, "Makefile"))
-        for bid in ("vstate-0004", "color-0001"):
+        return layout + makefiles + read(os.path.join(ROOT, "Makefile"))
+
+    def test_referenced_build_ids_exist_in_the_tree(self):
+        haystack = self._buildable()
+        for bid in ("vstate-0004", "color-0002"):
             self.assertIn(bid, haystack, "%s is cited but not produced anywhere" % bid)
         self.assertIn("vstate-prewait", haystack)
+
+    def test_a_retired_build_id_is_marked_historical_not_buildable(self):
+        """color-0001 physically ran and can no longer be rebuilt from HEAD: the
+        POC now declares color-0002. That is the intended state - the handoff
+        must present it as history, not as something to launch."""
+        haystack = self._buildable()
+        self.assertNotIn("color-0001", haystack,
+                         "color-0001 is buildable again; a historical run must not be reproducible "
+                         "under its own id without a deliberate decision")
+        text = read(HANDOFF)
+        self.assertIn("color-0001", text)
+        self.assertIn("color-0002", text)
+        self.assertIn("PHYSICALLY EXECUTED", text)
 
     def test_swiss_manifest_is_referenced_and_real(self):
         self.assertIn("tools/swiss-layout.tsv", read(HANDOFF))
