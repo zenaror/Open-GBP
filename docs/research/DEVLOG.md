@@ -6602,3 +6602,83 @@ sustained streaming with a real cartridge: frame pacing, the dropped-block polic
 and output modes, which is the bridge to Phase 7. Everything the colour work
 established feeds it directly, and nothing in it depends on U-GBP-029, U-GBP-033
 or U-GBP-034, all of which stay OPEN.
+
+## 2026-09-18 — GBP-VIDEO-004 designed: the streaming contract, before any of it exists
+
+**Goal:** turn the roadmap's one-line entry for GBP-VIDEO-004 into a
+specification precise enough to implement against. No code, no hardware.
+
+**Started from the roadmap, not from an idea.** The requirement is five words —
+*sustained streaming, real cartridge, frame pacing, dropped-block policy, output
+modes* — plus Phase 4's acceptance sentence and GBP-VIDEO-003's own deferral:
+"first rendered frames and KEYPAD writes belong to a later step". Everything in
+`HARDWARE_TESTS.md` §V5 beyond those is labelled PROPOSED DESIGN.
+
+**The dependency audit found almost everything already proved.** Service cycle,
+40-block frame, geometry, frame classification, the R3 policy, the raw ring, the
+signature, the teardown, the 5000 ms wait, the delivery route — all FACT, all
+reusable unchanged. Two things are genuinely new: a *moving* source and a
+*consumer*. One thing was a surprise worth writing down: **no POC in this
+repository has ever called `GX_Init`** — every probe runs `VIDEO_Init` +
+`CON_Init` on a single XFB and prints text. The display path is new code.
+
+**The colour result makes the renderer almost trivial.** Because GBP-HW-131
+established that the device already exchanges the outer 5-bit groups, the word
+arriving from the VIDEO window *is* `GX_TF_RGB5A3` order. So `texel = word |
+0x8000` — no channel arithmetic at all, and the only real work is the raster →
+4×4-tile permutation, which is exactly what the Start-up Disc's own converter
+does. Verified in the container that `GX_TF_RGB5A3 = 0x5` and `GX_InitTexObj`
+exist in this toolchain's `ogc/gx.h`, so the recommendation rests on the real
+libogc2 rather than on preference.
+
+**Two cadences that are not one.** The AGB runs at 59.727 Hz (GBP-HW-078), the
+GameCube VI at ~59.94 Hz, and GBP-PHY-003 already records that nothing
+synchronises them. That is ≈ 26 repeated display frames in a 120 s run —
+arithmetic, predicted here before the run so it can never be reported as frame
+loss.
+
+**The rules the previous rounds paid for are carried forward explicitly.** No
+full-frame work between the ACK and the RE-ARM (§V3.23, the microaudit that saved
+the colour capture): the producer hands the consumer an *integer*. Never
+synthesise pixels: an incomplete frame is recorded and not displayed, the
+previous frame is held, and the hold is counted. Never block the producer. A
+quarantined frame may not reach the screen for the same reason it may not become
+colour evidence.
+
+**One race is designed to be detected rather than avoided by hope.** Four ring
+slots at 59.7 Hz give the consumer roughly 50 ms, but that margin is unmeasured,
+so the consumer checks a generation counter before and after converting and
+counts `consumer_slot_overrun` if the producer reused the slot. A silent tearing
+bug becomes a number.
+
+**Three things are deliberately left open**, marked DESIGN DECISION REQUIRED
+rather than given invented values: the run duration (which must be justified
+against a real interval, the way GBP-VIDEO-002's 120 s was justified against the
+Disc's detector window), the converted-queue depth (deferred until conversion
+cost is measured, because this repository has measured none), and how the text
+report and the GX pipeline share the framebuffer. **No timing is budgeted as a
+property** — the first POC measures it.
+
+**The physical matrix keeps three categories apart.** A CONTROLLED motion
+stimulus with an embedded frame index is the decisive run, for the same reason
+the eight-bar stimulus made `color-0002` decisive: it gives ground truth, so loss
+is *measured* rather than inferred. A commercial cartridge gives realism and no
+ground truth — a repeated frame cannot be told from a game that did not redraw —
+and this design names no title, because the repository names none and the
+operator owns that choice.
+
+**None of the open unknowns blocks it**, and the design proves it rather than
+asserting it: U-GBP-029's bytes never enter a texel, U-GBP-033's mechanism only
+has to be survived and already has been 52 times, and U-GBP-034's bit is inert
+for presentation because RGB5A3 sets it regardless.
+
+**Also fixed, both genuinely stale:** §V3.7 still read "STATUS: unresolved" for
+the ROM-delivery dependency that route 1 closed two runs ago, and the ROADMAP
+carried two contradictory bullets for GBP-VIDEO-003, one saying NOT PHYSICALLY
+EXECUTED. Both now say what happened, with the historical text preserved.
+
+**Next:** implement the two pure modules — `gbp_vpix` (raster → RGB5A3 tile) and
+`gbp_vqueue` (bounded queue + counters) — with host tests first, against
+synthetic frames and against the physical `color-0002` fixture, which carries
+eight known colours in known positions and is therefore a real conversion oracle.
+Only then the POC and the GX path. U-GBP-029, U-GBP-033 and U-GBP-034 stay OPEN.

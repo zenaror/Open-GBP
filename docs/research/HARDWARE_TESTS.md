@@ -6163,6 +6163,19 @@ Routes 1 and 2 differ in one way that matters to this experiment: route 2 leaves
 the Game Pak slot empty, so CONTROL keeps the shape all four previous runs saw.
 Route 1 changes it. Both are acceptable; the run envelope records which was used.
 
+> **RESOLVED 2026-09-18 — route 1.** The text above is preserved as the design
+> record of what was unknown on 2026-09-17. The dependency is closed: the
+> operator's **EZ-Flash Omega DE in NOR / Mode B** delivered the derived stimulus
+> image to the internal AGB, and it has now carried two physical runs,
+> `color-0001` and `color-0002`. Route 1's predicted consequence was observed
+> exactly as written: `CONTROL orig=92` instead of the `90` every cartridge-less
+> run saw, i.e. the presence bit `0x02` set (§V3.8). The packaging step uses
+> official devkitPro `gbafix` for the header's logo area, outside Git, into an
+> ignored path; no proprietary bytes enter this repository. Route 2 (multiboot)
+> was never attempted and stays untested.
+>
+> `STATUS: RESOLVED (route 1, EZ-Flash Omega DE NOR / Mode B)`
+
 #### V3.8 The probe, and what it may not redesign
 
 New POC, `poc/gbp-video-color-probe/`, Test ID **GBP-VIDEO-003**, Build ID
@@ -7274,3 +7287,532 @@ pre-registered gate and stays `INCONCLUSIVE_CERTIFIED_RAW_MISMATCH` permanently.
 - **It does not make `color-0001` confirmatory in retrospect.** The analyser
   refuses to: `tools/vcolor2.py` reports any build other than `color-0002` as
   RETROSPECTIVE and never emits a `confirmed_*` verdict for it.
+
+---
+
+## V5 — GBP-VIDEO-004: SUSTAINED VIDEO STREAMING — DESIGN / PRE-REGISTRATION
+
+**Status: DESIGN ONLY, 2026-09-18. Nothing here is implemented, nothing has
+touched hardware, and no frozen format changes.** This section exists so that
+the first streaming POC is built against a written specification instead of
+against whatever seems reasonable at implementation time.
+
+### V5.1 The ROADMAP requirement, quoted rather than paraphrased
+
+`docs/ROADMAP.md`, Phase 4, verbatim:
+
+> **GBP-VIDEO-004** — **NEXT**: sustained streaming with a real cartridge (frame
+> pacing, dropped-block policy, output modes) — the bridge to Phase 7.
+
+Phase 4's acceptance, verbatim:
+
+> A real cartridge running on the physical GBP produces stable, correct video
+> through the open-source runtime.
+
+Phase 4's automated-test requirement, verbatim: *packet/register encoding; buffer
+boundaries; frame conversion where applicable; deterministic synthetic frame
+inputs; recorded hardware trace replay.*
+
+And from the GBP-VIDEO-003 entry, which deliberately deferred the work to here:
+
+> Rendering the frames on the GameCube is deliberately **not** part of this
+> experiment … **First rendered frames and KEYPAD writes belong to a later step.**
+
+**ROADMAP REQUIREMENT** is therefore exactly five things: sustained streaming, a
+real cartridge, frame pacing, a dropped-block policy, output modes. Everything
+below that is not one of those five is **PROPOSED DESIGN** and is labelled as
+such.
+
+### V5.2 Goal and non-goals
+
+**Goal.** Establish, on physical hardware and with objective numbers, that the
+Open-GBP service path can sustain the AGB's VIDEO stream for a defined duration
+while a consumer outside the critical path assembles, converts and presents
+frames, with every frame that is not presented accounted for by name.
+
+**Non-goals**, each with the reason it is excluded:
+
+| not in scope | why |
+| --- | --- |
+| audio playback | Phase 6. The service must keep *draining* AUDIO — see §V5.13 — but a sample never reaches the DAC here. |
+| KEYPAD / controller input into the AGB | Phase 5. The roadmap defers it together with rendering. |
+| scaling, aspect correction, filtering, presentation modes | Phase 9. §V5.12 marks them NON-BLOCKING UI POLICY. |
+| A/V synchronisation | not named by the roadmap for Phase 4; claiming it would import a Phase 6 requirement. |
+| network / BBA output | Phase 11. §V5.16 defines only the *interface shape* so Phase 7 and later can reuse it. |
+| answering U-GBP-029, U-GBP-033 or U-GBP-034 | §V5.17 proves none of them blocks this experiment. |
+| a general video runtime | this is an experiment with a pass criterion, not a product. |
+
+### V5.3 Authority
+
+Nothing in this design may weaken what physical runs already established. The
+service order, the ACK/RE-ARM sequence, the disagreement policy and the teardown
+are **authority**, reused byte for byte:
+
+```text
+interrupt → mask → read source → drain AUDIO → drain VIDEO → ACK
+          → PI clean → signature + assembler → RE-ARM → wait next cause
+```
+
+`src/gbp/gbp_vstate_probe.c` records that order as
+`read_audio_video_ack_piclean_sign_rearm_waitnext`, and it has survived
+1 114 005 cycles in one run. **GBP-VIDEO-004 adds nothing to it.**
+
+### V5.4 Dependency matrix — what is already proved
+
+| dependency | status | source |
+| --- | --- | --- |
+| HSP service cycle: read, drain, ACK, re-arm, next cause | **FACT** | GBP-HW-062/063; GBP-AV-SERVICE-001 |
+| One installed one-shot handler, 1:1 unmask/delivery/ack/rearm over ~1.1 M cycles | **FACT** | GBP-HW-117; `vstate-0004` |
+| VIDEO block = 0xF00 bytes, one whole-block DMA | **FACT** | GBP-HW-051/058 |
+| 40 blocks per frame, 4 raster lines × 240 px per block, line stride 960 B | **FACT** | GBP-HW-074…087 (legible 240×160 logotype) |
+| Frame-start flag on the first pixel of a frame, both predicates agreeing | **FACT** | GBP-HW-069; GBP-HW-129 |
+| Consumed pixel word = `(b1 << 8) \| b3` | **FACT** | GBP-VID-003; GBP-HW-123/128 |
+| **Colour: the outer 5-bit groups are exchanged relative to AGB VRAM** | **FACT** | GBP-HW-131 (`color-0002`) |
+| AGB frame cadence ≈ 59.727 Hz | **FACT** | GBP-HW-078 (477 intervals) |
+| AGB and GameCube cadences are **not** synchronised; the runtime must tolerate slip | **FACT** (external observer), corroborated by GBP-HW-078 | GBP-PHY-003 |
+| Frame classification: COMPLETE_40 / INCOMPLETE_SHORT / INCOMPLETE_LONG / PREDICATE_ANOMALY / RESYNC | **FACT (code)**, exercised physically | `src/gbp/gbp_vstate.h`; GBP-HW-074…087 |
+| R3 semantic-disagreement policy: nonfatal, majority authoritative inside `SRC_MASK`, majority-extra quarantined | **FACT** (physically validated) | GBP-HW-108…115; §R3/§R4 |
+| Raw ring with derived slot count, 3 or 4 slots, exact-match contract | **FACT (code)**, exercised physically | `gbp_vstate.c`; §V3.24 |
+| Per-block signature `sig[40]` consuming bytes 1 and 3 only | **FACT (code)**, exercised physically | `gbp_vsig.c:15`; GBP-HW-128 |
+| Clean teardown and restore with readback | **FACT** | GBP-HW-118; GBP-HW-127 |
+| 5000 ms pre-handler wait sufficient in its position, this setup | **FACT** | GBP-HW-120, GBP-HW-127 |
+| EZ-Flash Omega DE NOR / Mode B delivers a controlled ROM to the internal AGB | **FACT** | `color-0001`, `color-0002`; §V3.7 resolution |
+| `GX_TF_RGB5A3` = 0x5 exists in this toolchain's `ogc/gx.h`, with `GX_InitTexObj` | **FACT (code)** | `libogc2:20260805`, verified in the container |
+| The Start-up Disc renders the same stream as a 240×160 `GX_TF_RGB5A3` texture | **FACT (code)** | `VIDEO_PATH.md` §2.3 (`FUN_8008EFB4`, `FUN_80009044`) |
+| Bytes 0 and 2 vary and mean nothing established | **UNKNOWN** | U-GBP-029 |
+| What sets bit 15 | **UNKNOWN** | U-GBP-034 |
+| Mechanism of IRQ-window replica non-uniformity | **UNKNOWN** | U-GBP-033 |
+| Sustained streaming with a moving image | **UNKNOWN — this experiment** | — |
+| Any GX pipeline in this repository | **DOES NOT EXIST**: every POC uses `VIDEO_Init` + `CON_Init` on one XFB and prints text. No POC has ever called `GX_Init`. | verified across `poc/` and `src/` |
+
+**Nothing in this matrix needs re-running.** The two genuinely new things are a
+*moving* source and a *consumer*.
+
+### V5.5 What "sustained streaming" means — objective metrics
+
+The term is made measurable here, before any run. Where the project has no
+established threshold, the entry is marked **DESIGN DECISION REQUIRED (DDR)**
+rather than given an invented number.
+
+| metric | definition | threshold |
+| --- | --- | --- |
+| run duration | wall clock from the first unmask to the stop | **DDR** — must be justified against a real interval, as GBP-VIDEO-002's 120 s was justified against the Disc's own detector window. A duration chosen because it "feels long" is not a criterion. |
+| complete frames | frames closed `COMPLETE_40` with no `F_ANOMALY` / `F_RESYNC` | counted, not thresholded |
+| producer frame cadence | interval between consecutive frame-start boundaries | compared against 59.727 Hz (GBP-HW-078); a *deviation* is the finding, not a failure |
+| VIDEO blocks per frame | histogram over the run | 40 expected; any other value is named |
+| incomplete / resync frames | by the assembler's own classification | counted; **a non-zero count does not by itself fail the run** — it is data about a moving source |
+| duplicate blocks | a block index arriving twice inside one frame interval | counted; expected 0 |
+| source disagreements | R3 classes, unchanged | counted; fatal classes still fatal |
+| service latency | READ→ACK, ACK→REARM, REARM→next cause | distribution per run, as `vstate-0004` already records |
+| transport errors, timeouts, busy, uncertain writes | existing counters | **must be 0** — this is an invariant, not a metric |
+| ring overruns | producer reused a slot a consumer was reading | **must be 0**, and the design detects it rather than assuming it (§V5.7) |
+| consumer backlog | queue depth at each enqueue | max and histogram |
+| frames dropped by the consumer | by policy, with the reason named | counted per reason; never silent |
+| presented frames | frames actually put on screen | counted |
+| restore correctness | the existing teardown checks | **must all pass** |
+
+**The distinction that matters most:** *service* metrics decide PASS/FAIL,
+*display* metrics describe behaviour. A dropped display frame is a policy outcome
+and must never be confused with a lost VIDEO block.
+
+### V5.6 Four cadences, and why they are not one
+
+§V5 refuses to assume these are equal, because GBP-PHY-003 says they are not:
+
+```text
+A  GBP service clock      one IRQ per VIDEO/AUDIO block, at the AGB's own rate
+B  assembled AGB frame    40 blocks -> one frame, measured 59.727 Hz (GBP-HW-078)
+C  GameCube display       VI field rate, ~59.94 Hz NTSC
+D  future writer/network  Phase 7+, entirely unconstrained
+```
+
+B and C differ by ≈ 0.213 Hz. That is **one repeated display frame roughly every
+4.7 seconds**, about 26 in a 120 s run — an arithmetic consequence of two free
+running clocks, predicted here *before* the run so that it can never be reported
+as frame loss. GBP-PHY-003 records the same thing from the other side: the GBP
+"does not do any fancy synchronization and just adds frames where it needs to".
+
+Buffering is required exactly at the B→C boundary, and nowhere else in this
+experiment. A→B is the assembler, which already exists.
+
+### V5.7 Producer / consumer boundary
+
+**The rule inherited from §V3.23, and the reason it exists.** The first colour
+implementation did a 153 600-byte `memcmp` and `memcpy` between the ACK and the
+RE-ARM; the microaudit refused it, and the fix — pass a *slot index*, never bytes
+— is what made `color-0001` and `color-0002` possible. GBP-VIDEO-004 inherits
+that rule unchanged.
+
+**Forbidden in the service path**, without exception:
+
+```text
+GX anything          texture upload      DCFlushRange over a frame
+filesystem / SD      networking / BBA    PAD reads
+printf beyond the existing bounded ringlog
+full-frame conversion, comparison or copy
+any wait for presentation, VSync or a consumer
+```
+
+**The handoff is an integer.** When `gbp_vstate_block()` reports
+`step.frame_closed && step.frame_complete`, the service writes one bounded record
+— slot index, frame index, block count, flags, `t_first`, `t_last`, and a
+**generation counter** — into a small lock-free ring, and returns to the RE-ARM.
+It copies nothing and forms no pointer into the frame.
+
+**PROPOSED DESIGN — the race is detected, not avoided by hope.** The consumer
+reads the generation, converts the frame out of the ring slot, then reads the
+generation again. If it changed, the producer reused the slot mid-conversion: the
+converted frame is discarded and `consumer_slot_overrun` is incremented. This is
+lock-free, costs the producer one store, and turns a silent tearing bug into a
+counter. Four ring slots at 59.7 Hz give the consumer ~50 ms of margin, but the
+design does not depend on that estimate being right — it measures it.
+
+### V5.8 Buffering — the options, and the choice
+
+| option | MEM1 | ownership | latency | consumer lag | effect on service | diagnosability |
+| --- | --- | --- | --- | --- | --- | --- |
+| double buffer | 2 × 76 800 | simple | 1 frame | stalls or tears | risk of coupling | poor: tearing is invisible |
+| triple buffer | 3 × 76 800 | moderate | 1–2 frames | drops oldest | none | good |
+| ring of assembled frames | N × 153 600 | moderate | N frames | drops oldest | none | good, but stores raw twice |
+| **block ring + assembler + converted queue** | existing ring + N × 76 800 | producer owns the ring, consumer owns the queue | 1–2 frames | drops oldest | **none** | **best: every transition is a counter** |
+| producer converts | — | — | — | — | **violates §V3.23** | — |
+
+**PROPOSED DESIGN — the fourth.** The raw block ring already exists and is
+already physically validated; adding a second raw ring would duplicate 153 600 B
+per slot for nothing. The consumer converts once, into a queue of tiled textures,
+which is also the only form the display can use.
+
+**Queue depth: DESIGN DECISION REQUIRED.** Two is the minimum that lets the
+display read one while the consumer writes another; three absorbs one late
+conversion. Nothing in this repository measures conversion cost yet, so the
+number is deferred to the first measurement rather than guessed.
+
+### V5.9 Lost / missing block policy
+
+**Service behaviour and display behaviour are different decisions and are kept
+apart.** The hardware service is never delayed to rescue a picture.
+
+The assembler already classifies every case; this design adds no new
+classification, only a display consequence:
+
+| assembler outcome | service | display |
+| --- | --- | --- |
+| `COMPLETE_40`, clean | continue | present |
+| `INCOMPLETE_SHORT` (boundary early) | continue | **hold previous**, count `incomplete_short` |
+| `INCOMPLETE_LONG` (>40, or 48 with no boundary) | continue | **hold previous**, count `incomplete_long` |
+| `PREDICATE_ANOMALY` | continue | **hold previous**, count |
+| `RESYNC` | continue, clock paused | **hold previous**, count |
+| `F_MAJORITY_EXTRA` (quarantined) | continue | **never presented**, count — a quarantined frame may not become visual evidence any more than it may become colour evidence |
+| `F_SOURCE_DEFERRED` | continue | descriptive only; does not change the decision |
+| fatal disagreement class | **abort, teardown, restore** | run ends |
+
+**Policy comparison, as §8 requires:**
+
+| policy | verdict |
+| --- | --- |
+| `DROP_FRAME` (show nothing) | **rejected** — a black flash is indistinguishable from a device fault |
+| `HOLD_PREVIOUS_FRAME` | **CHOSEN** — the display state is always a frame that really arrived, and the count of holds is the measurement |
+| `PARTIAL_FRAME_WITH_DIAGNOSTIC` | **rejected for presentation** — it would require deciding what the missing blocks contain. **Never synthesise pixels.** The partial frame is still *recorded* for offline analysis; it is simply not displayed. |
+| `RESYNC_ONLY` | insufficient alone — it says what the assembler does, not what the screen shows |
+
+### V5.10 Colour conversion — where it lives, and how little it is
+
+**The placement rule:** consumer only. Never the service path, never the ISR.
+
+**The finding that makes this cheap.** GBP-HW-131 established that the device
+already exchanges the outer 5-bit groups. The AGB writes BGR555 (R in bits 0–4);
+the word delivered to the GameCube therefore has **R in bits 14–10**, which *is*
+`GX_TF_RGB5A3` order with bit 15 = 1. So:
+
+```text
+texel = word16 | 0x8000        /* no channel arithmetic whatsoever */
+```
+
+This is exactly what both references do — the Disc ORs `FILL = 0x8000` into every
+pixel and draws `GX_TF_RGB5A3` with no swap table (`VIDEO_PATH.md` §2.3). **The
+only real work is the raster → 4×4-tile permutation**, 0xF00 raw bytes → 0x780
+tiled bytes per block, 0x12C00 per frame, which is the same transformation
+`FUN_8008EFB4` performs.
+
+A `gbp_vpix` module is proposed for it — pure, hardware-free, host-testable
+against synthetic frames and against the physical `color-0002` fixture, which
+already carries eight known colours in known positions.
+
+### V5.11 flag15 while U-GBP-034 is open
+
+Conservative by construction:
+
+- **preserved** in the raw block, which is never modified;
+- **counted and reported** per frame — count and coordinates, exactly as
+  `tools/vcolor2.py` does;
+- **not consulted for presentation**: the texel ORs bit 15 on regardless, because
+  RGB5A3 requires it for the opaque 5-5-5 interpretation, so masking it for
+  display is arithmetically irrelevant and is never described as "discarding" it;
+- **never allowed to alter service behaviour** — it does not gate, drop, delay or
+  reclassify anything.
+
+The frame-start *predicate* the assembler already uses is unchanged and is a
+separate mechanism from the flag's unknown origin.
+
+### V5.12 Output modes — the minimum that closes the item
+
+The roadmap says "output modes" without enumerating them. Candidates, and the
+scope decision:
+
+| candidate | in scope? |
+| --- | --- |
+| A native 240×160 reconstruction presented on the GameCube | **YES — the minimum.** This is the "first rendered frames" the roadmap deferred to this step. |
+| B GameCube framebuffer preview | same thing as A; not a separate mode |
+| C scaled / aspect-corrected output | **NO — NON-BLOCKING UI POLICY**, Phase 9 |
+| D network / BBA path | **NO** — Phase 11; only the interface shape is reserved (§V5.16) |
+| E capture / debug output to SD | **PARTIAL** — the existing sidecar mechanism already preserves raw frames; no new output path |
+
+**Minimum to declare GBP-VIDEO-004 complete: A.** One correctly converted,
+correctly oriented 240×160 frame stream on screen, sustained, with the loss
+policy of §V5.9 applied and every drop counted.
+
+### V5.13 Audio
+
+The service selects and drains AUDIO whenever the source bit is set, and a
+selected source that is not drained is a fatal condition
+(`gbp_vstate_diag_service_incomplete`). So the answer is forced by the validated
+path, not chosen:
+
+**A — keep draining AUDIO, do not play it, measure it.** Drain count, byte count
+and completion are already recorded. No DAC, no mixer, no A/V sync. Phase 6 owns
+playback.
+
+### V5.14 Backpressure
+
+**Never block the producer.** That is an invariant, not a preference: blocking the
+service would delay the ACK or the RE-ARM and invalidate the one thing this
+experiment is measuring.
+
+**PROPOSED DESIGN: newest-complete-frame wins (drop-oldest), bounded queue.** A
+frame the consumer never converted is counted as `dropped_before_convert`; a
+converted frame the display never showed is `dropped_before_present`. Both are
+reported per run with their maximum backlog, so "the consumer fell behind" is a
+number and not an impression.
+
+`drop-newest` is rejected: it would make the screen lag further behind the device
+the busier the system got, which is the opposite of what a streaming path should
+do.
+
+### V5.15 Display path — grounded in this toolchain, not in preference
+
+Verified inside `ghcr.io/extremscorner/libogc2:20260805`:
+
+```text
+/opt/devkitpro/libogc2/gamecube/include/ogc/gx.h      GX_TF_RGB5A3 = 0x5, GX_InitTexObj()
+/opt/devkitpro/libogc2/gamecube/include/ogc/cache.h   DCFlushRange(), DCInvalidateRange()
+/opt/devkitpro/libogc2/gamecube/include/ogc/video.h   VIDEO_Configure/SetNextFramebuffer/WaitVSync
+```
+
+| route | assessment |
+| --- | --- |
+| **GX texture, `GX_TF_RGB5A3`** | **RECOMMENDED.** The device's word *is* this format after the confirmed swap, so there is no per-pixel arithmetic — only the tile permutation. It is what the Start-up Disc does with the identical stream (`GX_InitTexObj(obj, fb, 240, 160, 5, …)`), so the approach is corroborated by a reference implementation rather than invented. Cost: GX must be initialised, which **no POC in this repository has ever done**. |
+| direct XFB conversion | rejected: the GameCube XFB is YUV 4:2:2, so every pixel pair needs RGB→YUV arithmetic — strictly more work than the tile permutation, and no reference does it. |
+| anything else in the repo/toolchain | none exists. |
+
+**Known conflict to resolve at implementation time:** every existing probe calls
+`CON_Init` on the XFB and prints its report there. A GX pipeline wants that
+framebuffer. The POC must either keep the text report on a separate pass
+(teardown-time, as today) or reserve a console region. **DESIGN DECISION
+REQUIRED**, and it must not be solved by moving reporting into the service path.
+
+### V5.16 Resolution, aspect, scaling
+
+Minimum: **native 240×160, unscaled, centred.** Integer scaling, aspect handling
+and filtering are **NON-BLOCKING UI POLICY** and belong to Phase 9. GBP-VIDEO-004
+must not become a frontend; a run whose only defect is that the image is small is
+a PASS.
+
+### V5.17 Do the open unknowns block this?
+
+| unknown | blocks GBP-VIDEO-004? | proof |
+| --- | --- | --- |
+| **U-GBP-029** (bytes 0/2) | **No.** The consumer reads bytes 1 and 3 only, which is what both references and the runtime signature already do. Bytes 0 and 2 never enter a texel. Their variation is orthogonal to every metric in §V5.5. |
+| **U-GBP-033** (replica non-uniformity) | **No.** The policy that survives it is physically validated over 52 events across two long runs (GBP-HW-108…115, GBP-HW-119) and is reused unchanged. The mechanism does not have to be understood, only survived — which is the same standing under which GBP-VIDEO-003 was allowed to run. |
+| **U-GBP-034** (bit 15's origin) | **No.** §V5.11 makes the bit inert for presentation: the texel sets it regardless, and it gates nothing. |
+
+**None of the three blocks it.** If a streaming run produces new evidence for any
+of them, that is recorded against the item and does not change this experiment's
+verdict.
+
+### V5.18 Physical matrix — the smallest sequence that can validate streaming
+
+Three categories, kept strictly apart because they are different kinds of
+evidence:
+
+| category | what it is | what it can prove |
+| --- | --- | --- |
+| **CONTROLLED** | a stimulus this repository builds, delivered by the validated EZ-Flash Omega DE NOR / Mode B route | **ground truth.** With a frame index encoded in the image, the consumer knows exactly which AGB frames never arrived. This is the only category that can measure loss rather than infer it. |
+| **REFERENCE** | an original commercial Game Pak | realism: a real workload with real timing. **No ground truth** — a repeated frame cannot be distinguished from a game that did not redraw. |
+| **ALTERNATIVE** | any other ROM the operator owns on the flash cart | corroboration only; recorded with its identity |
+
+**The smallest sequence: two runs.**
+
+1. **CONTROLLED motion stimulus.** The decisive run. The design is the same idea
+   that made `color-0002` decisive: a source whose truth is known by
+   construction. **PROPOSED DESIGN — `stimulus/agb-motion`:** a Mode 3 image that
+   changes every AGB frame and encodes its own frame number in a fixed pixel
+   region, so the consumer can state exactly which frames arrived, in order, with
+   no gaps unaccounted for. Continuous motion, no input, no peripheral, no
+   sensor, boots to the pattern unattended — the properties §13 asks for, and all
+   of them satisfiable by a ROM this repository builds and hashes.
+2. **REFERENCE cartridge**, afterwards, as a realism check.
+
+**This design deliberately does not name a commercial cartridge.** The repository
+names none, the operator owns the choice, and a title written here would become a
+requirement nobody agreed to. What it does record is the property list a suitable
+one must have: continuous on-screen motion without input, no sensor or peripheral
+dependency, reproducible from a cold boot.
+
+### V5.19 Pacing instrumentation — bounded, and outside the ISR
+
+**No megabytes of timing, and nothing written from the interrupt path.** The
+existing discipline holds: preallocated ring, counters, bounded histograms.
+
+Per completed frame, in the bounded record the producer already writes:
+`t_first_block`, `t_last_block`, block count, flags, slot, generation. That is
+enough to derive producer cadence offline without a single extra clock read in
+the service path.
+
+In the consumer, outside the critical path: convert-start and convert-end
+timestamps, queue depth at enqueue and dequeue, present timestamp, and the drop
+counters of §V5.14. **PROPOSED DESIGN:** fixed-bucket histograms rather than
+per-frame arrays, so a long run costs constant memory.
+
+### V5.20 The first POC, specified
+
+```text
+Test ID            GBP-VIDEO-004
+Build ID           stream-0001                       (not yet allocated in any Makefile)
+POC                poc/gbp-video-stream-probe/       (does not exist yet)
+New source         src/gbp/gbp_vpix.{h,c}            raster -> RGB5A3 tile, pure, host-tested
+                   src/gbp/gbp_vqueue.{h,c}          bounded frame queue + counters, pure
+                   the display path stays in the POC, not in src/gbp
+Reused unchanged   gbp_vstate_probe, gbp_vstate, gbp_vsig, gbp_avblock, gbp_irq_service,
+                   gbp_initirqa, the R3 policy, the teardown
+Input              CONTROLLED motion stimulus (run 1); REFERENCE cartridge (run 2)
+Wait               the validated 5000 ms pre-handler wait, unchanged
+Duration           DESIGN DECISION REQUIRED (§V5.5)
+Buffers            existing raw ring + converted queue of depth DDR (§V5.8)
+Instrumentation    §V5.19
+Stop condition     duration reached, or a fatal service class, or a store cap
+                   (each a distinct, named stop reason, as every probe already does)
+Physical setup     GameCube + Game Boy Player DOL-017; EZ-Flash Omega DE NOR / Mode B;
+                   Link Port EMPTY; BBA ABSENT; controller connected but untouched
+                   during the run; SD2SP2 + Swiss; POWER CYCLE after the run
+Swiss              a new number in the canonical range, not 11-color
+```
+
+### V5.21 PASS / INCONCLUSIVE / FAIL, pre-registered
+
+```text
+PASS
+  every service invariant holds for the whole declared duration:
+    transport errors = 0, timeouts = 0, busy = 0, uncertain writes = 0
+    unmasks = deliveries = acks = rearms
+    ring overruns = 0
+    no fatal disagreement class
+    teardown and restore all OK
+  AND the consumer operated under the declared policy for the whole duration,
+    with every non-presented frame accounted for by a named counter
+  AND, for the CONTROLLED run, the arrived frame indices form an accounted
+    sequence: every gap is explained by a counted loss, none unexplained
+
+INCONCLUSIVE
+  a store cap, buffer limit or instrumentation limit ended the run before the
+  declared duration, or prevented a metric from being measured
+  (an inconclusive run is a real outcome and is recorded as one)
+
+FAIL
+  any service invariant violated, or the frame-loss policy contradicted
+  (for example a frame presented that the assembler did not close COMPLETE_40,
+   or a quarantined frame reaching the screen)
+```
+
+**"Looks smooth" is not a criterion.** A visual observation may be recorded as an
+auxiliary note, with a photograph if the operator wishes, and it is never the
+gate.
+
+### V5.22 Memory budget — real numbers from the current build
+
+Measured on `build/poc/gbp-video-color-probe/gbp-video-color-probe.dol`
+(`tools/dolinfo.py`, commit `39f1980`):
+
+```text
+text  0x052D80     339 328 B
+data  0x019260     103 008 B
+bss   0x762110   7 741 712 B     starting at 0x8006F0C8, ending at 0x807D11D8
+                                 i.e. about 8.2 MiB of MEM1 (24 MiB) in use
+```
+
+Per-frame sizes, all exact:
+
+```text
+raw ring slot (48 blocks, the assembler's maximum)    184 320 B
+one real 40-block frame on the wire                   153 600 B
+converted GX RGB5A3 tiled frame (240 x 160 x 2)        76 800 B = 0x12C00
+pixels per frame                                       38 400
+```
+
+GBP-VIDEO-004 can also *shrink* what the colour probe carried: the 16 384-entry
+frame table (3.00 MiB) and the 4 × 4 episode raw store (2.81 MiB) exist for
+GBP-VIDEO-002's change detector and are not needed by a streaming run. A
+plausible budget — **to be confirmed at implementation, not claimed here** — is
+the existing 4-slot ring (737 280 B) plus a converted queue of 3 (230 400 B) plus
+a much smaller frame table, which lands well inside the ~16 MiB of MEM1 the
+current build leaves free.
+
+**Timing is NOT budgeted here.** The conversion is roughly 38 400 iterations of a
+load/mask/or/store per frame and is memory-bound, but this repository has
+measured nothing of the sort, and §18 forbids presenting an estimate as a
+property. The first POC **measures** convert time and publishes the distribution;
+until then the only safe statement is that the conversion is outside the service
+path, where its cost cannot affect the device.
+
+### V5.23 Timing-risk register
+
+| risk | why it is plausible | mitigation designed in |
+| --- | --- | --- |
+| consumer slower than producer | conversion cost unmeasured | never blocks the producer; drop-oldest; counted (§V5.14) |
+| producer reuses a slot mid-conversion | 4 slots, ~50 ms margin, but unmeasured | generation counter checked after conversion; counted as `consumer_slot_overrun` (§V5.7) |
+| GX init perturbs the service path | GX has never run in this repository alongside the service | GX is initialised **before** the first unmask and touched only from the consumer; the probe records the same teardown checks as every previous run |
+| VI VSync wait leaks into the service | easy mistake | no wait of any kind in the service path; the display runs on its own |
+| the B↔C cadence beat is read as loss | ≈ 26 repeated display frames per 120 s | predicted here, before the run, with its arithmetic (§V5.6) |
+| the text report competes with GX for the XFB | every existing probe uses `CON_Init` | DDR in §V5.15; must not be solved inside the service path |
+
+### V5.24 The Phase 7 bridge
+
+The roadmap calls this "the bridge to Phase 7" (cartridge compatibility). It is a
+bridge in a precise sense: Phase 7 needs to run *arbitrary* cartridges and see
+*correct* video, which requires exactly the abstractions this experiment forces
+into existence:
+
+```text
+frame producer      the validated service + assembler, already physical
+frame queue         bounded, drop-oldest, counted           <- new here
+pixel conversion    raster -> RGB5A3 tile, pure and testable <- new here
+consumer interface  "take the newest complete frame"         <- new here
+backpressure metrics                                         <- new here
+```
+
+Phase 11's BBA path and Phase 9's presentation modes are *other consumers* of the
+same queue. That is the whole reason to define the interface now — and the whole
+reason **not** to implement either of them now.
+
+### V5.25 Open questions this design does not answer
+
+1. The run duration, and what justifies it (§V5.5) — **DDR**.
+2. The converted-queue depth (§V5.8) — **DDR**, pending the first conversion-cost
+   measurement.
+3. How the text report and the GX pipeline share the framebuffer (§V5.15) —
+   **DDR**.
+4. Whether the motion stimulus's frame counter should be encoded in pixels the
+   consumer reads, or in a region the offline analyser reads — affects whether the
+   runtime can "recognise" its own stimulus, which §V3.11 warns against.
+5. Whether a commercial reference cartridge is needed for Phase 4's acceptance or
+   only for Phase 7 — the roadmap's acceptance sentence says "a real cartridge",
+   and this design does not decide it unilaterally.
