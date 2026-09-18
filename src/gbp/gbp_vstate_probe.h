@@ -77,6 +77,7 @@
 #include "gbp_avblock.h"
 #include "gbp_vstate.h"
 #include "gbp_vcolor.h"
+#include "gbp_vqueue.h"
 #include "gbp_time64.h"
 
 #ifdef __cplusplus
@@ -238,6 +239,16 @@ struct gbp_vstate_config {
      * after the safety budget. No hardware access is added anywhere (§V3.13). */
     struct gbp_vcolor *color;
     uint64_t color_search_ticks;         /* SEARCH_WINDOW: certification must start by then */
+    /* ---- GBP-VIDEO-004 streaming mode (HARDWARE_TESTS §V5) ----
+     * NULL in every earlier build, and then this field does not exist as far as
+     * the device is concerned. When the streaming POC supplies a queue here, ONE
+     * extra thing happens per CLOSED frame, and it is the same shape the colour
+     * capture was reduced to by the §V3.23 microaudit: a classification of
+     * integers and a small descriptor write. No frame byte is read, no pointer
+     * into the ring is formed, no clock is read, no device is touched, and the
+     * call can never block — a consumer that has fallen behind loses a frame,
+     * it does not stall the service (§V5.7, §V5.14). */
+    struct gbp_vqueue *stream;
     /* ---- PRE-HANDLER MASKED WAIT: a DIAGNOSTIC, and nothing else ----
      * 0 in every ordinary build, and then this field does not exist as far as
      * the device is concerned: no wait, no extra read, no log line, the same
