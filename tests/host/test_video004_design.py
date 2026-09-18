@@ -254,26 +254,38 @@ class PointersResolve(unittest.TestCase):
         self.assertIn("stream-0002", t)
         self.assertIn("REJECTED before hardware — DO NOT RUN", t)
         self.assertIn("0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275", t)
-        # stream-0002's physical outcome, and the three things it must never be
-        # confused with (GBP-HW-137).
+        # stream-0002's physical outcome, and that it is never read as a
+        # streaming failure (GBP-HW-137). The full wording lives in §V5.29,
+        # which owns it permanently; the handoff must keep the verdict and the
+        # identity so a reader cannot pick up the wrong DOL.
         self.assertIn("ABORTED PRE-SERVICE", t)
         self.assertIn("store_or_bounds_invalid", t)
-        self.assertIn("GBP STREAM CAPTURE NOT STARTED", t)
-        self.assertIn('NOT "streaming failed"', t)
+        self.assertIn("not a streaming failure", t)
         self.assertIn("76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d", t)
+        # and the candidate that supersedes it
+        self.assertIn("stream-0003", t)
+        hw = flat(read(HW))
+        self.assertIn("GBP STREAM CAPTURE NOT STARTED", hw)
+        self.assertIn('NOT "streaming failed"', hw)
 
-    def test_the_handoff_keeps_the_storage_cause_and_its_two_traps(self):
+    def test_the_storage_cause_and_its_two_traps_survive(self):
         """The cause is one predicate and the log actively concealed it. Both
-        facts have to survive into the next round or it will be re-derived."""
-        t = flat(read(HANDOFF))
-        self.assertIn("!s->episode_raw", t)
-        self.assertIn("gbp_vstate_probe.c:790", t)
+        facts have to survive or a later round will re-derive them the expensive
+        way. They now live in §V5.29, which owns them permanently; the handoff
+        keeps the field name so the next reader recognises it on sight."""
+        hw = flat(read(HW))
+        self.assertIn("!s->episode_raw", hw)
+        self.assertIn("gbp_vstate_probe.c:790", hw)
         # the gate was right: two unguarded dereferences
-        self.assertIn("gbp_vstate_probe.c:812", t)
-        self.assertIn("gbp_vstate.c:739", t)
+        self.assertIn("gbp_vstate_probe.c:812", hw)
+        self.assertIn("gbp_vstate.c:739", hw)
         # and the two traps
-        self.assertIn("static_bytes=6922240", t)
-        self.assertIn("1 798 144", t)
+        self.assertIn("static_bytes=6922240", hw)
+        self.assertIn("1 798 144", hw)
+        # the handoff keeps the field name and the gate
+        t = flat(read(HANDOFF))
+        self.assertIn("episode_raw_null", t)
+        self.assertIn("gbp_vstate_probe.c:790", t)
 
     def test_the_handoff_keeps_the_corrected_slack_number(self):
         """The 164 us figure was the mean cycle period, not slack. The MEASURED
