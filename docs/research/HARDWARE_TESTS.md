@@ -8000,3 +8000,241 @@ the CONTROLLED indexed motion stimulus of §V5.18 still does not exist, so a fir
 run can validate service, GX and operational pacing but **cannot** measure
 source-frame loss against ground truth. A first smoke must never later be
 described as evidence of zero dropped source frames.
+
+### V5.27 `stream-0002` — the corrected candidate, 2026-09-18
+
+**`stream-0001` is historical and stays REJECTED. Do not run it.** Its identity is
+preserved unchanged: commit `0816cbe`, 461 120 B, sha256 `0dc2c501…`. Nothing in
+this section re-labels it, and the build id was not reused.
+
+#### V5.27.1 The blocker, fixed where it can be tested
+
+The defect of §V5.26.2 was not "a careless callback". It was a state machine
+living in `main.c`, which is target-only code with no behavioural test — the host
+tests asserted only that the string `on_draw_done` appeared in the source. So the
+fix moves the machine out:
+
+```text
+src/gbp/gbp_vpresent.{h,c}    ownership only. No GX, no VI, no libogc2.
+                              Driven state by state by tests/unit/test_gbp_vstream.c
+```
+
+**The rule it enforces is the one that can be proved: AT MOST ONE DRAW-DONE TOKEN
+IN FLIGHT.**
+
+```text
+FREE -> CPU_FILLING -> READY -> SUBMITTED -> (draw-done) -> FREE
+```
+
+- `gbp_vpresent_submit()` **refuses** while a token is pending, and counts
+  `submit_blocked_inflight`. A READY buffer simply waits and is re-offered on the
+  next slice boundary; the producer is never involved.
+- `gbp_vpresent_draw_done()` releases **exactly one buffer, by index** — never
+  "every SUBMITTED one". A callback arriving with nothing submitted releases
+  nothing and increments `drawdone_spurious`.
+- `gbp_vpresent_abandon()` and `gbp_vpresent_fill_done()` both **refuse** a
+  SUBMITTED buffer, so the CPU cannot take back what the GP owns by any path.
+- `gbp_vpresent_consistent()` states the invariant as code — at most one
+  SUBMITTED, and `submitted` agreeing with `tex[]` — and the probe reports it.
+
+Why one token rather than a queue of them: §V5.26.9 asked for the version that
+can be proved. A token FIFO would also be correct and would need an argument
+about ordering that this does not.
+
+#### V5.27.2 Synchronisation, field by field
+
+One asynchronous agent exists: the draw-done interrupt, which may call
+`gbp_vpresent_draw_done()` and nothing else.
+
+| field | writer(s) | reader(s) | width | rule |
+| --- | --- | --- | --- | --- |
+| `tex[i]` | main, callback | both | `volatile uint8_t`, aligned | single `stb`, atomic on PowerPC |
+| `submitted` | main (set), callback (clear) | both | `volatile int`, aligned | single `stw`, atomic; main only sets it when it read −1, and nothing but main arms a token |
+| every counter | its own side only | report, after the run | `uint32_t` | not shared across the boundary |
+| `xfb_pending` | main | main | `int` | never touched by the callback |
+| `conv`, `tex_buf[]` | main | main | — | the callback never reads them |
+
+No barrier is required and none is used. The "concurrency" is one core and its
+own interrupt handler, not two masters or a DMA engine; `sync`/`eieio` order
+device traffic, which is not what is happening here. `volatile` is used for what
+it is for — stopping the compiler from caching a value across the boundary — and
+not as a stand-in for atomicity, which the widths already give.
+
+The one ordering the caller must honour is stated on `gbp_vpresent_submit()`:
+**mark first, arm second.** The buffer is SUBMITTED before `GX_SetDrawDone()` is
+issued, so the callback can never observe a half-built submission.
+
+#### V5.27.3 The framebuffer, which is a different question
+
+`stream-0001` copied into the framebuffer the VI was scanning out (§V5.26 F8).
+The earlier report said "two framebuffers", which was true and misleading: they
+were the stream and the console, not a double buffer.
+
+`stream-0002` keeps **three**: two for the stream, one for the console.
+`gbp_vpresent_xfb_target()` answers "which may I copy into?" from two facts the
+caller reads non-blockingly — `VIDEO_GetCurrentFramebuffer()` and the hand-over we
+are still waiting on — and returns −1 when neither is safe, so the present is
+**skipped and counted** (`xfb_skipped_busy`) rather than waited on.
+
+No second asynchronous machine was added to do it: the retrace is *observed*
+(`xfb_pending == current` retires the hand-over), never waited for.
+`VIDEO_WaitVSync()` appears nowhere in the consumer path, and a host test asserts
+that.
+
+**Texture lifetime and framebuffer lifetime stay apart.** A DrawDone says the GP
+finished reading the TEXTURE; it says nothing about the VI, and the module's two
+halves share no state. A test drives a draw-done and an XFB hand-over against
+each other to prove neither disturbs the other.
+
+#### V5.27.4 The GBP comes first (§V5.26.3)
+
+The claim `stream-0001` carried — "164 µs of slack" — was the mean cycle period
+and is gone. The measured RE-ARM→next-cause window is median 42.8 µs with
+**p25 = 1.9 µs**, so on about a third of cycles the next cause is already latched
+when the RE-ARM completes.
+
+The pump therefore **reads the cause first and does nothing when one is pending**:
+
+```text
+service loop, after the RE-ARM:
+    poll INTSR  ->  pending?  ->  YES: pump_skipped_cause_pending++, return
+                              ->  NO : one bounded slice, then poll again
+```
+
+It costs one extra `poll_intsr` per cycle. It does **not** remove the race of a
+cause arriving *during* a slice — `cause_arrived_during_pump` counts that instead,
+defined mechanically as "not pending before, pending after" and claiming nothing
+about causality.
+
+**The slice size is unchanged at one tile row and is still not a timing claim.**
+It is a conservative bounded quantum; the position remains **PLAUSIBLE BUT
+UNMEASURED** until the first physical run.
+
+#### V5.27.5 What the first physical run will be able to measure
+
+```text
+STREAMPUMP   calls, slices started/completed, skipped_cause_pending,
+             pending_before, pending_after, arrived_during
+STREAMPUMPT  slice ticks min / max / mean / n, tile rows per slice
+STREAMOWN    acquire attempts, no_cpu_texture, fills, abandons,
+             submit success/attempts, blocked_inflight, blocked_shutdown
+STREAMGX     drawdone callbacks, spurious, releases, xfb shown, xfb skipped,
+             invariants consistent, in-flight at end, drained, callback restored
+STREAMCONS   taken, converted, presented, overrun, superseded, repeats,
+             no_cpu_texture, abandoned_no_raw, counters balance
+```
+
+Every one is a bounded increment or a min/max/sum; there is no per-slice log line
+and no per-frame array. `no_free_buffer` is renamed `acquire_no_free_texture` and
+documented as a throughput fact — §V5.26 F7 showed the old name being read as a
+GPU-safety guarantee it never was.
+
+#### V5.27.6 Teardown, in the one order that is safe
+
+```text
+gbp_vstate_probe_run() returns  — the Game Boy Player is already restored
+  1. gbp_vpresent_shutdown()    no new fill, no new submit
+  2. cfg.stream = 0, vq.pump = 0   no publish and no slice can be reached
+  3. if still in flight: GX_DrawDone()   BLOCKING, and only here
+  4. GX_SetDrawDoneCallback(previous)    nothing can call into us afterwards
+  5. only now are the buffers dead
+```
+
+`GX_DrawDone()` appears **exactly once** in the program and a host test asserts it
+is after `gbp_vstate_probe_run()` — it would have been forbidden anywhere in the
+service path. The previous callback is captured at install and restored at
+teardown, rather than assuming this program owns the hook for ever.
+
+#### V5.27.7 The display path is no longer dead code (§V5.26.4)
+
+`display_selftest()` walks the identical path once, before the probe, from a
+**synthetic** frame built from pixel coordinates — it holds no stimulus value, so
+it cannot teach the runtime what the experiment looks for (§V3.11). It runs
+unconditionally, because a path exercised only when someone remembers is the path
+that rots, and it costs one frame before the capture opens.
+
+Dolphin now *asserts* it, instead of matching a line printed before anything
+happened:
+
+```text
+OPENGBP-STREAM SELFTEST ok=1 converted=1 released=1 submits=1 drawdone=1 releases=1 xfb=1
+```
+
+So under Dolphin the conversion, the flush, `GX_InitTexObj`, `GX_LoadTexObj`, the
+quad, `GX_SetDrawDone`, `GX_CopyDisp`, the **draw-done callback** and the release
+all execute. That is auxiliary evidence about the code, and nothing about GBP
+timing, pacing or the device (§V5.26, §27).
+
+#### V5.27.8 Unchanged on purpose
+
+- **R3 and the service order.** Both one-shot ISRs stay byte-identical to the
+  physically validated GBP-VIDEO-001 build, and `poc_audit --profile stream`
+  reports 0 findings.
+- **`F_SOURCE_DEFERRED`** is still not excluded by `gbp_vqueue_classify()`.
+  §V5.9's table says "descriptive only; does not change the decision", so the
+  implementation and the contract agree and neither was changed (§V5.26 F9).
+- **RGB5A3 and the tile mapping.** The audit cleared both against the physical
+  `color-0002` frame; `texel = word | 0x8000`, no byteswap, and the eight-value
+  test is kept.
+- **The generation guard**, now exercised together with the new ownership machine.
+
+The one correction §V5.26 F5 asked for is made: the `!blk` path used to mark the
+frame complete and claim "the guard below rejects", which was false. It now
+abandons the buffer, ends the conversion and counts `abandoned_no_raw`.
+
+#### V5.27.9 Adversarial mutations, and the one that exposed a gap in the tests
+
+Each mutation was applied, the suite run, and the source restored. The harness
+was corrected mid-round: the first version used `git checkout` to revert, which
+cannot revert an untracked file and silently reverts a legitimately modified one,
+so three results were invalid (the build was broken and no test ran). Those were
+re-run with a file-backup harness that also refuses to report a result when the
+build fails.
+
+| mutation | caught by |
+| --- | --- |
+| A1 callback frees every SUBMITTED buffer | **initially NOT caught**; caught (2 C) after the white-box test was added |
+| A2 allow two draw-done tokens in flight | 1342 C checks |
+| A3 let the CPU re-acquire a SUBMITTED texture | 16 C checks |
+| A4 remove the final generation check | 3 C checks |
+| A5 flush after marking the buffer READY | host ordering guard (1) |
+| A8 byteswap the RGB5A3 texel | 4 C checks |
+| A9 leave the draw-done callback installed after teardown | **initially NOT caught**; caught (host) after the teardown guard was added |
+| A10 run the slice with a cause already latched | 18 C checks |
+
+**A second harness defect, found by distrusting a result that looked too good.**
+A9 first reported "CAUGHT (4 C failures)", which made no sense — it edits the
+teardown, not anything a C unit test compiles. The four failures were A8's,
+left over from a **stale build**: `tests/unit/Makefile` listed only `.c` files as
+prerequisites, so mutating a *header* left the previous binary in place and the
+next mutation inherited its failures. Re-run with a forced clean build, A9 was
+**NOT caught** — nothing asserted that the draw-done callback is restored at all.
+
+Both halves are fixed. `tests/unit/Makefile` now takes every shared header as a
+prerequisite, so a header edit can never again be credited to the mutation after
+it; and a host guard now asserts the teardown ORDER — probe returns, shutdown,
+drain, restore — rather than the mere presence of the call. With those in place
+A9 is caught and A5's genuine catch (the host ordering guard, not the residual C
+failures) is confirmed on a clean build.
+
+**A1 is the interesting one: it was NOT caught by the behavioural suite as it
+stood.** With
+the one-token rule in force, two buffers can never both be SUBMITTED through any
+legitimate call sequence, so the "free every SUBMITTED buffer" loop never has a
+second victim — the defect is **neutralised by the architecture rather than
+detected by a test**.
+
+That is defence working, and it is also one rule carrying everything: relax the
+one-token rule later and the callback becomes dangerous again with nothing to say
+so. `test_the_callback_releases_only_the_indexed_buffer()` now builds the
+two-SUBMITTED state by hand — which no legitimate sequence can produce, and which
+`gbp_vpresent_consistent()` correctly rejects — and requires the callback to
+release exactly the buffer `submitted` names, in both index directions. With that
+test in place the same mutation is **CAUGHT**, which is how the gap was confirmed
+closed rather than assumed closed.
+
+**What this says about the earlier round.** `stream-0001`'s defect was invisible
+for exactly the same reason in reverse: nothing asserted the callback's contract,
+only that its name appeared in the source. The lesson is not "write more tests";
+it is that a contract enforced by an invariant somewhere else still needs its own
+test, or the invariant becomes load-bearing without anyone knowing.

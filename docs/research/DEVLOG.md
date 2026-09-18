@@ -6817,3 +6817,84 @@ the fix order in `HARDWARE_TESTS.md` §V5.26.
 
 **Next:** an implementation round for §V5.26.9, then a re-audit. U-GBP-029,
 U-GBP-033 and U-GBP-034 stay OPEN and none of them is involved.
+
+## 2026-09-18 — stream-0002: the ownership machine moves somewhere it can be tested
+
+**Goal:** fix what the pre-hardware audit rejected, and produce a new candidate.
+`stream-0001` stays REJECTED and was neither rebuilt nor re-labelled.
+
+**The fix is not "be more careful in main.c".** The blocker survived a green
+suite because the state machine lived in target-only code whose tests asserted
+that a *string* appeared in the source. So ownership moved to
+`src/gbp/gbp_vpresent.{h,c}`, which knows nothing about GX, VI or libogc2 and
+which a host test drives state by state. The rule it enforces is the one that can
+be proved rather than the one that is most general: **at most one draw-done token
+in flight**, and the callback releases **exactly one buffer, by index**.
+
+**A mutation caught a gap in my own tests, which is what mutations are for.**
+Restoring `stream-0001`'s "free every SUBMITTED buffer" callback was **NOT**
+caught by the behavioural suite — because with one token in flight two buffers can
+never both be SUBMITTED in a legitimate sequence, so the defect is *neutralised by
+the architecture* rather than detected. That is defence working, and it is also a
+single point of failure: relax the one-token rule later and the callback becomes
+dangerous again with nothing to say so. A white-box test now builds the
+two-SUBMITTED state directly and requires the callback to release exactly the
+indexed buffer.
+
+**The number I had wrong is now load-bearing in the other direction.** The audit
+showed the real RE-ARM→next-cause window is median 42.8 µs with **p25 = 1.9 µs** —
+on about a third of cycles the next cause is already latched when the RE-ARM
+completes. So the pump now reads the cause first and **does nothing at all when
+one is pending**, at the cost of one extra `poll_intsr` per cycle. That does not
+remove a cause arriving *during* a slice; `cause_arrived_during_pump` counts that,
+defined mechanically as "not pending before, pending after", and claims nothing
+about causality. The slice stays one tile row and stays **PLAUSIBLE BUT
+UNMEASURED**.
+
+**The framebuffer divergence was real and is fixed.** `stream-0001` said "two
+framebuffers", which was true and misleading: they were the stream and the
+console, not a double buffer, and GX copied into the one the VI was scanning.
+`stream-0002` keeps three, and asks the module which is safe from two
+non-blocking VI reads. When neither is, the present is **skipped and counted** —
+never waited on. `VIDEO_WaitVSync()` appears nowhere in the consumer path and a
+test asserts it.
+
+**The display path is no longer dead code.** `display_selftest()` walks the whole
+path once before the probe from a synthetic coordinate gradient — no stimulus
+value, so it teaches the runtime nothing — and emits its result on the Gecko
+channel, which Dolphin now *asserts*: `SELFTEST ok=1 converted=1 released=1
+submits=1 drawdone=1 releases=1 xfb=1`. The draw-done callback really does fire
+under Dolphin, so acquire → fill → flush → submit → token → callback → release
+has now executed end to end somewhere. That is evidence about the code and
+nothing about the device.
+
+**Teardown got a lifecycle.** Shutdown stops publishing and pumping, drains the
+one token that may be pending with the single `GX_DrawDone()` in the whole
+program — permissible only because the Game Boy Player has already been restored —
+and restores the *previous* draw-done callback instead of assuming this program
+owns the hook for ever.
+
+**Also corrected:** the `!blk` path that claimed "the guard below rejects" and did
+not; `no_free_buffer` renamed `acquire_no_free_texture` and documented as a
+throughput fact rather than the GPU-safety guarantee it was read as.
+
+**And a mistake of my own, worth recording because it nearly produced three false
+results.** The first mutation harness reverted with `git checkout`, which cannot
+revert an untracked file — `gbp_vpresent.c` was new this round — and silently
+reverts a legitimately modified one. So three mutations stacked on top of each
+other, `gbp_vqueue.c` lost its uncommitted work mid-run, and two mutations
+reported "NOT CAUGHT" when the truth was that the build was broken and no test
+had run at all. The harness now backs up the file and refuses to report a result
+when the compiler errors.
+
+**Unchanged on purpose:** R3 and the service order (both ISRs still byte-identical
+to the GBP-VIDEO-001 build, audit 0 findings), `F_SOURCE_DEFERRED` (checked
+against §V5.9's exact words — the implementation and the contract agree), the
+RGB5A3 mapping and the tile permutation.
+
+**Status: `stream-0002`, IMPLEMENTED · SOFTWARE/HOST VALIDATED · PRE-HARDWARE FIX
+COMPLETE · PHYSICAL CANDIDATE READY · NOT PHYSICALLY EXECUTED.** No evidence id.
+
+**Next:** a focused re-audit of ownership, timing observability and teardown —
+not a hardware run. Three previous audits each found something that would have
+cost one. U-GBP-029, U-GBP-033 and U-GBP-034 stay OPEN.
