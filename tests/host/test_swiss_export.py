@@ -163,6 +163,38 @@ class Export(unittest.TestCase):
         self.assertFalse(os.path.exists(stray), "a stale export directory survived")
 
 
+class ColourCandidate(unittest.TestCase):
+    """§V3.28: the physical candidate for GBP-VIDEO-003 must be reachable in the
+    operator layout under its canonical number, and it must be the same bytes as
+    the build it came from."""
+
+    def test_the_colour_poc_is_exported_under_its_canonical_number(self):
+        rows = {r["short_name"]: r for r in swiss_export.load(MANIFEST)}
+        self.assertIn("color", rows)
+        r = rows["color"]
+        self.assertEqual(r["dir"], "11-color")
+        self.assertEqual(r["source_poc"], "gbp-video-color-probe")
+        self.assertEqual(r["out_dir"], "gbp-video-color-probe")
+        self.assertEqual(r["enabled"], "1")
+
+    def test_the_diagnostic_is_a_different_entry(self):
+        """80-prewait is the vstate probe with a wait, not this experiment."""
+        rows = {r["short_name"]: r for r in swiss_export.load(MANIFEST)}
+        self.assertIn("prewait", rows)
+        self.assertNotEqual(rows["prewait"]["source_poc"], rows["color"]["source_poc"])
+        self.assertEqual(rows["prewait"]["number"], "80")
+
+    def test_the_exported_colour_dol_is_the_source_dol(self):
+        """Skipped when nothing is built; when it is built, the bytes must match."""
+        src = os.path.join(ROOT, "build", "poc", "gbp-video-color-probe",
+                           "gbp-video-color-probe.dol")
+        dst = os.path.join(ROOT, "build", "swiss", "11-color", "boot.dol")
+        if not (os.path.exists(src) and os.path.exists(dst)):
+            self.skipTest("run `make build && make swiss` to check the exported colour DOL")
+        self.assertEqual(hashlib.sha256(open(src, "rb").read()).hexdigest(),
+                         hashlib.sha256(open(dst, "rb").read()).hexdigest())
+
+
 class NotTracked(unittest.TestCase):
     def test_build_swiss_is_ignored_by_git(self):
         r = subprocess.run(["git", "check-ignore", "-q", "build/swiss"], cwd=ROOT)
