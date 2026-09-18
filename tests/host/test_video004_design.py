@@ -236,15 +236,39 @@ class PointersResolve(unittest.TestCase):
         self.assertIn("STATUS: RESOLVED (route 1, EZ-Flash Omega DE NOR / Mode B)", t)
 
     def test_the_handoff_names_the_active_candidate_and_keeps_the_rejected_one(self):
-        """Two builds now exist for one Test ID. A reader who skims this file must
-        come away knowing which to run and which never to."""
+        """Several builds now exist for one Test ID. A reader who skims this file
+        must come away knowing which was rejected before hardware, which ran, and
+        what its run did and did not establish.
+
+        `NOT PHYSICALLY EXECUTED` was asserted here while stream-0002 was still a
+        candidate. It has since RUN — and aborted pre-service — so the assertion
+        is now that its physical outcome is recorded, not that it is absent."""
         t = flat(read(HANDOFF))
         self.assertIn("GBP-VIDEO-004", t)
         self.assertIn("HARDWARE_TESTS.md` §V5", t)
         self.assertIn("stream-0002", t)
         self.assertIn("REJECTED before hardware — DO NOT RUN", t)
-        self.assertIn("NOT PHYSICALLY EXECUTED", t)
         self.assertIn("0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275", t)
+        # stream-0002's physical outcome, and the three things it must never be
+        # confused with (GBP-HW-137).
+        self.assertIn("ABORTED PRE-SERVICE", t)
+        self.assertIn("store_or_bounds_invalid", t)
+        self.assertIn("GBP STREAM CAPTURE NOT STARTED", t)
+        self.assertIn('NOT "streaming failed"', t)
+        self.assertIn("76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d", t)
+
+    def test_the_handoff_keeps_the_storage_cause_and_its_two_traps(self):
+        """The cause is one predicate and the log actively concealed it. Both
+        facts have to survive into the next round or it will be re-derived."""
+        t = flat(read(HANDOFF))
+        self.assertIn("!s->episode_raw", t)
+        self.assertIn("gbp_vstate_probe.c:790", t)
+        # the gate was right: two unguarded dereferences
+        self.assertIn("gbp_vstate_probe.c:812", t)
+        self.assertIn("gbp_vstate.c:739", t)
+        # and the two traps
+        self.assertIn("static_bytes=6922240", t)
+        self.assertIn("1 798 144", t)
 
     def test_the_handoff_keeps_the_corrected_slack_number(self):
         """The 164 us figure was the mean cycle period, not slack. The MEASURED

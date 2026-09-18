@@ -7002,3 +7002,92 @@ the report is read. R1 and R8 land in `stream-0003` afterwards; R3 is read out o
 this run's cycle histogram before anyone calls the design timing-safe. The CONTROLLED indexed motion stimulus of §V5.18 still does not
 exist, so no result from this run may be cited as evidence of zero dropped source
 frames.
+
+## 2026-09-18 — the first physical smoke of stream-0002 aborted at its first gate, and the gate was right
+
+**Goal.** Locate exactly which predicate produced `store_or_bounds_invalid` on the
+first physical run of `stream-0002`. No hardware, no behaviour change, no
+silent fix.
+
+**Result: found, reproduced on the host, and classified C — an allocation /
+configuration bug in the POC**, with a contributing D (a capacity assumption in a
+design document that was never checked against the code).
+
+**The path is one statement.** `main.c:652 gbp_vstate_probe_run()` →
+`gbp_vstate_probe.c:790 if (!st || !gbp_vstate_storage_ok(st))`. That is the first
+gate of the probe and the statement before any transport, register or interrupt
+work. Twelve predicates; **three** are false on this build; short-circuit
+evaluation means **`!s->episode_raw` (`gbp_vstate.c:72`)** is the one that fired.
+
+**The cause is one call.** `main.c:569-570` passes `episode_raw = NULL,
+episode_raw_cap = 0` and `frames_cap = STREAM_MAX_FRAMES = 4096` against a
+required 16384. Deliberate and documented — §V5.22 proposed dropping the episode
+store for a streaming run — and **never checked against the model**.
+
+**The gate was right, and this is the important part.** Two sites dereference
+`episode_raw` with no NULL check: `gbp_vstate_probe.c:812` memsets 2 949 120 bytes
+through it, and `gbp_vstate.c:739` (`preserve_frame`) writes a whole frame into it
+whenever an episode opens, guarded only by `ep->raw_slot`, which is assigned from
+`episodes_n` alone. Had the run started, the probe would have memset 2.81 MiB over
+GameCube low memory **before touching the device**. So the fix is *not* to relax
+the validator; a diagnostic unit test now pins that
+(`test_a_null_episode_store_must_stay_refused`, +6 checks, green).
+
+**The memory was never the problem.** Reconstructed from the run's own `ENVBUF`
+line: gx_fifo, both textures, audio_raw, raw_ring, event_store and frame_store are
+contiguous and disjoint, every DMA/GX target 32-byte aligned, highest static byte
+`0x002c8920` = **2.78 MiB of MEM1's 24 MiB**, no overflow, all inside BSS
+(`0x80074d4c`..`0x80337d98`, 2 895 948 B).
+
+**`static_bytes=6922240` explained, and it is misleading.** It is
+`gbp_vstate_static_bytes()`, computed **entirely from `#define`s** — the capacity
+constants of the GBP-VIDEO-002 model. It reads no state. This build actually
+allocated **1 798 144**; the 5 124 096 difference is a frame table and an episode
+store that do not exist, less a raw ring larger than the constant assumed. For
+every earlier build the constants and the allocation coincided, so the number was
+accidentally true. Worse: the `VSTATE stores frames=16384 …` line prints the
+constant too, so **the log line that should have exposed this defect concealed
+it**.
+
+**Why three audits missed it.** `git show 0816cbe` proves the same configuration
+shipped in `stream-0001` — the defect is as old as the first streaming candidate,
+and `stream-0001` would have aborted identically. §V5.28 scoped the memory design
+out because "`stream-0002` did not touch it", which was true and beside the point:
+the memory design *had* changed relative to `color-0002` and `vstate-0004`, both
+physically validated, both of which pass 16384 frames and a real 2.81 MiB episode
+store. **An audit's "unchanged, therefore out of scope" must be measured against
+the last physically validated build, not against the previous candidate.** No test
+covered it either: `gbp_vstate_storage_ok()` has unit tests, but nothing checked
+the POC's *call* to it, and `main()` is not host-compiled.
+
+**The GX self-test is not implicated**, checked rather than assumed: the predicate
+reads only fields set by `gbp_vstate_init()`, `src/gbp/` contains no allocation of
+any kind, and `main()` runs `video_setup()` → `gx_setup()` → `gbp_vstate_init()`
+→ `display_selftest()`, so those fields were fixed before the self-test ran.
+
+**Newly confirmed on hardware (GBP-HW-134…137).** The GX display path executed on
+a real GameCube and the draw-done token came back (`drawdone=1 releases=1
+xfb_presents=1 consistent=1 cb_restored=1`) — the first physical GX evidence in
+this repository. R1 reproduced exactly as pre-registered (`converted=0
+presented=1 SELFTEST.xfb=1 balanced=0`), which validates the pre-registration
+method. And `deliveries=0 acks=0 rearms=0 handler_installed=0`: **nothing of the
+service was exercised**, so no claim about video, streaming or the device follows
+from this run in either direction.
+
+**Rejected.** That "there is enough memory" answers the question — it does not;
+the difference between 6 922 240 and 1 798 144 had to be resolved, and resolving
+it is what identified the phantom stores. Also rejected: that the validator is
+stale. Half of it is (the frame-table capacity, a safe reduction the contract
+forbids), half of it is load-bearing (the episode store, which the model
+dereferences).
+
+**Proposed correction, NOT applied** (this round is not authorised to change
+`src/` or `poc/`): allocate the full frame table and the episode store in the POC
+— `poc/`-only, +5 308 416 B, bss 2 895 948 → 8 204 364 (7.82 MiB), about 10.0 MiB
+of 24 MiB total, comparable to the validated colour probe. Alongside it: log the
+**actual** capacities beside the constants, and add the host guard that parses the
+POC's `gbp_vstate_init()` call.
+
+**Next:** `stream-0003` — this store fix plus R1 and R8 — then its own
+pre-hardware audit, scoped against `color-0002`/`vstate-0004`. `stream-0002`
+stays historical and is never rebuilt or re-labelled.

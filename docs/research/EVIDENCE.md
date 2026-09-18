@@ -3164,3 +3164,82 @@ A/C      2485    2264       0     221       0
 block 0, x = 68, y = 0, byte 0, `83` vs `03`. Bytes 1 and 3 differ in **zero**
 positions in every pair. This identifies no mechanism and promotes no meaning;
 it is evidence for U-GBP-029 and nothing else.
+
+### GBP-HW-134 — the GX display path ran on real hardware, and the draw-done token came back — FACT
+
+First physical execution of a GX path in this repository. `stream-0002`'s
+pre-probe display self-test, which converts a synthetic 240×160 frame, uploads it
+as `GX_TF_RGB5A3`, draws one quad, arms a draw-done token and copies to a
+framebuffer, reported on hardware:
+
+```text
+drawdone=1  releases=1  xfb_presents=1  consistent=1  cb_restored=1
+```
+
+`on_draw_done` has no call site anywhere in the linked image — it appears once,
+as its own symbol at `0x80004788`, and its address is materialised only at
+`main.c:319` into `GX_SetDrawDoneCallback` (§V5.28.10). So `drawdone=1` can only
+have come from the physical PE FINISH interrupt. The ownership machine of
+`src/gbp/gbp_vpresent.c` began and ended the self-test in a consistent state, and
+the previous draw-done callback was restored.
+
+This says nothing about the Game Boy Player, about sustained streaming or about
+pacing: the self-test runs before any capture opens and touches no device. It is
+evidence about the GameCube display path only.
+
+### GBP-HW-135 — the pre-registered R1 offset reproduced exactly — FACT
+
+§V5.28.10 and §V5.28.14 predicted, before physical execution, that
+`gbp_vqueue_balanced()` would read false on every run with a deterministic **+1**
+presentation offset introduced by the pre-probe self-test. The hardware printed:
+
+```text
+converted=0  presented=1  SELFTEST.xfb=1  balanced=0
+```
+
+which is the predicted state exactly. The pre-registered identity
+`converted == (presented − SELFTEST.xfb) + overrun` gives `0 == (1 − 1) + 0`,
+which holds.
+
+The value of this entry is methodological: a defect found by reading the source,
+quantified before the run and confirmed by the run. It remains a **reporting**
+defect and carries no claim about the device.
+
+### GBP-HW-136 — `stream-0002` aborted before any device access, at its first storage gate — FACT
+
+```text
+VSTATE abort reason=store_or_bounds_invalid
+VSTATE end   status=abort_store_unavailable
+```
+
+The abort is `gbp_vstate_probe.c:790`, `!st || !gbp_vstate_storage_ok(st)`, the
+first gate of `gbp_vstate_probe_run()` and the statement before any transport,
+register or interrupt work. The failing predicate is `!s->episode_raw`
+(`gbp_vstate.c:72`): the POC passed `episode_raw = NULL, episode_raw_cap = 0` and
+`frames_cap = 4096` against a required 16384 (`main.c:569-570`, `:163`). Three of
+the twelve predicates were false; short-circuit evaluation means the NULL store is
+the one that fired. Reproduced on the host, bit for bit, including the logged
+`static_bytes=6922240` (§V5.29.9).
+
+The refusal is **correct**: `gbp_vstate_probe.c:812` would have executed
+`memset(NULL, 0, 2 949 120)` over GameCube low memory before the first device
+access, and `gbp_vstate.c:739` writes into the same store whenever an episode
+opens. Neither site checks for NULL.
+
+The physical memory layout printed by the same run is clean — no overlap, no
+misalignment, no overflow, 2.78 MiB of MEM1's 24 MiB in use (§V5.29.5). This was
+never a memory-availability problem.
+
+### GBP-HW-137 — nothing of the GBP service was exercised — FACT (a negative)
+
+```text
+deliveries=0  acks=0  rearms=0  frames=0  handler_installed=0
+```
+
+The run never installed a handler, never unmasked, never touched the Game Boy
+Player. **No claim about video, streaming, pacing, the service path or the device
+may be derived from this run**, in either direction. It is evidence that the
+storage gate fires before the device does, and nothing else.
+
+Its correct description is: PHYSICAL EXECUTION ATTEMPTED · GX SELF-TEST
+PHYSICALLY PASSED · GBP STREAM CAPTURE NOT STARTED · ABORTED PRE-SERVICE.
