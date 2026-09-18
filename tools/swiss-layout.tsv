@@ -42,4 +42,5 @@
 09	video	gbp-video-capture-probe	gbp-video-capture-probe.dol	gbp-video-capture-probe	build	1
 10	vstate	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe	build	1
 11	color	gbp-video-color-probe	gbp-video-color-probe.dol	gbp-video-color-probe	build	1
+12	stream	gbp-video-stream-probe	gbp-video-stream-probe.dol	gbp-video-stream-probe	build	1
 80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1
