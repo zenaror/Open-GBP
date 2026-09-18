@@ -7362,3 +7362,83 @@ compile-and-compare of the Python model against `src/gbp/gbp_vsig.c` itself.
 
 **Next:** decide the witness. Recommended: the stimulus-agnostic per-block
 CRC-32, in a round that audits it like any other runtime change.
+
+## 2026-09-18 — OGBPIDX1: the indexed stimulus contract is frozen
+
+**Design round 3, offline only.** No ROM, no hardware, no `src/`, no `poc/`.
+`stream-0003` is untouched and the next physical action is unchanged: the first
+supervised GBP stream smoke of `2f8e362e…199e3`.
+
+Round 2 ended at verdict B with three blockers. All three are resolved and the
+contract is **frozen as format version OGBPIDX1**. Verdict **A**.
+
+**Blocker 1 — the witness.** `gbp_vsig_block()` is accepted as not being an
+identifier and is not tuned to become one. The decisive evidence is now **one
+lossless strip copy per VIDEO block: STRIP-L, local row 0, i.e. screen row 4b,
+54 words = 108 B per block, 4 320 B per frame.** That row was chosen because it
+is the first line of the block on the wire, so a runtime copy is one stride at
+the head of the delivery. The other seven copies stay in the picture as
+diagnostic redundancy and carry no part of the decisive claim. **The witness does
+not prove pixel-perfect equality of the frame** — it proves frame-ID sequence
+integrity, block composition integrity and block position integrity, which are
+three separate questions.
+
+**Blocker 2 — the claim.** Narrowed to transitions between the first and last
+intact IDs observed at the pre-publication capture layer. Frames before the
+first and after the last are **unobservable and nothing is claimed about them**.
+**No anchor was invented** to rescue a broader wording.
+
+**Blocker 3 — the stimulus validates itself.** Mode 3 has one framebuffer, so the
+ROM must prove it finished inside VBlank rather than assume it. Mechanism, from
+GBATEK: **VCOUNT** (160..227 are the VBlank lines) plus **Timer 0 at F/64**
+(262 144 Hz, 3.81 µs per tick, 1 309 ticks per VBlank) — both free-running reads.
+The payload now carries `STATUS`: bit 7 a **sticky FAULT latch**, bits 6..0 a
+**monotone-minimum VMARGIN** in remaining VBlank scanlines, initialised to 0x7F
+("no update measured yet", unreachable since VBlank is 68 lines). FAULT seen
+anywhere ⇒ `STIMULUS_INVALID_FOR_DECISIVE_CLAIM`.
+
+**The layout had to change, and every number was recomputed.** STATUS cost 8
+columns per strip: strips are 54 bits, CONTENT shrank from 144 px to 128 px, and
+the bar period fell from 35 to **31** (prime; gcd(8,31)=1, so b=0..30 give all 31
+phases and nine blocks repeat). The old 30-bit CRC vectors are **retired, not
+carried forward** — ten new known-answer vectors are frozen, and a single-bit
+flip anywhere in the 38-bit payload is still impossible to miss.
+
+**The status delay is real and is written down.** STATUS in frame f certifies
+updates 0..f−1, never f itself. So for observed intact frames A..Z the decisive
+set is A..Z−1: one frame lost to the trailing edge, one to the delay. For ~1 792
+observed frames that leaves ~1 790 decisive transitions, and the analyzer reports
+both exclusions instead of dropping them quietly.
+
+**Capacity derived, not picked.** 30 s × 59.737 Hz = 1 792.1 frames, +10 % for
+clock tolerance and for the capture window being tick-bounded rather than
+frame-bounded = 1 971.3, smallest power of two above it = **2 048 frames =
+8.44 MiB**, against the 13.97 MiB `stream-0003` leaves free. 60 s would need
+15.48 MB and does **not** fit, which is why the safety cap cannot be the basis.
+`witness_store_full` stops storing and makes the claim INCONCLUSIVE; nothing is
+ever silently overwritten.
+
+**Said plainly:** canonical strip retention is **stimulus-aware** instrumentation.
+A fixed ROI is stimulus knowledge even though it decodes nothing. Acceptable for
+a specific scientific POC, under conditions written into the contract, and never
+promoted into the generic runtime without a separate decision. Option D
+(per-block CRC-32) is reclassified as a **generic diagnostic fingerprint** — not
+decisive, not lossless, not a replacement — and is not implemented.
+
+**VBlank estimate updated and still an estimate:** 19 840 VRAM-store cycles =
+23.7 % of 83 776, before loop control, CRC generation, bit-to-symbol expansion
+and the instrumentation reads. And a concrete implementation constraint:
+`mod 31` must **not** become a divide, because ARM7TDMI has none — a running
+counter with compare-and-subtract.
+
+**Tests.** `tools/istim.py` now carries the witness, the frame classifier, the
+decisive-population rule and the status semantics; 74 host tests for it, 649
+overall, green, plus 19 unit binaries / 792 077 checks / 0 failures. The Python
+model is still compile-and-compared against `src/gbp/gbp_vsig.c` itself.
+
+**Open on purpose:** DDR-1 (Mode 4 page flipping) stays open — Mode 3 keeps the
+baseline because it is the only mode with physical colour evidence — and the
+VBlank figure stays an estimate until the ROM measures it.
+
+**Next:** implement the ROM against this contract. It does not block the first
+physical smoke.

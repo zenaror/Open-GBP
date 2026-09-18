@@ -10159,3 +10159,347 @@ None of them blocks the first physical smoke of stream-0003.
 `src/gbp/` addition that must be audited like any other runtime change, and it
 would make the witness stimulus-agnostic — which is the scientifically better
 outcome and the one recommended here.
+
+### V5.33 `stimulus/agb-indexed` — **CONTRACT FROZEN, format version OGBPIDX1 — 2026-09-18 — VERDICT: A**
+
+**Nothing physical happened and nothing physical changed.** `stream-0003` is
+untouched — commit `03b32a9`, 471 648 B, sha256 `2f8e362e…199e3`, Swiss copy
+byte-identical — and **the next physical action is still the first supervised GBP
+stream smoke of that exact artifact**. No ROM was written. No `src/` or `poc/`
+file was touched.
+
+Round 2 (§V5.32) ended at verdict B with three blockers. This round resolves all
+three and freezes the contract.
+
+#### V5.33.1 Blocker 1 — the decisive witness
+
+`gbp_vsig_block()` is **accepted as not being an identifier** and is not tuned to
+become one. §V5.32.7 proved the ID contributes nothing to it, §V5.32.8
+constructed collisions. It stays as a generic historical diagnostic and **carries
+no part of the decisive claim**.
+
+```text
+CANONICAL WITNESS  (the decisive evidence)
+  ONE strip copy per VIDEO block, preserved LOSSLESSLY as the original consumed
+  word16 — STRIP-L, LOCAL ROW 0 of the block, i.e. screen row 4*b, x = 1..54.
+  54 words x 2 B = 108 B per block, 4 320 B per frame.
+  Chosen because it is the FIRST LINE of the block on the wire: a runtime copy
+  is one stride at the head of the delivery and needs no buffering.
+
+DIAGNOSTIC REDUNDANCY  (not required by the decisive claim)
+  the other seven copies — STRIP-L rows 1/2/3 and STRIP-R rows 0/1/2/3 — stay in
+  the picture and are usable whenever raw or anomaly evidence exists.
+```
+
+**The canonical witness does NOT prove pixel-perfect equality of the frame.** It
+proves exactly three things, and they are separate questions (§V5.33.7).
+
+#### V5.33.2 Blocker 2 — the scientific claim, narrowed and pre-registered
+
+```text
+THE QUESTION
+  "Between the first and last intact source-frame IDs observed at the
+   PRE-PUBLICATION capture layer, was the observed source-ID sequence contiguous
+   and ordered, with every captured frame composed of the expected 40 block
+   indices carrying one consistent frame ID?"
+
+NOT OBSERVABLE, and no claim is made about it:
+  * AGB frames presented BEFORE the first intact observed ID
+  * AGB frames presented AFTER  the last  intact observed ID
+
+NO ANCHOR IS ADDED. A handshake or start trigger built only to make the edges
+observable would enlarge the experiment for a question nobody has asked. The
+narrowed scope is accepted. A later version may add one if a real question needs
+the edges.
+```
+
+#### V5.33.3 Blocker 3 — the stimulus validates itself
+
+Mode 3 has one framebuffer, so "the update finished inside VBlank" must be
+**measured by the stimulus and carried in the payload**, not assumed.
+
+Mechanism, from GBATEK (`external/gbatek/gba.md`, FACT):
+
+```text
+VCOUNT   0x04000006, read-only, LY 0..227; 160..227 ARE the VBlank scanlines
+Timer    prescaler 1 = F/64 -> 16 777 216/64 = 262 144 Hz, 3.8147 us per tick
+VBlank   68 lines, 83 776 cycles, 4.994 ms  ->  1 309 ticks of that timer
+```
+
+Both are free-running reads; nothing beyond the VBlank IRQ is needed.
+
+```text
+SOURCE_UPDATE_FAULT — a sticky latch, cleared only by a boot
+  set when an update ends with VCOUNT outside [start, 227],
+  or with elapsed ticks > the VBlank tick budget,
+  and NEVER cleared for the rest of that boot.
+
+VMARGIN — a monotone MINIMUM, 7 bits
+  the smallest number of VBlank scanlines still remaining at the end of any
+  update so far, clamped 0..127, initialised to 127 = "no update measured yet"
+  (unreachable by a real margin, since VBlank is only 68 lines).
+```
+
+If `FAULT` is observed set anywhere in the run, the run is classified
+**`STIMULUS_INVALID_FOR_DECISIVE_CLAIM`** — the stimulus itself is the thing in
+doubt, and the source-integrity claim cannot be made without qualification.
+
+#### V5.33.4 The frozen format — **OGBPIDX1**
+
+```text
+GEOMETRY (240 x 160, AGB Mode 3, Mode 4 stays a future optimisation, DDR-1 OPEN)
+  x = 0          FLAG      1 px   0x03E0
+  x = 1..54      STRIP-L  54 px   <- the CANONICAL WITNESS lives on local row 0
+  x = 55         GUARD     1 px   0x0000
+  x = 56..183    CONTENT 128 px   32 cells of 4
+  x = 184        GUARD     1 px
+  x = 185..238   STRIP-R  54 px
+  x = 239        GUARD     1 px
+                --------------
+                 240 px, tiled exactly once — machine-checked
+
+  block b = rows 4b .. 4b+3, b = 0..39; 40 x 4 = 160 rows
+
+SYMBOLS (AGB BGR555, bit 15 NEVER written by the stimulus)
+  ZERO  0x0000   ONE 0x7FFF   FLAG 0x03E0   GUARD 0x0000
+  every one is a FIXED POINT of the confirmed outer-group exchange, so the ID
+  decode does not depend on U-GBP-011's result at all
+
+STRIP WORD, 54 bits, MSB-first
+  SYNC         8   0xB2
+  FRAME_ID    24
+  BLOCK_INDEX  6
+  STATUS       8   bit7 FAULT | bits6..0 VMARGIN
+  CRC8         8   over the 38 bits FRAME_ID || BLOCK_INDEX || STATUS
+
+  STATUS is INSIDE the CRC because it gates the decisive claim: the bit must be
+  as protected as the ID it qualifies.
+
+STRIP POLARITY AND ORDER
+  row 4b+0 / 4b+2 : L = plain,    R = reversed + inverted
+  row 4b+1 / 4b+3 : L = inverted, R = reversed
+
+COUNTER
+  FRAME_ID starts at 0 at cartridge power-on, +1 per AGB VBlank, 24 bits,
+  wraps 0xFFFFFF -> 0x000000. Wrap horizon 2^24 / 59.737 Hz = 77.98 hours.
+
+CONTENT
+  background(x,y) = PAL16[((x-56)>>2 + y>>2) & 15], PAL16[k] = 0x0842*k
+  barpos(f,b)     = (f + 8*b) mod 31,  bar = 2 cells of 4 px, colour 0x7C00
+  gcd(8,31) = 1 and 31 is prime, so b = 0..30 give all 31 phases and b = 31..39
+  necessarily repeat nine of them. The bar is a FRESHNESS witness, never an
+  identifier. The period was 35 while CONTENT was 144 px; the STATUS field cost
+  8 columns per strip and CONTENT shrank to 128 px.
+```
+
+#### V5.33.5 CRC-8 — specification and the FROZEN vectors
+
+```text
+register 8 bits · poly 0x07 · init 0xFF · xorout 0x00 · no reflection
+input    MSB-first: FRAME_ID[23..0] || BLOCK_INDEX[5..0] || STATUS[7..0] = 38 bits
+         NO zero augmentation
+per bit  fb = ((crc>>7)&1) ^ inbit ; crc = ((crc<<1)&0xFF) ^ (0x07 if fb else 0)
+result   the final register value, painted MSB-first
+```
+
+| FRAME_ID | BLOCK_INDEX | STATUS | CRC8 |
+| --- | --- | --- | --- |
+| `0x000000` | 0 | `0x7F` | `0xB6` |
+| `0x000000` | 39 | `0x7F` | `0x73` |
+| `0x000001` | 0 | `0x7F` | `0xED` |
+| `0x000001` | 39 | `0x7F` | `0x28` |
+| `0xFFFFFF` | 0 | `0x7F` | `0xC7` |
+| `0xFFFFFF` | 39 | `0x7F` | `0x02` |
+| `0x123456` | 17 | `0x42` | `0xD3` |
+| `0x000000` | 0 | `0x00` | `0xCC` |
+| `0x000000` | 0 | `0x80` | `0x45` |
+| `0xFFFFFF` | 39 | `0xFF` | `0x8B` |
+
+A single-bit flip anywhere in the 38-bit payload always changes the CRC, tested
+exhaustively over all 38 positions for three payloads. **The old 30-bit vectors
+of §V5.32.3 are retired, not carried forward** — the payload changed.
+
+#### V5.33.6 Canonical decode rules — lossless in, structured out
+
+```text
+for each of the 54 witness words:
+    flag15   = word16 & 0x8000        <- split off, REPORTED, never consumed
+    colour15 = word16 & 0x7FFF
+    ZERO  iff colour15 == 0x0000
+    ONE   iff colour15 == 0x7FFF
+    OTHER otherwise -> INVALID_CANONICAL_STRIP (reason "symbol")
+
+then, in order, any failure ending the decode:
+    SYNC must equal 0xB2                     -> reason "sync"
+    CRC8 must match the 38-bit payload       -> reason "crc"
+    BLOCK_INDEX must equal the delivery slot -> MISPLACED_BLOCK_INDEX
+
+FRAME_ID and STATUS are emitted ONLY if everything above passed.
+Bit 15 can never change a decoded bit and can never fail the CRC. An unexpected
+flag coordinate is a U-GBP-034 observation, reported separately.
+```
+
+**CRC-8 is internal consistency, never authority.** The authority is the 54
+preserved word16 themselves. The phrase "the CRC proves equality" is forbidden.
+
+#### V5.33.7 What the decisive run proves — three separate things
+
+```text
+A  FRAME-ID SEQUENCE INTEGRITY    the observed IDs are contiguous and ordered
+B  BLOCK COMPOSITION INTEGRITY    all 40 blocks of a frame carry ONE frame ID
+C  BLOCK POSITION INTEGRITY       every BLOCK_INDEX equals its delivery slot
+
+NOT proved: pixel fidelity outside the strip. That is a different question and
+is not answered by this experiment.
+```
+
+Vocabulary, factual only — **"SOURCE LOSS" is not a name for raw data**:
+
+```text
+OBSERVED_ID_CONTIGUOUS · OBSERVED_ID_GAP · OBSERVED_DUPLICATE_ID
+OBSERVED_REORDER · UNRESOLVED_HALF_RANGE
+MIXED_BLOCK_IDS · MISPLACED_BLOCK_INDEX · INVALID_CANONICAL_STRIP
+```
+
+The strongest permitted interpretation of a gap: *"one or more source frame IDs
+expected by the deterministic sequence were not observed at the pre-publication
+capture layer."* **No mechanism is attributed.**
+
+Modular classification, unchanged from §V5.32.4 and re-tested here, with
+`delta == 2^23` remaining `UNRESOLVED_HALF_RANGE` and never a gap.
+
+#### V5.33.8 The status delay, and the decisive population
+
+```text
+per VBlank N: read timer+VCOUNT; f := N; paint strips with the latch AS IT
+STANDS (reflecting updates 0..N-1); paint bars; read timer+VCOUNT; fold into
+the latch, which now reflects update N.
+
+=> STATUS carried by frame f certifies updates 0 .. f-1, NEVER f itself.
+```
+
+For observed intact frames **A..Z**: the latch is sticky, so frame Z's STATUS
+already covers every update from 0 to Z−1 at once; frame **Z**'s own update is
+certified by nothing. **The decisive frames are A..Z−1 and the decisive
+transitions are A→A+1 … (Z−2)→(Z−1).** For ~1 792 observed frames that is
+~1 790 decisive transitions: one lost to the trailing edge, one to the status
+delay. Both exclusions are reported by the analyzer, never silently dropped.
+
+#### V5.33.9 Witness capacity — derived, and `witness_store_full`
+
+```text
+expected 30 s population       30 x 59.737 Hz = 1792.1 frames
++ 10 % (clock tolerance, and the capture window is TICK-bounded, not
+  frame-bounded, so the population is not exactly 1792)      = 1971.3
+smallest power of two above that                             = 2048
+
+capacity 2048 frames x 4 320 B = 8 847 360 B = 8.44 MiB
+stream-0003 commits 10.03 MiB of 24.00 and leaves 13.97 MiB free
+a future candidate would commit 18.47 MiB and leave 5.53 MiB
+
+witness_store_full  -> the run STOPS storing; the decisive claim becomes
+                       INCONCLUSIVE. Nothing is ever silently overwritten.
+```
+
+60 s would need 15.48 MB and does **not** fit — which is why the first decisive
+run is 30 s and why the safety cap cannot be used as the capacity basis.
+
+#### V5.33.10 Where the copy would happen, and what it costs
+
+The same scientific layer already frozen in §V5.32.1: from `blk` in
+`gbp_vstate_probe.c` beside `gbp_vsig_block()`, **before**
+`gbp_vqueue_publish()`. Per block: gather 54 word16 from the first line —
+**108 loads, 54 stores, 216 of the block's 3 840 source bytes (5.6 %)**, against
+a `gbp_vsig_block()` that already reads all 3 840. **This must be MEASURED on
+hardware before anyone calls it timing-safe.**
+
+#### V5.33.11 Stimulus-aware, said plainly
+
+**Canonical strip retention is STIMULUS-AWARE instrumentation.** A fixed ROI at
+`x ∈ [1,54]`, local row 0, is stimulus knowledge even though it decodes nothing.
+It is acceptable here because this is a specific scientific POC, and only under
+these conditions:
+
+```text
+does not change the GBP protocol
+does not decide anything online
+does not decode FRAME_ID online
+preserves losslessly a PRE-REGISTERED ROI and nothing else
+the analyzer stays offline
+```
+
+It must **not** be promoted into the generic runtime without a separate decision.
+
+**Option D reclassified:** a per-block CRC-32 would be a *generic diagnostic
+fingerprint*. It is **not** a decisive witness, **not** lossless, and **does not
+replace** the canonical strip. Not implemented — avoiding scope creep.
+
+#### V5.33.12 VBlank estimate — final layout, still an ESTIMATE
+
+```text
+strip pixels/frame  17 280   54 bits x 2 strips x 4 rows x 40 blocks
+bar pixels/frame     2 560
+total               19 840 px = 9 920 32-bit VRAM stores x 2 cycles = 19 840
+VBlank budget       83 776 cycles  ->  23.7 % on VRAM stores alone
+
+NOT counted, which is why this is an estimate:
+  loop and address arithmetic over 320 inner runs
+  payload/CRC generation (crc8(frame_id) folded once, then 40 table lookups)
+  bit-to-symbol expansion, 54 bits x 8 copies = 432 decisions per frame
+  timer and VCOUNT instrumentation, 4 MMIO reads per frame
+  `mod 31` MUST NOT become a divide: ARM7TDMI has no divide instruction, so it
+  is a running counter with compare-and-subtract
+```
+
+What the ROM must measure and carry: **update ticks (current and maximum),
+VCOUNT before and after, and the overrun latch.** Only `FAULT` and `VMARGIN`
+reach the payload; the rest forms them.
+
+#### V5.33.13 The first decisive run
+
+```text
+duration 30 s (proposal, not frozen by precedent)
+~1 792 source periods · ~1 791 internal transitions available
+~1 790 DECISIVE transitions after the edge and the status delay
+witness 7.74 MB of the 8.44 MiB capacity
+
+permitted result:
+  "0 OBSERVED_ID_GAP among N observable decisive transitions"
+NOT permitted:
+  any universal loss-rate guarantee, or any statement about the edges
+```
+
+#### V5.33.14 Long-run
+
+FRAME_ID stays 24 bits, wrap 77.98 h, and the modular classification already
+handles it. The 30 s witness retention does **not** have to solve long-run now;
+the frame format does not prevent future external storage.
+
+#### V5.33.15 VERDICT
+
+```text
+A — DESIGN READY TO FREEZE
+
+resolved: observable claim · canonical witness · witness capacity · exact final
+payload and layout · source-update validation and latch · status delay ·
+classification rules · memory feasibility.
+
+FROZEN as format version OGBPIDX1: layout, symbols, strip word, CRC parameters
+and vectors, counter width and wrap, canonical witness coordinates,
+classification rules, stimulus validity rules.
+
+STILL OPEN and deliberately so:
+  DDR-1  Mode 4 page flipping — Mode 3 keeps the baseline because it is the only
+         mode with physical colour evidence; Mode 4 is a future optimisation
+  the VBlank figure is an ESTIMATE until the ROM measures it on hardware
+
+The ROM is NOT written in this round. The next checkpoint is its implementation,
+and it does not block the first physical smoke of stream-0003.
+```
+
+**Evidence classes used above:** FACT — the consumed projection, the geometry,
+the outer-group exchange, the GBATEK timing and VCOUNT figures. CORROBORATED —
+the ≈59.727 Hz AGB rate. DESIGN DECISION — every constant of OGBPIDX1. HYPOTHESIS
+— that a mixed frame, if observed, was mixed on the AGB→GBP→GameCube path;
+the layer is not attributable by this experiment. UNKNOWN — U-GBP-029 and
+U-GBP-034, neither of which this experiment depends on or resolves.

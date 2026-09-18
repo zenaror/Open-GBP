@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   95199852ecaecac08e203c33be531e914a807bcb
+STATE BASELINE COMMIT   3bd439f39446002606b24b15bddc8413a89aa59d
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -96,7 +96,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
 | **GBP-VIDEO-004** (sustained streaming) | **`stream-0003` AUDITED 2026-09-18 — DECISION A: READY FOR THE FIRST PHYSICAL GBP STREAM SMOKE · NOT PHYSICALLY EXECUTED.** Sustained streaming is NOT claimed to work | `HARDWARE_TESTS.md` §V5.30, §V5.31 |
-| **CONTROLLED indexed stimulus** (`stimulus/agb-indexed`) | **DESIGNED, offline reference model built, VERDICT B — one more revision before the ROM.** The stimulus survived; the `sig[40]` witness architecture did **not** (rejected by construction). `tools/istim.py` + 44 host tests. No ROM, no hardware, and it does **not** block the physical smoke | `HARDWARE_TESTS.md` §V5.32 |
+| **CONTROLLED indexed stimulus** (`stimulus/agb-indexed`) | **CONTRACT FROZEN — format version `OGBPIDX1`, VERDICT A.** Canonical witness = one lossless strip copy per block (4 320 B/frame, capacity 2 048 frames = 8.44 MiB); the stimulus validates its own VBlank budget and carries a sticky FAULT latch. `tools/istim.py` + 74 host tests. **ROM NOT WRITTEN**, and it does **not** block the physical smoke | `HARDWARE_TESTS.md` §V5.33 |
 | **Dolphin's emulated Game Boy Player** | **EXISTS and is REACHABLE from a homebrew DOL** in the installed 2606a (`HSPDevice=2` + `GBPlayerRom`; no BIOS, no Start-up Disc). The exact `stream-0003` reaches the CONTROL gate on it and stops there: Dolphin's power-on CONTROL is `0x02`, hardware's is `0x90`. **AUXILIARY only** | `HARDWARE_TESTS.md` §V5.31 |
 | **`stream-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE: `store_or_bounds_invalid`.** GX self-test physically PASSED; **GBP stream capture never started**; `deliveries=0 acks=0 rearms=0 handler_installed=0`. Historical; never rebuilt, never re-labelled, and **not** a streaming failure | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | **`stream-0001`** | **REJECTED before hardware — DO NOT RUN.** Historical; its identity is preserved and was not reused | §V5.26; `stream-0002` supersedes it |
@@ -355,9 +355,9 @@ Steps       1. copy boot.dol to SD as 12-stream
 Duration    SHORT and SUPERVISED: 30 s capture, 60 s safety cap
 Objective   OPERATIONAL, TIMING and DISPLAY behaviour only.
             NOT a decisive frame-loss validation — the CONTROLLED indexed
-            motion stimulus of §V5.18 does not exist as a ROM (its design is at
-            §V5.32, verdict B), so source-frame loss cannot be measured against
-            ground truth.
+            motion stimulus of §V5.18 does not exist as a ROM (its contract is
+            FROZEN at §V5.33 as OGBPIDX1, but nothing is built), so source-frame
+            loss cannot be measured against ground truth.
 Read it     with §V5.21, unchanged. stream-0003 needs NO counter correction:
             `counters BALANCE` is expected, and `DO NOT BALANCE` would now be
             a real finding.
@@ -466,6 +466,13 @@ believe one is wrong, argue against the source, do not re-run the discovery.
   contribute *nothing* to it, and it misses a strip substituted from another
   frame ID or another block index entirely (§V5.32.7, §V5.32.8). It is not
   "lossless" and must never be described as one.
+- **That the indexed stimulus exists.** Its CONTRACT is frozen (`OGBPIDX1`,
+  §V5.33); **no ROM has been written**. Until one is built and run, source-frame
+  loss cannot be measured against ground truth by anything.
+- **That the canonical witness proves the frame arrived pixel-perfect.** It does
+  not. It decides frame-ID sequence integrity, block composition integrity and
+  block position integrity — three separate questions. Pixel fidelity outside
+  the strip is a fourth, and this experiment does not answer it.
 - **That "zero observed gaps" would mean zero source-frame loss.** It would mean
   no observed transition had Δ ≠ 1, between the first and last intact observed
   ID. Frames before the first and after the last stored frame are
