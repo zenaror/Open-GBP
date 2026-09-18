@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   ef328b4dd58aa79683f3207c99c4ccaae1bea549
+STATE BASELINE COMMIT   0816cbe8ac7ed667c0114ff310aa4c7b0d0b4bb8
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -91,7 +91,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
-| **GBP-VIDEO-004** (sustained streaming) | **DESIGN / PRE-REGISTERED 2026-09-18 — NOT IMPLEMENTED, NOT RUN.** Active experiment | `HARDWARE_TESTS.md` §V5 |
+| **GBP-VIDEO-004** (sustained streaming) | **IMPLEMENTED · SOFTWARE/HOST VALIDATED · PHYSICAL CANDIDATE READY · NOT PHYSICALLY VALIDATED.** Active experiment | `HARDWARE_TESTS.md` §V5; `poc/gbp-video-stream-probe` |
 | **Physical ROM delivery dependency (§V3.7)** | **RESOLVED** — route 1, EZ-Flash Omega DE NOR / Mode B, two physical runs | §V3.7 resolution note |
 | **VIDEO colour bit order** | **FACT** — measured with a known-colour stimulus, twice; promoted into `docs/hardware/GBS-DOL.md` and `docs/protocol/REGISTERS.md` | GBP-HW-131 |
 | **Operator visual arming** | **REJECTED**: the stimulus is not observable during the pre-handler interval | `HARDWARE_TESTS.md` §V3.27 |
@@ -148,6 +148,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-003 | `color-0001` | `e10423c` | `32ea371cd3b51c52f8459e5b67e91c8a046b2ea8ab58a48668494290f668164b` | superseded: no pre-handler wait | `HARDWARE_TESTS.md` §V3 |
 | GBP-VIDEO-003 | `color-0001` | `9d8302d` | `cc88e4c45559f11047ca657b78045e2fd2c5d646a1b68e7e453fcf796d177cf4` | **PHYSICALLY EXECUTED 2026-09-18** | GBP-HW-120…125 |
 | GBP-VIDEO-003 | `color-0002` | `39f1980` | `d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1` | **PHYSICALLY EXECUTED 2026-09-18 — the confirmatory run** | GBP-HW-127…133 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **NOT PHYSICALLY EXECUTED** — implemented and host-validated only | `HARDWARE_TESTS.md` §V5 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -159,6 +160,35 @@ byte copy of it, not a second identity.
 POC now declares `color-0002`. A run that has already happened should not be
 silently reproducible under its own id. Its DOL hash above is what the record
 keeps.
+
+### The GBP-VIDEO-004 candidate, in full
+
+```text
+Test ID     GBP-VIDEO-004
+Build ID    stream-0001
+commit      0816cbe   (clean, no -dirty suffix)
+DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+            461 120 B   sha256 0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275
+Swiss       build/swiss/12-stream/boot.dol   (byte-identical copy, hash verified)
+toolchain   powerpc-eabi-gcc (devkitPPC) 16.1.0, libogc2 r2442.094b250,
+            ghcr.io/extremscorner/libogc2:20260805 — zero warnings
+memory      text 356 672 B, data 104 192 B, bss 2 742 204 B
+            MEM1 in use 3.07 MiB of 24; about 20.9 MiB free
+            (the colour probe used 8.20 MiB: the episode store is not allocated
+             and the frame table is 4096 entries instead of 16384)
+software    116 401 C checks + 35 host checks specific to this experiment;
+            poc_audit profile `stream` 0 findings; both one-shot ISRs
+            byte-identical to the physically validated GBP-VIDEO-001 build;
+            Dolphin smoke PASS (auxiliary: boot and GX init only)
+PHYSICAL    NOT EXECUTED. No evidence id is allocated to it.
+procedure   HARDWARE_TESTS.md §V5.20 (setup) and §V5.21 (pass/inconclusive/fail)
+```
+
+**The hash above belongs to commit `0816cbe`**, the last commit before this
+handoff was written, because the commit identity is embedded in the image and a
+hash recorded in this file can only ever be the previous commit's. Rebuild, read
+`build/poc/gbp-video-stream-probe/build-info.txt`, and confirm the commit there
+before calling any DOL the candidate.
 
 **`color-0002`'s hash is exact, not inferred.** It was built clean at commit
 `39f1980` before the run, with no `-dirty` suffix, and the device log declares the
@@ -194,68 +224,77 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **Implement the smallest GBP-VIDEO-004 POC defined by the pre-registered design
-> in `HARDWARE_TESTS.md` §V5.**
+> **Independent pre-hardware audit of the GBP-VIDEO-004 candidate `stream-0001`.**
 
-The design is written and nothing about it has been implemented or run. §V5 fixes
-the parts that are decisions rather than code — the producer/consumer boundary,
-the buffering shape, the frame-loss policy, the output scope, the pass criterion —
-so that implementation is engineering rather than improvisation.
+The implementation exists and passes everything the host can decide. What it has
+not had is a reading by someone who did not write it, and this project has twice
+found that worth doing: the §V3.23 microaudit refused a 153 600-byte `memcmp` in
+the service path, and the §V4 audit refused a gate that was stricter than its own
+question. Both were caught before hardware, and both would have cost a physical
+run otherwise.
 
-**Three items in §V5 are explicitly DESIGN DECISION REQUIRED** and must be settled
-before or during the first implementation, each with a reason recorded:
+**Two of §V5's three DESIGN DECISIONS were resolved by the implementation, and
+the audit should check the reasoning rather than inherit it:**
 
-1. **Run duration** (§V5.5) — justified against a real interval, the way
-   GBP-VIDEO-002's 120 s was justified against the Disc's own detector window. Not
-   a number that feels long.
-2. **Converted-queue depth** (§V5.8) — deferred until the first measurement of
-   conversion cost, because this repository has measured none.
-3. **How the text report and the GX pipeline share the framebuffer** (§V5.15) —
-   every existing probe calls `CON_Init` on the XFB, and GX wants it. **This may
-   not be solved by moving reporting into the service path.**
+- **Converted-queue depth → 2.** §V5.8 called two "the minimum that lets the
+  display read one while the consumer writes another"; the implementation takes
+  that minimum and makes the descriptor mailbox depth 1, because
+  newest-complete-frame-wins and a deeper queue would show *older* frames.
+- **Text report versus GX framebuffer → two framebuffers.** GX copies into one,
+  the console owns the other, and the probe switches between them. §V5.15 said
+  this must not be solved by moving reporting into the service path, and it was
+  not.
 
-**The colour question is finished and the delivery dependency is closed.**
-GBP-VIDEO-003 is COMPLETE for its controlled colour objective, U-GBP-011 is
-CLOSED, and §V3.7's ROM-delivery dependency is RESOLVED (route 1, EZ-Flash Omega
-DE NOR / Mode B).
+**Three things in the candidate are decisions, not code, and the audit should
+attack them first:**
+
+1. **The consumer's execution site.** §V5 fixed the boundary and the policy but
+   not where a single-threaded consumer runs. The implementation puts a bounded
+   slice immediately after the RE-ARM, arguing that this is the pass's last device
+   access and that one tile row is the same order of work as `gbp_vsig_block`,
+   which cost 777–799 ticks there in `color-0002` against 164 µs of slack. **That
+   is an argument, not a measurement of this code.**
+2. **Run duration — the one DESIGN DECISION REQUIRED that is still open.** 30 s is marked
+   PROVISIONAL in the source. §V5.5 wants a duration justified against a real
+   interval, the way GBP-VIDEO-002's 120 s was justified against the Start-up
+   Disc's detector window. Nothing has supplied one.
+3. **The texture-ownership scheme.** `GX_SetDrawDone()` plus a draw-done callback
+   is the non-blocking form, chosen because `GX_DrawDone()` blocks and §V5.7
+   forbids a wait here. Whether the callback really fires before the CPU wants
+   the buffer back is untested on hardware; the code counts `no_free_buffer`
+   rather than assuming it.
+
+**Also unresolved, and it blocks the DECISIVE run rather than the first one:**
+the CONTROLLED motion stimulus of §V5.18 does not exist. Without it a streaming
+run has no ground truth, so frame loss can be *counted* but not *verified* — the
+same difference that made `color-0002` decisive and an ordinary capture not. A
+first run against any cartridge still exercises the machinery and measures the
+slice cost, which is worth doing; it just cannot close the experiment.
 
 ## Next safe action
 
-Implement the first streaming POC exactly as §V5.20 specifies, and no more than
-that:
+**Audit the exact candidate before it is executed.** Read
+`poc/gbp-video-stream-probe/source/main.c`, `src/gbp/gbp_vpix.{h,c}` and
+`src/gbp/gbp_vqueue.{h,c}` against `HARDWARE_TESTS.md` §V5, and check in
+particular:
 
-```text
-Test ID    GBP-VIDEO-004        Build ID  stream-0001   (not yet in any Makefile)
-POC        poc/gbp-video-stream-probe/                  (does not exist yet)
-new, pure, host-tested:  src/gbp/gbp_vpix.{h,c}    raster -> RGB5A3 tile
-                         src/gbp/gbp_vqueue.{h,c}  bounded frame queue + counters
-reused byte for byte:    gbp_vstate_probe, gbp_vstate, gbp_vsig, gbp_avblock,
-                         gbp_irq_service, gbp_initirqa, the R3 policy, the teardown
-```
+- that nothing new reaches the service path — `tools/poc_audit.py --profile
+  stream` says so about the objects, but read the call sites too;
+- that the pump cannot exceed its slice under any input;
+- that a partially converted texture cannot reach the screen on any path;
+- that the counters cannot double-count or lose a frame (`gbp_vqueue_balanced()`
+  is the invariant, and it is asserted, not assumed);
+- that the flush size, the flush ordering and the buffer states are right;
+- that the GX initialisation cannot perturb the capture, given it happens once,
+  before the first unmask.
 
-Build the two pure modules and their host tests **first**, against synthetic
-frames and against the physical `color-0002` fixture — which already carries eight
-known colours in known positions and is therefore a real conversion oracle. Only
-then add the POC and the GX path.
+**Do not request a physical run in the same round as the audit.** Fix what the
+audit finds, rebuild clean, re-record the hash, and request the run after that.
 
-Hard rules carried from §V5, none of them negotiable:
-
-- **Nothing new enters the service path.** No GX, no texture upload, no
-  filesystem, no networking, no PAD, no full-frame work, no wait of any kind
-  between the ACK and the RE-ARM. The handoff to the consumer is an integer
-  (§V5.7), exactly as §V3.23 forced for the colour capture.
-- **Never synthesise pixels.** An incomplete frame is recorded and not displayed;
-  the previous frame is held and the hold is counted (§V5.9).
-- **Never block the producer** to rescue a picture (§V5.14).
-- A quarantined frame (`F_MAJORITY_EXTRA`) may never reach the screen, for the
-  same reason it may never become colour evidence.
-- Do **not** implement scaling, aspect correction, audio playback, A/V sync,
-  KEYPAD or any network path. They are Phases 6, 9 and 11.
-- Do **not** edit `OGBPCOL1` v1, `tools/vcolor.py`, `tools/vcolor2.py`, the §V4
-  contract, or any existing fixture.
-
-No hardware run is requested until the POC exists, its host tests pass, the tree
-is clean and the build carries no `-dirty` suffix.
+Do **not** implement scaling, aspect correction, filtering, audio playback, A/V
+sync, KEYPAD or any network path; do not edit `OGBPCOL1` v1, `tools/vcolor.py`,
+`tools/vcolor2.py`, the §V4 contract or any fixture; do not change the §V5
+contract to match the implementation — if they disagree, that is a finding.
 
 ## Do not rediscover
 
@@ -286,6 +325,9 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 | No POC in this repository has ever initialised GX; every one uses `VIDEO_Init` + `CON_Init` on a single XFB | verified across `poc/` and `src/`; §V5.4 |
 | The frame assembler already classifies COMPLETE_40 / SHORT / LONG / PREDICATE_ANOMALY / RESYNC — streaming needs a *display* policy, not a new classification | `src/gbp/gbp_vstate.h`; §V5.9 |
 | The ROM-delivery route is route 1, EZ-Flash Omega DE NOR / Mode B, and it sets `CONTROL orig=92` | §V3.7 resolution; GBP-HW-127 |
+| A GBP word becomes a `GX_TF_RGB5A3` texel with `\| 0x8000` and no channel arithmetic; the only work is the 4×4 tile permutation | GBP-HW-131; `src/gbp/gbp_vpix.c` |
+| `GX_DrawDone()` blocks and `GX_SetDrawDone()` + `GX_SetDrawDoneCallback()` do not — that is why the texture ownership uses the callback form | `ogc/gx.h` in `libogc2:20260805` |
+| One block is exactly one 4×4 tile row: 0xF00 raw bytes → 0x780 tiled bytes, the same as the Disc's own converter | `VIDEO_PATH.md` §2.3; `gbp_vpix.h` |
 
 ## Do not assume
 
@@ -313,6 +355,13 @@ believe one is wrong, argue against the source, do not re-run the discovery.
   are explicitly *not* budgeted as properties (§V5.22).
 - **That a commercial cartridge has been chosen.** §V5.18 records the properties
   one must have and deliberately names no title; the operator owns that choice.
+- **That `stream-0001` has been validated on hardware.** It has not run. It is
+  implemented and host-validated, no evidence id is allocated to it, and its
+  30 s capture duration is still a DESIGN DECISION.
+- **That the slice fits.** The argument for one tile row per service cycle rests
+  on `gbp_vsig_block`'s measured cost for the same byte count in the same path.
+  This code's own cost has never been measured; the probe instruments it so the
+  first run can.
 - **That bytes 0 and 2 are don't-care in general.** §V4 places them outside the
   dependent variable of *this experiment* only. U-GBP-029 is open, they are
   preserved in full, and every run reports the full-raw comparison.

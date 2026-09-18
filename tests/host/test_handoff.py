@@ -66,6 +66,8 @@ class Links(unittest.TestCase):
                 continue
             if p.startswith("build/"):        # build outputs are not versioned
                 continue
+            if p.startswith("ogc/"):          # a toolchain header, not a repo path
+                continue
             if not os.path.exists(os.path.join(ROOT, p)):
                 missing.append(p)
         self.assertEqual(sorted(set(missing)), [],
