@@ -7276,3 +7276,89 @@ validated GBP-VIDEO-001 build; `stream-dolphin` PASS; zero compiler warnings.
 **Next:** the first physical GBP stream smoke of the exact `stream-0003`
 artifact — short, supervised, no rebuild, operational/timing/display only, and
 explicitly not a decisive frame-loss validation.
+
+## 2026-09-18 — the indexed stimulus met its own reference model, and two of its assumptions died
+
+**Design round 2, offline only.** No ROM, no hardware, no change to `src/`,
+`poc/` or the candidate. `stream-0003` is untouched and the next physical action
+is unchanged: the first supervised GBP stream smoke of `2f8e362e…199e3`.
+
+The previous round produced a design proposal. This round built
+`tools/istim.py` — the reference model the ROM will later be verified against —
+and ran the design against it. **Two assumptions did not survive, and finding
+them cost nothing because no ROM existed yet.**
+
+**The source observation point is safe, and now frozen.** Traced in the real
+code: `gbp_vsig_block()` runs at block receipt (`gbp_vstate_probe.c:1394`),
+`gbp_vstate_block()` accumulates it (`gbp_vstate.c:1143`), `close_frame()` writes
+`f->sig[40]` (`:876`), and `gbp_vqueue_publish()` runs **after** that, guarded by
+`step.frame_closed`. `frame_store[]` is never touched by the consumer, so no
+mailbox, conversion or display loss can remove a frame from it. No STOP.
+
+**Assumption 1 died: `sig[40]` cannot carry the frame ID, and the proof is
+constructive, not statistical.** The complement-pair strip layout — rows
+`4b+0/4b+2` painting the payload and `4b+1/4b+3` its complement — makes the count
+of ONE symbols per parity class exactly **(92, 92)** for *every* frame ID. An
+additive checksum sees only parity-weighted sums, so the ID is annihilated
+exactly. What is left is the bar, with period 35: `sig(f,b) == sig(f+35,b)`,
+verified. Within one period only 15 of 35 phases are even distinguishable. So
+`sig[40]` cannot identify a frame and **cannot recover the bar phase either**.
+Level 1 is rejected outright.
+
+Adversarial characterisation made it concrete, and the results are locked as
+tests: the checksum **detects** a single changed bit and a block from the
+adjacent frame, and **misses** a block from frame+35, a duplicated row, a
+compensating ±1 pair, and — decisively — **strips substituted from another frame
+ID or another block index**. Collisions were *constructed*, which is a stronger
+statement than failing to find one.
+
+**Assumption 2 died: `barpos(f,b) = (f + 7·b) mod 35` was defective.**
+`gcd(7,35) = 7`, so the 40 blocks collapsed onto **5** phases instead of
+spreading. The multiplier is now 8. The bar remains a freshness witness and was
+never an identifier, but a phase repeating every 5 blocks is still a defect, and
+a geometry test caught it.
+
+**The scientific population was too strong and is now narrowed.** "Every frame
+the AGB presented during the capture window" cannot be claimed: frames before the
+first stored frame and after the last are invisible, because blocks arriving
+before the first boundary are counted and never become a frame. The claim is now
+about *transitions between the first and last intact observed IDs*. **No anchor
+was invented to rescue the old wording.**
+
+**Three corrections of record.** Bit 15 cannot affect the ID decode — the decoder
+reads `colour15 = word16 & 0x7FFF` and both symbols live below bit 15 — so an
+unexpected flag coordinate is a **U-GBP-034 observation, not an integrity
+failure**; but `gbp_vsig_block()` does *not* mask bit 15, so the flag at (0,0)
+does shift `sig[0]` of block 0, and the model renders both variants. The
+half-range delta `2^23` is now `UNRESOLVED_HALF_RANGE` and **never** a forward
+gap. `SOURCE_DUPLICATE` became **`OBSERVED_DUPLICATE_ID`**, mechanism UNKNOWN,
+because a repeated ID could be transport, stimulus or sampling.
+
+**The honest cost of doing it properly.** Preserving consumed words verbatim:
+all 8 strip copies = 52.8 MB for 30 s (does not fit), one L+R pair = 13.2 MB
+(marginal against 13.96 MiB free), **one normalised copy per block = 6.59 MB
+(fits)**. Raw frames would be 275 MB. But every one of those is
+**stimulus-aware** — a fixed ROI at the strip columns is stimulus knowledge even
+though it decodes nothing, and the design says so instead of disguising it. The
+better option is a **per-block CRC-32** alongside the existing signature: 160 B
+per frame, the same cost as `sig[40]`, stimulus-agnostic, and with a collision
+structure that is actually usable. It is a `src/gbp/` change and was **not**
+made.
+
+**Verdict: B — one more revision before the ROM.** The stimulus itself survived
+every test; the signature architecture did not. Three things must be settled
+first: the witness strategy, whether an anchor for the unobservable edges is
+wanted, and how the ROM will *measure* that its update fits in VBlank (ARM7TDMI
+has no divide, so the `mod 35` must become a running counter). **None of them
+blocks the first physical smoke.**
+
+**Tests.** `tools/istim.py` plus 44 new host tests: geometry tiles 240 columns
+and 160 rows exactly, the symbols are fixed points of the confirmed colour
+mapping (so the ID decode does not depend on U-GBP-011), seven CRC known-answer
+vectors, exhaustive single-bit CRC sensitivity, the eight-copy decoder with
+inversion and reversal normalised, the wrap `0xFFFFFE→0x000001`, and a
+compile-and-compare of the Python model against `src/gbp/gbp_vsig.c` itself.
+619 host tests OK.
+
+**Next:** decide the witness. Recommended: the stimulus-agnostic per-block
+CRC-32, in a round that audits it like any other runtime change.

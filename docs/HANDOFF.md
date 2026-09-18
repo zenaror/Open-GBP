@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   06b035ad44347e4db6722c02b8bbb6f616f8e0c9
+STATE BASELINE COMMIT   95199852ecaecac08e203c33be531e914a807bcb
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -96,6 +96,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
 | **GBP-VIDEO-004** (sustained streaming) | **`stream-0003` AUDITED 2026-09-18 — DECISION A: READY FOR THE FIRST PHYSICAL GBP STREAM SMOKE · NOT PHYSICALLY EXECUTED.** Sustained streaming is NOT claimed to work | `HARDWARE_TESTS.md` §V5.30, §V5.31 |
+| **CONTROLLED indexed stimulus** (`stimulus/agb-indexed`) | **DESIGNED, offline reference model built, VERDICT B — one more revision before the ROM.** The stimulus survived; the `sig[40]` witness architecture did **not** (rejected by construction). `tools/istim.py` + 44 host tests. No ROM, no hardware, and it does **not** block the physical smoke | `HARDWARE_TESTS.md` §V5.32 |
 | **Dolphin's emulated Game Boy Player** | **EXISTS and is REACHABLE from a homebrew DOL** in the installed 2606a (`HSPDevice=2` + `GBPlayerRom`; no BIOS, no Start-up Disc). The exact `stream-0003` reaches the CONTROL gate on it and stops there: Dolphin's power-on CONTROL is `0x02`, hardware's is `0x90`. **AUXILIARY only** | `HARDWARE_TESTS.md` §V5.31 |
 | **`stream-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE: `store_or_bounds_invalid`.** GX self-test physically PASSED; **GBP stream capture never started**; `deliveries=0 acks=0 rearms=0 handler_installed=0`. Historical; never rebuilt, never re-labelled, and **not** a streaming failure | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | **`stream-0001`** | **REJECTED before hardware — DO NOT RUN.** Historical; its identity is preserved and was not reused | §V5.26; `stream-0002` supersedes it |
@@ -354,8 +355,9 @@ Steps       1. copy boot.dol to SD as 12-stream
 Duration    SHORT and SUPERVISED: 30 s capture, 60 s safety cap
 Objective   OPERATIONAL, TIMING and DISPLAY behaviour only.
             NOT a decisive frame-loss validation — the CONTROLLED indexed
-            motion stimulus of §V5.18 does not exist, so source-frame loss
-            cannot be measured against ground truth.
+            motion stimulus of §V5.18 does not exist as a ROM (its design is at
+            §V5.32, verdict B), so source-frame loss cannot be measured against
+            ground truth.
 Read it     with §V5.21, unchanged. stream-0003 needs NO counter correction:
             `counters BALANCE` is expected, and `DO NOT BALANCE` would now be
             a real finding.
@@ -459,6 +461,15 @@ believe one is wrong, argue against the source, do not re-run the discovery.
   power-on CONTROL is `0x02` where hardware presents `0x90`, and its VIDEO read
   duplicates bytes 0↔1 and 2↔3 where hardware does not — so it can never inform
   U-GBP-029, R3, the RE-ARM timing, bit 15 or frame loss (§V5.31.7, §V5.31.8).
+- **That `gbp_vsig_block()` can identify a frame.** It cannot. It is an additive
+  checksum; the indexed stimulus's complement-pair strips make the frame ID
+  contribute *nothing* to it, and it misses a strip substituted from another
+  frame ID or another block index entirely (§V5.32.7, §V5.32.8). It is not
+  "lossless" and must never be described as one.
+- **That "zero observed gaps" would mean zero source-frame loss.** It would mean
+  no observed transition had Δ ≠ 1, between the first and last intact observed
+  ID. Frames before the first and after the last stored frame are
+  **unobservable** (§V5.32.2).
 - **That `stream-0003` needs the R1 correction.** It does not. `balanced=1` with
   no subtraction; `presented − SELFTEST.xfb` belongs to `stream-0002`'s log only.
 - **That `stream-0002` is proved because its predecessor's blocker is fixed.**

@@ -9780,3 +9780,382 @@ Read it     with §V5.21, unchanged. stream-0003 needs NO counter correction:
 Watch for   the per-cycle t_cause/t_ack/t_rearm histogram (R3), and
             STREAMINV failures=0 (R8) — the two things the run is for.
 ```
+
+### V5.32 CONTROLLED indexed video stimulus — design round 2, offline model — 2026-09-18 — **VERDICT: B, ONE MORE REVISION BEFORE THE ROM**
+
+**Nothing physical happened in this round and nothing physical changed.**
+`stream-0003` is untouched: commit `03b32a9`, 471 648 B, sha256
+`2f8e362e…199e3`, Swiss copy byte-identical. **The next physical action is still
+the first supervised GBP stream smoke of that exact artifact**, and this round
+does not alter it.
+
+This round did what the previous design round could not: it **built the offline
+reference model and ran the design against it**. Two of the design's own
+assumptions did not survive, which is the entire reason the model was written
+before the ROM.
+
+#### V5.32.1 The source observation point — FROZEN
+
+Traced in the real code. Per VIDEO block, in `gbp_vstate_probe.c`:
+
+```text
+:1394  sig = gbp_vsig_block(blk, 0xF00)     computed from the RAW block AT RECEIPT
+:1397  majority-extra quarantine flagging
+:1398  gbp_vstate_block(st, blk, …, sig, …)
+         └─ gbp_vstate.c:1143  s->cur_sig[s->cur_blocks] = sig
+         └─ on a boundary: close_frame()
+              └─ gbp_vstate.c:876  sig_copy(f->sig, s->cur_sig)   ← frame record written
+:1411  colour hook (only when cfg->color)
+:1425  if (cfg->stream && step.frame_closed)
+:1429     gbp_vqueue_publish(...)            ← PUBLICATION, strictly afterwards
+```
+
+**`struct gbp_vstate_frame` is written at frame close, strictly UPSTREAM of the
+mailbox.** `frame_store[]` is never touched by the consumer, so
+`dropped_before_convert`, `consumer_slot_overrun` and every display effect are
+incapable of removing a frame from it.
+
+**SOURCE OBSERVATION POINT = `close_frame()` in `src/gbp/gbp_vstate.c`.** Frozen.
+No STOP condition; the architecture the experiment needs is already there.
+
+#### V5.32.2 The observable population — the old wording was too strong
+
+```text
+OBSERVABLE POPULATION
+  the transitions between consecutive frames stored in frame_store[], from the
+  first to the last frame that decodes to an intact source ID
+
+UNOBSERVABLE EDGES
+  (a) AGB frames presented BEFORE the first stored frame. The capture opens
+      whenever the probe opens it; blocks arriving before the first frame
+      boundary are counted in `blocks_before_first_boundary` and are never
+      turned into a frame.
+  (b) AGB frames presented AFTER the last stored frame, for the same reason at
+      the other end.
+  (c) everything while frame_store is full (`frame_store_full`), where the run
+      stops storing rather than wrapping.
+
+CLAIM ALLOWED
+  "between the first and last intact source frame IDs observed at the source
+   layer, the ID sequence was contiguous, ordered and internally consistent"
+
+CLAIM NOT ALLOWED
+  "every frame the AGB presented during the capture window arrived"
+  "zero source-frame loss"
+```
+
+Worked example, and it is not hypothetical:
+
+```text
+source presents   100, 101, 102, 103
+capture observes       101, 102
+observed sequence is CONTIGUOUS — and 100 and 103 are invisible.
+```
+
+**No anchor is proposed.** Inventing one to rescue the old wording would be
+exactly the move this project forbids. An anchor is possible in principle (a
+distinguished ID range painted at a known moment, or a source-side marker the
+runtime could timestamp) and it is left as an explicit future question rather
+than assumed away.
+
+#### V5.32.3 CRC-8, specified bit by bit
+
+```text
+register        8 bits            polynomial  0x07  (x^8 + x^2 + x + 1)
+init            0xFF              xorout      0x00
+input order     MSB-first: FRAME_ID[23]…FRAME_ID[0], then BLOCK_INDEX[5]…[0]
+                exactly 30 bits; NO zero augmentation
+per bit         fb  = ((crc >> 7) & 1) ^ inbit
+                crc = ((crc << 1) & 0xFF) ^ (0x07 if fb else 0)
+reflection      none, input or output
+result          the final register value, painted MSB-first
+```
+
+Known-answer vectors, locked in `tests/host/test_istim.py`:
+
+| FRAME_ID | BLOCK_INDEX | 30-bit payload | CRC8 |
+| --- | --- | --- | --- |
+| `0x000000` | 0 | `000000000000000000000000000000` | `0xF6` |
+| `0x000000` | 39 | `000000000000000000000000100111` | `0x03` |
+| `0x000001` | 0 | `000000000000000000000001000000` | `0x31` |
+| `0x000001` | 39 | `000000000000000000000001100111` | `0xC4` |
+| `0xFFFFFF` | 0 | `111111111111111111111111000000` | `0x3F` |
+| `0xFFFFFF` | 39 | `111111111111111111111111100111` | `0xCA` |
+| `0x123456` | 17 | `000100100011010001010110010001` | `0xDC` |
+
+A single-bit flip anywhere in the 30-bit payload always changes the CRC — tested
+exhaustively over all 30 positions for three payloads.
+
+#### V5.32.4 Modular classification — frozen, and the half-range is not a gap
+
+```text
+delta = (id_n − id_prev) mod 2^24
+
+delta == 0            OBSERVED_DUPLICATE_ID
+delta == 1            CONTIGUOUS
+2 <= delta <  2^23    FORWARD_GAP          (delta − 1 source frames missing)
+delta == 2^23         UNRESOLVED_HALF_RANGE   ← NEVER a forward gap
+delta >  2^23         REORDER_BACKWARD
+```
+
+`0xFFFFFE → 0xFFFFFF → 0x000000 → 0x000001` is CONTIGUOUS at every step, tested.
+
+#### V5.32.5 Bit 15 — the previous design got this wrong
+
+The decoder reads `colour15 = word16 & 0x7FFF`, and both symbols are chosen
+below bit 15. `ZERO|0x8000 → 0x0000` and `ONE|0x8000 → 0x7FFF`, so:
+
+```text
+bit 15 on a strip pixel CANNOT change a decoded ID bit
+bit 15 on a strip pixel CANNOT make the CRC fail
+```
+
+**ID decoding ignores bit 15 by construction.** The flag's coordinate and count
+are an **independent diagnostic channel** and an unexpected coordinate is a
+**U-GBP-034 observation, not an ID-integrity failure**. `FLAG = 0x03E0` at
+`x = 0` is kept precisely because U-GBP-034 asks for a first pixel that is
+neither black nor white.
+
+One asymmetry that matters and is easy to get wrong: **`gbp_vsig_block()` does
+NOT mask bit 15**, so the device's flag at (0,0) does shift `sig[0]` of block 0
+by `0x8000 << 16`. The reference model therefore renders both variants.
+
+#### V5.32.6 What `gbp_vsig_block()` actually computes
+
+```text
+The 3840-byte block is 240 groups of 16 bytes = 4 pixels each. With
+w_j = (b1 << 8) | b3 the consumed word of pixel j INCLUDING BIT 15, and
+j = row*240 + x with 240 even (so parity(j) = parity(x)):
+
+    S   = Σ_k ( w_{2k}·2^16 + w_{2k+1} )
+        = 2^16 · Σ_{x even} w  +  Σ_{x odd} w
+    sig = (S mod 2^32 + ⌊S / 2^32⌋) mod 2^32
+```
+
+Output 32 bits. It is an **additive checksum with a single end-around fold, not
+a hash**:
+
+* invariant under any permutation of pixels *within one parity class*;
+* `w_a + w_b = w_c + w_d` is a collision, constructible by hand;
+* `S < 960·2^32`, so the fold adds at most 959 and can itself wrap.
+
+The Python model reproduces the C **exactly**, verified by compiling
+`src/gbp/gbp_vsig.c` and comparing on real stimulus blocks.
+
+#### V5.32.7 DDR-2 — ANSWERED, and the answer is NO
+
+**The question was never statistical.** With the proposed layout the frame ID
+contributes *nothing* to the signature, by construction:
+
+```text
+rows 4b+0 / 4b+2 paint the payload;  rows 4b+1 / 4b+3 paint its COMPLEMENT.
+For 46 bits there are 23 odd and 23 even bit positions, so within each
+(true, complement) row pair the count of ONE symbols per parity class is
+EXACTLY 23, whatever the payload is.
+
+measured: the ONE count per parity class is (92, 92) for every frame ID tested,
+including 0, 1, 2, 0x5A5A5A and 0xFFFFFF.
+```
+
+The additive checksum only ever sees counts and positions weighted by parity, so
+**the complement-pair design annihilates the ID exactly.** What remains is the
+bar, whose position has period 35:
+
+```text
+sig(f, b) == sig(f + 35, b)          verified for all b, f < 12
+distinct signature values per block over ALL f:  at most 35
+actually observed within one period:             15   (20 of 35 phases collide)
+```
+
+So `sig[40]` cannot identify a frame ID, and **cannot even recover the bar
+phase**. A sliding-window scan over 80 IDs with a 4096 window found 2 600
+collisions, the first at Δ = 3 — but the scan is decoration: the period proof
+settles it.
+
+**The "8192" of the first proposal was never testable anyway.** The stimulus
+starts at `frame_id = 0` at cartridge power-on, and the interval between that
+and the capture is operator-dependent — Swiss navigation, DOL load, the 5 s
+pre-handler wait. **The maximum absolute ID cannot be bounded from existing
+behaviour, and this is stated rather than assumed away.** Only the *window* is
+bounded: the 60 s safety cap gives ≤ 3 585 frames, so a search window of 4 096 is
+derived, not chosen.
+
+#### V5.32.8 Adversarial characterisation — what the checksum misses
+
+CHARACTERISATION, never proof. Locked as tests so a later round cannot quietly
+assume more.
+
+| mutation | `gbp_vsig_block` |
+| --- | --- |
+| one consumed pixel, one bit, odd x | **detects** |
+| one consumed pixel, one bit, even x | **detects** |
+| bit 15 set on one pixel | **detects** |
+| a block from the adjacent frame | **detects** |
+| a block from frame + 35 | **misses** (structural period) |
+| **strips substituted from another FRAME ID** | **misses** |
+| **strips substituted from another BLOCK INDEX** | **misses** |
+| a duplicated row | misses |
+| a compensating +1/−1 on two same-parity pixels | misses |
+| bytes 0 and 2 changed | misses **by design** (U-GBP-029 cannot move it) |
+
+Failing to find a collision would never have proven one cannot exist; here
+collisions were *constructed*, which is a different and stronger statement.
+
+#### V5.32.9 Three layers, and what each may claim
+
+```text
+A. LOSSLESS PIXEL EVIDENCE — the consumed words themselves
+   MAY CLAIM: everything. The strip is the authority for the frame ID.
+
+B. ERROR-DETECTING CODE — SYNC, complement, 8-copy redundancy, CRC-8
+   MAY CLAIM: a decoded ID that passes SYNC + CRC on ≥5 of 8 copies is very
+   unlikely to be an accident, and a single-bit payload error is IMPOSSIBLE to
+   miss. MAY NOT CLAIM: that the decoded ID is mathematically certain. CRC-8 is
+   not collision-free; the 5-of-8 rule is an ERROR-RECOVERY POLICY, not a proof.
+
+C. FINGERPRINT — gbp_vsig_block()
+   MAY CLAIM: two blocks with different signatures are different.
+   MAY NOT CLAIM: anything about the frame ID. §V5.32.7 and §V5.32.8 show it is
+   blind to the ID and to strip substitution. It is NOT "lossless".
+```
+
+**LEVEL-1 VERDICT: B — `sig[40]` is not sufficiently discriminative even for
+expected-frame identification.** It is not tuned, excused or relied on.
+
+#### V5.32.10 Lossless witness — the cost of doing it properly
+
+Preserving consumed word16 verbatim, at 59.737 Hz:
+
+| option | B/frame | 30 s | 5 min | 30 min | 1 h |
+| --- | --- | --- | --- | --- | --- |
+| A all 8 strip copies | 29 440 | 52.8 MB | 528 MB | 3.17 GB | 6.33 GB |
+| B one L + one R per block | 7 360 | 13.2 MB | 132 MB | 791 MB | 1.58 GB |
+| **C one normalised copy per block** | **3 680** | **6.59 MB** | 66.0 MB | 396 MB | 791 MB |
+| — raw frame, for scale | 153 600 | 275 MB | 2.75 GB | 16.5 GB | 33.0 GB |
+| — the existing 192 B record | 192 | 0.34 MB | 3.44 MB | 20.6 MB | 41.3 MB |
+
+MEM1 free after `stream-0003` is **13.96 MiB**. So **option C fits a 30 s run in
+MEM1 with room to spare, option B is marginal, option A does not fit**, and
+nothing fits 5 minutes. **No SD write in the critical path is proposed here**:
+that needs its own timing design and this round does not have one.
+
+**Option D, and it is the one to prefer:** a per-block **CRC-32** alongside the
+existing signature — 4 B/block, 160 B/frame, the same cost as `sig[40]`, but
+with a collision structure that is actually usable. It is **stimulus-agnostic**,
+it would make a Level-1-style witness viable, and it does not require the runtime
+to know anything about strips. **It is a `src/gbp/` change and is therefore NOT
+made here**; it is the single highest-value follow-up.
+
+#### V5.32.11 Stimulus-aware versus stimulus-agnostic
+
+```text
+STIMULUS-AGNOSTIC (preferred; the runtime preserves, the analyzer interprets)
+  raw frames, or a bounded deterministic sample of them
+  a per-block CRC-32 or any generic fingerprint
+  every counter that already exists
+
+STIMULUS-AWARE (must be declared as such, never disguised)
+  preserving "the strip columns" — a fixed ROI at x∈[1,46]∪[193,238] IS
+  stimulus-aware even though it decodes nothing. Options A, B and C above are
+  ALL stimulus-aware for this reason.
+```
+
+If option C is chosen, the round that implements it must say plainly that the
+runtime gained stimulus knowledge, and confine it to a retention rule that
+decodes nothing and decides nothing.
+
+#### V5.32.12 Duplicate semantics — renamed
+
+`SOURCE_DUPLICATE` claimed a mechanism the evidence cannot support: a repeated ID
+could be a transport duplication, a stimulus that held one ID across two source
+periods, or a capture that sampled one presented frame twice. The label is
+**`OBSERVED_DUPLICATE_ID`** and the mechanism is **UNKNOWN**. It may be
+strengthened later only if the stimulus's update schedule is independently
+proven.
+
+#### V5.32.13 A real defect in the content pattern, found by the geometry tests
+
+The first proposal used `barpos(f,b) = (f + 7·b) mod 35`. **gcd(7, 35) = 7**, so
+the 40 blocks collapsed onto **5** distinct phases instead of spreading. The
+multiplier is now **8** (coprime with 35), giving 35 distinct phases; 40 > 35, so
+five pairs of blocks necessarily share one, which is acceptable because **the bar
+is a freshness witness, never an identifier**.
+
+Proved in tests: the bar always lies inside `x ∈ [48, 191]`; the last phase
+touches exactly column 191; the previous bar is restorable from `background(x,y)`
+alone, so the ROM needs no memory of it; `expected_agb(f,x,y)` is total on the
+whole 240×160 domain and refuses out-of-range input instead of guessing.
+
+#### V5.32.14 VBlank — an estimate, and what the ROM must measure
+
+```text
+strip pixels/frame   14 720     46 bits × 2 strips × 4 rows × 40 blocks
+bar pixels/frame      2 560     8 px × (erase+draw) × 4 rows × 40 blocks
+total                17 280 px = 8 640 32-bit VRAM stores × 2 cycles = 17 280 cycles
+VBlank budget        83 776 cycles (GBATEK, FACT) → 20.6 % on the stores alone
+```
+
+**NOT counted, which is why this stays an ESTIMATE:** loop control and address
+arithmetic over 40 × 4 × 2 strips; CRC-8 preparation (30 bit-iterations × 40
+blocks, reducible to one table lookup per block by folding `crc8(frame_id)`
+once); the bit-to-symbol expansion; and **the modulo**. ARM7TDMI has **no divide
+instruction**, so `mod 35` becomes a call or a reciprocal sequence — the ROM must
+use a running counter with compare-and-subtract instead.
+
+**What the ROM must measure before this is a property:** the elapsed time from
+the VBlank IRQ to the end of the update, read from a hardware timer, reported on
+screen, and required to be less than the VBlank length on the real device.
+
+#### V5.32.15 What 30 s gives
+
+```text
+~1 792 source frames, ~1 791 observed transitions
+frame_store holds 16 384 frames = 274.3 s, so 30 s uses 11 % of it
+per-frame records: 1 792 × 192 B = 0.34 MB
+```
+
+"Zero observed gaps" means **of ~1 791 observed transitions, none had Δ ≠ 1**. It
+does **not** bound the loss rate below ~1/1 792, and it says **nothing** about the
+unobservable edges of §V5.32.2. 30 s remains the proposal and is **not frozen**.
+
+#### V5.32.16 Long-run
+
+24-bit ID wraps after 2^24 / 59.737 Hz = **77.98 hours**, the wrap is defined and
+the classification handles it. Nothing in the frame format prevents a long run.
+SD streaming is **not** designed here.
+
+#### V5.32.17 AGS versus the indexed stimulus
+
+```text
+AGS Aging Cartridge v10.0   WORKLOAD / REFERENCE — real timing, NO ground truth
+stimulus/agb-indexed        CONTROLLED GROUND TRUTH — the only category that can
+                            MEASURE loss instead of inferring it
+```
+
+#### V5.32.18 Verdict
+
+```text
+B — DESIGN NEEDS ONE MORE REVISION BEFORE THE ROM
+
+The STIMULUS survived: geometry, symbols, payload, CRC, redundancy decoder,
+modular classification and the content pattern are all proved in the offline
+model, with one real defect found and fixed (the phase multiplier).
+
+The SIGNATURE ARCHITECTURE did not. Level 1 is rejected outright — a C-grade
+finding scoped to that sub-component, not to the stimulus.
+
+What must be settled before the ROM is written:
+  1. the witness strategy — option C (stimulus-aware strip retention, 6.6 MB for
+     30 s) or option D (a stimulus-agnostic per-block CRC-32 in src/gbp);
+  2. whether an anchor for the unobservable edges is wanted, or whether the
+     narrowed claim of §V5.32.2 is accepted as the experiment's scope;
+  3. the ROM's own VBlank measurement method.
+None of them blocks the first physical smoke of stream-0003.
+```
+
+#### V5.32.19 Next implementation step
+
+**Not the ROM.** Decide (1) above. If option D is chosen it is a small, testable
+`src/gbp/` addition that must be audited like any other runtime change, and it
+would make the witness stimulus-agnostic — which is the scientifically better
+outcome and the one recommended here.
