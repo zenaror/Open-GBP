@@ -131,9 +131,12 @@ on real hardware without relying on proprietary runtime code.
 
 ## Phase 4 — Video
 
-**Status: IN PROGRESS (entered 2026-09-16).** Transport and block
-sequence are now physically established (GBP-AV-SERVICE-001, GBP-VIDEO-001);
-rendering, colour and a moving image are not. GBP-VIDEO-002 has now been run
+**Status: IN PROGRESS (entered 2026-09-16).** Transport, block sequence and
+**colour** are now physically established (GBP-AV-SERVICE-001, GBP-VIDEO-001,
+GBP-VIDEO-003); rendering and a moving image are not. **U-GBP-011 closed
+2026-09-18** by the pre-registered confirmatory run `color-0002`: the VIDEO
+window exchanges the two outer 5-bit groups relative to the AGB framebuffer, so
+the references' GX RGB5A3 reading is the displayed colour (GBP-HW-131). GBP-VIDEO-002 has now been run
 physically **four** times (`vstate-0001`, `vstate-0002`, `vstate-0003`,
 `vstate-0004`); the last two reached the 120 s target, and the fourth validated
 the semantic-disagreement policy with trustworthy diagnostics, which **unblocks
@@ -144,8 +147,8 @@ GBP-AV-SERVICE-001 captured the first physical VIDEO (0xF00) and AUDIO
 (`docs/research/VIDEO_PATH.md`): both references read a block as 4 raster
 lines × 240 pixels × 4 bytes (bytes 1/3 of each word), 40 blocks per frame,
 frame flag on the first pixel, and 15 colour bits which both *read* in GX
-RGB5A3 order — a property of the two decoders, not yet a measurement of the
-device (U-GBP-011, settled by GBP-VIDEO-003); both embed the AGB idle screen
+RGB5A3 order — which was a property of the two decoders until GBP-VIDEO-003
+measured the device and confirmed it (U-GBP-011 CLOSED); both embed the AGB idle screen
 (an offline oracle without a cartridge). Short sequence:
 
 * **GBP-VIDEO-001** (**PHYSICALLY EXECUTED 2026-09-16**, `video-0001`, commit
@@ -270,7 +273,13 @@ device (U-GBP-011, settled by GBP-VIDEO-003); both embed the AGB idle screen
   `vstate-0003` run. Design, implementation and physical result in HARDWARE_TESTS
   §R4.1 to §R4.10a. Only the `SOURCE_SERVICED` / Disc-extra path was exercised
   physically; the producer's other branches stay host- and mock-tested.
-* **GBP-VIDEO-004**: sustained streaming with a real cartridge (frame
+* **GBP-VIDEO-003** (**PHYSICALLY EXECUTED twice 2026-09-18**): `color-0001`
+  certified but failed its own pre-registered full-raw gate and stays
+  INCONCLUSIVE permanently; `color-0002`, judged by the contract
+  pre-registered in HARDWARE_TESTS §V4, returned
+  `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP` and closed U-GBP-011
+  (GBP-HW-120…126, GBP-HW-127…133).
+* **GBP-VIDEO-004** — **NEXT**: sustained streaming with a real cartridge (frame
   pacing, dropped-block policy, output modes) — the bridge to Phase 7.
 
 No further micro-probes unless one of these raises a blocking question.

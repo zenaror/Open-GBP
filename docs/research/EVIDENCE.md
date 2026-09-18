@@ -3021,3 +3021,146 @@ words of 576 000) and in this run. It was latent in bytes already committed and
 had never been measured or registered. Nothing here says the device changed —
 the earlier measurement was made on a different, uniform picture. Recorded
 against **U-GBP-029**, which stays OPEN.
+
+## GBP-VIDEO-003 / color-0002 — confirmatory physical run, 2026-09-18
+
+Build `color-0002`, commit `39f1980`, DOL sha256
+`d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1` — built
+clean at that exact commit, with no `-dirty` suffix, before the run. Physical
+unit with the same eight-bar AGB stimulus as `color-0001`. Fixture
+`captures/fixtures/hw-gamecube-gbp-2026-09-18-color-0002.gbpreplay` and its
+OGBPCOL1 v1 sidecar `…-color-0002-color.bin` (sha256 `f49c4cf2…`, 461 684 B).
+Raw log sha256 `194f92f9…`, 40 900 B, in `captures/local/`, never versioned.
+
+**This run was judged by a contract written before it existed**
+(`HARDWARE_TESTS.md` §V4, commit `a86b079`) using an analyser that already
+existed at that commit (`tools/vcolor2.py`), neither modified afterwards.
+
+### GBP-HW-127 — the confirmatory run serviced, certified and restored cleanly — FACT
+
+`stop=color_certified`. 440 unmasks = deliveries = acks = rearms; 162 of 162
+VIDEO completed, 288 AUDIO; 1840 transfers, 1 801 728 bulk bytes; `timeouts=0`,
+`busy=0`, `uncertain=0`, `overflow=0`, `errors=0`, `transport_ok=1`.
+`SEMANTIC total=0` — zero R3 disagreements, as in `color-0001`. Teardown restored
+CONTROL, the IRQ stop word with readback, PI with `pi_cleanup_sticky=0`, AR_INFO
+and the handler; `mask_ok=1`, `intmr_final=000001fa`, `pi_sticky_final=0`.
+Capture 0.072 s of a 5.179 s / 30 s safety budget; certification completed
+66.635 ms after the capture opened. Three certified frames, indices 2/3/4,
+40 blocks each, ring slots 2/3/0, every one with `sig0 7780f781` and
+`sig39 f780f780` — the same runtime signatures `color-0001` produced.
+
+The pre-handler wait: `ms=5000 want_ticks=202500000 elapsed=202500011 iters=78307097
+done=1` — 5.000 000 27 s at 40.5 MHz, overshooting by 11 ticks (0.27 µs) — with
+`CONTROL 8e -> 8e`, `IRQ 0500 -> 0500`, `INTSR 00012000 -> 00012000`,
+`INTMR 000001fa -> 000001fa`. Second physical confirmation that 5000 ms suffices
+at that position in this setup. The log header reads `lines=318 dropped=0
+**truncated=0**`: the two records that replaced the 266-character line are
+complete on hardware, including the trailing `intmr_post` both earlier physical
+runs lost.
+
+### GBP-HW-128 — the three certified frames carry exactly one picture — FACT
+
+Under `word = (b1 << 8) | b3`, bit 15 included and nothing masked:
+
+```text
+A vs B    0 of 38400 words differ
+B vs C    0 of 38400 words differ
+A vs C    0 of 38400 words differ
+```
+
+Recomputed directly from the raw bytes, independently of the analyser. This is
+the pre-registered acceptance gate of §V4B and it **passed**.
+
+### GBP-HW-129 — bit 15: one word per frame, at the origin, over a black pixel — FACT
+
+Exactly one word per certified frame has bit 15 set, at x = 0, y = 0, and the
+word is `0x8000` — flag set, `colour15 = 0x0000`, because the stimulus paints
+bar 0 black and never writes bit 15 anywhere. The three bitmaps are identical
+(`FLAG15_STABLE`).
+
+**Status:** FACT for the count, the position and the value across three frames of
+this run, reproducing `color-0001` (GBP-HW-125) and every earlier physical frame.
+**`FLAG15_STABLE` means reproducible, not understood.** What sets the bit, and
+under what conditions it could appear elsewhere, is **not** established by this
+run and is now **U-GBP-034**. What the run does establish is narrower and worth
+separating: the AGB wrote zero there and the delivered word has it set, so bit 15
+is **not** the colour value and is added on the path.
+
+### GBP-HW-130 — the observed colour vector, every pixel of every bar — FACT
+
+Each of the eight 30-pixel bars holds exactly **one** `colour15` across all 4800
+of its pixels, in all three certified frames, and the three vectors are identical:
+
+```text
+bar        0       1       2       3       4       5       6       7
+stimulus  0x0000  0x001F  0x03E0  0x7C00  0x7FFF  0x0001  0x0020  0x0400
+observed  0x0000  0x7C00  0x03E0  0x001F  0x7FFF  0x0400  0x0020  0x0001
+```
+
+Orientation consistent: the two permutation-invariant bars sit where the stimulus
+put them (`0x0000` at bar 0, `0x7FFF` at bar 4), so the frame is not read
+mirrored.
+
+### GBP-HW-131 — the Game Boy Player exchanges the outer 5-bit groups — FACT
+
+`tools/vcolor2.py`, run unmodified on the physical sidecar:
+
+```text
+STANDING: CONFIRMATORY
+VERDICT: CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP
+```
+
+Exactly one of the seven pre-registered transformations reproduces all eight
+observed values. The others fail, first at bar 1 (`H2_identity`, `H3_byte_swap`,
+`H4_intra_group_reversal`, `H1_H3`), bar 0 (`H5_complement`) and bar 5
+(`H1_H4`). Comparison is exact equality on all eight values; there is no score
+and no tolerance.
+
+**The claim, stated at its exact width.** In the VIDEO window the consumed pixel
+word carries the AGB's 15 colour bits with the two outer 5-bit groups
+**exchanged**: what the AGB wrote in bits 4–0 arrives in bits 14–10 and vice
+versa, bits 9–5 unchanged. Under the reading both reference decoders implement
+(bit 15 flag, 14–10 R, 9–5 G, 4–0 B) the displayed colour is therefore the AGB's
+intended colour. **This promotes the colour order from CORROBORATED to FACT**: a
+physical pixel of known colour has now been captured, which is precisely what
+U-GBP-011 said it was waiting for.
+
+**What it is not.** It is not a statement about bytes 0 or 2 (U-GBP-029 stays
+OPEN), nor about why bit 15 is set (U-GBP-034), nor about U-GBP-033. Within a
+5-bit group this stimulus pins bit 0, bit 5 and bit 10 individually and each
+group as a set; a permutation fixing those three while rearranging only bits 1–4
+inside a group is not excluded by it. That limit was written into the design
+**before** the run (§V3.19), which also records the follow-up pattern that would
+close it; the run produced no residual ambiguity, so that follow-up is not
+triggered. The evidence is about AGB Mode 3 video on the path this run exercised
+and about nothing else.
+
+### GBP-HW-132 — two independent runs deliver the identical picture — FACT
+
+The three certified frames of `color-0001` and `color-0002` — separate physical
+runs, different commits, separate power cycles — are **byte-identical in the
+consumed projection**: 38 400 of 38 400 words in all three corresponding pairs.
+Their full raws still differ (2514, 2449 and 2481 bytes), entirely in bytes 0 and
+2 and never in 1 or 3.
+
+Recorded as corroboration only: `color-0002` confirms itself under its own
+contract without this comparison, and **`color-0001` is not re-judged** — it
+remains INCONCLUSIVE under its own frozen contract, permanently.
+
+### GBP-HW-133 — the full-raw diagnostic, a fifth independent corroboration — FACT
+
+Reported on every `color-0002` run because U-GBP-029 is open, and never used as a
+gate. The three certified frames are **not** byte-identical over the full
+153 600-byte raw frame:
+
+```text
+pair    total   byte0   byte1   byte2   byte3
+A/B      2434    2222       0     212       0
+B/C      2483    2244       0     239       0
+A/C      2485    2264       0     221       0
+```
+
+40 of 40 blocks and 160 of 160 lines touched; first difference at `0x110` —
+block 0, x = 68, y = 0, byte 0, `83` vs `03`. Bytes 1 and 3 differ in **zero**
+positions in every pair. This identifies no mechanism and promotes no meaning;
+it is evidence for U-GBP-029 and nothing else.

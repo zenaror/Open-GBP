@@ -1,0 +1,255 @@
+# SOURCE=physical GameCube
+# GBP_PRESENT=yes
+# PHYSICAL_RUN_ID=GBP-VIDEO-003-COLOR-0002
+# TEST_ID=GBP-VIDEO-003
+# BUILD_ID=color-0002
+# DOL=gbp-video-color-probe
+# COMMIT=39f1980
+# COMMIT_FULL=39f1980c0706bacc4059d4fe9e68e9e935fd125a
+# DOL_SHA256=d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1
+# LOG_SHA256=194f92f916bbe77b2d445df98df46e00168b9b86197974cfe0c0795ded9b8ea1
+# LOG_SIZE=40900
+# BLOCKS=hw-gamecube-gbp-2026-09-18-color-0002-color.bin
+# BLOCKS_SHA256=f49c4cf2887ff1bdf2425cc7b0bbdad3a8d82a57c39f7d8894336147e3d48fd0
+# BLOCKS_SIZE=461684
+# BLOCKS_FORMAT=OGBPCOL1 v1
+# CAPTURED=2026-09-18
+# NOTE=THE CONFIRMATORY RUN OF GBP-VIDEO-003, EXECUTED 2026-09-18 with the controlled eight-bar AGB colour stimulus, judged by a contract written down BEFORE it (HARDWARE_TESTS.md V4, commit a86b079) and by an analyser that already existed at that commit (tools/vcolor2.py). VERDICT: CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP, STANDING: CONFIRMATORY. Exactly one of the seven pre-registered transformations reproduces all eight observed values, and it is the outer-group swap: the Game Boy Player presents the AGB's 15 colour bits with the two outer 5-bit groups exchanged, which is the reading both reference decoders implement. GBP-HW-131.
+# NOTE=THE IDENTITY IS EXACT, NOT INFERRED. The log declares test=GBP-VIDEO-003 build=color-0002 commit=39f1980; the DOL built from that commit is sha256 d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1, built clean with no -dirty suffix before the run, and build/swiss/11-color/boot.dol is a byte-identical copy of it. This is the first colour run whose candidate hash was fixed by a clean build at the exact commit the log names.
+# NOTE=RUNTIME PASS. stop=color_certified, 440 unmasks = deliveries = acks = rearms (162 VIDEO of 162 completed, 288 AUDIO), 1840 transfers, 0 timeouts, 0 busy, 0 uncertain, 0 overflow, errors=0, transport_ok=1. Teardown restored CONTROL, the IRQ stop word with readback, PI with no sticky bit, AR_INFO and the handler; mask_ok=1, intmr_final=000001fa, pi_sticky_final=0, power_cycle_required=1. SEMANTIC total=0: zero R3 disagreements, as in color-0001. Capture 0.072 s inside a 5.179 s / 30 s safety budget. GBP-HW-127.
+# NOTE=THE PRE-HANDLER WAIT, AND THE FIRST PHYSICAL PROOF OF THE LOG-RECORD SPLIT. PREHANDLERWAIT ms=5000 want_ticks=202500000 begin=794cf0ea1cc955 end=794cf0f62eb100 elapsed=202500011 iters=78307097 done=1 - 5.00000027 s at 40.5 MHz, overshooting the request by 11 ticks (0.27 us). PREHANDLERWAITSTATE control_pre=8e control_post=8e irq_pre=0500 irq_post=0500 intsr_pre=00012000 intsr_post=00012000 intmr_pre=000001fa intmr_post=000001fa. The header declares lines=318 dropped=0 truncated=0: the two records replacing the one 266-character line are complete on hardware, including the trailing intmr_post that both earlier physical runs lost. Second physical confirmation that 5000 ms is sufficient at that position in this setup.
+# NOTE=CERTIFICATION. Three certified raw frames, frame indices 2, 3 and 4, 40 blocks each, ring slots 2, 3 and 0, orders 0, 1 and 2, every one with sig0 7780f781 and sig39 f780f780 - the same runtime signatures color-0001 produced. From capture_start the certified blocks run 21.694 ms to 66.635 ms, so certification completed 66.635 ms after the capture opened. This is a RUNTIME window decision from sig[40] and is not the colour claim; the colour claim is the offline gate below.
+# NOTE=THE CONFIRMATORY GATE PASSED. word16 = (b1 << 8) | b3, bit 15 included and nothing masked: A vs B, B vs C and A vs C each differ in 0 of 38400 words. Recomputed independently from the raw bytes, not taken from the analyser. The picture the three certified frames carry is one picture, exactly. GBP-HW-128.
+# NOTE=FLAG15 STABLE, AND STILL UNEXPLAINED. Exactly one word per certified frame has bit 15 set, at x=0 y=0, with the word 0x8000 and colour15 0x0000 - flag set over the black bar, because the stimulus paints bar 0 black and never writes bit 15 anywhere. The three bitmaps are identical. FLAG15_STABLE means reproducible across the three frames of this run; it does not mean understood, and this run does not establish what sets the bit or under what conditions. That question is now U-GBP-034. GBP-HW-129.
+# NOTE=THE OBSERVED COLOUR VECTOR, EVERY PIXEL CHECKED. Each of the eight 30-pixel bars holds exactly ONE colour15 across all 4800 of its pixels, in all three certified frames, and the three vectors are identical: 0x0000 0x7C00 0x03E0 0x001F 0x7FFF 0x0400 0x0020 0x0001 against a stimulus of 0x0000 0x001F 0x03E0 0x7C00 0x7FFF 0x0001 0x0020 0x0400. Orientation consistent: the two permutation-invariant bars sit where the stimulus put them (0x0000 at bar 0, 0x7FFF at bar 4), so the frame is not being read mirrored. GBP-HW-130.
+# NOTE=HYPOTHESES, EXACT EQUALITY, NO SCORE. H1_outer_group_swap matches all eight. H2_identity, H3_byte_swap, H4_intra_group_reversal, H5_complement, H1_H4 and H1_H3 each fail, first at bar 1, 1, 1, 0, 5 and 1 respectively. Exactly one survivor, which is what the design required. The single-bit bars 0x0001, 0x0020 and 0x0400 are what excluded H4 and H1_H4: a full-scale primary alone could not have.
+# NOTE=WHAT THIS DOES NOT PROVE. It says nothing about the semantics of byte 0 or byte 2 (U-GBP-029 stays OPEN), does not explain bit 15 (U-GBP-034, newly opened), does not touch U-GBP-033, and does not make color-0001 confirmatory in retrospect. Within a 5-bit group the stimulus pins bit 0, bit 5 and bit 10 individually and each group as a set; a permutation that fixes those three and rearranges only bits 1-4 inside a group is not excluded by this pattern. That limit was written into the design before the run (V3.19), the run produced no residual ambiguity, and the follow-up pattern is recorded there if it is ever wanted. The claim is about AGB Mode 3 video on the path this run exercised, and about nothing else.
+# NOTE=FULL-RAW DIAGNOSTIC, REPORTED BECAUSE U-GBP-029 IS OPEN. The three certified frames are NOT byte-identical over the full 153600-byte raw frame: A/B 2434 differing bytes, B/C 2483, A/C 2485, covering 40 of 40 blocks and 160 of 160 lines. By position in the group: A/B b0=2222 b1=0 b2=212 b3=0; B/C b0=2244 b1=0 b2=239 b3=0; A/C b0=2264 b1=0 b2=221 b3=0. Bytes 1 and 3 differ in ZERO positions in every pair. First difference at 0x110 - block 0, x=68, y=0, byte 0, 83 vs 03. This is a fifth independent corroboration that the deviations are confined to bytes 0 and 2, and it identifies no mechanism.
+# NOTE=CROSS-RUN REPRODUCIBILITY, AS CORROBORATION ONLY. The three certified frames of color-0001 and color-0002 - two independent physical runs, two commits, separate power cycles - are byte-identical in the consumed projection: 38400 of 38400 words in all three corresponding pairs. Their full raws still differ (2514, 2449 and 2481 bytes), again entirely in bytes 0 and 2 and never in 1 or 3. color-0002 confirms itself under its own contract without this comparison; the comparison is recorded because it is strong independent evidence and because it is exactly what U-GBP-029 needs. color-0001 is NOT re-judged: it stays INCONCLUSIVE under its own frozen contract, permanently. GBP-HW-132.
+# NOTE=THIS SCRIPT IS A PREFIX, NOT THE RUN, exactly as in the vstate and color-0001 fixtures: it carries the 003A stage, the pre-handler wait with both its records, the verify cycles and the teardown - the only parts whose transport operations the log records. The 440 service cycles kept no per-delivery record by design and are NOT invented here. The sidecar is the evidence for them: 5 frame records, 3 certified, 3 raw frames of 153600 bytes at offsets 0, 153600 and 307200. Header CRC f834e435 and total CRC f3f85d64, both recomputed on ingestion, footer OGBPCEND at 0x70B68, size == off_footer + 12.
+A r 0043
+A w 005b
+A r 005b
+W 01000000 ok
+R 01000000 ok 3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c
+W 01000000 ok
+R 01000000 ok c7c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3
+W 01000000 ok
+R 01000000 ok 0000000000000000000000000000000000000000000000000000000000000000
+W 01000000 ok
+R 01000000 ok ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+P r 00010000 000001fa
+T 3923399248
+P r 00010000 000001fa
+R 01400000 ok 9692929292929292929292929292929292929292929292929292929292929292
+R 01d00000 ok 8e8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+R 01000000 ok 0000000000000000000000000000000000000000000000000000000000000000
+W 01400000 ok
+T 3923404813
+T 3923405897
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 8e8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+R 01000000 ok 0000000000000000000000000000000000000000000000000000000000000000
+R 01d00000 ok 8e8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+W 01d00000 ok
+T 3923410329
+T 3923410347
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 8e8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+T 3923412357
+P r 00010000 000001fa
+R 01400000 ok ae8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 8e8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+T 3923430582
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 8e8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+R 01d00000 ok 8e8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+P r 00010000 000001fa
+W 01d00000 ok
+T 3923431081
+T 3923431098
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0000000000000000000000000000000000000000000000000000000000000000
+T 3923433106
+P r 00010000 000001fa
+R 01400000 ok ae8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0000000000000000000000000000000000000000000000000000000000000000
+T 3923451336
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0000000000000000000000000000000000000000000000000000000000000000
+T 3923633581
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0000000000000000000000000000000000000000000000000000000000000000
+T 3925456082
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0000000000000000000000000000000000000000000000000000000000000000
+T 3927714402
+P p 00012000
+P r 00012000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0404040004040400040404000404040004040400040404000404040004040400
+T 3927714710
+T 3927751298
+P r 00012000 000001fa
+P r 00012000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0505050005050500050505000505050005050500050505000505050005050500
+T 4130255144
+P r 00012000 000001fa
+P r 00012000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0505050005050500050505000505050005050500050505000505050005050500
+I i null
+T 4130261480
+P r 00012000 000001fa
+P r 00012000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0505050005050500050505000505050005050500050505000505050005050500
+P r 00012000 000001fa
+T 4130267042
+I u 1 1 4130267130 00012000 000021fa 00010000 000001fa 00000000 00000000 00012000 4130267286 00010000 000001fa 0
+T 4130267312
+P r 00010000 000001fa
+T 4130267372
+I m
+P r 00010000 000001fa
+T 4130275126
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0505040005050500050505000505050005050500050505000505050005050500
+T 4130279391
+B 01800000 00001000 ok
+T 4130282087
+T 4130283609
+B 01100000 00000f00 ok
+T 4130286034
+T 4130287464
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0505050005050500050505000505050005050500050505000505050005050500
+W 01d00000 ok
+T 4130292027
+T 4130293075
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 8080000080800000808000008080000080800000808000008080000080800000
+W 01d00000 ok
+T 4130299355
+P r 00012000 000001fa
+T 4130301333
+I u 1 1 4130301386 00012000 000021fa 00010000 000001fa 00000000 00000000 00012000 4130301522 00010000 000001fa 0
+T 4130301344
+P r 00012000 000001fa
+T 4130301571
+I m
+P r 00010000 000001fa
+T 4130308891
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0404040004040400040404000404040004040400040404000404040004040400
+T 4130313019
+B 01800000 00001000 ok
+T 4130315632
+T 4130317020
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0404040004040400040404000404040004040400040404000404040004040400
+W 01d00000 ok
+T 4130321469
+T 4130322479
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 8080000080800000808000008080000080800000808000008080800080800000
+W 01d00000 ok
+T 4130327597
+P r 00012000 000001fa
+T 4130329347
+I u 1 1 4130329388 00012000 000021fa 00010000 000001fa 00000000 00000000 00012000 4130329519 00010000 000001fa 0
+T 4130329356
+P r 00012000 000001fa
+T 4130329559
+I m
+P r 00010000 000001fa
+T 4130336838
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0404040004040400040404000404040004040400040404000404040004040400
+T 4130340796
+B 01800000 00001000 ok
+T 4130343419
+T 4130344799
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0404040004040400040404000404040004040400040404000404040004040400
+W 01d00000 ok
+T 4130349241
+T 4130350252
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 8080000080800000808000008080000080800000808000008080000080800000
+W 01d00000 ok
+T 4130355439
+P r 00012000 000001fa
+T 4130357186
+I u 1 1 4130357227 00012000 000021fa 00010000 000001fa 00000000 00000000 00012000 4130357358 00010000 000001fa 0
+T 4130357194
+P r 00012000 000001fa
+T 4130357398
+I m
+P r 00010000 000001fa
+T 4130364676
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0404040004040400040404000404040004040400040404000404040004040400
+T 4130368635
+B 01800000 00001000 ok
+T 4130371222
+T 4130372604
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 0404040004040400040404000404040004040400040404000404040004040400
+W 01d00000 ok
+T 4130377047
+T 4130378057
+P r 00010000 000001fa
+P r 00010000 000001fa
+R 01400000 ok be8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+R 01d00000 ok 8080000080800000808000008080000080800000808000008080000080800000
+W 01d00000 ok
+T 4130383171
+W 01400000 ok
+T 4133193310
+R 01400000 ok 9692929292929292929292929292929292929292929292929292929292929292
+R 01d00000 ok 0404040004040400040404000404040004040400040404000404040004040400
+W 01d00000 ok
+T 4133197814
+R 01d00000 ok 8e8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+P r 00012000 000001fa
+P a 00002000
+P r 00010000 000001fa
+I r
+P r 00010000 000001fa
+A w 0043
+A r 0043
+T 4133204084
+P r 00010000 000001fa
+R 01400000 ok 0000000000000000000000000000000000000000000000000000000000000000
+R 01d00000 ok 9692929292929292929292929292929292929292929292929292929292929292

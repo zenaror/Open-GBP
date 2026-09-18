@@ -247,7 +247,7 @@ difference is documented anywhere; the user's unit revision is unknown.
 Dolphin maps hi byte bit 0 → L and bit 1 → R (swapped vs GBA KEYINPUT);
 GBI's 0x0304 sets both. Phase 5 test with a game that distinguishes L/R.
 
-## U-GBP-011 (P2, re-evaluated 2026-09-18: the first physical colour run EXECUTED and did NOT satisfy its own acceptance gate; the post-gate diagnostic projection matches H1 exactly and is NOT accepted as the answer; a pre-registered colour-0002 under a stated gate is the next step) — VIDEO color bit order and exact word content
+## U-GBP-011 (P2 — **CLOSED 2026-09-18** by GBP-VIDEO-003 / `color-0002`, the pre-registered confirmatory run: the outer 5-bit groups are exchanged, `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`, promoting the colour order from CORROBORATED to **FACT**. Two residuals were never part of this item and stay open: bit 15's origin, now U-GBP-034, and the bytes 0/2 deviations, U-GBP-029) — VIDEO color bit order and exact word content
 
 **2026-09-16, static (GBP-VID-003/006, VIDEO_PATH.md §2.3–2.4, §3.2):** the
 Disc draws the 16-bit pixel (bytes 1/3, bit 15 forced to 1) as a GX RGB5A3
@@ -327,6 +327,60 @@ U-GBP-029, with the full-raw comparison kept and reported as a separate
 diagnostic rather than as the gate), a new analyser version rather than an edit
 to the frozen one, and a fresh physical run judged by it. `OGBPCOL1` v1 stays
 FROZEN and `color-0001` is never re-labelled.
+
+---
+
+## CLOSED — 2026-09-18, GBP-VIDEO-003 / `color-0002`
+
+**Every condition this item set for itself was met, in the order it set them.**
+The contract was written down first (`HARDWARE_TESTS.md` §V4, commit `a86b079`),
+as a new analyser (`tools/vcolor2.py`) rather than an edit to the frozen one, and
+a fresh physical run — build `color-0002`, commit `39f1980`, DOL sha256
+`d3c1f09e…`, built clean at that exact commit — was judged by it. Neither the
+contract nor the analyser was touched between the pre-registration and the run.
+
+```text
+STANDING: CONFIRMATORY
+VERDICT:  CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP
+```
+
+**The answer.** The VIDEO window's consumed pixel word carries the AGB's fifteen
+colour bits with the two outer 5-bit groups **exchanged**: what the AGB wrote in
+bits 4–0 arrives in bits 14–10, and what it wrote in bits 14–10 arrives in bits
+4–0; bits 9–5 are unchanged. Under the reading both reference decoders implement
+— bit 15 flag, bits 14–10 R, 9–5 G, 4–0 B — the displayed colour is therefore the
+AGB's intended colour, and the Start-up Disc's embedded idle frame renders as its
+author intended. **This is the promotion the item was waiting for**: its own text
+said "CORROBORATED, not FACT: no physical pixel of a known color has been
+captured". Eight have now been captured, uniform over 4800 pixels each, in three
+certified frames, twice.
+
+Supporting evidence, all recomputed from the raw bytes rather than taken from the
+analyser: GBP-HW-127 (runtime PASS), GBP-HW-128 (38 400 of 38 400 consumed words
+identical across A, B and C), GBP-HW-129 (flag15 stable), GBP-HW-130 (the colour
+vector, every pixel of every bar), GBP-HW-131 (the unique exact match),
+GBP-HW-132 (the same picture in both physical runs), GBP-HW-133 (the full-raw
+diagnostic).
+
+**The exact width of the closure, and what stays outside it.**
+
+- It is about `colour15` in the consumed pixel word, for AGB Mode 3 video on the
+  path these runs exercised. Nothing wider.
+- Within a 5-bit group the stimulus pins bit 0, bit 5 and bit 10 individually and
+  each group as a set. **A permutation fixing those three while rearranging only
+  bits 1–4 inside a group is not excluded by this pattern.** That limit was
+  written into the design before the run (§V3.19), which also records the
+  follow-up pattern that would close it; the run produced no residual ambiguity,
+  so the follow-up is not triggered and no new item is opened for it.
+- It says **nothing** about bytes 0 and 2 — `U-GBP-029` stays OPEN, and this run
+  is its fifth corroboration, not its answer.
+- It does **not** explain bit 15. That bit is observably *not* the colour value
+  and is added on the path — the AGB wrote zero there — but what sets it and when
+  is now **U-GBP-034**.
+- It does not touch `U-GBP-033`.
+- It does **not** make `color-0001` confirmatory in retrospect. `color-0001`
+  failed its own pre-registered gate and stays `INCONCLUSIVE_CERTIFIED_RAW_MISMATCH`
+  permanently; `tools/vcolor.py` is unchanged and still prints that verdict.
 
 Dolphin uses GBA palette order (R in bits 0–4). GBI's frame-start test only
 proves the byte-doubling of the high byte. Phase 4: capture one block
@@ -834,7 +888,7 @@ decisive for the runtime (e.g. an immediate re-request
 on every re-arm would mean the runtime must drain before re-arming — which
 the references do anyway).
 
-## U-GBP-029 (P2, opened 2026-09-16 after GBP-AV-SERVICE-001; re-measured 2026-09-18 on a NON-UNIFORM picture, the strongest test so far — the deviations are still confined to bytes 0 and 2) — Are the byte-0 / offset-2 deviations inside whole-block DMAs block data or a read-path artifact?
+## U-GBP-029 (P2, opened 2026-09-16 after GBP-AV-SERVICE-001; re-measured twice on a NON-UNIFORM picture, 2026-09-18, and now ACROSS two independent physical runs — the deviations are still confined to bytes 0 and 2, and still unexplained) — Are the byte-0 / offset-2 deviations inside whole-block DMAs block data or a read-path artifact?
 
 GBP-HW-061 / VIDEO_PATH.md §7: in the first physical VIDEO block the only
 deviations from a uniform picture are five `+0x80` in byte 0 of a pixel word
@@ -868,6 +922,23 @@ every single one of them at position 0 or 2 of its group. Bytes 1 and 3 differ i
 identical in 38 400 of 38 400 words. Every earlier test of this was made on an
 essentially uniform white screen, where most of the payload cannot show a
 difference; this one was not.
+
+**2026-09-18, `color-0002` (GBP-HW-132, GBP-HW-133) — the sharpest form of the
+question so far, and it still does not answer it.** The confirmatory run
+reproduces the shape exactly: A/B 2434 differing bytes, B/C 2483, A/C 2485, over
+40 of 40 blocks and 160 of 160 lines, **byte 1 and byte 3 zero in every pair**.
+
+What is new is the cross-run comparison. The three certified frames of
+`color-0001` and `color-0002` — two physical runs, two commits, separate power
+cycles — are **byte-identical in the consumed projection**, 38 400 of 38 400
+words in all three corresponding pairs, while their full raws differ in 2514,
+2449 and 2481 bytes, again entirely in bytes 0 and 2. So the device delivered the
+*same picture* twice and *different* bytes 0/2 twice.
+
+That is strong evidence the deviations do not carry picture data, and it is
+still not evidence for (a), (b) or (c): a field that is not the picture may still
+be data. **UNKNOWN stands.** Nothing here names a mechanism, and the raw bytes
+remain the authority and are never corrected.
 
 That is consistent with (b), a read-path artifact, and it is **still not
 decisive**: nothing here excludes bytes 0 and 2 carrying data the references
@@ -1191,3 +1262,40 @@ both. That connection is itself a HYPOTHESIS.
   reentry, 0 lost cause, 0 uncertain write and a strict per-cycle W1C budget
   (GBP-HW-062, GBP-HW-063). Longer runs, and runs with a cartridge driving a
   moving image, remain untested.
+
+### U-GBP-034 — what sets bit 15 of the VIDEO pixel word, and can it appear anywhere but the first pixel of a frame? — OPEN (opened 2026-09-18; not blocking)
+
+**Why this is a separate item.** It was carried inside U-GBP-011 as "exact word
+content" and never answered there, and closing that item without naming it would
+lose it. The *consumption* side has never been in doubt: both reference decoders
+treat bit 15 of the pixel word as the frame-start flag and force it on when they
+draw — the Disc sets `FILL = 0x8000` in every pixel it converts, GBI ORs
+`0x80008000` into its tiles, and the two frame-start predicates read it
+(GBP-VID-003, GBP-VID-004, F (code) ×2). What is open is the *production* side.
+
+**What is established physically.** Exactly one word per frame carries bit 15, at
+x = 0, y = 0, in every physical frame this project has captured: `vstate-0001`,
+`-0003`, `-0004`, 3 of 88 stored blocks in GBP-VIDEO-001 (all at word 0),
+`color-0001` (GBP-HW-125) and `color-0002` (GBP-HW-129). In the two colour runs
+the word is exactly `0x8000` — flag set, `colour15 = 0x0000` — because the
+stimulus paints bar 0 black and **never writes bit 15 anywhere**. So the bit is
+observably not the colour value and is added on the path between the AGB's
+framebuffer and the VIDEO window. Earlier runs could not show this: their first
+word was `0xFFFF`, flag over white, where the bit is indistinguishable from the
+colour.
+
+**What is NOT established.** Who sets it — the AGB side, the GBS-DOL, or the
+transfer itself; whether it is a position marker, a transfer-boundary artifact or
+something else; whether a picture, a mode or a timing exists in which it appears
+at another coordinate, more than once, or not at all. `FLAG15_STABLE` in
+`tools/vcolor2.py` means *reproducible across the three certified frames of one
+run* and is deliberately worded to claim nothing further.
+
+**Do not** name the bit anything the evidence does not carry, and do not promote
+"frame start" from the references' *consumption* of it to a statement about what
+the device *does*. **UNKNOWN.** Non-blocking: no current work depends on it, and
+the runtime reads the bit exactly as both references do. A cheap future test
+would be a stimulus whose first pixel is non-black and non-white together with a
+capture spanning several frames, so position, count and periodicity are measured
+rather than assumed — not scheduled, and not a reason to spend a physical run on
+its own.
