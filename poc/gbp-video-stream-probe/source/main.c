@@ -1,7 +1,8 @@
 /*
- * Open-GBP GBP-VIDEO-004, build stream-0001 — the first sustained-streaming
- * candidate (HARDWARE_TESTS §V5). IMPLEMENTED AND HOST-VALIDATED; it has never
- * touched hardware, and nothing here claims sustained streaming works.
+ * Open-GBP GBP-VIDEO-004, build stream-0002 — the corrected streaming candidate
+ * (HARDWARE_TESTS §V5, fixes §V5.26). IMPLEMENTED AND HOST-VALIDATED; it has
+ * never touched hardware, and nothing here claims sustained streaming works.
+ * `stream-0001` is historical and REJECTED: do not run it.
  *
  * WHAT IS NEW, AND WHAT IS NOT
  *
@@ -44,25 +45,49 @@
  * last device access, with the next cause already invited. Never between the ACK
  * and the RE-ARM, and never a whole frame in one call.
  *
- * The slice size is argued from measurement, not taste: `gbp_vsig_block()`
- * already reads 3840 bytes inside this same path and cost 777-799 ticks
- * (19.2-19.7 us) in `color-0002`, against 164 us of slack between deliveries.
- * One tile row reads the same 3840 bytes and writes 1920. That is an argument
- * for the SIZE; whether it holds is what the physical run measures.
+ * THE SLICE SIZE IS NOT JUSTIFIED BY A TIMING CLAIM, and the claim it used to
+ * carry was wrong. `stream-0001` said "164 us of slack between deliveries"; that
+ * figure is `capture_elapsed / deliveries`, the mean cycle PERIOD, not slack.
+ * The audit measured the real RE-ARM→next-cause window from `vstate-0004`'s 80
+ * physical cycles: median 42.8 us, p25 **1.9 us**, with 34 % of cycles at 1.9 us
+ * — the next cause is usually already latched when the RE-ARM completes.
  *
- * ---- TEXTURE OWNERSHIP, ON THE REAL API ---------------------------------
+ * One tile row is therefore kept as a CONSERVATIVE bounded quantum and not as a
+ * proven fit, and two things follow. The cause is read BEFORE the slice and the
+ * slice is skipped when one is already pending (`pump_skipped_cause_pending`),
+ * and the slice cost plus the cause state either side of it are recorded so the
+ * first physical run MEASURES the effect instead of inheriting an assumption.
+ * The position remains PLAUSIBLE BUT UNMEASURED until that run.
  *
- * GX consumes a texture asynchronously, so "the CPU may refill this buffer" is a
- * question only the GP can answer. libogc2 answers it with
- * `GX_SetDrawDoneCallback()` + `GX_SetDrawDone()`: the GP raises the callback
- * when it has finished the submitted commands. Two texture buffers, each in one
- * of three states, and the CPU only ever fills a FREE one:
+ * ---- WHAT stream-0001 GOT WRONG, AND WHERE THE FIX LIVES -----------------
  *
- *     FREE  ->  CPU_FILLING  ->  SUBMITTED  ->  (draw-done callback)  ->  FREE
+ * `stream-0001` was REJECTED before hardware (§V5.26). Its draw-done callback
+ * freed EVERY buffer in `TEX_SUBMITTED`, but a DrawDone token certifies only the
+ * commands queued before it: with two frames in flight the first token freed
+ * both, and the CPU could then refill a texture the GP was still reading. The
+ * defect survived a green suite because it lived in this file, which had no
+ * behavioural test — the host tests asserted only that `on_draw_done` appeared
+ * in the source.
  *
- * `GX_DrawDone()` would have been simpler and it BLOCKS, which §V5.7 forbids in
- * this path. The callback form is the non-blocking one, and it is why the CPU
- * can never overwrite a texture the GP might still be reading.
+ * So the ownership is no longer here. `src/gbp/gbp_vpresent.{h,c}` holds it, it
+ * knows nothing about GX or VI, and a host test drives it state by state. The
+ * rule it enforces is the one that can be proved: AT MOST ONE DRAW-DONE TOKEN IN
+ * FLIGHT, and the callback releases exactly one buffer BY INDEX.
+ *
+ *     FREE -> CPU_FILLING -> READY -> SUBMITTED -> (draw-done) -> FREE
+ *
+ * `GX_DrawDone()` would be simpler and it BLOCKS, which §V5.7 forbids in this
+ * path; `GX_SetDrawDone()` plus a callback is the non-blocking form.
+ *
+ * ---- AND THE FRAMEBUFFER, WHICH IS A DIFFERENT QUESTION ------------------
+ *
+ * `stream-0001` copied into the framebuffer the VI was scanning out. A DrawDone
+ * says the GP finished reading the TEXTURE; it says nothing about the VI.
+ * `stream-0002` therefore keeps TWO stream framebuffers and asks
+ * `gbp_vpresent_xfb_target()` which one is safe, from two non-blocking VI reads:
+ * `VIDEO_GetCurrentFramebuffer()` and the hand-over we are still waiting on.
+ * When neither is safe the present is SKIPPED and counted. Nothing here waits
+ * for a retrace, and no second asynchronous machine was introduced to do it.
  *
  * SD save on X - the text log - START to exit. Nothing is read from the
  * controller before the probe has returned from its teardown. Every run ends
@@ -82,6 +107,7 @@
 #include "gbp_vstate_probe.h"
 #include "gbp_vpix.h"
 #include "gbp_vqueue.h"
+#include "gbp_vpresent.h"
 #include "hsp_backend.h"
 #include "hsp_backend_irq.h"
 #include "sdlog.h"
@@ -147,11 +173,10 @@ static struct gbp_vstate vstate;
 static struct gbp_vstate_diag diag_store[GBP_VSTATE_MAX_DISAGREEMENTS];
 static struct gbp_vqueue vq;
 
-/* ---- the two texture buffers, and their ownership ---------------------- */
-enum tex_state { TEX_FREE = 0, TEX_CPU_FILLING, TEX_SUBMITTED };
-#define STREAM_TEX_BUFFERS 2u
+/* ---- the texture buffers; the OWNERSHIP lives in src/gbp/gbp_vpresent ---- */
+#define STREAM_TEX_BUFFERS GBP_VPRESENT_TEX_BUFFERS
 static uint16_t tex_buf[STREAM_TEX_BUFFERS][GBP_VPIX_TEX_BYTES / 2u] ATTRIBUTE_ALIGN(32);  /* 2 x 75 KiB */
-static volatile uint8_t tex_state[STREAM_TEX_BUFFERS];
+static struct gbp_vpresent present;
 static GXTexObj tex_obj;
 
 /* A texture buffer must be a whole number of 32-byte cache lines, or a flush of
@@ -160,6 +185,7 @@ _Static_assert(GBP_VPIX_TEX_BYTES % 32u == 0u, "texture size must be cache-line 
 _Static_assert(GBP_VPIX_TEX_BYTES == 240u * 160u * 2u, "texture is 240x160 16-bit");
 _Static_assert(GBP_VPIX_FRAME_BYTES == 40u * 0xF00u, "a frame is 40 blocks of 0xF00");
 _Static_assert(STREAM_TEX_BUFFERS >= 2u, "GX may still be reading one buffer while the CPU fills the other");
+_Static_assert(GBP_VPRESENT_XFB_BUFFERS == 2u, "the stream needs two framebuffers so the VI is never written under");
 
 /* ---- the conversion in progress (consumer state) ----------------------- */
 static struct {
@@ -171,11 +197,25 @@ static struct {
     struct gbp_vpix_stats stats;
 } conv;
 
+static uint32_t conv_abandoned_no_raw;
+static int gx_drained_at_teardown, gx_callback_restored;
 static uint32_t flag15_last_count;
 static uint32_t flag15_last_x, flag15_last_y;
-static uint32_t slices_done, presents_submitted, no_free_buffer;
-static uint32_t slice_ticks_min = 0xFFFFFFFFu, slice_ticks_max;
 static const struct gbp_vstate *pump_state;
+
+/* ---- the two stream framebuffers, plus the console's own ---------------- */
+static void *xfb_stream_buf[GBP_VPRESENT_XFB_BUFFERS];
+
+/* Which stream framebuffer the VI is scanning out, as an INDEX, or -1 when it
+ * is showing neither (the console). One pointer comparison, no blocking. */
+static int xfb_current_index(void)
+{
+    void *cur = VIDEO_GetCurrentFramebuffer();
+    uint32_t i;
+    for (i = 0; i < GBP_VPRESENT_XFB_BUFFERS; i++)
+        if (cur == xfb_stream_buf[i]) return (int)i;
+    return -1;
+}
 
 static void *xfb_stream;      /* GX copies the AGB image here */
 static void *xfb_text;        /* the console report lives here, so they never fight */
@@ -190,13 +230,17 @@ static void gecko_puts(const char *line)
     if (gecko_present) usb_sendbuffer_safe(GECKO_CHANNEL, line, (int)strlen(line));
 }
 
-/* The GP has finished the submitted commands, so the texture it read is free.
- * This runs at interrupt time: it stores one byte and does nothing else. */
+/* The GP finished the commands up to the pending token, so the ONE submitted
+ * texture is free. This runs at interrupt time and does exactly one thing: it
+ * calls the ownership module, which releases exactly one buffer by index.
+ *
+ * `stream-0001`'s version looped over every buffer and freed each one that was
+ * SUBMITTED, which is how the CPU could take back a texture the GP still owned
+ * (§V5.26.2). Nothing else may be added here: no conversion, no drawing, no
+ * filesystem, no formatted logging, and nothing that touches GBP service state. */
 static void on_draw_done(void)
 {
-    uint32_t i;
-    for (i = 0; i < STREAM_TEX_BUFFERS; i++)
-        if (tex_state[i] == TEX_SUBMITTED) tex_state[i] = TEX_FREE;
+    (void)gbp_vpresent_draw_done(&present);
 }
 
 static void video_setup(void)
@@ -207,7 +251,12 @@ static void video_setup(void)
      * competing for one (§V5.15 named this as the open question). The console
      * owns xfb_text and is shown while the probe reports; GX copies into
      * xfb_stream and that one is shown while the capture runs. */
-    xfb_stream = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
+    /* TWO stream framebuffers, so a copy never lands in the one the VI is
+     * scanning out (§V5.26 F8), plus the console's own so the text report and the
+     * image never compete. */
+    xfb_stream_buf[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
+    xfb_stream_buf[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
+    xfb_stream = xfb_stream_buf[0];
     xfb_text   = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
     CON_Init(xfb_text, 20, 20, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth * VI_DISPLAY_PIX_SZ);
     VIDEO_Configure(rmode);
@@ -221,6 +270,8 @@ static void video_setup(void)
 /* Minimal GX: one RGB5A3 texture drawn as one quad, orthographic, no lighting,
  * no filter, no effect. Every call here is in the official libogc2 texture
  * example's init sequence; nothing is added for convenience (§V5.12, §V5.16). */
+static GXDrawDoneCallback gx_prev_drawdone_cb;
+
 static void gx_setup(void)
 {
     GXColor background = { 0, 0, 0, 0xFF };
@@ -242,7 +293,7 @@ static void gx_setup(void)
     GX_SetCullMode(GX_CULL_NONE);
     GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
     GX_SetColorUpdate(GX_TRUE);
-    GX_CopyDisp(xfb_stream, GX_TRUE);
+    GX_CopyDisp(xfb_stream_buf[0], GX_TRUE);
     GX_SetDispCopyGamma(GX_GM_1_0);
 
     GX_ClearVtxDesc();
@@ -265,7 +316,7 @@ static void gx_setup(void)
     guMtxIdentity(mv);
     GX_LoadPosMtxImm(mv, GX_PNMTX0);
 
-    GX_SetDrawDoneCallback(on_draw_done);
+    gx_prev_drawdone_cb = GX_SetDrawDoneCallback(on_draw_done);
 }
 
 /* Native 240x160, centred, unscaled. Scaling and aspect are Phase 9 policy and
@@ -284,20 +335,82 @@ static void draw_quad(void)
     GX_End();
 }
 
-static int find_free_buffer(void)
-{
-    uint32_t i;
-    for (i = 0; i < STREAM_TEX_BUFFERS; i++) if (tex_state[i] == TEX_FREE) return (int)i;
-    return -1;
-}
-
 /* THE CONSUMER SLICE. Called once per service cycle, after the RE-ARM, and it
  * does a bounded amount of work and returns. It never blocks, never waits for
  * the GP or the VI, and never touches the device. */
+static void submit_ready(int buf);
+
+/* ---- the display self-test (§V5.26.4) -----------------------------------
+ *
+ * `stream-0001` was called "smoke-tested" while its whole display path had never
+ * executed: Dolphin matched a line printed BEFORE the probe ran, and without a
+ * Game Boy Player no frame ever closes, so the conversion, the flush, the
+ * texture setup, the draw, the token and the callback were all dead code.
+ *
+ * This walks the identical path once, before the probe, from a SYNTHETIC raw
+ * frame this file builds. It knows no stimulus value — a gradient derived from
+ * the pixel coordinates — so it cannot teach the runtime what the experiment is
+ * looking for (§V3.11). It runs unconditionally because a path that is only
+ * exercised when someone remembers to ask is the path that rots; it costs one
+ * frame before the capture opens and touches no device.
+ *
+ * It does NOT prove timing, pacing or anything about the Game Boy Player. It
+ * proves the code runs and the ownership machine ends where it started. */
+static uint8_t selftest_raw[GBP_VPIX_FRAME_BYTES] ATTRIBUTE_ALIGN(32);
+static int selftest_ok, selftest_released, selftest_converted;
+
+static void display_selftest(void)
+{
+    struct gbp_vpix_stats st;
+    uint32_t x, y, spins;
+    int buf;
+
+    for (y = 0; y < GBP_VPIX_HEIGHT; y++) {
+        for (x = 0; x < GBP_VPIX_WIDTH; x++) {
+            /* a coordinate gradient, and deliberately NOT any stimulus value */
+            const uint16_t w = (uint16_t)(((x >> 3) << 10) | ((y >> 3) << 5) | ((x ^ y) & 0x1Fu));
+            const size_t o = gbp_vpix_raw_offset(x, y);
+            selftest_raw[o + 0] = 0x5Au;                  /* byte 0: never read */
+            selftest_raw[o + 1] = (uint8_t)(w >> 8);
+            selftest_raw[o + 2] = 0xA5u;                  /* byte 2: never read */
+            selftest_raw[o + 3] = (uint8_t)(w & 0xFFu);
+        }
+    }
+
+    buf = gbp_vpresent_acquire(&present);
+    if (buf < 0) return;
+    if (gbp_vpix_frame(selftest_raw, sizeof selftest_raw, tex_buf[buf],
+                       GBP_VPIX_TEX_BYTES / 2u, &st) != 0) {
+        (void)gbp_vpresent_abandon(&present, buf);
+        return;
+    }
+    selftest_converted = (st.pixels == GBP_VPIX_WIDTH * GBP_VPIX_HEIGHT) ? 1 : 0;
+    DCFlushRange(tex_buf[buf], GBP_VPIX_TEX_BYTES);
+    (void)gbp_vpresent_fill_done(&present, buf);
+    submit_ready(buf);
+
+    /* Wait for the callback HERE and nowhere else: this runs before the capture
+     * opens, so a bounded spin costs the device nothing. If the token never
+     * fires, that is itself the finding and it is reported rather than hidden. */
+    for (spins = 0; spins < 600u && gbp_vpresent_inflight(&present); spins++) VIDEO_WaitVSync();
+    selftest_released = gbp_vpresent_inflight(&present) ? 0 : 1;
+    selftest_ok = (selftest_converted && selftest_released &&
+                   gbp_vpresent_consistent(&present)) ? 1 : 0;
+}
+
 static void pump(void *user)
 {
     uint32_t t0, t1, row, n;
     (void)user;
+
+    /* A READY buffer whose submit was refused because a token was still pending
+     * gets another chance here, before any new work is started. Re-offering it
+     * costs one state read and keeps the newest converted frame moving. */
+    {
+        uint32_t i;
+        for (i = 0; i < GBP_VPRESENT_TEX_BUFFERS; i++)
+            if (present.tex[i] == GBP_VPRESENT_READY) { submit_ready((int)i); break; }
+    }
 
     if (!conv.active) {
         int buf;
@@ -305,11 +418,13 @@ static void pump(void *user)
          * given a buffer back. With no free buffer the descriptor is LEFT in the
          * mailbox, so the producer's newest-wins rule keeps it fresh rather than
          * this code choosing which frame to lose. */
-        buf = find_free_buffer();
-        if (buf < 0) { no_free_buffer++; return; }
-        if (!gbp_vqueue_take(&vq, &conv.desc)) return;
+        buf = gbp_vpresent_acquire(&present);
+        if (buf < 0) return;          /* counted inside as acquire_no_free_texture */
+        if (!gbp_vqueue_take(&vq, &conv.desc)) {
+            (void)gbp_vpresent_abandon(&present, buf);   /* give the buffer straight back */
+            return;
+        }
         conv.buf = (uint8_t)buf;
-        tex_state[buf] = TEX_CPU_FILLING;
         conv.next_row = 0u;
         conv.ticks = 0u;
         conv.active = 1u;
@@ -321,18 +436,29 @@ static void pump(void *user)
         const uint8_t *blk;
         row = conv.next_row;
         blk = gbp_vstate_ring_block(pump_state, conv.desc.slot, row);
-        if (!blk) { conv.next_row = GBP_VPIX_BLOCKS; break; }   /* no raw: abandon, guard below rejects */
+        if (!blk) {
+            /* The raw is unreadable, which the ring's own bounds check makes
+             * unreachable for a published descriptor. `stream-0001` marked the
+             * frame complete here and claimed "the guard below rejects" — it does
+             * not: the generation guard checks the publish distance, not whether
+             * the conversion finished, so a half-converted texture would have
+             * been presented (§V5.26 F5). Reject it HERE instead. */
+            (void)gbp_vpresent_abandon(&present, (int)conv.buf);
+            conv.active = 0u;
+            conv_abandoned_no_raw++;
+            return;
+        }
         (void)gbp_vpix_block(blk, row, tex_buf[conv.buf],
                              GBP_VPIX_TEX_BYTES / 2u, &conv.stats);
         conv.next_row++;
     }
     t1 = (uint32_t)gettick();
     {
-        uint32_t d = t1 - t0;
+        const uint32_t d = t1 - t0;
         conv.ticks += d;
-        if (d < slice_ticks_min) slice_ticks_min = d;
-        if (d > slice_ticks_max) slice_ticks_max = d;
-        slices_done++;
+        /* Bounded aggregate, in the queue, so the first physical run can publish
+         * the distribution of what the consumer cost (§V5.26.5). */
+        gbp_vqueue_pump_slice(&vq, d, conv.next_row >= GBP_VPIX_BLOCKS);
     }
 
     if (conv.next_row < GBP_VPIX_BLOCKS) return;      /* more slices to come */
@@ -340,9 +466,12 @@ static void pump(void *user)
     /* The frame is converted. Step 3 and 4 of the generation guard (§V5.7):
      * only now do we ask whether the producer reused the slot underneath us. */
     if (!gbp_vqueue_commit(&vq, gbp_vqueue_still_valid(&vq, &conv.desc), conv.ticks)) {
-        /* Consumer overrun. The half-and-half image is discarded whole and the
-         * screen keeps the previous frame; two generations never mix. */
-        tex_state[conv.buf] = TEX_FREE;
+        /* Consumer overrun. The half-and-half image is discarded WHOLE and the
+         * screen keeps the previous frame; two generations never mix. The buffer
+         * goes back through the module, which refuses to take back a SUBMITTED
+         * one — it cannot be submitted yet, and that is asserted rather than
+         * assumed. */
+        (void)gbp_vpresent_abandon(&present, (int)conv.buf);
         conv.active = 0u;
         return;
     }
@@ -358,20 +487,48 @@ static void pump(void *user)
      * about it. Nothing above this line is visible to the GP; nothing below it
      * may write the buffer again until the draw-done callback frees it. */
     DCFlushRange(tex_buf[conv.buf], GBP_VPIX_TEX_BYTES);
+    (void)gbp_vpresent_fill_done(&present, (int)conv.buf);   /* CPU_FILLING -> READY */
+    conv.active = 0u;
+    submit_ready((int)conv.buf);
+}
+
+/* Hand a READY texture to the GP and put the result on screen — or decline,
+ * without waiting for anything. Split out of `pump()` because it is the part
+ * whose ORDERING is the safety argument, and because a READY buffer may have to
+ * wait for the previous token before it can go. */
+static void submit_ready(int buf)
+{
+    int xfb;
+
+    /* ONE token in flight. A refusal here is normal back-pressure: the buffer
+     * stays READY and is offered again on the next slice boundary, and the
+     * producer is never involved. */
+    if (!gbp_vpresent_submit(&present, buf)) return;
 
     GX_InvalidateTexAll();
-    GX_InitTexObj(&tex_obj, tex_buf[conv.buf], GBP_VPIX_WIDTH, GBP_VPIX_HEIGHT,
+    GX_InitTexObj(&tex_obj, tex_buf[buf], GBP_VPIX_WIDTH, GBP_VPIX_HEIGHT,
                   GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
     GX_InitTexObjFilterMode(&tex_obj, GX_NEAR, GX_NEAR);   /* no filtering: Phase 9 */
     GX_LoadTexObj(&tex_obj, GX_TEXMAP0);
     draw_quad();
-    tex_state[conv.buf] = TEX_SUBMITTED;
-    GX_SetDrawDone();                 /* NON-blocking: on_draw_done() frees the buffer */
-    GX_CopyDisp(xfb_stream, GX_TRUE);
-    GX_Flush();
-    presents_submitted++;
-    gbp_vqueue_note_presented(&vq);
-    conv.active = 0u;
+    /* Marked SUBMITTED before the token is armed (gbp_vpresent_submit did it),
+     * so the callback can never observe a half-built submission. */
+    GX_SetDrawDone();                 /* NON-blocking: on_draw_done() releases it */
+
+    /* The framebuffer is a SEPARATE question: a DrawDone says nothing about the
+     * VI. Copy only into a buffer the VI is neither scanning nor about to. */
+    xfb = gbp_vpresent_xfb_target(&present, xfb_current_index());
+    if (xfb >= 0) {
+        GX_CopyDisp(xfb_stream_buf[xfb], GX_TRUE);
+        GX_Flush();
+        VIDEO_SetNextFramebuffer(xfb_stream_buf[xfb]);
+        VIDEO_Flush();                /* register write only; NEVER VIDEO_WaitVSync here */
+        gbp_vpresent_xfb_handed(&present, xfb);
+        gbp_vqueue_note_presented(&vq);
+    } else {
+        GX_Flush();                   /* the draw still has to reach the GP */
+        gbp_vqueue_note_repeat(&vq);  /* HOLD_PREVIOUS_FRAME: the screen is unchanged */
+    }
 }
 
 int main(void)
@@ -415,10 +572,25 @@ int main(void)
     cfg.st = &vstate;
 
     gbp_vqueue_init(&vq, gbp_vstate_ring_slots(&vstate));
+    gbp_vpresent_init(&present);
     pump_state = &vstate;
     vq.pump = pump;
     vq.pump_user = 0;
     cfg.stream = &vq;
+
+    /* The display path, walked once from a synthetic frame BEFORE any device is
+     * touched, so it stops being dead code (§V5.26.4). The result goes out on the
+     * Gecko channel immediately, so an auxiliary Dolphin run can ASSERT that the
+     * path executed instead of the operator assuming it did. */
+    display_selftest();
+    snprintf(line, sizeof line,
+             "OPENGBP-STREAM SELFTEST ok=%d converted=%d released=%d submits=%lu drawdone=%lu releases=%lu xfb=%lu\n",
+             selftest_ok, selftest_converted, selftest_released,
+             (unsigned long)present.submit_success, (unsigned long)present.drawdone_callbacks,
+             (unsigned long)present.texture_releases, (unsigned long)present.xfb_presents);
+    gecko_puts(line);
+    printf("  SELF-TEST display path: %s (converted=%d, texture released by the GP=%d)\n",
+           selftest_ok ? "ok" : "NOT OK", selftest_converted, selftest_released);
 
     /* The validated pre-handler wait, unchanged (§V5.20, GBP-HW-120). */
     cfg.prehandler_wait_ms = 5000u;
@@ -480,7 +652,30 @@ int main(void)
     gbp_vstate_probe_run(&t, &rl, &cfg, &res);     /* returns only after the teardown */
     a = &res.a;
 
-    /* Back to the console for the report: the two framebuffers never fight. */
+    /* ---- display shutdown, in the one order that is safe (§V5.26 F6) ----
+     *
+     * Everything below runs AFTER the probe has torn down and restored the Game
+     * Boy Player, which is why a blocking GX wait is permissible here and would
+     * never have been permissible in the service loop.
+     *
+     * 1. stop accepting new fills and submissions;
+     * 2. drain the one token that may still be pending — bounded, and only now;
+     * 3. restore the previous draw-done callback, so nothing can call into this
+     *    program's state afterwards;
+     * 4. only then may the buffers be considered dead.
+     *
+     * `stream-0001` did none of this: its callback stayed installed for ever. */
+    gbp_vpresent_shutdown(&present);
+    cfg.stream = 0;                     /* no further publish can reach the queue */
+    vq.pump = 0;                        /* and no further slice can be pumped     */
+    if (gbp_vpresent_inflight(&present)) {
+        GX_DrawDone();                  /* BLOCKING, and deliberately so: the GBP is already down */
+        gx_drained_at_teardown = 1;
+    }
+    GX_SetDrawDoneCallback(gx_prev_drawdone_cb);
+    gx_callback_restored = 1;
+
+    /* Back to the console for the report: the framebuffers never fight. */
     VIDEO_SetNextFramebuffer(xfb_text);
     VIDEO_Flush();
     VIDEO_WaitVSync();
@@ -494,11 +689,37 @@ int main(void)
                    (unsigned long)vq.source_frames_closed, (unsigned long)vq.source_frames_complete,
                    (unsigned long)vq.source_frames_incomplete, (unsigned long)vq.source_frames_quarantined,
                    (unsigned long)vq.source_frames_anomaly, (unsigned long)vq.frames_published);
-    ringlog_printf(&rl, "STREAMCONS taken=%lu converted=%lu presented=%lu overrun=%lu dropped_before_convert=%lu no_free_buffer=%lu balanced=%d",
+    ringlog_printf(&rl, "STREAMCONS taken=%lu converted=%lu presented=%lu overrun=%lu dropped_before_convert=%lu repeats=%lu no_cpu_texture=%lu abandoned_no_raw=%lu balanced=%d",
                    (unsigned long)vq.consumer_frames_taken, (unsigned long)vq.consumer_frames_converted,
                    (unsigned long)vq.consumer_frames_presented, (unsigned long)vq.consumer_slot_overrun,
-                   (unsigned long)vq.dropped_before_convert, (unsigned long)no_free_buffer,
+                   (unsigned long)vq.dropped_before_convert, (unsigned long)vq.display_frames_repeated,
+                   (unsigned long)present.acquire_no_free_texture, (unsigned long)conv_abandoned_no_raw,
                    gbp_vqueue_balanced(&vq));
+    /* The counters that answer §V5.26.5: what the slice cost, and what the GBP
+     * was doing either side of it. */
+    ringlog_printf(&rl, "STREAMPUMP calls=%lu slices=%lu completed=%lu skipped_cause_pending=%lu pending_before=%lu pending_after=%lu arrived_during=%lu",
+                   (unsigned long)vq.pump_calls, (unsigned long)vq.pump_slices_started,
+                   (unsigned long)vq.pump_slices_completed, (unsigned long)vq.pump_skipped_cause_pending,
+                   (unsigned long)vq.cause_pending_before_pump, (unsigned long)vq.cause_pending_after_pump,
+                   (unsigned long)vq.cause_arrived_during_pump);
+    ringlog_printf(&rl, "STREAMPUMPT ticks_min=%lu ticks_max=%lu ticks_mean=%lu n=%lu tile_rows_per_slice=%u",
+                   (unsigned long)(vq.pump_ticks_n ? vq.pump_ticks_min : 0u), (unsigned long)vq.pump_ticks_max,
+                   (unsigned long)gbp_vqueue_pump_ticks_mean(&vq), (unsigned long)vq.pump_ticks_n,
+                   (unsigned)STREAM_SLICE_TILE_ROWS);
+    /* The ownership machine, whose defect rejected stream-0001. */
+    ringlog_printf(&rl, "STREAMOWN acquire=%lu no_texture=%lu fills=%lu/%lu abandoned=%lu submit=%lu/%lu blocked_inflight=%lu blocked_shutdown=%lu",
+                   (unsigned long)present.acquire_attempts, (unsigned long)present.acquire_no_free_texture,
+                   (unsigned long)present.fills_completed, (unsigned long)present.fills_started,
+                   (unsigned long)present.fills_abandoned, (unsigned long)present.submit_success,
+                   (unsigned long)present.submit_attempts, (unsigned long)present.submit_blocked_inflight,
+                   (unsigned long)present.submit_blocked_shutdown);
+    ringlog_printf(&rl, "STREAMGX drawdone=%lu spurious=%lu releases=%lu xfb_presents=%lu xfb_skipped=%lu consistent=%d inflight_at_end=%d drained=%d cb_restored=%d",
+                   (unsigned long)present.drawdone_callbacks, (unsigned long)present.drawdone_spurious,
+                   (unsigned long)present.texture_releases, (unsigned long)present.xfb_presents,
+                   (unsigned long)present.xfb_skipped_busy, gbp_vpresent_consistent(&present),
+                   gbp_vpresent_inflight(&present), gx_drained_at_teardown, gx_callback_restored);
+    ringlog_printf(&rl, "STREAMSELFTEST ok=%d converted=%d released=%d note=synthetic_frame_before_capture_no_device",
+                   selftest_ok, selftest_converted, selftest_released);
     ringlog_printf(&rl, "STREAMPACE publish_min=%lu publish_max=%lu publish_mean=%lu n=%lu convert_min=%lu convert_max=%lu convert_mean=%lu n=%lu",
                    (unsigned long)(vq.publish_interval_n ? vq.publish_interval_min : 0u),
                    (unsigned long)vq.publish_interval_max, (unsigned long)gbp_vqueue_publish_interval_mean(&vq),
@@ -506,10 +727,6 @@ int main(void)
                    (unsigned long)(vq.convert_ticks_n ? vq.convert_ticks_min : 0u),
                    (unsigned long)vq.convert_ticks_max, (unsigned long)gbp_vqueue_convert_ticks_mean(&vq),
                    (unsigned long)vq.convert_ticks_n);
-    ringlog_printf(&rl, "STREAMSLICE slices=%lu min=%lu max=%lu submitted=%lu tile_rows_per_slice=%u",
-                   (unsigned long)slices_done, (unsigned long)(slices_done ? slice_ticks_min : 0u),
-                   (unsigned long)slice_ticks_max, (unsigned long)presents_submitted,
-                   (unsigned)STREAM_SLICE_TILE_ROWS);
     /* flag15 is REPORTED and never consumed: U-GBP-034 is open, and the texel's
      * bit 15 is a presentation rule, not a reading of this observation. */
     ringlog_printf(&rl, "STREAMFLAG15 last_count=%lu first_x=%lu first_y=%lu note=reported_not_interpreted",
@@ -527,10 +744,10 @@ int main(void)
            (unsigned long)vq.source_frames_closed, (unsigned long)vq.source_frames_complete,
            (unsigned long)vq.source_frames_incomplete, (unsigned long)vq.source_frames_quarantined,
            (unsigned long)vq.source_frames_anomaly, (unsigned long)vq.frames_published);
-    printf("  CONSUMER taken=%lu converted=%lu presented=%lu  overrun=%lu superseded=%lu no_free_buf=%lu  counters %s\n",
+    printf("  CONSUMER taken=%lu converted=%lu presented=%lu  overrun=%lu superseded=%lu repeats=%lu  counters %s\n",
            (unsigned long)vq.consumer_frames_taken, (unsigned long)vq.consumer_frames_converted,
            (unsigned long)vq.consumer_frames_presented, (unsigned long)vq.consumer_slot_overrun,
-           (unsigned long)vq.dropped_before_convert, (unsigned long)no_free_buffer,
+           (unsigned long)vq.dropped_before_convert, (unsigned long)vq.display_frames_repeated,
            gbp_vqueue_balanced(&vq) ? "BALANCE" : "DO NOT BALANCE");
     printf("  PACING  publish %lu/%lu/%lu ticks (min/mean/max, n=%lu)   convert %lu/%lu/%lu (n=%lu)\n",
            (unsigned long)(vq.publish_interval_n ? vq.publish_interval_min : 0u),
@@ -539,9 +756,22 @@ int main(void)
            (unsigned long)(vq.convert_ticks_n ? vq.convert_ticks_min : 0u),
            (unsigned long)gbp_vqueue_convert_ticks_mean(&vq), (unsigned long)vq.convert_ticks_max,
            (unsigned long)vq.convert_ticks_n);
-    printf("  SLICE   %lu slices, %lu..%lu ticks each, %lu frames submitted to GX\n",
-           (unsigned long)slices_done, (unsigned long)(slices_done ? slice_ticks_min : 0u),
-           (unsigned long)slice_ticks_max, (unsigned long)presents_submitted);
+    printf("  PUMP    %lu calls, %lu slices (%lu..%lu ticks, mean %lu); SKIPPED %lu because a cause was already latched\n",
+           (unsigned long)vq.pump_calls, (unsigned long)vq.pump_slices_started,
+           (unsigned long)(vq.pump_ticks_n ? vq.pump_ticks_min : 0u), (unsigned long)vq.pump_ticks_max,
+           (unsigned long)gbp_vqueue_pump_ticks_mean(&vq), (unsigned long)vq.pump_skipped_cause_pending);
+    printf("  CAUSE   pending before %lu / after %lu; arrived DURING a slice %lu  (a coincidence count, not causality)\n",
+           (unsigned long)vq.cause_pending_before_pump, (unsigned long)vq.cause_pending_after_pump,
+           (unsigned long)vq.cause_arrived_during_pump);
+    printf("  GX      submit %lu/%lu (blocked in-flight %lu)  drawdone %lu (spurious %lu)  releases %lu  xfb %lu shown / %lu skipped\n",
+           (unsigned long)present.submit_success, (unsigned long)present.submit_attempts,
+           (unsigned long)present.submit_blocked_inflight, (unsigned long)present.drawdone_callbacks,
+           (unsigned long)present.drawdone_spurious, (unsigned long)present.texture_releases,
+           (unsigned long)present.xfb_presents, (unsigned long)present.xfb_skipped_busy);
+    printf("  OWNER   invariants %s   in flight at end %d   drained %d   callback restored %d   self-test %s\n",
+           gbp_vpresent_consistent(&present) ? "HOLD" : "VIOLATED",
+           gbp_vpresent_inflight(&present), gx_drained_at_teardown, gx_callback_restored,
+           selftest_ok ? "ok" : "NOT OK");
     printf("  FLAG15  last frame carried %lu set word(s), first at (%lu,%lu) — REPORTED, NOT INTERPRETED (U-GBP-034)\n",
            (unsigned long)flag15_last_count, (unsigned long)flag15_last_x, (unsigned long)flag15_last_y);
     printf("  RESTORE control=%d stop=%d cleanup=%d arinfo=%d handler=%d mask_ok=%d\n",
