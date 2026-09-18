@@ -9495,3 +9495,288 @@ round changed:
 It should be much smaller than §V5.28, because the ownership machine, the
 compiler ordering, the libogc2 semantics, the XFB model, the cache ordering and
 the teardown were proved there and `stream-0003` did not touch them.
+
+### V5.31 PRE-HARDWARE AUDIT of `stream-0003`, and Dolphin's EMULATED Game Boy Player — 2026-09-18 — **DECISION: A, READY FOR THE FIRST PHYSICAL GBP STREAM SMOKE**
+
+Two things happened in this round and they must not be confused: a **short**
+pre-hardware audit of the `stream-0003` candidate, and the correction of a
+methodological premise about Dolphin that this project had been carrying.
+
+#### V5.31.1 The artifact
+
+```text
+Build ID    stream-0003
+commit      03b32a9   (CLEAN, no -dirty)
+DOL         471 648 B   sha256 2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3
+Swiss       build/swiss/12-stream/boot.dol — byte-identical, verified
+```
+
+`git diff --name-only 03b32a9..HEAD -- src/ poc/ tools/` is **empty**: the only
+commit after the candidate touched documentation and two host guards.
+
+**Reproduced byte-for-byte** during this round: rebuilt from the same source with
+`GIT_COMMIT=03b32a9 GIT_DIRTY=`, the DOL came back at exactly
+`2f8e362e…`. (The rebuild happened because a warning check touched the sources;
+it turned into a reproducibility proof, and the exact artifact was restored.)
+
+#### V5.31.2 Storage, R1 and R8 — the short audit
+
+Driven against the modules the candidate links, with the POC's exact
+configuration:
+
+```text
+§3 STORAGE
+  frames_cap      = 16384    (required 16384)      ok
+  events_cap      = 4096     (required 4096)       ok
+  raw_ring_cap    = 737280   slots 4 (req 552960 / 3)  ok
+  episode_raw     = non-NULL                       ok
+  episode_raw_cap = 2949120  (required 2949120)    ok
+  audio_raw_cap   = 12288    (required 12288)      ok
+  configured 7 106 560 B / required 6 922 240 B
+  gbp_vstate_storage_fault() == NULL               ok
+  gbp_vstate_storage_ok()    == 1                  ok
+
+§5 R1
+  after the self-test's exact shape: published=0 taken=0 converted=0
+  presented=0 overrun=0 repeated=0 dropped=0
+  gbp_vqueue_pristine() == 1                       ok
+  gbp_vqueue_balanced() == 1, with NO correction   ok
+
+§6 R8
+  a full valid lifecycle:      failures=0 in 4 checks (main 3, isr 1)   ok
+  an injected two-SUBMITTED state, observed by a transition: LATCHED    ok
+  after healing: consistent_at_end == 1, and the failure STILL recorded ok
+  the valid machine unchanged: acquire→CPU_FILLING, fill_done→READY,
+  submit→SUBMITTED, one-token rule enforced, abandon refuses SUBMITTED,
+  draw_done releases exactly the indexed buffer, nothing latched         ok
+```
+
+#### V5.31.3 Memory, re-validated from the linked ELF
+
+```text
+region        start        end          size  align  note
+selftest_raw 0x80079c00 0x8009f400   153600     32
+gx_fifo      0x8009f420 0x800df420   262144     32  gap 0x20
+tex_buf      0x800df540 0x80104d40   153600     32  gap 0x120
+diag_store   0x80104e10 0x8010ee10    40960      4  gap 0xd0
+audio_raw    0x80112e60 0x80115e60    12288     32  gap 0x4050
+episode_raw  0x80115e60 0x803e5e60  2949120     32  contiguous
+raw_ring     0x803e5e60 0x80499e60   737280     32  contiguous
+event_store  0x80499e60 0x804d9e60   262144      4  contiguous
+frame_store  0x804d9e60 0x807d9e60  3145728      4  contiguous
+dma_buffer   0x807d9e60 0x807d9e80       32     32  contiguous
+log_storage  0x807d9e80 0x80819e80   262144      4  contiguous
+
+BSS   0x8007625c..0x808492d8  8 204 412 B = 7.82 MiB
+arena 0x808492e0..0x81800000; three XFBs leave 13.96 MiB
+total text+data+bss+3 XFB = 10 519 004 B = 10.03 MiB of 24.00
+
+no overlap · no misalignment · everything inside BSS · no overflow
+```
+
+#### V5.31.4 Timing and ownership parity
+
+`git diff 2457d51..03b32a9` touches `gbp_vpix.{c,h}` in **zero** lines. The
+33 changed lines in `gbp_vstate_probe.c` are the `VSTATE storecfg` line and the
+`field=` on the abort; the 12 in `gbp_vqueue.c` are `gbp_vqueue_pristine()`.
+**The post-RE-ARM pump placement, the one-tile-row slice, the cause precheck, the
+pump timing counters, R3, the PE FINISH callback policy, the mailbox and the
+generation guard are unchanged.**
+
+**The pump placement remains PLAUSIBLE BUT UNMEASURED.**
+
+#### V5.31.5 The premise about Dolphin was wrong, and here is what is true
+
+Earlier rounds said "Dolphin has no Game Boy Player". That was **wrong as a
+statement about the emulator** and only ever true of the *launch configuration*
+the automated smokes used. (`docs/protocol/REGISTERS.md` had in fact been citing
+Dolphin's GBP model for register semantics all along.)
+
+**Dolphin 2606a — the exact installed Flatpak** (`org.DolphinEmu.dolphin-emu`,
+branch `stable`, version `2606a`, flatpak commit `88a604c2…`, built 2026-08-11)
+**ships a real emulated Game Boy Player.** Read out of the installed binary, not
+inferred from master:
+
+```text
+HSP::CHSPDevice_GBPlayer     the HSP device
+HSP::CGBPlayer_mGBA          backed by libmgba (HAS_LIBMGBA is on)
+HSP::IGBPlayer               the interface
+Source/Core/Core/HW/HSP/HSP_DeviceGBPlayer.cpp
+config keys: HSPDevice, GBPlayerRom
+```
+
+How it is enabled, from the source of the matching tree
+(`external/dolphin` @ `c185d27e`):
+
+```text
+Dolphin.Core.HSPDevice  = HSP::HSPDeviceType   None = 0, ARAMExpansion = 1, GBPlayer = 2
+                          (MainSettings.cpp:252, default None)
+Dolphin.GBA.GBPlayerRom = MAIN_GBA_ROM_PATHS[GBPLAYER_GBA_INDEX = 4]
+                          (MainSettings.cpp:406, guarded by HAS_LIBMGBA)
+
+GBA BIOS         NOT required — GBACore.cpp sets useBios = 0 and skipBios = 0,
+                 so mGBA's HLE BIOS is used. Main.GBA.BIOS is optional.
+Start-up Disc    NOT required — HSPManager::Init() creates the device from
+                 Config::MAIN_HSP_DEVICE at hardware init, independent of what
+                 software boots (HSP.cpp:19-22).
+Reachability     the device is driven through ARAM DMA (DSP.cpp:511, :571),
+                 which is exactly the path Open-GBP already uses.
+Register select  address >> 20: Test 0x10, Video 0x11, Control 0x14,
+                 SIOControl 0x15, Audio 0x18, SIOData 0x19, Keypad 0x1c, IRQ 0x1d
+```
+
+So: **a homebrew DOL can reach the emulated GBP directly. No Start-up Disc, no
+GBA BIOS.**
+
+#### V5.31.6 It was executed — and the A/B control proves the device is visible
+
+The exact `stream-0003` DOL, in an **isolated** Dolphin profile
+(`--user-dir …/dolphin-user-gbp`, every setting a session-only `-C` override,
+nothing persisted, the operator's own configuration untouched):
+
+| run | `HSPDevice` | cartridge | probe status | reason |
+| --- | --- | --- | --- | --- |
+| control | `0` (None) | — | `abort_inconsistent` | `inconsistent` |
+| AGS | `2` (GBPlayer) | `input/AGS-rom.gba` | **`abort_control_shape`** | **`control_not_idle_shape`** |
+| bars | `2` (GBPlayer) | `build/physical/agb-color-bars-cart.gba` | **`abort_control_shape`** | **`control_not_idle_shape`** |
+
+**The abort changes, and the only variable is the HSP device.** That is the
+evidence that the emulated GBP is instantiated *and* visible to the protocol
+Open-GBP uses: the probe's AR_INFO stage succeeds (`arinfo=1`), it reads CONTROL
+from the emulated device, and it rejects the value.
+
+Both cartridges give the same result, so it is not ROM-specific.
+
+#### V5.31.7 The first divergence, named exactly
+
+```text
+Open-GBP's 003A idle gate (gbp_initirqa_probe.c:48-49, :652-655)
+    clear_mask = 0x10   must be SET   in the idle CONTROL  (CONTROL_MASK_IRQ)
+    set_mask   = 0x0C   must be CLEAR in the idle CONTROL  (3V | 5V)
+    hardware presents 0x90; the transform is 0x90 -> 0x8C
+
+Dolphin's model (HSP_DeviceGBPlayer.cpp)
+    u8 m_control{};                          zero at power-on
+    Write:  m_control = value & 0xFC;        bits 0-1 are never writable
+    Read:   ORs in CONTROL_CART_INSERTED 0x02 and CONTROL_CART_IS_GB 0x01 only
+    ⇒ the power-on CONTROL a host reads is 0x02 (or 0x03), and
+      bit 0x10 is NEVER set by the model itself
+```
+
+So `(orig & 0x10) == 0` and the gate fires, deterministically.
+
+**This is a MODEL divergence, not an Open-GBP omission.** The gate is grounded in
+physical observation, and relaxing a physically grounded gate to satisfy an
+emulator would invert this project's authority hierarchy. Nothing in Open-GBP was
+changed, and nothing needs to be.
+
+Using §15's taxonomy: it is **B** — Dolphin instantiates the GBP, but its model
+does not reproduce the hardware's power-on CONTROL. It is **not** A (the launch
+configuration is correct and proven), and **not** D (Open-GBP performs the
+initialisation the hardware sequence calls for; it simply refuses a device whose
+CONTROL is not in the shape hardware presents).
+
+A future *diagnostic-only* emulator mode could relax `require_idle_shape`, and it
+would have to be opt-in, clearly labelled EMULATOR, and never the default. That
+is a design question for another round, not a defect here.
+
+#### V5.31.8 A second model divergence, recorded before anyone trips on it
+
+Dolphin's VIDEO read (`HSP_DeviceGBPlayer.cpp`, `GBPRegister::Video`):
+
+```cpp
+const u16 color = m_scanlines[scanlines_pos++];
+data[i + 0] = data[i + 1] = u8(color >> 8);
+data[i + 2] = data[i + 3] = u8(color);
+```
+
+so **byte 0 == byte 1 and byte 2 == byte 3**. Physically they do not:
+GBP-HW-133 measured byte 0 differing in 2 222 positions and byte 2 in 212,
+while bytes 1 and 3 differed in **zero**. **Dolphin can therefore never be
+evidence about U-GBP-029**, in either direction.
+
+`CHSPDevice_GBPlayer::UpdateInterrupts()` also asserts the PI cause on
+`(m_control & CONTROL_MASK_IRQ) == 0 && (m_irq & IRQ_ASSERTED) != 0`, which
+`docs/protocol/REGISTERS.md` already records as not matching the hardware.
+
+#### V5.31.9 What this does NOT settle
+
+Dolphin stays **AUXILIARY**. Nothing from §V5.31 may promote a physical FACT, and
+in particular it says nothing about the R3 hardware mechanism, the RE-ARM→next
+cause timing, the physical PE FINISH perturbation, bytes 0 and 2, bit 15, or
+source-frame loss. No video frame was produced by the emulated GBP in these runs,
+because the probe stopped at the CONTROL gate; **there is no AGS picture to
+report, and none is claimed.**
+
+#### V5.31.10 Preserved emulator evidence
+
+`captures/local/dolphin-gbp/` (ignored by Git, EMULATOR/AUXILIARY, never
+physical), reproducible with `make stream-dolphin-gbp` and
+`make stream-dolphin-gbp GBP_HSP=0`:
+
+```text
+report-hsp2.json   002eab96f31d17e488c2655a1a4f6c8bffb23f31d298cdf5e95452684fe5dd2e
+screen-hsp2.png    221d2bb0299fe28895f56e3d6d438450624bd78764b907a015460040b416a9fe
+dolphin-hsp2.log   584d768b7abcf3fa8dba25b14f725497c3d6517227d69911d670f722552ce2fe
+report-hsp0.json   8c4923506f308c2f50c2281d42595982a7e0414a0592c73ac933ee75d431878b
+screen-hsp0.png    1a518539eb53ad468c53aedb55c727ec4caf41c16b64dd7b56692f1c2ec47a63
+dolphin-hsp0.log   db40bf2f4904b4ad420f898dec375983f5b94c5ad17b11153b6796127d90e84b
+
+AGS-rom.gba        1 326 620 B
+                   736b5ef7e17633aa7cff34390fa0337f7818abae5d264cd4954010a0540de7df
+                   (verified before use; AGS Aging Cartridge v10.0)
+colour cart        1 076 B  bb741770e92ecdcf10f74ae32b01e338384047d8d82e4f14f2162ba9ec234fe3
+canonical stimulus 1 076 B  867bb8d681e815793792e5e85bf031967eec11c07d00dcb16e68b6c96520f3ba
+```
+
+#### V5.31.11 Findings and DECISION
+
+| id | severity | finding |
+| --- | --- | --- |
+| S1 | — | the storage contract is satisfied; `gbp_vstate_storage_fault()` is NULL |
+| S2 | — | R1 retired: the queue is pristine entering the probe, `balanced=1` with no correction |
+| S3 | — | R8 latches a transient violation and still reports `consistent_at_end` separately |
+| S4 | — | the memory layout is clean and 10.03 MiB of 24.00 |
+| S5 | — | the timing instrumentation and the ownership machine are unchanged |
+| D1 | model | Dolphin's GBP power-on CONTROL is `0x02`, hardware's is `0x90` — the emulated run stops at `control_not_idle_shape` |
+| D2 | model | Dolphin's VIDEO read duplicates bytes 0↔1 and 2↔3; hardware does not (U-GBP-029) |
+
+```text
+DECISION: A — STREAM-0003 READY FOR THE FIRST PHYSICAL GBP STREAM SMOKE
+
+No software defect was found. The storage contract that stopped stream-0002 is
+satisfied and machine-checked, R1 is retired, R8 is latched, the memory layout is
+clean, and the timing path is untouched.
+
+D1 and D2 are DOLPHIN MODEL divergences. They do not block hardware — as §20 of
+the round's own instructions says, a Dolphin failure to instantiate or drive the
+GBP does not block a physical run when the candidate passes the software audit.
+```
+
+#### V5.31.12 The physical procedure, if the operator proceeds
+
+```text
+Test ID     GBP-VIDEO-004
+Build ID    stream-0003     — the EXACT artifact, NO rebuild
+DOL         471 648 B  sha256 2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3
+Swiss       12-stream/boot.dol (byte-identical copy)
+Cartridge   any GBA cartridge the operator chooses; §V5.18 names properties,
+            not a title. The controlled colour-bars cart is a reasonable first
+            choice because a physical correspondence already exists for it.
+Link Port   as the operator normally runs it; nothing here needs it
+Steps       1. copy boot.dol to SD as 12-stream
+            2. launch through Swiss with the cartridge already running
+            3. DO NOT press anything for the 30 s capture
+            4. press X to save the log, then START
+            5. POWER CYCLE the console
+Duration    SHORT and SUPERVISED: 30 s capture, 60 s safety cap
+Objective   OPERATIONAL, TIMING and DISPLAY behaviour of the streaming path.
+            This run is NOT a decisive frame-loss validation — the CONTROLLED
+            indexed motion stimulus of §V5.18 does not exist, so source-frame
+            loss cannot be measured against ground truth.
+Read it     with §V5.21, unchanged. stream-0003 needs NO counter correction:
+            `counters BALANCE` is expected, and `DO NOT BALANCE` would be a
+            real finding this time.
+Watch for   the per-cycle t_cause/t_ack/t_rearm histogram (R3), and
+            STREAMINV failures=0 (R8) — the two things the run is for.
+```
