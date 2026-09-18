@@ -5,6 +5,36 @@
  */
 #include "gbp_vpresent.h"
 
+/* R8. One check, two call sites that must not share a counter: `audit()` runs on
+ * the main thread and `audit_isr()` from the draw-done interrupt. Neither
+ * changes a single state bit — they only look — so the state machine is exactly
+ * what it was in `stream-0002`. Both saturate. */
+static void audit(struct gbp_vpresent *p)
+{
+    if (p->invariant_checks != 0xFFFFFFFFu) p->invariant_checks++;
+    if (!gbp_vpresent_consistent(p) && p->invariant_failures != 0xFFFFFFFFu)
+        p->invariant_failures++;
+}
+
+static void audit_isr(struct gbp_vpresent *p)
+{
+    if (p->invariant_checks_isr != 0xFFFFFFFFu) p->invariant_checks_isr++;
+    if (!gbp_vpresent_consistent(p) && p->invariant_failures_isr != 0xFFFFFFFFu)
+        p->invariant_failures_isr++;
+}
+
+uint32_t gbp_vpresent_invariant_failures(const struct gbp_vpresent *p)
+{
+    if (!p) return 0u;
+    return p->invariant_failures + p->invariant_failures_isr;
+}
+
+uint32_t gbp_vpresent_invariant_checks(const struct gbp_vpresent *p)
+{
+    if (!p) return 0u;
+    return p->invariant_checks + p->invariant_checks_isr;
+}
+
 void gbp_vpresent_init(struct gbp_vpresent *p)
 {
     uint32_t i;
@@ -31,17 +61,19 @@ int gbp_vpresent_acquire(struct gbp_vpresent *p)
     uint32_t i;
     if (!p) return -1;
     p->acquire_attempts++;
-    if (p->shutting_down) { p->acquire_no_free_texture++; return -1; }
+    if (p->shutting_down) { p->acquire_no_free_texture++; audit(p); return -1; }
     for (i = 0; i < GBP_VPRESENT_TEX_BUFFERS; i++) {
         if (p->tex[i] == GBP_VPRESENT_FREE) {
             p->tex[i] = GBP_VPRESENT_CPU_FILLING;
             p->fills_started++;
+            audit(p);
             return (int)i;
         }
     }
     /* Nothing to write into. This is a THROUGHPUT fact, not a safety one: it
      * says the CPU had no buffer, never that the GP was not raced. */
     p->acquire_no_free_texture++;
+    audit(p);
     return -1;
 }
 
@@ -51,6 +83,7 @@ int gbp_vpresent_fill_done(struct gbp_vpresent *p, int idx)
     if (p->tex[idx] != GBP_VPRESENT_CPU_FILLING) return -1;
     p->tex[idx] = GBP_VPRESENT_READY;
     p->fills_completed++;
+    audit(p);
     return 0;
 }
 
@@ -63,6 +96,7 @@ int gbp_vpresent_abandon(struct gbp_vpresent *p, int idx)
     if (p->tex[idx] == GBP_VPRESENT_SUBMITTED) return -1;
     p->tex[idx] = GBP_VPRESENT_FREE;
     p->fills_abandoned++;
+    audit(p);
     return 0;
 }
 
@@ -81,6 +115,10 @@ int gbp_vpresent_submit(struct gbp_vpresent *p, int idx)
     p->tex[idx] = GBP_VPRESENT_SUBMITTED;
     p->submitted = idx;
     p->submit_success++;
+    /* AFTER both stores: the one-instruction window between them is a deliberate
+     * transient (the callback cannot observe it, because no token is armed yet),
+     * and checking inside it would latch a failure that is not one. */
+    audit(p);
     return 1;
 }
 
@@ -94,11 +132,13 @@ int gbp_vpresent_draw_done(struct gbp_vpresent *p)
         /* Nothing was submitted. `stream-0001` would have freed every buffer in
          * SUBMITTED here; this releases nothing and records the event. */
         p->drawdone_spurious++;
+        audit_isr(p);
         return -1;
     }
     p->submitted = -1;
     p->tex[idx] = GBP_VPRESENT_FREE;
     p->texture_releases++;
+    audit_isr(p);
     return idx;
 }
 

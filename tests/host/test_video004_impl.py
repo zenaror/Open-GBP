@@ -290,7 +290,7 @@ class CacheAndOwnershipOrdering(unittest.TestCase):
 
     def test_no_vsync_wait_in_the_consumer_path(self):
         code = strip_comments(read(MAIN))
-        pump = code[code.index("static void pump(void *user)"):code.index("static void submit_ready(int buf)\n{")]
+        pump = code[code.index("static void pump(void *user)"):code.index("static void submit_ready(int buf, struct gbp_vqueue *account)\n{")]
         self.assertNotIn("VIDEO_WaitVSync", pump)
         self.assertNotIn("GX_DrawDone", pump)
 
@@ -407,7 +407,7 @@ class DesignAndDocsAgree(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(ROOT, rel)), rel)
 
     def test_the_build_id_is_the_one_the_design_specified(self):
-        self.assertIn("BUILD_ID   := stream-0002", read(os.path.join(POC, "Makefile")))
+        self.assertIn("BUILD_ID   := stream-0003", read(os.path.join(POC, "Makefile")))
         self.assertIn('#define TEST_ID "GBP-VIDEO-004"', read(MAIN))
 
     def test_the_poc_is_registered_in_the_build(self):
@@ -439,3 +439,205 @@ class DesignAndDocsAgree(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheStorageContractIsSatisfiedByTheCaller(unittest.TestCase):
+    """GBP-HW-136. `stream-0002` aborted at the probe's first gate because the
+    POC supplied `episode_raw = NULL` and `frames_cap = 4096`. The behaviour is
+    proved in C (`test_gbp_vstate.c`); what needs a guard HERE is the thing no
+    unit test can reach — `main()` is not host-compiled, so nobody checked what
+    the POC actually passes."""
+
+    STATE = os.path.join(ROOT, "poc", "gbp-video-state-probe", "source", "main.c")
+    COLOR = os.path.join(ROOT, "poc", "gbp-video-color-probe", "source", "main.c")
+
+    @staticmethod
+    def _init_call(path):
+        code = strip_comments(read(path))
+        m = re.search(r"gbp_vstate_init\s*\((.*?)\)\s*;", code, re.S)
+        assert m, "every probe must call gbp_vstate_init exactly once"
+        return re.sub(r"\s+", " ", m.group(1)).strip()
+
+    def test_the_stream_poc_passes_a_real_episode_store(self):
+        """The predicate that fired on hardware was `!s->episode_raw`."""
+        args = [a.strip() for a in self._init_call(MAIN).split(",")]
+        self.assertEqual(len(args), 11, args)
+        # positions 7 and 8 are episode_raw and episode_raw_cap
+        self.assertEqual(args[7], "episode_raw",
+                         "stream-0002 passed 0 here and aborted pre-service (GBP-HW-136)")
+        self.assertEqual(args[8], "sizeof episode_raw")
+        self.assertNotIn("0, 0, audio_raw", self._init_call(MAIN))
+
+    def test_the_stream_poc_declares_both_stores_at_full_size(self):
+        code = strip_comments(read(MAIN))
+        self.assertIn("frame_store[GBP_VSTATE_MAX_FRAMES]", code)
+        self.assertIn("episode_raw[GBP_VSTATE_EPISODE_RAW_BYTES]", code)
+        self.assertNotIn("STREAM_MAX_FRAMES", code,
+                         "the reduced frame table is what the contract refused")
+
+    def test_the_sizes_are_asserted_at_compile_time_over_the_actual_arrays(self):
+        """§4: not a source-string contract — a build failure."""
+        code = strip_comments(read(MAIN))
+        for needed in ("sizeof frame_store / sizeof frame_store[0] >= GBP_VSTATE_MAX_FRAMES",
+                       "sizeof episode_raw >= GBP_VSTATE_EPISODE_RAW_BYTES",
+                       "sizeof audio_raw >= GBP_VSTATE_AUDIO_RAW_BYTES",
+                       "sizeof raw_ring >= GBP_VSTATE_RAW_RING_BYTES"):
+            self.assertIn(needed, re.sub(r"\s+", " ", code), needed)
+
+    def test_the_stores_match_the_last_physically_validated_builds(self):
+        """THE LESSON OF §V5.29. Three audits compared stream-0002 against
+        stream-0001 and found "no change"; the change was against `vstate-0004`
+        and `color-0002`, the builds that actually ran. Shared VSTATE
+        infrastructure is compared against the physical baseline, always."""
+        stream = self._init_call(MAIN).split(",")
+        state = self._init_call(self.STATE).split(",")
+        color = self._init_call(self.COLOR).split(",")
+        # The arguments are written differently on purpose — the stream POC derives
+        # its capacities from the arrays themselves — so what is compared is the
+        # RESULTING capacity, resolved from each POC's own declarations.
+        for ref, name in ((state, "vstate-0004"), (color, "color-0002")):
+            self.assertEqual(self._frames_cap(MAIN), self._frames_cap_of(ref, self.STATE if name == "vstate-0004" else self.COLOR),
+                             "the frame table must match %s" % name)
+            self.assertEqual(self._store_decl(MAIN, "episode_raw"),
+                             self._store_decl(self.STATE if name == "vstate-0004" else self.COLOR, "episode_raw"),
+                             "the episode store must match %s" % name)
+            self.assertEqual(self._store_decl(MAIN, "audio_raw"),
+                             self._store_decl(self.STATE if name == "vstate-0004" else self.COLOR, "audio_raw"),
+                             "the AUDIO raw store must match %s" % name)
+            # and neither may pass a literal 0 where a store belongs
+            self.assertNotRegex(re.sub(r"\s+", " ", ",".join(ref)), r", 0, 0,")
+        self.assertNotRegex(re.sub(r"\s+", " ", ",".join(stream)), r", 0, 0,",
+                            "stream-0002 passed `0, 0` here and aborted pre-service")
+
+    @staticmethod
+    def _store_decl(path, name):
+        code = strip_comments(read(path))
+        m = re.search(r"\b%s\s*\[([^\]]+)\]" % name, code)
+        assert m, "%s must declare %s" % (path, name)
+        return re.sub(r"\s+", "", m.group(1))
+
+    @classmethod
+    def _frames_cap(cls, path):
+        return cls._store_decl(path, "frame_store")
+
+    @classmethod
+    def _frames_cap_of(cls, _args, path):
+        return cls._store_decl(path, "frame_store")
+
+    def test_the_poc_names_the_failing_field_before_the_probe(self):
+        """§15: `store_or_bounds_invalid` alone cost a physical run."""
+        code = strip_comments(read(MAIN))
+        self.assertIn("gbp_vstate_storage_fault", code)
+        self.assertIn("ENVSTORE", code)
+        self.assertIn("configured_bytes", code)
+        self.assertIn("required_bytes", code)
+        # and the probe's own abort names it too
+        probe = strip_comments(read(PROBE_C))
+        self.assertIn("reason=store_or_bounds_invalid field=%s", probe)
+
+    def test_the_library_gate_was_not_weakened(self):
+        """The fix is in the caller. Every requirement must still be enforced."""
+        code = strip_comments(read(os.path.join(SRC, "gbp_vstate.c")))
+        for needed in ("frames_cap      < GBP_VSTATE_MAX_FRAMES",
+                       "episode_raw_cap < GBP_VSTATE_EPISODE_RAW_BYTES",
+                       "audio_raw_cap   < GBP_VSTATE_AUDIO_RAW_BYTES",
+                       "raw_ring_cap    < GBP_VSTATE_RAW_RING_BYTES",
+                       "raw_ring_slots  < GBP_VSTATE_RAW_RING_SLOTS_MIN"):
+            self.assertIn(needed, code, needed)
+        self.assertIn("!s->episode_raw", code)
+        # and storage_ok is DEFINED as "no fault", so the two cannot diverge
+        self.assertIn("return gbp_vstate_storage_fault(s) ? 0 : 1;", code)
+
+
+class TheSelfTestDoesNotContaminateTheScientificCounters(unittest.TestCase):
+    """R1, retired for stream-0003. GBP-HW-135 confirmed the contamination
+    physically: converted=0 presented=1 before the capture opened."""
+
+    def test_submit_ready_takes_the_accounting_queue_as_a_parameter(self):
+        code = strip_comments(read(MAIN))
+        self.assertIn("static void submit_ready(int buf, struct gbp_vqueue *account)", code)
+        self.assertIn("submit_ready(buf, 0)", code,
+                      "the self-test must account to nothing scientific")
+
+    def test_the_queue_is_only_notified_through_the_account_parameter(self):
+        code = strip_comments(read(MAIN))
+        # no call may name `vq` directly for a presentation or a repeat
+        self.assertNotIn("gbp_vqueue_note_presented(&vq)", code)
+        self.assertNotIn("gbp_vqueue_note_repeat(&vq)", code)
+        self.assertIn("gbp_vqueue_note_presented(account)", code)
+        self.assertIn("gbp_vqueue_note_repeat(account)", code)
+
+    def test_the_poc_asserts_the_queue_is_pristine_before_the_probe(self):
+        code = strip_comments(read(MAIN))
+        self.assertIn("gbp_vqueue_pristine(&vq)", code)
+        self.assertIn("selftest_sci_clean", code)
+        # and it is part of the self-test verdict, not a decoration
+        self.assertRegex(re.sub(r"\s+", " ", code),
+                         r"selftest_ok = \(selftest_converted && selftest_released && selftest_sci_clean")
+
+    def test_the_gecko_line_carries_it_so_dolphin_can_assert_it(self):
+        code = strip_comments(read(MAIN))
+        self.assertIn("sci_clean=%d", code)
+        mk = read(os.path.join(ROOT, "Makefile"))
+        self.assertIn("--expect 'sci_clean=1'", mk)
+        self.assertIn("--expect 'inv_fail=0'", mk)
+
+
+class TheOwnershipInvariantsAreLatchedDuringTheRun(unittest.TestCase):
+    """R8. stream-0002 could only say the invariants held at its LAST instant."""
+
+    def test_the_module_audits_itself_at_every_transition(self):
+        code = strip_comments(read(os.path.join(SRC, "gbp_vpresent.c")))
+        self.assertIn("static void audit(struct gbp_vpresent *p)", code)
+        self.assertIn("static void audit_isr(struct gbp_vpresent *p)", code)
+        # main-side transitions
+        self.assertGreaterEqual(code.count("audit(p);"), 6, "every main-side exit must look")
+        # interrupt side, both the release and the spurious path
+        self.assertEqual(code.count("audit_isr(p);"), 2)
+
+    def test_the_two_counters_are_separate_so_neither_loses_an_increment(self):
+        hdr = strip_comments(read(os.path.join(SRC, "gbp_vpresent.h")))
+        for field in ("invariant_checks", "invariant_failures",
+                      "invariant_checks_isr", "invariant_failures_isr"):
+            self.assertIn(field, hdr)
+
+    def test_the_report_separates_at_end_from_during_the_run(self):
+        code = strip_comments(read(MAIN))
+        self.assertIn("consistent_at_end=%d", code)
+        self.assertIn("STREAMINV", code)
+        self.assertIn("gbp_vpresent_invariant_failures(&present)", code)
+        self.assertNotIn('"STREAMGX drawdone=%lu spurious=%lu releases=%lu xfb_presents=%lu '
+                         'xfb_skipped=%lu consistent=%d', code)
+
+    def test_the_valid_state_machine_is_unchanged(self):
+        """§12/§25: the latch observes; it must not have moved a state bit."""
+        code = strip_comments(read(os.path.join(SRC, "gbp_vpresent.c")))
+        for unchanged in ("p->tex[idx] = GBP_VPRESENT_SUBMITTED;",
+                          "p->submitted = idx;",
+                          "if (p->submitted >= 0) { p->submit_blocked_inflight++; return 0; }",
+                          "if (p->tex[idx] == GBP_VPRESENT_SUBMITTED) return -1;",
+                          "if (p->tex[idx] != GBP_VPRESENT_READY) return 0;"):
+            self.assertIn(unchanged, code, unchanged)
+
+
+class TheCapacityNamesSayWhatTheyMean(unittest.TestCase):
+    """§V5.29.6: `static_bytes` described theoretical capacity and read like a
+    footprint, and a physical run was spent discovering that."""
+
+    def test_the_required_and_configured_metrics_are_named_apart(self):
+        code = strip_comments(read(os.path.join(SRC, "gbp_vstate.c")))
+        self.assertIn("uint64_t gbp_vstate_required_capacity_bytes(void)", code)
+        self.assertIn("uint64_t gbp_vstate_configured_bytes(const struct gbp_vstate *s)", code)
+        self.assertNotIn("gbp_vstate_static_bytes(void)", code)
+
+    def test_no_probe_still_calls_the_old_name(self):
+        for d in ("gbp-video-stream-probe", "gbp-video-color-probe", "gbp-video-state-probe"):
+            code = strip_comments(read(os.path.join(ROOT, "poc", d, "source", "main.c")))
+            self.assertNotIn("gbp_vstate_static_bytes", code, d)
+
+    def test_the_probe_logs_configured_beside_required(self):
+        probe = strip_comments(read(PROBE_C))
+        self.assertIn("VSTATE storecfg", probe)
+        self.assertIn("gbp_vstate_configured_bytes(st)", probe)
+        self.assertIn("required_bytes=%llu", probe)
+        self.assertNotIn("static_bytes=%llu", probe)

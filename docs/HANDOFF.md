@@ -95,7 +95,8 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
-| **GBP-VIDEO-004** (sustained streaming) | **`stream-0002` PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE: `store_or_bounds_invalid`.** GX self-test physically PASSED; **GBP stream capture never started**; `deliveries=0 acks=0 rearms=0 handler_installed=0`. Cause identified: the POC passes `episode_raw = NULL` and `frames_cap = 4096` to a model that requires both | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
+| **GBP-VIDEO-004** (sustained streaming) | **`stream-0003` IMPLEMENTED · SOFTWARE/HOST VALIDATED · PRE-SERVICE STORAGE FIXED · PHYSICAL CANDIDATE READY · NOT PHYSICALLY EXECUTED.** Sustained streaming is NOT claimed to work | `HARDWARE_TESTS.md` §V5.30 |
+| **`stream-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE: `store_or_bounds_invalid`.** GX self-test physically PASSED; **GBP stream capture never started**; `deliveries=0 acks=0 rearms=0 handler_installed=0`. Historical; never rebuilt, never re-labelled, and **not** a streaming failure | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | **`stream-0001`** | **REJECTED before hardware — DO NOT RUN.** Historical; its identity is preserved and was not reused | §V5.26; `stream-0002` supersedes it |
 | **Texture ownership** | **FIXED and TESTABLE**: moved to `src/gbp/gbp_vpresent.{h,c}`, at most ONE draw-done token in flight, the callback releases exactly one buffer by index | §V5.27.1 |
 | **Physical ROM delivery dependency (§V3.7)** | **RESOLVED** — route 1, EZ-Flash Omega DE NOR / Mode B, two physical runs | §V3.7 resolution note |
@@ -156,6 +157,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-003 | `color-0002` | `39f1980` | `d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1` | **PHYSICALLY EXECUTED 2026-09-18 — the confirmatory run** | GBP-HW-127…133 |
 | GBP-VIDEO-004 | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **REJECTED before hardware — DO NOT RUN** | `HARDWARE_TESTS.md` §V5.26 |
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0003` | `STREAM0003_COMMIT` | `STREAM0003_SHA` | **NOT PHYSICALLY EXECUTED** — storage contract satisfied, R1 retired, R8 latched; awaiting a small focused pre-hardware audit | `HARDWARE_TESTS.md` §V5.30 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -168,32 +170,46 @@ POC now declares `color-0002`. A run that has already happened should not be
 silently reproducible under its own id. Its DOL hash above is what the record
 keeps.
 
-### The GBP-VIDEO-004 candidate, in full — `stream-0002`
+### The GBP-VIDEO-004 candidate, in full — `stream-0003`
 
 ```text
 Test ID     GBP-VIDEO-004
-Build ID    stream-0002              (stream-0001 is REJECTED and never rebuilt)
-commit      2457d51   (CLEAN, no -dirty suffix)
+Build ID    stream-0003     (stream-0001 REJECTED; stream-0002 EXECUTED and
+                             ABORTED PRE-SERVICE — neither is ever rebuilt)
+commit      STREAM0003_COMMIT   (CLEAN, no -dirty suffix)
 DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
-            466 272 B   sha256 76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d
+            STREAM0003_SIZE B   sha256 STREAM0003_SHA
 Swiss       build/swiss/12-stream/boot.dol   (byte-identical copy, hash verified)
 toolchain   powerpc-eabi-gcc (devkitPPC) 16.1.0, libogc2 r2442.094b250,
             ghcr.io/extremscorner/libogc2:20260805 — zero warnings
-memory      text 360 000 B, data 106 016 B, bss 2 895 972 B
+memory      text 363 744 B, data 107 680 B, bss 8 204 404 B
             three framebuffers (two for the stream, one for the console) 1.76 MiB
-            MEM1 committed 4.96 MiB of 24; about 19.0 MiB free
-fix         §V5.27: ownership in src/gbp/gbp_vpresent.{h,c}, one draw-done token
-            in flight, callback releases one buffer by index, double stream XFB
-            with no VSync wait, GBP-cause precheck before every slice, pump
-            instrumentation, teardown lifecycle with the callback restored
-software    C unit checks incl. the ownership machine driven state by state;
+            MEM1 committed 10.03 MiB of 24.00; 13.96 MiB of arena left
+fix         §V5.30: the full GBP-VIDEO-002 store set (16384 frame records AND the
+            2.81 MiB episode store, the two things stream-0002 omitted); the
+            capacities derived from the arrays; six _Static_asserts over the
+            actual arrays; required-vs-configured named apart; the abort names
+            the failing field; R1 retired (the self-test accounts for itself and
+            gbp_vqueue_pristine() asserts it); R8 latched (the ownership module
+            audits every transition, main and ISR counted apart)
+unchanged   R3 PE FINISH behaviour, post-RE-ARM pump placement, one-tile-row
+            slice, RGB5A3 mapping, generation guard, source-disagreement and
+            F_SOURCE_DEFERRED policies, mailbox semantics, R5, R7, the
+            controlled-stimulus design, and ALL timing instrumentation
+software    19 unit binaries / 792 077 checks / 0 failures; 574 host tests OK;
             poc_audit profile `stream` 0 findings; both one-shot ISRs
             byte-identical to the physically validated GBP-VIDEO-001 build;
-            Dolphin ASSERTS the display path executed end to end, including the
-            draw-done callback (auxiliary — says nothing about the device)
+            Dolphin PASS with COUNTERS balanced=1 sci_clean_at_probe=1 inv_fail=0
+            consistent_at_end=1 storage_fault=- and the probe reaching stage_a
+            (auxiliary — it says nothing about the device)
 PHYSICAL    NOT EXECUTED. No evidence id is allocated to it.
 procedure   HARDWARE_TESTS.md §V5.20 (setup) and §V5.21 (pass/inconclusive/fail)
 ```
+
+**R1 is retired for `stream-0003` only.** The pre-registered correction
+`converted == (presented − SELFTEST.xfb) + overrun` remains the right way to read
+`stream-0002`'s log and is not withdrawn; `stream-0003` needs no correction and
+prints `balanced=1` on its own.
 
 **The hash above belongs to the last commit before this handoff was written**,
 because the commit identity is embedded in the image and a hash recorded in this

@@ -178,6 +178,19 @@ void gbp_vqueue_note_repeat(struct gbp_vqueue *q)
     if (q) q->display_frames_repeated++;
 }
 
+int gbp_vqueue_pristine(const struct gbp_vqueue *q)
+{
+    if (!q) return 0;
+    if (q->source_frames_closed || q->source_frames_complete || q->source_frames_incomplete
+        || q->source_frames_quarantined || q->source_frames_anomaly || q->frames_published)
+        return 0;
+    if (q->consumer_frames_taken || q->consumer_frames_converted || q->consumer_frames_presented
+        || q->consumer_slot_overrun || q->dropped_before_convert || q->display_frames_repeated)
+        return 0;
+    if (q->has_pending || q->seq) return 0;
+    return 1;
+}
+
 int gbp_vqueue_balanced(const struct gbp_vqueue *q)
 {
     if (!q) return 0;

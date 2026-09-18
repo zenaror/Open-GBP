@@ -67,28 +67,62 @@ void gbp_vstate_init(struct gbp_vstate *s,
     gbp_vsig_cost_init(&s->cost);
 }
 
-int gbp_vstate_storage_ok(const struct gbp_vstate *s)
+/* The predicate set, in one place and in one order, so the boolean gate and the
+ * diagnostic can never drift apart. `stream-0002` aborted on the fifth of these
+ * and the log named only the gate, which cost a physical run (§V5.29.1). */
+const char *gbp_vstate_storage_fault(const struct gbp_vstate *s)
 {
-    if (!s || !s->frames || !s->events || !s->raw_ring || !s->episode_raw || !s->audio_raw) return 0;
-    if (s->frames_cap < GBP_VSTATE_MAX_FRAMES || s->events_cap < GBP_VSTATE_MAX_EVENTS) return 0;
-    if (s->raw_ring_cap < GBP_VSTATE_RAW_RING_BYTES) return 0;
-    if (s->raw_ring_slots < GBP_VSTATE_RAW_RING_SLOTS_MIN) return 0;
-    if (s->episode_raw_cap < GBP_VSTATE_EPISODE_RAW_BYTES) return 0;
-    if (s->audio_raw_cap < GBP_VSTATE_AUDIO_RAW_BYTES) return 0;
-    return 1;
+    if (!s)                                                  return "state";
+    if (!s->frames)                                          return "frames_null";
+    if (!s->events)                                          return "events_null";
+    if (!s->raw_ring)                                        return "raw_ring_null";
+    /* NOT optional: gbp_vstate_probe.c memsets through this pointer and
+     * preserve_frame() writes a whole frame into it whenever an episode opens.
+     * A NULL store is a write to address 0, not a smaller model. */
+    if (!s->episode_raw)                                     return "episode_raw_null";
+    if (!s->audio_raw)                                       return "audio_raw_null";
+    if (s->frames_cap      < GBP_VSTATE_MAX_FRAMES)          return "frames_cap";
+    if (s->events_cap      < GBP_VSTATE_MAX_EVENTS)          return "events_cap";
+    if (s->raw_ring_cap    < GBP_VSTATE_RAW_RING_BYTES)      return "raw_ring_cap";
+    if (s->raw_ring_slots  < GBP_VSTATE_RAW_RING_SLOTS_MIN)  return "raw_ring_slots";
+    if (s->episode_raw_cap < GBP_VSTATE_EPISODE_RAW_BYTES)   return "episode_raw_cap";
+    if (s->audio_raw_cap   < GBP_VSTATE_AUDIO_RAW_BYTES)     return "audio_raw_cap";
+    return 0;
 }
 
-/* The resident budget of a THREE-slot model, which is what GBP-VIDEO-002 uses
- * and what every physical run so far reported. GBP-VIDEO-003 supplies a fourth
- * slot, so its own log adds the difference explicitly rather than letting this
- * number quietly mean two things. */
-uint64_t gbp_vstate_static_bytes(void)
+int gbp_vstate_storage_ok(const struct gbp_vstate *s)
+{
+    return gbp_vstate_storage_fault(s) ? 0 : 1;
+}
+
+/* REQUIRED capacity of a THREE-slot model, which is what GBP-VIDEO-002 uses and
+ * what every physical run so far reported. GBP-VIDEO-003 supplies a fourth slot,
+ * so its own log adds the difference explicitly rather than letting this number
+ * quietly mean two things.
+ *
+ * This is the function formerly called `gbp_vstate_static_bytes()`. The VALUE is
+ * unchanged — 6 922 240 — so every historical log keeps its meaning; only the
+ * name changed, because "static bytes" read as a footprint and was not one. */
+uint64_t gbp_vstate_required_capacity_bytes(void)
 {
     return (uint64_t)GBP_VSTATE_MAX_FRAMES * GBP_VSTATE_FRAME_REC
          + (uint64_t)GBP_VSTATE_MAX_EVENTS * GBP_VSTATE_EVENT_REC
          + (uint64_t)GBP_VSTATE_RAW_RING_BYTES
          + (uint64_t)GBP_VSTATE_EPISODE_RAW_BYTES
          + (uint64_t)GBP_VSTATE_AUDIO_RAW_BYTES;
+}
+
+/* CONFIGURED bytes: what this state was actually given. A store the caller
+ * omitted contributes zero, which is exactly what made the old number a
+ * phantom for `stream-0002`. */
+uint64_t gbp_vstate_configured_bytes(const struct gbp_vstate *s)
+{
+    if (!s) return 0u;
+    return (uint64_t)(s->frames ? s->frames_cap : 0u) * GBP_VSTATE_FRAME_REC
+         + (uint64_t)(s->events ? s->events_cap : 0u) * GBP_VSTATE_EVENT_REC
+         + (uint64_t)(s->raw_ring    ? s->raw_ring_cap    : 0u)
+         + (uint64_t)(s->episode_raw ? s->episode_raw_cap : 0u)
+         + (uint64_t)(s->audio_raw   ? s->audio_raw_cap   : 0u);
 }
 
 /* ---- events ---------------------------------------------------------- */
@@ -262,10 +296,10 @@ int gbp_vstate_closed_frame_slot(const struct gbp_vstate *s, uint32_t *blocks)
 uint32_t gbp_vstate_current_slot(const struct gbp_vstate *s) { return s ? s->cur_slot : 0u; }
 uint32_t gbp_vstate_ring_slots(const struct gbp_vstate *s) { return s ? s->raw_ring_slots : 0u; }
 
-uint64_t gbp_vstate_static_bytes_for(uint32_t slots)
+uint64_t gbp_vstate_required_capacity_bytes_for(uint32_t slots)
 {
     if (slots != GBP_VSTATE_RAW_RING_SLOTS_MIN && slots != GBP_VSTATE_RAW_RING_SLOTS_MAX) return 0u;
-    return gbp_vstate_static_bytes()
+    return gbp_vstate_required_capacity_bytes()
          - (uint64_t)GBP_VSTATE_RAW_RING_BYTES
          + (uint64_t)slots * GBP_VSTATE_RAW_FRAME_BYTES;
 }

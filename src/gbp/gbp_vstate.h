@@ -749,11 +749,39 @@ const char *gbp_vstate_diag_read_name(unsigned kind);
 /* ---- reporting helpers (pure) ---------------------------------------- */
 const char *gbp_vstate_completeness_name(unsigned c);
 const char *gbp_vstate_episode_state_name(unsigned st);
-/* Static footprint in bytes of every resident store, for the memory audit. */
-uint64_t gbp_vstate_static_bytes(void);
-/* The same budget for a ring of `slots` frames (3 or 4); 0 for any other value.
- * The colour probe reports this so its log never understates its own ring. */
-uint64_t gbp_vstate_static_bytes_for(uint32_t slots);
+/* ---- capacity, in two kinds that must never be confused --------------
+ *
+ * `stream-0002`'s first physical run logged `static_bytes=6922240` while the
+ * build had allocated 1 798 144, because the old name computed the model's
+ * CAPACITY CONSTANTS and read like a footprint (HARDWARE_TESTS §V5.29.6). The
+ * two ideas are now named apart, and a log that carries both cannot repeat it.
+ */
+
+/* REQUIRED: what the contract demands, computed entirely from the #defines.
+ * It reads no state and describes no particular build. Formerly, and in every
+ * log written before 2026-09-18, this was `gbp_vstate_static_bytes()` and the
+ * log key was `static_bytes=`; the value is unchanged, so historical logs keep
+ * their meaning exactly. */
+uint64_t gbp_vstate_required_capacity_bytes(void);
+/* The same requirement for a ring of `slots` frames (3 or 4); 0 for any other
+ * value. The colour probe reports this so its log never understates its ring. */
+uint64_t gbp_vstate_required_capacity_bytes_for(uint32_t slots);
+
+/* CONFIGURED: what THIS `struct gbp_vstate` was actually given. Derived from
+ * the capacities the caller passed, so a store that was never allocated
+ * contributes nothing and the number cannot become a phantom. */
+uint64_t gbp_vstate_configured_bytes(const struct gbp_vstate *s);
+
+/* The FIRST unmet storage requirement, as a stable short name, or NULL when the
+ * configuration is acceptable. `gbp_vstate_storage_ok()` is defined as
+ * "this returns NULL", so the two can never disagree.
+ *
+ * It exists because `store_or_bounds_invalid` alone cost a physical run: it
+ * named the gate and not the field (§V5.29.1). Names are stable enough to grep
+ * for: "state", "frames_null", "events_null", "raw_ring_null",
+ * "episode_raw_null", "audio_raw_null", "frames_cap", "events_cap",
+ * "raw_ring_cap", "raw_ring_slots", "episode_raw_cap", "audio_raw_cap". */
+const char *gbp_vstate_storage_fault(const struct gbp_vstate *s);
 
 #ifdef __cplusplus
 }
