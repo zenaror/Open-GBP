@@ -471,6 +471,10 @@ PROFILES = {
                          "gbp_vqueue_publish", "gbp_vqueue_take", "gbp_vqueue_commit", "gbp_vpix_block",
                          "gbp_vpresent_acquire", "gbp_vpresent_submit", "gbp_vpresent_draw_done",
                          "gbp_vpresent_xfb_target", "gbp_vpresent_shutdown", "GX_SetDrawDoneCallback",
+                         # stream-0003: the storage diagnostic, the R1 assertion
+                         # and the R8 latch must all SHIP, not merely compile.
+                         "gbp_vstate_storage_fault", "gbp_vstate_configured_bytes",
+                         "gbp_vqueue_pristine", "gbp_vpresent_invariant_failures",
                          "gbp_initirqa_run_cause", "gbp_initirqa_teardown", "gbp_regwrite_irq_u16",
                          "gbp_regwrite_control_byte", "hsp_backend_oneshot_isr_ext",
                          "hsp_backend_irq_transport_ext", "__UnmaskIrq", "__MaskIrq", "IRQ_Request",

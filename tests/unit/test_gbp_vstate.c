@@ -552,10 +552,10 @@ static void test_memory_arithmetic(void)
     ok(gbp_vstate_storage_ok(&st) == 1, "and the storage contract accepts it");
     eq_u64((uint64_t)GBP_VSTATE_EPISODE_RAW_BYTES, 2949120u, "the episode store is 4 x 4 x 184 320 = 2 949 120 B = 2.81 MiB");
     eq_u64((uint64_t)GBP_VSTATE_AUDIO_RAW_BYTES, 12288u, "AUDIO raw is 3 x 0x1000 = 12 KiB");
-    eq_u64(gbp_vstate_static_bytes(), 3145728u + 262144u + 552960u + 2949120u + 12288u,
+    eq_u64(gbp_vstate_required_capacity_bytes(), 3145728u + 262144u + 552960u + 2949120u + 12288u,
            "the resident total is the sum of the five stores");
-    eq_u64(gbp_vstate_static_bytes(), 6922240u, "which is 6.60 MiB");
-    ok(gbp_vstate_static_bytes() < 24u * 1024u * 1024u, "well inside MEM1");
+    eq_u64(gbp_vstate_required_capacity_bytes(), 6922240u, "which is 6.60 MiB");
+    ok(gbp_vstate_required_capacity_bytes() < 24u * 1024u * 1024u, "well inside MEM1");
     ok(gbp_vstate_storage_ok(&st) == 1, "the storage check accepts the real buffers");
     {
         struct gbp_vstate small;
@@ -610,6 +610,96 @@ static void test_a_null_episode_store_must_stay_refused(void)
     ok(gbp_vstate_storage_ok(&cut) == 1, "while the complete store set is accepted");
 }
 
+/* The two configurations that matter physically, side by side: what
+ * `stream-0002` shipped and aborted on, and what `stream-0003` supplies.
+ * Behavioural, not a source-string assertion (HARDWARE_TESTS §V5.30). */
+static void test_the_stream0002_and_stream0003_configurations(void)
+{
+    struct gbp_vstate cut;
+    printf("-- the stream-0002 storage configuration is refused and stream-0003's is accepted\n");
+
+    /* stream-0002, verbatim: frames_cap 4096, episode_raw NULL, cap 0 */
+    gbp_vstate_init(&cut, frames, 4096u, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, 0, 0, audio_raw, sizeof audio_raw);
+    ok(gbp_vstate_storage_ok(&cut) == 0, "stream-0002's configuration FAILS validation");
+    ok(gbp_vstate_storage_fault(&cut) != 0, "and the fault is named");
+    ok(strcmp(gbp_vstate_storage_fault(&cut), "episode_raw_null") == 0,
+       "the named field is episode_raw_null, the one that fired on hardware");
+
+    /* stream-0003: the full contract */
+    gbp_vstate_init(&cut, frames, GBP_VSTATE_MAX_FRAMES, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw,
+                    audio_raw, sizeof audio_raw);
+    ok(gbp_vstate_storage_ok(&cut) == 1, "stream-0003's configuration PASSES validation");
+    ok(gbp_vstate_storage_fault(&cut) == 0, "with no fault to name");
+
+    /* one byte short of the episode store is still a refusal, and is named */
+    gbp_vstate_init(&cut, frames, GBP_VSTATE_MAX_FRAMES, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, episode_raw, GBP_VSTATE_EPISODE_RAW_BYTES - 1u,
+                    audio_raw, sizeof audio_raw);
+    ok(gbp_vstate_storage_ok(&cut) == 0, "an episode store one byte too small is refused");
+    ok(strcmp(gbp_vstate_storage_fault(&cut), "episode_raw_cap") == 0, "as episode_raw_cap");
+
+    /* one record short of the frame table, likewise */
+    gbp_vstate_init(&cut, frames, GBP_VSTATE_MAX_FRAMES - 1u, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw,
+                    audio_raw, sizeof audio_raw);
+    ok(gbp_vstate_storage_ok(&cut) == 0, "a frame table one record too small is refused");
+    ok(strcmp(gbp_vstate_storage_fault(&cut), "frames_cap") == 0, "as frames_cap");
+
+    /* one byte short of AUDIO raw, to prove the last predicate is reachable too */
+    gbp_vstate_init(&cut, frames, GBP_VSTATE_MAX_FRAMES, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw,
+                    audio_raw, GBP_VSTATE_AUDIO_RAW_BYTES - 1u);
+    ok(gbp_vstate_storage_ok(&cut) == 0, "an AUDIO raw store one byte too small is refused");
+    ok(strcmp(gbp_vstate_storage_fault(&cut), "audio_raw_cap") == 0, "as audio_raw_cap");
+
+    /* the gate and the diagnostic are one predicate set and cannot disagree */
+    ok(gbp_vstate_storage_ok(0) == 0 && strcmp(gbp_vstate_storage_fault(0), "state") == 0,
+       "a NULL state is refused and named");
+}
+
+/* REQUIRED capacity and CONFIGURED bytes are different numbers and must never be
+ * printed as one. `stream-0002` logged 6 922 240 while holding 1 798 144. */
+static void test_required_capacity_is_not_configured_bytes(void)
+{
+    struct gbp_vstate cut;
+    printf("-- required capacity and configured bytes are separate, and stream-0002 proves why\n");
+
+    /* stream-0002's actual configuration */
+    gbp_vstate_init(&cut, frames, 4096u, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, GBP_VSTATE_RAW_RING_BYTES_4, 0, 0, audio_raw, sizeof audio_raw);
+    eq_u64(gbp_vstate_required_capacity_bytes(), 6922240u,
+           "the REQUIRED capacity is 6 922 240 regardless of what was supplied");
+    eq_u64(gbp_vstate_configured_bytes(&cut),
+           4096u * 192u + 4096u * 64u + GBP_VSTATE_RAW_RING_BYTES_4 + 0u + GBP_VSTATE_AUDIO_RAW_BYTES,
+           "while stream-0002's CONFIGURED bytes are 1 798 144");
+    eq_u64(gbp_vstate_configured_bytes(&cut), 1798144u, "which is the number its run really held");
+    ok(gbp_vstate_configured_bytes(&cut) < gbp_vstate_required_capacity_bytes(),
+       "configured < required, which is exactly why it aborted");
+
+    /* stream-0003's */
+    gbp_vstate_init(&cut, frames, GBP_VSTATE_MAX_FRAMES, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, GBP_VSTATE_RAW_RING_BYTES_4, episode_raw, sizeof episode_raw,
+                    audio_raw, sizeof audio_raw);
+    eq_u64(gbp_vstate_configured_bytes(&cut),
+           (uint64_t)GBP_VSTATE_MAX_FRAMES * 192u + 4096u * 64u
+           + GBP_VSTATE_RAW_RING_BYTES_4 + GBP_VSTATE_EPISODE_RAW_BYTES + GBP_VSTATE_AUDIO_RAW_BYTES,
+           "stream-0003 configures every store the contract names");
+    ok(gbp_vstate_configured_bytes(&cut) >= gbp_vstate_required_capacity_bytes(),
+       "and configured >= required, the four-slot ring making it strictly greater");
+    eq_u64(gbp_vstate_configured_bytes(&cut) - gbp_vstate_required_capacity_bytes(),
+           GBP_VSTATE_RAW_FRAME_BYTES, "by exactly the fourth raw ring slot");
+
+    /* a store the caller omitted must contribute nothing, never its capacity */
+    gbp_vstate_init(&cut, frames, GBP_VSTATE_MAX_FRAMES, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, 0, GBP_VSTATE_EPISODE_RAW_BYTES,
+                    audio_raw, sizeof audio_raw);
+    ok(gbp_vstate_configured_bytes(&cut) < gbp_vstate_required_capacity_bytes(),
+       "a NULL pointer with a non-zero capacity still counts as zero bytes");
+    eq_u64(gbp_vstate_configured_bytes(0), 0u, "and a NULL state configures nothing");
+}
+
 int main(void)
 {
     printf("== test_gbp_vstate (GBP-VIDEO-002 state model; every scenario SYNTHETIC)\n");
@@ -624,6 +714,8 @@ int main(void)
     test_audio();
     test_memory_arithmetic();
     test_a_null_episode_store_must_stay_refused();
+    test_the_stream0002_and_stream0003_configurations();
+    test_required_capacity_is_not_configured_bytes();
     printf("%u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;
 }

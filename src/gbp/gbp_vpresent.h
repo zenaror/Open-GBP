@@ -101,6 +101,23 @@ struct gbp_vpresent {
     uint32_t texture_releases;
     uint32_t xfb_presents;
     uint32_t xfb_skipped_busy;         /* no XFB was safe to copy into           */
+
+    /* ---- R8: the invariants, LATCHED, not only sampled at the end ----
+     *
+     * `stream-0002` evaluated `gbp_vpresent_consistent()` in its self-test and
+     * in its final report and nowhere else, so it could only ever say the
+     * invariants held AT ITS LAST INSTANT. A violation that healed before the
+     * report would have been invisible (HARDWARE_TESTS §V5.28.16, R8).
+     *
+     * Every state transition now checks itself and LATCHES a failure, so a
+     * transient impossible state is still counted after it heals. The main side
+     * and the interrupt keep separate counters, because a read-modify-write on
+     * one shared counter could lose the interrupt's increment; the report sums
+     * them and never has to argue about it. Both saturate rather than wrap. */
+    uint32_t invariant_checks;         /* main-side checks performed             */
+    uint32_t invariant_failures;       /* main-side failures, LATCHED, saturating */
+    uint32_t invariant_checks_isr;     /* the same, from the draw-done callback   */
+    uint32_t invariant_failures_isr;
 };
 
 /* ---- lifecycle ---------------------------------------------------------- */
@@ -170,8 +187,21 @@ void gbp_vpresent_xfb_handed(struct gbp_vpresent *p, int idx);
 void gbp_vpresent_xfb_observe(struct gbp_vpresent *p, int current);
 
 /* Every buffer is in exactly one state, at most one is SUBMITTED, and
- * `submitted` agrees with `tex[]`. Returns 1 when the invariants hold. */
+ * `submitted` agrees with `tex[]`. Returns 1 when the invariants hold.
+ *
+ * PURE: it latches nothing and may be called from anywhere, as often as wanted.
+ * It is what the module checks itself with at every transition. */
 int gbp_vpresent_consistent(const struct gbp_vpresent *p);
+
+/* R8: how many times the invariants were found broken DURING the run, main side
+ * and interrupt side summed. Zero is the only acceptable value, and it means
+ * something the end-of-run check alone never could — that no transition ever
+ * produced an impossible state, not merely that the last one did not. */
+uint32_t gbp_vpresent_invariant_failures(const struct gbp_vpresent *p);
+
+/* How many checks produced that number, so a zero cannot be read as "never
+ * looked". */
+uint32_t gbp_vpresent_invariant_checks(const struct gbp_vpresent *p);
 
 #ifdef __cplusplus
 }

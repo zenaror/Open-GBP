@@ -435,7 +435,8 @@ vstate-audit:
 # no result from it may be cited as evidence about the device.
 stream-dolphin:
 	$(PYTHON) tools/dolphin_smoke.py --dol $(STREAM_DOL) --build-info $(STREAM_OUT)/build-info.txt \
-	  --heartbeats 0 --expect 'OPENGBP-STREAM SELFTEST ok=1' \
+	  --heartbeats 0 --expect 'OPENGBP-STREAM SELFTEST ok=1' --expect 'sci_clean=1' --expect 'inv_fail=0' \
+	  --expect 'COUNTERS balanced=1' --expect 'storage_fault=-' \
 	  --report $(STREAM_OUT)/dolphin-report-absent.json --screen-png $(STREAM_OUT)/dolphin-screen-absent.png
 
 stream-audit:

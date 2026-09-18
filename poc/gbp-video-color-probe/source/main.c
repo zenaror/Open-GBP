@@ -136,7 +136,7 @@ static char log_storage[LOG_LINES * LOG_LINE_LEN];
 static uint8_t dma_buffer[GBP_BLOCK_SIZE] ATTRIBUTE_ALIGN(32);
 
 /* The resident stores. All static, all 32-byte aligned where a DMA targets them, none allocated.
- * Sizes are the design's (§21) and gbp_vstate_static_bytes() re-derives the total for the log. */
+ * Sizes are the design's (§21) and gbp_vstate_required_capacity_bytes() re-derives the total for the log. */
 /* The frame table is sized by THIS experiment, not by the vstate scan: the
  * capture ends within seconds, so 1024 frame records (~17 s at 59.7 Hz) is the
  * cap, and the state model's own frame_store_full then stops the run exactly
@@ -290,7 +290,7 @@ int main(void)
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(frame_store), (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(event_store),
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(raw_ring), (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(episode_raw),
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(audio_raw), (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(dump_chunk),
-                   (unsigned long long)(gbp_vstate_static_bytes_for(gbp_vstate_ring_slots(&vstate)) +
+                   (unsigned long long)(gbp_vstate_required_capacity_bytes_for(gbp_vstate_ring_slots(&vstate)) +
                                         gbp_vcolor_static_bytes()), (unsigned)LOG_LINES);
     ringlog_printf(&rl, "ENVA2 a2_obs_us=%lu,%lu,%lu,%lu,%lu,%lu",
                    (unsigned long)cfg.a.a2_obs_us[0], (unsigned long)cfg.a.a2_obs_us[1], (unsigned long)cfg.a.a2_obs_us[2],

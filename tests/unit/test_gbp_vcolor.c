@@ -370,10 +370,10 @@ static void test_the_ring_size_contract(void)
                     0, GBP_VSTATE_RAW_RING_BYTES, ep_raw, sizeof ep_raw, au_raw, sizeof au_raw);
     CHECK(gbp_vstate_ring_slots(&st) == 0u);
     /* and the budget helper follows the same contract */
-    CHECK(gbp_vstate_static_bytes_for(3u) == gbp_vstate_static_bytes());
-    CHECK(gbp_vstate_static_bytes_for(4u) == gbp_vstate_static_bytes() + GBP_VSTATE_RAW_FRAME_BYTES);
-    CHECK(gbp_vstate_static_bytes_for(2u) == 0u);
-    CHECK(gbp_vstate_static_bytes_for(5u) == 0u);
+    CHECK(gbp_vstate_required_capacity_bytes_for(3u) == gbp_vstate_required_capacity_bytes());
+    CHECK(gbp_vstate_required_capacity_bytes_for(4u) == gbp_vstate_required_capacity_bytes() + GBP_VSTATE_RAW_FRAME_BYTES);
+    CHECK(gbp_vstate_required_capacity_bytes_for(2u) == 0u);
+    CHECK(gbp_vstate_required_capacity_bytes_for(5u) == 0u);
     printf("   0/1/2/5 slots and a partial frame refused; 3 and 4 accepted\n");
 }
 

@@ -125,7 +125,7 @@ static char log_storage[LOG_LINES * LOG_LINE_LEN];
 static uint8_t dma_buffer[GBP_BLOCK_SIZE] ATTRIBUTE_ALIGN(32);
 
 /* The resident stores. All static, all 32-byte aligned where a DMA targets them, none allocated.
- * Sizes are the design's (§21) and gbp_vstate_static_bytes() re-derives the total for the log. */
+ * Sizes are the design's (§21) and gbp_vstate_required_capacity_bytes() re-derives the total for the log. */
 static struct gbp_vstate_frame frame_store[GBP_VSTATE_MAX_FRAMES];                 /* 3.00 MiB */
 static struct gbp_vstate_event event_store[GBP_VSTATE_MAX_EVENTS];                 /* 0.25 MiB */
 static uint8_t raw_ring[GBP_VSTATE_RAW_RING_BYTES] ATTRIBUTE_ALIGN(32);            /* 0.53 MiB, DMA target */
@@ -231,7 +231,7 @@ int main(void)
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(frame_store), (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(event_store),
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(raw_ring), (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(episode_raw),
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(audio_raw), (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(dump_chunk),
-                   (unsigned long long)gbp_vstate_static_bytes(), (unsigned)LOG_LINES);
+                   (unsigned long long)gbp_vstate_required_capacity_bytes(), (unsigned)LOG_LINES);
     ringlog_printf(&rl, "ENVA2 a2_obs_us=%lu,%lu,%lu,%lu,%lu,%lu",
                    (unsigned long)cfg.a.a2_obs_us[0], (unsigned long)cfg.a.a2_obs_us[1], (unsigned long)cfg.a.a2_obs_us[2],
                    (unsigned long)cfg.a.a2_obs_us[3], (unsigned long)cfg.a.a2_obs_us[4], (unsigned long)cfg.a.a2_obs_us[5]);

@@ -155,16 +155,47 @@ static char log_storage[LOG_LINES * LOG_LINE_LEN];
 static uint8_t dma_buffer[GBP_BLOCK_SIZE] ATTRIBUTE_ALIGN(32);
 
 /* ---- the state model's stores -------------------------------------------
- * Streaming does not need GBP-VIDEO-002's change detector, so the episode raw
- * store (2.81 MiB) is not allocated at all and the frame table is far smaller
- * than the colour probe's 16384 entries: this probe reports pacing aggregates,
- * not a per-frame history. The raw ring keeps FOUR slots, which is what gives
- * the generation guard its margin (§V3.24, §V5.7). */
-#define STREAM_MAX_FRAMES 4096u
-static struct gbp_vstate_frame frame_store[STREAM_MAX_FRAMES];                     /* 0.75 MiB */
+ *
+ * THE FULL GBP-VIDEO-002 STORE SET, and the reason is physical.
+ *
+ * `stream-0002` shipped a reduced set — 4096 frame records and NO episode raw
+ * store — on the strength of §V5.22's claim that a streaming run does not need
+ * the change detector. Its first physical run aborted at the probe's first gate
+ * with `store_or_bounds_invalid`, before touching the device (GBP-HW-136), and
+ * the gate was RIGHT: `gbp_vstate_probe.c` memsets through `episode_raw` and
+ * `preserve_frame()` writes a whole frame into it whenever an episode opens,
+ * neither of them checking for NULL. A NULL store is not a smaller model, it is
+ * a 2.81 MiB write to address 0.
+ *
+ * So the POC now satisfies the contract instead of arguing with it. The sizes
+ * below are exactly what `vstate-0004` and `color-0002` — the two physically
+ * validated builds — carry. The raw ring keeps FOUR slots, which is what gives
+ * the generation guard its margin (§V3.24, §V5.7).
+ *
+ * Cost of the correction: +2 359 296 B of frame table and +2 949 120 B of
+ * episode store = +5 308 416 B. See HARDWARE_TESTS §V5.30 for the measured
+ * footprint that resulted. */
+static struct gbp_vstate_frame frame_store[GBP_VSTATE_MAX_FRAMES];                 /* 3.00 MiB */
 static struct gbp_vstate_event event_store[GBP_VSTATE_MAX_EVENTS];                 /* 0.25 MiB */
 static uint8_t raw_ring[GBP_VSTATE_RAW_RING_BYTES_4] ATTRIBUTE_ALIGN(32);          /* 0.70 MiB, DMA target */
+static uint8_t episode_raw[GBP_VSTATE_EPISODE_RAW_BYTES] ATTRIBUTE_ALIGN(32);      /* 2.81 MiB */
 static uint8_t audio_raw[GBP_VSTATE_AUDIO_RAW_BYTES] ATTRIBUTE_ALIGN(32);          /* 12 KiB, DMA target */
+
+/* The contract, checked where it cannot be argued with: at compile time, over
+ * the ACTUAL arrays. A future edit that shrinks either store stops the build
+ * instead of costing another physical run. */
+_Static_assert(sizeof frame_store / sizeof frame_store[0] >= GBP_VSTATE_MAX_FRAMES,
+               "gbp_vstate requires at least GBP_VSTATE_MAX_FRAMES frame records");
+_Static_assert(sizeof event_store / sizeof event_store[0] >= GBP_VSTATE_MAX_EVENTS,
+               "gbp_vstate requires at least GBP_VSTATE_MAX_EVENTS event records");
+_Static_assert(sizeof raw_ring >= GBP_VSTATE_RAW_RING_BYTES,
+               "the raw ring must hold at least the minimum three slots");
+_Static_assert(sizeof raw_ring % GBP_VSTATE_RAW_FRAME_BYTES == 0,
+               "the raw ring must be a whole number of frame slots");
+_Static_assert(sizeof episode_raw >= GBP_VSTATE_EPISODE_RAW_BYTES,
+               "the episode raw store is NOT optional: gbp_vstate writes through it");
+_Static_assert(sizeof audio_raw >= GBP_VSTATE_AUDIO_RAW_BYTES,
+               "the AUDIO raw store must hold GBP_VSTATE_AUDIO_RAW_BYTES");
 static struct gbp_vstate_cycle cyc_first[GBP_VSTATE_CYC_FIRST];
 static struct gbp_vstate_cycle cyc_last[GBP_VSTATE_CYC_LAST];
 static struct gbp_vstate_cycle cyc_anomaly[GBP_VSTATE_CYC_ANOMALY];
@@ -338,7 +369,12 @@ static void draw_quad(void)
 /* THE CONSUMER SLICE. Called once per service cycle, after the RE-ARM, and it
  * does a bounded amount of work and returns. It never blocks, never waits for
  * the GP or the VI, and never touches the device. */
-static void submit_ready(int buf);
+/* `account` is the queue the presentation belongs to, or NULL when it belongs to
+ * nothing scientific. R1: `stream-0002` passed the self-test's synthetic frame
+ * straight into `vq`, which put `consumer_frames_presented` one ahead of
+ * `consumer_frames_converted` for the whole run (GBP-HW-135). The self-test now
+ * accounts for itself, in its own two counters, and the queue never sees it. */
+static void submit_ready(int buf, struct gbp_vqueue *account);
 
 /* ---- the display self-test (§V5.26.4) -----------------------------------
  *
@@ -357,7 +393,9 @@ static void submit_ready(int buf);
  * It does NOT prove timing, pacing or anything about the Game Boy Player. It
  * proves the code runs and the ownership machine ends where it started. */
 static uint8_t selftest_raw[GBP_VPIX_FRAME_BYTES] ATTRIBUTE_ALIGN(32);
-static int selftest_ok, selftest_released, selftest_converted;
+static int selftest_ok, selftest_released, selftest_converted, selftest_sci_clean;
+/* The self-test's OWN presentation accounting, kept out of `vq` entirely. */
+static uint32_t selftest_presents, selftest_repeats;
 
 static void display_selftest(void)
 {
@@ -387,15 +425,21 @@ static void display_selftest(void)
     selftest_converted = (st.pixels == GBP_VPIX_WIDTH * GBP_VPIX_HEIGHT) ? 1 : 0;
     DCFlushRange(tex_buf[buf], GBP_VPIX_TEX_BYTES);
     (void)gbp_vpresent_fill_done(&present, buf);
-    submit_ready(buf);
+    submit_ready(buf, 0);        /* NULL: this frame is not a queue frame (R1) */
 
     /* Wait for the callback HERE and nowhere else: this runs before the capture
      * opens, so a bounded spin costs the device nothing. If the token never
      * fires, that is itself the finding and it is reported rather than hidden. */
     for (spins = 0; spins < 600u && gbp_vpresent_inflight(&present); spins++) VIDEO_WaitVSync();
     selftest_released = gbp_vpresent_inflight(&present) ? 0 : 1;
-    selftest_ok = (selftest_converted && selftest_released &&
-                   gbp_vpresent_consistent(&present)) ? 1 : 0;
+    /* R1, asserted rather than assumed: every scientific counter must still be
+     * at its initial value. This is the state the probe is entered in, and a
+     * future edit that routes the self-test back through the queue makes this
+     * ZERO — which the Dolphin smoke fails on. */
+    selftest_sci_clean = gbp_vqueue_pristine(&vq);
+    selftest_ok = (selftest_converted && selftest_released && selftest_sci_clean &&
+                   gbp_vpresent_consistent(&present) &&
+                   gbp_vpresent_invariant_failures(&present) == 0u) ? 1 : 0;
 }
 
 static void pump(void *user)
@@ -409,7 +453,7 @@ static void pump(void *user)
     {
         uint32_t i;
         for (i = 0; i < GBP_VPRESENT_TEX_BUFFERS; i++)
-            if (present.tex[i] == GBP_VPRESENT_READY) { submit_ready((int)i); break; }
+            if (present.tex[i] == GBP_VPRESENT_READY) { submit_ready((int)i, &vq); break; }
     }
 
     if (!conv.active) {
@@ -489,14 +533,14 @@ static void pump(void *user)
     DCFlushRange(tex_buf[conv.buf], GBP_VPIX_TEX_BYTES);
     (void)gbp_vpresent_fill_done(&present, (int)conv.buf);   /* CPU_FILLING -> READY */
     conv.active = 0u;
-    submit_ready((int)conv.buf);
+    submit_ready((int)conv.buf, &vq);
 }
 
 /* Hand a READY texture to the GP and put the result on screen — or decline,
  * without waiting for anything. Split out of `pump()` because it is the part
  * whose ORDERING is the safety argument, and because a READY buffer may have to
  * wait for the previous token before it can go. */
-static void submit_ready(int buf)
+static void submit_ready(int buf, struct gbp_vqueue *account)
 {
     int xfb;
 
@@ -524,10 +568,12 @@ static void submit_ready(int buf)
         VIDEO_SetNextFramebuffer(xfb_stream_buf[xfb]);
         VIDEO_Flush();                /* register write only; NEVER VIDEO_WaitVSync here */
         gbp_vpresent_xfb_handed(&present, xfb);
-        gbp_vqueue_note_presented(&vq);
+        /* R1: only a frame that came OUT of the queue goes back INTO its
+         * counters. The self-test passes NULL and is counted separately. */
+        if (account) gbp_vqueue_note_presented(account); else selftest_presents++;
     } else {
         GX_Flush();                   /* the draw still has to reach the GP */
-        gbp_vqueue_note_repeat(&vq);  /* HOLD_PREVIOUS_FRAME: the screen is unchanged */
+        if (account) gbp_vqueue_note_repeat(account); else selftest_repeats++;
     }
 }
 
@@ -566,8 +612,10 @@ int main(void)
     gbp_vstate_config_timebase(&cfg, tb_hz);
     /* No episode raw store: streaming does not use GBP-VIDEO-002's change
      * detector, and 2.81 MiB of it would sit unused. */
-    gbp_vstate_init(&vstate, frame_store, STREAM_MAX_FRAMES, event_store, GBP_VSTATE_MAX_EVENTS,
-                    raw_ring, sizeof raw_ring, 0, 0, audio_raw, sizeof audio_raw);
+    gbp_vstate_init(&vstate, frame_store, (uint32_t)(sizeof frame_store / sizeof frame_store[0]),
+                    event_store, (uint32_t)(sizeof event_store / sizeof event_store[0]),
+                    raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw,
+                    audio_raw, sizeof audio_raw);
     gbp_vstate_diag_store(&vstate, diag_store, GBP_VSTATE_MAX_DISAGREEMENTS);
     cfg.st = &vstate;
 
@@ -584,13 +632,18 @@ int main(void)
      * path executed instead of the operator assuming it did. */
     display_selftest();
     snprintf(line, sizeof line,
-             "OPENGBP-STREAM SELFTEST ok=%d converted=%d released=%d submits=%lu drawdone=%lu releases=%lu xfb=%lu\n",
+             "OPENGBP-STREAM SELFTEST ok=%d converted=%d released=%d submits=%lu drawdone=%lu releases=%lu xfb=%lu sci_clean=%d inv_fail=%lu\n",
              selftest_ok, selftest_converted, selftest_released,
              (unsigned long)present.submit_success, (unsigned long)present.drawdone_callbacks,
-             (unsigned long)present.texture_releases, (unsigned long)present.xfb_presents);
+             (unsigned long)present.texture_releases, (unsigned long)selftest_presents,
+             selftest_sci_clean, (unsigned long)gbp_vpresent_invariant_failures(&present));
     gecko_puts(line);
     printf("  SELF-TEST display path: %s (converted=%d, texture released by the GP=%d)\n",
            selftest_ok ? "ok" : "NOT OK", selftest_converted, selftest_released);
+    /* R1, on screen as well as on the wire: the queue must be untouched here. */
+    printf("  SELF-TEST accounting: %lu present / %lu repeat of its OWN, scientific counters %s\n",
+           (unsigned long)selftest_presents, (unsigned long)selftest_repeats,
+           selftest_sci_clean ? "CLEAN" : "CONTAMINATED");
 
     /* The validated pre-handler wait, unchanged (§V5.20, GBP-HW-120). */
     cfg.prehandler_wait_ms = 5000u;
@@ -618,9 +671,45 @@ int main(void)
                    (unsigned long)STREAM_CAPTURE_SECONDS, (unsigned long)STREAM_SAFETY_SECONDS,
                    (unsigned)STREAM_SLICE_TILE_ROWS, (unsigned)STREAM_TEX_BUFFERS,
                    (unsigned)GBP_VPIX_TEX_BYTES, (unsigned long)gbp_vstate_ring_slots(&vstate));
-    ringlog_printf(&rl, "ENVBUF frames=%08lx events=%08lx raw_ring=%08lx audio_raw=%08lx texA=%08lx texB=%08lx fifo=%08lx log_lines=%u",
+    /* THE STORES AS CONFIGURED, beside what the contract requires, and with the
+     * first unmet field by name. `stream-0002` aborted here with a reason that
+     * named the gate and not the field, and the line that should have shown the
+     * mismatch printed compile-time constants instead (§V5.29.6). Both are
+     * fixed: this is the POC's own diagnostic, the library's generic gate is
+     * unchanged, and neither is weakened. */
+    {
+        const char *fault = gbp_vstate_storage_fault(&vstate);
+        ringlog_printf(&rl, "ENVSTORE frames=%lu/%lu events=%lu/%lu raw_ring=%lu/%lu slots=%lu/%lu episode_raw=%lu/%lu audio_raw=%lu/%lu configured_bytes=%llu required_bytes=%llu fault=%s ok=%d",
+                       (unsigned long)vstate.frames_cap, (unsigned long)GBP_VSTATE_MAX_FRAMES,
+                       (unsigned long)vstate.events_cap, (unsigned long)GBP_VSTATE_MAX_EVENTS,
+                       (unsigned long)vstate.raw_ring_cap, (unsigned long)GBP_VSTATE_RAW_RING_BYTES,
+                       (unsigned long)vstate.raw_ring_slots, (unsigned long)GBP_VSTATE_RAW_RING_SLOTS_MIN,
+                       (unsigned long)vstate.episode_raw_cap, (unsigned long)GBP_VSTATE_EPISODE_RAW_BYTES,
+                       (unsigned long)vstate.audio_raw_cap, (unsigned long)GBP_VSTATE_AUDIO_RAW_BYTES,
+                       (unsigned long long)gbp_vstate_configured_bytes(&vstate),
+                       (unsigned long long)gbp_vstate_required_capacity_bytes(),
+                       fault ? fault : "-", gbp_vstate_storage_ok(&vstate));
+        if (fault) {
+            printf("\n  FATAL: the state model's storage contract is not met: field=%s\n", fault);
+            printf("  frames %lu/%lu  events %lu/%lu  raw_ring %lu/%lu (%lu/%lu slots)  episode_raw %lu/%lu  audio_raw %lu/%lu\n",
+                   (unsigned long)vstate.frames_cap, (unsigned long)GBP_VSTATE_MAX_FRAMES,
+                   (unsigned long)vstate.events_cap, (unsigned long)GBP_VSTATE_MAX_EVENTS,
+                   (unsigned long)vstate.raw_ring_cap, (unsigned long)GBP_VSTATE_RAW_RING_BYTES,
+                   (unsigned long)vstate.raw_ring_slots, (unsigned long)GBP_VSTATE_RAW_RING_SLOTS_MIN,
+                   (unsigned long)vstate.episode_raw_cap, (unsigned long)GBP_VSTATE_EPISODE_RAW_BYTES,
+                   (unsigned long)vstate.audio_raw_cap, (unsigned long)GBP_VSTATE_AUDIO_RAW_BYTES);
+            printf("  configured %llu B, required %llu B. The probe was NOT entered.\n",
+                   (unsigned long long)gbp_vstate_configured_bytes(&vstate),
+                   (unsigned long long)gbp_vstate_required_capacity_bytes());
+            gecko_puts("OPENGBP-STREAM STORAGE FATAL field=");
+            gecko_puts(fault);
+            gecko_puts("\n");
+        }
+    }
+    ringlog_printf(&rl, "ENVBUF frames=%08lx events=%08lx raw_ring=%08lx episode_raw=%08lx audio_raw=%08lx texA=%08lx texB=%08lx fifo=%08lx log_lines=%u",
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(frame_store), (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(event_store),
-                   (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(raw_ring), (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(audio_raw),
+                   (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(raw_ring), (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(episode_raw),
+                   (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(audio_raw),
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(tex_buf[0]), (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(tex_buf[1]),
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(gx_fifo), (unsigned)LOG_LINES);
 
@@ -713,13 +802,24 @@ int main(void)
                    (unsigned long)present.fills_abandoned, (unsigned long)present.submit_success,
                    (unsigned long)present.submit_attempts, (unsigned long)present.submit_blocked_inflight,
                    (unsigned long)present.submit_blocked_shutdown);
-    ringlog_printf(&rl, "STREAMGX drawdone=%lu spurious=%lu releases=%lu xfb_presents=%lu xfb_skipped=%lu consistent=%d inflight_at_end=%d drained=%d cb_restored=%d",
+    ringlog_printf(&rl, "STREAMGX drawdone=%lu spurious=%lu releases=%lu xfb_presents=%lu xfb_skipped=%lu consistent_at_end=%d inflight_at_end=%d drained=%d cb_restored=%d",
                    (unsigned long)present.drawdone_callbacks, (unsigned long)present.drawdone_spurious,
                    (unsigned long)present.texture_releases, (unsigned long)present.xfb_presents,
                    (unsigned long)present.xfb_skipped_busy, gbp_vpresent_consistent(&present),
                    gbp_vpresent_inflight(&present), gx_drained_at_teardown, gx_callback_restored);
-    ringlog_printf(&rl, "STREAMSELFTEST ok=%d converted=%d released=%d note=synthetic_frame_before_capture_no_device",
-                   selftest_ok, selftest_converted, selftest_released);
+    /* R8: the two are DIFFERENT claims and are printed apart. `consistent_at_end`
+     * is the last instant; `invariant_failures` is every transition of the run,
+     * latched even if the state healed afterwards. */
+    ringlog_printf(&rl, "STREAMINV checks=%lu failures=%lu main=%lu/%lu isr=%lu/%lu consistent_at_end=%d",
+                   (unsigned long)gbp_vpresent_invariant_checks(&present),
+                   (unsigned long)gbp_vpresent_invariant_failures(&present),
+                   (unsigned long)present.invariant_failures, (unsigned long)present.invariant_checks,
+                   (unsigned long)present.invariant_failures_isr, (unsigned long)present.invariant_checks_isr,
+                   gbp_vpresent_consistent(&present));
+    ringlog_printf(&rl, "STREAMSELFTEST ok=%d converted=%d released=%d own_presents=%lu own_repeats=%lu sci_clean=%d note=synthetic_frame_before_capture_no_device_counters_isolated",
+                   selftest_ok, selftest_converted, selftest_released,
+                   (unsigned long)selftest_presents, (unsigned long)selftest_repeats,
+                   selftest_sci_clean);
     ringlog_printf(&rl, "STREAMPACE publish_min=%lu publish_max=%lu publish_mean=%lu n=%lu convert_min=%lu convert_max=%lu convert_mean=%lu n=%lu",
                    (unsigned long)(vq.publish_interval_n ? vq.publish_interval_min : 0u),
                    (unsigned long)vq.publish_interval_max, (unsigned long)gbp_vqueue_publish_interval_mean(&vq),
@@ -768,10 +868,14 @@ int main(void)
            (unsigned long)present.submit_blocked_inflight, (unsigned long)present.drawdone_callbacks,
            (unsigned long)present.drawdone_spurious, (unsigned long)present.texture_releases,
            (unsigned long)present.xfb_presents, (unsigned long)present.xfb_skipped_busy);
-    printf("  OWNER   invariants %s   in flight at end %d   drained %d   callback restored %d   self-test %s\n",
+    printf("  OWNER   at end %s   DURING the run %lu failure(s) in %lu checks   in flight %d   drained %d   cb restored %d\n",
            gbp_vpresent_consistent(&present) ? "HOLD" : "VIOLATED",
-           gbp_vpresent_inflight(&present), gx_drained_at_teardown, gx_callback_restored,
-           selftest_ok ? "ok" : "NOT OK");
+           (unsigned long)gbp_vpresent_invariant_failures(&present),
+           (unsigned long)gbp_vpresent_invariant_checks(&present),
+           gbp_vpresent_inflight(&present), gx_drained_at_teardown, gx_callback_restored);
+    printf("  SELFTEST %s, its own presents %lu / repeats %lu, scientific counters %s (R1 retired)\n",
+           selftest_ok ? "ok" : "NOT OK", (unsigned long)selftest_presents,
+           (unsigned long)selftest_repeats, selftest_sci_clean ? "CLEAN" : "CONTAMINATED");
     printf("  FLAG15  last frame carried %lu set word(s), first at (%lu,%lu) — REPORTED, NOT INTERPRETED (U-GBP-034)\n",
            (unsigned long)flag15_last_count, (unsigned long)flag15_last_x, (unsigned long)flag15_last_y);
     printf("  RESTORE control=%d stop=%d cleanup=%d arinfo=%d handler=%d mask_ok=%d\n",
@@ -779,6 +883,20 @@ int main(void)
            res.h.handler_restored, res.h.mask_ok);
     printf("\n  THIS RUN PROVES NOTHING ON ITS OWN. Sustained streaming is judged offline against\n");
     printf("  HARDWARE_TESTS §V5.21, and the duration is still a DESIGN DECISION (§V5.5).\n");
+
+    /* The two verdicts an auxiliary run must be able to ASSERT without a screen:
+     * the counters balance with NO correction of any kind (R1 retired), and the
+     * ownership invariants never broke DURING the run (R8). `stream-0002` could
+     * report neither — its counters were contaminated before the capture opened
+     * and its invariants were only ever sampled at the end. */
+    snprintf(line, sizeof line,
+             "OPENGBP-STREAM COUNTERS balanced=%d sci_clean_at_probe=%d inv_fail=%lu inv_checks=%lu consistent_at_end=%d storage_fault=%s\n",
+             gbp_vqueue_balanced(&vq), selftest_sci_clean,
+             (unsigned long)gbp_vpresent_invariant_failures(&present),
+             (unsigned long)gbp_vpresent_invariant_checks(&present),
+             gbp_vpresent_consistent(&present),
+             gbp_vstate_storage_fault(&vstate) ? gbp_vstate_storage_fault(&vstate) : "-");
+    gecko_puts(line);
 
     printf("\n  X = save log to SD    START = exit    POWER CYCLE REQUIRED\n");
     for (;;) {

@@ -777,13 +777,35 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
                    (unsigned long)cfg->min_valid_observation_s, (unsigned long)cfg->hard_wallclock_s,
                    (unsigned long long)cfg->hard_wallclock_ticks, (unsigned long)cfg->max_deliveries,
                    (unsigned long)cfg->verify_cycles, (unsigned long)cfg->t_delivery_ms, (unsigned long)cfg->t_next_cause_ms);
-    ringlog_printf(log, "VSTATE stores frames=%lu x %lu event=%lu x %lu episodes=%lu x %lu raw_ring=%lu x %lu audio_raw=%lu n_stable=%lu ep_max_frames=%lu static_bytes=%llu",
+    ringlog_printf(log, "VSTATE stores frames=%lu x %lu event=%lu x %lu episodes=%lu x %lu raw_ring=%lu x %lu audio_raw=%lu n_stable=%lu ep_max_frames=%lu required_bytes=%llu",
                    (unsigned long)GBP_VSTATE_MAX_FRAMES, (unsigned long)GBP_VSTATE_FRAME_REC,
                    (unsigned long)GBP_VSTATE_MAX_EVENTS, (unsigned long)GBP_VSTATE_EVENT_REC,
                    (unsigned long)GBP_VSTATE_MAX_EPISODES, (unsigned long)GBP_VSTATE_EPISODE_RAW_SLOTS,
                    (unsigned long)gbp_vstate_ring_slots(st), (unsigned long)GBP_VSTATE_RAW_FRAME_BYTES,
                    (unsigned long)GBP_VSTATE_AUDIO_RAW_SLOTS, (unsigned long)GBP_VSTATE_N_STABLE,
-                   (unsigned long)GBP_VSTATE_EPISODE_MAX_FRAMES, (unsigned long long)gbp_vstate_static_bytes());
+                   (unsigned long)GBP_VSTATE_EPISODE_MAX_FRAMES, (unsigned long long)gbp_vstate_required_capacity_bytes());
+    /* THE ACTUAL CONFIGURATION, beside the requirement it must meet.
+     *
+     * The line above prints the model's CAPACITY CONSTANTS. `stream-0002` had
+     * allocated a quarter of the frame table and no episode store at all, and
+     * that line still read `frames=16384`: the log that should have exposed the
+     * defect concealed it, and the run was lost to `store_or_bounds_invalid`
+     * with no field named (HARDWARE_TESTS §V5.29.6). This line exists so that
+     * can never happen twice — every capacity as CONFIGURED, the requirement
+     * beside it, the configured total, and the first unmet field by name. */
+    {
+        const char *fault = gbp_vstate_storage_fault(st);
+        ringlog_printf(log, "VSTATE storecfg frames=%lu/%lu events=%lu/%lu raw_ring=%lu/%lu slots=%lu/%lu episode_raw=%lu/%lu audio_raw=%lu/%lu configured_bytes=%llu required_bytes=%llu fault=%s",
+                       (unsigned long)(st ? st->frames_cap : 0u), (unsigned long)GBP_VSTATE_MAX_FRAMES,
+                       (unsigned long)(st ? st->events_cap : 0u), (unsigned long)GBP_VSTATE_MAX_EVENTS,
+                       (unsigned long)(st ? st->raw_ring_cap : 0u), (unsigned long)GBP_VSTATE_RAW_RING_BYTES,
+                       (unsigned long)(st ? st->raw_ring_slots : 0u), (unsigned long)GBP_VSTATE_RAW_RING_SLOTS_MIN,
+                       (unsigned long)(st ? st->episode_raw_cap : 0u), (unsigned long)GBP_VSTATE_EPISODE_RAW_BYTES,
+                       (unsigned long)(st ? st->audio_raw_cap : 0u), (unsigned long)GBP_VSTATE_AUDIO_RAW_BYTES,
+                       (unsigned long long)gbp_vstate_configured_bytes(st),
+                       (unsigned long long)gbp_vstate_required_capacity_bytes(),
+                       fault ? fault : "-");
+    }
     ringlog_printf(log, "VSTATE policy handler=003b_ext_installed_once record=reset_under_mask order=read_audio_video_ack_piclean_sign_rearm_waitnext checksum=between_ack_and_rearm oracle=offline_only early_positive_stop=none");
     ringlog_printf(log, "VSTATE caps frame_store=stops event_store=stops episode_raw_store=does_not_stop safety_epoch=t_control_transform precedence=fatal,safety,stores,target,no_next_cause,delivery");
 
@@ -793,7 +815,12 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
         service_failed(res, "store_or_bounds_invalid");
         res->teardown_variant = "none";
         res->t_stop = now64(t);            /* a real reading: an unset field must never be reported as a time */
-        ringlog_printf(log, "VSTATE abort reason=store_or_bounds_invalid");
+        /* The status stays `store_or_bounds_invalid` — it is the stable name of
+         * this gate and nothing downstream may be re-keyed — but the FIELD is
+         * now on the same line, because naming only the gate cost a physical
+         * run (§V5.29.1). */
+        ringlog_printf(log, "VSTATE abort reason=store_or_bounds_invalid field=%s",
+                       gbp_vstate_storage_fault(st));
         gbp_vstate_report(log, cfg, res);
         return 0;
     }

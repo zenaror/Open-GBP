@@ -7091,3 +7091,91 @@ POC's `gbp_vstate_init()` call.
 **Next:** `stream-0003` — this store fix plus R1 and R8 — then its own
 pre-hardware audit, scoped against `color-0002`/`vstate-0004`. `stream-0002`
 stays historical and is never rebuilt or re-labelled.
+
+## 2026-09-18 — stream-0003: the storage contract satisfied, R1 retired, R8 latched
+
+**Goal.** Turn the physically identified cause of `stream-0002`'s pre-service
+abort into a candidate that actually satisfies the contract, and retire the two
+reporting defects the previous audit had left standing. No hardware.
+
+**The fix is in the caller, not in the gate.** The POC now declares
+`frame_store[GBP_VSTATE_MAX_FRAMES]` and `episode_raw[GBP_VSTATE_EPISODE_RAW_BYTES]`
+and passes both to `gbp_vstate_init()`, with the capacities derived from the
+arrays themselves so the declaration and the call cannot drift. **Not one
+requirement of `gbp_vstate_storage_ok()` was weakened** — a host guard asserts
+each one textually, and the gate is now *defined* as "`gbp_vstate_storage_fault()`
+returns NULL", so the boolean and the diagnostic cannot diverge. Six
+`_Static_assert`s over the actual arrays mean a future shrink stops the build
+instead of costing a run.
+
+**The two capacity ideas are named apart.** `gbp_vstate_static_bytes()` described
+the model's constants and read like a footprint; it is now
+`gbp_vstate_required_capacity_bytes()` — same value, 6 922 240, so historical logs
+keep their meaning — beside a new `gbp_vstate_configured_bytes(s)` that counts
+only stores that exist. Two log lines carry both, and the abort now names the
+field: `reason=store_or_bounds_invalid field=episode_raw_null`.
+
+**Measured, not inferred.** text 363 744, data 107 680, **bss 8 204 404** (the
+prediction was 8 204 364; the 40 bytes are linker alignment), DOL 471 680. Every
+store resolved from the linked ELF: no overlap, no misalignment, nothing outside
+BSS, every DMA/GX target 32-byte aligned. **10.03 MiB of MEM1's 24.00 MiB**, with
+13.96 MiB of arena left after the three XFBs.
+
+**R1 retired.** `submit_ready()` takes the queue the presentation belongs to; the
+self-test passes NULL and counts its own presents and repeats. `gbp_vqueue_pristine()`
+is the new assertion — every scientific counter still at its initial value when
+the probe is entered — and it is part of `selftest_ok`, of the Gecko line and of
+the report. Proved behaviourally: one `note_presented()` from the self-test breaks
+both `pristine()` and `balanced()`; a repeat breaks only `pristine()`, which is
+why the POC asserts the stricter one.
+
+**R8 latched.** `gbp_vpresent` audits itself at every transition and latches a
+failure even if the state heals — main side and interrupt side in separate
+counters, so neither can lose the other's increment. The audit reads state and
+writes only counters; the valid state machine is byte-for-byte what `stream-0002`
+had, and the `submit()` audit runs after both stores so the deliberate
+one-instruction transient is never counted. The report separates
+`consistent_at_end` from `invariant_failures` during the run.
+
+**Dolphin says the gate is passed.** `COUNTERS balanced=1 sci_clean_at_probe=1
+inv_fail=0 inv_checks=4 consistent_at_end=1 storage_fault=-`, and on screen
+`status=abort_inconsistent … teardown=stage_a` — `stream-0002` never got past
+`abort_store_unavailable`; `stream-0003` reaches stage A and stops there because
+Dolphin has no Game Boy Player, exactly where `color-0002` and `vstate-0004` stop.
+`balanced=1` with **no correction of any kind** is R1 retired, measured on the
+binary.
+
+**The lesson, mechanised.** A host guard now compares the stream POC's stores
+against **`vstate-0004` and `color-0002`** — the builds that actually ran — and
+not against the previous candidate. That is the §V5.29 finding turned into a
+check: three audits said "unchanged" about a configuration that had changed
+relative to every physically validated build.
+
+**Unchanged on purpose:** R3's PE FINISH behaviour, the post-RE-ARM pump
+placement, the one-tile-row slice, the RGB5A3 mapping, the generation guard, the
+source-disagreement and `F_SOURCE_DEFERRED` policies, the mailbox semantics, R5,
+R7 and the controlled-stimulus design. The timing instrumentation is identical,
+and **the slice placement is still not claimed to be timing-safe**.
+
+**Tests.** 19 unit binaries, 792 077 checks, 0 failures; 574 host tests OK;
+`make stream-audit` clean with the interrupt path byte-identical to the
+physically validated GBP-VIDEO-001 build; `make stream-dolphin` PASS. New
+adversarial coverage: NULL episode store, episode store one byte short, frame cap
+4096, frame cap max, AUDIO raw one byte short, a self-test presentation reaching
+the scientific counters, a transient impossible ownership state, and the
+required-versus-configured distinction.
+
+**Not claimed.** Sustained streaming works. Nothing has streamed on hardware, and
+`stream-0002` is **not** re-interpreted as a streaming failure — streaming was
+never reached.
+
+**A note on the environment, not the project:** the repository's fuseblk mount
+lost directory entries under `build/` mid-build several times this round, which
+presents as `mkdir: File exists` or vanishing `.o` files inside the container.
+Recreating `build/` fixed it. It is a host filesystem artifact and no build
+output was trusted until a clean rebuild reproduced it.
+
+**Next:** a SMALL pre-hardware audit of `stream-0003`, limited to the storage
+configuration against `vstate-0004`/`color-0002`, the address ranges, R1
+isolation, the R8 latch, the unchanged instrumentation and the exact artifact
+identity. Then, and only then, the physical run.

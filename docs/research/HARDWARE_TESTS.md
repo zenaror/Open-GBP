@@ -9218,3 +9218,254 @@ new hash. stream-0002 is never rebuilt.
 `gbp_vqueue_balanced()` +1 offset) and R8 (the invariants checked only at the
 end). It needs its own pre-hardware audit, and that audit's scoping rule must be
 measured against `color-0002`/`vstate-0004`, not against `stream-0002`.
+
+### V5.30 `stream-0003` — the storage contract satisfied, R1 retired, R8 latched — 2026-09-18
+
+**`stream-0002` stays historical: PHYSICALLY EXECUTED, GX SELF-TEST PASSED, GBP
+CAPTURE NOT STARTED, ABORTED PRE-SERVICE.** Its identity is preserved unchanged —
+commit `2457d51`, 466 272 B, sha256 `76fa1ff7…` — it is never rebuilt, never
+re-labelled and never re-run, and GBP-HW-134…137 remain its evidence. Nothing
+below re-interprets it as a streaming failure, because streaming was never
+reached.
+
+`stream-0003` is a new candidate carrying three corrections and nothing else.
+
+#### V5.30.1 The storage fix — in the caller, never in the gate
+
+```c
+/* poc/gbp-video-stream-probe/source/main.c */
+static struct gbp_vstate_frame frame_store[GBP_VSTATE_MAX_FRAMES];              /* was 4096 */
+static uint8_t episode_raw[GBP_VSTATE_EPISODE_RAW_BYTES] ATTRIBUTE_ALIGN(32);   /* was absent */
+
+gbp_vstate_init(&vstate, frame_store, (uint32_t)(sizeof frame_store / sizeof frame_store[0]),
+                event_store, (uint32_t)(sizeof event_store / sizeof event_store[0]),
+                raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw,
+                audio_raw, sizeof audio_raw);
+```
+
+The capacities are now derived from the arrays themselves, so the declaration and
+the call cannot drift apart. **`gbp_vstate_storage_ok()` was not weakened**: every
+requirement it enforced before it enforces now, and a host guard asserts each one
+textually so a future "make the POC pass" edit is visible.
+
+Six `_Static_assert`s over the **actual arrays** back it up, so a shrink stops the
+build instead of costing a physical run:
+
+```text
+sizeof frame_store / sizeof frame_store[0] >= GBP_VSTATE_MAX_FRAMES
+sizeof event_store / sizeof event_store[0] >= GBP_VSTATE_MAX_EVENTS
+sizeof raw_ring    >= GBP_VSTATE_RAW_RING_BYTES
+sizeof raw_ring    %  GBP_VSTATE_RAW_FRAME_BYTES == 0
+sizeof episode_raw >= GBP_VSTATE_EPISODE_RAW_BYTES
+sizeof audio_raw   >= GBP_VSTATE_AUDIO_RAW_BYTES
+```
+
+#### V5.30.2 Configured versus required, everywhere
+
+| what the code says | what it means |
+| --- | --- |
+| `gbp_vstate_required_capacity_bytes()` | the contract's CONSTANTS — 6 922 240, computed from `#define`s, reading no state. Formerly `gbp_vstate_static_bytes()`; the **value is unchanged**, so every historical log keeps its meaning exactly (§V5.29.6). |
+| `gbp_vstate_configured_bytes(s)` | what THIS state was actually given. A store the caller omitted contributes **zero**, which is precisely what made the old number a phantom. |
+| `gbp_vstate_storage_fault(s)` | the FIRST unmet requirement, by name, or NULL. `gbp_vstate_storage_ok()` is now *defined* as "this returns NULL", so the gate and the diagnostic can never diverge. |
+
+Two log lines carry it, and the probe's abort now names the field:
+
+```text
+VSTATE storecfg frames=16384/16384 events=4096/4096 raw_ring=737280/552960
+                slots=4/3 episode_raw=2949120/2949120 audio_raw=12288/12288
+                configured_bytes=… required_bytes=6922240 fault=-
+ENVSTORE  …the same, from the POC, before the probe is entered…
+VSTATE abort reason=store_or_bounds_invalid field=episode_raw_null
+```
+
+and the POC prints a full human-readable fault block and a
+`OPENGBP-STREAM STORAGE FATAL field=…` Gecko line **before** entering the probe.
+The library gate stays generic; the useful diagnostic is the POC's (§15).
+
+#### V5.30.3 Measured footprint — not inferred from "24 MiB is a lot"
+
+```text
+text  0x058CE0    363 744 B
+data  0x01A4A0    107 680 B
+bss   0x7D3074  8 204 404 B     0x80076264 .. 0x808492d8
+DOL             471 680 B
+
+predicted bss 8 204 364; measured 8 204 404; +40 B of linker alignment
+```
+
+Every store, resolved from the linked ELF rather than from the source:
+
+```text
+region          start        end         size  align  note
+selftest_raw  0x80079c00 0x8009f400    153600     32
+gx_fifo       0x8009f420 0x800df420    262144     32  gap 0x20
+tex_buf       0x800df540 0x80104d40    153600     32  gap 0x120   (2 x 76 800)
+diag_store    0x80104e10 0x8010ee10     40960      4  gap 0xd0
+cyc_episode   0x80110258 0x80112258      8192      4  gap 0x1448
+cyc_anomaly   0x80112258 0x80112658      1024      4  contiguous
+cyc_last      0x80112658 0x80112a58      1024      4  contiguous
+cyc_first     0x80112a58 0x80112e58      1024      4  contiguous
+audio_raw     0x80112e60 0x80115e60     12288     32  gap 0x8
+episode_raw   0x80115e60 0x803e5e60   2949120     32  contiguous
+raw_ring      0x803e5e60 0x80499e60    737280     32  contiguous
+event_store   0x80499e60 0x804d9e60    262144      4  contiguous
+frame_store   0x804d9e60 0x807d9e60   3145728      4  contiguous
+dma_buffer    0x807d9e60 0x807d9e80        32     32  contiguous
+log_storage   0x807d9e80 0x80819e80    262144      4  contiguous
+
+BSS           0x80076264 0x808492d8  8 204 404
+arena         0x808492e0 0x81800000 16 477 472   three XFBs of 614 400 B come from here
+
+overlap NONE · misalignment NONE · outside-BSS NONE · overflow NONE
+
+text + data + bss + 3 XFB = 10 519 028 B = 10.03 MiB of MEM1's 24.00 MiB
+arena remaining after the XFBs: 13.96 MiB
+```
+
+#### V5.30.4 Comparison against the physically validated baseline — the §V5.29 lesson, enforced
+
+| | `vstate-0004` | `color-0002` | `stream-0002` | **`stream-0003`** |
+| --- | --- | --- | --- | --- |
+| frame table | `GBP_VSTATE_MAX_FRAMES` | `GBP_VSTATE_MAX_FRAMES` | **4096** | `GBP_VSTATE_MAX_FRAMES` |
+| event store | `GBP_VSTATE_MAX_EVENTS` | `GBP_VSTATE_MAX_EVENTS` | `GBP_VSTATE_MAX_EVENTS` | `GBP_VSTATE_MAX_EVENTS` |
+| raw ring | `RAW_RING_BYTES` (3) | `RAW_RING_BYTES_4` (4) | `RAW_RING_BYTES_4` (4) | `RAW_RING_BYTES_4` (4) |
+| episode raw | `EPISODE_RAW_BYTES` | `EPISODE_RAW_BYTES` | **absent (NULL, 0)** | `EPISODE_RAW_BYTES` |
+| audio raw | `AUDIO_RAW_BYTES` | `AUDIO_RAW_BYTES` | `AUDIO_RAW_BYTES` | `AUDIO_RAW_BYTES` |
+| outcome | physically validated | physically validated | **aborted pre-service** | candidate |
+
+A host guard (`test_the_stores_match_the_last_physically_validated_builds`) now
+performs this comparison mechanically, against **`vstate-0004` and `color-0002`**,
+resolving each POC's declarations rather than comparing argument spellings. The
+rule it encodes: **shared VSTATE infrastructure is compared against the last
+physically validated build, never against the previous candidate.**
+
+#### V5.30.5 R1 retired — the self-test accounts for itself
+
+`submit_ready()` takes the queue the presentation belongs to:
+
+```c
+static void submit_ready(int buf, struct gbp_vqueue *account);
+...
+if (account) gbp_vqueue_note_presented(account); else selftest_presents++;
+```
+
+The self-test passes `0`. Its own presentations and repeats are counted in
+`selftest_presents` / `selftest_repeats`, so nothing is hidden — it is *moved*,
+not suppressed.
+
+`gbp_vqueue_pristine()` is new and is the assertion, not a comment: after the
+self-test and immediately before `gbp_vstate_probe_run()`, **every scientific
+counter must still be at its initial value**, and the answer is part of
+`selftest_ok`, of the Gecko line and of the report.
+
+Proved behaviourally, not by a source string
+(`tests/unit/test_gbp_vstream.c`):
+
+```text
+a presentation accounted to NULL          -> pristine, balanced
+the stream-0002 shape, ONE note_presented -> pristine FALSE, balanced FALSE
+a repeat before the capture               -> balanced TRUE but pristine FALSE
+                                             (which is why the POC asserts the
+                                              stricter one)
+a whole real queue frame                  -> balanced, with no correction
+```
+
+**The pre-registered R1 correction is retired for `stream-0003` only.**
+`stream-0002`'s historical interpretation is unchanged: its run really did carry
+the `+1`, GBP-HW-135 records it, and the corrected identity remains the right way
+to read *that* log.
+
+#### V5.30.6 R8 — the invariants latched, not sampled
+
+`gbp_vpresent` now audits itself at every transition and latches a failure that
+heals:
+
+```text
+audit(p)      at every main-side exit of acquire / fill_done / abandon / submit
+audit_isr(p)  at both exits of draw_done
+```
+
+Main and interrupt keep **separate** counters (`invariant_failures` /
+`invariant_failures_isr`), because a read-modify-write on one shared counter could
+lose the interrupt's increment; the report sums them. Both saturate. The audit
+**reads** state and writes only counters — the valid state machine is byte-for-byte
+the behaviour `stream-0002` had, and a test asserts each guard is still present.
+
+The `submit()` audit runs **after both stores**, never inside the deliberate
+one-instruction transient between `tex[idx] = SUBMITTED` and `submitted = idx`.
+
+The report now separates two different claims:
+
+```text
+STREAMINV checks=… failures=… main=…/… isr=…/… consistent_at_end=…
+```
+
+Proved behaviourally: a full legitimate lifecycle latches **zero**; an injected
+two-SUBMITTED state is counted and **stays** counted after the state is healed and
+a clean lifecycle is driven over the top of it; the two counters stay apart.
+
+#### V5.30.7 What was deliberately NOT touched
+
+R3's PE FINISH behaviour, the post-RE-ARM pump placement, the one-tile-row slice,
+the RGB5A3 mapping, the generation guard, the R3 source-disagreement policy,
+`F_SOURCE_DEFERRED`, the mailbox semantics, R5's `GX_CopyDisp` behaviour, R7's
+READY selection order and the controlled-stimulus design are **unchanged**. The
+timing instrumentation is unchanged, and the next physical run still reports
+`pump calls / slices / completed / skipped_cause_pending / pending_before /
+pending_after / arrived_during / ticks min·max·mean`. **The slice placement is
+still not claimed to be timing-safe.**
+
+#### V5.30.8 Dolphin — auxiliary, and what it did establish
+
+```text
+OPENGBP-STREAM READY    app=gbp-video-stream-probe build=stream-0003 …
+OPENGBP-STREAM SELFTEST ok=1 converted=1 released=1 submits=1 drawdone=1
+                        releases=1 xfb=1 sci_clean=1 inv_fail=0
+OPENGBP-STREAM COUNTERS balanced=1 sci_clean_at_probe=1 inv_fail=0 inv_checks=4
+                        consistent_at_end=1 storage_fault=-
+RESULT: PASS
+```
+
+and on screen: `HARDWARE status=abort_inconsistent … teardown=stage_a`.
+
+**That last line is the point.** `stream-0002` aborted at
+`abort_store_unavailable` before the probe did anything; `stream-0003` passes the
+storage gate and reaches stage A, where it aborts because Dolphin has no Game Boy
+Player — which is exactly where `color-0002` and `vstate-0004` abort under
+Dolphin. `balanced=1` with **no correction of any kind** is R1 retired, measured
+on the binary. `storage_fault=-` is the contract satisfied, measured on the
+binary.
+
+Dolphin remains auxiliary and provides no GBP device. Nothing here is evidence
+about sustained streaming.
+
+#### V5.30.9 Status
+
+```text
+IMPLEMENTED · SOFTWARE/HOST VALIDATED · PRE-SERVICE STORAGE FIXED ·
+PHYSICAL CANDIDATE READY · NOT PHYSICALLY EXECUTED
+
+Sustained streaming is NOT claimed to work. Nothing has streamed on hardware.
+```
+
+Gates: **19 unit binaries, 792 077 checks, 0 failures; 574 host tests OK**;
+`make stream-audit` clean, with the interrupt path byte-identical to the
+physically validated GBP-VIDEO-001 build; `make stream-dolphin` PASS.
+
+#### V5.30.10 Next — a SMALL focused audit
+
+The next step is **not** hardware. It is a pre-hardware audit limited to what this
+round changed:
+
+```text
+1. the actual storage configuration, against vstate-0004 / color-0002
+2. address and range sanity of the new layout
+3. R1 isolation — that nothing reaches vq except through `account`
+4. the R8 latch — that it observes and never writes a state bit
+5. the ownership and timing instrumentation, UNCHANGED
+6. the exact artifact identity
+```
+
+It should be much smaller than §V5.28, because the ownership machine, the
+compiler ordering, the libogc2 semantics, the XFB model, the cache ordering and
+the teardown were proved there and `stream-0003` did not touch them.

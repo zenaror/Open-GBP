@@ -786,6 +786,183 @@ static void test_xfb_alternates_and_never_blocks(void)
     printf("   %d shown, %d skipped, 0 waits\n", shown, skipped);
 }
 
+/* ---- R1: the self-test must not touch the scientific counters ---------- */
+
+/* `stream-0002` routed its pre-probe display self-test through
+ * gbp_vqueue_note_presented(), which put consumer_frames_presented one ahead of
+ * consumer_frames_converted for the whole run — confirmed physically as
+ * converted=0 presented=1 before the capture opened (GBP-HW-135).
+ *
+ * `stream-0003` passes NULL as the accounting queue for that frame. This models
+ * the POC's two call shapes and checks what the POC checks: that the queue is
+ * PRISTINE when the probe is entered. */
+static void test_a_self_test_presentation_leaves_the_queue_pristine(void)
+{
+    struct gbp_vqueue q;
+    printf("-- R1: a presentation accounted to NULL leaves every scientific counter at zero\n");
+    gbp_vqueue_init(&q, 4u);
+    CHECK(gbp_vqueue_pristine(&q) == 1);
+
+    /* the self-test's shape: submit_ready(buf, NULL) */
+    gbp_vqueue_note_presented(0);
+    gbp_vqueue_note_repeat(0);
+    CHECK(gbp_vqueue_pristine(&q) == 1);
+    CHECK(q.consumer_frames_presented == 0u);
+    CHECK(q.display_frames_repeated == 0u);
+    CHECK(gbp_vqueue_balanced(&q) == 1);
+
+    /* THE MUTATION THIS TEST EXISTS FOR: the stream-0002 shape, which routed the
+     * self-test into the real queue. One call is enough to break both. */
+    gbp_vqueue_note_presented(&q);
+    CHECK(gbp_vqueue_pristine(&q) == 0);
+    CHECK(gbp_vqueue_balanced(&q) == 0);
+    CHECK(q.consumer_frames_presented == 1u);
+    CHECK(q.consumer_frames_converted == 0u);
+}
+
+/* A repeat is not part of the balance identity, so it would NOT have been caught
+ * by `balanced()` alone — `pristine()` catches it, which is why the POC asserts
+ * that and not the weaker thing. */
+static void test_pristine_is_stricter_than_balanced(void)
+{
+    struct gbp_vqueue q;
+    printf("-- pristine() catches what balanced() cannot: a repeat before the capture\n");
+    gbp_vqueue_init(&q, 4u);
+    gbp_vqueue_note_repeat(&q);
+    CHECK(gbp_vqueue_balanced(&q) == 1);      /* repeats are outside the identity */
+    CHECK(gbp_vqueue_pristine(&q) == 0);      /* but the queue is no longer clean */
+}
+
+/* A whole legitimate frame moves both, and the identity still holds — so the
+ * checks above are not vacuous. */
+static void test_a_real_frame_still_balances(void)
+{
+    struct gbp_vqueue q;
+    struct gbp_vqueue_desc d;
+    printf("-- and a real queue frame balances exactly, with no correction of any kind\n");
+    gbp_vqueue_init(&q, 4u);
+    CHECK(gbp_vqueue_publish(&q, 0u, GBP_VPIX_BLOCKS, GBP_VSTATE_F_COMPLETE, 0, 1000u, 2000u)
+          == GBP_VQUEUE_ACCEPT);
+    CHECK(gbp_vqueue_take(&q, &d) == 1);
+    CHECK(gbp_vqueue_commit(&q, gbp_vqueue_still_valid(&q, &d), 10u) == 1);
+    gbp_vqueue_note_presented(&q);
+    CHECK(q.consumer_frames_converted == 1u);
+    CHECK(q.consumer_frames_presented == 1u);
+    CHECK(gbp_vqueue_balanced(&q) == 1);
+    CHECK(gbp_vqueue_pristine(&q) == 0);      /* it is no longer clean, correctly */
+}
+
+/* ---- R8: the invariants, latched during the run ------------------------ */
+
+static void test_valid_transitions_latch_no_invariant_failure(void)
+{
+    struct gbp_vpresent p;
+    int b;
+    printf("-- R8: a full legitimate lifecycle latches ZERO invariant failures\n");
+    gbp_vpresent_init(&p);
+    CHECK(gbp_vpresent_invariant_failures(&p) == 0u);
+    CHECK(gbp_vpresent_invariant_checks(&p) == 0u);
+
+    b = gbp_vpresent_acquire(&p);          CHECK(b == 0);
+    CHECK(gbp_vpresent_fill_done(&p, b) == 0);
+    CHECK(gbp_vpresent_submit(&p, b) == 1);
+    CHECK(gbp_vpresent_draw_done(&p) == 0);
+    b = gbp_vpresent_acquire(&p);          CHECK(b >= 0);
+    CHECK(gbp_vpresent_abandon(&p, b) == 0);
+    /* a spurious callback is legitimate and must not be read as a violation */
+    CHECK(gbp_vpresent_draw_done(&p) == -1);
+
+    CHECK(gbp_vpresent_invariant_failures(&p) == 0u);
+    CHECK(gbp_vpresent_invariant_checks(&p) >= 6u);     /* it really did look */
+    CHECK(p.invariant_checks > 0u && p.invariant_checks_isr > 0u);
+    CHECK(gbp_vpresent_consistent(&p) == 1);
+}
+
+/* The one that the end-of-run check could never make: a state that is impossible
+ * for a moment and consistent again afterwards. */
+static void test_a_transient_impossible_state_is_latched_even_after_it_heals(void)
+{
+    struct gbp_vpresent p;
+    printf("-- R8: a violation that HEALS is still counted, which is the whole point\n");
+    gbp_vpresent_init(&p);
+
+    /* Inject the stream-0001 shape by hand: two buffers SUBMITTED at once. No
+     * legitimate sequence can produce it, which is exactly why it is injected. */
+    p.tex[0] = GBP_VPRESENT_SUBMITTED;
+    p.tex[1] = GBP_VPRESENT_SUBMITTED;
+    p.submitted = 0;
+    CHECK(gbp_vpresent_consistent(&p) == 0);
+
+    /* the next transition through the module observes it */
+    (void)gbp_vpresent_draw_done(&p);                 /* ISR side */
+    CHECK(gbp_vpresent_invariant_failures(&p) >= 1u);
+
+    /* now heal it completely */
+    p.tex[0] = GBP_VPRESENT_FREE;
+    p.tex[1] = GBP_VPRESENT_FREE;
+    p.submitted = -1;
+    CHECK(gbp_vpresent_consistent(&p) == 1);          /* consistent AT END */
+
+    /* and drive a whole clean lifecycle over the top of it */
+    {
+        int b = gbp_vpresent_acquire(&p);
+        CHECK(gbp_vpresent_fill_done(&p, b) == 0);
+        CHECK(gbp_vpresent_submit(&p, b) == 1);
+        CHECK(gbp_vpresent_draw_done(&p) == b);
+    }
+    CHECK(gbp_vpresent_consistent(&p) == 1);
+
+    /* THE CLAIM: the end says "consistent" and the run says "it was not".
+     * stream-0002 could only ever have reported the first of those. */
+    CHECK(gbp_vpresent_invariant_failures(&p) >= 1u);
+}
+
+/* Main side and interrupt side count separately, so neither can lose the
+ * other's increment through a read-modify-write. */
+static void test_the_two_invariant_counters_stay_apart(void)
+{
+    struct gbp_vpresent p;
+    printf("-- R8: main-side and interrupt-side failures are counted in separate fields\n");
+    gbp_vpresent_init(&p);
+
+    p.tex[0] = GBP_VPRESENT_SUBMITTED;
+    p.tex[1] = GBP_VPRESENT_SUBMITTED;
+    p.submitted = 0;
+    (void)gbp_vpresent_acquire(&p);                   /* main side, refuses, then audits */
+    CHECK(p.invariant_failures >= 1u);
+    CHECK(p.invariant_failures_isr == 0u);
+
+    (void)gbp_vpresent_draw_done(&p);                 /* ISR side */
+    CHECK(p.invariant_failures_isr >= 1u);
+    CHECK(gbp_vpresent_invariant_failures(&p) == p.invariant_failures + p.invariant_failures_isr);
+}
+
+/* The audit must not have changed the state machine: the same sequences produce
+ * the same states and the same counters as `stream-0002`. */
+static void test_the_audit_changed_no_state_transition(void)
+{
+    struct gbp_vpresent p;
+    int b;
+    printf("-- R8: the latch observes and never writes a state bit\n");
+    gbp_vpresent_init(&p);
+    b = gbp_vpresent_acquire(&p);
+    CHECK(b == 0 && p.tex[0] == GBP_VPRESENT_CPU_FILLING && p.submitted == -1);
+    CHECK(gbp_vpresent_fill_done(&p, b) == 0 && p.tex[0] == GBP_VPRESENT_READY);
+    CHECK(gbp_vpresent_submit(&p, b) == 1 && p.tex[0] == GBP_VPRESENT_SUBMITTED && p.submitted == 0);
+    /* the one-token rule, unchanged */
+    {
+        int c = gbp_vpresent_acquire(&p);
+        CHECK(c == 1);
+        CHECK(gbp_vpresent_fill_done(&p, c) == 0);
+        CHECK(gbp_vpresent_submit(&p, c) == 0);
+        CHECK(p.submit_blocked_inflight == 1u);
+    }
+    /* abandon still refuses a SUBMITTED buffer, unchanged */
+    CHECK(gbp_vpresent_abandon(&p, 0) == -1);
+    CHECK(gbp_vpresent_draw_done(&p) == 0 && p.tex[0] == GBP_VPRESENT_FREE && p.submitted == -1);
+    CHECK(gbp_vpresent_invariant_failures(&p) == 0u);
+}
+
 static void test_texture_and_xfb_are_independent(void)
 {
     struct gbp_vpresent p;
@@ -842,6 +1019,13 @@ int main(void)
     test_xfb_never_targets_a_pending_handover();
     test_xfb_alternates_and_never_blocks();
     test_texture_and_xfb_are_independent();
+    test_a_self_test_presentation_leaves_the_queue_pristine();
+    test_pristine_is_stricter_than_balanced();
+    test_a_real_frame_still_balances();
+    test_valid_transitions_latch_no_invariant_failure();
+    test_a_transient_impossible_state_is_latched_even_after_it_heals();
+    test_the_two_invariant_counters_stay_apart();
+    test_the_audit_changed_no_state_transition();
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

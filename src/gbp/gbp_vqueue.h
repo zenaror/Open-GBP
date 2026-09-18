@@ -236,6 +236,23 @@ void gbp_vqueue_note_repeat(struct gbp_vqueue *q);
  * cannot support a claim about loss. */
 int gbp_vqueue_balanced(const struct gbp_vqueue *q);
 
+/* 1 when NO scientific counter has moved: nothing published, taken, converted,
+ * presented, dropped, repeated or overrun.
+ *
+ * It exists because of R1. `stream-0002`'s pre-probe display self-test called
+ * `gbp_vqueue_note_presented()` for a SYNTHETIC frame that never passed through
+ * this queue, which put `consumer_frames_presented` one ahead of
+ * `consumer_frames_converted` and made `gbp_vqueue_balanced()` false for the
+ * whole run — confirmed physically as `converted=0 presented=1` before the
+ * capture even opened (GBP-HW-135). The queue is the wrong place to fix that,
+ * but it is the right place to MEASURE it: the POC asserts this immediately
+ * after its self-test and before the probe, and reports the answer.
+ *
+ * Pacing aggregates and pump counters are deliberately NOT included: they are
+ * instrumentation, they are reset by nothing, and a pump call that converted
+ * nothing is not a scientific event. */
+int gbp_vqueue_pristine(const struct gbp_vqueue *q);
+
 /* Mean publish interval and mean convert cost, or 0 when nothing was sampled.
  * Integer only: this code runs on a target where a float in a report is noise. */
 uint32_t gbp_vqueue_publish_interval_mean(const struct gbp_vqueue *q);

@@ -72,12 +72,17 @@ class ItCommitsNothingItHasNotDone(unittest.TestCase):
         self.assertIn("no frozen format changes", head)
 
     def test_it_claims_no_evidence_id(self):
-        """A design may cite evidence; it may not allocate one. The highest id in
-        use is GBP-HW-133, and §V5 must not invent GBP-HW-134 or beyond."""
+        """A design may cite evidence; it may not ALLOCATE one. The ceiling is not
+        a constant — GBP-VIDEO-004 has since produced GBP-HW-134…137 — so it is
+        read from EVIDENCE.md, which is the file that owns the numbering."""
+        ev = os.path.join(ROOT, "docs", "research", "EVIDENCE.md")
+        with open(ev, encoding="utf-8") as f:
+            allocated = {int(c) for c in re.findall(r"^### GBP-HW-(\d{3})", f.read(), re.M)}
+        self.assertTrue(allocated, "EVIDENCE.md allocates no ids at all")
         cited = set(re.findall(r"GBP-HW-(\d{3})", v5()))
         self.assertTrue(cited, "the design cites no evidence at all")
-        self.assertLessEqual(max(int(c) for c in cited), 133,
-                             "§V5 cites an evidence id that does not exist yet")
+        self.assertLessEqual(max(int(c) for c in cited), max(allocated),
+                             "§V5 cites an evidence id that EVIDENCE.md has not allocated")
 
     def test_it_does_not_budget_timing_as_a_property(self):
         t = v5()
