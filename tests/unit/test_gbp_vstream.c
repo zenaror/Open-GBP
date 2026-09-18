@@ -16,6 +16,7 @@
 #include "gbp_vpix.h"
 #include "gbp_vqueue.h"
 #include "gbp_vstate.h"
+#include "gbp_vpresent.h"
 
 static int checks, failures;
 #define CHECK(x) do { checks++; if (!(x)) { failures++; \
@@ -403,20 +404,52 @@ static void test_hold_previous_frame(void)
     CHECK(gbp_vqueue_balanced(&q));
 }
 
+static uint32_t pump_calls;
+static void counting_pump(void *user) { (void)user; pump_calls++; }
+
 static void test_the_pump_is_optional_and_inert(void)
 {
     struct gbp_vqueue q;
     printf("-- with no pump installed, pumping does nothing at all\n");
     gbp_vqueue_init(&q, 4u);
     CHECK(q.pump == 0);
-    gbp_vqueue_pump(&q);                   /* must not crash, must change nothing */
-    gbp_vqueue_pump(0);
+    gbp_vqueue_pump(&q, 0);                /* must not crash, must change nothing */
+    gbp_vqueue_pump(0, 0);
     CHECK(q.consumer_frames_taken == 0u);
     CHECK(q.source_frames_closed == 0u);
 }
 
-static uint32_t pump_calls;
-static void counting_pump(void *user) { (void)user; pump_calls++; }
+static void test_a_latched_cause_skips_the_slice(void)
+{
+    struct gbp_vqueue q;
+    printf("-- §V5.26/§11: a cause already pending means NO slice runs at all\n");
+    gbp_vqueue_init(&q, 4u);
+    q.pump = counting_pump;
+    pump_calls = 0u;
+    gbp_vqueue_pump(&q, 1);                /* the GBP is already waiting */
+    CHECK(pump_calls == 0u);               /* the consumer got out of the way */
+    CHECK(q.pump_skipped_cause_pending == 1u);
+    CHECK(q.cause_pending_before_pump == 1u);
+    gbp_vqueue_pump(&q, 0);                /* nothing pending: the slice runs */
+    CHECK(pump_calls == 1u);
+    CHECK(q.pump_skipped_cause_pending == 1u);
+    CHECK(q.pump_calls == 2u);
+}
+
+static void test_the_slice_cost_is_a_bounded_aggregate(void)
+{
+    struct gbp_vqueue q;
+    uint32_t i;
+    printf("-- 10000 slices cost constant memory, and completion is counted apart\n");
+    gbp_vqueue_init(&q, 4u);
+    for (i = 0; i < 10000u; i++) gbp_vqueue_pump_slice(&q, 100u + (i % 7u), (i % 40u) == 39u);
+    CHECK(q.pump_slices_started == 10000u);
+    CHECK(q.pump_slices_completed == 250u);
+    CHECK(q.pump_ticks_min == 100u);
+    CHECK(q.pump_ticks_max == 106u);
+    CHECK(q.pump_ticks_n == 10000u);
+    CHECK(gbp_vqueue_pump_ticks_mean(&q) == 102u);   /* integer mean of 100..106 over 10000 */
+}
 
 static void test_the_pump_runs_when_installed(void)
 {
@@ -425,8 +458,8 @@ static void test_the_pump_runs_when_installed(void)
     gbp_vqueue_init(&q, 4u);
     q.pump = counting_pump;
     pump_calls = 0u;
-    gbp_vqueue_pump(&q);
-    gbp_vqueue_pump(&q);
+    gbp_vqueue_pump(&q, 0);
+    gbp_vqueue_pump(&q, 0);
     CHECK(pump_calls == 2u);
 }
 
@@ -487,6 +520,287 @@ static void test_an_unconfigured_queue_trusts_nothing(void)
     CHECK(q.consumer_slot_overrun == 1u);
 }
 
+
+/* ---- gbp_vpresent: the ownership machine stream-0001 got wrong ---------- */
+
+#define S_FREE  GBP_VPRESENT_FREE
+#define S_FILL  GBP_VPRESENT_CPU_FILLING
+#define S_READY GBP_VPRESENT_READY
+#define S_SUB   GBP_VPRESENT_SUBMITTED
+
+/* Drive one buffer FREE -> CPU_FILLING -> READY -> SUBMITTED. */
+static int take_and_submit(struct gbp_vpresent *p)
+{
+    int b = gbp_vpresent_acquire(p);
+    if (b < 0) return -1;
+    if (gbp_vpresent_fill_done(p, b) != 0) return -1;
+    return gbp_vpresent_submit(p, b) ? b : -1;
+}
+
+static void test_the_stream0001_bug_cannot_recur(void)
+{
+    struct gbp_vpresent p;
+    int b0, b1;
+    printf("-- THE stream-0001 BUG: submit buf0, prepare buf1, drawdone(buf0) frees ONLY buf0\n");
+    gbp_vpresent_init(&p);
+    b0 = take_and_submit(&p);
+    CHECK(b0 == 0);
+    CHECK(p.tex[0] == S_SUB);
+    CHECK(p.submitted == 0);
+
+    /* buffer 1 is filled and READY while the token for buffer 0 is still out */
+    b1 = gbp_vpresent_acquire(&p);
+    CHECK(b1 == 1);
+    CHECK(gbp_vpresent_fill_done(&p, b1) == 0);
+    CHECK(p.tex[1] == S_READY);
+    /* and it MUST NOT be submittable: one token in flight, always */
+    CHECK(gbp_vpresent_submit(&p, b1) == 0);
+    CHECK(p.submit_blocked_inflight == 1u);
+    CHECK(p.tex[1] == S_READY);          /* still ours, NOT submitted */
+    CHECK(gbp_vpresent_consistent(&p));
+
+    /* the token for buffer 0 fires: it must free EXACTLY buffer 0 */
+    CHECK(gbp_vpresent_draw_done(&p) == 0);
+    CHECK(p.tex[0] == S_FREE);
+    CHECK(p.tex[1] == S_READY);          /* <-- stream-0001 freed this one too */
+    CHECK(p.submitted == -1);
+    CHECK(p.texture_releases == 1u);
+    CHECK(p.drawdone_spurious == 0u);
+    CHECK(gbp_vpresent_consistent(&p));
+
+    /* and only NOW may buffer 1 go */
+    CHECK(gbp_vpresent_submit(&p, b1) == 1);
+    CHECK(p.tex[1] == S_SUB);
+    CHECK(p.submitted == 1);
+    printf("   buf0 released, buf1 untouched, one token at a time\n");
+}
+
+static void test_the_callback_releases_only_the_indexed_buffer(void)
+{
+    struct gbp_vpresent p;
+    printf("-- WHITE BOX: even if two buffers somehow read SUBMITTED, the callback\n");
+    printf("   releases only the one `submitted` names\n");
+    /* An adversarial mutation restoring stream-0001's "free every SUBMITTED
+     * buffer" callback was NOT caught by the behavioural tests, because the
+     * one-token rule means two buffers can never both be SUBMITTED in a
+     * legitimate sequence — the defect is neutralised by the architecture rather
+     * than detected. That is one rule carrying everything, so the callback's own
+     * contract is asserted here directly: the state is built by hand, which no
+     * legitimate call sequence can produce, and the callback must still touch
+     * exactly one buffer. */
+    gbp_vpresent_init(&p);
+    p.tex[0] = S_SUB;
+    p.tex[1] = S_SUB;          /* impossible through the API; constructed on purpose */
+    p.submitted = 0;
+    CHECK(gbp_vpresent_consistent(&p) == 0);     /* and it is detected as impossible */
+
+    CHECK(gbp_vpresent_draw_done(&p) == 0);
+    CHECK(p.tex[0] == S_FREE);
+    CHECK(p.tex[1] == S_SUB);  /* <-- stream-0001 freed this one; this must not */
+    CHECK(p.submitted == -1);
+    CHECK(p.texture_releases == 1u);
+
+    /* the same, with the roles reversed, so the test cannot pass by index luck */
+    gbp_vpresent_init(&p);
+    p.tex[0] = S_SUB;
+    p.tex[1] = S_SUB;
+    p.submitted = 1;
+    CHECK(gbp_vpresent_draw_done(&p) == 1);
+    CHECK(p.tex[1] == S_FREE);
+    CHECK(p.tex[0] == S_SUB);
+    printf("   exactly one buffer released, both directions\n");
+}
+
+static void test_never_two_submitted(void)
+{
+    struct gbp_vpresent p;
+    uint32_t i, n;
+    printf("-- across 1000 attempts, at most ONE buffer is ever SUBMITTED\n");
+    gbp_vpresent_init(&p);
+    for (i = 0; i < 1000u; i++) {
+        int b = gbp_vpresent_acquire(&p);
+        if (b >= 0) { (void)gbp_vpresent_fill_done(&p, b); (void)gbp_vpresent_submit(&p, b); }
+        /* the invariant, after every single step */
+        n = 0;
+        if (p.tex[0] == S_SUB) n++;
+        if (p.tex[1] == S_SUB) n++;
+        CHECK(n <= 1u);
+        CHECK(gbp_vpresent_consistent(&p));
+        if ((i % 3u) == 0u) (void)gbp_vpresent_draw_done(&p);
+    }
+    CHECK(p.submit_blocked_inflight > 0u);   /* the rule really bit */
+}
+
+static void test_a_spurious_callback_frees_nothing(void)
+{
+    struct gbp_vpresent p;
+    printf("-- a callback with nothing submitted releases NOTHING and is counted\n");
+    gbp_vpresent_init(&p);
+    CHECK(gbp_vpresent_draw_done(&p) == -1);
+    CHECK(p.drawdone_spurious == 1u);
+    CHECK(p.texture_releases == 0u);
+    CHECK(p.tex[0] == S_FREE && p.tex[1] == S_FREE);
+    /* and a repeated callback after a genuine one is also spurious */
+    CHECK(take_and_submit(&p) == 0);
+    CHECK(gbp_vpresent_draw_done(&p) == 0);
+    CHECK(gbp_vpresent_draw_done(&p) == -1);
+    CHECK(p.drawdone_spurious == 2u);
+    CHECK(p.texture_releases == 1u);
+    CHECK(gbp_vpresent_consistent(&p));
+}
+
+static void test_a_submitted_buffer_can_never_be_taken_back(void)
+{
+    struct gbp_vpresent p;
+    printf("-- the CPU may not abandon, refill or re-acquire a buffer the GP owns\n");
+    gbp_vpresent_init(&p);
+    CHECK(take_and_submit(&p) == 0);
+    CHECK(gbp_vpresent_abandon(&p, 0) == -1);        /* refused */
+    CHECK(p.tex[0] == S_SUB);
+    CHECK(gbp_vpresent_fill_done(&p, 0) == -1);      /* not CPU_FILLING */
+    CHECK(p.tex[0] == S_SUB);
+    /* acquire may only ever hand out the OTHER one */
+    CHECK(gbp_vpresent_acquire(&p) == 1);
+    CHECK(gbp_vpresent_acquire(&p) == -1);
+    CHECK(p.acquire_no_free_texture == 1u);
+    CHECK(gbp_vpresent_consistent(&p));
+}
+
+static void test_the_full_lifecycle(void)
+{
+    struct gbp_vpresent p;
+    printf("-- FREE -> CPU_FILLING -> READY -> SUBMITTED -> FREE, one buffer\n");
+    gbp_vpresent_init(&p);
+    CHECK(p.tex[0] == S_FREE);
+    CHECK(gbp_vpresent_acquire(&p) == 0);
+    CHECK(p.tex[0] == S_FILL);
+    CHECK(gbp_vpresent_submit(&p, 0) == 0);          /* not READY yet */
+    CHECK(gbp_vpresent_fill_done(&p, 0) == 0);
+    CHECK(p.tex[0] == S_READY);
+    CHECK(gbp_vpresent_submit(&p, 0) == 1);
+    CHECK(p.tex[0] == S_SUB);
+    CHECK(gbp_vpresent_draw_done(&p) == 0);
+    CHECK(p.tex[0] == S_FREE);
+    CHECK(p.fills_started == 1u && p.fills_completed == 1u && p.submit_success == 1u);
+}
+
+static void test_abandon_returns_a_buffer_unshown(void)
+{
+    struct gbp_vpresent p;
+    printf("-- an abandoned conversion returns its buffer and is never shown\n");
+    gbp_vpresent_init(&p);
+    CHECK(gbp_vpresent_acquire(&p) == 0);
+    CHECK(gbp_vpresent_abandon(&p, 0) == 0);
+    CHECK(p.tex[0] == S_FREE);
+    CHECK(p.fills_abandoned == 1u);
+    CHECK(p.submit_success == 0u);
+    CHECK(gbp_vpresent_acquire(&p) == 0);            /* immediately reusable */
+}
+
+static void test_shutdown_stops_new_work_but_not_the_gp(void)
+{
+    struct gbp_vpresent p;
+    printf("-- shutdown refuses new fills and submits, and never steals an in-flight buffer\n");
+    gbp_vpresent_init(&p);
+    CHECK(take_and_submit(&p) == 0);
+    CHECK(gbp_vpresent_inflight(&p) == 1);
+    {
+        int b = gbp_vpresent_acquire(&p);
+        CHECK(b == 1);
+        CHECK(gbp_vpresent_fill_done(&p, b) == 0);
+        gbp_vpresent_shutdown(&p);
+        CHECK(gbp_vpresent_submit(&p, b) == 0);
+        CHECK(p.submit_blocked_shutdown == 1u);
+    }
+    CHECK(gbp_vpresent_acquire(&p) == -1);
+    CHECK(p.tex[0] == S_SUB);                        /* the GP still owns it */
+    CHECK(gbp_vpresent_inflight(&p) == 1);
+    /* the callback still works during shutdown: that is how the drain completes */
+    CHECK(gbp_vpresent_draw_done(&p) == 0);
+    CHECK(gbp_vpresent_inflight(&p) == 0);
+    CHECK(gbp_vpresent_consistent(&p));
+}
+
+static void test_the_inconsistent_states_are_detected(void)
+{
+    struct gbp_vpresent p;
+    printf("-- gbp_vpresent_consistent() actually rejects the states it must\n");
+    gbp_vpresent_init(&p);
+    CHECK(gbp_vpresent_consistent(&p));
+    p.tex[0] = S_SUB; p.tex[1] = S_SUB; p.submitted = 0;   /* the stream-0001 shape */
+    CHECK(gbp_vpresent_consistent(&p) == 0);
+    gbp_vpresent_init(&p);
+    p.tex[0] = S_SUB;                                       /* submitted index lost */
+    CHECK(gbp_vpresent_consistent(&p) == 0);
+    gbp_vpresent_init(&p);
+    p.submitted = 1;                                        /* index without a state */
+    CHECK(gbp_vpresent_consistent(&p) == 0);
+}
+
+/* ---- gbp_vpresent: the XFB machine, kept apart from the texture one ----- */
+
+static void test_xfb_never_targets_the_buffer_being_scanned(void)
+{
+    struct gbp_vpresent p;
+    printf("-- the copy target is never what the VI is scanning out\n");
+    gbp_vpresent_init(&p);
+    CHECK(gbp_vpresent_xfb_target(&p, 0) == 1);
+    CHECK(gbp_vpresent_xfb_target(&p, 1) == 0);
+    CHECK(gbp_vpresent_xfb_target(&p, -1) == 0);   /* VI on neither: either is fine */
+}
+
+static void test_xfb_never_targets_a_pending_handover(void)
+{
+    struct gbp_vpresent p;
+    printf("-- nor the one already handed over and not yet picked up\n");
+    gbp_vpresent_init(&p);
+    /* VI shows 0; we copy into 1 and hand it over */
+    CHECK(gbp_vpresent_xfb_target(&p, 0) == 1);
+    gbp_vpresent_xfb_handed(&p, 1);
+    /* VI is STILL on 0: 1 is pending, 0 is being scanned -> nothing is safe */
+    CHECK(gbp_vpresent_xfb_target(&p, 0) == -1);
+    CHECK(p.xfb_skipped_busy == 1u);
+    /* the VI switches to 1: the hand-over retires and 0 becomes writable */
+    CHECK(gbp_vpresent_xfb_target(&p, 1) == 0);
+    CHECK(p.xfb_pending == -1);
+    CHECK(p.xfb_presents == 1u);
+}
+
+static void test_xfb_alternates_and_never_blocks(void)
+{
+    struct gbp_vpresent p;
+    int vi = 0, i, skipped = 0, shown = 0;
+    printf("-- a long alternating run: every present is either shown or SKIPPED, never waited on\n");
+    gbp_vpresent_init(&p);
+    for (i = 0; i < 200; i++) {
+        int t = gbp_vpresent_xfb_target(&p, vi);
+        if (t < 0) { skipped++; vi ^= 1; continue; }   /* a retrace happens meanwhile */
+        CHECK(t != vi);
+        gbp_vpresent_xfb_handed(&p, t);
+        shown++;
+        vi = t;                                        /* the VI picks it up */
+    }
+    CHECK(shown > 0);
+    CHECK(shown + skipped == 200);
+    CHECK(p.xfb_presents == (uint32_t)shown);
+    printf("   %d shown, %d skipped, 0 waits\n", shown, skipped);
+}
+
+static void test_texture_and_xfb_are_independent(void)
+{
+    struct gbp_vpresent p;
+    printf("-- a draw-done never touches XFB state, and an XFB hand-over never frees a texture\n");
+    gbp_vpresent_init(&p);
+    CHECK(take_and_submit(&p) == 0);
+    gbp_vpresent_xfb_handed(&p, 1);
+    CHECK(gbp_vpresent_draw_done(&p) == 0);
+    CHECK(p.xfb_pending == 1);                 /* the VI was not consulted by that */
+    CHECK(p.tex[0] == S_FREE);
+    gbp_vpresent_xfb_observe(&p, 1);
+    CHECK(p.xfb_pending == -1);
+    CHECK(p.submitted == -1);                  /* and that did not touch the texture */
+}
+
 int main(void)
 {
     printf("== test_gbp_vstream (GBP-VIDEO-004 pure modules; every scenario SYNTHETIC)\n");
@@ -510,9 +824,24 @@ int main(void)
     test_hold_previous_frame();
     test_the_pump_is_optional_and_inert();
     test_the_pump_runs_when_installed();
+    test_a_latched_cause_skips_the_slice();
+    test_the_slice_cost_is_a_bounded_aggregate();
     test_the_pacing_aggregates_are_bounded();
     test_the_sequence_may_wrap();
     test_an_unconfigured_queue_trusts_nothing();
+    test_the_stream0001_bug_cannot_recur();
+    test_the_callback_releases_only_the_indexed_buffer();
+    test_never_two_submitted();
+    test_a_spurious_callback_frees_nothing();
+    test_a_submitted_buffer_can_never_be_taken_back();
+    test_the_full_lifecycle();
+    test_abandon_returns_a_buffer_unshown();
+    test_shutdown_stops_new_work_but_not_the_gp();
+    test_the_inconsistent_states_are_detected();
+    test_xfb_never_targets_the_buffer_being_scanned();
+    test_xfb_never_targets_a_pending_handover();
+    test_xfb_alternates_and_never_blocks();
+    test_texture_and_xfb_are_independent();
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

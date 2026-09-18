@@ -194,42 +194,105 @@ class TheRuntimeStillKnowsNothingAboutTheStimulus(unittest.TestCase):
 
 
 class CacheAndOwnershipOrdering(unittest.TestCase):
-    """§10 and §11: the flush is after the fill and before the GP is told, and
-    the buffer is freed by the GP, not by a guess."""
+    """§11 and the §V5.26.2 fix. These are AUDIT GUARDS on the source, not
+    behavioural tests: the behaviour of the ownership machine is proved in
+    `tests/unit/test_gbp_vstream.c`, which drives it state by state. The
+    distinction matters — `stream-0001` was rejected precisely because tests of
+    this kind were mistaken for coverage."""
 
     def test_the_flush_is_between_the_fill_and_the_texture_load(self):
         code = strip_comments(read(MAIN))
-        flush = code.index("DCFlushRange(")
-        init = code.index("GX_InitTexObj(")
-        load = code.index("GX_LoadTexObj(")
         commit = code.index("gbp_vqueue_commit(")
+        flush = code.index("DCFlushRange(", commit)      # the streaming one, not the self-test
+        fill_done = code.index("gbp_vpresent_fill_done(", flush)
+        init = code.index("GX_InitTexObj(", fill_done)
+        load = code.index("GX_LoadTexObj(", init)
         self.assertLess(commit, flush, "the flush must follow the generation check")
-        self.assertLess(flush, init)
+        self.assertLess(flush, fill_done, "a buffer becomes READY only after it is flushed")
+        self.assertLess(fill_done, init)
         self.assertLess(init, load)
 
     def test_the_flush_uses_the_exact_texture_size(self):
         code = strip_comments(read(MAIN))
-        m = re.search(r"DCFlushRange\(\s*tex_buf\[[^\]]+\]\s*,\s*([A-Za-z0-9_]+)\s*\)", code)
-        self.assertIsNotNone(m, "the flush is not a plain (buffer, size) call")
-        self.assertEqual(m.group(1), "GBP_VPIX_TEX_BYTES")
+        found = re.findall(r"DCFlushRange\(\s*tex_buf\[[^\]]+\]\s*,\s*([A-Za-z0-9_]+)\s*\)", code)
+        self.assertTrue(found, "the flush is not a plain (buffer, size) call")
+        for size in found:
+            self.assertEqual(size, "GBP_VPIX_TEX_BYTES")
+
+    def test_the_callback_releases_exactly_one_buffer(self):
+        """The stream-0001 defect, as a source guard: the callback must delegate
+        to the module and must not loop over buffers itself."""
+        code = strip_comments(read(MAIN))
+        body = code[code.index("static void on_draw_done(void)"):]
+        body = body[:body.index("}") + 1]
+        self.assertIn("gbp_vpresent_draw_done(&present)", body)
+        for forbidden in ("for (", "while (", "TEX_SUBMITTED", "tex_state"):
+            self.assertNotIn(forbidden, body,
+                             "the callback is doing its own bookkeeping again: %r" % forbidden)
 
     def test_the_texture_is_freed_by_the_gp_not_by_the_cpu_guessing(self):
         code = strip_comments(read(MAIN))
         self.assertIn("GX_SetDrawDoneCallback(on_draw_done)", code)
         self.assertIn("GX_SetDrawDone()", code)
-        self.assertNotIn("GX_DrawDone()", code, "GX_DrawDone BLOCKS; §V5.7 forbids a wait here")
-        self.assertIn("TEX_SUBMITTED", code)
-        self.assertIn("TEX_FREE", code)
+        # GX_DrawDone BLOCKS. It is permitted EXACTLY once, in the teardown,
+        # after the Game Boy Player has been restored — never in the service path.
+        self.assertEqual(code.count("GX_DrawDone()"), 1)
+        i = code.index("GX_DrawDone()")
+        self.assertLess(code.index("gbp_vstate_probe_run("), i,
+                        "GX_DrawDone must come after the probe has torn the device down")
+        self.assertIn("gbp_vpresent_shutdown(&present)", code[:i])
 
-    def test_there_are_at_least_two_texture_buffers(self):
+    def test_there_are_two_texture_buffers_and_two_stream_framebuffers(self):
         code = read(MAIN)
-        self.assertIn("#define STREAM_TEX_BUFFERS 2u", code)
+        self.assertIn("#define STREAM_TEX_BUFFERS GBP_VPRESENT_TEX_BUFFERS", code)
         self.assertIn('_Static_assert(STREAM_TEX_BUFFERS >= 2u', code)
+        self.assertIn('_Static_assert(GBP_VPRESENT_XFB_BUFFERS == 2u', code)
+        self.assertIn("xfb_stream_buf[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));", code)
+        self.assertIn("xfb_stream_buf[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));", code)
 
-    def test_the_cpu_only_fills_a_free_buffer(self):
+    def test_the_cpu_only_fills_a_buffer_the_module_handed_it(self):
         code = strip_comments(read(MAIN))
-        i = code.index("find_free_buffer()")
-        self.assertIn("TEX_CPU_FILLING", code[i:i + 400])
+        self.assertIn("buf = gbp_vpresent_acquire(&present);", code)
+        i = code.index("gbp_vpresent_acquire(&present)")
+        self.assertIn("if (buf < 0) return;", code[i:i + 300])
+        # and main keeps no state machine of its own any more
+        self.assertNotIn("TEX_SUBMITTED", code)
+        self.assertNotIn("find_free_buffer", code)
+
+    def test_the_xfb_copy_never_targets_the_scanned_buffer(self):
+        """§V5.26 F8: stream-0001 copied into the framebuffer VI was showing."""
+        code = strip_comments(read(MAIN))
+        i = code.index("gbp_vpresent_xfb_target(&present, xfb_current_index())")
+        window = code[i:i + 600]
+        self.assertIn("GX_CopyDisp(xfb_stream_buf[xfb]", window)
+        self.assertIn("VIDEO_SetNextFramebuffer(xfb_stream_buf[xfb])", window)
+        self.assertNotIn("VIDEO_WaitVSync", window, "the present path must never wait for a retrace")
+
+    def test_the_draw_done_callback_is_restored_at_teardown(self):
+        """§V5.26 F6 and the A9 mutation. `stream-0001` left its callback
+        installed for ever; the fix captures the previous one at install and puts
+        it back. This is an AUDIT GUARD on ordering — it cannot prove the runtime
+        behaviour, which is why the ordering itself is asserted rather than the
+        mere presence of the call."""
+        code = strip_comments(read(MAIN))
+        self.assertIn("gx_prev_drawdone_cb = GX_SetDrawDoneCallback(on_draw_done);", code)
+        restore = code.index("GX_SetDrawDoneCallback(gx_prev_drawdone_cb);")
+        probe = code.index("gbp_vstate_probe_run(")
+        shutdown = code.index("gbp_vpresent_shutdown(&present);")
+        drain = code.index("GX_DrawDone()")
+        self.assertLess(probe, shutdown, "shutdown must follow the probe's own teardown")
+        self.assertLess(shutdown, drain, "nothing new may be submitted before the drain")
+        self.assertLess(drain, restore, "the callback is restored only after the drain")
+        # and the restore must be unconditional: a callback left installed on any
+        # path is the defect A9 reproduces
+        tail = code[drain:restore + 200]
+        self.assertNotIn("if (", tail.split("GX_SetDrawDoneCallback")[0].split("GX_DrawDone()")[1])
+
+    def test_no_vsync_wait_in_the_consumer_path(self):
+        code = strip_comments(read(MAIN))
+        pump = code[code.index("static void pump(void *user)"):code.index("static void submit_ready(int buf)\n{")]
+        self.assertNotIn("VIDEO_WaitVSync", pump)
+        self.assertNotIn("GX_DrawDone", pump)
 
 
 class DisplayPolicy(unittest.TestCase):
@@ -344,7 +407,7 @@ class DesignAndDocsAgree(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(ROOT, rel)), rel)
 
     def test_the_build_id_is_the_one_the_design_specified(self):
-        self.assertIn("BUILD_ID   := stream-0001", read(os.path.join(POC, "Makefile")))
+        self.assertIn("BUILD_ID   := stream-0002", read(os.path.join(POC, "Makefile")))
         self.assertIn('#define TEST_ID "GBP-VIDEO-004"', read(MAIN))
 
     def test_the_poc_is_registered_in_the_build(self):
