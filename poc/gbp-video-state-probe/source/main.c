@@ -90,6 +90,14 @@
 #endif
 #define TEST_ID "GBP-VIDEO-002"
 
+/* The pre-handler masked-wait DIAGNOSTIC. Zero unless a build explicitly asks
+ * for it, and then this POC is operationally the one that was physically
+ * validated. A build that sets it is a DIFFERENT experiment with a DIFFERENT
+ * build id and it must never be confused with vstate-0004. */
+#ifndef GBP_VSTATE_PREHANDLER_WAIT_MS
+#define GBP_VSTATE_PREHANDLER_WAIT_MS 0
+#endif
+
 static const char opengbp_ident_marker[] =
     "OPENGBP-IDENT app=" OPENGBP_APP_NAME " build=" OPENGBP_BUILD_ID " commit=" OPENGBP_GIT_COMMIT;
 
@@ -197,6 +205,7 @@ int main(void)
 
     gbp_vstate_config_default(&cfg);
     gbp_vstate_config_timebase(&cfg, tb_hz);
+    cfg.prehandler_wait_ms = GBP_VSTATE_PREHANDLER_WAIT_MS;
     gbp_vstate_init(&vstate, frame_store, GBP_VSTATE_MAX_FRAMES, event_store, GBP_VSTATE_MAX_EVENTS,
                     raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw, audio_raw, sizeof audio_raw);
     gbp_vstate_diag_store(&vstate, diag_store, GBP_VSTATE_MAX_DISAGREEMENTS);

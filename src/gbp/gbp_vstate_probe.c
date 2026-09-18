@@ -46,6 +46,7 @@ void gbp_vstate_config_default(struct gbp_vstate_config *cfg)
     cfg->odd_mask = 0x0AAA;
     cfg->bit15_mask = 0x8000;
     cfg->high_mask = 0x7000;
+    cfg->prehandler_wait_ms = 0u;        /* the diagnostic is OFF unless a build asks for it */
     gbp_vstate_config_timebase(cfg, cfg->a.tb_hz);
 }
 
@@ -878,6 +879,60 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
     ev = &res->a.snap[GBP_INITIRQA_SNAP_EVENT];
     res->t_cause32 = ev->taken ? ev->ticks : res->a.t_first_intsr13;
     res->cause_irq = ev->irq_gbi;
+
+    /* ---- 1b. PRE-HANDLER MASKED WAIT - a DIAGNOSTIC, default OFF ----
+     * Stage A has put CONTROL in the running shape, so the AGB is executing;
+     * PI is still masked and NO handler exists, so nothing is being serviced and
+     * nothing is in flight. This is the only point in the run with that
+     * property, which is why it is both the question worth asking and the only
+     * place a future operator ARM could sit.
+     *
+     * What happens here when the wait is zero: NOTHING. Not a read, not a log
+     * line, not a branch beyond this test - the operation stream stays the one
+     * vstate-0004 executed. What happens when it is non-zero: one read-only
+     * snapshot either side, and a spin on the CPU time base in between. The spin
+     * touches no device (now64() is the 64-bit time base, an mftb pair through
+     * the transport, not a GBP access), allocates nothing, logs nothing and
+     * cannot run forever - it exits on the time bound or on the iteration cap,
+     * whichever comes first. A transport without a 64-bit clock never gets here
+     * at all: the run already aborted with time64_unavailable. */
+    res->prehandler_wait_ms = cfg->prehandler_wait_ms;
+    if (cfg->prehandler_wait_ms) {
+        /* The iteration cap is not decoration: it is what makes this loop finite
+         * whatever the clock does. */
+    uint64_t want = ((uint64_t)cfg->a.tb_hz * cfg->prehandler_wait_ms) / 1000u;
+        uint64_t t0;
+        uint32_t iters = 0;
+        /* the state the wait STARTS from, read-only */
+        gbp_initirqa_snapshot_take(t, &res->a, &res->waitpre, "WAITPRE", 0, 1);
+        gbp_initirqa_snapshot_log(log, &res->a, &res->waitpre);
+        note_control(res, &res->waitpre);
+        t0 = now64(t);
+        res->t_prehandler_wait_begin = t0;
+        while (!gbp_time64_reached(t0, want, now64(t))) {
+            if (++iters >= GBP_VSTATE_PREHANDLER_WAIT_MAX_ITERS) break;
+        }
+        res->t_prehandler_wait_end = now64(t);
+        res->prehandler_wait_iters = iters;
+        res->prehandler_wait_done = (iters >= GBP_VSTATE_PREHANDLER_WAIT_MAX_ITERS) ? -1 : 1;
+        /* and the state it ENDS in: the whole point is whether these differ */
+        gbp_initirqa_snapshot_take(t, &res->a, &res->waitpost, "WAITPOST", 0, 1);
+        gbp_initirqa_snapshot_log(log, &res->a, &res->waitpost);
+        note_control(res, &res->waitpost);
+        ringlog_printf(log,
+                       "PREHANDLERWAIT ms=%lu want_ticks=%llu begin=%llx end=%llx elapsed=%llu iters=%lu done=%d "
+                       "control_pre=%02x control_post=%02x irq_pre=%04x irq_post=%04x intsr_pre=%08lx intsr_post=%08lx "
+                       "intmr_pre=%08lx intmr_post=%08lx",
+                       (unsigned long)cfg->prehandler_wait_ms, (unsigned long long)want,
+                       (unsigned long long)res->t_prehandler_wait_begin,
+                       (unsigned long long)res->t_prehandler_wait_end,
+                       (unsigned long long)gbp_time64_delta(res->t_prehandler_wait_begin, res->t_prehandler_wait_end),
+                       (unsigned long)iters, res->prehandler_wait_done,
+                       (unsigned)res->waitpre.control_vote, (unsigned)res->waitpost.control_vote,
+                       (unsigned)res->waitpre.irq_gbi, (unsigned)res->waitpost.irq_gbi,
+                       (unsigned long)res->waitpre.intsr, (unsigned long)res->waitpost.intsr,
+                       (unsigned long)res->waitpre.intmr, (unsigned long)res->waitpost.intmr);
+    }
 
     /* ---- 2. the 003B extended one-shot handler, installed ONCE ---- */
     res->h.irq_path_available = gbp_transport_has_irq_path(t);

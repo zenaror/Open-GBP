@@ -59,11 +59,15 @@ DEPS := $(OBJS:.o=.d)
 # Flags
 #---------------------------------------------------------------------------------
 INCLUDE  := -I$(ROOT)/src/common -I$(ROOT)/src/log -I$(ROOT)/src/gbp -I$(ROOT)/src/platform -I$(LIBOGC_INC)
+# EXTRA_DEFINES is the ONLY hook a diagnostic build uses; empty in every normal
+# build, so the normal build's preprocessor input is unchanged.
+EXTRA_DEFINES ?=
+
 DEFINES  := -DOPENGBP_APP_NAME=\"$(APP_NAME)\" \
             -DOPENGBP_BUILD_ID=\"$(BUILD_ID)\" \
             -DOPENGBP_GIT_COMMIT=\"$(COMMIT_ID)\"
 
-CFLAGS   := -std=gnu11 -g -O2 -Wall -Wextra -Wshadow $(MACHDEP) $(INCLUDE) $(DEFINES)
+CFLAGS   := -std=gnu11 -g -O2 -Wall -Wextra -Wshadow $(MACHDEP) $(INCLUDE) $(DEFINES) $(EXTRA_DEFINES)
 LDFLAGS  := -g $(MACHDEP) -Wl,-Map,$(TARGET).map
 LIBPATHS := -L$(LIBOGC_LIB)
 LIBS     := -lfat -logc

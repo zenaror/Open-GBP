@@ -1887,6 +1887,131 @@ static void test_colour_success_trace_and_raw_immutability(void)
            (unsigned long)res.deliveries, (unsigned long)res.acks, (unsigned long)res.rearms);
 }
 
+/*
+ * The PRE-HANDLER MASKED WAIT diagnostic. Three properties, and the first is the
+ * one that matters: with the wait at zero the probe must be the probe that was
+ * physically validated, to the operation.
+ */
+static void test_prehandler_wait_default_changes_nothing(void)
+{
+    struct gbp_mock ref, off;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    unsigned ref_reads, ref_ops, ref_bulk, ref_irqw, ref_deliveries;
+    printf("-- the pre-handler wait at 0: the same device stream, to the operation\n");
+    /* reference: the config exactly as gbp_vstate_config_default leaves it */
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 200u;
+    CHECK(cfg.prehandler_wait_ms == 0u);          /* the default IS zero */
+    sched_reset(0xFFu);
+    mock_vstate(&ref, bits, 1u, 50u);
+    run_cfg(&ref, &rl, &res, &cfg);
+    CHECK(res.service_ok == 1);
+    ref_reads = irq_reads(&ref); ref_ops = ref.nops; ref_bulk = ref.bulk_reads;
+    ref_irqw = ref.irq_writes; ref_deliveries = res.deliveries;
+    CHECK(res.prehandler_wait_ms == 0u);
+    CHECK(res.prehandler_wait_iters == 0u);
+    CHECK(res.prehandler_wait_done == 0);
+    CHECK(res.t_prehandler_wait_begin == 0u && res.t_prehandler_wait_end == 0u);
+
+    /* explicitly zero: byte for byte the same run */
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 200u;
+    cfg.prehandler_wait_ms = 0u;
+    sched_reset(0xFFu);
+    mock_vstate(&off, bits, 1u, 50u);
+    run_cfg(&off, &rl, &res, &cfg);
+    CHECK(res.service_ok == 1);
+    CHECK(irq_reads(&off) == ref_reads);
+    CHECK(off.nops == ref_ops);
+    CHECK(off.bulk_reads == ref_bulk);
+    CHECK(off.irq_writes == ref_irqw);
+    CHECK(off.violation_mask == 0u);
+    CHECK(res.deliveries == ref_deliveries);
+    printf("   %u IRQ reads, %u operations, %u bulk, %u IRQ writes: identical\n",
+           ref_reads, ref_ops, ref_bulk, ref_irqw);
+}
+
+static void test_prehandler_wait_waits_then_serves_normally(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    uint64_t want, elapsed;
+    printf("-- the pre-handler wait at 2 ms: it waits, then the run proceeds normally\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 200u;
+    cfg.prehandler_wait_ms = 2u;                  /* small: the mock clock moves 10 ticks a call */
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    run_cfg(&m, &rl, &res, &cfg);
+    /* the run still completes, and the service path is untouched */
+    CHECK(res.service_ok == 1);
+    CHECK(res.deliveries > 0u);
+    CHECK(res.acks == res.rearms);
+    CHECK(res.deliveries == res.acks);
+    CHECK(m.violation_mask == 0u);
+    CHECK(res.h.handler_was_installed == 1);
+    CHECK(res.restore_ok == 1);
+    /* and the wait really happened, for at least the time asked */
+    want = ((uint64_t)cfg.a.tb_hz * 2u) / 1000u;
+    elapsed = res.t_prehandler_wait_end - res.t_prehandler_wait_begin;
+    CHECK(res.prehandler_wait_ms == 2u);
+    CHECK(res.prehandler_wait_done == 1);         /* the bound, not the iteration cap */
+    CHECK(res.prehandler_wait_iters > 0u);
+    CHECK(elapsed >= want);
+    /* it happened BEFORE the capture: the wait ends before the first unmask */
+    CHECK(res.t_prehandler_wait_end <= res.t_capture_start);
+    CHECK(res.t_prehandler_wait_begin >= res.t_control_transform);
+    printf("   waited %llu ticks (asked %llu) in %lu iterations, then %lu deliveries, acks == rearms\n",
+           (unsigned long long)elapsed, (unsigned long long)want,
+           (unsigned long)res.prehandler_wait_iters, (unsigned long)res.deliveries);
+}
+
+static void test_prehandler_wait_cannot_be_reached_without_a_clock(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    struct gbp_transport t;
+    const uint16_t bits[1] = { 0x0500u };
+    printf("-- the wait can never spin blind: no 64-bit clock aborts the run before it\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 40u;
+    cfg.prehandler_wait_ms = 5000u;
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    gbp_mock_transport(&m, &t);
+    t.ticks64 = 0;                                /* a transport without the 64-bit clock */
+    gbp_vstate_init(&vstate, frames, GBP_VSTATE_MAX_FRAMES, events, GBP_VSTATE_MAX_EVENTS,
+                    raw_ring, sizeof raw_ring, episode_raw, sizeof episode_raw, audio_raw, sizeof audio_raw);
+    gbp_vstate_diag_store(&vstate, diag_store, GBP_VSTATE_MAX_DISAGREEMENTS);
+    cfg.st = &vstate;
+    ringlog_init(&rl, storage, LINE_LEN, LINES);
+    memset(&witness, 0, sizeof witness);
+    witness.rl = &rl;
+    witness.base = gbp_internal_size_from_arinfo(m.arinfo);
+    m.write_hook = on_write; m.write_hook_user = &witness;
+    gbp_vstate_probe_run(&t, &rl, &cfg, &res);
+    /* the probe already refuses this transport BEFORE stage A, so the wait is
+     * not merely skipped - it is unreachable, and no loop ever runs */
+    CHECK(res.status == GBP_VSTATE_ABORT_TIME64_UNAVAILABLE);
+    CHECK(res.prehandler_wait_iters == 0u);
+    CHECK(res.t_prehandler_wait_begin == 0u);
+    CHECK(res.h.handler_was_installed == 0);
+    printf("   aborted with time64_unavailable; the wait loop was never entered\n");
+}
+
+
 static void test_colour_capture_adds_no_operation(void)
 {
     struct gbp_mock ref, col;
@@ -3563,6 +3688,9 @@ int main(int argc, char **argv)
     test_disc_extra_video_fabricates_nothing();
     test_followup_lifecycle();
     test_followup_is_per_source_bit();
+    test_prehandler_wait_default_changes_nothing();
+    test_prehandler_wait_waits_then_serves_normally();
+    test_prehandler_wait_cannot_be_reached_without_a_clock();
     test_colour_success_trace_and_raw_immutability();
     test_colour_capture_adds_no_operation();
     test_ownership_survives_a_store_that_runs_out();
