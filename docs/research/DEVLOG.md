@@ -8094,3 +8094,85 @@ experiment with one variable instead of an anecdote.
 cartridge (`55fe72d5…`). Check STATUS first: if FAULT is still set the
 publication still overruns and the answer is INCONCLUSIVE again, and VMARGIN
 says how close it came.
+
+---
+
+## 2026-09-19 — the second indexed run: tearing closed, a 2:1 cadence found and fixed
+
+**The cartridge was the only variable.** Same `stream-0005` DOL, same commit,
+same hash, no `src/` or `poc/` change — three physical runs now. That is what
+made this an experiment rather than an anecdote.
+
+**What `indexed-0002` fixed, physically.** `STATUS = 0x18` on **all 81 840**
+canonical strips: **FAULT clear**, VMARGIN 24. Zero mixed-ID records, against
+1 705 of 2 046 in run 1. 81 840/81 840 valid symbols, SYNC, CRC-8 and
+`BLOCK_INDEX == slot`. The 14.9× VBlank overrun and the progressive top-down wipe
+are closed. VMARGIN 24 means the worst publication ended at `VCOUNT = 203`,
+consuming 44 of the 68 VBlank lines — **65 %**, against a pre-hardware estimate
+of ~60 %. The measurement wins, and this time it was close.
+
+**What the run then revealed.** 2 046 complete records but only **1 024 unique
+FRAME_IDs**, spanning 7..1030 with no gap, no reorder and no half-range — and
+**1 022 of them captured exactly twice**, run lengths `{2: 1022}`. Capture
+59.75 Hz, unique IDs 29.87 Hz, ratio **2.00**, regular to 1 022 of 1 022.
+
+**Producer or GBP?** That distinction was the whole job, and the answer is the
+producer. The ROM's loop waits *until it is not in a VBlank*, then *until a
+VBlank starts*. So if `prepare_frame()` returns while VCOUNT is still inside a
+VBlank, that VBlank is skipped entirely and the GBP captures the unchanged
+framebuffer again. Publication ends at VCOUNT 203, leaving 185 lines =
+**227 920 cycles**; the observed cadence — always 2:1, never 1:1, never 3:1 —
+bounds preparation at **227 920 ≤ T < 508 816 cycles** with no estimate
+involved. Independently, `prepare_frame` turned out to be 195 ARM instructions at
+**`0x080002ac` — cartridge ROM**, driving ~8 640 symbol stores per frame, which
+at ROM wait states is ~253 000 cycles: **inside the measured band**.
+
+`publish_frame` has been in IWRAM since `indexed-0002`. `prepare_frame` was
+simply left behind — last round fixed half the problem and I did not notice the
+asymmetry.
+
+Four reasons the GBP is not responsible: the loop predicts 2:1 quantitatively;
+the bound from the cadence matches the code's cost; the GBP captured 2 046
+complete frames at ~59.7 Hz in *both* runs while only the cartridge changed; and
+a capture-side mechanism would have to duplicate every frame exactly once, 1 022
+consecutive times, without a miss. **Duplicate IDs here are not GBP frame loss,
+duplication or reorder** — source continuity stays INCONCLUSIVE because the
+producer showed each picture twice.
+
+**I got the bound wrong once and the simulation caught it.** My first derivation
+used 311 696 cycles as the upper edge, reasoning that anything past the skipped
+VBlank would give 3:1. Wrong: landing in the *visible* period of the following
+frame still publishes in that frame's VBlank, so 2:1 persists until the overrun
+reaches the VBlank after it — 508 816. The state-machine test now derives the
+edges instead of asserting my arithmetic.
+
+**The fix is one line of placement.** `prepare_frame` moved to `.iwram`
+alongside `publish_frame`. The work is unchanged, the arithmetic is unchanged,
+and **not one wire value changes** — 38 400/38 400 still match the model.
+Estimated `T_prepare` from IWRAM ~94 000 cycles, **41 % of the deadline**, a 2.4×
+margin. IWRAM now holds both functions plus 18.9 KiB of tables: 20 024 B of
+32 KiB, 11 976 B free.
+
+**FAULT was not expanded to cover cadence.** That would have hidden this defect
+behind the very mechanism meant to expose overruns. The producer must emit a new
+ID on every refresh; the validator's job is the VBlank budget, and it did it.
+
+**Proving cadence without hardware.** Render-output equality cannot catch this —
+the pixels were always right, the *timing* was wrong. So the loop's own VCOUNT
+waits are modelled and driven with a parameterised preparation cost: the model
+reproduces 2:1 at ROM speed, gives 1:1 at IWRAM speed, locates the deadline at
+227 920 cycles, and shows the cliff is a **whole frame wide** — which is why a
+marginal overrun costs an entire source refresh. Static guards now assert that
+*both* halves carry the `.iwram` attribute, so leaving one behind fails a test
+instead of a run.
+
+**Also reconciled, again from metadata rather than assumption:** presence bits
+sum to 81 874 against staged/placed 81 875, the assembler's own `blocks` field
+agrees at 81 874, and no record is short — the extra block closed record 2047 and
+became block 0 of a frame the target stop ended first. And the 33-block resync
+record explains why ID 9 has one complete occurrence where its neighbours have
+two.
+
+**Next:** the third indexed run — same `stream-0005`, new `indexed-0003`
+cartridge (`9f04916b…`). Check FAULT stays clear, then check that duplicates
+collapse to zero. Only then can source-frame continuity be decided.

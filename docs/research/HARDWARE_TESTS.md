@@ -13298,3 +13298,228 @@ The SECOND indexed run: the **same exact `stream-0005` DOL** with the **new
 on `witness_target_reached`, return the log and the sidecar. The single variable
 between the two runs is the stimulus, which is what makes the comparison worth
 anything.
+
+---
+
+### V5.42 SECOND INDEXED PHYSICAL RUN — `stream-0005` + `indexed-0002` — 2026-09-19 — **TEARING FIXED, CADENCE 2:1, ROM CORRECTED AGAIN**
+
+The single variable between run 1 and run 2 was the cartridge: the GameCube
+runtime is byte-identical (`stream-0005`, `commit=10250a4`,
+`35bbbdd6…d87092`). That is what makes the comparison an experiment.
+
+#### V5.42.1 Inputs, and how they are stored
+
+The operator's SD card carried run 2 under the same filenames as run 1, so both
+are preserved and neither overwrote the other:
+
+```text
+run 1  logs/GBP-VIDEO-004_stream-0005.log            66 427 B  165a3e32...86eaf
+       logs/GBP-VIDEO-004_stream-0005-idxcap.bin  8 946 060 B  6c822d63...a193d
+run 2  logs/GBP-VIDEO-004_stream-0005-run2.log        66 515 B  e02d1160...12ae8
+       logs/GBP-VIDEO-004_stream-0005-run2-idxcap.bin
+                                                  8 946 060 B  111ea227...ec42d
+```
+
+The hash is the identity; the `-run2` suffix is only a handle.
+
+#### V5.42.2 The runtime did not regress
+
+```text
+stop=witness_target_reached
+unmasks == deliveries == acks == rearms = 217 119 · video 81875/81875
+timeouts/busy/overflow/uncertain/errors all 0 · transport_ok=1
+FRAMECAP 2048 / 2046 / 2 / 4 / 2 / 81875, store_full=0
+STREAMWIT 2048/2048, staged == placed == 81 875, out_of_range 0, discarded 0
+STREAMCONS 2043 == 2026 + 0 + 17 + 0, balanced=1, undispositioned=0
+STREAMGX submit == drawdone == releases == 2044, spurious 0, consistent_at_end 1
+STREAMINV 169 227 checks / 0 failures · sci_clean=1
+```
+
+Against run 1 the capture layer is identical to within one block: `deliveries`
+217 120 → 217 119, `video` 81 876 → 81 875, everything else the same. Sidecar:
+2048/2048 record seals valid, header CRC `0x66450057`, global CRC `0xC853ED6D`.
+
+**§14 reconciliation, again from metadata rather than assumption:** presence bits
+sum to **81 874** against `staged == placed == 81 875`, the assembler's own
+`blocks` field also sums to 81 874, and **no record is short**. The extra block
+is the boundary block that closed record 2047 and was placed as block 0 of a
+frame the target stop ended before it could close. Lossless semantics intact.
+
+#### V5.42.3 What `indexed-0002` FIXED — physically
+
+```text
+STATUS = 0x18 on ALL 81 840 canonical strips    FAULT = 0, VMARGIN = 24
+MIXED_BLOCK_IDS                                 0        (run 1: 1 705 / 2 046)
+valid symbols / SYNC / CRC-8 / BLOCK_INDEX      81 840 / 81 840 each
+```
+
+The 14.9× VBlank overrun and the progressive top-down wipe of `indexed-0001` are
+**closed**. `VMARGIN = 24` means the worst publication ended at `VCOUNT = 203`,
+consuming **44 of the 68 VBlank lines ≈ 65 %**. The pre-hardware estimate said
+~60 %; the measurement says 65 %, and the measurement wins.
+
+#### V5.42.4 What run 2 REVEALED — a 2:1 cadence
+
+```text
+complete records          2 046
+unique FRAME_IDs          1 024        exactly 7 .. 1030, no gap
+IDs appearing twice       1 022        run lengths {2: 1022, 1: 2}
+delta  0 : 1 022          delta +1 : 1 023
+delta > +1 : none         delta < 0 : none
+capture 59.75 Hz · unique IDs 29.87 Hz · ratio 2.00
+```
+
+By the frozen classification `delta == 0` is `OBSERVED_DUPLICATE_ID`, and
+`tools/vindex.py` reports exactly that — 1 021 duplicates, 1 023 contiguous,
+verdict `OBSERVED_DISCONTINUITY`, `stimulus fault seen False`. **No analyzer
+contract mismatch**: it does not promote duplicates to contiguous, and it makes
+no loss claim.
+
+#### V5.42.5 Producer or GBP? — PRODUCER, proved
+
+The distinction matters more than the number. Two causal classes were possible:
+the AGB presenting the same FRAME_ID for two physical refreshes, or the GBP
+duplicating a frame. It is the first, and the ROM's own loop says why:
+
+```c
+prepare_frame(...);                             /* visible period           */
+while (REG_VCOUNT >= VCOUNT_VBLANK_FIRST) { }   /* wait until NOT in VBlank */
+while (REG_VCOUNT <  VCOUNT_VBLANK_FIRST) { }   /* wait until VBlank starts */
+publish_frame();                                /* VBlank                   */
+```
+
+If `prepare_frame()` returns while `VCOUNT` is still inside a VBlank, the first
+loop waits for that VBlank to **end** and the second waits for the **next** one.
+A publication opportunity is skipped, and the GBP captures the unchanged
+framebuffer again.
+
+Publication ends at `VCOUNT = 203`, leaving `25 + 160 = 185` lines =
+**227 920 cycles**. The observed cadence — always 2:1, **never 1:1, never 3:1** —
+bounds preparation with no estimate at all:
+
+```text
+227 920  <=  T_prepare  <  508 816 cycles     =  0.811 .. 1.811 AGB frames
+```
+
+The upper edge is **not** the end of the skipped VBlank: landing in the *visible*
+period of the following frame still publishes in that frame's VBlank, so 2:1
+persists until the overrun reaches the VBlank after it. (An earlier draft of this
+section used 311 696 and was wrong; the simulation in
+`tests/host/test_agb_indexed.py` derives the real edges.)
+
+Corroborated from the code, independently of the cadence: `prepare_frame` is
+**195 ARM instructions at `0x080002ac` — cartridge ROM** — driving ~8 640 symbol
+stores and 2 160 bit writes per frame. At ROM wait states that is ~253 000
+cycles, **inside the measured band**. `publish_frame` has been in IWRAM since
+`indexed-0002`; `prepare_frame` was simply left behind.
+
+**Four independent reasons the GBP is not responsible:** the loop predicts 2:1
+quantitatively; the bound from the cadence matches the code's cost; the GBP
+captured 2 046 complete frames at its normal ~59.7 Hz in *both* runs while only
+the cartridge changed; and a capture-side mechanism would have to duplicate every
+frame exactly once, 1 022 consecutive times, without a single miss.
+
+> **Duplicate FRAME_IDs observed here are NOT GBP frame duplication, loss or
+> reorder.** Source-frame continuity stays **INCONCLUSIVE**: the Game Boy Player
+> delivered every frame it was shown, and it was shown each picture twice.
+
+#### V5.42.6 The startup/resync record
+
+```text
+record 0   1 block, all-ONE symbols, SYNC decodes as 0xff  -> pre-stimulus edge
+record 5  33 blocks, every strip FRAME_ID 9
+           witness slot -> BLOCK_INDEX: 0->0, 1->1, then 2->9, 3->10, ...
+```
+
+The assembler resynchronised mid-frame, so source blocks 2..8 never entered this
+record. That is why ID 9 has one complete occurrence where its neighbours have
+two — a record the contract excludes, not a lost source frame.
+
+#### V5.42.7 The fix — `indexed-0003`, wire format still FROZEN
+
+**One change:** `prepare_frame` is placed in `.iwram`, exactly as
+`publish_frame` already was. The work is not reduced, the arithmetic is not
+touched, and **not one wire value changes**.
+
+```text
+prepare_frame  0x03000000  780 B   (was 0x080002ac, cartridge ROM)
+publish_frame  0x0300030c  312 B
+.iwram  0x444 = 1 092 B · .bss 0x49F4 = 18 932 B
+IWRAM total 20 024 B of 32 KiB, 11 976 B free below the stack
+```
+
+Estimated `T_prepare` from IWRAM: ~94 000 cycles, **41 % of the 227 920-cycle
+budget** — a 2.4× margin against the deadline. That is an estimate; the next run
+measures it.
+
+**No regression to what `indexed-0002` bought:** `publish_frame` is unchanged,
+still IWRAM-resident, still DMA-only, and the `VMARGIN`/`FAULT` validator is
+untouched. FAULT was **not** expanded to cover producer cadence — that would have
+hidden this defect behind the mechanism that is supposed to expose overruns
+(§21).
+
+#### V5.42.8 Proving the cadence without hardware
+
+Render-output equality cannot catch this: the pixels were always right, the
+*cadence* was wrong. So the loop's own `VCOUNT` waits are modelled and driven
+with a parameterised preparation cost:
+
+```text
+the model reproduces the observed 2:1 at ~253 000 cycles (ROM)
+the model gives 1:1 at ~94 000 cycles (IWRAM)
+the deadline is exactly 227 920 cycles, and the cliff is a WHOLE FRAME wide
+the physical band 227 920 .. 508 816 gives 2:1 at every point inside it,
+  1:1 one line below it and 3:1 at its upper edge
+each publication lands in its own AGB frame: the defect was a skipped
+  PUBLICATION, never a repeated INCREMENT
+```
+
+Plus static guards that **both** halves carry the `.iwram` attribute and that the
+linked `.iwram` section is large enough to hold both, so a future edit that
+leaves one behind fails a test instead of a run.
+
+#### V5.42.9 Wire equality after the fix
+
+```text
+38 400 / 38 400 AGB words equal to tools/istim.py, over 10 (frame_id, status) cases
+canonical witness 40 blocks x 54 words exact
+frozen CRC vectors unchanged
+47 stimulus tests pass
+```
+
+#### V5.42.10 Artifacts
+
+```text
+RUNTIME — UNCHANGED
+  stream-0005  481 664 B  35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
+  commit 10250a4 · Swiss 12-stream byte-identical · no src/ or poc/ change
+
+STIMULUS
+  indexed-0001  2 460 B  379df0f7...bdbc543   HISTORICAL — FAULTED, never rerun
+  indexed-0002  2 876 B  44651f0b...3c7b7b2f  HISTORICAL — FAULT clear, 2:1 cadence
+  indexed-0003  canonical 2 880 B
+                sha256 37119bb6ac68398dbd3fa75e6ad5c51c8aeb543277ac8d3b03b57f7a6f0caaca
+  indexed-0003  delivery  2 880 B
+                sha256 9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2
+                payload past 0x0C0 BYTE-IDENTICAL to the canonical ROM
+```
+
+#### V5.42.11 Classification of this run
+
+```text
+RUNTIME / WITNESS PATH   PHYSICALLY EXERCISED, no regression
+indexed-0002 VBlank      PHYSICALLY VALIDATED FOR THIS RUN (FAULT never set,
+                         minimum VMARGIN 24 scanlines) — not a universal guarantee
+TEARING                  CLOSED (0 mixed records, 81 840/81 840 block indices)
+FRAME_ID SEQUENCE        7..1030, gapless, no reorder, no half-range
+CADENCE                  2.00 captured frames per source ID — PRODUCER-side
+SOURCE FRAME CONTINUITY  INCONCLUSIVE
+```
+
+#### V5.42.12 Next physical action
+
+The THIRD indexed run: the **same exact `stream-0005` DOL** with the new
+**`indexed-0003`** delivery ROM. Power-cycle first, same 2048-witness target.
+Check `STATUS` stays `0x18`-class with `FAULT = 0`, then check that
+`OBSERVED_DUPLICATE_ID` has collapsed to zero and `OBSERVED_ID_CONTIGUOUS`
+covers the decisive set. Only then can source-frame continuity be decided.

@@ -6,6 +6,7 @@ against tools/istim.py. A stimulus that cannot be compared to its model is not a
 measuring instrument.
 """
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -296,6 +297,134 @@ class ThePublicationIsBounded(unittest.TestCase):
 
     def test_the_wait_states_are_set(self):
         self.assertIn("REG_WAITCNT = 0x4317u;", self.code())
+
+class TheProducerCadence(unittest.TestCase):
+    """§V5.42: ONE unique FRAME_ID per source refresh.
+
+    The second physical run published every FRAME_ID TWICE -- 1022 of 1022,
+    perfectly regular -- because PREPARE ran from cartridge ROM and did not
+    finish before the next VBlank began, and the loop's wait then skips a whole
+    VBlank rather than publishing late (GBP-HW-164, GBP-HW-165).
+
+    Render-output equality cannot catch that: the pixels were always right, the
+    CADENCE was wrong. So the loop's own VCOUNT waits are modelled here and
+    driven with a parameterised preparation cost."""
+
+    LINE = 1232          # cycles per scanline (GBATEK)
+    LINES = 228
+    VIS = 160            # VBlank is lines 160..227
+    LAST = 227
+    FRAME = LINES * LINE
+
+    def simulate(self, t_prepare, vmargin=24, frames=12):
+        """Runs the ROM's loop exactly as written, over a free-running VCOUNT.
+
+            prepare_frame(...)                  costs t_prepare cycles
+            while (VCOUNT >= 160) { }           wait until NOT in VBlank
+            while (VCOUNT <  160) { }           wait until VBlank starts
+            publish_frame()                     ends at VCOUNT = 227 - vmargin
+
+        Returns the VBlank index of each publication."""
+        def vcount(c):
+            return (c // self.LINE) % self.LINES
+        # start just after a publication that ended at 227 - vmargin
+        cyc = (self.LAST - vmargin) * self.LINE
+        out = []
+        for _ in range(frames):
+            cyc += t_prepare
+            while vcount(cyc) >= self.VIS:          # wait until NOT in VBlank
+                cyc += self.LINE
+            while vcount(cyc) < self.VIS:           # wait until VBlank starts
+                cyc += self.LINE
+            out.append(cyc // self.FRAME)           # which AGB frame we published in
+            cyc = (cyc // self.FRAME) * self.FRAME + (self.LAST - vmargin) * self.LINE
+        return out
+
+    def budget(self, vmargin=24):
+        """Cycles from the end of publication to the start of the next VBlank."""
+        return ((self.LAST - (self.LAST - vmargin)) + 1 + self.VIS) * self.LINE
+
+    def test_the_model_reproduces_the_observed_two_to_one(self):
+        """The indexed-0002 measurement: ~253 000 cycles of PREPARE from ROM."""
+        pubs = self.simulate(253_000)
+        gaps = [b - a for a, b in zip(pubs, pubs[1:])]
+        self.assertEqual(set(gaps), {2},
+                         "ROM-resident PREPARE must reproduce the 2:1 defect: %r" % gaps)
+
+    def test_a_prepare_inside_the_budget_publishes_every_frame(self):
+        """The indexed-0003 fix: ~94 000 cycles of PREPARE from IWRAM."""
+        pubs = self.simulate(94_000)
+        gaps = [b - a for a, b in zip(pubs, pubs[1:])]
+        self.assertEqual(set(gaps), {1},
+                         "IWRAM-resident PREPARE must publish EVERY frame: %r" % gaps)
+
+    def test_the_deadline_is_exactly_where_the_arithmetic_says(self):
+        """227 920 cycles, and the cliff is a whole frame wide -- which is why a
+        marginal overrun costs a full source refresh rather than a few lines."""
+        b = self.budget()
+        self.assertEqual(b, 227_920)
+        inside = self.simulate(b - self.LINE)
+        outside = self.simulate(b + self.LINE)
+        self.assertEqual(set(b2 - a for a, b2 in zip(inside, inside[1:])), {1})
+        self.assertEqual(set(b2 - a for a, b2 in zip(outside, outside[1:])), {2})
+
+    def test_the_physical_bound_on_the_indexed_0002_prepare(self):
+        """The run bounds PREPARE without any estimate at all: the cadence was
+        2:1 everywhere, never 1:1 and never 3:1, so T lies in exactly one band.
+
+        The band's upper edge is NOT the end of the skipped VBlank: landing in
+        the VISIBLE period of the frame after it still publishes in that frame's
+        VBlank, so 2:1 persists until the overrun reaches the VBlank after
+        that."""
+        lo, hi = 185 * self.LINE, 413 * self.LINE
+        self.assertEqual((lo, hi), (227_920, 508_816))
+        self.assertEqual(lo, self.budget(), "the lower edge IS the visible budget")
+        for t in (lo, lo + 1, (lo + hi) // 2, hi - 1):
+            gaps = [y - x for x, y in zip(self.simulate(t), self.simulate(t)[1:])]
+            self.assertEqual(set(gaps), {2}, "T=%d should give 2:1" % t)
+        for t in (lo - self.LINE, 94_000):
+            gaps = [y - x for x, y in zip(self.simulate(t), self.simulate(t)[1:])]
+            self.assertEqual(set(gaps), {1}, "T=%d should give 1:1" % t)
+        gaps = [y - x for x, y in zip(self.simulate(hi), self.simulate(hi)[1:])]
+        self.assertEqual(set(gaps), {3}, "past the band it would have been 3:1")
+
+    def test_one_unique_frame_id_per_publication(self):
+        """The ROM increments FRAME_ID once per loop iteration, so the published
+        sequence is always 1:1 with PUBLICATIONS. The defect was never a repeated
+        increment -- it was a SKIPPED publication, and the GBP then captured the
+        unchanged framebuffer a second time."""
+        for cost, captures_per_id in ((94_000, 1), (253_000, 2)):
+            pubs = self.simulate(cost)
+            gaps = [b - a for a, b in zip(pubs, pubs[1:])]
+            self.assertEqual(set(gaps), {captures_per_id},
+                             "cost %d: expected %d captured frames per FRAME_ID, got %r"
+                             % (cost, captures_per_id, sorted(set(gaps))))
+            self.assertEqual(len(set(pubs)), len(pubs),
+                             "each publication lands in its own AGB frame")
+
+
+class BothHalvesAreInIwram(unittest.TestCase):
+    """§V5.42: the fix is WHERE the code is fetched from, so that is asserted."""
+
+    def test_both_prepare_and_publish_carry_the_iwram_attribute(self):
+        c = open(ROM_SRC).read()
+        for fn in ("prepare_frame", "publish_frame"):
+            self.assertIn('__attribute__((section(".iwram"), noinline))\nstatic void %s' % fn, c,
+                          "%s must be placed in IWRAM" % fn)
+
+    def test_the_elf_really_places_them_there(self):
+        elf = os.path.join(ROOT, "build", "stimulus", "agb-indexed", "agb-indexed.elf")
+        if not os.path.exists(elf):
+            self.skipTest("stimulus not built")
+        mp = os.path.join(ROOT, "build", "stimulus", "agb-indexed", "agb-indexed.map")
+        if not os.path.exists(mp):
+            self.skipTest("map not built")
+        text = open(mp, errors="replace").read()
+        m = re.search(r"^\.iwram\s+0x0*3000000\s+0x([0-9a-f]+)", text, re.M)
+        self.assertIsNotNone(m, ".iwram must be placed at 0x03000000")
+        self.assertGreater(int(m.group(1), 16), 0x300,
+                           ".iwram must hold BOTH functions, not just publish_frame")
+
 
 class RomStaticAudit(unittest.TestCase):
     """§42: what the stimulus must NOT contain."""

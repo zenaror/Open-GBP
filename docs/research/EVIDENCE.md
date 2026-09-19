@@ -3699,3 +3699,141 @@ have destroyed the only signal that caught this.
 Fixed in `indexed-0002` by splitting prepare from publish (§V5.41). **The
 OGBPIDX1 wire format is unchanged and is not re-versioned**: this was a producer
 implementation defect, not a contract defect.
+
+---
+
+## GBP-VIDEO-004 / `stream-0005` run 2 — `indexed-0002`, executed 2026-09-19
+
+Sources, verified before anything was read from them. The operator's SD card
+carried them under the same names as run 1, so they are preserved separately:
+`logs/GBP-VIDEO-004_stream-0005-run2.log`, 66 515 B, sha256
+`e02d1160d0aa887d408e9af892c433c026348778e615c344fa23bc1082e12ae8`; and
+`logs/GBP-VIDEO-004_stream-0005-run2-idxcap.bin`, 8 946 060 B, sha256
+`111ea227eefe600e81416be7fce34bd13d8ff7d5de26efe825bbbfa5b08ec42d`.
+Run 1's files are untouched. **The GameCube runtime is byte-identical to run 1**
+(`stream-0005`, `commit=10250a4`), so the cartridge is the only variable.
+
+### GBP-HW-160 — `indexed-0002` publishes inside the VBlank — FACT
+
+**FAULT is clear.** Every one of the 81 840 canonical strips of the 2 046
+complete records carries `STATUS = 0x18`: `FAULT = 0`, `VMARGIN = 24`. Not one
+strip disagrees, and `tools/vindex.py` reports `stimulus fault seen False`.
+
+Against run 1, where every FRAME_ID from 2 onward carried `0x80` and the update
+overran the VBlank by 14.9×, **the prepare/publish split fixed the overrun
+physically.** This is a validated result *for this run* and not a universal
+timing guarantee.
+
+### GBP-HW-161 — the measured VBlank margin is 24 scanlines — FACT
+
+`VMARGIN` is the monotone minimum of `VCOUNT_LAST − vc1` over the run, so the
+worst publication observed ended at `VCOUNT = 227 − 24 = 203`.
+
+VBlank is lines 160..227, i.e. 68 lines. The worst publication therefore consumed
+**203 − 160 + 1 = 44 of the 68 available lines**, about **65 %** of the window,
+leaving 24 lines of headroom. The pre-hardware estimate was ~60 %; the physical
+measurement is 65 %, and **the measurement is the authority**.
+
+### GBP-HW-162 — zero mixed-ID frames, and exact block indices — FACT
+
+```text
+complete records                       2 046
+records carrying exactly ONE FRAME_ID  2 046   (MIXED_BLOCK_IDS = 0)
+valid symbols                     81 840 / 81 840
+SYNC                              81 840 / 81 840
+CRC-8                             81 840 / 81 840
+BLOCK_INDEX == witness slot       81 840 / 81 840
+```
+
+Run 1 had 1 705 mixed records of 2 046 — **83.3333 %**. Run 2 has **none**. The
+progressive tearing of `indexed-0001` is physically closed.
+
+### GBP-HW-163 — the FRAME_ID population is gapless and monotone — FACT
+
+Over the 2 046 complete records: minimum **7**, maximum **1030**, **1024 unique
+values**, and the observed set is exactly `7 .. 1030` with **no value missing**.
+Deltas between consecutive complete records:
+
+```text
+delta  0 : 1 022        delta +1 : 1 023
+delta > +1 : none       delta < 0 : none
+```
+
+No `OBSERVED_ID_GAP`, no `OBSERVED_REORDER`, no `UNRESOLVED_HALF_RANGE`.
+
+### GBP-HW-164 — every FRAME_ID was captured exactly twice — FACT
+
+**1 022 of the 1 024 observed IDs appear in exactly two consecutive complete
+records**; run lengths of identical consecutive IDs are `{2: 1022, 1: 2}`. Only
+IDs 7 and 1030 appear once, and those are the leading and trailing edges. ID 9's
+second appearance falls inside the 33-block startup/resync record, which is
+excluded from the complete-frame population by contract.
+
+By the frozen classification `delta == 0` is **`OBSERVED_DUPLICATE_ID`**, and the
+official analyzer reports exactly that — 1 021 duplicates and 1 023 contiguous
+over its 2 044 decisive transitions, verdict `OBSERVED_DISCONTINUITY`. It does
+**not** promote duplicates to contiguous.
+
+Rates: the capture closed 2 048 frames in 34.277 s = **59.75 Hz** and completed
+2 046 = 59.69 Hz, while unique FRAME_IDs advanced at **1 024 / 34.277 s = 29.87
+Hz**. The ratio is **2.00 captured frames per source ID**, and it is regular to
+1 022 of 1 022.
+
+### GBP-HW-165 — the duplication is PRODUCER-side, and the mechanism is exact — FACT
+
+The ROM's loop waits like this:
+
+```c
+prepare_frame(...);                             /* visible period            */
+while (REG_VCOUNT >= VCOUNT_VBLANK_FIRST) { }   /* wait until NOT in VBlank  */
+while (REG_VCOUNT <  VCOUNT_VBLANK_FIRST) { }   /* wait until VBlank starts  */
+publish_frame();                                /* VBlank                    */
+```
+
+If `prepare_frame()` returns while `VCOUNT` is **still inside a VBlank**, the
+first loop waits for that VBlank to end and the second waits for the next one:
+**a publication opportunity is skipped entirely**, and the GBP captures the
+unchanged framebuffer a second time.
+
+Publication ends at `VCOUNT = 203` (GBP-HW-161), leaving `25 + 160 = 185` lines
+= **227 920 cycles** before the next VBlank begins. The observed cadence — always
+2:1, **never 1:1 and never 3:1** — bounds the preparation without any estimate:
+
+```text
+227 920  <=  T_prepare  <  508 816 cycles      0.811 .. 1.811 AGB frames
+```
+
+(The upper edge is not the end of the skipped VBlank: landing in the *visible*
+period of the following frame still publishes in that frame's VBlank, so 2:1
+persists until the overrun reaches the VBlank after it.)
+
+Corroborated independently from the code: `prepare_frame` is 195 ARM
+instructions at **`0x080002ac` — cartridge ROM** — driving ~8 640 symbol stores
+and 2 160 bit writes per frame; at ROM wait states that is ~253 000 cycles,
+**inside the measured band**. `publish_frame` was at `0x03000000` (IWRAM) since
+`indexed-0002`; `prepare_frame` was left behind.
+
+**ATTRIBUTION: the AGB producer, not the Game Boy Player.** Four independent
+reasons: the ROM's own loop structure predicts 2:1 quantitatively; the bound
+derived from the cadence matches the code's cost; the GBP captured 2 046 complete
+frames in both runs at its normal ~59.7 Hz while the *cartridge* changed; and a
+capture-side mechanism would have to duplicate every frame exactly once, 1 022
+times, without a single miss.
+
+**Duplicate FRAME_IDs here are NOT GBP frame duplication, loss or reorder.**
+Source-frame continuity remains **INCONCLUSIVE**: the GBP faithfully delivered
+every frame it was shown, and it was shown each picture twice.
+
+### GBP-HW-166 — the startup/resync record explains ID 9 — FACT
+
+Two incomplete records, both excluded from the complete population by contract:
+
+```text
+record 0   1 block,  all-ONE symbols, SYNC decodes as 0xff -> pre-stimulus edge
+record 5  33 blocks, every decoded strip carries FRAME_ID 9
+           witness slot -> decoded BLOCK_INDEX: 0->0, 1->1, then 2->9, 3->10, ...
+```
+
+The assembler resynchronised mid-frame, so source blocks 2..8 never reached this
+record. That is why ID 9 has only **one** complete-record occurrence while its
+neighbours have two — not a lost source frame, a record the contract excludes.
