@@ -37,7 +37,7 @@ endif
 # Identity
 #---------------------------------------------------------------------------------
 APP_NAME   := agb-indexed
-STIM_ID    := indexed-0001
+STIM_ID    := indexed-0002
 GAME_TITLE := OPENGBPINDEX
 GAME_CODE  := IGBP
 MAKER_CODE := OG

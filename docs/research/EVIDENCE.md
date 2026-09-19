@@ -3571,3 +3571,131 @@ cadence and can resolve no 12 % publication difference. It is **consistent with*
 an accounting-and-cadence correction that changes no geometry, no colour and no
 UI — which is what `stream-0004` is — but it corroborates nothing on its own, and
 nothing here is promoted because of it.
+
+---
+
+## GBP-VIDEO-004 / `stream-0005`, the FIRST indexed run, executed 2026-09-19
+
+Sources, both verified before anything was read from them:
+`logs/GBP-VIDEO-004_stream-0005.log`, 66 427 B, sha256
+`165a3e32df7faf0d81bdaf4841852ba5e3fa7b6f0a7722cf01e2327cb3486eaf`; and
+`logs/GBP-VIDEO-004_stream-0005-idxcap.bin`, 8 946 060 B, sha256
+`6c822d63cfaa2bd19554054b26b0b8d7264723eca946dbc5c3d39037b85a193d`.
+`build_id=stream-0005 commit=10250a4`, `dropped=0 truncated=0`. Every figure was
+recomputed from those bytes, twice — once by `tools/`, once by an independent
+reimplementation that shares no code with them.
+
+### GBP-HW-153 — the count-bounded stop worked on hardware — FACT
+
+`stop=witness_target_reached`. The run ended because the 2048th witness record
+closed, not because a clock expired: `STREAMWIT records=2048/2048 target=2048
+frames_seen=2048 discarded=0 staged=81876 placed=81876 out_of_range=0
+store_full=0 target_reached=1`, and `FRAMECAP frames=2048 store_full=0`.
+
+Transport was conserved across the whole run: `unmasks == deliveries == acks ==
+rearms = 217 120`, `video=81876/81876`, `timeouts=0 busy=0 overflow=0
+uncertain=0 errors=0 transport_ok=1`, every W1C from the ISR and none from the
+main thread. This is the first physical confirmation that an experiment in this
+project can be bounded by a **count of retained evidence** instead of by time.
+
+### GBP-HW-154 — the OGBPIDXCAP1 sidecar is structurally valid — FACT
+
+Parsed independently of `tools/vidxcap.py`: magic `OGBPIDXC`, version 1, header
+0x180, record 4368, capacity 2048, count 2048, header CRC-32 `a7c14cfb`, footer
+`OGBPEND1`, global CRC-32 `e2762908`, and **2048 of 2048 per-record CRC seals
+valid**. The file is exactly 8 946 060 bytes — the size §V5.40.10 derived from
+the layout before the run existed.
+
+### GBP-HW-155 — witness retention under a real physical workload — FACT
+
+81 876 blocks staged and placed, 0 out of range, 0 scratches discarded. The
+added critical-path work measured `min 35 / mean 69 / max 1561` ticks at
+40.5 MHz = **0.864 / 1.704 / 38.543 µs**, one sample per block, totalling
+**0.1395 s of the 34.277 s run — 0.407 %**. The single 38.5 µs outlier is
+recorded descriptively; nothing here attributes a cause to it.
+
+Under that load the runtime behaved exactly as `stream-0004` did:
+`STREAMCONS taken=2044 converted=2043 presented=2026 overrun=0 repeats=17
+undispositioned=0 balanced=1`; `2043 == 2026 + 0 + 17 + 0`; `xfb_skipped ==
+repeats`; `submit == drawdone == releases == 2044`, `spurious=0`,
+`consistent_at_end=1`; `STREAMINV checks=169245 failures=0`; `sci_clean=1`.
+
+**Witness retention caused no observable transport or ownership failure in this
+run.** That is not a claim of universal timing safety.
+
+### GBP-HW-156 — the canonical witness decodes perfectly — FACT
+
+Of the 2 046 records that carry all 40 blocks, **all 81 840 canonical strips
+decode**: every symbol is ZERO or ONE, every SYNC is `0xB2`, every CRC-8 matches,
+and `BLOCK_INDEX == witness slot` in **81 840 of 81 840** cases. Not one complete
+record fails for canonical-strip corruption.
+
+Observed FRAME_ID values span **1 .. 343 with no value missing** inside that
+range.
+
+### GBP-HW-157 — the stimulus reports itself FAULTED — FACT, and it is right
+
+Every canonical strip carries exactly one STATUS per FRAME_ID:
+
+```text
+FRAME_ID 1        STATUS 0x7f      11 strips   FAULT=0, the initial sentinel
+FRAME_ID >= 2     STATUS 0x80  81 829 strips   FAULT=1, VMARGIN=0
+```
+
+By the frozen contract STATUS in frame *f* certifies updates through *f−1* and
+never *f* itself, so the first update reported as failing is **the very first
+update the ROM performed**, and FAULT is sticky thereafter.
+
+The mandatory consequence: **`STIMULUS_INVALID_FOR_DECISIVE_CLAIM`**, and
+**SOURCE FRAME CONTINUITY = INCONCLUSIVE**. `tools/vindex.py` reaches that
+verdict on its own and makes no loss claim.
+
+### GBP-HW-158 — the mixed-ID staircase is a PRODUCER artifact — FACT
+
+**1 705 of the 2 046 complete records carry two FRAME_IDs — 83.3333 %** — and
+341 carry one. The pattern is not noise; it is a perfectly regular staircase. In
+every one of the 1 705 mixed records the newer ID occupies a **leading
+contiguous run of blocks**, and that run takes exactly five values:
+
+```text
+newer id occupies   3 blocks : 340 records
+                   12 blocks : 341
+                   21 blocks : 341
+                   30 blocks : 342
+                   39 blocks : 341
+then one single-ID record, and the cycle repeats
+```
+
+339 of the 341 cycles are exactly *five mixed records then one single-ID record*.
+The write front advances **9 blocks = 36 raster lines per captured GBP frame**.
+
+**This is not GBP frame loss, reorder or duplication, and must never be reported
+as such.** It is the AGB producer publishing one image progressively across
+several of its own frames while the GBP faithfully captures each intermediate
+state. The root cause is established separately in GBP-HW-159.
+
+### GBP-HW-159 — the root cause, and the previous budget estimate was wrong — FACT
+
+`update_frame()` wrote the whole 240×160 picture directly into VRAM inside what
+the design called one VBlank. The real cost, derived from GBP-HW-158's staircase
+rather than from any estimate:
+
+```text
+VRAM stores per source frame  54 + 54 + 8 + 8 = 124 per row x 160 = 19 840
+measured advance              9 blocks = 36 rows per captured frame
+one full image                4.44 AGB frames = 74.4 ms = 1 248 000 cycles
+per VRAM store                62.9 cycles
+VBlank budget                 83 776 cycles (1309 ticks at F/64)
+OVERRUN                       14.9 x        -- only 10.7 of 160 rows fit
+```
+
+**Why the original estimate was wrong:** it counted VRAM stores and assumed a
+store costs a cycle or two. It never accounted for INSTRUCTION FETCH. The ROM
+never set `WAITCNT`, so the loop executed from cartridge ROM at the reset wait
+states (4/2, no prefetch), and fetch — not the store — dominated at ~63 cycles
+per written word. The FAULT bit was therefore correct, and relaxing it would
+have destroyed the only signal that caught this.
+
+Fixed in `indexed-0002` by splitting prepare from publish (§V5.41). **The
+OGBPIDX1 wire format is unchanged and is not re-versioned**: this was a producer
+implementation defect, not a contract defect.

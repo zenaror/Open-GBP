@@ -13063,3 +13063,238 @@ contract gives 2 047 decisive frames and **2 046** decisive transitions. That is
 an expectation of magnitude, not a result: the analyzer reports the real N,
 together with `first_observed`, `last_observed`, `first_decisive`,
 `last_decisive` and `edge_frames_excluded`.
+
+---
+
+### V5.41 FIRST INDEXED PHYSICAL RUN — `stream-0005` + `indexed-0001` — 2026-09-19 — **RUNTIME PROVED, STIMULUS INVALID, ROM CORRECTED**
+
+The first decisive-attempt indexed run. It answered two questions at once: the
+witness machinery works on hardware, and the **stimulus does not**. The
+correction is confined to the GBA producer; `stream-0005` is untouched.
+
+#### V5.41.1 What the run established about the RUNTIME
+
+```text
+stop = witness_target_reached      the count-bounded stop worked (GBP-HW-153)
+transport   217 120 cycles, unmasks == deliveries == acks == rearms
+            video 81876/81876, timeouts/busy/overflow/uncertain/errors all 0
+witness     2048/2048 records, 81 876 staged == placed, 0 out of range,
+            0 discarded, store_full=0
+sidecar     8 946 060 B exactly as §V5.40.10 derived; 2048/2048 record seals
+            valid; header CRC a7c14cfb, global CRC e2762908 (GBP-HW-154)
+consumer    2043 == 2026 + 0 + 17 + 0, balanced=1, undispositioned=0
+ownership   submit == drawdone == releases == 2044, spurious 0,
+            STREAMINV 169 245 checks / 0 failures, sci_clean=1
+cost        witness copy 0.864 / 1.704 / 38.543 us, 0.407 % of the run
+```
+
+**PHYSICAL WITNESS CAPTURE INFRASTRUCTURE EXERCISED SUCCESSFULLY** — and that
+says nothing yet about whether the stimulus was valid.
+
+#### V5.41.2 What the run established about the STIMULUS
+
+All 81 840 canonical strips of the 2 046 complete records decode: valid symbols,
+correct SYNC, correct CRC-8, `BLOCK_INDEX == slot` in every case. The payload is
+not corrupt. What it *says* is the problem:
+
+```text
+FRAME_ID 1        STATUS 0x7f      11 strips   the sentinel
+FRAME_ID >= 2     STATUS 0x80  81 829 strips   FAULT=1, VMARGIN=0
+```
+
+STATUS in frame *f* certifies updates through *f−1*, so the first update
+reported as failing is the **first update the ROM ever performed**, and FAULT is
+sticky. Mandatory classification:
+
+```text
+OGBPIDX1 STIMULUS            INVALID FOR DECISIVE CLAIM
+SOURCE FRAME CONTINUITY      INCONCLUSIVE
+```
+
+And **1 705 of 2 046 complete records (83.3333 %) carry two FRAME_IDs**, in a
+perfectly regular staircase: the newer ID always occupies a *leading contiguous
+run* of 3, 12, 21, 30 or 39 blocks, then one single-ID record, 339 times out of
+341. The front advances **9 blocks = 36 rows per captured frame**.
+
+> **MIXED_BLOCK_IDS observed while the stimulus reports itself FAULTED is NOT
+> evidence of GBP frame loss, reorder or duplication.** The GBP captured each
+> intermediate state faithfully; it was the AGB that was still drawing.
+
+#### V5.41.3 The root cause, measured rather than estimated
+
+```text
+stores per source frame   124 per row x 160 rows = 19 840
+measured front advance    9 blocks per captured frame  (GBP-HW-158)
+one image                 4.44 AGB frames = 1 248 000 cycles
+per VRAM store            62.9 cycles
+VBlank budget             83 776 cycles   ->  OVERRUN 14.9 x
+rows that fit in a VBlank 10.7 of 160
+```
+
+`update_frame()` wrote the whole picture into VRAM inside the "VBlank" window.
+**The original budget estimate counted VRAM stores and ignored instruction
+fetch.** The ROM never set `WAITCNT`, so the loop ran from cartridge ROM at the
+reset wait states (4/2, no prefetch) and fetch dominated at ~63 cycles per
+written word. Display scanout continued throughout, so the GBP saw a top-down
+wipe — exactly the staircase.
+
+**The FAULT bit was correct.** It is the only reason this was caught on the first
+run instead of becoming a false continuity claim, and nothing about it was
+relaxed.
+
+#### V5.41.4 The correction — `indexed-0002`, wire format UNCHANGED
+
+```text
+PREPARE   visible period, into IWRAM. CRC, bit packing, symbol selection and the
+          bar arithmetic happen here. Touches NO VRAM byte, so however long it
+          takes it cannot tear the picture.
+PUBLISH   VBlank only, from IWRAM, by DMA. Computes nothing: a copy of an image
+          that already exists.
+```
+
+Three changes, and no more:
+
+1. `update_frame()` became `prepare_frame()` (same arithmetic, writing IWRAM
+   tables instead of VRAM) plus `publish_frame()`.
+2. `publish_frame()` is placed in `.iwram` — verified in the map at
+   `0x03000000`, 312 bytes — so instruction fetch is 0-wait instead of cartridge
+   wait states. Its tables (`pub_l` 8 960 B, `pub_r` 8 960 B, `pub_erase` 640 B)
+   are in `.bss`, which on this target is IWRAM. Total IWRAM 19 244 B of 32 KiB,
+   leaving 12 756 B below the stack.
+3. `REG_WAITCNT = 0x4317` is set once at boot, for the PREPARE path.
+
+The published spans are widened to `x = 0..55` and `x = 184..239` so both are
+4-byte aligned and go as 32-bit DMA. That adds the FLAG column and the three
+GUARD columns to every frame's publication — all constants — so **not one wire
+value changes**.
+
+Estimated publication cost: 2 aligned 32-bit DMA bursts of 28 words plus 16 bar
+stores per row, ~312 cycles/row, **~49 900 cycles ≈ 60 % of the VBlank budget**.
+**That is an estimate, and the last estimate was wrong by 14.9×.** The ROM
+measures itself and the next run's VMARGIN is the authority.
+
+#### V5.41.5 STATUS snapshot — still frozen
+
+`status = status_byte(&st)` is taken **before** `prepare_frame()`, and the
+measurement of this frame's publication lands **after** `publish_frame()`. So
+STATUS certifies publications through *f−1*, never *f*, and one immutable byte
+serves all 40 blocks and both diagnostic copies of the frame. A host guard
+asserts that ordering textually.
+
+#### V5.41.6 The validator is now adversarially testable
+
+The predicate was extracted verbatim into `status_measure()` / `status_byte()` —
+no behavioural change, main() still the only caller — so the host tests can
+drive it:
+
+```text
+A  an update inside the VBlank            -> FAULT stays 0, VMARGIN = lines left
+B  over the tick budget / VCOUNT wrapped  -> FAULT becomes 1  (incl. the real
+                                             19 507-tick indexed-0001 figure)
+C  FAULT is sticky, and VMARGIN stays 0 afterwards
+D  VMARGIN is a MONOTONE MINIMUM: a larger margin never raises it
+E  0x7F is the sentinel AND the largest representable margin, so any real
+   measurement can only lower it; an over-range margin is clamped, never wrapped
+F  the validator is deterministic
+```
+
+Plus structural gates: the measured window contains `publish_frame()` and
+**none** of `crc_`, `strip_word`, `prepare_frame` or `background_at`; PREPARE
+precedes the VBlank wait; PREPARE writes no VRAM; `publish_frame` carries the
+`.iwram` attribute; the DMA names its width and count explicitly; `WAITCNT` is
+set. **No gate was weakened.**
+
+#### V5.41.7 Model equality after the fix
+
+`tests/host/test_agb_indexed.py` drives **both** phases and compares the
+resulting framebuffer against `tools/istim.py`:
+
+```text
+38 400 / 38 400 AGB words equal, over 10 deterministic (frame_id, status) cases
+canonical witness 40 blocks x 54 words exact
+frozen CRC vectors unchanged
+40 stimulus tests pass
+```
+
+The `/ 2u` the DMA count needed was written as `>> 1`, because the no-division
+rule is enforced textually and ARM7TDMI has no divide instruction.
+
+#### V5.41.8 Artifact identities
+
+```text
+RUNTIME — UNCHANGED, deliberately
+  stream-0005  481 664 B
+  sha256 35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
+  commit 10250a4, Swiss 12-stream byte-identical, no src/ or poc/ change.
+  Reusing the exact same capture runtime is what isolates "old ROM invalid"
+  from "new ROM corrected".
+
+STIMULUS — NEW IDENTITY
+  indexed-0001  2 460 B  379df0f7...bdbc543   HISTORICAL, INVALID, never rerun
+  indexed-0002  canonical  2 876 B
+                sha256 44651f0ba60141f23cfb6b8b01f5b7a871ef1037412c7dae2ac9d9743c7b7b2f
+                logo area EMPTY by policy
+                toolchain arm-none-eabi-gcc (devkitARM) 15.2.0
+  indexed-0002  delivery   2 876 B
+                sha256 55fe72d56566afea01f342a1c633ff1a4f94389f33759f9024d653de9fe559e9
+                logo area from the colour cartridge that booted twice;
+                payload past 0x0C0 BYTE-IDENTICAL to the canonical ROM
+```
+
+Delivery is prepared for the same empirically validated EZ-Flash Omega DE
+NOR / Mode-B route. The logo area is still only tested for being non-empty and
+has **never been verified against an authoritative reference**: `UNRESOLVED`, as
+before, and not promoted.
+
+#### V5.41.9 The 81 876 / 81 875 reconciliation
+
+`STREAMWIT staged == placed == 81 876`, and the presence bits of the 2 048
+serialized records sum to **81 875**. The difference is one block, and it is
+trailing-edge semantics, proved from metadata rather than assumed:
+
+```text
+sum of the assembler's own `blocks` field over the records : 81 875
+records whose `blocks` != presence count                   : NONE
+```
+
+Every stored record is lossless for exactly the blocks the assembler attributed
+to it. The 81 876th block is the boundary block that CLOSED record 2047 and was
+then placed, correctly, as block 0 of the *next* frame — a frame the target stop
+ended before it could close. Nothing was lost; one block belongs to a frame that
+does not exist in the record set.
+
+#### V5.41.10 The old VSTATE baseline
+
+`baseline=never_established`, `valid_s=0.000`, `VSTATE status=ok_no_change_inconclusive`.
+**Expected, and not a second opinion on the indexed result.** The baseline needs
+three consecutive clean complete frames with IDENTICAL signature vectors;
+OGBPIDX1 changes both the FRAME_ID and the bar phase every frame, so no two
+consecutive frames can ever agree and the baseline can never form. With no
+baseline, no frame is COUNTED and `valid_s` stays 0.
+
+A useful side effect: the valid-seconds target (finding F5 of §V5.40) is
+**unreachable** with this stimulus, so it cannot compete with the witness target.
+
+Both layers ended "inconclusive" in this run, for entirely different reasons:
+the old one because it has no stable picture to baseline, the indexed one
+because the stimulus reported FAULT.
+
+#### V5.41.11 Final classification
+
+```text
+RUNTIME / WITNESS PATH   PHYSICALLY EXERCISED
+                         TARGET STOP WORKED
+                         SIDECAR INTEGRITY VALID
+                         TRANSPORT CONSERVED
+                         OWNERSHIP INVARIANTS HELD
+OGBPIDX1 STIMULUS        INVALID FOR DECISIVE CLAIM   (indexed-0001)
+SOURCE FRAME CONTINUITY  INCONCLUSIVE
+```
+
+#### V5.41.12 Next physical action
+
+The SECOND indexed run: the **same exact `stream-0005` DOL** with the **new
+`indexed-0002` delivery ROM**. Power-cycle first, same 2048-witness target, stop
+on `witness_target_reached`, return the log and the sidecar. The single variable
+between the two runs is the stimulus, which is what makes the comparison worth
+anything.
