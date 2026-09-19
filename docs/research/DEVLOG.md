@@ -7563,3 +7563,101 @@ failures.
 a reason that does not exist, and no pacing or continuity measurement made with
 it in place can be trusted. **Do not request another physical run before it is
 fixed and audited.**
+
+## 2026-09-18 — stream-0004: the persistence audit inverted the obvious fix
+
+P2 and P1, corrected. No hardware. Scope strictly the two defects:
+`gbp_vstate_probe.c`, `gbp_vpix.c` and `gbp_vpresent.c` have **zero** changed
+lines, so the service path, the pump, GX, the ownership machine, R3 and every
+timing counter are untouched. `stream-0003` stays historical at `03b32a9`,
+471 648 B, `2f8e362e…199e3`, and keeps the physical milestone.
+
+**The audit changed the answer.** The naive fix — "move `F_EPISODE_STABLE`, it
+is the newer, less load-bearing flag" — would have been wrong, and §4 existed
+precisely to find that out before touching a bit.
+
+`gbp_vstatedump.c:275` writes the frame flag word **verbatim** into every
+OGBPSEQ1 frame record at offset 0x1A. So the flags are persisted and the choice
+is an ABI question. And then:
+
+```text
+maj_extra = 0 in EVERY physical log ever produced
+vstate-0001/-0003/-0004 each carry seven frames that closed an episode as
+  stable — seven frames with bit 0x1000 SET, in validated sidecars
+tools/vstate.py:117 already names 0x1000 "episode_stable"
+```
+
+**In every historical sidecar 0x1000 means EPISODE_STABLE, and the analyzer
+already reads it that way.** So `F_MAJORITY_EXTRA` is the one that moved
+(0x1000 → 0x4000): it has never been set in any file, so the change
+re-interprets **exactly zero historical bytes** and needs no version bump.
+Category B — persisted, versioned, interpretation preserved.
+
+The audit also surfaced a second exposure: `gbp_vcolor.c:30` rejects
+`F_MAJORITY_EXTRA` too, so the colour path had the same aliasing risk. It never
+fired — both colour runs report `episodes=0 stable=0` — so **U-GBP-011's closure
+is unaffected**. Worth knowing, and it would not have been found by looking only
+at the stream path.
+
+**The guard is the real deliverable.** `GBP_VSTATE_F_ALL` ORs every flag and a
+compile-time check requires its popcount to equal the flag count — which can
+only hold if every flag is a distinct power of two. Restoring the alias now
+**breaks the build**, which mutation M1 confirms. It is deliberately not a test
+for one pair: it catches the next collision too.
+
+**P1 came out of the state machine, not the arithmetic.** Every destination of a
+converted frame was enumerated: overrun (abandoned), presented (XFB free),
+repeated (XFB busy) — and a refused submit, which is **not** a terminal because
+the texture stays READY and is re-offered, incrementing nothing. So
+
+```text
+converted == presented + overrun + repeated + residual
+```
+
+and the residual is real and **bounded**: a converted frame still waiting for a
+submit when a run ends, at most one per texture buffer.
+`GBP_VQUEUE_MAX_UNDISPOSITIONED` expresses it, the POC asserts at compile time
+that it equals `GBP_VPRESENT_TEX_BUFFERS`, and
+`gbp_vqueue_undispositioned()` reports it so a nonzero value is visible instead
+of hiding inside `balanced`. The physical run closes exactly — 2 298 == 2 286 +
+0 + 12 — and `balanced()` now returns 1 for it.
+
+P1 also corrected a comment that had never matched the code: `note_repeat()`'s
+only caller with a real queue is `submit_ready()` after a **successful submit of
+a converted frame**, so a repeat always has one converted frame behind it. The
+run had already said so — `repeats = 12 = xfb_skipped`, both from that one
+branch.
+
+**Mutations 6/6 caught**, M1 at build time: restore the alias · mark a stable
+frame as majority-extra · let a true majority-extra be eligible · drop repeats
+from the identity · allow an unbounded residual · contaminate the scientific
+counters from the self-test.
+
+**The candidate:** `stream-0004`, commit `e11df66`, **472 160 B**, sha256
+`56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43`, Swiss
+`12-stream` byte-identical, zero warnings. Gates: 19 unit binaries / 792 301
+checks / 0 failures; 677 host tests OK; `stream-audit` clean with both one-shot
+ISRs byte-identical to the physically validated GBP-VIDEO-001 build;
+`stream-dolphin` PASS with `balanced=1 sci_clean_at_probe=1 inv_fail=0
+storage_fault=-`.
+
+**Pre-registered without imposing a result:** if no true majority-extra event
+occurs, frames formerly excluded solely by the aliased bit should now become
+eligible. **No frame rate and no publication count is pre-registered** — and
+fixing the alias does not mean every complete frame becomes published, because
+anomaly, resync and incomplete exclusions are untouched.
+
+**P2 is not physically resolved until a run says so.**
+
+**An environment note, not a project finding:** the fuseblk mount lost
+`tools/istim.py` from the container's view entirely — the file was visible on the
+host and absent inside the container, which made `git diff` there report a
+phantom deletion and stamped the build `-dirty`. Rewriting the file refreshed the
+dentry; the clean build then reported `commit=e11df66` with no suffix. No build
+output was trusted until that was resolved.
+
+**Next:** a focused pre-hardware audit of `stream-0004` — flag uniqueness and
+persistence, true majority-extra still quarantined, stable frames no longer
+aliased, the balance conservation proof, R1 isolation, the exact artifact, and
+the functional diff against `stream-0003`. Then, if clean, a short supervised
+physical run.
