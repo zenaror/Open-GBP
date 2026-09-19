@@ -298,7 +298,29 @@ static unsigned bar_phase_base;      /* (frame_id mod 31) */
 
 /* PREPARE. Visible period. Produces exactly the words indexed-0001 produced,
  * into IWRAM instead of VRAM: same CRC, same bit order, same symbols, same bar
- * arithmetic, same complement rule. Not one wire value differs. */
+ * arithmetic, same complement rule. Not one wire value differs.
+ *
+ * ---- WHY THIS IS IN IWRAM TOO (indexed-0003, §V5.42) ---------------------
+ *
+ * indexed-0002 moved PUBLISH into IWRAM and left PREPARE in cartridge ROM. The
+ * second physical run measured what that costs. The loop below waits like this:
+ *
+ *     while (VCOUNT >= 160) { }    wait until NOT in VBlank
+ *     while (VCOUNT <  160) { }    wait until VBlank starts
+ *
+ * so if PREPARE returns while VCOUNT is still inside a VBlank, that VBlank is
+ * skipped entirely and the publication lands in the NEXT one. Publication ends
+ * at VCOUNT 203 (VMARGIN 24, measured on all 81 840 strips), leaving 185 lines
+ * = 227 920 cycles before the next VBlank. From ROM, PREPARE did not fit:
+ * every single FRAME_ID was published twice, 1022 of 1022, perfectly regular,
+ * which bounds it at 227 920 <= T < 508 816 cycles -- never 1:1, never 3:1
+ * (GBP-HW-164, GBP-HW-165).
+ *
+ * 195 ARM instructions over ~8 640 symbol stores at ROM wait states is ~253 000
+ * cycles; the same code fetched from IWRAM is ~94 000, about 41 % of the
+ * budget. The work is not reduced and not one wire value changes — only where
+ * the instructions are fetched from. */
+__attribute__((section(".iwram"), noinline))
 static void prepare_frame(u32 frame_id, u8 status, unsigned prev_phase_base)
 {
     u8 bits[STRIP_BITS];
@@ -445,8 +467,10 @@ int main(void)
          * for all 40 blocks and both diagnostic copies of this frame. */
         status = status_byte(&st);
 
-        /* PREPARE, in the VISIBLE period. Unbounded on purpose: it writes no
-         * VRAM byte, so however long it takes it cannot tear the picture. */
+        /* PREPARE, in the VISIBLE period. It writes no VRAM byte, so it can
+         * never tear the picture — but it must still FINISH before the next
+         * VBlank begins, or the wait below skips that VBlank and the same
+         * FRAME_ID is published for two source refreshes (GBP-HW-165). */
         prepare_frame(frame_id, status, prev_phase_base);
 
         /* wait for the END of the visible area, then for VBlank to begin */
