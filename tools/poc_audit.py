@@ -96,6 +96,20 @@ _FS_SYMBOLS = ("fopen", "fwrite", "fread", "fclose", "fprintf", "fputs", "fputc"
                "mkdir", "opendir", "fatMountSimple", "fatUnmount", "fatInitDefault",
                "sdlog_save", "sdlog_save_blob", "sdlog_stream_open", "sdlog_stream_write", "sdlog_stream_close")
 
+# What the SOURCE-CAPTURE path may not reach, on top of the filesystem. The
+# stream-0005 audit (§V5.40.23) mutated a full-record CRC into
+# gbp_vwitness_commit() and nothing objected: `gbp_crc32` was absent from every
+# per-object list because gbp_vstatedump.o, gbp_vidxdump.o and gbp_avblock.o all
+# use it legitimately — the first two are POST-CAPTURE serializers and the third
+# summarises raw blocks outside the timed region. The rule therefore belongs to
+# the capture path specifically, not to the whole program.
+#
+# `gbp_vidxdump_stream` is here for the same reason: serializing 8.9 MB is a
+# post-teardown activity and must never become reachable from a block.
+_CAPTURE_SYMBOLS = _FS_SYMBOLS + ("gbp_crc32", "gbp_crc32_update", "gbp_crc32_init",
+                                  "gbp_crc32_final", "gbp_vidxdump_stream",
+                                  "gbp_vstatedump_stream", "gbp_vcoldump_stream")
+
 PROFILES = {
     "003a": {
         "forbidden_objects": ("hsp_backend_irq.o", "hsp_backend_intmr.o", "gbp_initirqb_probe.o", "gbp_init_irq_probe.o", "gbp_init_probe.o"),
@@ -517,23 +531,24 @@ PROFILES = {
         "control_write_sites": {"gbp_initirqa_probe.o": 2},
         "intsr_store_sites": {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
         "object_must_not_reference": {
-            "gbp_vstate_probe.o": _FS_SYMBOLS,
-            "gbp_vstate.o": _FS_SYMBOLS,
+            "gbp_vstate_probe.o": _CAPTURE_SYMBOLS,
+            "gbp_vstate.o": _CAPTURE_SYMBOLS,
+            "gbp_vwitness.o": _CAPTURE_SYMBOLS,
             "gbp_vpix.o": _FS_SYMBOLS,
             "gbp_vqueue.o": _FS_SYMBOLS,
             "gbp_vpresent.o": _FS_SYMBOLS,
-            "gbp_vsig.o": _FS_SYMBOLS,
+            "gbp_vsig.o": _CAPTURE_SYMBOLS,
             "gbp_vstatedump.o": _FS_SYMBOLS,
+            "gbp_vidxdump.o": _FS_SYMBOLS,
             "gbp_time64.o": _FS_SYMBOLS,
             "gbp_avblock.o": _FS_SYMBOLS,
-            "gbp_irq_service.o": _FS_SYMBOLS,
+            "gbp_irq_service.o": _CAPTURE_SYMBOLS,
             "gbp_initirqa_probe.o": _FS_SYMBOLS,
             "hsp_backend.o": _FS_SYMBOLS,
             "hsp_backend_irq.o": _FS_SYMBOLS,
         },
-        # No sidecar: §V5.24 creates a new frozen format only when the existing
-        # ones cannot hold the data, and this experiment's result is counters and
-        # bounded aggregates that the log carries in full.
+        # The sidecar is OGBPIDXCAP1, written from main.o after the teardown
+        # (§V5.39.8). The frozen OGBPSEQ1 and OGBPCOL1 writers stay untouched.
         "main_must_call": ("hsp_backend_irq_transport_ext", "gbp_vstate_probe_run", "sdlog_save",
                            "GX_Init", "GX_InitTexObj", "GX_LoadTexObj", "DCFlushRange",
                            "GX_SetDrawDoneCallback", "GX_SetDrawDone"),
@@ -845,7 +860,7 @@ def audit_dir(path, profile="003a"):
                 report["symbols"].setdefault(obj, []).append(s)
         for s_bad in prof.get("object_must_not_reference", {}).get(obj, ()):
             if s_bad in syms:
-                findings.append("%s references %s — the capture path must not reach the filesystem (from %s)"
+                findings.append("%s references %s — forbidden in this object's path (from %s)"
                                 % (obj, s_bad, ", ".join(sorted(set(syms[s_bad])))))
                 report["symbols"].setdefault(obj, []).append(s_bad)
         exempt = prof.get("prefix_exempt_objects", {}).get(obj, ())
