@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   05cb1c744df18cae52d5c869e91a766fc3d62a33
+STATE BASELINE COMMIT   e11df661ddc42fc44ed3a9ca7ae1a8357b51fb5f
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -104,7 +104,8 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
-| **GBP-VIDEO-004** (sustained streaming) | **`stream-0003` PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** Service, consumer, GX and ownership all exercised and conserved. **BLOCKED on two `src/gbp` defects (P2 HIGH, P1 MEDIUM) before any further physical run** | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
+| **GBP-VIDEO-004** (sustained streaming) | **`stream-0004` IMPLEMENTED · P2 FIXED · P1 FIXED · PHYSICAL CANDIDATE READY · NOT PHYSICALLY EXECUTED.** Awaiting a focused pre-hardware audit | `HARDWARE_TESTS.md` §V5.36 |
+| **`stream-0003`** | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** Historical; never rebuilt or re-labelled. It found P2 and P1 | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | **CONTROLLED indexed stimulus** (`stimulus/agb-indexed`) | **ROM AND ANALYZER IMPLEMENTED** to the frozen `OGBPIDX1` contract. ROM 2 460 B `379df0f7…c543`; renders 38 400/38 400 words identically to `tools/istim.py`; `tools/vindex.py` adversarially tested. **NEVER RUN anywhere**; witness retention NOT in the runtime | `HARDWARE_TESTS.md` §V5.33, §V5.35 |
 | **Dolphin's emulated Game Boy Player** | **EXISTS and is REACHABLE from a homebrew DOL** in the installed 2606a (`HSPDevice=2` + `GBPlayerRom`; no BIOS, no Start-up Disc). The exact `stream-0003` reaches the CONTROL gate on it and stops there: Dolphin's power-on CONTROL is `0x02`, hardware's is `0x90`. **AUXILIARY only** | `HARDWARE_TESTS.md` §V5.31 |
 | **`stream-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE: `store_or_bounds_invalid`.** GX self-test physically PASSED; **GBP stream capture never started**; `deliveries=0 acks=0 rearms=0 handler_installed=0`. Historical; never rebuilt, never re-labelled, and **not** a streaming failure | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
@@ -168,7 +169,8 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-003 | `color-0002` | `39f1980` | `d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1` | **PHYSICALLY EXECUTED 2026-09-18 — the confirmatory run** | GBP-HW-127…133 |
 | GBP-VIDEO-004 | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **REJECTED before hardware — DO NOT RUN** | `HARDWARE_TESTS.md` §V5.26 |
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **NOT PHYSICALLY EXECUTED — AUDITED, DECISION A.** 471 648 B; reproduced byte-for-byte from the same source; storage contract satisfied, R1 retired, R8 latched. **NO REBUILD** | `HARDWARE_TESTS.md` §V5.30, §V5.31 |
+| GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **NOT PHYSICALLY EXECUTED.** 472 160 B; P2 and P1 fixed, 6/6 mutations caught, zero warnings. Awaiting a focused pre-hardware audit | `HARDWARE_TESTS.md` §V5.36 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -265,129 +267,117 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **TWO `src/gbp` DEFECTS, FOUND BY THE FIRST PHYSICAL RUN. Both must be fixed
-> and audited before ANY further physical run. Neither is fixed yet.**
+> **A focused pre-hardware audit of `stream-0004`. The two defects the first
+> physical run found are fixed in software; they are NOT physically resolved
+> until a new run says so.**
 
-The first physical smoke of `stream-0003` succeeded at what it set out to do —
-**real cartridge video reached the screen through Open-GBP on physical GameCube
-hardware** — and in doing so it found two defects that make its own measurements
-untrustworthy.
+### PHYSICAL TRACK
 
-### P2 — HIGH — two frame flags share bit 0x1000
-
-```text
-src/gbp/gbp_vstate.h:109   #define GBP_VSTATE_F_MAJORITY_EXTRA  0x1000u
-src/gbp/gbp_vstate.h:121   #define GBP_VSTATE_F_EPISODE_STABLE  0x1000u
-src/gbp/gbp_vstate.c:1052  f->flags |= GBP_VSTATE_F_EPISODE_STABLE;
-src/gbp/gbp_vqueue.c       classify() tests F_MAJORITY_EXTRA FIRST -> QUARANTINED
-```
-
-Every frame that closed a structured-change episode as stable was misread as
-containing a majority-extra block and refused publication. The physical
-arithmetic is exact: **324 episodes, all stable → 324 frames quarantined**, while
-the R3 machinery reported `maj_extra=0 quarantined=0`.
-
-**Effect: 324 of 2 635 complete frames refused (12.30 %); cadence 59.74 →
-51.85 Hz**, confirmed independently by `publish_mean` = 19.27 ms = 51.89 Hz.
-
-**PROPOSED FIX (not applied):** move `F_EPISODE_STABLE` to a free bit — `0x4000`
-and `0x8000` are unused in the frame word — plus a test that the two constants
-differ. One header line and one test.
-
-### P1 — MEDIUM — `gbp_vqueue_balanced()` omits a terminal state
-
-A converted frame ends in one of **three** places, not two: presented, overrun,
-or **repeated** (submitted and drawn, but both framebuffers spoken for, so the
-XFB copy was skipped and the screen kept the previous image). The run conserves
-exactly under the correct identity:
+`stream-0003` ran on 2026-09-18 and **real cartridge video reached the screen**
+through Open-GBP on physical GameCube hardware (GBP-HW-138…145, §V5.34). It also
+found the two defects that make its own pacing numbers untrustworthy, and both
+are now corrected in `stream-0004`.
 
 ```text
-converted == presented + overrun + repeated
-2 298     == 2 286     + 0       + 12        and xfb_skipped == repeats == 12
+P2 HIGH — FIXED.  F_EPISODE_STABLE and F_MAJORITY_EXTRA shared bit 0x1000 in the
+  same frame-flag word, so every frame that closed an episode as stable was
+  refused as majority-extra: 324 of 2 635 complete frames (12.30 %), cadence
+  59.74 -> 51.85 Hz.
+
+  THE PERSISTENCE AUDIT INVERTED THE OBVIOUS FIX. The flag word is persisted
+  verbatim at offset 0x1A of every OGBPSEQ1 frame record. In EVERY physical run
+  `maj_extra` is 0, vstate-0001/-0003/-0004 each carry seven frames with bit
+  0x1000 set, and tools/vstate.py already names 0x1000 "episode_stable". So that
+  bit has always meant EPISODE_STABLE in persisted data, and MAJORITY_EXTRA is
+  the one that moved (0x1000 -> 0x4000) — re-interpreting ZERO historical bytes
+  and needing no format version bump.
+
+  THE GUARD: GBP_VSTATE_F_ALL plus a compile-time popcount check makes any two
+  flags sharing a bit a BUILD FAILURE, not just this pair.
+
+P1 MEDIUM — FIXED.  A converted frame has THREE terminals, not two: presented,
+  overrun, repeated. A refused submit is NOT a terminal (the texture stays READY
+  and is re-offered). The identity is
+      converted == presented + overrun + repeated + residual
+  with the residual bounded by the texture-buffer count, asserted at compile
+  time against GBP_VPRESENT_TEX_BUFFERS and reported by
+  gbp_vqueue_undispositioned(). The physical run closes exactly:
+  2 298 == 2 286 + 0 + 12.
 ```
 
-**PROPOSED FIX (not applied):** assert that identity in
-`gbp_vqueue_balanced()`.
-
-Both defects are locked as **passing** unit tests that assert the *current*
-behaviour together with the arithmetic showing why it is wrong, so a fix must be
-deliberate (`test_the_physical_stream0003_counters_conserve`,
-`test_the_episode_stable_bit_aliases_majority_extra`).
-
-### What the run established, and what it did not
+**What the audit must cover, and it is small:**
 
 ```text
-ESTABLISHED (GBP-HW-138…145)
-  storage contract passed on hardware · 280 621 conserved service cycles with a
-  consumer attached · 2 298 frames published, converted and submitted · ownership
-  invariants held across 246 548 checks, 0 failures, main and interrupt side ·
-  the pump measured for the first time (27.88 / 33.60 / 41.06 us) · R3 replicated
-  under a real workload (42/42) · real cartridge video visible on screen
-
-NOT ESTABLISHED
-  zero source-frame loss — undecidable without the indexed stimulus
-  a timing-safe pump — one run, one cartridge, one 44 s window
-  correct pacing, absence of tearing, pixel fidelity
-  anything at all about the 13 incomplete intervals: whether blocks were lost or
-  boundaries observed early or late is UNKNOWN, and the physically validated
-  vstate-0004 shows the SAME startup signature with no streaming consumer
+1. flag uniqueness and persistence — that no two flags share a bit, that the
+   guard really fails the build, and that no historical fixture changes meaning
+2. a TRUE majority-extra frame is still QUARANTINED (the policy is not weakened)
+3. a stable frame is no longer aliased, end to end on the real assembler
+4. the balance conservation proof, including the bounded residual
+5. R1 isolation — the self-test still accounts to NULL, sci_clean unchanged
+6. the exact artifact identity
+7. the functional diff against stream-0003, which must stay tiny
 ```
 
-Two things that look alarming and are not: **`power_cycle_required=1`** is set
-before every IRQ write by construction (561 244 here) and both physically
-validated runs carry it with accepted teardowns; **`drained=0`** is correct
-because `inflight_at_end=0` meant the teardown's drain was never needed.
+**Pre-registered, without imposing a result:** if no *true* majority-extra event
+occurs, frames formerly excluded solely by the aliased bit should now become
+eligible. **No frame rate and no publication count is pre-registered.** And
+fixing the alias does **not** mean every complete frame becomes published —
+anomaly, resync and incomplete exclusions are untouched.
+
+**Still not established by anything:** zero source-frame loss, a timing-safe
+pump, correct pacing, absence of tearing, pixel fidelity. The 13 incomplete
+intervals of `stream-0003` remain **UNKNOWN** in cause, and the physically
+validated `vstate-0004` shows the same startup signature with no streaming
+consumer at all.
+
+**And the slice position is still PLAUSIBLE BUT UNMEASURED as a property.** The
+pump is measured (27.88 / 33.60 / 41.06 µs, 24.95 % of calls yielding to a
+latched cause) and caused no observable transport failure in one run; the
+pre-streaming window it rests on is unchanged at median 42.8 µs with
+**p25 = 1.9 µs**.
+
+### CONTROLLED-STIMULUS TRACK — independent, and not blocking
+
+`stimulus/agb-indexed` implements the frozen `OGBPIDX1` contract: ROM 2 460 B,
+sha256 `379df0f7…c543`, rendering 38 400/38 400 AGB words identically to
+`tools/istim.py`; `tools/vindex.py` decodes it with one adversarial test per
+classification. **The ROM has never run anywhere**, and **runtime witness
+retention is deliberately NOT integrated** — 8.4375 MiB of operational capacity
+that becomes a separate candidate only after `stream-0004` proves the basic
+correction.
 
 ## Next safe action
 
-**Fix P2, then P1, in a round that audits them like any other runtime change.**
-No further physical run until then: P2 discards 12 % of the frames for a reason
-that does not exist, and no pacing or continuity measurement made with it in
-place can be trusted.
+**Run the focused pre-hardware audit of `stream-0004` above.** Only if it is
+clean, request a short supervised physical run — and power-cycle the
+GameCube/GBP first, as always.
 
 ```text
-1. P2  move GBP_VSTATE_F_EPISODE_STABLE off 0x1000; add a test that no two
-       frame flags share a bit. Rebuild -> stream-0004, new identity.
-2. P1  correct gbp_vqueue_balanced() to converted == presented + overrun + repeated.
-3. audit stream-0004 as a focused round (the two fixes, the identity, nothing else)
-4. THEN the second physical run — and power-cycle the GameCube/GBP first, as
-   always.
+Test ID   GBP-VIDEO-004
+Build ID  stream-0004
+commit    e11df66   (CLEAN, no -dirty)
+DOL       build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+          472 160 B
+          sha256 56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43
+Swiss     build/swiss/12-stream/boot.dol — byte-identical, slot NOT renumbered
 ```
-
-`stream-0003` is historical from here: commit `03b32a9`, 471 648 B, sha256
-`2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3`. It is never
-rebuilt or re-labelled, and its log and photographs are preserved in
-`captures/local/`.
-
-### The other track, running independently
-
-The CONTROLLED indexed stimulus is now **implemented**: `stimulus/agb-indexed`
-(2 460 B, `379df0f7…c543`, `make stimulus-indexed`) renders 38 400/38 400 AGB
-words identically to `tools/istim.py`, and `tools/vindex.py` decodes it with one
-adversarial test per frozen classification. **It has never run anywhere**, the
-Nintendo logo area is empty so delivery is the same unresolved question
-`agb-color-bars` carries, and **witness retention is deliberately NOT in the
-runtime** — 8.4375 MiB of operational capacity that belongs to its own audited
-round.
-
-**And the slice position is still PLAUSIBLE BUT UNMEASURED as a property, now
-with one measurement behind it.** The pump is measured (27.88 / 33.60 / 41.06 µs,
-24.95 % of calls yielding to a latched cause) and caused **no observable
-transport failure** in this run; its effect on frame completeness remains
-**UNKNOWN** and the placement is **not** timing-safe on one run. The
-pre-streaming measurement it rests on is unchanged: the RE-ARM→next-cause window
-is median 42.8 µs with **p25 = 1.9 µs**.
 
 **Historical identities, kept so no one picks up the wrong DOL:**
 `stream-0001` — **REJECTED before hardware — DO NOT RUN**, sha256
 `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275`.
 `stream-0002` — PHYSICALLY EXECUTED, **ABORTED PRE-SERVICE**
 (`store_or_bounds_invalid`, `gbp_vstate_probe.c:790`, field `episode_raw_null`);
-it is **not a streaming failure**, streaming was never reached. Its two traps are
-recorded in §V5.29 (`static_bytes=6922240` was a capacity constant, not a
-footprint; the build had configured `1 798 144`). Neither is ever rebuilt, and
-`stream-0003` is **NOT PHYSICALLY EXECUTED** language no longer applies to it —
-it has run.
+**not a streaming failure**, streaming was never reached, and its two traps are
+in §V5.29 (`static_bytes=6922240` was a capacity constant, not a footprint; the
+build had configured `1 798 144`).
+`stream-0003` — PHYSICALLY EXECUTED, real cartridge video on screen, sha256
+`2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3`. None of the
+three is ever rebuilt or re-labelled.
+
+**The physical milestone stands, with its scope:** PHYSICAL REAL-CARTRIDGE VIDEO
+OUTPUT ACHIEVED — real DOL-017, real cartridge, real GameCube, Open-GBP,
+native-size presentation, first sustained smoke. It does **not** imply zero frame
+loss, final pacing, final UI or scaling, or universal timing safety.
 
 Do **not** implement scaling, aspect correction, filtering, audio playback, A/V
 sync, KEYPAD or any network path; do not edit `OGBPCOL1` v1, `OGBPIDX1`,
@@ -481,6 +471,16 @@ believe one is wrong, argue against the source, do not re-run the discovery.
   power-on CONTROL is `0x02` where hardware presents `0x90`, and its VIDEO read
   duplicates bytes 0↔1 and 2↔3 where hardware does not — so it can never inform
   U-GBP-029, R3, the RE-ARM timing, bit 15 or frame loss (§V5.31.7, §V5.31.8).
+- **That the P2 fix means every complete frame will now be published.** It does
+  not. `F_ANOMALY`, `F_RESYNC`, incomplete intervals and a lost ring slot still
+  exclude frames; only the aliased `EPISODE_STABLE` exclusion is gone. No
+  publication count and no frame rate is pre-registered for the next run.
+- **That P2 is physically resolved.** It is fixed in software and proved in
+  software. Nothing physical has run since.
+- **That moving a persisted flag bit is free.** The frame flag word is written
+  verbatim into every OGBPSEQ1 sidecar at offset 0x1A. `F_MAJORITY_EXTRA` could
+  move because it has never been set in any file; `F_EPISODE_STABLE` could not,
+  because validated fixtures carry it (§V5.36.2).
 - **That `gbp_vsig_block()` can identify a frame.** It cannot. It is an additive
   checksum; the indexed stimulus's complement-pair strips make the frame ID
   contribute *nothing* to it, and it misses a strip substituted from another

@@ -11208,3 +11208,247 @@ witness retention in src/ or poc/    NOT implemented. The canonical witness is
 the ROM has never run                on hardware or in an emulator
 delivery to the internal AGB         unresolved, as for agb-color-bars
 ```
+
+### V5.36 `stream-0004` — P2 and P1 fixed — 2026-09-18
+
+The two defects the first physical run found (§V5.34.6, §V5.34.8, GBP-HW-145)
+are corrected. **Scope is strictly P2 + P1**: `gbp_vstate_probe.c`,
+`gbp_vpix.c` and `gbp_vpresent.c` have **zero** changed lines, so the service
+path, the pump, GX, the ownership machine, R3 and every timing counter are
+untouched.
+
+**`stream-0003` stays historical and is never rebuilt or re-labelled**: commit
+`03b32a9`, 471 648 B, sha256
+`2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3`. It carries
+the physical milestone and GBP-HW-138…145.
+
+#### V5.36.1 The frame-flag table, as it was
+
+| bit | flag | writer | reader | persisted |
+| --- | --- | --- | --- | --- |
+| 0x0001 | `F_COMPLETE` | `close_frame` | classify, vcolor, sidecar | yes |
+| 0x0002 | `F_DISAGREEMENT` | assembler | sidecar | yes |
+| 0x0004 | `F_ANOMALY` | assembler | classify, sidecar | yes |
+| 0x0008 | `F_PRE_BASELINE` | assembler | sidecar | yes |
+| 0x0010 | `F_RESYNC` | assembler | classify, sidecar | yes |
+| 0x0020 | `F_EARLY_CANDIDATE` | baseline | sidecar | yes |
+| 0x0040 | `F_OVERLONG` | assembler | sidecar | yes |
+| 0x0080 | `F_RAW_PRESERVED` | `preserve_frame` | sidecar | yes |
+| 0x0100 | `F_BASELINE` | baseline | sidecar | yes |
+| 0x0200 | `F_COUNTED` | scientific clock | sidecar | yes |
+| 0x0400 | `F_TAIL` | tail | sidecar | yes |
+| 0x0800 | `F_EPISODE_CHANGE` | episodes | sidecar | yes |
+| **0x1000** | **`F_MAJORITY_EXTRA`** | `gbp_vstate.c:1159` | **`gbp_vqueue_classify`, `gbp_vcolor.c:30`** | yes |
+| 0x2000 | `F_SOURCE_DEFERRED` | assembler | `gbp_vcolor.c:31` | yes |
+| **0x1000** | **`F_EPISODE_STABLE`** | `gbp_vstate.c:1052` | `tools/vstate.py` | yes |
+
+`GBP_VSTATE_B_MAJORITY_EXTRA` (0x0001) is per-block provenance in a different
+word; `GBP_VSTATE_EPF_*` are episode flags in `ep->flags`. Neither collides.
+
+#### V5.36.2 The persistence audit — and it inverted the obvious fix
+
+**The frame flag word IS persisted.** `gbp_vstatedump.c:275` writes
+`put_u16(r + 0x1A, f->flags)` verbatim into every OGBPSEQ1 frame record. So
+choosing which flag to move is an **ABI question**, not a matter of taste, and
+§5's stated preference had to be tested rather than assumed.
+
+```text
+maj_extra = 0 in EVERY physical log ever produced
+  vstate-0003, vstate-0004, vstate-prewait-5000, color-0001, color-0002,
+  stream-0002, stream-0003 — all zero
+
+stable episodes DO exist in the sidecars
+  vstate-0001: episodes=9 stable=7   vstate-0003: 9/7   vstate-0004: 9/7
+  so those sidecars carry seven frames each with bit 0x1000 SET
+
+tools/vstate.py:117 already names 0x1000 "episode_stable"
+no document quotes a numeric frame-flag word
+```
+
+**⇒ In every historical sidecar bit 0x1000 means EPISODE_STABLE, and the
+analyzer already reads it that way.** Moving `F_MAJORITY_EXTRA` instead
+re-interprets **exactly zero historical bytes** and needs no format version
+bump; moving `F_EPISODE_STABLE` would have changed the meaning of bits that
+exist in physically validated fixtures.
+
+**Classification: B — persisted, format versioned, correct interpretation
+preserved.** No migration, no compatibility shim, no silent re-reading of
+evidence.
+
+A second exposure the audit surfaced: `gbp_vcolor.c:30` also rejects
+`F_MAJORITY_EXTRA`, so the colour path had the same aliasing risk. It never
+fired — `color-0001` and `color-0002` both report `episodes=0 stable=0` and
+`maj_extra=0`, so **no colour frame ever carried the bit and U-GBP-011's closure
+is unaffected**.
+
+#### V5.36.3 The fix
+
+```text
+GBP_VSTATE_F_EPISODE_STABLE  0x1000   UNMOVED
+GBP_VSTATE_F_MAJORITY_EXTRA  0x1000 -> 0x4000   (0x4000 and 0x8000 were free)
+```
+
+`tools/vstate.py` gains names for `0x2000` (`source_deferred`) and `0x4000`
+(`majority_extra`); neither has ever been set in any existing file, so old
+sidecars decode exactly as before.
+
+#### V5.36.4 The guard — the next collision is a BUILD FAILURE
+
+```c
+#define GBP_VSTATE_F_ALL (...every flag ORed...)
+#define GBP_VSTATE_F_COUNT 15u
+typedef char gbp_vstate_flags_are_unique[
+    (GBP_VSTATE_POPCOUNT16(GBP_VSTATE_F_ALL) == GBP_VSTATE_F_COUNT) ? 1 : -1];
+typedef char gbp_vstate_flags_fit_the_word[(GBP_VSTATE_F_ALL <= 0xFFFFu) ? 1 : -1];
+```
+
+The popcount of the ORed mask can equal the flag count **only** if every flag is
+a distinct power of two. Adding a flag without adding it to the mask, or reusing
+a bit, breaks the build. This is deliberately **not** a test for one pair — it
+catches the next collision too. A deliberate alias would have to be excluded
+from the mask explicitly; **there is none**.
+
+A runtime test mirrors it (`test_every_frame_flag_is_a_distinct_power_of_two`):
+each flag non-zero, a power of two, pairwise distinct, and `GBP_VSTATE_F_ALL`
+complete.
+
+#### V5.36.5 P2, reproduced and fixed, on the real assembler
+
+```text
+BEFORE (stream-0003)  a frame carrying only EPISODE_STABLE -> QUARANTINED
+AFTER  (stream-0004)  the same frame                        -> ACCEPT, published
+                      the exact combination the 324 frames carried
+                      (COMPLETE | COUNTED | EPISODE_STABLE) -> ACCEPT
+```
+
+And the policy it imitated is **not** weakened
+(`test_a_true_majority_extra_frame_is_still_quarantined`):
+
+```text
+COMPLETE | MAJORITY_EXTRA                    -> QUARANTINED
+COMPLETE | MAJORITY_EXTRA | ANOMALY          -> QUARANTINED   (as emitted)
+COMPLETE | MAJORITY_EXTRA | EPISODE_STABLE   -> QUARANTINED   (quarantine wins)
+publish() counts it in source_frames_quarantined, publishes nothing
+```
+
+The strongest form is end to end, not on a synthesised flag word:
+`test_episodes_and_no_early_stop` drives the **real assembler** to produce
+stable episodes and then asserts that every frame with `F_EPISODE_STABLE` carries
+no `F_MAJORITY_EXTRA` and is not quarantined by `gbp_vqueue_classify`.
+
+#### V5.36.6 The eligibility equation, restated from code
+
+```text
+gbp_vqueue_classify(blocks, flags, slot), in order:
+  F_MAJORITY_EXTRA            -> QUARANTINED
+  F_ANOMALY | F_RESYNC        -> ANOMALY
+  !F_COMPLETE || blocks != 40 -> INCOMPLETE
+  slot < 0                    -> NO_SLOT   (counted as incomplete)
+  otherwise                   -> ACCEPT -> published
+```
+
+**Fixing the alias does NOT mean every `FRAMECAP.complete` frame becomes
+published.** `F_ANOMALY` and `F_RESYNC` still exclude frames, incomplete
+intervals still exclude themselves, and a lost ring slot still excludes. On the
+`stream-0003` data the 324 aliased frames and the 13 anomalous ones were
+distinct sets, but **no publication count is pre-registered for the next run** —
+it will be measured (§V5.36.10).
+
+#### V5.36.7 P1 — the identity derived from the state machine
+
+Every destination of a frame after `consumer_frames_converted++`:
+
+| path | counter | terminal? |
+| --- | --- | --- |
+| `commit(!still_valid)` → caller abandons the texture | `consumer_slot_overrun` | **yes** |
+| `submit_ready`, submit refused (token pending) | none | **no** — the texture stays READY and is re-offered; it costs nothing and increments nothing |
+| submit accepted, XFB free | `consumer_frames_presented` | **yes** |
+| submit accepted, XFB busy | `display_frames_repeated` | **yes** |
+
+No path increments two terminals, and a refused submit is not a terminal.
+
+```text
+converted == presented + overrun + repeated + residual
+residual  = converted frames still waiting for a submit, bounded by the number
+            of texture buffers the consumer holds
+```
+
+`dropped_before_convert` belongs to the **publication** side, not this one:
+`published == taken + dropped_before_convert + has_pending`, which
+`gbp_vqueue_balanced()` already asserted and still does.
+
+`GBP_VQUEUE_MAX_UNDISPOSITIONED` expresses the bound, and the POC asserts at
+**compile time** that it equals `GBP_VPRESENT_TEX_BUFFERS` — `gbp_vqueue.h` may
+not include `gbp_vpresent.h`, so the coupling is checked instead of commented.
+`gbp_vqueue_undispositioned()` reports the residual, and the run prints it, so a
+nonzero value is visible rather than hidden inside `balanced`.
+
+The physical run closes exactly: **2 298 == 2 286 + 0 + 12**, and
+`balanced()` now returns 1 for it.
+
+P1 also sharpened what `note_repeat()` means. Its only caller with a real queue
+is `submit_ready()` **after a successful submit of a converted frame**, so a
+repeat always has exactly one converted frame behind it — which the run
+confirmed (`repeats = 12 = xfb_skipped`, both from that one branch). The header
+said "a display opportunity passed with no new valid frame", which the code has
+never done; the comment now matches the implementation.
+
+#### V5.36.8 R1 isolation preserved
+
+The self-test still accounts to `NULL` and counts its own presentations;
+`gbp_vqueue_pristine()` is unchanged; the Dolphin run reports `sci_clean=1` and
+`COUNTERS balanced=1` **with no correction of any kind**. `stream-0004` does not
+reintroduce a `SELFTEST.xfb` subtraction and cannot.
+
+#### V5.36.9 Mutations — 6 of 6 caught
+
+| | mutation | result |
+| --- | --- | --- |
+| M1 | restore the alias `F_EPISODE_STABLE == F_MAJORITY_EXTRA` | **CAUGHT AT BUILD TIME** |
+| M2 | mark a stable frame as majority-extra | CAUGHT (host 1) |
+| M3 | let a true majority-extra frame be eligible | CAUGHT (C 11, host 2) |
+| M4 | drop repeats from the balanced identity | CAUGHT (C 4, host 1) |
+| M5 | allow an unbounded undispositioned residual | CAUGHT (C 2, host 1) |
+| M6 | contaminate the scientific counters from the self-test | CAUGHT (host 2) |
+
+Backup-based harness, **no `git checkout` on any file**, mtime forced both ways,
+every restoration verified by sha256.
+
+#### V5.36.10 The candidate
+
+```text
+Test ID     GBP-VIDEO-004
+Build ID    stream-0004
+commit      e11df66   (CLEAN, no -dirty)
+DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+            472 160 B
+            sha256 56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43
+Swiss       build/swiss/12-stream/boot.dol — byte-identical, slot NOT renumbered
+text        0x058DC0    363 968 B
+data        0x01A5A0    108 448 B
+bss         0x7D3074  8 204 404 B
+toolchain   powerpc-eabi-gcc (devkitPPC) 16.1.0 · libogc2 r2442.094b250
+            ZERO warnings
+gates       19 unit binaries / 792 301 checks / 0 failures · 677 host tests OK
+            stream-audit clean, both one-shot ISRs byte-identical to the
+            physically validated GBP-VIDEO-001 build · stream-dolphin PASS with
+            balanced=1 sci_clean_at_probe=1 inv_fail=0 storage_fault=-
+status      IMPLEMENTED · SOFTWARE/HOST VALIDATED · P1 FIXED · P2 FIXED ·
+            PHYSICAL CANDIDATE READY · NOT PHYSICALLY EXECUTED
+```
+
+**PRE-REGISTERED, without imposing a result:** if no *true* majority-extra event
+occurs, frames formerly excluded solely by the aliased `EPISODE_STABLE` bit
+should now become eligible. **No frame rate and no publication count is
+pre-registered.** It will be measured.
+
+**P2 is NOT physically resolved until a new run says so.** This round fixed it in
+software and proved the fix in software.
+
+#### V5.36.11 What was deliberately not touched
+
+R3's PE FINISH behaviour, R5's `GX_CopyDisp` timing, R7's READY selection order,
+the post-RE-ARM pump position, the slice size, the mailbox, the generation
+guard, texture and XFB ownership, RGB5A3, flag15, the source-completeness policy
+and `power_cycle_required`. **OGBPIDX1 witness retention is NOT integrated** —
+that is a separate candidate, after `stream-0004` proves the basic correction.
