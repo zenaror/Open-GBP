@@ -11452,3 +11452,440 @@ the post-RE-ARM pump position, the slice size, the mailbox, the generation
 guard, texture and XFB ownership, RGB5A3, flag15, the source-completeness policy
 and `power_cycle_required`. **OGBPIDX1 witness retention is NOT integrated** —
 that is a separate candidate, after `stream-0004` proves the basic correction.
+
+---
+
+### V5.37 PRE-HARDWARE AUDIT of `stream-0004` — 2026-09-18 — **DECISION: A, SAFE ENOUGH FOR A SHORT SUPERVISED PHYSICAL SMOKE**
+
+A focused audit of the exact `stream-0004` candidate, asking one question: is
+this artifact ready for a second short supervised physical smoke? **No hardware
+was executed, no functional code was changed, OGBPIDX1 witness retention was not
+integrated, and R3 / R5 / R7 / the pump position / scaling were deliberately not
+touched.** Seven subjects only: P2 uniqueness and persistence, `F_EPISODE_STABLE`
+no longer quarantining, a *true* `F_MAJORITY_EXTRA` still quarantining, the P1
+conservation identity, R1 self-test isolation, exact artifact identity, and the
+functional diff `stream-0003` → `stream-0004`.
+
+#### V5.37.1 The artifact, reproduced twice from scratch
+
+```text
+HEAD          0c4087c, tree clean; the only commit after the candidate
+              (e11df66) touches docs/HANDOFF.md, docs/research/DEVLOG.md and
+              docs/research/HARDWARE_TESTS.md — DOC-ONLY
+source diff   git diff e11df66..HEAD -- src/ poc/ tools/ tests/ stimulus/
+              Makefile Dockerfile compose.yaml   ->   EMPTY
+DOL           build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+              472 160 B
+              sha256 56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43
+identity      build_id=stream-0004   commit=e11df66   (NO `-dirty`)
+Swiss         build/swiss/12-stream/boot.dol — byte-identical (cmp)
+```
+
+The `build/` tree was **deleted and rebuilt from scratch three times**,
+independently, inside the pinned container — twice at the start of the audit and
+once more to restore the candidate after the mutation round had replaced it with
+a mutant. All three passes produced the same 472 160 bytes and the same SHA-256.
+This is deliberate: the repository lives on a `fuseblk` mount that has silently
+corrupted `build/` before (§V5.30), so a single build is not evidence of
+reproducibility.
+
+```text
+pass 1  56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43  OK
+pass 2  56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43  OK
+pass 3  56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43  OK   (after the mutations)
+swiss   56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43  OK
+```
+
+The restored candidate was then re-run under its own Dolphin gate — **AUXILIARY
+only**, and it says nothing about the device:
+
+```text
+OPENGBP-STREAM READY    build=stream-0004 commit=e11df66 test=GBP-VIDEO-004
+OPENGBP-STREAM SELFTEST ok=1 converted=1 released=1 submits=1 drawdone=1 releases=1 xfb=1 sci_clean=1 inv_fail=0
+OPENGBP-STREAM COUNTERS balanced=1 sci_clean_at_probe=1 inv_fail=0 inv_checks=4 consistent_at_end=1 storage_fault=-
+[dolphin_smoke] RESULT: PASS
+```
+
+`GIT_COMMIT=e11df66 GIT_DIRTY=` was passed explicitly, which is legitimate
+**only because** the source diff above is empty: the bytes compiled at `HEAD` are
+the bytes committed at `e11df66`.
+
+Gates re-run on the rebuilt tree: **19 unit binaries / 911 420 checks / 0
+failures** (`test_gbp_vstream` alone 118 946 → **217 267** with the two tests this
+audit added), **659 host tests passed / 18 skipped**, `stream-audit` clean with
+**both one-shot ISR bodies byte-identical** to the physically validated
+GBP-VIDEO-001 build.
+
+#### V5.37.2 The functional diff, `stream-0003` → `stream-0004`
+
+```text
+poc/gbp-video-stream-probe/Makefile        2 +-      BUILD_ID only
+poc/gbp-video-stream-probe/source/main.c  20 +       _Static_assert, STREAMDISP, DISPOSE
+src/gbp/gbp_vqueue.c                      50 +++     P1
+src/gbp/gbp_vqueue.h                      19 +       P1
+src/gbp/gbp_vstate.c                      14 +       P2 guard (a typedef; no runtime effect)
+src/gbp/gbp_vstate.h                      43 ++      P2
+```
+
+**Zero changed lines** in `gbp_vstate_probe.c`, `gbp_vpix.c/h`,
+`gbp_vpresent.c/h`, `gbp_irq_service.c`, `gbp_transport.c`,
+`gbp_initirqa_probe.c`, `gbp_avblock.c`, `gbp_vsig.c`, `gbp_vstatedump.c`. The
+top-level `Makefile` gained only the `stimulus-indexed` and `stream-dolphin-gbp`
+targets, neither of which the candidate links.
+
+#### V5.37.3 P2 — uniqueness, enforced by the compiler
+
+Rebuilt from the real header through a compiled probe: all **15** flags are
+distinct powers of two, `GBP_VSTATE_F_ALL = 0x7fff`, popcount 15 ==
+`GBP_VSTATE_F_COUNT`, the mask fits `uint16_t`, **`0x8000` is free**, and
+`F_EPISODE_STABLE 0x1000 != F_MAJORITY_EXTRA 0x4000`.
+
+The compile-time guard was proved to fire **three** ways, each by mutating the
+header and watching the build fail: re-aliasing the two flags, adding a flag
+without adding it to `GBP_VSTATE_F_ALL`, and overflowing the word. The header was
+restored byte-for-byte after each and the tree verified clean.
+
+#### V5.37.4 P2 — persistence compatibility
+
+`gbp_vstatedump.c:275` writes the frame flag word with `put_u16(r + 0x1A, f->flags)`
+— 16 bits, so `0x4000` fits with no format change. `tools/vstate.py:_names()` is
+purely additive and ignores bits it does not know. **No frozen mask anywhere
+rejects a previously unused bit in the frame word** (the `DIAGF_ALL` validation at
+`tools/vstate.py:217` applies to a different field).
+
+All **7 analyzer modes** (`info frames events episodes intervals diag semantic`)
+produce **byte-identical output**, old tool against new, on all five historical
+sidecars: `vstate-0001`, `vstate-0003`, `vstate-0004`, `prewait-5000`, and the
+`captures/fixtures/` prewait copy. `tools/vcolor2.py` on the `color-0002` fixture
+is identical too, so **U-GBP-011's closure is untouched**.
+
+Each of `vstate-0001/-0003/-0004` reports `episode_stable=7 majority_extra=0`,
+matching `stable=7` in their own logs.
+
+> The persistence audit **inverted the obvious fix**. Every historical sidecar
+> carries `0x1000` meaning `EPISODE_STABLE`, and `majority_extra` is zero in every
+> one. Moving `F_MAJORITY_EXTRA` — the flag never written to any file — therefore
+> re-interprets **zero historical bytes** and needs no version bump. Moving
+> `F_EPISODE_STABLE` instead would have silently rewritten the meaning of bytes
+> already on disk.
+
+#### V5.37.5 `F_EPISODE_STABLE` no longer quarantines — proved exhaustively
+
+Through the real classifier:
+
+```text
+COMPLETE|EPISODE_STABLE                 -> ACCEPT
+COMPLETE|COUNTED|EPISODE_STABLE         -> ACCEPT      (the exact 324-frame combination)
+publish() of that frame                 -> published=1  quarantined=0
+```
+
+And then not by example but by **enumeration of all 2^15 flag words**: for every
+`w`, `classify(40, w & ~EPISODE_STABLE)` equals `classify(40, w | EPISODE_STABLE)`.
+**`F_EPISODE_STABLE` cannot change a classification, in any combination.**
+
+The end of the chain — **assembly → episode stabilisation → flags → close_frame →
+classification → publish, on the real assembler** — is asserted inside
+`tests/unit/test_gbp_video_state.c:387-404`: the assembler is driven until it
+produces stable episodes, and every frame it marks `F_EPISODE_STABLE` must carry
+no `F_MAJORITY_EXTRA` and must not be quarantined. The converse direction,
+`test_majority_extra_video_is_quarantined` (line 1095), drives a *real*
+majority-extra block through `gbp_vstate` and confirms `sem.frames_quarantined > 0`
+with the flag landing on the frame that consumes the block.
+
+#### V5.37.6 A *true* `F_MAJORITY_EXTRA` still quarantines
+
+```text
+COMPLETE|MAJORITY_EXTRA                 -> QUARANTINED
+COMPLETE|MAJORITY_EXTRA|ANOMALY         -> QUARANTINED   (as the assembler emits it)
+COMPLETE|MAJORITY_EXTRA|EPISODE_STABLE  -> QUARANTINED   (quarantine outranks stable)
+```
+
+The rejection order, read off the real code and exercised in order:
+
+```text
+MAJORITY_EXTRA -> QUARANTINED   ANOMALY  -> ANOMALY      RESYNC     -> ANOMALY
+not COMPLETE   -> INCOMPLETE    blocks!=40 -> INCOMPLETE  no slot   -> NO_SLOT
+clean          -> ACCEPT
+```
+
+R3.12 is intact: `gbp_vstate.c:1171-1173` still sets
+`F_MAJORITY_EXTRA | F_ANOMALY` on the frame that accumulates the suspect block,
+and still increments `sem.frames_quarantined`. **Those lines are byte-identical
+between `03b32a9` and `e11df66`**, as is the whole of `gbp_vstate_probe.c`, where
+the R3 service selection, Disc-extra handling, follow-up, ACK and RE-ARM live.
+**U-GBP-033 stays OPEN**; P2 changed a bit number, never a policy.
+
+#### V5.37.7 The causal reproduction — and the physical run already contained the proof
+
+The old layout, restated and checked:
+
+```text
+OLD: F_EPISODE_STABLE == F_MAJORITY_EXTRA == 0x1000
+     -> (COMPLETE|EPISODE_STABLE) & MAJORITY_EXTRA  is TRUE   -> QUARANTINED
+NEW: (COMPLETE|EPISODE_STABLE) & MAJORITY_EXTRA     is FALSE  -> ACCEPT
+```
+
+`stream-0003`'s own log closes it without any new experiment:
+
+```text
+STRUCTURED  episodes=324  stable=324  unstable=0
+SEMANTIC    disc_extra=42  maj_extra=0  both=0  mx_video=0  mx_audio=0  quarantined=0
+STREAMSRC   closed=2648 complete=2298 incomplete=13 quarantined=324 anomaly=13 published=2298
+```
+
+**324 stable episodes, 324 queue quarantines, and the R3 machinery reporting
+zero.** `gbp_vstate_block_majority_extra()` was never called in that run. The
+quarantine came entirely from the aliased bit. This is a **retrodiction of an
+existing record, not a retroactive correction of it** — `stream-0003`'s counters
+stand exactly as they were logged.
+
+#### V5.37.8 The terminal graph of a converted frame
+
+Established against the real `gbp_vpresent` state machine:
+
+```text
+converted ──not still_valid──> abandon                       TERMINAL overrun
+          └──still_valid──> fill_done ──> READY
+                 READY ──submit refused──> stays READY       NOT terminal, costs nothing
+                 READY ──submit ok, XFB free──> note_presented()   TERMINAL
+                 READY ──submit ok, XFB busy──> note_repeat()      TERMINAL
+```
+
+Three questions, answered from the machine:
+
+- **Is `repeated` really terminal?** Yes. `submit_ready()` calls exactly one of
+  `note_presented()` / `note_repeat()` synchronously after a successful submit,
+  and the buffer is already `SUBMITTED` by then.
+- **Can a frame be counted twice?** No. `submit()` requires `READY`; success sets
+  `SUBMITTED`; the only path back to `READY` is `FREE → CPU_FILLING → READY`,
+  which is a **different** conversion.
+- **What state is the residual in?** `READY`, always. A `SUBMITTED` buffer has
+  already been counted, so the drain at teardown retires a token, never a
+  disposition.
+
+#### V5.37.9 The real per-stage identities
+
+```text
+1  closed    == complete + incomplete + quarantined + anomaly          EXACT, checked
+2  complete  == published                                              EXACT, checked
+3  published == taken + dropped_before_convert + (has_pending ? 1 : 0)  EXACT, checked
+4  taken     == converted + conv_abandoned_no_raw + (conv.active ? 1 : 0)
+                                                    REAL; `balanced()` checks only
+                                                    `converted <= taken`
+5  converted == presented + overrun + repeated + residual,  residual <= 2
+                                                    EXACT, checked, bound enforced
+```
+
+`GBP_VQUEUE_MAX_UNDISPOSITIONED == GBP_VPRESENT_TEX_BUFFERS == 2`, coupled by a
+`_Static_assert` in the POC. Two textures **can** be `READY` at once — one
+conversion finishes while a token is in flight, the pump then acquires the other
+free buffer and fills it — so 2 is the correct bound.
+
+#### V5.37.10 The residual at the final report — **answer C, it depends on the stop point**
+
+The exact order was traced in `poc/gbp-video-stream-probe/source/main.c`:
+
+```text
+747  gbp_vstate_probe_run()        returns only after the GBP teardown
+763  gbp_vpresent_shutdown()       submit/acquire/xfb_target now all refuse
+764  cfg.stream = 0                no further publish
+765  vq.pump    = 0                no further slice
+767  if (inflight) GX_DrawDone()   BLOCKING drain of the ONE pending token
+770  GX_SetDrawDoneCallback(prev)  callback restored
+776  VIDEO_WaitVSync()
+787  STREAMCONS   796 STREAMDISP   the report
+```
+
+**The report is taken after the drain.** It still cannot force the residual to
+zero, and the reason is mechanical: `GX_DrawDone()` waits for a *submitted*
+token; it never submits a `READY` buffer, and `gbp_vpresent_shutdown()` — which
+ran first, on purpose — makes any further submit impossible. A frame whose
+texture was `READY` at line 763 is therefore permanently undispositioned.
+
+So the answer is neither A nor B:
+
+- residual **is** zero whenever nothing was `READY` at the shutdown instant;
+- residual is 1 or 2 otherwise, and **no drain can reduce it**, because the
+  shutdown is itself what forbids the disposition.
+
+**It is not hidden behind the bound check.** It is printed on its own line in
+both channels —
+`STREAMDISP … undispositioned=N identity=converted==presented+overrun+repeated(+residual<=2)`
+and on screen `DISPOSE converted … waiting N (bound 2)` — and it is
+independently corroborated by `STREAMOWN`'s `blocked_shutdown` counter, which
+must be non-zero whenever the residual is.
+
+**Ingest rule for the next run:** `undispositioned > 0` is acceptable **only**
+with `submit_blocked_shutdown > 0`. Any other combination is a finding.
+
+#### V5.37.11 `stream-0003`'s arithmetic, reconstructed and mechanically corroborated
+
+```text
+STREAMCONS  taken=2298 converted=2298 presented=2286 overrun=0
+            dropped_before_convert=0 repeats=12 no_cpu_texture=0
+            abandoned_no_raw=0 balanced=0        <- the OLD predicate
+STREAMOWN   fills=2299/120975 abandoned=118676 submit=2299/2299
+            blocked_inflight=0 blocked_shutdown=0
+STREAMGX    drawdone=2299 spurious=0 releases=2299 xfb_presents=2287
+            xfb_skipped=12 consistent_at_end=1 inflight_at_end=0
+STREAMSELFTEST ok=1 converted=1 released=1 own_presents=1 own_repeats=0 sci_clean=1
+```
+
+Every cross-check closes exactly, and none of them is the identity under test:
+
+```text
+2298 == 2286 + 0 + 12 + 0                      the corrected identity, residual 0
+submit 2299 == 2298 queue + 1 self-test, blocked_shutdown = 0
+                                               -> nothing was left READY: the
+                                                  residual is 0 by an INDEPENDENT
+                                                  counter, not by arithmetic
+xfb_presents 2287 == 2286 + 1 self-test
+xfb_skipped    12 == repeats 12 + selftest_repeats 0
+                                               -> `repeats` and `xfb_skipped` are
+                                                  the same branch of submit_ready(),
+                                                  mechanically, not numerically
+drawdone 2299 == releases 2299 == submit 2299, spurious 0, inflight_at_end 0
+acquire 120975 - fills 2299 == abandoned 118676
+```
+
+Fed into the corrected predicate, `stream-0003`'s numbers give
+`undispositioned=0` and `balanced()==1`.
+
+#### V5.37.12 R1 — the self-test is still isolated
+
+`main.c:434` passes `NULL`, so the pre-probe display self-test is counted in
+`selftest_presents` / `selftest_repeats` and **never** in the queue.
+`selftest_sci_clean = gbp_vqueue_pristine(&vq)` is sampled immediately after the
+self-test and before the probe, reported as `sci_clean=1` (SELFTEST) and
+`sci_clean_at_probe=1` (COUNTERS), and asserted by the Dolphin gate. Replayed on
+host: a full self-test lifecycle leaves the queue **pristine** and `balanced()`
+true **with no `SELFTEST.xfb` compensation of any kind**. The `stream-0002`
+reporting correction is retired and has not come back.
+
+#### V5.37.13 Mutations
+
+Six mutations, each applied with a byte-backup harness that restores the file by
+rewriting the saved bytes and then calls `utime()` so `make` cannot reuse a stale
+object. **`git checkout` was never used on a modified file.** The tree was
+verified clean after every restore.
+
+| # | mutation | gate that caught it |
+| --- | --- | --- |
+| M1 | re-alias `F_MAJORITY_EXTRA` back onto `0x1000` — the exact `stream-0003` defect | **BUILD FAILS** — `gbp_vstate_flags_are_unique` |
+| M2 | add a 16th flag and forget to put it in `GBP_VSTATE_F_ALL` | **BUILD FAILS** — same guard, different mistake |
+| M3 | quarantine on `F_EPISODE_STABLE` — the behaviour P2 removed | **UNIT TESTS FAIL** |
+| M4 | drop `repeated` from the disposition sum — the exact P1 defect | **UNIT TESTS FAIL** |
+| M5 | widen `GBP_VQUEUE_MAX_UNDISPOSITIONED` past the texture-buffer count | **BUILD FAILS** — `_Static_assert`, `main.c:224` |
+| M6 | route the pre-probe display self-test back through the queue — the R1 defect | **`make stream-dolphin` FAILS**, and it was *executed*, not assumed |
+
+**6 of 6 caught.** M6 was not left as a claim about a gate: the mutant DOL was
+built and actually run under Dolphin, and three assertions fired at once —
+
+```text
+OPENGBP-STREAM SELFTEST ok=0 converted=1 released=1 submits=1 drawdone=1 releases=1 xfb=0 sci_clean=0
+OPENGBP-STREAM COUNTERS balanced=0 sci_clean_at_probe=0 inv_fail=0 inv_checks=4 consistent_at_end=1
+[dolphin_smoke] RESULT: FAIL
+```
+
+which is precisely the R1 signature `stream-0002` produced on hardware
+(`converted=0 presented=1`, GBP-HW-135). The mutant carried `commit=0c4087c-dirty`
+and its own distinct SHA-256, so it could never be mistaken for the candidate;
+the candidate was then rebuilt from scratch and re-verified byte-for-byte.
+
+> **A harness defect was found and corrected inside this round.** The first pass
+> scored M5 as NOT CAUGHT. It was wrong: the command ended in `| tail -6`, so the
+> exit status examined was `tail`'s, not `make`'s — while the captured transcript
+> of that very run already contained the failing `_Static_assert`. Re-run under
+> `pipefail`, M5 is CAUGHT. Recorded because the previous round was invalidated by
+> a different defect in the same harness (stale `mtime` after restore, §V5.30),
+> and a mutation harness that cannot detect a failure proves nothing.
+
+#### V5.37.14 Findings
+
+None is a blocker. Nothing below was fixed in this round — the round forbade
+functional changes, and every item is carried to the next functional candidate.
+
+| # | Sev | Class | Finding |
+|---|-----|-------|---------|
+| F1 | LOW | FACT | `gbp_vqueue.c`'s P1 comment says "at most **one** texture buffer per consumer can be waiting that way", but the constant it justifies is `2`. The constant is right — two textures can be `READY` at once (§V5.37.8) — and the prose understates it. Comment only; no effect on execution. |
+| F2 | LOW | FACT | The doc comment "Every accounted frame must land in exactly one bucket" was orphaned when the `GBP_VQUEUE_MAX_UNDISPOSITIONED` block was inserted between it and `gbp_vqueue_balanced()`, and its claim is no longer exactly true: a converted frame may be in no bucket while `balanced()` returns 1. `gbp_vqueue_undispositioned()`'s own doc and the `STREAMDISP identity=` string are correct. |
+| F3 | INFO | FACT | Stage 4 is checked only as `converted <= taken`, unbounded. What closes it — `conv_abandoned_no_raw` — lives in the POC, is **reported** in `STREAMCONS`, and is not **checked** by `balanced()`. It was 0 in `stream-0003`. |
+| F4 | INFO | FACT | `GBP_VQUEUE_REJECT_NO_SLOT` increments `source_frames_incomplete`, lumping a producer-side storage refusal with a genuinely incomplete frame. Pre-existing; unchanged by this round. |
+| F5 | INFO | FACT | `SEMANTIC.quarantined` and `STREAMSRC.quarantined` measured different things and disagreed by exactly 324 in `stream-0003` (0 vs 324). **Under P2 they must now agree** — a free, decisive post-hoc check of the fix, added to the ingest procedure below. |
+| F6 | INFO | hygiene | `build/swiss/11-color/boot.dol` is exported labelled `e11df66-dirty`. It is not the candidate and no procedure loads it, but a `-dirty` DOL next to the candidate on the operator's SD card is a trap. Remedy: `make build` before the session, or drop the slot. |
+
+#### V5.37.15 Decision
+
+**A — `stream-0004` IS SAFE ENOUGH FOR A SHORT SUPERVISED PHYSICAL SMOKE.**
+
+The two defects the first physical run paid for are fixed, each proved by the
+mechanism rather than by a number; the fix re-interprets zero historical bytes;
+every historical analysis is byte-identical; the classifier is proved over its
+entire input space; the conservation identity is derived from the state machine
+and independently corroborated by three counters the identity does not use; R1
+stays retired; and the artifact rebuilds byte-for-byte from scratch, twice.
+Nothing found is a blocker, and no finding can be reached without changing
+functional code, which this round forbade.
+
+#### V5.37.16 The physical procedure
+
+```text
+Test ID                 GBP-VIDEO-004
+Build ID                stream-0004
+commit                  e11df66      CLEAN, no -dirty
+DOL                     build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+                        472 160 B
+                        sha256 56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43
+Swiss slot              12-stream    (build/swiss/12-stream/boot.dol, byte-identical)
+Cartridge               a real cartridge that produces CHANGING video — the same
+                        one as stream-0003 if possible, so the comparison is
+                        against a known run
+Physical Link Port      nothing attached
+BBA                     absent
+SD2SP2                  inserted, writable
+
+1. POWER-CYCLE the GameCube and the Game Boy Player. stream-0003 ended with
+   power_cycle_required=1 and that is a by-construction latch (GBP-HW-143).
+2. Boot Swiss, load slot 12-stream. Confirm on screen:
+       build stream-0004   commit e11df66     (NOT -dirty, NOT stream-0003)
+3. Wait for READY, then let it run a SHORT supervised window — around the 45 s
+   of stream-0003 is enough and directly comparable. Do not extend it.
+4. Watch the screen. Record whether cartridge video appears, and anything
+   unusual (tearing, freezing, corruption, colour).
+5. Press X to save the report.
+6. Return: the .log, the -vstate.bin sidecar, and a photo of the screen.
+```
+
+**Question this answers:** with the flag collision removed, how many complete
+frames are actually published and presented, and does a real
+`F_MAJORITY_EXTRA` ever occur?
+
+**Pre-registered, and imposing no result:** frames previously refused *solely*
+by the aliased bit should now become eligible. **No frame rate and no
+publication count is pre-registered.** Fixing the alias does not make every
+complete frame publishable — anomaly, resync and incomplete exclusions are
+untouched, and so are the 13 incomplete intervals, whose cause is still
+**UNKNOWN**.
+
+#### V5.37.17 The ingest checks for that run, fixed before it happens
+
+```text
+1. SEMANTIC.quarantined  ==  STREAMSRC.quarantined
+     In stream-0003 these disagreed by exactly 324 (0 vs 324) and nobody had
+     cross-checked them. Under P2 they measure the same thing and MUST agree.
+     A disagreement means P2 is not fixed. This is the decisive check.
+2. STREAMDISP: converted == presented + overrun + repeated + undispositioned
+3. undispositioned > 0 is acceptable ONLY with STREAMOWN blocked_shutdown > 0.
+     Any other combination is a finding (§V5.37.10).
+4. xfb_skipped == repeats + selftest_repeats                 (one branch, §V5.37.11)
+5. drawdone == releases == submit,  spurious == 0,  inflight_at_end == 0
+6. acquire - fills == abandoned
+7. sci_clean_at_probe == 1,  inv_fail == 0,  consistent_at_end == 1
+8. The sidecar must open in ALL SEVEN tools/vstate.py modes.
+9. If maj_extra > 0 for the first time: that is NEW EVIDENCE about R3, it is
+     reported as such, and it does NOT get rolled into the P2 result.
+```
+
+**None of this promotes anything.** `stream-0003`'s counters stand exactly as
+logged; a new run produces a new record, and the comparison between them is a
+comparison, not a correction.
