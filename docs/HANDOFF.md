@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   af6771baabc9fce1aeb78ecc972291ec88902a26
+STATE BASELINE COMMIT   8ee556633dafe2a61beb10f6c774a825f6bf7a08
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -183,7 +183,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | GBP-VIDEO-004 | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **PHYSICALLY EXECUTED 2026-09-19 — P1 AND P2 CONFIRMED FIXED.** 472 160 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.38; GBP-HW-146…152 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0005` | `10250a4` | `35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092` | **NOT AUDITED, NOT PHYSICALLY EXECUTED.** 481 664 B; OGBPIDX1 witness retention at the source layer, OGBPIDXCAP1 sidecar, 2048-record target stop; rebuilt byte-identically twice, zero warnings | `HARDWARE_TESTS.md` §V5.39 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0005` | `10250a4` | `35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092` | **AUDITED — DECISION A. NOT PHYSICALLY EXECUTED.** 481 664 B; source-layer retention proved unbiased against the real assembler, target stop proved safe (after ACK and RE-ARM), no off-by-one at 2048, no filesystem in the capture path, 9/9 adversarials caught. **Reproduce with `GIT_COMMIT=10250a4 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.39, §V5.40 |
 | GBP-VIDEO-004 **stimulus, canonical** | `indexed-0001` | — | `379df0f7019ef7f1330bd4ad55274bde062a69d03d1c8cc1dc2a01018bdbc543` | 2 460 B, OGBPIDX1, logo area EMPTY by policy. **NEVER RUN anywhere** | `HARDWARE_TESTS.md` §V5.35, §V5.39.14 |
 | GBP-VIDEO-004 **stimulus, derived for delivery** | `indexed-0001` | — | `abb31e6a7fd9dd3185d4474065169bdf0c483bc9e5e01c7aefe8a455d0ce0769` | 2 460 B; logo area taken from the operator's already-derived colour cartridge, payload past 0x0C0 byte-identical to the canonical ROM. Never committed | `HARDWARE_TESTS.md` §V5.39.15 |
 
@@ -282,9 +282,9 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **The focused pre-hardware audit of `stream-0005`. Its witness retention has
-> never been audited and the OGBPIDX1 ROM has never run anywhere — and its
-> DELIVERY image cannot currently be produced in this environment.**
+> **The first short supervised OGBPIDX1 physical run, of the exact `stream-0005`
+> with the exact delivery cartridge. The audit is done and clean (§V5.40,
+> DECISION A); the ROM has still never run anywhere.**
 
 ### PHYSICAL TRACK — `stream-0004` closed both defects
 
@@ -383,31 +383,54 @@ non-empty, never verified against the real Nintendo logo. The claim is empirical
 
 ## Next safe action
 
-**Run the focused pre-hardware audit of `stream-0005`.** Do not run hardware
-before it.
+**Run the first short supervised OGBPIDX1 physical run** of the exact
+`stream-0005` with the exact delivery cartridge. The pre-hardware audit is done
+and clean (§V5.40, **DECISION A**). Power-cycle the GameCube/GBP first.
 
 ```text
-Test ID   GBP-VIDEO-004
-Build ID  stream-0005
-commit    10250a4   (CLEAN, no -dirty)
-DOL       build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
-          481 664 B
-          sha256 35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
-Swiss     build/swiss/12-stream/boot.dol — byte-identical, slot NOT renumbered
-cartridge build/physical/agb-indexed-cart.gba  (2 460 B, abb31e6a…0769)
-stop      witness_target_reached, NOT a 30-valid-second target
+Test ID    GBP-VIDEO-004 (indexed)
+Build ID   stream-0005   commit 10250a4   (CLEAN, no -dirty)
+DOL        build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+           481 664 B
+           sha256 35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
+Swiss      build/swiss/12-stream/boot.dol — byte-identical, slot NOT renumbered
+cartridge  build/physical/agb-indexed-cart.gba
+           2 460 B
+           sha256 abb31e6a7fd9dd3185d4474065169bdf0c483bc9e5e01c7aefe8a455d0ce0769
+           delivered through EZ-Flash Omega DE, NOR / Mode B (§V3.7)
+link port  nothing attached · BBA absent · SD2SP2 inserted and writable
+stop       witness_target_reached — NOT a 30-valid-second target
 ```
 
+**REPRODUCING THE EXACT DOL.** A plain `make build` at a later HEAD embeds THAT
+commit and produces a different hash for the same program — 12 bytes differ, both
+copies of the commit string (§V5.40.2). Use:
+
+```sh
+GIT_COMMIT=10250a4 GIT_DIRTY= make build && make swiss
+```
+
+and match `35bbbdd6…` before calling anything the tested artifact.
+
+**Full procedure in §V5.40.27.** The run ends when the probe stops on its own;
+do not extend it toward 30 valid seconds. Return BOTH the `.log` and the
+`…-idxcap.bin` sidecar: without the sidecar the indexed analysis is not wrong,
+it is **unavailable**. Read it with `python3 tools/vindex.py sidecar <file>`.
+
+**Pre-registered, imposing no result:** 2 048 intact frames give 2 047 decisive
+frames and **2 046** decisive transitions under the frozen contract. That is an
+expectation of magnitude; the analyzer reports the real N.
+
+**Carried to the next FUNCTIONAL checkpoint** (not done here — this round forbade
+functional changes):
+
 ```text
-1. witness extraction correctness — the exact 54 words, bit 15, no other byte
-2. source-layer placement — above the publish, and the association under the
-   REAL assembler for boundary / 48-block / no-anchor / store-full
-3. the 2048 target-stop semantics, and that overflow can never be the normal stop
-4. sidecar integrity — round trip, per-record CRC, every refusal path
-5. memory headroom, measured on the built artifact and at run time
-6. the added critical-path work, instrumented and bounded
-7. no service / R3 / GX drift against stream-0004
-8. the exact artifact identities of the DOL and of the OGBPIDX1 ROM
+F3  `make <x>-audit` has no source prerequisite and can audit stale objects
+F5  cfg.min_valid_observation_s = 30 is still armed as a SUCCESS condition.
+    It cannot win on the measured physics (2 048 frames ~ 23.20 valid s, a
+    22.7 % margin; the frame span would have to grow 27.9 %) and it fails
+    closed if it ever did — but the indexed experiment should have exactly one
+    success condition.
 ```
 
 **Historical identities, kept so no one picks up the wrong DOL:**
@@ -425,14 +448,14 @@ sha256 `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3`.
 **None of the four is ever rebuilt or re-labelled.**
 
 **The physical milestone stands, with its scope:** PHYSICAL REAL-CARTRIDGE VIDEO
-OUTPUT ACHIEVED, and now sustained across two runs with every accounting identity
+OUTPUT ACHIEVED, sustained across two runs with every accounting identity
 closing. It does **not** imply zero frame loss, final pacing, final UI or
 scaling, or universal timing safety.
 
 Do **not** implement scaling, aspect correction, filtering, audio playback, A/V
 sync, KEYPAD or any network path; do not edit `OGBPCOL1` v1, `OGBPIDX1`,
-`tools/vcolor.py`, `tools/vcolor2.py`, the §V4 contract or any fixture; do not
-re-label or rebuild `stream-0001` … `stream-0004`.
+`OGBPIDXCAP1` v1, `tools/vcolor.py`, `tools/vcolor2.py`, the §V4 contract or any
+fixture; do not re-label or rebuild `stream-0001` … `stream-0004`.
 
 ## Do not rediscover
 

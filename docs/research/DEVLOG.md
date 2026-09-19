@@ -7860,11 +7860,15 @@ figure. The POC now prints `ENVMEM` at run time, so a build that stops fitting
 says so in the log instead of on the console with a cartridge already running.
 
 **OGBPIDXCAP1**, a new magic — OGBPSEQ1 and OGBPCOL1 stay frozen and untouched —
-with the family's conventions and one addition: **every record seals itself**, on
-top of the whole-file CRC, because a file-wide checksum cannot distinguish a
-correct producer from one that built a record wrongly and then sealed the result.
-The host test flips every single byte of a one-record file, one at a time, and
-all 4 560 are refused. No filesystem call exists in the capture path; the sidecar
+with the family's conventions and one addition: **every record carries its own
+CRC-32**, on top of the whole-file one. That buys RECORD INTEGRITY AND CORRUPTION
+LOCALISATION — damage is caught and the damaged record is named, so one bad
+record does not condemn 2 047 good ones. It buys nothing about whether the
+producer captured the right bytes: a checksum computed by the producer over its
+own output passes whether that output is right or wrong. (An earlier draft of
+this entry claimed more than that, and the stream-0005 audit corrected it,
+§V5.40.11.) The host test flips every single byte of a one-record file, one at a
+time, and all 4 560 are refused — corruption coverage, not producer proof. No filesystem call exists in the capture path; the sidecar
 streams one record at a time after the teardown.
 
 **The adapter refuses.** A capture is usable for a decisive claim only if it
@@ -7895,3 +7899,107 @@ flashcart.
 **Next:** the focused pre-hardware audit of `stream-0005`. No hardware before it,
 and no indexed run at all until the delivery ROM exists — an indexed run without
 the indexed cartridge measures nothing.
+
+---
+
+## 2026-09-19 — pre-hardware audit of `stream-0005` + the OGBPIDX1 delivery ROM — **DECISION A**
+
+**Goal.** Is the exact candidate, with the exact delivery cartridge, ready for
+the first *decisive* indexed run? No hardware, no functional change, no OGBPIDX1
+redesign, no capacity increase, nothing touched in R3/R5/R7/pump/scaling.
+
+**The critical question was §9 — can the 2048th record stop the run somewhere
+unsafe? — and the answer is provable.** `gbp_vwitness.o` references exactly two
+external symbols, `memset` and `__udivdi3`. It has no transport, no device, no
+`finish()`, no way out of the probe. The only readers of the target and
+store-full latches are one block inside CHECK_ADMISSION and two report lines in
+`main`. So the order is forced: the 2048th frame closes at `gbp_vstate_probe.c:1425`,
+the latch is set at 1445, the publish still runs at 1479, **the RE-ARM is still
+written at 1485**, WAIT_NEXT still runs — and the stop is taken at the *next*
+iteration's line 1083, before the UNMASK at 1174. The ACK happened at 1351,
+before the latch. **The target cannot stop the run before the ACK or the RE-ARM.**
+
+The same line numbers settle the placement question: the witness at 1445 is
+strictly above the publish at 1479, so retention cannot inherit consumer
+eligibility. Driven against the real assembler, a quarantined frame keeps its
+witness and its `F_MAJORITY_EXTRA|F_ANOMALY`; a 12-block frame keeps
+`present=0xFFF` with block 20 marked ABSENT rather than zero-valued; the
+48-block give-up keeps its own block 39 and counts 40..47 out of range.
+
+**2048, exhaustively.** The target fires on record index 2047 — the 2048th — and
+not at 2046 or 2048; the 2049th commit is refused, `store_full` latches, record 0
+is untouched. Over every `capacity 1..6 × target 1..capacity`, `target_reached`
+is true exactly when `n >= target` and `store_full` only after a refusal.
+
+**Cost and isolation, by call graph on the real ELF.** `gbp_vstate_probe_run`
+reaches no CRC, no serializer, no filesystem symbol. The per-record CRC lives in
+a static called only by `gbp_vidxdump_stream`, called only from `main`, after the
+teardown. The serializer's only transient is `dump_chunk`, **4 368 bytes** — one
+record — and the only object ≥ 8 MiB in the whole image is `witness_store`
+itself. No duplicate full-file buffer exists.
+
+**Three findings came from refusing to trust my own tools, and that is the real
+lesson of this round.**
+
+The mutation harness reported the two most important adversarials — a filesystem
+call in the capture path, and a full-record CRC in the capture path — as CAUGHT.
+They were not. A `| tail -20` had pushed the `poc_audit: 0 finding(s)` line out
+of the text the detector searched: a **false positive**, and the third defect in
+the same harness family. Re-running with a correct detector said NOT CAUGHT — but
+`nm` showed the mutant symbols were not in the object at all, because
+**`make stream-audit` has no dependency on the sources** and had audited the
+previous build. Only the third attempt, with an explicit rebuild, gave the true
+answer: `U fopen U fclose` and `U gbp_crc32` verifiably present,
+`poc_audit: 0 finding(s)`. Both gaps were real.
+
+The cause was specific and dull: `gbp_vwitness.o` was never added to the `stream`
+profile's `object_must_not_reference` map when the module was created, and
+`gbp_crc32` is in no per-object list because three objects use it by design.
+Fixed **in the audit tool only** with a `_CAPTURE_SYMBOLS` set. A first attempt
+at that fix silently did nothing — it added a duplicate dict key and Python kept
+the later one — which I found by printing the loaded profile instead of trusting
+the edit. Both mutations are now caught by name.
+
+**A fourth finding is operational and would have bitten the operator.** `make
+build` at HEAD does not produce the documented candidate: it embeds `8ee5566`
+instead of `10250a4` and yields `58c96690…`. Exactly 12 bytes differ — two copies
+of the commit string — so it is the same program, but `make swiss` exports the
+mismatching DOL into the slot the operator loads, and the documented hash looks
+unreproducible. It is reproducible, byte-identically and twice, with
+`GIT_COMMIT=10250a4 GIT_DIRTY= make build`; that command is now in the HANDOFF
+and in §V5.39.17, where it was missing.
+
+**And a claim of mine was too strong.** §V5.39.7 said a per-record CRC catches "a
+producer that built a record wrongly and then sealed the result". It does not — a
+checksum computed by the producer over its own output passes whether that output
+is right or wrong. The correct classification is **record integrity and
+corruption localisation**. Correct capture comes from the frozen source-layer
+placement, the model cross-check, the assembler-driven tests, the adversarials,
+and decisively from OGBPIDX1's own CRC-8, which the **cartridge** computes — the
+one check in the chain a GameCube-side producer cannot satisfy by being
+consistently wrong. Corrected in §V5.40.11, in the DEVLOG entry above and in the
+test comment that repeated it.
+
+Also corrected: three arithmetic slips in §V5.39's memory table (`.text` 370 800,
+arena free 7 512 896, post-XFB 5 669 696). No conclusion changed.
+
+**Delivery.** The cartridge is `abb31e6a7fd9dd3185d4474065169bdf0c483bc9e5e01c7aefe8a455d0ce0769`,
+2 460 B, differing from the canonical ROM in **154 bytes, all below 0x0A0**, with
+the payload past 0x0C0 byte-identical and a logo area byte-identical to the
+colour cartridge that booted physically twice. The supportable claim is exactly
+that — *prepared for the same empirically validated Omega DE NOR/Mode-B path* —
+and **not** a generic valid GBA header: the logo is never verified against an
+authoritative reference, none exists here, and this project does not fetch such
+bytes. UNRESOLVED, deliberately.
+
+**Gates:** 19 unit binaries / 923 440 checks / 0 failures, 678 host tests, three
+static audits at 0 findings with both one-shot ISRs byte-identical to the
+physically validated GBP-VIDEO-001 build, `stream-dolphin` PASS, and the
+candidate reproduced byte-identically twice from scratch.
+
+**DECISION A.** Nothing found is a blocker; F3 and F5 need functional changes and
+are carried to the next checkpoint.
+
+**Next:** the first short supervised OGBPIDX1 physical run. Stop on
+`witness_target_reached`, do not extend toward 30 valid seconds, return both the
+log and the sidecar.

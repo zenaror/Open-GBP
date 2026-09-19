@@ -552,9 +552,17 @@ static void test_the_parser_refuses_every_shape_of_damage(void)
     dump_buf[GBP_VIDXDUMP_HEADER_SIZE + GBP_VIDXDUMP_META_SIZE + 7u] ^= 0x01u;
     CHECK(gbp_vidxdump_parse(dump_buf, good_len, &back, 0) == -6);   /* file CRC first */
 
-    /* The same damage with the whole-file CRC REPAIRED. This is the case a
-     * file-wide checksum cannot see at all — a producer that built one record
-     * wrongly and sealed the result — and it is why each record seals itself. */
+    /* The same damage with the whole-file CRC REPAIRED. This is what the
+     * per-record CRC adds and the file-wide one cannot give: damage is still
+     * caught, AND the damaged record is NAMED, so one bad record does not
+     * condemn the other 2 047.
+     *
+     * It is NOT a producer check. A CRC computed by the writer over the bytes it
+     * has just written passes whether those bytes are right or wrong; a witness
+     * stored into the wrong frame would be sealed just as neatly. Correct
+     * capture is established by the source-layer placement, the assembler-driven
+     * tests above, and OGBPIDX1's own CRC-8 — which the CARTRIDGE computes
+     * (§V5.40.11). */
     memcpy(dump_buf, good, good_len);
     dump_buf[GBP_VIDXDUMP_HEADER_SIZE + GBP_VIDXDUMP_META_SIZE + 7u] ^= 0x01u;
     reseal(dump_buf, good_len);

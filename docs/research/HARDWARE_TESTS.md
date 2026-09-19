@@ -12196,13 +12196,13 @@ added                            8 945 664 B  = 8.53 MiB
 Measured on the real build, not from a nominal 24 MiB:
 
 ```text
-.text   0x0005A870    370 288 B      .rodata 0x0000B820   47 136 B
+.text   0x0005A870    370 800 B      .rodata 0x0000B820   47 136 B
 .data   0x00002CB4     11 444 B      .sdata  0x000000A8      168 B
 .bss    0x0105CC28  17 157 160 B
 bss ends 0x810D5CB8 · Arena1Lo 0x810D5CC0 · Arena1Hi 0x81800000
-arena1 free            7 512 384 B = 7.164 MiB
+arena1 free            7 512 896 B = 7.165 MiB      (corrected, §V5.40.14)
 three framebuffers     3 x 614 400 = 1 843 200 B
-arena after the XFBs   5 669 184 B = 5.41 MiB
+arena after the XFBs   5 669 696 B = 5.41 MiB       (corrected, §V5.40.14)
 largest single object  witness_store, 8 847 360 B
 ```
 
@@ -12236,11 +12236,36 @@ records  n x 4368       48 B metadata + 40 x 54 big-endian uint16, EACH SEALED B
 footer   12 bytes       "OGBPEND1" + CRC-32 of everything before it
 ```
 
-Each record seals itself **in addition to** the whole-file CRC, because a
-file-wide checksum cannot distinguish a correct producer from one that built a
-record wrongly and then sealed the result. The host test proves it: flipping
-**every single byte** of a one-record file, one at a time, is refused in all
-4 560 cases.
+Each record also carries its own CRC-32. **What that is, precisely:
+RECORD INTEGRITY AND CORRUPTION LOCALISATION.** It detects damage to a record's
+bytes after the writer produced them — on the card, in transit, in RAM — and it
+names WHICH record, instead of only "the file is bad". With 2 048 records at
+stake that matters: one damaged record can be excluded and the rest still
+analysed.
+
+**What it is NOT, and the earlier wording in this document claimed otherwise:**
+it is not evidence that the producer captured the right bytes. A checksum
+computed by the same producer over the bytes it has just written passes whether
+those bytes are right or wrong — a writer that stored the wrong block, or the
+right block in the wrong frame, seals its mistake perfectly, and no checksum in
+this container can see that.
+
+Correct-capture semantics come from somewhere else entirely:
+
+```text
+the frozen source-layer placement            §V5.39.2, §V5.39.4
+the extraction checked against tools/istim.py   §V5.39.12
+unit tests that drive the REAL assembler     §V5.39.12
+the adversarial mutations                    §V5.40.12
+and, decisively, the stimulus itself: OGBPIDX1's CRC-8 and BLOCK_INDEX are
+computed by the CARTRIDGE and verified offline against what arrived, so they
+are the one check in this whole chain that the GameCube-side producer cannot
+forge by being wrong consistently.
+```
+
+The byte-flip test is therefore corruption-detection coverage, not proof of
+producer correctness: flipping **every single byte** of a one-record file, one
+at a time, is refused in all 4 560 cases.
 
 **Nothing in the runtime interprets OGBPIDX1.** Not one field decodes SYNC,
 FRAME_ID, BLOCK_INDEX, STATUS or the CRC-8.
@@ -12412,8 +12437,12 @@ DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
             481 664 bytes
             sha256 35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
 build_id    stream-0005          commit 10250a4   (CLEAN, no -dirty)
+reproduce   GIT_COMMIT=10250a4 GIT_DIRTY= make build && make swiss
+            A PLAIN `make build` at a later HEAD embeds THAT commit and yields a
+            different hash for the same program (§V5.40.2). Match 35bbbdd6...
+            before calling anything the tested artifact.
 Swiss       build/swiss/12-stream/boot.dol — byte-identical, slot NOT renumbered
-text        0x05A870    370 288 B
+text        0x05A870    370 800 B
 rodata      0x00B820     47 136 B
 data+sdata  0x002D5C     11 612 B
 bss         0x105CC28  17 157 160 B
@@ -12448,3 +12477,589 @@ next        the focused pre-hardware audit of stream-0005 (§V5.39.18)
 
 **Only after that** may hardware run, and only with the OGBPIDX1 cartridge on the
 physically validated delivery path (§V5.39.15).
+
+---
+
+### V5.40 PRE-HARDWARE AUDIT of `stream-0005` + the OGBPIDX1 delivery ROM — 2026-09-19 — **DECISION: A, SAFE ENOUGH FOR THE FIRST SHORT SUPERVISED INDEXED RUN**
+
+One question: is the exact `stream-0005` DOL, together with the exact OGBPIDX1
+delivery cartridge, ready for the first *decisive* physical run? **No hardware
+was executed, no functional code was changed, OGBPIDX1 was not redesigned, the
+witness capacity was not raised, and R3 / R5 / R7 / the pump / scaling were not
+touched.**
+
+#### V5.40.1 The artifacts, exactly
+
+```text
+DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+            481 664 bytes
+            sha256 35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
+            build_id stream-0005   commit 10250a4   (CLEAN, no -dirty)
+Swiss       build/swiss/12-stream/boot.dol — byte-identical (cmp)
+
+cartridge   build/physical/agb-indexed-cart.gba
+            2 460 bytes
+            sha256 abb31e6a7fd9dd3185d4474065169bdf0c483bc9e5e01c7aefe8a455d0ce0769
+canonical   build/stimulus/agb-indexed/agb-indexed.gba
+            2 460 bytes
+            sha256 379df0f7019ef7f1330bd4ad55274bde062a69d03d1c8cc1dc2a01018bdbc543
+```
+
+`git diff 10250a4..8ee5566` touches `docs/HANDOFF.md`,
+`docs/research/HARDWARE_TESTS.md` (**DOC-ONLY**) and
+`tests/host/test_video004_impl.py` (**TEST-ONLY**). Restricted to `src/ poc/
+stimulus/ Makefile Dockerfile compose.yaml tools/swiss-layout.tsv` the diff is
+**empty**: no functional change was made after the candidate commit.
+
+#### V5.40.2 A REPRODUCIBILITY TRAP, found and closed by documentation
+
+`make build` at `HEAD` does **not** produce the documented candidate. It produces
+
+```text
+481 664 B   sha256 58c96690f1c8a103603c16d62d4944664950f8727f6522a439ebe732a63c24eb
+            commit 8ee5566
+```
+
+because the build embeds the commit and the docs commit moved `HEAD` past the
+candidate's. The two DOLs were compared byte by byte: **exactly 12 bytes differ**,
+at offsets 371 640 and 396 021 — two copies of the embedded commit string
+`10250a4` → `8ee5566`. Same program, different identity.
+
+That is still a trap, and the same family as the `-dirty` colour DOL of §V5.37:
+`make swiss` exports the *mismatching* DOL into slot 12, and an operator
+comparing hashes would find the documented one unreproducible. The exact
+reproduction is:
+
+```sh
+GIT_COMMIT=10250a4 GIT_DIRTY= make build      # then make swiss
+```
+
+Run twice, from scratch, it reproduces `35bbbdd6…` **byte-identically both
+times**, and the Swiss copy matches. The command is now recorded in
+`docs/HANDOFF.md` and in §V5.39.17, which is where it was missing.
+
+#### V5.40.3 The functional diff `stream-0004` → `stream-0005`
+
+Every changed line is witness retention, its placement metadata, the
+count-bounded stop, the timing aggregate, OGBPIDXCAP1, the post-capture save or
+build identity. **Zero changed lines** in:
+
+```text
+gbp_irq_service.c/.h  gbp_transport.c  gbp_avblock.c  gbp_vsig.c
+gbp_vpix.c/.h         gbp_vqueue.c/.h  gbp_vpresent.c/.h
+gbp_vstatedump.c/.h   gbp_vcolor.c     gbp_initirqa_probe.c
+hsp_backend.c         hsp_backend_irq.c
+```
+
+so transport, IRQ service, ACK, RE-ARM, R3, pump placement, slice size, mailbox
+semantics, the generation guard, GX ownership, XFB policy, RGB5A3 and the P1/P2
+fixes are untouched **by construction**. `gbp_vstate.h` gains five `int`/`uint32_t`
+fields and one accessor declaration; `gbp_vstate_probe.c` gains one include, two
+stop names, the admission block and the five-line hook — and nothing else. The
+only removed line in all of `src/` is an enum's trailing comma.
+
+`stream-audit`, `vstate-audit` and `color-audit` all report **0 findings**, and
+both one-shot ISR bodies remain **byte-identical** to the physically validated
+GBP-VIDEO-001 build.
+
+#### V5.40.4 SOURCE-LAYER PLACEMENT — proved by line number
+
+The full path of one delivery that carries VIDEO, in `gbp_vstate_probe.c`:
+
+```text
+1019  for (n = 0; ; n++)
+1042    CHECK_ADMISSION            the ONLY place any stop is taken  (n > 0)
+1174    UNMASK + CONFIRM
+1177    deliver
+1285    AUDIO read
+1317    VIDEO read                 the consumed block now exists
+1351    ACK
+1425    gbp_vstate_block()         assembly, frame association, frame close
+1445    gbp_vwitness_step()        <-- THE WITNESS
+1479    gbp_vqueue_publish()       eligibility, quarantine, mailbox
+1485    RE-ARM
+1544    WAIT_NEXT
+```
+
+The witness runs at **1445**, strictly after the block is consumed at 1317 and
+strictly before the publish at 1479. Eligibility filtering, the quarantine
+decision, the mailbox, the consumer, the conversion and the display are all
+downstream of it. **The scientific position is SOURCE CAPTURE.**
+
+#### V5.40.5 EXACT CANONICAL EXTRACTION
+
+`gbp_vwitness_stage()` reads local row 0 at `x = 1 .. 54` and forms
+
+```c
+w->staged[i] = (uint16_t)(((uint16_t)p[1] << 8) | (uint16_t)p[3]);
+```
+
+— the frozen physical projection, with **no mask**. Driven against a synthetic
+block whose every non-witness byte is a distinctive value:
+
+```text
+all 54 words equal (b1<<8)|b3 of x = 1..54          ok
+x = 0  (the FLAG column)   is NOT in the witness    ok
+x = 55 (the first GUARD)   is NOT in the witness    ok
+no word comes from local rows 1..3                  ok
+every stored word keeps bit 15, and the full value  ok
+```
+
+Bytes 0 and 2 are never read (U-GBP-029); bit 15 is never masked (U-GBP-034). The
+words are cross-checked against `tools/istim.py`'s `witness_words()` in the
+cross-language host tests, and `tools/vidxcap.py` re-exports the same geometry
+constants, asserted equal to the C header and to `istim.STRIP_L`.
+
+#### V5.40.6 ASSEMBLER ASSOCIATION
+
+Five new fields — `witness_valid`, `witness_index`, `witness_slot`,
+`witness_place_first`, `witness_reset` — are filled by the assembler and only
+read by the witness layer. **The association is never reconstructed.** Driven
+against the real assembler:
+
+| question | answer |
+| --- | --- |
+| can a resync move a block to another frame? | yes: an early boundary closes the open interval and the block becomes index 0 of the NEXT frame |
+| which witness receives it? | the new one. Verified: the short frame's first block is the one that opened it, not the previous frame's |
+| does an incomplete frame keep the blocks it did see? | yes — `blocks=12`, `present=0xFFF`, `blocks_captured=12` |
+| does an anomalous frame keep its witness? | yes, with `flags` verbatim from the frame record |
+| does a later quarantine keep its witness? | yes — `F_MAJORITY_EXTRA|F_ANOMALY` preserved, all 40 blocks present |
+
+Both orderings are exercised: a boundary (**commit → place**) and the 48-block
+give-up (**place → commit**, where the block that triggers the close belongs to
+the frame that closes). The static audit pins **two** call sites of
+`gbp_vwitness_stage`/`_place` inside `gbp_vstate_probe_run`, because two is what
+the two orderings are.
+
+#### V5.40.7 POPULATION — formally unbiased
+
+```text
+CREATED   by gbp_vwitness_place(), when the assembler reports a block landed
+CLOSED    by gbp_vwitness_commit(), driven by step.frame_closed — the SAME event
+          that writes the frame record, with metadata read from that record
+DROPPED   by gbp_vwitness_discard(), only when NO frame record exists: the
+          assembler gave up an anchor, or the frame store was full
+ABSENCE   a 40-bit presence bitmap. A block that never arrived reads as zero AND
+          is marked absent, so it can never be mistaken for an observed zero.
+```
+
+A record exists whenever the assembler produced a frame record — **ACCEPT,
+QUARANTINED, ANOMALY or INCOMPLETE alike.** There is no `publishable` test
+anywhere in the retention path; the publish call is 34 lines *below* it. The
+adversarial mutations that make the witness skip a quarantined or an anomalous
+frame are both caught.
+
+#### V5.40.8 THE 2048 TARGET — no off-by-one
+
+Driven at the real target, not a scaled-down one:
+
+```text
+records 0 .. 2047 all stored                     count = 2048   ok
+the target fires on record index 2047            (the 2048th)   ok
+after 2047 records the target is NOT reached                    ok
+store_full is still CLEAR at exactly the target                 ok
+the 2049th commit is REFUSED                                    ok
+store_full latches, the count does not grow                     ok
+record 0's words and metadata are untouched                     ok
+record 2047 is still the last stored                            ok
+```
+
+No attempt is made to write record 2048 (the human 2049th): the probe latches at
+the 2048th and the next admission stops the run.
+
+#### V5.40.9 TARGET SAFE STOP — the critical one, and it is safe
+
+The witness layer is **structurally incapable** of stopping the probe.
+`gbp_vwitness.o` references exactly two external symbols:
+
+```text
+U memset          U __udivdi3
+```
+
+It has no transport, no device, no `finish()`, no return path out of the probe.
+The only readers of the latches are `gbp_vstate_probe.c:1076/1083` (inside
+CHECK_ADMISSION) and two report lines in `main.c`.
+
+So the sequence when the 2048th witness closes is forced:
+
+```text
+1425  the 2048th frame CLOSES inside gbp_vstate_block()
+1445  gbp_vwitness_commit() sets target_reached = 1        <-- A LATCH, nothing more
+1479  the publish still runs
+1485  the RE-ARM is still written                          <-- in the SAME cycle
+1544  WAIT_NEXT still runs
+      ---- next iteration ----
+1042  CHECK_ADMISSION, before the UNMASK at 1174
+1083  gbp_vwitness_target_reached() -> finish() -> return 0
+```
+
+The ACK happened at 1351, **before** the latch; the RE-ARM happens at 1485,
+**after** it and in the same cycle. The stop is taken at the top of the next
+iteration, with the previous transaction completed and no new one begun.
+**The target stop cannot occur before the ACK or the RE-ARM. NOT a blocker.**
+
+#### V5.40.10 TARGET vs STORE_FULL — precedence, exhaustively
+
+Implementation order inside CHECK_ADMISSION: safety budget → frame store cap →
+event store cap → **witness `store_full` → witness `target`** → colour →
+valid-seconds target → delivery guard. Overflow is examined first, so a run that
+somehow did both is reported as the failure.
+
+Exhaustive over `capacity 1..6 × target 1..capacity`, committing `capacity + 2`
+records each time:
+
+```text
+target_reached is true exactly when n >= target, never one early or one late
+store_full is true only after a commit was REFUSED
+the stored count never exceeds the capacity
+```
+
+Semantics confirmed: record #2048 fits; reaching exactly the target is NORMAL;
+an attempt beyond the capacity is `store_full` and INCONCLUSIVE.
+
+#### V5.40.11 CHECKSUM SEMANTICS — the earlier claim was too strong, and is corrected
+
+A per-record CRC-32 sits alongside the whole-file one. **What that buys:
+RECORD INTEGRITY AND CORRUPTION LOCALISATION.** Damage to a record's bytes after
+the writer produced them — on the card, in transit, in RAM — is detected, and the
+damaged record is NAMED. With 2 048 records at stake that matters: one bad record
+can be excluded and the other 2 047 still analysed.
+
+**What it does NOT buy, and §V5.39.7 claimed otherwise.** It is not evidence that
+the producer captured the right bytes. A checksum computed by the same producer
+over the bytes it has just written passes whether those bytes are right or wrong:
+a writer that stored the wrong block, or the right block in the wrong frame,
+seals its mistake perfectly. No checksum inside this container can see that, and
+the earlier wording — "a file-wide checksum cannot distinguish a correct producer
+from one that built a record wrongly and then sealed the result" — was simply
+false, because a per-record checksum cannot distinguish it either. §V5.39.7 and
+the DEVLOG entry are corrected.
+
+Correct-capture semantics come from elsewhere, and are the real chain:
+
+```text
+the frozen source-layer placement                     §V5.40.4, §V5.40.7
+the extraction checked against tools/istim.py         §V5.40.5
+unit tests that drive the REAL assembler              §V5.40.6
+the adversarial mutations                             §V5.40.23
+and, decisively, the stimulus itself: OGBPIDX1's CRC-8 and BLOCK_INDEX are
+computed BY THE CARTRIDGE and verified offline against what arrived. That is
+the one check in the chain the GameCube-side producer cannot satisfy by being
+consistently wrong.
+```
+
+#### V5.40.12 CHECKSUM COST — post-capture, proved by call graph
+
+```text
+gbp_vstate_probe_run  ->  reaches NO crc, dump, sdlog or filesystem symbol
+build_record (the per-record CRC)  <- static, called only by gbp_vidxdump_stream
+gbp_vidxdump_stream                <- called only from main
+```
+
+The capture path stores witness words and minimal metadata and nothing else. The
+4 368-byte CRC pass over each record runs during serialization, after the
+teardown. **This is already the preferred arrangement: PASS, no patch needed.**
+
+#### V5.40.13 FILESYSTEM ISOLATION — proved by call graph on the real ELF
+
+```text
+fopen          <- sdlog_save, sdlog_stream_open
+fwrite         <- sdlog_save, sdlog_stream_write
+fclose         <- sdlog_save, sdlog_stream_close
+fatMountSimple <- sdlog_save, sdlog_stream_open
+sdlog_save / sdlog_stream_open / sdlog_stream_close  <- main   ONLY
+sdlog_stream_write                                   <- sink_sd ONLY
+gbp_vstate_probe_run -> none of the above
+```
+
+Nothing between capture start and the safe service stop touches a filesystem. The
+scientific capture result and the sidecar persistence result are reported
+separately, and a card failure after the teardown cannot become a transport
+failure — but without a valid sidecar the indexed analysis is simply
+**unavailable**, which the analyzer states rather than papers over.
+
+#### V5.40.14 MEMORY — measured on the artifact, and there is no second copy
+
+```text
+.text    80003260 .. 8005DAD0      370 800 B
+.rodata  8005DAE0 .. 80069300       47 136 B
+.data    80075C08 .. 800788BC       11 444 B
+.sdata   800788BC .. 80078964          168 B
+.sbss    80078964 .. 80079090        1 836 B
+.bss     80079090 .. 810D5CB8   17 157 160 B
+bss_end  810D5CB8 · Arena1Lo 810D5CC0 (8 B alignment gap) · Arena1Hi 81800000
+arena1 free                        7 512 896 B = 7.165 MiB
+three framebuffers                 1 843 200 B
+arena1 after the XFBs              5 669 696 B = 5.407 MiB
+```
+
+Every section boundary was checked against the previous section's end: **no
+overlap**. The largest objects are `witness_store` 8 847 360 B, `frame_store`
+3 145 728 B, `episode_raw` 2 949 120 B, `raw_ring` 737 280 B, `log_storage` /
+`gx_fifo` / `event_store` 262 144 B each, `tex_buf` / `selftest_raw` 153 600 B
+each, `__stack` 131 072 B, `witness_meta` 98 304 B.
+
+**No duplicate full-file buffer.** The serializer's only transient is
+`dump_chunk`, **4 368 bytes** — one record — and the sole object ≥ 8 MiB in the
+whole image is `witness_store` itself. The writer streams records straight out of
+the store.
+
+> Three arithmetic slips in §V5.39's memory table are corrected here: `.text` was
+> printed as 370 288 (it is 370 800), arena1 free as 7 512 384 (it is 7 512 896)
+> and the post-XFB figure as 5 669 184 (it is 5 669 696). The conclusions — no
+> overlap, adequate headroom — are unchanged.
+
+#### V5.40.15 ENVMEM
+
+Emitted once, at `main.c:779`, **before** `gbp_vstate_probe_run()` at 813: a
+single pre-capture snapshot carrying `bss_end`, `arena1_lo`, `arena1_hi`,
+`arena1_free`, the witness sizes and the framebuffer size. It is not in the
+capture path and it does not repeat. `gbp_vwitness.c` and `gbp_vwitness_drive.h`
+contain **zero** `printf`/`ringlog` calls; `STREAMWIT` and `STREAMWITT` are
+post-run report lines at `main.c:908/915`.
+
+#### V5.40.16 WITNESS COPY TIMING
+
+`now32()` immediately before and after `gbp_vwitness_step()` — the measurement
+brackets exactly the added region, one clock read on each side, the same shape
+the per-block signature already uses, so the overhead is one extra time-base read
+per block and is *inside* the reported figure rather than hidden beside it.
+
+```text
+a zero measurement is NOT counted as a sample                          ok
+min / max / n / mean track correctly                                   ok
+81 920 samples counted exactly, u64 sum exact, mean exact              ok
+the sample count and the sum SATURATE rather than wrap                 ok
+```
+
+81 920 is the ideal count for 2 048 complete frames (2 048 × 40). The real run
+will differ because of incomplete and resync frames, and the report carries the
+observed **N**, not an expected one.
+
+#### V5.40.17 INCOMPLETE / RESYNC PRESERVATION
+
+Driven on the real assembler: a frame closed early by a boundary keeps
+`blocks=12`, `present=0xFFF`, `blocks_captured=12`, a completeness that is not
+`COMPLETE_40`, and its assembler flags verbatim. Block 20, which never arrived,
+reads as zero **and** is marked absent in the bitmap. The 48-block give-up keeps
+its 40 canonical blocks and counts blocks 40..47 as out of range rather than
+folding them into blocks they are not. `tools/vindex.py` passes only frames whose
+`present` is all 40 bits to the analyzer core and reports the rest as
+`records_partial` — **it never pads a missing block with zeros and calls it
+observed.**
+
+#### V5.40.18 ANALYZER / CONTAINER VALIDATION
+
+`tools/vidxcap.py` (container) and `tools/istim.py` + `tools/vindex.py`
+(semantics) are separate modules. A capture is `usable_for_decisive_claim` only
+when it parses with every CRC intact, stopped BECAUSE of the witness target,
+never refused a commit, holds exactly the declared target and placed no block out
+of range. Anything else forces `INCONCLUSIVE_CAPTURE_NOT_DECISIVE` — the
+per-frame classifications survive, the verdict does not.
+
+**The container CRC never substitutes for OGBPIDX1's own validation.** After a
+valid parse the core still applies SYNC, the ZERO/ONE/OTHER symbol decision, the
+CRC-8 over 38 payload bits, `BLOCK_INDEX`, the 8-of-8 block agreement with a
+5-of-8 majority floor, `STATUS`, the sticky FAULT, the modular delta, the
+half-range rule, the bit-15 report and the decisive-edge and status-delay
+exclusions.
+
+`tools/vidxcap.py` reads the probe's stop enum **out of `gbp_vstate_probe.h`**
+rather than copying the numbers, so it cannot drift from the runtime.
+
+#### V5.40.19 BYTE-FLIP COVERAGE — what it is
+
+Flipping **every single byte** of a one-record file, one at a time — header,
+record, footer, 4 560 positions — is refused in every case. That is
+**corruption-detection coverage across the whole container, including every
+header field**, and it demonstrates that no byte of the file is outside some
+checksum's reach. It is **not** evidence of producer correctness (§V5.40.11).
+
+#### V5.40.20 THE DELIVERY ROM
+
+```text
+canonical  2 460 B  sha256 379df0f7019ef7f1330bd4ad55274bde062a69d03d1c8cc1dc2a01018bdbc543
+derived    2 460 B  sha256 abb31e6a7fd9dd3185d4474065169bdf0c483bc9e5e01c7aefe8a455d0ce0769
+           title 'OPENGBPINDEX'  game code 'IGBP'  maker 'OG'
+           fixed 0x0B2 = 0x96, complement 0x16 = expected, reserved zero
+           154 bytes differ, ALL at offsets <= 0x09F (inside the logo area)
+           the PAYLOAD past 0x0C0 is BYTE-IDENTICAL
+           logo area sha256 08a0153cfd6b0ea54b938f7d209933fa849da0d56f5a34c481060c9ff2fad818
+             == the colour cartridge that booted PHYSICALLY TWICE
+```
+
+**The claim, and its exact limit.** What is supported is: *the delivery ROM is
+prepared for the same empirically validated EZ-Flash Omega DE NOR / Mode-B path
+that carried `color-0001` and `color-0002`.* What is **not** supported is a
+generic "direct-boot-valid GBA header": the logo area is only tested for being
+non-empty and has **never been verified against an authoritative Nintendo logo
+reference** — none exists in this environment, `gbafix` is absent from both the
+host and the pinned image, and this project does not fetch such bytes from the
+network. **`UNRESOLVED`**, and deliberately so.
+
+It does not block the Omega DE route, because that route's validation is
+empirical: these exact 156 bytes already booted that exact flashcart twice. And
+this ROM **has never been physically executed** in any form.
+
+#### V5.40.21 ROM ↔ MODEL EQUALITY
+
+`tests/host/test_agb_indexed.py` re-run: the ROM renders **38 400 / 38 400** AGB
+words identically to `tools/istim.py`, the frozen CRC vectors pass, and the
+canonical witness is 40/40 blocks × 54/54 words. The delivery ROM's payload past
+the header is byte-identical to the canonical one, so the model equality carries
+over to it unchanged.
+
+#### V5.40.22 GATES
+
+```text
+19 unit binaries / 923 440 checks / 0 failures
+678 host tests passed, 18 skipped
+stream-audit / vstate-audit / color-audit   0 findings each
+both one-shot ISR bodies byte-identical to the physically validated
+  GBP-VIDEO-001 build
+stream-dolphin PASS: SELFTEST ok=1 sci_clean=1 balanced=1 inv_fail=0
+  consistent_at_end=1 storage_fault=-
+```
+
+#### V5.40.23 Mutations
+
+Nine adversarial mutations, each applied with a byte-backup harness that restores
+the file by rewriting the saved bytes and then calls `utime()`. **`git checkout`
+was never used on a modified file**, and the tree was verified clean after every
+restore.
+
+| # | mutation | gate |
+| --- | --- | --- |
+| A | the target fires one record early (at 2047) | UNIT TESTS FAIL |
+| B | the target demands one record too many (2049) | UNIT TESTS FAIL |
+| C | the 2049th record rotates over record 0 | UNIT TESTS FAIL |
+| D | `store_full` treated as an admissible capture | HOST TESTS FAIL |
+| E | a clean target stop treated as inadmissible | HOST TESTS FAIL |
+| F | a QUARANTINED frame skipped by the witness | UNIT TESTS FAIL |
+| G | an ANOMALOUS frame skipped by the witness | UNIT TESTS FAIL |
+| H | a filesystem call inside `gbp_vwitness_stage()` | **NOT CAUGHT** → guard added → now STATIC AUDIT FAILS |
+| I | a full-record CRC inside `gbp_vwitness_commit()` | **NOT CAUGHT** → guard added → now STATIC AUDIT FAILS |
+
+**H and I were real gaps, and finding them took three attempts, because the
+harness lied twice.**
+
+1. The first pass reported both as CAUGHT. It was wrong: the command ended in
+   `| tail -20`, which pushed the `poc_audit: 0 finding(s)` line out of the text
+   the detector searched. A **false positive** — worse than §V5.37.13's false
+   negative from the same `| tail` family.
+2. The second pass, with a correct detector, reported both NOT CAUGHT — but
+   `powerpc-eabi-nm` showed `gbp_vwitness.o` still had only `memset` and
+   `__udivdi3`. **`make stream-audit` has no dependency on the sources**: it
+   disassembles whatever objects are already in `build/`, so it had audited the
+   *unmutated* build.
+3. The third pass rebuilt explicitly. The mutants were verifiably in the object
+   (`U fopen U fclose`, `U gbp_crc32`) and `poc_audit` still reported
+   **0 finding(s)**. That is the real answer.
+
+The cause was specific: the `stream` profile's `object_must_not_reference` map
+covers the capture path — but `gbp_vwitness.o` was never added to it when the
+module was created, and `gbp_crc32` is in no per-object list at all, because
+`gbp_vstatedump.o`, `gbp_vidxdump.o` and `gbp_avblock.o` all use it legitimately.
+
+**Fixed in the audit tool only** (no functional code, no change to the DOL): a
+new `_CAPTURE_SYMBOLS` set — the filesystem symbols plus `gbp_crc32*` and the
+three `*_stream` serializers — now applies to `gbp_vwitness.o`, `gbp_vstate.o`,
+`gbp_vstate_probe.o`, `gbp_vsig.o` and `gbp_irq_service.o`, while `gbp_avblock.o`,
+`gbp_vstatedump.o` and `gbp_vidxdump.o` keep only the filesystem rule because
+they need the CRC by design. Re-run:
+
+```text
+baseline                       poc_audit: 0 finding(s)
+H  gbp_vwitness.o references fopen     — forbidden in this object's path
+                                          (from gbp_vwitness_stage)     CAUGHT
+I  gbp_vwitness.o references gbp_crc32 — forbidden in this object's path
+                                          (from gbp_vwitness_commit)    CAUGHT
+```
+
+**A first attempt at this fix silently did nothing**, because it added a second
+`object_must_not_reference` key to a dict literal that already had one and Python
+kept the later definition. It was caught by printing the loaded profile rather
+than by trusting the edit. The candidate DOL was rebuilt and re-verified as
+`35bbbdd6…` after every one of these experiments.
+
+#### V5.40.24 FUSEBLK HYGIENE
+
+Host `git status` clean, container `git status` clean, embedded identity checked,
+DOL hash checked, Swiss parity checked, and the candidate rebuilt from scratch
+**twice** with byte-identical results. No `-dirty` artifact is authorised and
+none exists. §V5.40.2 records the one real trap this discipline caught.
+
+#### V5.40.25 FINDINGS
+
+None of these is a blocker. The candidate's behaviour is unchanged by all of
+them, and only the audit tool and the documentation were edited this round.
+
+| # | Sev | Class | Finding |
+| --- | --- | --- | --- |
+| F1 | MEDIUM | FACT | **The build tree at HEAD is not the documented candidate.** `make build` at `8ee5566` yields `58c96690…`, not `35bbbdd6…`; exactly 12 bytes differ, both copies of the embedded commit string. `make swiss` then exports the mismatching DOL into slot 12 — the slot the operator loads. The documented artifact IS reproducible, byte-identically and twice, with `GIT_COMMIT=10250a4 GIT_DIRTY= make build`, but that command appeared nowhere. **Remedy applied:** recorded in `docs/HANDOFF.md` and §V5.39.17, and the exact candidate restored into `build/` and Swiss. |
+| F2 | MEDIUM | FACT | **The static audit did not cover the capture path's two most dangerous additions** (§V5.40.23). A filesystem call and a full-record CRC could both have been added to `gbp_vwitness.c` with every gate still green. The candidate is clean — proved independently by call graph — but nothing enforced it. **Remedy applied in the audit tool only.** |
+| F3 | MEDIUM | FACT | **`make <x>-audit` audits stale objects.** The target has no source prerequisite and disassembles whatever is already in `build/`. Every audit reported in this round was run after a build, so the results stand; but the target cannot detect that it is out of date, and it silently gave a wrong answer once here. A Makefile prerequisite is a build-script change and therefore out of scope: **proposed for the next functional checkpoint.** |
+| F4 | LOW | FACT | **The per-record CRC claim was overstated** in §V5.39.7 and the DEVLOG. Corrected in §V5.40.11: it is record integrity and corruption localisation, never producer correctness. |
+| F5 | LOW | FACT | **A time-based scientific stop is still armed.** `cfg.min_valid_observation_s = 30` still produces `STOP_NOMINAL_NEGATIVE` as a *success* condition. It is evaluated after the witness target, and on the measured physics the witness target wins with **22.7 %** margin: 2 048 closed frames ≈ 23.20 valid s against the 30 s target, and the mean counted-frame span would have to grow from 11.4551 ms to 14.6484 ms — **+27.9 %** — to invert it. If it ever did fire, `records_n < target`, `target_reached` is false and the analyzer returns INCONCLUSIVE: it **fails closed**. Raising the target when a witness target is configured is a functional change: **proposed for the next checkpoint.** |
+| F6 | LOW | FACT | **Three arithmetic slips in §V5.39's memory table**: `.text` 370 288 → **370 800**, arena1 free 7 512 384 → **7 512 896**, post-XFB 5 669 184 → **5 669 696**. Conclusions unchanged. Corrected. |
+| F7 | INFO | FACT | **The mutation harness misreported twice in this round** (§V5.40.23): a `| tail` that hid a result line produced a **false positive**, and an audit target with no rebuild dependency produced a wrong **negative**. Recorded because a harness that misreports is worse than none, and because F2 was only found by refusing to trust it. |
+
+#### V5.40.26 DECISION
+
+**A — `stream-0005` AND THE EXACT OGBPIDX1 DELIVERY ROM ARE SAFE ENOUGH FOR THE
+FIRST SHORT SUPERVISED INDEXED PHYSICAL RUN.**
+
+Every condition A requires is met: the source-layer population is unbiased and
+proved so against the real assembler; the target stop is latched and taken at the
+service's own safe point, after the ACK and the RE-ARM; there is no off-by-one at
+2048 in either direction; the sidecar's integrity checking is complete and its
+claim is now stated correctly; no filesystem call exists in the capture path; the
+serializer's only buffer is one 4 368-byte record; MEM1 keeps 5.41 MiB free after
+the framebuffers; both artifact identities are exact and reproducible; the
+container round-trips across two independent implementations; the ROM still
+matches its model word for word; and service, R3 and GX parity are byte-level.
+
+Nothing found is a blocker, and no finding can be reached without changing
+functional code, which this round forbade.
+
+#### V5.40.27 The physical procedure — DO NOT EXECUTE YET
+
+```text
+Test ID    GBP-VIDEO-004 (indexed)
+Build ID   stream-0005   commit 10250a4   (CLEAN, no -dirty)
+DOL        build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+           481 664 B   sha256 35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
+Swiss      slot 12-stream, byte-identical
+cartridge  build/physical/agb-indexed-cart.gba
+           2 460 B     sha256 abb31e6a7fd9dd3185d4474065169bdf0c483bc9e5e01c7aefe8a455d0ce0769
+link port  nothing attached · BBA absent · SD2SP2 inserted and writable
+
+ 1. POWER-CYCLE the GameCube and the Game Boy Player.
+ 2. Verify the DOL hash above. If it does not match, rebuild with
+    `GIT_COMMIT=10250a4 GIT_DIRTY= make build && make swiss` (§V5.40.2) —
+    a plain `make build` at a later HEAD gives a different hash for the same
+    program, and a `-dirty` artifact is never authorised.
+ 3. Verify the delivery ROM's FULL sha256 above.
+ 4. Write that ROM to the EZ-Flash Omega DE and boot it in NOR / Mode B — the
+    route `color-0001` and `color-0002` validated (§V3.7).
+ 5. Launch Swiss, load slot 12-stream.
+ 6. Confirm on screen: build stream-0005, commit 10250a4.
+ 7. Run until the probe stops ON ITS OWN with stop=witness_target_reached.
+    Do NOT extend the run toward 30 valid seconds; that target is a bound, not
+    the experiment's end (§V5.40.10, finding F5).
+ 8. Let the teardown complete, then press X to save. TWO files are produced:
+    the .log and <TEST>_<BUILD>-idxcap.bin (OGBPIDXCAP1).
+ 9. Return BOTH, plus the exact artifact identities. A missing sidecar makes the
+    indexed analysis unavailable — not wrong, unavailable.
+10. NO second run before the first is analysed.
+```
+
+**Visual observation is supplementary only.** The decisive result is the sidecar,
+read by `tools/vindex.py sidecar <file>`, and a capture that did not stop on the
+witness target yields `INCONCLUSIVE_CAPTURE_NOT_DECISIVE` by contract.
+
+**Pre-registered, imposing no result:** with 2 048 intact frames the frozen
+contract gives 2 047 decisive frames and **2 046** decisive transitions. That is
+an expectation of magnitude, not a result: the analyzer reports the real N,
+together with `first_observed`, `last_observed`, `first_decisive`,
+`last_decisive` and `edge_frames_excluded`.
