@@ -186,6 +186,14 @@ Early research and infrastructure stage.
 
 The first implementation milestone is an open-source program capable of initializing and controlling the physical Game Boy Player while building a documented and testable understanding of the hardware interface.
 
+Reached so far on physical hardware, each with a scope that is deliberately narrow and recorded in full in [`docs/HANDOFF.md`](docs/HANDOFF.md):
+
+- **Physical real-cartridge video output** — a real GBA cartridge's picture, produced by the real Game Boy Player, presented on physical GameCube output.
+- **Basic sustained streaming**, operationally reached for the window exercised.
+- **Controlled steady-state source-frame continuity observed on physical GBP** — within a scientific window whose qualification rule was frozen *before* the run that produced it, the preserved source-frame IDs were contiguous and ordered across every transition the frozen analyzer treats as decisive.
+
+The third of these says something precise and nothing more. It does **not** mean zero frame loss, guaranteed pacing, a lossless display pipeline, pixel-perfect full frames or 60 FPS, and it covers only the 4 320 bytes per frame that the indexed stimulus preserves as evidence. The exact wording, the numbers behind it and the list of what it does not prove live in [`docs/research/EVIDENCE.md`](docs/research/EVIDENCE.md) and [`docs/research/HARDWARE_TESTS.md`](docs/research/HARDWARE_TESTS.md); where this summary and those documents differ, they win.
+
 ## Continuing development with an AI or code agent
 
 The supported way to pick this project up — with no chat history, by any agent

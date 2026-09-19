@@ -388,5 +388,72 @@ class TheQualificationCannotReachTheMeasurement(unittest.TestCase):
                          "the qualification state machine grew an outward edge")
 
 
+class Run4IsWhatTheWindowActuallyProduced(unittest.TestCase):
+    """The regression guard on this round's central claim.
+
+    Runs 1-3 are replays: the window is applied offline to captures taken
+    without it. Run 4 is different -- the window ran ONLINE, on hardware, and
+    what the sidecar holds is what the runtime chose to keep. So the useful
+    check here is not "would the window have done this", it is "does the
+    evidence still say what it said on the day", which is what would break if
+    tools/vidxcap.py or tools/vindex.py ever drifted.
+
+    The 24 652 B structural projection is versioned, so the shape of the
+    retained population is checked everywhere. The 8.9 MB capture is not, so the
+    analyzer verdict is checked only where the capture exists."""
+
+    FIX = os.path.join(FIX, "hw-gamecube-gbp-2026-09-19-idxcap-run4-qual.bin")
+    SIDECAR_SHA = "91feed165ec6430434aa0a2ecee61c4c9ea9dd68c419a797c53ea6ca4e98ee89"
+
+    def test_the_retained_population_is_2048_complete_consecutive_records(self):
+        info = vqual.load(self.FIX)
+        self.assertEqual(info["src_sha256"], self.SIDECAR_SHA)
+        self.assertEqual(info["src_size"], 8946060)
+        recs = info["records"]
+        self.assertEqual(len(recs), 2048)
+        self.assertTrue(all(r["blocks"] == 40 for r in recs))
+        self.assertTrue(all(r["completeness"] == 1 for r in recs))      # COMPLETE_40
+        self.assertEqual([r["frame_index"] for r in recs], list(range(70, 2118)))
+
+    def test_no_retained_record_carries_a_structural_anomaly(self):
+        bad = 0x0002 | 0x0004 | 0x0040 | 0x0010   # DISAGREE|ANOMALY|OVERLONG|RESYNC
+        for r in vqual.load(self.FIX)["records"]:
+            self.assertEqual(r["flags"] & bad, 0, "frame %d" % r["frame_index"])
+
+    def test_every_record_is_pre_baseline_which_is_why_the_mask_excludes_it(self):
+        """GBP-HW-175 physically confirmed a fourth time: an indexed stimulus
+        never repeats a frame, so the baseline never establishes and
+        F_PRE_BASELINE stands on every record. A predicate that rejected on it
+        would have retained nothing at all."""
+        recs = vqual.load(self.FIX)["records"]
+        self.assertTrue(all(r["flags"] & 0x0008 for r in recs))
+
+    def test_the_official_analyzer_still_returns_observed_contiguous(self):
+        p = None
+        for d in ("logs", os.path.join("captures", "local")):
+            c = os.path.join(ROOT, d, "GBP-VIDEO-004_stream-0006-run4-idxcap.bin")
+            if os.path.exists(c):
+                p = c
+                break
+        if p is None:
+            raise unittest.SkipTest("the run-4 capture is not on this machine")
+        import hashlib
+        with open(p, "rb") as f:
+            self.assertEqual(hashlib.sha256(f.read()).hexdigest(), self.SIDECAR_SHA)
+        report, info, use = vindex.analyze_sidecar(p)
+        self.assertTrue(use["usable_for_decisive_claim"], use["reasons"])
+        self.assertEqual(info["records_n"], 2048)
+        self.assertEqual(info["blocks_out_of_range"], 0)
+        self.assertEqual(report["observed_total"], 2048)
+        self.assertEqual(report["observed_intact"], 2048)
+        self.assertEqual(report["first_observed"], 0x55)      # 85
+        self.assertEqual(report["last_observed"], 0x854)      # 2132
+        self.assertFalse(report["fault_seen"])
+        tr = report["decisive_transitions"]
+        self.assertEqual(len(tr), 2046, "decisive = intact[:-1], so 2046 not 2047")
+        self.assertEqual({c for _, _, c in tr}, {"OBSERVED_ID_CONTIGUOUS"})
+        self.assertEqual(report["verdict"], "OBSERVED_CONTIGUOUS")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -14189,3 +14189,257 @@ directory`). The reliable way to force a from-scratch build is to **move**
 dentry. `build/physical/agb-indexed-cart.gba` must be preserved through any such
 cleanup — it is the delivery ROM and **cannot be regenerated in this
 environment** (no `gbafix`); its hash is `9f04916b…8d9cc2`.
+
+---
+
+### V5.45 FOURTH INDEXED PHYSICAL RUN — `stream-0006` + `indexed-0003` — 2026-09-19 — **`OBSERVED_CONTIGUOUS`, SOURCE-FRAME CONTINUITY CLOSED FOR THE QUALIFIED WINDOW**
+
+The first physical run judged by a rule that existed before it.
+
+#### V5.45.1 Inputs, verified before anything else ran
+
+Both delivered files matched the identities the operator reported, exactly, and
+were archived under run-distinguishing names **before** any further operation —
+the discipline §V5.43.1 had to learn the hard way, when run 3 overwrote run 1's
+log in `logs/`.
+
+```text
+log       62 513 B     299294ba183ccb5bfcaae2b21b9cf8048c552ea34ce328172a04990a4125d360
+sidecar   8 946 060 B  91feed165ec6430434aa0a2ecee61c4c9ea9dd68c419a797c53ea6ca4e98ee89
+archived  logs/GBP-VIDEO-004_stream-0006-run4{.log,-idxcap.bin}
+          captures/local/ (same two, byte-identical)
+```
+
+The runtime was `stream-0006` at commit `c629445` — **clean, with no `-dirty`
+stamp**, which §V5.44.16 had to fix the build to make possible — 483 008 B,
+`a9b8b969…f3abb`, with `stream-0006`, `c629445`, `GBP-VIDEO-004` and
+`gbp-video-stream-probe` all present as embedded strings. The cartridge was the
+same physical `indexed-0003` used in run 3; delivery `9f04916b…8d9cc2`, canonical
+`37119bb6…0caaca`, and the two are byte-identical from 0x0C0 to the end (the 154
+differing bytes are confined to the `gbafix` header and logo region).
+
+Full identities in GBP-HW-180.
+
+#### V5.45.2 The window opened where the rule said it would
+
+```text
+WITQUAL policy=consecutive_structural_complete required=64 state=2
+        streak_max=64 resets=1 warmup_frames=70 warmup_disqualified=4
+        qualify_frame=69 qualified=1 armed=1 window_first_block=0
+        first_record_frame=70
+```
+
+Every figure the §V5.44 software replay predicted from runs 1–3 — 64 required,
+64 reached, 70 warm-up frames, 4 disqualified, exactly one streak reset, first
+retained frame 70 — was reproduced by the hardware. `window_first_block=0` is a
+measurement, not a literal: §V5.44 replaced the hard-coded `0` with the presence
+bit of record 0 precisely so this line could not print the right answer by
+construction.
+
+The qualification is now **PHYSICALLY EXERCISED** (GBP-HW-181).
+
+#### V5.45.3 The pre-registered cross-check, and why 70 × 40 is the wrong number
+
+§V5.44 registered a check that needs no trust in the new code: `stream-0005`
+staged every block it was delivered, so run 3 reported `video=81876` and
+`staged=81876`, equal. If the window really suppresses staging those two must now
+**differ**. They do, by 2 755 — and 2 755 is not 70 × 40 = 2 800.
+
+The capture's own interval histogram says why:
+
+```text
+INTERVALS 1:1,34:1,40:2116        FRAMECAP frames=2118 blocks=84676
+
+  1 leading incomplete frame        1 block
+  1 second incomplete frame        34 blocks
+ 68 complete warm-up frames    68 x 40 = 2 720
+                                 --------
+ 70 warm-up frames                2 755      = 84 676 - 81 921   EXACT
+```
+
+and the whole capture closes to the block:
+
+```text
+2 755 warm-up + 81 920 scientific + 1 trailing-open = 84 676 = COUNTERS video
+```
+
+The trailing `+1` is the boundary block that OPENED frame 2118, a frame that
+never closed, so it was staged into a scratch that was never committed. That is
+why `staged = 81 921` while the sidecar serializes `2 048 × 40 = 81 920` present
+blocks. Both are right; the difference is derived, not waved through
+(GBP-HW-182).
+
+#### V5.45.4 Independent reproduction before the official verdict
+
+The container walk, the symbol rules, the 54-bit unpack and the CRC-8 were
+rewritten from the frozen text of §V5.33.5/§V5.33.6 and §V5.39, importing
+**nothing** from `tools/`, so that agreement with `tools/vindex.py` afterwards
+would mean two implementations agree rather than one being asked twice. The
+reimplementation reproduced all ten frozen CRC-8 vectors and the documented
+single-bit sensitivity across all 38 payload positions before it decoded a
+physical byte.
+
+```text
+container       header CRC 0x3DEE4E8A, global CRC 0x4FDEA327, 2048/2048 seals
+records         2048/2048 blocks=40, COMPLETE_40, presence all-40,
+                frame_index 70..2117 strictly consecutive, 0 anomaly flags
+witnesses       81 920 / 81 920 valid symbols, SYNC, CRC-8, BLOCK_INDEX
+composition     2048/2048 single-ID, 0 mixed (decoded from the bits, not metadata)
+STATUS          0x18 on 81 920 / 81 920  ->  FAULT=0, VMARGIN=24
+FRAME_ID        85 .. 2132, 2048 unique, exact sequence
+deltas          2 047 adjacent transitions, ALL +1, every other class zero
+cadence         34.272 56 s over 2 047 intervals -> 59.7271 FRAME_ID/s
+```
+
+Two corrections were made to the *reproduction*, and both are recorded because
+each is easy to get wrong:
+
+```text
+global CRC   first computed over data[:off_footer + 8]; the frozen writer covers
+             data[:off_footer], EXCLUDING the footer magic. The file was right.
+cadence      first measured t_first(record 0) -> t_last(record 2047) = 34.284 03 s,
+             which spans 2 048 frames of coverage but only 2 047 increments and
+             overcounts by one frame's block-accumulation span (11.456 ms).
+             First-to-first and last-to-last both give 34.272 5x s.
+```
+
+#### V5.45.5 The official verdict
+
+`tools/vindex.py` was **not modified** — last changed at `10250a4`, four commits
+before this ingestion, with `tools/` clean in `git status`.
+
+```text
+  records               2048 of 2048 (target 2048)
+  stop                  GBP_VSTATE_STOP_WITNESS_TARGET (11)
+  flags                 target_reached, service_ok, stop_is_target
+  decisive-claim ready  True
+
+  observed frames       2048 (intact 2048)
+  first/last observed   0x000055 .. 0x000854
+  first/last decisive   0x000055 .. 0x000853
+  decisive transitions  2046
+      OBSERVED_ID_CONTIGUOUS   2046
+  stimulus fault seen   False
+  VERDICT               OBSERVED_CONTIGUOUS
+```
+
+**2 047 and 2 046 are both correct.** The independent decode counts 2 047
+adjacent transitions across all 2 048 retained records; the analyzer counts 2 046
+DECISIVE transitions because the frozen `decisive = intact[:-1]` excludes the
+final intact frame — no later STATUS certifies its own update. Quote 2 046 for
+the analyzer-decisive claim, 2 047 for the retained population (GBP-HW-188).
+
+#### V5.45.6 What makes run 4 a different experiment from run 3
+
+This is the distinction the whole method rests on, and it must not be blurred.
+
+```text
+RUN 3   the capture population began at power-on. The startup transient was
+        INSIDE the population under test, and one incomplete record inside it
+        made id 19 unavailable to the analyzer core. Frozen verdict:
+        OBSERVED_ID_GAP -> OBSERVED_DISCONTINUITY.
+
+RUN 4   the same startup transient is STILL VISIBLE, in the log and in
+        FRAMECAP: frames=2118, incomplete=2, resync=4, INTERVALS 1:1,34:1.
+        Nothing was hidden. What changed is that witness RETENTION opened only
+        after a structural qualification defined ONLINE and BEFORE the run.
+```
+
+**Run 3 is not re-judged.** It remains `OBSERVED_ID_GAP` /
+`OBSERVED_DISCONTINUITY` permanently, and the §V5.44 qualification is not applied
+to it retrospectively. Run 4 is a new experiment with a different scientific
+population, not a better reading of the old one.
+
+#### V5.45.7 The four-run causal series
+
+One stimulus family, two runtimes, four runs, and each change moved exactly one
+thing:
+
+| run | stimulus / runtime | producer | FAULT | mixed | captures per ID | frozen verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `indexed-0001` / `stream-0005` | direct VRAM update, too slow | **set** | 1 705 | 6.00 : 1 | `STIMULUS_INVALID_FOR_DECISIVE_CLAIM` |
+| 2 | `indexed-0002` / `stream-0005` | VBlank DMA publish | clear | 0 | 2.00 : 1 | `OBSERVED_DISCONTINUITY` (1 021 duplicates) |
+| 3 | `indexed-0003` / `stream-0005` | correct, 1:1 | clear | 0 | 1.00 : 1 | `OBSERVED_DISCONTINUITY` (one startup gap) |
+| 4 | `indexed-0003` / `stream-0006` | **unchanged from run 3** | clear | 0 | 1.00 : 1 | **`OBSERVED_CONTIGUOUS`** |
+
+Runs 3 and 4 share a cartridge and a producer. The only difference is which
+frames the runtime retained, and the rule that decided it was frozen first. Old
+results are not rewritten with new methodology.
+
+#### V5.45.8 The claim, and its exact scope
+
+> Within the prospectively qualified OGBPIDX1 scientific window of the
+> `stream-0006` physical run, the preserved source-frame IDs were contiguous and
+> ordered across all analyzer-decisive transitions; all 2 048 retained records
+> contained the expected 40 block indices and one consistent FRAME_ID.
+
+first retained metadata frame index **70**, last **2117**, **2 048** retained
+records, **2 047** adjacent transitions (**2 046** analyzer-decisive), FRAME_ID
+**85 .. 2132**, FAULT clear, VMARGIN minimum **24** (GBP-HW-189).
+
+**It does not prove** zero loss before the qualified window, zero loss after the
+final retained record, zero loss for arbitrary durations, full 240×160 pixel
+fidelity, that every source frame reached the XFB, zero downstream repeats,
+universal 59.7271 Hz operation, or identical behaviour for other cartridges and
+software. OGBPIDX1 witnesses STRIP-L, local row 0, x = 1..54 — 4 320 B per frame.
+
+#### V5.45.9 Source and display are different layers
+
+Run 4 still shows `converted=2113`, `presented=2096`, `repeats=17`,
+`xfb_skipped=17`. Ownership is balanced, 175 176 invariant checks passed with
+zero failures, no overrun, no spurious draw-done.
+
+Those are downstream disposition facts. They do **not** weaken the source claim —
+the witness is taken before any consumer sees a frame — and the source claim does
+**not** close them. Keep the layers apart (GBP-HW-191).
+
+#### V5.45.10 A measurement whose meaning changed
+
+```text
+run 3   copy_ticks min 35  max 1562  mean 69  n 81 876
+run 4   copy_ticks min  4  max 1379  mean 68  n 84 676
+```
+
+`gbp_vwitness_note_ticks()` times the whole `gbp_vwitness_step()` call, and that
+call now runs — and refuses — for the 2 755 warm-up blocks too. So `n` is the
+total VIDEO block count and the minimum is the cost of a *refusal*, not of a
+40-block copy. The mean barely moved (69 → 68). No instrumentation was changed;
+the statistic simply means "cost of a witness step" now, and `min 4` must not be
+quoted as a copy cost (GBP-HW-190).
+
+#### V5.45.11 Classification, unknowns and whether run 5 is required
+
+```text
+FACT        GBP-HW-180 … GBP-HW-191
+UNCHANGED   run 3 remains OBSERVED_ID_GAP / OBSERVED_DISCONTINUITY, permanently
+```
+
+No UNKNOWN was invented in order to close it: there was and is no UNKNOWN
+specifically for source continuity. `U-GBP-029`, `U-GBP-033` and `U-GBP-034`
+stay **OPEN** and untouched — including U-GBP-034, which this run bounds without
+answering (bit 15 was set on 0 of 4 423 680 canonical-strip coordinates, but the
+strip excludes x = 0, the coordinate where it was seen).
+
+**Run 5: B — REPLICATION RECOMMENDED BUT NOT REQUIRED FOR THE FACT OF RUN 4.**
+Run 4 is decisive under its own pre-registered contract: the rule was frozen
+first, the capture is admissible (`decisive-claim ready True`, stop on target,
+2 048 of 2 048, zero out-of-range), the independent decode and the official
+analyzer agree, and every refutation condition registered in GBP-HW-179 was
+checked and not met. Refusing the FACT merely because it is the first qualified
+run would be a different error from the one this method guards against. A
+replication would strengthen repeatability across power cycles; it would not
+change what was observed here.
+
+#### V5.45.12 The next gate
+
+Source continuity is closed for the qualified window. The next unresolved
+GBP-VIDEO-004 question is the one run 4 sharpened rather than answered:
+
+> 2 114 source frames were published and 2 096 were presented, with 17 repeats
+> and 17 skipped XFB presents, while the SOURCE population over the same capture
+> was contiguous. **Which frames does the consumer/display path drop or repeat,
+> and why — and is the disposition a pacing artefact, a conversion cost, or a
+> presentation-interval mismatch?**
+
+That is a question about a later pipeline stage, with its own population and its
+own witnesses, and it is **not** started here. Frame pacing follows it.

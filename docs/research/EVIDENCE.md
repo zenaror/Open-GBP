@@ -4063,7 +4063,7 @@ latched FAULT or hide a systemic 2:1 duplication would be a verdict-laundering
 device rather than a measurement rule. It removes a startup transient and
 demonstrably nothing else.
 
-### GBP-HW-179 — `stream-0006` will return `OBSERVED_CONTIGUOUS` — HYPOTHESIS
+### GBP-HW-179 — `stream-0006` will return `OBSERVED_CONTIGUOUS` — HYPOTHESIS, **TESTED AND UPHELD 2026-09-19 by run 4** (result: GBP-HW-188/189)
 
 Not a fact and not evidence. It is the prediction the round exists to test, and
 it is stated in advance so the next run can refute it.
@@ -4075,3 +4075,327 @@ of 2048; or `blocks_out_of_range != 0`.
 **It is not confirmed by** a contiguous run alone — one run replicates neither
 the producer nor the GBP. Confirmation needs the pre-registered verdict from a
 capture that also satisfies `vidxcap.usability()`.
+
+**OUTCOME.** Run 4 met every refutation condition without triggering one: the
+warm-up completed (70 frames), `records_n` reached 2 048, `blocks_out_of_range`
+was 0, no FAULT was latched, and the unmodified analyzer returned
+`OBSERVED_CONTIGUOUS` with `decisive-claim ready True`. The prediction was
+written before the run and is recorded here as made, not edited after the fact;
+what it predicted is now GBP-HW-188 and GBP-HW-189.
+
+### GBP-HW-180 — the exact run-4 artifacts — FACT
+
+The fourth indexed physical run, and the first executed with a scientific window
+that was defined **before** the run rather than after it.
+
+```text
+GameCube runtime   stream-0006   commit c629445 (CLEAN, no -dirty stamp)
+  DOL              483 008 B  a9b8b969ef462bfe11b833f9dd77d56f7aa4a3387d61124f99b72901c9cb0379
+  Swiss            Open-GBP/12-stream/boot.dol, byte-identical to the source DOL
+  embedded strings stream-0006 · c629445 · GBP-VIDEO-004 · gbp-video-stream-probe
+
+cartridge          indexed-0003, the SAME physical cartridge as run 3
+  delivery         2 880 B  9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2
+  canonical        2 880 B  37119bb6ac68398dbd3fa75e6ad5c51c8aeb543277ac8d3b03b57f7a6f0caaca
+  relation         bytes 0x0C0..end BYTE-IDENTICAL between the two; the 154 bytes
+                   that differ are confined to 0x000..0x0C0, the gbafix header
+                   and Nintendo logo region
+
+log                62 513 B  299294ba183ccb5bfcaae2b21b9cf8048c552ea34ce328172a04990a4125d360
+sidecar            8 946 060 B  91feed165ec6430434aa0a2ecee61c4c9ea9dd68c419a797c53ea6ca4e98ee89
+  header           test_id=GBP-VIDEO-004 build_id=stream-0006 commit=c629445
+                   format=OGBPIDXCAP1_v1 witness_target=2048
+                   lines=522 dropped=0 truncated=0
+```
+
+Archived immutably as `…stream-0006-run4.log` / `…-run4-idxcap.bin` in `logs/`
+and `captures/local/`, verified byte-identical to the delivered files, **before**
+any other operation. Runs 1–3 were not touched.
+
+Transport conserved and clean: `unmasks = deliveries = acks = rearms = 224 561`,
+`audio=145 185`, `video=84 676/84 676`, `overflow=0`, `uncertain=0`,
+`timeouts=0`, `busy=0`, `errors=0`, `transport_ok=1`,
+`bulk_transfers=229 861` (= 145 185 + 84 676) and `bulk_bytes=919 833 600`,
+which is exactly 84 676 × 0xF00 + 145 185 × 0x1000. Stop was
+`witness_target_reached` at 35.449 s against a 60 s safety cap — **not** a safety
+or time stop.
+
+### GBP-HW-181 — the prospective structural window was PHYSICALLY EXERCISED — FACT
+
+The §V5.44 qualification ran on real hardware for the first time, and the line it
+emitted is reproduced verbatim:
+
+```text
+WITQUAL policy=consecutive_structural_complete required=64 state=2
+        streak_max=64 resets=1 warmup_frames=70 warmup_disqualified=4
+        qualify_frame=69 qualified=1 armed=1 window_first_block=0
+        first_record_frame=70
+```
+
+Every value the software-only replay predicted from runs 1–3 was reproduced by
+the physical run: **required 64, streak_max 64, warm-up 70 frames, 4
+disqualified, exactly 1 streak reset, armed, first retained frame 70**. The
+window opened at a block-0 boundary (`window_first_block=0`), and the 2 048-record
+target was reached (`records=2048/2048`, `target_reached=1`,
+`out_of_range=0`, `store_full=0`, `discarded=0`).
+
+This promotes the qualification from software-validated to **PHYSICALLY
+EXERCISED** for this run. No FRAME_ID, STATUS, SYNC, CRC-8 or pixel took part in
+the decision; the rule read only the assembler's verdict on frame shape.
+
+### GBP-HW-182 — warm-up suppression reconciles to the block — FACT
+
+`stream-0005` staged every block it was delivered (run 3: `video=81876`,
+`staged=81876`, equal). `stream-0006` must not, and the independent cross-check
+registered before the run confirms it did not:
+
+```text
+total VIDEO blocks delivered        84 676     (COUNTERS video=84676/84676)
+scientific blocks staged/placed     81 921     (STREAMWIT)
+difference                           2 755
+```
+
+The 2 755 is **not** 70 × 40 = 2 800. It is the exact structural population of
+the frames before the window, read from the capture's own interval histogram
+(`INTERVALS 1:1,34:1,40:2116`, `FRAMECAP frames=2118 blocks=84676`):
+
+```text
+  1 leading incomplete frame          1 block
+  1 second incomplete frame          34 blocks
+ 68 complete warm-up frames      68 x 40 = 2 720 blocks
+                                   ----------
+ 70 warm-up frames                  2 755 blocks
+```
+
+and the whole capture closes to the block with nothing unaccounted:
+
+```text
+ 2 755 warm-up  +  81 920 scientific  +  1 trailing-open  =  84 676
+```
+
+The trailing `+1` is the boundary block that OPENED frame 2118; that frame never
+closed, so the block was staged into a scratch that was never committed. It is
+why `staged = 81 921` while the sidecar serializes `2 048 × 40 = 81 920` present
+blocks. Both numbers are correct and they differ by exactly one block, derived
+rather than assumed.
+
+### GBP-HW-183 — the run-4 sidecar container is intact — FACT
+
+Recomputed independently of `tools/`, from the frozen `OGBPIDXCAP1 v1` layout:
+
+```text
+file size            8 946 060 B, and the header's own declared total_size agrees
+magic / version      OGBPIDXC / v1, header 0x180
+header CRC-32        0x3DEE4E8A stored, 0x3DEE4E8A recomputed      MATCH
+record_size/cap/n    4368 / 2048 / 2048
+record seals         2048 / 2048 valid
+footer               "OGBPEND1"
+global CRC-32        0x4FDEA327 stored, 0x4FDEA327 recomputed      MATCH
+```
+
+The global CRC covers the file **up to but not including** the footer magic. A
+first recomputation that included those 8 bytes disagreed; the error was in the
+recomputation, not the file, and it is recorded because the distinction is easy
+to get wrong and the frozen writer is the authority.
+
+### GBP-HW-184 — 2048 of 2048 scientific records are structurally complete — FACT
+
+Every retained record, checked field by field against the record metadata:
+
+```text
+blocks == 40                    2048 / 2048
+blocks_captured == 40           2048 / 2048
+presence bitmap == all 40       2048 / 2048
+completeness == COMPLETE_40     2048 / 2048
+ANOMALY|DISAGREEMENT|OVERLONG|RESYNC on any record        0
+predicate disagreements, total                            0
+frame_index                     70, 71, 72, … 2117 — strictly consecutive +1
+```
+
+No incomplete record, no resync record, no missing index, no rotation and no
+overwrite (`store_full=0`, `frames_discarded=0`). Every record carries flags
+`0x0029` = `COMPLETE | PRE_BASELINE | EARLY_CANDIDATE`, which is the signature
+GBP-HW-175 predicts: the baseline cannot establish on an indexed stimulus, so
+`F_PRE_BASELINE` stands on all 2 048 records — and the §V5.44 predicate
+deliberately does not reject on it.
+
+### GBP-HW-185 — the canonical witness decodes perfectly across the window — FACT
+
+Decoded independently from the frozen rules of §V5.33.5/§V5.33.6 — a
+reimplementation that imports nothing from `tools/`, and whose CRC-8 reproduced
+all ten frozen vectors and the documented single-bit sensitivity over all 38
+payload positions before it touched physical bytes.
+
+```text
+scientific block witnesses            81 920   (2 048 x 40)
+valid ZERO/ONE symbols                81 920 / 81 920
+SYNC == 0xB2                          81 920 / 81 920
+CRC-8 match over the 38-bit payload   81 920 / 81 920
+BLOCK_INDEX == witness slot           81 920 / 81 920
+
+INVALID_CANONICAL_STRIP                    0
+MISPLACED_BLOCK_INDEX                      0
+MIXED_BLOCK_IDS                            0   (2 048 / 2 048 single-ID records)
+```
+
+Frame composition was decoded from the witness bits themselves, not inferred
+from record metadata.
+
+**A bounded observation on U-GBP-034, which it does not close:** bit 15 was set
+on **0 of 4 423 680** canonical-strip word coordinates (81 920 blocks × 54
+words). The canonical witness is STRIP-L, local row 0, x = 1..54, and the bit-15
+sighting that opened U-GBP-034 was at the frame's FIRST pixel, x = 0 — a
+coordinate this witness does not preserve. The observation therefore bounds where
+bit 15 is *not*, and says nothing about where it was seen. **U-GBP-034 stays
+OPEN.**
+
+### GBP-HW-186 — FAULT clear and VMARGIN 24 across the whole scientific window — FACT
+
+```text
+STATUS = 0x18 on 81 920 / 81 920 scientific block witnesses
+         bit 7  FAULT   = 0
+         bits 6..0 VMARGIN = 24
+```
+
+A single STATUS value, everywhere, with no other value observed. Under the frozen
+sticky-FAULT / monotone-minimum-VMARGIN semantics this means the producer never
+latched a fault and its worst observed VBlank margin over the window was 24.
+
+**Scope:** this licenses the statement that `indexed-0003`'s VBlank publication
+remained physically valid throughout this run's scientific window. It is not a
+universal timing guarantee for other software, other cartridges or other
+durations.
+
+### GBP-HW-187 — the retained FRAME_IDs are a strict +1 sequence — FACT
+
+```text
+first scientific FRAME_ID      85      (0x000055)
+last scientific FRAME_ID     2132      (0x000854)
+unique FRAME_IDs             2048
+sequence                     85, 86, 87, … 2132 — exact, no member missing
+```
+
+Classified with the frozen modulo-2^24 rules, never naïve signed subtraction,
+over the 2 047 adjacent transitions of the retained population:
+
+```text
+CONTIGUOUS (delta +1)          2 047
+OBSERVED_DUPLICATE_ID              0
+OBSERVED_ID_GAP                    0
+OBSERVED_REORDER                   0
+UNRESOLVED_HALF_RANGE              0
+```
+
+**Observed source cadence**, from the record timestamps and not from the rounded
+`CLOCKSEC` line: `t_first(record 0) → t_first(record 2047)` spans **34.272 56 s**
+over exactly 2 047 intervals, giving **59.7271 FRAME_ID/s**. Measuring
+first-block-to-last-block instead spans 34.284 03 s, which overcounts by one
+frame's block-accumulation span (11.456 ms) and must not be used for a rate.
+
+The per-frame interval is extremely regular: minimum 675 259 ticks, maximum
+680 913, median 678 083, mean 678 084.3 at `tb_hz = 40 500 000` — a total
+excursion of ±0.42 % around the median with **zero** intervals beyond twice the
+median. Describe this as the observed indexed source cadence in this physical
+window, not as a nominal frame rate.
+
+### GBP-HW-188 — the unmodified official analyzer returns OBSERVED_CONTIGUOUS — FACT
+
+`tools/vindex.py` was **not modified**; its last change is commit `10250a4`,
+four commits before this ingestion, and `git status` reports `tools/` clean.
+
+```text
+OGBPIDXCAP1 sidecar
+  identity              GBP-VIDEO-004 / stream-0006 / gbp-video-stream-probe / c629445
+  records               2048 of 2048 (target 2048)
+  blocks staged/placed  81921 / 81921  (out of range 0)
+  all-40-block frames   2048
+  stop                  GBP_VSTATE_STOP_WITNESS_TARGET (11)
+  flags                 target_reached, service_ok, stop_is_target
+  header/total CRC-32   3dee4e8a / 4fdea327
+  decisive-claim ready  True
+
+OGBPIDX1 analyzer report
+  observed frames       2048 (intact 2048)
+  first/last observed   0x000055 .. 0x000854
+  first/last decisive   0x000055 .. 0x000853
+  decisive transitions  2046
+      OBSERVED_ID_CONTIGUOUS   2046
+  excluded from the decisive set:
+      trailing_frame_uncertified   frame id 0x000854
+      leading_edge / trailing_edge
+  stimulus fault seen   False
+  VERDICT               OBSERVED_CONTIGUOUS
+```
+
+**Two transition counts, both correct, and the difference is the frozen rule.**
+The independent decode reports **2 047** adjacent transitions across all 2 048
+retained records. The analyzer reports **2 046** DECISIVE transitions, because
+`decisive = intact[:-1]` drops the final intact frame: no later STATUS certifies
+its own update, so that one transition is excluded by contract rather than by
+observation. Quote 2 046 for the analyzer-decisive claim and 2 047 for the
+retained population.
+
+### GBP-HW-189 — source-frame continuity within the qualified window — FACT
+
+Within the prospectively qualified OGBPIDX1 scientific window of the
+`stream-0006` physical run, the preserved source-frame IDs were **contiguous and
+ordered across all analyzer-decisive transitions**; all 2 048 retained records
+contained the expected 40 block indices and one consistent FRAME_ID.
+
+```text
+first retained metadata frame index   70
+last retained metadata frame index  2117
+retained records                    2048
+adjacent record transitions         2047  (all delta +1)
+analyzer-decisive transitions       2046  (all OBSERVED_ID_CONTIGUOUS)
+FRAME_ID observed                     85 .. 2132
+FAULT                                clear throughout
+VMARGIN minimum                       24
+```
+
+**This does not prove** zero loss before the qualified window, zero loss after
+the final retained record, zero loss for arbitrary durations, full 240×160 pixel
+fidelity, that every source frame reached the XFB, zero downstream repeats,
+universal 59.7271 Hz operation, or identical behaviour for other cartridges and
+software. OGBPIDX1 witnesses STRIP-L, local row 0, x = 1..54 — 4 320 B per frame
+— and the claim is exactly that wide.
+
+### GBP-HW-190 — the witness copy-cost statistic changed meaning, and it is not a regression — FACT
+
+```text
+run 3 (stream-0005)   copy_ticks min 35  max 1562  mean 69  n 81 876
+run 4 (stream-0006)   copy_ticks min  4  max 1379  mean 68  n 84 676
+```
+
+`n` rose to the TOTAL VIDEO block count because `gbp_vwitness_note_ticks()` times
+the whole `gbp_vwitness_step()` call, and that call now runs — and refuses — for
+the 2 755 warm-up blocks as well. Those refusals cost almost nothing, which is
+why the minimum fell from 35 ticks to 4.
+
+The aggregate is therefore "cost of a witness step, staged or not", not "cost of
+a canonical copy". The mean is essentially unchanged (69 → 68) because the
+refusals are 3.3 % of the samples. **Nobody should read `min 4` as the cost of a
+40-block copy.** No change was made to the instrumentation this round.
+
+### GBP-HW-191 — downstream disposition in run 4, kept separate from the source — FACT
+
+```text
+STREAMSRC    closed=2118 complete=2114 incomplete=2 quarantined=0 anomaly=2 published=2114
+STREAMCONS   taken=2113 converted=2113 presented=2096 overrun=0
+             dropped_before_convert=0 repeats=17 no_cpu_texture=0
+             abandoned_no_raw=0 balanced=1
+STREAMGX     drawdone=2114 spurious=0 releases=2114 xfb_presents=2097
+             xfb_skipped=17 consistent_at_end=1 inflight_at_end=0 cb_restored=1
+STREAMINV    checks=175176 failures=0 (main 0/173062, isr 0/2114)
+SELFTEST     ok=1 sci_clean=1
+```
+
+No observable `stream-0006` transport or ownership regression in this run:
+ownership balanced, zero invariant failures over 175 176 checks, zero overruns,
+zero spurious draw-done callbacks, callback restored.
+
+**These are downstream disposition facts and they are a different layer.** 2 113
+converted, 2 096 presented and 17 repeats do **not** weaken GBP-HW-189, because
+the source witness is taken before any consumer sees a frame. They equally mean
+GBP-HW-189 does **not** close consumer/display pacing: source continuity and
+presentation disposition are separate questions and neither answers the other.

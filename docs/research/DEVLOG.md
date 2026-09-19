@@ -8323,3 +8323,73 @@ exact rather than an earliest bound.
 same procedure, to test GBP-HW-179. After that the downstream consumer/display
 loss policy and frame pacing remain the open GBP-VIDEO-004 objectives; the source
 witness says nothing about either.
+
+## 2026-09-19 — the fourth indexed run: the rule held, and source continuity closes
+
+**Goal.** Ingest the first physical run judged by a rule that existed before it,
+reproduce the bytes independently, and then let the unmodified analyzer decide.
+No hardware, no functional change to `src/`, `poc/`, `stimulus/`, the analyzer or
+either protocol.
+
+**Result.** `OBSERVED_CONTIGUOUS`. 2 048 of 2 048 retained records complete,
+FRAME_ID 85..2132 with no member missing, FAULT clear, VMARGIN 24, and the
+capture admissible under `vidxcap.usability()` (`decisive-claim ready True`,
+stop on target, zero out-of-range).
+
+**The window did what it was designed to do, to the block.** §V5.44 registered a
+cross-check that needs no trust in the new code: `stream-0005` staged every block
+it was delivered, so run 3's `video` and `staged` were equal at 81 876. If the
+window really suppresses staging, run 4's must differ. They differ by **2 755** —
+and the number is not 70 × 40 = 2 800. It is the exact structural population of
+the frames before the window, read from the capture's own histogram:
+1 + 34 + 68×40. The whole capture then closes with nothing unaccounted:
+2 755 warm-up + 81 920 scientific + 1 trailing-open block = 84 676 = the VIDEO
+counter. The trailing block is the boundary that opened a frame which never
+closed, which is also why `staged = 81 921` against 81 920 serialized.
+
+**Independent first, official second.** The container walk, symbol rules, 54-bit
+unpack and CRC-8 were rewritten from the frozen spec text importing nothing from
+`tools/`, and reproduced all ten frozen CRC-8 vectors plus the single-bit
+sensitivity over 38 positions before touching a physical byte. Only then was
+`tools/vindex.py` run. Agreement therefore means two implementations agree.
+
+**Two errors were mine, not the data's, and both are recorded.** The global CRC-32
+covers `data[:off_footer]`, excluding the footer magic — my first recomputation
+included those 8 bytes and disagreed with a file that was correct. And the
+cadence must be measured first-to-first over 2 047 intervals (34.272 56 s,
+59.7271 ID/s); measuring first-block to last-block spans 2 048 frames of coverage
+and overcounts by one frame's accumulation span, 11.456 ms.
+
+**Two counts, both right.** The independent decode finds 2 047 adjacent
+transitions over 2 048 records; the analyzer reports 2 046 DECISIVE ones, because
+the frozen `decisive = intact[:-1]` drops the last intact frame — no later STATUS
+certifies its own update. That is a contract exclusion, not an observation, and
+the two numbers are quoted for different populations rather than reconciled away.
+
+**Run 3 is not re-judged.** It stays `OBSERVED_ID_GAP` /
+`OBSERVED_DISCONTINUITY` for ever. The startup transient is still fully visible
+in run 4's log and FRAMECAP (2 118 frames, incomplete=2, resync=4, intervals
+1:1 and 34:1) — nothing was hidden. What changed is that retention opened only
+after a structural qualification decided online, from a rule frozen first. Runs 3
+and 4 share the cartridge and the producer; the only difference is which frames
+the runtime kept.
+
+**Rejected framings.** That 70 × 40 describes the warm-up — the log disproves it.
+That `min 4` copy ticks is a regression — `note_ticks` times the whole witness
+step, which now also times 2 755 refusals, so the minimum is the cost of a
+refusal and the mean barely moved (69 → 68). That downstream repeats weaken the
+source claim — the witness is taken before any consumer sees a frame, and the two
+layers answer different questions.
+
+**New unknowns:** none, and none was invented to be closed. `U-GBP-029`,
+`U-GBP-033` and `U-GBP-034` stay open. Run 4 *bounds* U-GBP-034 without touching
+it: bit 15 was set on 0 of 4 423 680 canonical-strip coordinates, but the strip
+is x = 1..54 and the sighting that opened the item was at x = 0, which the
+witness does not preserve.
+
+**Run 5:** recommended for repeatability, **not required** for the fact of run 4.
+
+**Next:** the question run 4 sharpened rather than answered — 2 114 published,
+2 096 presented, 17 repeats and 17 skipped XFB presents over a capture whose
+SOURCE population was contiguous. Which frames the consumer/display path drops or
+repeats, and why. Frame pacing follows it. Neither is started here.
