@@ -149,13 +149,17 @@ class ThePolicyIsTheAssemblersNotACopy(unittest.TestCase):
 
     def test_only_the_storage_api_changed_in_the_validated_state_model(self):
         """The positive half of the same claim: what DID change since `39f1980`
-        is the storage validator and the capacity naming, and nothing else."""
+        is the storage validator, the capacity naming, and — added by P2
+        (GBP-HW-145) — the compile-time guard that makes two frame flags sharing
+        a bit a BUILD FAILURE. Nothing else."""
         r = subprocess.run(["git", "diff", "39f1980..HEAD", "--", "src/gbp/gbp_vstate.c"],
                            cwd=ROOT, capture_output=True, text=True)
         allowed = re.compile(
             r"storage_fault|storage_ok|static_bytes|required_capacity_bytes|configured_bytes"
             r"|frames_cap|events_cap|raw_ring_cap|raw_ring_slots|episode_raw|audio_raw"
             r"|s->frames|s->events|s->raw_ring|frames_null|events_null|raw_ring_null"
+            # P2: the flag-uniqueness guard
+            r"|POPCOUNT|gbp_vstate_flags_are_unique|gbp_vstate_flags_fit_the_word"
             r"|GBP_VSTATE_(MAX_FRAMES|MAX_EVENTS|RAW_RING|EPISODE_RAW|AUDIO_RAW|FRAME_REC|EVENT_REC|RAW_FRAME_BYTES)"
             r"|^\}$|^\{$|^return|^s->frames|^if \(!s\)|^const char|^uint64_t|^int ", re.I)
         stray = []
@@ -447,7 +451,7 @@ class DesignAndDocsAgree(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(ROOT, rel)), rel)
 
     def test_the_build_id_is_the_one_the_design_specified(self):
-        self.assertIn("BUILD_ID   := stream-0003", read(os.path.join(POC, "Makefile")))
+        self.assertIn("BUILD_ID   := stream-0004", read(os.path.join(POC, "Makefile")))
         self.assertIn('#define TEST_ID "GBP-VIDEO-004"', read(MAIN))
 
     def test_the_poc_is_registered_in_the_build(self):
