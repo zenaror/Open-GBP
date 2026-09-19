@@ -49,8 +49,28 @@ export LOCAL_UID ?= $(shell id -u)
 export LOCAL_GID ?= $(shell id -g)
 
 COMPOSE     := docker compose
+
+# BUILD IDENTITY IS COMPUTED ON THE HOST AND PASSED IN.
+#
+# It used to be computed inside the container, and the container's git is not
+# trustworthy here: the repository lives on a fuseblk mount whose directory
+# cache the container does not see refreshed, so after a commit rewrites
+# `.git/index` the container sees NO index at all, reports every tracked file
+# as deleted, and stamps a build `-dirty` that is not. `stream-0006` was built
+# `b71da06-dirty` from a provably clean tree that way, and project rule §18
+# forbids taking a `-dirty` build to hardware -- so a false stamp does not
+# merely look untidy, it blocks the experiment.
+#
+# `GIT_COMMIT=... GIT_DIRTY= make build` was already the documented way to work
+# around it (HANDOFF), but compose forwarded neither variable, so the override
+# silently did nothing and the container's own answer won regardless. Both are
+# now computed where git works and forwarded explicitly; overriding either on
+# the command line does what it says.
+GIT_COMMIT ?= $(shell git -C "$(CURDIR)" rev-parse --short HEAD 2>/dev/null)
+GIT_DIRTY  ?= $(shell git -C "$(CURDIR)" diff --quiet HEAD -- 2>/dev/null || echo -dirty)
+
 # -T: no pseudo-TTY, so the target also works from scripts/CI.
-IN_CONTAINER := $(COMPOSE) run --rm -T dev
+IN_CONTAINER := $(COMPOSE) run --rm -T -e GIT_COMMIT="$(GIT_COMMIT)" -e GIT_DIRTY="$(GIT_DIRTY)" dev
 
 PYTHON ?= python3
 PYTEST := $(shell command -v pytest 2>/dev/null)
