@@ -4502,8 +4502,8 @@ overflow     fails closed: nothing wraps, nothing is overwritten, and the header
              says so
 integrity    three CRC-32s (header, per section, global), none of them computed
              in the capture path
-cost         4 096 + 4 096 records = 557 096 B of .bss; arena headroom falls
-             from 7 511 584 to 6 946 464 B; at most 557 324 B serialized
+cost         4 096 + 4 096 records = 557 112 B of .bss; arena headroom falls
+             from 7 511 584 to 6 946 368 B; at most 557 324 B serialized
 hot path     0 added writes on the common pump path; 44 writes, 5 clock reads
              and 2 retrace reads per presented frame; the callback is 76 bytes
 ```

@@ -14758,14 +14758,15 @@ shape has produced.
 
 | | `stream-0006` | `stream-0007` | delta |
 | --- | --- | --- | --- |
-| `.text` | 0x5ABB0 | 0x5C550 | +6 560 B |
-| `.rodata` | 0xB958 | 0xBB38 | +480 B |
-| `.bss` | 0x105CC38 | 0x10E4E60 | **+557 096 B** |
-| `__Arena1Lo` | 0x810D61E0 | 0x81160360 | +565 632 B |
-| arena headroom before XFB | 7 511 584 B | **6 946 464 B** | −565 120 B |
+| `.text` | 0x5ABB0 | 0x5C5B0 | +6 656 B |
+| `.rodata` | 0xB958 | 0xBB30 | +472 B |
+| `.bss` | 0x105CC38 | 0x10E4E70 | **+557 112 B** |
+| `__Arena1Lo` | 0x810D61E0 | 0x811603C0 | +565 728 B |
+| arena headroom before XFB | 7 511 584 B | **6 946 368 B** | −565 216 B |
 
-`disp_life` is 0x60000 = 393 216 B (4096 × 96) and `disp_ev` is 0x28000 =
-163 840 B (4096 × 40), exactly. The serialized file is at most
+Measured on the linked ELF, object by object: `disp_life` 0x60000 = 393 216 B
+(4096 × 96), `disp_ev` 0x28000 = 163 840 B (4096 × 40), `disp_info` 240 B,
+`disp_chunk` 256 B, `tex_life` 8 B. The serialized file is at most
 0x100 + 4096×96 + 4096×40 + 12 = **557 324 B**, which is 6 % of the witness
 sidecar. There is no second multi-megabyte buffer and `witness_store`
 (0x870000) and `frame_store` (0x300000) are unchanged.
@@ -14931,6 +14932,29 @@ the hold, and the test asserts that it does before asserting anything about it.
 **Final: 12 caught, 0 unresolved** — but the number that matters is the first
 pass, not this one. Seven mutants survived a suite that looked green, and the
 round is worth more for that than for the row of CAUGHTs underneath it.
+
+#### V5.46.18c Build identity
+
+```text
+Test ID     GBP-VIDEO-004
+Build ID    stream-0007
+Commit      ddf8db6            -- CLEAN, no -dirty stamp
+Size        491 040 B          -- stream-0006 was 483 008 B (+8 032 B)
+sha256      74b7488630153ce3baaa42831a9af8ef03a2bce80399d840062965a34906eb36
+Swiss       build/swiss/12-stream/boot.dol, byte-identical to the source DOL
+embedded    stream-0007 · ddf8db6 · GBP-VIDEO-004
+Reproduce   GIT_COMMIT=ddf8db6 GIT_DIRTY= make build
+```
+
+Built twice from scratch and **byte-identical both times**, using the
+host-computed identity plumbing §V5.44.16 introduced — which is still the only
+way a clean stamp is possible on this filesystem.
+
+The fuseblk cache incoherence recurred twice during those builds, once as a
+linker that could not see object files it had just compiled. The reliable
+workaround remains: do the clean and the build in ONE container invocation, or
+**move** `build/poc` aside on the host rather than deleting it, because a fresh
+name has no stale dentry.
 
 #### V5.46.19 PRE-HARDWARE DECISION
 
