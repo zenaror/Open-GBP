@@ -3988,3 +3988,90 @@ it is an unaided visual impression, it measures nothing, and no conclusion rests
 on it. It is **consistent with** the measured series — 6.00:1, then 2.00:1, then
 1.00:1 captured frames per source ID — and that is the whole of its evidentiary
 weight.
+
+### GBP-HW-175 — the baseline NEVER establishes on an indexed stimulus — FACT
+
+All three physical runs report it in the raw log, identically:
+
+```text
+BASELINE valid=0 frames_seen=1 frame_index=0 t_valid=0
+         sig0=00000000 sig39=00000000 reference_updates=0 early_candidates=2043
+MATRIX   ... baseline=never_established structured=not_observed
+CLOCKS   ... baseline_elapsed=0 valid=0 valid_at_target=0
+```
+
+and the sidecars agree: `F_PRE_BASELINE` is set on **2048 of 2048** records in
+runs 1, 2 and 3.
+
+The mechanism is not a defect. The assembler's baseline waits for a frame to
+*repeat*; the indexed stimulus changes every frame by construction (the 24-bit
+`FRAME_ID` increments and the bar moves), so the reference signature can never
+stabilise and `reference_updates` stays at 0.
+
+**Why this is load-bearing.** It rules out an entire family of otherwise
+attractive qualification criteria. Any rule that waited for `baseline_valid`, a
+stable episode or a repeated reference would wait for ever on this stimulus.
+The rule adopted in §V5.44 uses region and geometry terms only, which is both
+what the design required and the only thing that works here.
+
+### GBP-HW-176 — the startup transient has the same shape in all three runs — FACT
+
+Replaying the recorded structure of each capture (frame `blocks`, `flags`,
+`completeness` — no `FRAME_ID`, no `STATUS`, no pixel):
+
+| run | non-qualifying record indices | disqualified | streak resets | all inside |
+| --- | --- | --- | --- | --- |
+| 1 | 0, 1, 4, 5 | 4 | 1 | first 7 frames |
+| 2 | 0, 1, 5, 6 | 4 | 1 | first 7 frames |
+| 3 | 0, 1, 4, 5 | 4 | 1 | first 7 frames |
+
+After that point **2 041+ consecutive frames qualify without a single
+exception** in every run. The disturbance is a startup episode, it is short, and
+it reproduced three times under three different producer behaviours — which is
+what makes it attributable to startup rather than to any one stimulus.
+
+### GBP-HW-177 — what the UNMODIFIED analyzer returns on the windowed populations — FACT
+
+A computation over recorded evidence, not an observation of a new run. The
+analyzer (`tools/istim.py`, `tools/vindex.py`) was **not modified**; it was given
+the records the §V5.44 window would have retained.
+
+| run | window opens at frame | retained | as captured | windowed |
+| --- | --- | --- | --- | --- |
+| 1 | 70 | 1 978 | `STIMULUS_INVALID_FOR_DECISIVE_CLAIM` | `STIMULUS_INVALID_FOR_DECISIVE_CLAIM` |
+| 2 | 71 | 1 977 | `OBSERVED_DISCONTINUITY` | `OBSERVED_DISCONTINUITY` |
+| 3 | 70 | 1 978 | `OBSERVED_DISCONTINUITY` | `OBSERVED_CONTIGUOUS` |
+
+Run 3's single non-contiguous transition is `0x000012 → 0x000014`, carried by
+**record 5** — far inside the transient, and cleared by a window of N=2 upward.
+
+**The recorded verdicts do not change.** Run 3 stands as `OBSERVED_DISCONTINUITY`
+permanently. This row is what a rule fixed in advance would have retained, not a
+re-reading of the capture.
+
+### GBP-HW-178 — the window cannot rescue a faulty or a duplicating producer — FACT
+
+Tested from N=1 to N=1024 on the real state machine:
+
+```text
+run 1 (STATUS.FAULT latched)     STIMULUS_INVALID_FOR_DECISIVE_CLAIM at every N
+run 2 (every source frame twice) OBSERVED_DISCONTINUITY               at every N
+```
+
+This is the control that matters. A startup window that could also clear a
+latched FAULT or hide a systemic 2:1 duplication would be a verdict-laundering
+device rather than a measurement rule. It removes a startup transient and
+demonstrably nothing else.
+
+### GBP-HW-179 — `stream-0006` will return `OBSERVED_CONTIGUOUS` — HYPOTHESIS
+
+Not a fact and not evidence. It is the prediction the round exists to test, and
+it is stated in advance so the next run can refute it.
+
+**It is refuted by:** any non-contiguous decisive transition in the windowed
+population; a `STATUS.FAULT`; a warm-up that never completes; `records_n` short
+of 2048; or `blocks_out_of_range != 0`.
+
+**It is not confirmed by** a contiguous run alone — one run replicates neither
+the producer nor the GBP. Confirmation needs the pre-registered verdict from a
+capture that also satisfies `vidxcap.usability()`.

@@ -13710,3 +13710,446 @@ basic sustained-streaming milestone stands unchanged and separate.
 U-GBP-029, U-GBP-033 and U-GBP-034 stay **OPEN**; nothing here bears on them.
 There is no existing UNKNOWN for source-frame continuity, and **none was created
 retrospectively** in order to close it.
+
+---
+
+### V5.44 PROSPECTIVE STRUCTURAL WINDOW — `stream-0006` — 2026-09-19 — **PRE-REGISTERED, IMPLEMENTED, AUDITED — DECISION A. NOT PHYSICALLY EXECUTED** (audit in §V5.44.14, decision in §V5.44.15)
+
+This section is the **amendment §V5.43.8 proposed and deliberately did not
+apply**: a rule defining where the decisive interval begins, written and frozen
+**before** the run it judges.
+
+#### V5.44.1 What this changes, and what it must not
+
+```text
+CHANGED   the RUNTIME decides, online, which frames enter the witness store
+UNCHANGED the OGBPIDX1 wire contract
+UNCHANGED the analyzer (tools/istim.py, tools/vindex.py) -- not one line
+UNCHANGED the stimulus indexed-0003 -- same 2 880 B canonical ROM
+UNCHANGED run 1, run 2 and run 3: their recorded verdicts stand for ever
+```
+
+`stream-0005` run 3 remains **`OBSERVED_DISCONTINUITY`**. Nothing in this round
+re-judges it, and no tool was taught to accept it. The window is a rule for
+**future** captures.
+
+**This is not retrospective trimming.** "Find the last resync in the capture and
+analyze everything after it" was forbidden and is not what happens here. The
+distinction is threefold and each part is mechanised:
+
+```text
+CAUSAL       the rule only ever looks at frames already closed. It cannot see
+             the frame it is deciding about, let alone the run's outcome.
+STRUCTURAL   it reads blocks, flags and completeness -- the ASSEMBLER's verdict
+             on frame shape. It cannot read FRAME_ID, STATUS, SYNC, CRC-8, a
+             colour or an expected payload, and a static guard enforces that.
+FIXED FIRST  N is frozen in the header and in a unit test before the run.
+```
+
+#### V5.44.2 The rule
+
+A frame **qualifies** when the assembler says all of:
+
+```text
+step->frame_closed          a frame really ended here
+step->resync == 0           no region anomaly was raised in this step
+step->frame_complete        the assembler calls it complete
+st->resync_pending == 0     synchronisation is currently established
+fr->completeness == COMPLETE_40
+fr->blocks == 40
+fr->flags & (ANOMALY | DISAGREEMENT | OVERLONG | RESYNC) == 0
+```
+
+The window opens at the first block-0 boundary after **64 consecutive**
+qualifying frames, and **never closes again**.
+
+`F_PRE_BASELINE` is deliberately **absent** from the reject mask, and that is
+load-bearing. The baseline is a CONTENT-stability notion — it waits for a frame
+to repeat — and an indexed stimulus never repeats a frame by construction. All
+three physical runs report `baseline=never_established`, `reference_updates=0`,
+with `F_PRE_BASELINE` set on **2048 of 2048** records. Rejecting on it would
+mean the window never opens on real hardware, and would smuggle a content
+criterion into a rule that must not have one.
+
+#### V5.44.3 Why 64, and why the answer does not depend on it
+
+64 frames is ~1.07 s at the measured 59.73 Hz, against a startup transient
+measured at **7 frames** — directly, from the structural records of all three
+indexed runs (GBP-HW-176), and consistent with the `incomplete=2 resync=4`
+that `stream-0003` and `stream-0004` reported before witnesses existed
+(GBP-HW-141). The margin is therefore ~9x a measured quantity, not a guess. The whole experiment still fits
+the 60 s safety cap: 70 warm-up frames + 2048 records ≈ 35.4 s.
+
+The number was chosen for time margin, and the round-3 verdict is **flat across
+a 64-fold range of it** — so it is not a value fitted to produce an answer:
+
+```text
+N        warm-up frames   retained   verdict on run 3's records
+  1            3            2044     OBSERVED_DISCONTINUITY
+  2            4            2043     OBSERVED_CONTIGUOUS
+  4           10            2038     OBSERVED_CONTIGUOUS
+ 16           22            2026     OBSERVED_CONTIGUOUS
+ 64 (prod)    70            1978     OBSERVED_CONTIGUOUS
+128          134            1914     OBSERVED_CONTIGUOUS
+```
+
+Run 3's single gap sits at **record 5**. Two qualifying frames already clear it;
+production uses 32x that.
+
+#### V5.44.4 The state machine, and the one-way property
+
+```text
+WARMUP --(64 consecutive qualifying frames)--> PENDING --(next block 0)--> ARMED
+```
+
+`ARMED` is terminal. Once the window is open a later resync stays **inside** the
+scientific population, where it belongs — the rule may remove a startup, never a
+result it dislikes. `gbp_vwitness_note_frame()` returns immediately when armed,
+so the warm-up counters freeze at arming and the window's own cost stays
+auditable.
+
+Arming happens **only** at a block-0 boundary, which is what makes record 0 begin
+at block 0 by construction rather than by hope; `gbp_vwitness_place()` carries the
+matching invariant and refuses a first placement that is not block 0.
+
+During warm-up `gbp_vwitness_stage()` refuses, so **not one word is extracted**,
+and `gbp_vwitness_commit()` discards, so **the warm-up consumes no record
+capacity**: the target is still 2048 scientific records.
+
+#### V5.44.5 Designed failure mode
+
+If the producer never stabilises, the streak never completes, the window never
+opens and the run reaches the safety cap with **zero records**. That capture then
+fails `vidxcap.usability()` on `stop_reason` and on `records_n != target_frames`,
+so it is `INCONCLUSIVE` — never a false claim. A window that cannot open is the
+safe outcome, not an error to be engineered away.
+
+#### V5.44.6 Cross-run replay — the three-way control
+
+The three physical runs were produced by a byte-identical GameCube runtime and
+happen to be three different failures, which makes them a natural control set.
+The **real C state machine** was replayed over a structural projection of each
+capture (`tools/vqual.py`, format `OGBPQUAL1`, 24 652 B — it carries
+frame_index, blocks, flags and completeness and **physically cannot carry a
+stimulus word**), and the **unmodified** analyzer was run on the population the
+window would have kept:
+
+```text
+run   defect                     as captured                          with the window
+1     producer FAULT latched     STIMULUS_INVALID_FOR_DECISIVE_CLAIM  STIMULUS_INVALID  (no N rescues it)
+2     systemic 2:1 duplicates    OBSERVED_DISCONTINUITY               OBSERVED_DISCONTINUITY (no N rescues it)
+3     one gap, inside startup    OBSERVED_DISCONTINUITY               OBSERVED_CONTIGUOUS
+```
+
+Runs 1 and 2 are the point. The window is **not** a verdict-laundering device:
+tested from N=1 to N=1024 it never clears a latched FAULT and never hides a
+producer that duplicates every frame. It removes a startup transient and nothing
+else.
+
+Warm-up cost was 70, 71 and 70 frames; each run showed exactly **4**
+disqualifying frames and exactly **1** streak reset, all inside the first seven
+frames — the same disturbance shape three times.
+
+One reading trap, stated so nobody falls into it: the replay retains 1 978 of
+2 048 records because its INPUT is a finished 2 048-frame capture, so the warm-up
+eats into it. A live `stream-0006` run does not stop at 2 048 closed frames — it
+stops when 2 048 **records are committed** — so it will see ~2 118 closed frames
+and retain the full 2 048. The warm-up costs ~1.2 s of wall time, not 70
+records.
+
+#### V5.44.7 Why the replay is exact, not merely a bound
+
+Two terms of the predicate are live latches no frame record preserves, so a
+replay can normally only be an *earliest bound*. It is exact here because the
+assembler cannot produce the combination that would separate them: every site
+that raises a region anomaly either flags the frame `ANOMALY`/`OVERLONG` or
+leaves `completeness != COMPLETE_40`, and a frame that merely closes while the
+pause is up is flagged `F_RESYNC`. **Shape-clean therefore implies both latches
+are down.** This is pinned by a unit test against the real assembler, so if the
+assembler ever gains a region anomaly that leaves a frame looking perfect, the
+exactness claim fails on the same day.
+
+#### V5.44.8 The static guard
+
+Two layers, because the code has two shapes:
+
+```text
+gbp_vwitness.o        an ALLOWLIST in tools/poc_audit.py: it may reference
+                      `memset` and `__udivdi3` and NOTHING else, so a decoder
+                      written next year is a finding by default rather than by
+                      someone remembering to forbid it
+the predicate         a static function in a header, inlined into its caller, so
+                      no object boundary contains it -- guarded at source level
+                      against an allowlist of the assembler's own vocabulary
+```
+
+The source guard strips comments first: the predicate's own comment names
+FRAME_ID and STATUS in order to say it must not read them. It distinguishes the
+wire format's SYNC byte from the assembler's `resync` latch by a named carve-out
+rather than by substring luck.
+
+**Why the source guard is load-bearing rather than decorative**, found by the
+mutation round: `struct gbp_vstate_frame` carries `sig[40]`, the forty SEMANTIC
+BLOCK SIGNATURES, which are computed from block CONTENT. The predicate already
+holds an `fr` pointer, so it sits **one field access** away from content-derived
+data, and
+
+```c
+if (fr->sig[0] == 0u) return 0;     /* compiles; changes the science */
+```
+
+would build cleanly, link cleanly, pass every behavioural test, and make the
+window depend on what the cartridge drew. Nothing in the type system prevents it.
+The allowlist does, and `sig` is named in the forbidden set as well, so the
+mutation is refused twice.
+
+This also corrects an assumption worth stating plainly: the predicate's inputs
+are *not* free of stimulus content, so "it cannot read content because it has
+none to read" would have been a false argument. It cannot read content because a
+test refuses to let it.
+
+#### V5.44.9 A change deliberately NOT made: the sidecar format
+
+A windowed capture would ideally say so in its own header. `OGBPIDXCAP1` has 116
+reserved header bytes and the qualification block would fit with room to spare.
+
+**It was not done.** `OGBPIDXCAP1 v1` is a FROZEN CONTRACT in `HANDOFF.md`, and
+this round's authorisation covers qualification reporting, not a frozen format.
+Changing it would also have split the three existing captures from the next one
+for no scientific gain. The information is preserved anyway, in two places:
+
+```text
+the .log     WITQUAL policy=... required=64 state=... streak_max=... resets=...
+             warmup_frames=... warmup_disqualified=... qualify_frame=...
+             armed=... window_first_block=0
+the sidecar  record[0].frame_index != 0 is visible directly, and is 0 for every
+             capture taken before this round
+```
+
+The two artifacts have always been delivered together and carry the same
+embedded test id, build id and commit, so they cannot be silently mismatched.
+The cost of the decision is recorded here rather than hidden: **a sidecar read in
+isolation shows that a window was applied, but not which policy produced it.**
+
+#### V5.44.10 Mutations M1 … M12
+
+Twelve adversarial edits, each rebuilt and then scored. The harness carries the
+three rules the previous round's false positives taught (§V5.43 F2/F3/F7): no
+shell pipelines anywhere near a verdict line; the mutant must be **proved
+present in the rebuilt artifact** before a gate is allowed to score it; and the
+source is restored from bytes held in memory, never with `git checkout`, because
+these files are modified-but-uncommitted.
+
+| # | what it breaks | verdict |
+| --- | --- | --- |
+| M1 | the one-way latch — a post-arming frame would move the warm-up counters | CAUGHT |
+| M2 | the stage gate — warm-up content could reach the scratch | CAUGHT |
+| M3 | the commit gate — warm-up frames would consume record capacity | CAUGHT |
+| M4 | the first-record invariant — record 0 could start mid-frame | CAUGHT |
+| M5 | `>=` → `>` on the streak — arms one frame late | CAUGHT (SIGSEGV) |
+| M6 | `arm()` accepting `WARMUP` — skipping the warm-up entirely | CAUGHT |
+| M7 | the scratch wipe in `arm()` — warm-up blocks leaking into record 0 | CAUGHT |
+| M8 | rejecting on `F_PRE_BASELINE` — the window would never open on hardware | CAUGHT |
+| M9 | deleting the `st->resync_pending` term | **EQUIVALENT** |
+| M10 | deleting the `step->resync` term | **EQUIVALENT** |
+| M11 | the predicate reading `fr->sig[0]`, a content-derived signature | CAUGHT (static guard) |
+| M12 | N changed from 64 to 32 | CAUGHT |
+
+**M9 and M10 are equivalent mutants, and that is a result rather than an
+excuse.** No test can kill them because they have no observable behaviour: every
+`region_anomaly = 1` site either sets `F_ANOMALY`/`F_OVERLONG` or leaves
+`completeness != COMPLETE_40`, and a frame that merely closes while the pause is
+up is flagged `F_RESYNC` — so a shape-clean close implies both latches are down.
+They stay in the predicate as defence in depth. The invariant that makes them
+inert is pinned by a unit test against the real assembler, so if the assembler
+ever gains a region anomaly that leaves a frame looking perfect, they become
+killable and this table becomes wrong on the same day — which is also the day
+the offline replay stops being exact (§V5.44.7).
+
+M5 is recorded as it happened: the mutant did not fail an assertion, it
+**crashed the test binary** (exit 139). A refusal either way, but the table says
+which.
+
+**M11 had to be written twice, and the first attempt is worth recording.** It
+named a struct field that does not exist, so it did not compile, and the harness
+correctly refused to score it — a mutant that never entered an artifact proves
+nothing. Rewriting it against a field that *does* exist exposed the sharper
+point: `struct gbp_vstate_frame` carries `sig[40]`, forty signatures computed
+from block CONTENT, and the predicate already holds an `fr` pointer. The
+compiling mutant builds cleanly, and the **entire behavioural suite stays green
+— 12 145 checks, 0 failures** — while the window silently depends on what the
+cartridge drew. Only the static guard refuses it, on three independent
+assertions. Measured, not argued:
+
+```text
+M11 mutant compiles:              True
+M11 behavioural suite still green: True   <- a behaviour test CANNOT see this
+M11 static guard verdict:          CAUGHT
+```
+
+**Score: 10 caught, 2 equivalent, 0 unresolved.**
+
+#### V5.44.11 Memory
+
+Recomputed from the linked ELF, not predicted:
+
+| | `stream-0005` | `stream-0006` | delta |
+| --- | --- | --- | --- |
+| `.text` | `0x5A870` | `0x5ABB0` | +832 B |
+| `.rodata` | `0xB820` | `0xB958` | +312 B |
+| `.bss` | `0x105CC28` | `0x105CC38` | +16 B |
+| `__Arena1Lo` | `0x810D5CC0` | `0x810D61E0` | +1 312 B |
+| arena headroom to `__Arena1Hi` | 7 512 896 B | **7 511 584 B** | −1 312 B |
+
+`witness_store` is `0x870000` = 8 847 360 B and `frame_store` `0x300000` =
+3 145 728 B, both unchanged — the warm-up consumes no record capacity, so the
+store is sized for the same 2048 scientific records as before. The whole
+qualification costs 1 312 B of a 7.5 MB arena; the XFB allocation is unaffected.
+
+#### V5.44.12 Classification
+
+```text
+FACT          GBP-HW-175  the baseline never establishes on an indexed stimulus
+FACT          GBP-HW-176  the startup transient has the same shape in all 3 runs
+FACT          GBP-HW-177  what the unmodified analyzer returns on the windowed sets
+FACT          GBP-HW-178  no window of any size rescues run 1 or run 2
+HYPOTHESIS    GBP-HW-179  stream-0006 will return OBSERVED_CONTIGUOUS
+UNCHANGED     run 3 remains OBSERVED_DISCONTINUITY, permanently
+```
+
+Nothing in this round is a hardware observation: **no hardware was executed.**
+GBP-HW-175 … 178 are facts about recorded captures and about code, established by
+replay and by test, and they are labelled as such rather than as new physical
+results.
+
+#### V5.44.13 The physical procedure for the fourth run
+
+```text
+Test ID:                 GBP-VIDEO-004 (fourth indexed run)
+Build ID:                stream-0006
+DOL:                     build/swiss/12-stream/boot.dol
+Required cartridge:      indexed-0003, the SAME physical cartridge as run 3
+                         delivery sha256 9f04916b…8d9cc2 — do NOT re-flash it
+Physical Link Port:      empty
+BBA:                     absent
+SD2SP2:                  inserted, with free space for 8 946 060 B + the log
+
+Steps:
+  1. Copy boot.dol to the SD card as 12-stream/boot.dol.
+  2. FIRST copy run 3's files off the card if they are still there. The SD
+     workflow names every run identically and run 3 already overwrote run 1's
+     log once (§V5.43.1).
+  3. Insert the indexed-0003 cartridge in the Game Boy Player.
+  4. Power on, launch through Swiss.
+  5. Wait for READY, then for the run to stop on its own.
+  6. Read the on-screen WITQUAL line and note `armed` and `warm-up`.
+  7. Press X to save the report.
+  8. Power-cycle the console (the teardown reports power_cycle_required=1).
+  9. Return BOTH files, renamed with a run number before anything else is
+     copied to the card:
+        GBP-VIDEO-004_stream-0006-run4.log
+        GBP-VIDEO-004_stream-0006-run4-idxcap.bin
+
+Question answered:
+  Does the source-frame population retained by a PRE-REGISTERED structural
+  window satisfy OBSERVED_ID_CONTIGUOUS under the unmodified analyzer?
+
+Expected (GBP-HW-179, refutable):
+  armed=1, warmup_frames ~70, records_n=2048, blocks_out_of_range=0,
+  stop_reason=witness_target_reached, record[0].frame_index != 0,
+  and verdict OBSERVED_CONTIGUOUS.
+```
+
+**Do not run this with a `-dirty` build.** The candidate must be a clean commit,
+rebuilt, with the recorded hash (project rule §18).
+
+#### V5.44.14 FOCUSED PRE-HARDWARE AUDIT — the fourteen questions
+
+**1. Can the window read the measurement it is supposed to start?**
+No, and it is proved twice rather than asserted. At the object level
+`gbp_vwitness.o` references `memset` and `__udivdi3` and nothing else, enforced
+by an ALLOWLIST so a decoder written later is a finding by default. At the source
+level the predicate's identifiers are checked against the assembler's structural
+vocabulary, comments stripped first. Both guards were shown to fire on a tampered
+input before being trusted.
+
+**2. Is the rule causal?**
+Yes. `gbp_vwitness_note_frame()` is called only from the `frame_closed` branch of
+`gbp_vwitness_step()`, on a frame that has already ended. Nothing reads a later
+frame, a file, a total or a verdict. The window opens at a block-0 boundary that
+has already arrived.
+
+**3. Was N fixed before the data, or fitted to it?**
+N was chosen for time margin (~1.07 s; the transient has never exceeded 7 frames;
+70+2048 frames ≈ 35.4 s against a 60 s cap). Run 3's verdict is identical for
+every N from 2 to 128 — the gap sits at record 5 and N=2 already clears it — so
+the answer does not depend on the choice over a 64-fold range. N is frozen in a
+unit test and in the contracts table.
+
+**4. Does record 0 begin at block 0?**
+Yes, three ways. Arming happens only where `witness_index == 0`;
+`gbp_vwitness_place()` refuses a first placement that is not block 0 and counts
+the refusal; and the replay over all three captures reports
+`record0_block0=1`, `blocks_out_of_range=0`.
+
+**5. Does the warm-up consume record capacity?**
+No. `gbp_vwitness_commit()` discards while unarmed and does not increment
+`frames_seen`, so the 2048-record target is untouched: the replay retains
+1 978/1 977/1 978 records out of 2048 inputs after warm-ups of 70/71/70.
+
+**6. Is the window one-way?**
+Yes. `note_frame()` returns immediately once `ARMED`, so a later resync stays
+inside the scientific population and the warm-up counters freeze at arming — the
+window's own cost stays auditable. Mutating the latch away is caught.
+
+**7. Can the window hide a `STATUS.FAULT`?**
+No. Run 1 latched FAULT; replayed at N = 1, 2, 4, 8, 16, 32, 64, 128, 256, 512
+and 1024 the verdict is `STIMULUS_INVALID_FOR_DECISIVE_CLAIM` every time.
+
+**8. Can it hide a systemic producer defect?**
+No. Run 2 duplicated every source frame; at every N the verdict stays
+`OBSERVED_DISCONTINUITY`.
+
+**9. Does run 3's recorded verdict change?**
+No, and a test asserts it does not. Run 3 is `OBSERVED_DISCONTINUITY`
+permanently.
+
+**10. Was the analyzer modified?**
+No. `git diff` touches `tools/poc_audit.py` only; `tools/istim.py` and
+`tools/vindex.py` are untouched, and the counterfactual imports them as they are.
+
+**11. Was the stimulus modified?**
+No. `stimulus/` is untouched; `indexed-0003` is the same physical cartridge.
+
+**12. Were `OGBPIDX1` or `OGBPIDXCAP1 v1` modified?**
+No. Neither the wire format nor the sidecar changed; §V5.44.9 records the sidecar
+change that was considered and deliberately not made.
+
+**13. What happens if the producer never stabilises?**
+The streak never completes, the window never opens, the run reaches the safety
+cap with few or no records, and the capture fails `vidxcap.usability()` on
+`stop_reason` and `records_n`. That is `INCONCLUSIVE` — the designed outcome, not
+a defect, and explicitly not a reason to lower N afterwards.
+
+**14. What does it cost the timed path?**
+Less than before, not more. `gbp_vwitness_stage()` gains one comparison and, while
+unarmed, SKIPS the 54-word copy entirely; `place()` gains two comparisons that
+only run while `n == 0`. The interrupt path is byte-identical to the physically
+validated GBP-VIDEO-001 build (`ext one-shot: identical`, `base one-shot:
+identical`). Memory cost is 1 312 B of a 7.5 MB arena (§V5.44.11).
+
+#### V5.44.15 DECISION
+
+**A — SAFE FOR THE FOURTH SUPERVISED INDEXED RUN.**
+
+The change is confined to which frames are retained. It reads only the
+assembler's structural verdict, it cannot reach the stimulus, it cannot open
+early, it cannot close, it cannot rescue a faulty or a duplicating producer, and
+it costs strictly less work per block than the build that already ran three times
+on hardware. The one genuinely new risk — a window that never opens — resolves to
+`INCONCLUSIVE`, which is a safe answer rather than a wrong one.
+
+**Not authorised by this decision:** any change to N after the run, any analyzer
+change, any re-judging of runs 1–3, and any claim of
+`CONTROLLED SOURCE-FRAME CONTINUITY` before a capture that both passes
+`vidxcap.usability()` and returns `OBSERVED_CONTIGUOUS`.

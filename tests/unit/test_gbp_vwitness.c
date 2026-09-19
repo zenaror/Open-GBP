@@ -198,6 +198,9 @@ static struct gbp_vwitness_meta asm_meta[64];
 /* Feeds ONE block through the real assembler exactly as the probe does: DMA
  * into the target the assembler names, then `gbp_vstate_block()`, then the
  * witness rule — and nothing else, because nothing else may come first. */
+static struct gbp_vstate_step last_step;
+static int last_pending;
+
 static void feed(struct gbp_vwitness *w, uint32_t frame_no, uint32_t block_no,
                  int boundary, uint64_t t)
 {
@@ -206,12 +209,22 @@ static void feed(struct gbp_vwitness *w, uint32_t frame_no, uint32_t block_no,
     uint8_t first4[4];
     uint32_t seed = frame_no * 1000u + block_no;
     make_block(word_from_seed, &seed);
-    blockbuf[1] = boundary ? 0x80u : 0x00u;     /* the Disc boundary predicate */
+    /* BOTH boundary predicates, because on hardware they agree: the Disc reads
+     * bit 7 of byte 1, GBI requires bit 7 of byte 0 AND byte 1
+     * (GBP_VSIG_GBI_MASK). Setting only the Disc bit would make every synthetic
+     * boundary a PREDICATE DISAGREEMENT, flagging F_DISAGREEMENT | F_ANOMALY on
+     * frames that are structurally perfect -- and the qualification predicate
+     * would then correctly refuse them all. `stream-0004` measured 0
+     * disagreements physically, so agreement is the faithful default. */
+    blockbuf[0] = boundary ? 0xDAu : 0x5Au;
+    blockbuf[1] = boundary ? 0x80u : 0x00u;
     if (!dst) return;
     memcpy(dst, blockbuf, GBP_VWITNESS_BLOCK_BYTES);
     first4[0] = dst[0]; first4[1] = dst[1]; first4[2] = dst[2]; first4[3] = dst[3];
     gbp_vstate_block(&asm_state, dst, GBP_VWITNESS_BLOCK_BYTES, first4, t,
                      gbp_vsig_block(dst, GBP_VWITNESS_BLOCK_BYTES), 0u, &step);
+    last_step = step;                     /* for the redundancy invariant below */
+    last_pending = asm_state.resync_pending;
     gbp_vwitness_step(w, &asm_state, &step);
 }
 
@@ -242,7 +255,16 @@ static void test_the_witness_follows_the_real_assembler(void)
         const struct gbp_vstate_frame *fr = gbp_vstate_frame_at(&asm_state, i);
         CHECK(m->frame_index == fr->index);
         CHECK(m->blocks == fr->blocks);
-        CHECK(m->flags == fr->flags);            /* VERBATIM, quarantine included */
+        /* VERBATIM AT COMMIT TIME, and the distinction matters. Every frame
+         * flag is final when close_frame() returns except ONE:
+         * preserve_frame() can later set F_RAW_PRESERVED on an EARLIER frame
+         * record, when the episode machinery decides to keep that frame's raw
+         * bytes. The witness is a snapshot of what was true when the frame
+         * closed -- the honest thing for it to be -- so the assertion is that
+         * F_RAW_PRESERVED is the ONLY bit that may ever differ. */
+        CHECK(((m->flags ^ fr->flags) & (uint16_t)~GBP_VSTATE_F_RAW_PRESERVED) == 0u);
+        CHECK((m->flags & (uint16_t)~GBP_VSTATE_F_RAW_PRESERVED)
+              == (fr->flags & (uint16_t)~GBP_VSTATE_F_RAW_PRESERVED));
         CHECK(m->completeness == fr->completeness);
         CHECK(m->t_first_block == fr->t_first_block);
         CHECK(m->t_last_block == fr->t_last_block);
@@ -700,8 +722,470 @@ static void test_bad_arguments_store_nothing(void)
     CHECK(gbp_vwitness_store_full(0) == 0);
 }
 
-int main(void)
+/* ---- §V5.44: the PROSPECTIVE STRUCTURAL QUALIFICATION --------------------
+ *
+ * Run 3 produced a correct producer and a refused verdict, because the startup
+ * transient sat inside the population under test. These tests drive the REAL
+ * assembler through that same shape and check that the window opens after it,
+ * online, on structure alone -- and that once open it never closes again. */
+
+/* Feeds one whole frame of `blocks` blocks; block 0 carries the boundary. */
+static void feed_frame(struct gbp_vwitness *w, uint32_t tag, uint32_t blocks, uint64_t *t)
 {
+    uint32_t b;
+    for (b = 0; b < blocks; b++) { *t += 100u; feed(w, tag, b, b == 0u, *t); }
+}
+
+/* A run of `n` clean 40-block frames. The frame that CLOSES is the previous
+ * one, so this leaves one frame open, exactly as a real capture does. */
+static void feed_clean(struct gbp_vwitness *w, uint32_t first, uint32_t n, uint64_t *t)
+{
+    uint32_t k;
+    for (k = 0; k < n; k++) feed_frame(w, first + k, GBP_VWITNESS_BLOCKS, t);
+}
+
+static void test_the_production_qualification_is_frozen(void)
+{
+    printf("-- N is frozen at 64 consecutive structurally qualifying frames\n");
+    CHECK(GBP_VWITNESS_QUAL_REQUIRED == 64u);
+    /* ~1.07 s at the measured 59.73 Hz, against a startup transient that has
+     * never exceeded ~6 frames in any physical run. */
+    CHECK(GBP_VWITNESS_QUAL_REQUIRED * 1000u / 5973u == 10u);   /* 64/59.73 ~ 1.07 s */
+    /* and the whole experiment still fits the 60 s safety cap */
+    CHECK((GBP_VWITNESS_QUAL_REQUIRED + GBP_VWITNESS_TARGET) < 60u * 60u);
+}
+
+static void test_a_default_witness_is_armed_immediately(void)
+{
+    static uint16_t store[2 * GBP_VWITNESS_FRAME_WORDS];
+    static struct gbp_vwitness_meta meta[2];
+    struct gbp_vwitness w;
+    printf("-- without qualification the witness arms at once (every earlier build)\n");
+    CHECK(gbp_vwitness_init(&w, store, meta, 2u, 2u) == 0);
+    CHECK(gbp_vwitness_armed(&w) == 1);
+    CHECK(gbp_vwitness_qualified(&w) == 1);
+    gbp_vwitness_set_qualification(&w, 0u);
+    CHECK(gbp_vwitness_armed(&w) == 1);
+}
+
+static void test_A_a_resync_during_warmup_resets_the_streak(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000;
+    printf("-- A: N-1 good frames then a RESYNC -> the streak resets\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 20u);   /* far above what this test reaches */
+    /* a frame CLOSES when the next one's boundary arrives, so n frames give
+     * n-1 closes: this leaves the streak at 7 with frame 7 still open. */
+    feed_clean(&w, 0u, 8u, &t);
+    CHECK(w.qual_streak == 7u);
+    CHECK(!gbp_vwitness_qualified(&w));
+    /* a SHORT frame: its boundary closes frame 7 (an 8th qualifying close),
+     * and then the NEXT boundary closes the short frame itself -- a region
+     * anomaly, which breaks the streak. */
+    feed_frame(&w, 100u, 12u, &t);
+    CHECK(w.qual_streak == 8u);
+    feed_frame(&w, 101u, GBP_VWITNESS_BLOCKS, &t);
+    CHECK(w.qual_streak == 0u);
+    CHECK(w.qual_resets >= 1u);
+    CHECK(w.qual_streak_max == 8u);
+    CHECK(!gbp_vwitness_qualified(&w));
+    CHECK(w.n == 0u);
+}
+
+static void test_B_an_incomplete_frame_during_warmup_resets_the_streak(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000;
+    uint32_t b;
+    printf("-- B: N-1 good frames then an INCOMPLETE frame -> the streak resets\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 20u);
+    feed_clean(&w, 0u, 8u, &t);
+    CHECK(w.qual_streak == 7u);
+    /* 48 blocks: the first closes frame 7, then the assembler gives up its
+     * anchor at 48 and closes an OVERLONG frame, which breaks the streak. */
+    for (b = 0; b < 48u; b++) { t += 100u; feed(&w, 200u, b, b == 0u, t); }
+    CHECK(w.qual_streak == 0u);
+    CHECK(w.qual_streak_max >= 8u);
+    CHECK(!gbp_vwitness_qualified(&w));
+    CHECK(w.n == 0u);
+}
+
+static void test_C_N_clean_frames_qualify(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000;
+    printf("-- C: N consecutive clean complete frames -> QUALIFIED, pending a boundary\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 8u);
+    feed_clean(&w, 0u, 9u, &t);              /* 8 frames close */
+    CHECK(w.qual_streak >= 8u);
+    CHECK(gbp_vwitness_qualified(&w) == 1);
+    CHECK(w.qual_state == GBP_VWITNESS_QUAL_PENDING || gbp_vwitness_armed(&w));
+}
+
+static void test_D_the_qualifying_frame_itself_is_not_retained(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000;
+    printf("-- D: the frame that COMPLETES the streak is already closed, so it is NOT kept\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 8u);
+    feed_clean(&w, 0u, 9u, &t);
+    CHECK(gbp_vwitness_qualified(&w) == 1);
+    CHECK(w.n == 0u);                         /* nothing retained yet */
+    CHECK(w.frames_seen == 0u);               /* the scientific population is empty */
+    CHECK(w.warmup_frames >= 8u);             /* but the warm-up is COUNTED, not hidden */
+}
+
+static void test_E_the_window_opens_at_record0_block0(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000;
+    uint32_t seed;
+    printf("-- E: the first scientific placement is record 0, block 0, by construction\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 8u);
+    /* 9 frames give 8 closes. The 8th close happens on frame 8's BOUNDARY
+     * block, and that same block is index 0 of frame 8 -- so the window arms
+     * and that block becomes record 0, block 0. The frame that completed the
+     * streak (frame 7) is already closed and is NOT retained. */
+    feed_clean(&w, 0u, 9u, &t);
+    CHECK(gbp_vwitness_qualified(&w) == 1);
+    CHECK(gbp_vwitness_armed(&w) == 1);
+    CHECK(w.n == 0u);                         /* nothing committed yet */
+    CHECK(w.scratch_blocks == GBP_VWITNESS_BLOCKS);
+    CHECK(w.scratch_present == 0xFFFFFFFFFFull);
+    seed = 8u * 1000u + 0u;                   /* frame 8, block 0 */
+    CHECK(gbp_vwitness_word(&w, 0u, 0u, 0u) == 0u);    /* not stored yet */
+    CHECK(w.scratch[0] == word_from_seed(GBP_VWITNESS_STRIP_X0, &seed));
+    /* the next boundary closes it as record 0, complete */
+    t += 100u; feed(&w, 9u, 0u, 1, t);
+    CHECK(w.n == 1u);
+    CHECK(gbp_vwitness_meta_at(&w, 0u)->present == 0xFFFFFFFFFFull);
+    CHECK(gbp_vwitness_word(&w, 0u, 0u, 0u)
+          == word_from_seed(GBP_VWITNESS_STRIP_X0, &seed));
+}
+
+static void test_F_a_resync_after_arming_stays_in_the_evidence(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000;
+    printf("-- F: a resync AFTER arming does NOT reset the window; the record is kept\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 8u);
+    feed_clean(&w, 0u, 9u, &t);
+    feed_clean(&w, 500u, 3u, &t);             /* arms, then 2 records close */
+    CHECK(gbp_vwitness_armed(&w) == 1);
+    CHECK(w.n >= 1u);
+    { uint32_t before = w.n, k; int found = 0;
+      feed_frame(&w, 600u, 11u, &t);          /* a short frame: region anomaly */
+      feed_frame(&w, 601u, GBP_VWITNESS_BLOCKS, &t);
+      CHECK(gbp_vwitness_armed(&w) == 1);     /* still armed: ONE-WAY */
+      CHECK(w.n > before);                    /* and the short frame IS a record */
+      for (k = before; k < w.n; k++) {
+          const struct gbp_vwitness_meta *m = gbp_vwitness_meta_at(&w, k);
+          if (m->blocks == 11u && m->present == 0x7FFull
+              && m->completeness != GBP_VSTATE_FRAME_COMPLETE_40) found = 1;
+      }
+      CHECK(found); }
+}
+
+static void test_G_an_incomplete_record_after_arming_is_not_filtered(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000;
+    printf("-- G: an incomplete record after arming is PRESERVED, never silently dropped\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 8u);
+    feed_clean(&w, 0u, 9u, &t);
+    feed_clean(&w, 500u, 2u, &t);
+    CHECK(gbp_vwitness_armed(&w) == 1);
+    { uint32_t before = w.n, b, k; int found = 0;
+      for (b = 0; b < 48u; b++) { t += 100u; feed(&w, 700u, b, b == 0u, t); }
+      CHECK(w.n > before);
+      for (k = before; k < w.n; k++)
+          if (gbp_vwitness_meta_at(&w, k)->blocks == 48u) found = 1;
+      CHECK(found);
+      CHECK(w.blocks_out_of_range >= 8u); }
+}
+
+static void test_warmup_consumes_no_record_capacity(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000;
+    printf("-- warm-up frames consume NO record capacity and do not count toward the target\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 8u);
+    feed_clean(&w, 0u, 20u, &t);              /* 19 frames close, 8 of them qualify */
+    CHECK(w.warmup_frames >= 8u);
+    CHECK(w.n <= 20u);
+    /* the decisive property: records only ever began after arming */
+    CHECK(w.frames_seen == w.n);
+    CHECK(!gbp_vwitness_target_reached(&w) || w.n >= w.target);
+}
+
+static void test_the_first_record_invariant_refuses_a_mid_frame_start(void)
+{
+    static uint16_t store[4 * GBP_VWITNESS_FRAME_WORDS];
+    static struct gbp_vwitness_meta meta[4];
+    struct gbp_vwitness w;
+    printf("-- §15: record 0 may not begin at a block other than 0\n");
+    CHECK(gbp_vwitness_init(&w, store, meta, 4u, 4u) == 0);
+    make_block(word_is_x, 0);
+    CHECK(gbp_vwitness_stage(&w, blockbuf) == 0);
+    CHECK(gbp_vwitness_place(&w, 7u) == -1);      /* refused */
+    CHECK(w.n == 0u);
+    CHECK(w.scratch_present == 0u);
+    CHECK(w.blocks_out_of_range >= 1u);
+    /* block 0 is accepted, and afterwards mid-frame blocks are normal */
+    CHECK(gbp_vwitness_stage(&w, blockbuf) == 0);
+    CHECK(gbp_vwitness_place(&w, 0u) == 0);
+    CHECK(gbp_vwitness_stage(&w, blockbuf) == 0);
+    CHECK(gbp_vwitness_place(&w, 7u) == 0);
+}
+
+static void test_nothing_is_staged_before_the_window_opens(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000;
+    printf("-- during warm-up not one word is extracted: staging itself is refused\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 8u);
+    feed_clean(&w, 0u, 4u, &t);
+    CHECK(w.blocks_staged == 0u);
+    CHECK(w.blocks_placed == 0u);
+    CHECK(w.n == 0u);
+    make_block(word_is_x, 0);
+    CHECK(gbp_vwitness_stage(&w, blockbuf) == -1);
+}
+
+static void test_the_predicate_reads_no_stimulus_content(void)
+{
+    printf("-- §18: the qualification predicate names only ASSEMBLER structure\n");
+    /* The predicate lives in gbp_vwitness_drive.h and is driven above against
+     * the real assembler. What is asserted here is the *shape* of the contract:
+     * the witness module has no decoder, no CRC and no notion of a frame id. */
+    CHECK(GBP_VWITNESS_WORDS == 54u);         /* geometry only */
+    CHECK(GBP_VWITNESS_QUAL_WARMUP == 0u);
+    CHECK(GBP_VWITNESS_QUAL_PENDING == 1u);
+    CHECK(GBP_VWITNESS_QUAL_ARMED == 2u);
+}
+
+/* ---- §V5.44.17 CROSS-RUN REPLAY -----------------------------------------
+ *
+ * Replays the RECORDED half of the qualification predicate over the structural
+ * projection of a real capture (tools/vqual.py, format OGBPQUAL1) and reports
+ * where the window would have opened.
+ *
+ * The fixture carries frame_index, blocks, flags and completeness and NOTHING
+ * ELSE -- no witness words, so no FRAME_ID, no STATUS, no SYNC, no CRC-8 and no
+ * pixel can reach this code even by accident. The qualification decision is
+ * taken by gbp_vwitness_frame_shape_qualifies(), the function the runtime
+ * itself calls, so what is under test here is the rule and not a copy of it.
+ *
+ * Sequencing mirrors the boundary case exactly, because that is the only case
+ * a closed frame can be in: the previous frame closes FIRST and the block that
+ * closed it is index 0 of the frame now opening. Hence per record:
+ *     note_frame -> commit -> (arm if qualified) -> place block 0 ...
+ * which is the order gbp_vwitness_step() executes.
+ *
+ * Two terms of the live predicate -- st->resync_pending and step->resync -- are
+ * latches no record preserves, so this replay can only ever qualify a frame the
+ * runtime would have rejected. The window it reports is an EARLIEST BOUND. */
+
+static uint32_t be32(const uint8_t *p)
+{
+    return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) |
+           ((uint32_t)p[2] << 8) | (uint32_t)p[3];
+}
+static uint16_t be16(const uint8_t *p) { return (uint16_t)(((uint16_t)p[0] << 8) | p[1]); }
+
+static int replay_qual(const char *path, uint32_t required)
+{
+    static const uint8_t MAGIC[8] = { 'O','G','B','P','Q','U','A','L' };
+    uint8_t *data;
+    long size;
+    uint32_t n, i, placed_any = 0u, first_frame = 0xFFFFFFFFu, streak_at_arm = 0u;
+    struct gbp_vwitness w;
+    uint16_t *store;
+    struct gbp_vwitness_meta *meta;
+    FILE *f = fopen(path, "rb");
+    if (!f) { printf("REPLAY error=cannot_open path=%s\n", path); return 2; }
+    fseek(f, 0, SEEK_END); size = ftell(f); fseek(f, 0, SEEK_SET);
+    if (size < 0x4C) { fclose(f); printf("REPLAY error=too_short\n"); return 2; }
+    data = (uint8_t *)malloc((size_t)size);
+    if (!data || fread(data, 1u, (size_t)size, f) != (size_t)size) {
+        fclose(f); free(data); printf("REPLAY error=short_read\n"); return 2;
+    }
+    fclose(f);
+    if (memcmp(data, MAGIC, 8) != 0) { free(data); printf("REPLAY error=bad_magic\n"); return 2; }
+    n = be32(data + 0x0C);
+    if ((long)(0x40u + n * 12u + 12u) != size) { free(data); printf("REPLAY error=bad_size\n"); return 2; }
+
+    store = (uint16_t *)calloc(n ? n : 1u, GBP_VWITNESS_FRAME_WORDS * sizeof *store);
+    meta = (struct gbp_vwitness_meta *)calloc(n ? n : 1u, sizeof *meta);
+    if (!store || !meta) { free(data); free(store); free(meta); printf("REPLAY error=oom\n"); return 2; }
+    gbp_vwitness_init(&w, store, meta, n ? n : 1u, n ? n : 1u);
+    gbp_vwitness_set_qualification(&w, required);
+    make_block(word_is_x, NULL);            /* one fixed block; content is irrelevant here */
+
+    for (i = 0; i < n; i++) {
+        const uint8_t *r = data + 0x40u + (size_t)i * 12u;
+        struct gbp_vwitness_meta m;
+        uint16_t blocks = be16(r + 4), flags = be16(r + 6), compl_ = be16(r + 8);
+        uint32_t b, nb;
+        memset(&m, 0, sizeof m);
+        m.frame_index = be32(r);
+        m.blocks = blocks;
+        m.flags = flags;
+        m.completeness = compl_;
+        gbp_vwitness_note_frame(&w, gbp_vwitness_frame_shape_qualifies(blocks, flags, compl_));
+        if (gbp_vwitness_commit(&w, &m) == 1 && first_frame == 0xFFFFFFFFu)
+            first_frame = m.frame_index;
+        if (!gbp_vwitness_armed(&w) && gbp_vwitness_qualified(&w)) {
+            streak_at_arm = w.qual_streak;
+            gbp_vwitness_arm(&w);
+        }
+        /* the blocks of the frame now opening, block 0 first */
+        nb = blocks > GBP_VWITNESS_BLOCKS ? GBP_VWITNESS_BLOCKS : blocks;
+        for (b = 0; b < nb; b++) {
+            if (gbp_vwitness_stage(&w, blockbuf) == 0 &&
+                gbp_vwitness_place(&w, b) == 0 && b == 0u) placed_any++;
+        }
+    }
+    printf("REPLAY path=%s records_in=%u required=%u\n", path, n, required);
+    printf("REPLAY qual_state=%u streak_max=%u resets=%u warmup_frames=%u warmup_disqualified=%u\n",
+           w.qual_state, w.qual_streak_max, w.qual_resets, w.warmup_frames, w.warmup_disqualified);
+    printf("REPLAY records_out=%u first_retained_frame=%d frames_seen=%u blocks_out_of_range=%u\n",
+           w.n, (first_frame == 0xFFFFFFFFu) ? -1 : (int)first_frame,
+           w.frames_seen, w.blocks_out_of_range);
+    printf("REPLAY streak_at_arm=%u record0_block0=%u\n", streak_at_arm,
+           (w.n && (meta[0].present & 1u)) ? 1u : 0u);
+    free(data); free(store); free(meta);
+    return 0;
+}
+
+/* ---- what the M1..M12 mutation round exposed (§V5.44.26) ----------------- */
+
+static void test_H_the_warmup_accounting_freezes_at_arming(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000u;
+    uint32_t wf, wd, res, streak;
+    printf("-- once armed the warm-up counters are history and never move again\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 4u);
+    feed_clean(&w, 0u, 8u, &t);
+    CHECK(gbp_vwitness_armed(&w));
+    wf = w.warmup_frames; wd = w.warmup_disqualified;
+    res = w.qual_resets;  streak = w.qual_streak;
+    CHECK(wf != 0u);
+    /* A disturbance AFTER arming belongs to the scientific population; if it
+     * also moved the warm-up counters the report would describe a warm-up that
+     * never happened, and the window's own cost could never be audited. */
+    feed_frame(&w, 100u, 20u, &t);                 /* a short, anomalous frame */
+    feed_clean(&w, 101u, 4u, &t);
+    CHECK(w.warmup_frames == wf);
+    CHECK(w.warmup_disqualified == wd);
+    CHECK(w.qual_resets == res);
+    CHECK(w.qual_streak == streak);
+    CHECK(gbp_vwitness_armed(&w));                 /* and the window never closes */
+}
+
+static void test_I_arming_is_refused_while_the_streak_is_short(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000u;
+    printf("-- arm() leaves PENDING only; it is not a way to skip the warm-up\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 8u);
+    CHECK(w.qual_state == GBP_VWITNESS_QUAL_WARMUP);
+    gbp_vwitness_arm(&w);
+    CHECK(w.qual_state == GBP_VWITNESS_QUAL_WARMUP);
+    feed_clean(&w, 0u, 4u, &t);                    /* streak of 3, short of 8 */
+    CHECK(w.qual_streak < 8u);
+    gbp_vwitness_arm(&w);
+    CHECK(!gbp_vwitness_armed(&w));
+    CHECK(w.n == 0u);
+    gbp_vwitness_arm(0);
+}
+
+static void test_J_arming_wipes_the_scratch_as_its_own_contract(void)
+{
+    static uint16_t store[2 * GBP_VWITNESS_FRAME_WORDS];
+    static struct gbp_vwitness_meta meta[2];
+    struct gbp_vwitness w;
+    printf("-- arm() clears the scratch itself, not because a commit happened to\n");
+    /* Driven through the API rather than the assembler ON PURPOSE. On the live
+     * path every warm-up commit already clears the scratch, so a missing wipe
+     * here would be invisible -- which is exactly how a defence in depth stops
+     * being a defence. The state field is set directly because the contract
+     * under test is arm()'s alone: PENDING in, empty scratch out. */
+    CHECK(gbp_vwitness_init(&w, store, meta, 2u, 2u) == 0);
+    make_block(word_is_x, 0);
+    CHECK(gbp_vwitness_stage(&w, blockbuf) == 0);
+    CHECK(gbp_vwitness_place(&w, 0u) == 0);
+    CHECK(w.scratch_blocks == 1u);
+    w.qual_state = GBP_VWITNESS_QUAL_PENDING;
+    gbp_vwitness_arm(&w);
+    CHECK(gbp_vwitness_armed(&w));
+    CHECK(w.scratch_blocks == 0u);
+    CHECK(w.scratch_present == 0u);
+    CHECK(w.staged_valid == 0u);
+}
+
+static void test_K_the_live_latches_are_redundant_with_the_recorded_shape(void)
+{
+    struct gbp_vwitness w;
+    uint64_t t = 1000u;
+    uint32_t i, clean_closes = 0u;
+    static const uint32_t shapes[] = { 40u, 40u, 13u, 40u, 40u, 47u, 40u, 40u,
+                                       40u, 1u, 40u, 40u, 40u, 40u, 40u, 40u };
+    printf("-- a shape-clean close never coincides with resync or resync_pending\n");
+    /* THE INVARIANT THAT MAKES AN OFFLINE REPLAY EXACT.
+     *
+     * The predicate has two terms a frame record does not preserve --
+     * step->resync and st->resync_pending -- so a replay of a past capture can
+     * only evaluate the recorded three. That would normally make the replayed
+     * window an EARLIEST BOUND rather than an answer. It is an answer because
+     * the assembler never produces the combination that would separate them:
+     * every site that raises a region anomaly either flags the frame
+     * ANOMALY/OVERLONG or leaves completeness other than COMPLETE_40, and a
+     * frame that merely closes while the pause is up is flagged F_RESYNC. So
+     * shape-clean implies both latches are down.
+     *
+     * If the assembler ever gains a region anomaly that leaves the frame
+     * looking perfect, this check fails -- and the replay in
+     * tests/host/test_vqual.py stops being exact on the same day, which is the
+     * point of pinning it here rather than asserting it in a comment. */
+    asm_reset(&w);
+    for (i = 0; i < sizeof shapes / sizeof shapes[0]; i++) {
+        uint32_t b;
+        for (b = 0; b < shapes[i]; b++) {
+            *(&t) += 100u;
+            feed(&w, 500u + i, b, b == 0u, t);
+            if (last_step.frame_closed) {
+                const struct gbp_vstate_frame *fr =
+                    gbp_vstate_frame_at(&asm_state, last_step.frame_index);
+                if (fr && gbp_vwitness_frame_shape_qualifies(fr->blocks, fr->flags,
+                                                             fr->completeness)) {
+                    clean_closes++;
+                    CHECK(last_step.resync == 0u);
+                    CHECK(last_pending == 0);
+                }
+            }
+        }
+    }
+    CHECK(clean_closes >= 4u);       /* the scenario really did produce clean frames */
+    CHECK(asm_state.anomalies_region >= 2u);   /* and really did produce anomalies */
+}
+
+int main(int argc, char **argv)
+{
+    if (argc == 4 && strcmp(argv[1], "--replay") == 0)
+        return replay_qual(argv[2], (uint32_t)strtoul(argv[3], NULL, 10));
     printf("== test_gbp_vwitness (OGBPIDX1 retention; every scenario SYNTHETIC)\n");
     test_the_extraction_is_exactly_the_canonical_strip();
     test_bit15_is_preserved_on_the_way_in();
@@ -723,6 +1207,23 @@ int main(void)
     test_a_display_self_test_consumes_no_witness_slot();
     test_the_copy_cost_is_a_bounded_aggregate();
     test_bad_arguments_store_nothing();
+    test_the_production_qualification_is_frozen();
+    test_a_default_witness_is_armed_immediately();
+    test_A_a_resync_during_warmup_resets_the_streak();
+    test_B_an_incomplete_frame_during_warmup_resets_the_streak();
+    test_C_N_clean_frames_qualify();
+    test_D_the_qualifying_frame_itself_is_not_retained();
+    test_E_the_window_opens_at_record0_block0();
+    test_F_a_resync_after_arming_stays_in_the_evidence();
+    test_G_an_incomplete_record_after_arming_is_not_filtered();
+    test_H_the_warmup_accounting_freezes_at_arming();
+    test_I_arming_is_refused_while_the_streak_is_short();
+    test_J_arming_wipes_the_scratch_as_its_own_contract();
+    test_K_the_live_latches_are_redundant_with_the_recorded_shape();
+    test_warmup_consumes_no_record_capacity();
+    test_the_first_record_invariant_refuses_a_mid_frame_start();
+    test_nothing_is_staged_before_the_window_opens();
+    test_the_predicate_reads_no_stimulus_content();
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

@@ -530,6 +530,12 @@ PROFILES = {
         "irq_write_sites": {"gbp_initirqa_probe.o": 3, "gbp_irq_service.o": 1, "gbp_vstate_probe.o": 3},
         "control_write_sites": {"gbp_initirqa_probe.o": 2},
         "intsr_store_sites": {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+        # The qualification state machine (§V5.44). It decides WHEN to start
+        # measuring and must not be able to consult the measurement, so its
+        # outward edges are enumerated rather than merely restricted.
+        "object_may_only_reference": {
+            "gbp_vwitness.o": ("memset", "__udivdi3"),
+        },
         "object_must_not_reference": {
             "gbp_vstate_probe.o": _CAPTURE_SYMBOLS,
             "gbp_vstate.o": _CAPTURE_SYMBOLS,
@@ -858,6 +864,22 @@ def audit_dir(path, profile="003a"):
             if s in syms:
                 findings.append("%s references %s — investigate (from %s)" % (obj, s, ", ".join(sorted(set(syms[s])))))
                 report["symbols"].setdefault(obj, []).append(s)
+        # §V5.44.18 ALLOWLIST. A deny-list can only forbid the decoders that
+        # exist today; the qualification state machine must be unable to reach
+        # one that is written tomorrow. So the rule is inverted for it: name
+        # everything it MAY reference and reject the rest. It currently reaches
+        # memset and the compiler's 64-bit divide helper and nothing else, so
+        # any new outward edge — a signature, a colour, a CRC, a decoder — is a
+        # finding by default rather than by enumeration.
+        allow = prof.get("object_may_only_reference", {}).get(obj)
+        if allow is not None:
+            for s in sorted(syms):
+                if s.startswith(".text.") or s.startswith(".rodata."):
+                    continue          # this object's own sections, not an outward edge
+                if s not in allow:
+                    findings.append("%s references %s — not in this object's allowlist (from %s)"
+                                    % (obj, s, ", ".join(sorted(set(syms[s])))))
+                    report["symbols"].setdefault(obj, []).append(s)
         for s_bad in prof.get("object_must_not_reference", {}).get(obj, ()):
             if s_bad in syms:
                 findings.append("%s references %s — forbidden in this object's path (from %s)"

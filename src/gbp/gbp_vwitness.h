@@ -88,6 +88,73 @@ extern "C" {
 #define GBP_VWITNESS_TARGET      2048u
 #define GBP_VWITNESS_STORE_BYTES ((size_t)GBP_VWITNESS_TARGET * GBP_VWITNESS_FRAME_BYTES)
 
+/* ---- THE PROSPECTIVE STRUCTURAL QUALIFICATION (§V5.44) -------------------
+ *
+ * Run 3 of the indexed experiment produced a correct producer and a refused
+ * verdict. Its first few closed frames contained the startup transient every
+ * run of this project has shown since `stream-0003` (GBP-HW-141): one record
+ * held FRAME_ID 19 with 34 of 40 blocks after a mid-frame resync, so the frozen
+ * analyzer — which only ever sees all-40-block records — read 18 -> 20 as an
+ * `OBSERVED_ID_GAP` (GBP-HW-172).
+ *
+ * The analyzer was RIGHT and is not being changed. What was wrong was the
+ * experiment's boundary: it measured from power-on, so the startup transient
+ * was inside the population under test.
+ *
+ * So the scientific window is now ARMED rather than assumed, and the arming
+ * rule obeys four constraints that together make it honest:
+ *
+ *   PROSPECTIVE   the decision is taken ONLINE, as frames close. Nothing
+ *                 searches the capture afterwards for "the last resync" — that
+ *                 would use future knowledge and could hide a real failure.
+ *   STRUCTURAL    the predicate reads only what the ASSEMBLER decided about
+ *                 frame structure. It may not look at FRAME_ID, STATUS, SYNC,
+ *                 CRC-8, symbols or any pixel: the runtime must not consult the
+ *                 scientific answer in order to decide when to start measuring
+ *                 it.
+ *   ONE-WAY       once armed it never returns to warm-up. A resync, an
+ *                 incomplete frame or an anomaly AFTER arming stays inside the
+ *                 scientific population and can still defeat the claim.
+ *   BOUNDED       warm-up frames consume no record capacity and do not count
+ *                 toward the target, and the absolute safety cap still applies,
+ *                 so a run that never qualifies fails VISIBLY.
+ *
+ * A frame QUALIFIES when the assembler closed it COMPLETE_40 on an observed
+ * boundary with none of F_ANOMALY, F_DISAGREEMENT, F_OVERLONG or F_RESYNC, and
+ * with its own `resync_pending` latch clear. That is the assembler's existing
+ * vocabulary for "synchronisation is re-established", not a new invention:
+ * `resync_pending` is raised by ANY region anomaly and cleared only by a clean
+ * complete frame. Requiring the absence of F_RESYNC means the streak counts
+ * only frames after that re-establishment, never the frame that performed it.
+ *
+ * `resync_pending == 0` alone is vacuously true at power-on, before any frame
+ * exists, which is why a CONSECUTIVE STREAK is required as well.
+ */
+/* N, FROZEN BEFORE THE RUN IT JUDGES.
+ *
+ * The observed structural transient is small and consistent, and it is now
+ * MEASURED rather than estimated: replaying the structural records of all three
+ * indexed runs gives exactly FOUR non-qualifying frames, all inside the first
+ * SEVEN closed frames, with exactly one streak reset, in every run
+ * (GBP-HW-176). That agrees with the `incomplete=2 resync=4` that
+ * `stream-0003`/`stream-0004` reported before witnesses existed (GBP-HW-141,
+ * GBP-HW-166, GBP-HW-172). 64 consecutive qualifying frames is about **1.07 s**
+ * at the measured 59.73 Hz — about NINE times the measured span — and it is
+ * chosen for that margin, NOT because it happens to clear three logs. The
+ * verdict is in fact the same for every N from 2 to 128 (§V5.44.3), so the
+ * choice sits in the middle of a plateau rather than on an edge.
+ *
+ * The cost is bounded and checked: 64 warm-up frames plus the 2 048-record
+ * window is ~2 112 frames ~ 35.4 s against the 60 s safety cap, leaving ~24.6 s.
+ * Qualification could be delayed by as much as ~1 534 frames (~25.7 s) and the
+ * run would still complete; past that the safety cap fires as
+ * `stop=safety_budget`, VISIBLY, and never silently. */
+#define GBP_VWITNESS_QUAL_REQUIRED 64u
+
+#define GBP_VWITNESS_QUAL_WARMUP   0u   /* counting consecutive qualifying frames */
+#define GBP_VWITNESS_QUAL_PENDING  1u   /* streak reached; waiting for a block-0 boundary */
+#define GBP_VWITNESS_QUAL_ARMED    2u   /* the scientific window is open, permanently */
+
 /* Metadata that travels with each retained frame. It is what makes the record
  * interpretable WITHOUT the OGBPSEQ1 sidecar and without the runtime having
  * understood one bit of OGBPIDX1 (§V5.39.5). */
@@ -118,6 +185,18 @@ struct gbp_vwitness {
     uint32_t staged_valid;              /* a block is staged and not yet placed */
     uint16_t staged[GBP_VWITNESS_WORDS];
 
+    /* ---- the qualification state machine (§V5.44) ----
+     * `qual_required == 0` means "armed from the first block", which is what
+     * every pre-qualification caller and test gets by default. */
+    uint32_t qual_state;
+    uint32_t qual_required;             /* consecutive qualifying frames needed */
+    uint32_t qual_streak;               /* the current run of qualifying frames */
+    uint32_t qual_streak_max;           /* the longest seen, so a near miss is visible */
+    uint32_t qual_resets;               /* how many times the streak was broken */
+    uint32_t qual_frame_index;          /* the frame that completed the streak */
+    uint32_t warmup_frames;             /* frames closed BEFORE the window opened */
+    uint32_t warmup_disqualified;       /* of those, how many failed the predicate */
+
     /* what happened, so nothing has to be inferred from a count */
     uint32_t frames_seen;               /* frames closed while capture was live */
     uint32_t frames_discarded;          /* scratches dropped with no frame record */
@@ -134,6 +213,25 @@ struct gbp_vwitness {
     uint32_t copy_ticks_min, copy_ticks_max, copy_ticks_n;
     uint64_t copy_ticks_sum;
 };
+
+/* Requires `required` consecutive structurally qualifying frames before the
+ * scientific window may open. 0 (the default after init) arms immediately.
+ * Call it once, after init and before any block. */
+void gbp_vwitness_set_qualification(struct gbp_vwitness *w, uint32_t required);
+
+/* One closed frame's STRUCTURAL verdict, from the assembler and nothing else.
+ * `qualifying` is the caller's evaluation of the predicate described above.
+ * Ignored once the window is armed: the streak exists only to open it. */
+void gbp_vwitness_note_frame(struct gbp_vwitness *w, int qualifying);
+
+/* The streak is complete; the window opens at the NEXT block-0 boundary. */
+int gbp_vwitness_qualified(const struct gbp_vwitness *w);
+/* The scientific window is open. Before this, no block is retained and no
+ * record capacity is consumed. */
+int gbp_vwitness_armed(const struct gbp_vwitness *w);
+/* Opens the window. The caller may only do this at a block-0 frame boundary;
+ * `gbp_vwitness_place()` asserts the first placement is record 0, block 0. */
+void gbp_vwitness_arm(struct gbp_vwitness *w);
 
 /* Binds caller storage. `store` must hold `cap` x GBP_VWITNESS_FRAME_WORDS
  * uint16, `meta` must hold `cap` entries. `target` is clamped to `cap`; 0 means
