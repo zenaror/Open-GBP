@@ -21,6 +21,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import istim  # noqa: E402
+import vidxcap  # noqa: E402
 
 # the frozen classification names, re-exported so a caller need not reach into istim
 OBSERVED_ID_CONTIGUOUS  = istim.OBSERVED_ID_CONTIGUOUS
@@ -37,6 +38,7 @@ STIMULUS_INVALID = "STIMULUS_INVALID_FOR_DECISIVE_CLAIM"
 OBSERVED_CONTIGUOUS = "OBSERVED_CONTIGUOUS"
 OBSERVED_DISCONTINUITY = "OBSERVED_DISCONTINUITY"
 INCONCLUSIVE_TOO_FEW = "INCONCLUSIVE_TOO_FEW_INTACT_FRAMES"
+INCONCLUSIVE_CAPTURE = "INCONCLUSIVE_CAPTURE_NOT_DECISIVE"
 
 
 def analyze_frame(block_witnesses, prev_frame_id=None):
@@ -141,5 +143,65 @@ def format_report(r) -> str:
     return "\n".join(L)
 
 
+def analyze_sidecar(path):
+    """The OGBPIDXCAP1 adapter (HARDWARE_TESTS §V5.39.10).
+
+    The analyzer core is untouched by this: it still receives nothing but a list
+    of per-frame witness sets. What the adapter adds is the CAPTURE's own
+    admissibility, which the core cannot see and must not have to — a file that
+    stopped for the wrong reason, overflowed its store or lost a record can be
+    perfectly decodable and still be the wrong evidence.
+
+    Returns (report, info, usability). The report's verdict is FORCED to
+    INCONCLUSIVE when the capture is not admissible, and the reasons travel with
+    it so nothing has to be inferred from the word alone."""
+    info = vidxcap.load(path)
+    use = vidxcap.usability(info)
+    full = vidxcap.complete_frames(info)
+    report = analyze_run([r["witness"] for r in full])
+
+    # what the SOURCE layer retained, kept apart from what the analyzer decoded
+    report["capture"] = {
+        "path": path,
+        "records": info["records_n"],
+        "target": info["target_frames"],
+        "capacity": info["records_cap"],
+        "frames_seen": info["frames_seen"],
+        "frames_discarded": info["frames_discarded"],
+        "blocks_out_of_range": info["blocks_out_of_range"],
+        "records_all_40_blocks": len(full),
+        "records_partial": info["records_n"] - len(full),
+        "stop_reason": info["stop_reason"],
+        "flags": vidxcap.flag_names(info["flags"]),
+        "build_id": info["build_id"],
+        "commit": info["commit"],
+        "usable_for_decisive_claim": use["usable_for_decisive_claim"],
+        "refused_because": use["reasons"],
+    }
+    if not use["usable_for_decisive_claim"]:
+        report["verdict"] = INCONCLUSIVE_CAPTURE
+    return report, info, use
+
+
+def format_sidecar_report(report, info) -> str:
+    c = report["capture"]
+    L = [vidxcap.format_info(info), "",
+         "  records with all 40 blocks   %d" % c["records_all_40_blocks"],
+         "  records missing a block      %d  (reported, never padded)" % c["records_partial"],
+         ""]
+    L.append(format_report(report))
+    return "\n".join(L)
+
+
 if __name__ == "__main__":
+    if len(sys.argv) == 3 and sys.argv[1] == "sidecar":
+        try:
+            rep, inf, _ = analyze_sidecar(sys.argv[2])
+        except vidxcap.SidecarError as e:
+            print("SIDECAR REJECTED: %s" % e)
+            print("VERDICT %s" % INCONCLUSIVE_CAPTURE)
+            sys.exit(1)
+        print(format_sidecar_report(rep, inf))
+        sys.exit(0)
     print(__doc__)
+    print("usage: vindex.py sidecar <FILE_idxcap.bin>")

@@ -11889,3 +11889,517 @@ untouched, and so are the 13 incomplete intervals, whose cause is still
 **None of this promotes anything.** `stream-0003`'s counters stand exactly as
 logged; a new run produces a new record, and the comparison between them is a
 comparison, not a correction.
+
+---
+
+### V5.38 SECOND PHYSICAL GBP STREAM SMOKE — `stream-0004`, executed 2026-09-19 — **P1 AND P2 PHYSICALLY CONFIRMED FIXED**
+
+The exact audited candidate ran on real hardware with a real cartridge. Both
+defects the first smoke paid for are closed, the pre-registered gate passed, and
+the run produced one genuinely new finding that changes how the next experiment
+must be bounded.
+
+#### V5.38.1 The log, and its identity
+
+```text
+logs/GBP-VIDEO-004_stream-0004.log
+  88 854 bytes
+  sha256 2ec3ada282caf86885345486b82ff61f9122f2953d0e53f9cc6f12941c212dda
+  test_id=GBP-VIDEO-004  build_id=stream-0004  commit=e11df66
+  lines=678  dropped=0  truncated=0     (and the end marker repeats dropped=0)
+  sidecar=none  capture_s=30  safety_s=60  power_cycle_required=1
+```
+
+Preserved under the standing workflow: `logs/` is the raw immutable input,
+`captures/local/` the ignored copy, both verified byte-identical. **Every figure
+in this section was recomputed from that file by `tools/`-side arithmetic, never
+transcribed from a report.**
+
+#### V5.38.2 Transport — conserved, again
+
+```text
+COUNTERS unmasks=280672 deliveries=280672 acks=280672 rearms=280672
+         lean=280668 verify=4 audio=181481 video=105841/105841
+         isr_w1c=280672 main_w1c=0 teardown_w1c=1 overflow=0 uncertain=0 control_ok=1
+STATS    transfers=1129408 timeouts=0 busy=0 bulk_transfers=287322 bulk_bytes=1149775616
+VSTATE end status=ok_structured_change_observed class=ok stop=nominal_negative
+         restore=ok teardown=S5_target power_cycle_required=1 errors=0 transport_ok=1
+```
+
+`unmasks == deliveries == acks == rearms` exactly; every W1C came from the ISR
+and none from the main thread; `bulk_transfers 287 322 == 105 841 video +
+181 481 audio`. **PHYSICAL EVIDENCE of this run**, and nothing more: it says the
+service was conserved for 280 672 cycles, not that any timing property is
+guaranteed.
+
+#### V5.38.3 P2 — the pre-registered gate, and why the comparison is controlled
+
+The gate fixed before the run (§V5.37.17) was `SEMANTIC.quarantined ==
+STREAMSRC.quarantined`. **0 == 0.**
+
+The two runs are the closest thing this project has had to a controlled
+experiment without an indexed stimulus, because the SOURCE population is
+identical field for field:
+
+| field | stream-0003 | stream-0004 | Δ |
+| --- | --- | --- | --- |
+| `FRAMECAP frames / complete / incomplete / resync / anomaly_region` | 2648 / 2635 / 13 / 26 / 13 | 2648 / 2635 / 13 / 26 / 13 | 0 |
+| `FRAMECAP counted / blocks` | 2619 / 105 841 | 2619 / 105 841 | 0 |
+| `COUNTERS video / audio` | 105 841 / 181 481 | 105 841 / 181 481 | 0 |
+| `CLOCKSEC capture_s / valid_s` | 44.323 / 30.002 | 44.323 / 30.001 | ~0 |
+| `STREAMSRC quarantined` | **324** | **0** | −324 |
+| `STREAMSRC published` | **2298** | **2622** | **+324** |
+
+```text
+stream-0003   2635 complete = 2298 published + 324 quarantined + 13 anomaly
+stream-0004   2635 complete = 2622 published +   0 quarantined + 13 anomaly
+```
+
+The same source frames, decomposed differently, by exactly the 324 the aliased
+bit was refusing. And the only causal change available is the one under test:
+`gbp_vstate_probe.c`, `gbp_irq_service.c`, `gbp_transport.c`, `gbp_avblock.c`,
+`gbp_vsig.c` and `hsp_backend_irq.c` all have **zero changed lines** between the
+two builds, and `gbp_vstate.c`'s entire change is a compile-time typedef.
+
+**P2 PHYSICALLY CONFIRMED FIXED** (GBP-HW-146). `stream-0003` is **not**
+rewritten: its counters stand as logged.
+
+#### V5.38.4 P1 — the identity, and four counters that do not appear in it
+
+```text
+STREAMDISP converted=2621 presented=2603 overrun=0 repeated=18 undispositioned=0
+           2621 == 2603 + 0 + 18 + 0          balanced=1
+```
+
+Corroboration that does not reuse the identity:
+
+```text
+xfb_skipped  18   == repeated 18                    the same branch of submit_ready()
+xfb_presents 2604 == 2603 scientific + 1 self-test
+submit       2622 == 2621 converted + 1 self-test;  blocked_shutdown = 0
+                     -> nothing was READY at the stop, so undispositioned=0 is a
+                        COUNTER's answer, not the identity's own
+fills_started 108 249 == 2622 completed + 105 626 abandoned + 1 still filling
+                     -> and taken − converted = 1 names that same frame
+drawdone 2622 == releases 2622 == submit 2622, spurious 0, inflight_at_end 0
+```
+
+The stop caught **one conversion in flight**, which `stream-0003` did not have
+(there, `taken == converted` and `acquire − fills == abandoned` exactly). Both
+runs close their ownership identity; the term that differs is the one the stop
+point decides, exactly as §V5.37.10 predicted.
+
+**P1 PHYSICALLY CONFIRMED FIXED** (GBP-HW-147).
+
+#### V5.38.5 Cadence — measured, and scoped
+
+```text
+publish_mean 684 292 ticks / 40 500 000 = 16.8961 ms = 59.1853 Hz
+2 622 published / 44.323 wall s                      = 59.157  Hz
+source closure 2 648 / 44.323 wall s                 = 59.743  Hz
+stream-0003    19.2721 ms                            = 51.889  Hz
+```
+
+Removing the false quarantine restored the observed publication cadence in this
+run to approximately the observed source closure rate. **No frame rate is
+claimed, promised or generalised** (GBP-HW-148): one run, one cartridge, one
+44-second window.
+
+#### V5.38.6 Ownership and pump
+
+`STREAMINV checks=221741 failures=0 main=0/219119 isr=0/2622`, `consistent_at_end=1`,
+`cb_restored=1`. Across both physical runs: **468 289 checks, 0 failures**
+(GBP-HW-149).
+
+Pump: 28.321 / 34.074 / 41.333 µs, `skipped_cause_pending` 25.01 %,
+`arrived_during` 24.18 % — a replication of `stream-0003`'s 27.88 / 33.60 /
+41.06 µs and 24.95 % (GBP-HW-150). The permitted claim stays exactly what it
+was: **the pump did not cause an observable transport failure in this run.**
+Not "timing-safe".
+
+#### V5.38.7 Frame completeness — and what is still not decidable
+
+```text
+FRAMECAP  frames=2648 complete=2635 incomplete=13 resync=26 anomaly_region=13
+STREAMSRC complete=2622 incomplete=13 anomaly=13 quarantined=0
+          2635 = 2622 stream-eligible + 13 anomaly
+```
+
+The 13 incomplete intervals are the **startup-region signature** already recorded
+as predating streaming (GBP-HW-141), reproduced here identically for the third
+time. They are **not** called source frame loss: nothing in this run identifies a
+source frame, so a missing one cannot be distinguished from a boundary the
+assembler read differently. **OGBPIDX1 remains necessary** for any decisive claim
+about source-ID continuity.
+
+#### V5.38.8 The operator's own observation
+
+Recorded separately, and weaker than every machine fact above: the operator
+reports the display looked **essentially the same as `stream-0003`** — real
+cartridge video, visibly normal, native-sized — and took no new photographs
+because nothing looked different. An unaided impression of a 44-second run cannot
+resolve a 12 % publication difference; it is consistent with an
+accounting-and-cadence fix that changes no geometry, colour or UI, and it
+corroborates nothing by itself (GBP-HW-152).
+
+#### V5.38.9 `stream-0004` — final status
+
+```text
+GBP-VIDEO-004 / stream-0004
+  PHYSICAL REAL-CARTRIDGE VIDEO OUTPUT ACHIEVED
+  P1 PHYSICALLY CONFIRMED FIXED
+  P2 PHYSICALLY CONFIRMED FIXED
+  TRANSPORT CONSERVED               280 672 cycles, 0 timeouts, 0 anomalies
+  OWNERSHIP INVARIANTS HELD         221 741 checks, 0 failures
+  SOURCE-ID CONTINUITY              NOT YET DECIDABLE
+```
+
+**Is the basic sustained-streaming milestone operationally reached?** Yes, with
+its scope stated: a real cartridge's video was captured, conserved, converted and
+presented for a supervised 44-second window, twice, with every accounting
+identity closing and every ownership invariant holding. That is *operational
+sustained streaming for the window exercised*.
+
+It is **not**: zero source-frame loss (undecidable here), a guaranteed frame
+rate, a proof of timing safety, correct pacing, absence of tearing, pixel
+fidelity, or any statement about longer runs. Those need the indexed stimulus and
+the runs after it.
+
+#### V5.38.10 THE NEW FINDING — `valid_s` is not wall time
+
+```text
+capture_s 44.323   valid_s 30.001   target_s 30   frames closed 2648
+wall / valid = 1.4774
+```
+
+`valid_observation_elapsed` sums the **span of each counted frame**, not the time
+between frames. So the premise the indexed experiment was sized on — *30 s at
+~59.7 Hz → ~1 792 source frames* — is wrong by a factor of 1.48, and it was
+equally wrong for `stream-0003`; nobody had checked it against a closed-frame
+count. It is recorded as GBP-HW-151 and it changes the next experiment's
+protocol, not its wire format (§V5.39.3).
+
+---
+
+### V5.39 `stream-0005` — OGBPIDX1 witness retention, implemented — 2026-09-19 — **NOT PHYSICALLY EXECUTED**
+
+The indexed stimulus has existed since §V5.35 and has never run anywhere,
+because nothing in the runtime retained what it draws. This round implements
+that retention, and changes how the indexed run is BOUNDED — because
+`stream-0004` disproved the premise it was sized on.
+
+**The OGBPIDX1 wire format is NOT touched.** Layout, 54-bit payload, CRC-8,
+symbols, 24-bit ID, STATUS, canonical witness coordinates and classification
+rules are exactly as frozen in §V5.33. What was wrong was the operational
+protocol around it, and that is what changed. There is no OGBPIDX2.
+
+#### V5.39.1 What is retained
+
+```text
+STRIP-L, local row 0 of each block, x = 1 .. 54
+  -> 54 word16 per block  ·  40 blocks per frame
+  -> 108 bytes per block  ·  4 320 bytes per frame   (2.8 % of a 153 600-byte frame)
+```
+
+Lossless *for the thing being measured*: the analyzer recovers SYNC, FRAME_ID,
+BLOCK_INDEX, STATUS and the CRC-8 from exactly these words. The word is stored
+as the wire carried it —
+
+```text
+word16 = (b1 << 8) | b3        bit 15 NOT masked
+```
+
+— because what sets bit 15 is **U-GBP-034, OPEN**, and masking on the way in
+would destroy the only evidence this run can gather about it. Bytes 0 and 2 are
+read by neither reference decoder and are not read here (U-GBP-029). The
+analyzer splits bit 15 from `colour15` offline, where a mistake costs nothing.
+
+#### V5.39.2 The population is the SOURCE's, not the consumer's
+
+Capture happens when the VIDEO block is received — **ahead of**
+`gbp_vqueue_publish()`, the mailbox, the consumer and the display. Retaining
+only frames the consumer accepted would make the witness population a function
+of consumer eligibility, which is precisely the bias that would make a
+source-continuity claim worthless. So quarantined, anomalous, incomplete, short,
+overlong and resync frames are all preserved, each carrying the assembler's own
+flag word verbatim.
+
+#### V5.39.3 The stop is a COUNT, because a clock was the wrong quantity
+
+`stream-0004` measured it (GBP-HW-151): 30 *valid* seconds were **44.3 wall
+seconds and 2 648 closed frames**, not the ~1 792 a wall-clock reading of
+`valid_s` predicts, because the valid clock sums frame spans rather than the time
+between frames. A store sized from that clock is sized from the wrong quantity.
+
+```text
+WITNESS_TARGET = 2048 records
+
+the record that fills the target      -> stop = witness_target_reached   NORMAL
+an attempt to commit beyond capacity  -> stop = witness_store_full       INCONCLUSIVE
+```
+
+Two stop reasons, never folded into one. Overflow is **not** the normal end of
+this experiment: the analyzer refuses a decisive verdict on any capture that
+declares `store_full`, and the probe checks overflow FIRST so a run that somehow
+did both is reported as the failure it is. The valid-seconds target and the
+safety budget remain configured as BOUNDS; they no longer decide when the
+experiment ends.
+
+#### V5.39.4 The association — the part that cannot be got wrong quietly
+
+A witness placed in the wrong frame does not fail loudly. It produces a
+*plausible* record of a frame that never existed, and no later check can recover
+from it. So the rule is not transcribed into the service loop; it lives in
+`src/gbp/gbp_vwitness_drive.h`, where the unit tests drive it against the **real
+assembler**.
+
+The assembler reports where each block landed, and the retention obeys:
+
+```text
+boundary block     the previous frame closed FIRST; this block is index 0 of the
+                   one now opening              -> COMMIT, then PLACE
+48-block give-up   this block is already the 48th of the interval that is ending
+                                                -> PLACE, then COMMIT
+ordinary block     nothing closed; the order is immaterial
+no anchor / frame store full
+                   no frame record exists, so no witness record may
+                                                -> DISCARD the scratch
+```
+
+`gbp_vstate_step` gained `witness_valid`, `witness_index`, `witness_slot`,
+`witness_place_first` and `witness_reset` — five fields the assembler fills and
+nothing reads a byte for. The static audit pins **two** call sites of
+`gbp_vwitness_stage`/`_place` inside `gbp_vstate_probe_run`, because two is what
+the two orderings are; collapsing them into one would put a block in the wrong
+frame, so the count is asserted rather than left to drift.
+
+#### V5.39.5 The record, and why it carries metadata at all
+
+A witness record must be interpretable **without** the OGBPSEQ1 sidecar and
+without the runtime having understood one bit of OGBPIDX1. So each carries the
+frame record's own fields — index, blocks, flags (verbatim), completeness,
+disagreements, both timestamps — plus a 40-bit **presence bitmap**. A block that
+never arrived reads as zero and is identifiable as *absent* from the bitmap,
+never as "a block whose words happened to be zero". The metadata is taken from
+`gbp_vstate_frame_at()`, i.e. from the frame record itself, so a witness can
+never describe a frame the frame store does not.
+
+#### V5.39.6 Memory — measured, not asserted
+
+```text
+witness store    2048 x 4320 =  8 847 360 B   the audited 8.4375 MiB, unchanged
+witness metadata 2048 x   48 =     98 304 B   reported SEPARATELY, never folded in
+                                 ----------
+added                            8 945 664 B  = 8.53 MiB
+```
+
+Measured on the real build, not from a nominal 24 MiB:
+
+```text
+.text  0x0005A7F0    370 160 B     .rodata 0x0000B7B0   46 992 B
+.data  0x00002CB4     11 444 B     .bss    0x0105CC18  17 157 144 B
+bss ends 0x810D5BB8 · Arena1Lo 0x810D5BC0 · Arena1Hi 0x81800000
+arena1 free            7 512 128 B = 7.166 MiB
+three framebuffers     3 x 614 400 = 1 843 200 B
+arena after the XFBs   5 668 928 B = 5.41 MiB
+```
+
+No overlap: `.bss` ends below `Arena1Lo`, which is below `Arena1Hi`, which is the
+end of MEM1. **Headroom is adequate and no existing scientific store was
+reduced.** The POC now also prints `ENVMEM bss_end / arena1_lo / arena1_hi /
+arena1_free / witness / witness_meta / witness_rec / xfb` into the log, so a
+build that stops fitting says so in the record instead of failing on the console
+in front of the operator with a cartridge already running.
+
+#### V5.39.7 The sidecar: OGBPIDXCAP1
+
+A **new magic**, not an OGBPSEQ1 version. OGBPSEQ1 v2…v5 are frozen and
+physically produced; they describe frame signatures and preserved episode frames,
+and this file carries a fixed 4 320-byte slice of pixels for every closed frame.
+Extending them would force every existing parser to learn a section unrelated to
+what it was built to read, and would put a physically produced format at risk for
+a convenience.
+
+The *conventions* are the family's, unchanged: 8-byte magic, big-endian field by
+field, no struct copy, no pointer, no RAM address, no compiler padding, no
+uninitialized byte, `"OGBPEND1"` + CRC-32 footer, and identity fields that are an
+**error** when they do not fit rather than a truncation.
+
+```text
+header   0x180 bytes   magic "OGBPIDXC", version 1, geometry, counters,
+                       copy-cost aggregate, stop reason, flags, four identities,
+                       reserved-zero region, header CRC-32
+records  n x 4368       48 B metadata + 40 x 54 big-endian uint16, EACH SEALED BY
+                        ITS OWN CRC-32
+footer   12 bytes       "OGBPEND1" + CRC-32 of everything before it
+```
+
+Each record seals itself **in addition to** the whole-file CRC, because a
+file-wide checksum cannot distinguish a correct producer from one that built a
+record wrongly and then sealed the result. The host test proves it: flipping
+**every single byte** of a one-record file, one at a time, is refused in all
+4 560 cases.
+
+**Nothing in the runtime interprets OGBPIDX1.** Not one field decodes SYNC,
+FRAME_ID, BLOCK_INDEX, STATUS or the CRC-8.
+
+#### V5.39.8 Filesystem lifecycle
+
+**No filesystem call exists anywhere in the capture path.** The witness stays in
+MEM1 throughout; the sidecar is serialized only after `gbp_vstate_probe_run()`
+has returned, the Game Boy Player has been restored and the GX teardown has
+completed — on the operator's keypress, exactly as OGBPSEQ1 is. It streams one
+record at a time through a 4 368-byte buffer, so no second copy of the 8.4 MiB
+store exists at any moment, and a sink that refuses marks the file TRUNCATED and
+reports the byte count reached. A card failure after a successful teardown is
+reported separately and **cannot** change what the run observed. The static audit
+enforces the boundary: `gbp_vidxdump_stream` and `sdlog_stream_open` are reachable
+from `main` only.
+
+#### V5.39.9 The added critical-path work, instrumented
+
+Per received VIDEO block: 54 consumed-word extractions, 54 stores, one 108-byte
+placement. All in RAM, no device access, no allocation, no branch on anything the
+device did. It is **measured**, exactly as the per-block signature already is:
+
+```text
+STREAMWITT copy_ticks_min / max / mean / n / tb_hz
+```
+
+and `STREAMWIT` reports `records/cap`, `target`, `frames_seen`, `discarded`,
+`staged`, `placed`, `out_of_range`, `store_full`, `target_reached`.
+
+**Nothing here is declared timing-safe.** The next physical run compares these
+aggregates against transport conservation and against the incomplete/resync
+counts, and that comparison is what will say whether the added work is affordable.
+
+#### V5.39.10 The analyzer adapter
+
+`tools/vidxcap.py` reads the sidecar; `tools/vindex.py` gained
+`analyze_sidecar()`. They are separate on purpose: the analyzer core decides what
+a sequence of frame IDs means, the adapter decides only whether a file is a
+trustworthy record. A capture is `usable_for_decisive_claim` **only** when it
+parses with every CRC intact, stopped BECAUSE of the witness target, never
+refused a commit, and holds exactly the declared target. Anything else forces
+`INCONCLUSIVE_CAPTURE_NOT_DECISIVE` — the per-frame classifications survive, the
+VERDICT does not.
+
+The adapter reads the probe's stop enum **out of `gbp_vstate_probe.h`** rather
+than copying the numbers, because a tool that hard-codes a runtime enum drifts
+from it silently the first time someone inserts a value.
+
+#### V5.39.11 The decisive population, and what is NOT pre-asserted
+
+The frozen §V5.33 contract excludes the trailing intact frame (no later STATUS
+certifies its own update) and both edges. So N intact frames give N−1 decisive
+frames and **N−2 decisive transitions**; at the shipped target that is 2 046.
+That is an *expectation of magnitude*, not a pre-asserted result: the analyzer
+reports `first_observed`, `last_observed`, `first_decisive`, `last_decisive`,
+`edge_frames_excluded` and the real N, and the run's own numbers are what get
+recorded.
+
+#### V5.39.12 Tests
+
+`tests/unit/test_gbp_vwitness.c` — **12 020 checks**, including the extraction
+being exactly STRIP-L x=1..54 of row 0 (and not x=0's FLAG or x=55's GUARD), bit
+15 surviving, a whole 40-block frame round-tripping, an incomplete frame keeping
+its bitmap, blocks past the geometry counted and dropped rather than folded, the
+target raising on the Nth record and the (N+1)th being refused with the FIRST
+record untouched, the sidecar round-tripping every word, and every shape of
+damage refused with a specific code.
+
+Six of them drive the **real assembler**: the association across a boundary, a
+short frame retained with its anomaly flags, a quarantined frame retained anyway,
+the 48-block give-up keeping the block that triggered it, and blocks before the
+first anchor producing no record at all.
+
+`tests/host/test_vidxcap.py` — **19 tests**, and the valuable ones are
+cross-language: the sidecars they parse are written by the real
+`src/gbp/gbp_vidxdump.c`, compiled and run, because a Python writer checking a
+Python reader would prove nothing about the bytes the GameCube produces.
+
+#### V5.39.13 Parity with `stream-0004`
+
+Zero changed lines in `gbp_irq_service.c`, `gbp_transport.c`, `gbp_avblock.c`,
+`gbp_vsig.c`, `gbp_vpix.c`, `gbp_vqueue.c`, `gbp_vpresent.c`, `gbp_vstatedump.c`,
+`hsp_backend_irq.c` and `gbp_initirqa_probe.c`. The service path, ACK/RE-ARM,
+pump placement, slice size, GX ownership, XFB policy, R3, flag15 semantics, the
+mailbox and the generation guard are untouched. Every addition to `gbp_vstate.c`
+and `gbp_vstate_probe.c` is guarded by `cfg->witness` or by `if (step)`, so with
+no witness store configured the behaviour is what `stream-0004` shipped — which
+is why `gbp-video-state-probe` and `gbp-video-color-probe` link the module and
+are unaffected by it.
+
+`stream-audit`, `vstate-audit` and `color-audit` all report **0 findings**, and
+both one-shot ISR bodies remain **byte-identical** to the physically validated
+GBP-VIDEO-001 build.
+
+#### V5.39.14 The OGBPIDX1 ROM — exact identity
+
+```text
+canonical  build/stimulus/agb-indexed/agb-indexed.gba
+           2 460 bytes
+           sha256 379df0f7019ef7f1330bd4ad55274bde062a69d03d1c8cc1dc2a01018bdbc543
+           elf    sha256 27ee7620655f2bbb80841c3dca71f52d6d9c41e2ceac9cb36fa889dbeac254b7
+           title 'OPENGBPINDEX'  game code 'IGBP'  maker 'OG'
+           fixed 0x0B2 = 0x96, complement 0x16 OK, reserved zero
+           toolchain arm-none-eabi-gcc (devkitARM) 15.2.0
+           stimulus_id indexed-0001
+           LOGO AREA EMPTY (156 bytes, sha256 59bf9091…e38f): this repository does
+           not supply those bytes, so an AGB cartridge boot refuses this image
+```
+
+Re-verified this round against `tools/istim.py`: the ROM still renders
+38 400/38 400 AGB words identically to the model, and the frozen-contract tests
+pass.
+
+#### V5.39.15 DELIVERY — the same canonical/derived split as the colour stimulus
+
+The distinction already exists and is documented (§V3.7): the **canonical** ROM
+is the source authority and is reproducible from this repository; a **derived**
+delivery image gets the header's logo area filled by official devkitPro `gbafix`,
+outside Git, into an ignored path, and the payload past 0x0C0 stays byte-identical.
+
+`gbafix` is **not present in the pinned container image** (`$DEVKITPRO/tools/bin`
+has `bin2s bmp2bin catnip elf2dol elf2rpl gcdsptool gxtexconv padbin raw2c
+wiiload wuhbtool` and no `gbafix`), so the derived image was **not produced this
+round**. `build/physical/agb-indexed-cart.gba` currently exists as a byte copy of
+the canonical ROM with the logo area still empty, and it is **NOT deliverable**.
+
+**This is an open operational item, not a design one.** The colour stimulus took
+the same route successfully twice, so the route is proven; what is missing is the
+tool in this environment. The OGBPIDX1 payload is **not** altered to accommodate a
+flashcart under any circumstances.
+
+#### V5.39.16 What was deliberately NOT done
+
+Witness retention was not made adaptive, the store was not grown to swallow the
+~2 648 frames `stream-0004` closed (the target is what bounds the run), no
+OGBPIDX1 field was reinterpreted online, no frozen format was edited, and
+R3 / R5 / R7 / the pump position / scaling were not touched.
+
+#### V5.39.17 Status
+
+```text
+GBP-VIDEO-004 / stream-0005
+  IMPLEMENTED · HOST VALIDATED · NOT AUDITED · NOT PHYSICALLY EXECUTED
+  next: the focused pre-hardware audit of stream-0005 (§V5.39.18)
+  blocked for delivery: a gbafix-equivalent for the OGBPIDX1 header logo area
+```
+
+#### V5.39.18 What the pre-hardware audit must cover
+
+```text
+1. witness extraction correctness — the exact 54 words, bit 15, no other byte
+2. source-layer placement — above the publish, and the association under the
+   real assembler for boundary / 48-block / no-anchor / store-full
+3. the 2048 target-stop semantics, and that overflow can never be the normal stop
+4. sidecar integrity — round trip, per-record CRC, every refusal path
+5. memory headroom, measured on the built artifact and at run time
+6. the added critical-path work, instrumented and bounded
+7. no service / R3 / GX drift against stream-0004
+8. the exact artifact identities of the DOL and of the OGBPIDX1 ROM
+```
+
+**Only after that** may hardware run, and only with the OGBPIDX1 cartridge on the
+physically validated delivery path — which §V5.39.15 does not yet have.

@@ -51,7 +51,7 @@ TARGET  := $(OUTDIR)/$(APP_NAME)
 
 vpath %.c $(CURDIR)/source $(ROOT)/src/common $(ROOT)/src/log $(ROOT)/src/gbp $(ROOT)/src/platform
 
-SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vcolor.c gbp_vqueue.c gbp_vstate_probe.c gbp_vstatedump.c hsp_backend.c hsp_backend_irq.c sdlog.c
+SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vwitness.c gbp_vcolor.c gbp_vqueue.c gbp_vstate_probe.c gbp_vstatedump.c hsp_backend.c hsp_backend_irq.c sdlog.c
 OBJS := $(addprefix $(OBJDIR)/,$(SRCS:.c=.o))
 DEPS := $(OBJS:.o=.d)
 

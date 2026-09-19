@@ -195,13 +195,27 @@ class HistoricalProbesAreUnchanged(unittest.TestCase):
         self.assertIn("BUILD_ID   := color-0002", mk)
         self.assertIn("gbp_vcoldump.c", mk)
 
-    def test_the_new_probe_writes_no_sidecar(self):
+    def test_the_new_probe_writes_only_its_own_new_format(self):
         """§V5.24: a new frozen format is created only when the existing ones
-        cannot carry the data. This experiment's result is counters."""
+        cannot carry the data — and when one IS created, the existing ones stay
+        untouched rather than being extended to fit.
+
+        Until stream-0005 this experiment's result was counters alone and the
+        guard read `sidecar=none`. OGBPIDX1 witness retention changed that fact
+        (§V5.39): 4 320 bytes of pixels per frame for thousands of frames is
+        exactly the case §V5.24 reserves a new format for. What the guard
+        protects is unchanged — the FROZEN formats are not touched — so it is
+        repointed at that, not deleted."""
         code = strip_comments(read(MAIN))
-        self.assertNotIn("gbp_vcoldump", code)
-        self.assertNotIn("gbp_vstatedump_stream", code)
-        self.assertIn("sidecar=none", read(MAIN))
+        self.assertNotIn("gbp_vcoldump", code)          # OGBPCOL1 v1, frozen
+        self.assertNotIn("gbp_vstatedump_stream", code) # OGBPSEQ1 v5, frozen
+        self.assertIn("gbp_vidxdump_stream", code)      # its own new magic
+        self.assertIn("format=OGBPIDXCAP1_v", read(MAIN))
+        # and the new writer must be a NEW magic, never a version of a frozen one
+        dump = read(os.path.join(ROOT, "src", "gbp", "gbp_vidxdump.h"))
+        self.assertIn('#define GBP_VIDXDUMP_MAGIC        "OGBPIDXC"', dump)
+        self.assertNotIn("OGBPSEQ1", dump.split("*/", 1)[1])
+        self.assertNotIn("OGBPCOL1", dump.split("*/", 1)[1])
 
 
 class TheRuntimeStillKnowsNothingAboutTheStimulus(unittest.TestCase):
@@ -450,9 +464,20 @@ class DesignAndDocsAgree(unittest.TestCase):
                     "poc/gbp-video-stream-probe/source/main.c"):
             self.assertTrue(os.path.exists(os.path.join(ROOT, rel)), rel)
 
-    def test_the_build_id_is_the_one_the_design_specified(self):
-        self.assertIn("BUILD_ID   := stream-0004", read(os.path.join(POC, "Makefile")))
+    def test_the_build_id_is_the_one_the_documentation_records(self):
+        """Repointed to the fact's permanent owner. A literal build id here
+        becomes false on the round after it is written, which has already cost
+        this suite once; what must hold is that the Makefile, the test id and
+        the HANDOFF's current candidate all say the SAME thing."""
+        mk = read(os.path.join(POC, "Makefile"))
+        m = re.search(r"^BUILD_ID\s*:=\s*(\S+)$", mk, re.M)
+        self.assertIsNotNone(m, "the POC Makefile must declare a BUILD_ID")
+        build_id = m.group(1)
+        self.assertRegex(build_id, r"^stream-\d{4}$")
         self.assertIn('#define TEST_ID "GBP-VIDEO-004"', read(MAIN))
+        handoff = read(os.path.join(ROOT, "docs", "HANDOFF.md"))
+        self.assertIn(build_id, handoff,
+                      "docs/HANDOFF.md does not mention the build id the POC declares")
 
     def test_the_poc_is_registered_in_the_build(self):
         self.assertIn("gbp-video-stream-probe", read(os.path.join(ROOT, "Makefile")))

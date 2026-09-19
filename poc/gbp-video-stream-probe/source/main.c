@@ -108,6 +108,8 @@
 #include "gbp_vpix.h"
 #include "gbp_vqueue.h"
 #include "gbp_vpresent.h"
+#include "gbp_vwitness.h"
+#include "gbp_vidxdump.h"
 #include "hsp_backend.h"
 #include "hsp_backend_irq.h"
 #include "sdlog.h"
@@ -203,6 +205,29 @@ static struct gbp_vstate_cycle cyc_episode[GBP_VSTATE_CYC_EPISODE];
 static struct gbp_vstate vstate;
 static struct gbp_vstate_diag diag_store[GBP_VSTATE_MAX_DISAGREEMENTS];
 static struct gbp_vqueue vq;
+
+/* ---- the OGBPIDX1 witness store (HARDWARE_TESTS §V5.39) -----------------
+ *
+ * 2048 frames x 4320 bytes = 8 847 360 B of canonical witness, plus 2048 x 48 B
+ * of per-frame metadata. The metadata is a SEPARATE 98 304 B and is reported
+ * separately: the 8.4375 MiB figure that was audited is the witness itself, and
+ * it is not quietly made to include something else.
+ *
+ * The count is 2048 and is NOT raised to match the ~2648 frames `stream-0004`
+ * closed. The target is what BOUNDS the run (§V5.39.3); growing the store to
+ * swallow a longer run would put the memory budget back where the old
+ * time-bounded premise had it, which is the premise GBP-HW-151 disproved. */
+static uint16_t witness_store[GBP_VWITNESS_TARGET][GBP_VWITNESS_FRAME_WORDS] ATTRIBUTE_ALIGN(32);
+static struct gbp_vwitness_meta witness_meta[GBP_VWITNESS_TARGET];
+static struct gbp_vwitness wit;
+
+_Static_assert(sizeof witness_store == GBP_VWITNESS_STORE_BYTES,
+               "the witness store must be exactly the audited 8 847 360 bytes");
+_Static_assert(GBP_VWITNESS_FRAME_BYTES == 4320u, "54 words x 40 blocks x 2 bytes");
+_Static_assert(GBP_VWITNESS_WORDS == 54u && GBP_VWITNESS_BLOCKS == 40u,
+               "the canonical witness geometry is fixed by the frozen OGBPIDX1 contract");
+_Static_assert(GBP_VIDXDUMP_RECORD_SIZE == GBP_VWITNESS_FRAME_BYTES + 48u,
+               "one sidecar record is 48 bytes of metadata plus the witness");
 
 /* ---- the texture buffers; the OWNERSHIP lives in src/gbp/gbp_vpresent ---- */
 #define STREAM_TEX_BUFFERS GBP_VPRESENT_TEX_BUFFERS
@@ -583,6 +608,19 @@ static void submit_ready(int buf, struct gbp_vqueue *account)
     }
 }
 
+/* The streaming sink: one SD write per record, and ONLY after the teardown has
+ * completed and the Game Boy Player has been restored (§V5.39.8). No filesystem
+ * call exists anywhere in the capture path; a card failure here is reported
+ * separately and cannot change what the run observed. */
+static int sink_sd(void *ctx, const uint8_t *data, uint32_t len)
+{
+    return sdlog_stream_write((struct sdlog_stream *)ctx, data, len);
+}
+
+/* The ONLY transient buffer the save uses: one record. The 8.4 MiB store is
+ * never copied in full. */
+static uint8_t dump_chunk[GBP_VIDXDUMP_RECORD_SIZE];
+
 int main(void)
 {
     struct ringlog rl;
@@ -631,6 +669,17 @@ int main(void)
     vq.pump = pump;
     vq.pump_user = 0;
     cfg.stream = &vq;
+    /* SOURCE-LAYER retention, and the run's PRIMARY stop condition. The
+     * valid-seconds target stays configured as a BOUND, never as the thing that
+     * ends the experiment: `stream-0004` showed 30 valid seconds are 44.3 wall
+     * seconds and 2 648 closed frames (GBP-HW-151), so a witness store sized
+     * from a clock is sized from the wrong quantity. */
+    if (gbp_vwitness_init(&wit, &witness_store[0][0], witness_meta,
+                          GBP_VWITNESS_TARGET, GBP_VWITNESS_TARGET) != 0) {
+        printf("  WITNESS init FAILED\n");
+        return 1;
+    }
+    cfg.witness = &wit;
 
     /* The display path, walked once from a synthetic frame BEFORE any device is
      * touched, so it stops being dead code (§V5.26.4). The result goes out on the
@@ -718,6 +767,23 @@ int main(void)
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(audio_raw),
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(tex_buf[0]), (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(tex_buf[1]),
                    (unsigned long)MEM_VIRTUAL_TO_PHYSICAL(gx_fifo), (unsigned)LOG_LINES);
+    /* §V5.39.11: the memory audit, MEASURED at run time rather than asserted
+     * from a linker map. The witness store is the largest single object this
+     * program owns, so the arena that survives it is a fact the log must carry —
+     * a build that no longer fits would otherwise fail on the console, in front
+     * of the operator, with the cartridge already running. */
+    {
+        extern char __bss_end[];
+        uint32_t lo = (uint32_t)(size_t)SYS_GetArena1Lo();
+        uint32_t hi = (uint32_t)(size_t)SYS_GetArena1Hi();
+        ringlog_printf(&rl, "ENVMEM bss_end=%08lx arena1_lo=%08lx arena1_hi=%08lx arena1_free=%lu "
+                            "witness=%lu witness_meta=%lu witness_rec=%lu xfb=3x%lu",
+                       (unsigned long)(size_t)__bss_end, (unsigned long)lo, (unsigned long)hi,
+                       (unsigned long)(hi > lo ? hi - lo : 0u),
+                       (unsigned long)sizeof witness_store, (unsigned long)sizeof witness_meta,
+                       (unsigned long)GBP_VIDXDUMP_RECORD_SIZE,
+                       (unsigned long)VIDEO_GetFrameBufferSize(rmode));
+    }
 
     hsp_backend_init(&hsp, dma_buffer, (uint32_t)millisecs_to_ticks(DMA_TIMEOUT_MS));
     hsp_backend_transport(&hsp, &t);
@@ -836,6 +902,21 @@ int main(void)
                    selftest_ok, selftest_converted, selftest_released,
                    (unsigned long)selftest_presents, (unsigned long)selftest_repeats,
                    selftest_sci_clean);
+    /* The retained population, and the cost of retaining it. These are three
+     * different facts and they never share a line with the queue's: what the
+     * SOURCE produced, what was STORED, and what the storing cost. */
+    ringlog_printf(&rl, "STREAMWIT records=%lu/%lu target=%lu frames_seen=%lu discarded=%lu "
+                        "staged=%lu placed=%lu out_of_range=%lu store_full=%d target_reached=%d",
+                   (unsigned long)wit.n, (unsigned long)wit.cap, (unsigned long)wit.target,
+                   (unsigned long)wit.frames_seen, (unsigned long)wit.frames_discarded,
+                   (unsigned long)wit.blocks_staged, (unsigned long)wit.blocks_placed,
+                   (unsigned long)wit.blocks_out_of_range,
+                   gbp_vwitness_store_full(&wit), gbp_vwitness_target_reached(&wit));
+    ringlog_printf(&rl, "STREAMWITT copy_ticks_min=%lu copy_ticks_max=%lu copy_ticks_mean=%lu n=%lu tb_hz=%lu",
+                   (unsigned long)(wit.copy_ticks_n ? wit.copy_ticks_min : 0u),
+                   (unsigned long)wit.copy_ticks_max,
+                   (unsigned long)gbp_vwitness_copy_ticks_mean(&wit),
+                   (unsigned long)wit.copy_ticks_n, (unsigned long)tb_hz);
     ringlog_printf(&rl, "STREAMPACE publish_min=%lu publish_max=%lu publish_mean=%lu n=%lu convert_min=%lu convert_max=%lu convert_mean=%lu n=%lu",
                    (unsigned long)(vq.publish_interval_n ? vq.publish_interval_min : 0u),
                    (unsigned long)vq.publish_interval_max, (unsigned long)gbp_vqueue_publish_interval_mean(&vq),
@@ -918,26 +999,65 @@ int main(void)
              gbp_vstate_storage_fault(&vstate) ? gbp_vstate_storage_fault(&vstate) : "-");
     gecko_puts(line);
 
-    printf("\n  X = save log to SD    START = exit    POWER CYCLE REQUIRED\n");
+    printf("  WITNESS %lu/%lu records (target %lu), %lu blocks placed, store_full=%d, %lu ticks mean\n",
+           (unsigned long)wit.n, (unsigned long)wit.cap, (unsigned long)wit.target,
+           (unsigned long)wit.blocks_placed, gbp_vwitness_store_full(&wit),
+           (unsigned long)gbp_vwitness_copy_ticks_mean(&wit));
+    printf("\n  X = save log + witness sidecar to SD    START = exit    POWER CYCLE REQUIRED\n");
     for (;;) {
         VIDEO_WaitVSync();
         PAD_ScanPads();
         if (!saved && (PAD_ButtonsDown(0) & PAD_BUTTON_X)) {
             char path[128] = "";
-            char extra[200];
-            int rc;
-            /* No sidecar: this experiment's result is counters and aggregates,
-             * which the bounded log carries in full. §V5.24's rule is that a new
-             * frozen format is created only when the existing ones cannot hold
-             * the data — here they are not even needed. */
+            char extra[240];
+            char status2[160] = "sidecar not attempted";
+            struct sdlog_stream stream;
+            struct gbp_vidxdump_info info;
+            uint64_t written = 0;
+            long n = -1;
+            int rc, rc2 = -9;
+            /* The log names the sidecar AND its format, so a reader never has to
+             * guess which contract the bytes were written under. */
             snprintf(extra, sizeof extra,
-                     "libogc=%s gecko=%d power_cycle_required=%d sidecar=none capture_s=%lu safety_s=%lu",
-                     _V_STRING, gecko_present, res.power_cycle_required,
-                     (unsigned long)STREAM_CAPTURE_SECONDS, (unsigned long)STREAM_SAFETY_SECONDS);
+                     "libogc=%s gecko=%d power_cycle_required=%d sidecar=%s_%s-idxcap.bin "
+                     "format=OGBPIDXCAP1_v%u capture_s=%lu safety_s=%lu witness_target=%lu",
+                     _V_STRING, gecko_present, res.power_cycle_required, TEST_ID, OPENGBP_BUILD_ID,
+                     (unsigned)GBP_VIDXDUMP_VERSION,
+                     (unsigned long)STREAM_CAPTURE_SECONDS, (unsigned long)STREAM_SAFETY_SECONDS,
+                     (unsigned long)wit.target);
             rc = sdlog_save(TEST_ID, OPENGBP_BUILD_ID, OPENGBP_GIT_COMMIT, extra, &rl,
                             status, sizeof status, path, sizeof path);
-            saved = (rc == 0);
-            printf("  SAVE %s\n", status);
+            /* The witness sidecar, streamed record by record with a running
+             * CRC-32 and a per-record CRC. The layout is proven before a byte is
+             * written, and no second copy of the store exists at any point. */
+            memset(&info, 0, sizeof info);
+            info.tb_hz = tb_hz;
+            info.stop_reason = (uint16_t)res.stop;
+            info.status_code = (uint16_t)res.status;
+            if (res.service_ok) info.flags |= GBP_VIDXDUMP_FLAG_SERVICE_OK;
+            if (res.stop == GBP_VSTATE_STOP_WITNESS_TARGET) info.flags |= GBP_VIDXDUMP_FLAG_STOP_IS_TARGET;
+            if (gbp_vidxdump_set_identity(&info, TEST_ID, OPENGBP_BUILD_ID,
+                                          OPENGBP_APP_NAME, OPENGBP_GIT_COMMIT) != 0) {
+                snprintf(status2, sizeof status2, "sidecar not written: an identity does not fit");
+            } else if (sdlog_stream_open(&stream, TEST_ID, OPENGBP_BUILD_ID, "-idxcap.bin",
+                                         status2, sizeof status2) != 0) {
+                /* status2 already explains */
+            } else {
+                n = gbp_vidxdump_stream(&info, &wit, dump_chunk, sizeof dump_chunk,
+                                        sink_sd, &stream, &written);
+                rc2 = sdlog_stream_close(&stream, status2, sizeof status2);
+                if (n < 0 && rc2 == 0) rc2 = -5;
+            }
+            saved = (rc == 0 && rc2 == 0 && n > 0);
+            printf("  SAVE log     %s\n", status);
+            printf("  SAVE sidecar %s   (OGBPIDXCAP1 v%u, %lu records)\n", status2,
+                   (unsigned)GBP_VIDXDUMP_VERSION, (unsigned long)info.records_n);
+            snprintf(line, sizeof line,
+                     "OPENGBP-STREAM SAVESIDECAR rc=%ld close=%d bytes=%lu records=%lu "
+                     "header_crc32=%08lx total_crc32=%08lx\n",
+                     n, rc2, (unsigned long)written, (unsigned long)info.records_n,
+                     (unsigned long)info.header_crc32, (unsigned long)info.total_crc32);
+            gecko_puts(line);
         }
         if (PAD_ButtonsDown(0) & PAD_BUTTON_START) break;
     }

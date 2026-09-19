@@ -1,4 +1,5 @@
 #include "gbp_vstate_probe.h"
+#include "gbp_vwitness_drive.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -142,6 +143,8 @@ const char *gbp_vstate_stop_name(int stop)
     case GBP_VSTATE_STOP_COLOR_CERTIFIED: return "color_certified";
     case GBP_VSTATE_STOP_COLOR_SEARCH_WINDOW: return "color_search_window";
     case GBP_VSTATE_STOP_COLOR_FRAME_CAP: return "color_frame_cap";
+    case GBP_VSTATE_STOP_WITNESS_TARGET: return "witness_target_reached";
+    case GBP_VSTATE_STOP_WITNESS_STORE_FULL: return "witness_store_full";
     default: return "none";
     }
 }
@@ -1061,6 +1064,30 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
                 finish(x, GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE, "-", "S5_event_store_cap", GBP_VSTATE_STOP_EVENT_STORE_CAP);
                 return 0;
             }
+            /* 3a. GBP-VIDEO-004's indexed retention (§V5.39.3). It sits with the
+             *     store caps for the same reason they do: a run that has lost
+             *     its bookkeeping cannot support a conclusion. The two reasons
+             *     are kept apart on purpose — reaching the target is the NORMAL
+             *     end of the experiment, and overflowing the store is a design
+             *     failure that must never be read as one. Overflow is checked
+             *     FIRST so a run that somehow did both is reported as the
+             *     failure it is. */
+            if (cfg->witness) {
+                if (gbp_vwitness_store_full(cfg->witness)) {
+                    res->next_cause_at_end = 1;
+                    if (st->tail_active) gbp_vstate_tail_truncate(st, tnow);
+                    finish(x, GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE, "-", "S5_witness_store_full",
+                           GBP_VSTATE_STOP_WITNESS_STORE_FULL);
+                    return 0;
+                }
+                if (gbp_vwitness_target_reached(cfg->witness)) {
+                    res->next_cause_at_end = 1;
+                    if (st->tail_active) gbp_vstate_tail_truncate(st, tnow);
+                    finish(x, GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE, "-", "S5_witness_target",
+                           GBP_VSTATE_STOP_WITNESS_TARGET);
+                    return 0;
+                }
+            }
             /* 3b. GBP-VIDEO-003's own stop conditions. They sit AFTER the safety
              *     budget and the store caps deliberately: safety always wins over
              *     success (§V3.12), and a run that fills a store has already lost
@@ -1396,6 +1423,29 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             cyc.sig_ticks = (uint32_t)(c1 - c0);
             if (video_majority_extra) { gbp_vstate_block_majority_extra(st); gbp_vstate_diag_quarantined(st, service_handle); }
             gbp_vstate_block(st, blk, GBP_VSTATE_VIDEO_BLOCK_SIZE, first4, now64(t), sig, cyc.sig_ticks, &step);
+            /* ---- GBP-VIDEO-004 OGBPIDX1 WITNESS RETENTION (§V5.39.4) ----
+             *
+             * SOURCE LAYER, and deliberately ABOVE the two publication hooks
+             * below: what is retained must not depend on what the consumer was
+             * willing to accept. Quarantined, anomalous, incomplete and resync
+             * frames are all preserved here, because a source-continuity claim
+             * built from a consumer-filtered population would be worthless.
+             *
+             * The ORDER is dictated by the assembler, never guessed: it reports
+             * whether the block it just accumulated belongs to the frame that
+             * closed in this same call (the 48-block give-up) or to the one that
+             * is now opening (a boundary). Recomputing that decision here is
+             * exactly the kind of duplicated state machine that drifts silently.
+             *
+             * Cost: 54 word extractions and one 108-byte placement, in RAM, with
+             * no device access, no allocation, no filesystem and no branch on
+             * anything the device did. It is MEASURED, not asserted. */
+            if (cfg->witness) {
+                uint32_t w0 = now32(t), w1;
+                gbp_vwitness_step(cfg->witness, st, &step);
+                w1 = now32(t);
+                gbp_vwitness_note_ticks(cfg->witness, (uint32_t)(w1 - w0));
+            }
             /* GBP-VIDEO-003 (§V3.23): the ONE extra thing the colour capture
              * does per cycle, and it happens only when a frame closed.
              *

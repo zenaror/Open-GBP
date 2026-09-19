@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   0c4087c184d30fb45cd59a8672545a17c5a315b3
+STATE BASELINE COMMIT   af6771baabc9fce1aeb78ecc972291ec88902a26
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -24,21 +24,31 @@ HEAD to be at least one commit ahead: the one carrying this text.
 
 ```text
 LAST PHYSICAL EVIDENCE INGESTED
-  GBP-VIDEO-004 / stream-0003, executed 2026-09-18 — THE FIRST REAL STREAM SMOKE
-  GBP-HW-138 … GBP-HW-145
-  STANDING: EXECUTED · SERVICE OPERATIONAL · CONSUMER AND DISPLAY EXERCISED
+  GBP-VIDEO-004 / stream-0004, executed 2026-09-19 — THE SECOND STREAM SMOKE
+  GBP-HW-146 … GBP-HW-152
+  STANDING: EXECUTED · P1 AND P2 PHYSICALLY CONFIRMED FIXED
   REAL CARTRIDGE VIDEO WAS PRESENTED ON PHYSICAL GAMECUBE OUTPUT.
-  280 621 conserved service cycles, 2 298 frames published/converted/submitted,
-  2 286 presented, ownership invariants held across 246 548 checks, 0 failures.
-  TWO SOFTWARE DEFECTS FOUND, both in src/gbp, both REPORTED AND NOT FIXED:
-    P2 HIGH   F_EPISODE_STABLE and F_MAJORITY_EXTRA are the same bit 0x1000;
-              324 of 2 635 complete frames (12.3 %) were refused for a reason
-              that does not exist. Cadence 59.74 -> 51.85 Hz.
-    P1 MEDIUM gbp_vqueue_balanced() omits the `repeated` terminal state.
-  SOURCE-FRAME CONTINUITY IS NOT DECIDABLE from this run — no indexed stimulus.
+  280 672 conserved service cycles (unmasks==deliveries==acks==rearms),
+  2 622 published, 2 621 converted, 2 603 presented, 18 repeated, residual 0,
+  balanced=1, ownership invariants 221 741 checks / 0 failures.
 
-  Previous: stream-0002 (GBP-HW-134…137), ABORTED PRE-SERVICE, corrected in
-  stream-0003 (§V5.30); it is NOT a streaming failure — streaming was never
+  THE PRE-REGISTERED P2 GATE PASSED: SEMANTIC.quarantined == STREAMSRC.quarantined
+  = 0 == 0. The SOURCE population is identical to stream-0003 field for field
+  (FRAMECAP 2648/2635/13/26/13, video 105 841, audio 181 481, capture_s 44.323),
+  so the same 2 635 complete frames decompose as 2298+324+13 there and 2622+0+13
+  here: the published delta is EXACTLY the 324 the aliased bit was refusing.
+  Cadence 51.89 Hz -> 59.19 Hz. stream-0003 is NOT rewritten.
+
+  NEW FINDING, and it changes the next experiment: valid_s IS NOT WALL TIME.
+  30.001 valid seconds were 44.323 WALL seconds and 2 648 closed frames, not the
+  ~1 792 the old sizing premise predicted (GBP-HW-151). A witness store must be
+  bounded by a COUNT of retained frames, never by a target in valid seconds.
+
+  SOURCE-FRAME CONTINUITY IS STILL NOT DECIDABLE — no indexed stimulus has run.
+
+  Previous: stream-0003 (GBP-HW-138…145), the FIRST real stream smoke, which
+  found P1 and P2; stream-0002 (GBP-HW-134…137), ABORTED PRE-SERVICE, corrected
+  in stream-0003 (§V5.30) and NOT a streaming failure — streaming was never
   reached.
 
   Previous: color-0002 (GBP-HW-127…133), CONFIRMATORY,
@@ -104,9 +114,9 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
-| **GBP-VIDEO-004** (sustained streaming) | **`stream-0004` AUDITED — DECISION A: SAFE ENOUGH FOR A SHORT SUPERVISED PHYSICAL SMOKE.** P2 and P1 fixed and proved by mechanism; 6/6 mutations caught; artifact rebuilt byte-for-byte three times. **NOT PHYSICALLY EXECUTED** | `HARDWARE_TESTS.md` §V5.36, §V5.37 |
+| **GBP-VIDEO-004** (sustained streaming) | **`stream-0004` PHYSICALLY EXECUTED 2026-09-19 — P1 AND P2 CONFIRMED FIXED.** Basic sustained streaming is OPERATIONALLY REACHED for the window exercised; source-ID continuity is NOT decidable. **`stream-0005` implements OGBPIDX1 witness retention and is NOT AUDITED, NOT EXECUTED** | `HARDWARE_TESTS.md` §V5.38, §V5.39 |
 | **`stream-0003`** | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** Historical; never rebuilt or re-labelled. It found P2 and P1 | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
-| **CONTROLLED indexed stimulus** (`stimulus/agb-indexed`) | **ROM AND ANALYZER IMPLEMENTED** to the frozen `OGBPIDX1` contract. ROM 2 460 B `379df0f7…c543`; renders 38 400/38 400 words identically to `tools/istim.py`; `tools/vindex.py` adversarially tested. **NEVER RUN anywhere**; witness retention NOT in the runtime | `HARDWARE_TESTS.md` §V5.33, §V5.35 |
+| **CONTROLLED indexed stimulus** (`stimulus/agb-indexed`) | **ROM, ANALYZER AND RUNTIME RETENTION IMPLEMENTED** to the frozen `OGBPIDX1` contract. ROM 2 460 B `379df0f7…c543`; renders 38 400/38 400 words identically to `tools/istim.py`. `stream-0005` retains the canonical witness at the SOURCE layer into the new `OGBPIDXCAP1` sidecar, bounded by a 2048-record target. **The ROM HAS NEVER RUN anywhere, and its DELIVERY image cannot be produced in this environment** (no `gbafix`) | `HARDWARE_TESTS.md` §V5.33, §V5.35, §V5.39 |
 | **Dolphin's emulated Game Boy Player** | **EXISTS and is REACHABLE from a homebrew DOL** in the installed 2606a (`HSPDevice=2` + `GBPlayerRom`; no BIOS, no Start-up Disc). The exact `stream-0003` reaches the CONTROL gate on it and stops there: Dolphin's power-on CONTROL is `0x02`, hardware's is `0x90`. **AUXILIARY only** | `HARDWARE_TESTS.md` §V5.31 |
 | **`stream-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE: `store_or_bounds_invalid`.** GX self-test physically PASSED; **GBP stream capture never started**; `deliveries=0 acks=0 rearms=0 handler_installed=0`. Historical; never rebuilt, never re-labelled, and **not** a streaming failure | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | **`stream-0001`** | **REJECTED before hardware — DO NOT RUN.** Historical; its identity is preserved and was not reused | §V5.26; `stream-0002` supersedes it |
@@ -151,6 +161,8 @@ Changing any of these means a **new version**, never an edit.
 | --- | --- | --- |
 | **OGBPSEQ1 v5** | physically produced; v2/v3/v4 are historical and frozen with their known defects | `src/gbp/gbp_vstatedump.h`, `tools/vstate.py` |
 | **OGBPCOL1 v1** | frozen at the implementation checkpoint `e10423c`; `cert_rec` is **40** bytes | `src/gbp/gbp_vcoldump.h`, `tools/vcolor.py` |
+| **OGBPIDX1** | the indexed stimulus WIRE format, frozen at §V5.33: layout, 54-bit payload, CRC-8, symbols, 24-bit ID, STATUS, canonical witness coordinates, classification rules. `stream-0005` changed the experiment's PROTOCOL, not this | `stimulus/agb-indexed/`, `tools/istim.py`, `tools/vindex.py` |
+| **OGBPIDXCAP1 v1** | the witness CAPTURE sidecar, new in `stream-0005`. A new magic, never an OGBPSEQ1 version: header 0x180, record 4368 (48 B metadata + 40 x 54 big-endian u16, each record CRC-sealed), `"OGBPEND1"` footer | `src/gbp/gbp_vidxdump.h`, `tools/vidxcap.py` |
 | **`color-0001` analysis contract** | frozen at `bfbca70`; full-raw A/B/C byte equality. It refused `color-0001` and that verdict is permanent — `tools/vcolor.py` gains no option that could change it | `tools/vcolor.py`, `HARDWARE_TESTS.md` §V3.25 |
 | **`color-0002` analysis contract** | pre-registered before the run it judges; consumed-word equality over 38 400 words, bit 15 included. Changing it after `color-0002` has run requires **`color-0003`** | `tools/vcolor2.py`, `HARDWARE_TESTS.md` §V4 |
 
@@ -170,7 +182,8 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **REJECTED before hardware — DO NOT RUN** | `HARDWARE_TESTS.md` §V5.26 |
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **NOT PHYSICALLY EXECUTED — AUDIT DECISION A.** 472 160 B; P2 and P1 fixed, 6/6 mutations caught (M6 executed under Dolphin, not assumed), zero warnings, reproduced from scratch three times | `HARDWARE_TESTS.md` §V5.36, §V5.37 |
+| GBP-VIDEO-004 | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **PHYSICALLY EXECUTED 2026-09-19 — P1 AND P2 CONFIRMED FIXED.** 472 160 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.38; GBP-HW-146…152 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0005` | see below | see below | **NOT AUDITED, NOT PHYSICALLY EXECUTED.** OGBPIDX1 witness retention at the source layer, OGBPIDXCAP1 sidecar, 2048-record target stop | `HARDWARE_TESTS.md` §V5.39 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -267,147 +280,112 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **A short supervised physical smoke of the exact `stream-0004`. The two
-> defects the first physical run found are fixed in software and the fix is
-> audited; they are NOT physically resolved until a new run says so.**
+> **The focused pre-hardware audit of `stream-0005`. Its witness retention has
+> never been audited and the OGBPIDX1 ROM has never run anywhere — and its
+> DELIVERY image cannot currently be produced in this environment.**
 
-### PHYSICAL TRACK
-
-`stream-0003` ran on 2026-09-18 and **real cartridge video reached the screen**
-through Open-GBP on physical GameCube hardware (GBP-HW-138…145, §V5.34). It also
-found the two defects that make its own pacing numbers untrustworthy, and both
-are now corrected in `stream-0004`.
+### PHYSICAL TRACK — `stream-0004` closed both defects
 
 ```text
-P2 HIGH — FIXED.  F_EPISODE_STABLE and F_MAJORITY_EXTRA shared bit 0x1000 in the
-  same frame-flag word, so every frame that closed an episode as stable was
-  refused as majority-extra: 324 of 2 635 complete frames (12.30 %), cadence
-  59.74 -> 51.85 Hz.
+P2 PHYSICALLY CONFIRMED FIXED.  The pre-registered gate
+    SEMANTIC.quarantined == STREAMSRC.quarantined   ->   0 == 0
+  and the comparison is controlled: the SOURCE population is identical to
+  stream-0003 field for field, so the SAME 2 635 complete frames decompose as
+      stream-0003   2635 = 2298 published + 324 quarantined + 13 anomaly
+      stream-0004   2635 = 2622 published +   0 quarantined + 13 anomaly
+  a published delta of exactly the 324 the aliased bit refused, with ZERO
+  changed lines in every file that can influence the source population.
 
-  THE PERSISTENCE AUDIT INVERTED THE OBVIOUS FIX. The flag word is persisted
-  verbatim at offset 0x1A of every OGBPSEQ1 frame record. In EVERY physical run
-  `maj_extra` is 0, vstate-0001/-0003/-0004 each carry seven frames with bit
-  0x1000 set, and tools/vstate.py already names 0x1000 "episode_stable". So that
-  bit has always meant EPISODE_STABLE in persisted data, and MAJORITY_EXTRA is
-  the one that moved (0x1000 -> 0x4000) — re-interpreting ZERO historical bytes
-  and needing no format version bump.
+P1 PHYSICALLY CONFIRMED FIXED.
+      2621 converted == 2603 presented + 0 overrun + 18 repeated + 0 residual
+  corroborated by four counters the identity does not use: xfb_skipped == 18,
+  xfb_presents 2604 == 2603 + 1 self-test, submit 2622 == 2621 + 1 with
+  blocked_shutdown 0, and fills_started 108 249 == 2622 + 105 626 + 1 in flight.
 
-  THE GUARD: GBP_VSTATE_F_ALL plus a compile-time popcount check makes any two
-  flags sharing a bit a BUILD FAILURE, not just this pair.
-
-P1 MEDIUM — FIXED.  A converted frame has THREE terminals, not two: presented,
-  overrun, repeated. A refused submit is NOT a terminal (the texture stays READY
-  and is re-offered). The identity is
-      converted == presented + overrun + repeated + residual
-  with the residual bounded by the texture-buffer count, asserted at compile
-  time against GBP_VPRESENT_TEX_BUFFERS and reported by
-  gbp_vqueue_undispositioned(). The physical run closes exactly:
-  2 298 == 2 286 + 0 + 12.
+CADENCE  16.8961 ms = 59.19 Hz (was 51.89 Hz). One run, one cartridge, 44 s.
+         NOT a guaranteed frame rate.
 ```
 
-**The audit ran and reached DECISION A** (§V5.37). What it settled, subject by
-subject:
+**The basic sustained-streaming milestone is OPERATIONALLY REACHED**, with its
+scope stated: captured, conserved, converted and presented for a supervised
+44-second window, twice, every identity closing and every invariant holding. It
+is **not** zero source-frame loss, a guaranteed frame rate, proof of timing
+safety, correct pacing, absence of tearing or pixel fidelity.
+
+**Still UNKNOWN:** the 13 incomplete intervals (the startup signature of
+GBP-HW-141, reproduced identically a third time), and everything about
+source-frame continuity.
+
+**And the slice position is still PLAUSIBLE BUT UNMEASURED as a property.** Two
+runs now measure the pump — 27.88 / 33.60 / 41.06 µs and 28.32 / 34.07 / 41.33 µs,
+yielding to a latched cause on 24.95 % and 25.01 % of calls — and neither caused
+an observable transport failure. Neither measures the MARGIN it consumes. The
+pre-streaming window it rests on is unchanged at median **42.8** µs with
+**p25 = 1.9** µs, and `stream-0005` adds witness work on top of it, instrumented
+and not yet judged.
+
+### THE FINDING THAT CHANGED THE NEXT EXPERIMENT
 
 ```text
-1. flag uniqueness + persistence  15 distinct powers of two, F_ALL = 0x7fff,
-      popcount == F_COUNT, 0x8000 free. The compile-time guard was proved to
-      fire THREE ways. All 7 tools/vstate.py modes are byte-identical on all
-      five historical sidecars; vcolor2.py on color-0002 is identical too, so
-      U-GBP-011's closure is untouched.
-2. a TRUE majority-extra frame   still QUARANTINED, alone, with ANOMALY, and
-      combined with EPISODE_STABLE. R3.12 is byte-identical to stream-0003 and
-      U-GBP-033 stays OPEN.
-3. EPISODE_STABLE no longer aliases   proved by ENUMERATION of all 2^15 flag
-      words, not by example: the bit cannot change a classification at all.
-4. the conservation identity   derived from the state machine, with a residual
-      bounded by the texture-buffer count. stream-0003's numbers close under it
-      AND are corroborated by three counters the identity does not use.
-5. R1 isolation   intact; the self-test accounts to NULL, sci_clean_at_probe=1,
-      and routing it back through the queue was MUTATED and caught under Dolphin.
-6. exact artifact identity   472 160 B / 56f26873…, rebuilt from scratch three
-      times, Swiss copy byte-identical, commit e11df66 with no -dirty.
-7. the functional diff   6 files, 139 insertions; ZERO changed lines in the
-      service path, the pixel path, the presenter, the transport or the dumper.
+capture_s 44.323   valid_s 30.001   frames closed 2648   wall/valid 1.4774
 ```
 
-**Findings: 6, none a blocker** (§V5.37.14). Two LOW comment defects in
-`gbp_vqueue` (the P1 in-body comment says "at most one texture buffer" where the
-constant is 2 — the constant is right; and `balanced()`'s doc comment was
-orphaned and now overstates what it checks), three INFO observations, and one
-build-hygiene INFO: **`build/swiss/11-color/boot.dol` is exported labelled
-`e11df66-dirty`**. It is not the candidate and no procedure loads it, but run
-`make build` before the session so no `-dirty` DOL sits next to the candidate on
-the SD card.
+`valid_observation_elapsed` sums each counted frame's SPAN, not the time between
+frames. The premise the indexed experiment was sized on — "30 s → ~1 792 source
+frames" — is wrong by 1.48x and always was. **A witness store is bounded by a
+COUNT of retained frames, never by a target in valid seconds** (GBP-HW-151).
 
-**Pre-registered, without imposing a result:** if no *true* majority-extra event
-occurs, frames formerly excluded solely by the aliased bit should now become
-eligible. **No frame rate and no publication count is pre-registered.** And
-fixing the alias does **not** mean every complete frame becomes published —
-anomaly, resync and incomplete exclusions are untouched.
+The OGBPIDX1 **wire format is unaffected and is NOT re-versioned**: what was
+wrong was the operational protocol, not the stimulus.
 
-**Still not established by anything:** zero source-frame loss, a timing-safe
-pump, correct pacing, absence of tearing, pixel fidelity. The 13 incomplete
-intervals of `stream-0003` remain **UNKNOWN** in cause, and the physically
-validated `vstate-0004` shows the same startup signature with no streaming
-consumer at all.
+### CONTROLLED-STIMULUS TRACK — `stream-0005`, implemented and unaudited
 
-**And the slice position is still PLAUSIBLE BUT UNMEASURED as a property.** The
-pump is measured (27.88 / 33.60 / 41.06 µs, 24.95 % of calls yielding to a
-latched cause) and caused no observable transport failure in one run; the
-pre-streaming window it rests on is unchanged at median 42.8 µs with
-**p25 = 1.9 µs**.
+```text
+retained   STRIP-L, local row 0, x = 1..54  ->  54 word16 x 40 blocks
+           = 4 320 B/frame, bit 15 NOT masked (U-GBP-034 is OPEN)
+where      SOURCE-CAPTURE layer, ABOVE the publish: quarantined, anomalous,
+           incomplete and resync frames are ALL retained, because a population
+           filtered by consumer eligibility cannot support a source claim
+stop       WITNESS_TARGET = 2048 records
+             target reached  -> stop=witness_target_reached   NORMAL
+             commit refused  -> stop=witness_store_full        INCONCLUSIVE
+           overflow is never the normal stop, and the analyzer refuses a
+           decisive verdict on any capture that declares it
+sidecar    OGBPIDXCAP1 v1, a NEW magic (OGBPSEQ1 and OGBPCOL1 stay frozen and
+           untouched). Header 0x180, record 4368, EACH RECORD CRC-SEALED, and
+           written only after the teardown, never from the capture path
+memory     +8 847 360 B witness + 98 304 B metadata = 8.53 MiB
+           arena1 free 7 512 128 B; after three XFBs 5 668 928 B = 5.41 MiB
+           measured on the built artifact AND reported at run time (ENVMEM)
+cost       54 extractions + one 108-byte placement per block, INSTRUMENTED
+           (STREAMWITT min/max/mean). Nothing is declared timing-safe.
+```
 
-### CONTROLLED-STIMULUS TRACK — independent, and not blocking
-
-`stimulus/agb-indexed` implements the frozen `OGBPIDX1` contract: ROM 2 460 B,
-sha256 `379df0f7…c543`, rendering 38 400/38 400 AGB words identically to
-`tools/istim.py`; `tools/vindex.py` decodes it with one adversarial test per
-classification. **The ROM has never run anywhere**, and **runtime witness
-retention is deliberately NOT integrated** — 8.4375 MiB of operational capacity
-that becomes a separate candidate only after `stream-0004` proves the basic
-correction.
+**BLOCKED FOR DELIVERY, and this is operational rather than design.** The
+canonical ROM's logo area is empty by policy, and the derived delivery image
+needs official devkitPro `gbafix` — which is **not in the pinned container
+image**. `build/physical/agb-indexed-cart.gba` is currently a byte copy with the
+logo still empty and is **NOT deliverable**. The route itself is proven (the
+colour stimulus took it twice, §V3.7); what is missing is the tool here. The
+OGBPIDX1 payload is never altered to accommodate a flashcart.
 
 ## Next safe action
 
-**Run a short supervised physical smoke of the exact `stream-0004`.** The
-pre-hardware audit is done and clean (§V5.37, DECISION A). Power-cycle the
-GameCube/GBP first, as always — `stream-0003` ended with `power_cycle_required=1`
-and that is a by-construction latch (GBP-HW-143).
+**Run the focused pre-hardware audit of `stream-0005`.** Do not run hardware
+before it, and do not run it at all until the delivery ROM problem above is
+solved — an indexed run without the indexed cartridge measures nothing.
 
 ```text
-Test ID   GBP-VIDEO-004
-Build ID  stream-0004
-commit    e11df66   (CLEAN, no -dirty)
-DOL       build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
-          472 160 B
-          sha256 56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43
-Swiss     build/swiss/12-stream/boot.dol — byte-identical, slot NOT renumbered
-cartridge a real cartridge with CHANGING video; the same one as stream-0003 if
-          possible, so the comparison is against a known run
-link port nothing attached · BBA absent · SD2SP2 inserted and writable
-window    SHORT and supervised — about the 45 s of stream-0003, directly
-          comparable. Do not extend it.
+1. witness extraction correctness — the exact 54 words, bit 15, no other byte
+2. source-layer placement — above the publish, and the association under the
+   REAL assembler for boundary / 48-block / no-anchor / store-full
+3. the 2048 target-stop semantics, and that overflow can never be the normal stop
+4. sidecar integrity — round trip, per-record CRC, every refusal path
+5. memory headroom, measured on the built artifact and at run time
+6. the added critical-path work, instrumented and bounded
+7. no service / R3 / GX drift against stream-0004
+8. the exact artifact identities of the DOL and of the OGBPIDX1 ROM
 ```
-
-**Confirm on screen before running: `build stream-0004  commit e11df66`, with no
-`-dirty` and not `stream-0003`.** Full procedure in §V5.37.16.
-
-**The ingest checks are fixed BEFORE the run** (§V5.37.17). The decisive one:
-
-```text
-SEMANTIC.quarantined  ==  STREAMSRC.quarantined
-   In stream-0003 these disagreed by exactly 324 (0 vs 324) and nobody had
-   cross-checked them. Under P2 they measure the same thing and MUST agree.
-   A disagreement means P2 is not fixed.
-
-undispositioned > 0 is acceptable ONLY with STREAMOWN blocked_shutdown > 0.
-```
-
-**Pre-registered, imposing no result:** frames previously refused *solely* by the
-aliased bit should now become eligible. **No frame rate and no publication count
-is pre-registered.** Fixing the alias does not make every complete frame
-publishable — anomaly, resync and incomplete exclusions are untouched, and the 13
-incomplete intervals remain **UNKNOWN** in cause.
 
 **Historical identities, kept so no one picks up the wrong DOL:**
 `stream-0001` — **REJECTED before hardware — DO NOT RUN**, sha256
@@ -417,19 +395,21 @@ incomplete intervals remain **UNKNOWN** in cause.
 **not a streaming failure**, streaming was never reached, and its two traps are
 in §V5.29 (`static_bytes=6922240` was a capacity constant, not a footprint; the
 build had configured `1 798 144`).
-`stream-0003` — PHYSICALLY EXECUTED, real cartridge video on screen, sha256
-`2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3`. None of the
-three is ever rebuilt or re-labelled.
+`stream-0003` — PHYSICALLY EXECUTED, the first real cartridge video on screen,
+sha256 `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3`.
+`stream-0004` — PHYSICALLY EXECUTED, P1 and P2 confirmed fixed, sha256
+`56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43`.
+**None of the four is ever rebuilt or re-labelled.**
 
 **The physical milestone stands, with its scope:** PHYSICAL REAL-CARTRIDGE VIDEO
-OUTPUT ACHIEVED — real DOL-017, real cartridge, real GameCube, Open-GBP,
-native-size presentation, first sustained smoke. It does **not** imply zero frame
-loss, final pacing, final UI or scaling, or universal timing safety.
+OUTPUT ACHIEVED, and now sustained across two runs with every accounting identity
+closing. It does **not** imply zero frame loss, final pacing, final UI or
+scaling, or universal timing safety.
 
 Do **not** implement scaling, aspect correction, filtering, audio playback, A/V
 sync, KEYPAD or any network path; do not edit `OGBPCOL1` v1, `OGBPIDX1`,
 `tools/vcolor.py`, `tools/vcolor2.py`, the §V4 contract or any fixture; do not
-re-label or rebuild `stream-0001`, `stream-0002` or `stream-0003`.
+re-label or rebuild `stream-0001` … `stream-0004`.
 
 ## Do not rediscover
 

@@ -7760,3 +7760,138 @@ failures**; the whole suite is 19 binaries / **911 420 checks / 0 failures**, an
 power-cycling first, with the ingest checks fixed beforehand (§V5.37.17) — the
 decisive one being `SEMANTIC.quarantined == STREAMSRC.quarantined`, which
 disagreed by exactly 324 in `stream-0003` and must now agree.
+
+---
+
+## 2026-09-19 — `stream-0004` ingested, P1/P2 physically closed, and `stream-0005` implements witness retention
+
+**Goal.** Two fronts: ingest the second physical smoke and decide whether the two
+corrections actually held on hardware; then implement lossless OGBPIDX1 witness
+retention in a new candidate — correcting the experiment's operational protocol
+in the light of what the run proved about the clock.
+
+### A — the run
+
+`logs/GBP-VIDEO-004_stream-0004.log`, 88 854 B, sha256 `2ec3ada2…c212dda`,
+`build_id=stream-0004 commit=e11df66`, `dropped=0 truncated=0`. Every figure was
+recomputed from the file; nothing was retyped from a report.
+
+**The pre-registered P2 gate passed: `SEMANTIC.quarantined ==
+STREAMSRC.quarantined` = `0 == 0`.** What makes that decisive is something I did
+not expect to get: the two runs are a controlled comparison. `FRAMECAP` is
+identical in all seven fields (2648 / 2635 / 13 / 26 / 13 / 2619 / 105 841), as
+are the video and audio block counts and `capture_s` to three decimals. So the
+**same 2 635 complete source frames** decompose as `2298 + 324 + 13` in
+`stream-0003` and `2622 + 0 + 13` here — a published delta of exactly the 324 the
+aliased bit had been refusing — while every file that can influence the source
+population has **zero changed lines** between the two builds. There is no other
+causal candidate. `stream-0003` is not rewritten; its counters stand as logged.
+
+**P1 closes with four counters the identity does not use.** `2621 == 2603 + 0 +
+18 + 0`, `balanced=1`, and independently: `xfb_skipped == repeated == 18`,
+`xfb_presents 2604 == 2603 + 1 self-test`, `submit 2622 == 2621 + 1` with
+`blocked_shutdown=0` (so the zero residual is a counter's answer, not the
+identity's own), and `fills_started 108 249 == 2622 + 105 626 + 1 still filling`
+— where `taken − converted = 1` names that same in-flight frame. The stop caught
+one conversion mid-flight; `stream-0003`, stopping between conversions, did not.
+Both close. The audit's ingest rule (residual only with `blocked_shutdown > 0`)
+held trivially.
+
+Cadence 51.89 → 59.19 Hz, against a source closure rate of 59.74 Hz. **One run,
+one cartridge, 44 seconds — not a frame rate anything promises.** Transport
+conserved over 280 672 cycles with zero timeouts and every W1C from the ISR;
+ownership invariants 221 741 checks / 0 failures, which with `stream-0003` makes
+468 289 checks and no failure across two runs.
+
+The operator saw no visible change and took no new photographs. Recorded, and
+weaker than every machine fact: an unaided impression of 44 seconds cannot
+resolve a 12 % publication difference. It is consistent with an accounting fix;
+it corroborates nothing alone.
+
+**Milestone.** Basic sustained streaming is OPERATIONALLY REACHED for the window
+exercised. Not zero source-frame loss, not a guaranteed frame rate, not timing
+safety — those need the indexed stimulus.
+
+### B — the finding that changed the next experiment
+
+```text
+capture_s 44.323   valid_s 30.001   frames closed 2648   wall/valid 1.4774
+```
+
+`valid_observation_elapsed` sums each counted frame's **span**, not the time
+between frames. So "30 s → ~1 792 source frames", the premise the indexed
+experiment was sized on, is wrong by a factor of 1.48 — and was equally wrong in
+`stream-0003`, where nobody had checked it against a closed-frame count. A
+witness store bounded by a clock is bounded by the wrong quantity.
+
+**The OGBPIDX1 wire format is untouched and NOT re-versioned.** What was wrong
+was the protocol around it. There is no OGBPIDX2.
+
+### C — `stream-0005`
+
+Retains the canonical witness — STRIP-L, local row 0, x = 1..54, 54 word16 per
+block, 4 320 B per frame — at the **SOURCE-CAPTURE layer, above the publish**, so
+quarantined, anomalous, incomplete and resync frames are all preserved. Retaining
+only what the consumer accepted would make the population a function of consumer
+eligibility, which is the one bias that would make a source-continuity claim
+worthless. Bit 15 is stored exactly as the wire carried it, because what sets it
+is U-GBP-034 and masking on the way in would destroy the only evidence this run
+can gather about it.
+
+**The stop is a count.** `WITNESS_TARGET = 2048`; the record that fills it ends
+the run as `witness_target_reached` (NORMAL), and a commit refused for lack of
+room is `witness_store_full` (INCONCLUSIVE). Two reasons, never folded into one,
+with overflow checked first so a run that somehow did both reports the failure.
+
+**The association is the part that cannot go wrong quietly.** A witness placed in
+the wrong frame produces a plausible record of a frame that never existed, and no
+later check recovers from that. So the assembler REPORTS where each block landed
+and whether it belongs to the frame closing in the same call, and the rule lives
+in `gbp_vwitness_drive.h` where unit tests drive it against the real assembler:
+boundary → commit then place; 48-block give-up → place then commit; no anchor or
+full frame store → discard. The static audit pins **two** call sites of
+stage/place, because two is what the two orderings are.
+
+**Memory, measured rather than asserted:** `.bss` 17 157 144 B ending at
+`0x810D5BB8`, `Arena1Lo 0x810D5BC0`, `Arena1Hi 0x81800000` → 7 512 128 B free,
+5 668 928 B after three framebuffers. The witness is the audited 8 847 360 B and
+its 98 304 B of metadata is reported separately rather than folded into that
+figure. The POC now prints `ENVMEM` at run time, so a build that stops fitting
+says so in the log instead of on the console with a cartridge already running.
+
+**OGBPIDXCAP1**, a new magic — OGBPSEQ1 and OGBPCOL1 stay frozen and untouched —
+with the family's conventions and one addition: **every record seals itself**, on
+top of the whole-file CRC, because a file-wide checksum cannot distinguish a
+correct producer from one that built a record wrongly and then sealed the result.
+The host test flips every single byte of a one-record file, one at a time, and
+all 4 560 are refused. No filesystem call exists in the capture path; the sidecar
+streams one record at a time after the teardown.
+
+**The adapter refuses.** A capture is usable for a decisive claim only if it
+parses with every CRC intact, stopped BECAUSE of the target, never refused a
+commit and holds exactly the declared target; anything else forces
+`INCONCLUSIVE_CAPTURE_NOT_DECISIVE`, and the per-frame classifications survive
+while the verdict does not. `tools/vidxcap.py` reads the probe's stop enum out of
+the C header rather than copying the numbers.
+
+**Tests:** `test_gbp_vwitness` 12 020 checks, six of them driving the real
+assembler; `test_vidxcap.py` 19 tests whose sidecars are written by the real C
+writer, compiled and run — a Python writer checking a Python reader would prove
+nothing about the bytes the GameCube produces. Suite: 19 binaries / 923 440
+checks / 0 failures, 678 host tests. `stream-audit`, `vstate-audit` and
+`color-audit` all 0 findings, both one-shot ISRs still byte-identical to the
+physically validated GBP-VIDEO-001 build.
+
+### Blocked, and it is operational rather than design
+
+The OGBPIDX1 ROM's logo area is empty by policy and the derived delivery image
+needs official devkitPro **`gbafix`, which is not in the pinned container image**
+(`$DEVKITPRO/tools/bin` has no such tool). `build/physical/agb-indexed-cart.gba`
+is currently a byte copy with the logo still empty and is NOT deliverable. The
+route itself is proven — the colour stimulus took it twice — so what is missing
+is the tool here, and the OGBPIDX1 payload is never altered to accommodate a
+flashcart.
+
+**Next:** the focused pre-hardware audit of `stream-0005`. No hardware before it,
+and no indexed run at all until the delivery ROM exists — an indexed run without
+the indexed cartridge measures nothing.

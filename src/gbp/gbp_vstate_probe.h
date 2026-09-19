@@ -78,6 +78,7 @@
 #include "gbp_vstate.h"
 #include "gbp_vcolor.h"
 #include "gbp_vqueue.h"
+#include "gbp_vwitness.h"
 #include "gbp_time64.h"
 
 #ifdef __cplusplus
@@ -170,7 +171,18 @@ enum gbp_vstate_stop {
     /* GBP-VIDEO-003 only. Never reachable with cfg->color == NULL. */
     GBP_VSTATE_STOP_COLOR_CERTIFIED,     /* three signature-identical eligible frames */
     GBP_VSTATE_STOP_COLOR_SEARCH_WINDOW, /* the search window expired with nothing certified */
-    GBP_VSTATE_STOP_COLOR_FRAME_CAP      /* the capture's frame table filled first */
+    GBP_VSTATE_STOP_COLOR_FRAME_CAP,     /* the capture's frame table filled first */
+    /* ---- GBP-VIDEO-004 indexed retention (§V5.39.3) ----
+     * The indexed run is bounded by a COUNT, not by a clock: `stream-0004`
+     * physically disproved the sizing premise the experiment was designed
+     * around (GBP-HW-151). These two are NOT interchangeable and never get
+     * folded into one reason:
+     *   WITNESS_TARGET      the target record was committed. NORMAL.
+     *   WITNESS_STORE_FULL  a commit was refused for lack of room. The run was
+     *                       not supposed to reach this, so the analyzer refuses
+     *                       a decisive verdict. Overflow is never a normal stop. */
+    GBP_VSTATE_STOP_WITNESS_TARGET,
+    GBP_VSTATE_STOP_WITNESS_STORE_FULL
 };
 
 typedef enum {
@@ -249,6 +261,18 @@ struct gbp_vstate_config {
      * call can never block — a consumer that has fallen behind loses a frame,
      * it does not stall the service (§V5.7, §V5.14). */
     struct gbp_vqueue *stream;
+    /* ---- GBP-VIDEO-004 OGBPIDX1 witness retention (HARDWARE_TESTS §V5.39) ----
+     * NULL in every earlier build, and then this field does not exist as far as
+     * the device is concerned. When the indexed POC supplies a store here, ONE
+     * extra thing happens per received VIDEO block — 54 consumed-word
+     * extractions and a 108-byte placement, both in RAM, both measured — and
+     * ONE extra thing per closed frame: the scratch becomes a record. It runs
+     * in the SOURCE-CAPTURE layer, ahead of the publish, so a frame the
+     * consumer never sees is preserved anyway; retaining only published frames
+     * would make the population a function of consumer eligibility, which is
+     * exactly the bias that would make a source-continuity claim worthless
+     * (§V5.39.4). No device access, no filesystem, no allocation is added. */
+    struct gbp_vwitness *witness;
     /* ---- PRE-HANDLER MASKED WAIT: a DIAGNOSTIC, and nothing else ----
      * 0 in every ordinary build, and then this field does not exist as far as
      * the device is concerned: no wait, no extra read, no log line, the same
