@@ -4399,3 +4399,118 @@ converted, 2 096 presented and 17 repeats do **not** weaken GBP-HW-189, because
 the source witness is taken before any consumer sees a frame. They equally mean
 GBP-HW-189 does **not** close consumer/display pacing: source continuity and
 presentation disposition are separate questions and neither answers the other.
+
+### GBP-VID-015 — what `presented`, `repeats`, `xfb_presents` and `xfb_skipped` actually count — FACT (software, from the source)
+
+Established by reading the code, not by inference from aggregates. This is
+recorded because one of these words has been carrying more weight than it can
+support.
+
+| counter | incremented where | EXACTLY what it means |
+| --- | --- | --- |
+| `STREAMCONS presented` | `gbp_vqueue_note_presented()` ← the `xfb >= 0` branch of `submit_ready()` | **`VIDEO_SetNextFramebuffer()` was called** for this frame. It does **not** mean the VI scanned it out |
+| `STREAMCONS repeats` | `gbp_vqueue_note_repeat()` ← the `xfb < 0` branch | a frame that was converted, submitted **and drawn** found no writable framebuffer, so the screen kept the previous image |
+| `STREAMGX xfb_presents` | `gbp_vpresent_xfb_handed()` | the same event as `presented`, plus the display self-test |
+| `STREAMGX xfb_skipped` | `gbp_vpresent_xfb_target()` returning −1 | the same event as `repeats`, plus a shutdown refusal |
+| `STREAMOWN blocked_inflight` | `gbp_vpresent_submit()` refusing while a token is in flight | back-pressure at the token gate |
+
+Presentation stages, and the strongest one this runtime can observe:
+
+```text
+A  GX_RENDER_COMPLETE   observable — the DrawDone callback
+B  XFB_SELECTED         observable — this is what `presented` counts
+C  VI_LATCHED           observable only by SAMPLING, at the next decision
+D  ACTUAL SCANOUT       NOT OBSERVABLE
+```
+
+**No claim of "displayed" is available.** Any future statement about these 17
+events must say stage B.
+
+### GBP-VID-016 — the run-4 aggregate identity, proven from the state machine — FACT (software, from the source)
+
+Not an arithmetic coincidence. These are the predicates inside
+`gbp_vqueue_balanced()`, which returned 1 for run 4:
+
+```text
+published = taken + dropped_before_convert + (has_pending ? 1 : 0)
+    2114  =  2113 +          0             +          1
+
+converted = presented + overrun + repeated  (+ a residual bounded by the
+    2113  =    2096   +    0    +    17        texture buffer count; 0 here)
+
+xfb_presents 2097 = 2096 presented + 1 self-test
+xfb_skipped    17 =   17 repeats   + 0
+drawdone     2114 = 2113 stream    + 1 self-test  (releases likewise)
+```
+
+**The `published − taken = 1` is a TERMINAL residual, not a loss.** From the
+first identity it is `has_pending = 1`: a descriptor still in the mailbox when
+the capture stopped. An INTERIOR unconsumed frame has its own counter —
+`dropped_before_convert`, incremented when a new publish replaces an untaken
+descriptor — and it was **0**.
+
+### GBP-VID-017 — this runtime has no VI-driven display loop, which rules out a whole family of explanations — FACT (software, from the source)
+
+`VIDEO_WaitVSync()` is never called in the capture path, no retrace callback is
+installed, and the only VI observation is a non-blocking
+`VIDEO_GetCurrentFramebuffer()`. A "presentation opportunity" is one
+`submit_ready()` call, which happens **because a conversion finished**.
+
+```text
+Presents are SOURCE-DRIVEN. An opportunity cannot precede its own frame.
+```
+
+Two consequences:
+
+1. **"A display opportunity found no new source frame" cannot happen here.** The
+   hypothesis is not weak, it is inapplicable, and no test was written for a
+   branch that does not exist.
+2. **Every one of run 4's 17 holds was already converted, submitted and drawn.**
+   A conversion or GX deadline miss cannot produce a hold — it would produce a
+   token-gate refusal, and run 4 reported `blocked_inflight=0`, `no_texture=0`,
+   `submit=2114/2114`.
+
+What remains is the framebuffer branch: with **two** XFBs,
+`gbp_vpresent_xfb_target()` returns −1 when the VI is scanning one and the other
+has been handed over but not yet latched.
+
+**This does not explain the 17 events.** It narrows what could have caused them
+to something a trace can record, which is the whole purpose of `stream-0007`.
+No cause is claimed here and no hardware has run.
+
+### GBP-VID-018 — OGBPDISP1 and its trace, frozen before hardware — FACT (software, design)
+
+A separate sidecar for a separate layer; `OGBPIDXCAP1 v1` is untouched. A future
+run delivers three artifacts: the `.log` (the qualification is not encoded in
+the witness sidecar), `OGBPIDXCAP1` (what was preserved) and `OGBPDISP1` (what
+happened to it).
+
+```text
+key          gbp_vstate_frame.index — the assembler's own ordinal, already in
+             the descriptor. Never a pixel, never a FRAME_ID. The join to
+             OGBPIDXCAP1 is OFFLINE.
+lifecycle    96 B per frame that entered the consumer, take → terminal
+event        40 B per DECISION, including `newest_source` -- the frame the
+             queue had waiting -- which separates "the framebuffer was busy"
+             from "the pipeline was behind". A token-gate refusal is a COUNTER,
+             not an event, because pump() runs ~224 000 times per run
+window       the trace opens at capture start; F_IN_WINDOW comes from the
+             witness's own ARMED latch, so OGBPIDX1 takes no part in marking it
+self-test    gets a lifecycle, carries GBP_VDISP_KEY_NONE and F_SELFTEST, and is
+             excluded by FLAG rather than by position
+overflow     fails closed: nothing wraps, nothing is overwritten, and the header
+             says so
+integrity    three CRC-32s (header, per section, global), none of them computed
+             in the capture path
+cost         4 096 + 4 096 records = 557 096 B of .bss; arena headroom falls
+             from 7 511 584 to 6 946 464 B; at most 557 324 B serialized
+hot path     0 added writes on the common pump path; 44 writes, 5 clock reads
+             and 2 retrace reads per presented frame; the callback is 76 bytes
+```
+
+`VIDEO_GetRetraceCount()` is read rather than a retrace callback being
+installed: libogc2's handler already exists, so the ordinal costs **no interrupt
+load and no new callback**.
+
+**Not established:** that the trace does not perturb what it measures. No
+hardware has run, and no statement here is a physical observation.

@@ -463,12 +463,28 @@ PROFILES = {
                            # and the callback calls exactly ONE function — which
                            # is the whole of the stream-0001 fix (§V5.26.2).
                            "gbp_vpresent_draw_done": {"on_draw_done": 1},
-                           # `submit_ready` is inlined by the compiler, so the
-                           # sites are its two callers: the pump (the re-offer of
-                           # a blocked READY buffer, and the completion path) and
-                           # main (the display self-test). What matters is the
-                           # one that is ABSENT: gbp_vstate_probe_run.
-                           "gbp_vpresent_submit": {"pump": 2, "main": 1},
+                           # §V5.46: `submit_ready` used to be inlined into its
+                           # two callers, so the sites WERE {pump: 2, main: 1}.
+                           # The disposition trace made it large enough that GCC
+                           # stopped inlining it, which this rule caught. The
+                           # property the rule exists for is unchanged and is now
+                           # pinned in TWO places: the submit has one call site,
+                           # and that site has exactly the same three callers as
+                           # before. What still matters most is the caller that
+                           # is ABSENT from both: gbp_vstate_probe_run.
+                           "gbp_vpresent_submit": {"submit_ready": 1},
+                           # NOT pinned: `submit_ready` is static, so calls to
+                           # it inside main.o carry no relocation and this tool
+                           # cannot see them. The property is preserved anyway --
+                           # gbp_vpresent_submit has ONE site and it is not
+                           # gbp_vstate_probe_run.
+                           # §V5.46: the clock. It used to be read ONLY by the
+                           # transport's 64-bit hook; the trace reads it at the
+                           # take, the first slice, the conversion end, the
+                           # submit, the decision and in the draw-done callback.
+                           # Pinned exactly so a stray read is still a finding.
+                           "gettime": {"h_ticks64": 1, "main": 2, "on_draw_done": 1,
+                                       "pump": 3, "submit_ready": 2},
                            # The conversion is CONSUMER ONLY. The POC converts one
                            # TILE ROW per slice, so `pump` is the single call site
                            # and no object under src/gbp may call it at all —
@@ -480,7 +496,10 @@ PROFILES = {
                            # caller that ships. Both sites are named so the split is
                            # explicit rather than incidental.
                            "gbp_vpix_block": {"pump": 1, "gbp_vpix_frame": 1},
-                           "gettime": {"h_ticks64": 1},
+                           # (the gettime pin lives above, next to the submit
+                           # site it was widened for -- a second key here would
+                           # silently shadow it, which is how the last profile
+                           # edit was lost)
                            # §V5.39.4: the witness rule is applied at exactly ONE
                            # place, in the service path, and nothing else in the
                            # runtime may reach the store. `gbp_vwitness_step` is
@@ -501,7 +520,13 @@ PROFILES = {
                            # service path would be a filesystem call in the
                            # capture window, which is the thing being forbidden.
                            "gbp_vidxdump_stream": {"main": 1},
-                           "sdlog_stream_open": {"main": 1},
+                           # §V5.46: the SECOND sidecar, written from the same
+                           # place and after the same teardown. Both serializers
+                           # are reachable from main and from nowhere else, and
+                           # both are pinned so neither can drift into the
+                           # capture window later.
+                           "gbp_vdispdump_stream": {"main": 1},
+                           "sdlog_stream_open": {"main": 2},
                            "sdlog_stream_write": {"sink_sd": 1},
                            "sdlog_save": {"main": 1}},
         "elf_required": ("gbp_vstate_probe_run", "gbp_vstate_report", "gbp_vstate_block", "gbp_vsig_block",
@@ -535,6 +560,11 @@ PROFILES = {
         # outward edges are enumerated rather than merely restricted.
         "object_may_only_reference": {
             "gbp_vwitness.o": ("memset", "__udivdi3"),
+            # §V5.46: the disposition trace runs INSIDE the capture window and
+            # inside the draw-done callback. Its outward edges are enumerated
+            # for the same reason the witness's are: so a filesystem call, a
+            # CRC or a decoder written later is a finding by default.
+            "gbp_vdisp.o": ("memset",),
         },
         "object_must_not_reference": {
             "gbp_vstate_probe.o": _CAPTURE_SYMBOLS,
@@ -546,6 +576,7 @@ PROFILES = {
             "gbp_vsig.o": _CAPTURE_SYMBOLS,
             "gbp_vstatedump.o": _FS_SYMBOLS,
             "gbp_vidxdump.o": _FS_SYMBOLS,
+            "gbp_vdispdump.o": _FS_SYMBOLS,   # post-teardown serializer: CRC is fine, the filesystem is not
             "gbp_time64.o": _FS_SYMBOLS,
             "gbp_avblock.o": _FS_SYMBOLS,
             "gbp_irq_service.o": _CAPTURE_SYMBOLS,

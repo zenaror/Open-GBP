@@ -329,10 +329,17 @@ class CacheAndOwnershipOrdering(unittest.TestCase):
         self.assertNotIn("find_free_buffer", code)
 
     def test_the_xfb_copy_never_targets_the_scanned_buffer(self):
-        """§V5.26 F8: stream-0001 copied into the framebuffer VI was showing."""
+        """§V5.26 F8: stream-0001 copied into the framebuffer VI was showing.
+
+        §V5.46 split `xfb_current_index()` into its own local so the decision
+        trace could record what the branch saw, so the anchor is the CALL and
+        the argument is checked separately -- the property is that the target
+        is chosen from the CURRENT buffer, not that it is written inline."""
         code = strip_comments(read(MAIN))
-        i = code.index("gbp_vpresent_xfb_target(&present, xfb_current_index())")
-        window = code[i:i + 600]
+        self.assertIn("cur = xfb_current_index();", code)
+        i = code.index("gbp_vpresent_xfb_target(&present, cur)")
+        self.assertLess(code.index("cur = xfb_current_index();"), i)
+        window = code[i:i + 900]
         self.assertIn("GX_CopyDisp(xfb_stream_buf[xfb]", window)
         self.assertIn("VIDEO_SetNextFramebuffer(xfb_stream_buf[xfb])", window)
         self.assertNotIn("VIDEO_WaitVSync", window, "the present path must never wait for a retrace")
@@ -379,11 +386,18 @@ class DisplayPolicy(unittest.TestCase):
             self.assertNotIn(bad, code)
 
     def test_the_slice_is_bounded(self):
+        """The pump converts a BOUNDED slice, never a frame.
+
+        Anchored on the loop rather than on a byte window after `pump(`: the
+        §V5.46 trace added lines before it and a fixed window silently stopped
+        covering the thing it was meant to check."""
         code = read(MAIN)
         self.assertIn("#define STREAM_SLICE_TILE_ROWS   1u", code)
         body = strip_comments(code)
         i = body.index("static void pump(")
-        self.assertIn("STREAM_SLICE_TILE_ROWS", body[i:i + 1200])
+        loop = body.index("for (n = 0;", i)
+        self.assertIn("STREAM_SLICE_TILE_ROWS", body[loop:loop + 120],
+                      "the conversion loop must be bounded by the slice constant")
 
     def test_the_capture_duration_and_the_safety_cap_are_separate(self):
         code = read(MAIN)

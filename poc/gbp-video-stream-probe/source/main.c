@@ -110,6 +110,8 @@
 #include "gbp_vpresent.h"
 #include "gbp_vwitness.h"
 #include "gbp_vidxdump.h"
+#include "gbp_vdisp.h"
+#include "gbp_vdispdump.h"
 #include "hsp_backend.h"
 #include "hsp_backend_irq.h"
 #include "sdlog.h"
@@ -257,7 +259,28 @@ static struct {
     uint8_t  active;
     uint32_t ticks;                /* accumulated slice cost for this frame */
     struct gbp_vpix_stats stats;
+    int      life;                 /* §V5.46 downstream lifecycle index, or -1 */
 } conv;
+
+/* ---- the downstream disposition trace (§V5.46) --------------------------
+ *
+ * OBSERVATIONAL ONLY. Nothing below changes a scheduling decision, a queue
+ * depth, a buffer count or an XFB policy; it records the state that the
+ * existing decisions were taken in, because a counter incremented after a
+ * branch cannot say what the branch saw.
+ *
+ * `tex_life[]` is the MAIN-side texture -> lifecycle map. The module keeps its
+ * own copy for the interrupt path; this one exists because submit_ready() can
+ * be reached from the re-offer loop, which knows a texture index and nothing
+ * else. -1 means "no scientific frame", which is what the self-test carries. */
+static struct gbp_vdisp_life  disp_life[GBP_VDISP_LIFE_CAP];
+static struct gbp_vdisp_event disp_ev[GBP_VDISP_EVENT_CAP];
+static struct gbp_vdisp disp;
+static int tex_life[STREAM_TEX_BUFFERS];
+static struct gbp_vdispdump_info disp_info;
+static uint8_t disp_chunk[GBP_VDISPDUMP_HEADER_SIZE];
+static long disp_saved_bytes;
+static int  disp_save_rc;
 
 static uint32_t conv_abandoned_no_raw;
 static int gx_drained_at_teardown, gx_callback_restored;
@@ -302,7 +325,11 @@ static void gecko_puts(const char *line)
  * filesystem, no formatted logging, and nothing that touches GBP service state. */
 static void on_draw_done(void)
 {
-    (void)gbp_vpresent_draw_done(&present);
+    /* §V5.46: the release index is what identifies the frame, so the trace call
+     * takes it straight from the ownership module rather than searching. Two
+     * field writes, no allocation, no formatting, no filesystem, no scan. */
+    const int idx = gbp_vpresent_draw_done(&present);
+    gbp_vdisp_drawdone(&disp, idx, gettime());
 }
 
 static void video_setup(void)
@@ -456,6 +483,14 @@ static void display_selftest(void)
     selftest_converted = (st.pixels == GBP_VPIX_WIDTH * GBP_VPIX_HEIGHT) ? 1 : 0;
     DCFlushRange(tex_buf[buf], GBP_VPIX_TEX_BYTES);
     (void)gbp_vpresent_fill_done(&present, buf);
+    /* §V5.46 / R1. The self-test DOES get a lifecycle, because a stage that is
+     * traced only sometimes is a stage nobody can audit — but it is opened with
+     * GBP_VDISP_KEY_NONE and the SELFTEST flag, so it can never be mistaken for
+     * a source frame and can never acquire a real frame index. */
+    tex_life[buf] = gbp_vdisp_take(&disp, GBP_VDISP_KEY_NONE, 0u, 0u, 0u,
+                                   0u, gettime(), VIDEO_GetRetraceCount(),
+                                   (uint16_t)buf, 0, 1);
+    gbp_vdisp_convert_done(&disp, tex_life[buf], gettime(), 0u);
     submit_ready(buf, 0);        /* NULL: this frame is not a queue frame (R1) */
 
     /* Wait for the callback HERE and nowhere else: this runs before the capture
@@ -504,9 +539,21 @@ static void pump(void *user)
         conv.ticks = 0u;
         conv.active = 1u;
         memset(&conv.stats, 0, sizeof conv.stats);
+        /* §V5.46. The key is the ASSEMBLER's frame index, which the descriptor
+         * already carries; nothing here decodes a stimulus or reads a pixel.
+         * `in_window` is the witness's own ARMED latch, so the trace can say
+         * which lifecycles belong to the qualified scientific population
+         * without OGBPIDX1 taking any part in the decision. */
+        conv.life = gbp_vdisp_take(&disp, conv.desc.frame_index, conv.desc.seq,
+                                   conv.desc.slot, conv.desc.flags,
+                                   conv.desc.t_last, gettime(),
+                                   VIDEO_GetRetraceCount(), (uint16_t)buf,
+                                   gbp_vwitness_armed(&wit), 0);
+        tex_life[buf] = conv.life;
     }
 
     t0 = (uint32_t)gettick();
+    if (conv.next_row == 0u) gbp_vdisp_convert_first(&disp, conv.life, gettime());
     for (n = 0; n < STREAM_SLICE_TILE_ROWS && conv.next_row < GBP_VPIX_BLOCKS; n++) {
         const uint8_t *blk;
         row = conv.next_row;
@@ -519,6 +566,8 @@ static void pump(void *user)
              * the conversion finished, so a half-converted texture would have
              * been presented (§V5.26 F5). Reject it HERE instead. */
             (void)gbp_vpresent_abandon(&present, (int)conv.buf);
+            gbp_vdisp_abandon(&disp, conv.life, (uint16_t)GBP_VDISP_D_ABANDONED_NO_RAW);
+            tex_life[conv.buf] = -1;
             conv.active = 0u;
             conv_abandoned_no_raw++;
             return;
@@ -547,6 +596,8 @@ static void pump(void *user)
          * one — it cannot be submitted yet, and that is asserted rather than
          * assumed. */
         (void)gbp_vpresent_abandon(&present, (int)conv.buf);
+        gbp_vdisp_abandon(&disp, conv.life, (uint16_t)GBP_VDISP_D_SLOT_OVERRUN);
+        tex_life[conv.buf] = -1;
         conv.active = 0u;
         return;
     }
@@ -562,6 +613,7 @@ static void pump(void *user)
      * about it. Nothing above this line is visible to the GP; nothing below it
      * may write the buffer again until the draw-done callback frees it. */
     DCFlushRange(tex_buf[conv.buf], GBP_VPIX_TEX_BYTES);
+    gbp_vdisp_convert_done(&disp, conv.life, gettime(), conv.ticks);
     (void)gbp_vpresent_fill_done(&present, (int)conv.buf);   /* CPU_FILLING -> READY */
     conv.active = 0u;
     submit_ready((int)conv.buf, &vq);
@@ -573,12 +625,22 @@ static void pump(void *user)
  * wait for the previous token before it can go. */
 static void submit_ready(int buf, struct gbp_vqueue *account)
 {
-    int xfb;
+    int xfb, cur, pend, inflight;
+    uint8_t tstate[2];
+    uint64_t t_dec;
+    uint32_t rt;
+    const int life = tex_life[buf];
 
     /* ONE token in flight. A refusal here is normal back-pressure: the buffer
      * stays READY and is offered again on the next slice boundary, and the
-     * producer is never involved. */
-    if (!gbp_vpresent_submit(&present, buf)) return;
+     * producer is never involved.
+     *
+     * §V5.46: a refusal is COUNTED ON THE LIFECYCLE and is deliberately NOT an
+     * event. pump() runs ~224 000 times in a 35 s run, so one event per refusal
+     * would be unbounded; the count tells an analyzer how long a frame waited
+     * without letting the trace explode. (Run 4 refused 0 times.) */
+    if (!gbp_vpresent_submit(&present, buf)) { gbp_vdisp_submit_refused(&disp, life); return; }
+    gbp_vdisp_submit(&disp, life, gettime());
 
     GX_InvalidateTexAll();
     GX_InitTexObj(&tex_obj, tex_buf[buf], GBP_VPIX_WIDTH, GBP_VPIX_HEIGHT,
@@ -592,7 +654,20 @@ static void submit_ready(int buf, struct gbp_vqueue *account)
 
     /* The framebuffer is a SEPARATE question: a DrawDone says nothing about the
      * VI. Copy only into a buffer the VI is neither scanning nor about to. */
-    xfb = gbp_vpresent_xfb_target(&present, xfb_current_index());
+    cur = xfb_current_index();
+    /* §V5.46: the clock and the retrace ordinal are read BEFORE the decision, so
+     * the event timestamps the decision and not its consequences. */
+    t_dec = gettime();
+    rt = VIDEO_GetRetraceCount();
+    xfb = gbp_vpresent_xfb_target(&present, cur);
+    /* Read AFTER xfb_target() and BEFORE xfb_handed(): xfb_target() retires a
+     * hand-over the VI has picked up, and xfb_handed() installs a new one, so
+     * this is the only window in which `xfb_pending` is what the loop actually
+     * used. Snapshotting it later would record the consequence as the cause. */
+    pend = present.xfb_pending;
+    inflight = gbp_vpresent_inflight(&present);
+    tstate[0] = present.tex[0];
+    tstate[1] = present.tex[1];
     if (xfb >= 0) {
         GX_CopyDisp(xfb_stream_buf[xfb], GX_TRUE);
         GX_Flush();
@@ -606,6 +681,15 @@ static void submit_ready(int buf, struct gbp_vqueue *account)
         GX_Flush();                   /* the draw still has to reach the GP */
         if (account) gbp_vqueue_note_repeat(account); else selftest_repeats++;
     }
+    gbp_vdisp_decision(&disp, life, t_dec, rt, cur, pend, xfb,
+                       (uint16_t)(present.shutting_down ? GBP_VDISP_R_XFB_SHUTDOWN
+                                                        : GBP_VDISP_R_XFB_BUSY),
+                       tstate, inflight,
+                       /* what the producer had waiting, read from the mailbox
+                        * the consumer takes from -- one field, no clock, no copy */
+                       (account && account->has_pending)
+                           ? account->pending.frame_index : GBP_VDISP_KEY_NONE);
+    tex_life[buf] = -1;               /* the lifecycle is closed; the slot is free to be re-keyed */
 }
 
 /* The streaming sink: one SD write per record, and ONLY after the teardown has
@@ -665,6 +749,12 @@ int main(void)
 
     gbp_vqueue_init(&vq, gbp_vstate_ring_slots(&vstate));
     gbp_vpresent_init(&present);
+    {
+        unsigned k;
+        for (k = 0; k < STREAM_TEX_BUFFERS; k++) tex_life[k] = -1;
+    }
+    (void)gbp_vdisp_init(&disp, disp_life, GBP_VDISP_LIFE_CAP, disp_ev, GBP_VDISP_EVENT_CAP);
+    conv.life = -1;
     pump_state = &vstate;
     vq.pump = pump;
     vq.pump_user = 0;
@@ -929,6 +1019,30 @@ int main(void)
                     * right answer even when the window opened mid-frame. */
                    (wit.n && (wit.meta[0].present & 1u)) ? 0 : -1,
                    wit.n ? (long)wit.meta[0].frame_index : -1L);
+    {
+        /* §V5.46. The aggregate the trace itself can be audited by: how many
+         * lifecycles and decisions were recorded, whether either array filled,
+         * and whether every token that fired found the frame it belonged to. */
+        uint32_t k, in_win = 0u, held = 0u, selected = 0u;
+        for (k = 0; k < disp.life_n; k++) {
+            const struct gbp_vdisp_life *r = gbp_vdisp_life_at(&disp, k);
+            if (!r) continue;
+            if (r->life_flags & GBP_VDISP_F_IN_WINDOW) in_win++;
+            if (r->disposition == GBP_VDISP_D_HOLD_PREVIOUS) held++;
+            if (r->disposition == GBP_VDISP_D_SELECTED_NEW) selected++;
+        }
+        ringlog_printf(&rl, "STREAMDISP life=%lu/%lu events=%lu/%lu decisions=%lu in_window=%lu "
+                            "selected_new=%lu hold_previous=%lu life_overflow=%lu event_overflow=%lu "
+                            "drawdone_unmatched=%lu intact=%d tex_slots=%lu xfb_slots=%lu",
+                       (unsigned long)disp.life_n, (unsigned long)disp.life_cap,
+                       (unsigned long)disp.ev_n, (unsigned long)disp.ev_cap,
+                       (unsigned long)disp.decisions, (unsigned long)in_win,
+                       (unsigned long)selected, (unsigned long)held,
+                       (unsigned long)disp.life_overflow, (unsigned long)disp.ev_overflow,
+                       (unsigned long)disp.drawdone_unmatched, gbp_vdisp_intact(&disp),
+                       (unsigned long)GBP_VDISP_TEX_SLOTS,
+                       (unsigned long)GBP_VPRESENT_XFB_BUFFERS);
+    }
     ringlog_printf(&rl, "STREAMWIT records=%lu/%lu target=%lu frames_seen=%lu discarded=%lu "
                         "staged=%lu placed=%lu out_of_range=%lu store_full=%d target_reached=%d",
                    (unsigned long)wit.n, (unsigned long)wit.cap, (unsigned long)wit.target,
@@ -1076,6 +1190,43 @@ int main(void)
                                         sink_sd, &stream, &written);
                 rc2 = sdlog_stream_close(&stream, status2, sizeof status2);
                 if (n < 0 && rc2 == 0) rc2 = -5;
+            }
+            /* §V5.46: the SECOND sidecar, a different layer and a different
+             * file. It is written after the witness sidecar and after the
+             * teardown, from fixed RAM, through the same streaming sink; there
+             * is no filesystem call and no CRC anywhere in the capture path. */
+            {
+                struct sdlog_stream ds;
+                char dstat[96];
+                int drc = -1;
+                memset(&disp_info, 0, sizeof disp_info);
+                disp_info.tb_hz = tb_hz;
+                disp_info.xfb_slots = GBP_VPRESENT_XFB_BUFFERS;
+                if (gbp_vdispdump_set_identity(&disp_info, TEST_ID, OPENGBP_BUILD_ID,
+                                               OPENGBP_APP_NAME, OPENGBP_GIT_COMMIT) != 0) {
+                    snprintf(dstat, sizeof dstat, "disp sidecar not written: an identity does not fit");
+                } else if (sdlog_stream_open(&ds, TEST_ID, OPENGBP_BUILD_ID, "-disp.bin",
+                                             dstat, sizeof dstat) != 0) {
+                    /* dstat already explains */
+                } else {
+                    uint64_t dw = 0;
+                    disp_saved_bytes = gbp_vdispdump_stream(&disp_info, &disp, disp_chunk,
+                                                            sizeof disp_chunk, sink_sd, &ds, &dw);
+                    drc = sdlog_stream_close(&ds, dstat, sizeof dstat);
+                    if (disp_saved_bytes < 0 && drc == 0) drc = -5;
+                }
+                disp_save_rc = drc;
+                printf("  SAVE disp    %s   (OGBPDISP1 v%u, %lu life, %lu events)\n", dstat,
+                       (unsigned)GBP_VDISPDUMP_VERSION, (unsigned long)disp_info.life_n,
+                       (unsigned long)disp_info.event_n);
+                snprintf(line, sizeof line,
+                         "OPENGBP-STREAM SAVEDISP rc=%ld close=%d bytes=%lu life=%lu events=%lu "
+                         "intact=%d header_crc32=%08lx total_crc32=%08lx\n",
+                         disp_saved_bytes, drc, (unsigned long)disp_saved_bytes,
+                         (unsigned long)disp_info.life_n, (unsigned long)disp_info.event_n,
+                         gbp_vdisp_intact(&disp),
+                         (unsigned long)disp_info.header_crc32, (unsigned long)disp_info.total_crc32);
+                gecko_puts(line);
             }
             saved = (rc == 0 && rc2 == 0 && n > 0);
             printf("  SAVE log     %s\n", status);

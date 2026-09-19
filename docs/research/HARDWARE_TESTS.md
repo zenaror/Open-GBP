@@ -14443,3 +14443,595 @@ GBP-VIDEO-004 question is the one run 4 sharpened rather than answered:
 
 That is a question about a later pipeline stage, with its own population and its
 own witnesses, and it is **not** started here. Frame pacing follows it.
+
+---
+
+### V5.46 DOWNSTREAM DISPOSITION TRACE — `stream-0007` — 2026-09-19 — **DESIGNED, IMPLEMENTED, AUDITED — NOT PHYSICALLY EXECUTED**
+
+Source-frame continuity closed in §V5.45. This phase asks the next question and
+does **not** answer it: what happens to a source frame after the assembler
+closes it, and what state produced the 17 display holds run 4 observed.
+
+**Nothing here changes pacing.** No scheduling, no queue depth, no conversion
+algorithm, no texture or framebuffer count, no XFB policy, no VI mode. The
+17 holds are not "fixed"; they are made explicable.
+
+#### V5.46.1 The pipeline, audited before anything was designed
+
+```text
+service cycle (224 561 in run 4)
+ └─ gbp_vstate_block()                       source assembly; frame_index assigned
+ └─ gbp_vqueue_publish(frame_index, …)       SAME cycle, frame's own timestamps
+ └─ RE-ARM
+ └─ pump()                                   ONE bounded slice per cycle
+     ├─ re-offer a READY texture             → submit_ready()
+     ├─ gbp_vpresent_acquire()               → buf, or -1
+     ├─ gbp_vqueue_take()                    → descriptor (carries frame_index)
+     ├─ convert STREAM_SLICE_TILE_ROWS = 1 tile row
+     └─ on the 40th row:
+          gbp_vqueue_commit(still_valid)     → converted++, or overrun → abandon
+          DCFlushRange(texture)
+          gbp_vpresent_fill_done()           CPU_FILLING → READY
+          submit_ready()
+
+submit_ready(buf, account)
+ ├─ gbp_vpresent_submit()  REFUSED while a token is in flight → returns, counts nothing
+ ├─ GX_InvalidateTexAll / InitTexObj / LoadTexObj / draw_quad
+ ├─ GX_SetDrawDone()                         non-blocking token armed
+ ├─ xfb = gbp_vpresent_xfb_target(present, xfb_current_index())
+ ├─ xfb >= 0 : GX_CopyDisp → GX_Flush → VIDEO_SetNextFramebuffer → VIDEO_Flush
+ │             → xfb_handed() → note_presented()          TERMINAL
+ └─ xfb <  0 : GX_Flush → xfb_skipped_busy++ → note_repeat()  TERMINAL
+
+on_draw_done()   [GX interrupt]
+ └─ gbp_vpresent_draw_done()                 releases exactly one texture, by index
+```
+
+#### V5.46.2 What the counters actually count
+
+The most important line in this section is the first one, because the word
+"presented" has been doing more work than it can support.
+
+| counter | incremented where | EXACTLY what it means |
+| --- | --- | --- |
+| `STREAMCONS presented` | `note_presented()` ← the `xfb >= 0` branch | **`VIDEO_SetNextFramebuffer()` was called** for this frame. It is stage B below. It does **not** mean the VI scanned it out |
+| `STREAMCONS repeats` | `note_repeat()` ← the `xfb < 0` branch | a frame that was converted, submitted **and drawn** found no writable framebuffer, so the screen kept the previous image |
+| `STREAMGX xfb_presents` | `gbp_vpresent_xfb_handed()` | the same event as `presented`, plus the display self-test |
+| `STREAMGX xfb_skipped` | `gbp_vpresent_xfb_target()` returning −1 | the same event as `repeats`, plus a shutdown refusal |
+| `STREAMOWN blocked_inflight` | `gbp_vpresent_submit()` refusing | back-pressure at the token gate. **0 in run 4** |
+
+#### V5.46.3 Presentation stages, and the strongest one that is observable
+
+```text
+A  GX_RENDER_COMPLETE      observable — the DrawDone callback
+B  XFB_SELECTED            observable — VIDEO_SetNextFramebuffer() returns
+C  VI_LATCHED              observable ONLY BY SAMPLING — xfb_observe() notices
+                           that a handed buffer became current, at the next
+                           decision, not when it happened
+D  ACTUAL SCANOUT          NOT OBSERVABLE in this runtime
+```
+
+`presented` is **B**. The trace records B, and records the VI retrace ordinal
+alongside it so C can be bounded offline, and it never uses the word
+"displayed". The public counters are not renamed in this checkpoint — that would
+be churn across four documents and a parser — but the new evidence vocabulary is
+exact and the mapping is the table above.
+
+**No retrace callback was added.** `VIDEO_GetRetraceCount()` is read instead: the
+counter is maintained by libogc2's own retrace handler, which `VIDEO_Init()`
+already installed, so reading it adds **no interrupt load, no callback and no
+perturbation**. §V5.46 asked not to take a risk merely to obtain a stronger
+word, and this obtains the ordinal without taking one.
+
+#### V5.46.4 The run-4 aggregate identity, proven from the state machine
+
+Not arithmetic coincidence — these are the predicates in
+`gbp_vqueue_balanced()`:
+
+```text
+published = taken + dropped_before_convert + (has_pending ? 1 : 0)
+    2114  =  2113 +          0             +          1
+
+converted = presented + overrun + repeated  (+ a residual bounded by the
+    2113  =    2096   +    0    +    17        texture count, 0 here)
+```
+
+and the three counters that include the synthetic self-test:
+
+```text
+xfb_presents 2097 = 2096 presented + 1 self-test
+xfb_skipped    17 =   17 repeats   + 0
+drawdone     2114 = 2113 stream    + 1 self-test
+releases     2114 = 2113 stream    + 1 self-test
+```
+
+#### V5.46.5 The terminal residual is one descriptor, not a loss
+
+`published − taken = 1`. From the identity above, that one is
+`has_pending = 1`: a descriptor still sitting in the mailbox when the capture
+stopped. It is **not** interior loss, and the distinction is enforced by the
+code rather than argued: a NEW publish over an untaken descriptor increments
+`dropped_before_convert`, which was **0**. An interior unconsumed frame already
+has its own counter and it never moved.
+
+#### V5.46.6 THE FINDING THAT RESHAPES THE HYPOTHESES
+
+There is **no VI-driven display loop in this runtime**. `VIDEO_WaitVSync()` is
+never called in the capture path, no retrace callback is installed, and a
+presentation opportunity is one `submit_ready()` call — which happens because a
+conversion finished. **Presents are source-driven, and an opportunity cannot
+precede its own frame.**
+
+Two consequences, and both matter:
+
+```text
+1. "A display opportunity found no new source frame" CANNOT HAPPEN here. There
+   is no opportunity without a frame. The hypothesis is not weak; it is
+   inapplicable, and no test was written for a branch that does not exist.
+
+2. Every one of the 17 holds was a frame that had already been CONVERTED,
+   SUBMITTED and DRAWN. A conversion deadline miss or a GX deadline miss cannot
+   produce a hold -- they would produce a token-gate refusal, and run 4 had
+   blocked_inflight = 0, no_texture = 0, submit = 2114/2114.
+```
+
+What remains is the XFB branch: with **two** framebuffers, `xfb_target()`
+returns −1 when the VI is scanning one and the other has been handed over but
+not yet latched. The causal question is therefore narrow and answerable:
+**at those 17 moments, what were `xfb_current` and `xfb_pending`, and where was
+the VI in its retrace cycle?** That is exactly what the trace records, and it is
+why the trace exists instead of a fix.
+
+#### V5.46.7 The frozen downstream question
+
+> Within a prospectively qualified source-contiguous physical window, for each
+> source frame admitted to the consumer pipeline, what downstream disposition
+> occurred, at what time, and what immediately observable pipeline state caused
+> any display-repeat / XFB-skip decision?
+
+Secondary: are the observed holds explained by source/display cadence phase, by
+conversion readiness, by GX readiness, by explicit policy, or by another
+directly observed condition?
+
+**Not asked yet:** how to remove them.
+
+#### V5.46.8 Competing hypotheses, not ranked
+
+```text
+H1  CADENCE PHASE      two presents fall inside one VI latch interval, so the
+                       second finds both framebuffers spoken for
+H2  CONVERSION MISS    ruled INAPPLICABLE to a hold by §V5.46.6; it would show
+                       as a token-gate refusal, which the trace counts separately
+H3  GX MISS            same: inapplicable to a hold, observable as a refusal
+H4  STRUCTURAL         two XFBs and a non-blocking hand-over make a hold the
+                       DEFINED outcome of a second present before a latch —
+                       not a policy anyone wrote, a consequence of the buffer count
+H5  OTHER              the recorded state contradicts H1 and H4
+```
+
+H2 and H3 are kept in the list with their status stated, rather than deleted,
+because the trace must still be able to show them if a future run produces
+refusals. They are not scored here and no hardware has run.
+
+#### V5.46.9 The frame key is GENERIC, and that is a rule
+
+The trace keys on `gbp_vstate_frame.index` — the assembler's own monotonic
+source-frame ordinal, which `struct gbp_vqueue_desc` **already carried**, so no
+new field had to be invented to have one. It never decodes OGBPIDX1, never reads
+a pixel, never learns what the stimulus is.
+
+```text
+lifetime   assigned once in close_frame(), strictly monotonic
+width      uint32_t, and additionally bounded by the frame store's 16 384
+           capacity within one run — it cannot wrap in this experiment
+sentinel   GBP_VDISP_KEY_NONE = 0xFFFFFFFF, which is what the display
+           self-test carries and what no source frame may ever carry
+```
+
+Joining a lifecycle to a FRAME_ID is an **offline** operation against
+OGBPIDXCAP1, so the scientific witness and the consumer trace stay independent
+and neither can contaminate the other.
+
+**Texture reuse is paired with the key, never the pointer.** `life_of_tex[]` is
+written at the moment the token is armed and cleared by the release, so a
+draw-done can only ever be credited to the generation the GP was actually
+working on. A second token on an already-released slot increments
+`drawdone_unmatched` and is refused.
+
+#### V5.46.10 Two dimensions, and why a refusal is not an event
+
+```text
+LIFECYCLE   one 96-byte record per source frame that entered the consumer,
+            from take to terminal disposition
+EVENT       one 40-byte record per DECISION — a submit_ready() call that got
+            past the token gate and chose between a framebuffer and the
+            previous image
+```
+
+A token-gate refusal is a **counter on the lifecycle**, not an event. `pump()`
+runs ~224 000 times in a 35 s run, and one event per refusal would be unbounded.
+The count still tells an analyzer how long a frame waited.
+
+**There is no publish timestamp, and that is a measurement.**
+`gbp_vqueue_publish()` runs in the same service cycle that closed the frame,
+from the frame's own timestamps, and "reads no clock of its own". SOURCE CLOSE
+and PUBLISH are one event with one time. Recording it twice would be recording a
+stage this architecture does not have.
+
+**The one field that separates two very different holds.** `newest_source` is the frame the QUEUE had waiting when the decision was taken,
+or `KEY_NONE` when the mailbox was empty. It occupies the event record's
+reserved word, so the record did not grow.
+
+It exists because "the framebuffer was busy" and "the pipeline was behind" look
+identical in an aggregate and are not the same event:
+
+```text
+HOLD with newest_source == KEY_NONE      nothing newer existed. The screen kept
+                                         the previous image and NOTHING was lost
+                                         by doing so.
+HOLD with newest_source > frame_index    a newer frame was ALREADY waiting while
+                                         this one was held. That is a different
+                                         claim and a different consequence.
+```
+
+The host analyzer prints it as a `newer?` column on every hold row, because a
+causal row that could not distinguish these two would not be causal.
+
+#### V5.46.11 Reason codes map to exact predicates
+
+```text
+R_NONE          an XFB was free; there is nothing to explain
+R_XFB_BUSY      gbp_vpresent_xfb_target(): current and pending both spoken for
+R_XFB_SHUTDOWN  gbp_vpresent_xfb_target(): the shutting_down early return
+```
+
+and the terminal dispositions, each one reachable branch:
+
+```text
+OPEN                still in flight when the run ended
+SELECTED_NEW        VIDEO_SetNextFramebuffer() was called for it
+HOLD_PREVIOUS       drawn; no writable XFB; the screen was left unchanged
+SLOT_OVERRUN        the generation guard failed after conversion
+ABANDONED_NO_RAW    the ring block went unreadable mid-conversion
+```
+
+No reason string is produced offline by guesswork.
+
+#### V5.46.12 OGBPDISP1 — the format, frozen before hardware
+
+A NEW magic and a NEW file, never a version of OGBPIDXCAP1. A future run
+delivers **three** artifacts and each is needed for a different reason:
+
+```text
+.log          WITQUAL and the aggregates; OGBPIDXCAP1 v1 does not encode the
+              qualification, so the log is still required
+OGBPIDXCAP1   the SOURCE scientific witness — what was preserved
+OGBPDISP1     the DOWNSTREAM trace — what happened to it afterwards
+```
+
+```text
+header 0x100, big-endian throughout
+  0x00 "OGBPDISP"                    0x38 tb_hz
+  0x08 version u16 = 1               0x3C tex_slots
+  0x0A header_size u16 = 0x100       0x40 xfb_slots
+  0x0C flags u32                     0x44 window_first_frame
+  0x10 life_record_size u32 = 96     0x48 off_life
+  0x14 event_record_size u32 = 40    0x4C off_events
+  0x18 life_cap  0x1C life_n         0x50 off_footer
+  0x20 event_cap 0x24 event_n        0x54 life_crc32
+  0x28 life_overflow                 0x58 event_crc32
+  0x2C event_overflow                0x60 total_size u64
+  0x30 drawdone_unmatched            0x68/0x88/0xA8/0xC8 test/build/app/commit, 32 B each
+  0x34 decisions                     0xE8..0xFB reserved zero · 0xFC header crc32
+
+life  96 B   frame_index, seq, t_close, t_take, t_convert_first, t_convert_done,
+             t_submit, t_drawdone, t_decision, retrace_take, retrace_decision,
+             convert_ticks, submit_refusals, slot, tex, disposition, reason,
+             src_flags, life_flags
+event 40 B   t, ordinal, retrace, frame_index, prev_index, xfb_current,
+             xfb_pending, xfb_target, tex, decision, reason, tex_state[2],
+             inflight, newest_source
+footer "OGBPDEND" + global crc32
+```
+
+Timestamps are the GameCube Time Base (`tb_hz` in the header). **0 means the
+stage never happened** and is skipped by every distribution, so a latency is
+never computed across an interval that does not exist.
+
+**Three CRC-32s, each answering a different question:** the header CRC says
+whether the geometry can be trusted at all; one CRC per section localises damage
+to lifecycles or to events; the global CRC covers everything before the footer
+magic so nothing is missed. **None of them is computed in the capture path** —
+the whole file is serialized after the teardown, from fixed RAM, through a sink,
+with one record as the only transient buffer.
+
+`GBP_VDISPDUMP_F_INTACT` is set only when neither array overflowed, every token
+matched a lifecycle, and `decisions == event_n`. A file that claims it while
+carrying overflow is rejected by the parser.
+
+#### V5.46.13 Capacity and memory, derived not chosen
+
+Run 4 closed 2 118 source frames, published 2 114 and took 2 113, with a
+scientific target of 2 048 and a warm-up that has never exceeded 71. **4 096**
+lifecycles and **4 096** events is ~1.9× the largest population a run of this
+shape has produced.
+
+| | `stream-0006` | `stream-0007` | delta |
+| --- | --- | --- | --- |
+| `.text` | 0x5ABB0 | 0x5C550 | +6 560 B |
+| `.rodata` | 0xB958 | 0xBB38 | +480 B |
+| `.bss` | 0x105CC38 | 0x10E4E60 | **+557 096 B** |
+| `__Arena1Lo` | 0x810D61E0 | 0x81160360 | +565 632 B |
+| arena headroom before XFB | 7 511 584 B | **6 946 464 B** | −565 120 B |
+
+`disp_life` is 0x60000 = 393 216 B (4096 × 96) and `disp_ev` is 0x28000 =
+163 840 B (4096 × 40), exactly. The serialized file is at most
+0x100 + 4096×96 + 4096×40 + 12 = **557 324 B**, which is 6 % of the witness
+sidecar. There is no second multi-megabyte buffer and `witness_store`
+(0x870000) and `frame_store` (0x300000) are unchanged.
+
+#### V5.46.14 What the instrumentation costs the hot path
+
+| stage | fixed writes | clock reads | retrace reads |
+| --- | --- | --- | --- |
+| `pump()` with no frame available — 83 360 of 85 474 acquires | **0** | **0** | **0** |
+| `pump()` per conversion slice (84 520) | 1 compare | 0 | 0 |
+| take (2 113) | 14 | 1 | 1 |
+| convert first / done (2 113 each) | 1 / 3 | 1 / 1 | 0 |
+| submit (2 114) | 3 | 1 | 0 |
+| decision (2 114) | 20 | 1 | 1 |
+| **draw-done CALLBACK** (2 114) | 3 | 1 | 0 |
+
+Worst case per presented frame: **44 fixed writes, 5 clock reads, 2 retrace
+reads**, against a conversion that already costs ~56 000 ticks. No allocation,
+no formatting, no filesystem, and no loop whose length depends on data anywhere
+in the trace. The callback is 76 bytes of code and calls one bounded function of
+116 bytes.
+
+**The common path costs nothing at all**, which matters more than the peak: the
+overwhelming majority of `pump()` calls find no frame and return before any
+trace call.
+
+**This is not called timing-safe.** It is called measured. Only a physical run
+can say whether it is safe.
+
+#### V5.46.15 One thing the trace could NOT hide, and did not
+
+The audit's call-site pins caught a change I had not set out to make: the trace
+made `submit_ready()` large enough that GCC stopped inlining it, so
+`gbp_vpresent_submit`'s recorded site moved from `{pump: 2, main: 1}` to
+`{submit_ready: 1}`. That is a code-layout change, not a behavioural one — one
+call and return per presentation decision — but it is recorded here rather than
+silently re-pinned, and the property the rule exists for is unchanged and still
+enforced: the submit is **not** reachable from `gbp_vstate_probe_run`.
+
+A second pin had to be dropped rather than updated: `submit_ready` is `static`,
+so calls to it inside `main.o` carry no relocation and this tool cannot see
+them. Asserting them would have been asserting something unobservable.
+
+#### V5.46.16 Where the trace starts, and how the window is identified
+
+The trace opens at **capture start**, not at the scientific window, so the
+warm-up stays diagnosable. Each lifecycle carries `F_IN_WINDOW`, set from the
+witness's own `gbp_vwitness_armed()` latch at the moment the frame was taken.
+
+That is a structural latch, not a content decision: **OGBPIDX1 takes no part in
+opening the trace and none in marking it.** An analyzer selects the scientific
+population by the flag; it never counts records or guesses a boundary.
+
+The display self-test gets a lifecycle too — a stage traced only sometimes is a
+stage nobody can audit — but it carries `GBP_VDISP_KEY_NONE` and `F_SELFTEST`,
+and the host analyzer excludes it **by flag, not by position**.
+
+#### V5.46.17 The functional diff, hunk by hunk
+
+```text
+src/gbp/gbp_vqueue.c      UNTOUCHED     src/gbp/gbp_vstate.c        UNTOUCHED
+src/gbp/gbp_vpresent.c    UNTOUCHED     src/gbp/gbp_vstate_probe.c  UNTOUCHED
+src/gbp/gbp_vpix.c        UNTOUCHED     src/gbp/gbp_vwitness.c      UNTOUCHED
+stimulus/                 UNTOUCHED     tools/vindex.py, istim.py   UNTOUCHED
+```
+
+Every edit is in the POC, and every one of them is accounted for:
+
+| removed | replaced by | class |
+| --- | --- | --- |
+| `BUILD_ID := stream-0006` | `stream-0007` | identity |
+| `SRCS := …` | plus `gbp_vdisp.c gbp_vdispdump.c` | build |
+| `(void)gbp_vpresent_draw_done(&present);` | the same call, return value kept | metadata |
+| `int xfb;` | more locals | metadata |
+| `if (!gbp_vpresent_submit(…)) return;` | the same, plus a counter before returning | observation |
+| `xfb = …xfb_target(&present, xfb_current_index());` | split into `cur = …; xfb = …(&present, cur);` | metadata |
+
+No scheduling, queue depth, conversion algorithm, texture or framebuffer count,
+GX behaviour, XFB policy, VI mode, resolution or frame rate was changed.
+
+**The interrupt path is byte-identical** to the physically validated
+GBP-VIDEO-001 build (`ext one-shot: identical`, `base one-shot: identical`), and
+`poc_audit --profile stream` reports **0 findings** with `gbp_vdisp.o` under an
+ALLOWLIST that permits `memset` and nothing else.
+
+#### V5.46.18 Classification vocabulary for the NEXT run
+
+Deliberately NOT OGBPIDX1's vocabulary: reusing it would make two unrelated
+questions look like one.
+
+```text
+per source frame      SELECTED_NEW · HOLD_PREVIOUS · SLOT_OVERRUN ·
+                      ABANDONED_NO_RAW · OPEN
+per trace             DISPOSITION_CLAIM_READY when nothing overflowed, every
+                      token matched a lifecycle and decisions == event_n;
+                      otherwise INCONCLUSIVE with the reasons attached
+residual              INTERIOR (a later frame reached a terminal) vs
+                      CAPTURE_EDGE (the run simply stopped)
+```
+
+`INTERIOR` is the only one of those that is a finding. The last frames of any
+capture are mid-flight when the run ends.
+
+#### V5.46.18b Mutations M1 … M12 — and what the first pass found instead
+
+The first pass scored **5 caught, 7 missed**, and every one of the seven misses
+was a defect in the TESTS or in the MUTATION rather than a gap anyone had
+predicted. That is what the round was for, so all three causes are recorded.
+
+**Cause 1 — `main.c` had no test of any kind.** M1 (the generic key not
+propagated), M2 (the texture→lifecycle map not updated), M7 (the self-test
+entering the scientific population) and M11 (the decision snapshot taken after
+the hand-over) all live in the POC's wiring, and every suite passed with them
+in place. This is *exactly* the defect that let `stream-0001` ship a draw-done
+callback which freed every submitted buffer (§V5.26.2): the modules were tested
+state by state, the wiring was not.
+
+The answer is a source-level guard that pins the argument expressions and the
+ordering. It is not a behavioural test and does not pretend to be one — it can
+be defeated by someone who edits it too, but not by someone who forgets. With it
+in place M1, M2, M7 and M11 are caught.
+
+M11 needed the guard sharpened twice, which is itself worth recording. Moving
+the `xfb_pending` snapshot INSIDE the `xfb >= 0` branch still precedes the copy
+and still passes an ordering check — but then the HOLD path, the one the whole
+trace exists for, records an **uninitialised** value. The guard now requires the
+snapshot to be unconditional and to appear exactly once.
+
+**Cause 2 — the mutation did not model the threat.** M9 and M10 took the
+*address* of `fopen` / `gbp_crc32` in a data initialiser. That produces a
+relocation in `.data`, and `poc_audit` walks the disassembly of FUNCTIONS, so it
+saw nothing — correctly, for what it was shown. A filesystem call or a CRC
+entering the capture path would be a CALL, in `.text`. Rewritten as calls, both
+are caught by `gbp_vdisp.o`'s allowlist.
+
+The accident exposed a real if narrow blind spot in the audit tool: a forbidden
+symbol reached through a data initialiser is invisible to both the deny-lists
+and the allowlists. It is **not fixed here** — changing the audit tool needs its
+own validation — and is carried as finding **F8** in `HANDOFF.md`.
+
+**Cause 3 — a test that could not fail.** M12 (a hold becoming the previous
+frame) survived because the host fixture ENDED on the hold, so
+`test_a_hold_does_not_become_the_previous_frame` iterated an empty list and
+passed without checking anything. A test that can pass vacuously is worse than
+no test, because it is counted. The fixture now contains a normal frame after
+the hold, and the test asserts that it does before asserting anything about it.
+
+| # | what it breaks | first pass | after |
+| --- | --- | --- | --- |
+| M1 | the generic key is not propagated at take | MISSED | **CAUGHT** (wiring guard) |
+| M2 | the texture→lifecycle map is not updated | MISSED | **CAUGHT** (wiring guard) |
+| M3 | a second draw-done credited to a stale generation | CAUGHT | CAUGHT |
+| M4 | the decision overwrites the submit time | CAUGHT | CAUGHT |
+| M5 | a hold is recorded with no reason | CAUGHT | CAUGHT |
+| M6 | the capture-edge residual called interior loss | CAUGHT | CAUGHT |
+| M7 | the self-test enters the scientific population | MISSED | **CAUGHT** (wiring guard) |
+| M8 | a full trace stops recording without saying so | CAUGHT | CAUGHT |
+| M9 | a filesystem CALL in the capture-path object | mutant was wrong | **CAUGHT** (allowlist) |
+| M10 | a CRC CALL in the capture-path object | mutant was wrong | **CAUGHT** (allowlist) |
+| M11 | the decision snapshot moved after the hand-over | MISSED | **CAUGHT** (wiring guard) |
+| M12 | a HOLD becomes the previous frame | MISSED | **CAUGHT** (fixture + unit) |
+
+**Final: 12 caught, 0 unresolved** — but the number that matters is the first
+pass, not this one. Seven mutants survived a suite that looked green, and the
+round is worth more for that than for the row of CAUGHTs underneath it.
+
+#### V5.46.19 PRE-HARDWARE DECISION
+
+**A — the `stream-0007` downstream trace is safe enough for a first supervised
+physical disposition run.**
+
+```text
+source evidence path preserved   OGBPIDXCAP1, the witness, the qualification and
+                                 indexed-0003 are untouched; the same run can
+                                 still be judged by tools/vindex.py
+generic frame identity           gbp_vstate_frame.index, already in the
+                                 descriptor, paired with the texture slot
+repeat/skip reasons observable   each maps to one exact predicate in
+                                 gbp_vpresent_xfb_target()
+no pacing change                 §V5.46.17, and the ISR is byte-identical
+bounded callback cost            76 bytes of code, 3 writes, 1 clock read
+no overflow for the planned run  4 096 against a largest-ever 2 118
+integrity gates green            186 C checks, 29 host checks, parser refuses
+                                 every shape of damage in both languages
+```
+
+The one genuinely new risk is that the trace perturbs the timing it measures.
+That cannot be settled in software: it is why the decision says "safe enough for
+a supervised run" and not "timing-safe".
+
+#### V5.46.20 The future physical procedure — DO NOT EXECUTE YET
+
+```text
+Test ID:             GBP-VIDEO-004 (first downstream disposition run)
+Build ID:            stream-0007
+DOL:                 build/swiss/12-stream/boot.dol
+Required cartridge:  indexed-0003, the SAME physical cartridge
+                     delivery sha256 9f04916b…8d9cc2 — do NOT re-flash it
+Link Port:           empty        BBA: absent
+SD2SP2:              inserted, with room for 8 946 060 + ~557 324 bytes + the log
+
+Steps:
+  1. Copy run-4's files off the card first if they are still there.
+  2. POWER-CYCLE the console before the run.
+  3. Copy boot.dol to the SD card as 12-stream/boot.dol.
+  4. Insert the cartridge, power on, launch through Swiss.
+  5. Wait for READY, then let the run stop on its own (~35 s).
+  6. Read WITQUAL and STREAMDISP on screen.
+  7. Press X to save. WAIT FOR BOTH SIDECARS — the log reports SAVESIDECAR and
+     SAVEDISP separately, and the second is the new one.
+  8. Power-cycle again (the teardown reports power_cycle_required=1).
+  9. Return THREE files, renamed before anything else touches the card:
+        GBP-VIDEO-004_stream-0007-run5.log
+        GBP-VIDEO-004_stream-0007-run5-idxcap.bin
+        GBP-VIDEO-004_stream-0007-run5-disp.bin
+
+Question answered:
+  For each source frame in a qualified, source-contiguous window, what
+  downstream disposition occurred and what state caused each display hold?
+```
+
+**THE SOURCE GATE COMES FIRST.** Before any downstream evidence is interpreted,
+the SAME run must independently pass `tools/vindex.py` with `OBSERVED_CONTIGUOUS`,
+FAULT clear, no mixed IDs, no gap, no duplicate, no reorder, no invalid strip and
+no misplaced index. If source continuity fails in that run, the trace may still
+be diagnostic but **must not** carry the primary disposition claim.
+
+#### V5.46.21 What this round does NOT establish
+
+```text
+- nothing about the 17 holds' CAUSE. The aggregate partition is all run 4
+  supports, and this round adds an instrument, not an answer.
+- nothing about actual scanout. `presented` is VIDEO_SetNextFramebuffer(), and
+  stage D is not observable in this runtime.
+- nothing about whether the trace perturbs what it measures. No hardware ran.
+- no pacing decision. Whether the next task is pacing, conversion scheduling,
+  GX scheduling, XFB policy or "the holds are expected cadence behaviour" is
+  explicitly deferred until the physical trace exists.
+```
+
+Run 4's interpretation is unchanged, GBP-HW-189 stands exactly as worded, and
+the milestone `CONTROLLED STEADY-STATE SOURCE-FRAME CONTINUITY OBSERVED ON
+PHYSICAL GBP` is neither weakened nor widened.
+
+#### V5.46.22 A change deliberately NOT made: the STREAMWITT split
+
+§V5.45 recorded a real interpretation hazard (GBP-HW-190): `copy_ticks` now
+aggregates the whole `gbp_vwitness_step()` call, including the 2 755 warm-up
+steps that copy nothing, so `min 4` is the cost of a REFUSAL and not of a
+40-block copy. Splitting `step_ticks` from `copy_ticks` was authorised as
+optional hygiene.
+
+**It was not done, for two reasons and the first is the serious one.**
+
+```text
+1. The sample is taken in src/gbp/gbp_vstate_probe.c, INSIDE the service path,
+   around gbp_vwitness_step(). Routing it to one of two aggregates means
+   editing that file -- and this round's entire audit rests on the claim that
+   the service path, the assembler and the qualification are untouched. Trading
+   that for a diagnostic nicety is a bad exchange.
+
+2. It is redundant now. The disposition trace records `convert_ticks` PER FRAME,
+   which is a better measurement than any witness-side aggregate: it is
+   attributable to a frame index, it excludes warm-up by construction, and the
+   host analyzer already reports its distribution.
+```
+
+The hazard therefore stays documented rather than engineered around, and
+`min 4` must still never be quoted as a copy cost.
