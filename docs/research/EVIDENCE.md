@@ -4465,10 +4465,15 @@ Two consequences:
 1. **"A display opportunity found no new source frame" cannot happen here.** The
    hypothesis is not weak, it is inapplicable, and no test was written for a
    branch that does not exist.
-2. **Every one of run 4's 17 holds was already converted, submitted and drawn.**
+2. **Every one of run 4's 17 holds was already converted and submitted.**
    A conversion or GX deadline miss cannot produce a hold — it would produce a
    token-gate refusal, and run 4 reported `blocked_inflight=0`, `no_texture=0`,
    `submit=2114/2114`.
+
+   > **CORRECTED 2026-09-19 by GBP-HW-197.** This read "converted, submitted and
+   > **drawn**". Run 5 measured the order: the DrawDone follows the decision in
+   > 2047 of 2047 cases. The conclusion survives — it rests on the back-pressure
+   > counters — but the ordering word was wrong.
 
 What remains is the framebuffer branch: with **two** XFBs,
 `gbp_vpresent_xfb_target()` returns −1 when the VI is scanning one and the other
@@ -4514,3 +4519,282 @@ load and no new callback**.
 
 **Not established:** that the trace does not perturb what it measures. No
 hardware has run, and no statement here is a physical observation.
+
+### GBP-HW-192 — the exact run-5 artifacts — FACT
+
+The fifth indexed physical run, and the first to carry a downstream trace.
+
+```text
+GameCube runtime   stream-0007   commit ddf8db6 (CLEAN, no -dirty stamp)
+  DOL              491 040 B  74b7488630153ce3baaa42831a9af8ef03a2bce80399d840062965a34906eb36
+  Swiss            byte-identical to the source DOL
+  embedded         stream-0007 · ddf8db6 · GBP-VIDEO-004
+
+cartridge          indexed-0003, the SAME physical cartridge as runs 3–4
+  delivery         2 880 B  9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2
+
+log                66 838 B      73def124d9f63d9b86b5479255cf91f19e96c2bff4e73678ca9a8a9da7b1f250
+OGBPIDXCAP1        8 946 060 B   853c62a3687d43d9e0f487480e8c4b599d0f05122f255df6d69bd3371dd2aa87
+OGBPDISP1          287 772 B     8bf23585543bbd386bc1e2362f6540a2ede1b507981b6c1ec1c49e14c8ca34a2
+```
+
+Archived as `…stream-0007-run5.{log,-idxcap.bin,-disp.bin}` in `logs/` and
+`captures/local/`, every copy verified byte-identical, **before** any other
+operation. Runs 1–4 untouched.
+
+Transport conserved and clean: `unmasks = deliveries = acks = rearms = 224 564`,
+`audio=145 185`, `video=84 676/84 676`, `timeouts=0`, `busy=0`, `overflow=0`,
+`uncertain=0`, `errors=0`, `transport_ok=1`. Stop `witness_target_reached` at
+35.449 s against a 60 s cap. `FRAMECAP frames=2118 complete=2116 incomplete=2
+resync=4 anomaly_region=2 blocks=84676`, `INTERVALS 1:1,34:1,40:2116` — the same
+startup shape as every previous run, and the warm-up reconciliation is again
+exact: `84 676 − 81 921 = 2 755 = 1 + 34 + 68×40`.
+
+### GBP-HW-193 — source-frame continuity REPLICATED on a second runtime — FACT
+
+The unmodified `tools/vindex.py` (unchanged since `10250a4`) returned
+**`OBSERVED_CONTIGUOUS`** again, on a different build:
+
+```text
+records 2048 of 2048 · staged/placed 81921/81921 · out of range 0
+stop GBP_VSTATE_STOP_WITNESS_TARGET · decisive-claim ready True
+observed 0x000055 .. 0x000854 · decisive 2046 · OBSERVED_ID_CONTIGUOUS 2046
+stimulus fault seen False · VERDICT OBSERVED_CONTIGUOUS
+```
+
+Independent decode, importing nothing from `tools/` and reproducing all ten
+frozen CRC-8 vectors first: 2048/2048 record seals, header CRC `E82C47F0` and
+global CRC `B2C145CE` both recomputed, frame_index 70..2117 strictly
+consecutive, **81 920/81 920** valid symbols, SYNC, CRC-8 and BLOCK_INDEX,
+`MIXED_BLOCK_IDS=0`, STATUS `0x18` everywhere (FAULT=0, VMARGIN=24), FRAME_ID
+**85..2132** with all 2 047 adjacent deltas `+1`, and bit 15 set on 0 of
+4 423 680 strip coordinates.
+
+**Observed source cadence: 59.727083 Hz**, from first-block-to-first-block over
+2 047 intervals (34.272 56 s).
+
+GBP-HW-189 was established on `stream-0006` (run 4); this repeats it on
+`stream-0007` with the trace instrumentation active. **The instrumentation did
+not disturb the source result**, which is the first evidence on that question —
+though one replication is not a general timing guarantee.
+
+### GBP-HW-194 — the run-5 OGBPDISP1 container is intact — FACT
+
+Recomputed independently of `tools/`, from the frozen layout:
+
+```text
+size 287 772 B · magic OGBPDISP · v1 · header 0x100 · life 96 B · event 40 B
+identity  GBP-VIDEO-004 / stream-0007 / gbp-video-stream-probe / ddf8db6
+life      2114 of 4096      events 2114 of 4096      decisions 2114
+life_overflow 0   event_overflow 0   drawdone_unmatched 0
+tb_hz 40 500 000 · tex_slots 2 · xfb_slots 2 · window_first_frame 69
+header    CRC32 0x443DD4D6   MATCH
+lifecycle CRC32 0xC4A9FCB3   MATCH
+event     CRC32 0x0F23B179   MATCH
+global    CRC32 0xB90822F4   MATCH
+footer OGBPDEND · reserved bytes zero · geometry self-consistent
+```
+
+The official parser agrees and reports `intact, window_opened` with
+`disposition-claim ready True`.
+
+### GBP-HW-195 — the exact scientific disposition identity — FACT
+
+Joined by the GENERIC `frame_index`, not by the `in_window` flag (see
+GBP-VID-019 for why that distinction matters):
+
+```text
+OGBPIDX scientific source records      2048   frame_index 70..2117
+  with a downstream lifecycle          2047   frame_index 70..2116
+  SELECTED_NEW                         2030
+  HOLD_PREVIOUS                          17
+  no lifecycle at all                     1   frame 2117
+
+identity      2030 + 17 + 1 = 2048
+```
+
+**Frame 2117 is a CAPTURE-EDGE residual, not interior loss**, and the trace
+proves it rather than assuming it: it is the LAST source record, nothing after
+it reached a terminal, and the queue's own `dropped_before_convert` — which
+counts a publish landing on an untaken descriptor — is **0**.
+
+Across the whole trace there are 19 `HOLD_PREVIOUS` at frame_index
+61, 63, 334, 336, 345, 609, 620, 891, 893, 904, 1175, 1177, 1188, 1457, 1460,
+1471, 1744, 2017, 2028. Two (61, 63) fall before the scientific window; **17**
+are inside it.
+
+### GBP-HW-196 — the machine state at every hold — FACT
+
+All 17 scientific holds share the same recorded state, with no exception:
+
+```text
+reason                     XFB_BUSY on 17 of 17
+xfb_target                 NONE (-1) on 17 of 17
+xfb_current / xfb_pending  one is 0 and the other is 1, on 17 of 17
+newest_source              NONE (0xffffffff) on 17 of 17
+converted                  yes on 17 of 17
+submitted                  yes on 17 of 17
+a later DrawDone arrived    yes on 17 of 17
+```
+
+`newest_source` is NONE on **all 2 114 decisions in the run**, not only the
+holds: at every decision the producer's mailbox was empty. **No hold can be
+attributed to a queued backlog**, because at no decision in the entire run was
+there anything queued.
+
+### GBP-HW-197 — the stage order, and what it rules out — FACT
+
+Measured from the lifecycle timestamps, and it corrects an ambiguity this
+project introduced itself:
+
+```text
+DrawDone AFTER the XFB decision   2047 of 2047
+DrawDone BEFORE the decision         0
+order: convert → submit → XFB DECISION → asynchronous DrawDone
+submit → decision     n=2047  164 / 224 / 308 ticks (min/p50/max)
+decision → DrawDone   n=2047  3 159 / 3 285 / 5 099 ticks
+```
+
+**Saying a held frame was "already drawn" when the decision was taken is
+FALSE.** §V5.46.6 and GBP-VID-017 used "drawn" that way and are corrected in
+§V5.47.6. What is true, and is what the evidence supports: the frame reached the
+submit/decision stage with no backlog, and its DrawDone completed normally
+afterwards.
+
+**H2 (conversion deadline miss) is NOT supported for these holds.** Conversion
+cost is indistinguishable between the two populations:
+
+```text
+                 convert_ticks (mean)   wall span first→last slice (mean)
+SELECTED (2030)      56 237  = 1.389 ms          7.777 ms
+HOLD     (  17)      56 229  = 1.388 ms          7.636 ms
+```
+
+**H3 (GX deadline / back-pressure) is NOT supported as the immediate cause.**
+`submit_refusals` is 0 across every scientific lifecycle, and the log reports
+`no_texture=0`, `blocked_inflight=0`, `submit=2114/2114`, `drawdone=2114`,
+`spurious=0`, `drawdone_unmatched=0`.
+
+### GBP-HW-198 — the VI period, and the phase every hold falls in — FACT
+
+The retrace count is a SAMPLED counter, so a span ratio is biased by the phase
+difference between the first and last sample — it gives 675 531.65 ticks and
+residuals wider than the period itself, which is how the error announces
+itself. Estimating by FEASIBILITY instead — a period is admissible only if every
+residual `t − P·retrace` fits inside one window of width `P`:
+
+```text
+admissible period   675 674.54 .. 675 676.22 ticks   (a 1.68-tick interval)
+tightest fit        675 675.00 ticks = 16.683 33 ms = 59.940 06 Hz
+```
+
+which is NTSC nominal to five decimal places.
+
+```text
+decision phase inside the 16.683 33 ms interval
+  SELECTED_NEW  n=2094   0.0000 .. 16.6680 ms   (the whole interval)
+  HOLD          n=  19  16.1036 .. 16.6659 ms
+```
+
+**Every hold in the run falls in the final 0.580 ms — 3.48 % of the interval.**
+Only 60 of 2 094 selected decisions (2.87 %) fall in that same band.
+
+### GBP-HW-199 — a second decision inside one sampled retrace is always a hold — FACT
+
+```text
+decisions sharing a sampled retrace with their predecessor   16
+  of which HOLD_PREVIOUS                                     16
+  of which SELECTED_NEW                                       0
+```
+
+16 of the 19 holds (14 of the 17 scientific) are such second decisions. With two
+framebuffers this is the DEFINED outcome and not a coincidence: the first
+decision took the free buffer and handed it over, the VI had not yet latched it,
+so the second found `current` and `pending` occupying both slots and
+`xfb_target()` had nothing to return.
+
+The remaining **3** holds are ones where the retrace had advanced. In all three
+the previous frame's hand-over was requested very close to the next sampled
+retrace — an upper bound of 15.31, 15.80 and 16.00 µs — and by the following
+decision the pending buffer had still not become current. The retrace origin is
+itself only pinned to a 15.4 µs window by sampled data, so the admissible range
+for those figures is 0.4 .. 16.0 µs. **No latch deadline is claimed**; the
+sampled counter cannot locate one.
+
+### GBP-HW-200 — hold recurrence matches the source↔VI beat — CORROBORATED
+
+```text
+source cadence (this run)   59.727 083 Hz
+VI cadence     (this run)   59.940 060 Hz
+difference                   0.212 977 Hz
+predicted beat period        4.6954 s = 280.44 source frames
+```
+
+Holds cluster, and the clusters recur. Grouping consecutive holds separated by
+≤20 source decisions gives 8 clusters with centre-to-centre gaps of
+276.3, 276.2, 281.5, 284.0, 282.7, 281.3, 278.5 — **mean 280.07 source frames,
+which is 99.87 % of the predicted 280.44.**
+
+Sensitivity, as required before the result is believed: the clustering is
+**identical for thresholds 15, 20, 25 and 30** (8 clusters, the same gaps, mean
+280.1) and fragments at threshold 10 into 13 clusters. The result is stable over
+the range where a cluster is a cluster, and the threshold was fixed before the
+gaps were computed.
+
+**CORROBORATED, not FACT**: the agreement is between a predicted beat period and
+an observed recurrence interval over seven gaps in one run. It is strong, it is
+not a mechanism proof, and it is not evidence for any particular remedy.
+
+### GBP-HW-201 — what this run does NOT establish — SCOPE
+
+```text
+- no cause is claimed for the 3 holds where the retrace advanced beyond the
+  observation that the previous hand-over was recent;
+- no latch deadline, no scanout transition time and no nanosecond boundary:
+  VIDEO_GetRetraceCount() is sampled, and the origin is pinned only to 15.4 µs;
+- `presented` remains stage B, VIDEO_SetNextFramebuffer(). Nothing here says a
+  frame was physically displayed;
+- one run. The beat agreement, the phase concentration and the
+  instrumentation's harmlessness to the source result each rest on a single
+  physical capture;
+- nothing about which pacing or buffering policy is preferable. That is UNKNOWN
+  and this round deliberately does not narrow it.
+```
+
+### GBP-VID-019 — three instrumentation semantics that need correcting, none of them changed here — FACT (software, from the source)
+
+**1. `in_window` is one frame early at the leading edge.** The flag is
+`gbp_vwitness_armed()` sampled at the moment the consumer TAKES a descriptor.
+Within one service cycle the probe runs `gbp_vwitness_step()` (line 1445, which
+arms at the block-0 boundary), then `gbp_vqueue_publish()` (1479), then
+`gbp_vqueue_pump()` (1531). Frame 69 is therefore published and taken *after*
+the witness has already armed, and is flagged in-window although it is not an
+OGBPIDX record.
+
+```text
+OGBPIDX scientific window   70 .. 2117   2048 source records
+OGBPDISP in_window flag     69 .. 2116   2048 lifecycles
+```
+
+Same count, shifted by one at both ends. The implementation matches its own
+documented definition; what is wrong is that §V5.46.16 also said an analyzer may
+select the scientific population with it.
+
+**2. `tools/vdisp.py` inherits it.** `scientific()` filters on the flag, so the
+official report says `SELECTED_NEW 2031` and `open 0` while the exact
+`frame_index` join says `SELECTED_NEW 2030` and one capture-edge residual. Both
+numbers appear in the same output, which is how it was found.
+
+**3. the `drawn` column is ambiguous.** It reports `life_flags & F_DRAWDONE`,
+which is set when the DrawDone eventually fires — always after the decision
+(GBP-HW-197) — so it is `yes` on every row and says nothing about the state the
+decision was taken in.
+
+A fourth, smaller one: the log now emits **two different `STREAMDISP` lines**,
+the pre-existing conservation identity and the new trace summary. A parser
+keying on the tag alone would conflate them.
+
+**None of these is changed in this round.** This is an evidence-ingestion
+checkpoint, the semantics are frozen while a physical run is being interpreted,
+and every number in GBP-HW-195 … GBP-HW-200 was computed from the exact
+`frame_index` join rather than from the flag.
