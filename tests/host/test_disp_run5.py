@@ -116,12 +116,26 @@ class TheExactScientificJoin(unittest.TestCase):
         self.assertEqual(disp()["window_first_frame"], 69)
         self.assertEqual(sorted(src_frames())[0], 70, "the source window starts one later")
 
-    def test_the_official_analyzer_still_shows_the_divergence(self):
-        flag = vdisp.scientific(disp())
+    def test_the_analyzer_no_longer_substitutes_the_flag(self):
+        """The correction. The flag set still contains 2031 SELECTED_NEW -- the
+        sidecar is a correct file and is not rewritten -- but it is now exposed
+        as WITNESS_ARMED_AT_TAKE, and the scientific population comes from the
+        exact join, which is 2030."""
+        flag = vdisp.witness_armed_at_take(disp())
         self.assertEqual(sum(1 for r in flag if r["disposition"] == 1), 2031)
-        src, life = src_frames(), lifemap()
-        joined = [life[k] for k in src if k in life]
-        self.assertEqual(sum(1 for r in joined if r["disposition"] == 1), 2030)
+        sci = vdisp.scientific(disp(), src_frames())
+        self.assertEqual(sum(1 for r in sci if r["disposition"] == 1), 2030)
+        with self.assertRaises(vdisp.DispError):
+            vdisp.scientific(disp())          # no witness, no authority
+
+    def test_the_report_states_both_and_confuses_neither(self):
+        r = vdisp.format_report(disp(), capture())
+        self.assertIn("WITNESS_ARMED_AT_TAKE", r)
+        self.assertIn("NOT a population", r)
+        self.assertIn("SCIENTIFIC WINDOW (exact OGBPIDXCAP1 frame_index join)", r)
+        self.assertIn("SELECTED_NEW       2030", r)
+        self.assertIn("no lifecycle       1", r)
+        self.assertNotIn("SELECTED_NEW       2031", r)
 
 
 class TheHolds(unittest.TestCase):

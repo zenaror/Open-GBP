@@ -304,153 +304,64 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **The cause is identified; the remedy is not chosen. A source at 59.727 083 Hz
-> into a display at 59.940 060 Hz drifts in phase, and roughly every 280 source
-> frames two presentations fall inside one VI interval — where two framebuffers
-> leave no writable target and the runtime holds the previous image. What should
-> the runtime do with that frame, and by what metric is a change an improvement
-> rather than a different way of losing it?**
+> **The policy is decided offline and not implemented. A two-XFB asynchronous
+> deferral is source-lossless across the physical replay, 1024 phases, ten
+> minutes and ten times the measured jitter, with a deferred queue that never
+> exceeds one frame. The open question is the implementation round: does it hold
+> on hardware, and does it hold without disturbing the source result?**
 
-Four families are tabulated in §V5.47.13 with what each tests, what changes,
-what stays fixed and what would distinguish success from hiding the drop.
-**None is selected and none is implemented.** The honest constraint on all of
-them: 59.727 into 59.940 Hz cannot be lossless, and a change that makes
-`repeats` read 0 without saying where those frames went would be worse than the
-present behaviour, which counts them.
+There is no blocker. `tools/vpace.py` reproduces run 5 exactly — all 2114
+recorded framebuffer states and the same 17 dropped frames — before any policy
+is compared, and the comparison is in §V5.48.5.
 
-There is no blocker. The previous blocker — a pre-registered decision about the
-startup/resync region — was decided, frozen and then physically exercised, and
-the analyzer accepted the result without being touched.
+**A third framebuffer is NOT required and is worse than useless on this model:**
+it converts 17 drops into 17 supersessions, because `VIDEO_SetNextFramebuffer`
+latches once per retrace however many buffers exist.
 
-### PHYSICAL TRACK — `stream-0004` closed both defects
-
-```text
-P2 PHYSICALLY CONFIRMED FIXED.  The pre-registered gate
-    SEMANTIC.quarantined == STREAMSRC.quarantined   ->   0 == 0
-  and the comparison is controlled: the SOURCE population is identical to
-  stream-0003 field for field, so the SAME 2 635 complete frames decompose as
-      stream-0003   2635 = 2298 published + 324 quarantined + 13 anomaly
-      stream-0004   2635 = 2622 published +   0 quarantined + 13 anomaly
-  a published delta of exactly the 324 the aliased bit refused, with ZERO
-  changed lines in every file that can influence the source population.
-
-P1 PHYSICALLY CONFIRMED FIXED.
-      2621 converted == 2603 presented + 0 overrun + 18 repeated + 0 residual
-  corroborated by four counters the identity does not use: xfb_skipped == 18,
-  xfb_presents 2604 == 2603 + 1 self-test, submit 2622 == 2621 + 1 with
-  blocked_shutdown 0, and fills_started 108 249 == 2622 + 105 626 + 1 in flight.
-
-CADENCE  16.8961 ms = 59.19 Hz (was 51.89 Hz). One run, one cartridge, 44 s.
-         NOT a guaranteed frame rate.
-```
-
-**The basic sustained-streaming milestone is OPERATIONALLY REACHED**, with its
-scope stated: captured, conserved, converted and presented for a supervised
-44-second window, twice, every identity closing and every invariant holding. It
-is **not** zero source-frame loss, a guaranteed frame rate, proof of timing
-safety, correct pacing, absence of tearing or pixel fidelity.
-
-**Still UNKNOWN:** the 13 incomplete intervals (the startup signature of
-GBP-HW-141, reproduced identically a third time), and everything about
-source-frame continuity.
-
-**And the slice position is still PLAUSIBLE BUT UNMEASURED as a property.** Two
-runs now measure the pump — 27.88 / 33.60 / 41.06 µs and 28.32 / 34.07 / 41.33 µs,
-yielding to a latched cause on 24.95 % and 25.01 % of calls — and neither caused
-an observable transport failure. Neither measures the MARGIN it consumes. The
-pre-streaming window it rests on is unchanged at median **42.8** µs with
-**p25 = 1.9** µs, and `stream-0005` adds witness work on top of it, instrumented
-and not yet judged.
-
-### THE FINDING THAT CHANGED THE NEXT EXPERIMENT
-
-```text
-capture_s 44.323   valid_s 30.001   frames closed 2648   wall/valid 1.4774
-```
-
-`valid_observation_elapsed` sums each counted frame's SPAN, not the time between
-frames. The premise the indexed experiment was sized on — "30 s → ~1 792 source
-frames" — is wrong by 1.48x and always was. **A witness store is bounded by a
-COUNT of retained frames, never by a target in valid seconds** (GBP-HW-151).
-
-The OGBPIDX1 **wire format is unaffected and is NOT re-versioned**: what was
-wrong was the operational protocol, not the stimulus.
-
-### CONTROLLED-STIMULUS TRACK — `stream-0005`, implemented and unaudited
-
-```text
-retained   STRIP-L, local row 0, x = 1..54  ->  54 word16 x 40 blocks
-           = 4 320 B/frame, bit 15 NOT masked (U-GBP-034 is OPEN)
-where      SOURCE-CAPTURE layer, ABOVE the publish: quarantined, anomalous,
-           incomplete and resync frames are ALL retained, because a population
-           filtered by consumer eligibility cannot support a source claim
-stop       WITNESS_TARGET = 2048 records
-             target reached  -> stop=witness_target_reached   NORMAL
-             commit refused  -> stop=witness_store_full        INCONCLUSIVE
-           overflow is never the normal stop, and the analyzer refuses a
-           decisive verdict on any capture that declares it
-sidecar    OGBPIDXCAP1 v1, a NEW magic (OGBPSEQ1 and OGBPCOL1 stay frozen and
-           untouched). Header 0x180, record 4368, EACH RECORD CRC-SEALED, and
-           written only after the teardown, never from the capture path
-memory     +8 847 360 B witness + 98 304 B metadata = 8.53 MiB
-           arena1 free 7 512 128 B; after three XFBs 5 668 928 B = 5.41 MiB
-           measured on the built artifact AND reported at run time (ENVMEM)
-cost       54 extractions + one 108-byte placement per block, INSTRUMENTED
-           (STREAMWITT min/max/mean). Nothing is declared timing-safe.
-```
-
-**DELIVERY — resolved, and the canonical/derived split is preserved.** `gbafix`
-is in neither the host PATH nor the pinned image, so the usual packaging step was
-unavailable. It was not needed: the operator's colour cartridge already carries a
-filled 156-byte logo area (sha256 `08a0153c…d818`) that **booted physically twice**
-on the EZ-Flash Omega DE NOR / Mode B route, those bytes already live in the same
-ignored path, and `tools/gbahdr.py fix` recomputes the complement.
-
-```text
-canonical  build/stimulus/agb-indexed/agb-indexed.gba   2 460 B  379df0f7…c543
-           logo area EMPTY — this repository does not supply those bytes
-derived    build/physical/agb-indexed-cart.gba          2 460 B  abb31e6a…0769
-           logo NON-EMPTY, payload past 0x0C0 BYTE-IDENTICAL, never committed
-```
-
-**UNRESOLVED and stated as such:** the logo area is only checked for being
-non-empty, never verified against the real Nintendo logo. The claim is empirical
-— *these exact bytes booted this exact route twice* — and nothing stronger.
+**And the slice position is still PLAUSIBLE BUT UNMEASURED as a property.**
+Carried unchanged through every round since it was first measured, because a
+later round WILL reuse the wrong number otherwise — which is how the original
+error got in. Two runs measure the pump — 27.88 / 33.60 / 41.06 µs and
+28.32 / 34.07 / 41.33 µs, yielding to a latched cause on 24.95 % and 25.01 % of
+calls — and neither caused an observable transport failure. Neither measures the
+MARGIN it consumes. The pre-streaming window it rests on is unchanged at median
+**42.8** µs with **p25 = 1.9** µs. `stream-0007` adds the disposition trace on
+top of that, and §V5.46.14 measured its cost but no physical run has judged the
+margin.
 
 ## Next safe action
 
-**A DESIGN round for the presentation policy. Do not implement one yet, and do
-not run hardware for it.**
+**A PRE-REGISTERED implementation round for policy A. Freeze the gates before
+writing the code, and do not run hardware until the host gates are green.**
 
-The next decision is which of the four families in §V5.47.13 to pre-register,
-and that choice needs the roadmap consulted first: Phase 9 presentation work,
-the physical Link Port requirement and the GBI-parity goals all bear on whether
-a third framebuffer, a VI-paced hand-over or an explicit cadence rule is the
-right shape.
+The shape the model points at is small and needs no new machinery
+(§V5.48.8): `submit_ready()` asks GX before it asks the framebuffer, so a frame
+that cannot be presented is terminated. Asking about the framebuffer FIRST would
+leave the texture READY and let the retry loop that already runs in `pump()`
+every ~158 µs offer it again, in order. No third XFB, no extra texture, no VI
+callback, no queue-depth change, no extra memory.
 
-**What the design round must produce BEFORE any code:** the metric. Not
-"`repeats` went down" — that is satisfied by any change that stops counting.
-Something closer to: for every source frame, which VI interval displayed it, for
-how many intervals, and which source frames were never displayed at all. That
-needs a stated definition of "displayed" the runtime can actually observe, and
-today it can only observe stage B (`VIDEO_SetNextFramebuffer`).
-
-**Two instrumentation repairs are queued and are NOT urgent** (GBP-VID-019):
-the `in_window` off-by-one and the analyzer that inherits it, the ambiguous
-`drawn` column, and the duplicated `STREAMDISP` log tag. They belong in the next
-FUNCTIONAL round, with their own tests; `tests/host/test_disp_run5.py` pins the
-current behaviour so a fix has to update a test that names it.
-
-**If a sixth indexed run is wanted** — not required for anything established
-here — the artifacts are unchanged and reproducible:
+**The gates, to be frozen before implementation (§V5.48.10):**
 
 ```text
-Build ID   stream-0007   commit ddf8db6   491 040 B
-DOL        74b7488630153ce3baaa42831a9af8ef03a2bce80399d840062965a34906eb36
-           reproduce with: GIT_COMMIT=ddf8db6 GIT_DIRTY= make build && make swiss
-cartridge  indexed-0003, 2 880 B, delivery 9f04916b…8d9cc2 — do NOT re-flash it
-return     ...-run6.log  +  ...-run6-idxcap.bin  +  ...-run6-disp.bin
+SOURCE       the same run must return OBSERVED_CONTIGUOUS
+DISPOSITION  zero interior source-frame loss across the scientific window
+CADENCE      display repeats counted EXPLICITLY and within +/-2 of the
+             rate-required count for the run's measured span
+LATENCY      ready -> hand-off p99 < 1 ms, max < 3 ms
+QUEUE        deferred depth never exceeds 1; no overflow, no back-pressure
 ```
+
+**Two instrumentation repairs belong to that round**, not to a separate one: the
+log's duplicated `STREAMDISP` tag (the new trace summary should become
+`DISPTRACE`), and the analyzer's `drawn` column, which reports the eventual
+DrawDone rather than the state at the decision. A third — separating
+`SOURCE_FRAME_DROPPED` from `DISPLAY_INTERVAL_REPEATED` — is the whole point of
+the policy and `OGBPDISP1` can already carry it, so **no format v2 is needed**.
+
+**Service-path safety is a hard constraint the model cannot certify:** no
+`VIDEO_WaitVSync`, no spin, no VI callback, nothing blocking between ACK and
+RE-ARM. `VIDEO_GetCurrentFramebuffer()` alone is enough for the decision.
 
 **BEFORE the run, protect the raw record.** The SD workflow names every run
 identically and run 3 overwrote run 1's log in `logs/`; only the

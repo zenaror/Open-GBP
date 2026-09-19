@@ -8543,3 +8543,74 @@ the frame that arrives when no framebuffer is writable, and by what metric is a
 change an improvement rather than a different way of losing the same frame. Four
 families are tabulated with what each tests and what would distinguish success
 from hiding the drop. **None is selected and none is implemented.**
+
+## 2026-09-19 — the cadence model: two framebuffers are enough
+
+**Goal.** Decide, offline, which presentation policy preserves every interior
+source frame while converting ~59.727 Hz into ~59.940 Hz. No runtime change, no
+XFB change, no hardware.
+
+**I had to correct myself first.** Last round I wrote that 59.727 into 59.940 Hz
+"cannot be lossless". That is wrong if "lossless" means source frames. Because
+f_vi > f_src the display has MORE intervals than the source has frames — 2053
+for 2047 over run 5's span — so every frame can have its own interval with some
+left over, and the leftovers must repeat. The rate difference requires **7**
+display repeats over that span. The current policy lost **17 source frames**.
+The 17 are not the 7; they are a scheduling outcome, and conflating them is
+what the single `repeats` counter has been encouraging.
+
+**The model had to earn its use.** Two fitted parameters: the VI period by
+feasibility (675 675 ticks = 59.940060 Hz, admissible range one tick wide), and
+a latch setup margin of 650–877 ticks. With the margin the model reproduces all
+2114 recorded `(current, pending)` pairs and drops the same 17 frames; without
+it exactly three events disagree — and those three are the three holds where the
+sampled retrace had advanced. That is how the margin was found rather than
+guessed: a hand-over issued within ~16–22 µs of a boundary misses it.
+
+**The answer is A, and the margin is not close.** Two-XFB deferral loses nothing
+across the physical replay, 1024 initial phases, a ten-minute horizon and up to
+ten times the measured jitter. The deferred queue never exceeds ONE frame. Over
+ten minutes it emits exactly the 128 display repeats the rate difference
+requires and not one more. Latency p99 0.316 ms, max 1.264 ms, no drift.
+
+**A third framebuffer is not the answer, and the way it fails is the point.** It
+turns 17 drops into 17 SUPERSESSIONS: `VIDEO_SetNextFramebuffer` latches once
+per retrace however many buffers exist, so a second hand-over before the
+boundary overwrites the first and that frame never reaches the screen. A model
+that counted hand-offs rather than latches would have called that a success — so
+supersession became a first-class outcome in the simulator, and the mutation
+round has a case for hiding it.
+
+**The retry site already exists.** `pump()` re-offers any READY texture every
+~158 µs. What terminates the frame today is that `submit_ready()` asks GX before
+it asks the framebuffer. Asking about the framebuffer first would leave the
+texture READY and let the existing loop retry it, with no new state, no new
+callback and no extra memory. That is an illustrative shape, not code: nothing
+was implemented.
+
+**Two estimator lessons, both mine.** Fitting the source on the decision ORDINAL
+instead of the frame_index folds the 17 missing frames into the slope and turns
+sub-millisecond jitter into a 33 ms artefact; the numbers were absurd enough to
+catch it. And modelling jitter as an accumulated interval perturbation is a
+random walk that drifts the source off its own rate — the physical source is
+locked to the AGB clock and what varies is where the decision lands, so the
+offset is per-frame and not cumulative.
+
+**The analyzer is corrected, the history is not.** `OGBPDISP1` bit 0 is now
+named `WITNESS_ARMED_AT_TAKE`, and `scientific()` requires the witness and does
+the exact frame_index join — without one it raises rather than falling back. The
+contradictory pair the report used to print is gone. No sidecar byte changed and
+run 5 still reads 2030 / 17 / 1.
+
+**Mutations: 12 of 12**, after three rounds of fixing my own tests rather than
+the mutants. Two were inert because the tests never exercised the paths (the
+overtake clamp and the queue-depth counter), and one survived because nothing
+pinned the baseline's display-repeat count — which is exactly the drop/repeat
+separation this round exists to establish.
+
+**New unknowns:** none. U-GBP-029, U-GBP-033, U-GBP-034 stay open.
+
+**Next:** a pre-registered implementation round for policy A, with the gates in
+§V5.48.10 frozen first — source `OBSERVED_CONTIGUOUS`, zero interior loss,
+display repeats counted explicitly and within ±2 of the rate requirement,
+ready→hand-off p99 under 1 ms, deferred depth never above 1.
