@@ -149,9 +149,15 @@ class ThePolicyIsTheAssemblersNotACopy(unittest.TestCase):
 
     def test_only_the_storage_api_changed_in_the_validated_state_model(self):
         """The positive half of the same claim: what DID change since `39f1980`
-        is the storage validator, the capacity naming, and — added by P2
-        (GBP-HW-145) — the compile-time guard that makes two frame flags sharing
-        a bit a BUILD FAILURE. Nothing else."""
+        is the storage validator, the capacity naming, the P2 compile-time guard
+        (GBP-HW-145) that makes two frame flags sharing a bit a BUILD FAILURE,
+        and — added by stream-0005 (§V5.39.4) — the assembler REPORTING where
+        each block landed so the witness retention never has to recompute that
+        decision. Nothing else.
+
+        Every one of those is additive and reported; none changes a frame's
+        classification, a boundary decision or the R3 policy, which the negative
+        half of this pair checks separately."""
         r = subprocess.run(["git", "diff", "39f1980..HEAD", "--", "src/gbp/gbp_vstate.c"],
                            cwd=ROOT, capture_output=True, text=True)
         allowed = re.compile(
@@ -160,6 +166,11 @@ class ThePolicyIsTheAssemblersNotACopy(unittest.TestCase):
             r"|s->frames|s->events|s->raw_ring|frames_null|events_null|raw_ring_null"
             # P2: the flag-uniqueness guard
             r"|POPCOUNT|gbp_vstate_flags_are_unique|gbp_vstate_flags_fit_the_word"
+            # stream-0005: the witness placement report and the frame accessor.
+            # These only DESCRIBE what the assembler already decided — they read
+            # no byte, form no pointer into the ring and change no branch.
+            r"|witness_valid|witness_index|witness_slot|witness_place_first|witness_reset"
+            r"|gbp_vstate_frame_at|^if \(step\) \{$"
             r"|GBP_VSTATE_(MAX_FRAMES|MAX_EVENTS|RAW_RING|EPISODE_RAW|AUDIO_RAW|FRAME_REC|EVENT_REC|RAW_FRAME_BYTES)"
             r"|^\}$|^\{$|^return|^s->frames|^if \(!s\)|^const char|^uint64_t|^int ", re.I)
         stray = []

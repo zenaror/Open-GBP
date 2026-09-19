@@ -183,7 +183,9 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | GBP-VIDEO-004 | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **PHYSICALLY EXECUTED 2026-09-19 — P1 AND P2 CONFIRMED FIXED.** 472 160 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.38; GBP-HW-146…152 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0005` | see below | see below | **NOT AUDITED, NOT PHYSICALLY EXECUTED.** OGBPIDX1 witness retention at the source layer, OGBPIDXCAP1 sidecar, 2048-record target stop | `HARDWARE_TESTS.md` §V5.39 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0005` | `10250a4` | `35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092` | **NOT AUDITED, NOT PHYSICALLY EXECUTED.** 481 664 B; OGBPIDX1 witness retention at the source layer, OGBPIDXCAP1 sidecar, 2048-record target stop; rebuilt byte-identically twice, zero warnings | `HARDWARE_TESTS.md` §V5.39 |
+| GBP-VIDEO-004 **stimulus, canonical** | `indexed-0001` | — | `379df0f7019ef7f1330bd4ad55274bde062a69d03d1c8cc1dc2a01018bdbc543` | 2 460 B, OGBPIDX1, logo area EMPTY by policy. **NEVER RUN anywhere** | `HARDWARE_TESTS.md` §V5.35, §V5.39.14 |
+| GBP-VIDEO-004 **stimulus, derived for delivery** | `indexed-0001` | — | `abb31e6a7fd9dd3185d4474065169bdf0c483bc9e5e01c7aefe8a455d0ce0769` | 2 460 B; logo area taken from the operator's already-derived colour cartridge, payload past 0x0C0 byte-identical to the canonical ROM. Never committed | `HARDWARE_TESTS.md` §V5.39.15 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -361,19 +363,40 @@ cost       54 extractions + one 108-byte placement per block, INSTRUMENTED
            (STREAMWITT min/max/mean). Nothing is declared timing-safe.
 ```
 
-**BLOCKED FOR DELIVERY, and this is operational rather than design.** The
-canonical ROM's logo area is empty by policy, and the derived delivery image
-needs official devkitPro `gbafix` — which is **not in the pinned container
-image**. `build/physical/agb-indexed-cart.gba` is currently a byte copy with the
-logo still empty and is **NOT deliverable**. The route itself is proven (the
-colour stimulus took it twice, §V3.7); what is missing is the tool here. The
-OGBPIDX1 payload is never altered to accommodate a flashcart.
+**DELIVERY — resolved, and the canonical/derived split is preserved.** `gbafix`
+is in neither the host PATH nor the pinned image, so the usual packaging step was
+unavailable. It was not needed: the operator's colour cartridge already carries a
+filled 156-byte logo area (sha256 `08a0153c…d818`) that **booted physically twice**
+on the EZ-Flash Omega DE NOR / Mode B route, those bytes already live in the same
+ignored path, and `tools/gbahdr.py fix` recomputes the complement.
+
+```text
+canonical  build/stimulus/agb-indexed/agb-indexed.gba   2 460 B  379df0f7…c543
+           logo area EMPTY — this repository does not supply those bytes
+derived    build/physical/agb-indexed-cart.gba          2 460 B  abb31e6a…0769
+           logo NON-EMPTY, payload past 0x0C0 BYTE-IDENTICAL, never committed
+```
+
+**UNRESOLVED and stated as such:** the logo area is only checked for being
+non-empty, never verified against the real Nintendo logo. The claim is empirical
+— *these exact bytes booted this exact route twice* — and nothing stronger.
 
 ## Next safe action
 
 **Run the focused pre-hardware audit of `stream-0005`.** Do not run hardware
-before it, and do not run it at all until the delivery ROM problem above is
-solved — an indexed run without the indexed cartridge measures nothing.
+before it.
+
+```text
+Test ID   GBP-VIDEO-004
+Build ID  stream-0005
+commit    10250a4   (CLEAN, no -dirty)
+DOL       build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+          481 664 B
+          sha256 35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
+Swiss     build/swiss/12-stream/boot.dol — byte-identical, slot NOT renumbered
+cartridge build/physical/agb-indexed-cart.gba  (2 460 B, abb31e6a…0769)
+stop      witness_target_reached, NOT a 30-valid-second target
+```
 
 ```text
 1. witness extraction correctness — the exact 54 words, bit 15, no other byte

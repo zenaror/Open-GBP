@@ -12196,12 +12196,14 @@ added                            8 945 664 B  = 8.53 MiB
 Measured on the real build, not from a nominal 24 MiB:
 
 ```text
-.text  0x0005A7F0    370 160 B     .rodata 0x0000B7B0   46 992 B
-.data  0x00002CB4     11 444 B     .bss    0x0105CC18  17 157 144 B
-bss ends 0x810D5BB8 · Arena1Lo 0x810D5BC0 · Arena1Hi 0x81800000
-arena1 free            7 512 128 B = 7.166 MiB
+.text   0x0005A870    370 288 B      .rodata 0x0000B820   47 136 B
+.data   0x00002CB4     11 444 B      .sdata  0x000000A8      168 B
+.bss    0x0105CC28  17 157 160 B
+bss ends 0x810D5CB8 · Arena1Lo 0x810D5CC0 · Arena1Hi 0x81800000
+arena1 free            7 512 384 B = 7.164 MiB
 three framebuffers     3 x 614 400 = 1 843 200 B
-arena after the XFBs   5 668 928 B = 5.41 MiB
+arena after the XFBs   5 669 184 B = 5.41 MiB
+largest single object  witness_store, 8 847 360 B
 ```
 
 No overlap: `.bss` ends below `Arena1Lo`, which is below `Arena1Hi`, which is the
@@ -12360,16 +12362,40 @@ is the source authority and is reproducible from this repository; a **derived**
 delivery image gets the header's logo area filled by official devkitPro `gbafix`,
 outside Git, into an ignored path, and the payload past 0x0C0 stays byte-identical.
 
-`gbafix` is **not present in the pinned container image** (`$DEVKITPRO/tools/bin`
-has `bin2s bmp2bin catnip elf2dol elf2rpl gcdsptool gxtexconv padbin raw2c
-wiiload wuhbtool` and no `gbafix`), so the derived image was **not produced this
-round**. `build/physical/agb-indexed-cart.gba` currently exists as a byte copy of
-the canonical ROM with the logo area still empty, and it is **NOT deliverable**.
+`gbafix` is **not present in this environment** — neither on the host PATH nor
+anywhere under `/opt/devkitpro` in the pinned image, which ships `bin2s bmp2bin
+catnip elf2dol elf2rpl gcdsptool gxtexconv padbin raw2c wiiload wuhbtool` and no
+GBA header tool at all. That blocked the usual packaging step.
 
-**This is an open operational item, not a design one.** The colour stimulus took
-the same route successfully twice, so the route is proven; what is missing is the
-tool in this environment. The OGBPIDX1 payload is **not** altered to accommodate a
-flashcart under any circumstances.
+**It was resolved without it, and without touching one new proprietary byte.**
+The operator's colour cartridge `build/physical/agb-color-bars-cart.gba` already
+carries a filled 156-byte logo area (sha256 `08a0153c…d818`) and has **booted
+physically twice** on the EZ-Flash Omega DE NOR / Mode B route (`color-0001`,
+`color-0002`). Those bytes already exist locally, in the same ignored path, so
+the derived indexed image takes its logo area from there and `tools/gbahdr.py
+fix` recomputes the header complement:
+
+```text
+derived   build/physical/agb-indexed-cart.gba          (ignored by Git: /build/)
+          2 460 bytes
+          sha256 abb31e6a7fd9dd3185d4474065169bdf0c483bc9e5e01c7aefe8a455d0ce0769
+          title 'OPENGBPINDEX'  code 'IGBP'  maker 'OG'
+          complement 0x16 OK, reserved zero
+          logo area NON-EMPTY, sha256 08a0153c…d818 — the SAME 156 bytes that
+          booted twice physically
+          payload past 0x0C0: BYTE-IDENTICAL to the canonical ROM (verified)
+```
+
+Exactly the §V3.7 split, preserved: the **canonical** ROM is the source authority
+and is reproducible from this repository; the **derived** image exists only for
+physical delivery, never enters Git, and differs only inside the 192-byte header.
+The OGBPIDX1 payload is **not** altered to accommodate a flashcart under any
+circumstances.
+
+What is still **UNRESOLVED**, and stated as such by `tools/gbahdr.py` itself: the
+logo area is checked only for being non-empty, never verified against the real
+Nintendo logo. The claim available is empirical, not structural — *these exact
+bytes booted this exact flashcart route twice* — and nothing stronger.
 
 #### V5.39.16 What was deliberately NOT done
 
@@ -12382,9 +12408,28 @@ R3 / R5 / R7 / the pump position / scaling were not touched.
 
 ```text
 GBP-VIDEO-004 / stream-0005
-  IMPLEMENTED · HOST VALIDATED · NOT AUDITED · NOT PHYSICALLY EXECUTED
-  next: the focused pre-hardware audit of stream-0005 (§V5.39.18)
-  blocked for delivery: a gbafix-equivalent for the OGBPIDX1 header logo area
+DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+            481 664 bytes
+            sha256 35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
+build_id    stream-0005          commit 10250a4   (CLEAN, no -dirty)
+Swiss       build/swiss/12-stream/boot.dol — byte-identical, slot NOT renumbered
+text        0x05A870    370 288 B
+rodata      0x00B820     47 136 B
+data+sdata  0x002D5C     11 612 B
+bss         0x105CC28  17 157 160 B
+toolchain   powerpc-eabi-gcc (devkitPPC) 16.1.0 · libogc2 r2442.094b250
+            ZERO warnings
+reproduced  deleted and rebuilt from scratch TWICE, byte-identical both times
+gates       19 unit binaries / 923 440 checks / 0 failures · 678 host tests OK
+            stream-audit, vstate-audit and color-audit: 0 findings, and both
+            one-shot ISR bodies byte-identical to the physically validated
+            GBP-VIDEO-001 build
+            stream-dolphin PASS: SELFTEST ok=1 sci_clean=1 balanced=1
+            inv_fail=0 consistent_at_end=1 storage_fault=-
+cartridge   build/physical/agb-indexed-cart.gba, 2 460 B,
+            sha256 abb31e6a7fd9dd3185d4474065169bdf0c483bc9e5e01c7aefe8a455d0ce0769
+status      IMPLEMENTED · HOST VALIDATED · NOT AUDITED · NOT PHYSICALLY EXECUTED
+next        the focused pre-hardware audit of stream-0005 (§V5.39.18)
 ```
 
 #### V5.39.18 What the pre-hardware audit must cover
@@ -12402,4 +12447,4 @@ GBP-VIDEO-004 / stream-0005
 ```
 
 **Only after that** may hardware run, and only with the OGBPIDX1 cartridge on the
-physically validated delivery path — which §V5.39.15 does not yet have.
+physically validated delivery path (§V5.39.15).
