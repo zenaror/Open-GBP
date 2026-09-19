@@ -13545,3 +13545,168 @@ stale `.git/index`, now an unreadable tree). It is recorded because a `-dirty`
 stamp is normally a hard stop for hardware, and here it is a filesystem artifact
 with a proven-identical binary — a distinction that must never be assumed, only
 demonstrated.
+
+---
+
+### V5.43 THIRD INDEXED PHYSICAL RUN — `stream-0005` + `indexed-0003` — 2026-09-19 — **CADENCE FIXED, VERDICT `OBSERVED_DISCONTINUITY` ON ONE STARTUP GAP**
+
+The producer is now correct: one new FRAME_ID per AGB refresh, no tearing, no
+duplication. The frozen contract still returns `OBSERVED_DISCONTINUITY`, because
+of exactly one transition in the startup region — and that refusal is the
+contract working, not failing.
+
+#### V5.43.1 Inputs, and a filename collision worth recording
+
+The SD workflow names every run identically. Run 3 arrived under the un-suffixed
+names that previously held run 1, **overwriting run 1 in `logs/`**. Run 1's raw
+bytes survived only because `captures/local/` had archived them — which is
+precisely the reason that policy exists. All three are now unambiguous:
+
+```text
+run 1  …-run1.log              66 427 B  165a3e32…86eaf
+       …-run1-idxcap.bin    8 946 060 B  6c822d63…a193d
+run 2  …-run2.log              66 515 B  e02d1160…12ae8
+       …-run2-idxcap.bin    8 946 060 B  111ea227…ec42d
+run 3  …-run3.log              66 356 B  1c8e2aaa…02bf3
+       …-run3-idxcap.bin    8 946 060 B  6eb7585c…a035a
+```
+
+**Recommendation for the next handover:** copy the two files off the card under
+a run-distinguishing name *before* re-populating the card, or the raw record is
+one `cp` away from being lost.
+
+#### V5.43.2 Runtime — replicated a third time, unchanged
+
+```text
+stop=witness_target_reached · unmasks == deliveries == acks == rearms = 217 117
+video 81876/81876 · every error counter 0 · transport_ok=1
+FRAMECAP 2048 / 2046 / 2 / 4 / 2 / 81 876 · STREAMWIT 2048/2048 · 81 876 staged=placed
+STREAMCONS 2043 == 2026 + 0 + 17 + 0 · STREAMINV 169 243 / 0 · sci_clean=1
+```
+
+Presence bits sum to 81 875 against staged/placed 81 876; the assembler's own
+`blocks` field agrees and **no record is short** — the trailing boundary block,
+for the third time.
+
+#### V5.43.3 The stimulus — everything `indexed-0002` won, kept
+
+```text
+STATUS 0x18 on ALL 81 840 strips   FAULT = 0, VMARGIN = 24
+MIXED_BLOCK_IDS                    0
+symbols / SYNC / CRC-8             81 840 / 81 840 each
+BLOCK_INDEX == witness slot        81 840 / 81 840
+```
+
+`VMARGIN = 24` → worst publication finished at `VCOUNT = 203`, consuming
+**44 of the 68 VBlank lines = 64.7 %**. Identical to run 2: moving
+`prepare_frame` into IWRAM did not disturb the publication.
+
+#### V5.43.4 The cadence — fixed
+
+Every one of the 2 046 complete records carries a **distinct** FRAME_ID.
+Duplicates **0**, against 1 022 in run 2. Raw observed IDs **16 .. 2062**, 2 047
+consecutive values, none missing. From the capture's own time base — between the
+first and last complete records, not count ÷ wall clock:
+
+```text
+2 046 FRAME_ID increments over 34.255788 s  =  59.7271 Hz
+```
+
+One FRAME_ID per AGB refresh. The three-run series is
+**6.00 : 1 → 2.00 : 1 → 1.00 : 1**, with the GameCube runtime byte-identical
+throughout.
+
+#### V5.43.5 The frozen verdict, and why it is right
+
+```text
+decisive 2 044 transitions, first 0x000010 last 0x00080d
+         OBSERVED_ID_CONTIGUOUS 2 043 · OBSERVED_ID_GAP 1
+VERDICT  OBSERVED_DISCONTINUITY          stimulus fault seen FALSE
+```
+
+The one non-contiguous transition is **record 3 (id 18) → record 5 (id 20)**.
+Record 4 holds **id 19 with 34 of 40 blocks**: the assembler resynchronised
+mid-frame — witness slots map 0→0, 1→1, then 2→8 — so blocks 2..7 never entered
+it. The adapter passes only all-40-block records to the core, so id 19 is not in
+the decisive population and 18→20 reads as a gap.
+
+**§14 answered, by the contract and not by preference.** Of the three options the
+round posed:
+
+```text
+A  the ID-19 record is a startup/resync EDGE excluded before the first
+   decisive interval                                    -> NO SUCH RULE EXISTS
+B  it is INSIDE the decisive interval and therefore prevents
+   OBSERVED_ID_CONTIGUOUS                               -> THIS ONE
+C  some other frozen rule                               -> none applies
+```
+
+`decisive_population()` excludes exactly three things: the trailing uncertified
+frame, and the two unobservable edges beyond the first and last intact
+observations. It does **not** trim an interior resync and it does not start the
+interval after one. No rule was invented after seeing the data.
+
+> **The gap is not source-frame loss.** ID 19 was produced by the AGB and
+> captured by the Game Boy Player; 34 of its 40 blocks are in the sidecar and
+> decode perfectly, and the raw ID set 16..2062 has no missing value. The
+> contract is declining to bridge an *incomplete record* — conservative, and
+> correct.
+
+The startup signature (`incomplete=2, resync=4`) is identical across all three
+indexed runs and across `stream-0003`/`stream-0004`: GBP-HW-141's known
+startup-region artifact, which predates streaming.
+
+#### V5.43.6 What this run does and does not support
+
+**Supported (FACT, this run):** the stimulus publishes inside the VBlank with
+FAULT clear and 24 scanlines of margin; every captured complete frame carries one
+consistent FRAME_ID and the expected 40 block indices; the producer emits one new
+ID per refresh at 59.7271 Hz; 2 043 of 2 044 decisive transitions are contiguous;
+the raw observed ID range is gapless.
+
+**NOT supported, and not claimed:** `OBSERVED_ID_CONTIGUOUS`; source-frame
+continuity over the decisive interval; anything about frames before the first or
+after the last intact observation; universal zero-loss operation; pixel fidelity
+outside the 54-word canonical witness; or that every source frame reached the
+screen — `STREAMCONS` still shows 2 043 converted, 2 026 presented, 17 repeats,
+which is a *later* pipeline stage and a separate question.
+
+**Scope of the witness:** OGBPIDX1 preserves STRIP-L, local line 0, x = 1..54 —
+54 word16 per block, 4 320 bytes per source frame. Every claim above is about
+**source-frame identity, composition and order as encoded by that witness**, not
+about the full 240×160 image.
+
+#### V5.43.7 Classification
+
+**`OBSERVED_ID_GAP` (one, in the startup region), giving the frozen overall
+verdict `OBSERVED_DISCONTINUITY`.** No new label was created; an existing frozen
+one covers the result exactly.
+
+#### V5.43.8 Is another indexed run required?
+
+**B — REPLICATION REQUIRED**, and for a specific, addressable reason rather than
+general caution: the single gap is a startup artifact that the current contract
+cannot exclude. Two legitimate paths, and **both must be chosen and frozen before
+the next run**:
+
+```text
+1. a PRE-REGISTERED amendment defining where the decisive interval begins
+   relative to the startup/resync region -- written and frozen BEFORE the run
+   it judges, never after one; or
+2. a run whose startup resync does not produce an incomplete record, which
+   is not something this project can command, only observe.
+```
+
+Writing rule 1 now, having seen this result, would be precisely the
+after-the-fact rule-fitting §14 forbids. It is therefore proposed, not applied.
+
+**No milestone is claimed.** `CONTROLLED SOURCE-FRAME CONTINUITY OBSERVED` is
+**not** authorised by this run: the analyzer returned `OBSERVED_DISCONTINUITY`,
+and the milestone was made conditional on `OBSERVED_ID_CONTIGUOUS`. The earlier
+basic sustained-streaming milestone stands unchanged and separate.
+
+#### V5.43.9 Unrelated unknowns
+
+U-GBP-029, U-GBP-033 and U-GBP-034 stay **OPEN**; nothing here bears on them.
+There is no existing UNKNOWN for source-frame continuity, and **none was created
+retrospectively** in order to close it.
