@@ -3423,3 +3423,12 @@ failure.**
 Both are `src/gbp` changes, both are proposed and **not applied**, and both are
 locked as passing unit tests that assert the current behaviour together with the
 arithmetic showing why it is wrong.
+
+**STATUS, added after the fact and kept separate from the finding above.** Both
+defects were fixed in `stream-0004` (§V5.36) and the fix was audited (§V5.37,
+DECISION A): P2 by moving `F_MAJORITY_EXTRA` to `0x4000` — the flag never written
+to any file, so **zero historical bytes change meaning** — behind a compile-time
+uniqueness guard, and P1 by adding the `repeated` terminal plus a residual
+bounded by the texture-buffer count. **The observations recorded above are not
+amended.** `stream-0003`'s counters stand exactly as logged, and neither defect is
+**physically** resolved until a new physical run says so.

@@ -7661,3 +7661,102 @@ persistence, true majority-extra still quarantined, stable frames no longer
 aliased, the balance conservation proof, R1 isolation, the exact artifact, and
 the functional diff against `stream-0003`. Then, if clean, a short supervised
 physical run.
+
+---
+
+## 2026-09-18 — focused pre-hardware audit of `stream-0004` — **DECISION A**
+
+**Goal.** One question only: is the exact `stream-0004` artifact ready for a
+second short supervised physical smoke? No hardware was executed, no functional
+code was changed, OGBPIDX1 witness retention was not integrated, and
+R3 / R5 / R7 / the pump position / scaling were deliberately left alone.
+
+**The artifact.** `build/` was deleted and rebuilt from scratch **three times**
+inside the pinned container. Every pass produced **472 160 B** and
+`56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43`, with
+`build_id=stream-0004 commit=e11df66` and no `-dirty`; the Swiss copy is
+byte-identical. Three passes rather than one because this repository lives on a
+`fuseblk` mount that has silently corrupted `build/` before. `git diff
+e11df66..HEAD` over `src/ poc/ tools/ tests/ stimulus/ Makefile Dockerfile
+compose.yaml` is **empty**, so the bytes compiled at `HEAD` are the bytes
+committed at the candidate.
+
+**P2.** All 15 frame flags are distinct powers of two, `F_ALL = 0x7fff`,
+popcount == `F_COUNT`, `0x8000` still free. The compile-time guard was made to
+**fire three different ways** — restoring the alias, adding a flag without
+adding it to the mask, overflowing the word — and the header restored
+byte-for-byte after each.
+
+All **seven** `tools/vstate.py` modes produce **byte-identical output** on all
+five historical sidecars, and `tools/vcolor2.py` on the `color-0002` fixture is
+identical too, so **U-GBP-011's closure is untouched**.
+
+**The strongest single result** is not an example. `F_EPISODE_STABLE` no longer
+quarantining was settled by **enumerating all 2^15 flag words**: for every one,
+setting or clearing that bit cannot change the classifier's answer. That is now a
+permanent unit test.
+
+**A true majority-extra frame is still quarantined** — alone, with `ANOMALY` as
+the assembler actually emits it, and combined with `EPISODE_STABLE`, where
+quarantine wins. R3.12 and the whole of `gbp_vstate_probe.c` are byte-identical
+to `stream-0003`; **U-GBP-033 stays OPEN**.
+
+**The causal proof was already inside the physical record.** `stream-0003` logged
+`STRUCTURED episodes=324 stable=324`, `STREAMSRC quarantined=324`, and
+`SEMANTIC maj_extra=0 quarantined=0`. The R3 machinery never fired; every one of
+those quarantines came from the aliased bit. That is a retrodiction of an
+existing record, **not** a retroactive correction of it.
+
+**P1, and the residual question answered honestly: C, it depends on the stop
+point.** The report *is* taken after the GX drain, and it still cannot force the
+residual to zero: `GX_DrawDone()` waits for a submitted token, it never submits a
+`READY` buffer, and `gbp_vpresent_shutdown()` — which runs first, deliberately —
+makes any later submit impossible. A texture left `READY` at that instant is
+permanently undispositioned. The bound is exactly `GBP_VPRESENT_TEX_BUFFERS = 2`
+because every buffer can be `READY` at once, and a `SUBMITTED` buffer has
+**already** been counted (the POC records the terminal at submit time), so the
+drain retires a token and never a frame. It is not hidden behind the bound check:
+it is printed on its own `STREAMDISP` / `DISPOSE` line and corroborated by
+`blocked_shutdown`.
+
+**`stream-0003`'s arithmetic closes, and three counters the identity does not use
+agree with it:** `submit 2299 == 2298 + 1 self-test` with `blocked_shutdown=0`
+(so nothing was left `READY` — the residual is 0 by an *independent* counter),
+`xfb_presents 2287 == 2286 + 1`, `xfb_skipped 12 == repeats 12`,
+`drawdone == releases == submit`, `acquire − fills == abandoned`.
+
+**Mutations 6/6.** M6 was not left as a claim about a gate — the mutant DOL was
+built and actually run under Dolphin, and three assertions fired together
+(`SELFTEST ok=0`, `sci_clean=0`, `balanced=0`), the same R1 signature
+`stream-0002` produced on hardware. **A harness defect was found and fixed inside
+this round:** the first pass scored M5 as NOT CAUGHT because the command ended in
+`| tail -6`, so the exit status examined was `tail`'s rather than `make`'s — while
+that same run's transcript already contained the failing `_Static_assert`. Under
+`pipefail` M5 is caught. Recorded because a mutation harness that cannot detect a
+failure proves nothing, and the previous round was invalidated by a different
+defect in the same harness.
+
+**Findings: 6, none a blocker.** Two LOW comment defects in `gbp_vqueue` — the P1
+in-body comment says "at most one texture buffer" where the constant it defends
+is 2 (the constant is right), and `balanced()`'s doc comment was orphaned when
+the `MAX_UNDISPOSITIONED` block was inserted above the declaration and now
+overstates what the predicate checks. Three INFO observations, including that
+stage 4 (`taken → converted`) is checked only as an unbounded inequality while
+the quantity that closes it, `conv_abandoned_no_raw`, is reported but not
+checked. One build-hygiene INFO: `build/swiss/11-color/boot.dol` is exported
+labelled `e11df66-dirty` — not the candidate and not loaded by any procedure, but
+run `make build` before the session so no `-dirty` DOL sits beside the candidate
+on the SD card. **Nothing was fixed**; the round forbade functional changes and
+every item is carried to the next functional candidate.
+
+**Tests added (diagnostic, permanent):** the exhaustive 2^15 classification
+enumeration, and a residual test that proves the residual is exactly the set of
+`READY` textures, that a `SUBMITTED` buffer is already dispositioned, and that
+shutdown makes a waiting frame permanent. Unit checks 118 946 → **217 267, 0
+failures**; the whole suite is 19 binaries / **911 420 checks / 0 failures**, and
+659 host tests pass.
+
+**Next:** run the short supervised physical smoke of the exact `stream-0004`,
+power-cycling first, with the ingest checks fixed beforehand (§V5.37.17) — the
+decisive one being `SEMANTIC.quarantined == STREAMSRC.quarantined`, which
+disagreed by exactly 324 in `stream-0003` and must now agree.

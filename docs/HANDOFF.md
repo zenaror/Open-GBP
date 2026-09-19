@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   e11df661ddc42fc44ed3a9ca7ae1a8357b51fb5f
+STATE BASELINE COMMIT   0c4087c184d30fb45cd59a8672545a17c5a315b3
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -104,7 +104,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
-| **GBP-VIDEO-004** (sustained streaming) | **`stream-0004` IMPLEMENTED · P2 FIXED · P1 FIXED · PHYSICAL CANDIDATE READY · NOT PHYSICALLY EXECUTED.** Awaiting a focused pre-hardware audit | `HARDWARE_TESTS.md` §V5.36 |
+| **GBP-VIDEO-004** (sustained streaming) | **`stream-0004` AUDITED — DECISION A: SAFE ENOUGH FOR A SHORT SUPERVISED PHYSICAL SMOKE.** P2 and P1 fixed and proved by mechanism; 6/6 mutations caught; artifact rebuilt byte-for-byte three times. **NOT PHYSICALLY EXECUTED** | `HARDWARE_TESTS.md` §V5.36, §V5.37 |
 | **`stream-0003`** | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** Historical; never rebuilt or re-labelled. It found P2 and P1 | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | **CONTROLLED indexed stimulus** (`stimulus/agb-indexed`) | **ROM AND ANALYZER IMPLEMENTED** to the frozen `OGBPIDX1` contract. ROM 2 460 B `379df0f7…c543`; renders 38 400/38 400 words identically to `tools/istim.py`; `tools/vindex.py` adversarially tested. **NEVER RUN anywhere**; witness retention NOT in the runtime | `HARDWARE_TESTS.md` §V5.33, §V5.35 |
 | **Dolphin's emulated Game Boy Player** | **EXISTS and is REACHABLE from a homebrew DOL** in the installed 2606a (`HSPDevice=2` + `GBPlayerRom`; no BIOS, no Start-up Disc). The exact `stream-0003` reaches the CONTROL gate on it and stops there: Dolphin's power-on CONTROL is `0x02`, hardware's is `0x90`. **AUXILIARY only** | `HARDWARE_TESTS.md` §V5.31 |
@@ -170,7 +170,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 | `stream-0001` | `0816cbe` | `0dc2c50101b5cc6c3906e89f845b89d4d218ccd7ee05ff04764de68b1169d275` | **REJECTED before hardware — DO NOT RUN** | `HARDWARE_TESTS.md` §V5.26 |
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **NOT PHYSICALLY EXECUTED.** 472 160 B; P2 and P1 fixed, 6/6 mutations caught, zero warnings. Awaiting a focused pre-hardware audit | `HARDWARE_TESTS.md` §V5.36 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **NOT PHYSICALLY EXECUTED — AUDIT DECISION A.** 472 160 B; P2 and P1 fixed, 6/6 mutations caught (M6 executed under Dolphin, not assumed), zero warnings, reproduced from scratch three times | `HARDWARE_TESTS.md` §V5.36, §V5.37 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -267,9 +267,9 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **A focused pre-hardware audit of `stream-0004`. The two defects the first
-> physical run found are fixed in software; they are NOT physically resolved
-> until a new run says so.**
+> **A short supervised physical smoke of the exact `stream-0004`. The two
+> defects the first physical run found are fixed in software and the fix is
+> audited; they are NOT physically resolved until a new run says so.**
 
 ### PHYSICAL TRACK
 
@@ -305,18 +305,39 @@ P1 MEDIUM — FIXED.  A converted frame has THREE terminals, not two: presented,
   2 298 == 2 286 + 0 + 12.
 ```
 
-**What the audit must cover, and it is small:**
+**The audit ran and reached DECISION A** (§V5.37). What it settled, subject by
+subject:
 
 ```text
-1. flag uniqueness and persistence — that no two flags share a bit, that the
-   guard really fails the build, and that no historical fixture changes meaning
-2. a TRUE majority-extra frame is still QUARANTINED (the policy is not weakened)
-3. a stable frame is no longer aliased, end to end on the real assembler
-4. the balance conservation proof, including the bounded residual
-5. R1 isolation — the self-test still accounts to NULL, sci_clean unchanged
-6. the exact artifact identity
-7. the functional diff against stream-0003, which must stay tiny
+1. flag uniqueness + persistence  15 distinct powers of two, F_ALL = 0x7fff,
+      popcount == F_COUNT, 0x8000 free. The compile-time guard was proved to
+      fire THREE ways. All 7 tools/vstate.py modes are byte-identical on all
+      five historical sidecars; vcolor2.py on color-0002 is identical too, so
+      U-GBP-011's closure is untouched.
+2. a TRUE majority-extra frame   still QUARANTINED, alone, with ANOMALY, and
+      combined with EPISODE_STABLE. R3.12 is byte-identical to stream-0003 and
+      U-GBP-033 stays OPEN.
+3. EPISODE_STABLE no longer aliases   proved by ENUMERATION of all 2^15 flag
+      words, not by example: the bit cannot change a classification at all.
+4. the conservation identity   derived from the state machine, with a residual
+      bounded by the texture-buffer count. stream-0003's numbers close under it
+      AND are corroborated by three counters the identity does not use.
+5. R1 isolation   intact; the self-test accounts to NULL, sci_clean_at_probe=1,
+      and routing it back through the queue was MUTATED and caught under Dolphin.
+6. exact artifact identity   472 160 B / 56f26873…, rebuilt from scratch three
+      times, Swiss copy byte-identical, commit e11df66 with no -dirty.
+7. the functional diff   6 files, 139 insertions; ZERO changed lines in the
+      service path, the pixel path, the presenter, the transport or the dumper.
 ```
+
+**Findings: 6, none a blocker** (§V5.37.14). Two LOW comment defects in
+`gbp_vqueue` (the P1 in-body comment says "at most one texture buffer" where the
+constant is 2 — the constant is right; and `balanced()`'s doc comment was
+orphaned and now overstates what it checks), three INFO observations, and one
+build-hygiene INFO: **`build/swiss/11-color/boot.dol` is exported labelled
+`e11df66-dirty`**. It is not the candidate and no procedure loads it, but run
+`make build` before the session so no `-dirty` DOL sits next to the candidate on
+the SD card.
 
 **Pre-registered, without imposing a result:** if no *true* majority-extra event
 occurs, frames formerly excluded solely by the aliased bit should now become
@@ -348,9 +369,10 @@ correction.
 
 ## Next safe action
 
-**Run the focused pre-hardware audit of `stream-0004` above.** Only if it is
-clean, request a short supervised physical run — and power-cycle the
-GameCube/GBP first, as always.
+**Run a short supervised physical smoke of the exact `stream-0004`.** The
+pre-hardware audit is done and clean (§V5.37, DECISION A). Power-cycle the
+GameCube/GBP first, as always — `stream-0003` ended with `power_cycle_required=1`
+and that is a by-construction latch (GBP-HW-143).
 
 ```text
 Test ID   GBP-VIDEO-004
@@ -360,7 +382,32 @@ DOL       build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
           472 160 B
           sha256 56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43
 Swiss     build/swiss/12-stream/boot.dol — byte-identical, slot NOT renumbered
+cartridge a real cartridge with CHANGING video; the same one as stream-0003 if
+          possible, so the comparison is against a known run
+link port nothing attached · BBA absent · SD2SP2 inserted and writable
+window    SHORT and supervised — about the 45 s of stream-0003, directly
+          comparable. Do not extend it.
 ```
+
+**Confirm on screen before running: `build stream-0004  commit e11df66`, with no
+`-dirty` and not `stream-0003`.** Full procedure in §V5.37.16.
+
+**The ingest checks are fixed BEFORE the run** (§V5.37.17). The decisive one:
+
+```text
+SEMANTIC.quarantined  ==  STREAMSRC.quarantined
+   In stream-0003 these disagreed by exactly 324 (0 vs 324) and nobody had
+   cross-checked them. Under P2 they measure the same thing and MUST agree.
+   A disagreement means P2 is not fixed.
+
+undispositioned > 0 is acceptable ONLY with STREAMOWN blocked_shutdown > 0.
+```
+
+**Pre-registered, imposing no result:** frames previously refused *solely* by the
+aliased bit should now become eligible. **No frame rate and no publication count
+is pre-registered.** Fixing the alias does not make every complete frame
+publishable — anomaly, resync and incomplete exclusions are untouched, and the 13
+incomplete intervals remain **UNKNOWN** in cause.
 
 **Historical identities, kept so no one picks up the wrong DOL:**
 `stream-0001` — **REJECTED before hardware — DO NOT RUN**, sha256

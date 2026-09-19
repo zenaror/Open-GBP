@@ -1194,6 +1194,89 @@ static void test_the_bounded_residual_is_accepted_and_bounded(void)
     }
 }
 
+/* §V5.37.5. The audit did not settle this by example. `F_EPISODE_STABLE` is a
+ * REPORTING bit: it says an episode closed as stable, which is a statement about
+ * the picture, never about the frame's fitness to be shown. So the claim under
+ * test is not "the 324-frame combination is accepted" but the stronger one —
+ * over EVERY flag word the classifier can be handed, setting or clearing
+ * `F_EPISODE_STABLE` cannot change the answer. That is what P2's aliasing broke,
+ * and enumerating it is cheap: 2^15 words, both ways. */
+static void test_episode_stable_never_changes_a_classification(void)
+{
+    uint32_t bits;
+    printf("-- EXHAUSTIVE: F_EPISODE_STABLE cannot change a classification, in any combination\n");
+    for (bits = 0; bits < 0x8000u; bits++) {
+        const uint32_t without = bits & (uint32_t)~GBP_VSTATE_F_EPISODE_STABLE;
+        const uint32_t with    = without | GBP_VSTATE_F_EPISODE_STABLE;
+        CHECK(gbp_vqueue_classify(40u, without, 0) == gbp_vqueue_classify(40u, with, 0));
+        CHECK(gbp_vqueue_classify(39u, without, 0) == gbp_vqueue_classify(39u, with, 0));
+        CHECK(gbp_vqueue_classify(40u, without, -1) == gbp_vqueue_classify(40u, with, -1));
+    }
+}
+
+/* §V5.37.8/§V5.37.10. The residual `gbp_vqueue_balanced()` tolerates is not an
+ * allowance, it is a state: the set of textures left READY when the run ended.
+ * Two facts make the bound exactly GBP_VPRESENT_TEX_BUFFERS, and both are
+ * checked here rather than asserted in prose:
+ *
+ *   1. a SUBMITTED buffer has ALREADY been dispositioned — the POC counts the
+ *      terminal at submit time, so the teardown drain retires a GP token and
+ *      never a frame. Only READY buffers can still be waiting.
+ *   2. every texture buffer can be READY at once: one conversion finishes while
+ *      a token is in flight, and the pump then fills the remaining free buffer.
+ *
+ * `gbp_vpresent_shutdown()` is what makes such a frame permanent: it refuses
+ * every later submit, so no drain can dispose of it. */
+static void test_the_residual_is_exactly_the_textures_left_ready(void)
+{
+    struct gbp_vpresent p;
+    uint32_t i, ready;
+    int first;
+    printf("-- the undispositioned residual is exactly the READY textures, and the bound is the buffer count\n");
+
+    gbp_vpresent_init(&p);
+    first = gbp_vpresent_acquire(&p);
+    CHECK(first >= 0);
+    CHECK(gbp_vpresent_fill_done(&p, first) == 0);
+    CHECK(gbp_vpresent_submit(&p, first) == 1);          /* dispositioned HERE, not at draw-done */
+    CHECK(p.tex[first] == GBP_VPRESENT_SUBMITTED);
+
+    /* Every remaining buffer can reach READY while that token is still in
+     * flight, and each refused submit moves no counter at all. */
+    ready = 0u;
+    for (i = 1; i < GBP_VPRESENT_TEX_BUFFERS; i++) {
+        const int b = gbp_vpresent_acquire(&p);
+        CHECK(b >= 0);
+        CHECK(gbp_vpresent_fill_done(&p, b) == 0);
+        CHECK(gbp_vpresent_submit(&p, b) == 0);
+        CHECK(p.tex[b] == GBP_VPRESENT_READY);
+        ready++;
+    }
+    CHECK(p.submit_blocked_inflight == GBP_VPRESENT_TEX_BUFFERS - 1u);
+
+    /* The drain releases the submitted buffer and nothing else, so it can free
+     * one more slot but disposes of no waiting frame. */
+    CHECK(gbp_vpresent_draw_done(&p) == first);
+    CHECK(p.tex[first] == GBP_VPRESENT_FREE);
+    for (i = 0; i < GBP_VPRESENT_TEX_BUFFERS; i++)
+        if ((int)i != first) CHECK(p.tex[i] == GBP_VPRESENT_READY);
+
+    /* And after shutdown the waiting frames can never be dispositioned: the
+     * residual that survives the teardown is permanent by construction, which is
+     * why the POC reports it on its own line instead of hiding it. */
+    gbp_vpresent_shutdown(&p);
+    for (i = 0; i < GBP_VPRESENT_TEX_BUFFERS; i++) {
+        if (p.tex[i] != GBP_VPRESENT_READY) continue;
+        CHECK(gbp_vpresent_submit(&p, (int)i) == 0);
+        CHECK(p.tex[i] == GBP_VPRESENT_READY);
+    }
+    CHECK(p.submit_blocked_shutdown == ready);
+    CHECK(gbp_vpresent_consistent(&p) == 1);
+
+    /* The bound the queue enforces is exactly that maximum, no larger. */
+    CHECK(GBP_VQUEUE_MAX_UNDISPOSITIONED == GBP_VPRESENT_TEX_BUFFERS);
+}
+
 int main(void)
 {
     printf("== test_gbp_vstream (GBP-VIDEO-004 pure modules; every scenario SYNTHETIC)\n");
@@ -1249,6 +1332,8 @@ int main(void)
     test_every_frame_flag_is_a_distinct_power_of_two();
     test_every_converted_frame_terminal_balances();
     test_the_bounded_residual_is_accepted_and_bounded();
+    test_episode_stable_never_changes_a_classification();
+    test_the_residual_is_exactly_the_textures_left_ready();
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
