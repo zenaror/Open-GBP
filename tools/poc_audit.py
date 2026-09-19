@@ -258,7 +258,7 @@ PROFILES = {
                               "gbp_video_probe.o"),
         "required_objects": ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o",
                              "gbp_avblock.o", "gbp_time64.o", "gbp_vsig.o", "gbp_vstate.o",
-                             "gbp_vstate_probe.o", "gbp_vstatedump.o", "gbp_crc32.o", "sdlog.o", "main.o"),
+                             "gbp_vstate_probe.o", "gbp_vstatedump.o", "gbp_crc32.o", "sdlog.o", "main.o", "gbp_vwitness.o"),
         "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
                               "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi",
                               "gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run",
@@ -342,7 +342,7 @@ PROFILES = {
         "required_objects": ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o",
                              "gbp_avblock.o", "gbp_time64.o", "gbp_vsig.o", "gbp_vstate.o", "gbp_vcolor.o",
                              "gbp_vstate_probe.o", "gbp_vstatedump.o", "gbp_vcoldump.o", "gbp_crc32.o",
-                             "sdlog.o", "main.o"),
+                             "sdlog.o", "main.o", "gbp_vwitness.o"),
         "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
                               "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi",
                               "gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run",
@@ -419,6 +419,7 @@ PROFILES = {
         "required_objects": ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o",
                              "gbp_avblock.o", "gbp_time64.o", "gbp_vsig.o", "gbp_vstate.o",
                              "gbp_vstate_probe.o", "gbp_vstatedump.o", "gbp_vpix.o", "gbp_vqueue.o", "gbp_vpresent.o",
+                             "gbp_vwitness.o", "gbp_vidxdump.o",
                              "gbp_crc32.o", "sdlog.o", "main.o"),
         "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
                               "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi",
@@ -466,6 +467,28 @@ PROFILES = {
                            # explicit rather than incidental.
                            "gbp_vpix_block": {"pump": 1, "gbp_vpix_frame": 1},
                            "gettime": {"h_ticks64": 1},
+                           # §V5.39.4: the witness rule is applied at exactly ONE
+                           # place, in the service path, and nothing else in the
+                           # runtime may reach the store. `gbp_vwitness_step` is
+                           # a static inline, so the sites that survive are its
+                           # bodies' calls out of gbp_vstate_probe_run.
+                           # TWO sites each, and that is the assertion: the rule
+                           # has exactly two orderings — place-then-close for the
+                           # 48-block give-up, close-then-place for a boundary —
+                           # and `gbp_vwitness_step` inlines both. Collapsing them
+                           # into one would put a block in the wrong frame, so the
+                           # count is pinned rather than left to drift.
+                           "gbp_vwitness_stage": {"gbp_vstate_probe_run": 2},
+                           "gbp_vwitness_place": {"gbp_vstate_probe_run": 2},
+                           "gbp_vwitness_commit": {"gbp_vstate_probe_run": 1},
+                           "gbp_vwitness_note_ticks": {"gbp_vstate_probe_run": 1},
+                           # §V5.39.8: the sidecar is written from main.o and
+                           # from nowhere else. A serializer reachable from the
+                           # service path would be a filesystem call in the
+                           # capture window, which is the thing being forbidden.
+                           "gbp_vidxdump_stream": {"main": 1},
+                           "sdlog_stream_open": {"main": 1},
+                           "sdlog_stream_write": {"sink_sd": 1},
                            "sdlog_save": {"main": 1}},
         "elf_required": ("gbp_vstate_probe_run", "gbp_vstate_report", "gbp_vstate_block", "gbp_vsig_block",
                          "gbp_vqueue_publish", "gbp_vqueue_take", "gbp_vqueue_commit", "gbp_vpix_block",
@@ -475,6 +498,11 @@ PROFILES = {
                          # and the R8 latch must all SHIP, not merely compile.
                          "gbp_vstate_storage_fault", "gbp_vstate_configured_bytes",
                          "gbp_vqueue_pristine", "gbp_vpresent_invariant_failures",
+                         # stream-0005: the witness retention, its bounded stop and
+                         # its sidecar must SHIP, not merely compile.
+                         "gbp_vwitness_stage", "gbp_vwitness_place", "gbp_vwitness_commit",
+                         "gbp_vwitness_target_reached", "gbp_vwitness_store_full",
+                         "gbp_vidxdump_stream", "gbp_vidxdump_layout",
                          "gbp_initirqa_run_cause", "gbp_initirqa_teardown", "gbp_regwrite_irq_u16",
                          "gbp_regwrite_control_byte", "hsp_backend_oneshot_isr_ext",
                          "hsp_backend_irq_transport_ext", "__UnmaskIrq", "__MaskIrq", "IRQ_Request",

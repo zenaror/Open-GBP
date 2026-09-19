@@ -3432,3 +3432,142 @@ uniqueness guard, and P1 by adding the `repeated` terminal plus a residual
 bounded by the texture-buffer count. **The observations recorded above are not
 amended.** `stream-0003`'s counters stand exactly as logged, and neither defect is
 **physically** resolved until a new physical run says so.
+
+---
+
+## GBP-VIDEO-004 / `stream-0004`, executed 2026-09-19 — the corrections, physically confirmed
+
+Source: `logs/GBP-VIDEO-004_stream-0004.log`, 88 854 bytes, sha256
+`2ec3ada282caf86885345486b82ff61f9122f2953d0e53f9cc6f12941c212dda`,
+`test_id=GBP-VIDEO-004 build_id=stream-0004 commit=e11df66`, `dropped=0
+truncated=0`. Every number below was recomputed from that file, never retyped
+from a report.
+
+### GBP-HW-146 — P2 is PHYSICALLY CONFIRMED FIXED — FACT
+
+The pre-registered gate (§V5.37.17) was `SEMANTIC.quarantined ==
+STREAMSRC.quarantined`. It reads **0 == 0**.
+
+What makes this decisive is that the SOURCE population is the same in both runs.
+`FRAMECAP` is identical in every field — `frames=2648 complete=2635
+incomplete=13 resync=26 anomaly_region=13 counted=2619 blocks=105841` — as are
+`video=105841/105841`, `audio=181481` and `capture_s=44.323`. The two runs
+therefore decompose the **same 2 635 complete source frames** differently:
+
+```text
+stream-0003   2635 = 2298 published + 324 quarantined + 13 anomaly
+stream-0004   2635 = 2622 published +   0 quarantined + 13 anomaly
+```
+
+`2622 − 2298 = 324`, **exactly** the count the aliased bit had been refusing. The
+functional diff between the two builds is a recomputable property of the source:
+`gbp_vstate_probe.c`, `gbp_irq_service.c`, `gbp_transport.c`, `gbp_avblock.c`,
+`gbp_vsig.c` and `hsp_backend_irq.c` have **zero changed lines**, and
+`gbp_vstate.c`'s only change is a compile-time typedef with no runtime effect.
+There is no other causal candidate.
+
+This does **not** retro-correct `stream-0003`. Its counters stand exactly as
+logged; what changed is which of them the software produces.
+
+### GBP-HW-147 — P1 is PHYSICALLY CONFIRMED FIXED — FACT
+
+```text
+STREAMDISP converted=2621 presented=2603 overrun=0 repeated=18 undispositioned=0
+2621 == 2603 + 0 + 18 + 0        balanced=1
+```
+
+Four independent counters that the identity does not use agree with it:
+
+```text
+xfb_skipped   18 == repeated 18                      one branch of submit_ready()
+xfb_presents 2604 == 2603 scientific + 1 self-test
+submit 2622  == 2621 converted + 1 self-test,  blocked_shutdown=0
+                                                 -> nothing was left READY, so the
+                                                    residual is 0 by a counter and
+                                                    not merely by arithmetic
+fills_started 108249 == 2622 completed + 105626 abandoned + 1 IN FLIGHT
+                                                 -> and `taken − converted = 1`
+                                                    names the same frame
+```
+
+The audit's ingest rule (§V5.37.10) — `undispositioned > 0` is acceptable only
+with `blocked_shutdown > 0` — holds trivially: both are 0. The stop caught one
+conversion mid-flight, which the ownership identity closes exactly and which
+`stream-0003`, stopping between conversions, did not have.
+
+### GBP-HW-148 — the publication cadence after the false quarantine was removed — FACT
+
+```text
+publish_mean = 684 292 ticks / 40 500 000 Hz = 16.8961 ms = 59.1853 Hz
+2 622 published / 44.323 wall seconds        =              59.157 Hz
+stream-0003: 19.2721 ms = 51.889 Hz
+```
+
+Removing the false quarantine restored the observed publication cadence **in
+this run** to approximately the observed source closure rate (`2648 / 44.323 s =
+59.743 Hz`). This is a measurement of one run with one cartridge, **not** a frame
+rate the runtime guarantees and not a claim that any other workload will behave
+this way.
+
+### GBP-HW-149 — ownership invariants held across a second independent run — CORROBORATED
+
+```text
+submit 2622/2622   drawdone 2622   releases 2622   spurious 0
+consistent_at_end 1   inflight_at_end 0   cb_restored 1
+STREAMINV checks=221741 failures=0   main=0/219119   isr=0/2622
+```
+
+Two physical runs, different consumer populations (2 298 and 2 621 converted
+frames), **zero** invariant failures in 246 548 + 221 741 = 468 289 checks. The
+rule under test — at most one draw-done token in flight, and the callback
+releases exactly one buffer by index — is now corroborated rather than observed
+once.
+
+### GBP-HW-150 — the consumer slice, replicated — CORROBORATED
+
+```text
+ticks_min 1147 = 28.321 us   mean 1380 = 34.074 us   max 1674 = 41.333 us
+skipped_cause_pending 70 205 / 280 672 = 25.01 %
+arrived_during        25 352 / 104 841 = 24.18 %
+```
+
+Against `stream-0003`'s 27.88 / 33.60 / 41.06 µs and 24.95 %. The permitted claim
+is unchanged and deliberately narrow: **the pump did not cause an observable
+transport failure in this run.** `unmasks == deliveries == acks == rearms =
+280 672`, `timeouts=0 busy=0 overflow=0 uncertain=0 errors=0 transport_ok=1`,
+every W1C from the ISR and none from the main thread. That is not a claim that
+the slice position is universally timing-safe, and nothing here measures the
+margin it consumes.
+
+### GBP-HW-151 — the valid clock is NOT wall time, and the old witness sizing premise is disproven — FACT
+
+```text
+CLOCKSEC  capture_s = 44.323   valid_s = 30.001   target_s = 30
+frames closed = 2648            wall/valid = 1.4774
+```
+
+`valid_observation_elapsed` accumulates the **span of each counted frame**, not
+the time between frames, so 30 valid seconds took 44.3 wall seconds and closed
+**2 648** frames. The sizing premise the indexed experiment was designed around —
+"30 s → ~1 792 source frames" — is wrong by a factor of 1.48, and it was wrong in
+`stream-0003` too (identical clocks); nobody had checked it against a closed-frame
+count.
+
+Consequence, recorded before the next run rather than after it: **a witness store
+must be bounded by a COUNT of retained frames, never by a target expressed in
+valid seconds** (§V5.39.3). This is a methodological correction to the
+experiment's protocol; the OGBPIDX1 wire format is unaffected and is not
+re-versioned.
+
+### GBP-HW-152 — the operator saw no visible change — OPERATOR OBSERVATION
+
+The operator reports that the visual behaviour appeared **essentially the same as
+`stream-0003`**: real cartridge video, visibly normal, native-sized, with nothing
+new apparent. No new photographs were taken because nothing looked different.
+
+Recorded separately from the machine-log facts above, and weaker than any of
+them: it is an unaided human impression of a 44-second run, it measures no
+cadence and can resolve no 12 % publication difference. It is **consistent with**
+an accounting-and-cadence correction that changes no geometry, no colour and no
+UI — which is what `stream-0004` is — but it corroborates nothing on its own, and
+nothing here is promoted because of it.

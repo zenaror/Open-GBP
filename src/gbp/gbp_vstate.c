@@ -307,6 +307,12 @@ int gbp_vstate_closed_frame_slot(const struct gbp_vstate *s, uint32_t *blocks)
     return s->prev_slot;
 }
 
+const struct gbp_vstate_frame *gbp_vstate_frame_at(const struct gbp_vstate *s, uint32_t i)
+{
+    if (!s || !s->frames || i >= s->frames_n) return 0;
+    return &s->frames[i];
+}
+
 uint32_t gbp_vstate_current_slot(const struct gbp_vstate *s) { return s ? s->cur_slot : 0u; }
 uint32_t gbp_vstate_ring_slots(const struct gbp_vstate *s) { return s ? s->raw_ring_slots : 0u; }
 
@@ -874,6 +880,7 @@ static uint32_t close_frame(struct gbp_vstate *s, int had_boundary, struct gbp_v
         if (step) step->frame_store_full = 1;
         gbp_vstate_event(s, s->cur_t_last, GBP_VSTATE_EV_CAP_REACHED, 1u, s->frames_n, 0u, 0u);
         /* nothing is overwritten and nothing wraps: the frame is simply not stored and the run ends */
+        if (step) step->witness_reset = 1;   /* no frame record -> no witness record */
         s->cur_blocks = 0; s->cur_flags = 0; s->cur_disagreements = 0;
         return slot;
     }
@@ -1147,6 +1154,7 @@ int gbp_vstate_block(struct gbp_vstate *s, const uint8_t *block, uint32_t len, c
                 /* no anchor yet: the blocks before this boundary belong to no frame and are
                  * counted, never turned into one */
                 s->blocks_before_first_boundary += at;
+                if (step) step->witness_reset = 1;
                 s->cur_blocks = 0; s->cur_flags = 0; s->cur_disagreements = 0;
             }
             s->cur_slot = next_slot;
@@ -1173,6 +1181,17 @@ int gbp_vstate_block(struct gbp_vstate *s, const uint8_t *block, uint32_t len, c
         s->cur_flags |= (uint16_t)(GBP_VSTATE_F_MAJORITY_EXTRA | GBP_VSTATE_F_ANOMALY);
         s->sem.frames_quarantined++;
     }
+    if (step) {
+        /* WHERE THIS BLOCK LANDED. `cur_slot` and `cur_blocks` are final at this
+         * point: a boundary has already moved the block to index 0 of the next
+         * slot and closed the previous frame, so both cases are described by the
+         * same two values. `witness_place_first` stays 0 here and is raised only
+         * by the 48-block give-up below, which closes a frame this block is
+         * already part of. */
+        step->witness_valid = 1;
+        step->witness_index = s->cur_blocks;
+        step->witness_slot = s->cur_slot;
+    }
     s->cur_blocks++;
     s->cur_t_last = t;
     if (disagree) {
@@ -1193,12 +1212,16 @@ int gbp_vstate_block(struct gbp_vstate *s, const uint8_t *block, uint32_t len, c
     if (s->cur_blocks >= GBP_VSTATE_FRAME_MAX_BLOCKS) {
         /* 48 blocks and not one boundary. A boundary is NEVER synthesised from an assumed period:
          * the interval is closed as it was observed and the anchor is given up. */
+        /* This block is the 48th of the interval that is ending, so a witness
+         * layer must place it BEFORE it acts on the close. */
+        if (step) step->witness_place_first = 1;
         if (s->asm_state == ASM_IN_FRAME) {
             close_frame(s, 0, step);
         } else {
             s->blocks_before_first_boundary += s->cur_blocks;
             gbp_vstate_event(s, t, GBP_VSTATE_EV_INCOMPLETE_INTERVAL, s->frames_n, s->cur_blocks,
                              GBP_VSTATE_FRAME_UNKNOWN, 0u);
+            if (step) step->witness_reset = 1;
             s->cur_blocks = 0; s->cur_flags = 0; s->cur_disagreements = 0;
         }
         s->asm_state = ASM_SEEKING;

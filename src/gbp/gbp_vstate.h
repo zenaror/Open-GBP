@@ -624,6 +624,31 @@ struct gbp_vstate_step {
     int resync;                  /* a region anomaly was raised */
     int frame_store_full, event_store_full;   /* set when this step filled one of the two stores */
     int episode_store_full;                   /* set when this step exhausted the episode RAW store */
+    /* ---- where this block landed, for the OGBPIDX1 witness (§V5.39.4) ----
+     *
+     * The assembler is the ONLY thing that knows which frame a block joined:
+     * a boundary block is MOVED to index 0 of the next slot, and the 48-block
+     * give-up closes a frame the block is already part of. A retention layer
+     * that recomputed that decision would drift from it silently, so it is
+     * REPORTED instead. Nothing here reads or copies a byte.
+     *
+     *   witness_valid       this call accumulated a block
+     *   witness_index       the index it landed at inside its frame (0..47)
+     *   witness_slot        the ring slot that frame is accumulating into
+     *   witness_place_first 1: the block belongs to the frame that closed or
+     *                          was dropped in THIS call, so it must be placed
+     *                          BEFORE the close is acted on
+     *                       0: the close (if any) happened first and the block
+     *                          belongs to the frame that is now opening
+     *   witness_reset       the scratch must be DROPPED with no record: the
+     *                       assembler gave up an anchor, or the frame store was
+     *                       full and the frame was not stored either
+     */
+    int witness_valid;
+    int witness_place_first;
+    int witness_reset;
+    uint32_t witness_index;
+    uint32_t witness_slot;
 };
 
 /* One VIDEO block, already in the ring slot gbp_vstate_video_target() returned.
@@ -633,6 +658,11 @@ struct gbp_vstate_step {
  * Returns 0, or -1 when the block could not be accepted (no target, bad state). */
 int gbp_vstate_block(struct gbp_vstate *s, const uint8_t *block, uint32_t len, const uint8_t first4[4],
                      uint64_t t, uint32_t sig, uint32_t sig_cost_ticks, struct gbp_vstate_step *step);
+
+/* The frame record at `i`, or NULL when `i` is not a stored frame. The witness
+ * retention uses it so its metadata is literally the frame record, never a
+ * second derivation of it (§V5.39.5). */
+const struct gbp_vstate_frame *gbp_vstate_frame_at(const struct gbp_vstate *s, uint32_t i);
 
 /* Marks the NEXT block handed to gbp_vstate_block() as drained only because the
  * majority carried a source the Disc reading did not (§R3.11). One-shot: it is
