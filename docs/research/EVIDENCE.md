@@ -3837,3 +3837,154 @@ record 5  33 blocks, every decoded strip carries FRAME_ID 9
 The assembler resynchronised mid-frame, so source blocks 2..8 never reached this
 record. That is why ID 9 has only **one** complete-record occurrence while its
 neighbours have two — not a lost source frame, a record the contract excludes.
+
+---
+
+## GBP-VIDEO-004 / `stream-0005` run 3 — `indexed-0003`, executed 2026-09-19
+
+### GBP-HW-167 — the exact run-3 artifacts, and a filename collision that cost a raw log — FACT
+
+```text
+log      logs/GBP-VIDEO-004_stream-0005-run3.log          66 356 B
+         sha256 1c8e2aaac7588716fb51f93ba4d55eedde8453406c230c4b66b3daed6bf02bf3
+sidecar  logs/GBP-VIDEO-004_stream-0005-run3-idxcap.bin 8 946 060 B
+         sha256 6eb7585cb0b4cad1813aa9b9bd2a5127312722777796f77443f53cf7ab5a035a
+runtime  stream-0005, commit 10250a4, 481 664 B
+         sha256 35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
+stimulus indexed-0003, source commit 8840050, arm-none-eabi-gcc (devkitARM) 15.2.0
+  canonical build/stimulus/agb-indexed/agb-indexed.gba   2 880 B
+            sha256 37119bb6ac68398dbd3fa75e6ad5c51c8aeb543277ac8d3b03b57f7a6f0caaca
+            logo area EMPTY by policy
+  delivery  build/physical/agb-indexed-cart.gba          2 880 B
+            sha256 9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2
+            logo area from the colour cartridge that booted twice; payload past
+            0x0C0 BYTE-IDENTICAL to the canonical ROM; never committed
+```
+
+**The SD workflow names every run identically**, and run 3 was handed over under
+the un-suffixed names that had held run 1. Run 1's raw bytes survived **only**
+because `captures/local/` had archived them, which is exactly why that policy
+exists. All three runs are now stored unambiguously as `…-run1`, `…-run2`,
+`…-run3`, each verified against its own SHA-256.
+
+### GBP-HW-168 — the GameCube runtime replicated a third time — FACT
+
+```text
+stop=witness_target_reached · unmasks == deliveries == acks == rearms = 217 117
+video 81876/81876 · timeouts/busy/overflow/uncertain/errors all 0 · transport_ok=1
+FRAMECAP 2048 / 2046 / 2 / resync 4 / anomaly_region 2 / 81 876 · store_full 0
+STREAMWIT 2048/2048, staged == placed == 81 876, out_of_range 0, discarded 0
+STREAMCONS 2043 == 2026 + 0 + 17 + 0, balanced=1 · STREAMGX 2044/2044, spurious 0
+STREAMINV 169 243 checks / 0 failures · sci_clean=1
+witness copy 0.864 / 1.704 / 38.568 us over 81 876 samples
+```
+
+**No observable regression of `stream-0005` transport or ownership in this run.**
+Not a universal timing guarantee. Presence bits sum to **81 875** against
+`staged == placed == 81 876`; the assembler's own `blocks` field agrees at
+81 875 and **no record is short** — the extra block is the boundary block that
+closed record 2047, as in both earlier runs.
+
+### GBP-HW-169 — `indexed-0003` preserved the VBlank correction — FACT
+
+`STATUS = 0x18` on **all 81 840** canonical strips of the 2 046 complete
+records: **FAULT = 0, VMARGIN = 24**. VBlank is `VCOUNT` 160..227 = 68 lines, so
+the worst publication finished at `VCOUNT = 203`, consuming **44 of 68 lines =
+64.7 %**. Identical to `indexed-0002`: moving `prepare_frame` into IWRAM did not
+disturb the publication.
+
+Valid **for this physical run**; not a universal timing guarantee.
+
+### GBP-HW-170 — zero mixed frames, exact block indices — FACT
+
+```text
+complete records carrying exactly ONE FRAME_ID   2 046 / 2 046
+MIXED_BLOCK_IDS                                  0
+valid symbols / SYNC / CRC-8                     81 840 / 81 840 each
+BLOCK_INDEX == witness slot                      81 840 / 81 840
+MISPLACED_BLOCK_INDEX                            0
+INVALID_CANONICAL_STRIP                          0
+```
+
+### GBP-HW-171 — the producer cadence is now 1:1 — FACT
+
+Every one of the 2 046 complete records carries a **distinct** FRAME_ID.
+Duplicates: **0**, against 1 022 in run 2. The raw observed ID set, including
+the incomplete record, is **16 .. 2062 — 2 047 consecutive values with none
+missing**.
+
+Cadence from the capture's own time base, between the first and last complete
+records rather than count ÷ wall clock:
+
+```text
+id 16 at t=34146918906555185 · id 2062 at t=34146920293914609
+2 046 FRAME_ID increments over 34.255788 s  ->  59.7271 Hz
+```
+
+That is one FRAME_ID per AGB refresh. **Observed indexed source cadence in this
+run**, not a guaranteed frequency.
+
+### GBP-HW-172 — the frozen verdict is OBSERVED_DISCONTINUITY, on one startup gap — FACT
+
+`tools/vindex.py`, unmodified, on the run-3 sidecar:
+
+```text
+container  2048/2048 records, seals valid, header CRC cdacc494, global 271e84ea
+stimulus   fault seen FALSE
+decisive   2 044 transitions, first 0x000010 last 0x00080d
+           OBSERVED_ID_CONTIGUOUS  2 043
+           OBSERVED_ID_GAP             1
+VERDICT    OBSERVED_DISCONTINUITY
+```
+
+The single non-contiguous transition is **record 3 (id 18) → record 5 (id 20)**.
+Record 4 carries **id 19 with 34 of 40 blocks**: the assembler resynchronised
+mid-frame — its witness slots map 0→0, 1→1, then 2→8 — so blocks 2..7 never
+entered the record. The frozen adapter passes only all-40-block records to the
+analyzer core, so id 19 is absent from the decisive population and 18→20 reads
+as a gap.
+
+**This is NOT source-frame loss.** ID 19 was produced by the AGB and captured by
+the Game Boy Player; 34 of its 40 blocks are in the sidecar and decode perfectly,
+and the raw ID set has no missing value. The gap is the contract declining — 
+correctly and conservatively — to bridge an incomplete record.
+
+The startup signature (`incomplete=2, resync=4`) is identical in all three
+indexed runs and in `stream-0003`/`stream-0004`: the known startup-region
+artifact of GBP-HW-141, which predates streaming.
+
+**No frozen rule trims an interior resync**, and none was invented after seeing
+the data. A contiguity claim would require a rule — for instance one defining
+where the decisive interval begins relative to the startup region — **written
+and frozen before the next run**, never after this one.
+
+### GBP-HW-173 — three runs, one runtime, three producer behaviours — FACT
+
+The GameCube runtime was byte-identical in all three: `stream-0005`,
+`commit=10250a4`, `35bbbdd6…d87092`. Only the cartridge changed.
+
+| run / stimulus | complete | mixed | unique IDs | dup | STATUS | captures per ID |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 / `indexed-0001` | 2 046 | **1 705** | 341 | 0 | `0x80` (FAULT) | **6.00 : 1** |
+| 2 / `indexed-0002` | 2 046 | 0 | 1 024 | **1 022** | `0x18` | **2.00 : 1** |
+| 3 / `indexed-0003` | 2 046 | 0 | **2 046** | **0** | `0x18` | **1.00 : 1** |
+
+Run 1 carried `0x7f` on 11 strips (the sentinel) and `0x80` on 81 829. The
+observed failure mode changed exactly with each producer fix, and only with it.
+
+**Attribution, now promoted:** the run-1 mixed-ID staircase was caused by the
+stimulus rendering directly into VRAM across several of its own frames, and the
+run-2 2:1 duplication by `prepare_frame` overrunning the visible period from
+cartridge ROM. **Neither was evidence of Game Boy Player frame loss, duplication
+or reorder.** Scoped to these three runs.
+
+### GBP-HW-174 — the operator's impression — OPERATOR OBSERVATION
+
+The operator reports that **the image appeared to run progressively faster
+across the successive versions of the indexed stimulus**.
+
+Recorded separately from every machine fact above, and weaker than all of them:
+it is an unaided visual impression, it measures nothing, and no conclusion rests
+on it. It is **consistent with** the measured series — 6.00:1, then 2.00:1, then
+1.00:1 captured frames per source ID — and that is the whole of its evidentiary
+weight.

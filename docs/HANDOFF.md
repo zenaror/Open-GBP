@@ -13,7 +13,7 @@ Read `AGENTS.md` first.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   c4f47996d7ec51994a47865a80f1ef9be5b6e01c
+STATE BASELINE COMMIT   8bde4ca9c91dd3aef500e34980d6a7e4f5ef6cb3
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -186,7 +186,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 **physical candidate** | `stream-0005` | `10250a4` | `35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092` | **AUDITED — DECISION A. NOT PHYSICALLY EXECUTED.** 481 664 B; source-layer retention proved unbiased against the real assembler, target stop proved safe (after ACK and RE-ARM), no off-by-one at 2048, no filesystem in the capture path, 9/9 adversarials caught. **Reproduce with `GIT_COMMIT=10250a4 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.39, §V5.40 |
 | GBP-VIDEO-004 **stimulus** | `indexed-0001` | — | `379df0f7019ef7f1330bd4ad55274bde062a69d03d1c8cc1dc2a01018bdbc543` | 2 460 B. **PHYSICALLY EXECUTED 2026-09-19 — INVALID FOR DECISIVE CLAIM** (FAULT from its first update, 14.9x over the VBlank budget). Historical; never rerun | `HARDWARE_TESTS.md` §V5.41; GBP-HW-157…159 |
 | GBP-VIDEO-004 **stimulus** | `indexed-0002` | — | `44651f0ba60141f23cfb6b8b01f5b7a871ef1037412c7dae2ac9d9743c7b7b2f` | 2 876 B. **PHYSICALLY EXECUTED 2026-09-19 — TEARING FIXED (FAULT clear, VMARGIN 24, 0 mixed), but 2:1 CADENCE.** Historical; never rerun | `HARDWARE_TESTS.md` §V5.42; GBP-HW-160…166 |
-| GBP-VIDEO-004 **stimulus, canonical** | `indexed-0003` | — | `37119bb6ac68398dbd3fa75e6ad5c51c8aeb543277ac8d3b03b57f7a6f0caaca` | 2 880 B, `prepare_frame` moved to IWRAM, wire format UNCHANGED. **NOT PHYSICALLY EXECUTED** | `HARDWARE_TESTS.md` §V5.42.7 |
+| GBP-VIDEO-004 **stimulus** | `indexed-0003` | — | `37119bb6ac68398dbd3fa75e6ad5c51c8aeb543277ac8d3b03b57f7a6f0caaca` | 2 880 B canonical. **PHYSICALLY EXECUTED 2026-09-19 — PRODUCER CORRECT: 1:1 cadence, 0 duplicates, 0 mixed, FAULT clear, VMARGIN 24.** The verdict is `OBSERVED_DISCONTINUITY` on one startup-resync gap, not on the producer | `HARDWARE_TESTS.md` §V5.43; GBP-HW-167…174 |
 | GBP-VIDEO-004 **stimulus, derived** | `indexed-0003` | — | `9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2` | 2 880 B; logo from the colour cartridge that booted twice, payload past 0x0C0 byte-identical to the canonical ROM. Never committed. The `indexed-0001` (`abb31e6a…0769`) and `indexed-0002` (`55fe72d5…e559e9`) delivery images are historical and must not be rerun | `HARDWARE_TESTS.md` §V5.42.10 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
@@ -284,11 +284,12 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **The THIRD OGBPIDX1 physical run: the same exact `stream-0005` DOL with the
-> NEW `indexed-0003` delivery ROM. Run 2 closed the tearing — FAULT clear,
-> VMARGIN 24, zero mixed frames — but published every FRAME_ID TWICE because
-> `prepare_frame` still ran from cartridge ROM and overran the visible period.
-> That is PRODUCER-side and proved so; source continuity stays INCONCLUSIVE.**
+> **A PRE-REGISTERED decision about the startup/resync region, then a fourth
+> indexed run. Run 3's producer is correct — 1:1 cadence, zero duplicates, zero
+> mixed frames, FAULT clear — and the frozen contract still returned
+> `OBSERVED_DISCONTINUITY` on ONE transition: a 34-block startup record that
+> takes FRAME_ID 19 out of the complete-frame population, so 18 → 20 reads as a
+> gap. That is the contract working. Source continuity stays UNDECIDED.**
 
 ### PHYSICAL TRACK — `stream-0004` closed both defects
 
@@ -387,52 +388,55 @@ non-empty, never verified against the real Nintendo logo. The claim is empirical
 
 ## Next safe action
 
-**Run the THIRD OGBPIDX1 physical run**: the same exact `stream-0005` DOL with
-the NEW `indexed-0003` delivery ROM. Power-cycle the GameCube/GBP first.
+**Decide and FREEZE the startup-region rule, before any fourth run.** This is a
+documentation decision, not a hardware one, and it must happen first.
+
+Run 3's producer is correct — 1:1 cadence, 0 duplicates, 0 mixed frames, FAULT
+clear, VMARGIN 24, raw IDs 16..2062 gapless, 2 043 of 2 044 decisive transitions
+contiguous. The frozen contract nevertheless returned **`OBSERVED_DISCONTINUITY`**
+because of exactly one transition:
 
 ```text
-Test ID    GBP-VIDEO-004 (indexed, run 3)
-Build ID   stream-0005   commit 10250a4   -- UNCHANGED since run 1
-DOL        build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
-           481 664 B
-           sha256 35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
-Swiss      build/swiss/12-stream/boot.dol — byte-identical
-cartridge  build/physical/agb-indexed-cart.gba   indexed-0003
-           2 880 B
+record 3 (id 18)  ->  record 5 (id 20)          delta +2
+record 4 holds id 19 with 34 of 40 blocks: the assembler resynchronised
+mid-frame (witness slots 0->0, 1->1, then 2->8), so blocks 2..7 never entered
+the record. The adapter passes only all-40-block records to the analyzer core,
+so id 19 is absent from the decisive population.
+```
+
+**That is not source-frame loss** — id 19 was produced, captured and decodes
+perfectly — and `decisive_population()` has no rule that trims an interior
+resync. A contiguity claim therefore needs a rule that does not yet exist:
+
+```text
+OPTION 1  a PRE-REGISTERED amendment defining where the decisive interval
+          begins relative to the startup/resync region. It must be written and
+          frozen BEFORE the run it judges. Writing it now, having seen this
+          result, is the after-the-fact rule-fitting the method forbids.
+OPTION 2  accept that the startup region will keep producing one incomplete
+          record and that OBSERVED_ID_CONTIGUOUS is therefore unreachable for
+          a capture that always begins at power-on.
+```
+
+**Only after that decision**, run the fourth indexed run — unchanged artifacts:
+
+```text
+Build ID   stream-0005   commit 10250a4   -- UNCHANGED across three runs
+DOL        481 664 B  sha256 35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092
+           reproduce with: GIT_COMMIT=10250a4 GIT_DIRTY= make build && make swiss
+Swiss      12-stream, byte-identical
+cartridge  indexed-0003, 2 880 B
            sha256 9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2
-           delivered through EZ-Flash Omega DE, NOR / Mode B (§V3.7)
-link port  nothing attached · BBA absent · SD2SP2 inserted and writable
 stop       witness_target_reached — 2048 witnesses
 ```
 
-**REPRODUCING THE EXACT DOL** (a plain `make build` at a later HEAD embeds THAT
-commit and yields a different hash for the same program, §V5.40.2):
+**BEFORE the run, protect the raw record.** The SD workflow names every run
+identically and run 3 overwrote run 1's log in `logs/`; only the
+`captures/local/` archive saved it. Copy both files off the card under a
+run-distinguishing name before re-populating the card.
 
-```sh
-GIT_COMMIT=10250a4 GIT_DIRTY= make build && make swiss
-```
-
-**THE CARTRIDGE IS STILL THE ONLY VARIABLE.** `src/` and `poc/` have not been
-touched since `stream-0005` was built, across three physical runs.
-
-**What to check, in order:**
-
-```text
-1. STATUS must stay FAULT-clear (run 2: 0x18, VMARGIN 24 = 65 % of the VBlank
-   used). A return of 0x80 would mean the IWRAM move broke the publication.
-2. OBSERVED_DUPLICATE_ID must collapse to ~0. Run 2 had 1 021 of 2 044
-   decisive transitions as duplicates, every FRAME_ID captured exactly twice.
-3. Only if BOTH hold can source-frame continuity finally be decided.
-```
-
-**Save BOTH files.** The operator's SD card names them identically each run, so
-copy them out under a run-distinguishing name before the next run overwrites
-them — runs 1 and 2 are preserved as `…_stream-0005*` and
-`…_stream-0005-run2*`. Read the sidecar with
-`python3 tools/vindex.py sidecar <file>`.
-
-**Carried to the next FUNCTIONAL checkpoint** (still untouched — three rounds of
-`src/`/`poc/` stability is deliberate):
+**Carried to the next FUNCTIONAL checkpoint** (untouched for four rounds — the
+stability is deliberate, it is what made the three-run comparison causal):
 
 ```text
 F3  `make <x>-audit` has no source prerequisite and can audit stale objects.
@@ -453,25 +457,30 @@ build had configured `1 798 144`).
 sha256 `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3`.
 `stream-0004` — PHYSICALLY EXECUTED, P1 and P2 confirmed fixed, sha256
 `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43`.
-`indexed-0001` — PHYSICALLY EXECUTED, **FAULTED, INVALID FOR DECISIVE CLAIM**,
+`indexed-0001` — PHYSICALLY EXECUTED, **FAULTED**, 6:1 captures per ID,
 canonical `379df0f7…bdbc543`, delivery `abb31e6a…0769`.
 `indexed-0002` — PHYSICALLY EXECUTED, **tearing fixed, 2:1 cadence**, canonical
 `44651f0b…7b7b2f`, delivery `55fe72d5…e559e9`.
 **None of these is ever rebuilt, re-labelled or rerun.**
 
-**The physical milestone stands, with its scope:** PHYSICAL REAL-CARTRIDGE VIDEO
-OUTPUT ACHIEVED, sustained across four runs with every accounting identity
-closing, the witness machinery physically exercised, and the indexed stimulus now
-tearing-free. It does **not** imply zero frame loss, final pacing, final UI or
-scaling, or universal timing safety — and **source-frame continuity remains
-INCONCLUSIVE**, because the producer has not yet shown the GBP a new picture on
-every refresh.
+**The milestones, and their exact scope.** PHYSICAL REAL-CARTRIDGE VIDEO OUTPUT
+ACHIEVED, and basic sustained streaming operationally reached — both unchanged
+and both separate from what follows. **`CONTROLLED SOURCE-FRAME CONTINUITY` is
+NOT claimed**: it was made conditional on `OBSERVED_ID_CONTIGUOUS`, and the
+analyzer returned `OBSERVED_DISCONTINUITY`. Nothing here proves zero frame loss,
+guaranteed pacing, full-frame fidelity or 60 FPS.
+
+**After the startup-region decision**, the next unresolved GBP-VIDEO-004
+objectives in roadmap order are the **downstream consumer/display loss policy**
+(this run still shows 2 043 converted, 2 026 presented, 17 repeats — a *later*
+pipeline stage that the source witness says nothing about) and **frame pacing**.
+Neither is started here.
 
 Do **not** implement scaling, aspect correction, filtering, audio playback, A/V
 sync, KEYPAD or any network path; do not edit `OGBPCOL1` v1, `OGBPIDX1`,
-`OGBPIDXCAP1` v1, `tools/vcolor.py`, `tools/vcolor2.py`, the §V4 contract or any
-fixture; do not re-label or rebuild `stream-0001` … `stream-0005`,
-`indexed-0001` or `indexed-0002`.
+`OGBPIDXCAP1` v1, `tools/vcolor.py`, `tools/vcolor2.py`, `tools/vindex.py`, the
+§V4 contract or any fixture; do not re-label or rebuild `stream-0001` …
+`stream-0005`, `indexed-0001` … `indexed-0003`.
 
 ## Do not rediscover
 
