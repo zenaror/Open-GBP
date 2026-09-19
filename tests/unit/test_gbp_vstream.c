@@ -390,18 +390,32 @@ static void test_an_overrun_is_not_source_loss(void)
     CHECK(q.source_frames_complete == 4u);      /* the device delivered all four perfectly */
 }
 
+/* HOLD_PREVIOUS_FRAME. P1 sharpened what this counter means: the ONLY caller of
+ * gbp_vqueue_note_repeat() with a real queue is submit_ready(), AFTER a
+ * successful submit of a CONVERTED frame, when both framebuffers are spoken
+ * for. So a repeat always has exactly one converted frame behind it — which the
+ * physical run showed too (repeats=12 == xfb_skipped=12, both from that branch).
+ * A bare repeat with nothing converted is therefore an inconsistency, and after
+ * P1 `balanced()` says so. */
 static void test_hold_previous_frame(void)
 {
     struct gbp_vqueue q;
     struct gbp_vqueue_desc d;
-    printf("-- nothing new to show -> the previous frame is held, and the hold is counted\n");
+    printf("-- a held frame is counted, and every hold has a converted frame behind it\n");
     gbp_vqueue_init(&q, 4u);
     CHECK(gbp_vqueue_take(&q, &d) == 0);
+    /* two converted frames whose XFB was busy */
+    q.source_frames_closed = q.source_frames_complete = 2u;
+    q.frames_published = q.consumer_frames_taken = q.consumer_frames_converted = 2u;
     gbp_vqueue_note_repeat(&q);
     gbp_vqueue_note_repeat(&q);
     CHECK(q.display_frames_repeated == 2u);
     CHECK(q.consumer_frames_presented == 0u);
     CHECK(gbp_vqueue_balanced(&q));
+    /* and a repeat with nothing converted behind it is NOT balanced */
+    gbp_vqueue_init(&q, 4u);
+    gbp_vqueue_note_repeat(&q);
+    CHECK(gbp_vqueue_balanced(&q) == 0);
 }
 
 static uint32_t pump_calls;
@@ -820,17 +834,24 @@ static void test_a_self_test_presentation_leaves_the_queue_pristine(void)
     CHECK(q.consumer_frames_converted == 0u);
 }
 
-/* A repeat is not part of the balance identity, so it would NOT have been caught
- * by `balanced()` alone — `pristine()` catches it, which is why the POC asserts
- * that and not the weaker thing. */
+/* pristine() and balanced() answer different questions, and after P1 they both
+ * catch a repeat with nothing converted behind it. pristine() is still the
+ * stricter one: it also refuses a queue that merely PUBLISHED something. */
 static void test_pristine_is_stricter_than_balanced(void)
 {
     struct gbp_vqueue q;
-    printf("-- pristine() catches what balanced() cannot: a repeat before the capture\n");
+    printf("-- pristine() is stricter than balanced(), and P1 made balanced() see a repeat\n");
     gbp_vqueue_init(&q, 4u);
     gbp_vqueue_note_repeat(&q);
-    CHECK(gbp_vqueue_balanced(&q) == 1);      /* repeats are outside the identity */
-    CHECK(gbp_vqueue_pristine(&q) == 0);      /* but the queue is no longer clean */
+    /* P1: a repeat with zero converted frames is now a REAL inconsistency */
+    CHECK(gbp_vqueue_balanced(&q) == 0);
+    CHECK(gbp_vqueue_pristine(&q) == 0);
+    /* and the thing only pristine() catches: a published frame, nothing else */
+    gbp_vqueue_init(&q, 4u);
+    CHECK(gbp_vqueue_publish(&q, 0u, GBP_VPIX_BLOCKS, GBP_VSTATE_F_COMPLETE, 0, 1u, 2u)
+          == GBP_VQUEUE_ACCEPT);
+    CHECK(gbp_vqueue_balanced(&q) == 1);
+    CHECK(gbp_vqueue_pristine(&q) == 0);
 }
 
 /* A whole legitimate frame moves both, and the identity still holds — so the
@@ -986,20 +1007,15 @@ static void test_texture_and_xfb_are_independent(void)
  * the arithmetic that shows why it is wrong. A future fix must change these
  * tests deliberately, not by accident. */
 
-/* FINDING P1. gbp_vqueue_balanced() omits a legitimate terminal state. A
- * converted frame ends in exactly one of THREE places, not two: presented,
- * overrun, or REPEATED (submitted and drawn, but the XFB was busy so the copy
- * was skipped and the screen kept the previous image).
- *
- * The physical run: converted=2298 presented=2286 overrun=0 repeats=12,
- * and 2298 == 2286 + 0 + 12 exactly, while the predicate reported balanced=0. */
+/* P1, FIXED. The physical stream-0003 counters conserve, and gbp_vqueue_balanced()
+ * now says so. The old predicate knew only `presented + overrun` and called a
+ * legitimate display repeat a conservation failure (GBP-HW-145). */
 static void test_the_physical_stream0003_counters_conserve(void)
 {
     struct gbp_vqueue q;
     uint32_t i;
-    printf("-- the stream-0003 physical counters conserve under converted = presented + overrun + repeats\n");
+    printf("-- the stream-0003 physical counters conserve, and balanced() agrees after P1\n");
     gbp_vqueue_init(&q, 4u);
-    /* drive the exact terminal states the run produced */
     for (i = 0; i < 2286u; i++) gbp_vqueue_note_presented(&q);
     for (i = 0; i < 12u; i++)   gbp_vqueue_note_repeat(&q);
     q.consumer_frames_converted = 2298u;
@@ -1016,41 +1032,166 @@ static void test_the_physical_stream0003_counters_conserve(void)
 
     CHECK(q.consumer_frames_presented == 2286u);
     CHECK(q.display_frames_repeated == 12u);
-    /* every identity the predicate DOES check still holds */
     CHECK(q.source_frames_closed == q.source_frames_complete + q.source_frames_incomplete
                                  + q.source_frames_quarantined + q.source_frames_anomaly);
     CHECK(q.source_frames_complete == q.frames_published);
     CHECK(q.frames_published == q.consumer_frames_taken + q.dropped_before_convert);
     CHECK(q.consumer_frames_converted <= q.consumer_frames_taken);
-    /* the one it checks that does NOT hold, and the one that does */
-    CHECK(q.consumer_frames_converted != q.consumer_frames_presented + q.consumer_slot_overrun);
+    /* the identity the state machine actually proves */
     CHECK(q.consumer_frames_converted == q.consumer_frames_presented
                                        + q.consumer_slot_overrun
                                        + q.display_frames_repeated);
-    /* CURRENT behaviour, asserted so a fix has to be deliberate */
+    CHECK(gbp_vqueue_undispositioned(&q) == 0u);
+    CHECK(gbp_vqueue_balanced(&q) == 1);           /* was 0 before P1 */
+}
+
+/* P2, FIXED. The two flags no longer share a bit, and neither meaning leaked. */
+static void test_the_episode_stable_bit_no_longer_aliases(void)
+{
+    printf("-- F_EPISODE_STABLE and F_MAJORITY_EXTRA are distinct bits after P2\n");
+    CHECK(GBP_VSTATE_F_EPISODE_STABLE == 0x1000u);   /* UNMOVED: it is what every
+                                                      * historical sidecar carries */
+    CHECK(GBP_VSTATE_F_MAJORITY_EXTRA == 0x4000u);   /* MOVED: never set in any
+                                                      * physical run, so moving it
+                                                      * re-interprets nothing */
+    CHECK(GBP_VSTATE_F_MAJORITY_EXTRA != GBP_VSTATE_F_EPISODE_STABLE);
+    CHECK((GBP_VSTATE_F_MAJORITY_EXTRA & GBP_VSTATE_F_EPISODE_STABLE) == 0u);
+}
+
+/* §7. The behavioural reproduction: a frame carrying ONLY episode-stable
+ * semantics must be ELIGIBLE. Before P2 it was QUARANTINED. */
+static void test_a_stable_frame_is_eligible(void)
+{
+    struct gbp_vqueue q;
+    printf("-- a frame that merely closed an episode as stable is ELIGIBLE\n");
+    CHECK(gbp_vqueue_classify(GBP_VPIX_BLOCKS,
+                              GBP_VSTATE_F_COMPLETE | GBP_VSTATE_F_EPISODE_STABLE, 0)
+          == GBP_VQUEUE_ACCEPT);
+    /* and it really publishes */
+    gbp_vqueue_init(&q, 4u);
+    CHECK(gbp_vqueue_publish(&q, 0u, GBP_VPIX_BLOCKS,
+                             GBP_VSTATE_F_COMPLETE | GBP_VSTATE_F_EPISODE_STABLE,
+                             0, 10u, 20u) == GBP_VQUEUE_ACCEPT);
+    CHECK(q.frames_published == 1u);
+    CHECK(q.source_frames_quarantined == 0u);
+    /* the whole combination the 324 stream-0003 frames carried */
+    CHECK(gbp_vqueue_classify(GBP_VPIX_BLOCKS,
+                              GBP_VSTATE_F_COMPLETE | GBP_VSTATE_F_COUNTED
+                              | GBP_VSTATE_F_EPISODE_STABLE, 0) == GBP_VQUEUE_ACCEPT);
+}
+
+/* §8. The real policy must NOT be weakened: a true majority-extra frame is
+ * still quarantined, and still ahead of the anomaly it always carries. */
+static void test_a_true_majority_extra_frame_is_still_quarantined(void)
+{
+    struct gbp_vqueue q;
+    printf("-- a TRUE majority-extra frame is still QUARANTINED, per R3.12\n");
+    CHECK(gbp_vqueue_classify(GBP_VPIX_BLOCKS,
+                              GBP_VSTATE_F_COMPLETE | GBP_VSTATE_F_MAJORITY_EXTRA, 0)
+          == GBP_VQUEUE_REJECT_QUARANTINED);
+    /* as it is emitted in practice: always together with F_ANOMALY */
+    CHECK(gbp_vqueue_classify(GBP_VPIX_BLOCKS,
+                              GBP_VSTATE_F_COMPLETE | GBP_VSTATE_F_MAJORITY_EXTRA
+                              | GBP_VSTATE_F_ANOMALY, 0) == GBP_VQUEUE_REJECT_QUARANTINED);
+    /* and even together with EPISODE_STABLE, quarantine still wins */
+    CHECK(gbp_vqueue_classify(GBP_VPIX_BLOCKS,
+                              GBP_VSTATE_F_COMPLETE | GBP_VSTATE_F_MAJORITY_EXTRA
+                              | GBP_VSTATE_F_EPISODE_STABLE, 0)
+          == GBP_VQUEUE_REJECT_QUARANTINED);
+    gbp_vqueue_init(&q, 4u);
+    CHECK(gbp_vqueue_publish(&q, 0u, GBP_VPIX_BLOCKS,
+                             GBP_VSTATE_F_COMPLETE | GBP_VSTATE_F_MAJORITY_EXTRA,
+                             0, 10u, 20u) == GBP_VQUEUE_REJECT_QUARANTINED);
+    CHECK(q.source_frames_quarantined == 1u);
+    CHECK(q.frames_published == 0u);
+}
+
+/* §6. The uniqueness rule itself, at test time as well as at build time. */
+static void test_every_frame_flag_is_a_distinct_power_of_two(void)
+{
+    static const uint16_t flags[] = {
+        GBP_VSTATE_F_COMPLETE, GBP_VSTATE_F_DISAGREEMENT, GBP_VSTATE_F_ANOMALY,
+        GBP_VSTATE_F_PRE_BASELINE, GBP_VSTATE_F_RESYNC, GBP_VSTATE_F_EARLY_CANDIDATE,
+        GBP_VSTATE_F_OVERLONG, GBP_VSTATE_F_RAW_PRESERVED, GBP_VSTATE_F_BASELINE,
+        GBP_VSTATE_F_COUNTED, GBP_VSTATE_F_TAIL, GBP_VSTATE_F_EPISODE_CHANGE,
+        GBP_VSTATE_F_EPISODE_STABLE, GBP_VSTATE_F_SOURCE_DEFERRED,
+        GBP_VSTATE_F_MAJORITY_EXTRA
+    };
+    unsigned i, j;
+    uint16_t seen = 0;
+    printf("-- every frame flag is a distinct power of two, and GBP_VSTATE_F_ALL is complete\n");
+    CHECK(sizeof flags / sizeof flags[0] == GBP_VSTATE_F_COUNT);
+    for (i = 0; i < sizeof flags / sizeof flags[0]; i++) {
+        CHECK(flags[i] != 0u);
+        CHECK((flags[i] & (uint16_t)(flags[i] - 1u)) == 0u);    /* a power of two */
+        for (j = 0; j < i; j++) CHECK(flags[i] != flags[j]);    /* pairwise distinct */
+        seen = (uint16_t)(seen | flags[i]);
+    }
+    CHECK(seen == (uint16_t)GBP_VSTATE_F_ALL);
+}
+
+/* §14. Every terminal a converted frame can reach, and the identity at each. */
+static void test_every_converted_frame_terminal_balances(void)
+{
+    struct gbp_vqueue q;
+    printf("-- each terminal of a converted frame, and a mixture, all balance\n");
+    /* A: converted -> presented */
+    gbp_vqueue_init(&q, 4u);
+    q.consumer_frames_taken = q.consumer_frames_converted = 1u;
+    q.frames_published = 1u; q.source_frames_closed = q.source_frames_complete = 1u;
+    gbp_vqueue_note_presented(&q);
+    CHECK(gbp_vqueue_balanced(&q) == 1);
+    /* B: converted -> generation overrun */
+    gbp_vqueue_init(&q, 4u);
+    q.consumer_frames_taken = q.consumer_frames_converted = 1u;
+    q.frames_published = 1u; q.source_frames_closed = q.source_frames_complete = 1u;
+    q.consumer_slot_overrun = 1u;
+    CHECK(gbp_vqueue_balanced(&q) == 1);
+    /* C: converted -> XFB busy -> display repeat */
+    gbp_vqueue_init(&q, 4u);
+    q.consumer_frames_taken = q.consumer_frames_converted = 1u;
+    q.frames_published = 1u; q.source_frames_closed = q.source_frames_complete = 1u;
+    gbp_vqueue_note_repeat(&q);
+    CHECK(gbp_vqueue_balanced(&q) == 1);
+    /* D: a mixture of all three */
+    gbp_vqueue_init(&q, 4u);
+    q.consumer_frames_taken = q.consumer_frames_converted = 10u;
+    q.frames_published = 10u; q.source_frames_closed = q.source_frames_complete = 10u;
+    q.consumer_frames_presented = 7u; q.consumer_slot_overrun = 2u;
+    q.display_frames_repeated = 1u;
+    CHECK(gbp_vqueue_balanced(&q) == 1);
+    /* E: a terminal missing -> FAIL, but only beyond the bounded residual */
+    gbp_vqueue_init(&q, 4u);
+    q.consumer_frames_taken = q.consumer_frames_converted = 10u;
+    q.frames_published = 10u; q.source_frames_closed = q.source_frames_complete = 10u;
+    q.consumer_frames_presented = 7u;            /* 3 unaccounted, bound is 2 */
+    CHECK(gbp_vqueue_balanced(&q) == 0);
+    CHECK(gbp_vqueue_undispositioned(&q) == 3u);
+    /* F: a frame counted twice -> FAIL */
+    gbp_vqueue_init(&q, 4u);
+    q.consumer_frames_taken = q.consumer_frames_converted = 1u;
+    q.frames_published = 1u; q.source_frames_closed = q.source_frames_complete = 1u;
+    gbp_vqueue_note_presented(&q);
+    gbp_vqueue_note_repeat(&q);                  /* the same frame, twice */
     CHECK(gbp_vqueue_balanced(&q) == 0);
 }
 
-/* FINDING P2. Two DIFFERENT frame flags share bit 0x1000 in the SAME frame-flag
- * word: GBP_VSTATE_F_MAJORITY_EXTRA (gbp_vstate.h:109) and
- * GBP_VSTATE_F_EPISODE_STABLE (gbp_vstate.h:121). gbp_vstate.c:1052 writes the
- * latter into f->flags, and gbp_vqueue_classify() reads the former first.
- *
- * The physical run: 324 episodes, all closed as stable, and exactly 324 frames
- * refused as QUARANTINED, while the R3 machinery reported maj_extra=0. */
-static void test_the_episode_stable_bit_aliases_majority_extra(void)
+/* The bounded residual is a real state, not a loophole: a converted frame whose
+ * submit was refused is waiting, and at most one per texture buffer can wait. */
+static void test_the_bounded_residual_is_accepted_and_bounded(void)
 {
-    printf("-- F_EPISODE_STABLE and F_MAJORITY_EXTRA are the same bit, and the classifier cannot tell\n");
-    CHECK(GBP_VSTATE_F_MAJORITY_EXTRA == 0x1000u);
-    CHECK(GBP_VSTATE_F_EPISODE_STABLE == 0x1000u);
-    CHECK(GBP_VSTATE_F_MAJORITY_EXTRA == GBP_VSTATE_F_EPISODE_STABLE);
-    /* a frame that merely closed an episode as stable is refused as quarantined */
-    CHECK(gbp_vqueue_classify(GBP_VPIX_BLOCKS,
-                              GBP_VSTATE_F_COMPLETE | GBP_VSTATE_F_EPISODE_STABLE, 0)
-          == GBP_VQUEUE_REJECT_QUARANTINED);
-    /* the same frame without that bit is accepted */
-    CHECK(gbp_vqueue_classify(GBP_VPIX_BLOCKS, GBP_VSTATE_F_COMPLETE, 0)
-          == GBP_VQUEUE_ACCEPT);
+    struct gbp_vqueue q;
+    unsigned k;
+    printf("-- a converted frame still waiting for a submit is accepted, up to the buffer count\n");
+    for (k = 0; k <= GBP_VQUEUE_MAX_UNDISPOSITIONED + 1u; k++) {
+        gbp_vqueue_init(&q, 4u);
+        q.consumer_frames_taken = q.consumer_frames_converted = 10u + k;
+        q.frames_published = 10u + k;
+        q.source_frames_closed = q.source_frames_complete = 10u + k;
+        q.consumer_frames_presented = 10u;
+        CHECK(gbp_vqueue_undispositioned(&q) == k);
+        CHECK(gbp_vqueue_balanced(&q) == ((k <= GBP_VQUEUE_MAX_UNDISPOSITIONED) ? 1 : 0));
+    }
 }
 
 int main(void)
@@ -1102,7 +1243,12 @@ int main(void)
     test_the_two_invariant_counters_stay_apart();
     test_the_audit_changed_no_state_transition();
     test_the_physical_stream0003_counters_conserve();
-    test_the_episode_stable_bit_aliases_majority_extra();
+    test_the_episode_stable_bit_no_longer_aliases();
+    test_a_stable_frame_is_eligible();
+    test_a_true_majority_extra_frame_is_still_quarantined();
+    test_every_frame_flag_is_a_distinct_power_of_two();
+    test_every_converted_frame_terminal_balances();
+    test_the_bounded_residual_is_accepted_and_bounded();
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

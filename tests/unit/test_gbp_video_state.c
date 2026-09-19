@@ -383,6 +383,28 @@ static void test_episodes_and_no_early_stop(void)
     CHECK(vstate.episodes[0].raw_frames >= 2u);
     CHECK(vstate.episodes[1].raw_frames >= 2u);
     CHECK(res.cyc_episode_n > 0u);
+    /* P2 (GBP-HW-145). A frame that CLOSES an episode as stable must carry
+     * F_EPISODE_STABLE and must NOT carry F_MAJORITY_EXTRA. Until 2026-09-18
+     * the two shared bit 0x1000, and the first physical stream run refused 324
+     * complete frames because of it. This scenario produces stable episodes, so
+     * it is the right place to assert the separation end to end — and it does
+     * so on the real assembler, not on a synthesised flag word. */
+    {
+        uint32_t i, stable_frames = 0;
+        for (i = 0; i < vstate.frames_n; i++) {
+            const uint16_t fl = vstate.frames[i].flags;
+            if (fl & GBP_VSTATE_F_EPISODE_STABLE) {
+                stable_frames++;
+                CHECK((fl & GBP_VSTATE_F_MAJORITY_EXTRA) == 0u);
+                /* and the stream path must consider it publishable */
+                CHECK(gbp_vqueue_classify(vstate.frames[i].blocks, fl,
+                                          (int)(i % 4u)) != GBP_VQUEUE_REJECT_QUARANTINED);
+            }
+            /* no frame in this scenario is a genuine majority-extra */
+            CHECK((fl & GBP_VSTATE_F_MAJORITY_EXTRA) == 0u);
+        }
+        CHECK(stable_frames >= 2u);            /* the scenario really produced them */
+    }
     check_invariants(&m, &res, &rl);
     printf("   episodes=%lu stable=%lu frames=%lu stop=%s status=%s deliveries=%lu video=%lu valid=%llu target=%llu\n",
            (unsigned long)vstate.episode_count, (unsigned long)vstate.stable_episodes, (unsigned long)vstate.frames_n,

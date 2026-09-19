@@ -228,13 +228,30 @@ uint32_t gbp_vqueue_pump_ticks_mean(const struct gbp_vqueue *q);
 /* The frame reached the screen. */
 void gbp_vqueue_note_presented(struct gbp_vqueue *q);
 
-/* HOLD_PREVIOUS_FRAME: a display opportunity passed with no new valid frame. */
+/* HOLD_PREVIOUS_FRAME: a CONVERTED frame was submitted and drawn, but both
+ * framebuffers were spoken for, so the copy was skipped and the screen kept the
+ * previous image. P1 (GBP-HW-145) made this precise: it is a TERMINAL state of a
+ * converted frame, not a free-standing display event, and it belongs in the
+ * conservation identity. The physical run confirmed the coupling exactly —
+ * repeats = 12 = xfb_skipped, both from that one branch of submit_ready(). */
 void gbp_vqueue_note_repeat(struct gbp_vqueue *q);
 
 /* Every accounted frame must land in exactly one bucket. Returns 1 when the
  * counters balance, 0 when they do not — a run whose counters do not balance
  * cannot support a claim about loss. */
+/* The number of converted frames that may legitimately be waiting for a
+ * submit when a run ends: one per texture buffer the consumer holds. The POC
+ * asserts at compile time that this equals GBP_VPRESENT_TEX_BUFFERS; this
+ * header may not include that one, so the coupling is explicit instead of
+ * hidden. */
+#define GBP_VQUEUE_MAX_UNDISPOSITIONED 2u
+
 int gbp_vqueue_balanced(const struct gbp_vqueue *q);
+
+/* How many converted frames have not yet reached a terminal. Zero at a clean
+ * end; bounded by GBP_VQUEUE_MAX_UNDISPOSITIONED at any time. Reported so a
+ * nonzero residual is visible rather than hidden inside `balanced`. */
+uint32_t gbp_vqueue_undispositioned(const struct gbp_vqueue *q);
 
 /* 1 when NO scientific counter has moved: nothing published, taken, converted,
  * presented, dropped, repeated or overrun.

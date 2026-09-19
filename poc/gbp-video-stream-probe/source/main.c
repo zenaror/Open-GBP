@@ -217,6 +217,12 @@ _Static_assert(GBP_VPIX_TEX_BYTES == 240u * 160u * 2u, "texture is 240x160 16-bi
 _Static_assert(GBP_VPIX_FRAME_BYTES == 40u * 0xF00u, "a frame is 40 blocks of 0xF00");
 _Static_assert(STREAM_TEX_BUFFERS >= 2u, "GX may still be reading one buffer while the CPU fills the other");
 _Static_assert(GBP_VPRESENT_XFB_BUFFERS == 2u, "the stream needs two framebuffers so the VI is never written under");
+/* P1: the queue's conservation identity allows a bounded residual of converted
+ * frames still waiting for a submit — one per texture buffer. gbp_vqueue.h may
+ * not include gbp_vpresent.h, so the coupling is asserted HERE, where both are
+ * visible, instead of being an unchecked comment in two files. */
+_Static_assert(GBP_VQUEUE_MAX_UNDISPOSITIONED == GBP_VPRESENT_TEX_BUFFERS,
+               "the balance residual bound must equal the texture buffer count");
 
 /* ---- the conversion in progress (consumer state) ----------------------- */
 static struct {
@@ -784,6 +790,16 @@ int main(void)
                    (unsigned long)vq.dropped_before_convert, (unsigned long)vq.display_frames_repeated,
                    (unsigned long)present.acquire_no_free_texture, (unsigned long)conv_abandoned_no_raw,
                    gbp_vqueue_balanced(&vq));
+    /* P1: a converted frame still waiting for a submit is a real, bounded state.
+     * Reporting it means a nonzero residual is visible instead of hiding inside
+     * `balanced`. Zero is the expected value at a clean end. */
+    ringlog_printf(&rl, "STREAMDISP converted=%lu presented=%lu overrun=%lu repeated=%lu undispositioned=%lu identity=converted==presented+overrun+repeated(+residual<=%u)",
+                   (unsigned long)vq.consumer_frames_converted,
+                   (unsigned long)vq.consumer_frames_presented,
+                   (unsigned long)vq.consumer_slot_overrun,
+                   (unsigned long)vq.display_frames_repeated,
+                   (unsigned long)gbp_vqueue_undispositioned(&vq),
+                   (unsigned)GBP_VQUEUE_MAX_UNDISPOSITIONED);
     /* The counters that answer §V5.26.5: what the slice cost, and what the GBP
      * was doing either side of it. */
     ringlog_printf(&rl, "STREAMPUMP calls=%lu slices=%lu completed=%lu skipped_cause_pending=%lu pending_before=%lu pending_after=%lu arrived_during=%lu",
@@ -849,6 +865,10 @@ int main(void)
            (unsigned long)vq.consumer_frames_presented, (unsigned long)vq.consumer_slot_overrun,
            (unsigned long)vq.dropped_before_convert, (unsigned long)vq.display_frames_repeated,
            gbp_vqueue_balanced(&vq) ? "BALANCE" : "DO NOT BALANCE");
+    printf("  DISPOSE converted %lu = presented %lu + overrun %lu + repeated %lu, waiting %lu (bound %u)\n",
+           (unsigned long)vq.consumer_frames_converted, (unsigned long)vq.consumer_frames_presented,
+           (unsigned long)vq.consumer_slot_overrun, (unsigned long)vq.display_frames_repeated,
+           (unsigned long)gbp_vqueue_undispositioned(&vq), (unsigned)GBP_VQUEUE_MAX_UNDISPOSITIONED);
     printf("  PACING  publish %lu/%lu/%lu ticks (min/mean/max, n=%lu)   convert %lu/%lu/%lu (n=%lu)\n",
            (unsigned long)(vq.publish_interval_n ? vq.publish_interval_min : 0u),
            (unsigned long)gbp_vqueue_publish_interval_mean(&vq), (unsigned long)vq.publish_interval_max,

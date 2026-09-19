@@ -204,12 +204,54 @@ int gbp_vqueue_balanced(const struct gbp_vqueue *q)
     if (q->frames_published != q->consumer_frames_taken + q->dropped_before_convert
                              + (uint32_t)(q->has_pending ? 1u : 0u))
         return 0;
-    /* A converted frame was presented or overran; a taken frame may still be
-     * mid-conversion, so converted <= taken rather than equal. */
+    /* A taken frame may still be mid-conversion, so converted <= taken. */
     if (q->consumer_frames_converted > q->consumer_frames_taken) return 0;
-    if (q->consumer_frames_converted != q->consumer_frames_presented + q->consumer_slot_overrun)
-        return 0;
+
+    /* P1, corrected after the first physical run (GBP-HW-145, §V5.34.8).
+     *
+     * A CONVERTED frame is dispositioned into exactly one of THREE terminals,
+     * derived from the state machine and not from an arithmetic coincidence:
+     *
+     *   gbp_vqueue_commit() increments consumer_frames_converted FIRST, then
+     *     !still_valid          -> consumer_slot_overrun++, the caller abandons
+     *                              the texture and the frame ends here
+     *     still_valid           -> the caller flushes, marks the texture READY
+     *                              and offers it
+     *   submit_ready():
+     *     submit refused        -> the texture stays READY and is re-offered on
+     *                              a later slice. NOT a terminal: it costs
+     *                              nothing and increments nothing.
+     *     submit accepted, XFB free    -> note_presented()  TERMINAL
+     *     submit accepted, XFB busy    -> note_repeat()     TERMINAL
+     *
+     * The old predicate knew only the first two and called a legitimate display
+     * repeat a conservation failure. The physical run closed exactly:
+     *     2298 converted == 2286 presented + 0 overrun + 12 repeated.
+     *
+     * THE RESIDUAL IS REAL AND BOUNDED. A converted frame whose submit was
+     * still refused when the run ended is converted and not yet dispositioned.
+     * At most one texture buffer per consumer can be waiting that way, so the
+     * identity is an equality plus a residual bounded by the buffer count —
+     * not a bare equality, and not an unbounded inequality. */
+    {
+        const uint32_t disposed = q->consumer_frames_presented
+                                + q->consumer_slot_overrun
+                                + q->display_frames_repeated;
+        if (disposed > q->consumer_frames_converted) return 0;
+        if (q->consumer_frames_converted - disposed > GBP_VQUEUE_MAX_UNDISPOSITIONED)
+            return 0;
+    }
     return 1;
+}
+
+uint32_t gbp_vqueue_undispositioned(const struct gbp_vqueue *q)
+{
+    uint32_t disposed;
+    if (!q) return 0u;
+    disposed = q->consumer_frames_presented + q->consumer_slot_overrun
+             + q->display_frames_repeated;
+    return (q->consumer_frames_converted > disposed)
+         ? (q->consumer_frames_converted - disposed) : 0u;
 }
 
 uint32_t gbp_vqueue_publish_interval_mean(const struct gbp_vqueue *q)

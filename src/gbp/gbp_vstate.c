@@ -5,6 +5,20 @@
 /* The two record layouts are part of the sidecar contract, so a compiler that
  * padded them differently must fail the build, not produce a different file. */
 typedef char gbp_vstate_frame_size_check[(sizeof(struct gbp_vstate_frame) == GBP_VSTATE_FRAME_REC) ? 1 : -1];
+
+/* P2 GUARD. Two frame flags shared bit 0x1000 and a physical run paid for it
+ * (GBP-HW-145). This makes the next collision a BUILD FAILURE rather than a
+ * lost run: the popcount of the ORed mask can only equal the number of flags
+ * when every flag is a distinct power of two. Adding a flag without adding it
+ * to GBP_VSTATE_F_ALL, or reusing a bit, breaks the build here.
+ *
+ * A DELIBERATE alias would have to be excluded from the mask and documented.
+ * There is none. */
+#define GBP_VSTATE_POPCOUNT4(v)  ((((v) >> 0) & 1u) + (((v) >> 1) & 1u) + (((v) >> 2) & 1u) + (((v) >> 3) & 1u))
+#define GBP_VSTATE_POPCOUNT16(v) (GBP_VSTATE_POPCOUNT4((v) >> 0) + GBP_VSTATE_POPCOUNT4((v) >> 4) + \
+                                  GBP_VSTATE_POPCOUNT4((v) >> 8) + GBP_VSTATE_POPCOUNT4((v) >> 12))
+typedef char gbp_vstate_flags_are_unique[(GBP_VSTATE_POPCOUNT16(GBP_VSTATE_F_ALL) == GBP_VSTATE_F_COUNT) ? 1 : -1];
+typedef char gbp_vstate_flags_fit_the_word[(GBP_VSTATE_F_ALL <= 0xFFFFu) ? 1 : -1];
 typedef char gbp_vstate_event_size_check[(sizeof(struct gbp_vstate_event) == GBP_VSTATE_EVENT_REC) ? 1 : -1];
 typedef char gbp_vstate_diag_size_check[(sizeof(struct gbp_vstate_diag) == GBP_VSTATE_DIAG_REC_V4) ? 1 : -1];
 /* the v4 record IS the v3 record plus 64 bytes, and the split is normative */

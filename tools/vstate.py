@@ -114,7 +114,15 @@ FRAME_FLAGS = [(0x0001, "complete"), (0x0002, "disagreement"), (0x0004, "anomaly
                (0x0008, "pre_baseline"), (0x0010, "resync"), (0x0020, "early_candidate"),
                (0x0040, "overlong"), (0x0080, "raw_preserved"), (0x0100, "baseline"),
                (0x0200, "counted"), (0x0400, "tail"), (0x0800, "episode_change"),
-               (0x1000, "episode_stable")]
+               (0x1000, "episode_stable"), (0x2000, "source_deferred"),
+               (0x4000, "majority_extra")]
+# 0x1000 has ALWAYS meant episode_stable in every persisted sidecar: `maj_extra`
+# is 0 in every physical run ever executed, and vstate-0001/-0003/-0004 each
+# carry seven frames that closed an episode as stable. Until 2026-09-18 the C
+# side ALSO used 0x1000 for F_MAJORITY_EXTRA (the P2 defect, GBP-HW-145); moving
+# that flag to 0x4000 re-interprets zero historical bytes, which is exactly why
+# it, and not episode_stable, was the one that moved. 0x2000 and 0x4000 have
+# never been set in any existing file.
 EVENT_TYPES = {0: "none", 1: "capture_start", 2: "baseline_candidate", 3: "baseline_valid",
                4: "early_candidate", 5: "predicate_disagreement", 6: "incomplete_interval",
                7: "resync", 8: "episode_open", 9: "episode_stabilising", 10: "episode_stable",
