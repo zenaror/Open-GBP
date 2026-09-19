@@ -15282,3 +15282,247 @@ Recorded as GBP-HW-201: no cause for the three retrace-advanced holds beyond the
 recency of the previous hand-over; no latch deadline and no scanout time; no
 claim that anything was physically displayed; one run behind every timing
 result; and **UNKNOWN** which pacing or buffering policy is preferable.
+
+---
+
+### V5.48 CADENCE / PRESENTATION POLICY — OFFLINE MODEL — 2026-09-19 — **DECISION A: TWO-XFB DEFERRAL IS SUFFICIENT**
+
+Simulation, analyzer semantics and a design freeze. **No runtime change, no XFB
+change, no hardware.** Run 5's physical result (GBP-HW-192…201) is not
+reinterpreted.
+
+#### V5.48.1 A CORRECTION: "cannot be lossless" was wrong
+
+§V5.47.13 said 59.727 Hz into 59.940 Hz "cannot be lossless". That is wrong if
+"lossless" means source frames, and the arithmetic says so:
+
+```text
+f_vi > f_src, so there are MORE display intervals than source frames.
+run 5's scientific span: 2053 display intervals for 2047 source frames.
+```
+
+Every source frame can therefore have its own display interval, in order, with
+intervals left over — and those leftovers must show the previous image. Three
+things that were being collapsed into one:
+
+```text
+SOURCE LOSS      an interior source frame never gets an eligible hand-off
+DISPLAY REPEAT   a display interval shows the previous image again
+RATE CONVERSION  N source frames onto M display intervals, M > N
+```
+
+**A policy can be SOURCE-LOSSLESS and still contain display repeats — and it
+must.** Over run 5's span the rate difference requires **7**. The current policy
+lost **17 source frames**. Those 17 are not the 7; they are a scheduling
+outcome.
+
+The runtime's `STREAMCONS repeats` counter stands for both at once — every hold
+is simultaneously one dropped source frame and one repeated interval — and that
+is why the two were confused. Future instrumentation must separate
+`SOURCE_FRAME_DROPPED` from `DISPLAY_INTERVAL_REPEATED`.
+
+#### V5.48.2 The frozen success metric
+
+```text
+PRIMARY    zero interior source-frame disposition loss inside the scientific
+           population: every interior frame ends in exactly one hand-off, in
+           monotonically increasing frame_index order
+SECONDARY  bounded latency · bounded queue occupancy · no source reorder · no
+           conversion starvation · no GX ownership failure · no trace overflow
+NOT A FAILURE   display repeats. They are the expected output of rate
+           conversion and are counted separately.
+```
+
+#### V5.48.3 The analyzer correction, and what was NOT touched
+
+`OGBPDISP1`'s bit 0 is `gbp_vwitness_armed()` sampled at TAKE. It is now named
+what it is — **`WITNESS_ARMED_AT_TAKE`** — and `tools/vdisp.py` no longer treats
+it as the scientific population:
+
+```text
+with an OGBPIDXCAP1    the scientific population is the EXACT frame_index join
+without one            scientific() RAISES. A caller with no witness must not be
+                       handed something that looks like one.
+```
+
+The report now prints both, labelled, and the contradictory pair it used to emit
+(2031 from the flag beside 2030 from the join) is gone. **No sidecar byte was
+touched and run 5 is not reclassified**: 2030 SELECTED_NEW, 17 HOLD, 1 terminal
+edge, exactly as GBP-HW-195 records.
+
+**OGBPDISP2 is NOT proposed.** The format can already express everything needed;
+the defect was in reading it. A version bump to rename a bit would create a
+second competing definition of the source window, which is the thing to avoid.
+
+#### V5.48.4 The model, and it had to earn its use
+
+Two parameters, both fitted to the physical run:
+
+```text
+VI PERIOD   by FEASIBILITY -- a period is admissible only if every residual
+            t - P*retrace fits one window of width P.
+            admissible 675675.00 .. 675676.00 ticks, best 675675.00
+            = 16.683333 ms = 59.940060 Hz
+            The span-ratio estimator is kept in the tool ONLY so a test can show
+            it proposing a period its own residuals do not fit inside.
+
+LATCH MARGIN  a hand-over issued too close to a boundary misses it. FITTED:
+            650 .. 877 ticks (16.05 .. 21.65 us).
+```
+
+With that margin the model reproduces **all 2114** recorded `(xfb_current,
+xfb_pending)` pairs — and therefore every SELECTED/HOLD decision. Without it,
+exactly **three** events disagree, and they are precisely the three holds where
+the sampled retrace had advanced. That is how the margin was found.
+
+**Baseline reproduction (§V5.48 gate): the model drops the same 17 frames**,
+334, 336, 345, 609, 620, 891, 893, 904, 1175, 1177, 1188, 1457, 1460, 1471,
+1744, 2017, 2028. Policies are only compared because this passed first.
+
+The source model is fitted on `frame_index`, never on the decision ordinal —
+17 frames are missing from the decision sequence and an ordinal fit folds them
+into the slope, turning sub-millisecond jitter into a 33 ms artefact. Fitted
+slope 678 083.8 ticks against the witness's 678 084.3: agreement to 0.5 ticks.
+Jitter pool −0.881 .. +0.515 ms.
+
+#### V5.48.5 Policy comparison — physical replay of run 5
+
+```text
+policy                          drops  supsd  NEVER  repeats  maxQ  maxLat ms
+BASELINE stream-0007               17      0     17       24     0      0.000
+A  defer, 2 XFB                     0      0      0        7     1      1.264
+B  VI-paced (retry once per P)      0      0      0        7     1      4.171
+C  3 XFB, hand over at once         0     17     17       24     1      0.000
+D  cadence converter                0      0      0        7     1      1.264
+```
+
+**A THIRD FRAMEBUFFER DOES NOT HELP, and the way it fails matters.** It converts
+17 drops into 17 **supersessions**: `VIDEO_SetNextFramebuffer` latches once per
+retrace however many buffers exist, so a second hand-over before the boundary
+overwrites the first and that frame never reaches the screen. A policy that
+counted hand-offs instead of latches would report this as a success. The
+simulator counts supersession as a first-class outcome for exactly that reason.
+
+**A, B and D converge.** With an in-order queue and one deferred frame they are
+the same scheduler with different triggers; the trigger is an implementation
+question, not a policy one. B's larger latency is only the coarser retry.
+
+#### V5.48.6 Robustness — the answer does not depend on run 5's phase
+
+```text
+PHASE SWEEP  1024 initial phases x 600 frames, observed jitter
+  A  defer 2 XFB   drops 0     superseded 0     maxQ 1  maxLat 1.422 ms  order ok
+  BASELINE         drops 6787  superseded 0     maxQ 0
+  C  3 XFB         drops 0     superseded 6554  maxQ 1
+
+LONG HORIZON  10 minutes = 35 836 frames, ~128 beat periods
+  A: drops 0 · superseded 0 · maxQ 1 · order preserved
+     display repeats 128, and the rate difference REQUIRES 128 -- exactly
+     latency  p50 0.000  p95 0.000  p99 0.316  max 1.264 ms, no drift
+
+ADVERSARIAL JITTER  (256 phases each)
+  2x the measured spread   drops 0  maxQ 1  maxLat 2.686 ms
+  4x                       drops 0  maxQ 1  maxLat 5.531 ms
+  all-late / all-early     drops 0  maxQ 1
+  10x  (LABELLED STRESS)   drops 0  maxQ 1  maxLat 13.906 ms
+```
+
+Over ten minutes the policy emits **exactly** the required number of display
+repeats and not one more. The deferred queue never exceeds **one** frame in any
+configuration tested.
+
+#### V5.48.7 DECISION — A
+
+**A two-XFB asynchronous deferral / rate-conversion design is sufficient and
+ready to be pre-registered for implementation.**
+
+```text
+zero interior source loss    physical replay, 1024-phase sweep, 10-minute
+                             horizon, and up to 10x the measured jitter
+source order                 preserved everywhere
+queue depth                  1 deferred frame, never 2
+latency                      p99 0.316 ms, max 1.264 ms, no drift over 10 min
+display repeats              exactly the rate-required count
+extra memory                 none
+architectural change         none: no third XFB, no VI callback, no extra
+                             texture, no queue-depth change
+```
+
+A third framebuffer is **not necessary**, and on this model it is worse than
+useless: it hides the loss instead of removing it.
+
+#### V5.48.8 The implementation shape — illustrative, not written
+
+The retry site **already exists**. `pump()` re-offers any READY texture on every
+call, about every 158 µs in the physical run:
+
+```c
+for (i = 0; i < GBP_VPRESENT_TEX_BUFFERS; i++)
+    if (present.tex[i] == GBP_VPRESENT_READY) { submit_ready((int)i, &vq); break; }
+```
+
+and `submit_ready()` currently orders its work:
+
+```text
+gbp_vpresent_submit()  →  GX draw  →  GX_SetDrawDone()  →  xfb_target()  →  copy
+```
+
+The shape that follows from the model is to **ask about the framebuffer first**:
+if `xfb_target()` returns −1, return with the texture still READY and consume no
+token. The existing re-offer loop then retries it, in order, with no new
+machinery, no new state and no new callback. A frame that cannot be presented
+would no longer consume a DrawDone token either.
+
+The simulated retry granularity was 6 400 ticks (158 µs) — deliberately
+pessimistic against the real pump interval — and a granularity of one whole VI
+period still loses frames, so the retry must come from `pump()` and not from the
+next frame's arrival.
+
+**Service-path safety, which the model does not get to certify:** no
+`VIDEO_WaitVSync`, no spin, no VI callback, no blocking between ACK and RE-ARM.
+The deferral is state-based and asynchronous. `VIDEO_GetCurrentFramebuffer()`
+alone is enough for the decision; `VIDEO_GetRetraceCount()` stays a trace field.
+
+#### V5.48.9 What a future trace must separate
+
+```text
+source disposition   NEW_HANDOFF · DEFERRED · DROPPED · TERMINAL_PENDING
+display cadence      DISPLAY_INTERVAL_REPEATED
+```
+
+`OGBPDISP1` can carry all of it: `DEFERRED` is a lifecycle counter beside
+`submit_refusals`, and a repeated interval is derivable offline from the
+hand-off boundaries the events already record. **No v2 is required.**
+
+Two naming repairs belong to the next functional round, not to this one:
+the log emits **two different `STREAMDISP` lines** (the legacy conservation
+identity and the new trace summary), and the new one should become
+`DISPTRACE`; and the analyzer's `drawn` column reports the eventual DrawDone
+rather than the state at the decision.
+
+#### V5.48.10 The future physical experiment — gates only, no run
+
+```text
+SOURCE GATE      the same run must return OBSERVED_CONTIGUOUS
+DISPOSITION GATE zero interior source-frame loss across the scientific window
+CADENCE GATE     display repeats counted explicitly, and within ±2 of the
+                 rate-required count for the run's measured span
+LATENCY GATE     ready→hand-off p99 below 1 ms and max below 3 ms -- derived
+                 from the simulation, pre-registered before the run
+QUEUE GATE       deferred depth never exceeds 1; no overflow, no back-pressure
+```
+
+#### V5.48.11 Non-claims
+
+```text
+- This is a MODEL. It reproduces run 5 exactly and predicts nothing until
+  hardware says otherwise.
+- The latch margin is fitted, and the retrace origin is itself pinned only to
+  15.4 us, so its absolute value is not a hardware datasheet figure.
+- Nothing here says a frame was physically displayed. The observable stage is
+  still VIDEO_SetNextFramebuffer.
+- The third-XFB result is a result about THIS model of libogc2's hand-over. A
+  different presentation call with different latch semantics could behave
+  differently.
+- No runtime was changed and no policy was implemented.
+```

@@ -177,15 +177,46 @@ def usable(info):
     if info["decisions"] != info["event_n"]:
         why.append("decisions %d but only %d events stored" % (info["decisions"], info["event_n"]))
     if not (info["flags"] & F_WINDOW_OPENED):
-        why.append("the qualified source window never opened")
+        why.append("the witness never armed during the capture")
     return {"usable_for_disposition_claim": not why, "reasons": why}
 
 
-def scientific(info):
-    """Lifecycles inside the qualified source window, self-test excluded. The
-    self-test is excluded by its FLAG, not by its position."""
+def witness_armed_at_take(info):
+    """Lifecycles whose bit 0 is set in the sidecar.
+
+    THIS IS NOT THE SCIENTIFIC POPULATION, and the name says so. The bit records
+    `gbp_vwitness_armed()` sampled at the moment the consumer TOOK the
+    descriptor. Within one service cycle the probe arms the witness, then
+    publishes, then the consumer takes — so the frame that QUALIFIED the window
+    is taken after the arming and carries the bit although it is not an OGBPIDX
+    record. In run 5 the bit covers 69..2116 while the scientific window is
+    70..2117: the same count, shifted one frame at each end (GBP-VID-019).
+
+    The historical sidecars are correct files recording exactly this. What was
+    wrong was reading it as scientific membership."""
     return [r for r in info["life"]
             if (r["life_flags"] & 0x01) and not (r["life_flags"] & 0x02)]
+
+
+def scientific(info, source_frames=None):
+    """The scientific population.
+
+    With `source_frames` — the frame_index set from an OGBPIDXCAP1 — this is the
+    EXACT join and is authoritative. Without it there is no authority available,
+    so it raises rather than falling back to the legacy bit: a caller that has
+    no witness must not be handed a population that looks like one."""
+    if source_frames is None:
+        raise DispError("the scientific population needs an OGBPIDXCAP1: the "
+                        "sidecar's own flag is WITNESS_ARMED_AT_TAKE and is one "
+                        "frame early at each end (GBP-VID-019)")
+    return [r for r in info["life"]
+            if r["frame_index"] in source_frames and not (r["life_flags"] & 0x02)]
+
+
+def source_frames_of(idxcap_path):
+    sys.path.insert(0, __file__.rsplit("/", 1)[0])
+    import vidxcap
+    return {r["frame_index"] for r in vidxcap.load(idxcap_path)["records"]}
 
 
 def _q(vals):
@@ -198,11 +229,10 @@ def _q(vals):
             "mean": sum(s) // n}
 
 
-def latencies(info, rows=None):
+def latencies(info, rows):
     """Stage-to-stage costs, in time-base ticks, over rows that reached both
     ends of each pair. A stage that never happened carries 0 and is skipped, so
     a distribution never silently includes an invented interval."""
-    rows = scientific(info) if rows is None else rows
     pairs = (("close_to_take", "t_close", "t_take"),
              ("take_to_convert_first", "t_take", "t_convert_first"),
              ("convert_first_to_done", "t_convert_first", "t_convert_done"),
@@ -303,9 +333,10 @@ def interior_vs_edge(info):
 
 def format_report(info, idxcap=None) -> str:
     u = usable(info)
-    sci = scientific(info)
+    src = source_frames_of(idxcap) if idxcap else None
+    sci = scientific(info, src) if src else None
     dh, rh = {}, {}
-    for r in sci:
+    for r in (sci or []):
         dh[DISPOSITION[r["disposition"]]] = dh.get(DISPOSITION[r["disposition"]], 0) + 1
         if r["disposition"] == 2:
             rh[REASON[r["reason"]]] = rh.get(REASON[r["reason"]], 0) + 1
@@ -324,10 +355,27 @@ def format_report(info, idxcap=None) -> str:
          "  disposition-claim ready %s" % u["usable_for_disposition_claim"]]
     for why in u["reasons"]:
         L.append("      - " + why)
-    L += ["", "  SCIENTIFIC WINDOW (self-test excluded)",
-          "    lifecycles         %d" % len(sci)]
+    armed = witness_armed_at_take(info)
+    L += ["", "  WITNESS_ARMED_AT_TAKE (the sidecar's own bit, NOT a population)",
+          "    lifecycles         %d   frame_index %s..%s" % (
+              len(armed), armed[0]["frame_index"] if armed else "-",
+              armed[-1]["frame_index"] if armed else "-"),
+          "    this bit is one frame early at each end -- GBP-VID-019"]
+    if sci is None:
+        L += ["", "  SCIENTIFIC WINDOW: NOT AVAILABLE.",
+              "    Supply the run's OGBPIDXCAP1 as the second argument. Without it",
+              "    this tool has no authority for the scientific population and",
+              "    will not substitute the flag for one."]
+    else:
+        L += ["", "  SCIENTIFIC WINDOW (exact OGBPIDXCAP1 frame_index join)",
+              "    source records     %d" % len(src),
+              "    with a lifecycle   %d" % len(sci)]
     for k, v in sorted(dh.items()):
         L.append("    %-18s %d" % (k, v))
+    if sci is not None:
+        missing = sorted(k for k in src if k not in {r["frame_index"] for r in sci})
+        L.append("    %-18s %d  %s" % ("no lifecycle", len(missing),
+                                        ("(terminal edge: %s)" % missing) if missing else ""))
     if rh:
         L.append("    HOLD reasons:")
         for k, v in sorted(rh.items()):
@@ -338,7 +386,7 @@ def format_report(info, idxcap=None) -> str:
     if res["interior"]:
         L.append("    INTERIOR OPEN FRAMES: %s" % res["interior"][:8])
     L += ["", "  LATENCIES (time-base ticks; n/min/p50/p90/max)"]
-    for name, q in latencies(info, sci).items():
+    for name, q in latencies(info, sci or []).items():
         L.append("    %-24s %s" % (name, "-" if not q else
                  "n=%d %d/%d/%d/%d" % (q["n"], q["min"], q["p50"], q["p90"], q["max"])))
     q = ivl["interval_ticks"]

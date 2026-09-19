@@ -76,10 +76,14 @@ class TheWriterAndTheParserAgree(unittest.TestCase):
         self.assertEqual(len(st), 1)
         self.assertEqual(st[0]["frame_index"], vdisp.KEY_NONE)
         self.assertFalse(st[0]["life_flags"] & 0x01)      # never in the window
-        # and the scientific set excludes it by FLAG, not by position
-        sci = vdisp.scientific(i)
-        self.assertNotIn(vdisp.KEY_NONE, [r["frame_index"] for r in sci])
-        self.assertEqual([r["frame_index"] for r in sci], [70, 71, 72, 75, 73, 74])
+        # The sidecar's own bit is WITNESS_ARMED_AT_TAKE and is NOT a
+        # population (GBP-VID-019). It still excludes the self-test by flag.
+        armed = vdisp.witness_armed_at_take(i)
+        self.assertNotIn(vdisp.KEY_NONE, [r["frame_index"] for r in armed])
+        self.assertEqual([r["frame_index"] for r in armed], [70, 71, 72, 75, 73, 74])
+        # and asking for the scientific population without a witness is refused
+        with self.assertRaises(vdisp.DispError):
+            vdisp.scientific(i)
 
     def test_warm_up_lifecycles_are_traced_but_not_scientific(self):
         """§V5.46.19: the trace starts at capture start so the warm-up stays
@@ -89,13 +93,17 @@ class TheWriterAndTheParserAgree(unittest.TestCase):
         keys = [r["frame_index"] for r in i["life"] if r["frame_index"] != vdisp.KEY_NONE]
         self.assertIn(68, keys)                            # warm-up IS recorded
         self.assertIn(69, keys)
-        self.assertNotIn(68, [r["frame_index"] for r in vdisp.scientific(i)])
+        self.assertNotIn(68, [r["frame_index"] for r in vdisp.witness_armed_at_take(i)])
+        # with an explicit source set, the join is what defines the population
+        sci = vdisp.scientific(i, {70, 71, 72})
+        self.assertEqual([r["frame_index"] for r in sci], [70, 71, 72])
 
 
 class TheDispositionsAreTheAuditedBranches(unittest.TestCase):
     def test_every_disposition_maps_to_a_real_branch(self):
         i = vdisp.parse(fixture())
-        got = {vdisp.DISPOSITION[r["disposition"]] for r in vdisp.scientific(i)}
+        got = {vdisp.DISPOSITION[r["disposition"]]
+               for r in vdisp.witness_armed_at_take(i)}
         self.assertEqual(got, {"SELECTED_NEW", "HOLD_PREVIOUS", "SLOT_OVERRUN", "OPEN"})
 
     def test_a_hold_is_a_drawn_frame_and_the_row_says_so(self):
@@ -142,7 +150,7 @@ class TheDispositionsAreTheAuditedBranches(unittest.TestCase):
         """A frame that was abandoned has no submit time, and a distribution
         that counted it would be reporting an interval that does not exist."""
         i = vdisp.parse(fixture())
-        lat = vdisp.latencies(i)
+        lat = vdisp.latencies(i, vdisp.witness_armed_at_take(i))
         self.assertEqual(lat["close_to_take"]["n"], 6)
         self.assertEqual(lat["submit_to_drawdone"]["n"], 4)   # not 6
         for q in lat.values():
@@ -234,6 +242,8 @@ class WhatItMayNotClaim(unittest.TestCase):
     def test_without_the_witness_it_says_nothing_about_source_continuity(self):
         r = vdisp.format_report(vdisp.parse(fixture()))
         self.assertIn("says NOTHING about", r)
+        self.assertIn("SCIENTIFIC WINDOW: NOT AVAILABLE", r)
+        self.assertIn("will not substitute the flag for one", r)
         self.assertIn("tools/vindex.py", r)
         for forbidden in ("OBSERVED_CONTIGUOUS", "OBSERVED_ID_GAP", "FRAME_ID"):
             self.assertNotIn(forbidden, r)

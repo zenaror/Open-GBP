@@ -4798,3 +4798,107 @@ keying on the tag alone would conflate them.
 checkpoint, the semantics are frozen while a physical run is being interpreted,
 and every number in GBP-HW-195 … GBP-HW-200 was computed from the exact
 `frame_index` join rather than from the flag.
+
+### GBP-VID-020 — source loss, display repeat and rate conversion are three different things — FACT (software, arithmetic on the physical run)
+
+A correction to §V5.47.13, which said 59.727 Hz into 59.940 Hz "cannot be
+lossless". If "lossless" means source frames, that is wrong.
+
+```text
+f_vi > f_src, so the display has MORE intervals than the source has frames.
+run 5's scientific span: 2053 display intervals for 2047 source frames.
+display repeats REQUIRED by the rate difference over that span:  7
+interior source frames the current policy actually lost:        17
+```
+
+Every source frame can have its own display interval, in order, with intervals
+left over; those leftovers must repeat the previous image. **Source-lossless is
+achievable. Display repeats are not avoidable.** The 17 are not the 7 — they are
+a scheduling outcome, not an arithmetic necessity.
+
+```text
+SOURCE LOSS      an interior source frame never gets an eligible hand-off
+DISPLAY REPEAT   a display interval shows the previous image again
+RATE CONVERSION  N source frames onto M display intervals, M > N
+```
+
+`STREAMCONS repeats` stands for both of the first two at once, which is how they
+came to be confused: every hold is simultaneously one dropped frame and one
+repeated interval.
+
+### GBP-VID-021 — the VI hand-over model, fitted and exact — FACT (software, fitted to the physical run)
+
+Two parameters, neither assumed:
+
+```text
+VI PERIOD (feasibility)   admissible 675675.00 .. 675676.00 ticks
+                          best 675675.00 = 16.683333 ms = 59.940060 Hz
+LATCH SETUP MARGIN        650 .. 877 ticks = 16.05 .. 21.65 us
+```
+
+With the margin the model reproduces **all 2114** recorded `(xfb_current,
+xfb_pending)` pairs of run 5, and therefore every SELECTED/HOLD decision.
+Without it exactly **three** disagree — the three holds where the sampled
+retrace had advanced, which is how the margin was discovered: a hand-over issued
+within roughly 16–22 µs of a boundary does not take effect at that boundary.
+
+The retrace origin is itself pinned only to a 15.4 µs window by sampled data, so
+the margin's absolute value inherits that uncertainty. What is exact is that a
+NON-ZERO margin is required and that some value in that range reproduces
+everything.
+
+The source model is fitted on `frame_index`, never on the decision ordinal:
+17 frames are missing from the decision sequence, and an ordinal fit folds them
+into the slope and turns sub-millisecond jitter into a 33 ms artefact. Fitted
+slope 678 083.8 ticks against the witness's 678 084.3 — 0.5 ticks apart.
+
+### GBP-VID-022 — two-XFB deferral is source-lossless; a third framebuffer is not the answer — FACT (software, simulation)
+
+Physical replay of run 5, 2047 scientific frames:
+
+| policy | source drops | superseded | never displayed | display repeats | max queue | max latency |
+| --- | --- | --- | --- | --- | --- | --- |
+| baseline `stream-0007` | 17 | 0 | **17** | 24 | 0 | 0 |
+| **A — defer, 2 XFB** | **0** | **0** | **0** | **7** | **1** | 1.264 ms |
+| B — VI-paced | 0 | 0 | 0 | 7 | 1 | 4.171 ms |
+| C — 3 XFB, hand over at once | 0 | **17** | **17** | 24 | 1 | 0 |
+| D — cadence converter | 0 | 0 | 0 | 7 | 1 | 1.264 ms |
+
+**The third framebuffer converts 17 drops into 17 SUPERSESSIONS.**
+`VIDEO_SetNextFramebuffer` latches once per retrace however many buffers exist,
+so a second hand-over before the boundary overwrites the first and that frame
+never reaches the screen. A policy counting hand-offs rather than latches would
+have reported it as a success; the simulator counts supersession as a
+first-class outcome for that reason.
+
+A, B and D converge: with an in-order queue and one deferred frame they are the
+same scheduler with different triggers.
+
+Robustness of A:
+
+```text
+1024 initial phases x 600 frames, observed jitter   0 drops, 0 superseded, maxQ 1
+10 minutes / 35 836 frames / ~128 beat periods      0 drops, maxQ 1, no drift,
+    display repeats 128 against a rate requirement of exactly 128
+2x, 4x and a labelled 10x jitter stress             0 drops, maxQ 1
+```
+
+**Not a hardware claim.** It is a model that reproduces run 5 exactly and
+predicts nothing until hardware says otherwise.
+
+### GBP-VID-023 — the analyzer no longer substitutes the legacy flag — FACT (software)
+
+`OGBPDISP1` bit 0 is `gbp_vwitness_armed()` at TAKE and is now named
+`WITNESS_ARMED_AT_TAKE`. `tools/vdisp.py::scientific()` requires an
+OGBPIDXCAP1 and performs the exact `frame_index` join; without one it raises
+rather than falling back, because a caller with no witness must not be handed a
+population that looks like one.
+
+The report prints both, labelled, and the contradictory pair it used to emit
+(2031 from the flag beside 2030 from the join) is gone. **No sidecar byte was
+changed and run 5 is not reclassified**: 2030 SELECTED_NEW, 17 HOLD, 1 terminal
+edge, exactly as GBP-HW-195 records.
+
+**OGBPDISP2 is not proposed.** The format already carries what is needed; a
+version bump to rename a bit would create a second competing definition of the
+source window.
