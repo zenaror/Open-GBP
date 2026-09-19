@@ -8467,3 +8467,79 @@ the same run must pass `tools/vindex.py` with `OBSERVED_CONTIGUOUS` before any
 downstream evidence is interpreted. Only after that trace exists may anyone
 decide whether the answer is pacing, conversion scheduling, GX scheduling, XFB
 policy, or that the holds are expected cadence behaviour.
+
+## 2026-09-19 — the first downstream trace: the holds are a phase condition
+
+**Goal.** Ingest run 5, require `OBSERVED_CONTIGUOUS` again before looking
+downstream, and explain the holds from recorded state. No pacing change, no XFB
+change, no hardware.
+
+**Source first, and it replicated.** The unmodified analyzer returned
+`OBSERVED_CONTIGUOUS` on a different build with the trace running — 2048/2048
+records, FRAME_ID 85..2132 complete, FAULT clear, VMARGIN 24 — and an
+independent decode reproduced every figure from the bytes. That is also the
+first evidence that the instrumentation did not disturb the source result.
+
+**The answer, in one line:** every hold is a frame that reached the XFB decision
+with nothing queued behind it and found both framebuffers spoken for, and the
+holds recur at the source↔VI beat period.
+
+**What the trace could rule out.** Conversion cost is indistinguishable between
+held and selected frames (56 229 vs 56 237 ticks). `submit_refusals` is 0 across
+every lifecycle, `blocked_inflight=0`, `no_texture=0`. And `newest_source` is
+NONE at **all 2 114 decisions** — at no point in the run was anything queued. H2
+and H3 are not supported for these holds.
+
+**A correction I have to make to my own last round.** §V5.46.6 said held frames
+were "already converted, submitted and drawn". The DrawDone comes *after* the
+decision in 2047 of 2047 cases; the order is convert → submit → decision →
+asynchronous DrawDone. The conclusions survive because they rested on the
+back-pressure counters and not on the word, but the word was wrong and §V5.47.6
+says so.
+
+**Two estimator lessons.** A span ratio over a sampled retrace counter is biased
+by the phase difference between the first and last sample: it gave 675 531.65
+ticks and residuals *wider than the period*, which is the estimator announcing
+its own failure. Estimating by feasibility — a period is admissible only if every
+residual fits one window of its own width — pins it to a 1.68-tick interval
+around 675 675.00 ticks = 59.940 06 Hz, NTSC nominal to five decimals. And the
+retrace origin is itself only pinned to 15.4 µs, so the three "how close to the
+boundary" figures are reported as ranges, not as values.
+
+**The phase result.** Every hold in the run falls in the final 0.580 ms of a
+16.683 ms interval — 3.48 % of it — against selects that span the whole
+interval. Sharper: of the 16 decisions that shared a sampled retrace with their
+predecessor, **all 16 were holds and none was a select**. With two framebuffers
+that is the defined outcome, not a coincidence.
+
+**The beat.** 59.727 083 Hz source into 59.940 060 Hz display predicts a beat
+every 280.44 source frames; the observed cluster gaps mean 280.07 — 99.87 % of
+the prediction, stable across thresholds 15–30. Recorded as CORROBORATED, not
+FACT: seven gaps in one run.
+
+**An off-by-one in my own instrumentation, found and not fixed.** `in_window`
+covers 69..2116 while the scientific window is 70..2117, because the flag is
+`gbp_vwitness_armed()` sampled at TAKE time and the witness arms earlier in the
+same service cycle. `tools/vdisp.py` inherits it and prints 2031 from the flag
+beside 2030 from its own join, which is how it surfaced. This is an ingestion
+checkpoint, so the semantics stay frozen, every number came from the exact
+`frame_index` join, and a test now pins the defect so a fix has to name it.
+
+**Trigger and policy are different things, and both are true.** The phase drift
+creates the no-writable-XFB condition; the two-buffer hold policy decides what
+to do about it and is working as specified. A future change must say which one
+it addresses.
+
+**Rejected framings.** That the holds are a backlog — nothing was ever queued.
+That they are a conversion or GX miss — the costs are identical and nothing was
+refused. That `repeats=0` would be an improvement on its own: 59.727 Hz into
+59.940 Hz cannot be lossless, and a change that stops counting the dropped
+frames would be worse than one that counts them.
+
+**New unknowns:** none. U-GBP-029, U-GBP-033, U-GBP-034 stay open.
+
+**Next:** the question is frozen in §V5.47.13 — what should the runtime do with
+the frame that arrives when no framebuffer is writable, and by what metric is a
+change an improvement rather than a different way of losing the same frame. Four
+families are tabulated with what each tests and what would distinguish success
+from hiding the drop. **None is selected and none is implemented.**

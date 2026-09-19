@@ -14569,15 +14569,21 @@ Two consequences, and both matter:
    is no opportunity without a frame. The hypothesis is not weak; it is
    inapplicable, and no test was written for a branch that does not exist.
 
-2. Every one of the 17 holds was a frame that had already been CONVERTED,
-   SUBMITTED and DRAWN. A conversion deadline miss or a GX deadline miss cannot
+2. Every one of the 17 holds was a frame that had already been CONVERTED and
+   SUBMITTED. A conversion deadline miss or a GX deadline miss cannot
    produce a hold -- they would produce a token-gate refusal, and run 4 had
    blocked_inflight = 0, no_texture = 0, submit = 2114/2114.
 ```
 
 What remains is the XFB branch: with **two** framebuffers, `xfb_target()`
 returns −1 when the VI is scanning one and the other has been handed over but
-not yet latched. The causal question is therefore narrow and answerable:
+not yet latched.
+
+> **CORRECTED 2026-09-19 by §V5.47.6.** Point 2 originally said the holds had
+> also been **DRAWN**. Run 5 measured the order directly: the DrawDone follows
+> the XFB decision in 2047 of 2047 cases, so a held frame had NOT been drawn
+> when the decision was taken. The conclusion is unchanged, because it rests on
+> `blocked_inflight`, `no_texture` and `submit_refusals` and not on that word. The causal question is therefore narrow and answerable:
 **at those 17 moments, what were `xfb_current` and `xfb_pending`, and where was
 the VI in its retrace cycle?** That is exactly what the trace records, and it is
 why the trace exists instead of a fix.
@@ -15059,3 +15065,220 @@ optional hygiene.
 
 The hazard therefore stays documented rather than engineered around, and
 `min 4` must still never be quoted as a copy cost.
+
+---
+
+### V5.47 FIRST DOWNSTREAM DISPOSITION RUN — `stream-0007` + `indexed-0003` — 2026-09-19 — **SOURCE CONTIGUOUS AGAIN; THE HOLDS ARE A PHASE CONDITION**
+
+The first physical run carrying both sidecars. The source result replicates; the
+17 display holds now have a machine-state explanation. **No pacing, XFB, queue
+or VI behaviour was changed, and none is proposed as a decision here.**
+
+#### V5.47.1 Inputs, verified and archived before anything else ran
+
+All three delivered files matched the identities the operator reported and were
+archived under run-distinguishing names first (GBP-HW-192). The runtime was
+`stream-0007` at `ddf8db6` — clean, 491 040 B, `74b74886…6eb36` — and the
+cartridge the same physical `indexed-0003`.
+
+#### V5.47.2 The source gate, passed first and replicated
+
+The unmodified `tools/vindex.py` returned **`OBSERVED_CONTIGUOUS`** over 2 046
+decisive transitions, FRAME_ID 85..2132 with no member missing, FAULT clear,
+VMARGIN 24 (GBP-HW-193). An independent decode reproduced every figure from the
+bytes.
+
+This is GBP-HW-189 **repeated on a different build with the trace running**, so
+it is also the first evidence that the instrumentation did not disturb the
+source result. One replication; not a general timing guarantee.
+
+#### V5.47.3 The exact scientific join — and why the flag was not used
+
+```text
+source records 70..2117              2048
+  with a lifecycle 70..2116          2047
+    SELECTED_NEW                     2030
+    HOLD_PREVIOUS                      17
+  no lifecycle (frame 2117)             1   capture-edge residual
+identity                    2030 + 17 + 1 = 2048
+```
+
+Frame 2117 is proved to be an EDGE residual rather than interior loss: it is the
+last source record, nothing after it reached a terminal, and
+`dropped_before_convert` — the counter for a publish landing on an untaken
+descriptor — is 0.
+
+#### V5.47.4 The `in_window` off-by-one, found and NOT fixed
+
+`OGBPDISP1`'s `in_window` flag covers frame_index **69..2116**, while the
+OGBPIDX scientific window is **70..2117**. Same count, shifted by one at each
+end. The cause is exact and is in this project's own code: the flag is
+`gbp_vwitness_armed()` sampled at TAKE time, and within one service cycle the
+probe arms the witness (line 1445) before it publishes (1479) and before the
+consumer takes (1531). Frame 69 is therefore taken after the arming.
+
+`tools/vdisp.py` inherits it — its report shows `SELECTED_NEW 2031` and
+`open 0` from the flag while its own join section shows 2030 and one residual,
+which is how it was noticed.
+
+**Nothing was changed.** This is an ingestion checkpoint; the semantics stay
+frozen while a physical run is being interpreted, and every number above comes
+from the exact `frame_index` join. Full statement in GBP-VID-019.
+
+#### V5.47.5 The holds, and the state they were taken in
+
+All 17 share one state with no exception: `reason = XFB_BUSY`,
+`xfb_target = NONE`, `xfb_current` and `xfb_pending` holding slots 0 and 1
+between them, `newest_source = NONE`, converted, submitted, and a DrawDone
+arriving later (GBP-HW-196).
+
+`newest_source` is NONE on **all 2 114 decisions in the run**. At no decision
+anywhere was anything queued, so no hold can be attributed to a backlog.
+
+#### V5.47.6 A CORRECTION to §V5.46.6 and GBP-VID-017
+
+Those entries said every hold was a frame "already converted, submitted **and
+drawn**". The ordering word is wrong and the run says so directly:
+
+```text
+DrawDone AFTER the XFB decision   2047 of 2047
+DrawDone BEFORE the decision         0
+```
+
+The order is **convert → submit → XFB decision → asynchronous DrawDone**. A held
+frame had *not* been drawn when the decision was taken; its DrawDone completed
+afterwards, normally, 3 159–5 099 ticks later.
+
+What the earlier entries were reaching for, and what the evidence does support,
+is: **the frame reached the submit/decision stage with no back-pressure.** The
+conclusions drawn from it — that a conversion or GX deadline miss cannot produce
+a hold — survive unchanged, because they rest on `submit_refusals = 0`,
+`blocked_inflight = 0` and `no_texture = 0`, not on the word "drawn".
+
+#### V5.47.7 H2 and H3 are not supported
+
+```text
+                 convert_ticks (mean)   wall span (mean)
+SELECTED (2030)      56 237 = 1.389 ms      7.777 ms
+HOLD     (  17)      56 229 = 1.388 ms      7.636 ms
+```
+
+Held frames did not cost more CPU and did not take longer. `submit_refusals` is
+0 across every scientific lifecycle. Neither hypothesis is supported **for these
+holds in this run**; neither is claimed impossible in general.
+
+#### V5.47.8 The VI period, measured honestly
+
+A span ratio over the sampled retrace counter gives 675 531.65 ticks and
+residuals **wider than the period** — the estimator announcing its own bias,
+which comes from the phase difference between the first and last sample.
+Estimating by feasibility instead (a period is admissible only if every residual
+`t − P·retrace` fits one window of width `P`):
+
+```text
+admissible   675 674.54 .. 675 676.22 ticks   (1.68 ticks wide)
+best fit     675 675.00 ticks = 16.683 33 ms = 59.940 06 Hz
+```
+
+NTSC nominal to five decimals.
+
+#### V5.47.9 Every hold is in the last 3.5 % of a VI interval
+
+```text
+SELECTED_NEW  n=2094   phase  0.0000 .. 16.6680 ms   (the whole interval)
+HOLD          n=  19   phase 16.1036 .. 16.6659 ms
+```
+
+Every hold falls in the final **0.580 ms** of a 16.683 ms interval. Only 60 of
+2 094 selected decisions (2.87 %) fall in that band.
+
+And the sharper form of the same fact:
+
+```text
+decisions sharing a sampled retrace with their predecessor   16
+  HOLD_PREVIOUS  16        SELECTED_NEW  0
+```
+
+**A second decision inside one sampled retrace interval was always a hold.**
+With two framebuffers that is the defined outcome, not a coincidence: the first
+took the free buffer and handed it over, the VI had not latched it yet, and the
+second found both slots spoken for.
+
+Three holds are not of that shape — the retrace had advanced. In all three the
+previous hand-over had been requested within an upper bound of 15.31, 15.80 and
+16.00 µs of the next sampled retrace. The origin is itself pinned only to a
+15.4 µs window, so the admissible range is 0.4 .. 16.0 µs. **No latch deadline
+is claimed**; a sampled counter cannot locate one.
+
+#### V5.47.10 The beat, and what it is worth
+
+```text
+source 59.727 083 Hz · VI 59.940 060 Hz · difference 0.212 977 Hz
+predicted beat 4.6954 s = 280.44 source frames
+observed cluster gaps 276.3 276.2 281.5 284.0 282.7 281.3 278.5
+mean 280.07 -> 99.87 % of the prediction
+```
+
+Sensitivity was required before the number was believed: the clustering is
+identical for thresholds 15, 20, 25 and 30 and fragments only at 10.
+
+**CORROBORATED, not FACT.** Seven gaps in one run agreeing with a predicted
+period is strong; it is not a mechanism proof and it is not evidence for any
+particular remedy.
+
+#### V5.47.11 TRIGGER and POLICY are different things
+
+```text
+TRIGGER   the source and the VI run at slightly different rates, so their phase
+          drifts. Roughly every 280 source frames two presentations fall inside
+          one VI interval and, with two framebuffers, the second finds no
+          writable target. This is a physical condition.
+
+POLICY    given that condition, the runtime chooses HOLD_PREVIOUS_FRAME: skip
+          the copy, keep the previous image, never wait for a retrace. This is a
+          decision, taken deliberately in §V5.26, and it is working as specified.
+```
+
+Both statements are true at once. The policy is not a timing failure, and the
+trigger is not a bug in the policy. Any future change addresses one or the
+other, and must say which.
+
+#### V5.47.12 Hypothesis disposition
+
+```text
+H1  source↔VI phase drift          CORROBORATED (GBP-HW-198/199/200)
+H2  conversion deadline miss       NOT SUPPORTED for these holds (GBP-HW-197)
+H3  GX deadline / back-pressure    NOT SUPPORTED as the immediate cause
+H4  the two-buffer hold policy     CONFIRMED as the mechanism that turns the
+                                   condition into a held frame — by design
+H5  other                          no observation in this run contradicts H1/H4
+```
+
+#### V5.47.13 The next experimental question — frozen, not answered
+
+> Given a source cadence that is not the display cadence, what should the
+> runtime do with the frame that arrives when no framebuffer is writable — and
+> by what metric is a change an improvement rather than a different way of
+> losing the same frame?
+
+Four families are worth evaluating; **none is selected or implemented here**:
+
+| | what physical hypothesis it tests | what changes | what stays fixed | the metric that distinguishes success from hiding the drop |
+| --- | --- | --- | --- | --- |
+| **A** presentation deferral — keep the converted frame and retry at the next opportunity | that the frame is recoverable because the next writable XFB arrives within one VI interval | `submit_ready()` retries instead of terminating the frame | source path, qualification, buffer counts | held frames that later reach an XFB, vs frames that are still dropped — and whether the retry displaces a NEWER frame |
+| **B** VI-paced hand-over | that presenting on a retrace boundary removes the double-decision case entirely | a retrace signal drives the hand-over | conversion, source, GX ownership | whether the 16 same-retrace holds disappear AND no new latency appears between convert and display |
+| **C** a third framebuffer | that the condition is purely "no writable slot" | XFB count 2 → 3, ~614 KB of MEM1 | every policy and the source path | whether holds fall to ~0 while `xfb_skipped` and `repeats` stay conserved — and what the added latency is |
+| **D** explicit cadence conversion | that a 59.727 Hz source into a 59.940 Hz display must drop or repeat SOMETHING, and the question is only which | a stated frame-selection rule | everything below it | whether the choice becomes predictable and declared rather than emergent |
+
+**The honest constraint on all four:** 59.727 083 Hz into 59.940 060 Hz cannot be
+lossless. Roughly every 280 source frames the display asks for a frame that does
+not exist yet, or the source offers one the display cannot take. A change that
+makes `repeats` read 0 without saying where those frames went would be worse
+than the present behaviour, which at least counts them.
+
+#### V5.47.14 What this run does NOT establish
+
+Recorded as GBP-HW-201: no cause for the three retrace-advanced holds beyond the
+recency of the previous hand-over; no latch deadline and no scanout time; no
+claim that anything was physically displayed; one run behind every timing
+result; and **UNKNOWN** which pacing or buffering policy is preferable.
