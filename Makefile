@@ -83,7 +83,7 @@ SMOKE_DOL := $(SMOKE_OUT)/smoke-test.dol
 PROBE_OUT := build/poc/gbp-probe
 PROBE_DOL := $(PROBE_OUT)/gbp-probe.dol
 
-.PHONY: help env-check build inspect test-host test-unit test-python test stimulus color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait swiss swiss-check all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed swiss swiss-check all shell clean
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -397,6 +397,16 @@ prehandler-wait:
 stimulus:
 	$(IN_CONTAINER) sh -c 'set -e; export DEVKITARM=$$DEVKITPRO/devkitARM; make --no-print-directory -C stimulus/agb-color-bars'
 	@$(PYTHON) tools/gbahdr.py show $(STIM_ROM)
+
+# The CONTROLLED INDEXED stimulus (OGBPIDX1, HARDWARE_TESTS §V5.33).
+# Its rendering is compared word for word against tools/istim.py by
+# tests/host/test_agb_indexed.py; a ROM that does not match its model is not a
+# measuring instrument.
+STIM_IDX_ROM := build/stimulus/agb-indexed/agb-indexed.gba
+
+stimulus-indexed:
+	$(IN_CONTAINER) sh -c 'set -e; export DEVKITARM=$$DEVKITPRO/devkitARM; make --no-print-directory -C stimulus/agb-indexed'
+	@$(PYTHON) tools/gbahdr.py show $(STIM_IDX_ROM)
 
 # GBP-VIDEO-003 colour probe under Dolphin. AUXILIARY ONLY: Dolphin's GBPlayer model is
 # not physical truth and CANNOT say anything about colour mapping (§54 of the

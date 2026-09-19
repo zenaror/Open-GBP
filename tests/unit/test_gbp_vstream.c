@@ -978,6 +978,81 @@ static void test_texture_and_xfb_are_independent(void)
     CHECK(p.submitted == -1);                  /* and that did not touch the texture */
 }
 
+/* ---- what the FIRST PHYSICAL RUN of stream-0003 taught, locked as tests ---
+ *
+ * These reproduce two findings from GBP-VIDEO-004 / stream-0003 (HARDWARE_TESTS
+ * §V5.34). Neither is fixed here — this round is not authorised to change
+ * src/gbp — and both tests therefore assert the CURRENT behaviour together with
+ * the arithmetic that shows why it is wrong. A future fix must change these
+ * tests deliberately, not by accident. */
+
+/* FINDING P1. gbp_vqueue_balanced() omits a legitimate terminal state. A
+ * converted frame ends in exactly one of THREE places, not two: presented,
+ * overrun, or REPEATED (submitted and drawn, but the XFB was busy so the copy
+ * was skipped and the screen kept the previous image).
+ *
+ * The physical run: converted=2298 presented=2286 overrun=0 repeats=12,
+ * and 2298 == 2286 + 0 + 12 exactly, while the predicate reported balanced=0. */
+static void test_the_physical_stream0003_counters_conserve(void)
+{
+    struct gbp_vqueue q;
+    uint32_t i;
+    printf("-- the stream-0003 physical counters conserve under converted = presented + overrun + repeats\n");
+    gbp_vqueue_init(&q, 4u);
+    /* drive the exact terminal states the run produced */
+    for (i = 0; i < 2286u; i++) gbp_vqueue_note_presented(&q);
+    for (i = 0; i < 12u; i++)   gbp_vqueue_note_repeat(&q);
+    q.consumer_frames_converted = 2298u;
+    q.consumer_slot_overrun = 0u;
+    q.source_frames_closed = 2648u;
+    q.source_frames_complete = 2298u;
+    q.source_frames_incomplete = 13u;
+    q.source_frames_quarantined = 324u;
+    q.source_frames_anomaly = 13u;
+    q.frames_published = 2298u;
+    q.consumer_frames_taken = 2298u;
+    q.dropped_before_convert = 0u;
+    q.has_pending = 0;
+
+    CHECK(q.consumer_frames_presented == 2286u);
+    CHECK(q.display_frames_repeated == 12u);
+    /* every identity the predicate DOES check still holds */
+    CHECK(q.source_frames_closed == q.source_frames_complete + q.source_frames_incomplete
+                                 + q.source_frames_quarantined + q.source_frames_anomaly);
+    CHECK(q.source_frames_complete == q.frames_published);
+    CHECK(q.frames_published == q.consumer_frames_taken + q.dropped_before_convert);
+    CHECK(q.consumer_frames_converted <= q.consumer_frames_taken);
+    /* the one it checks that does NOT hold, and the one that does */
+    CHECK(q.consumer_frames_converted != q.consumer_frames_presented + q.consumer_slot_overrun);
+    CHECK(q.consumer_frames_converted == q.consumer_frames_presented
+                                       + q.consumer_slot_overrun
+                                       + q.display_frames_repeated);
+    /* CURRENT behaviour, asserted so a fix has to be deliberate */
+    CHECK(gbp_vqueue_balanced(&q) == 0);
+}
+
+/* FINDING P2. Two DIFFERENT frame flags share bit 0x1000 in the SAME frame-flag
+ * word: GBP_VSTATE_F_MAJORITY_EXTRA (gbp_vstate.h:109) and
+ * GBP_VSTATE_F_EPISODE_STABLE (gbp_vstate.h:121). gbp_vstate.c:1052 writes the
+ * latter into f->flags, and gbp_vqueue_classify() reads the former first.
+ *
+ * The physical run: 324 episodes, all closed as stable, and exactly 324 frames
+ * refused as QUARANTINED, while the R3 machinery reported maj_extra=0. */
+static void test_the_episode_stable_bit_aliases_majority_extra(void)
+{
+    printf("-- F_EPISODE_STABLE and F_MAJORITY_EXTRA are the same bit, and the classifier cannot tell\n");
+    CHECK(GBP_VSTATE_F_MAJORITY_EXTRA == 0x1000u);
+    CHECK(GBP_VSTATE_F_EPISODE_STABLE == 0x1000u);
+    CHECK(GBP_VSTATE_F_MAJORITY_EXTRA == GBP_VSTATE_F_EPISODE_STABLE);
+    /* a frame that merely closed an episode as stable is refused as quarantined */
+    CHECK(gbp_vqueue_classify(GBP_VPIX_BLOCKS,
+                              GBP_VSTATE_F_COMPLETE | GBP_VSTATE_F_EPISODE_STABLE, 0)
+          == GBP_VQUEUE_REJECT_QUARANTINED);
+    /* the same frame without that bit is accepted */
+    CHECK(gbp_vqueue_classify(GBP_VPIX_BLOCKS, GBP_VSTATE_F_COMPLETE, 0)
+          == GBP_VQUEUE_ACCEPT);
+}
+
 int main(void)
 {
     printf("== test_gbp_vstream (GBP-VIDEO-004 pure modules; every scenario SYNTHETIC)\n");
@@ -1026,6 +1101,8 @@ int main(void)
     test_a_transient_impossible_state_is_latched_even_after_it_heals();
     test_the_two_invariant_counters_stay_apart();
     test_the_audit_changed_no_state_transition();
+    test_the_physical_stream0003_counters_conserve();
+    test_the_episode_stable_bit_aliases_majority_extra();
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
