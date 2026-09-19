@@ -8003,3 +8003,94 @@ are carried to the next checkpoint.
 **Next:** the first short supervised OGBPIDX1 physical run. Stop on
 `witness_target_reached`, do not extend toward 30 valid seconds, return both the
 log and the sidecar.
+
+---
+
+## 2026-09-19 — the first indexed physical run: runtime proved, stimulus disproved, ROM corrected
+
+**The run did its job by failing in the right place.** Everything the last three
+rounds built — the count-bounded stop, the source-layer witness, OGBPIDXCAP1 —
+worked on hardware the first time. What did not work was the thing being
+measured, and the stimulus said so itself.
+
+**Runtime.** `stop=witness_target_reached`: the run ended because the 2048th
+record closed, not because a clock ran out — the first time an experiment here
+has been bounded by a count of retained evidence. 217 120 service cycles with
+`unmasks == deliveries == acks == rearms` and every error counter at zero;
+81 876 blocks staged and placed, none out of range, nothing discarded; the
+sidecar exactly **8 946 060 bytes**, the size §V5.40.10 derived from the layout
+before the file existed, with 2048/2048 record seals valid. The consumer behaved
+as `stream-0004` did: `2043 == 2026 + 0 + 17 + 0`, balanced, 169 245 invariant
+checks, zero failures. Witness retention cost **0.407 % of the run**.
+
+**Stimulus.** All 81 840 canonical strips of the 2 046 complete records decode —
+valid symbols, correct SYNC, correct CRC-8, `BLOCK_INDEX == slot` every time. The
+payload is perfect. What it *says* is the problem: FRAME_ID 1 carries the 0x7F
+sentinel and **every FRAME_ID from 2 onward carries 0x80 — FAULT set, VMARGIN
+zero**. By the frozen contract the first update reported as failing is the very
+first update the ROM ever performed. Verdict, mandatory and unarguable:
+**STIMULUS_INVALID_FOR_DECISIVE_CLAIM**, source continuity **INCONCLUSIVE**.
+
+**And 83.3333 % of complete records carry two FRAME_IDs** — 1 705 of 2 046, in a
+staircase so regular it is practically a ruler: the newer ID always occupies a
+leading contiguous run of 3, 12, 21, 30 or 39 blocks, then one single-ID record,
+339 cycles out of 341. That is **not GBP frame loss** and is not reported as
+such. It is the AGB publishing one image progressively while the GBP captures
+each intermediate state faithfully.
+
+**The staircase turned out to be the measurement.** 9 blocks = 36 rows per
+captured frame → a full image takes 4.44 AGB frames = 1 248 000 cycles →
+**62.9 cycles per VRAM store** → **14.9× the VBlank budget**, with only 10.7 of
+160 rows fitting. `update_frame()` was writing the whole picture into VRAM inside
+what the design called one VBlank.
+
+**Why the original estimate was wrong, and it is worth being blunt about:** it
+counted VRAM stores and assumed a store costs a cycle or two. It never accounted
+for **instruction fetch**. The ROM never set `WAITCNT`, so the loop executed from
+cartridge ROM at the reset wait states and fetch dominated. The FAULT bit is the
+only reason this surfaced on run one instead of becoming a false continuity
+claim, and nothing about it was relaxed — the validator is the authority on
+whether its own stimulus is usable.
+
+**The fix keeps the wire format frozen.** `indexed-0002` splits the work:
+PREPARE during the visible period into IWRAM (CRC, bit packing, symbols, bar
+arithmetic — touching no VRAM byte, so it cannot tear however long it takes),
+PUBLISH during VBlank from IWRAM by DMA (computing nothing). `publish_frame` is
+placed in `.iwram` — confirmed in the map at `0x03000000`, 312 bytes — and its
+18.5 KiB of tables land in `.bss`, which is IWRAM on this target, leaving
+12 756 bytes below the stack. `REG_WAITCNT` is set for the prepare path. The
+published spans were widened to `x = 0..55` and `x = 184..239` so both are
+4-byte aligned for 32-bit DMA, which adds the constant FLAG and GUARD columns to
+every frame and **changes not one wire value**: 38 400/38 400 words still match
+`tools/istim.py`, on both phases driven end to end.
+
+Estimated publication cost ~60 % of the VBlank budget. **That is an estimate, and
+the last estimate here was wrong by 14.9×**, so the ROM measures itself and
+VMARGIN is the authority.
+
+**The validator is now adversarially drivable.** The predicate was extracted
+verbatim into `status_measure()`/`status_byte()` — no behaviour change — and six
+tests drive it: an in-budget update keeps FAULT clear, an over-budget one and a
+wrapped VCOUNT both set it, it is sticky, VMARGIN is a monotone minimum that a
+larger margin cannot raise, and 0x7F is both the sentinel and the largest
+representable margin so no measurement can forge it. Structural gates check that
+the measured window contains `publish_frame()` and none of the preparation work.
+
+**Two small reconciliations.** `staged == placed == 81 876` while the records'
+presence bits sum to 81 875: the difference is the boundary block that closed
+record 2047 and was then correctly placed as block 0 of a frame the target stop
+ended before it could close. No record is short — the assembler's own `blocks`
+field also sums to 81 875 and disagrees with the presence count nowhere. And the
+old VSTATE baseline never formed (`valid_s = 0`), which is exactly right: OGBPIDX1
+changes the FRAME_ID and the bar phase every frame, so no two consecutive frames
+can ever share a signature. A useful side effect — the valid-seconds target
+cannot compete with the witness target under this stimulus.
+
+**`stream-0005` was not touched.** Same DOL, same hash, no `src/` or `poc/`
+change. Reusing the identical capture runtime is what makes the next run an
+experiment with one variable instead of an anecdote.
+
+**Next:** the second indexed run — same `stream-0005`, new `indexed-0002`
+cartridge (`55fe72d5…`). Check STATUS first: if FAULT is still set the
+publication still overruns and the answer is INCONCLUSIVE again, and VMARGIN
+says how close it came.

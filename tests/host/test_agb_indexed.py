@@ -28,6 +28,7 @@ static unsigned char fake_vram[96 * 1024];
 static unsigned char fake_oam[1024];
 static unsigned char fake_io[1024];
 
+#define AGB_HOST_TEST 1
 #define AGB_IO_BASE   ((unsigned long)fake_io)
 #define AGB_VRAM_BASE ((unsigned long)fake_vram)
 #define AGB_OAM_BASE  ((unsigned long)fake_oam)
@@ -50,7 +51,10 @@ int main(int argc, char **argv)
     phase = 0;
     for (i = 0; i < frame_id; i++) { phase++; if (phase >= BAR_PERIOD) phase = 0; }
     bar_phase_base = phase;
-    update_frame(frame_id, (u8)status, prev_phase);
+    /* the corrected ROM publishes in two phases; the harness drives BOTH, so
+     * what it compares against the model is what VBlank actually writes */
+    prepare_frame(frame_id, (u8)status, prev_phase);
+    publish_frame();
 
     for (i = 0; i < 240u * 160u; i++)
         printf("%04x\n", ((u16 *)fake_vram)[i]);
@@ -141,6 +145,158 @@ class RomMatchesTheReferenceModel(unittest.TestCase):
         self.assertEqual(r["status"], istim.STATUS_MARGIN_INIT)
 
 
+FAULT_HARNESS = r'''
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+static unsigned char fake_vram[96 * 1024];
+static unsigned char fake_oam[1024];
+static unsigned char fake_io[1024];
+#define AGB_HOST_TEST 1
+#define AGB_IO_BASE   ((unsigned long)fake_io)
+#define AGB_VRAM_BASE ((unsigned long)fake_vram)
+#define AGB_OAM_BASE  ((unsigned long)fake_oam)
+#define main rom_main_unused
+#include "main.c"
+#undef main
+
+/* argv: a sequence of "vc0,vc1,elapsed" triples; prints the STATUS byte after
+ * each one, so the sticky/monotone behaviour is observable step by step. */
+int main(int argc, char **argv)
+{
+    struct agb_status s = { 0u, STATUS_MARGIN_INIT };
+    int i;
+    printf("%02x\n", status_byte(&s));
+    for (i = 1; i < argc; i++) {
+        unsigned vc0, vc1, el;
+        if (sscanf(argv[i], "%u,%u,%u", &vc0, &vc1, &el) != 3) return 2;
+        status_measure(&s, (u16)vc0, (u16)vc1, el);
+        printf("%02x\n", status_byte(&s));
+    }
+    return 0;
+}
+'''
+
+
+class TheValidatorIsTheAuthority(unittest.TestCase):
+    """§V5.41: the stimulus decides whether it is usable, and that decision must
+    be adversarially drivable. indexed-0001's FAULT bit was CORRECT -- the update
+    really did take 14.9 VBlanks -- so none of these gates may be weakened to
+    make a run pass."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="agbfault-")
+        src = os.path.join(cls.tmp, "fault.c")
+        with open(src, "w") as f:
+            f.write(FAULT_HARNESS)
+        cls.bin = os.path.join(cls.tmp, "fault")
+        r = subprocess.run(["gcc", "-std=gnu11", "-O1", "-Wall", "-Wextra",
+                            "-I", os.path.dirname(ROM_SRC), "-o", cls.bin, src],
+                           capture_output=True, text=True)
+        cls.built = (r.returncode == 0)
+        cls.err = r.stderr
+
+    def run_steps(self, *steps):
+        if not self.built:
+            self.skipTest("gcc unavailable: %s" % self.err[:200])
+        r = subprocess.run([self.bin] + list(steps), capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return [int(x, 16) for x in r.stdout.split()]
+
+    # VBlank is lines 160..227; a publication that ends at line 200 used 40 of
+    # the 68 available lines and 2000 of the 1309*... ticks -- pick values well
+    # inside the budget.
+    def test_A_an_update_inside_the_vblank_leaves_fault_clear(self):
+        out = self.run_steps("160,200,900")
+        self.assertEqual(out[0], 0x7F, "the sentinel is the starting state")
+        self.assertEqual(out[1] & 0x80, 0x00, "FAULT must stay clear")
+        self.assertEqual(out[1] & 0x7F, 227 - 200, "VMARGIN is the lines left")
+
+    def test_B_an_update_that_overruns_sets_fault(self):
+        # over the tick budget
+        self.assertEqual(self.run_steps("160,200,1310")[1], 0x80)
+        # VCOUNT wrapped: it left VBlank and came back round
+        self.assertEqual(self.run_steps("200,170,900")[1], 0x80)
+        # and the real indexed-0001 measurement: ~19 507 ticks
+        self.assertEqual(self.run_steps("160,200,19507")[1], 0x80)
+
+    def test_C_fault_is_sticky_for_the_rest_of_the_boot(self):
+        out = self.run_steps("160,200,1310", "160,200,900", "160,161,900", "160,200,100")
+        self.assertEqual(out[1], 0x80)
+        for k, v in enumerate(out[2:], start=2):
+            self.assertEqual(v & 0x80, 0x80, "FAULT cleared at step %d" % k)
+            self.assertEqual(v, 0x80, "VMARGIN must stay 0 once FAULT is set")
+
+    def test_D_vmargin_is_a_monotone_minimum(self):
+        out = self.run_steps("160,180,900", "160,170,900", "160,190,900", "160,200,900")
+        margins = [v & 0x7F for v in out[1:]]
+        # 47, then a LARGER margin (57) which must be ignored, then 37, then 27
+        self.assertEqual(margins, [227 - 180, 227 - 180, 227 - 190, 227 - 200],
+                         "a larger margin must not raise VMARGIN: %r" % margins)
+        self.assertEqual(margins, sorted(margins, reverse=True),
+                         "VMARGIN may only move DOWN: %r" % margins)
+        self.assertEqual(margins[-1], min(227 - 180, 227 - 170, 227 - 190, 227 - 200))
+        self.assertTrue(all(v & 0x80 == 0 for v in out[1:]), "no FAULT in this sequence")
+
+    def test_E_the_sentinel_cannot_masquerade_as_a_measurement(self):
+        """0x7F is both the sentinel and the largest representable margin, so a
+        real measurement can only ever LOWER it -- the sentinel can never be
+        reproduced by a measurement that did not happen."""
+        out = self.run_steps("160,160,900")
+        self.assertEqual(out[0], 0x7F)
+        self.assertEqual(out[1] & 0x7F, 0x43, "227-160 = 67 = 0x43")
+        self.assertLess(out[1] & 0x7F, 0x7F, "any measurement is below the sentinel")
+        # and a margin that would exceed the field is clamped, never wrapped
+        self.assertEqual(self.run_steps("0,0,900")[1] & 0x7F, 0x7F)
+
+    def test_F_the_status_byte_is_a_pure_function_of_the_latched_state(self):
+        a = self.run_steps("160,200,900")
+        b = self.run_steps("160,200,900")
+        self.assertEqual(a, b, "the validator is deterministic")
+
+
+class ThePublicationIsBounded(unittest.TestCase):
+    """§V5.41: prepare in the visible period, publish in VBlank."""
+
+    def code(self):
+        return open(ROM_SRC).read()
+
+    def test_the_vblank_path_is_publish_only(self):
+        c = self.code()
+        i_wait = c.index("while (REG_VCOUNT <  VCOUNT_VBLANK_FIRST)")
+        i_t0 = c.index("t0 = REG_TM0CNT_L;", i_wait)
+        i_t1 = c.index("t1 = REG_TM0CNT_L;", i_t0)
+        measured = c[i_t0:i_t1]
+        self.assertIn("publish_frame();", measured)
+        for forbidden in ("crc_", "strip_word", "prepare_frame", "background_at"):
+            self.assertNotIn(forbidden, measured,
+                             "%s must not run inside the measured window" % forbidden)
+
+    def test_prepare_runs_before_the_vblank_wait(self):
+        c = self.code()
+        i_prep = c.index("prepare_frame(frame_id, status, prev_phase_base);")
+        i_wait = c.index("while (REG_VCOUNT >= VCOUNT_VBLANK_FIRST)", i_prep)
+        self.assertLess(i_prep, i_wait, "PREPARE must happen in the visible period")
+
+    def test_prepare_writes_no_vram(self):
+        c = self.code()
+        body = c[c.index("static void prepare_frame("):c.index("/* PUBLISH.")]
+        self.assertNotIn("VRAM", body, "prepare must not touch VRAM")
+
+    def test_publish_is_placed_in_iwram(self):
+        self.assertIn('__attribute__((section(".iwram"), noinline))\nstatic void publish_frame',
+                      self.code())
+
+    def test_the_dma_is_explicit_about_width_and_count(self):
+        c = self.code()
+        self.assertIn("0x84000000u | (words >> 1)", c, "enable | 32-bit, count in words")
+        self.assertIn("REG_DMA3SAD", c)
+        self.assertIn("REG_DMA3DAD", c)
+
+    def test_the_wait_states_are_set(self):
+        self.assertIn("REG_WAITCNT = 0x4317u;", self.code())
+
 class RomStaticAudit(unittest.TestCase):
     """§42: what the stimulus must NOT contain."""
 
@@ -186,16 +342,27 @@ class RomStaticAudit(unittest.TestCase):
     def test_the_status_is_snapshotted_before_the_update(self):
         """§31/§18: STATUS(f) certifies updates 0..f-1."""
         c = self.code()
-        i_status = c.index("status = (u8)((fault ? STATUS_FAULT_MASK")
-        i_update = c.index("update_frame(frame_id, status, prev_phase_base);", i_status)
-        i_latch = c.index("fault = 1;", i_update)
+        i_status = c.index("status = status_byte(&st);")
+        # indexed-0002 split the update in two: the snapshot must still come
+        # first, and now BOTH halves must follow it, so the whole frame -- all
+        # 40 blocks and both diagnostic copies -- carries one immutable STATUS.
+        i_update = c.index("prepare_frame(frame_id, status, prev_phase_base);", i_status)
+        i_pub = c.index("publish_frame();", i_update)
+        assert i_status < i_update < i_pub
+        # and the MEASUREMENT of this frame's publication lands after it, so it
+        # can only ever reach the NEXT frame's STATUS
+        i_meas = c.index("status_measure(&st, vc0, vc1, elapsed);", i_pub)
         self.assertLess(i_status, i_update)
-        self.assertLess(i_update, i_latch)
+        self.assertLess(i_pub, i_meas)
 
     def test_the_fault_latch_is_sticky(self):
         c = self.code()
         self.assertNotIn("fault = 0;", c.split("for (;;)")[1],
                          "the latch must never be cleared inside the loop")
+        body = c[c.index("static void status_measure("):c.index("static u8 status_byte(")]
+        self.assertIn("s->fault = 1;", body)
+        self.assertNotIn("s->fault = 0;", body,
+                         "the validator must never clear FAULT once it is set")
 
     def test_interrupts_are_disabled_and_vblank_is_polled(self):
         c = self.code()

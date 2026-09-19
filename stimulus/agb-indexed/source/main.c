@@ -76,6 +76,10 @@ typedef unsigned int       u32;
 #define REG_BLDALPHA AGB_IO16(0x052)
 #define REG_BLDY     AGB_IO16(0x054)
 #define REG_MOSAIC   AGB_IO16(0x04C)
+#define REG_WAITCNT  AGB_IO16(0x204)
+#define REG_DMA3SAD  (*(volatile u32 *)(unsigned long)(AGB_IO_BASE + 0x0D4))
+#define REG_DMA3DAD  (*(volatile u32 *)(unsigned long)(AGB_IO_BASE + 0x0D8))
+#define REG_DMA3CNT  (*(volatile u32 *)(unsigned long)(AGB_IO_BASE + 0x0DC))
 #define REG_TM0CNT_L AGB_IO16(0x100)
 #define REG_TM0CNT_H AGB_IO16(0x102)
 #define REG_IE       AGB_IO16(0x200)
@@ -213,13 +217,89 @@ static void paint_background(void)
     }
 }
 
-/* ---- the per-frame update, the whole of the VBlank path ------------------- */
+/* ---- the self-validation verdict, extracted so it can be DRIVEN -----------
+ *
+ * The validator is the authority on whether this stimulus is usable, so it must
+ * be adversarially testable rather than buried in main(). Extracting it changes
+ * no behaviour: main() is still the only caller, nothing here reads a clock,
+ * and the predicate is character for character the one indexed-0001 shipped.
+ *
+ * FAULT is STICKY for the rest of the boot. VMARGIN is a MONOTONE MINIMUM of
+ * the observed margins, and its initial 0x7F is a SENTINEL: it means "nothing
+ * measured yet", and because 0x7F is also the largest representable margin the
+ * first real measurement can only lower it. */
+struct agb_status { u8 fault; u8 vmargin; };
+
+static void status_measure(struct agb_status *s, u16 vc0, u16 vc1, unsigned elapsed)
+{
+    if (vc1 < vc0 || vc1 > VCOUNT_LAST || elapsed > VBLANK_TICKS) {
+        s->fault = 1;                        /* sticky for the rest of this boot */
+        s->vmargin = 0;
+    } else {
+        unsigned margin = (unsigned)(VCOUNT_LAST - vc1);
+        if (margin > STATUS_MARGIN_MASK) margin = STATUS_MARGIN_MASK;
+        if ((u8)margin < s->vmargin) s->vmargin = (u8)margin;   /* monotone minimum */
+    }
+}
+
+static u8 status_byte(const struct agb_status *s)
+{
+    return (u8)((s->fault ? STATUS_FAULT_MASK : 0u) | (s->vmargin & STATUS_MARGIN_MASK));
+}
+
+/* ---- PREPARE / PUBLISH: the correction of indexed-0001 (§V5.41) -----------
+ *
+ * indexed-0001 wrote the whole 240x160 picture straight into VRAM inside what
+ * was supposed to be one VBlank. The first physical run measured what that
+ * really costs: the write front advanced 9 blocks per captured GBP frame, so a
+ * full image took 4.44 AGB frames ~ 1 248 000 cycles -- **14.9x the 83 776-cycle
+ * VBlank** -- and roughly 63 cycles per VRAM store, because the loop was
+ * executing from CARTRIDGE ROM at the reset wait states and instruction FETCH,
+ * not the store, dominated. FAULT was set on the very first update and stayed
+ * sticky, and the GBP saw a progressive top-down wipe: 83.3 % of captured
+ * frames carried two FRAME_IDs (GBP-HW-153...159).
+ *
+ * The wire format is UNCHANGED. What changed is WHEN each word is written:
+ *
+ *   PREPARE   during the VISIBLE period, into IWRAM. CRC, bit packing, symbol
+ *             selection and the bar arithmetic all happen here, where taking a
+ *             whole frame costs nothing and no VRAM byte is touched.
+ *   PUBLISH   during VBlank only, from IWRAM, by DMA. No computation, no
+ *             function call, no division: a copy of an image that already
+ *             exists.
+ *
+ * The published spans are widened to x = 0..55 and x = 184..239 so both are
+ * 4-byte aligned and can go as 32-bit DMA. That adds the FLAG column and the
+ * three GUARD columns to every frame's publication -- all constants, so not one
+ * wire value changes -- and it removes the odd-alignment that would have forced
+ * 16-bit transfers.
+ *
+ * STATUS is still snapshotted BEFORE the frame it travels with, so it certifies
+ * updates through f-1 and never f itself, and the snapshot is immutable for all
+ * 40 blocks and both diagnostic copies of that frame (§V5.33.8). */
+#define PUB_L_X0   0u                    /* FLAG + STRIP-L + GUARD_A */
+#define PUB_L_W    56u
+#define PUB_R_X0   184u                  /* GUARD_B + STRIP-R + GUARD_C */
+#define PUB_R_W    56u
+#define BAR_W      (CELL * BAR_CELLS)
+
+/* In IWRAM by construction: .bss is at 0x03000000 on this target. */
+static u16 pub_l[BLOCKS][2][PUB_L_W];
+static u16 pub_r[BLOCKS][2][PUB_R_W];
+static u16 pub_erase[BLOCKS][BAR_W];
+static u8  pub_x0_old[BLOCKS];
+static u8  pub_x0_new[BLOCKS];
+
+/* ---- the per-frame update, split in two ---------------------------------- */
 /* barpos(f,b) = (f + 8*b) mod 31, kept DIVISION-FREE: the phase for block 0 is
  * carried in a counter that is incremented and conditionally reduced, and each
  * block adds 8 with the same compare-and-subtract. */
 static unsigned bar_phase_base;      /* (frame_id mod 31) */
 
-static void update_frame(u32 frame_id, u8 status, unsigned prev_phase_base)
+/* PREPARE. Visible period. Produces exactly the words indexed-0001 produced,
+ * into IWRAM instead of VRAM: same CRC, same bit order, same symbols, same bar
+ * arithmetic, same complement rule. Not one wire value differs. */
+static void prepare_frame(u32 frame_id, u8 status, unsigned prev_phase_base)
 {
     u8 bits[STRIP_BITS];
     const u8 crc_id = crc_after_id(frame_id);
@@ -229,36 +309,86 @@ static void update_frame(u32 frame_id, u8 status, unsigned prev_phase_base)
 
     for (b = 0; b < BLOCKS; b++) {
         const u8 crc = crc_finish(crc_id, b, status);
-        unsigned i, row;
+        unsigned i, inv;
         unsigned x0_new = CONTENT_X0 + CELL * phase;
         unsigned x0_old = CONTENT_X0 + CELL * prev_phase;
 
         strip_word(bits, frame_id, b, status, crc);
 
-        for (row = 0; row < LINES_PER_BLOCK; row++) {
-            const unsigned y = b * LINES_PER_BLOCK + row;
-            volatile u16 *r = VRAM + y * SCREEN_W;
-            const unsigned inv = (row & 1u);          /* rows 1 and 3 are complemented */
-
+        for (inv = 0; inv < 2u; inv++) {
+            u16 *l = pub_l[b][inv];
+            u16 *r = pub_r[b][inv];
+            /* the constant columns travel with the span so the DMA stays aligned */
+            l[X_FLAG - PUB_L_X0]    = SYM_FLAG;
+            l[X_GUARD_A - PUB_L_X0] = SYM_GUARD;
+            r[X_GUARD_B - PUB_R_X0] = SYM_GUARD;
+            r[X_GUARD_C - PUB_R_X0] = SYM_GUARD;
             /* STRIP-L: plain on rows 0/2, complemented on rows 1/3 */
             for (i = 0; i < STRIP_BITS; i++) {
                 const unsigned v = (unsigned)bits[i] ^ inv;
-                r[STRIP_L_X0 + i] = v ? SYM_ONE : SYM_ZERO;
+                l[STRIP_L_X0 - PUB_L_X0 + i] = v ? SYM_ONE : SYM_ZERO;
             }
             /* STRIP-R: reversed, and complemented on rows 0/2 (not 1/3) */
             for (i = 0; i < STRIP_BITS; i++) {
                 const unsigned v = (unsigned)bits[STRIP_BITS - 1u - i] ^ (inv ^ 1u);
-                r[STRIP_R_X0 + i] = v ? SYM_ONE : SYM_ZERO;
+                r[STRIP_R_X0 - PUB_R_X0 + i] = v ? SYM_ONE : SYM_ZERO;
             }
-            /* erase the previous bar, then draw the new one */
-            for (i = 0; i < CELL * BAR_CELLS; i++)
-                r[x0_old + i] = background_at(x0_old + i, y);
-            for (i = 0; i < CELL * BAR_CELLS; i++)
-                r[x0_new + i] = BAR_COLOUR;
         }
+        /* the bar erase pattern. background_at() depends on y only through
+         * (y >> 2), and every row of block b has y >> 2 == b, so ONE pattern
+         * serves all four rows of the block. */
+        for (i = 0; i < BAR_W; i++)
+            pub_erase[b][i] = background_at(x0_old + i, b * LINES_PER_BLOCK);
+        pub_x0_old[b] = (u8)x0_old;
+        pub_x0_new[b] = (u8)x0_new;
 
         phase += BAR_PHASE_MUL;      if (phase >= BAR_PERIOD) phase -= BAR_PERIOD;
         prev_phase += BAR_PHASE_MUL; if (prev_phase >= BAR_PERIOD) prev_phase -= BAR_PERIOD;
+    }
+}
+
+/* PUBLISH. VBlank only, and the whole of the VBlank path. Runs from IWRAM, so
+ * instruction fetch is 0-wait rather than the cartridge wait states that made
+ * indexed-0001 cost ~63 cycles per store. It computes nothing: two aligned
+ * 32-bit DMA bursts per row out of IWRAM, then the 16 bar words. No division,
+ * no call, no clock read, no branch on anything measured. */
+/* One aligned 32-bit burst, IWRAM -> VRAM.
+ *
+ * The host harness has no DMA controller, so there it performs the same copy
+ * directly. That is deliberate: a publication the host cannot execute would
+ * make the 38 400-word model-equality gate vacuous, and that gate is the only
+ * thing standing between "the wire format is unchanged" and a claim. */
+static void pub_copy32(volatile u16 *dst, const u16 *src, unsigned words)
+{
+#ifdef AGB_HOST_TEST
+    unsigned i;
+    for (i = 0; i < words; i++) dst[i] = src[i];
+#else
+    REG_DMA3SAD = (u32)(unsigned long)src;
+    REG_DMA3DAD = (u32)(unsigned long)dst;
+    /* >> 1, never / 2: ARM7TDMI has no divide instruction and the no-division
+     * rule is enforced textually, so the VBlank path states the shift it means. */
+    REG_DMA3CNT = 0x84000000u | (words >> 1);      /* enable | 32-bit */
+#endif
+}
+
+__attribute__((section(".iwram"), noinline))
+static void publish_frame(void)
+{
+    unsigned b;
+    for (b = 0; b < BLOCKS; b++) {
+        const unsigned xo = pub_x0_old[b], xn = pub_x0_new[b];
+        const u16 *er = pub_erase[b];
+        unsigned row;
+        for (row = 0; row < LINES_PER_BLOCK; row++) {
+            volatile u16 *v = VRAM + (b * LINES_PER_BLOCK + row) * SCREEN_W;
+            const unsigned inv = (row & 1u);
+            unsigned i;
+            pub_copy32(v + PUB_L_X0, pub_l[b][inv], PUB_L_W);
+            pub_copy32(v + PUB_R_X0, pub_r[b][inv], PUB_R_W);
+            for (i = 0; i < BAR_W; i++) v[xo + i] = er[i];
+            for (i = 0; i < BAR_W; i++) v[xn + i] = BAR_COLOUR;
+        }
     }
 }
 
@@ -266,8 +396,7 @@ int main(void)
 {
     u32 frame_id = 0;
     u8 status = STATUS_MARGIN_INIT;          /* the sentinel: nothing measured yet */
-    u8 fault = 0;
-    u8 vmargin = STATUS_MARGIN_INIT;
+    struct agb_status st = { 0u, STATUS_MARGIN_INIT };
     unsigned prev_phase_base;
     unsigned i;
 
@@ -281,6 +410,12 @@ int main(void)
     /* 3. every object disabled, from whatever state a loader left behind */
     for (i = 0; i < 512u; i++) OAM[i] = 0x0200u;
 
+    /* 3b. game-pak wait states and prefetch. indexed-0001 never touched this,
+     *     so the PREPARE work ran at the reset values (4/2, no prefetch). It is
+     *     set here for the visible-period path only; the VBlank path now runs
+     *     from IWRAM and does not depend on it. */
+    REG_WAITCNT = 0x4317u;
+
     /* 4. Timer 0, free running, prescaler 1 = F/64 (GBATEK): 262 144 Hz */
     REG_TM0CNT_H = 0;
     REG_TM0CNT_L = 0;
@@ -293,39 +428,39 @@ int main(void)
      *    initialised picture is ever displayed */
     bar_phase_base = 0;
     prev_phase_base = 0;
-    update_frame(0, status, prev_phase_base);
+    prepare_frame(0, status, prev_phase_base);
+    publish_frame();
     REG_DISPCNT = 0x0403u;                   /* mode 3 | BG2; everything else off */
 
     for (;;) {
         u16 t0, t1, vc0, vc1;
-        unsigned elapsed, margin;
-
-        /* wait for the END of the visible area, then for VBlank to begin */
-        while (REG_VCOUNT >= VCOUNT_VBLANK_FIRST) { }
-        while (REG_VCOUNT <  VCOUNT_VBLANK_FIRST) { }
+        unsigned elapsed;
 
         prev_phase_base = bar_phase_base;
         frame_id = (frame_id + 1u) & 0x00FFFFFFu;        /* 24-bit modular wrap */
         bar_phase_base += 1u; if (bar_phase_base >= BAR_PERIOD) bar_phase_base = 0;
 
-        /* STATUS(f) is snapshotted BEFORE update f, so it certifies updates
-         * 0..f-1 and never f itself (§V5.33.8). */
-        status = (u8)((fault ? STATUS_FAULT_MASK : 0u) | (vmargin & STATUS_MARGIN_MASK));
+        /* STATUS(f) is snapshotted BEFORE frame f is prepared, so it certifies
+         * publications 0..f-1 and never f itself (§V5.33.8), and it is immutable
+         * for all 40 blocks and both diagnostic copies of this frame. */
+        status = status_byte(&st);
 
+        /* PREPARE, in the VISIBLE period. Unbounded on purpose: it writes no
+         * VRAM byte, so however long it takes it cannot tear the picture. */
+        prepare_frame(frame_id, status, prev_phase_base);
+
+        /* wait for the END of the visible area, then for VBlank to begin */
+        while (REG_VCOUNT >= VCOUNT_VBLANK_FIRST) { }
+        while (REG_VCOUNT <  VCOUNT_VBLANK_FIRST) { }
+
+        /* PUBLISH. This, and only this, is what the budget is measured over. */
         vc0 = REG_VCOUNT;
         t0 = REG_TM0CNT_L;
-        update_frame(frame_id, status, prev_phase_base);
+        publish_frame();
         t1 = REG_TM0CNT_L;
         vc1 = REG_VCOUNT;
 
         elapsed = (unsigned)((u16)(t1 - t0));
-        if (vc1 < vc0 || vc1 > VCOUNT_LAST || elapsed > VBLANK_TICKS) {
-            fault = 1;                       /* sticky for the rest of this boot */
-            vmargin = 0;
-        } else {
-            margin = (unsigned)(VCOUNT_LAST - vc1);
-            if (margin > STATUS_MARGIN_MASK) margin = STATUS_MARGIN_MASK;
-            if ((u8)margin < vmargin) vmargin = (u8)margin;   /* monotone minimum */
-        }
+        status_measure(&st, vc0, vc1, elapsed);
     }
 }
