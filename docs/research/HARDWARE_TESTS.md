@@ -14153,3 +14153,39 @@ on hardware. The one genuinely new risk — a window that never opens — resolv
 change, any re-judging of runs 1–3, and any claim of
 `CONTROLLED SOURCE-FRAME CONTINUITY` before a capture that both passes
 `vidxcap.usability()` and returns `OBSERVED_CONTIGUOUS`.
+
+#### V5.44.16 Build identity
+
+```text
+Test ID     GBP-VIDEO-004
+Build ID    stream-0006
+Commit      c629445            -- CLEAN, no -dirty stamp
+Size        483 008 B          -- stream-0005 was 481 664 B (+1 344 B)
+sha256      a9b8b969ef462bfe11b833f9dd77d56f7aa4a3387d61124f99b72901c9cb0379
+Swiss       build/swiss/12-stream/boot.dol, byte-identical to the source DOL
+Reproduce   GIT_COMMIT=c629445 GIT_DIRTY= make build
+```
+
+Built twice from scratch and **byte-identical both times**.
+
+**A false `-dirty` had to be fixed before this number could exist**, and it is
+worth recording because it will recur. The identity used to be computed inside
+the container, and the container's git is not trustworthy on this filesystem:
+the repository is on a fuseblk mount whose directory cache the container does
+not see refreshed, so once a commit rewrites `.git/index` the container sees
+**no index at all**, calls every tracked file deleted, and stamps `-dirty` on a
+provably clean tree. `stream-0006` first built as `b71da06-dirty` that way.
+
+Project rule §18 forbids taking a `-dirty` build to hardware, so this was a
+blocker rather than a blemish. `GIT_COMMIT=… GIT_DIRTY= make build` was already
+the documented workaround — but `compose.yaml` forwarded neither variable, so
+the override silently did nothing and the container's wrong answer won anyway.
+Both values are now computed on the host and passed in with `-e` (`c629445`).
+
+The same cache incoherence also makes `rm -rf build/poc` fail from inside the
+container (`Is a directory`) and `mkdir` fail from outside it (`Not a
+directory`). The reliable way to force a from-scratch build is to **move**
+`build/poc` aside on the host rather than delete it: a fresh name has no stale
+dentry. `build/physical/agb-indexed-cart.gba` must be preserved through any such
+cleanup — it is the delivery ROM and **cannot be regenerated in this
+environment** (no `gbafix`); its hash is `9f04916b…8d9cc2`.
