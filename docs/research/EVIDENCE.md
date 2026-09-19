@@ -3243,3 +3243,183 @@ storage gate fires before the device does, and nothing else.
 
 Its correct description is: PHYSICAL EXECUTION ATTEMPTED · GX SELF-TEST
 PHYSICALLY PASSED · GBP STREAM CAPTURE NOT STARTED · ABORTED PRE-SERVICE.
+
+### GBP-HW-138 — the storage contract passed on hardware, and the service conserved 280 621 cycles with a consumer attached — FACT
+
+First physical run of `stream-0003` (commit `03b32a9`, 471 648 B,
+`2f8e362e…199e3`). Log `logs/GBP-VIDEO-004_stream-0003.log`, 88 705 B, sha256
+`62996c7d4fb282b1833c1d53060828baf3395d40154922c92e0add63004fa4ec`,
+`dropped=0 truncated=0`.
+
+```text
+ENVSTORE … configured_bytes=7106560 required_bytes=6922240 fault=- ok=1
+unmasks = deliveries = acks = rearms = 280 621
+VIDEO 105 841 selected / 105 841 completed · AUDIO 181 481
+timeouts=0 busy=0 overflow=0 uncertain=0 errors=0 transport_ok=1
+transfers=1 129 255 bulk_transfers=287 322 bulk_bytes=1 149 775 616
+```
+
+The `stream-0002` pre-service abort is resolved on hardware. `bulk_transfers`
+exceeds `deliveries` by 6 701 because that many causes carried both an AUDIO and
+a VIDEO block. **This is the first time the service path conserved with a
+consumer, a converter and a GX display attached**; `vstate-0004` conserved for
+longer but had none of them.
+
+### GBP-HW-139 — the stream consumer and the GX ownership machine ran on hardware, and the invariants held throughout — FACT
+
+```text
+taken=2298 converted=2298 presented=2286 overrun=0 dropped_before_convert=0
+repeats=12 no_cpu_texture=0 abandoned_no_raw=0
+submit=2299/2299 blocked_inflight=0 drawdone=2299 spurious=0 releases=2299
+xfb_presents=2287 xfb_skipped=12 consistent_at_end=1 inflight_at_end=0
+STREAMINV checks=246548 failures=0 main=0/244249 isr=0/2299
+```
+
+`2 299 = 2 298 scientific + 1 self-test` for submits, draw-dones and releases.
+Every published frame was taken and converted; **no frame was superseded in the
+mailbox and none overran the generation guard**. The R8 latch makes the strong
+statement possible: the invariants held **throughout**, across 246 548 checks on
+both the main and the interrupt side, not merely at the final instant.
+
+`drained=0` is correct, not a failure: `inflight_at_end=0`, so the teardown's
+blocking drain was never needed.
+
+### GBP-HW-140 — the consumer slice, measured on hardware for the first time — FACT
+
+```text
+calls=280621 slices=91920 completed=2298
+skipped_cause_pending=70025 pending_before=70025
+pending_after=21527 arrived_during=21527
+ticks_min=1129 ticks_max=1663 ticks_mean=1361   (tb_hz = 40 500 000)
+```
+
+```text
+min  27.8765 us · max  41.0617 us · mean  33.6049 us
+skipped_cause_pending / calls = 24.95 %
+arrived_during / slices       = 23.42 %
+slices per completed frame    = 40.0 exactly (one tile row each)
+publish_mean 780 519 ticks = 19.27 ms · convert_mean 54 478 ticks = 1.345 ms
+```
+
+A quarter of all pump calls found a GBP cause already latched and yielded the
+cycle. **`arrived_during` is a coincidence count and no causality may be read
+from it.** The placement moves from PLAUSIBLE BUT UNMEASURED to **measured, with
+no observed transport effect**; it is **not** timing-safe on one run.
+
+### GBP-HW-141 — the incomplete intervals are a startup-region signature that predates streaming — CORROBORATED
+
+```text
+stream-0003  frames=2648 incomplete=13 resync=26
+             INTERVALS 1:1, 33:1, 34:3, 38:8, 40:2635
+             all 13 within the first 408 frames; zero in the remaining 2 240
+             clusters: {11,14,18} {217,220,223} {251,254,257} {402,405,408}
+vstate-0004  frames=10503 incomplete=12 resync=24   (NO streaming consumer)
+             INTERVALS 30:1, 34:4, 38:7, 40:10491
+             at indices 1, 32, 35, 38, 92, 95, 98, 192, 196
+```
+
+The same 34/38/38 cluster shape, the same confinement to the startup region, and
+nearly the same absolute count across a 4× duration difference — which is what a
+fixed startup cost looks like and is not what a per-frame rate looks like.
+
+**Streaming did not measurably change them.** Whether blocks were lost, or
+boundaries observed early or late, or causes coalesced, is **UNKNOWN**: this run
+has no ground truth, and **none of these may be called source-frame loss**.
+
+### GBP-HW-142 — R3 replicated under a real streaming workload — CORROBORATED
+
+```text
+SEMANTIC  total=42 serviced=42 other=0 non_source=0 disc_extra=42 maj_extra=0
+          both=0 quarantined=0 deferred=0
+SEMANTIC2 preserved=42 fu_present=42 fu_absent=0 fu_no_next=0 fu_unknown=0
+```
+
+42 disagreements, all `disc_extra`, all serviced, all with a follow-up cause
+present — under a workload none of the earlier runs had, a real game repainting
+continuously. **The mechanism stays UNKNOWN and U-GBP-033 remains OPEN.**
+
+`STREAMFLAG15 last_count=1 first_x=0 first_y=0`: one bit-15 word per frame at
+(0,0), consistent with every previous physical run. **U-GBP-034 stays OPEN.**
+
+### GBP-HW-143 — `power_cycle_required=1` is a by-construction latch, reproduced identically by two validated runs — FACT
+
+`power_cycle_required` is set to 1 **before every IRQ register write**
+(`gbp_initirqa_probe.c:409`, `gbp_vstate_probe.c:1329`, `:1437`). This run made
+561 244 of them, all completed, `uncertain_writes=0`. The `FINAL` snapshot is
+taken *"under the restored AR_INFO"* (`gbp_initirqa_probe.c:483`), so its
+`control`/`irq` are not comparable with values read under the experimental
+AR_INFO.
+
+| run | FINAL | flag |
+| --- | --- | --- |
+| `vstate-0004` (physically validated) | `control=00 irq=9090` | 1 |
+| `color-0002` (physically validated) | `control=00 irq=9292` | 1 |
+| `stream-0003` | `control=00 irq=9292` | 1 |
+
+`stream-0003` reproduces `color-0002` exactly, and both validated runs carry the
+same flag with accepted teardowns. **It is not evidence that the hardware
+remained in a state requiring a power cycle.** The standing operator instruction
+to power-cycle before the next run is unchanged.
+
+### GBP-HW-144 — real cartridge video was presented through Open-GBP on physical GameCube output — FACT (log) + OPERATOR OBSERVATION
+
+**LOG FACT:** 2 286 scientific GX presentations, 2 298 frames published,
+converted and submitted, 105 841 VIDEO transfers completed, ownership invariants
+held throughout.
+
+**OPERATOR OBSERVATION**, with two photographs preserved in `captures/local/`
+(`…-1.jpeg` `564cb781d7fd9a3dceba68ea27daa103713c300a1329bbc8e177de6b6a467d86`,
+`…-2.jpeg` `326fbdd608025cfe8da6ae1019c291b4158f8b27e03845c0970f39d7f8d424d0`):
+a rainbow checkerboard appeared first, then the actual cartridge game; the Game
+Boy boot logo was not seen; the image looked normal; the picture was small and
+centred near native size.
+
+**The startup image is the display self-test, confirmed from the rendering code,
+not inferred from appearance.** `display_selftest()` writes
+`((x>>3)<<10) | ((y>>3)<<5) | ((x^y)&0x1F)` presented as `GX_TF_RGB5A3`, so
+R = x>>3 left→right, G = y>>3 top→bottom, B = (x^y)&0x1F — a 30 × 20 grid of
+8-pixel cells with exactly the photographed gradient and checkerboard.
+
+**The small centred picture is by design**, confirmed from source: a 240×160
+`GX_NEAR` texture drawn as a quad at `x0 = (640−240)/2 = 200`,
+`y0 = (480−160)/2 = 160`, covering 37.5 % × 33.3 % of the framebuffer. §V5.16
+specified exactly this and left scaling to Phase 9. **Not a rendering defect.**
+
+**The missing boot logo is expected for this POC**: the AGB begins executing at
+console power-on and its logo sequence finishes before Swiss has loaded the DOL,
+let alone before the 5 000 ms pre-handler wait. **No number of skipped source
+frames may be inferred from elapsed time** — that is the leading-edge limitation
+OGBPIDX1 already pre-registered.
+
+**Scope of the milestone:** real DOL-017, real cartridge, Open-GBP runtime,
+physical GameCube output, native-size presentation, sustained for this 44.3 s
+smoke. It does **not** imply GBP-VIDEO-004 complete, zero source-frame loss, a
+timing-safe pump, correct pacing, absence of tearing, or final UI.
+
+### GBP-HW-145 — two software defects found by the run, neither fixed — FACT
+
+**P2, HIGH.** `GBP_VSTATE_F_MAJORITY_EXTRA` (`gbp_vstate.h:109`) and
+`GBP_VSTATE_F_EPISODE_STABLE` (`gbp_vstate.h:121`) are **both `0x1000` in the
+same frame-flag word**. `gbp_vstate.c:1052` writes the latter into `f->flags`;
+`gbp_vqueue_classify()` tests the former first and returns `QUARANTINED`. The run
+shows the collision exactly: **324 episodes, all closed as stable → 324 frames
+quarantined**, while the R3 machinery reported `maj_extra=0 quarantined=0`.
+
+Effect: **324 of 2 635 complete frames refused (12.30 %)**, cadence 59.74 Hz →
+51.85 Hz, independently confirmed by `publish_mean` 19.27 ms = 51.89 Hz. The
+underlying trigger is ordinary changing cartridge video driving the structured-
+change detector (324 episodes in 44.3 s, against 9 in 175.8 s for `vstate-0004`'s
+static picture) — but the *mechanism* of the loss is the bit collision, not a
+policy.
+
+**P1, MEDIUM.** `gbp_vqueue_balanced()` asserts
+`converted == presented + overrun` and omits the third legitimate terminal state
+of a converted frame: **repeated** — submitted and drawn, but both framebuffers
+spoken for, so the XFB copy was skipped. The run conserves exactly under the
+correct identity: `2 298 == 2 286 + 0 + 12`, with `xfb_skipped=12 == repeats=12`.
+**`balanced=0` is an accounting predicate missing a state, not a conservation
+failure.**
+
+Both are `src/gbp` changes, both are proposed and **not applied**, and both are
+locked as passing unit tests that assert the current behaviour together with the
+arithmetic showing why it is wrong.

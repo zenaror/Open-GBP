@@ -10503,3 +10503,708 @@ the ≈59.727 Hz AGB rate. DESIGN DECISION — every constant of OGBPIDX1. HYPOT
 — that a mixed frame, if observed, was mixed on the AGB→GBP→GameCube path;
 the layer is not attributable by this experiment. UNKNOWN — U-GBP-029 and
 U-GBP-034, neither of which this experiment depends on or resolves.
+
+### V5.34 FIRST PHYSICAL GBP STREAM SMOKE — `stream-0003`, executed 2026-09-18 — **REAL CARTRIDGE VIDEO REACHED THE SCREEN**
+
+```text
+STATUS OF THE RUN
+
+  PHYSICAL EXECUTION                     yes, exact stream-0003
+  GBP SERVICE                            OPERATIONAL, 280 621 conserved cycles
+  STREAM CONSUMER / DISPLAY PATH         PHYSICALLY EXERCISED end to end
+  OWNERSHIP INVARIANTS                   HELD, 246 548 checks, 0 failures
+  PUMP                                   PHYSICALLY MEASURED for the first time
+  REAL CARTRIDGE VIDEO ON SCREEN         yes (operator observation + photographs)
+  SOURCE-FRAME CONTINUITY                NOT YET DECIDABLE — no indexed stimulus
+
+  TWO SOFTWARE DEFECTS FOUND. Both are in src/gbp, both are reported and NOT
+  fixed here, and one of them cost 12.3 % of the publishable frames.
+```
+
+#### V5.34.1 Log identity, verified from the file
+
+```text
+logs/GBP-VIDEO-004_stream-0003.log
+  88 705 B   sha256 62996c7d4fb282b1833c1d53060828baf3395d40154922c92e0add63004fa4ec
+  test_id=GBP-VIDEO-004  build_id=stream-0003  commit=03b32a9
+  libogc=libogc2 r2442.094b250  capture_s=30  safety_s=60
+  lines=677  dropped=0  truncated=0  power_cycle_required=1  sidecar=none
+```
+
+Preserved as ignored local copies in `captures/local/`, with the operator's two
+photographs (`…-1.jpeg` `564cb781…`, `…-2.jpeg` `326fbdd6…`).
+
+#### V5.34.2 The storage fix is physically validated
+
+```text
+ENVSTORE frames=16384/16384 events=4096/4096 raw_ring=737280/552960 slots=4/3
+         episode_raw=2949120/2949120 audio_raw=12288/12288
+         configured_bytes=7106560 required_bytes=6922240 fault=- ok=1
+```
+
+**FACT: `stream-0003`'s storage preflight passed physically.** The `stream-0002`
+pre-service blocker is resolved. **`stream-0002` is not re-interpreted**: it
+still stands as PHYSICALLY EXECUTED, ABORTED PRE-SERVICE.
+
+#### V5.34.3 Service conservation — FACT
+
+```text
+unmasks = deliveries = acks = rearms = 280 621      exact, all four equal
+VIDEO   105 841 selected / 105 841 completed        every selected read completed
+AUDIO   181 481 drained
+timeouts=0 busy=0 overflow=0 uncertain=0 errors=0 transport_ok=1
+transfers=1 129 255  bulk_transfers=287 322  bulk_bytes=1 149 775 616
+```
+
+`105 841 + 181 481 = 287 322 = bulk_transfers`, which exceeds `deliveries` by
+6 701: **6 701 deliveries carried both an AUDIO and a VIDEO block**, the
+multi-source cause the service path already handles. The identity is
+`bulk_transfers = video + audio ≥ deliveries`, and it holds exactly.
+
+**FACT: 280 621 consecutive service cycles conserved unmask→deliver→ack→re-arm
+with zero transport faults of any kind.** This is by far the longest such run in
+the project — `vstate-0004` conserved 2 228 013 IRQ writes over 175 s without a
+consumer; this is the first time it was done **with a consumer, a converter and
+a GX display attached**.
+
+#### V5.34.4 The capture window — 44.323 s wall for 30.002 s of science
+
+```text
+CLOCKSEC capture_s=44.323 baseline_s=0.066 valid_s=30.002 safety_s=49.430
+         target_s=30 limit_s=60
+```
+
+Traced to `gbp_vstate.c:884-892`: the scientific clock adds **each counted
+frame's own span** `t_last_block − t_first_block` — the interval from a frame's
+first VIDEO block to its last — and **never** the idle between the last block of
+one frame and the first block of the next. The code comment says so: *"Its own
+span is used, which slightly understates the period — the conservative
+direction."* Only clean complete frames after `baseline_valid` count.
+
+2 619 counted frames over 30.002 s ⇒ a mean intra-frame span of **11.46 ms**
+against a **16.74 ms** frame period; the 5.28 ms/frame difference is the
+inter-frame idle, which is exactly what is not counted.
+
+**This is not a streaming effect.** `vstate-0004` shows the same relationship:
+175.848 s wall for 120.009 s valid, ratio **1.465**; `stream-0003` 44.323 /
+30.002 = **1.477**. **44.323 s is wall time and must never be quoted as the
+scientific duration.**
+
+#### V5.34.5 Frame assembly — and why the 13 incomplete frames are NOT source loss
+
+```text
+FRAMECAP  frames=2648 complete=2635 incomplete=13 resync=26 anomaly_region=13
+          counted=2619 blocks=105841 pre_boundary=0 store_full=0
+INTERVALS 1:1, 33:1, 34:3, 38:8, 40:2635
+```
+
+2 635 + 13 = 2 648 ✓. The interval histogram sums to 105 840 blocks; the 105 841st
+was in the interval still open when the capture stopped ✓.
+
+**Where they are is the whole answer.** Every one of the 13 incomplete intervals
+occurred in the first 408 frames of 2 648 — the first ~6.9 s of a 44.3 s capture —
+and **zero** occurred in the remaining 2 240 frames:
+
+```text
+frame    1  blocks  1     (the first partial interval, before the assembler had an anchor)
+frames  11, 14, 18        34, 38, 38
+frames 217, 220, 223      34, 38, 38
+frames 251, 254, 257      34, 38, 38
+frames 402, 405, 408      33, 38, 38
+```
+
+Four clusters of exactly three, each with the same 34/38/38 shape.
+
+**The physically validated non-streaming baseline shows the same thing.**
+`vstate-0004` (120 s target, no consumer): `INTERVALS 30:1, 34:4, 38:7, 40:10491`
+with incomplete frames at indices **1, 32, 35, 38, 92, 95, 98, 192, 196** — the
+same 34/38/38 clusters, also confined to the first ~200 of 10 503 frames.
+
+| | `vstate-0004` (no streaming) | `stream-0003` (streaming) |
+| --- | --- | --- |
+| capture | 175.848 s | 44.323 s |
+| frames | 10 503 | 2 648 |
+| incomplete | 12 | 13 |
+| resync | 24 | 26 |
+| shapes | 34/38/38 clusters | 34/38/38 clusters |
+| where | first ~200 frames | first 408 frames |
+
+**CORROBORATED: the incomplete intervals and resyncs are a startup-region
+phenomenon with the same signature in a physically validated run that had no
+streaming consumer at all. Streaming did not measurably change them.** The
+absolute counts are nearly equal across a 4× duration difference, which is what a
+fixed startup cost looks like and is not what a per-frame rate looks like.
+
+**What can and cannot be said:**
+
+```text
+FACT          13 intervals carried fewer than 40 VIDEO blocks between two
+              observed boundaries, all within the first 408 frames
+CORROBORATED  the same signature appears in vstate-0004 without streaming
+UNKNOWN       whether blocks were lost, or boundaries were observed early/late,
+              or causes coalesced. NOTHING in this log distinguishes them.
+NOT PERMITTED calling any of them "source frame loss" — there is no ground
+              truth in this run, which is precisely why OGBPIDX1 exists
+```
+
+#### V5.34.6 **DEFECT P2 — 324 frames refused because two flags share one bit**
+
+```text
+STREAMSRC  closed=2648 complete=2298 incomplete=13 quarantined=324 anomaly=13
+           published=2298
+STRUCTURED episodes=324 stable=324 unstable=0
+SEMANTIC   maj_extra=0 quarantined=0       ← the R3 machinery saw NOTHING
+```
+
+The classification equation from code (`gbp_vqueue.c:gbp_vqueue_classify`) is
+exact and closes: `2 298 + 13 + 324 + 13 = 2 648`, and
+`2 635 − 324 − 13 = 2 298`. The question is why 324 complete 40-block frames were
+quarantined while the R3 machinery reported **zero** majority-extra blocks.
+
+**Root cause, in two lines of the same header:**
+
+```c
+/* src/gbp/gbp_vstate.h:109 */
+#define GBP_VSTATE_F_MAJORITY_EXTRA  0x1000u   /* §R3.12 quarantine */
+/* src/gbp/gbp_vstate.h:121 */
+#define GBP_VSTATE_F_EPISODE_STABLE  0x1000u   /* the frame that closed an episode as stable */
+```
+
+**The same bit, in the same `GBP_VSTATE_F_*` frame-flag word.**
+`gbp_vstate.c:1052` writes `f->flags |= GBP_VSTATE_F_EPISODE_STABLE`, and
+`gbp_vqueue_classify()` tests `flags & GBP_VSTATE_F_MAJORITY_EXTRA` **first** and
+returns `QUARANTINED`. So **every frame that closed a structured-change episode
+as stable was misread as containing a majority-extra block and refused
+publication.**
+
+The physical arithmetic is exact: **324 episodes, all stable → 324 quarantined.**
+
+**Answering §7's question directly: YES.** The quarantine is the VSTATE
+structured-change scientific machinery reacting to ordinary changing cartridge
+video — a real game repaints constantly, so episodes open and close continuously
+(324 in 44.3 s ≈ 7.3/s, against **9 in 175.8 s** for `vstate-0004`'s far more
+static picture). But the *mechanism* by which those frames were dropped is the
+bit collision, not a deliberate policy.
+
+Classification of the behaviour:
+
+```text
+A intentional temporary POC behaviour   NO — nothing intended this
+B unsuitable for sustained video        YES — it discards 12.30 % of complete
+                                        frames for a reason that does not exist
+C required for protocol correctness     NO — the R3 quarantine it imitates never
+                                        fired (maj_extra=0)
+```
+
+**Quantified effect on cadence:** 2 298 published over 44.323 s = **51.85 Hz**,
+against 2 648 assembled frames over the same window = **59.74 Hz**. The measured
+`publish_mean` of 780 519 ticks = **19.27 ms = 51.89 Hz** confirms it
+independently. **The defect costs 13.2 % of the presentation cadence.**
+
+**NOT FIXED HERE.** This round is not authorised to change `src/`. The proposal
+is §V5.34.14.
+
+#### V5.34.7 The streaming path physically ran
+
+```text
+STREAMCONS taken=2298 converted=2298 presented=2286 overrun=0
+           dropped_before_convert=0 repeats=12 no_cpu_texture=0
+           abandoned_no_raw=0
+```
+
+Every published frame was taken; every taken frame was converted; **no frame was
+ever superseded in the mailbox and none overran the generation guard.** The
+consumer kept up completely.
+
+**FACT: PHYSICAL SUSTAINED STREAMING PATH EXERCISED** — published → mailbox take
+→ 40-tile-row conversion → GX submit → draw-done → XFB present, 2 298 times over
+44.3 s on real hardware with a real cartridge.
+
+**NOT claimed: zero source-frame loss.** That requires OGBPIDX1 and does not
+exist yet.
+
+#### V5.34.8 **DEFECT P1 — `balanced=0` is an accounting predicate, not a conservation failure**
+
+```text
+converted=2298  presented=2286  overrun=0  repeats=12  balanced=0
+xfb_presents=2287  xfb_skipped=12
+```
+
+R1 is not applicable: `STREAMSELFTEST sci_clean=1` and `own_presents=1` — the
+self-test is isolated and its presentation is counted separately.
+
+`gbp_vqueue_balanced()` asserts
+`consumer_frames_converted == consumer_frames_presented + consumer_slot_overrun`.
+**A converted frame has THREE terminal states, not two**, and the third is
+reachable by design:
+
+```text
+main.c submit_ready(), after a successful gbp_vpresent_submit():
+  xfb = gbp_vpresent_xfb_target(...)
+  if (xfb >= 0) { GX_CopyDisp; VIDEO_SetNextFramebuffer; note_presented(); }
+  else          { GX_Flush();  note_repeat(); }          <- the third state
+```
+
+The `else` branch is taken when **both** framebuffers are spoken for — one being
+scanned out, one already handed over. The texture WAS submitted and drawn; only
+the XFB copy was skipped, so the screen kept the previous image. That is
+`display_frames_repeated`, and it is a legitimate terminal state of a converted
+frame.
+
+```text
+the correct identity, proved from the state transitions:
+    converted == presented + overrun + repeated
+    2298     == 2286      + 0       + 12        ✓ exactly
+```
+
+Every branch is accounted: an overrun frame is abandoned before `submit_ready` is
+reached; a refused submit (`blocked_inflight`) leaves the buffer READY to be
+re-offered and contributes nothing until it is submitted once; a submitted
+buffer reaches exactly one of `note_presented` / `note_repeat`.
+
+**Classification: B — the predicate is missing a legitimate terminal state.**
+Not a conservation failure. The run's data conserves perfectly under the correct
+identity, which is locked as a unit test
+(`test_the_physical_stream0003_counters_conserve`).
+
+**NOT FIXED HERE.**
+
+#### V5.34.9 XFB repeats and skips — exact correspondence
+
+```text
+xfb_presents 2287 == scientific presented 2286 + self-test own_presents 1   ✓
+xfb_skipped    12 == display repeats 12                                     ✓
+```
+
+12 skips in 2 298 presentations = **0.52 %**. These are the expected pacing
+outcome of a **two-framebuffer, never-wait** policy against an AGB source and a
+VI that do not share a cadence (§V5.6 predicted the beat before the run). The
+design refuses to wait for a retrace, so when both buffers are spoken for it
+skips the copy and keeps the previous image.
+
+**They are display repeats, not source losses**, and the vocabulary is
+pre-registered: `repeated_on_display`, never "dropped". Whether a third
+framebuffer would remove them is an open UI question, not a defect.
+
+#### V5.34.10 Ownership — promoted from software-only to PHYSICAL
+
+```text
+STREAMOWN  acquire=120975 no_texture=0 fills=2299/120975 abandoned=118676
+           submit=2299/2299 blocked_inflight=0 blocked_shutdown=0
+STREAMGX   drawdone=2299 spurious=0 releases=2299 consistent_at_end=1
+           inflight_at_end=0 drained=0 cb_restored=1
+STREAMINV  checks=246548 failures=0 main=0/244249 isr=0/2299 consistent_at_end=1
+```
+
+`2 299 = 2 298 scientific + 1 self-test` for submits, draw-dones and releases —
+the three are equal and `spurious=0`. `244 249 + 2 299 = 246 548` ✓.
+
+**Promoted to PHYSICAL FACT:**
+
+```text
+the one-token rule held on hardware              2299 submits, 0 blocked_inflight
+the callback released exactly one buffer         2299 releases, 0 spurious
+the ownership invariants held THROUGHOUT         246 548 checks, 0 failures,
+                                                 main side and interrupt side both
+the teardown restored the previous callback      cb_restored=1
+```
+
+R8 is what makes the third line sayable: `stream-0002` could only have reported
+the final instant. **This is the first physical evidence for the `gbp_vpresent`
+machine, and it is the strongest kind — a latch that would have recorded a
+violation that healed, and recorded none.**
+
+`STREAMOWN abandoned=118676` is the designed idle path: the pump acquires a
+texture, finds no new frame in the mailbox, and gives it straight back
+(`2 299 + 118 676 = 120 975` ✓).
+
+#### V5.34.11 The pump, measured for the first time
+
+```text
+STREAMPUMP  calls=280621 slices=91920 completed=2298
+            skipped_cause_pending=70025 pending_before=70025
+            pending_after=21527 arrived_during=21527
+STREAMPUMPT ticks_min=1129 ticks_max=1663 ticks_mean=1361 n=91920
+            tb_hz=40 500 000
+```
+
+```text
+min   1129 ticks = 27.8765 us
+max   1663 ticks = 41.0617 us
+mean  1361 ticks = 33.6049 us
+```
+
+```text
+skipped_cause_pending / calls = 70 025 / 280 621 = 24.95 %
+arrived_during / slices       = 21 527 /  91 920 = 23.42 %
+slices / calls                = 91 920 / 280 621 = 32.76 %
+slices per completed frame    = 91 920 /   2 298 = 40.0   (exactly one tile row each)
+```
+
+**A quarter of all pump calls found a GBP cause already latched and yielded the
+cycle**, which is the precheck doing precisely what §V5.27.4 built it for. A
+further 23.4 % of the slices that did run saw a cause appear during them.
+
+**`arrived_during` is a coincidence count and no causality may be read from it**
+— the AGB delivers on its own schedule and a 33.6 µs slice inside a ~78 µs
+service window will often overlap one.
+
+Pacing, for the record: `publish_mean` 780 519 ticks = **19.27 ms**,
+`convert_mean` 54 478 ticks = **1.345 ms** for a whole 40-row frame conversion.
+
+#### V5.34.12 Pump safety — the strongest justified wording
+
+```text
+JUSTIFIED:  "the pump did not cause observable transport failure in this run"
+            timeouts=0, busy=0, overflow=0, uncertain=0, errors=0,
+            transport_ok=1, and unmask=deliver=ack=re-arm conserved exactly
+            across 280 621 cycles
+
+STILL UNKNOWN: its effect on frame completeness and source continuity.
+            13 incomplete intervals and 26 resyncs exist; the baseline shows
+            the same signature WITHOUT a pump, which is evidence but not proof
+            of independence, and this run has no ground truth.
+
+NOT JUSTIFIED: "the pump placement is timing-safe". One run, one cartridge,
+            one 44 s window. The classification moves from PLAUSIBLE BUT
+            UNMEASURED to MEASURED AND WITHOUT OBSERVED TRANSPORT EFFECT.
+```
+
+#### V5.34.13 R3 under streaming, and flag15
+
+```text
+SEMANTIC  total=42 serviced=42 other=0 non_source=0 disc_extra=42 maj_extra=0
+          both=0 quarantined=0 deferred=0
+SEMANTIC2 preserved=42 fu_present=42 fu_absent=0 fu_no_next=0 fu_unknown=0
+```
+
+42 R3 disagreements, **all** of class `disc_extra`, **all** serviced, **all**
+with a follow-up cause present. Zero majority-extra, zero deferred, zero
+unknown. This replicates the R3 pattern under a workload the previous runs did
+not have — a real game's continuously changing video — and the follow-up
+behaviour was 42/42 consistent.
+
+**CORROBORATED, and the mechanism stays UNKNOWN. U-GBP-033 remains OPEN.**
+
+```text
+STREAMFLAG15 last_count=1 first_x=0 first_y=0
+```
+
+One bit-15 word per frame, at (0,0), consistent with every previous physical run.
+**U-GBP-034 stays OPEN** — this observes position and count, not origin.
+
+#### V5.34.14 `power_cycle_required=1` — NOT a new finding
+
+`power_cycle_required` is set to **1 before every IRQ register write**
+(`gbp_initirqa_probe.c:409` for the STOP word, `gbp_vstate_probe.c:1329` for each
+ACK, `:1437` for each RE-ARM). It is a **latched marker meaning "this run wrote
+the device's IRQ register, so its state may not be fully acknowledged"** —
+exactly `CLAUDE.md` §18's standing rule. This run performed **561 244** such
+writes, all completed, `uncertain_writes=0`.
+
+The `FINAL` snapshot is taken at step 9 of the teardown, explicitly *"under the
+restored AR_INFO"* (`gbp_initirqa_probe.c:483`), i.e. **after** `ARINFO restore
+value=0043 readback=0043 ok=1` put the expansion window back to the original size
+code. Under the original AR_INFO the GBP register window is not the experimental
+one, so `control=00` and `irq=9292` are **not comparable** with values read under
+`ARINFO exp value=005b`.
+
+**The physically validated baselines settle it:**
+
+| run | status | FINAL | `power_cycle_required` |
+| --- | --- | --- | --- |
+| `vstate-0004` (validated) | teardown accepted | `control=00 irq=9090` | 1 |
+| `color-0002` (validated) | teardown accepted | `control=00 irq=9292` | 1 |
+| `stream-0003` | — | `control=00 irq=9292` | 1 |
+
+`stream-0003` reproduces `color-0002`'s FINAL values **exactly**. Intermediate
+teardown reported `control_restore_ok=1 irq_stop_write_ok=1 irq_stop_readback_ok=1
+pi_cleanup_ok=1 pi_cleanup_sticky=0 arinfo_restore_ok=1 handler_restored=1
+mask_ok=1 intmr_final=00000ffa pi_sticky_final=0`.
+
+**FACT: `power_cycle_required=1` is a by-construction latch, reproduced
+identically by two physically validated runs, and is not evidence that the
+hardware remained in a state requiring a power cycle.** The operator instruction
+is unchanged — **power-cycle the GameCube/GBP before the next physical run** —
+because it is the standing procedure, not because of a new problem.
+
+#### V5.34.15 GX teardown — `drained=0` is the correct outcome
+
+```c
+if (gbp_vpresent_inflight(&present)) { GX_DrawDone(); gx_drained_at_teardown = 1; }
+```
+
+With `inflight_at_end=0` the branch is **not taken**, so `drained=0` is exactly
+right: there was no token to drain, because all 2 299 had already been consumed
+(`drawdone=2299 releases=2299 spurious=0`). Reading `drained=0` as a failure
+would be reading the absence of a needed rescue as the absence of a rescue.
+
+#### V5.34.16 What the screen showed
+
+```text
+LOG FACT              2 286 scientific GX presentations occurred; ownership
+                      invariants held; 105 841 VIDEO transfers completed;
+                      2 298 frames were published, converted and submitted
+
+OPERATOR OBSERVATION  (supplied with two photographs, preserved in
+                      captures/local/, EMULATOR-free, physical)
+                      1. a rainbow/checkerboard pattern appeared first
+                      2. then the actual cartridge game
+                      3. the Game Boy boot logo was NOT seen
+                      4. the game image looked normal
+                      5. the picture was small and centred, near native size
+```
+
+**19A.1 — the startup image is the display self-test, confirmed from source.**
+`display_selftest()` writes
+`w = ((x >> 3) << 10) | ((y >> 3) << 5) | ((x ^ y) & 0x1F)` and presents it as
+`GX_TF_RGB5A3`, where bits 14-10 are R, 9-5 G, 4-0 B. So **R = x>>3** (0..29
+left→right in 8-pixel bands), **G = y>>3** (0..19 top→bottom in 8-pixel bands)
+and **B = (x^y)&0x1F** (a fine XOR checkerboard). The photograph shows exactly
+that: blue at top-left, red/pink at top-right, green at bottom-left, orange at
+bottom-right, over an 8-pixel checkerboard of 30 × 20 cells — the frozen
+240/8 × 160/8 geometry.
+
+**CORROBORATED: the physical display self-test was not only counted in the log
+(`ok=1 converted=1 released=1 own_presents=1`) but was visibly presented on the
+real GameCube output.** Confirmed from the rendering code, not inferred from
+appearance.
+
+**19A.2 — the missing boot logo is EXPECTED FOR THIS POC.** The chronology:
+
+```text
+console power-on  -> the GBP and the cartridge start executing IMMEDIATELY
+                     (the AGB is powered by the GameCube)
+   ... Swiss boot, menu navigation, DOL load: OPERATOR-PACED, unbounded ...
+DOL start         -> video_setup, gx_setup, display_selftest (the checkerboard)
+                  -> on-screen banner, then
+PREHANDLERWAIT    -> 5 000 ms with the AGB running and PI masked (GBP-HW-120)
+003A sequence     -> CONTROL transform, handler install, first unmask
+first delivery    -> the first VIDEO blocks reach the assembler
+first closed frame-> EV seq=2 at f=0, immediately after capture_start
+first presentation-> the first scientific GX present
+```
+
+The AGB's boot-logo sequence runs in the first ~2 s after cartridge power-on —
+**before Swiss had even finished loading the DOL**. Open-GBP could not have
+presented it, and this is a property of the POC's startup order, not evidence of
+anything being dropped.
+
+**No number of skipped source frames may be inferred from elapsed time.** That is
+precisely the leading-edge limitation OGBPIDX1 pre-registered (§V5.33.2): frames
+before the first observed intact ID are outside the observable population.
+
+**19A.3 — the small centred image is by design, confirmed from source.**
+`GX_InitTexObj(..., GBP_VPIX_WIDTH, GBP_VPIX_HEIGHT, GX_TF_RGB5A3, ...)` is
+240×160 with `GX_NEAR` filtering, and `draw_quad()` emits a quad at
+`x0 = (rmode->fbWidth − 240)/2`, `y0 = (rmode->efbHeight − 160)/2`. For the NTSC
+480i mode that is **x0 = 200, y0 = 160, covering 37.5 % of the width, 33.3 % of
+the height and 12.5 % of the area**. §V5.16 says it in as many words: *"Native
+240x160, centred, unscaled. Scaling and aspect are Phase 9 policy and are
+deliberately absent."*
+
+**FACT FROM IMPLEMENTATION: `stream-0003` intentionally presents native-size
+240×160 video, centred. OPERATOR OBSERVATION: the physical result appeared
+correspondingly small and centred. This is NOT a rendering defect.**
+
+**19A.4 — visual correctness, scoped.** The photographs show a rendered cartridge
+title screen with recognisable structured graphics and **no gross colour-channel
+swap** — yellow reads as yellow, blue as blue, which is what the confirmed
+outer-group exchange (GBP-HW-131) plus `GX_REPLACE` should produce. They do
+**not** prove zero tearing, correct pacing, zero frame loss, zero transient
+corruption, perfect colour fidelity or source-frame continuity. Those stay
+separate and open.
+
+**19A.5 — the milestone, scoped exactly:**
+
+```text
+PHYSICAL REAL-CARTRIDGE VIDEO OUTPUT ACHIEVED
+
+  scope: real DOL-017 Game Boy Player · real GBA cartridge · Open-GBP runtime ·
+         physical GameCube video output · native-size 240x160 presentation ·
+         sustained for this 44.3 s smoke run
+
+  DOES NOT IMPLY: GBP-VIDEO-004 complete · zero source-frame loss ·
+                  a universally timing-safe pump · final scaling or UI ·
+                  correct pacing · absence of tearing
+```
+
+**19A.6 — photographs.** Recorded as OPERATOR/VISUAL evidence, kept in
+`captures/local/` (ignored by Git, per the raw-evidence policy), hashes in
+§V5.34.1. **They are not quantitative timing evidence and no scientific
+classification above was changed because a photograph looks correct.**
+
+#### V5.34.17 The two defects, and the runtime fix required before the next run
+
+```text
+P2  BIT COLLISION            HIGH   F_EPISODE_STABLE and F_MAJORITY_EXTRA are
+    src/gbp/gbp_vstate.h:109/121  both 0x1000 in the same frame-flag word.
+    Effect: 324 of 2 635 complete frames (12.30 %) refused, cadence 59.74 ->
+    51.85 Hz. PROPOSED FIX: move F_EPISODE_STABLE to a free bit (0x4000 or
+    0x8000 are unused in the frame word) — a one-line header change plus a test
+    that the two constants differ. NOT APPLIED.
+
+P1  ACCOUNTING PREDICATE     MEDIUM gbp_vqueue_balanced() omits the `repeated`
+    src/gbp/gbp_vqueue.c:197      terminal state. PROPOSED FIX: assert
+    converted == presented + overrun + repeated. NOT APPLIED.
+```
+
+**Both are `src/gbp` changes and this round is not authorised to make them.**
+Both are locked as passing unit tests that assert the CURRENT behaviour together
+with the arithmetic showing why it is wrong, so a future fix must be deliberate.
+
+**A runtime fix IS required before the next physical run** — P2 discards 12 % of
+the frames for a reason that does not exist, and no pacing or continuity
+measurement made with it in place can be trusted.
+
+### V5.35 `stimulus/agb-indexed` — the OGBPIDX1 ROM and analyzer, implemented — 2026-09-18
+
+The contract frozen at §V5.33 is now implemented. **No hardware ran, `src/` and
+`poc/` are untouched, and `stream-0003` is unchanged** (471 648 B,
+`2f8e362e…199e3`, Swiss copy byte-identical).
+
+#### V5.35.1 Identity
+
+```text
+stimulus/agb-indexed          stimulus_id indexed-0001
+build/stimulus/agb-indexed/agb-indexed.gba
+  2 460 B   sha256 379df0f7019ef7f1330bd4ad55274bde062a69d03d1c8cc1dc2a01018bdbc543
+header  title OPENGBPINDEX · code IGBP · maker OG · complement 0x16
+toolchain arm-none-eabi-gcc (devkitARM) 15.2.0, -O2 -Wall -Wextra -Wpedantic
+          -Wshadow -Wconversion, gba.specs crt0, no library
+build     make stimulus-indexed
+status    IMPLEMENTED, NOT PHYSICALLY EXECUTED
+```
+
+**The Nintendo logo area is empty**, so an AGB cartridge boot would refuse this
+image — the same standing limitation `agb-color-bars` carries. Delivery to the
+Game Boy Player's internal AGB remains the EZ-Flash Omega DE NOR / Mode B route
+(§V5.18); this repository does not supply the logo bytes.
+
+#### V5.35.2 Architecture
+
+One translation unit, one loop, no interrupts. The VBlank edge is **polled**, not
+interrupt-driven, so nothing can preempt an update and nothing else can ever
+write VRAM. Frame 0 is painted **complete before `REG_DISPCNT` selects mode 3**,
+so no partially initialised picture is ever displayed (§30).
+
+```text
+boot      clear BLDCNT/BLDALPHA/BLDY/MOSAIC · IME=IE=0, IF=0xFFFF
+          512 OAM halfwords := 0x0200 (every object disabled)
+          Timer 0: TM0CNT_H = 0x0081 — enable, prescaler 1 = F/64
+          crc_table_init(), paint_background(), update_frame(0, 0x7F, 0)
+          REG_DISPCNT = 0x0403        <- mode 3 | BG2, and only then
+loop      wait VCOUNT >= 160 to fall, then rise   (the VBlank edge)
+          prev_phase := phase ; frame_id := (frame_id + 1) & 0xFFFFFF
+          phase += 1, compare-and-subtract against 31
+          status := snapshot of the latch AS IT STANDS
+          vc0, t0 := VCOUNT, TM0CNT_L
+          update_frame(frame_id, status, prev_phase)
+          t1, vc1 := TM0CNT_L, VCOUNT
+          fold the measurement into the latch
+```
+
+#### V5.35.3 STATUS, the latch, and the delay — implemented as frozen
+
+`status` is snapshotted **before** `update_frame`, so **STATUS(f) certifies
+updates 0..f−1 and never f itself** (§V5.33.8). The same byte goes into all 40
+blocks and all 8 redundant copies, because it is an argument to the payload.
+
+```c
+fault = 1  when  vc1 < vc0  ||  vc1 > 227  ||  elapsed > 1309 ticks
+```
+
+`vc1 < vc0` catches an update that ran past scanline 227 and wrapped into the
+visible area; `vc1 > 227` is unreachable given the 8-bit counter but is written
+anyway; `elapsed > VBLANK_TICKS` catches an update longer than a whole VBlank at
+the F/64 timer (83 776 cycles / 64 = 1 309 ticks). **The latch is sticky**: a test
+asserts the string `fault = 0;` never appears inside the main loop.
+
+`VMARGIN` is the **monotone minimum** of `227 − vc1`, clamped to 0..127 and
+initialised to `0x7F` — a sentinel that is unreachable as a measurement, since
+VBlank is only 68 scanlines. The analyzer never reinterprets it as a margin.
+
+#### V5.35.4 Division-free, and proved
+
+ARM7TDMI has no divide instruction, so a runtime `/` or `%` becomes a library
+call in the VBlank path. **The ROM source contains neither**, asserted by a test
+that greps the comment-stripped source for `/` and `%`. Every modulo is a
+compare-and-subtract:
+
+```c
+phase += BAR_PHASE_MUL;  if (phase >= BAR_PERIOD) phase -= BAR_PERIOD;
+bar_phase_base += 1u;    if (bar_phase_base >= BAR_PERIOD) bar_phase_base = 0;
+```
+
+The CRC is a 256-entry table built once at boot, outside VBlank. Per block the
+whole 38-bit payload costs **three table lookups for FRAME_ID (folded once per
+frame), six bitwise iterations for BLOCK_INDEX, and one lookup for STATUS** —
+not 38 iterations.
+
+#### V5.35.5 The ROM matches its model, word for word
+
+The two hardware bases (`AGB_IO_BASE`, `AGB_VRAM_BASE`, `AGB_OAM_BASE`) are the
+**only** thing a host test may relocate; their defaults are the real GBA
+addresses and the ROM hash was byte-identical before and after the
+parameterisation. `tests/host/test_agb_indexed.py` compiles the ROM's rendering
+for the host against fake VRAM and compares it to `tools/istim.py`:
+
+```text
+38 400 of 38 400 AGB words exact, for frame ids
+  0, 1, 2, 30, 31, 1000, 0x123456, 0xFFFFFF, 12345
+  with STATUS 0x00, 0x05, 0x13, 0x40, 0x42, 0x7F, 0x80, 0xFF
+canonical witness word for word for all 40 blocks, 3 frames
+the ROM never writes bit 15                     (0 words with 0x8000 set)
+frame 0 decodes intact before the mode is set   (FRAME_OK, id 0, status 0x7F)
+```
+
+#### V5.35.6 The analyzer, `tools/vindex.py`
+
+Takes 40 blocks × 54 original consumed word16 and produces `frame_id`, `status`,
+`id_valid`, `mixed_block_ids`, `misplaced_block_indices`,
+`invalid_canonical_strips` with reasons, the bit-15 observations, and the
+classification against the previous decisive frame. `analyze_run()` adds the
+decisive population: `first_observed`, `last_observed`, `first_decisive`,
+`last_decisive`, `edge_frames_excluded` and `decisive_transitions`.
+
+Adversarially tested, one case per frozen classification: contiguous · gap ·
+duplicate · reorder · half-range · wrap · mixed IDs · wrong block index · OTHER
+symbol · wrong SYNC · wrong CRC · unexpected bit 15 · FAULT · status delay ·
+too few intact frames. Plus a test that the formatted report contains neither
+"dropped" nor "source loss".
+
+Bit 15 is always split off (`flag15 = w & 0x8000`, `colour15 = w & 0x7FFF`),
+**never** changes a decoded bit, and is reported separately. **U-GBP-034 stays
+OPEN.**
+
+#### V5.35.7 Static audit
+
+```text
+no heap            no malloc/calloc/free
+no filesystem      no fopen/printf
+no link cable      no SIOCNT, no 0x04000120/0x04000128/0x04000134
+no serial          none
+no GameCube        none
+no logging         none
+no division        no `/` and no `%` anywhere in the source
+interrupts off     IME = 0, and the VBlank edge is POLLED
+```
+
+#### V5.35.8 VBlank status
+
+**THEORETICALLY WITHIN VBLANK, AND SELF-INSTRUMENTED TO DETECT VIOLATION.**
+The §V5.33.12 estimate stands at 19 840 VRAM-store cycles = 23.7 % of 83 776,
+before loop control, CRC and instrumentation. **It is NOT "proven timing safe"**
+— that is exactly why the FAULT latch exists, and why a run with FAULT set is
+`STIMULUS_INVALID_FOR_DECISIVE_CLAIM`.
+
+#### V5.35.9 What is deliberately NOT done
+
+```text
+witness retention in src/ or poc/    NOT implemented. The canonical witness is
+  2 048 frames x 4 320 B = 8 847 360 B = 8.4375 MiB of operational capacity
+  (§V5.33.9); witness_store_full would make a run INCONCLUSIVE. That is a
+  runtime change and belongs to its own audited round.
+the ROM has never run                on hardware or in an emulator
+delivery to the internal AGB         unresolved, as for agb-color-bars
+```

@@ -7442,3 +7442,124 @@ VBlank figure stays an estimate until the ROM measures it.
 
 **Next:** implement the ROM against this contract. It does not block the first
 physical smoke.
+
+## 2026-09-18 — real cartridge video reached the screen, and the run found two defects
+
+Two independent tracks in one round: the **first physical GBP stream smoke of
+`stream-0003`**, and the **OGBPIDX1 ROM and analyzer**. `src/` and `poc/` were
+not touched and `stream-0003` is unchanged (`2f8e362e…199e3`, 471 648 B).
+
+### The physical run
+
+`logs/GBP-VIDEO-004_stream-0003.log`, 88 705 B, `62996c7d…4fa4ec`, `dropped=0
+truncated=0`. Ingested as **GBP-HW-138…145**, with the operator's two
+photographs preserved in `captures/local/`.
+
+**It worked.** The storage contract that stopped `stream-0002` passed on hardware
+(`fault=- ok=1`). The service conserved **280 621 cycles** with
+unmask = deliver = ack = re-arm exactly and zero timeouts, busy, overflow,
+uncertain or errors — the first time this project has done that **with a
+consumer, a converter and a GX display attached**. The consumer took, converted
+and submitted **2 298 frames**, overran nothing, superseded nothing, and the
+ownership invariants held across **246 548 checks with zero failures** on both
+the main and the interrupt side. R8 is what makes that last sentence sayable:
+`stream-0002` could only ever have reported its final instant.
+
+**And the operator saw the game.** The photographs show the display self-test's
+checkerboard first — confirmed from the rendering code, not inferred: R = x>>3,
+G = y>>3, B = (x^y)&0x1F gives exactly the photographed 30 × 20 grid of 8-pixel
+cells with that gradient — and then a real GBA title screen, small and centred,
+colours unswapped. The small picture is **by design**: a 240×160 texture drawn at
+`x0 = (640−240)/2`, `y0 = (480−160)/2`, which §V5.16 specified and left scaling
+to Phase 9. The missing Game Boy boot logo is **expected for this POC**: the AGB
+starts at console power-on and finishes its logo long before Swiss has loaded the
+DOL, let alone before the 5 000 ms pre-handler wait.
+
+**Scoped milestone: PHYSICAL REAL-CARTRIDGE VIDEO OUTPUT ACHIEVED** — real
+DOL-017, real cartridge, Open-GBP runtime, physical GameCube output, native-size
+presentation, sustained for a 44.3 s smoke. It does **not** imply GBP-VIDEO-004
+complete, zero source-frame loss, a timing-safe pump, or final UI.
+
+**The pump was measured for the first time:** 27.88 / 33.60 / 41.06 µs
+(min/mean/max over 91 920 slices), exactly 40.0 slices per completed frame, and
+**24.95 % of all pump calls found a GBP cause already latched and yielded the
+cycle** — the precheck doing exactly what it was built for. The strongest
+justified wording is "the pump did not cause observable transport failure in this
+run"; its effect on frame completeness stays **UNKNOWN**, and one run does not
+make a placement timing-safe.
+
+**Two defects, both in `src/gbp`, both reported and NOT fixed** (this round was
+not authorised to change the runtime):
+
+**P2, HIGH — a bit collision cost 12.3 % of the frames.**
+`GBP_VSTATE_F_MAJORITY_EXTRA` (`gbp_vstate.h:109`) and
+`GBP_VSTATE_F_EPISODE_STABLE` (`gbp_vstate.h:121`) are **both `0x1000` in the
+same frame-flag word**. `gbp_vstate.c:1052` writes the latter into `f->flags`;
+`gbp_vqueue_classify()` tests the former first and quarantines. The run shows it
+exactly: **324 episodes, all closed as stable → 324 frames refused**, while the
+R3 machinery reported `maj_extra=0`. Cadence 59.74 → 51.85 Hz, confirmed
+independently by `publish_mean` = 19.27 ms = 51.89 Hz. The trigger is ordinary
+changing cartridge video driving the structured-change detector — 324 episodes in
+44.3 s against **9 in 175.8 s** for `vstate-0004`'s static picture — but the
+mechanism of the loss is the aliasing, not a policy.
+
+**P1, MEDIUM — `balanced=0` is an accounting predicate, not a conservation
+failure.** A converted frame has three terminal states, not two: presented,
+overrun, or **repeated** (submitted and drawn, but both framebuffers spoken for,
+so the XFB copy was skipped). The run conserves exactly under
+`converted == presented + overrun + repeated` → `2 298 == 2 286 + 0 + 12`, with
+`xfb_skipped = repeats = 12`.
+
+Both are locked as passing unit tests that assert the *current* behaviour
+together with the arithmetic showing why it is wrong, so a fix has to be
+deliberate.
+
+**Two things that looked alarming and are not.** `power_cycle_required=1` is set
+before **every** IRQ write by construction — 561 244 of them here — and both
+physically validated runs carry it with accepted teardowns; `stream-0003`
+reproduces `color-0002`'s FINAL `control=00 irq=9292` exactly. And `drained=0` is
+correct: `inflight_at_end=0`, so the teardown's blocking drain was never needed.
+
+**The 13 incomplete intervals are not source loss and must not be called that.**
+All 13 fall in the first 408 of 2 648 frames, in four clusters of 34/38/38, and
+`vstate-0004` — physically validated, **no streaming consumer at all** — shows
+the same shapes in the same startup region with nearly the same absolute count
+across a 4× longer capture. Whether blocks were lost or boundaries were observed
+early or late is **UNKNOWN**, and it stays unknown until there is ground truth.
+
+**44.323 s is wall time; 30.002 s is the science.** The scientific clock adds each
+counted frame's own first-block-to-last-block span and never the inter-frame
+idle (`gbp_vstate.c:884`). `vstate-0004` shows the same ratio (1.465 vs 1.477).
+
+### The indexed stimulus
+
+`stimulus/agb-indexed` implements OGBPIDX1 exactly: **2 460 B**, sha256
+`379df0f7…c543`, devkitARM 15.2.0. Mode 3, polled VBlank, no interrupts, frame 0
+complete before `REG_DISPCNT` is set, sticky FAULT latch from VCOUNT and a
+free-running Timer 0 at F/64, monotone-minimum VMARGIN with an unreachable
+`0x7F` sentinel, and **no division or modulo anywhere in the source** — every
+period is a compare-and-subtract, because ARM7TDMI has no divide.
+
+**It matches its model word for word:** 38 400 of 38 400 AGB words for nine
+frame ids across eight STATUS values, and the canonical witness word-for-word for
+all 40 blocks. The two hardware bases are the only thing the host test relocates,
+and the ROM hash was byte-identical before and after that parameterisation.
+
+`tools/vindex.py` is the analyzer. Adversarially tested against every frozen
+classification — contiguous, gap, duplicate, reorder, half-range, wrap, mixed
+IDs, wrong block index, OTHER symbol, wrong SYNC, wrong CRC, unexpected bit 15,
+FAULT, status delay, too few frames — plus a test that its report contains
+neither "dropped" nor "source loss".
+
+**Not done, deliberately:** witness retention in the runtime (8.4375 MiB of
+operational capacity, a separate audited round), and the ROM has never run
+anywhere. The Nintendo logo area is empty, so delivery remains the same
+unresolved question `agb-color-bars` carries.
+
+**Tests.** 677 host tests OK (40 new), 19 unit binaries / 792 091 checks / 0
+failures.
+
+**Next, and it is a runtime fix, not a run:** P2 discards 12 % of the frames for
+a reason that does not exist, and no pacing or continuity measurement made with
+it in place can be trusted. **Do not request another physical run before it is
+fixed and audited.**
