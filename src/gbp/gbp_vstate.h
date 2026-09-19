@@ -106,10 +106,33 @@ enum gbp_vstate_completeness {
 #define GBP_VSTATE_F_COUNTED         0x0200u   /* its duration was added to valid_observation_elapsed */
 #define GBP_VSTATE_F_TAIL            0x0400u   /* observed during the bounded finalisation tail */
 #define GBP_VSTATE_F_EPISODE_CHANGE  0x0800u   /* the frame that opened an episode */
-#define GBP_VSTATE_F_MAJORITY_EXTRA  0x1000u   /* §R3.12: contains a VIDEO block drained ONLY
+#define GBP_VSTATE_F_EPISODE_STABLE  0x1000u   /* the frame that closed an episode as stable */
+#define GBP_VSTATE_F_MAJORITY_EXTRA  0x4000u   /* §R3.12: contains a VIDEO block drained ONLY
                                                 * because the majority carried a source the Disc
                                                 * reading did not. Always set together with
-                                                * F_ANOMALY: quarantined from every scientific use */
+                                                * F_ANOMALY: quarantined from every scientific use.
+                                                *
+                                                * P2, 2026-09-18: this WAS 0x1000, the same bit as
+                                                * F_EPISODE_STABLE, in the same flag word. The first
+                                                * physical stream run refused 324 of 2 635 complete
+                                                * frames (12.3 %) because every frame that closed an
+                                                * episode as stable was read as majority-extra
+                                                * (GBP-HW-145, HARDWARE_TESTS §V5.34.6).
+                                                *
+                                                * WHICH FLAG MOVED, AND WHY THIS ONE. The frame flag
+                                                * word IS persisted, verbatim, at offset 0x1A of the
+                                                * OGBPSEQ1 frame record (gbp_vstatedump.c). In EVERY
+                                                * physical run ever executed `maj_extra` is 0, while
+                                                * vstate-0001/-0003/-0004 each carry seven frames
+                                                * that closed an episode as stable — and
+                                                * tools/vstate.py already names 0x1000
+                                                * "episode_stable". So in every historical sidecar
+                                                * that bit means EPISODE_STABLE and is already read
+                                                * that way. Moving MAJORITY_EXTRA instead therefore
+                                                * re-interprets exactly ZERO historical bytes and
+                                                * needs no format version bump; moving
+                                                * EPISODE_STABLE would have changed the meaning of
+                                                * bits that exist in validated fixtures. */
 /* Per-block provenance (§R3.11). The store carries no per-block flag word, so
  * the marker is a one-shot on the state consumed by the next block and then
  * recorded on the frame that consumed it and in the diagnostic record. */
@@ -118,7 +141,21 @@ enum gbp_vstate_completeness {
                                                 * deferred a VIDEO drain. DESCRIPTIVE ONLY - it does
                                                 * not change completeness, fabricate a block, claim
                                                 * recovery, or feed any stop rule */
-#define GBP_VSTATE_F_EPISODE_STABLE  0x1000u   /* the frame that closed an episode as stable */
+
+/* EVERY frame flag, ORed. Two things make the P2 defect impossible to repeat:
+ * this mask is the single place a new flag must be added, and the compile-time
+ * check in gbp_vstate.c requires the mask's popcount to equal the number of
+ * flags — which can only hold if every flag is a distinct power of two.
+ * A DELIBERATE alias would have to be excluded here, explicitly. There is none. */
+#define GBP_VSTATE_F_ALL (GBP_VSTATE_F_COMPLETE | GBP_VSTATE_F_DISAGREEMENT | \
+                          GBP_VSTATE_F_ANOMALY | GBP_VSTATE_F_PRE_BASELINE | \
+                          GBP_VSTATE_F_RESYNC | GBP_VSTATE_F_EARLY_CANDIDATE | \
+                          GBP_VSTATE_F_OVERLONG | GBP_VSTATE_F_RAW_PRESERVED | \
+                          GBP_VSTATE_F_BASELINE | GBP_VSTATE_F_COUNTED | \
+                          GBP_VSTATE_F_TAIL | GBP_VSTATE_F_EPISODE_CHANGE | \
+                          GBP_VSTATE_F_EPISODE_STABLE | GBP_VSTATE_F_SOURCE_DEFERRED | \
+                          GBP_VSTATE_F_MAJORITY_EXTRA)
+#define GBP_VSTATE_F_COUNT 15u
 
 /* Exactly 192 bytes, by construction and by a compile-time check in the .c. */
 struct gbp_vstate_frame {
