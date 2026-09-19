@@ -132,6 +132,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
+| **GBP-VIDEO-004 downstream disposition** | **INSTRUMENT BUILT, QUESTION FROZEN, NOT EXECUTED.** `stream-0007` adds an observational lifecycle/decision trace and the `OGBPDISP1` sidecar. The audit that preceded it found that this runtime has NO VI-driven display loop, so presents are source-driven and every one of run 4's 17 holds was already converted, submitted and drawn (GBP-VID-017). **No cause is claimed and no pacing was changed** | `HARDWARE_TESTS.md` §V5.46; GBP-VID-015…018 |
 | **GBP-VIDEO-004** (sustained streaming) | **SOURCE-FRAME CONTINUITY CLOSED for the qualified window.** `stream-0006` PHYSICALLY EXECUTED 2026-09-19 (run 4): the unmodified analyzer returned **`OBSERVED_CONTIGUOUS`** over 2 046 decisive transitions, 2 048/2 048 complete records, FRAME_ID 85..2132 with no member missing, FAULT clear, VMARGIN 24. Runs 1–3 on `stream-0005` keep their own verdicts permanently — run 3 stays `OBSERVED_ID_GAP` / `OBSERVED_DISCONTINUITY` and is NOT re-judged. Consumer/display disposition is the NEXT gate, not closed | `HARDWARE_TESTS.md` §V5.38–§V5.45; GBP-HW-180…191 |
 | **`stream-0003`** | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** Historical; never rebuilt or re-labelled. It found P2 and P1 | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | **CONTROLLED indexed stimulus** (`stimulus/agb-indexed`) | **ROM, ANALYZER AND RUNTIME RETENTION IMPLEMENTED** to the frozen `OGBPIDX1` contract. ROM 2 460 B `379df0f7…c543`; renders 38 400/38 400 words identically to `tools/istim.py`. `stream-0005` retains the canonical witness at the SOURCE layer into the new `OGBPIDXCAP1` sidecar, bounded by a 2048-record target. **The ROM HAS NEVER RUN anywhere, and its DELIVERY image cannot be produced in this environment** (no `gbafix`) | `HARDWARE_TESTS.md` §V5.33, §V5.35, §V5.39 |
@@ -181,6 +182,7 @@ Changing any of these means a **new version**, never an edit.
 | **OGBPCOL1 v1** | frozen at the implementation checkpoint `e10423c`; `cert_rec` is **40** bytes | `src/gbp/gbp_vcoldump.h`, `tools/vcolor.py` |
 | **OGBPIDX1** | the indexed stimulus WIRE format, frozen at §V5.33: layout, 54-bit payload, CRC-8, symbols, 24-bit ID, STATUS, canonical witness coordinates, classification rules. `stream-0005` changed the experiment's PROTOCOL, not this; **`stream-0006` changed neither** — it changes only WHICH frames are retained | `stimulus/agb-indexed/`, `tools/istim.py`, `tools/vindex.py` |
 | **OGBPIDXCAP1 v1** | the witness CAPTURE sidecar, new in `stream-0005`. A new magic, never an OGBPSEQ1 version: header 0x180, record 4368 (48 B metadata + 40 x 54 big-endian u16, each record CRC-sealed), `"OGBPEND1"` footer. **`stream-0006` did NOT change it** (§V5.44.9): the window is reported in the `.log` `WITQUAL` line and is visible here as `record[0].frame_index != 0` | `src/gbp/gbp_vidxdump.h`, `tools/vidxcap.py` |
+| **OGBPDISP1 v1** | the DOWNSTREAM disposition sidecar, new in `stream-0007`. A new magic, never a version of OGBPIDXCAP1: header 0x100, lifecycle record 96 B, event record 40 B, `"OGBPDEND"` footer, three CRC-32s (header, per section, global). Keys on the assembler's generic `frame_index`; carries no pixels and no FRAME_ID. **NOT YET PHYSICALLY EXECUTED** | `src/gbp/gbp_vdispdump.h`, `tools/vdisp.py`, `HARDWARE_TESTS.md` §V5.46.12 |
 | **OGBPIDX1 WINDOW POLICY** | pre-registered at §V5.44 BEFORE the run it judges: 64 consecutive structurally qualifying frames, arming at a block-0 boundary, one-way. Structural terms only — no `FRAME_ID`, `STATUS`, `SYNC`, `CRC-8`, colour or expected payload. **PHYSICALLY EXERCISED in run 4** (warm-up 70 frames, 4 disqualified, 1 reset, armed at a block-0 boundary). Changing N now requires a new build id and a new pre-registration | `src/gbp/gbp_vwitness_drive.h`, `HARDWARE_TESTS.md` §V5.44 |
 | **`color-0001` analysis contract** | frozen at `bfbca70`; full-raw A/B/C byte equality. It refused `color-0001` and that verdict is permanent — `tools/vcolor.py` gains no option that could change it | `tools/vcolor.py`, `HARDWARE_TESTS.md` §V3.25 |
 | **`color-0002` analysis contract** | pre-registered before the run it judges; consumed-word equality over 38 400 words, bit 15 included. Changing it after `color-0002` has run requires **`color-0003`** | `tools/vcolor2.py`, `HARDWARE_TESTS.md` §V4 |
@@ -304,12 +306,11 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **Source-frame continuity is CLOSED for the qualified window; the open question
-> is now one pipeline stage later. Run 4 retained 2 048 contiguous source frames
-> while the consumer converted 2 113, presented 2 096, repeated 17 and skipped 17
-> XFB presents. WHICH frames does the consumer/display path drop or repeat, and
-> why — a pacing artefact, a conversion cost, or a presentation-interval
-> mismatch? That layer has its own population and needs its own witnesses.**
+> **The instrument for the next question exists; the question is unanswered.
+> Within a qualified, source-contiguous window, what downstream disposition did
+> each source frame reach, at what time, and what immediately observable state
+> caused each display hold? Run 4 gave the aggregate partition — 2 113 converted
+> = 2 096 stage-B presents + 17 holds — and nothing about cause.**
 
 There is no blocker. The previous blocker — a pre-registered decision about the
 startup/resync region — was decided, frozen and then physically exercised, and
@@ -412,45 +413,46 @@ non-empty, never verified against the real Nintendo logo. The claim is empirical
 
 ## Next safe action
 
-**Define the consumer/display disposition experiment. Do not implement it yet.**
-
-Source-frame continuity is closed for the qualified window (GBP-HW-189), and run
-4 sharpened the next question rather than answering it:
-
-```text
-over ONE capture whose SOURCE population was contiguous --
-  STREAMSRC    published  2 114
-  STREAMCONS   taken 2 113 · converted 2 113 · presented 2 096 · repeats 17
-  STREAMGX     drawdone 2 114 · xfb_presents 2 097 · xfb_skipped 17
-               ownership balanced, 175 176 invariant checks, 0 failures
-```
-
-> **WHICH frames does the consumer/display path drop or repeat, and why — a
-> pacing artefact, a conversion cost, or a presentation-interval mismatch?**
-
-That layer has its own population and needs its own witnesses; the source witness
-says nothing about it. The honest first step is a DESIGN round that answers, on
-paper and before any code: what a display-side witness must preserve, how it is
-bounded, and what verdict vocabulary it may use — in the same pre-registered
-style that made run 4 decidable. **Frame pacing follows it, not before.**
-
-**What must NOT happen next:** applying the §V5.44 qualification to any past
-capture; changing N; touching `tools/vindex.py`, `OGBPIDX1` or `OGBPIDXCAP1 v1`
-to make a future result nicer; or implementing scaling, filtering, audio, A/V
-sync, KEYPAD or any network path.
-
-**If a fifth indexed run is wanted** — recommended for repeatability, **not
-required** for the fact of run 4 — it needs no new artifacts. The identities are
-unchanged and reproducible:
+**One supervised physical run with `stream-0007`, returning THREE files.** The
+downstream question is frozen (§V5.46.7), the instrument is built and audited,
+and the decision is **A — safe enough for a first supervised disposition run**.
 
 ```text
-Build ID   stream-0006   commit c629445   483 008 B
-DOL        a9b8b969ef462bfe11b833f9dd77d56f7aa4a3387d61124f99b72901c9cb0379
-           reproduce with: GIT_COMMIT=c629445 GIT_DIRTY= make build && make swiss
-Swiss      build/swiss/12-stream/boot.dol, byte-identical
+Build ID   stream-0007   -- observational trace ONLY; no pacing change
+DOL        see the artifacts table above for commit, size and sha256
 cartridge  indexed-0003, 2 880 B, delivery 9f04916b…8d9cc2 — do NOT re-flash it
 expect     ~35.4 s: ~70 warm-up frames then 2 048 records, stop on the target
+return     ...-run5.log  +  ...-run5-idxcap.bin  +  ...-run5-disp.bin
 ```
+
+**POWER-CYCLE FIRST, and wait for BOTH sidecars.** The log reports
+`SAVESIDECAR` and `SAVEDISP` separately; the second is the new one and it is
+~557 KB. Copy run 4's files off the card before anything else touches it.
+
+**THE SOURCE GATE COMES FIRST.** Before any downstream evidence is interpreted,
+the SAME run must independently pass `tools/vindex.py` with
+`OBSERVED_CONTIGUOUS`, FAULT clear, no mixed IDs, no gap, no duplicate, no
+reorder, no invalid strip, no misplaced index. If source continuity fails in
+that run, the trace may still be diagnostic but **must not** carry the primary
+disposition claim.
+
+**What to read in the result, in order:**
+
+```text
+1. WITQUAL           armed=1, warmup_frames, first_record_frame  (source window)
+2. tools/vindex.py   OBSERVED_CONTIGUOUS on the -idxcap.bin       (SOURCE GATE)
+3. STREAMDISP        intact=1, life_overflow=0, event_overflow=0,
+                     drawdone_unmatched=0
+4. tools/vdisp.py    on the -disp.bin, with the -idxcap.bin as the second
+                     argument so the join is checked
+5. the HOLD rows     one compact causal row each: xfb_current, xfb_pending,
+                     retrace ordinal, and whether the frame was DRAWN
+```
+
+**What must NOT happen next:** changing pacing, queue depth, conversion
+scheduling, GX behaviour, XFB policy or VI timing to make the holds go away.
+The round after the trace decides whether the answer is a fix at all — "the
+holds are expected cadence behaviour" is a legitimate outcome.
 
 **BEFORE the run, protect the raw record.** The SD workflow names every run
 identically and run 3 overwrote run 1's log in `logs/`; only the
@@ -462,6 +464,16 @@ stability is deliberate, it is what made the three-run comparison causal):
 
 ```text
 F3  `make <x>-audit` has no source prerequisite and can audit stale objects.
+    The stream and colour audits also COMPARE against the video POC's ISR dump,
+    so `make video-audit` has to run first or the comparison reads a stale or
+    absent file and reports DIFFERENT for no reason.
+F8  `tools/poc_audit.py` walks the relocations of FUNCTIONS (objdump -dr of the
+    text). A forbidden symbol reached through a DATA initialiser -- a function
+    pointer in a table, a callback field -- produces a .data relocation and is
+    invisible to both the deny-lists and the allowlists. Found in §V5.46 while
+    writing a mutation that accidentally took the address of `fopen` instead of
+    calling it; the CALL form is caught. Narrow, but real, and not fixed here:
+    changing the audit tool needs its own validation round.
 F5  cfg.min_valid_observation_s = 30 is armed as a success condition. Under
     OGBPIDX1 it is UNREACHABLE (no baseline can form, valid_s stays 0), but the
     indexed experiment should still have exactly one success condition.

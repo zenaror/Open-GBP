@@ -27,7 +27,7 @@ include $(DEVKITPRO)/libogc2/gamecube_rules
 # Identity
 #---------------------------------------------------------------------------------
 APP_NAME   := gbp-video-stream-probe
-BUILD_ID   := stream-0006
+BUILD_ID   := stream-0007
 GIT_COMMIT ?= $(shell git -C "$(CURDIR)" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 GIT_DIRTY  ?= $(shell git -C "$(CURDIR)" diff --quiet HEAD -- 2>/dev/null || echo -dirty)
 COMMIT_ID  := $(GIT_COMMIT)$(GIT_DIRTY)
@@ -42,7 +42,7 @@ TARGET  := $(OUTDIR)/$(APP_NAME)
 
 vpath %.c $(CURDIR)/source $(ROOT)/src/common $(ROOT)/src/log $(ROOT)/src/gbp $(ROOT)/src/platform
 
-SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vpix.c gbp_vqueue.c gbp_vpresent.c gbp_vwitness.c gbp_vidxdump.c gbp_vcolor.c gbp_vstate_probe.c gbp_vstatedump.c hsp_backend.c hsp_backend_irq.c sdlog.c
+SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vpix.c gbp_vqueue.c gbp_vpresent.c gbp_vwitness.c gbp_vidxdump.c gbp_vdisp.c gbp_vdispdump.c gbp_vcolor.c gbp_vstate_probe.c gbp_vstatedump.c hsp_backend.c hsp_backend_irq.c sdlog.c
 OBJS := $(addprefix $(OBJDIR)/,$(SRCS:.c=.o))
 DEPS := $(OBJS:.o=.d)
 

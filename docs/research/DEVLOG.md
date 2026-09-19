@@ -8393,3 +8393,77 @@ witness does not preserve.
 2 096 presented, 17 repeats and 17 skipped XFB presents over a capture whose
 SOURCE population was contiguous. Which frames the consumer/display path drops or
 repeats, and why. Frame pacing follows it. Neither is started here.
+
+## 2026-09-19 — the downstream disposition trace: instrument first, explain later
+
+**Goal.** Source continuity closed in §V5.45; the next question is what happens
+to a frame afterwards, and why 17 of run 4's 2 113 converted frames never
+reached a framebuffer. Design and build the instrument. **Do not fix pacing, do
+not "correct" the 17.** No hardware.
+
+**The audit came before the design, and it changed the design.** Tracing the
+real code first produced a finding that reshapes the hypothesis list: **this
+runtime has no VI-driven display loop.** `VIDEO_WaitVSync()` is never called in
+the capture path, no retrace callback is installed, and a presentation
+opportunity is one `submit_ready()` call — which happens because a conversion
+finished. Presents are source-driven and an opportunity cannot precede its own
+frame.
+
+So "a display opportunity found no new source frame" is not a weak hypothesis
+here, it is **inapplicable**, and no test was written for a branch that does not
+exist. And every one of the 17 holds was a frame that had already been
+converted, submitted **and drawn** — `STREAMOWN` says `blocked_inflight=0`,
+`no_texture=0`, `submit=2114/2114`, so there was no back-pressure anywhere. A
+conversion or GX deadline miss cannot produce a hold; it would produce a
+token-gate refusal. What remains is the framebuffer branch: two XFBs, and
+`xfb_target()` returns −1 when the VI is scanning one while the other has been
+handed over but not yet latched.
+
+**`presented` does not mean displayed.** It means `VIDEO_SetNextFramebuffer()`
+was called. Actual scanout is not observable in this runtime, and the new
+vocabulary says stage B rather than borrowing a stronger word. The public
+counters were not renamed — that would be churn across four documents and a
+parser — but the mapping is now written down (GBP-VID-015).
+
+**The generic key already existed.** `struct gbp_vqueue_desc` carries the
+assembler's `frame_index`, so nothing had to be invented to have a
+stimulus-independent identity; what was missing was carrying it past conversion,
+which is a texture→lifecycle map written when the token is armed and cleared by
+the release. The join to OGBPIDXCAP1 is offline.
+
+**There is no publish timestamp, and that is a measurement.**
+`gbp_vqueue_publish()` runs in the same service cycle that closed the frame,
+from the frame's own timestamps, and reads no clock of its own. Close and
+publish are one event. The field was removed from the record rather than
+recorded twice.
+
+**`VIDEO_GetRetraceCount()` instead of a retrace callback.** libogc2's handler
+is already installed by `VIDEO_Init()`, so the ordinal costs no interrupt load
+and no new callback — the stronger measurement without the risk §V5.46 warned
+against taking.
+
+**The audit caught something I did not set out to do.** The trace made
+`submit_ready()` large enough that GCC stopped inlining it, so the pinned call
+site moved from `{pump: 2, main: 1}` to `{submit_ready: 1}`. Code layout, not
+behaviour — one call and return per presentation — but it is recorded rather
+than quietly re-pinned, and the property the pin exists for is unchanged: the
+submit is still unreachable from `gbp_vstate_probe_run`. A second pin had to be
+dropped instead of updated, because `submit_ready` is `static` and its callers
+carry no relocation: asserting them would have been asserting the unobservable.
+
+**Two changes deliberately not made.** `OGBPIDXCAP1 v1` stays frozen — the
+downstream trace is a new file, not a version. And the `STREAMWITT` metric split
+(GBP-HW-190) was authorised but refused: the sample is taken inside
+`gbp_vstate_probe.c`'s service path, and this round's whole audit rests on that
+file being untouched. It is also redundant now — the trace records
+`convert_ticks` per frame, which is attributable and excludes warm-up by
+construction.
+
+**New unknowns:** none. `U-GBP-029`, `U-GBP-033`, `U-GBP-034` stay open.
+
+**Next:** one supervised physical run with `stream-0007` and the same
+`indexed-0003` cartridge, returning THREE files. The source gate comes first —
+the same run must pass `tools/vindex.py` with `OBSERVED_CONTIGUOUS` before any
+downstream evidence is interpreted. Only after that trace exists may anyone
+decide whether the answer is pacing, conversion scheduling, GX scheduling, XFB
+policy, or that the holds are expected cadence behaviour.
