@@ -13499,6 +13499,7 @@ STIMULUS
   indexed-0002  2 876 B  44651f0b...3c7b7b2f  HISTORICAL — FAULT clear, 2:1 cadence
   indexed-0003  canonical 2 880 B
                 sha256 37119bb6ac68398dbd3fa75e6ad5c51c8aeb543277ac8d3b03b57f7a6f0caaca
+                build with GIT_COMMIT=8840050 GIT_DIRTY= (see the note below)
   indexed-0003  delivery  2 880 B
                 sha256 9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2
                 payload past 0x0C0 BYTE-IDENTICAL to the canonical ROM
@@ -13523,3 +13524,24 @@ The THIRD indexed run: the **same exact `stream-0005` DOL** with the new
 Check `STATUS` stays `0x18`-class with `FAULT = 0`, then check that
 `OBSERVED_DUPLICATE_ID` has collapsed to zero and `OBSERVED_ID_CONTIGUOUS`
 covers the decisive set. Only then can source-frame continuity be decided.
+
+#### V5.42.13 An environment note, not a project finding
+
+The container's view of `.git` went stale on the `fuseblk` mount again: `git
+rev-parse HEAD` resolved correctly inside the container while `git status`
+returned `fatal: bad object HEAD`, so the build stamped `commit=8840050-dirty`
+on a tree the host reports clean. Refreshing `.git/index` fixed this the last
+time (§V5.40.24) and did not this time; the stimulus was therefore built with
+`GIT_COMMIT=8840050 GIT_DIRTY=` explicitly, exactly as the DOL reproduction
+already requires (§V5.40.2).
+
+**The artifact is unaffected and that was verified rather than assumed:** the
+ROM hashed `37119bb6…caaca` across four independent builds, with and without the
+`-dirty` suffix, so the commit string does not enter the ROM bytes. The only
+thing the staleness touched was the `commit=` line in `build-info.txt`.
+
+This is the third occurrence of the same class (invisible `tools/istim.py`,
+stale `.git/index`, now an unreadable tree). It is recorded because a `-dirty`
+stamp is normally a hard stop for hardware, and here it is a filesystem artifact
+with a proven-identical binary — a distinction that must never be assumed, only
+demonstrated.
