@@ -679,6 +679,14 @@ int main(void)
         printf("  WITNESS init FAILED\n");
         return 1;
     }
+    /* THE PROSPECTIVE STRUCTURAL QUALIFICATION (§V5.44). The assembler runs
+     * normally through the warm-up -- transport, service and frame assembly are
+     * untouched -- but nothing is RETAINED until 64 consecutive structurally
+     * qualifying frames have closed and a fresh block-0 boundary arrives. Run 3
+     * measured a correct producer and was still refused because the startup
+     * transient sat inside the population under test (GBP-HW-172); this moves
+     * the boundary, and moves it ONLINE, without touching the analyzer. */
+    gbp_vwitness_set_qualification(&wit, GBP_VWITNESS_QUAL_REQUIRED);
     cfg.witness = &wit;
 
     /* The display path, walked once from a synthetic frame BEFORE any device is
@@ -905,6 +913,22 @@ int main(void)
     /* The retained population, and the cost of retaining it. These are three
      * different facts and they never share a line with the queue's: what the
      * SOURCE produced, what was STORED, and what the storing cost. */
+    /* §V5.44.5: the warm-up is REPORTED, never hidden. A reader must be able to
+     * see that a startup transient happened and that it fell outside the
+     * scientific window, rather than take it on trust. */
+    ringlog_printf(&rl, "WITQUAL policy=consecutive_structural_complete required=%lu state=%lu "
+                        "streak_max=%lu resets=%lu warmup_frames=%lu warmup_disqualified=%lu "
+                        "qualify_frame=%ld qualified=%d armed=%d "
+                        "window_first_block=%d first_record_frame=%ld",
+                   (unsigned long)wit.qual_required, (unsigned long)wit.qual_state,
+                   (unsigned long)wit.qual_streak_max, (unsigned long)wit.qual_resets,
+                   (unsigned long)wit.warmup_frames, (unsigned long)wit.warmup_disqualified,
+                   (wit.qual_frame_index == 0xFFFFFFFFu) ? -1L : (long)wit.qual_frame_index,
+                   gbp_vwitness_qualified(&wit), gbp_vwitness_armed(&wit),
+                   /* MEASURED, not asserted: a literal 0 here would print the
+                    * right answer even when the window opened mid-frame. */
+                   (wit.n && (wit.meta[0].present & 1u)) ? 0 : -1,
+                   wit.n ? (long)wit.meta[0].frame_index : -1L);
     ringlog_printf(&rl, "STREAMWIT records=%lu/%lu target=%lu frames_seen=%lu discarded=%lu "
                         "staged=%lu placed=%lu out_of_range=%lu store_full=%d target_reached=%d",
                    (unsigned long)wit.n, (unsigned long)wit.cap, (unsigned long)wit.target,
@@ -999,6 +1023,11 @@ int main(void)
              gbp_vstate_storage_fault(&vstate) ? gbp_vstate_storage_fault(&vstate) : "-");
     gecko_puts(line);
 
+    printf("  WITQUAL required %lu, warm-up %lu frames (%lu disqualified, %lu resets), "
+           "streak_max %lu, armed=%d\n",
+           (unsigned long)wit.qual_required, (unsigned long)wit.warmup_frames,
+           (unsigned long)wit.warmup_disqualified, (unsigned long)wit.qual_resets,
+           (unsigned long)wit.qual_streak_max, gbp_vwitness_armed(&wit));
     printf("  WITNESS %lu/%lu records (target %lu), %lu blocks placed, store_full=%d, %lu ticks mean\n",
            (unsigned long)wit.n, (unsigned long)wit.cap, (unsigned long)wit.target,
            (unsigned long)wit.blocks_placed, gbp_vwitness_store_full(&wit),

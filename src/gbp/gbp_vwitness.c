@@ -27,7 +27,57 @@ int gbp_vwitness_init(struct gbp_vwitness *w, uint16_t *store, struct gbp_vwitne
     w->cap = cap;
     w->target = (target == 0u || target > cap) ? cap : target;
     w->copy_ticks_min = 0xFFFFFFFFu;
+    w->qual_state = GBP_VWITNESS_QUAL_ARMED;   /* no qualification unless asked for */
+    w->qual_frame_index = 0xFFFFFFFFu;
     return 0;
+}
+
+void gbp_vwitness_set_qualification(struct gbp_vwitness *w, uint32_t required)
+{
+    if (!w) return;
+    w->qual_required = required;
+    w->qual_state = required ? GBP_VWITNESS_QUAL_WARMUP : GBP_VWITNESS_QUAL_ARMED;
+    w->qual_streak = 0u;
+}
+
+void gbp_vwitness_note_frame(struct gbp_vwitness *w, int qualifying)
+{
+    if (!w) return;
+    /* ONE-WAY. Once the window is open the streak is history: a later resync
+     * stays inside the scientific population, where it belongs. */
+    if (w->qual_state == GBP_VWITNESS_QUAL_ARMED) return;
+    w->warmup_frames++;
+    if (!qualifying) {
+        if (w->qual_streak) w->qual_resets++;
+        w->qual_streak = 0u;
+        w->warmup_disqualified++;
+        return;
+    }
+    w->qual_streak++;
+    if (w->qual_streak > w->qual_streak_max) w->qual_streak_max = w->qual_streak;
+    if (w->qual_state == GBP_VWITNESS_QUAL_WARMUP && w->qual_streak >= w->qual_required) {
+        /* The streak is complete, but THIS frame is already closed: retaining it
+         * would mean starting mid-frame. The window opens at the next block 0. */
+        w->qual_state = GBP_VWITNESS_QUAL_PENDING;
+        w->qual_frame_index = w->warmup_frames - 1u;
+    }
+}
+
+int gbp_vwitness_qualified(const struct gbp_vwitness *w)
+{
+    return (w && w->qual_state != GBP_VWITNESS_QUAL_WARMUP) ? 1 : 0;
+}
+
+int gbp_vwitness_armed(const struct gbp_vwitness *w)
+{
+    return (w && w->qual_state == GBP_VWITNESS_QUAL_ARMED) ? 1 : 0;
+}
+
+void gbp_vwitness_arm(struct gbp_vwitness *w)
+{
+    if (!w || w->qual_state != GBP_VWITNESS_QUAL_PENDING) return;
+    w->qual_state = GBP_VWITNESS_QUAL_ARMED;
+    clear_scratch(w);            /* nothing from warm-up may leak into record 0 */
 }
 
 int gbp_vwitness_stage(struct gbp_vwitness *w, const uint8_t *block)
@@ -35,6 +85,7 @@ int gbp_vwitness_stage(struct gbp_vwitness *w, const uint8_t *block)
     const uint8_t *p;
     uint32_t i;
     if (!w || !w->store || !block) return -1;
+    if (w->qual_state != GBP_VWITNESS_QUAL_ARMED) return -1;   /* warm-up: retain nothing */
     /* Local row 0, columns x = 1 .. 54. The word is bytes 1 and 3 of the pixel;
      * bytes 0 and 2 are not read (U-GBP-029) and bit 15 is not masked
      * (U-GBP-034). 54 iterations, two loads each, no branch, no call. */
@@ -67,6 +118,14 @@ int gbp_vwitness_place(struct gbp_vwitness *w, uint32_t index)
         w->blocks_out_of_range++;
         return -1;
     }
+    /* FIRST-RECORD INVARIANT. The window opens at a block-0 boundary, so the
+     * very first scientific placement must be record 0, block 0 with an empty
+     * scratch. A start anywhere else would make record 0 partial by
+     * construction, which is exactly the defect this design exists to remove. */
+    if (w->n == 0u && w->scratch_present == 0u && index != 0u) {
+        w->blocks_out_of_range++;
+        return -1;
+    }
     dst = w->scratch + (size_t)index * GBP_VWITNESS_WORDS;
     for (i = 0; i < GBP_VWITNESS_WORDS; i++) dst[i] = w->staged[i];
     if (!(w->scratch_present & ((uint64_t)1u << index))) w->scratch_blocks++;
@@ -81,6 +140,10 @@ int gbp_vwitness_commit(struct gbp_vwitness *w, const struct gbp_vwitness_meta *
     uint16_t *dst;
     uint32_t i, pop = 0u;
     if (!w || !w->store || !meta) return -1;
+    /* A warm-up frame consumes no record capacity and does not count toward the
+     * target. `frames_seen` is the SCIENTIFIC population only; the warm-up has
+     * its own counters so the transient stays visible (§V5.44.5). */
+    if (w->qual_state != GBP_VWITNESS_QUAL_ARMED) { clear_scratch(w); return 0; }
     w->frames_seen++;
     if (w->n >= w->cap) {
         /* Nothing is overwritten and no record is rotated out: the oldest

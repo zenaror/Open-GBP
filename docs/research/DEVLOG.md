@@ -8251,3 +8251,75 @@ artifacts. After that, the roadmap's next unresolved GBP-VIDEO-004 objectives ar
 the downstream consumer/display loss policy — this run still shows 2 043
 converted, 2 026 presented, 17 repeats, a *later* stage the source witness says
 nothing about — and frame pacing.
+
+## 2026-09-19 — the prospective structural window: `stream-0006`
+
+**Goal.** Write the amendment §V5.43.8 proposed and refused to apply: a rule
+that says where the decisive interval begins, fixed **before** the run it
+judges, so the next capture's startup transient is outside the population under
+test instead of inside it. No hardware, no analyzer change, no stimulus change,
+no new wire contract.
+
+**The rule.** A frame qualifies when the ASSEMBLER calls it complete, 40 blocks,
+`COMPLETE_40`, free of `ANOMALY | DISAGREEMENT | OVERLONG | RESYNC`, closed with
+no region anomaly in the step and with `resync_pending` down. 64 consecutive
+such frames open the window at the next block-0 boundary, and it never closes.
+Not one term touches `FRAME_ID`, `STATUS`, `SYNC`, `CRC-8`, a colour or an
+expected payload.
+
+**The finding that shaped the rule.** The baseline **never establishes** on an
+indexed stimulus (GBP-HW-175): `reference_updates=0`, `baseline=never_established`,
+`F_PRE_BASELINE` on 2048 of 2048 records, in all three runs. The assembler's
+baseline waits for a frame to repeat and an indexed stimulus never repeats one.
+Every criterion built on content stability — `baseline_valid`, a stable episode,
+a matched reference — would wait for ever. The rule that works is the rule the
+design required anyway: region and geometry only.
+
+**Cross-run replay, and the control that matters.** The real C state machine was
+replayed over a structural projection of all three captures (`tools/vqual.py`,
+`OGBPQUAL1`, 24 652 B, which cannot physically carry a stimulus word), and the
+**unmodified** analyzer was run on what the window would have kept. The three
+runs happen to be three different failures, which makes them a control set:
+
+```text
+run 1  producer FAULT latched      INVALID  -> INVALID          (no N rescues it)
+run 2  every source frame twice    DISCONT. -> DISCONTINUITY    (no N rescues it)
+run 3  one gap, inside startup     DISCONT. -> CONTIGUOUS
+```
+
+Runs 1 and 2 are the reason to believe run 3. A window that also cleared a
+latched FAULT or hid a systemic duplication would be laundering verdicts; tested
+from N=1 to N=1024 it clears neither.
+
+**On whether 64 was fitted.** It was chosen for time margin (~1.07 s at 59.73 Hz,
+>9x the observed 7-frame transient, and 70+2048 frames ≈ 35.4 s against the 60 s
+cap). The run-3 verdict is the same for **every N from 2 to 128**: the gap sits
+at record 5 and two qualifying frames already clear it. The answer is flat over a
+64-fold range, so the number is a margin decision on a plateau, not a tuned one.
+
+**What run 3 still is.** `OBSERVED_DISCONTINUITY`, permanently. The analyzer was
+not taught to accept it and no capture was re-judged. "Find the last resync and
+analyze what follows" stays forbidden; this rule is causal (it sees only closed
+frames), structural (a static guard enforces it) and fixed in advance.
+
+**A change deliberately not made.** A windowed sidecar would ideally say so in
+its own header, and `OGBPIDXCAP1` has 116 reserved bytes that would fit it.
+`OGBPIDXCAP1 v1` is a frozen contract and this round does not carry authority to
+change it, so the window is reported in the `.log` `WITQUAL` line and is visible
+in the sidecar as `record[0].frame_index != 0`. The cost — a sidecar read alone
+shows *that* a window applied, not *which* — is recorded rather than hidden.
+
+**Rejected hypotheses.** That the two live-latch terms (`step->resync`,
+`st->resync_pending`) add discriminating power: they do not. Every region-anomaly
+site already flags the frame or leaves `completeness != COMPLETE_40`, so
+shape-clean implies both latches are down. They stay as defence in depth, a unit
+test pins the invariant, and the mutation round records them as **equivalent
+mutants rather than as test gaps** — which is also what makes the offline replay
+exact rather than an earliest bound.
+
+**New unknowns:** none. U-GBP-029, U-GBP-033, U-GBP-034 stay open and untouched.
+
+**Next:** the fourth physical run, with the same `indexed-0003` cartridge and the
+same procedure, to test GBP-HW-179. After that the downstream consumer/display
+loss policy and frame pacing remain the open GBP-VIDEO-004 objectives; the source
+witness says nothing about either.
