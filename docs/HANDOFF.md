@@ -24,27 +24,45 @@ HEAD to be at least one commit ahead: the one carrying this text.
 
 ```text
 LAST PHYSICAL EVIDENCE INGESTED
-  GBP-VIDEO-004 / stream-0004, executed 2026-09-19 — THE SECOND STREAM SMOKE
-  GBP-HW-146 … GBP-HW-152
-  STANDING: EXECUTED · P1 AND P2 PHYSICALLY CONFIRMED FIXED
-  REAL CARTRIDGE VIDEO WAS PRESENTED ON PHYSICAL GAMECUBE OUTPUT.
-  280 672 conserved service cycles (unmasks==deliveries==acks==rearms),
-  2 622 published, 2 621 converted, 2 603 presented, 18 repeated, residual 0,
-  balanced=1, ownership invariants 221 741 checks / 0 failures.
+  GBP-VIDEO-004 / stream-0006 + indexed-0003, executed 2026-09-19 — RUN 4
+  GBP-HW-180 … GBP-HW-191
+  STANDING: EXECUTED · SOURCE-FRAME CONTINUITY CLOSED FOR THE QUALIFIED WINDOW
 
-  THE PRE-REGISTERED P2 GATE PASSED: SEMANTIC.quarantined == STREAMSRC.quarantined
-  = 0 == 0. The SOURCE population is identical to stream-0003 field for field
-  (FRAMECAP 2648/2635/13/26/13, video 105 841, audio 181 481, capture_s 44.323),
-  so the same 2 635 complete frames decompose as 2298+324+13 there and 2622+0+13
-  here: the published delta is EXACTLY the 324 the aliased bit was refusing.
-  Cadence 51.89 Hz -> 59.19 Hz. stream-0003 is NOT rewritten.
+  The UNMODIFIED tools/vindex.py returned **OBSERVED_CONTIGUOUS**: 2 048 of
+  2 048 retained records complete, 2 046 decisive transitions all
+  OBSERVED_ID_CONTIGUOUS, FRAME_ID 85..2132 with no member missing, FAULT clear,
+  VMARGIN 24, decisive-claim ready True, stop on witness_target_reached.
 
-  NEW FINDING, and it changes the next experiment: valid_s IS NOT WALL TIME.
-  30.001 valid seconds were 44.323 WALL seconds and 2 648 closed frames, not the
-  ~1 792 the old sizing premise predicted (GBP-HW-151). A witness store must be
-  bounded by a COUNT of retained frames, never by a target in valid seconds.
+  THE FIRST RUN JUDGED BY A RULE THAT EXISTED BEFORE IT. The §V5.44 window was
+  frozen in the previous round; run 4 reproduced every figure the software-only
+  replay predicted: required 64, streak_max 64, warm-up 70 frames, 4
+  disqualified, exactly 1 streak reset, first retained frame 70.
 
-  SOURCE-FRAME CONTINUITY IS STILL NOT DECIDABLE — no indexed stimulus has run.
+  THE PRE-REGISTERED CROSS-CHECK PASSED, to the block. stream-0005 staged every
+  block it was delivered (run 3: video 81 876 == staged 81 876). Run 4 differs by
+  2 755 — and 2 755 is NOT 70 x 40. It is 1 + 34 + 68x40, the capture's own
+  interval histogram, and the ledger closes:
+      2 755 warm-up + 81 920 scientific + 1 trailing-open = 84 676 = video.
+
+  Transport conserved: unmasks==deliveries==acks==rearms==224 561, audio 145 185,
+  video 84 676/84 676, timeouts 0, busy 0, overflow 0, uncertain 0, errors 0.
+  Ownership balanced, 175 176 invariant checks / 0 failures.
+
+  DECODED TWICE. A reimplementation importing nothing from tools/ reproduced all
+  ten frozen CRC-8 vectors first, then agreed with the official analyzer on every
+  figure. Two corrections were to the REPRODUCTION, not the data: the global
+  CRC-32 excludes the footer magic, and cadence must be measured first-to-first
+  over 2 047 intervals (34.272 56 s -> 59.7271 FRAME_ID/s).
+
+  RUNS 1-3 ARE NOT RE-JUDGED. Run 3 stays OBSERVED_ID_GAP /
+  OBSERVED_DISCONTINUITY permanently; the qualification is never applied
+  retrospectively. The startup transient is still fully VISIBLE in run 4's log
+  and FRAMECAP (2 118 frames, incomplete 2, resync 4, intervals 1:1 and 34:1) —
+  nothing was hidden, only retention was deferred.
+
+  STILL OPEN, and sharpened rather than answered: 2 114 published, 2 096
+  presented, 17 repeats, 17 skipped XFB presents, over a capture whose SOURCE
+  population was contiguous. Consumer/display disposition is the next gate.
 
   Previous: stream-0003 (GBP-HW-138…145), the FIRST real stream smoke, which
   found P1 and P2; stream-0002 (GBP-HW-134…137), ABORTED PRE-SERVICE, corrected
@@ -114,7 +132,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 | **GBP-VIDEO-003 / `color-0001`** | **PHYSICALLY EXECUTED 2026-09-18 — INCONCLUSIVE UNDER ITS ORIGINAL FULL-RAW CONTRACT, permanently, and it is never re-judged** | `HARDWARE_TESTS.md` "GBP-VIDEO-003 / color-0001"; GBP-HW-120…126 |
 | **GBP-VIDEO-003 / `color-0002`** | **PHYSICALLY EXECUTED 2026-09-18 — CONFIRMATORY CONTRACT PASS. `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`: the outer 5-bit groups are exchanged** | `HARDWARE_TESTS.md` §V4.10; GBP-HW-127…133 |
 | **GBP-VIDEO-003 overall** | **COMPLETE for the controlled colour objective.** Do not re-open, re-run or re-derive it | §V4.10; `UNKNOWNS.md` U-GBP-011 |
-| **GBP-VIDEO-004** (sustained streaming) | **`stream-0005` PHYSICALLY EXECUTED THREE TIMES 2026-09-19.** Run 3's producer is correct (1:1, 0 duplicates, 0 mixed, FAULT clear) and the frozen verdict is still **`OBSERVED_DISCONTINUITY`**, on one startup gap at record 5 — that verdict is permanent. **`stream-0006` adds the PRE-REGISTERED structural window (§V5.44) and is NOT PHYSICALLY EXECUTED** | `HARDWARE_TESTS.md` §V5.38–§V5.44 |
+| **GBP-VIDEO-004** (sustained streaming) | **SOURCE-FRAME CONTINUITY CLOSED for the qualified window.** `stream-0006` PHYSICALLY EXECUTED 2026-09-19 (run 4): the unmodified analyzer returned **`OBSERVED_CONTIGUOUS`** over 2 046 decisive transitions, 2 048/2 048 complete records, FRAME_ID 85..2132 with no member missing, FAULT clear, VMARGIN 24. Runs 1–3 on `stream-0005` keep their own verdicts permanently — run 3 stays `OBSERVED_ID_GAP` / `OBSERVED_DISCONTINUITY` and is NOT re-judged. Consumer/display disposition is the NEXT gate, not closed | `HARDWARE_TESTS.md` §V5.38–§V5.45; GBP-HW-180…191 |
 | **`stream-0003`** | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** Historical; never rebuilt or re-labelled. It found P2 and P1 | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | **CONTROLLED indexed stimulus** (`stimulus/agb-indexed`) | **ROM, ANALYZER AND RUNTIME RETENTION IMPLEMENTED** to the frozen `OGBPIDX1` contract. ROM 2 460 B `379df0f7…c543`; renders 38 400/38 400 words identically to `tools/istim.py`. `stream-0005` retains the canonical witness at the SOURCE layer into the new `OGBPIDXCAP1` sidecar, bounded by a 2048-record target. **The ROM HAS NEVER RUN anywhere, and its DELIVERY image cannot be produced in this environment** (no `gbafix`) | `HARDWARE_TESTS.md` §V5.33, §V5.35, §V5.39 |
 | **Dolphin's emulated Game Boy Player** | **EXISTS and is REACHABLE from a homebrew DOL** in the installed 2606a (`HSPDevice=2` + `GBPlayerRom`; no BIOS, no Start-up Disc). The exact `stream-0003` reaches the CONTROL gate on it and stops there: Dolphin's power-on CONTROL is `0x02`, hardware's is `0x90`. **AUXILIARY only** | `HARDWARE_TESTS.md` §V5.31 |
@@ -163,7 +181,7 @@ Changing any of these means a **new version**, never an edit.
 | **OGBPCOL1 v1** | frozen at the implementation checkpoint `e10423c`; `cert_rec` is **40** bytes | `src/gbp/gbp_vcoldump.h`, `tools/vcolor.py` |
 | **OGBPIDX1** | the indexed stimulus WIRE format, frozen at §V5.33: layout, 54-bit payload, CRC-8, symbols, 24-bit ID, STATUS, canonical witness coordinates, classification rules. `stream-0005` changed the experiment's PROTOCOL, not this; **`stream-0006` changed neither** — it changes only WHICH frames are retained | `stimulus/agb-indexed/`, `tools/istim.py`, `tools/vindex.py` |
 | **OGBPIDXCAP1 v1** | the witness CAPTURE sidecar, new in `stream-0005`. A new magic, never an OGBPSEQ1 version: header 0x180, record 4368 (48 B metadata + 40 x 54 big-endian u16, each record CRC-sealed), `"OGBPEND1"` footer. **`stream-0006` did NOT change it** (§V5.44.9): the window is reported in the `.log` `WITQUAL` line and is visible here as `record[0].frame_index != 0` | `src/gbp/gbp_vidxdump.h`, `tools/vidxcap.py` |
-| **OGBPIDX1 WINDOW POLICY** | pre-registered at §V5.44 BEFORE the run it judges: 64 consecutive structurally qualifying frames, arming at a block-0 boundary, one-way. Structural terms only — no `FRAME_ID`, `STATUS`, `SYNC`, `CRC-8`, colour or expected payload. Changing N after `stream-0006` has run requires a new build id and a new pre-registration | `src/gbp/gbp_vwitness_drive.h`, `HARDWARE_TESTS.md` §V5.44 |
+| **OGBPIDX1 WINDOW POLICY** | pre-registered at §V5.44 BEFORE the run it judges: 64 consecutive structurally qualifying frames, arming at a block-0 boundary, one-way. Structural terms only — no `FRAME_ID`, `STATUS`, `SYNC`, `CRC-8`, colour or expected payload. **PHYSICALLY EXERCISED in run 4** (warm-up 70 frames, 4 disqualified, 1 reset, armed at a block-0 boundary). Changing N now requires a new build id and a new pre-registration | `src/gbp/gbp_vwitness_drive.h`, `HARDWARE_TESTS.md` §V5.44 |
 | **`color-0001` analysis contract** | frozen at `bfbca70`; full-raw A/B/C byte equality. It refused `color-0001` and that verdict is permanent — `tools/vcolor.py` gains no option that could change it | `tools/vcolor.py`, `HARDWARE_TESTS.md` §V3.25 |
 | **`color-0002` analysis contract** | pre-registered before the run it judges; consumed-word equality over 38 400 words, bit 15 included. Changing it after `color-0002` has run requires **`color-0003`** | `tools/vcolor2.py`, `HARDWARE_TESTS.md` §V4 |
 
@@ -184,7 +202,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | GBP-VIDEO-004 | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **PHYSICALLY EXECUTED 2026-09-19 — P1 AND P2 CONFIRMED FIXED.** 472 160 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.38; GBP-HW-146…152 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0006` | `c629445` | `a9b8b969ef462bfe11b833f9dd77d56f7aa4a3387d61124f99b72901c9cb0379` | **AUDITED — DECISION A. NOT PHYSICALLY EXECUTED.** 483 008 B. Adds the PRE-REGISTERED structural window (§V5.44) and nothing else: `OGBPIDX1`, `OGBPIDXCAP1 v1`, the analyzer and the stimulus are untouched, and the interrupt path is byte-identical to the physically validated GBP-VIDEO-001 build. Byte-identical across two from-scratch builds; Swiss `build/swiss/12-stream/boot.dol` identical. **Reproduce with `GIT_COMMIT=c629445 GIT_DIRTY= make build`** — which now actually works, see `c629445` | `HARDWARE_TESTS.md` §V5.44 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0006` | `c629445` | `a9b8b969ef462bfe11b833f9dd77d56f7aa4a3387d61124f99b72901c9cb0379` | **PHYSICALLY EXECUTED 2026-09-19 (run 4) — `OBSERVED_CONTIGUOUS`.** 483 008 B. Adds the PRE-REGISTERED structural window (§V5.44) and nothing else: `OGBPIDX1`, `OGBPIDXCAP1 v1`, the analyzer and the stimulus are untouched, and the interrupt path is byte-identical to the physically validated GBP-VIDEO-001 build. Byte-identical across two from-scratch builds; Swiss `build/swiss/12-stream/boot.dol` identical. **Reproduce with `GIT_COMMIT=c629445 GIT_DIRTY= make build`** — which now actually works, see `c629445` | `HARDWARE_TESTS.md` §V5.44 |
 | GBP-VIDEO-004 **previous candidate** | `stream-0005` | `10250a4` | `35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092` | **AUDITED — DECISION A. NOT PHYSICALLY EXECUTED.** 481 664 B; source-layer retention proved unbiased against the real assembler, target stop proved safe (after ACK and RE-ARM), no off-by-one at 2048, no filesystem in the capture path, 9/9 adversarials caught. **Reproduce with `GIT_COMMIT=10250a4 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.39, §V5.40 |
 | GBP-VIDEO-004 **stimulus** | `indexed-0001` | — | `379df0f7019ef7f1330bd4ad55274bde062a69d03d1c8cc1dc2a01018bdbc543` | 2 460 B. **PHYSICALLY EXECUTED 2026-09-19 — INVALID FOR DECISIVE CLAIM** (FAULT from its first update, 14.9x over the VBlank budget). Historical; never rerun | `HARDWARE_TESTS.md` §V5.41; GBP-HW-157…159 |
 | GBP-VIDEO-004 **stimulus** | `indexed-0002` | — | `44651f0ba60141f23cfb6b8b01f5b7a871ef1037412c7dae2ac9d9743c7b7b2f` | 2 876 B. **PHYSICALLY EXECUTED 2026-09-19 — TEARING FIXED (FAULT clear, VMARGIN 24, 0 mixed), but 2:1 CADENCE.** Historical; never rerun | `HARDWARE_TESTS.md` §V5.42; GBP-HW-160…166 |
@@ -286,12 +304,16 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **A PRE-REGISTERED decision about the startup/resync region, then a fourth
-> indexed run. Run 3's producer is correct — 1:1 cadence, zero duplicates, zero
-> mixed frames, FAULT clear — and the frozen contract still returned
-> `OBSERVED_DISCONTINUITY` on ONE transition: a 34-block startup record that
-> takes FRAME_ID 19 out of the complete-frame population, so 18 → 20 reads as a
-> gap. That is the contract working. Source continuity stays UNDECIDED.**
+> **Source-frame continuity is CLOSED for the qualified window; the open question
+> is now one pipeline stage later. Run 4 retained 2 048 contiguous source frames
+> while the consumer converted 2 113, presented 2 096, repeated 17 and skipped 17
+> XFB presents. WHICH frames does the consumer/display path drop or repeat, and
+> why — a pacing artefact, a conversion cost, or a presentation-interval
+> mismatch? That layer has its own population and needs its own witnesses.**
+
+There is no blocker. The previous blocker — a pre-registered decision about the
+startup/resync region — was decided, frozen and then physically exercised, and
+the analyzer accepted the result without being touched.
 
 ### PHYSICAL TRACK — `stream-0004` closed both defects
 
@@ -390,61 +412,45 @@ non-empty, never verified against the real Nintendo logo. The claim is empirical
 
 ## Next safe action
 
-**The startup-region rule is DECIDED, FROZEN and IMPLEMENTED — OPTION 1.** That
-decision was the blocker; it is closed. §V5.44 carries the pre-registration.
+**Define the consumer/display disposition experiment. Do not implement it yet.**
 
-**Run the fourth indexed run, with `stream-0006`.** The rule it will be judged by
-was written before it, so the run can now refute or support GBP-HW-179 instead of
-being unjudgeable:
+Source-frame continuity is closed for the qualified window (GBP-HW-189), and run
+4 sharpened the next question rather than answering it:
 
 ```text
-Build ID   stream-0006                 -- NEW: the window, nothing else
-DOL        see the artifacts table above for size, commit and sha256
-Swiss      12-stream, byte-identical
-cartridge  indexed-0003, 2 880 B  -- UNCHANGED, the same physical cartridge
-           sha256 9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2
-stop       witness_target_reached -- 2048 witnesses, AFTER the warm-up
-expect     ~35.4 s of capture: ~70 warm-up frames (~1.2 s) + 2048 records
+over ONE capture whose SOURCE population was contiguous --
+  STREAMSRC    published  2 114
+  STREAMCONS   taken 2 113 · converted 2 113 · presented 2 096 · repeats 17
+  STREAMGX     drawdone 2 114 · xfb_presents 2 097 · xfb_skipped 17
+               ownership balanced, 175 176 invariant checks, 0 failures
 ```
 
-**What changed in the runtime, exactly.** The witness now holds its fire until
-the assembler has produced 64 consecutive structurally qualifying frames, then
-opens at the next block-0 boundary and never closes. Warm-up frames are neither
-staged nor committed, so the 2048-record target is unaffected. `OGBPIDX1`,
-`OGBPIDXCAP1 v1`, the analyzer and the stimulus are **byte-for-byte unchanged**.
+> **WHICH frames does the consumer/display path drop or repeat, and why — a
+> pacing artefact, a conversion cost, or a presentation-interval mismatch?**
 
-**What to read in the result, in order:**
+That layer has its own population and needs its own witnesses; the source witness
+says nothing about it. The honest first step is a DESIGN round that answers, on
+paper and before any code: what a display-side witness must preserve, how it is
+bounded, and what verdict vocabulary it may use — in the same pre-registered
+style that made run 4 decidable. **Frame pacing follows it, not before.**
+
+**What must NOT happen next:** applying the §V5.44 qualification to any past
+capture; changing N; touching `tools/vindex.py`, `OGBPIDX1` or `OGBPIDXCAP1 v1`
+to make a future result nicer; or implementing scaling, filtering, audio, A/V
+sync, KEYPAD or any network path.
+
+**If a fifth indexed run is wanted** — recommended for repeatability, **not
+required** for the fact of run 4 — it needs no new artifacts. The identities are
+unchanged and reproducible:
 
 ```text
-1. WITQUAL in the .log     armed=1, warmup_frames (expect ~70), qualify_frame
-2. stop_reason             must be witness_target_reached
-3. records_n               must be 2048
-4. blocks_out_of_range     must be 0
-5. record[0].frame_index   must be != 0 -- the window really opened late
-6. tools/vindex.py verdict over the sidecar
+Build ID   stream-0006   commit c629445   483 008 B
+DOL        a9b8b969ef462bfe11b833f9dd77d56f7aa4a3387d61124f99b72901c9cb0379
+           reproduce with: GIT_COMMIT=c629445 GIT_DIRTY= make build && make swiss
+Swiss      build/swiss/12-stream/boot.dol, byte-identical
+cartridge  indexed-0003, 2 880 B, delivery 9f04916b…8d9cc2 — do NOT re-flash it
+expect     ~35.4 s: ~70 warm-up frames then 2 048 records, stop on the target
 ```
-
-**One independent cross-check, worth doing because it needs no trust in the new
-code.** `stream-0005` staged every block it was delivered: run 3 reported
-`video=81876` and `staged=81876`, equal. `stream-0006` must NOT stage the warm-up,
-so the two must now DIFFER by the warm-up:
-
-```text
-TEARDOWNVSTATE video  -  STREAMWIT staged  ~=  40 x WITQUAL warmup_frames
-```
-
-If they are still equal, the window did not actually suppress staging however
-green everything else looks.
-
-**If the window never opens** — the streak never completes and the run hits the
-60 s cap with few or no records — that is the DESIGNED failure, not a bug. The
-capture then fails `vidxcap.usability()` and is `INCONCLUSIVE`. Report it as
-such; do not lower N to make it pass, because N is frozen (see the contracts
-table) and lowering it after a run is the rule-fitting this whole round exists to
-avoid.
-
-**Run 3 is not re-judged by any of this.** It stands as `OBSERVED_DISCONTINUITY`
-permanently, and the analyzer was not modified to accept it.
 
 **BEFORE the run, protect the raw record.** The SD workflow names every run
 identically and run 3 overwrote run 1's log in `logs/`; only the
@@ -480,11 +486,25 @@ canonical `379df0f7…bdbc543`, delivery `abb31e6a…0769`.
 **None of these is ever rebuilt, re-labelled or rerun.**
 
 **The milestones, and their exact scope.** PHYSICAL REAL-CARTRIDGE VIDEO OUTPUT
-ACHIEVED, and basic sustained streaming operationally reached — both unchanged
-and both separate from what follows. **`CONTROLLED SOURCE-FRAME CONTINUITY` is
-NOT claimed**: it was made conditional on `OBSERVED_ID_CONTIGUOUS`, and the
-analyzer returned `OBSERVED_DISCONTINUITY`. Nothing here proves zero frame loss,
-guaranteed pacing, full-frame fidelity or 60 FPS.
+ACHIEVED, and basic sustained streaming operationally reached — both unchanged.
+
+**NEW, and authorised by the frozen analyzer, not by preference: CONTROLLED
+STEADY-STATE SOURCE-FRAME CONTINUITY OBSERVED ON PHYSICAL GBP.** It was made
+conditional on `OBSERVED_ID_CONTIGUOUS`, and run 4 returned exactly that
+(GBP-HW-188/189). Its scope is the sentence and nothing wider:
+
+> Within the prospectively qualified OGBPIDX1 scientific window of the
+> `stream-0006` physical run, the preserved source-frame IDs were contiguous and
+> ordered across all analyzer-decisive transitions; all 2 048 retained records
+> contained the expected 40 block indices and one consistent FRAME_ID.
+
+**It does NOT prove** zero loss before the qualified window, zero loss after the
+last retained record, zero loss for arbitrary durations, full 240x160 pixel
+fidelity, that every source frame reached the XFB, zero downstream repeats,
+universal 59.7271 Hz operation, or identical behaviour for other cartridges and
+software. OGBPIDX1 witnesses STRIP-L, local row 0, x = 1..54 — 4 320 B per frame.
+The phrases ZERO FRAME LOSS PROVEN, PERFECT 60 FPS, LOSSLESS DISPLAY PIPELINE and
+PIXEL-PERFECT FULL FRAME remain forbidden.
 
 **After the fourth run**, the next unresolved GBP-VIDEO-004
 objectives in roadmap order are the **downstream consumer/display loss policy**
