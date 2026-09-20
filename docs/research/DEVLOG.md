@@ -8819,3 +8819,109 @@ replication is recommended, not required. The highest-value next experiment is
 no longer pacing: it is the startup question, as its own build with its own
 identity, asking what the VIDEO stream carries with a Game Pak inserted from the
 CONTROL transform onward. No existing run answers it.
+
+---
+
+## 2026-09-19 — the normal startup: black, then the Game Boy Player
+
+**Goal.** Take the diagnostic experience off the path a user walks — no
+synthetic test pattern, no five-second wait — start real video as early as the
+protocol allows, and keep Policy A exactly as the hardware validated it. No
+hardware this round.
+
+**Two causes, both diagnostic, and the source said so.** The rainbow/checkerboard
+is `display_selftest()`'s coordinate gradient reaching the video interface
+through its own present. The five seconds are `cfg.prehandler_wait_ms`, whose
+module default is already ZERO and whose own comment calls it "a DIAGNOSTIC,
+default OFF". Between them they owned the screen for 5.1777 s, of which 96.6 %
+was the wait.
+
+**The A/B for the missing logo was already in the repo and I did not need a new
+run.** `vstate-0001`, no wait, saw the structured screen 0.5014 s after capture
+start and captured the animated GAME BOY logotype. `vstate-prewait-5000`, same
+5000 ms, reported `STRUCTURED not_observed` over 10 446 frames. The animation
+happens inside the wait — which is exactly what the wait is FOR: §V3.26 records
+that without it the colour capture would certify inside the AGB's boot. That is
+a requirement of a MEASUREMENT, and this round is the first to separate it from
+a requirement of the runtime.
+
+**I classified every startup operation before removing anything.** DET probes,
+CONTROL transform, A1 and A2 (both self-terminating), handler install, PREUNMASK
+check, first unmask: PROTOCOL- or SAFETY-REQUIRED, and all of them stayed
+exactly where they were. Precisely two items were DIAGNOSTIC-ONLY, and those are
+the two that left the normal path. Nothing was moved to gain time.
+
+**One switch, not three `#ifdef`s.** `gbp_startup.h` resolves one profile from
+one enum, once, at the top of `main()`. An unknown mode resolves to NORMAL on
+purpose: a typo must cost a diagnostic, never a user.
+
+**The self-test still runs — headless — and the reason it claims no framebuffer
+is the interesting part.** Skipping only the present would have been a disaster:
+`gbp_vpresent_xfb_handed()` sets `xfb_pending`, which clears only when the VI is
+observed to have latched that buffer. Bookkeeping without a buffer leaves it set
+forever, and with two framebuffers `xfb_target()` would then never return a slot
+— every real frame would defer for the entire run. The safe split is the clean
+one: touch the framebuffer state machine, or do not. Dolphin shows the result in
+one field: `SELFTEST … xfb=0` in normal mode, `xfb=1` in diagnostic, with
+`submits=1 drawdone=1 releases=1` in both.
+
+**Black, not memory.** `SYS_AllocateFramebuffer` does not clear, so the old path
+pointed the VI at whatever was in RAM until the self-test's copy landed. Both
+stream framebuffers are now cleared to black in both profiles.
+
+**Policy A is untouched rather than unchanged**, and it is testable:
+`selftest_submit_headless()` calls nothing in `submit_ready()`, and
+`submit_ready()` contains no reference to the profile at all. Every pacing
+module is byte-identical and the interrupt path is still identical to the
+physically validated GBP-VIDEO-001 build.
+
+**The mutation that mattered was M15.** Fourteen were refused immediately. The
+fifteenth inserted one `ringlog_printf` between `gbp_vpresent_inflight()` and
+`GX_CopyDisp()` — a formatting call in the path that runs once per source frame
+— and every existing guard stayed green. `ringlog_printf` is bounded and
+in-memory, which is exactly why it looks harmless and why a startup trace would
+drift there. The capture hot path now carries an explicit no-formatting,
+no-filesystem guard, and M15 is CAUGHT only because of it.
+
+**Two of my own guards also fired, correctly.** The `TheWiringInMainIsPinned`
+pins started measuring the wrong function the moment a new function appeared
+above `submit_ready()` — the third time anchor-on-first-match has misfired in
+this suite, now scoped to the function body. And the tag-uniqueness guard caught
+`STARTUPV` being emitted with two different layouts under one tag; it is now one
+shape with `have_first=0|1`.
+
+**Two audit pins moved deliberately**, with the arithmetic written down:
+`gbp_vpresent_submit` gains the inlined headless submit, `gettime` rises from 2
+to 8 in `main` (five startup timestamps plus the headless submit plus the two
+that were there). `pump` and `submit_ready` are unchanged, and the property both
+rules exist for — that `gbp_vstate_probe_run` is absent — still holds.
+
+**Two semantic debts paid.** `usable()` now refuses `order_violations != 0`,
+because the claim it gates says "in order". And `gbp_vqueue.h` no longer asserts
+`repeats = xfb_skipped` as current: the measurement stays as labelled history,
+the claim does not, and no counter changed.
+
+**Tests executed.** 901 host tests, 67 new C checks for the profile alone, the
+full C suite green, eight object audits at 0 findings, Dolphin PASS in both
+profiles, 15/15 mutants refused. `stream-0009` at `59d2f57`, 494 176 B,
+`4d0337bb…c955`, built twice from scratch and byte-identical by SHA-256 and by
+`cmp`, no `-dirty`, Swiss export identical. The fuseblk incoherence recurred
+three times, in both known forms.
+
+**F8, for this build only.** `gbp_vdisp.o`, `gbp_vpresent.o` and `gbp_vqueue.o`
+have no non-text relocation section at all. `main.o` has twelve bytes of
+`.rodata` with three relocations, which I resolved and read back as
+`"gbp-video-stream-probe"`, `"stream-0009"` and `"59d2f57"` — the build identity
+struct, not a function-pointer table. The auditor's generic blind spot is NOT
+fixed and I am not claiming it is.
+
+**New unknowns:** one small documentation discrepancy, recorded rather than
+guessed at: `UNKNOWNS.md` says the logotype appeared 0.5014 s "after capture
+start" and `ROADMAP.md` says "after the AGB starts", which differ by the
+~0.107 s prefix. The 400 ms startup gate holds under either reading.
+
+**Next:** two physical runs that answer different questions. RUN A is the
+controlled regression on `indexed-0003` — no synthetic frame, first real
+hand-off within 400 ms of the CONTROL transform, and every Policy-A gate
+unchanged. RUN B is a real cartridge, purely operator observation, and the
+runtime must not depend on a logo appearing.
