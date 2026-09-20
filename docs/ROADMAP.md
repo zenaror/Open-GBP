@@ -471,6 +471,27 @@ Phase 7 (rumble and GBP-dependent modes); their compatibility matrix
 belongs to this phase and to Phase 7, with Phase 10 supplying the serial
 mechanism if that is where the feature lives.
 
+
+### Presentation requirement — pixel-perfect scaling (recorded 2026-09-20, GBP-VID-032)
+
+Stated by the operator after GBP-VIDEO-005 and recorded here as a constraint on
+work that has not begun. When presentation/upscale work starts:
+
+* provide a **pixel-perfect mode** that preserves the source pixel lattice
+  exactly: every source pixel maps to an equal-size output rectangle under an
+  **integer nearest-neighbour** scale factor;
+* no non-uniform X/Y stretching, no deformation of individual source pixels,
+  no silent fractional stretch in that mode, and no smoothing as its default;
+* if the output surface does not admit a full-screen integer scale, use
+  letterbox/pillarbox, a centred viewport, or an explicitly selected alternate
+  presentation policy — never deformed pixels;
+* "pixel-perfect" means the source grid preserved under the selected integer
+  scale, **not** a 1× output.
+
+This is separate from video transport correctness, Policy A, startup timing and
+research witness qualification, and nothing of it is implemented. No final
+resolution or viewport is chosen here.
+
 ## Phase 10 — Internal SIO research
 
 Investigate whether GameCube-side software can observe and/or drive the cartridge's serial communication internally through GBS-DOL/HSP.

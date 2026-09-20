@@ -5639,3 +5639,150 @@ transport suppression — all delay what the user sees. Startup transients remai
 in the log because nothing upstream of the witness is touched. **A final normal
 runtime needs none of this: it is laboratory instrumentation.** Not authorised
 in this round; recorded so the next one starts from evidence.
+
+---
+
+### GBP-HW-223 — the run-8 artifacts (GBP-VIDEO-005, run B), hashed here first — FACT
+
+Log 86 192 B `8768d1e6…193f`, OGBPIDXCAP1 8 946 060 B `d93d7781…2202`, OGBPDISP2
+379 300 B `2edadb49…5a34`, all recomputed in the repository before the operator's
+figures were read, and matching them. The binary was `stream-0009` at `59d2f57`,
+494 176 B `4d0337bb…c955`, verified before the run and not rebuilt; the embedded
+id stays `GBP-VIDEO-004` by design. The drop reused run 7's file names and
+**overwrote run 7's raw copies in `logs/`**; run 7 is intact in `captures/local/`.
+Run 8 archived as `captures/local/GBP-VIDEO-005_stream-0009-run8*`. Media double
+check: PENDING.
+
+---
+
+### GBP-HW-224 — the NORMAL startup repeated on a retail cartridge: no synthetic hand-off, no wait, first real hand-off 164.696 ms after CONTROL — FACT
+
+`STARTUP mode=normal presented_synthetic=0 headless_submits=1`, no
+`PREHANDLERWAIT` line, `STREAMSELFTEST own_presents=0`, self-test lifecycle
+TERMINAL_PENDING with `F_SELFTEST`. `ticks_control_to_first_handoff=6670174` =
+**164.695654 ms**, against run 7's 165.154 ms: +0.459 ms on a different
+cartridge. Program → first hand-off 210.664 ms, CONTROL → capture 107.203 ms,
+capture → first hand-off 57.493 ms, headless self-test 12.218 ms. Eight of eight
+pre-registered machine gates, second time. `VIDEO_SetNextFramebuffer` is a
+hand-over, not scanout.
+
+---
+
+### GBP-HW-225 — Policy A and the transport are clean on retail content — FACT
+
+240 754 = 240 754 = 240 754, `timeouts 0 busy 0 errors 0`. OGBPDISP2
+`c4e03fd8 / 3e079124 / e51713ee / 3b796f07` recomputed; `2244 + 43 = 2287`.
+2244 hand-offs in strict order, no duplicate; 43 deferred over 97 attempts, every
+one resolved on the next retrace, depth 1, `xfb_skipped 97 = defer_attempts`,
+p99 0.3341 ms, max 1.0030 ms, 0 interior drops. Over the frozen join 223..2270:
+**7 display repeats beside 0 drops — the third consecutive run with exactly
+seven** (runs 6, 7, 8). The retail witness was validated as a container only
+(header `a550891d`, global `fd2a435e`, 2048/2048 seals) and **no strip was
+decoded and no OGBPIDX verdict exists for it.**
+
+---
+
+### GBP-HW-226 — the structural startup transient is the same on two different cartridges — FACT
+
+`FRAMECAP 2271 / 2258 / 13 / 26 / 13`, `WITQUAL resets 12, warmup 223,
+disqualified 26, qualify_frame 222, first_record_frame 223`, and the four
+preserved episodes 8..25 / 30..89 / 90..149 / 150..197 with flags
+0005/0006/0006/0005 and `sig0 7f0fff10 / 00000000 / 00000000 / 7f0fff10` are
+**identical between run 7 (indexed-0003) and run 8 (retail)**, and episodes 1–2
+identical to `vstate-0001` (no cartridge). The first ~3.4 s of structured
+startup therefore belongs to the AGB/Game Boy Player boot, not to the
+cartridge. Content-independence of the qualifier is what makes the comparison
+possible, and no content equivalence is inferred from it. After that, STRUCTURED
+diverges as content must: 218 episodes / 216 stable (a game holding screens)
+against 43 / 7 (a stimulus changing every frame) — not a regression.
+
+---
+
+### GBP-HW-227 — OPERATOR OBSERVATION, run 8 — recorded literally
+
+A: the boot/logo appeared — SIM. B: appeared complete; "if it cut anything, it
+was only milliseconds at the very beginning; without audio I could not notice
+anything definite" (kept as the operator's uncertainty, not as a cut). C: before
+the logo, an almost instantaneous black flash with some text visible on it.
+D: transition to the game appeared clean. E: game appeared stable. F: time to
+useful image almost immediate, nothing abnormal. G: no relevant problem; the
+operator notes the Start-up Disc and GBI appear to initialise their own
+environment before starting the Game Boy path and considers the current
+behaviour understandable for a debug/research runtime — context, not a claim
+about their internals.
+
+---
+
+### GBP-HW-228 — the brief black/text flash is the probe's own console, visible for one field — FACT (source and timing)
+
+`video_setup()` points the video interface at the console framebuffer
+(`VIDEO_SetNextFramebuffer(xfb_text)`, main.c:373); `main()` prints its banner
+there (identity, self-test result, sequence, `"Running ..."`, main.c:890–1072)
+and moves the interface to the cleared black stream framebuffer only at
+main.c:1075, immediately before the probe runs. `STARTUPT` places that at
+`t_video` +15.092 ms → `t_probe_enter` +33.155 ms: **18.06 ms of black console
+with light text**, then 177.5 ms of black, then the Game Boy Player's first
+frame at 210.664 ms. This matches the operator's C exactly. It is not the
+synthetic self-test (`presented_synthetic=0`) and not Game Boy video.
+Classified **DEBUG/RESEARCH UX ARTIFACT**; not changed in this round. Whether
+Swiss contributes anything before the DOL takes over cannot be excluded from
+this repository's source.
+
+---
+
+### GBP-HW-229 — NORMAL startup exposes the real cartridge startup sequence to the user — CORROBORATED
+
+Machine (runs 7 and 8): normal profile, no synthetic hand-off, first real frame
+at ~165 ms, early structured episodes descriptor-identical across two
+cartridges and to the run whose pixels reconstructed to the animated GAME BOY
+logotype (GBP-HW-074…087). Operator (run 8): logo seen, complete, transition
+clean, game stable. The two sources are kept apart; pixel identity is not
+machine-established and is not claimed. **GBP-VIDEO-005: PASS, with a
+DEBUG-UX NOTE.** The NORMAL-startup milestone is physically validated for the
+seven properties listed in §V5.54.11 X; final production UX is not claimed.
+
+---
+
+### GBP-HW-230 — what runs 7 and 8 do NOT establish — SCOPE
+
+No pixel-level logo identity; no OGBPIDX verdict for retail content; no media
+double check for run 8; nothing about Swiss's own pre-DOL output; no
+production-UX claim; nothing about the 5 s gate, which no hardware has run.
+
+---
+
+### GBP-VID-031 — the research not-before gate: witness eligibility deferred to 5000 ms after CONTROL, content-blind, everything else immediate — FACT (software), `stream-0010`
+
+A latch in `gbp_vwitness` with no clock: `gate_streak()` at init,
+`release_streak(t)` once, from `pump()`, when `now − t_control_transform ≥
+5000 ms` — one 64-bit compare per call until release, then nothing. While
+gated, every closed frame is still counted as seen (startup evidence is never
+hidden) but the streak is neither built nor broken; at release the streak
+starts from zero; afterwards the existing rule runs untouched — 64 structurally
+clean closed frames, window at the next block 0, 2048 records, no reset.
+Transport, assembler, conversion, Policy A, GX, hand-off and the startup
+display are byte-for-byte `stream-0009`'s on the user's path. Default OFF in the
+module: a witness never gated is field-for-field the old behaviour, so every
+earlier build and test is unchanged. The threshold is prospective — ID 0 at
+4.845 s in four of four indexed runs — and the earliest window lands at ≈6.07 s,
+inside the regime runs 4–6 established. Content independence is pinned by a
+word-bounded source scan of the module, the drive header and the gate block.
+Research instrumentation only; a final runtime has no witness to gate.
+`WITELIG` reports eligibility as its own line. Not physically executed.
+
+---
+
+### GBP-VID-032 — presentation requirement: pixel-perfect scaling must preserve the source pixel lattice — DESIGN REQUIREMENT (from the operator, 2026-09-20)
+
+Recorded as a requirement, not as evidence, because the project's scheme uses
+GBP-VID for software and design facts and this is a constraint on work not yet
+begun. When presentation/upscale work starts, a pixel-perfect mode must map
+every source pixel to an equal-size output rectangle under an integer
+nearest-neighbour scale — no non-uniform X/Y stretch, no anisotropic
+deformation, no silent fractional stretch, no smoothing as the default of that
+mode. If the output surface does not admit a full-screen integer scale, use
+borders / a centred viewport / an explicitly selected alternate policy rather
+than deforming pixels. "Pixel-perfect" means preserving the source grid under
+the selected integer scale, not a 1× output. Separate from transport, Policy A,
+startup timing and research qualification; **nothing was implemented** and no
+resolution or viewport was chosen.

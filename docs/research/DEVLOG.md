@@ -9001,3 +9001,98 @@ STATUS and the verbatim verdict.
 **New unknowns:** none. **Next:** RUN B with a real cartridge (operator
 observation), and — separately authorised — the §V5.53.12 gate followed by a
 corrected indexed run.
+
+---
+
+## 2026-09-20 — run B: a person saw the Game Boy boot; then the witness learned to wait
+
+**Goal.** Ingest the first retail-cartridge run of the normal startup, keep the
+operator's words separate from the machine's, classify GBP-VIDEO-005 against
+criteria written before the run, and — only if nothing functional blocked it —
+implement the research not-before gate designed in §V5.53.12. No hardware for
+the gate. BBA still disconnected.
+
+**First, a near miss with the archive.** The operator's files arrived under the
+runtime's own names, `GBP-VIDEO-004_stream-0009*`, and overwrote run 7's raw
+copies in `logs/`. Run 7 survives only because the previous round archived it
+under a run-suffixed name in `captures/local/` — the exact hazard the HANDOFF
+has carried since run 3 overwrote run 1. Run 8 went to
+`captures/local/GBP-VIDEO-005_stream-0009-run8*`, byte-verified, before anything
+else was done. The embedded id is still `GBP-VIDEO-004`; the binary was not
+rebuilt for an experiment label, and that is intentional.
+
+**The machine said the same thing as run 7, to half a millisecond.**
+`STARTUP normal … presented_synthetic=0 headless_submits=1`, no wait line,
+first real hand-off **164.696 ms** after CONTROL against run 7's 165.154 ms — on
+a different cartridge. Policy A clean on retail content: 2244 hand-offs in
+order, 43 deferred / 97 attempts all on the next retrace, p99 0.334 ms, and
+**seven display repeats over the join for the third run running**. The retail
+witness was checked as a container (CRCs, seals) and not decoded: no OGBPIDX
+verdict exists for a game, and I did not manufacture one.
+
+**The startup transient is the console's, not the cartridge's.** FRAMECAP,
+WITQUAL and the four preserved structured episodes are *identical* between run
+7 (indexed stimulus) and run 8 (retail game) — 13/26/13, 223/222/12/26,
+8..25 / 30..89 / 90..149 / 150..197 with the same flags and signatures — and
+episodes 1–2 remain identical to `vstate-0001` with no cartridge at all. The
+first ~3.4 s of structure belong to the Game Boy Player's own boot. After that
+the two runs diverge exactly as content should (218 stable episodes for a game
+holding screens, 43 for a stimulus that changes every frame).
+
+**The operator saw the logo.** A: yes. B: complete — "if it cut anything, only
+milliseconds at the beginning; without audio I could not notice anything
+definite", and that uncertainty stays uncertainty. C: an almost instantaneous
+black flash with some text. D: clean. E: stable. F: almost immediate. Recorded
+as observation and never promoted.
+
+**The flash is ours, and the source proves it in one line each.**
+`video_setup()` points the VI at the console; `main()` prints its banner there;
+the VI moves to the black stream framebuffer only at the line before the probe
+runs. `STARTUPT` puts that window at +15.092 → +33.155 ms: **eighteen
+milliseconds of black console with light text**, one field, then black, then
+the first real frame at 210.664 ms. DEBUG/RESEARCH UX ARTIFACT. Not the
+self-test (`presented_synthetic=0`), not Game Boy video, not changed this round.
+
+**GBP-VIDEO-005: PASS, with a DEBUG-UX NOTE.** Every pre-registered criterion
+met; the note is the console flash, identified and outside the intended final
+UX. CORROBORATED, with the two sources named apart: NORMAL startup exposes the
+real cartridge startup sequence to the user. The NORMAL-startup milestone is
+physically validated for the seven properties listed in §V5.54.11 X. Final
+production UX is not claimed — the flash is why.
+
+**Then the gate, because nothing blocked it.** `stream-0010` defers one thing:
+when the 64-frame structural streak may be counted — 5000 ms after the CONTROL
+transform, the epoch every safety budget already uses, chosen from four runs in
+which the stimulus began at 4.845 s and never fitted to run 7. A latch in
+`gbp_vwitness` with no clock; one 64-bit compare per `pump()` call until it
+releases, then nothing; frames before eligibility still counted as seen, so
+FRAMECAP, resyncs, BASELINE and STRUCTURED keep telling the startup's story;
+streak from zero at release; everything after it the old rule, untouched.
+Default OFF in the module — a witness never gated is field-for-field the old
+behaviour, which is how 12 191 existing witness checks stayed green.
+
+**Two of my guards fired, both correctly.** The startup guard forbids any
+`5000` in `main.c`, and the new eligibility constant is a 5000. It was right to
+fire and wrong in what it named; it now forbids what it protects — a 5000
+reaching a *wait* — and still catches the old one. And the content-independence
+scan I wrote for the gate tripped on `GBP_VSTATE_F_RESYNC`, the assembler's own
+structural flag; word-bounded now, so the stimulus's `SYNC` is forbidden and the
+assembler's resync is not.
+
+**A requirement from the operator, recorded and not built.** When scaling
+comes, a pixel-perfect mode must preserve the source pixel lattice under an
+integer nearest-neighbour scale: no anisotropic stretch, no silent fractional
+scale, borders rather than deformation. Roadmap and GBP-VID-032; nothing
+implemented; no resolution chosen.
+
+**Tests executed.** 944 host (+23), 12 191 witness checks (+8 latch tests),
+full C suite, nine audits at 0 findings with the interrupt path identical to
+GBP-VIDEO-001 (after `video-audit` first — the F3 ordering), Dolphin PASS in
+both profiles with `xfb=0`. Run-8 OGBPDISP2 and a content-blind qualification
+projection versioned.
+
+**Next.** The controlled indexed run with `stream-0010`: what validates the gate
+is `WITELIG released=1` at ≈5.0 s, a window opening after the stimulus's first
+normal-status frame, `vindex.py` unmodified reporting `OBSERVED_CONTIGUOUS` with
+`intact 2048 / INVALID 0`, and a startup still ~165 ms to first video with its
+transient still in the log. BBA stays disconnected for that run.
