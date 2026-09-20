@@ -9096,3 +9096,73 @@ is `WITELIG released=1` at ≈5.0 s, a window opening after the stimulus's first
 normal-status frame, `vindex.py` unmodified reporting `OBSERVED_CONTIGUOUS` with
 `intact 2048 / INVALID 0`, and a startup still ~165 ms to first video with its
 transient still in the log. BBA stays disconnected for that run.
+
+---
+
+## 2026-09-20 — run 9: the witness waited, and 2048 of 2048 came back clean
+
+**Goal.** Ingest the controlled indexed run that §V5.55.7 pre-registered for the
+research not-before gate, judge it only against those gates, and close the
+controlled video sequence if they pass. Executor role: nothing redefined,
+nothing rebuilt, nothing fixed.
+
+**First the archive, then the hashes, then anything else.** The operator's
+files carried the console's own names again. Following the rule written after
+run 8, they went to the reserved `…-run9…` names with `cp --update=none` and
+`cmp` before anything read them; runs 7 and 8 re-verified intact; all three
+hashes matched the orchestrator's independent measurements. Media double check
+still PENDING.
+
+**Source first, frozen tool, verbatim.** `vindex.py` untouched at `f2de217`:
+`OBSERVED_CONTIGUOUS` with **`intact 2048` and no `INVALID_CANONICAL_STRIP`
+line** — the composition, which is the thing run 7 lacked (1988 / 60). My own
+decode of every block agrees: 81 920 valid strips, IDs 73..2120 with 2047 deltas
+of +1, STATUS 0x18 throughout, FAULT never, VMARGIN 24. Record 0 already carries
+FRAME_ID 73, and ID 0 back-projects to 4.8450 s after CONTROL — the fifth run
+at exactly that value.
+
+**The gate did what §V5.55 said it would, on the machine's own clock.**
+Eligibility at `202 506 346` ticks = 5.000156691 s after CONTROL, +156.7 µs —
+one pump cadence, as the contract allowed. 292 frames had closed by then, 26 of
+them disqualifying, and none of them counted. Then 64 clean closes, frames
+292..355, `resets=0`, and the window opened at block 0 of frame 356, 6.067 s
+after CONTROL, 1.22 s into the stimulus. Startup: first real hand-off
+165.154741 ms, **eighteen ticks** from run 7. The transient is all still in
+FRAMECAP and STRUCTURED. Policy A: 2047/2047 over the join, order rebuilt
+exactly, p99 0.472000 ms, max 1.000148 ms, and seven display repeats for the
+fourth run running.
+
+**One line was cut, and I made sure it cost nothing it should not.** The header
+said `truncated=1`. I measured every line: exactly one hits the ringlog limit —
+`WITELIG`, 248 characters, ending `qual_streak_at_e`. Root cause in source:
+`LOG_LINE_LEN 256`, seven characters of `%06u ` prefix, `vsnprintf` into what
+is left. The lost field is `qual_streak_at_eligible`, which §V5.55.3 defined as
+0 by contract and printed only so a broken contract would show. So I did not
+assume it: `356 − 292 = 64 = required`, `qualify_frame 355 = 292 + 63`,
+`resets 0`, and the 26 disqualified frames all precede eligibility — and then I
+replayed those counters through the frozen `gbp_vwitness.c` itself. Only a
+streak of 0 at release lands qualification on frame 355; 1 gives 354, 10 gives
+345. DIRECT FIELD lost; SEMANTIC VALUE exact. REPORTING DEFECT, documented as
+GBP-VID-033, not fixed in this checkpoint, and — checked against the contract's
+refutation conditions, both absent — **no rerun required**.
+
+**Fourteen of fourteen gates.** RUN 9: PASS. Physical validation of the
+research-only, content-independent 5.000 s not-before witness eligibility gate,
+under this controlled experiment on this console. Not a protocol requirement,
+not a final-runtime delay, not a statement about other cartridges, not scanout,
+not pixel fidelity, not BBA anything.
+
+**The controlled video sequence is closed.** RUN B and RUN 9 were the two runs
+the methodology restriction waited for. The BBA may now be considered as a
+variable in the NEXT explicitly pre-registered topology/phase — which is a
+sentence about method, not about the BBA.
+
+**Fixtures.** The OGBPDISP2, a content-blind qualification projection and a
+structural projection carrying the verdict with its composition, the WITELIG /
+WITQUAL / STARTUP fields, the truncation finding with its derivation, and full
+provenance (run, build, commit, DOL, raw sizes and hashes, topology, tool
+identities). Fourteen new regression tests; run-7 and run-8 fixtures untouched.
+
+**Next.** Reported to the orchestrator, not executed: what Phase 4 still
+objectively lacks, the next roadmap candidates, what BBA PRESENT would actually
+test, and whether a topology-control run should precede any network code.

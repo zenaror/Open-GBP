@@ -131,9 +131,20 @@ on real hardware without relying on proprietary runtime code.
 
 ## Phase 4 — Video
 
-**Status: IN PROGRESS (entered 2026-09-16).** Transport, block sequence and
-**colour** are now physically established (GBP-AV-SERVICE-001, GBP-VIDEO-001,
-GBP-VIDEO-003); rendering and a moving image are not. **U-GBP-011 closed
+**Status: IN PROGRESS (entered 2026-09-16; updated 2026-09-20).** Transport,
+block sequence and **colour** are physically established (GBP-AV-SERVICE-001,
+GBP-VIDEO-001, GBP-VIDEO-003). Since then, physically established as well:
+real cartridge video on screen (`stream-0003`); source-frame continuity
+`OBSERVED_CONTIGUOUS` on five indexed runs (GBP-HW-184, 203, 232); a
+source-lossless two-framebuffer presentation policy, Policy A, clean on four
+consecutive runs (GBP-HW-205…211, 217, 225, 236); a NORMAL startup that shows the
+user real video ~165 ms after the CONTROL transform with no synthetic frame and
+no wait (GBP-HW-214…215, 224, 229, 235); and a research-only witness eligibility
+gate (GBP-HW-237). **Still not established:** pixel fidelity beyond the witness
+strip, scanout of any frame, presentation/scaling (see the pixel-perfect
+requirement below), audio, input, and any topology with the BBA present. The
+controlled video sequence that kept the BBA disconnected is closed (§V5.56.12);
+the phase itself is not. **U-GBP-011 closed
 2026-09-18** by the pre-registered confirmatory run `color-0002`: the VIDEO
 window exchanges the two outer 5-bit groups relative to the AGB framebuffer, so
 the references' GX RGB5A3 reading is the displayed colour (GBP-HW-131). GBP-VIDEO-002 has now been run
