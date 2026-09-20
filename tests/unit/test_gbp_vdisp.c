@@ -332,7 +332,7 @@ static long write_sidecar(void)
     info.tb_hz = 40500000u;
     info.xfb_slots = 2u;
     filelen = 0;
-    if (gbp_vdispdump_set_identity(&info, "GBP-VIDEO-004", "stream-0007",
+    if (gbp_vdispdump_set_identity(&info, "GBP-VIDEO-004", "stream-0008",
                                    "gbp-video-stream-probe", "abcdef0") != 0) return -100;
     return gbp_vdispdump_stream(&info, &d, chunk, sizeof chunk, sink_mem, 0, &w);
 }
@@ -353,13 +353,13 @@ static void test_the_sidecar_round_trips_exactly(void)
     CHECK(gbp_vdispdump_parse(filebuf, filelen, &info, &lf, &evs) == 0);
     CHECK(info.version == GBP_VDISPDUMP_VERSION);
     CHECK(info.life_n == 2u && info.event_n == 2u);
-    CHECK(info.life_record_size == 96u && info.event_record_size == 40u);
+    CHECK(info.life_record_size == 128u && info.event_record_size == 40u);
     CHECK(info.decisions == 2u);
     CHECK(info.flags & GBP_VDISPDUMP_F_INTACT);
     CHECK(info.flags & GBP_VDISPDUMP_F_WINDOW_OPENED);
     CHECK(info.window_first_frame == 70u);
     CHECK(info.tb_hz == 40500000u);
-    CHECK(strcmp(info.build_id, "stream-0007") == 0);
+    CHECK(strcmp(info.build_id, "stream-0008") == 0);
     CHECK(strcmp(info.test_id, "GBP-VIDEO-004") == 0);
     CHECK(info.total_size == filelen);
     /* the first life record, field by field, big-endian */
@@ -369,8 +369,8 @@ static void test_the_sidecar_round_trips_exactly(void)
                (uint32_t)lf[2] << 8 | lf[3]) == 70u);
     }
     /* and every byte of the body is accounted for */
-    CHECK(filelen == GBP_VDISPDUMP_HEADER_SIZE + 2u * 96u + 2u * 40u + 12u);
-    for (i = 0xE8u; i < GBP_VDISPDUMP_HEADER_SIZE - 4u; i++) CHECK(filebuf[i] == 0u);
+    CHECK(filelen == GBP_VDISPDUMP_HEADER_SIZE + 2u * 128u + 2u * 40u + 12u);
+    for (i = 0x108u; i < GBP_VDISPDUMP_HEADER_SIZE - 4u; i++) CHECK(filebuf[i] == 0u);
 }
 
 /* Recomputes the header CRC-32 after an edit, so a check that sits BEHIND the
@@ -439,10 +439,10 @@ static void test_the_parser_refuses_every_shape_of_damage(void)
     CHECK(gbp_vdispdump_parse(filebuf, goodlen, &info, 0, 0) == -9);  /* life section CRC */
     memcpy(filebuf, good, goodlen); filebuf[0x5B] ^= 1u; reseal(filebuf);
     CHECK(gbp_vdispdump_parse(filebuf, goodlen, &info, 0, 0) == -9);  /* event section CRC */
-    memcpy(filebuf, good, goodlen); filebuf[0xE8] = 1u; reseal(filebuf);
+    memcpy(filebuf, good, goodlen); filebuf[0x108] = 1u; reseal(filebuf);
     CHECK(gbp_vdispdump_parse(filebuf, goodlen, &info, 0, 0) == -8);  /* reserved not zero */
     memcpy(filebuf, good, goodlen);
-    for (i = 0; i < 4u; i++) filebuf[0x68 + 20u + i] = 0x41u;
+    for (i = 0; i < 4u; i++) filebuf[0x88 + 20u + i] = 0x41u;
     reseal(filebuf);
     CHECK(gbp_vdispdump_parse(filebuf, goodlen, &info, 0, 0) == -7);  /* identity rule */
     memcpy(filebuf, good, goodlen); filebuf[0x38] ^= 1u;
@@ -531,20 +531,20 @@ static void test_the_production_geometry_is_the_audited_one(void)
 {
     printf("-- the constants the audit and the analyzer both depend on\n");
     CHECK(GBP_VDISP_LIFE_CAP == 4096u);
-    CHECK(GBP_VDISP_EVENT_CAP == 4096u);
+    CHECK(GBP_VDISP_EVENT_CAP == 8192u);
     CHECK(GBP_VDISP_TEX_SLOTS == 2u);
-    CHECK(GBP_VDISPDUMP_LIFE_SIZE == 96u);
+    CHECK(GBP_VDISPDUMP_LIFE_SIZE == 128u);
     CHECK(GBP_VDISPDUMP_EVENT_SIZE == 40u);
     /* the discriminator fits the reserved word, so the record did not grow */
     CHECK(sizeof(struct gbp_vdisp_event) >= 40u);
-    CHECK(GBP_VDISPDUMP_HEADER_SIZE == 0x100u);
-    CHECK(sizeof(struct gbp_vdisp_life) >= 96u);
+    CHECK(GBP_VDISPDUMP_HEADER_SIZE == 0x140u);
+    CHECK(sizeof(struct gbp_vdisp_life) >= 128u);
     CHECK(sizeof(struct gbp_vdisp_event) >= 40u);
     /* Capacity must clear the largest population a run of this shape produced:
      * run 4 closed 2 118 source frames and took 2 113. */
     CHECK(GBP_VDISP_LIFE_CAP > 2118u * 3u / 2u);
     /* and the whole file must stay small next to the witness store */
-    CHECK((uint32_t)(GBP_VDISPDUMP_HEADER_SIZE + GBP_VDISP_LIFE_CAP * 96u
+    CHECK((uint32_t)(GBP_VDISPDUMP_HEADER_SIZE + GBP_VDISP_LIFE_CAP * 128u
                      + GBP_VDISP_EVENT_CAP * 40u + 12u) < 1u << 20);
 }
 
@@ -603,6 +603,227 @@ static int dump_fixture(const char *path)
     return 0;
 }
 
+/* ---- §V5.49.3: POLICY A, the deferral state machine -------------------- */
+
+static void test_PA_a_free_framebuffer_hands_off_directly(void)
+{
+    static const uint8_t st[2] = { 3u, 0u };
+    const struct gbp_vdisp_life *r;
+    printf("-- A: a writable XFB hands the frame off at the first offer\n");
+    reset();
+    (void)walk_ok(10u, 1000u, 0, 1);
+    r = gbp_vdisp_life_at(&d, 0u);
+    CHECK(r != 0);
+    if (r) {
+        CHECK(r->disposition == GBP_VDISP_D_SELECTED_NEW);
+        CHECK(r->defer_attempts == 0u);
+        CHECK(!(r->life_flags & GBP_VDISP_F_EVER_DEFERRED));
+    }
+    CHECK(d.source_handoffs == 1u);
+    CHECK(d.source_deferred_frames == 0u);
+    CHECK(d.source_dropped_interior == 0u);
+    (void)st;
+}
+
+static void test_PB_no_framebuffer_defers_and_loses_nothing(void)
+{
+    static const uint8_t st[2] = { 2u, 0u };
+    const struct gbp_vdisp_life *r;
+    int L;
+    printf("-- B/C: no writable XFB defers; a retry while still busy stays deferred\n");
+    reset();
+    L = gbp_vdisp_take(&d, 20u, 20u, 1u, 0x29u, 1000u, 1010u, 100u, 0u, 1, 0);
+    gbp_vdisp_convert_done(&d, L, 1030u, 1400u);
+    gbp_vdisp_defer(&d, L, 1040u, 101u, 0, 1, GBP_VDISP_R_XFB_BUSY, st, 1u);
+    r = gbp_vdisp_life_at(&d, 0u);
+    CHECK(r != 0);
+    if (r) {
+        CHECK(r->disposition == GBP_VDISP_D_DEFERRED);
+        CHECK(r->reason == GBP_VDISP_R_XFB_BUSY);
+        CHECK(r->defer_attempts == 1u);
+        CHECK(r->t_first_defer == 1040u && r->t_last_defer == 1040u);
+        CHECK(r->life_flags & GBP_VDISP_F_EVER_DEFERRED);
+        /* NOT a loss, NOT submitted, NOT a hold */
+        CHECK(!(r->life_flags & GBP_VDISP_F_SUBMITTED));
+        CHECK(r->disposition != GBP_VDISP_D_HOLD_PREVIOUS);
+    }
+    CHECK(d.source_dropped_interior == 0u);
+    CHECK(d.source_deferred_frames == 1u);
+    CHECK(d.ev_n == 1u);                      /* ONE event on the transition */
+
+    /* C: three more busy retries -- the aggregate moves, the trace does not */
+    gbp_vdisp_defer(&d, L, 1200u, 101u, 0, 1, GBP_VDISP_R_XFB_BUSY, st, 1u);
+    gbp_vdisp_defer(&d, L, 1360u, 102u, 0, 1, GBP_VDISP_R_XFB_BUSY, st, 1u);
+    gbp_vdisp_defer(&d, L, 1520u, 102u, 0, 1, GBP_VDISP_R_XFB_BUSY, st, 1u);
+    CHECK(d.ev_n == 1u);                      /* STILL one: §V5.49.3 */
+    r = gbp_vdisp_life_at(&d, 0u);
+    if (r) {
+        CHECK(r->defer_attempts == 4u);
+        CHECK(r->t_first_defer == 1040u);
+        CHECK(r->t_last_defer == 1520u);
+    }
+    CHECK(d.source_defer_attempts == 4u);
+    CHECK(d.source_deferred_frames == 1u);    /* one FRAME, four attempts */
+
+    /* D: the framebuffer frees and the SAME frame is handed off */
+    gbp_vdisp_submit(&d, L, 1600u);
+    gbp_vdisp_drawdone(&d, 0, 1650u);
+    gbp_vdisp_decision(&d, L, 1680u, 103u, 1, -1, 0, GBP_VDISP_R_NONE, st, 1, GBP_VDISP_KEY_NONE);
+    r = gbp_vdisp_life_at(&d, 0u);
+    if (r) {
+        CHECK(r->disposition == GBP_VDISP_D_SELECTED_NEW);
+        CHECK(r->frame_index == 20u);         /* I1: the same frame */
+        CHECK(r->defer_attempts == 4u);       /* the history survives */
+        CHECK(r->life_flags & GBP_VDISP_F_EVER_DEFERRED);
+    }
+    CHECK(d.source_handoffs == 1u);           /* I4: exactly one hand-off */
+    CHECK(d.ev_n == 2u);                      /* defer + handoff */
+    CHECK(gbp_vdisp_intact(&d));
+}
+
+static void test_PE_a_newer_frame_never_hands_off_first(void)
+{
+    static const uint8_t st[2] = { 2u, 2u };
+    printf("-- E: I2, a newer frame handing off before an older one is COUNTED\n");
+    reset();
+    (void)walk_ok(30u, 1000u, 0, 1);
+    (void)walk_ok(31u, 2000u, 1, 1);
+    CHECK(d.order_violations == 0u);
+    CHECK(gbp_vdisp_intact(&d));
+    /* now out of order, which is what the runtime's offer-by-age prevents */
+    (void)walk_ok(29u, 3000u, 0, 1);
+    CHECK(d.order_violations == 1u);
+    CHECK(!gbp_vdisp_intact(&d));             /* a run with a violation is not intact */
+    (void)st;
+}
+
+static void test_PF_the_deferred_depth_is_recorded(void)
+{
+    static const uint8_t st[2] = { 2u, 2u };
+    int a, b;
+    printf("-- F: the deferred depth is measured, and the model says it stays 1\n");
+    reset();
+    a = gbp_vdisp_take(&d, 40u, 40u, 1u, 0x29u, 1000u, 1010u, 100u, 0u, 1, 0);
+    gbp_vdisp_convert_done(&d, a, 1030u, 1400u);
+    gbp_vdisp_defer(&d, a, 1040u, 101u, 0, 1, GBP_VDISP_R_XFB_BUSY, st, 1u);
+    CHECK(d.max_deferred_depth == 1u);
+    b = gbp_vdisp_take(&d, 41u, 41u, 1u, 0x29u, 2000u, 2010u, 200u, 1u, 1, 0);
+    gbp_vdisp_convert_done(&d, b, 2030u, 1400u);
+    gbp_vdisp_defer(&d, b, 2040u, 102u, 0, 1, GBP_VDISP_R_XFB_BUSY, st, 2u);
+    CHECK(d.max_deferred_depth == 2u);        /* reported, never hidden */
+    CHECK(d.source_deferred_frames == 2u);
+    CHECK(d.source_dropped_interior == 0u);
+}
+
+static void test_PGH_terminal_states_are_edges_not_losses(void)
+{
+    static const uint8_t st[2] = { 2u, 0u };
+    const struct gbp_vdisp_life *r;
+    int L;
+    printf("-- G/H: a frame alive at the stop is TERMINAL_PENDING, never a loss\n");
+    reset();
+    (void)walk_ok(50u, 1000u, 0, 1);
+    L = gbp_vdisp_take(&d, 51u, 51u, 1u, 0x29u, 2000u, 2010u, 200u, 1u, 1, 0);
+    gbp_vdisp_convert_done(&d, L, 2030u, 1400u);
+    gbp_vdisp_defer(&d, L, 2040u, 201u, 0, 1, GBP_VDISP_R_XFB_BUSY, st, 1u);
+    /* the run stops here */
+    gbp_vdisp_finish(&d);
+    r = gbp_vdisp_life_at(&d, 1u);
+    CHECK(r != 0);
+    if (r) {
+        CHECK(r->disposition == GBP_VDISP_D_TERMINAL_PENDING);
+        CHECK(r->life_flags & GBP_VDISP_F_EVER_DEFERRED);
+    }
+    CHECK(d.terminal_pending == 1u);
+    CHECK(d.source_dropped_interior == 0u);   /* I8: nothing disappeared */
+    /* the frame that DID hand off is untouched by finish() */
+    r = gbp_vdisp_life_at(&d, 0u);
+    if (r) CHECK(r->disposition == GBP_VDISP_D_SELECTED_NEW);
+}
+
+static void test_PI_the_selftest_still_has_no_source_identity(void)
+{
+    static const uint8_t st[2] = { 2u, 0u };
+    int L;
+    printf("-- I: the synthetic frame may defer and still owns no source counter\n");
+    reset();
+    L = gbp_vdisp_take(&d, GBP_VDISP_KEY_NONE, 0u, 0u, 0u, 0u, 10u, 1u, 0u, 0, 1);
+    gbp_vdisp_convert_done(&d, L, 20u, 0u);
+    gbp_vdisp_defer(&d, L, 30u, 1u, 0, 1, GBP_VDISP_R_XFB_BUSY, st, 1u);
+    gbp_vdisp_submit(&d, L, 40u);
+    gbp_vdisp_drawdone(&d, 0, 50u);
+    gbp_vdisp_decision(&d, L, 60u, 2u, 1, -1, 0, GBP_VDISP_R_NONE, st, 1, GBP_VDISP_KEY_NONE);
+    CHECK(gbp_vdisp_life_at(&d, 0u)->frame_index == GBP_VDISP_KEY_NONE);
+    CHECK(gbp_vdisp_life_at(&d, 0u)->life_flags & GBP_VDISP_F_SELFTEST);
+    /* it has no source index, so it can never violate the ordering invariant */
+    CHECK(d.order_violations == 0u);
+    (void)walk_ok(60u, 1000u, 1, 1);
+    CHECK(d.order_violations == 0u);
+}
+
+static void test_PL_repeated_defers_cannot_be_hidden(void)
+{
+    static const uint8_t st[2] = { 2u, 0u };
+    const struct gbp_vdisp_life *r;
+    int L;
+    uint32_t k;
+    printf("-- L: aggregation bounds the trace but never hides the attempts\n");
+    reset();
+    L = gbp_vdisp_take(&d, 70u, 70u, 1u, 0x29u, 1000u, 1010u, 100u, 0u, 1, 0);
+    gbp_vdisp_convert_done(&d, L, 1030u, 1400u);
+    for (k = 0; k < 200u; k++)
+        gbp_vdisp_defer(&d, L, 1040u + k * 160u, 101u, 0, 1, GBP_VDISP_R_XFB_BUSY, st, 1u);
+    CHECK(d.ev_n == 1u);                      /* bounded */
+    r = gbp_vdisp_life_at(&d, 0u);
+    if (r) {
+        CHECK(r->defer_attempts == 200u);     /* and fully visible */
+        CHECK(r->t_first_defer == 1040u);
+        CHECK(r->t_last_defer == 1040u + 199u * 160u);
+    }
+    CHECK(d.source_defer_attempts == 200u);
+}
+
+/* §V5.49.13 M10. The event store can refuse a DEFER just as it can refuse a
+ * decision, and when it does the file must SAY SO. Without the counter the
+ * trace still fails `intact()` -- the identity decisions+deferred==ev_n breaks
+ * -- but it fails for the wrong reason, and an analyst reading
+ * `event_overflow == 0` alongside missing events would look for a counting bug
+ * instead of a capacity one. The refusal is counted where it happens. */
+static void test_PM_a_defer_the_store_cannot_hold_is_counted(void)
+{
+    static struct gbp_vdisp_life  l3[4];
+    static struct gbp_vdisp_event e3[2];
+    static const uint8_t st[2] = { 3u, 0u };
+    struct gbp_vdisp sm;
+    int a, b, c;
+    printf("-- M: a defer the event store cannot hold still raises ev_overflow\n");
+    CHECK(gbp_vdisp_init(&sm, l3, 4u, e3, 2u) == 0);
+    a = gbp_vdisp_take(&sm, 1u, 1u, 0u, 0u, 10u, 11u, 0u, 0u, 1, 0);
+    gbp_vdisp_decision(&sm, a, 12u, 0u, 0, -1, 1, GBP_VDISP_R_NONE, st, 0, GBP_VDISP_KEY_NONE);
+    b = gbp_vdisp_take(&sm, 2u, 2u, 0u, 0u, 20u, 21u, 1u, 1u, 1, 0);
+    gbp_vdisp_decision(&sm, b, 22u, 1u, 1, -1, 0, GBP_VDISP_R_NONE, st, 0, GBP_VDISP_KEY_NONE);
+    CHECK(sm.ev_n == 2u && sm.ev_overflow == 0u);   /* the store is now full */
+
+    c = gbp_vdisp_take(&sm, 3u, 3u, 0u, 0u, 30u, 31u, 0u, 0u, 1, 0);
+    gbp_vdisp_defer(&sm, c, 32u, 2u, 0, 1, GBP_VDISP_R_XFB_BUSY, st, 1u);
+    /* the DISPOSITION survives: a trace that cannot hold the event must still
+     * know the frame was deferred, or the source audit would lose a frame */
+    CHECK(sm.source_deferred_frames == 1u);
+    CHECK(sm.source_defer_attempts == 1u);
+    CHECK(l3[c].disposition == (uint16_t)GBP_VDISP_D_DEFERRED);
+    CHECK((l3[c].life_flags & GBP_VDISP_F_EVER_DEFERRED) != 0u);
+    /* and the refusal is named */
+    CHECK(sm.ev_n == 2u);
+    CHECK(sm.ev_overflow == 1u);
+    CHECK(!gbp_vdisp_intact(&sm));
+    /* a retry aggregates: it would never have emitted an event, so it must not
+     * invent a second refusal either */
+    gbp_vdisp_defer(&sm, c, 33u, 2u, 0, 1, GBP_VDISP_R_XFB_BUSY, st, 1u);
+    CHECK(sm.ev_overflow == 1u);
+    CHECK(sm.source_defer_attempts == 2u);
+    CHECK(sm.source_deferred_frames == 1u);
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 3 && strcmp(argv[1], "--dump") == 0) return dump_fixture(argv[2]);
@@ -621,6 +842,14 @@ int main(int argc, char **argv)
     test_an_identity_that_does_not_fit_is_an_error();
     test_an_overflowed_trace_says_so_in_the_file();
     test_a_refused_sink_is_reported_and_never_silent();
+    test_PA_a_free_framebuffer_hands_off_directly();
+    test_PB_no_framebuffer_defers_and_loses_nothing();
+    test_PE_a_newer_frame_never_hands_off_first();
+    test_PF_the_deferred_depth_is_recorded();
+    test_PGH_terminal_states_are_edges_not_losses();
+    test_PI_the_selftest_still_has_no_source_identity();
+    test_PL_repeated_defers_cannot_be_hidden();
+    test_PM_a_defer_the_store_cannot_hold_is_counted();
     test_the_production_geometry_is_the_audited_one();
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

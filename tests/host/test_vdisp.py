@@ -50,10 +50,10 @@ def reseal(buf):
 class TheWriterAndTheParserAgree(unittest.TestCase):
     def test_a_c_written_file_parses(self):
         i = vdisp.parse(fixture())
-        self.assertEqual(i["version"], 1)
-        self.assertEqual(i["life_record_size"], 96)
+        self.assertEqual(i["version"], 2)
+        self.assertEqual(i["life_record_size"], 128)
         self.assertEqual(i["event_record_size"], 40)
-        self.assertEqual(i["build_id"], "stream-0007")
+        self.assertEqual(i["build_id"], "stream-0008")
         self.assertEqual(i["test_id"], "GBP-VIDEO-004")
         self.assertEqual(i["tb_hz"], 40500000)
         self.assertEqual(i["tex_slots"], 2)
@@ -62,7 +62,7 @@ class TheWriterAndTheParserAgree(unittest.TestCase):
     def test_the_geometry_is_self_consistent(self):
         i = vdisp.parse(fixture())
         self.assertEqual(i["off_life"], vdisp.HEADER_SIZE)
-        self.assertEqual(i["off_events"], i["off_life"] + i["life_n"] * 96)
+        self.assertEqual(i["off_events"], i["off_life"] + i["life_n"] * 128)
         self.assertEqual(i["off_footer"], i["off_events"] + i["event_n"] * 40)
         self.assertEqual(i["total_size"], len(fixture()))
         self.assertEqual(len(i["life"]), i["life_n"])
@@ -210,15 +210,31 @@ class TheParserRefusesDamage(unittest.TestCase):
         self.mutate(lambda b: struct.pack_into(">I", b, 0x1C, 1), "sections", do_reseal=True)
 
     def test_an_unknown_flag_bit(self):
-        self.mutate(lambda b: b.__setitem__(0x0F, b[0x0F] | 0x40), "flag", do_reseal=True)
+        """0x40 is INTERIOR_LOSS in v2, so the unknown bit has to be a higher
+        one -- and setting a KNOWN flag whose counter is zero is rejected too,
+        by the flag/counter agreement check."""
+        self.mutate(lambda b: b.__setitem__(0x0F, b[0x0F] | 0x80), "flag", do_reseal=True)
+
+    def test_a_flag_must_agree_with_the_counter_it_summarises(self):
+        """The dangerous direction: a file CLEARING interior_loss while its
+        counter says frames were lost would read as a clean run. The C parser
+        rejects it and the Python one must agree, or the two disagree about
+        what a file means."""
+        i = vdisp.parse(fixture())
+        self.assertGreater(i["source_dropped_interior"], 0, "the fixture must have one")
+        self.assertTrue(i["flags"] & vdisp.F_INTERIOR_LOSS)
+        self.mutate(lambda b: b.__setitem__(0x0F, b[0x0F] & ~0x40),
+                    "interior_loss", do_reseal=True)
+        self.mutate(lambda b: b.__setitem__(0x0F, b[0x0F] | 0x20),
+                    "order_violation", do_reseal=True)
 
     def test_reserved_bytes_must_be_zero(self):
-        self.mutate(lambda b: b.__setitem__(0xE8, 1), "reserved", do_reseal=True)
+        self.mutate(lambda b: b.__setitem__(0x108, 1), "reserved", do_reseal=True)
 
     def test_an_identity_with_bytes_after_its_terminator(self):
         def f(b):
             for k in range(4):
-                b[0x88 + 20 + k] = 0x41
+                b[0xA8 + 20 + k] = 0x41
         self.mutate(f, "terminator", do_reseal=True)
 
     def test_a_section_crc_catches_what_the_global_one_would_blame_elsewhere(self):
@@ -291,6 +307,12 @@ class TheWiringInMainIsPinned(unittest.TestCase):
     def setUpClass(cls):
         cls.src = open(cls.MAIN).read()
 
+    @staticmethod
+    def strip_comments(src):
+        import re as _re
+        src = _re.sub(r"/\*.*?\*/", " ", src, flags=_re.S)
+        return _re.sub(r"//[^\n]*", " ", src)
+
     def test_the_key_comes_from_the_descriptor_and_nowhere_else(self):
         """The generic key must be the ASSEMBLER's frame index, carried by the
         descriptor. A literal, a counter or a texture index here would silently
@@ -313,25 +335,29 @@ class TheWiringInMainIsPinned(unittest.TestCase):
         self.assertIn("(uint16_t)buf, 0, 1);", self.src[i:i + 400],
                       "the self-test must be in_window=0, selftest=1")
 
-    def test_the_decision_snapshot_precedes_the_handover(self):
-        """ORDERING IS THE EVIDENCE. xfb_target() retires a hand-over the VI
-        picked up and xfb_handed() installs a new one, so `xfb_pending` is only
-        what the decision SAW in the window between them. Snapshotting it after
-        GX_CopyDisp would record the consequence as the cause."""
+    def test_the_framebuffer_question_is_asked_before_the_submit(self):
+        """POLICY A's whole shape. `stream-0007` asked GX first and the
+        framebuffer afterwards, so an unpresentable frame had already consumed a
+        token and was then discarded. The precheck must come FIRST, and the
+        snapshot must still sit between xfb_target() and xfb_handed()."""
         s = self.src
+        i_gate = s.index("if (!gbp_vpresent_submit(&present, buf))")
+        i_tgt = s.index("xfb = gbp_vpresent_xfb_target(&present, cur);")
+        self.assertLess(i_tgt, i_gate, "the framebuffer is asked about FIRST")
+        self.assertIn("gbp_vdisp_defer(&disp, life, t_dec, rt, cur, pend,", s)
+        self.assertNotIn("gbp_vqueue_note_repeat(account)", s,
+                         "policy A never terminates a frame on a busy framebuffer")
         i_target = s.index("xfb = gbp_vpresent_xfb_target(&present, cur);")
         i_pend = s.index("pend = present.xfb_pending;")
         i_copy = s.index("GX_CopyDisp(xfb_stream_buf[xfb]")
         i_handed = s.index("gbp_vpresent_xfb_handed(&present, xfb);")
-        i_branch = s.index("    if (xfb >= 0) {")
+        i_branch = s.index("    if (xfb < 0) {")
         self.assertLess(i_target, i_pend, "the snapshot must follow xfb_target()")
         self.assertLess(i_pend, i_copy, "the snapshot must precede the copy")
         self.assertLess(i_pend, i_handed, "the snapshot must precede the hand-over")
-        # AND IT MUST BE UNCONDITIONAL. Moving it inside the `xfb >= 0` branch
-        # still precedes the copy and still looks ordered -- but then the HOLD
-        # path, the one the whole trace exists for, records an uninitialised
-        # value. Mutation M11 survived every other assertion by doing exactly
-        # that.
+        # AND IT MUST BE UNCONDITIONAL. Taken inside the hand-off branch, the
+        # DEFER path -- the one policy A exists for -- would record an
+        # uninitialised value.
         self.assertLess(i_pend, i_branch,
                         "the snapshot must be taken on BOTH paths, before the branch")
         self.assertEqual(s.count("pend = present.xfb_pending;"), 1,
@@ -339,6 +365,94 @@ class TheWiringInMainIsPinned(unittest.TestCase):
         # and the clock is read before the decision, not after it
         i_t = s.index("t_dec = gettime();")
         self.assertLess(i_t, i_target)
+
+    def test_nothing_in_the_present_path_waits(self):
+        """§V5.49.3. The deferral is a STATE, not a delay. A VIDEO_WaitVSync or
+        a spin anywhere between the framebuffer question and the hand-over would
+        turn a non-blocking policy into a blocking one inside the service path."""
+        # Comments FIRST. The present path contains the comment "NEVER
+        # VIDEO_WaitVSync here", and a guard that could not tell that apart from
+        # a call would be worthless -- the same trap the §V5.44 predicate guard
+        # had to be taught.
+        s = self.strip_comments(self.src)
+        i_tgt = s.index("xfb = gbp_vpresent_xfb_target(&present, cur);")
+        i_hand = s.index("gbp_vpresent_xfb_handed(&present, xfb);")
+        body = s[i_tgt:i_hand]
+        for forbidden in ("VIDEO_WaitVSync", "while (", "for (", "usleep", "sleep"):
+            self.assertNotIn(forbidden, body, "the present path grew a %r" % forbidden)
+        # the ONE legitimate wait is in the self-test, before the capture opens
+        i_self = s.index("static void display_selftest(void)")
+        i_pump = s.index("static void pump(void *user)")
+        self.assertIn("VIDEO_WaitVSync", s[i_self:i_pump])
+        self.assertNotIn("VIDEO_WaitVSync", s[i_pump:i_tgt])
+
+    def test_the_map_is_closed_after_the_decision(self):
+        """§V5.49.13 M5. Clearing `tex_life[buf]` after a hand-off is INERT
+        today, and provably so: the key is written when the texture is ACQUIRED
+        (`tex_life[buf] = conv.life;`, before the conversion even starts), and
+        it is read only under a `tex[i] == READY` guard -- so no reader can ever
+        observe the stale value. The line is kept as defence in depth and pinned
+        here, because the equivalence is a property of the READY guard, not of
+        the map: a future reader that is not READY-gated would make it load
+        bearing, and nothing else would notice."""
+        s = self.src
+        self.assertEqual(s.count("tex_life[buf] = -1;"), 1)
+        self.assertLess(s.index("gbp_vdisp_decision(&disp, life"),
+                        s.index("tex_life[buf] = -1;"),
+                        "the map must be closed AFTER the decision is recorded")
+        # and the write that makes the equivalence hold must still precede READY
+        self.assertLess(s.index("tex_life[buf] = conv.life;"),
+                        s.index("gbp_vpresent_fill_done(&present, (int)conv.buf)"),
+                        "the key must be written before the texture can be offered")
+
+    def test_the_selftest_verdict_requires_a_present(self):
+        """A self-test whose eight offers all defer arms no token, so `inflight`
+        is 0 and `selftest_released` passes vacuously. ok=1 must mean the
+        display path RAN."""
+        self.assertIn("selftest_presents >= 1u", self.src)
+
+    def test_the_target_is_asked_once_and_never_re_read(self):
+        """§V5.49.13 M13. The precheck proves a framebuffer is free AT THE
+        DECISION, and `gbp_vpresent_submit` changes the presenter's state after
+        that. Asking again between the submit and `GX_CopyDisp` would hand GX
+        whatever the SECOND answer is -- including -1 -- and would discard the
+        very answer the §V5.49.2 safety proof is about. One question, one
+        answer, used."""
+        s = self.strip_comments(self.src)
+        self.assertEqual(s.count("gbp_vpresent_xfb_target("), 1,
+                         "the framebuffer must be asked about exactly once")
+        self.assertLess(s.index("gbp_vpresent_xfb_target("),
+                        s.index("if (!gbp_vpresent_submit(&present, buf))"))
+
+    def test_the_offer_is_by_age_and_not_by_slot(self):
+        """§V5.49 I2. `gbp_vpresent_acquire()` hands out the LOWEST free texture
+        and the old loop scanned from index 0, so a newer frame in a lower slot
+        could overtake a deferred older one. Both offer sites must go through
+        the age-ordered helper."""
+        s = self.src
+        self.assertIn("static void offer_oldest_ready(void)", s)
+        self.assertIn("tex_life[i] < best_life", s)
+        # the pump retry and the conversion-completion site both use it
+        self.assertEqual(s.count("offer_oldest_ready();"), 2)
+        # and no site offers a raw slot index to the queue account any more
+        self.assertNotIn("submit_ready((int)conv.buf, &vq);", s)
+        self.assertNotIn("{ submit_ready((int)i, &vq); break; }", s)
+
+    def test_the_new_trace_tag_is_unique(self):
+        """§V5.49.6. `STREAMDISP` already names the legacy conservation
+        identity; two different lines under one tag is a trap for any parser
+        that keys on it."""
+        s = self.src
+        tags = [ln.split('"')[1].split()[0]
+                for ln in s.splitlines() if 'ringlog_printf(&rl, "' in ln]
+        self.assertEqual(len(tags), len(set(tags)), "duplicate log tag: %s" % tags)
+        self.assertIn("DISPTRACE", tags)
+        self.assertIn("DISPSRC", tags)
+
+    def test_the_terminal_close_runs_before_the_sidecar_is_written(self):
+        s = self.src
+        self.assertLess(s.index("gbp_vdisp_finish(&disp);"),
+                        s.index("gbp_vdispdump_stream(&disp_info, &disp, disp_chunk,"))
 
     def test_the_callback_identifies_the_frame_by_the_released_index(self):
         """The ISR must use what the ownership module RETURNED, not a search and
