@@ -51,7 +51,7 @@ migration itself.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   29a5b57d375f731351304f93ddf93074bae32942
+STATE BASELINE COMMIT   7c160cf470ba96e31f7c9db0d297f289a3a95f0b
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -63,12 +63,14 @@ HEAD to be at least one commit ahead: the one carrying this text.
 ```text
 LAST PHYSICAL EVIDENCE INGESTED
   GBP-VIDEO-007 / GBP-VIDEO-008 / stream-0013 @ 7d7a6d8 + coord-0001, executed 2026-09-20 -- RUN 12
-  GBP-HW-250 ... GBP-HW-255; GBP-VID-034 (OPEN), GBP-VID-035 (REPAIRED in software, Issue #11)
+  GBP-HW-250 ... GBP-HW-255; GBP-VID-034 (MECHANISM RESOLVED, Issue #12), GBP-VID-035 (REPAIRED in software, Issue #11)
   STANDING: EXECUTED · GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE (HARDWARE_TESTS §V6.20)
 
   The shared source-window gate failed: frozen vindex.py OBSERVED_DISCONTINUITY --
   2048 intact records, two duplicate FRAME_ID transitions (479->479 at frame_index
-  761->762, 1919->1919 at 2202->2203), INVALID 0, FAULT 0; mechanism OPEN (GBP-VID-034).
+  761->762, 1919->1919 at 2202->2203), INVALID 0, FAULT 0; mechanism RESOLVED by Issue #12
+  (§V6.22): PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames, the
+  stimulus's own scheduling, invisible to its FAULT latch (GBP-VID-034).
   Subordinate: OGBPFULL1 K=8 complete, frozen vfull.py PASS 8/8, 0 mismatches in all
   38 400 words of every sample -- NOT a GBP-VIDEO-008 experiment PASS. Operator saw
   digits 1 2 3 4 in order (observation, beside the chain). OGBPVI1 2377 handed / 2370
@@ -167,7 +169,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 
 | item | status | owner |
 | --- | --- | --- |
-| **GBP-VIDEO-007 / GBP-VIDEO-008** (physical scanout; full-frame fidelity) | **RUN 12 EXECUTED 2026-09-20 AND INGESTED (§V6.20; Hardware Issue #9, ingestion Issue #10): GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE.** The shared prospective source-window gate failed — frozen `tools/vindex.py` reads `OBSERVED_DISCONTINUITY` (2048 intact, INVALID 0, FAULT 0, two duplicate FRAME_ID transitions 479→479 and 1919→1919; GBP-VID-034, mechanism OPEN). Preserved beside the verdicts and promoting neither: the frozen `tools/vfull.py` full-frame dependent-variable analysis PASS 8/8 with 0 mismatches (subordinate; never a PASS of the GBP-VIDEO-008 experiment); the operator's literal report — digits 1, 2, 3, 4 in order, nothing missing or anomalous — under the declared composite → RCA-to-HDMI converter → HYDIS HV150UX2 chain; OGBPVI1 2377 handed / 2370 latched with frozen L_k = 0 (the `tools/vvi.py` frozen at the run masked the address before the flag shift — GBP-VID-035, analyzer defect, REPAIRED in software by Issue #11, §V6.21: the corrected post-run replay reads 2370/2370 and L = 40/40/38/40, and changes no verdict). Transport / startup / Policy A clean. No rerun pre-registered; `coord-0001`, the analyzers, the formats and the gates unchanged | `HARDWARE_TESTS.md` §V6.19, §V6.20; GBP-HW-250…255 |
+| **GBP-VIDEO-007 / GBP-VIDEO-008** (physical scanout; full-frame fidelity) | **RUN 12 EXECUTED 2026-09-20 AND INGESTED (§V6.20; Hardware Issue #9, ingestion Issue #10): GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE.** The shared prospective source-window gate failed — frozen `tools/vindex.py` reads `OBSERVED_DISCONTINUITY` (2048 intact, INVALID 0, FAULT 0, two duplicate FRAME_ID transitions 479→479 and 1919→1919; GBP-VID-034, mechanism RESOLVED by Issue #12 — PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames, §V6.22). Preserved beside the verdicts and promoting neither: the frozen `tools/vfull.py` full-frame dependent-variable analysis PASS 8/8 with 0 mismatches (subordinate; never a PASS of the GBP-VIDEO-008 experiment); the operator's literal report — digits 1, 2, 3, 4 in order, nothing missing or anomalous — under the declared composite → RCA-to-HDMI converter → HYDIS HV150UX2 chain; OGBPVI1 2377 handed / 2370 latched with frozen L_k = 0 (the `tools/vvi.py` frozen at the run masked the address before the flag shift — GBP-VID-035, analyzer defect, REPAIRED in software by Issue #11, §V6.21: the corrected post-run replay reads 2370/2370 and L = 40/40/38/40, and changes no verdict). Transport / startup / Policy A clean. No rerun pre-registered; `coord-0001`, the analyzers, the formats and the gates unchanged | `HARDWARE_TESTS.md` §V6.19, §V6.20; GBP-HW-250…255 |
 | **GBP-VIDEO-002-R3** (semantic disagreement policy) | **PHYSICAL VALIDATION COMPLETE** | `HARDWARE_TESTS.md` §R3/§R4; GBP-HW-108…115 |
 | **PRE-HANDLER MASKED WAIT 5000 ms** | **PHYSICALLY VALIDATED — only for the 5 s duration and the position exercised** | `HARDWARE_TESTS.md`, "PRE-HANDLER MASKED WAIT"; GBP-HW-116…119 |
 | **Physical delivery of a controlled GBA ROM** | **RESOLVED** for the validated EZ-Flash Omega DE NOR / Mode B route | `HARDWARE_TESTS.md` §V3.7 and the route section below |
@@ -224,7 +226,7 @@ Changing any of these means a **new version**, never an edit.
 | **OGBPCOL1 v1** | frozen at the implementation checkpoint `e10423c`; `cert_rec` is **40** bytes | `src/gbp/gbp_vcoldump.h`, `tools/vcolor.py` |
 | **OGBPIDX1** | the indexed stimulus WIRE format, frozen at §V5.33: layout, 54-bit payload, CRC-8, symbols, 24-bit ID, STATUS, canonical witness coordinates, classification rules. `stream-0005` changed the experiment's PROTOCOL, not this; **`stream-0006` changed neither** — it changes only WHICH frames are retained | `stimulus/agb-indexed/`, `tools/istim.py`, `tools/vindex.py` |
 | **OGBPIDXCAP1 v1** | the witness CAPTURE sidecar, new in `stream-0005`. A new magic, never an OGBPSEQ1 version: header 0x180, record 4368 (48 B metadata + 40 x 54 big-endian u16, each record CRC-sealed), `"OGBPEND1"` footer. **`stream-0006` did NOT change it** (§V5.44.9): the window is reported in the `.log` `WITQUAL` line and is visible here as `record[0].frame_index != 0` | `src/gbp/gbp_vidxdump.h`, `tools/vidxcap.py` |
-| **OGBPCOORD1** | the coordinate stimulus WIRE format of `coord-0001`, frozen at `99496a6` / `7d7a6d8` (§V6.18.3): x = 0..55 byte-identical to OGBPIDX1 (FLAG, STRIP-L, GUARD-A), FIELD `y*183 + (x-56)` on x = 56..238 (injective, bit 15 clear, painted once), GUARD-C at 239, no STRIP-R, no bar; a 48×80 seven-segment digit (k mod 10) at (123, 40) plus six 8×8 counter squares at (123+8i, 128) for FRAME_ID in [k·480, k·480+40), k ≥ 1, colour 0x7FFF. The witness gate, `tools/vindex.py` and every regression gate apply unchanged. **RUN in RUN 12** (§V6.20): 2048 intact witness records, FAULT 0, VMARGIN 38/39/54, and two duplicate FRAME_ID transitions (GBP-VID-034, mechanism OPEN). Canonical ROM 3 496 B `90343b64…0a1f` | `stimulus/agb-coord/source/main.c`, `tools/icoord.py`, `HARDWARE_TESTS.md` §V6.18.3 |
+| **OGBPCOORD1** | the coordinate stimulus WIRE format of `coord-0001`, frozen at `99496a6` / `7d7a6d8` (§V6.18.3): x = 0..55 byte-identical to OGBPIDX1 (FLAG, STRIP-L, GUARD-A), FIELD `y*183 + (x-56)` on x = 56..238 (injective, bit 15 clear, painted once), GUARD-C at 239, no STRIP-R, no bar; a 48×80 seven-segment digit (k mod 10) at (123, 40) plus six 8×8 counter squares at (123+8i, 128) for FRAME_ID in [k·480, k·480+40), k ≥ 1, colour 0x7FFF. The witness gate, `tools/vindex.py` and every regression gate apply unchanged. **RUN in RUN 12** (§V6.20): 2048 intact witness records, FAULT 0, VMARGIN 38/39/54, and two duplicate FRAME_ID transitions (GBP-VID-034, mechanism RESOLVED by Issue #12 — PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames, §V6.22). Canonical ROM 3 496 B `90343b64…0a1f` | `stimulus/agb-coord/source/main.c`, `tools/icoord.py`, `HARDWARE_TESTS.md` §V6.18.3 |
 | **OGBPFULL1 v1** | the FULL-FRAME SAMPLE sidecar, new in `stream-0013`: magic `"OGBPFULL"`, header 0x100, K ≤ 8 records of 0x80 meta + 153 600 raw + 76 800 big-endian texture = 230 528 B each, `"OGBPFEND"` footer, header / per-record / global CRC-32. Content-blind sample rule `origin + 256·i` from the witness window's first retained frame. A sample is COMPLETE only with 40/40 blocks of ONE lifecycle; generation or slot reuse → REFUSED, never mixed. Carries NO XFB CRC. **PHYSICALLY PRODUCED in RUN 12** (1 844 492 B `fb09a777…433c`, strict parse, 8/8 COMPLETE, frozen analysis PASS 8/8 — subordinate; §V6.20.6) | `src/gbp/gbp_vfulldump.h`, `tools/vfull.py`, `HARDWARE_TESTS.md` §V6.18.4 |
 | **OGBPVI1 v1** | the HAND-OVER / VI-LATCH sidecar, new in `stream-0013`: magic `"OGBPVI1\0"`, header 0x100, ≤ 4096 records of 64 B (frame_index, life, xfb, flags LATCHED / SUPERSEDED, phys, t_handed, retrace_handed, retrace_latch, t_latch, VI[14] VI[15] VI[18] VI[19] read back at the latch), `"OGBPVEND"` footer, header / per-record / global CRC-32. The latch is the pump's first observation that libogc2 reports the handed XFB current: CLAIM-C, software, never scanout. **PHYSICALLY PRODUCED in RUN 12** (152 396 B `d301e96e…ddb0`, strict parse, 2377 handed / 2370 latched / 6 superseded; the reader's address-domain defect at the time of the run is GBP-VID-035, repaired in software afterwards, §V6.21; §V6.20.7) | `src/gbp/gbp_vvidump.h`, `tools/vvi.py`, `HARDWARE_TESTS.md` §V6.18.5 |
 | **OGBPDISP2 v2** | the DOWNSTREAM sidecar as `stream-0008` writes it: header 0x140, lifecycle 128 B, event 40 B, `"OGBPDEND"`, three CRC-32s. Adds the defer aggregate (`t_first_attempt`, `t_first_defer`, `t_last_defer`, `defer_attempts`), the non-terminal `DEFERRED` and edge `TERMINAL_PENDING` dispositions, and a header block of source-disposition counters. It carries NO scientific-membership field on purpose: the population is the exact `frame_index` join. **PHYSICALLY EXERCISED in run 6** (2114 lifecycles, 2165 events, all four CRCs verified independently, `decisions 2114 + deferred 51 = 2165 = event_n`) | `src/gbp/gbp_vdispdump.h`, `tools/vdisp.py`, `HARDWARE_TESTS.md` §V5.49.5 |
@@ -263,7 +265,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 **stimulus** | `indexed-0002` | — | `44651f0ba60141f23cfb6b8b01f5b7a871ef1037412c7dae2ac9d9743c7b7b2f` | 2 876 B. **PHYSICALLY EXECUTED 2026-09-19 — TEARING FIXED (FAULT clear, VMARGIN 24, 0 mixed), but 2:1 CADENCE.** Historical; never rerun | `HARDWARE_TESTS.md` §V5.42; GBP-HW-160…166 |
 | GBP-VIDEO-004 **stimulus** | `indexed-0003` | — | `37119bb6ac68398dbd3fa75e6ad5c51c8aeb543277ac8d3b03b57f7a6f0caaca` | 2 880 B canonical. **PHYSICALLY EXECUTED 2026-09-19 — PRODUCER CORRECT: 1:1 cadence, 0 duplicates, 0 mixed, FAULT clear, VMARGIN 24.** The verdict is `OBSERVED_DISCONTINUITY` on one startup-resync gap, not on the producer | `HARDWARE_TESTS.md` §V5.43; GBP-HW-167…174 |
 | GBP-VIDEO-004 **stimulus, derived** | `indexed-0003` | — | `9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2` | 2 880 B; logo from the colour cartridge that booted twice, payload past 0x0C0 byte-identical to the canonical ROM. Never committed. The `indexed-0001` (`abb31e6a…0769`) and `indexed-0002` (`55fe72d5…e559e9`) delivery images are historical and must not be rerun | `HARDWARE_TESTS.md` §V5.42.10 |
-| GBP-VIDEO-007 / -008 **stimulus** | `coord-0001` | — | `90343b64eda9602c173364171637cd1068f265c385464361b40ec073b11f0a1f` | 3 496 B canonical, `build/stimulus/agb-coord/agb-coord.gba`, built twice from scratch and byte-identical (the ROM embeds no commit). **PHYSICALLY EXECUTED 2026-09-20 (RUN 12, through its delivery image): the first run of OGBPCOORD1 — 2048 intact witness records, FAULT 0, VMARGIN 38/39/54, two duplicate FRAME_ID transitions (GBP-VID-034, mechanism OPEN); not labelled a stimulus defect.** OGBPCOORD1: OGBPIDX1's witness bytes, an injective coordinate field, the 48×80 digit every 480 frames | `HARDWARE_TESTS.md` §V6.18.3 |
+| GBP-VIDEO-007 / -008 **stimulus** | `coord-0001` | — | `90343b64eda9602c173364171637cd1068f265c385464361b40ec073b11f0a1f` | 3 496 B canonical, `build/stimulus/agb-coord/agb-coord.gba`, built twice from scratch and byte-identical (the ROM embeds no commit). **PHYSICALLY EXECUTED 2026-09-20 (RUN 12, through its delivery image): the first run of OGBPCOORD1 — 2048 intact witness records, FAULT 0, VMARGIN 38/39/54, two duplicate FRAME_ID transitions (GBP-VID-034, mechanism RESOLVED by Issue #12 — PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames, §V6.22); not labelled a stimulus defect.** OGBPCOORD1: OGBPIDX1's witness bytes, an injective coordinate field, the 48×80 digit every 480 frames | `HARDWARE_TESTS.md` §V6.18.3 |
 | GBP-VIDEO-007 / -008 **stimulus, derived** | `coord-0001` | — | `a769cc11afcb93cfc1cf89bf9bb59554533662c051e25b475f3943e7bdbb994f` | 3 496 B, `build/physical/agb-coord-cart.gba`; logo from the colour cartridge that booted twice, payload past 0x0C0 byte-identical to the canonical ROM (`tools/gbaderive.py`). Never committed. **FLASHED AND RUN 2026-09-20 (RUN 12); the operator's pre-flash `sha256sum` matched (Issue #9).** The cartridge was re-flashed with this exact image for RUN 12; the "do not re-flash" rule of runs 6–11 applied to `indexed-0003` only | `HARDWARE_TESTS.md` §V6.18.2 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
@@ -367,7 +369,7 @@ a dirty build (`CLAUDE.md` §18).
 > topology, and the shared prospective source-window gate failed: frozen
 > `tools/vindex.py` reads `OBSERVED_DISCONTINUITY` — 2048 intact records, FAULT 0,
 > INVALID 0, and two duplicate FRAME_ID transitions (479→479, 1919→1919;
-> GBP-VID-034, mechanism OPEN). Everything else read clean; the subordinate
+> GBP-VID-034, mechanism RESOLVED by Issue #12 — PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames, §V6.22). Everything else read clean; the subordinate
 > full-frame analysis is PASS 8/8 and promotes nothing; the operator saw 1, 2,
 > 3, 4 in order; the frozen VI reader's zero is an analyzer defect (GBP-VID-035,
 > since REPAIRED in software by Issue #11, §V6.21 — the corrected post-run replay
@@ -449,15 +451,18 @@ and the offline tools, all with frozen software identities, NOT PHYSICALLY
 EXECUTED; Issue #8 pre-registered RUN 12 for them (§V6.19); Hardware
 Issue #9 executed it and Issue #10 ingested it (§V6.20): GBP-VIDEO-007
 INCONCLUSIVE, GBP-VIDEO-008 INCONCLUSIVE, the shared source gate failed on two
-duplicate FRAME_ID transitions (GBP-VID-034, mechanism OPEN); the VI reader's
+duplicate FRAME_ID transitions (GBP-VID-034, mechanism RESOLVED by Issue #12 — PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames, §V6.22); the VI reader's
 address-domain defect (GBP-VID-035) was REPAIRED in software by Issue #11
 (§V6.21) with the corrected post-run replay reading 2370/2370 and
 L = 40/40/38/40 — no verdict changed. The sequence after this is the
 Orchestrator's, after independently validating the persisted evidence and
-closing Issue #9: a research checkpoint on GBP-VID-034 (what duplicates a
-FRAME_ID under coord-0001 — stimulus, transport, retention or something else;
-nothing is assumed), and only then whether and how a further run is designed
-and pre-registered. Nothing about
+closing Issue #9: validating the GBP-VID-034 root cause (§V6.22: the entry
+PREPARE of the sparse digits runs past the VBlank; a cycle model of the frozen
+image reproduces the run's M--M pattern with no fitted parameter, the R_2 / R_3
+margin stated at 0.8 % / 1.5 %), then deciding whether a `coord-0002` stimulus
+checkpoint (hoist the ROM byte read, build the digit table one frame early,
+optionally record VCOUNT at PREPARE completion — §V6.22.10, design only) and a
+further run are designed and pre-registered. Nothing about
 scanout or fidelity is known as an experiment result; the subordinate 8/8 is
 preserved as evidence for a future admissible run to build on, never as a
 verdict. Presentation and pixel-perfect scaling were NOT started;
@@ -473,17 +478,22 @@ issue 8     RUN 12 PRE-REGISTERED (§V6.19): identities, five raw names, topolog
 issue 9     RUN 12 EXECUTED 2026-09-20 by the Operator (hardware Issue; the Orchestrator closes it
             after validating the persisted evidence)
 issue 10    RUN 12 INGESTED (§V6.20): GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE
-            (frozen vindex OBSERVED_DISCONTINUITY, two duplicate FRAME_IDs: GBP-VID-034 OPEN);
+            (frozen vindex OBSERVED_DISCONTINUITY, two duplicate FRAME_IDs: GBP-VID-034);
             vfull PASS 8/8 subordinate; operator saw 1 2 3 4; vvi.py defect GBP-VID-035 found;
             GBP-HW-250..255; fixtures + tests/host/test_run12.py; NOTHING FIXED, NO RERUN
 issue 11    GBP-VID-035 REPAIRED in software (§V6.21): tools/vvi.py compares in the full physical
             domain (libogc2 __setFbbRegs rule cited from source); corrected post-run replay of the
             RUN 12 OGBPVI1: 2370/2370 top, 2370/2370 bottom, L = 40/40/38/40; verdicts unchanged;
             the frozen-at-run 0/2370 kept as history; no fixture, format, runtime or gate change
+issue 12    GBP-VID-034 MECHANISM RESOLVED (§V6.22): tools/coordtime.py, a cycle model of the frozen
+            coord-0001 image calibrated on the run's VMARGIN 54/39/38 -- the digit-1 and digit-4 entry
+            PREPAREs (287 787 / 287 179 cycles) exceed the 263 839..263 953 budget and skip a VBlank
+            (N-1 captured twice, FAULT blind to it); digits 2/3 (261 723 / 260 043) do not; M--M with
+            no fitted parameter; verdicts unchanged; research only, nothing changed, no RUN 13
 remote      origin = GitHub (canonical); gitea-archive = Gitea (archive, no push)
 next        orchestrator-owned: validate the persisted RUN 12 evidence and close Issue #9 ->
-            research GBP-VID-034 (mechanism) -> decide whether a further run is designed;
-            no RUN 13 is pre-registered
+            validate §V6.22 -> decide whether a coord-0002 stimulus checkpoint (§V6.22.10) and a
+            further run are designed; no RUN 13 is pre-registered
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
@@ -751,9 +761,19 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 - **That the frozen `tools/vfull.py` PASS 8/8 is a PASS of the GBP-VIDEO-008 experiment.** It is
   the dependent variable of an inadmissible run; the pre-registered gate
   decides admissibility first, and it failed.
-- **That the two duplicate FRAME_IDs are a source loss, a stimulus defect or a
-  transport defect.** GBP-VID-034 is a FACT of RUN 12 with its mechanism OPEN;
-  their adjacency to the R_1 and R_4 boundaries is an observation, not a cause.
+- **That the two duplicate FRAME_IDs are a source loss, a transport defect or
+  a capture defect.** They are the stimulus's own scheduling (GBP-VID-034,
+  §V6.22): the entry PREPARE of digits 1 and 4 runs longer than an AGB frame
+  and skips a VBlank; VRAM keeps the previous frame and the GBP captures it
+  twice. Their adjacency to the R_1 and R_4 boundaries is the cause showing.
+- **That the FAULT latch would have caught it.** It cannot: `vc0` is read after
+  both wait loops and the timer brackets PUBLISH only; a PREPARE-side miss is
+  invisible to STATUS by construction (§V6.22.3). A stimulus that wants to
+  bound PREPARE has to measure PREPARE (§V6.22.10, design only).
+- **That the model's margin is the same on both sides.** The duplicates are
+  predicted with 8-9 % to spare; the non-duplicates at R_2 / R_3 with 0.8 % /
+  1.5 %, and that side has no hardware calibration point of its own. Digits
+  6-9 are predicted to duplicate and digit 5 not; a future run decides.
 - **That the 0/2370 of the analyzer frozen at RUN 12 means the VI registers
   disagreed with the hand-overs.** They did not: the corrected tool (Issue #11,
   §V6.21) reads 2370/2370 — the zero was a 24-bit mask before the flag shift

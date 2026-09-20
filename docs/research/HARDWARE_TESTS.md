@@ -20320,4 +20320,328 @@ The frozen-at-run output, the corrected replay and the two verdicts are three
 different things and this part keeps them apart: the first is history, the
 second is software analysis performed afterwards, the third is unchanged.
 
+### V6.22 GBP-VID-034 ROOT CAUSE — the two duplicates are PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames; a cycle model of the frozen coord-0001 predicts the observed pattern with no free parameter (GitHub Issue #12, 2026-09-20) — RESEARCH, NO HARDWARE
+
+Research only. Nothing here ran on hardware, changed `coord-0001`, the
+runtime, a frozen analyzer, a format, Policy A or a gate; no RUN 13 is
+reserved. The RUN 12 verdicts (§V6.20) are untouched. Tool:
+`tools/coordtime.py`; pins: `tests/host/test_coordtime.py`; the frozen
+stimulus, byte for byte: `captures/fixtures/stimulus-coord-0001-canonical.gba`.
+
+#### V6.22.1 The identity analysed
+
+`build/stimulus/agb-coord/agb-coord.gba`, 3 496 B, SHA-256
+`90343b64eda9602c173364171637cd1068f265c385464361b40ec073b11f0a1f` — the
+canonical RUN 12 stimulus (§V6.19.2; the delivery image differs only in the
+header's logo area). Disassembled with the project toolchain; the `.iwram`
+image (0x630 B at ROM offset 0x768, LMA `0x08000768`, run at `0x03000000`)
+holds `prepare_frame` (0x47c B, ARM) and `publish_frame` (0x1b4 B, ARM);
+`main` runs from ROM at `0x080002ac` with `-marm`; `seg_of_digit` is ROM
+`.rodata` at `0x08000758`. `tools/coordtime.py` locates the image by the
+first words of both functions and refuses any other file.
+
+#### V6.22.2 RQ1 — exact publication semantics (source + generated code)
+
+VRAM is written by exactly two paths: `paint_background()` once at boot and
+`publish_frame()` (DMA3, IWRAM) after the wait loops; nothing else. The loop
+(`main.c:426-449`; ROM `0x800048c-0x800055c`) is, per frame:
+
+```text
+sched_advance ; frame_id++ ; status = status_byte(st)
+PREPARE(frame_id, status, sched)                         IWRAM, visible period intended
+while (VCOUNT >= 160) {}      0x80004e0  ldrh / cmp / bhi   wait until NOT in VBlank
+while (VCOUNT <  160) {}      0x80004ec  ldrh / cmp / bls   wait until VBlank begins
+vc0 = VCOUNT ; t0 = TM0        0x80004f8 / 0x80004fc
+PUBLISH()                     DMA only
+t1 = TM0 ; vc1 = VCOUNT ; status_measure(st, vc0, vc1, t1 - t0)
+```
+
+Let VBlank v be the one in which frame N−1 was published. PREPARE(N) starts
+after that publish and its loop tail. If PREPARE(N) returns while VCOUNT is
+inside VBlank v+1 (or later in the visible period after it), the first loop
+spins until VBlank v+1 ends and the second until VBlank v+2 begins: the
+opportunity at v+1 is skipped entirely. VRAM is unchanged through the visible
+periods that follow VBlank v+1 AND VBlank v+2's predecessor, so the GBP — which
+samples every AGB frame — captures N−1 twice, then N once the v+2 publish
+lands. Exactly **N−1, N−1, N**, not N−1, N, N and not a gap: the schedule
+already advanced to N before PREPARE, the glyph is published with N, and the
+next frames publish one per VBlank again (the observed 479, 479, 480, 481 …
+and 1919, 1919, 1920, 1921 …; R_1 and R_4 still retain 40 distinct ids each,
+§V6.20.5). Any overrun between one VBlank and one full frame later produces
+exactly one duplicate (the second loop always waits for the next VBlank
+start), as GBP-HW-165 derived.
+
+#### V6.22.3 RQ2 — what STATUS brackets, and why FAULT stays 0
+
+`status_measure()` receives `vc0` read AFTER both wait loops (`0x80004f8`),
+`vc1` and the timer delta read around `publish_frame()` only. `FAULT` latches
+iff `vc1 < vc0`, `vc1 > 227` or `elapsed > 1309` ticks — every term is a
+property of PUBLISH. A PREPARE that overran into VBlank v+1 is followed by a
+PUBLISH in VBlank v+2 that starts at VCOUNT 160 like any other and ends at
+its normal line; the latch sees a normal publish. **The latch cannot detect a
+PREPARE-side missed VBlank; FAULT = 0 and an unchanged VMARGIN on the
+duplicate records are exactly what the mechanism predicts.** The design's
+static budget (§V6.6, §V6.17 item 4) reasoned about published words, i.e.
+about PUBLISH; it never bounded PREPARE, and STATUS never measured it.
+
+#### V6.22.4 RQ3 — the compiled paths (exact, from the frozen disassembly)
+
+```text
+prepare_frame  0x03000000, ARM, IWRAM; stack in IWRAM; glyph_lit, crc_after_id, crc_finish, strip_word
+               and field_at all INLINED (no call inside); registers, no division
+strips         40 blocks x { crc_finish loop (6), 54 bit stores to the stack, two 54-word inversion
+               loops into pub_l (IWRAM) with conditional moves, no branches on bit values }   every frame
+digit rows     only when k >= 1 && phase == 0 (ENTRY): 80 rows x 50 columns. PER PIXEL (columns 1..48):
+                 ldr  r3, [r2, #8]      sc->digit from IWRAM          (the compiler did NOT hoist it)
+                 ldrb r3, [r4, r3]      seg_of_digit[digit] from ROM  (one N read per pixel, WAITCNT 4317h)
+                 up to seven segment tests in the source order a, d, g, b, c, f, e, each a taken
+                 branch out when lit;  LIT: one strh to glyph_rows (EWRAM);
+                 UNLIT: ldrh glyph_erase (EWRAM) + strh glyph_rows (EWRAM)
+               columns 0 and 49: copied from glyph_erase without the tests
+squares        while shown (phase 0..39): 8 rows x 50 columns, sc->phase reloaded per column (IWRAM),
+               unlit: ldrh sq_erase (EWRAM) + strh pub_sq (IWRAM); lit: strh 0x7FFF (IWRAM)
+exit           phase == 40: two flag stores only (op_digit = op_sq = ERASE); the erase copies are DMA in PUBLISH
+publish_frame  0x0300047c, ARM, IWRAM: 160 DMAs of 28 words (strips, IWRAM -> VRAM) always; + 80 DMAs of
+               25 words (digit rows, EWRAM -> VRAM) on entry (glyph_rows) and exit (glyph_erase); + 8 DMAs
+               of 25 words (squares: pub_sq IWRAM while shown, sq_erase EWRAM on exit)
+main           ROM, ARM: the loop tail (status_measure, sched_advance with its wrap, frame_id, status_byte,
+               the veneer call) is 36 instructions on an ordinary frame and 45 on an entry frame
+```
+
+Digits differ in the per-pixel path, not in the loop shape: a lit pixel
+leaves at the first satisfied test (a is cheapest, e dearest) and writes once;
+an unlit pixel evaluates every test whose segment bit is set in that digit
+(the others fall through in two instructions) and then reads and writes
+EWRAM. Unlit pixels per digit (48 × 80 = 3 840 minus lit): **d1 3 200 · d2
+2 240 · d3 2 240 · d4 2 592** (d5 2 240 · d6 2 016 · d7 2 880 · d8 1 792 ·
+d9 2 016). Digit 1 (segments b, c) and digit 4 (b, c, f, g) are the sparse
+digits; 2 and 3 light 1 600 pixels each.
+
+#### V6.22.5 RQ4 — the cycle model and its calibration
+
+`tools/coordtime.py` executes the exact IWRAM code of the frozen image in a
+minimal ARM7TDMI (ARM-state) interpreter and charges every bus cycle by the
+GBATEK rules for this ROM's memory map: IWRAM 1/1/1; EWRAM 3/3/6 (the
+hardware default of `4000800h`, 2 wait states); ROM with the `WAITCNT = 4317h`
+the ROM itself writes (N 1+3 = 4, S 1+1 = 2 per 16-bit access); VRAM 1/1/2;
+I/O 1; instruction costs ALU 1S (+1I shift by register), LDR 1S+1N+1I, STR 2N,
+LDM nS+1N+1I, STM (n−1)S+2N, B/BL/BX 2S+1N, `{cond}` false 1S; DMA 2N +
+2(n−1)S + 2I with the read and write halves in their own regions. The ROM
+prefetch buffer — which affects opcodes fetched from ROM only, i.e. the loop
+tail in `main` — is not modelled cycle-exact: the tail is computed twice, with
+every ROM opcode half costed as an S access (4 per instruction, no prefetch)
+and as a buffer hit (2), and the difference is carried as a declared band.
+
+**Calibration against RUN 12, three hardware facts (GBP-HW-251, §V6.20.5):**
+
+```text
+PUBLISH class                          model cycles   lines   ends at VCOUNT   model VMARGIN   RUN 12 read
+ordinary (strips only)                    16 799      13.64      173.64            54              54
+entry (strips + digit paint + squares)    34 654      28.13      188.13            39              39
+exit  (strips + erase rows + erase sq.)   35 657      28.94      188.94            39           39 (k=1) / 38 (k=2)
+```
+
+All three reproduced; the exit case is 74 cycles short of the line-189
+boundary, and the hardware read both 188 and 189 across the two exits — a
+knife-edge the model lands on. The same wait-state terms with 1 or 3 EWRAM
+wait states would have read VMARGIN 43 or 36 on the entry publish: only the
+2-wait-state default is consistent with the run. The DMA path therefore pins
+the EWRAM and VRAM costs and the DMA overhead to within about 0.2 %; the
+IWRAM instruction costs are the ARM7TDMI datasheet's; the one per-access term
+not pinned by the run is the ROM byte read (4 by WAITCNT).
+
+**The budget of an ENTRY PREPARE.** From VBlank v's first cycle: poll
+detection (≤ 24 cycles), the ordinary PUBLISH of N−1 (16 799), the loop tail
+with the schedule wrap (228 no-prefetch / 140 with prefetch), then PREPARE(N),
+then 6 cycles to the first VCOUNT read. The next VBlank starts 228 × 1 232 =
+280 896 cycles after v's. PREPARE misses it iff it exceeds:
+
+```text
+B = 280 896 − 16 799 − 228 − 6 = 263 863 (detected at VBlank start) … 263 839 (one poll late);
+    with-prefetch tail: 263 953 … 263 937.       DECLARED BAND: 263 839 … 263 953 (114 cycles)
+```
+
+**PREPARE cost per frame class (IWRAM code; EWRAM tables; one ROM byte per glyph pixel):**
+
+```text
+frame class                     cycles    lines   unlit  EWRAM r16  EWRAM w16  ROM r8   vs B
+ordinary (k>=1, 40<phase<480)   77 917    63.24      -         0          0       0    under by 185 922
+pre-glyph (k=0)                 77 901    63.23      -         0          0       0    under by 185 938
+steady (phase 1)                86 824    70.47      -       336          0       0    under by 177 015
+steady (phase 39)               86 440    70.16      -       144          0       0    under by 177 399
+exit (phase 40)                 77 919    63.25      -         0          0       0    under by 185 920
+ENTRY digit 1  (k=1, id 480)   287 787   233.59   3 200     3 760      4 000   3 840   OVER  by 23 834 … 23 948
+ENTRY digit 2  (k=2, id 960)   261 723   212.44   2 240     2 800      4 000   3 840   under by  2 116 …  2 230
+ENTRY digit 3  (k=3, id 1440)  260 043   211.07   2 240     2 800      4 000   3 840   under by  3 796 …  3 910
+ENTRY digit 4  (k=4, id 1920)  287 179   233.10   2 592     3 152      4 000   3 840   OVER  by 23 226 … 23 340
+entry digit 5 / 6 / 7 / 8 / 9  261 723 / 268 219 / 277 643 / 271 467 / 265 643   (not in RUN 12's window)
+```
+
+An entry PREPARE for digit 1 takes 17.15 ms — longer than a whole AGB frame
+(16.74 ms). The digit-1 and digit-4 entries end 23 200–23 900 cycles (≈ 19
+lines) after the VBlank they had to catch, i.e. around VCOUNT 179 of the next
+frame, inside VBlank v+1: the first wait loop then spins to the end of that
+VBlank and the publish lands in v+2. The digit-2 and digit-3 entries return
+2 116–3 910 cycles (1.7–3.2 lines) BEFORE VBlank v+1 and publish in it.
+
+#### V6.22.6 RQ5 — the selectivity, and how robust the prediction is
+
+The four binary outcomes of RUN 12 (duplicate before R_1, none before R_2,
+none before R_3, duplicate before R_4 — "M--M") are reproduced by the model
+with **no parameter fitted to them**; only the PUBLISH calibration used the
+run, and it used the VMARGIN bytes, not the duplicates. The selectivity is a
+deterministic property of the generated per-pixel path: digits 1 and 4 leave
+3 200 and 2 592 pixels unlit, each costing a full test chain plus an EWRAM
+read and write; digits 2 and 3 leave 2 240, and their lit pixels leave the
+chain early. The cost gap between digit 2 and digit 4 is 25 456 cycles; the
+budget sits inside that gap. Exits, steady frames and ordinary frames are
+below a third of the budget and cannot miss; no duplicate is observed or
+predicted anywhere else in the 2 046 transitions (§V6.20.5).
+
+Sensitivity over the two memory terms not fixed by the datasheet:
+
+```text
+EWRAM WS  ROM N   model VMARGIN ord/entry/exit   consistent with RUN 12?   d1       d2       d3       d4      pattern
+   1        3        54 / 43 / 42                 no                     276 187  251 083  249 403  276 187   M--M
+   1        4        54 / 43 / 42                 no                     280 027  254 923  253 243  280 027   M--M
+   2        3        54 / 39 / 39                 yes                    283 947  257 883  256 203  283 339   M--M
+   2        4        54 / 39 / 39                 yes  (WAITCNT value)   287 787  261 723  260 043  287 179   M--M
+   2        5        54 / 39 / 39                 yes                    291 627  265 563  263 883  291 019   MMMM
+   3        3-5      54 / 36 / 35                 no                     ...                                  MM-M / MMMM
+```
+
+At the calibrated terms the pattern is M--M; one extra cycle per ROM byte
+read (N = 5, not what WAITCNT 4317h specifies) would have duplicated every
+entry, which the run did not show. **Margins, stated plainly:** the two
+duplicates are predicted with 23 226 and 23 834 cycles to spare (8–9 % of the
+entry cost — beyond any plausible error of a datasheet-exact IWRAM model);
+the two non-duplicates with 2 116 and 3 796 cycles (0.8 % and 1.5 %). The
+model's declared uncertainty is 114 cycles; its undeclared residual is the
+completeness of the GBATEK/ARM7TDMI rules for this access mix, which the DMA
+calibration bounds at ≈ 0.2 % on the memory side but which has no independent
+hardware calibration point on the CPU-execution side. The non-miss of digits
+2 and 3 is therefore explained and reproduced, and it is the weakest link of
+the chain: a uniform model error above +0.8 % would have predicted a
+duplicate at R_2 as well — which the run rules out — while a uniform error
+down to −8 % leaves the pattern intact.
+
+#### V6.22.7 RQ6 — the RUN 12 boundary table (from the versioned structural fixture)
+
+```text
+k  boundary  fi    FRAME_ID  STATUS  VMARGIN  class            delta      k  boundary  fi    FRAME_ID  STATUS  VMARGIN  class        delta
+1  entry     760      478     0x36     54    pre-glyph        +1         1  exit      801     518      0x27     39    steady k=1   +1
+             761      479     0x36     54    pre-glyph        +1                      802     519      0x27     39    steady k=1   +1
+             762      479     0x36     54    pre-glyph         0  <-- DUP             803     520      0x27     39    EXIT k=1     +1
+             763      480     0x36     54    ENTRY k=1 d=1    +1                      804     521      0x27     39    ordinary     +1
+             764      481     0x27     39    steady k=1       +1  (54->39: publish(480) ended at 188)
+2  entry    1241      958     0x27     39    ordinary         +1         2  exit     1281     998      0x27     39    steady k=2   +1
+            1242      959     0x27     39    ordinary         +1                     1282     999      0x27     39    steady k=2   +1
+            1243      960     0x27     39    ENTRY k=2 d=2    +1  (no dup)           1283    1000      0x27     39    EXIT k=2     +1
+            1244      961     0x27     39    steady k=2       +1                     1284    1001      0x26     38    ordinary     +1  (39->38: publish(1000) ended at 189)
+3  entry    1721     1438     0x26     38    ordinary         +1         3  exit     1761    1478      0x26     38    steady k=3   +1
+            1722     1439     0x26     38    ordinary         +1                     1762    1479      0x26     38    steady k=3   +1
+            1723     1440     0x26     38    ENTRY k=3 d=3    +1  (no dup)           1763    1480      0x26     38    EXIT k=3     +1
+            1724     1441     0x26     38    steady k=3       +1                     1764    1481      0x26     38    ordinary     +1
+4  entry    2201     1918     0x26     38    ordinary         +1         4  exit     2242    1958      0x26     38    steady k=4   +1
+            2202     1919     0x26     38    ordinary         +1                     2243    1959      0x26     38    steady k=4   +1
+            2203     1919     0x26     38    ordinary          0  <-- DUP            2244    1960      0x26     38    EXIT k=4     +1
+            2204     1920     0x26     38    ENTRY k=4 d=4    +1                     2245    1961      0x26     38    ordinary     +1
+```
+
+Every record is intact, FAULT clear throughout, and the only two STATUS
+transitions in the run are the two PUBLISH classes the model costs (54 → 39
+after the first entry paint, 39 → 38 after the second exit erase). No
+downstream state is used to explain anything above.
+
+#### V6.22.8 RQ7 — comparison with GBP-HW-165
+
+```text
+                      GBP-HW-165 (indexed-0001, runs 1-3)        GBP-VID-034 (coord-0001, RUN 12)
+signature             previous FRAME_ID captured twice, FAULT 0   the same
+wait-loop structure   identical two-loop VCOUNT poll               identical (same source lines, same ROM code shape)
+prepare placement     ROM (0x080002ac), every frame ~253 000 cyc   IWRAM (0x03000000); ordinary frame 77 917 cyc
+workload              two strips + bar, from ROM                   one strip pair + on ENTRY frames only the 4 000-word
+                                                                   digit table with a ROM byte read per pixel
+outcome               EVERY frame duplicated, 1 022 of 1 022, 2:1  two of 2 046 transitions, at the two entries whose
+                                                                   PREPARE exceeds the budget; none elsewhere
+what the old          a bound on T_prepare from the cadence         a per-digit cost from the exact code; the bound method
+mechanism gives                                                     does not apply (no cadence change)
+CONCLUSION            SAME MECHANISM CLASS, PROVEN for coord-0001 by the model above: a PREPARE-side missed
+                      VBlank; the difference is only that coord-0001 crosses the line on two frame classes,
+                      marginally, instead of on every frame, grossly
+```
+
+#### V6.22.9 The resolution gate, item by item
+
+```text
+1  exact semantics predict N-1 twice        MET   V6.22.2, from source and generated code
+2  timing/state proof of the trigger        MET   V6.22.5: digit-1 / digit-4 entries exceed the budget by 23 226 .. 23 948
+                                                  cycles, ending inside VBlank v+1; declared band 114 cycles
+3  FAULT = 0 explained                       MET   V6.22.3: the latch brackets PUBLISH only
+4  both duplicates predicted                 MET   d1 and d4 OVER, with 8-9 % margin
+5  R_2 / R_3 and the exits explained         MET, WITH THE MARGIN STATED: d2 / d3 UNDER by 0.8 % / 1.5 % (deterministic
+                                                  path difference, 25 456 cycles between d2 and d4; exits and steady frames
+                                                  below a third of the budget)
+6  no contradictory RUN 12 record            MET   V6.22.7: 2 046 transitions, two duplicates, both at predicted entries;
+                                                  STATUS transitions are the two publish classes costed
+7  recomputable from committed artifacts     MET   tools/coordtime.py analyse captures/fixtures/stimulus-coord-0001-canonical.gba;
+                                                  tests/host/test_coordtime.py pins every number above
+```
+
+**Verdict: GBP-VID-034 — MECHANISM RESOLVED (software analysis, CORROBORATED
+by the RUN 12 pattern).** Root cause: on the entry frame of an appearance
+whose digit leaves enough pixels unlit, `prepare_frame` — building the 80 × 50
+digit table in EWRAM with a ROM byte read and up to seven tests per pixel —
+runs past the start of the next VBlank; the two-loop VCOUNT wait then skips
+that VBlank, VRAM keeps the previous frame for one more AGB frame, and the GBP
+captures the previous FRAME_ID twice. In RUN 12 that happened for digit 1
+(480) and digit 4 (1920) and not for digits 2 and 3, as the per-digit costs
+predict. It is not a source loss, not a transport or capture defect, not a
+display artefact; it is the stimulus's own scheduling, invisible to its own
+FAULT latch. GBP-HW-165's mechanism class, proven for coord-0001.
+
+**Assumptions the verdict rests on (all stated in the tool):** the AGB in the
+Game Boy Player executes ARM7TDMI code with the datasheet's cycle counts and
+the GBATEK bus widths; EWRAM at the hardware default of 2 wait states
+(corroborated by the entry-publish VMARGIN); ROM data reads at the WAITCNT the
+ROM writes (`4317h`); DMA overhead 2I (corroborated by the exit knife-edge);
+no interrupt, no other bus master during PREPARE (true by construction).
+
+**Falsifiable predictions for any future run of this exact image that retains
+later appearances:** entries of digits 6, 7, 8 and 9 duplicate (over by
+4 266 / 13 690 / 7 514 / 1 690 cycles at the calibrated terms); digit 5's entry
+(cost identical to digit 2's) does not. Digit 9's margin is thin enough that
+its outcome would sharpen the model's residual either way.
+
+#### V6.22.10 If the residual is to be removed without argument — instrumentation, DESIGN ONLY, not implemented
+
+Not required by the verdict; recorded because the R_2/R_3 margin is thin and
+because a future stimulus will want its own PREPARE bounded. A future
+`coord-0002` (a new identity; nothing here changes `coord-0001`) could record,
+per frame, INTO THE PAYLOAD IT ALREADY CARRIES: `VCOUNT` at PREPARE
+completion (7 bits) and a one-bit "PREPARE ended inside VBlank" latch,
+replacing nothing in STRIP-L's 54 bits — the STATUS byte's VMARGIN field
+(7 bits) is a monotone minimum of the PUBLISH margin and stays; the extra
+fields would need STRIP-R (removed in OGBPCOORD1) or a second row's
+complement pattern. That is a format change and a new wire contract
+(`OGBPCOORD2`), with `tools/vindex.py` unchanged (it reads STRIP-L row 0
+only) and a new offline decoder. Cost: one `REG_VCOUNT` read and one
+compare after PREPARE (< 10 cycles, IWRAM), one byte more per strip word
+(no DMA change if placed in an existing span). Observer effect: negligible
+against a 260 000-cycle PREPARE; it does not touch the VBlank path.
+Alternatively, without a format change, the simplest source-side fix for a
+future stimulus is to hoist `seg_of_digit[digit]` out of the pixel loop and
+build the digit table in the PREPARE of the frame BEFORE the entry (phase
+479), which removes 3 840 ROM reads and the whole table build from the entry
+frame — a functional change for its own checkpoint, not this one. No run
+number, no build id, no procedure.
+
+#### V6.22.11 Non-claims
+
+Nothing about the Game Boy Player's capture, the VI, the display or the
+verdicts of RUN 12 (both stay INCONCLUSIVE; the shared gate failed exactly
+because of these two duplicates and that does not change); nothing about
+runs 1–11; no hardware, no RUN 13, no functional change; the model is a
+model — its predictions for digits 5–9 are what a future run would test.
+
 ---

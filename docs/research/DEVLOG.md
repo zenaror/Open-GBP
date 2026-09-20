@@ -9712,3 +9712,63 @@ GBP-VID-034 OPEN. GBP-VID-035 → REPAIRED (software).
 **Next.** The Orchestrator validates the persisted evidence and closes Issue
 #9; then a research checkpoint on GBP-VID-034; only then whether a further run
 is designed. No RUN 13 is pre-registered.
+
+## 2026-09-20 — Issue #12: why 479 and 1919 came twice — the entry PREPARE of digits 1 and 4 is longer than a frame
+
+**Goal.** Root cause of GBP-VID-034 (the two duplicate FRAME_ID transitions
+of RUN 12) from the frozen artifacts alone: the exact `coord-0001` source and
+generated ARM code, the GBA publication and VBlank semantics, the STATUS/FAULT
+coverage, exact timing paths and all four entry and exit boundaries. Research
+only; nothing changed in the stimulus, the runtime, the analyzers, the
+formats or the gates; no hardware, no RUN 13.
+
+**What the code does, exactly.** VRAM is written only by `paint_background`
+at boot and by `publish_frame` after the two-loop VCOUNT wait; PREPARE for
+frame N runs after PUBLISH of N−1. If PREPARE(N) returns inside VBlank v+1,
+the wait skips that VBlank and N−1 is captured twice — N−1, N−1, N — and the
+latch cannot see it, because `vc0` is read after the wait loops and the
+timer brackets PUBLISH only (RQ1, RQ2, from the disassembly of the frozen
+build). The digit loop in PREPARE reloads `sc->digit` and reads
+`seg_of_digit[digit]` from ROM for every one of the 3 840 glyph pixels (the
+compiler did not hoist the byte load), evaluates up to seven tests, and for
+unlit pixels reads and writes EWRAM; digits 1 and 4 leave 3 200 and 2 592
+pixels unlit, digits 2 and 3 leave 2 240 (RQ3).
+
+**The model.** `tools/coordtime.py`, a minimal ARM7TDMI interpreter that
+runs the exact IWRAM image with GBATEK bus costs (IWRAM 1, EWRAM 3/3/6, ROM at
+the WAITCNT the ROM writes, VRAM 1/1/2, DMA 2N+2(n−1)S+2I). It reproduces the
+three PUBLISH end lines RUN 12 measured — VMARGIN 54, 39 and the 38/39
+knife-edge — before it is asked anything about PREPARE. The entry budget is
+263 839 … 263 953 cycles (a 114-cycle declared band, the ROM prefetch on the
+loop tail). Entry PREPARE: digit 1 287 787, digit 4 287 179 (over by 23 k
+cycles, ≈ 19 lines — 17.15 ms, longer than an AGB frame); digit 2 261 723,
+digit 3 260 043 (under by 2.1 k / 3.8 k). Exits, steady and ordinary frames
+are below a third of the budget. The four RUN 12 outcomes — M--M — come out
+with no parameter fitted to them (RQ4, RQ5). The boundary table from the
+versioned fixture shows the two duplicates exactly before 480 and 1920, none
+before 960 and 1440, none at any exit, FAULT clear, and the only two STATUS
+transitions are the two PUBLISH classes the model costs (RQ6). Same mechanism
+class as GBP-HW-165: identical wait loops, PREPARE now in IWRAM and over the
+line on two frame classes instead of every frame (RQ7).
+
+**The verdict, and the margin.** GBP-VID-034 → MECHANISM RESOLVED (software
+analysis, corroborated by the run's pattern). The gate's seven items are met;
+item 5 is met with the margin stated: the non-duplicates at R_2 / R_3 are
+under the budget by 0.8 % / 1.5 %, and the model's CPU-side residual has no
+hardware calibration point of its own (its memory side is pinned to ≈ 0.2 %
+by the DMA calibration; one extra cycle per ROM byte read would have
+duplicated every entry, which the run rules out). Falsifiable predictions for
+a future run retaining k ≥ 5: digits 6–9 duplicate, digit 5 does not. A
+design-only note records the smallest source-side instrumentation
+(`OGBPCOORD2`, VCOUNT at PREPARE completion plus an in-VBlank latch) and the
+obvious source-side remedy (hoist the ROM byte, build the table one frame
+early) for a future stimulus — neither implemented.
+
+**Tests.** `tests/host/test_coordtime.py`: the interpreter's rules on
+hand-assembled sequences, the frozen ROM fixture identity, the three-point
+PUBLISH calibration, the budget band, the class costs, the M--M verdict, the
+access counts that order the digits, the sensitivity at the calibrated terms,
+and the RUN 12 fixture's duplicates at exactly the predicted entries.
+
+**Next.** The Orchestrator validates §V6.22; the RUN 12 verdicts stand; a
+future stimulus checkpoint may take the design note; no run is pre-registered.

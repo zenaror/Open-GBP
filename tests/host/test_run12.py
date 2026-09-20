@@ -409,7 +409,8 @@ class TheComparisonWithRun11AndTheFindings(unittest.TestCase):
             ev = fh.read()
         h34 = [l for l in ev.splitlines() if l.startswith("### GBP-VID-034 ")][0]
         h35 = [l for l in ev.splitlines() if l.startswith("### GBP-VID-035 ")][0]
-        self.assertIn("OPEN", h34)                     # GBP-VID-034 is outside Issue #11 and stays open
+        self.assertIn("FACT of this run", h34)         # the duplicates are a fact of RUN 12 ...
+        self.assertIn("MECHANISM RESOLVED", h34)       # ... whose mechanism Issue #12 resolved (§V6.22)
         self.assertIn("REPAIRED (software)", h35)      # GBP-VID-035 repaired by Issue #11
         self.assertNotIn("OPEN", h35.split("REPAIRED")[-1])
 
