@@ -18877,11 +18877,21 @@ not started and do not move.
 
 ---
 
-## V6 — GBP-VIDEO-007 / GBP-VIDEO-008: PHYSICAL SCANOUT AND FULL-FRAME FIDELITY — DESIGN / PRE-REGISTRATION (NOT IMPLEMENTED, NOT RUN)
+## V6 — GBP-VIDEO-007 / GBP-VIDEO-008: PHYSICAL SCANOUT AND FULL-FRAME FIDELITY — DESIGN (Issue #6) AND IMPLEMENTATION STATUS (Issue #7): IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED, NO RUN RESERVED
 
-**DESIGN ONLY**, written 2026-09-20 for GitHub Issue #6 (Phase 4, research).
-Nothing here is implemented, nothing has touched hardware, **no evidence ID is
-allocated, no run is reserved, and no frozen format changes.** The ROADMAP
+**IMPLEMENTATION STATUS — 2026-09-20, GitHub Issue #7 (Phase 4, functional):
+IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED, NO RUN RESERVED.** The
+stimulus `coord-0001` (OGBPCOORD1), the two sidecars OGBPFULL1 v1 and OGBPVI1
+v1, the offline tools and the build `stream-0013` exist, are tested and have
+frozen software identities — all in §V6.18. Since then nothing has touched
+hardware, **no evidence ID is allocated, no run is reserved, and no frozen
+format changes.** §V6.1–§V6.17 below are the design as written for GitHub
+Issue #6 and are kept verbatim as provenance: where the implementation decided
+one of §V6.17's open items, or departs from a design detail, §V6.18.12 says so
+and the design text is not rewritten.
+
+**DESIGN ONLY** (as written 2026-09-20 for GitHub Issue #6, Phase 4, research;
+nothing in §V6.1–§V6.17 was implemented at the time of writing). The ROADMAP
 names two facts Phase 4 has not established: *scanout of any frame* and *pixel
 fidelity beyond the witness strip*. This section designs the experiment(s) that
 can establish them as SEPARATE claims, and keeps both apart from
@@ -19321,5 +19331,325 @@ approached by either.
 6  PHOTOGRAPH: optional; requested only if the orchestrator wants the counter-square binding attempted
 7  TWO RUNS instead of one: the orchestrator's choice; nothing in the design changes
 ```
+
+### V6.18 IMPLEMENTATION STATUS — 2026-09-20, GitHub Issue #7 — **IMPLEMENTED IN SOFTWARE; NOT PHYSICALLY EXECUTED; NO RUN RESERVED**
+
+Written after §V6.1–§V6.17, which stay as designed. This part records what
+Issue #7 built from that design, the exact software identities it freezes, the
+decisions it took on the open items of §V6.17, and where the built thing
+departs from the design text. **Nothing here touched hardware. No evidence ID
+exists for GBP-VIDEO-007 or GBP-VIDEO-008, no raw artifact name is reserved,
+and the next run number is not reserved.** The pre-registration is a later
+Issue, after the Orchestrator's independent validation and the operator's
+display / cable declaration (§V6.17 item 1, still open). Dolphin results below
+are auxiliary: they show the program runs and what it reports, never what the
+Game Boy Player does.
+
+#### V6.18.1 What exists, by commit
+
+```text
+99496a6  stimulus: coord-0001 (OGBPCOORD1) -- stimulus/agb-coord/, tools/icoord.py (the model),
+         tools/gbaderive.py (delivery image), tests/host/test_icoord.py, tests/host/test_agb_coord.py
+2c7ff0e  video: src/gbp/gbp_vfull.{h,c} + gbp_vfulldump.{h,c} (OGBPFULL1 v1), gbp_vvi.{h,c} +
+         gbp_vvidump.{h,c} (OGBPVI1 v1), tools/vfull.py, tools/vvi.py, tests/unit/test_gbp_vfull.c,
+         tests/unit/test_gbp_vvi.c, tests/host/test_vfull.py, tests/host/test_vvi.py
+7d7a6d8  stream: stream-0013 -- both stores wired into poc/gbp-video-stream-probe; audit profile
+         `stream` pins; test pins.  THE FUNCTIONAL COMMIT: the DOL embeds this hash.
+(docs)   this part, HANDOFF, DEVLOG -- a later commit; it does not change the DOL's identity
+```
+
+#### V6.18.2 Frozen software identities (§V6.7, now with hashes)
+
+```text
+build      stream-0013    build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+                          506 496 B   sha256 5391c3fe962dc4b2f4e493f3846ac7407ded064c58f5d4bb583a51e5a725dd79
+                          embeds  OPENGBP-IDENT gbp-video-stream-probe stream-0013 7d7a6d8 ; TEST_ID GBP-VIDEO-004
+                          (no "stream-0012", "GBP-VIDEO-007" or "GBP-VIDEO-008" string in the image)
+                          built twice from scratch at 7d7a6d8 (GIT_COMMIT=7d7a6d8 GIT_DIRTY=), byte-identical (cmp);
+                          Swiss build/swiss/12-stream/boot.dol byte-identical; no -dirty
+                          reproduce:  rm -rf build/poc && GIT_COMMIT=7d7a6d8 GIT_DIRTY= make build
+sections   .text 390 248  .rodata 49 848  .data 11 444  .sdata 168  .sbss 1 836  .bss 20 091 368
+           (powerpc-eabi-size: text 398 212, data 107 956, bss 20 093 204, total 20 599 372)
+stimulus   coord-0001     build/stimulus/agb-coord/agb-coord.gba     3 496 B
+                          sha256 90343b64eda9602c173364171637cd1068f265c385464361b40ec073b11f0a1f
+                          the ROM embeds no commit (only build-info.txt does); built twice from scratch, byte-identical
+                          reproduce:  make stimulus-coord
+delivery   coord-0001     build/physical/agb-coord-cart.gba          3 496 B   (ignored path; NEVER committed)
+                          sha256 a769cc11afcb93cfc1cf89bf9bb59554533662c051e25b475f3943e7bdbb994f
+                          tools/gbaderive.py: logo area 0x004..0x09F copied from the donor
+                          build/physical/agb-color-bars-cart.gba (the image that booted twice, §V3.7), header
+                          complement recomputed, payload past 0x0C0 byte-identical to the canonical ROM.
+                          The cartridge MUST be re-flashed for the future run: the "do not re-flash" rule of
+                          runs 6-11 applied to indexed-0003 only.  NEVER FLASHED, NEVER RUN.
+formats    OGBPCOORD1 (wire, V6.18.3) · OGBPFULL1 v1 (V6.18.4) · OGBPVI1 v1 (V6.18.5) -- frozen at 7d7a6d8
+           OGBPIDX1, OGBPIDXCAP1 v1, OGBPDISP2 v2 UNCHANGED: git shows no change to gbp_vwitness.*,
+           gbp_vidxdump.*, gbp_vdisp*.*, gbp_vpresent.*, gbp_vpix.c, gbp_vstate_probe.c, gbp_irq_service.c,
+           hsp_backend*.c, stimulus/agb-indexed, tools/vindex.py, istim.py, vidxcap.py, vdisp.py, vpace.py
+           since 97c78c2 (run 11's build)
+tools      tools/icoord.py, tools/vfull.py, tools/vvi.py, tools/gbaderive.py at 7d7a6d8
+```
+
+#### V6.18.3 `coord-0001` / OGBPCOORD1 — the exact stimulus
+
+```text
+x = 0         FLAG 0x03E0                                                    ┐ byte-identical to OGBPIDX1
+x = 1..54     STRIP-L: SYNC 0xB2 | FRAME_ID 24 | BLOCK_INDEX 6 | STATUS 8 | CRC-8;  │ (§V5.33): tools/istim.py
+              rows 0 / 2 plain, rows 1 / 3 inverted; symbols ZERO 0x0000, ONE 0x7FFF  │ decodes it unchanged
+x = 55        GUARD-A 0x0000                                                 ┘
+x = 56..238   FIELD  word = y*183 + (x-56)   0..29279, injective over 183 x 160, bit 15 clear,
+              painted ONCE at start and never repainted (the glyph erases back to these words)
+x = 239       GUARD-C 0x0000              no STRIP-R, no bar
+glyph         for FRAME_ID in [k*480, k*480+40), k >= 1  (P = 480, W = 40, the k-th appearance):
+              seven-segment digit (k mod 10), 48 x 80 px at (123, 40), segment thickness 8,
+              segments a..g = bits 0..6, map 0x3F 0x06 0x5B 0x4F 0x66 0x6D 0x7D 0x07 0x7F 0x6F
+              (a top, b top-right, c bottom-right, d bottom, e bottom-left, f top-left, g middle);
+              six 8x8 counter squares at (123 + 8i, 128), i = 0..5, MSB left, value = FRAME_ID - k*480 (0..39);
+              colour 0x7FFF; both are inside the FIELD, so the field oracle already expects them
+schedule      division-free: phase / k / digit counters advance once per frame (phase 480 -> 0, k+1, digit+1 mod 10)
+timing        PREPARE in the visible period into IWRAM row buffers; PUBLISH in VBlank by DMA only;
+              spans start at x = 122 (even) and are 50 px wide for 32-bit DMA alignment; the digit / erase
+              tables (the field's own words under the glyph) live in EWRAM .sbss (NOLOAD) -- the ROM is 3 496 B
+budget        static: the heaviest frame publishes 13 184 words in VBlank against indexed-0003's measured
+              20 480 (VMARGIN 24). STATUS.FAULT / VMARGIN are the on-hardware decision (§V6.6): a FAULT in the
+              witness is INCONCLUSIVE for that frame, never corrected
+the ROM never knows the answer: no expected value, no decoder, no comparison; it paints and counts
+```
+
+`tools/icoord.py` is the model: field, inverse, schedule, glyph geometry,
+expected AGB word and expected consumed VIDEO word for every pixel of every
+frame, and the tiled oracle in `gbp_vpix` order; it imports the frozen
+`tools/istim.py` for the witness bytes and edits nothing there.
+`tests/host/test_agb_coord.py` compiles the ROM's own `main.c` on the host
+(`AGB_HOST_TEST`, fake AGB bases) and proves word-for-word parity with the model
+across the schedule, including the tenth and eleventh appearances (the digit
+wraps), the byte-identical canonical witness, and that the ROM never writes bit
+15; it also audits the source statically (no heap, no filesystem, no link, no
+serial, no interrupt handler beyond VBlank, no division, the VBlank path is
+publish-only and in IWRAM, the constants ARE the contract).
+`tests/host/test_icoord.py` proves injectivity over the full domain and that
+every row shift, column shift, axis swap, 4×4 tile permutation and block
+displacement changes at least one pixel.
+
+#### V6.18.4 OGBPFULL1 v1 — the full-frame sample sidecar (`<test>_<build>-full.bin`)
+
+```text
+header 0x100  0x00 magic "OGBPFULL"   0x08 version u16 = 1    0x0A header_size u16 = 0x100   0x0C flags u32
+              0x10 record_size u32 = 230 528   0x14 meta_size u32 = 0x80   0x18 records_n u32   0x1C k_cap u32 = 8
+              0x20 spacing u32 = 256   0x24 origin u32   0x28 raw_bytes u32 = 153 600   0x2C tex_bytes u32 = 76 800
+              0x30 blocks u32 = 40   0x34 block_bytes u32 = 3 840   0x38 tex_row_bytes u32 = 1 920
+              0x3C width u32 = 240   0x40 height u32 = 160   0x44 tb_hz u32
+              0x48 want_calls   0x4C wanted   0x50 opened   0x54 completed   0x58 refused   0x5C skipped_capacity
+              0x60 blocks_copied   0x64 off_records   0x68 off_footer   0x70 total_size u64
+              0x78 / 0x98 / 0xB8 / 0xD8  four 32-byte NUL-padded identity strings (test id, build id, app, commit)
+              0xF8..0xFB reserved zero   0xFC header CRC-32 over [0x00, 0xFC)
+flags         TRUNCATED 1 (the sink cut the file)   ORIGIN_SET 2   CAPACITY_SKIPPED 4 (a grid frame fell beyond K)
+record        0x80 meta + 153 600 raw (all four bytes of every pixel word, the assembler's slot, untouched)
+              + 76 800 texture (the GX_TF_RGB5A3 tiles the SAME lifecycle's conversion wrote, big-endian u16
+              in tile order) = 230 528 B
+meta 0x80     0x00 sample_index u32   0x04 frame_index u32   0x08 seq u32   0x0C life u32   0x10 slot u16   0x12 tex u16
+              0x14 state u16 (0 EMPTY 1 OPEN 2 COMPLETE 3 REFUSED)   0x16 reason u16 (0 none 1 generation
+              2 no_raw 3 incomplete 4 abandoned)   0x18 blocks_raw u16   0x1A blocks_tex u16   0x1C retrace_decision u32
+              0x20 present u64   0x28 t_take u64   0x30 t_convert_done u64   0x38 t_decision u64
+              0x40 xfb_target i16   0x42 disposition u16   ...reserved zero...   0x78 record CRC-32 over
+              meta[0x00, 0x78) + raw + texture
+footer        "OGBPFEND" + global CRC-32 over everything before it  (12 B)
+```
+
+Only a COMPLETE record (state 2, 40/40 blocks of one lifecycle, raw and
+texture copied from the same slot in the same generation) is a frame. A
+REFUSED record keeps its meta and its reason and is never analysed as a frame.
+`tools/vfull.py` refuses any file whose header, record or global CRC fails, or
+whose sizes do not add up (`tests/host/test_vfull.py::test_every_byte_flip_is_refused`).
+
+#### V6.18.5 OGBPVI1 v1 — the hand-over / latch sidecar (`<test>_<build>-vi.bin`)
+
+```text
+header 0x100  0x00 magic "OGBPVI1\0" (7 chars + NUL)   0x08 version u16 = 1   0x0A header_size u16 = 0x100
+              0x0C flags u32 (TRUNCATED 1, OVERFLOW 2)   0x10 record_size u32 = 64   0x14 records_cap u32 = 4096
+              0x18 records_n   0x1C tb_hz   0x20 xfb_slots   0x24 handed   0x28 latched   0x2C superseded
+              0x30 overflow   0x34 observe_calls   0x38 awaiting_at_end i32   0x3C off_records   0x40 off_footer
+              0x48 total_size u64   0x50 / 0x70 / 0x90 / 0xB0 identity strings   0xFC header CRC-32
+record 64 B   0x00 frame_index u32   0x04 life u32   0x08 xfb i16   0x0A flags u16 (LATCHED 1, SUPERSEDED 2)
+              0x0C phys u32 (the handed XFB's physical address, what the VI base registers should name)
+              0x10 t_handed u64   0x18 retrace_handed u32   0x1C retrace_latch u32   0x20 t_latch u64
+              0x28 vi14 u16   0x2A vi15 u16   0x2C vi18 u16   0x2E vi19 u16   (VI TFBL hi/lo, BFBL hi/lo, read
+              back at the latch; zero and unlatched when SUPERSEDED)   0x3C record CRC-32 over [0x00, 0x3C)
+footer        "OGBPVEND" + global CRC-32  (12 B)
+```
+
+One record per SELECTED_NEW hand-over. LATCHED means the pump later saw
+libogc2 report that XFB as current and read the registers at that instant;
+SUPERSEDED means another hand-over came first. Both are CLAIM-C (software)
+facts. `tools/vvi.py` checks each latched record's `phys` against the register
+readback (`regs_consistent`) and joins the records with OGBPIDXCAP1 and
+OGBPDISP2 into the R / H / L rows of §V6.15; its report ends with the line that
+it does not classify GBP-VIDEO-007.
+
+#### V6.18.6 K = 8: selection mechanics and the memory proof
+
+```text
+rule       sample i (0..7) is the lifecycle whose frame_index == origin + 256 * i
+origin     the witness store's first retained frame_index, read from gbp_vwitness_meta_at(&wit, 0) when the
+           store first holds a record (§V6.8 "WITQUAL"); set ONCE; a sample cannot be wanted before it is set
+content    NONE: gbp_vfull_want(frame_index) reads only the counter; no pixel, no STATUS, no FRAME_ID, no
+           "does this frame carry the glyph" -- the glyph frames are whatever the grid lands on
+capacity   a grid frame beyond K is COUNTED (skipped_capacity) and never stored; K = 8 is a compile-time
+           constant pinned by _Static_assert in the probe
+copy       one block (3 840 B raw + 960 texels) per pump slice, inside the slice that converts that block;
+           +4 800 B of memcpy for a sampled lifecycle's slice, nothing for the other ~2 040 lifecycles
+generation a slot overrun or a missing raw slot REFUSES the open sample (reason no_raw / abandoned) --
+           two frames are never mixed into one record; < 40 blocks at convert-done REFUSES (incomplete)
+```
+
+The memory proof, against the built program (`ENVFULL`, printed once after
+the stores are declared and libogc2's arena is set up; measured under Dolphin
+on the final DOL, identical under both profiles; the hardware run's own
+`ENVFULL` line must repeat it):
+
+```text
+OPENGBP-STREAM ENVFULL k=8 spacing=256 full_raw=1228800 full_tex=614400 vvi=229376
+                       bss_end=813a8378 arena1_lo=8156b000 arena1_hi=81700000 arena1_free=1658880
+
+configured   full_raw   8 x 153 600     = 1 228 800 B   (.bss, 32-aligned)
+             full_tex   8 x 38 400 x 2  =   614 400 B   (.bss, 32-aligned)
+             vvi_recs   4 096 x 56      =   229 376 B   (.bss)
+             two 4 096 B serializer chunks               8 192 B
+             declared new static total                2 080 768 B
+required     the same: every store is static, nothing is allocated at run time by the new code
+free         arena1_free = 0x81700000 - 0x8156b000 = 1 658 880 B after the stores, the two XFBs, the GX FIFO
+             and libogc2's own allocations (bss_end 0x813a8378 -> arena1_lo 0x8156b000 = 1 846 408 B)
+reference    run 11 (stream-0011, hardware) reported arena1_free=3751936; the difference, 2 093 056 B, is
+             the 2 080 768 B above plus 12 288 B of bookkeeping (the two store descriptors, tex_sample[2],
+             alignment)
+```
+
+#### V6.18.7 VI observation mechanics (CLAIM-C, software)
+
+In `submit_ready()`, beside Policy A's decision and after it, every
+SELECTED_NEW hand-over is recorded (`gbp_vvi_handed`: frame_index, life, the
+XFB index, its physical address, `t_dec`, the retrace count). In `pump()`, once
+per slice and after the not-before gate, one compare: if the record awaiting a
+latch names the XFB that `VIDEO_GetCurrentFramebuffer()` now reports, the four
+VI base-register halves are read (`vi_regs[14]`, `[15]`, `[18]`, `[19]` at
+`0xCC002000` — loads only, the audit tracks stores to the PI and finds none
+here) and the record is closed with `gettime()` and the retrace count
+(`gbp_vvi_latch`). No VI callback is registered, no `VIDEO_WaitVSync` was
+added (`git diff 2c7ff0e..7d7a6d8` adds none; the existing ones are the
+init, teardown-drain and post-teardown UI sites of `stream-0009`), nothing
+waits, and Policy A's inputs are not read or written in that block. What the
+registers say is what the VI was TOLD to scan out from; it is still not
+scanout (§V6.4).
+
+#### V6.18.8 No XFB-region CRC (§V6.17 item 2: DROPPED)
+
+Decided by the Issue, not by measurement: no build computes a CRC over any
+XFB region. `grep -i 'xfb.*crc\|crc.*xfb'` over `src/gbp/gbp_vfull*`,
+`gbp_vvi*`, the probe and the two tools finds only the two "CRC at 0xFC"
+layout comments; OGBPFULL1 v1 has no `xfb_region_crc32` field (the design's
+§V6.8 sketch listed one). CLAIM-B therefore stops at source → converted
+texture, exactly as §V6.5 allows, and no future analysis may claim the XFB
+from this data.
+
+#### V6.18.9 Architecture invariants, as pinned
+
+```text
+service path   gbp_vstate_probe_run references neither store: gbp_vfull_* and gbp_vvi_* are absent from it
+               (audit profile `stream`, call-site pins); the HSP ISR objects are byte-identical to the physically
+               validated GBP-VIDEO-001 build (isr-audit ext / base: identical)
+consumer only  gbp_vfull_want / open / block / convert_done: pump = 1 each; gbp_vfull_refuse: pump = 2;
+               gbp_vfull_decision, gbp_vvi_handed: submit_ready = 1 each; gbp_vvi_awaiting, gbp_vvi_latch: pump = 1
+               each; gbp_vfulldump_stream, gbp_vvidump_stream: main = 1 each, after the teardown, through the same
+               streaming sink as OGBPIDXCAP1 (sdlog_stream_open: main 2 -> 4)
+bounded        no frame-sized work per slice: the copy is one block; the latch is one compare and four loads;
+               the serializers run after the teardown
+no clocks      gettime: pump 4 -> 5 (the latch instant; the take and convert-done clocks were hoisted into locals
+               the sample store shares, adding nothing); submit_ready stays at 2
+no reach       gbp_vfull.o may reference only memcpy / memset; gbp_vvi.o only memset; neither may reach a CRC,
+               a clock, a device or the filesystem; gbp_vfulldump.o / gbp_vvidump.o may not reach the filesystem
+Policy A       unchanged inputs: the sample copy precedes the decision and changes nothing it reads; the latch
+               block neither reads nor writes `present`; tests pin that submit_ready names no "wit", "startup"
+               or "streak" and that no loop sits between xfb_target and xfb_handed
+frozen         gbp_vwitness.*, the witness gate, OGBPIDXCAP1 v1, OGBPDISP2 v2, transport, display, startup:
+               sources unchanged since 97c78c2; the log keeps WITELIG / WITELIG2 and adds FULLSTORE / VISTORE
+               after them and `sidecars=disp:OGBPDISP2,full:OGBPFULL1_v1,vi:OGBPVI1_v1` to the header
+```
+
+#### V6.18.10 Offline tools and negative controls
+
+```text
+tools/vfull.py   strict parse; the consumed word of all 38 400 pixels from the raw (bytes 1 and 3), the C
+                 conversion (gbp_vpix.c compiled on the host) and the Python conversion compared against each
+                 other and against the stored texture; the frozen strip decoder on the sample's witness;
+                 classification of a mismatch: NONE / OUTSIDE_FIELD / SINGLE_PIXEL / AXIS_SWAP /
+                 NOT_A_FIELD_VALUE / BLOCK_DISPLACEMENT / ROW_SHIFT / COLUMN_SHIFT / SHIFT / TILE_PERMUTATION /
+                 UNKNOWN; bytes 0 / 2 (U-GBP-029) and bit 15 (U-GBP-034) reported separately, never judged;
+                 INCONCLUSIVE below K samples, with the origin unset, or with a FAULTed witness;
+                 exit 0 / 1 / 2
+                 negative controls (tests/host/test_vfull.py): one flipped pixel FAILS; a row shift, a column
+                 shift, an axis swap, a tile permutation and a block displacement are each caught and
+                 classified; a texture defect FAILS while the source PASSES; a glyph frame PASSES against the
+                 oracle; bytes 0/2 and bit 15 elsewhere do not change the verdict; a FAULTed stimulus is
+                 INCONCLUSIVE; every byte flip of the container is refused
+tools/vvi.py     strict parse; regs_consistent(record) checks the readback names the handed buffer; the
+                 R / H / L join (which appearances' frames were retained, handed, latched) over OGBPIDXCAP1 +
+                 OGBPDISP2 + OGBPVI1; the report ends "SOFTWARE CHAIN ONLY ... does not classify GBP-VIDEO-007"
+                 negative controls (tests/host/test_vvi.py): a readback naming another buffer is inconsistent;
+                 superseded and missing latches stay unlatched; the module has no visibility input
+tools/icoord.py  the oracle (V6.18.3); `python3 tools/icoord.py check` self-tests the field and the schedule
+tools/vindex.py  UNMODIFIED
+```
+
+#### V6.18.11 Validation summary (all software; nothing physical)
+
+```text
+host tests      1096 passed (the full tests/host suite at 7d7a6d8 + the docs pins of this commit);
+                the ten suites that pin the probe and the new modules: 232 passed
+C unit tests    make test-unit: every test 0 failures, including test_gbp_vfull (663 checks) and
+                test_gbp_vvi (419 checks)
+builds          rm -rf build/poc && make build: 12 POCs, 0 warnings; stream-0013 twice from scratch,
+                byte-identical; coord-0001 twice from scratch, byte-identical; delivery re-derived, identical
+audits          initirq, initirqa, initirqb, initirq4, avsvc, video, vstate, color, stream: 0 findings each;
+                the ISR comparison identical for vstate / color / stream; make inspect, make swiss: ok
+Dolphin         make stream-dolphin (normal profile) on the final DOL: PASS -- SELFTEST ok=1, sci_clean=1,
+                inv_fail=0, COUNTERS balanced=1, storage_fault=-, ENVFULL as above;
+                make stream-dolphin-gbp (Dolphin's emulated GBP, HSPDevice=2 + the local AGS image): PASS at
+                the COUNTERS line, as the vstate / colour probes do; auxiliary only, §V5.31
+```
+
+#### V6.18.12 Decisions on §V6.17, and departures from the design text
+
+```text
+1  DISPLAY / CABLE          STILL OPEN -- the operator declares before the pre-registration
+2  XFB REGION CRC           DROPPED (V6.18.8); CLAIM-B stops at the converted texture
+3  K and spacing            K = 8, spacing 256, confirmed against ENVFULL (V6.18.6)
+4  GLYPH GEOMETRY / P / W   48x80, 480, 40 as proposed; the static budget fits (13 184 < 20 480 words);
+                            STATUS.FAULT decides on hardware
+5  TEST_ID EMBEDDED         GBP-VIDEO-004: the console's files and the archive scheme keep the line's name;
+                            the experiment ids live in the analysis, not in the image
+6  PHOTOGRAPH               optional; nothing in the build or the tools assumes camera timing
+7  TWO RUNS OR ONE          one run may serve both, with separate gates and verdicts (§V6.1); the
+                            pre-registration decides
+departures from the §V6.8 sketch (the design text is not rewritten):
+   OGBPVI1 records are 64 B, not 48 B, and carry the four register halves VI[14] VI[15] VI[18] VI[19]
+   rather than two assembled words, plus `phys` and `life`; the in-memory record is 56 B (vvi=229376)
+   OGBPFULL1 has no xfb_region_crc32 / valid-flag field (decision 2); its meta carries `present`, `life`,
+   `slot`, `tex`, `disposition` and the refusal reason so that a refused sample explains itself
+   the runtime line is ENVFULL, not ENVSTORE; the design's memory estimate (1 843 200 + 196 608) becomes
+   2 080 768 B declared
+```
+
+#### V6.18.13 Non-claims
+
+- NOT PHYSICALLY EXECUTED: `stream-0013` has not run on hardware and
+  `coord-0001` has not run anywhere; no OGBPFULL1 or OGBPVI1 file has ever
+  been produced by hardware.
+- No evidence ID, no raw artifact name, no run number, no classification for
+  GBP-VIDEO-007 or GBP-VIDEO-008; the gates of §V6.12 and the verdicts of
+  §V6.13 are untouched and unexercised.
+- Nothing about scanout, fidelity, presentation or pixel-perfect behaviour
+  (GBP-VID-032) is known from this checkpoint; Dolphin says nothing about the
+  Game Boy Player.
+- The identities above are SOFTWARE identities; a rebuilt binary at another
+  commit is a different artifact and inherits nothing.
 
 ---

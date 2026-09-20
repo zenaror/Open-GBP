@@ -51,7 +51,7 @@ migration itself.
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   99b8ac19ca5d5eb6d558e58c3c24f2c6a0f23752
+STATE BASELINE COMMIT   7d7a6d8acf4e3985034f9ad4f5041fec751181d0
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -143,6 +143,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 
 | item | status | owner |
 | --- | --- | --- |
+| **GBP-VIDEO-007 / GBP-VIDEO-008** (physical scanout; full-frame fidelity) | **IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED, NO RUN RESERVED.** GitHub Issue #7 built the §V6 design: `stream-0013` at `7d7a6d8` (K = 8 content-blind full-frame samples → `OGBPFULL1 v1`; hand-over / VI-latch trace → `OGBPVI1 v1`; no XFB CRC; no VI callback; no wait), the stimulus `coord-0001` (`OGBPCOORD1`, an injective coordinate field behind the unchanged OGBPIDX1 witness, a 48×80 digit for 40 frames every 480) and the offline tools `tools/icoord.py`, `tools/vfull.py`, `tools/vvi.py`. Identities frozen in §V6.18.2. Nothing is known about scanout or fidelity: no evidence ID, no run name, no classification. Next: the Orchestrator's independent validation, the operator's display / cable declaration, then a pre-registration Issue | `HARDWARE_TESTS.md` §V6, §V6.18 |
 | **GBP-VIDEO-002-R3** (semantic disagreement policy) | **PHYSICAL VALIDATION COMPLETE** | `HARDWARE_TESTS.md` §R3/§R4; GBP-HW-108…115 |
 | **PRE-HANDLER MASKED WAIT 5000 ms** | **PHYSICALLY VALIDATED — only for the 5 s duration and the position exercised** | `HARDWARE_TESTS.md`, "PRE-HANDLER MASKED WAIT"; GBP-HW-116…119 |
 | **Physical delivery of a controlled GBA ROM** | **RESOLVED** for the validated EZ-Flash Omega DE NOR / Mode B route | `HARDWARE_TESTS.md` §V3.7 and the route section below |
@@ -199,6 +200,9 @@ Changing any of these means a **new version**, never an edit.
 | **OGBPCOL1 v1** | frozen at the implementation checkpoint `e10423c`; `cert_rec` is **40** bytes | `src/gbp/gbp_vcoldump.h`, `tools/vcolor.py` |
 | **OGBPIDX1** | the indexed stimulus WIRE format, frozen at §V5.33: layout, 54-bit payload, CRC-8, symbols, 24-bit ID, STATUS, canonical witness coordinates, classification rules. `stream-0005` changed the experiment's PROTOCOL, not this; **`stream-0006` changed neither** — it changes only WHICH frames are retained | `stimulus/agb-indexed/`, `tools/istim.py`, `tools/vindex.py` |
 | **OGBPIDXCAP1 v1** | the witness CAPTURE sidecar, new in `stream-0005`. A new magic, never an OGBPSEQ1 version: header 0x180, record 4368 (48 B metadata + 40 x 54 big-endian u16, each record CRC-sealed), `"OGBPEND1"` footer. **`stream-0006` did NOT change it** (§V5.44.9): the window is reported in the `.log` `WITQUAL` line and is visible here as `record[0].frame_index != 0` | `src/gbp/gbp_vidxdump.h`, `tools/vidxcap.py` |
+| **OGBPCOORD1** | the coordinate stimulus WIRE format of `coord-0001`, frozen at `99496a6` / `7d7a6d8` (§V6.18.3): x = 0..55 byte-identical to OGBPIDX1 (FLAG, STRIP-L, GUARD-A), FIELD `y*183 + (x-56)` on x = 56..238 (injective, bit 15 clear, painted once), GUARD-C at 239, no STRIP-R, no bar; a 48×80 seven-segment digit (k mod 10) at (123, 40) plus six 8×8 counter squares at (123+8i, 128) for FRAME_ID in [k·480, k·480+40), k ≥ 1, colour 0x7FFF. The witness gate, `tools/vindex.py` and every regression gate apply unchanged. **NEVER RUN.** Canonical ROM 3 496 B `90343b64…0a1f` | `stimulus/agb-coord/source/main.c`, `tools/icoord.py`, `HARDWARE_TESTS.md` §V6.18.3 |
+| **OGBPFULL1 v1** | the FULL-FRAME SAMPLE sidecar, new in `stream-0013`: magic `"OGBPFULL"`, header 0x100, K ≤ 8 records of 0x80 meta + 153 600 raw + 76 800 big-endian texture = 230 528 B each, `"OGBPFEND"` footer, header / per-record / global CRC-32. Content-blind sample rule `origin + 256·i` from the witness window's first retained frame. A sample is COMPLETE only with 40/40 blocks of ONE lifecycle; generation or slot reuse → REFUSED, never mixed. Carries NO XFB CRC. **NEVER PHYSICALLY PRODUCED** | `src/gbp/gbp_vfulldump.h`, `tools/vfull.py`, `HARDWARE_TESTS.md` §V6.18.4 |
+| **OGBPVI1 v1** | the HAND-OVER / VI-LATCH sidecar, new in `stream-0013`: magic `"OGBPVI1\0"`, header 0x100, ≤ 4096 records of 64 B (frame_index, life, xfb, flags LATCHED / SUPERSEDED, phys, t_handed, retrace_handed, retrace_latch, t_latch, VI[14] VI[15] VI[18] VI[19] read back at the latch), `"OGBPVEND"` footer, header / per-record / global CRC-32. The latch is the pump's first observation that libogc2 reports the handed XFB current: CLAIM-C, software, never scanout. **NEVER PHYSICALLY PRODUCED** | `src/gbp/gbp_vvidump.h`, `tools/vvi.py`, `HARDWARE_TESTS.md` §V6.18.5 |
 | **OGBPDISP2 v2** | the DOWNSTREAM sidecar as `stream-0008` writes it: header 0x140, lifecycle 128 B, event 40 B, `"OGBPDEND"`, three CRC-32s. Adds the defer aggregate (`t_first_attempt`, `t_first_defer`, `t_last_defer`, `defer_attempts`), the non-terminal `DEFERRED` and edge `TERMINAL_PENDING` dispositions, and a header block of source-disposition counters. It carries NO scientific-membership field on purpose: the population is the exact `frame_index` join. **PHYSICALLY EXERCISED in run 6** (2114 lifecycles, 2165 events, all four CRCs verified independently, `decisions 2114 + deferred 51 = 2165 = event_n`) | `src/gbp/gbp_vdispdump.h`, `tools/vdisp.py`, `HARDWARE_TESTS.md` §V5.49.5 |
 | **OGBPDISP1 v1** | the DOWNSTREAM disposition sidecar, new in `stream-0007`. A new magic, never a version of OGBPIDXCAP1: header 0x100, lifecycle record 96 B, event record 40 B, `"OGBPDEND"` footer, three CRC-32s (header, per section, global). Keys on the assembler's generic `frame_index`; carries no pixels and no FRAME_ID. **PHYSICALLY EXERCISED in run 5** (2114 lifecycles, 2114 decisions, all four CRCs verified) and still parsed by `tools/vdisp.py`. KNOWN DEFECT: `in_window` is one frame early — GBP-VID-019. Superseded for new builds by OGBPDISP2, and NEVER reinterpreted | `src/gbp/gbp_vdispdump.h`, `tools/vdisp.py`, `HARDWARE_TESTS.md` §V5.46.12 |
 | **OGBPIDX1 WINDOW POLICY** | pre-registered at §V5.44 BEFORE the run it judges: 64 consecutive structurally qualifying frames, arming at a block-0 boundary, one-way. Structural terms only — no `FRAME_ID`, `STATUS`, `SYNC`, `CRC-8`, colour or expected payload. **PHYSICALLY EXERCISED in run 4** (warm-up 70 frames, 4 disqualified, 1 reset, armed at a block-0 boundary). Changing N now requires a new build id and a new pre-registration | `src/gbp/gbp_vwitness_drive.h`, `HARDWARE_TESTS.md` §V5.44 |
@@ -222,7 +226,8 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | GBP-VIDEO-004 | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **PHYSICALLY EXECUTED 2026-09-19 — P1 AND P2 CONFIRMED FIXED.** 472 160 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.38; GBP-HW-146…152 |
-| GBP-VIDEO-004 **software-only candidate** | `stream-0012` | `c465f5c` | `4495c8367b116910f9edb784732c4611a17bdcaedb7dce58eb07579a46ce7e73` | **NOT PHYSICALLY EXECUTED; no run pre-registered.** 495 168 B, built from scratch at `c465f5c`, Swiss `build/swiss/12-stream/boot.dol` byte-identical, Dolphin PASS. **Reproduce with `rm -rf build/poc && GIT_COMMIT=c465f5c GIT_DIRTY= make build`.** `stream-0011` with ONE configuration change (§V5.59, F5): the generic vstate time target is DISABLED by name (`gbp_vstate_config_disable_time_target`), so the witness target is the experiment's only success condition; 60 s safety cap, 5000 ms not-before, 64 closes and 2048 records unchanged; no witness, transport, display, startup or format semantics change | `HARDWARE_TESTS.md` §V5.59 |
+| GBP-VIDEO-004 / **GBP-VIDEO-007 / -008 instrument** — **software-only candidate of the stream line** | `stream-0013` | `7d7a6d8` | `5391c3fe962dc4b2f4e493f3846ac7407ded064c58f5d4bb583a51e5a725dd79` | **NOT PHYSICALLY EXECUTED; no run pre-registered; no run name reserved.** 506 496 B, built twice from scratch at `7d7a6d8` and byte-identical (`cmp`), Swiss `build/swiss/12-stream/boot.dol` byte-identical, no `-dirty`, Dolphin PASS (normal and GBP profiles; auxiliary). Embeds `stream-0013 7d7a6d8` and TEST_ID `GBP-VIDEO-004`. **Reproduce with `rm -rf build/poc && GIT_COMMIT=7d7a6d8 GIT_DIRTY= make build`.** `stream-0012` plus the §V6 instrumentation: K = 8 content-blind full-frame samples (`OGBPFULL1 v1`, `-full.bin`) and the hand-over / VI-latch trace (`OGBPVI1 v1`, `-vi.bin`); `ENVFULL` reports `arena1_free=1658880` after 2 080 768 B of new static stores. No witness, transport, Policy A, display, startup or frozen-format semantics change; `gbp_vwitness.*` and every frozen tool unchanged since `97c78c2` (git) | `HARDWARE_TESTS.md` §V6.18 |
+| GBP-VIDEO-004 **software-only, superseded as candidate** | `stream-0012` | `c465f5c` | `4495c8367b116910f9edb784732c4611a17bdcaedb7dce58eb07579a46ce7e73` | **NOT PHYSICALLY EXECUTED; no run pre-registered.** 495 168 B, built from scratch at `c465f5c`, Swiss `build/swiss/12-stream/boot.dol` byte-identical, Dolphin PASS. **Reproduce with `rm -rf build/poc && GIT_COMMIT=c465f5c GIT_DIRTY= make build`.** `stream-0011` with ONE configuration change (§V5.59, F5): the generic vstate time target is DISABLED by name (`gbp_vstate_config_disable_time_target`), so the witness target is the experiment's only success condition; 60 s safety cap, 5000 ms not-before, 64 closes and 2048 records unchanged; no witness, transport, display, startup or format semantics change. **Superseded as the stream line's candidate by `stream-0013` (§V6.18); never run, identity preserved** | `HARDWARE_TESTS.md` §V5.59 |
 | GBP-VIDEO-004 / **GBP-VIDEO-006** **last physically executed** | `stream-0011` | `97c78c2` | `df2873ee61caa75c885215b54e29e8d5357b233b9bcc0f10d5c0b1af75453e25` | **PHYSICALLY EXECUTED 2026-09-20 (run 11, GBP-VIDEO-006, BBA PRESENT / Ethernet DISCONNECTED by operator declaration) — PASS (§V5.58.9): `lines=651 dropped=0 truncated=0`, one complete `WITELIG` and one complete `WITELIG2`, `qual_streak_at_eligible=0` read directly; `OBSERVED_CONTIGUOUS` with 2048 intact / 0 invalid; first hand-off 165.158691 ms; frozen p99 0.486790 ms; 7 display repeats. GBP-VID-033 PHYSICALLY VALIDATED for this controlled run; media double check PENDING.** `stream-0010` with ONE reporting change: the `WITELIG` summary is two records, `WITELIG` and `WITELIG2`, so no field is clipped by the 248-character ringlog payload (worst-case 205 and 113). No witness, transport, display, startup or format semantics change; `gbp_vwitness.*` byte-identical. 495 104 B (+64 B), built twice from scratch and byte-identical (SHA-256 and `cmp`), Swiss `build/swiss/12-stream/boot.dol` identical, no `-dirty`. **Reproduce with `GIT_COMMIT=97c78c2 GIT_DIRTY= make build`.** Physical validation: GBP-VIDEO-006 / RUN 11, executed 2026-09-20, PASS (§V5.58.9; GBP-HW-244…249) | `HARDWARE_TESTS.md` §V5.58 |
 | GBP-VIDEO-004 / **GBP-BBA-001** **previous runs** | `stream-0010` | `fbaea00` | `6b57d6696cf718baaac83cd0b9631c672bbe756f842e42bfd12d7a0ee3736180` | **PHYSICALLY EXECUTED 2026-09-20 twice: run 9 (BBA disconnected) — PASS 14/14 (§V5.56); run 10 (GBP-BBA-001, BBA PRESENT, Ethernet disconnected) — PASS (§V5.57.14), first hand-off 165.154321 ms, 2048 intact / 0 invalid, 7 display repeats; paired topology control, no detected regression.** Run 9: eligibility 5.000156691 s after CONTROL, window at 6.067209383 s, frozen `vindex.py` `OBSERVED_CONTIGUOUS` with `intact 2048 / INVALID 0`, startup 165.154741 ms (+18 ticks vs run 7), Policy A 2047/2047, 7 display repeats. One reporting defect: the `WITELIG` line is clipped at 248 chars (GBP-VID-033); the lost field is recovered exactly; no rerun required. BBA disconnected; media double check PENDING.** RESEARCH NOT-BEFORE GATE (§V5.55). `stream-0009`'s startup and pipeline, byte-for-byte on the user's path, plus ONE research addition: the scientific witness streak is not COUNTED until 5000 ms after the CONTROL transform, then counts from zero; 64 structurally clean closed frames; window at the next block 0; 2048 records; no reset. Content-blind. Transport, assembler, conversion, Policy A, GX, hand-off and everything the user sees are unchanged. 495 040 B, built twice from scratch and byte-identical (SHA-256 and `cmp`), no `-dirty`. **Reproduce with `GIT_COMMIT=fbaea00 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.55 |
 | GBP-VIDEO-004 / **GBP-VIDEO-005** **previous run** | `stream-0009` | `59d2f57` | `4d0337bb2cc7fe6e9acc1fb167e05a29caf7c497297ee7a1618d7e61a4d8c955` | **PHYSICALLY EXECUTED 2026-09-19 (run 7, indexed) and 2026-09-20 (run 8, RETAIL — GBP-VIDEO-005 PASS with a debug-UX note, §V5.54.11; first hand-off 164.696 ms, logo seen by the operator, CORROBORATED GBP-HW-229).** Run 7: — STARTUP PASSED 8/8: first real hand-off 165.154 ms after CONTROL, nothing synthetic handed over, no wait. Policy A clean (2244 hand-offs in order, 7 repeats / 0 drops over the join). Frozen `vindex.py`: `OBSERVED_CONTIGUOUS` with `intact 1988 / INVALID_CANONICAL_STRIP 60` — the structural window opened 3.840 s after CONTROL, the stimulus began at 4.845 s (§V5.53). No new continuity record for this build until a run with a valid steady-state window.** NORMAL STARTUP (§V5.52). `stream-0008`'s pipeline with the diagnostic experience removed from the normal path: the synthetic self-test runs HEADLESS (no framebuffer claimed, so nothing synthetic reaches the video interface), `prehandler_wait_ms` is 0, and both stream framebuffers are cleared to black before the VI is pointed at one. Policy A, the source assembler, the qualification, OGBPIDX and OGBPDISP2 are untouched. A diagnostic image — visible self-test, 5000 ms wait — is still buildable with `make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC`. 494 176 B. Built twice from scratch and byte-identical both times (SHA-256 and `cmp`); Swiss `build/swiss/12-stream/boot.dol` identical; 15/15 mutants refused; Dolphin PASS in both profiles with `xfb=0` normal against `xfb=1` diagnostic. **Reproduce with `GIT_COMMIT=59d2f57 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.52 |
@@ -234,6 +239,8 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 **stimulus** | `indexed-0002` | — | `44651f0ba60141f23cfb6b8b01f5b7a871ef1037412c7dae2ac9d9743c7b7b2f` | 2 876 B. **PHYSICALLY EXECUTED 2026-09-19 — TEARING FIXED (FAULT clear, VMARGIN 24, 0 mixed), but 2:1 CADENCE.** Historical; never rerun | `HARDWARE_TESTS.md` §V5.42; GBP-HW-160…166 |
 | GBP-VIDEO-004 **stimulus** | `indexed-0003` | — | `37119bb6ac68398dbd3fa75e6ad5c51c8aeb543277ac8d3b03b57f7a6f0caaca` | 2 880 B canonical. **PHYSICALLY EXECUTED 2026-09-19 — PRODUCER CORRECT: 1:1 cadence, 0 duplicates, 0 mixed, FAULT clear, VMARGIN 24.** The verdict is `OBSERVED_DISCONTINUITY` on one startup-resync gap, not on the producer | `HARDWARE_TESTS.md` §V5.43; GBP-HW-167…174 |
 | GBP-VIDEO-004 **stimulus, derived** | `indexed-0003` | — | `9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2` | 2 880 B; logo from the colour cartridge that booted twice, payload past 0x0C0 byte-identical to the canonical ROM. Never committed. The `indexed-0001` (`abb31e6a…0769`) and `indexed-0002` (`55fe72d5…e559e9`) delivery images are historical and must not be rerun | `HARDWARE_TESTS.md` §V5.42.10 |
+| GBP-VIDEO-007 / -008 **stimulus** | `coord-0001` | — | `90343b64eda9602c173364171637cd1068f265c385464361b40ec073b11f0a1f` | 3 496 B canonical, `build/stimulus/agb-coord/agb-coord.gba`, built twice from scratch and byte-identical (the ROM embeds no commit). **NEVER RUN anywhere.** OGBPCOORD1: OGBPIDX1's witness bytes, an injective coordinate field, the 48×80 digit every 480 frames | `HARDWARE_TESTS.md` §V6.18.3 |
+| GBP-VIDEO-007 / -008 **stimulus, derived** | `coord-0001` | — | `a769cc11afcb93cfc1cf89bf9bb59554533662c051e25b475f3943e7bdbb994f` | 3 496 B, `build/physical/agb-coord-cart.gba`; logo from the colour cartridge that booted twice, payload past 0x0C0 byte-identical to the canonical ROM (`tools/gbaderive.py`). Never committed. **NEVER FLASHED, NEVER RUN.** The cartridge must be re-flashed for the future run; the "do not re-flash" rule of runs 6–11 applied to `indexed-0003` only | `HARDWARE_TESTS.md` §V6.18.2 |
 
 The colour run's device log records the commit and the build id, **not** a DOL
 hash, so `cc88e4c4…` is the build tree's hash at the declared commit `9d8302d`.
@@ -339,18 +346,23 @@ a dirty build (`CLAUDE.md` §18).
 There is no blocker and no physical run is pending. **GitHub Issue #6 designed
 the next Phase-4 experiments (§V6): `GBP-VIDEO-007` (physical scanout) and
 `GBP-VIDEO-008` (full-frame fidelity), two experiments that one run may serve
-without conflating them — NOT IMPLEMENTED, NOT RUN, nothing frozen, nothing
-reserved.** The build they would need (`stream-0013`), the stimulus
-(`coord-0001`, contract `OGBPCOORD1`, an injective coordinate field behind the
-unchanged OGBPIDX1 witness) and two new sidecars (`OGBPFULL1`, `OGBPVI1`) are
-named prospectively; the display/cable declaration is an open operator
-dependency (§V6.17). **GitHub Issue #5 closed
+without conflating them. GitHub Issue #7 then built that design — IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED, no run name reserved (§V6.18).**
+The build (`stream-0013` at `7d7a6d8`, 506 496 B, `5391c3fe…dd79`), the
+stimulus (`coord-0001`, contract `OGBPCOORD1`, canonical `90343b64…0a1f`,
+delivery `a769cc11…994f`), the two new sidecars (`OGBPFULL1 v1`, `OGBPVI1 v1`)
+and the offline tools (`tools/icoord.py`, `tools/vfull.py`, `tools/vvi.py`)
+exist with frozen software identities; the XFB-region CRC of the design was
+dropped by decision (CLAIM-B stops at the converted texture); K = 8 samples
+every 256 frames fit with `arena1_free=1658880`; the embedded TEST_ID stays
+`GBP-VIDEO-004`. The display/cable declaration is still the open operator
+dependency (§V6.17 item 1), and the pre-registration is the Orchestrator's
+next Issue after their independent validation. **GitHub Issue #5 closed
 the three items carried to the next functional checkpoint — F3, F8, F5 —**
 in software (§V5.59): every audit now declares and rebuilds what it consumes,
 `tools/poc_audit.py` sees data relocations, and the indexed stream experiment
-has exactly one success condition. The resulting `stream-0012` is a
-software-only candidate: **NOT PHYSICALLY EXECUTED**, and no run is
-pre-registered for it.
+has exactly one success condition. The resulting `stream-0012` was the
+software-only candidate and is now superseded by `stream-0013`: neither has
+been physically executed, and no run is pre-registered for either.
 
 **What run 11 changed, and only that:** the reporting defect two physical runs
 had demonstrated is now repaired on hardware, for this controlled run. Runs 9
@@ -381,21 +393,29 @@ Issue #5 closed F3 / F8 / F5 (§V5.59); Issue #6 wrote the design of the next
 Phase-4 experiments, `HARDWARE_TESTS.md` §V6 — `GBP-VIDEO-007` (physical
 scanout, an operator observation bound to hand-over and VI-latch records) and
 `GBP-VIDEO-008` (full-frame fidelity of the source → texture projection against
-an injective coordinate oracle), NOT IMPLEMENTED and NOT RUN. The Orchestrator
-validates that design independently; the sequence after it is theirs: an
-implementation Issue (`stream-0013`, `coord-0001`, `OGBPFULL1`, `OGBPVI1`, the
-offline tools) and only then a pre-registration that freezes identities and
-reserves run names. Presentation, pixel-perfect scaling and scanout
-measurement were NOT started; `stream-0012` remains the software-only
-candidate of the stream line.
+an injective coordinate oracle); Issue #7 implemented that design in software
+(§V6.18): `stream-0013` at `7d7a6d8`, `coord-0001`, `OGBPFULL1 v1`, `OGBPVI1 v1`
+and the offline tools, all with frozen software identities, NOT PHYSICALLY
+EXECUTED, no run name reserved. The Orchestrator validates the implementation
+independently against §V6 and §V6.18; the sequence after it is theirs: the
+operator's display / cable declaration, then a pre-registration Issue that
+reserves the run names and fixes the procedure (§V6.11) against these exact
+identities, then the physical run. Until then nothing about scanout or
+fidelity is known. Presentation and pixel-perfect scaling were NOT started;
+`stream-0013` is the software-only candidate of the stream line and
+`stream-0012` is superseded, never run.
 
 ```text
 run 11      ingested; GBP-VIDEO-006 PASS; GBP-VID-033 PHYSICALLY VALIDATED (§V5.58.9)
 issue 5     F3 / F8 / F5 CLOSED in software (§V5.59); stream-0012 NOT PHYSICALLY EXECUTED
-issue 6     GBP-VIDEO-007 / -008 DESIGNED (§V6); NOT IMPLEMENTED, NOT RUN, nothing reserved
+issue 6     GBP-VIDEO-007 / -008 DESIGNED (§V6)
+issue 7     GBP-VIDEO-007 / -008 IMPLEMENTED IN SOFTWARE (§V6.18): stream-0013 @ 7d7a6d8,
+            coord-0001, OGBPFULL1 v1, OGBPVI1 v1, tools; NOT PHYSICALLY EXECUTED, no run reserved
 remote      origin = GitHub (canonical); gitea-archive = Gitea (archive, no push)
-next        orchestrator-owned, as a GitHub Issue; the sequence is theirs
-forbidden   analyzers, formats, Policy A, witness semantics, evidence of runs 1-11,
+next        orchestrator-owned, as a GitHub Issue: independent validation -> display/cable
+            declaration -> pre-registration (run names, procedure) -> the physical run
+forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
+            OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
 ```
 
@@ -540,6 +560,9 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 | A DrawDone token certifies only the commands queued BEFORE it, so a callback may free exactly the one buffer it names — never "every submitted one" | §V5.26.2, §V5.27.1 |
 | `VIDEO_GetCurrentFramebuffer()` and `VIDEO_SetNextFramebuffer()` are non-blocking, so a double-XFB policy needs no retrace callback and no VSync wait | `ogc/video.h`; §V5.27.3 |
 | A state machine that lives in a POC's `main.c` has no behavioural test, and source-string assertions are audit guards rather than coverage | §V5.26.8, §V5.27.1 |
+| The XFB-region CRC of the §V6 design was DROPPED by decision (Issue #7): no build computes one, CLAIM-B stops at source → converted texture, and CLAIM-C stays a register write plus a software mirror | `HARDWARE_TESTS.md` §V6.18.8 |
+| The only VI facts a runtime can observe without a callback are the base registers read back (`VI[14,15,18,19]` at `0xCC002000`, read-only loads); `VIDEO_GetCurrentFramebuffer()` is libogc2's own bookkeeping, not a readback | `HARDWARE_TESTS.md` §V6.4, §V6.18.7 |
+| `coord-0001` embeds no commit, so its ROM hash is stable across commits; the DOLs embed theirs, so a stream build's hash is not | `stimulus/agb-coord/Makefile`; §V6.18.2 |
 
 ## Do not assume
 
