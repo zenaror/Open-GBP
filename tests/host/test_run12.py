@@ -11,11 +11,13 @@ dependent-variable analysis is PASS 8/8 and is kept as exactly that — positive
 subordinate evidence, never a GBP-VIDEO-008 experiment PASS. The operator's
 visual report (digits 1, 2, 3, 4 in order) is preserved as an observation beside
 the machine chain, never inside it. GBP-VID-034 (the duplicates; mechanism open)
-and GBP-VID-035 (the frozen vvi.py address-domain defect) are pinned as OPEN
-findings; the analyzer is NOT fixed here and the test says which way it is
-wrong. Every inherited gate is the run-9/10/11 gate reused; none added, none
-narrowed. Nothing here derives a topology from a file, and no test consults
-the operator's report to decide a machine fact.
+(OPEN) and GBP-VID-035 (the vvi.py address-domain defect, since REPAIRED in
+software by Issue #11) are pinned: the fixture keeps the analyzer's
+frozen-at-run output (0/2370, L_k = 0) as the historical record, and the
+executable assertions read the CORRECTED tool -- a post-run software replay
+that changes no verdict. Every inherited gate is the run-9/10/11 gate reused;
+none added, none narrowed. Nothing here derives a topology from a file, and no
+test consults the operator's report to decide a machine fact.
 """
 import hashlib
 import json
@@ -320,48 +322,62 @@ class TheVIChainAndFinding035(unittest.TestCase):
         self.assertEqual([r["frame_index"] for r in v["records"] if r["superseded"]], [86, 631, 1754, 1757, 2041, 2315])
         self.assertEqual([r["frame_index"] for r in v["records"] if not r["latched"] and not r["superseded"]], [2402])
 
-    def test_the_frozen_tool_as_frozen_finds_no_consistent_register_and_no_latched_appearance_frame(self):
-        v = vi()
-        latched = [r for r in v["records"] if r["latched"]]
-        rc = [vvi.regs_consistent(r) for r in latched]
-        self.assertEqual((sum(1 for t, _, _ in rc if t), sum(1 for _, b, _ in rc if b), len(rc)), (0, 0, 2370))
-        rows = vvi.chain(fi_to_fid(), disp(), v)
-        self.assertEqual([(r["k"], r["digit"], len(r["R"]), r["retained"], r["H"], r["L"]) for r in rows],
-                         [(k, k, 40, 40, 40, 0) for k in (1, 2, 3, 4)])
-        self.assertTrue(all(r["first_latch_t"] is None for r in rows))
-
-    def test_gbp_vid_035_the_raw_unmasked_model_and_the_frozen_analyzer_diverge(self):
-        """KNOWN FINDING, NOT FIXED HERE. regs_consistent() masks `phys` to 24 bits and then shifts
-        the reconstructed base by 5 when the VI flag is set, so a MEM1 address carried WITH the flag
-        (every RUN 12 record: phys 0x013a8420 / 0x0143e440, flag 1) can never match. Reconstructed
-        without the mask, every latched record names its handed buffer (top) and top + one line of
-        1280 B (bottom). When the tool is repaired, in its own checkpoint, this test is where the
-        finding is retired -- it must not be edited to pass before then."""
-        v = vi()
-        latched = [r for r in v["records"] if r["latched"]]
-        self.assertEqual(len(latched), 2370)
-
-        def recon(hi, lo, flag):
-            a = ((hi & 0xFF) << 16) | lo
-            return a << 5 if flag else a
-        top_un = top_masked = bot = 0
-        for r in latched:
-            flag = (r["vi14"] >> 12) & 1
-            self.assertEqual(flag, 1)
-            self.assertGreaterEqual(r["phys"], 0x01000000, "the recorded address is not below the tool's 24-bit mask")
-            t = recon(r["vi14"], r["vi15"], flag)
-            b = recon(r["vi18"], r["vi19"], flag)
-            top_un += t == r["phys"]
-            top_masked += t == (r["phys"] & 0xFFFFFF)
-            bot += b == r["phys"] + 1280
-        self.assertEqual((top_un, bot), (2370, 2370), "raw unmasked model: every latched readback names the handed buffer")
-        self.assertEqual(top_masked, 0, "the frozen tool's compare domain: none can match")
-        self.assertEqual(sum(1 for r in latched if vvi.regs_consistent(r)[0]), 0, "GBP-VID-035 stands until the tool is repaired")
+    def test_the_frozen_at_run_result_is_kept_as_history_in_the_fixture(self):
+        """What the analyzer frozen at RUN 12 returned -- 0/2370 and L_k = 0 -- is a historical fact
+        (§V6.20.7, GBP-HW-255) recorded in the fixture's metadata; it is not recomputed, because the
+        tool has since been repaired (GBP-VID-035, Issue #11) and no longer returns it."""
+        o = struct()["official_vvi"]
+        self.assertEqual((o["regs_consistent_top_matches"], o["regs_consistent_bottom_plausible"]), ("0/2370", "0/2370"))
+        self.assertEqual([(r["k"], r["retained"], r["H"], r["L"]) for r in o["rows"]], [(k, 40, 40, 0) for k in (1, 2, 3, 4)])
+        self.assertTrue(all(r["first_latch_t"] is None for r in o["rows"]))
         x = struct()["vi_raw_crosscheck"]
         self.assertEqual((x["finding"], x["top_vs_unmasked_phys"], x["top_vs_masked_phys_24bit"], x["bottom_vs_phys_or_phys_plus_1280"]),
                          ("GBP-VID-035", "2370/2370", "0/2370", "2370/2370"))
         self.assertIn("software analyzer/model defect", x["interpretation"])
         self.assertIn("does not retrospectively change", x["interpretation"])
+
+    def test_the_corrected_tool_reads_every_latched_register_as_naming_its_handed_buffer(self):
+        """GBP-VID-035 REPAIRED (Issue #11): a post-run software replay of the versioned OGBPVI1 with
+        the corrected regs_consistent(); it changes no RUN 12 verdict."""
+        v = vi()
+        latched = [r for r in v["records"] if r["latched"]]
+        self.assertEqual(len(latched), 2370)
+        rc = [vvi.regs_consistent(r) for r in latched]
+        self.assertEqual((sum(1 for t, _, _ in rc if t), sum(1 for _, b, _ in rc if b)), (2370, 2370))
+        self.assertTrue(all(t == r["phys"] for (_, _, t), r in zip(rc, latched)))
+        # the raw halves are exactly libogc2's encoding of the handed address (flag 1: MEM1 above 16 MiB, stored >> 5)
+        for r in latched:
+            self.assertEqual(r["phys"] & 0x1F, 0)
+            self.assertGreaterEqual(r["phys"], 0x01000000)
+            t, b = r["phys"] >> 5, (r["phys"] + 1280) >> 5
+            self.assertEqual((r["vi14"], r["vi15"], r["vi18"], r["vi19"]),
+                             ((1 << 12) | ((t >> 16) & 0xFF), t & 0xFFFF, (b >> 16) & 0xFF, b & 0xFFFF))
+        self.assertEqual(sorted({r["phys"] for r in latched}), [0x013a8420, 0x0143e440])
+
+    def test_the_corrected_chain_derives_l_k_40_40_38_40_from_latched_records_only(self):
+        """The two R_3 hand-overs at frame_index 1754 (FRAME_ID 1471) and 1757 (FRAME_ID 1474) are
+        SUPERSEDED in the raw OGBPVI1 -- the next hand-over came before the pump observed them
+        current -- so they have no latch record and are not members of L_3 by the frozen definition.
+        That is instrumentation semantics only: nothing here says whether either frame was or was
+        not physically scanned out."""
+        v = vi()
+        rows = vvi.chain(fi_to_fid(), disp(), v)
+        self.assertEqual([(r["k"], r["digit"], len(r["R"]), r["retained"], r["H"], r["L"]) for r in rows],
+                         [(1, 1, 40, 40, 40, 40), (2, 2, 40, 40, 40, 40), (3, 3, 40, 40, 40, 38), (4, 4, 40, 40, 40, 40)])
+        self.assertTrue(all(r["first_latch_t"] is not None and r["first_latch_t"] > r["first_handed_t"] for r in rows))
+        by_fi = {r["frame_index"]: r for r in v["records"]}
+        m = fi_to_fid()
+        r3 = [fi for fi, fid in m.items() if 1440 <= fid < 1480]
+        self.assertEqual(len(r3), 40)
+        missing = sorted(fi for fi in r3 if not by_fi[fi]["latched"])
+        self.assertEqual(missing, [1754, 1757])
+        self.assertEqual([m[fi] for fi in missing], [1471, 1474])
+        for fi in missing:
+            self.assertTrue(by_fi[fi]["superseded"])
+            self.assertEqual((by_fi[fi]["t_latch"], by_fi[fi]["retrace_latch"], by_fi[fi]["vi14"]), (0, 0, 0))
+            self.assertEqual(by_fi[fi + 1]["retrace_handed"], by_fi[fi]["retrace_handed"] + 1, "superseded by the next hand-over, one retrace later")
+        # the §V6.19.9 gate asked for at least one latched frame per qualifying appearance; all four sets are non-empty
+        self.assertTrue(all(r["L"] >= 1 for r in rows))
 
     def test_every_latch_is_the_next_retrace_after_its_hand_over(self):
         latched = [r for r in vi()["records"] if r["latched"]]
@@ -382,13 +398,20 @@ class TheComparisonWithRun11AndTheFindings(unittest.TestCase):
         self.assertEqual(c["frozen_p99_max_ms"][1], [0.308642, 1.004667])
         self.assertIn("not proof", c["note"])
 
-    def test_the_two_findings_are_open_and_the_evidence_ids_are_the_six(self):
-        f = struct()["findings"]
+    def test_the_findings_as_recorded_at_ingestion_and_their_current_status(self):
+        f = struct()["findings"]                      # the fixture is the ingestion-time record and is never edited
         self.assertIn("OPEN", f["GBP-VID-034"])
         self.assertIn("479->479", f["GBP-VID-034"])
         self.assertIn("OPEN", f["GBP-VID-035"])
         self.assertIn("not fixed here", f["GBP-VID-035"])
         self.assertEqual(struct()["evidence_ids"], ["GBP-HW-%d" % n for n in range(250, 256)])
+        with open(os.path.join(ROOT, "docs", "research", "EVIDENCE.md"), encoding="utf-8") as fh:
+            ev = fh.read()
+        h34 = [l for l in ev.splitlines() if l.startswith("### GBP-VID-034 ")][0]
+        h35 = [l for l in ev.splitlines() if l.startswith("### GBP-VID-035 ")][0]
+        self.assertIn("OPEN", h34)                     # GBP-VID-034 is outside Issue #11 and stays open
+        self.assertIn("REPAIRED (software)", h35)      # GBP-VID-035 repaired by Issue #11
+        self.assertNotIn("OPEN", h35.split("REPAIRED")[-1])
 
 
 if __name__ == "__main__":
