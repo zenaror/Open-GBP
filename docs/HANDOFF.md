@@ -179,7 +179,8 @@ Changing any of these means a **new version**, never an edit.
 | **OGBPCOL1 v1** | frozen at the implementation checkpoint `e10423c`; `cert_rec` is **40** bytes | `src/gbp/gbp_vcoldump.h`, `tools/vcolor.py` |
 | **OGBPIDX1** | the indexed stimulus WIRE format, frozen at §V5.33: layout, 54-bit payload, CRC-8, symbols, 24-bit ID, STATUS, canonical witness coordinates, classification rules. `stream-0005` changed the experiment's PROTOCOL, not this; **`stream-0006` changed neither** — it changes only WHICH frames are retained | `stimulus/agb-indexed/`, `tools/istim.py`, `tools/vindex.py` |
 | **OGBPIDXCAP1 v1** | the witness CAPTURE sidecar, new in `stream-0005`. A new magic, never an OGBPSEQ1 version: header 0x180, record 4368 (48 B metadata + 40 x 54 big-endian u16, each record CRC-sealed), `"OGBPEND1"` footer. **`stream-0006` did NOT change it** (§V5.44.9): the window is reported in the `.log` `WITQUAL` line and is visible here as `record[0].frame_index != 0` | `src/gbp/gbp_vidxdump.h`, `tools/vidxcap.py` |
-| **OGBPDISP1 v1** | the DOWNSTREAM disposition sidecar, new in `stream-0007`. A new magic, never a version of OGBPIDXCAP1: header 0x100, lifecycle record 96 B, event record 40 B, `"OGBPDEND"` footer, three CRC-32s (header, per section, global). Keys on the assembler's generic `frame_index`; carries no pixels and no FRAME_ID. **PHYSICALLY EXERCISED in run 5** (2114 lifecycles, 2114 decisions, all four CRCs verified). KNOWN DEFECT, frozen during ingestion: `in_window` is one frame early — see GBP-VID-019 | `src/gbp/gbp_vdispdump.h`, `tools/vdisp.py`, `HARDWARE_TESTS.md` §V5.46.12 |
+| **OGBPDISP2 v2** | the DOWNSTREAM sidecar as `stream-0008` writes it: header 0x140, lifecycle 128 B, event 40 B, `"OGBPDEND"`, three CRC-32s. Adds the defer aggregate (`t_first_attempt`, `t_first_defer`, `t_last_defer`, `defer_attempts`), the non-terminal `DEFERRED` and edge `TERMINAL_PENDING` dispositions, and a header block of source-disposition counters. It carries NO scientific-membership field on purpose: the population is the exact `frame_index` join. **NOT YET PHYSICALLY EXECUTED** | `src/gbp/gbp_vdispdump.h`, `tools/vdisp.py`, `HARDWARE_TESTS.md` §V5.49.5 |
+| **OGBPDISP1 v1** | the DOWNSTREAM disposition sidecar, new in `stream-0007`. A new magic, never a version of OGBPIDXCAP1: header 0x100, lifecycle record 96 B, event record 40 B, `"OGBPDEND"` footer, three CRC-32s (header, per section, global). Keys on the assembler's generic `frame_index`; carries no pixels and no FRAME_ID. **PHYSICALLY EXERCISED in run 5** (2114 lifecycles, 2114 decisions, all four CRCs verified) and still parsed by `tools/vdisp.py`. KNOWN DEFECT: `in_window` is one frame early — GBP-VID-019. Superseded for new builds by OGBPDISP2, and NEVER reinterpreted | `src/gbp/gbp_vdispdump.h`, `tools/vdisp.py`, `HARDWARE_TESTS.md` §V5.46.12 |
 | **OGBPIDX1 WINDOW POLICY** | pre-registered at §V5.44 BEFORE the run it judges: 64 consecutive structurally qualifying frames, arming at a block-0 boundary, one-way. Structural terms only — no `FRAME_ID`, `STATUS`, `SYNC`, `CRC-8`, colour or expected payload. **PHYSICALLY EXERCISED in run 4** (warm-up 70 frames, 4 disqualified, 1 reset, armed at a block-0 boundary). Changing N now requires a new build id and a new pre-registration | `src/gbp/gbp_vwitness_drive.h`, `HARDWARE_TESTS.md` §V5.44 |
 | **`color-0001` analysis contract** | frozen at `bfbca70`; full-raw A/B/C byte equality. It refused `color-0001` and that verdict is permanent — `tools/vcolor.py` gains no option that could change it | `tools/vcolor.py`, `HARDWARE_TESTS.md` §V3.25 |
 | **`color-0002` analysis contract** | pre-registered before the run it judges; consumed-word equality over 38 400 words, bit 15 included. Changing it after `color-0002` has run requires **`color-0003`** | `tools/vcolor2.py`, `HARDWARE_TESTS.md` §V4 |
@@ -201,7 +202,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | GBP-VIDEO-004 | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **PHYSICALLY EXECUTED 2026-09-19 — P1 AND P2 CONFIRMED FIXED.** 472 160 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.38; GBP-HW-146…152 |
-| GBP-VIDEO-004 **physical candidate** | `stream-0008` | *(recorded after the clean build)* | *(recorded after the clean build)* | **POLICY A: two-XFB asynchronous deferral (§V5.49). NOT PHYSICALLY EXECUTED.** A frame that finds no writable framebuffer is DEFERRED and offered again by `pump()`, in age order, instead of being discarded. No third XFB, no extra texture, no VI callback, no `VIDEO_WaitVSync`, no queue-depth change. Downstream sidecar bumped to `OGBPDISP2` because a non-terminal DEFER cannot be expressed in v1 without overloading `HOLD_PREVIOUS_FRAME` | `HARDWARE_TESTS.md` §V5.49 |
+| GBP-VIDEO-004 **physical candidate** | `stream-0008` | `5126a19` | `a9efe181d46928d11a20623276a77f352db45b9795681173185e9a60d4e81282` | **POLICY A: two-XFB asynchronous deferral (§V5.49). NOT PHYSICALLY EXECUTED.** A frame that finds no writable framebuffer is DEFERRED and offered again by `pump()`, in age order, instead of being discarded. No third XFB, no extra texture, no VI callback, no `VIDEO_WaitVSync`, no queue-depth change. Downstream sidecar bumped to `OGBPDISP2` because a non-terminal DEFER cannot be expressed in v1 without overloading `HOLD_PREVIOUS_FRAME`. 492 416 B. Built twice from scratch and byte-identical both times; Swiss `build/swiss/12-stream/boot.dol` identical; MEM1 keeps 4.58 MiB free after the framebuffers. 15/15 mutants refused. **Reproduce with `GIT_COMMIT=5126a19 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.49 |
 | GBP-VIDEO-004 **previous candidate** | `stream-0007` | `ddf8db6` | `74b7488630153ce3baaa42831a9af8ef03a2bce80399d840062965a34906eb36` | **PHYSICALLY EXECUTED 2026-09-19 (run 5) — source `OBSERVED_CONTIGUOUS` again, and the first downstream trace.** 491 040 B. Adds the OBSERVATIONAL downstream disposition trace and the `OGBPDISP1` sidecar (§V5.46) and nothing else: no pacing, queue depth, conversion, GX, XFB or VI change, and the interrupt path is byte-identical to the physically validated GBP-VIDEO-001 build. Byte-identical across two from-scratch builds; Swiss `build/swiss/12-stream/boot.dol` identical. **Reproduce with `GIT_COMMIT=ddf8db6 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.46 |
 | GBP-VIDEO-004 **source-continuity candidate** | `stream-0006` | `c629445` | `a9b8b969ef462bfe11b833f9dd77d56f7aa4a3387d61124f99b72901c9cb0379` | **PHYSICALLY EXECUTED 2026-09-19 (run 4) — `OBSERVED_CONTIGUOUS`.** 483 008 B. Adds the PRE-REGISTERED structural window (§V5.44) and nothing else: `OGBPIDX1`, `OGBPIDXCAP1 v1`, the analyzer and the stimulus are untouched, and the interrupt path is byte-identical to the physically validated GBP-VIDEO-001 build. Byte-identical across two from-scratch builds; Swiss `build/swiss/12-stream/boot.dol` identical. **Reproduce with `GIT_COMMIT=c629445 GIT_DIRTY= make build`** — which now actually works, see `c629445` | `HARDWARE_TESTS.md` §V5.44 |
 | GBP-VIDEO-004 **previous candidate** | `stream-0005` | `10250a4` | `35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092` | **AUDITED — DECISION A. NOT PHYSICALLY EXECUTED.** 481 664 B; source-layer retention proved unbiased against the real assembler, target stop proved safe (after ACK and RE-ARM), no off-by-one at 2048, no filesystem in the capture path, 9/9 adversarials caught. **Reproduce with `GIT_COMMIT=10250a4 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.39, §V5.40 |
@@ -305,19 +306,15 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **The policy is decided offline and not implemented. A two-XFB asynchronous
-> deferral is source-lossless across the physical replay, 1024 phases, ten
-> minutes and ten times the measured jitter, with a deferred queue that never
-> exceeds one frame. The open question is the implementation round: does it hold
-> on hardware, and does it hold without disturbing the source result?**
+> **Policy A is implemented and audited; nothing has run on hardware. Does a
+> two-XFB asynchronous deferral preserve every interior source frame on the real
+> Game Boy Player, in order, without disturbing the source result or the service
+> timing it shares a loop with?**
 
-There is no blocker. `tools/vpace.py` reproduces run 5 exactly — all 2114
-recorded framebuffer states and the same 17 dropped frames — before any policy
-is compared, and the comparison is in §V5.48.5.
-
-**A third framebuffer is NOT required and is worse than useless on this model:**
-it converts 17 drops into 17 supersessions, because `VIDEO_SetNextFramebuffer`
-latches once per retrace however many buffers exist.
+There is no blocker. The decision is **A — safe enough for a first supervised
+physical source-lossless pacing run** (§V5.49.14), and it rests on the ownership
+proof in §V5.49.2, not on the simulator: the simulator says the policy is right,
+the source audit says it is safe, and both were required.
 
 **And the slice position is still PLAUSIBLE BUT UNMEASURED as a property.**
 Carried unchanged through every round since it was first measured, because a
@@ -326,43 +323,47 @@ error got in. Two runs measure the pump — 27.88 / 33.60 / 41.06 µs and
 28.32 / 34.07 / 41.33 µs, yielding to a latched cause on 24.95 % and 25.01 % of
 calls — and neither caused an observable transport failure. Neither measures the
 MARGIN it consumes. The pre-streaming window it rests on is unchanged at median
-**42.8** µs with **p25 = 1.9** µs. `stream-0007` adds the disposition trace on
-top of that, and §V5.46.14 measured its cost but no physical run has judged the
+**42.8** µs with **p25 = 1.9** µs. `stream-0008` adds the deferral bookkeeping on
+top of that, and §V5.49.8 measured its cost but no physical run has judged the
 margin.
 
 ## Next safe action
 
-**A PRE-REGISTERED implementation round for policy A. Freeze the gates before
-writing the code, and do not run hardware until the host gates are green.**
-
-The shape the model points at is small and needs no new machinery
-(§V5.48.8): `submit_ready()` asks GX before it asks the framebuffer, so a frame
-that cannot be presented is terminated. Asking about the framebuffer FIRST would
-leave the texture READY and let the retry loop that already runs in `pump()`
-every ~158 µs offer it again, in order. No third XFB, no extra texture, no VI
-callback, no queue-depth change, no extra memory.
-
-**The gates, to be frozen before implementation (§V5.48.10):**
+**One supervised physical run with `stream-0008`, returning THREE files.** The
+gates are frozen in §V5.49.15 and must not be renegotiated after the run.
 
 ```text
-SOURCE       the same run must return OBSERVED_CONTIGUOUS
-DISPOSITION  zero interior source-frame loss across the scientific window
-CADENCE      display repeats counted EXPLICITLY and within +/-2 of the
-             rate-required count for the run's measured span
-LATENCY      ready -> hand-off p99 < 1 ms, max < 3 ms
-QUEUE        deferred depth never exceeds 1; no overflow, no back-pressure
+Build ID   stream-0008   -- policy A only; source path byte-identical in behaviour
+DOL        see the artifacts table above for commit, size and sha256
+cartridge  indexed-0003, 2 880 B, delivery 9f04916b…8d9cc2 — do NOT re-flash it
+return     ...-run6.log  +  ...-run6-idxcap.bin  +  ...-run6-disp.bin
 ```
 
-**Two instrumentation repairs belong to that round**, not to a separate one: the
-log's duplicated `STREAMDISP` tag (the new trace summary should become
-`DISPTRACE`), and the analyzer's `drawn` column, which reports the eventual
-DrawDone rather than the state at the decision. A third — separating
-`SOURCE_FRAME_DROPPED` from `DISPLAY_INTERVAL_REPEATED` — is the whole point of
-the policy and `OGBPDISP1` can already carry it, so **no format v2 is needed**.
+**POWER-CYCLE FIRST, and wait for ALL THREE sidecars.** The log reports
+`SAVESIDECAR` and `SAVEDISP` separately; the second is now `OGBPDISP2`: at most
+852 300 B, against v1's 557 324. Copy run 5's files off the card before anything else touches it.
 
-**Service-path safety is a hard constraint the model cannot certify:** no
-`VIDEO_WaitVSync`, no spin, no VI callback, nothing blocking between ACK and
-RE-ARM. `VIDEO_GetCurrentFramebuffer()` alone is enough for the decision.
+**THE ANALYSIS ORDER IS NOT NEGOTIABLE.** Identities, then `tools/vindex.py`,
+then `OBSERVED_CONTIGUOUS` or stop, then container integrity, then the exact
+`frame_index` join, then disposition, then defer/retry, then latency, then queue
+depth, then the estimated display cadence. **Never pacing first and source
+later.**
+
+```text
+SOURCE GATE       same-run OBSERVED_CONTIGUOUS
+DISPOSITION GATE  0 interior source drops · 0 supersessions · 0 reorder ·
+                  every interior scientific frame eventually handed off
+QUEUE GATE        max deferred depth <= 1
+LATENCY GATE      ready -> hand-off p99 <= 1.0 ms and max <= 2.5 ms
+TRACE GATE        no overflow · no unmatched ownership · intact = 1
+CADENCE           display repeats reported SEPARATELY, compared against a range
+                  the analyzer derives from THAT run's own source and VI timing.
+                  Never a fixed 7, and never a failure by themselves.
+```
+
+**What must NOT happen:** a third framebuffer, a VI callback, `VIDEO_WaitVSync`
+anywhere in the service path, a queue-depth or texture-count change, or any
+renegotiation of the latency threshold after seeing the result.
 
 **BEFORE the run, protect the raw record.** The SD workflow names every run
 identically and run 3 overwrote run 1's log in `logs/`; only the

@@ -4902,3 +4902,74 @@ edge, exactly as GBP-HW-195 records.
 **OGBPDISP2 is not proposed.** The format already carries what is needed; a
 version bump to rename a bit would create a second competing definition of the
 source window.
+
+---
+
+### GBP-VID-024 — with exactly two framebuffers, the presentation precheck cannot go stale — FACT (software, proof from the source)
+
+`stream-0008` asks `gbp_vpresent_xfb_target()` **before** submitting to GX, so a
+frame that cannot be presented consumes no token. That reordering is only sound
+if the answer survives until it is used, and it does, by construction rather
+than by timing:
+
+```text
+xfb_target() returns X only when X is neither `current` nor `pending`
+  -> with GBP_VPRESENT_XFB_BUFFERS == 2 that forces xfb_pending == -1
+  -> with nothing handed over, the VI has nothing to latch at the next retrace
+  -> therefore a retrace cannot change `current` under the decision
+```
+
+The remaining ways the answer could change are enumerated and closed: no other
+caller claims a stream framebuffer (`submit_ready()` is the only site), and the
+single draw-done ISR touches textures only, never the framebuffer state. The
+precheck is in fact **safer than the order it replaces**, which asked after the
+submit and left a longer window between the question and the copy.
+
+**Scope.** This is a statement about THIS code with exactly two framebuffers. It
+does not generalise to three, and three is not proposed — see GBP-VID-022.
+
+A mutation that re-reads the target after `gbp_vpresent_submit()` is refused by
+a wiring pin that requires exactly one call site, because the first version of
+that pin matched only the FIRST occurrence and would have let the second call in
+(`HARDWARE_TESTS.md` §V5.49.13).
+
+---
+
+### GBP-VID-025 — OGBPDISP2 exists because DEFER is non-terminal, not to rename a bit — FACT (software, design)
+
+GBP-VID-023 ended with "**OGBPDISP2 is not proposed.**" That statement was
+correct on its own terms and is **not** withdrawn: it refused a version bump
+whose only purpose was to rename `WITNESS_ARMED_AT_TAKE`, which would have
+created a second competing definition of the source window. Nothing here renames
+that bit, and the population is still the exact `frame_index` join.
+
+The bump has a different cause. Policy A introduces a disposition that is
+**non-terminal** — deferred now, handed off later — and v1 was built around one
+decision per lifecycle. Expressing it in v1 would mean overloading
+`HOLD_PREVIOUS_FRAME`, a word that already names 17 physically discarded frames
+in run 5 (GBP-HW-195); reusing it would silently reinterpret an existing
+capture. So v2 adds, rather than redefines:
+
+```text
+lifecycle 96 -> 128 B   t_first_attempt, t_first_defer, t_last_defer,
+                        defer_attempts
+dispositions            DEFERRED (non-terminal), TERMINAL_PENDING (edge)
+header                  source_handoffs, source_deferred_frames,
+                        source_defer_attempts, source_dropped_interior,
+                        terminal_pending, max_deferred_depth, order_violations
+events 4096 -> 8192     at most two events per frame, since defer attempts are
+                        aggregated rather than evented
+```
+
+`tools/vdisp.py` reads both versions, and **a v1 file carrying a v2 disposition
+is rejected rather than reinterpreted**. Run 5's sidecar keeps its meaning
+unchanged.
+
+The counters are also the round's vocabulary fix. One `repeats` counter used to
+stand for several different things; SOURCE_DEFERRED, SOURCE_HANDED_OFF,
+SOURCE_DROPPED, SOURCE_SUPERSEDED and TERMINAL_PENDING are now distinct, and
+DISPLAY_REPEAT_INTERVAL is a property of the VI measured offline — not a lost
+frame (GBP-VID-020).
+
+**Not physically executed.** `stream-0008` is a candidate; `stream-0007` remains
+the last runtime that ran on hardware.
