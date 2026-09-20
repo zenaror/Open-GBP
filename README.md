@@ -216,6 +216,15 @@ vendor-neutral, it tells the agent to reconstruct the state from the repository
 rather than from anyone's memory, and it stops the agent before implementation
 so you can confirm what it reconstructed.
 
+
+**Roles.** The project separates three responsibilities — OPERATOR (hardware
+and human observation), ORCHESTRATOR (review, validation, planning, gates) and
+EXECUTOR (implementation, tests, builds, evidence ingestion, commits). They are
+responsibilities, not vendors or models; any seat may be a human or an AI and
+may change independently. The permanent definition and the checkpoint discipline
+live in [`AGENTS.md`](AGENTS.md); the current assignment is in
+[`docs/HANDOFF.md`](docs/HANDOFF.md).
+
 ## AI Notice
 
 AI tools such as Claude were used in this project.

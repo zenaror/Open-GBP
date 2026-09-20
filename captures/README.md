@@ -12,6 +12,33 @@ Local or private captures belong under:
 
 Those directories are intentionally ignored by Git.
 
+## Receiving a new physical run — rename BEFORE copy, never overwrite
+
+The console names its files from the EMBEDDED test id and build id
+(`GBP-VIDEO-004_stream-0009.log`, `…-idxcap.bin`, `…-disp.bin`). Two different
+physical runs of the same binary therefore produce IDENTICAL names, and on
+2026-09-20 run 8's drop overwrote run 7's raw copies in `logs/`; run 7 survived
+only because a run-suffixed archive already existed here. This must not depend
+on luck. Before a newly supplied run touches any local directory that may
+already hold same-named files:
+
+1. identify the intended **run number and experiment identity** (the embedded
+   `TEST_ID`/build name does **not** mean the files belong to the same run);
+2. reserve unique archive names in this directory's style —
+   `<EXPERIMENT>_<build>-run<N>.log`, `…-run<N>-idxcap.bin`, `…-run<N>-disp.bin`
+   (e.g. `GBP-VIDEO-004_stream-0010-run9.log`);
+3. copy the supplied bytes under those names FIRST, with `cp --update=none`
+   (refuse if the target exists), and `cmp` the copy against the supplied file;
+4. hash the supplied bytes (`sha256sum`) before any interpretation; the
+   executor's hash is the identity, the operator's media hash is a double check;
+5. never overwrite, rewrite or delete an earlier raw physical artifact — not in
+   `logs/`, not here;
+6. keep the original generated name as metadata in the run's research record if
+   it is useful.
+
+`logs/` stays what `CLAUDE.md` §12 says it is: the raw drop, never edited and
+never versioned. The preserved copy is the run-suffixed file here.
+
 ## fixtures/
 
 | File | Origin | Status |

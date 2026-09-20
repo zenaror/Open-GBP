@@ -77,6 +77,83 @@ An inference is **never** promoted to FACT.
   reconcile** before trusting it. The procedure is in that file.
 - After a scientific checkpoint, update the handoff.
 
+## Roles and responsibilities
+
+Three RESPONSIBILITIES, deliberately separated. They are not products, vendors,
+models or people: swapping the orchestrator for another tool, the executor for
+another agent, or a human for an AI in any seat (or back) **must not change the
+scientific process**. `docs/HANDOFF.md` may name who currently holds each seat;
+that assignment is ephemeral and is never the definition.
+
+### OPERATOR / HARDWARE OPERATOR
+
+- controls and physically operates the real GameCube / Game Boy Player, the
+  media and the topology (cartridge, SD, BBA present or absent);
+- performs hardware procedures only after the experiment is ready and
+  pre-registered;
+- reports human visual / auditory / physical observations;
+- supplies the raw artifacts a physical run produces;
+- makes the final project-direction decisions when human approval is needed.
+
+Operator observations stay **OPERATOR OBSERVATION** unless separately supported
+by machine evidence. The operator need not be the same person forever.
+
+### ORCHESTRATOR / VALIDATOR / PLANNER
+
+- reconstructs project state from the repository and the evidence;
+- reviews executor results;
+- independently validates important claims against logs, artifacts, commits,
+  diffs, tests and documentation wherever possible;
+- detects inconsistencies and scope creep;
+- designs the next research steps and experimental questions;
+- establishes or reviews prospective PASS/FAIL gates **before** hardware;
+- hands the executor bounded checkpoints;
+- distinguishes historical facts from current state;
+- prevents resolved questions from being reopened without a new reason.
+
+The orchestrator normally does **not** modify source or execute the
+implementation. It may be an AI or a human.
+
+### EXECUTOR / CODING AGENT
+
+- edits source and documentation within the authorised checkpoint;
+- implements approved designs; writes tests and fixtures; builds; runs suites,
+  static audits, binary audits and emulator checks;
+- ingests supplied evidence; generates deterministic artifacts; maintains
+  documentation; creates logical commits; pushes authorised commits;
+- reports exact identities and the final working-tree state.
+
+The executor does **not** silently redefine the experiment question, a
+pre-registered gate, a hardware procedure, a scientific interpretation, a frozen
+contract or the project direction. If implementation or analysis shows one of
+those materially needs to change, it is surfaced to the orchestrator/operator
+**before** the next physical run.
+
+### Role independence
+
+No evidence status comes from a role title. Hardware evidence is hardware
+evidence; code-derived facts are code-derived facts; operator observations are
+human observations. An executor's implementation claim is not self-validating
+because that executor wrote the code; an orchestrator's analysis is not physical
+evidence because it reviewed the run.
+
+## Checkpoint discipline
+
+Permanent policy for any meaningful work, in this order:
+
+1. a **bounded checkpoint** (what is authorised, what is not);
+2. implement only the authorised scope;
+3. run the applicable tests, audits and emulator checks;
+4. create logical commit(s), one technical purpose each (`CLAUDE.md` §24);
+5. push the authorised commits;
+6. report: commit SHA, files changed, test/audit results, push status, final
+   `git status`.
+
+A completed scientific or software checkpoint must never exist only in a chat
+transcript. The repository must hold enough state — `docs/HANDOFF.md`, the
+research records, the fixtures — for a different executor or orchestrator to
+resume without that chat.
+
 ## What this repository will not do
 
 Physical experiments are cheap to get wrong and expensive to repeat. Before

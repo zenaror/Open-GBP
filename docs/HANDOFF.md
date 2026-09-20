@@ -10,6 +10,19 @@ gets recorded.
 
 Read `AGENTS.md` first.
 
+## Current role assignment (ephemeral — the definition is in `AGENTS.md`)
+
+| Responsibility | Currently held by | Changes |
+|---|---|---|
+| OPERATOR / HARDWARE OPERATOR | the human project/hardware operator (currently Rafael) | independently of the others |
+| ORCHESTRATOR / VALIDATOR / PLANNER | an external validation/planning agent | independently of the others |
+| EXECUTOR / CODING AGENT | the coding/research agent (currently Claude Fable 5.1) | independently of the others |
+
+Names and products here are a snapshot. Swapping any seat — tool for tool,
+human for AI or back — changes nothing about the scientific process, the
+evidence vocabulary or the checkpoint discipline, all of which are defined in
+`AGENTS.md` and `docs/RESEARCH_METHOD.md`.
+
 ## State baseline
 
 ```text
@@ -388,10 +401,21 @@ timings.
    reports DIFFERENT for no reason (F3).
 ```
 
-**BEFORE the run, protect the raw record.** The SD workflow names every run
-identically and run 3 overwrote run 1's log in `logs/`; only the
-`captures/local/` archive saved it. Copy both files off the card under a
-run-distinguishing name before re-populating the card.
+**BEFORE the run, protect the raw record.** The console names every run of a
+binary identically; run 3 overwrote run 1's log in `logs/`, and run 8 overwrote
+run 7's. The rule — rename BEFORE copy, `cp --update=none`, hash on receipt,
+never overwrite an earlier raw artifact — lives in `captures/README.md`
+("Receiving a new physical run"). **Reserved for RUN 9, and nothing else may
+take these names:**
+
+```text
+captures/local/GBP-VIDEO-004_stream-0010-run9.log
+captures/local/GBP-VIDEO-004_stream-0010-run9-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0010-run9-disp.bin
+```
+
+The console will write `GBP-VIDEO-004_stream-0010.log` / `-idxcap.bin` /
+`-disp.bin`; those are copied to the reserved names first, then hashed.
 
 **Carried to the next FUNCTIONAL checkpoint** (untouched for four rounds — the
 stability is deliberate, it is what made the three-run comparison causal):

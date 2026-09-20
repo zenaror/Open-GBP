@@ -68,6 +68,24 @@ This is not absolute. A hardware observation with an uncontrolled experiment can
 
 Record the reasoning.
 
+## Independence of design, execution, observation and validation
+
+Four things are kept in different hands, or at least in different steps that
+each leave a record (`AGENTS.md`, "Roles and responsibilities"):
+
+- **experiment design and pre-registration** — the question and the PASS/FAIL
+  gates are written down and committed *before* the hardware is touched, and
+  are not renegotiated after the result is seen;
+- **execution** — implementation, builds and evidence ingestion, within a
+  bounded checkpoint;
+- **physical observation** — what a human saw or heard, recorded literally as
+  OPERATOR OBSERVATION;
+- **post-run validation** — independent recomputation of the important claims
+  from the artifacts themselves.
+
+A claim keeps the status its *source* gives it, never the status of whoever
+states it. The seats may be held by humans or AIs and may change independently.
+
 ## Research records
 
 Use:
