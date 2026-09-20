@@ -1,0 +1,95 @@
+
+addr_taken/gbp_initirqa_probe.o:     file format elf32-powerpc
+
+RELOCATION RECORDS FOR [.text.gbp_initirqa_probe_run]:
+OFFSET   TYPE              VALUE
+0000001c R_PPC_REL24       gbp_regwrite_control_byte
+00000030 R_PPC_REL24       gbp_regwrite_irq_u16
+00000044 R_PPC_REL24       gbp_regwrite_irq_u16
+0000005c R_PPC_REL24       gbp_regwrite_irq_u16
+00000070 R_PPC_REL24       gbp_regwrite_control_byte
+
+
+RELOCATION RECORDS FOR [.text.gbp_initirqa_probe_writer_address]:
+OFFSET   TYPE              VALUE
+00000002 R_PPC_ADDR16_HA   gbp_regwrite_irq_u16
+00000006 R_PPC_ADDR16_LO   gbp_regwrite_irq_u16
+
+
+RELOCATION RECORDS FOR [.sdata.gbp_initirqa_irq_table]:
+OFFSET   TYPE              VALUE
+00000000 R_PPC_ADDR32      gbp_regwrite_irq_u16
+
+
+RELOCATION RECORDS FOR [.debug_info]:
+OFFSET   TYPE              VALUE
+00000008 R_PPC_ADDR32      .debug_abbrev
+0000000d R_PPC_ADDR32      .debug_str+0x00000139
+00000012 R_PPC_ADDR32      .debug_str+0x00000048
+00000016 R_PPC_ADDR32      .debug_str+0x00000085
+0000001a R_PPC_ADDR32      .debug_rnglists+0x0000000c
+00000022 R_PPC_ADDR32      .debug_line
+00000029 R_PPC_ADDR32      .debug_str+0x000000d3
+00000030 R_PPC_ADDR32      .debug_str+0x000000c6
+00000037 R_PPC_ADDR32      .debug_str+0x000001d8
+0000003c R_PPC_ADDR32      .debug_str
+0000004a R_PPC_ADDR32      .debug_str+0x00000059
+00000051 R_PPC_ADDR32      .debug_str+0x000001c5
+00000056 R_PPC_ADDR32      .debug_str+0x0000007a
+00000064 R_PPC_ADDR32      .debug_str+0x00000067
+00000072 R_PPC_ADDR32      .debug_str+0x00000114
+00000077 R_PPC_ADDR32      .debug_str+0x00000014
+00000083 R_PPC_ADDR32      .debug_str+0x000000ea
+0000008f R_PPC_ADDR32      .debug_str+0x000001cf
+0000009b R_PPC_ADDR32      .debug_str+0x0000000a
+000000a7 R_PPC_ADDR32      .debug_str+0x0000003a
+000000e9 R_PPC_ADDR32      .debug_str+0x00000122
+000000f6 R_PPC_ADDR32      gbp_initirqa_irq_table
+000000fb R_PPC_ADDR32      .debug_str+0x00000020
+00000114 R_PPC_ADDR32      .debug_str+0x000000b1
+0000012d R_PPC_ADDR32      .debug_str+0x000000f2
+00000138 R_PPC_ADDR32      .text.gbp_initirqa_probe_writer_address
+00000143 R_PPC_ADDR32      .debug_str+0x000001ae
+0000014e R_PPC_ADDR32      .text.gbp_initirqa_probe_run
+00000162 R_PPC_ADDR32      .debug_loclists+0x00000012
+00000166 R_PPC_ADDR32      .debug_loclists+0x0000000c
+00000175 R_PPC_ADDR32      .debug_loclists+0x0000003d
+00000179 R_PPC_ADDR32      .debug_loclists+0x00000033
+0000017e R_PPC_ADDR32      .text.gbp_initirqa_probe_run+0x00000020
+00000198 R_PPC_ADDR32      .text.gbp_initirqa_probe_run+0x00000034
+000001b3 R_PPC_ADDR32      .text.gbp_initirqa_probe_run+0x00000048
+000001cc R_PPC_ADDR32      .text.gbp_initirqa_probe_run+0x00000060
+000001e7 R_PPC_ADDR32      .text.gbp_initirqa_probe_run+0x00000074
+
+
+RELOCATION RECORDS FOR [.debug_loclists]:
+OFFSET   TYPE              VALUE
+00000013 R_PPC_ADDR32      .text.gbp_initirqa_probe_run
+0000003e R_PPC_ADDR32      .text.gbp_initirqa_probe_run
+
+
+RELOCATION RECORDS FOR [.debug_aranges]:
+OFFSET   TYPE              VALUE
+00000006 R_PPC_ADDR32      .debug_info
+00000010 R_PPC_ADDR32      .text.gbp_initirqa_probe_run
+00000018 R_PPC_ADDR32      .text.gbp_initirqa_probe_writer_address
+
+
+RELOCATION RECORDS FOR [.debug_rnglists]:
+OFFSET   TYPE              VALUE
+0000000d R_PPC_ADDR32      .text.gbp_initirqa_probe_run
+00000014 R_PPC_ADDR32      .text.gbp_initirqa_probe_writer_address
+
+
+RELOCATION RECORDS FOR [.debug_line]:
+OFFSET   TYPE              VALUE
+000000bf R_PPC_ADDR32      .text.gbp_initirqa_probe_run
+0000012b R_PPC_ADDR32      .text.gbp_initirqa_probe_writer_address
+
+
+RELOCATION RECORDS FOR [.eh_frame]:
+OFFSET   TYPE              VALUE
+0000001c R_PPC_REL32       .text.gbp_initirqa_probe_run
+00000044 R_PPC_REL32       .text.gbp_initirqa_probe_writer_address
+
+

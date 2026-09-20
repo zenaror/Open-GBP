@@ -1,0 +1,165 @@
+
+data_ref/gbp_vwitness.o:     file format elf32-powerpc
+
+RELOCATION RECORDS FOR [.sdata.gbp_vwitness_openers]:
+OFFSET   TYPE              VALUE
+00000000 R_PPC_ADDR32      fopen
+
+
+RELOCATION RECORDS FOR [.debug_info]:
+OFFSET   TYPE              VALUE
+00000008 R_PPC_ADDR32      .debug_abbrev
+0000000d R_PPC_ADDR32      .debug_str+0x0000044c
+00000012 R_PPC_ADDR32      .debug_str+0x00000135
+00000016 R_PPC_ADDR32      .debug_str+0x000003cb
+0000001a R_PPC_ADDR32      .debug_rnglists+0x0000000c
+00000022 R_PPC_ADDR32      .debug_line
+00000029 R_PPC_ADDR32      .debug_str+0x00000060
+00000030 R_PPC_ADDR32      .debug_str+0x000001c2
+00000037 R_PPC_ADDR32      .debug_str+0x000000c9
+0000003e R_PPC_ADDR32      .debug_str+0x000002d9
+00000045 R_PPC_ADDR32      .debug_str+0x000002f5
+0000004c R_PPC_ADDR32      .debug_str+0x000001fe
+00000058 R_PPC_ADDR32      .debug_str+0x00000174
+00000064 R_PPC_ADDR32      .debug_str+0x00000080
+00000072 R_PPC_ADDR32      .debug_str+0x000000bb
+00000077 R_PPC_ADDR32      .debug_str+0x00000010
+00000085 R_PPC_ADDR32      .debug_str+0x00000108
+0000008c R_PPC_ADDR32      .debug_str+0x00000286
+00000093 R_PPC_ADDR32      .debug_str+0x00000240
+000000a0 R_PPC_ADDR32      .debug_str+0x0000029b
+000000ac R_PPC_ADDR32      .debug_str+0x00000395
+000000b8 R_PPC_ADDR32      .debug_str+0x00000429
+000000cd R_PPC_ADDR32      .debug_str+0x00000232
+000000d8 R_PPC_ADDR32      .debug_str+0x000001cf
+000000fd R_PPC_ADDR32      .debug_str+0x0000037f
+0000010a R_PPC_ADDR32      .debug_str+0x00000387
+00000118 R_PPC_ADDR32      .debug_str+0x0000031f
+00000126 R_PPC_ADDR32      .debug_str+0x000001e6
+0000012b R_PPC_ADDR32      .debug_str+0x000003fc
+00000137 R_PPC_ADDR32      .debug_str+0x00000411
+00000143 R_PPC_ADDR32      .debug_str+0x00000238
+0000014f R_PPC_ADDR32      .debug_str+0x0000002a
+0000015b R_PPC_ADDR32      .debug_str+0x000004fa
+00000168 R_PPC_ADDR32      .debug_str+0x00000309
+00000176 R_PPC_ADDR32      .debug_str+0x000002c7
+00000182 R_PPC_ADDR32      .debug_str+0x00000185
+0000018e R_PPC_ADDR32      .debug_str+0x00000196
+0000019a R_PPC_ADDR32      .debug_str+0x000003b8
+000001b2 R_PPC_ADDR32      .debug_str+0x0000036a
+000001bf R_PPC_ADDR32      .debug_str+0x0000017f
+000001cc R_PPC_ADDR32      .debug_str+0x0000041a
+000001fa R_PPC_ADDR32      .debug_str+0x000001bd
+00000206 R_PPC_ADDR32      .debug_str+0x000000b2
+00000213 R_PPC_ADDR32      .debug_str+0x000003a9
+00000220 R_PPC_ADDR32      .debug_str+0x000000e1
+0000022d R_PPC_ADDR32      .debug_str+0x00000508
+0000023a R_PPC_ADDR32      .debug_str+0x00000292
+00000247 R_PPC_ADDR32      .debug_str+0x00000274
+00000254 R_PPC_ADDR32      .debug_str+0x0000041f
+00000261 R_PPC_ADDR32      .debug_str+0x000002ff
+0000026e R_PPC_ADDR32      .debug_str+0x000004c1
+0000027c R_PPC_ADDR32      .debug_str+0x00000311
+00000288 R_PPC_ADDR32      .debug_str+0x000000db
+00000295 R_PPC_ADDR32      .debug_str+0x0000000a
+000002a8 R_PPC_ADDR32      .debug_str+0x0000032a
+000002d5 R_PPC_ADDR32      .debug_str+0x00000111
+000002e2 R_PPC_ADDR32      .debug_str+0x000001f8
+000002fb R_PPC_ADDR32      .debug_str+0x00000077
+00000308 R_PPC_ADDR32      .debug_str+0x000000eb
+00000315 R_PPC_ADDR32      .debug_str+0x000001ad
+00000322 R_PPC_ADDR32      .debug_str+0x0000026d
+0000032f R_PPC_ADDR32      .debug_str+0x0000038f
+0000033c R_PPC_ADDR32      .debug_str+0x000004db
+0000036d R_PPC_ADDR32      .debug_str+0x000000d5
+0000037a R_PPC_ADDR32      .debug_str+0x00000446
+00000393 R_PPC_ADDR32      .debug_str+0x00000124
+000003a0 R_PPC_ADDR32      .debug_str+0x0000027e
+000003ad R_PPC_ADDR32      .debug_str+0x00000033
+000003ba R_PPC_ADDR32      .debug_str+0x0000025f
+000003c7 R_PPC_ADDR32      .debug_str+0x00000332
+000003d4 R_PPC_ADDR32      .debug_str+0x00000265
+00000405 R_PPC_ADDR32      .debug_str+0x00000372
+00000414 R_PPC_ADDR32      .debug_str+0x0000039d
+00000421 R_PPC_ADDR32      .debug_str+0x0000011d
+0000042e R_PPC_ADDR32      .debug_str+0x000001d6
+0000043b R_PPC_ADDR32      .debug_str+0x0000018e
+00000448 R_PPC_ADDR32      .debug_str+0x00000353
+00000455 R_PPC_ADDR32      .debug_str+0x0000001f
+00000462 R_PPC_ADDR32      .debug_str+0x00000358
+0000046f R_PPC_ADDR32      .debug_str+0x00000360
+0000047c R_PPC_ADDR32      .debug_str+0x0000022a
+00000489 R_PPC_ADDR32      .debug_str+0x000001b3
+00000496 R_PPC_ADDR32      .debug_str+0x000004f5
+000004a3 R_PPC_ADDR32      .debug_str+0x000002a8
+000004b0 R_PPC_ADDR32      .debug_str+0x000001de
+000004bd R_PPC_ADDR32      .debug_str+0x0000012d
+000004ca R_PPC_ADDR32      .debug_str+0x000002e7
+000004d7 R_PPC_ADDR32      .debug_str+0x0000043c
+000004e5 R_PPC_ADDR32      .debug_str+0x00000169
+000004fb R_PPC_ADDR32      .debug_str+0x000003a4
+00000593 R_PPC_ADDR32      .debug_str+0x00000318
+000005a5 R_PPC_ADDR32      .debug_str+0x00000017
+000005b3 R_PPC_ADDR32      .debug_str+0x00000379
+000005c0 R_PPC_ADDR32      .debug_str+0x000003b2
+000005cd R_PPC_ADDR32      .debug_str+0x000003f7
+000005f6 R_PPC_ADDR32      .debug_str+0x000003be
+00000603 R_PPC_ADDR32      .debug_str+0x0000021d
+00000610 R_PPC_ADDR32      .debug_str+0x000004cc
+0000061d R_PPC_ADDR32      .debug_str+0x0000019e
+0000062a R_PPC_ADDR32      .debug_str+0x0000033b
+00000637 R_PPC_ADDR32      .debug_str+0x000004e2
+00000644 R_PPC_ADDR32      .debug_str+0x00000346
+00000651 R_PPC_ADDR32      .debug_str+0x000004e7
+0000065e R_PPC_ADDR32      .debug_str+0x000000a4
+0000066b R_PPC_ADDR32      .debug_str+0x00000432
+00000678 R_PPC_ADDR32      .debug_str+0x00000211
+00000685 R_PPC_ADDR32      .debug_str+0x00000404
+00000692 R_PPC_ADDR32      .debug_str+0x0000015b
+0000069f R_PPC_ADDR32      .debug_str+0x00000095
+000006ac R_PPC_ADDR32      .debug_str+0x0000014a
+000006b9 R_PPC_ADDR32      .debug_str+0x00000040
+000006c6 R_PPC_ADDR32      .debug_str+0x0000004f
+000006d3 R_PPC_ADDR32      .debug_str+0x000002ec
+000006e0 R_PPC_ADDR32      .debug_str+0x000002b2
+00000739 R_PPC_ADDR32      .debug_str+0x00000372
+00000757 R_PPC_ADDR32      .debug_str+0x0000008a
+0000078b R_PPC_ADDR32      .debug_str+0x00000118
+00000797 R_PPC_ADDR32      .debug_str
+000007db R_PPC_ADDR32      .debug_str+0x000000f3
+000007e8 R_PPC_ADDR32      gbp_vwitness_openers
+000007ed R_PPC_ADDR32      .debug_str+0x000002a2
+00000808 R_PPC_ADDR32      .debug_str+0x00000247
+00000813 R_PPC_ADDR32      .text.gbp_vwitness_note_frame
+0000081e R_PPC_ADDR32      .debug_str+0x00000039
+00000829 R_PPC_ADDR32      .debug_loclists+0x00000014
+0000082d R_PPC_ADDR32      .debug_loclists+0x0000000c
+00000832 R_PPC_ADDR32      .debug_str+0x000004ff
+
+
+RELOCATION RECORDS FOR [.debug_loclists]:
+OFFSET   TYPE              VALUE
+00000015 R_PPC_ADDR32      .text.gbp_vwitness_note_frame
+
+
+RELOCATION RECORDS FOR [.debug_aranges]:
+OFFSET   TYPE              VALUE
+00000006 R_PPC_ADDR32      .debug_info
+00000010 R_PPC_ADDR32      .text.gbp_vwitness_note_frame
+
+
+RELOCATION RECORDS FOR [.debug_rnglists]:
+OFFSET   TYPE              VALUE
+0000000d R_PPC_ADDR32      .text.gbp_vwitness_note_frame
+
+
+RELOCATION RECORDS FOR [.debug_line]:
+OFFSET   TYPE              VALUE
+00000172 R_PPC_ADDR32      .text.gbp_vwitness_note_frame
+
+
+RELOCATION RECORDS FOR [.eh_frame]:
+OFFSET   TYPE              VALUE
+0000001c R_PPC_REL32       .text.gbp_vwitness_note_frame
+
+

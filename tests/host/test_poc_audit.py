@@ -297,11 +297,26 @@ def dir_004(**override):
     return make_dir(files)
 
 
+EMPTY_RELOC_LISTING = "%s:     file format elf32-powerpc\n\n"
+
+
 def make_dir(files):
     d = tempfile.mkdtemp()
     for name, text in files.items():
+        if text is None:
+            continue
         with open(os.path.join(d, name), "w") as f:
             f.write(text)
+    # F8 (HARDWARE_TESTS §V5.59): the auditor requires the `objdump -r` listing of every
+    # object -- a missing one is a finding -- so a synthetic object gets an EMPTY listing
+    # (an object with no data relocations) unless the scenario supplies its own.
+    for name, text in files.items():
+        if text is None or not name.endswith(".objdump.txt"):
+            continue
+        base = name[:-len(".objdump.txt")]
+        if base + ".reloc.txt" not in files:
+            with open(os.path.join(d, base + ".reloc.txt"), "w") as f:
+                f.write(EMPTY_RELOC_LISTING % (base + ".o"))
     return d
 
 

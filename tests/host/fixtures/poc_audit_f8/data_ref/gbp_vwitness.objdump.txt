@@ -1,0 +1,13 @@
+
+data_ref/gbp_vwitness.o:     file format elf32-powerpc
+
+
+Disassembly of section .text.gbp_vwitness_note_frame:
+
+00000000 <gbp_vwitness_note_frame>:
+   0:	2c 04 00 00 	cmpwi   r4,0
+   4:	41 82 00 0c 	beq     10 <gbp_vwitness_note_frame+0x10>
+   8:	38 63 00 01 	addi    r3,r3,1
+   c:	4e 80 00 20 	blr
+  10:	38 60 00 00 	li      r3,0
+  14:	4e 80 00 20 	blr

@@ -79,7 +79,19 @@ DSP_/SI_/SIO symbol (no libogc ARAM queue, no audio output, no GX, no
 network, no serial); main.o uses the ext constructor, the probe entry and
 the sidecar writer.
 
-Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b|004|avsvc|video|vstate] [--report FILE] [--json]
+DATA RELOCATIONS (F8, HARDWARE_TESTS §V5.59). `objdump -dr` disassembles the
+text only, so a forbidden symbol reached from a DATA initialiser -- a function
+pointer in a table, a callback field -- never appeared in it and escaped both
+the deny-lists and the allowlists. The audit directory therefore also holds
+`<object>.reloc.txt` (`objdump -r`, every relocation section) for every object;
+its non-text sections (.data, .sdata, .rodata, .data.rel.ro, constructor tables;
+never .debug*/.eh_frame, which point at the object's own sections) feed every
+forbidden-symbol, forbidden-prefix, allowlist and must-not-reference check as
+"data" origins. Exact CALL-SITE contracts keep counting R_PPC_REL24 branches in
+text and nothing else: an address taken in data is reported under "data
+references", never as a call. A missing listing is a finding, not a downgrade.
+
+Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b|004|avsvc|video|vstate|color|stream] [--report FILE] [--json]
 Exit status 0 when there is no finding.
 """
 from __future__ import annotations
@@ -640,6 +652,13 @@ CONTROL_WRITE_SITES = PROFILES["003a"]["control_write_sites"]
 FUNC_RE = re.compile(r"^[0-9a-f]+ <([^>]+)>:\s*$")
 INSN_RE = re.compile(r"^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2} ){4}\s*(\S+)\s*(.*)$")
 RELOC_RE = re.compile(r"^\s*([0-9a-f]+): (R_PPC_\w+)\s+(\S+)")
+# `objdump -r` listing: one block per section with relocations (F8).
+RELOC_SECTION_RE = re.compile(r"^RELOCATION RECORDS FOR \[([^\]]+)\]:")
+RELOC_ROW_RE = re.compile(r"^([0-9a-f]+)\s+(R_PPC_\w+)\s+(\S+)\s*$")
+_SYM_ADDEND_RE = re.compile(r"^(.*?)([+-]0x[0-9a-fA-F]+)?$")
+# Relocations in these sections point at the object's own debug/unwind tables and
+# are never an outward edge of the program.
+_RELOC_IGNORED_SECTION_PREFIXES = (".debug", ".eh_frame", ".comment", ".gnu.")
 STORE_MNEMONICS = ("stw", "sth", "stb", "stwu", "sthu", "stbu", "stwx", "sthx", "stbx", "stwux", "sthux", "stbux",
                    "stwbrx", "sthbrx", "stmw", "stfs", "stfd", "stfsu", "stfdu", "stfsx", "stfdx")
 NO_GPR_WRITE = ("cmpw", "cmpwi", "cmplw", "cmplwi", "cmpd", "cmpdi", "cmpld", "cmpldi", "mtlr", "mtctr", "mtcrf", "mtspr",
@@ -680,6 +699,52 @@ def reloc_symbols(funcs):
             if it[0] == "reloc":
                 out.setdefault(it[3], []).append(name)
     return out
+
+
+def parse_reloc_listing(text):
+    """`powerpc-eabi-objdump -r` of ONE object -> {section: [(offset, type, symbol)]}, every
+    section, the addend stripped from the symbol (`.rodata.str1.4+0x2b0` -> `.rodata.str1.4`)."""
+    out = {}
+    cur = None
+    for line in text.splitlines():
+        m = RELOC_SECTION_RE.match(line)
+        if m:
+            cur = m.group(1)
+            out.setdefault(cur, [])
+            continue
+        if cur is None:
+            continue
+        m = RELOC_ROW_RE.match(line)
+        if m and m.group(2) != "TYPE":
+            sym = _SYM_ADDEND_RE.match(m.group(3)).group(1)
+            out[cur].append((int(m.group(1), 16), m.group(2), sym))
+    return out
+
+
+def data_reloc_symbols(sections):
+    """{symbol: [section, ...]} for the relocations that live OUTSIDE the text sections --
+    .data, .sdata, .rodata, .data.rel.ro, constructor tables -- ignoring debug/unwind
+    sections and the object's own section symbols (names starting with '.'). These are the
+    edges `objdump -dr` never shows (F8)."""
+    out = {}
+    for sec, rows in sections.items():
+        if sec.startswith(".text") or sec.startswith(_RELOC_IGNORED_SECTION_PREFIXES):
+            continue
+        for _off, _typ, sym in rows:
+            if sym.startswith("."):
+                continue
+            out.setdefault(sym, []).append(sec)
+    return out
+
+
+def _origins(syms, dsyms, s):
+    """Where an object references `s`: the functions (text) and/or the data sections."""
+    parts = []
+    if s in syms:
+        parts.append("from " + ", ".join(sorted(set(syms[s]))))
+    if s in dsyms:
+        parts.append("data " + ", ".join(sorted(set(dsyms[s]))) + ("" if s in syms else " — no call and no text reference"))
+    return "; ".join(parts)
 
 
 def _imm(s):
@@ -898,17 +963,32 @@ def audit_dir(path, profile="003a"):
     prof = PROFILES[profile]
     findings = []
     report = {"profile": profile, "objects": [], "symbols": {}, "symbol_callers": {}, "intmr_stores": [], "intsr_stores": [],
-              "intsr_store_sites": {}, "callsites": {}, "elf": {}}
+              "intsr_store_sites": {}, "callsites": {}, "elf": {}, "data_refs": {}, "reloc_listings": [0, 0]}
     files = sorted(glob.glob(os.path.join(path, "*.objdump.txt")))
     if not files:
         findings.append("no *.objdump.txt in %s" % path)
         return findings, report
     objects = {}
+    data_refs = {}            # obj -> {symbol: [section, ...]}: the relocations OUTSIDE the text (F8)
+    listings = 0
     for f in files:
-        obj = os.path.basename(f)[:-len(".objdump.txt")] + ".o"
+        base = os.path.basename(f)[:-len(".objdump.txt")]
+        obj = base + ".o"
         with open(f, "r", encoding="utf-8", errors="replace") as fh:
             objects[obj] = parse_objdump(fh.read())
         report["objects"].append(obj)
+        rpath = f[:-len(".objdump.txt")] + ".reloc.txt"
+        if os.path.isfile(rpath):
+            with open(rpath, "r", encoding="utf-8", errors="replace") as fh:
+                data_refs[obj] = data_reloc_symbols(parse_reloc_listing(fh.read()))
+            listings += 1
+        else:
+            # Without the -r listing the data sections are invisible and the F8 blind
+            # spot is back. That is a finding, never a silent downgrade of the audit.
+            data_refs[obj] = {}
+            findings.append("%s: no relocation listing (%s.reloc.txt) — data relocations unaudited (F8)" % (obj, base))
+    report["reloc_listings"] = [listings, len(files)]
+    report["data_refs"] = {o: {s: sorted(set(v)) for s, v in r.items()} for o, r in data_refs.items() if r}
     for bad in prof["forbidden_objects"]:
         if bad in objects:
             findings.append("forbidden object linked: %s" % bad)
@@ -919,14 +999,19 @@ def audit_dir(path, profile="003a"):
     callers = {s: {} for s in prof["symbol_callers"]}
     intsr_sites = {}
     for obj, funcs in objects.items():
-        syms = reloc_symbols(funcs)
+        syms = reloc_symbols(funcs)                 # text: functions -> what they reference
+        dsyms = data_refs.get(obj, {})              # data sections -> what they reference (F8)
+        seen = set(syms) | set(dsyms)
+
+        def src(s, syms=syms, dsyms=dsyms):
+            return _origins(syms, dsyms, s)
         for s in prof["forbidden_symbols"]:
-            if s in syms:
-                findings.append("%s references %s (from %s)" % (obj, s, ", ".join(sorted(set(syms[s])))))
+            if s in seen:
+                findings.append("%s references %s (%s)" % (obj, s, src(s)))
                 report["symbols"].setdefault(obj, []).append(s)
         for s in prof["investigate_symbols"]:
-            if s in syms:
-                findings.append("%s references %s — investigate (from %s)" % (obj, s, ", ".join(sorted(set(syms[s])))))
+            if s in seen:
+                findings.append("%s references %s — investigate (%s)" % (obj, s, src(s)))
                 report["symbols"].setdefault(obj, []).append(s)
         # §V5.44.18 ALLOWLIST. A deny-list can only forbid the decoders that
         # exist today; the qualification state machine must be unable to reach
@@ -937,25 +1022,23 @@ def audit_dir(path, profile="003a"):
         # finding by default rather than by enumeration.
         allow = prof.get("object_may_only_reference", {}).get(obj)
         if allow is not None:
-            for s in sorted(syms):
+            for s in sorted(seen):
                 if s.startswith(".text.") or s.startswith(".rodata."):
                     continue          # this object's own sections, not an outward edge
                 if s not in allow:
-                    findings.append("%s references %s — not in this object's allowlist (from %s)"
-                                    % (obj, s, ", ".join(sorted(set(syms[s])))))
+                    findings.append("%s references %s — not in this object's allowlist (%s)" % (obj, s, src(s)))
                     report["symbols"].setdefault(obj, []).append(s)
         for s_bad in prof.get("object_must_not_reference", {}).get(obj, ()):
-            if s_bad in syms:
-                findings.append("%s references %s — forbidden in this object's path (from %s)"
-                                % (obj, s_bad, ", ".join(sorted(set(syms[s_bad])))))
+            if s_bad in seen:
+                findings.append("%s references %s — forbidden in this object's path (%s)" % (obj, s_bad, src(s_bad)))
                 report["symbols"].setdefault(obj, []).append(s_bad)
         exempt = prof.get("prefix_exempt_objects", {}).get(obj, ())
         for pref in prof.get("forbidden_symbol_prefixes", ()):
             if pref in exempt:
                 continue          # this object is ALLOWED this prefix, by design
-            for s in sorted(syms):
+            for s in sorted(seen):
                 if s.startswith(pref):
-                    findings.append("%s references %s (forbidden prefix %s; from %s)" % (obj, s, pref, ", ".join(sorted(set(syms[s])))))
+                    findings.append("%s references %s (forbidden prefix %s; %s)" % (obj, s, pref, src(s)))
                     report["symbols"].setdefault(obj, []).append(s)
         for s in prof["symbol_callers"]:
             for fn, n in call_sites(funcs, s).items():
@@ -988,8 +1071,8 @@ def audit_dir(path, profile="003a"):
                 if s not in syms:
                     findings.append("main.o does not reference %s" % s)
             for s in prof["main_must_not_call"]:
-                if s in syms:
-                    findings.append("main.o references %s (from %s)" % (s, ", ".join(sorted(set(syms[s])))))
+                if s in seen:
+                    findings.append("main.o references %s (%s)" % (s, src(s)))
     for s, want in prof["symbol_callers"].items():
         got = callers[s]
         report["symbol_callers"][s] = dict(sorted(got.items()))
@@ -1023,6 +1106,9 @@ def format_report(findings, report):
     for f in findings:
         out.append("  FINDING " + f)
     out.append("objects: " + ", ".join(report["objects"]))
+    out.append("reloc listings: %d/%d objects" % tuple(report.get("reloc_listings", [0, 0])))
+    for obj, refs in sorted(report.get("data_refs", {}).items()):
+        out.append("data references %s: %s" % (obj, ", ".join("%s(%s)" % (s, "|".join(secs)) for s, secs in sorted(refs.items()))))
     for s, got in sorted(report.get("symbol_callers", {}).items()):
         out.append("call sites %s: %s" % (s, ", ".join("%s=%d" % kv for kv in sorted(got.items())) or "none"))
     for obj, c in sorted(report["callsites"].items()):
