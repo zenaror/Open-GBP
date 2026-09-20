@@ -202,8 +202,8 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | GBP-VIDEO-004 | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **PHYSICALLY EXECUTED 2026-09-19 — P1 AND P2 CONFIRMED FIXED.** 472 160 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.38; GBP-HW-146…152 |
-| GBP-VIDEO-004 **normal-startup candidate** | `stream-0009` | `59d2f57` | `4d0337bb2cc7fe6e9acc1fb167e05a29caf7c497297ee7a1618d7e61a4d8c955` | **NORMAL STARTUP (§V5.52). NOT PHYSICALLY EXECUTED.** `stream-0008`'s pipeline with the diagnostic experience removed from the normal path: the synthetic self-test runs HEADLESS (no framebuffer claimed, so nothing synthetic reaches the video interface), `prehandler_wait_ms` is 0, and both stream framebuffers are cleared to black before the VI is pointed at one. Policy A, the source assembler, the qualification, OGBPIDX and OGBPDISP2 are untouched. A diagnostic image — visible self-test, 5000 ms wait — is still buildable with `make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC`. 494 176 B. Built twice from scratch and byte-identical both times (SHA-256 and `cmp`); Swiss `build/swiss/12-stream/boot.dol` identical; 15/15 mutants refused; Dolphin PASS in both profiles with `xfb=0` normal against `xfb=1` diagnostic. **Reproduce with `GIT_COMMIT=59d2f57 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.52 |
-| GBP-VIDEO-004 **last physically executed** | `stream-0008` | `5126a19` | `a9efe181d46928d11a20623276a77f352db45b9795681173185e9a60d4e81282` | **PHYSICALLY EXECUTED 2026-09-19 (run 6) — SOURCE-LOSSLESS IN ORDER. 2047/2047 interior scientific frames handed off, 0 drops, 0 supersessions, 0 reorder, max deferred depth 1, p99 0.4946 ms / max 1.1353 ms, and 7 display repeats against a same-run requirement of [7, 8]. Twelve of twelve pre-registered gates passed (§V5.50).** POLICY A: two-XFB asynchronous deferral (§V5.49). A frame that finds no writable framebuffer is DEFERRED and offered again by `pump()`, in age order, instead of being discarded. No third XFB, no extra texture, no VI callback, no `VIDEO_WaitVSync`, no queue-depth change. Downstream sidecar bumped to `OGBPDISP2` because a non-terminal DEFER cannot be expressed in v1 without overloading `HOLD_PREVIOUS_FRAME`. 492 416 B. Built twice from scratch and byte-identical both times; Swiss `build/swiss/12-stream/boot.dol` identical; MEM1 keeps 4.58 MiB free after the framebuffers. 15/15 mutants refused. **Reproduce with `GIT_COMMIT=5126a19 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.49 |
+| GBP-VIDEO-004 **last physically executed** | `stream-0009` | `59d2f57` | `4d0337bb2cc7fe6e9acc1fb167e05a29caf7c497297ee7a1618d7e61a4d8c955` | **PHYSICALLY EXECUTED 2026-09-19 (run 7) — STARTUP PASSED 8/8: first real hand-off 165.154 ms after CONTROL, nothing synthetic handed over, no wait. Policy A clean (2244 hand-offs in order, 7 repeats / 0 drops over the join). Frozen `vindex.py`: `OBSERVED_CONTIGUOUS` with `intact 1988 / INVALID_CANONICAL_STRIP 60` — the structural window opened 3.840 s after CONTROL, the stimulus began at 4.845 s (§V5.53). No new continuity record for this build until a run with a valid steady-state window.** NORMAL STARTUP (§V5.52). `stream-0008`'s pipeline with the diagnostic experience removed from the normal path: the synthetic self-test runs HEADLESS (no framebuffer claimed, so nothing synthetic reaches the video interface), `prehandler_wait_ms` is 0, and both stream framebuffers are cleared to black before the VI is pointed at one. Policy A, the source assembler, the qualification, OGBPIDX and OGBPDISP2 are untouched. A diagnostic image — visible self-test, 5000 ms wait — is still buildable with `make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC`. 494 176 B. Built twice from scratch and byte-identical both times (SHA-256 and `cmp`); Swiss `build/swiss/12-stream/boot.dol` identical; 15/15 mutants refused; Dolphin PASS in both profiles with `xfb=0` normal against `xfb=1` diagnostic. **Reproduce with `GIT_COMMIT=59d2f57 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.52 |
+| GBP-VIDEO-004 **previous run** | `stream-0008` | `5126a19` | `a9efe181d46928d11a20623276a77f352db45b9795681173185e9a60d4e81282` | **PHYSICALLY EXECUTED 2026-09-19 (run 6) — SOURCE-LOSSLESS IN ORDER. 2047/2047 interior scientific frames handed off, 0 drops, 0 supersessions, 0 reorder, max deferred depth 1, p99 0.4946 ms / max 1.1353 ms, and 7 display repeats against a same-run requirement of [7, 8]. Twelve of twelve pre-registered gates passed (§V5.50).** POLICY A: two-XFB asynchronous deferral (§V5.49). A frame that finds no writable framebuffer is DEFERRED and offered again by `pump()`, in age order, instead of being discarded. No third XFB, no extra texture, no VI callback, no `VIDEO_WaitVSync`, no queue-depth change. Downstream sidecar bumped to `OGBPDISP2` because a non-terminal DEFER cannot be expressed in v1 without overloading `HOLD_PREVIOUS_FRAME`. 492 416 B. Built twice from scratch and byte-identical both times; Swiss `build/swiss/12-stream/boot.dol` identical; MEM1 keeps 4.58 MiB free after the framebuffers. 15/15 mutants refused. **Reproduce with `GIT_COMMIT=5126a19 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.49 |
 | GBP-VIDEO-004 **previous run** | `stream-0007` | `ddf8db6` | `74b7488630153ce3baaa42831a9af8ef03a2bce80399d840062965a34906eb36` | **PHYSICALLY EXECUTED 2026-09-19 (run 5) — source `OBSERVED_CONTIGUOUS` again, and the first downstream trace.** 491 040 B. Adds the OBSERVATIONAL downstream disposition trace and the `OGBPDISP1` sidecar (§V5.46) and nothing else: no pacing, queue depth, conversion, GX, XFB or VI change, and the interrupt path is byte-identical to the physically validated GBP-VIDEO-001 build. Byte-identical across two from-scratch builds; Swiss `build/swiss/12-stream/boot.dol` identical. **Reproduce with `GIT_COMMIT=ddf8db6 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.46 |
 | GBP-VIDEO-004 **source-continuity candidate** | `stream-0006` | `c629445` | `a9b8b969ef462bfe11b833f9dd77d56f7aa4a3387d61124f99b72901c9cb0379` | **PHYSICALLY EXECUTED 2026-09-19 (run 4) — `OBSERVED_CONTIGUOUS`.** 483 008 B. Adds the PRE-REGISTERED structural window (§V5.44) and nothing else: `OGBPIDX1`, `OGBPIDXCAP1 v1`, the analyzer and the stimulus are untouched, and the interrupt path is byte-identical to the physically validated GBP-VIDEO-001 build. Byte-identical across two from-scratch builds; Swiss `build/swiss/12-stream/boot.dol` identical. **Reproduce with `GIT_COMMIT=c629445 GIT_DIRTY= make build`** — which now actually works, see `c629445` | `HARDWARE_TESTS.md` §V5.44 |
 | GBP-VIDEO-004 **previous candidate** | `stream-0005` | `10250a4` | `35bbbdd684c2d0048d58661df1c079b613e01dee2d2cced12ba8f2f1e4d87092` | **AUDITED — DECISION A. NOT PHYSICALLY EXECUTED.** 481 664 B; source-layer retention proved unbiased against the real assembler, target stop proved safe (after ACK and RE-ARM), no off-by-one at 2048, no filesystem in the capture path, 9/9 adversarials caught. **Reproduce with `GIT_COMMIT=10250a4 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.39, §V5.40 |
@@ -307,97 +307,70 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **The pacing question is closed. `stream-0009` takes the diagnostic
-> experience off the normal path — nothing synthetic reaches the video
-> interface and nothing waits for seconds. Does that hold on hardware, and does
-> real Game Boy Player video reach the screen early enough to include whatever
-> the cartridge shows while booting?**
+> **Normal startup is physically validated. The open question is
+> research-window orchestration: how does a research build keep the boot
+> visible AND open the OGBPIDX scientific window only in steady state, without
+> delaying anything the user sees?**
 
-There is no blocker. **Decision A — the normal-startup candidate is safe enough
-for a controlled physical run** (§V5.52.16).
+There is no blocker. Two conclusions from run 7, kept apart (§V5.53):
 
-**What run 6 already settled, and must not be re-litigated** (§V5.50,
-GBP-HW-202…212): 2047 of 2047 interior consumer-reached scientific source frames
-handed off in order, 0 drops, 0 supersessions, 0 reorder, deferred depth never
-above 1, p99 0.4946 ms and max 1.1353 ms, and 7 display repeats beside 0 source
-drops — within the `[7, 8]` bracket that run's own rates require. `24 − 7 = 17`
-is the causal identity. **`stream-0009` changes startup scheduling only**, and
-every pacing module is byte-identical to the build that produced those numbers.
+**I. NORMAL STARTUP — 8/8 pre-registered machine gates.** `presented_synthetic=0
+headless_submits=1`, no `PREHANDLERWAIT` line, first real hand-off **165.154 ms**
+after CONTROL (gate 400 ms). Policy A clean over the whole run and the join
+(GBP-HW-214…217). **Physical-media double check: PENDING** — none was supplied.
 
-**The startup change, one line each:** the self-test runs HEADLESS in the normal
-profile and claims no framebuffer at all (Dolphin measures `xfb=0` against the
-diagnostic profile's `xfb=1`); `prehandler_wait_ms` is 0; both stream
-framebuffers are cleared to black before the VI is pointed at one. A diagnostic
-image with the visible self-test and the validated 5000 ms is one `make` flag
-away, so GBP-HW-120 and every historical experiment stay reproducible.
+**II. RESEARCH WINDOW — the frozen `vindex.py` says `OBSERVED_CONTIGUOUS`,
+composition `intact 1988 / INVALID_CANONICAL_STRIP 60 / contiguous 1986`, and
+that is recorded verbatim (GBP-HW-218).** Records 0..59 hold AGB startup content
+with no OGBPIDX framing; the stimulus enters at record 60 (FRAME_ID 0, STATUS
+0x7F) and the tail 62..2047 is contiguous — a DIAGNOSTIC, not the verdict
+(GBP-HW-219, 220). Cause, measured: window open 3.840 s after CONTROL, stimulus
+ID 0 at **4.845 s — in four of four indexed runs** (inferred in 4–6, measured in
+7). Coupling between UX and orchestration, not a defect (GBP-HW-221).
 
-**Predicted, not measured:** run 6's own stage timings put the first real
-hand-off **0.1532 s** after the CONTROL transform once the wait is gone. The
-frozen gate is **400 ms** (§V5.52.15), derived by letting the dominant
-self-terminating term more than double — not chosen to be impressive.
+**Do not** make the qualifier content-aware (§V5.53.11). **Do not** reintroduce
+any wait on the display path (§V5.53.12). The recommended fix is a content-blind
+not-before gate on the STRUCTURAL streak only, 5.000 s after CONTROL
+(GBP-VID-030) — analysed, not built, not authorised here.
 
-**And the slice position is still PLAUSIBLE BUT UNMEASURED as a property.**
-Carried unchanged through every round since it was first measured, because a
-later round WILL reuse the wrong number otherwise. Two runs measure the pump —
-27.88 / 33.60 / 41.06 µs and 28.32 / 34.07 / 41.33 µs, yielding to a latched
-cause on 24.95 % and 25.01 % of calls — and neither caused an observable
-transport failure. Neither measures the MARGIN it consumes. The pre-streaming
-window it rests on is unchanged at median **42.8** µs with **p25 = 1.9** µs.
-Run 6 showed no transport failure with the deferral bookkeeping on top
-(`timeouts 0, busy 0, errors 0`), and a run without a failure still does not
-measure the margin.
+**And the slice position is still PLAUSIBLE BUT UNMEASURED as a property**,
+carried unchanged: 27.88 / 33.60 / 41.06 µs and 28.32 / 34.07 / 41.33 µs,
+yielding 24.95 % / 25.01 %, pre-streaming window median **42.8** µs, p25
+**1.9** µs. Run 7 showed no transport failure either (`timeouts 0, busy 0,
+errors 0`); a run without a failure still does not measure the margin.
 
 ## Next safe action
 
-**TWO physical runs, in order, answering different questions. Do not merge them.**
+**Two things, separately authorised, not merged.**
 
-**RUN A — controlled regression.** `stream-0009` at `59d2f57` + `indexed-0003`
-(`9f04916b…8d9cc2`, the SAME cartridge, do NOT re-flash). Full power-cycle.
-Return three files, renamed before anything else touches the card.
+**RUN B — real-cartridge startup UX, may proceed NOW with `stream-0009`
+unchanged** (`59d2f57`, `4d0337bb…c955`). Startup passed on its own terms and
+this run needs no OGBPIDX window. Operator observation, kept apart from
+machine evidence: checkerboard absent? real video promptly? a boot sequence
+seen? Plus the log's `STARTUP`/`STARTUPT`/`STARTUPV` lines. **The runtime must
+not depend on a logo appearing.**
 
-```text
-MACHINE GATES
-  [ ] STARTUP normal_clean=1 and presented_synthetic=0
-  [ ] STARTUPV ticks_control_to_first_handoff <= 400 ms
-  [ ] source OBSERVED_CONTIGUOUS                    (tools/vindex.py, unmodified)
-  [ ] 0 interior drops - 0 supersessions - 0 reorder
-  [ ] max deferred depth <= 1
-  [ ] p99 ready->hand-off <= 1.0 ms and max <= 2.5 ms
-  [ ] trace intact - no overflow - no unmatched DrawDone
-  [ ] display repeats reported SEPARATELY, against a range derived from THAT
-      run's own source and VI timing -- never a fixed number
-OPERATOR OBSERVATION, kept apart from the machine evidence
-  [ ] no checkerboard at any point
-```
+**THE CORRECTED CONTROLLED RUN — needs a code round first.** Implement
+GBP-VID-030 (streak not counted before 5.000 s after CONTROL; display,
+transport, Policy A untouched), new build ID, full gates, then `indexed-0003`
+again. Only that run can give a normal-startup build a GBP-VIDEO-004
+continuity record. Same non-negotiable analysis order: identities,
+`vindex.py`, verdict, container, join, disposition, defer, latency, depth,
+cadence, then startup timings. **Never pacing first and source later.**
 
-**The analysis order is not negotiable and has not changed:** identities, then
-`tools/vindex.py`, then `OBSERVED_CONTIGUOUS` or stop, then container integrity,
-then the exact `frame_index` join, then disposition, then defer/retry, then
-latency, then queue depth, then the estimated display cadence, and only then the
-startup timings. **Never pacing first and source later.**
+**Artifact identities are computed HERE first**; the operator's `sha256sum` on
+the media is a double check. Run 7's is PENDING.
 
-**RUN B — real-cartridge startup UX**, only after A passes. A real commercial
-cartridge; no OGBPIDX stimulus is expected and none is required. This is an
-OPERATOR OBSERVATION run: was the checkerboard absent, did real video start
-promptly, was a boot sequence seen. **The runtime must not depend on a logo
-appearing** — not every cartridge shows the same thing, and absence with a good
-`ticks_control_to_first_handoff` is not a pipeline failure.
-
-**Artifact identities are computed HERE first.** The agent reports path, size,
-full SHA-256 and the embedded identity from the repository; the operator's
-`sha256sum` on the media is a DOUBLE CHECK of the physical copy, never the
-source of the identity. If the two disagree, stop.
-
-**Carried, read-only, costing nothing to honour:**
+**Carried, read-only:**
 
 ```text
-1  the F8 auditor blind spot is NOT fixed. tools/poc_audit.py still follows
-   function relocations only; §V5.52.13 inspected ONE build by hand.
-2  `xfb_skipped` must never be compared across stream-0007 and stream-0008/9 as
-   if it meant one thing: 17 terminal drops there, resolved defer attempts here.
-3  UNKNOWNS.md and ROADMAP.md phrase the logotype's first appearance against
-   different reference points (0.5014 s "after capture start" vs "after the AGB
-   starts"), differing by the ~0.107 s prefix. RUN A's STARTUPV settles it.
+1  DISPSRC terminal_pending prints BEFORE gbp_vdisp_finish(); the sidecar
+   header is the post-finish value. Read the header. (GBP-HW-217)
+2  the F8 auditor blind spot is NOT fixed; §V5.52.13 inspected one build.
+3  `xfb_skipped` = defer attempts under Policy A, never loss (GBP-HW-207).
+4  UNKNOWNS.md / ROADMAP.md reference-point wording for the logotype's first
+   appearance: run 7's episode 1 opened at 0.621 s after CONTROL (frame 30),
+   consistent with "0.5014 s after capture start" + the 0.107 s prefix.
 ```
 
 **BEFORE the run, protect the raw record.** The SD workflow names every run
