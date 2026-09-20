@@ -142,9 +142,12 @@ user real video ~165 ms after the CONTROL transform with no synthetic frame and
 no wait (GBP-HW-214…215, 224, 229, 235); and a research-only witness eligibility
 gate (GBP-HW-237). **Still not established:** pixel fidelity beyond the witness
 strip, scanout of any frame, presentation/scaling (see the pixel-perfect
-requirement below), audio, input, and any topology with the BBA present. The
-controlled video sequence that kept the BBA disconnected is closed (§V5.56.12);
-the phase itself is not. **U-GBP-011 closed
+requirement below), audio, input, and any Ethernet-connected or
+BBA-initialised topology. **BBA physically present, Ethernet disconnected** is
+now a paired topology control against run 9 with no detected regression
+(GBP-BBA-001, §V5.57.14) — a baseline, not BBA validation, and Phase 11 does
+not move. The controlled video sequence that kept the BBA disconnected is
+closed (§V5.56.12); the phase itself is not. **U-GBP-011 closed
 2026-09-18** by the pre-registered confirmatory run `color-0002`: the VIDEO
 window exchanges the two outer 5-bit groups relative to the AGB framebuffer, so
 the references' GX RGB5A3 reading is the displayed colour (GBP-HW-131). GBP-VIDEO-002 has now been run
