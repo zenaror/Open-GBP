@@ -9393,3 +9393,60 @@ profiles at 0 findings; two from-scratch builds at c465f5c (rm -rf build/poc; GI
 **Next.** Nothing is carried to the next functional checkpoint. The
 Orchestrator opens the next Phase-4 experiment as a GitHub Issue; if it is
 physical, `stream-0012` is the candidate and the pre-registration comes first.
+
+---
+
+## 2026-09-20 — Issue #6: scanout and full-frame fidelity, designed as two claims
+
+**Goal.** The ROADMAP names two Phase-4 facts still unestablished — scanout of
+any frame, and pixel fidelity beyond the witness strip — and the two are easy
+to blur into "the picture looks right". This checkpoint designs how to measure
+them as separate claims, and keeps both away from presentation, scaling and
+pixel-perfect policy (GBP-VID-032). Research/design only: nothing
+implemented, nothing run, no evidence ID, no reserved run name.
+
+**Two experiments, one run.** `GBP-VIDEO-007` (scanout) is decided by a literal
+operator observation bound to hand-over and VI-latch records; `GBP-VIDEO-008`
+(fidelity) by an offline byte comparison of preserved raw and texture against
+an oracle. The dependent variables are disjoint, the sampling for B is
+content-blind and the glyph for A is part of B's oracle, so one run may carry
+both — with two gate sets, two verdicts, and the rule that neither promotes the
+other. Five claims are named (A acquired, B converted, C handed, D scanned out,
+E presented) and a result for one letter may not promote another.
+
+**What is honest about scanout.** `VIDEO_GetCurrentFramebuffer()` is libogc2's
+own bookkeeping (`currentFb = nextFb` in its retrace handler), not a readback;
+retrace counters and OGBPDISP2 are CLAIM-C evidence. The design adds a VI-latch
+record with the framebuffer-base registers read back, and still calls it
+software. The physical claim comes from the operator seeing a large digit the
+cartridge paints for 40 frames every 480 — the runtime synthesises no pixels,
+so a digit on the screen came through the source stream — bound to the SET of
+40 frames, never to one, because no declared equipment can do better. What a
+capture device would add, and which claims are impossible without one, is
+written down; the operator's television and cable are an undeclared dependency,
+recorded rather than assumed.
+
+**What is honest about fidelity.** `indexed-0003` was not reused: outside the
+strips its rows 0/2 are identical, its ramp repeats every 64 px, its bar has 31
+phases for 40 blocks. The proposed `coord-0001` keeps OGBPIDX1's witness bytes
+identical — so `vindex.py`, the eligibility gate and every regression gate
+apply unchanged — and fills the rest with `y*183 + (x-56)`: injective, bit 15
+clear, and a host test now proves that every row or column shift, an axis
+swap, any 4x4 tile permutation and any block displacement changes at least one
+pixel. The dependent variable is the consumed word of all 38 400 pixels; bytes
+0/2 and bit 15 are preserved and reported, never corrected, never in the
+verdict. The claim stops at source → texture, and the section says why.
+
+**Formats.** OGBPIDXCAP1 and OGBPDISP2 cannot hold a full-frame sample or a
+latch instant, so two new names (`OGBPFULL1`, `OGBPVI1`) rather than a silent
+extension; the sample copy is consumer work in bounded pump slices, never in
+the service path; Policy A and the two XFBs are untouched.
+
+**Left open, deliberately:** display/cable declaration, whether an XFB-region
+CRC can be sliced without frame-sized work, K and the spacing against memory,
+glyph geometry against the VBlank budget (the ROM's own FAULT latch decides),
+which TEST_ID the build embeds, photographs, and one run versus two. Names are
+proposed and verified unused; none is frozen and none is reserved.
+
+**Next.** The Orchestrator validates §V6. Then an implementation Issue, then a
+pre-registration with exact identities. No physical run until then.
