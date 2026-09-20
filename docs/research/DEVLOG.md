@@ -9166,3 +9166,58 @@ identities). Fourteen new regression tests; run-7 and run-8 fixtures untouched.
 **Next.** Reported to the orchestrator, not executed: what Phase 4 still
 objectively lacks, the next roadmap candidates, what BBA PRESENT would actually
 test, and whether a topology-control run should precede any network code.
+
+---
+
+## 2026-09-20 — run 10: the same binary, the adapter in the slot, the same numbers
+
+**Goal.** Ingest `GBP-BBA-001`, the topology control the orchestrator placed
+ahead of the `WITELIG` fix so that the exact run-9 binary could be re-run with
+one intentional physical change — the Broadband Adapter present, Ethernet
+disconnected — and nothing else. Executor role: gates pre-registered, nothing
+redefined, nothing rebuilt, nothing fixed, no networking.
+
+**The operator's four facts come first and stay the operator's.** BBA
+presente: SIM. Ethernet: DESCONECTADO. Mesmo GameCube: SIM. Mesmo GBP: SIM.
+Recorded as a topology declaration, never derived from a filename or a log.
+The operator added `-bba` to the drop names — useful, kept as metadata — and
+the files went FIRST to the reserved `…-run10…` names with `cp --update=none`
+and `cmp`; run 9 re-verified intact; all three hashes matched the
+orchestrator's before any of them was read into an interpretation.
+
+**Source first, frozen tool, verbatim.** `vindex.py` untouched since `fbaea00`:
+`OBSERVED_CONTIGUOUS`, `intact 2048`, no `INVALID_CANONICAL_STRIP` line, IDs
+73..2120, 2046 decisive transitions. My own decode of every block agreed:
+81 920 valid strips, 2047 deltas of +1, STATUS 0x18, FAULT never, VMARGIN 24 —
+every count equal to run 9's.
+
+**Then the rest, in order, and it read like run 9 to within ticks.**
+Eligibility at 202 506 351 ticks (+5 vs run 9), first retained record
+6.067209136 s (−10), first real hand-off 165.154321 ms (−17 ticks, −0.42 µs).
+Transport 254 873 = 254 873 = 254 873, zero everything. OGBPDISP2 CRCs matched;
+2047 of 2047 over the join in exact order; 46/112 deferrals all on the next
+retrace; frozen latency p99 0.471778 ms, max 1.000765 ms; seven display
+repeats for the fifth run in a row — observational, and I did not turn five
+sevens into a gate. The known `WITELIG` cut recurred at 248 characters on the
+same line, as the pre-registration said it would, and it is not a BBA finding.
+
+**Fourteen of fourteen, again; PASS.** The only sentence the evidence licenses:
+under this exact controlled topology and observation window, with the same
+console, GBP, binary and stimulus, physical BBA presence with Ethernet
+disconnected produced no detected regression in the established video control
+metrics. Runs 9 and 10 are now a paired topology control. That is all they are.
+Not "safe", not "irrelevant", not Ethernet, not initialisation, not
+networking, not Phase 11.
+
+**Fixtures.** The OGBPDISP2, a content-blind projection and a structural
+projection that carries the operator's declaration as a declaration, the
+supplied `-bba` names, the canonical paths, every hash, the verdict with its
+composition, the gate and startup fields, the expected truncation, and the
+run-9 comparison with a note that equality is an observation. Fourteen new
+tests; run-9 and earlier fixtures untouched.
+
+**What changes for the next checkpoint.** The reason for holding the `WITELIG`
+fix has expired — the exact run-9 binary was reused successfully — so
+GBP-VID-033 is the next functional checkpoint, and a new build there cannot
+contaminate this comparison. Networking does not start; the orchestrator
+decides after that repair is validated.
