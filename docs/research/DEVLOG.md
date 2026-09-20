@@ -8614,3 +8614,110 @@ separation this round exists to establish.
 §V5.48.10 frozen first — source `OBSERVED_CONTIGUOUS`, zero interior loss,
 display repeats counted explicitly and within ±2 of the rate requirement,
 ready→hand-off p99 under 1 ms, deferred depth never above 1.
+
+---
+
+
+## 2026-09-19 — policy A implemented: a frame that cannot be shown is kept, not dropped
+
+**Goal.** Build the two-XFB asynchronous deferral the model chose, separate
+source disposition from display cadence in the instrumentation, and audit it.
+No hardware, no third framebuffer, no source-path change.
+
+**The audit before the edit paid for itself twice.** First: the retry site
+already existed — `pump()` re-offers a READY texture every ~158 µs — but the
+ORDER did not. `gbp_vpresent_acquire()` hands out the lowest FREE texture and
+the old loop scanned from index 0, so a newer frame converted into a lower slot
+could have overtaken a deferred older one. Policy A could not simply reuse the
+machinery; it needed the offer to go by AGE. That needs no second queue: the
+READY state *is* the deferral, and one helper picks the oldest lifecycle index.
+
+Second: the whole shape depends on asking the framebuffer question before the GX
+submit, and that is only sound if the answer cannot go stale. It cannot, and it
+is a proof rather than a hope: `xfb_target()` returns a slot only when
+`xfb_pending == -1`, and with nothing handed over the VI has nothing to latch,
+so a retrace cannot change which buffer is current. No other caller claims a
+stream framebuffer and the one ISR touches textures only. The precheck is in
+fact safer than the old order, which asked *after* the submit and left a longer
+window.
+
+**OGBPDISP2, because v1 honestly cannot say this.** Policy A introduces a
+NON-TERMINAL event — defer now, hand off later — and v1 was built around one
+decision per lifecycle. Expressing it there would mean overloading
+`HOLD_PREVIOUS_FRAME`, a word that already names 17 physically discarded frames
+in run 5. Reusing it would silently reinterpret an existing capture. So the
+version is bumped, `tools/vdisp.py` reads both, and a v1 file carrying a v2
+disposition is rejected rather than reinterpreted.
+
+**Defer attempts are aggregated, not evented.** The retry runs from `pump()`;
+one event per attempt would be unbounded and would perturb the thing it
+measures. The first defer emits one event, the rest advance a count and a last
+timestamp. At most two events per frame.
+
+**The counters now mean one thing each.** `gbp_vqueue_note_repeat` is gone from
+the runtime entirely — policy A never terminates a frame on a busy framebuffer —
+and `dropped_interior` is a tripwire that must stay zero. The new summary line
+is `DISPTRACE`, not `STREAMDISP`: the legacy tag already names the conservation
+identity, and a test now refuses duplicate tags outright.
+
+**Three tests had to be re-anchored, and one of them twice.** A guard that
+forbids `VIDEO_WaitVSync` in the present path fired on the COMMENT that says
+"NEVER VIDEO_WaitVSync here" — the same trap the §V5.44 predicate guard had to
+be taught, and the same fix: strip comments first. Another pinned
+`gbp_vqueue_note_repeat(account)`, which policy A deletes; its INTENT (the queue
+is only ever notified through the account parameter) survives and is now
+asserted as the call's absence. A third used a fixed byte window that the
+reordering pushed its targets out of, and is now anchored on ORDER.
+
+**The two parsers disagreed and now do not.** The C parser checks that each flag
+agrees with the counter it summarises; the Python one did not, so a file
+CLEARING `interior_loss` while carrying losses would have read as a clean run in
+one language and been rejected in the other. The Python parser now enforces the
+same rule, and a test exercises the dangerous direction rather than the harmless
+one.
+
+**Fifteen mutants, and the three that survived the first pass are the story.**
+Twelve were refused immediately. **M5** — not clearing the texture→lifecycle map
+after a hand-off — turned out to be behaviourally EQUIVALENT, and provably so:
+the key is written when the texture is *acquired*, before the conversion starts,
+and read only under a `READY` guard, so no reader can see the stale value. It is
+pinned anyway, because the equivalence is a property of the guard and not of the
+map. **M10** — dropping `ev_overflow++` on the defer path — was a real gap: the
+trace still failed `intact()` through its own identity, but the file would have
+reported `event_overflow == 0` beside missing events, pointing a future analyst
+at a counting bug instead of at capacity. **M13** was the dangerous one: the
+existing pin asserted the framebuffer question came before the submit using the
+FIRST match, so a SECOND call inserted after `gbp_vpresent_submit()` left the
+assertion true while handing `GX_CopyDisp` a fresh answer — possibly `-1` — and
+discarding the very answer the safety proof is about. The pin now requires
+exactly one call site. Both replacements are anchored on counts and on order,
+never on a byte window; that failure mode has now cost this project four
+separate guards.
+
+**The self-test could have passed without displaying anything.** `released` is
+zero-safe — with no token ever armed there is nothing in flight — and policy A
+makes that reachable, because if all eight offers defer nothing is presented.
+`selftest_ok` now requires a present explicitly.
+
+**Object-level audit.** `gbp_vdisp.o` has `.data = 0`, `.bss = 0` and no data
+relocation of ANY kind, which answers audit finding F8 by absence rather than by
+enumeration; its only outward edges are `memset` in `init` and `take`, and every
+capture-path function carries no relocation at all. `defer` and `decision` are
+loop-free at 127 and 206 instructions, so those counts are hard bounds on a
+whole call rather than averages.
+
+**Tests executed.** 293 checks in `test_gbp_vdisp` (12 new), 828 host tests, the
+full C suite green, nine POC object audits at 0 findings with the interrupt path
+byte-identical to the physically validated GBP-VIDEO-001 build, and Dolphin PASS
+with and without the Game Boy Player. `stream-0008` at `5126a19`, 492 416 B,
+`a9efe181…81282`, built twice from scratch and byte-identical both times, no
+`-dirty` stamp, Swiss export identical. MEM1 keeps 4.58 MiB free after the
+framebuffers.
+
+**New unknowns:** none. U-GBP-029, U-GBP-033, U-GBP-034 stay open.
+
+**Next:** one supervised physical run with `stream-0008`, gates frozen in
+§V5.49.15 — source `OBSERVED_CONTIGUOUS` first and always, then zero interior
+loss, deferred depth ≤ 1, ready→hand-off p99 ≤ 1.0 ms and max ≤ 2.5 ms, and
+display repeats reported separately against a range the analyzer derives from
+that run's own cadence. Not a fixed 7, and never a failure by themselves.

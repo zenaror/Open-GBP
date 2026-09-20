@@ -15526,3 +15526,475 @@ QUEUE GATE       deferred depth never exceeds 1; no overflow, no back-pressure
   differently.
 - No runtime was changed and no policy was implemented.
 ```
+
+---
+
+### V5.49 POLICY A IMPLEMENTED — `stream-0008` — 2026-09-19 — **TWO-XFB ASYNCHRONOUS DEFERRAL**
+
+A frame that finds no writable framebuffer is now **deferred**, not discarded.
+No third framebuffer, no extra texture, no VI callback, no `VIDEO_WaitVSync`,
+no queue-depth change, no source-path change. **No hardware ran.**
+
+#### V5.49.1 The audit that came first, and what it found
+
+**The retry site already existed** — `pump()` re-offers a READY texture on every
+call, about every 158 µs — **but the ORDER was not guaranteed**, and that had to
+be found before anything was written:
+
+```text
+gbp_vpresent_acquire()   hands out the LOWEST-index FREE texture
+the old retry loop       scanned from index 0 and took the first READY
+```
+
+So with a frame deferred in texture 0, `acquire()` returns texture 1, the next
+frame converts there and — on completion — called `submit_ready(1)` directly. If
+a framebuffer was writable at that moment it would have **overtaken the older
+frame**. Policy A cannot be built on the existing machinery unchanged.
+
+The fix needs no second queue (§V5.49.9): the READY state *is* the deferral, and
+both offer sites now go through one helper that picks the **oldest** READY
+texture, oldest by lifecycle index, which is assigned in take order.
+
+#### V5.49.2 THE PRECHECK IS SAFE, AND IT IS A PROOF
+
+The shape requires asking the framebuffer question *before* submitting to GX.
+That is only sound if the answer cannot go stale in between. It cannot:
+
+```text
+1. xfb_target() returns X only when X is neither `current` nor `pending`.
+2. With exactly TWO framebuffers that forces `xfb_pending == -1` after
+   xfb_observe(): if pending >= 0 and pending != current, both slots are
+   skipped and the function returns -1; if pending == current, observe()
+   has already cleared it.
+3. With nothing handed over, the VI has nothing to latch, so a retrace CANNOT
+   change which buffer is current.
+4. The only calls that claim a stream framebuffer are in submit_ready();
+   VIDEO_SetNextFramebuffer() is otherwise used only for the text framebuffer
+   during setup and teardown, outside the capture window.
+5. The POC is single-threaded main-side, and the one interrupt entry --
+   on_draw_done() -- touches TEXTURES, never framebuffers.
+
+=> X stays writable from the precheck until this same path hands it over.
+```
+
+The precheck is in fact *safer* than the old order, which asked after the GX
+submit and therefore left a longer window.
+
+#### V5.49.3 The policy, exactly
+
+```text
+offer_oldest_ready()          the OLDEST READY texture, never the lowest slot
+submit_ready(buf, account):
+  cur   = xfb_current_index()
+  t,rt  = clock and retrace, read BEFORE the decision
+  xfb   = xfb_target(cur)
+  pend  = xfb_pending            snapshot, between target() and handed()
+  if xfb < 0:
+      gbp_vdisp_defer(...)       NON-TERMINAL. No token consumed, no loss
+      return                     counted, texture stays READY
+  submit gate -> GX draw -> GX_SetDrawDone -> GX_CopyDisp -> SetNextFramebuffer
+  -> xfb_handed -> note_presented -> gbp_vdisp_decision(... TERMINAL ...)
+```
+
+The GX call order below the gate is **unchanged** from `stream-0007`: that order
+is the ownership argument, and this round changes the policy, not the pipeline.
+
+Nothing waits. The deferral is a state, not a delay.
+
+#### V5.49.4 What the source producer does meanwhile
+
+While a texture is READY-and-deferred, `acquire()` can still hand out the other
+texture and a newer frame can convert into it. It simply cannot hand off first.
+The bounded state is therefore:
+
+```text
+at most 2 textures alive   (1 deferred + 1 converting), the existing count
+at most 1 pending source descriptor in the mailbox (newest-wins, unchanged)
+```
+
+The model says the deferred depth stays at **1**; the runtime MEASURES it
+(`max_deferred_depth`) rather than assuming it, so a run that exceeds the
+expectation says so instead of hiding it.
+
+#### V5.49.5 OGBPDISP2 — required, and why
+
+**v1 cannot express this.** It was built around one downstream decision per
+lifecycle, and policy A introduces a NON-TERMINAL event: defer now, hand off
+later. Representing that in v1 would mean overloading `HOLD_PREVIOUS_FRAME` —
+a word that already has a physical meaning in run 5, where it names 17 frames
+that were *discarded*. Reusing it would silently reinterpret an existing
+capture, which §V5.49.13 forbids. So the version is bumped.
+
+```text
+header 0x140 (was 0x100)        life record 128 B (was 96)
+new life fields   t_first_attempt · t_first_defer · t_last_defer · defer_attempts
+new dispositions  DEFERRED (non-terminal) · TERMINAL_PENDING (an edge, not a loss)
+new header block  source_handoffs · source_deferred_frames · source_defer_attempts
+                  source_dropped_interior · terminal_pending · max_deferred_depth
+                  order_violations
+new flags         ORDER_VIOLATION · INTERIOR_LOSS
+```
+
+It deliberately adds **no** scientific-membership field: the population is the
+exact `frame_index` join with OGBPIDXCAP1, and duplicating it is precisely what
+produced the v1 off-by-one (GBP-VID-019/023).
+
+`tools/vdisp.py` reads **both** versions. The run-5 v1 sidecar still parses, and
+a v1 file carrying a v2 disposition is rejected rather than reinterpreted.
+
+**Defer attempts are aggregated, not evented.** The retry runs from `pump()`, so
+one event per attempt would be unbounded and would perturb what it measures. The
+FIRST defer emits one event; every later one advances `defer_attempts` and
+`t_last_defer`. At most two events per frame: the defer transition and the
+hand-off.
+
+#### V5.49.6 Counters that mean one thing each
+
+The runtime's legacy `repeats` stood for a dropped source frame and a repeated
+display interval at once, which is how the two were confused (GBP-VID-020). The
+new ones do not overlap:
+
+```text
+DISPSRC  handoffs · deferred_frames · defer_attempts · dropped_interior
+         terminal_pending · max_defer_depth · order_violations
+```
+
+`dropped_interior` is a **tripwire**: policy A never terminates a frame on a
+busy framebuffer, so it must stay 0, and `gbp_vqueue_note_repeat` no longer
+appears in the runtime at all.
+
+The new trace summary is tagged **`DISPTRACE`**, not `STREAMDISP`: the legacy
+tag already names the conservation identity, and two different lines under one
+tag is a trap for any parser that keys on it (§V5.49.6). A test now refuses
+duplicate tags outright.
+
+#### V5.49.7 Invariants, counted rather than asserted
+
+```text
+I1  a deferred frame keeps its frame_index until hand-off
+I2  a newer frame never hands off before an older one   -> order_violations
+I3  a texture is never re-keyed while carrying a deferred frame
+I4  each interior source frame has at most one successful hand-off
+I5  DEFER is non-terminal
+I6  HAND-OFF is terminal for source disposition
+I7  no frame is both dropped and handed off
+I8  no deferred frame disappears at shutdown            -> gbp_vdisp_finish()
+I9  the self-test has no source identity
+I10 trace overflow fails closed
+```
+
+I2 is a counter, not an assertion, so a violation appears in the evidence
+instead of stopping a physical run — and `gbp_vdisp_intact()` is false whenever
+it is non-zero, so no disposition claim can be built on a run that had one.
+
+I8 is `gbp_vdisp_finish()`, called before the sidecar is written: every
+lifecycle still OPEN or DEFERRED becomes `TERMINAL_PENDING`. **Teardown never
+invents a hand-off to make a column balance**, and an edge state is not an
+interior loss.
+
+#### V5.49.8 What it costs the hot path
+
+```text
+common case (a framebuffer is writable)
+    one extra VIDEO_GetCurrentFramebuffer + xfb_target earlier in the function;
+    the same calls as stream-0007, in a different order. No added clock read.
+defer case
+    one clock read, one retrace read, ~8 fixed field writes, one bounded scan
+    of 2 texture states. No token consumed, so no DrawDone is spent either.
+retry (pump, ~158 us)
+    the age scan is 2 comparisons; a retry that defers again writes 3 fields
+    and emits NO event.
+callback
+    unchanged.
+```
+
+No allocation, no formatting, no filesystem, no CRC, no loop whose length
+depends on data, and nothing that waits. That is the claim; §V5.49.12 checks it
+against the compiled object rather than against this paragraph. **Neither is a
+certification:** only a physical run can say whether the margin holds.
+
+#### V5.49.9 Model regression — the policy as implemented still wins
+
+The offline model (`tools/vpace.py`, §V5.48) is unchanged and its gates still
+hold:
+
+```text
+physical replay of run 5     0 source drops · 0 supersessions · queue max 1
+                             7 display repeats (the rate requirement) 
+                             max added latency 1.264 ms
+1024-phase sweep             0 drops · 0 superseded · queue max 1 · order kept
+10-minute horizon            0 drops · queue max 1 · exactly 128 repeats · no drift
+jitter to 10x measured       0 drops · queue max 1
+third-XFB regression         0 drops but 17 SUPERSESSIONS -- kept as a test so a
+                             future metric cannot call a hand-off request a
+                             guaranteed presentation
+```
+
+#### V5.49.10 Build identity
+
+```text
+Test ID     GBP-VIDEO-004
+Build ID    stream-0008
+Commit      5126a19            -- CLEAN, no -dirty stamp
+Size        492 416 B          -- stream-0007 was 491 040 B (+1 376 B)
+sha256      a9efe181d46928d11a20623276a77f352db45b9795681173185e9a60d4e81282
+Swiss       build/swiss/12-stream/boot.dol, byte-identical to the source DOL
+embedded    stream-0008 · 5126a19 · GBP-VIDEO-004
+Reproduce   GIT_COMMIT=5126a19 GIT_DIRTY= make build
+```
+
+Built twice from scratch and **byte-identical both times**. The fuseblk
+workaround from §V5.46.18c was used again: `build/poc` is MOVED aside on the
+host rather than deleted, because a fresh name has no stale dentry.
+
+Measured on the real build, not from a nominal 24 MiB:
+
+```text
+.text   379 472 B      .rodata   48 064 B
+.data    11 444 B      .sdata       168 B
+.sbss     1 836 B      .bss  18 009 816 B
+bss ends 0x811A8978 · Arena1Lo 0x811A8980 · Arena1Hi 0x81800000
+arena1 free            6 649 472 B = 6.341 MiB
+three framebuffers     3 x 614 400 = 1 843 200 B
+arena after the XFBs   4 806 272 B = 4.584 MiB
+```
+
+`.bss` grew 852 656 B against §V5.40's measurement, and 294 912 B of that is
+this round: the lifecycle record went 96 -> 128 B and the event store 4096 ->
+8192 entries, so the trace arena is `128*4096 + 40*8192 = 851 968 B`. It is
+preallocated at init; nothing in the capture path allocates. **No overlap**:
+`.bss` ends below `Arena1Lo`, which is below `Arena1Hi`, which is the end of
+MEM1, and 4.58 MiB survives the framebuffers.
+
+Dolphin PASS both with and without the Game Boy Player, on the clean build:
+`ok=1 converted=1 released=1 submits=1 drawdone=1 releases=1 xfb=1 sci_clean=1
+inv_fail=0`, `balanced=1 consistent_at_end=1 storage_fault=-`.
+
+`indexed-0003` is unchanged at `9f04916b…8d9cc2` and `stream-0007` remains the
+last physically executed runtime.
+
+#### V5.49.11 The focused audit, stream-0007 → stream-0008
+
+```text
+ 1 only presentation policy changed?            YES -- the diff is submit_ready,
+                                                the offer helper, trace and tags
+ 2 source path unchanged?                       YES -- gbp_vstate*, gbp_vqueue,
+                                                gbp_vpix, gbp_vsig untouched
+ 3 qualification unchanged?                     YES -- gbp_vwitness* untouched
+ 4 OGBPIDX unchanged?                           YES -- wire format and witness
+ 5 indexed-0003 unchanged?                      YES -- same 2 880 B ROM
+ 6 exactly two framebuffers?                    YES -- GBP_VPRESENT_XFB_BUFFERS 2
+ 7 exactly two textures?                        YES -- GBP_VPRESENT_TEX_BUFFERS 2
+ 8 no blocking VI wait?                         YES -- the only VIDEO_WaitVSync
+                                                is in the pre-capture self-test
+ 9 deferred frame ownership safe?               YES -- it stays READY; the GP
+                                                never owns it until the submit
+10 no overtaking?                               YES -- offer by age, and I2 counts
+11 retry bounded?                               YES -- pump's existing cadence,
+                                                no event per attempt
+12 prechecked target safe across a retrace?     YES -- proved in §V5.49.2
+13 terminal accounting correct?                 YES -- TERMINAL_PENDING, and no
+                                                invented hand-off
+14 trace separates disposition from cadence?    YES -- DISPSRC counters, and the
+                                                display metric is offline
+15 no hot-path filesystem/CRC/allocation?       YES -- every capture-path
+                                                function has ZERO relocations
+16 F8 checked by hand?                          YES -- the object has no data
+                                                relocation of any kind
+```
+
+#### V5.49.12 F8, checked by hand, and the hot-path cost
+
+`tools/poc_audit.py` follows relocations of FUNCTIONS, so a forbidden symbol
+reached through a DATA initialiser is invisible to it (finding F8). For this
+build `gbp_vdisp.o` was disassembled and every relocation record read by hand
+rather than trusted to the allowlist. The result is stronger than the
+allowlist needed it to be:
+
+```text
+section sizes           .data = 0   .bss = 0   .text = 0
+                        -> the module holds NO static state and NO string
+                           literal; the whole trace lives in the caller's
+                           `struct gbp_vdisp`
+
+relocations, by function
+  gbp_vdisp_init        memset          (R_PPC_REL24)
+  gbp_vdisp_take        memset          (R_PPC_REL24)
+  every other function  NONE AT ALL
+
+relocation types present, whole object:  R_PPC_REL24 only
+```
+
+`R_PPC_REL24` is the branch-and-link form. There is not one `R_PPC_ADDR16_HA`
+/ `_LO` pair anywhere in the object, and that is the form a data reference to
+an external object would have to take. So F8's question — "is a forbidden
+symbol reached through a data initialiser?" — is answered by the absence of
+any data relocation at all, not by an enumeration of the ones found.
+
+Every function that runs during capture — `defer`, `decision`, `submit`,
+`submit_refused`, `drawdone`, `convert_first`, `convert_done` — carries **zero
+relocations**. It is not that they avoid the filesystem, the printf family,
+sleep/wait, `VIDEO_WaitVSync`, allocation and CRC by policy: they branch
+nowhere outside themselves, so there is no edge for such a call to exist on.
+
+**Cost (§V5.49.12.1).** Instruction counts and control flow from the same
+disassembly:
+
+```text
+function                insns   backward branches  verdict
+gbp_vdisp_defer           127   3 -> epilogue / event-append join
+gbp_vdisp_decision        206   8 -> epilogue / event-append join
+gbp_vdisp_submit           24   none
+gbp_vdisp_drawdone         29   none
+gbp_vdisp_take             90   memset call + 3 epilogue joins
+gbp_vdisp_finish           23   ONE bounded `bdnz` over the lifecycles
+```
+
+Every backward branch in `defer` and `decision` targets either the shared
+epilogue or the single event-append block at `decision+0x138`, which several
+classification arms converge on; from those targets control only runs forward
+to a `blr`. There is therefore **no cycle in any per-frame function**, and the
+counts above are hard upper bounds on a whole call, not averages. The only
+genuine loop in the module is in `gbp_vdisp_finish`, which runs once at
+capture end, before the sidecar write, and is bounded by `LIFE_CAP`.
+
+What policy A added to the per-frame path, against `stream-0007`: the
+ordering-invariant test and the `source_handoffs` increment inside
+`decision`, and — only when the precheck refuses — one call to `defer`
+(≤ 127 instructions, one event on the FIRST attempt of a frame and pure
+aggregation afterwards). The 158 µs retry interval is three orders of
+magnitude above any of this; the trace cannot be what makes a deferral last.
+
+**Memory.** The life record grew 96 → 128 B and the event cap 4096 → 8192, so
+the arena is `128·4096 + 40·8192 = 851 968 B`, and the sidecar at its maximum
+is `320 + 851 968 + 12 = 852 300 B`. Both are preallocated at init; nothing in
+the capture path allocates.
+
+#### V5.49.13 The mutation harness — 15 threats, 15 refused
+
+Fifteen mutants, each modelling a way policy A could be wrong rather than a
+way the source could be edited. Rules carried from every previous round: the
+mutant must be PROVEN present by comparing bytes, the files are restored from
+memory and never with `git checkout`, and no verdict is read through a shell
+pipeline.
+
+```text
+M1  a deferred frame is marked dropped                              CAUGHT
+M2  the offer picks the NEWEST ready frame, overtaking the older    CAUGHT
+M3  an out-of-order hand-off is no longer counted                   CAUGHT
+M4  the precheck no longer defers, so GX is fed a frame with no target
+                                                                    CAUGHT
+M5  the texture->lifecycle map is not cleared after a hand-off      CAUGHT*
+M6  a hand-off is counted twice                                     CAUGHT
+M7  a terminal deferred frame is counted as interior loss           CAUGHT
+M8  a frame alive at the stop silently disappears                   CAUGHT
+M9  the self-test enters the scientific source population           CAUGHT
+M10 a defer-event overflow is ignored                               CAUGHT
+M11 scientific membership comes from the armed flag, not the join   CAUGHT
+M12 the display-repeat count is reported as the source-drop count   CAUGHT
+M13 the target is re-read after the submit, so a -1 can reach GX    CAUGHT
+M14 a busy-wait for the retrace enters the present path             CAUGHT
+M15 the new trace reuses the legacy STREAMDISP tag                  CAUGHT
+```
+
+**The first pass caught 12.** Three survived, and they are the part of this
+section worth reading.
+
+**M5 is behaviourally EQUIVALENT, and the proof matters more than the verdict.**
+`tex_life[buf]` is written when the texture is ACQUIRED — before the conversion
+starts, long before `gbp_vpresent_fill_done()` can make it READY — and it is
+read only under a `tex[i] == READY` guard. No reader can therefore observe the
+stale key, and removing the close changes nothing that runs. The line is kept
+as defence in depth and is now pinned in the wiring test, because the
+equivalence is a property of the READY guard and not of the map: a future
+reader that is not READY-gated would make the line load-bearing, and nothing
+else would notice. **The guard added for M5 pins the SOURCE, not the
+behaviour**, and this paragraph exists so that distinction is not lost.
+
+**M10 was a real gap.** Removing `d->ev_overflow++` from the defer path left
+`gbp_vdisp_intact()` false anyway — the identity `decisions + deferred ==
+ev_n` breaks on its own — so the run would still have been rejected. It would
+have been rejected *for the wrong reason*: the file would report
+`event_overflow == 0` beside missing events, and the diagnosis would have
+pointed at a counting bug instead of at capacity. The refusal is now counted
+where it happens, and a unit test fills a two-event store and defers into it.
+
+**M13 was a real gap, and the more dangerous one.** The existing pin asserted
+that the framebuffer question came before the submit, using the FIRST
+occurrence of the call. A SECOND call inserted after `gbp_vpresent_submit()`
+left that assertion true while handing `GX_CopyDisp` a fresh answer — possibly
+`-1` — and discarding the very answer the §V5.49.2 safety proof is about. The
+pin now requires exactly one call site.
+
+The pattern is the same one §V5.46.18 recorded: an assertion anchored on the
+first match, or on a byte window, stops covering what it was written to cover
+the moment the code around it moves. Both replacements are anchored on counts
+and on order.
+
+#### V5.49.14 DECISION
+
+**A — `stream-0008`'s two-XFB deferral is safe enough for a first supervised
+physical source-lossless pacing run.**
+
+It rests on the §V5.49.2 ownership proof, not on the simulator: the simulator
+says the policy is *right*, the source audit says it is *safe*. Both were
+required.
+
+#### V5.49.15 The future physical experiment — gates frozen, no run
+
+```text
+1  full power-cycle before the run
+2  indexed-0003 delivery 9f04916b…8d9cc2 -- the SAME cartridge, do NOT re-flash
+3  the exact stream-0008 DOL from the artifacts table
+4  the same EZ-Flash Omega DE NOR / Mode-B route
+5  ONE run
+6  automatic 64-frame structural qualification, unchanged
+7  exactly 2048 scientific source witnesses
+8  WAIT for all three sidecars to save (log, OGBPIDXCAP1, OGBPDISP2)
+9  rename all three before anything else touches the card
+10 compute full SHA-256 for each
+```
+
+**Analysis order is strict and is not negotiable:** identities, then
+`tools/vindex.py`, then `OBSERVED_CONTIGUOUS` or stop, then container
+integrity, then the exact `frame_index` join, then disposition, then
+defer/retry, then latency, then queue depth, then the estimated display cadence.
+**Never pacing first and source later.**
+
+```text
+SOURCE GATE       same-run OBSERVED_CONTIGUOUS
+DISPOSITION GATE  0 interior source drops · 0 supersessions · 0 reorder ·
+                  every interior scientific frame eventually handed off
+QUEUE GATE        max deferred depth <= 1
+LATENCY GATE      ready -> hand-off p99 <= 1.0 ms and max <= 2.5 ms
+TRACE GATE        no overflow · no unmatched ownership · intact = 1
+CADENCE           display repeats reported SEPARATELY and are NOT a failure
+```
+
+**The latency threshold, and why that number.** The model's worst case is
+1.264 ms on the physical replay and 1.422 ms across 1024 phases. The bound is
+one retry period above the sweep maximum — `pump()` runs about every 158 µs and
+a deferral resolves at a retrace boundary, so the physical worst case is the
+model's worst case plus at most one retry interval plus measurement jitter:
+1.422 + 0.158 ≈ 1.6 ms, and 2.5 ms leaves ~56 % headroom for the jitter the
+model did not see. It is deliberately NOT "≤ the modelled maximum", which would
+fail on a single unlucky retry, and deliberately not open-ended.
+
+**The display-repeat expectation is a RANGE derived from the same run**, never a
+fixed 7. The analyzer computes the rate requirement from that run's own measured
+source cadence and VI period and compares the observed estimate against it. No
+post-hoc tolerance.
+
+#### V5.49.16 Non-claims
+
+```text
+- No hardware ran. Every disposition number here is a model or a unit test.
+- `VIDEO_SetNextFramebuffer` is still stage B. Nothing claims physical scanout,
+  and "display repeat" remains an ESTIMATE under sampled VI semantics.
+- The hot-path cost is measured, not certified. Only a physical run can say
+  whether the margin holds.
+- The precheck proof is about THIS code with exactly two framebuffers. It does
+  not generalise to a third, and a third is not proposed.
+- stream-0007 remains the last physically executed runtime, and runs 1-5 keep
+  their results unchanged.
+```
