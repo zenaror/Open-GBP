@@ -1,8 +1,8 @@
 """
 tests/host/test_video007_design.py — the GBP-VIDEO-007 / GBP-VIDEO-008 design
 (HARDWARE_TESTS §V6): physical scanout and full-frame fidelity as SEPARATE
-claims, designed and pre-registered but NOT implemented and NOT run (GitHub
-Issue #6).
+claims, designed for GitHub Issue #6 and, since Issue #7, IMPLEMENTED IN
+SOFTWARE (§V6.18) but NOT physically executed and with no run reserved.
 
 What is pinned here is the CONTRACT of the design: the section exists with its
 numbered parts in order, it commits to nothing it has not done, it allocates no
@@ -70,7 +70,11 @@ class SectionsExist(unittest.TestCase):
         t = v6()
         pos = [t.index("### V6.%d " % n) for n in range(1, 18)]
         self.assertEqual(pos, sorted(pos))
-        self.assertIn("(NOT IMPLEMENTED, NOT RUN)", t.splitlines()[1])
+        # Issue #7: the heading now carries the implementation status; the design
+        # provenance (Issue #6) stays in the same heading.
+        self.assertIn("DESIGN (Issue #6)", t.splitlines()[1])
+        self.assertIn("IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED, NO RUN RESERVED", t.splitlines()[1])
+        self.assertIn("### V6.18 ", t)
 
     def test_the_thirteen_required_items_are_mapped(self):
         head = v6().split("### V6.1 ")[0]
@@ -81,12 +85,18 @@ class SectionsExist(unittest.TestCase):
 
 
 class ItCommitsNothingItHasNotDone(unittest.TestCase):
-    def test_it_says_plainly_that_nothing_is_implemented_or_run(self):
-        head = v6().split("### V6.1 ")[0]
-        self.assertIn("DESIGN ONLY", head)
-        self.assertIn("Nothing here is implemented", head)
+    def test_it_says_plainly_what_is_implemented_and_what_is_not(self):
+        """Issue #6 wrote the design; Issue #7 implemented it in software. The
+        head must say both, keep the design text as provenance, and still say
+        that nothing touched hardware and nothing is reserved."""
+        head = flat(v6().split("### V6.1 ")[0])
+        self.assertIn("IMPLEMENTED IN SOFTWARE", head)
+        self.assertIn("NOT PHYSICALLY EXECUTED", head)
         self.assertIn("nothing has touched hardware", head)
-        self.assertIn("no evidence ID is\nallocated, no run is reserved, and no frozen format changes", head)
+        self.assertIn("no evidence ID is allocated, no run is reserved, and no frozen format changes", head)
+        self.assertIn("DESIGN ONLY", head)
+        self.assertIn("kept verbatim as provenance", head)
+        self.assertIn("V6.18", head)
 
     def test_it_allocates_no_evidence_id_and_reserves_no_run(self):
         t = v6()
@@ -245,12 +255,16 @@ class FormatsAndEquipment(unittest.TestCase):
 
 
 class TheHandoffPointsHere(unittest.TestCase):
-    def test_the_handoff_names_the_design_and_says_it_is_not_implemented(self):
+    def test_the_handoff_names_the_design_and_says_it_is_implemented_but_not_run(self):
         t = read(HANDOFF)
         self.assertIn("§V6", t)
+        self.assertIn("§V6.18", t)
         self.assertIn("GBP-VIDEO-007", t)
         self.assertIn("GBP-VIDEO-008", t)
-        self.assertRegex(t, r"NOT IMPLEMENTED[^\n]*NOT RUN|not implemented[^\n]*not run", "the handoff must say the design is not implemented and not run")
+        self.assertRegex(t, r"IMPLEMENTED IN SOFTWARE[^\n]*NOT PHYSICALLY EXECUTED",
+                         "the handoff must say the design is implemented in software and not physically executed")
+        self.assertIn("stream-0013", t)
+        self.assertIn("coord-0001", t)
 
 
 if __name__ == "__main__":

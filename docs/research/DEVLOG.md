@@ -9450,3 +9450,62 @@ proposed and verified unused; none is frozen and none is reserved.
 
 **Next.** The Orchestrator validates §V6. Then an implementation Issue, then a
 pre-registration with exact identities. No physical run until then.
+
+## 2026-09-20 — Issue #7: coord-0001, the full-frame samples and the VI latch trace — built, tested, not run
+
+**Goal.** Implement the §V6 design (Issue #6) as software, with frozen
+identities, and nothing more: no physical run, no run name reserved, no
+evidence ID. The Issue fixed the open decisions of §V6.17 in advance — K = 8
+content-blind samples every 256 eligible frames, no XFB-region CRC, the glyph
+at 48×80 / P 480 / W 40, the embedded TEST_ID stays `GBP-VIDEO-004`,
+photograph optional, display / cable not invented.
+
+**Changes, in four commits.** `99496a6` the stimulus `coord-0001`
+(OGBPCOORD1: OGBPIDX1's FLAG / STRIP-L / GUARD-A byte-identical, then the
+injective field `y*183 + (x-56)`, a guard at 239, no STRIP-R, no bar; the
+seven-segment digit and six counter squares for 40 frames every 480; a
+division-free schedule; prepare in the visible period, publish in VBlank by
+DMA; erase tables in EWRAM `.sbss` so the ROM is 3 496 B) with `tools/icoord.py`
+as its model and a host harness that compiles the ROM's own `main.c` and
+proves word parity; `2c7ff0e` the two pure modules and their serializers —
+`gbp_vfull` (the sample store: content-blind grid, one block per slice, a
+generation or slot reuse refuses the sample) → OGBPFULL1 v1, and `gbp_vvi`
+(hand-over → latch, supersede, overflow counted) → OGBPVI1 v1 — with
+`tools/vfull.py` (three conversions compared, the frozen strip decoder, a
+mismatch classifier with ten classes, bytes 0/2 and bit 15 reported apart) and
+`tools/vvi.py` (register consistency, the R / H / L join, a report that says
+it classifies nothing); `7d7a6d8` the stream integration as `stream-0013`, with
+the audit profile pinning every new call site by function and every new
+object's outward edges; then this documentation.
+
+**What the built program says about memory.** `ENVFULL` on the final DOL:
+2 080 768 B of new static stores declared, `arena1_free=1658880` after them
+and the runtime allocations, against run 11's 3 751 936 — the arithmetic
+closes to 12 288 B of bookkeeping. K = 8 fits; the hardware run's own line
+must repeat it.
+
+**Tests executed.** Host suite 1096 passed; C suite every test 0 failures
+(`test_gbp_vfull` 663 checks, `test_gbp_vvi` 419); nine audits 0 findings with
+the ISR comparison identical; twelve POCs from scratch with 0 warnings;
+`stream-0013` twice from scratch byte-identical (506 496 B, `5391c3fe…dd79`),
+Swiss parity; `coord-0001` twice from scratch byte-identical (`90343b64…0a1f`),
+delivery re-derived (`a769cc11…994f`); Dolphin PASS on both profiles.
+
+**What was decided rather than measured.** The XFB CRC is dropped, so
+CLAIM-B ends at the converted texture; the VI latch reads four register
+halves back and is still CLAIM-C. Where the implementation departs from the
+§V6.8 sketch (64-byte VI records with four register halves, no CRC field in
+the sample meta, ENVFULL instead of ENVSTORE) §V6.18.12 says so and the design
+text is not rewritten. One pin moved: `test_vdisp` now expects the take clock
+in a local (`t_take`) beside the unchanged key; and the design test's
+"names unused anywhere" walk became "the design named them, no other id was
+minted".
+
+**Rejected / not done.** No RUN 12 name; no hardware; no classification; no
+GBP-HW id. `stream-0012` is superseded as the candidate and keeps its
+identity, never run.
+
+**Next.** The Orchestrator validates §V6.18 against §V6 independently; the
+operator declares display and cable; then a pre-registration Issue reserves
+the run names and fixes the procedure against these exact identities. Until
+then nothing about scanout or fidelity is known.
