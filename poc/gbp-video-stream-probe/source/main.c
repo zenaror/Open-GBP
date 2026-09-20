@@ -1225,19 +1225,34 @@ int main(void)
                     * right answer even when the window opened mid-frame. */
                    (wit.n && (wit.meta[0].present & 1u)) ? 0 : -1,
                    wit.n ? (long)wit.meta[0].frame_index : -1L);
-    /* §V5.55: the eligibility gate, as its own line, so capture start,
-     * eligibility, qualification and the first record are four fields and not
-     * a reconstruction. qual_streak_at_eligible is 0 BY CONTRACT and is printed
-     * so a future edit that breaks the contract shows up in the record. */
+    /* §V5.55: the eligibility gate, as its own record, so capture start,
+     * eligibility, qualification and the first record are fields and not a
+     * reconstruction.
+     *
+     * §V5.58 (GBP-VID-033): TWO records, not one. The ringlog line is
+     * LOG_LINE_LEN 256 with a 7-character "%06u " prefix, so a payload may be
+     * at most 248 characters; the single-record form rendered longer than that
+     * in runs 9 and 10 and was clipped after `qual_streak_at_e`. The split is
+     * the whole fix: field names unchanged, no buffer enlarged, and a host
+     * guard (tests/host/test_witelig_len.py) proves both records fit at the
+     * WORST-CASE width of every conversion, not at today's values.
+     *
+     * qual_streak_at_eligible is 0 BY CONTRACT: release_streak() zeroes the
+     * streak. The literal printed here is a CONTRACT ASSERTION for the reader
+     * of the log -- it does not read the witness and cannot detect a broken
+     * reset. What detects that is the test suite: test_gbp_vwitness.c EL-B and
+     * EL-F drive the frozen state machine and check the zero, and the physical
+     * runs 9 and 10 confirmed it by exact counter derivation (§V5.56.4). */
     ringlog_printf(&rl, "WITELIG policy=time_not_before origin=control not_before_ms=%lu "
                         "gated_at_init=1 released=%lu still_gated=%d t_eligible=%llx "
-                        "ticks_control_to_eligible=%llu frames_seen_before_eligible=%lu "
-                        "disqualified_before_eligible=%lu qual_streak_at_eligible=0",
+                        "ticks_control_to_eligible=%llu",
                    (unsigned long)STREAM_WIT_NOT_BEFORE_MS,
                    (unsigned long)wit.elig_released, gbp_vwitness_streak_gated(&wit),
                    (unsigned long long)wit.t_eligible,
                    (unsigned long long)((wit.elig_released && wit.t_eligible > res.t_control_transform)
-                                        ? wit.t_eligible - res.t_control_transform : 0u),
+                                        ? wit.t_eligible - res.t_control_transform : 0u));
+    ringlog_printf(&rl, "WITELIG2 frames_seen_before_eligible=%lu "
+                        "disqualified_before_eligible=%lu qual_streak_at_eligible=0",
                    (unsigned long)wit.elig_frames_before,
                    (unsigned long)wit.elig_disqualified_before);
     {

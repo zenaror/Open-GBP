@@ -104,16 +104,35 @@ class TheGateIsWhereItSaysAndNowhereElse(unittest.TestCase):
         self.assertIn("#define STREAM_SAFETY_SECONDS    60u", s)
         self.assertIn("cfg.hard_wallclock_s = STREAM_SAFETY_SECONDS;", strip(s))
 
-    def test_the_log_says_what_happened_in_one_line(self):
+    def test_the_log_says_what_happened_in_two_records(self):
+        """§V5.58 (GBP-VID-033). One record rendered past the 248-character
+        ringlog payload in runs 9 and 10 and lost its last field. The contract
+        is now TWO records with unique tags; every field of the original
+        contract must still be present, split as documented."""
         s = strip(read(MAIN))
         self.assertEqual(s.count('"WITELIG policy=time_not_before origin=control'), 1)
-        for field in ("not_before_ms=%lu", "released=%lu", "still_gated=%d", "t_eligible=%llx",
-                      "ticks_control_to_eligible=%llu", "frames_seen_before_eligible=%lu",
-                      "disqualified_before_eligible=%lu", "qual_streak_at_eligible=0"):
-            self.assertIn(field, s)
-        # after WITQUAL, after the teardown, never in the hot path
+        self.assertEqual(s.count('"WITELIG2 frames_seen_before_eligible='), 1)
+        for field in ("not_before_ms=%lu", "gated_at_init=1", "released=%lu", "still_gated=%d",
+                      "t_eligible=%llx", "ticks_control_to_eligible=%llu"):
+            self.assertIn(field, s[s.index('"WITELIG policy='):s.index('"WITELIG2 ')])
+        w2 = s[s.index('"WITELIG2 '):]
+        w2 = w2[:w2.index(");")]
+        for field in ("frames_seen_before_eligible=%lu", "disqualified_before_eligible=%lu",
+                      "qual_streak_at_eligible=0"):
+            self.assertIn(field, w2)
+        # after WITQUAL, after the teardown, never in the hot path, WITELIG2 right after WITELIG
         self.assertLess(s.index('"WITQUAL policy='), s.index('"WITELIG policy='))
+        self.assertLess(s.index('"WITELIG policy='), s.index('"WITELIG2 '))
         self.assertLess(s.index("gbp_vstate_probe_run(&t, &rl, &cfg, &res);"), s.index('"WITELIG'))
+
+    def test_the_zero_is_a_contract_assertion_and_the_comment_says_so(self):
+        """The literal `qual_streak_at_eligible=0` reads nothing; it cannot
+        detect a broken reset. The C suite (EL-B, EL-F) is what proves release
+        zeroes the streak, and the source comment must not claim otherwise."""
+        src = read(MAIN)
+        self.assertIn("CONTRACT ASSERTION", src)
+        self.assertIn("cannot detect a broken", src)
+        self.assertNotIn("is printed\n     * so a future edit that breaks the contract shows up", src)
 
 
 class TheGateKnowsNothingAboutContent(unittest.TestCase):
@@ -151,9 +170,9 @@ class TheGateKnowsNothingAboutContent(unittest.TestCase):
 
 
 class TheBuildIsANewIdentity(unittest.TestCase):
-    def test_build_id_is_stream_0010(self):
+    def test_build_id_is_stream_0011(self):
         m = re.search(r"^BUILD_ID\s*:=\s*(\S+)$", read(MAKE), re.M)
-        self.assertEqual(m.group(1), "stream-0010")
+        self.assertEqual(m.group(1), "stream-0011")
 
     def test_it_is_research_instrumentation_and_says_so(self):
         self.assertIn("RESEARCH INSTRUMENTATION", read(MAIN))

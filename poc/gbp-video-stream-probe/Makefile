@@ -34,7 +34,11 @@ APP_NAME   := gbp-video-stream-probe
 # §V5.55. stream-0010 is stream-0009's startup and pipeline with ONE research
 # addition: the scientific witness streak is not counted until 5000 ms after the
 # CONTROL transform. Nothing the user sees changes; only when the window may open.
-BUILD_ID   := stream-0010
+# §V5.58 (GBP-VID-033). stream-0011 is stream-0010 with ONE reporting change:
+# the WITELIG summary is emitted as two records, WITELIG and WITELIG2, so no
+# field is clipped by the 248-character ringlog payload. No witness, transport,
+# display, startup or format semantics change.
+BUILD_ID   := stream-0011
 
 # NORMAL by default. A diagnostic image -- visible self-test, 5000 ms wait -- is
 #   make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC
