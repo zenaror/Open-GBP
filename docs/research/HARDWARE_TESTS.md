@@ -18876,3 +18876,450 @@ scaling, scanout, networking, BBA initialisation, Ethernet and Phase 11 were
 not started and do not move.
 
 ---
+
+## V6 — GBP-VIDEO-007 / GBP-VIDEO-008: PHYSICAL SCANOUT AND FULL-FRAME FIDELITY — DESIGN / PRE-REGISTRATION (NOT IMPLEMENTED, NOT RUN)
+
+**DESIGN ONLY**, written 2026-09-20 for GitHub Issue #6 (Phase 4, research).
+Nothing here is implemented, nothing has touched hardware, **no evidence ID is
+allocated, no run is reserved, and no frozen format changes.** The ROADMAP
+names two facts Phase 4 has not established: *scanout of any frame* and *pixel
+fidelity beyond the witness strip*. This section designs the experiment(s) that
+can establish them as SEPARATE claims, and keeps both apart from
+presentation / scaling / pixel-perfect behaviour (GBP-VID-032), which remains a
+future requirement and is not measured here.
+
+```text
+required item (Issue #6)                        where
+ 1  experiment IDs, verified unused              V6.3
+ 2  exact questions                              V6.4, V6.5
+ 3  hypotheses / possible outcomes               V6.4, V6.5
+ 4  build / stimulus identities to freeze later  V6.7
+ 5  instrumentation / data format design         V6.8
+ 6  operator topology                            V6.10
+ 7  physical procedure                           V6.11
+ 8  admissibility gates                          V6.12
+ 9  PASS / FAIL / INCONCLUSIVE                   V6.13
+10  raw artifact names, prospective              V6.14
+11  offline analysis algorithm                   V6.15
+12  explicit non-claims                          V6.16
+13  one run or two experiments                   V6.1
+```
+
+### V6.1 Two experiments; one run may serve both without conflating them (item 13)
+
+The two questions have **disjoint dependent variables**. Question A (physical
+scanout) is decided by a literal OPERATOR OBSERVATION bound to hand-over
+records; question B (full-frame fidelity) is decided by an OFFLINE byte
+comparison of preserved source and texture data against an oracle. Neither
+verdict reads the other's evidence, so they are **two experiments with two IDs,
+two gate sets and two verdicts** — and because the instrumentation B needs is
+content-blind (frames are sampled by `frame_index`, never by what they show)
+and the pattern A needs is part of B's oracle, **one physical run may produce
+both data sets**. The rule that prevents conflation is stated now and pinned by
+a host test: a result for one experiment never promotes, demotes or excuses the
+other; a run may be PASS for one and INCONCLUSIVE for the other; each has its
+own PASS / FAIL / INCONCLUSIVE (§V6.13) and its own non-claims (§V6.16).
+
+Two separate runs were considered and rejected for this round: they would cost a
+second physical session and gain nothing, because the two measurements do not
+interact (the glyph frames of A are ordinary frames to B's oracle; B's sample
+rule does not know where the glyphs are). If the orchestrator prefers two runs,
+nothing in this design changes except the run count.
+
+### V6.2 The five claims, kept apart
+
+```text
+CLAIM-A  source frame acquired completely      40 blocks, self-identified by their own STRIP-L,
+                                               38 400 consumed words present            (GBP-VIDEO-008)
+CLAIM-B  source -> renderer conversion is      preserved texture == conversion(preserved raw)
+         full-frame correct                    == tile(oracle | 0x8000), all 38 400 texels (GBP-VIDEO-008)
+CLAIM-C  frame was handed to the VI            OGBPDISP2 SELECTED_NEW + xfb_target; OGBPVI1 latch
+                                               record (SOFTWARE evidence only)          (both, as a chain)
+CLAIM-D  source-derived pattern physically     the operator saw the glyph of appearance k
+         visible / scanout observed            while >= 1 frame of R_k was handed and latched
+                                                                                        (GBP-VIDEO-007)
+CLAIM-E  presentation / scaling /              NOT MEASURED HERE. GBP-VID-032 stays a future
+         pixel-perfect behaviour               requirement; the quad is drawn 1:1 today.
+```
+
+**A result for one letter may not automatically promote another.** In
+particular: CLAIM-C is a register write and a software mirror, never scanout;
+CLAIM-D is a human observation of one glyph, never fidelity; CLAIM-B is texture
+fidelity, never what a television showed; and none of A–D says anything about
+CLAIM-E. "1:1 source grid" in this section means the source pixel lattice is
+preserved into the texture; it is not a statement about physical 1× output.
+
+### V6.3 Experiment IDs (item 1)
+
+`GBP-VIDEO-007` — physical scanout (question A). `GBP-VIDEO-008` — full-frame
+fidelity (question B). Both verified unused on 2026-09-20 (`GBP-VIDEO-006` was
+run 11). The build that would carry them is `stream-0013` (unused; `stream-0012`
+is the software-only candidate of §V5.59), the stimulus `coord-0001` (unused),
+the formats `OGBPFULL1` and `OGBPVI1` (unused), the stimulus contract
+`OGBPCOORD1` (unused). None is frozen here; §V6.7 says when.
+
+### V6.4 GBP-VIDEO-007 — physical scanout (items 2, 3)
+
+**Question, exactly.** Can the operator physically observe an unmistakable
+pattern that is known to have originated in the physical GBP source stream and
+to have been presented by the Open-GBP runtime?
+
+**The observation.** The cartridge (`coord-0001`, §V6.6) paints, for the frames
+`frame_id ∈ R_k = [k·P, k·P + W)` with `P = 480` and `W = 40` (≈ 8.04 s apart,
+each shown ≈ 0.67 s at 59.727 Hz), a large seven-segment digit `k mod 10`
+(48 × 80 px, `0x7FFF` on the coordinate field, centred) and, below it, six 8 × 8
+squares showing `frame_id − k·P` in binary. The runtime **synthesises no pixels**
+(§V5 rule, physically upheld since `stream-0003`): a digit on the physical
+screen can only have come from the AGB framebuffer, through the VIDEO window,
+the assembler, the conversion and the presentation. The operator reports,
+literally: how many digits were seen, which values, in what order, roughly how
+far apart, and anything odd; optionally photographs one (§V6.10). In a
+2048-record window that starts near `frame_id ≈ 73` (runs 9–11), appearances
+`k = 1..4` (`frame_id` 480, 960, 1440, 1920) fall inside the window.
+
+**The identity chain, complete (software, per appearance k).**
+
+```text
+stimulus model      k  ->  R_k, the 40 frame_ids that carry digit k
+OGBPIDXCAP1 (frozen) every retained record decodes ITS OWN frame_id from its STRIP-L
+                    ->  frame_index(f) for every f in R_k that was retained
+OGBPDISP2 (frozen)  per frame_index: disposition, xfb_target, t_decision, retrace_decision
+                    ->  H_k = frames of R_k with SELECTED_NEW, i.e. GX_CopyDisp + VIDEO_SetNextFramebuffer executed
+OGBPVI1 (new, V6.8) per hand-over: the retrace at which the handed XFB became the current one,
+                    and the VI framebuffer-base registers read back at that moment
+                    ->  L_k ⊆ H_k, the frames whose XFB the VI took
+operator            "I saw digit k"   (+ optional photograph)
+```
+
+`CLAIM-D` for appearance k = (operator saw digit k) ∧ (|L_k| ≥ 1). It binds the
+observation to **the set R_k**, not to one frame: which frame(s) of the 40 the
+eye saw is not knowable from the observation alone.
+
+**What must not be promoted.** A hand-off request, an XFB ownership state,
+`VIDEO_GetCurrentFramebuffer()`, a retrace counter or OGBPDISP2 alone are
+CLAIM-C evidence. `VIDEO_GetCurrentFramebuffer()` in particular is libogc2's
+own bookkeeping — `video.c` sets `currentFb = nextFb` inside its retrace
+handler after it writes the shadow registers — not a readback of what the VI
+is scanning; OGBPVI1 therefore also records the VI framebuffer-base registers
+read directly (read-only MMIO), and even that is still software evidence.
+
+**Hypotheses / outcomes.**
+
+```text
+H7-1  digits 1,2,3,4 seen in order, one per appearance inside the window, with
+      |L_k| >= 1 for each                               -> PASS: CLAIM-D for >= 1 frame of each R_k
+H7-2  no digit seen, or a digit missing, although H_k and L_k are non-empty
+      and the rest of the report is coherent            -> FAIL: a handed-and-latched frame was not visible
+H7-3  a digit seen for a k with H_k empty (never handed) -> contradiction: INCONCLUSIVE, and a finding
+H7-4  report absent / uncertain / no appearance retained /
+      run inadmissible                                   -> INCONCLUSIVE
+```
+
+**What a PASS does NOT establish:** that every frame was scanned out; that
+non-glyph frames were displayed; pixel fidelity of what was displayed; absence
+of tearing; pacing; scaling; anything about CLAIM-E.
+
+### V6.5 GBP-VIDEO-008 — full-frame fidelity (items 2, 3)
+
+**Question, exactly.** For a controlled physical GBP frame whose expected
+240 × 160 source content is known independently, does Open-GBP preserve the
+complete source pixel projection used by the renderer across the full frame?
+
+**Expected source oracle.** `expected_video(frame_id, x, y) =
+swap_outer(expected_agb(frame_id, x, y))` from the `OGBPCOORD1` model (§V6.6):
+a pure host function, independent of every GameCube module, total on all
+38 400 pixels, and a function of `frame_id` only through the STRIP-L payload and
+the glyph schedule. `swap_outer` is the physically established mapping
+(GBP-HW-131); nothing in the oracle depends on the renderer.
+
+**The dependent variable.** For each sampled frame: the 38 400 consumed words
+`w(x, y) = (b1 << 8) | b3` of the preserved raw (the projection both references
+and `gbp_vpix` use), compared as `colour15 = w & 0x7FFF`. **Bit 15
+(U-GBP-034):** never masked in the raw; expected set only at (0, 0); every other
+occurrence is reported with its coordinates and does not change the colour15
+verdict. **Bytes 0 and 2 (U-GBP-029):** preserved in the raw, excluded from the
+equality, reported as deviation statistics (count, positions, values), never
+corrected, never used.
+
+**Binding block index and pixel coordinates.** Each raw block carries its own
+STRIP-L in all four rows (rows 0/2 plain, 1/3 inverted, as OGBPIDX1): the frame's
+`frame_id` must decode identically in all 40 blocks with CRC-8 OK, and each
+block's `BLOCK_INDEX` must equal its position `b`. The coordinate field then
+makes every pixel name its own position: `field(x, y) = y·183 + (x − 56)` for
+`x ∈ [56, 238]`, injective over the 29 280 field pixels, bit 15 clear. A block
+substituted from another position fails BLOCK_INDEX and every field pixel; a
+block substituted from another frame fails the frame_id; a tile permutation, a
+row or column shift, or an axis swap changes at least one pixel (proved in the
+host design test on the model). Temporal freshness of the static field is
+evidenced by the strips, not by the field: a stale region of the field with a
+fresh strip is not distinguishable — stated as a limitation, not hidden.
+
+**Tying the converted frame to the captured source frame.** The sample copy is
+taken by the CONSUMER, during the same `pump()` slices that convert the frame:
+each slice converts one tile row from ring slot `slot` and, for a sampled
+lifecycle only, also copies that block's 3 840 raw bytes and the 1 920 texture
+bytes it produced into the sample store. Raw and texture therefore come from the
+same `frame_index`, `seq`, `slot` and `tex`, under the same generation guard
+that already rejects a slot the producer reused (§V5.26 F5). Offline,
+`texture == conversion(raw)` is recomputed twice: from the specification in
+Python and by the host-compiled `gbp_vpix.c`.
+
+**Full-frame comparison, offline.** Exact per-word equality over all 38 400
+positions; a mismatch map; and, because the field is injective, a
+**displacement map**: the observed value at (x, y) names the source coordinate
+it came from, which classifies a defect (identity, block shift, tile
+permutation, row/column shift, axis swap, stale-strip region, unknown) instead
+of merely counting it.
+
+**Where the claim stops, and why.** CLAIM-B stops at **source → texture**, the
+renderer's input. The XFB receives an *identity binding* only — a CRC-32 of the
+240 × 160 YUY2 region after `GX_CopyDisp` for the sampled frames, taken in
+bounded slices (§V6.17, decision 2) — because the GX RGB → YUV conversion and the
+VI output are not modelled here and no declared device observes the physical
+output at pixel fidelity. **Physical display pixel equality is not claimed.**
+
+**Hypotheses / outcomes.**
+
+```text
+H8-1  every sample: colour15 == oracle on 38 400 words; texture == conversion(raw)
+      == tile(oracle | 0x8000); bit 15 only at (0,0); bytes 0/2 reported   -> PASS: CLAIM-A, CLAIM-B
+H8-2  deviations confined to bytes 0/2                                       -> not a failure; U-GBP-029 data
+H8-3  bit 15 elsewhere than (0,0), colour15 unchanged                        -> not a failure; U-GBP-034 data
+H8-4  any colour15 mismatch, with its displacement classification            -> FAIL (source path or oracle)
+H8-5  texture != conversion(raw) while raw == oracle                         -> FAIL (renderer conversion)
+H8-6  FAULT set, sample incomplete, strips inconsistent, store_full, run
+      inadmissible                                                            -> INCONCLUSIVE
+```
+
+### V6.6 The stimulus: why the existing ones are not sufficient, and OGBPCOORD1 (prospective)
+
+**`indexed-0003` (OGBPIDX1) is not sufficient for CLAIM-B.** Every pixel has a
+known expected value, but four error classes are invisible: (1) outside the
+strips, rows 0 and 2 (and 1 and 3) of a block are identical, so an in-block row
+swap changes nothing; (2) the content ramp `PAL16[((x−56)>>2 + (y>>2)) & 15]`
+repeats every 64 px, so a 64-px column shift inside CONTENT changes nothing;
+(3) the bar has 31 phases for 40 blocks, so five block pairs share one; (4)
+STRIP-R duplicates STRIP-L and carries no coordinate. **`agb-color-bars`** has
+no coordinate dependence at all. Reusing either would prove the strip and the
+bars, not the frame.
+
+**`coord-0001`, contract `OGBPCOORD1` — prospective, not implemented.**
+
+```text
+x = 0            FLAG      0x03E0                       identical to OGBPIDX1
+x = 1..54        STRIP-L   the 54-bit payload, 4 copies  identical to OGBPIDX1 (rows 0/2 plain, 1/3 inverted)
+x = 55           GUARD     0x0000                       identical to OGBPIDX1
+x = 56..238      FIELD     value = y*183 + (x-56)       0..29279, injective, bit 15 clear, PAINTED ONCE
+x = 239          GUARD     0x0000
+glyph            for frame_id in R_k = [k*480, k*480+40): the digit k mod 10 (48x80 px, 0x7FFF) and six
+                 8x8 squares = frame_id - k*480 in binary, drawn INTO the field; part of the oracle
+STATUS / FAULT / VMARGIN / CRC-8 / SYNC / symbols   identical to OGBPIDX1
+STRIP-R, the moving bar                            REMOVED (their columns belong to the field)
+```
+
+Why this shape: the FLAG / STRIP-L / GUARD-A bytes are **byte-identical to
+OGBPIDX1**, so `gbp_vwitness`, the eligibility gate, `OGBPIDXCAP1` and the
+frozen `tools/vindex.py` verdict (which reads the canonical witness only,
+`decode_canonical`) apply unchanged and the run keeps every established
+regression gate; the field carries the coordinate; the glyph is the only
+frame-dependent content besides the strips, so the per-VBlank publish is 40
+blocks × 4 rows × 54 strip words plus a bounded glyph paint/erase at the edges
+of each `R_k` — less than `indexed-0003`'s, which also published STRIP-R and the
+bar. Whether it fits is not assumed: the ROM's own STATUS latch decides, and a
+run with FAULT set is inadmissible (§V6.12). The model must render on the host
+word for word as the ROM does, as OGBPIDX1's does; it lives in its own module
+(prospectively `tools/icoord.py`) and **`tools/istim.py` is not edited**. No
+runtime recognition of the expected answer is required anywhere.
+
+### V6.7 Identities to be frozen later (item 4)
+
+```text
+build          stream-0013  (NORMAL profile; TEST_ID embedded: see V6.17 decision 5)
+stimulus       coord-0001   canonical .gba SHA-256 and delivery-image SHA-256 (EZ-Flash NOR / Mode B route,
+                            §V3.7) -- the cartridge MUST be re-flashed; the "do not re-flash" rule of runs
+                            6-11 applied to indexed-0003 only
+tools          tools/vindex.py UNMODIFIED; new tools/icoord.py, tools/vfull.py, tools/vvi.py (names prospective)
+formats        OGBPFULL1 v1, OGBPVI1 v1 (new names, V6.8); OGBPIDX1, OGBPIDXCAP1 v1, OGBPDISP2 v2 unchanged
+```
+
+They are recorded, with hashes, by the implementation checkpoint; a run is
+pre-registered only after that, with the exact identities.
+
+### V6.8 Instrumentation and data formats (item 5)
+
+**Why new formats.** `OGBPIDXCAP1` holds the 4 320-byte witness of every frame and
+nothing else; `OGBPDISP2` holds lifecycles and decisions and no raw, no texture
+and no latch instant. Neither can express a full-frame sample or a VI latch,
+and extending a frozen contract in place is forbidden (`AGENTS.md`). So: two
+new names, both written after the teardown through the same streaming sink as
+`OGBPIDXCAP1`, both CRC-sealed, both parsed by their own offline tools.
+
+```text
+OGBPFULL1 v1  header: identities, tb_hz, K, the sample rule, geometry, section offsets, CRC-32
+              K sample records (K <= 8): frame_index, seq, slot, tex, t_take, t_convert_first,
+                t_convert_done, t_decision, xfb_target, retrace_decision, flags,
+                raw[153 600] (all four bytes of every pixel word, untouched),
+                texture[76 800] (the GX_TF_RGB5A3 tiles the conversion wrote),
+                xfb_region_crc32 + valid flag (V6.17 decision 2)
+              footer "OGBPFEND" + CRC-32
+              SAMPLE RULE, content-blind: frame_index = first_record_frame + 256*i, i = 0..K-1,
+                where first_record_frame is the witness window's first retained frame (WITQUAL);
+                decided from the frame_index counter only, never from pixels
+OGBPVI1 v1    header: identities, tb_hz, N, CRC-32
+              N hand-over records (N <= 4096, 48 B): frame_index, xfb, t_handed, retrace_handed,
+                t_latch, retrace_latch, vi_tfbl, vi_bfbl (read back when the latch is observed), flags
+              footer "OGBPVEND" + CRC-32
+              The latch is observed where gbp_vpresent_xfb_observe() already runs (the pump's
+              xfb_target() call): pending -> -1 becomes one record. No callback, no wait.
+```
+
+Memory: 8 × (153 600 + 76 800) = 1 843 200 B plus 4 096 × 48 = 196 608 B. Run 11
+reported `arena1_free=3751936` with the 8.8 MB witness store in place; the
+implementation's `ENVSTORE` line must confirm the fit before any run.
+
+### V6.9 Architecture constraints honoured
+
+The HSP/transport service path is untouched: the sample copy is consumer work
+in `pump()` slices, bounded per slice (+3 840 B raw and +1 920 B texture for a
+sampled lifecycle, nothing otherwise), never between the ACK and the RE-ARM.
+Policy A is untouched: the copy precedes `submit_ready()` and changes no
+decision input. Two XFBs stay two; the XFB CRC, if kept, is sliced over the
+frames during which that XFB is not the copy target (decision 2), or dropped.
+No `VIDEO_WaitVSync` anywhere in the service or consumer path; no VI callback;
+no frame-sized work in one slice. `OGBPIDX1`, `OGBPIDXCAP1 v1` and `OGBPDISP2 v2`
+are produced and consumed exactly as in runs 9–11.
+
+### V6.10 Operator topology and equipment (item 6)
+
+```text
+console / GBP    the same GameCube and Game Boy Player as runs 9-11 (operator declares)
+BBA / Ethernet   as run 11 by default: BBA PRESENT, Ethernet DISCONNECTED (a validated baseline,
+                 GBP-BBA-001); the orchestrator may choose BBA absent; either way, declared, never inferred
+cartridge        coord-0001 on the EZ-Flash Omega DE, NOR / Mode B (the §V3.7 route); re-flashed
+media            SD with stream-0013's Swiss boot.dol, hash double-checked on the media
+display          NOT DECLARED IN THE REPOSITORY -- dependency (V6.17 decision 1): the operator declares
+                 the television/monitor and the cable (composite, S-Video, component; 480i or 480p)
+                 before the run. The observation does not depend on it; its record does.
+camera           declared by precedent (two photographs of the screen in run 3, §V5.34): a consumer
+                 camera with no timestamp synchronisation and no frame-accurate shutter
+```
+
+**What a stronger claim would need, exactly.** A capture device on the video
+output sampling at ≥ 59.94 fields/s with frame-accurate timestamps and a known
+(ideally lossless) encoding. Without it these are impossible: per-frame physical
+scanout accounting (which of the 2048 frames were displayed), physical pixel
+equality (CLAIM-B extended to the output), tearing and pacing measurement. With
+only the declared equipment, the narrower claim that literal observation can
+establish is CLAIM-D at the appearance level: *at least one frame of R_k was
+scanned out*. A photograph of a digit can narrow the binding to one frame_id
+through the six counter squares, but only when the exposure is unambiguous (no
+straddled frame, no rolling-shutter mix); otherwise the photograph corroborates
+the digit and nothing more, and no classification changes because a photograph
+looks right (§V5.34 19A.6).
+
+### V6.11 Physical procedure (item 7) — draft, finalised at pre-registration
+
+1. GameCube fully OFF. Topology as declared (§V6.10).
+2. Flash `coord-0001` (delivery image) to the cartridge; the operator's `sha256sum` of the image is a
+   double check of the identity the executor computed.
+3. SD carries the exact `stream-0013` `boot.dol`; hash double-checked.
+4. Power on, launch. Do not interact.
+5. Watch the screen for the whole run (≈ 35 s). Note every large digit seen: value, order, rough
+   spacing; note anything odd (flicker, partial digit, wrong colour). Optionally photograph one digit.
+6. The witness target stops the probe (2048 records); press X when asked; wait for the save.
+7. Power-cycle.
+8. Return the five files under their generated names, never copying over a historical name
+   (`captures/README.md`), plus the literal observation and the topology declaration.
+
+### V6.12 Admissibility gates (item 8)
+
+Common to both experiments: exact `stream-0013` DOL hash and exact `coord-0001`
+hashes; `STATUS.FAULT = 0` in every retained record (the stimulus stayed inside
+VBlank); frozen `tools/vindex.py` → `OBSERVED_CONTIGUOUS` with `intact 2048 /
+INVALID_CANONICAL_STRIP 0` (the strip gate, unchanged); transport zero
+errors/timeouts/busy/overflow/uncertain; Policy A: 0 interior drops, 0 reorder,
+depth ≤ 1, frozen latency p99 ≤ 1.0 ms / max ≤ 2.5 ms; startup NORMAL < 400 ms;
+every sidecar strict (all CRCs, no overflow, no `store_full`); operator topology
+declared. GBP-VIDEO-007 additionally: the operator's literal report exists;
+OGBPVI1 complete. GBP-VIDEO-008 additionally: all K samples present, 40 blocks
+each, strips consistent (one frame_id, CRC OK, BLOCK_INDEX = position) in every
+sample.
+
+### V6.13 PASS / FAIL / INCONCLUSIVE, per experiment (item 9)
+
+```text
+GBP-VIDEO-007
+  PASS          admissible; for every appearance k with R_k ∩ retained ≠ ∅ and |L_k| >= 1, the operator
+                reported digit k mod 10, in order.      MEANS: CLAIM-D for >= 1 frame of each such R_k.
+  FAIL          admissible; some k has |L_k| >= 1 and the operator, otherwise coherent, saw no digit or a
+                different digit.                         MEANS: a handed-and-latched frame was not visible.
+  INCONCLUSIVE  report missing/uncertain; no appearance retained; a digit seen with H_k = ∅ (finding);
+                inadmissible run.
+GBP-VIDEO-008
+  PASS          admissible; every sample: colour15 == oracle on 38 400 words at the frame's own frame_id;
+                texture == conversion(raw) == tile(oracle | 0x8000); bit 15 only at (0,0) or reported;
+                bytes 0/2 reported.                      MEANS: CLAIM-A and CLAIM-B for the sampled frames.
+  FAIL          admissible; any colour15 mismatch (with its displacement class) or texture != conversion(raw).
+  INCONCLUSIVE  FAULT set; a sample incomplete or inconsistent; store_full; inadmissible run.
+```
+
+Neither verdict consults the other's evidence. Both verdicts are per-run and
+per-scope; neither is universal.
+
+### V6.14 Raw artifact names — prospective scheme, NOT reserved (item 10)
+
+The console names files from the embedded TEST_ID and build id; the archive
+names follow `captures/README.md`. The scheme would be
+`<TEST_ID>_stream-0013-run<N>{.log,-idxcap.bin,-disp.bin,-full.bin,-vi.bin}`
+with the next global run number `N`. **No name is reserved here**: the
+identities of §V6.7 do not exist yet, and a reserved name for an artifact that
+may change would be misleading. Reservation happens in the pre-registration
+that follows the implementation checkpoint.
+
+### V6.15 Offline analysis (item 11)
+
+```text
+0  archive first, hash, verify identities (as every run since run 9)
+1  tools/vindex.py UNMODIFIED on the OGBPIDXCAP1 -> the strip gate; tools/vdisp.py on the OGBPDISP2 ->
+   Policy A gates; both exactly as in runs 9-11
+2  GBP-VIDEO-008 (tools/vfull.py, prospective): parse OGBPFULL1, verify CRCs; for each sample: decode the
+   40 STRIP-L copies -> frame_id, BLOCK_INDEX, CRC; refuse the sample if inconsistent; build
+   w(x,y) from bytes 1/3; oracle = icoord.expected_video(frame_id, x, y); compare colour15 on all
+   38 400 words; mismatch map; displacement map and class; bit-15 report; bytes-0/2 report;
+   recompute conversion(raw) in Python and with the host-built gbp_vpix.c; compare with the
+   preserved texture; compare texture with tile(oracle | 0x8000); verdict per V6.13
+3  GBP-VIDEO-007 (tools/vvi.py, prospective): from the OGBPIDXCAP1 join frame_index <-> frame_id;
+   R_k -> H_k from OGBPDISP2; L_k from OGBPVI1 (latch present, vi_tfbl/vi_bfbl equal to the handed
+   XFB's base); tabulate k, |R_k ∩ retained|, |H_k|, |L_k|, t of first latch; place the operator's
+   literal report beside it; verdict per V6.13
+4  the comparison table against runs 9-11 for every inherited gate (observational, no new tolerance)
+```
+
+### V6.16 Explicit non-claims (item 12)
+
+No hardware runs in this checkpoint and nothing here is evidence. When the
+experiments run: GBP-VIDEO-007 does not establish per-frame scanout, fidelity of
+the displayed image, pacing, tearing, scaling or CLAIM-E; GBP-VIDEO-008 does
+not establish physical display pixel equality, anything about the VI or the
+television, anything about frames it did not sample, or CLAIM-E; neither says
+anything about audio, input, the Link Port, networking, the BBA beyond its
+declared presence, Ethernet or Phase 11; neither reinterprets runs 1–11.
+"Pixel-perfect" (GBP-VID-032) is not implemented, not validated and not
+approached by either.
+
+### V6.17 Open dependencies and decisions for the implementation Issue
+
+```text
+1  DISPLAY / CABLE NOT DECLARED: the operator declares television and cable type before the run
+   (it changes what "scanout" physically was, not the design)
+2  XFB REGION CRC: feasible only in bounded slices while that XFB is not the copy target; if it cannot be
+   bounded it is dropped and CLAIM-B stays at the texture with no XFB binding -- decide at implementation
+3  K (<= 8) and the 256-frame spacing: confirmed against ENVSTORE / arena1_free
+4  GLYPH GEOMETRY / P / W: 48x80, 480, 40 proposed; the ROM's STATUS decides whether the paint fits
+5  TEST_ID EMBEDDED IN stream-0013: GBP-VIDEO-004 (the line) or GBP-VIDEO-007 -- it names the console's
+   files and the archive scheme; decide before the pre-registration
+6  PHOTOGRAPH: optional; requested only if the orchestrator wants the counter-square binding attempted
+7  TWO RUNS instead of one: the orchestrator's choice; nothing in the design changes
+```
+
+---
