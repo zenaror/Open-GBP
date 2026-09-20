@@ -17554,12 +17554,20 @@ both profiles with `xfb=0` normal.
 ```text
 Test ID     GBP-VIDEO-004
 Build ID    stream-0010          (NORMAL profile)
-Commit      TBD-COMMIT           -- CLEAN, no -dirty stamp
-Size        TBD-SIZE B           -- stream-0009 was 494 176 B
-sha256      TBD-SHA256
+Commit      fbaea00              -- CLEAN, no -dirty stamp
+Size        495 040 B            -- stream-0009 was 494 176 B (+864 B)
+sha256      6b57d6696cf718baaac83cd0b9631c672bbe756f842e42bfd12d7a0ee3736180
 Swiss       build/swiss/12-stream/boot.dol, byte-identical
-Reproduce   GIT_COMMIT=TBD-COMMIT GIT_DIRTY= make build
+Reproduce   GIT_COMMIT=fbaea00 GIT_DIRTY= make build
+
+.text 381 160 B   .rodata 48 776 B   .data 11 444 B
+.sdata    168 B   .sbss    1 836 B   .bss  18 009 912 B   (+40 B: the latch)
 ```
+
+Built twice from scratch and byte-identical by SHA-256 and by `cmp`; Swiss
+`build/swiss/12-stream/boot.dol` byte-identical. The interrupt path is
+identical to the physically validated GBP-VIDEO-001 build (`video-audit`
+first, then `stream-audit` — F3).
 
 #### V5.55.7 The next controlled run — procedure, gates, what validates the gate
 
