@@ -5931,3 +5931,74 @@ so that BBA presence is the only intentional variable, and a new functional
 build here would confound the two. The truncation is EXPECTED to recur in run
 10 and is not a BBA regression; the clipped field is derived from counters as
 in §V5.56.4.
+
+---
+
+### GBP-HW-239 — the run-10 artifacts and the operator's topology declaration (GBP-BBA-001) — FACT
+
+Log 87 468 B `16b387ec…e6b7`, OGBPIDXCAP1 8 946 060 B `1cba0fd7…e95f`, OGBPDISP2
+401 796 B `53c67572…9235`, recomputed in the repository before the orchestrator's
+figures were read and matching them. Supplied as `…-bba.log` / `…-idxcap-bba.bin`
+/ `…-disp-bba.bin` (kept as metadata) and archived FIRST under the reserved
+`captures/local/GBP-VIDEO-004_stream-0010-run10*` names with `cp --update=none`
+and `cmp`; runs 1–9 untouched. Binary: the exact run-9 `stream-0010 @ fbaea00`,
+495 040 B `6b57d669…6180`, not rebuilt; stimulus `9f04916b…8d9cc2`, not
+re-flashed; embedded id `GBP-VIDEO-004` by design. **OPERATOR OBSERVATION /
+TOPOLOGY DECLARATION, recorded literally:** BBA PRESENTE SIM · Ethernet
+DESCONECTADO · mesmo GameCube do RUN 9 SIM · mesmo GBP do RUN 9 SIM. Media
+double check: PENDING.
+
+---
+
+### GBP-HW-240 — with the BBA present and Ethernet disconnected, the frozen source analyzer reads exactly as run 9: OBSERVED_CONTIGUOUS, 2048 intact, 0 invalid — FACT
+
+`tools/vindex.py` unmodified: `observed 2048 (intact 2048)`, no
+`INVALID_CANONICAL_STRIP` line (0), `0x000049..0x000848` (73..2120), 2046
+decisive transitions all `OBSERVED_ID_CONTIGUOUS`, CRC `e410094e / f771828c`,
+flags `target_reached, service_ok, stop_is_target`, **`OBSERVED_CONTIGUOUS`**.
+Independent decode: 81 920/81 920 valid canonical strips, index ok, MIXED 0,
+FRAME_ID 73..2120 with 2047 deltas of +1, STATUS 0x18, FAULT 0, VMARGIN 24;
+2048/2048 seals, `frame_index` 356..2403. Every count equals run 9's.
+
+---
+
+### GBP-HW-241 — with the BBA present, the gate, the startup and Policy A read within tens of ticks of run 9 — FACT
+
+`WITELIG released=1 still_gated=0 ticks_control_to_eligible=202506351` =
+5.000156815 s (+5 ticks vs run 9); `WITQUAL 292 → 355 → 356`, resets 0, streak
+at release 0 by the same exact derivation and the same frozen replay; first
+retained record 6.067209136 s (−10 ticks). `STARTUP mode=normal … presented_synthetic=0`,
+`ticks_control_to_first_handoff=6688750` = **165.154321 ms** (−17 ticks =
+−0.420 µs vs run 9), `< 400 ms`. Transport 254 873 = 254 873 = 254 873, `errors 0
+timeouts 0 busy 0 overflow 0 uncertain 0`, numerically identical to run 9.
+OGBPDISP2 `3e547a48 / 423a9cfb / 49300560 / a5fb2a5c`, `2377 + 50 = 2427`, ready;
+join 2047 `SELECTED_NEW` + `[2403]` capture-edge, interior 0, order `== 356..2402`,
+46/112 deferred in the join on the next retrace, depth 1; frozen latency **p99
+0.471778 ms, max 1.000765 ms** (alternate first-attempt diagnostic p99 = max =
+0.998963 ms); **7 display-repeat intervals** beside 0 drops — the fifth
+consecutive run reading seven, observational. The known `WITELIG` truncation
+(GBP-VID-033) recurred exactly as pre-registered and is not a BBA finding.
+
+---
+
+### GBP-HW-242 — GBP-BBA-001 / RUN 10 PASSES; runs 9 and 10 form a paired topology control — FACT (scoped)
+
+Every §V5.57 gate passed under the operator-declared topology. **Under this
+exact controlled topology and observation window, with the same GameCube, Game
+Boy Player, `stream-0010` binary and `indexed-0003` stimulus, physical BBA
+presence with Ethernet disconnected produced no detected regression in the
+established Open-GBP video transport / source / display / startup metrics.**
+The pair supports only NO DETECTED REGRESSION UNDER THIS CONTROL; the
+numerical near-identity of the two runs is an observation, and no mechanism for
+the absence of a difference is claimed.
+
+---
+
+### GBP-HW-243 — what run 10 does NOT establish — SCOPE
+
+That the BBA is safe, irrelevant, or can never affect the GBP; anything about
+an Ethernet-connected topology, BBA initialisation, networking or network code;
+Phase 11, which does not move; universal hardware independence; a media double
+check (PENDING); scanout or pixel fidelity. The causal reason for postponing
+GBP-VID-033 has expired — the exact run-9 binary was reused successfully — and
+the fix belongs to the next functional checkpoint.

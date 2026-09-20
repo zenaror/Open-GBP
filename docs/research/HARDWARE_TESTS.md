@@ -17886,7 +17886,7 @@ pre-registered topology/phase. Nothing was tested with it present.
 
 ---
 
-### V5.57 GBP-BBA-001 — TOPOLOGY CONTROL, BBA PHYSICALLY PRESENT, ETHERNET DISCONNECTED — **PRE-REGISTERED 2026-09-20 (RUN 10), NOT EXECUTED**
+### V5.57 GBP-BBA-001 — TOPOLOGY CONTROL, BBA PHYSICALLY PRESENT, ETHERNET DISCONNECTED — **PRE-REGISTERED 2026-09-20 (RUN 10); EXECUTED 2026-09-20 — PASS (§V5.57.14)**
 
 Written before the hardware is touched. Selected by the orchestrator; prepared
 by the executor; nothing in it was changed while preparing it. **This is a
@@ -18125,3 +18125,155 @@ IN PROGRESS on its own terms.
 ```
 
 Do not connect Ethernet in this experiment.
+
+#### V5.57.14 RESULT — run 10, ingested 2026-09-20
+
+Analysed in the frozen order (identities → `vindex.py` → source → container →
+join → disposition → deferral → latency/depth → cadence → startup → `WITELIG` →
+comparison). No gate was touched after the result was seen.
+
+**I. Operator topology declaration — preserved literally, not derived from
+files or logs:** BBA PRESENTE: **SIM**. Ethernet: **DESCONECTADO**. Mesmo
+GameCube do RUN 9: **SIM**. Mesmo GBP do RUN 9: **SIM**. The §V5.57.9
+prerequisite is satisfied.
+
+**II. Artifacts, hashed here first.** The operator added `-bba` to the drop
+names (`GBP-VIDEO-004_stream-0010-bba.log`, `…-idxcap-bba.bin`,
+`…-disp-bba.bin`) — kept as metadata. Archived FIRST under the reserved names
+with `cp --update=none` and `cmp`; runs 1–9 untouched (run 9 re-verified).
+
+```text
+log      87 468 B     16b387ec5a9180217a26b6902a0a62583a4e7eb490ffd1c9c053b32b8808e6b7
+idxcap   8 946 060 B  1cba0fd7096a5d43f801378cabd9eaf9a9711492abf1601ffa0f54ce0ae0e95f
+disp     401 796 B    53c675725f074a7c4fa4b874d5c0240c888dd9cb5dd1eadc15681a3c1bb89235
+DOL      495 040 B    6b57d669…6180   (the exact run-9 binary, verified before the run)
+stimulus 2 880 B      9f04916b…8d9cc2 (not re-flashed)
+header   build_id=stream-0010 commit=fbaea00 lines=658 dropped=0 truncated=1
+```
+
+All three match the orchestrator's independent measurements. Media double
+check: PENDING.
+
+**III. Source, the frozen tool, verbatim.** `vindex.py`, `istim.py`,
+`vidxcap.py`, `vdisp.py`, both format headers and `gbp_vwitness.*` unmodified
+since `fbaea00`:
+
+```text
+records 2048/2048, 0 discarded, 81 921/81 921, out of range 0
+flags target_reached, service_ok, stop_is_target
+header/total CRC-32  e410094e / f771828c
+observed 2048 (intact 2048) · first/last 0x000049 .. 0x000848 (73 .. 2120)
+decisive transitions 2046, all OBSERVED_ID_CONTIGUOUS
+VERDICT OBSERVED_CONTIGUOUS      -- with intact 2048 / INVALID 0: the composition
+```
+
+Independent decode: header and global CRCs match, 2048/2048 seals, reserved
+zero, `frame_index` 356..2403 strictly +1, **81 920 / 81 920 valid canonical
+blocks, index ok in all, MIXED 0, FRAME_ID 73..2120 with 2047 deltas of +1,
+STATUS 0x18 throughout, FAULT 0, VMARGIN 24**, cadence 59.727103 Hz. Identical
+to run 9 in every count.
+
+**IV. Gate and window.**
+
+```text
+WITELIG  released=1 still_gated=0 ticks_control_to_eligible=202506351
+         frames_seen_before_eligible=292 disqualified_before_eligible=26
+         (line clipped at qual_streak_at_e -- §V5.57.14 VII)
+WITQUAL  required=64 resets=0 warmup_frames=356 warmup_disqualified=26
+         qualify_frame=355 first_record_frame=356 window_first_block=0
+eligibility        202 506 351 / 40 500 000 = 5.000156815 s   (run 9: 5.000156691; +5 ticks = +0.123 µs)
+first record       6.067209136 s after CONTROL               (run 9: 6.067209383; −10 ticks = −0.247 µs)
+```
+
+Streak at release derived exactly: `356 − 292 = 64 = required`, `355 = 292 +
+63`, `resets 0`, `26 = 26`; the frozen `gbp_vwitness.c` replay reproduces 355
+only for streak 0 (1 → 354, 10 → 345). Gate D PASS by exact derivation, as in
+run 9.
+
+**V. Startup.** `STARTUP mode=normal selftest_visible=0 prehandler_wait_ms=0
+clear_fb=1 normal_clean=1 presented_synthetic=0 headless_submits=1`;
+`ticks_control_to_first_handoff=6688750` = **165.154321 ms** (run 9:
+6 688 767 = 165.154741 ms; **−17 ticks = −0.420 µs**). Headless self-test
+12.220 ms, program → first hand-off 211.071 ms, CONTROL → capture 107.664 ms,
+capture → first hand-off 57.490 ms. `< 400 ms` PASS; the delta is recorded, no
+tolerance invented. `VIDEO_SetNextFramebuffer` is a hand-over, not scanout.
+Transient still recorded: `FRAMECAP 2404/2391/13/26/13`, `STRUCTURED 45
+episodes`, the same four preserved descriptors as runs 7–9.
+
+**VI. Transport and Policy A.** `stop=witness_target_reached`, 254 873 =
+254 873 = 254 873 = 254 873, `video 96 110/96 110`, `timeouts 0 busy 0 overflow
+0 uncertain 0 errors 0 transport_ok 1` — numerically identical to run 9, which
+is an observation, not a gate. OGBPDISP2 `3e547a48 / 423a9cfb / 49300560 /
+a5fb2a5c` recomputed and matched; `2377 + 50 = 2427`; official `vdisp.py`
+`ready True`; `terminal_pending` header 1 = the headless self-test, log 0
+pre-finish (established ordering). Join over 356..2403: 2047 `SELECTED_NEW`,
+`[2403]` the capture-edge residual, interior 0; order rebuilt `== 356..2402`;
+46 deferred / 112 attempts in the join (50 / 124 whole trace), every one on
+the next retrace, all `XFB_BUSY`, depth 1, `xfb_skipped 124 = defer_attempts`;
+runtime `taken = converted = presented = 2377`, `repeats 0`, `balanced 1`,
+`submit 2378/2378`, `drawdone = releases = 2378`, `STREAMINV 200 192 / 0`.
+
+```text
+LATENCY, frozen definition (ready = t_convert_done -> t_decision, all 2047):
+   p99 0.471778 ms   max 1.000765 ms      gates 1.0 / 2.5   PASS
+alternate diagnostic (first attempt -> decision, 46 deferred): p99 = max = 0.998963 ms
+CADENCE, separately: retrace deltas {1: 2039, 2: 7} -> 7 DISPLAY_REPEAT_INTERVALS
+   (runs 6, 7, 8, 9, 10: seven each -- OBSERVATIONAL, never a gate)
+```
+
+**VII. The known `WITELIG` truncation recurred, as pre-registered.** Header
+`truncated=1`; exactly one line at the 248-character payload — `WITELIG`, seq
+648, ending `qual_streak_at_e`; runner-up 218. Same binary, same cause
+(GBP-VID-033), **expected in this run and excluded in advance from being a BBA
+finding** (§V5.57.8). Neither sidecar truncated; device service unaffected.
+
+**VIII. The paired control, filled from measured data (§V5.57.11).**
+
+```text
+field                                run 9 (BBA absent)     RUN 10 (BBA present)
+DOL SHA-256                          6b57d669…6180          6b57d669…6180
+stimulus SHA-256                     9f04916b…8d9cc2        9f04916b…8d9cc2
+BBA                                  ABSENT                 PRESENT     (operator)
+Ethernet                             n/a                    DISCONNECTED (operator)
+first real hand-off after CONTROL    165.154741 ms          165.154321 ms   (−17 ticks)
+eligibility after CONTROL            5.000156691 s          5.000156815 s   (+5 ticks)
+first scientific record              6.067209383 s          6.067209136 s   (−10 ticks)
+first / last FRAME_ID                73 / 2120              73 / 2120
+intact / INVALID                     2048 / 0               2048 / 0
+transport errors/timeouts/uncertain  0 / 0 / 0              0 / 0 / 0
+scientific records joined            2047 (+1 edge)         2047 (+1 edge)
+interior drops                       0                      0
+reorder                              0                      0
+deferred / attempts (join)           46 / 112               46 / 112
+max defer depth                      1                      1
+frozen p99 / max latency             0.472000 / 1.000148    0.471778 / 1.000765 ms
+display-repeat intervals             7                      7
+OGBPIDXCAP1 integrity                7fbd6129 / 4d0c702d ok e410094e / f771828c ok
+OGBPDISP2 integrity                  a219548c … ok          3e547a48 … ok
+```
+
+Numerical equality across the two runs is an observation. It is not proof of
+universal non-interference and no mechanism for the absence of any difference
+is claimed.
+
+**IX. Classification — exactly as §V5.57.10 defined it.** Correct artifact,
+stimulus and declared topology; capture admissible; source, transport, Policy A,
+startup and sidecar gates all pass. **GBP-BBA-001 / RUN 10: PASS.**
+
+> Under this exact controlled topology and observation window, with the same
+> GameCube, Game Boy Player, `stream-0010` binary and `indexed-0003` stimulus,
+> physical BBA presence with Ethernet disconnected produced no detected
+> regression in the established Open-GBP video transport / source / display /
+> startup metrics.
+
+**X. What runs 9 and 10 now form:** a paired topology control — same console,
+GBP, DOL, stimulus, procedure and analyzers; one intentional difference, BBA
+absent → present, with Ethernet disconnected and no intentional Open-GBP
+BBA/network activity. It supports only **no detected regression under this
+control**. It does NOT say: BBA is safe; BBA can never affect GBP; BBA is
+irrelevant; an Ethernet-connected topology is validated; BBA initialisation is
+validated; networking or network code is validated; Phase 11 is complete.
+Phase 11 does not move. The causal reason for postponing GBP-VID-033 has
+expired: the exact run-9 binary was reused successfully, and a new build may
+now be made in the NEXT functional checkpoint without contaminating this
+comparison.
