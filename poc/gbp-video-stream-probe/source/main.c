@@ -137,19 +137,23 @@ static const char opengbp_ident_marker[] =
 #define LOG_LINE_LEN 256
 #define DMA_TIMEOUT_MS 200
 
-/* ---- the capture window (§V5.20, §V5.23) --------------------------------
+/* ---- the stop conditions (§V5.20, §V5.23, §V5.59) ------------------------
  *
- * DESIGN DECISION REQUIRED, and it stays required. §V5.5 asks for a duration
- * justified against a real interval, the way GBP-VIDEO-002's 120 s was justified
- * against the Start-up Disc's own detector window. No such interval has been
- * established for streaming, so the value below is PROVISIONAL: it is long
- * enough to exercise the machinery over roughly 1800 AGB frames at the measured
- * 59.727 Hz, and it is NOT a scientific threshold. §V5.21's PASS criterion is
- * "the invariants hold for the whole DECLARED duration", so the criterion works
- * for any declared value — which is exactly why choosing this one decides
- * nothing. The pre-hardware audit fixes it. */
-#define STREAM_CAPTURE_SECONDS   30u
-#define STREAM_SAFETY_SECONDS    60u    /* the safety cap, a different thing entirely */
+ * ONE scientific success condition: the witness target -- GBP_VWITNESS_TARGET
+ * retained records after GBP_VWITNESS_QUAL_REQUIRED structurally clean closes,
+ * counted from STREAM_WIT_NOT_BEFORE_MS after CONTROL (§V5.39, §V5.44, §V5.55).
+ * The generic vstate time target (cfg.min_valid_observation_*) is DISABLED by
+ * name (gbp_vstate_config_disable_time_target, gbp_vstate_probe.h): under
+ * OGBPIDX1 no baseline can form, so that stop was unreachable in every indexed
+ * run, and §V5.59 (F5) removed it as an armed second success rather than leave
+ * it latent. The 30 s "capture duration" that used to sit here -- provisional,
+ * a design decision the pre-hardware audit was to make -- is decided by that:
+ * time does not end this experiment, only the target does, so there is no
+ * duration to justify.
+ *
+ * The safety cap is a different thing entirely: it stops a run that has gone
+ * wrong, it is never a success, and it stays at 60 s. */
+#define STREAM_SAFETY_SECONDS    60u
 #define STREAM_MAX_DELIVERIES    400000u
 
 /* One tile row per pump call: 3840 bytes read, 1920 written. See the header
@@ -1007,11 +1011,10 @@ int main(void)
     cfg.hard_wallclock_s = STREAM_SAFETY_SECONDS;
     cfg.hard_wallclock_ticks = (uint64_t)tb_hz * STREAM_SAFETY_SECONDS;
     cfg.max_deliveries = STREAM_MAX_DELIVERIES;
-    /* The SCIENTIFIC capture duration and the SAFETY cap are different things
-     * and are configured separately (§V5.23). The duration is what the run is
-     * measured over; the safety cap only stops a run that has gone wrong. */
-    cfg.min_valid_observation_s = STREAM_CAPTURE_SECONDS;
-    cfg.min_valid_observation_ticks = (uint64_t)tb_hz * STREAM_CAPTURE_SECONDS;
+    /* §V5.59 (F5): the generic time target is NOT a stop condition of this
+     * experiment -- the witness target is the only success. Installed after
+     * gbp_vstate_config_timebase() above, as the header requires. */
+    gbp_vstate_config_disable_time_target(&cfg);
     cfg.cyc_first = cyc_first;
     cfg.cyc_last = cyc_last;
     cfg.cyc_anomaly = cyc_anomaly;
@@ -1024,8 +1027,8 @@ int main(void)
                    (unsigned long)*(vu32 *)0x800000F8, (unsigned long)cfg.a.tb_hz, (unsigned)DMA_TIMEOUT_MS,
                    (unsigned long)cfg.a.t_max_ms, (unsigned long)cfg.t_delivery_ms, (unsigned long)cfg.t_next_cause_ms,
                    (unsigned)hsp_backend_read_csr());
-    ringlog_printf(&rl, "ENVSTREAM capture_s=%lu safety_s=%lu slice_tile_rows=%u tex_buffers=%u tex_bytes=%u ring_slots=%lu",
-                   (unsigned long)STREAM_CAPTURE_SECONDS, (unsigned long)STREAM_SAFETY_SECONDS,
+    ringlog_printf(&rl, "ENVSTREAM time_target=disabled safety_s=%lu slice_tile_rows=%u tex_buffers=%u tex_bytes=%u ring_slots=%lu",
+                   (unsigned long)STREAM_SAFETY_SECONDS,
                    (unsigned)STREAM_SLICE_TILE_ROWS, (unsigned)STREAM_TEX_BUFFERS,
                    (unsigned)GBP_VPIX_TEX_BYTES, (unsigned long)gbp_vstate_ring_slots(&vstate));
     /* THE STORES AS CONFIGURED, beside what the contract requires, and with the
@@ -1098,8 +1101,8 @@ int main(void)
     printf("            drawn from a converted frame only; an incomplete or quarantined frame NEVER is.\n");
     printf("  Pre-handler wait: %lu ms with the AGB running and PI masked, before any capture.\n",
            (unsigned long)cfg.prehandler_wait_ms);
-    printf("  Capture %lu s, safety cap %lu s. DO NOT PRESS ANYTHING during the run.\n\n",
-           (unsigned long)STREAM_CAPTURE_SECONDS, (unsigned long)STREAM_SAFETY_SECONDS);
+    printf("  Stop: witness target %lu records (no time target); safety cap %lu s. DO NOT PRESS ANYTHING during the run.\n\n",
+           (unsigned long)GBP_VWITNESS_TARGET, (unsigned long)STREAM_SAFETY_SECONDS);
     if (!gbp_transport_has_bulk_read(&t) || !gbp_transport_has_irq_reset(&t) || !gbp_transport_has_time64(&t)) {
         printf("\n  FATAL: the transport lacks the whole-block read, the record reset or the 64-bit time base.\n");
         printf("  Nothing was run. START = exit\n");
@@ -1470,10 +1473,10 @@ int main(void)
              * guess which contract the bytes were written under. */
             snprintf(extra, sizeof extra,
                      "libogc=%s gecko=%d power_cycle_required=%d sidecar=%s_%s-idxcap.bin "
-                     "format=OGBPIDXCAP1_v%u capture_s=%lu safety_s=%lu witness_target=%lu",
+                     "format=OGBPIDXCAP1_v%u time_target=disabled safety_s=%lu witness_target=%lu",
                      _V_STRING, gecko_present, res.power_cycle_required, TEST_ID, OPENGBP_BUILD_ID,
                      (unsigned)GBP_VIDXDUMP_VERSION,
-                     (unsigned long)STREAM_CAPTURE_SECONDS, (unsigned long)STREAM_SAFETY_SECONDS,
+                     (unsigned long)STREAM_SAFETY_SECONDS,
                      (unsigned long)wit.target);
             rc = sdlog_save(TEST_ID, OPENGBP_BUILD_ID, OPENGBP_GIT_COMMIT, extra, &rl,
                             status, sizeof status, path, sizeof path);

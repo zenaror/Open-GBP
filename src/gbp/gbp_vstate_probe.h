@@ -93,6 +93,18 @@ extern "C" {
 /* 180 x 40 500 000. It does NOT fit in 32 bits — an independent confirmation
  * that the u64 time base is mandatory rather than tidy. */
 #define GBP_VSTATE_HARD_WALLCLOCK_LIMIT_TICKS_U64 UINT64_C(7290000000)
+/* §V5.59 (F5). A caller whose experiment has a DIFFERENT scientific stop -- the
+ * indexed stream stops on the witness target -- disarms the generic
+ * baseline/valid-observation success (`S5_target`, STOP_NOMINAL_NEGATIVE) by
+ * installing these two values with gbp_vstate_config_disable_time_target(). No
+ * 64-bit tick count reaches DISABLED_TICKS, so that stop can never fire; the
+ * seconds value 0 is what the VSTATE/CLOCKSEC lines then report as target_s,
+ * which reads as "no time target". The safety cap (hard_wallclock_*) is a
+ * different thing and is untouched: it remains the run's only time-based stop,
+ * and it is a SAFETY stop, never a success. Install them AFTER
+ * gbp_vstate_config_timebase(), which recomputes the ticks from the seconds. */
+#define GBP_VSTATE_MIN_VALID_OBSERVATION_DISABLED_S     0u
+#define GBP_VSTATE_MIN_VALID_OBSERVATION_DISABLED_TICKS UINT64_MAX
 /* The delivery guard of the design (section 19). It is a GUARD, not a scientific bound, and the
  * real margin is a factor, not orders of magnitude: GBP-VIDEO-001 measured 5 327 deliveries/s, so
  * the 120 s target implies ~639 000 and the 180 s hard safety envelope ~959 000 — this guard sits
@@ -298,6 +310,18 @@ struct gbp_vstate_config {
      * scientific result at all. */
     int bench_skip_signature;
 };
+
+/* §V5.59 (F5): see GBP_VSTATE_MIN_VALID_OBSERVATION_DISABLED_TICKS. */
+static inline void gbp_vstate_config_disable_time_target(struct gbp_vstate_config *cfg)
+{
+    cfg->min_valid_observation_s = GBP_VSTATE_MIN_VALID_OBSERVATION_DISABLED_S;
+    cfg->min_valid_observation_ticks = GBP_VSTATE_MIN_VALID_OBSERVATION_DISABLED_TICKS;
+}
+
+static inline int gbp_vstate_config_time_target_disabled(const struct gbp_vstate_config *cfg)
+{
+    return cfg->min_valid_observation_ticks == GBP_VSTATE_MIN_VALID_OBSERVATION_DISABLED_TICKS;
+}
 
 void gbp_vstate_config_default(struct gbp_vstate_config *cfg);
 void gbp_vstate_config_timebase(struct gbp_vstate_config *cfg, uint32_t tb_hz);

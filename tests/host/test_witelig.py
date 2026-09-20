@@ -97,12 +97,14 @@ class TheGateIsWhereItSaysAndNowhereElse(unittest.TestCase):
                    "submit_ready", "offer_oldest_ready", "on_draw_done"):
             self.assertNotIn("streak", func(s, fn))
 
-    def test_the_safety_cap_and_capture_targets_are_unchanged(self):
-        """M."""
+    def test_the_safety_cap_is_unchanged_and_the_time_target_is_disabled(self):
+        """M. §V5.59 (F5): the 30 s capture target is gone; the witness target is
+        the only success and the 60 s safety cap is untouched."""
         s = read(MAIN)
-        self.assertIn("#define STREAM_CAPTURE_SECONDS   30u", s)
+        self.assertNotIn("STREAM_CAPTURE_SECONDS", s)
         self.assertIn("#define STREAM_SAFETY_SECONDS    60u", s)
         self.assertIn("cfg.hard_wallclock_s = STREAM_SAFETY_SECONDS;", strip(s))
+        self.assertIn("gbp_vstate_config_disable_time_target(&cfg);", strip(s))
 
     def test_the_log_says_what_happened_in_two_records(self):
         """§V5.58 (GBP-VID-033). One record rendered past the 248-character
@@ -170,9 +172,9 @@ class TheGateKnowsNothingAboutContent(unittest.TestCase):
 
 
 class TheBuildIsANewIdentity(unittest.TestCase):
-    def test_build_id_is_stream_0011(self):
+    def test_build_id_is_stream_0012(self):
         m = re.search(r"^BUILD_ID\s*:=\s*(\S+)$", read(MAKE), re.M)
-        self.assertEqual(m.group(1), "stream-0011")
+        self.assertEqual(m.group(1), "stream-0012")
 
     def test_it_is_research_instrumentation_and_says_so(self):
         self.assertIn("RESEARCH INSTRUMENTATION", read(MAIN))

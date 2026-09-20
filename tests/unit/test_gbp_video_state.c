@@ -300,6 +300,53 @@ static void test_nominal_negative(void)
            (unsigned long long)res.valid_observation_elapsed);
 }
 
+static void test_time_target_disabled_never_fires(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    printf("-- §V5.59 (F5): the generic time target DISABLED by name -- the scenario that stops nominal_negative above runs to the safety cap instead\n");
+    cfg_default(&cfg);
+    gbp_vstate_config_disable_time_target(&cfg);
+    CHECK(gbp_vstate_config_time_target_disabled(&cfg));
+    CHECK(cfg.min_valid_observation_s == GBP_VSTATE_MIN_VALID_OBSERVATION_DISABLED_S);
+    CHECK(cfg.min_valid_observation_s == 0u);
+    CHECK(cfg.min_valid_observation_ticks == GBP_VSTATE_MIN_VALID_OBSERVATION_DISABLED_TICKS);
+    CHECK(cfg.min_valid_observation_ticks == UINT64_MAX);
+    /* the safety cap is the ONLY time-based stop left, and it is a safety stop: give it room for
+     * far more counted frames than the six the nominal_negative scenario needed */
+    cfg.hard_wallclock_ticks = (uint64_t)BLOCK_TICKS * 39u * 40u;
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    run_cfg(&m, &rl, &res, &cfg);
+    CHECK(res.service_ok == 1);
+    CHECK(res.stop == GBP_VSTATE_STOP_SAFETY_BUDGET);
+    CHECK(res.status == GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE);
+    CHECK(res.status != GBP_VSTATE_OK_NO_CHANGE_NOMINAL_INTERVAL);
+    CHECK(res.stop != GBP_VSTATE_STOP_NOMINAL_NEGATIVE);
+    CHECK(res.valid_observation_at_target == 0u);                          /* S5_target never evaluated true */
+    CHECK(res.target_s == 0u);                                             /* what the log reports: no time target */
+    CHECK(res.valid_observation_elapsed >= (uint64_t)BLOCK_TICKS * 39u * 6u);   /* the OLD arm would have fired here */
+    CHECK(res.valid_observation_elapsed < cfg.min_valid_observation_ticks);
+    CHECK(res.safety_elapsed >= cfg.hard_wallclock_ticks);
+    CHECK(line_index(&rl, "type=safety_budget") >= 0);
+    CHECK(line_index(&rl, "target_s=0 ") >= 0);
+    check_invariants(&m, &res, &rl);
+    /* order matters: the timebase pass recomputes the ticks from the seconds, so the helper
+     * must be applied after it -- exactly what the stream probe does */
+    gbp_vstate_config_timebase(&cfg, TB_HZ);
+    CHECK(!gbp_vstate_config_time_target_disabled(&cfg));
+    gbp_vstate_config_disable_time_target(&cfg);
+    CHECK(gbp_vstate_config_time_target_disabled(&cfg));
+    /* the defaults other POCs rely on are untouched by the constants' existence */
+    gbp_vstate_config_default(&cfg);
+    CHECK(!gbp_vstate_config_time_target_disabled(&cfg));
+    CHECK(cfg.min_valid_observation_s == GBP_VSTATE_MIN_VALID_OBSERVATION_SECONDS);
+    CHECK(cfg.hard_wallclock_s == GBP_VSTATE_HARD_WALLCLOCK_LIMIT_SECONDS);
+}
+
 static void test_safety_budget_before_target(void)
 {
     struct gbp_mock m;
@@ -3841,6 +3888,7 @@ int main(int argc, char **argv)
         CHECK(defaults.min_valid_observation_ticks == 4860000000ull);
     }
     test_nominal_negative();
+    test_time_target_disabled_never_fires();
     test_safety_budget_before_target();
     test_safety_wins_over_open_episode();
     test_episodes_and_no_early_stop();
