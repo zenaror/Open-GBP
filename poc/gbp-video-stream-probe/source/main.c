@@ -224,6 +224,30 @@ static uint16_t witness_store[GBP_VWITNESS_TARGET][GBP_VWITNESS_FRAME_WORDS] ATT
 static struct gbp_vwitness_meta witness_meta[GBP_VWITNESS_TARGET];
 static struct gbp_vwitness wit;
 
+/* ---- §V5.55 THE RESEARCH NOT-BEFORE GATE -- witness eligibility only ----
+ *
+ * Run 7 opened the structural scientific window 3.840 s after the CONTROL
+ * transform; the indexed stimulus produced its first frame at 4.845 s -- and it
+ * did so at 4.845 s in ALL FOUR indexed runs (inferred in 4-6, measured in 7).
+ * With the diagnostic wait gone, the content-blind streak completed on the
+ * AGB's own boot, one second early.
+ *
+ * This gate defers ONE thing: when the qualification streak may be counted.
+ * Transport, the assembler, conversion, Policy A, GX, the real hand-off and
+ * everything the user sees run from capture_start exactly as stream-0009 did.
+ * The threshold is prospective and content-independent: 5000 ms after the
+ * CONTROL transform, the epoch every safety budget already uses -- chosen from
+ * the whole history so a future window lands where runs 4-6 did (~6.1-6.3 s),
+ * NOT fitted to make run 7 pass. It knows nothing about OGBPIDX, SYNC, FRAME_ID,
+ * STATUS, CRC, BLOCK_INDEX or any cartridge's content; eligibility is `time >=
+ * threshold`, and the existing STRUCTURAL predicate then does what it always did.
+ *
+ * It is RESEARCH INSTRUMENTATION. A final runtime has no scientific witness to
+ * gate and must never inherit this as a UX delay. */
+#define STREAM_WIT_NOT_BEFORE_MS 5000u
+static uint64_t wit_not_before_ticks;
+static const struct gbp_vstate_result *pump_res;   /* read-only: t_control_transform */
+
 _Static_assert(sizeof witness_store == GBP_VWITNESS_STORE_BYTES,
                "the witness store must be exactly the audited 8 847 360 bytes");
 _Static_assert(GBP_VWITNESS_FRAME_BYTES == 4320u, "54 words x 40 blocks x 2 bytes");
@@ -610,6 +634,15 @@ static void pump(void *user)
     uint32_t t0, t1, row, n;
     (void)user;
 
+    /* §V5.55. ONE 64-bit compare per call until the gate releases, then
+     * nothing: no wait, no spin, no device access, no formatting. The clock is
+     * the same time base the CONTROL epoch was recorded on. */
+    if (gbp_vwitness_streak_gated(&wit) && pump_res && pump_res->t_control_transform) {
+        const uint64_t now = gettime();
+        if (now - pump_res->t_control_transform >= wit_not_before_ticks)
+            gbp_vwitness_release_streak(&wit, now);
+    }
+
     /* A READY buffer whose submit was refused because a token was still pending
      * gets another chance here, before any new work is started. Re-offering it
      * costs one state read and keeps the newest converted frame moving. */
@@ -936,6 +969,10 @@ int main(void)
      * transient sat inside the population under test (GBP-HW-172); this moves
      * the boundary, and moves it ONLINE, without touching the analyzer. */
     gbp_vwitness_set_qualification(&wit, GBP_VWITNESS_QUAL_REQUIRED);
+    /* §V5.55: the streak is not counted until pump() releases it, 5000 ms
+     * after the CONTROL transform. Frames before that are still SEEN. */
+    gbp_vwitness_gate_streak(&wit);
+    wit_not_before_ticks = ((uint64_t)tb_hz * STREAM_WIT_NOT_BEFORE_MS) / 1000u;
     cfg.witness = &wit;
 
     /* The display path, walked once from a synthetic frame BEFORE any device is
@@ -1075,6 +1112,7 @@ int main(void)
     VIDEO_SetNextFramebuffer(xfb_stream);
     VIDEO_Flush();
 
+    pump_res = &res;
     t_probe_enter = gettime();
     gbp_vstate_probe_run(&t, &rl, &cfg, &res);     /* returns only after the teardown */
     a = &res.a;
@@ -1187,6 +1225,21 @@ int main(void)
                     * right answer even when the window opened mid-frame. */
                    (wit.n && (wit.meta[0].present & 1u)) ? 0 : -1,
                    wit.n ? (long)wit.meta[0].frame_index : -1L);
+    /* §V5.55: the eligibility gate, as its own line, so capture start,
+     * eligibility, qualification and the first record are four fields and not
+     * a reconstruction. qual_streak_at_eligible is 0 BY CONTRACT and is printed
+     * so a future edit that breaks the contract shows up in the record. */
+    ringlog_printf(&rl, "WITELIG policy=time_not_before origin=control not_before_ms=%lu "
+                        "gated_at_init=1 released=%lu still_gated=%d t_eligible=%llx "
+                        "ticks_control_to_eligible=%llu frames_seen_before_eligible=%lu "
+                        "disqualified_before_eligible=%lu qual_streak_at_eligible=0",
+                   (unsigned long)STREAM_WIT_NOT_BEFORE_MS,
+                   (unsigned long)wit.elig_released, gbp_vwitness_streak_gated(&wit),
+                   (unsigned long long)wit.t_eligible,
+                   (unsigned long long)((wit.elig_released && wit.t_eligible > res.t_control_transform)
+                                        ? wit.t_eligible - res.t_control_transform : 0u),
+                   (unsigned long)wit.elig_frames_before,
+                   (unsigned long)wit.elig_disqualified_before);
     {
         /* §V5.46. The aggregate the trace itself can be audited by: how many
          * lifecycles and decisions were recorded, whether either array filled,

@@ -47,6 +47,15 @@ void gbp_vwitness_note_frame(struct gbp_vwitness *w, int qualifying)
      * stays inside the scientific population, where it belongs. */
     if (w->qual_state == GBP_VWITNESS_QUAL_ARMED) return;
     w->warmup_frames++;
+    if (w->elig_gated) {
+        /* NOT ELIGIBLE YET (§V5.55). Seen and counted as startup evidence --
+         * warmup_frames and warmup_disqualified keep their meaning, "before the
+         * window opened" -- but the streak is neither built nor broken, so no
+         * reset and no streak state can cross the eligibility boundary. */
+        w->elig_frames_before++;
+        if (!qualifying) { w->warmup_disqualified++; w->elig_disqualified_before++; }
+        return;
+    }
     if (!qualifying) {
         if (w->qual_streak) w->qual_resets++;
         w->qual_streak = 0u;
@@ -61,6 +70,28 @@ void gbp_vwitness_note_frame(struct gbp_vwitness *w, int qualifying)
         w->qual_state = GBP_VWITNESS_QUAL_PENDING;
         w->qual_frame_index = w->warmup_frames - 1u;
     }
+}
+
+void gbp_vwitness_gate_streak(struct gbp_vwitness *w)
+{
+    if (!w) return;
+    if (w->qual_state == GBP_VWITNESS_QUAL_ARMED) return;   /* nothing left to gate */
+    w->elig_gated = 1u;
+    w->qual_streak = 0u;
+}
+
+void gbp_vwitness_release_streak(struct gbp_vwitness *w, uint64_t t)
+{
+    if (!w || !w->elig_gated) return;                        /* one-way, idempotent */
+    w->elig_gated = 0u;
+    w->elig_released = 1u;
+    w->t_eligible = t;
+    w->qual_streak = 0u;                                     /* from ZERO, by contract */
+}
+
+int gbp_vwitness_streak_gated(const struct gbp_vwitness *w)
+{
+    return (w && w->elig_gated) ? 1 : 0;
 }
 
 int gbp_vwitness_qualified(const struct gbp_vwitness *w)
