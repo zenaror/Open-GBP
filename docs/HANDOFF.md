@@ -343,12 +343,14 @@ errors 0`); a run without a failure still does not measure the margin.
 
 **Two things, separately authorised, not merged.**
 
-**RUN B — real-cartridge startup UX, may proceed NOW with `stream-0009`
-unchanged** (`59d2f57`, `4d0337bb…c955`). Startup passed on its own terms and
+**RUN B — real-cartridge startup UX — PRE-REGISTERED as `GBP-VIDEO-005`
+(§V5.54), NOT YET EXECUTED. Proceeds NOW with `stream-0009` unchanged** (`59d2f57`, `4d0337bb…c955`). Startup passed on its own terms and
 this run needs no OGBPIDX window. Operator observation, kept apart from
-machine evidence: checkerboard absent? real video promptly? a boot sequence
-seen? Plus the log's `STARTUP`/`STARTUPT`/`STARTUPV` lines. **The runtime must
-not depend on a logo appearing.**
+machine evidence, answering questions A–G of §V5.54.9 against the PASS / PARTIAL
+/ FAIL criteria fixed in §V5.54.6 before the hardware was touched. **BBA
+DISCONNECTED** for this run (§V5.54.3). Known in advance: the probe tears down
+at ~35–60 s and returns to its text report — that is the measurement ending,
+not a loss of video. **The runtime must not depend on a logo appearing.**
 
 **THE CORRECTED CONTROLLED RUN — needs a code round first.** Implement
 GBP-VID-030 (streak not counted before 5.000 s after CONTROL; display,

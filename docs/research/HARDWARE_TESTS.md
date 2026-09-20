@@ -17134,3 +17134,166 @@ without a pixel and without weakening it.
   THIS console, four times.
 - VIDEO_SetNextFramebuffer is a hand-over, not scanout.
 ```
+
+---
+
+### V5.54 GBP-VIDEO-005 — RUN B, REAL CARTRIDGE, NORMAL STARTUP — **PRE-REGISTERED 2026-09-20, NOT YET EXECUTED**
+
+Written before the hardware is touched, so the pass/fail criteria cannot move
+after the result is seen. This is a **UX / operator-observation** test. It is
+not a test of OGBPIDX, source continuity, the scientific witness, the
+not-before gate, SIO, the BBA or the Mobile Adapter, and none of those may be
+claimed from it.
+
+#### V5.54.1 The question
+
+> Does the NORMAL startup that run 7 validated by machine trace (§V5.53,
+> GBP-HW-214…215) present a user with a clean, usable boot on the physical Game
+> Boy Player with a real retail cartridge?
+
+#### V5.54.2 The artifact — identity computed here first, no rebuild
+
+```text
+Test ID     GBP-VIDEO-005
+Build ID    stream-0009   (NORMAL profile) -- the SAME bytes run 7 executed
+Commit      59d2f57       functional; HEAD at pre-registration b7ab1e2
+DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+            494 176 B
+            4d0337bb2cc7fe6e9acc1fb167e05a29caf7c497297ee7a1618d7e61a4d8c955
+Swiss       build/swiss/12-stream/boot.dol -- byte-identical (cmp), same hash
+embedded    build_id=stream-0009 commit=59d2f57, read from build-info and the
+            binary's own strings
+```
+
+The DOL on disk was verified against the recorded run-7 hash and was NOT
+rebuilt: the point is to test exactly the binary whose machine trace already
+passed. The operator's `sha256sum` of the SD copy is a double check of the
+media, never the source of the identity; if it differs, STOP.
+
+#### V5.54.3 Physical topology
+
+```text
+GameCube          real hardware
+Game Boy Player   real hardware
+cartridge         a REAL RETAIL cartridge the operator knows to work
+                  -- NOT indexed-0003
+BBA               DISCONNECTED. It plays no part in the question, and its
+                  absence keeps one physical variable out of the experiment.
+                  Network work resumes only after this UX result and the
+                  controlled steady-state run are both closed; from then on
+                  every network experiment records BBA PRESENT explicitly.
+```
+
+#### V5.54.4 What the runtime WILL do, stated in advance so it is not misread
+
+`stream-0009` is a research probe, not the final runtime. With any cartridge:
+
+1. the screen is BLACK from the moment the DOL takes over until the Game Boy
+   Player's first frame (run 7: 211 ms after program entry);
+2. live video runs while the probe captures. The capture ends when the
+   structural witness target (2048 records) is reached — content-blind, so a
+   retail cartridge reaches it too, at roughly 35 s — or at the 60 s safety
+   cap;
+3. **the probe then tears down and returns to its TEXT REPORT.** The game stops
+   at that point. This is the probe ending its measurement, by design. It is
+   NOT a loss of video and must not be recorded as one;
+4. the report asks `X = save log + witness sidecar to SD   START = exit
+   POWER CYCLE REQUIRED`. Pressing X writes the usual three files. They are
+   preserved as any run's are, but this run makes no claim from the witness
+   and `tools/vindex.py` is NOT to be run on a retail cartridge.
+
+No new instrumentation, no extended duration, no indexed stimulus.
+
+#### V5.54.5 MACHINE-EVIDENCED vs OPERATOR-OBSERVED — kept apart
+
+```text
+MACHINE-EVIDENCED (already, from run 7; re-read from this run's log if saved)
+  STARTUP mode=normal presented_synthetic=0 headless_submits=1
+  no PREHANDLERWAIT line
+  STARTUPV ticks_control_to_first_handoff (run 7: 165.154 ms)
+  Policy A invariants
+
+OPERATOR-OBSERVED (this run's purpose; recorded literally, never promoted)
+  boot/logo seen or not; complete or cut; black-screen perception; flash;
+  flicker; transition quality; stability; whether the game starts
+```
+
+#### V5.54.6 Pre-registered PASS / PARTIAL / FAIL
+
+```text
+PASS     [ ] no synthetic self-test pattern visible at any point
+         [ ] no perceptible artificial wait of ~5 s before video
+         [ ] real video appears quickly (operator: "almost immediate" / "< 1 s")
+         [ ] the cartridge's boot/logo appears, IF that cartridge shows one
+         [ ] no garbage / corrupt framebuffer
+         [ ] the boot -> game transition is usable
+         [ ] the image stays stable while the game runs
+         [ ] the game starts normally
+PARTIAL  boot and game work, but one small, reproducible visual defect
+FAIL     the self-test pattern appears; a long artificial delay; the boot is
+         hidden in a problematic way; visual corruption; persistent loss of
+         video DURING the capture window (not the designed teardown);
+         a hang; the game does not start
+```
+
+A purely cosmetic minor difference is not a transport regression without
+transport evidence. The planned teardown at ~35–60 s is not a failure.
+
+#### V5.54.7 Classification rules, fixed now
+
+- Operator says the boot/logo was clearly seen → record **OPERATOR
+  OBSERVATION: real Game Boy boot/logo observed during NORMAL startup.** Never,
+  on its own, "machine-proven pixel identity".
+- That observation plus run 7's descriptor equivalence with `vstate-0001`
+  (GBP-HW-216) → **CORROBORATED: NORMAL startup exposes the real cartridge
+  startup sequence to the user**, with the two sources named separately.
+- Operator does NOT see a logo → investigate before any code: does this
+  cartridge show one at all; did execution start before or after the observed
+  phase; did the TV re-acquire sync; did Swiss add a transition; was there
+  useful video immediately regardless. Not automatically a regression.
+
+#### V5.54.8 Procedure for the operator
+
+```text
+1  BBA stays disconnected.
+2  Power the GameCube fully OFF.
+3  Insert a known-working retail cartridge into the Game Boy Player.
+4  Power on; launch EXACTLY build/swiss/12-stream/boot.dol (stream-0009).
+5  Watch from the first instant the DOL takes over.
+6  Do not press anything during startup unless the game itself later requires
+   it to reach a stable screen.
+7  Let the game reach a stable screen.
+8  After ~35-60 s the probe ends and shows its text report: press X to save,
+   then power-cycle.
+9  Answer A-G below. A phone recording of the TV is useful but OPTIONAL.
+```
+
+#### V5.54.9 Questions A–G (objective answers)
+
+```text
+A  Did the Game Boy boot/logo appear?           YES / NO / PARTIAL-UNSURE
+B  If yes, it looked:                            complete / cut at start /
+                                                 cut at end / flashed briefly /
+                                                 other
+C  Before the logo there was:                    short normal black / long black /
+                                                 white flash / garbage image /
+                                                 self-test pattern / other /
+                                                 nothing noticeable
+D  The logo -> game transition was:              clean / flicker / long black /
+                                                 momentary freeze / odd frame /
+                                                 other
+E  Once the game was in:                          stable / tearing-flicker /
+                                                 loss of video / hang /
+                                                 abnormal / normal
+F  Time from launch to useful image, felt:        almost immediate / < 1 s /
+                                                 1-2 s / > 2 s / don't know
+G  Anything visually different from what you consider a normal Game Boy
+   Player / GBI boot? (free text)
+```
+
+#### V5.54.10 Not authorised in this round
+
+Any runtime change; any startup change; `PREHANDLERWAIT`, sleep or VSync
+delay; Policy A, qualification or `vindex.py` changes; a new sidecar format;
+BBA/network, Mobile Adapter or SIO work; another controlled indexed run. The
+5.000 s research not-before gate (GBP-VID-030) stays analysed-only.
