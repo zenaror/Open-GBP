@@ -96,15 +96,13 @@ class ItCommitsNothingItHasNotDone(unittest.TestCase):
         self.assertIn("No name is reserved here", part(14))
         self.assertIn("run<N>", part(14))
 
-    def test_the_new_names_are_unused_outside_the_design(self):
+    def test_the_new_names_were_verified_unused_and_are_named_by_the_design(self):
+        """At design time (Issue #6) none of these existed anywhere in the tree;
+        Issue #7 then implemented them, so this test pins that the design named
+        them and that no OTHER experiment id was minted since."""
         for name in ("stream-0013", "coord-0001", "OGBPCOORD1", "OGBPFULL1", "OGBPVI1", "GBP-VIDEO-007", "GBP-VIDEO-008"):
             self.assertIn(name, v6())
-            for d in ("src", "poc", "tools", "stimulus", "captures/fixtures"):
-                for base, _dirs, files in os.walk(os.path.join(ROOT, d)):
-                    for fn in files:
-                        if fn.endswith((".c", ".h", ".py", ".sh", "Makefile", ".tsv", ".json")):
-                            with open(os.path.join(base, fn), encoding="utf-8", errors="replace") as f:
-                                self.assertNotIn(name, f.read(), "%s already exists in %s/%s" % (name, base, fn))
+        self.assertNotRegex(read(HW), r"GBP-VIDEO-009|GBP-VIDEO-01\d")
 
     def test_pixel_perfect_is_not_measured_or_implemented(self):
         t = flat(v6())

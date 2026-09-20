@@ -172,9 +172,9 @@ class TheGateKnowsNothingAboutContent(unittest.TestCase):
 
 
 class TheBuildIsANewIdentity(unittest.TestCase):
-    def test_build_id_is_stream_0012(self):
+    def test_build_id_is_stream_0013(self):
         m = re.search(r"^BUILD_ID\s*:=\s*(\S+)$", read(MAKE), re.M)
-        self.assertEqual(m.group(1), "stream-0012")
+        self.assertEqual(m.group(1), "stream-0013")
 
     def test_it_is_research_instrumentation_and_says_so(self):
         self.assertIn("RESEARCH INSTRUMENTATION", read(MAIN))

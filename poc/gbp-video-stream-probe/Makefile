@@ -43,7 +43,15 @@ APP_NAME   := gbp-video-stream-probe
 # experiment's only success condition; the 60 s safety cap is unchanged. No
 # witness, transport, display, startup or format semantics change. NOT
 # PHYSICALLY EXECUTED; no run is pre-registered for it.
-BUILD_ID   := stream-0012
+# §V6.8 / Issue #7. stream-0013 is stream-0012 plus the GBP-VIDEO-007/008
+# instrumentation: K = 8 content-blind full-frame samples (raw + texture of
+# the same lifecycle, copied one block per pump slice) serialized as
+# OGBPFULL1, and a VI hand-over / latch trace with the framebuffer-base
+# registers read back, serialized as OGBPVI1. No witness, transport, Policy A,
+# display, startup or frozen-format semantics change; no XFB CRC; no VI
+# callback; no wait. Embedded TEST_ID stays GBP-VIDEO-004 (decision 5). NOT
+# PHYSICALLY EXECUTED; no run is pre-registered for it.
+BUILD_ID   := stream-0013
 
 # NORMAL by default. A diagnostic image -- visible self-test, 5000 ms wait -- is
 #   make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC
@@ -64,7 +72,7 @@ TARGET  := $(OUTDIR)/$(APP_NAME)
 
 vpath %.c $(CURDIR)/source $(ROOT)/src/common $(ROOT)/src/log $(ROOT)/src/gbp $(ROOT)/src/platform
 
-SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vpix.c gbp_vqueue.c gbp_vpresent.c gbp_vwitness.c gbp_vidxdump.c gbp_vdisp.c gbp_vdispdump.c gbp_vcolor.c gbp_vstate_probe.c gbp_vstatedump.c hsp_backend.c hsp_backend_irq.c sdlog.c
+SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vpix.c gbp_vqueue.c gbp_vpresent.c gbp_vwitness.c gbp_vidxdump.c gbp_vdisp.c gbp_vdispdump.c gbp_vfull.c gbp_vfulldump.c gbp_vvi.c gbp_vvidump.c gbp_vcolor.c gbp_vstate_probe.c gbp_vstatedump.c hsp_backend.c hsp_backend_irq.c sdlog.c
 OBJS := $(addprefix $(OBJDIR)/,$(SRCS:.c=.o))
 DEPS := $(OBJS:.o=.d)
 
