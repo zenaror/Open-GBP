@@ -17137,7 +17137,7 @@ without a pixel and without weakening it.
 
 ---
 
-### V5.54 GBP-VIDEO-005 — RUN B, REAL CARTRIDGE, NORMAL STARTUP — **PRE-REGISTERED 2026-09-20, NOT YET EXECUTED**
+### V5.54 GBP-VIDEO-005 — RUN B, REAL CARTRIDGE, NORMAL STARTUP — **PRE-REGISTERED 2026-09-20; EXECUTED 2026-09-20 (run 8) — PASS, WITH A DEBUG-UX NOTE (§V5.54.11)**
 
 Written before the hardware is touched, so the pass/fail criteria cannot move
 after the result is seen. This is a **UX / operator-observation** test. It is
@@ -17297,3 +17297,301 @@ Any runtime change; any startup change; `PREHANDLERWAIT`, sleep or VSync
 delay; Policy A, qualification or `vindex.py` changes; a new sidecar format;
 BBA/network, Mobile Adapter or SIO work; another controlled indexed run. The
 5.000 s research not-before gate (GBP-VID-030) stays analysed-only.
+
+#### V5.54.11 RESULT — run 8, ingested 2026-09-20
+
+**I. Artifacts, hashed here first.** The operator's files were dropped under the
+runtime's own names, `GBP-VIDEO-004_stream-0009*` — the EMBEDDED id is
+`GBP-VIDEO-004 / stream-0009 / 59d2f57` because the binary was not rebuilt for
+the experiment id, and that is intentional, not a mismatch. **The drop
+overwrote run 7's raw files in `logs/`**; run 7 survives byte-identical in
+`captures/local/…-run7…` (hashes verified), exactly the hazard the HANDOFF
+warned about. Run 8 is archived as `captures/local/GBP-VIDEO-005_stream-0009-run8{,-idxcap,-disp}.*`,
+byte-identical to the drop.
+
+```text
+log      86 192 B     8768d1e6ba8a80a1dea85109f3ae6486ded75850497d9dfc2aeee4fd58dd193f
+idxcap   8 946 060 B  d93d778100b76ab000caeb4816fb333b83567dfe4524e3fe7160c9aa8edf2202
+disp     379 300 B    2edadb49ab760e8c596368373a20fdfa6e3be67d5a44139327b7aa5a0b1a5a34
+DOL      494 176 B    4d0337bb…c955  (same bytes as run 7; verified before the run)
+log header  test_id=GBP-VIDEO-004 build_id=stream-0009 commit=59d2f57 dropped=0 truncated=0
+media double check   PENDING — not supplied
+```
+
+**II. Machine result — startup, repeated.**
+
+```text
+STARTUP  mode=normal selftest_run=1 selftest_visible=0 prehandler_wait_ms=0
+         clear_fb=1 normal_clean=1 presented_synthetic=0 headless_submits=1
+STARTUPV have_first=1 first_frame_index=2 ticks_control_to_first_handoff=6670174
+         = 164.695654 ms          run 7: 6 688 749 = 165.154 ms   Δ +0.459 ms
+program -> first real hand-off  210.664 ms   (run 7: 211.120)
+CONTROL -> capture_start        107.203 ms   (run 7: 107.663)
+capture_start -> first hand-off  57.493 ms   (run 7: 57.491)
+headless self-test               12.218 ms   (run 7: 12.219)
+```
+
+Half a millisecond apart on two cartridges: repeatability, not a UX change. No
+`PREHANDLERWAIT` line. **SELF-TEST EXECUTED: yes** (`converted=1 released=1
+headless_submits=1`). **SELF-TEST SHOWN: no** (`own_presents=0
+presented_synthetic=0`, lifecycle TERMINAL_PENDING with `F_SELFTEST`).
+
+**III. Transport and Policy A on retail content.** `stop=witness_target_reached`,
+240 754 = 240 754 = 240 754, `timeouts 0 busy 0 errors 0`. FRAMECAP
+2271/2258/13/26/13 and WITQUAL 223/222/12/26 — **identical to run 7**.
+OGBPDISP2 `c4e03fd8 / 3e079124 / e51713ee / 3b796f07` all recomputed; 2244
+hand-offs in strict order, no duplicate, 43 deferred / 97 attempts every one on
+the next retrace, depth 1, `xfb_skipped 97 = defer_attempts`, p99 0.3341 ms,
+max 1.0030 ms, 0 interior drops; over the frozen join 223..2270, **7 display
+repeats beside 0 drops — the third consecutive run with exactly seven.**
+`terminal_pending` header 2 vs log 0: the known pre-finish ordering.
+
+**IV. The retail witness was NOT decoded.** As a container: header CRC
+`a550891d` and global `fd2a435e` recomputed, 2048/2048 seals, reserved zero,
+`frame_index` 223..2270, first retained record 3.84002 s after CONTROL (run 7:
+3.84047). No OGBPIDX verdict exists for this run and none may be written.
+
+**V. The structural startup is the same on a different cartridge.** The four
+preserved episodes — 8..25 / 30..89 / 90..149 / 150..197, flags 0005/0006/0006/0005,
+`sig0 7f0fff10 / 00000000 / 00000000 / 7f0fff10` — are **identical to run 7's**,
+descriptor for descriptor, and episodes 1–2 remain identical to `vstate-0001`'s.
+Then STRUCTURED diverges as it must: 218 episodes (216 stable) against run 7's
+43 (7 stable) — a game holding still screens against a stimulus that changes
+every frame. Content-dependent, not a regression, and no signature claim is
+extended past the early descriptors already established.
+
+**VI. OPERATOR OBSERVATION — recorded literally, never promoted.**
+
+```text
+A  boot/logo appeared?                 SIM
+B  appearance                          appeared complete. "If it cut anything,
+                                       it was only milliseconds at the very
+                                       beginning; without audio I could not
+                                       notice anything definite."
+C  before the logo                     an almost instantaneous black flash with
+                                       some text visible on that black screen
+D  logo -> game transition             appeared clean
+E  running game                        appeared stable
+F  time to useful image                almost immediate; nothing abnormal noticed
+G  context                             no relevant problem. The operator notes
+                                       the Start-up Disc and GBI appear to
+                                       initialise their own environment first
+                                       and only then start the Game Boy path,
+                                       and considers the current behaviour
+                                       understandable for a debug/research
+                                       runtime.
+```
+
+B's "milliseconds at the beginning" is the operator's own uncertainty and stays
+as such; it is NOT recorded as a confirmed cut. G's remark about the Disc and
+GBI is context, not a claim about their internals.
+
+**VII. The brief black/text flash — origin established from source.**
+`video_setup()` points the video interface at the CONSOLE framebuffer
+(`VIDEO_SetNextFramebuffer(xfb_text)`, main.c:373; `CON_Init` gives black
+with light text). `main()` then prints its banner to that console — the
+identity lines, the self-test result, the sequence description and
+`"Running ..."` (main.c:890–1072) — and only at main.c:1075, immediately before
+`gbp_vstate_probe_run()`, moves the interface to the cleared black stream
+framebuffer. From `STARTUPT`: console visible from `t_video` (+15.092 ms) to
+`t_probe_enter` (+33.155 ms) = **18.06 ms, about one field**, then black for
+177.5 ms, then the Game Boy Player's first frame. That is the flash the
+operator saw: **the probe's own diagnostic console, DEBUG/RESEARCH UX
+ARTIFACT**. It is not the synthetic self-test (machine: `presented_synthetic=0`,
+`xfb` never handed by it) and not Game Boy video. Whether Swiss adds anything of
+its own before the DOL takes over cannot be excluded from this repository's
+source, but the text the operator describes is the probe's banner. Not a GBP
+video defect; not changed in this round; a future polish item for a non-debug
+profile.
+
+**VIII. Classification against the pre-registered criteria (§V5.54.6).**
+
+```text
+[x] no synthetic self-test visible          machine: presented_synthetic=0
+[x] no perceptible ~5 s artificial wait     machine: no wait; operator: "almost immediate"
+[x] real video quickly                      machine: 164.696 ms; operator F
+[x] boot/logo appears                       operator A: SIM, complete
+[x] no garbage / corrupt framebuffer        operator C: black + text (identified as console)
+[x] boot -> game usable                     operator D: clean
+[x] image stable                            operator E: stable
+[x] game starts normally                    operator E/G
+```
+
+**GBP-VIDEO-005: PASS, with a DEBUG-UX NOTE** (the 18 ms console flash, origin
+established, outside the intended final UX). Not PARTIAL: the flash is not an
+unidentified presentation defect, and it is not a defect of the pipeline.
+
+**IX. Boot/logo classification.** Machine (run 7 + run 8): normal profile, no
+synthetic hand-off, first real frame at ~165 ms, early structured episodes
+descriptor-identical across two cartridges and to `vstate-0001`'s logotype run.
+Operator (run 8): logo seen, complete. **CORROBORATED: NORMAL startup exposes
+the real cartridge startup sequence to the user** — the two sources named and
+kept apart; pixel identity is still not machine-established and is not claimed.
+
+**X. NORMAL-STARTUP MILESTONE — PHYSICALLY VALIDATED** for: no visible
+synthetic self-test; no 5 s pre-handler delay; first real presentation < 400 ms
+(165.2 / 164.7 ms); a visible real Game Boy boot (operator); clean transition to
+a retail game (operator); stable retail gameplay during the probe window
+(operator, and Policy A / transport clean by machine). **Not claimed:** that
+final production UX is complete — this is a research probe, and the console
+flash says so.
+
+---
+
+### V5.55 THE RESEARCH NOT-BEFORE GATE — `stream-0010` — 2026-09-20 — **IMPLEMENTED, SOFTWARE-ONLY; NO HARDWARE**
+
+#### V5.55.1 What it is, and what it is not
+
+Run 7 (§V5.53) showed that with the diagnostic wait gone, the content-blind
+structural qualification completes on the AGB's own boot and opens the
+scientific window 3.840 s after the CONTROL transform — 1.00 s before the
+indexed stimulus produces its first frame at 4.845 s, a time that is the same
+in all four indexed runs. `stream-0010` defers **one thing**: when the
+qualification streak may be COUNTED.
+
+```text
+DEFERRED        the counting of the 64-frame structural streak
+NOT DEFERRED    transport · VIDEO servicing · the assembler · conversion ·
+                Policy A · GX · the real hand-off · the startup display ·
+                audio · input · every startup diagnostic
+```
+
+It is **research instrumentation**. A final runtime has no scientific witness
+to gate and must never inherit this as a delay the user can feel.
+
+#### V5.55.2 Semantics
+
+```text
+reference clock   the CONTROL transform, res.t_control_transform -- the epoch
+                  every safety budget already uses, on the same time base as
+                  every STARTUP timestamp
+threshold         5000 ms   (STREAM_WIT_NOT_BEFORE_MS)
+before threshold  every closed frame is still SEEN: warmup_frames and
+                  warmup_disqualified keep their meaning, incomplete / resync /
+                  anomaly / BASELINE / STRUCTURED evidence is recorded exactly
+                  as before; the streak is neither built nor broken, so no
+                  reset and no streak state crosses the boundary
+at threshold      gbp_vwitness_release_streak(): eligibility latches (one-way,
+                  idempotent), t_eligible is recorded, the streak starts from
+                  ZERO
+after threshold   the EXISTING rule, untouched: 64 consecutive structurally
+                  qualifying closed frames; the window opens at the next
+                  block-0 boundary; exactly 2048 records; no reset, no
+                  truncation, no filtering, no content inspection
+safety cap        60 s, unchanged; capture_s and target_s unchanged
+```
+
+Expected on the indexed cartridge: eligibility at 5.000 s, ID 0 already 155 ms
+in the past, STATUS 0x18 since 4.878 s, the earliest window at
+`5.000 + 64/59.727 ≈ 6.07 s` — inside the regime runs 4–6 established (6.27 s).
+
+#### V5.55.3 Implementation
+
+```text
+src/gbp/gbp_vwitness.{h,c}   a latch, no clock: elig_gated, elig_released,
+                             elig_frames_before, elig_disqualified_before,
+                             t_eligible; gate_streak() / release_streak(t) /
+                             streak_gated(). note_frame() early-outs while
+                             gated after counting the frame as seen.
+                             DEFAULT OFF: a witness never gated is byte-for-
+                             byte the old behaviour (test EL-N), so every
+                             earlier build and every earlier test is unchanged.
+poc/.../main.c               gate_streak() once after set_qualification();
+                             ONE 64-bit compare per pump() call until release
+                             (then nothing): now - t_control_transform >=
+                             5000 ms -> release_streak(now). No wait, no spin,
+                             no device access, no formatting.
+                             WITELIG line after WITQUAL, post-teardown.
+tools/poc_audit.py           gettime pump 3 -> 4 (the compare); gate_streak
+                             pinned to main:1, release_streak to pump:1 --
+                             gbp_vstate_probe_run absent from both, so the
+                             witness cannot be gated or released from the
+                             interrupt-driven loop.
+```
+
+`WITELIG policy=time_not_before origin=control not_before_ms=5000 gated_at_init=1
+released=… still_gated=… t_eligible=… ticks_control_to_eligible=…
+frames_seen_before_eligible=… disqualified_before_eligible=…
+qual_streak_at_eligible=0` — capture start, eligibility, qualification and the
+first record become four fields, not a reconstruction. `qual_streak_at_eligible`
+is 0 by contract and is printed so a future edit that breaks the contract shows
+in the record.
+
+#### V5.55.4 Content independence, guarded
+
+The witness module, the drive header and the gate block in `pump()` name no
+stimulus field — no `0xB2`, `FRAME_ID`, `STATUS`, CRC-8, `BLOCK_INDEX`, no
+`istim`/`vindex`/`vidxcap`, no canonical anything — pinned by a word-bounded
+source scan (the assembler's own `GBP_VSTATE_F_RESYNC` is structural and stays
+allowed). Eligibility is `time >= threshold`; the predicate after it is the old
+one, unchanged in `gbp_vwitness_drive.h`, which does not know the gate exists.
+
+#### V5.55.5 Tests
+
+```text
+C  EL-A  before release, 500 qualifying frames build no streak, are SEEN
+   EL-B  release starts the streak from zero, records t
+   EL-C/D after release 63 clean frames do not qualify; the 64th does
+   EL-E  a bad frame after release resets exactly as before
+   EL-F  a run-7-shaped startup leaves qual_resets 0 and streak 0 behind, with
+         25 disqualified frames counted in elig_disqualified_before
+   EL-G  driven through the real assembler: the window opens on the next
+         block 0 exactly as before, record 0 whole
+   EL-H/I release is one-way and idempotent; gating an ARMED witness is inert
+   EL-N  never gated == old behaviour, field for field
+host  armed once at init, released once in pump; 5000 from CONTROL; the gate
+      block is a compare and not a wait; nothing on the user's path consults
+      it; capture/safety constants unchanged; WITELIG present once, after the
+      teardown; content independence; BUILD_ID stream-0010
+```
+
+12 191 C checks in `test_gbp_vwitness`, 944 host tests, nine object audits at 0
+findings with the interrupt path identical to GBP-VIDEO-001, Dolphin PASS in
+both profiles with `xfb=0` normal.
+
+#### V5.55.6 Build identity
+
+```text
+Test ID     GBP-VIDEO-004
+Build ID    stream-0010          (NORMAL profile)
+Commit      TBD-COMMIT           -- CLEAN, no -dirty stamp
+Size        TBD-SIZE B           -- stream-0009 was 494 176 B
+sha256      TBD-SHA256
+Swiss       build/swiss/12-stream/boot.dol, byte-identical
+Reproduce   GIT_COMMIT=TBD-COMMIT GIT_DIRTY= make build
+```
+
+#### V5.55.7 The next controlled run — procedure, gates, what validates the gate
+
+`stream-0010` + `indexed-0003` (`9f04916b…8d9cc2`, do NOT re-flash), full
+power-cycle, **BBA DISCONNECTED**, three files renamed before anything else
+touches the card. Analysis order unchanged and non-negotiable.
+
+```text
+WITELIG    released=1 still_gated=0
+           ticks_control_to_eligible ≈ 5.000 s (± the pump's ~158 µs cadence)
+           frames_seen_before_eligible ≈ 290 (run 7: 223 frames by 3.84 s)
+           qual_streak_at_eligible=0
+WITQUAL    first_record_frame > eligibility frame + 64; window opens
+           ≈ 6.07-6.3 s after CONTROL
+vindex.py  UNMODIFIED: OBSERVED_CONTIGUOUS with intact 2048 / INVALID 0 --
+           THAT composition, not run 7's -- and first FRAME_ID ≈ 75 (1.2 s of
+           stimulus already elapsed), STATUS 0x18 throughout
+startup    STARTUP normal_clean=1 presented_synthetic=0; first hand-off < 400 ms
+Policy A   0 interior drops · 0 supersessions · 0 reorder · depth <= 1 ·
+           p99 <= 1.0 ms, max <= 2.5 ms; display repeats reported separately
+           against that run's own rates
+transient  FRAMECAP incomplete/resync/anomaly and STRUCTURED still recorded
+```
+
+**What validates the gate:** the window opening AFTER the stimulus's first
+normal-status frame, on a run whose startup is still ~165 ms to first video and
+whose early transient is still in the log. **What would refute it:** any INVALID
+canonical strip in the retained window, or any change to the startup timings.
+
+#### V5.55.8 Non-claims
+
+No hardware ran. The 5000 ms threshold is prospective from four runs of this
+cartridge on this console and guarantees nothing about another cartridge.
+`vindex.py` stays the decisive offline check. The final runtime needs none of
+this.
