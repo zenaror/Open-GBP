@@ -51,11 +51,20 @@ def plain(s):
 
 
 def prereg():
+    """§V6.19 only: from its heading up to the RUN 12 result (§V6.20), which is
+    a separate part written AFTER the run and pinned by test_run12."""
     if "p" not in _C:
         t = read(HW)
         i = t.index("### V6.19 ")
-        _C["p"] = t[i:]
+        j = t.find("### V6.20 ", i)
+        _C["p"] = t[i:] if j < 0 else t[i:j]
     return _C["p"]
+
+
+def prereg_body():
+    """The pre-registration without its heading line (the heading carries the
+    run's status, which changed when the run was executed and ingested)."""
+    return "\n".join(prereg().splitlines()[1:])
 
 
 def part(n):
@@ -73,13 +82,18 @@ class TheSectionExists(unittest.TestCase):
         head = t.splitlines()[0]
         self.assertIn("RUN 12", head)
         self.assertIn("PRE-REGISTERED 2026-09-20 (GitHub Issue #8)", head)
-        self.assertIn("NOT RUN", head)
-        self.assertIn("NOT AUTHORIZED HERE", head)
+        # Issue #10: the heading now carries the outcome; the body below it stays the contract as written
+        self.assertIn("EXECUTED 2026-09-20 (Hardware Issue #9)", head)
+        self.assertIn("GBP-VIDEO-007 INCONCLUSIVE", head)
+        self.assertIn("GBP-VIDEO-008 INCONCLUSIVE", head)
+        self.assertIn("\u00a7V6.20", head)
 
-    def test_the_section_is_the_last_part_of_v6_and_nothing_follows_it(self):
+    def test_the_result_follows_it_as_v6_20_and_nothing_else_does(self):
         t = read(HW)
         self.assertEqual(t.count("### V6.19 "), 1)
-        self.assertNotIn("### V6.20 ", t)
+        self.assertEqual(t.count("### V6.20 "), 1)
+        self.assertLess(t.index("### V6.19 "), t.index("### V6.20 "))
+        self.assertNotIn("### V6.21 ", t)
         self.assertNotRegex(t, r"\n## V7 ")
 
 
@@ -153,12 +167,12 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
             self.assertEqual(t.count(n), 1, n)
         self.assertEqual(len(re.findall(r"captures/local/\S*run12\S*", t)), 5)
 
-    def test_the_handoff_reserves_the_same_five_names_once(self):
+    def test_the_handoff_names_the_same_five_files_once_and_they_are_taken(self):
         h = read(HANDOFF)
         for n in NAMES:
             self.assertEqual(h.count(n), 1, n)
-        self.assertIn("RUN 12 is pre-registered", plain(h))
-        self.assertIn("TAKEN even if the run aborts", plain(h))
+        self.assertIn("RUN 12 was executed and ingested", plain(h))
+        self.assertIn("its five names are TAKEN", plain(h))
 
     def test_the_photograph_is_optional_and_not_one_of_the_five(self):
         p = part(4)
@@ -169,7 +183,9 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
 
 class GatesAreProspective(unittest.TestCase):
     def test_no_result_no_evidence_id_no_executed_run(self):
-        p = prereg()
+        """The contract body was written before the run and must still read that way;
+        the result lives in §V6.20 and cites the evidence ids there."""
+        p = prereg_body()
         self.assertNotRegex(p, r"GBP-HW-\d{3}")
         self.assertNotRegex(p, r"GBP-VID-03[4-9]|GBP-VID-0[4-9]\d")
         self.assertNotIn("RESULT", p)
@@ -275,8 +291,9 @@ class TopologyIsRecordedNotClaimed(unittest.TestCase):
         self.assertIn("HYDIS HV150UX2", h)
         self.assertIn("Morph 2K", h)
         self.assertIn("not part of RUN 12", h)
-        self.assertRegex(h, r"RUN 12 has NOT\s+RUN")
-        self.assertIn("That RUN 12 has run.", h)
+        # Issue #10: the run happened; the handoff must say what it did NOT establish
+        self.assertIn("That RUN 12 established scanout or fidelity.", h)
+        self.assertRegex(h, r"GBP-VIDEO-007 INCONCLUSIVE[^\n]*GBP-VIDEO-008\s+INCONCLUSIVE|GBP-VIDEO-007\s+INCONCLUSIVE[^\n]*GBP-VIDEO-008 INCONCLUSIVE")
 
 
 class TheProcedureAndTheIdentityGate(unittest.TestCase):

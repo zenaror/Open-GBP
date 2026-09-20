@@ -73,11 +73,13 @@ class SectionsExist(unittest.TestCase):
         # Issue #7: the heading now carries the implementation status; the design
         # provenance (Issue #6) stays in the same heading.
         self.assertIn("DESIGN (Issue #6)", t.splitlines()[1])
-        self.assertIn("IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED", t.splitlines()[1])
-        # Issue #8: the heading also says the run is pre-registered and NOT RUN.
-        self.assertIn("RUN 12 PRE-REGISTERED (Issue #8, \u00a7V6.19), NOT RUN", t.splitlines()[1])
-        self.assertIn("### V6.18 ", t)
-        self.assertIn("### V6.19 ", t)
+        self.assertIn("IMPLEMENTED IN SOFTWARE", t.splitlines()[1])
+        # Issues #8 / #9 / #10: pre-registered, executed, ingested -- both INCONCLUSIVE.
+        self.assertIn("RUN 12 PRE-REGISTERED (Issue #8, \u00a7V6.19), EXECUTED (Issue #9), INGESTED (Issue #10, \u00a7V6.20)", t.splitlines()[1])
+        self.assertIn("GBP-VIDEO-007 INCONCLUSIVE", t.splitlines()[1])
+        self.assertIn("GBP-VIDEO-008 INCONCLUSIVE", t.splitlines()[1])
+        for part_h in ("### V6.18 ", "### V6.19 ", "### V6.20 "):
+            self.assertIn(part_h, t)
 
     def test_the_thirteen_required_items_are_mapped(self):
         head = v6().split("### V6.1 ")[0]
@@ -94,25 +96,27 @@ class ItCommitsNothingItHasNotDone(unittest.TestCase):
         that nothing touched hardware and nothing is reserved."""
         head = flat(v6().split("### V6.1 ")[0])
         self.assertIn("IMPLEMENTED IN SOFTWARE", head)
-        self.assertIn("NOT PHYSICALLY EXECUTED", head)
-        self.assertIn("nothing has touched hardware", head)
-        self.assertIn("no evidence ID is allocated and no frozen format changes", head)
-        # Issue #8: the run is pre-registered, its names reserved, and it has NOT RUN.
-        self.assertIn("RUN 12 is PRE-REGISTERED in \u00a7V6.19", head)
-        self.assertIn("five raw names are reserved", head)
-        self.assertIn("it has NOT RUN", head)
+        self.assertIn("NOT PHYSICALLY EXECUTED", head)          # the Issue #7 status, as written then
+        # Issues #8 / #9 / #10: pre-registered, executed, ingested; the outcome named plainly
+        self.assertIn("RUN 12 was PRE-REGISTERED in \u00a7V6.19", head)
+        self.assertIn("EXECUTED under Hardware Issue #9", head)
+        self.assertIn("INGESTED in \u00a7V6.20", head)
+        self.assertIn("GBP-VIDEO-007 INCONCLUSIVE and GBP-VIDEO-008 INCONCLUSIVE", head)
+        self.assertIn("No rerun is pre-registered", head)
+        self.assertIn("No frozen format changes", head)
         self.assertIn("DESIGN ONLY", head)
         self.assertIn("kept verbatim as provenance", head)
         self.assertIn("V6.18", head)
 
-    def test_it_allocates_no_evidence_id_and_the_design_reserves_no_run(self):
-        """No evidence ID anywhere in \u00a7V6. The design and implementation parts
-        (\u00a7V6.1-\u00a7V6.18) reserve no run name; the reservation belongs to the
-        pre-registration (\u00a7V6.19, Issue #8) and is pinned by test_run12_prereg."""
+    def test_the_design_and_implementation_parts_allocate_nothing_and_reserve_no_run(self):
+        """\u00a7V6.1-\u00a7V6.18 are provenance: written before any run, they name no
+        evidence id and reserve no run name. The reservation belongs to \u00a7V6.19
+        (test_run12_prereg) and the evidence ids to the result \u00a7V6.20 and the head
+        (test_run12)."""
         t = v6()
-        self.assertNotRegex(t, r"GBP-HW-2[5-9]\d|GBP-HW-[3-9]\d\d")
-        self.assertNotRegex(t, r"GBP-VID-03[4-9]|GBP-VID-0[4-9]\d")
-        design = t.split("### V6.19 ")[0]
+        design = t[t.index("### V6.1 "):t.index("### V6.19 ")]
+        self.assertNotRegex(design, r"GBP-HW-2[5-9]\d|GBP-HW-[3-9]\d\d")
+        self.assertNotRegex(design, r"GBP-VID-03[4-9]|GBP-VID-0[4-9]\d")
         self.assertNotRegex(design, r"captures/local/\S*run1[2-9]")
         self.assertIn("No name is reserved here", part(14))
         self.assertIn("run<N>", part(14))
