@@ -111,6 +111,7 @@
 #include "gbp_vwitness.h"
 #include "gbp_vidxdump.h"
 #include "gbp_vdisp.h"
+#include "gbp_startup.h"
 #include "gbp_vdispdump.h"
 #include "hsp_backend.h"
 #include "hsp_backend_irq.h"
@@ -288,6 +289,17 @@ static uint32_t flag15_last_count;
 static uint32_t flag15_last_x, flag15_last_y;
 static const struct gbp_vstate *pump_state;
 
+/* ---- the startup profile (§V5.52) --------------------------------------
+ *
+ * ONE switch, resolved once, read everywhere. The default is NORMAL: a build
+ * that forgets to say what it is shows the user no diagnostic output rather
+ * than a test pattern and a five-second pause. The diagnostic build sets
+ * GBP_STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC on the command line. */
+#ifndef GBP_STARTUP_MODE
+#define GBP_STARTUP_MODE GBP_STARTUP_NORMAL
+#endif
+static struct gbp_startup startup;
+
 /* ---- the two stream framebuffers, plus the console's own ---------------- */
 static void *xfb_stream_buf[GBP_VPRESENT_XFB_BUFFERS];
 
@@ -348,6 +360,15 @@ static void video_setup(void)
     xfb_stream = xfb_stream_buf[0];
     xfb_text   = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
     CON_Init(xfb_text, 20, 20, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth * VI_DISPLAY_PIX_SZ);
+    /* §V5.52. SYS_AllocateFramebuffer does NOT clear. Without this the normal
+     * path points the video interface at whatever was in memory and scans it
+     * out until the Game Boy Player's first frame arrives. Black is a decision;
+     * uninitialised memory is not. Done for BOTH profiles -- the diagnostic one
+     * gains nothing from showing garbage either. */
+    if (startup.clear_framebuffers) {
+        VIDEO_ClearFrameBuffer(rmode, xfb_stream_buf[0], COLOR_BLACK);
+        VIDEO_ClearFrameBuffer(rmode, xfb_stream_buf[1], COLOR_BLACK);
+    }
     VIDEO_Configure(rmode);
     VIDEO_SetNextFramebuffer(xfb_text);
     VIDEO_SetBlack(false);
@@ -451,10 +472,61 @@ static void offer_oldest_ready(void);
  *
  * It does NOT prove timing, pacing or anything about the Game Boy Player. It
  * proves the code runs and the ownership machine ends where it started. */
+/* §V5.52: headless submits, the normal path's equivalent of a present. */
+static uint32_t selftest_headless;
+
+/* §V5.52. THE NORMAL PATH'S SELF-TEST SUBMIT — HEADLESS.
+ *
+ * It walks the same display path as `submit_ready()` up to and including the
+ * draw-done token, and stops there: no `xfb_target()`, no `GX_CopyDisp`, no
+ * `VIDEO_SetNextFramebuffer`, no `xfb_handed()`. So it validates
+ *
+ *     the conversion, the texture upload, the GX submit, the draw-done token
+ *     and the ownership round trip
+ *
+ * which is exactly what `stream-0001` shipped without ever executing (§V5.26.4),
+ * and it does NOT validate the framebuffer hand-over — which the first REAL
+ * frame exercises about 150 ms later under `gbp_vpresent_invariant_failures()`,
+ * checked 174 832 times in the last physical run.
+ *
+ * WHY IT CLAIMS NO FRAMEBUFFER AT ALL, rather than just skipping the present.
+ * `gbp_vpresent_xfb_handed()` sets `xfb_pending`, which is cleared only when
+ * the video interface is observed to have LATCHED that buffer. Handing over
+ * the bookkeeping without handing over the buffer would leave `xfb_pending`
+ * set forever; with two framebuffers `xfb_target()` would then never return a
+ * slot and every real frame would defer for the whole run. The safe split is
+ * the clean one: touch the framebuffer state machine, or do not.
+ *
+ * This function calls NOTHING in `submit_ready()`, so Policy A is not merely
+ * unchanged — it is untouched. */
+static void selftest_submit_headless(int buf)
+{
+    const int life = tex_life[buf];
+    if (!gbp_vpresent_submit(&present, buf)) { gbp_vdisp_submit_refused(&disp, life); return; }
+    gbp_vdisp_submit(&disp, life, gettime());
+    GX_InvalidateTexAll();
+    GX_InitTexObj(&tex_obj, tex_buf[buf], GBP_VPIX_WIDTH, GBP_VPIX_HEIGHT,
+                  GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
+    GX_InitTexObjFilterMode(&tex_obj, GX_NEAR, GX_NEAR);
+    GX_LoadTexObj(&tex_obj, GX_TEXMAP0);
+    draw_quad();
+    GX_SetDrawDone();                 /* the callback releases the texture */
+    GX_Flush();
+    selftest_headless++;
+    /* The lifecycle is left un-decided on purpose: no hand-off happened, so
+     * none is recorded. `gbp_vdisp_finish()` closes it as TERMINAL_PENDING at
+     * teardown, which is the literal truth — taken, converted, drawn, never
+     * handed off — and it carries F_SELFTEST, so no analysis can mistake it for
+     * a source frame. `decisions + deferred == event_n` is unaffected: this
+     * path produces neither. */
+    tex_life[buf] = -1;
+}
+
 static uint8_t selftest_raw[GBP_VPIX_FRAME_BYTES] ATTRIBUTE_ALIGN(32);
 static int selftest_ok, selftest_released, selftest_converted, selftest_sci_clean;
 /* The self-test's OWN presentation accounting, kept out of `vq` entirely. */
 static uint32_t selftest_presents, selftest_repeats;
+
 
 static void display_selftest(void)
 {
@@ -495,13 +567,17 @@ static void display_selftest(void)
     /* §V5.49: under policy A a first offer can DEFER, so the self-test retries.
      * A bounded VIDEO_WaitVSync is legitimate HERE and only here -- this runs
      * before the capture opens, touches no device and blocks no service path. */
-    {
+    if (startup.selftest_visible) {
         unsigned k;
         for (k = 0; k < 8u; k++) {
             submit_ready(buf, 0);
             if (present.tex[buf] != GBP_VPRESENT_READY) break;
             VIDEO_WaitVSync();
         }
+    } else {
+        /* §V5.52 NORMAL: no framebuffer is claimed, so there is nothing to
+         * defer and nothing to retry. One call, no wait. */
+        selftest_submit_headless(buf);
     }
 
     /* Wait for the callback HERE and nowhere else: this runs before the capture
@@ -519,8 +595,12 @@ static void display_selftest(void)
      * run at all. Policy A makes that reachable -- if all eight offers defer,
      * nothing is ever presented. Require the present explicitly, so a self-test
      * that displayed nothing fails instead of reporting ok=1. */
+    /* §V5.52: the SAME verdict with the profile's own completion term. The
+     * diagnostic path must have PRESENTED; the normal path must have SUBMITTED
+     * headless. Neither may pass on `released` alone, which is zero-safe. */
     selftest_ok = (selftest_converted && selftest_released && selftest_sci_clean &&
-                   selftest_presents >= 1u &&
+                   (startup.selftest_visible ? (selftest_presents >= 1u)
+                                             : (selftest_headless >= 1u)) &&
                    gbp_vpresent_consistent(&present) &&
                    gbp_vpresent_invariant_failures(&present) == 0u) ? 1 : 0;
 }
@@ -771,6 +851,11 @@ static int sink_sd(void *ctx, const uint8_t *data, uint32_t len)
 
 /* The ONLY transient buffer the save uses: one record. The 8.4 MiB store is
  * never copied in full. */
+/* §V5.52. STARTUP TIMESTAMPS. Plain 64-bit reads at points main() already
+ * passes through; nothing here is in a service path, nothing formats, nothing
+ * allocates, and the line they feed is emitted after the teardown. */
+static uint64_t t_video_ready, t_selftest_begin, t_selftest_end, t_probe_enter;
+
 static uint8_t dump_chunk[GBP_VIDXDUMP_RECORD_SIZE];
 
 int main(void)
@@ -789,8 +874,14 @@ int main(void)
     uint32_t tb_hz = (uint32_t)TB_TIMER_CLOCK * 1000u;
     size_t i;
     int saved = 0;
+    const uint64_t t_program = gettime();
+
+    /* §V5.52. FIRST, before anything can look at it: the startup profile is
+     * resolved exactly once and every later decision reads it. */
+    gbp_startup_profile(&startup, GBP_STARTUP_MODE);
 
     video_setup();
+    t_video_ready = gettime();
     gx_setup();
     PAD_Init();
     gecko_present = usb_isgeckoalive(GECKO_CHANNEL);
@@ -851,7 +942,9 @@ int main(void)
      * touched, so it stops being dead code (§V5.26.4). The result goes out on the
      * Gecko channel immediately, so an auxiliary Dolphin run can ASSERT that the
      * path executed instead of the operator assuming it did. */
+    t_selftest_begin = gettime();
     display_selftest();
+    t_selftest_end = gettime();
     snprintf(line, sizeof line,
              "OPENGBP-STREAM SELFTEST ok=%d converted=%d released=%d submits=%lu drawdone=%lu releases=%lu xfb=%lu sci_clean=%d inv_fail=%lu\n",
              selftest_ok, selftest_converted, selftest_released,
@@ -866,8 +959,14 @@ int main(void)
            (unsigned long)selftest_presents, (unsigned long)selftest_repeats,
            selftest_sci_clean ? "CLEAN" : "CONTAMINATED");
 
-    /* The validated pre-handler wait, unchanged (§V5.20, GBP-HW-120). */
-    cfg.prehandler_wait_ms = 5000u;
+    /* §V5.52. The pre-handler masked wait is a DIAGNOSTIC and the base API
+     * already defaults it to zero (`gbp_vstate_probe.c`). It is not a protocol
+     * requirement: `vstate-0001` ran without it and captured the animated
+     * logotype 0.5014 s after capture start, while `vstate-prewait-5000` with
+     * this same 5000 ms reported STRUCTURED not_observed. The normal profile
+     * asks for none; the diagnostic profile asks for the validated 5000 ms
+     * (§V5.20, GBP-HW-120), so that run stays reproducible. */
+    cfg.prehandler_wait_ms = startup.prehandler_wait_ms;
     cfg.hard_wallclock_s = STREAM_SAFETY_SECONDS;
     cfg.hard_wallclock_ticks = (uint64_t)tb_hz * STREAM_SAFETY_SECONDS;
     cfg.max_deliveries = STREAM_MAX_DELIVERIES;
@@ -976,6 +1075,7 @@ int main(void)
     VIDEO_SetNextFramebuffer(xfb_stream);
     VIDEO_Flush();
 
+    t_probe_enter = gettime();
     gbp_vstate_probe_run(&t, &rl, &cfg, &res);     /* returns only after the teardown */
     a = &res.a;
 
@@ -1126,6 +1226,61 @@ int main(void)
                        (unsigned long)disp.max_deferred_depth,
                        (unsigned long)disp.order_violations,
                        (unsigned long)selected, (unsigned long)held);
+    }
+    /* §V5.52. THE STARTUP CHRONOLOGY, in one line, so a reader never has to do
+     * cross-file arithmetic to find out when the operator first saw real Game
+     * Boy Player video -- which is exactly what this round had to do by hand
+     * for `stream-0008`.
+     *
+     * The "first real" timestamps come from the FIRST lifecycle carrying a real
+     * source key: one bounded scan of at most life_cap records, after the
+     * teardown, touching no device. `presented_synthetic` is the question the
+     * normal profile exists to answer, and it is reported as a measured count
+     * rather than as the profile's own intention. */
+    {
+        const struct gbp_vdisp_life *first = 0;
+        uint32_t k;
+        for (k = 0; k < disp.life_n; k++) {
+            const struct gbp_vdisp_life *r = gbp_vdisp_life_at(&disp, k);
+            if (r && r->frame_index != GBP_VDISP_KEY_NONE &&
+                (r->life_flags & GBP_VDISP_F_SELFTEST) == 0u) { first = r; break; }
+        }
+        ringlog_printf(&rl, "STARTUP mode=%s selftest_run=%d selftest_visible=%d "
+                            "prehandler_wait_ms=%lu clear_fb=%d normal_clean=%d "
+                            "presented_synthetic=%lu headless_submits=%lu",
+                       gbp_startup_mode_name(&startup), startup.selftest_run,
+                       startup.selftest_visible, (unsigned long)startup.prehandler_wait_ms,
+                       startup.clear_framebuffers, gbp_startup_is_normal_clean(&startup),
+                       (unsigned long)selftest_presents, (unsigned long)selftest_headless);
+        ringlog_printf(&rl, "STARTUPT tb_hz=%lu t_program=%llx t_video=%llx "
+                            "t_selftest_begin=%llx t_selftest_end=%llx t_probe_enter=%llx "
+                            "t_control=%llx t_capture_start=%llx",
+                       (unsigned long)tb_hz, (unsigned long long)t_program,
+                       (unsigned long long)t_video_ready,
+                       (unsigned long long)t_selftest_begin,
+                       (unsigned long long)t_selftest_end,
+                       (unsigned long long)t_probe_enter,
+                       (unsigned long long)res.t_control_transform,
+                       (unsigned long long)res.t_capture_start);
+        {
+            /* ONE tag, ONE shape, always emitted. The `have_first` field is what
+             * a parser tests before reading the rest; two different line layouts
+             * under one tag is the trap `DISPTRACE` was renamed to avoid, and a
+             * run that captured nothing is exactly when a reader most needs the
+             * line to still be there. */
+            const uint64_t c = res.t_control_transform;
+            const uint64_t t_ho = first ? first->t_decision : 0u;
+            ringlog_printf(&rl, "STARTUPV have_first=%d first_frame_index=%lu t_take=%llx "
+                                "t_convert_done=%llx t_decision=%llx t_drawdone=%llx "
+                                "ticks_control_to_first_handoff=%llu",
+                           first ? 1 : 0,
+                           (unsigned long)(first ? first->frame_index : 0u),
+                           (unsigned long long)(first ? first->t_take : 0u),
+                           (unsigned long long)(first ? first->t_convert_done : 0u),
+                           (unsigned long long)t_ho,
+                           (unsigned long long)(first ? first->t_drawdone : 0u),
+                           (unsigned long long)((first && t_ho > c) ? t_ho - c : 0u));
+        }
     }
     ringlog_printf(&rl, "STREAMWIT records=%lu/%lu target=%lu frames_seen=%lu discarded=%lu "
                         "staged=%lu placed=%lu out_of_range=%lu store_full=%d target_reached=%d",

@@ -232,8 +232,29 @@ void gbp_vqueue_note_presented(struct gbp_vqueue *q);
  * framebuffers were spoken for, so the copy was skipped and the screen kept the
  * previous image. P1 (GBP-HW-145) made this precise: it is a TERMINAL state of a
  * converted frame, not a free-standing display event, and it belongs in the
- * conservation identity. The physical run confirmed the coupling exactly —
- * repeats = 12 = xfb_skipped, both from that one branch of submit_ready(). */
+ * conservation identity.
+ *
+ * HISTORICAL FROM `stream-0008` ONWARD — DO NOT CARRY THE COUPLING FORWARD.
+ *
+ * Up to `stream-0007` this state was reachable and the physical run confirmed
+ * `repeats = 12 = xfb_skipped`, both from one branch of `submit_ready()`.
+ * **Policy A (§V5.49) makes that equality FALSE and the caller unreachable.**
+ * A frame that finds no writable framebuffer is now DEFERRED and offered
+ * again; `submit_ready()` no longer calls this function at all, and a wiring
+ * test asserts its absence from the probe.
+ *
+ * The counter it feeds has NOT changed and the function is kept so existing
+ * captures keep their meaning. What changed is what `xfb_skipped` counts:
+ *
+ *   stream-0007   xfb_skipped 17   = 17 frames TERMINALLY discarded
+ *   stream-0008   xfb_skipped 129  = 129 DEFER ATTEMPTS, every one resolved
+ *                                    (== DISPSRC defer_attempts; repeats 0,
+ *                                     dropped_interior 0) — GBP-HW-207
+ *
+ * `xfb_skipped` is therefore neither source loss nor a display-repeat count,
+ * and it must never be compared across the two builds as if it meant one
+ * thing. The display-repeat number is a VI-domain quantity measured offline
+ * (GBP-HW-210), and it is not this. */
 void gbp_vqueue_note_repeat(struct gbp_vqueue *q);
 
 /* Every accounted frame must land in exactly one bucket. Returns 1 when the

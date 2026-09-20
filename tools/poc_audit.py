@@ -472,7 +472,21 @@ PROFILES = {
                            # and that site has exactly the same three callers as
                            # before. What still matters most is the caller that
                            # is ABSENT from both: gbp_vstate_probe_run.
-                           "gbp_vpresent_submit": {"submit_ready": 1},
+                           #
+                           # §V5.52: a SECOND site appears, inside main.o's
+                           # `main` -- `selftest_submit_headless()`, which the
+                           # normal startup uses so the self-test validates the
+                           # display path without claiming a framebuffer and
+                           # therefore without showing the operator anything
+                           # synthetic. GCC inlines it through
+                           # `display_selftest()` into `main`, which is why the
+                           # caller reads `main` and not its own name.
+                           #
+                           # THE PROPERTY THE RULE EXISTS FOR IS UNCHANGED, and
+                           # it is the ABSENCE: `gbp_vstate_probe_run` is still
+                           # not among the callers, so nothing in the service
+                           # path submits to GX.
+                           "gbp_vpresent_submit": {"main": 1, "submit_ready": 1},
                            # NOT pinned: `submit_ready` is static, so calls to
                            # it inside main.o carry no relocation and this tool
                            # cannot see them. The property is preserved anyway --
@@ -483,7 +497,15 @@ PROFILES = {
                            # take, the first slice, the conversion end, the
                            # submit, the decision and in the draw-done callback.
                            # Pinned exactly so a stray read is still a finding.
-                           "gettime": {"h_ticks64": 1, "main": 2, "on_draw_done": 1,
+                           #
+                           # §V5.52 raises `main` from 2 to 8, and every one is
+                           # accounted for: five startup timestamps the STARTUP
+                           # line reports (program entry, video ready, self-test
+                           # begin and end, probe entry) plus one inside
+                           # `selftest_submit_headless()`, which GCC inlines
+                           # into `main`. Nothing was added to a service path:
+                           # `pump` and `submit_ready` are unchanged at 3 and 2.
+                           "gettime": {"h_ticks64": 1, "main": 8, "on_draw_done": 1,
                                        "pump": 3, "submit_ready": 2},
                            # The conversion is CONSUMER ONLY. The POC converts one
                            # TILE ROW per slice, so `pump` is the single call site

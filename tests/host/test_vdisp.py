@@ -347,6 +347,42 @@ class TheReadinessRuleFollowsTheVersion(unittest.TestCase):
         self.assertNotIn('if info["decisions"] != info["event_n"]:', src)
 
 
+class AReorderingIsNotAWarning(unittest.TestCase):
+    """§V5.52. The disposition claim is "every interior source frame reached a
+    framebuffer IN ORDER". `usable()` tested overflow and unmatched tokens but
+    not `order_violations`, so a trace that recorded an out-of-order hand-off
+    could still be called ready for that claim.
+
+    `parse()` already refuses such a file when it ALSO sets INTACT. This is the
+    other half: refuse the CLAIM even when the flag is honestly clear."""
+
+    def test_a_reordered_trace_is_not_ready(self):
+        i = vdisp.parse(fixture())
+        self.assertTrue(vdisp.usable(i)["usable_for_disposition_claim"])
+        i["order_violations"] = 1
+        u = vdisp.usable(i)
+        self.assertFalse(u["usable_for_disposition_claim"])
+        self.assertTrue(any("order" in x for x in u["reasons"]), u["reasons"])
+
+    def test_the_reason_says_how_many(self):
+        i = vdisp.parse(fixture())
+        i["order_violations"] = 4
+        self.assertIn("4", " ".join(vdisp.usable(i)["reasons"]))
+
+    def test_zero_preserves_the_previous_behaviour(self):
+        """Every existing capture carries 0 here, so this changes nothing for
+        stream-0007 or stream-0008."""
+        i = vdisp.parse(fixture())
+        i["order_violations"] = 0
+        self.assertTrue(vdisp.usable(i)["usable_for_disposition_claim"])
+
+    def test_it_is_checked_for_v1_files_too(self):
+        src = open(os.path.join(ROOT, "tools", "vdisp.py")).read()
+        i_usable = src.index("def usable(info):")
+        i_next = src.index("def witness_armed_at_take(")
+        self.assertIn('info["order_violations"]', src[i_usable:i_next])
+
+
 class TheWiringInMainIsPinned(unittest.TestCase):
     """THE GAP THE MUTATION ROUND FOUND, AND WHAT IT IS WORTH.
 
@@ -372,6 +408,29 @@ class TheWiringInMainIsPinned(unittest.TestCase):
         import re as _re
         src = _re.sub(r"/\*.*?\*/", " ", src, flags=_re.S)
         return _re.sub(r"//[^\n]*", " ", src)
+
+    @staticmethod
+    def submit_ready_body(src):
+        """§V5.52. These pins used to index the WHOLE file. `main.c` now also
+        contains `selftest_submit_headless()`, which legitimately shares some
+        of the same calls and sits ABOVE `submit_ready()`, so a first-match
+        index silently started measuring the wrong function. Scope to the body
+        the pin was always about. (Third time an anchor-on-first-match has
+        misfired in this suite -- §V5.50.11.)"""
+        import re as _re
+        m = _re.search(r"^static void submit_ready\(int buf, struct gbp_vqueue \*account\)\s*\{",
+                       src, _re.M)
+        assert m, "submit_ready not found"
+        i = src.index("{", m.start())
+        d = 0
+        for j in range(i, len(src)):
+            if src[j] == "{":
+                d += 1
+            elif src[j] == "}":
+                d -= 1
+                if d == 0:
+                    return src[i:j + 1]
+        raise AssertionError("unbalanced braces")
 
     def test_the_key_comes_from_the_descriptor_and_nowhere_else(self):
         """The generic key must be the ASSEMBLER's frame index, carried by the
@@ -400,7 +459,7 @@ class TheWiringInMainIsPinned(unittest.TestCase):
         framebuffer afterwards, so an unpresentable frame had already consumed a
         token and was then discarded. The precheck must come FIRST, and the
         snapshot must still sit between xfb_target() and xfb_handed()."""
-        s = self.src
+        s = self.submit_ready_body(self.src)
         i_gate = s.index("if (!gbp_vpresent_submit(&present, buf))")
         i_tgt = s.index("xfb = gbp_vpresent_xfb_target(&present, cur);")
         self.assertLess(i_tgt, i_gate, "the framebuffer is asked about FIRST")
@@ -455,14 +514,16 @@ class TheWiringInMainIsPinned(unittest.TestCase):
         here, because the equivalence is a property of the READY guard, not of
         the map: a future reader that is not READY-gated would make it load
         bearing, and nothing else would notice."""
-        s = self.src
+        s = self.submit_ready_body(self.src)
         self.assertEqual(s.count("tex_life[buf] = -1;"), 1)
         self.assertLess(s.index("gbp_vdisp_decision(&disp, life"),
                         s.index("tex_life[buf] = -1;"),
                         "the map must be closed AFTER the decision is recorded")
         # and the write that makes the equivalence hold must still precede READY
-        self.assertLess(s.index("tex_life[buf] = conv.life;"),
-                        s.index("gbp_vpresent_fill_done(&present, (int)conv.buf)"),
+        # this half is about the PUMP, not submit_ready, so it reads the file
+        whole = self.src
+        self.assertLess(whole.index("tex_life[buf] = conv.life;"),
+                        whole.index("gbp_vpresent_fill_done(&present, (int)conv.buf)"),
                         "the key must be written before the texture can be offered")
 
     def test_the_selftest_verdict_requires_a_present(self):
@@ -478,7 +539,7 @@ class TheWiringInMainIsPinned(unittest.TestCase):
         whatever the SECOND answer is -- including -1 -- and would discard the
         very answer the §V5.49.2 safety proof is about. One question, one
         answer, used."""
-        s = self.strip_comments(self.src)
+        s = self.strip_comments(self.submit_ready_body(self.src))
         self.assertEqual(s.count("gbp_vpresent_xfb_target("), 1,
                          "the framebuffer must be asked about exactly once")
         self.assertLess(s.index("gbp_vpresent_xfb_target("),

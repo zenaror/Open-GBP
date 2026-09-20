@@ -27,7 +27,17 @@ include $(DEVKITPRO)/libogc2/gamecube_rules
 # Identity
 #---------------------------------------------------------------------------------
 APP_NAME   := gbp-video-stream-probe
-BUILD_ID   := stream-0008
+# §V5.52. stream-0009 is stream-0008's pipeline with a NORMAL startup: no
+# visible synthetic frame and no pre-handler masked wait. The stream line is
+# kept because the pipeline under test is the same one, which is what makes the
+# comparison with the stream-0008 physical run direct.
+BUILD_ID   := stream-0009
+
+# NORMAL by default. A diagnostic image -- visible self-test, 5000 ms wait -- is
+#   make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC
+# and it is deliberately NOT the artifact that ships or that a physical run uses
+# unless the run is explicitly reproducing a historical experiment.
+STARTUP_MODE ?= GBP_STARTUP_NORMAL
 GIT_COMMIT ?= $(shell git -C "$(CURDIR)" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 GIT_DIRTY  ?= $(shell git -C "$(CURDIR)" diff --quiet HEAD -- 2>/dev/null || echo -dirty)
 COMMIT_ID  := $(GIT_COMMIT)$(GIT_DIRTY)
@@ -52,7 +62,8 @@ DEPS := $(OBJS:.o=.d)
 INCLUDE  := -I$(ROOT)/src/common -I$(ROOT)/src/log -I$(ROOT)/src/gbp -I$(ROOT)/src/platform -I$(LIBOGC_INC)
 DEFINES  := -DOPENGBP_APP_NAME=\"$(APP_NAME)\" \
             -DOPENGBP_BUILD_ID=\"$(BUILD_ID)\" \
-            -DOPENGBP_GIT_COMMIT=\"$(COMMIT_ID)\"
+            -DOPENGBP_GIT_COMMIT=\"$(COMMIT_ID)\" \
+            -DGBP_STARTUP_MODE=$(STARTUP_MODE)
 
 CFLAGS   := -std=gnu11 -g -O2 -Wall -Wextra -Wshadow $(MACHDEP) $(INCLUDE) $(DEFINES)
 LDFLAGS  := -g $(MACHDEP) -Wl,-Map,$(TARGET).map
