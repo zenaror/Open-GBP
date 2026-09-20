@@ -5924,3 +5924,10 @@ defined as 0 by contract. Future fix, in a functional checkpoint: preserve every
 lines or shorten safely, and add a host test that no required summary line can
 exceed the payload — the same class of guard the log-tag uniqueness test is.
 Not authorised in the run-9 ingestion checkpoint.
+
+**2026-09-20, deferral noted.** The fix is deliberately postponed until AFTER
+`GBP-BBA-001` (RUN 10, §V5.57): that control must reuse the exact run-9 binary
+so that BBA presence is the only intentional variable, and a new functional
+build here would confound the two. The truncation is EXPECTED to recur in run
+10 and is not a BBA regression; the clipped field is derived from counters as
+in §V5.56.4.
