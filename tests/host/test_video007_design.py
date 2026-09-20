@@ -73,8 +73,11 @@ class SectionsExist(unittest.TestCase):
         # Issue #7: the heading now carries the implementation status; the design
         # provenance (Issue #6) stays in the same heading.
         self.assertIn("DESIGN (Issue #6)", t.splitlines()[1])
-        self.assertIn("IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED, NO RUN RESERVED", t.splitlines()[1])
+        self.assertIn("IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED", t.splitlines()[1])
+        # Issue #8: the heading also says the run is pre-registered and NOT RUN.
+        self.assertIn("RUN 12 PRE-REGISTERED (Issue #8, \u00a7V6.19), NOT RUN", t.splitlines()[1])
         self.assertIn("### V6.18 ", t)
+        self.assertIn("### V6.19 ", t)
 
     def test_the_thirteen_required_items_are_mapped(self):
         head = v6().split("### V6.1 ")[0]
@@ -93,16 +96,24 @@ class ItCommitsNothingItHasNotDone(unittest.TestCase):
         self.assertIn("IMPLEMENTED IN SOFTWARE", head)
         self.assertIn("NOT PHYSICALLY EXECUTED", head)
         self.assertIn("nothing has touched hardware", head)
-        self.assertIn("no evidence ID is allocated, no run is reserved, and no frozen format changes", head)
+        self.assertIn("no evidence ID is allocated and no frozen format changes", head)
+        # Issue #8: the run is pre-registered, its names reserved, and it has NOT RUN.
+        self.assertIn("RUN 12 is PRE-REGISTERED in \u00a7V6.19", head)
+        self.assertIn("five raw names are reserved", head)
+        self.assertIn("it has NOT RUN", head)
         self.assertIn("DESIGN ONLY", head)
         self.assertIn("kept verbatim as provenance", head)
         self.assertIn("V6.18", head)
 
-    def test_it_allocates_no_evidence_id_and_reserves_no_run(self):
+    def test_it_allocates_no_evidence_id_and_the_design_reserves_no_run(self):
+        """No evidence ID anywhere in \u00a7V6. The design and implementation parts
+        (\u00a7V6.1-\u00a7V6.18) reserve no run name; the reservation belongs to the
+        pre-registration (\u00a7V6.19, Issue #8) and is pinned by test_run12_prereg."""
         t = v6()
         self.assertNotRegex(t, r"GBP-HW-2[5-9]\d|GBP-HW-[3-9]\d\d")
         self.assertNotRegex(t, r"GBP-VID-03[4-9]|GBP-VID-0[4-9]\d")
-        self.assertNotRegex(t, r"captures/local/\S*run1[2-9]")
+        design = t.split("### V6.19 ")[0]
+        self.assertNotRegex(design, r"captures/local/\S*run1[2-9]")
         self.assertIn("No name is reserved here", part(14))
         self.assertIn("run<N>", part(14))
 

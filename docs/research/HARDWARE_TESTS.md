@@ -18877,15 +18877,18 @@ not started and do not move.
 
 ---
 
-## V6 — GBP-VIDEO-007 / GBP-VIDEO-008: PHYSICAL SCANOUT AND FULL-FRAME FIDELITY — DESIGN (Issue #6) AND IMPLEMENTATION STATUS (Issue #7): IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED, NO RUN RESERVED
+## V6 — GBP-VIDEO-007 / GBP-VIDEO-008: PHYSICAL SCANOUT AND FULL-FRAME FIDELITY — DESIGN (Issue #6), IMPLEMENTATION STATUS (Issue #7): IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED; RUN 12 PRE-REGISTERED (Issue #8, §V6.19), NOT RUN
 
 **IMPLEMENTATION STATUS — 2026-09-20, GitHub Issue #7 (Phase 4, functional):
 IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED, NO RUN RESERVED.** The
 stimulus `coord-0001` (OGBPCOORD1), the two sidecars OGBPFULL1 v1 and OGBPVI1
 v1, the offline tools and the build `stream-0013` exist, are tested and have
-frozen software identities — all in §V6.18. Since then nothing has touched
-hardware, **no evidence ID is allocated, no run is reserved, and no frozen
-format changes.** §V6.1–§V6.17 below are the design as written for GitHub
+frozen software identities — all in §V6.18. **RUN 12 is PRE-REGISTERED in
+§V6.19 (GitHub Issue #8, 2026-09-20): its five raw names are reserved, the
+operator's display chain is declared, and the gates and verdicts of both
+experiments are fixed prospectively and independently — and it has NOT RUN.**
+Since then nothing has touched hardware, **no evidence ID is allocated and no
+frozen format changes.** §V6.1–§V6.17 below are the design as written for GitHub
 Issue #6 and are kept verbatim as provenance: where the implementation decided
 one of §V6.17's open items, or departs from a design detail, §V6.18.12 says so
 and the design text is not rewritten.
@@ -19339,9 +19342,12 @@ Issue #7 built from that design, the exact software identities it freezes, the
 decisions it took on the open items of §V6.17, and where the built thing
 departs from the design text. **Nothing here touched hardware. No evidence ID
 exists for GBP-VIDEO-007 or GBP-VIDEO-008, no raw artifact name is reserved,
-and the next run number is not reserved.** The pre-registration is a later
-Issue, after the Orchestrator's independent validation and the operator's
-display / cable declaration (§V6.17 item 1, still open). Dolphin results below
+and the next run number is not reserved.** (As written for Issue #7; the
+reservation point is superseded by §V6.19, GitHub Issue #8, which pre-registers
+RUN 12 and reserves its names. The rest of this part stands.) The
+pre-registration is a later Issue, after the Orchestrator's independent
+validation and the operator's display / cable declaration (§V6.17 item 1,
+open at the time of writing). Dolphin results below
 are auxiliary: they show the program runs and what it reports, never what the
 Game Boy Player does.
 
@@ -19651,5 +19657,320 @@ departures from the §V6.8 sketch (the design text is not rewritten):
   Game Boy Player.
 - The identities above are SOFTWARE identities; a rebuilt binary at another
   commit is a different artifact and inherits nothing.
+
+### V6.19 RUN 12 — GBP-VIDEO-007 / GBP-VIDEO-008 — **PRE-REGISTERED 2026-09-20 (GitHub Issue #8); NOT RUN; NOT AUTHORIZED HERE**
+
+Written before the hardware is touched. GitHub Issue #8 is the complete
+scientific pre-registration contract and this part persists it verbatim in
+substance: the run identity, the exact artifacts, the operator-declared
+topology, the reserved raw names, the pre-run identity gate, the operator
+procedure, the shared admissibility gates, the independent gates and verdicts
+of the two experiments, and the non-claims. **No hardware run is authorized by
+this part.** After it is pushed and independently validated by the
+Orchestrator, a separate Hardware Issue authorizes the Operator to execute
+RUN 12. Nothing here is evidence; no evidence ID is allocated; nothing is
+classified. §V6.18's "no run name reserved" is superseded here and only here.
+
+#### V6.19.1 Run identity and what is fixed
+
+```text
+global run number   RUN 12 -- runs 1-11 are the highest referenced in the record; reserved now
+experiments         GBP-VIDEO-007  physical scanout observation, CLAIM-D
+                    GBP-VIDEO-008  full-frame source -> texture fidelity, CLAIM-A + CLAIM-B
+                    ONE physical session producing TWO independent verdicts. A result for one experiment
+                    may not promote, demote or excuse the other (§V6.1, §V6.13).
+embedded TEST_ID    GBP-VIDEO-004 -- the line's name (§V6.17 decision 5); intentional, not an identity mismatch
+startup             NORMAL (stream-0009 lineage; §V5.52)
+software            frozen at §V6.18.2 (Issue #7); VERIFIED ON DISK for this pre-registration, NOT rebuilt
+```
+
+#### V6.19.2 The exact artifacts — verified on disk 2026-09-20, not rebuilt
+
+```text
+DOL          build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol   506 496 B
+             5391c3fe962dc4b2f4e493f3846ac7407ded064c58f5d4bb583a51e5a725dd79
+Swiss        build/swiss/12-stream/boot.dol   byte-identical (cmp), same SHA-256
+embedded     OPENGBP-IDENT gbp-video-stream-probe stream-0013 7d7a6d8 ; TEST_ID GBP-VIDEO-004 ; no "dirty" string
+functional   7d7a6d8acf4e3985034f9ad4f5041fec751181d0  (stream: stream-0013 ...)
+             git diff 7d7a6d8..5c472ca over src/ poc/ tools/ stimulus/ Makefile tests/unit: EMPTY (docs only since)
+stimulus     coord-0001, contract OGBPCOORD1 (§V6.18.3)
+  canonical  build/stimulus/agb-coord/agb-coord.gba   3 496 B
+             90343b64eda9602c173364171637cd1068f265c385464361b40ec073b11f0a1f
+  delivery   build/physical/agb-coord-cart.gba        3 496 B   (ignored path; never committed)
+             a769cc11afcb93cfc1cf89bf9bb59554533662c051e25b475f3943e7bdbb994f
+  route      EZ-Flash Omega DE, NOR / Mode B (§V3.7). The cartridge IS re-flashed with this image for RUN 12:
+             the "do not re-flash" rule of runs 6-11 applied to indexed-0003 only.
+formats      OGBPIDX1 · OGBPIDXCAP1 v1 · OGBPDISP2 v2 (frozen, unchanged)   OGBPFULL1 v1 · OGBPVI1 v1 (frozen at 7d7a6d8)
+tools        tools/vindex.py UNMODIFIED, frozen semantics; tools/vdisp.py and tools/vpace.py exactly as runs 9-11;
+             tools/vfull.py, tools/vvi.py, tools/icoord.py at 7d7a6d8
+```
+
+If any identity differs on the day, **DO NOT RUN**. No replacement artifact is
+to be made at a later HEAD for RUN 12: a rebuilt binary embeds another commit
+and is another artifact. The Operator's media hashes are a double check of
+identities the project has already frozen; they never redefine the artifact.
+
+#### V6.19.3 Physical topology — frozen for RUN 12
+
+Keep the previously controlled GameCube / GBP / BBA side fixed unless the
+Operator reports before execution that this is impossible; a deviation is
+declared before the run, never inferred after it.
+
+```text
+console            the same GameCube as RUN 10 / RUN 11 (operator declares)
+Game Boy Player    the same physical unit as RUN 10 / RUN 11 (operator declares)
+BBA                PRESENT
+Ethernet           DISCONNECTED
+network            no network initialisation, no network code: stream-0013 links none (the ELF has no network
+                   symbol; audit profile `stream`: net_init absent), as §V5.57.5 established for the line
+cartridge          coord-0001 delivery image on the EZ-Flash Omega DE, NOR / Mode B, re-flashed (V6.19.2)
+media              SD carrying the exact stream-0013 boot.dol; hash double-checked on the media
+display chain      OPERATOR-DECLARED for RUN 12 (closes §V6.17 item 1 for this run only):
+                     GameCube
+                       -> analog composite video / RCA
+                       -> low-cost RCA-to-HDMI converter, output configured to 1080p
+                       -> custom computer display
+                            panel       HYDIS HV150UX2
+                            controller  M.NT68676.2A
+                            a custom iMac G3 modification
+                   The 1080p setting is the CONVERTER's output, not a claim about the native GameCube signal.
+                   This chain is part of the TOPOLOGY DECLARATION only.
+camera             optional; declared by precedent (§V6.10): a consumer camera, no timestamp synchronisation,
+                   no frame-accurate shutter; no capture device on the video output
+```
+
+**What the declared display chain must NOT be used to claim**, whatever the
+verdicts: physical pixel-perfect output; native 1080p output by the GameCube;
+correctness of the converter's scaling; display latency; television / panel
+pixel equality. The observation of §V6.4 (a large digit, bound to the
+appearance set) does not depend on the chain; its RECORD does.
+
+**Future topologies, explicitly OUTSIDE RUN 12.** The Operator has declared
+the likely future comparison paths: primary, GameCube → **S-Video** → Morph 2K
+→ Samsung Q80T; alternate / comparison, GameCube → **Bitfunx composite cable**
+→ Morph 2K → Samsung Q80T. Each is a DIFFERENT topology. Results from either
+future Morph 2K path must not be mixed with RUN 12, nor with each other,
+without an explicit topology declaration of their own; nothing about them is
+pre-registered here.
+
+#### V6.19.4 Reserved raw-file names — before the hardware
+
+The console writes `GBP-VIDEO-004_stream-0013.log`, `-idxcap.bin`,
+`-disp.bin`, `-full.bin` and `-vi.bin` from the embedded TEST_ID and build id
+(§V6.14's scheme, now instantiated with N = 12). Per `captures/README.md`
+("Receiving a new physical run"): rename BEFORE copy — copy the supplied bytes
+FIRST under the names below with `cp --update=none`, `cmp` the copy, hash on
+receipt, never overwrite runs 1–11. **Reserved now, and TAKEN even if the run
+aborts or never starts:**
+
+```text
+captures/local/GBP-VIDEO-004_stream-0013-run12.log
+captures/local/GBP-VIDEO-004_stream-0013-run12-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0013-run12-disp.bin
+captures/local/GBP-VIDEO-004_stream-0013-run12-full.bin
+captures/local/GBP-VIDEO-004_stream-0013-run12-vi.bin
+```
+
+Optional photograph, if the Operator takes one: archived separately under a
+run12-qualified name in the same directory's style (a `-run12-photo-<n>`
+suffix), never one of the five names above; never required for PASS; never
+treated as frame-accurate evidence unless the photograph itself establishes
+that unambiguously (§V6.10: an unambiguous exposure of the six counter squares
+may narrow the binding; a straddled or rolling-shutter mix corroborates the
+digit and nothing more).
+
+#### V6.19.5 Pre-run identity gate — required of the Operator before launch
+
+```text
+DOL          path and size 506 496 B; full SHA-256 exactly as V6.19.2;
+             embedded app / build / commit = gbp-video-stream-probe / stream-0013 / 7d7a6d8;
+             no -dirty; TEST_ID GBP-VIDEO-004; Swiss boot.dol byte-identical
+cartridge    delivery image size 3 496 B; delivery SHA-256 exactly a769cc11...994f (V6.19.2);
+             flash THIS exact delivery image to the validated NOR / Mode B route
+rule         the Operator's hashes are a double check of identities already frozen by the project;
+             they do not redefine the artifact. If ANY identity differs: DO NOT RUN.
+```
+
+#### V6.19.6 Operator physical procedure — frozen
+
+The Hardware Issue presents this as a short literal procedure; nothing here
+asks the Operator to count frames by eye.
+
+```text
+ 1  Confirm the declared topology (V6.19.3): same console and GBP, BBA present, Ethernet disconnected,
+    the declared display chain.
+ 2  Confirm the DOL and delivery-ROM hashes (V6.19.5).
+ 3  Flash / select the exact coord-0001 delivery image in the validated EZ-Flash NOR / Mode B route.
+ 4  Boot the exact stream-0013 through Swiss.
+ 5  Do not interact with the program during the scientific run.
+ 6  Observe the physical screen.
+ 7  For every large digit seen, record literally: the digit value; the order; the approximate spacing in
+    time; any missing, duplicated or unexpected digit; any obvious visual anomaly.
+ 8  Do not infer a frame number from what was seen.
+ 9  A photograph is optional.
+10  Let the witness target end the experiment (2048 records); do not stop it early.
+11  Use the normal post-run save path exactly as the program requests.
+12  Power-cycle when required.
+13  Rename / archive the raw artifacts BEFORE copying them into their reserved run12 names (V6.19.4).
+14  Return the five raw artifacts plus the literal visual report and the topology declaration.
+```
+
+#### V6.19.7 Shared admissibility gates — prospective, inherited, none narrowed
+
+RUN 12 is admissible only if every inherited safety / regression gate that
+applies remains satisfied. Analysis order as §V6.15: identities → frozen
+`vindex.py` → source verdict → containers → join → disposition → deferral →
+latency / depth → cadence → startup; pacing is never analysed before source.
+
+```text
+IDENTITY / LOG   exact DOL and stimulus identities (V6.19.2); the log header reads
+                 GBP-VIDEO-004 / stream-0013 @ 7d7a6d8; dropped=0; truncated=0; no storage fault; the
+                 required summary records complete (WITELIG, WITELIG2, COUNTERS, FULLSTORE, VISTORE)
+WITNESS / SOURCE 5000-ms not-before policy unchanged (§V5.55); qualification = 64 consecutive structural
+                 closes; the scientific window begins at the next block 0; target = 2048 retained records;
+                 no trimming / filtering / reset after opening. Frozen tools/vindex.py on the OGBPIDXCAP1:
+                 OBSERVED_CONTIGUOUS; intact = 2048; INVALID_CANONICAL_STRIP = 0; every retained record
+                 structurally valid; STATUS.FAULT = 0 throughout.
+                 NOT gated: a particular FRAME_ID start value. The actual first / last IDs are recorded.
+TRANSPORT        errors 0, transport_ok 1, timeouts 0, busy 0, overflow 0, uncertain 0; balanced service
+                 accounting under the established gates (unmasks = deliveries = acks = re-arms)
+STARTUP          NORMAL; first real hand-off < 400 ms after the CONTROL transform. The exact value and the
+                 delta versus run 11 (165.158691 ms) are RECORDED; equality is not demanded and no tolerance
+                 is invented after the fact.
+POLICY A         over the exact frame_index join population: zero interior source -> display drops; zero
+                 reorder; max defer depth <= 1; frozen hand-off latency under the SAME pre-registered
+                 definition as runs 9-11 (ready = t_convert_done, hand-off = t_decision, ALL scientific
+                 hand-offs, vpace.py percentile convention): p99 <= 1.0 ms, max <= 2.5 ms. The terminal
+                 capture edge may be excluded exactly as in prior runs. Display repeats remain observational,
+                 never source loss.
+SIDECARS         strict parse, every CRC valid, under the frozen tools: OGBPIDXCAP1 v1, OGBPDISP2 v2,
+                 OGBPFULL1 v1, OGBPVI1 v1. Any corruption, truncation or identity mismatch makes the
+                 AFFECTED experiment INCONCLUSIVE; raw files are never repaired or trimmed.
+TOPOLOGY         declared as V6.19.3 before execution; a deviation recorded before the run keeps the run
+                 admissible under the recorded topology; an unrecorded deviation is INCONCLUSIVE for both.
+```
+
+#### V6.19.8 GBP-VIDEO-008 — full-frame fidelity: gates and verdicts
+
+The K = 8 selection must remain exactly the implemented content-blind rule:
+`sample frame_index = origin + 256*i, i = 0..7`, where `origin` is
+mechanically the first retained witness `frame_index` (§V6.18.6). Required:
+origin set; K = 8; eight intended sample positions; every required sample
+COMPLETE; no generation mixing; no refused sample; no incomplete sample; no
+full-store fault; raw and texture of the same lifecycle / generation. Run
+`tools/vfull.py` exactly as frozen at `7d7a6d8`; the oracle is
+`tools/icoord.py` as frozen; **do not retune the oracle after seeing a
+failure.**
+
+```text
+PASS          admissible run, and ALL eight samples satisfy:
+                1  all 40 blocks belong to one frame / lifecycle and their STRIP-L identities are mutually
+                   consistent (one frame_id, CRC-8 OK);
+                2  BLOCK_INDEX matches the physical position;
+                3  for all 38 400 consumed words: source colour15 == icoord.expected_video(frame_id, x, y);
+                4  the preserved texture == the Python conversion of the preserved raw == the host-built
+                   gbp_vpix.c conversion == the tiled oracle (oracle | 0x8000);
+                5  bytes 0 / 2 observations are reported separately and do not affect this equality verdict
+                   (U-GBP-029);
+                6  bit-15 observations are reported separately by the frozen analyzer and do not silently alter
+                   colour15 equality (U-GBP-034).
+              MEANS: CLAIM-A for the sampled frames; CLAIM-B source -> converted-texture fidelity for the
+              sampled frames. Nothing about the other frames, the XFB, the VI or the display.
+FAIL          admissible run, and any colour15 / oracle mismatch, or texture != conversion(raw), or
+              texture != tiled oracle. The mismatch and its displacement classification (tools/vfull.py) are
+              preserved as observed.
+INCONCLUSIVE  inadmissible shared run; a missing, refused, incomplete or mixed sample; OGBPFULL1 integrity
+              failure; a store fault; the frozen analyzer cannot classify the file as a valid experiment
+              input.
+```
+
+#### V6.19.9 GBP-VIDEO-007 — physical scanout: gates and verdicts
+
+Machine evidence establishes only the source / hand-off / latch chain: the
+OGBPIDXCAP1 join `frame_index ↔ frame_id`; OGBPDISP2 → the handed set `H_k`;
+OGBPVI1 → the VI-latched set `L_k`; `tools/vvi.py` as frozen for the software
+join. The Operator's literal visual report is a SEPARATE source of evidence
+and is never ingested as machine evidence.
+
+Appearance sets, from the frozen `coord-0001` definition: `R_k = [k*480,
+k*480 + 40)`, k ≥ 1, digit = `k mod 10`. **Which k values fall inside the
+final retained window is NOT assumed prospectively; it is determined from the
+RUN 12 data.**
+
+```text
+PASS          admissible run; for every appearance set R_k that intersects the admissible retained population
+              as the frozen design requires AND has at least one handed-and-VI-latched frame in L_k, the
+              otherwise coherent Operator report contains the corresponding large digit k mod 10, in the
+              observed order.
+              MEANS: CLAIM-D -- at least one source-derived frame from each qualifying appearance was
+              physically visible through the DECLARED RUN 12 display chain. PASS does NOT bind the
+              observation to one exact frame within the 40-frame set.
+FAIL          admissible run; a qualifying R_k has machine evidence of >= 1 handed-and-latched frame, but the
+              otherwise coherent Operator report says the expected digit for that appearance was not seen,
+              or a different digit was seen. A missing per-frame camera capture never turns this into a
+              stronger per-frame claim.
+INCONCLUSIVE  shared run inadmissible; visual report missing or uncertain; no qualifying appearance set
+              retained; OGBPVI1 invalid or incomplete for the required join; an operator-reported digit with
+              no corresponding handed set (a contradiction, recorded as a finding); topology differing from
+              V6.19.3 without being recorded before execution.
+```
+
+Neither verdict consults the other's evidence (§V6.13). A run may be PASS for
+one experiment and INCONCLUSIVE or FAIL for the other.
+
+#### V6.19.10 Explicit non-claims
+
+RUN 12, even if both experiments PASS, does **not** establish: per-frame
+physical scanout accounting; physical display pixel equality; tearing absence;
+presentation / scaling correctness; pixel-perfect output; correctness of the
+RCA → HDMI converter's scaling; universal behaviour across displays or cables;
+anything about frames outside the sampled K = 8 population for full-frame
+fidelity; audio or input; Link Port behaviour; Ethernet, networking or BBA
+initialisation; Phase 11. GBP-VID-032 (pixel-perfect) remains future work.
+Runs 1–11 are not reinterpreted by anything here.
+
+#### V6.19.11 Offline analysis and the comparison table — to be filled AFTER the run, nothing pre-filled
+
+```text
+0  archive first under the reserved names (V6.19.4); sha256sum on receipt; verify V6.19.2 identities
+1  tools/vindex.py UNMODIFIED on the OGBPIDXCAP1 -> the source verdict; tools/vdisp.py / vpace.py on the
+   OGBPDISP2 -> the Policy-A gates; both exactly as runs 9-11
+2  GBP-VIDEO-008: tools/vfull.py (V6.19.8), then the verdict
+3  GBP-VIDEO-007: tools/vvi.py -> the R_k / H_k / L_k table with the first latch instants; the Operator's
+   literal report placed BESIDE it, never merged into it; then the verdict
+4  the comparison table below, observational, no new tolerance
+```
+
+```text
+field                                   run 11 (reference, stream-0011)   RUN 12 (stream-0013)
+DOL SHA-256                             df2873ee…3e25                     --
+stimulus (delivery) SHA-256             9f04916b…8d9cc2 (indexed-0003)    --  (coord-0001 a769cc11…994f expected)
+BBA / Ethernet                          PRESENT / DISCONNECTED            --  (operator)
+display chain                           not declared                      --  (operator, V6.19.3)
+log lines / dropped / truncated         651 / 0 / 0                       --
+first real hand-off after CONTROL       165.158691 ms                     --
+eligibility after CONTROL               5.000143926 s                     --
+first / last FRAME_ID                   73 / 2120                         --
+intact / INVALID                        2048 / 0                          --
+transport errors / timeouts / uncertain 0 / 0 / 0                         --
+scientific records joined downstream    2047 (+1 edge)                    --
+interior drops / reorder / max depth    0 / 0 / 1                         --
+frozen p99 / max latency                0.486790 / 1.000914 ms            --
+display-repeat intervals                7                                 --
+OGBPFULL1: samples wanted / completed   n/a                               --
+OGBPVI1: handed / latched / superseded  n/a                               --
+GBP-VIDEO-008 verdict                   n/a                               --
+GBP-VIDEO-007 verdict                   n/a                               --
+```
+
+#### V6.19.12 What this part is not
+
+Not authorized by this pre-registration: hardware execution; flashing or
+booting as part of GitHub Issue #8; runtime, stimulus, analyzer or frozen-format
+changes (none were made: V6.19.2); evidence ingestion; PASS / FAIL
+classification; network, Ethernet or BBA initialisation; presentation or
+pixel-perfect implementation. No new physical evidence ID exists. The
+Orchestrator validates this persisted pre-registration independently and only
+then opens the Hardware Issue that moves RUN 12 to the Operator.
 
 ---
