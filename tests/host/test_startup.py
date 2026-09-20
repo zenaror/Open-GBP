@@ -96,10 +96,19 @@ class TheNormalPathNeverWaitsForSeconds(unittest.TestCase):
         self.assertNotIn("cfg.prehandler_wait_ms = 5000", s)
 
     def test_the_five_second_value_lives_only_in_the_diagnostic_profile(self):
+        """The wait's 5000 lives in the profile header and nowhere in main.c.
+        §V5.55 introduced a SECOND 5000 in main.c -- STREAM_WIT_NOT_BEFORE_MS,
+        the research witness eligibility threshold, which delays nothing the
+        user sees -- so this guard names the thing it protects: no 5000 may
+        reach a WAIT, and the eligibility constant may never be assigned to
+        one either."""
         h = read(HDR)
         self.assertIn("#define GBP_STARTUP_DIAGNOSTIC_WAIT_MS 5000u", h)
         s = strip_comments(read(MAIN))
-        self.assertNotIn("5000", s, "no startup wait constant belongs in main.c")
+        others = s.replace("#define STREAM_WIT_NOT_BEFORE_MS 5000u", "")
+        self.assertNotIn("5000", others, "a 5000 other than the witness threshold is in main.c")
+        self.assertNotRegex(s, r"prehandler_wait_ms\s*=\s*(5000|STREAM_WIT_NOT_BEFORE_MS)")
+        self.assertNotIn("VIDEO_WaitVSync", s[s.index("STREAM_WIT_NOT_BEFORE_MS"):s.index("STREAM_WIT_NOT_BEFORE_MS") + 400])
 
     def test_the_normal_profile_asks_for_zero(self):
         h = strip_comments(read(HDR))

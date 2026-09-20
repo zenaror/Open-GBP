@@ -1182,6 +1182,159 @@ static void test_K_the_live_latches_are_redundant_with_the_recorded_shape(void)
     CHECK(asm_state.anomalies_region >= 2u);   /* and really did produce anomalies */
 }
 
+
+/* ==== §V5.55 THE NOT-BEFORE ELIGIBILITY LATCH ==============================
+ * Every case is SYNTHETIC and drives gbp_vwitness_note_frame() directly, which
+ * is the only place the streak is counted. The latch knows no clock: the tick
+ * passed to release() is whatever the caller says, and nothing here reads a
+ * stimulus field, a frame id or a pixel. */
+static void latch_reset(struct gbp_vwitness *w)
+{
+    memset(w, 0, sizeof *w);
+    gbp_vwitness_set_qualification(w, 64u);
+}
+
+static void test_EL_A_frames_before_eligibility_do_not_count(void)
+{
+    struct gbp_vwitness w; uint32_t i;
+    printf("-- EL-A: before release, qualifying frames build NO streak\n");
+    latch_reset(&w); gbp_vwitness_gate_streak(&w);
+    for (i = 0; i < 500u; i++) gbp_vwitness_note_frame(&w, 1);
+    CHECK(w.qual_streak == 0u);
+    CHECK(w.qual_streak_max == 0u);
+    CHECK(gbp_vwitness_qualified(&w) == 0);
+    CHECK(w.qual_state == GBP_VWITNESS_QUAL_WARMUP);
+    CHECK(w.elig_frames_before == 500u);
+    CHECK(w.warmup_frames == 500u);            /* still SEEN: startup evidence */
+    CHECK(gbp_vwitness_streak_gated(&w) == 1);
+}
+
+static void test_EL_B_release_starts_the_streak_from_zero(void)
+{
+    struct gbp_vwitness w; uint32_t i;
+    printf("-- EL-B: at release the streak is ZERO whatever came before\n");
+    latch_reset(&w); gbp_vwitness_gate_streak(&w);
+    for (i = 0; i < 200u; i++) gbp_vwitness_note_frame(&w, 1);
+    gbp_vwitness_release_streak(&w, 123456789ull);
+    CHECK(w.qual_streak == 0u);
+    CHECK(w.elig_released == 1u);
+    CHECK(w.t_eligible == 123456789ull);
+    CHECK(gbp_vwitness_streak_gated(&w) == 0);
+}
+
+static void test_EL_CD_63_is_not_enough_and_64_is(void)
+{
+    struct gbp_vwitness w; uint32_t i;
+    printf("-- EL-C/D: after release, 63 clean frames do not qualify; the 64th does\n");
+    latch_reset(&w); gbp_vwitness_gate_streak(&w);
+    for (i = 0; i < 300u; i++) gbp_vwitness_note_frame(&w, 1);   /* ignored */
+    gbp_vwitness_release_streak(&w, 1u);
+    for (i = 0; i < 63u; i++) gbp_vwitness_note_frame(&w, 1);
+    CHECK(gbp_vwitness_qualified(&w) == 0);
+    CHECK(w.qual_streak == 63u);
+    gbp_vwitness_note_frame(&w, 1);
+    CHECK(gbp_vwitness_qualified(&w) == 1);
+    CHECK(w.qual_state == GBP_VWITNESS_QUAL_PENDING);
+    /* the frame that completed it is the 64th AFTER release, counted in the
+     * warm-up index space that includes the 300 ignored frames */
+    CHECK(w.qual_frame_index == 300u + 63u);
+}
+
+static void test_EL_E_a_bad_frame_after_release_resets_exactly_as_before(void)
+{
+    struct gbp_vwitness w; uint32_t i;
+    printf("-- EL-E: post-release, a disqualifying frame resets the streak as always\n");
+    latch_reset(&w); gbp_vwitness_gate_streak(&w);
+    gbp_vwitness_release_streak(&w, 1u);
+    for (i = 0; i < 40u; i++) gbp_vwitness_note_frame(&w, 1);
+    gbp_vwitness_note_frame(&w, 0);
+    CHECK(w.qual_streak == 0u);
+    CHECK(w.qual_resets == 1u);
+    CHECK(w.qual_streak_max == 40u);
+    for (i = 0; i < 64u; i++) gbp_vwitness_note_frame(&w, 1);
+    CHECK(gbp_vwitness_qualified(&w) == 1);
+}
+
+static void test_EL_F_no_reset_or_streak_state_crosses_the_boundary(void)
+{
+    struct gbp_vwitness w; uint32_t i;
+    printf("-- EL-F: startup bad frames leave no reset and no streak behind\n");
+    latch_reset(&w); gbp_vwitness_gate_streak(&w);
+    /* a startup like run 7: 26 disqualifying frames scattered in 223 */
+    for (i = 0; i < 223u; i++) gbp_vwitness_note_frame(&w, (i % 9u) != 0u);
+    CHECK(w.qual_resets == 0u);                 /* NOT 12 */
+    CHECK(w.qual_streak == 0u);
+    CHECK(w.qual_streak_max == 0u);
+    CHECK(w.elig_disqualified_before == 25u);   /* ...but SEEN, in its own field */
+    CHECK(w.warmup_disqualified == 25u);        /* and in the historical one */
+    CHECK(w.elig_frames_before == 223u);
+    gbp_vwitness_release_streak(&w, 5000u);
+    CHECK(w.qual_resets == 0u && w.qual_streak == 0u);
+    for (i = 0; i < 64u; i++) gbp_vwitness_note_frame(&w, 1);
+    CHECK(gbp_vwitness_qualified(&w) == 1);
+    CHECK(w.qual_resets == 0u);
+}
+
+static void test_EL_G_gated_window_still_opens_at_the_next_block0(void)
+{
+    struct gbp_vwitness w; uint64_t t = 1000u; uint32_t i;
+    printf("-- EL-G: with the gate released, the window opens at block 0 exactly as before\n");
+    asm_reset(&w);
+    gbp_vwitness_set_qualification(&w, 3u);
+    gbp_vwitness_gate_streak(&w);
+    feed_clean(&w, 100u, 10u, &t);              /* 10 clean frames, all ignored */
+    CHECK(gbp_vwitness_armed(&w) == 0 && gbp_vwitness_qualified(&w) == 0);
+    CHECK(w.n == 0u);
+    gbp_vwitness_release_streak(&w, t);
+    /* Frame 109 is still OPEN at release; it CLOSES at frame 200's block 0,
+     * after release, so its close is the first counted frame. The unit is
+     * "closed frame", exactly as the assembler reports it. Then 200 and 201
+     * close at 201's and 202's block 0: streak 3 -- and THAT block 0 is the
+     * next block-0 boundary, so the window opens on it, not one frame later. */
+    feed_clean(&w, 200u, 3u, &t);
+    CHECK(gbp_vwitness_qualified(&w) == 1);
+    CHECK(gbp_vwitness_armed(&w) == 1);         /* opened ON the completing block 0 */
+    CHECK(w.n == 0u);                           /* frame 202 is open: nothing committed */
+    CHECK(w.qual_frame_index == 9u + 2u);       /* closes counted before it: 109,200 -> index 11 in warm-up space */
+    feed_clean(&w, 300u, 2u, &t);               /* 202 and 300 close */
+    CHECK(w.n >= 1u);
+    for (i = 0; i < w.n; i++) CHECK(w.meta[i].blocks == 40u);   /* whole frames, from block 0 */
+}
+
+static void test_EL_HI_release_is_one_way_and_a_gate_after_arming_is_inert(void)
+{
+    struct gbp_vwitness w; uint32_t i;
+    printf("-- EL-H/I: release is idempotent; gating an ARMED witness changes nothing\n");
+    latch_reset(&w); gbp_vwitness_gate_streak(&w);
+    gbp_vwitness_release_streak(&w, 7u);
+    for (i = 0; i < 10u; i++) gbp_vwitness_note_frame(&w, 1);
+    gbp_vwitness_release_streak(&w, 99u);       /* second release: ignored */
+    CHECK(w.t_eligible == 7u && w.qual_streak == 10u);
+    gbp_vwitness_gate_streak(&w);               /* re-gate after release */
+    CHECK(gbp_vwitness_streak_gated(&w) == 1);  /* allowed: it is a latch, and */
+    gbp_vwitness_release_streak(&w, 8u);        /* the probe never does this */
+    for (i = 0; i < 64u; i++) gbp_vwitness_note_frame(&w, 1);
+    CHECK(gbp_vwitness_qualified(&w) == 1);
+    w.qual_state = GBP_VWITNESS_QUAL_ARMED;     /* an open window: */
+    gbp_vwitness_gate_streak(&w);
+    CHECK(gbp_vwitness_streak_gated(&w) == 0);  /* cannot be gated after the fact */
+}
+
+static void test_EL_N_default_off_is_byte_for_byte_the_old_behaviour(void)
+{
+    struct gbp_vwitness a, b; uint32_t i;
+    printf("-- EL-N: a witness never gated behaves exactly as every earlier build\n");
+    latch_reset(&a); latch_reset(&b);
+    gbp_vwitness_gate_streak(&b); gbp_vwitness_release_streak(&b, 0u);  /* immediate release */
+    for (i = 0; i < 400u; i++) { int q = (i % 7u) != 3u; gbp_vwitness_note_frame(&a, q); gbp_vwitness_note_frame(&b, q); }
+    CHECK(a.qual_streak == b.qual_streak && a.qual_resets == b.qual_resets &&
+          a.qual_state == b.qual_state && a.warmup_frames == b.warmup_frames);
+    CHECK(a.elig_gated == 0u && a.elig_released == 0u && a.t_eligible == 0u);
+    /* release on a never-gated witness: */
+    gbp_vwitness_release_streak(&a, 5u);
+    CHECK(a.elig_released == 0u && a.t_eligible == 0u);   /* ignored entirely */
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 4 && strcmp(argv[1], "--replay") == 0)
@@ -1220,6 +1373,14 @@ int main(int argc, char **argv)
     test_I_arming_is_refused_while_the_streak_is_short();
     test_J_arming_wipes_the_scratch_as_its_own_contract();
     test_K_the_live_latches_are_redundant_with_the_recorded_shape();
+    test_EL_A_frames_before_eligibility_do_not_count();
+    test_EL_B_release_starts_the_streak_from_zero();
+    test_EL_CD_63_is_not_enough_and_64_is();
+    test_EL_E_a_bad_frame_after_release_resets_exactly_as_before();
+    test_EL_F_no_reset_or_streak_state_crosses_the_boundary();
+    test_EL_G_gated_window_still_opens_at_the_next_block0();
+    test_EL_HI_release_is_one_way_and_a_gate_after_arming_is_inert();
+    test_EL_N_default_off_is_byte_for_byte_the_old_behaviour();
     test_warmup_consumes_no_record_capacity();
     test_the_first_record_invariant_refuses_a_mid_frame_start();
     test_nothing_is_staged_before_the_window_opens();

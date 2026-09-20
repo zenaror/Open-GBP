@@ -197,6 +197,30 @@ struct gbp_vwitness {
     uint32_t warmup_frames;             /* frames closed BEFORE the window opened */
     uint32_t warmup_disqualified;       /* of those, how many failed the predicate */
 
+    /* ---- the NOT-BEFORE eligibility latch (§V5.55) ----
+     *
+     * Run 7 (§V5.53) opened the structural window 3.84 s after the CONTROL
+     * transform, 1.00 s BEFORE the indexed stimulus produced its first frame,
+     * because with the diagnostic wait gone the content-blind streak completed
+     * on the AGB's own boot. This latch defers only WHEN THE STREAK MAY BE
+     * COUNTED; it does not touch what a frame is, what the assembler does, what
+     * is displayed, or what is retained once the window opens.
+     *
+     * It knows no clock. The CALLER decides when eligibility begins -- from
+     * whatever prospectively fixed origin and threshold it has documented --
+     * and says so once through gbp_vwitness_release_streak(). Before that,
+     * every closed frame is still COUNTED AS SEEN (startup evidence is never
+     * hidden) but can neither build nor break the streak. At release the
+     * streak starts from ZERO. The gate is one-way and idempotent.
+     *
+     * Default OFF: a witness that is never gated behaves exactly as every
+     * earlier build and test did. */
+    uint32_t elig_gated;                /* 1: frames are seen but the streak is not counted */
+    uint32_t elig_released;             /* 1: the gate was released (one-way, once) */
+    uint32_t elig_frames_before;        /* frames noted while gated */
+    uint32_t elig_disqualified_before;  /* of those, how many failed the predicate */
+    uint64_t t_eligible;                /* the caller's clock at release; 0 if never */
+
     /* what happened, so nothing has to be inferred from a count */
     uint32_t frames_seen;               /* frames closed while capture was live */
     uint32_t frames_discarded;          /* scratches dropped with no frame record */
@@ -223,6 +247,18 @@ void gbp_vwitness_set_qualification(struct gbp_vwitness *w, uint32_t required);
  * `qualifying` is the caller's evaluation of the predicate described above.
  * Ignored once the window is armed: the streak exists only to open it. */
 void gbp_vwitness_note_frame(struct gbp_vwitness *w, int qualifying);
+
+/* §V5.55. Arm the not-before gate: from now until release, note_frame() sees
+ * every frame but counts none toward the streak. Call BEFORE the first frame. */
+void gbp_vwitness_gate_streak(struct gbp_vwitness *w);
+
+/* §V5.55. Release the gate at the caller's clock `t`: the streak starts from
+ * ZERO and is counted from the next closed frame on. One-way; a second call is
+ * ignored. A witness that was never gated ignores it too. */
+void gbp_vwitness_release_streak(struct gbp_vwitness *w, uint64_t t);
+
+/* 1 while the gate is armed and not yet released. */
+int gbp_vwitness_streak_gated(const struct gbp_vwitness *w);
 
 /* The streak is complete; the window opens at the NEXT block-0 boundary. */
 int gbp_vwitness_qualified(const struct gbp_vwitness *w);

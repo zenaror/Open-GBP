@@ -505,8 +505,19 @@ PROFILES = {
                            # `selftest_submit_headless()`, which GCC inlines
                            # into `main`. Nothing was added to a service path:
                            # `pump` and `submit_ready` are unchanged at 3 and 2.
+                           #
+                           # §V5.55 raises `pump` from 3 to 4: the not-before
+                           # gate reads the clock once per call until it
+                           # releases, then never. submit_ready is unchanged.
                            "gettime": {"h_ticks64": 1, "main": 8, "on_draw_done": 1,
-                                       "pump": 3, "submit_ready": 2},
+                                       "pump": 4, "submit_ready": 2},
+                           # §V5.55. The gate is ARMED in exactly one place and
+                           # RELEASED in exactly one place, and neither is the
+                           # service path: gbp_vstate_probe_run is absent from
+                           # both, so the witness cannot be gated or released
+                           # from inside the interrupt-driven loop.
+                           "gbp_vwitness_gate_streak": {"main": 1},
+                           "gbp_vwitness_release_streak": {"pump": 1},
                            # The conversion is CONSUMER ONLY. The POC converts one
                            # TILE ROW per slice, so `pump` is the single call site
                            # and no object under src/gbp may call it at all —

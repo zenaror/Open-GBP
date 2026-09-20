@@ -31,7 +31,10 @@ APP_NAME   := gbp-video-stream-probe
 # visible synthetic frame and no pre-handler masked wait. The stream line is
 # kept because the pipeline under test is the same one, which is what makes the
 # comparison with the stream-0008 physical run direct.
-BUILD_ID   := stream-0009
+# §V5.55. stream-0010 is stream-0009's startup and pipeline with ONE research
+# addition: the scientific witness streak is not counted until 5000 ms after the
+# CONTROL transform. Nothing the user sees changes; only when the window may open.
+BUILD_ID   := stream-0010
 
 # NORMAL by default. A diagnostic image -- visible self-test, 5000 ms wait -- is
 #   make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC
