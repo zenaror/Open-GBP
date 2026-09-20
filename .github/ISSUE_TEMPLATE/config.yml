@@ -1,0 +1,4 @@
+# Open-GBP issue chooser. Issues are the operational unit of the project
+# (AGENTS.md, "Operational coordination"). Blank issues stay allowed so the
+# Orchestrator can open a checkpoint in any shape the work needs.
+blank_issues_enabled: true
