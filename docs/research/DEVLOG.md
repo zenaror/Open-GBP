@@ -9221,3 +9221,61 @@ fix has expired — the exact run-9 binary was reused successfully — so
 GBP-VID-033 is the next functional checkpoint, and a new build there cannot
 contaminate this comparison. Networking does not start; the orchestrator
 decides after that repair is validated.
+
+---
+
+## 2026-09-20 — GBP-VID-033: the line that was too long is now two lines
+
+**Goal.** Repair the one reporting defect two physical runs had demonstrated,
+prove the repair cannot touch witness or runtime semantics, build a
+deterministic artifact, and pre-register its physical validation. Executor
+role; nothing else opened; no hardware; no networking.
+
+**The defect, exactly.** `LOG_LINE_LEN 256`, a 7-character `%06u ` prefix, and
+the NUL leave 248 characters of payload. `stream-0010`'s single `WITELIG`
+record renders to 310 at the worst case of its conversions, and runs 9 and 10
+each clipped it after `qual_streak_at_e`. Nothing else in either log came
+within thirty characters of the limit.
+
+**The fix is a split and I let it be nothing more.** `WITELIG` keeps policy,
+origin, threshold, the three latch states and the two timestamps; `WITELIG2`
+carries the two pre-eligibility counts and the contract zero. Two
+`ringlog_printf` records, unique tags, every field name unchanged, no buffer
+enlarged, `ringlog.c` untouched, both emitted after the probe returns and after
+`WITQUAL`. Comments aside, the `main.c` diff is four lines.
+
+**One comment was wrong and is now honest.** It said the literal
+`qual_streak_at_eligible=0` was printed "so a future edit that breaks the
+contract shows up in the record". A literal reads nothing; it cannot detect a
+broken reset. What detects that is EL-B and EL-F in the C suite and the exact
+counter derivations of runs 9 and 10. The comment now says exactly that.
+
+**The guard is the part that outlives this fix.** `test_witelig_len.py` parses
+both format strings from the source and renders every conversion at the
+maximum width of its C type on powerpc-eabi — `%lu` 10, `%d` 11, `%llu` 20,
+`%llx` 16 — and requires both records ≤ 248. WITELIG comes to 205, WITELIG2
+to 113, and the reassembled `stream-0010` record to 310, which is how the guard
+proves it can fail. It also pins both tags once, all eleven fields, and that
+neither record sits inside the capture path.
+
+**Proof it is reporting-only.** `src/`, `tools/`, `stimulus/` untouched;
+`gbp_vwitness.*` byte-identical to what `stream-0010` compiled; 12 191 witness
+checks unchanged; the ISR one-shot identical to GBP-VIDEO-001 with
+`video-audit` run before `stream-audit`; ELF network symbols 0. The binary
+differs from `stream-0010` by `.text +64 B` and `.rodata +8 B` and by its
+identity.
+
+**Artifact.** Checkpoint A `97c78c2`; `stream-0011`, 495 104 B,
+`df2873ee…3e25`, built twice from scratch and byte-identical by SHA-256 and
+`cmp`, Swiss identical, no `-dirty`, identity read back from the binary.
+980 host tests, nine audits at 0 findings, Dolphin PASS in both profiles.
+
+**Status, in the repository's words: FIXED IN SOFTWARE / PHYSICAL VALIDATION
+PENDING.** Runs 9 and 10 stay what they were — `stream-0010` evidence with
+`truncated=1` and the counter derivation — and their fixtures were not touched.
+
+**Next, pre-registered and not run:** `GBP-VIDEO-006` / RUN 11 on run 10's
+topology (BBA present, Ethernet disconnected, same indexed-0003), whose primary
+new gate is `truncated=0` with `WITELIG` and `WITELIG2` both complete and the
+zero present directly, plus every established regression gate. Run-11 names
+reserved. Networking does not start.

@@ -18277,3 +18277,215 @@ Phase 11 does not move. The causal reason for postponing GBP-VID-033 has
 expired: the exact run-9 binary was reused successfully, and a new build may
 now be made in the NEXT functional checkpoint without contaminating this
 comparison.
+
+---
+
+### V5.58 GBP-VID-033 REPAIRED — `stream-0011` — 2026-09-20 — **FIXED IN SOFTWARE / PHYSICAL VALIDATION PENDING; GBP-VIDEO-006 (RUN 11) PRE-REGISTERED, NOT EXECUTED**
+
+The orchestrator opened this functional checkpoint after run 10 closed. It
+repairs ONE reporting defect, proves the repair cannot touch witness or runtime
+semantics, builds a deterministic artifact, and pre-registers its physical
+validation. **No hardware ran.** Networking and the BBA remain out of scope.
+
+#### V5.58.1 Root cause, from source and from two physical runs
+
+`LOG_LINE_LEN 256` (main.c:137); `ringlog.c:35` writes the 7-character
+`%06u ` prefix and hands `vsnprintf` `line_len − 7` bytes, so a payload is at
+most **248 characters**; `ringlog.c:46` counts the cut. `stream-0010`'s single
+`WITELIG` record renders to **310 characters at the worst case of its
+conversions** (205 + 1 + 104), and runs 9 and 10 each clipped it after
+`qual_streak_at_e` — the only line in either log to reach the limit
+(runner-up 218). Binary sidecars, witness state and device service were never
+affected (§V5.56.4, §V5.57.14 VII).
+
+#### V5.58.2 The two-record contract
+
+Two `ringlog_printf` records with unique tags; every field name of the
+`stream-0010` contract preserved; nothing enlarged, nothing renamed,
+`ringlog.c` untouched.
+
+```text
+WITELIG   policy=time_not_before origin=control not_before_ms=%lu
+          gated_at_init=1 released=%lu still_gated=%d t_eligible=%llx
+          ticks_control_to_eligible=%llu
+WITELIG2  frames_seen_before_eligible=%lu disqualified_before_eligible=%lu
+          qual_streak_at_eligible=0
+```
+
+Emitted exactly where the old record was: after `gbp_vstate_probe_run()`
+returns and after `WITQUAL`, never inside `pump()`, `submit_ready()` or
+`on_draw_done()`.
+
+`qual_streak_at_eligible=0` is a **contract assertion** for the reader:
+`release_streak()` zeroes the streak, and the literal reads nothing and cannot
+detect a broken reset. The source comment that implied otherwise now says so.
+What proves the reset is `test_gbp_vwitness.c` EL-B / EL-F on the frozen state
+machine, and the exact counter derivations of runs 9 and 10.
+
+#### V5.58.3 The permanent worst-case guard
+
+`tests/host/test_witelig_len.py` parses both format strings from `main.c` and
+renders every conversion at the maximum width of its C type on powerpc-eabi
+(ILP32: `%lu` 10, `%d` 11, `%llu` 20, `%llx` 16):
+
+```text
+WITELIG   worst case 205 / 248
+WITELIG2  worst case 113 / 248
+stream-0010's single record, reassembled: 310 > 248   <- the guard can fail
+```
+
+It also pins: both tags exactly once; every required field present; nothing
+of the `stream-0010` contract missing (11 fields); both records after the probe
+run and after `WITQUAL`; neither inside the capture path; the ringlog geometry
+it assumes (`LOG_LINE_LEN 256`, `"%06u "`) is the one in source. The
+tag-uniqueness guard in `test_vdisp.py` now sees `WITELIG` and `WITELIG2` once
+each.
+
+#### V5.58.4 Proof the fix is reporting-only
+
+```text
+A  gbp_vwitness.{c,h}, gbp_vwitness_drive.h      byte-identical to stream-0010 (git diff empty)
+B  threshold                                    STREAM_WIT_NOT_BEFORE_MS 5000u, unchanged
+C  pump() eligibility / release                 unchanged (diff touches no function body)
+D  structural qualification predicate           unchanged (drive header untouched)
+E  transport / service path                     src/ untouched; ISR one-shot identical to
+                                                GBP-VIDEO-001 (video-audit then stream-audit)
+F  Policy A / display path                      submit_ready, offer, on_draw_done untouched
+G  startup path                                 video_setup, display_selftest, profile untouched
+H  the changed ringlog_printf calls             after gbp_vstate_probe_run(), after WITQUAL
+I  new wait / sleep / VSync / network            none; ELF network symbols 0
+J  OGBPIDX1 / OGBPIDXCAP1 / OGBPDISP2            headers untouched; tools/ untouched
+```
+
+The main.c diff, comments excluded, is four lines: the format string loses its
+last two fields, the argument list ends two arguments earlier, and a second
+`ringlog_printf` carries them. The binary differs from `stream-0010` by
+`.text +64 B` and `.rodata +8 B` — one call and a split string — and by its
+identity.
+
+#### V5.58.5 Functional checkpoint and artifact
+
+```text
+Checkpoint A  97c78c2   video: the WITELIG summary is two records, so no field is clipped
+              files: poc/.../main.c, poc/.../Makefile, tests/host/test_witelig.py,
+                     tests/host/test_witelig_len.py (new), docs/HANDOFF.md (one row)
+Build ID      stream-0011   (NORMAL profile)
+Commit        97c78c2       -- CLEAN, no -dirty stamp
+DOL           build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+Size          495 104 B     -- stream-0010 was 495 040 B (+64 B)
+sha256        df2873ee61caa75c885215b54e29e8d5357b233b9bcc0f10d5c0b1af75453e25
+embedded      stream-0011 · 97c78c2 · GBP-VIDEO-004, read from the binary's strings
+Swiss         build/swiss/12-stream/boot.dol, byte-identical (cmp)
+Reproduce     GIT_COMMIT=97c78c2 GIT_DIRTY= make build
+
+.text 381 224 B   .rodata 48 784 B   .data 11 444 B
+.sdata    168 B   .sbss    1 836 B   .bss  18 009 912 B
+```
+
+Built twice from scratch, byte-identical by SHA-256 and by `cmp`. Gates: 12 191
+witness checks (unchanged), full C suite, 980 host tests (+8), nine object
+audits at 0 findings with `video-audit` before `stream-audit`, Dolphin PASS in
+both profiles with `xfb=0` normal. Historical run-9 and run-10 fixtures and
+tests untouched; their `truncated=1` remains true of `stream-0010`.
+
+#### V5.58.6 Status vocabulary
+
+`stream-0010` has the `WITELIG` truncation — a physical fact, twice observed.
+`stream-0011` carries a software fix that passes host, build and audit
+validation. **GBP-VID-033: FIXED IN SOFTWARE / PHYSICAL VALIDATION PENDING.**
+Nothing here says the physical reporting defect is hardware-validated fixed.
+
+#### V5.58.7 PRE-REGISTRATION — GBP-VIDEO-006, RUN 11 — NOT EXECUTED
+
+`GBP-VIDEO-006`: the next free number in the VIDEO area (`GBP-VIDEO-005` was run
+B). **Global run 11** — runs 1–10 are the highest referenced. The embedded id
+stays `GBP-VIDEO-004 / stream-0011 / 97c78c2`; that is intentional.
+
+**Purpose.** Validate that `stream-0011` repairs ONLY the `WITELIG` reporting
+defect while preserving the established source / transport / Policy-A / startup
+behaviour.
+
+**Topology — run 10's, held fixed, so the reporting build is the principal
+intentional variable:** same GameCube, same Game Boy Player, **BBA PRESENT,
+Ethernet DISCONNECTED**, same `indexed-0003` (`9f04916b…8d9cc2`, do NOT
+re-flash). Run 10 is the immediate control baseline. Do NOT remove the BBA; do
+NOT connect Ethernet; no BBA/network initialisation exists in the binary.
+
+```text
+control    run 10   stream-0010 @ fbaea00   BBA present, Ethernet disconnected
+validation run 11   stream-0011 @ 97c78c2   BBA present, Ethernet disconnected
+```
+
+**Reserved raw-file names — before the hardware.** The console will write
+`GBP-VIDEO-004_stream-0011.log` / `-idxcap.bin` / `-disp.bin`. Per
+`captures/README.md`: copy FIRST to the names below with `cp --update=none`,
+`cmp`, hash on receipt, never overwrite runs 1–10.
+
+```text
+captures/local/GBP-VIDEO-004_stream-0011-run11.log
+captures/local/GBP-VIDEO-004_stream-0011-run11-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0011-run11-disp.bin
+```
+
+**Primary NEW gate — LOG REPORTING:**
+
+```text
+header     dropped=0  truncated=0
+exactly one WITELIG   -- complete: policy, origin, not_before_ms, gated_at_init,
+                         released, still_gated, t_eligible, ticks_control_to_eligible
+exactly one WITELIG2  -- complete: frames_seen_before_eligible,
+                         disqualified_before_eligible, qual_streak_at_eligible=0
+qual_streak_at_eligible=0 must survive DIRECTLY in the saved log; no counter
+derivation is needed to recover it, and the counter relation
+(warmup − frames_seen_before_eligible = required, resets 0) must still agree
+as a cross-check.
+```
+
+**Regression gates — the run-9/run-10 gates, reused, none added, none narrowed:**
+
+```text
+SOURCE     tools/vindex.py UNMODIFIED: OBSERVED_CONTIGUOUS AND intact 2048 /
+           INVALID_CANONICAL_STRIP 0; exact first FRAME_ID not gated, recorded
+WITNESS    released=1 still_gated=0; eligibility ≈ 5 s after CONTROL by machine
+           timing; 64 qualifying closes; next block 0; 2048 records; no trim
+TRANSPORT  errors 0 transport_ok 1 timeouts 0 busy 0 overflow 0 uncertain 0
+POLICY A   0 interior drops, 0 reorder, depth <= 1, trace usable; latency under
+           the SAME frozen definition (ready = t_convert_done -> t_decision,
+           all scientific hand-offs, vpace.py convention): p99 <= 1.0 ms,
+           max <= 2.5 ms
+STARTUP    NORMAL, presented_synthetic=0, prehandler_wait_ms=0, first real
+           hand-off < 400 ms; exact value and delta vs run 10 recorded
+SIDECARS   strict OGBPIDXCAP1 and OGBPDISP2 integrity
+CADENCE    display repeats OBSERVATIONAL; never "must equal 7"
+```
+
+**Classification, fixed now:**
+
+```text
+PASS          correct stream-0011 artifact; correct indexed-0003; BBA present /
+              Ethernet disconnected declared by the operator; physical log
+              truncated=0; WITELIG and WITELIG2 complete; every regression
+              gate passes.
+              MEANS: the GBP-VID-033 reporting repair is physically validated
+              for this controlled run, with no detected regression in the
+              established video path.
+FAIL          WITELIG / WITELIG2 still truncates or loses a required field; or
+              an established regression gate fails under an otherwise
+              admissible run.
+INCONCLUSIVE  wrong artifact; wrong stimulus; topology uncertain; corrupt or
+              missing evidence; sidecar inadmissible.
+```
+
+**Operator procedure:** GameCube fully OFF; BBA left installed; Ethernet left
+DISCONNECTED; same GBP and indexed-0003; confirm the SD carries the exact
+`stream-0011` `boot.dol` (`df2873ee…3e25`); power on and launch; do not interact;
+let the witness target stop the probe; press X when asked; power-cycle; return
+the three files under their generated names without copying over any historical
+name; declare BBA present / Ethernet disconnected / same console.
+
+#### V5.58.8 Non-claims
+
+No hardware ran. `stream-0011` is not physically validated. Nothing about
+networking, Ethernet, BBA initialisation or Phase 11, which does not move. The
+BBA is present in the validation topology only because run 10 is the immediate
+baseline, not because anything about it is being tested.

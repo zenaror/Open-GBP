@@ -5768,7 +5768,14 @@ earlier build and test is unchanged. The threshold is prospective — ID 0 at
 inside the regime runs 4–6 established. Content independence is pinned by a
 word-bounded source scan of the module, the drive header and the gate block.
 Research instrumentation only; a final runtime has no witness to gate.
-`WITELIG` reports eligibility as its own line. Not physically executed.
+`WITELIG` reports eligibility as its own line.
+
+**Provenance and status.** This SOFTWARE design was recorded on 2026-09-20 before any
+hardware ran it, and the sentence that stood here — "Not physically executed" — was
+true when written. `stream-0010` was subsequently physically exercised twice on
+2026-09-20: run 9 (BBA disconnected, §V5.56, GBP-HW-237) and run 10 (BBA present,
+Ethernet disconnected, §V5.57.14, GBP-HW-242), both PASS. The gate is physically
+validated within those runs' scope; the design text above is left as written.
 
 ---
 
@@ -5931,6 +5938,29 @@ so that BBA presence is the only intentional variable, and a new functional
 build here would confound the two. The truncation is EXPECTED to recur in run
 10 and is not a BBA regression; the clipped field is derived from counters as
 in §V5.56.4.
+
+**2026-09-20, FIXED IN SOFTWARE / PHYSICAL VALIDATION PENDING (§V5.58).**
+Functional commit `97c78c2`, build `stream-0011` (495 104 B,
+`df2873ee61caa75c885215b54e29e8d5357b233b9bcc0f10d5c0b1af75453e25`, Swiss
+byte-identical). Root cause confirmed from source: `LOG_LINE_LEN 256` minus the
+7-character `%06u ` prefix and the NUL leaves 248 characters, and the single
+record rendered to 310 at the worst case of its conversions. The fix is a split
+and nothing else: `WITELIG` (policy, origin, not_before_ms, gated_at_init,
+released, still_gated, t_eligible, ticks_control_to_eligible; worst case 205) and
+`WITELIG2` (frames_seen_before_eligible, disqualified_before_eligible,
+qual_streak_at_eligible=0; worst case 113) — two records with unique tags, every
+field name unchanged, no buffer enlarged, `ringlog.c` untouched, both emitted
+after the probe run and after `WITQUAL`. A permanent host guard
+(`tests/host/test_witelig_len.py`) renders every conversion at the maximum width
+of its C type on powerpc-eabi and requires both records ≤ 248, both tags exactly
+once, all eleven fields present, and proves the old record would not fit. The
+literal `qual_streak_at_eligible=0` is documented as a contract assertion pinned
+by the C suite, not a detector. `gbp_vwitness.*` and every frozen tool and
+format are byte-identical to `stream-0010`; 12 191 witness checks unchanged.
+**Nothing here is hardware-validated**: `GBP-VIDEO-006` (run 11, §V5.58.7) is
+pre-registered to validate it, on run 10's topology, and has not run. Runs 9 and
+10 remain `stream-0010` evidence with `truncated=1`; their fixtures and
+derivations are unchanged.
 
 ---
 
