@@ -446,6 +446,9 @@ PROFILES = {
                              "gbp_avblock.o", "gbp_time64.o", "gbp_vsig.o", "gbp_vstate.o",
                              "gbp_vstate_probe.o", "gbp_vstatedump.o", "gbp_vpix.o", "gbp_vqueue.o", "gbp_vpresent.o",
                              "gbp_vwitness.o", "gbp_vidxdump.o",
+                             # §V6.8 (Issue #7): the full-frame sample store, the VI
+                             # latch trace and their two serializers must SHIP.
+                             "gbp_vfull.o", "gbp_vfulldump.o", "gbp_vvi.o", "gbp_vvidump.o",
                              "gbp_crc32.o", "sdlog.o", "main.o"),
         "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
                               "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi",
@@ -521,8 +524,15 @@ PROFILES = {
                            # §V5.55 raises `pump` from 3 to 4: the not-before
                            # gate reads the clock once per call until it
                            # releases, then never. submit_ready is unchanged.
+                           #
+                           # §V6.8 (Issue #7) raises `pump` from 4 to 5: the VI
+                           # latch record takes ONE timestamp, only on the slice
+                           # that first sees the handed XFB current. The take
+                           # and convert-done clocks were hoisted into locals
+                           # shared by the sample store, so they add nothing;
+                           # submit_ready reuses t_dec and stays at 2.
                            "gettime": {"h_ticks64": 1, "main": 8, "on_draw_done": 1,
-                                       "pump": 4, "submit_ready": 2},
+                                       "pump": 5, "submit_ready": 2},
                            # §V5.55. The gate is ARMED in exactly one place and
                            # RELEASED in exactly one place, and neither is the
                            # service path: gbp_vstate_probe_run is absent from
@@ -571,9 +581,28 @@ PROFILES = {
                            # both are pinned so neither can drift into the
                            # capture window later.
                            "gbp_vdispdump_stream": {"main": 1},
-                           "sdlog_stream_open": {"main": 2},
+                           # §V6.8: the THIRD and FOURTH sidecars, from main and
+                           # from nowhere else, after the same teardown.
+                           "gbp_vfulldump_stream": {"main": 1},
+                           "gbp_vvidump_stream": {"main": 1},
+                           "sdlog_stream_open": {"main": 4},
                            "sdlog_stream_write": {"sink_sd": 1},
-                           "sdlog_save": {"main": 1}},
+                           "sdlog_save": {"main": 1},
+                           # §V6.8: the sample copy is CONSUMER work in the pump's
+                           # slice and nowhere else -- gbp_vstate_probe_run is
+                           # absent, so no raw byte is copied in the service
+                           # path; the decision and the hand-over record live in
+                           # submit_ready, beside the decision they describe;
+                           # the latch is observed in the pump, once per slice.
+                           "gbp_vfull_want": {"pump": 1},
+                           "gbp_vfull_open": {"pump": 1},
+                           "gbp_vfull_block": {"pump": 1},
+                           "gbp_vfull_convert_done": {"pump": 1},
+                           "gbp_vfull_refuse": {"pump": 2},
+                           "gbp_vfull_decision": {"submit_ready": 1},
+                           "gbp_vvi_handed": {"submit_ready": 1},
+                           "gbp_vvi_awaiting": {"pump": 1},
+                           "gbp_vvi_latch": {"pump": 1}},
         "elf_required": ("gbp_vstate_probe_run", "gbp_vstate_report", "gbp_vstate_block", "gbp_vsig_block",
                          "gbp_vqueue_publish", "gbp_vqueue_take", "gbp_vqueue_commit", "gbp_vpix_block",
                          "gbp_vpresent_acquire", "gbp_vpresent_submit", "gbp_vpresent_draw_done",
@@ -587,6 +616,9 @@ PROFILES = {
                          "gbp_vwitness_stage", "gbp_vwitness_place", "gbp_vwitness_commit",
                          "gbp_vwitness_target_reached", "gbp_vwitness_store_full",
                          "gbp_vidxdump_stream", "gbp_vidxdump_layout",
+                         # §V6.8: the two new stores and their serializers must SHIP.
+                         "gbp_vfull_want", "gbp_vfull_block", "gbp_vfulldump_stream",
+                         "gbp_vvi_handed", "gbp_vvi_latch", "gbp_vvidump_stream",
                          "gbp_initirqa_run_cause", "gbp_initirqa_teardown", "gbp_regwrite_irq_u16",
                          "gbp_regwrite_control_byte", "hsp_backend_oneshot_isr_ext",
                          "hsp_backend_irq_transport_ext", "__UnmaskIrq", "__MaskIrq", "IRQ_Request",
@@ -605,6 +637,10 @@ PROFILES = {
         # outward edges are enumerated rather than merely restricted.
         "object_may_only_reference": {
             "gbp_vwitness.o": ("memset", "__udivdi3"),
+            # §V6.8: the sample store copies and counts, the latch trace
+            # records; neither may reach a clock, a device, a CRC or a file.
+            "gbp_vfull.o": ("memcpy", "memset"),
+            "gbp_vvi.o": ("memset",),
             # §V5.46: the disposition trace runs INSIDE the capture window and
             # inside the draw-done callback. Its outward edges are enumerated
             # for the same reason the witness's are: so a filesystem call, a
@@ -622,6 +658,10 @@ PROFILES = {
             "gbp_vstatedump.o": _FS_SYMBOLS,
             "gbp_vidxdump.o": _FS_SYMBOLS,
             "gbp_vdispdump.o": _FS_SYMBOLS,   # post-teardown serializer: CRC is fine, the filesystem is not
+            "gbp_vfull.o": _CAPTURE_SYMBOLS,  # §V6.8 consumer-side copy: no CRC, no filesystem
+            "gbp_vvi.o": _CAPTURE_SYMBOLS,
+            "gbp_vfulldump.o": _FS_SYMBOLS,   # post-teardown serializers, like the others
+            "gbp_vvidump.o": _FS_SYMBOLS,
             "gbp_time64.o": _FS_SYMBOLS,
             "gbp_avblock.o": _FS_SYMBOLS,
             "gbp_irq_service.o": _CAPTURE_SYMBOLS,
@@ -633,7 +673,8 @@ PROFILES = {
         # (§V5.39.8). The frozen OGBPSEQ1 and OGBPCOL1 writers stay untouched.
         "main_must_call": ("hsp_backend_irq_transport_ext", "gbp_vstate_probe_run", "sdlog_save",
                            "GX_Init", "GX_InitTexObj", "GX_LoadTexObj", "DCFlushRange",
-                           "GX_SetDrawDoneCallback", "GX_SetDrawDone"),
+                           "GX_SetDrawDoneCallback", "GX_SetDrawDone",
+                           "gbp_vfulldump_stream", "gbp_vvidump_stream"),
         "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
                                "hsp_backend_intmr_transport", "gbp_initirqa_probe_run", "gbp_initirqb_probe_run",
                                "gbp_initirq4_probe_run", "gbp_initirq_probe_run", "gbp_avsvc_probe_run",

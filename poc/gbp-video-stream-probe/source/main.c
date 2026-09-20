@@ -113,6 +113,10 @@
 #include "gbp_vdisp.h"
 #include "gbp_startup.h"
 #include "gbp_vdispdump.h"
+#include "gbp_vfull.h"
+#include "gbp_vfulldump.h"
+#include "gbp_vvi.h"
+#include "gbp_vvidump.h"
 #include "hsp_backend.h"
 #include "hsp_backend_irq.h"
 #include "sdlog.h"
@@ -260,6 +264,30 @@ _Static_assert(GBP_VWITNESS_WORDS == 54u && GBP_VWITNESS_BLOCKS == 40u,
 _Static_assert(GBP_VIDXDUMP_RECORD_SIZE == GBP_VWITNESS_FRAME_BYTES + 48u,
                "one sidecar record is 48 bytes of metadata plus the witness");
 
+/* ---- §V6.8 (Issue #7): the FULL-FRAME SAMPLE store and the VI LATCH trace ---
+ *
+ * GBP-VIDEO-008: K = 8 samples x (153 600 raw + 76 800 texture) = 1 843 200 B,
+ * chosen by frame_index only -- origin = the witness window's first retained
+ * frame, one every 256 -- copied by the pump one block per slice, never in
+ * the service path. GBP-VIDEO-007: 4096 x 64 B of hand-over records, closed
+ * when the pump first sees the handed XFB reported current, with the VI base
+ * registers read back. Both are serialized after the teardown, from here. */
+static uint8_t  full_raw[GBP_VFULL_RAW_STORE] ATTRIBUTE_ALIGN(32);   /* 1.17 MiB */
+static uint16_t full_tex[GBP_VFULL_TEX_STORE] ATTRIBUTE_ALIGN(32);   /* 0.59 MiB */
+static struct gbp_vfull full;
+static int tex_sample[GBP_VPRESENT_TEX_BUFFERS];  /* the sample a texture's lifecycle maps to, or -1 */
+static struct gbp_vvi_rec vvi_recs[GBP_VVI_CAP];                     /* 0.25 MiB */
+static struct gbp_vvi vvi;
+static uint8_t full_chunk[GBP_VFULLDUMP_CHUNK];
+static uint8_t vvi_chunk[GBP_VVIDUMP_CHUNK];
+_Static_assert(GBP_VFULL_K == 8u && GBP_VFULL_SPACING == 256u,
+               "Issue #7 decision 2: K = 8 samples, one every 256 frame_index positions");
+/* The VI framebuffer-base registers, READ ONLY, 16-bit halves at
+ * 0xCC002000 + 2 * index: 14/15 = top field base hi/lo, 18/19 = bottom field
+ * base hi/lo (libogc2 video.c, __setFbbRegs). Read at the latch and nowhere
+ * else; nothing is ever written here. */
+static volatile uint16_t *const vi_regs = (volatile uint16_t *)0xCC002000u;
+
 /* ---- the texture buffers; the OWNERSHIP lives in src/gbp/gbp_vpresent ---- */
 #define STREAM_TEX_BUFFERS GBP_VPRESENT_TEX_BUFFERS
 static uint16_t tex_buf[STREAM_TEX_BUFFERS][GBP_VPIX_TEX_BYTES / 2u] ATTRIBUTE_ALIGN(32);  /* 2 x 75 KiB */
@@ -289,6 +317,7 @@ static struct {
     uint32_t ticks;                /* accumulated slice cost for this frame */
     struct gbp_vpix_stats stats;
     int      life;                 /* §V5.46 downstream lifecycle index, or -1 */
+    int      sample;               /* §V6.8 full-frame sample index, or -1 */
 } conv;
 
 /* ---- the downstream disposition trace (§V5.46) --------------------------
@@ -647,6 +676,19 @@ static void pump(void *user)
             gbp_vwitness_release_streak(&wit, now);
     }
 
+    /* §V6.8 (GBP-VIDEO-007): one compare per slice. When the XFB handed over
+     * last is what libogc2 now reports as current, read the four VI base
+     * register halves (read-only MMIO) and close the hand-over record. No
+     * callback, no wait, and Policy A's inputs are untouched: `present` is not
+     * read or changed here; this reads the same VI variable submit_ready() does. */
+    {
+        const int aw = gbp_vvi_awaiting(&vvi);
+        if (aw >= 0 && aw == xfb_current_index()) {
+            const uint16_t r14 = vi_regs[14], r15 = vi_regs[15], r18 = vi_regs[18], r19 = vi_regs[19];
+            (void)gbp_vvi_latch(&vvi, gettime(), VIDEO_GetRetraceCount(), r14, r15, r18, r19);
+        }
+    }
+
     /* A READY buffer whose submit was refused because a token was still pending
      * gets another chance here, before any new work is started. Re-offering it
      * costs one state read and keeps the newest converted frame moving. */
@@ -674,12 +716,27 @@ static void pump(void *user)
          * `in_window` is the witness's own ARMED latch, so the trace can say
          * which lifecycles belong to the qualified scientific population
          * without OGBPIDX1 taking any part in the decision. */
-        conv.life = gbp_vdisp_take(&disp, conv.desc.frame_index, conv.desc.seq,
-                                   conv.desc.slot, conv.desc.flags,
-                                   conv.desc.t_last, gettime(),
-                                   VIDEO_GetRetraceCount(), (uint16_t)buf,
-                                   gbp_vwitness_armed(&wit), 0);
-        tex_life[buf] = conv.life;
+        {
+            const uint64_t t_take = gettime();
+            conv.life = gbp_vdisp_take(&disp, conv.desc.frame_index, conv.desc.seq,
+                                       conv.desc.slot, conv.desc.flags,
+                                       conv.desc.t_last, t_take,
+                                       VIDEO_GetRetraceCount(), (uint16_t)buf,
+                                       gbp_vwitness_armed(&wit), 0);
+            tex_life[buf] = conv.life;
+            /* §V6.8 (GBP-VIDEO-008): content-blind sampling. The origin is the
+             * witness window's first retained frame, read once from the
+             * metadata the service path already committed; the grid is
+             * frame_index arithmetic and nothing here reads a pixel. */
+            if (!full.origin_set && wit.n >= 1u)
+                gbp_vfull_set_origin(&full, gbp_vwitness_meta_at(&wit, 0)->frame_index);
+            conv.sample = gbp_vfull_want(&full, conv.desc.frame_index);
+            if (conv.sample >= 0 &&
+                gbp_vfull_open(&full, conv.sample, conv.desc.frame_index, conv.desc.seq,
+                               conv.desc.slot, (uint16_t)buf, (uint32_t)conv.life, t_take) != 0)
+                conv.sample = -1;
+            tex_sample[buf] = conv.sample;
+        }
     }
 
     t0 = (uint32_t)gettick();
@@ -697,6 +754,8 @@ static void pump(void *user)
              * been presented (§V5.26 F5). Reject it HERE instead. */
             (void)gbp_vpresent_abandon(&present, (int)conv.buf);
             gbp_vdisp_abandon(&disp, conv.life, (uint16_t)GBP_VDISP_D_ABANDONED_NO_RAW);
+            if (conv.sample >= 0) (void)gbp_vfull_refuse(&full, conv.sample, GBP_VFULL_R_NO_RAW);
+            tex_sample[conv.buf] = -1;
             tex_life[conv.buf] = -1;
             conv.active = 0u;
             conv_abandoned_no_raw++;
@@ -704,6 +763,13 @@ static void pump(void *user)
         }
         (void)gbp_vpix_block(blk, row, tex_buf[conv.buf],
                              GBP_VPIX_TEX_BYTES / 2u, &conv.stats);
+        /* §V6.8: for a sampled lifecycle only, keep this block's raw bytes and
+         * the tile row just produced -- 3 840 + 1 920 bytes, bounded, consumer
+         * side, from the same ring slot and the same generation the conversion
+         * used. Nothing else in the run is affected. */
+        if (conv.sample >= 0)
+            (void)gbp_vfull_block(&full, conv.sample, row, blk,
+                                  tex_buf[conv.buf] + (size_t)row * GBP_VFULL_BLOCK_TEX);
         conv.next_row++;
     }
     t1 = (uint32_t)gettick();
@@ -727,6 +793,9 @@ static void pump(void *user)
          * assumed. */
         (void)gbp_vpresent_abandon(&present, (int)conv.buf);
         gbp_vdisp_abandon(&disp, conv.life, (uint16_t)GBP_VDISP_D_SLOT_OVERRUN);
+        /* §V6.8: the guard spoke for the frame; the sample's bytes are not a frame. */
+        if (conv.sample >= 0) (void)gbp_vfull_refuse(&full, conv.sample, GBP_VFULL_R_GENERATION);
+        tex_sample[conv.buf] = -1;
         tex_life[conv.buf] = -1;
         conv.active = 0u;
         return;
@@ -743,7 +812,11 @@ static void pump(void *user)
      * about it. Nothing above this line is visible to the GP; nothing below it
      * may write the buffer again until the draw-done callback frees it. */
     DCFlushRange(tex_buf[conv.buf], GBP_VPIX_TEX_BYTES);
-    gbp_vdisp_convert_done(&disp, conv.life, gettime(), conv.ticks);
+    {
+        const uint64_t t_done = gettime();
+        gbp_vdisp_convert_done(&disp, conv.life, t_done, conv.ticks);
+        if (conv.sample >= 0) (void)gbp_vfull_convert_done(&full, conv.sample, t_done);
+    }
     (void)gbp_vpresent_fill_done(&present, (int)conv.buf);   /* CPU_FILLING -> READY */
     conv.active = 0u;
     /* NOT submit_ready(conv.buf): if an older frame is still deferred, this one
@@ -852,6 +925,18 @@ static void submit_ready(int buf, struct gbp_vqueue *account)
                         * the consumer takes from -- one field, no clock, no copy */
                        (account && account->has_pending)
                            ? account->pending.frame_index : GBP_VDISP_KEY_NONE);
+    /* §V6.8: the sampled lifecycle's decision, and the hand-over record the
+     * pump closes when the VI reports this XFB current (GBP-VIDEO-007). */
+    if (tex_sample[buf] >= 0) {
+        (void)gbp_vfull_decision(&full, tex_sample[buf], t_dec, rt, (int16_t)xfb,
+                                 (uint16_t)GBP_VDISP_D_SELECTED_NEW);
+        tex_sample[buf] = -1;
+    }
+    {
+        const struct gbp_vdisp_life *lr = (life >= 0) ? gbp_vdisp_life_at(&disp, (uint32_t)life) : 0;
+        (void)gbp_vvi_handed(&vvi, lr ? lr->frame_index : GBP_VDISP_KEY_NONE, (uint32_t)life,
+                             (int16_t)xfb, (uint32_t)MEM_VIRTUAL_TO_PHYSICAL(xfb_stream_buf[xfb]), t_dec, rt);
+    }
     tex_life[buf] = -1;               /* the lifecycle is closed; the slot is free to be re-keyed */
 }
 
@@ -947,9 +1032,11 @@ int main(void)
     gbp_vpresent_init(&present);
     {
         unsigned k;
-        for (k = 0; k < STREAM_TEX_BUFFERS; k++) tex_life[k] = -1;
+        for (k = 0; k < STREAM_TEX_BUFFERS; k++) { tex_life[k] = -1; tex_sample[k] = -1; }
     }
     (void)gbp_vdisp_init(&disp, disp_life, GBP_VDISP_LIFE_CAP, disp_ev, GBP_VDISP_EVENT_CAP);
+    gbp_vfull_init(&full, full_raw, full_tex, GBP_VFULL_SPACING);
+    gbp_vvi_init(&vvi, vvi_recs, GBP_VVI_CAP);
     conv.life = -1;
     pump_state = &vstate;
     vq.pump = pump;
@@ -1088,6 +1175,19 @@ int main(void)
                        (unsigned long)sizeof witness_store, (unsigned long)sizeof witness_meta,
                        (unsigned long)GBP_VIDXDUMP_RECORD_SIZE,
                        (unsigned long)VIDEO_GetFrameBufferSize(rmode));
+        /* §V6.8 / Issue #7 decision 2: the memory proof, in the log AND on the
+         * gecko so a Dolphin run reports it too. */
+        ringlog_printf(&rl, "ENVFULL k=%u spacing=%u full_raw=%lu full_tex=%lu vvi=%lu arena1_free=%lu",
+                       (unsigned)GBP_VFULL_K, (unsigned)GBP_VFULL_SPACING,
+                       (unsigned long)sizeof full_raw, (unsigned long)sizeof full_tex,
+                       (unsigned long)sizeof vvi_recs, (unsigned long)(hi > lo ? hi - lo : 0u));
+        snprintf(line, sizeof line,
+                 "OPENGBP-STREAM ENVFULL k=%u spacing=%u full_raw=%lu full_tex=%lu vvi=%lu bss_end=%08lx arena1_lo=%08lx arena1_hi=%08lx arena1_free=%lu\n",
+                 (unsigned)GBP_VFULL_K, (unsigned)GBP_VFULL_SPACING,
+                 (unsigned long)sizeof full_raw, (unsigned long)sizeof full_tex,
+                 (unsigned long)sizeof vvi_recs, (unsigned long)(size_t)__bss_end,
+                 (unsigned long)lo, (unsigned long)hi, (unsigned long)(hi > lo ? hi - lo : 0u));
+        gecko_puts(line);
     }
 
     hsp_backend_init(&hsp, dma_buffer, (uint32_t)millisecs_to_ticks(DMA_TIMEOUT_MS));
@@ -1258,6 +1358,19 @@ int main(void)
                         "disqualified_before_eligible=%lu qual_streak_at_eligible=0",
                    (unsigned long)wit.elig_frames_before,
                    (unsigned long)wit.elig_disqualified_before);
+    /* §V6.8: the two new stores, as counts. What the samples contain is decided
+     * offline by tools/vfull.py; what the latches mean by tools/vvi.py. */
+    ringlog_printf(&rl, "FULLSTORE k=%u spacing=%lu origin=%lu origin_set=%lu want_calls=%lu wanted=%lu "
+                        "opened=%lu completed=%lu refused=%lu skipped_capacity=%lu blocks_copied=%lu",
+                   (unsigned)GBP_VFULL_K, (unsigned long)full.spacing, (unsigned long)full.origin,
+                   (unsigned long)full.origin_set, (unsigned long)full.want_calls, (unsigned long)full.wanted,
+                   (unsigned long)full.opened, (unsigned long)full.completed, (unsigned long)full.refused,
+                   (unsigned long)full.skipped_capacity, (unsigned long)full.blocks_copied);
+    ringlog_printf(&rl, "VISTORE handed=%lu latched=%lu superseded=%lu overflow=%lu observe_calls=%lu "
+                        "awaiting_at_end=%ld records=%lu/%lu",
+                   (unsigned long)vvi.handed, (unsigned long)vvi.latched, (unsigned long)vvi.superseded,
+                   (unsigned long)vvi.overflow, (unsigned long)vvi.observe_calls, (long)vvi.awaiting,
+                   (unsigned long)vvi.n, (unsigned long)vvi.cap);
     {
         /* §V5.46. The aggregate the trace itself can be audited by: how many
          * lifecycles and decisions were recorded, whether either array filled,
@@ -1473,11 +1586,13 @@ int main(void)
              * guess which contract the bytes were written under. */
             snprintf(extra, sizeof extra,
                      "libogc=%s gecko=%d power_cycle_required=%d sidecar=%s_%s-idxcap.bin "
-                     "format=OGBPIDXCAP1_v%u time_target=disabled safety_s=%lu witness_target=%lu",
+                     "format=OGBPIDXCAP1_v%u time_target=disabled safety_s=%lu witness_target=%lu "
+                     "sidecars=disp:OGBPDISP2,full:OGBPFULL1_v%u,vi:OGBPVI1_v%u",
                      _V_STRING, gecko_present, res.power_cycle_required, TEST_ID, OPENGBP_BUILD_ID,
                      (unsigned)GBP_VIDXDUMP_VERSION,
                      (unsigned long)STREAM_SAFETY_SECONDS,
-                     (unsigned long)wit.target);
+                     (unsigned long)wit.target,
+                     (unsigned)GBP_VFULLDUMP_VERSION, (unsigned)GBP_VVIDUMP_VERSION);
             rc = sdlog_save(TEST_ID, OPENGBP_BUILD_ID, OPENGBP_GIT_COMMIT, extra, &rl,
                             status, sizeof status, path, sizeof path);
             /* The witness sidecar, streamed record by record with a running
@@ -1540,6 +1655,69 @@ int main(void)
                          (unsigned long)disp_info.life_n, (unsigned long)disp_info.event_n,
                          gbp_vdisp_intact(&disp),
                          (unsigned long)disp_info.header_crc32, (unsigned long)disp_info.total_crc32);
+                gecko_puts(line);
+            }
+            /* §V6.8: the THIRD and FOURTH sidecars -- the full-frame samples and
+             * the VI latch trace -- written after the others, after the
+             * teardown, from fixed RAM, through the same streaming sink. The
+             * raw sample bytes go to the sink straight from the store. */
+            {
+                struct sdlog_stream fs;
+                struct gbp_vfulldump_info finfo;
+                char fstat[96];
+                int frc = -1;
+                long fbytes = -1;
+                memset(&finfo, 0, sizeof finfo);
+                finfo.tb_hz = tb_hz;
+                if (gbp_vfulldump_set_identity(&finfo, TEST_ID, OPENGBP_BUILD_ID,
+                                               OPENGBP_APP_NAME, OPENGBP_GIT_COMMIT) != 0) {
+                    snprintf(fstat, sizeof fstat, "full sidecar not written: an identity does not fit");
+                } else if (sdlog_stream_open(&fs, TEST_ID, OPENGBP_BUILD_ID, "-full.bin",
+                                             fstat, sizeof fstat) != 0) {
+                    /* fstat already explains */
+                } else {
+                    uint64_t fw = 0;
+                    fbytes = gbp_vfulldump_stream(&finfo, &full, full_chunk, sizeof full_chunk, sink_sd, &fs, &fw);
+                    frc = sdlog_stream_close(&fs, fstat, sizeof fstat);
+                    if (fbytes < 0 && frc == 0) frc = -5;
+                }
+                printf("  SAVE full    %s   (OGBPFULL1 v%u, %lu samples)\n", fstat,
+                       (unsigned)GBP_VFULLDUMP_VERSION, (unsigned long)finfo.records_n);
+                snprintf(line, sizeof line,
+                         "OPENGBP-STREAM SAVEFULL rc=%ld close=%d bytes=%ld samples=%lu completed=%lu "
+                         "header_crc32=%08lx total_crc32=%08lx\n",
+                         fbytes, frc, fbytes, (unsigned long)finfo.records_n, (unsigned long)finfo.completed,
+                         (unsigned long)finfo.header_crc32, (unsigned long)finfo.total_crc32);
+                gecko_puts(line);
+            }
+            {
+                struct sdlog_stream vs;
+                struct gbp_vvidump_info vinfo;
+                char vstat[96];
+                int vrc = -1;
+                long vbytes = -1;
+                memset(&vinfo, 0, sizeof vinfo);
+                vinfo.tb_hz = tb_hz;
+                vinfo.xfb_slots = GBP_VPRESENT_XFB_BUFFERS;
+                if (gbp_vvidump_set_identity(&vinfo, TEST_ID, OPENGBP_BUILD_ID,
+                                             OPENGBP_APP_NAME, OPENGBP_GIT_COMMIT) != 0) {
+                    snprintf(vstat, sizeof vstat, "vi sidecar not written: an identity does not fit");
+                } else if (sdlog_stream_open(&vs, TEST_ID, OPENGBP_BUILD_ID, "-vi.bin",
+                                             vstat, sizeof vstat) != 0) {
+                    /* vstat already explains */
+                } else {
+                    uint64_t vw = 0;
+                    vbytes = gbp_vvidump_stream(&vinfo, &vvi, vvi_chunk, sizeof vvi_chunk, sink_sd, &vs, &vw);
+                    vrc = sdlog_stream_close(&vs, vstat, sizeof vstat);
+                    if (vbytes < 0 && vrc == 0) vrc = -5;
+                }
+                printf("  SAVE vi      %s   (OGBPVI1 v%u, %lu records)\n", vstat,
+                       (unsigned)GBP_VVIDUMP_VERSION, (unsigned long)vinfo.records_n);
+                snprintf(line, sizeof line,
+                         "OPENGBP-STREAM SAVEVI rc=%ld close=%d bytes=%ld records=%lu latched=%lu "
+                         "header_crc32=%08lx total_crc32=%08lx\n",
+                         vbytes, vrc, vbytes, (unsigned long)vinfo.records_n, (unsigned long)vinfo.latched,
+                         (unsigned long)vinfo.header_crc32, (unsigned long)vinfo.total_crc32);
                 gecko_puts(line);
             }
             saved = (rc == 0 && rc2 == 0 && n > 0);

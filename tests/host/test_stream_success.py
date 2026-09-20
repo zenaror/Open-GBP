@@ -83,8 +83,8 @@ class WhatDidNotChange(unittest.TestCase):
 
     def test_the_build_identity_moved_and_says_so(self):
         m = read(MAKEFILE)
-        self.assertIn("BUILD_ID   := stream-0012", m)
-        self.assertNotIn("BUILD_ID   := stream-0011", m)
+        self.assertIn("BUILD_ID   := stream-0013", m)
+        self.assertNotIn("BUILD_ID   := stream-0012", m)
         self.assertIn("NOT\n# PHYSICALLY EXECUTED", m)
 
 

@@ -438,7 +438,10 @@ class TheWiringInMainIsPinned(unittest.TestCase):
         break every offline join."""
         self.assertIn("gbp_vdisp_take(&disp, conv.desc.frame_index, conv.desc.seq,", self.src)
         self.assertIn("conv.desc.slot, conv.desc.flags,", self.src)
-        self.assertIn("conv.desc.t_last, gettime(),", self.src)
+        # §V6.8: the take clock is read once into a local shared by the full-frame
+        # sample store; the key is still the descriptor's frame_index.
+        self.assertIn("const uint64_t t_take = gettime();", self.src)
+        self.assertIn("conv.desc.t_last, t_take,", self.src)
 
     def test_the_window_flag_is_the_witness_latch(self):
         """IN_WINDOW must come from the witness's own ARMED state, so OGBPIDX1
