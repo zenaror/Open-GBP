@@ -6278,7 +6278,7 @@ change this result, which stands as the frozen analyzer's output on RUN 12.
 
 ---
 
-### GBP-VID-034 — RUN 12 carries two duplicate OGBPCOORD1 FRAME_ID transitions (479 → 479, 1919 → 1919) — FACT of this run; MECHANISM / ROOT CAUSE OPEN
+### GBP-VID-034 — RUN 12 carries two duplicate OGBPCOORD1 FRAME_ID transitions (479 → 479, 1919 → 1919) — FACT of this run; MECHANISM RESOLVED 2026-09-20 (Issue #12, software analysis, CORROBORATED): PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames
 
 Observed by the frozen analyzer and reproduced by an independent decode
 (GBP-HW-251): at `frame_index 761 → 762` the canonical witness carries FRAME_ID
@@ -6296,6 +6296,43 @@ that is context, not a cause. Consequence: the shared source-window gate of
 §V6.19.7 fails and both RUN 12 verdicts are INCONCLUSIVE. Investigation
 belongs to a later research checkpoint; nothing was changed in this
 ingestion.
+
+**2026-09-20, MECHANISM RESOLVED (GitHub Issue #12; HARDWARE_TESTS §V6.22;
+software analysis, no hardware).** Root cause: on the ENTRY frame of an
+appearance, `prepare_frame` (IWRAM) builds the 80 × 50 digit table in EWRAM
+with, per pixel, a reload of `sc->digit`, a ROM byte read of
+`seg_of_digit[digit]` (not hoisted by the compiler) and up to seven segment
+tests; unlit pixels also read `glyph_erase` from EWRAM. For the sparse digits
+1 (3 200 unlit pixels) and 4 (2 592) that PREPARE costs 287 787 and 287 179
+cycles — more than an AGB frame — against a budget of 263 839 … 263 953 cycles
+between the end of the previous ordinary PUBLISH and the next VBlank; it
+returns ≈ 19 lines inside VBlank v+1, the two-loop VCOUNT wait skips that
+VBlank, VRAM keeps the previous frame one AGB frame longer and the GBP
+captures the previous FRAME_ID twice (N−1, N−1, N — exactly the observed 479,
+479, 480 and 1919, 1919, 1920). Digits 2 and 3 (2 240 unlit each) cost 261 723
+and 260 043 cycles and return 2 116 … 3 910 cycles before the VBlank: no
+duplicate, as observed. STATUS cannot see it: the latch brackets
+`publish_frame` only (`vc0` is read after both wait loops), so FAULT = 0 and
+the unchanged VMARGIN on the duplicate records are what the mechanism
+predicts. The model (`tools/coordtime.py`: a minimal ARM7TDMI interpreter
+over the exact frozen image with GBATEK bus costs; `tests/host/test_coordtime.py`)
+is calibrated on three hardware facts of RUN 12 — the ordinary, entry and exit
+PUBLISH end lines (VMARGIN 54 / 39 / 38–39, reproduced, the last as the
+knife-edge the run itself showed) — and reproduces the four-entry pattern
+M--M with no parameter fitted to the duplicates. Margins: the duplicates are
+over by 23 226 / 23 834 cycles (8–9 %); the non-duplicates under by 2 116 /
+3 796 (0.8 % / 1.5 %), the weakest link, stated as such; exits, steady and
+ordinary frames are below a third of the budget. Same mechanism class as
+GBP-HW-165, now proven for `coord-0001` in IWRAM at the margin instead of in
+ROM on every frame. Not a source loss, not a transport or capture defect, not
+a display artefact: the stimulus's own scheduling. Assumptions: datasheet
+ARM7TDMI cycles, EWRAM 2 wait states (corroborated), ROM reads at the
+`WAITCNT 4317h` the ROM writes, DMA 2I overhead (corroborated). Falsifiable:
+a future run of this exact image retaining k ≥ 6 duplicates before digits 6,
+7, 8, 9 and not before digit 5. The RUN 12 verdicts do not change: the gate
+failed because of these two duplicates, and it still fails. Nothing in
+`coord-0001`, the runtime, the analyzers, the formats or the gates was
+touched; no RUN 13.
 
 ---
 
