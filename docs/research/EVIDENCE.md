@@ -5382,3 +5382,101 @@ not as an observation.
 **Nothing here is a new physical machine observation beyond what the operator
 reported.** The probe reads no VIDEO before the handler exists, so this round
 makes no claim about what the AGB actually displayed during the wait.
+
+---
+
+### GBP-VID-028 — the diagnostic startup is separable from the normal one, and neither half of it is a protocol requirement — FACT (software and design)
+
+**No hardware ran for this entry.** It is a claim about the code and about
+experiments already recorded, not a new machine observation.
+
+`stream-0008` showed the operator a synthetic pattern for 5.1777 s. Two
+independent causes, and the source classifies both:
+
+```text
+the visible image   display_selftest() -> submit_ready(buf, 0) ->
+                    VIDEO_SetNextFramebuffer(xfb_stream_buf[x])   (GBP-VID-027)
+the 5.000 s         cfg.prehandler_wait_ms, whose module default is ZERO:
+                    gbp_vstate_probe.c:50
+                    "the diagnostic is OFF unless a build asks for it"
+```
+
+**Neither is required by the protocol.** The mandatory prefix before the first
+VIDEO read is DET probes, the CONTROL transform, the self-terminating A1 and A2
+windows, the handler install, the PREUNMASK safety check and the first unmask.
+`stream-0009` removes the two diagnostic items and **moves nothing** in that
+prefix.
+
+The evidence that the wait is what hides the boot was already physical and
+needed no new run: `vstate-0001` (no wait) saw the structured screen 0.5014 s
+after capture start and captured the animated GAME BOY logotype
+(GBP-HW-074…087); `vstate-prewait-5000` (the same 5000 ms) reported
+`STRUCTURED not_observed` over 10 446 frames. §V3.26 records why the wait was
+introduced — without it "the colour capture would certify inside the AGB's
+boot" — which is a requirement of a MEASUREMENT, not of the runtime.
+
+**The separation.** `src/gbp/gbp_startup.h` resolves one profile from one enum,
+once. NORMAL: headless self-test, zero wait, framebuffers cleared to black.
+DIAGNOSTIC: visible self-test, the 5000 ms GBP-HW-120 validated, same clear. An
+unknown mode resolves to NORMAL, so a typo costs a diagnostic, never a user.
+
+**The self-test still runs in both profiles**, because it validates the path
+`stream-0001` shipped without ever executing (§V5.26.4). In the normal profile
+it claims NO framebuffer, rather than merely skipping the present:
+`gbp_vpresent_xfb_handed()` sets `xfb_pending`, which clears only when the VI is
+observed to have latched that buffer, so bookkeeping without a buffer would
+leave it set and — with two framebuffers — make every real frame defer for the
+whole run. Dolphin measures the difference directly: `SELFTEST … xfb=0` in
+normal mode against `xfb=1` in diagnostic, with `submits=1 drawdone=1
+releases=1` in both.
+
+**Policy A is untouched, not merely unchanged.** `selftest_submit_headless()`
+calls nothing in `submit_ready()`, `submit_ready()` contains no reference to the
+profile, and `gbp_vdisp.*`, `gbp_vdispdump.*`, `gbp_vpresent.*`, `gbp_vqueue.c`,
+`gbp_vstate.*`, `gbp_vwitness*`, `gbp_vidxdump.c`, `gbp_vpix.c` and the stimulus
+are byte-identical. The §V5.50 physical result is not reinterpreted by anything
+here.
+
+**Predicted, not measured:** with the wait removed, run 6's own stage timings
+put the first real hand-off **0.1532 s** after the CONTROL transform. The frozen
+gate is 400 ms, derived by letting the dominant self-terminating term (the A2
+window, 105.773 ms in run 6, which ended early) more than double.
+
+**A discrepancy recorded rather than resolved:** `UNKNOWNS.md` phrases the
+logotype's first appearance as 0.5014 s "after capture start" and `ROADMAP.md`
+as "after the AGB starts"; those differ by the ~0.107 s prefix. The 400 ms gate
+holds under either reading, and the run's own `STARTUPV` line will settle it.
+
+**Not claimed:** that a boot logo will appear — that depends on the cartridge;
+that anything was seen on a screen — `xfb=0` is instrumentation; that the F8
+auditor blind spot is fixed — one build was inspected by hand.
+
+---
+
+### GBP-VID-029 — two analyzer and documentation semantics corrected after the Policy-A run — FACT (software)
+
+**A reordering is not a warning.** `tools/vdisp.py::usable()` tested lifecycle
+overflow, event overflow and unmatched draw-done tokens, but not
+`order_violations`. The disposition claim this function gates is "every interior
+source frame reached a framebuffer **in order**", so a trace that recorded an
+out-of-order hand-off could not support it whatever else was clean. `parse()`
+already refused such a file when it ALSO set INTACT; `usable()` now refuses the
+CLAIM even when the flag is honestly clear. Every existing capture carries 0
+here, so `stream-0007` and `stream-0008` are not reclassified.
+
+**`repeats = xfb_skipped` is history, not an invariant.** `gbp_vqueue.h`
+asserted the coupling as current, and the physical measurement behind it is
+real: up to `stream-0007` that state was reachable and a run confirmed
+`repeats = 12 = xfb_skipped` from one branch of `submit_ready()`. Policy A makes
+the equality FALSE and the caller unreachable:
+
+```text
+stream-0007   xfb_skipped 17   = 17 frames TERMINALLY discarded
+stream-0008   xfb_skipped 129  = 129 DEFER ATTEMPTS, every one resolved
+                                 (repeats 0, dropped_interior 0) — GBP-HW-207
+```
+
+The measurement stays in the header as labelled history; the claim that it still
+holds does not. **No counter and no behaviour changed** — the function is kept
+so existing captures keep their meaning, and a wiring test asserts the runtime
+does not call it.

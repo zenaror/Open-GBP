@@ -16373,3 +16373,372 @@ build ID and its own question: *what does the VIDEO stream carry, with a Game
 Pak inserted, from the CONTROL transform onward?* No existing run answers that —
 `vstate-0001` had no cartridge and every stream run waits 5 s. It must not reuse
 a GBP-VIDEO-004 build or perturb the pacing evidence.
+
+---
+
+### V5.52 NORMAL STARTUP — `stream-0009` — 2026-09-19 — **THE DIAGNOSTIC EXPERIENCE LEAVES THE NORMAL PATH; NO HARDWARE**
+
+§V5.51 established what the operator was actually looking at. This round removes
+it from the path a user takes, and keeps it on the path an experiment takes.
+**No hardware ran, and the pacing result of §V5.50 is untouched.**
+
+#### V5.52.1 The question, frozen
+
+> Can Open-GBP go straight into real Game Boy Player video — without showing the
+> synthetic self-test and without losing the first ~5 s of AGB execution — while
+> every transport, source-continuity and Policy-A invariant still holds?
+
+#### V5.52.2 What the startup actually was
+
+The call graph of `stream-0008`, in order, with run-6 timestamps against the
+`CLOCKS` epoch:
+
+```text
+          VIDEO_Init, 3 framebuffers allocated, CON_Init, VI -> xfb_text
+-0.0235 s display_selftest(): synthetic frame built and converted
+-0.0235 s submit_ready(buf, 0) -> GX draw -> GX_CopyDisp
+-0.0235 s VIDEO_SetNextFramebuffer(xfb_stream_buf[x])   <-- CHECKERBOARD VISIBLE
+          cfg.prehandler_wait_ms = 5000
+          gbp_vstate_probe_run():
+            stage 1   DET probes, CONTROL 0x90 -> 0x8C, A1, A2, event detect
++0.1074 s   stage 1b  PREHANDLERWAIT 5.000000 s   AGB RUNNING, PI masked
++5.1074 s   stage 2   handler install
+            stage 3   PREUNMASK snapshot and check
++5.1079 s   stage 4   first unmask = capture_start
++5.1464 s             first source frame TAKEN (frame_index 2)
++5.1542 s             first real hand-off                 <-- CHECKERBOARD GONE
++6.2849 s             qualification window opens (frame_index 70)
+```
+
+The synthetic pattern owned the screen for **5.1777 s**, and **96.6 % of that
+was the wait**. The stream framebuffers were never cleared, so before the
+self-test's copy they held whatever was in memory.
+
+#### V5.52.3 The pre-handler wait is a diagnostic, and the source says so
+
+```text
+gbp_vstate_probe.c:50    cfg->prehandler_wait_ms = 0u;
+                         /* the diagnostic is OFF unless a build asks for it */
+gbp_vstate_probe.c:913   "---- 1b. PRE-HANDLER MASKED WAIT - a DIAGNOSTIC,
+                          default OFF ----"
+                         "Stage A has put CONTROL in the running shape, so the
+                          AGB is executing; PI is still masked and NO handler
+                          exists, so nothing is being serviced."
+```
+
+§V3.26 records WHY the colour build asked for it: the capture would otherwise
+certify *inside the AGB's boot*. That is a requirement of a MEASUREMENT, not of
+the protocol — and §V5.51 separated the two questions, because the operator
+should see the boot that the measurement must not start inside.
+
+The A/B is already physical and needed no new run:
+
+```text
+vstate-0001          no wait   structured screen at 0.5014 s after capture
+                               start, animates ~3 s, settles to GBI table B
+                               (GBP-HW-074...087)
+vstate-prewait-5000  5000 ms   BASELINE valid at frame_index 4,
+                               STRUCTURED not_observed, over 10 446 frames
+```
+
+#### V5.52.4 Every startup operation, classified
+
+```text
+DET probes                    PROTOCOL-REQUIRED   device presence
+CONTROL transform             PROTOCOL-REQUIRED   starts the AGB
+A1 window                     PROTOCOL-REQUIRED   self-terminating
+A2 observation window         PROTOCOL-REQUIRED   self-terminating on the first
+                                                  cause; 105.773 ms in run 6,
+                                                  ended EARLY (deadlines 4/6)
+handler install               PROTOCOL-REQUIRED
+PREUNMASK snapshot + check    SAFETY-REQUIRED     CONTROL unchanged, AV source
+                                                  present, no unexpected source
+first unmask / ACK / REARM    PROTOCOL-REQUIRED
+PREHANDLERWAIT 5000 ms        DIAGNOSTIC-ONLY     <-- the only removable delay
+visible self-test present     DIAGNOSTIC-ONLY     <-- the only synthetic image
+self-test convert/GX/token    SAFETY-REQUIRED     stream-0001 shipped this path
+                                                  without ever executing it
+```
+
+**Nothing was moved.** The mandatory prefix is exactly what it was; one
+diagnostic delay and one diagnostic presentation were taken off the normal path.
+
+#### V5.52.5 The design — one switch, not three
+
+`src/gbp/gbp_startup.h` resolves ONE profile from ONE enum, once, at the top of
+`main()`:
+
+```text
+                     NORMAL          DIAGNOSTIC
+selftest_run         1               1
+selftest_visible     0               1
+prehandler_wait_ms   0               5000  (the value GBP-HW-120 validated)
+clear_framebuffers   1               1
+```
+
+An unknown mode resolves to NORMAL **deliberately**: the failure mode of a typo
+must be "the user sees no diagnostic output", never "the user sees a test
+pattern and a five-second pause".
+
+#### V5.52.6 The self-test still runs — headless
+
+Four things the self-test validates, and what happens to each:
+
+```text
+A  conversion / pixel format     KEPT in both profiles
+B  GX submit and draw            KEPT in both profiles
+C  draw-done token and release   KEPT in both profiles
+D  XFB hand-over                 DIAGNOSTIC ONLY
+```
+
+D is dropped from the normal path because it is exercised by the FIRST REAL
+FRAME about 150 ms later, under `gbp_vpresent_invariant_failures()` — checked
+174 832 times in run 6 with 0 failures.
+
+**Why it claims no framebuffer at all, rather than just skipping the present.**
+`gbp_vpresent_xfb_handed()` sets `xfb_pending`, cleared only when the VI is
+observed to have LATCHED that buffer. Handing over the bookkeeping without the
+buffer would leave `xfb_pending` set for the whole run; with two framebuffers
+`xfb_target()` would then never return a slot and **every real frame would defer
+forever**. The safe split is the clean one: touch the framebuffer state machine,
+or do not.
+
+The lifecycle is left un-decided, so `gbp_vdisp_finish()` closes it as
+TERMINAL_PENDING — the literal truth: taken, converted, drawn, never handed off.
+It carries `F_SELFTEST` and `KEY_NONE`, so no analysis can mistake it for a
+source frame, and `decisions + deferred == event_n` is unaffected because this
+path produces neither.
+
+**Dolphin shows the split in one field:**
+
+```text
+NORMAL      SELFTEST ok=1 converted=1 released=1 submits=1 drawdone=1
+                     releases=1 xfb=0 sci_clean=1 inv_fail=0
+DIAGNOSTIC  ... xfb=1 ...
+```
+
+#### V5.52.7 Black, not memory
+
+`SYS_AllocateFramebuffer` does not clear. Both stream framebuffers are now
+`VIDEO_ClearFrameBuffer(..., COLOR_BLACK)` before `VIDEO_Configure`, in BOTH
+profiles. The user sees black until the Game Boy Player's own first frame
+replaces it. The black framebuffer enters no counter: it is a memset, not a
+frame, and no lifecycle is opened for it.
+
+#### V5.52.8 Policy A is untouched, and that is testable
+
+```text
+selftest_submit_headless() calls NOTHING in submit_ready()
+submit_ready() contains no reference to `startup`        (asserted by test)
+gbp_vpresent_xfb_target() still asked BEFORE the submit  (asserted by test)
+exactly one xfb_target call site in submit_ready()       (asserted by test)
+no VIDEO_WaitVSync anywhere in the present path          (asserted by test)
+XFB buffers 2, texture buffers 2                          (asserted by test)
+```
+
+`src/gbp/gbp_vdisp.*`, `gbp_vdispdump.*`, `gbp_vpresent.*`, `gbp_vqueue.c`,
+`gbp_vstate.*`, `gbp_vwitness*`, `gbp_vidxdump.c`, `gbp_vpix.c` and the stimulus
+are **byte-identical**, and the interrupt path is still identical to the
+physically validated GBP-VIDEO-001 build.
+
+#### V5.52.9 The startup trace
+
+Three lines, one shape each, emitted ONCE after the teardown:
+`STARTUP` (profile and the MEASURED counts `presented_synthetic` /
+`headless_submits`), `STARTUPT` (program, video, self-test, probe-entry, CONTROL
+and capture-start timestamps) and `STARTUPV` (the first REAL lifecycle, and
+`ticks_control_to_first_handoff`).
+
+`STARTUPV` always has the same shape, with `have_first=0|1` — two layouts under
+one tag is the trap `DISPTRACE` was renamed to avoid, and a mutation caught it
+here before it shipped.
+
+The capture hot path now carries an explicit guard: `submit_ready`, `pump`,
+`selftest_submit_headless`, `offer_oldest_ready` and `on_draw_done` may contain
+no `ringlog_printf`, `printf`, `snprintf`, `sdlog_`, `fopen`, `malloc` or
+`free`. **That guard exists because a mutation survived without it.**
+
+#### V5.52.10 The two semantic debts, paid
+
+```text
+tools/vdisp.py::usable()   now refuses order_violations != 0. The disposition
+                           claim is "in order", so a reordering is not a
+                           warning. Every existing capture carries 0, so no
+                           run is reclassified.
+src/gbp/gbp_vqueue.h       asserted `repeats = 12 = xfb_skipped`. Policy A makes
+                           that FALSE (run 6: repeats 0, xfb_skipped 129 =
+                           resolved defer attempts, GBP-HW-207). The MEASUREMENT
+                           stays, as labelled history; the claim that it still
+                           holds does not. Behaviour unchanged.
+```
+
+#### V5.52.11 Two audit pins moved, deliberately
+
+```text
+gbp_vpresent_submit  {"submit_ready": 1} -> {"main": 1, "submit_ready": 1}
+gettime              main 2 -> 8
+```
+
+`main`'s second submit is `selftest_submit_headless()`, inlined through
+`display_selftest()`. The eight `gettime` reads are the five startup timestamps
+plus the headless submit plus the two that were already there; `pump` and
+`submit_ready` are unchanged at 3 and 2. **The property both rules exist for is
+the ABSENCE**, and `gbp_vstate_probe_run` is still absent from both.
+
+#### V5.52.12 Mutations — 15 threats, 15 refused
+
+```text
+M1  normal mode executes the 5 s PREHANDLERWAIT                     CAUGHT
+M2  normal mode presents the checkerboard self-test                 CAUGHT
+M3  diagnostic mode loses the visible self-test                     CAUGHT
+M4  first real video delayed behind the diagnostic window           CAUGHT
+M5  the black framebuffer is not initialised                        CAUGHT
+M6  the synthetic self-test enters the scientific population        CAUGHT
+M7  source qualification altered while removing the wait            CAUGHT
+M8  Policy A reverted: the precheck no longer defers                CAUGHT
+M9  VIDEO_WaitVSync enters the headless path                        CAUGHT
+M10 early service violates the ACK/REARM ordering                   CAUGHT
+M11 the startup trace's first real hand-off is the self-test's      CAUGHT
+M12 the two profiles become indistinguishable                       CAUGHT
+M13 order_violations ignored by analyzer readiness                  CAUGHT
+M14 the stale repeats==xfb_skipped semantics reintroduced           CAUGHT
+M15 startup-trace formatting enters the capture hot path            CAUGHT*
+```
+
+**M15 survived the first pass.** One `ringlog_printf` inserted between
+`gbp_vpresent_inflight()` and `GX_CopyDisp()` left every other guard green. The
+no-formatting guard in §V5.52.9 was written for it, and it is CAUGHT only
+because of that guard — the asterisk is the point.
+
+#### V5.52.13 F8, for THIS build
+
+The generic blind spot is NOT fixed — `tools/poc_audit.py` still follows
+function relocations only, and claiming otherwise would need the tool changed
+and revalidated. What was done is the specific-build inspection:
+
+```text
+gbp_vdisp.o     .text=.data=.bss=0, no non-text relocation section at all
+gbp_vpresent.o  .text=.data=.bss=0, no non-text relocation section at all
+gbp_vqueue.o    .text=.data=.bss=0, no non-text relocation section at all
+main.o          .data=.bss=0; .rodata = 12 bytes WITH relocations
+```
+
+Those twelve bytes are three `R_PPC_ADDR32` entries into
+`.rodata.main.str1.4`, resolved and read back as the strings
+`"gbp-video-stream-probe"`, `"stream-0009"` and `"59d2f57"` — the build identity
+struct. **No function pointer exists in any data section of the hot-path
+objects**, so there is no indirect edge for a filesystem, printf-family,
+allocation, sleep, `VIDEO_WaitVSync` or CRC call to hide on.
+
+#### V5.52.14 Build identity
+
+```text
+Test ID     GBP-VIDEO-004
+Build ID    stream-0009          (NORMAL profile; the shipped default)
+Commit      59d2f57              -- CLEAN, no -dirty stamp
+Size        494 176 B            -- stream-0008 was 492 416 B (+1 760 B)
+sha256      4d0337bb2cc7fe6e9acc1fb167e05a29caf7c497297ee7a1618d7e61a4d8c955
+Swiss       build/swiss/12-stream/boot.dol, byte-identical to the DOL
+embedded    stream-0009 · 59d2f57 · GBP-VIDEO-004
+Reproduce   GIT_COMMIT=59d2f57 GIT_DIRTY= make build
+Diagnostic  make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC   (separate image)
+
+.text 380 648 B   .rodata 48 528 B   .data 11 444 B
+.sdata    168 B   .sbss    1 836 B   .bss  18 009 872 B
+__bss_end 0x811A9098
+```
+
+Built twice from scratch and **byte-identical both times**, confirmed by SHA-256
+and by `cmp`. `.bss` grew 56 B against `stream-0008` — the five startup
+timestamps — so the MEM1 picture is `stream-0008`'s, and **the authoritative
+arena figure comes from the run's own `ENVMEM` line**, not from a static
+estimate (the §V5.49.10 correction).
+
+The fuseblk incoherence recurred three times during these builds, in both known
+forms: a stale dentry reported `Is a directory` for a DOL, and a linker could
+not see an object it had just compiled. `rm -rf build/poc` on the host followed
+by `sync` is what worked.
+
+#### V5.52.15 The startup timing budget, derived not chosen
+
+From run 6's own stage timings, with the wait removed:
+
+```text
+CONTROL write -> A1 + A2 end                     0.1064 s  (A2 self-terminated)
+A2 end -> capture_start                          0.0005 s
+capture_start -> first source frame taken        0.0385 s
+first take -> first real hand-off                0.0078 s
+-------------------------------------------------------------
+PREDICTED CONTROL -> first real hand-off         0.1532 s
+```
+
+**Frozen gate: first real hand-off within 400 ms of the CONTROL transform.**
+Derived as the 0.1532 s prediction with the dominant self-terminating term (A2,
+a device-timing quantity) allowed to more than double. It is deliberately NOT
+"≤ 160 ms", which would fail on one slow cause.
+
+The reference it must beat: `vstate-0001` first OBSERVED the structured screen
+0.5014 s after capture start. **A discrepancy to resolve with the run, not
+here:** `UNKNOWNS.md` phrases that as "after capture start" and `ROADMAP.md` as
+"after the AGB starts", which differ by the ~0.107 s prefix. Under the stricter
+reading (0.5014 s after CONTROL) a 400 ms gate still leaves ~100 ms; under the
+looser one, ~208 ms. Either way the gate is defensible, and the run's own
+`STARTUPV` line will settle which reading is right.
+
+#### V5.52.16 DECISION
+
+**A — the normal-startup candidate is safe enough for a controlled physical
+run.**
+
+```text
+diagnostic features isolated        one profile, one function, tested in C
+no multi-second wait, normal path   prehandler_wait_ms = 0, mutation-guarded
+no visible synthetic frame          headless submit claims no framebuffer,
+                                    Dolphin measures xfb=0
+first real-video path preserved     submit_ready() byte-identical in behaviour
+Policy A unchanged                  every module byte-identical
+qualification unchanged             gbp_vwitness* byte-identical
+all gates green                     901 host, 67 new C checks, 8 audits at 0,
+                                    Dolphin PASS in both profiles, 15/15 mutants
+```
+
+#### V5.52.17 The future physical runs — two, and they answer different things
+
+**RUN A — controlled regression, `stream-0009` + `indexed-0003`.**
+
+```text
+power-cycle, the SAME cartridge (9f04916b…8d9cc2), do NOT re-flash
+return log + idxcap + disp, renamed before anything else touches the card
+
+MACHINE GATES
+  [ ] STARTUP normal_clean=1 and presented_synthetic=0
+  [ ] STARTUPV ticks_control_to_first_handoff <= 400 ms
+  [ ] source OBSERVED_CONTIGUOUS
+  [ ] 0 interior drops, 0 supersessions, 0 reorder
+  [ ] max deferred depth <= 1
+  [ ] p99 ready->hand-off <= 1.0 ms, max <= 2.5 ms
+  [ ] trace intact, no overflow, no unmatched DrawDone
+  [ ] display repeats reported SEPARATELY against that run's own rates
+OPERATOR OBSERVATION, kept apart from the machine evidence
+  [ ] no checkerboard at any point
+```
+
+**RUN B — real-cartridge startup UX.** After A passes. A real commercial
+cartridge, no OGBPIDX stimulus expected. Purely operator observation: was the
+checkerboard absent, did real video start promptly, was a boot sequence seen.
+**The runtime must not depend on a logo**: not every cartridge shows the same
+thing, and absence with a good `ticks_control_to_first_handoff` is not a
+pipeline failure.
+
+#### V5.52.18 Non-claims
+
+```text
+- No hardware ran. Every startup number here is a prediction from run 6's own
+  stage timings, or a Dolphin observation.
+- Nothing is claimed about what the AGB displays during the masked wait: the
+  probe reads no VIDEO before the handler exists. §V5.51 stands unchanged.
+- The F8 auditor blind spot is NOT fixed. One build was inspected by hand.
+- `xfb=0` is instrumentation, not a photograph. RUN B is what looks at a screen.
+- The 400 ms gate is derived from ONE run's stage timings on ONE console.
+- No claim that a boot logo WILL appear: that depends on the cartridge.
+```
