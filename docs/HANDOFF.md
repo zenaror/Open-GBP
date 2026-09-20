@@ -222,7 +222,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | GBP-VIDEO-004 | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **PHYSICALLY EXECUTED 2026-09-19 — P1 AND P2 CONFIRMED FIXED.** 472 160 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.38; GBP-HW-146…152 |
-| GBP-VIDEO-004 **software-only candidate** | `stream-0012` | (this commit) | recorded in `HARDWARE_TESTS.md` §V5.59 after the clean rebuild | **NOT PHYSICALLY EXECUTED; no run pre-registered.** `stream-0011` with ONE configuration change (§V5.59, F5): the generic vstate time target is DISABLED by name (`gbp_vstate_config_disable_time_target`), so the witness target is the experiment's only success condition; 60 s safety cap, 5000 ms not-before, 64 closes and 2048 records unchanged; no witness, transport, display, startup or format semantics change | `HARDWARE_TESTS.md` §V5.59 |
+| GBP-VIDEO-004 **software-only candidate** | `stream-0012` | `c465f5c` | `4495c8367b116910f9edb784732c4611a17bdcaedb7dce58eb07579a46ce7e73` | **NOT PHYSICALLY EXECUTED; no run pre-registered.** 495 168 B, built from scratch at `c465f5c`, Swiss `build/swiss/12-stream/boot.dol` byte-identical, Dolphin PASS. **Reproduce with `rm -rf build/poc && GIT_COMMIT=c465f5c GIT_DIRTY= make build`.** `stream-0011` with ONE configuration change (§V5.59, F5): the generic vstate time target is DISABLED by name (`gbp_vstate_config_disable_time_target`), so the witness target is the experiment's only success condition; 60 s safety cap, 5000 ms not-before, 64 closes and 2048 records unchanged; no witness, transport, display, startup or format semantics change | `HARDWARE_TESTS.md` §V5.59 |
 | GBP-VIDEO-004 / **GBP-VIDEO-006** **last physically executed** | `stream-0011` | `97c78c2` | `df2873ee61caa75c885215b54e29e8d5357b233b9bcc0f10d5c0b1af75453e25` | **PHYSICALLY EXECUTED 2026-09-20 (run 11, GBP-VIDEO-006, BBA PRESENT / Ethernet DISCONNECTED by operator declaration) — PASS (§V5.58.9): `lines=651 dropped=0 truncated=0`, one complete `WITELIG` and one complete `WITELIG2`, `qual_streak_at_eligible=0` read directly; `OBSERVED_CONTIGUOUS` with 2048 intact / 0 invalid; first hand-off 165.158691 ms; frozen p99 0.486790 ms; 7 display repeats. GBP-VID-033 PHYSICALLY VALIDATED for this controlled run; media double check PENDING.** `stream-0010` with ONE reporting change: the `WITELIG` summary is two records, `WITELIG` and `WITELIG2`, so no field is clipped by the 248-character ringlog payload (worst-case 205 and 113). No witness, transport, display, startup or format semantics change; `gbp_vwitness.*` byte-identical. 495 104 B (+64 B), built twice from scratch and byte-identical (SHA-256 and `cmp`), Swiss `build/swiss/12-stream/boot.dol` identical, no `-dirty`. **Reproduce with `GIT_COMMIT=97c78c2 GIT_DIRTY= make build`.** Physical validation: GBP-VIDEO-006 / RUN 11, executed 2026-09-20, PASS (§V5.58.9; GBP-HW-244…249) | `HARDWARE_TESTS.md` §V5.58 |
 | GBP-VIDEO-004 / **GBP-BBA-001** **previous runs** | `stream-0010` | `fbaea00` | `6b57d6696cf718baaac83cd0b9631c672bbe756f842e42bfd12d7a0ee3736180` | **PHYSICALLY EXECUTED 2026-09-20 twice: run 9 (BBA disconnected) — PASS 14/14 (§V5.56); run 10 (GBP-BBA-001, BBA PRESENT, Ethernet disconnected) — PASS (§V5.57.14), first hand-off 165.154321 ms, 2048 intact / 0 invalid, 7 display repeats; paired topology control, no detected regression.** Run 9: eligibility 5.000156691 s after CONTROL, window at 6.067209383 s, frozen `vindex.py` `OBSERVED_CONTIGUOUS` with `intact 2048 / INVALID 0`, startup 165.154741 ms (+18 ticks vs run 7), Policy A 2047/2047, 7 display repeats. One reporting defect: the `WITELIG` line is clipped at 248 chars (GBP-VID-033); the lost field is recovered exactly; no rerun required. BBA disconnected; media double check PENDING.** RESEARCH NOT-BEFORE GATE (§V5.55). `stream-0009`'s startup and pipeline, byte-for-byte on the user's path, plus ONE research addition: the scientific witness streak is not COUNTED until 5000 ms after the CONTROL transform, then counts from zero; 64 structurally clean closed frames; window at the next block 0; 2048 records; no reset. Content-blind. Transport, assembler, conversion, Policy A, GX, hand-off and everything the user sees are unchanged. 495 040 B, built twice from scratch and byte-identical (SHA-256 and `cmp`), no `-dirty`. **Reproduce with `GIT_COMMIT=fbaea00 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.55 |
 | GBP-VIDEO-004 / **GBP-VIDEO-005** **previous run** | `stream-0009` | `59d2f57` | `4d0337bb2cc7fe6e9acc1fb167e05a29caf7c497297ee7a1618d7e61a4d8c955` | **PHYSICALLY EXECUTED 2026-09-19 (run 7, indexed) and 2026-09-20 (run 8, RETAIL — GBP-VIDEO-005 PASS with a debug-UX note, §V5.54.11; first hand-off 164.696 ms, logo seen by the operator, CORROBORATED GBP-HW-229).** Run 7: — STARTUP PASSED 8/8: first real hand-off 165.154 ms after CONTROL, nothing synthetic handed over, no wait. Policy A clean (2244 hand-offs in order, 7 repeats / 0 drops over the join). Frozen `vindex.py`: `OBSERVED_CONTIGUOUS` with `intact 1988 / INVALID_CANONICAL_STRIP 60` — the structural window opened 3.840 s after CONTROL, the stimulus began at 4.845 s (§V5.53). No new continuity record for this build until a run with a valid steady-state window.** NORMAL STARTUP (§V5.52). `stream-0008`'s pipeline with the diagnostic experience removed from the normal path: the synthetic self-test runs HEADLESS (no framebuffer claimed, so nothing synthetic reaches the video interface), `prehandler_wait_ms` is 0, and both stream framebuffers are cleared to black before the VI is pointed at one. Policy A, the source assembler, the qualification, OGBPIDX and OGBPDISP2 are untouched. A diagnostic image — visible self-test, 5000 ms wait — is still buildable with `make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC`. 494 176 B. Built twice from scratch and byte-identical both times (SHA-256 and `cmp`); Swiss `build/swiss/12-stream/boot.dol` identical; 15/15 mutants refused; Dolphin PASS in both profiles with `xfb=0` normal against `xfb=1` diagnostic. **Reproduce with `GIT_COMMIT=59d2f57 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.52 |
@@ -336,7 +336,13 @@ a dirty build (`CLAUDE.md` §18).
 > complete `WITELIG`, one complete `WITELIG2` and `qual_streak_at_eligible=0`
 > present directly; every regression gate passed (§V5.58.9, GBP-HW-244…249).
 
-There is no blocker and no physical run is pending.
+There is no blocker and no physical run is pending. **GitHub Issue #5 closed
+the three items carried to the next functional checkpoint — F3, F8, F5 —**
+in software (§V5.59): every audit now declares and rebuilds what it consumes,
+`tools/poc_audit.py` sees data relocations, and the indexed stream experiment
+has exactly one success condition. The resulting `stream-0012` is a
+software-only candidate: **NOT PHYSICALLY EXECUTED**, and no run is
+pre-registered for it.
 
 **What run 11 changed, and only that:** the reporting defect two physical runs
 had demonstrated is now repaired on hardware, for this controlled run. Runs 9
@@ -360,19 +366,21 @@ still does not measure the margin.
 
 ## Next safe action
 
-**No physical run is pending and none is pre-registered.** Issue #3 — the
-workflow / remote migration — is executed: GitHub is `origin`, Gitea is
-`gitea-archive`, the ten phase milestones, the 24 labels and the `.github/`
-templates exist, and Issue #4 created the Project "Open-GBP Development"
-(https://github.com/users/zenaror/projects/2) with its fields, views and the
-built-in automations. The Orchestrator opens the next checkpoint as a GitHub
-Issue; nothing is pre-registered here.
+**No physical run is pending and none is pre-registered.** Issues #3 and #4
+established the GitHub workflow (remote, milestones, labels, templates, the
+Project "Open-GBP Development" at https://github.com/users/zenaror/projects/2);
+Issue #5 closed F3 / F8 / F5 (§V5.59) and left `stream-0012` as the
+software-only candidate of the stream line. The Orchestrator opens the next
+Phase-4 experiment as a GitHub Issue; if it is physical, it is pre-registered in
+`HARDWARE_TESTS.md` first and `stream-0012`'s identity (§V5.59) is what it
+would run. Presentation, pixel-perfect scaling and scanout were NOT started.
 
 ```text
 run 11      ingested; GBP-VIDEO-006 PASS; GBP-VID-033 PHYSICALLY VALIDATED (§V5.58.9)
+issue 5     F3 / F8 / F5 CLOSED in software (§V5.59); stream-0012 NOT PHYSICALLY EXECUTED
 remote      origin = GitHub (canonical); gitea-archive = Gitea (archive, no push)
 next        orchestrator-owned, as a GitHub Issue; the sequence is theirs
-forbidden   runtime semantics, analyzers, formats, Policy A, witness semantics,
+forbidden   analyzers, formats, Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
 ```
 
@@ -386,11 +394,12 @@ double check. Runs 9, 10 and 11 media checks: PENDING.
 
 ```text
 1  DISPSRC terminal_pending prints BEFORE gbp_vdisp_finish(); read the header.
-2  the F8 auditor blind spot is NOT fixed; one build inspected by hand (§V5.52.13).
+2  the F8 auditor blind spot is CLOSED (§V5.59): tools/poc_audit.py reads the
+   objdump -r listing of every object; a data-only forbidden reference is caught.
 3  `xfb_skipped` = defer attempts under Policy A, never loss (GBP-HW-207).
 4  the 18 ms console flash (GBP-HW-228) is a polish item for a non-debug profile.
-5  `make video-audit` before `make stream-audit`, or the ISR comparison reports
-   DIFFERENT for no reason (F3).
+5  `make stream-audit` builds the GBP-VIDEO-001 ISR reference it compares
+   against (§V5.59, F3); no audit has to be run before another any more.
 6  stream-0010's WITELIG line is clipped at 248 characters (GBP-VID-033); runs 9
    and 10 stay interpreted by the exact counter derivation. stream-0011 fixes it,
    and run 11 confirmed the fix on hardware (§V5.58.9): truncated=0, both records
@@ -408,24 +417,22 @@ mean the same physical run.
 
 
 
-**Carried to the next FUNCTIONAL checkpoint** (untouched for four rounds — the
-stability is deliberate, it is what made the three-run comparison causal):
+**Carried to the next FUNCTIONAL checkpoint: nothing.** F3, F8 and F5 — carried
+untouched for four rounds so the three-run comparison stayed causal — were
+closed by GitHub Issue #5 (HARDWARE_TESTS §V5.59) once run 11 had validated
+`stream-0011`:
 
 ```text
-F3  `make <x>-audit` has no source prerequisite and can audit stale objects.
-    The stream and colour audits also COMPARE against the video POC's ISR dump,
-    so `make video-audit` has to run first or the comparison reads a stale or
-    absent file and reports DIFFERENT for no reason.
-F8  `tools/poc_audit.py` walks the relocations of FUNCTIONS (objdump -dr of the
-    text). A forbidden symbol reached through a DATA initialiser -- a function
-    pointer in a table, a callback field -- produces a .data relocation and is
-    invisible to both the deny-lists and the allowlists. Found in §V5.46 while
-    writing a mutation that accidentally took the address of `fopen` instead of
-    calling it; the CALL form is caught. Narrow, but real, and not fixed here:
-    changing the audit tool needs its own validation round.
-F5  cfg.min_valid_observation_s = 30 is armed as a success condition. Under
-    OGBPIDX1 it is UNREACHABLE (no baseline can form, valid_s stays 0), but the
-    indexed experiment should still have exactly one success condition.
+F3  CLOSED  every *-audit is a file target rooted in the ELF, which depends on the
+            sources; the GBP-VIDEO-001 ISR reference is a prerequisite the video
+            probe's rules produce on demand; .DELETE_ON_ERROR; tests/host/test_make_audit_deps.py
+F8  CLOSED  tools/poc_audit.py reads objdump -r of every object; non-text relocations
+            feed every forbidden check as "data" origins; call-site contracts still
+            count R_PPC_REL24 only; real PowerPC negative controls in
+            tests/host/fixtures/poc_audit_f8; tests/host/test_poc_audit_data_reloc.py
+F5  CLOSED  stream-0012: gbp_vstate_config_disable_time_target() -- the witness
+            target is the only success; safety cap 60 s unchanged; 5000 ms / 64 / 2048
+            unchanged; tests/host/test_stream_success.py, test_gbp_video_state.c
 ```
 
 **Historical identities, kept so no one picks up the wrong artifact:**

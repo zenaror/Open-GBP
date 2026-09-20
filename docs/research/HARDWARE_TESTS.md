@@ -12998,9 +12998,9 @@ them, and only the audit tool and the documentation were edited this round.
 | --- | --- | --- | --- |
 | F1 | MEDIUM | FACT | **The build tree at HEAD is not the documented candidate.** `make build` at `8ee5566` yields `58c96690…`, not `35bbbdd6…`; exactly 12 bytes differ, both copies of the embedded commit string. `make swiss` then exports the mismatching DOL into slot 12 — the slot the operator loads. The documented artifact IS reproducible, byte-identically and twice, with `GIT_COMMIT=10250a4 GIT_DIRTY= make build`, but that command appeared nowhere. **Remedy applied:** recorded in `docs/HANDOFF.md` and §V5.39.17, and the exact candidate restored into `build/` and Swiss. |
 | F2 | MEDIUM | FACT | **The static audit did not cover the capture path's two most dangerous additions** (§V5.40.23). A filesystem call and a full-record CRC could both have been added to `gbp_vwitness.c` with every gate still green. The candidate is clean — proved independently by call graph — but nothing enforced it. **Remedy applied in the audit tool only.** |
-| F3 | MEDIUM | FACT | **`make <x>-audit` audits stale objects.** The target has no source prerequisite and disassembles whatever is already in `build/`. Every audit reported in this round was run after a build, so the results stand; but the target cannot detect that it is out of date, and it silently gave a wrong answer once here. A Makefile prerequisite is a build-script change and therefore out of scope: **proposed for the next functional checkpoint.** |
+| F3 | MEDIUM | FACT | **`make <x>-audit` audits stale objects.** The target has no source prerequisite and disassembles whatever is already in `build/`. Every audit reported in this round was run after a build, so the results stand; but the target cannot detect that it is out of date, and it silently gave a wrong answer once here. A Makefile prerequisite is a build-script change and therefore out of scope: **proposed for the next functional checkpoint.** **CLOSED in §V5.59 (F3): every audit is a file target rooted in the ELF and the sources.** |
 | F4 | LOW | FACT | **The per-record CRC claim was overstated** in §V5.39.7 and the DEVLOG. Corrected in §V5.40.11: it is record integrity and corruption localisation, never producer correctness. |
-| F5 | LOW | FACT | **A time-based scientific stop is still armed.** `cfg.min_valid_observation_s = 30` still produces `STOP_NOMINAL_NEGATIVE` as a *success* condition. It is evaluated after the witness target, and on the measured physics the witness target wins with **22.7 %** margin: 2 048 closed frames ≈ 23.20 valid s against the 30 s target, and the mean counted-frame span would have to grow from 11.4551 ms to 14.6484 ms — **+27.9 %** — to invert it. If it ever did fire, `records_n < target`, `target_reached` is false and the analyzer returns INCONCLUSIVE: it **fails closed**. Raising the target when a witness target is configured is a functional change: **proposed for the next checkpoint.** |
+| F5 | LOW | FACT | **A time-based scientific stop is still armed.** `cfg.min_valid_observation_s = 30` still produces `STOP_NOMINAL_NEGATIVE` as a *success* condition. It is evaluated after the witness target, and on the measured physics the witness target wins with **22.7 %** margin: 2 048 closed frames ≈ 23.20 valid s against the 30 s target, and the mean counted-frame span would have to grow from 11.4551 ms to 14.6484 ms — **+27.9 %** — to invert it. If it ever did fire, `records_n < target`, `target_reached` is false and the analyzer returns INCONCLUSIVE: it **fails closed**. Raising the target when a witness target is configured is a functional change: **proposed for the next checkpoint.** **CLOSED in §V5.59 (F5): the generic time target is DISABLED by name in `stream-0012`; the witness target is the only success.** |
 | F6 | LOW | FACT | **Three arithmetic slips in §V5.39's memory table**: `.text` 370 288 → **370 800**, arena1 free 7 512 384 → **7 512 896**, post-XFB 5 669 184 → **5 669 696**. Conclusions unchanged. Corrected. |
 | F7 | INFO | FACT | **The mutation harness misreported twice in this round** (§V5.40.23): a `| tail` that hid a result line produced a **false positive**, and an audit target with no rebuild dependency produced a wrong **negative**. Recorded because a harness that misreports is worse than none, and because F2 was only found by refusing to trust it. |
 
@@ -14911,7 +14911,9 @@ are caught by `gbp_vdisp.o`'s allowlist.
 The accident exposed a real if narrow blind spot in the audit tool: a forbidden
 symbol reached through a data initialiser is invisible to both the deny-lists
 and the allowlists. It is **not fixed here** — changing the audit tool needs its
-own validation — and is carried as finding **F8** in `HANDOFF.md`.
+own validation — and is carried as finding **F8** in `HANDOFF.md`. *(Closed in
+§V5.59: the auditor now reads `objdump -r` of every object and a data-only
+reference is caught by real negative controls.)*
 
 **Cause 3 — a test that could not fail.** M12 (a hold becoming the previous
 frame) survived because the host fixture ENDED on the hold, so
@@ -16612,6 +16614,8 @@ because of that guard — the asterisk is the point.
 
 #### V5.52.13 F8, for THIS build
 
+*(As written for `stream-0009`. The generic blind spot was closed in §V5.59.)*
+
 The generic blind spot is NOT fixed — `tools/poc_audit.py` still follows
 function relocations only, and claiming otherwise would need the tool changed
 and revalidated. What was done is the specific-build inspection:
@@ -16738,6 +16742,7 @@ pipeline failure.
 - Nothing is claimed about what the AGB displays during the masked wait: the
   probe reads no VIDEO before the handler exists. §V5.51 stands unchanged.
 - The F8 auditor blind spot is NOT fixed. One build was inspected by hand.
+  *(Closed later, §V5.59.)*
 - `xfb=0` is instrumentation, not a photograph. RUN B is what looks at a screen.
 - The 400 ms gate is derived from ONE run's stage timings on ONE console.
 - No claim that a boot logo WILL appear: that depends on the cartridge.
@@ -18677,5 +18682,197 @@ field lists and widths, the direct zero with its cross-check, transport, Policy
 A, the run-10 comparison, 2048 records). `tests/host/test_disp_run11.py`: 20
 tests, the run-9/run-10 gates reused and the primary reporting gate added;
 host suite 1000 passed.
+
+---
+
+### V5.59 F3 / F8 / F5 CLOSED — `stream-0012` — 2026-09-20 — **SOFTWARE ONLY; NOT PHYSICALLY EXECUTED; NO RUN PRE-REGISTERED**
+
+GitHub Issue #5, the first functional checkpoint under the GitHub workflow.
+Executor-owned Phase-4 cleanup: the three items `HANDOFF.md` carried to "the
+next functional checkpoint" for four rounds — deliberately untouched so the
+run 9 / 10 / 11 comparisons stayed causal — are closed now that run 11 has
+validated `stream-0011`. **No hardware ran. No evidence ID was created. Nothing
+about the interpretation of runs 1–11 changes.** Presentation, pixel-perfect
+scaling, scanout, networking, the BBA and Ethernet were not touched.
+
+#### V5.59.1 F3 — audits consumed whatever was in `build/`
+
+**Root cause, from the Makefile.** Every `<x>-audit` was a phony target whose
+recipe disassembled `build/poc/<p>/obj/*.o` behind a `test -d obj` check and
+nothing else: no prerequisite tied the objects to the sources, so an audit run
+after an edit and before a rebuild silently judged stale objects (§V5.40 F7
+recorded one wrong negative from exactly that). The `stream-`, `color-` and
+`vstate-audit` targets then compared their handler reports against
+`build/poc/gbp-video-capture-probe/isr-audit-{ext,base}.txt`, which only
+`video-audit` produced and which no rule depended on: absent, `cmp -s` failed
+as "DIFFERENT"; stale, it compared against an old build; `vstate-audit` used a
+bare `diff` that did not even fail. Hence the carried instruction "run
+`video-audit` first".
+
+**Dependency changes (commit `378f1c9`).**
+
+```text
+build/poc/<p>/<p>.elf              <- poc/<p>/Makefile, poc/<p>/source/*, src/*/*      (container build)
+build/poc/<p>/audit/elf.nm.txt     <- the ELF, tools/audit_listings.sh                   (-dr, -r, nm of every object)
+build/poc/<p>/isr-audit-<s>.txt    <- the listings, tools/isr_audit.py
+build/poc/<p>/poc-audit.txt        <- the listings, tools/poc_audit.py
+stream-|color-|vstate-audit        <- own three reports + $(VIDEO_OUT)/isr-audit-{ext,base}.txt, then cmp
+initirq-audit                      <- historical paths as COPIES of the generic listings
+.DELETE_ON_ERROR                   a failing recipe leaves no report that could pass for a success
+```
+
+A stale POC is rebuilt inside the container before it is audited; the
+GBP-VIDEO-001 reference is produced by the video probe's own rules on demand;
+`vstate-audit` now fails on a difference like the others. No `test -f`/`test -d`
+guard and no "run make build" message remain in any audit target. No other
+part of the build graph changed.
+
+**Proof.** `tests/host/test_make_audit_deps.py` (dry runs against the real
+Makefile, no container): the three comparing audits list both reference
+reports as prerequisites and compare nothing they do not depend on
+(transitive closure of the `make -p` database); `-W` on the video ELF makes
+`stream-audit`'s own dry run produce the reference before the `cmp`; `-W` on
+`poc/…/main.c` or on `src/gbp/gbp_vwitness.c` puts the container build before
+the listings before the audit; `-W tools/poc_audit.py` (ELF pinned with `-o`)
+reruns the audit without a build; `.DELETE_ON_ERROR` is declared; the
+listing script writes both listings and refuses an unbuilt POC. Live: with
+`build/poc` recreated from scratch and therefore no reference file anywhere,
+`make stream-audit` alone produced it and reported `ext one-shot: identical /
+base one-shot: identical`, exit 0.
+
+#### V5.59.2 F8 — the auditor never saw a data relocation
+
+**Old blind spot.** `tools/poc_audit.py` parsed `objdump -dr`, which
+disassembles the text sections only; a forbidden symbol reached from a DATA
+initialiser — a function pointer in a table, a callback field — produced an
+`R_PPC_ADDR32` in `.data`/`.sdata`/`.rodata` that no listing carried. Found in
+§V5.46 by a mutation that took `fopen`'s address instead of calling it; checked
+by hand for one build in §V5.52.13; never fixed because the tool needed its own
+validation round.
+
+**New relocation model (commit `378f1c9`).** `tools/audit_listings.sh` writes,
+beside every `<object>.objdump.txt`, an `<object>.reloc.txt` (`objdump -r`:
+every relocation section). The auditor parses it, keeps the sections outside
+the text (`.data*`, `.sdata*`, `.rodata*`, constructor tables; never
+`.debug*`, `.eh_frame`, `.comment`, `.gnu.*`, and never the object's own
+section symbols) and feeds those symbols to every forbidden-symbol,
+forbidden-prefix, allowlist, must-not-reference and main-must-not-call check
+with a `data <section>` origin the report tells apart from `from <function>`.
+Exact call-site contracts (`symbol_callers`, the IRQ/CONTROL write counts)
+still count `R_PPC_REL24` in text and nothing else; an address taken in data
+appears under `data references <object>: symbol(section)` and is never a
+call. A missing listing is a finding — `no relocation listing … data
+relocations unaudited (F8)` — never a silent downgrade, so an audit directory
+produced by an older Makefile cannot pass.
+
+**Negative controls, on the actual PowerPC object representation.**
+`tests/host/fixtures/poc_audit_f8/`: three objects compiled in the container
+with `powerpc-eabi-gcc (devkitPPC) 16.1.0` and the stream probe's flags (the
+README records the command), whose `-dr` and `-r` listings are the test input
+(`tests/host/test_poc_audit_data_reloc.py`, nothing source-string based):
+
+```text
+data_ref    gbp_vwitness.o  fopen only in .sdata.gbp_vwitness_openers: -dr has NO fopen (the old
+                            view); two findings, "data … — no call and no text reference"
+call        gbp_vwitness.o  the equivalent R_PPC_REL24 fopen: still two findings, "from
+                            gbp_vwitness_note_frame"; no data reference reported
+addr_taken  gbp_initirqa_probe.o  3 + 2 pinned calls plus the address of gbp_regwrite_irq_u16 in
+                            .sdata AND in text (ADDR16_HA/LO): call sites stay {3, 2}, the data
+                            reference is listed, no count finding
+```
+
+Live, on the real build: a data-only `fopen` pointer appended to
+`src/gbp/gbp_vwitness.c` made `make stream-audit` rebuild the POC (F3) and fail
+with two findings naming `.sdata.f8_mutation_table`; `.DELETE_ON_ERROR`
+removed the report; the file was restored by copy (never `git checkout`), the
+POC rebuilt, 0 findings. All nine audit profiles run through the new model:
+0 findings each, every object with its listing (10 / 13 / 13 / 16 / 17 / 22 /
+23 / 27 objects), and **no external data reference anywhere in the tree** —
+which is what §V5.52.13's hand inspection had found for one build, now
+machine-checked for all of them.
+
+#### V5.59.3 F5 — exactly one success condition
+
+**Old semantics.** The stream probe set `cfg.min_valid_observation_s = 30`
+(`STREAM_CAPTURE_SECONDS`, a value its own comment called PROVISIONAL and a
+DESIGN DECISION REQUIRED), so the generic vstate baseline/valid-observation
+success (`S5_target` → `STOP_NOMINAL_NEGATIVE`) was armed beside the witness
+target. Under OGBPIDX1 no baseline can form, so the path was unreachable in
+every indexed run (§V5.40 F5) — but unreachable is not disarmed.
+
+**New semantics (commit `c465f5c`).** `gbp_vstate_probe.h` gains two named
+constants and two inline helpers, nothing in `gbp_vstate_probe.c` changes:
+
+```text
+GBP_VSTATE_MIN_VALID_OBSERVATION_DISABLED_S      0u          reported as target_s=0: "no time target"
+GBP_VSTATE_MIN_VALID_OBSERVATION_DISABLED_TICKS  UINT64_MAX  no elapsed count satisfies `>=` it
+gbp_vstate_config_disable_time_target(cfg)                   install both, AFTER config_timebase()
+gbp_vstate_config_time_target_disabled(cfg)                  the predicate
+```
+
+The stream probe calls the helper after `gbp_vstate_config_timebase()`, drops
+`STREAM_CAPTURE_SECONDS` and the provisional comment, and reports
+`time_target=disabled` where it printed `capture_s=30` (ENVSTREAM, the log
+header, the console banner). The witness target is the experiment's only
+success condition. Unchanged: the 60 s safety cap (`hard_wallclock`, a safety
+stop, never a success), `STREAM_WIT_NOT_BEFORE_MS 5000`,
+`GBP_VWITNESS_QUAL_REQUIRED 64`, `GBP_VWITNESS_TARGET 2048`, the generic
+defaults 120 s / 180 s other POCs use, Policy A, transport, display, startup,
+every frozen format.
+
+**Proof.** `tests/unit/test_gbp_video_state.c`: the scenario in which the
+previous test's nominal_negative fires after six counted frames now runs with
+the target disabled and ends on the safety cap — `STOP_SAFETY_BUDGET`,
+`INCONCLUSIVE`, never `NOMINAL_NEGATIVE`, `valid_observation_at_target == 0`,
+`target_s=0` in the log, valid observation ≥ the six frames the old arm needed
+— plus the timebase-then-disable order and the untouched defaults.
+`tests/host/test_stream_success.py`: the helper is called after the timebase
+pass, no `min_valid_observation` assignment survives in the probe, the
+provisional text is gone, the safety cap and the three constants are
+unchanged, the build id moved and says NOT PHYSICALLY EXECUTED.
+
+#### V5.59.4 Artifact — software only
+
+```text
+Build ID      stream-0012   (NORMAL profile)
+Commit        c465f5c       -- CLEAN; the source tree at build time is byte-identical to the commit
+DOL           build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+Size          495 168 B   (stream-0011: 495 104 B)
+sha256        4495c8367b116910f9edb784732c4611a17bdcaedb7dce58eb07579a46ce7e73
+embedded      stream-0012 · c465f5c · GBP-VIDEO-004, read from the binary's strings and from build-info.txt
+Swiss         build/swiss/12-stream/boot.dol, byte-identical (sha256 and cmp)
+Reproduce     rm -rf build/poc && GIT_COMMIT=c465f5c GIT_DIRTY= make build
+Sections      .text 381 224 B  .rodata 48 832 B  .data 11 444 B  .sdata 168 B  .sbss 1 836 B  .bss 18 009 928 B
+              (stream-0011: .rodata 48 784, .bss 18 009 912 -- +48 B and +16 B; .text unchanged)
+Determinism   two from-scratch builds at c465f5c (rm -rf build/poc; GIT_COMMIT=c465f5c GIT_DIRTY= make build), byte-identical by sha256 and cmp
+Dolphin       PASS, normal profile: READY build=stream-0012 commit=c465f5c; SELFTEST ok=1 xfb=0 sci_clean=1 inv_fail=0; COUNTERS balanced=1 storage_fault=- (auxiliary, never physical)
+```
+
+**NOT PHYSICALLY EXECUTED.** No run is pre-registered for it; `stream-0011 @
+97c78c2` keeps its physical status (§V5.58.9) and is never relabelled.
+
+#### V5.59.5 Validation summary
+
+```text
+focused      test_make_audit_deps.py 13 · test_poc_audit_data_reloc.py 9 · test_stream_success.py 8
+             test_poc_audit.py / test_isr_audit.py 69 (synthetic helper writes empty listings)
+C suite      22 suites, 0 failures; test_gbp_video_state gains the F5 scenario
+host suite   1027 passed (1000 before the round + 27 new)
+build        rm -rf build/poc; make build (all 12 POCs); make inspect aligned
+audits       nine profiles, 0 findings; stream-audit alone from a bare build/poc; vstate/color/stream
+             ISR one-shots identical to GBP-VIDEO-001
+mutation     data-only fopen in gbp_vwitness.c: rebuilt by dependency, 2 findings, report deleted,
+             restored by copy, 0 findings
+Dolphin      PASS, normal profile: READY build=stream-0012 commit=c465f5c; SELFTEST ok=1 xfb=0 sci_clean=1 inv_fail=0; COUNTERS balanced=1 storage_fault=- (auxiliary, never physical)
+```
+
+#### V5.59.6 Non-claims
+
+No hardware ran; nothing here is physical evidence. `stream-0012` is not
+physically executed and nothing says it will be. The absence of external data
+references in today's objects is an observation about this tree, not a
+guarantee. Runs 1–11 keep every classification. Presentation, pixel-perfect
+scaling, scanout, networking, BBA initialisation, Ethernet and Phase 11 were
+not started and do not move.
 
 ---

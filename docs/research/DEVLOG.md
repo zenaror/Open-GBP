@@ -9333,3 +9333,63 @@ fixtures untouched; run 10 keeps its `truncated=1`.
 **Next.** The orchestrator validates these commits and opens the workflow
 migration checkpoint (canonical remote, Issues, Milestones, Project, Roadmap
 governance). No physical run is pending. Networking does not start.
+
+---
+
+## 2026-09-20 — Issue #5: the three carried items are closed, and the stream has one way to succeed
+
+**Goal.** The first functional checkpoint run through a GitHub Issue: close
+F3, F8 and F5 — carried in the handoff for four rounds so that runs 9, 10 and
+11 stayed a causal comparison — now that run 11 has validated `stream-0011`.
+Executor role; audit infrastructure and one stream configuration only; no
+hardware, no evidence ID, no presentation, pixel-perfect, scanout, networking,
+BBA or Ethernet work.
+
+**F3 was a build-graph lie, not a tooling one.** Every `<x>-audit` disassembled
+whatever objects were in `build/` and three of them compared against files only
+`video-audit` wrote. The fix is to say what an audit consumes: the ELF depends on
+the sources, the listings on the ELF, the reports on the listings, and the
+comparing audits on the GBP-VIDEO-001 reference — which the video probe's own
+rules now produce on demand. `.DELETE_ON_ERROR` so a failed audit cannot leave a
+report behind. The demonstration I wanted was the hostile one: `build/poc`
+recreated from scratch, no reference file anywhere, `make stream-audit` alone —
+it built the reference and reported identical. The dry-run tests use `-W` and
+`-o` against the real Makefile, so they answer without a container.
+
+**F8 needed real objects, so it got them.** The auditor read `objdump -dr`,
+which is the text; a function pointer to `fopen` in a data table produced a
+`.sdata` relocation nobody read. `tools/audit_listings.sh` now writes `objdump
+-r` beside every disassembly, and the auditor feeds the non-text sections to
+every forbidden check with a `data <section>` origin the report keeps apart
+from `from <function>`; call-site contracts still count branches only. The
+negative controls are three objects compiled with the project compiler, kept
+as listings with the command that made them: the data-only reference has no
+`fopen` at all in `-dr` — that is the blind spot, in the file — and two findings
+in `-r`; the call stays caught; the address-taken object keeps its 3 + 2 count.
+Then the same mutation live in `gbp_vwitness.c`: rebuilt by dependency, two
+findings naming `.sdata.f8_mutation_table`, report deleted on error, restored by
+copy, clean again. Nine profiles through the new model: 0 findings, and no
+external data reference anywhere in the tree — the hand inspection of
+§V5.52.13, now a machine check for every build.
+
+**F5 was a decision the comment kept postponing.** The 30 s capture target was
+"PROVISIONAL", a "DESIGN DECISION REQUIRED", and it armed the generic vstate
+success beside the witness target — unreachable under OGBPIDX1, but armed. The
+decision: time does not end this experiment, only the target does. Two named
+constants in the header (`DISABLED_S 0`, `DISABLED_TICKS UINT64_MAX`) and an
+inline helper applied after the timebase pass; the generic probe and the other
+POCs' defaults untouched; the log says `time_target=disabled`. The C scenario
+that used to stop nominal_negative after six counted frames now runs to the
+safety cap with the target disabled and `target_s=0` in the log.
+
+**Artifact.** `stream-0012 @ c465f5c`, 495 168 B, `4495c836…7e73`, Swiss
+byte-identical, Dolphin PASS, `.rodata` +48 B and `.bss` +16 B over
+`stream-0011`. **NOT PHYSICALLY EXECUTED; no run pre-registered.**
+`stream-0011 @ 97c78c2` keeps its physical status.
+
+**Validation.** 1027 host tests; 22 C suites at 0 failures; nine audit
+profiles at 0 findings; two from-scratch builds at c465f5c (rm -rf build/poc; GIT_COMMIT=c465f5c GIT_DIRTY= make build), byte-identical by sha256 and cmp.
+
+**Next.** Nothing is carried to the next functional checkpoint. The
+Orchestrator opens the next Phase-4 experiment as a GitHub Issue; if it is
+physical, `stream-0012` is the candidate and the pre-registration comes first.
