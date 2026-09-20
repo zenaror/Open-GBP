@@ -279,12 +279,72 @@ class WhatItMayNotClaim(unittest.TestCase):
         self.assertFalse(u["usable_for_disposition_claim"])
         self.assertTrue(any("overflow" in x for x in u["reasons"]))
 
+    def test_the_report_names_the_version_it_actually_parsed(self):
+        """§V5.50. The title used to be the literal string "OGBPDISP1" whatever
+        the file was, so the first physical v2 trace was reported under the v1
+        name. A report that mislabels its own evidence is worse than no report."""
+        i = vdisp.parse(fixture())
+        self.assertEqual(i["version"], 2)
+        r = vdisp.format_report(i)
+        self.assertTrue(r.startswith("OGBPDISP2 downstream disposition trace"), r[:60])
+        self.assertNotIn("OGBPDISP1", r)
+
     def test_the_report_renders(self):
         r = vdisp.format_report(vdisp.parse(fixture()))
-        self.assertIn("OGBPDISP1", r)
         self.assertIn("EVERY HOLD, ONE ROW EACH", r)
         self.assertIn("XFB_BUSY", r)
         self.assertLess(len(r.splitlines()), 200, "normal frames must not be dumped")
+
+
+class TheReadinessRuleFollowsTheVersion(unittest.TestCase):
+    """§V5.50. `parse()` enforces `decisions + deferred == event_n` against the
+    INTACT flag -- the same identity `gbp_vdisp_intact()` uses in the runtime --
+    while `usable()` was left at the v1 form `decisions == event_n`. The two
+    lived eleven lines apart and contradicted each other, so the first physical
+    Policy-A trace, structurally perfect and flagged INTACT by the console that
+    wrote it, was reported as "disposition-claim ready False".
+
+    Under v1 the two forms coincide, because a v1 trace has no deferrals. That
+    is exactly why the defect survived: it is invisible until a frame defers."""
+
+    def test_a_v2_trace_with_deferrals_is_ready(self):
+        i = vdisp.parse(fixture())
+        i["decisions"], i["source_deferred_frames"], i["event_n"] = 100, 7, 107
+        u = vdisp.usable(i)
+        self.assertTrue(u["usable_for_disposition_claim"], u["reasons"])
+
+    def test_the_v1_identity_alone_would_reject_it(self):
+        """The regression, stated in the dangerous direction."""
+        i = vdisp.parse(fixture())
+        i["decisions"], i["source_deferred_frames"], i["event_n"] = 100, 7, 107
+        self.assertNotEqual(i["decisions"], i["event_n"])
+        self.assertTrue(vdisp.usable(i)["usable_for_disposition_claim"])
+
+    def test_a_genuinely_short_event_store_is_still_refused(self):
+        i = vdisp.parse(fixture())
+        i["decisions"], i["source_deferred_frames"], i["event_n"] = 100, 7, 106
+        u = vdisp.usable(i)
+        self.assertFalse(u["usable_for_disposition_claim"])
+        why = " ".join(u["reasons"])
+        self.assertIn("100", why)
+        self.assertIn("7", why)
+        self.assertIn("106", why)
+
+    def test_a_v1_trace_still_reduces_to_the_v1_rule(self):
+        i = vdisp.parse(fixture())
+        i["decisions"], i["source_deferred_frames"], i["event_n"] = 100, 0, 100
+        self.assertTrue(vdisp.usable(i)["usable_for_disposition_claim"])
+        i["event_n"] = 99
+        self.assertFalse(vdisp.usable(i)["usable_for_disposition_claim"])
+
+    def test_the_two_rules_in_this_file_are_the_same_rule(self):
+        """Pinned as SOURCE, because the failure was a divergence between two
+        places that must agree and nothing detected it."""
+        src = open(os.path.join(ROOT, "tools", "vdisp.py")).read()
+        self.assertEqual(
+            src.count('i["decisions"] + i["source_deferred_frames"] != i["event_n"]'), 1)
+        self.assertIn('info["decisions"] + info["source_deferred_frames"]', src)
+        self.assertNotIn('if info["decisions"] != info["event_n"]:', src)
 
 
 class TheWiringInMainIsPinned(unittest.TestCase):
