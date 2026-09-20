@@ -1,5 +1,6 @@
 """
-tools/vdisp.py — the OGBPDISP1 downstream analyzer (HARDWARE_TESTS §V5.46).
+tools/vdisp.py — the OGBPDISP downstream analyzer, v1 and v2
+(HARDWARE_TESTS §V5.46 for v1, §V5.49.5 for v2).
 
 DELIBERATELY SEPARATE FROM tools/vindex.py. That one is the authority on the
 SOURCE layer and its verdict vocabulary is frozen; this one describes what
@@ -237,8 +238,21 @@ def usable(info):
         why.append("the event array overflowed (%d lost)" % info["event_overflow"])
     if info["drawdone_unmatched"]:
         why.append("%d draw-done tokens matched no lifecycle" % info["drawdone_unmatched"])
-    if info["decisions"] != info["event_n"]:
-        why.append("decisions %d but only %d events stored" % (info["decisions"], info["event_n"]))
+    # §V5.50. THE v2 EVENT IDENTITY, which is the one `parse()` above already
+    # enforces against the INTACT flag and the one `gbp_vdisp_intact()` uses in
+    # the runtime: a DEFERRED frame emits an event on its first defer, so the
+    # event store holds one entry per decision PLUS one per deferred frame.
+    #
+    # This check was left at the v1 form (`decisions != event_n`) when OGBPDISP2
+    # was introduced, so the very first physical Policy-A trace -- which is
+    # structurally perfect and whose own INTACT flag is set -- was reported as
+    # "disposition-claim ready False". The two rules lived eleven lines apart in
+    # this file and contradicted each other.
+    expected_events = info["decisions"] + info["source_deferred_frames"]
+    if expected_events != info["event_n"]:
+        why.append("decisions %d + deferred %d = %d but %d events stored"
+                   % (info["decisions"], info["source_deferred_frames"],
+                      expected_events, info["event_n"]))
     if not (info["flags"] & F_WINDOW_OPENED):
         why.append("the witness never armed during the capture")
     return {"usable_for_disposition_claim": not why, "reasons": why}
@@ -405,7 +419,7 @@ def format_report(info, idxcap=None) -> str:
             rh[REASON[r["reason"]]] = rh.get(REASON[r["reason"]], 0) + 1
     ivl = decision_intervals(info)
     res = interior_vs_edge(info)
-    L = ["OGBPDISP1 downstream disposition trace",
+    L = ["OGBPDISP%d downstream disposition trace" % info["version"],
          "  identity             %s / %s / %s / %s" % (info["test_id"], info["build_id"],
                                                        info["app"], info["commit"]),
          "  lifecycles           %d of %d" % (info["life_n"], info["life_cap"]),
