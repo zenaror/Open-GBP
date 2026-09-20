@@ -5920,7 +5920,7 @@ validation.
 
 ---
 
-### GBP-VID-033 — the `WITELIG` summary line exceeds the ringlog payload — FACT (software; documented, not fixed)
+### GBP-VID-033 — the `WITELIG` summary line exceeds the ringlog payload — FACT (software); REPAIRED in `stream-0011`, PHYSICALLY VALIDATED 2026-09-20 (run 11, GBP-HW-245/248)
 
 `LOG_LINE_LEN 256` with a 7-character sequence prefix leaves 248 usable
 characters; the `WITELIG` format (main.c:1232) renders to more than that and is
@@ -5961,6 +5961,14 @@ format are byte-identical to `stream-0010`; 12 191 witness checks unchanged.
 pre-registered to validate it, on run 10's topology, and has not run. Runs 9 and
 10 remain `stream-0010` evidence with `truncated=1`; their fixtures and
 derivations are unchanged.
+
+**2026-09-20, PHYSICALLY VALIDATED (run 11, §V5.58.9; GBP-HW-244…249).** The
+exact `stream-0011` artifact ran on run 10's topology and its log came back
+`lines=651 dropped=0 truncated=0` with one complete `WITELIG` (167 characters)
+and one complete `WITELIG2` (98), `qual_streak_at_eligible=0` present directly,
+the counter cross-check agreeing, and every regression gate passing. Scope:
+that controlled run; nothing about networking, the BBA beyond its presence,
+or Phase 11. Runs 9 and 10 keep `truncated=1` as `stream-0010` facts.
 
 ---
 
@@ -6032,3 +6040,93 @@ Phase 11, which does not move; universal hardware independence; a media double
 check (PENDING); scanout or pixel fidelity. The causal reason for postponing
 GBP-VID-033 has expired — the exact run-9 binary was reused successfully — and
 the fix belongs to the next functional checkpoint.
+
+---
+
+### GBP-HW-244 — the run-11 artifacts and the operator's topology declaration (GBP-VIDEO-006) — FACT
+
+Log 86 338 B `c1987d2f…228b`, OGBPIDXCAP1 8 946 060 B `9b62415b…4b51`, OGBPDISP2
+401 956 B `04feeca9…b3e7`, recomputed in the repository before the orchestrator's
+figures were read and matching them. Supplied under the console's generated
+names (`GBP-VIDEO-004_stream-0011.log` / `-idxcap.bin` / `-disp.bin`, kept as
+metadata) and archived FIRST under the reserved
+`captures/local/GBP-VIDEO-004_stream-0011-run11*` names with `cp --update=none`
+and `cmp`; runs 1–10 untouched. Binary: `stream-0011 @ 97c78c2`, 495 104 B
+`df2873ee…3e25`, verified on disk, in the Swiss copy (`cmp` identical) and in
+the log header; stimulus `9f04916b…8d9cc2`, not re-flashed; embedded id
+`GBP-VIDEO-004` by design. `tools/`, `src/`, `stimulus/` unchanged since
+`fbaea00`. **OPERATOR OBSERVATION / TOPOLOGY DECLARATION, recorded literally:**
+BBA PRESENT YES · Ethernet DISCONNECTED · same GameCube as RUN 10 YES · same
+GBP as RUN 10 YES. Media double check: PENDING.
+
+---
+
+### GBP-HW-245 — the repaired summary arrived whole: `dropped=0 truncated=0`, one complete `WITELIG`, one complete `WITELIG2`, `qual_streak_at_eligible=0` read directly — FACT
+
+Log header `lines=651 dropped=0 truncated=0`. Record 640 `WITELIG` (policy,
+origin, not_before_ms, gated_at_init, released, still_gated, t_eligible,
+ticks_control_to_eligible; 167 characters) and record 641 `WITELIG2`
+(frames_seen_before_eligible=292, disqualified_before_eligible=26,
+qual_streak_at_eligible=0; 98 characters), each exactly once, consecutive; all
+eleven names of the `stream-0010` contract present; the longest payload in the
+log is `STARTUPT` at 218 of 248. The zero needs no derivation; the counter
+cross-check still agrees (`356 − 292 = 64`, `355 = 292 + 63`, `resets 0`,
+`26 = 26`), and because the counters equal run 10's the frozen-`gbp_vwitness.c`
+replay of §V5.57.14 IV applies unchanged. This is the first physical log of the
+stream family with `truncated=0` since the not-before gate was added.
+
+---
+
+### GBP-HW-246 — the frozen source analyzer on run 11: OBSERVED_CONTIGUOUS, 2048 intact, 0 invalid — FACT
+
+`tools/vindex.py` unmodified: `observed 2048 (intact 2048)`, no
+`INVALID_CANONICAL_STRIP` line (0), `0x000049..0x000848` (73..2120), 2046
+decisive transitions all `OBSERVED_ID_CONTIGUOUS`, CRC `ae45abb9 / 1ea96c60`,
+flags `target_reached, service_ok, stop_is_target`, **`OBSERVED_CONTIGUOUS`**.
+Independent decode: 81 920/81 920 valid canonical strips, index ok, MIXED 0,
+FRAME_ID 73..2120 with 2047 deltas of +1, STATUS 0x18, FAULT 0, VMARGIN 24;
+2048/2048 seals, `frame_index` 356..2403, cadence 59.727289 Hz. Every count
+equals runs 9 and 10 — an observation.
+
+---
+
+### GBP-HW-247 — on the repaired build the gate, the startup, the transport and Policy A read as runs 9 and 10 did — FACT
+
+`WITELIG released=1 still_gated=0 ticks_control_to_eligible=202505829` =
+5.000143926 s (−522 ticks vs run 10); `WITQUAL 292 → 355 → 356`, resets 0;
+first retained record 6.067192864 s after CONTROL (−16.3 µs). `STARTUP
+mode=normal … presented_synthetic=0`, `ticks_control_to_first_handoff=6688927` =
+**165.158691 ms** (+177 ticks = +4.370 µs vs run 10; +160 vs run 9), `< 400 ms`.
+Transport 254 864 = 254 864 = 254 864 = 254 864, `video 96 110/96 110`, `errors 0
+timeouts 0 busy 0 overflow 0 uncertain 0 transport_ok 1`. OGBPDISP2 `92f11ee3 /
+d7b7e03a / 51a66d21 / 839a6ba5`, `2377 + 54 = 2431`, ready; join 2047
+`SELECTED_NEW` + `[2403]` capture-edge, interior 0, order `== 356..2402`, 50/128
+deferred in the join on the next retrace, depth 1; frozen latency **p99
+0.486790 ms, max 1.000914 ms** (alternate first-attempt diagnostic p99 = max =
+0.999309 ms); **7 display-repeat intervals** beside 0 drops — the sixth
+consecutive run reading seven, observational, and no exact-seven gate exists or
+is added. The tick differences from run 10 are recorded; no tolerance is
+derived from them.
+
+---
+
+### GBP-HW-248 — GBP-VIDEO-006 / RUN 11 PASSES; the GBP-VID-033 reporting repair is physically validated — FACT (scoped)
+
+Every §V5.58.7 gate passed under the operator-declared topology, the primary
+reporting gate among them. **The GBP-VID-033 reporting repair is physically
+validated for this controlled run — `stream-0011` on the same GameCube, Game
+Boy Player, `indexed-0003` stimulus and BBA-present / Ethernet-disconnected
+topology as run 10 — with no detected regression in the established source /
+transport / Policy-A / startup metrics.** The orchestrator's PASS classification
+is reproduced, not reinterpreted.
+
+---
+
+### GBP-HW-249 — what run 11 does NOT establish — SCOPE
+
+Anything about an Ethernet-connected topology, BBA initialisation, networking
+or network code; Phase 11, which does not move; the BBA was present only
+because run 10 is the immediate baseline. Not universal hardware independence;
+not a tolerance on startup, eligibility or latency; not scanout or pixel
+fidelity; not a media double check (PENDING). Runs 9 and 10 stay `stream-0010`
+evidence with `truncated=1`, their fixtures, derivations and tests untouched.
