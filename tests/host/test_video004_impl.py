@@ -409,12 +409,16 @@ class DisplayPolicy(unittest.TestCase):
         self.assertIn("STREAM_SLICE_TILE_ROWS", body[loop:loop + 120],
                       "the conversion loop must be bounded by the slice constant")
 
-    def test_the_capture_duration_and_the_safety_cap_are_separate(self):
+    def test_the_generic_time_target_is_disabled_and_the_safety_cap_is_separate(self):
+        """§V5.59 (F5). The PROVISIONAL 30 s capture duration -- a design decision the
+        pre-hardware audit was to make -- is decided: time does not end the indexed
+        experiment, only the witness target does. The safety cap stays a safety cap."""
         code = read(MAIN)
-        self.assertIn("#define STREAM_CAPTURE_SECONDS", code)
+        self.assertNotIn("#define STREAM_CAPTURE_SECONDS", code)
         self.assertIn("#define STREAM_SAFETY_SECONDS", code)
-        self.assertIn("DESIGN DECISION REQUIRED", code)
-        self.assertIn("PROVISIONAL", code)
+        self.assertIn("gbp_vstate_config_disable_time_target(&cfg);", strip_comments(code))
+        self.assertNotIn("DESIGN DECISION REQUIRED", code)
+        self.assertNotIn("PROVISIONAL", code)
 
 
 class ConversionAgreesWithAPhysicalFrame(unittest.TestCase):

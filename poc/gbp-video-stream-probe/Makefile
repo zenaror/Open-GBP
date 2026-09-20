@@ -38,7 +38,12 @@ APP_NAME   := gbp-video-stream-probe
 # the WITELIG summary is emitted as two records, WITELIG and WITELIG2, so no
 # field is clipped by the 248-character ringlog payload. No witness, transport,
 # display, startup or format semantics change.
-BUILD_ID   := stream-0011
+# §V5.59 (F5). stream-0012 is stream-0011 with ONE configuration change: the
+# generic vstate time target is DISABLED by name, so the witness target is the
+# experiment's only success condition; the 60 s safety cap is unchanged. No
+# witness, transport, display, startup or format semantics change. NOT
+# PHYSICALLY EXECUTED; no run is pre-registered for it.
+BUILD_ID   := stream-0012
 
 # NORMAL by default. A diagnostic image -- visible self-test, 5000 ms wait -- is
 #   make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC
