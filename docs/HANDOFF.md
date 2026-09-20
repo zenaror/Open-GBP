@@ -336,7 +336,15 @@ a dirty build (`CLAUDE.md` §18).
 > complete `WITELIG`, one complete `WITELIG2` and `qual_streak_at_eligible=0`
 > present directly; every regression gate passed (§V5.58.9, GBP-HW-244…249).
 
-There is no blocker and no physical run is pending. **GitHub Issue #5 closed
+There is no blocker and no physical run is pending. **GitHub Issue #6 designed
+the next Phase-4 experiments (§V6): `GBP-VIDEO-007` (physical scanout) and
+`GBP-VIDEO-008` (full-frame fidelity), two experiments that one run may serve
+without conflating them — NOT IMPLEMENTED, NOT RUN, nothing frozen, nothing
+reserved.** The build they would need (`stream-0013`), the stimulus
+(`coord-0001`, contract `OGBPCOORD1`, an injective coordinate field behind the
+unchanged OGBPIDX1 witness) and two new sidecars (`OGBPFULL1`, `OGBPVI1`) are
+named prospectively; the display/cable declaration is an open operator
+dependency (§V6.17). **GitHub Issue #5 closed
 the three items carried to the next functional checkpoint — F3, F8, F5 —**
 in software (§V5.59): every audit now declares and rebuilds what it consumes,
 `tools/poc_audit.py` sees data relocations, and the indexed stream experiment
@@ -369,15 +377,22 @@ still does not measure the margin.
 **No physical run is pending and none is pre-registered.** Issues #3 and #4
 established the GitHub workflow (remote, milestones, labels, templates, the
 Project "Open-GBP Development" at https://github.com/users/zenaror/projects/2);
-Issue #5 closed F3 / F8 / F5 (§V5.59) and left `stream-0012` as the
-software-only candidate of the stream line. The Orchestrator opens the next
-Phase-4 experiment as a GitHub Issue; if it is physical, it is pre-registered in
-`HARDWARE_TESTS.md` first and `stream-0012`'s identity (§V5.59) is what it
-would run. Presentation, pixel-perfect scaling and scanout were NOT started.
+Issue #5 closed F3 / F8 / F5 (§V5.59); Issue #6 wrote the design of the next
+Phase-4 experiments, `HARDWARE_TESTS.md` §V6 — `GBP-VIDEO-007` (physical
+scanout, an operator observation bound to hand-over and VI-latch records) and
+`GBP-VIDEO-008` (full-frame fidelity of the source → texture projection against
+an injective coordinate oracle), NOT IMPLEMENTED and NOT RUN. The Orchestrator
+validates that design independently; the sequence after it is theirs: an
+implementation Issue (`stream-0013`, `coord-0001`, `OGBPFULL1`, `OGBPVI1`, the
+offline tools) and only then a pre-registration that freezes identities and
+reserves run names. Presentation, pixel-perfect scaling and scanout
+measurement were NOT started; `stream-0012` remains the software-only
+candidate of the stream line.
 
 ```text
 run 11      ingested; GBP-VIDEO-006 PASS; GBP-VID-033 PHYSICALLY VALIDATED (§V5.58.9)
 issue 5     F3 / F8 / F5 CLOSED in software (§V5.59); stream-0012 NOT PHYSICALLY EXECUTED
+issue 6     GBP-VIDEO-007 / -008 DESIGNED (§V6); NOT IMPLEMENTED, NOT RUN, nothing reserved
 remote      origin = GitHub (canonical); gitea-archive = Gitea (archive, no push)
 next        orchestrator-owned, as a GitHub Issue; the sequence is theirs
 forbidden   analyzers, formats, Policy A, witness semantics, evidence of runs 1-11,
