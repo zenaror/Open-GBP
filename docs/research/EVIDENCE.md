@@ -5786,3 +5786,141 @@ than deforming pixels. "Pixel-perfect" means preserving the source grid under
 the selected integer scale, not a 1× output. Separate from transport, Policy A,
 startup timing and research qualification; **nothing was implemented** and no
 resolution or viewport was chosen.
+
+---
+
+### GBP-HW-231 — the run-9 artifacts, hashed here first, archived under reserved names — FACT
+
+Log 86 313 B `298eeff4…8e57`, OGBPIDXCAP1 8 946 060 B `247bae66…c7d1`, OGBPDISP2
+401 796 B `7a4b032a…4c67`, recomputed in the repository before the orchestrator's
+figures were read and matching them. Binary `stream-0010` at `fbaea00`,
+495 040 B `6b57d669…6180`, verified before the run and not rebuilt; stimulus
+`indexed-0003` delivery `9f04916b…8d9cc2`, not re-flashed. Archived FIRST under
+the reserved `captures/local/GBP-VIDEO-004_stream-0010-run9*` names with
+`cp --update=none` and `cmp`; run 7 and run 8 archives re-verified intact. BBA
+disconnected. Media double check: PENDING.
+
+---
+
+### GBP-HW-232 — the frozen source analyzer on run 9: OBSERVED_CONTIGUOUS with 2048 intact and 0 invalid — FACT
+
+`tools/vindex.py`, unmodified at `f2de217`: `observed frames 2048 (intact
+2048)`, no `INVALID_CANONICAL_STRIP` line (0), `first/last observed 0x000049 ..
+0x000848` (73..2120), `decisive transitions 2046`, all `OBSERVED_ID_CONTIGUOUS`,
+`header/total CRC-32 7fbd6129 / 4d0c702d`, flags `target_reached, service_ok,
+stop_is_target`, **`VERDICT OBSERVED_CONTIGUOUS`**. Independent decode agrees on
+every block: 81 920/81 920 valid canonical strips with `BLOCK_INDEX == slot`,
+`MIXED_BLOCK_IDS` 0, FRAME_ID 73..2120 with 2047 adjacent deltas of +1, STATUS
+0x18 throughout, FAULT never set, VMARGIN 24 throughout; 2048/2048 record seals,
+reserved zero, `frame_index` 356..2403 strictly +1. **The composition is the
+result**: run 7 under the same frozen tool read `intact 1988 / INVALID 60`.
+
+---
+
+### GBP-HW-233 — the not-before gate released at 5.000156691 s after CONTROL and the window opened at 6.067209383 s, 64 clean closes later — FACT
+
+`WITELIG policy=time_not_before origin=control not_before_ms=5000 released=1
+still_gated=0 ticks_control_to_eligible=202506346
+frames_seen_before_eligible=292 disqualified_before_eligible=26`;
+`202 506 346 / 40 500 000 = 5.000156691 s`, an overshoot of 156.7 µs inside
+`pump()`'s cadence. `WITQUAL required=64 resets=0 warmup_frames=356
+warmup_disqualified=26 qualify_frame=355 first_record_frame=356
+window_first_block=0`. First retained record 6.067209383 s after CONTROL,
+1.067052692 s after eligibility; record 0 is `frame_index 356` at block 0. 292
+frames closed before eligibility, 26 of them disqualifying, none able to build
+or break a streak; frames 292..355 — exactly 64 — closed clean after it. No
+retrospective trim: `frame_index` 356..2403 with nothing filtered.
+
+---
+
+### GBP-HW-234 — `qual_streak_at_eligible` was lost to a text-line truncation and is recovered exactly — FACT (reporting defect, value derived)
+
+The log header carries `truncated=1`. Exactly one record line reaches the
+ringlog limit: `WITELIG`, seq 640, payload 248 characters, ending
+`qual_streak_at_e`; the next-longest line is 218. Root cause from source:
+`LOG_LINE_LEN 256` (main.c:137), a 7-character `%06u ` prefix (ringlog.c:35),
+`vsnprintf` into `line_len − 7`, so 248 usable characters; ringlog.c:46 counts
+the cut. Neither sidecar was truncated (all CRCs verified), the witness latch
+has no dependency on the log, and device service was unaffected.
+
+The lost field is 0 by contract (§V5.55.3) and is recovered **exactly**: `356 −
+292 = 64 = required`, `qualify_frame 355 = 292 + 64 − 1`, `resets 0`,
+`warmup_disqualified 26 = disqualified_before_eligible 26`; and replaying those
+counters through the frozen `gbp_vwitness.c` (identical to what `fbaea00`
+compiled) reproduces `qualify_frame=355` **only** for a streak of 0 at release
+(1 → 354, 10 → 345). DIRECT FIELD: lost. SEMANTIC VALUE: 0, exact. Classified
+**REPORTING / INSTRUMENTATION DEFECT**; no rerun required; the fix belongs to a
+later functional checkpoint (GBP-VID-033).
+
+---
+
+### GBP-HW-235 — the gate did not touch the startup: first real hand-off 165.154741 ms, 18 ticks from run 7 — FACT
+
+`STARTUP mode=normal selftest_visible=0 prehandler_wait_ms=0
+presented_synthetic=0 headless_submits=1`; `STARTUPV
+ticks_control_to_first_handoff=6688767` = **165.154740741 ms** against run 7's
+6 688 749 = 165.154296 ms (+0.444 µs). Headless self-test 12.220 ms, program →
+first hand-off 211.109 ms, CONTROL → capture 107.665 ms, capture → first
+hand-off 57.490 ms. The gate releases 4.892 s after capture_start; the first
+real frame reached a framebuffer 4.7 s before that. `FRAMECAP 2404 / 2391 / 13 /
+26 / 13`, `STRUCTURED 45 episodes`, and the four preserved episodes identical to
+runs 7 and 8: the transient was recorded, not hidden.
+
+---
+
+### GBP-HW-236 — Policy A, run 9: 2047/2047 over the join, 7 display repeats for the fourth run running — FACT
+
+OGBPDISP2 `a219548c / 6298f601 / 7d6cf2f2 / 4d2b81cc` recomputed and matched;
+`2377 + 50 = 2427 = event_n`; `usable_for_disposition_claim True`;
+`terminal_pending` header 1 = the headless self-test (log 0 is pre-finish, as in
+runs 7–8). Join over source 356..2403: 2047 `SELECTED_NEW`, one without a
+lifecycle — `[2403]`, the last retained frame, never taken: a capture-edge
+residual, interior missing 0. Hand-off order rebuilt `== 356..2402` exactly, no
+duplicate, none overtaken. 46 deferred / 112 attempts in the join (50 / 124 whole
+trace), every one resolved on the next retrace, all `XFB_BUSY`, depth 1,
+`xfb_skipped 124 = defer_attempts`. Runtime: taken = converted = presented =
+2377, `repeats 0`, `balanced 1`, `STREAMINV 200 206 / 0`. Latency under the
+pre-registered definition over all 2047: **p99 0.472000 ms, max 1.000148 ms**;
+under first-attempt → decision over the 46 deferred: p99 = max = 0.998370 ms.
+Cadence, separately: retrace deltas `{1: 2039, 2: 7}` — **7 display-repeat
+intervals** beside `SOURCE_DROPPED 0`; runs 6, 7, 8 and 9 all read exactly
+seven. Transport `254 873 = 254 873 = 254 873`, `timeouts 0 busy 0 overflow 0
+uncertain 0 errors 0`.
+
+---
+
+### GBP-HW-237 — RUN 9 PASSES all fourteen pre-registered gates: the content-independent 5.000 s not-before witness eligibility gate is physically validated for this controlled indexed experiment on this console — FACT (scoped)
+
+A–N of §V5.55.7 / §V5.56.8, every one PASS, D by exact counter derivation.
+Established: normal transport and display live from startup; eligibility not
+before the prospective threshold; streak from zero; 64 qualifying closes
+required; window at the next block-0 boundary; all 2048 retained records valid;
+all observed intact IDs contiguous and ordered; no retrospective trimming. No
+official tool disagreed with any expected item. **No rerun required.**
+
+---
+
+### GBP-HW-238 — what run 9 does NOT establish — SCOPE
+
+That startup transients no longer exist (they do, §V5.56.6); that every
+cartridge is steady-state at 5 s; that 5 s is a protocol or final-runtime
+requirement — it is research instrumentation and user-visible video began at
+165 ms; physical scanout of any frame; full-frame pixel fidelity; anything about
+the BBA, which was disconnected; a media double check, which is PENDING. The
+controlled video sequence that required the BBA to stay disconnected is closed
+(§V5.56.12); that closure removes a methodology restriction and is **not** BBA
+validation.
+
+---
+
+### GBP-VID-033 — the `WITELIG` summary line exceeds the ringlog payload — FACT (software; documented, not fixed)
+
+`LOG_LINE_LEN 256` with a 7-character sequence prefix leaves 248 usable
+characters; the `WITELIG` format (main.c:1232) renders to more than that and is
+clipped after `qual_streak_at_e`, which `ringlog.c:46` counts as `truncated`.
+Every other line in run 9 is ≤ 218. The clipped field is the one §V5.55.3
+defined as 0 by contract. Future fix, in a functional checkpoint: preserve every
+`WITELIG` field, change no gate semantics, split into stable machine-readable
+lines or shorten safely, and add a host test that no required summary line can
+exceed the payload — the same class of guard the log-tag uniqueness test is.
+Not authorised in the run-9 ingestion checkpoint.

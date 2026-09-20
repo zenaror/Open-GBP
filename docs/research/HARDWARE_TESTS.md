@@ -17603,3 +17603,283 @@ No hardware ran. The 5000 ms threshold is prospective from four runs of this
 cartridge on this console and guarantees nothing about another cartridge.
 `vindex.py` stays the decisive offline check. The final runtime needs none of
 this.
+
+---
+
+### V5.56 RUN 9 — `stream-0010` + `indexed-0003` — 2026-09-20 — **THE NOT-BEFORE GATE, PHYSICALLY VALIDATED: 2048 INTACT / 0 INVALID, STARTUP UNCHANGED**
+
+The controlled run §V5.55.7 pre-registered. Analysis followed that section's
+order — identities, frozen `vindex.py`, source verdict, container, join,
+disposition, deferral, latency/depth, cadence, startup, `WITELIG` — and no gate
+was touched after the result was seen. **BBA DISCONNECTED**; nothing here is BBA
+evidence.
+
+#### V5.56.1 Identities, computed here before the orchestrator's figures were read
+
+```text
+DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol  495 040 B
+            6b57d6696cf718baaac83cd0b9631c672bbe756f842e42bfd12d7a0ee3736180
+            embedded stream-0010 · fbaea00 · GBP-VIDEO-004 (verified before the run, not rebuilt)
+stimulus    indexed-0003 delivery 2 880 B 9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2
+log         86 313 B     298eeff443f1ad74c3c9f10a5bdaa0ebc13503f2cd67ef1bb12804fdfbc58e57
+idxcap      8 946 060 B  247bae664896d0005877d8236e56ef3ac19936426cec7c41fcc85978e8eac7d1
+disp        401 796 B    7a4b032aecfc9af5787d6c099967dcffc2942e0b798b2b81d25c4be445994c67
+log header  build_id=stream-0010 commit=fbaea00 lines=650 dropped=0 truncated=1
+```
+
+Archived FIRST, under the names reserved in §V5.54/HANDOFF, with
+`cp --update=none` and `cmp`: `captures/local/GBP-VIDEO-004_stream-0010-run9{.log,-idxcap.bin,-disp.bin}`.
+Run 7 and run 8 archives untouched (hashes re-verified). All three hashes match
+the orchestrator's independent measurements. Media double check: PENDING.
+
+#### V5.56.2 SOURCE FIRST — the frozen analyzer, verbatim
+
+`tools/vindex.py`, `istim.py`, `vidxcap.py` and both format headers unmodified at
+`f2de217` (`git diff` empty):
+
+```text
+records              2048 of 2048, 0 discarded, 81 921 / 81 921, out of range 0
+flags                target_reached, service_ok, stop_is_target
+header/total CRC-32  7fbd6129 / 4d0c702d
+observed frames      2048 (intact 2048)
+first/last observed  0x000049 .. 0x000848        (73 .. 2120)
+first/last decisive  0x000049 .. 0x000847
+decisive transitions 2046
+    OBSERVED_ID_CONTIGUOUS   2046
+VERDICT              OBSERVED_CONTIGUOUS
+```
+
+No `INVALID_CANONICAL_STRIP` line exists: the count is 0. **The composition —
+2048 intact / 0 invalid — is what gate H requires, and it is present.** Compare
+run 7 (§V5.53.6): `intact 1988 / INVALID_CANONICAL_STRIP 60` under the same
+frozen tool.
+
+Independent decode (own iteration, own seals, `istim` only for the frozen
+symbol contract): header and global CRCs recomputed and matched; 2048/2048
+seals; reserved zero; flags `0x1a`; `frame_index` 356..2403 strictly +1; all
+40 blocks; **81 920 / 81 920 valid canonical blocks, `BLOCK_INDEX == slot` in
+all, 0 invalid by any reason, `MIXED_BLOCK_IDS` 0; FRAME_ID 73..2120, 2048
+unique, 2047 adjacent deltas of +1; STATUS 0x18 in every block; FAULT 0;
+VMARGIN 24.** Source cadence 59.727103 Hz. Record 0 already carries FRAME_ID 73:
+1.22 s of stimulus had elapsed, and ID 0 back-projects to 4.8450 s after
+CONTROL — the fifth run at that value (`leading_edge`, inferred).
+
+#### V5.56.3 THE GATE — timing from the machine, not from the expectation
+
+```text
+WITELIG   policy=time_not_before origin=control not_before_ms=5000
+          gated_at_init=1 released=1 still_gated=0
+          ticks_control_to_eligible=202506346
+          frames_seen_before_eligible=292 disqualified_before_eligible=26
+          qual_streak_at_e                     <- line ends here (§V5.56.4)
+WITQUAL   required=64 state=2 streak_max=64 resets=0 warmup_frames=356
+          warmup_disqualified=26 qualify_frame=355 qualified=1 armed=1
+          window_first_block=0 first_record_frame=356
+```
+
+```text
+CONTROL -> eligibility           202 506 346 / 40 500 000 = 5.000156691 s
+                                 overshoot +156.7 us, inside pump()'s ~158 us cadence
+CONTROL -> first retained record 6.067209383 s   (record 0, frame_index 356)
+eligibility -> first record      1.067052692 s   (64 closes at 59.727 Hz = 1.0715 s;
+                                                  the first close may be a frame
+                                                  already in progress)
+```
+
+**What happened, in the machine's own words:** 292 frames closed before
+eligibility, 26 of them disqualifying — seen, counted, never able to build or
+break a streak. At 5.000 s the streak began from zero. Frames 292..355 — exactly
+64 — closed clean; frame 355 completed the streak with `resets=0`; the window
+opened at block 0 of frame 356 and retained 2048 records, every one valid. No
+trim, no filter, no reset, and **no startup content was retained because it
+later looked valid.**
+
+#### V5.56.4 REPORTING / INSTRUMENTATION DEFECT — the `WITELIG` line is truncated
+
+The log header says `truncated=1`. Every record line was measured: **exactly
+one** reaches the limit — `WITELIG`, seq 640, payload 248 characters, ending
+`qual_streak_at_e`. The runner-up (`STARTUPT`) is 218. Root cause, from source:
+`LOG_LINE_LEN 256` (main.c:137); `ringlog.c:35` spends 7 characters on the
+`%06u ` prefix and gives `vsnprintf` `line_len − 7`, so the usable payload is
+248 with the NUL; `ringlog.c:46` counts the cut. The `WITELIG` format is longer
+than that by its last field.
+
+**What it did NOT do:** it did not truncate either sidecar (both CRC-verified);
+it did not alter the witness — the latch has no dependency on the log; it did
+not alter device service (240 754-style identities hold: 254 873 unmasks =
+deliveries = acks = rearms). The lost field is `qual_streak_at_eligible`, which
+§V5.55.3 defined as **0 by contract and printed only so a broken contract would
+show in the record**.
+
+**The value is recovered exactly, not estimated.** From preserved counters and
+the frozen state machine (`gbp_vwitness.c` identical to what `fbaea00`
+compiled):
+
+```text
+warmup_frames 356 − frames_seen_before_eligible 292 = 64 = required
+qualify_frame 355 = 292 + 64 − 1
+resets 0
+warmup_disqualified 26 = disqualified_before_eligible 26
+   -> every disqualifying frame preceded eligibility; zero after it
+```
+
+and by replaying those counters through the frozen implementation itself
+(292 gated closes with 26 disqualifying, release, then clean closes): **only a
+streak of 0 at release yields `qualify_frame=355`**; a streak of 1 would have
+given 354, a streak of 10 would have given 345. Both `test_gbp_vwitness.c`
+EL-B/EL-F and `test_witelig.py` already pin that release zeroes the streak.
+
+```text
+DIRECT FIELD     qual_streak_at_eligible=0   LOST to the ringlog line limit
+SEMANTIC VALUE   0                           EXACT, from independent counters
+                                             + frozen state-machine semantics
+```
+
+**No runtime fix in this checkpoint.** The future fix: keep every `WITELIG`
+field, change no gate semantics, split into stable machine-readable lines or
+shorten safely, and add a host test that no required summary line can exceed
+the payload. **No rerun is required for this** — §V5.56.9.
+
+#### V5.56.5 Startup — unchanged by the gate
+
+```text
+STARTUP   mode=normal selftest_run=1 selftest_visible=0 prehandler_wait_ms=0
+          clear_fb=1 normal_clean=1 presented_synthetic=0 headless_submits=1
+STARTUPV  first_frame_index=2 ticks_control_to_first_handoff=6688767
+          = 165.154740741 ms          run 7: 6 688 749 = 165.154296 ms
+          difference +18 ticks = +0.444 us
+headless self-test 12.220 ms · program -> first hand-off 211.109 ms
+CONTROL -> capture_start 107.665 ms · capture -> first hand-off 57.490 ms
+```
+
+The gate is consulted from `capture_start` on and releases 4.892 s later; the
+first real frame reached a framebuffer 4.7 s BEFORE that. Nothing the user sees
+waited. `VIDEO_SetNextFramebuffer` is a hand-over, not scanout.
+
+#### V5.56.6 The transient is still in the record
+
+`FRAMECAP frames=2404 complete=2391 incomplete=13 resync=26 anomaly_region=13`,
+`STRUCTURED observed: 45 episodes, 7 stable, 37 unstable, 41 not preserved`,
+`BASELINE valid=1`, and the four preserved episodes 8..25 / 30..89 / 90..149 /
+150..197 with `sig0 7f0fff10 / 00000000 / 00000000 / 7f0fff10` — identical to
+runs 7 and 8. The gate hid nothing; it only declined to count it.
+
+#### V5.56.7 Policy A — total run and frozen join
+
+OGBPDISP2, independent: `a219548c / 6298f601 / 7d6cf2f2 / 4d2b81cc` all
+recomputed and matched; size identity exact; reserved zero; `2377 + 50 = 2427 =
+event_n`; official `vdisp.py` (unmodified): `OGBPDISP2`, `ready True`.
+`terminal_pending`: header 1 = the headless self-test only; the log's `DISPSRC
+terminal_pending=0` is printed at main.c:1271, `gbp_vdisp_finish()` runs at
+main.c:1497 — the ordering runs 7 and 8 established, unchanged.
+
+```text
+JOIN (source 356..2403)  2047 with a lifecycle, all SELECTED_NEW;
+                         1 without: [2403], the last retained frame, never taken
+                         -> capture-edge residual (vdisp: "terminal edge");
+                         interior missing 0
+order rebuilt            == 356..2402 exactly; no duplicate; none overtaken
+deferred                 46 frames / 112 attempts in the join (50 / 124 whole
+                         trace), every one resolved on the next retrace, all
+                         XFB_BUSY, max depth 1; xfb_skipped 124 = defer_attempts
+runtime                  taken 2377 converted 2377 presented 2377 repeats 0
+                         balanced 1; submit 2378/2378; drawdone 2378 releases
+                         2378; STREAMINV 200 206 checks, 0 failures
+```
+
+**Latency, under the pre-registered definition** (`ready = t_convert_done`,
+hand-off = `t_decision`, population = every scientific hand-off, `vpace.py`
+percentile convention, §V5.49.15):
+
+```text
+n = 2047    p99 0.472000 ms    max 1.000148 ms       gates 1.0 / 2.5  PASS
+deferred-only subset, n = 46:   min 0.089259  p50 0.463136  p90 0.836716
+                                p99 1.000148  max 1.000148  mean 0.439871 ms
+```
+
+Under the orchestrator's alternative definition (first attempt → decision,
+deferred frames only, n = 46): min 0.087457, p50 0.461630, p90 0.834914,
+**p99 0.998370, max 0.998370**, mean 0.438217 ms — reproduced to the microsecond.
+The two definitions differ by the ~1.3 µs between READY and the first offer;
+neither is rounded, and the gate is evaluated on the pre-registered one.
+
+**Cadence, separately:** retrace deltas over the join `{1: 2039, 2: 7}` — **7
+display-repeat intervals, the fourth consecutive run with exactly seven**,
+beside `SOURCE_DROPPED 0` and `STREAMCONS repeats 0`, which are two different
+things.
+
+Transport: `stop=witness_target_reached`, 254 873 = 254 873 = 254 873 = 254 873,
+`timeouts 0 busy 0 overflow 0 uncertain 0 errors 0 transport_ok 1`.
+
+#### V5.56.8 The pre-registered gates, one by one
+
+```text
+A  time-not-before policy active                PASS  WITELIG policy=time_not_before
+B  released=1                                   PASS
+C  eligibility ~5.000 s after CONTROL           PASS  5.000156691 s, +156.7 us
+D  streak zero at release                       PASS BY EXACT COUNTER DERIVATION
+                                                      (direct field truncated, §V5.56.4)
+E  window only after eligibility + 64 clean     PASS  292 + 64 = 356; resets 0
+F  next block 0                                 PASS  frame 356, window_first_block=0
+G  exactly 2048 records                         PASS
+H  OBSERVED_CONTIGUOUS + 2048 intact / 0 INVALID PASS  the composition, not the label
+I  every strip valid under frozen OGBPIDX1      PASS  81 920 / 81 920
+J  no trim / filter / reset after opening       PASS  frame_index 356..2403 strictly +1
+K  NORMAL startup, first hand-off < 400 ms      PASS  165.154741 ms (+18 ticks vs run 7)
+L  startup transient still in diagnostics       PASS  13 / 26 / 13, 45 episodes
+M  Policy A: 0 drops, 0 reorder, depth 1,
+   latency gates, trace intact                  PASS  p99 0.472000, max 1.000148 ms
+N  no transport error / timeout / overflow /
+   uncertain                                    PASS
+```
+
+**Fourteen of fourteen.** No official tool disagreed with any expected item.
+
+#### V5.56.9 Does run 9 need to be repeated? — NO
+
+Checked against the experiment contract, not accepted on assertion. The
+eligibility state machine executed (`released=1 still_gated=0`); every timing
+field survived (`ticks_control_to_eligible`, `frames_seen_before_eligible`,
+`disqualified_before_eligible`); the witness result survived and is
+CRC-verified; both binary sidecars are intact; the one missing field is exactly
+recoverable from independent counters and the frozen semantics, and the frozen
+implementation itself reproduces the recorded qualification point only for that
+value; every pre-registered refutation condition (§V5.55.7: an INVALID strip in
+the window, a change in startup timing) is absent. **NO RERUN REQUIRED.** The
+line-length defect is future software work.
+
+#### V5.56.10 CLASSIFICATION
+
+**RUN 9: PASS. PHYSICAL VALIDATION PASSED for the research-only,
+content-independent 5.000-second not-before witness eligibility gate, under this
+controlled `indexed-0003` experiment on this console.**
+
+It established that normal transport and display stayed live from startup;
+eligibility did not begin before the prospective threshold; the structural
+streak then started from zero; 64 qualifying closes were required; the witness
+opened at the next block-0 boundary; all 2048 retained canonical records were
+valid; all observed intact IDs were contiguous and ordered; no retrospective
+trimming was needed.
+
+#### V5.56.11 Non-claims — §V5.55.8 carried, and sharpened by the result
+
+```text
+- 2048 intact / 0 INVALID validates the NEW ORCHESTRATION for this controlled
+  indexed experiment. It does NOT mean startup transients no longer exist
+  (§V5.56.6 shows them), that every cartridge is steady-state at 5 s, that
+  5 s is a protocol requirement, or that a final runtime should delay.
+- The 5 s threshold is research instrumentation. User-visible video began at
+  165 ms and never waited for it.
+- No physical frame is proven scanned out; no full-frame pixel fidelity.
+- BBA was disconnected; nothing here is BBA evidence.
+- Media double check for run 9: PENDING.
+```
+
+#### V5.56.12 The controlled video sequence is closed
+
+The methodology restriction that held since §V5.53 — *no new topology variable
+until RUN B and the corrected controlled indexed run are closed* — is
+discharged: RUN B (§V5.54, PASS with a debug-UX note) and RUN 9 (this section,
+PASS) are both closed. **This is not BBA validation.** It only removes the
+restriction: the BBA may now be considered as a variable in the NEXT explicitly
+pre-registered topology/phase. Nothing was tested with it present.
