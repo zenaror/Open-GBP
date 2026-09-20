@@ -4973,3 +4973,412 @@ frame (GBP-VID-020).
 
 **Not physically executed.** `stream-0008` is a candidate; `stream-0007` remains
 the last runtime that ran on hardware.
+
+---
+
+### GBP-HW-202 — the run-6 artifacts, hashed here and matched against the card — FACT
+
+Every identity below was computed in the repository, from the artifact, before
+any value the operator reported was looked at. The operator's two figures are
+DOUBLE CHECKS of the physical copies, never the source of the identity.
+
+```text
+stream-0008 DOL   build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+                  492 416 B
+                  a9efe181d46928d11a20623276a77f352db45b9795681173185e9a60d4e81282
+Swiss boot.dol    build/swiss/12-stream/boot.dol
+                  492 416 B, byte-identical to the DOL above
+indexed-0003      canonical build/stimulus/agb-indexed/agb-indexed.gba
+                  2 880 B  37119bb6ac68398dbd3fa75e6ad5c51c8aeb543277ac8d3b03b57f7a6f0caaca
+                  delivery  build/physical/agb-indexed-cart.gba
+                  2 880 B  9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2
+run-6 log         66 968 B  89f54f35a1f614656ee67a12dc69494127f5e37b9544c3bb3391a4c0f093b843
+run-6 OGBPIDXCAP1 8 946 060 B 311a26a78a19d8573b54fadb463dc50fd411984b97d8679287066e5de45a8d54
+run-6 OGBPDISP2   357 524 B  36b684610b32219d9585126fba8abc4ee58e31de0a6d8044ccca4fb75803a44e
+```
+
+The operator's SD `boot.dol` and EZ-Flash `agb-indexed-cart.gba` hashes match the
+DOL and the delivery ROM exactly. The log's own header carries
+`build_id=stream-0008 commit=5126a19`, with no `-dirty` stamp, and both sidecars
+repeat the same four identity strings internally.
+
+Archived as `captures/local/GBP-VIDEO-004_stream-0008-run6{,-idxcap,-disp}.*`,
+byte-identical to the raw drop in `logs/`, which was not modified.
+
+---
+
+### GBP-HW-203 — source-frame continuity replicates a THIRD time under a changed presentation policy — FACT
+
+`tools/vindex.py`, unmodified, on the run-6 `OGBPIDXCAP1`:
+
+```text
+records              2048 of 2048 (target 2048), 0 discarded
+blocks staged/placed 81 921 / 81 921, out of range 0
+all-40-block frames  2048
+first/last observed  FRAME_ID 0x000055 .. 0x000854   (85 .. 2132)
+decisive transitions 2046, every one OBSERVED_ID_CONTIGUOUS
+header/total CRC-32  2941a236 / f0ae62a7
+VERDICT              OBSERVED_CONTIGUOUS
+```
+
+An independent byte-level decode — own record iteration and own sequence
+analysis, using only `istim` for the frozen symbol/CRC-8 contract — agrees on
+every quantity: 2048/2048 record seals valid, header and global CRC valid,
+81 920/81 920 valid symbols with SYNC `0xB2`, valid CRC-8 and
+`BLOCK_INDEX == slot`, `MIXED_BLOCK_IDS` 0, `STATUS 0x18` in all 81 920,
+`FAULT` 0, `VMARGIN` 24, `frame_index` 70..2117 strictly +1, `FRAME_ID`
+85..2132 with 2048 unique values and adjacent delta +1 in 2047 of 2047 — no
+duplicate, no gap, no reorder.
+
+Source cadence, first-to-first over 2047 intervals: **59.727084 Hz**.
+
+This matters because the policy under test sits DOWNSTREAM of the source layer.
+Run 6 changed how frames are presented and changed nothing about how they are
+captured, and the source result is unchanged — which is what makes run 5 and
+run 6 comparable at all.
+
+---
+
+### GBP-HW-204 — the first physical OGBPDISP2 is structurally perfect — FACT
+
+Independently recomputed from the frozen v2 writer rules:
+
+```text
+magic/version/header   OGBPDISP / 2 / 0x140 (320 B)
+records                lifecycle 128 B, event 40 B
+lifecycles             2114 of 4096      events 2165 of 8192
+decisions              2114
+flags                  0x0011 = INTACT | WINDOW_OPENED
+overflow / unmatched   life 0, event 0, drawdone 0, order_violations 0
+header   CRC-32        ec3c150e   recomputed ec3c150e
+lifecycle CRC-32       5e815e8b   recomputed 5e815e8b
+event    CRC-32        38e01a34   recomputed 38e01a34
+footer OGBPDEND, global CRC-32 dd4e7781, recomputed dd4e7781
+size identity          320 + 2114*128 + 2165*40 + 12 = 357 524 = total_size = file
+reserved 0x108..0x13B  all zero
+```
+
+**The v2 event identity holds: `decisions 2114 + deferred_frames 51 = 2165 =
+event_n`.** The v1 identity (`decisions == event_n`) is FALSE here, which is
+correct and expected — see GBP-VID-026 for the analyzer defect that fact exposed.
+
+---
+
+### GBP-HW-205 — every interior source frame the consumer was offered reached a framebuffer — FACT
+
+The join is the exact `frame_index` equality between the `OGBPIDXCAP1`
+scientific population and the `OGBPDISP2` lifecycles. The armed bit is NOT used
+(GBP-VID-019).
+
+```text
+source scientific records           2048   frame_index 70..2117
+with a lifecycle                    2047   frame_index 70..2116
+without a lifecycle                    1   [2117], the target-stop edge
+identity                            2048 = 2047 + 1
+
+disposition of all 2047             SELECTED_NEW  2047
+                                    everything else 0
+```
+
+Nothing was HOLD_PREVIOUS, SLOT_OVERRUN, ABANDONED_NO_RAW, still DEFERRED, or
+OPEN. `terminal_pending = 0`: no frame was alive and un-handed-off at the stop.
+
+Frame 2117 is a **capture-edge residual, not a loss**: the source layer published
+2114 descriptors and the consumer took 2113 (`STREAMSRC published=2114` vs
+`STREAMCONS taken=2113`), because the run stopped on the witness target before
+the last descriptor was offered. No disposition decision was ever made about it,
+so no policy can have lost it.
+
+---
+
+### GBP-HW-206 — the order was preserved, and the sequence was rebuilt to prove it — FACT
+
+`order_violations = 0` is the counter; this is the reconstruction. Sorting the
+2047 successful hand-offs by `t_decision` gives
+
+```text
+70, 71, 72, ... , 2114, 2115, 2116
+```
+
+exactly, with no duplicate hand-off, no skip inside the span, and no frame
+handed off twice. For each of the 48 frames that deferred, no frame with a
+LOWER index appears after it in the sequence.
+
+This was the specific risk found before the run: `gbp_vpresent_acquire()` hands
+out the lowest FREE texture and the old retry loop scanned from slot 0, so a
+newer frame in a lower slot could have overtaken a deferred older one. The
+age-ordered offer was built for exactly this, and the hardware shows it holding.
+
+**Supersessions: 0.** Each `frame_index` appears on exactly one lifecycle and
+each lifecycle reaches at most one hand-off, so no frame was replaced by a newer
+one while waiting.
+
+---
+
+### GBP-HW-207 — the physical deferral population, and what the counter that used to mean "lost" now means — FACT
+
+```text
+whole trace      deferred_frames 51   defer_attempts 129
+                 = 48 scientific + 3 warm-up + 0 self-test
+scientific       48 frames deferred over 124 attempts
+attempts/frame   1:13  2:12  3:11  4:7  5:4  6:1
+every one        eventually handed off, in order
+reason           XFB_BUSY on every defer event, xfb_target -1 on every one
+events           51 defer events, exactly one per deferred frame (aggregated)
+```
+
+**Every single deferral resolved on the very next retrace**: for all 48
+scientific deferred frames, `retrace_decision == retrace(first defer event) + 1`,
+without exception. The frame was held back because both framebuffers were spoken
+for, and the next retrace freed exactly one.
+
+**`xfb_skipped` changed meaning, and the run proves it numerically.**
+`gbp_vpresent_xfb_target()` increments `xfb_skipped_busy` on one branch — both
+framebuffers spoken for — and `submit_ready()` calls it once per offer.
+
+```text
+stream-0007   STREAMGX xfb_skipped 17   ==  17 frames TERMINALLY discarded
+stream-0008   STREAMGX xfb_skipped 129  ==  129 DEFER ATTEMPTS (DISPSRC), all resolved
+              STREAMCONS repeats 0, DISPSRC dropped_interior 0
+```
+
+The same counter, the same branch, the opposite consequence. It must never be
+read across the two builds as if it meant one thing.
+
+---
+
+### GBP-HW-208 — the deferral queue never held more than one frame — FACT
+
+`max_deferred_depth = 1` over the whole run, matching the offline model's
+prediction for two framebuffers exactly. The deepest observed retry count is 6
+attempts on one frame (`frame_index 612`), and even there only that one frame
+was waiting.
+
+---
+
+### GBP-HW-209 — both pre-registered latency gates pass, with the definition fixed before the run — FACT
+
+`ready` is `t_convert_done` (the frame becomes READY), `hand-off` is
+`t_decision`, the population is EVERY scientific hand-off, and the percentile
+convention is `tools/vpace.py`'s `s[min(n-1, int(n*q))]`. All four were frozen
+in §V5.49.15 before the cartridge was powered on.
+
+```text
+gate population, n = 2047
+  min 0.0008   p50 0.0014   p95 0.0016   p99 0.4946   max 1.1353 ms   mean 0.0123
+
+  PRE-REGISTERED   p99 <= 1.0 ms    observed 0.4946   PASS (49.5 % of budget)
+                   max <= 2.5 ms    observed 1.1353   PASS (45.4 % of budget)
+
+breakdown, reported and NOT the gate population
+  never deferred, n = 1999   max 0.0027 ms
+  deferred only,  n =   48   min 0.0864  p50 0.4774  p99 1.1353  max 1.1353 ms
+```
+
+The observed maximum, 1.1353 ms, is BELOW the model's own physical-replay worst
+case of 1.264 ms and well below the 1.422 ms sweep maximum the 2.5 ms bound was
+derived from. The undeferred path costs under 3 µs.
+
+---
+
+### GBP-HW-210 — seven repeated display intervals, which is what this run's own rates require — FACT
+
+Computed separately from source disposition, as the frozen rule demands.
+
+```text
+adjacent scientific hand-off transitions   2046
+retrace-count delta histogram              {1: 2039, 2: 7}
+VI intervals consumed                      2053
+DISPLAY_REPEAT_INTERVALS                   7
+SOURCE_DROPPED                             0
+```
+
+The VI period was re-derived from THIS run by the feasibility estimator, not
+reused from run 5: the admissible range collapses to a single point,
+**675 675.00 ticks = 16.683333 ms = 59.940060 Hz**. The span-ratio estimator
+gives 675 771.82 with a residual spread of 830 612 ticks, wider than its own
+period — INFEASIBLE, replicating the §V5.48 rejection.
+
+Rate conservation over the hand-off span of 34.255791 s, with this run's own
+source cadence of 59.727125 Hz:
+
+```text
+VI intervals required   2053.294
+source transitions      2046
+rate-required extras    7.294   ->  integer bracket [7, 8]
+observed extras         7       ->  WITHIN the same-run requirement
+```
+
+A repeated interval is the VI showing one framebuffer for one extra period. It
+is not a lost frame, and this run separates the two for the first time
+physically: 7 repeats beside 0 drops.
+
+---
+
+### GBP-HW-211 — the causal comparison: the repeats fell by exactly the frames that are no longer discarded — FACT
+
+Same stimulus, same cartridge, same qualification, same VI, same span. One
+policy changed.
+
+```text
+                                   stream-0007 (run 5)   stream-0008 (run 6)
+source verdict                     OBSERVED_CONTIGUOUS   OBSERVED_CONTIGUOUS
+consumer-overlap scientific frames 2047                  2047
+successful hand-offs               2030                  2047
+source frames lost downstream      17                    0
+max deferred depth                 0 (no deferral)       1
+VI period (re-derived per run)     675675.00 ticks       675675.00 ticks
+hand-off span                      34.255790 s           34.255791 s
+VI intervals consumed              2053                  2053
+retrace delta histogram            {1:2007, 2:20, 3:2}   {1:2039, 2:7}
+DISPLAY_REPEAT_INTERVALS           24                    7
+rate-required extras (same run)    24.294 -> [24,25]     7.294 -> [7,8]
+observed within requirement        yes                   yes
+```
+
+**The VI consumed exactly 2053 intervals in both runs**, over spans that differ
+by one microsecond. The display had to fill the same amount of time either way;
+what changed is what filled it.
+
+```text
+run 5:  2029 transitions + 24 extras = 2053
+run 6:  2046 transitions +  7 extras = 2053
+        24 - 7 = 17 = exactly the interior source frames run 5 discarded
+```
+
+Every frame run 5 threw away forced the display to repeat once. Policy A stopped
+throwing them away, and the repeats fell to the 7 that rate conversion alone
+requires. That identity is the experiment.
+
+---
+
+### GBP-HW-212 — what run 6 does NOT establish — SCOPE
+
+- **Not physical scanout.** `VIDEO_SetNextFramebuffer()` is a hand-over to the
+  VI. A successful hand-off is not a proof that the frame was scanned out, and
+  "display repeat" remains an ESTIMATE under sampled VI semantics.
+- **Not universal losslessness.** One run, 34.26 s, one stimulus, one
+  cartridge, one console, one qualified window of 2047 consumer-reached frames.
+  It says nothing about other content, longer durations or other phase offsets.
+- **Not a claim about frame 2117** or anything outside 70..2116.
+- **Not pixel fidelity**, which no part of this round measured.
+- **Nothing about what the AGB displayed before the handler existed** — the
+  probe reads no VIDEO before that point (see GBP-VID-027).
+- The 0 supersessions result is a property of two framebuffers. A third would
+  reintroduce them (GBP-VID-022), and a third is still not proposed.
+
+---
+
+### GBP-VID-026 — the v2 analyzer carried the v1 readiness rule, and the first physical Policy-A trace exposed it — FACT (software)
+
+`tools/vdisp.py` contained two versions of one identity, eleven lines apart:
+
+```text
+parse()   i["decisions"] + i["source_deferred_frames"] != i["event_n"]   (v2, correct)
+usable()  info["decisions"] != info["event_n"]                           (v1, stale)
+```
+
+`parse()`'s form is the one the C parser enforces and the one
+`gbp_vdisp_intact()` uses in the runtime. `usable()` was never updated when
+OGBPDISP2 was introduced, so the run-6 trace — structurally perfect, all four
+CRCs valid, flagged INTACT by the console that wrote it — was reported
+`disposition-claim ready False` with the reason "decisions 2114 but only 2165
+events stored", a sentence that is arithmetically backwards.
+
+**Under v1 the two forms coincide**, because a v1 trace has no deferrals. That
+is precisely why it survived review: the defect is invisible until a frame
+defers, and no v1 frame ever did.
+
+A second defect in the same report: the title was the literal string
+`OGBPDISP1` whatever the file's version, so a v2 trace was printed under the v1
+name.
+
+Both are **analyzer-only**. No sidecar byte, no runtime behaviour and no
+physical result depended on either, and run 5 re-parses unchanged — still
+`OGBPDISP1`, still ready, still 2030 SELECTED_NEW and 17 HOLD_PREVIOUS. Fixed
+under §V5.50 with regressions that state the rule in the dangerous direction
+and pin the two call sites as being the same rule.
+
+**Also recorded, not fixed this round** (out of scope, no functional change
+authorised):
+
+- `usable()` does not test `order_violations`, so a trace with a reordering
+  could still be called usable for a disposition claim. It did not affect run 6,
+  where `order_violations = 0` both by counter and by reconstruction.
+- `src/gbp/gbp_vqueue.h` still declares `gbp_vqueue_note_repeat()` and carries a
+  comment asserting `repeats = xfb_skipped`. Policy A removed the call from the
+  runtime, and under stream-0008 that coupling is FALSE (repeats 0, xfb_skipped
+  129). The comment is accurate history and misleading as a current invariant.
+
+---
+
+### GBP-VID-027 — the rainbow/checkerboard is the synthetic self-test, and the AGB boots inside the masked wait — FACT (software and source, with physical timing)
+
+**OPERATOR OBSERVATION (run 6).** "The rainbow/checkerboard is still visible
+during startup; expected perhaps to see the Game Boy boot/logo by now."
+
+**The pattern is identified from source, not guessed.** `display_selftest()`
+builds every pixel as
+
+```c
+w = ((x >> 3) << 10) | ((y >> 3) << 5) | ((x ^ y) & 0x1F)
+```
+
+and `gbp_vpix` places R in bits 14-10, G in 9-5, B in 4-0. So R is a horizontal
+ramp in 8-pixel steps, G a vertical ramp in 8-pixel steps, and B is an XOR
+producing a nested checkerboard of 32-pixel period. Rendering it reproduces a
+rainbow gradient overlaid with a checkerboard — the operator's description
+exactly. It is a coordinate gradient by construction and **knows no stimulus
+value**, which is why it cannot teach the runtime what the experiment is looking
+for (§V3.11).
+
+**FACT: the visible checkerboard is diagnostic GameCube-side output, never Game
+Boy source video.**
+
+**Startup chronology, from the run-6 log (t = 0 at the CLOCKS epoch):**
+
+```text
+-0.0235 s  self-test takes, converts and HANDS OFF the synthetic frame
++0.1074 s  PREHANDLERWAIT begins  -- CONTROL = 0x8e, the AGB is RUNNING,
+                                     PI masked, no handler, nothing serviced
++5.1074 s  PREHANDLERWAIT ends    -- CONTROL = 0x8e, unchanged
++5.1079 s  capture_start
++5.1464 s  first real source frame taken (frame_index 2)
++5.1542 s  first real frame handed off  <- the checkerboard is replaced HERE
++6.2849 s  qualification window opens (frame_index 70)
+```
+
+The synthetic pattern is the only thing in the stream framebuffers for
+**5.1777 s**, and 5.000 s of that — 96.6 % — is the diagnostic wait.
+
+**The cartridge is executing throughout.** `gbp_vstate_probe.c` states it at the
+wait: "Stage A has put CONTROL in the running shape, so the AGB is executing; PI
+is still masked and NO handler exists". The physical log corroborates:
+`PREHANDLERWAITSTATE control_pre=8e control_post=8e`.
+
+**Why no boot logo is captured — answered by an experiment already in the repo.**
+GBP-VIDEO-002 (`vstate-0001`), with no pre-handler wait, saw the structured
+screen appear **0.5014 s after capture start**, animate for about three seconds
+and settle (GBP-HW-074…087). The control run `vstate-prewait-5000`, with the
+SAME 5000 ms wait, reported `BASELINE valid=1 frames_seen=3 frame_index=4` and
+`STRUCTURED status=not_observed` over 10 446 frames and 174.892 s: with the wait
+in place the screen is already static when capture opens. The animation happens
+entirely inside the masked wait, and the wait exists for exactly that reason —
+§V3.26 records that without it "the colour capture would certify inside the AGB's
+boot".
+
+Run 6 is the same situation with a Game Pak: by `capture_start` the stimulus ROM
+is already running and producing indexed frames.
+
+**INFERENCE, not fact** — `tools/vindex.py` excludes frames below the window as
+`leading_edge`, "AGB frames before id 0x000055 are unobservable". Within the
+observed range `FRAME_ID = frame_index + 15` exactly (2047/2047 deltas of +1).
+Extrapolating that cadence below the window, `frame_index 2` would carry
+`FRAME_ID ~17`, i.e. about 0.28 s of stimulus output, leaving roughly 4.75 s of
+the 5.04 s between "AGB running" and "first captured frame" for the GBA boot
+sequence and the cartridge's own initialisation. This is offered as arithmetic,
+not as an observation.
+
+**Nothing here is a new physical machine observation beyond what the operator
+reported.** The probe reads no VIDEO before the handler exists, so this round
+makes no claim about what the AGB actually displayed during the wait.

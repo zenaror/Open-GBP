@@ -8721,3 +8721,101 @@ framebuffers.
 loss, deferred depth ≤ 1, ready→hand-off p99 ≤ 1.0 ms and max ≤ 2.5 ms, and
 display repeats reported separately against a range the analyzer derives from
 that run's own cadence. Not a fixed 7, and never a failure by themselves.
+
+---
+
+## 2026-09-19 — policy A on hardware: 2047 of 2047, in order, and the repeats fell by exactly 17
+
+**Goal.** Ingest the first physical `stream-0008` run, decide Policy A against
+gates that were frozen before the cartridge was powered on, and — separately —
+find out why the operator still sees a checkerboard at startup instead of the
+Game Boy booting. No hardware, no runtime change.
+
+**The result, in one line.** Run 5 lost 17 interior source frames downstream and
+needed 24 repeated VI intervals; run 6, same stimulus and same VI, lost none and
+needed 7. **24 − 7 = 17.** The display had to fill the same 2053 VI intervals
+either way — the two runs' hand-off spans differ by one microsecond — and every
+frame run 5 threw away had forced one repeat. Policy A stopped throwing them
+away and the repeats fell to what rate conversion alone requires.
+
+**Source first, and it replicated a third time.** `tools/vindex.py` unmodified:
+`OBSERVED_CONTIGUOUS`. An independent byte-level decode — own record iteration,
+own sequence analysis, `istim` only for the frozen symbol contract — agreed on
+all 81 920 blocks: valid symbols, SYNC `0xB2`, CRC-8, `BLOCK_INDEX == slot`,
+STATUS `0x18` everywhere, FAULT 0, VMARGIN 24, `FRAME_ID` 85..2132 with 2047 of
+2047 adjacent deltas of +1. That gate had to pass before any downstream number
+was allowed to mean anything, and the analysis order was not negotiable.
+
+**The order was rebuilt, not trusted.** `order_violations = 0` is a counter, and
+a counter is what a bug disables. Sorting the 2047 hand-offs by decision
+timestamp gives `70, 71, …, 2116` exactly, and for each of the 48 deferred
+frames no lower index appears after it. This was the specific risk found before
+the run — `gbp_vpresent_acquire()` hands out the lowest FREE texture, so a newer
+frame in a lower slot could have overtaken a deferred older one — and the
+age-ordered offer held on hardware.
+
+**The mechanism is visible, not inferred.** Every one of the 48 deferrals
+resolved on the *very next* retrace: `retrace_decision == retrace(first defer) +
+1`, 48 times out of 48. The deferrals also fall into seven clusters, which is the
+same source↔VI beat that produced seven repeats.
+
+**A counter changed meaning and the run proves it numerically.** `xfb_skipped`
+counts one branch of `gbp_vpresent_xfb_target()`. In stream-0007 that branch was
+terminal and `xfb_skipped = 17` was 17 discarded frames. In stream-0008 the same
+branch defers, and `xfb_skipped = 129` equals `DISPSRC defer_attempts = 129`
+exactly — every one resolved, `repeats = 0`, `dropped_interior = 0`. The two
+builds must never be compared on that number as if it meant one thing.
+
+**Both latency gates passed on definitions fixed in advance.** ready =
+`t_convert_done`, hand-off = `t_decision`, population = every scientific
+hand-off, percentiles by `vpace.py`'s convention. p99 0.4946 ms against 1.0, max
+1.1353 ms against 2.5 — the maximum landing *below* the model's own replay worst
+case of 1.264 ms. Twelve of twelve pre-registered gates passed and none was
+renegotiated after the data was seen.
+
+**The analyzer got it wrong first, and that was worth finding.** `tools/vdisp.py`
+reported `disposition-claim ready False` on a structurally perfect trace: its
+`usable()` still applied the v1 identity `decisions == event_n` while `parse()`,
+eleven lines above, applied the v2 one `decisions + deferred == event_n` — the
+rule the C parser and `gbp_vdisp_intact()` both use. Under v1 the two coincide,
+because a v1 trace has no deferrals, so the defect was invisible until a frame
+deferred. The file was proven intact independently *before* the tool was
+touched; then the fix, with regressions stating the rule in the dangerous
+direction and pinning both call sites as one rule. The report was also
+hardcoded to print `OGBPDISP1` for any version. Run 5 re-parses unchanged.
+
+Two related things were found and deliberately NOT fixed, being out of scope:
+`usable()` does not test `order_violations`, and `gbp_vqueue.h` still carries a
+comment asserting `repeats = xfb_skipped`, which Policy A makes false.
+
+**The checkerboard is ours, and the boot logo was answered by a run we already
+had.** `display_selftest()` builds `w = ((x>>3)<<10) | ((y>>3)<<5) | ((x^y)&0x1F)`
+— a horizontal red ramp, a vertical green ramp and an XOR blue checkerboard.
+Rendered, it is exactly what the operator described: diagnostic GameCube output,
+never Game Boy video. It holds the stream framebuffers for 5.1777 s, of which
+5.000 s is the `PREHANDLERWAIT` diagnostic, and the AGB is *running* throughout
+— the probe says so at the wait and `control_pre=8e control_post=8e` confirms it.
+
+Why no logo reaches the screen needed no new experiment. `vstate-0001`, with no
+wait, saw the structured screen appear 0.5014 s after capture start and animate
+for three seconds. `vstate-prewait-5000`, with the same 5 s wait, reported
+`STRUCTURED not_observed` and a baseline valid by frame 4. The animation happens
+entirely inside the masked wait — which is precisely what the wait is for:
+without it the colour capture would certify inside the AGB's boot. Nothing
+prevents starting video that early; the wait is a configurable diagnostic,
+default OFF in the module. Recorded as a separate startup research gate, kept
+out of the GBP-VIDEO-004 milestone wording on purpose.
+
+**Tests executed.** 867 host tests (+39: 33 new run-6 regressions, 6 analyzer
+regressions), the full C suite green, nine POC object audits at 0 findings,
+Dolphin PASS with and without the Game Boy Player, and `stream-0008` rebuilt to
+`a9efe181…81282` unchanged. The run-6 `OGBPDISP2` and a qualification projection
+are versioned as fixtures, so `24 − 7 = 17` is recomputed wherever the suite runs.
+
+**New unknowns:** none. U-GBP-029, U-GBP-033, U-GBP-034 stay open.
+
+**Next:** decision A — Policy A is physically confirmed for this scoped run and
+replication is recommended, not required. The highest-value next experiment is
+no longer pacing: it is the startup question, as its own build with its own
+identity, asking what the VIDEO stream carries with a Game Pak inserted from the
+CONTROL transform onward. No existing run answers it.
