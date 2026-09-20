@@ -9656,3 +9656,59 @@ GBP-VID-034, GBP-VID-035; HARDWARE_TESTS §V6.20; captures/README rows.
 #9. Then, in their order: a research checkpoint on GBP-VID-034, a functional
 checkpoint repairing `tools/vvi.py` (GBP-VID-035), and only then whether a
 further run is designed. No RUN 13 is pre-registered.
+
+## 2026-09-20 — Issue #11: the VI analyzer compares in the right address domain; RUN 12 replayed afterwards, nothing reclassified
+
+**Goal.** Repair GBP-VID-035 — the offline OGBPVI1 analyzer compared a
+full-domain register reconstruction against a 24-bit-masked address — and
+replay the versioned RUN 12 OGBPVI1 with the corrected tool, as post-run
+software analysis only. Functional checkpoint; no hardware, no RUN 13, no
+change to the runtime, the formats, the fixtures, `coord-0001`, `vindex.py`,
+`vfull.py`, `icoord.py`, Policy A or the source-window gates; GBP-VID-034
+untouched.
+
+**The rule, from source, before editing.** libogc2 `ca03fb7`,
+`libogc/video.c`: `__calcFbbs` (2446–2464) converts both bases with
+`MEM_VIRTUAL_TO_PHYSICAL` and adds one line (1280 B for 640 px) for the
+bottom; `__setFbbRegs` (2466–2503) sets the flag unless EVERY base is below
+`0x01000000`, then stores every base `>> 5`, and writes reg 14 (flag, xof,
+top high byte), reg 15, reg 18 (bottom high byte, no flag), reg 19. Dolphin
+names the flag POFF, "fb address is (address>>5)", and ties the bottom's to
+the top's. The probe records `MEM_VIRTUAL_TO_PHYSICAL(xfb_stream_buf[xfb])`.
+RUN 12's buffers sit above 16 MiB in the 24 MiB MEM1, so the hardware
+registers carried the page-offset form — flag 1 in all 2370 latched records.
+The frozen tool's docstring assumed "MEM1 ⇒ flag 0" and masked `phys` to 24
+bits; hence 0/2370 and an alias between bases differing above bit 23.
+
+**The STOP, and the decision.** The candidate fix, run in a scratch copy
+first, gave top 2370/2370 and bottom 2370/2370 but L_3 = 38: two R_3
+hand-overs (frame_index 1754 → FRAME_ID 1471, 1757 → 1474) are SUPERSEDED in
+the raw file — the next hand-over came one retrace later, before the pump
+observed them current — so they have no latch record. The Issue's 40/40/40/40
+expectation was not met, so the checkpoint stopped and reported without
+weakening anything. The Orchestrator withdrew the over-constraint: L_k is
+defined over LATCHED, register-consistent records; the prospective §V6.19.9
+gate asked for at least one per appearance; the corrected expectation is
+40/40/38/40. SUPERSEDED is instrumentation semantics only — nothing is
+inferred about whether either frame was physically scanned out.
+
+**The repair.** One function: `regs_consistent()` compares in the full
+physical domain (no mask), takes an explicit `bytes_per_line` (1280), and its
+docstring states the libogc2 rule. `tests/host/test_vvi.py::TheAddressDomain`:
+flag clear / ordinary; flag set / shifted reproducing RUN 12's exact halves;
+a wrong TFBL fails in both forms; bottom plausibility not vacuous and
+stride-explicit; no alias `0x0043e440` ↔ `0x0143e440` either way; misaligned
+base is a mismatch; libogc2's flag rule versus the 16 MiB assumption;
+unlatched → no readback. `tests/host/test_run12.py` keeps the frozen-at-run
+0/2370 and L_k = 0 as fixture metadata (history) and asserts the corrected
+tool: 2370/2370, 2370/2370, every readback exactly libogc2's encoding of the
+handed address, L = 40/40/38/40 with the two SUPERSEDED members identified.
+
+**What did not change.** GBP-VIDEO-007 INCONCLUSIVE, GBP-VIDEO-008
+INCONCLUSIVE (the source gate failed first); GBP-HW-250…255; §V6.19 and
+§V6.20 as written (a pointer to §V6.21 only); the fixtures byte for byte;
+GBP-VID-034 OPEN. GBP-VID-035 → REPAIRED (software).
+
+**Next.** The Orchestrator validates the persisted evidence and closes Issue
+#9; then a research checkpoint on GBP-VID-034; only then whether a further run
+is designed. No RUN 13 is pre-registered.

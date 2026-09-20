@@ -88,12 +88,14 @@ class TheSectionExists(unittest.TestCase):
         self.assertIn("GBP-VIDEO-008 INCONCLUSIVE", head)
         self.assertIn("\u00a7V6.20", head)
 
-    def test_the_result_follows_it_as_v6_20_and_nothing_else_does(self):
+    def test_the_result_follows_it_as_v6_20_then_the_repair_note_and_nothing_else(self):
         t = read(HW)
         self.assertEqual(t.count("### V6.19 "), 1)
         self.assertEqual(t.count("### V6.20 "), 1)
+        self.assertEqual(t.count("### V6.21 "), 1)          # Issue #11: GBP-VID-035 repaired, a post-run note
         self.assertLess(t.index("### V6.19 "), t.index("### V6.20 "))
-        self.assertNotIn("### V6.21 ", t)
+        self.assertLess(t.index("### V6.20 "), t.index("### V6.21 "))
+        self.assertNotIn("### V6.22 ", t)
         self.assertNotRegex(t, r"\n## V7 ")
 
 

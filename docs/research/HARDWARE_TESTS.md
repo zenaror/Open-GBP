@@ -18889,8 +18889,10 @@ INGESTED in §V6.20 (Issue #10): GBP-VIDEO-007 INCONCLUSIVE and GBP-VIDEO-008
 INCONCLUSIVE, because the shared source-window gate failed
 (`OBSERVED_DISCONTINUITY`, GBP-VID-034); the full-frame dependent variable
 passed 8/8 as subordinate evidence; the operator saw 1 → 2 → 3 → 4; the frozen
-VI analyzer's zero is an analyzer defect (GBP-VID-035, OPEN). Evidence
-GBP-HW-250 … 255. No rerun is pre-registered. No frozen format changes.**
+VI analyzer's zero is an analyzer defect (GBP-VID-035, REPAIRED in software
+afterwards by Issue #11, §V6.21: the corrected post-run replay reads 2370/2370
+and L = 40 / 40 / 38 / 40, changing no verdict). Evidence GBP-HW-250 … 255.
+No rerun is pre-registered. No frozen format changes.**
 §V6.1–§V6.17 below are the design as written for GitHub
 Issue #6 and are kept verbatim as provenance: where the implementation decided
 one of §V6.17's open items, or departs from a design detail, §V6.18.12 says so
@@ -19986,7 +19988,8 @@ was reproduced here independently from the raw files with the frozen tools,
 unchanged, and the classification is neither reinterpreted nor widened. No
 gate was touched after the result was seen. Nothing was fixed, nothing was
 rerun, and no rerun is pre-registered. Evidence: GBP-HW-250 … GBP-HW-255;
-findings GBP-VID-034 and GBP-VID-035, both OPEN.
+findings GBP-VID-034 and GBP-VID-035, both OPEN at ingestion (GBP-VID-035 was
+repaired in software afterwards: §V6.21; this part is not rewritten).
 
 #### V6.20.1 Classification — fixed by the Orchestrator, persisted exactly
 
@@ -20262,5 +20265,59 @@ audio, input, the Link Port, Ethernet, networking, BBA initialisation, Phase
 the analyzers, the formats and the gates are unchanged. The next steps —
 understanding GBP-VID-034, repairing GBP-VID-035 in a functional checkpoint,
 and whether and how a further run is designed — are the Orchestrator's.
+
+### V6.21 GBP-VID-035 REPAIRED (software) — the OGBPVI1 analyzer compares in the right address domain; a post-run corrected replay of RUN 12 (GitHub Issue #11, 2026-09-20)
+
+A functional software checkpoint, written after §V6.20. **It changes no
+verdict, no gate, no fixture byte, no format, no runtime and nothing about
+GBP-VID-034.** RUN 12 remains GBP-VIDEO-007 INCONCLUSIVE and GBP-VIDEO-008
+INCONCLUSIVE because the shared source-window gate failed independently
+(§V6.20.5); the analyzer frozen at RUN 12 returned 0 / 2370 and L_k = 0, and
+§V6.20.7 / GBP-HW-255 keep that as the historical record. Everything below is
+post-run software analysis with a corrected tool.
+
+```text
+THE RULE, FROM SOURCE   external/libogc2 @ ca03fb75…392a, libogc/video.c
+  __calcFbbs   2446-2464   tfbb = bufAddr + pan offsets; bfbb = tfbb (+ bytesPerLine unless single-field);
+                           both MEM_VIRTUAL_TO_PHYSICAL; bytesPerLine = (wordPerLine << 5) & 0x1fe0 = 1280 (640 px)
+  __setFbbRegs 2466-2503   flag = 1 unless EVERY base (tfbb, bfbb, rtfbb, rbfbb) < 0x01000000; if flag: every base >>= 5
+                           regs[14] = flag<<12 | xof<<8 | tfbb>>16 ; regs[15] = tfbb & 0xffff
+                           regs[18] = bfbb>>16 ; regs[19] = bfbb & 0xffff        (no flag bit in reg 18)
+  meaning of the flag      Dolphin VideoInterface.h @ c185d27, UVIFBInfoRegister.POFF: "1: fb address is (address>>5)";
+                           VideoInterface.cpp 460-464: the bottom's POFF is the top's
+  the recorded phys        main.c:938  MEM_VIRTUAL_TO_PHYSICAL(xfb_stream_buf[xfb]) -- the same physical domain
+  RUN 12's buffers         0x013a8420 / 0x0143e440: above 16 MiB in the 24 MiB MEM1 -> the page-offset form, flag 1,
+                           exactly what all 2370 latched records carry
+ROOT CAUSE               the frozen regs_consistent() masked phys to 24 bits (the false "MEM1 => flag 0" assumption)
+                           and compared it against a full-domain reconstruction: 0x0143e440 vs 0x0043e440, never equal;
+                           the same mask would alias two bases that differ above bit 23
+THE REPAIR (one function) no mask: the compare is in the full physical domain; bytes_per_line explicit (1280);
+                           the docstring states the rule. chain(), the parser, the report and the formats unchanged
+SYNTHETIC MATRIX         tests/host/test_vvi.py::TheAddressDomain -- flag clear / ordinary; flag set / shifted
+                           reproducing RUN 12's exact halves (0x100a 0x1f22 0x000a 0x1f4a; 0x1009 0xd421 0x0009 0xd449);
+                           a wrong TFBL fails in both forms; bottom plausibility not vacuous, stride explicit;
+                           no alias 0x0043e440 <-> 0x0143e440 either way; misaligned base under the shifted form is
+                           a mismatch; libogc2's flag rule vs the 16 MiB assumption; unlatched -> no readback
+CORRECTED REPLAY         the versioned RUN 12 OGBPVI1 (d301e96e…ddb0, bytes untouched), tests/host/test_run12.py:
+  strict parse           unchanged; handed 2377, latched 2370, superseded 6, overflow 0
+  register consistency   top 2370 / 2370 ; bottom 2370 / 2370 (always base + 1280); every readback is exactly
+                           libogc2's encoding of the handed address
+  software chain         k  digit  |R_k|  retained  |H_k|  |L_k|      (derived by the tool from LATCHED records)
+                          1    1     40      40       40     40
+                          2    2     40      40       40     40
+                          3    3     40      40       40     38
+                          4    4     40      40       40     40
+  the two outside L_3    frame_index 1754 (FRAME_ID 1471) and 1757 (FRAME_ID 1474): SUPERSEDED in the raw file --
+                           the next hand-over came one retrace later, before the pump observed them current, so no
+                           latch record exists. Instrumentation semantics only: nothing here says whether either
+                           frame was, or was not, physically scanned out.
+WHAT IT MEANS            §V6.19.9 asked for at least one handed-and-VI-latched frame per qualifying appearance; all
+                           four corrected sets are non-empty. For RUN 12 that changes nothing (the source gate failed
+                           first); for a future admissible run the tool now reads the registers it was designed to read.
+```
+
+The frozen-at-run output, the corrected replay and the two verdicts are three
+different things and this part keeps them apart: the first is history, the
+second is software analysis performed afterwards, the third is unchanged.
 
 ---

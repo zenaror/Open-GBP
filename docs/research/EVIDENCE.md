@@ -6299,7 +6299,7 @@ ingestion.
 
 ---
 
-### GBP-VID-035 — frozen `tools/vvi.py::regs_consistent()` masks the recorded physical address before the flag-induced shift, so no MEM1 address carried with the VI flag can ever match — SOFTWARE ANALYZER DEFECT, FACT; OPEN
+### GBP-VID-035 — frozen `tools/vvi.py::regs_consistent()` masks the recorded physical address before the flag-induced shift, so no MEM1 address carried with the VI flag can ever match — SOFTWARE ANALYZER DEFECT, FACT; REPAIRED (software) 2026-09-20 (Issue #11); the frozen-at-RUN-12 output is preserved as history
 
 The frozen function computes `phys = rec["phys"] & 0xFFFFFF`, reconstructs
 `top` / `bottom` from the register halves, and then `if flag: top <<= 5;
@@ -6320,3 +6320,48 @@ raw records (flag 1, address stored >> 5). Not fixed in the ingestion
 checkpoint; no physical rerun is required to fix or analyse the tool;
 `tests/host/test_run12.py` pins the divergence as a known finding until a
 functional checkpoint repairs it and retires the pin.
+
+**2026-09-20, REPAIRED (software), GitHub Issue #11 — post-run analysis
+only.** The rule was taken from the source, not inferred from the run:
+`external/libogc2` @ `ca03fb7534a9b67d3348ef76e3a3b379aee9392a`,
+`libogc/video.c` — `__calcFbbs` (2446–2464) converts both bases with
+`MEM_VIRTUAL_TO_PHYSICAL` and sets `bfbb = tfbb + bytesPerLine`
+(`(wordPerLine << 5) & 0x1fe0` = 1280 B for 640 px) unless single-field;
+`__setFbbRegs` (2466–2503) sets `flag = 1` unless EVERY base is
+`< 0x01000000`, then shifts every base `>> 5`, and writes `regs[14] = flag<<12
+| xof<<8 | tfbb>>16`, `regs[15] = tfbb & 0xffff`, `regs[18] = bfbb>>16`,
+`regs[19] = bfbb & 0xffff` — no flag bit in reg 18 (Dolphin
+`VideoInterface.h` @ `c185d27`: `POFF` "1: fb address is (address>>5)", and
+"POFF for XFB bottom is connected to POFF for XFB top"). The recorded `phys`
+is `MEM_VIRTUAL_TO_PHYSICAL(xfb_stream_buf[xfb])` (`main.c:938`), the same
+domain. RUN 12's buffers (`0x013a8420`, `0x0143e440`) lie above 16 MiB in the
+24 MiB MEM1, so the registers carried the page-offset form — exactly as the raw
+records show. Root cause: the 24-bit mask on `phys` (a leftover of the false
+"MEM1 means flag 0" assumption) compared a full-domain reconstruction against
+a truncated target, and would also have aliased bases differing above bit 23.
+The repair (commit A of Issue #11) removes the mask, makes `bytes_per_line`
+explicit (default 1280) and corrects the docstring; nothing else in the tool
+changes. Synthetic matrix (`tests/host/test_vvi.py::TheAddressDomain`): flag
+clear ordinary address; flag set / shifted address reproducing RUN 12's exact
+register halves (`0x100a 0x1f22 0x000a 0x1f4a`, `0x1009 0xd421 0x0009
+0xd449`); genuinely wrong TFBL fails in both forms; bottom plausibility not
+vacuous and stride-explicit; no alias between `0x0043e440` and `0x0143e440`
+in either direction; a misaligned base under the shifted form is a mismatch;
+libogc2's flag rule versus the frozen tool's 16 MiB assumption. **Corrected
+post-run replay of the versioned RUN 12 OGBPVI1: top 2370 / 2370, bottom
+2370 / 2370; software chain L_1 = 40, L_2 = 40, L_3 = 38, L_4 = 40,
+derived by the tool from records marked LATCHED and register-consistent.** The
+two R_3 members not in L_3 — `frame_index 1754` (FRAME_ID 1471) and `1757`
+(FRAME_ID 1474) — are SUPERSEDED in the raw file: the next hand-over came one
+retrace later, before the pump observed them current, so no latch was
+recorded. That is instrumentation semantics only; it says nothing about
+whether either frame was or was not physically scanned out. **What does not
+change:** the analyzer frozen at RUN 12 returned 0 / 2370 and L_k = 0
+(GBP-HW-255, §V6.20.7) and that stays the historical record; GBP-VIDEO-007
+remains INCONCLUSIVE and GBP-VIDEO-008 remains INCONCLUSIVE, because the
+shared source-window gate failed independently (GBP-HW-251); GBP-VID-034 is
+untouched and OPEN; no fixture byte, format, runtime or gate changed; no
+hardware, no RUN 13. The §V6.19.9 gate asked for at least one
+handed-and-latched frame per qualifying appearance; all four corrected sets
+are non-empty, and that satisfies the software-chain population requirement
+of a future admissible run, not of this one.
