@@ -9279,3 +9279,57 @@ topology (BBA present, Ethernet disconnected, same indexed-0003), whose primary
 new gate is `truncated=0` with `WITELIG` and `WITELIG2` both complete and the
 zero present directly, plus every established regression gate. Run-11 names
 reserved. Networking does not start.
+
+---
+
+## 2026-09-20 — RUN 11 ingested: the two lines arrived whole; GBP-VID-033 is physically validated
+
+**Goal.** Ingest the pre-registered `GBP-VIDEO-006` / RUN 11 (GitHub Issue #2,
+the first checkpoint coordinated through an Issue), which the orchestrator had
+already classified PASS, and persist it: raw archive, fixtures, a regression
+test, the research record. Executor role; no runtime, analyzer, format, Policy
+A, witness, Phase 11 or remote change; no networking. The Gitea→GitHub
+workflow migration is the next, separate checkpoint and was not started.
+
+**Archive first, then hash, then read.** The console's three generated names
+went to the reserved `…stream-0011-run11…` names with `cp --update=none` and
+`cmp` before anything else; runs 1–10 untouched. Hashes recomputed here —
+`c1987d2f…` (86 338 B), `9b62415b…` (8 946 060 B), `04feeca9…` (401 956 B) —
+and only then compared with the orchestrator's: all three match. The artifact
+on disk, in the Swiss copy and in the log header is `stream-0011 @ 97c78c2`,
+`df2873ee…3e25`; the stimulus is run 10's; `tools/`, `src/`, `stimulus/` are
+byte-identical to `fbaea00`.
+
+**The primary gate, read straight off the log.** `lines=651 dropped=0
+truncated=0`. One `WITELIG` (167 characters), one `WITELIG2` (98), consecutive,
+eleven contract fields between them, `qual_streak_at_eligible=0` present with
+no derivation. The longest line in the log is now `STARTUPT` at 218, the
+runner-up of runs 9 and 10. The counter cross-check the pre-registration asked
+for still agrees, and the counters equal run 10's, so the frozen replay stands.
+
+**Everything else, reproduced, not copied.** Frozen `vindex.py`:
+`OBSERVED_CONTIGUOUS`, intact 2048 / INVALID 0, 73..2120, 2046 decisive.
+Independent decode: 81 920/81 920 strips, 2047 deltas of +1, STATUS 0x18,
+FAULT 0. Transport clean, 254 864 everywhere. OGBPDISP2 four CRCs verified;
+join 2047 `SELECTED_NEW` plus the capture edge; interior 0; reorder 0; 50/128
+deferred in the join, depth 1; frozen latency p99 0.486790 ms, max 1.000914 ms;
+seven display repeats for the sixth run running, recorded and not gated.
+Startup NORMAL, first hand-off 165.158691 ms, +177 ticks from run 10, recorded
+without a tolerance. `GBP-VIDEO-006 / RUN 11: PASS`, exactly as pre-registered.
+
+**What it means, in one sentence.** The GBP-VID-033 reporting repair is
+physically validated for this controlled run, with no detected regression.
+Not networking, not Ethernet, not BBA initialisation, not Phase 11, not a
+media double check, which stays PENDING for runs 9–11.
+
+**Fixtures and test.** The OGBPDISP2 byte-identical, the content-blind qual
+projection naming its raw witness, and the structural projection carrying the
+declaration as a declaration, the names, the hashes, the header, both records
+with their widths, the direct zero and its cross-check, the run-10 comparison
+and the 2048 records. `test_disp_run11.py`: 20 tests, the run-9/run-10 gates
+reused plus the reporting gate; host suite 1000 passed. Run-9 and run-10
+fixtures untouched; run 10 keeps its `truncated=1`.
+
+**Next.** The orchestrator validates these commits and opens the workflow
+migration checkpoint (canonical remote, Issues, Milestones, Project, Roadmap
+governance). No physical run is pending. Networking does not start.
