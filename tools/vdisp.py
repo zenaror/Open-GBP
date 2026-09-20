@@ -238,6 +238,16 @@ def usable(info):
         why.append("the event array overflowed (%d lost)" % info["event_overflow"])
     if info["drawdone_unmatched"]:
         why.append("%d draw-done tokens matched no lifecycle" % info["drawdone_unmatched"])
+    # §V5.52. A REORDERING IS NOT A WARNING. The disposition claim is "every
+    # interior source frame reached a framebuffer IN ORDER", so a trace that
+    # recorded an out-of-order hand-off cannot support it, whatever else is
+    # clean. `parse()` already refuses such a file if it ALSO claims INTACT;
+    # this refuses the claim even when the flag is honestly clear.
+    #
+    # v1 traces carry 0 here (stream-0007 had no deferral and no reordering),
+    # so this reduces to the previous behaviour for every existing capture.
+    if info["order_violations"]:
+        why.append("%d hand-off(s) were out of source order" % info["order_violations"])
     # §V5.50. THE v2 EVENT IDENTITY, which is the one `parse()` above already
     # enforces against the INTACT flag and the one `gbp_vdisp_intact()` uses in
     # the runtime: a DEFERRED frame emits an event on its first defer, so the
