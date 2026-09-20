@@ -18280,7 +18280,7 @@ comparison.
 
 ---
 
-### V5.58 GBP-VID-033 REPAIRED — `stream-0011` — 2026-09-20 — **FIXED IN SOFTWARE / PHYSICAL VALIDATION PENDING; GBP-VIDEO-006 (RUN 11) PRE-REGISTERED, NOT EXECUTED**
+### V5.58 GBP-VID-033 REPAIRED — `stream-0011` — 2026-09-20 — **PHYSICALLY VALIDATED: GBP-VIDEO-006 (RUN 11) EXECUTED 2026-09-20 — PASS (§V5.58.9)**
 
 The orchestrator opened this functional checkpoint after run 10 closed. It
 repairs ONE reporting defect, proves the repair cannot touch witness or runtime
@@ -18395,7 +18395,11 @@ tests untouched; their `truncated=1` remains true of `stream-0010`.
 validation. **GBP-VID-033: FIXED IN SOFTWARE / PHYSICAL VALIDATION PENDING.**
 Nothing here says the physical reporting defect is hardware-validated fixed.
 
-#### V5.58.7 PRE-REGISTRATION — GBP-VIDEO-006, RUN 11 — NOT EXECUTED
+**2026-09-20, later — run 11 (§V5.58.9): GBP-VID-033 PHYSICALLY VALIDATED** for
+that controlled run: `truncated=0`, both records complete, the zero read
+directly. The scope is §V5.58.9 IX–X and nothing wider.
+
+#### V5.58.7 PRE-REGISTRATION — GBP-VIDEO-006, RUN 11 — EXECUTED 2026-09-20, RESULT IN §V5.58.9
 
 `GBP-VIDEO-006`: the next free number in the VIDEO area (`GBP-VIDEO-005` was run
 B). **Global run 11** — runs 1–10 are the highest referenced. The embedded id
@@ -18485,7 +18489,193 @@ name; declare BBA present / Ethernet disconnected / same console.
 
 #### V5.58.8 Non-claims
 
+*(As written before the run. §V5.58.9 X carries the post-run scope; where the
+two differ, §V5.58.9 is current.)*
+
 No hardware ran. `stream-0011` is not physically validated. Nothing about
 networking, Ethernet, BBA initialisation or Phase 11, which does not move. The
 BBA is present in the validation topology only because run 10 is the immediate
 baseline, not because anything about it is being tested.
+
+#### V5.58.9 RESULT — run 11, ingested 2026-09-20 — **PASS**
+
+Analysed in the frozen order (identities → log header and the two reporting
+records → `vindex.py` → source → container → join → disposition → deferral →
+latency/depth → cadence → startup → comparison). No gate was touched after the
+result was seen. The orchestrator had classified the run PASS before this
+ingestion; every figure below was reproduced here independently from the raw
+files, and the classification is neither reinterpreted nor widened.
+
+**I. Operator topology declaration — preserved literally, not derived from
+files or logs:** BBA PRESENT: **YES**. Ethernet: **DISCONNECTED**. Same
+GameCube as RUN 10: **YES**. Same Game Boy Player as RUN 10: **YES**. The
+§V5.58.7 topology prerequisite is satisfied.
+
+**II. Artifacts, hashed here first.** The console wrote its generated names
+(`GBP-VIDEO-004_stream-0011.log` / `-idxcap.bin` / `-disp.bin`, kept as
+metadata). They went FIRST to the reserved run-11 names with `cp --update=none`
+and `cmp`, and were hashed before anything was read into an interpretation;
+runs 1–10 untouched. All three match the orchestrator's independent
+measurements.
+
+```text
+log      86 338 B     c1987d2f5499b037d7912e5664178d0c38bb68afba270001f3968537ded4228b
+idxcap   8 946 060 B  9b62415b869a07c27440f6c481f1971e4244de4b1efc0ff453eed349e3e74b51
+disp     401 956 B    04feeca965f9b68479dc654aa31b25e1bf16798c79365b0f938911adfa72b3e7
+DOL      495 104 B    df2873ee…3e25   (stream-0011 @ 97c78c2: on disk, in the Swiss copy — cmp identical —
+                                       in build-info.txt, and in the log header)
+stimulus 2 880 B      9f04916b…8d9cc2 (build/physical/agb-indexed-cart.gba, not re-flashed)
+header   build_id=stream-0011 commit=97c78c2 lines=651 dropped=0 truncated=0
+```
+
+`tools/`, `src/` and `stimulus/` are unchanged since `fbaea00` (`git diff
+--stat` empty), and nothing under `poc/`, `src/`, `tools/`, `stimulus/` or
+`tests/` changed between `97c78c2` and the ingestion HEAD `5c57558`. Media
+double check: PENDING.
+
+**III. THE PRIMARY GATE — log reporting, new in this run.**
+
+```text
+lines=651 dropped=0 truncated=0
+000640 WITELIG  policy=time_not_before origin=control not_before_ms=5000 gated_at_init=1
+                released=1 still_gated=0 t_eligible=7953e9a70177c4
+                ticks_control_to_eligible=202505829                       payload 167 / 248
+000641 WITELIG2 frames_seen_before_eligible=292 disqualified_before_eligible=26
+                qual_streak_at_eligible=0                                  payload  98 / 248
+```
+
+Exactly one `WITELIG` and exactly one `WITELIG2`, consecutive; the eleven field
+names of the `stream-0010` contract are all present, eight in the first record
+and three in the second; nothing renamed. The longest payload anywhere in the
+log is `STARTUPT` at 218 — the runner-up of runs 9 and 10 is now the maximum,
+and no line reaches the limit. **`qual_streak_at_eligible=0` is read directly
+from the saved log**; no derivation is needed to recover it. The counter
+cross-check the pre-registration required still agrees: `356 − 292 = 64 =
+required`, `355 = 292 + 63`, `resets 0`, `26 = 26`. Those counters are run
+10's exactly, so the frozen-`gbp_vwitness.c` replay of §V5.57.14 IV (only
+streak 0 yields `qualify_frame 355`; 1 → 354, 10 → 345) applies unchanged.
+**PRIMARY GATE PASS.**
+
+**IV. Source, the frozen tool, verbatim.** `vindex.py`, `istim.py`,
+`vidxcap.py`, `vdisp.py`, `vqual.py` unmodified since `fbaea00`:
+
+```text
+records 2048/2048, 0 discarded, 81 921/81 921, out of range 0
+flags target_reached, service_ok, stop_is_target
+header/total CRC-32  ae45abb9 / 1ea96c60
+observed 2048 (intact 2048) · first/last 0x000049 .. 0x000848 (73 .. 2120)
+decisive transitions 2046, all OBSERVED_ID_CONTIGUOUS
+VERDICT OBSERVED_CONTIGUOUS      -- with intact 2048 / INVALID 0: the composition
+```
+
+Independent decode: header and global CRCs match, 2048/2048 seals, reserved
+zero, `frame_index` 356..2403 strictly +1, **81 920 / 81 920 valid canonical
+blocks, index ok in all, MIXED 0, FRAME_ID 73..2120 with 2047 deltas of +1,
+STATUS 0x18 throughout, FAULT 0, VMARGIN 24**, cadence 59.727289 Hz. Every
+count equals runs 9 and 10 — an observation.
+
+**V. Gate and window.**
+
+```text
+WITQUAL  required=64 resets=0 warmup_frames=356 warmup_disqualified=26
+         qualify_frame=355 first_record_frame=356 window_first_block=0
+eligibility        202 505 829 / 40 500 000 = 5.000143926 s   (run 10: 5.000156815; −522 ticks = −12.9 µs)
+first record       6.067192864 s after CONTROL               (run 10: 6.067209136; −16.3 µs)
+```
+
+Released, not gated, ≈ 5 s after CONTROL by machine timing; 64 qualifying
+closes; the window at the next block 0; 2048 records; no trim. PASS.
+
+**VI. Startup.** `STARTUP mode=normal selftest_visible=0 prehandler_wait_ms=0
+clear_fb=1 normal_clean=1 presented_synthetic=0 headless_submits=1`;
+`ticks_control_to_first_handoff=6688927` = **165.158691 ms** (run 10:
+6 688 750 = 165.154321 ms; **+177 ticks = +4.370 µs**; run 9: +160 ticks).
+Headless self-test 12.219 ms, program → first hand-off 211.078 ms, CONTROL →
+capture 107.670 ms, capture → first hand-off 57.489 ms. `< 400 ms` PASS; the
+delta is recorded, no tolerance invented. Transient still recorded: `FRAMECAP
+2404/2391/13/26/13`, `STRUCTURED 45 episodes`, the same four preserved
+descriptors as runs 7–10.
+
+**VII. Transport and Policy A.** `stop=witness_target_reached`, 254 864 =
+254 864 = 254 864 = 254 864 (run 10: 254 873), `video 96 110/96 110`, `timeouts
+0 busy 0 overflow 0 uncertain 0 errors 0 transport_ok 1`. OGBPDISP2 `92f11ee3 /
+d7b7e03a / 51a66d21 / 839a6ba5` recomputed and matched; `2377 + 54 = 2431`;
+official `vdisp.py` `ready True`; `terminal_pending` header 1 = the headless
+self-test, log 0 pre-finish (established ordering). Join over 356..2403: 2047
+`SELECTED_NEW`, `[2403]` the capture-edge residual, interior 0; order rebuilt
+`== 356..2402`; 50 deferred / 128 attempts in the join (54 / 140 whole trace),
+every one on the next retrace, all `XFB_BUSY`, depth 1, `xfb_skipped 140 =
+defer_attempts`; runtime `taken = converted = presented = 2377`, `repeats 0`,
+`balanced 1`, `submit 2378/2378`, `drawdone = releases = 2378`, `STREAMINV
+200 140 / 0`.
+
+```text
+LATENCY, frozen definition (ready = t_convert_done -> t_decision, all 2047):
+   p99 0.486790 ms   max 1.000914 ms      gates 1.0 / 2.5   PASS
+alternate diagnostic (first attempt -> decision, 50 deferred): p99 = max = 0.999309 ms
+CADENCE, separately: retrace deltas {1: 2039, 2: 7} -> 7 DISPLAY_REPEAT_INTERVALS
+   (runs 6–11: seven each -- OBSERVATIONAL, never a gate, and none is added now)
+```
+
+**VIII. The comparison with the control, filled from measured data.**
+
+```text
+field                                run 10 (stream-0010)   RUN 11 (stream-0011)
+DOL SHA-256                          6b57d669…6180          df2873ee…3e25   <- the intentional variable
+stimulus SHA-256                     9f04916b…8d9cc2        9f04916b…8d9cc2
+BBA / Ethernet (operator)            PRESENT / DISCONNECTED PRESENT / DISCONNECTED
+log header truncated                 1                      0
+WITELIG records / fields kept        1 clipped / 10 of 11   2 complete / 11 of 11
+qual_streak_at_eligible              derived (counters)     DIRECT, 0
+first real hand-off after CONTROL    165.154321 ms          165.158691 ms   (+177 ticks)
+eligibility after CONTROL            5.000156815 s          5.000143926 s   (−522 ticks)
+first scientific record              6.067209136 s          6.067192864 s
+first / last FRAME_ID                73 / 2120              73 / 2120
+intact / INVALID                     2048 / 0               2048 / 0
+transport errors/timeouts/uncertain  0 / 0 / 0              0 / 0 / 0
+transport unmasks                    254 873                254 864
+scientific records joined            2047 (+1 edge)         2047 (+1 edge)
+interior drops / reorder             0 / 0                  0 / 0
+deferred / attempts (join)           46 / 112               50 / 128
+max defer depth                      1                      1
+frozen p99 / max latency             0.471778 / 1.000765    0.486790 / 1.000914 ms
+display-repeat intervals             7                      7
+OGBPIDXCAP1 integrity                e410094e / f771828c ok ae45abb9 / 1ea96c60 ok
+OGBPDISP2 integrity                  3e547a48 … ok          92f11ee3 … ok
+```
+
+Numerical closeness across the two runs is an observation. No tolerance is
+derived from it and no mechanism for the small tick differences is claimed.
+
+**IX. Classification — exactly as §V5.58.7 fixed it.** Correct `stream-0011`
+artifact; correct `indexed-0003`; BBA present / Ethernet disconnected declared
+by the operator; physical log `dropped=0 truncated=0`; `WITELIG` and `WITELIG2`
+complete with the zero present directly; every regression gate passes.
+**GBP-VIDEO-006 / RUN 11: PASS.**
+
+> The GBP-VID-033 reporting repair is physically validated for this controlled
+> run — `stream-0011` on the same GameCube, Game Boy Player, `indexed-0003`
+> stimulus and BBA-present / Ethernet-disconnected topology as run 10 — with no
+> detected regression in the established source / transport / Policy-A /
+> startup metrics.
+
+**X. What run 11 does NOT establish.** Nothing about an Ethernet-connected
+topology, BBA initialisation, networking or network code; Phase 11 does not
+move. The BBA was present only because run 10 is the immediate baseline, not
+because anything about it was tested. Not universal hardware independence; not
+a tolerance on startup, eligibility or latency; not scanout or pixel fidelity;
+not a media double check (PENDING). Runs 9 and 10 remain `stream-0010`
+evidence with `truncated=1`; their fixtures, derivations and tests are
+untouched.
+
+**Fixtures.** `captures/fixtures/hw-gamecube-gbp-2026-09-20-stream-0011-run11-disp.bin`
+(the OGBPDISP2, byte-identical), `…-idxcap-run11-qual.bin` (content-blind
+projection, `d73f6c98…a3e6`, naming the raw witness by size and hash) and
+`…-idxcap-run11-struct.json` (the structural projection: declaration, names,
+hashes, verdict with composition, log header, both reporting records with their
+field lists and widths, the direct zero with its cross-check, transport, Policy
+A, the run-10 comparison, 2048 records). `tests/host/test_disp_run11.py`: 20
+tests, the run-9/run-10 gates reused and the primary reporting gate added;
+host suite 1000 passed.
+
+---
