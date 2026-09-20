@@ -1,0 +1,39 @@
+
+call/gbp_vwitness.o:     file format elf32-powerpc
+
+
+Disassembly of section .text.gbp_vwitness_note_frame:
+
+00000000 <gbp_vwitness_note_frame>:
+   0:	94 21 ff f0 	stwu    r1,-16(r1)
+   4:	3d 40 00 00 	lis     r10,0
+			6: R_PPC_ADDR16_HA	.rodata.gbp_vwitness_note_frame.str1.4
+   8:	3d 00 00 00 	lis     r8,0
+			a: R_PPC_ADDR16_HA	.rodata.gbp_vwitness_note_frame.str1.4+0x4
+   c:	7c 69 1b 78 	mr      r9,r3
+  10:	93 e1 00 0c 	stw     r31,12(r1)
+  14:	7c 08 02 a6 	mflr    r0
+  18:	7c 9f 23 78 	mr      r31,r4
+  1c:	38 68 00 00 	addi    r3,r8,0
+			1e: R_PPC_ADDR16_LO	.rodata.gbp_vwitness_note_frame.str1.4+0x4
+  20:	38 8a 00 00 	addi    r4,r10,0
+			22: R_PPC_ADDR16_LO	.rodata.gbp_vwitness_note_frame.str1.4
+  24:	93 c1 00 08 	stw     r30,8(r1)
+  28:	90 01 00 14 	stw     r0,20(r1)
+  2c:	7d 3e 4b 78 	mr      r30,r9
+  30:	48 00 00 01 	bl      30 <gbp_vwitness_note_frame+0x30>
+			30: R_PPC_REL24	fopen
+  34:	2c 03 00 00 	cmpwi   r3,0
+  38:	41 82 00 08 	beq     40 <gbp_vwitness_note_frame+0x40>
+  3c:	48 00 00 01 	bl      3c <gbp_vwitness_note_frame+0x3c>
+			3c: R_PPC_REL24	fclose
+  40:	2c 1f 00 00 	cmpwi   r31,0
+  44:	38 60 00 00 	li      r3,0
+  48:	41 82 00 08 	beq     50 <gbp_vwitness_note_frame+0x50>
+  4c:	38 7e 00 01 	addi    r3,r30,1
+  50:	80 01 00 14 	lwz     r0,20(r1)
+  54:	83 c1 00 08 	lwz     r30,8(r1)
+  58:	83 e1 00 0c 	lwz     r31,12(r1)
+  5c:	7c 08 03 a6 	mtlr    r0
+  60:	38 21 00 10 	addi    r1,r1,16
+  64:	4e 80 00 20 	blr

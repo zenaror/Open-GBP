@@ -25,6 +25,9 @@
 #   make avsvc-dolphin  run the gbp-av-service-probe DOL in Dolphin (absent → abort_inconsistent; GBPlayer model → shape abort)
 #   make video-dolphin  run the gbp-video-capture-probe DOL in Dolphin (absent → abort_inconsistent; GBPlayer model → shape abort)
 #   make video-audit    audit gbp-video-capture-probe: both 002/003B handlers and every object (profile video)
+#   make stream-audit   audit gbp-video-stream-probe (profile stream) and compare its handlers with the
+#                       GBP-VIDEO-001 reference, which the target builds itself; every *-audit rebuilds a
+#                       stale POC first and reads the -dr AND -r listings of every object (F3/F8, §V5.59)
 #   make vstate-dolphin run the gbp-video-state-probe DOL in Dolphin (absent -> abort_inconsistent; GBPlayer model -> shape abort)
 #   make swiss          export every built DOL to build/swiss/NN-short/boot.dol with an
 #                       INDEX.txt, so the right build is obvious in Swiss (numbers are
@@ -102,6 +105,98 @@ SMOKE_OUT := build/poc/smoke-test
 SMOKE_DOL := $(SMOKE_OUT)/smoke-test.dol
 PROBE_OUT := build/poc/gbp-probe
 PROBE_DOL := $(PROBE_OUT)/gbp-probe.dol
+
+# ---- audits: real prerequisites (F3, HARDWARE_TESTS §V5.59) -----------------
+#
+# An audit consumes the objects and the ELF of a POC. Those are produced inside
+# the container by the per-POC Makefile; here they are REAL targets whose
+# prerequisites are the sources that POC compiles, so `make <x>-audit` rebuilds
+# a stale POC before disassembling it instead of auditing whatever happened to
+# be in build/. The listings (objdump -dr, objdump -r, nm) are regenerated
+# whenever the ELF is; every report is a file target rooted in them; and the
+# GBP-VIDEO-001 ISR reference the stream/colour/vstate audits compare against
+# is produced on demand by the video probe's own rules -- nothing has to be
+# "run first". A recipe that fails leaves no half-written report behind
+# (.DELETE_ON_ERROR), so a finding is never cached as a success.
+.DELETE_ON_ERROR:
+
+SRC_TREE := $(wildcard src/*/*.c src/*/*.h)
+
+# $(1) = POC directory name. The ELF is stale when any source it compiles is newer.
+define ELF_RULE
+build/poc/$(1)/$(1).elf: poc/$(1)/Makefile $$(wildcard poc/$(1)/source/*.c poc/$(1)/source/*.h) $$(SRC_TREE)
+	$$(IN_CONTAINER) sh -c 'make --no-print-directory -C poc/$(1)'
+endef
+$(foreach p,$(POCS),$(eval $(call ELF_RULE,$(p))))
+
+# $(1) = POC directory name. Both listings of every object plus the ELF symbol
+# table: `-dr` carries the text relocations interleaved with the code, `-r`
+# lists EVERY relocation section, which is how a forbidden symbol reached from
+# a data initialiser becomes visible to tools/poc_audit.py (F8).
+define LISTING_RULE
+build/poc/$(1)/audit/elf.nm.txt: build/poc/$(1)/$(1).elf tools/audit_listings.sh
+	$$(IN_CONTAINER) sh tools/audit_listings.sh build/poc/$(1) $(1)
+endef
+$(foreach p,$(POCS),$(eval $(call LISTING_RULE,$(p))))
+
+# $(1) = out dir, $(2) = report suffix, $(3) = handler symbol, $(4) = object basename
+define ISR_RULE
+$(1)/isr-audit-$(2).txt: $(1)/audit/elf.nm.txt tools/isr_audit.py
+	$$(PYTHON) tools/isr_audit.py $(1)/audit/$(4).objdump.txt --symbol $(3) --report $$@
+endef
+# $(1) = out dir, $(2) = tools/poc_audit.py profile
+define POC_AUDIT_RULE
+$(1)/poc-audit.txt: $(1)/audit/elf.nm.txt tools/poc_audit.py
+	$$(PYTHON) tools/poc_audit.py $(1)/audit --profile $(2) --report $$@
+endef
+# $(1) = phony target, $(2) = out dir. The interrupt path of every video-family
+# probe must stay byte-identical to the physically validated GBP-VIDEO-001
+# build's; the reference reports are PREREQUISITES, so they exist and are
+# current before the comparison runs.
+ISR_REFERENCE := $(VIDEO_OUT)/isr-audit-ext.txt $(VIDEO_OUT)/isr-audit-base.txt
+define ISR_COMPARE_TARGET
+$(1): $(2)/isr-audit-ext.txt $(2)/isr-audit-base.txt $(2)/poc-audit.txt $$(ISR_REFERENCE)
+	@echo "-- the interrupt path must be identical to the physically validated GBP-VIDEO-001 build:"
+	@cmp -s $(2)/isr-audit-ext.txt $$(VIDEO_OUT)/isr-audit-ext.txt && echo "   ext one-shot: identical" || { echo "   ext one-shot: DIFFERENT"; exit 1; }
+	@cmp -s $(2)/isr-audit-base.txt $$(VIDEO_OUT)/isr-audit-base.txt && echo "   base one-shot: identical" || { echo "   base one-shot: DIFFERENT"; exit 1; }
+endef
+
+$(eval $(call ISR_RULE,$(INITIRQB_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(INITIRQB_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(INITIRQ4_OUT),multi,hsp_backend_oneshot_isr_multi,hsp_backend_irq_multi))
+$(eval $(call ISR_RULE,$(AVSVC_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(AVSVC_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(VIDEO_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(VIDEO_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(VSTATE_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(VSTATE_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(COLOR_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(COLOR_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(STREAM_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(STREAM_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
+$(eval $(call POC_AUDIT_RULE,$(INITIRQA_OUT),003a))
+$(eval $(call POC_AUDIT_RULE,$(INITIRQB_OUT),003b))
+$(eval $(call POC_AUDIT_RULE,$(INITIRQ4_OUT),004))
+$(eval $(call POC_AUDIT_RULE,$(AVSVC_OUT),avsvc))
+$(eval $(call POC_AUDIT_RULE,$(VIDEO_OUT),video))
+$(eval $(call POC_AUDIT_RULE,$(VSTATE_OUT),vstate))
+$(eval $(call POC_AUDIT_RULE,$(COLOR_OUT),color))
+$(eval $(call POC_AUDIT_RULE,$(STREAM_OUT),stream))
+$(eval $(call ISR_COMPARE_TARGET,vstate-audit,$(VSTATE_OUT)))
+$(eval $(call ISR_COMPARE_TARGET,color-audit,$(COLOR_OUT)))
+$(eval $(call ISR_COMPARE_TARGET,stream-audit,$(STREAM_OUT)))
+
+# GBP-INIT-002's handler audit and the GBP-INIT-001 INTMR negative control keep
+# their historical paths (tests/host/test_isr_audit.py, test_poc_audit.py): they
+# are COPIES of the listings the generic rules produce, never a second disassembly.
+$(INITIRQ_OUT)/hsp_backend_irq.objdump.txt: $(INITIRQ_OUT)/audit/elf.nm.txt
+	cp -f $(INITIRQ_OUT)/audit/hsp_backend_irq.objdump.txt $@
+	cp -f $(INITIRQ_OUT)/audit/elf.nm.txt $(INITIRQ_OUT)/gbp-init-irq-probe.nm.txt
+$(INIT_OUT)/hsp_backend_intmr.objdump.txt: $(INIT_OUT)/audit/elf.nm.txt
+	cp -f $(INIT_OUT)/audit/hsp_backend_intmr.objdump.txt $@
+$(INITIRQ_OUT)/isr-audit.txt: $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt tools/isr_audit.py
+	$(PYTHON) tools/isr_audit.py $< --report $@
+
 
 .PHONY: help env-check build inspect test-host test-unit test-python test stimulus color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed swiss swiss-check all shell clean
 
@@ -188,10 +283,7 @@ initirq-dolphin:
 # libogc2's __MaskIrq (docs/protocol/INITIALIZATION.md §9 R8). The same
 # step dumps the GBP-INIT-001 INTMR object (the only direct INTMR store in
 # the tree) as the negative-control input of tests/host/test_poc_audit.py.
-initirq-audit:
-	@test -f $(INITIRQ_OUT)/obj/hsp_backend_irq.o || { echo "missing $(INITIRQ_OUT)/obj/hsp_backend_irq.o; run make build"; exit 1; }
-	$(IN_CONTAINER) sh -c 'powerpc-eabi-objdump -dr $(INITIRQ_OUT)/obj/hsp_backend_irq.o > $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt; powerpc-eabi-nm $(INITIRQ_OUT)/gbp-init-irq-probe.elf > $(INITIRQ_OUT)/gbp-init-irq-probe.nm.txt; test -f $(INIT_OUT)/obj/hsp_backend_intmr.o && powerpc-eabi-objdump -dr $(INIT_OUT)/obj/hsp_backend_intmr.o > $(INIT_OUT)/hsp_backend_intmr.objdump.txt || true'
-	$(PYTHON) tools/isr_audit.py $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt --report $(INITIRQ_OUT)/isr-audit.txt
+initirq-audit: $(INITIRQ_OUT)/isr-audit.txt $(INIT_OUT)/hsp_backend_intmr.objdump.txt
 
 # GBP-INIT-003A in Dolphin: no HSP device → abort_inconsistent (Dolphin
 # answers every read with zeros, so the FF handshake matches 1/4 — the
@@ -217,10 +309,7 @@ initirqa-dolphin:
 # __UnmaskIrq / IRQ_Request / IRQ_Free / the one-shot handler, no store to
 # PI INTMR, exactly three gbp_regwrite_irq_u16 call sites (A1, A2, STOP)
 # and two gbp_regwrite_control_byte call sites (EXP, RESTORE).
-initirqa-audit:
-	@test -d $(INITIRQA_OUT)/obj || { echo "missing $(INITIRQA_OUT)/obj; run make build"; exit 1; }
-	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(INITIRQA_OUT)/audit; rm -f $(INITIRQA_OUT)/audit/*.objdump.txt; for o in $(INITIRQA_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(INITIRQA_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(INITIRQA_OUT)/gbp-init-irq-program-probe.elf > $(INITIRQA_OUT)/audit/elf.nm.txt'
-	$(PYTHON) tools/poc_audit.py $(INITIRQA_OUT)/audit --report $(INITIRQA_OUT)/poc-audit.txt
+initirqa-audit: $(INITIRQA_OUT)/poc-audit.txt
 
 # GBP-INIT-003B in Dolphin: the same two stage-A aborts as GBP-INIT-003A
 # (no HSP device → abort_inconsistent; GBPlayer model → abort_control_shape
@@ -245,12 +334,7 @@ initirqb-dolphin:
 # h_irq_unmask only; IRQ_Request from h_irq_install/h_irq_restore only;
 # __MaskIrq from h_irq_mask and the two handlers only; no INTMR store;
 # gbp_regwrite_irq_u16 3 + 1 call sites; main.o uses the ext constructor).
-initirqb-audit:
-	@test -d $(INITIRQB_OUT)/obj || { echo "missing $(INITIRQB_OUT)/obj; run make build"; exit 1; }
-	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(INITIRQB_OUT)/audit; rm -f $(INITIRQB_OUT)/audit/*.objdump.txt; for o in $(INITIRQB_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(INITIRQB_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(INITIRQB_OUT)/gbp-init-irq-deliver-probe.elf > $(INITIRQB_OUT)/audit/elf.nm.txt'
-	$(PYTHON) tools/isr_audit.py $(INITIRQB_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr_ext --report $(INITIRQB_OUT)/isr-audit-ext.txt
-	$(PYTHON) tools/isr_audit.py $(INITIRQB_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr --report $(INITIRQB_OUT)/isr-audit-base.txt
-	$(PYTHON) tools/poc_audit.py $(INITIRQB_OUT)/audit --profile 003b --report $(INITIRQB_OUT)/poc-audit.txt
+initirqb-audit: $(INITIRQB_OUT)/isr-audit-ext.txt $(INITIRQB_OUT)/isr-audit-base.txt $(INITIRQB_OUT)/poc-audit.txt
 
 # GBP-INIT-004 in Dolphin: the same two stage-A aborts as GBP-INIT-003A/003B
 # (no HSP device → abort_inconsistent; GBPlayer model → abort_control_shape
@@ -276,11 +360,7 @@ initirq4-dolphin:
 # hm_irq_restore only; __MaskIrq from hm_irq_mask and the handler only; no
 # INTMR store; gbp_regwrite_irq_u16 3 + 1 + 1 call sites; main.o uses the
 # multi constructor).
-initirq4-audit:
-	@test -d $(INITIRQ4_OUT)/obj || { echo "missing $(INITIRQ4_OUT)/obj; run make build"; exit 1; }
-	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(INITIRQ4_OUT)/audit; rm -f $(INITIRQ4_OUT)/audit/*.objdump.txt; for o in $(INITIRQ4_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(INITIRQ4_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(INITIRQ4_OUT)/gbp-init-irq-service-probe.elf > $(INITIRQ4_OUT)/audit/elf.nm.txt'
-	$(PYTHON) tools/isr_audit.py $(INITIRQ4_OUT)/audit/hsp_backend_irq_multi.objdump.txt --symbol hsp_backend_oneshot_isr_multi --report $(INITIRQ4_OUT)/isr-audit-multi.txt
-	$(PYTHON) tools/poc_audit.py $(INITIRQ4_OUT)/audit --profile 004 --report $(INITIRQ4_OUT)/poc-audit.txt
+initirq4-audit: $(INITIRQ4_OUT)/isr-audit-multi.txt $(INITIRQ4_OUT)/poc-audit.txt
 
 # GBP-AV-SERVICE-001 in Dolphin: the same two stage-A aborts as GBP-INIT-003A/003B/004
 # (no HSP device → abort_inconsistent; GBPlayer model → abort_control_shape on its
@@ -310,12 +390,7 @@ avsvc-dolphin:
 # the ACK-from-a-given-value service functions exactly once from the probe;
 # no ARQ/AR/AUDIO/ASND/GX/net/DSP/SI symbol in any object; main.o uses the ext
 # constructor, the probe entry and the sidecar writer).
-avsvc-audit:
-	@test -d $(AVSVC_OUT)/obj || { echo "missing $(AVSVC_OUT)/obj; run make build"; exit 1; }
-	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(AVSVC_OUT)/audit; rm -f $(AVSVC_OUT)/audit/*.objdump.txt; for o in $(AVSVC_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(AVSVC_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(AVSVC_OUT)/gbp-av-service-probe.elf > $(AVSVC_OUT)/audit/elf.nm.txt'
-	$(PYTHON) tools/isr_audit.py $(AVSVC_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr_ext --report $(AVSVC_OUT)/isr-audit-ext.txt
-	$(PYTHON) tools/isr_audit.py $(AVSVC_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr --report $(AVSVC_OUT)/isr-audit-base.txt
-	$(PYTHON) tools/poc_audit.py $(AVSVC_OUT)/audit --profile avsvc --report $(AVSVC_OUT)/poc-audit.txt
+avsvc-audit: $(AVSVC_OUT)/isr-audit-ext.txt $(AVSVC_OUT)/isr-audit-base.txt $(AVSVC_OUT)/poc-audit.txt
 
 # GBP-VIDEO-001 in Dolphin: the same two stage-A aborts as GBP-INIT-003A/003B/004 and
 # GBP-AV-SERVICE-001 (no HSP device → abort_inconsistent; GBPlayer model → abort_control_shape
@@ -343,12 +418,7 @@ video-dolphin:
 # sites; gbp_avblock_read exactly twice from the probe; the deliver and the ACK-from-a-given-value
 # service functions once each from the probe; no ARQ/AR/AUDIO/ASND/GX/net/DSP/SI symbol in any
 # object; main.o uses the ext constructor, the probe entry and the sidecar writer).
-video-audit:
-	@test -d $(VIDEO_OUT)/obj || { echo "missing $(VIDEO_OUT)/obj; run make build"; exit 1; }
-	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(VIDEO_OUT)/audit; rm -f $(VIDEO_OUT)/audit/*.objdump.txt; for o in $(VIDEO_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(VIDEO_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(VIDEO_OUT)/gbp-video-capture-probe.elf > $(VIDEO_OUT)/audit/elf.nm.txt'
-	$(PYTHON) tools/isr_audit.py $(VIDEO_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr_ext --report $(VIDEO_OUT)/isr-audit-ext.txt
-	$(PYTHON) tools/isr_audit.py $(VIDEO_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr --report $(VIDEO_OUT)/isr-audit-base.txt
-	$(PYTHON) tools/poc_audit.py $(VIDEO_OUT)/audit --profile video --report $(VIDEO_OUT)/poc-audit.txt
+video-audit: $(VIDEO_OUT)/isr-audit-ext.txt $(VIDEO_OUT)/isr-audit-base.txt $(VIDEO_OUT)/poc-audit.txt
 
 # GBP-VIDEO-002 in Dolphin: the same two stage-A aborts as every probe since GBP-INIT-003A.
 # Dolphin's GBPlayer model says nothing about the physical VIDEO stream, and the 003A
@@ -437,27 +507,14 @@ color-dolphin:
 	$(PYTHON) tools/dolphin_smoke.py --dol $(COLOR_DOL) --build-info $(COLOR_OUT)/build-info.txt 	  --heartbeats 0 --expect 'OPENGBP-COLOR DONE status=abort_inconsistent class=abort reason=inconsistent stop=failure' 	  --report $(COLOR_OUT)/dolphin-report-absent.json --screen-png $(COLOR_OUT)/dolphin-screen-absent.png
 	$(PYTHON) tools/dolphin_smoke.py --dol $(COLOR_DOL) --build-info $(COLOR_OUT)/build-info.txt 	  --heartbeats 0 --expect 'OPENGBP-COLOR DONE status=abort_control_shape class=abort reason=control_not_idle_shape stop=failure' 	  -C Dolphin.Core.HSPDevice=2 	  --report $(COLOR_OUT)/dolphin-report-present.json --screen-png $(COLOR_OUT)/dolphin-screen-present.png
 
-color-audit:
-	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(COLOR_OUT)/audit; rm -f $(COLOR_OUT)/audit/*.objdump.txt; for o in $(COLOR_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(COLOR_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(COLOR_OUT)/gbp-video-color-probe.elf > $(COLOR_OUT)/audit/elf.nm.txt'
-	$(PYTHON) tools/isr_audit.py $(COLOR_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr_ext --report $(COLOR_OUT)/isr-audit-ext.txt
-	$(PYTHON) tools/isr_audit.py $(COLOR_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr --report $(COLOR_OUT)/isr-audit-base.txt
-	$(PYTHON) tools/poc_audit.py $(COLOR_OUT)/audit --profile color --report $(COLOR_OUT)/poc-audit.txt
-	@echo "-- the interrupt path must be identical to the physically validated GBP-VIDEO-001 build:"
-	@cmp -s $(COLOR_OUT)/isr-audit-ext.txt $(VIDEO_OUT)/isr-audit-ext.txt && echo "   ext one-shot: identical" || { echo "   ext one-shot: DIFFERENT"; exit 1; }
-	@cmp -s $(COLOR_OUT)/isr-audit-base.txt $(VIDEO_OUT)/isr-audit-base.txt && echo "   base one-shot: identical" || { echo "   base one-shot: DIFFERENT"; exit 1; }
+# color-audit: the rule is generated above (ISR_COMPARE_TARGET) -- the GBP-VIDEO-001
+# ISR reference is a prerequisite, produced on demand, never assumed present.
 
 # Static audit of gbp-video-state-probe (GBP-VIDEO-002): tools/isr_audit.py on both one-shot
 # bodies of hsp_backend_irq.o — which must stay BYTE-IDENTICAL to the GBP-VIDEO-001 build's, since
 # that path was physically validated — and tools/poc_audit.py --profile vstate on every object.
-vstate-audit:
-	@test -d $(VSTATE_OUT)/obj || { echo "missing $(VSTATE_OUT)/obj; run make build"; exit 1; }
-	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(VSTATE_OUT)/audit; rm -f $(VSTATE_OUT)/audit/*.objdump.txt; for o in $(VSTATE_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(VSTATE_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(VSTATE_OUT)/gbp-video-state-probe.elf > $(VSTATE_OUT)/audit/elf.nm.txt'
-	$(PYTHON) tools/isr_audit.py $(VSTATE_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr_ext --report $(VSTATE_OUT)/isr-audit-ext.txt
-	$(PYTHON) tools/isr_audit.py $(VSTATE_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr --report $(VSTATE_OUT)/isr-audit-base.txt
-	$(PYTHON) tools/poc_audit.py $(VSTATE_OUT)/audit --profile vstate --report $(VSTATE_OUT)/poc-audit.txt
-	@echo "-- the interrupt path must be identical to the physically validated GBP-VIDEO-001 build:"
-	@diff $(VSTATE_OUT)/isr-audit-ext.txt $(VIDEO_OUT)/isr-audit-ext.txt && echo "   ext one-shot: identical"
-	@diff $(VSTATE_OUT)/isr-audit-base.txt $(VIDEO_OUT)/isr-audit-base.txt && echo "   base one-shot: identical"
+# vstate-audit: the rule is generated above (ISR_COMPARE_TARGET); the comparison
+# now FAILS on a difference like the others do (it used to be a bare diff).
 
 # Dolphin is AUXILIARY (§27): this smoke test answers whether the program boots,
 # whether the new GX initialisation survives, and whether it reaches its own
@@ -506,14 +563,8 @@ stream-dolphin-gbp:
 	@sha256sum $(GBP_OUT)/report-hsp$(GBP_HSP).json $(GBP_OUT)/screen-hsp$(GBP_HSP).png \
 	           $(GBP_OUT)/dolphin-hsp$(GBP_HSP).log 2>/dev/null || true
 
-stream-audit:
-	$(IN_CONTAINER) sh -c 'set -e; mkdir -p $(STREAM_OUT)/audit; rm -f $(STREAM_OUT)/audit/*.objdump.txt; for o in $(STREAM_OUT)/obj/*.o; do powerpc-eabi-objdump -dr "$$o" > "$(STREAM_OUT)/audit/$$(basename "$$o" .o).objdump.txt"; done; powerpc-eabi-nm $(STREAM_OUT)/gbp-video-stream-probe.elf > $(STREAM_OUT)/audit/elf.nm.txt'
-	$(PYTHON) tools/isr_audit.py $(STREAM_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr_ext --report $(STREAM_OUT)/isr-audit-ext.txt
-	$(PYTHON) tools/isr_audit.py $(STREAM_OUT)/audit/hsp_backend_irq.objdump.txt --symbol hsp_backend_oneshot_isr --report $(STREAM_OUT)/isr-audit-base.txt
-	$(PYTHON) tools/poc_audit.py $(STREAM_OUT)/audit --profile stream --report $(STREAM_OUT)/poc-audit.txt
-	@echo "-- the interrupt path must be identical to the physically validated GBP-VIDEO-001 build:"
-	@cmp -s $(STREAM_OUT)/isr-audit-ext.txt $(VIDEO_OUT)/isr-audit-ext.txt && echo "   ext one-shot: identical" || { echo "   ext one-shot: DIFFERENT"; exit 1; }
-	@cmp -s $(STREAM_OUT)/isr-audit-base.txt $(VIDEO_OUT)/isr-audit-base.txt && echo "   base one-shot: identical" || { echo "   base one-shot: DIFFERENT"; exit 1; }
+# stream-audit: the rule is generated above (ISR_COMPARE_TARGET). `make stream-audit`
+# alone builds what it compares against; nothing has to be run before it.
 
 all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirqa-dolphin initirqb-dolphin initirq4-dolphin avsvc-dolphin video-dolphin vstate-dolphin color-dolphin
 

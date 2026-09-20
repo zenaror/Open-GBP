@@ -1,0 +1,4 @@
+80003100 T _start
+80003200 T gbp_initirqa_probe_run
+80003300 T gbp_regwrite_irq_u16
+80003400 T gbp_regwrite_control_byte
