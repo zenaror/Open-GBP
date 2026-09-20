@@ -2,9 +2,10 @@
 tests/host/test_vvi.py — OGBPVI1 and the GBP-VIDEO-007 SOFTWARE chain, driven
 through the REAL C writer (src/gbp/gbp_vvi.c + gbp_vvidump.c compiled on the
 host): format and integrity, hand-over -> observed-current binding, the VI
-register consistency model, missing / superseded latches, the joins with
-synthetic OGBPIDXCAP1 / OGBPDISP2 structures, and the explicit proof that
-nothing here classifies physical visibility.
+register consistency model (the libogc2 address-domain rule, GBP-VID-035
+repaired), missing / superseded latches, the joins with synthetic OGBPIDXCAP1
+/ OGBPDISP2 structures, and the explicit proof that nothing here classifies
+physical visibility.
 """
 import os
 import re
@@ -170,6 +171,86 @@ class TheJoin(unittest.TestCase):
                            {"frame_index": 357, "witness": [icoord.witness_words(74, b, 0x18) for b in range(40)]},
                            {"frame_index": 358, "witness": [[0] * 54 for _ in range(40)]}]}
         self.assertEqual(vvi.idx_map(idx), {356: 73, 357: 74})
+
+
+# ---------------------------------------------------------- the address model --
+def encode(top_addr, bottom_addr, flag=None, xof=0):
+    """The four register halves exactly as libogc2 __setFbbRegs writes them
+    (libogc/video.c 2466-2503 at ca03fb7): flag = 1 unless every base is
+    < 0x01000000; when set, every base is stored >> 5; reg 18 has no flag."""
+    if flag is None:
+        flag = 0 if (top_addr < 0x01000000 and bottom_addr < 0x01000000) else 1
+    t, b = (top_addr >> 5, bottom_addr >> 5) if flag else (top_addr, bottom_addr)
+    return ((flag << 12) | (xof << 8) | ((t >> 16) & 0xFF), t & 0xFFFF, (b >> 16) & 0xFF, b & 0xFFFF)
+
+
+def rec(phys, top_addr, bottom_addr, flag=None, latched=True, xof=0):
+    """A record as vvi.parse() returns it, for a hand-over of `phys` whose
+    readback names top_addr / bottom_addr."""
+    vi14, vi15, vi18, vi19 = encode(top_addr, bottom_addr, flag, xof)
+    return {"frame_index": 1, "life": 1, "xfb": 0, "flags": 1 if latched else 0, "phys": phys,
+            "t_handed": 100, "retrace_handed": 1, "retrace_latch": 2 if latched else 0, "t_latch": 200 if latched else 0,
+            "vi14": vi14, "vi15": vi15, "vi18": vi18, "vi19": vi19, "latched": latched, "superseded": False}
+
+
+LOW = 0x00A60000            # a MEM1 buffer below 16 MiB: libogc2 writes it unshifted, flag 0
+RUN12_A = 0x013a8420        # RUN 12's two stream buffers: MEM1 above 16 MiB, flag 1, stored >> 5
+RUN12_B = 0x0143e440
+LINE = 1280                 # 640 px x 2 B, libogc2 bytesPerLine for the stream mode
+
+
+class TheAddressDomain(unittest.TestCase):
+    """GBP-VID-035 (Issue #11): regs_consistent() compares the reconstructed VI base with the
+    recorded physical address in ONE domain. Direct synthetic records, no fixture, no C."""
+
+    def test_flag_clear_ordinary_address_matches_top_and_bottom(self):
+        self.assertEqual(encode(LOW, LOW + LINE)[0] >> 12, 0, "below 16 MiB libogc2 leaves the flag clear")
+        self.assertEqual(vvi.regs_consistent(rec(LOW, LOW, LOW + LINE)), (True, True, LOW))
+        self.assertEqual(vvi.regs_consistent(rec(LOW, LOW, LOW)), (True, True, LOW), "single-field: bottom == top")
+
+    def test_flag_set_shifted_address_reconstructs_and_compares_in_the_full_domain(self):
+        # the exact register halves RUN 12 recorded for its two buffers (§V6.20.7)
+        self.assertEqual(encode(RUN12_B, RUN12_B + LINE), (0x100a, 0x1f22, 0x000a, 0x1f4a))
+        self.assertEqual(encode(RUN12_A, RUN12_A + LINE), (0x1009, 0xd421, 0x0009, 0xd449))
+        for phys in (RUN12_A, RUN12_B):
+            self.assertEqual(vvi.regs_consistent(rec(phys, phys, phys + LINE)), (True, True, phys))
+        self.assertEqual(vvi.regs_consistent(rec(RUN12_B, RUN12_B, RUN12_B)), (True, True, RUN12_B))
+
+    def test_a_genuinely_wrong_tfbl_still_fails_in_both_forms(self):
+        self.assertFalse(vvi.regs_consistent(rec(LOW, LOW ^ 0x20, LOW + LINE))[0])
+        self.assertFalse(vvi.regs_consistent(rec(LOW, 0x00B1C000, 0x00B1C000 + LINE))[0])
+        self.assertFalse(vvi.regs_consistent(rec(RUN12_B, RUN12_A, RUN12_A + LINE))[0], "the other RUN 12 buffer")
+        self.assertFalse(vvi.regs_consistent(rec(RUN12_B, RUN12_B + 0x20, RUN12_B + LINE))[0])
+        self.assertEqual(vvi.regs_consistent(rec(RUN12_B, RUN12_A, RUN12_A + LINE))[2], RUN12_A, "observed_top is the readback, not the target")
+
+    def test_bottom_plausibility_is_checked_and_cannot_be_vacuous(self):
+        for phys in (LOW, RUN12_B):
+            self.assertEqual(vvi.regs_consistent(rec(phys, phys, phys + LINE))[1], True)
+            self.assertEqual(vvi.regs_consistent(rec(phys, phys, phys))[1], True)
+            for bad in (phys - LINE, phys + 2 * LINE, phys + 0x20, RUN12_A if phys != RUN12_A else LOW):
+                self.assertEqual(vvi.regs_consistent(rec(phys, phys, bad)), (True, False, phys), hex(bad))
+        # the line length is explicit: a different mode's stride is a different plausibility set
+        self.assertEqual(vvi.regs_consistent(rec(RUN12_B, RUN12_B, RUN12_B + 2560), bytes_per_line=2560), (True, True, RUN12_B))
+        self.assertEqual(vvi.regs_consistent(rec(RUN12_B, RUN12_B, RUN12_B + LINE), bytes_per_line=2560)[1], False)
+
+    def test_no_truncation_aliases_two_different_framebuffer_addresses(self):
+        lo, hi = 0x0043e440, 0x0143e440              # equal below bit 24, different buffers
+        self.assertFalse(vvi.regs_consistent(rec(hi, lo, lo + LINE, flag=0))[0],
+                         "a flag-0 readback of the low buffer must not match the high hand-over (the frozen tool said True)")
+        self.assertFalse(vvi.regs_consistent(rec(lo, hi, hi + LINE, flag=1))[0])
+        self.assertTrue(vvi.regs_consistent(rec(hi, hi, hi + LINE, flag=1))[0])
+        self.assertTrue(vvi.regs_consistent(rec(lo, lo, lo + LINE, flag=0))[0])
+        # the shifted form cannot represent the low 5 bits: a misaligned hand-over is a mismatch, never a silent match
+        self.assertFalse(vvi.regs_consistent(rec(RUN12_B + 1, RUN12_B, RUN12_B + LINE, flag=1))[0])
+
+    def test_the_flag_rule_is_libogc2s_and_not_the_16_mib_assumption_of_the_frozen_tool(self):
+        self.assertEqual(encode(0x00FFFFE0, 0x00FFFFE0 + LINE)[0] >> 12, 1, "the bottom base crosses 0x01000000: every base is shifted")
+        self.assertEqual(encode(0x00FF0000, 0x00FF0000 + LINE)[0] >> 12, 0)
+        self.assertEqual(encode(0x01000000, 0x01000000 + LINE)[0] >> 12, 1)
+        self.assertEqual(vvi.regs_consistent(rec(0x00FFFFE0, 0x00FFFFE0, 0x00FFFFE0 + LINE)), (True, True, 0x00FFFFE0))
+
+    def test_an_unlatched_record_has_no_readback(self):
+        self.assertEqual(vvi.regs_consistent(rec(LOW, LOW, LOW + LINE, latched=False)), (False, False, None))
 
 
 class ItDoesNotClassifyVisibility(unittest.TestCase):

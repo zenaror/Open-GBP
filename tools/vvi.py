@@ -128,21 +128,31 @@ def load(path):
 
 
 # ------------------------------------------------ the VI register model ----
-def regs_consistent(rec):
-    """libogc2 __setFbbRegs: for a MEM1 address (< 0x01000000) flag bit 12 is 0
-    and TFBL = the physical base (bits 23..16 in reg14[7:0], 15..0 in reg15);
-    BFBL is the same base (single-field) or base + one line (double-field).
-    Returns (top_matches, bottom_plausible, observed_top)."""
+def regs_consistent(rec, bytes_per_line=1280):
+    """libogc2 __setFbbRegs (libogc/video.c 2466-2503 at ca03fb7): the bases are
+    PHYSICAL addresses (MEM_VIRTUAL_TO_PHYSICAL in __calcFbbs). reg14 bit 12 is
+    the VI page-offset flag: SET unless EVERY base is < 0x01000000, and then every
+    base is stored >> 5 -- a 24 MiB MEM1 buffer above 16 MiB takes this form, as
+    RUN 12's did. reg14[7:0] / reg15 carry the top base (bits 23..16 / 15..0 of
+    the stored value), reg18 / reg19 the bottom base; reg 18 has no flag of its
+    own, the top's flag governs both fields. BFBL is the same base (single-field)
+    or base + one line (bytes_per_line: 640 px x 2 B = 1280 for the stream mode).
+    The compare is made in the FULL physical-address domain -- no mask, no
+    truncation -- so two bases that differ above bit 23 never alias.
+    GBP-VID-035, repaired (Issue #11): the version frozen at RUN 12 masked
+    `phys` to 24 bits before this compare and read 0/2370 on that run; that
+    historical output is kept in §V6.20 / GBP-HW-255 and is not what this
+    function returns now. Returns (top_matches, bottom_plausible, observed_top)."""
     if not rec["latched"]:
         return (False, False, None)
     flag = (rec["vi14"] >> 12) & 1
     top = ((rec["vi14"] & 0xFF) << 16) | rec["vi15"]
     bottom = ((rec["vi18"] & 0xFF) << 16) | rec["vi19"]
-    phys = rec["phys"] & 0xFFFFFF
     if flag:
         top <<= 5
         bottom <<= 5
-    return (top == phys, bottom in (phys, phys + 1280), top)
+    phys = rec["phys"]
+    return (top == phys, bottom in (phys, phys + bytes_per_line), top)
 
 
 # -------------------------------------------------------------- the joins ---
