@@ -26,7 +26,7 @@ evidence vocabulary or the checkpoint discipline, all of which are defined in
 ## State baseline
 
 ```text
-STATE BASELINE COMMIT   8bde4ca9c91dd3aef500e34980d6a7e4f5ef6cb3
+STATE BASELINE COMMIT   99b8ac19ca5d5eb6d558e58c3c24f2c6a0f23752
 ```
 
 **What that means, precisely:** it is the **last commit whose scientific and
@@ -37,53 +37,35 @@ HEAD to be at least one commit ahead: the one carrying this text.
 
 ```text
 LAST PHYSICAL EVIDENCE INGESTED
-  GBP-VIDEO-004 / stream-0007 + indexed-0003, executed 2026-09-19 — RUN 5
-  GBP-HW-192 … GBP-HW-201, GBP-VID-019
-  STANDING: EXECUTED · SOURCE CONTIGUITY REPLICATED · HOLD CAUSE IDENTIFIED
+  GBP-VIDEO-006 / stream-0011 @ 97c78c2 + indexed-0003, executed 2026-09-20 -- RUN 11
+  GBP-HW-244 ... GBP-HW-249; GBP-VID-033 PHYSICALLY VALIDATED
+  STANDING: EXECUTED · PASS · NO DETECTED REGRESSION (HARDWARE_TESTS §V5.58.9)
 
-  THE SOURCE GATE PASSED AGAIN, on a different build with the trace running:
-  OBSERVED_CONTIGUOUS, 2048/2048 records, FRAME_ID 85..2132 complete, FAULT
-  clear, VMARGIN 24. First evidence that the instrumentation did not disturb
-  the source result.
+  Topology held at run 10's (operator declaration): BBA PRESENT, Ethernet
+  DISCONNECTED, same GameCube, same GBP. The reporting build was the intentional
+  variable. Coordinated through GitHub Issue #2 -- the first checkpoint run
+  through an Issue; the remote is still Gitea until the migration checkpoint.
 
-  THE FIRST DOWNSTREAM TRACE. 2114 lifecycles, 2114 decisions, 19 holds.
-  Joined by exact frame_index (NOT by the in_window flag):
-      2048 source records = 2030 SELECTED_NEW + 17 HOLD + 1 capture-edge residual
+  PRIMARY GATE, read directly off the log: lines=651 dropped=0 truncated=0;
+  one complete WITELIG (167 chars) + one complete WITELIG2 (98);
+  qual_streak_at_eligible=0 PRESENT, no derivation; counters agree.
 
-  EVERY HOLD IS A PHASE CONDITION, from recorded state:
-    reason XFB_BUSY · xfb_target NONE · current and pending holding both slots
-    newest_source NONE at ALL 2114 decisions -- nothing was ever queued
-    convert cost identical to selected frames (56 229 vs 56 237 ticks)
-    submit_refusals 0, blocked_inflight 0, no_texture 0
-  -> H2 and H3 NOT SUPPORTED. H1 CORROBORATED. H4 is the policy, by design.
+  REGRESSION, reproduced: vindex.py OBSERVED_CONTIGUOUS, intact 2048 / INVALID 0,
+  IDs 73..2120; eligibility 5.000143926 s; first hand-off 165.158691 ms
+  (+177 ticks vs run 10, recorded, no tolerance); transport 254 864, zero
+  errors; join 2047 SELECTED_NEW + capture edge, interior 0, reorder 0, depth 1;
+  frozen latency p99 0.486790 ms / max 1.000914 ms; 7 display repeats
+  (sixth run running, OBSERVATIONAL).
 
-  VI period by feasibility: 675 675.00 ticks = 59.940 06 Hz (NTSC nominal).
-  Every hold falls in the final 0.580 ms of a 16.683 ms interval (3.48 %).
-  Of the 16 decisions sharing a sampled retrace with their predecessor, ALL 16
-  were holds and NONE was a select.
-  Beat: 59.727 083 into 59.940 060 Hz predicts 280.44 source frames; observed
-  cluster gaps mean 280.07 -- 99.87 %, stable across thresholds 15..30.
+  Media double check: PENDING for runs 9, 10 and 11.
 
-  A CORRECTION to the previous round: §V5.46.6 called held frames "already
-  drawn". The DrawDone follows the decision in 2047 of 2047 cases. The
-  conclusions survive -- they rest on the back-pressure counters -- but the
-  word was wrong. §V5.47.6.
-
-  AN OFF-BY-ONE IN OUR OWN INSTRUMENTATION, NOT FIXED HERE: OGBPDISP1's
-  in_window covers 69..2116 while the scientific window is 70..2117, and
-  tools/vdisp.py inherits it (GBP-VID-019). Frozen during ingestion; every
-  number above came from the exact frame_index join.
-
-  Previous: stream-0003 (GBP-HW-138…145), the FIRST real stream smoke, which
-  found P1 and P2; stream-0002 (GBP-HW-134…137), ABORTED PRE-SERVICE, corrected
-  in stream-0003 (§V5.30) and NOT a streaming failure — streaming was never
-  reached.
-
-  Previous: color-0002 (GBP-HW-127…133), CONFIRMATORY,
-  CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP, U-GBP-011 CLOSED — the colour order is
-  FACT; color-0001 (GBP-HW-120…126), INCONCLUSIVE under its own frozen contract,
-  permanently, and never re-judged; PRE-HANDLER MASKED WAIT 5000 ms
-  (GBP-HW-116…119).
+  Previous: run 10 (GBP-BBA-001, stream-0010, BBA present, PASS, GBP-HW-239…243);
+  run 9 (not-before gate, stream-0010, PASS 14/14, GBP-HW-231…238); run 8
+  (GBP-VIDEO-005 retail cartridge, stream-0009, GBP-HW-223…230); run 7 (normal
+  startup, stream-0009, GBP-HW-213…222); run 6 (Policy A, stream-0008,
+  GBP-HW-202…212); run 5 (stream-0007, the first downstream trace, GBP-HW-192…201);
+  run 4 (stream-0006, OBSERVED_CONTIGUOUS, GBP-HW-180…191). Each keeps its own
+  record in HARDWARE_TESTS.md and is never re-judged.
 ```
 
 ### Staleness check — run this before trusting anything below
@@ -215,8 +197,8 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | GBP-VIDEO-004 | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **PHYSICALLY EXECUTED 2026-09-19 — P1 AND P2 CONFIRMED FIXED.** 472 160 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.38; GBP-HW-146…152 |
-| GBP-VIDEO-004 **reporting-repair candidate** | `stream-0011` | `97c78c2` | `df2873ee61caa75c885215b54e29e8d5357b233b9bcc0f10d5c0b1af75453e25` | **GBP-VID-033 FIXED IN SOFTWARE / PHYSICAL VALIDATION PENDING (§V5.58).** `stream-0010` with ONE reporting change: the `WITELIG` summary is two records, `WITELIG` and `WITELIG2`, so no field is clipped by the 248-character ringlog payload (worst-case 205 and 113). No witness, transport, display, startup or format semantics change; `gbp_vwitness.*` byte-identical. 495 104 B (+64 B), built twice from scratch and byte-identical (SHA-256 and `cmp`), Swiss `build/swiss/12-stream/boot.dol` identical, no `-dirty`. **Reproduce with `GIT_COMMIT=97c78c2 GIT_DIRTY= make build`.** Physical validation pre-registered as GBP-VIDEO-006 / RUN 11 (§V5.58.7), NOT executed | `HARDWARE_TESTS.md` §V5.58 |
-| GBP-VIDEO-004 / **GBP-BBA-001** **last physically executed** | `stream-0010` | `fbaea00` | `6b57d6696cf718baaac83cd0b9631c672bbe756f842e42bfd12d7a0ee3736180` | **PHYSICALLY EXECUTED 2026-09-20 twice: run 9 (BBA disconnected) — PASS 14/14 (§V5.56); run 10 (GBP-BBA-001, BBA PRESENT, Ethernet disconnected) — PASS (§V5.57.14), first hand-off 165.154321 ms, 2048 intact / 0 invalid, 7 display repeats; paired topology control, no detected regression.** Run 9: eligibility 5.000156691 s after CONTROL, window at 6.067209383 s, frozen `vindex.py` `OBSERVED_CONTIGUOUS` with `intact 2048 / INVALID 0`, startup 165.154741 ms (+18 ticks vs run 7), Policy A 2047/2047, 7 display repeats. One reporting defect: the `WITELIG` line is clipped at 248 chars (GBP-VID-033); the lost field is recovered exactly; no rerun required. BBA disconnected; media double check PENDING.** RESEARCH NOT-BEFORE GATE (§V5.55). `stream-0009`'s startup and pipeline, byte-for-byte on the user's path, plus ONE research addition: the scientific witness streak is not COUNTED until 5000 ms after the CONTROL transform, then counts from zero; 64 structurally clean closed frames; window at the next block 0; 2048 records; no reset. Content-blind. Transport, assembler, conversion, Policy A, GX, hand-off and everything the user sees are unchanged. 495 040 B, built twice from scratch and byte-identical (SHA-256 and `cmp`), no `-dirty`. **Reproduce with `GIT_COMMIT=fbaea00 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.55 |
+| GBP-VIDEO-004 / **GBP-VIDEO-006** **last physically executed** | `stream-0011` | `97c78c2` | `df2873ee61caa75c885215b54e29e8d5357b233b9bcc0f10d5c0b1af75453e25` | **PHYSICALLY EXECUTED 2026-09-20 (run 11, GBP-VIDEO-006, BBA PRESENT / Ethernet DISCONNECTED by operator declaration) — PASS (§V5.58.9): `lines=651 dropped=0 truncated=0`, one complete `WITELIG` and one complete `WITELIG2`, `qual_streak_at_eligible=0` read directly; `OBSERVED_CONTIGUOUS` with 2048 intact / 0 invalid; first hand-off 165.158691 ms; frozen p99 0.486790 ms; 7 display repeats. GBP-VID-033 PHYSICALLY VALIDATED for this controlled run; media double check PENDING.** `stream-0010` with ONE reporting change: the `WITELIG` summary is two records, `WITELIG` and `WITELIG2`, so no field is clipped by the 248-character ringlog payload (worst-case 205 and 113). No witness, transport, display, startup or format semantics change; `gbp_vwitness.*` byte-identical. 495 104 B (+64 B), built twice from scratch and byte-identical (SHA-256 and `cmp`), Swiss `build/swiss/12-stream/boot.dol` identical, no `-dirty`. **Reproduce with `GIT_COMMIT=97c78c2 GIT_DIRTY= make build`.** Physical validation: GBP-VIDEO-006 / RUN 11, executed 2026-09-20, PASS (§V5.58.9; GBP-HW-244…249) | `HARDWARE_TESTS.md` §V5.58 |
+| GBP-VIDEO-004 / **GBP-BBA-001** **previous runs** | `stream-0010` | `fbaea00` | `6b57d6696cf718baaac83cd0b9631c672bbe756f842e42bfd12d7a0ee3736180` | **PHYSICALLY EXECUTED 2026-09-20 twice: run 9 (BBA disconnected) — PASS 14/14 (§V5.56); run 10 (GBP-BBA-001, BBA PRESENT, Ethernet disconnected) — PASS (§V5.57.14), first hand-off 165.154321 ms, 2048 intact / 0 invalid, 7 display repeats; paired topology control, no detected regression.** Run 9: eligibility 5.000156691 s after CONTROL, window at 6.067209383 s, frozen `vindex.py` `OBSERVED_CONTIGUOUS` with `intact 2048 / INVALID 0`, startup 165.154741 ms (+18 ticks vs run 7), Policy A 2047/2047, 7 display repeats. One reporting defect: the `WITELIG` line is clipped at 248 chars (GBP-VID-033); the lost field is recovered exactly; no rerun required. BBA disconnected; media double check PENDING.** RESEARCH NOT-BEFORE GATE (§V5.55). `stream-0009`'s startup and pipeline, byte-for-byte on the user's path, plus ONE research addition: the scientific witness streak is not COUNTED until 5000 ms after the CONTROL transform, then counts from zero; 64 structurally clean closed frames; window at the next block 0; 2048 records; no reset. Content-blind. Transport, assembler, conversion, Policy A, GX, hand-off and everything the user sees are unchanged. 495 040 B, built twice from scratch and byte-identical (SHA-256 and `cmp`), no `-dirty`. **Reproduce with `GIT_COMMIT=fbaea00 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.55 |
 | GBP-VIDEO-004 / **GBP-VIDEO-005** **previous run** | `stream-0009` | `59d2f57` | `4d0337bb2cc7fe6e9acc1fb167e05a29caf7c497297ee7a1618d7e61a4d8c955` | **PHYSICALLY EXECUTED 2026-09-19 (run 7, indexed) and 2026-09-20 (run 8, RETAIL — GBP-VIDEO-005 PASS with a debug-UX note, §V5.54.11; first hand-off 164.696 ms, logo seen by the operator, CORROBORATED GBP-HW-229).** Run 7: — STARTUP PASSED 8/8: first real hand-off 165.154 ms after CONTROL, nothing synthetic handed over, no wait. Policy A clean (2244 hand-offs in order, 7 repeats / 0 drops over the join). Frozen `vindex.py`: `OBSERVED_CONTIGUOUS` with `intact 1988 / INVALID_CANONICAL_STRIP 60` — the structural window opened 3.840 s after CONTROL, the stimulus began at 4.845 s (§V5.53). No new continuity record for this build until a run with a valid steady-state window.** NORMAL STARTUP (§V5.52). `stream-0008`'s pipeline with the diagnostic experience removed from the normal path: the synthetic self-test runs HEADLESS (no framebuffer claimed, so nothing synthetic reaches the video interface), `prehandler_wait_ms` is 0, and both stream framebuffers are cleared to black before the VI is pointed at one. Policy A, the source assembler, the qualification, OGBPIDX and OGBPDISP2 are untouched. A diagnostic image — visible self-test, 5000 ms wait — is still buildable with `make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC`. 494 176 B. Built twice from scratch and byte-identical both times (SHA-256 and `cmp`); Swiss `build/swiss/12-stream/boot.dol` identical; 15/15 mutants refused; Dolphin PASS in both profiles with `xfb=0` normal against `xfb=1` diagnostic. **Reproduce with `GIT_COMMIT=59d2f57 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.52 |
 | GBP-VIDEO-004 **previous run** | `stream-0008` | `5126a19` | `a9efe181d46928d11a20623276a77f352db45b9795681173185e9a60d4e81282` | **PHYSICALLY EXECUTED 2026-09-19 (run 6) — SOURCE-LOSSLESS IN ORDER. 2047/2047 interior scientific frames handed off, 0 drops, 0 supersessions, 0 reorder, max deferred depth 1, p99 0.4946 ms / max 1.1353 ms, and 7 display repeats against a same-run requirement of [7, 8]. Twelve of twelve pre-registered gates passed (§V5.50).** POLICY A: two-XFB asynchronous deferral (§V5.49). A frame that finds no writable framebuffer is DEFERRED and offered again by `pump()`, in age order, instead of being discarded. No third XFB, no extra texture, no VI callback, no `VIDEO_WaitVSync`, no queue-depth change. Downstream sidecar bumped to `OGBPDISP2` because a non-terminal DEFER cannot be expressed in v1 without overloading `HOLD_PREVIOUS_FRAME`. 492 416 B. Built twice from scratch and byte-identical both times; Swiss `build/swiss/12-stream/boot.dol` identical; MEM1 keeps 4.58 MiB free after the framebuffers. 15/15 mutants refused. **Reproduce with `GIT_COMMIT=5126a19 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.49 |
 | GBP-VIDEO-004 **previous run** | `stream-0007` | `ddf8db6` | `74b7488630153ce3baaa42831a9af8ef03a2bce80399d840062965a34906eb36` | **PHYSICALLY EXECUTED 2026-09-19 (run 5) — source `OBSERVED_CONTIGUOUS` again, and the first downstream trace.** 491 040 B. Adds the OBSERVATIONAL downstream disposition trace and the `OGBPDISP1` sidecar (§V5.46) and nothing else: no pacing, queue depth, conversion, GX, XFB or VI change, and the interrupt path is byte-identical to the physically validated GBP-VIDEO-001 build. Byte-identical across two from-scratch builds; Swiss `build/swiss/12-stream/boot.dol` identical. **Reproduce with `GIT_COMMIT=ddf8db6 GIT_DIRTY= make build`** | `HARDWARE_TESTS.md` §V5.46 |
@@ -322,27 +304,26 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-> **GBP-VID-033 is FIXED IN SOFTWARE / PHYSICAL VALIDATION PENDING.** `stream-0011`
-> at `97c78c2` (495 104 B, `df2873ee…3e25`) emits the witness-eligibility
-> summary as two records, `WITELIG` and `WITELIG2`, so no field can be clipped
-> by the 248-character ringlog payload. Its physical validation is
-> pre-registered as **GBP-VIDEO-006 / RUN 11** (§V5.58.7) and has NOT run.
+> **GBP-VID-033 is PHYSICALLY VALIDATED.** `stream-0011` at `97c78c2` (495 104 B,
+> `df2873ee…3e25`) ran as **GBP-VIDEO-006 / RUN 11** on 2026-09-20, on run 10's
+> topology, and its log came back `lines=651 dropped=0 truncated=0` with one
+> complete `WITELIG`, one complete `WITELIG2` and `qual_streak_at_eligible=0`
+> present directly; every regression gate passed (§V5.58.9, GBP-HW-244…249).
 
-There is no blocker.
+There is no blocker and no physical run is pending.
 
-**What changed, and only that:** the single `WITELIG` record (worst case 310
-characters, clipped in runs 9 and 10) became two records with unique tags and
-unchanged field names (worst cases 205 and 113). `gbp_vwitness.*`, every frozen
-tool and format, transport, display, startup, Policy A and the 5000 ms threshold
-are byte-identical to `stream-0010`; a permanent host guard
-(`test_witelig_len.py`) renders every conversion at its maximum width and
-proves both records fit and the old one did not. 12 191 witness checks, 980
-host tests, nine audits at 0 findings, Dolphin PASS both profiles.
+**What run 11 changed, and only that:** the reporting defect two physical runs
+had demonstrated is now repaired on hardware, for this controlled run. Runs 9
+and 10 keep `truncated=1` as `stream-0010` facts and are interpreted by the
+counter derivation as before; run 11 needs no derivation. `gbp_vwitness.*`,
+every frozen tool and format, transport, display, startup, Policy A and the
+5000 ms threshold are byte-identical to `stream-0010`.
 
 **Established and unchanged:** GBP-BBA-001 / RUN 10 PASS — the BBA-present /
-Ethernet-disconnected baseline within its exact scoped control; the normal
-startup (runs 7–8); Policy A on five runs; the not-before gate (run 9). Not
-established: Ethernet-connected behaviour, BBA initialisation, networking,
+Ethernet-disconnected baseline within its exact scoped control, now with a
+second run (11) on the same topology and a different build; the normal
+startup (runs 7–11); Policy A on six runs; the not-before gate (runs 9–11).
+Not established: Ethernet-connected behaviour, BBA initialisation, networking,
 network code. Phase 11 does not move.
 
 **And the slice position is still PLAUSIBLE BUT UNMEASURED as a property**,
@@ -353,43 +334,27 @@ still does not measure the margin.
 
 ## Next safe action
 
-**`GBP-VIDEO-006` — RUN 11, the physical validation of `stream-0011`,
-pre-registered in `HARDWARE_TESTS.md` §V5.58.7 and NOT yet executed.** The
-reporting build is the principal intentional variable, so run 10's topology is
-held fixed: same GameCube, same Game Boy Player, **BBA PRESENT, Ethernet
-DISCONNECTED**, same `indexed-0003` (`9f04916b…8d9cc2`, do NOT re-flash).
+**No physical run is pending and none is pre-registered.** The orchestrator
+validates the run-11 ingestion commits independently and then opens the next,
+separate checkpoint, already announced in GitHub Issue #2: the **workflow /
+remote migration** — the canonical remote moves from Gitea to GitHub and the
+Issues / Milestones / Project / Roadmap governance is established. That
+checkpoint is operational, not scientific: it changes no runtime, analyzer,
+format, fixture or evidence status.
 
 ```text
-artifact    stream-0011 @ 97c78c2, 495 104 B, df2873ee…3e25, Swiss byte-identical
-control     run 10 (stream-0010 @ fbaea00, same topology)
-PRIMARY     log header dropped=0 truncated=0; exactly one WITELIG and one
-GATE        WITELIG2, both complete; qual_streak_at_eligible=0 present DIRECTLY,
-            with the counter relation agreeing as a cross-check
-regression  the run-9/run-10 gates reused, none added, none narrowed:
-            vindex.py UNMODIFIED -> OBSERVED_CONTIGUOUS and intact 2048 / INVALID 0;
-            witness released, ~5 s, 64 closes, block 0, 2048, no trim; transport
-            zero everything; Policy A 0 drops / 0 reorder / depth <= 1 / frozen
-            p99 <= 1.0 ms, max <= 2.5 ms; startup NORMAL, < 400 ms, delta vs run 10
-            recorded; strict sidecars; display repeats observational
-declares    operator: BBA present YES · Ethernet DISCONNECTED · same console/GBP
-PASS means  the GBP-VID-033 reporting repair is physically validated for this
-            controlled run, with no detected regression in the video path
-```
-
-Reserved BEFORE hardware; nothing else may take these names:
-
-```text
-captures/local/GBP-VIDEO-004_stream-0011-run11.log
-captures/local/GBP-VIDEO-004_stream-0011-run11-idxcap.bin
-captures/local/GBP-VIDEO-004_stream-0011-run11-disp.bin
+run 11      ingested; GBP-VIDEO-006 PASS; GBP-VID-033 PHYSICALLY VALIDATED (§V5.58.9)
+remote      still Gitea (origin) until the migration checkpoint says otherwise
+next        orchestrator-owned: workflow migration; the sequence after it is theirs
+forbidden   runtime semantics, analyzers, formats, Policy A, witness semantics,
+            Phase 11, networking, BBA initialisation, Ethernet
 ```
 
 **Networking does not start.** No Ethernet, no BBA initialisation, no network
-code, no Phase 11 movement. The orchestrator decides the sequence after run 11
-is ingested.
+code, no Phase 11 movement.
 
 **Artifact identities are computed HERE first**; the operator's `sha256sum` is a
-double check. Runs 9 and 10 media checks: PENDING.
+double check. Runs 9, 10 and 11 media checks: PENDING.
 
 **Carried, read-only:**
 
@@ -401,18 +366,19 @@ double check. Runs 9 and 10 media checks: PENDING.
 5  `make video-audit` before `make stream-audit`, or the ISR comparison reports
    DIFFERENT for no reason (F3).
 6  stream-0010's WITELIG line is clipped at 248 characters (GBP-VID-033); runs 9
-   and 10 stay interpreted by the exact counter derivation. stream-0011 fixes it
-   in software; hardware has not confirmed that yet.
+   and 10 stay interpreted by the exact counter derivation. stream-0011 fixes it,
+   and run 11 confirmed the fix on hardware (§V5.58.9): truncated=0, both records
+   complete, the zero read directly.
 ```
 
 **BEFORE the run, protect the raw record.** The console names every run of a
 binary identically; run 3 overwrote run 1's log in `logs/`, and run 8 overwrote
 run 7's. The rule — rename BEFORE copy, `cp --update=none`, hash on receipt,
 never overwrite an earlier raw artifact — lives in `captures/README.md`
-("Receiving a new physical run"). **Runs 9 and 10 are archived under the `…-run9…` and `…-run10…` names, which
-are now taken. RUN 11's names are reserved above (`…stream-0011-run11…`).** The
-console will write `GBP-VIDEO-004_stream-0011.log` / `-idxcap.bin` / `-disp.bin`;
-an embedded build id does not mean the same physical run.
+("Receiving a new physical run"). **Runs 9, 10 and 11 are archived under the `…-run9…`, `…-run10…` and
+`…-run11…` names, which are now taken.** No run is pre-registered; the next one
+must reserve its names here BEFORE the hardware. An embedded build id does not
+mean the same physical run.
 
 
 
