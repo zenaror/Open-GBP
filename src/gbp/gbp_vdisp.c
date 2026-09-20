@@ -104,6 +104,68 @@ void gbp_vdisp_submit(struct gbp_vdisp *d, int life, uint64_t t)
     if (r->tex < GBP_VDISP_TEX_SLOTS) d->life_of_tex[r->tex] = life;
 }
 
+void gbp_vdisp_defer(struct gbp_vdisp *d, int life, uint64_t t, uint32_t retrace,
+                     int xfb_current, int xfb_pending, uint16_t reason,
+                     const uint8_t *tex_state, uint32_t depth)
+{
+    struct gbp_vdisp_life *r = at(d, life);
+    struct gbp_vdisp_event *e;
+    int first;
+    if (!d || !r) return;
+    if (r->t_first_attempt == 0u) r->t_first_attempt = t;
+    first = (r->defer_attempts == 0u);
+    r->defer_attempts++;
+    d->source_defer_attempts++;
+    if (first) {
+        r->t_first_defer = t;
+        r->life_flags |= GBP_VDISP_F_EVER_DEFERRED;
+        d->source_deferred_frames++;
+    }
+    r->t_last_defer = t;
+    r->disposition = (uint16_t)GBP_VDISP_D_DEFERRED;
+    r->reason = reason;
+    if (depth > d->max_deferred_depth) d->max_deferred_depth = depth;
+    /* ONE event per frame, on the transition. pump() retries about every
+     * 158 us; an event per attempt would be unbounded and would perturb the
+     * thing it is measuring. */
+    if (!first) return;
+    if (d->ev_n >= d->ev_cap) { d->ev_overflow++; return; }
+    e = &d->ev[d->ev_n];
+    zero(e, sizeof *e);
+    e->t = t;
+    e->ordinal = d->ev_n;
+    e->retrace = retrace;
+    e->frame_index = r->frame_index;
+    e->prev_index = d->prev_selected;
+    e->xfb_current = (int16_t)xfb_current;
+    e->xfb_pending = (int16_t)xfb_pending;
+    e->xfb_target = -1;
+    e->tex = (uint8_t)r->tex;
+    e->decision = (uint8_t)GBP_VDISP_D_DEFERRED;
+    e->reason = (uint8_t)reason;
+    if (tex_state) { e->tex_state[0] = tex_state[0]; e->tex_state[1] = tex_state[1]; }
+    e->newest_source = GBP_VDISP_KEY_NONE;
+    d->ev_n++;
+}
+
+void gbp_vdisp_finish(struct gbp_vdisp *d)
+{
+    uint32_t i;
+    if (!d || !d->life) return;
+    for (i = 0; i < d->life_n; i++) {
+        struct gbp_vdisp_life *r = &d->life[i];
+        if (r->disposition == GBP_VDISP_D_SELECTED_NEW ||
+            r->disposition == GBP_VDISP_D_SLOT_OVERRUN ||
+            r->disposition == GBP_VDISP_D_ABANDONED_NO_RAW ||
+            r->disposition == GBP_VDISP_D_HOLD_PREVIOUS) continue;
+        /* OPEN or DEFERRED at the end of the run. It was never lost and it was
+         * never presented: an EDGE state, counted as itself. Teardown does not
+         * invent a hand-off to make a column add up. */
+        r->disposition = (uint16_t)GBP_VDISP_D_TERMINAL_PENDING;
+        d->terminal_pending++;
+    }
+}
+
 void gbp_vdisp_drawdone(struct gbp_vdisp *d, int tex, uint64_t t)
 {
     int life;
@@ -130,11 +192,27 @@ void gbp_vdisp_decision(struct gbp_vdisp *d, int life, uint64_t t, uint32_t retr
     if (!d) return;
     d->decisions++;
     if (r) {
+        if (r->t_first_attempt == 0u) r->t_first_attempt = t;
         r->t_decision = t;
         r->retrace_decision = retrace;
         r->disposition = disp;
         r->reason = (xfb_target >= 0) ? (uint16_t)GBP_VDISP_R_NONE : reason;
         r->life_flags |= GBP_VDISP_F_DECIDED;
+        if (xfb_target >= 0) {
+            d->source_handoffs++;
+            /* I2: a newer frame must never hand off before an older one that is
+             * still waiting. Counted rather than asserted, so a violation is
+             * visible in the evidence instead of stopping the run. */
+            if (d->have_last_handoff && r->frame_index != GBP_VDISP_KEY_NONE &&
+                d->last_handoff_index != GBP_VDISP_KEY_NONE &&
+                r->frame_index <= d->last_handoff_index) d->order_violations++;
+            if (r->frame_index != GBP_VDISP_KEY_NONE) {
+                d->last_handoff_index = r->frame_index;
+                d->have_last_handoff = 1;
+            }
+        } else {
+            d->source_dropped_interior++;
+        }
     }
     if (d->ev_n >= d->ev_cap) { d->ev_overflow++; return; }
     e = &d->ev[d->ev_n];
@@ -175,6 +253,9 @@ const struct gbp_vdisp_event *gbp_vdisp_event_at(const struct gbp_vdisp *d, uint
 int gbp_vdisp_intact(const struct gbp_vdisp *d)
 {
     if (!d) return 0;
+    /* `decisions` counts terminal decisions only; `ev_n` also holds one event
+     * per DEFERRED frame, so the identity is decisions + deferred == ev_n. */
     return (d->life_overflow == 0u && d->ev_overflow == 0u &&
-            d->drawdone_unmatched == 0u && d->decisions == d->ev_n) ? 1 : 0;
+            d->drawdone_unmatched == 0u && d->order_violations == 0u &&
+            d->decisions + d->source_deferred_frames == d->ev_n) ? 1 : 0;
 }

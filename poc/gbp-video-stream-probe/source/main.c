@@ -433,6 +433,7 @@ static void draw_quad(void)
  * `consumer_frames_converted` for the whole run (GBP-HW-135). The self-test now
  * accounts for itself, in its own two counters, and the queue never sees it. */
 static void submit_ready(int buf, struct gbp_vqueue *account);
+static void offer_oldest_ready(void);
 
 /* ---- the display self-test (§V5.26.4) -----------------------------------
  *
@@ -491,7 +492,17 @@ static void display_selftest(void)
                                    0u, gettime(), VIDEO_GetRetraceCount(),
                                    (uint16_t)buf, 0, 1);
     gbp_vdisp_convert_done(&disp, tex_life[buf], gettime(), 0u);
-    submit_ready(buf, 0);        /* NULL: this frame is not a queue frame (R1) */
+    /* §V5.49: under policy A a first offer can DEFER, so the self-test retries.
+     * A bounded VIDEO_WaitVSync is legitimate HERE and only here -- this runs
+     * before the capture opens, touches no device and blocks no service path. */
+    {
+        unsigned k;
+        for (k = 0; k < 8u; k++) {
+            submit_ready(buf, 0);
+            if (present.tex[buf] != GBP_VPRESENT_READY) break;
+            VIDEO_WaitVSync();
+        }
+    }
 
     /* Wait for the callback HERE and nowhere else: this runs before the capture
      * opens, so a bounded spin costs the device nothing. If the token never
@@ -503,7 +514,13 @@ static void display_selftest(void)
      * future edit that routes the self-test back through the queue makes this
      * ZERO — which the Dolphin smoke fails on. */
     selftest_sci_clean = gbp_vqueue_pristine(&vq);
+    /* §V5.49.13. `selftest_released` is ZERO-SAFE: with no token ever armed
+     * there is nothing in flight, so it passes without the display path having
+     * run at all. Policy A makes that reachable -- if all eight offers defer,
+     * nothing is ever presented. Require the present explicitly, so a self-test
+     * that displayed nothing fails instead of reporting ok=1. */
     selftest_ok = (selftest_converted && selftest_released && selftest_sci_clean &&
+                   selftest_presents >= 1u &&
                    gbp_vpresent_consistent(&present) &&
                    gbp_vpresent_invariant_failures(&present) == 0u) ? 1 : 0;
 }
@@ -516,11 +533,7 @@ static void pump(void *user)
     /* A READY buffer whose submit was refused because a token was still pending
      * gets another chance here, before any new work is started. Re-offering it
      * costs one state read and keeps the newest converted frame moving. */
-    {
-        uint32_t i;
-        for (i = 0; i < GBP_VPRESENT_TEX_BUFFERS; i++)
-            if (present.tex[i] == GBP_VPRESENT_READY) { submit_ready((int)i, &vq); break; }
-    }
+    offer_oldest_ready();
 
     if (!conv.active) {
         int buf;
@@ -616,13 +629,25 @@ static void pump(void *user)
     gbp_vdisp_convert_done(&disp, conv.life, gettime(), conv.ticks);
     (void)gbp_vpresent_fill_done(&present, (int)conv.buf);   /* CPU_FILLING -> READY */
     conv.active = 0u;
-    submit_ready((int)conv.buf, &vq);
+    /* NOT submit_ready(conv.buf): if an older frame is still deferred, this one
+     * must wait behind it. The offer is by age, never by slot. */
+    offer_oldest_ready();
 }
 
 /* Hand a READY texture to the GP and put the result on screen — or decline,
  * without waiting for anything. Split out of `pump()` because it is the part
  * whose ORDERING is the safety argument, and because a READY buffer may have to
  * wait for the previous token before it can go. */
+/* How many textures are holding a converted frame that has not been handed off.
+ * The model says 1; anything else is observable rather than assumed. */
+static uint32_t ready_depth(void)
+{
+    uint32_t i, n = 0;
+    for (i = 0; i < GBP_VPRESENT_TEX_BUFFERS; i++)
+        if (present.tex[i] == GBP_VPRESENT_READY) n++;
+    return n;
+}
+
 static void submit_ready(int buf, struct gbp_vqueue *account)
 {
     int xfb, cur, pend, inflight;
@@ -630,6 +655,45 @@ static void submit_ready(int buf, struct gbp_vqueue *account)
     uint64_t t_dec;
     uint32_t rt;
     const int life = tex_life[buf];
+
+    /* ---- POLICY A (§V5.49): THE FRAMEBUFFER QUESTION COMES FIRST ----------
+     *
+     * `stream-0007` asked GX first and the framebuffer afterwards, so a frame
+     * that could not be presented had already consumed a draw-done token and
+     * was then DISCARDED -- 17 source frames in run 5. Asking about the
+     * framebuffer first costs nothing and changes the outcome: the texture
+     * stays READY, the frame stays alive, and the retry that `pump()` already
+     * performs offers the SAME frame again.
+     *
+     * THE TARGET IS STABLE ACROSS THIS WINDOW, and it is a proof rather than a
+     * hope (§V5.49.2). `xfb_target()` returns X only when X is neither current
+     * nor pending; with exactly two framebuffers that requires `xfb_pending` to
+     * be -1 after `xfb_observe()`; with nothing handed over the VI has nothing
+     * to latch, so a retrace cannot change which buffer is current; and no
+     * other caller claims a stream framebuffer -- the draw-done ISR touches
+     * textures only. So X stays writable until this same path hands it over.
+     *
+     * Nothing here waits. There is no VIDEO_WaitVSync, no spin and no retrace
+     * callback: the deferral is a state, not a delay. */
+    cur = xfb_current_index();
+    t_dec = gettime();
+    rt = VIDEO_GetRetraceCount();
+    xfb = gbp_vpresent_xfb_target(&present, cur);
+    /* Read AFTER xfb_target() and BEFORE xfb_handed(): this is the only window
+     * in which `xfb_pending` is what the decision actually used. */
+    pend = present.xfb_pending;
+    tstate[0] = present.tex[0];
+    tstate[1] = present.tex[1];
+    if (xfb < 0) {
+        /* DEFER. Non-terminal: no counter of loss moves, no token is consumed,
+         * and the texture is left READY for the next offer. */
+        gbp_vdisp_defer(&disp, life, t_dec, rt, cur, pend,
+                        (uint16_t)(present.shutting_down ? GBP_VDISP_R_XFB_SHUTDOWN
+                                                         : GBP_VDISP_R_XFB_BUSY),
+                        tstate, ready_depth());
+        if (!account) selftest_repeats++;
+        return;
+    }
 
     /* ONE token in flight. A refusal here is normal back-pressure: the buffer
      * stays READY and is offered again on the next slice boundary, and the
@@ -652,44 +716,48 @@ static void submit_ready(int buf, struct gbp_vqueue *account)
      * so the callback can never observe a half-built submission. */
     GX_SetDrawDone();                 /* NON-blocking: on_draw_done() releases it */
 
-    /* The framebuffer is a SEPARATE question: a DrawDone says nothing about the
-     * VI. Copy only into a buffer the VI is neither scanning nor about to. */
-    cur = xfb_current_index();
-    /* §V5.46: the clock and the retrace ordinal are read BEFORE the decision, so
-     * the event timestamps the decision and not its consequences. */
-    t_dec = gettime();
-    rt = VIDEO_GetRetraceCount();
-    xfb = gbp_vpresent_xfb_target(&present, cur);
-    /* Read AFTER xfb_target() and BEFORE xfb_handed(): xfb_target() retires a
-     * hand-over the VI has picked up, and xfb_handed() installs a new one, so
-     * this is the only window in which `xfb_pending` is what the loop actually
-     * used. Snapshotting it later would record the consequence as the cause. */
-    pend = present.xfb_pending;
+    /* The target was chosen before the submit and is still writable: §V5.49.2.
+     * The GX call ORDER below is unchanged from `stream-0007` -- draw, arm the
+     * token, then copy -- because that order is the ownership argument and this
+     * round changes the policy, not the pipeline. */
     inflight = gbp_vpresent_inflight(&present);
-    tstate[0] = present.tex[0];
-    tstate[1] = present.tex[1];
-    if (xfb >= 0) {
-        GX_CopyDisp(xfb_stream_buf[xfb], GX_TRUE);
-        GX_Flush();
-        VIDEO_SetNextFramebuffer(xfb_stream_buf[xfb]);
-        VIDEO_Flush();                /* register write only; NEVER VIDEO_WaitVSync here */
-        gbp_vpresent_xfb_handed(&present, xfb);
-        /* R1: only a frame that came OUT of the queue goes back INTO its
-         * counters. The self-test passes NULL and is counted separately. */
-        if (account) gbp_vqueue_note_presented(account); else selftest_presents++;
-    } else {
-        GX_Flush();                   /* the draw still has to reach the GP */
-        if (account) gbp_vqueue_note_repeat(account); else selftest_repeats++;
-    }
+    GX_CopyDisp(xfb_stream_buf[xfb], GX_TRUE);
+    GX_Flush();
+    VIDEO_SetNextFramebuffer(xfb_stream_buf[xfb]);
+    VIDEO_Flush();                    /* register write only; NEVER VIDEO_WaitVSync here */
+    gbp_vpresent_xfb_handed(&present, xfb);
+    /* R1: only a frame that came OUT of the queue goes back INTO its counters.
+     * The self-test passes NULL and is counted separately. */
+    if (account) gbp_vqueue_note_presented(account); else selftest_presents++;
     gbp_vdisp_decision(&disp, life, t_dec, rt, cur, pend, xfb,
-                       (uint16_t)(present.shutting_down ? GBP_VDISP_R_XFB_SHUTDOWN
-                                                        : GBP_VDISP_R_XFB_BUSY),
-                       tstate, inflight,
+                       (uint16_t)GBP_VDISP_R_NONE, tstate, inflight,
                        /* what the producer had waiting, read from the mailbox
                         * the consumer takes from -- one field, no clock, no copy */
                        (account && account->has_pending)
                            ? account->pending.frame_index : GBP_VDISP_KEY_NONE);
     tex_life[buf] = -1;               /* the lifecycle is closed; the slot is free to be re-keyed */
+}
+
+/* THE ORDERING GUARANTEE (§V5.49 I2).
+ *
+ * `gbp_vpresent_acquire()` hands out the lowest FREE texture and the old retry
+ * loop scanned from index 0, so a newer frame converted into a lower slot could
+ * hand off before an older deferred one. Offering the OLDEST READY texture --
+ * oldest by lifecycle index, which is assigned in take order -- removes that by
+ * construction, and needs no second queue: the READY state IS the deferral. */
+static void offer_oldest_ready(void)
+{
+    uint32_t i;
+    int best = -1;
+    int best_life = 0;
+    for (i = 0; i < GBP_VPRESENT_TEX_BUFFERS; i++) {
+        if (present.tex[i] != GBP_VPRESENT_READY) continue;
+        if (best < 0 || (tex_life[i] >= 0 && (best_life < 0 || tex_life[i] < best_life))) {
+            best = (int)i;
+            best_life = tex_life[i];
+        }
+    }
+    if (best >= 0) submit_ready(best, &vq);
 }
 
 /* The streaming sink: one SD write per record, and ONLY after the teardown has
@@ -1031,17 +1099,33 @@ int main(void)
             if (r->disposition == GBP_VDISP_D_HOLD_PREVIOUS) held++;
             if (r->disposition == GBP_VDISP_D_SELECTED_NEW) selected++;
         }
-        ringlog_printf(&rl, "STREAMDISP life=%lu/%lu events=%lu/%lu decisions=%lu in_window=%lu "
-                            "selected_new=%lu hold_previous=%lu life_overflow=%lu event_overflow=%lu "
+        /* §V5.49.6: a UNIQUE tag. `STREAMDISP` already names the legacy
+         * conservation identity, and two different lines under one tag is a
+         * trap for any parser that keys on it. */
+        ringlog_printf(&rl, "DISPTRACE life=%lu/%lu events=%lu/%lu decisions=%lu "
+                            "armed_at_take=%lu life_overflow=%lu event_overflow=%lu "
                             "drawdone_unmatched=%lu intact=%d tex_slots=%lu xfb_slots=%lu",
                        (unsigned long)disp.life_n, (unsigned long)disp.life_cap,
                        (unsigned long)disp.ev_n, (unsigned long)disp.ev_cap,
                        (unsigned long)disp.decisions, (unsigned long)in_win,
-                       (unsigned long)selected, (unsigned long)held,
                        (unsigned long)disp.life_overflow, (unsigned long)disp.ev_overflow,
                        (unsigned long)disp.drawdone_unmatched, gbp_vdisp_intact(&disp),
                        (unsigned long)GBP_VDISP_TEX_SLOTS,
                        (unsigned long)GBP_VPRESENT_XFB_BUFFERS);
+        /* §V5.49.6: SOURCE disposition only. Not one of these is a display
+         * cadence quantity, and `selected`/`held` from the loop above are the
+         * per-lifecycle tallies of the same thing. */
+        ringlog_printf(&rl, "DISPSRC handoffs=%lu deferred_frames=%lu defer_attempts=%lu "
+                            "dropped_interior=%lu terminal_pending=%lu max_defer_depth=%lu "
+                            "order_violations=%lu selected_new=%lu hold_previous=%lu",
+                       (unsigned long)disp.source_handoffs,
+                       (unsigned long)disp.source_deferred_frames,
+                       (unsigned long)disp.source_defer_attempts,
+                       (unsigned long)disp.source_dropped_interior,
+                       (unsigned long)disp.terminal_pending,
+                       (unsigned long)disp.max_deferred_depth,
+                       (unsigned long)disp.order_violations,
+                       (unsigned long)selected, (unsigned long)held);
     }
     ringlog_printf(&rl, "STREAMWIT records=%lu/%lu target=%lu frames_seen=%lu discarded=%lu "
                         "staged=%lu placed=%lu out_of_range=%lu store_full=%d target_reached=%d",
@@ -1199,6 +1283,10 @@ int main(void)
                 struct sdlog_stream ds;
                 char dstat[96];
                 int drc = -1;
+                /* §V5.49.7: close every lifecycle still alive as
+                 * TERMINAL_PENDING. Teardown never invents a hand-off to make a
+                 * column balance, and an edge state is not an interior loss. */
+                gbp_vdisp_finish(&disp);
                 memset(&disp_info, 0, sizeof disp_info);
                 disp_info.tb_hz = tb_hz;
                 disp_info.xfb_slots = GBP_VPRESENT_XFB_BUFFERS;

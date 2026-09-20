@@ -77,7 +77,7 @@ extern "C" {
  * 2 048 records plus a warm-up that has never exceeded 71 frames. 4 096 is
  * ~1.9x the largest population any run of this shape has produced. */
 #define GBP_VDISP_LIFE_CAP   4096u
-#define GBP_VDISP_EVENT_CAP  4096u
+#define GBP_VDISP_EVENT_CAP  8192u
 
 #define GBP_VDISP_KEY_NONE   0xFFFFFFFFu   /* the self-test, and nothing else */
 #define GBP_VDISP_TEX_SLOTS  2u
@@ -87,9 +87,18 @@ extern "C" {
 enum gbp_vdisp_disposition {
     GBP_VDISP_D_OPEN = 0,           /* still in flight when the run ended       */
     GBP_VDISP_D_SELECTED_NEW,       /* VIDEO_SetNextFramebuffer() called for it */
-    GBP_VDISP_D_HOLD_PREVIOUS,      /* drawn; no writable XFB; screen unchanged */
+    /* HISTORICAL. stream-0007 discarded a frame's presentation when no XFB was
+     * writable. Policy A never produces it: the frame is DEFERRED instead. It
+     * is kept so run-5 sidecars keep their meaning, and it must NEVER be reused
+     * to mean "temporarily deferred" (§V5.49.5). */
+    GBP_VDISP_D_HOLD_PREVIOUS,
     GBP_VDISP_D_SLOT_OVERRUN,       /* the generation guard failed after convert*/
     GBP_VDISP_D_ABANDONED_NO_RAW,   /* the ring block went unreadable mid-convert*/
+    /* NON-TERMINAL. The frame is alive, still READY, and will be offered again.
+     * A lifecycle in this state at the end of the run is a TERMINAL_PENDING,
+     * never a loss. */
+    GBP_VDISP_D_DEFERRED,
+    GBP_VDISP_D_TERMINAL_PENDING,   /* alive and un-handed-off when the run ended*/
     GBP_VDISP_D_COUNT
 };
 
@@ -108,9 +117,10 @@ enum gbp_vdisp_reason {
 #define GBP_VDISP_F_SUBMITTED  0x0008u
 #define GBP_VDISP_F_DRAWDONE   0x0010u
 #define GBP_VDISP_F_DECIDED    0x0020u
-#define GBP_VDISP_F_ALL        0x003Fu
+#define GBP_VDISP_F_EVER_DEFERRED 0x0040u  /* it was held back at least once    */
+#define GBP_VDISP_F_ALL        0x007Fu
 
-/* 96 bytes. Timestamps are the GameCube Time Base (tb_hz reported by the
+/* 128 bytes in OGBPDISP2. Timestamps are the GameCube Time Base (tb_hz reported by the
  * capture); 0 means "this stage never happened", which is why nothing here is
  * invented for a stage that cannot be observed.
  *
@@ -127,19 +137,28 @@ struct gbp_vdisp_life {
     uint64_t t_take;             /* 0x10 consumer took it                       */
     uint64_t t_convert_first;    /* 0x18 first conversion slice                 */
     uint64_t t_convert_done;     /* 0x20 40th tile row                          */
-    uint64_t t_submit;           /* 0x28 token armed                            */
-    uint64_t t_drawdone;         /* 0x30 GP released the texture (ISR)          */
-    uint64_t t_decision;         /* 0x38 XFB chosen or refused                  */
-    uint32_t retrace_take;       /* 0x40 VIDEO_GetRetraceCount() at take        */
-    uint32_t retrace_decision;   /* 0x44 and at the decision                    */
-    uint32_t convert_ticks;      /* 0x48 accumulated slice cost                 */
-    uint32_t submit_refusals;    /* 0x4C token-gate refusals before it got in   */
-    uint16_t slot;               /* 0x50 raw ring slot                          */
-    uint16_t tex;                /* 0x52 texture buffer index                   */
-    uint16_t disposition;        /* 0x54 enum gbp_vdisp_disposition             */
-    uint16_t reason;             /* 0x56 enum gbp_vdisp_reason                  */
-    uint32_t src_flags;          /* 0x58 the assembler's frame flags, verbatim  */
-    uint32_t life_flags;         /* 0x5C GBP_VDISP_F_*                          */
+    uint64_t t_first_attempt;    /* 0x28 first presentation attempt             */
+    uint64_t t_first_defer;      /* 0x30 first time it was held back            */
+    uint64_t t_last_defer;       /* 0x38 last time it was held back             */
+    uint64_t t_submit;           /* 0x40 token armed                            */
+    uint64_t t_drawdone;         /* 0x48 GP released the texture (ISR)          */
+    uint64_t t_decision;         /* 0x50 the TERMINAL decision                   */
+    uint32_t retrace_take;       /* 0x58 VIDEO_GetRetraceCount() at take        */
+    uint32_t retrace_decision;   /* 0x5C and at the terminal decision           */
+    uint32_t convert_ticks;      /* 0x60 accumulated slice cost                 */
+    uint32_t submit_refusals;    /* 0x64 token-gate refusals before it got in   */
+    /* Defer attempts are AGGREGATED, not evented. The retry runs from pump(),
+     * about every 158 us, so one event per attempt would be unbounded; the
+     * count plus the first and last timestamps say the same thing in 16 bytes
+     * (§V5.49.3). */
+    uint32_t defer_attempts;     /* 0x68                                        */
+    uint16_t slot;               /* 0x6C raw ring slot                          */
+    uint16_t tex;                /* 0x6E texture buffer index                   */
+    uint16_t disposition;        /* 0x70 enum gbp_vdisp_disposition             */
+    uint16_t reason;             /* 0x72 enum gbp_vdisp_reason                  */
+    uint32_t src_flags;          /* 0x74 the assembler's frame flags, verbatim  */
+    uint32_t life_flags;         /* 0x78 GBP_VDISP_F_*                          */
+    uint32_t reserved;           /* 0x7C zero                                   */
 };
 
 /* 40 bytes. One per DECISION. `xfb_current` and `xfb_pending` are the exact
@@ -177,6 +196,18 @@ struct gbp_vdisp {
     uint32_t prev_selected;      /* last frame that reached an XFB              */
     uint32_t drawdone_unmatched; /* a token fired with no lifecycle attached    */
     uint32_t decisions;          /* == ev_n unless the event array overflowed   */
+    /* §V5.49.6: disposition counters with NON-OVERLAPPING meanings. The
+     * runtime's legacy `repeats` stood for a source drop and a display repeat
+     * at once; nothing here does. */
+    uint32_t source_handoffs;        /* frames that reached VIDEO_SetNextFramebuffer */
+    uint32_t source_deferred_frames; /* frames held back at least once          */
+    uint32_t source_defer_attempts;  /* total held-back offers, all frames      */
+    uint32_t source_dropped_interior;/* must stay 0 under policy A              */
+    uint32_t terminal_pending;       /* alive and un-handed-off at the end      */
+    uint32_t max_deferred_depth;     /* READY-and-unhanded textures at once     */
+    uint32_t order_violations;       /* a newer frame handed off before an older*/
+    uint32_t last_handoff_index;     /* for the ordering invariant              */
+    int      have_last_handoff;
 };
 
 /* `life` and `ev` are caller-owned arrays. Returns 0, or -1 on a bad argument. */
@@ -200,6 +231,17 @@ void gbp_vdisp_submit_refused(struct gbp_vdisp *d, int life);
  * is armed and NOT before: the mapping must never name a frame the GP is not
  * yet working on. */
 void gbp_vdisp_submit(struct gbp_vdisp *d, int life, uint64_t t);
+
+/* NON-TERMINAL. The frame found no writable framebuffer and stays alive. The
+ * FIRST call emits one event; every later call only advances the aggregate, so
+ * a retry running every 158 us cannot flood the trace. */
+void gbp_vdisp_defer(struct gbp_vdisp *d, int life, uint64_t t, uint32_t retrace,
+                     int xfb_current, int xfb_pending, uint16_t reason,
+                     const uint8_t *tex_state, uint32_t depth);
+
+/* Closes every lifecycle still alive at the end of the run as TERMINAL_PENDING,
+ * which is an edge state and never an interior loss. */
+void gbp_vdisp_finish(struct gbp_vdisp *d);
 
 /* THE ONLY INTERRUPT-TIME ENTRY POINT. `tex` is what gbp_vpresent_draw_done()
  * returned; a negative index or an unmapped slot increments

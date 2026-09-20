@@ -25,24 +25,43 @@ import struct
 import sys
 
 MAGIC, END = b"OGBPDISP", b"OGBPDEND"
-VERSION, HEADER_SIZE, FOOTER_SIZE = 1, 0x100, 12
-LIFE_SIZE, EVENT_SIZE = 96, 40
+FOOTER_SIZE, EVENT_SIZE = 12, 40
+
+# Two versions, both readable. v1 is the historical run-5 sidecar and must keep
+# parsing for ever; v2 adds the defer aggregate and the source-disposition
+# counters that policy A needs (§V5.49.6). The geometry is per version and
+# nothing about v1 is reinterpreted.
+GEOM = {
+    1: {"header": 0x100, "life": 96,
+        "ids": (0x68, 0x88, 0xA8, 0xC8), "reserved": 0xE8},
+    2: {"header": 0x140, "life": 128,
+        "ids": (0x88, 0xA8, 0xC8, 0xE8), "reserved": 0x108},
+}
+VERSION, HEADER_SIZE, LIFE_SIZE = 2, 0x140, 128
 
 F_INTACT, F_LIFE_OVERFLOW, F_EVENT_OVERFLOW = 0x01, 0x02, 0x04
 F_DRAWDONE_UNMATCHED, F_WINDOW_OPENED = 0x08, 0x10
-F_ALL = 0x1F
+F_ORDER_VIOLATION, F_INTERIOR_LOSS = 0x20, 0x40
+F_ALL = 0x7F
 FLAG_NAMES = [(F_INTACT, "intact"), (F_LIFE_OVERFLOW, "life_overflow"),
               (F_EVENT_OVERFLOW, "event_overflow"),
               (F_DRAWDONE_UNMATCHED, "drawdone_unmatched"),
-              (F_WINDOW_OPENED, "window_opened")]
+              (F_WINDOW_OPENED, "window_opened"),
+              (F_ORDER_VIOLATION, "order_violation"),
+              (F_INTERIOR_LOSS, "interior_loss")]
 
 KEY_NONE = 0xFFFFFFFF
 
 DISPOSITION = {0: "OPEN", 1: "SELECTED_NEW", 2: "HOLD_PREVIOUS",
-               3: "SLOT_OVERRUN", 4: "ABANDONED_NO_RAW"}
+               3: "SLOT_OVERRUN", 4: "ABANDONED_NO_RAW",
+               # v2 only. DEFERRED is NON-TERMINAL; TERMINAL_PENDING is an edge
+               # state and never an interior loss.
+               5: "DEFERRED", 6: "TERMINAL_PENDING"}
+TERMINAL_LOSS = {"HOLD_PREVIOUS", "SLOT_OVERRUN", "ABANDONED_NO_RAW"}
 REASON = {0: "NONE", 1: "XFB_BUSY", 2: "XFB_SHUTDOWN"}
-LF = [(0x01, "IN_WINDOW"), (0x02, "SELFTEST"), (0x04, "CONVERTED"),
-      (0x08, "SUBMITTED"), (0x10, "DRAWDONE"), (0x20, "DECIDED")]
+LF = [(0x01, "WITNESS_ARMED_AT_TAKE"), (0x02, "SELFTEST"), (0x04, "CONVERTED"),
+      (0x08, "SUBMITTED"), (0x10, "DRAWDONE"), (0x20, "DECIDED"),
+      (0x40, "EVER_DEFERRED")]
 
 
 class DispError(ValueError):
@@ -65,15 +84,18 @@ def parse(data: bytes) -> dict:
     if data[:8] != MAGIC:
         raise DispError("magic is not %r" % MAGIC)
     version, header_size = struct.unpack_from(">HH", data, 0x08)
-    if version != VERSION:
+    if version not in GEOM:
         raise DispError("unsupported version %d" % version)
-    if header_size != HEADER_SIZE:
-        raise DispError("header size %d is not 0x%X" % (header_size, HEADER_SIZE))
-    header_crc32 = struct.unpack_from(">I", data, HEADER_SIZE - 4)[0]
-    if header_crc32 != binascii.crc32(data[:HEADER_SIZE - 4]) & 0xFFFFFFFF:
+    G = GEOM[version]
+    if header_size != G["header"]:
+        raise DispError("header size %d is not 0x%X for v%d"
+                        % (header_size, G["header"], version))
+    header_crc32 = struct.unpack_from(">I", data, header_size - 4)[0]
+    if header_crc32 != binascii.crc32(data[:header_size - 4]) & 0xFFFFFFFF:
         raise DispError("header CRC-32 mismatch")
 
-    i = {"version": version, "header_size": header_size, "header_crc32": header_crc32}
+    i = {"version": version, "header_size": header_size, "header_crc32": header_crc32,
+         "life_size": G["life"]}
     (i["flags"], i["life_record_size"], i["event_record_size"], i["life_cap"],
      i["life_n"], i["event_cap"], i["event_n"], i["life_overflow"],
      i["event_overflow"], i["drawdone_unmatched"], i["decisions"], i["tb_hz"],
@@ -81,21 +103,46 @@ def parse(data: bytes) -> dict:
      i["off_events"], i["off_footer"], i["life_crc32"],
      i["event_crc32"]) = struct.unpack_from(">20I", data, 0x0C)
     i["total_size"] = struct.unpack_from(">Q", data, 0x60)[0]
-    if i["life_record_size"] != LIFE_SIZE or i["event_record_size"] != EVENT_SIZE:
-        raise DispError("record sizes are not the frozen ones")
+    if i["life_record_size"] != G["life"] or i["event_record_size"] != EVENT_SIZE:
+        raise DispError("record sizes are not the frozen ones for v%d" % version)
+    for k in ("source_handoffs", "source_deferred_frames", "source_defer_attempts",
+              "source_dropped_interior", "terminal_pending", "max_deferred_depth",
+              "order_violations"):
+        i[k] = 0
+    if version >= 2:
+        (i["source_handoffs"], i["source_deferred_frames"], i["source_defer_attempts"],
+         i["source_dropped_interior"], i["terminal_pending"], i["max_deferred_depth"],
+         i["order_violations"]) = struct.unpack_from(">7I", data, 0x68)
     if i["flags"] & ~F_ALL:
         raise DispError("unknown flag bits set: 0x%04x" % i["flags"])
     if i["life_n"] > i["life_cap"] or i["event_n"] > i["event_cap"]:
         raise DispError("a count exceeds its capacity")
-    body = i["life_n"] * LIFE_SIZE + i["event_n"] * EVENT_SIZE
-    if i["off_life"] != HEADER_SIZE or \
-       i["off_events"] != i["off_life"] + i["life_n"] * LIFE_SIZE or \
-       i["off_footer"] != HEADER_SIZE + body or \
+    # The flags must agree with the counters they summarise. The C parser
+    # enforces this; a Python parser that did not would disagree with the writer
+    # about what a file means, which is worse than either rule alone.
+    for bit, name, key in ((F_LIFE_OVERFLOW, "life_overflow", "life_overflow"),
+                           (F_EVENT_OVERFLOW, "event_overflow", "event_overflow"),
+                           (F_DRAWDONE_UNMATCHED, "drawdone_unmatched", "drawdone_unmatched"),
+                           (F_ORDER_VIOLATION, "order_violation", "order_violations"),
+                           (F_INTERIOR_LOSS, "interior_loss", "source_dropped_interior")):
+        if bool(i["flags"] & bit) != bool(i.get(key, 0)):
+            raise DispError("flag %s disagrees with its counter" % name)
+    if bool(i["flags"] & F_WINDOW_OPENED) != (i["window_first_frame"] != KEY_NONE):
+        raise DispError("flag window_opened disagrees with window_first_frame")
+    if (i["flags"] & F_INTACT) and (
+            i["life_overflow"] or i["event_overflow"] or i["drawdone_unmatched"] or
+            i["order_violations"] or
+            i["decisions"] + i["source_deferred_frames"] != i["event_n"]):
+        raise DispError("flag intact disagrees with what the file records")
+    body = i["life_n"] * G["life"] + i["event_n"] * EVENT_SIZE
+    if i["off_life"] != header_size or \
+       i["off_events"] != i["off_life"] + i["life_n"] * G["life"] or \
+       i["off_footer"] != header_size + body or \
        i["total_size"] != i["off_footer"] + FOOTER_SIZE or len(data) != i["total_size"]:
         raise DispError("the sections do not fit the file")
-    if any(data[0xE8:HEADER_SIZE - 4]):
+    if any(data[G["reserved"]:header_size - 4]):
         raise DispError("reserved header bytes are not zero")
-    for name, off in (("test_id", 0x68), ("build_id", 0x88), ("app", 0xA8), ("commit", 0xC8)):
+    for name, off in zip(("test_id", "build_id", "app", "commit"), G["ids"]):
         i[name] = _id(data[off:off + 32])
     if data[i["off_footer"]:i["off_footer"] + 8] != END:
         raise DispError("footer magic is not %r" % END)
@@ -103,7 +150,7 @@ def parse(data: bytes) -> dict:
     if i["total_crc32"] != binascii.crc32(data[:i["off_footer"]]) & 0xFFFFFFFF:
         raise DispError("global CRC-32 mismatch")
     if i["life_crc32"] != binascii.crc32(
-            data[i["off_life"]:i["off_life"] + i["life_n"] * LIFE_SIZE]) & 0xFFFFFFFF:
+            data[i["off_life"]:i["off_life"] + i["life_n"] * G["life"]]) & 0xFFFFFFFF:
         raise DispError("lifecycle section CRC-32 mismatch")
     if i["event_crc32"] != binascii.crc32(
             data[i["off_events"]:i["off_events"] + i["event_n"] * EVENT_SIZE]) & 0xFFFFFFFF:
@@ -111,25 +158,41 @@ def parse(data: bytes) -> dict:
 
     i["life"] = []
     for k in range(i["life_n"]):
-        o = i["off_life"] + k * LIFE_SIZE
+        o = i["off_life"] + k * G["life"]
         fi, seq = struct.unpack_from(">II", data, o)
-        times = struct.unpack_from(">7Q", data, o + 0x08)
-        rt_take, rt_dec, cticks, refus = struct.unpack_from(">4I", data, o + 0x40)
-        slot, tex, disp, reason = struct.unpack_from(">4H", data, o + 0x50)
-        src_flags, life_flags = struct.unpack_from(">II", data, o + 0x58)
+        if version == 1:
+            tm = struct.unpack_from(">7Q", data, o + 0x08)
+            rec = {"t_close": tm[0], "t_take": tm[1], "t_convert_first": tm[2],
+                   "t_convert_done": tm[3], "t_first_attempt": 0, "t_first_defer": 0,
+                   "t_last_defer": 0, "t_submit": tm[4], "t_drawdone": tm[5],
+                   "t_decision": tm[6], "defer_attempts": 0}
+            rt_take, rt_dec, cticks, refus = struct.unpack_from(">4I", data, o + 0x40)
+            slot, tex, disp, reason = struct.unpack_from(">4H", data, o + 0x50)
+            src_flags, life_flags = struct.unpack_from(">II", data, o + 0x58)
+        else:
+            tm = struct.unpack_from(">10Q", data, o + 0x08)
+            rec = {"t_close": tm[0], "t_take": tm[1], "t_convert_first": tm[2],
+                   "t_convert_done": tm[3], "t_first_attempt": tm[4],
+                   "t_first_defer": tm[5], "t_last_defer": tm[6], "t_submit": tm[7],
+                   "t_drawdone": tm[8], "t_decision": tm[9]}
+            rt_take, rt_dec, cticks, refus, defers = struct.unpack_from(">5I", data, o + 0x58)
+            rec["defer_attempts"] = defers
+            slot, tex, disp, reason = struct.unpack_from(">4H", data, o + 0x6C)
+            src_flags, life_flags = struct.unpack_from(">II", data, o + 0x74)
+            if struct.unpack_from(">I", data, o + 0x7C)[0] != 0:
+                raise DispError("life %d: reserved word is not zero" % k)
         if disp not in DISPOSITION:
             raise DispError("life %d: unknown disposition %d" % (k, disp))
         if reason not in REASON:
             raise DispError("life %d: unknown reason %d" % (k, reason))
-        i["life"].append({
-            "i": k, "frame_index": fi, "seq": seq,
-            "t_close": times[0], "t_take": times[1], "t_convert_first": times[2],
-            "t_convert_done": times[3], "t_submit": times[4], "t_drawdone": times[5],
-            "t_decision": times[6], "retrace_take": rt_take, "retrace_decision": rt_dec,
-            "convert_ticks": cticks, "submit_refusals": refus,
-            "slot": slot, "tex": tex, "disposition": disp, "reason": reason,
-            "src_flags": src_flags, "life_flags": life_flags,
-        })
+        if version == 1 and disp in (5, 6):
+            raise DispError("life %d: v1 cannot carry a v2 disposition" % k)
+        rec.update({"i": k, "frame_index": fi, "seq": seq, "retrace_take": rt_take,
+                    "retrace_decision": rt_dec, "convert_ticks": cticks,
+                    "submit_refusals": refus, "slot": slot, "tex": tex,
+                    "disposition": disp, "reason": reason,
+                    "src_flags": src_flags, "life_flags": life_flags})
+        i["life"].append(rec)
     i["events"] = []
     for k in range(i["event_n"]):
         o = i["off_events"] + k * EVENT_SIZE

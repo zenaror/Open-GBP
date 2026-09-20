@@ -16,6 +16,24 @@
  * `record.frame_index` there. Nothing in this file decodes OGBPIDX1, and this
  * format carries no pixels — it duplicates none of the witness payload.
  *
+ * ---- WHY VERSION 2 ---------------------------------------------------------
+ *
+ * v1 was designed around ONE downstream decision per source lifecycle. Policy A
+ * introduces a NON-TERMINAL event -- a frame is deferred and handed off later --
+ * and v1 cannot represent that without overloading `HOLD_PREVIOUS_FRAME` to
+ * mean "temporarily deferred". That word already has a physical meaning in
+ * run 5 (17 frames that were discarded), and reusing it would silently
+ * reinterpret an existing capture. So the version is bumped instead.
+ *
+ * v2 adds: the defer aggregate on each lifecycle (first, last, count), a first
+ * presentation-attempt timestamp, the DEFERRED and TERMINAL_PENDING
+ * dispositions, and a header block of source-disposition counters whose
+ * meanings do not overlap.
+ *
+ * It does NOT add a scientific-membership field. The population is the exact
+ * `frame_index` join with OGBPIDXCAP1, and duplicating it here is what produced
+ * the v1 off-by-one (GBP-VID-019/023).
+ *
  * ---- INTEGRITY, AND WHERE IT IS NOT COMPUTED ------------------------------
  *
  * The lesson of OGBPIDXCAP1 is kept: NOTHING here runs in the capture path. The
@@ -40,10 +58,10 @@ extern "C" {
 
 #define GBP_VDISPDUMP_MAGIC        "OGBPDISP"
 #define GBP_VDISPDUMP_END          "OGBPDEND"
-#define GBP_VDISPDUMP_VERSION      1u
-#define GBP_VDISPDUMP_HEADER_SIZE  0x100u
+#define GBP_VDISPDUMP_VERSION      2u
+#define GBP_VDISPDUMP_HEADER_SIZE  0x140u
 #define GBP_VDISPDUMP_FOOTER_SIZE  12u
-#define GBP_VDISPDUMP_LIFE_SIZE    96u
+#define GBP_VDISPDUMP_LIFE_SIZE    128u
 #define GBP_VDISPDUMP_EVENT_SIZE   40u
 #define GBP_VDISPDUMP_ID_FIELD     32u
 
@@ -52,7 +70,9 @@ extern "C" {
 #define GBP_VDISPDUMP_F_EVENT_OVERFLOW     0x0004u
 #define GBP_VDISPDUMP_F_DRAWDONE_UNMATCHED 0x0008u
 #define GBP_VDISPDUMP_F_WINDOW_OPENED      0x0010u
-#define GBP_VDISPDUMP_F_ALL                0x001Fu
+#define GBP_VDISPDUMP_F_ORDER_VIOLATION    0x0020u
+#define GBP_VDISPDUMP_F_INTERIOR_LOSS      0x0040u
+#define GBP_VDISPDUMP_F_ALL                0x007Fu
 
 struct gbp_vdispdump_info {
     uint16_t version, header_size;
@@ -63,6 +83,11 @@ struct gbp_vdispdump_info {
     uint32_t tb_hz, tex_slots, xfb_slots, window_first_frame;
     uint32_t off_life, off_events, off_footer, life_crc32, event_crc32;
     uint64_t total_size;
+    /* §V5.49.6: source DISPOSITION, with non-overlapping meanings. None of
+     * these is a display-cadence quantity and none may be read as one. */
+    uint32_t source_handoffs, source_deferred_frames, source_defer_attempts;
+    uint32_t source_dropped_interior, terminal_pending, max_deferred_depth;
+    uint32_t order_violations;
     char test_id[GBP_VDISPDUMP_ID_FIELD];
     char build_id[GBP_VDISPDUMP_ID_FIELD];
     char app[GBP_VDISPDUMP_ID_FIELD];

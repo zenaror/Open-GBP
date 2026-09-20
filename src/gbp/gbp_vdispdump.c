@@ -88,8 +88,18 @@ int gbp_vdispdump_layout(struct gbp_vdispdump_info *info, const struct gbp_vdisp
     for (i = 0; i < d->life_n; i++)
         if (d->life[i].life_flags & GBP_VDISP_F_IN_WINDOW) { info->window_first_frame = d->life[i].frame_index; break; }
 
+    info->source_handoffs = d->source_handoffs;
+    info->source_deferred_frames = d->source_deferred_frames;
+    info->source_defer_attempts = d->source_defer_attempts;
+    info->source_dropped_interior = d->source_dropped_interior;
+    info->terminal_pending = d->terminal_pending;
+    info->max_deferred_depth = d->max_deferred_depth;
+    info->order_violations = d->order_violations;
+
     info->flags = 0u;
     if (gbp_vdisp_intact(d))          info->flags |= GBP_VDISPDUMP_F_INTACT;
+    if (d->order_violations)          info->flags |= GBP_VDISPDUMP_F_ORDER_VIOLATION;
+    if (d->source_dropped_interior)   info->flags |= GBP_VDISPDUMP_F_INTERIOR_LOSS;
     if (d->life_overflow)             info->flags |= GBP_VDISPDUMP_F_LIFE_OVERFLOW;
     if (d->ev_overflow)               info->flags |= GBP_VDISPDUMP_F_EVENT_OVERFLOW;
     if (d->drawdone_unmatched)        info->flags |= GBP_VDISPDUMP_F_DRAWDONE_UNMATCHED;
@@ -111,13 +121,15 @@ static void build_life(const struct gbp_vdisp_life *r, uint8_t *o)
     put_u32(o + 0x00, r->frame_index);      put_u32(o + 0x04, r->seq);
     put_u64(o + 0x08, r->t_close);          put_u64(o + 0x10, r->t_take);
     put_u64(o + 0x18, r->t_convert_first);  put_u64(o + 0x20, r->t_convert_done);
-    put_u64(o + 0x28, r->t_submit);         put_u64(o + 0x30, r->t_drawdone);
-    put_u64(o + 0x38, r->t_decision);
-    put_u32(o + 0x40, r->retrace_take);     put_u32(o + 0x44, r->retrace_decision);
-    put_u32(o + 0x48, r->convert_ticks);    put_u32(o + 0x4C, r->submit_refusals);
-    put_u16(o + 0x50, r->slot);             put_u16(o + 0x52, r->tex);
-    put_u16(o + 0x54, r->disposition);      put_u16(o + 0x56, r->reason);
-    put_u32(o + 0x58, r->src_flags);        put_u32(o + 0x5C, r->life_flags);
+    put_u64(o + 0x28, r->t_first_attempt);  put_u64(o + 0x30, r->t_first_defer);
+    put_u64(o + 0x38, r->t_last_defer);     put_u64(o + 0x40, r->t_submit);
+    put_u64(o + 0x48, r->t_drawdone);       put_u64(o + 0x50, r->t_decision);
+    put_u32(o + 0x58, r->retrace_take);     put_u32(o + 0x5C, r->retrace_decision);
+    put_u32(o + 0x60, r->convert_ticks);    put_u32(o + 0x64, r->submit_refusals);
+    put_u32(o + 0x68, r->defer_attempts);
+    put_u16(o + 0x6C, r->slot);             put_u16(o + 0x6E, r->tex);
+    put_u16(o + 0x70, r->disposition);      put_u16(o + 0x72, r->reason);
+    put_u32(o + 0x74, r->src_flags);        put_u32(o + 0x78, r->life_flags);
 }
 
 static void build_event(const struct gbp_vdisp_event *e, uint8_t *o)
@@ -152,13 +164,20 @@ static void build_header(const struct gbp_vdispdump_info *i, uint8_t *h)
     put_u32(h + 0x50, i->off_footer);       put_u32(h + 0x54, i->life_crc32);
     put_u32(h + 0x58, i->event_crc32);
     put_u64(h + 0x60, i->total_size);
+    put_u32(h + 0x68, i->source_handoffs);
+    put_u32(h + 0x6C, i->source_deferred_frames);
+    put_u32(h + 0x70, i->source_defer_attempts);
+    put_u32(h + 0x74, i->source_dropped_interior);
+    put_u32(h + 0x78, i->terminal_pending);
+    put_u32(h + 0x7C, i->max_deferred_depth);
+    put_u32(h + 0x80, i->order_violations);
     for (k = 0; k < GBP_VDISPDUMP_ID_FIELD; k++) {
-        h[0x68 + k] = (uint8_t)i->test_id[k];
-        h[0x88 + k] = (uint8_t)i->build_id[k];
-        h[0xA8 + k] = (uint8_t)i->app[k];
-        h[0xC8 + k] = (uint8_t)i->commit[k];
+        h[0x88 + k] = (uint8_t)i->test_id[k];
+        h[0xA8 + k] = (uint8_t)i->build_id[k];
+        h[0xC8 + k] = (uint8_t)i->app[k];
+        h[0xE8 + k] = (uint8_t)i->commit[k];
     }
-    /* 0xE8 .. 0xFB stay zero: reserved, and a parser rejects them non-zero. */
+    /* 0x108 .. 0x13B stay zero: reserved, and a parser rejects them non-zero. */
     put_u32(h + GBP_VDISPDUMP_HEADER_SIZE - 4u,
             gbp_crc32(h, GBP_VDISPDUMP_HEADER_SIZE - 4u));
 }
@@ -250,6 +269,13 @@ int gbp_vdispdump_parse(const uint8_t *in, size_t n, struct gbp_vdispdump_info *
     info->off_footer = get_u32(in + 0x50); info->life_crc32 = get_u32(in + 0x54);
     info->event_crc32 = get_u32(in + 0x58);
     info->total_size = get_u64(in + 0x60);
+    info->source_handoffs = get_u32(in + 0x68);
+    info->source_deferred_frames = get_u32(in + 0x6C);
+    info->source_defer_attempts = get_u32(in + 0x70);
+    info->source_dropped_interior = get_u32(in + 0x74);
+    info->terminal_pending = get_u32(in + 0x78);
+    info->max_deferred_depth = get_u32(in + 0x7C);
+    info->order_violations = get_u32(in + 0x80);
 
     if (info->flags & ~GBP_VDISPDUMP_F_ALL) return -10;
     if (info->life_n > info->life_cap || info->event_n > info->event_cap) return -10;
@@ -258,9 +284,12 @@ int gbp_vdispdump_parse(const uint8_t *in, size_t n, struct gbp_vdispdump_info *
     if (((info->flags & GBP_VDISPDUMP_F_EVENT_OVERFLOW) != 0u) != (info->event_overflow != 0u)) return -10;
     if (((info->flags & GBP_VDISPDUMP_F_DRAWDONE_UNMATCHED) != 0u) != (info->drawdone_unmatched != 0u)) return -10;
     if (((info->flags & GBP_VDISPDUMP_F_WINDOW_OPENED) != 0u) != (info->window_first_frame != 0xFFFFFFFFu)) return -10;
+    if (((info->flags & GBP_VDISPDUMP_F_ORDER_VIOLATION) != 0u) != (info->order_violations != 0u)) return -10;
+    if (((info->flags & GBP_VDISPDUMP_F_INTERIOR_LOSS) != 0u) != (info->source_dropped_interior != 0u)) return -10;
     if ((info->flags & GBP_VDISPDUMP_F_INTACT) &&
         (info->life_overflow || info->event_overflow || info->drawdone_unmatched ||
-         info->decisions != info->event_n)) return -10;
+         info->order_violations ||
+         info->decisions + info->source_deferred_frames != info->event_n)) return -10;
 
     body = (uint64_t)info->life_n * GBP_VDISPDUMP_LIFE_SIZE
          + (uint64_t)info->event_n * GBP_VDISPDUMP_EVENT_SIZE;
@@ -270,10 +299,10 @@ int gbp_vdispdump_parse(const uint8_t *in, size_t n, struct gbp_vdispdump_info *
     if (info->total_size != (uint64_t)info->off_footer + GBP_VDISPDUMP_FOOTER_SIZE) return -4;
     if ((uint64_t)n != info->total_size) return -4;
 
-    for (i = 0xE8u; i < GBP_VDISPDUMP_HEADER_SIZE - 4u; i++) if (in[i] != 0u) return -8;
-    if (!id_ok(in + 0x68) || !id_ok(in + 0x88) || !id_ok(in + 0xA8) || !id_ok(in + 0xC8)) return -7;
-    id_read(info->test_id, in + 0x68);   id_read(info->build_id, in + 0x88);
-    id_read(info->app, in + 0xA8);       id_read(info->commit, in + 0xC8);
+    for (i = 0x108u; i < GBP_VDISPDUMP_HEADER_SIZE - 4u; i++) if (in[i] != 0u) return -8;
+    if (!id_ok(in + 0x88) || !id_ok(in + 0xA8) || !id_ok(in + 0xC8) || !id_ok(in + 0xE8)) return -7;
+    id_read(info->test_id, in + 0x88);   id_read(info->build_id, in + 0xA8);
+    id_read(info->app, in + 0xC8);       id_read(info->commit, in + 0xE8);
 
     for (i = 0; i < 8u; i++)
         if (in[info->off_footer + i] != (uint8_t)GBP_VDISPDUMP_END[i]) return -5;

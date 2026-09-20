@@ -337,12 +337,22 @@ class CacheAndOwnershipOrdering(unittest.TestCase):
         is chosen from the CURRENT buffer, not that it is written inline."""
         code = strip_comments(read(MAIN))
         self.assertIn("cur = xfb_current_index();", code)
-        i = code.index("gbp_vpresent_xfb_target(&present, cur)")
-        self.assertLess(code.index("cur = xfb_current_index();"), i)
-        window = code[i:i + 900]
-        self.assertIn("GX_CopyDisp(xfb_stream_buf[xfb]", window)
-        self.assertIn("VIDEO_SetNextFramebuffer(xfb_stream_buf[xfb])", window)
-        self.assertNotIn("VIDEO_WaitVSync", window, "the present path must never wait for a retrace")
+        i_cur = code.index("cur = xfb_current_index();")
+        i_tgt = code.index("gbp_vpresent_xfb_target(&present, cur)")
+        i_copy = code.index("GX_CopyDisp(xfb_stream_buf[xfb]")
+        i_next = code.index("VIDEO_SetNextFramebuffer(xfb_stream_buf[xfb])")
+        i_hand = code.index("gbp_vpresent_xfb_handed(&present, xfb)")
+        # Anchored on ORDER rather than a byte window: §V5.49 moved the decision
+        # ahead of the submit, and a fixed window silently stopped covering the
+        # calls it was meant to check.
+        self.assertLess(i_cur, i_tgt)
+        self.assertLess(i_tgt, i_copy)
+        self.assertLess(i_copy, i_next)
+        self.assertLess(i_next, i_hand)
+        # and nothing in the present path waits for a retrace
+        present_path = code[i_tgt:i_hand]
+        self.assertNotIn("VIDEO_WaitVSync", present_path,
+                         "the present path must never wait for a retrace")
 
     def test_the_draw_done_callback_is_restored_at_teardown(self):
         """§V5.26 F6 and the A9 mutation. `stream-0001` left its callback
@@ -654,12 +664,19 @@ class TheSelfTestDoesNotContaminateTheScientificCounters(unittest.TestCase):
                       "the self-test must account to nothing scientific")
 
     def test_the_queue_is_only_notified_through_the_account_parameter(self):
+        """The self-test must never touch a scientific counter, so no call may
+        name `vq` directly.
+
+        §V5.49: policy A removed the repeat notification entirely -- a frame
+        that finds no writable framebuffer is DEFERRED, not terminated -- so
+        `note_repeat` must now be absent altogether rather than present with an
+        `account` argument."""
         code = strip_comments(read(MAIN))
-        # no call may name `vq` directly for a presentation or a repeat
         self.assertNotIn("gbp_vqueue_note_presented(&vq)", code)
         self.assertNotIn("gbp_vqueue_note_repeat(&vq)", code)
         self.assertIn("gbp_vqueue_note_presented(account)", code)
-        self.assertIn("gbp_vqueue_note_repeat(account)", code)
+        self.assertNotIn("gbp_vqueue_note_repeat", code,
+                         "policy A never terminates a frame on a busy framebuffer")
 
     def test_the_poc_asserts_the_queue_is_pristine_before_the_probe(self):
         code = strip_comments(read(MAIN))
