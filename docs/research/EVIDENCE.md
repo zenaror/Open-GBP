@@ -6130,3 +6130,193 @@ because run 10 is the immediate baseline. Not universal hardware independence;
 not a tolerance on startup, eligibility or latency; not scanout or pixel
 fidelity; not a media double check (PENDING). Runs 9 and 10 stay `stream-0010`
 evidence with `truncated=1`, their fixtures, derivations and tests untouched.
+
+---
+
+### GBP-HW-250 — the RUN 12 artifacts and the operator's declarations (GBP-VIDEO-007 / GBP-VIDEO-008) — FACT
+
+Five raw files, hashed here on receipt before anything was read into an
+interpretation and matching the orchestrator's figures: log 89 514 B
+`0b64b677…882b`, OGBPIDXCAP1 8 946 060 B `fe1c1c0a…afd8`, OGBPDISP2
+401 356 B `91c2f805…23a4`, OGBPFULL1 1 844 492 B `fb09a777…433c`, OGBPVI1
+152 396 B `d301e96e…ddb0`. Supplied under the console's generated names
+(`GBP-VIDEO-004_stream-0013.log` / `-idxcap.bin` / `-disp.bin` / `-full.bin` /
+`-vi.bin`, kept as metadata) and archived FIRST under the reserved
+`captures/local/GBP-VIDEO-004_stream-0013-run12*` names (§V6.19.4) with
+`cp --update=none` and `cmp`; runs 1–11 untouched. Binary: `stream-0013 @
+7d7a6d8`, 506 496 B `5391c3fe…dd79`, verified on disk, in the Swiss copy
+(`cmp` identical), in `build-info.txt` and in the log header
+(`test_id=GBP-VIDEO-004 build_id=stream-0013 commit=7d7a6d8`); no runtime,
+tool or stimulus source changed between `7d7a6d8` and the ingestion HEAD.
+Stimulus: `coord-0001` delivery image 3 496 B `a769cc11…994f` (canonical
+`90343b64…0a1f`), re-flashed for this run on the EZ-Flash Omega DE NOR / Mode
+B route — the first physical run of OGBPCOORD1. **OPERATOR OBSERVATION /
+TOPOLOGY DECLARATION, recorded literally:** same GameCube as RUN 10 / RUN 11
+YES · same GBP as RUN 10 / RUN 11 YES · BBA PRESENT · Ethernet DISCONNECTED ·
+display chain as pre-registered: GameCube → composite / RCA → low-cost
+RCA-to-HDMI converter (HDMI output configured to 1080p) → HYDIS HV150UX2
+panel on an M.NT68676.2A controller (custom iMac G3 modification). The chain
+is a topology declaration only; the 1080p is the converter's output. The
+future Morph 2K paths are outside RUN 12. Media double check: the operator's
+pre-run `sha256sum` of the DOL and of the delivery image matched (Issue #9).
+
+---
+
+### GBP-HW-251 — the frozen source analyzer on RUN 12: 2048 intact structural records, two duplicate FRAME_ID transitions, `OBSERVED_DISCONTINUITY`; the shared gate failed — FACT
+
+`tools/vindex.py` unmodified (identical since `fbaea00`): records 2048/2048,
+0 discarded, 81 921/81 921 staged/placed, out of range 0, every record 40/40
+blocks, flags `target_reached, service_ok, stop_is_target`, CRC
+`c5b117ae / c209449b`; `observed 2048 (intact 2048)`, first/last observed
+`0x00004a .. 0x000847` (74..2119), first/last decisive 74..2118, **2046
+decisive transitions: `OBSERVED_ID_CONTIGUOUS 2044`, `OBSERVED_DUPLICATE_ID
+2`**, stimulus fault seen False, **VERDICT `OBSERVED_DISCONTINUITY`**.
+Independent decode (own iteration, seals, strips, timing): header and global
+CRCs match, 2048/2048 seals, `frame_index` 356..2403 strictly +1, **81 920 /
+81 920 valid canonical blocks, index ok in all, MIXED 0, INVALID 0**, FRAME_ID
+74..2119 with 2046 distinct ids, adjacent deltas `{0: 2, 1: 2045}`, STATUS
+values 0x26 (1120 records) / 0x27 (520) / 0x36 (408), **FAULT 0 throughout**,
+VMARGIN 38 / 39 / 54, cadence 59.727105 Hz, first record 6.067206 s after
+CONTROL. The two duplicates, exactly: `frame_index 761 → 762`, FRAME_ID
+**479 → 479**, STATUS 0x36; `frame_index 2202 → 2203`, FRAME_ID **1919 →
+1919**, STATUS 0x26. No gap and no reorder anywhere else. Consequence, per
+the prospective §V6.19.7 gate: RUN 12 is NOT admissible for either
+experiment (§V6.20.1). The mechanism is not inferred (GBP-VID-034); that both
+duplicated ids are the frame immediately before an appearance start (480,
+1920) is an observation and nothing more.
+
+---
+
+### GBP-HW-252 — OGBPFULL1 on RUN 12: K = 8 complete, the full-frame dependent-variable analysis PASS 8/8; GBP-VIDEO-008 nevertheless INCONCLUSIVE — FACT (scoped)
+
+`tools/vfull.py` unmodified (since `7d7a6d8`), strict parse: CRC
+`b037ecc2 / 6ee7077c`, flags `0x2` (ORIGIN_SET; no truncation, no capacity
+skip), K 8, spacing 256, **origin 356** = the first retained witness
+`frame_index`, mechanically; `want_calls 2377 wanted 8 opened 8 completed 8
+refused 0 skipped_capacity 0 blocks_copied 320`. Samples `frame_index` 356,
+612, 868, 1124, 1380, 1636, 1892, 2148 → FRAME_ID 74, 330, 585, 841, 1097,
+1353, 1609, 1865 (STATUS 0x36, 0x36, 0x27, 0x27, 0x26, 0x26, 0x26, 0x26).
+**Every one of the eight: 40/40 coherent blocks; colour15 oracle mismatches
+0 / 38 400; preserved texture vs the Python conversion 0; vs the host-built
+`gbp_vpix.c` 0; vs the tiled oracle 0; bit 15 exactly once, at (0, 0); bytes
+0/2 observed (34 232 – 34 281 deviating words per sample) and reported, never
+judged.** The frozen tool's own verdict is `PASS -- every sample: CLAIM-A and
+CLAIM-B, at the texture`, boundary "source → converted texture only". **Positive
+subordinate evidence: all eight prospectively sampled frames satisfy
+CLAIM-A/CLAIM-B's full-frame source→texture dependent-variable checks. The
+formal GBP-VIDEO-008 experiment verdict is nevertheless INCONCLUSIVE because
+RUN 12 failed the shared source-window admissibility gate.** Nothing here is
+a display, VI or XFB claim, and nothing is claimed for the 2 040 frames not
+sampled.
+
+---
+
+### GBP-HW-253 — transport, startup and Policy A on RUN 12 read clean under the inherited gates — FACT
+
+Log header `lines=674 dropped=0 truncated=0`; one `WITELIG`, one `WITELIG2`,
+one each of `WITQUAL`, `FULLSTORE`, `VISTORE`, `DISPSRC`, `STREAMWIT`;
+longest payload `STARTUPT` at 218 of 248. `stop=witness_target_reached`,
+`254 858 = 254 858 = 254 858 = 254 858` (unmasks = deliveries = acks =
+re-arms), `video 96 110/96 110`, `timeouts 0 busy 0 overflow 0 uncertain 0
+errors 0 transport_ok 1`, `irq_attempted = irq_completed = 509 719`.
+`WITQUAL required=64 state=2 streak_max=64 resets=0 warmup_frames=356
+warmup_disqualified=26 qualify_frame=355 first_record_frame=356`; `WITELIG
+released=1 still_gated=0 ticks_control_to_eligible=202506231` (5.000154 s);
+`WITELIG2 frames_seen_before_eligible=292 disqualified_before_eligible=26
+qual_streak_at_eligible=0`, read directly; `STREAMWIT records=2048/2048
+target_reached=1`. Startup NORMAL, `ticks_control_to_first_handoff=6688663`
+= **165.152173 ms** (< 400 ms; run 11: 165.158691 ms, −264 ticks, recorded,
+no tolerance). OGBPDISP2 `0c5d3024 / afb8d304 / fb966694 / b34b802e`
+recomputed and matched, `2377 + 39 = 2416 = event_n`, `ready True`;
+`DISPSRC handoffs=2377 deferred_frames=39 defer_attempts=86
+dropped_interior=0 terminal_pending=0 max_defer_depth=1 order_violations=0`
+(header `terminal_pending 1` = the headless self-test, as established). Join
+over 356..2403: **2047 `SELECTED_NEW`, `[2403]` the capture-edge residual,
+interior 0, order rebuilt == 356..2402, reorder 0**; 36 deferred / 79 attempts
+in the join, every one resolved on the next retrace, depth 1. **Frozen
+latency (ready = `t_convert_done` → `t_decision`, all 2047): p99 0.308642 ms,
+max 1.004667 ms — gates 1.0 / 2.5 PASS**; alternate diagnostic (first attempt →
+decision, 36 deferred): p99 = max = 1.003531 ms. Cadence, separately: retrace
+deltas `{1: 2039, 2: 7}` → 7 display-repeat intervals, the seventh run in a
+row, observational. `ENVFULL arena1_free=1658880` on hardware equals the
+Dolphin figure of §V6.18.6 (observation). Every inherited gate except the
+source-window gate of GBP-HW-251 passes; none was narrowed and none added.
+
+---
+
+### GBP-HW-254 — the operator saw the digits 1, 2, 3, 4, in order, under the declared composite → converter → HYDIS chain — OPERATOR OBSERVATION
+
+Recorded literally from Hardware Issue #9 and the ingestion contract, never
+rewritten into a frame-accurate claim: digits seen **1 2 3 4**; order **1 2 3
+4**; approximate interval **≈ 7 s**; approximate visible duration **≈ 2 s
+each**; missing digit **no**; repeated digit **no**; unexpected digit **no**;
+visual anomaly **no**. The timings are approximate human observation only.
+The four appearance sets R_1..R_4 (FRAME_ID 480–519, 960–999, 1440–1479,
+1920–1959) are all inside the retained population, each with 40/40 distinct
+ids retained and 40 handed (GBP-HW-255), so the report is COHERENT with the
+machine chain up to the hand-over. It is placed beside that chain and does not
+enter it: under the frozen gates it classifies nothing, because the shared
+source gate failed (GBP-HW-251) and because the frozen tool establishes no
+latched frame (GBP-HW-255). No photograph was taken.
+
+---
+
+### GBP-HW-255 — OGBPVI1 on RUN 12: the container facts and the frozen analyzer's result — FACT
+
+`tools/vvi.py` unmodified (since `7d7a6d8`), strict parse: CRC `81888c2a /
+61a03d15`, 2377/2377 record seals, records 2377 of 4096, **handed 2377,
+latched 2370, superseded 6** (`frame_index` 86, 631, 1754, 1757, 2041, 2315),
+overflow 0, observe_calls 2370, one record awaiting at the end (`frame_index`
+2402); every latch is the retrace after its hand-over (2370/2370), `t_latch −
+t_handed` 0.095–16.927 ms. **The frozen `regs_consistent()`: 0 / 2370 latched
+records name the handed XFB as TFBL; 0 bottom fields plausible; therefore
+frozen L_k = 0 for k = 1, 2, 3, 4** while |R_k| = 40, retained 40, H_k = 40
+for each — an independent reason GBP-VIDEO-007 cannot pass under the frozen
+tool, in addition to the failed shared source gate. The raw cross-check that
+explains the zero without modifying the tool is GBP-VID-035; it does not
+change this result, which stands as the frozen analyzer's output on RUN 12.
+
+---
+
+### GBP-VID-034 — RUN 12 carries two duplicate OGBPCOORD1 FRAME_ID transitions (479 → 479, 1919 → 1919) — FACT of this run; MECHANISM / ROOT CAUSE OPEN
+
+Observed by the frozen analyzer and reproduced by an independent decode
+(GBP-HW-251): at `frame_index 761 → 762` the canonical witness carries FRAME_ID
+479 twice (STATUS 0x36 both), and at `frame_index 2202 → 2203` FRAME_ID 1919
+twice (STATUS 0x26 both); all 40 blocks of each of the four records are
+valid, index-correct, CRC-correct and mutually consistent, FAULT clear, and
+no other transition in 2046 deviates from +1. Both duplicated ids are the
+frame immediately before an appearance start (R_1 at 480, R_4 at 1920); the
+transitions into R_2 (959 → 960) and R_3 (1439 → 1440) are +1. **That
+adjacency is an observation. No mechanism is inferred here, no causality is
+assigned, and the finding is NOT labelled a source loss, a stimulus defect,
+a transport defect or a display artefact until proven.** Runs 4–11 with
+`indexed-0003` (no glyph, no VBlank-heavy frames) never showed a duplicate;
+that is context, not a cause. Consequence: the shared source-window gate of
+§V6.19.7 fails and both RUN 12 verdicts are INCONCLUSIVE. Investigation
+belongs to a later research checkpoint; nothing was changed in this
+ingestion.
+
+---
+
+### GBP-VID-035 — frozen `tools/vvi.py::regs_consistent()` masks the recorded physical address before the flag-induced shift, so no MEM1 address carried with the VI flag can ever match — SOFTWARE ANALYZER DEFECT, FACT; OPEN
+
+The frozen function computes `phys = rec["phys"] & 0xFFFFFF`, reconstructs
+`top` / `bottom` from the register halves, and then `if flag: top <<= 5;
+bottom <<= 5`. For a MEM1 address carried WITH the VI address flag (every RUN
+12 record: `phys` 0x013a8420 or 0x0143e440, flag 1, xof 0) the compare domain
+is inconsistent: the reconstruction yields the full address (e.g.
+0x0143e440) while the recorded address has been masked to 0x0043e440, so the
+frozen result is 0 / 2370 (GBP-HW-255). Independent raw cross-check, without
+modifying the analyzer: reconstructed top vs the **unmasked** recorded `phys`
+**2370 / 2370 match**; bottom vs the unmasked `phys` or `phys + 1280`
+**2370 / 2370** (always +1280, one line of 640 × 2 B). **Required
+interpretation: this is a software analyzer/model defect discovered by RUN
+12, not evidence that all 2370 raw VI register readbacks disagreed with the
+recorded handoff addresses. It does not retrospectively change RUN 12's
+frozen analyzer output or formal verdict.** The tool's own docstring
+assumption ("for a MEM1 address flag bit 12 is 0") is contradicted by the
+raw records (flag 1, address stored >> 5). Not fixed in the ingestion
+checkpoint; no physical rerun is required to fix or analyse the tool;
+`tests/host/test_run12.py` pins the divergence as a known finding until a
+functional checkpoint repairs it and retires the pin.

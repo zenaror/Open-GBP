@@ -9572,3 +9572,87 @@ runtime / stimulus / analyzer / format change, no ingestion, no PASS / FAIL,
 no network, no presentation work. The Orchestrator validates §V6.19
 independently and only then opens the Hardware Issue that moves RUN 12 to the
 Operator.
+
+## 2026-09-20 — RUN 12 ingested: the gate the run was judged by failed on two duplicate FRAME_IDs; everything downstream of it held
+
+**Goal.** Ingest RUN 12 (GBP-VIDEO-007 / GBP-VIDEO-008, `stream-0013` +
+`coord-0001`, Hardware Issue #9) under the ingestion contract of GitHub Issue
+#10, which persists the Orchestrator's classification against the
+prospectively frozen §V6.19 gates: **GBP-VIDEO-007 INCONCLUSIVE, GBP-VIDEO-008
+INCONCLUSIVE.** Executor role; no rerun, no fix to `coord-0001`, `tools/vvi.py`,
+the runtime, the analyzers, the formats or the gates; no RUN 13; Issue #9 left
+open for the Orchestrator.
+
+**Archive first, then hash, then read.** The five console-generated files
+were located by hash in `logs/`, copied FIRST to the reserved
+`…stream-0013-run12…` names with `cp --update=none` and `cmp`, and hashed
+before any interpretation: log 89 514 B `0b64b677…`, idxcap 8 946 060 B
+`fe1c1c0a…`, disp 401 356 B `91c2f805…`, full 1 844 492 B `fb09a777…`, vi
+152 396 B `d301e96e…` — all five exactly the identities the Issue states.
+`stream-0013 @ 7d7a6d8` on disk, in the Swiss copy and in the log header; the
+delivery image `a769cc11…` re-flashed; `tools/` clean, unchanged since
+`7d7a6d8`.
+
+**The one gate that failed, and it is the shared one.** Frozen `vindex.py`:
+2048 records, all 40 blocks, 81 920/81 920 valid strips, INVALID 0, FAULT 0,
+FRAME_ID 74..2119 — and two `OBSERVED_DUPLICATE_ID` transitions among 2046:
+`frame_index 761 → 762` carrying 479 twice (STATUS 0x36) and `2202 → 2203`
+carrying 1919 twice (STATUS 0x26). `OBSERVED_DISCONTINUITY`. §V6.19.7 required
+`OBSERVED_CONTIGUOUS`, so RUN 12 is inadmissible for both experiments and both
+verdicts are INCONCLUSIVE. Both duplicated ids are the frame before an
+appearance start (480, 1920), while the R_2 and R_3 entries are +1; that is
+written down as an observation and no mechanism is inferred (GBP-VID-034,
+OPEN). Runs 4–11 with `indexed-0003` never showed a duplicate — context, not a
+cause.
+
+**What held, reproduced independently.** Transport clean (254 858 everywhere,
+zero errors), NORMAL startup with the first hand-off at 165.152173 ms, the
+not-before gate at 5.000154 s, the window at 356 with the direct zero, log
+`lines=674 dropped=0 truncated=0`; OGBPDISP2 four CRCs verified, join 2047
+`SELECTED_NEW` + the capture edge, interior 0, reorder 0, 36/79 deferred,
+depth 1, frozen p99 0.308642 ms / max 1.004667 ms, seven display repeats for
+the seventh run running. `ENVFULL arena1_free=1658880` on hardware equals the
+Dolphin figure. **OGBPFULL1**, frozen `vfull.py` with the host-built C
+conversion: K = 8, origin 356, 8/8 COMPLETE, and in every sample all 38 400
+consumed words equal the injective oracle and the texture equals the Python,
+the C and the tiled conversion; bit 15 once at (0, 0); bytes 0/2 reported.
+**Positive subordinate evidence: all eight prospectively sampled frames
+satisfy CLAIM-A/CLAIM-B's full-frame source→texture dependent-variable checks.
+The formal GBP-VIDEO-008 experiment verdict is nevertheless INCONCLUSIVE
+because RUN 12 failed the shared source-window admissibility gate.**
+
+**The VI chain, and a defect in the frozen reader.** OGBPVI1 strict: 2377
+handed, 2370 latched, 6 superseded, every latch on the retrace after its
+hand-over; R_1..R_4 each 40 retained and 40 handed. Frozen `vvi.py`
+`regs_consistent()`: 0/2370, so frozen L_k = 0 — an independent reason
+GBP-VIDEO-007 cannot pass. The raw cross-check, without touching the tool:
+the function masks `phys` to 24 bits and then shifts the reconstructed base
+by 5 for the flag, so an address carried with the flag can never match;
+reconstructed against the unmasked address, 2370/2370 top and 2370/2370
+bottom (+1280). GBP-VID-035: a software analyzer defect discovered by RUN 12,
+not evidence that the readbacks disagreed; it does not change RUN 12's frozen
+output or verdict, and it is not fixed here. `test_run12.py` pins the
+divergence as a known finding until a functional checkpoint repairs the tool.
+
+**The operator, beside the chain.** Digits 1, 2, 3, 4, in order, ≈ 7 s apart,
+≈ 2 s each, nothing missing, repeated, unexpected or anomalous, under the
+declared composite → RCA-to-HDMI converter → HYDIS HV150UX2 chain (GBP-HW-254).
+Coherent with four retained-and-handed appearance sets; classifying nothing
+under the frozen gates.
+
+**Fixtures and tests.** Byte-identical OGBPDISP2, OGBPFULL1 and OGBPVI1
+fixtures, the content-blind qual projection naming the raw witness, and a
+structural fixture (2048 per-record decodes, every identity, the declarations
+as declarations, the literal report, the frozen tools' results, the raw VI
+cross-check, both verdicts, both findings, the run-11 comparison) composed by
+a generator that asserted every figure of the Issue before writing.
+`tests/host/test_run12.py`: 27 tests, the inherited gates reused, the source
+gate pinned as it failed, vfull 8/8 recomputed from the versioned file and
+recorded as subordinate, the frozen L_k = 0, GBP-VID-035 pinned as a
+divergence. Runs 9–11 fixtures and tests untouched. Evidence GBP-HW-250…255,
+GBP-VID-034, GBP-VID-035; HARDWARE_TESTS §V6.20; captures/README rows.
+
+**Next.** The Orchestrator validates the persisted evidence and closes Issue
+#9. Then, in their order: a research checkpoint on GBP-VID-034, a functional
+checkpoint repairing `tools/vvi.py` (GBP-VID-035), and only then whether a
+further run is designed. No RUN 13 is pre-registered.
