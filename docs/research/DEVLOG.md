@@ -8925,3 +8925,79 @@ controlled regression on `indexed-0003` — no synthetic frame, first real
 hand-off within 400 ms of the CONTROL transform, and every Policy-A gate
 unchanged. RUN B is a real cartridge, purely operator observation, and the
 runtime must not depend on a logo appearing.
+
+---
+
+## 2026-09-20 — run 7: the startup passed, and the window opened one second early
+
+**Goal.** Ingest the first physical normal-startup run, judge the startup by its
+pre-registered gates, judge Policy A separately, run the frozen source analyzer
+untouched and keep whatever it says, and explain the new interaction between
+early video and the OGBPIDX scientific window. No trimming, no qualification
+change, no new delay, no runtime change.
+
+**Conclusion I — the startup did what it was built to do.** `STARTUP
+mode=normal … presented_synthetic=0 headless_submits=1`, no `PREHANDLERWAIT`
+line in the log at all, and the first real hand-off **165.154 ms** after the
+CONTROL transform against a 400 ms gate — §V5.52 predicted 153.2 ms. The
+self-test executed (12.2 ms, converted, drawn, released) and was not shown; its
+lifecycle ends TERMINAL_PENDING with `F_SELFTEST`. Eight of eight machine
+gates, and not one of them cares when the stimulus began. No operator visual
+observation was supplied, so none is written down.
+
+**Conclusion II — the frozen analyzer said `OBSERVED_CONTIGUOUS`, and I kept
+its composition.** `intact 1988`, `INVALID_CANONICAL_STRIP 60`,
+`OBSERVED_ID_CONTIGUOUS 1986`, IDs 0..1987. My own decode agrees to the block:
+records 0..59 have zero valid canonical blocks of 2400 (2218 fail SYNC, 182 the
+symbol test); record 60 is FRAME_ID 0 with STATUS 0x7F, 61 is ID 1, 62 is ID 2
+with STATUS 0x18, and 62..2047 run ID 2..1987 with 1985 deltas of +1. The
+window opened **3.840 s** after CONTROL; the stimulus began at **4.845 s**.
+One second early.
+
+**The number that explains everything is 4.845 s, four times.** I went back to
+runs 4, 5 and 6 and inferred when ID 0 landed from record 0's FRAME_ID (85) and
+the cadence: 4.8450 s in all three. Run 7 measured it directly at 4.84498 s.
+The cartridge's boot is the invariant. The old 5 s wait never changed it — it
+pushed the window to 6.27 s, 1.42 s past it. Remove the wait and the
+content-blind qualifier does exactly what it is for on the boot's own clean
+frames, 1.00 s before the stimulus exists. **That is a coupling between startup
+UX and window orchestration, not a defect in anything that ran**, and the same
+run shows the transport, the assembler, the qualifier and Policy A all clean.
+
+**Policy A, whole run and join.** 2244 hand-offs in strict order, 44 deferred
+over 108 attempts, every one on the very next retrace, depth 1, p99 0.4591 ms,
+max 1.0005 ms. The 24 indices missing from the total sequence all have no
+lifecycle: never published, 13 incomplete + 13 anomaly, all in the boot, none
+in the join. Over the frozen join: 2047 handed, one TERMINAL_PENDING edge, and
+**seven display repeats beside zero drops — the same seven as run 6.**
+
+**The boot was captured, and it looks like the logotype run.** Episodes 1 and 2
+(frames 30..89, 90..149) are identical in open, close, length, flags and
+signature to `vstate-0001`'s — the run whose pixels reconstructed to the
+animated GAME BOY logotype. CORROBORATED, not FACT: the stream sidecars carry no
+raw pixels, and equivalence is not a photograph.
+
+**Two things I recorded rather than fixed.** `DISPSRC terminal_pending=0` in the
+log against 2 in the header: the line prints before `gbp_vdisp_finish()`. And
+the 13/26/13 transient counts against run 6's 2/4/2, which are the boot being
+seen, not a regression.
+
+**Design, analysed and not built.** A content-blind not-before gate on the
+structural streak only — transport, display, conversion and Policy A untouched —
+at 5.000 s after CONTROL, chosen from the whole history so a future window lands
+where runs 4–6 did (≈6.1–6.3 s). Rejected: any sleep, the old wait, any VSync
+loop, any transport suppression. A final runtime needs none of it.
+
+**RUN B can proceed now.** The startup passed on its own terms. The corrected
+controlled run is a different question and no normal-startup build gets a new
+GBP-VIDEO-004 continuity record until it exists.
+
+**Tests executed.** 901 host (+20), full C suite, nine audits at 0 findings,
+Dolphin PASS both profiles with `xfb=0`, `stream-0009` rebuilt to
+`4d0337bb…c955` unchanged. Fixtures: the OGBPDISP2, a qualification projection
+and a 230 KB structural projection carrying per-record validity, FRAME_ID,
+STATUS and the verbatim verdict.
+
+**New unknowns:** none. **Next:** RUN B with a real cartridge (operator
+observation), and — separately authorised — the §V5.53.12 gate followed by a
+corrected indexed run.

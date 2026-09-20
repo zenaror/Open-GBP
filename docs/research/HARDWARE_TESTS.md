@@ -16742,3 +16742,395 @@ pipeline failure.
 - The 400 ms gate is derived from ONE run's stage timings on ONE console.
 - No claim that a boot logo WILL appear: that depends on the cartridge.
 ```
+
+---
+
+### V5.53 FIRST NORMAL-STARTUP PHYSICAL RUN — `stream-0009` + `indexed-0003` — 2026-09-19 (run 7) — **STARTUP PASSED; THE SCIENTIFIC WINDOW OPENED ONE SECOND BEFORE THE STIMULUS**
+
+Two conclusions, kept apart on purpose, because they are about different
+things and one of them is not a failure of anything that ran.
+
+```text
+I.   NORMAL STARTUP     every pre-registered machine gate PASSED.
+                        First real hand-off 165.154 ms after CONTROL, nothing
+                        synthetic handed to the video interface, no wait.
+II.  RESEARCH WINDOW    the STRUCTURAL qualification opened 3.840 s after
+                        CONTROL; the indexed stimulus began at 4.845 s. The
+                        first 60 retained records hold the AGB's startup
+                        content and carry no OGBPIDX framing. The frozen
+                        analyzer's verdict is preserved verbatim, composition
+                        included. Nothing was trimmed.
+```
+
+#### V5.53.1 Identities, computed here before any comparison
+
+```text
+stream-0009 DOL   build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol
+                  494 176 B  4d0337bb2cc7fe6e9acc1fb167e05a29caf7c497297ee7a1618d7e61a4d8c955
+                  embedded stream-0009 · 59d2f57 (clean) · GBP-VIDEO-004
+Swiss boot.dol    build/swiss/12-stream/boot.dol, byte-identical
+indexed-0003      canonical 2 880 B 37119bb6…caaca   delivery 2 880 B 9f04916b…8d9cc2
+run-7 log         86 051 B     424ff1e2ee1c0ea0bc322014de1d3dd0c6f23406e4223b2eb0672cf35120352e
+run-7 OGBPIDXCAP1 8 946 060 B  1e502bc8cab4af28e129393acab2f5be007d0c62bbd7d76e8c06fc57232602e9
+run-7 OGBPDISP2   379 340 B    edf3842896e84618a1f38267015cbca284be5d1a6e0e7eff2584e574fe30ce45
+```
+
+The log's own header says `build_id=stream-0009 commit=59d2f57`, no `-dirty`,
+`dropped=0 truncated=0`. Both sidecars repeat the four identity strings. The
+DOL was rebuilt from `59d2f57` at HEAD `ee2e0f1` and reproduced the hash.
+**Physical-media double checks were not supplied for this run: PENDING.**
+Archived as `captures/local/GBP-VIDEO-004_stream-0009-run7{,-idxcap,-disp}.*`,
+byte-identical to `logs/`, which was not modified.
+
+#### V5.53.2 CONCLUSION I — normal startup, the machine gates
+
+```text
+STARTUP  mode=normal selftest_run=1 selftest_visible=0 prehandler_wait_ms=0
+         clear_fb=1 normal_clean=1 presented_synthetic=0 headless_submits=1
+STARTUPV have_first=1 first_frame_index=2 ticks_control_to_first_handoff=6688749
+```
+
+No `PREHANDLERWAIT` line exists in the log at all — the probe emits nothing
+when the wait is zero, which is exactly what its source promises.
+
+```text
+  +0.000 ms  t_program
+ +15.092 ms  video ready                          (3 framebuffers, cleared)
+ +19.556 ms  self-test begins
+ +31.775 ms  self-test ends          12.219 ms, HEADLESS: converted, drawn,
+                                     token released, NO framebuffer claimed
+ +33.155 ms  probe entered
+ +45.968 ms  CONTROL transform                    <- t = 0 for the gate
++153.632 ms  capture_start           CONTROL -> capture 107.663 ms
++203.069 ms  first source frame taken (frame_index 2)
++211.120 ms  first conversion done
++211.122 ms  FIRST REAL HAND-OFF     CONTROL -> hand-off 165.154 ms
++211.215 ms  first draw-done
+```
+
+`6 688 749 / 40 500 000 = 0.165154296 s`. §V5.52.15 predicted 153.2 ms from
+run 6's stage timings; observed 165.2 ms.
+
+```text
+[x] mode normal                                     STARTUP mode=normal
+[x] visible synthetic = 0                           presented_synthetic=0
+[x] pre-handler wait = 0                            prehandler_wait_ms=0, no line
+[x] black framebuffer initialisation                clear_fb=1
+[x] first real hand-off observed                    have_first=1, frame 2
+[x] first real hand-off < 400 ms from CONTROL       165.154 ms
+[x] no transport failure                            errors 0, timeouts 0, busy 0
+[x] Policy A invariants clean                       189 139 checks, 0 failures
+```
+
+**Eight of eight.** SELFTEST EXECUTED (`converted=1 released=1
+headless_submits=1`) and SELFTEST NOT SHOWN (`own_presents=0
+presented_synthetic=0`) are two different facts, and both are in the trace.
+`VIDEO_SetNextFramebuffer` is a hand-over, not scanout, and nothing here calls
+it that. **No operator visual observation was supplied; none is invented.**
+
+#### V5.53.3 Transport and the startup transient
+
+```text
+stop      witness_target_reached
+deliveries = acks = rearms = unmasks = 240 760   audio 155 671   video 90 790/90 790
+timeouts 0  busy 0  overflow 0  uncertain 0  transport_ok 1  errors 0
+FRAMECAP  frames 2271  complete 2258  incomplete 13  resync 26  anomaly_region 13
+BASELINE  valid=1 at frame_index 4 (sig0 7f0fff10 / sig39 ff0fff0f)
+STRUCTURED observed: 43 episodes, 7 stable, 35 unstable, 39 not preserved
+```
+
+Run 6 had 2 incomplete, 4 resync, 2 anomaly regions. Run 7 has 13, 26, 13.
+**That is not a regression: it is the boot being captured for the first time.**
+Run 6's capture opened 5.1 s after the AGB started and saw a settled screen;
+run 7's opened 0.15 s after and saw the startup. Every one of those frames is
+in the log, which is the point.
+
+#### V5.53.4 The early structured episodes, against the physical reference
+
+Four of the 43 episodes were preserved as descriptors (`store_full=1`). All four
+sit BEFORE the scientific window (which opens at 3.840 s):
+
+```text
+       run 7 (Game Pak inserted)                 vstate-0001 (no Game Pak)
+ep0    8..25    18 fr  0005  sig0 7f0fff10       --  (stream uniform 1..29)
+ep1   30..89    60 fr  0006  sig0 00000000       ep0  30..89   60 fr  0006  00000000
+ep2   90..149   60 fr  0006  sig0 00000000       ep1  90..149  60 fr  0006  00000000
+ep3  150..197   48 fr  0005  sig0 7f0fff10       ep2  150..189 40 fr  0005  7f0fff10
+                                                 ep3  190..194  5 fr  0005  7f0fff10
+```
+
+Episodes 1 and 2 are **identical in open frame, close frame, length, flags and
+signature** to `vstate-0001`'s first two, and the following episode opens at
+frame 150 with the same signature in both. That is a descriptor-level
+equivalence over frames 30..149 — about two seconds — between a run with a
+cartridge and the run whose preserved raw frames were reconstructed into "a
+legible animated GAME BOY logotype" (GBP-HW-074…087). After frame 189 they
+diverge, as they must: `vstate-0001` settled into the idle screen and run 7
+went on into the cartridge. Episode 0 exists only with the cartridge.
+
+**What this establishes:** run 7 captured early structured startup content
+whose descriptor signatures and timing match the physically identified
+logotype sequence over frames 30..149. **What it does not:** pixel identity.
+The stream probe's sidecars carry no raw episode frames, so the visual
+identity is CORROBORATED by equivalence, not proven by pixels, and the
+operator's visual observation for this run was not supplied. **Classified B:
+early structured startup content captured; exact visual identity not
+machine-proven for this run.**
+
+#### V5.53.5 The qualification, and why it looks so different
+
+```text
+             stream-0008   stream-0009
+resets       1             12
+warmup       70            223
+disqualified 4             26
+first record 70            223
+```
+
+The qualifier is unchanged and STRUCTURAL: 64 consecutive complete,
+anomaly-free closed frames. In run 7 the structural transient — 13 incomplete,
+13 anomaly regions, 26 resyncs, all in the boot — reset the streak twelve times
+before it ran 64 clean. That is the qualifier doing its job on content it was
+never allowed to inspect, and the property that matters survives:
+**it still knows nothing about what the frames contain.**
+
+#### V5.53.6 CONCLUSION II — the frozen source analyzer, verbatim
+
+`tools/vindex.py`, unmodified at `ee2e0f1`:
+
+```text
+records              2048 of 2048, 0 discarded, 81 921 / 81 921 blocks
+header/total CRC-32  52e3e27d / de0d3cf9
+decisive-claim ready True
+observed frames      2048 (intact 1988)
+first/last observed  0x000000 .. 0x0007c3
+first/last decisive  0x000000 .. 0x0007c2
+decisive transitions 1986
+    INVALID_CANONICAL_STRIP  60
+    OBSERVED_ID_CONTIGUOUS   1986
+VERDICT              OBSERVED_CONTIGUOUS
+```
+
+**That is the run's official source verdict and it is recorded exactly as
+printed, with its composition.** The analyzer's frozen rule forms the decisive
+population from the intact frames and reports the 60 invalid strips beside it;
+it does not hide them and neither does this section. Its own closing line
+applies with unusual force here: it "says nothing about frames before the
+first … observed intact ID".
+
+#### V5.53.7 What the 60 records are — independent decode
+
+Own record iteration, own seals, own classification; `istim` only for the
+frozen symbol/CRC-8 contract.
+
+```text
+container   header CRC 52e3e27d OK, global de0d3cf9 OK, 2048/2048 seals,
+            reserved zero, frame_index 223..2270 strictly +1, all 40 blocks
+
+records 0..59     0 valid canonical blocks of 2400
+                  2218 fail SYNC, 182 fail the ZERO/ONE symbol test
+record 60   fi 283   FRAME_ID 0   STATUS 0x7F   40/40 valid, index ok
+record 61   fi 284   FRAME_ID 1   STATUS 0x7F   40/40
+record 62   fi 285   FRAME_ID 2   STATUS 0x18   40/40
+records 62..2047  1986 records, FRAME_ID 2..1987, 1985 adjacent deltas of +1,
+                  STATUS 0x18 in every block, one FRAME_ID per record,
+                  cadence 59.727200 Hz
+```
+
+The retained window is **60 records of AGB startup content, then the stimulus
+ROM's own first two frames (STATUS 0x7F, its initialisation), then 1986
+contiguous indexed frames**. The tail is a DIAGNOSTIC: it explains why the
+population is what it is. **It does not replace the verdict in §V5.53.6 and is
+not written anywhere as the run's result.**
+
+#### V5.53.8 The timing cause, measured
+
+```text
+CONTROL -> first retained record   (rec 0,  fi 223)   3.84047 s
+CONTROL -> stimulus FRAME_ID 0     (rec 60, fi 283)   4.84498 s
+CONTROL -> first STATUS 0x18       (rec 62, fi 285)   4.87846 s
+window opened BEFORE the stimulus by                  1.00450 s
+```
+
+And the same quantity in every earlier indexed run, inferred from record 0's
+FRAME_ID and the measured cadence (a `leading_edge` extrapolation, which is
+why the analyzer excludes it and why it is labelled INFERRED here):
+
+```text
+run   build         wait      window opens    FRAME_ID at rec 0   ID 0 after CONTROL
+4     stream-0006   5000 ms   6.2681 s        85                  4.8450 s  inferred
+5     stream-0007   5000 ms   6.2681 s        85                  4.8450 s  inferred
+6     stream-0008   5000 ms   6.2681 s        85                  4.8450 s  inferred
+7     stream-0009      0 ms   3.8405 s        --                  4.84498 s MEASURED
+```
+
+**The stimulus enters 4.845 s after CONTROL in all four runs**, and run 7's
+direct measurement lands within 20 µs of the three extrapolations. The
+cartridge's own boot and initialisation is the invariant. The 5 s wait never
+changed it; it only pushed the window past it — to 6.27 s, 1.42 s after ID 0.
+Remove the wait and the STRUCTURAL qualification, which is content-blind by
+design, succeeds on the boot's own clean frames and opens at 3.84 s.
+
+**This is a coupling between normal-startup UX and research-window
+orchestration.** It is not a defect in the qualifier, the assembler, the
+transport or Policy A, and §V5.53.9 shows all of those clean over the whole run.
+
+#### V5.53.9 Policy A, total run and frozen join
+
+OGBPDISP2 container, independent: `ec80c5c7 / a56cccca / 1526984e / a896dafb`
+all recomputed and matched; size identity exact; reserved zero; `2244 + 44 =
+2288 = event_n`. Official `vdisp.py` (unmodified): `OGBPDISP2`, `ready True`.
+
+```text
+TOTAL RUN            hand-offs 2244 (frame_index 2..2269), strictly increasing,
+                     no duplicate; 44 deferred / 108 attempts, all resolved
+                     on the very next retrace, max depth 1, none overtaken;
+                     interior drops 0; p99 0.4591 ms, max 1.0005 ms
+the 24 absent        [9,10,12,13,15,16,31,32,34,35,37,38,91,92,94,95,97,98,
+indices              151,152,154,155,157,158] -- every one has NO lifecycle:
+                     never published (13 incomplete + 13 anomaly, minus frames
+                     0 and 1). Upstream, in the boot, and none inside the join.
+FROZEN JOIN          source records 223..2270: 2048 lifecycles, 2047
+(as the analyzer     SELECTED_NEW, 1 TERMINAL_PENDING (2270, the last taken),
+ defines it)         40 deferred, p99 0.4360 ms, max 1.0005 ms,
+                     retrace deltas {1: 2039, 2: 7} -> 7 DISPLAY_REPEAT_INTERVALS,
+                     0 SOURCE_DROPPED
+```
+
+Seven display repeats over the join — the same seven as run 6, beside zero
+drops. `xfb_skipped = 108 = defer_attempts`, as GBP-HW-207 says it must.
+
+**One reporting nuance, recorded not fixed:** the log's `DISPSRC
+terminal_pending=0` is printed BEFORE `gbp_vdisp_finish()`; the sidecar header,
+written after, says 2 — the headless self-test and frame 2270. Both are true of
+the moment they describe. Run 7 is the first run where the difference is
+visible, because the headless self-test is the first lifecycle to end that way.
+
+#### V5.53.10 Why `stream-0008` never saw this
+
+Same cartridge, same stimulus entry at 4.845 s. `stream-0008` waited 5.000 s
+with PI masked, opened capture at 5.107 s, qualified over 64 clean frames and
+opened the window at 6.27 s: **1.42 s after** the indexed frames began, on a
+screen that had been showing them for 85 frames. `stream-0009` opened capture at
+0.154 s, saw the boot, reset the streak twelve times on its transients, ran 64
+clean frames of the boot's settled portion and opened at 3.84 s: **1.00 s
+before** the indexed frames began. Same qualifier, same rule, opposite side of
+the same instant.
+
+#### V5.53.11 The guard that must not move
+
+Do NOT fix this by teaching the runtime to look for SYNC `0xB2`, FRAME_ID,
+STATUS, CRC-8, BLOCK_INDEX or any OGBPIDX colour. The qualifier's
+content-independence is what made runs 4, 5 and 6 decisive: a window that
+opens because the runtime recognised the stimulus is a window that cannot fail
+to find it. The normal runtime must not know what OGBPIDX1 is, and the
+scientific witness must be scheduled without reading the picture.
+
+#### V5.53.12 Future research-window orchestration — analysed, not built
+
+The display path must continue immediately. Only the WITNESS may be gated.
+
+```text
+A  TIME-BASED NOT-BEFORE GATE    transport, assembler, conversion, Policy A
+                                 and hand-off run from capture_start exactly as
+                                 now; the 64-frame STRUCTURAL streak is not
+                                 COUNTED until T_gate after CONTROL, then
+                                 counts from zero; window opens at the next
+                                 block-0 boundary after it succeeds; 2048
+                                 records; never reset after opening.
+                                 Content-blind. No wait, no sleep, no VSync
+                                 loop, no transport change.
+B  TWO-PHASE CAPTURE             phase 1 records the startup; at a fixed
+                                 content-independent horizon, ONLY the
+                                 qualification/witness state is reset and
+                                 phase 2 collects the window. Same guarantees
+                                 as A with more state to get right; A is B
+                                 with the phase-1 witness simply not armed.
+C  SEPARATE EXPERIMENTS          a normal-startup build with no OGBPIDX claim,
+                                 and a steady-state research build that keeps
+                                 the old delayed orchestration while still
+                                 DISPLAYING immediately. Clean, but it means
+                                 two builds forever and never measures the two
+                                 properties on one run.
+```
+
+**A is the recommendation.** It is the smallest change, it keeps one build,
+and it preserves the §V5.44 method exactly (structural streak, next block 0,
+2048 records, no reset) — only the streak's start is deferred.
+
+**Threshold, from the whole history rather than one number.** ID 0 lands at
+4.845 s after CONTROL in four of four runs with this cartridge and console;
+STATUS turns to `0x18` two frames later, at 4.878 s. Runs 4–6 opened their
+windows at 6.27 s and were decisive, so a window opening at or after ~6 s is a
+known-good regime. With the streak gated at **T_gate = 5.000 s after the
+CONTROL transform**, the earliest window is `5.000 + 64/59.727 ≈ 6.07 s`,
+1.23 s after ID 0 and inside the regime three decisive runs established.
+
+```text
+reference clock   the CONTROL transform (res.t_control_transform), the epoch
+                  every safety budget already uses
+threshold         5.000 s -- deliberately the number GBP-HW-120 validated, so
+                  a future window lands where runs 4-6 did (~6.1-6.3 s) and
+                  stays comparable with them
+margin            155 ms between T_gate and ID 0, then a full 64-frame streak
+                  (1.07 s) before any record is retained
+guarantees        with THIS cartridge, the retained window begins after the
+                  stimulus is in normal status; the startup transient stays in
+                  the log (FRAMECAP, resyncs, episodes) because nothing
+                  upstream of the witness is touched
+does NOT          anything about another cartridge or console; that the
+guarantee         stimulus is present at all -- vindex.py remains the decisive
+                  offline check, and a run whose window still holds
+                  non-OGBPIDX content would say so exactly as this one did
+safety cap        the existing 60 s wall-clock budget, unchanged
+```
+
+**Explicitly rejected as window solutions:** a 5 s sleep, `PREHANDLERWAIT`,
+any `VIDEO_WaitVSync` loop, any transport suppression. All four delay what the
+user sees; none of them is what the window needs.
+
+**A final normal Open-GBP runtime needs none of this.** OGBPIDX qualification,
+its sidecars and any not-before gate are research instrumentation. The
+immediate display behaviour run 7 proved is the runtime's; the gate is the
+laboratory's.
+
+#### V5.53.13 Should RUN B (real cartridge) happen now? — YES
+
+Conclusion I passed on its own terms and does not depend on when the stimulus
+started. RUN B asks whether a user sees real boot video cleanly; it needs no
+OGBPIDX window and no research claim. It may proceed with `stream-0009`
+unchanged.
+
+A corrected controlled run — `stream-0009`'s startup plus the §V5.53.12 gate —
+asks a different question: did early startup preserve the established
+steady-state source and Policy-A properties under a VALID scientific window.
+Run 7's tail (1986 contiguous indexed records, Policy A clean, 7 repeats) is
+strong diagnostic evidence that it did, **but it is not the claim**, and no
+normal-startup build gets a new GBP-VIDEO-004 `OBSERVED_CONTIGUOUS` record until
+that run exists. The two runs are not interchangeable and must not be merged.
+
+#### V5.53.14 Gates, fixtures, build
+
+901 host tests (+20 for run 7), full C suite green, nine object audits at 0
+findings with the interrupt path identical to GBP-VIDEO-001, Dolphin PASS in
+both profiles with `xfb=0` normal, `stream-0009` rebuilt from `59d2f57` at HEAD
+`ee2e0f1` to `4d0337bb…c955` unchanged. Fixtures: the 379 340 B OGBPDISP2, a
+24 652 B qualification projection, and a 230 195 B structural projection of the
+witness (per-record canonical validity, FRAME_ID, STATUS, the official verdict
+and its composition) so Conclusion II is recomputed wherever the suite runs
+without a pixel and without weakening it.
+
+#### V5.53.15 Non-claims
+
+```text
+- No operator visual observation was supplied for run 7. None is recorded.
+- "Logo captured" is NOT claimed: descriptor equivalence over frames 30..149
+  with vstate-0001 is CORROBORATED, pixel identity is not available from the
+  stream sidecars.
+- The 1986-record tail is a diagnostic, not the run's verdict.
+- No physical-media double check exists for this run: PENDING.
+- The 5.000 s T_gate is analysed, not implemented, and not authorised here.
+- Nothing about other cartridges. The 4.845 s invariant is THIS cartridge on
+  THIS console, four times.
+- VIDEO_SetNextFramebuffer is a hand-over, not scanout.
+```
