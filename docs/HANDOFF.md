@@ -32,8 +32,10 @@ archive      https://git.home.zsrv.com.br/zenaror/Open-GBP    local remote gitea
 Issues       https://github.com/zenaror/Open-GBP/issues       the operational unit; comments = trail
 Milestones   Phase 4 ... Phase 13 (numbers 1-10), mirroring docs/ROADMAP.md; no due dates
 Labels       stage:* (exactly one on an active Issue) · area:* · type:* · needs:hardware
-Project      "Open-GBP Development" -- views only. CREATION PENDING: the gh token lacks
-             the `project` scope; `gh auth refresh -s project` is interactive (Issue #3)
+Project      "Open-GBP Development" https://github.com/users/zenaror/projects/2 (number 2,
+             public, linked; Issue #4) -- views only: Board · Backlog / Ready · Hardware ·
+             Validation · Roadmap; fields Area · Work Type · Hardware beside built-in Status
+             (Todo / In Progress / Done); no evidence-status field, by design
 Templates    .github/ISSUE_TEMPLATE/checkpoint.md · hardware-run.md · PULL_REQUEST_TEMPLATE.md
 ```
 
@@ -360,10 +362,10 @@ still does not measure the margin.
 **No physical run is pending and none is pre-registered.** Issue #3 — the
 workflow / remote migration — is executed: GitHub is `origin`, Gitea is
 `gitea-archive`, the ten phase milestones, the 24 labels and the `.github/`
-templates exist. The Project "Open-GBP Development" waits for the `project`
-token scope (an interactive `gh auth refresh -s project`; Issue #3 report).
-The Orchestrator opens the next checkpoint as a GitHub Issue; nothing is
-pre-registered here.
+templates exist, and Issue #4 created the Project "Open-GBP Development"
+(https://github.com/users/zenaror/projects/2) with its fields, views and the
+built-in automations. The Orchestrator opens the next checkpoint as a GitHub
+Issue; nothing is pre-registered here.
 
 ```text
 run 11      ingested; GBP-VIDEO-006 PASS; GBP-VID-033 PHYSICALLY VALIDATED (§V5.58.9)
