@@ -17883,3 +17883,245 @@ discharged: RUN B (§V5.54, PASS with a debug-UX note) and RUN 9 (this section,
 PASS) are both closed. **This is not BBA validation.** It only removes the
 restriction: the BBA may now be considered as a variable in the NEXT explicitly
 pre-registered topology/phase. Nothing was tested with it present.
+
+---
+
+### V5.57 GBP-BBA-001 — TOPOLOGY CONTROL, BBA PHYSICALLY PRESENT, ETHERNET DISCONNECTED — **PRE-REGISTERED 2026-09-20 (RUN 10), NOT EXECUTED**
+
+Written before the hardware is touched. Selected by the orchestrator; prepared
+by the executor; nothing in it was changed while preparing it. **This is a
+topology CONTROL while Phase 4 is still IN PROGRESS.** It is not a BBA network
+test, not BBA initialisation research, not Ethernet, not UDP/TCP, not proof that
+the BBA is safe or that BBA and GBP can never interfere, and not Phase 11.
+
+#### V5.57.1 Why this comes BEFORE the WITELIG fix (GBP-VID-033)
+
+Run 9 validated the exact binary `stream-0010 @ fbaea00` with the BBA
+disconnected. The strongest control is therefore to run **that exact binary**
+with the BBA present and nothing else intentionally changed. Fixing the `WITELIG`
+line first would mean a new functional build, and the first BBA-present
+observation would then confound *BBA presence* with *runtime/logging change*.
+GBP-VID-033 stays deliberately unfixed for this run; its clipped field is
+recovered by the §V5.56.4 counter derivation if needed.
+
+#### V5.57.2 The question
+
+> Does the physical presence of the GameCube Broadband Adapter — uninitialised
+> by Open-GBP, with no Ethernet link connected — produce any detected regression
+> in the already-established GBP video transport / source / display / startup
+> behaviour, when the exact RUN-9 software and indexed stimulus are reused?
+
+#### V5.57.3 Identifier and run number
+
+`GBP-BBA-001`: the repository's experiment IDs are `GBP-<AREA>-NNN` by area
+(VIDEO, INIT, IRQ, PI, PHY, HSP, PROBE, …); no `GBP-BBA-*` exists, so `001` is
+the next free number in a new area, allocated by that convention. **Global run
+number: RUN 10** — runs 1–9 are the highest referenced in the record. The
+binary's EMBEDDED id stays `test_id=GBP-VIDEO-004 build_id=stream-0010
+commit=fbaea00`; that is intentional and is not an identity mismatch.
+
+#### V5.57.4 The exact control artifact and stimulus — verified on disk, not rebuilt
+
+```text
+DOL         build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol  495 040 B
+            6b57d6696cf718baaac83cd0b9631c672bbe756f842e42bfd12d7a0ee3736180
+Swiss       build/swiss/12-stream/boot.dol  byte-identical (cmp)
+embedded    stream-0010 · fbaea00 · GBP-VIDEO-004, read from the binary's strings
+source      git diff fbaea00..HEAD over src/ poc/ tools/ stimulus/ Makefile: EMPTY
+stimulus    indexed-0003 delivery  build/physical/agb-indexed-cart.gba  2 880 B
+            9f04916b88308e7045f207136f5fc681e5bab33ac9b22d2e19be12c16b8d9cc2
+```
+
+A rebuilt binary would no longer be the causal control. If either identity
+differs on the day, **STOP** — no replacement artifact is to be made at a later
+HEAD for this experiment. The operator's `sha256sum` on the media is a double
+check of the copy, never the identity.
+
+#### V5.57.5 Static claim: `stream-0010` has no intentional BBA/network path — scope stated exactly
+
+```text
+project sources linked into the probe (Makefile SRCS)   no reference to
+     net_init / if_config / sockets / lwip / bba / SerialPort-1 EXI device
+ELF symbol table                                         0 network symbols
+the only EXI client in project code                      the SD logger,
+     fatMountSimple("sd", &__io_gcsd2): SD2SP2 on serial port 2 = EXI
+     channel 2 (src/platform/sdlog.c:18)
+Dolphin smoke model (corroboration only)                 SerialPort1=255 --
+     no BBA modelled -- and every Dolphin gate passed without one
+libogc's generic EXI driver                              LINKED (the SD card
+     needs it); its own system-init probing is NOT audited here
+```
+
+**This is a code-derived claim about intent, not a claim about hardware.** It
+says the software never asks the BBA for anything. It cannot say what the
+adapter's physical presence on the EXI bus, on the power rail or in the
+console's boot does — that is the question, and only the run answers it.
+
+#### V5.57.6 The one intentional variable, and everything held fixed
+
+```text
+CHANGED    BBA physically PRESENT / installed        (run 9: absent)
+FIXED      Ethernet cable DISCONNECTED -- no link, no switch, no traffic
+           no Open-GBP BBA or network initialisation; no network calls added
+           DOL 6b57d669…6180 · stimulus 9f04916b…8d9cc2 · SD procedure
+           startup profile NORMAL · witness threshold 5000 ms · Policy A
+           capture target 2048 · no controller interaction during capture
+           analysis tools frozen · the same GameCube and Game Boy Player,
+           unless an unavoidable deviation is recorded
+```
+
+If the physical setup requires any additional change beyond installing the
+adapter, it is recorded prospectively and literally, never hidden.
+
+#### V5.57.7 Reserved raw-file names — before the hardware
+
+The console will write `GBP-VIDEO-004_stream-0010.log` / `-idxcap.bin` /
+`-disp.bin`, the SAME names as run 9. Per `captures/README.md` ("Receiving a
+new physical run"): copy FIRST to the names below with `cp --update=none`,
+`cmp` the copy, hash on receipt, never overwrite runs 1–9.
+
+```text
+captures/local/GBP-VIDEO-004_stream-0010-run10.log
+captures/local/GBP-VIDEO-004_stream-0010-run10-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0010-run10-disp.bin
+```
+
+#### V5.57.8 The frozen gates — the run-9 gates, reused, none added, none narrowed
+
+Analysis order as §V5.55.7 / §V5.56: identities → frozen `vindex.py` → source
+verdict → container → join → disposition → deferral → latency/depth → cadence →
+startup → `WITELIG`. Pacing is never analysed before source.
+
+```text
+SOURCE     tools/vindex.py UNMODIFIED: OBSERVED_CONTIGUOUS AND intact 2048 /
+           INVALID_CANONICAL_STRIP 0; 2048 complete records; every canonical
+           block index valid; one FRAME_ID per frame; all decisive
+           transitions contiguous; FAULT never set.
+           NOT gated: the exact first FRAME_ID -- it may shift slightly and
+           still be a valid control; the actual first/last IDs are recorded.
+WITNESS    WITELIG released=1 still_gated=0; eligibility ≈ 5.000 s after
+           CONTROL by machine timing; 64 structurally qualifying closes after
+           it; window at block 0; exactly 2048 records; no trim/filter/reset.
+           The WITELIG line truncation (GBP-VID-033) is EXPECTED in this exact
+           binary and is NOT a BBA regression; the clipped field is derived
+           as in §V5.56.4 if needed.
+TRANSPORT  errors 0, transport_ok 1, timeouts 0, busy 0, overflow 0,
+           uncertain 0; unmasks = deliveries = acks = rearms. Any new
+           transport failure is a TOPOLOGY-CONTROL FAILURE until evidence
+           gives a more specific cause; mechanism is never assumed.
+POLICY A   over the exact frame_index join: 0 interior drops, 0 reorder,
+           0 supersessions, max deferred depth <= 1, trace intact and
+           disposition-claim ready, no interior residual. Latency under the
+           SAME pre-registered definition run 9 was closed on -- ready =
+           t_convert_done, hand-off = t_decision, ALL scientific hand-offs,
+           vpace.py percentile convention: p99 <= 1.0 ms, max <= 2.5 ms.
+           Alternate formulations, if reported, are labelled alternate
+           diagnostics and never replace the frozen gate.
+STARTUP    mode=normal selftest_visible=0 prehandler_wait_ms=0
+           presented_synthetic=0 normal_clean=1; first real hand-off
+           < 400 ms after CONTROL. Run-9 reference 165.154741 ms. The exact
+           value and the delta versus run 9 are RECORDED; equality is not
+           demanded and no narrow tolerance is invented after the fact. A
+           failure of < 400 ms is a regression; a modest delta that passes
+           is an observation to analyse.
+SIDECARS   OGBPIDXCAP1 and OGBPDISP2 parse strictly under the frozen tools:
+           no CRC failure, no malformed record, no truncation, no overflow
+           that makes the claim inadmissible.
+CADENCE    DISPLAY_REPEAT_INTERVALS are OBSERVATIONAL and reported
+           separately. Runs 6, 7, 8 and 9 each read exactly seven; that is
+           baseline context, NOT a "must equal 7" gate. Distinct from
+           STREAMCONS repeats and from source loss; source and Policy-A gates
+           decide their own questions.
+```
+
+#### V5.57.9 OPERATOR / TOPOLOGY DECLARATION — required before the run
+
+Because BBA presence is a physical condition the software cannot assert, the
+operator records, literally:
+
+```text
+BBA physically installed / present        YES / NO
+Ethernet cable                            DISCONNECTED (required)
+same GameCube + Game Boy Player as run 9  YES, or the deviation, stated
+```
+
+If the adapter's presence prevents booting to Swiss or launching the DOL before
+machine logging begins, that fact is recorded literally. **No machine evidence
+is fabricated for a run that never starts.** No visual questionnaire is
+required; the operator reports only unexpected visible behaviour that prevents
+or obviously disrupts execution, and no visual impression replaces a
+measurement.
+
+#### V5.57.10 Classification — fixed now
+
+```text
+PASS          correct artifact, stimulus and declared topology; capture
+              admissible; source, transport, Policy A, startup and sidecar
+              gates all pass.
+              MEANS: under this exact topology and test window, physical BBA
+              presence with Ethernet disconnected produced no detected
+              regression in the established Open-GBP video control metrics.
+              DOES NOT MEAN: "BBA is safe", "BBA cannot affect GBP", "BBA
+              networking is validated", "an Ethernet link is harmless",
+              "network code is harmless".
+FAIL          one or more established gates regress under the correctly
+              controlled BBA-present run. The regression is described as
+              observed; no mechanism is assumed.
+INCONCLUSIVE  wrong DOL; wrong stimulus; BBA topology uncertain; corrupted or
+              incomplete artifact; scientific sidecar inadmissible; the run
+              cannot be reliably identified. PASS/FAIL is never forced on
+              inadmissible evidence.
+```
+
+#### V5.57.11 The comparison table to be filled AFTER the run — no BBA-present value pre-filled
+
+```text
+field                                   run 9 (reference)     RUN 10 (BBA present)
+DOL SHA-256                             6b57d669…6180         --
+stimulus SHA-256                        9f04916b…8d9cc2       --
+BBA                                     ABSENT                PRESENT (operator)
+Ethernet                                n/a                   DISCONNECTED (operator)
+first real hand-off after CONTROL       165.154741 ms         --
+eligibility after CONTROL               5.000156691 s         --
+first scientific record after CONTROL   6.067209383 s         --
+first / last FRAME_ID                   73 / 2120             --
+intact / INVALID                        2048 / 0              --
+transport errors/timeouts/uncertain     0 / 0 / 0             --
+scientific records joined downstream    2047 (+1 edge)        --
+interior drops                          0                     --
+reorder                                 0                     --
+deferred frames / attempts (join)       46 / 112              --
+max defer depth                         1                     --
+frozen p99 / max latency                0.472000 / 1.000148   --
+display-repeat intervals                7                     --
+OGBPIDXCAP1 integrity                   header 7fbd6129 ok    --
+OGBPDISP2 integrity                     a219548c … ok         --
+```
+
+#### V5.57.12 Roadmap interpretation
+
+Phase 11 does not move. If PASS: a clean baseline exists for a future
+BBA/network phase, pre-registered separately. If FAIL: network work does not
+begin until the topology interaction is understood. Either way, Phase 4 remains
+IN PROGRESS on its own terms.
+
+#### V5.57.13 Operator procedure
+
+```text
+1   GameCube fully OFF.
+2   Install / present the BBA physically.
+3   Leave the Ethernet cable DISCONNECTED.
+4   Same Game Boy Player, same indexed-0003 setup as run 9.
+5   Confirm the SD carries the exact stream-0010 build/swiss/12-stream/boot.dol
+    (sha256 6b57d669…6180) -- do not re-copy a different one.
+6   Power on and launch it.
+7   Do not interact during the capture.
+8   Let the witness target stop the probe (~40 s).
+9   Press X when the report asks, to save the three files.
+10  Power-cycle after completion.
+11  Return the three raw files under their generated names, WITHOUT copying
+    them over any historical name; they are archived here as run 10 first.
+12  Declare: BBA present YES/NO · Ethernet DISCONNECTED · same console YES/deviation.
+```
+
+Do not connect Ethernet in this experiment.

@@ -360,21 +360,45 @@ still does not measure the margin.
 
 ## Next safe action
 
-**None pre-registered. The orchestrator selects the next checkpoint.** The
-executor's report of the project state (HARDWARE_TESTS §V5.56, DEVLOG
-2026-09-20 run 9) lists what Phase 4 still objectively lacks, the next roadmap
-candidates, what a BBA-PRESENT run would actually test, and why a plain
-topology-control run should precede any network code. None of that is started.
+**`GBP-BBA-001` — RUN 10, a TOPOLOGY CONTROL, pre-registered in
+`HARDWARE_TESTS.md` §V5.57 and NOT yet executed.** The orchestrator selected
+it and deliberately placed it BEFORE the `WITELIG` fix: run 9 validated the
+exact binary `stream-0010 @ fbaea00` with the BBA disconnected, so the
+strongest control is that **exact binary** with the BBA physically PRESENT,
+Ethernet DISCONNECTED, and nothing else intentionally changed. A new build
+first would confound BBA presence with a runtime/logging change.
 
-**Ready and waiting for a functional checkpoint, in this order of value:**
+```text
+artifact    stream-0010 @ fbaea00, 495 040 B, 6b57d669…6180 -- verified on disk,
+            Swiss byte-identical, NOT rebuilt (a rebuild is not the control)
+stimulus    indexed-0003 delivery 9f04916b…8d9cc2 -- do NOT re-flash
+variable    BBA physically PRESENT   (run 9: absent)
+fixed       Ethernet DISCONNECTED; no BBA/network initialisation; same DOL,
+            stimulus, SD procedure, startup profile, threshold, Policy A,
+            capture target, tools; same console and GBP unless a deviation is
+            declared
+gates       the run-9 gates, reused, none added, none narrowed (§V5.57.8);
+            display repeats OBSERVATIONAL, never a "must equal 7"
+declares    operator: BBA present YES/NO · Ethernet DISCONNECTED · same
+            console YES/deviation -- before the run, literally
+expected    the known WITELIG truncation (GBP-VID-033) recurs and is NOT a
+            BBA regression; its field is derived as in §V5.56.4
+```
+
+**Static claim, scoped:** `stream-0010` links no network symbol and asks the
+BBA for nothing; the only EXI client in project code is the SD logger on SP2
+(`__io_gcsd2`); libogc's generic EXI driver is linked and its own init is not
+audited (§V5.57.5). That is a claim about intent, not about hardware — which is
+why the run exists.
+
+**Deferred on purpose, in this order, AFTER run 10:**
 
 ```text
 1  the WITELIG line-length fix (GBP-VID-033): keep every field, change no gate
-   semantics, split or shorten, and a host test that no required summary line
-   can exceed the 248-character payload. New build ID when it lands.
-2  a topology-control run: the SAME stream-0010 procedure with the BBA
-   physically PRESENT and nothing else changed, pre-registered, so the first
-   BBA-present observation is a control and not a network experiment.
+   semantics, split or shorten, host guard against overflow, new build ID.
+2  anything BBA/network: only with a pre-registered experiment of its own, and
+   only if run 10 gives a clean baseline; a FAIL means network work does not
+   begin until the topology interaction is understood.
 ```
 
 **Artifact identities are computed HERE first**; the operator's `sha256sum` is a
@@ -397,13 +421,18 @@ double check. Run 9's is PENDING.
 binary identically; run 3 overwrote run 1's log in `logs/`, and run 8 overwrote
 run 7's. The rule — rename BEFORE copy, `cp --update=none`, hash on receipt,
 never overwrite an earlier raw artifact — lives in `captures/README.md`
-("Receiving a new physical run"). **RUN 9 has been archived under these names; they are now taken:**
+("Receiving a new physical run"). **Run 9 is archived under the `…-run9…` names, which are now taken. RESERVED
+for RUN 10 (GBP-BBA-001), and nothing else may take these names:**
 
 ```text
-captures/local/GBP-VIDEO-004_stream-0010-run9.log
-captures/local/GBP-VIDEO-004_stream-0010-run9-idxcap.bin
-captures/local/GBP-VIDEO-004_stream-0010-run9-disp.bin
+captures/local/GBP-VIDEO-004_stream-0010-run10.log
+captures/local/GBP-VIDEO-004_stream-0010-run10-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0010-run10-disp.bin
 ```
+
+The console will write the SAME generated names as run 9
+(`GBP-VIDEO-004_stream-0010.log` / `-idxcap.bin` / `-disp.bin`); an embedded
+build id does not mean the same physical run.
 
 The console will write `GBP-VIDEO-004_stream-0010.log` / `-idxcap.bin` /
 `-disp.bin`; those are copied to the reserved names first, then hashed.
