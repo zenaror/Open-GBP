@@ -174,6 +174,20 @@ ghcr.io/extremscorner/libogc2:20260805
 
 The host does not need a separate devkitPPC installation.
 
+## Repository and workflow
+
+The canonical repository is <https://github.com/zenaror/Open-GBP>. The former
+Gitea remote is kept as a non-canonical archive. Work is coordinated through
+GitHub Issues (one bounded checkpoint each), milestones that mirror
+[`docs/ROADMAP.md`](docs/ROADMAP.md) phases, `stage:*` / `area:*` / `type:*`
+labels and the "Open-GBP Development" Project; the roles behind them are
+defined in [`AGENTS.md`](AGENTS.md). Issues coordinate work; they never decide
+what is true about the hardware — that stays in
+[`docs/research/EVIDENCE.md`](docs/research/EVIDENCE.md),
+[`docs/research/HARDWARE_TESTS.md`](docs/research/HARDWARE_TESTS.md) and the
+fixtures. Templates for checkpoints, hardware runs and pull requests live under
+`.github/`.
+
 ## Private reference material
 
 Locally owned binaries such as the original Game Boy Player Startup Disc image or Game Boy Interface executables may be used for interoperability research.

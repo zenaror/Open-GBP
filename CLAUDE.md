@@ -1317,6 +1317,37 @@ open questions and the next planned step are recovered from:
 - `docs/research/HARDWARE_TESTS.md` — executed and planned physical tests;
 - `docs/research/UNKNOWNS.md` — open questions;
 - `docs/protocol/INITIALIZATION.md` and `docs/protocol/REGISTERS.md` — the
-  consolidated protocol reference.
+  consolidated protocol reference;
+- GitHub Issues (§30) — the operational trail: who did what, in which
+  checkpoint; never the scientific state.
 
 Read them before proposing the next experiment.
+
+---
+
+## 30. Operational coordination — GitHub
+
+Since 2026-09-20 the canonical repository is:
+
+```text
+https://github.com/zenaror/Open-GBP
+```
+
+Local remotes: `origin` = GitHub (fetch and push); `gitea-archive` =
+`https://git.home.zsrv.com.br/zenaror/Open-GBP`, retained as an archive,
+non-canonical, push disabled locally (`no_push`). Normal fetch, pull and push
+go to `origin`. Never force-push; never rewrite history.
+
+GitHub Issues are the operational unit of work (`AGENTS.md`, "Operational
+coordination — GitHub"): an executor round starts from a bounded Issue and ends
+with the executor report posted on it. Milestones mirror `docs/ROADMAP.md`
+phases; `stage:*` labels carry the fine workflow state and the Orchestrator
+moves them; the Project "Open-GBP Development" is views only. Templates:
+`.github/ISSUE_TEMPLATE/checkpoint.md`, `.github/ISSUE_TEMPLATE/hardware-run.md`,
+`.github/PULL_REQUEST_TEMPLATE.md`.
+
+None of this changes §24: commits and pushes still need explicit delegation,
+which an Issue may give in its own text. None of it changes §5, §6 or
+`docs/RESEARCH_METHOD.md`: no Issue, label, milestone or Project field promotes
+evidence status, and operator declarations quoted in an Issue remain
+OPERATOR OBSERVATION.

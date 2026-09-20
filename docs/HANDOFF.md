@@ -23,6 +23,29 @@ human for AI or back — changes nothing about the scientific process, the
 evidence vocabulary or the checkpoint discipline, all of which are defined in
 `AGENTS.md` and `docs/RESEARCH_METHOD.md`.
 
+## Operational coordination — GitHub (since 2026-09-20)
+
+```text
+canonical    https://github.com/zenaror/Open-GBP              local remote origin
+archive      https://git.home.zsrv.com.br/zenaror/Open-GBP    local remote gitea-archive:
+             non-canonical, retained, push disabled (no_push)
+Issues       https://github.com/zenaror/Open-GBP/issues       the operational unit; comments = trail
+Milestones   Phase 4 ... Phase 13 (numbers 1-10), mirroring docs/ROADMAP.md; no due dates
+Labels       stage:* (exactly one on an active Issue) · area:* · type:* · needs:hardware
+Project      "Open-GBP Development" -- views only. CREATION PENDING: the gh token lacks
+             the `project` scope; `gh auth refresh -s project` is interactive (Issue #3)
+Templates    .github/ISSUE_TEMPLATE/checkpoint.md · hardware-run.md · PULL_REQUEST_TEMPLATE.md
+```
+
+The Orchestrator owns the backlog and moves the `stage:*` labels; the Executor
+consumes bounded Issues and posts its report on them; the Operator's hardware
+declarations quoted in an Issue remain OPERATOR OBSERVATION. **No Issue, label,
+milestone or Project field promotes evidence status**: this file,
+`docs/research/EVIDENCE.md`, `docs/research/HARDWARE_TESTS.md` and the fixtures
+keep the scientific state. Issues #1 and #2 are the completed history (run 11
+and its ingestion, under milestone "Phase 4 — Video"); Issue #3 is the
+migration itself.
+
 ## State baseline
 
 ```text
@@ -44,7 +67,7 @@ LAST PHYSICAL EVIDENCE INGESTED
   Topology held at run 10's (operator declaration): BBA PRESENT, Ethernet
   DISCONNECTED, same GameCube, same GBP. The reporting build was the intentional
   variable. Coordinated through GitHub Issue #2 -- the first checkpoint run
-  through an Issue; the remote is still Gitea until the migration checkpoint.
+  through an Issue; the remote moved to GitHub in Issue #3 (2026-09-20).
 
   PRIMARY GATE, read directly off the log: lines=651 dropped=0 truncated=0;
   one complete WITELIG (167 chars) + one complete WITELIG2 (98);
@@ -334,18 +357,18 @@ still does not measure the margin.
 
 ## Next safe action
 
-**No physical run is pending and none is pre-registered.** The orchestrator
-validates the run-11 ingestion commits independently and then opens the next,
-separate checkpoint, already announced in GitHub Issue #2: the **workflow /
-remote migration** — the canonical remote moves from Gitea to GitHub and the
-Issues / Milestones / Project / Roadmap governance is established. That
-checkpoint is operational, not scientific: it changes no runtime, analyzer,
-format, fixture or evidence status.
+**No physical run is pending and none is pre-registered.** Issue #3 — the
+workflow / remote migration — is executed: GitHub is `origin`, Gitea is
+`gitea-archive`, the ten phase milestones, the 24 labels and the `.github/`
+templates exist. The Project "Open-GBP Development" waits for the `project`
+token scope (an interactive `gh auth refresh -s project`; Issue #3 report).
+The Orchestrator opens the next checkpoint as a GitHub Issue; nothing is
+pre-registered here.
 
 ```text
 run 11      ingested; GBP-VIDEO-006 PASS; GBP-VID-033 PHYSICALLY VALIDATED (§V5.58.9)
-remote      still Gitea (origin) until the migration checkpoint says otherwise
-next        orchestrator-owned: workflow migration; the sequence after it is theirs
+remote      origin = GitHub (canonical); gitea-archive = Gitea (archive, no push)
+next        orchestrator-owned, as a GitHub Issue; the sequence is theirs
 forbidden   runtime semantics, analyzers, formats, Policy A, witness semantics,
             Phase 11, networking, BBA initialisation, Ethernet
 ```
@@ -697,7 +720,10 @@ Important:
 - do not create evidence IDs or physical-validation claims without source
   material;
 - do not perform any implementation until you have reported the reconstructed
-  state and the operator confirms continuation.
+  state and the operator confirms continuation;
+- the operational contract of a checkpoint is its GitHub Issue
+  (https://github.com/zenaror/Open-GBP/issues): it bounds the scope and never
+  sets evidence status.
 
 Stop after the takeover report.
 ```

@@ -154,6 +154,28 @@ transcript. The repository must hold enough state — `docs/HANDOFF.md`, the
 research records, the fixtures — for a different executor or orchestrator to
 resume without that chat.
 
+## Operational coordination — GitHub
+
+The canonical repository is <https://github.com/zenaror/Open-GBP>; the former
+Gitea remote is an **archive**, non-canonical, never pushed to. The operational
+layer lives there and nowhere else:
+
+- **Issues** are the unit of work: one bounded checkpoint each, written by the
+  Orchestrator, executed by the Executor, decided by the Operator when a
+  direction is needed. Comments are the handoff / status trail.
+- **Milestones** mirror `docs/ROADMAP.md` phases; the ROADMAP owns their meaning.
+- **Labels**: exactly one `stage:*` on an active Issue (`backlog`, `ready`,
+  `executor`, `hardware`, `validation`, `blocked`), plus `area:*`, `type:*`
+  and `needs:hardware`. The Orchestrator moves them.
+- **Project "Open-GBP Development"** is a visualisation layer over the Issues
+  (coarse Status, Area, Work Type, Hardware). It has no authority.
+
+**An Issue, label, milestone or Project field never promotes evidence status.**
+Scientific authority stays in `docs/research/EVIDENCE.md`,
+`docs/research/HARDWARE_TESTS.md` and the fixtures; project state in
+`docs/HANDOFF.md`; direction in `docs/ROADMAP.md`. Closing an Issue records
+that work happened, not that a claim is true. Templates live under `.github/`.
+
 ## What this repository will not do
 
 Physical experiments are cheap to get wrong and expensive to repeat. Before
