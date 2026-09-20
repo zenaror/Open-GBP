@@ -9509,3 +9509,66 @@ identity, never run.
 operator declares display and cable; then a pre-registration Issue reserves
 the run names and fixes the procedure against these exact identities. Until
 then nothing about scanout or fidelity is known.
+
+## 2026-09-20 — Issue #8: RUN 12 pre-registered for GBP-VIDEO-007 / GBP-VIDEO-008 — names reserved, topology declared, nothing run
+
+**Goal.** Freeze the first physical run of the implemented §V6 experiments
+BEFORE hardware, as a documentation-only checkpoint: identities, reserved raw
+names, the operator-declared topology, the procedure, the shared admissibility
+gates and the independent gates and verdicts of both experiments. No hardware,
+no flashing, no booting, no classification, no evidence ID.
+
+**What was persisted (HARDWARE_TESTS §V6.19).** RUN 12 is the next global run
+(runs 1–11 are the highest referenced). The artifacts were verified on disk,
+not rebuilt: `stream-0013` at `7d7a6d8` (506 496 B, `5391c3fe…dd79`, Swiss
+byte-identical, embedded `gbp-video-stream-probe / stream-0013 / 7d7a6d8`,
+TEST_ID `GBP-VIDEO-004`, no dirty string; `git diff 7d7a6d8..5c472ca` over
+the runtime, tools, stimulus and unit tests is empty) and `coord-0001`
+(canonical `90343b64…0a1f`, delivery `a769cc11…994f`, 3 496 B each, EZ-Flash
+NOR / Mode B, re-flashed). The Operator declared the display chain for this
+run — composite / RCA → a low-cost RCA-to-HDMI converter configured to 1080p
+→ a custom display with a HYDIS HV150UX2 panel on an M.NT68676.2A controller
+(a custom iMac G3 modification) — recorded as topology only: the 1080p is the
+converter's output, and the chain supports no pixel-perfect, scaling, latency
+or native-1080p claim. The console side stays as runs 10–11: same GameCube,
+same GBP, BBA PRESENT, Ethernet DISCONNECTED, no network code. The future
+Morph 2K paths (S-Video primary, Bitfunx composite alternate, Samsung Q80T)
+are explicitly outside RUN 12. Five raw names are reserved and taken even if
+the run aborts (`captures/local/GBP-VIDEO-004_stream-0013-run12.log`,
+`-idxcap.bin`, `-disp.bin`, `-full.bin`, `-vi.bin`); the rename-before-copy /
+`cp --update=none` rule is mandatory; a photograph is optional and never
+frame-accurate by itself.
+
+**Gates, prospective.** The inherited gates of runs 9–11, none narrowed:
+identity and log integrity (`dropped=0`, `truncated=0`, no storage fault),
+the 5000-ms not-before policy and the 64-close qualification, frozen
+`tools/vindex.py` → `OBSERVED_CONTIGUOUS` / 2048 intact / 0 invalid /
+`STATUS.FAULT = 0` with no FRAME_ID start value required, transport zero
+errors and balanced accounting, NORMAL startup with the first hand-off under
+400 ms, Policy A over the exact join (0 interior drops, 0 reorder, depth ≤ 1,
+frozen p99 ≤ 1.0 ms / max ≤ 2.5 ms), and strict parse of all four sidecars.
+GBP-VIDEO-008: the content-blind `origin + 256·i` rule, eight COMPLETE
+samples, colour15 equal to `icoord.expected_video` on 38 400 words, texture
+equal to the Python and the C conversion and to the tiled oracle; bytes 0/2
+and bit 15 reported apart; the oracle is never retuned after a failure.
+GBP-VIDEO-007: `R_k`, `H_k`, `L_k` from the three sidecars through the frozen
+`tools/vvi.py`, the Operator's literal report beside them; PASS binds a digit
+to an appearance set, never to one frame; which k fall in the window is
+decided by the data. The two verdicts never consult each other's evidence.
+
+**Changes.** HARDWARE_TESTS: the §V6 heading and head carry the
+pre-registration status; §V6.18 keeps its text with a one-line note that the
+reservation point is superseded; new §V6.19 with the twelve parts above and a
+comparison table against run 11 with nothing pre-filled. HANDOFF: baseline,
+scientific state, artifact rows, blocker, next safe action, the reserved names
+in the "protect the raw record" paragraph, three do-not-assume bullets.
+Tests: the design test's "no run name" ban now covers §V6.1–§V6.18 only, and
+`tests/host/test_run12_prereg.py` pins the pre-registration (identities copied
+exactly, the five names exactly once, prospective gates, independent verdicts,
+topology recorded and not claimed, Morph 2K outside, no evidence ID).
+
+**Not done, by contract.** No hardware execution, no flash, no boot, no
+runtime / stimulus / analyzer / format change, no ingestion, no PASS / FAIL,
+no network, no presentation work. The Orchestrator validates §V6.19
+independently and only then opens the Hardware Issue that moves RUN 12 to the
+Operator.
