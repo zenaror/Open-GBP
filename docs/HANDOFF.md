@@ -196,6 +196,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 
 | item | status | owner |
 | --- | --- | --- |
+| **Phase 5 — Input, entry (research / design)** | **ENTERED 2026-09-21 (GitHub Issue #18), software-only: no KEYPAD write implemented or issued; no runtime, service-path, Policy A, witness or format change.** `docs/research/INPUT_PATH.md` reconstructs the path in three separated layers (L1 the GBS-DOL window as the references write it, L2 the GBA button set, L3 the mapping POLICY), surveys the references with provenance (Disc `3dd3692f…`, GBI `0b2c44ea…` unpacked, Dolphin `c185d27`, Enhanced mGBA obtained at `external/mgba` `8692b26b…`, GBATEK, libogc2), attempts U-GBP-010 statically — the Disc, GBI and Dolphin all write L at word bit 8 and R at bit 9, the reverse of KEYINPUT: **RESOLVED STATICALLY at CORROBORATED, not FACT; U-GBP-010 stays OPEN** on its own physical condition, no order adopted or defaulted, `REGISTERS.md` keeps Dolphin's order at H — designs the input architecture behind the existing transport boundary in the pump slot, and states the latency-observability guarantee (head instants expressible as `gbp_time64` ticks, no sidecar change, no figure). Static findings GBP-KEY-002…005; no `GBP-HW-` id. **The physical keypad record is empty.** | `docs/research/INPUT_PATH.md`; `EVIDENCE.md` GBP-KEY-002…005; `UNKNOWNS.md` U-GBP-010; `docs/ROADMAP.md` Phase 5 |
 | **Phase 4 — Video, against its acceptance criterion** | **Phase 4 ASSESSED 2026-09-21 (GitHub Issue #17): `PHASE 4 VERDICT: SATISFIED WITH NAMED RESIDUALS`.** The criterion — a real cartridge running on the physical GBP produces stable, correct video through the open-source runtime — is satisfied for the video path as a path: a retail cartridge ran three times with transport, NORMAL startup and Policy A measured clean on retail content (GBP-HW-138…151, 224…226) and the picture observed by the operator (GBP-HW-144, 152, 227); the path's correctness — geometry GBP-HW-081, composition GBP-HW-076/077, colour GBP-HW-131, full-frame fidelity on eight sampled frames GBP-HW-258, scanout as CLAIM-D GBP-HW-260 — is FACT on controlled stimuli inside each run's boundary. The named residuals and their owners: correctness of retail content by measurement (**Phase 7**); presentation / scaling / pixel-perfect GBP-VID-032 (**Phase 9**); physical pixel equality and per-frame scanout accounting (**not scheduled**); stability duration and breadth, GB/GBC (**Phase 12**, **Phase 7**); the colour intra-group limit (**not scheduled**); U-GBP-029 / 034 / 030 / 033 (open research residuals); rate conversion (**Phase 9**); audio (**Phase 6**), input (**Phase 5**); BBA / Ethernet (**Phase 11**); production UX (**Phase 9**, **Phase 12**). The assessment re-judges no run, promotes no status, closes no unknown, mints no id and **does not authorise Phase 9 work** or any run. Promoted with ids: `docs/protocol/VIDEO.md` (new) and the video rows of `docs/hardware/ARCHITECTURE.md`, `docs/hardware/GBS-DOL.md`, `docs/protocol/REGISTERS.md` | `docs/research/PHASE4_ASSESSMENT.md`; `docs/ROADMAP.md` Phase 4 "Phase 4 assessment"; `docs/protocol/VIDEO.md` |
 | **GBP-VIDEO-007 / GBP-VIDEO-008** (physical scanout; full-frame fidelity) | **RUN 13 EXECUTED 2026-09-21 AND INGESTED (§V6.25; Hardware Issue #15, ingestion Issue #16): GBP-VIDEO-007 = PASS · GBP-VIDEO-008 = PASS — each inside its pre-registered boundary and nothing wider.** The shared prospective source-window gate passed — frozen `tools/vindex.py` reads `OBSERVED_CONTIGUOUS` (2048 intact, INVALID 0, FAULT 0, 2046/2046 decisive transitions +1, FRAME_ID 52..2099); the four appearance entries came +1, so §V6.22's expectation for `coord-0002` is read off the data (no new finding). GBP-VIDEO-008 = PASS is CLAIM-A / CLAIM-B for the eight prospectively sampled frames only: unchanged `tools/vfull.py` 8/8, 0 mismatches in all 38 400 words of every sample, texture == Python == host C == tiled oracle; no physical pixel equality, nothing about the 2 040 unsampled frames. GBP-VIDEO-007 = PASS is CLAIM-D only: the corrected `tools/vvi.py` (§V6.21, used prospectively) reads 2371/2371 and L = 40/40/39/40 (the one R_3 hand-over not in L_3, `frame_index` 1754, is SUPERSEDED — instrumentation semantics, never non-scanout), and the operator saw 1, 2, 3, 4 in order (~8 s apart, a human estimate, never timing evidence) under the declared composite → RCA-to-HDMI converter → HYDIS HV150UX2 chain; a digit is bound to a 40-frame appearance set, never to one frame; no pixel, tearing, presentation, scaling or converter claim. Transport / startup / Policy A clean. **RUN 12 (§V6.20; Hardware Issue #9, ingestion Issue #10) remains historical: GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE.** The shared prospective source-window gate failed there — frozen `tools/vindex.py` reads `OBSERVED_DISCONTINUITY` (2048 intact, INVALID 0, FAULT 0, two duplicate FRAME_ID transitions 479→479 and 1919→1919; GBP-VID-034, mechanism RESOLVED by Issue #12 — PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames, §V6.22). Preserved beside the verdicts and promoting neither: the frozen `tools/vfull.py` full-frame dependent-variable analysis PASS 8/8 with 0 mismatches (subordinate; never a PASS of the GBP-VIDEO-008 experiment); the operator's literal report — digits 1, 2, 3, 4 in order, nothing missing or anomalous — under the declared composite → RCA-to-HDMI converter → HYDIS HV150UX2 chain; OGBPVI1 2377 handed / 2370 latched with frozen L_k = 0 (the `tools/vvi.py` frozen at the run masked the address before the flag shift — GBP-VID-035, analyzer defect, REPAIRED in software by Issue #11, §V6.21: the corrected post-run replay reads 2370/2370 and L = 40/40/38/40, and changes no verdict). Transport / startup / Policy A clean. No rerun pre-registered; `coord-0001`, the analyzers, the formats and the gates unchanged. **`coord-0002` (§V6.23) is the timing-safe re-implementation of the same picture: implemented, proven on its exact image (every entry PREPARE 176 863 cycles under the budget, zero ROM reads), physically executed once, in RUN 13 (pre-registered §V6.24, Issue #14; executed Hardware Issue #15; ingested §V6.25, Issue #16), where the source gate passed with no duplicate at any entry** | `HARDWARE_TESTS.md` §V6.19, §V6.20, §V6.22, §V6.23, §V6.24, §V6.25; GBP-HW-250…255, GBP-HW-256…260 |
 | **GBP-VIDEO-002-R3** (semantic disagreement policy) | **PHYSICAL VALIDATION COMPLETE** | `HARDWARE_TESTS.md` §R3/§R4; GBP-HW-108…115 |
@@ -393,7 +394,16 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-**No blocker. Phase 4 was assessed against its acceptance criterion on
+**Phase 5 is entered (Issue #18, 2026-09-21) as research / design only:**
+the keypad path is reconstructed in `docs/research/INPUT_PATH.md`, the
+references are surveyed with provenance, U-GBP-010 is RESOLVED STATICALLY at
+CORROBORATED and stays OPEN, and the input architecture is on paper. **No
+KEYPAD write exists; the physical keypad record is empty.** The next step is
+the Orchestrator's: a functional Issue for the input module behind the
+transport boundary, then a pre-registered first physical write. Nothing
+below changed for Phase 4.
+
+**No blocker for Phase 4. Phase 4 was assessed against its acceptance criterion on
 2026-09-21 (GitHub Issue #17): SATISFIED WITH NAMED RESIDUALS — the verdict
 is stated in `docs/ROADMAP.md` (Phase 4, "Phase 4 assessment") and in the
 scientific-state table above, and the full argument, term by term with its
@@ -488,8 +498,17 @@ still does not measure the margin.
 
 ## Next safe action
 
+**Phase 5 entry done (Issue #18, 2026-09-21, research / design only).** The
+next safe action is the Orchestrator's: validate `docs/research/INPUT_PATH.md`
+against `origin/main`, then a functional Issue that implements
+`gbp_input_map` / `gbp_keypad_encode` / `gbp_keypad_write` behind the
+existing transport boundary (host-tested with mock and replay, the encoding
+descriptor still unfilled), then a pre-registered first physical KEYPAD write
+that is also U-GBP-010's own closing test. No run is pre-registered; no bit
+order is adopted until the physical result exists.
+
 **Phase 4 is assessed (Issue #17, 2026-09-21: SATISFIED WITH NAMED
-RESIDUALS, `docs/research/PHASE4_ASSESSMENT.md`) and no checkpoint is open.**
+RESIDUALS, `docs/research/PHASE4_ASSESSMENT.md`).**
 The next safe action is the Orchestrator's: validate the assessment and the
 promotion against `origin/main`, then hand the Executor the next bounded Issue
 for whichever phase the Operator chooses — Phase 5 (input) is the ROADMAP's
@@ -580,9 +599,15 @@ issue 17    PHASE 4 ASSESSED: SATISFIED WITH NAMED RESIDUALS (docs/research/PHAS
             ROADMAP Phase 4 "Phase 4 assessment"); promotion with ids into docs/protocol/VIDEO.md and
             the video rows of docs/hardware/ and docs/protocol/REGISTERS.md; no status promoted, no id
             minted, no unknown closed, no run re-judged; docs and tests only
-next        orchestrator-owned: validate the assessment and the promotion -> the Operator decides the
-            next phase (Phase 5 is the ROADMAP's next; Phase 9 stays gated by CLAUDE.md §26); no run
-            is pre-registered
+issue 18    PHASE 5 ENTERED, research / design only (docs/research/INPUT_PATH.md): L1 / L2 / L3 kept
+            apart; reference survey with provenance (Enhanced mGBA obtained: external/mgba @ 8692b26b);
+            U-GBP-010 static attempt = RESOLVED STATICALLY at CORROBORATED (Disc, GBI, Dolphin agree:
+            L at bit 8, R at bit 9, the reverse of KEYINPUT), NOT closed, no order adopted; input
+            architecture on paper behind the transport boundary, in the pump slot; latency
+            observability guaranteed, nothing instrumented; GBP-KEY-002…005 (static); no KEYPAD write
+next        orchestrator-owned: validate the entry checkpoint -> a functional Issue implementing the
+            input module behind the boundary (host-tested) -> a pre-registered first physical KEYPAD
+            write (the item's own condition for U-GBP-010); no run is pre-registered
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
@@ -860,6 +885,16 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 - **That bytes 0 and 2 are don't-care in general.** §V4 places them outside the
   dependent variable of *this experiment* only. U-GBP-029 is open, they are
   preserved in full, and every run reports the full-raw comparison.
+- **That the KEYPAD L/R order is established.** The Start-up Disc, GBI and
+  Dolphin's model all write L at word bit 8 and R at bit 9 (the reverse of
+  KEYINPUT) — CORROBORATED for the encoding the software targets, never a
+  physical FACT: no KEYPAD write has ever been issued by Open-GBP, the window
+  is write-only and only the AGB observes it. U-GBP-010 is OPEN; no order is
+  adopted, implemented or defaulted; `REGISTERS.md` keeps Dolphin's order at
+  H (`docs/research/INPUT_PATH.md` §5, GBP-KEY-004).
+- **That the keypad plane inherits the video plane's confidence.** It does
+  not: every keypad statement in the project is static (GBP-KEY-001…005,
+  GBP-VID-011). The physical record starts from nothing.
 - **That the Phase-4 verdict measured retail content.** It did not: the
   oracle-based colour, geometry and fidelity results are FACT on controlled
   stimuli; on retail content the evidence is machine-side metrics identical to

@@ -10035,3 +10035,87 @@ closed. `make test-python` green. No file under `src/`, `tools/`,
 **Next.** The Orchestrator validates the assessment and the promotion; the
 Operator chooses the next phase (Phase 5 is the ROADMAP's next; Phase 9 stays
 gated by `CLAUDE.md` §26). No run is pre-registered.
+
+## 2026-09-21 — Issue #18: Phase 5 entered on paper — the input path in three layers, the references decompiled, U-GBP-010 resolved statically at CORROBORATED and kept open, the architecture designed behind the boundary
+
+**Goal.** Enter Phase 5 as research / design, software-only, at the
+Operator's direction: reconstruct the keypad path in three layers kept
+apart, survey the references with exact provenance, attempt U-GBP-010
+statically, design the input architecture behind a testable boundary, and
+guarantee the future poll-to-latch latency measurement stays expressible —
+without implementing a KEYPAD write, touching the runtime, the service path,
+Policy A, the witness layer or any frozen format, or minting a `GBP-HW-` id.
+Nothing under `src/`, `poc/`, `tools/` or `Makefile` changed.
+
+**The physical record starts from nothing.** No probe from GBP-PROBE-001 to
+RUN 13 ever wrote the KEYPAD window; the only keypad evidence before this
+checkpoint was static (GBP-KEY-001, GBP-VID-011), and everything added here
+is static too (GBP-KEY-002…005). The document says so first.
+
+**The references, re-verified rather than cited from memory.** The Disc's
+`main.dol` was re-extracted from the ISO (`3dd3692f…`, the recorded identity)
+and GBI's image re-unpacked (`0b2c44ea…`), both imported and analysed
+headlessly with Ghidra 12.1.3 and the project's `OpenGbpFunc.java` (decomp,
+refs, callsites) into `build/analysis/ghidra18/` (private). The keypad
+globals were found by scanning both binaries for r13-relative half-word
+stores (Disc `r13 − 0x7028`; GBI `r13 + 0x37c` = `0x800b4e9c` with
+`_SDA_BASE_ 0x800b4b20` read from the entry code). Disc: the write primitive
+`0x80089e40` (bytes 0x1E/0x1F, 32-byte DMA to `base + 0xC00000`), the setter
+`0x8008ad30` (opposite-direction filtering on bits 4/5 and 6/7; the
+injection override), the cadence (handler `+0x74` on every interrupt, the
+5 ms tick at two sites), the injection `0x8008c31c` (bits 0xF0 five ticks
+on / five off, up to 24 000 ticks), and the application mapping `0x8000822c`
+(SDK pad bits → word bits, two modes). GBI: the thread `0x8000bf30` reads up
+to four GameCube pads and N64 pads through tables, packs the word with
+`0x80015ddc` into the first half of the 64-byte ACK block at `0xCFFFE0`,
+writes `KEYPAD := 0` at start and the sleep pulse `0x0304` / `0x0300` as one
+64-byte block at `0xC00000`. Dolphin `c185d27`: `data[0x1e]` bit 0 → key 9
+(L), bit 1 → key 8 (R), "need to be flipped". GBATEK: KEYINPUT, the official
+joypad figure, and the AGB-side detection observation (`0x030F` = the four
+directions, which is exactly what the Disc injects at bits 4–7:
+GBP-KEY-005, the one external corroboration, four bits wide). Enhanced mGBA
+was **obtained**: `external/mgba` @ `8692b26b…` (branch `20251124`, shallow,
+ignored), consulted for L2/L3 only; its `gamecube/` platform directory is a
+toolchain file and the GameCube build uses the Wii sources; recorded in
+`external/README.md` with the note that `dolphin/Externals/mGBA` is a
+different tree. GBI's controller ROMs were hashed and not analysed.
+
+**U-GBP-010, statically.** Lined up against KEYINPUT (bit 8 = R, bit 9 =
+L), the Disc's default mode puts L at word bit 8 and R at bit 9 (its
+alternate mode moves Y and X there), GBI does the same for GameCube and N64
+pads, and Dolphin's model matches. Per the Issue's own rule that is **RESOLVED STATICALLY at
+CORROBORATED** — the encoding two independent implementations target, one
+official — and **not a physical FACT**: the window is write-only, the AGB is
+the only observer, and nothing on this hardware has been measured. GBI's
+`0x0304` was not used (it sets both bits). U-GBP-010 stays **OPEN** on its
+own condition (a game that distinguishes L/R), with the result recorded;
+`REGISTERS.md` keeps Dolphin's order at H; no order is adopted, implemented,
+tabulated as Open-GBP's own or defaulted. Deliverable D was conditional on
+NOT RESOLVABLE and was therefore not designed; the one-sentence instrument
+that would raise CORROBORATED to FACT is named, not designed.
+
+**Architecture and observability, on paper.** `gbp_input_map` (L3 policy as
+data) → `gbp_keypad_encode` (an encoding descriptor as data, unfilled until
+the physical result; host tests test the logic, never a hypothesised order)
+→ `gbp_keypad_write` (one 32-byte `write_block` through the existing
+transport, so mock and replay come for free), polled from the main loop in
+the pump slot after the RE-ARM under the consumer slice's rule — skipped when
+a cause is pending — never in the ISR, never inside the service transaction.
+GBI's combined KEYPAD + ACK block and the Disc's in-handler write are
+recorded as reference behaviour and not proposed, because the first would
+change the ACK transaction and the second breaks R8. The stop-condition
+check found nothing frozen that would have to move. For the latency chain
+the head instants `t_poll` and `t_write` are `gbp_time64` fields (the SI
+sample precedes the poll by at most one polling period, a bounded offset);
+no existing sidecar changes, the reacting frame stays identifiable through
+the `frame_index` join, and no timestamp is emitted and no figure is stated.
+
+**Records.** `docs/research/INPUT_PATH.md` (new); EVIDENCE GBP-KEY-002…005;
+UNKNOWNS U-GBP-010 (open, updated); ROADMAP Phase 5 status; HANDOFF;
+`external/README.md`; `tests/host/test_input_path.py` pins the layers, the
+single stated outcome, the open unknown, the absence of a new `GBP-HW-` id
+and of any adopted order, and the mGBA row.
+
+**Next.** The Orchestrator validates the entry; then a functional Issue for
+the module behind the boundary, then a pre-registered first physical KEYPAD
+write, which is also U-GBP-010's own closing test.

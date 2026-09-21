@@ -410,6 +410,27 @@ produced is `docs/protocol/VIDEO.md` and the refreshed video rows of
 
 ## Phase 5 — Input
 
+**Status: ENTERED 2026-09-21 (GitHub Issue #18) — research / design only,
+software-only; no KEYPAD write has been implemented or issued.** The keypad
+path is reconstructed on paper in `docs/research/INPUT_PATH.md` in three
+layers kept apart — the GBS-DOL KEYPAD window as the references write it
+(L1), the logical GBA button set from GBATEK (L2), and the GameCube
+controller → GBA mapping as this project's POLICY (L3). The physical record
+starts from nothing: every keypad statement in the project is static
+(GBP-KEY-001…005, GBP-VID-011). The static attempt on U-GBP-010 found the
+Start-up Disc, GBI and Dolphin's model agreeing that the references write L
+at word bit 8 and R at bit 9 (the reverse of KEYINPUT) — RESOLVED STATICALLY
+at CORROBORATED, not FACT; U-GBP-010 stays OPEN on its own physical
+condition and no order is adopted, implemented or defaulted. The input
+architecture is designed behind the existing transport boundary (real /
+mock / replay), additive to the validated service path in the pump slot, and
+keeps the future poll-to-latch latency measurement expressible in the
+`gbp_time64` time base without touching any sidecar (`INPUT_PATH.md` §7,
+§8). Enhanced mGBA was obtained (`external/mgba`, commit `8692b26b…`) as a
+GameCube-side polling / mapping reference only. **Next:** a functional
+checkpoint that implements the module behind that boundary, and the first
+physical KEYPAD write under its own pre-registration.
+
 Implement and document GameCube controller → GBP keypad/input handling.
 
 Automated tests should cover button combinations and encoding.
