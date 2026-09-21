@@ -316,6 +316,11 @@ the latency instrument. `REGISTERS.md` keeps H until the Orchestrator updates
 CORROBORATED, not FACT (was H), with the generic-pad scope and GBP-KEY-009
 beside it; no status changed here.
 
+**2026-09-21, Issue #27:** GBP-KEY-009 is IMPLEMENTED in `stream-0015`
+(`da06500`; not executed) — FACT for the routing is now reachable by a run
+that joins the KEY record to an instrument showing what the AGB received;
+this item stays CLOSED and the routing stays CORROBORATED until that run.
+
 ## U-GBP-011 (P2 — **CLOSED 2026-09-18** by GBP-VIDEO-003 / `color-0002`, the pre-registered confirmatory run: the outer 5-bit groups are exchanged, `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`, promoting the colour order from CORROBORATED to **FACT**. Two residuals were never part of this item and stay open: bit 15's origin, now U-GBP-034, and the bytes 0/2 deviations, U-GBP-029) — VIDEO color bit order and exact word content
 
 **2026-09-16, static (GBP-VID-003/006, VIDEO_PATH.md §2.3–2.4, §3.2):** the

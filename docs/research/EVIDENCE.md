@@ -688,6 +688,21 @@ reads from complete records, and the Orchestrator's classification stands.
 Repair — split or shorten the line and add the host guard — belongs to a
 functional Issue; nothing under `src/`, `poc/` or `tools/` moved here.
 
+**2026-09-21, REPAIRED IN SOFTWARE (Issue #27, `stream-0015` @ `da06500`;
+physical validation PENDING).** The record is emitted as two, the way
+`stream-0011` repaired `WITELIG`: `ENVINPUT` (port, policy, the thresholds,
+the filter, refresh_ms, refresh_ticks, layout — worst case 229 of 248 at the
+maximum width of every conversion) and `ENVINPUT2` (index, desc,
+pressed_is_one, desc_status, selftest — worst case 222); every field name
+unchanged, no buffer enlarged, `ringlog.c` untouched, both emitted before the
+run in that order. The guard this row asked for exists and is GENERAL:
+`tests/host/test_ringlog_payloads.py` renders every `ringlog_printf` of the
+probe at the worst case of every conversion, with every `%s` bounded by the
+vocabulary of its source, and fails a test — not a run — for any record
+over the payload (GBP-KEY-010 records its two tiers). RUN 14 and RUN 15 keep
+`truncated=1` as `stream-0014` facts; their fixtures and derivations are
+unchanged. **Nothing here is hardware-validated.**
+
 ## GBP-KEY-009 — What would make the L/R routing a FACT is one log line: the word written at each key change, binding every press to what the runtime sent — FINDING (software / data); recorded, NOT implemented
 
 §V7.1.10 supposed that FACT for U-GBP-010 needed a project-owned stimulus
@@ -704,6 +719,82 @@ line would hold the fourth link as data. The project-owned stimulus remains
 the instrument the latency question needs (`INPUT_PATH.md` §8) and stays a
 recorded future option. Neither is authorised by Issue #24; the module and the
 POC are unchanged since `0ff8355`; the routing stays CORROBORATED (GBP-HW-265).
+
+**2026-09-21, IMPLEMENTED IN SOFTWARE (Issue #27, `stream-0015` @ `da06500`;
+NOT executed, no run name, not staged).** Every KEYPAD write that is not a
+refresh — first, change, retry — leaves one ringlog line, `KEY n= act= keys=
+word= t_poll= t_attempt= t_done= xfer= rc=`, emitted from the pump slot right
+after the write it describes, with the three instants in the transport's
+ticks64 base — the base of OGBPIDXCAP1, OGBPDISP2 and OGBPVI1 — so the join a
+future run needs (the word sent at `t_attempt..t_done` ↔ the first source
+frame that shows the cartridge's reaction, by `t_first_block` / `t_take`)
+needs no conversion; a refresh never produces a line. Bounded by the ringlog
+itself with a 64-line reserve for the post-run records, counted when refused
+(GBP-KEY-010 has the facts). **The routing stays CORROBORATED: FACT is now
+REACHABLE by a run that joins this record to an instrument showing what the
+AGB received; only such a run makes it actual.**
+
+## GBP-KEY-010 — The per-change KEYPAD record and the ENVINPUT repair as software: the KEY line, its bound, the general payload guard and the candidate `stream-0015` — FACT (software); nothing physical
+
+Issue #27 (2026-09-21), commits `cee9165` (the record) and `da06500` (the
+repair and the guard). **The record** (`src/gbp/gbp_input.{h,c}`): every write
+whose action is FIRST, CHANGE or RETRY fills `struct gbp_input_event` — the
+event number, the action, the logical set, the word, `t_poll` (the caller's
+instant after `PAD_ScanPads()`), `t_attempt` (the transport's instant before
+`write_block`) and `t_done` (after a completed write; 0 otherwise), the
+completion wait and the status — and the caller takes it once
+(`gbp_input_take_event`); a REFRESH never does (RUN 14: 7 849 refreshes
+against 42 changes). THE ONE FORMAT `GBP_INPUT_EVENT_FMT` = `KEY n=%lu act=%s
+keys=%04x word=%04x t_poll=%llx t_attempt=%llx t_done=%llx xfer=%lu rc=%s`,
+rendered by `gbp_input_event_render()` on the host and by the probe's
+`ringlog_printf` with the same argument list; worst case over every conversion
+**158** characters (derived in `tests/unit/test_gbp_input.c` and
+`tests/host/test_input_keylog.py`; the two `%s` are 7-character vocabularies),
+against the 248-character payload. **The emission point**
+(`poc/gbp-video-stream-probe/source/main.c`, `keylog_emit()`): in
+`input_step()`, right after the write and after the step's own measurement,
+from the pump slot — never from the ISR, never inside the service transaction
+— through the transport's clock (the stream audit's `gettime` pins of `pump()`
+and `main()` unchanged); armed with the run (`keylog_rl`) like
+`in_transport`. **The bound** (CLAUDE.md §13): the store is the ringlog
+itself, preallocated (`LOG_LINES 1024`, never grown); a line is admitted only
+while `KEYLOG_TAIL_RESERVE` = 64 lines stay free for the post-run summary
+records (27, counted by the test), so a run with more changes than the
+headroom holds — ≈ 700 lines after the pre-run records — keeps every summary,
+keeps `dropped=0`, and counts the surplus in `KEYLOG lost`; `truncated` and
+`overwritten` are counted and 0 by construction; the line's cost is measured
+with the transport's ticks (`KEYLOG emit_ticks`) outside the INPUTT step
+aggregate, so RUN 14 / RUN 15's step figures stay comparable. **The repair**
+(GBP-KEY-008): `ENVINPUT` 229 / `ENVINPUT2` 222 at the worst case, every field
+kept. **The general guard** (`tests/host/test_ringlog_payloads.py`): every
+`ringlog_printf` of the probe rendered at the worst case of every conversion
+for powerpc-eabi (ILP32), every `%s` bounded by the vocabulary of its source
+and the vocabularies checked against the code, every conversion matched to
+an argument; STRICT for ENVINPUT, ENVINPUT2, KEY, KEYLOG, WITELIG, WITELIG2;
+a RATCHET for the four older records that exceed 248 at the pure type width —
+ENVSTORE 303, INPUT 269, WITQUAL 307, DISPTRACE 253 — frozen at today's
+value (any growth, or any new record over 248, fails a test rather than a
+run; their largest physical rendering in the versioned RUN 14 / RUN 15
+records is far below the payload), and the `stream-0014` ENVINPUT shown to
+exceed it, so the guard can fail. **Unchanged:** the descriptor and the
+policy (byte-equal to `0ff8355`, pinned), the witness layer, the service path,
+Policy A, the disposition trace, every frozen format, `tools/`,
+`docs/protocol/`, `docs/hardware/`, `HARDWARE_TESTS.md` §V7. **Candidate**
+`build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol`: `stream-0015`,
+embedded commit `da06500` (clean, no `-dirty`), 514 880 bytes, SHA-256
+`dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49`; built in `ghcr.io/extremscorner/libogc2:20260805` with
+zero warnings, none suppressed; two consecutive clean builds byte-identical; ELF text 404044 / data 110508 / bss 20093556; `make
+stream-audit`: 0 findings (the ext and base one-shot handlers identical to the physically validated GBP-VIDEO-001 build). **Host tests:** `tests/unit/test_gbp_input.c` 8 505
+checks (52 new: the events, the render at the worst case, the bound);
+`make test-python` green. **Dolphin (AUXILIARY, never physical):** device
+absent — RESULT PASS (4.2 s) on the stated conditions: READY build=stream-0015 commit=da06500, INPUTSELFTEST ok=1 device_touched=0, COUNTERS balanced=1 sci_clean_at_probe=1 inv_fail=0 storage_fault=-; Dolphin's GBP model — RESULT PASS (4.1 s) on the same conditions (HSPDevice=2, GBPlayerRom). In both the
+probe stops before any service cycle (the model refuses at the CONTROL shape,
+as for stream-0013 / 0014), so the pump slot never runs there: neither the
+KEYPAD write nor the KEY record is exercised by Dolphin, and nothing about them
+is covered by it. **NOT executed on hardware; no run name reserved; nothing
+pre-registered; `build/swiss/` untouched** (staging belongs to a hardware
+checkpoint). **Status:** FACT for what the software is and does; nothing here
+is evidence about the device; the routing stays CORROBORATED (GBP-KEY-009).
 
 ## GBP-VID-001 — VIDEO data format and cadence
 

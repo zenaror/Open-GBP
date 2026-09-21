@@ -488,10 +488,18 @@ controller mapping as this project's POLICY, what is not established), the
 keypad rows of `REGISTERS.md` (§2, §2.3), `GBS-DOL.md` and `ARCHITECTURE.md`,
 and `INITIALIZATION.md` §15 — with the L/R order stated as CORROBORATED, not
 FACT, the generic-pad scope beside it and GBP-KEY-009 named; no status
-changed. **Next:** GBP-KEY-009 — the per-key-change word logging that takes
-the routing to FACT — as a functional checkpoint with its own
-pre-registration; then this phase's real acceptance with a commercial game,
-which the Operator schedules.
+changed.
+
+**Implemented 2026-09-21 (GitHub Issue #27), software-only:** GBP-KEY-009 —
+every KEYPAD write that is not a refresh leaves one `KEY` ringlog line with
+the word and three instants in the sidecars' time base, bounded, from the
+pump slot — and the repair of GBP-KEY-008 (`ENVINPUT` + `ENVINPUT2`) with a
+general payload guard, in the candidate `stream-0015` (`da06500`, SHA-256
+`dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49`), **NOT executed, no run pre-registered, not staged** (GBP-KEY-010).
+FACT for the L/R routing is now reachable by a run; it is not actual.
+**Next:** the hardware checkpoint that spends `stream-0015` — the
+Orchestrator designs it and the Operator runs it — then this phase's real
+acceptance with a commercial game, which the Operator schedules.
 
 Implement and document GameCube controller → GBP keypad/input handling.
 

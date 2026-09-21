@@ -109,9 +109,10 @@ class TheStaticAttemptIsStatedOnceAndStaysOpen(unittest.TestCase):
         ev = read(EVIDENCE)
         for n in (2, 3, 4, 5):
             self.assertEqual(len(re.findall(r"^## GBP-KEY-%03d\b" % n, ev, re.M)), 1, n)
-        # GBP-KEY-006 (Issue #19), GBP-KEY-007 (Issue #22), GBP-KEY-008 / 009 (Issue #24) followed; nothing beyond them
+        # GBP-KEY-006 (Issue #19), GBP-KEY-007 (Issue #22), GBP-KEY-008 / 009 (Issue #24), GBP-KEY-010 (Issue #27) followed;
+        # nothing beyond them
         self.assertEqual(re.findall(r"^## GBP-KEY-00[8-9]", ev, re.M), ["## GBP-KEY-008", "## GBP-KEY-009"])
-        self.assertEqual(re.findall(r"^## GBP-KEY-01\d", ev, re.M), [])
+        self.assertEqual(re.findall(r"^## GBP-KEY-01\d", ev, re.M), ["## GBP-KEY-010"])
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
         self.assertEqual(hw, 265)   # GBP-HW-261…265: RUN 14 / RUN 15 (Issue #24)
         self.assertNotRegex(read(DOC), r"GBP-HW-26[1-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d")   # INPUT_PATH.md is the pre-run document

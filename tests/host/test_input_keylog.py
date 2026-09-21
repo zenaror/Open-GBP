@@ -32,7 +32,7 @@ ALLOWED = {"src/gbp/gbp_input.c", "src/gbp/gbp_input.h", "poc/gbp-video-stream-p
 PAYLOAD_MAX = 248
 WIDTH = {"lu": 10, "ld": 11, "u": 10, "d": 11, "llu": 20, "lld": 20, "llx": 16, "lx": 8, "x": 8}
 SPEC = re.compile(r"%(?:(\d+)\$)?([-+ #0]*)(\d+)?(?:\.(\d+))?(hh|h|ll|l|z|t|j)?([diouxXeEfgGcsp%])")
-STREAM15_SHA = None             # set by the docs checkpoint once the candidate is built: pinned then, skipped now
+STREAM15_SHA = "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49"   # stream-0015 @ da06500, 514 880 B; built in the project image at the clean commit (Issue #27)
 
 
 def read(p):
