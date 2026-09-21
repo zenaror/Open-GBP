@@ -1,0 +1,2750 @@
+{
+ "format": "OGBPIDX-STRUCT-1",
+ "run": 18,
+ "experiment": "RUN 18 -- GBP-INPUT-002, the machine join (the Enhanced Control Checker's counted walk B on stream-0015, the KEY record joined to the tally frames); pre-registered HARDWARE_TESTS §V7.3 (Issue #28), executed under Hardware Issue #32, ingested under Issue #33 (§V7.4)",
+ "execution_order": {
+  "raw_write_times": {
+   "17": "2026-09-21 14:13:32 -03:00",
+   "18": "2026-09-21 14:19:30 -03:00",
+   "16": "2026-09-21 14:22:08 -03:00"
+  },
+  "order": [
+   "run17",
+   "run18",
+   "run16"
+  ],
+  "note": "the numbering follows §V7.3.2 (a reserved number belongs to its experiment whenever it runs), NOT the execution order; both are recorded so neither is inferred later"
+ },
+ "retired_names": {
+  "names": [
+   "captures/local/GBP-VIDEO-004_stream-0014-run16.log",
+   "captures/local/GBP-VIDEO-004_stream-0014-run16-idxcap.bin",
+   "captures/local/GBP-VIDEO-004_stream-0014-run16-disp.bin",
+   "captures/local/GBP-VIDEO-004_stream-0014-run16-full.bin",
+   "captures/local/GBP-VIDEO-004_stream-0014-run16-vi.bin"
+  ],
+  "reason": "reserved in §V7.1.5 on the assumption of stream-0014; the run happened on stream-0015; retired, never used, never reassigned (the name follows the artifact's actual build; the number follows the experiment)"
+ },
+ "github_issues": {
+  "pre_registration": 28,
+  "hardware": 32,
+  "ingestion": 33,
+  "run16_reservation": 23,
+  "candidate": 27,
+  "topology_inventory": 25
+ },
+ "runtime_embedded": {
+  "test_id": "GBP-VIDEO-004",
+  "build_id": "stream-0015",
+  "commit": "da06500",
+  "note": "embedded id intentionally GBP-VIDEO-004 (§V6.17 decision 5); the experiment label GBP-INPUT-002 is the pre-registration's; the image is Issue #27's candidate, NOT rebuilt"
+ },
+ "dol": {
+  "path_operator": "build/swiss/12-stream/boot.dol",
+  "path_authority": "build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol",
+  "size": 514880,
+  "sha256": "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49",
+  "swiss_sha256": "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49",
+  "build": "stream-0015",
+  "commit": "da06500",
+  "commit_full": "da06500c4d9c938ae11cbf696bc214eb2527d64f",
+  "stream_0014_preserved": {
+   "path": "build/archive/gbp-video-stream-probe-stream-0014-0ff8355.dol",
+   "sha256": "ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c"
+  },
+  "stream_0013_preserved": {
+   "path": "build/archive/gbp-video-stream-probe-stream-0013-7d7a6d8.dol",
+   "sha256": "5391c3fe962dc4b2f4e493f3846ac7407ded064c58f5d4bb583a51e5a725dd79"
+  },
+  "note": "staged under Hardware Issue #32 by §V7.3.6 steps 1-3 (stream-0014 preserved first; make swiss without a rebuild; verified by the Orchestrator); the SD copy and its pre-boot hash check were the Operator's (step 4); both log headers read stream-0015 @ da06500"
+ },
+ "stimulus": {
+  "name": "Enhanced Control Checker GBA",
+  "repository": "https://github.com/nataliethenerd/enhancedcontrolcheckerGBA",
+  "commit": "76924c1371d7bf761f8b1ed45ab36f195cd1374f",
+  "prebuilt_rom": {
+   "name": "enhancedcontrolchecker.gba",
+   "size": 69348,
+   "sha256": "53c212c73e814875fcbac16a4dc22ea5d6c752f85cdddc433db97439caef2b6e"
+  },
+  "flashed_image_hashed_by_executor": false,
+  "source_facts_relied_on": "ten counters at rows 4-13, one `if` per button over keysDown() in a VBlankIntrWait() loop, the tally printed at console column 22 with `%2d` ONLY on a press (verified in the source at the commit above; §V7.1.3)"
+ },
+ "walk": {
+  "name": "B",
+  "presses": [
+   [
+    "L",
+    1
+   ],
+   [
+    "R",
+    2
+   ],
+   [
+    "UP",
+    3
+   ],
+   [
+    "DOWN",
+    4
+   ],
+   [
+    "LEFT",
+    5
+   ],
+   [
+    "RIGHT",
+    6
+   ]
+  ],
+  "total_presses": 21,
+  "expected_vector_arithmetic": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   0,
+   0,
+   0,
+   0
+  ],
+  "counter_order": [
+   "L",
+   "R",
+   "UP",
+   "DOWN",
+   "LEFT",
+   "RIGHT",
+   "START",
+   "SELECT",
+   "A",
+   "B"
+  ],
+  "expected_key_changes": 42,
+  "expected_word_bits": {
+   "L": [
+    0,
+    8
+   ],
+   "R": [
+    1,
+    9
+   ],
+   "UP": [
+    2,
+    6
+   ],
+   "DOWN": [
+    3,
+    7
+   ],
+   "LEFT": [
+    4,
+    5
+   ],
+   "RIGHT": [
+    5,
+    4
+   ]
+  }
+ },
+ "topology_declared_by_operator": {
+  "console": "the one GameCube of the Operator's DECLARED HARDWARE INVENTORY (Issue #25; §V7.3.4: cited, not asked again; a declaration, never an inference)",
+  "game_boy_player": "the one Game Boy Player of the same inventory (GBP-HW-261; §V7.3.4)",
+  "controller": "port 1: the ORIGINAL Nintendo GameCube controller -- DECLARED per run by the Operator, relayed by the Orchestrator (Issue #33); nothing in ports 2-4 (as pre-registered)",
+  "controller_scope": "the ORIGINAL Nintendo pad, declared for RUN 18 -- the first time it is on record; L and R by their digital click (trigger_threshold=0): what RUN 18 binds, it binds for this pad -- bits 8 and 9 are therefore bound on TWO independent controllers (RUN 17 generic, RUN 18 original); the D-pad bits 4..7 on the original pad only; walk A's bits 0..3 on the generic pad only (RUN 17)",
+  "cartridge_boot_screen": "straight into the Enhanced Control Checker on the EZ-Flash NOR (declared; and by machine: no navigation word in the KEY record)",
+  "bba_ethernet": "NOT DECLARED for RUN 16 / 17 / 18 at ingestion (no per-run declaration on Hardware Issue #32 or Issue #33) -- recorded as ABSENT, not inferred; no deviation reported; stream-0015 links no network code, so the join's substance is unaffected; the Orchestrator may obtain and add the declaration as Issue #25 did for RUN 14 / RUN 15",
+  "display_chain": "NOT DECLARED for RUN 16 / 17 / 18 at ingestion -- recorded as ABSENT, not inferred; no deviation reported; the join reads the FRAMES, not the screen, so the chain is not part of the join (§V7.3.4)",
+  "deviation_reported": "none",
+  "source": "OPERATOR DECLARATION as relayed by the Orchestrator (Issue #33 and its cross-session messages, 2026-09-21); not derived from files except where marked 'by machine'"
+ },
+ "operator_report": {
+  "source": "OPERATOR OBSERVATION, literal as relayed by the Orchestrator in Issue #33 (2026-09-21); never fed into the join; placed BESIDE the machine channel, never merged with it",
+  "words": "the same as RUN 15",
+  "tally_vector_literal": "1, 2, 3, 4, 5, 6, 0, 0, 0, 0",
+  "tally_vector": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   0,
+   0,
+   0,
+   0
+  ],
+  "counter_order": [
+   "L",
+   "R",
+   "UP",
+   "DOWN",
+   "LEFT",
+   "RIGHT",
+   "START",
+   "SELECT",
+   "A",
+   "B"
+  ],
+  "equals_expected": true,
+  "buttons_completed": [
+   "L",
+   "R",
+   "UP",
+   "DOWN",
+   "LEFT",
+   "RIGHT"
+  ],
+  "buttons_cut": [],
+  "tallies_moved_without_a_press": "none reported",
+  "note": "relayed as digits with 0 for an unpressed counter (RUN 14 / RUN 15 were relayed with blanks); the instrument prints no tally for an unpressed counter (§V7.2.7), so 0 and blank are the same reading"
+ },
+ "raw": {
+  "log": {
+   "supplied_name": "GBP-VIDEO-004_stream-0015.log",
+   "found_at": "logs/run18/ (the Operator's per-run subdirectory; raw file mtime 2026-09-21 14:19:30 -03:00)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0015-run18.log",
+   "size": 95265,
+   "sha256": "242821fc72d61c6882be09b71015f21f3f43100453646ce4d7621beb784539c1"
+  },
+  "idxcap": {
+   "supplied_name": "GBP-VIDEO-004_stream-0015-idxcap.bin",
+   "found_at": "logs/run18/ (the Operator's per-run subdirectory; raw file mtime 2026-09-21 14:19:30 -03:00)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0015-run18-idxcap.bin",
+   "size": 8946060,
+   "sha256": "6be30f1533c0bd0ba34cce6dc9ff45731a5e4a6f0c6fdfc8a8e116b59b358204"
+  },
+  "disp": {
+   "supplied_name": "GBP-VIDEO-004_stream-0015-disp.bin",
+   "found_at": "logs/run18/ (the Operator's per-run subdirectory; raw file mtime 2026-09-21 14:19:30 -03:00)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0015-run18-disp.bin",
+   "size": 400676,
+   "sha256": "c95bb27fdda7f164627b0b6666ded889d29f054de0e534a162e814d8c3a4cb9e"
+  },
+  "full": {
+   "supplied_name": "GBP-VIDEO-004_stream-0015-full.bin",
+   "found_at": "logs/run18/ (the Operator's per-run subdirectory; raw file mtime 2026-09-21 14:19:30 -03:00)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0015-run18-full.bin",
+   "size": 1844492,
+   "sha256": "4a724784ffb575bc57d406c26cf6176cacf17cbaca8c6e4fb528770bc8231d6d"
+  },
+  "vi": {
+   "supplied_name": "GBP-VIDEO-004_stream-0015-vi.bin",
+   "found_at": "logs/run18/ (the Operator's per-run subdirectory; raw file mtime 2026-09-21 14:19:30 -03:00)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0015-run18-vi.bin",
+   "size": 152396,
+   "sha256": "69eff4d1631bc241371976fc9befb69b9311d69933f9ba60da74808633c1f0b5"
+  }
+ },
+ "raw_receipt": {
+  "generated_on": "the live GameCube SD card under the console's normal stream-0015 names; moved by the Operator into logs/run18/ (a per-run subdirectory, as §V7.3.5 asks); the card copies are deleted after the move, so logs/ was the ONLY copy until the archive existed",
+  "archived": "cp --update=none into the §V7.3.5 reserved run18 names (verified absent first), cmp identical, SHA-256 recomputed by the Executor from the copies before any interpretation, reported on Hardware Issue #32 (2026-09-21 17:27 local); logs/ left as found",
+  "located_by": "the Orchestrator's cross-session request naming the fifteen files and their hashes; the Executor's hashes are the identity, the Orchestrator's the double check (all fifteen matched)"
+ },
+ "fixtures": {
+  "disp": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run18-disp.bin",
+   "sha256": "c95bb27fdda7f164627b0b6666ded889d29f054de0e534a162e814d8c3a4cb9e",
+   "note": "byte-identical copy of the console's OGBPDISP2"
+  },
+  "full": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run18-full.bin",
+   "sha256": "4a724784ffb575bc57d406c26cf6176cacf17cbaca8c6e4fb528770bc8231d6d",
+   "note": "byte-identical copy of the console's OGBPFULL1 -- one of the two machine ends of the join (RUN 17 / RUN 18); the menu (RUN 16)"
+  },
+  "vi": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run18-vi.bin",
+   "sha256": "69eff4d1631bc241371976fc9befb69b9311d69933f9ba60da74808633c1f0b5",
+   "note": "byte-identical copy of the console's OGBPVI1"
+  },
+  "qual": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run18-qual.bin",
+   "sha256": "8f3315e5de34bb040c88f4ba9ec8b2c81cb0768159a5790537e39ba17158cfac",
+   "note": "content-blind OGBPQUAL1 projection of the raw OGBPIDXCAP1"
+  },
+  "raw_log": "NOT versioned (established policy; identity preserved by size and SHA-256); the summary records AND EVERY KEY LINE are quoted VERBATIM in this file (`log_records_verbatim`, `key_record.lines`) so the join is recomputable from the tree",
+  "raw_idxcap": "NOT versioned (8 946 060 B; identity preserved by size and SHA-256)"
+ },
+ "tools": {
+  "vindex": "tools/vindex.py UNMODIFIED (10250a4)",
+  "vidxcap": "tools/vidxcap.py UNMODIFIED (10250a4)",
+  "vdisp": "tools/vdisp.py UNMODIFIED (59d2f57)",
+  "vqual": "tools/vqual.py UNMODIFIED (b71da06)",
+  "vfull": "tools/vfull.py UNMODIFIED (2c7ff0e)",
+  "vvi": "tools/vvi.py CORRECTED implementation (0ee8aac), unchanged since",
+  "vpace": "tools/vpace.py UNMODIFIED (025f2e7); not run (it expects the witness join; Policy A figures are vdisp's)",
+  "join": "NO tool under tools/: the join is computed by the ingestion generator and RECOMPUTED by tests/host/test_run17.py from this file and the full-frame fixture, exactly as §V7.3.9 froze it",
+  "ingestion_head": "09f289c8c75a9108e0c03293c84bd4735130324e"
+ },
+ "verdicts": {
+  "shared_gates": {
+   "IDENTITY_LOG": "PASS: log header GBP-VIDEO-004 / stream-0015 @ da06500; dropped=0; truncated=0 with ENVINPUT and ENVINPUT2 complete (GBP-KEY-008's repair PHYSICALLY VALIDATED); no storage fault; the summary records present once each",
+   "KEY_RECORD": "MET",
+   "TRANSPORT": "PASS",
+   "STARTUP": "PASS (NORMAL; recorded, no tolerance)",
+   "INPUT_MACHINE": "MET",
+   "FRAMES": "PASS: OGBPFULL1 8/8 COMPLETE, valid CRCs, origin 356, texture == conversion 8/8, every sample the checker's screen, every tally cell decoded by the six-glyph table; vindex / vfull INCONCLUSIVE by construction, RECORDED not judged",
+   "TOPOLOGY": "PASS for the items declared (console and Game Boy Player by the inventory; the controller per run; the boot screen per run, corroborated by machine); BBA / Ethernet / display chain NOT DECLARED for these runs -- recorded as absent, not inferred, no deviation reported (topology.bba_ethernet, topology.display_chain)",
+   "SESSION": "PASS (stop=witness_target_reached; the recovery procedure not needed)"
+  },
+  "question_J": {
+   "bit4 (RIGHT)": "FACT",
+   "bit5 (LEFT)": "FACT",
+   "bit6 (UP)": "FACT",
+   "bit7 (DOWN)": "FACT",
+   "bit8 (L)": "FACT",
+   "bit9 (R)": "FACT"
+  },
+  "question_J_all_pressed_bits_FACT": true,
+  "question_I": [
+   "EXACT",
+   "EXACT",
+   "EXACT",
+   "EXACT",
+   "EXACT",
+   "EXACT",
+   "EXACT",
+   "EXACT"
+  ],
+  "question_M": {
+   "verdict": "PASS",
+   "read_from": "the Operator's tally vector alone (§V7.1.9), never the join",
+   "reading": "every pressed button's expected count at its own counter, every unpressed counter 0 (his relay) / blank (the instrument), no tally moved without a press, no walk cut"
+  },
+  "question_O": {
+   "verdict": "AS-ASSIGNED",
+   "read_from": "the Operator's tally vector alone",
+   "reading": "L = 1 and R = 2 and no 1 or 2 at a counter that expected 0"
+  },
+  "channels_agree": true,
+  "channels_note": "the Operator's vector and the decoded end state agree digit for digit (0 = blank); stated, never merged",
+  "read_from": "the KEY record and the OGBPFULL1 frames (the join); the Operator's vector beside it",
+  "classified_against": "HARDWARE_TESTS §V7.3.8 / §V7.3.9 as frozen before the runs (Issue #28); no gate, threshold or verdict definition moved",
+  "routing_classification": {
+   "status": "FACT (hw, the run) for every word bit this run pressed -- bits [4, 5, 6, 7, 8, 9]",
+   "chain": [
+    "the descriptor maps each button to its word bit (code, GBP-KEY-006; reported as data in ENVINPUT2)",
+    "the runtime's KEY record says which word it sent at each change (this run's own log, GBP-KEY-010 on hardware)",
+    "the checker's counters, edge-triggered on KEYINPUT (source), read in the preserved frames (data)",
+    "the distinct totals make the map word bit -> counter unique (arithmetic on the two records)"
+   ],
+   "no_human_link": "the Operator's press count is no longer in the chain; his vector is read beside it and agrees",
+   "scope": "the ORIGINAL Nintendo pad, declared for RUN 18 -- the first time it is on record; L and R by their digital click (trigger_threshold=0): what RUN 18 binds, it binds for this pad -- bits 8 and 9 are therefore bound on TWO independent controllers (RUN 17 generic, RUN 18 original); the D-pad bits 4..7 on the original pad only; walk A's bits 0..3 on the generic pad only (RUN 17)"
+  }
+ },
+ "key_record": {
+  "format": "KEY n=%lu act=%s keys=%04x word=%04x t_poll=%llx t_attempt=%llx t_done=%llx xfer=%lu rc=%s",
+  "source": "GBP-KEY-010: one line per FIRST / CHANGE / RETRY write from the pump slot, timestamped on the transport's ticks64 (the base of the sidecars' t_take); never a REFRESH; bounded by the ringlog with a 64-line reserve",
+  "KEYLOG": {
+   "events": 43,
+   "emitted": 43,
+   "lost": 0,
+   "truncated": 0,
+   "overwritten": 0,
+   "reserve": 64,
+   "emit_ticks": "871/1585/1748",
+   "n": 43,
+   "units": "min/mean/max"
+  },
+  "lines": [
+   {
+    "seq": 227,
+    "n": 1,
+    "act": "first",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788918ae423",
+    "t_attempt": "795788918ae4f4",
+    "t_done": "795788918ae595",
+    "xfer": 30,
+    "rc": "ok",
+    "s_attempt_after_control": 0.110828,
+    "line": "000227 KEY n=1 act=first keys=0000 word=0000 t_poll=795788918ae423 t_attempt=795788918ae4f4 t_done=795788918ae595 xfer=30 rc=ok"
+   },
+   {
+    "seq": 228,
+    "n": 2,
+    "act": "change",
+    "keys": "0200",
+    "word": "0100",
+    "t_poll": "7957889eb03b25",
+    "t_attempt": "7957889eb03b40",
+    "t_done": "7957889eb03ba4",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 5.556525,
+    "line": "000228 KEY n=2 act=change keys=0200 word=0100 t_poll=7957889eb03b25 t_attempt=7957889eb03b40 t_done=7957889eb03ba4 xfer=31 rc=ok"
+   },
+   {
+    "seq": 229,
+    "n": 3,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "7957889ef85811",
+    "t_attempt": "7957889ef8582b",
+    "t_done": "7957889ef85884",
+    "xfer": 30,
+    "rc": "ok",
+    "s_attempt_after_control": 5.673216,
+    "line": "000229 KEY n=3 act=change keys=0000 word=0000 t_poll=7957889ef85811 t_attempt=7957889ef8582b t_done=7957889ef85884 xfer=30 rc=ok"
+   },
+   {
+    "seq": 230,
+    "n": 4,
+    "act": "change",
+    "keys": "0100",
+    "word": "0200",
+    "t_poll": "795788a0e745c9",
+    "t_attempt": "795788a0e745e7",
+    "t_done": "795788a0e7463c",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 6.474096,
+    "line": "000230 KEY n=4 act=change keys=0100 word=0200 t_poll=795788a0e745c9 t_attempt=795788a0e745e7 t_done=795788a0e7463c xfer=31 rc=ok"
+   },
+   {
+    "seq": 231,
+    "n": 5,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788a139c1e1",
+    "t_attempt": "795788a139c1fc",
+    "t_done": "795788a139c246",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 6.607571,
+    "line": "000231 KEY n=5 act=change keys=0000 word=0000 t_poll=795788a139c1e1 t_attempt=795788a139c1fc t_done=795788a139c246 xfer=31 rc=ok"
+   },
+   {
+    "seq": 232,
+    "n": 6,
+    "act": "change",
+    "keys": "0100",
+    "word": "0200",
+    "t_poll": "795788a1deb51a",
+    "t_attempt": "795788a1deb533",
+    "t_done": "795788a1deb580",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 6.874488,
+    "line": "000232 KEY n=6 act=change keys=0100 word=0200 t_poll=795788a1deb51a t_attempt=795788a1deb533 t_done=795788a1deb580 xfer=31 rc=ok"
+   },
+   {
+    "seq": 233,
+    "n": 7,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788a226f646",
+    "t_attempt": "795788a226f65f",
+    "t_done": "795788a226f6ab",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 6.991409,
+    "line": "000233 KEY n=7 act=change keys=0000 word=0000 t_poll=795788a226f646 t_attempt=795788a226f65f t_done=795788a226f6ab xfer=31 rc=ok"
+   },
+   {
+    "seq": 234,
+    "n": 8,
+    "act": "change",
+    "keys": "0040",
+    "word": "0040",
+    "t_poll": "795788a6761cf4",
+    "t_attempt": "795788a6761d0d",
+    "t_done": "795788a6761d54",
+    "xfer": 30,
+    "rc": "ok",
+    "s_attempt_after_control": 8.776498,
+    "line": "000234 KEY n=8 act=change keys=0040 word=0040 t_poll=795788a6761cf4 t_attempt=795788a6761d0d t_done=795788a6761d54 xfer=30 rc=ok"
+   },
+   {
+    "seq": 235,
+    "n": 9,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788a6c93e6e",
+    "t_attempt": "795788a6c93e86",
+    "t_done": "795788a6c93ed0",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 8.911018,
+    "line": "000235 KEY n=9 act=change keys=0000 word=0000 t_poll=795788a6c93e6e t_attempt=795788a6c93e86 t_done=795788a6c93ed0 xfer=31 rc=ok"
+   },
+   {
+    "seq": 236,
+    "n": 10,
+    "act": "change",
+    "keys": "0040",
+    "word": "0040",
+    "t_poll": "795788a758e0d3",
+    "t_attempt": "795788a758e0ed",
+    "t_done": "795788a758e136",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 9.143443,
+    "line": "000236 KEY n=10 act=change keys=0040 word=0040 t_poll=795788a758e0d3 t_attempt=795788a758e0ed t_done=795788a758e136 xfer=31 rc=ok"
+   },
+   {
+    "seq": 237,
+    "n": 11,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788a7a0ff25",
+    "t_attempt": "795788a7a0ff3e",
+    "t_done": "795788a7a0ff9e",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 9.260143,
+    "line": "000237 KEY n=11 act=change keys=0000 word=0000 t_poll=795788a7a0ff25 t_attempt=795788a7a0ff3e t_done=795788a7a0ff9e xfer=31 rc=ok"
+   },
+   {
+    "seq": 238,
+    "n": 12,
+    "act": "change",
+    "keys": "0040",
+    "word": "0040",
+    "t_poll": "795788a8127c01",
+    "t_attempt": "795788a8127c1c",
+    "t_done": "795788a8127c7c",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 9.443786,
+    "line": "000238 KEY n=12 act=change keys=0040 word=0040 t_poll=795788a8127c01 t_attempt=795788a8127c1c t_done=795788a8127c7c xfer=31 rc=ok"
+   },
+   {
+    "seq": 239,
+    "n": 13,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788a85a9399",
+    "t_attempt": "795788a85a93b4",
+    "t_done": "795788a85a9417",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 9.560444,
+    "line": "000239 KEY n=13 act=change keys=0000 word=0000 t_poll=795788a85a9399 t_attempt=795788a85a93b4 t_done=795788a85a9417 xfer=31 rc=ok"
+   },
+   {
+    "seq": 240,
+    "n": 14,
+    "act": "change",
+    "keys": "0080",
+    "word": "0080",
+    "t_poll": "795788abc6eab9",
+    "t_attempt": "795788abc6ead9",
+    "t_done": "795788abc6eb28",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 10.978514,
+    "line": "000240 KEY n=14 act=change keys=0080 word=0080 t_poll=795788abc6eab9 t_attempt=795788abc6ead9 t_done=795788abc6eb28 xfer=31 rc=ok"
+   },
+   {
+    "seq": 241,
+    "n": 15,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788ac23b103",
+    "t_attempt": "795788ac23b128",
+    "t_done": "795788ac23b177",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 11.128639,
+    "line": "000241 KEY n=15 act=change keys=0000 word=0000 t_poll=795788ac23b103 t_attempt=795788ac23b128 t_done=795788ac23b177 xfer=31 rc=ok"
+   },
+   {
+    "seq": 242,
+    "n": 16,
+    "act": "change",
+    "keys": "0080",
+    "word": "0080",
+    "t_poll": "795788ac9f7364",
+    "t_attempt": "795788ac9f7382",
+    "t_done": "795788ac9f73cb",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 11.328903,
+    "line": "000242 KEY n=16 act=change keys=0080 word=0080 t_poll=795788ac9f7364 t_attempt=795788ac9f7382 t_done=795788ac9f73cb xfer=31 rc=ok"
+   },
+   {
+    "seq": 243,
+    "n": 17,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788ace7b0e0",
+    "t_attempt": "795788ace7b0f9",
+    "t_done": "795788ace7b14e",
+    "xfer": 30,
+    "rc": "ok",
+    "s_attempt_after_control": 11.4458,
+    "line": "000243 KEY n=17 act=change keys=0000 word=0000 t_poll=795788ace7b0e0 t_attempt=795788ace7b0f9 t_done=795788ace7b14e xfer=30 rc=ok"
+   },
+   {
+    "seq": 244,
+    "n": 18,
+    "act": "change",
+    "keys": "0080",
+    "word": "0080",
+    "t_poll": "795788ad58ff89",
+    "t_attempt": "795788ad58ffae",
+    "t_done": "795788ad590000",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 11.629151,
+    "line": "000244 KEY n=18 act=change keys=0080 word=0080 t_poll=795788ad58ff89 t_attempt=795788ad58ffae t_done=795788ad590000 xfer=31 rc=ok"
+   },
+   {
+    "seq": 245,
+    "n": 19,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788ada13fe3",
+    "t_attempt": "795788ada13ffc",
+    "t_done": "795788ada14048",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 11.746066,
+    "line": "000245 KEY n=19 act=change keys=0000 word=0000 t_poll=795788ada13fe3 t_attempt=795788ada13ffc t_done=795788ada14048 xfer=31 rc=ok"
+   },
+   {
+    "seq": 246,
+    "n": 20,
+    "act": "change",
+    "keys": "0080",
+    "word": "0080",
+    "t_poll": "795788ae12b345",
+    "t_attempt": "795788ae12b362",
+    "t_done": "795788ae12b3c3",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 11.929649,
+    "line": "000246 KEY n=20 act=change keys=0080 word=0080 t_poll=795788ae12b345 t_attempt=795788ae12b362 t_done=795788ae12b3c3 xfer=31 rc=ok"
+   },
+   {
+    "seq": 247,
+    "n": 21,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788ae6f7561",
+    "t_attempt": "795788ae6f757d",
+    "t_done": "795788ae6f75ce",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 12.079748,
+    "line": "000247 KEY n=21 act=change keys=0000 word=0000 t_poll=795788ae6f7561 t_attempt=795788ae6f757d t_done=795788ae6f75ce xfer=31 rc=ok"
+   },
+   {
+    "seq": 248,
+    "n": 22,
+    "act": "change",
+    "keys": "0020",
+    "word": "0020",
+    "t_poll": "795788b0bb1c1c",
+    "t_attempt": "795788b0bb1c36",
+    "t_done": "795788b0bb1c7d",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 13.030669,
+    "line": "000248 KEY n=22 act=change keys=0020 word=0020 t_poll=795788b0bb1c1c t_attempt=795788b0bb1c36 t_done=795788b0bb1c7d xfer=31 rc=ok"
+   },
+   {
+    "seq": 249,
+    "n": 23,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788b12c9161",
+    "t_attempt": "795788b12c917a",
+    "t_done": "795788b12c91c2",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 13.214264,
+    "line": "000249 KEY n=23 act=change keys=0000 word=0000 t_poll=795788b12c9161 t_attempt=795788b12c917a t_done=795788b12c91c2 xfer=31 rc=ok"
+   },
+   {
+    "seq": 250,
+    "n": 24,
+    "act": "change",
+    "keys": "0020",
+    "word": "0020",
+    "t_poll": "795788b1c73700",
+    "t_attempt": "795788b1c73719",
+    "t_done": "795788b1c73764",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 13.464509,
+    "line": "000250 KEY n=24 act=change keys=0020 word=0020 t_poll=795788b1c73700 t_attempt=795788b1c73719 t_done=795788b1c73764 xfer=31 rc=ok"
+   },
+   {
+    "seq": 251,
+    "n": 25,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788b22400bb",
+    "t_attempt": "795788b22400d4",
+    "t_done": "795788b224011e",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 13.614656,
+    "line": "000251 KEY n=25 act=change keys=0000 word=0000 t_poll=795788b22400bb t_attempt=795788b22400d4 t_done=795788b224011e xfer=31 rc=ok"
+   },
+   {
+    "seq": 252,
+    "n": 26,
+    "act": "change",
+    "keys": "0020",
+    "word": "0020",
+    "t_poll": "795788b2766178",
+    "t_attempt": "795788b2766192",
+    "t_done": "795788b27661db",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 13.747958,
+    "line": "000252 KEY n=26 act=change keys=0020 word=0020 t_poll=795788b2766178 t_attempt=795788b2766192 t_done=795788b27661db xfer=31 rc=ok"
+   },
+   {
+    "seq": 253,
+    "n": 27,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788b2c8e988",
+    "t_attempt": "795788b2c8e9a3",
+    "t_done": "795788b2c8e9e9",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 13.881508,
+    "line": "000253 KEY n=27 act=change keys=0000 word=0000 t_poll=795788b2c8e988 t_attempt=795788b2c8e9a3 t_done=795788b2c8e9e9 xfer=31 rc=ok"
+   },
+   {
+    "seq": 254,
+    "n": 28,
+    "act": "change",
+    "keys": "0020",
+    "word": "0020",
+    "t_poll": "795788b3300173",
+    "t_attempt": "795788b3300192",
+    "t_done": "795788b33001f5",
+    "xfer": 30,
+    "rc": "ok",
+    "s_attempt_after_control": 14.048331,
+    "line": "000254 KEY n=28 act=change keys=0020 word=0020 t_poll=795788b3300173 t_attempt=795788b3300192 t_done=795788b33001f5 xfer=30 rc=ok"
+   },
+   {
+    "seq": 255,
+    "n": 29,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788b38cc5ca",
+    "t_attempt": "795788b38cc5e4",
+    "t_done": "795788b38cc62d",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 14.198444,
+    "line": "000255 KEY n=29 act=change keys=0000 word=0000 t_poll=795788b38cc5ca t_attempt=795788b38cc5e4 t_done=795788b38cc62d xfer=31 rc=ok"
+   },
+   {
+    "seq": 256,
+    "n": 30,
+    "act": "change",
+    "keys": "0020",
+    "word": "0020",
+    "t_poll": "795788b3c05924",
+    "t_attempt": "795788b3c0593f",
+    "t_done": "795788b3c05988",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 14.281903,
+    "line": "000256 KEY n=30 act=change keys=0020 word=0020 t_poll=795788b3c05924 t_attempt=795788b3c0593f t_done=795788b3c05988 xfer=31 rc=ok"
+   },
+   {
+    "seq": 257,
+    "n": 31,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788b412eaa3",
+    "t_attempt": "795788b412eabc",
+    "t_done": "795788b412eb03",
+    "xfer": 30,
+    "rc": "ok",
+    "s_attempt_after_control": 14.415512,
+    "line": "000257 KEY n=31 act=change keys=0000 word=0000 t_poll=795788b412eaa3 t_attempt=795788b412eabc t_done=795788b412eb03 xfer=30 rc=ok"
+   },
+   {
+    "seq": 258,
+    "n": 32,
+    "act": "change",
+    "keys": "0010",
+    "word": "0010",
+    "t_poll": "795788b71801eb",
+    "t_attempt": "795788b718020b",
+    "t_done": "795788b7180265",
+    "xfer": 30,
+    "rc": "ok",
+    "s_attempt_after_control": 15.666507,
+    "line": "000258 KEY n=32 act=change keys=0010 word=0010 t_poll=795788b71801eb t_attempt=795788b718020b t_done=795788b7180265 xfer=30 rc=ok"
+   },
+   {
+    "seq": 259,
+    "n": 33,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788b7415b87",
+    "t_attempt": "795788b7415b9f",
+    "t_done": "795788b7415be5",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 15.733419,
+    "line": "000259 KEY n=33 act=change keys=0000 word=0000 t_poll=795788b7415b87 t_attempt=795788b7415b9f t_done=795788b7415be5 xfer=31 rc=ok"
+   },
+   {
+    "seq": 260,
+    "n": 34,
+    "act": "change",
+    "keys": "0010",
+    "word": "0010",
+    "t_poll": "795788b819d155",
+    "t_attempt": "795788b819d171",
+    "t_done": "795788b819d1ba",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 16.083689,
+    "line": "000260 KEY n=34 act=change keys=0010 word=0010 t_poll=795788b819d155 t_attempt=795788b819d171 t_done=795788b819d1ba xfer=31 rc=ok"
+   },
+   {
+    "seq": 261,
+    "n": 35,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788b84d4fb3",
+    "t_attempt": "795788b84d4fcc",
+    "t_done": "795788b84d5018",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 16.167014,
+    "line": "000261 KEY n=35 act=change keys=0000 word=0000 t_poll=795788b84d4fb3 t_attempt=795788b84d4fcc t_done=795788b84d5018 xfer=31 rc=ok"
+   },
+   {
+    "seq": 262,
+    "n": 36,
+    "act": "change",
+    "keys": "0010",
+    "word": "0010",
+    "t_poll": "795788b8e80cdb",
+    "t_attempt": "795788b8e80cfa",
+    "t_done": "795788b8e80d41",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 16.417409,
+    "line": "000262 KEY n=36 act=change keys=0010 word=0010 t_poll=795788b8e80cdb t_attempt=795788b8e80cfa t_done=795788b8e80d41 xfer=31 rc=ok"
+   },
+   {
+    "seq": 263,
+    "n": 37,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788b925d7f1",
+    "t_attempt": "795788b925d810",
+    "t_done": "795788b925d85f",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 16.517401,
+    "line": "000263 KEY n=37 act=change keys=0000 word=0000 t_poll=795788b925d7f1 t_attempt=795788b925d810 t_done=795788b925d85f xfer=31 rc=ok"
+   },
+   {
+    "seq": 264,
+    "n": 38,
+    "act": "change",
+    "keys": "0010",
+    "word": "0010",
+    "t_poll": "795788b9c07e41",
+    "t_attempt": "795788b9c07e68",
+    "t_done": "795788b9c07eb8",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 16.767651,
+    "line": "000264 KEY n=38 act=change keys=0010 word=0010 t_poll=795788b9c07e41 t_attempt=795788b9c07e68 t_done=795788b9c07eb8 xfer=31 rc=ok"
+   },
+   {
+    "seq": 265,
+    "n": 39,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788b9e9bf36",
+    "t_attempt": "795788b9e9bf53",
+    "t_done": "795788b9e9bfa1",
+    "xfer": 37,
+    "rc": "ok",
+    "s_attempt_after_control": 16.834406,
+    "line": "000265 KEY n=39 act=change keys=0000 word=0000 t_poll=795788b9e9bf36 t_attempt=795788b9e9bf53 t_done=795788b9e9bfa1 xfer=37 rc=ok"
+   },
+   {
+    "seq": 266,
+    "n": 40,
+    "act": "change",
+    "keys": "0010",
+    "word": "0010",
+    "t_poll": "795788ba8466fb",
+    "t_attempt": "795788ba846716",
+    "t_done": "795788ba84675b",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 17.084665,
+    "line": "000266 KEY n=40 act=change keys=0010 word=0010 t_poll=795788ba8466fb t_attempt=795788ba846716 t_done=795788ba84675b xfer=31 rc=ok"
+   },
+   {
+    "seq": 267,
+    "n": 41,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788baad9c41",
+    "t_attempt": "795788baad9c63",
+    "t_done": "795788baad9cad",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 17.151347,
+    "line": "000267 KEY n=41 act=change keys=0000 word=0000 t_poll=795788baad9c41 t_attempt=795788baad9c63 t_done=795788baad9cad xfer=31 rc=ok"
+   },
+   {
+    "seq": 268,
+    "n": 42,
+    "act": "change",
+    "keys": "0010",
+    "word": "0010",
+    "t_poll": "795788bb486020",
+    "t_attempt": "795788bb48603a",
+    "t_done": "795788bb486083",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 17.401784,
+    "line": "000268 KEY n=42 act=change keys=0010 word=0010 t_poll=795788bb486020 t_attempt=795788bb48603a t_done=795788bb486083 xfer=31 rc=ok"
+   },
+   {
+    "seq": 269,
+    "n": 43,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "795788bb907e71",
+    "t_attempt": "795788bb907e8a",
+    "t_done": "795788bb907ed2",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 17.518484,
+    "line": "000269 KEY n=43 act=change keys=0000 word=0000 t_poll=795788bb907e71 t_attempt=795788bb907e8a t_done=795788bb907ed2 xfer=31 rc=ok"
+   }
+  ],
+  "n_lines": 43,
+  "gate": {
+   "events_eq_emitted": true,
+   "lost_eq_0": true,
+   "truncated_eq_0": true,
+   "overwritten_eq_0": true,
+   "key_lines_eq_emitted": true,
+   "every_line_parses_under_GBP_INPUT_EVENT_FMT": true,
+   "n_increasing_by_one_from_1": true,
+   "events_eq_INPUT_first_plus_change_plus_retry": true,
+   "every_rc_ok": true,
+   "actions_seen": [
+    "change",
+    "first"
+   ],
+   "t_attempt_monotonic": true,
+   "t_poll_le_t_attempt_le_t_done": true,
+   "MET": true
+  },
+  "xfer_ticks_min_mean_max": [
+   30,
+   30.98,
+   37
+  ],
+  "first_line_is_first_0000": true,
+  "first_change": {
+   "n": 2,
+   "keys": "0200",
+   "word": "0100",
+   "s_after_control": 5.556525
+  },
+  "last_change": {
+   "n": 43,
+   "word": "0000",
+   "s_after_control": 17.518484
+  },
+  "words_in_n_order": [
+   "0000",
+   "0100",
+   "0000",
+   "0200",
+   "0000",
+   "0200",
+   "0000",
+   "0040",
+   "0000",
+   "0040",
+   "0000",
+   "0040",
+   "0000",
+   "0080",
+   "0000",
+   "0080",
+   "0000",
+   "0080",
+   "0000",
+   "0080",
+   "0000",
+   "0020",
+   "0000",
+   "0020",
+   "0000",
+   "0020",
+   "0000",
+   "0020",
+   "0000",
+   "0020",
+   "0000",
+   "0010",
+   "0000",
+   "0010",
+   "0000",
+   "0010",
+   "0000",
+   "0010",
+   "0000",
+   "0010",
+   "0000",
+   "0010",
+   "0000"
+  ],
+  "distinct_nonzero_words": [
+   "0010",
+   "0020",
+   "0040",
+   "0080",
+   "0100",
+   "0200"
+  ],
+  "boot_path_by_machine": "no word other than the walk's own buttons appears in the record (no D-pad / A word before the first walk press in RUN 17 / RUN 18; only 0100 / 0200 in RUN 16): the runtime sent no navigation press, which is the machine's answer to how the run booted",
+  "what_it_is": "the runtime's own record of WHAT IT SENT at each key change -- the link RUN 14 / RUN 15 lacked (GBP-KEY-009); with the frames it closes the join by machine at both ends (§V7.3.9)"
+ },
+ "join": {
+  "definitions": "HARDWARE_TESTS §V7.3.9, applied exactly: a KEY line counts only with rc=ok; the completed words in n order from 0000; R_b = the number of 0 -> 1 transitions of word bit b; the END STATE = the tally vector common to every OGBPFULL1 sample whose t_take is later than the last completed KEY line's t_done, at least two, identical; T_c = its count at counter c, blank read as 0; c(b) = the descriptor's expected key for bit b (A, B, SELECT, START, RIGHT, LEFT, UP, DOWN for bits 0..7, L for 8, R for 9)",
+  "assumptions": [
+   "A1 the AGB's key lines have no source but the KEYPAD window",
+   "A2 a completed write presents its word until the next",
+   "A3 the checker's counters are edge-triggered (keysDown() at VBlank)"
+  ],
+  "completed_key_lines": 43,
+  "R_b": {
+   "bit0": 0,
+   "bit1": 0,
+   "bit2": 0,
+   "bit3": 0,
+   "bit4": 6,
+   "bit5": 5,
+   "bit6": 3,
+   "bit7": 4,
+   "bit8": 1,
+   "bit9": 2,
+   "bit10": 0,
+   "bit11": 0,
+   "bit12": 0,
+   "bit13": 0,
+   "bit14": 0,
+   "bit15": 0
+  },
+  "R_b_pressed": {
+   "bit4 (RIGHT)": 6,
+   "bit5 (LEFT)": 5,
+   "bit6 (UP)": 3,
+   "bit7 (DOWN)": 4,
+   "bit8 (L)": 1,
+   "bit9 (R)": 2
+  },
+  "pressed_bits": [
+   4,
+   5,
+   6,
+   7,
+   8,
+   9
+  ],
+  "sum_R_b": 21,
+  "rising_edges": [
+   {
+    "n": 2,
+    "bit": 8,
+    "key": "L",
+    "s_after_control": 5.556525
+   },
+   {
+    "n": 4,
+    "bit": 9,
+    "key": "R",
+    "s_after_control": 6.474096
+   },
+   {
+    "n": 6,
+    "bit": 9,
+    "key": "R",
+    "s_after_control": 6.874488
+   },
+   {
+    "n": 8,
+    "bit": 6,
+    "key": "UP",
+    "s_after_control": 8.776498
+   },
+   {
+    "n": 10,
+    "bit": 6,
+    "key": "UP",
+    "s_after_control": 9.143443
+   },
+   {
+    "n": 12,
+    "bit": 6,
+    "key": "UP",
+    "s_after_control": 9.443786
+   },
+   {
+    "n": 14,
+    "bit": 7,
+    "key": "DOWN",
+    "s_after_control": 10.978514
+   },
+   {
+    "n": 16,
+    "bit": 7,
+    "key": "DOWN",
+    "s_after_control": 11.328903
+   },
+   {
+    "n": 18,
+    "bit": 7,
+    "key": "DOWN",
+    "s_after_control": 11.629151
+   },
+   {
+    "n": 20,
+    "bit": 7,
+    "key": "DOWN",
+    "s_after_control": 11.929649
+   },
+   {
+    "n": 22,
+    "bit": 5,
+    "key": "LEFT",
+    "s_after_control": 13.030669
+   },
+   {
+    "n": 24,
+    "bit": 5,
+    "key": "LEFT",
+    "s_after_control": 13.464509
+   },
+   {
+    "n": 26,
+    "bit": 5,
+    "key": "LEFT",
+    "s_after_control": 13.747958
+   },
+   {
+    "n": 28,
+    "bit": 5,
+    "key": "LEFT",
+    "s_after_control": 14.048331
+   },
+   {
+    "n": 30,
+    "bit": 5,
+    "key": "LEFT",
+    "s_after_control": 14.281903
+   },
+   {
+    "n": 32,
+    "bit": 4,
+    "key": "RIGHT",
+    "s_after_control": 15.666507
+   },
+   {
+    "n": 34,
+    "bit": 4,
+    "key": "RIGHT",
+    "s_after_control": 16.083689
+   },
+   {
+    "n": 36,
+    "bit": 4,
+    "key": "RIGHT",
+    "s_after_control": 16.417409
+   },
+   {
+    "n": 38,
+    "bit": 4,
+    "key": "RIGHT",
+    "s_after_control": 16.767651
+   },
+   {
+    "n": 40,
+    "bit": 4,
+    "key": "RIGHT",
+    "s_after_control": 17.084665
+   },
+   {
+    "n": 42,
+    "bit": 4,
+    "key": "RIGHT",
+    "s_after_control": 17.401784
+   }
+  ],
+  "rising_edges_per_expected_key": {
+   "L": 1,
+   "R": 2,
+   "UP": 3,
+   "DOWN": 4,
+   "LEFT": 5,
+   "RIGHT": 6
+  },
+  "last_completed_key_line": {
+   "n": 43,
+   "t_done": "795788bb907ed2",
+   "s_after_control": 17.518486
+  },
+  "samples_after_last_key_line": [
+   3,
+   4,
+   5,
+   6,
+   7
+  ],
+  "end_state_exists": true,
+  "end_state_vector_as_read": [
+   "1",
+   "2",
+   "3",
+   "4",
+   "5",
+   "6",
+   "blank",
+   "blank",
+   "blank",
+   "blank"
+  ],
+  "T_c": {
+   "L": 1,
+   "R": 2,
+   "UP": 3,
+   "DOWN": 4,
+   "LEFT": 5,
+   "RIGHT": 6,
+   "START": 0,
+   "SELECT": 0,
+   "A": 0,
+   "B": 0
+  },
+  "sum_T_c": 21,
+  "sum_R_b_eq_sum_T_c": true,
+  "counters_moved_by_a_value_no_pressed_bit_was_sent": [],
+  "counters_expected_blank_are_blank": true,
+  "question_J_per_bit": {
+   "bit4": {
+    "verdict": "FACT",
+    "counter": "RIGHT",
+    "expected_c_of_b": "RIGHT",
+    "R_b": 6,
+    "T_c": 6
+   },
+   "bit5": {
+    "verdict": "FACT",
+    "counter": "LEFT",
+    "expected_c_of_b": "LEFT",
+    "R_b": 5,
+    "T_c": 5
+   },
+   "bit6": {
+    "verdict": "FACT",
+    "counter": "UP",
+    "expected_c_of_b": "UP",
+    "R_b": 3,
+    "T_c": 3
+   },
+   "bit7": {
+    "verdict": "FACT",
+    "counter": "DOWN",
+    "expected_c_of_b": "DOWN",
+    "R_b": 4,
+    "T_c": 4
+   },
+   "bit8": {
+    "verdict": "FACT",
+    "counter": "L",
+    "expected_c_of_b": "L",
+    "R_b": 1,
+    "T_c": 1
+   },
+   "bit9": {
+    "verdict": "FACT",
+    "counter": "R",
+    "expected_c_of_b": "R",
+    "R_b": 2,
+    "T_c": 2
+   }
+  },
+  "question_J_summary": {
+   "FACT": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "FACT-SWAPPED": [],
+   "NOT CLOSED": [],
+   "UNDECIDED": [],
+   "not_observed_bits": [
+    0,
+    1,
+    2,
+    3
+   ]
+  },
+  "closed": true,
+  "question_I": {
+   "convention": "B = 3 source frames (50.229 ms at 59.727 Hz), chosen before the data (§V7.3.9); NOT a latency figure; not tuned",
+   "intervals": [
+    {
+     "interval": "head..s0",
+     "s_after_control": [
+      null,
+      6.084
+     ],
+     "increments": {
+      "L": 1
+     },
+     "rising_edges_sent": {
+      "L": 1
+     },
+     "within_B_before_boundary": {},
+     "within_B_after_previous_boundary": {},
+     "status": "EXACT"
+    },
+    {
+     "interval": "s0..s1",
+     "s_after_control": [
+      6.084,
+      10.37
+     ],
+     "increments": {
+      "R": 2,
+      "UP": 3
+     },
+     "rising_edges_sent": {
+      "R": 2,
+      "UP": 3
+     },
+     "within_B_before_boundary": {},
+     "within_B_after_previous_boundary": {},
+     "status": "EXACT"
+    },
+    {
+     "interval": "s1..s2",
+     "s_after_control": [
+      10.37,
+      14.656
+     ],
+     "increments": {
+      "DOWN": 4,
+      "LEFT": 5
+     },
+     "rising_edges_sent": {
+      "DOWN": 4,
+      "LEFT": 5
+     },
+     "within_B_before_boundary": {},
+     "within_B_after_previous_boundary": {},
+     "status": "EXACT"
+    },
+    {
+     "interval": "s2..s3",
+     "s_after_control": [
+      14.656,
+      18.943
+     ],
+     "increments": {
+      "RIGHT": 6
+     },
+     "rising_edges_sent": {
+      "RIGHT": 6
+     },
+     "within_B_before_boundary": {},
+     "within_B_after_previous_boundary": {},
+     "status": "EXACT"
+    },
+    {
+     "interval": "s3..s4",
+     "s_after_control": [
+      18.943,
+      23.229
+     ],
+     "increments": {},
+     "rising_edges_sent": {},
+     "within_B_before_boundary": {},
+     "within_B_after_previous_boundary": {},
+     "status": "EXACT"
+    },
+    {
+     "interval": "s4..s5",
+     "s_after_control": [
+      23.229,
+      27.515
+     ],
+     "increments": {},
+     "rising_edges_sent": {},
+     "within_B_before_boundary": {},
+     "within_B_after_previous_boundary": {},
+     "status": "EXACT"
+    },
+    {
+     "interval": "s5..s6",
+     "s_after_control": [
+      27.515,
+      31.801
+     ],
+     "increments": {},
+     "rising_edges_sent": {},
+     "within_B_before_boundary": {},
+     "within_B_after_previous_boundary": {},
+     "status": "EXACT"
+    },
+    {
+     "interval": "s6..s7",
+     "s_after_control": [
+      31.801,
+      36.087
+     ],
+     "increments": {},
+     "rising_edges_sent": {},
+     "within_B_before_boundary": {},
+     "within_B_after_previous_boundary": {},
+     "status": "EXACT"
+    }
+   ],
+   "statuses": [
+    "EXACT",
+    "EXACT",
+    "EXACT",
+    "EXACT",
+    "EXACT",
+    "EXACT",
+    "EXACT",
+    "EXACT"
+   ],
+   "all_exact": true,
+   "note": "RECORDED, never a gate; no press fell within B of a boundary in this run, so no observation of the write-to-display delay's order of magnitude arises and NO latency figure is derived"
+  },
+  "what_FACT_means_here": "for each bit read FACT: the GBS-DOL delivers word bit b to the AGB's key c(b), on this hardware, by machine end to end -- the runtime's own record of the word it sent joined to the cartridge's screen preserved in the frames; no human count in the chain; scoped to the pad declared for this run"
+ },
+ "official_vindex": {
+  "verdict": "INCONCLUSIVE_TOO_FEW_INTACT_FRAMES",
+  "observed": 2048,
+  "intact": 0,
+  "counts": {
+   "INVALID_CANONICAL_STRIP": 2048
+  },
+  "decisive_transitions": 0,
+  "fault_seen": null,
+  "first_last_observed": [
+   null,
+   null
+  ],
+  "header_crc32": "d22bc9a4",
+  "total_crc32": "e5b1c72f",
+  "flags": "0x1a target_reached|service_ok|stop_is_target",
+  "stop_reason": 11,
+  "frames_seen": 2048,
+  "frames_discarded": 0,
+  "records_n": 2048,
+  "blocks_staged_placed": [
+   81921,
+   81921
+  ],
+  "blocks_out_of_range": 0,
+  "copy_ticks": {
+   "min": 5,
+   "max": 1575,
+   "n": 96109,
+   "mean": 70.5
+  },
+  "usable_for_decisive_claim": true,
+  "every_record_all_40_blocks": true,
+  "note": "RECORDED, NOT A GATE (§V7.3.8): the content is not OGBPCOORD1, so the canonical strip is INVALID on every frame by construction; the container is intact (2048 records, every one with all 40 blocks, valid CRCs, stop = witness target)"
+ },
+ "official_vfull": {
+  "verdict": "INCONCLUSIVE",
+  "why": "8 sample(s) inconclusive",
+  "boundary": "source -> converted texture only; nothing about the VI, the XFB or a display",
+  "header_crc32": "3a33c9b2",
+  "total_crc32": "2e006fef",
+  "flags": "0x2",
+  "k": 8,
+  "records_n": 8,
+  "spacing": 256,
+  "origin": 356,
+  "want_calls": 2377,
+  "wanted": 8,
+  "opened": 8,
+  "completed": 8,
+  "refused": 0,
+  "skipped_capacity": 0,
+  "blocks_copied": 320,
+  "samples": [
+   {
+    "sample": 0,
+    "frame_index": 356,
+    "seq": 331,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 1,
+    "frame_index": 612,
+    "seq": 587,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 2,
+    "frame_index": 868,
+    "seq": 843,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 3,
+    "frame_index": 1124,
+    "seq": 1099,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 4,
+    "frame_index": 1380,
+    "seq": 1355,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 5,
+    "frame_index": 1636,
+    "seq": 1611,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 6,
+    "frame_index": 1892,
+    "seq": 1867,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 7,
+    "frame_index": 2148,
+    "seq": 2123,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   }
+  ],
+  "texture_equals_convert_py": "8/8",
+  "note": "RECORDED, NOT A GATE: the oracle is OGBPCOORD1, so the tool's verdict is INCONCLUSIVE by construction; the container facts are intact (8/8 COMPLETE, valid CRCs) and the preserved texture equals the Python conversion of the preserved raw in every sample"
+ },
+ "official_vdisp": {
+  "ready": true,
+  "header_crc32": "d8d64f31",
+  "life_crc32": "28d3e82f",
+  "event_crc32": "9ce27e85",
+  "total_crc32": "56a3b332",
+  "lifecycles": 2378,
+  "events": 2399,
+  "decisions": 2377,
+  "window_opens_at": 355,
+  "life_overflow": 0,
+  "event_overflow": 0,
+  "drawdone_unmatched": 0,
+  "retrace_delta_hist_all_decisions": {
+   "0": 22,
+   "1": 2354,
+   "2": 12,
+   "3": 9,
+   "4": 1
+  },
+  "interval_ticks": {
+   "n": 6,
+   "min": "max",
+   "p50": "n",
+   "p90": "p90",
+   "max": "p90"
+  },
+  "join": {
+   "source_records": 2048,
+   "with_a_lifecycle": 2047,
+   "not_in_trace": [
+    2403
+   ],
+   "disposition": {
+    "SELECTED_NEW": 2047
+   }
+  }
+ },
+ "official_vvi": {
+  "tool": "tools/vvi.py CORRECTED implementation (0ee8aac, §V6.21), unchanged since",
+  "header_crc32": "10986153",
+  "total_crc32": "3aed1d64",
+  "records": 2377,
+  "records_cap": 4096,
+  "handed": 2377,
+  "latched": 2370,
+  "superseded": 6,
+  "overflow": 0,
+  "observe_calls": 2370,
+  "awaiting_at_end": 2376,
+  "regs_consistent_top_matches": "2370/2370",
+  "regs_consistent_bottom_plausible": "2370/2370",
+  "boundary": "SOFTWARE CHAIN ONLY (CLAIM-C); recorded, not a gate of GBP-INPUT-002"
+ },
+ "vi_register_model": {
+  "corrected_rule": "libogc2 __setFbbRegs: flag unless every base < 0x01000000; bases >> 5 when flagged; reg18 carries no flag (§V6.21)",
+  "top_vs_handed_phys": "2370/2370",
+  "bottom_plausible": "2370/2370",
+  "distinct_phys": [
+   "0x013aa640",
+   "0x01440660"
+  ],
+  "retrace_latch_minus_handed_hist": {
+   "1": 2370
+  },
+  "t_latch_minus_handed_ms": {
+   "min": 0.12014814814814814,
+   "p50": 8.763234567901234,
+   "max": 16.87061728395062
+  },
+  "superseded_frame_index": [
+   614,
+   888,
+   894,
+   1172,
+   2017,
+   2018
+  ],
+  "latched_more_than_one_retrace_after_handed": [],
+  "awaiting_frame_index": [
+   2402
+  ],
+  "R_k_table": "NOT APPLICABLE: the content is not OGBPCOORD1 (recorded, not judged)"
+ },
+ "tally_frames": {
+  "method": "tools/vfull.py UNMODIFIED: load() + consumed_words() (word16 = (byte1 << 8) | byte3, raster order, GBP-VID-003); background = the word at pixel (0,0); a pixel is lit when |lum - lum(bg)| > 20 with lum = R+G+B of the 5-bit fields; the checker's tally field `%2d` at console column 22 (8x8 cells; rows 4..13 = L, R, UP, DOWN, LEFT, RIGHT, START, SELECT, A, B); a cell is read ONLY by exact match against the glyph table below (the §V7.2.6 table, transcribed from RUN 14 / RUN 15's frames); an unknown bitmap aborts the reading",
+  "glyph_table": {
+   "1": [
+    "....##..",
+    "...###..",
+    "..####..",
+    "....##..",
+    "....##..",
+    "....##..",
+    "....##..",
+    "........"
+   ],
+   "2": [
+    "...####.",
+    "..##..##",
+    "......##",
+    ".....##.",
+    "....##..",
+    "...##...",
+    "..######",
+    "........"
+   ],
+   "3": [
+    "...####.",
+    "..##..##",
+    "......##",
+    "....###.",
+    "......##",
+    "..##..##",
+    "...####.",
+    "........"
+   ],
+   "4": [
+    "....###.",
+    "...####.",
+    "..##.##.",
+    ".##..##.",
+    ".#######",
+    ".....##.",
+    ".....##.",
+    "........"
+   ],
+   "5": [
+    "..######",
+    "..##....",
+    "..#####.",
+    "......##",
+    "......##",
+    "..##..##",
+    "...####.",
+    "........"
+   ],
+   "6": [
+    "....###.",
+    "...##...",
+    "..##....",
+    "..#####.",
+    "..##..##",
+    "..##..##",
+    "...####.",
+    "........"
+   ]
+  },
+  "counter_order": [
+   "L",
+   "R",
+   "UP",
+   "DOWN",
+   "LEFT",
+   "RIGHT",
+   "START",
+   "SELECT",
+   "A",
+   "B"
+  ],
+  "samples": [
+   {
+    "sample_index": 0,
+    "frame_index": 356,
+    "seq": 331,
+    "state": "COMPLETE",
+    "t_take": 34154716492875471,
+    "s_after_control": 6.084122,
+    "s_after_sample_0": 0.0,
+    "title_row_lit_pixels": 522,
+    "lit_pixels": 1948,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "raw_sha256": "a270c45bb412ad274cb2e1f178188a934b0425cb3fe7d5788c4e4ffff92d30db",
+    "texture_equals_convert_py": true,
+    "readings": {
+     "L": "1",
+     "R": "blank",
+     "UP": "blank",
+     "DOWN": "blank",
+     "LEFT": "blank",
+     "RIGHT": "blank",
+     "START": "blank",
+     "SELECT": "blank",
+     "A": "blank",
+     "B": "blank"
+    },
+    "vector_as_read": [
+     "1",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   },
+   {
+    "sample_index": 1,
+    "frame_index": 612,
+    "seq": 587,
+    "state": "COMPLETE",
+    "t_take": 34154716666464759,
+    "s_after_control": 10.370278,
+    "s_after_sample_0": 4.286155,
+    "title_row_lit_pixels": 522,
+    "lit_pixels": 1993,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "raw_sha256": "65619e4ade8b342205543d5ce2eae7edb3e2eebb5cbb3ddd27f0cd94fbdb628a",
+    "texture_equals_convert_py": true,
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "3",
+     "DOWN": "blank",
+     "LEFT": "blank",
+     "RIGHT": "blank",
+     "START": "blank",
+     "SELECT": "blank",
+     "A": "blank",
+     "B": "blank"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "3",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   },
+   {
+    "sample_index": 2,
+    "frame_index": 868,
+    "seq": 843,
+    "state": "COMPLETE",
+    "t_take": 34154716840053954,
+    "s_after_control": 14.656431,
+    "s_after_sample_0": 8.572308,
+    "title_row_lit_pixels": 522,
+    "lit_pixels": 2044,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "raw_sha256": "2125bb7d19ae91e949ace3c35080fe80b9d42db24097136699614f9dacbb9d97",
+    "texture_equals_convert_py": true,
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "3",
+     "DOWN": "4",
+     "LEFT": "5",
+     "RIGHT": "blank",
+     "START": "blank",
+     "SELECT": "blank",
+     "A": "blank",
+     "B": "blank"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   },
+   {
+    "sample_index": 3,
+    "frame_index": 1124,
+    "seq": 1099,
+    "state": "COMPLETE",
+    "t_take": 34154717013643259,
+    "s_after_control": 18.942586,
+    "s_after_sample_0": 12.858464,
+    "title_row_lit_pixels": 522,
+    "lit_pixels": 2068,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "raw_sha256": "792987eabeeccbf7f9221b11e468ca105a61477796acb00a57a4d4bb22dcee50",
+    "texture_equals_convert_py": true,
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "3",
+     "DOWN": "4",
+     "LEFT": "5",
+     "RIGHT": "6",
+     "START": "blank",
+     "SELECT": "blank",
+     "A": "blank",
+     "B": "blank"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "6",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   },
+   {
+    "sample_index": 4,
+    "frame_index": 1380,
+    "seq": 1355,
+    "state": "COMPLETE",
+    "t_take": 34154717187232457,
+    "s_after_control": 23.228739,
+    "s_after_sample_0": 17.144617,
+    "title_row_lit_pixels": 522,
+    "lit_pixels": 2068,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "raw_sha256": "cd5edfe636e7ae0619818721e13d4c52e0045ecaf6644b22a5554bc40732dfe6",
+    "texture_equals_convert_py": true,
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "3",
+     "DOWN": "4",
+     "LEFT": "5",
+     "RIGHT": "6",
+     "START": "blank",
+     "SELECT": "blank",
+     "A": "blank",
+     "B": "blank"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "6",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   },
+   {
+    "sample_index": 5,
+    "frame_index": 1636,
+    "seq": 1611,
+    "state": "COMPLETE",
+    "t_take": 34154717360821740,
+    "s_after_control": 27.514894,
+    "s_after_sample_0": 21.430772,
+    "title_row_lit_pixels": 522,
+    "lit_pixels": 2068,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "raw_sha256": "9a025008c9608a47ee8ee9a236fc05c85b956c65a9735be09029eb22cfabf5de",
+    "texture_equals_convert_py": true,
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "3",
+     "DOWN": "4",
+     "LEFT": "5",
+     "RIGHT": "6",
+     "START": "blank",
+     "SELECT": "blank",
+     "A": "blank",
+     "B": "blank"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "6",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   },
+   {
+    "sample_index": 6,
+    "frame_index": 1892,
+    "seq": 1867,
+    "state": "COMPLETE",
+    "t_take": 34154717534410926,
+    "s_after_control": 31.801047,
+    "s_after_sample_0": 25.716925,
+    "title_row_lit_pixels": 522,
+    "lit_pixels": 2068,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "raw_sha256": "356bc4d16373cfc5667b1442db71cb493f897737488c64af8ff62877d7c9a134",
+    "texture_equals_convert_py": true,
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "3",
+     "DOWN": "4",
+     "LEFT": "5",
+     "RIGHT": "6",
+     "START": "blank",
+     "SELECT": "blank",
+     "A": "blank",
+     "B": "blank"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "6",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   },
+   {
+    "sample_index": 7,
+    "frame_index": 2148,
+    "seq": 2123,
+    "state": "COMPLETE",
+    "t_take": 34154717708000074,
+    "s_after_control": 36.087199,
+    "s_after_sample_0": 30.003077,
+    "title_row_lit_pixels": 522,
+    "lit_pixels": 2068,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "raw_sha256": "8b65a6f3afd34abd90f7abd448557f3e6cf350e26731eabe9d681e53e7a63009",
+    "texture_equals_convert_py": true,
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "3",
+     "DOWN": "4",
+     "LEFT": "5",
+     "RIGHT": "6",
+     "START": "blank",
+     "SELECT": "blank",
+     "A": "blank",
+     "B": "blank"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "6",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   }
+  ],
+  "texture_equals_convert_py_all": true,
+  "final_state_from_sample": 3,
+  "final_vector_as_read": [
+   "1",
+   "2",
+   "3",
+   "4",
+   "5",
+   "6",
+   "blank",
+   "blank",
+   "blank",
+   "blank"
+  ],
+  "final_vector_blank_read_as_never_incremented": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   0,
+   0,
+   0,
+   0
+  ],
+  "expected_vector_arithmetic": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   0,
+   0,
+   0,
+   0
+  ],
+  "final_equals_expected": true,
+  "walk_in_progress": [
+   {
+    "sample_index": 0,
+    "vector_as_read": [
+     "1",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   },
+   {
+    "sample_index": 1,
+    "vector_as_read": [
+     "1",
+     "2",
+     "3",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   },
+   {
+    "sample_index": 2,
+    "vector_as_read": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   }
+  ],
+  "classification": "FACT (data, recomputable): the preserved OGBPFULL1 frames of this run show the checker's tally screen with counts equal to the walk's arithmetic expectation, reproducible from the archived file with the frozen parser -- NOT operator observation. With the KEY record (this run's own), the frames are one of the two machine ends of the join.",
+  "blank_vs_zero": "§V7.1.9 / §V7.3.9: an unpressed counter is BLANK (the instrument prints a tally only on a press); read as 0 -- the wording mismatch of §V7.2.7, recorded again, not smoothed"
+ },
+ "input_machine_gate": {
+  "ENVINPUT": {
+   "port": 1,
+   "policy": "default",
+   "stick_threshold": 48,
+   "trigger_threshold": 0,
+   "analog_ab_threshold": 0,
+   "filter_opposites": 1,
+   "refresh_ms": 5,
+   "refresh_ticks": 202500,
+   "layout": "gbi-u16-replicated"
+  },
+  "ENVINPUT2": {
+   "index": 12,
+   "desc": "0,1,2,3,4,5,6,7,9,8",
+   "pressed_is_one": 1,
+   "desc_status": "CORROBORATED_not_FACT",
+   "selftest": 1
+  },
+  "INPUT": {
+   "selftest": 1,
+   "steps": 184956,
+   "invalid": 0,
+   "no_base": 0,
+   "key_changes": 42,
+   "attempts": 7898,
+   "completed": 7898,
+   "failed": 0,
+   "first": 1,
+   "change": 42,
+   "refresh": 7855,
+   "retry": 0,
+   "last_word": "0000",
+   "last_rc": "ok"
+  },
+  "INPUTT": {
+   "write_ticks_min_mean_max": [
+    30,
+    30,
+    38
+   ],
+   "write_n": 7898,
+   "step_ticks_min_mean_max": [
+    95,
+    160,
+    1100
+   ],
+   "step_n": 184956,
+   "write_us_min_mean_max": [
+    0.741,
+    0.741,
+    0.938
+   ],
+   "step_us_min_mean_max": [
+    2.346,
+    3.951,
+    27.16
+   ],
+   "note": "OBSERVATIONAL: the slot cost of the poll+encode+write step and of the 32-byte write, never a latency claim; the KEY line's own cost is in KEYLOG emit_ticks, outside this aggregate (GBP-KEY-010)"
+  },
+  "gate": {
+   "selftest": true,
+   "steps_gt_0": true,
+   "attempts_gt_0": true,
+   "completed_eq_attempts": true,
+   "failed_eq_0": true,
+   "first_eq_1": true,
+   "refresh_gt_0": true,
+   "change_ge_4": true,
+   "invalid_eq_0": true,
+   "no_base_eq_0": true,
+   "retry_eq_0": true,
+   "last_rc_ok": true,
+   "envinput2_selftest_eq_1": true,
+   "descriptor_as_data": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    9,
+    8
+   ],
+   "pressed_is_one": 1,
+   "desc_status_as_reported": "CORROBORATED_not_FACT",
+   "attempts_eq_first_plus_change_plus_refresh_plus_retry": true,
+   "key_changes_eq_change": true,
+   "key_changes_vs_walk": {
+    "key_changes": 42,
+    "presses_in_walk": 21,
+    "equals_two_per_press": true,
+    "note": "each press is a change to the pressed word and a change back; consistent with the declared walk -- and in stream-0015 the KEY record says WHICH words (key_record.words_in_n_order), so this is no longer the last link"
+   },
+   "last_word": "0000",
+   "MET": true
+  },
+  "what_it_is": "the runtime polled, encoded and wrote (the KEYPAD window is write-only); what it wrote is in key_record; what the cartridge received is in tally_frames; the join is in join"
+ },
+ "log_header": {
+  "lines": 722,
+  "dropped": 0,
+  "truncated": 0,
+  "end_dropped": 0,
+  "envinput_repair_validated": {
+   "ENVINPUT_payload_chars": 170,
+   "ENVINPUT2_payload_chars": 105,
+   "limit": 248,
+   "ENVINPUT_ends_with": "h_ticks=202500 layout=gbi-u16-replicated",
+   "ENVINPUT2_ends_with": "_status=CORROBORATED_not_FACT selftest=1",
+   "reading": "§V7.3.8 asks truncated=0 with ENVINPUT and ENVINPUT2 both present and complete: met -- the record that clipped in RUN 14 / RUN 15 (GBP-KEY-008, 266 chars against 248) is split in stream-0015 (Issue #27, GBP-KEY-010) and both halves are complete on hardware; this run PHYSICALLY VALIDATES the repair, as run 11 validated WITELIG's (§V5.58.1)"
+  },
+  "longest_payload": {
+   "chars": 218,
+   "tag": "STARTUPT",
+   "limit": 248
+  },
+  "tag_counts": {
+   "WITELIG": 1,
+   "WITELIG2": 1,
+   "WITQUAL": 1,
+   "FULLSTORE": 1,
+   "VISTORE": 1,
+   "DISPSRC": 1,
+   "STREAMWIT": 1,
+   "STARTUP": 1,
+   "COUNTERS": 1,
+   "ENVFULL": 1,
+   "ENVINPUT": 1,
+   "ENVINPUT2": 1,
+   "INPUT": 1,
+   "INPUTT": 1,
+   "KEYLOG": 1,
+   "KEY": 43,
+   "STATS": 1,
+   "STREAMPUMP": 1,
+   "STREAMPUMPT": 1
+  },
+  "sidecars_declared": "disp:OGBPDISP2,full:OGBPFULL1_v1,vi:OGBPVI1_v1",
+  "header_lines": {
+   "test_id": "GBP-VIDEO-004",
+   "build_id": "stream-0015",
+   "commit": "da06500"
+  }
+ },
+ "log_records_verbatim": {
+  "IDENT": "000000 IDENT test=GBP-VIDEO-004 app=gbp-video-stream-probe build=stream-0015 commit=da06500 libogc=libogc2 r2442.094b250",
+  "ENV": "000001 ENV bus_hz=162000000 tb_hz=40500000 dma_timeout_ms=200 t_max_ms=2000 t_delivery_ms=100 t_next_cause_ms=100 csr=0804",
+  "ENVSTREAM": "000002 ENVSTREAM time_target=disabled safety_s=60 slice_tile_rows=1 tex_buffers=2 tex_bytes=76800 ring_slots=4",
+  "ENVINPUT": "000003 ENVINPUT port=1 policy=default stick_threshold=48 trigger_threshold=0 analog_ab_threshold=0 filter_opposites=1 refresh_ms=5 refresh_ticks=202500 layout=gbi-u16-replicated",
+  "ENVINPUT2": "000004 ENVINPUT2 index=12 desc=0,1,2,3,4,5,6,7,9,8 pressed_is_one=1 desc_status=CORROBORATED_not_FACT selftest=1",
+  "ENVSTORE": "000005 ENVSTORE frames=16384/16384 events=4096/4096 raw_ring=737280/552960 slots=4/3 episode_raw=2949120/2949120 audio_raw=12288/12288 configured_bytes=7106560 required_bytes=6922240 fault=- ok=1",
+  "ENVFULL": "000008 ENVFULL k=8 spacing=256 full_raw=1228800 full_tex=614400 vvi=229376 arena1_free=1650688",
+  "COUNTERS": "000691 COUNTERS unmasks=254728 deliveries=254728 acks=254728 rearms=254728 lean=254724 verify=4 audio=164791 video=96109/96109 isr_w1c=254728 main_w1c=0 teardown_w1c=1 overflow=0 uncertain=0 control_ok=1",
+  "STATS": "000695 STATS transfers=1033048 timeouts=0 busy=0 bulk_transfers=260900 bulk_bytes=1044042496",
+  "STREAMSRC": "000696 STREAMSRC closed=2404 complete=2378 incomplete=13 quarantined=0 anomaly=13 published=2378",
+  "STREAMCONS": "000697 STREAMCONS taken=2377 converted=2377 presented=2377 overrun=0 dropped_before_convert=0 repeats=0 no_cpu_texture=0 abandoned_no_raw=0 balanced=1",
+  "STREAMPUMP": "000699 STREAMPUMP calls=254728 slices=95080 completed=2377 skipped_cause_pending=69772 pending_before=69772 pending_after=32400 arrived_during=32400",
+  "STREAMPUMPT": "000700 STREAMPUMPT ticks_min=1153 ticks_max=2562 ticks_mean=1494 n=95080 tile_rows_per_slice=1",
+  "INPUT": "000701 INPUT selftest=1 steps=184956 invalid=0 no_base=0 key_changes=42 attempts=7898 completed=7898 failed=0 first=1 change=42 refresh=7855 retry=0 last_word=0000 last_rc=ok",
+  "INPUTT": "000702 INPUTT write_ticks=30/30/38 n=7898 step_ticks=95/160/1100 n=184956 units=min/mean/max",
+  "KEYLOG": "000703 KEYLOG events=43 emitted=43 lost=0 truncated=0 overwritten=0 reserve=64 emit_ticks=871/1585/1748 n=43 units=min/mean/max",
+  "STREAMINV": "000706 STREAMINV checks=189264 failures=0 main=0/186886 isr=0/2378 consistent_at_end=1",
+  "WITQUAL": "000708 WITQUAL policy=consecutive_structural_complete required=64 state=2 streak_max=64 resets=0 warmup_frames=356 warmup_disqualified=26 qualify_frame=355 qualified=1 armed=1 window_first_block=0 first_record_frame=356",
+  "WITELIG": "000709 WITELIG policy=time_not_before origin=control not_before_ms=5000 gated_at_init=1 released=1 still_gated=0 t_eligible=7957889d586cbb ticks_control_to_eligible=202507544",
+  "WITELIG2": "000710 WITELIG2 frames_seen_before_eligible=292 disqualified_before_eligible=26 qual_streak_at_eligible=0",
+  "FULLSTORE": "000711 FULLSTORE k=8 spacing=256 origin=356 origin_set=1 want_calls=2377 wanted=8 opened=8 completed=8 refused=0 skipped_capacity=0 blocks_copied=320",
+  "VISTORE": "000712 VISTORE handed=2377 latched=2370 superseded=6 overflow=0 observe_calls=2370 awaiting_at_end=2376 records=2377/4096",
+  "DISPSRC": "000714 DISPSRC handoffs=2377 deferred_frames=22 defer_attempts=33 dropped_interior=0 terminal_pending=0 max_defer_depth=1 order_violations=0 selected_new=2377 hold_previous=0",
+  "STARTUP": "000715 STARTUP mode=normal selftest_run=1 selftest_visible=0 prehandler_wait_ms=0 clear_fb=1 normal_clean=1 presented_synthetic=0 headless_submits=1",
+  "STARTUPT": "000716 STARTUPT tb_hz=40500000 t_program=79578891191da3 t_video=79578891284d69 t_selftest_begin=795788912b1067 t_selftest_end=79578891329ce8 t_probe_enter=795788913e7ca2 t_control=795788914667a3 t_capture_start=7957889188f55b",
+  "STARTUPV": "000717 STARTUPV have_first=1 first_frame_index=2 t_take=79578891a784df t_convert_done=79578891ac9428 t_decision=79578891ac94ab t_drawdone=79578891aca62e ticks_control_to_first_handoff=6696200",
+  "STREAMWIT": "000718 STREAMWIT records=2048/2048 target=2048 frames_seen=2048 discarded=0 staged=81921 placed=81921 out_of_range=0 store_full=0 target_reached=1",
+  "STREAMWITT": "000719 STREAMWITT copy_ticks_min=5 copy_ticks_max=1575 copy_ticks_mean=70 n=96109 tb_hz=40500000",
+  "STREAMPACE": "000720 STREAMPACE publish_min=674995 publish_max=2036141 publish_mean=684929 n=2377 convert_min=52398 convert_max=97983 convert_mean=59767 n=2377",
+  "STREAMFLAG15": "000721 STREAMFLAG15 last_count=1 first_x=0 first_y=0 note=reported_not_interpreted",
+  "TEARDOWNVSTATE": "000291 TEARDOWNVSTATE variant=S5_witness_target stop=witness_target_reached deliveries=254728 video=96109 acks=254728 rearms=254728 unmasks=254728 next_cause_at_end=1",
+  "WRITES": "000293 WRITES control_written=1 irq_attempted=509459 irq_completed=509459 ctl_exp=1/1 a1=1/1 a2=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 power_cycle_required=1 format=attempted/completed",
+  "AUDIOAGG": "000307 AUDIOAGG selected=164791 attempted=164791 completed=164791 failures=0 bytes=674983936 raw_kept=2 first_valid=1 last_valid=2",
+  "VSTATE end": "000292 VSTATE end status=ok_structured_change_observed class=ok reason=- stop=witness_target_reached restore=ok restore_reason=- teardown=S5_witness_target power_cycle_required=1 errors=0 transport_ok=1",
+  "CONTROL semantic": "000034 CONTROL semantic orig=92 exp=8e method=gbi-majority-vote transform=(v&~10)|0c",
+  "CONTROL restore": "000273 CONTROL restore semantic=92 rc=ok readback_rc=ok readback_vote=92 readback_b1f=92 ok=1",
+  "TEARDOWN start": "000270 TEARDOWN start control_written=1 irq_attempted=509458 irq_completed=509458 uncertain_writes=0 intsr13_seen=1 pi_policy=unmasked_per_cycle"
+ },
+ "startup": {
+  "mode": "normal",
+  "selftest_run": 1,
+  "selftest_visible": 0,
+  "prehandler_wait_ms": 0,
+  "presented_synthetic": 0,
+  "headless_submits": 1,
+  "ticks_control_to_first_handoff": 6696200,
+  "ms_control_to_first_handoff": 165.338272,
+  "tb_hz": 40500000,
+  "gate": "< 400 ms: PASS; recorded, no tolerance"
+ },
+ "witelig": {
+  "policy": "time_not_before",
+  "origin": "control",
+  "not_before_ms": 5000,
+  "gated_at_init": 1,
+  "released": 1,
+  "still_gated": 0,
+  "t_eligible": "7957889d586cbb",
+  "ticks_control_to_eligible": 202507544,
+  "frames_seen_before_eligible": 292,
+  "disqualified_before_eligible": 26,
+  "qual_streak_at_eligible": 0,
+  "agrees": true
+ },
+ "witqual": {
+  "required": 64,
+  "state": 2,
+  "streak_max": 64,
+  "resets": 0,
+  "warmup_frames": 356,
+  "warmup_disqualified": 26,
+  "qualify_frame": 355,
+  "qualified": 1,
+  "armed": 1,
+  "window_first_block": 0,
+  "first_record_frame": 356
+ },
+ "timing_after_control_s": {
+  "program_to_control_s": 0.073286,
+  "control_to_capture_start_s": 0.107695,
+  "eligibility": 5.000186,
+  "first_retained_record": 6.067231,
+  "first_retained_take": 6.084122,
+  "last_retained_record": 40.339727,
+  "first_handoff_ms": 165.338272
+ },
+ "transport": {
+  "unmasks": 254728,
+  "deliveries": 254728,
+  "acks": 254728,
+  "rearms": 254728,
+  "lean": 254724,
+  "verify": 4,
+  "audio": 164791,
+  "video": "96109/96109",
+  "isr_w1c": 254728,
+  "main_w1c": 0,
+  "teardown_w1c": 1,
+  "overflow": 0,
+  "uncertain": 0,
+  "control_ok": 1,
+  "transfers": 1033048,
+  "timeouts": 0,
+  "busy": 0,
+  "bulk_transfers": 260900,
+  "bulk_bytes": 1044042496,
+  "errors": 0,
+  "transport_ok": 1,
+  "stop": "witness_target_reached",
+  "restore": "ok",
+  "power_cycle_required": 1,
+  "teardown_variant": "S5_witness_target",
+  "next_cause_at_end": 1,
+  "balanced": true,
+  "irq_attempted": 509459,
+  "irq_completed": 509459,
+  "irq_record": "WRITES irq_attempted/irq_completed"
+ },
+ "runtime_summaries": {
+  "FULLSTORE": {
+   "k": 8,
+   "spacing": 256,
+   "origin": 356,
+   "origin_set": 1,
+   "want_calls": 2377,
+   "wanted": 8,
+   "opened": 8,
+   "completed": 8,
+   "refused": 0,
+   "skipped_capacity": 0,
+   "blocks_copied": 320
+  },
+  "VISTORE": {
+   "handed": 2377,
+   "latched": 2370,
+   "superseded": 6,
+   "overflow": 0,
+   "observe_calls": 2370,
+   "awaiting_at_end": 2376,
+   "records": "2377/4096"
+  },
+  "DISPSRC": {
+   "handoffs": 2377,
+   "deferred_frames": 22,
+   "defer_attempts": 33,
+   "dropped_interior": 0,
+   "terminal_pending": 0,
+   "max_defer_depth": 1,
+   "order_violations": 0,
+   "selected_new": 2377,
+   "hold_previous": 0
+  },
+  "STREAMWIT": {
+   "records": "2048/2048",
+   "target": 2048,
+   "frames_seen": 2048,
+   "discarded": 0,
+   "staged": 81921,
+   "placed": 81921,
+   "out_of_range": 0,
+   "store_full": 0,
+   "target_reached": 1
+  },
+  "STREAMWITT": {
+   "copy_ticks_min": 5,
+   "copy_ticks_max": 1575,
+   "copy_ticks_mean": 70,
+   "n": 96109,
+   "tb_hz": 40500000
+  },
+  "ENVFULL": {
+   "k": 8,
+   "spacing": 256,
+   "full_raw": 1228800,
+   "full_tex": 614400,
+   "vvi": 229376,
+   "arena1_free": 1650688
+  },
+  "STREAMSRC": {
+   "closed": 2404,
+   "complete": 2378,
+   "incomplete": 13,
+   "quarantined": 0,
+   "anomaly": 13,
+   "published": 2378
+  },
+  "STREAMCONS": {
+   "taken": 2377,
+   "converted": 2377,
+   "presented": 2377,
+   "overrun": 0,
+   "dropped_before_convert": 0,
+   "repeats": 0,
+   "no_cpu_texture": 0,
+   "abandoned_no_raw": 0,
+   "balanced": 1
+  },
+  "STREAMPUMP": {
+   "calls": 254728,
+   "slices": 95080,
+   "completed": 2377,
+   "skipped_cause_pending": 69772,
+   "pending_before": 69772,
+   "pending_after": 32400,
+   "arrived_during": 32400
+  },
+  "STREAMPUMPT": {
+   "ticks_min": 1153,
+   "ticks_max": 2562,
+   "ticks_mean": 1494,
+   "n": 95080,
+   "tile_rows_per_slice": 1
+  },
+  "STREAMINV": {
+   "checks": 189264,
+   "failures": 0,
+   "main": "0/186886",
+   "isr": "0/2378",
+   "consistent_at_end": 1
+  },
+  "STREAMPACE": {
+   "publish_min": 674995,
+   "publish_max": 2036141,
+   "publish_mean": 684929,
+   "n": 2377,
+   "convert_min": 52398,
+   "convert_max": 97983,
+   "convert_mean": 59767
+  }
+ },
+ "policy_a": {
+  "decisions": 2377,
+  "deferred_frames": 22,
+  "defer_attempts": 33,
+  "event_n": 2399,
+  "joined": 2047,
+  "missing": [
+   2403
+  ],
+  "interior_drops": 0,
+  "reorder": 0,
+  "deferred_join": [
+   18,
+   25
+  ],
+  "max_deferred_depth": 1,
+  "order_violations": 0,
+  "frozen_latency_ms": {
+   "definition": "ready = t_convert_done -> t_decision, all 2047 join hand-offs, vpace percentile convention",
+   "p99": 0.003728,
+   "max": 0.585975
+  },
+  "alternate_first_attempt_ms": {
+   "p99": 0.584025,
+   "max": 0.584025
+  },
+  "retrace_delta_hist": {
+   "1": 2039,
+   "2": 7
+  },
+  "display_repeat_intervals": 7,
+  "display_repeat_note": "OBSERVATIONAL, never a gate",
+  "gates": {
+   "p99_le_1_0_ms": "PASS",
+   "max_le_2_5_ms": "PASS",
+   "interior_drops_0": "PASS",
+   "reorder_0": "PASS",
+   "depth_le_1": "PASS"
+  },
+  "note": "RECORDED as inherited video-path observations (§V7.3.8 FRAMES / VIDEO PATH): not gates of GBP-INPUT-002"
+ },
+ "findings": {
+  "hazard": "the §V7.1.7 / §V7.3.7 hazard (a stuck or wrong word navigating a menu, launching something unattended, hanging the AGB) did not occur: the run ended at stop=witness_target_reached with restore=ok; the KEY record carries only the walk's own words; the recovery procedure was not needed"
+ },
+ "evidence_ids": [
+  "GBP-HW-266",
+  "GBP-HW-267",
+  "GBP-HW-268",
+  "GBP-HW-269",
+  "GBP-HW-270",
+  "GBP-HW-271"
+ ],
+ "comparison_vs_reference_run": {
+  "reference_fixture": "hw-gamecube-gbp-2026-09-21-idxcap-run15-struct.json",
+  "runs": [
+   15,
+   18
+  ],
+  "build": [
+   "stream-0014",
+   "stream-0015"
+  ],
+  "dol_sha256": [
+   "ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c",
+   "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49"
+  ],
+  "content": [
+   "RUN 15 -- GBP-INPUT-001, the first physical KEYPAD write (th",
+   "Enhanced Control Checker (console text)"
+  ],
+  "input_attempts_completed_failed": [
+   [
+    7895,
+    7895,
+    0
+   ],
+   [
+    7898,
+    7898,
+    0
+   ]
+  ],
+  "key_changes": [
+   42,
+   42
+  ],
+  "log_lines_dropped_truncated": [
+   [
+    686,
+    0,
+    1
+   ],
+   [
+    722,
+    0,
+    0
+   ]
+  ],
+  "first_handoff_ticks": [
+   6696209,
+   6696200
+  ],
+  "eligibility_ticks": [
+   202507561,
+   202507544
+  ],
+  "source_verdict": [
+   "INCONCLUSIVE_TOO_FEW_INTACT_FRAMES",
+   "INCONCLUSIVE_TOO_FEW_INTACT_FRAMES"
+  ],
+  "joined": [
+   2047,
+   2047
+  ],
+  "deferred_join": [
+   [
+    13,
+    17
+   ],
+   [
+    18,
+    25
+   ]
+  ],
+  "frozen_p99_max_ms": [
+   [
+    0.003185,
+    0.475753
+   ],
+   [
+    0.003728,
+    0.585975
+   ]
+  ],
+  "display_repeats": [
+   7,
+   7
+  ],
+  "transport_unmasks": [
+   254621,
+   254728
+  ],
+  "transfers": [
+   1032723,
+   1033048
+  ],
+  "streampump_skipped_cause_pending": [
+   70679,
+   69772
+  ],
+  "streampumpt_min_max_mean": [
+   [
+    1155,
+    2603,
+    1501
+   ],
+   [
+    1153,
+    2562,
+    1494
+   ]
+  ],
+  "streaminv_checks_failures": [
+   [
+    187236,
+    0
+   ],
+   [
+    189264,
+    0
+   ]
+  ],
+  "vistore_latched_superseded": [
+   [
+    2373,
+    3
+   ],
+   [
+    2370,
+    6
+   ]
+  ],
+  "arena1_free": [
+   1650688,
+   1650688
+  ],
+  "inputt_step_ticks": [
+   [
+    98,
+    169,
+    1045
+   ],
+   [
+    95,
+    160,
+    1100
+   ]
+  ],
+  "note": "two things differ by design between the reference run and this one -- the image (stream-0014 -> stream-0015: the KEY record and the ENVINPUT split, nothing else, GBP-KEY-010) and, for RUN 16, the content -- so the log line count and the KEY-related figures are expected to move; every other figure is an observation beside the reference's, not a tolerance and not proof of anything"
+ },
+ "records_uniform": {
+  "n": 2048,
+  "frame_index_range": [
+   356,
+   2403
+  ],
+  "every_record": {
+   "valid_blocks": 0,
+   "index_ok": 0,
+   "frame_id": null,
+   "status": null,
+   "outcome": "INVALID_CANONICAL_STRIP",
+   "invalid_by_reason": {
+    "symbol": 40
+   }
+  },
+  "deviations": [],
+  "note": "the per-record frozen decode is uniform on this content (no OGBPCOORD1 strip), stored once with any deviation listed"
+ }
+}
