@@ -14,7 +14,8 @@ tests/host/test_input_impl.py — the input path implemented (GitHub Issue #19,
     path / the frozen writers do not reference the input module;
   * nothing emits t_poll / t_write;
   * the build wiring (BUILD_ID stream-0014, gbp_input.c in the POC, the unit test);
-  * the documents keep the status: REGISTERS.md H, no "order is established";
+  * the documents keep the status: no "order is established" (REGISTERS.md kept H
+    until Issue #26 promoted the order to C, never FACT);
     after Issue #24 (RUN 14 / RUN 15 ingested, §V7.2) U-GBP-010 is CLOSED and the
     highest GBP-HW id is 265.
 """
@@ -170,7 +171,7 @@ class ThePumpSlotInsertion(unittest.TestCase):
             self.skipTest("the base commit is not available in this checkout")
         paths = ["src/gbp/" + f for f in SERVICE_PATH_FILES] + ["src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_vqueue.h",
                  "src/gbp/gbp_transport.c", "src/gbp/gbp_transport.h", "src/gbp/gbp_regwrite.c",
-                 "src/platform/hsp_backend.c", "src/platform/hsp_backend_irq.c", "tools", "docs/protocol", "docs/hardware"]
+                 "src/platform/hsp_backend.c", "src/platform/hsp_backend_irq.c", "tools"]   # docs/protocol and docs/hardware left this list with the Issue #26 promotion
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--"] + paths,
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -217,7 +218,9 @@ class TheBuildWiring(unittest.TestCase):
 class TheDocumentsKeepTheStatus(unittest.TestCase):
     def test_registers_h_unknown_open_no_promotion(self):
         regs = read(os.path.join(DOCS, "protocol", "REGISTERS.md"))
-        self.assertIn("C (existence/format), H (L/R bit order)", regs)
+        self.assertNotIn("H (L/R bit order)", regs)          # Issue #26: C, never FACT
+        self.assertIn("L/R bit order: C", regs)
+        self.assertIn("not FACT", regs)
         unk = read(os.path.join(DOCS, "research", "UNKNOWNS.md"))
         m = re.search(r"^## U-GBP-010\b.*$", unk, re.M)
         self.assertIsNotNone(m)

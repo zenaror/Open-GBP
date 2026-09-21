@@ -427,8 +427,9 @@ class NothingElseMoved(unittest.TestCase):
         r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE_COMMIT], capture_output=True)
         if r.returncode != 0:
             self.skipTest("the base commit is not available in this checkout")
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "src", "poc", "tools", "Makefile",
-                            "docs/protocol", "docs/hardware", "stimulus"], capture_output=True, text=True)
+        # docs/protocol and docs/hardware left this guard with the Issue #26 promotion; the code paths stay frozen
+        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus"],
+                           capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
         # Issue #24 added the RUN 14 / RUN 15 fixtures and nothing else under captures/fixtures

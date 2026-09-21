@@ -9,8 +9,8 @@ same commit; INPUT_PATH.md §10 records the rejected instrument with its reasons
 the Start-up Disc recollection with its classification, and the composition
 with its two conditions and its weakness; EVIDENCE GBP-KEY-007 exists once as
 OPERATOR OBSERVATION (recollection) and GBP-KEY-004's heading is unchanged;
-REGISTERS.md keeps H; nothing under src/, poc/, tools/, Makefile, docs/protocol
-or docs/hardware moved. Issue #24 (2026-09-21) then ingested RUN 14 / RUN 15
+REGISTERS.md kept H at that checkpoint; nothing under src/, poc/, tools/,
+Makefile, docs/protocol or docs/hardware moved. Issue #24 (2026-09-21) then ingested RUN 14 / RUN 15
 (§V7.2): U-GBP-010 is CLOSED, GBP-HW-261…265 and GBP-KEY-008 / 009 exist, and
 the RUN 14 / RUN 15 fixtures were added -- the pins below say so.
 """
@@ -83,8 +83,8 @@ class TheFrozenThingsAreUntouched(unittest.TestCase):
         r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", FROZEN_COMMIT], capture_output=True)
         if r.returncode != 0:
             self.skipTest("the frozen commit is not available in this checkout")
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_COMMIT, "--", "src", "poc", "tools", "Makefile",
-                            "docs/protocol", "docs/hardware", "stimulus"],
+        # docs/protocol and docs/hardware left this guard with Issue #26 (the promotion); the code paths stay
+        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "", "changed against the frozen commit: " + r.stdout)
@@ -150,7 +150,9 @@ class TheRecollectionAndTheComposition(unittest.TestCase):
         m = re.search(r"^## U-GBP-010\b.*$", u, re.M)
         self.assertIn("CLOSED 2026-09-21", m.group(0))   # closed by RUN 14 / RUN 15, not by the recollection
         self.assertIn("GBP-KEY-007", u)
-        self.assertIn("C (existence/format), H (L/R bit order)", read(REGISTERS))
+        # Issue #26 promoted the order to C (never FACT) in REGISTERS.md; the H of this checkpoint is history
+        self.assertNotIn("H (L/R bit order)", read(REGISTERS))
+        self.assertIn("L/R bit order: C", read(REGISTERS))
 
 
 class TheRecords(unittest.TestCase):
