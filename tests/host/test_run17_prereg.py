@@ -1,0 +1,335 @@
+"""
+tests/host/test_run17_prereg.py — RUN 17 / RUN 18 pre-registration (HARDWARE_TESTS
+§V7.3, GitHub Issue #28): GBP-INPUT-002, the machine-join runs of stream-0015 —
+the KEY record joined to the checker's counters — frozen BEFORE hardware.
+
+Pinned: Question One is answered from the code and from RUN 14 / RUN 15's data
+before any gate (per press NOT supported; per interval a consistency check only,
+the counts within an interval not distinct; the whole-run join binds by the
+distinct totals; FACT reachable; pacing EXCLUDED); the identity is stream-0015
+(514 880 B, dd545c01…, da06500, NOT rebuilt) and stream-0014 is preserved to
+build/archive/ first, reproducible from 0ff8355; the numbering is resolved (RUN
+16 keeps the menu reading); the ten run17 / run18 names appear once in §V7.3
+and once in the handoff, none exists on disk, none for run19+; the gates are
+prospective (no result, no new id, no executed date); a failed join is
+reachable and informative; the recovery procedure is byte-identical to
+§V7.1.7's; the Operator's channel stays beside the join; §V7.1 and §V7.2 are
+the bytes of 48e5c24; INPUT.md's correction is dated and the routing stays C;
+nothing under src/, poc/, tools/, Makefile, stimulus/ or captures/fixtures
+moved. Nothing here runs a program.
+"""
+import glob
+import hashlib
+import json
+import os
+import re
+import subprocess
+import unittest
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
+HANDOFF = os.path.join(ROOT, "docs", "HANDOFF.md")
+ROADMAP = os.path.join(ROOT, "docs", "ROADMAP.md")
+DEVLOG = os.path.join(ROOT, "docs", "research", "DEVLOG.md")
+INPUT_MD = os.path.join(ROOT, "docs", "protocol", "INPUT.md")
+DOL_SHA = "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49"
+PREV_SHA = "ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c"
+BASE_COMMIT = "48e5c24"                   # origin/main before Issue #28
+NAMES = ["captures/local/GBP-VIDEO-004_stream-0015-run%d%s" % (n, s)
+         for n in (17, 18) for s in (".log", "-idxcap.bin", "-disp.bin", "-full.bin", "-vi.bin")]
+LABELS = ["L", "R", "UP", "DOWN", "LEFT", "RIGHT", "START", "SELECT", "A", "B"]
+_C = {}
+
+
+def read(p):
+    with open(p, encoding="utf-8") as f:
+        return f.read()
+
+
+def flat(s):
+    return re.sub(r"\s+", " ", s)
+
+
+def plain(s):
+    return flat(s).replace("`", "").replace("**", "")
+
+
+def git_show(path, commit=BASE_COMMIT):
+    r = subprocess.run(["git", "-C", ROOT, "show", "%s:%s" % (commit, path)], capture_output=True, text=True)
+    return None if r.returncode != 0 else r.stdout
+
+
+def prereg():
+    if "p" not in _C:
+        t = read(HW)
+        i = t.index("### V7.3 ")
+        j = t.find("### V7.4 ", i)
+        _C["p"] = t[i:] if j < 0 else t[i:j]
+    return _C["p"]
+
+
+def body():
+    return "\n".join(prereg().splitlines()[1:])
+
+
+def part(n, text=None):
+    t = prereg() if text is None else text
+    i = t.index("#### V7.3.%d " % n)
+    j = t.find("#### V7.3.%d " % (n + 1), i)
+    return t[i:] if j < 0 else t[i:j]
+
+
+def v71_part(n, text):
+    i = text.index("#### V7.1.%d " % n)
+    j = text.find("#### V7.1.%d " % (n + 1), i)
+    return text[i:] if j < 0 else text[i:j]
+
+
+def block_after(p, heading):
+    i = p.index(heading)
+    j = p.index("```text", i)
+    return p[j:p.index("```", j + 7) + 3]
+
+
+class TheSectionExists(unittest.TestCase):
+    def test_twelve_parts_in_order_and_the_heading_carries_the_status(self):
+        t = prereg()
+        pos = [t.index("#### V7.3.%d " % n) for n in range(1, 13)]
+        self.assertEqual(pos, sorted(pos))
+        self.assertNotIn("#### V7.3.13 ", t)
+        head = t.splitlines()[0]
+        for tok in ("RUN 17 / RUN 18", "GBP-INPUT-002", "PRE-REGISTERED 2026-09-21 (GitHub Issue #28)", "NOT RUN / NOT AUTHORISED HERE",
+                    "CORROBORATED to FACT"):
+            self.assertIn(tok, head, tok)
+        full = read(HW)
+        self.assertEqual((full.count("### V7.3 "), full.count("\n## V7 ")), (1, 1))
+        self.assertLess(full.index("### V7.2 "), full.index("### V7.3 "))
+        v7 = [l for l in full.splitlines() if l.startswith("## V7 ")][0]
+        for tok in ("RUN 17 / RUN 18 PRE-REGISTERED (Issue #28, §V7.3)", "GBP-INPUT-002", "NOT RUN / NOT AUTHORISED HERE"):
+            self.assertIn(tok, v7, tok)
+
+
+class QuestionOneIsAnsweredFromTheCodeAndTheData(unittest.TestCase):
+    def test_the_granularities_and_the_answer(self):
+        p = plain(part(1))
+        for tok in ("GBP_VFULL_K 8u", "GBP_VFULL_SPACING 256u", "4.286 s", "keysDown()",
+                    "R +2 and B +2 share the first interval of RUN 14", "R +2 and DOWN +2",
+                    "per press, in time NOT SUPPORTED", "per interval a CONSISTENCY CHECK, not a binding", "the whole run SUPPORTED, AND IT BINDS",
+                    "no timing, no boundary rule, no pacing, and no human link", "FACT is REACHABLE", "with stream-0015 exactly as it is",
+                    "Input latency stays out of reach", "pacing the walk to the sample cadence is EXCLUDED", "recorded, not proposed, none authorised here",
+                    "this part stops at the totals"):
+            self.assertIn(tok, p, tok)
+
+    def test_the_figures_are_the_ones_the_code_and_the_runs_carry(self):
+        h = read(os.path.join(ROOT, "src", "gbp", "gbp_vfull.h"))
+        self.assertRegex(h, r"#define GBP_VFULL_K\s+8u")
+        self.assertRegex(h, r"#define GBP_VFULL_SPACING\s+256u")
+        self.assertAlmostEqual(256 / 59.727, 4.286, places=3)
+        for run, deltas in ((14, {"R": 2, "A": 3, "B": 2}), (15, {"R": 2, "UP": 3, "DOWN": 2})):
+            with open(os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-21-idxcap-run%d-struct.json" % run), encoding="utf-8") as f:
+                smp = json.load(f)["tally_frames"]["samples"]
+            v = lambda i: [0 if x == "blank" else int(x) for x in smp[i]["vector_as_read"]]
+            d01 = {LABELS[k]: v(1)[k] - v(0)[k] for k in range(10) if v(1)[k] != v(0)[k]}
+            self.assertEqual(d01, deltas, "the first interval's increments, from the fixture")
+            self.assertEqual(sorted(d01.values()), [2, 2, 3], "two buttons up by the same amount in one interval: not distinct")
+            self.assertAlmostEqual(smp[0]["s_after_control"], 6.084, places=2)
+            self.assertAlmostEqual(smp[7]["s_after_control"], 36.087, places=2)
+
+
+class IdentitiesAreTheFrozenOnes(unittest.TestCase):
+    def test_the_dol_is_the_issue_27_candidate_not_rebuilt(self):
+        p = part(3)
+        self.assertIn(DOL_SHA, p)
+        self.assertIn("514 880 B", p)
+        self.assertIn("OPENGBP-IDENT gbp-video-stream-probe stream-0015 da06500", p)
+        self.assertIn("NOT rebuilt", plain(p))
+        self.assertIn("DO NOT RUN", p)
+
+    def test_stream_0014_is_preserved_first_and_reproducible(self):
+        p = plain(part(3))
+        for tok in ("12-stream, REUSED AGAIN", "build/archive/gbp-video-stream-probe-stream-0014-0ff8355.dol", "ef76a170...0b9c", "513 152 B",
+                    "REPRODUCIBLE", "GIT_COMMIT=0ff8355 GIT_DIRTY= make build", "The staging itself is NOT performed by this part",
+                    "NO analyzer parses the KEY record", "frozen HERE so the ingestion cannot tune it"):
+            self.assertIn(tok, p, tok)
+        g = plain(part(6))
+        for tok in ("/media/rafael/SD_GC/Open-GBP/12-stream/boot.dol", DOL_SHA, "514 880 B",
+                    "If it still reads ef76a170...0b9c (stream-0014), the copy did not happen: DO NOT RUN", "WITHOUT rebuilding",
+                    "If ANY identity differs: DO NOT RUN"):
+            self.assertIn(tok, g, tok)
+        self.assertFalse(os.path.exists(os.path.join(ROOT, "build", "archive", "gbp-video-stream-probe-stream-0014-0ff8355.dol")),
+                         "stream-0014 is preserved by the Hardware Issue, not by this part")
+
+    def test_the_built_artifact_if_present_is_the_one_named(self):
+        info = os.path.join(ROOT, "build", "poc", "gbp-video-stream-probe", "build-info.txt")
+        if not os.path.exists(info):
+            self.skipTest("no build metadata on this host")
+        t = read(info)
+        if "build_id=stream-0015" not in t:
+            self.skipTest("the tree builds a different stream candidate")
+        self.assertIn("sha256_dol=" + DOL_SHA, t)
+        self.assertIn("commit=da06500\n", t)
+        swiss = os.path.join(ROOT, "build", "swiss", "12-stream", "boot.dol")
+        if os.path.exists(swiss):
+            with open(swiss, "rb") as f:
+                self.assertEqual(hashlib.sha256(f.read()).hexdigest(), PREV_SHA, "nothing staged: the Swiss slot still holds stream-0014")
+
+
+class TheNumberingAndTheNames(unittest.TestCase):
+    def test_the_numbering_is_resolved_and_stated(self):
+        p = plain(part(2))
+        for tok in ("RUN 17 and RUN 18", "RESOLUTION, stated", "RUN 16 stays the menu reading", "a new run always takes the next number above every reserved one",
+                    "No reserved name changes experiment", "GBP-INPUT-002", "RUN 17 the checker's counted walk A", "RUN 18 the checker's counted walk B",
+                    "why both", "Why not one 55-press walk", "what the Operator does that is new NOTHING", "43, plus any retry",
+                    "The AGS test ROM is NOT a fallback here"):
+            self.assertIn(tok, p, tok)
+
+    def test_the_ten_names_once_in_the_part_once_in_the_handoff_none_on_disk_none_beyond(self):
+        p, t, h = prereg(), read(HW), read(HANDOFF)
+        for n in NAMES:
+            self.assertEqual(p.count(n), 1, n)
+            self.assertEqual(t.count(n), 1, n)
+            self.assertEqual(h.count(n), 1, n)
+            self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
+        self.assertEqual(len(re.findall(r"captures/local/\S*run17\S*", t)), 5)
+        self.assertEqual(len(re.findall(r"captures/local/\S*run18\S*", t)), 5)
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:19|2\d)\S*", t)), 0)
+        self.assertEqual(len(re.findall(r"captures/local/\S*run16\S*", t)), 5, "the run16 names of V7.1.5 untouched")
+        self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015*")), [])
+        f = plain(part(5))
+        for tok in ("TAKEN even if a run aborts, never starts, or RUN 18 is never executed", "cp --update=none", "Verified absent on 2026-09-21",
+                    "The run16 names of V7.1.5 are untouched", "The KEY record lives inside the .log file"):
+            self.assertIn(tok, f, tok)
+
+
+class GatesAreProspectiveAndAFailedJoinIsReachable(unittest.TestCase):
+    def test_no_result_no_new_id_no_executed_run(self):
+        p = body()
+        self.assertNotRegex(p, r"GBP-HW-26[6-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d")
+        self.assertNotIn("RESULT", p)
+        self.assertNotRegex(p, r"EXECUTED 2026")
+        self.assertNotRegex(p, r"ingested 2026|ingested on")
+        self.assertIn("Nothing here is evidence", p)
+        self.assertIn("no evidence ID is allocated", p)
+        self.assertIn("PRE-REGISTERED / NOT RUN", part(12))
+
+    def test_the_record_table_has_no_value_pre_filled(self):
+        p = part(11)
+        rows = [l for l in p.splitlines() if re.match(r"^[A-Za-z].*\s{2,}--", l)]
+        self.assertGreaterEqual(len(rows), 20)
+        for l in rows:
+            self.assertRegex(l, r"--(\s+--)*(\s+\(.*\))?\s*$", l)
+        self.assertIn("expected vector (arithmetic)            1,2,0,0,0,0,6,5,3,4  1,2,3,4,5,6,0,0,0,0", p)
+
+    def test_the_verdicts_per_bit_and_the_channels_kept_apart(self):
+        p = part(9)
+        for label in ("FACT          ", "FACT-SWAPPED  ", "NOT CLOSED    ", "UNDECIDED     ", "INCONCLUSIVE  "):
+            self.assertEqual(len(re.findall(r"^%s" % re.escape(label), p, re.M)), 1, label)
+        f = plain(p)
+        for tok in ("reads two machine records and nothing else", "A1", "A2", "A3", "COUNTS only with rc=ok", "starting from 0000",
+                    "R_b the number of 0 -> 1 transitions", "END STATE", "at least TWO such samples, all identical",
+                    "blank read as 0 (the V7.1.9 wording mismatch, recorded again, not smoothed)",
+                    "a physical FACT for this hardware, by machine end to end", "a physical FACT the other way", "It is NOT a failure of the run: the join closed",
+                    "the two machine ends disagree", "an INFORMATIVE result about the instrumentation or the transport, never a failed run",
+                    "the routing stays CORROBORATED", "those bits, and only those, are not bound in this run",
+                    "QUESTION I -- the interval check, RECORDED, never a gate", "B = 3 source frames (~50 ms)", "NOT a latency figure and NOT tuned afterwards",
+                    "NO latency figure is derived from it", "never fed into the join", "never merged",
+                    "reports every intermediate quantity", "the ingestion cannot tune them"):
+            self.assertIn(tok, f, tok)
+
+    def test_the_shared_gates_add_the_key_record_and_make_truncated_zero_a_gate_again(self):
+        f = plain(part(8))
+        for tok in ("truncated=0 -- now a gate again", "PHYSICALLY VALIDATES the repair", "KEYLOG events = emitted, lost = 0, truncated = 0, overwritten = 0",
+                    "every KEY line parses under GBP_INPUT_EVENT_FMT", "events = INPUT first + change + retry", "an unknown glyph aborts the reading",
+                    "RECORDED, not judged", "a recovery power-off is INCONCLUSIVE for the join"):
+            self.assertIn(tok, f, tok)
+
+
+class TheProcedureAndTheRecovery(unittest.TestCase):
+    def test_two_checklists_and_the_recovery_block_byte_identical_to_v7_1(self):
+        p = part(7)
+        self.assertIn("**RUN 17 — the checker's counted walk A", p)
+        self.assertIn("**RUN 18 — the checker's counted walk B", p)
+        self.assertEqual(len(p.split("```text")), 4)           # the recovery block and the two checklists
+        run17 = block_after(p, "**RUN 17 — the checker")
+        run18 = block_after(p, "**RUN 18 — the checker")
+        for n in range(1, 14):
+            self.assertIsNotNone(re.search(r"^\s*%d  " % n, run17, re.M), "run17 step %d" % n)
+        self.assertIsNone(re.search(r"^\s*14  ", run17, re.M))
+        for n in range(1, 10):
+            self.assertIsNotNone(re.search(r"^\s*%d  " % n, run18, re.M), "run18 step %d" % n)
+        self.assertIsNone(re.search(r"^\s*10  ", run18, re.M))
+        self.assertEqual(p.count("NEVER one press per button"), 2)
+        f = plain(p)
+        for tok in ("The KEYPAD write is no longer a first", "byte-identical to V7.1.7's", "to pace the walk to the samples",
+                    "L x1, R x2, A x3, B x4, SELECT (the X button of the GameCube pad) x5, START x6",
+                    "L x1, R x2, UP x3, DOWN x4, LEFT x5, RIGHT x6 -- the D-pad, not the stick", "dd545c01...3a49",
+                    "If it reads ef76a170...0b9c, the stream-0014 image is still on the card: DO NOT RUN",
+                    "per-run subdirectory under logs/", "reserved run17 names", "reserved run18 names", "If the checker cannot be booted at all: do NOT run"):
+            self.assertIn(tok, f, tok)
+        self.assertIn("Do not infer a frame number, a latency or a timing from anything seen by eye", f)
+        t = read(HW)
+        v71 = t[t.index("### V7.1 "):t.index("### V7.2 ")]
+        self.assertEqual(block_after(p, "**Recovery procedure"), block_after(v71_part(7, v71), "**Recovery procedure"))
+
+    def test_the_topology_cites_the_inventory_and_declares_the_rest(self):
+        f = plain(part(4))
+        for tok in ("DECLARED HARDWARE INVENTORY", "cited, not asked again", "a declaration, never an inference", "generic third-party",
+                    "the scope of any L/R statement follows the pad declared", "DECLARED per run", "the join reads the FRAMES, not the screen"):
+            self.assertIn(tok, f, tok)
+
+    def test_what_a_fact_changes_and_what_is_not_measured(self):
+        f = plain(part(10))
+        for tok in ("stays closed; this part does not reopen it", "FACT (hw, the run)", "by the ingestion checkpoint, under its own authorisation, never here",
+                    "input latency (V7.3.1: out of reach of this sampling)", "a real game, which is a separate run with its own contract"):
+            self.assertIn(tok, f, tok)
+
+
+class NothingElseMoved(unittest.TestCase):
+    def test_v7_1_and_v7_2_are_the_bytes_of_the_base(self):
+        old = git_show("docs/research/HARDWARE_TESTS.md")
+        if old is None:
+            self.skipTest("the base commit is not available in this checkout")
+        new = read(HW)
+        self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.3 ")].rstrip("\n"), old[old.index("### V7.1 "):].rstrip("\n"))
+        old_head = [l for l in old.splitlines() if l.startswith("## V7 ")][0]
+        new_head = [l for l in new.splitlines() if l.startswith("## V7 ")][0]
+        self.assertTrue(new_head.startswith(old_head))
+        self.assertEqual(new[:new.index("\n## V7 ")], old[:old.index("\n## V7 ")], "everything before the chapter untouched")
+
+    def test_input_md_is_corrected_on_its_date_and_the_routing_stays_c(self):
+        t = read(INPUT_MD)
+        self.assertNotIn("recorded, not\nimplemented", t)
+        self.assertIn("recorded on\n2026-09-21 as not implemented — implemented the same day in `stream-0015`", t)
+        self.assertIn("executed nowhere yet", t)
+        self.assertIn("pre-registered to spend it, `HARDWARE_TESTS.md` §V7.3", t)
+        self.assertIn("| C, not FACT — the paragraph below is part of this row |", t)
+        self.assertIn("**The L/R order is CORROBORATED, not FACT.**", t)
+        old = git_show("docs/protocol/INPUT.md")
+        if old is not None:
+            self.assertEqual(old.count("FACT"), t.count("FACT"), "no FACT added or removed: the status is unchanged")
+
+    def test_the_records(self):
+        d = read(DEVLOG)
+        e = d[d.rindex("## 2026-09-21 — Issue #28"):]
+        for tok in ("Question One", "FACT is reachable per bit", "NOT RUN / NOT AUTHORISED HERE", "pacing the walk is EXCLUDED", "no hardware, no code, no build, no staging"):
+            self.assertIn(tok, e, tok)
+        self.assertNotRegex(e, r"GBP-HW-26[6-9]")
+        h = plain(read(HANDOFF))
+        for tok in ("issue 28", "RUN 17 and RUN 18 (GBP-INPUT-002", "That the interval-wise join binds the routing", "validate #28"):
+            self.assertIn(tok, h, tok)
+        self.assertIn("Pre-registered 2026-09-21 (GitHub Issue #28)", plain(read(ROADMAP)))
+
+    def test_nothing_under_the_untouchable_paths_changed_against_the_base(self):
+        r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE_COMMIT], capture_output=True)
+        if r.returncode != 0:
+            self.skipTest("the base commit is not available in this checkout")
+        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus",
+                            "captures/fixtures", "docs/hardware"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
+        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "docs/protocol"], capture_output=True, text=True)
+        self.assertTrue(set(r.stdout.split()) <= {"docs/protocol/INPUT.md"}, r.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()
