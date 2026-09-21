@@ -32,7 +32,7 @@ provenance). Status letters: F/C/H/U.
 | Interrupt mask | CONTROL bit 0x10 | 1 = masked | C |
 | Sleep / link related | CONTROL bits 0x20, 0x40, 0x80 | read/written by DISC around serial operations and stop; names from Dolphin comments only | H |
 | Keypad injection | KEYPAD (16-bit, 1 = pressed, GBA key order low byte; L/R in bits 8/9, order per Dolphin swapped) | refreshed on every IRQ by the Start-up Disc and GBI; `0x0304` used to wake from sleep (GBI) | C / H (L/R order) |
-| Video capture | VIDEO window, 4 raster lines × 240 px × 32-bit per 0xF00 read (line stride 960 B), pixel word of which both references consume bytes 1/3 as `(b1 << 8) | b3`; **the 15 colour bits arrive with the two outer 5-bit groups exchanged relative to the AGB's framebuffer** (AGB bits 4–0 → word bits 14–10 and vice versa, bits 9–5 unchanged), so the references' GX RGB5A3 reading — bit 15 flag, 14–10 R, 9–5 G, 4–0 B — is the displayed colour; bit 15 observed set on exactly one word per frame, the first pixel; IRQ bit 8 per block (40 per frame). Bytes 0 and 2 are consumed by neither reference and vary physically between frames of the same picture — meaning UNKNOWN (U-GBP-029) | colour order: **two physical confirmatory runs with a known-colour stimulus**, GBP-VIDEO-003 `color-0002` under the contract pre-registered in `HARDWARE_TESTS.md` §V4 (GBP-HW-127…133), corroborated by `color-0001`; geometry and byte picking: the Start-up Disc and GBI (`docs/research/VIDEO_PATH.md`), Dolphin cross-checked, physical block read GBP-HW-051/058 | **colour order F (hw)**; geometry C; block read F (hw) |
+| Video capture | VIDEO window, 4 raster lines × 240 px × 32-bit per 0xF00 read (line stride 960 B), pixel word of which both references consume bytes 1/3 as `(b1 << 8) | b3`; **the 15 colour bits arrive with the two outer 5-bit groups exchanged relative to the AGB's framebuffer** (AGB bits 4–0 → word bits 14–10 and vice versa, bits 9–5 unchanged), so the references' GX RGB5A3 reading — bit 15 flag, 14–10 R, 9–5 G, 4–0 B — is the displayed colour; bit 15 observed set on exactly one word per frame, the first pixel; IRQ bit 8 per block (40 per frame). Bytes 0 and 2 are consumed by neither reference and vary physically between frames of the same picture — meaning UNKNOWN (U-GBP-029) | colour order: **two physical confirmatory runs with a known-colour stimulus**, GBP-VIDEO-003 `color-0002` under the contract pre-registered in `HARDWARE_TESTS.md` §V4 (GBP-HW-127…133), corroborated by `color-0001`; geometry and byte picking: the Start-up Disc and GBI (`docs/research/VIDEO_PATH.md`), Dolphin cross-checked, physical block read GBP-HW-051/058, and **the physical geometry reconstructed legible from preserved raw frames** (GBP-HW-081), 477 of 489 frame intervals of exactly 40 blocks (GBP-HW-076), both frame-start predicates agreeing on 19 601 blocks (GBP-HW-077), bit 15 once per frame at (0, 0) (GBP-HW-129); consolidated in `docs/protocol/VIDEO.md` | **colour order F (hw)**; geometry F (hw); 40-block composition F (hw); block read F (hw) |
 | Audio capture | AUDIO window, 0x1000 bytes per IRQ bit 10; PWM bit-stream per Dolphin | the Start-up Disc and GBI read 0x1000; format H | C / H |
 | Serial bridge to the AGB SIO | SIOCTL (byte) + SIODATA (32-bit) + IRQ bit 6 | DISC drives a write/start/read protocol; GBI reads on IRQ; Dolphin stubs | F (exists) / U (semantics) |
 | Game Pak event | IRQ bit 2 | DISC stops on it | C |
@@ -44,7 +44,15 @@ The AGB free-runs at 59.73 Hz while the GameCube side is at 59.94 Hz; the
 board does no synchronization and "adds frames where it needs to"
 (endrift, hardware observation, **F**). The VIDEO IRQ therefore comes at
 the AGB's rate; software must handle a frame arriving late/early
-relative to VI. Dolphin ties video IRQs to the audio tick (**H**).
+relative to VI. Measured on this project's hardware: the source frame
+cadence read 59.727 Hz as the median of 465 consecutive complete frames in
+one run and 59.7271 FRAME_ID/s over 34.27 s in another (GBP-HW-078,
+GBP-HW-187 — measurements of those runs, **F**, no nominal rate promoted),
+against a video-interface period of 59.940 Hz re-derived per run
+(GBP-HW-210); the rate difference requires about seven repeated display
+intervals per 34 s window, which are the VI showing one framebuffer for one
+extra period and not lost frames (GBP-HW-210, GBP-HW-211, **F** for those
+runs; GBP-VID-020). Dolphin ties video IRQs to the audio tick (**H**).
 
 ## What the GBS-DOL is *not* known to do
 

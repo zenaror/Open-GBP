@@ -8,13 +8,17 @@ hardware/ARCHITECTURE.md   physical + logical topology (GameCube ↔ HSP ↔ GBS
 hardware/HSP.md            how the High Speed Port is reached (ARAM DMA, PI IRQ 13)
 hardware/GBS-DOL.md        externally observable behavior of the bridge chip
 
-protocol/REGISTERS.md      register windows, transfer format, bit tables (preliminary)
-protocol/INITIALIZATION.md detection / start / IRQ service / stop sequences (preliminary)
+protocol/REGISTERS.md      register windows, transfer format, bit tables (Phase 2 reconstruction;
+                           rows citing a GBP-HW- id are hardware-verified)
+protocol/INITIALIZATION.md detection / start / IRQ service / stop sequences (same rule)
+protocol/VIDEO.md          the VIDEO path consolidated after Phase 4 (block, frame, service,
+                           startup, presentation-path structure), every row with its id
 
 research/EVIDENCE.md       every claim with sources and status
 research/UNKNOWNS.md       open questions, prioritized
 research/HARDWARE_TESTS.md physical tests executed, and designs not yet executed
 research/DEVLOG.md         chronological log
+research/PHASE4_ASSESSMENT.md  Phase 4 against its acceptance criterion, term by term (2026-09-21)
 
 mobile-adapter/            reserved for Phase 13
 ```
@@ -37,25 +41,21 @@ DESIGNED / NOT IMPLEMENTED  a specification only. No code, no DOL, no observatio
                           Nothing in such an entry is evidence about the device
 ```
 
-As of 2026-09-17 the project has executed physical runs through Phase 4
-(detection, initialization, the interrupt path, one complete service cycle, a
-VIDEO sequence capture and four long-run video state scans). The last two reached
-the 120 s scientific target. `GBP-VIDEO-002-R3` / build `vstate-0003` proved the
-nonfatal-disagreement policy but produced contaminated diagnostics (GBP-HW-104);
-`GBP-VIDEO-002-R4` / build `vstate-0004` re-ran the same policy with correct
-attribution — **29 disagreements survived, 29 of 29 records internally coherent,
-sidecar strict-valid** — which makes **R3's physical validation COMPLETE** and
-**unblocks `GBP-VIDEO-003`** (GBP-HW-108…115), whose controlled-colour
-experiment is now **DESIGNED and IMPLEMENTED 2026-09-17, NOT PHYSICALLY
-EXECUTED** (§V3.0 to §V3.25): an AGB stimulus ROM, a GameCube probe reusing the
-validated service path, the `OGBPCOL1` v1 sidecar and an offline analyser that
-decides the mapping from raw bytes alone. Its first implementation was blocked by
-a microaudit for doing full-frame work between the ACK and the RE-ARM; the
-capture now decides stability from the per-block signatures the model already
-computes and never touches a frame's bytes (§V3.23 to §V3.25). Execution waits on one documented
-dependency: a way to deliver a controlled GBA ROM to the physical unit. The normative binary layouts (the
-160-byte diagnostic record, the 1024-byte semantic block, the OGBPSEQ1 v4/v5
-header) live in that file as subsections R3.24 to R3.29 and R4.7.
+As of 2026-09-21 the project has executed physical runs through Phase 4
+(detection, initialization, the interrupt path, the service cycle, the video
+state scans, the controlled-colour runs, and the streaming runs `stream-0003`
+… `stream-0013` / runs 1–13 with real and controlled cartridges), and Phase 4
+has been assessed against its acceptance criterion: `PHASE 4 VERDICT` in
+`ROADMAP.md` (SATISFIED WITH NAMED RESIDUALS), argued term by term in
+`research/PHASE4_ASSESSMENT.md`. The consolidated video-path reference that
+came out of it is `protocol/VIDEO.md`. The current state and the next safe
+action are in `HANDOFF.md`. The normative binary layouts of the video state
+scans (the 160-byte diagnostic record, the 1024-byte semantic block, the
+OGBPSEQ1 v4/v5 header) live in `research/HARDWARE_TESTS.md` as subsections
+R3.24 to R3.29 and R4.7; the frozen formats of the streaming runs
+(OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, OGBPCOORD1, OGBPFULL1, OGBPVI1) are listed
+under "Frozen contracts" in `HANDOFF.md`. The table below is the format
+history of the state-scan family as of 2026-09-17, kept as written.
 
 Sidecar formats of the GBP-VIDEO family, all dispatched strictly by version and
 none able to read another's file:
