@@ -18877,7 +18877,7 @@ not started and do not move.
 
 ---
 
-## V6 — GBP-VIDEO-007 / GBP-VIDEO-008: PHYSICAL SCANOUT AND FULL-FRAME FIDELITY — DESIGN (Issue #6), IMPLEMENTATION STATUS (Issue #7): IMPLEMENTED IN SOFTWARE; RUN 12 PRE-REGISTERED (Issue #8, §V6.19), EXECUTED (Issue #9), INGESTED (Issue #10, §V6.20): GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE
+## V6 — GBP-VIDEO-007 / GBP-VIDEO-008: PHYSICAL SCANOUT AND FULL-FRAME FIDELITY — DESIGN (Issue #6), IMPLEMENTATION STATUS (Issue #7): IMPLEMENTED IN SOFTWARE; RUN 12 PRE-REGISTERED (Issue #8, §V6.19), EXECUTED (Issue #9), INGESTED (Issue #10, §V6.20): GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE; RUN 13 PRE-REGISTERED (Issue #14, §V6.24) WITH coord-0002 — NOT RUN
 
 **IMPLEMENTATION STATUS — 2026-09-20, GitHub Issue #7 (Phase 4, functional):
 IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED, NO RUN RESERVED.** The
@@ -18892,7 +18892,10 @@ passed 8/8 as subordinate evidence; the operator saw 1 → 2 → 3 → 4; the fr
 VI analyzer's zero is an analyzer defect (GBP-VID-035, REPAIRED in software
 afterwards by Issue #11, §V6.21: the corrected post-run replay reads 2370/2370
 and L = 40 / 40 / 38 / 40, changing no verdict). Evidence GBP-HW-250 … 255.
-No rerun is pre-registered. No frozen format changes.**
+GBP-VID-034's mechanism was RESOLVED (§V6.22) and coord-0002 implemented
+(§V6.23). RUN 13 — the same experiments with coord-0002 and the same
+stream-0013 — is PRE-REGISTERED in §V6.24 (Issue #14) and NOT RUN. No frozen
+format changes.**
 §V6.1–§V6.17 below are the design as written for GitHub
 Issue #6 and are kept verbatim as provenance: where the implementation decided
 one of §V6.17's open items, or departs from a design detail, §V6.18.12 says so
@@ -20824,5 +20827,303 @@ for RUN 12, and coord-0001 remains RUN 12's artifact. The GameCube runtime
 is not rebuilt or relabelled. After the Orchestrator's independent
 validation, a separate research pre-registration decides whether and how the
 next physical run uses `coord-0002` with `stream-0013`.
+
+### V6.24 RUN 13 — GBP-VIDEO-007 / GBP-VIDEO-008 with coord-0002 — **PRE-REGISTERED 2026-09-20 (GitHub Issue #14); NOT RUN; NOT AUTHORIZED HERE**
+
+Written before the hardware is touched. GitHub Issue #14 is the complete
+prospective pre-registration contract and this part persists it in substance:
+the run identity, the exact artifacts verified on disk without a rebuild, the
+frozen topology, the reserved raw names, the pre-run identity gate, the
+operator procedure, the shared admissibility gates, the independent gates and
+verdicts of the two experiments, and the non-claims. **No hardware run is
+authorized by this part.** After it is pushed and independently validated by
+the Orchestrator, a separate Hardware Issue authorizes the Operator to execute
+RUN 13. Nothing here is evidence; no evidence ID is allocated; nothing is
+classified; RUN 12 (§V6.19, §V6.20) is not reinterpreted.
+
+#### V6.24.1 Run identity and what is fixed
+
+```text
+global run number   RUN 13 -- runs 1-12 are the highest referenced in the record; reserved now, TAKEN even if
+                    the execution later aborts
+why                 RUN 12's shared source-window gate failed on two duplicate FRAME_IDs whose mechanism is
+                    resolved (§V6.22: coord-0001's digit-1 / digit-4 entry PREPARE missed a VBlank); coord-0002
+                    (§V6.23) publishes the same OGBPCOORD1 picture with every entry PREPARE 176 863 cycles under
+                    the budget. RUN 13 is the prospective re-run of both experiments with coord-0002.
+experiments         GBP-VIDEO-007  physical scanout observation, CLAIM-D
+                    GBP-VIDEO-008  full-frame source -> texture fidelity, CLAIM-A + CLAIM-B
+                    ONE physical session, TWO independent verdicts; a result for one experiment may not promote,
+                    demote or excuse the other (§V6.1, §V6.13)
+runtime             the exact stream-0013 image of RUN 12, reused: NOT rebuilt, no stream-0014; embedded TEST_ID
+                    GBP-VIDEO-004 (the line's name); NORMAL startup; formats OGBPIDXCAP1 v1, OGBPDISP2 v2,
+                    OGBPFULL1 v1, OGBPVI1 v1 unchanged
+```
+
+#### V6.24.2 The exact artifacts — verified on disk 2026-09-20, NOT rebuilt, NOT re-derived
+
+```text
+DOL          build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol   506 496 B
+             5391c3fe962dc4b2f4e493f3846ac7407ded064c58f5d4bb583a51e5a725dd79
+             embedded  OPENGBP-IDENT gbp-video-stream-probe stream-0013 7d7a6d8 ; TEST_ID GBP-VIDEO-004 ; no "dirty"
+             functional commit 7d7a6d8acf4e3985034f9ad4f5041fec751181d0; build-info.txt: build_id=stream-0013
+             commit=7d7a6d8, the same SHA-256
+Swiss        build/swiss/12-stream/boot.dol   506 496 B, the same SHA-256, cmp identical -- the operator's copy,
+             the one RUN 12 booted. The optional run-numbered copy build/swiss/13-stream/boot.dol of Issue #14 was
+             deliberately NOT created: tools/swiss-layout.tsv numbers BUILDS, one number each, and a run is not a
+             build; a second number for the same bytes would suggest a new image. The pre-run gate is the hash.
+stimulus     coord-0002, contract OGBPCOORD1 (§V6.23), source commit 74f9f4f
+  canonical  build/stimulus/agb-coord2/agb-coord2.gba   3 620 B
+             319dacb759dd2f78b420691a896387b727accf5d9483f152a6a096865c95093f
+             = captures/fixtures/stimulus-coord-0002-canonical.gba (the versioned copy, same SHA-256)
+  delivery   build/physical/agb-coord2-cart.gba        3 620 B   (ignored path; never committed; NOT flashed)
+             276ad987c4cd0cefc7d7c532b86a7f5c336cf6603a32509f80f17aac9a56f700
+             payload from 0x0C0 byte-identical to the canonical; 154 bytes differ, all in 0x004..0x09F (the
+             logo area the established derivation, tools/gbaderive.py, copies from the donor; §V6.23)
+  route      EZ-Flash Omega DE, NOR / Mode B. The cartridge IS re-flashed with this image for RUN 13.
+  NOT        coord-0001 (90343b64…0a1f / a769cc11…994f): RUN 12's artifact, not to be substituted
+tools        tools/vindex.py frozen semantics, unchanged; tools/vfull.py frozen RUN 12 semantics, unchanged;
+             tools/icoord.py the OGBPCOORD1 oracle, unchanged; tools/vpace.py the frozen percentile convention;
+             tools/vvi.py the CORRECTED implementation of the GBP-VID-035 repair (commit 0ee8aac, §V6.21),
+             unchanged since -- RUN 13 uses it prospectively; RUN 12's frozen-at-run vvi result stays history
+```
+
+If any identity differs on the day, **DO NOT RUN**. No artifact is rebuilt or
+re-derived to satisfy this gate. The Operator's media hashes are a double
+check of identities the project has frozen; they never redefine the artifact.
+
+#### V6.24.3 Physical topology — frozen for RUN 13, held at RUN 12's
+
+```text
+console            the same physical GameCube as RUN 12 (operator declares)
+Game Boy Player    the same physical unit as RUN 12 (operator declares)
+BBA                PRESENT
+Ethernet           DISCONNECTED
+network            no BBA / network initialisation, no network code (stream-0013 links none; §V6.19.3)
+cartridge          coord-0002 delivery image on the EZ-Flash Omega DE, NOR / Mode B, re-flashed (V6.24.2)
+media              SD carrying the exact stream-0013 boot.dol; hash double-checked on the media
+display chain      OPERATOR-DECLARED, as for RUN 12 (§V6.19.3):
+                     GameCube
+                       -> analog composite video / RCA
+                       -> low-cost RCA-to-HDMI converter, HDMI output configured to 1080p
+                       -> custom display: HYDIS HV150UX2 panel, M.NT68676.2A controller, custom iMac G3 modification
+                   The 1080p setting is the CONVERTER's output, not the native GameCube signal. TOPOLOGY only:
+                   it establishes no pixel-perfect output, no native 1080p, no converter-scaling correctness, no
+                   display latency, no physical per-pixel equality.
+camera             optional; declared by precedent (§V6.10); no capture device on the video output
+```
+
+**Future topologies, explicitly OUTSIDE RUN 13:** primary, GameCube →
+**S-Video** → Morph 2K → Samsung Q80T; alternate / comparison, GameCube →
+**Bitfunx composite cable** → Morph 2K → Samsung Q80T. Their results must not
+be mixed with RUN 13, nor with each other, without their own declaration.
+
+#### V6.24.4 Reserved raw-file names — before the hardware
+
+The console writes `GBP-VIDEO-004_stream-0013.log`, `-idxcap.bin`,
+`-disp.bin`, `-full.bin` and `-vi.bin` — the stream's normal names, the same
+as RUN 12's, which the program may reuse. Per `captures/README.md` ("Receiving
+a new physical run"): rename BEFORE copy — copy the supplied bytes FIRST under
+the names below with `cp --update=none`, `cmp` the copy, hash on receipt,
+never overwrite runs 1–12; before the hardware, verify none of them exists.
+**Reserved now, and TAKEN even if the run aborts or never starts:**
+
+```text
+captures/local/GBP-VIDEO-004_stream-0013-run13.log
+captures/local/GBP-VIDEO-004_stream-0013-run13-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0013-run13-disp.bin
+captures/local/GBP-VIDEO-004_stream-0013-run13-full.bin
+captures/local/GBP-VIDEO-004_stream-0013-run13-vi.bin
+```
+
+Optional photograph: archived separately under a run13-qualified name in the
+same style (a `-run13-photo-<n>` suffix), never one of the five names above;
+never required for PASS; not frame-accurate evidence (§V6.10).
+
+#### V6.24.5 Pre-run identity gate — required of the Operator before launch
+
+```text
+DOL          exact size 506 496 B; exact SHA-256 as V6.24.2; embedded gbp-video-stream-probe / stream-0013 / 7d7a6d8;
+             TEST_ID GBP-VIDEO-004; no -dirty; the Swiss copy byte-identical
+cartridge    exact delivery size 3 620 B; exact delivery SHA-256 276ad987...6f700 (V6.24.2); the exact coord-0002
+             delivery image, flashed to the validated NOR / Mode B route
+rule         the Operator's media hashes are a double check; they do not redefine the project's identities.
+             If ANY identity differs: DO NOT RUN.
+```
+
+#### V6.24.6 Operator physical procedure — frozen
+
+The Hardware Issue reduces this to a literal short checklist; nothing asks
+the Operator to count frames by eye or to time anything.
+
+```text
+ 1  Confirm the same GameCube and the same Game Boy Player as RUN 12.
+ 2  Confirm BBA present, Ethernet disconnected.
+ 3  Confirm the current composite -> low-cost converter (1080p out) -> HYDIS HV150UX2 display chain (V6.24.3).
+ 4  Verify the exact DOL hash (V6.24.5).
+ 5  Verify the exact coord-0002 delivery-ROM hash (V6.24.5).
+ 6  Flash / select the exact coord-0002 delivery image in the EZ-Flash Omega DE, NOR / Mode B.
+ 7  Boot the exact stream-0013 through Swiss.
+ 8  Do not interact with the program during the scientific run.
+ 9  Observe the screen and record EVERY large digit seen: the digit value; the order; any missing digit; any
+    repeated digit; any unexpected digit; any obvious visual anomaly.
+10  Approximate timing may be noted; it is NOT a gate. No frame counting, no stopwatch.
+11  A photograph is optional.
+12  Let the witness target stop the experiment (2048 records); do not stop it early.
+13  Use the normal post-run save path exactly as the program requests.
+14  Archive the five raw files immediately into the reserved run13 names (V6.24.4), no-overwrite semantics.
+15  Return the five raw artifacts plus the literal visual report and the topology declaration.
+```
+
+Do not infer an exact frame number from a visually observed digit.
+
+#### V6.24.7 Shared admissibility gates — prospective, inherited, none narrowed
+
+RUN 13 is admissible only if every applicable inherited gate passes. Analysis
+order as §V6.15: identities → frozen `vindex.py` → source verdict →
+containers → join → disposition → deferral → latency / depth → cadence →
+startup; pacing is never analysed before source.
+
+```text
+IDENTITY / LOG   exact DOL and coord-0002 identities (V6.24.2); log header GBP-VIDEO-004 / stream-0013 @ 7d7a6d8;
+                 dropped=0; truncated=0; no storage fault; the required summary records complete (WITELIG,
+                 WITELIG2, COUNTERS, FULLSTORE, VISTORE)
+WITNESS / SOURCE UNCHANGED: not-before 5000 ms; qualification = 64 consecutive structural closes; the scientific
+                 window opens at the next block 0; warm-up records excluded; no reset / filter / trim after
+                 opening; target = 2048 retained records. Frozen tools/vindex.py on the OGBPIDXCAP1 must read:
+                 OBSERVED_CONTIGUOUS; intact = 2048; INVALID_CANONICAL_STRIP = 0; every retained record
+                 structurally valid; no mixed block ids; BLOCK_INDEX correct; STATUS.FAULT = 0 throughout.
+                 NOT gated: a particular first FRAME_ID. The actual first / last ids are recorded.
+                 THIS IS THE GATE RUN 12 FAILED (two duplicate transitions, §V6.20.5). Any source duplicate, gap,
+                 reorder, invalid strip, mixed id or FAULT makes the shared run INADMISSIBLE and therefore both
+                 experiments INCONCLUSIVE; the population is never repaired, trimmed or filtered afterwards.
+TRANSPORT        errors 0, transport_ok 1, timeouts 0, busy 0, overflow 0, uncertain 0; balanced service accounting
+                 under the established definitions (unmasks = deliveries = acks = re-arms)
+STARTUP          NORMAL; first real hand-off < 400 ms after the CONTROL transform; the exact value and the delta
+                 versus run 12 (165.152173 ms) are RECORDED, no tolerance invented
+POLICY A         over the exact frame_index join population: zero interior source -> display drops; zero reorder;
+                 max defer depth <= 1; frozen hand-off latency (ready = t_convert_done -> t_decision, ALL
+                 scientific hand-offs, vpace.py percentile convention): p99 <= 1.0 ms, max <= 2.5 ms; the terminal
+                 capture edge handled exactly as in runs 9-12; display repeats observational, never source loss
+SIDECARS         strict parse, every CRC valid: OGBPIDXCAP1 v1, OGBPDISP2 v2, OGBPFULL1 v1, OGBPVI1 v1. Corruption,
+                 truncation or identity failure makes the AFFECTED experiment INCONCLUSIVE; raw files are never
+                 repaired.
+TOPOLOGY         declared as V6.24.3 before execution; an unrecorded deviation is INCONCLUSIVE for both
+```
+
+#### V6.24.8 GBP-VIDEO-008 — full-frame fidelity: gates and verdicts
+
+The K = 8 selection is the implemented content-blind rule, unchanged:
+`sample frame_index = origin + 256*i, i = 0..7`, `origin` = mechanically the
+first retained scientific `frame_index`. Required: origin set; K = 8; all
+eight intended positions selected; wanted / opened / completed = 8 / 8 / 8;
+refused = 0; incomplete = 0; no generation mixing; no capacity or store
+fault; raw and texture of the same lifecycle / generation. Run the unchanged
+`tools/vfull.py` against the unchanged `tools/icoord.py`; **do not retune the
+oracle after seeing data.**
+
+```text
+PASS          admissible shared run, and ALL eight samples satisfy:
+                1  40 / 40 coherent source blocks;  2  STRIP-L identities mutually consistent;
+                3  BLOCK_INDEX matches the physical position;
+                4  all 38 400 consumed source words == icoord.expected_video(frame_id, x, y) in colour15;
+                5  the preserved texture == the Python conversion of the preserved raw;
+                6  the preserved texture == the host-built gbp_vpix.c conversion;
+                7  the preserved texture == the tiled oracle (oracle | 0x8000).
+              Bytes 0 / 2 observational only (U-GBP-029); bit-15 observations separate and never altering the
+              colour15 equality (U-GBP-034).
+              MEANS: CLAIM-A for the sampled frames; CLAIM-B source -> converted-texture fidelity for the sampled
+              frames. Nothing about the other frames, the XFB, the VI or the display.
+FAIL          admissible shared run, and any source colour15 / oracle mismatch, or texture != conversion(raw), or
+              texture != tiled oracle. The mismatch and its displacement classification are preserved.
+INCONCLUSIVE  shared run inadmissible; a required sample absent, refused, incomplete or mixed; OGBPFULL1 integrity
+              failure; a store or capacity fault; the current accepted analyzer cannot classify the file.
+```
+
+#### V6.24.9 GBP-VIDEO-007 — physical scanout: gates and verdicts
+
+Machine evidence and human observation remain separate. The chain: the
+OGBPIDXCAP1 join `frame_index ↔ FRAME_ID`; OGBPDISP2 → the handed set `H_k`;
+OGBPVI1 + the corrected current `tools/vvi.py` (§V6.21) → the latched and
+register-consistent set `L_k`; the Operator's literal report is a separate
+physical observation, never fed into the tool. Appearance sets remain
+OGBPCOORD1's: `R_k = [k*480, k*480 + 40)`, k ≥ 1, digit = `k mod 10`.
+**Which k qualify is determined from the actual admissible retained data; no
+first FRAME_ID is assumed.** SUPERSEDED records remain instrumentation
+semantics only: OGBPVI1 recorded no latch for that hand-over; nothing about
+physical scanout is inferred from them.
+
+```text
+PASS          admissible shared run; for every qualifying appearance set R_k that is represented as required in the
+              admissible retained population AND has at least one handed-and-current-VI-latched, register-consistent
+              frame in L_k, the coherent Operator report contains the corresponding large digit k mod 10, in the
+              observed order.
+              MEANS: CLAIM-D -- at least one source-derived frame from each qualifying appearance was physically
+              visible through the DECLARED RUN 13 display chain. PASS does NOT bind the observation to one frame.
+FAIL          admissible shared run; a qualifying R_k has machine evidence of >= 1 frame in L_k, but the coherent
+              Operator report says the expected digit was not seen, or a different digit was seen.
+INCONCLUSIVE  shared run inadmissible; visual report missing or uncertain; no qualifying appearance retained;
+              OGBPVI1 invalid or incomplete for the required join; the current corrected vvi analyzer cannot form the
+              required chain; an operator-reported digit with no corresponding handed set; topology differing from
+              V6.24.3 without being recorded before execution.
+```
+
+Neither verdict consults the other's evidence (§V6.13).
+
+#### V6.24.10 Explicit non-claims
+
+Even if both experiments PASS, RUN 13 does **not** establish: exact per-frame
+physical scanout accounting; physical display pixel equality; tearing
+absence; presentation / scaling correctness; pixel-perfect output;
+correctness of the cheap RCA → HDMI scaling; Morph 2K behaviour; Samsung Q80T
+behaviour; universal cable / display behaviour; full-frame fidelity outside
+the K = 8 sampled frames; audio or input; Link Port behaviour; Ethernet,
+networking or BBA initialisation; Phase 11. GBP-VID-032 (pixel-perfect)
+remains future work. RUN 12 remains historical and INCONCLUSIVE.
+
+#### V6.24.11 Offline analysis and the comparison table — to be filled AFTER the run, nothing pre-filled
+
+```text
+0  archive first under the reserved names (V6.24.4); sha256sum on receipt; verify V6.24.2 identities
+1  tools/vindex.py UNMODIFIED on the OGBPIDXCAP1 -> the source verdict (the gate RUN 12 failed);
+   tools/vdisp.py / vpace.py on the OGBPDISP2 -> the Policy-A gates; exactly as runs 9-12
+2  GBP-VIDEO-008: tools/vfull.py UNMODIFIED (V6.24.8), then the verdict
+3  GBP-VIDEO-007: the corrected tools/vvi.py -> the R_k / H_k / L_k table with the first latch instants;
+   the Operator's literal report placed BESIDE it; then the verdict
+4  the comparison table below, observational, no new tolerance; plus §V6.22's falsifiable expectation for
+   coord-0002 (no PREPARE-side duplicate at any entry) read off the data, not assumed
+```
+
+```text
+field                                   run 12 (reference, coord-0001, §V6.20)     RUN 13 (coord-0002)
+DOL SHA-256                             5391c3fe…dd79                              --   (the same image expected)
+stimulus (delivery) SHA-256             a769cc11…994f (coord-0001)                 --   (276ad987…6f700 expected)
+BBA / Ethernet                          PRESENT / DISCONNECTED                     --   (operator)
+display chain                           composite -> converter -> HYDIS HV150UX2   --   (operator, V6.24.3)
+log lines / dropped / truncated         674 / 0 / 0                                --
+first real hand-off after CONTROL       165.152173 ms                              --
+eligibility after CONTROL               5.000153852 s                              --
+first / last FRAME_ID                   74 / 2119                                  --
+intact / INVALID                        2048 / 0                                   --
+decisive transitions contiguous / dup   2044 / 2                                   --
+source verdict                          OBSERVED_DISCONTINUITY                     --
+transport errors / timeouts / uncertain 0 / 0 / 0                                  --
+scientific records joined downstream    2047 (+1 edge)                             --
+interior drops / reorder / max depth    0 / 0 / 1                                  --
+frozen p99 / max latency                0.308642 / 1.004667 ms                     --
+display-repeat intervals                7                                          --
+OGBPFULL1: samples wanted / completed   8 / 8   (dependent variable PASS 8/8, subordinate)   --
+OGBPVI1: handed / latched / superseded  2377 / 2370 / 6   (frozen L_k = 0; corrected replay §V6.21: L = 40/40/38/40)   --
+GBP-VIDEO-008 verdict                   INCONCLUSIVE                               --
+GBP-VIDEO-007 verdict                   INCONCLUSIVE                               --
+```
+
+#### V6.24.12 What this part is not
+
+Not authorized by this pre-registration: hardware execution; flashing or
+booting; opening the Hardware Issue (the Orchestrator's, after independent
+validation); any change to the runtime, coord-0001, coord-0002, the
+analyzers, the formats, the fixtures, the evidence rows or the gates (none
+was made); evidence ingestion; PASS / FAIL classification. No new physical
+evidence ID exists. RUN 13 ends this checkpoint as PRE-REGISTERED / NOT RUN.
 
 ---
