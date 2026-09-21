@@ -131,23 +131,34 @@ on real hardware without relying on proprietary runtime code.
 
 ## Phase 4 — Video
 
-**Status: IN PROGRESS (entered 2026-09-16; updated 2026-09-20).** Transport,
-block sequence and **colour** are physically established (GBP-AV-SERVICE-001,
-GBP-VIDEO-001, GBP-VIDEO-003). Since then, physically established as well:
-real cartridge video on screen (`stream-0003`); source-frame continuity
-`OBSERVED_CONTIGUOUS` on five indexed runs (GBP-HW-184, 203, 232); a
-source-lossless two-framebuffer presentation policy, Policy A, clean on four
-consecutive runs (GBP-HW-205…211, 217, 225, 236); a NORMAL startup that shows the
-user real video ~165 ms after the CONTROL transform with no synthetic frame and
-no wait (GBP-HW-214…215, 224, 229, 235); and a research-only witness eligibility
-gate (GBP-HW-237). **Still not established:** pixel fidelity beyond the witness
-strip, scanout of any frame, presentation/scaling (see the pixel-perfect
-requirement below), audio, input, and any Ethernet-connected or
-BBA-initialised topology. **BBA physically present, Ethernet disconnected** is
-now a paired topology control against run 9 with no detected regression
-(GBP-BBA-001, §V5.57.14) — a baseline, not BBA validation, and Phase 11 does
-not move. The controlled video sequence that kept the BBA disconnected is
-closed (§V5.56.12); the phase itself is not. **U-GBP-011 closed
+**Status: ASSESSED 2026-09-21 against the acceptance criterion below (GitHub
+Issue #17) — the verdict and the named residuals are in the "Phase 4
+assessment" subsection at the end of this section; the full term-by-term
+assessment is `docs/research/PHASE4_ASSESSMENT.md`, and the consolidated
+programming reference for the video path is `docs/protocol/VIDEO.md`.**
+Physically established over runs `video-0001` … RUN 13 (entered 2026-09-16):
+transport, block sequence and **colour** (GBP-AV-SERVICE-001, GBP-VIDEO-001,
+GBP-VIDEO-003); real cartridge video on screen (`stream-0003`, `stream-0004`,
+run 8 / GBP-VIDEO-005: GBP-HW-144, 152, 224…229); source-frame continuity
+`OBSERVED_CONTIGUOUS` within a prospectively qualified window on seven indexed
+runs (GBP-HW-188/189, 193, 203, 232, 240, 246, 257) and its one exception
+explained by the stimulus's own scheduling (GBP-HW-251, GBP-VID-034 RESOLVED);
+a source-lossless two-framebuffer presentation policy, Policy A, clean on
+eight consecutive runs including the retail cartridge (GBP-HW-205…211, 217,
+225, 236, 241, 247, 253, 259); a NORMAL startup that shows the user real video
+~165 ms after the CONTROL transform with no synthetic frame and no wait
+(GBP-HW-214…215, 224, 229, 235, 241, 247, 253, 259); full-frame source →
+texture fidelity on eight prospectively sampled frames, GBP-VIDEO-008 = PASS
+(GBP-HW-258); physical scanout as CLAIM-D, GBP-VIDEO-007 = PASS (GBP-HW-260);
+and a research-only witness eligibility gate (GBP-HW-237). **Still not
+established:** correctness of retail content by measurement, physical pixel
+equality, per-frame scanout accounting, presentation/scaling (see the
+pixel-perfect requirement under Phase 9), audio, input, and any
+Ethernet-connected or BBA-initialised topology. **BBA physically present,
+Ethernet disconnected** is a paired topology control against run 9 with no
+detected regression (GBP-BBA-001, §V5.57.14) — a baseline, not BBA validation,
+and Phase 11 does not move. The controlled video sequence that kept the BBA
+disconnected is closed (§V5.56.12). **U-GBP-011 closed
 2026-09-18** by the pre-registered confirmatory run `color-0002`: the VIDEO
 window exchanges the two outer 5-bit groups relative to the AGB framebuffer, so
 the references' GX RGB5A3 reading is the displayed colour (GBP-HW-131). GBP-VIDEO-002 has now been run
@@ -305,7 +316,19 @@ measured the device and confirmed it (U-GBP-011 CLOSED); both embed the AGB idle
   established the device already performs the swap, and a CONTROLLED motion
   stimulus with an embedded frame index so that frame loss is measured rather
   than inferred. This is also where the "first rendered frames" that
-  GBP-VIDEO-003 deliberately deferred belong.
+  GBP-VIDEO-003 deliberately deferred belong. **Since that date, EXECUTED** —
+  `stream-0003` and `stream-0004` (real cartridge video on screen, §V5.34,
+  §V5.38; GBP-HW-138…152); runs 1–6 on the indexed stimulus (§V5.41–§V5.50:
+  the stimulus corrected twice, the prospective window, the downstream trace,
+  Policy A; GBP-HW-153…212); run 7 NORMAL startup (§V5.53; GBP-HW-213…222);
+  run 8 = **GBP-VIDEO-005**, the retail cartridge on the NORMAL startup, PASS
+  with a debug-UX note (§V5.54; GBP-HW-223…230); run 9 the research not-before
+  gate (§V5.56; GBP-HW-231…238); run 10 = **GBP-BBA-001** (§V5.57;
+  GBP-HW-239…243); run 11 = **GBP-VIDEO-006** (§V5.58; GBP-HW-244…249); then
+  **GBP-VIDEO-007 / GBP-VIDEO-008** (§V6): RUN 12 INCONCLUSIVE / INCONCLUSIVE
+  on the stimulus's own scheduling (§V6.20, §V6.22; GBP-HW-250…255) and RUN 13
+  with `coord-0002` GBP-VIDEO-007 = PASS · GBP-VIDEO-008 = PASS inside their
+  pre-registered boundaries (§V6.25; GBP-HW-256…260).
 
 No further micro-probes unless one of these raises a blocking question.
 
@@ -325,6 +348,65 @@ Acceptance:
 A real cartridge running on the physical GBP produces stable,
 correct video through the open-source runtime.
 ```
+
+### Phase 4 assessment (2026-09-21, GitHub Issue #17)
+
+Assessed term by term against the criterion above, on the evidence ids of
+`docs/research/EVIDENCE.md` and nothing else; the full assessment is
+`docs/research/PHASE4_ASSESSMENT.md` and the verdict is repeated in
+`docs/HANDOFF.md` in the same words:
+
+```text
+PHASE 4 VERDICT: SATISFIED WITH NAMED RESIDUALS
+```
+
+*Real cartridge:* a retail cartridge ran through the runtime on the physical
+Game Boy Player three times (`stream-0003`, `stream-0004`, run 8), with the
+transport, the NORMAL startup and Policy A measured clean on retail content
+(GBP-HW-138…151, 224…226) and the picture observed by the operator (GBP-HW-144,
+152, 227). *Stable:* zero transport faults in every streaming run, source-frame
+continuity within every prospectively qualified window except the one the
+stimulus itself explained, zero interior source drops with bounded hand-off
+latency on eight runs, and the same ~165 ms startup on eight runs
+(GBP-HW-188…259 as cited in the assessment). *Correct video:* geometry
+(GBP-HW-081), frame composition (GBP-HW-076, 077), colour order (GBP-HW-131),
+full-frame source → texture fidelity on eight sampled frames (GBP-HW-258) and
+physical scanout as CLAIM-D (GBP-HW-260) are FACT on controlled stimuli within
+their boundaries. *Through the open-source runtime:* every run executed a DOL
+built from this repository with its identity recorded (ENV-HW-001; the
+artifact rows of every run), with the Start-up Disc and GBI used as static
+references only.
+
+The one asymmetry, argued rather than assumed: the measured correctness and
+continuity rest on controlled synthetic stimuli (`indexed-0003`, `coord-0001`,
+`coord-0002`), because each measurement needs what a retail cartridge cannot
+supply — a frame index, an injective oracle, known digits. On retail content
+the evidence is machine-side metrics identical to the controlled runs plus
+operator observation; the transfer is an inference about a content-blind path,
+CORROBORATED and not FACT. The ROADMAP places cartridge validation in Phase 7,
+so that residual is named and owned rather than allowed to block the phase.
+
+**What Phase 4 does not establish, and who owns it:**
+
+| residual | owner |
+| --- | --- |
+| correctness of retail content by measurement (no oracle-based colour / geometry / fidelity check on a retail picture; operator observation plus a content-blind path) | **Phase 7** — representative cartridges, the compatibility matrix |
+| presentation, scaling, aspect, filtering; the pixel-perfect requirement GBP-VID-032 | **Phase 9** — the requirement is written there and in the runtime (`poc/gbp-video-stream-probe/source/main.c`: "Scaling and aspect are Phase 9 policy"); crossing to it is not authorised by this assessment |
+| physical pixel equality on any display; per-frame scanout accounting | **not scheduled** — established by nothing; a capture device on the video output would be the instrument |
+| duration and breadth of stability (≈ 44 s with presentation, one console, one GBP, one retail title; the consumer slice's timing margin unmeasured); the GB/GBC family | **Phase 12** (duration, margin), **Phase 7** (titles, GB/GBC) |
+| the colour result's intra-group limit (§V3.19) | **not scheduled** |
+| bytes 0/2 of the pixel word (U-GBP-029), bit 15's origin (U-GBP-034), the startup-region short intervals (U-GBP-030), the IRQ-window non-uniformity's mechanism (U-GBP-033) | **Phase 4 research residuals**, open in `UNKNOWNS.md`, non-blocking |
+| rate conversion (≈ 7 repeated display intervals per 34 s, GBP-PHY-003) | **Phase 9** — a presentation/timing policy, nothing to fix here |
+| audio; input | **Phase 6**; **Phase 5** |
+| Ethernet-connected or BBA-initialised topologies | **Phase 11** |
+| production UX (debug console flash, research witness, no menu) | **Phase 9**, **Phase 12** |
+
+This assessment re-judges no run, promotes no evidence status, closes no
+unknown and mints no id; RUN 12 stays INCONCLUSIVE / INCONCLUSIVE and RUN 13's
+two PASS verdicts keep their boundaries. The consolidated documentation it
+produced is `docs/protocol/VIDEO.md` and the refreshed video rows of
+`docs/hardware/ARCHITECTURE.md`, `docs/hardware/GBS-DOL.md` and
+`docs/protocol/REGISTERS.md`, every sentence with its evidence id.
 
 ## Phase 5 — Input
 
