@@ -10350,3 +10350,84 @@ not touched. `build/` is ignored: nothing to commit.
 
 **Next.** The Orchestrator validates #22; RUN 14 executes under Hardware
 Issue #21 independently.
+
+## 2026-09-21 — Issue #23: §V7.1 amended BEFORE HARDWARE — the Enhanced Control Checker is the instrument of RUN 14 and RUN 15 with distinct press counts, the EZ-Flash menu test becomes the optional RUN 16; the Operator's unregistered trial recorded for what it is; no hardware, no code
+
+**Why legitimate, said in the section.** No run had executed and no result
+existed; what the discipline forbids is changing a gate after seeing data.
+The amendment is dated and labelled; Question One, the shared gates, the
+recovery procedure with its hazard, and the U-GBP-010 part keep the bytes of
+Issue #20 (`848007a`), pinned by `tests/host/test_run14_prereg.py`.
+
+**The instrument, and why it moved to the first run.** Enhanced Control
+Checker GBA (github.com/nataliethenerd/enhancedcontrolcheckerGBA, main =
+`76924c1371d7bf761f8b1ed45ab36f195cd1374f`, 2024-08-11, CC BY-SA 4.0; the
+repository's prebuilt ROM 69 348 B, SHA-256 `53c212c7…b6e`, hashed from a
+scratchpad clone; nothing enters the tree), flashed by the Operator to the
+EZ-Flash NOR and booted straight into. Verified in its source: ten
+independent counters at rows 4–13, one `if` per button over `keysDown()` in
+a `VBlankIntrWait()` loop (simultaneous presses each count; edge-triggered),
+`consoleDemoInit()` then the loop (no splash, no menu, no START gate),
+persistent two-digit tallies, a tone per press. Science: it answers M at
+least as well as the menu tabs and O strictly better (a distinct-count
+vector identifies any permutation, the tabs only L's direction against R's),
+needs no menu boot screen, persists, and is verifiable from source; the
+practical reason: the NOR now holds it, and requiring the menu would ask the
+Operator to undo what he prepared for a weaker instrument. The AGS test ROM
+is the fallback; the menu tabs are the optional, independent RUN 16.
+
+**Numbering and authorisation, stated.** Run numbers are the order of
+execution: RUN 14 = walk A (L 1, R 2, A 3, B 4, SELECT 5, START 6), RUN 15 =
+walk B (L 1, R 2, UP 3, DOWN 4, LEFT 5, RIGHT 6), RUN 16 = the optional menu
+tabs; the run14 / run15 names Issue #20 reserved now carry the walks and the
+run16 names the menu test — stated explicitly, none used, the experiment
+GBP-INPUT-001 in all three. Hardware Issue #21 authorises RUN 14 and is the
+Orchestrator's to align; RUN 15 and RUN 16 need their own.
+
+**The schedule as the primary gate.** One press per button leaves an end
+state that cannot see a permutation, so the single-press walk is forbidden
+in the procedure text; distinct counts make the end state self-describing.
+Ten distinct positive counts cost at least 55 presses; with a NOR boot the
+checker's screen is expected ~3–5 s after CONTROL and the tallies must be
+read before ~40.4 s, so ~30 s of walk: 55 fits only at a sustained two
+presses per second with ~3 s to spare — not with margin for a first-ever
+run — hence two runs of 21 presses each, every count distinct within each,
+L and R first and smallest twice. Both channels are used: which labelled row
+moved at each press (live, when seen) and the final tally vector (always);
+verdicts are read from the vector, the live channel corroborates or flags.
+Reading rules: L=1, R=2 AS-ASSIGNED; L=2, R=1 SWAPPED (informative,
+falsifies GBP-KEY-004's assignment, not a failure); a zero where a count
+was expected is an M finding; an unexpected non-zero identifies the
+misrouted button by its count; a cut walk keeps the completed buttons.
+
+**The unregistered trial.** Before the amendment landed the Operator ran an
+informal, unregistered, incomplete trial of the exact candidate with the
+checker: not RUN 14, never RUN 14, no claim, no gate. Recorded as what they
+are: the §18 hazard did not occur (an informal observation, never a result)
+and the Operator's impression that the mapping was recognised as
+implemented (informal; U-GBP-010 OPEN, the descriptor unchanged). Prior
+exposure recorded: the Operator's report is no longer naive; the mitigation
+is the distinct-count scheme ("what number is on the screen"), plus an
+optional photograph of the final tally screen under §V6.10. A negative
+control from the same trial, informal: every counter incremented except
+under Z and the C stick, which produced nothing — as the policy intends (Z
+unmapped, the C stick unread), consistent with the Disc's behaviour and
+with the Z / OSD note; OPERATOR OBSERVATION supporting no claim. The trial
+left no file on the SD (the Operator deletes the card copies after moving
+them to `logs/`); the check stays in the procedure and a leftover, if ever
+found, is moved aside, never deleted. Recorded, not acted on (outside §V7):
+because the card copy is deleted after the move, the `logs/` copy is the
+ONLY copy until the run-suffixed archive exists — the same exposure that
+lost RUN 12's bare-name drop, and the argument for a per-run subdirectory
+convention in `logs/`, for a later checkpoint.
+
+**Records.** `HARDWARE_TESTS.md` §V7.1 (heading, intro, parts 2–7, 9, 11,
+12); HANDOFF (the fifteen names, the issue trail, the Phase-5 row, a
+do-not-assume note on the trial); ROADMAP Phase 5;
+`tests/host/test_run14_prereg.py` reworked; `test_run13_prereg.py`'s
+"no run-16+ name" pin moved to run-17+; `test_input_addenda.py`'s whole-§V7
+pin narrowed to parts 1, 8 and 10. Nothing under `src/`, `poc/`, `tools/`,
+`Makefile`, `docs/protocol/`, `docs/hardware/`.
+
+**Next.** The Orchestrator validates #23 and aligns Hardware Issue #21; RUN
+14 executes; RUN 15 follows in order; RUN 16 only if wanted.

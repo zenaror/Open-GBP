@@ -21463,7 +21463,7 @@ GBP-KEY-006), and this chapter pre-registers its first physical execution.
 Everything physical about the keypad plane is still unknown: no Open-GBP
 build has ever issued a KEYPAD write in any environment.
 
-### V7.1 RUN 14 / RUN 15 — GBP-INPUT-001, the first physical KEYPAD write, in two staged runs of the same image — **PRE-REGISTERED 2026-09-21 (GitHub Issue #20); NOT RUN / NOT AUTHORISED HERE**
+### V7.1 RUN 14 / RUN 15 — GBP-INPUT-001, the first physical KEYPAD write, in two staged runs of the same image — **PRE-REGISTERED 2026-09-21 (GitHub Issue #20); NOT RUN / NOT AUTHORISED HERE** · **AMENDED BEFORE HARDWARE (GitHub Issue #23, 2026-09-21): the Enhanced Control Checker is the instrument of RUN 14 and RUN 15; the EZ-Flash menu test becomes the optional RUN 16**
 
 Written before the hardware is touched. GitHub Issue #20 is the complete
 prospective pre-registration contract and this part persists it in substance:
@@ -21474,7 +21474,8 @@ procedure with its recovery procedure, the shared admissibility gates, the
 gates and verdicts of the experiment, the U-GBP-010 closing condition and the
 non-claims. **No hardware run is authorized by this part.** After it is
 pushed and independently validated by the Orchestrator, a separate Hardware
-Issue moves RUN 14 to the Operator; RUN 15 follows it conditionally.
+Issue moves RUN 14 to the Operator; RUN 15 follows it in order and RUN 16 is
+optional (the pre-hardware amendment of Issue #23, V7.1.2).
 Nothing here is evidence; no evidence ID is allocated; nothing is
 classified; U-GBP-010 is not closed; `docs/protocol/INITIALIZATION.md`'s
 "KEYPAD, never written" is still true; RUN 12 and RUN 13 are not
@@ -21525,25 +21526,48 @@ consequence         TWO RUNS of the SAME image, each ending at its own target: R
                     without the witness stop) would be a separate functional Issue and is NOT requested here.
 ```
 
-#### V7.1.2 Run identity and what is fixed
+#### V7.1.2 Run identity and what is fixed — AMENDED BEFORE HARDWARE (Issue #23)
+
+**PRE-HARDWARE AMENDMENT — 2026-09-21, GitHub Issue #23.** No run had
+executed and no result existed when this amendment was written; what the
+discipline forbids is changing a gate after seeing data, and nothing here
+was written after data. It is recorded and dated as an amendment, never a
+silent edit. What Issue #20 pre-registered as stage 1 (the EZ-Flash menu's
+L/R tabs) and stage 2 (the AGS test ROM's controller test) is replaced by
+the shape below. Question One (V7.1.1), the shared gates (V7.1.8), the
+recovery procedure and its hazard (V7.1.7) and the U-GBP-010 part (V7.1.10)
+keep the bytes of Issue #20, pinned by `tests/host/test_run14_prereg.py`.
 
 ```text
-global run numbers  RUN 14 and RUN 15 -- runs 1-13 are the highest referenced in the record; both reserved now,
-                    TAKEN even if an execution later aborts or RUN 15 is never executed
+global run numbers  RUN 14, RUN 15, RUN 16 -- runs 1-13 are the highest referenced in the record. The run numbers are
+                    the ORDER OF EXECUTION and nothing else; all three are reserved (V7.1.5), TAKEN even if an
+                    execution aborts or a later run never happens.
 experiment          GBP-INPUT-001, one experiment, two questions answered separately (V7.1.9):
                       M  mechanism -- does a KEYPAD word written by Open-GBP reach the cartridge as key presses?
                       O  order     -- are L and R delivered in the assignment GBP-KEY-004 records
                                       (word bit 8 = L, bit 9 = R; CORROBORATED, not FACT; U-GBP-010 OPEN)?
                     a result for M may not promote, demote or excuse O, nor the reverse
-stages              stage 1 (RUN 14): the EZ-Flash Omega DE menu, whose L and R move between tabs in OPPOSITE
-                    directions -- the stronger falsifier for O: a swapped order reads as the tab moving the WRONG
-                    WAY, which separates "bits exchanged" from "bit never arrived"
-                    stage 2 (RUN 15): the AGS test ROM, entered by holding L + R while the AGB boots (both bits must
-                    arrive together) and its controller test, which discriminates the ten buttons individually;
-                    conditional on RUN 14 (V7.1.7)
-runtime             the exact stream-0014 image of Issue #19, verified on disk, NOT rebuilt (V7.1.3); embedded
-                    TEST_ID GBP-VIDEO-004 (the line's name); NORMAL startup; the input step as the first statement
-                    of the pump slot; formats OGBPIDXCAP1 v1, OGBPDISP2 v2, OGBPFULL1 v1, OGBPVI1 v1 unchanged
+instrument          the Enhanced Control Checker GBA (V7.1.3), flashed by the Operator to the EZ-Flash Omega DE's NOR
+                    and booted STRAIGHT INTO (V7.1.4), for RUN 14 and RUN 15; the AGS test ROM is the FALLBACK
+RUN 14              the checker's counted walk A: L x1, R x2, A x3, B x4, SELECT x5, START x6 (21 presses)
+RUN 15              the checker's counted walk B: L x1, R x2, UP x3, DOWN x4, LEFT x5, RIGHT x6 (21 presses); follows
+                    RUN 14 in order, planned for the same session; NOT gated on any observation of RUN 14 -- the only
+                    stop rule is V7.1.7's: a RUN 14 in which no press reached the cartridge at all sends the project
+                    to a functional Issue before any further run
+RUN 16              OPTIONAL and INDEPENDENT: the EZ-Flash menu's L/R tab observation Issue #20 had as stage 1, kept
+                    as a cheap additional reading if a later run wants it; it needs the menu as the boot screen,
+                    which the Operator's NOR now makes awkward; it is a precondition of nothing
+names               the run14 and run15 names Issue #20 reserved now carry the checker's walks A and B, and the run16
+                    names carry the optional menu test -- stated here so the reassignment is not silent; none had
+                    been used; the experiment id is GBP-INPUT-001 for all three, so no name changes experiment (V7.1.5)
+authorisation       Hardware Issue #21 authorises RUN 14. It was written before this amendment, as the menu test, and
+                    it is the Orchestrator's to align to walk A after this part lands. RUN 15 needs its own
+                    authorisation (that Issue extended, or another). RUN 16 needs its own if it is ever run. Nothing
+                    in this part authorises anything.
+runtime             the exact stream-0014 image of Issue #19, verified on disk and STAGED at build/swiss/12-stream
+                    (V7.1.3, V7.1.6), NOT rebuilt; embedded TEST_ID GBP-VIDEO-004 (the line's name); NORMAL startup;
+                    the input step as the first statement of the pump slot; formats OGBPIDXCAP1 v1, OGBPDISP2 v2,
+                    OGBPFULL1 v1, OGBPVI1 v1 unchanged
 what each run ends  the content-blind witness target (V7.1.1): the Operator never stops a run early
 input configuration ENVINPUT as the build reports it: port 1; policy default (stick 48, analogue triggers 0,
                     analogue A/B 0, opposites filtered); refresh 5 ms; layout gbi-u16-replicated; index 0xC;
@@ -21551,6 +21575,123 @@ input configuration ENVINPUT as the build reports it: port 1; policy default (st
                     first admitted step writes the current word: with nothing held, 0x0000 (release all), the word
                     both references start from
 ```
+
+*Why the checker is the instrument of the first executed run — the
+science, then the practical reason.* (1) It answers Question M at least as
+well as the menu: a counter incrementing at all proves the word reached the
+cartridge. (2) It answers Question O strictly better: with distinct press
+counts the final tally vector identifies ANY permutation of the ten
+buttons, where the menu's tabs only distinguish the direction of L against
+R. (3) It needs no menu as a boot screen, so the precondition Issue #20 put
+on RUN 14 disappears. (4) The tallies persist, so nothing depends on the
+Operator observing at the instant of a press: he presses, then reads. (5)
+Its behaviour is publicly verifiable from source, unlike the AGS service
+ROM's. The practical reason: the Operator has already flashed the checker
+to the NOR; requiring the menu as the boot screen would ask him to undo what
+he prepared, for a weaker instrument.
+
+*The instrument, verified in its source (not assumed).* Ten independent
+counters (`countL`, `countR`, `countUp`, `countDown`, `countLeft`,
+`countRight`, `countStart`, `countSelect`, `countA`, `countB`), printed
+simultaneously at rows 4–13; one independent `if` per button over
+`keysDown()` in a `VBlankIntrWait()` loop, so simultaneous presses each
+increment their own counter — the rejected homebrew ROM's oscillation cannot
+occur; `keysDown()` is edge-triggered, so it counts presses, not held
+frames; `consoleDemoInit()` then straight into the loop — no splash, no
+menu, no START gate; persistent two-digit tallies (`%2d`); a short tone per
+press through a small busy-wait, which changes nothing above.
+
+*The design flaw, designed around — the distinct-count schedule is the
+PRIMARY gate.* One press per button reads 1 everywhere whether or not the
+mapping is a permutation: with L and R swapped, the GameCube L increments
+the checker's R counter and vice versa and the vector is still all ones.
+**A single-press-each walk is therefore FORBIDDEN (V7.1.7), because it cannot
+distinguish a permutation**, and every walk uses DISTINCT PRESS COUNTS with
+L and R first and smallest. The expected tally vector is arithmetic,
+declared by nobody.
+
+*The schedule against the window (V7.1.1), re-derived for a NOR boot.* Ten
+distinct positive counts sum to at least 1 + 2 + … + 10 = 55 presses. With
+the checker on the NOR its screen is expected roughly 3–5 s after the
+CONTROL transform (the AGB's BIOS logo; the checker prints at once), the
+ten tallies must be READ before the target removes the AGB image at
+~40.4 s (about 5 s), so the walk has roughly 30 s: 60 presses at two per
+second, 45 at one and a half. **55 fits only at a sustained two presses per
+second with about 3 s to spare — not with margin** for a first-ever run in
+which the Operator also counts aloud and watches for the hazard, and
+distinctness over ten buttons cannot cost fewer than 55. The walk is
+therefore split over TWO runs with every count distinct WITHIN each: RUN 14
+= walk A (L 1, R 2, A 3, B 4, SELECT 5, START 6; 21 presses, ~11 s) and RUN
+15 = walk B (L 1, R 2, UP 3, DOWN 4, LEFT 5, RIGHT 6; 21 presses, ~11 s).
+Within a run the vector identifies any permutation of its pressed set; a
+pressed button delivered to an unpressed one shows as a zero where a count
+was expected and that count where nothing was pressed; the two runs
+together identify any permutation of the ten; L and R are read twice,
+first, with the smallest counts. Recorded and NOT chosen: all ten in one
+window (55 presses; fits at two per second with ~3 s margin — a later run
+may use it once walks A and B have come out clean), and the single-window
+L 1 / R 2 / every other button 3 walk (27 presses; identifies only the
+permutations that touch L or R).
+
+*The unregistered exploratory trial of 2026-09-21, recorded for what it
+is.* Before this amendment landed, the Operator ran an informal,
+unregistered, INCOMPLETE trial of the exact candidate (stream-0014,
+ef76a170…0b9c) with the checker on the NOR: no declared expectation, no
+frozen procedure, not carried to its end, no file archived. It is NOT RUN
+14 and can never become it — the value of a run is that the expectation was
+fixed before the observation and the run was carried to the end, and the
+trial had neither property. It supports no claim and touches no gate. Two
+things are recorded as what they are. (1) A HAZARD observation: the scenario
+of V7.1.7 — a stuck or wrong word navigating a menu, launching something
+unattended, hanging the AGB — did NOT occur in the trial; the first informal
+indication in the project's history that the KEYPAD write path does not
+destabilise the system; an informal observation, never a result; the
+recovery procedure stands unchanged. (2) The Operator's impression that the
+checker recognised the buttons according to the mapping implemented;
+informal, changing no status — U-GBP-010 stays OPEN and the descriptor
+stays as it is. (3) A NEGATIVE CONTROL, the most useful thing the trial
+produced: the Operator reports that every counter incremented normally
+EXCEPT under Z and the C stick, which produced nothing — as the implemented
+policy intends (Z unmapped, the C stick unread, both deliberately, both
+matching the Start-up Disc's behaviour as he described it: Z reserved for
+the Disc's OSD, the C stick no effect); informal evidence that the runtime
+is not spraying spurious bits into the word, OPERATOR OBSERVATION from an
+unregistered incomplete trial, supporting no claim and changing no status,
+and consistent with the Z / OSD note of INPUT_PATH.md §10.2. The trial left
+no file on the SD (the Operator deletes the card copies after moving them
+to `logs/`); V7.1.6 and V7.1.7 keep the check, because the condition can
+recur. Why the official run still has to happen, plainly: the trial had no
+declared expectation fixed before observation, was not carried to the end,
+produced no machine-side records, no declared topology, no identity gate,
+no reserved names and no archive — it is not reconstructible by anyone but
+him, which is exactly what a result has to be.
+
+*Two channels, and why the distinct counts stay.* A correction to the
+reasoning above: a single press per button is invisible only to a reader of
+the FINAL tallies. An observer watching WHICH LABELLED ROW increments at the
+moment of the press discriminates a permutation immediately, because the
+checker prints all ten labels. The runs therefore use BOTH channels: (a) the
+live per-press observation — which row moved when this button was pressed
+— recorded per press whenever the Operator can see it; (b) the final tally
+vector, read and reported at the end, always. The distinct counts are kept
+for the corrected reason: they make the END STATE self-describing, so the
+answer survives the Operator not watching at the right instant, and they
+identify any permutation from a single static reading. The single-press-
+each walk stays forbidden (V7.1.7) because its end state cannot.
+
+*Prior exposure, recorded so a future reader can weigh it.* Question O has
+exactly one channel — the human — because the KEYPAD window is write-only
+and the device never answers. Having seen the trial's informal answer, the
+Operator's report at the official runs is no longer naive. That does not
+invalidate the runs; it is recorded here beside the fact that the trial
+happened. The mitigation is precisely the distinct-count scheme: it
+converts Question O from "what did you perceive" into "what number is on
+the screen", and a static end state is far harder to report with bias than
+a momentary impression. A second, optional mitigation: a photograph of the
+FINAL TALLY SCREEN (V7.1.5, V7.1.7) under the existing precedent (§V6.10) —
+never frame-accurate evidence, never required for a verdict — which turns
+the weakest link of the chain into something close to a recorded artifact
+at the cost of one click.
 
 #### V7.1.3 The exact artifact — verified on disk 2026-09-21, NOT rebuilt; the Swiss slot decision; nothing in build/physical
 
@@ -21588,6 +21729,20 @@ tools        tools/vindex.py, vdisp.py, vpace.py, vfull.py, vvi.py: unchanged, u
              analyzer reads a KEYPAD value, because none exists to read
 ```
 
+**Amendment 2026-09-21 (Issue #23) — the instrument of RUN 14 and RUN 15, the
+Operator's media, not a project artifact:**
+
+```text
+checker      Enhanced Control Checker GBA -- https://github.com/nataliethenerd/enhancedcontrolcheckerGBA, branch main,
+             commit 76924c1371d7bf761f8b1ed45ab36f195cd1374f (2024-08-11), licence CC BY-SA 4.0; the repository's prebuilt
+             enhancedcontrolchecker.gba is 69 348 B, SHA-256 53c212c73e814875fcbac16a4dc22ea5d6c752f85cdddc433db97439caef2b6e
+             (hashed by the Executor from a clone outside the project tree; source/enhancedcontrolchecker.c, libgba).
+             The Operator flashed it to the EZ-Flash Omega DE's NOR (2026-09-21) and the cartridge boots straight into
+             it (V7.1.4); the hash of his copy is a double check, never a gate -- it is his media. NOTHING from it
+             enters the repository: no image, no source, no asset (CLAUDE.md §7).
+fallback     the AGS test ROM of V7.1.4, unchanged policy, used only if the checker cannot be booted at all.
+```
+
 If any identity differs on the day, **DO NOT RUN**. No artifact is rebuilt or
 re-derived to satisfy this gate. The Operator's media hashes are a double
 check of identities the project has frozen; they never redefine the artifact.
@@ -21602,15 +21757,17 @@ controller         ONE GameCube controller in port 1 (the input path reads PAD_C
 BBA                PRESENT
 Ethernet           DISCONNECTED
 network            no BBA / network initialisation, no network code (stream-0014 links none)
-cartridge          the EZ-Flash Omega DE already in use, configured to show its MENU at boot (the Operator declares;
-                   a cartridge that boots straight into a NOR image spends the window in that image: DO NOT RUN
-                   until the menu is the boot screen). NOR / PSRAM contents are the Operator's; coord-0002 may stay
-                   on the NOR and is NOT launched.
-AGS test ROM       RUN 15 only: the AGS test ROM ALREADY ON the flashcart (SD or PSRAM), launched from the menu.
-                   POLICY: the AGS service ROM is proprietary Nintendo material. It is the Operator's own media and
-                   is used exactly as the retail cartridges of runs 8 and 12-13 were -- NOTHING from it enters the
-                   repository: no image, no dump, no extracted asset, no hash requirement (CLAUDE.md §7). Only the
-                   Operator's literal report of what it displayed is recorded.
+cartridge          the EZ-Flash Omega DE already in use, with the Enhanced Control Checker flashed to its NOR and booting
+                   STRAIGHT INTO IT (the Operator declares; amendment, Issue #23). The EZ-Flash menu is NOT required
+                   for RUN 14 / RUN 15. coord-0002 is no longer the NOR image (the Operator's change of 2026-09-21);
+                   its delivery image stays archived and is not part of these runs.
+checker            RUN 14 / RUN 15: the Enhanced Control Checker GBA on the NOR (V7.1.3); the Operator's media.
+AGS test ROM       the FALLBACK, only if the checker cannot be booted at all: the AGS test ROM on the flashcart,
+                   launched from the menu. POLICY: the AGS service ROM is proprietary Nintendo material. It is the
+                   Operator's own media and is used exactly as the retail cartridges of runs 8 and 12-13 were --
+                   NOTHING from it enters the repository: no image, no dump, no extracted asset, no hash requirement
+                   (CLAUDE.md §7). Only the Operator's literal report of what it displayed is recorded.
+RUN 16 (optional)  needs the EZ-Flash menu as the boot screen (the Operator's NOR / boot setting), declared if ever run.
 media              SD carrying the exact stream-0014 boot.dol in 12-stream; hash double-checked on the media (V7.1.6)
 display chain      OPERATOR-DECLARED, as for RUN 13 (§V6.24.3): GameCube -> analog composite video / RCA -> low-cost
                    RCA-to-HDMI converter (1080p out) -> HYDIS HV150UX2 panel (M.NT68676.2A controller, iMac G3
@@ -21626,14 +21783,17 @@ Morph 2K → Samsung Q80T) stay OUTSIDE RUN 14 and RUN 15.
 
 The console writes `GBP-VIDEO-004_stream-0014.log`, `-idxcap.bin`,
 `-disp.bin`, `-full.bin` and `-vi.bin` under `sd:/open-gbp/` — the stream
-line's normal names, and **RUN 15 writes the SAME names as RUN 14**: RUN 14's
-five files must be copied off the SD and archived under their reserved names
-BEFORE RUN 15 boots, or RUN 15 overwrites them. Per `captures/README.md`
+line's normal names, and **RUN 15 and RUN 16 write the SAME names as RUN
+14**: each run's five files must be copied off the SD and archived under
+their reserved names BEFORE the next run boots, or the next run overwrites
+them. Per `captures/README.md`
 ("Receiving a new physical run"): rename BEFORE copy — copy the supplied
 bytes FIRST under the names below with `cp --update=none`, `cmp` the copy,
 hash on receipt, never overwrite runs 1–13; before the hardware, verify none
-of them exists (verified absent on 2026-09-21). **Reserved now, and TAKEN
-even if a run aborts, never starts, or RUN 15 is never executed:**
+of them exists (verified absent on 2026-09-21; the run16 names added by the
+Issue #23 amendment, verified absent the same day). **Reserved now, and
+TAKEN even if a run aborts, never starts, or RUN 15 or RUN 16 is never
+executed:**
 
 ```text
 captures/local/GBP-VIDEO-004_stream-0014-run14.log
@@ -21646,12 +21806,24 @@ captures/local/GBP-VIDEO-004_stream-0014-run15-idxcap.bin
 captures/local/GBP-VIDEO-004_stream-0014-run15-disp.bin
 captures/local/GBP-VIDEO-004_stream-0014-run15-full.bin
 captures/local/GBP-VIDEO-004_stream-0014-run15-vi.bin
+captures/local/GBP-VIDEO-004_stream-0014-run16.log
+captures/local/GBP-VIDEO-004_stream-0014-run16-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0014-run16-disp.bin
+captures/local/GBP-VIDEO-004_stream-0014-run16-full.bin
+captures/local/GBP-VIDEO-004_stream-0014-run16-vi.bin
 ```
 
+**Reassignment, stated (Issue #23, before any run):** Issue #20 reserved the
+run14 and run15 names for the menu test and the AGS test; they now carry the
+Enhanced Control Checker's walks A (RUN 14) and B (RUN 15), and the run16
+names carry the optional menu test. None had been used; the experiment is
+GBP-INPUT-001 in all three, so no name changes experiment.
+
 Optional photographs: archived separately under a run-qualified name in
-the same style (`-run14-photo-<n>`, `-run15-photo-<n>`), never one of the
-ten names above; never required for PASS; not frame-accurate evidence
-(§V6.10). The Operator's literal reports live in the research record, never
+the same style (`-run14-photo-<n>`, `-run15-photo-<n>`, `-run16-photo-<n>`),
+never one of the fifteen names above; never required for PASS; not frame-accurate evidence
+(§V6.10). The recommended optional photograph of a checker run is its FINAL
+TALLY SCREEN (V7.1.2, prior exposure). The Operator's literal reports live in the research record, never
 in fixture bytes.
 
 #### V7.1.6 Pre-run identity gate — required of the Operator before each launch
@@ -21667,14 +21839,22 @@ DOL on SD    /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol : exact size 513 15
              gbp-video-stream-probe / stream-0014 / 0ff8355; TEST_ID GBP-VIDEO-004; no -dirty. If it still reads
              5391c3fe...dd79 (stream-0013), the copy did not happen: DO NOT RUN.
 SD state     before RUN 14: no sd:/open-gbp/GBP-VIDEO-004_stream-0014.* file exists on the SD (a leftover would be
-             overwritten by the run); before RUN 15: RUN 14's five files already archived under V7.1.5's names
-cartridge    the EZ-Flash Omega DE boots to its menu (declared); for RUN 15 the AGS test ROM is on it (declared)
+             overwritten by the run); before RUN 15: RUN 14's five files already archived under V7.1.5's names.
+             The unregistered trial of 2026-09-21 (V7.1.2) left none (the Operator deletes card copies after moving
+             them to logs/), but the check stays because the condition can recur: any such file found is MOVED
+             ASIDE, never deleted -- into sd:/open-gbp/unregistered-trial-2026-09-21/ on the card, or copied off it
+             under a name carrying "unregistered-trial" -- reported, and never treated as a run artifact
+cartridge    the EZ-Flash Omega DE boots straight into the Enhanced Control Checker on its NOR (declared; V7.1.3, V7.1.4);
+             the AGS test ROM as the fallback; for the optional RUN 16 the menu as the boot screen (declared if run)
+staged       steps 1-3 above were performed on the host on 2026-09-21 under Hardware Issue #21 and reported there:
+             archive 5391c3fe...dd79 (506 496 B), build/swiss/12-stream/boot.dol ef76a170...0b9c (513 152 B), INDEX
+             row stream-0014 / 0ff8355; the SD copy is the Operator's step, verified by hash before every boot
 controller   one pad in port 1, declared; nothing in ports 2-4
 rule         the Operator's media hashes are a double check; they do not redefine the project's identities.
              If ANY identity differs: DO NOT RUN.
 ```
 
-#### V7.1.7 Operator physical procedure — frozen, in two conditional stages, with the recovery procedure
+#### V7.1.7 Operator physical procedure — frozen, amended before hardware (Issue #23): walk A, walk B, the optional menu test; the recovery procedure
 
 **The hazard this run carries and no earlier run did.** No Open-GBP build
 has ever issued a KEYPAD write in any environment — not on hardware, not in
@@ -21700,45 +21880,83 @@ the Operator to press exactly what these steps say, and nothing else. The
 Hardware Issue reduces each stage to a literal short checklist; nothing asks
 the Operator to count frames by eye or to time anything.
 
-**RUN 14 — stage 1, the EZ-Flash menu (always executed first):**
+**THE FORBIDDEN WALK, and the two channels.** A walk that presses each
+button once is forbidden in every run below: its END STATE cannot
+distinguish a permutation (with L and R swapped the final tallies read
+exactly as with them correct), and a run whose answer exists only in the
+instant of a press is a run that can be missed. Every walk uses the
+distinct counts stated, L and R first and smallest, at a brisk steady pace
+(about two presses per second, every press fully released, counting aloud),
+and the Operator records BOTH channels: which labelled row moved at each
+press, whenever he can see it, and the final tally vector, always.
+
+**RUN 14 — the checker's counted walk A (the first executed run; Hardware
+Issue #21, aligned by the Orchestrator):**
 
 ```text
  1  Confirm the same GameCube and the same Game Boy Player as RUN 13; one controller in port 1 (V7.1.4).
  2  Confirm BBA present, Ethernet disconnected; the composite -> converter -> HYDIS HV150UX2 chain (V7.1.4).
- 3  Confirm the EZ-Flash Omega DE boots to its MENU (V7.1.4); coord-0002 is not launched.
+ 3  Confirm the EZ-Flash Omega DE boots straight into the Enhanced Control Checker on its NOR (V7.1.4). If it shows
+    its menu instead, launch the checker from the menu (the D-pad and A are then the first buttons; record that).
+    If the checker cannot be booted at all: the AGS test ROM is the fallback (V7.1.9 says how it is read); say so.
  4  Verify the exact DOL on the SD: /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol, 513 152 B, ef76a170...0b9c (V7.1.6).
- 5  Confirm no sd:/open-gbp/GBP-VIDEO-004_stream-0014.* file is on the SD (V7.1.6).
- 6  Declare, before booting, which way the menu's L and its R move the tab (the cartridge's own convention).
- 7  Boot the exact stream-0014 through Swiss (12-stream). Touch nothing until the EZ-Flash menu is on screen.
- 8  With the menu on screen: press and release R once; then L once; then R once more; then L once more.
-    Record, per press: did the tab move; which way. Do not press any other button during the run.
- 9  If a menu item is launched by itself, the tab moves without a press, or input looks stuck: RECOVERY, above.
-10  Let the witness target stop the experiment (~40 s after boot); do not stop it early.
+ 5  Confirm no sd:/open-gbp/GBP-VIDEO-004_stream-0014.* file is on the SD (V7.1.6). If one is found -- the
+    unregistered trial of 2026-09-21 left none, but the condition can recur -- it is MOVED ASIDE into
+    sd:/open-gbp/unregistered-trial-2026-09-21/ (never deleted), reported, and is not a run artifact.
+ 6  Boot the exact stream-0014 through Swiss (12-stream). Touch nothing until the checker's screen is on: the title
+    "Enhanced Control Checker GBA" and the ten labels L, R, UP, DOWN, LEFT, RIGHT, START, SELECT, A, B with tallies.
+    If it has not appeared by roughly 15 s after boot, press nothing and let the run end (INCONCLUSIVE, recorded).
+ 7  Walk A, in this order and with these counts: L x1, R x2, A x3, B x4, SELECT (the X button of the GameCube pad)
+    x5, START x6. Press nothing else: not the D-pad, not the stick, not Y, not Z. NEVER one press per button.
+    Live channel: note, when you can see it, which labelled row moved at each press.
+ 8  Read the ten tallies from the screen and record them as a vector in the checker's order -- L, R, UP, DOWN, LEFT,
+    RIGHT, START, SELECT, A, B -- BEFORE the run ends (~40 s after boot the AGB image leaves the screen). Record
+    also whether any tally changed without a press. Optionally photograph the tally screen (a run14-photo, V7.1.5;
+    never required).
+ 9  If a tally changes without a press, anything happens by itself, or input looks stuck: RECOVERY, above.
+10  Let the witness target stop the experiment; a walk cut by the target is recorded as far as it went, and the
+    tallies read at that point stand for the buttons completed. Do not stop it early.
 11  When the text console returns: press X once to save; wait for the status line; then power-cycle the console.
-12  Copy the five console files off the SD and archive them under the reserved run14 names (V7.1.5),
-    no-overwrite semantics, BEFORE anything else boots.
-13  Return the five raw artifacts, the literal report (per press: moved / did not move / which way; anything
-    unexpected) and the topology declaration.
+12  Copy the five console files off the SD and archive them under the reserved run14 names (V7.1.5), no-overwrite
+    semantics, BEFORE anything else boots.
+13  Return the five raw artifacts, the tally vector, the literal report and the topology declaration.
 ```
 
-**RUN 15 — stage 2, the AGS test ROM (conditional; executed only if RUN 14's
-Question M is PASS for both L and R, whatever Question O read):**
+**RUN 15 — the checker's counted walk B (follows RUN 14 in order; planned
+for the same session; its own authorisation):**
 
 ```text
- 1  RUN 14 archived (V7.1.5); the same DOL still on the SD (re-verify the hash, V7.1.6); the AGS test ROM on the
-    flashcart, launched from the EZ-Flash menu (V7.1.4).
- 2  Boot the exact stream-0014 through Swiss (12-stream). Touch nothing until the EZ-Flash menu is on screen.
- 3  Navigate to the AGS test ROM entry and launch it (the D-pad and A are the first buttons of this run).
- 4  As soon as the launch is confirmed, hold L and R together and keep holding them through the AGB reset until
-    the ROM's menu appears (or does not); then release. Record whether the menu appeared.
- 5  Enter the controller test. Walk the buttons in this order, one at a time, a short press each:
-    L, R, A, B, Select (X), Start, Up, Down, Left, Right. Record, per button, what the test showed.
- 6  If a wrong item is launched, something navigates by itself, or input looks stuck: RECOVERY, above.
- 7  Let the witness target stop the experiment (~40 s after boot); a walk cut by the target is recorded as far as it
-    went. Do not stop it early.
+ 1  RUN 14 archived (V7.1.5); the same DOL still on the SD (re-verify the hash, V7.1.6); the checker still on the NOR.
+    Stop rule: if RUN 14 showed no press reaching the cartridge at all, do not run RUN 15 -- a functional Issue first.
+ 2  Boot the exact stream-0014 through Swiss (12-stream); wait for the checker's screen as RUN 14 step 6.
+ 3  Walk B, in this order and with these counts: L x1, R x2, UP x3, DOWN x4, LEFT x5, RIGHT x6 -- the D-pad, not
+    the stick. Press nothing else: not A, B, X, Y, Start or Z. NEVER one press per button. Live channel: note,
+    when you can see it, which labelled row moved at each press.
+ 4  Read the ten tallies and record the vector in the checker's order BEFORE the run ends; note any change without
+    a press. Optionally photograph the tally screen (a run15-photo, V7.1.5; never required).
+ 5  If anything changes by itself or input looks stuck: RECOVERY, above.
+ 6  Let the witness target stop the experiment; a cut walk is recorded as far as it went. Do not stop it early.
+ 7  When the text console returns: press X once to save; wait; power-cycle the console.
+ 8  Archive the five console files under the reserved run15 names (V7.1.5), no-overwrite semantics.
+ 9  Return the five raw artifacts, the tally vector, the literal report and the topology declaration.
+```
+
+**RUN 16 — OPTIONAL and INDEPENDENT: the EZ-Flash menu's L/R tabs (Issue
+#20's stage 1, kept as a cheap additional reading; a precondition of
+nothing; its own authorisation if ever run):**
+
+```text
+ 1  Only if wanted, and only with the EZ-Flash menu as the boot screen (the Operator's NOR / boot setting; declared).
+ 2  The same DOL re-verified (V7.1.6); the previous run's files archived; no stream-0014 file on the SD.
+ 3  Declare, before booting, which way the menu's L and its R move the tab (the cartridge's own convention).
+ 4  Boot the exact stream-0014 through Swiss (12-stream). Touch nothing until the menu is on screen.
+ 5  Press and release R once; then L once; then R once more; then L once more. Record, per press: did the tab move;
+    which way. Press no other button during the run.
+ 6  If a menu item launches by itself, the tab moves without a press, or input looks stuck: RECOVERY, above.
+ 7  Let the witness target stop the experiment; do not stop it early.
  8  When the text console returns: press X once to save; wait; power-cycle the console.
- 9  Archive the five console files under the reserved run15 names (V7.1.5), no-overwrite semantics.
-10  Return the five raw artifacts, the literal per-button report and the topology declaration.
+ 9  Archive the five console files under the reserved run16 names (V7.1.5), no-overwrite semantics.
+10  Return the five raw artifacts, the literal report and the topology declaration.
 ```
 
 Do not infer a frame number, a latency or a timing from anything seen by
@@ -21773,49 +21991,80 @@ SESSION          the run ended at stop=witness_target_reached; a run ended by th
                  an observation of the write reaching the cartridge)
 ```
 
-#### V7.1.9 GBP-INPUT-001 — gates and verdicts, machine side and human side kept apart
+#### V7.1.9 GBP-INPUT-001 — gates and verdicts, machine side and human side kept apart — amended before hardware (Issue #23)
 
 Machine evidence and human observation never mix: the INPUT records say
 what the runtime did; whether the cartridge reacted is **OPERATOR
 OBSERVATION**, stays in the research record, and is never fed into a tool.
-Each stage answers M for the buttons it exercised and O for L and R; a
-button not exercised in a stage is "not observed", never inferred.
+Each run answers M for the buttons it pressed and O for L and R; a button
+not pressed in a run is "not observed", never inferred. The single-press
+walk is forbidden (V7.1.7) because its vector cannot distinguish a
+permutation; the expected vectors below are arithmetic.
 
 ```text
-QUESTION M -- mechanism, per stage and per button
-PASS          admissible run (V7.1.8), INPUT machine gate met, and the Operator's literal report says the cartridge
-              responded to every button pressed in that stage (RUN 14: the tab moved under L and under R, each
-              time; RUN 15: the L+R-at-boot menu appeared and the controller test showed a press for each button
-              walked) and to no button that was not pressed, with no unattended navigation.
-              MEANS: a KEYPAD word written by Open-GBP reaches the cartridge as key presses, for the buttons
-              observed. Nothing about latency, about the refresh being needed, or about buttons not observed.
-FAIL          admissible run, INPUT machine gate met (writes completed, failed = 0), and the report says the
-              cartridge did not respond to a pressed button, responded to a button that was not pressed, or
-              navigated by itself. RECORDED as the first physical fact about the write -- the word reached the
-              window and nothing, or the wrong thing, reached the cartridge -- and the next step is a functional
-              Issue, not another run.
-INCONCLUSIVE  run inadmissible; the menu (RUN 14) or the launch (RUN 15) never happened inside the window; the
-              INPUT machine gate not met; the report missing or uncertain; topology or identity not as declared;
-              the run cut before any press was made.
+expected tally vector, in the checker's order L, R, UP, DOWN, LEFT, RIGHT, START, SELECT, A, B:
+  RUN 14 (walk A)   1, 2, 0, 0, 0, 0, 6, 5, 3, 4
+  RUN 15 (walk B)   1, 2, 3, 4, 5, 6, 0, 0, 0, 0
 
-QUESTION O -- order of L and R, from the same observations
-AS-ASSIGNED   M is PASS for L and for R, and the tab moved the way the Operator declared for the menu's L under
-              the GameCube L trigger and for its R under the R trigger (RUN 14), and/or the AGS controller test
-              showed L for L and R for R (RUN 15).
-              MEANS: U-GBP-010 closes as OPERATOR OBSERVATION with the descriptor kept as it is; the routing
-              stays CORROBORATED, not FACT (V7.1.10).
-SWAPPED       M is PASS for L and for R, and the tab moved the OTHER way under each (RUN 14), and/or the test
-              showed R for L and L for R (RUN 15). RECORDED, EXPECTED-POSSIBLE, INFORMATIVE: it FALSIFIES the
-              assignment GBP-KEY-004 records, U-GBP-010 closes the other way, and the descriptor's two entries
-              swap in a later functional Issue -- one line, then a new candidate. It is NOT a failure of the run:
-              M PASSES on the very same evidence, and the write is shown to reach the cartridge.
-INCONCLUSIVE  M is not PASS for L or for R; the direction could not be read; both buttons moved the tab the
-              same way (a different mapping fault, recorded, not O's answer); the report uncertain.
+QUESTION M -- mechanism, per run and per button, read from the Operator's literal tally vector
+PASS          admissible run (V7.1.8), INPUT machine gate met, and every pressed button's expected count sits at its
+              own counter (the identity permutation), every unpressed counter reads 0, and no tally moved without a
+              press.
+              MEANS: a KEYPAD word written by Open-GBP reaches the cartridge as key presses, for the buttons pressed.
+              Nothing about latency, about the refresh being needed, or about buttons not pressed.
+FAIL          admissible run, INPUT machine gate met (writes completed, failed = 0), and a pressed button's count
+              appears at no counter at all (that bit never arrived), or a tally moved without a press, or a counter
+              that expected 0 shows a value equal to no expected count. RECORDED as the first physical fact about the
+              write -- the word reached the window and nothing, or the wrong thing, reached the cartridge -- and the
+              next step is a functional Issue, not another run.
+INCONCLUSIVE  run inadmissible; the checker's screen never shown inside the window; the tallies not read before the
+              run ended; the INPUT machine gate not met; the report missing or uncertain; topology or identity not
+              as declared; the run cut before any press was made.
+
+QUESTION O -- order of L and R, from the same vector
+AS-ASSIGNED   the L tally reads 1 and the R tally reads 2, and neither 1 nor 2 appears at a counter that expected 0:
+              the GameCube L reached the checker's L and R its R.
+              MEANS: U-GBP-010 closes as OPERATOR OBSERVATION with the descriptor kept as it is; the routing stays
+              CORROBORATED, not FACT (V7.1.10).
+SWAPPED       the L tally reads 2 and the R tally reads 1: the GameCube L incremented the checker's R counter and vice
+              versa. RECORDED, EXPECTED-POSSIBLE, INFORMATIVE: it FALSIFIES the assignment GBP-KEY-004 records,
+              U-GBP-010 closes the other way, and the descriptor's two entries swap in a later functional Issue --
+              one line, then a new candidate. It is NOT a failure of the run: M PASSES on the very same vector, and
+              the write is shown to reach the cartridge.
+INCONCLUSIVE  L or R not completed before the cut; a 1 or a 2 at a counter that expected 0 (a misrouting of L or R
+              to another key, recorded as an M finding, not as O's answer); the report uncertain.
+
+READING RULES, applied before any verdict
+  a zero where a count was expected      that bit never arrived at that counter: a Question M finding for that button
+                                         (FAIL for it if its count appears nowhere; a misrouting, identified by where
+                                         the count did appear, if it shows at another counter); never an O reading
+  an unexpected non-zero where 0 was     the pressed button whose expected count it equals was delivered to that
+  expected                               button -- a permutation, identified by the value because every count in the
+                                         run is distinct; a value equal to no expected count (a 7, a repeated 3) is a
+                                         spurious or miscounted press, recorded, M INCONCLUSIVE for the buttons it
+                                         could belong to unless the Operator's report explains it
+  any permutation of the pressed set     reads off as tally[pi(b)] = expected[b]; with all counts distinct exactly one
+                                         pi is consistent with a vector that permutes the expected one
+  a tally moving without a press         an M finding (an unattended word); the recovery procedure if it recurs
+  a walk cut by the target               every completed button keeps its reading; a button interrupted mid-count reads
+                                         M PASS if its own counter advanced, its count recorded as partial; buttons
+                                         not reached are "not observed"; L and R come first, so Question O is the
+                                         last thing a cut can reach
+  the live channel                       which labelled row incremented at a press, recorded per press when seen; it
+                                         corroborates the vector; a disagreement between the two channels is recorded
+                                         and makes that button INCONCLUSIVE unless the report explains it (a miscount
+                                         seen live is such an explanation); it never overrides the vector by itself
+  a photograph of the tally screen       an aid to reading and reporting the vector, never evidence by itself (§V6.10)
+  the fallback AGS walk, if it was used  its display shows the pressed key live: M per button from what it showed;
+                                         O from whether L showed L and R showed R (or the reverse = SWAPPED)
+  RUN 16, if ever run                    M from whether the tab moved under L and under R; O from the direction against
+                                         the convention the Operator declared before booting (the OTHER way under
+                                         each = SWAPPED); both tabs moving the same way = a mapping fault, M finding
 ```
 
 Neither question's verdict consults the other's evidence beyond the shared
-observation they are read from; a stage's verdict is COMPLETE for what that
-stage answers — a RUN 14 that ends after stage 1 is not a truncated run.
+vector they are read from; a run's verdict is COMPLETE for what that run
+answers — a RUN 14 whose walk B never happens is not a truncated run.
 
 #### V7.1.10 U-GBP-010 — the closing condition restated, and the recorded future option
 
@@ -21844,34 +22093,37 @@ stimulus before knowing that is the wrong order.
 
 #### V7.1.11 Explicit non-claims, and the record to be filled AFTER each run — nothing pre-filled
 
-Even if both questions come out PASS / AS-ASSIGNED, RUN 14 and RUN 15 do
-**not** establish: the physical routing of any bit as FACT; input latency
-of any kind (no figure, no ordering claim); that the 5 ms refresh is needed
-or sufficient; the stick threshold or any policy value as more than policy;
-behaviour with any other controller, port or cartridge; rumble or any
-GBP-aware feature; the Link Port; audio; the display chain; Phase 6, 7 or 9.
-The video-path records are collected and reported observationally and
-promote nothing.
+Even if both questions come out PASS / AS-ASSIGNED, RUN 14, RUN 15 and RUN
+16 do **not** establish: the physical routing of any bit as FACT; input
+latency of any kind (no figure, no ordering claim); that the 5 ms refresh
+is needed or sufficient; the stick threshold or any policy value as more
+than policy; behaviour with any other controller, port or cartridge; rumble
+or any GBP-aware feature; the Link Port; audio; the display chain; Phase 6,
+7 or 9. The video-path records are collected and reported observationally
+and promote nothing.
 
 ```text
-field                                   RUN 14 (stage 1)     RUN 15 (stage 2)
-DOL SHA-256 on the SD                   --                   --   (ef76a170...0b9c expected, both)
-stream-0013 preserved before staging    --                        (5391c3fe...dd79 at build/archive/...)
-controller / port                       --                   --   (operator)
-cartridge boot screen / AGS ROM present --                   --   (operator)
-log lines / dropped / truncated         --                   --
-INPUT steps / attempts / completed      --                   --
-INPUT first / change / refresh / retry  --                   --
-INPUT failed / last_word                --                   --
-INPUTT write_ticks / step_ticks         --                   --   (observational)
-transport errors / timeouts / uncertain --                   --
-stop reason                             --                   --   (witness_target_reached expected)
-source verdict (recorded, not a gate)   --                   --
-operator: tab moved under R / under L   --                        (moved / not; which way)
-operator: L+R-at-boot menu appeared          --
-operator: per-button observation             --                   (L, R, A, B, Select, Start, Up, Down, Left, Right)
-Question M                              --                   --
-Question O                              --                   --
+field                                   RUN 14 (walk A)      RUN 15 (walk B)      RUN 16 (optional menu)
+DOL SHA-256 on the SD                   --                   --                   --   (ef76a170...0b9c expected)
+stream-0013 preserved before staging    done 2026-09-21 (5391c3fe...dd79 at build/archive/, Hardware Issue #21)
+controller / port                       --                   --                   --   (operator)
+boot screen (checker on NOR / menu)     --                   --                   --   (operator)
+checker screen seen inside the window   --                   --                        (yes / no; approximate time)
+log lines / dropped / truncated         --                   --                   --
+INPUT steps / attempts / completed      --                   --                   --
+INPUT first / change / refresh / retry  --                   --                   --
+INPUT failed / last_word                --                   --                   --
+INPUTT write_ticks / step_ticks         --                   --                   --   (observational)
+transport errors / timeouts / uncertain --                   --                   --
+stop reason                             --                   --                   --   (witness_target_reached expected)
+source verdict (recorded, not a gate)   --                   --                   --
+expected vector (arithmetic)            1,2,0,0,0,0,6,5,3,4  1,2,3,4,5,6,0,0,0,0
+tally vector as read                    --                   --
+buttons completed / cut                 --                   --
+tallies moved without a press           --                   --
+operator: tab moved under R / under L                                             --   (moved / not; which way)
+Question M                              --                   --                   --
+Question O                              --                   --                   --
 ```
 
 #### V7.1.12 What this part is not
@@ -21885,6 +22137,13 @@ gates (none was made); the project-owned stimulus of V7.1.10 (recorded, not
 started); evidence ingestion; PASS / FAIL classification; promoting the L/R
 order; closing U-GBP-010; updating `docs/protocol/INITIALIZATION.md`. No new
 physical evidence ID exists. RUN 14 and RUN 15 end this checkpoint as
-PRE-REGISTERED / NOT RUN.
+PRE-REGISTERED / NOT RUN. Amendment 2026-09-21 (Issue #23), BEFORE any
+hardware and before any result existed: the Enhanced Control Checker became
+the instrument of RUN 14 and RUN 15 with distinct press counts, and the
+EZ-Flash menu test became the optional RUN 16; Question One, the shared
+gates, the recovery procedure and its hazard, and the U-GBP-010 part are
+byte-identical to the pre-registration of Issue #20; Hardware Issue #21
+(RUN 14) is the Orchestrator's to align. RUN 14, RUN 15 and RUN 16 end this
+checkpoint as PRE-REGISTERED / NOT RUN.
 
 ---
