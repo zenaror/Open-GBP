@@ -10864,3 +10864,59 @@ two pins that named the absent note moved.
 status or id; nothing inferred; Issue #34 (the acceptance run) not started.
 
 **Next.** The Orchestrator validates #35; then Issue #34.
+
+## 2026-09-21 — Issue #34: RUN 19 / RUN 20 PRE-REGISTERED as GBP-INPUT-003 (§V7.5), the Phase 5 acceptance pair — the criterion in the Operator's words, the same actions on both pads, the machine half beside his judgement; NOT RUN / NOT AUTHORISED HERE; no hardware, no code, no id
+
+**The criterion, his.** "ambos os controles funcionam e tem que apresentar o
+mesmo comportamento… tanto o paralelo como original" — fixed before any data,
+read in his terms, not restated into something easier to gate. Comparative,
+so a pair: RUN 19 on the generic third-party pad, RUN 20 on the original
+Nintendo pad, the same game, the same literal action list (13 steps, 19
+presses, every one of the ten GBA keys at least once, the D-pad for
+directions, no timing, no counting). W ("funcionam") is read per pad from his
+per-step report (RESPONDED / NO RESPONSE / OTHER / N/A); S ("o mesmo
+comportamento") from the two reports together; K, the machine half the KEY
+record adds since Issue #27, from the two records alone — the ordered rising
+edges compared over the steps both runs reached: AGREE / EXPLAINED (by his
+report) / FINDING (a bit one pad produced and the other did not — the
+difference the machine half exists to show) / INCONCLUSIVE — beside W / S,
+never merged, never deciding the criterion. DOES NOT WORK, DIFFERENT and
+FINDING are results about the pads or the policy, never failed runs.
+
+**Why stream-0015 serves, and its window.** It carries the KEY record; its
+routing is FACT for all ten bits on both pads (§V7.4), so the pads and the
+game are the only variables; it is already staged and hash-verified on the
+SD. Its session is bounded by the runtime's own stop at ~+40.3 s after
+CONTROL (the witness target), with the pump writing from +0.11 s: the game
+is controllable for roughly 40 s from its boot, and the list is sized for it;
+a longer session is a build change — recorded, not proposed.
+
+**The cartridge.** The status axis has three values — an original
+cartridge, an unofficial cartridge (a repro), a ROM delivered by the
+flashcart — and the latter two make a wrong-looking behaviour unattributable
+between runtime and cartridge, which falls on the criterion itself.
+WarioWare ORIGINAL (JP / US) is the Orchestrator's recommendation with that
+reason; Road Rage is named as the unofficial alternative with the caveat
+wherever it is cited; the Operator's sentence "na RUN estou usando ez-flash
+e o road rage paralelo apenas" is recorded as a relayed intention with its
+ambiguity stated (the Orchestrator corrected his own relay) and not
+resolved; the cartridge and its form are declared before RUN 19 and again
+before RUN 20; the two regions are recorded as available and nothing is
+built on them.
+
+**Also frozen.** The numbering (RUN 19 / RUN 20, the next above every
+reserved one); ten names reserved and verified absent; the topology citing
+the inventory and the two standing declarations, declaring the cartridge and
+the controller per run; the identity gate; the two checklists (11 and 8
+steps) with the recovery block byte-identical to §V7.1.7's; the shared gates
+plus THE LIST and the pair's own; the record table empty; what the run does
+not decide — Phase 5's closure is an assessment step of its own (Issue #17's
+precedent). `tests/host/test_run19_prereg.py` pins it; the run-number pins
+moved to run 21+.
+
+**Not done, on purpose.** No hardware; no staging; no build; no code; no
+change to §V7.1–§V7.4, a verdict, a gate or a status; no id; nothing about
+GB / GBC; no regional comparison; the cartridge not chosen for him.
+
+**Next.** The Orchestrator validates #34 and opens the Hardware Issue for
+RUN 19 / RUN 20 with the checklist in chat.

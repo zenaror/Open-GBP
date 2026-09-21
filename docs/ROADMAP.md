@@ -532,6 +532,26 @@ game. **Next:** this phase's real acceptance with a commercial game — the
 Operator schedules it, the Orchestrator writes its contract; not
 pre-registered.
 
+**Pre-registered 2026-09-21 (GitHub Issue #34):** RUN 19 (the generic
+third-party pad) and RUN 20 (the original Nintendo pad) as GBP-INPUT-003 in
+`HARDWARE_TESTS.md` §V7.5 — the acceptance pair. The criterion is the
+Operator's, fixed before any data and not reinterpreted: *"ambos os controles
+funcionam e tem que apresentar o mesmo comportamento"*; it is comparative, so
+the run is a pair with the same literal action list (13 steps, 19 presses,
+every GBA key once at least), read per pad (W, "funcionam") and for the pair
+(S, "o mesmo comportamento") from his per-step reports; the KEY record of
+`stream-0015` adds a machine half (K: the same words for the same actions),
+read beside his judgement and never in its place. Failure is reachable and
+informative — a pad that does not work or behaves differently is a result
+about the pad or the policy, never a failed run. `stream-0015` serves (the
+KEY record; the routing FACT on both pads; a ~40 s session — a longer one is a
+build change, recorded, not proposed). The cartridge and its status
+(original / unofficial / a ROM from the EZ-Flash) are declared before each
+run; WarioWare ORIGINAL is the recommendation, with its reason. **NOT RUN /
+NOT AUTHORISED HERE.** Whether this phase then closes is an assessment step
+of its own, after the pair (Issue #17's precedent). **Next:** the Hardware
+Issue the Orchestrator opens after validating §V7.5.
+
 Implement and document GameCube controller → GBP keypad/input handling.
 
 Automated tests should cover button combinations and encoding.
