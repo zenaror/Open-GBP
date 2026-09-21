@@ -754,3 +754,15 @@ L/R order, observed through the digital click of a generic third-party pad —
 and the runtime's mapping policy are consolidated in `INPUT.md`. Not
 established: input latency, the need for the refresh, any other pad or
 cartridge, a real game (GBP-HW-265).
+
+**2026-09-21, later the same day — GBP-INPUT-002, RUN 17 / RUN 18 / RUN 16
+(`HARDWARE_TESTS.md` §V7.4; Hardware Issue #32, ingestion Issue #33):** the
+`stream-0015` build wrote KEYPAD 7 898 / 7 898 / 7 890 times in three more
+runs and, for the first time, recorded the word it sent at every change
+(GBP-HW-267); joined to the checker's counters, that record made the routing
+of every KEYPAD word bit to the AGB's keys — L at bit 8, R at bit 9 included
+— a physical FACT (hw, the runs), on two controllers (GBP-HW-270). The status
+sentence above ("CORROBORATED, not FACT, for the L/R order") is history from
+that point; `INPUT.md` carries the current statement with its scope. Still
+not established: input latency, the need for the refresh, pads beyond the two
+declared, any other cartridge, a real game.
