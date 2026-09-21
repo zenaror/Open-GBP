@@ -103,7 +103,8 @@ class TheStaticAttemptIsStatedOnceAndStaysOpen(unittest.TestCase):
         ev = read(EVIDENCE)
         for n in (2, 3, 4, 5):
             self.assertEqual(len(re.findall(r"^## GBP-KEY-%03d\b" % n, ev, re.M)), 1, n)
-        self.assertNotRegex(ev, r"^## GBP-KEY-00[6-9]", re.M)
+        # GBP-KEY-006 (Issue #19) and GBP-KEY-007 (Issue #22) followed; nothing beyond them is minted
+        self.assertEqual(re.findall(r"^## GBP-KEY-00[8-9]", ev, re.M), [])
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
         self.assertEqual(hw, 260)
         for p in (DOC, ROADMAP, HANDOFF):

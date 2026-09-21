@@ -507,8 +507,9 @@ open the Hardware Issue that moves RUN 14 to the Operator — the staging of
 §V7.1.6 (stream-0013 preserved first, `make swiss` without a rebuild, the SD
 copy verified by hash at the SD path /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol)
 and the stage-1 checklist of §V7.1.7; RUN 15 follows conditionally on RUN
-14's Question M. Nothing is staged, copied, flashed or booted here; the
-descriptor's assignment is data awaiting its falsifier, not a fact.
+14's Question M. The host staging (steps 1–3) was performed for Hardware Issue #21; the SD
+copy and the boot are the Operator's; the descriptor's assignment is data
+awaiting its falsifier, not a fact.
 
 **Phase 4 is assessed (Issue #17, 2026-09-21: SATISFIED WITH NAMED
 RESIDUALS, `docs/research/PHASE4_ASSESSMENT.md`).**
@@ -620,8 +621,17 @@ issue 20    RUN 14 / RUN 15 PRE-REGISTERED as GBP-INPUT-001 (HARDWARE_TESTS §V7
             12-stream reused with stream-0013 preserved first and reproducible from 7d7a6d8; ten names
             reserved; recovery procedure frozen; FAIL reachable, SWAPPED informative; U-GBP-010 restated,
             OPEN; no hardware, no flash, no build, no GBP-HW id
-next        orchestrator-owned: validate #20 -> the Hardware Issue that moves RUN 14 to the Operator
-            (staging per §V7.1.6, checklist §V7.1.7); RUN 15 follows conditionally; nothing is executed here
+issue 21    HARDWARE ISSUE, orchestrator-owned: RUN 14 (RUN 15 conditional) moved to the Operator; the
+            Executor performed steps 1-3 of §V7.1.6 on the host (stream-0013 preserved as
+            build/archive/gbp-video-stream-probe-stream-0013-7d7a6d8.dol 5391c3fe...dd79; make swiss without a
+            rebuild; build/swiss/12-stream/boot.dol = 513 152 B ef76a170...0b9c, INDEX row stream-0014 /
+            0ff8355); step 4 (the SD) is the Operator's; not run at the time of this line
+issue 22    OPERATOR INPUTS RECORDED outside the frozen §V7: the homebrew input-test ROM rejected against
+            the window (INPUT_PATH §10.1); the Start-up Disc recollection corroborating the L3 policy and
+            its composition (Y -> bit 8 static + Y acts as L observed => bit 8 = L) evaluated as OPERATOR
+            OBSERVATION / recollection, GBP-KEY-007; U-GBP-010 OPEN, descriptor unchanged, §V7 byte-identical
+next        orchestrator-owned: validate #22; RUN 14 executes under Hardware Issue #21 (the Operator copies
+            12-stream to the SD and verifies ef76a170...0b9c there before booting); then RUN 14's ingestion
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
@@ -919,11 +929,15 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 - **That bytes 0 and 2 are don't-care in general.** §V4 places them outside the
   dependent variable of *this experiment* only. U-GBP-029 is open, they are
   preserved in full, and every run reports the full-raw comparison.
-- **That RUN 14 or RUN 15 has run, or that `stream-0014` is staged.** Both
-  are pre-registered only (§V7.1); `stream-0014` exists at
-  `build/poc/gbp-video-stream-probe/` and nowhere else — `build/swiss/12-stream`
-  and the SD still carry `stream-0013` (`5391c3fe…`) until the Hardware Issue
-  stages the candidate, with stream-0013 preserved first.
+- **That RUN 14 or RUN 15 has run.** Both are pre-registered (§V7.1) and RUN
+  14 is authorised under Hardware Issue #21; at the time of this line neither
+  has executed. `stream-0014` IS staged on the host (`build/swiss/12-stream/boot.dol`,
+  `ef76a170…`, with stream-0013 preserved first under `build/archive/`); the
+  SD copy is the Operator's step, verified by hash before booting.
+- **That the Operator's Start-up Disc recollection settles the L/R order.**
+  It composes to bit 8 = L (GBP-KEY-007) but it is a recollection, not a
+  recorded observation, and remembered the other way round it would give the
+  opposite answer; U-GBP-010 stays OPEN for RUN 14 and nothing is promoted.
 - **That `stream-0014` has run, or that the input path works.** The candidate
   is built and identified (`0ff8355`, SHA-256 `ef76a170…`) and has never been
   executed on hardware; in Dolphin the pump slot never ran, so no KEYPAD write

@@ -280,6 +280,17 @@ two entries swapped; neither makes the routing a physical FACT (that needs
 the project-owned stimulus recorded there as a future option). **Still
 OPEN.**
 
+**2026-09-21, Issue #22:** the Operator's recollection of the Start-up Disc
+on this hardware (with its swap option on, Y acts as L) composes with the
+Disc's static alternate-mode mapping (Y → word bit 8, GBP-KEY-002) to bit 8
+= L — the assignment GBP-KEY-004 records, reached with one hardware-side
+term (GBP-KEY-007; `docs/research/INPUT_PATH.md` §10.3). It is OPERATOR
+OBSERVATION and a recollection, not a recorded observation; had the X/Y
+attribution been remembered the other way round the same composition would
+give the opposite answer. It changes nothing here: **still OPEN** for RUN 14,
+status CORROBORATED, the descriptor unchanged; the written Disc
+re-verification of §10.3 would make it a recorded observation, never FACT.
+
 ## U-GBP-011 (P2 — **CLOSED 2026-09-18** by GBP-VIDEO-003 / `color-0002`, the pre-registered confirmatory run: the outer 5-bit groups are exchanged, `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`, promoting the colour order from CORROBORATED to **FACT**. Two residuals were never part of this item and stay open: bit 15's origin, now U-GBP-034, and the bytes 0/2 deviations, U-GBP-029) — VIDEO color bit order and exact word content
 
 **2026-09-16, static (GBP-VID-003/006, VIDEO_PATH.md §2.3–2.4, §3.2):** the

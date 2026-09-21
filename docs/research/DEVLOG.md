@@ -10292,3 +10292,61 @@ name" pin relaxed to run-16+. No GBP-HW id; nothing under `src/`, `poc/`,
 **Next.** The Orchestrator validates; then the Hardware Issue moves RUN 14
 to the Operator (staging per §V7.1.6, checklist §V7.1.7); RUN 15 follows
 conditionally.
+
+## 2026-09-21 — Issue #22: two Operator inputs recorded after the pre-registration — a rejected instrument, the Start-up Disc recollection and its composition — §V7 frozen; no hardware, no code; and the host staging for Hardware Issue #21
+
+**Goal.** Record, outside the frozen §V7, two pieces of Operator input that
+arrived after Issue #20 closed: an instrument evaluated and rejected, and the
+Operator's recollection of the official Start-up Disc's controller behaviour
+on this hardware with the composition it allows. Every statement carries its
+classification; nothing changes U-GBP-010, the descriptor, `docs/protocol/`
+or `docs/hardware/`; §V7 is byte-identical to `848007a` and a test pins it.
+
+**Item 1.** The homebrew input-test ROM `romhacking.net/homebrew/142`
+(reported: ~21 s start after the boot logo, a START gate before the input
+screen, no button combinations) is REJECTED against the ≈ 40 s window
+§V7.1.1 derives — the start alone consumes about half the session, the START
+gate costs more, and the missing combination support defeats the L +
+R-together observation outright — `INPUT_PATH.md` §10.1, so it is not
+re-proposed later.
+
+**Item 2.** The recollection (X and Y = SELECT; L and R = L and R; an OSD
+option inverts this with Y → L and X → R; the stick = the D-pad; the C stick
+nothing; Start = START; Z = the Disc's OSD) corroborates every row of the
+implemented L3 policy that the Disc decides, as OPERATOR OBSERVATION and a
+recollection of past use (`INPUT_PATH.md` §10.2; GBP-KEY-007); the
+implementation follows the Disc rather than GBI on SELECT, so Z stays
+unmapped — the button the Disc reserves for its OSD, a free alignment for a
+Phase 9 OSD. The composition "alternate mode: Y → word bit 8 (static,
+GBP-KEY-002) + Y acts as L (observed) ⇒ bit 8 = L" was worked out rather than
+asserted (§10.3): it holds as logic on two conditions — the swap option is
+the decompiled mode 1 (supported by the match of all three roles and the
+code's two modes), and the X/Y attribution is remembered exactly, since the
+exchange would give the opposite answer — and its second term is a
+recollection, weaker than RUN 14's report will be. It is the first
+hardware-side term GBP-KEY-004's assignment has ever had, and it changes no
+status: CORROBORATED, U-GBP-010 OPEN for RUN 14, the descriptor unchanged.
+What would make it a recorded observation is written down (a short Disc
+re-verification, official software only, not part of §V7, for the
+Orchestrator to attach to a Hardware Issue if wanted).
+
+**Records.** `INPUT_PATH.md` §10 (new) and a pointer in §3.2; EVIDENCE
+GBP-KEY-007 (OPERATOR OBSERVATION, recollection; no GBP-HW id); UNKNOWNS
+U-GBP-010 (still OPEN); HANDOFF (the issue trail: #21 open as the Hardware
+Issue, #22; the staging state); `tests/host/test_input_addenda.py` pins §V7
+byte-identical to `848007a`, the module and the descriptor unchanged, the
+records and their classifications, and the untouchable paths.
+
+**Staging for Hardware Issue #21 (operational, reported there).** At the
+Orchestrator's authorisation the Executor performed steps 1–3 of §V7.1.6 on
+the host: stream-0013's exact bytes preserved first as
+`build/archive/gbp-video-stream-probe-stream-0013-7d7a6d8.dol` (506 496 B,
+`5391c3fe…dd79`, cmp-identical to the slot copy it came from); `make swiss`
+without a rebuild (the build/poc DOL `ef76a170…0b9c` unchanged before and
+after, timestamps untouched); `build/swiss/12-stream/boot.dol` = 513 152 B,
+`ef76a170…0b9c`, cmp-identical to build/poc; INDEX.txt's 12-stream row
+reads stream-0014 / 0ff8355. Step 4 (the SD) is the Operator's; the card was
+not touched. `build/` is ignored: nothing to commit.
+
+**Next.** The Orchestrator validates #22; RUN 14 executes under Hardware
+Issue #21 independently.
