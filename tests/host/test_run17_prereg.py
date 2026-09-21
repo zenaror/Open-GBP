@@ -194,10 +194,10 @@ class TheNumberingAndTheNames(unittest.TestCase):
             # Hardware Issue #32 (2026-09-21) executed RUN 17 / RUN 18: the names are USED (Issue #33 ingested them, §V7.4, tests/host/test_run17.py)
         self.assertEqual(len(re.findall(r"captures/local/\S*run17\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*run18\S*", t)), 5)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:19|2\d)\S*", t)), 0)
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:2[1-9]|[3-9]\d)\S*", t)), 0)   # run19 / run20: Issue #34, §V7.5
         self.assertEqual(len(re.findall(r"captures/local/\S*stream-0014-run16\S*", t)), 5, "the run16 names of V7.1.5 untouched (retired by Issue #33, never reassigned)")
         self.assertEqual(len(re.findall(r"captures/local/\S*stream-0015-run16\S*", t)), 5, "the names RUN 16 actually used (§V7.4.3, Issue #33)")
-        self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run19*")), [])   # nothing beyond the executed runs
+        self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run2[1-9]*")), [])   # nothing beyond the reserved runs (19 / 20: Issue #34)
         f = plain(part(5))
         for tok in ("TAKEN even if a run aborts, never starts, or RUN 18 is never executed", "cp --update=none", "Verified absent on 2026-09-21",
                     "The run16 names of V7.1.5 are untouched", "The KEY record lives inside the .log file"):
