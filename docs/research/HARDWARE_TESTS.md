@@ -18877,7 +18877,7 @@ not started and do not move.
 
 ---
 
-## V6 — GBP-VIDEO-007 / GBP-VIDEO-008: PHYSICAL SCANOUT AND FULL-FRAME FIDELITY — DESIGN (Issue #6), IMPLEMENTATION STATUS (Issue #7): IMPLEMENTED IN SOFTWARE; RUN 12 PRE-REGISTERED (Issue #8, §V6.19), EXECUTED (Issue #9), INGESTED (Issue #10, §V6.20): GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE; RUN 13 PRE-REGISTERED (Issue #14, §V6.24) WITH coord-0002 — NOT RUN
+## V6 — GBP-VIDEO-007 / GBP-VIDEO-008: PHYSICAL SCANOUT AND FULL-FRAME FIDELITY — DESIGN (Issue #6), IMPLEMENTATION STATUS (Issue #7): IMPLEMENTED IN SOFTWARE; RUN 12 PRE-REGISTERED (Issue #8, §V6.19), EXECUTED (Issue #9), INGESTED (Issue #10, §V6.20): GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE; RUN 13 PRE-REGISTERED (Issue #14, §V6.24), EXECUTED (Issue #15), INGESTED (Issue #16, §V6.25): GBP-VIDEO-007 = PASS · GBP-VIDEO-008 = PASS
 
 **IMPLEMENTATION STATUS — 2026-09-20, GitHub Issue #7 (Phase 4, functional):
 IMPLEMENTED IN SOFTWARE, NOT PHYSICALLY EXECUTED, NO RUN RESERVED.** The
@@ -18894,8 +18894,12 @@ afterwards by Issue #11, §V6.21: the corrected post-run replay reads 2370/2370
 and L = 40 / 40 / 38 / 40, changing no verdict). Evidence GBP-HW-250 … 255.
 GBP-VID-034's mechanism was RESOLVED (§V6.22) and coord-0002 implemented
 (§V6.23). RUN 13 — the same experiments with coord-0002 and the same
-stream-0013 — is PRE-REGISTERED in §V6.24 (Issue #14) and NOT RUN. No frozen
-format changes.**
+stream-0013 — was PRE-REGISTERED in §V6.24 (Issue #14), EXECUTED under
+Hardware Issue #15 and INGESTED in §V6.25 (Issue #16): GBP-VIDEO-007 = PASS
+(CLAIM-D only) and GBP-VIDEO-008 = PASS (CLAIM-A / CLAIM-B, the eight sampled
+frames only), because the shared source-window gate passed
+(`OBSERVED_CONTIGUOUS`). Evidence GBP-HW-256 … 260. No frozen format
+changes.**
 §V6.1–§V6.17 below are the design as written for GitHub
 Issue #6 and are kept verbatim as provenance: where the implementation decided
 one of §V6.17's open items, or departs from a design detail, §V6.18.12 says so
@@ -20828,7 +20832,7 @@ is not rebuilt or relabelled. After the Orchestrator's independent
 validation, a separate research pre-registration decides whether and how the
 next physical run uses `coord-0002` with `stream-0013`.
 
-### V6.24 RUN 13 — GBP-VIDEO-007 / GBP-VIDEO-008 with coord-0002 — **PRE-REGISTERED 2026-09-20 (GitHub Issue #14); NOT RUN; NOT AUTHORIZED HERE**
+### V6.24 RUN 13 — GBP-VIDEO-007 / GBP-VIDEO-008 with coord-0002 — **PRE-REGISTERED 2026-09-20 (GitHub Issue #14); EXECUTED 2026-09-21 (Hardware Issue #15); INGESTED in §V6.25 (Issue #16): GBP-VIDEO-007 = PASS · GBP-VIDEO-008 = PASS** (the text below is the pre-registration as written, kept verbatim as provenance)
 
 Written before the hardware is touched. GitHub Issue #14 is the complete
 prospective pre-registration contract and this part persists it in substance:
@@ -21125,5 +21129,327 @@ validation); any change to the runtime, coord-0001, coord-0002, the
 analyzers, the formats, the fixtures, the evidence rows or the gates (none
 was made); evidence ingestion; PASS / FAIL classification. No new physical
 evidence ID exists. RUN 13 ends this checkpoint as PRE-REGISTERED / NOT RUN.
+
+### V6.25 RUN 13 — RESULT, ingested 2026-09-21 (GitHub Issue #16) — **GBP-VIDEO-007 = PASS · GBP-VIDEO-008 = PASS: the shared source-window gate passed (`OBSERVED_CONTIGUOUS`, 2046 / 2046 decisive transitions +1); the eight sampled frames equal the oracle in every word; the operator saw 1 → 2 → 3 → 4 through the declared chain**
+
+Executed 2026-09-21 under Hardware Issue #15 on the exact identities of
+§V6.24.2 — the RUN 12 image, not rebuilt, and the coord-0002 delivery image;
+classified PASS / PASS by the Orchestrator against the prospectively frozen
+§V6.24 gates before this ingestion; every figure below was reproduced here
+independently from the raw files with the tools named in §V6.24.2, unchanged
+(`tools/vvi.py` the corrected implementation of §V6.21, used prospectively as
+pre-registered, never to re-derive RUN 12). Nothing was widened: each verdict
+carries exactly its pre-registered boundary. No gate was touched after the
+result was seen; nothing was rerun; no further run is pre-registered. Evidence:
+GBP-HW-256 … GBP-HW-260. No new finding: GBP-VID-034 (RESOLVED, §V6.22) and
+GBP-VID-035 (REPAIRED, §V6.21) stay history, and RUN 12 (§V6.20) stays
+INCONCLUSIVE / INCONCLUSIVE.
+
+#### V6.25.1 Classification — fixed by the Orchestrator, persisted exactly
+
+```text
+GBP-VIDEO-007   PASS   CLAIM-D only
+GBP-VIDEO-008   PASS   CLAIM-A / CLAIM-B, the eight prospectively sampled frames only
+```
+
+> **GBP-VIDEO-007 = PASS.** CLAIM-D only: for every qualifying OGBPCOORD1
+> appearance R_1..R_4 in the admissible RUN-13 retained population, the machine
+> chain contains at least one handed and current-VI-latched / register-consistent
+> frame, and the Operator coherently observed the corresponding large digits 1,
+> 2, 3, 4 in order through the declared RUN-13 display chain. This does not bind
+> the human observation to an exact source frame.
+
+> **GBP-VIDEO-008 = PASS.** CLAIM-A / CLAIM-B for the eight prospectively
+> selected K = 8 frames only: each sampled source frame was acquired completely
+> and its full 240 × 160 consumed colour15 image matches the unchanged
+> OGBPCOORD1 oracle; the preserved source-derived texture matches the Python
+> conversion, the host `gbp_vpix.c` conversion and the tiled oracle. This does
+> not claim physical pixel equality or unsampled-frame full-frame fidelity.
+
+The shared gate came first (V6.25.4, V6.25.5): the run is admissible, so the
+two independent verdicts of §V6.24.8 and §V6.24.9 were read. Neither consulted
+the other's evidence. The approximate ≈ 8 s spacing in the operator's report
+is a human estimate and is not timing evidence; the one SUPERSEDED R_3 record
+(V6.25.7) is instrumentation semantics and is not evidence of non-scanout.
+
+#### V6.25.2 Operator declarations — preserved literally, not derived from files or logs
+
+```text
+TOPOLOGY      same GameCube as RUN 12: YES   ·   same Game Boy Player as RUN 12: YES
+              BBA PRESENT   ·   Ethernet DISCONNECTED   ·   no network initialisation, no network code
+              display chain, as pre-registered (§V6.24.3) and confirmed after the raw return: GameCube ->
+              composite / RCA -> low-cost RCA-to-HDMI converter (HDMI output configured to 1080p) ->
+              HYDIS HV150UX2 panel, M.NT68676.2A controller, custom iMac G3 modification
+              (a topology declaration; the 1080p is the converter's output; no pixel claim of any kind;
+              the future Morph 2K paths remain outside RUN 13)
+IDENTITY      pre-run hashes of the DOL and of the coord-0002 delivery image matched (double check of V6.24.5)
+VISUAL REPORT digits seen 1 2 3 4 · order 1 2 3 4 · approximate interval ≈ 8 s between digits ·
+              missing digit no · repeated digit no · unexpected digit no · visual anomaly no ·
+              photograph none
+              (approximate human observation; never rewritten into a frame-accurate or timing claim)
+```
+
+#### V6.25.3 Artifacts, hashed here first — and how they arrived
+
+The console wrote its five generated names (`GBP-VIDEO-004_stream-0013.log` /
+`-idxcap.bin` / `-disp.bin` / `-full.bin` / `-vi.bin`, kept as metadata) on
+the live SD card. Between the Orchestrator's location check on that card and
+this ingestion the five files were moved into `logs/` under those same bare
+names — not by the Executor — which overwrote RUN 12's raw-drop copies there:
+exactly the collision `captures/README.md` describes. RUN 12 is intact in its
+run-12 archive (all five re-hashed at ingestion, equal to GBP-HW-250) and in
+its versioned fixtures. The five RUN 13 files were located by full SHA-256,
+went FIRST to the reserved run-13 names of §V6.24.4 with `cp --update=none`
+and `cmp`, and were hashed before anything was read into an interpretation;
+`logs/` was left as found. All five match the Orchestrator's independent
+measurements on the SD card.
+
+```text
+log      87 200 B      4d86ef32562a839dc46f363011f0d4eca1e5bcf4c67e2af5da2fd01af550b49a
+idxcap   8 946 060 B   dcbcfd3e3e1440a3fd4da008286eac03dfe88723e0221aa311ebb88ef18c2280
+disp     401 396 B     c75e986a320837e6f096e155ff21fe34b0eac3bd4c3e97a5a007c761894c8131
+full     1 844 492 B   cb884e272c122a8b8fe1376c2b77ec3162abba96175ce1d8033441d857ae304b
+vi       152 396 B     2a772ae07e058bbcd9532d6a4a824eb231d8e9f371ce29380c67a04701bef1b4
+DOL      506 496 B     5391c3fe…dd79   (stream-0013 @ 7d7a6d8: the RUN 12 image, on disk, in the Swiss copy --
+                                        cmp identical -- in build-info.txt and in the log header; NOT rebuilt)
+stimulus 3 620 B       276ad987…6f700  (build/physical/agb-coord2-cart.gba, coord-0002 delivery, canonical
+                                        319dacb7…093f, source 74f9f4f; flashed to NOR / Mode B for this run)
+header   test_id=GBP-VIDEO-004 build_id=stream-0013 commit=7d7a6d8 lines=658 dropped=0 truncated=0
+         sidecars=disp:OGBPDISP2,full:OGBPFULL1_v1,vi:OGBPVI1_v1
+```
+
+`tools/` is clean at the ingestion HEAD `9683ea1`; `git diff 0ee8aac..HEAD --
+tools/vvi.py` is empty (the corrected analyzer, unchanged since its repair);
+`vindex.py`, `vidxcap.py`, `vdisp.py`, `vqual.py`, `vfull.py`, `icoord.py`
+and `istim.py` unchanged since the commits named in the fixture. No runtime,
+stimulus, format or gate file changed.
+
+#### V6.25.4 The shared gates, in the frozen order — every one passes
+
+```text
+IDENTITY / LOG   PASS   exact identities; lines=658 dropped=0 truncated=0; no storage fault; WITELIG, WITELIG2,
+                        WITQUAL, FULLSTORE, VISTORE, DISPSRC, STREAMWIT each once; longest payload STARTUPT 218 / 248
+WITNESS / WINDOW PASS   WITQUAL required=64 state=2 streak_max=64 resets=0 warmup_frames=356 warmup_disqualified=26
+                        qualify_frame=355 first_record_frame=356 window_first_block=0; WITELIG released=1
+                        still_gated=0 ticks_control_to_eligible=202506118 (5.000151 s); WITELIG2 292 / 26 / 0 (direct);
+                        STREAMWIT records=2048/2048 target_reached=1; no trim / filter / reset
+SOURCE           PASS   tools/vindex.py UNMODIFIED: OBSERVED_CONTIGUOUS -- V6.25.5. intact 2048 / INVALID 0 /
+                        FAULT 0 / mixed 0 / BLOCK_INDEX correct; 2046 of 2046 decisive transitions +1.
+                        --> RUN 13 ADMISSIBLE for both experiments.  THIS IS THE GATE RUN 12 FAILED.
+TRANSPORT        PASS   stop=witness_target_reached; 254 862 = 254 862 = 254 862 = 254 862; video 96 110/96 110;
+                        timeouts 0 busy 0 overflow 0 uncertain 0 errors 0 transport_ok 1; irq 509 727 / 509 727
+STARTUP          PASS   NORMAL; ticks_control_to_first_handoff=6688650 = 165.151852 ms (< 400 ms; RUN 12
+                        165.152173 ms, -13 ticks, recorded, no tolerance)
+POLICY A         PASS   join 356..2403: 2047 SELECTED_NEW, [2403] capture edge, interior 0, reorder 0, order rebuilt
+                        == 356..2402, 37 deferred / 81 attempts in the join, depth 1; frozen latency p99 0.308543 ms,
+                        max 1.005012 ms (gates 1.0 / 2.5); cadence {1: 2039, 2: 7} -> 7 repeats, observational
+SIDECARS         PASS   strict parse, every CRC valid: OGBPIDXCAP1 800a1097 / 781de3b8; OGBPDISP2 98c08390 / c97b54dd /
+                        19cfc51f / 0e88b3ff; OGBPFULL1 b037ecc2 / 3e926833; OGBPVI1 a11e9209 / c480f86f
+TOPOLOGY         PASS   declared before execution and confirmed after the raw return (V6.25.2)
+```
+
+#### V6.25.5 SOURCE — the frozen tool, verbatim, and the entries that came +1 (GBP-HW-257)
+
+```text
+records 2048/2048, 0 discarded, 81 921/81 921 staged/placed, out of range 0, all-40-block frames 2048
+flags target_reached, service_ok, stop_is_target · header/total CRC-32 800a1097 / 781de3b8
+observed 2048 (intact 2048) · first/last observed 0x000034 .. 0x000833 (52 .. 2099) · decisive 52 .. 2098
+decisive transitions 2046:  OBSERVED_ID_CONTIGUOUS 2046
+stimulus fault seen False
+VERDICT OBSERVED_CONTIGUOUS
+```
+
+Independent decode: header and global CRCs match, 2048/2048 seals,
+`frame_index` 356..2403 strictly +1, **81 920 / 81 920 valid canonical blocks,
+index ok in all, MIXED 0, INVALID 0, FRAME_ID 52..2099 with 2048 distinct ids,
+adjacent deltas `{1: 2047}`, STATUS 0x26 × 1579 / 0x27 × 40 / 0x36 × 429,
+FAULT 0, VMARGIN 38 / 39 / 54**, cadence 59.727133 Hz, first record 6.067203 s
+after CONTROL. R_1..R_4 each retained 40/40 distinct ids.
+
+```text
+frame_index  783 ->  784   FRAME_ID  479 ->  480   +1   (480 = the first frame of R_1)
+frame_index 1263 -> 1264   FRAME_ID  959 ->  960   +1   (960 = the first frame of R_2)
+frame_index 1743 -> 1744   FRAME_ID 1439 -> 1440   +1   (1440 = the first frame of R_3)
+frame_index 2223 -> 2224   FRAME_ID 1919 -> 1920   +1   (1920 = the first frame of R_4)
+every transition +1; no duplicate anywhere; the digit-1 and digit-4 entries that duplicated in RUN 12
+(§V6.20.5) did not duplicate here
+```
+
+**No mechanism is inferred from this run, and nothing here is a new finding.**
+§V6.22 predicted, falsifiably, that coord-0002 would show no PREPARE-side
+duplicate at any entry; the data agrees with the prediction. That is one
+physical run consistent with the software cycle model of §V6.23, not a
+calibration of it and not a hardware proof of the model's margins.
+
+#### V6.25.6 GBP-VIDEO-008 — the full-frame result (GBP-HW-258), and the formal verdict
+
+`tools/vfull.py analyse`, unmodified, with the host-built `gbp_vpix.c`:
+
+```text
+OGBPFULL1 GBP-VIDEO-004 / stream-0013 / gbp-video-stream-probe / 7d7a6d8
+records 8 of K=8  spacing 256  origin 356  flags 0x2 (ORIGIN_SET)      header/total CRC-32 b037ecc2 / 3e926833
+want_calls 2377 wanted 8 opened 8 completed 8 refused 0 skipped_capacity 0 blocks_copied 320
+sample  frame_index  seq   FRAME_ID  STATUS  colour15 mismatches  tex(py / oracle / c)  bit15     bytes 0/2 (reported)
+  0        356        331     52      0x36        0 / 38 400            0 / 0 / 0        [(0,0)]     33 829
+  1        612        587    308      0x36        0 / 38 400            0 / 0 / 0        [(0,0)]     33 850
+  2        868        843    564      0x26        0 / 38 400            0 / 0 / 0        [(0,0)]     33 833
+  3       1124       1099    820      0x26        0 / 38 400            0 / 0 / 0        [(0,0)]     33 839
+  4       1380       1355   1076      0x26        0 / 38 400            0 / 0 / 0        [(0,0)]     33 845
+  5       1636       1611   1332      0x26        0 / 38 400            0 / 0 / 0        [(0,0)]     33 839
+  6       1892       1867   1588      0x26        0 / 38 400            0 / 0 / 0        [(0,0)]     33 830
+  7       2148       2123   1844      0x26        0 / 38 400            0 / 0 / 0        [(0,0)]     33 842
+VERDICT PASS -- every sample: CLAIM-A and CLAIM-B, at the texture
+BOUNDARY source -> converted texture only; nothing about the VI, the XFB or a display
+```
+
+The selection was the implemented content-blind rule (`origin + 256·i`,
+origin = the first retained witness frame, 356); the eight positions are the
+eight intended; the sampled FRAME_IDs are the witness ids at those
+`frame_index` values; every sample is COMPLETE with 40/40 coherent blocks of
+one lifecycle; no generation mixing, no refusal, no incomplete sample, no store
+fault; bytes 0/2 (U-GBP-029; 33 829 – 33 850 deviating words per sample) and
+bit 15 (U-GBP-034; exactly once, at (0, 0), in every sample) are reported and
+do not touch the equality result. The oracle was not retuned.
+
+> **The formal experiment verdict is GBP-VIDEO-008 = PASS**, within its
+> pre-registered boundary (§V6.24.8): CLAIM-A and CLAIM-B for the eight
+> sampled frames. Nothing about the 2 040 frames not sampled, the XFB, the
+> VI, the display or physical pixel equality.
+
+#### V6.25.7 GBP-VIDEO-007 — the machine chain with the corrected tool (GBP-HW-260), and the report beside it
+
+`tools/vvi.py analyse` — the corrected implementation of §V6.21, unchanged
+since `0ee8aac`, as §V6.24.2 pre-registered — joined with the OGBPIDXCAP1 and
+the OGBPDISP2:
+
+```text
+OGBPVI1 GBP-VIDEO-004 / stream-0013 / gbp-video-stream-probe / 7d7a6d8
+  records 2377/4096  handed 2377 latched 2371 superseded 5 overflow 0 observe_calls 2371 awaiting_at_end 2376 flags 0x0
+  header/total CRC-32 a11e9209 / c480f86f
+  register readback: 2371/2371 latched records name the handed XFB as TFBL; 2371 bottom fields plausible
+  k digit |R_k| retained |H_k| |L_k|   first t_handed   first t_latch   xfb
+  1   1    40       40      40    40   34153178511695864 34153178512019599   [0, 1]
+  2   2    40       40      40    40   34153178837183578 34153178837694196   [0, 1]
+  3   3    40       40      40    39   34153179162656119 34153179162696215   [0, 1]
+  4   4    40       40      40    40   34153179488143742 34153179488366161   [0, 1]
+SOFTWARE CHAIN ONLY (CLAIM-C). This tool does not know what the operator saw and does not classify GBP-VIDEO-007.
+```
+
+Container facts (independent decode): 2377/2377 seals; superseded at
+`frame_index` 86, 631, 1754, 2041, 2315; the one awaiting record is 2402;
+every latch is the retrace after its hand-over (2371/2371), `t_latch −
+t_handed` 0.095 – 16.927 ms; VI flag 1 and xof 0 in every latched record; two
+distinct recorded addresses, 0x013a8420 and 0x0143e440, each carried with the
+flag and shifted by 5 exactly as libogc2 encodes them (§V6.21). **Register
+model, corrected: 2371 / 2371 top, 2371 / 2371 bottom.**
+
+**The one R_3 member not in L_3.** `frame_index 1754` (FRAME_ID 1450) is
+SUPERSEDED in the raw OGBPVI1: the next hand-over (1755) came one retrace
+later, before the pump observed 1754 current, so no latch record exists and
+1754 is not a member of L_3 by the frozen definition. That is instrumentation
+semantics only (§V6.24.9): nothing here says whether that frame was or was not
+physically scanned out, and the PASS rule never asked for every frame.
+
+**The operator's report, beside the chain.** Digits 1, 2, 3, 4 in that order,
+none missing, repeated or unexpected, no anomaly, under the declared chain
+(V6.25.2). The §V6.24.9 rule, applied: the shared run is admissible; the
+qualifying appearances under the decisive range 52..2098 are exactly
+R_1..R_4; each is retained whole (40), handed whole (40) and has at least one
+handed-and-current-VI-latched, register-consistent frame (L = 40 / 40 / 39 /
+40); the coherent report contains the digit k mod 10 for each, in the observed
+order.
+
+> **The formal experiment verdict is GBP-VIDEO-007 = PASS**, within its
+> pre-registered boundary (§V6.24.9): CLAIM-D — at least one source-derived
+> frame from each qualifying appearance was physically visible through the
+> declared RUN 13 display chain. The observation is bound to a 40-frame
+> appearance set, never to one frame; nothing about pixels, tearing,
+> presentation, scaling or the converter.
+
+#### V6.25.8 The comparison with RUN 12, filled from measured data
+
+The §V6.24.11 table, kept there with its empty column as provenance, filled:
+
+```text
+field                                   RUN 12 (reference, coord-0001, §V6.20)     RUN 13 (coord-0002)
+DOL SHA-256                             5391c3fe…dd79                              5391c3fe…dd79   (the same image)
+stimulus (delivery) SHA-256             a769cc11…994f (coord-0001)                 276ad987…6f700 (coord-0002)   <- the designed difference
+BBA / Ethernet                          PRESENT / DISCONNECTED                     PRESENT / DISCONNECTED (operator)
+display chain                           composite -> converter -> HYDIS HV150UX2   composite -> converter -> HYDIS HV150UX2 (operator)
+log lines / dropped / truncated         674 / 0 / 0                                658 / 0 / 0
+first real hand-off after CONTROL       165.152173 ms                              165.151852 ms   (-13 ticks)
+eligibility after CONTROL               5.000153852 s                              5.000151062 s
+first / last FRAME_ID                   74 / 2119                                  52 / 2099
+intact / INVALID                        2048 / 0                                   2048 / 0
+decisive transitions contiguous / dup   2044 / 2                                   2046 / 0
+source verdict                          OBSERVED_DISCONTINUITY                     OBSERVED_CONTIGUOUS
+transport errors / timeouts / uncertain 0 / 0 / 0                                  0 / 0 / 0
+transport unmasks                       254 858                                    254 862
+scientific records joined downstream    2047 (+1 edge)                             2047 (+1 edge)
+interior drops / reorder / max depth    0 / 0 / 1                                  0 / 0 / 1
+deferred / attempts (join)              36 / 79                                    37 / 81
+frozen p99 / max latency                0.308642 / 1.004667 ms                     0.308543 / 1.005012 ms
+display-repeat intervals                7                                          7
+OGBPFULL1: samples wanted / completed   8 / 8   (dependent variable PASS 8/8, subordinate)   8 / 8   (PASS 8/8, the dependent variable of an ADMISSIBLE run)
+OGBPVI1: handed / latched / superseded  2377 / 2370 / 6   (frozen L_k = 0; corrected replay §V6.21: L = 40/40/38/40)   2377 / 2371 / 5   (corrected tool: L = 40/40/39/40)
+GBP-VIDEO-008 verdict                   INCONCLUSIVE                               PASS
+GBP-VIDEO-007 verdict                   INCONCLUSIVE                               PASS
+```
+
+One thing differs by design between the two runs — the stimulus — on the
+same build, the same console and the same declared chain; the source gate's
+result is that designed difference showing. Numerical closeness elsewhere is
+an observation; no tolerance and no mechanism is derived.
+
+#### V6.25.9 Fixtures and tests
+
+```text
+captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0013-run13-disp.bin   401 396 B    c75e986a…8131  byte-identical
+captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0013-run13-full.bin   1 844 492 B  cb884e27…304b  byte-identical
+captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0013-run13-vi.bin     152 396 B    2a772ae0…f1b4  byte-identical
+captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run13-qual.bin        24 652 B     9b76d3f9…85da  content-blind
+                                                                           projection naming the raw witness (8 946 060 B, dcbcfd3e…2280)
+captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run13-struct.json     8a229851…cb5b: the per-record frozen decode (2048 records),
+                                                                           every identity, the declarations AS declarations, the visual
+                                                                           report, the receipt, the tools' results, the corrected
+                                                                           register model, both verdicts with their boundaries, the
+                                                                           RUN 12 comparison
+tests/host/test_run13.py                                                   29 tests: fixture hashes; the shared source gate as it
+                                                                           passed (2048 intact, 2046 +1, 52..2099, no FAULT, the four
+                                                                           entries +1); vfull PASS 8/8 recomputed from the versioned
+                                                                           OGBPFULL1 and the formal verdict within its boundary; the
+                                                                           exact join, latency and cadence; the OGBPVI1 counts, the
+                                                                           corrected 2371/2371 and L = 40/40/39/40 derived from latched
+                                                                           records only; the formal CLAIM-D wording; the RUN 12
+                                                                           fixtures pinned untouched
+```
+
+The raw text log and the raw OGBPIDXCAP1 are not versioned (established
+policy); their sizes and SHA-256 are.
+
+#### V6.25.10 What RUN 13 establishes, and does not
+
+Establishes, as FACTs of this run: the artifacts, the receipt and the
+declarations (GBP-HW-256); 2048 structurally intact witness records, every
+decisive transition +1, the frozen `OBSERVED_CONTIGUOUS` — the shared gate
+passed (GBP-HW-257); K = 8 complete full-frame samples whose source and
+texture match the injective oracle in all 38 400 words each, and the formal
+**GBP-VIDEO-008 = PASS** for those eight frames (GBP-HW-258); transport,
+startup and Policy A clean under the inherited gates (GBP-HW-259); the OGBPVI1
+container facts, the corrected register model 2371 / 2371, L = 40 / 40 / 39 /
+40, the operator's literal observation beside them, and the formal
+**GBP-VIDEO-007 = PASS** as CLAIM-D (GBP-HW-260). **Does not establish: exact
+per-frame physical scanout accounting; physical pixel equality; absence of
+tearing; presentation, scaling or pixel-perfect behaviour (GBP-VID-032,
+future work); correctness of the cheap RCA → HDMI converter's scaling; Morph
+2K or Samsung Q80T behaviour; universal cable or display behaviour;
+full-frame fidelity outside the eight sampled frames; audio, input, the Link
+Port, Ethernet, networking, BBA initialisation, Phase 11; any timing from the
+≈ 8 s estimate; any physical meaning of the SUPERSEDED record.** RUN 12
+remains historical and INCONCLUSIVE / INCONCLUSIVE; GBP-VID-034 and
+GBP-VID-035 remain history. No rerun is pre-registered; the runtime,
+coord-0001, coord-0002, the analyzers, the formats and the gates are
+unchanged. What comes next — the validation of this ingestion and the closing
+of Hardware Issue #15, then the next Phase-4 design — is the Orchestrator's.
 
 ---
