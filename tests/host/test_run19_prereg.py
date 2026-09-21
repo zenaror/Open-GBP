@@ -1,24 +1,25 @@
 """
 tests/host/test_run19_prereg.py — RUN 19 / RUN 20 pre-registration (HARDWARE_TESTS
-§V7.3-style, §V7.5; GitHub Issue #34): GBP-INPUT-003, the Phase 5 acceptance
-pair — a real game, both controllers, the same actions — frozen BEFORE hardware.
+§V7.5; GitHub Issue #34) AMENDED BEFORE HARDWARE (GitHub Issue #37): GBP-INPUT-003,
+the two-pad equivalence on the Enhanced Control Checker — the Operator's
+criterion answered by machine on both ends, NOT the ROADMAP's acceptance.
 
-Pinned: the criterion is the Operator's sentence, quoted, read in his terms and
-not reinterpreted; the run is a pair (RUN 19 the generic pad, RUN 20 the original
-pad) with one literal action list (13 steps, 19 presses, every GBA key at least
-once) and a per-step report; W / S are read from his reports, K (the machine
-half) from the two KEY records with its definitions frozen, beside W / S and
-never merged; failure is reachable and informative; stream-0015 serves, is
-verified on disk, NOT rebuilt, and its ~40 s window is stated with a longer
-session recorded as a build change; the cartridge and its status (three values)
-are declared before each run, WarioWare ORIGINAL recommended with its reason and
-Road Rage named with the caveat wherever it is cited, the Operator's sentence
-recorded as a relayed intention with its ambiguity; the standing declarations
-are cited; the ten names are reserved once in §V7.5 and once in the handoff,
-absent on disk, none for run 21+; the recovery block is byte-identical to
-§V7.1.7's; no result, no id, no executed date; Phase 5's closure is not decided;
-§V7.1–§V7.4 are the bytes of 868d053 and the chapter heading only grew; nothing
-under the untouchable paths moved. Nothing here runs a program.
+Pinned: the amendment is dated and recorded, never silent (the record names the
+three changes and what stays frozen); the criterion is the Operator's sentence,
+quoted, read in his terms; the two criteria are kept apart in so many words and
+the checker's test-ROM nature is given as what makes the machine comparison
+possible and what makes it unable to substitute; WarioWare: Twisted is evaluated
+and REJECTED with its reason and the recommendation corrected for its actual
+error; the design is the walk × pad matrix (RUN 19 = walk A on the original pad,
+RUN 20 = walk B on the generic pad) with §V7.3's walks and join unchanged, and its
+reasoning; the build change is assessed with constants that match the source and
+is NOT made; stream-0015 is verified, not rebuilt, and its ~40 s window is enough
+for the checker; the standing declarations are cited; the ten names are reserved
+once in §V7.5 and once in the handoff, absent on disk, none for run 21+; the
+recovery block is byte-identical to §V7.1.7's; the verdicts answer his sentence
+with failure reachable; Phase 5's closure is not decided and further away; no
+result, no id, no executed date; §V7.1–§V7.4 are the bytes of 59dce2b and the
+chapter heading only grew; nothing under the untouchable paths moved.
 """
 import glob
 import os
@@ -31,12 +32,18 @@ HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 HANDOFF = os.path.join(ROOT, "docs", "HANDOFF.md")
 ROADMAP = os.path.join(ROOT, "docs", "ROADMAP.md")
 DEVLOG = os.path.join(ROOT, "docs", "research", "DEVLOG.md")
+MAIN = os.path.join(ROOT, "poc", "gbp-video-stream-probe", "source", "main.c")
+VWITNESS_H = os.path.join(ROOT, "src", "gbp", "gbp_vwitness.h")
+VWITNESS_C = os.path.join(ROOT, "src", "gbp", "gbp_vwitness.c")
+VSTATE_C = os.path.join(ROOT, "src", "gbp", "gbp_vstate_probe.c")
+VFULL_H = os.path.join(ROOT, "src", "gbp", "gbp_vfull.h")
+VDISP_H = os.path.join(ROOT, "src", "gbp", "gbp_vdisp.h")
+VVI_H = os.path.join(ROOT, "src", "gbp", "gbp_vvi.h")
 DOL_SHA = "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49"
-BASE_COMMIT = "868d053"                   # origin/main before Issue #34
+BASE_COMMIT = "59dce2b"                   # origin/main before Issue #37 (the amendment); Issue #34's pre-registration is at 5377317
 CRITERION = "ambos os controles funcionam e tem que apresentar o mesmo comportamento"
 NAMES = ["captures/local/GBP-VIDEO-004_stream-0015-run%d%s" % (n, s)
          for n in (19, 20) for s in (".log", "-idxcap.bin", "-disp.bin", "-full.bin", "-vi.bin")]
-LIST = [("START", 1), ("A", 2), ("DOWN", 2), ("UP", 1), ("A", 1), ("RIGHT", 3), ("LEFT", 2), ("B", 2), ("L", 1), ("R", 1), ("SELECT", 1), ("START", 2)]
 _C = {}
 
 
@@ -90,75 +97,142 @@ def block_after(p, heading):
     return p[j:p.index("```", j + 7) + 3]
 
 
-class TheSectionExists(unittest.TestCase):
-    def test_twelve_parts_in_order_and_the_heading_carries_the_status(self):
+def define(path, name):
+    m = re.search(r"^#define\s+%s\s+(\S+)" % re.escape(name), read(path), re.M)
+    assert m, name
+    return m.group(1)
+
+
+class TheSectionAndTheAmendmentRecord(unittest.TestCase):
+    def test_twelve_parts_in_order_and_the_heading_carries_both_statuses(self):
         t = prereg()
         pos = [t.index("#### V7.5.%d " % n) for n in range(1, 13)]
         self.assertEqual(pos, sorted(pos))
         self.assertNotIn("#### V7.5.13 ", t)
         head = t.splitlines()[0]
-        for tok in ("RUN 19 / RUN 20", "GBP-INPUT-003", "the Phase 5 acceptance run", "PRE-REGISTERED 2026-09-21 (GitHub Issue #34)", "NOT RUN / NOT AUTHORISED HERE"):
+        for tok in ("RUN 19 / RUN 20", "GBP-INPUT-003", "the two-pad equivalence on the Enhanced Control Checker", "NOT the ROADMAP's acceptance, which stays open",
+                    "PRE-REGISTERED 2026-09-21 (GitHub Issue #34)", "NOT RUN / NOT AUTHORISED HERE", "AMENDED BEFORE HARDWARE (GitHub Issue #37, 2026-09-21)",
+                    "WarioWare: Twisted evaluated and REJECTED", "the build change assessed, not made"):
             self.assertIn(tok, head, tok)
         full = read(HW)
         self.assertEqual((full.count("### V7.5 "), full.count("\n## V7 ")), (1, 1))
-        self.assertLess(full.index("### V7.4 "), full.index("### V7.5 "))
         v7 = [l for l in full.splitlines() if l.startswith("## V7 ")][0]
-        for tok in ("RUN 19 / RUN 20 PRE-REGISTERED (Issue #34, §V7.5)", "GBP-INPUT-003", "NOT RUN / NOT AUTHORISED HERE"):
+        for tok in ("RUN 19 / RUN 20 PRE-REGISTERED (Issue #34, §V7.5)", "AMENDED BEFORE HARDWARE (Issue #37)", "THE INSTRUMENT IS THE ENHANCED CONTROL CHECKER",
+                    "NOT THE ROADMAP'S ACCEPTANCE, WHICH STAYS OPEN", "THE BUILD CHANGE ASSESSED, NOT MADE"):
             self.assertIn(tok, v7, tok)
-        self.assertIn("whether Phase 5 then CLOSES is NOT decided here", plain(t.split("#### V7.5.1 ")[0]))
+
+    def test_the_amendment_is_recorded_dated_with_the_three_changes_and_what_stays_frozen(self):
+        intro = plain(prereg().split("#### V7.5.1 ")[0])
+        for tok in ("amended before it, on the same day, under its own Issue -- dated and recorded here, never a silent edit (the precedent is Issue #23's amendment of §V7.1)".replace("--", "—"),
+                    "THE AMENDMENT RECORD (2026-09-21, Issue #37)", "1 the game the WarioWare he owns is WarioWare: TWISTED", "He identified this himself",
+                    "it weighed original against unofficial and never asked WHICH TITLE -- that is the actual error",
+                    "2 the instrument he will test on the Enhanced Control Checker instead", "claiming exactly that and NOT the acceptance",
+                    "3 the build he asked \"mas pq usar o mesmo DOL?\"", "stream-0015 is a RESEARCH PROBE", "Recorded; NOT implemented here",
+                    "kept frozen the criterion in his words", "the three-value cartridge status axis", "the standing declarations", "the recovery block",
+                    "the reserved names", "§V7.1-§V7.4 byte-identical", "nothing about the routing", "Phase 5's closure not decided",
+                    "whether Phase 5 then CLOSES is NOT decided here", "further away, not nearer"):
+            self.assertIn(tok, intro, tok)
 
 
-class TheCriterionIsHisAndTheRunIsAPair(unittest.TestCase):
-    def test_the_criterion_is_quoted_read_in_his_terms_and_not_reinterpreted(self):
+class TheTwoCriteriaAndTheInstrument(unittest.TestCase):
+    def test_the_criterion_is_quoted_read_in_his_terms_and_the_two_criteria_are_kept_apart(self):
         p = plain(part(1))
         for tok in (CRITERION, "tanto o paralelo como original", "not to be reinterpreted after the run", "not restated into something easier to gate",
-                    "the run is a PAIR", "a machine half", "never replaces it and never decides the criterion by itself",
-                    "this run serves acceptance and never the join", "§V7.4's FACTs stand where they stand"):
+                    "Two criteria, kept apart (the amendment)", "the ROADMAP's \"A real game can be controlled reliably using the GameCube controller.\"",
+                    "The Enhanced Control Checker is a TEST ROM, not a game", "a run on the checker does NOT change that -- however well it goes",
+                    "It stays OPEN and UNSCHEDULED after this pair", "MACHINE-DECODED ON BOTH ENDS instead of resting on his judgement",
+                    "THE CHECKER BEING A TEST ROM IS WHAT MAKES THE MACHINE-DECODED TWO-PAD COMPARISON POSSIBLE AT ALL",
+                    "a real game gives no decodable statement of what it received", "That is not a consolation for using it",
+                    "STRONGER on the checker", "CANNOT SUBSTITUTE for the acceptance", "Both halves of that sentence hold",
+                    "they answer the Operator's criterion for the ten buttons of the walks, on the two pads he owns",
+                    "the ROADMAP's acceptance; Phase 5's closure (further away, not nearer: a real game is still required)"):
             self.assertIn(tok, p, tok)
-        self.assertEqual(prereg().count(CRITERION), 2, "quoted in the criterion part and read in the verdicts, nowhere else")
+        self.assertEqual(prereg().count(CRITERION), 3, "quoted in the criterion part, read in the verdicts, and named in the two-criteria block")
 
-    def test_the_numbering_the_experiment_and_the_instruments(self):
+    def test_the_rejected_candidate_the_corrected_recommendation_and_the_relayed_intention(self):
         p = plain(part(2))
-        for tok in ("RUN 19 (the generic third-party pad) and RUN 20 (the original Nintendo pad), in that order", "the next two numbers above every reserved one",
-                    "GBP-INPUT-003", "W \"funcionam\"", "S \"o mesmo comportamento\"", "K the machine half",
-                    "WarioWare ORIGINAL cartridge, in two regional versions (Japanese, American) -- the Orchestrator's RECOMMENDATION",
-                    "an original removes it", "Road Rage The Simpsons: Road Rage, declared by the Operator as a \"paralelo\" -- an UNOFFICIAL cartridge (a repro)",
-                    "na RUN estou usando ez-flash e o road rage paralelo apenas", "a RELAYED INTENTION, with its ambiguity stated",
-                    "the relay's confidence is not the record's", "THE STATUS AXIS HAS AT LEAST THREE VALUES", "a ROM DELIVERED BY THE FLASHCART",
-                    "before RUN 19, and again before RUN 20", "does not choose for him beyond the recommendation",
-                    "comparing them is NOT part of this run", "No counting, no timing, no pacing"):
+        for tok in ("WarioWare: TWISTED -- evaluated and REJECTED as an instrument for an input test", "the gyroscope title",
+                    "most of its interaction does not pass through the button path at all", "The Operator identified this himself",
+                    "it weighed original against unofficial and never asked which title, which is the actual error", "withdrawn, not quietly dropped",
+                    "The Simpsons: Road Rage -- declared by the Operator as a \"paralelo\", an UNOFFICIAL cartridge (a repro)",
+                    "stays named for the REAL-GAME acceptance run (not this pair)", "na RUN estou usando ez-flash e o road rage paralelo apenas",
+                    "a RELAYED INTENTION with its ambiguity stated", "the relay's confidence is not the record's", "at least THREE values",
+                    "a ROM DELIVERED BY THE FLASHCART", "For this pair the EZ-Flash carries the checker on its NOR", "No counting, no timing, no pacing"):
             self.assertIn(tok, p, tok)
-        # wherever Road Rage is cited, its unofficial status travels with it
         t = plain(prereg())
         for m in re.finditer(r"Road Rage", t):
             window = t[max(0, m.start() - 400):m.end() + 400]
             self.assertRegex(window, r"UNOFFICIAL|unofficial|repro|paralelo", t[m.start():m.end() + 80])
+        self.assertNotIn("WarioWare ORIGINAL cartridge, in two regional versions (Japanese, American) -- the Orchestrator's RECOMMENDATION", t)
 
-    def test_the_image_serves_with_its_window_stated_and_a_longer_session_recorded_not_proposed(self):
+    def test_the_design_is_the_walk_by_pad_matrix_with_the_frozen_walks_and_its_reasoning(self):
+        p = plain(part(2))
+        for tok in ("RUN 19 and RUN 20: the next two numbers above every reserved one", "GBP-INPUT-003", "the walk x pad matrix, completed",
+                    "RUN 19 = walk A on the ORIGINAL pad; RUN 20 = walk B on the GENERIC pad", "every one of the ten buttons has been walked on BOTH pads",
+                    "walk A (L 1, R 2, A 3, B 4, SELECT 5, START 6)", "walk B (L 1, R 2, UP 3, DOWN 4, LEFT 5, RIGHT 6)",
+                    "Each run is also a join run: §V7.3.9's join closes it per bit (W by machine)", "55 distinct-count presses do not fit the window unpaced",
+                    "THE REASONING, worth more than the outcome", "the MISSING HALF of a walk x pad matrix the project had already half-built without noticing",
+                    "no new machinery and no new verdict vocabulary", "what the Operator does that is new NOTHING"):
+            self.assertIn(tok, p, tok)
+
+
+class TheImageAndTheBuildAssessment(unittest.TestCase):
+    def test_the_image_serves_and_the_window_is_enough_for_the_checker(self):
         p = part(3)
         self.assertIn(DOL_SHA, p)
         self.assertIn("514 880 B", p)
         f = plain(p)
-        for tok in ("OPENGBP-IDENT gbp-video-stream-probe stream-0015 da06500", "NOT rebuilt", "why it serves", "it carries the KEY record",
-                    "the image whose routing is FACT for all ten word bits on BOTH pads", "no staging, no rebuild",
-                    "THE GAME IS CONTROLLABLE FOR ROUGHLY 40 SECONDS FROM ITS OWN BOOT", "+40.340 s", "+0.11 s after CONTROL",
-                    "A longer session needs a build change (time_target / witness_target) -- RECORDED, NOT PROPOSED, not authorised here",
-                    "NO analyzer decodes a game's frames and NO analyzer computes the machine half", "the definitions are frozen HERE so the ingestion cannot tune them",
-                    "DO NOT RUN"):
+        for tok in ("OPENGBP-IDENT gbp-video-stream-probe stream-0015 da06500", "NOT rebuilt", "why it serves", "the pads are the only variable",
+                    "FOR THE CHECKER THIS IS ENOUGH, shown by the runs already made", "walk A took 8.7 s (RUN 17, +5.773 .. +14.499 s)",
+                    "walk B 12.0 s (RUN 18, +5.557 .. +17.518 s)", "the window is not a constraint here and no build is needed", "DO NOT RUN"):
             self.assertIn(tok, f, tok)
 
+    def test_the_build_assessment_matches_the_source_and_is_not_made(self):
+        f = plain(part(3))
+        for tok in ("THE BUILD CHANGE, ASSESSED (Issue #37)", "NOT made, NOT proposed here", "GBP_VWITNESS_TARGET = 2048", "the S5 site",
+                    "the ONLY success (§V5.59 F5", "gbp_vstate_config_disable_time_target", "STREAM_SAFETY_SECONDS = 60", "STREAM_MAX_DELIVERIES = 400 000",
+                    "does NOT give an indefinite session: it gives a DIFFERENT stop", "SCORED DIFFERENTLY, as a failure",
+                    "whoever builds an input session must add a success stop, not remove one", "2048 x 4 320 B = 8 847 360 B", "98 304 B of metadata",
+                    "arena1_free is 1 650 688 B", "UNBOUND, not enlarged", "cfg.witness = &wit", "if (cfg->witness)", "null-safe (gbp_vwitness.c)",
+                    "UNBINDING THE WITNESS LEAVES OGBPFULL1 WITHOUT A SOURCE FOR ITS ORIGIN", "turns a one-constant change into a redesign",
+                    "gbp_vfull_set_origin from", "gbp_vwitness_meta_at(&wit, 0)", "SURVIVES UNCHANGED: it lives in the pump slot and the ringlog",
+                    "LOG_LINES 1024", "64-line reserve", "about 350 presses", "GBP_VDISP_LIFE_CAP 4096, GBP_VDISP_EVENT_CAP 8192", "GBP_VVI_CAP 4096",
+                    "the service pass gets SHORTER without the witness copy", "a NEW build id", "for the checker ~40 s is ENOUGH", "for a real game the build change IS needed",
+                    "RECORDED; NOT IMPLEMENTED; NOT PROPOSED as a change to this pair"):
+            self.assertIn(tok, f, tok)
+        # the constants the assessment cites, read from the source
+        self.assertEqual(define(VWITNESS_H, "GBP_VWITNESS_TARGET"), "2048u")
+        self.assertEqual((define(VWITNESS_H, "GBP_VWITNESS_WORDS"), define(VWITNESS_H, "GBP_VWITNESS_BLOCKS")), ("54u", "40u"))
+        self.assertEqual(54 * 40 * 2 * 2048, 8847360)
+        self.assertEqual(define(MAIN, "STREAM_SAFETY_SECONDS"), "60u")
+        self.assertEqual(define(MAIN, "STREAM_MAX_DELIVERIES"), "400000u")
+        self.assertEqual((define(MAIN, "LOG_LINES"), define(MAIN, "KEYLOG_TAIL_RESERVE")), ("1024", "64u"))
+        self.assertEqual((define(VDISP_H, "GBP_VDISP_LIFE_CAP"), define(VDISP_H, "GBP_VDISP_EVENT_CAP"), define(VVI_H, "GBP_VVI_CAP")), ("4096u", "8192u", "4096u"))
+        main = read(MAIN)
+        self.assertIn("cfg.witness = &wit;", main)
+        self.assertIn("gbp_vstate_config_disable_time_target(&cfg);", main)
+        self.assertIn("gbp_vfull_set_origin(&full, gbp_vwitness_meta_at(&wit, 0)->frame_index);", main)
+        vs = read(VSTATE_C)
+        self.assertIn("if (cfg->witness) {", vs)
+        self.assertIn("GBP_VSTATE_STOP_WITNESS_TARGET);", vs)
+        self.assertIn('"S5_witness_store_full"', vs)
+        vw = read(VWITNESS_C)
+        self.assertIn("return (w && w->target_reached) ? 1 : 0;", vw)
+        self.assertIn("return (w && w->store_full) ? 1 : 0;", vw)
+        self.assertIn("set ONCE, from the witness window's first retained", read(VFULL_H))
+        self.assertEqual(round(400000 / 6314.0), 63)   # the delivery cap at RUN 17's rate: about 63 s
+
+
+class TopologyNamesGateAndProcedure(unittest.TestCase):
     def test_the_topology_cites_the_standing_declarations_and_declares_the_rest(self):
         f = plain(part(4))
         for tok in ("DECLARED HARDWARE INVENTORY", "CITED, not asked again", "STANDING DECLARATION (2026-09-21, Issue #35",
                     "ate que seja solicitado para remover ou conectar o cabo", "ate que eu anuncie o contrario", "INCONCLUSIVE on that item (V7.1.4)",
-                    "DECLARED BEFORE RUN 19 and the SAME for RUN 20", "an ORIGINAL cartridge, an UNOFFICIAL cartridge (\"paralelo\" / repro), or a ROM run from the EZ-Flash",
-                    "A change of cartridge between the two runs makes the pair INCONCLUSIVE for S", "THE VARIABLE of this pair",
-                    "RUN 19 = the GENERIC third-party GameCube controller", "RUN 20 = the ORIGINAL Nintendo GameCube controller", "declared per run, never assumed",
-                    "trigger_threshold=0", "X or Y as SELECT, Z never sent"):
+                    "the EZ-Flash Omega DE with the Enhanced Control Checker on its NOR, booting STRAIGHT INTO it", "A test ROM on the flashcart's NOR, declared as such",
+                    "THE VARIABLE of this pair: RUN 19 = the ORIGINAL Nintendo GameCube controller", "RUN 20 = the GENERIC third-party GameCube controller",
+                    "declared per run, never assumed", "trigger_threshold=0"):
             self.assertIn(tok, f, tok)
 
-
-class TheNamesTheGateAndTheProcedure(unittest.TestCase):
     def test_the_ten_names_once_in_the_part_once_in_the_handoff_none_on_disk_none_beyond(self):
         p, t, h = prereg(), read(HW), read(HANDOFF)
         for n in NAMES:
@@ -166,56 +240,35 @@ class TheNamesTheGateAndTheProcedure(unittest.TestCase):
             self.assertEqual(t.count(n), 1, n)
             self.assertEqual(h.count(n), 1, n)
             self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run19\S*", t)), 5)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run20\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*run(?:2[1-9]|[3-9]\d)\S*", t)), 0)
         self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run19*")) + glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run20*")), [])
-        f = plain(part(5))
-        for tok in ("TAKEN even if a run aborts, never starts, or RUN 20 is never executed", "Verified absent on 2026-09-21", "never a sixth file"):
-            self.assertIn(tok, f, tok)
+        self.assertIn("TAKEN even if a run aborts, never starts, or RUN 20 is never executed", plain(part(5)))
 
     def test_the_identity_gate(self):
         g = plain(part(6))
         for tok in ("/media/rafael/SD_GC/Open-GBP/12-stream/boot.dol", DOL_SHA, "514 880 B", "re-verified before EACH boot", "MOVED ASIDE, never deleted",
-                    "the same cartridge in RUN 20", "If ANY identity differs: DO NOT RUN"):
+                    "boots straight into the Enhanced Control Checker on its NOR", "RUN 19 the ORIGINAL Nintendo pad, RUN 20 the GENERIC third-party pad",
+                    "If ANY identity differs: DO NOT RUN"):
             self.assertIn(tok, g, tok)
 
-    def test_the_action_list_is_literal_covers_every_key_and_fits_the_window(self):
+    def test_the_walks_the_checklists_and_the_recovery_block_byte_identical_to_v7_1(self):
         p = part(7)
-        self.assertIn("13 steps, 19 presses", p)
-        self.assertEqual(sum(n for _, n in LIST), 19)
-        self.assertEqual({k for k, _ in LIST}, {"A", "B", "SELECT", "START", "RIGHT", "LEFT", "UP", "DOWN", "L", "R"}, "every one of the ten GBA keys")
-        table = block_after(p, "**The action list")
-        for n in range(1, 14):
-            self.assertIsNotNone(re.search(r"^\s*%d\s{2,}" % n, table, re.M), "step %d" % n)
-        self.assertIsNone(re.search(r"^\s*14\s{2,}", table, re.M))
-        f = plain(p)
-        for tok in ("game-agnostic at the level of the GBA keys", "It is about the PADS, which is what the criterion is about", "not a script to time and not \"play for a while\"",
-                    "the D-pad, not the stick", "RESPONDED (and what) / NO RESPONSE / OTHER / N/A", "The list is performed as written even where a step is N/A",
-                    "the pair is compared on the common prefix", "byte-identical to V7.1.7's", "a difference is a result (V7.5.9)"):
-            self.assertIn(tok, f, tok)
-        self.assertEqual(p.count("START x1, then START x1 again"), 1)
-        # the expected press sequence of the record table is the list, in order
-        seq = [k for k, n in LIST for _ in range(n)]
-        self.assertIn("expected press sequence (the list)      " + ", ".join(seq), part(11))
-
-    def test_two_checklists_and_the_recovery_block_byte_identical_to_v7_1(self):
-        p = part(7)
-        self.assertEqual(len(p.split("```text")), 5)           # the recovery block, the list, the two checklists
-        run19 = block_after(p, "**RUN 19 — the action list on the GENERIC")
-        run20 = block_after(p, "**RUN 20 — the SAME action list on the ORIGINAL")
-        for n in range(1, 12):
+        self.assertEqual(len(p.split("```text")), 4)           # the recovery block and the two checklists
+        run19 = block_after(p, "**RUN 19 — walk A on the ORIGINAL")
+        run20 = block_after(p, "**RUN 20 — walk B on the GENERIC")
+        for n in range(1, 13):
             self.assertIsNotNone(re.search(r"^\s*%d  " % n, run19, re.M), "run19 step %d" % n)
-        self.assertIsNone(re.search(r"^\s*12  ", run19, re.M))
-        for n in range(1, 9):
+        self.assertIsNone(re.search(r"^\s*13  ", run19, re.M))
+        for n in range(1, 10):
             self.assertIsNotNone(re.search(r"^\s*%d  " % n, run20, re.M), "run20 step %d" % n)
-        self.assertIsNone(re.search(r"^\s*9  ", run20, re.M))
+        self.assertIsNone(re.search(r"^\s*10  ", run20, re.M))
+        self.assertEqual(p.count("NEVER one press per button"), 2)
         f = plain(p)
-        for tok in ("Declare the cartridge: the title, its FORM (original / unofficial / a ROM on the EZ-Flash)", "dd545c01...3a49",
-                    "those presses are in the KEY record and are not part of the list", "reserved run19 names", "reserved run20 names",
-                    "the SAME cartridge, in the same form, booting the same way (declare it again)", "note the last step reached"):
+        for tok in ("The 13-step / 19-press game-agnostic action list of the Issue #34 pre-registration is SUPERSEDED for this pair",
+                    "L x1, R x2, A x3, B x4, SELECT (the X button of the GameCube pad) x5, START x6",
+                    "L x1, R x2, UP x3, DOWN x4, LEFT x5, RIGHT x6 -- the D-pad, not the stick", "Swap the controller in port 1 to the GENERIC third-party pad",
+                    "reserved run19 names", "reserved run20 names", "byte-identical to V7.1.7's", "a difference is a result (V7.5.9)"):
             self.assertIn(tok, f, tok)
-        self.assertIn("Do not infer a frame number, a latency or a timing from anything seen by eye", f)
         t = read(HW)
         v71 = t[t.index("### V7.1 "):t.index("### V7.2 ")]
         self.assertEqual(block_after(p, "**Recovery procedure"), block_after(v71_part(7, v71), "**Recovery procedure"))
@@ -228,46 +281,43 @@ class GatesVerdictsAndNonClaims(unittest.TestCase):
         self.assertNotIn("RESULT", p)
         self.assertNotRegex(p, r"EXECUTED 2026|ingested 2026|ingested on")
         self.assertIn("Nothing here is evidence", p)
-        self.assertIn("no evidence ID\nis allocated", p)
-        self.assertIn("PRE-REGISTERED / NOT RUN", part(12))
+        self.assertIn("PRE-REGISTERED\n/ AMENDED BEFORE HARDWARE / NOT RUN", part(12))
 
-    def test_the_shared_gates_add_the_list_and_the_pairs_own(self):
+    def test_the_shared_gates_are_v7_3_8s_plus_the_walk_and_the_pairs_own(self):
         f = plain(part(8))
-        for tok in ("KEY RECORD as §V7.3.8", "INCONCLUSIVE for K (the machine half) and its W / S readings stand on the Operator's report alone",
-                    "the CONTENT IS A GAME: no tally, nothing decoded, no claim read from the pixels", "a cartridge change between the runs is INCONCLUSIVE for S",
-                    "THE LIST performed as V7.5.7 lists it", "the KEY record's press sequence is the machine's witness that the list was followed",
+        for tok in ("KEY RECORD as §V7.3.8", "INCONCLUSIVE for the machine reading (W, S, K)", "FRAMES as §V7.3.8", "every tally cell decodes by the six-glyph table of §V7.2.6",
+                    "THE WALK RUN 19 walk A and RUN 20 walk B exactly as §V7.3.7 froze them", "the pair is read on the common prefix",
                     "a run ended by the recovery power-off is INCONCLUSIVE for that run"):
             self.assertIn(tok, f, tok)
 
-    def test_the_verdicts_answer_his_sentence_with_failure_reachable_and_the_machine_half_beside(self):
+    def test_the_verdicts_answer_his_sentence_by_machine_with_failure_reachable_and_his_channel_beside(self):
         p = part(9)
-        for label in ("WORKS         ", "DOES NOT WORK ", "SAME          ", "DIFFERENT     ", "AGREE         ", "EXPLAINED     ", "FINDING       ", "INCONCLUSIVE  "):
+        for label in ("WORKS         ", "DOES NOT WORK ", "SAME          ", "DIFFERENT     ", "AGREE         ", "FINDING       ", "INCONCLUSIVE  "):
             self.assertEqual(len(re.findall(r"^%s" % re.escape(label), p, re.M)), 1, label)
         f = plain(p)
-        for tok in ("K never decides W or S", "QUESTION W -- \"funcionam\"", "QUESTION S -- \"o mesmo comportamento\"",
-                    "THE CRITERION \"%s\" holds when W = WORKS on BOTH pads AND S = SAME" % CRITERION,
-                    "Any other combination is stated exactly as it fell (which pad, which step, which key) and is an informative result",
-                    "Whether Phase 5 CLOSES on it is NOT decided here", "never a failed run",
-                    "the ordered list of rising edges of the word bits across the completed KEY lines (rc=ok, n order, from 0000",
-                    "cut off at the first rising edge of START", "Compared over the steps both runs reached",
-                    "it is exactly the difference the criterion's machine half exists to show", "read beside S, not instead of it",
-                    "what K cannot conclude what the game received or did", "the routing (§V7.4's FACTs stand and are not the subject)",
-                    "the live description is quoted, never paraphrased into a verdict", "reports every intermediate quantity"):
+        for tok in ("§V7.3.9's definitions are applied unchanged", "QUESTION W -- \"funcionam\": does the pad WORK, read per pad and per key, by machine",
+                    "§V7.3.9's FACT reading for that bit, on this pad", "the FACT-SWAPPED reading", "never a failed run",
+                    "QUESTION S -- \"o mesmo comportamento\"", "walk A: RUN 17 (generic) vs RUN 19 (original); walk B: RUN 18 (original) vs RUN 20 (generic)",
+                    "QUESTION K -- the word level of S", "cut off at the first rising edge of L (the walk's first key)",
+                    "THE CRITERION \"%s\" holds when W = WORKS for every key of both walks on BOTH pads AND S = SAME" % CRITERION,
+                    "It is answered FOR THE CHECKER, by machine on both ends, and it is NOT the ROADMAP's acceptance",
+                    "QUESTION M / QUESTION O -- the Operator's channel, exactly as §V7.1.9 defines them", "never paraphrased into a verdict",
+                    "adds a second machine sample per bit per pad to the FACT of §V7.4 and changes no status", "RUN 17 / RUN 18's included"):
             self.assertIn(tok, f, tok)
-        self.assertEqual(f.count("DOES NOT WORK"), 1)
-        self.assertEqual(f.count("DIFFERENT"), 1, "the label once; the reading rules name no verdict")
 
-    def test_phase_5s_closure_is_not_decided_and_the_record_is_empty(self):
+    def test_phase_5s_closure_is_not_decided_and_further_away_and_the_record_is_empty(self):
         f = plain(part(10))
-        for tok in ("What it does NOT decide: whether Phase 5 closes", "Issue #17, PHASE4_ASSESSMENT.md", "after the run, never anticipated by the pre-registration",
-                    "the routing (FACT, §V7.4, not the subject)", "GB / GBC (Phase 7, Issue #31)"):
+        for tok in ("What it does NOT decide: whether Phase 5 closes", "Issue #17, PHASE4_ASSESSMENT.md", "Phase 5 stays NOT ASSESSED after this pair whatever it shows",
+                    "The real-game acceptance run stays open and unscheduled", "further away than the Issue #34 pre-registration implied, not nearer",
+                    "the routing (FACT, §V7.4, not the subject)"):
             self.assertIn(tok, f, tok)
         p = part(11)
         rows = [l for l in p.splitlines() if re.match(r"^[A-Za-z].*\s{2,}--", l)]
         self.assertGreaterEqual(len(rows), 18)
         for l in rows:
             self.assertRegex(l, r"--(\s+--)*(\s+\(.*\))?\s*$", l)
-        self.assertIn("beyond the ~40 s window and the 13 steps", plain(p))
+        self.assertIn("expected vector (arithmetic)            1,2,0,0,0,0,6,5,3,4             1,2,3,4,5,6,0,0,0,0", p)
+        self.assertIn("that a real game can be controlled reliably (the ROADMAP's criterion; NOT ASSESSED)", plain(p))
 
 
 class NothingElseMoved(unittest.TestCase):
@@ -276,7 +326,7 @@ class NothingElseMoved(unittest.TestCase):
         if old is None:
             self.skipTest("the base commit is not available in this checkout")
         new = read(HW)
-        self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.5 ")].rstrip("\n"), old[old.index("### V7.1 "):].rstrip("\n"))
+        self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.5 ")], old[old.index("### V7.1 "):old.index("### V7.5 ")])
         old_head = [l for l in old.splitlines() if l.startswith("## V7 ")][0]
         new_head = [l for l in new.splitlines() if l.startswith("## V7 ")][0]
         self.assertTrue(new_head.startswith(old_head))
@@ -284,17 +334,16 @@ class NothingElseMoved(unittest.TestCase):
 
     def test_the_records(self):
         h = plain(read(HANDOFF))
-        for tok in ("RUN 19 and RUN 20 (GBP-INPUT-003", "issue 34", "validate #34", "That RUN 19 / RUN 20 have run, or that Phase 5 is closed",
-                    "Its run IS pre-registered (Issue #34", "Phase 5's closure NOT decided by it"):
+        for tok in ("RUN 19 and RUN 20 (GBP-INPUT-003", "issue 37", "validate #37", "That RUN 19 / RUN 20 have run, or that Phase 5 is closed, or that a run on the checker can close it",
+                    "That WarioWare is an instrument for an input test", "AMENDED BEFORE HARDWARE under Issue #37", "further away"):
             self.assertIn(tok, h, tok)
         r = plain(read(ROADMAP))
-        for tok in ("Pre-registered 2026-09-21 (GitHub Issue #34)", CRITERION, "NOT RUN / NOT AUTHORISED HERE", "Whether this phase then closes is an assessment step of its own"):
+        for tok in ("Pre-registered 2026-09-21 (GitHub Issue #34)", "Amended before hardware, 2026-09-21 (GitHub Issue #37)", CRITERION, "NOT RUN / NOT AUTHORISED HERE",
+                    "this phase's closure is further away, not nearer", "assessed in HARDWARE_TESTS.md §V7.5.3 from the source", "NOT made"):
             self.assertIn(tok, r, tok)
         d = read(DEVLOG)
-        i = d.rindex("## 2026-09-21 — Issue #34")
-        e = plain(d[i:])
-        for tok in ("the criterion in the Operator's words", "a relayed intention with its ambiguity stated", "Phase 5's closure is an assessment step of its own",
-                    "No hardware; no staging; no build; no code"):
+        e = plain(d[d.rindex("## 2026-09-21 — Issue #37"):])
+        for tok in ("evaluated and REJECTED", "the two criteria apart", "The build change, assessed and not made", "further away, not nearer", "No hardware; no build; no code; no id"):
             self.assertIn(tok, e, tok)
         self.assertNotRegex(e, r"GBP-HW-27[2-9]")
 
