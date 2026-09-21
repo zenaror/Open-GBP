@@ -104,7 +104,10 @@ class TheSectionExists(unittest.TestCase):
         self.assertEqual(t.count("### V6.25 "), 1)          # Issue #16: RUN 13 ingested, both verdicts PASS inside their boundaries
         self.assertLess(t.index("### V6.24 "), t.index("### V6.25 "))
         self.assertNotIn("### V6.26 ", t)
-        self.assertNotRegex(t, r"\n## V7 ")
+        # Issue #20 (2026-09-21) opened `## V7` for Phase 5 (GBP-INPUT-001, RUN 14 / RUN 15 pre-registered);
+        # it follows the whole V6 record and is not part of it
+        self.assertEqual(len(re.findall(r"\n## V7 ", t)), 1)
+        self.assertLess(t.index("### V6.25 "), t.index("\n## V7 "))
 
 
 class IdentitiesAreCopiedExactly(unittest.TestCase):

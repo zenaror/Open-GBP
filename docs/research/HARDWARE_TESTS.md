@@ -21453,3 +21453,438 @@ unchanged. What comes next — the validation of this ingestion and the closing
 of Hardware Issue #15, then the next Phase-4 design — is the Orchestrator's.
 
 ---
+
+## V7 — GBP-INPUT-001: THE FIRST PHYSICAL KEYPAD WRITE — RUN 14 / RUN 15 PRE-REGISTERED (GitHub Issue #20, §V7.1) — NOT RUN / NOT AUTHORISED HERE
+
+Phase 5 (`docs/ROADMAP.md`). Issue #18 reconstructed the input path on
+paper (`docs/research/INPUT_PATH.md`), Issue #19 implemented it as software
+and built the candidate `stream-0014` without executing it (EVIDENCE
+GBP-KEY-006), and this chapter pre-registers its first physical execution.
+Everything physical about the keypad plane is still unknown: no Open-GBP
+build has ever issued a KEYPAD write in any environment.
+
+### V7.1 RUN 14 / RUN 15 — GBP-INPUT-001, the first physical KEYPAD write, in two staged runs of the same image — **PRE-REGISTERED 2026-09-21 (GitHub Issue #20); NOT RUN / NOT AUTHORISED HERE**
+
+Written before the hardware is touched. GitHub Issue #20 is the complete
+prospective pre-registration contract and this part persists it in substance:
+Question One answered from the code, the run identity, the exact artifact
+verified on disk without a rebuild and the Swiss slot decision, the frozen
+topology, the reserved raw names, the pre-run identity gate, the operator
+procedure with its recovery procedure, the shared admissibility gates, the
+gates and verdicts of the experiment, the U-GBP-010 closing condition and the
+non-claims. **No hardware run is authorized by this part.** After it is
+pushed and independently validated by the Orchestrator, a separate Hardware
+Issue moves RUN 14 to the Operator; RUN 15 follows it conditionally.
+Nothing here is evidence; no evidence ID is allocated; nothing is
+classified; U-GBP-010 is not closed; `docs/protocol/INITIALIZATION.md`'s
+"KEYPAD, never written" is still true; RUN 12 and RUN 13 are not
+reinterpreted.
+
+#### V7.1.1 Question One — what ends a run, the real window, and whether the observation fits (answered from the code, before anything else)
+
+```text
+what ends the run   src/gbp/gbp_vstate_probe.c, the admission block: gbp_vwitness_target_reached(cfg->witness)
+                    -> finish(x, ..., "S5_witness_target", GBP_VSTATE_STOP_WITNESS_TARGET). finish() records
+                    t_stop, closes the diagnostics and runs teardown_hardware(): the §9 R7 order -- IRQ 26 masked,
+                    the stop word, CONTROL restored to its pre-run value, PI observed and cleaned, the previous
+                    handler put back, AR_INFO restored. gbp_vstate_probe_run() then returns to main(), which sets
+                    vq.pump = 0 and in_transport = 0 (no further KEYPAD write), drains GX, restores the draw-done
+                    callback, switches the framebuffer back to the text console (VIDEO_SetNextFramebuffer(xfb_text)),
+                    prints the report and waits: "X = save log + witness sidecar to SD    START = exit    POWER
+                    CYCLE REQUIRED". So: the capture stops, the device is torn down, the AGB image leaves the
+                    screen and input stops. The program does NOT keep the AGB running with video after the target;
+                    what the cartridge does under the restored CONTROL is not observed and not claimed.
+the window          from the CONTROL transform (CONTROL bits 0x04|0x08 set at start, REGISTERS.md, usage C; the AGB
+                    boots then -- the coord digits of runs 12-13 appeared seconds after it) to the stop:
+                      not-before gate    5000 ms after CONTROL      STREAM_WIT_NOT_BEFORE_MS; RUN 13 measured 5.000151 s
+                      qualification      64 consecutive structural closes, then the next block-0 boundary
+                                         (GBP_VWITNESS_QUAL_REQUIRED); RUN 13: first retained record 6.067203 s
+                      retention          2048 records (GBP_VWITNESS_TARGET) at the source cadence (RUN 13:
+                                         59.727133 Hz) = 2047 / 59.727133 s = 34.27 s after the first record
+                      stop               at the admission that follows the 2048th record
+                    => the target falls ~40.4 s after the CONTROL transform on RUN 13's own numbers. The witness is
+                    content-blind: run 8, a retail cartridge, ended the same way (§V5.54.11, stop=witness_target_
+                    reached), so the EZ-Flash menu or any ROM ends a run at the same place. Before CONTROL the NORMAL
+                    startup takes ~56 ms (RUN 13 STARTUPT: t_control - t_program = 2 256 143 ticks). The 60 s safety
+                    cap (STREAM_SAFETY_SECONDS) bounds only a run that somehow never reaches the target. Nothing in
+                    the runtime extends the window; the Operator has ~40 s of AGB time per run, then the report.
+does it fit         stage 1 needs: the AGB boot (BIOS logo), the EZ-Flash Omega DE menu, then a few L and R presses
+                    read by eye. The menu's arrival time is the cartridge's and is not derivable here (expected
+                    inside the first ~10 s); the presses need seconds. Stage 1 fits, with margin.
+                    stage 2 needs: navigating to the AGS entry and launching it (the EZ-Flash load), the AGB reset
+                    with L + R held through its boot, the AGS menu, its controller test, ten buttons walked and
+                    read by a human. Those durations belong to the cartridge and to the Operator, not to the code;
+                    stage 2 alone plausibly needs 25-35 s, and after stage 1 it would start 15-20 s into a ~40 s
+                    window. One session cannot be relied on to carry both, and the record it would leave -- two
+                    stimuli, an AGB reset mid-window, a ten-button walk cut by the target -- would be ambiguous by
+                    construction.
+consequence         TWO RUNS of the SAME image, each ending at its own target: RUN 14 = stage 1 (the EZ-Flash
+                    tabs); RUN 15 = stage 2 (the AGS controller test), conditional on RUN 14 (V7.1.7). Each keeps its
+                    own five reserved names (V7.1.5). This shape needs no code, constant, profile or build change,
+                    and none is proposed: a single-session alternative (a longer target, or a Phase-5 profile
+                    without the witness stop) would be a separate functional Issue and is NOT requested here.
+```
+
+#### V7.1.2 Run identity and what is fixed
+
+```text
+global run numbers  RUN 14 and RUN 15 -- runs 1-13 are the highest referenced in the record; both reserved now,
+                    TAKEN even if an execution later aborts or RUN 15 is never executed
+experiment          GBP-INPUT-001, one experiment, two questions answered separately (V7.1.9):
+                      M  mechanism -- does a KEYPAD word written by Open-GBP reach the cartridge as key presses?
+                      O  order     -- are L and R delivered in the assignment GBP-KEY-004 records
+                                      (word bit 8 = L, bit 9 = R; CORROBORATED, not FACT; U-GBP-010 OPEN)?
+                    a result for M may not promote, demote or excuse O, nor the reverse
+stages              stage 1 (RUN 14): the EZ-Flash Omega DE menu, whose L and R move between tabs in OPPOSITE
+                    directions -- the stronger falsifier for O: a swapped order reads as the tab moving the WRONG
+                    WAY, which separates "bits exchanged" from "bit never arrived"
+                    stage 2 (RUN 15): the AGS test ROM, entered by holding L + R while the AGB boots (both bits must
+                    arrive together) and its controller test, which discriminates the ten buttons individually;
+                    conditional on RUN 14 (V7.1.7)
+runtime             the exact stream-0014 image of Issue #19, verified on disk, NOT rebuilt (V7.1.3); embedded
+                    TEST_ID GBP-VIDEO-004 (the line's name); NORMAL startup; the input step as the first statement
+                    of the pump slot; formats OGBPIDXCAP1 v1, OGBPDISP2 v2, OGBPFULL1 v1, OGBPVI1 v1 unchanged
+what each run ends  the content-blind witness target (V7.1.1): the Operator never stops a run early
+input configuration ENVINPUT as the build reports it: port 1; policy default (stick 48, analogue triggers 0,
+                    analogue A/B 0, opposites filtered); refresh 5 ms; layout gbi-u16-replicated; index 0xC;
+                    descriptor 0,1,2,3,4,5,6,7,9,8 pressed_is_one=1 -- reported as DATA, never as a claim. The
+                    first admitted step writes the current word: with nothing held, 0x0000 (release all), the word
+                    both references start from
+```
+
+#### V7.1.3 The exact artifact — verified on disk 2026-09-21, NOT rebuilt; the Swiss slot decision; nothing in build/physical
+
+```text
+DOL          build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol   513 152 B
+             ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c
+             embedded  OPENGBP-IDENT gbp-video-stream-probe stream-0014 0ff8355 ; TEST_ID GBP-VIDEO-004 ; no "dirty"
+             functional commit 0ff8355 (Issue #19); build-info.txt: build_id=stream-0014 commit=0ff8355, the same
+             SHA-256; verified on disk for this part (size, hash, embedded identity, build-info), NOT rebuilt
+             (a rebuild at another commit is a different artifact); zero warnings; two clean builds byte-identical
+             (GBP-KEY-006)
+Swiss slot   12-stream, REUSED. tools/swiss-layout.tsv numbers the stream POC's build LINE (one number per POC;
+             "a run is not a build", §V6.24.2), and `make swiss` copies the CURRENT build of
+             build/poc/gbp-video-stream-probe into build/swiss/12-stream/boot.dol and refreshes INDEX.txt. A new
+             slot would need a manifest change under tools/, which this checkpoint may not make, and a hand-made
+             directory outside the manifest would be an image Swiss lists without the project's index naming it.
+             CONSEQUENCE, RECORDED: staging overwrites the host copy of stream-0013 --
+             build/swiss/12-stream/boot.dol = 5391c3fe962dc4b2f4e493f3846ac7407ded064c58f5d4bb583a51e5a725dd79,
+             506 496 B, the exact image RUN 12 and RUN 13 executed -- and, when the Operator copies the slot, the SD
+             copy at /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol (the same hash and size on 2026-09-21).
+             stream-0013 is NOT destroyed by accident: (1) before the overwrite the Hardware Issue preserves the
+             exact bytes -- cp --update=none build/swiss/12-stream/boot.dol
+             build/archive/gbp-video-stream-probe-stream-0013-7d7a6d8.dol ; cmp ; sha256sum = 5391c3fe...dd79 --
+             and (2) stream-0013 is REPRODUCIBLE: it is the build of the tree at commit 7d7a6d8 in the project
+             image (ghcr.io/extremscorner/libogc2:20260805; its build-info recorded commit=7d7a6d8), and this build
+             line is deterministic (two consecutive clean builds of stream-0014 were byte-identical, GBP-KEY-006);
+             the RUN 12 / RUN 13 records keep citing 5391c3fe...dd79 unchanged. After staging, INDEX.txt's 12-stream
+             row reads stream-0014 / 0ff8355 / 513152 / ef76a170...0b9c; the SD copy is verified by hash before
+             every boot (V7.1.6). The staging itself is NOT performed by this part.
+build/physical
+             NOTHING for RUN 14 / RUN 15: the EZ-Flash menu and the AGS test ROM are the Operator's media, not
+             project artifacts (V7.1.4). build/physical becomes relevant only if the project-owned input stimulus
+             of V7.1.10 is built later.
+tools        tools/vindex.py, vdisp.py, vpace.py, vfull.py, vvi.py: unchanged, used observationally (V7.1.8); no
+             analyzer reads a KEYPAD value, because none exists to read
+```
+
+If any identity differs on the day, **DO NOT RUN**. No artifact is rebuilt or
+re-derived to satisfy this gate. The Operator's media hashes are a double
+check of identities the project has frozen; they never redefine the artifact.
+
+#### V7.1.4 Physical topology — held at RUN 13's, plus the controller and the cartridge
+
+```text
+console            the same physical GameCube as RUN 13 (operator declares)
+Game Boy Player    the same physical unit as RUN 13 (operator declares)
+controller         ONE GameCube controller in port 1 (the input path reads PAD_CHAN0 only); the Operator declares
+                   which controller (an official Nintendo pad or the exact model used); no other pad connected
+BBA                PRESENT
+Ethernet           DISCONNECTED
+network            no BBA / network initialisation, no network code (stream-0014 links none)
+cartridge          the EZ-Flash Omega DE already in use, configured to show its MENU at boot (the Operator declares;
+                   a cartridge that boots straight into a NOR image spends the window in that image: DO NOT RUN
+                   until the menu is the boot screen). NOR / PSRAM contents are the Operator's; coord-0002 may stay
+                   on the NOR and is NOT launched.
+AGS test ROM       RUN 15 only: the AGS test ROM ALREADY ON the flashcart (SD or PSRAM), launched from the menu.
+                   POLICY: the AGS service ROM is proprietary Nintendo material. It is the Operator's own media and
+                   is used exactly as the retail cartridges of runs 8 and 12-13 were -- NOTHING from it enters the
+                   repository: no image, no dump, no extracted asset, no hash requirement (CLAUDE.md §7). Only the
+                   Operator's literal report of what it displayed is recorded.
+media              SD carrying the exact stream-0014 boot.dol in 12-stream; hash double-checked on the media (V7.1.6)
+display chain      OPERATOR-DECLARED, as for RUN 13 (§V6.24.3): GameCube -> analog composite video / RCA -> low-cost
+                   RCA-to-HDMI converter (1080p out) -> HYDIS HV150UX2 panel (M.NT68676.2A controller, iMac G3
+                   modification). TOPOLOGY only; nothing about the display is claimed.
+camera             optional; declared by precedent (§V6.10); no capture device on the video output
+```
+
+A deviation not recorded before execution makes the affected run
+INCONCLUSIVE. The alternate topologies of §V6.24.3 (S-Video / Bitfunx →
+Morph 2K → Samsung Q80T) stay OUTSIDE RUN 14 and RUN 15.
+
+#### V7.1.5 Reserved raw-file names — before the hardware
+
+The console writes `GBP-VIDEO-004_stream-0014.log`, `-idxcap.bin`,
+`-disp.bin`, `-full.bin` and `-vi.bin` under `sd:/open-gbp/` — the stream
+line's normal names, and **RUN 15 writes the SAME names as RUN 14**: RUN 14's
+five files must be copied off the SD and archived under their reserved names
+BEFORE RUN 15 boots, or RUN 15 overwrites them. Per `captures/README.md`
+("Receiving a new physical run"): rename BEFORE copy — copy the supplied
+bytes FIRST under the names below with `cp --update=none`, `cmp` the copy,
+hash on receipt, never overwrite runs 1–13; before the hardware, verify none
+of them exists (verified absent on 2026-09-21). **Reserved now, and TAKEN
+even if a run aborts, never starts, or RUN 15 is never executed:**
+
+```text
+captures/local/GBP-VIDEO-004_stream-0014-run14.log
+captures/local/GBP-VIDEO-004_stream-0014-run14-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0014-run14-disp.bin
+captures/local/GBP-VIDEO-004_stream-0014-run14-full.bin
+captures/local/GBP-VIDEO-004_stream-0014-run14-vi.bin
+captures/local/GBP-VIDEO-004_stream-0014-run15.log
+captures/local/GBP-VIDEO-004_stream-0014-run15-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0014-run15-disp.bin
+captures/local/GBP-VIDEO-004_stream-0014-run15-full.bin
+captures/local/GBP-VIDEO-004_stream-0014-run15-vi.bin
+```
+
+Optional photographs: archived separately under a run-qualified name in
+the same style (`-run14-photo-<n>`, `-run15-photo-<n>`), never one of the
+ten names above; never required for PASS; not frame-accurate evidence
+(§V6.10). The Operator's literal reports live in the research record, never
+in fixture bytes.
+
+#### V7.1.6 Pre-run identity gate — required of the Operator before each launch
+
+```text
+staging      performed under the Hardware Issue, never here, in this order: (1) preserve stream-0013 as V7.1.3
+             (cp --update=none, cmp, sha256sum 5391c3fe...dd79); (2) `make swiss` on the tree at e258160 or later
+             WITHOUT rebuilding -- build/poc must still hold ef76a170...0b9c (if `make swiss` finds no DOL, STOP:
+             nothing is rebuilt to pass this gate); (3) verify build/swiss/12-stream/boot.dol = 513 152 B,
+             ef76a170...0b9c, cmp identical to build/poc; (4) copy the 12-stream directory to the SD
+DOL on SD    /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol : exact size 513 152 B; exact SHA-256
+             ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c; embedded
+             gbp-video-stream-probe / stream-0014 / 0ff8355; TEST_ID GBP-VIDEO-004; no -dirty. If it still reads
+             5391c3fe...dd79 (stream-0013), the copy did not happen: DO NOT RUN.
+SD state     before RUN 14: no sd:/open-gbp/GBP-VIDEO-004_stream-0014.* file exists on the SD (a leftover would be
+             overwritten by the run); before RUN 15: RUN 14's five files already archived under V7.1.5's names
+cartridge    the EZ-Flash Omega DE boots to its menu (declared); for RUN 15 the AGS test ROM is on it (declared)
+controller   one pad in port 1, declared; nothing in ports 2-4
+rule         the Operator's media hashes are a double check; they do not redefine the project's identities.
+             If ANY identity differs: DO NOT RUN.
+```
+
+#### V7.1.7 Operator physical procedure — frozen, in two conditional stages, with the recovery procedure
+
+**The hazard this run carries and no earlier run did.** No Open-GBP build
+has ever issued a KEYPAD write in any environment — not on hardware, not in
+Dolphin, where the probe stopped before any service cycle and `INPUT
+steps=0` — so the integration path has run only against the mock backend. A
+stuck or wrong word while the EZ-Flash menu is on screen could navigate it
+and launch something unattended. `CLAUDE.md` §18 applies at full strength:
+one new variable (the KEYPAD write itself), the device state recorded by the
+runtime, every wait bounded by the runtime, a clean commit and a recorded
+hash, and the recovery procedure below.
+
+**Recovery procedure — frozen by the Operator:**
+
+```text
+If the AGB hangs, input behaves as if stuck, or a menu navigates by itself:
+power the console off at the button, wait, power on. Do not try to correct
+it with the controller. Record what was seen before the power-off.
+```
+
+The on-screen banner line "DO NOT PRESS ANYTHING during the run" is the
+video experiments' text and does not apply here: the Hardware Issue tells
+the Operator to press exactly what these steps say, and nothing else. The
+Hardware Issue reduces each stage to a literal short checklist; nothing asks
+the Operator to count frames by eye or to time anything.
+
+**RUN 14 — stage 1, the EZ-Flash menu (always executed first):**
+
+```text
+ 1  Confirm the same GameCube and the same Game Boy Player as RUN 13; one controller in port 1 (V7.1.4).
+ 2  Confirm BBA present, Ethernet disconnected; the composite -> converter -> HYDIS HV150UX2 chain (V7.1.4).
+ 3  Confirm the EZ-Flash Omega DE boots to its MENU (V7.1.4); coord-0002 is not launched.
+ 4  Verify the exact DOL on the SD: /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol, 513 152 B, ef76a170...0b9c (V7.1.6).
+ 5  Confirm no sd:/open-gbp/GBP-VIDEO-004_stream-0014.* file is on the SD (V7.1.6).
+ 6  Declare, before booting, which way the menu's L and its R move the tab (the cartridge's own convention).
+ 7  Boot the exact stream-0014 through Swiss (12-stream). Touch nothing until the EZ-Flash menu is on screen.
+ 8  With the menu on screen: press and release R once; then L once; then R once more; then L once more.
+    Record, per press: did the tab move; which way. Do not press any other button during the run.
+ 9  If a menu item is launched by itself, the tab moves without a press, or input looks stuck: RECOVERY, above.
+10  Let the witness target stop the experiment (~40 s after boot); do not stop it early.
+11  When the text console returns: press X once to save; wait for the status line; then power-cycle the console.
+12  Copy the five console files off the SD and archive them under the reserved run14 names (V7.1.5),
+    no-overwrite semantics, BEFORE anything else boots.
+13  Return the five raw artifacts, the literal report (per press: moved / did not move / which way; anything
+    unexpected) and the topology declaration.
+```
+
+**RUN 15 — stage 2, the AGS test ROM (conditional; executed only if RUN 14's
+Question M is PASS for both L and R, whatever Question O read):**
+
+```text
+ 1  RUN 14 archived (V7.1.5); the same DOL still on the SD (re-verify the hash, V7.1.6); the AGS test ROM on the
+    flashcart, launched from the EZ-Flash menu (V7.1.4).
+ 2  Boot the exact stream-0014 through Swiss (12-stream). Touch nothing until the EZ-Flash menu is on screen.
+ 3  Navigate to the AGS test ROM entry and launch it (the D-pad and A are the first buttons of this run).
+ 4  As soon as the launch is confirmed, hold L and R together and keep holding them through the AGB reset until
+    the ROM's menu appears (or does not); then release. Record whether the menu appeared.
+ 5  Enter the controller test. Walk the buttons in this order, one at a time, a short press each:
+    L, R, A, B, Select (X), Start, Up, Down, Left, Right. Record, per button, what the test showed.
+ 6  If a wrong item is launched, something navigates by itself, or input looks stuck: RECOVERY, above.
+ 7  Let the witness target stop the experiment (~40 s after boot); a walk cut by the target is recorded as far as it
+    went. Do not stop it early.
+ 8  When the text console returns: press X once to save; wait; power-cycle the console.
+ 9  Archive the five console files under the reserved run15 names (V7.1.5), no-overwrite semantics.
+10  Return the five raw artifacts, the literal per-button report and the topology declaration.
+```
+
+Do not infer a frame number, a latency or a timing from anything seen by
+eye. Approximate timing may be noted; it is not a gate.
+
+#### V7.1.8 Shared admissibility gates — prospective, inherited; the video-path verdicts are RECORDED, not gates
+
+```text
+IDENTITY / LOG   exact DOL identity (V7.1.3); log header GBP-VIDEO-004 / stream-0014 @ 0ff8355; dropped=0;
+                 truncated=0; no storage fault; the summary records complete (COUNTERS, INPUT, INPUTT, ENVINPUT,
+                 WITELIG, WITELIG2)
+TRANSPORT        errors 0, transport_ok 1, timeouts 0, busy 0, overflow 0, uncertain 0; balanced service accounting
+                 (unmasks = deliveries = acks = re-arms); teardown restore ok
+STARTUP          NORMAL; recorded, no tolerance invented
+INPUT (machine)  the ONLY machine facts this experiment has, because the KEYPAD window is write-only and the device
+                 never answers -- the runtime can show that it polled, encoded and wrote, nothing more:
+                   ENVINPUT selftest=1 and the descriptor / policy DATA as V7.1.2;
+                   INPUT selftest=1, steps > 0, attempts > 0, completed = attempts, failed = 0, first = 1,
+                   refresh > 0, and for RUN 14 change >= 4 (four presses, each a change to and from);
+                   INPUTT write_ticks and step_ticks recorded (observational: the slot cost, never a latency claim);
+                   last_word recorded as data
+                 A run whose INPUT record shows steps = 0, completed < attempts or failed > 0 is INCONCLUSIVE for
+                 both questions: nothing can be said about a word the device may not have taken.
+VIDEO PATH       the stream line's own gates (source window, Policy A, sidecar integrity, OGBPFULL1, OGBPVI1) are
+                 NOT gates of GBP-INPUT-001: the content is a menu and a test ROM, not OGBPCOORD1, so vindex.py's
+                 strip verdict is expected INVALID and is RECORDED, not judged. The sidecars must still parse with
+                 valid CRCs (a container failure is a storage finding, recorded, and does not decide M or O).
+TOPOLOGY         declared as V7.1.4 before execution; an unrecorded deviation is INCONCLUSIVE for the run
+SESSION          the run ended at stop=witness_target_reached; a run ended by the recovery power-off is recorded
+                 with its partial report and is INCONCLUSIVE unless the report already carries a decisive
+                 observation made BEFORE the fault (then M FAIL or O SWAPPED can stand: an unattended launch IS
+                 an observation of the write reaching the cartridge)
+```
+
+#### V7.1.9 GBP-INPUT-001 — gates and verdicts, machine side and human side kept apart
+
+Machine evidence and human observation never mix: the INPUT records say
+what the runtime did; whether the cartridge reacted is **OPERATOR
+OBSERVATION**, stays in the research record, and is never fed into a tool.
+Each stage answers M for the buttons it exercised and O for L and R; a
+button not exercised in a stage is "not observed", never inferred.
+
+```text
+QUESTION M -- mechanism, per stage and per button
+PASS          admissible run (V7.1.8), INPUT machine gate met, and the Operator's literal report says the cartridge
+              responded to every button pressed in that stage (RUN 14: the tab moved under L and under R, each
+              time; RUN 15: the L+R-at-boot menu appeared and the controller test showed a press for each button
+              walked) and to no button that was not pressed, with no unattended navigation.
+              MEANS: a KEYPAD word written by Open-GBP reaches the cartridge as key presses, for the buttons
+              observed. Nothing about latency, about the refresh being needed, or about buttons not observed.
+FAIL          admissible run, INPUT machine gate met (writes completed, failed = 0), and the report says the
+              cartridge did not respond to a pressed button, responded to a button that was not pressed, or
+              navigated by itself. RECORDED as the first physical fact about the write -- the word reached the
+              window and nothing, or the wrong thing, reached the cartridge -- and the next step is a functional
+              Issue, not another run.
+INCONCLUSIVE  run inadmissible; the menu (RUN 14) or the launch (RUN 15) never happened inside the window; the
+              INPUT machine gate not met; the report missing or uncertain; topology or identity not as declared;
+              the run cut before any press was made.
+
+QUESTION O -- order of L and R, from the same observations
+AS-ASSIGNED   M is PASS for L and for R, and the tab moved the way the Operator declared for the menu's L under
+              the GameCube L trigger and for its R under the R trigger (RUN 14), and/or the AGS controller test
+              showed L for L and R for R (RUN 15).
+              MEANS: U-GBP-010 closes as OPERATOR OBSERVATION with the descriptor kept as it is; the routing
+              stays CORROBORATED, not FACT (V7.1.10).
+SWAPPED       M is PASS for L and for R, and the tab moved the OTHER way under each (RUN 14), and/or the test
+              showed R for L and L for R (RUN 15). RECORDED, EXPECTED-POSSIBLE, INFORMATIVE: it FALSIFIES the
+              assignment GBP-KEY-004 records, U-GBP-010 closes the other way, and the descriptor's two entries
+              swap in a later functional Issue -- one line, then a new candidate. It is NOT a failure of the run:
+              M PASSES on the very same evidence, and the write is shown to reach the cartridge.
+INCONCLUSIVE  M is not PASS for L or for R; the direction could not be read; both buttons moved the tab the
+              same way (a different mapping fault, recorded, not O's answer); the report uncertain.
+```
+
+Neither question's verdict consults the other's evidence beyond the shared
+observation they are read from; a stage's verdict is COMPLETE for what that
+stage answers — a RUN 14 that ends after stage 1 is not a truncated run.
+
+#### V7.1.10 U-GBP-010 — the closing condition restated, and the recorded future option
+
+`U-GBP-010` closes on a game that distinguishes L from R, as OPERATOR
+OBSERVATION. **AS-ASSIGNED closes it with the assignment kept** (bit 8 = L,
+bit 9 = R stays the descriptor's data); **SWAPPED closes it the other way**
+(the descriptor's two entries swap, one line, in a functional Issue, and
+GBP-KEY-004's row records the falsification). **Neither outcome makes the
+routing a physical FACT**: a human reading a menu is not a machine-decoded
+join, and the classification of the routing stays CORROBORATED after either
+result. FACT would need what GBP-KEY-004 itself names — a project-owned
+stimulus that publishes KEYINPUT into its own video frames, joined to the
+runtime's write schedule through the frame_index ↔ FRAME_ID join.
+
+**Recorded future option, NOT started (the Operator's authorisation,
+2026-09-21):** a project-owned GBA test ROM "like the old tests" — in the
+manner of indexed-0003 / color-0002 / coord-0001 / coord-0002, under
+`stimulus/`, delivered through `build/physical/` — whose video reacts
+deterministically and identifiably to the key state. It is the only route
+to FACT for U-GBP-010, and it is also the instrument the Operator's latency
+question needs, because "the first source VIDEO frame that reacts"
+(INPUT_PATH.md §8) requires a stimulus whose reaction is identifiable in the
+frames. It stays unstarted on purpose: RUN 14 comes first, because nothing
+has yet shown that a KEYPAD write works at all, and building an elaborate
+stimulus before knowing that is the wrong order.
+
+#### V7.1.11 Explicit non-claims, and the record to be filled AFTER each run — nothing pre-filled
+
+Even if both questions come out PASS / AS-ASSIGNED, RUN 14 and RUN 15 do
+**not** establish: the physical routing of any bit as FACT; input latency
+of any kind (no figure, no ordering claim); that the 5 ms refresh is needed
+or sufficient; the stick threshold or any policy value as more than policy;
+behaviour with any other controller, port or cartridge; rumble or any
+GBP-aware feature; the Link Port; audio; the display chain; Phase 6, 7 or 9.
+The video-path records are collected and reported observationally and
+promote nothing.
+
+```text
+field                                   RUN 14 (stage 1)     RUN 15 (stage 2)
+DOL SHA-256 on the SD                   --                   --   (ef76a170...0b9c expected, both)
+stream-0013 preserved before staging    --                        (5391c3fe...dd79 at build/archive/...)
+controller / port                       --                   --   (operator)
+cartridge boot screen / AGS ROM present --                   --   (operator)
+log lines / dropped / truncated         --                   --
+INPUT steps / attempts / completed      --                   --
+INPUT first / change / refresh / retry  --                   --
+INPUT failed / last_word                --                   --
+INPUTT write_ticks / step_ticks         --                   --   (observational)
+transport errors / timeouts / uncertain --                   --
+stop reason                             --                   --   (witness_target_reached expected)
+source verdict (recorded, not a gate)   --                   --
+operator: tab moved under R / under L   --                        (moved / not; which way)
+operator: L+R-at-boot menu appeared          --
+operator: per-button observation             --                   (L, R, A, B, Select, Start, Up, Down, Left, Right)
+Question M                              --                   --
+Question O                              --                   --
+```
+
+#### V7.1.12 What this part is not
+
+Not authorized by this pre-registration: hardware execution; staging,
+copying or flashing anything (the Hardware Issue tells the Operator what to
+copy); booting; opening the Hardware Issue (the Orchestrator's, after
+independent validation); any change to the runtime, the descriptor, the
+policy, the analyzers, the formats, the fixtures, the evidence rows or the
+gates (none was made); the project-owned stimulus of V7.1.10 (recorded, not
+started); evidence ingestion; PASS / FAIL classification; promoting the L/R
+order; closing U-GBP-010; updating `docs/protocol/INITIALIZATION.md`. No new
+physical evidence ID exists. RUN 14 and RUN 15 end this checkpoint as
+PRE-REGISTERED / NOT RUN.
+
+---

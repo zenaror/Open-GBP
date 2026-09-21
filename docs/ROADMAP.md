@@ -441,7 +441,13 @@ the step as the first statement of the stream probe's pump slot, host tests,
 and the build candidate `stream-0014` (`0ff8355`, SHA-256 `ef76a170c10d335e…`)
 which is **not executed**: no run is pre-registered. The acceptance
 criterion below is untested on hardware; U-GBP-010 stays OPEN (GBP-KEY-006).
-**Next:** a Hardware Issue pre-registering the first physical input run.
+**Pre-registered 2026-09-21 (GitHub Issue #20):** RUN 14 (stage 1, the
+EZ-Flash Omega DE menu's L/R tabs) and RUN 15 (stage 2, the AGS test ROM's
+ten-button controller test, conditional on RUN 14) as GBP-INPUT-001 in
+`HARDWARE_TESTS.md` §V7.1 — two runs of the same `stream-0014` image because
+the witness target ends a run ~40.4 s after the CONTROL transform — **NOT
+RUN / NOT AUTHORISED HERE.** **Next:** the Hardware Issue that moves RUN 14
+to the Operator.
 
 Implement and document GameCube controller → GBP keypad/input handling.
 

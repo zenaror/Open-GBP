@@ -273,6 +273,13 @@ the Operator's decision, so that the first physical run falsifies or keeps
 it (GBP-KEY-006; the candidate `stream-0014` is not executed). **Still
 OPEN:** nothing physical was added and the closing condition is unchanged.
 
+**2026-09-21, Issue #20:** the closing test is pre-registered as GBP-INPUT-001
+(RUN 14 / RUN 15, `HARDWARE_TESTS.md` §V7.1, NOT RUN): AS-ASSIGNED closes
+this item with the assignment kept, SWAPPED closes it with the descriptor's
+two entries swapped; neither makes the routing a physical FACT (that needs
+the project-owned stimulus recorded there as a future option). **Still
+OPEN.**
+
 ## U-GBP-011 (P2 — **CLOSED 2026-09-18** by GBP-VIDEO-003 / `color-0002`, the pre-registered confirmatory run: the outer 5-bit groups are exchanged, `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`, promoting the colour order from CORROBORATED to **FACT**. Two residuals were never part of this item and stay open: bit 15's origin, now U-GBP-034, and the bytes 0/2 deviations, U-GBP-029) — VIDEO color bit order and exact word content
 
 **2026-09-16, static (GBP-VID-003/006, VIDEO_PATH.md §2.3–2.4, §3.2):** the

@@ -156,7 +156,8 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
         for n in NAMES:
             self.assertEqual(t.count(n), 1, n)
         self.assertEqual(len(re.findall(r"captures/local/\S*run13\S*", t)), 5)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run1[4-9]\S*", t)), 0)
+        # RUN 14 / RUN 15 were pre-registered by Issue #20 (§V7.1); nothing beyond them is reserved
+        self.assertEqual(len(re.findall(r"captures/local/\S*run1[6-9]\S*", t)), 0)
 
     def test_the_handoff_reserves_the_same_five_names_once_and_the_run_12_names_stay(self):
         h = read(HANDOFF)
