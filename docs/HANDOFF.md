@@ -196,7 +196,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 
 | item | status | owner |
 | --- | --- | --- |
-| **Phase 5 — Input, implemented as software, unexecuted** | **Issue #18 (2026-09-21)** reconstructed the path (`docs/research/INPUT_PATH.md`: three layers kept apart; U-GBP-010 RESOLVED STATICALLY at CORROBORATED and OPEN). **Issue #19 (2026-09-21)** implemented it: `src/gbp/gbp_input.c` behind the existing transport boundary — the mapping as a policy table, the encoding descriptor as data in ONE place filled with the CORROBORATED assignment by the Operator's decision (status and falsifier at the definition; flipping it is one line), one 32-byte write, write-on-change plus a 5 ms refresh — the step as the first statement of the stream probe's pump slot, host tests (8 453 C checks; the Python pins), and the candidate **`stream-0014` = commit `0ff8355`, 513 152 B, SHA-256 `ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c`**, zero warnings, audit clean, Dolphin PASS (auxiliary; the slot never ran there). **NOT EXECUTED on hardware; no run pre-registered.** No KEYPAD write has ever been issued on this project's hardware: **the physical keypad record is empty.** U-GBP-010 OPEN; `REGISTERS.md` H. | `docs/research/INPUT_PATH.md`; `EVIDENCE.md` GBP-KEY-002…006; `UNKNOWNS.md` U-GBP-010; `docs/ROADMAP.md` Phase 5 |
+| **Phase 5 — Input, implemented as software, unexecuted** | **Issue #18 (2026-09-21)** reconstructed the path (`docs/research/INPUT_PATH.md`: three layers kept apart; U-GBP-010 RESOLVED STATICALLY at CORROBORATED and OPEN). **Issue #19 (2026-09-21)** implemented it: `src/gbp/gbp_input.c` behind the existing transport boundary — the mapping as a policy table, the encoding descriptor as data in ONE place filled with the CORROBORATED assignment by the Operator's decision (status and falsifier at the definition; flipping it is one line), one 32-byte write, write-on-change plus a 5 ms refresh — the step as the first statement of the stream probe's pump slot, host tests (8 453 C checks; the Python pins), and the candidate **`stream-0014` = commit `0ff8355`, 513 152 B, SHA-256 `ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c`**, zero warnings, audit clean, Dolphin PASS (auxiliary; the slot never ran there). **NOT EXECUTED on hardware; no run pre-registered.** No KEYPAD write has ever been issued on this project's hardware: **the physical keypad record is empty.** U-GBP-010 OPEN; `REGISTERS.md` H. **RUN 14 / RUN 15 (GBP-INPUT-001) PRE-REGISTERED 2026-09-21 (Issue #20, `HARDWARE_TESTS.md` §V7.1): two staged runs of this image, each ending at the witness target ~40.4 s after CONTROL; NOT RUN / NOT AUTHORISED HERE.** | `docs/research/INPUT_PATH.md`; `EVIDENCE.md` GBP-KEY-002…006; `UNKNOWNS.md` U-GBP-010; `docs/ROADMAP.md` Phase 5; `HARDWARE_TESTS.md` §V7.1 |
 | **Phase 4 — Video, against its acceptance criterion** | **Phase 4 ASSESSED 2026-09-21 (GitHub Issue #17): `PHASE 4 VERDICT: SATISFIED WITH NAMED RESIDUALS`.** The criterion — a real cartridge running on the physical GBP produces stable, correct video through the open-source runtime — is satisfied for the video path as a path: a retail cartridge ran three times with transport, NORMAL startup and Policy A measured clean on retail content (GBP-HW-138…151, 224…226) and the picture observed by the operator (GBP-HW-144, 152, 227); the path's correctness — geometry GBP-HW-081, composition GBP-HW-076/077, colour GBP-HW-131, full-frame fidelity on eight sampled frames GBP-HW-258, scanout as CLAIM-D GBP-HW-260 — is FACT on controlled stimuli inside each run's boundary. The named residuals and their owners: correctness of retail content by measurement (**Phase 7**); presentation / scaling / pixel-perfect GBP-VID-032 (**Phase 9**); physical pixel equality and per-frame scanout accounting (**not scheduled**); stability duration and breadth, GB/GBC (**Phase 12**, **Phase 7**); the colour intra-group limit (**not scheduled**); U-GBP-029 / 034 / 030 / 033 (open research residuals); rate conversion (**Phase 9**); audio (**Phase 6**), input (**Phase 5**); BBA / Ethernet (**Phase 11**); production UX (**Phase 9**, **Phase 12**). The assessment re-judges no run, promotes no status, closes no unknown, mints no id and **does not authorise Phase 9 work** or any run. Promoted with ids: `docs/protocol/VIDEO.md` (new) and the video rows of `docs/hardware/ARCHITECTURE.md`, `docs/hardware/GBS-DOL.md`, `docs/protocol/REGISTERS.md` | `docs/research/PHASE4_ASSESSMENT.md`; `docs/ROADMAP.md` Phase 4 "Phase 4 assessment"; `docs/protocol/VIDEO.md` |
 | **GBP-VIDEO-007 / GBP-VIDEO-008** (physical scanout; full-frame fidelity) | **RUN 13 EXECUTED 2026-09-21 AND INGESTED (§V6.25; Hardware Issue #15, ingestion Issue #16): GBP-VIDEO-007 = PASS · GBP-VIDEO-008 = PASS — each inside its pre-registered boundary and nothing wider.** The shared prospective source-window gate passed — frozen `tools/vindex.py` reads `OBSERVED_CONTIGUOUS` (2048 intact, INVALID 0, FAULT 0, 2046/2046 decisive transitions +1, FRAME_ID 52..2099); the four appearance entries came +1, so §V6.22's expectation for `coord-0002` is read off the data (no new finding). GBP-VIDEO-008 = PASS is CLAIM-A / CLAIM-B for the eight prospectively sampled frames only: unchanged `tools/vfull.py` 8/8, 0 mismatches in all 38 400 words of every sample, texture == Python == host C == tiled oracle; no physical pixel equality, nothing about the 2 040 unsampled frames. GBP-VIDEO-007 = PASS is CLAIM-D only: the corrected `tools/vvi.py` (§V6.21, used prospectively) reads 2371/2371 and L = 40/40/39/40 (the one R_3 hand-over not in L_3, `frame_index` 1754, is SUPERSEDED — instrumentation semantics, never non-scanout), and the operator saw 1, 2, 3, 4 in order (~8 s apart, a human estimate, never timing evidence) under the declared composite → RCA-to-HDMI converter → HYDIS HV150UX2 chain; a digit is bound to a 40-frame appearance set, never to one frame; no pixel, tearing, presentation, scaling or converter claim. Transport / startup / Policy A clean. **RUN 12 (§V6.20; Hardware Issue #9, ingestion Issue #10) remains historical: GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE.** The shared prospective source-window gate failed there — frozen `tools/vindex.py` reads `OBSERVED_DISCONTINUITY` (2048 intact, INVALID 0, FAULT 0, two duplicate FRAME_ID transitions 479→479 and 1919→1919; GBP-VID-034, mechanism RESOLVED by Issue #12 — PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames, §V6.22). Preserved beside the verdicts and promoting neither: the frozen `tools/vfull.py` full-frame dependent-variable analysis PASS 8/8 with 0 mismatches (subordinate; never a PASS of the GBP-VIDEO-008 experiment); the operator's literal report — digits 1, 2, 3, 4 in order, nothing missing or anomalous — under the declared composite → RCA-to-HDMI converter → HYDIS HV150UX2 chain; OGBPVI1 2377 handed / 2370 latched with frozen L_k = 0 (the `tools/vvi.py` frozen at the run masked the address before the flag shift — GBP-VID-035, analyzer defect, REPAIRED in software by Issue #11, §V6.21: the corrected post-run replay reads 2370/2370 and L = 40/40/38/40, and changes no verdict). Transport / startup / Policy A clean. No rerun pre-registered; `coord-0001`, the analyzers, the formats and the gates unchanged. **`coord-0002` (§V6.23) is the timing-safe re-implementation of the same picture: implemented, proven on its exact image (every entry PREPARE 176 863 cycles under the budget, zero ROM reads), physically executed once, in RUN 13 (pre-registered §V6.24, Issue #14; executed Hardware Issue #15; ingested §V6.25, Issue #16), where the source gate passed with no duplicate at any entry** | `HARDWARE_TESTS.md` §V6.19, §V6.20, §V6.22, §V6.23, §V6.24, §V6.25; GBP-HW-250…255, GBP-HW-256…260 |
 | **GBP-VIDEO-002-R3** (semantic disagreement policy) | **PHYSICAL VALIDATION COMPLETE** | `HARDWARE_TESTS.md` §R3/§R4; GBP-HW-108…115 |
@@ -394,13 +394,15 @@ a dirty build (`CLAUDE.md` §18).
 
 ## Current blocker / current question
 
-**Phase 5 is implemented as software (Issue #19, 2026-09-21) and not
-executed:** the input path exists (`src/gbp/gbp_input.c`, the pump-slot step,
-the tests) and the candidate `stream-0014` (`0ff8355`, SHA-256 `ef76a170…`)
-is built and identified, but no KEYPAD write has ever been issued on this
-project's hardware, no run is pre-registered, and the L/R order remains
-CORROBORATED, not FACT (U-GBP-010 OPEN). The next step is the Orchestrator's:
-a Hardware Issue pre-registering the first physical input run. Nothing below
+**Phase 5 is implemented as software (Issue #19) and its first physical run
+is pre-registered (Issue #20, `HARDWARE_TESTS.md` §V7.1) — NOT RUN:** RUN 14
+(stage 1, the EZ-Flash menu's L/R tabs) and RUN 15 (stage 2, the AGS test
+ROM's controller test, conditional on RUN 14) of the same `stream-0014`
+image (`0ff8355`, SHA-256 `ef76a170…`), each ending at the witness target
+~40.4 s after the CONTROL transform. No KEYPAD write has ever been issued in
+any environment; the L/R order remains CORROBORATED, not FACT (U-GBP-010
+OPEN). The next step is the Orchestrator's: validate the pre-registration,
+then the Hardware Issue that moves RUN 14 to the Operator. Nothing below
 changed for Phase 4.
 
 **No blocker for Phase 4. Phase 4 was assessed against its acceptance criterion on
@@ -498,15 +500,15 @@ still does not measure the margin.
 
 ## Next safe action
 
-**Phase 5 implemented (Issue #19, 2026-09-21, software-only; the candidate
-`stream-0014` built, identified and NOT executed).** The next safe action is
-the Orchestrator's: validate the implementation against `origin/main`, then a
-Hardware Issue that pre-registers the first physical input run — the first
-KEYPAD write ever issued by Open-GBP, with a game that distinguishes L from R
-so the run is also U-GBP-010's own closing test — with its own test ID, run
-name, archive names and PASS / FAIL / INCONCLUSIVE conditions. No run is
-pre-registered here; the descriptor's assignment is data awaiting its
-falsifier, not a fact.
+**RUN 14 / RUN 15 are pre-registered (Issue #20, `HARDWARE_TESTS.md` §V7.1)
+and NOT RUN / NOT AUTHORISED HERE.** The next safe action is the
+Orchestrator's: validate the pre-registration against `origin/main`, then
+open the Hardware Issue that moves RUN 14 to the Operator — the staging of
+§V7.1.6 (stream-0013 preserved first, `make swiss` without a rebuild, the SD
+copy verified by hash at the SD path /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol)
+and the stage-1 checklist of §V7.1.7; RUN 15 follows conditionally on RUN
+14's Question M. Nothing is staged, copied, flashed or booted here; the
+descriptor's assignment is data awaiting its falsifier, not a fact.
 
 **Phase 4 is assessed (Issue #17, 2026-09-21: SATISFIED WITH NAMED
 RESIDUALS, `docs/research/PHASE4_ASSESSMENT.md`).**
@@ -612,8 +614,14 @@ issue 19    INPUT PATH IMPLEMENTED, software-only: src/gbp/gbp_input.c (policy t
             stream-0014 = 0ff8355, 513 152 B, sha256 ef76a170...0b9c, 0 warnings, audit clean,
             Dolphin PASS (auxiliary; the slot never ran); NOT EXECUTED, no run pre-registered;
             GBP-KEY-006 (software facts); no GBP-HW id
-next        orchestrator-owned: validate #19 -> a Hardware Issue pre-registering the first physical
-            input run (the first KEYPAD write ever issued by Open-GBP; U-GBP-010's own closing test)
+issue 20    RUN 14 / RUN 15 PRE-REGISTERED as GBP-INPUT-001 (HARDWARE_TESTS §V7.1), NOT RUN: Question One
+            answered from the code (the witness target ends a run ~40.4 s after CONTROL and tears the device
+            down; two staged runs of the same stream-0014 image, RUN 15 conditional on RUN 14); Swiss slot
+            12-stream reused with stream-0013 preserved first and reproducible from 7d7a6d8; ten names
+            reserved; recovery procedure frozen; FAIL reachable, SWAPPED informative; U-GBP-010 restated,
+            OPEN; no hardware, no flash, no build, no GBP-HW id
+next        orchestrator-owned: validate #20 -> the Hardware Issue that moves RUN 14 to the Operator
+            (staging per §V7.1.6, checklist §V7.1.7); RUN 15 follows conditionally; nothing is executed here
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
@@ -666,6 +674,26 @@ captures/local/GBP-VIDEO-004_stream-0013-run13-idxcap.bin
 captures/local/GBP-VIDEO-004_stream-0013-run13-disp.bin
 captures/local/GBP-VIDEO-004_stream-0013-run13-full.bin
 captures/local/GBP-VIDEO-004_stream-0013-run13-vi.bin
+```
+
+**RUN 14 and RUN 15 (GBP-INPUT-001, `HARDWARE_TESTS.md` §V7.1) are
+PRE-REGISTERED and NOT RUN; their ten archive names are RESERVED, verified
+absent on 2026-09-21, and TAKEN even if a run aborts or RUN 15 is never
+executed. The console writes the SAME names for both runs
+(`GBP-VIDEO-004_stream-0014.*`): RUN 14's files are archived under the
+run14 names BEFORE RUN 15 boots.**
+
+```text
+captures/local/GBP-VIDEO-004_stream-0014-run14.log
+captures/local/GBP-VIDEO-004_stream-0014-run14-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0014-run14-disp.bin
+captures/local/GBP-VIDEO-004_stream-0014-run14-full.bin
+captures/local/GBP-VIDEO-004_stream-0014-run14-vi.bin
+captures/local/GBP-VIDEO-004_stream-0014-run15.log
+captures/local/GBP-VIDEO-004_stream-0014-run15-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0014-run15-disp.bin
+captures/local/GBP-VIDEO-004_stream-0014-run15-full.bin
+captures/local/GBP-VIDEO-004_stream-0014-run15-vi.bin
 ```
 
 On 2026-09-21 RUN 13's files arrived in `logs/` under the bare console names
@@ -891,6 +919,11 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 - **That bytes 0 and 2 are don't-care in general.** §V4 places them outside the
   dependent variable of *this experiment* only. U-GBP-029 is open, they are
   preserved in full, and every run reports the full-raw comparison.
+- **That RUN 14 or RUN 15 has run, or that `stream-0014` is staged.** Both
+  are pre-registered only (§V7.1); `stream-0014` exists at
+  `build/poc/gbp-video-stream-probe/` and nowhere else — `build/swiss/12-stream`
+  and the SD still carry `stream-0013` (`5391c3fe…`) until the Hardware Issue
+  stages the candidate, with stream-0013 preserved first.
 - **That `stream-0014` has run, or that the input path works.** The candidate
   is built and identified (`0ff8355`, SHA-256 `ef76a170…`) and has never been
   executed on hardware; in Dolphin the pump slot never ran, so no KEYPAD write

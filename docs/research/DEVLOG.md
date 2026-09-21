@@ -10224,3 +10224,71 @@ physical input run will be the first KEYPAD write ever issued by Open-GBP.
 pre-registers the first physical input run (test ID, run name, archive
 names, a game that distinguishes L from R, PASS / FAIL / INCONCLUSIVE), which
 is also U-GBP-010's own closing test.
+
+## 2026-09-21 — Issue #20: RUN 14 / RUN 15 pre-registered as GBP-INPUT-001, the first physical KEYPAD write — NOT RUN; no hardware, no flash, no build
+
+**Goal.** Pre-register the first physical execution of Open-GBP's KEYPAD
+write in `HARDWARE_TESTS.md` (§V7 / §V7.1), documentation only: Question One
+first, then the identity, the Swiss slot, the topology, the reserved names,
+the procedure with its recovery, the gates with FAIL reachable and a swapped
+L/R informative, and U-GBP-010's closing condition restated. No hardware, no
+flash, no build, no rebuild, nothing staged; `docs/protocol/` and
+`docs/hardware/` untouched.
+
+**Question One, from the code.** Reaching `GBP_VWITNESS_TARGET` (2048) makes
+the probe's admission block call `finish(..., "S5_witness_target",
+GBP_VSTATE_STOP_WITNESS_TARGET)`: the diagnostics close, `teardown_hardware()`
+runs the R7 order (IRQ 26 masked, the stop word, CONTROL restored, PI
+cleaned, the handler and AR_INFO restored), the probe returns, and `main()`
+disables the pump and the input transport, drains GX, switches the
+framebuffer back to the text console and waits for X / START with POWER
+CYCLE REQUIRED. The AGB image leaves the screen and input stops; nothing
+keeps the cartridge running with video. The window, on RUN 13's own record:
+the not-before gate at 5.000151 s after CONTROL, the first retained record
+at 6.067203 s (64 structural closes and a block-0 boundary), 2048 records at
+59.727133 Hz = 34.27 s more — the target ~40.4 s after the CONTROL
+transform; run 8 with a retail cartridge ended the same way, so the witness
+is content-blind and the figure holds for a menu. Stage 1 (the EZ-Flash
+tabs) fits with margin; stage 2 (launch the AGS ROM, the AGB reset with L+R
+held, its controller test, ten buttons) plausibly needs 25–35 s and would
+start 15–20 s in — one session cannot be relied on to carry both, and its
+record would be ambiguous. **Consequence:** two runs of the same image, RUN
+14 = stage 1 and RUN 15 = stage 2 conditional on RUN 14, each with its own
+five reserved names; no code, constant, profile or build change is needed or
+proposed (a single-session profile would be a separate functional Issue).
+
+**What §V7.1 freezes.** The identity (stream-0014, `0ff8355`, 513 152 B,
+`ef76a170…`, verified on disk, not rebuilt). The Swiss slot: 12-stream
+REUSED, because the manifest numbers the build line and a new slot would
+need a `tools/` change; the overwrite of stream-0013 (`5391c3fe…`, the RUN
+12 / RUN 13 image, on the host and on the SD) is a recorded decision — its
+bytes are preserved under `build/archive/` before staging and it is
+reproducible from `7d7a6d8` in the same image, the build line being
+deterministic; nothing in `build/physical`. The topology at RUN 13's plus one
+controller in port 1 and the EZ-Flash configured to show its menu at boot;
+the AGS test ROM policy (proprietary, the Operator's media, nothing enters
+the repository). Ten reserved names, absent on disk, with the SD collision
+between the two runs stated (the console writes the same names). The
+procedure in two conditional stages, the recovery procedure frozen by the
+Operator (power off at the button, wait, power on; never correct with the
+controller) and the hazard that motivates it. The gates: the machine side is
+the INPUT record only — steps, attempts, completed, failed, the action
+split, last_word — because the window is write-only; the video-path
+verdicts are recorded, not gates; Question M PASS / FAIL / INCONCLUSIVE with
+FAIL reachable; Question O AS-ASSIGNED / SWAPPED / INCONCLUSIVE with SWAPPED
+a recorded, expected-possible, informative outcome that falsifies
+GBP-KEY-004's assignment and is not a failure of the run. U-GBP-010
+restated: it closes either way as OPERATOR OBSERVATION and neither outcome
+makes the routing FACT. The project-owned stimulus is recorded as a future
+option (the Operator's authorisation), not started: RUN 14 first.
+
+**Records.** `HARDWARE_TESTS.md` §V7 / §V7.1 (new); HANDOFF (the Phase-5
+row, the ten reserved names, the issue trail, blocker, next action,
+do-not-assume); ROADMAP Phase 5; UNKNOWNS U-GBP-010 (a pointer, still OPEN);
+`tests/host/test_run14_prereg.py`; `test_run13_prereg.py`'s "no run-14+
+name" pin relaxed to run-16+. No GBP-HW id; nothing under `src/`, `poc/`,
+`tools/`, `Makefile`, `docs/protocol/` or `docs/hardware/`.
+
+**Next.** The Orchestrator validates; then the Hardware Issue moves RUN 14
+to the Operator (staging per §V7.1.6, checklist §V7.1.7); RUN 15 follows
+conditionally.
