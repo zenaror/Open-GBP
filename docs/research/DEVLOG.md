@@ -10119,3 +10119,107 @@ and of any adopted order, and the mGBA row.
 **Next.** The Orchestrator validates the entry; then a functional Issue for
 the module behind the boundary, then a pre-registered first physical KEYPAD
 write, which is also U-GBP-010's own closing test.
+
+## 2026-09-21 — Issue #19: the input path implemented — one descriptor as data, the step in the pump slot, host tests, the candidate stream-0014 built and not executed
+
+**Goal.** Implement `INPUT_PATH.md` §7 — mapping, encoding, write, poll —
+with host tests through the existing mock and replay backends, and one build
+candidate whose identity is computed and which is executed nowhere.
+Software-only, no hardware. Untouchable and untouched: the video path, the
+validated service path, Policy A, the witness layer, the disposition trace,
+every frozen format, `tools/`, `docs/protocol/`, `docs/hardware/`.
+
+**The Operator's decision, kept safe.** Issue #18 left the descriptor
+unfilled; the Operator chose to implement the CORROBORATED assignment and let
+the first physical run falsify it. The four conditions, and how each holds:
+(1) the assignment lives in exactly one place, as data —
+`GBP_KEYPAD_DESCRIPTOR` in `src/gbp/gbp_input.c`, ten positions and a
+polarity; every consumer applies the table, and flipping it is one line
+(`tests/host/test_input_impl.py` proves the initializer's sequence appears in
+no other file); (2) the definition's comment states CORROBORATED, NOT FACT,
+cites GBP-KEY-004 and U-GBP-010 and names what falsifies it; (3) nothing is
+promoted — `REGISTERS.md` keeps H, U-GBP-010 stays OPEN, no document promotes
+the order, no `GBP-HW-` id exists; (4) every encoding test runs
+under arbitrary synthetic descriptors (reversed, scrambled, active-low) and
+no test compares the L or R position with a number.
+
+**What was built.** `gbp_input_map` (L3, `GBP_INPUT_POLICY_DEFAULT` as data:
+A, B, Start, D-pad 1:1; X and Y = Select; Z reserved; L / R on the click;
+stick beyond ±48, a named policy value from Enhanced mGBA's dead zone under
+the same libogc pad path; opposites filtered as the Disc's setter);
+`gbp_keypad_encode` / `decode` (L1, bit for bit, unused bits 0);
+`gbp_keypad_block` (GBI's u16-replicated layout — bytes 0x1E/0x1F carry hi/lo
+where the Disc writes them); `gbp_keypad_write` (one 32-byte `write_block` at
+`base + (0xC << 20)`); `gbp_input_step` (first pass, change, and the refresh
+every `GBP_INPUT_REFRESH_MS` = 5 ms — the Disc's tick, frozen by the Issue:
+neither reference proves the device needs it, both do it, `CLAUDE.md` §18 —
+with a one-period back-off after a failure); `gbp_input_selftest`, pure.
+
+**Where it runs, and the clocks.** `input_step()` is the first statement of
+the stream probe's `pump()`, i.e. inside the slot `gbp_vqueue_pump()` admits
+after the RE-ARM only when no cause is pending — before the slice's early
+returns, so it is unconditional within the slot, and before the slice's own
+`t0`, so STREAMPUMPT still measures the conversion alone. `PAD_ScanPads()`
+from the main loop; libogc2's implementation copies the SI hardware's last
+poll (twice per frame at the default rate) and issues no synchronous
+transfer. Every instant is read through the transport's `ticks` / `ticks64`,
+never `gettime()`, because the stream audit pins the `gettime` sites of
+`pump` (5) and `main` (8): both are unchanged. `t_poll` and `t_write` are
+fields of the state; nothing emits them and no figure is derived.
+
+**What changed in the probe, exactly.** `main.c` +136 lines: the include;
+the input block before `pump()` (state, the transport pointer, two
+`_Static_assert`s pinning libogc2's button bits and error codes,
+`input_step()`); one call as the first statement of `pump()`;
+`gbp_input_init` after the time base; the pure self-test and its
+`INPUTSELFTEST` gecko line after the display self-test; an `ENVINPUT`
+record; two banner lines; the transport pointer armed before
+`gbp_vstate_probe_run` and disarmed with the pump after it; `INPUT` /
+`INPUTT` ringlog records, one screen line, one `INPUT` gecko line. Nothing
+else: the body of `pump()` below the call, `submit_ready`, the display and
+witness paths, and every file under `src/gbp` other than the new module are
+byte-identical to `a877284` (the test pins this through `git diff`). The
+POC Makefile: `BUILD_ID := stream-0014`, `gbp_input.c` in `SRCS`, the
+history note. `tests/unit/Makefile`: the new test.
+
+**Verification.** `tests/unit/test_gbp_input.c`: 8 453 checks, 0 failures
+(every button; the thresholds at the boundary; the filtering; synthetic
+descriptors; the write through the mock by address, length and bytes and
+through the replay by its script; the refresh policy and the back-off with a
+controlled clock). `make -C tests/unit` green. `make test-python` green
+(1 30x passed). Built in `ghcr.io/extremscorner/libogc2:20260805` with zero
+warnings, none suppressed; two consecutive clean builds byte-identical.
+`make stream-audit`: 0 findings; the interrupt path identical to the
+GBP-VIDEO-001 reference; `gbp_input.o` linked. Dolphin, auxiliary: device
+absent and the GBP model both PASS on stated conditions (READY identity,
+`SELFTEST ok=1`, `INPUTSELFTEST ok=1`, `COUNTERS balanced=1`, `INPUT
+steps=0`); in both the probe stopped before any service cycle, so the slot
+and the KEYPAD write never ran in Dolphin — the smoke proves the build
+boots, the module executes and reports, and the abort path is unaffected;
+it cannot exercise the write. **Candidate:**
+`build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol`, `stream-0014`,
+commit `0ff8355`, 513 152 B, SHA-256
+`ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c`, ELF text
+402 900 / data 109 936 / bss 20 093 452. Not executed; no run pre-registered.
+
+**Expired pins.** Four build-id pins written when stream-0013 was frozen
+(RUN 12 and RUN 13 pre-registration, the stream success test, the WITELIG
+test) asserted the tree still declared stream-0013; they now pin the series
+and the Makefile's history, and the RUN 12 build-info check skips when the
+tree builds a later candidate. `test_input_path`'s "no keypad code yet" pin
+became "the module the design named". RUN 12 / RUN 13 records are untouched.
+
+**Residuals, for the validator.** (1) `docs/protocol/INITIALIZATION.md`
+still says KEYPAD "has never been written" — true of the hardware, and
+untouchable here; it will need the Orchestrator's update when the candidate
+runs. (2) Whether a held key needs the refresh is untested; the first run's
+counters (`INPUT ... refresh=`) will say what the refresh cost, not whether
+it was needed. (3) No release-all write at the teardown: the validated stop
+sequence is untouched, so the device keeps the last word written. (4) The
+stick threshold 48 and X/Y = Select are policy, revisable. (5) The first
+physical input run will be the first KEYPAD write ever issued by Open-GBP.
+
+**Next.** The Orchestrator validates #19; then a Hardware Issue
+pre-registers the first physical input run (test ID, run name, archive
+names, a game that distinguishes L from R, PASS / FAIL / INCONCLUSIVE), which
+is also U-GBP-010's own closing test.

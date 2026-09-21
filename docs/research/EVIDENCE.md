@@ -553,6 +553,14 @@ result recorded there. What would make it FACT: a project-owned stimulus that
 publishes KEYINPUT into its video frames, joined to the runtime's own write
 schedule, on this hardware.
 
+**2026-09-21, Issue #19 (software, not evidence about the device):** by the
+Operator's decision the runtime now implements this CORROBORATED assignment
+as data, in exactly one place (`src/gbp/gbp_input.c`, `GBP_KEYPAD_DESCRIPTOR`,
+with this status and its falsifier at the definition), so that the first
+physical run falsifies or keeps it. The status of this row is unchanged:
+CORROBORATED, not FACT; `REGISTERS.md` keeps H; U-GBP-010 stays OPEN
+(GBP-KEY-006 carries the implementation facts).
+
 ## GBP-KEY-005 — The Disc's detection handshake on the keypad side, and GBATEK's AGB-side observation of it — FACT (static) for the Disc; CORROBORATED for polarity and the direction bits 4–7 at the window
 
 Once its embedded logo frame (GBP-VID-010, the 44-colour Game Boy Player
@@ -569,6 +577,55 @@ bits 4–7. **Status:** FACT (static) for the Disc's behaviour; CORROBORATED
 window 1 = pressed and that word bits 4–7 reach KEYINPUT bits 4–7 in the same
 order. Width: those four bits only; nothing about bits 0–3 or 8–9; not an
 Open-GBP measurement.
+
+## GBP-KEY-006 — The input path implemented as software: the module, the one-place descriptor, the block layout, the placement, the refresh policy and the candidate `stream-0014` — FACT (software); nothing physical
+
+Issue #19 (2026-09-21), commit `0ff8355`. **Module** `src/gbp/gbp_input.{h,c}`,
+pure and host-tested: `gbp_input_map` (L3, a policy table as data —
+`GBP_INPUT_POLICY_DEFAULT`: A, B, Start and the D-pad 1:1, X and Y = Select,
+Z reserved and never sent, L / R on the digital click, the main stick as the
+D-pad beyond ±48, opposite directions filtered, port 1); `gbp_keypad_encode`
+/ `gbp_keypad_decode` (L1, a descriptor applied bit for bit, unused bits 0);
+`gbp_keypad_block` (GBI's u16-replicated layout, bytes 0x1E/0x1F = hi/lo);
+`gbp_keypad_write` (one 32-byte `write_block` at `base + (0xC << 20)` through
+the existing transport: real backend, mock, replay); `gbp_input_step` (write
+on the first pass, on change, and every `GBP_INPUT_REFRESH_MS` = 5 ms, the
+Disc's period, with a one-period back-off after a failed write). **The
+descriptor** `GBP_KEYPAD_DESCRIPTOR` is defined once, as data, with its
+status — CORROBORATED, NOT FACT (GBP-KEY-004; U-GBP-010 OPEN) — and its
+falsifier at the definition; flipping it is one line, and no test depends on
+its L/R positions (`tests/host/test_input_impl.py` pins all of this).
+**Placement** (`poc/gbp-video-stream-probe/source/main.c`): `input_step()` is
+the first statement of `pump()`, i.e. inside the slot `gbp_vqueue_pump()`
+admits after the RE-ARM only when no cause is pending; `PAD_ScanPads()` from
+the main loop; every instant through the transport's `ticks` / `ticks64`, so
+the stream audit's `gettime` sites are unchanged (`pump` 5, `main` 8); the
+consumer slice's own measurement starts after it. `t_poll` / `t_write` are
+fields; nothing emits them. The service path, Policy A, the witness layer,
+the disposition trace, the frozen writers, `tools/`, `docs/protocol/` and
+`docs/hardware/` are byte-identical to `a877284`. **Candidate**
+`build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol`: `stream-0014`,
+embedded commit `0ff8355` (clean, no `-dirty`), 513 152 bytes, SHA-256
+`ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c`; built in
+`ghcr.io/extremscorner/libogc2:20260805` with **zero warnings**, none
+suppressed; two consecutive clean builds byte-identical; ELF text 402 900 /
+data 109 936 / bss 20 093 452; `make stream-audit`: 0 findings, interrupt
+path identical to the GBP-VIDEO-001 reference. **Not executed on hardware; no
+run name reserved; no run pre-registered.** **Host tests:**
+`tests/unit/test_gbp_input.c`, 8 453 checks (every button; the stick, trigger
+and analogue thresholds at the boundary; the filtering; arbitrary synthetic
+descriptors; the write through the mock by address, length and bytes and
+through the replay by its script; the refresh policy at its boundaries; the
+back-off); `make test-python` green. **Dolphin (AUXILIARY, never physical):**
+device absent and Dolphin's GBP model both PASS on the stated conditions —
+READY identity = build-info, `SELFTEST ok=1`, `INPUTSELFTEST ok=1` (the
+module's pure self-test executed on the target, no device touched),
+`COUNTERS balanced=1`, `INPUT selftest=1 steps=0 attempts=0 completed=0
+failed=0`; the probe stopped before any service cycle in both (absent; the
+model refused at the CONTROL shape as it did for stream-0013), so the slot,
+and with it the KEYPAD write, never ran in Dolphin. No Open-GBP build has
+ever issued a KEYPAD write anywhere. **Status:** FACT for what the software
+is and does; nothing here is evidence about the device.
 
 ## GBP-VID-001 — VIDEO data format and cadence
 

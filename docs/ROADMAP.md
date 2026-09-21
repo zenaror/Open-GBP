@@ -410,8 +410,9 @@ produced is `docs/protocol/VIDEO.md` and the refreshed video rows of
 
 ## Phase 5 — Input
 
-**Status: ENTERED 2026-09-21 (GitHub Issue #18) — research / design only,
-software-only; no KEYPAD write has been implemented or issued.** The keypad
+**Status: ENTERED 2026-09-21 (GitHub Issue #18, research / design) and
+IMPLEMENTED AS SOFTWARE 2026-09-21 (GitHub Issue #19, candidate `stream-0014`,
+not executed); no KEYPAD write has been issued on hardware.** The keypad
 path is reconstructed on paper in `docs/research/INPUT_PATH.md` in three
 layers kept apart — the GBS-DOL KEYPAD window as the references write it
 (L1), the logical GBA button set from GBATEK (L2), and the GameCube
@@ -430,6 +431,17 @@ keeps the future poll-to-latch latency measurement expressible in the
 GameCube-side polling / mapping reference only. **Next:** a functional
 checkpoint that implements the module behind that boundary, and the first
 physical KEYPAD write under its own pre-registration.
+
+**Implemented 2026-09-21 (GitHub Issue #19), software-only:**
+`src/gbp/gbp_input.c` behind the existing transport boundary (the mapping as
+a policy table; the encoding descriptor as data in one place, filled with
+the CORROBORATED assignment by the Operator's decision, status and falsifier
+at the definition; one 32-byte write; write-on-change plus a 5 ms refresh),
+the step as the first statement of the stream probe's pump slot, host tests,
+and the build candidate `stream-0014` (`0ff8355`, SHA-256 `ef76a170c10d335e…`)
+which is **not executed**: no run is pre-registered. The acceptance
+criterion below is untested on hardware; U-GBP-010 stays OPEN (GBP-KEY-006).
+**Next:** a Hardware Issue pre-registering the first physical input run.
 
 Implement and document GameCube controller → GBP keypad/input handling.
 
