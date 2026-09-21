@@ -497,9 +497,19 @@ pump slot — and the repair of GBP-KEY-008 (`ENVINPUT` + `ENVINPUT2`) with a
 general payload guard, in the candidate `stream-0015` (`da06500`, SHA-256
 `dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49`), **NOT executed, no run pre-registered, not staged** (GBP-KEY-010).
 FACT for the L/R routing is now reachable by a run; it is not actual.
-**Next:** the hardware checkpoint that spends `stream-0015` — the
-Orchestrator designs it and the Operator runs it — then this phase's real
-acceptance with a commercial game, which the Operator schedules.
+**Pre-registered 2026-09-21 (GitHub Issue #28):** RUN 17 (walk A) and RUN 18
+(walk B) as GBP-INPUT-002 in `HARDWARE_TESTS.md` §V7.3 — the machine-join
+runs of `stream-0015`. Question One was answered before any gate: the eight
+OGBPFULL1 samples (one every 256 frames, 4.286 s) support no per-press join
+and an interval-wise consistency check only, but the whole-run totals of the
+KEY record against the decoded final tallies bind each pressed bit to its AGB
+key uniquely by the distinct counts — FACT reachable per bit, without pacing
+(excluded); latency stays out of reach. A failed join is reachable and
+informative (NOT CLOSED), never a failed run. **NOT RUN / NOT AUTHORISED
+HERE.** **Next:** the Hardware Issue the Orchestrator opens after validating
+§V7.3 (RUN 17, then RUN 18, to the Operator); then this phase's real
+acceptance with a commercial game, which the Operator schedules and which is
+not pre-registered.
 
 Implement and document GameCube controller → GBP keypad/input handling.
 
