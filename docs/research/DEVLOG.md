@@ -10187,7 +10187,8 @@ history note. `tests/unit/Makefile`: the new test.
 descriptors; the write through the mock by address, length and bytes and
 through the replay by its script; the refresh policy and the back-off with a
 controlled clock). `make -C tests/unit` green. `make test-python` green
-(1 30x passed). Built in `ghcr.io/extremscorner/libogc2:20260805` with zero
+(1 304 passed, 1 skipped: the RUN 12 build-info check skips when the tree
+builds a later candidate). Built in `ghcr.io/extremscorner/libogc2:20260805` with zero
 warnings, none suppressed; two consecutive clean builds byte-identical.
 `make stream-audit`: 0 findings; the interrupt path identical to the
 GBP-VIDEO-001 reference; `gbp_input.o` linked. Dolphin, auxiliary: device
