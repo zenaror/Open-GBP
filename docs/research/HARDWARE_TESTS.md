@@ -21454,7 +21454,7 @@ of Hardware Issue #15, then the next Phase-4 design — is the Orchestrator's.
 
 ---
 
-## V7 — GBP-INPUT-001: THE FIRST PHYSICAL KEYPAD WRITE — RUN 14 / RUN 15 PRE-REGISTERED (GitHub Issue #20, §V7.1; NOT RUN / NOT AUTHORISED HERE at that checkpoint; AMENDED BEFORE HARDWARE, Issue #23) — EXECUTED 2026-09-21 (Hardware Issue #21) AND INGESTED (Issue #24, §V7.2): QUESTION M = PASS · QUESTION O = AS-ASSIGNED, BOTH RUNS; U-GBP-010 CLOSED; THE ROUTING CORROBORATED, NOT FACT; RUN 16 NOT RUN · RUN 17 / RUN 18 PRE-REGISTERED (Issue #28, §V7.3): THE MACHINE-JOIN RUNS OF stream-0015, GBP-INPUT-002 — NOT RUN / NOT AUTHORISED HERE — EXECUTED 2026-09-21 (Hardware Issue #32) AND INGESTED (Issue #33, §V7.4): QUESTION J = FACT FOR ALL TEN WORD BITS, BITS 8 AND 9 ON TWO CONTROLLERS — THE ROUTING A PHYSICAL FACT (hw, the runs); RUN 16 EXECUTED LAST (UNDECIDED BY THE RULE · M = PASS · O NOT READABLE); truncated=0: GBP-KEY-008 VALIDATED · RUN 19 / RUN 20 PRE-REGISTERED (Issue #34, §V7.5): THE PHASE 5 ACCEPTANCE PAIR — A REAL GAME, BOTH CONTROLLERS, THE SAME ACTIONS, GBP-INPUT-003 — NOT RUN / NOT AUTHORISED HERE
+## V7 — GBP-INPUT-001: THE FIRST PHYSICAL KEYPAD WRITE — RUN 14 / RUN 15 PRE-REGISTERED (GitHub Issue #20, §V7.1; NOT RUN / NOT AUTHORISED HERE at that checkpoint; AMENDED BEFORE HARDWARE, Issue #23) — EXECUTED 2026-09-21 (Hardware Issue #21) AND INGESTED (Issue #24, §V7.2): QUESTION M = PASS · QUESTION O = AS-ASSIGNED, BOTH RUNS; U-GBP-010 CLOSED; THE ROUTING CORROBORATED, NOT FACT; RUN 16 NOT RUN · RUN 17 / RUN 18 PRE-REGISTERED (Issue #28, §V7.3): THE MACHINE-JOIN RUNS OF stream-0015, GBP-INPUT-002 — NOT RUN / NOT AUTHORISED HERE — EXECUTED 2026-09-21 (Hardware Issue #32) AND INGESTED (Issue #33, §V7.4): QUESTION J = FACT FOR ALL TEN WORD BITS, BITS 8 AND 9 ON TWO CONTROLLERS — THE ROUTING A PHYSICAL FACT (hw, the runs); RUN 16 EXECUTED LAST (UNDECIDED BY THE RULE · M = PASS · O NOT READABLE); truncated=0: GBP-KEY-008 VALIDATED · RUN 19 / RUN 20 PRE-REGISTERED (Issue #34, §V7.5): THE PHASE 5 ACCEPTANCE PAIR — A REAL GAME, BOTH CONTROLLERS, THE SAME ACTIONS, GBP-INPUT-003 — NOT RUN / NOT AUTHORISED HERE · AMENDED BEFORE HARDWARE (Issue #37): THE INSTRUMENT IS THE ENHANCED CONTROL CHECKER — THE OPERATOR'S CRITERION BY MACHINE ON BOTH ENDS, NOT THE ROADMAP'S ACCEPTANCE, WHICH STAYS OPEN; THE BUILD CHANGE ASSESSED, NOT MADE
 
 Phase 5 (`docs/ROADMAP.md`). Issue #18 reconstructed the input path on
 paper (`docs/research/INPUT_PATH.md`), Issue #19 implemented it as software
@@ -23899,31 +23899,63 @@ contract — is the Orchestrator's.
 
 ---
 
-### V7.5 RUN 19 / RUN 20 — GBP-INPUT-003, the Phase 5 acceptance run: a real game, both controllers, the same actions — the criterion in the Operator's words, a pair of runs, and the machine half the KEY record adds — **PRE-REGISTERED 2026-09-21 (GitHub Issue #34); NOT RUN / NOT AUTHORISED HERE**
+### V7.5 RUN 19 / RUN 20 — GBP-INPUT-003, the two-pad equivalence on the Enhanced Control Checker: the Operator's criterion — both controllers work and present the same behaviour — answered by machine on both ends (the KEY record and the decoded counters), on the walks and the join §V7.3 froze; NOT the ROADMAP's acceptance, which stays open — **PRE-REGISTERED 2026-09-21 (GitHub Issue #34); NOT RUN / NOT AUTHORISED HERE** · **AMENDED BEFORE HARDWARE (GitHub Issue #37, 2026-09-21): the instrument is the checker, not a game; WarioWare: Twisted evaluated and REJECTED; the two criteria kept apart; the build change assessed, not made**
 
-Written before the hardware is touched. GitHub Issue #34 is the complete
-prospective contract and this part persists it in substance: the criterion
-as the Operator fixed it before any data existed, read in his terms and not
-reinterpreted; the run as a PAIR (the same game, the same literal actions,
-once on the generic third-party pad and once on the original Nintendo pad);
-the identity — `stream-0015`, verified on disk, not rebuilt — and why it
-serves; the action list; the topology, now citing the standing declarations
-where they exist and declaring what still varies; the reserved raw names;
-the pre-run identity gate; the Operator procedure with the recovery
-procedure unchanged; the admissibility gates; the verdicts, with failure
-reachable and informative; the machine half — what the two KEY records can
-and cannot say — designed beside the Operator's judgement, never in its
-place; and what this run does not decide. **No hardware run is authorised by
-this part.** After it is pushed and independently validated by the
-Orchestrator, a Hardware Issue moves RUN 19 and RUN 20 to the Operator with
-the checklist in chat, as he asked. Nothing here is evidence; no evidence ID
-is allocated; nothing is classified; the routing's FACT (§V7.4) stands where
-it stands and is not the subject; `stream-0015` is the image and nothing here
-authorises another; **whether Phase 5 then CLOSES is NOT decided here** —
-the assessment of a phase against its criterion is its own step, as Issue #17
-was for Phase 4, and it reads the result rather than anticipating it.
+Written before the hardware is touched, and amended before it, on the same
+day, under its own Issue — dated and recorded here, never a silent edit
+(the precedent is Issue #23's amendment of §V7.1). GitHub Issue #34 is the
+pre-registration contract; Issue #37 is the amendment's. This part
+persists both in substance: the criterion as the Operator fixed it before
+any data existed, read in his terms and not reinterpreted; the run as a PAIR
+of pads; the identity — `stream-0015`, verified on disk, not rebuilt — and
+why it serves; the instrument, now the Enhanced Control Checker, with the
+game candidates evaluated and the rejected one recorded; the topology, citing
+the standing declarations; the reserved raw names; the pre-run identity gate;
+the Operator procedure with the recovery procedure unchanged; the admissibility
+gates; the verdicts, with failure reachable and informative, read by machine
+on both ends with the Operator's channel beside; and what this pair does
+not decide. **No hardware run is authorised by this part.** After it is
+pushed and independently validated by the Orchestrator, Hardware Issue #36
+moves RUN 19 and RUN 20 to the Operator with the checklist in chat, as he
+asked. Nothing here is evidence; no evidence ID is allocated; nothing is
+classified; the routing's FACT (§V7.4) stands and is not the subject;
+`stream-0015` is the image and nothing here authorises another; **whether
+Phase 5 then CLOSES is NOT decided here** — and, after the amendment, it is
+further away, not nearer (V7.5.1, V7.5.10).
 
-#### V7.5.1 The criterion — the Operator's, fixed before any data, read in his terms
+**THE AMENDMENT RECORD (2026-09-21, Issue #37) — what changed and why,
+so nothing is silent.** Two Operator inputs, relayed by the Orchestrator,
+changed the picture after the pre-registration of Issue #34 was pushed, and
+the Operator asked a question that exposed a constraint the pre-registration
+had accepted without challenge:
+
+```text
+1  the game        the WarioWare he owns is WarioWare: TWISTED -- the gyroscope title, played by physically rotating the
+                   console; most of its interaction does not pass through the button path at all. He identified this
+                   himself. It is DISQUALIFIED as an instrument for an input test and recorded as evaluated and REJECTED
+                   (V7.5.2), so it is not re-proposed -- the treatment the romhacking.net ROM got (INPUT_PATH.md §10.1).
+                   The recommendation "WarioWare ORIGINAL" in Issue #34's pre-registration and in its comment is CORRECTED,
+                   not quietly dropped: it weighed original against unofficial and never asked WHICH TITLE -- that is the
+                   actual error; the title matters, not just the originality.
+2  the instrument  he will test on the Enhanced Control Checker instead. That is a legitimate instrument for HIS criterion
+                   and NOT for the ROADMAP's (V7.5.1): RUN 19 / RUN 20 become the two-pad equivalence on the checker, with
+                   machine evidence on both ends, claiming exactly that and NOT the acceptance; the ROADMAP's acceptance
+                   with a real game stays open and unscheduled. The 13-step / 19-press game-agnostic list of the
+                   pre-registration is SUPERSEDED for this pair (recorded in V7.5.7 for the real-game run's own contract);
+                   the walks and the join of §V7.3 are the actions and the machine reading here.
+3  the build       he asked "mas pq usar o mesmo DOL?" -- and the honest answer is that the pre-registration accepted a
+                   constraint without challenging it: stream-0015 is a RESEARCH PROBE whose one success stop is the video
+                   witness's target, which has nothing to do with testing input; the ~40 s window is an artifact of that.
+                   V7.5.3 now ASSESSES the build change properly -- which constant, what it costs, what it breaks, whether
+                   the witness can simply be unbound, whether the KEY record and the OGBPFULL1 frames survive -- and scopes
+                   it: NOT needed for the checker (the window is enough, shown by RUN 17 / RUN 18), needed for the real-game
+                   run. Recorded; NOT implemented here.
+kept frozen        the criterion in his words (V7.5.1); the three-value cartridge status axis (V7.5.2, V7.5.4); the standing
+                   declarations (V7.5.4); the recovery block (V7.5.7); the reserved names (V7.5.5); §V7.1-§V7.4
+                   byte-identical; nothing about the routing; Phase 5's closure not decided.
+```
+
+#### V7.5.1 The criterion — the Operator's, fixed before any data, read in his terms; TWO criteria, kept apart
 
 The ROADMAP's Phase 5 acceptance line is "A real game can be controlled
 reliably using the GameCube controller." Before any run existed the Operator
@@ -23936,101 +23968,195 @@ fixed what "reliably" means to him, in his words (Issue #34, 2026-09-21):
 third-party one as much as the original.** This is his definition, given
 before any data, and it is **not to be reinterpreted after the run** — not
 narrowed to the buttons that happen to work, not widened to "the game was
-playable", not restated into something easier to gate. Two consequences the
-design takes literally:
+playable", not restated into something easier to gate.
+
+**Two criteria, kept apart (the amendment).** They are not the same
+sentence and a run on the checker must not be read as if they were:
 
 ```text
-comparative     the criterion compares the two pads, so the run is a PAIR: the same game, the same literal actions, once on
-                the generic third-party pad (RUN 19) and once on the original Nintendo pad (RUN 20); two runs, their own
-                names, their own declarations, read together at the end and never merged before that
-a machine half  since Issue #27 the runtime records the word it sent at every change (GBP-KEY-010; on hardware in §V7.4), so
-                the same physical actions on both pads should produce the same WORDS: a pad that behaved differently would
-                show as a different word sequence, not merely as a different feeling. V7.5.9 designs that comparison --
-                what is compared, what counts as agreement when a human cannot repeat actions identically, what it can and
-                cannot conclude. It stands BESIDE the Operator's judgement, which is what the criterion is written in; it
-                never replaces it and never decides the criterion by itself.
+the ROADMAP's    "A real game can be controlled reliably using the GameCube controller." The Enhanced Control Checker is a
+                 TEST ROM, not a game: §V7.4 and the ROADMAP already record Phase 5's acceptance as NOT ASSESSED for exactly
+                 this reason, and a run on the checker does NOT change that -- however well it goes. Answering it needs a game
+                 the Operator has that passes through the button path (V7.5.2) and, in all likelihood, the build change
+                 assessed in V7.5.3. It stays OPEN and UNSCHEDULED after this pair.
+the Operator's   "ambos os controles funcionam e tem que apresentar o mesmo comportamento". Answerable on the checker, and
+                 BETTER than on a game: the checker's per-button counters decode pixel-exactly from the preserved OGBPFULL1
+                 frames (§V7.2.6, §V7.4.6), and the runtime's KEY record states the word sent at every change, so the two-pad
+                 comparison is MACHINE-DECODED ON BOTH ENDS instead of resting on his judgement. W ("funcionam") and S ("o
+                 mesmo comportamento") are read from decoded tallies and KEY records (V7.5.9), with his report BESIDE them
+                 rather than carrying them. THE CHECKER BEING A TEST ROM IS WHAT MAKES THE MACHINE-DECODED TWO-PAD COMPARISON
+                 POSSIBLE AT ALL -- a real game gives no decodable statement of what it received. That is not a consolation
+                 for using it: it is the reason this experiment is STRONGER on the checker, and the reason it CANNOT
+                 SUBSTITUTE for the acceptance. Both halves of that sentence hold.
+what RUN 19 /    they answer the Operator's criterion for the ten buttons of the walks, on the two pads he owns, on this
+RUN 20 close     hardware, by machine -- and nothing else.
+what they do     the ROADMAP's acceptance; Phase 5's closure (further away, not nearer: a real game is still required); anything
+NOT close        about the routing (already FACT, §V7.4, not the subject); latency; GB / GBC (Phase 7, Issue #31).
 ```
 
-**What the run answers, and only this:** Phase 5's acceptance criterion as
-he wrote it. **What it cannot answer:** anything about the routing — a
-commercial game supplies no decodable statement of what the AGB received, so
-this run serves acceptance and never the join (§V7.3's separation, kept;
-§V7.4's FACTs stand where they stand); input latency; GB / GBC (Phase 7,
-Issue #31); a regional comparison (V7.5.2).
+**Two consequences the design takes literally, as before:** the criterion is
+comparative, so the run is a PAIR of pads on the same actions; and it has a
+machine half — here, the whole of the reading — with the Operator's channel
+beside it, never merged, never overridden.
 
-#### V7.5.2 Run identity, the numbering, the experiment, the instruments
+#### V7.5.2 Run identity, the numbering, the experiment, the instrument; the game candidates evaluated
 
 ```text
-run numbers         RUN 19 (the generic third-party pad) and RUN 20 (the original Nintendo pad), in that order: the next two
-                    numbers above every reserved one (V7.3.2's rule; RUN 16 / 17 / 18 used). A reserved number belongs to its
-                    experiment whenever it runs; a new run takes the next number above every reserved one.
+run numbers         RUN 19 and RUN 20: the next two numbers above every reserved one (V7.3.2's rule; RUN 16 / 17 / 18 used).
+                    A reserved number belongs to its experiment whenever it runs.
 experiment          GBP-INPUT-003, one experiment, one pair, three questions (V7.5.9):
-                      W  "funcionam" -- does each pad WORK: read per pad, per step of the action list, from the Operator's report
-                      S  "o mesmo comportamento" -- do the two pads present the SAME behaviour: read from the two reports together
-                      K  the machine half -- did the two pads produce the same WORDS for the same actions: read from the two KEY
-                         records alone, beside W and S, never merged into them
+                      W  "funcionam" -- does each pad WORK: read per pad, per key, by machine (the KEY record joined to the
+                         decoded counters, §V7.3.9's join)
+                      S  "o mesmo comportamento" -- do the two pads present the SAME behaviour: read per key, by machine, from
+                         the decoded end states and the KEY press sequences of the two runs of the same walk on the two pads
+                      K  the word-level half of S -- the same WORDS for the same walk: the two KEY press sequences compared
+                    plus, beside them and never merged, the Operator's channel: his tally vectors and live report, read as
+                    §V7.1.9 defines (M and O).
 image               stream-0015 (V7.5.3): the image of RUN 16 / 17 / 18, unchanged; embedded TEST_ID stays GBP-VIDEO-004.
-the game            DECLARED by the Operator before RUN 19 and the SAME for RUN 20; the candidates, as the Issue records them:
-  WarioWare         ORIGINAL cartridge, in two regional versions (Japanese, American) -- the Orchestrator's RECOMMENDATION, for a
-                    reason recorded here and wherever Road Rage is cited: with an unofficial cartridge, behaviour that looked wrong
-                    could not be attributed -- runtime defect or cartridge peculiarity -- and that ambiguity would fall precisely
-                    on the criterion he fixed; an original removes it. Short micro-games, each demanding a specific control, with
-                    immediate unambiguous feedback: a mapping error shows itself at once.
-  Road Rage         The Simpsons: Road Rage, declared by the Operator as a "paralelo" -- an UNOFFICIAL cartridge (a repro): named as
-                    an alternative with its status recorded wherever it is cited, never silently; continuous driving, D-pad plus
-                    A / B; if used, a behaviour that looks wrong cannot be attributed between the runtime and the cartridge, and
-                    the record says so.
-  the EZ-Flash      a RELAYED INTENTION, with its ambiguity stated. The Operator wrote: "na RUN estou usando ez-flash e o road rage
-                    paralelo apenas" (relayed by the Orchestrator, cross-session, 2026-09-21, who first relayed it as a settled
-                    choice and then corrected the relay). The sentence admits at least two readings -- that he has the EZ-Flash and
-                    a Road Rage repro CARTRIDGE available, or that he will run a Road Rage ROM FROM the EZ-Flash -- and an earlier
-                    sentence of his ("o jogo retail que estou testando é o paralelo The Simpsons: Road Rage") points at a repro
-                    cartridge, which is an inference, not his declaration about this run. NOT resolved here; the relay's
-                    confidence is not the record's. THE STATUS AXIS HAS AT LEAST THREE VALUES -- an ORIGINAL cartridge; an
-                    UNOFFICIAL cartridge (a repro); a ROM DELIVERED BY THE FLASHCART -- and they are not interchangeable for the
-                    attribution problem: with either of the latter two, behaviour that looks wrong cannot be attributed between the
-                    runtime and the cartridge, and that ambiguity falls on the Operator's criterion. The Operator declares AT THE
-                    TIME -- before RUN 19, and again before RUN 20 -- which cartridge, in which of the three forms and, for
-                    WarioWare, which region; the pre-registration names the candidates and does not choose for him beyond the
-                    recommendation.
-regions             the two WarioWare regions are recorded as available and NOTHING is built on them: comparing them is NOT part of
-                    this run (the criterion says nothing about regions; a region-to-region comparison is a different question with
-                    different gates) -- an option Phase 7's compatibility matrix may want; left there.
-what the Operator does that is new   a literal action list (V7.5.7), the same on both pads, with a per-step report of what the
-                    game did; the pair; nothing else. No counting, no timing, no pacing.
+instrument          the Enhanced Control Checker GBA on the EZ-Flash Omega DE's NOR (V7.1.3's provenance; commit 76924c13...,
+                    prebuilt 69 348 B 53c212c7...b6e; the Operator's media), booted STRAIGHT INTO -- the instrument of RUN 14 /
+                    15 / 17 / 18, whose counters decode pixel-exactly from the frames (§V7.2.6 method, six-glyph exact match).
+the design          the walk x pad matrix, completed. RUN 17 was walk A on the GENERIC pad and RUN 18 walk B on the ORIGINAL
+                    pad (§V7.4). RUN 19 = walk A on the ORIGINAL pad; RUN 20 = walk B on the GENERIC pad. With them every one
+                    of the ten buttons has been walked on BOTH pads with the SAME frozen walk and distinct counts: walk A (L 1,
+                    R 2, A 3, B 4, SELECT 5, START 6) on generic (RUN 17) and original (RUN 19); walk B (L 1, R 2, UP 3, DOWN
+                    4, LEFT 5, RIGHT 6) on original (RUN 18) and generic (RUN 20). Each run is also a join run: §V7.3.9's join
+                    closes it per bit (W by machine), and the pair of the same walk across the two pads gives S. Why not a
+                    new ten-button walk: 55 distinct-count presses do not fit the window unpaced (V7.3.2), and a walk with
+                    repeated counts loses the join; why not both walks on both pads in one session: two runs suffice because
+                    RUN 17 / RUN 18 are machine records of the same image, instrument and walks -- the comparison is
+                    record-to-record, and the topology items that could differ between sessions are covered by the inventory
+                    and the standing declarations (V7.5.4). THE REASONING, worth more than the outcome: the two-pad question
+                    had been framed as a comparison bolted onto an acceptance run; it is in fact the MISSING HALF of a walk x
+                    pad matrix the project had already half-built without noticing -- RUN 17 and RUN 18 put each walk on one
+                    pad, so two more runs, each walk on the other pad, complete it with no new machinery and no new verdict
+                    vocabulary. (A single-session pair per walk would read the same; it would cost two more runs and add
+                    nothing to the records.)
+the game            WarioWare: TWISTED -- evaluated and REJECTED as an instrument for an input test: the gyroscope title, played
+  candidates,       by physically rotating the console; most of its interaction does not pass through the button path at all.
+  evaluated         The Operator identified this himself (relayed, Issue #37). The Issue #34 pre-registration and its
+                    comment recommended "WarioWare ORIGINAL" on the strength of its originality -- it weighed original
+                    against unofficial and never asked which title, which is the actual error; the TITLE matters, not just
+                    the originality, and the recommendation is withdrawn, not quietly dropped. Its two regional versions (Japanese, American) are
+                    recorded as available; nothing is built on them; a regional comparison is Phase 7's business.
+                    The Simpsons: Road Rage -- declared by the Operator as a "paralelo", an UNOFFICIAL cartridge (a repro):
+                    stays named for the REAL-GAME acceptance run (not this pair), with its status recorded wherever it is
+                    cited, never silently: with an unofficial cartridge, behaviour that looks wrong cannot be attributed
+                    between the runtime and the cartridge, and that ambiguity falls precisely on the Operator's criterion.
+                    The EZ-Flash -- the Operator wrote "na RUN estou usando ez-flash e o road rage paralelo apenas" (relayed
+                    by the Orchestrator, who first relayed it as a settled choice and then corrected the relay): a RELAYED
+                    INTENTION with its ambiguity stated -- the EZ-Flash and a Road Rage repro cartridge available, or a Road
+                    Rage ROM run FROM the EZ-Flash -- NOT resolved here; the relay's confidence is not the record's. For this
+                    pair the EZ-Flash carries the checker on its NOR, as in RUN 14 - 18, and no game.
+the status axis     kept for the real-game run: at least THREE values -- an ORIGINAL cartridge; an UNOFFICIAL cartridge (a
+                    repro); a ROM DELIVERED BY THE FLASHCART -- not interchangeable for the attribution problem; declared at
+                    the time. For this pair the instrument is a test ROM on the flashcart's NOR, declared as such.
+what the Operator does that is new   NOTHING: walk A and walk B exactly as in RUN 17 / RUN 18, on the other pad each; the
+                    tally vector and the literal report as before. No counting, no timing, no pacing.
 ```
 
-#### V7.5.3 The exact artifact — `stream-0015` serves; verified on disk, NOT rebuilt; the session's window
+#### V7.5.3 The exact artifact — `stream-0015` serves this pair; verified on disk, NOT rebuilt; the session's window; THE BUILD CHANGE, ASSESSED AND NOT MADE
 
 ```text
 DOL          build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol   514 880 B
              dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49
              embedded  OPENGBP-IDENT gbp-video-stream-probe stream-0015 da06500 ; TEST_ID GBP-VIDEO-004 ; no "dirty"
              the image of RUN 16 / 17 / 18 (§V7.4), verified on disk for this part (size, hash, build-info), NOT rebuilt
-why it serves  (1) it carries the KEY record -- one line per key change with the word the runtime sent (GBP-KEY-010; on
-             hardware, 43 / 43 / 33 lines, none lost, GBP-HW-267) -- which the machine half needs and which no earlier image
-             has; (2) it is the image whose routing is FACT for all ten word bits on BOTH pads (§V7.4, GBP-HW-270), so in
-             this run the pads and the game are the only variables -- what the runtime sends is known to reach the AGB as
-             the descriptor assigns; (3) it is already staged in build/swiss/12-stream/ and on the SD (Hardware Issue #32,
-             verified by hash): no staging, no rebuild; the identity is re-verified before each boot (V7.5.6).
-the window   a stream-0015 session is BOUNDED by the runtime's own stop: the witness target (2048 witnessed frames,
-             time_target disabled, safety 60 s) ends the experiment at about +40.3 s after the CONTROL transform (the last
-             retained record of RUN 16 / 17 / 18: +40.340 s); the runtime then tears down, restores CONTROL and returns to
-             the text console, and the AGB image leaves the screen. The pump writes the pad from +0.11 s after CONTROL
-             (the first KEY line of every stream-0015 run), and the cartridge boots with the transform (the checker was on
-             screen by +6.084 s in RUN 17 / 18, the EZ-Flash menu by +10.370 s in RUN 16). SO: THE GAME IS CONTROLLABLE FOR
-             ROUGHLY 40 SECONDS FROM ITS OWN BOOT, of which its logo, title and first menu take a part the pre-registration
-             cannot know in advance. The action list (V7.5.7) is sized for that window; a list cut by the window is
-             recorded as far as it went and the pair is compared on the common prefix (V7.5.9). A longer session needs a
-             build change (time_target / witness_target) -- RECORDED, NOT PROPOSED, not authorised here.
-Swiss slot   12-stream: build/swiss/12-stream/boot.dol = dd545c01...3a49 since Hardware Issue #32 (stream-0014 preserved at
-             build/archive/ as ef76a170...0b9c, stream-0013 as 5391c3fe...dd79); nothing to stage
+why it serves  (1) it carries the KEY record (GBP-KEY-010; on hardware, 43 / 43 / 33 lines, none lost, GBP-HW-267), one end
+             of the machine reading; (2) it is the image whose routing is FACT for all ten word bits on BOTH pads (§V7.4,
+             GBP-HW-270), so the pads are the only variable; (3) the checker's counters decode from its OGBPFULL1 frames
+             (§V7.4.6), the other end; (4) it is already staged in build/swiss/12-stream/ and on the SD (Hardware Issue
+             #32, verified by hash): no staging, no rebuild; the identity is re-verified before each boot (V7.5.6).
+the window   a stream-0015 session is BOUNDED by the runtime's own stop at about +40.3 s after the CONTROL transform (the
+             last retained record of RUN 16 / 17 / 18: +40.340 s); the pump writes the pad from +0.11 s. FOR THE CHECKER THIS
+             IS ENOUGH, shown by the runs already made: the checker was on screen by +6.084 s; walk A took 8.7 s (RUN 17,
+             +5.773 .. +14.499 s) and walk B 12.0 s (RUN 18, +5.557 .. +17.518 s); the end state was then stable for the
+             rest of the window, with six and five identical samples after the last KEY line. The pair of this part uses
+             the same walks on the same instrument: the window is not a constraint here and no build is needed.
+Swiss slot   12-stream: build/swiss/12-stream/boot.dol = dd545c01...3a49 since Hardware Issue #32; nothing to stage
 build/physical
-             NOTHING: the game is the Operator's media (a commercial cartridge, or his EZ-Flash); nothing from it enters the tree
-tools        tools/vindex.py, vidxcap.py, vdisp.py, vfull.py, vvi.py, vpace.py: unchanged, used observationally. NO analyzer
-             decodes a game's frames and NO analyzer computes the machine half: the ingestion implements V7.5.9's definitions
-             as a host test recomputing from the fixtures (the KEY lines verbatim), as §V7.4 did for the join; the
-             definitions are frozen HERE so the ingestion cannot tune them to the data.
+             NOTHING: the checker is the Operator's media (V7.1.3); nothing from it enters the tree
+tools        tools/vindex.py, vidxcap.py, vdisp.py, vfull.py, vvi.py, vpace.py: unchanged, used observationally. The join
+             and the pair comparison are computed by the ingestion exactly as §V7.3.9 and V7.5.9 freeze them, as a host test
+             recomputing from the fixtures (the KEY lines verbatim, the frames byte-identical); the definitions are frozen
+             HERE so the ingestion cannot tune them to the data.
+```
+
+**THE BUILD CHANGE, ASSESSED (Issue #37) — what a build would give
+that raises or removes the witness stop for an input run; NOT made, NOT
+proposed here.** The Operator asked why the same DOL, and the pre-registration
+had taken the ~40 s window as a risk to manage instead of asking what makes
+it. What makes it, read from the source (`poc/gbp-video-stream-probe/source/main.c`,
+`src/gbp/gbp_vstate_probe.c`, `src/gbp/gbp_vwitness.h`), and what a build
+would have to change:
+
+```text
+WHAT STOPS A SESSION TODAY
+  the one success stop   the video witness's target: GBP_VWITNESS_TARGET = 2048 retained records (gbp_vwitness.h) -> stop
+                         "witness_target_reached" (gbp_vstate_probe.c, the S5 site), by design the ONLY success (§V5.59 F5:
+                         the generic time target is disabled BY NAME, gbp_vstate_config_disable_time_target, because under
+                         the indexed stimulus no baseline could form and an unreachable second success was removed rather
+                         than left latent). Eligibility at +5 s after CONTROL, 64 qualifying frames, then 2048 records at
+                         59.727 Hz = 34.3 s: the stop lands at about +40.3 s. The witness is the VIDEO-PATH instrument
+                         (frame-ID sequence integrity of the canonical strip); it says nothing about input.
+  the other stops        the safety cap STREAM_SAFETY_SECONDS = 60 (hard_wallclock; "a run that has gone wrong, never a
+                         success"); the delivery cap STREAM_MAX_DELIVERIES = 400 000 (at RUN 17's 6 314 deliveries/s: about
+                         63 s); the witness STORE full -> "S5_witness_store_full", INCONCLUSIVE by design. So REMOVING the
+                         witness stop alone does NOT give an indefinite session: it gives a DIFFERENT stop -- the safety cap
+                         at 60 s, or the delivery cap at ~63 s -- that is SCORED DIFFERENTLY, as a failure. The decision is
+                         falsifiable on exactly this: whoever builds an input session must add a success stop, not remove one.
+  what the witness costs the store is 2048 x 4 320 B = 8 847 360 B of MEM1 plus 98 304 B of metadata (ENVMEM of every run);
+                         arena1_free is 1 650 688 B with it in place; its copy runs inside the service transaction
+                         (gbp_vwitness_step in the state machine), i.e. on the timing-critical path.
+WHAT A BUILD WOULD HAVE TO CHANGE FOR AN INPUT SESSION LONGER THAN THE WINDOW
+  1  a SUCCESS stop for   a named wall-clock session target (a new stop reason, e.g. input_session_elapsed) as the
+     an input session     experiment's NORMAL end, with the safety cap raised above it and the delivery cap raised in
+                          proportion (both constants in main.c). Re-enabling the generic time target is NOT the honest
+                          route: its "valid observation" baseline was removed by name for a reason that has nothing to do
+                          with input, and whether such a baseline forms under a game is unknown.
+  2  the witness          UNBOUND, not enlarged: main.c binds it with `cfg.witness = &wit`; both witness stops are guarded
+                          by `if (cfg->witness)` and the predicates are null-safe (gbp_vwitness.c), so a NULL binding removes
+                          both stops without touching the state machine -- and frees 8.85 MB + 96 KB of MEM1. Enlarging the
+                          target instead would keep an instrument that answers nothing about input and still stop the run
+                          when it fills. The witness's gating records (WITELIG, WITQUAL, STREAMWIT) and the OGBPIDXCAP1
+                          sidecar with its qual projection would then be ABSENT from an input run -- by design, not by loss.
+  3  the OGBPFULL1        its origin is the witness's first retained frame (main.c: gbp_vfull_set_origin from
+     frames               gbp_vwitness_meta_at(&wit, 0); gbp_vfull.h: "set ONCE, from the witness window's first retained
+                          frame"). UNBINDING THE WITNESS LEAVES OGBPFULL1 WITHOUT A SOURCE FOR ITS ORIGIN -- exactly the kind of
+                          dependency that turns a one-constant change into a redesign: the sampler needs another origin (e.g.
+                          the first frame after the eligibility instant, +5 s), a small change in main.c and nothing in the
+                          format, but a change that has to be found, made and pinned rather than assumed absent. They SURVIVE
+                          it, and the machine reading needs them (the checker's counters). K = 8 at spacing 256 spans only 36 s: a
+                          longer session wants a larger K (full_raw 1.23 MB + full_tex 0.61 MB at K = 8; the freed witness
+                          memory allows K = 32, ~2.3 min, at the same spacing) or a larger spacing; for a GAME the frames are
+                          observational anyway (which screen was on), never decoded; for the checker they are the reading.
+  4  the KEY record       SURVIVES UNCHANGED: it lives in the pump slot and the ringlog, not in the witness (GBP-KEY-010). Its
+                          bound is the ringlog: LOG_LINES 1024 minus the pre-run and post-run records and the 64-line reserve
+                          leaves about 700 lines, i.e. about 350 presses; a long game session at ~2 presses/s exhausts it in
+                          about 3 minutes and counts the surplus in KEYLOG lost (never blocking). A long-session build would
+                          raise LOG_LINES (256 B a line; 4 096 lines = 1 MB, affordable once the witness is gone) -- a bound
+                          change of Issue #27's class, re-derived by the payload and headroom tests.
+  5  the observational    OGBPDISP2 (GBP_VDISP_LIFE_CAP 4096, GBP_VDISP_EVENT_CAP 8192) and OGBPVI1 (GBP_VVI_CAP 4096) overflow
+     sidecars             after about 68 s at 59.7 Hz; overflow is COUNTED (life_overflow, event_overflow, vvi overflow) and
+                          the run goes on, but Policy A and the VI model become partial for a long session. Not gates of an
+                          input run; acceptable as recorded, or the caps raised with the freed memory.
+  6  what it would break  the video-path verdicts (vindex, vfull): INCONCLUSIVE by construction on any non-OGBPCOORD1 content
+                          anyway, and absent without the witness; the OGBPIDXCAP1 sidecar and the qual projections (absent);
+                          the service pass gets SHORTER without the witness copy -- a timing change on the critical path,
+                          which the stream audit and a Dolphin run must re-cover, and which makes INPUTT / pump figures
+                          comparable to stream-0015's only observationally; the identity: a NEW build id (an input-session
+                          probe, not a stream-00xx), its own zero-warning build, its own audit, its own pre-registration, the
+                          Swiss slot rule with the previous image preserved first.
+  7  what it costs        one Issue of software (main.c: the binding, the stop, the origin, three constants; the tests that
+                          pin them), one Dolphin pass, one pre-registration; no new format; no change to the descriptor, the
+                          policy, the KEY line or the frames' format.
+THE HONEST SCOPING
+  for the checker         ~40 s is ENOUGH (above): RUN 19 / RUN 20 keep stream-0015; no build.
+  for a real game         the build change IS needed -- a game's own boot, title and menus plus play exceed the window for most
+                          titles, the eight samples span only 36 s, and the ringlog headroom is ~350 presses. It belongs to
+                          the real-game acceptance run's own contract, which stays open and unscheduled: the game (one that
+                          passes through the button path), then the build, pre-registered on its own. RECORDED; NOT
+                          IMPLEMENTED; NOT PROPOSED as a change to this pair.
 ```
 
 If any identity differs on the day, **DO NOT RUN**. No artifact is rebuilt or
@@ -24048,24 +24174,21 @@ BBA / Ethernet     BBA PRESENT, no Ethernet cable -- the Operator's STANDING DEC
 display chain      UNCHANGED (GameCube -> composite / RCA -> low-cost RCA-to-HDMI converter, 1080p out -> HYDIS HV150UX2 /
                    M.NT68676.2A) -- the Operator's STANDING DECLARATION (Issue #35; §V7.4.2: "video inalterado e ira permanecer
                    assim ate que eu anuncie o contrario"): CITED, the same rule. TOPOLOGY only; nothing about the display is
-                   claimed; the Operator's per-step report is read from the screen, so the chain is part of what he sees and
-                   nothing is concluded about it.
-cartridge          DECLARED BEFORE RUN 19 and the SAME for RUN 20: the title; its FORM -- an ORIGINAL cartridge, an UNOFFICIAL
-                   cartridge ("paralelo" / repro), or a ROM run from the EZ-Flash -- and, for WarioWare, the region. A change
-                   of cartridge between the two runs makes the pair INCONCLUSIVE for S (V7.5.9). The boot screen: the game
-                   boots straight from the cartridge, or is launched from the EZ-Flash menu -- declared; a launch from the menu
-                   puts the menu's presses into the KEY record before the list and they are recorded, never part of the list.
-controller         THE VARIABLE of this pair: RUN 19 = the GENERIC third-party GameCube controller (the pad of RUN 14 / 15 / 17);
-                   RUN 20 = the ORIGINAL Nintendo GameCube controller (the pad of RUN 16 / 18). ONE pad in port 1 (PAD_CHAN0),
-                   declared per run, never assumed; nothing in ports 2-4. Both pads read by their DIGITAL click for L and R
-                   (trigger_threshold=0), the D-pad as the D-pad, the main stick as the D-pad beyond +-48 (policy; the list
-                   uses the D-pad), X or Y as SELECT, Z never sent (INPUT.md §4).
-camera             optional (§V6.10); never evidence; the per-step report is the channel
+                   claimed; the machine reading is from the FRAMES, not the screen, so the chain is not part of it.
+cartridge          the EZ-Flash Omega DE with the Enhanced Control Checker on its NOR, booting STRAIGHT INTO it (as RUN 14 - 18)
+                   -- DECLARED per run, with the boot screen (straight in, or launched from the menu: a launch puts the menu's
+                   presses into the KEY record before the walk; they are recorded and are not the walk). A test ROM on the
+                   flashcart's NOR, declared as such: the three-value status axis (original / unofficial cartridge / a ROM
+                   delivered by the flashcart, V7.5.2) is kept for the real-game run and does not apply to the checker.
+controller         THE VARIABLE of this pair: RUN 19 = the ORIGINAL Nintendo GameCube controller (the pad of RUN 16 / 18) on
+                   walk A; RUN 20 = the GENERIC third-party GameCube controller (the pad of RUN 14 / 15 / 17) on walk B. ONE pad
+                   in port 1 (PAD_CHAN0), declared per run, never assumed; nothing in ports 2-4. Both pads read by their DIGITAL
+                   click for L and R (trigger_threshold=0), the D-pad as the D-pad, X or Y as SELECT, Z never sent (INPUT.md §4).
+camera             optional (§V6.10); never evidence
 ```
 
 A deviation not recorded before execution makes the affected run
-INCONCLUSIVE on that item; a cartridge change between the runs makes the
-pair INCONCLUSIVE for S.
+INCONCLUSIVE on that item.
 
 #### V7.5.5 Reserved raw-file names — before the hardware
 
@@ -24091,9 +24214,9 @@ captures/local/GBP-VIDEO-004_stream-0015-run20-full.bin
 captures/local/GBP-VIDEO-004_stream-0015-run20-vi.bin
 ```
 
-The KEY record lives inside the `.log` file; the Operator's per-step report
-is his own text, relayed on the Hardware Issue, quoted verbatim in the struct
-fixtures at ingestion, never a sixth file.
+The KEY record lives inside the `.log` file; the Operator's tally vector and
+report are his own text, relayed on the Hardware Issue, quoted verbatim in the
+struct fixtures at ingestion, never a sixth file.
 
 #### V7.5.6 Pre-run identity gate — required of the Operator before each launch
 
@@ -24104,23 +24227,20 @@ DOL on SD    /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol : exact size 514 88
 SD state     before RUN 19: no sd:/open-gbp/GBP-VIDEO-004_stream-0015.* file exists on the SD (RUN 16 / 17 / 18's are archived);
              before RUN 20: RUN 19's five files already archived under V7.5.5's names. Any such file found is MOVED ASIDE, never
              deleted, reported, and never treated as a run artifact (V7.1.6's rule).
-cartridge    declared before RUN 19 (title, form, region, boot screen; V7.5.4); the same cartridge in RUN 20
-controller   RUN 19 the generic third-party pad, RUN 20 the original Nintendo pad, in port 1; nothing in ports 2-4; declared
-the list     V7.5.7's list, printed or in view, identical for both runs; the per-step report form at hand
+cartridge    the EZ-Flash Omega DE boots straight into the Enhanced Control Checker on its NOR (declared; V7.5.4)
+controller   RUN 19 the ORIGINAL Nintendo pad, RUN 20 the GENERIC third-party pad, in port 1; nothing in ports 2-4; declared
 rule         the Operator's media hashes are a double check; they do not redefine the project's identities.
              If ANY identity differs: DO NOT RUN.
 ```
 
-#### V7.5.7 Operator physical procedure — frozen: the action list, the same on both pads; the recovery procedure unchanged
+#### V7.5.7 Operator physical procedure — frozen: walk A on the original pad, walk B on the generic pad; the recovery procedure unchanged
 
-**The hazard, restated for what changed.** The KEYPAD write and the KEY
-record are no longer firsts (RUN 14 – 18: 7 890 – 7 898 writes per run, the
-record 43 / 43 / 33 lines, no hazard occurred). What is new is the
-instrument: a game, whose menus and scenes react to every word the runtime
-sends, on the Operator's own media. `CLAUDE.md` §18 still applies: one new
-variable per run (the pad), a clean commit and a recorded hash, every wait
-bounded by the runtime, and the recovery procedure below, byte-identical to
-V7.1.7's.
+**The hazard, restated for what changed.** Nothing new touches the device:
+the image, the instrument and the walks are RUN 17 / RUN 18's; only the pad
+changes, and both pads have already driven this image (§V7.4). `CLAUDE.md`
+§18 still applies: one variable per run (the pad), a clean commit and a
+recorded hash, every wait bounded by the runtime, and the recovery procedure
+below, byte-identical to V7.1.7's.
 
 **Recovery procedure — frozen by the Operator:**
 
@@ -24130,246 +24250,238 @@ power the console off at the button, wait, power on. Do not try to correct
 it with the controller. Record what was seen before the power-off.
 ```
 
-**The action list — literal, the same on both pads, game-agnostic at the
-level of the GBA keys.** It is about the PADS, which is what the criterion
-is about: every one of the ten keys the descriptor routes is pressed at
-least once, in a fixed order, at a relaxed pace, each press fully released;
-what the GAME does with each press is the Operator's per-step report, not a
-premise of the list. It is not a script to time and not "play for a while":
-it is repeatable enough that "the same actions" means the same thing on both
-pads. 13 steps, 19 presses, sized for the ~40 s window (V7.5.3).
+The forbidden walk of V7.1.7 stays forbidden (one press per button leaves
+totals that cannot bind), the distinct counts stay, and the Operator records
+BOTH channels as before. **The 13-step / 19-press game-agnostic action list
+of the Issue #34 pre-registration is SUPERSEDED for this pair** — it was
+written for a game and this pair is on the checker; it stays recorded in the
+Git history of this part and in Issue #34 for the real-game acceptance run's
+own contract, where a list of that shape will be needed again.
+
+**RUN 19 — walk A on the ORIGINAL Nintendo pad (the first executed run of
+this part; Hardware Issue #36):**
 
 ```text
-step  action                              press with                 the Operator records, per step
- 1    wait for the game's first            (nothing)                  which screen it was; roughly how long after boot (not a gate)
-      interactive screen -- its title,
-      "press start" or first menu;
-      press nothing before it shows
- 2    START x1                             the pad's Start            what the game did: RESPONDED (and what) / NO RESPONSE / OTHER / N/A
- 3    A x2                                 the pad's A                same
- 4    DOWN x2                              the D-pad, not the stick   same
- 5    UP x1                                the D-pad                  same
- 6    A x1                                 the pad's A                same
- 7    RIGHT x3                             the D-pad                  same
- 8    LEFT x2                              the D-pad                  same
- 9    B x2                                 the pad's B                same
-10    L x1                                 the left shoulder, clicked same (whatever the game maps L to, or N/A)
-11    R x1                                 the right shoulder, clicked same
-12    SELECT x1                            the pad's X                same (whatever the game maps SELECT to, or N/A)
-13    START x1, then START x1 again        the pad's Start            same (a pause and a resume, where the game has them)
-```
-
-`RESPONDED` means the game did what its screen implied for that key at that
-moment (a menu moved, a selection was confirmed, the character acted, the
-game paused); `NO RESPONSE` means a key the game was evidently waiting for
-did nothing; `OTHER` means it did something the Operator did not expect
-(record what); `N/A` means the game ignores that key at that moment (nothing
-to respond with). The list is performed as written even where a step is N/A
-for the chosen game: the machine half needs the same words on both pads,
-and a key the game ignores still shows whether the pad produced it. If the
-window ends before step 13, the list stops where it stops; the Operator
-records the last step reached; the pair is compared on the common prefix.
-
-**RUN 19 — the action list on the GENERIC third-party pad (the first
-executed run of this part; the Hardware Issue the Orchestrator opens):**
-
-```text
- 1  Cite the inventory (V7.5.4) and the two standing declarations (Issue #35). Declare the cartridge: the title, its FORM
-    (original / unofficial / a ROM on the EZ-Flash), the region if WarioWare, and how it boots (straight in, or launched
-    from the EZ-Flash menu). Declare the controller in port 1: the generic third-party pad.
- 2  Verify the exact DOL on the SD: /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol, 514 880 B, dd545c01...3a49 (V7.5.6).
- 3  Confirm no sd:/open-gbp/GBP-VIDEO-004_stream-0015.* file is on the SD (V7.5.6); a leftover is MOVED ASIDE.
- 4  Have the action list (V7.5.7) in view and the per-step form at hand.
- 5  Boot the exact stream-0015 through Swiss (12-stream). Touch nothing until the game's first interactive screen shows
-    (step 1). If it has not shown by roughly 25 s after boot, press nothing and let the run end (recorded; the window is
-    the runtime's). If the game is launched from the EZ-Flash menu, do that first and say so: those presses are in the
-    KEY record and are not part of the list.
- 6  Perform steps 2-13 in order, at a relaxed pace, each press fully released, the D-pad for directions, nothing else
-    pressed (no stick, no Z, no C-stick). Record what the game did at each step, in your words, as you go or right after.
- 7  If a tally-like thing happens by itself, a menu navigates alone, or input looks stuck: RECOVERY, above.
- 8  Let the witness target stop the experiment (about 40 s after boot, the AGB image leaves the screen). Do not stop it
-    early. If the window ends before step 13, note the last step reached.
- 9  When the text console returns: press X once to save; wait for the status line (the KEY lines emitted); power-cycle.
-10  Copy the five console files off the SD into a per-run subdirectory under logs/ (logs/run19/) and archive them under
+ 1  Cite the inventory (V7.5.4) and the two standing declarations (Issue #35). Declare the controller in port 1: the
+    ORIGINAL Nintendo pad. Declare the cartridge: the EZ-Flash Omega DE with the checker on its NOR, and how it boots.
+ 2  Confirm the EZ-Flash boots straight into the checker. If it shows its menu instead, launch the checker from the menu
+    and record that (the D-pad and A are then the first words the runtime sends; they are in the KEY record).
+ 3  Verify the exact DOL on the SD: /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol, 514 880 B, dd545c01...3a49 (V7.5.6).
+ 4  Confirm no sd:/open-gbp/GBP-VIDEO-004_stream-0015.* file is on the SD (V7.5.6); a leftover is MOVED ASIDE.
+ 5  Boot the exact stream-0015 through Swiss (12-stream). Touch nothing until the checker's screen is on: the title
+    "Enhanced Control Checker GBA" and the ten labels. If it has not appeared by roughly 15 s after boot, press nothing
+    and let the run end (INCONCLUSIVE, recorded).
+ 6  Walk A, in this order and with these counts: L x1, R x2, A x3, B x4, SELECT (the X button of the GameCube pad) x5,
+    START x6. Press nothing else: not the D-pad, not the stick, not Y, not Z. NEVER one press per button. Every press
+    fully released. Live channel: note, when you can see it, which labelled row moved at each press.
+ 7  Read the ten tallies from the screen and record them as a vector in the checker's order -- L, R, UP, DOWN, LEFT,
+    RIGHT, START, SELECT, A, B -- BEFORE the run ends (~40 s after boot the AGB image leaves the screen). Record also
+    whether any tally changed without a press.
+ 8  If a tally changes without a press, anything happens by itself, or input looks stuck: RECOVERY, above.
+ 9  Let the witness target stop the experiment; a walk cut by the target is recorded as far as it went. Do not stop it
+    early.
+10  When the text console returns: press X once to save; wait for the status line (it reports the KEY lines emitted);
+    then power-cycle the console.
+11  Copy the five console files off the SD into a per-run subdirectory under logs/ (logs/run19/) and archive them under
     the reserved run19 names (V7.5.5), no-overwrite semantics, BEFORE anything else boots.
-11  Return the five raw artifacts, the per-step report (steps 1-13, literal), and the declarations of step 1.
+12  Return the five raw artifacts, the tally vector, the literal report and the declarations of step 1.
 ```
 
-**RUN 20 — the SAME action list on the ORIGINAL Nintendo pad (follows RUN 19
-in order; the same session; its own authorisation on the same Hardware
-Issue):**
+**RUN 20 — walk B on the GENERIC third-party pad (follows RUN 19 in order;
+the same session; its own authorisation on the same Hardware Issue):**
 
 ```text
- 1  RUN 19 archived (V7.5.5); the same DOL still on the SD (re-verify the hash, V7.5.6); the SAME cartridge, in the same
-    form, booting the same way (declare it again); the controller in port 1: the original Nintendo pad.
- 2  Boot the exact stream-0015 through Swiss (12-stream); wait for the same first interactive screen as RUN 19 step 5.
- 3  Perform steps 2-13 exactly as in RUN 19, at a relaxed pace, each press fully released, the D-pad for directions.
-    Record what the game did at each step, in your words.
- 4  If anything happens by itself or input looks stuck: RECOVERY, above.
- 5  Let the witness target stop the experiment; do not stop it early; note the last step reached.
- 6  When the text console returns: press X once to save; wait; power-cycle.
- 7  Archive the five console files under the reserved run20 names (V7.5.5), no-overwrite semantics.
- 8  Return the five raw artifacts, the per-step report and the declarations.
+ 1  RUN 19 archived (V7.5.5); the same DOL still on the SD (re-verify the hash, V7.5.6); the checker still on the NOR.
+    Swap the controller in port 1 to the GENERIC third-party pad and declare it.
+ 2  Boot the exact stream-0015 through Swiss (12-stream); wait for the checker's screen as RUN 19 step 5.
+ 3  Walk B, in this order and with these counts: L x1, R x2, UP x3, DOWN x4, LEFT x5, RIGHT x6 -- the D-pad, not the
+    stick. Press nothing else: not A, B, X, Y, Start or Z. NEVER one press per button. Every press fully released. Live
+    channel: note, when you can see it, which labelled row moved at each press.
+ 4  Read the ten tallies and record the vector in the checker's order BEFORE the run ends; note any change without a
+    press.
+ 5  If anything changes by itself or input looks stuck: RECOVERY, above.
+ 6  Let the witness target stop the experiment; a cut walk is recorded as far as it went. Do not stop it early.
+ 7  When the text console returns: press X once to save; wait; power-cycle the console.
+ 8  Archive the five console files under the reserved run20 names (V7.5.5), no-overwrite semantics.
+ 9  Return the five raw artifacts, the tally vector, the literal report and the declarations.
 ```
 
 Do not infer a frame number, a latency or a timing from anything seen by
 eye. Approximate timing may be noted; it is not a gate. Nothing asks the
-Operator to count, to time anything, or to repeat a run because it "felt"
-different: a difference is a result (V7.5.9).
+Operator to count, to time anything, to pace the walk, or to repeat a run
+because a pad "felt" different: a difference is a result (V7.5.9).
 
-#### V7.5.8 Shared admissibility gates — prospective, inherited from §V7.3.8, plus the pair's own
+#### V7.5.8 Shared admissibility gates — prospective, inherited from §V7.3.8 as written, plus the pair's own
 
 ```text
-IDENTITY / LOG   exact DOL identity (V7.5.3); log header GBP-VIDEO-004 / stream-0015 @ da06500; dropped=0; truncated=0 with
-                 ENVINPUT and ENVINPUT2 both present and complete; no storage fault; the summary records complete (COUNTERS,
-                 INPUT, INPUTT, KEYLOG, ENVINPUT, ENVINPUT2, WITELIG, WITELIG2)
+IDENTITY / LOG   as §V7.3.8: exact DOL identity (V7.5.3); log header GBP-VIDEO-004 / stream-0015 @ da06500; dropped=0;
+                 truncated=0 with ENVINPUT and ENVINPUT2 both present and complete; no storage fault; the summary records
+                 complete (COUNTERS, INPUT, INPUTT, KEYLOG, ENVINPUT, ENVINPUT2, WITELIG, WITELIG2)
 KEY RECORD       as §V7.3.8: KEYLOG events = emitted, lost = 0, truncated = 0, overwritten = 0; the number of KEY lines equals
                  emitted; every line parses under GBP_INPUT_EVENT_FMT with n increasing by one; events = INPUT first + change
-                 + retry. A run that fails this is INCONCLUSIVE for K (the machine half) and its W / S readings stand on the
-                 Operator's report alone.
-TRANSPORT        errors 0, transport_ok 1, timeouts 0, busy 0, overflow 0, uncertain 0; balanced service accounting; teardown
-                 restore ok
+                 + retry. A run that fails this is INCONCLUSIVE for the machine reading (W, S, K) and its M / O readings stand
+                 on the Operator's vector alone (V7.1.9).
+TRANSPORT        as §V7.3.8: errors 0, transport_ok 1, timeouts 0, busy 0, overflow 0, uncertain 0; balanced service
+                 accounting; teardown restore ok
 STARTUP          NORMAL; recorded, no tolerance invented
 INPUT (machine)  as §V7.3.8: selftest = 1, steps > 0, attempts > 0, completed = attempts, failed = 0, first = 1, refresh > 0,
-                 change >= 4; a run with steps = 0, completed < attempts or failed > 0 is INCONCLUSIVE for K (a retry that
-                 COMPLETED is not a failure: its completed line delivers the word)
-FRAMES           the OGBPFULL1 container parses with valid CRCs, 8 of K = 8 samples COMPLETE, texture == the Python
-                 conversion; the CONTENT IS A GAME: no tally, nothing decoded, no claim read from the pixels; the eight samples
-                 may be described as which screen was on at each instant, as an observation beside the Operator's report and
-                 never in its place; vindex / vfull INCONCLUSIVE by construction, RECORDED, not judged
-TOPOLOGY         the inventory and the standing declarations cited; the cartridge (title, form, region, boot screen) declared
-                 before RUN 19 and the SAME in RUN 20; the controller declared per run; an unrecorded deviation is
-                 INCONCLUSIVE for the run on that item; a cartridge change between the runs is INCONCLUSIVE for S
-THE LIST         performed as V7.5.7 lists it, in order, with the D-pad; the per-step report returned for every step reached;
-                 the KEY record's press sequence is the machine's witness that the list was followed (V7.5.9); a list cut by
-                 the window is admissible as far as it went; a step performed out of order is recorded, not repaired
-SESSION          the run ended at stop=witness_target_reached; a run ended by the recovery power-off is INCONCLUSIVE for
-                 that run (the save is at the end); the pair then has one admissible run and S is INCONCLUSIVE
+                 change >= 4; INPUTT observational; a run with steps = 0, completed < attempts or failed > 0 is INCONCLUSIVE
+                 for the machine reading (a retry that COMPLETED is not a failure)
+FRAMES           as §V7.3.8: OGBPFULL1 parses with valid CRCs, 8 of K = 8 samples COMPLETE, origin = the first retained frame,
+                 texture == the Python conversion in every sample; every sample shows the checker's screen and every tally
+                 cell decodes by the six-glyph table of §V7.2.6 (an unknown glyph aborts the reading: recorded, the machine
+                 reading INCONCLUSIVE); vindex / vfull INCONCLUSIVE by construction, RECORDED, not judged
+TOPOLOGY         the inventory and the standing declarations cited (V7.5.4); the cartridge and its boot screen declared per
+                 run; the controller declared per run -- the ORIGINAL pad in RUN 19, the GENERIC pad in RUN 20; an unrecorded
+                 deviation is INCONCLUSIVE for the run on that item
+THE WALK         RUN 19 walk A and RUN 20 walk B exactly as §V7.3.7 froze them; the KEY record's press sequence is the
+                 machine's witness that the walk was made as listed (V7.5.9); a walk cut by the target is admissible as far
+                 as it went and the pair is read on the common prefix
+SESSION          the run ended at stop=witness_target_reached; a run ended by the recovery power-off is INCONCLUSIVE for that
+                 run (the save is at the end); the pair of its walk then has one new record and S is INCONCLUSIVE for it
 ```
 
-#### V7.5.9 GBP-INPUT-003 — the verdicts: W and S in the Operator's terms, K the machine half beside them; failure reachable
+#### V7.5.9 GBP-INPUT-003 — the verdicts: W and S in the Operator's terms, read by machine on both ends; K the word level; the Operator's channel beside; failure reachable
 
-The criterion is read in the Operator's terms from the Operator's channel:
-his per-step reports. The machine half is read from the two KEY records
-alone. The three are compared at the end and never merged: **K never decides
-W or S**, and W / S never adjust K.
+The criterion is read in the Operator's terms — "funcionam", "o mesmo
+comportamento" — from two machine records per run: the KEY lines (the word
+the runtime sent at each change) and the OGBPFULL1 frames (the checker's
+counters, decoded by §V7.2.6's method). §V7.3.9's definitions are applied
+unchanged: a KEY line counts only with `rc=ok`; the completed words in n
+order from `0000`; R_b = the rising edges of word bit b; the END STATE = the
+vector common to every sample after the last completed KEY line, at least
+two, identical; T_c = its count at counter c, blank read as 0; c(b) = the
+descriptor's key for bit b. The Operator's channel — his tally vector and
+live report — is read as §V7.1.9 defines (M and O) and compared at the end,
+never merged.
 
 ```text
-QUESTION W -- "funcionam": does the pad WORK, read per pad, per step, from the Operator's report of that run
-WORKS         every step reached at which the game could respond (RESPONDED or N/A at every step; no NO RESPONSE; an OTHER
-              explained by the game's own behaviour as the Operator describes it). MEANS: on this pad, every press the game
-              was waiting for was seen by the game as that press -- in this game, this session, this pad.
-DOES NOT WORK at least one step reached at which the game was evidently waiting for the key and it did nothing, or did
-              something a different key would do, on this pad. RECORDED per step, with the key. It is a result about the pad
-              or the policy (a click not registering, a mapping the game reads otherwise), never a failed run; the other
-              pad's W is read on its own.
-QUESTION S -- "o mesmo comportamento": do the two pads present the SAME behaviour, read from the two reports together
-SAME          for every step reached in both runs the two reports agree -- the same RESPONDED / N/A / OTHER pattern and, where
-              the Operator described what the game did, the same description in substance. MEANS: the criterion's second
-              half holds for this game and this list.
-DIFFERENT     a step reached in both runs at which the reports disagree -- the game responded on one pad and not on the other,
-              or responded differently. RECORDED per step, with the key. An INFORMATIVE result about the pads or the policy,
-              never a failed run; W stays as read per pad.
-THE CRITERION "ambos os controles funcionam e tem que apresentar o mesmo comportamento" holds when W = WORKS on BOTH pads AND
-              S = SAME on the steps both runs reached. Any other combination is stated exactly as it fell (which pad, which
-              step, which key) and is an informative result. Whether Phase 5 CLOSES on it is NOT decided here (V7.5.10).
-QUESTION K -- the machine half: the same WORDS for the same actions, from the two KEY records alone
-              definitions, frozen here so the ingestion cannot tune them: for each run the PRESS SEQUENCE is the ordered list
-              of rising edges of the word bits across the completed KEY lines (rc=ok, n order, from 0000 -- the construction
-              of §V7.3.9's R_b, keeping the ORDER as well as the totals), with the menu-launch presses (if the game was
-              launched from the EZ-Flash menu) cut off at the first rising edge of START; holds are one edge each; two keys
-              held together are two edges in the order the runtime saw them. Compared over the steps both runs reached.
-AGREE         the two press sequences are identical. MEANS: the two pads produced the same words for the same listed actions
-              -- as the runtime saw them; nothing about what the game did with them.
-EXPLAINED     they differ only by a count the Operator's reports explain (a repeated or missed press he noted, a step cut by
-              the window in one run), the sequences being identical once that step is discounted. Recorded with the step.
-FINDING       a rising edge of a key not in the list (a D-pad bit from a stick the policy reads beyond +-48, a shoulder bit,
-              SELECT from X or Y), or a listed key that never appears on one pad though the Operator reports pressing it
-              (a click that does not reach the runtime as a click). An INFORMATIVE result about the pad or the policy, named
-              per bit and per pad; never a failed run; it is exactly the difference the criterion's machine half exists to
-              show -- and it is read beside S, not instead of it.
-INCONCLUSIVE  the KEY RECORD or INPUT gate not met in a run (V7.5.8), or no step reached in both runs.
-what K cannot conclude  what the game received or did (no decodable frames -- the frames show a game); the routing (§V7.4's
-              FACTs stand and are not the subject); latency; the length of holds (edges only); anything about a pad beyond
-              the buttons the list pressed.
+QUESTION W -- "funcionam": does the pad WORK, read per pad and per key, by machine, from the run on that pad
+WORKS         for a key pressed in the walk: its word bit's total R_b is distinct from every other pressed bit's, exactly one
+              counter reads R_b, and it is c(b) -- §V7.3.9's FACT reading for that bit, on this pad. MEANS: every press of
+              that key the pad produced reached the AGB as that key -- the pad WORKS for it, in this run.
+DOES NOT WORK for a key pressed in the walk: its counter reads fewer than R_b (a press the pad produced that the AGB did not
+              see), or R_b appears at another counter (the FACT-SWAPPED reading), or the key's bit never appears in the KEY
+              record though the Operator reports pressing it (a click that did not reach the runtime as a click). RECORDED
+              per key and per pad, with the discrepancy and which end shows it. It is a result about the pad or the
+              policy, never a failed run; W for the other keys and the other pad is read on its own.
+QUESTION S -- "o mesmo comportamento": do the two pads present the SAME behaviour, read per key, by machine, from the two
+              runs of the same walk on the two pads -- walk A: RUN 17 (generic) vs RUN 19 (original); walk B: RUN 18
+              (original) vs RUN 20 (generic)
+SAME          for every key of the walk: the two decoded end states carry the same count, and the two KEY press sequences
+              (K) agree for that key. MEANS: the same walk produced the same words and the same counts on both pads --
+              "o mesmo comportamento", as far as ten buttons and two walks can show it.
+DIFFERENT     a key of the walk whose count or whose press sequence differs between the two pads (after the EXPLAINED rule
+              of K). RECORDED per key, with both records' figures. An INFORMATIVE result about the pads or the policy, never
+              a failed run; W stays as read per pad.
+QUESTION K -- the word level of S: the same WORDS for the same walk, from the two KEY records alone
+              each run's PRESS SEQUENCE = the ordered rising edges of the word bits across the completed KEY lines (rc=ok, n
+              order, from 0000 -- §V7.3.9's construction keeping the order), with any menu-launch presses cut off at the
+              first rising edge of L (the walk's first key). Compared over the common prefix of the walk.
+AGREE         identical sequences.  EXPLAINED  they differ only by a count the Operator's report explains (a repeated or
+              missed press he noted; a walk cut by the target in one run), identical once that press is discounted.
+FINDING       a rising edge of a key not in the walk (a D-pad bit from a stick the policy reads beyond +-48, SELECT from Y),
+              or a walk key that never appears on one pad though the Operator reports pressing it. Named per bit and per
+              pad; informative; never a failed run.
+INCONCLUSIVE  a run inadmissible (V7.5.8); the KEY record incomplete or unparsable; no end state; a tally cell that does
+              not decode; the walk not started; RUN 17 / RUN 18's records unavailable (they are versioned: §V7.4.11).
+THE CRITERION "ambos os controles funcionam e tem que apresentar o mesmo comportamento" holds when W = WORKS for every key of
+              both walks on BOTH pads AND S = SAME for every key of both walks. Any other combination is stated exactly as
+              it fell (which pad, which key, which end) and is an informative result. It is answered FOR THE CHECKER, by
+              machine on both ends, and it is NOT the ROADMAP's acceptance (V7.5.1); whether Phase 5 closes is NOT decided
+              here (V7.5.10).
+QUESTION M / QUESTION O -- the Operator's channel, exactly as §V7.1.9 defines them, read from his tally vector alone; then the
+              vector and the decoded end state are compared and their agreement stated; a disagreement makes the human
+              reading INCONCLUSIVE for the buttons concerned and leaves the machine reading as computed. His live report of
+              which row moved is quoted, never paraphrased into a verdict.
 ```
 
-**Reading rules, applied before any verdict:** W is read per run on its own
-report; S on the two reports; K on the two records; the pair is compared on
-the common prefix of steps reached; a step the game ignores (N/A) counts as
-agreement for S and as a press for K; the live description is quoted, never
-paraphrased into a verdict; nothing is extrapolated to steps not reached.
-The ingestion implements exactly the definitions above as a host test
-recomputing from the versioned fixtures — every KEY line quoted verbatim,
-the two per-step reports quoted verbatim — and reports every intermediate
-quantity (each run's press sequence, the per-step alignment, each
-difference) so that a reader can redo the comparison by hand.
+**Reading rules, applied before any verdict:** each run is read on its own
+records first (W per key; the join per bit); the pair of a walk is read on the
+two runs' records (S, K) over the common prefix; nothing is extrapolated to
+keys not in the walk; a run that also re-closes the join per bit (it will, if
+W = WORKS for every key) adds a second machine sample per bit per pad to the
+FACT of §V7.4 and changes no status. The ingestion implements exactly the
+definitions above as a host test recomputing from the versioned fixtures —
+RUN 17 / RUN 18's included — and reports every intermediate quantity (each
+R_b, each end state, each press sequence, each per-key comparison) so that a
+reader can redo the reading by hand.
 
-#### V7.5.10 What this run decides, and what it does not; Phase 5's closure is not decided here
+#### V7.5.10 What this pair decides, and what it does not; Phase 5's closure is not decided here, and is further away
 
 What a result here changes: nothing in evidence status — the runs produce
 GBP-HW rows at ingestion (the artifacts, the reports, the KEY records, the
-verdicts as read), and the verdicts are recorded as W / S / K fell. **What
-it does NOT decide: whether Phase 5 closes.** The assessment of a phase
-against its criterion is its own step (Issue #17, `PHASE4_ASSESSMENT.md`,
-for Phase 4): it reads the result of this pair, term by term, against the
-ROADMAP line and the Operator's definition, and states a verdict once there,
-once in `ROADMAP.md` and once in `HANDOFF.md` — after the run, never
-anticipated by the pre-registration. What no verdict here measures: the
-routing (FACT, §V7.4, not the subject); input latency; the 5 ms refresh;
-pads other than the two declared; other ports or cartridges beyond the one
-declared; a cartridge's authenticity effects beyond the caveat recorded;
-regional variants (Phase 7); GB / GBC (Phase 7, Issue #31); rumble, the Link
-Port, audio, the display chain.
+decoded frames, the verdicts as read); a re-closed join per bit is a second
+sample of a FACT already established and promotes nothing further. **What it
+does NOT decide: whether Phase 5 closes.** The assessment of a phase against
+its criterion is its own step (Issue #17, `PHASE4_ASSESSMENT.md`, for Phase
+4), and this pair does not even supply what that step needs: the ROADMAP's
+criterion asks for a real game, the checker is a test ROM, and Phase 5 stays
+NOT ASSESSED after this pair whatever it shows. **The real-game acceptance
+run stays open and unscheduled:** it needs a game the Operator has that
+passes through the button path (WarioWare: Twisted does not; Road Rage is an
+unofficial cartridge with the attribution caveat) and, in all likelihood,
+the build change assessed in V7.5.3 — so the closure is further away than
+the Issue #34 pre-registration implied, not nearer. What no verdict here
+measures: the routing (FACT, §V7.4, not the subject); input latency; the 5 ms
+refresh; pads other than the two declared; other ports or cartridges; a
+game; regional variants (Phase 7); GB / GBC (Phase 7, Issue #31); rumble, the
+Link Port, audio, the display chain.
 
 #### V7.5.11 Explicit non-claims, and the record to be filled AFTER each run — nothing pre-filled
 
-Even if the criterion holds in full, RUN 19 and RUN 20 do **not** establish:
-input latency of any kind; that the 5 ms refresh is needed or sufficient;
-the stick threshold or any policy value as more than policy; behaviour with
-a pad other than the two declared, another port or another cartridge;
-anything about the routing beyond §V7.4; rumble or any GBP-aware feature;
-the Link Port; audio; the display chain; that the game is fully playable
-beyond the ~40 s window and the 13 steps; Phase 6, 7 or 9. The video-path
-records are collected and reported observationally and promote nothing.
+Even if the criterion holds in full for the checker, RUN 19 and RUN 20 do
+**not** establish: that a real game can be controlled reliably (the ROADMAP's
+criterion; NOT ASSESSED); input latency of any kind; that the 5 ms refresh is
+needed or sufficient; the stick threshold or any policy value as more than
+policy; behaviour with a pad other than the two declared, another port or
+another cartridge; anything about the routing beyond §V7.4; rumble or any
+GBP-aware feature; the Link Port; audio; the display chain; anything beyond
+the ten buttons and the two walks; Phase 6, 7 or 9. The video-path records
+are collected and reported observationally and promote nothing.
 
 ```text
-field                                   RUN 19 (generic pad)   RUN 20 (original pad)
-DOL SHA-256 on the SD                   --                     --   (dd545c01...3a49 expected; re-verified before each boot)
-cartridge: title / form / region        --                     --   (the SAME in both; original / unofficial / EZ-Flash ROM)
-boot screen (straight in / EZ menu)     --                     --
-controller / port (declared)            --                     --
-inventory / standing declarations cited --                     --   (Issue #25; Issue #35)
-first interactive screen seen (step 1)  --                     --   (which screen; roughly when; not a gate)
-log lines / dropped / truncated         --                     --   (truncated=0 expected)
-INPUT steps / attempts / completed      --                     --
-INPUT first / change / refresh / retry  --                     --
-KEYLOG events / emitted / lost          --                     --
-KEY lines parsed / rc=ok / retries      --                     --
-menu-launch presses before the list     --                     --   (if launched from the EZ-Flash menu; cut off at the first START)
-last step reached (of 13)               --                     --
-per-step report, steps 2..13            --                     --   (RESPONDED / NO RESPONSE / OTHER / N/A, with his words)
-press sequence (K), rising edges        --                     --
-Question W (per pad)                    --                     --   (WORKS / DOES NOT WORK / INCONCLUSIVE)
-Question S (the pair)                   --                          (SAME / DIFFERENT / INCONCLUSIVE, per step where DIFFERENT)
-Question K (the pair)                   --                          (AGREE / EXPLAINED / FINDING / INCONCLUSIVE, per bit where FINDING)
-the criterion, as it fell               --                          (stated exactly; Phase 5's closure NOT decided here)
-expected press sequence (the list)      START, A, A, DOWN, DOWN, UP, A, RIGHT, RIGHT, RIGHT, LEFT, LEFT, B, B, L, R, SELECT, START, START
+field                                   RUN 19 (walk A, ORIGINAL pad)   RUN 20 (walk B, GENERIC pad)
+DOL SHA-256 on the SD                   --                              --   (dd545c01...3a49 expected; re-verified before each boot)
+cartridge / boot screen (declared)      --                              --   (the checker on the NOR; straight in / from the menu)
+controller / port (declared)            --                              --
+inventory / standing declarations cited --                              --   (Issue #25; Issue #35)
+checker screen seen inside the window   --                              --   (yes / no; approximate time)
+log lines / dropped / truncated         --                              --   (truncated=0 expected)
+INPUT steps / attempts / completed      --                              --
+INPUT first / change / refresh / retry  --                              --
+KEYLOG events / emitted / lost          --                              --
+KEY lines parsed / rc=ok / retries      --                              --
+menu-launch presses before the walk     --                              --   (if launched from the menu; cut off at the first L)
+R_b per pressed bit                     --                              --
+samples decoded (of 8) / end state from --                              --
+end state vector (decoded)              --                              --
+tally vector as read (Operator)         --                              --
+channels agree                          --                              --
+Question W per key (this pad)           --                              --   (WORKS / DOES NOT WORK / INCONCLUSIVE)
+the pair of the walk                    RUN 17 (generic) vs RUN 19      RUN 18 (original) vs RUN 20
+Question K (the pair)                   --                              --   (AGREE / EXPLAINED / FINDING / INCONCLUSIVE, per bit where FINDING)
+Question S per key (the pair)           --                              --   (SAME / DIFFERENT / INCONCLUSIVE)
+Question M / Question O (Operator)      --                              --
+the criterion, as it fell               --                                   (stated exactly; for the checker; Phase 5's closure NOT decided here)
+expected vector (arithmetic)            1,2,0,0,0,0,6,5,3,4             1,2,3,4,5,6,0,0,0,0
 ```
 
 #### V7.5.12 What this part is not
 
-Not authorised by this pre-registration: hardware execution; staging,
-copying or flashing anything (the image is already on the SD and is
-re-verified, never re-copied by this part); booting; opening the Hardware
-Issue (the Orchestrator's, after independent validation); any change to the
-runtime, the descriptor, the policy, the analyzers, the formats, the
-fixtures, the evidence rows or the gates (none was made); a new build or
-candidate (`stream-0015` is the image; a longer session is recorded as a
-build change, not proposed); anything about GB / GBC (Phase 7, Issue #31);
-a regional comparison; promoting the routing or touching §V7.1 – §V7.4 or any
-verdict; evidence ingestion; any verdict; deciding whether Phase 5 closes.
-No new physical evidence ID exists. RUN 19 and RUN 20 end this checkpoint as
-PRE-REGISTERED / NOT RUN.
+Not authorised by this pre-registration or its amendment: hardware
+execution; staging, copying or flashing anything (the image is already on the
+SD and is re-verified, never re-copied by this part); booting; opening the
+Hardware Issue (opened by the Orchestrator as #36, blocked until this
+amendment is validated); any change to the runtime, the descriptor, the
+policy, the analyzers, the formats, the fixtures, the evidence rows or the
+gates (none was made); a new build or candidate (`stream-0015` is the image;
+the input-session build is ASSESSED in V7.5.3 and neither implemented nor
+proposed for this pair); anything about GB / GBC (Phase 7, Issue #31); a
+regional comparison; promoting the routing or touching §V7.1 – §V7.4 or any
+verdict; evidence ingestion; any verdict; deciding whether Phase 5 closes;
+reading a run on the checker as the ROADMAP's acceptance. No new physical
+evidence ID exists. RUN 19 and RUN 20 end this checkpoint as PRE-REGISTERED
+/ AMENDED BEFORE HARDWARE / NOT RUN.
 
 ---

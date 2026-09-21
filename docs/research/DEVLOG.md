@@ -10920,3 +10920,59 @@ GB / GBC; no regional comparison; the cartridge not chosen for him.
 
 **Next.** The Orchestrator validates #34 and opens the Hardware Issue for
 RUN 19 / RUN 20 with the checklist in chat.
+
+## 2026-09-21 — Issue #37: §V7.5 AMENDED BEFORE HARDWARE — the instrument is the Enhanced Control Checker; WarioWare: Twisted REJECTED; the two criteria kept apart (the checker answers the Operator's, never the ROADMAP's); the build change assessed from the source and NOT made; no hardware, no code, no id
+
+**What changed, and why (dated; Issue #23's precedent).** After the Issue
+#34 pre-registration was pushed the Operator declared that his WarioWare is
+WarioWare: Twisted — the gyroscope title, most of whose interaction bypasses
+the button path — and identified it himself as unfit for an input test:
+evaluated and REJECTED, the "WarioWare original" recommendation withdrawn
+(the title matters, not the originality). He will test on the Enhanced
+Control Checker instead: legitimate for HIS criterion ("ambos os controles
+funcionam e tem que apresentar o mesmo comportamento") and better than a
+game — the counters decode pixel-exactly from the frames and the KEY record
+states every word sent, so the two-pad comparison is machine-read on both
+ends — and NOT for the ROADMAP's ("a real game can be controlled reliably"),
+which stays NOT ASSESSED after the pair whatever it shows. §V7.5 now keeps
+the two criteria apart in so many words. RUN 19 = walk A on the ORIGINAL
+pad, RUN 20 = walk B on the GENERIC pad: with RUN 17 (A, generic) and RUN 18
+(B, original) every button is walked on both pads with the frozen walks;
+W per key by §V7.3.9's join, S per key across the two pads, K the word
+level; the Operator's channel beside. The 13-step game list is superseded
+for this pair and kept for the real-game run's own contract.
+
+**The build change, assessed and not made.** He asked "mas pq usar o mesmo
+DOL?" and the pre-registration had accepted the ~40 s window without asking
+what makes it. From the source: the one success stop is the video witness's
+target (GBP_VWITNESS_TARGET 2048 at the S5 site; the generic time target
+disabled by name, §V5.59 F5); the safety cap (60 s) and the delivery cap
+(400 000, ~63 s) would end an unbounded run as failures, so removing the
+witness stop alone gives no input session; the witness can be UNBOUND
+(`cfg.witness = &wit`; both stops null-safe) freeing 8.85 MB + 96 KB; the
+OGBPFULL1 origin must then come from something other than the witness's
+first frame (a small change; the frames survive, and a longer session wants
+a larger K); the KEY record survives unchanged with ~350 presses of ringlog
+headroom (LOG_LINES would rise for a long game); the disp / vi traces
+overflow past ~68 s, counted; the service pass gets shorter without the
+witness copy — a timing change to re-audit; a new build id and its own
+pre-registration. Scoping: ~40 s is ENOUGH for the checker (walk A took
+8.7 s, walk B 12.0 s, the end state then stable for the rest of the window),
+so RUN 19 / RUN 20 keep stream-0015 and no build is made; a real game needs
+the build, in that run's own contract. Phase 5's closure is further away,
+not nearer.
+
+**Kept frozen.** The criterion in his words; the three-value cartridge
+status axis; the standing declarations; the recovery block; the ten names;
+§V7.1–§V7.4 byte-identical; nothing about the routing.
+
+**Tests.** `tests/host/test_run19_prereg.py` rewritten to the amended part
+(the amendment record, the rejected candidate, the two criteria, the walk ×
+pad design, the build assessment's constants cross-checked against the
+source, the freeze).
+
+**Not done, on purpose.** No hardware; no build; no code; no id; Hardware
+Issue #36 not released (the Orchestrator's, after validation).
+
+**Next.** The Orchestrator validates #37 and releases Hardware Issue #36 with
+the checklist in chat.
