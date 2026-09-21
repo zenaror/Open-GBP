@@ -42,9 +42,14 @@
  * transfer, the same class as the RE-ARM's IRQ write.
  *
  * INPUT_PATH.md §8: `t_poll` and `t_write` are FIELDS of the state, on the
- * transport's 64-bit time base. Nothing in this module or its callers emits
- * them into a log line, a sidecar or a format, and no latency figure is
- * derived from them; their persistence is a later checkpoint's decision.
+ * transport's 64-bit time base; no latency figure is derived from them.
+ * Issue #27 (GBP-KEY-009) SPENDS that guarantee: every write that is not a
+ * refresh — first / change / retry — leaves a struct gbp_input_event with
+ * the word, the logical set, the action and three instants of the same time
+ * base (t_poll, t_attempt, t_done), which the caller renders as ONE ringlog
+ * line (GBP_INPUT_EVENT_FMT, "KEY …") under a bound the caller owns. A
+ * refresh never produces an event (RUN 14: 7 849 refreshes against 42
+ * changes): it is counted, not recorded.
  *
  * Nothing here touches libogc, a clock or the device except through the
  * transport pointer the caller supplies: the whole module builds and runs on
@@ -53,6 +58,7 @@
 #ifndef OPENGBP_GBP_INPUT_H
 #define OPENGBP_GBP_INPUT_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include "gbp_transport.h"
 
@@ -224,10 +230,27 @@ struct gbp_input {
     uint64_t t_last_attempt;       /* time base at the last attempt, completed or not */
     gbp_gba_keys keys_last;        /* the last mapped set */
     uint16_t word_last;            /* the last encoded word (written or not) */
-    /* INPUT_PATH.md §8 — the head instants of the latency chain. FIELDS ONLY:
-     * nothing emits them, nothing derives a figure from them. */
+    /* INPUT_PATH.md §8 — the head instants of the latency chain; no figure is
+     * derived from them. Since Issue #27 they are carried into the per-change
+     * event below (never into a sidecar). */
     uint64_t t_poll;               /* the caller's instant right after its poll returned */
     uint64_t t_write;              /* the transport's instant right after the last completed write */
+    /* Issue #27 (GBP-KEY-009): the last non-refresh write, until the caller takes it */
+    struct gbp_input_event {
+        uint32_t n;                /* 1-based: the events recorded since init, this one included */
+        enum gbp_input_action action;   /* FIRST, CHANGE or RETRY -- never REFRESH, never NONE */
+        gbp_gba_keys keys;         /* the logical set the word encodes */
+        uint16_t word;             /* the word written, or attempted */
+        uint64_t t_poll;           /* the caller's instant right after the poll (transport ticks64 base) */
+        uint64_t t_attempt;        /* the transport's instant right before write_block */
+        uint64_t t_done;           /* the transport's instant right after a COMPLETED write; 0 otherwise */
+        uint32_t xfer_ticks;       /* the transport's completion wait of a completed write; 0 otherwise */
+        gbp_status rc;
+        uint8_t completed;
+        uint8_t pending;           /* 1 from the step that produced it until gbp_input_take_event() */
+    } event;
+    uint32_t events_recorded;      /* non-refresh writes, completed or not */
+    uint32_t events_overwritten;   /* a pending event replaced before the caller took it (0 when the caller takes every one) */
     /* counters (bounded increments; no log line per step) */
     uint32_t steps;
     uint32_t samples_invalid;      /* err != GBP_PAD_ERR_NONE: the set was released */
@@ -263,6 +286,34 @@ enum gbp_input_action gbp_input_decide(const struct gbp_input *in, uint16_t word
  * caller: a failed write is counted and retried one period later. */
 enum gbp_input_action gbp_input_step(struct gbp_input *in, const struct gbp_transport *t,
                                      const struct gbp_pad_sample *s, uint64_t t_poll);
+
+/* ---- Issue #27 (GBP-KEY-009): the per-change record ------------------------
+ * THE ONE FORMAT of the "KEY" ringlog line, rendered by gbp_input_event_render()
+ * on the host and by the caller's ringlog_printf() on the target with the same
+ * argument list (GBP_INPUT_EVENT_ARGS). Fields: the event number, the action,
+ * the logical set, the word, the three instants (hex, the transport's ticks64
+ * base -- the same as OGBPIDXCAP1 / OGBPDISP2 / OGBPVI1, so a join needs no
+ * conversion), the transport's completion wait and its status. Its rendered
+ * length never exceeds GBP_INPUT_EVENT_RENDER_MAX, proven at the worst case of
+ * every conversion by tests/unit/test_gbp_input.c and tests/host/
+ * test_input_keylog.py -- below the ringlog's 248-character payload. */
+#define GBP_INPUT_EVENT_FMT "KEY n=%lu act=%s keys=%04x word=%04x t_poll=%llx t_attempt=%llx t_done=%llx xfer=%lu rc=%s"
+#define GBP_INPUT_EVENT_ARGS(e) \
+    (unsigned long)(e)->n, gbp_input_action_name((e)->action), (unsigned)(e)->keys, (unsigned)(e)->word, \
+    (unsigned long long)(e)->t_poll, (unsigned long long)(e)->t_attempt, (unsigned long long)(e)->t_done, \
+    (unsigned long)(e)->xfer_ticks, gbp_status_name((e)->rc)
+#define GBP_INPUT_EVENT_RENDER_MAX 160u
+/* Copies the pending event into *out and clears it; returns 1, or 0 (and
+ * leaves *out untouched) when no event is pending. */
+int gbp_input_take_event(struct gbp_input *in, struct gbp_input_event *out);
+/* Renders GBP_INPUT_EVENT_FMT into dst (cap bytes, NUL included); returns the
+ * length the full line has, as snprintf does. */
+int gbp_input_event_render(const struct gbp_input_event *e, char *dst, size_t cap);
+/* The caller's bound, pure: 1 when a line may be added to a store of
+ * `capacity` lines holding `used` while keeping `reserve` lines free for
+ * whatever must still be written after the run; 0 otherwise (the caller
+ * counts the event as lost -- never blocks, never drops silently). */
+int gbp_input_keylog_admit(uint32_t used, uint32_t capacity, uint32_t reserve);
 
 /* The caller reports what the whole slot step cost, in its own tick unit. */
 void gbp_input_note_step_ticks(struct gbp_input *in, uint32_t ticks);

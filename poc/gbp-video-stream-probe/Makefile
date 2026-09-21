@@ -58,7 +58,17 @@ APP_NAME   := gbp-video-stream-probe
 # pump(); no witness, transport, service-path, Policy A, display, startup or
 # frozen-format semantics change. NOT PHYSICALLY EXECUTED; no run is
 # pre-registered for it. Embedded TEST_ID stays GBP-VIDEO-004.
-BUILD_ID   := stream-0014
+# Issue #27 (GBP-KEY-009 / GBP-KEY-008). stream-0015 is stream-0014 plus TWO
+# logging changes and nothing else: (A) every KEYPAD write that is not a refresh
+# -- first / change / retry -- leaves ONE "KEY" ringlog line with the word, the
+# logical set, the action and three instants of the sidecars' time base,
+# emitted from the pump slot under a bound that keeps every post-run summary
+# and `dropped=0` (KEYLOG counts the rest); (B) the ENVINPUT record that
+# clipped in RUN 14 / RUN 15 is emitted as ENVINPUT + ENVINPUT2, every field
+# kept. The descriptor, the policy, the witness, transport, service-path,
+# Policy A, display, startup and frozen-format semantics are unchanged. NOT
+# PHYSICALLY EXECUTED; no run is pre-registered for it; not staged.
+BUILD_ID   := stream-0015
 
 # NORMAL by default. A diagnostic image -- visible self-test, 5000 ms wait -- is
 #   make build STARTUP_MODE=GBP_STARTUP_DIAGNOSTIC

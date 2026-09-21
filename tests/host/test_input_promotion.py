@@ -219,7 +219,9 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE, "--", "src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
+        # Issue #27 (after this promotion) touched the input module and the stream probe, and nothing else here
+        allowed = {"src/gbp/gbp_input.c", "src/gbp/gbp_input.h", "poc/gbp-video-stream-probe/source/main.c", "poc/gbp-video-stream-probe/Makefile"}
+        self.assertTrue(set(r.stdout.split()) <= allowed, "changed against the base: " + r.stdout)
 
     def test_the_records_of_the_checkpoint(self):
         d = read(DEVLOG)

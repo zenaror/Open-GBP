@@ -1,5 +1,6 @@
 #include "gbp_input.h"
 
+#include <stdio.h>
 #include <string.h>
 #include "gbp_regwrite.h"
 #include "gbp_time64.h"
@@ -228,7 +229,45 @@ enum gbp_input_action gbp_input_step(struct gbp_input *in, const struct gbp_tran
         in->writes_failed++;
         in->last_failed = 1;
     }
+    /* Issue #27 (GBP-KEY-009): the record of this write, unless it was a refresh.
+     * `now` was read BEFORE the transfer, so t_attempt .. t_done brackets the
+     * instant the device received the word. */
+    if (act != GBP_INPUT_WRITE_REFRESH) {
+        struct gbp_input_event *e = &in->event;
+        if (e->pending) in->events_overwritten++;
+        in->events_recorded++;
+        e->n = in->events_recorded;
+        e->action = act;
+        e->keys = keys;
+        e->word = word;
+        e->t_poll = t_poll;
+        e->t_attempt = now;
+        e->t_done = in->last_write.completed ? in->t_write : 0u;
+        e->xfer_ticks = in->last_write.completed ? in->last_write.info.ticks : 0u;
+        e->rc = in->last_write.rc;
+        e->completed = (uint8_t)(in->last_write.completed ? 1u : 0u);
+        e->pending = 1u;
+    }
     return act;
+}
+
+int gbp_input_take_event(struct gbp_input *in, struct gbp_input_event *out)
+{
+    if (!in->event.pending) return 0;
+    *out = in->event;
+    in->event.pending = 0u;
+    return 1;
+}
+
+int gbp_input_event_render(const struct gbp_input_event *e, char *dst, size_t cap)
+{
+    return snprintf(dst, cap, GBP_INPUT_EVENT_FMT, GBP_INPUT_EVENT_ARGS(e));
+}
+
+int gbp_input_keylog_admit(uint32_t used, uint32_t capacity, uint32_t reserve)
+{
+    if (used >= capacity) return 0;
+    return (capacity - used > reserve) ? 1 : 0;
 }
 
 void gbp_input_note_step_ticks(struct gbp_input *in, uint32_t ticks)
