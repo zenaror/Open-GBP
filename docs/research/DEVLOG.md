@@ -10578,3 +10578,65 @@ unchanged — checked field by field); `tests/host/test_run14.py` pins the
 declaration, the open item and the scope. No new evidence id.
 
 **Next.** The Orchestrator validates #24 / #25 and closes Hardware Issue #21.
+
+## 2026-09-21 — Issue #26: the input path promoted into the consolidated documentation — `docs/protocol/INPUT.md`; "KEYPAD, never written" superseded on its date; the L/R order CORROBORATED, not FACT, in every page that states it; no status changed, no id minted, no hardware, no code
+
+**Decision: a short consolidated page, and not one step past the evidence.**
+`docs/protocol/INPUT.md` in the role `VIDEO.md` plays for video, deliberately
+thin and saying so: the window and the 16-bit word (F static per reference, F
+software for the runtime), the polarity (C, GBP-KEY-005, and the runs counted
+presses under it), the fact that a written word reaches the cartridge as key
+presses (F hw, run-scoped — two runs, one test ROM, one cartridge, one generic
+pad; the frames FACT as data and the Operator's report OPERATOR OBSERVATION,
+recorded apart), the bit assignment with its status — bits 0–7 C; bits 8 / 9
+**CORROBORATED, not FACT**, with the chain's missing link (the Operator's
+press count, in no machine record), GBP-KEY-009 as what would close it and the
+generic-pad scope in the same paragraph — the write cadence of the references
+and of the runtime (observational costs, never a latency figure; the need for
+the 5 ms refresh not established), the controller mapping marked as this
+project's POLICY and never a device fact, and a section of what is not
+established (latency, other pads, the official pad, a real game — Phase 5's
+criterion NOT assessed). Every row has an id that exists and a status of F or
+C; nothing HYPOTHESIS or UNKNOWN is stated as a device property.
+
+**The stale statements, corrected with their history kept.**
+`INITIALIZATION.md`: the two "never written" sentences of 2026-09-15 stay as
+written and carry *[true as of 2026-09-15; written on hardware 2026-09-21,
+§15]*; the two "KEYPAD (Phase 5)" pointers are dated the same way; a new §15
+records the first physical writes (GBP-HW-262, GBP-HW-264, GBP-HW-265), where
+the write sits in Open-GBP (the pump slot, not the service), that the cycle
+of §14 is unchanged, and points at `INPUT.md`. `REGISTERS.md`: the KEYPAD row
+now reads C for existence / format / polarity, F (hw, run-scoped) for the
+mechanism, and **L/R bit order: C — was H until 2026-09-21, not FACT**; a §2.3
+"KEYPAD word" table carries the same with its ids. `GBS-DOL.md`: the keypad
+row refreshed the same way (the Dolphin-derived "order per Dolphin swapped" /
+"H (L/R order)" wording gone). `ARCHITECTURE.md`: the keypad plane refreshed
+— and its "active-low like the AGB KEYINPUT register" was found to contradict
+GBP-KEY-001 / GBP-KEY-005 (1 = pressed at the window, the opposite of
+KEYINPUT): corrected to what the evidence carries, the same kind of drift
+Issue #17 found in the Phase-2 pages. `VIDEO.md` §6's pointer dated. The three
+indexes list the new page. Dated notes on GBP-KEY-004 and U-GBP-010 record the
+promotion (no status changed).
+
+**The line held.** Nothing writes, implies or lets a reader conclude that
+the GBS-DOL's routing of word bits 8 and 9 is FACT; every page that states the
+order says CORROBORATED, not FACT, names GBP-KEY-009 and carries the
+generic-pad scope (the digital click of a third-party pad; the official pad
+not exercised) — pinned by `tests/host/test_input_promotion.py`, which also
+checks that no "FACT" stands near a statement of the order without a
+negation, that every id cited by the new page exists, that §V7 of
+`HARDWARE_TESTS.md`, the evidence headings and U-GBP-010 are the bytes of
+`4e54583`, and that nothing under `src/`, `poc/`, `tools/`, `Makefile` or
+`captures/fixtures/` moved. Expiring pins updated with their reasons
+(`test_input_addenda.py`, `test_input_impl.py`, `test_input_path.py`,
+`test_run14.py`: REGISTERS.md no longer keeps H; `test_phase4_assessment.py`:
+the promoted pages may now cite GBP-HW-261…265, the assessment still at 260).
+
+**Not done, on purpose.** No hardware; no code; no change to §V7.1 or §V7.2,
+to a verdict, a gate or an evidence status; the routing not promoted;
+U-GBP-010 not reopened; GBP-KEY-009 not implemented; no GBP-HW id.
+
+**Next.** The Orchestrator validates #26; then GBP-KEY-009 — the
+per-key-change word logging that takes the routing to FACT — as a functional
+checkpoint with its own pre-registration, and Phase 5's real acceptance with
+a commercial game, which the Operator schedules.

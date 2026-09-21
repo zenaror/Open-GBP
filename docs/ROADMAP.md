@@ -481,10 +481,17 @@ value as more than policy, the official Nintendo pad (the runs used a generic
 third-party controller's digital click — the Operator's post-run declaration,
 Issue #25; the same Game Boy Player by his declared inventory) or other cartridges,
 rumble, the display chain, and this phase's acceptance criterion — a real game
-has not been played; RUN 16 was not run. **Next:** the Orchestrator's — validate the
-ingestion and close Hardware Issue #21; whether GBP-KEY-008 / GBP-KEY-009
-become a functional checkpoint, and the game-based assessment of the criterion
-below, are open.
+has not been played; RUN 16 was not run. **Promoted 2026-09-21 (GitHub Issue #26):** the
+consolidated pages now carry the keypad plane — `docs/protocol/INPUT.md`
+(window, word, polarity, bit assignment with its status, cadence, the
+controller mapping as this project's POLICY, what is not established), the
+keypad rows of `REGISTERS.md` (§2, §2.3), `GBS-DOL.md` and `ARCHITECTURE.md`,
+and `INITIALIZATION.md` §15 — with the L/R order stated as CORROBORATED, not
+FACT, the generic-pad scope beside it and GBP-KEY-009 named; no status
+changed. **Next:** GBP-KEY-009 — the per-key-change word logging that takes
+the routing to FACT — as a functional checkpoint with its own
+pre-registration; then this phase's real acceptance with a commercial game,
+which the Operator schedules.
 
 Implement and document GameCube controller → GBP keypad/input handling.
 

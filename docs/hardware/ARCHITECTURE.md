@@ -64,7 +64,7 @@ Gekko  ──writes DMA regs──►  DSP/ARAM DMA engine  ──ARAM addr ≥ 
 |-------|-----------|-----------|--------|
 | Video | GBP → GC | 0xF00-byte DMA reads of the *video* block: 4 AGB scanlines × 240 px, one 32-bit word per pixel holding a 15-bit RGB value with each byte doubled (the pixel is bytes 1 and 3; bytes 0 and 2 vary and are not consumed, U-GBP-029); 40 blocks per 160-line frame; bit 15 set on exactly one word per frame, the first pixel, added on the path (origin U-GBP-034); the 15 colour bits arrive with the two outer 5-bit groups exchanged relative to the AGB framebuffer, so the GX RGB5A3 reading is the displayed colour; a *video* IRQ (bit 8) signals each 4-line batch; source cadence 59.727 Hz measured (run-scoped) | F (hw): geometry reconstructed legible, 40-block composition, colour order, bit-15 count; details and every id in `../protocol/VIDEO.md` | GBP-VID-001 (references); GBP-HW-081, GBP-HW-076, GBP-HW-077, GBP-HW-131, GBP-HW-129, GBP-HW-078 |
 | Audio | GBP → GC | 0x1000-byte DMA reads of the *audio* block, delivered as PWM bit-streams (Dolphin: 1 bit per byte-mirrored word, ~4096 blocks/s); *audio* IRQ (bit 10) per block | H (Dolphin model + disc geometry only) | GBP-AUD-001 |
-| Keypad | GC → GBP | 32-byte write to the *keypad* block; 16-bit GBA key state in bytes 0x1E–0x1F, active-low like the AGB KEYINPUT register | C | GBP-KEY-001 |
+| Keypad | GC → GBP | 32-byte write to the *keypad* block; a 16-bit GBA key word in bytes 0x1E–0x1F, **1 = pressed** (the opposite polarity of the AGB's KEYINPUT, which reads 0 = pressed); bits 0–7 in KEYINPUT order, L at bit 8 and R at bit 9 (the reverse of KEYINPUT's, as every reference writes it); written by Open-GBP on hardware on 2026-09-21 and read by the cartridge as presses in two runs (RUN 14 / RUN 15) | C (format and polarity: GBP-KEY-001, GBP-KEY-005); F (hw, run-scoped) for the mechanism; C for the L/R order, not FACT — the chain rests on the Operator's press count (GBP-KEY-009), observed through the digital click of a generic third-party pad; details and every id in `../protocol/INPUT.md` | GBP-KEY-001, GBP-KEY-004, GBP-KEY-005, GBP-HW-261, GBP-HW-262, GBP-HW-264, GBP-HW-265 |
 | Control/status | both | 1-byte *control* register: cartridge type/presence flags, two "power" bits used as reset/stop, IRQ mask bit, link-related bits | C for usage, H for names | GBP-CTL-001 |
 | Internal SIO | both | *SIO control* (byte) and *SIO data* (32-bit) blocks plus *serial* IRQ (bit 6); used by the Startup Disc for the AGB↔GameCube protocol that carries rumble and the GBP menu | F that the path exists and is used; semantics H/U | GBP-SIO-001, U-GBP-001..003 |
 
@@ -83,6 +83,7 @@ the GameCube-side *SIO control*/*SIO data* blocks, is **unknown**
 
 - Register map and transfer format: `docs/protocol/REGISTERS.md`
 - Detection, start, stop and IRQ sequences: `docs/protocol/INITIALIZATION.md`
+- KEYPAD word and the input path: `docs/protocol/INPUT.md`
 - HSP / DMA mechanics: `docs/hardware/HSP.md`
 - GBS-DOL behavior summary: `docs/hardware/GBS-DOL.md`
 - Evidence and open questions: `docs/research/EVIDENCE.md`, `docs/research/UNKNOWNS.md`

@@ -472,7 +472,7 @@ unmask); (2) the acknowledge protocol while the device still asserts
 re-latch?), i.e. the remaining half of U-GBP-022; (3) the steady-state
 service loop of the references (device acknowledge `read | 0x8000`,
 re-enable `0`, KEYPAD written on every service — KEYPAD has never been
-written) without losing causes; (4) CONTROL bits 0x04/0x08 (Disc start
+written *[true as of 2026-09-15; written on hardware 2026-09-21, §15]*) without losing causes; (4) CONTROL bits 0x04/0x08 (Disc start
 `|0x04` then `&~0x10` vs GBI `(v & ~0x18) | 0x0C`, U-GBP-006). Reading
 the AUDIO/VIDEO blocks belongs to Phases 4/6. No move to VIDEO before (1)
 and (2) are answered; the next experiment, GBP-INIT-003B, was specified
@@ -563,7 +563,7 @@ The fundamental initialization and interrupt mechanics are established;
 the runtime layer that is still missing is the steady state: (1) repeated
 service with the re-arm write `IRQ := 0` after the ACK, without losing
 causes (U-GBP-027); (2) KEYPAD, never written (both references write it
-on every service; Phase 5); (3) CONTROL bits 0x04/0x08 at runtime
+on every service; Phase 5) *[true as of 2026-09-15; written on hardware 2026-09-21, §15]*; (3) CONTROL bits 0x04/0x08 at runtime
 (U-GBP-006); (4) AUDIO/VIDEO block reads (Phases 4/6); (5) the serial and
 sleep sources and a cartridge present (Phase 7). The next experiment is
 specified as GBP-INIT-004 (HARDWARE_TESTS.md "Planned tests — GBP-INIT-004",
@@ -659,7 +659,7 @@ after the drain — which is the one the runtime needs (DEVLOG 2026-09-16
 Initialization readiness after 004: unchanged from §12 plus a second
 delivered cycle and the post-ACK state. Still missing for the steady
 state: the re-arm after a drained service (GBP-AV-SERVICE-001), then
-repeated service, KEYPAD (Phase 5), CONTROL
+repeated service, KEYPAD (Phase 5 — written on hardware 2026-09-21, §15), CONTROL
 0x04/0x08 at runtime (U-GBP-006), the AUDIO/VIDEO block reads (Phases 4/6,
 now known to be the references' boundary before their re-arm). Phase 3 is
 **not** concluded by this run. State decided on 2026-09-16: **Phase 3
@@ -729,5 +729,28 @@ cause by this run; the remaining microscopic unknowns (U-GBP-027
 investigative sub-items, U-GBP-028, U-GBP-007's mechanism) are
 non-blocking. Still missing for the steady state, now Phase 4 and later
 work: repeated service and its cadence, block interpretation and frame
-timing (GBP-VIDEO-001 direction, DEVLOG 2026-09-16), KEYPAD (Phase 5),
+timing (GBP-VIDEO-001 direction, DEVLOG 2026-09-16), KEYPAD (Phase 5 — written on hardware 2026-09-21, §15),
 CONTROL 0x04/0x08 at runtime (U-GBP-006), audio (Phase 6).
+
+## 15. KEYPAD written on hardware — GBP-INPUT-001, RUN 14 / RUN 15 (2026-09-21)
+
+Until 2026-09-21 every "KEYPAD, never written" above was true: no Open-GBP
+build had issued a KEYPAD write in any environment. On 2026-09-21 the
+`stream-0014` build wrote it on this project's hardware in two runs
+(`docs/research/HARDWARE_TESTS.md` §V7.2; Hardware Issue #21, ingestion
+Issue #24): 7 892 and 7 895 completed 32-byte writes at index 0xC, none
+failed, none retried (GBP-HW-262), and the written word reached the
+cartridge as key presses — the Enhanced Control Checker counted every
+pressed button at its own counter, all ten buttons across the two runs
+(Question M = PASS; GBP-HW-264, GBP-HW-265). **Where the write sits:** in
+Open-GBP it is not part of the interrupt service at all — the runtime writes
+KEYPAD from the pump slot that opens after the re-arm (`IRQ := 0`) only while
+no cause is pending, on the first pass, on every change of the word and every
+5 ms otherwise (GBP-KEY-006); the references write it inside their service
+pass (§4, §5). The cycle of §14 is unchanged by the addition: transport,
+startup and the display path read clean in both runs (GBP-HW-262). The word
+format, the bit assignment with its status — CORROBORATED, not FACT, for the
+L/R order, observed through the digital click of a generic third-party pad —
+and the runtime's mapping policy are consolidated in `INPUT.md`. Not
+established: input latency, the need for the refresh, any other pad or
+cartridge, a real game (GBP-HW-265).

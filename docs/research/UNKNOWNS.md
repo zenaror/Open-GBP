@@ -311,6 +311,11 @@ The missing piece for FACT is one log line — the word at each key change
 the latency instrument. `REGISTERS.md` keeps H until the Orchestrator updates
 `docs/protocol/` with these ids.
 
+**2026-09-21, Issue #26:** promoted — `REGISTERS.md`, `GBS-DOL.md`,
+`ARCHITECTURE.md` and the new `docs/protocol/INPUT.md` state the order as
+CORROBORATED, not FACT (was H), with the generic-pad scope and GBP-KEY-009
+beside it; no status changed here.
+
 ## U-GBP-011 (P2 — **CLOSED 2026-09-18** by GBP-VIDEO-003 / `color-0002`, the pre-registered confirmatory run: the outer 5-bit groups are exchanged, `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`, promoting the colour order from CORROBORATED to **FACT**. Two residuals were never part of this item and stay open: bit 15's origin, now U-GBP-034, and the bytes 0/2 deviations, U-GBP-029) — VIDEO color bit order and exact word content
 
 **2026-09-16, static (GBP-VID-003/006, VIDEO_PATH.md §2.3–2.4, §3.2):** the
