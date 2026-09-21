@@ -461,6 +461,115 @@ the sleep IRQ.
 → `SetKeys`) — **Confidence:** high for format/polarity, **HYPOTHESIS**
 for the L/R bit order (Dolphin swaps: hi bit0 → L, hi bit1 → R; U-GBP-010).
 
+## GBP-KEY-002 — The Start-up Disc's keypad path: the write primitive, the state setter, the cadence and the controller → KEYPAD mapping — FACT (static)
+
+Decompiled headlessly on 2026-09-21 from `sys/main.dol` (`3dd3692f…1b5d`,
+Issue #18; `docs/research/INPUT_PATH.md`). **Write primitive `0x80089e40`:**
+stores `value >> 8` at byte 0x1E and `value & 0xFF` at byte 0x1F of the
+32-byte staging buffer at `0x801E4A60`, flushes it and DMAs it to
+`base + 0xC00000` (direction write) — the other 30 bytes are whatever the
+previous transfer left, the same convention as the IRQ write `0x80089ff4`.
+**State setter `0x8008ad30(word, callback)`:** when the detection injection
+is not active, stores the caller's word into the small-data global
+`r13 − 0x7028` after clearing an opposite pair held together (`(v & 0xC0) ==
+0xC0 → v &= ~0xC0`; `(v & 0x30) == 0x30 → v &= ~0x30`); while injecting, it
+keeps the injected bits 0xF0 and takes the caller's other bits (`& 0xFF0F`).
+**Cadence:** the handler `0x8008af08` writes the word to the device at `+0x74`
+on every HSP interrupt that carries a pending source, right after the IRQ
+write-back and before the callbacks — and the setter's second argument, a
+one-shot callback kept at `r13 − 0x7024`, is invoked right after that write
+and cleared; the 5.000 ms periodic callback
+`0x8008b1ac` writes it on every tick while the session is running (state 2),
+at two sites (`0x8008b900`, `0x8008bac4`). **Mapping `0x8000822c`** (the
+application's caller of the setter; the other caller `0x8000a2e8` sends 0 =
+release all): from the SDK pad word at `+0x18` of the disc's pad structure,
+default mode — bit 8 (A) → word bit 0, bit 9 (B) → 1, bits 10 and 11 (X, Y)
+→ 2, bit 12 (Start) → 3, bit 1 (Right) → 4, bit 0 (Left) → 5, bit 3 (Up) → 6,
+bit 2 (Down) → 7, **bit 6 (L) → 8, bit 5 (R) → 9**, with four flag bits
+24–27 of the extended word feeding the same four direction bits
+(stick-derived, H for the identification); alternate mode (`+0x8c == 1`):
+L and R → 2 (Select), **Y → 8, X → 9**, with bits 16–19 as a second direction
+source. Z does not appear in the mapping (GBATEK: the Disc's own menu).
+**Status:** FACT (static) for every instruction-level statement; the
+identification of the extended flag bits as stick directions is H. Nothing
+here is a physical observation of the device.
+
+## GBP-KEY-003 — GBI's keypad path: the word, its builders, the per-pass 64-byte block, the sleep pulse and the controller tables — FACT (static)
+
+Decompiled headlessly on 2026-09-21 from the unpacked image
+(`0b2c44ea…84b0`, wrapped at `0x80003100`; Issue #18). `_SDA_BASE_ =
+0x800b4b20` from the entry code, so the keypad word `r13 + 0x37c` is
+`0x800b4e9c`; it is written at `0x8000c04c` (`:= 0` at thread start),
+`0x8000c0f0`, `0x8000c904` and `0x8000cbc4`, read at `0x8000c174`. **Block
+builders:** `0x80015da0` replicates a u16 into a u32 (`rlwimi`) and falls
+through into `0x80015da4`, which fills the eight words of a 32-byte block
+with that u32 and flushes it — the u16 sixteen times, `hi lo hi lo …`;
+`0x80015ddc(buf, a, b)` builds a 64-byte block whose first half is `a` and
+second half `b` in that layout. **Per pass:** built at `0x8000c184`, written
+at `0x8000c194` as `0x8000bea4(0xcfffe0, block, 0x40)`
+with `a` = the keypad word and `b` = `IRQ read | 0x8000` — the first half
+lands at offset 0xFFFE0 of the KEYPAD window, the second at `base +
+0xD00000`; `KEYPAD := 0` once at `0x8000c060` (32 B at `base + 0xC00000`,
+built by `0x80015da0` at `0x8000c050`) before the CONTROL transform. **Sleep
+source 0x0010:** built at `0x8000c4b4`, written at `0x8000c4c4` as
+`0x8000bea4(0xc00000, block, 0x40)` with `0x0304` in the first half and
+`0x0300` in the second — the second half lands at offset 0x20 of the KEYPAD
+window; 0x0304 sets bits 2, 8 and 9 together and therefore discriminates
+nothing about bits 8/9. **Controller tables** (service thread, every table OR-ed into one word):
+four entries of 12-byte stride (the libogc `PADStatus` layout) — A 0x100 →
+bit 0, B 0x200 → 1, Z 0x10 → 2 (Select), Start 0x1000 → 3, Right 0x2 or
+stick X > 50 → 4, Left 0x1 or stick X < −50 → 5, Up 0x8 or stick Y > 50 →
+6, Down 0x4 or stick Y < −50 → 7, **L 0x40 or trigger L > 100 → 8, R 0x20
+or trigger R > 100 → 9**, Y 0x800 → 2 unless an option (`0x800b0a54`)
+redirects it to a flag, with two sub-tables chosen by an analogue signature
+(not traced); four entries of 10-byte stride — the same buttons, analogue
+A / B > 100 counting as A / B, stick X at ±25, the same **L → 8, R → 9**;
+four N64 entries of 6-byte stride — A 0x80 → 0, B 0x40 → 1, Z 0x20 → 2,
+Start 0x10 → 3, D-pad or stick at ±40 → 4–7, **L 0x2000 → 8, R 0x1000 → 9**
+(the N64 wire format's byte 1 bits 5 and 4); one device read at
+`r13 + 0x1a8` — 0x1400 → 8, 0x2800 → 9 (not traced). **Status:** FACT (static) for the code; GBI is
+an independent mature implementation, not official software.
+
+## GBP-KEY-004 — The static result on the L/R order: the Start-up Disc, GBI and Dolphin's model all put L at word bit 8 and R at word bit 9, the reverse of KEYINPUT — CORROBORATED for the encoding the references target; the physical routing NOT established
+
+From GBP-KEY-002 and GBP-KEY-003, lined up against GBATEK's KEYINPUT order
+(bit 8 = R, bit 9 = L): the official Start-up Disc's default mode writes L at
+bit 8 and R at bit 9 (`0x8000822c`; its alternate mode moves Y and X there
+and says nothing about L/R); GBI does the same for GameCube pads and,
+independently through the N64 wire format, for N64 pads (`0x8000bf30`);
+Dolphin's model reads block byte 0x1E bit 0 as GBA key 9 (L) and bit 1 as
+key 8 (R) and says "L/R triggers (need to be flipped)"
+(`HSP_DeviceGBPlayer.cpp:601–605`, commit `c185d27`). GBI's sleep value
+`0x0304` sets both bits and is **not** evidence for the order. **Status:**
+FACT (static) for what each reference writes; **CORROBORATED** for the
+encoding the two independent implementations target (one of them official),
+with the auxiliary model agreeing; **NOT a physical FACT** — no measurement
+on this project's hardware shows the GBS-DOL routing bit 8 to the AGB's L
+line, the window is write-only in every reference and the AGB is the only
+observer. Consequence: `REGISTERS.md`'s **H** for Dolphin's order stands;
+no order is adopted, implemented, tabulated as Open-GBP's own or defaulted
+(Issue #18); U-GBP-010 stays OPEN on its own closing condition, with this
+result recorded there. What would make it FACT: a project-owned stimulus that
+publishes KEYINPUT into its video frames, joined to the runtime's own write
+schedule, on this hardware.
+
+## GBP-KEY-005 — The Disc's detection handshake on the keypad side, and GBATEK's AGB-side observation of it — FACT (static) for the Disc; CORROBORATED for polarity and the direction bits 4–7 at the window
+
+Once its embedded logo frame (GBP-VID-010, the 44-colour Game Boy Player
+logo GBATEK's "Unlocking and Detecting Gameboy Player Functions" describes)
+has matched for 40 consecutive blocks, the Disc's `0x8008c31c`, called from
+the 5 ms tick, ORs `0x00F0` into the keypad word for five ticks and clears it
+(`& 0xFF0F`) for five, a 10-tick cycle of 50 ms, for up to 24 000 ticks
+(GBP-VID-011, GBP-VID-014). GBATEK records, from the AGB side, KEYINPUT
+switching between `0x03FF` (2 frames) and `0x030F` (1 frame) — bits 4–7 low,
+Right, Left, Up and Down pressed — while the logo is shown. The bits the
+Disc sets at word bits 4–7 are the bits the AGB observes cleared at KEYINPUT
+bits 4–7. **Status:** FACT (static) for the Disc's behaviour; CORROBORATED
+(the official driver plus an external hardware observation) that at this
+window 1 = pressed and that word bits 4–7 reach KEYINPUT bits 4–7 in the same
+order. Width: those four bits only; nothing about bits 0–3 or 8–9; not an
+Open-GBP measurement.
+
 ## GBP-VID-001 — VIDEO data format and cadence
 
 **Claim:** Index 0x1 delivers 0xF00 bytes per VIDEO IRQ = 4 scanlines ×

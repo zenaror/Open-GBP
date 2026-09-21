@@ -242,10 +242,30 @@ unknown; the layout question for AV blocks is open with data, not closed.
 DOL-GBS-01/10/20, CPU AGB A vs A E, 16 Mb vs 128 Mb RAM. No behavioral
 difference is documented anywhere; the user's unit revision is unknown.
 
-## U-GBP-010 (P2) — L/R bit order in KEYPAD
+## U-GBP-010 (P2, static attempt 2026-09-21: the references agree, the physical routing is still unmeasured — OPEN) — L/R bit order in KEYPAD
 
 Dolphin maps hi byte bit 0 → L and bit 1 → R (swapped vs GBA KEYINPUT);
 GBI's 0x0304 sets both. Phase 5 test with a game that distinguishes L/R.
+
+**2026-09-21, static attempt (Issue #18, `docs/research/INPUT_PATH.md` §5,
+GBP-KEY-002…004).** Decompiled: the Start-up Disc's controller → KEYPAD
+mapping `0x8000822c` puts L at word bit 8 and R at bit 9 in its default mode
+(its alternate mode moves Y and X there and says nothing about L/R); GBI's
+service thread `0x8000bf30` does the same for GameCube pads (digital L / R
+or trigger > 100) and, through the N64 wire format, for N64 pads; Dolphin's model reads bit 8 as L and bit 9 as R and says the triggers
+"need to be flipped". So the three sources agree on the encoding the
+software targets — bit 8 = L, bit 9 = R, the reverse of KEYINPUT — which is
+**CORROBORATED** (two independent implementations, one official, plus the
+auxiliary model) and **not FACT**: nothing measured on this project's
+hardware shows what the GBS-DOL does with those two bits, the window is
+write-only in every reference and the AGB is the only observer. GBI's
+`0x0304` was not used as evidence (it sets both bits). **Outcome: RESOLVED
+STATICALLY at CORROBORATED; NOT closed** — this item's own closing condition
+is a physical test, unchanged: a game that distinguishes L/R (OPERATOR
+OBSERVATION), or, for FACT, a project-owned stimulus that publishes
+KEYINPUT into its frames joined to the runtime's write schedule. No order
+is adopted or defaulted in Open-GBP until then; `REGISTERS.md` keeps
+Dolphin's order at H.
 
 ## U-GBP-011 (P2 — **CLOSED 2026-09-18** by GBP-VIDEO-003 / `color-0002`, the pre-registered confirmatory run: the outer 5-bit groups are exchanged, `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`, promoting the colour order from CORROBORATED to **FACT**. Two residuals were never part of this item and stay open: bit 15's origin, now U-GBP-034, and the bytes 0/2 deviations, U-GBP-029) — VIDEO color bit order and exact word content
 
