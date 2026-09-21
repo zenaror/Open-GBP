@@ -123,6 +123,14 @@ LAST PHYSICAL EVIDENCE INGESTED
   report). Kept: WarioWare: TWISTED evaluated and REJECTED (gyroscope); the two criteria apart (a test ROM is not a
   game); the build change ASSESSED in §V7.5.3 and NOT made (~40 s is enough for the checker; a real game needs it).
   The next run number is 21.
+  ISSUE #38 (the runtime image fit for a game): ASSESSED, NOT BUILT -- STOP by the Issue's own rule. The subtraction of
+  the research instrumentation is clean (the witness unbinds with one statement, null-safe; the full-frame sampler and
+  the VI trace come out, and with the sampler the origin dependency of Issue #37 goes), but once the witness is gone the
+  image has NO SUCCESS STOP: every remaining stop -- the 60 s safety budget, the 16384-frame store cap (274 s), the
+  400 000 delivery cap -- is scored as the run going wrong, the status fields do not distinguish an ended session from a
+  failed one, and the POC cannot end the run itself (the pump hook is void; the config has no session field). A usable
+  image needs a success stop in CHECK_ADMISSION (src/gbp/gbp_vstate_probe) and a new POC with its own audit profile: a
+  REDESIGN, its own checkpoint. INPUT_PATH.md §12 has the assessment; the input path and the KEY record stay untouched.
 
   Previous: RUN 13 --
   GBP-VIDEO-007 / GBP-VIDEO-008 / stream-0013 @ 7d7a6d8 + coord-0002, executed 2026-09-21 -- RUN 13
@@ -838,8 +846,19 @@ issue 37    (continued) RUN 19 / RUN 20 WITHDRAWN BEFORE HARDWARE on the Operato
             equivalence criterion answered on a game by his report); the ten names RETIRED, the numbers consumed (next
             run 21); the amendment had landed (ad4151e, ba8edb7) before the stop, so the withdrawal sits on top, dated;
             everything else of #37 kept; Hardware Issue #36 closed by the Orchestrator as withdrawn-before-execution
-next        orchestrator-owned: validate #37's withdrawal; close #36; the real-game acceptance run and the input-session
-            build stay open until the Operator has a game that passes through the button path
+issue 38    the runtime image fit for a game ASSESSED, NOT BUILT (INPUT_PATH.md §12): the subtraction of the witness, the
+            full-frame sampler and the VI trace is clean (cfg.witness = NULL, null-safe stops; ~11 MB freed; the origin
+            dependency goes with the sampler; the input path and the KEY record byte-identical) but it touches pump()
+            and submit_ready() textually and, decisively, leaves NO SUCCESS STOP: the safety budget (60 s), the frame
+            store cap (16384 frames = 274 s) and the delivery cap (400 000, ~63 s) all end the run as "gone wrong",
+            finish() scores them all OK_NO_CHANGE_INCONCLUSIVE, gbp_vstate_main_status reports ok_structured_change_
+            observed either way, the pump hook is void and the config has no session field; a usable image needs a
+            success stop in CHECK_ADMISSION (a new stop reason, an operator end on Z or a session target), raised caps,
+            a larger frame store or a stated 274 s bound, a larger ringlog (~350 presses at 1024 lines), a new POC with
+            its own Makefile, BUILD_ID, poc_audit profile, Dolphin conditions and Swiss number, and its own
+            pre-registration -- a REDESIGN, stopped per the Issue's rule; no code, no build, no id
+next        orchestrator-owned: validate #38's assessment; open the redesign checkpoint for the input-session image
+            (INPUT_PATH.md §12.4, items 1-7) when a game that passes through the button path is at hand; close #36
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
@@ -1254,6 +1273,14 @@ believe one is wrong, argue against the source, do not re-run the discovery.
   Phase 5 stays NOT ASSESSED and its closure is further away (a game that
   passes through the button path, and the build change of §V7.5.3, are
   still needed).
+- **That a smaller stream probe is an acceptance image.** Unbinding the
+  witness and dropping the sampler and the traces leaves an image whose every
+  stop is scored as the run going wrong (INPUT_PATH.md §12.3): the 60 s
+  safety budget, the 274 s frame store cap, the ~63 s delivery cap. A session
+  that ends by any of them is not a success, however well the game played;
+  the success stop an acceptance run needs does not exist yet and lives in
+  the service-path module (§12.4) — a redesign, not a subtraction. Issue #38
+  assessed this and stopped; nothing was built.
 - **That WarioWare is an instrument for an input test.** The Operator's
   WarioWare is WarioWare: TWISTED, the gyroscope title — most of its
   interaction bypasses the button path; evaluated and REJECTED (§V7.5.2);

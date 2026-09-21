@@ -582,6 +582,16 @@ to be answered by his report on a game. Everything else of the amendment
 stands; this phase's closure is further away, not nearer, and the next run
 number is 21.
 
+**The image for the acceptance run — assessed, not built (GitHub Issue #38,
+2026-09-21):** removing `stream-0015`'s research instrumentation is a clean
+subtraction, but the image it leaves has no success stop — the 60 s safety
+budget, the 274 s frame store cap and the ~63 s delivery cap all end a run
+as "gone wrong", and the POC cannot end a session itself. A usable image
+needs a success stop in the service-path module, raised caps, a larger
+ringlog and a new POC with its own audit profile: a redesign, its own
+checkpoint (`docs/research/INPUT_PATH.md` §12). The acceptance run stays
+open; nothing was built.
+
 Implement and document GameCube controller → GBP keypad/input handling.
 
 Automated tests should cover button combinations and encoding.

@@ -455,3 +455,199 @@ version, and no existing sidecar semantics changed; the head is bounded by
 the ringlog's own capacity with a reserve for the post-run records. Nothing
 in this addendum is a latency figure, and the routing stays CORROBORATED
 until a run joins this record to an instrument showing what the AGB received.
+
+## 12. The runtime image fit for playing a game — ASSESSED, NOT BUILT (GitHub Issue #38, 2026-09-21)
+
+Issue #38 asked for a runtime image fit for the ROADMAP's Phase 5 acceptance
+run — the one `stream-0015` is not — to be assessed first and built only if
+the assessment held, with a stop rule: if removing the research
+instrumentation turns out to be a redesign rather than a subtraction, say so
+and stop. **This section is the assessment; the conclusion is STOP.** The
+subtraction is real and clean, but it does not yield a usable acceptance
+image: once the video witness is unbound, the image has no success stop, and
+giving it one changes the service-path module the Issue forbids touching.
+Nothing was built; no `BUILD_ID`, no run name, no code. Every statement
+below is read from the source at `2e9e393` and is pinned by
+`tests/host/test_game_image_assessment.py`.
+
+### 12.1 What `stream-0015` is made of
+
+`poc/gbp-video-stream-probe/source/main.c` owns everything that is not a
+pure module. Read with the Issue's distinction — runtime versus research
+instrumentation:
+
+```text
+RUNTIME (what a game needs)
+  transport + service    hsp_backend + hsp_backend_irq (the one-shot handler, audited byte-identical to GBP-VIDEO-001's);
+                         gbp_vstate_probe_run() -- the 003A stage, READ -> AUDIO -> VIDEO -> ACK -> PI clean -> assembly ->
+                         RE-ARM -> next cause, with Policy R3; the state model's stores it REQUIRES by contract (frame
+                         records 16384 x 192 B = 3.00 MiB, events 4096 x 64 B, raw ring 0.70 MiB, episode raw 2.81 MiB,
+                         audio raw 12 KiB -- §V5.29: a smaller set is refused at the first gate, never a lighter model)
+  presentation           gbp_vqueue (the mailbox) -> pump() (one tile row per slice, after the RE-ARM, under the
+                         cause-pending yield) -> gbp_vpix -> GX (one RGB5A3 quad) -> two stream framebuffers; Policy A in
+                         submit_ready() (the framebuffer question first, one draw-done token in flight, the oldest READY
+                         texture offered first); gbp_vpresent's ownership machine; the display self-test before the device
+  input + the record     input_step() -- the FIRST statement of pump(): PAD_ScanPads, gbp_input_map (policy), the ONE
+                         descriptor, one 32-byte KEYPAD write through the same transport, on change and every 5 ms;
+                         keylog_emit() -- one KEY ringlog line per first / change / retry write under the 64-line reserve
+                         (GBP-KEY-010); both read the transport's clock only
+  the log and the save   the ringlog (LOG_LINES 1024 x 256 B) and sdlog_save after the teardown
+RESEARCH INSTRUMENTATION (what a game cannot use)
+  the OGBPIDX1 witness   witness_store 2048 x 4 320 B = 8 847 360 B + witness_meta 98 304 B; the qualification streak and
+                         the 5 000 ms eligibility gate (WITQUAL / WITELIG / WITELIG2, the release compare in pump()); the
+                         witness step inside the service transaction; the STREAMWIT / STREAMWITT records; the OGBPIDXCAP1
+                         sidecar (8 946 060 B). Bound by ONE statement: `cfg.witness = &wit;`
+  the full-frame sampler full_raw 1 228 800 B + full_tex 614 400 B (K = 8, spacing 256); its origin = the witness's first
+                         retained frame; one block copied per slice; gbp_vfull_* calls in pump() and submit_ready(); the
+                         FULLSTORE record; the OGBPFULL1 sidecar
+  the VI latch trace     vvi_recs 4096 x 64 B; the latch compare in pump(); gbp_vvi_handed in submit_ready(); VISTORE; the
+                         OGBPVI1 sidecar
+  the disposition trace  disp_life 4096 + disp_ev 8192 (OBSERVATIONAL, §V5.46: it records what Policy A decided and changes
+                         nothing); gbp_vdisp_* calls in pump(), submit_ready(), on_draw_done() and the self-test; DISPTRACE /
+                         DISPSRC / STARTUPV; the OGBPDISP2 sidecar; overflow is COUNTED (life_overflow) and the take returns
+                         -1, which the callers already handle
+```
+
+### 12.2 The subtraction, as a subtraction
+
+What comes out cleanly, and what removing it touches:
+
+```text
+the witness            unbind it: `cfg.witness = NULL` (main.c). Both witness stops in the state machine sit under
+                       `if (cfg->witness)` and the predicates are null-safe (gbp_vwitness.c), so the service path needs no
+                       change for this. Out with it: the store and its metadata (8.95 MB), the eligibility compare in pump(),
+                       the qualification records, the sidecar and its save block. Out of the service transaction: the
+                       witness step (gbp_vwitness_step is called from gbp_vstate_probe.c only when cfg->witness is set) --
+                       so the service pass gets SHORTER, a timing change on the critical path to be re-measured, not assumed.
+the full-frame sampler out: the two stores (1.84 MB), the origin, the want / open / block / convert_done / decision / refuse
+                       calls, the FULLSTORE record, the sidecar. And with it the origin dependency Issue #37 found: there is
+                       nothing left that needs the witness's first frame. This part of the Issue's simplification HOLDS.
+the VI trace           out: the records (0.25 MB), the latch in pump(), the handed call in submit_ready(), VISTORE, the sidecar.
+the disposition trace  keep or remove; both are defensible. Removing it edits every line of submit_ready() that records a
+                       decision; keeping it costs 0.25 MB and overflows, counted, after 4096 lifecycles (~68 s at 59.7 Hz),
+                       after which STARTUPV and the DISPSRC counts stay valid and the per-lifecycle trace is partial.
+what it TOUCHES        textually: pump() and submit_ready() -- the presentation path's own two functions -- although no
+                       decision, no order of GX calls and no XFB rule changes; every removed line is bookkeeping. The Issue's
+                       "presentation path not touched" holds in substance and not in bytes, and that must be said.
+the input path and     UNTOUCHED, byte-identical: input_step() is the first statement of pump() and does not reference the
+the KEY record         witness, the sampler or the traces; keylog_emit() writes the ringlog under KEYLOG_TAIL_RESERVE; the
+                       descriptor and the policy are src/gbp data. Nothing above changes a byte of either.
+memory                 freed: 8 847 360 + 98 304 + 1 843 200 + 262 144 = 11 051 008 B; arena1_free would go from
+                       1 650 688 B to about 12.7 MB. The state model's stores stay (the contract).
+```
+
+So far, a subtraction. The next question is the one that decides.
+
+### 12.3 What ends a session once the witness is gone
+
+`CHECK_ADMISSION` in `src/gbp/gbp_vstate_probe.c` is the ONLY place a stop
+is evaluated, once per service cycle, in this order; with `cfg->witness`
+NULL and `cfg->color` NULL the image of §12.2 has exactly these left:
+
+```text
+1  the safety budget    hard_wallclock_ticks from the CONTROL transform -- STREAM_SAFETY_SECONDS = 60 in main.c -> teardown
+                        S5_safety_budget, stop=safety_budget, gbp_vstate_safety_stop(). By the probe's own words "it stops a
+                        run that has gone wrong, it is never a success", and every pre-registration's SESSION gate reads
+                        stop=witness_target_reached and nothing else.
+2  the frame store cap  st->frame_store_full at GBP_VSTATE_MAX_FRAMES = 16384 closed frames -> S5_frame_store_cap. At 59.727 Hz
+                        that is 274.3 s: an unbounded session ends here in 4.6 minutes, scored as "lost the bookkeeping".
+3  the event store cap  4096 events -> S5_event_store_cap (events are anomalies and episodes; RUN 17 used few; not the binding
+                        limit for a game, but a cap all the same).
+4  the time target      DISABLED BY NAME (§V5.59 F5). Re-enabling it is not an answer: its success needs st->baseline_valid from
+                        the change detector -- whether a baseline forms under a moving game is unknown -- and its success
+                        stop is S5_target = NOMINAL_NEGATIVE, "no change observed": the wrong sentence for a game session.
+5  the delivery cap     STREAM_MAX_DELIVERIES = 400 000 -> S5_delivery_cap, "the u32 guard, not a scientific bound"; at RUN 17's
+                        6 314 deliveries/s about 63 s.
+```
+
+Two facts follow, both checkable in the source. (a) **Every remaining stop
+is scored as the run going wrong.** The status the machine writes does not
+tell them apart from a success: `finish()` uses `OK_NO_CHANGE_INCONCLUSIVE`
+for the safety budget, the store caps, the witness target and the delivery
+cap alike, and `gbp_vstate_main_status()` then reports
+`ok_structured_change_observed` whenever an episode was seen (RUN 17's
+`VSTATE end` reads `status=ok_structured_change_observed class=ok
+stop=witness_target_reached`). What distinguishes the ends is the
+`stop=` / `teardown=` field and the project's rule about which of them is a
+success — and for a game session none of the five is. Raising
+`STREAM_SAFETY_SECONDS` and `STREAM_MAX_DELIVERIES` (constants of main.c) moves
+WHEN the run stops and never HOW the stop is scored; enlarging the frame
+store (allowed by the contract, ~3× with the freed memory, ~13.7 min) moves
+the bound and keeps the class. (b) **The POC cannot end the run as a
+success.** `gbp_vstate_probe_run()` returns only after the teardown; the pump
+hook is `void (*pump)(void *user)` with no return channel
+(`gbp_vqueue.h`); `struct gbp_vstate_config` has no operator-end, session-target
+or "stop now" field; the only caller-supplied stop conditions are the
+witness and the colour capture, both wrong for this. Setting
+`cfg.max_deliveries` from the pump to force `S5_delivery_cap` would end the
+run — under a stop reason that says the u32 guard fired, which is a
+misrecording, not a success stop.
+
+**Therefore: with the witness unbound, an image of this shape has NO
+success stop.** An acceptance run needs an answer for that, and "it will
+probably be fine" is not one.
+
+### 12.4 What an acceptance image needs — and why that is a redesign
+
+```text
+1  a SUCCESS stop for   an operator-ended session: the Z button, which the policy reserves for the runtime and never sends
+   an input session     (INPUT.md §4), read in the pump where the pad is already scanned, signalled to the state machine
+                        through a new config field (a caller-owned flag, or a callback), evaluated in CHECK_ADMISSION after
+                        the safety budget and before the store caps, with its OWN stop reason (e.g. GBP_VSTATE_STOP_SESSION_END,
+                        teardown S5_session_end) and its own place in the gates ("stop=session_end" as the SESSION success) --
+                        and/or a wall-clock session target as a success, distinct from the disabled time target and from the
+                        safety budget. Either one is a change to src/gbp/gbp_vstate_probe.{h,c}: the config struct, the
+                        result, the stop enum, the names, CHECK_ADMISSION, and the unit tests that drive the run loop with the
+                        mock transport (tests/unit/test_gbp_video_state.c). No device operation changes; the module does.
+2  the caps             STREAM_SAFETY_SECONDS raised above the session's expected length and STREAM_MAX_DELIVERIES raised in
+                        proportion (main.c; the semantics untouched: the safety budget stays the "gone wrong" stop, now
+                        above the session).
+3  the frame store cap  enlarge GBP_VSTATE_MAX_FRAMES for the image (the contract allows a LARGER set; ~3x fits the freed
+                        memory, ~13.7 min) or keep 16384 and state the 274 s bound in the pre-registration as the session's
+                        hard end (an image whose session ends at a store cap still ends as "lost the bookkeeping" unless
+                        item 1 fires first).
+4  the ringlog          LOG_LINES 1024 leaves about 700 lines after the pre-run and post-run records and the reserve -- about
+                        350 presses; a game session at 1-2 presses/s exhausts it in 3-6 minutes and counts the surplus in
+                        KEYLOG lost. Raise LOG_LINES (4096 lines = 1 MB; the freed memory covers it); the KEY line, the admit
+                        rule and KEYLOG_TAIL_RESERVE unchanged, the headroom re-derived by the existing tests.
+5  the disposition      keep (the presentation path stays textually closer to stream-0015's) and accept the counted overflow,
+   trace                or remove it with the sidecar.
+6  a new POC            a new directory under poc/ with its own main.c (the runtime of §12.1 without §12.1's instrumentation),
+                        its own Makefile (the SRCS list without gbp_vwitness / gbp_vidxdump / gbp_vfull / gbp_vfulldump /
+                        gbp_vvi / gbp_vvidump), a new BUILD_ID line (not stream-00xx: a different experiment), a new
+                        poc_audit profile (the `stream` profile pins the four sidecar streams from main, the witness call
+                        sites and gbp_vidxdump_stream -- a smaller image fails it by construction), the ISR compare unchanged
+                        (the handler is hsp_backend_irq's), its own Dolphin smoke conditions (READY / SELFTEST / INPUTSELFTEST /
+                        COUNTERS; the pump never runs there, so nothing about input or the session stop is covered), the next
+                        Swiss number (13), the host tests that pin all of it.
+7  its own              a game the Operator has that passes through the button path; the session's end declared before the
+   pre-registration     run; the reserved names; the gates with the new SESSION success; the per-run declarations.
+```
+
+Items 1 and 6 are the reason this is a redesign and not a subtraction: a
+usable image changes the service-path module (its admission logic, its
+result, its stop vocabulary) and the audit tooling, which the Issue's own
+constraints — "Policy A, the service path, the transport and the presentation
+path are not touched; what comes out is research instrumentation, not
+runtime" — rule out for this checkpoint. Both constraints cannot hold at
+once with a usable image, and the Issue's rule for that case is to stop.
+What holds under every item: the input path and the KEY record stay
+byte-identical, the descriptor does not change, and the routing FACT of
+§V7.4 is not disturbed.
+
+### 12.5 The session length such an image gives
+
+Bounded by the smallest of: the session end of item 1 (the Operator's, or
+the target); the safety budget as configured (item 2); the frame store cap —
+274.3 s at 16384 frames, ~13.7 min at 3× (item 3); the ringlog headroom in
+presses — ~350 at 1024 lines, ~1 900 at 4096 (item 4); with the disposition
+and VI traces (if kept) overflowing, counted, past ~68 s. None of these is a
+property of the Game Boy Player; each is a bound of the image, to be stated
+in the pre-registration.
+
+### 12.6 What was not done
+
+No code; no build; no `BUILD_ID`; no run name; nothing staged; §V7.1–§V7.5
+untouched; the routing untouched; the Issue's constraints kept by stopping.
+The redesign — items 1 to 7 — is a checkpoint of its own, for the
+Orchestrator to open; it is not a silent expansion of this one.
