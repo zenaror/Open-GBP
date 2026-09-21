@@ -11020,3 +11020,53 @@ closed by the Executor; the real-game run and the input-session build stay
 open until the Operator has a game that passes through the button path.
 
 **Next.** The Orchestrator validates the withdrawal and closes #36.
+
+## 2026-09-21 — Issue #38: the runtime image fit for playing a game — ASSESSED, NOT BUILT; STOP by the Issue's own rule: the subtraction is clean but leaves no success stop, and a usable image is a redesign of the service-path module
+
+**The assessment (`docs/research/INPUT_PATH.md` §12).** Read from
+`poc/gbp-video-stream-probe/source/main.c` and `src/gbp/gbp_vstate_probe.c`
+at `2e9e393`. The runtime a game needs — transport, the service path and its
+state machine with the stores the contract requires, the presentation path
+with Policy A, the input path as the first statement of the pump slot, the
+KEY record, the ringlog and the SD save — is separable from the research
+instrumentation: the witness unbinds with `cfg.witness = NULL` (both stops
+null-safe; the witness step leaves the service transaction, a timing change
+to re-measure), the full-frame sampler and the VI trace come out with their
+sidecars, and with the sampler the origin dependency Issue #37 found goes
+too; about 11 MB of MEM1 is freed; the input path and the KEY record are
+untouched, byte-identical. The subtraction touches `pump()` and
+`submit_ready()` textually (bookkeeping lines), no decision.
+
+**What decides.** With the witness unbound, `CHECK_ADMISSION` leaves five
+stops and none is a success: the safety budget (60 s, "never a success"),
+the frame store cap (16384 frames = 274.3 s, "lost the bookkeeping"), the
+event store cap, the delivery cap (400 000, ~63 s at RUN 17's rate), and the
+time target, disabled by name and wrong for a game even if re-enabled.
+`finish()` scores every one of them `OK_NO_CHANGE_INCONCLUSIVE`,
+`gbp_vstate_main_status()` reports `ok_structured_change_observed` whenever
+an episode was seen, so only the `stop=` field and the project's rule tell an
+ended session from a failed one — and the POC cannot end the run itself (the
+pump hook is `void (*)(void *)`, the config has no session field; forcing the
+delivery cap would be a misrecording). Raising the caps moves WHEN a run
+stops, never HOW it is scored.
+
+**What a usable image needs, and why that is a redesign.** A success stop
+for an input session in `CHECK_ADMISSION` — an operator end on Z (never sent
+by the policy) and / or a session target, with its own stop reason — which
+changes the service-path module and its unit tests; the caps raised; the
+frame store enlarged or its 274 s bound stated; `LOG_LINES` raised (~350
+presses of KEY headroom today); the disposition trace kept or dropped; a new
+POC with its own Makefile, `BUILD_ID`, `poc_audit` profile (the `stream`
+profile pins the sidecar streams and the witness sites), Dolphin conditions
+and Swiss number; and its own pre-registration with a game that passes
+through the button path. The Issue's constraints ("the service path not
+touched") and a usable image cannot both hold, so the Issue's own rule
+applies: STOP.
+
+**Not done, on purpose.** No code, no build, no `BUILD_ID`, no run name,
+nothing staged; §V7.1–§V7.5 untouched; the routing untouched.
+`tests/host/test_game_image_assessment.py` pins every claim of §12 to the
+source it is read from.
+
+**Next.** The Orchestrator validates the assessment and opens the redesign
+checkpoint (§12.4, items 1–7) when a game is at hand.
