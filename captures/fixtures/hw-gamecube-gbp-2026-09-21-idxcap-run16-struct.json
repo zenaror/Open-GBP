@@ -122,10 +122,24 @@
   "controller": "port 1: the ORIGINAL Nintendo GameCube controller -- DECLARED per run by the Operator, relayed by the Orchestrator (Issue #33); nothing in ports 2-4 (as pre-registered)",
   "controller_scope": "the ORIGINAL Nintendo pad, declared for RUN 16; L and R by their digital click",
   "cartridge_boot_screen": "the EZ-Flash Omega DE MENU as the boot screen (declared: RUN 16 is the menu tab reading of §V7.1.7; by machine: only L / R words in the KEY record)",
-  "bba_ethernet": "NOT DECLARED for RUN 16 / 17 / 18 at ingestion (no per-run declaration on Hardware Issue #32 or Issue #33) -- recorded as ABSENT, not inferred; no deviation reported; stream-0015 links no network code, so the join's substance is unaffected; the Orchestrator may obtain and add the declaration as Issue #25 did for RUN 14 / RUN 15",
-  "display_chain": "NOT DECLARED for RUN 16 / 17 / 18 at ingestion -- recorded as ABSENT, not inferred; no deviation reported; the join reads the FRAMES, not the screen, so the chain is not part of the join (§V7.3.4)",
+  "bba_ethernet": "PRESENT / DISCONNECTED -- DECLARED by the Operator after the ingestion (Issue #35, 2026-09-21), his words: \"BBA como sempre (presente mas nao conectado no cabo)\"; a STANDING declaration (see standing_declarations); pre-registered as 'declared per run' (§V7.3.4)",
+  "display_chain": "UNCHANGED -- the chain of §V7.1.4 / §V6.24.3 (GameCube -> composite / RCA -> low-cost RCA-to-HDMI converter, 1080p out -> HYDIS HV150UX2 / M.NT68676.2A) -- DECLARED by the Operator after the ingestion (Issue #35, 2026-09-21), his words: \"video inalterado\"; a STANDING declaration (see standing_declarations); TOPOLOGY only -- nothing about the display is claimed; the join reads the FRAMES, not the screen (§V7.3.4)",
   "deviation_reported": "none",
-  "source": "OPERATOR DECLARATION as relayed by the Orchestrator (Issue #33 and its cross-session messages, 2026-09-21); not derived from files except where marked 'by machine'"
+  "source": "OPERATOR DECLARATION as relayed by the Orchestrator (Issue #33 and its cross-session messages, 2026-09-21); not derived from files except where marked 'by machine'",
+  "standing_declarations": {
+   "what": "an operator declaration WITH A STATED DURATION -- never a licence to infer; the item stays DECLARED, by him, until he says otherwise; if he announces a change and a run's record does not reflect it, that run is INCONCLUSIVE on that item exactly as §V7.1.4 says; future pre-registrations CITE these instead of asking (HANDOFF 'Do not rediscover')",
+   "display_chain": {
+    "words": "video inalterado e ira permanecer assim ate que eu anuncie o contrario",
+    "reading": "unchanged until he announces the contrary"
+   },
+   "bba": {
+    "words": "BBA também permanecera presente e sem cabo, ate que seja solicitado para remover ou conectar o cabo",
+    "reading": "present and without the Ethernet cable until he is asked to remove it or to connect the cable"
+   },
+   "declared": "2026-09-21, after the ingestion of RUN 16 / 17 / 18, relayed by the Orchestrator (Issue #35)",
+   "what_still_varies_per_run": "the cartridge and its boot screen; the controller (the generic third-party pad in RUN 14 / 15 / 17, the original Nintendo pad in RUN 16 / 18 -- both used, never assumed)"
+  },
+  "declaration_history": "at ingestion (Issue #33, 2026-09-21) no per-run declaration of the BBA / Ethernet state or of the display chain existed on Hardware Issue #32 or on Issue #33, and both were RECORDED AS ABSENT, NOT INFERRED (the precedent of Issue #24 / #25 for the controller); the Operator declared them the same day, after the ingestion, and the declaration replaced that note under Issue #35 with this history kept; no deviation was reported then or since; the §V7.3.8 TOPOLOGY gate, its reading and the verdicts are unchanged"
  },
  "operator_report": {
   "source": "OPERATOR OBSERVATION, literal as relayed by the Orchestrator in Issue #33 (2026-09-21); never fed into the join; placed BESIDE the machine channel, never merged with it",
@@ -212,7 +226,8 @@
   "vvi": "tools/vvi.py CORRECTED implementation (0ee8aac), unchanged since",
   "vpace": "tools/vpace.py UNMODIFIED (025f2e7); not run (it expects the witness join; Policy A figures are vdisp's)",
   "join": "NO tool under tools/: the join is computed by the ingestion generator and RECOMPUTED by tests/host/test_run17.py from this file and the full-frame fixture, exactly as §V7.3.9 froze it",
-  "ingestion_head": "09f289c8c75a9108e0c03293c84bd4735130324e"
+  "ingestion_head": "09f289c8c75a9108e0c03293c84bd4735130324e",
+  "regenerated_for_issue_35": "2026-09-21 -- the BBA / Ethernet and display-chain declaration and the two standing declarations recorded in the topology block; every other section unchanged"
  },
  "verdicts": {
   "shared_gates": {
@@ -222,7 +237,7 @@
    "STARTUP": "PASS (NORMAL; recorded, no tolerance)",
    "INPUT_MACHINE": "MET",
    "FRAMES": "container PASS (8/8 COMPLETE, valid CRCs, texture == conversion 8/8); the content is the EZ-Flash menu, not the checker: the tally reader aborts at an unknown glyph (recorded verbatim) -- the join is not applicable to RUN 16 by design",
-   "TOPOLOGY": "PASS for the items declared (inventory; the ORIGINAL pad; the menu as the boot screen); BBA / Ethernet / display chain NOT DECLARED -- recorded as absent, not inferred; no deviation reported",
+   "TOPOLOGY": "PASS for the items declared: console and Game Boy Player by the inventory; the controller per run; the boot screen per run, corroborated by machine; BBA PRESENT / Ethernet DISCONNECTED and the display chain UNCHANGED -- declared by the Operator after the ingestion (Issue #35; standing declarations, topology_declared_by_operator.standing_declarations). HISTORY: at ingestion these two were NOT DECLARED and were recorded as absent, not inferred (topology_declared_by_operator.declaration_history); no deviation reported; neither item is part of the join (no network code; the join reads the frames); the gate text unchanged",
    "SESSION": "PASS (stop=witness_target_reached; the recovery procedure not needed: no menu item launched by itself -- the KEY record carries only L / R words and the run ended at the witness target)"
   },
   "question_J": {

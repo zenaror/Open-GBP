@@ -112,8 +112,9 @@ LAST PHYSICAL EVIDENCE INGESTED
   promoted; the consolidated pages moved to F (hw, run-scoped) with history). RUN 16 (the menu reading, ORIGINAL
   pad, executed last): UNDECIDED for the join by the rule (R_8 = R_9 = 8), M = PASS, O NOT READABLE (direction not
   reported, not inferred). truncated=0 in all three: GBP-KEY-008's repair physically validated. BBA / Ethernet /
-  display chain NOT declared for these runs (recorded absent, not inferred). Phase 5's acceptance criterion (a
-  real game) NOT assessed and NOT pre-registered.
+  display chain DECLARED after the ingestion (Issue #35: BBA present, no cable; chain unchanged -- two STANDING
+  declarations, in his words, until he announces a change; at ingestion recorded absent, not inferred; history kept).
+  Phase 5's acceptance criterion (a real game) NOT assessed and NOT pre-registered.
 
   Previous: RUN 13 --
   GBP-VIDEO-007 / GBP-VIDEO-008 / stream-0013 @ 7d7a6d8 + coord-0002, executed 2026-09-21 -- RUN 13
@@ -582,11 +583,12 @@ runs).** The next safe action is the Orchestrator's: validate the ingestion
 against `origin/main` (`tests/host/test_run17.py` — the join recomputed from
 the versioned fixtures, every KEY line verbatim; §V7.1 / §V7.2 / §V7.3
 untouched; GBP-KEY-004 and the consolidated pages promoted with history),
-close Hardware Issue #32, obtain the BBA / Ethernet / display-chain
-declaration for these runs if it is to be on record (recorded as absent, as
-Issue #25 did for RUN 14 / RUN 15), and then design Phase 5's acceptance run
-with a commercial game (the Operator's game and a prospective definition of
-"reliably" first; its own contract; not pre-registered). The
+then (Hardware Issue #32 CLOSED; the BBA / Ethernet / display-chain
+declaration for these runs recorded under Issue #35 — two STANDING
+declarations, cited from now on instead of asked) design Phase 5's
+acceptance run with a commercial game (Issue #34: the Operator's own criterion
+"ambos os controles funcionam e tem que apresentar o mesmo comportamento",
+fixed before any data; its own contract). The
 `desc_status=CORROBORATED_not_FACT` label the runtime prints is now stale — a
 one-line label change in a future build, recorded, not made.
 
@@ -777,8 +779,15 @@ issue 33    RUN 17 / RUN 18 / RUN 16 INGESTED as HARDWARE_TESTS §V7.4 against �
             GBP-HW-266...271; GBP-KEY-004 promoted by its falsifier's outcome; U-GBP-010 stays CLOSED; the
             consolidated pages moved to F (hw, run-scoped) with history; fifteen fixtures; tests/host/test_run17.py
             recomputes everything; §V7.1 / §V7.2 / §V7.3 byte-identical; no code, no build, no gate change
-next        orchestrator-owned: validate #33; close Hardware Issue #32; obtain the BBA / chain declaration for the three
-            runs if wanted on record; design Phase 5's acceptance run with a commercial game (its own contract)
+issue 35    the RUN 16 / 17 / 18 topology declaration recorded with its history (at ingestion recorded absent, not
+            inferred; declared the same day after the ingestion): BBA PRESENT without the Ethernet cable, display chain
+            UNCHANGED; two STANDING declarations in the Operator's words (the chain "ate que eu anuncie o contrario"; the
+            BBA "ate que seja solicitado para remover ou conectar o cabo") -- declarations WITH A STATED DURATION, cited
+            by future pre-registrations, never a licence to infer; per-run declarations reduce to the cartridge / boot
+            screen and the controller; §V7.4.2 / V7.4.4 / V7.4.10, GBP-HW-266 addendum, the three struct fixtures'
+            topology block, "Do not rediscover"; no verdict, gate, status or id; no code
+next        orchestrator-owned: validate #35; then Issue #34 -- the Phase 5 acceptance run's pre-registration (the
+            Operator's own criterion; EZ-Flash + the Road Rage repro declared, WarioWare original named)
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
@@ -1012,7 +1021,7 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 | The XFB-region CRC of the §V6 design was DROPPED by decision (Issue #7): no build computes one, CLAIM-B stops at source → converted texture, and CLAIM-C stays a register write plus a software mirror | `HARDWARE_TESTS.md` §V6.18.8 |
 | The only VI facts a runtime can observe without a callback are the base registers read back (`VI[14,15,18,19]` at `0xCC002000`, read-only loads); `VIDEO_GetCurrentFramebuffer()` is libogc2's own bookkeeping, not a readback | `HARDWARE_TESTS.md` §V6.4, §V6.18.7 |
 | `coord-0001` embeds no commit, so its ROM hash is stable across commits; the DOLs embed theirs, so a stream build's hash is not | `stimulus/agb-coord/Makefile`; §V6.18.2 |
-| **The console and the Game Boy Player are the same two units in every run of this project** — the Operator's DECLARED HARDWARE INVENTORY (2026-09-21, Issue #25: exactly one GameCube, exactly one Game Boy Player; he asked not to be questioned on it again), a declaration, not an inference; future pre-registrations cite it instead of asking. What still varies and MUST be declared per run: BBA and Ethernet state, the display chain, the cartridge and its boot screen, and the controller | GBP-HW-261; `HARDWARE_TESTS.md` §V7.2.2 |
+| **The console and the Game Boy Player are the same two units in every run of this project** — the Operator's DECLARED HARDWARE INVENTORY (2026-09-21, Issue #25: exactly one GameCube, exactly one Game Boy Player; he asked not to be questioned on it again), a declaration, not an inference; future pre-registrations cite it instead of asking. **Two STANDING declarations (2026-09-21, Issue #35, after the ingestion of RUN 16 / 17 / 18), in the Operator's words as relayed:** the display chain is unchanged — "video inalterado e ira permanecer assim ate que eu anuncie o contrario" — and the BBA stays present with no Ethernet cable — "BBA também permanecera presente e sem cabo, ate que seja solicitado para remover ou conectar o cabo". They are operator declarations WITH A STATED DURATION: a future pre-registration cites them instead of asking; they are never a licence to infer and do not make the topology "known" — each item is DECLARED, by him, until he says otherwise, and if he announces a change and a run's record does not reflect it, that run is INCONCLUSIVE on that item (§V7.1.4). Until Issue #35 these two were declared per run (RUN 14 / RUN 15 under Issue #25; RUN 16 / 17 / 18 recorded as absent at ingestion, then declared). What still varies and MUST be declared per run: the cartridge and its boot screen, and the controller — he owns a generic third-party pad and an original Nintendo pad and has used both (RUN 14 / 15 / 17 the generic, RUN 16 / 18 the original), so it is never assumed | GBP-HW-261, GBP-HW-266; `HARDWARE_TESTS.md` §V7.2.2, §V7.4.2 |
 
 ## Do not assume
 
@@ -1163,6 +1172,14 @@ believe one is wrong, argue against the source, do not re-run the discovery.
   ports or cartridges, or a game. And before that join the routing was
   CORROBORATED, not FACT — the link "the Operator pressed L exactly once" was
   in no machine record (GBP-HW-265) — history, not to be rewritten.
+- **That the topology is known.** It is DECLARED: the console and the Game
+  Boy Player by the inventory (Issue #25), the BBA (present, no cable) and the
+  display chain (unchanged) by two STANDING declarations with a stated
+  duration (Issue #35), each by the Operator until he says otherwise; the
+  cartridge with its boot screen and the controller stay per-run
+  declarations. A standing declaration is cited, never inferred from, and a
+  run whose record does not reflect an announced change is INCONCLUSIVE on
+  that item (§V7.1.4).
 - **That the keypad plane inherits the video plane's confidence.** It does
   not: before RUN 14 every keypad statement in the project was static
   (GBP-KEY-001…005, GBP-VID-011); the physical record now holds four runs of
