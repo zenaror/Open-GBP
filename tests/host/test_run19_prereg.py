@@ -361,7 +361,7 @@ class NothingElseMoved(unittest.TestCase):
 
     def test_the_records(self):
         h = plain(read(HANDOFF))
-        for tok in ("RUN 19 and RUN 20 (GBP-INPUT-003", "issue 37", "validate #37's withdrawal", "That RUN 19 / RUN 20 will run, or that Phase 5 is closed, or that a checker run on the other pad would add to the routing's FACT",
+        for tok in ("RUN 19 and RUN 20 (GBP-INPUT-003", "issue 37 (continued) RUN 19 / RUN 20 WITHDRAWN BEFORE HARDWARE on the Operator's objection", "That RUN 19 / RUN 20 will run, or that Phase 5 is closed, or that a checker run on the other pad would add to the routing's FACT",
                     "That WarioWare is an instrument for an input test", "AMENDED then WITHDRAWN BEFORE HARDWARE under Issue #37", "their ten names below are RETIRED",
                     "THE ROUTING DOES NOT DEPEND ON THE PAD", "The next run number is 21", "further away"):
             self.assertIn(tok, h, tok)
