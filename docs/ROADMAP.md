@@ -477,9 +477,11 @@ because the Operator having pressed L exactly once is in no machine record —
 the recorded finding is that one log line (the word at each key change,
 GBP-KEY-009) would close that join by machine; not implemented. Not
 established: latency of any kind, the need for the 5 ms refresh, any policy
-value as more than policy, other pads or cartridges, rumble, the display
-chain, and this phase's acceptance criterion — a real game has not been
-played; RUN 16 was not run. **Next:** the Orchestrator's — validate the
+value as more than policy, the official Nintendo pad (the runs used a generic
+third-party controller's digital click — the Operator's post-run declaration,
+Issue #25; the same Game Boy Player by his declared inventory) or other cartridges,
+rumble, the display chain, and this phase's acceptance criterion — a real game
+has not been played; RUN 16 was not run. **Next:** the Orchestrator's — validate the
 ingestion and close Hardware Issue #21; whether GBP-KEY-008 / GBP-KEY-009
 become a functional checkpoint, and the game-based assessment of the criterion
 below, are open.

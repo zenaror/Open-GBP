@@ -7,7 +7,8 @@
   "amendment_before_hardware": 23,
   "hardware": 21,
   "operator_inputs_outside_v7": 22,
-  "ingestion": 24
+  "ingestion": 24,
+  "topology_declaration": 25
  },
  "runtime_embedded": {
   "test_id": "GBP-VIDEO-004",
@@ -105,11 +106,24 @@
   }
  },
  "topology_declared_by_operator": {
-  "console": "the same physical GameCube as RUN 13 (pre-registered declaration, §V7.1.4)",
-  "game_boy_player": "the same physical unit as RUN 13 (pre-registered declaration)",
-  "controller": "ONE GameCube controller in port 1 (PAD_CHAN0); the exact model was to be declared by the Operator -- NOT literally posted on Hardware Issue #21 or in Issue #24 at ingestion (recorded as absent, not inferred)",
-  "bba_present": "YES (pre-registered)",
-  "ethernet": "DISCONNECTED (pre-registered)",
+  "declared_after_the_runs": {
+   "issue": 25,
+   "date": "2026-09-21",
+   "relayed_by": "the Orchestrator (cross-session message and GitHub Issue #25)",
+   "items": [
+    "same GameCube",
+    "BBA connected, with no network cable (verbatim: \"BBA conectado sem cabo de rede\")",
+    "video chain unchanged",
+    "controller: a GENERIC GameCube controller; the Operator also owns an official Nintendo pad, which was NOT the one used",
+    "hardware inventory (2026-09-21, the open item closed the same day): the Operator owns EXACTLY ONE GameCube and EXACTLY ONE Game Boy Player, and asked not to be questioned on this point again"
+   ]
+  },
+  "console": "the same physical GameCube as RUN 13 -- DECLARED after the runs (Issue #25); pre-registered §V7.1.4",
+  "game_boy_player": "the same physical Game Boy Player as RUN 13 -- DECLARED, on the basis of the Operator's DECLARED HARDWARE INVENTORY (2026-09-21): exactly one GameCube and exactly one Game Boy Player, so every run of this project uses the same two units. This is an operator declaration (sound), NOT an inference from the console declaration -- an inference about a topology item is what makes a run inconclusive, which is why it was first recorded as not separately declared and only written as declared once the inventory was stated",
+  "controller": "ONE GENERIC (third-party) GameCube controller in port 1 (PAD_CHAN0) -- DECLARED after the runs (Issue #25), the first time the pad is on record; the Operator also owns an official Nintendo controller, which was NOT the one used",
+  "controller_scope": "the implemented policy reads L and R by their DIGITAL CLICK only (ENVINPUT trigger_threshold=0: the analogue trigger value is not read; GBP-KEY-006), and L and R were the first two buttons of both walks: what RUN 14 and RUN 15 establish about L and R is established through the digital click of a third-party pad -- encouraging (the path worked with a generic controller) and a limit (the official Nintendo pad was not exercised; the project has no data on it); the verdicts are unchanged, their scope now names the pad",
+  "bba_present": "YES -- DECLARED after the runs ('BBA conectado sem cabo de rede'); pre-registered",
+  "ethernet": "DISCONNECTED -- DECLARED after the runs (no network cable); pre-registered",
   "network": "none (stream-0014 links no network code)",
   "cartridge": "EZ-Flash Omega DE, the Enhanced Control Checker on its NOR, booted straight into (relayed by the Orchestrator, Issue #24; pre-registered §V7.1.4)",
   "display_chain": [
@@ -118,10 +132,12 @@
    "low-cost RCA-to-HDMI converter, HDMI output configured to 1080p",
    "HYDIS HV150UX2 panel, M.NT68676.2A controller, custom iMac G3 modification"
   ],
-  "display_chain_note": "held at RUN 13's by the pre-registration (§V7.1.4, §V6.24.3); TOPOLOGY only -- nothing about the display is claimed; the chain has no upscaler, which is why the Operator's photographs of the 240x160 console text are unreadable (Issue #24) -- an observation about the camera aid, no claim about the chain's fidelity",
+  "display_chain_declared": "UNCHANGED -- DECLARED after the runs (Issue #25): the chain of §V7.1.4 / §V6.24.3",
+  "display_chain_note": "TOPOLOGY only -- nothing about the display is claimed; the chain has no upscaler, which is why the Operator's photographs of the 240x160 console text are unreadable (Issue #24) -- an observation about the camera aid, no claim about the chain's fidelity",
   "deviation_reported": "none",
-  "post_run_confirmation": "no literal post-run topology / controller / boot-screen declaration was posted on Hardware Issue #21 (its comments are the staging report, the Orchestrator's staging verification and the two archiving reports) or in Issue #24 at ingestion; the runs are relayed by the Orchestrator's ingestion contract as executed under #21 on the pre-registered topology with the checker on the NOR; the §V7.1.8 TOPOLOGY gate is read from the pre-execution declaration with no reported deviation",
-  "source": "OPERATOR OBSERVATION / TOPOLOGY DECLARATION as pre-registered in §V7.1.4 and relayed by the Orchestrator (Issue #24); not derived from files or logs"
+  "declaration_history": "at ingestion (Issue #24) no literal post-run topology / controller-model / boot-screen declaration existed on Hardware Issue #21 (its comments are the staging report, the Orchestrator's staging verification and the two archiving reports) or on #24, and the controller model was recorded as absent, not inferred; the declaration above replaced that note under Issue #25, first with the Game Boy Player NOT SEPARATELY DECLARED (the Operator had declared the console only) and, the same day, with the Game Boy Player DECLARED by the inventory declaration; the §V7.1.8 TOPOLOGY gate, its reading and the verdicts are unchanged",
+  "standing_note_for_future_pre_registrations": "the console and Game Boy Player identity across runs is settled by the declared inventory (one console, one GBP) and can be cited instead of asked; what still varies and must be declared per run: BBA and Ethernet state, the display chain, the cartridge and its boot screen, the controller",
+  "source": "OPERATOR DECLARATION, given after the runs and relayed by the Orchestrator (Issue #25, 2026-09-21), in the style of §V6.24.3 / §V7.1.4; not derived from files or logs"
  },
  "operator_report": {
   "tally_vector_literal": "1 2 3 4 5 6  · · · ·",
@@ -244,7 +260,8 @@
   "icoord": "tools/icoord.py UNMODIFIED (99496a6)",
   "istim": "tools/istim.py UNMODIFIED (05cb1c7)",
   "gbp_vpix_c": "src/gbp/gbp_vpix.c host-built by tools/vfull.py for the C conversion comparison",
-  "ingestion_head": "ed7dea264836b0bfdc4ed608e29ed41a81e6abc7"
+  "ingestion_head": "ed7dea264836b0bfdc4ed608e29ed41a81e6abc7",
+  "regenerated_for_issue_25": "2026-09-21 -- the topology declaration recorded; every other section unchanged"
  },
  "verdicts": {
   "shared_gates": {
@@ -253,7 +270,7 @@
    "STARTUP": "PASS (NORMAL; recorded, no tolerance)",
    "INPUT_MACHINE": "MET",
    "VIDEO_PATH": "RECORDED, not judged (vindex INCONCLUSIVE_TOO_FEW_INTACT_FRAMES and vfull INCONCLUSIVE by construction on non-OGBPCOORD1 content; every sidecar parses with valid CRCs; Policy A / vdisp / vvi clean)",
-   "TOPOLOGY": "PASS by the pre-execution declaration (§V7.1.4) with no reported deviation; no literal post-run confirmation posted (recorded)",
+   "TOPOLOGY": "PASS: the pre-execution declaration (§V7.1.4) with no reported deviation, joined after the runs by the Operator's declaration (Issue #25: same GameCube; the same Game Boy Player by the declared hardware inventory -- one console, one GBP -- a declaration, not an inference; BBA present without a network cable; video chain unchanged; a generic third-party controller); the gate text and the verdicts unchanged",
    "SESSION": "PASS (stop=witness_target_reached)"
   },
   "question_M": {

@@ -10536,3 +10536,45 @@ to update); RUN 16 not run.
 **Next.** The Orchestrator validates #24 and closes Hardware Issue #21; then
 whether GBP-KEY-008 / GBP-KEY-009 become a functional checkpoint, and how the
 Phase-5 acceptance criterion is assessed with a real game.
+
+## 2026-09-21 — Issue #25: the Operator's post-run topology declaration for RUN 14 / RUN 15 recorded in §V7.2, and the controller scope stated where the verdicts are read; no hardware, no code, no gate or verdict change
+
+**The declaration, given after the runs and relayed by the Orchestrator,**
+mapped onto §V7.1.4: same GameCube — declared; BBA connected without a
+network cable ("BBA conectado sem cabo de rede") — BBA PRESENT / Ethernet
+DISCONNECTED, declared; video chain unchanged — declared; controller — a
+GENERIC (third-party) GameCube controller, on record for the first time; the
+official Nintendo pad the Operator also owns was NOT the one used. **Not
+closed by inference:** the pre-registration asks for the same GameCube AND
+the same Game Boy Player, tracked as distinct units; the Operator first
+declared the console only, so the Game Boy Player was recorded as NOT
+SEPARATELY DECLARED — and the same day he declared his hardware inventory
+(exactly one GameCube, exactly one Game Boy Player; not to be questioned on
+it again), which settles the Game Boy Player as DECLARED on the basis of that
+inventory: an operator declaration, sound, and not an inference from the
+console declaration (an inference about a topology item is what makes a run
+inconclusive — the whole reason the Orchestrator refused to write it
+earlier). Standing note for future pre-registrations (HANDOFF, do-not-assume):
+the console / GBP identity cites this declaration; BBA and Ethernet state, the
+display chain, the cartridge and its boot screen and the controller are still
+declared per run. The "recorded as absent" note Issue #24 correctly left is
+replaced, with its history kept (§V7.2.2, GBP-HW-261).
+
+**The controller scope, stated where the verdicts are read** (§V7.2.1, §V7.2.7,
+GBP-HW-265): the policy reads L and R by their digital click only
+(`trigger_threshold=0` in both ENVINPUT records; the analogue value is not
+read) and L and R were the first two buttons of both walks — so what RUN 14
+and RUN 15 establish about L and R is established through the digital click
+of a third-party pad. Both edges recorded: encouraging (the path worked with a
+generic controller) and a limit (the official pad was not exercised; no data).
+Verdicts, gates, §V7.1, evidence ids and classifications unchanged; the
+§V7.1.8 TOPOLOGY gate's reading gains the declaration.
+
+**Records.** §V7.2.1 / .2 / .4 / .7 / .10 / .11 / .12; GBP-HW-261 (the
+declaration and its history) and GBP-HW-265 (the pad's scope); HANDOFF;
+ROADMAP Phase 5; captures/README; the two struct fixtures regenerated for
+the topology section only (`ingestion_head` kept at `ed7dea2`; M / O
+unchanged — checked field by field); `tests/host/test_run14.py` pins the
+declaration, the open item and the scope. No new evidence id.
+
+**Next.** The Orchestrator validates #24 / #25 and closes Hardware Issue #21.

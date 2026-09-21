@@ -6704,17 +6704,35 @@ analyzer's last commit. Instrument: the Enhanced Control Checker GBA
 prebuilt ROM 69 348 B `53c212c7…b6e`, hashed from a scratchpad clone), the
 Operator's media on the EZ-Flash Omega DE NOR, booted straight into; the
 flashed image was not hashed by the Executor; nothing from it enters the
-repository. **OPERATOR OBSERVATION / TOPOLOGY, as pre-registered in §V7.1.4
-and held, relayed by the Orchestrator (Issue #24):** the same GameCube and
-Game Boy Player as RUN 13; one controller in port 1; BBA PRESENT; Ethernet
-DISCONNECTED; no network code; the checker on the NOR as the boot screen;
-display chain GameCube → composite / RCA → low-cost RCA-to-HDMI converter
-(1080p out) → HYDIS HV150UX2 / M.NT68676.2A (topology only); no deviation
-reported. **Recorded as absent, not inferred:** no literal post-run
-topology / controller-model / boot-screen declaration was posted on Hardware
-Issue #21 (its comments are the staging report, the Orchestrator's staging
-verification and the two archiving reports) or in Issue #24 at ingestion;
-the controller model §V7.1.4 asked for is therefore not on record. The
+repository. **OPERATOR DECLARATION, given after the runs and relayed by the
+Orchestrator (Issue #25, 2026-09-21), mapped onto §V7.1.4:** the same
+GameCube — DECLARED; the same Game Boy Player — DECLARED, on the basis of
+the Operator's declared hardware inventory (2026-09-21: he owns exactly one
+GameCube and exactly one Game Boy Player, so every run of this project uses
+the same two units; not to be questioned on this again) — an operator
+declaration, not an inference from the console declaration (an inference
+about a topology item is what makes a run inconclusive; the Operator had
+first declared the console only and the Game Boy Player was recorded as not
+separately declared until the inventory was stated, the same day); BBA
+PRESENT, Ethernet DISCONNECTED
+— DECLARED, in his words "BBA conectado sem cabo de rede"; display chain
+UNCHANGED — DECLARED (the chain of §V7.1.4 / §V6.24.3: GameCube → composite
+/ RCA → low-cost RCA-to-HDMI converter, 1080p out → HYDIS HV150UX2 /
+M.NT68676.2A; topology only); controller — ONE GENERIC, third-party GameCube
+controller in port 1, on record for the first time; the official Nintendo pad
+the Operator also owns was NOT the one used; the checker on the NOR as the
+boot screen (as relayed, Issue #24); no network code; no deviation reported.
+**Declaration history, kept:** at ingestion (Issue #24) no literal post-run
+declaration existed on Hardware Issue #21 (its comments are the staging
+report, the Orchestrator's staging verification and the two archiving
+reports) or on #24, and the controller model was recorded as absent, not
+inferred; the declaration above replaced that note under Issue #25. **Scope
+the pad puts on the L / R result (GBP-HW-265):** the policy reads L and R by
+their digital click only (`trigger_threshold=0`; GBP-KEY-006) and L and R were
+the first two buttons of both walks, so what the runs establish about L and
+R is established through the digital click of a third-party pad —
+encouraging, and a limit: the official pad was not exercised and the project
+has no data on it. The
 Operator's photographs of the tally screen were useless as an aid — the chain
 has no upscaler and the 240 × 160 console text does not survive the camera
 (relayed); an observation about the aid, no claim about the chain. The
@@ -6869,7 +6887,12 @@ the expected vector — an argument, not a record. Classified by the
 Orchestrator (Issue #24) and reproduced here; no gate, threshold or verdict
 definition moved after the data was seen; GBP-KEY-004 unchanged, its
 falsifier did not fire; RUN 16 not run; Phase 5's acceptance criterion (a real
-game) not assessed.
+game) not assessed. **Scope of the pad (Issue #25):** both readings of L and R
+are readings of the digital click of a GENERIC, third-party GameCube controller
+(the Operator's post-run declaration, GBP-HW-261; the policy does not read the
+analogue triggers); the official Nintendo pad was not exercised and the project
+has no data on it — the verdicts are unchanged and their scope now names the
+pad; the same Game Boy Player by the Operator's declared inventory (GBP-HW-261).
 
 ---
 
