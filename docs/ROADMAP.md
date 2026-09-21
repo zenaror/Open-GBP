@@ -418,7 +418,11 @@ Question M = PASS · Question O = AS-ASSIGNED in both runs — the first KEYPAD
 words Open-GBP wrote reached the cartridge as the presses made, L at L and R
 at R; U-GBP-010 CLOSED; the routing CORROBORATED, not FACT; the acceptance
 criterion below is NOT yet assessed (the instrument is a test ROM, not a
-game).** The keypad
+game).** **EXECUTED AGAIN 2026-09-21 — RUN 17, RUN 18 and RUN 16 on
+`stream-0015`, GBP-INPUT-002 (Hardware Issue #32; ingested §V7.4, GitHub
+Issue #33): Question J = FACT for all ten KEYPAD word bits, bits 8 and 9 on
+two controllers — the routing a physical FACT (hw, the runs); RUN 16 UNDECIDED
+by the rule; the acceptance criterion still NOT assessed.** The keypad
 path is reconstructed on paper in `docs/research/INPUT_PATH.md` in three
 layers kept apart — the GBS-DOL KEYPAD window as the references write it
 (L1), the logical GBA button set from GBATEK (L2), and the GameCube
@@ -510,6 +514,23 @@ HERE.** **Next:** the Hardware Issue the Orchestrator opens after validating
 §V7.3 (RUN 17, then RUN 18, to the Operator); then this phase's real
 acceptance with a commercial game, which the Operator schedules and which is
 not pre-registered.
+
+**Executed and ingested 2026-09-21 (GitHub Issues #32, #33):** RUN 17 (walk A,
+the generic third-party pad), RUN 18 (walk B, the original Nintendo pad) and,
+last, RUN 16 (the optional menu reading, original pad) on `stream-0015`;
+`HARDWARE_TESTS.md` §V7.4. Read against §V7.3's frozen gates: the KEY record
+joined to the checker's counters gives Question J = FACT for every pressed
+word bit — all ten, bits 8 and 9 in both join runs — with no human count in
+the chain; Question I EXACT in every interval; the Operator's vectors agree
+and stay beside. **The routing of the KEYPAD word to the AGB's keys is a
+physical FACT (hw, the runs)**: GBP-HW-266…271; GBP-KEY-004 promoted; the
+consolidated pages moved to F (hw, run-scoped) with their history. RUN 16:
+UNDECIDED for the join by the rule, M = PASS, O not readable (direction not
+reported, not inferred). `truncated=0` in all three: GBP-KEY-008's repair
+validated. Not established: latency, the refresh, pads beyond the two, a
+game. **Next:** this phase's real acceptance with a commercial game — the
+Operator schedules it, the Orchestrator writes its contract; not
+pre-registered.
 
 Implement and document GameCube controller → GBP keypad/input handling.
 

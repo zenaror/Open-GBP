@@ -10772,3 +10772,61 @@ promotion; no GBP-HW id; the commercial-game run not pre-registered.
 
 **Next.** The Orchestrator validates #28 and opens the Hardware Issue for RUN
 17 (RUN 18 to follow under its own authorisation).
+
+## 2026-09-21 — Issue #33: RUN 17 / RUN 18 / RUN 16 INGESTED as §V7.4 against §V7.3's frozen gates — Question J = FACT for all ten KEYPAD word bits, bits 8 and 9 on two controllers: the routing a physical FACT (hw, the runs); RUN 16 UNDECIDED by the rule; truncated=0: GBP-KEY-008 validated; no hardware, no code, no gate change
+
+**What ran (Hardware Issue #32).** After the Executor's staging (stream-0014
+preserved to `build/archive/` first, `make swiss` without a rebuild, verified
+by the Orchestrator), the Operator ran RUN 17 (walk A, the generic pad,
+14:13), RUN 18 (walk B, the ORIGINAL Nintendo pad, 14:19) and RUN 16 (the
+optional menu reading, original pad, 14:22) on `stream-0015`. Fifteen raw
+files archived by the ritual (RUN 16 first under a provisional name, then
+renamed to the stream-0015-run16 names by the Orchestrator's explicit
+resolution: the reserved number belongs to the experiment, the name follows
+the actual build; the stream-0014-run16 names retired).
+
+**The join, recomputed exactly as §V7.3.9 froze it.** KEY record: 43 / 43 /
+33 lines, none lost, none truncated, none overwritten, every line parsed,
+every `rc=ok`. R_b from the completed words: RUN 17 bits 8, 9, 0, 1, 2, 3 =
+1, 2, 3, 4, 5, 6; RUN 18 bits 8, 9, 6, 7, 5, 4 = 1, 2, 3, 4, 5, 6. End state
+from the frames (six identical samples after the last KEY line in RUN 17,
+five in RUN 18): the walks' expectation, L 1 and R 2 in both. Each total at
+exactly one counter, the descriptor's key every time; sums 21 = 21; no
+unexpected counter. **Question J = FACT, all twelve readings.** Question I
+EXACT in all sixteen intervals; no press within B of a boundary; no latency
+figure. The Operator's vectors (`1, 2, 0, 0, 0, 0, 6, 5, 3, 4`; `1, 2, 3, 4, 5,
+6, 0, 0, 0, 0`) agree digit for digit and are read beside. RUN 16: R_8 = R_9 =
+8 → UNDECIDED by the rule (the verdict working); its frames are the menu (the
+tally reader aborts at an unknown bitmap, recorded verbatim); M = PASS from
+the report ("as abas funcionaram perfeitamente"), O NOT READABLE — no
+convention declared, no direction per trigger reported, nothing inferred; the
+words the runtime sent are exactly the declared 4 × R, 4 × L, 4 × R, 4 × L.
+
+**Gates.** IDENTITY / LOG: `truncated=0` with ENVINPUT (170) and ENVINPUT2
+(105) complete in all three — GBP-KEY-008's repair physically validated; KEY
+RECORD MET; INPUT MET (7 898 / 7 898 / 7 890 completed, failed 0); transport,
+startup, Policy A clean; FRAMES PASS (8/8, texture == conversion); TOPOLOGY
+PASS for the declared items — BBA / Ethernet / display chain NOT declared for
+these runs, recorded as absent, not inferred; SESSION PASS.
+
+**What changed.** GBP-HW-266…271; GBP-KEY-004 promoted by its own
+falsifier's outcome (bit 8 = L, bit 9 = R measured), GBP-KEY-008 / 009 / 010
+with dated addenda; U-GBP-010 stays CLOSED, now on a machine record;
+`REGISTERS.md` §2 / §2.3, `GBS-DOL.md`, `ARCHITECTURE.md`, `INITIALIZATION.md`
+§15 and `INPUT.md` moved to F (hw, run-scoped) with history and the
+two-pad scope (bits 8 / 9 on both pads; bits 0–3 generic only; bits 4–7
+original only). The Operator's boot-logo / presentation-parity observation
+recorded as OPERATOR OBSERVATION (GBP-HW-271; Phase 9 work named). Fifteen
+fixtures (disp / full / vi byte-identical, qual projections, three struct
+files with every KEY line verbatim); `tests/host/test_run17.py` recomputes
+the join and everything else from them; the expired "not yet run" pins moved.
+
+**Not done, on purpose.** No hardware; no code; no build; no change to
+§V7.1 / §V7.2 / §V7.3, a gate or a verdict definition; RUN 16's direction not
+inferred; the controller of no run inferred; Phase 5's acceptance criterion
+not assessed and not pre-registered; the `desc_status` label of the image
+recorded as stale, not changed.
+
+**Next.** The Orchestrator validates #33, closes Hardware Issue #32, obtains
+the BBA / chain declaration if wanted on record, and designs Phase 5's
+acceptance run with a commercial game.

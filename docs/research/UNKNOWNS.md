@@ -242,7 +242,7 @@ unknown; the layout question for AV blocks is open with data, not closed.
 DOL-GBS-01/10/20, CPU AGB A vs A E, 16 Mb vs 128 Mb RAM. No behavioral
 difference is documented anywhere; the user's unit revision is unknown.
 
-## U-GBP-010 (P2 — **CLOSED 2026-09-21** by GBP-INPUT-001, RUN 14 and RUN 15 (`HARDWARE_TESTS.md` §V7.2, Issue #24): Question O = AS-ASSIGNED in both runs — L = 1 and R = 2 in the Operator's tally vectors and, independently, in the machine-decoded frames; the descriptor kept; the routing stays CORROBORATED, not FACT — GBP-HW-265) — L/R bit order in KEYPAD
+## U-GBP-010 (P2 — **CLOSED 2026-09-21** by GBP-INPUT-001, RUN 14 and RUN 15 (`HARDWARE_TESTS.md` §V7.2, Issue #24): Question O = AS-ASSIGNED in both runs — L = 1 and R = 2 in the Operator's tally vectors and, independently, in the machine-decoded frames; the descriptor kept; the routing stays CORROBORATED, not FACT — GBP-HW-265) — L/R bit order in KEYPAD — **2026-09-21, Issue #33: the routing FACT (hw, the runs) by the machine join of RUN 17 / RUN 18, GBP-HW-270; stays CLOSED**
 
 Dolphin maps hi byte bit 0 → L and bit 1 → R (swapped vs GBA KEYINPUT);
 GBI's 0x0304 sets both. Phase 5 test with a game that distinguishes L/R.
@@ -320,6 +320,18 @@ beside it; no status changed here.
 (`da06500`; not executed) — FACT for the routing is now reachable by a run
 that joins the KEY record to an instrument showing what the AGB received;
 this item stays CLOSED and the routing stays CORROBORATED until that run.
+
+**2026-09-21, Issue #33:** that run happened — RUN 17 (generic third-party
+pad) and RUN 18 (original Nintendo pad) on `stream-0015`, Hardware Issue #32,
+ingested `HARDWARE_TESTS.md` §V7.4. The KEY record joined to the checker's
+decoded counters reads Question J = FACT for bits 8 and 9 in both runs (and
+for bits 0–7 across them): **bit 8 → L, bit 9 → R is a physical FACT (hw,
+the runs)** with no human count in the chain (GBP-HW-270). This item stays
+CLOSED; its closing now rests on a machine record; the descriptor is
+unchanged; the consolidated pages carry F (hw, run-scoped) with the history.
+RUN 16 (the menu reading, executed last) reads UNDECIDED for the join by the
+rule (R_8 = R_9 = 8) and its directional question is NOT readable (no
+convention declared, no direction per trigger reported; not inferred).
 
 ## U-GBP-011 (P2 — **CLOSED 2026-09-18** by GBP-VIDEO-003 / `color-0002`, the pre-registered confirmatory run: the outer 5-bit groups are exchanged, `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`, promoting the colour order from CORROBORATED to **FACT**. Two residuals were never part of this item and stay open: bit 15's origin, now U-GBP-034, and the bytes 0/2 deviations, U-GBP-029) — VIDEO color bit order and exact word content
 
