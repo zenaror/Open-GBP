@@ -10431,3 +10431,108 @@ pin narrowed to parts 1, 8 and 10. Nothing under `src/`, `poc/`, `tools/`,
 
 **Next.** The Orchestrator validates #23 and aligns Hardware Issue #21; RUN
 14 executes; RUN 15 follows in order; RUN 16 only if wanted.
+
+## 2026-09-21 — Issue #24: RUN 14 and RUN 15 INGESTED (§V7.2) — GBP-INPUT-001, the first physical KEYPAD writes: Question M = PASS · Question O = AS-ASSIGNED in both runs; U-GBP-010 CLOSED; the routing stays CORROBORATED; the tally frames versioned as the machine-decodable record; no hardware, no code
+
+**Goal.** Persist RUN 14 (walk A) and RUN 15 (walk B) — executed 2026-09-21
+under Hardware Issue #21 on the unchanged `stream-0014` (`0ff8355`,
+`ef76a170…`) with the Enhanced Control Checker on the EZ-Flash NOR — against
+the gates frozen in §V7.1.9 before the runs, with the verdicts the Orchestrator
+fixed in the Issue, without touching §V7.1, any gate, or anything under
+`src/`, `poc/`, `tools/`, `Makefile`.
+
+**Archiving, first.** Ten raw files: RUN 14's arrived in `logs/` under the
+bare console names, RUN 15's in `logs/run15/` (the Operator's per-run
+subdirectory — the convention Issue #23 argued for, so nothing was
+overwritten); each run went to its reserved names with `cp --update=none` +
+`cmp`, was hashed before any interpretation, and matched the Orchestrator's
+hashes (reported on #21). Identities in §V7.2.3 / GBP-HW-261.
+
+**Analyzers, as they are.** `vindex.py` → `INCONCLUSIVE_TOO_FEW_INTACT_FRAMES`
+(2048 records, all 40 blocks, the canonical strip INVALID on every frame —
+the content is the checker's console screen, not OGBPCOORD1; recorded, not a
+gate); `vidxcap.py` intact containers, stop = witness target, valid CRCs;
+`vfull.py` → INCONCLUSIVE 8/8 (STRIP-L inconsistent, by construction) but the
+preserved texture equals the Python conversion in all 16 samples; `vdisp.py`
+joined: 2047 `SELECTED_NEW`, `[2403]` edge, interior 0, reorder 0, depth 1,
+frozen p99 0.003 ms / max 0.475 ms (the p99 fell because the deferred count
+fell below 1 % of the join — arithmetic, not a latency claim), 7 repeats;
+corrected `vvi.py` 2372/2372 and 2373/2373 (RUN 15 `frame_index` 1169 latched
+two retraces after its hand-over — instrumentation semantics); `vpace.py`
+prints nothing over the disp alone (recorded). Transport, startup (165.34 ms,
++0.186 ms on RUN 13, recorded, no tolerance) and the witness window clean.
+
+**The machine gate.** `INPUT attempts = completed = 7 892 / 7 895, failed 0,
+retry 0, first 1, change 42, refresh 7 849 / 7 852, last_word 0000`; `key_changes
+= 42 = 2 × 21` in each run is consistent with the walks and records no
+button; `INPUTT` write 30/30/38 ticks, step 98/169/1046 (observational). The
+only machine facts the write-only window allows: the runtime polled, encoded
+and wrote.
+
+**Two honesty items.** (1) `truncated=1` in both logs: derived as runs 9 / 10
+derived their WITELIG clip — the ENVINPUT record (new in stream-0014) renders
+to 266 characters against the 248-character payload and is clipped after
+`desc_status=CORROBORATED_n`; lost `ot_FACT selftest=1`, both recoverable;
+nothing else affected; GBP-KEY-008, a functional item, not repaired here. (2)
+§V7.1.9 says an unpressed counter "reads 0"; the checker prints a tally only
+on a press, so it is BLANK — read as "never incremented", the substance of the
+gate; recorded in §V7.2.7, GBP-HW-265 and the fixtures, the frozen text not
+edited.
+
+**Two channels, kept apart, in agreement.** The Operator's vectors, relayed
+literally by the Orchestrator: `1 2 · · · · 6 5 3 4` and `1 2 3 4 5 6 · · · ·`
+= the walks' arithmetic expectation (GBP-HW-263, OPERATOR OBSERVATION). The
+checker's screen is AGB video and every one of the 16 preserved OGBPFULL1
+frames shows it; under the unmodified `vfull.py` parser the tally digits
+resolve by exact 8 × 8 glyph match (six glyphs transcribed from the frames; an
+unknown bitmap aborts) — final state from s3 (+18.943 s after CONTROL),
+identical across s3..s7, the partials in the declared walk order, L at 1
+before R moved, L = 1 and R = 2 in both runs, digit for digit the Operator's
+vectors (GBP-HW-264, FACT as data — recomputable, not operator observation).
+No per-press live record was relayed; the photographs were useless (no
+upscaler in the chain; the 240 × 160 text does not survive the camera; no
+claim about the chain); the unregistered trial and the prior exposure
+persisted from §V7.1.2.
+
+**Verdicts, read from §V7.1.9 as written.** Question M = PASS in both (every
+pressed button at its own counter, no unpressed counter moved, nothing moved
+without a press; all ten buttons across the two runs). Question O =
+AS-ASSIGNED in both (L = 1, R = 2). U-GBP-010 CLOSED on its own condition,
+supported by the report and independently by the frames, the descriptor kept
+exactly. **The routing stays CORROBORATED, not FACT:** the chain's fourth link
+— the Operator pressed L exactly once — is in no machine record (42 key
+changes, not which buttons); the distinct-count design makes a wrong walk
+overwhelmingly unlikely to produce the vector, an argument, not a record.
+**The finding:** §V7.1.10 supposed a project-owned stimulus was needed for
+FACT; the missing piece is one log line — the word written at each key change
+— which would close the join by machine end to end (GBP-KEY-009; recorded,
+NOT implemented).
+
+**Records.** `HARDWARE_TESTS.md`: the `## V7` heading and intro (outside
+§V7.1), §V7.2 (12 parts; §V7.1 byte-identical to `ed7dea2`, pinned);
+EVIDENCE GBP-HW-261…265, GBP-KEY-008, GBP-KEY-009; UNKNOWNS U-GBP-010 CLOSED
+with the closing condition quoted; ROADMAP Phase 5 status (the acceptance
+criterion NOT assessed — a test ROM, not a game); HANDOFF; captures/README.
+Fixtures: the disp / full / vi sidecars of both runs byte-identical (the tally
+frames are the machine-decodable record and the same OGBPFULL1 format RUN 12
+and 13 versioned — no format change), the two qual projections, two struct
+files with every identity, the declarations as relayed and what was NOT
+posted, the summary records verbatim, the per-sample readings with the glyph
+table, the verdicts with their boundaries and the RUN 13 comparison. Tests:
+`tests/host/test_run14.py` recomputes from the fixtures (the INPUT gate
+re-parsed, the ENVINPUT clip re-rendered from the source format, the tally
+vectors re-decoded from the bytes, Policy A / vdisp / vvi / vfull recomputed,
+§V7.1 byte-identical, nothing under the untouchable paths moved); the expiring
+pins in `test_run14_prereg.py`, `test_input_addenda.py`, `test_input_impl.py`
+and `test_input_path.py` updated for the executed state (U-GBP-010 CLOSED,
+GBP-HW up to 265, GBP-KEY-008 / 009, the archives present, the fixtures added).
+
+**Not done, on purpose.** No hardware; no code, build or rebuild; no change to
+§V7.1, any gate, threshold or verdict definition; the per-change word logging
+not implemented; the routing not promoted; RUN 12, RUN 13 and Phase 4 not
+re-judged; `docs/protocol/` and `docs/hardware/` untouched (the Orchestrator's
+to update); RUN 16 not run.
+
+**Next.** The Orchestrator validates #24 and closes Hardware Issue #21; then
+whether GBP-KEY-008 / GBP-KEY-009 become a functional checkpoint, and how the
+Phase-5 acceptance criterion is assessed with a real game.
