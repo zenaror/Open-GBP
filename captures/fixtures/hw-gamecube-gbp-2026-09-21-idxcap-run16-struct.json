@@ -1,0 +1,2597 @@
+{
+ "format": "OGBPIDX-STRUCT-1",
+ "run": 16,
+ "experiment": "RUN 16 -- the optional EZ-Flash menu tab reading of §V7.1.7 (Issue #23; number reserved there), executed on stream-0015 in the same session as RUN 17 / RUN 18 (after them), ingested under Issue #33 (§V7.4); NOT a join run",
+ "execution_order": {
+  "raw_write_times": {
+   "17": "2026-09-21 14:13:32 -03:00",
+   "18": "2026-09-21 14:19:30 -03:00",
+   "16": "2026-09-21 14:22:08 -03:00"
+  },
+  "order": [
+   "run17",
+   "run18",
+   "run16"
+  ],
+  "note": "the numbering follows §V7.3.2 (a reserved number belongs to its experiment whenever it runs), NOT the execution order; both are recorded so neither is inferred later"
+ },
+ "retired_names": {
+  "names": [
+   "captures/local/GBP-VIDEO-004_stream-0014-run16.log",
+   "captures/local/GBP-VIDEO-004_stream-0014-run16-idxcap.bin",
+   "captures/local/GBP-VIDEO-004_stream-0014-run16-disp.bin",
+   "captures/local/GBP-VIDEO-004_stream-0014-run16-full.bin",
+   "captures/local/GBP-VIDEO-004_stream-0014-run16-vi.bin"
+  ],
+  "reason": "reserved in §V7.1.5 on the assumption of stream-0014; the run happened on stream-0015; retired, never used, never reassigned (the name follows the artifact's actual build; the number follows the experiment)"
+ },
+ "github_issues": {
+  "pre_registration": 28,
+  "hardware": 32,
+  "ingestion": 33,
+  "run16_reservation": 23,
+  "candidate": 27,
+  "topology_inventory": 25
+ },
+ "runtime_embedded": {
+  "test_id": "GBP-VIDEO-004",
+  "build_id": "stream-0015",
+  "commit": "da06500",
+  "note": "embedded id intentionally GBP-VIDEO-004 (§V6.17 decision 5); the experiment label GBP-INPUT-002 is the pre-registration's; the image is Issue #27's candidate, NOT rebuilt"
+ },
+ "dol": {
+  "path_operator": "build/swiss/12-stream/boot.dol",
+  "path_authority": "build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol",
+  "size": 514880,
+  "sha256": "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49",
+  "swiss_sha256": "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49",
+  "build": "stream-0015",
+  "commit": "da06500",
+  "commit_full": "da06500c4d9c938ae11cbf696bc214eb2527d64f",
+  "stream_0014_preserved": {
+   "path": "build/archive/gbp-video-stream-probe-stream-0014-0ff8355.dol",
+   "sha256": "ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c"
+  },
+  "stream_0013_preserved": {
+   "path": "build/archive/gbp-video-stream-probe-stream-0013-7d7a6d8.dol",
+   "sha256": "5391c3fe962dc4b2f4e493f3846ac7407ded064c58f5d4bb583a51e5a725dd79"
+  },
+  "note": "staged under Hardware Issue #32 by §V7.3.6 steps 1-3 (stream-0014 preserved first; make swiss without a rebuild; verified by the Orchestrator); the SD copy and its pre-boot hash check were the Operator's (step 4); both log headers read stream-0015 @ da06500"
+ },
+ "stimulus": {
+  "name": "the EZ-Flash Omega DE menu (the Operator's media; nothing enters the repository)",
+  "repository": "https://github.com/nataliethenerd/enhancedcontrolcheckerGBA",
+  "commit": "76924c1371d7bf761f8b1ed45ab36f195cd1374f",
+  "prebuilt_rom": {
+   "name": "enhancedcontrolchecker.gba",
+   "size": 69348,
+   "sha256": "53c212c73e814875fcbac16a4dc22ea5d6c752f85cdddc433db97439caef2b6e"
+  },
+  "flashed_image_hashed_by_executor": false,
+  "source_facts_relied_on": "ten counters at rows 4-13, one `if` per button over keysDown() in a VBlankIntrWait() loop, the tally printed at console column 22 with `%2d` ONLY on a press (verified in the source at the commit above; §V7.1.3)"
+ },
+ "walk": {
+  "name": "menu",
+  "presses": [
+   [
+    "R",
+    4
+   ],
+   [
+    "L",
+    4
+   ],
+   [
+    "R",
+    4
+   ],
+   [
+    "L",
+    4
+   ]
+  ],
+  "total_presses": 16,
+  "expected_vector_arithmetic": null,
+  "counter_order": [
+   "L",
+   "R",
+   "UP",
+   "DOWN",
+   "LEFT",
+   "RIGHT",
+   "START",
+   "SELECT",
+   "A",
+   "B"
+  ],
+  "expected_key_changes": 32,
+  "expected_word_bits": {
+   "R": [
+    1,
+    9
+   ],
+   "L": [
+    0,
+    8
+   ]
+  }
+ },
+ "topology_declared_by_operator": {
+  "console": "the one GameCube of the Operator's DECLARED HARDWARE INVENTORY (Issue #25; §V7.3.4: cited, not asked again; a declaration, never an inference)",
+  "game_boy_player": "the one Game Boy Player of the same inventory (GBP-HW-261; §V7.3.4)",
+  "controller": "port 1: the ORIGINAL Nintendo GameCube controller -- DECLARED per run by the Operator, relayed by the Orchestrator (Issue #33); nothing in ports 2-4 (as pre-registered)",
+  "controller_scope": "the ORIGINAL Nintendo pad, declared for RUN 16; L and R by their digital click",
+  "cartridge_boot_screen": "the EZ-Flash Omega DE MENU as the boot screen (declared: RUN 16 is the menu tab reading of §V7.1.7; by machine: only L / R words in the KEY record)",
+  "bba_ethernet": "NOT DECLARED for RUN 16 / 17 / 18 at ingestion (no per-run declaration on Hardware Issue #32 or Issue #33) -- recorded as ABSENT, not inferred; no deviation reported; stream-0015 links no network code, so the join's substance is unaffected; the Orchestrator may obtain and add the declaration as Issue #25 did for RUN 14 / RUN 15",
+  "display_chain": "NOT DECLARED for RUN 16 / 17 / 18 at ingestion -- recorded as ABSENT, not inferred; no deviation reported; the join reads the FRAMES, not the screen, so the chain is not part of the join (§V7.3.4)",
+  "deviation_reported": "none",
+  "source": "OPERATOR DECLARATION as relayed by the Orchestrator (Issue #33 and its cross-session messages, 2026-09-21); not derived from files except where marked 'by machine'"
+ },
+ "operator_report": {
+  "source": "OPERATOR OBSERVATION, literal as relayed by the Orchestrator in Issue #33 (2026-09-21); never fed into the join; placed BESIDE the machine channel, never merged with it",
+  "words": "as abas funcionaram perfeitamente; usei apenas L e R, não apertei mais nada",
+  "tally_vector": null,
+  "report_literal": "as abas funcionaram perfeitamente; usei apenas L e R, não apertei mais nada",
+  "presses_declared": "4xR, 4xL, 4xR, 4xL (16 presses; 32 key changes)",
+  "direction_per_trigger": "NOT separately reported -- the Operator was asked once and answered twice with the same substance; the limit is recorded, the direction is NOT inferred (Issue #33)",
+  "convention_declared_before_boot": "NOT declared (§V7.1.7 RUN 16 step 3)",
+  "tab_moved_under_L_and_under_R": "YES, by the report ('as abas funcionaram perfeitamente; usei apenas L e R') -- OPERATOR OBSERVATION"
+ },
+ "raw": {
+  "log": {
+   "supplied_name": "GBP-VIDEO-004_stream-0015.log",
+   "found_at": "logs/run16/ (the Operator's per-run subdirectory; raw file mtime 2026-09-21 14:22:08 -03:00)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0015-run16.log",
+   "size": 93996,
+   "sha256": "20d0be5aef47c955f9caea4250e1ef8c7a35fff77ef1d54bafb9da53f2726a6d"
+  },
+  "idxcap": {
+   "supplied_name": "GBP-VIDEO-004_stream-0015-idxcap.bin",
+   "found_at": "logs/run16/ (the Operator's per-run subdirectory; raw file mtime 2026-09-21 14:22:08 -03:00)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0015-run16-idxcap.bin",
+   "size": 8946060,
+   "sha256": "e07cb0b43e46260f57f65fccfa6427e412124e31b06c24cf28d58528a701f1c1"
+  },
+  "disp": {
+   "supplied_name": "GBP-VIDEO-004_stream-0015-disp.bin",
+   "found_at": "logs/run16/ (the Operator's per-run subdirectory; raw file mtime 2026-09-21 14:22:08 -03:00)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0015-run16-disp.bin",
+   "size": 400796,
+   "sha256": "9da66d6e2210ee50ffa700ab7988e93fadb39b97a6257bda55146689e23f2e5e"
+  },
+  "full": {
+   "supplied_name": "GBP-VIDEO-004_stream-0015-full.bin",
+   "found_at": "logs/run16/ (the Operator's per-run subdirectory; raw file mtime 2026-09-21 14:22:08 -03:00)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0015-run16-full.bin",
+   "size": 1844492,
+   "sha256": "3cfb7dd94dda106de31b41dcb5cc078a014774a735d907df3527baddd5f7af07"
+  },
+  "vi": {
+   "supplied_name": "GBP-VIDEO-004_stream-0015-vi.bin",
+   "found_at": "logs/run16/ (the Operator's per-run subdirectory; raw file mtime 2026-09-21 14:22:08 -03:00)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0015-run16-vi.bin",
+   "size": 152396,
+   "sha256": "f98d0974fcc973adc2585a753bc6a668b55b83728bc2f1babfc3e84f3ab74266"
+  }
+ },
+ "raw_receipt": {
+  "generated_on": "the live GameCube SD card under the console's normal stream-0015 names; moved by the Operator into logs/run16/ (a per-run subdirectory, as §V7.3.5 asks); the card copies are deleted after the move, so logs/ was the ONLY copy until the archive existed",
+  "archived": "first cp --update=none under a PROVISIONAL name (GBP-VIDEO-004_stream-0015-unidentified-2026-09-21-a*) because the run's identity was not yet established; after the Orchestrator's explicit naming resolution (the reserved number 16 belongs to the menu experiment; the name follows the actual build) renamed with mv -n to the stream-0015-run16 names, cmp-verified again, re-hashed from the final files; reported on Hardware Issue #32; logs/ left as found",
+  "located_by": "the Orchestrator's cross-session request naming the fifteen files and their hashes; the Executor's hashes are the identity, the Orchestrator's the double check (all fifteen matched)"
+ },
+ "fixtures": {
+  "disp": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run16-disp.bin",
+   "sha256": "9da66d6e2210ee50ffa700ab7988e93fadb39b97a6257bda55146689e23f2e5e",
+   "note": "byte-identical copy of the console's OGBPDISP2"
+  },
+  "full": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run16-full.bin",
+   "sha256": "3cfb7dd94dda106de31b41dcb5cc078a014774a735d907df3527baddd5f7af07",
+   "note": "byte-identical copy of the console's OGBPFULL1 -- one of the two machine ends of the join (RUN 17 / RUN 18); the menu (RUN 16)"
+  },
+  "vi": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run16-vi.bin",
+   "sha256": "f98d0974fcc973adc2585a753bc6a668b55b83728bc2f1babfc3e84f3ab74266",
+   "note": "byte-identical copy of the console's OGBPVI1"
+  },
+  "qual": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run16-qual.bin",
+   "sha256": "0e5685ee3d8139a479028e39591664d7ee760307ea1ae97c180d851380fdd973",
+   "note": "content-blind OGBPQUAL1 projection of the raw OGBPIDXCAP1"
+  },
+  "raw_log": "NOT versioned (established policy; identity preserved by size and SHA-256); the summary records AND EVERY KEY LINE are quoted VERBATIM in this file (`log_records_verbatim`, `key_record.lines`) so the join is recomputable from the tree",
+  "raw_idxcap": "NOT versioned (8 946 060 B; identity preserved by size and SHA-256)"
+ },
+ "tools": {
+  "vindex": "tools/vindex.py UNMODIFIED (10250a4)",
+  "vidxcap": "tools/vidxcap.py UNMODIFIED (10250a4)",
+  "vdisp": "tools/vdisp.py UNMODIFIED (59d2f57)",
+  "vqual": "tools/vqual.py UNMODIFIED (b71da06)",
+  "vfull": "tools/vfull.py UNMODIFIED (2c7ff0e)",
+  "vvi": "tools/vvi.py CORRECTED implementation (0ee8aac), unchanged since",
+  "vpace": "tools/vpace.py UNMODIFIED (025f2e7); not run (it expects the witness join; Policy A figures are vdisp's)",
+  "join": "NO tool under tools/: the join is computed by the ingestion generator and RECOMPUTED by tests/host/test_run17.py from this file and the full-frame fixture, exactly as §V7.3.9 froze it",
+  "ingestion_head": "09f289c8c75a9108e0c03293c84bd4735130324e"
+ },
+ "verdicts": {
+  "shared_gates": {
+   "IDENTITY_LOG": "PASS: log header GBP-VIDEO-004 / stream-0015 @ da06500; dropped=0; truncated=0 with ENVINPUT and ENVINPUT2 complete (GBP-KEY-008's repair PHYSICALLY VALIDATED); no storage fault",
+   "KEY_RECORD": "MET",
+   "TRANSPORT": "PASS",
+   "STARTUP": "PASS (NORMAL; recorded, no tolerance)",
+   "INPUT_MACHINE": "MET",
+   "FRAMES": "container PASS (8/8 COMPLETE, valid CRCs, texture == conversion 8/8); the content is the EZ-Flash menu, not the checker: the tally reader aborts at an unknown glyph (recorded verbatim) -- the join is not applicable to RUN 16 by design",
+   "TOPOLOGY": "PASS for the items declared (inventory; the ORIGINAL pad; the menu as the boot screen); BBA / Ethernet / display chain NOT DECLARED -- recorded as absent, not inferred; no deviation reported",
+   "SESSION": "PASS (stop=witness_target_reached; the recovery procedure not needed: no menu item launched by itself -- the KEY record carries only L / R words and the run ended at the witness target)"
+  },
+  "question_J": {
+   "bit8 (L)": "UNDECIDED",
+   "bit9 (R)": "UNDECIDED"
+  },
+  "question_J_reading": "UNDECIDED for L and R by §V7.3.9's own rule -- 4 + 4 presses each gives both bits the total 8, not distinct. This is the verdict WORKING, not a failure: RUN 16 was never designed for the join (its counts are §V7.1.7's menu reading, not a distinct-count walk), and its question is the directional one, read on §V7.1.9's own terms from the Operator's channel",
+  "question_M": {
+   "verdict": "PASS",
+   "read_from": "the Operator's literal report, on §V7.1.9's RUN 16 terms ('M from whether the tab moved under L and under R')",
+   "reading": "the tab moved under L and under R -- 'as abas funcionaram perfeitamente; usei apenas L e R, não apertei mais nada'; the words the runtime sent (0200 x4, 0100 x4, 0200 x4, 0100 x4) are exactly the declared presses"
+  },
+  "question_O": {
+   "verdict": "NOT READABLE",
+   "read_from": "§V7.1.9's RUN 16 terms: 'O from the direction against the convention the Operator declared before booting'",
+   "reading": "no convention was declared before booting and the direction per trigger was not separately reported: the datum O needs does not exist in the record -- recorded as the limit, NOT inferred from 'funcionaram perfeitamente' and NOT inferred from the frames (Issue #33)"
+  },
+  "read_from": "the KEY record (what the runtime sent) and the Operator's report (what the menu did); the frames as the container only",
+  "classified_against": "HARDWARE_TESTS §V7.1.9 (RUN 16's own terms) and §V7.3.8 / §V7.3.9 for the KEY record and the join",
+  "routing_classification": {
+   "status": "unchanged by RUN 16: UNDECIDED for bits 8 and 9 in this run; RUN 17 / RUN 18 carry the routing",
+   "scope": "the ORIGINAL Nintendo pad, declared for RUN 16; L and R by their digital click"
+  }
+ },
+ "key_record": {
+  "format": "KEY n=%lu act=%s keys=%04x word=%04x t_poll=%llx t_attempt=%llx t_done=%llx xfer=%lu rc=%s",
+  "source": "GBP-KEY-010: one line per FIRST / CHANGE / RETRY write from the pump slot, timestamped on the transport's ticks64 (the base of the sidecars' t_take); never a REFRESH; bounded by the ringlog with a 64-line reserve",
+  "KEYLOG": {
+   "events": 33,
+   "emitted": 33,
+   "lost": 0,
+   "truncated": 0,
+   "overwritten": 0,
+   "reserve": 64,
+   "emit_ticks": "909/1567/1722",
+   "n": 33,
+   "units": "min/mean/max"
+  },
+  "lines": [
+   {
+    "seq": 227,
+    "n": 1,
+    "act": "first",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a115df32f",
+    "t_attempt": "79578a115df402",
+    "t_done": "79578a115df4a4",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 0.110968,
+    "line": "000227 KEY n=1 act=first keys=0000 word=0000 t_poll=79578a115df32f t_attempt=79578a115df402 t_done=79578a115df4a4 xfer=31 rc=ok"
+   },
+   {
+    "seq": 228,
+    "n": 2,
+    "act": "change",
+    "keys": "0100",
+    "word": "0200",
+    "t_poll": "79578a2528502f",
+    "t_attempt": "79578a25285048",
+    "t_done": "79578a25285090",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 8.309215,
+    "line": "000228 KEY n=2 act=change keys=0100 word=0200 t_poll=79578a2528502f t_attempt=79578a25285048 t_done=79578a25285090 xfer=31 rc=ok"
+   },
+   {
+    "seq": 229,
+    "n": 3,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a25709521",
+    "t_attempt": "79578a25709539",
+    "t_done": "79578a25709586",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 8.426159,
+    "line": "000229 KEY n=3 act=change keys=0000 word=0000 t_poll=79578a25709521 t_attempt=79578a25709539 t_done=79578a25709586 xfer=31 rc=ok"
+   },
+   {
+    "seq": 230,
+    "n": 4,
+    "act": "change",
+    "keys": "0100",
+    "word": "0200",
+    "t_poll": "79578a261fbf9c",
+    "t_attempt": "79578a261fbfb6",
+    "t_done": "79578a261fc003",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 8.709608,
+    "line": "000230 KEY n=4 act=change keys=0100 word=0200 t_poll=79578a261fbf9c t_attempt=79578a261fbfb6 t_done=79578a261fc003 xfer=31 rc=ok"
+   },
+   {
+    "seq": 231,
+    "n": 5,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a265d9b65",
+    "t_attempt": "79578a265d9b7e",
+    "t_done": "79578a265d9bc8",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 8.809706,
+    "line": "000231 KEY n=5 act=change keys=0000 word=0000 t_poll=79578a265d9b65 t_attempt=79578a265d9b7e t_done=79578a265d9bc8 xfer=31 rc=ok"
+   },
+   {
+    "seq": 232,
+    "n": 6,
+    "act": "change",
+    "keys": "0100",
+    "word": "0200",
+    "t_poll": "79578a270ced31",
+    "t_attempt": "79578a270ced4c",
+    "t_done": "79578a270ced95",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 9.093403,
+    "line": "000232 KEY n=6 act=change keys=0100 word=0200 t_poll=79578a270ced31 t_attempt=79578a270ced4c t_done=79578a270ced95 xfer=31 rc=ok"
+   },
+   {
+    "seq": 233,
+    "n": 7,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a274ac851",
+    "t_attempt": "79578a274ac86a",
+    "t_done": "79578a274ac928",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 9.193497,
+    "line": "000233 KEY n=7 act=change keys=0000 word=0000 t_poll=79578a274ac851 t_attempt=79578a274ac86a t_done=79578a274ac928 xfer=31 rc=ok"
+   },
+   {
+    "seq": 234,
+    "n": 8,
+    "act": "change",
+    "keys": "0100",
+    "word": "0200",
+    "t_poll": "79578a27f9f8b1",
+    "t_attempt": "79578a27f9f8ce",
+    "t_done": "79578a27f9f931",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 9.476983,
+    "line": "000234 KEY n=8 act=change keys=0100 word=0200 t_poll=79578a27f9f8b1 t_attempt=79578a27f9f8ce t_done=79578a27f9f931 xfer=31 rc=ok"
+   },
+   {
+    "seq": 235,
+    "n": 9,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a282e4da7",
+    "t_attempt": "79578a282e4dc1",
+    "t_done": "79578a282e4e0b",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 9.561665,
+    "line": "000235 KEY n=9 act=change keys=0000 word=0000 t_poll=79578a282e4da7 t_attempt=79578a282e4dc1 t_done=79578a282e4e0b xfer=31 rc=ok"
+   },
+   {
+    "seq": 236,
+    "n": 10,
+    "act": "change",
+    "keys": "0200",
+    "word": "0100",
+    "t_poll": "79578a2dfa3017",
+    "t_attempt": "79578a2dfa3036",
+    "t_done": "79578a2dfa3082",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 11.962846,
+    "line": "000236 KEY n=10 act=change keys=0200 word=0100 t_poll=79578a2dfa3017 t_attempt=79578a2dfa3036 t_done=79578a2dfa3082 xfer=31 rc=ok"
+   },
+   {
+    "seq": 237,
+    "n": 11,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a2e4cbf91",
+    "t_attempt": "79578a2e4cbfb1",
+    "t_done": "79578a2e4cbffc",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 12.096443,
+    "line": "000237 KEY n=11 act=change keys=0000 word=0000 t_poll=79578a2e4cbf91 t_attempt=79578a2e4cbfb1 t_done=79578a2e4cbffc xfer=31 rc=ok"
+   },
+   {
+    "seq": 238,
+    "n": 12,
+    "act": "change",
+    "keys": "0200",
+    "word": "0100",
+    "t_poll": "79578a2ef1c87a",
+    "t_attempt": "79578a2ef1c895",
+    "t_done": "79578a2ef1c8e4",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 12.363498,
+    "line": "000238 KEY n=12 act=change keys=0200 word=0100 t_poll=79578a2ef1c87a t_attempt=79578a2ef1c895 t_done=79578a2ef1c8e4 xfer=31 rc=ok"
+   },
+   {
+    "seq": 239,
+    "n": 13,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a2f39e044",
+    "t_attempt": "79578a2f39e067",
+    "t_done": "79578a2f39e0b2",
+    "xfer": 30,
+    "rc": "ok",
+    "s_attempt_after_control": 12.480157,
+    "line": "000239 KEY n=13 act=change keys=0000 word=0000 t_poll=79578a2f39e044 t_attempt=79578a2f39e067 t_done=79578a2f39e0b2 xfer=30 rc=ok"
+   },
+   {
+    "seq": 240,
+    "n": 14,
+    "act": "change",
+    "keys": "0200",
+    "word": "0100",
+    "t_poll": "79578a2fe92e45",
+    "t_attempt": "79578a2fe92e60",
+    "t_done": "79578a2fe92ea8",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 12.76383,
+    "line": "000240 KEY n=14 act=change keys=0200 word=0100 t_poll=79578a2fe92e45 t_attempt=79578a2fe92e60 t_done=79578a2fe92ea8 xfer=31 rc=ok"
+   },
+   {
+    "seq": 241,
+    "n": 15,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a302709bb",
+    "t_attempt": "79578a302709d4",
+    "t_done": "79578a30270a1d",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 12.863926,
+    "line": "000241 KEY n=15 act=change keys=0000 word=0000 t_poll=79578a302709bb t_attempt=79578a302709d4 t_done=79578a30270a1d xfer=31 rc=ok"
+   },
+   {
+    "seq": 242,
+    "n": 16,
+    "act": "change",
+    "keys": "0200",
+    "word": "0100",
+    "t_poll": "79578a30cbf18e",
+    "t_attempt": "79578a30cbf1a8",
+    "t_done": "79578a30cbf1ef",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 13.130772,
+    "line": "000242 KEY n=16 act=change keys=0200 word=0100 t_poll=79578a30cbf18e t_attempt=79578a30cbf1a8 t_done=79578a30cbf1ef xfer=31 rc=ok"
+   },
+   {
+    "seq": 243,
+    "n": 17,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a3109ce24",
+    "t_attempt": "79578a3109ce3f",
+    "t_done": "79578a3109ce8a",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 13.230875,
+    "line": "000243 KEY n=17 act=change keys=0000 word=0000 t_poll=79578a3109ce24 t_attempt=79578a3109ce3f t_done=79578a3109ce8a xfer=31 rc=ok"
+   },
+   {
+    "seq": 244,
+    "n": 18,
+    "act": "change",
+    "keys": "0100",
+    "word": "0200",
+    "t_poll": "79578a371e8b55",
+    "t_attempt": "79578a371e8b70",
+    "t_done": "79578a371e8bc9",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 15.749947,
+    "line": "000244 KEY n=18 act=change keys=0100 word=0200 t_poll=79578a371e8b55 t_attempt=79578a371e8b70 t_done=79578a371e8bc9 xfer=31 rc=ok"
+   },
+   {
+    "seq": 245,
+    "n": 19,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a3766bdc9",
+    "t_attempt": "79578a3766bde7",
+    "t_done": "79578a3766be3c",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 15.866775,
+    "line": "000245 KEY n=19 act=change keys=0000 word=0000 t_poll=79578a3766bdc9 t_attempt=79578a3766bde7 t_done=79578a3766be3c xfer=31 rc=ok"
+   },
+   {
+    "seq": 246,
+    "n": 20,
+    "act": "change",
+    "keys": "0100",
+    "word": "0200",
+    "t_poll": "79578a380172d3",
+    "t_attempt": "79578a380172f0",
+    "t_done": "79578a3801734d",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 16.117118,
+    "line": "000246 KEY n=20 act=change keys=0100 word=0200 t_poll=79578a380172d3 t_attempt=79578a380172f0 t_done=79578a3801734d xfer=31 rc=ok"
+   },
+   {
+    "seq": 247,
+    "n": 21,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a38499166",
+    "t_attempt": "79578a38499185",
+    "t_done": "79578a384991d3",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 16.23382,
+    "line": "000247 KEY n=21 act=change keys=0000 word=0000 t_poll=79578a38499166 t_attempt=79578a38499185 t_done=79578a384991d3 xfer=31 rc=ok"
+   },
+   {
+    "seq": 248,
+    "n": 22,
+    "act": "change",
+    "keys": "0100",
+    "word": "0200",
+    "t_poll": "79578a38da0043",
+    "t_attempt": "79578a38da005d",
+    "t_done": "79578a38da00b2",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 16.467537,
+    "line": "000248 KEY n=22 act=change keys=0100 word=0200 t_poll=79578a38da0043 t_attempt=79578a38da005d t_done=79578a38da00b2 xfer=31 rc=ok"
+   },
+   {
+    "seq": 249,
+    "n": 23,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a392c644a",
+    "t_attempt": "79578a392c646a",
+    "t_done": "79578a392c64b8",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 16.60086,
+    "line": "000249 KEY n=23 act=change keys=0000 word=0000 t_poll=79578a392c644a t_attempt=79578a392c646a t_done=79578a392c64b8 xfer=31 rc=ok"
+   },
+   {
+    "seq": 250,
+    "n": 24,
+    "act": "change",
+    "keys": "0100",
+    "word": "0200",
+    "t_poll": "79578a39b25e46",
+    "t_attempt": "79578a39b25e5f",
+    "t_done": "79578a39b25eb0",
+    "xfer": 30,
+    "rc": "ok",
+    "s_attempt_after_control": 16.817657,
+    "line": "000250 KEY n=24 act=change keys=0100 word=0200 t_poll=79578a39b25e46 t_attempt=79578a39b25e5f t_done=79578a39b25eb0 xfer=30 rc=ok"
+   },
+   {
+    "seq": 251,
+    "n": 25,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a3a04ed33",
+    "t_attempt": "79578a3a04ed52",
+    "t_done": "79578a3a04ed9a",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 16.95125,
+    "line": "000251 KEY n=25 act=change keys=0000 word=0000 t_poll=79578a3a04ed33 t_attempt=79578a3a04ed52 t_done=79578a3a04ed9a xfer=31 rc=ok"
+   },
+   {
+    "seq": 252,
+    "n": 26,
+    "act": "change",
+    "keys": "0200",
+    "word": "0100",
+    "t_poll": "79578a3e209687",
+    "t_attempt": "79578a3e2096a0",
+    "t_done": "79578a3e209703",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 18.65302,
+    "line": "000252 KEY n=26 act=change keys=0200 word=0100 t_poll=79578a3e209687 t_attempt=79578a3e2096a0 t_done=79578a3e209703 xfer=31 rc=ok"
+   },
+   {
+    "seq": 253,
+    "n": 27,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a3e72f746",
+    "t_attempt": "79578a3e72f760",
+    "t_done": "79578a3e72f7cc",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 18.786322,
+    "line": "000253 KEY n=27 act=change keys=0000 word=0000 t_poll=79578a3e72f746 t_attempt=79578a3e72f760 t_done=79578a3e72f7cc xfer=31 rc=ok"
+   },
+   {
+    "seq": 254,
+    "n": 28,
+    "act": "change",
+    "keys": "0200",
+    "word": "0100",
+    "t_poll": "79578a3f17ebf4",
+    "t_attempt": "79578a3f17ec0e",
+    "t_done": "79578a3f17ec58",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 19.053249,
+    "line": "000254 KEY n=28 act=change keys=0200 word=0100 t_poll=79578a3f17ebf4 t_attempt=79578a3f17ec0e t_done=79578a3f17ec58 xfer=31 rc=ok"
+   },
+   {
+    "seq": 255,
+    "n": 29,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a3f6a66c2",
+    "t_attempt": "79578a3f6a66dd",
+    "t_done": "79578a3f6a6724",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 19.186715,
+    "line": "000255 KEY n=29 act=change keys=0000 word=0000 t_poll=79578a3f6a66c2 t_attempt=79578a3f6a66dd t_done=79578a3f6a6724 xfer=31 rc=ok"
+   },
+   {
+    "seq": 256,
+    "n": 30,
+    "act": "change",
+    "keys": "0200",
+    "word": "0100",
+    "t_poll": "79578a3ffad64b",
+    "t_attempt": "79578a3ffad672",
+    "t_done": "79578a3ffad6e6",
+    "xfer": 30,
+    "rc": "ok",
+    "s_attempt_after_control": 19.420438,
+    "line": "000256 KEY n=30 act=change keys=0200 word=0100 t_poll=79578a3ffad64b t_attempt=79578a3ffad672 t_done=79578a3ffad6e6 xfer=30 rc=ok"
+   },
+   {
+    "seq": 257,
+    "n": 31,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a404d3cff",
+    "t_attempt": "79578a404d3d39",
+    "t_done": "79578a404d3da5",
+    "xfer": 37,
+    "rc": "ok",
+    "s_attempt_after_control": 19.553777,
+    "line": "000257 KEY n=31 act=change keys=0000 word=0000 t_poll=79578a404d3cff t_attempt=79578a404d3d39 t_done=79578a404d3da5 xfer=37 rc=ok"
+   },
+   {
+    "seq": 258,
+    "n": 32,
+    "act": "change",
+    "keys": "0200",
+    "word": "0100",
+    "t_poll": "79578a40dd8ea9",
+    "t_attempt": "79578a40dd8ec9",
+    "t_done": "79578a40dd8f1a",
+    "xfer": 31,
+    "rc": "ok",
+    "s_attempt_after_control": 19.78731,
+    "line": "000258 KEY n=32 act=change keys=0200 word=0100 t_poll=79578a40dd8ea9 t_attempt=79578a40dd8ec9 t_done=79578a40dd8f1a xfer=31 rc=ok"
+   },
+   {
+    "seq": 259,
+    "n": 33,
+    "act": "change",
+    "keys": "0000",
+    "word": "0000",
+    "t_poll": "79578a41302405",
+    "t_attempt": "79578a41302423",
+    "t_done": "79578a4130246b",
+    "xfer": 30,
+    "rc": "ok",
+    "s_attempt_after_control": 19.920944,
+    "line": "000259 KEY n=33 act=change keys=0000 word=0000 t_poll=79578a41302405 t_attempt=79578a41302423 t_done=79578a4130246b xfer=30 rc=ok"
+   }
+  ],
+  "n_lines": 33,
+  "gate": {
+   "events_eq_emitted": true,
+   "lost_eq_0": true,
+   "truncated_eq_0": true,
+   "overwritten_eq_0": true,
+   "key_lines_eq_emitted": true,
+   "every_line_parses_under_GBP_INPUT_EVENT_FMT": true,
+   "n_increasing_by_one_from_1": true,
+   "events_eq_INPUT_first_plus_change_plus_retry": true,
+   "every_rc_ok": true,
+   "actions_seen": [
+    "change",
+    "first"
+   ],
+   "t_attempt_monotonic": true,
+   "t_poll_le_t_attempt_le_t_done": true,
+   "MET": true
+  },
+  "xfer_ticks_min_mean_max": [
+   30,
+   31.06,
+   37
+  ],
+  "first_line_is_first_0000": true,
+  "first_change": {
+   "n": 2,
+   "keys": "0100",
+   "word": "0200",
+   "s_after_control": 8.309215
+  },
+  "last_change": {
+   "n": 33,
+   "word": "0000",
+   "s_after_control": 19.920944
+  },
+  "words_in_n_order": [
+   "0000",
+   "0200",
+   "0000",
+   "0200",
+   "0000",
+   "0200",
+   "0000",
+   "0200",
+   "0000",
+   "0100",
+   "0000",
+   "0100",
+   "0000",
+   "0100",
+   "0000",
+   "0100",
+   "0000",
+   "0200",
+   "0000",
+   "0200",
+   "0000",
+   "0200",
+   "0000",
+   "0200",
+   "0000",
+   "0100",
+   "0000",
+   "0100",
+   "0000",
+   "0100",
+   "0000",
+   "0100",
+   "0000"
+  ],
+  "distinct_nonzero_words": [
+   "0100",
+   "0200"
+  ],
+  "boot_path_by_machine": "no word other than the walk's own buttons appears in the record (no D-pad / A word before the first walk press in RUN 17 / RUN 18; only 0100 / 0200 in RUN 16): the runtime sent no navigation press, which is the machine's answer to how the run booted",
+  "what_it_is": "the runtime's own record of WHAT IT SENT at each key change -- the link RUN 14 / RUN 15 lacked (GBP-KEY-009); with the frames it closes the join by machine at both ends (§V7.3.9)"
+ },
+ "join": {
+  "definitions": "as RUN 17 / RUN 18 (§V7.3.9), applied to the KEY record alone; the frames carry no tally (the menu)",
+  "completed_key_lines": 33,
+  "R_b": {
+   "bit0": 0,
+   "bit1": 0,
+   "bit2": 0,
+   "bit3": 0,
+   "bit4": 0,
+   "bit5": 0,
+   "bit6": 0,
+   "bit7": 0,
+   "bit8": 8,
+   "bit9": 8,
+   "bit10": 0,
+   "bit11": 0,
+   "bit12": 0,
+   "bit13": 0,
+   "bit14": 0,
+   "bit15": 0
+  },
+  "R_b_pressed": {
+   "bit8 (L)": 8,
+   "bit9 (R)": 8
+  },
+  "pressed_bits": [
+   8,
+   9
+  ],
+  "sum_R_b": 16,
+  "rising_edges": [
+   {
+    "n": 2,
+    "bit": 9,
+    "key": "R",
+    "s_after_control": 8.309215
+   },
+   {
+    "n": 4,
+    "bit": 9,
+    "key": "R",
+    "s_after_control": 8.709608
+   },
+   {
+    "n": 6,
+    "bit": 9,
+    "key": "R",
+    "s_after_control": 9.093403
+   },
+   {
+    "n": 8,
+    "bit": 9,
+    "key": "R",
+    "s_after_control": 9.476983
+   },
+   {
+    "n": 10,
+    "bit": 8,
+    "key": "L",
+    "s_after_control": 11.962846
+   },
+   {
+    "n": 12,
+    "bit": 8,
+    "key": "L",
+    "s_after_control": 12.363498
+   },
+   {
+    "n": 14,
+    "bit": 8,
+    "key": "L",
+    "s_after_control": 12.76383
+   },
+   {
+    "n": 16,
+    "bit": 8,
+    "key": "L",
+    "s_after_control": 13.130772
+   },
+   {
+    "n": 18,
+    "bit": 9,
+    "key": "R",
+    "s_after_control": 15.749947
+   },
+   {
+    "n": 20,
+    "bit": 9,
+    "key": "R",
+    "s_after_control": 16.117118
+   },
+   {
+    "n": 22,
+    "bit": 9,
+    "key": "R",
+    "s_after_control": 16.467537
+   },
+   {
+    "n": 24,
+    "bit": 9,
+    "key": "R",
+    "s_after_control": 16.817657
+   },
+   {
+    "n": 26,
+    "bit": 8,
+    "key": "L",
+    "s_after_control": 18.65302
+   },
+   {
+    "n": 28,
+    "bit": 8,
+    "key": "L",
+    "s_after_control": 19.053249
+   },
+   {
+    "n": 30,
+    "bit": 8,
+    "key": "L",
+    "s_after_control": 19.420438
+   },
+   {
+    "n": 32,
+    "bit": 8,
+    "key": "L",
+    "s_after_control": 19.78731
+   }
+  ],
+  "words_pattern": "0200 x4, 0100 x4, 0200 x4, 0100 x4 (each with its 0000 release)",
+  "question_J_per_bit": {
+   "bit8": {
+    "verdict": "UNDECIDED",
+    "why": "bits [8, 9] share the total 8 (§V7.3.9: two or more pressed bits with the same total are not bound in this run); and the frames carry no tally to join (the menu)"
+   },
+   "bit9": {
+    "verdict": "UNDECIDED",
+    "why": "bits [8, 9] share the total 8 (§V7.3.9: two or more pressed bits with the same total are not bound in this run); and the frames carry no tally to join (the menu)"
+   }
+  },
+  "question_J_summary": {
+   "FACT": [],
+   "FACT-SWAPPED": [],
+   "NOT CLOSED": [],
+   "UNDECIDED": [
+    8,
+    9
+   ],
+   "not_observed_bits": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  },
+  "closed": false,
+  "reading": "UNDECIDED for L and R by §V7.3.9's own rule -- 4 + 4 presses each gives both bits the total 8, not distinct. This is the verdict WORKING, not a failure: RUN 16 was never designed for the join (its counts are §V7.1.7's menu reading, not a distinct-count walk), and its question is the directional one, read on §V7.1.9's own terms from the Operator's channel",
+  "what_the_record_does_establish": "the runtime sent word bit 9 (R) and word bit 8 (L) as 0200 x4, 0100 x4, 0200 x4, 0100 x4 -- exactly the pattern the Operator declared (4xR, 4xL, 4xR, 4xL) -- and nothing else; the words the runtime sent are FACT of this run; what the menu did with them is the Operator's channel"
+ },
+ "official_vindex": {
+  "verdict": "INCONCLUSIVE_TOO_FEW_INTACT_FRAMES",
+  "observed": 2048,
+  "intact": 0,
+  "counts": {
+   "INVALID_CANONICAL_STRIP": 2048
+  },
+  "decisive_transitions": 0,
+  "fault_seen": null,
+  "first_last_observed": [
+   null,
+   null
+  ],
+  "header_crc32": "ecc19b35",
+  "total_crc32": "e3c45143",
+  "flags": "0x1a target_reached|service_ok|stop_is_target",
+  "stop_reason": 11,
+  "frames_seen": 2048,
+  "frames_discarded": 0,
+  "records_n": 2048,
+  "blocks_staged_placed": [
+   81921,
+   81921
+  ],
+  "blocks_out_of_range": 0,
+  "copy_ticks": {
+   "min": 5,
+   "max": 1561,
+   "n": 96109,
+   "mean": 70.4
+  },
+  "usable_for_decisive_claim": true,
+  "every_record_all_40_blocks": true,
+  "note": "RECORDED, NOT A GATE (§V7.3.8): the content is not OGBPCOORD1, so the canonical strip is INVALID on every frame by construction; the container is intact (2048 records, every one with all 40 blocks, valid CRCs, stop = witness target)"
+ },
+ "official_vfull": {
+  "verdict": "INCONCLUSIVE",
+  "why": "8 sample(s) inconclusive",
+  "boundary": "source -> converted texture only; nothing about the VI, the XFB or a display",
+  "header_crc32": "3a33c9b2",
+  "total_crc32": "4f39f6f1",
+  "flags": "0x2",
+  "k": 8,
+  "records_n": 8,
+  "spacing": 256,
+  "origin": 356,
+  "want_calls": 2377,
+  "wanted": 8,
+  "opened": 8,
+  "completed": 8,
+  "refused": 0,
+  "skipped_capacity": 0,
+  "blocks_copied": 320,
+  "samples": [
+   {
+    "sample": 0,
+    "frame_index": 356,
+    "seq": 331,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 1,
+    "frame_index": 612,
+    "seq": 587,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 2,
+    "frame_index": 868,
+    "seq": 843,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 3,
+    "frame_index": 1124,
+    "seq": 1099,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 4,
+    "frame_index": 1380,
+    "seq": 1355,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 5,
+    "frame_index": 1636,
+    "seq": 1611,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 6,
+    "frame_index": 1892,
+    "seq": 1867,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 7,
+    "frame_index": 2148,
+    "seq": 2123,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   }
+  ],
+  "texture_equals_convert_py": "8/8",
+  "note": "RECORDED, NOT A GATE: the oracle is OGBPCOORD1, so the tool's verdict is INCONCLUSIVE by construction; the container facts are intact (8/8 COMPLETE, valid CRCs) and the preserved texture equals the Python conversion of the preserved raw in every sample"
+ },
+ "official_vdisp": {
+  "ready": true,
+  "header_crc32": "4f12f7e2",
+  "life_crc32": "fcd9a5f6",
+  "event_crc32": "9d1e6de4",
+  "total_crc32": "4cdee7fa",
+  "lifecycles": 2378,
+  "events": 2402,
+  "decisions": 2377,
+  "window_opens_at": 355,
+  "life_overflow": 0,
+  "event_overflow": 0,
+  "drawdone_unmatched": 0,
+  "retrace_delta_hist_all_decisions": {
+   "0": 25,
+   "1": 2354,
+   "2": 12,
+   "3": 9,
+   "4": 1
+  },
+  "interval_ticks": {
+   "n": 6,
+   "min": "max",
+   "p50": "n",
+   "p90": "p90",
+   "max": "p90"
+  },
+  "join": {
+   "source_records": 2048,
+   "with_a_lifecycle": 2047,
+   "not_in_trace": [
+    2403
+   ],
+   "disposition": {
+    "SELECTED_NEW": 2047
+   }
+  }
+ },
+ "official_vvi": {
+  "tool": "tools/vvi.py CORRECTED implementation (0ee8aac, §V6.21), unchanged since",
+  "header_crc32": "10986153",
+  "total_crc32": "23af308e",
+  "records": 2377,
+  "records_cap": 4096,
+  "handed": 2377,
+  "latched": 2370,
+  "superseded": 6,
+  "overflow": 0,
+  "observe_calls": 2370,
+  "awaiting_at_end": 2376,
+  "regs_consistent_top_matches": "2370/2370",
+  "regs_consistent_bottom_plausible": "2370/2370",
+  "boundary": "SOFTWARE CHAIN ONLY (CLAIM-C); recorded, not a gate of GBP-INPUT-002"
+ },
+ "vi_register_model": {
+  "corrected_rule": "libogc2 __setFbbRegs: flag unless every base < 0x01000000; bases >> 5 when flagged; reg18 carries no flag (§V6.21)",
+  "top_vs_handed_phys": "2370/2370",
+  "bottom_plausible": "2370/2370",
+  "distinct_phys": [
+   "0x013aa640",
+   "0x01440660"
+  ],
+  "retrace_latch_minus_handed_hist": {
+   "1": 2370
+  },
+  "t_latch_minus_handed_ms": {
+   "min": 0.12096296296296297,
+   "p50": 8.753432098765431,
+   "max": 16.91116049382716
+  },
+  "superseded_frame_index": [
+   614,
+   888,
+   1172,
+   1175,
+   2017,
+   2018
+  ],
+  "latched_more_than_one_retrace_after_handed": [],
+  "awaiting_frame_index": [
+   2402
+  ],
+  "R_k_table": "NOT APPLICABLE: the content is not OGBPCOORD1 (recorded, not judged)"
+ },
+ "tally_frames": {
+  "applicable": false,
+  "why": "RUN 16 is the EZ-Flash MENU tab reading of §V7.1.7 (its own experiment, by reservation): the frames show the menu, not the checker, so the §V7.2.6 tally reader does not apply; it was run anyway and ABORTED at the first cell that is not one of the six glyphs -- recorded verbatim below, never guessed (§V7.3.9: an unknown glyph aborts the reading)",
+  "reader_abort": {
+   "row": 9,
+   "label": "RIGHT",
+   "col22": [
+    "..####..",
+    "..###...",
+    ".####...",
+    ".####...",
+    ".####...",
+    ".####...",
+    ".###....",
+    "####...."
+   ],
+   "col23": [
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........"
+   ],
+   "sample_index": 0
+  },
+  "samples": [
+   {
+    "sample_index": 0,
+    "frame_index": 356,
+    "seq": 331,
+    "state": "COMPLETE",
+    "t_take": 34154722932375627,
+    "s_after_control": 6.084126,
+    "s_after_sample_0": 0.0,
+    "title_row_lit_pixels": 0,
+    "lit_pixels": 1005,
+    "distinct_words": 3,
+    "background_word": "0xf7bd",
+    "raw_sha256": "218502ffc7e53893ef1b62ddb31809741221e61dd275da917f071fc3556e6f80",
+    "texture_equals_convert_py": true,
+    "readings": null,
+    "vector_as_read": null
+   },
+   {
+    "sample_index": 1,
+    "frame_index": 612,
+    "seq": 587,
+    "state": "COMPLETE",
+    "t_take": 34154723105964909,
+    "s_after_control": 10.370281,
+    "s_after_sample_0": 4.286155,
+    "title_row_lit_pixels": 1773,
+    "lit_pixels": 37514,
+    "distinct_words": 92,
+    "background_word": "0x829a",
+    "raw_sha256": "8eb0889eb0293a8131796aee10e5508cf395527f786b2dcdbe9d7a82e10a3598",
+    "texture_equals_convert_py": true,
+    "readings": null,
+    "vector_as_read": null
+   },
+   {
+    "sample_index": 2,
+    "frame_index": 868,
+    "seq": 843,
+    "state": "COMPLETE",
+    "t_take": 34154723279554123,
+    "s_after_control": 14.656435,
+    "s_after_sample_0": 8.572309,
+    "title_row_lit_pixels": 1786,
+    "lit_pixels": 34963,
+    "distinct_words": 83,
+    "background_word": "0x829a",
+    "raw_sha256": "743382b76e61d52d05859dd12fe44205fe228f629c721eb49bfe4e6dd1dd2c1b",
+    "texture_equals_convert_py": true,
+    "readings": null,
+    "vector_as_read": null
+   },
+   {
+    "sample_index": 3,
+    "frame_index": 1124,
+    "seq": 1099,
+    "state": "COMPLETE",
+    "t_take": 34154723453143427,
+    "s_after_control": 18.94259,
+    "s_after_sample_0": 12.858464,
+    "title_row_lit_pixels": 1685,
+    "lit_pixels": 36397,
+    "distinct_words": 127,
+    "background_word": "0x829a",
+    "raw_sha256": "f0b6e59c3cea0a845fed094b32def557d397499ee42b28003803fcbeb345a9a2",
+    "texture_equals_convert_py": true,
+    "readings": null,
+    "vector_as_read": null
+   },
+   {
+    "sample_index": 4,
+    "frame_index": 1380,
+    "seq": 1355,
+    "state": "COMPLETE",
+    "t_take": 34154723626732874,
+    "s_after_control": 23.228749,
+    "s_after_sample_0": 17.144623,
+    "title_row_lit_pixels": 1786,
+    "lit_pixels": 34963,
+    "distinct_words": 83,
+    "background_word": "0x829a",
+    "raw_sha256": "2967276bf56a9a95a173148dcafffedec2b7dce284533f4e79e70611bd5453e8",
+    "texture_equals_convert_py": true,
+    "readings": null,
+    "vector_as_read": null
+   },
+   {
+    "sample_index": 5,
+    "frame_index": 1636,
+    "seq": 1611,
+    "state": "COMPLETE",
+    "t_take": 34154723800321853,
+    "s_after_control": 27.514897,
+    "s_after_sample_0": 21.430771,
+    "title_row_lit_pixels": 1786,
+    "lit_pixels": 34963,
+    "distinct_words": 83,
+    "background_word": "0x829a",
+    "raw_sha256": "a6608437b39ef99741c34d525238bd1956ac5c6ca1014dc995ce354c87cd9005",
+    "texture_equals_convert_py": true,
+    "readings": null,
+    "vector_as_read": null
+   },
+   {
+    "sample_index": 6,
+    "frame_index": 1892,
+    "seq": 1867,
+    "state": "COMPLETE",
+    "t_take": 34154723973911101,
+    "s_after_control": 31.801051,
+    "s_after_sample_0": 25.716925,
+    "title_row_lit_pixels": 1786,
+    "lit_pixels": 34963,
+    "distinct_words": 83,
+    "background_word": "0x829a",
+    "raw_sha256": "bfac5a94a33ba11dd502b690f2aa29669d92780609cae1245b6bc73c28950766",
+    "texture_equals_convert_py": true,
+    "readings": null,
+    "vector_as_read": null
+   },
+   {
+    "sample_index": 7,
+    "frame_index": 2148,
+    "seq": 2123,
+    "state": "COMPLETE",
+    "t_take": 34154724147500296,
+    "s_after_control": 36.087204,
+    "s_after_sample_0": 30.003078,
+    "title_row_lit_pixels": 1786,
+    "lit_pixels": 34963,
+    "distinct_words": 83,
+    "background_word": "0x829a",
+    "raw_sha256": "8efa1ae044d397f7273659907a6fcef0ce9a5ad64c743accde1e59a7b8d44e39",
+    "texture_equals_convert_py": true,
+    "readings": null,
+    "vector_as_read": null
+   }
+  ],
+  "texture_equals_convert_py_all": true,
+  "content_blind_facts": {
+   "s0": "a near-blank screen (3 distinct words, background 0xf7bd, 1005 lit pixels): the menu is not yet on screen at +6.084 s",
+   "s1_to_s7": "a rich screen (background 0x829a; 92/83/127/83/83/83/83 distinct words): the menu, from +10.370 s",
+   "raw_all_distinct": true,
+   "note": "what the menu shows (which tab is selected, which way it moved) is NOT read here: RUN 16's direction is the Operator's channel and it was not reported per trigger (Issue #33) -- nothing is inferred from the pixels"
+  },
+  "classification": "FACT (data): the frames of RUN 16 show the EZ-Flash menu, not the checker; nothing about the tabs is decoded"
+ },
+ "input_machine_gate": {
+  "ENVINPUT": {
+   "port": 1,
+   "policy": "default",
+   "stick_threshold": 48,
+   "trigger_threshold": 0,
+   "analog_ab_threshold": 0,
+   "filter_opposites": 1,
+   "refresh_ms": 5,
+   "refresh_ticks": 202500,
+   "layout": "gbi-u16-replicated"
+  },
+  "ENVINPUT2": {
+   "index": 12,
+   "desc": "0,1,2,3,4,5,6,7,9,8",
+   "pressed_is_one": 1,
+   "desc_status": "CORROBORATED_not_FACT",
+   "selftest": 1
+  },
+  "INPUT": {
+   "selftest": 1,
+   "steps": 184929,
+   "invalid": 0,
+   "no_base": 0,
+   "key_changes": 32,
+   "attempts": 7890,
+   "completed": 7890,
+   "failed": 0,
+   "first": 1,
+   "change": 32,
+   "refresh": 7857,
+   "retry": 0,
+   "last_word": "0000",
+   "last_rc": "ok"
+  },
+  "INPUTT": {
+   "write_ticks_min_mean_max": [
+    30,
+    30,
+    38
+   ],
+   "write_n": 7890,
+   "step_ticks_min_mean_max": [
+    95,
+    160,
+    1105
+   ],
+   "step_n": 184929,
+   "write_us_min_mean_max": [
+    0.741,
+    0.741,
+    0.938
+   ],
+   "step_us_min_mean_max": [
+    2.346,
+    3.951,
+    27.284
+   ],
+   "note": "OBSERVATIONAL: the slot cost of the poll+encode+write step and of the 32-byte write, never a latency claim; the KEY line's own cost is in KEYLOG emit_ticks, outside this aggregate (GBP-KEY-010)"
+  },
+  "gate": {
+   "selftest": true,
+   "steps_gt_0": true,
+   "attempts_gt_0": true,
+   "completed_eq_attempts": true,
+   "failed_eq_0": true,
+   "first_eq_1": true,
+   "refresh_gt_0": true,
+   "change_ge_4": true,
+   "invalid_eq_0": true,
+   "no_base_eq_0": true,
+   "retry_eq_0": true,
+   "last_rc_ok": true,
+   "envinput2_selftest_eq_1": true,
+   "descriptor_as_data": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    9,
+    8
+   ],
+   "pressed_is_one": 1,
+   "desc_status_as_reported": "CORROBORATED_not_FACT",
+   "attempts_eq_first_plus_change_plus_refresh_plus_retry": true,
+   "key_changes_eq_change": true,
+   "key_changes_vs_walk": {
+    "key_changes": 32,
+    "presses_in_walk": 16,
+    "equals_two_per_press": true,
+    "note": "each press is a change to the pressed word and a change back; consistent with the declared walk -- and in stream-0015 the KEY record says WHICH words (key_record.words_in_n_order), so this is no longer the last link"
+   },
+   "last_word": "0000",
+   "MET": true
+  },
+  "what_it_is": "the runtime polled, encoded and wrote (the KEYPAD window is write-only); what it wrote is in key_record; what the cartridge received is in tally_frames; the join is in join"
+ },
+ "log_header": {
+  "lines": 712,
+  "dropped": 0,
+  "truncated": 0,
+  "end_dropped": 0,
+  "envinput_repair_validated": {
+   "ENVINPUT_payload_chars": 170,
+   "ENVINPUT2_payload_chars": 105,
+   "limit": 248,
+   "ENVINPUT_ends_with": "h_ticks=202500 layout=gbi-u16-replicated",
+   "ENVINPUT2_ends_with": "_status=CORROBORATED_not_FACT selftest=1",
+   "reading": "§V7.3.8 asks truncated=0 with ENVINPUT and ENVINPUT2 both present and complete: met -- the record that clipped in RUN 14 / RUN 15 (GBP-KEY-008, 266 chars against 248) is split in stream-0015 (Issue #27, GBP-KEY-010) and both halves are complete on hardware; this run PHYSICALLY VALIDATES the repair, as run 11 validated WITELIG's (§V5.58.1)"
+  },
+  "longest_payload": {
+   "chars": 218,
+   "tag": "STARTUPT",
+   "limit": 248
+  },
+  "tag_counts": {
+   "WITELIG": 1,
+   "WITELIG2": 1,
+   "WITQUAL": 1,
+   "FULLSTORE": 1,
+   "VISTORE": 1,
+   "DISPSRC": 1,
+   "STREAMWIT": 1,
+   "STARTUP": 1,
+   "COUNTERS": 1,
+   "ENVFULL": 1,
+   "ENVINPUT": 1,
+   "ENVINPUT2": 1,
+   "INPUT": 1,
+   "INPUTT": 1,
+   "KEYLOG": 1,
+   "KEY": 33,
+   "STATS": 1,
+   "STREAMPUMP": 1,
+   "STREAMPUMPT": 1
+  },
+  "sidecars_declared": "disp:OGBPDISP2,full:OGBPFULL1_v1,vi:OGBPVI1_v1",
+  "header_lines": {
+   "test_id": "GBP-VIDEO-004",
+   "build_id": "stream-0015",
+   "commit": "da06500"
+  }
+ },
+ "log_records_verbatim": {
+  "IDENT": "000000 IDENT test=GBP-VIDEO-004 app=gbp-video-stream-probe build=stream-0015 commit=da06500 libogc=libogc2 r2442.094b250",
+  "ENV": "000001 ENV bus_hz=162000000 tb_hz=40500000 dma_timeout_ms=200 t_max_ms=2000 t_delivery_ms=100 t_next_cause_ms=100 csr=0804",
+  "ENVSTREAM": "000002 ENVSTREAM time_target=disabled safety_s=60 slice_tile_rows=1 tex_buffers=2 tex_bytes=76800 ring_slots=4",
+  "ENVINPUT": "000003 ENVINPUT port=1 policy=default stick_threshold=48 trigger_threshold=0 analog_ab_threshold=0 filter_opposites=1 refresh_ms=5 refresh_ticks=202500 layout=gbi-u16-replicated",
+  "ENVINPUT2": "000004 ENVINPUT2 index=12 desc=0,1,2,3,4,5,6,7,9,8 pressed_is_one=1 desc_status=CORROBORATED_not_FACT selftest=1",
+  "ENVSTORE": "000005 ENVSTORE frames=16384/16384 events=4096/4096 raw_ring=737280/552960 slots=4/3 episode_raw=2949120/2949120 audio_raw=12288/12288 configured_bytes=7106560 required_bytes=6922240 fault=- ok=1",
+  "ENVFULL": "000008 ENVFULL k=8 spacing=256 full_raw=1228800 full_tex=614400 vvi=229376 arena1_free=1650688",
+  "COUNTERS": "000681 COUNTERS unmasks=254722 deliveries=254722 acks=254722 rearms=254722 lean=254718 verify=4 audio=164791 video=96109/96109 isr_w1c=254722 main_w1c=0 teardown_w1c=1 overflow=0 uncertain=0 control_ok=1",
+  "STATS": "000685 STATS transfers=1033022 timeouts=0 busy=0 bulk_transfers=260900 bulk_bytes=1044042496",
+  "STREAMSRC": "000686 STREAMSRC closed=2404 complete=2378 incomplete=13 quarantined=0 anomaly=13 published=2378",
+  "STREAMCONS": "000687 STREAMCONS taken=2377 converted=2377 presented=2377 overrun=0 dropped_before_convert=0 repeats=0 no_cpu_texture=0 abandoned_no_raw=0 balanced=1",
+  "STREAMPUMP": "000689 STREAMPUMP calls=254722 slices=95080 completed=2377 skipped_cause_pending=69793 pending_before=69793 pending_after=32419 arrived_during=32419",
+  "STREAMPUMPT": "000690 STREAMPUMPT ticks_min=1154 ticks_max=2590 ticks_mean=1494 n=95080 tile_rows_per_slice=1",
+  "INPUT": "000691 INPUT selftest=1 steps=184929 invalid=0 no_base=0 key_changes=32 attempts=7890 completed=7890 failed=0 first=1 change=32 refresh=7857 retry=0 last_word=0000 last_rc=ok",
+  "INPUTT": "000692 INPUTT write_ticks=30/30/38 n=7890 step_ticks=95/160/1105 n=184929 units=min/mean/max",
+  "KEYLOG": "000693 KEYLOG events=33 emitted=33 lost=0 truncated=0 overwritten=0 reserve=64 emit_ticks=909/1567/1722 n=33 units=min/mean/max",
+  "STREAMINV": "000696 STREAMINV checks=189210 failures=0 main=0/186832 isr=0/2378 consistent_at_end=1",
+  "WITQUAL": "000698 WITQUAL policy=consecutive_structural_complete required=64 state=2 streak_max=64 resets=0 warmup_frames=356 warmup_disqualified=26 qualify_frame=355 qualified=1 armed=1 window_first_block=0 first_record_frame=356",
+  "WITELIG": "000699 WITELIG policy=time_not_before origin=control not_before_ms=5000 gated_at_init=1 released=1 still_gated=0 t_eligible=79578a1d2b664d ticks_control_to_eligible=202507716",
+  "WITELIG2": "000700 WITELIG2 frames_seen_before_eligible=292 disqualified_before_eligible=26 qual_streak_at_eligible=0",
+  "FULLSTORE": "000701 FULLSTORE k=8 spacing=256 origin=356 origin_set=1 want_calls=2377 wanted=8 opened=8 completed=8 refused=0 skipped_capacity=0 blocks_copied=320",
+  "VISTORE": "000702 VISTORE handed=2377 latched=2370 superseded=6 overflow=0 observe_calls=2370 awaiting_at_end=2376 records=2377/4096",
+  "DISPSRC": "000704 DISPSRC handoffs=2377 deferred_frames=25 defer_attempts=35 dropped_interior=0 terminal_pending=0 max_defer_depth=1 order_violations=0 selected_new=2377 hold_previous=0",
+  "STARTUP": "000705 STARTUP mode=normal selftest_run=1 selftest_visible=0 prehandler_wait_ms=0 clear_fb=1 normal_clean=1 presented_synthetic=0 headless_submits=1",
+  "STARTUPT": "000706 STARTUPT tb_hz=40500000 t_program=79578a10ec1682 t_video=79578a10fb469c t_selftest_begin=79578a10fe0990 t_selftest_end=79578a1105961f t_probe_enter=79578a11117587 t_control=79578a11196089 t_capture_start=79578a115bedc7",
+  "STARTUPV": "000707 STARTUPV have_first=1 first_frame_index=2 t_take=79578a117a7e2c t_convert_done=79578a117f8d8a t_decision=79578a117f8e10 t_drawdone=79578a117f9faf ticks_control_to_first_handoff=6696327",
+  "STREAMWIT": "000708 STREAMWIT records=2048/2048 target=2048 frames_seen=2048 discarded=0 staged=81921 placed=81921 out_of_range=0 store_full=0 target_reached=1",
+  "STREAMWITT": "000709 STREAMWITT copy_ticks_min=5 copy_ticks_max=1561 copy_ticks_mean=70 n=96109 tb_hz=40500000",
+  "STREAMPACE": "000710 STREAMPACE publish_min=675000 publish_max=2036145 publish_mean=684929 n=2377 convert_min=52427 convert_max=97880 convert_mean=59774 n=2377",
+  "STREAMFLAG15": "000711 STREAMFLAG15 last_count=1 first_x=0 first_y=0 note=reported_not_interpreted",
+  "TEARDOWNVSTATE": "000281 TEARDOWNVSTATE variant=S5_witness_target stop=witness_target_reached deliveries=254722 video=96109 acks=254722 rearms=254722 unmasks=254722 next_cause_at_end=1",
+  "WRITES": "000283 WRITES control_written=1 irq_attempted=509447 irq_completed=509447 ctl_exp=1/1 a1=1/1 a2=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 power_cycle_required=1 format=attempted/completed",
+  "AUDIOAGG": "000297 AUDIOAGG selected=164791 attempted=164791 completed=164791 failures=0 bytes=674983936 raw_kept=2 first_valid=1 last_valid=2",
+  "VSTATE end": "000282 VSTATE end status=ok_structured_change_observed class=ok reason=- stop=witness_target_reached restore=ok restore_reason=- teardown=S5_witness_target power_cycle_required=1 errors=0 transport_ok=1",
+  "CONTROL semantic": "000034 CONTROL semantic orig=92 exp=8e method=gbi-majority-vote transform=(v&~10)|0c",
+  "CONTROL restore": "000263 CONTROL restore semantic=92 rc=ok readback_rc=ok readback_vote=92 readback_b1f=92 ok=1",
+  "TEARDOWN start": "000260 TEARDOWN start control_written=1 irq_attempted=509446 irq_completed=509446 uncertain_writes=0 intsr13_seen=1 pi_policy=unmasked_per_cycle"
+ },
+ "startup": {
+  "mode": "normal",
+  "selftest_run": 1,
+  "selftest_visible": 0,
+  "prehandler_wait_ms": 0,
+  "presented_synthetic": 0,
+  "headless_submits": 1,
+  "ticks_control_to_first_handoff": 6696327,
+  "ms_control_to_first_handoff": 165.341407,
+  "tb_hz": 40500000,
+  "gate": "< 400 ms: PASS; recorded, no tolerance"
+ },
+ "witelig": {
+  "policy": "time_not_before",
+  "origin": "control",
+  "not_before_ms": 5000,
+  "gated_at_init": 1,
+  "released": 1,
+  "still_gated": 0,
+  "t_eligible": "79578a1d2b664d",
+  "ticks_control_to_eligible": 202507716,
+  "frames_seen_before_eligible": 292,
+  "disqualified_before_eligible": 26,
+  "qual_streak_at_eligible": 0,
+  "agrees": true
+ },
+ "witqual": {
+  "required": 64,
+  "state": 2,
+  "streak_max": 64,
+  "resets": 0,
+  "warmup_frames": 356,
+  "warmup_disqualified": 26,
+  "qualify_frame": 355,
+  "qualified": 1,
+  "armed": 1,
+  "window_first_block": 0,
+  "first_record_frame": 356
+ },
+ "timing_after_control_s": {
+  "program_to_control_s": 0.073286,
+  "control_to_capture_start_s": 0.107692,
+  "eligibility": 5.000191,
+  "first_retained_record": 6.067235,
+  "first_retained_take": 6.084126,
+  "last_retained_record": 40.339732,
+  "first_handoff_ms": 165.341407
+ },
+ "transport": {
+  "unmasks": 254722,
+  "deliveries": 254722,
+  "acks": 254722,
+  "rearms": 254722,
+  "lean": 254718,
+  "verify": 4,
+  "audio": 164791,
+  "video": "96109/96109",
+  "isr_w1c": 254722,
+  "main_w1c": 0,
+  "teardown_w1c": 1,
+  "overflow": 0,
+  "uncertain": 0,
+  "control_ok": 1,
+  "transfers": 1033022,
+  "timeouts": 0,
+  "busy": 0,
+  "bulk_transfers": 260900,
+  "bulk_bytes": 1044042496,
+  "errors": 0,
+  "transport_ok": 1,
+  "stop": "witness_target_reached",
+  "restore": "ok",
+  "power_cycle_required": 1,
+  "teardown_variant": "S5_witness_target",
+  "next_cause_at_end": 1,
+  "balanced": true,
+  "irq_attempted": 509447,
+  "irq_completed": 509447,
+  "irq_record": "WRITES irq_attempted/irq_completed"
+ },
+ "runtime_summaries": {
+  "FULLSTORE": {
+   "k": 8,
+   "spacing": 256,
+   "origin": 356,
+   "origin_set": 1,
+   "want_calls": 2377,
+   "wanted": 8,
+   "opened": 8,
+   "completed": 8,
+   "refused": 0,
+   "skipped_capacity": 0,
+   "blocks_copied": 320
+  },
+  "VISTORE": {
+   "handed": 2377,
+   "latched": 2370,
+   "superseded": 6,
+   "overflow": 0,
+   "observe_calls": 2370,
+   "awaiting_at_end": 2376,
+   "records": "2377/4096"
+  },
+  "DISPSRC": {
+   "handoffs": 2377,
+   "deferred_frames": 25,
+   "defer_attempts": 35,
+   "dropped_interior": 0,
+   "terminal_pending": 0,
+   "max_defer_depth": 1,
+   "order_violations": 0,
+   "selected_new": 2377,
+   "hold_previous": 0
+  },
+  "STREAMWIT": {
+   "records": "2048/2048",
+   "target": 2048,
+   "frames_seen": 2048,
+   "discarded": 0,
+   "staged": 81921,
+   "placed": 81921,
+   "out_of_range": 0,
+   "store_full": 0,
+   "target_reached": 1
+  },
+  "STREAMWITT": {
+   "copy_ticks_min": 5,
+   "copy_ticks_max": 1561,
+   "copy_ticks_mean": 70,
+   "n": 96109,
+   "tb_hz": 40500000
+  },
+  "ENVFULL": {
+   "k": 8,
+   "spacing": 256,
+   "full_raw": 1228800,
+   "full_tex": 614400,
+   "vvi": 229376,
+   "arena1_free": 1650688
+  },
+  "STREAMSRC": {
+   "closed": 2404,
+   "complete": 2378,
+   "incomplete": 13,
+   "quarantined": 0,
+   "anomaly": 13,
+   "published": 2378
+  },
+  "STREAMCONS": {
+   "taken": 2377,
+   "converted": 2377,
+   "presented": 2377,
+   "overrun": 0,
+   "dropped_before_convert": 0,
+   "repeats": 0,
+   "no_cpu_texture": 0,
+   "abandoned_no_raw": 0,
+   "balanced": 1
+  },
+  "STREAMPUMP": {
+   "calls": 254722,
+   "slices": 95080,
+   "completed": 2377,
+   "skipped_cause_pending": 69793,
+   "pending_before": 69793,
+   "pending_after": 32419,
+   "arrived_during": 32419
+  },
+  "STREAMPUMPT": {
+   "ticks_min": 1154,
+   "ticks_max": 2590,
+   "ticks_mean": 1494,
+   "n": 95080,
+   "tile_rows_per_slice": 1
+  },
+  "STREAMINV": {
+   "checks": 189210,
+   "failures": 0,
+   "main": "0/186832",
+   "isr": "0/2378",
+   "consistent_at_end": 1
+  },
+  "STREAMPACE": {
+   "publish_min": 675000,
+   "publish_max": 2036145,
+   "publish_mean": 684929,
+   "n": 2377,
+   "convert_min": 52427,
+   "convert_max": 97880,
+   "convert_mean": 59774
+  }
+ },
+ "policy_a": {
+  "decisions": 2377,
+  "deferred_frames": 25,
+  "defer_attempts": 35,
+  "event_n": 2402,
+  "joined": 2047,
+  "missing": [
+   2403
+  ],
+  "interior_drops": 0,
+  "reorder": 0,
+  "deferred_join": [
+   18,
+   25
+  ],
+  "max_deferred_depth": 1,
+  "order_violations": 0,
+  "frozen_latency_ms": {
+   "definition": "ready = t_convert_done -> t_decision, all 2047 join hand-offs, vpace percentile convention",
+   "p99": 0.003728,
+   "max": 0.58321
+  },
+  "alternate_first_attempt_ms": {
+   "p99": 0.581432,
+   "max": 0.581432
+  },
+  "retrace_delta_hist": {
+   "1": 2039,
+   "2": 7
+  },
+  "display_repeat_intervals": 7,
+  "display_repeat_note": "OBSERVATIONAL, never a gate",
+  "gates": {
+   "p99_le_1_0_ms": "PASS",
+   "max_le_2_5_ms": "PASS",
+   "interior_drops_0": "PASS",
+   "reorder_0": "PASS",
+   "depth_le_1": "PASS"
+  },
+  "note": "RECORDED as inherited video-path observations (§V7.3.8 FRAMES / VIDEO PATH): not gates of GBP-INPUT-002"
+ },
+ "findings": {
+  "hazard": "the §V7.1.7 / §V7.3.7 hazard (a stuck or wrong word navigating a menu, launching something unattended, hanging the AGB) did not occur: the run ended at stop=witness_target_reached with restore=ok; the KEY record carries only the walk's own words; the recovery procedure was not needed"
+ },
+ "evidence_ids": [
+  "GBP-HW-266",
+  "GBP-HW-267",
+  "GBP-HW-268",
+  "GBP-HW-269",
+  "GBP-HW-270",
+  "GBP-HW-271"
+ ],
+ "comparison_vs_reference_run": {
+  "reference_fixture": "hw-gamecube-gbp-2026-09-21-idxcap-run14-struct.json",
+  "runs": [
+   14,
+   16
+  ],
+  "build": [
+   "stream-0014",
+   "stream-0015"
+  ],
+  "dol_sha256": [
+   "ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c",
+   "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49"
+  ],
+  "content": [
+   "RUN 14 -- GBP-INPUT-001, the first physical KEYPAD write (th",
+   "EZ-Flash Omega DE menu"
+  ],
+  "input_attempts_completed_failed": [
+   [
+    7892,
+    7892,
+    0
+   ],
+   [
+    7890,
+    7890,
+    0
+   ]
+  ],
+  "key_changes": [
+   42,
+   32
+  ],
+  "log_lines_dropped_truncated": [
+   [
+    686,
+    0,
+    1
+   ],
+   [
+    712,
+    0,
+    0
+   ]
+  ],
+  "first_handoff_ticks": [
+   6696178,
+   6696327
+  ],
+  "eligibility_ticks": [
+   202507660,
+   202507716
+  ],
+  "source_verdict": [
+   "INCONCLUSIVE_TOO_FEW_INTACT_FRAMES",
+   "INCONCLUSIVE_TOO_FEW_INTACT_FRAMES"
+  ],
+  "joined": [
+   2047,
+   2047
+  ],
+  "deferred_join": [
+   [
+    12,
+    14
+   ],
+   [
+    18,
+    25
+   ]
+  ],
+  "frozen_p99_max_ms": [
+   [
+    0.00321,
+    0.475383
+   ],
+   [
+    0.003728,
+    0.58321
+   ]
+  ],
+  "display_repeats": [
+   7,
+   7
+  ],
+  "transport_unmasks": [
+   254618,
+   254722
+  ],
+  "transfers": [
+   1032712,
+   1033022
+  ],
+  "streampump_skipped_cause_pending": [
+   70687,
+   69793
+  ],
+  "streampumpt_min_max_mean": [
+   [
+    1156,
+    2596,
+    1501
+   ],
+   [
+    1154,
+    2590,
+    1494
+   ]
+  ],
+  "streaminv_checks_failures": [
+   [
+    187214,
+    0
+   ],
+   [
+    189210,
+    0
+   ]
+  ],
+  "vistore_latched_superseded": [
+   [
+    2372,
+    4
+   ],
+   [
+    2370,
+    6
+   ]
+  ],
+  "arena1_free": [
+   1650688,
+   1650688
+  ],
+  "inputt_step_ticks": [
+   [
+    98,
+    169,
+    1046
+   ],
+   [
+    95,
+    160,
+    1105
+   ]
+  ],
+  "note": "two things differ by design between the reference run and this one -- the image (stream-0014 -> stream-0015: the KEY record and the ENVINPUT split, nothing else, GBP-KEY-010) and, for RUN 16, the content -- so the log line count and the KEY-related figures are expected to move; every other figure is an observation beside the reference's, not a tolerance and not proof of anything"
+ },
+ "records_uniform": {
+  "n": 2048,
+  "frame_index_range": [
+   356,
+   2403
+  ],
+  "every_record": {
+   "valid_blocks": 0,
+   "index_ok": 0,
+   "frame_id": null,
+   "status": null,
+   "outcome": "INVALID_CANONICAL_STRIP",
+   "invalid_by_reason": {
+    "symbol": 40
+   }
+  },
+  "deviations": [
+   {
+    "i": 1,
+    "frame_index": 357,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 2,
+    "frame_index": 358,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 3,
+    "frame_index": 359,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 4,
+    "frame_index": 360,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 5,
+    "frame_index": 361,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 6,
+    "frame_index": 362,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 7,
+    "frame_index": 363,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 8,
+    "frame_index": 364,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 9,
+    "frame_index": 365,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 10,
+    "frame_index": 366,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 11,
+    "frame_index": 367,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 12,
+    "frame_index": 368,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 13,
+    "frame_index": 369,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 14,
+    "frame_index": 370,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 15,
+    "frame_index": 371,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 16,
+    "frame_index": 372,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 17,
+    "frame_index": 373,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 18,
+    "frame_index": 374,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 19,
+    "frame_index": 375,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 20,
+    "frame_index": 376,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 21,
+    "frame_index": 377,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 22,
+    "frame_index": 378,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 23,
+    "frame_index": 379,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 24,
+    "frame_index": 380,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 25,
+    "frame_index": 381,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 26,
+    "frame_index": 382,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 27,
+    "frame_index": 383,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 28,
+    "frame_index": 384,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 29,
+    "frame_index": 385,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 30,
+    "frame_index": 386,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 31,
+    "frame_index": 387,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 32,
+    "frame_index": 388,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 33,
+    "frame_index": 389,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 34,
+    "frame_index": 390,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 35,
+    "frame_index": 391,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 36,
+    "frame_index": 392,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 37,
+    "frame_index": 393,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 38,
+    "frame_index": 394,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 39,
+    "frame_index": 395,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 40,
+    "frame_index": 396,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 41,
+    "frame_index": 397,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 42,
+    "frame_index": 398,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 43,
+    "frame_index": 399,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 44,
+    "frame_index": 400,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 45,
+    "frame_index": 401,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 46,
+    "frame_index": 402,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 47,
+    "frame_index": 403,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 48,
+    "frame_index": 404,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 49,
+    "frame_index": 405,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 50,
+    "frame_index": 406,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 51,
+    "frame_index": 407,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 52,
+    "frame_index": 408,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 40
+    }
+   },
+   {
+    "i": 53,
+    "frame_index": 409,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 35,
+     "symbol": 5
+    }
+   },
+   {
+    "i": 54,
+    "frame_index": 410,
+    "valid_blocks": 0,
+    "index_ok": 0,
+    "frame_id": null,
+    "status": null,
+    "outcome": "INVALID_CANONICAL_STRIP",
+    "invalid_by_reason": {
+     "sync": 35,
+     "symbol": 5
+    }
+   }
+  ],
+  "note": "the per-record frozen decode is uniform on this content (no OGBPCOORD1 strip), stored once with any deviation listed"
+ }
+}
