@@ -212,10 +212,18 @@ class NothingElseMoved(unittest.TestCase):
                             "captures/fixtures", "docs/protocol", "docs/hardware"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         changed = set(r.stdout.split())
-        self.assertTrue(changed <= ALLOWED, "changed beyond the input and logging modules: %s" % sorted(changed - ALLOWED))
+        # Issue #28 (2026-09-21) corrected docs/protocol/INPUT.md's "GBP-KEY-009; recorded, not implemented" on its
+        # date, in its own commit, and appended the RUN 17 / RUN 18 pre-registration (§V7.3) after §V7.2; the
+        # chapter heading grew; §V7.1 and §V7.2 stay the bytes of this checkpoint's base
+        allowed = ALLOWED | {"docs/protocol/INPUT.md"}
+        self.assertTrue(changed <= allowed, "changed beyond the input and logging modules: %s" % sorted(changed - allowed))
         old = git("show", "%s:docs/research/HARDWARE_TESTS.md" % BASE)
         new = read(HW)
-        self.assertEqual(new[new.index("\n## V7 "):], old[old.index("\n## V7 "):], "§V7 untouched")
+        old_head = old[old.index("\n## V7 "):].splitlines()[1]
+        new_head = [l for l in new.splitlines() if l.startswith("## V7 ")][0]
+        self.assertTrue(new_head.startswith(old_head), "the chapter heading grows, it does not change")
+        self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.3 ")].rstrip("\n"), old[old.index("### V7.1 "):].rstrip("\n"),
+                         "§V7.1 and §V7.2 untouched")
 
 
 if __name__ == "__main__":

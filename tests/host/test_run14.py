@@ -210,7 +210,9 @@ def read_tally(words):
 
 def v72():
     t = read(HW)
-    return t[t.index("### V7.2 "):]
+    i = t.index("### V7.2 ")
+    j = t.find("### V7.3 ", i)          # Issue #28 appended the RUN 17 / RUN 18 pre-registration after §V7.2
+    return t[i:] if j < 0 else t[i:j]
 
 
 class TheFixturesAreThePhysicalFiles(unittest.TestCase):

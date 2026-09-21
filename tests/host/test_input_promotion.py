@@ -189,7 +189,7 @@ class TheConsolidatedInputPage(unittest.TestCase):
                     "thinner than the video plane's", "a counting test ROM, not a game", "## 4. This project's controller mapping — POLICY, not a device fact",
                     "never a property of the GBS-DOL", "## 5. Not established — pointers only", "is **not assessed** by the two runs",
                     "whether the 5 ms refresh is needed or sufficient is not established", "observational, never a latency figure",
-                    "GBP-KEY-009; recorded, not implemented", "`trigger_threshold=0`"):
+                    "GBP-KEY-009; recorded on 2026-09-21 as not implemented — implemented the same day in `stream-0015`", "`trigger_threshold=0`"):
             self.assertIn(tok, f, tok)
         policy_rows = [c for c in rows(read(INPUT)) if c[2].startswith("F (software; POLICY)")]
         self.assertEqual(len(policy_rows), 7)
@@ -202,7 +202,11 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
         if old is None:
             self.skipTest("the base commit is not available in this checkout")
         new = read(HW)
-        self.assertEqual(new[new.index("\n## V7 "):], old[old.index("\n## V7 "):], "§V7 (V7.1 and V7.2) untouched")
+        # Issue #28 appended §V7.3 and extended the chapter heading; §V7.1 and §V7.2 stay the bytes of the base
+        old_head = old[old.index("\n## V7 "):].splitlines()[1]
+        new_head = [l for l in new.splitlines() if l.startswith("## V7 ")][0]
+        self.assertTrue(new_head.startswith(old_head), "the chapter heading grows, it does not change")
+        self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.3 ")].rstrip("\n"), old[old.index("### V7.1 "):].rstrip("\n"), "§V7.1 and §V7.2 untouched")
         ev_old, ev_new = git_show("docs/research/EVIDENCE.md"), read(EVIDENCE)
         heads = lambda t: [l for l in t.splitlines() if re.match(r"^#{2,4} +(GBP-KEY-00[1-9]|GBP-HW-26[1-5])\b", l)]
         self.assertEqual(heads(ev_new), heads(ev_old), "no evidence status changed")
