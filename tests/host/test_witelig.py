@@ -172,9 +172,14 @@ class TheGateKnowsNothingAboutContent(unittest.TestCase):
 
 
 class TheBuildIsANewIdentity(unittest.TestCase):
-    def test_build_id_is_stream_0013(self):
-        m = re.search(r"^BUILD_ID\s*:=\s*(\S+)$", read(MAKE), re.M)
-        self.assertEqual(m.group(1), "stream-0013")
+    def test_build_id_is_a_later_member_of_the_stream_series(self):
+        """WITELIG2 shipped in stream-0011; every later stream build carries it. The
+        declared id moved on (stream-0013 for RUN 12/13, stream-0014 for Issue #19)
+        and the Makefile keeps the stream-0011 note in its history."""
+        m = re.search(r"^BUILD_ID\s*:=\s*stream-(\d{4})$", read(MAKE), re.M)
+        self.assertIsNotNone(m)
+        self.assertGreaterEqual(int(m.group(1)), 11)
+        self.assertIn("stream-0011 is stream-0010 with ONE reporting change", read(MAKE))
 
     def test_it_is_research_instrumentation_and_says_so(self):
         self.assertIn("RESEARCH INSTRUMENTATION", read(MAIN))
