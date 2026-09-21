@@ -9772,3 +9772,58 @@ and the RUN 12 fixture's duplicates at exactly the predicted entries.
 
 **Next.** The Orchestrator validates §V6.22; the RUN 12 verdicts stand; a
 future stimulus checkpoint may take the design note; no run is pre-registered.
+
+## 2026-09-20 — Issue #13: coord-0002 — the same picture, with the digit tables built before the loop exists
+
+**Goal.** A new stimulus identity that publishes exactly OGBPCOORD1 and
+cannot repeat GBP-VID-034: the entry-frame PREPARE must build nothing.
+Software only; coord-0001 stays the RUN 12 artifact byte for byte; the
+GameCube runtime, the frozen analyzers, the formats, Policy A and the gates
+are untouched; nothing flashed, nothing booted, no RUN 13.
+
+**What was built.** `stimulus/agb-coord2/` (commit `74f9f4f`): coord-0001's
+source with one structural change — `glyph_tables[10][80][50]` (80 000 B,
+EWRAM `.sbss`, NOLOAD) is filled once by `glyph_tables_init()` at boot, after
+the erase tables and before `paint_background()` and `REG_DISPCNT`; the
+entry PREPARE does `glyph_sel = glyph_tables[sc->digit]` and nothing else
+for the digit; PUBLISH DMAs `glyph_sel[r]` from EWRAM over the same span.
+Header title OPENGBPCOOR2 / code CGB2 so the cartridge menu tells the two
+images apart. Canonical `agb-coord2.gba` 3 620 B, `319dacb7…093f`, built twice
+from scratch byte-identical (+124 B of ROM over coord-0001; the LOAD segment
+for EWRAM carries 0 file bytes); delivery image `276ad987…6f700`, 3 620 B,
+logo area only, not flashed. A copy of the canonical is versioned so the
+proof recomputes from a clone.
+
+**The proof, on the exact image.** `tools/coordtime.py` now carries
+immutable profiles; coord-0001's numbers are the numbers of §V6.22 (its 21
+pins untouched; one trailing row added, digit 0 at 280 683 — over, computed
+not assumed). coord-0002's profile is read off its disassembly (prepare
+0x03000000 / 0x348 B, publish 0x03000348, tail at 0x080006a4 with the
+schedule at sp+16, first poll at 0x08000680). PUBLISH: 16 799 / 34 974 /
+17 522 / 35 657 cycles — VMARGIN 54 / 39 / 53 / 39, the same classes RUN 12
+read, the entry +320 cycles for a per-row pointer load, DMA cycles identical.
+Budget 263 835 .. 263 951. PREPARE: ordinary 77 905, steady 86 827 / 86 443,
+exit 77 914, and EVERY entry digit 0..9 at 86 972 — 176 863 cycles under the
+conservative minimum (the Issue's gate: 50 000), zero GamePak ROM reads and
+zero EWRAM writes in every class, nothing in the band, the sensitivity sweep
+`----` in every cell. The real RUN 12 entry tuples (480/0x36, 960/0x27,
+1440/0x26, 1920/0x26) and six alternates all cost 86 972; coord-0001's four
+digits are equally payload-invariant. Boot precompute 4.66–7.48 M cycles
+(278–446 ms), before the display is enabled.
+
+**Parity, three ways.** `tests/host/test_agb_coord2.py`: the ROM's own
+`main.c` on the host against the unchanged `tools/icoord.py`, word for word
+over 240 × 160, for ordinary frames, every digit entry, steady frames as the
+squares change, every exit with the field restored, the boundaries, the
+witness with CRC and STATUS, bit 15; coord-0001 and coord-0002 driven
+identically publish the same full frame in 29 cases; a static audit pins
+the repair and coord-0001's source hash.
+
+**Tests.** 16 + 21 + 21 new pins; the parity, timing, historical replay,
+prior stimulus, RUN 12 fixture, design and pre-registration suites; the full
+host suite.
+
+**Not done, by contract.** No hardware, no flash, no RUN 13, no
+pre-registration, no runtime rebuild, no verdict change. A separate research
+pre-registration decides whether the next physical run uses coord-0002 with
+the unchanged `stream-0013`.
