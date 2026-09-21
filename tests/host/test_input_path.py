@@ -89,10 +89,10 @@ class TheStaticAttemptIsStatedOnceAndStaysOpen(unittest.TestCase):
 
     def test_no_order_is_adopted_or_defaulted_and_dolphin_stays_h(self):
         t = read(DOC)
-        for phrase in ("no bit order is\nadopted", "nothing above is a physical FACT", "CORROBORATED**. It is **not** a physical FACT"):
+        for phrase in ("no bit order was adopted", "nothing above is a physical FACT", "CORROBORATED**. It is **not** a physical FACT"):
             self.assertIn(phrase, t, phrase)
         f = flat(t)
-        for phrase in ("no bit order is adopted, implemented, tabulated as Open-GBP's own, or defaulted",
+        for phrase in ("no bit order was adopted, implemented, tabulated as Open-GBP's own, or defaulted",
                        "REGISTERS.md keeps Dolphin's order at H", "GBI's `0x0304` was **not** used as evidence"):
             self.assertIn(phrase, f.replace("`REGISTERS.md`", "REGISTERS.md"), phrase)
         regs = read(REGISTERS)
@@ -136,11 +136,11 @@ class ProvenanceAndStateRecords(unittest.TestCase):
 
     def test_roadmap_and_handoff_carry_the_phase_5_entry(self):
         r = flat(read(ROADMAP))
-        self.assertIn("Status: ENTERED 2026-09-21 (GitHub Issue #18) — research / design only, software-only; no KEYPAD write has been implemented or issued.", r)
+        self.assertIn("Status: ENTERED 2026-09-21 (GitHub Issue #18, research / design) and IMPLEMENTED AS SOFTWARE 2026-09-21 (GitHub Issue #19, candidate `stream-0014`, not executed); no KEYPAD write has been issued on hardware.", r)
         self.assertIn("A real game can be controlled reliably using the GameCube controller.", read(ROADMAP))
         h = flat(read(HANDOFF))
-        self.assertIn("**Phase 5 — Input, entry (research / design)**", h)
-        self.assertIn("The physical keypad record is empty.", h)
+        self.assertIn("**Phase 5 — Input, implemented as software, unexecuted**", h)   # the row Issue #19 rewrote
+        self.assertIn("the physical keypad record is empty.", h)
         self.assertIn("That the KEYPAD L/R order is established.", h)
 
     def test_the_keypad_code_is_the_module_the_design_named(self):

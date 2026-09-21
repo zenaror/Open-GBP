@@ -2,9 +2,11 @@
 
 Status of this document: **research**. It reconstructs the keypad path of the
 physical Game Boy Player from the references, on paper, before Open-GBP has
-ever written the KEYPAD window. Nothing here is consolidated documentation,
-nothing is promoted, no code exists for any of it, and **no bit order is
-adopted, implemented, tabulated as Open-GBP's own, or defaulted**. Evidence
+ever written the KEYPAD window. Nothing here is consolidated documentation and
+nothing is promoted. As written for Issue #18, no code existed for any of it
+and **no bit order was adopted, implemented, tabulated as Open-GBP's own, or
+defaulted**; the update below records what Issue #19 changed, and §1–§9 are
+left as they were written. Evidence
 classes as in `EVIDENCE.md`: **F (static)** = a property of the reference's
 code or data that can be recomputed from the binary; **C** = corroborated by
 independent sources; **H** = hypothesis; **U** = unknown. Where a statement
@@ -13,6 +15,20 @@ fact. Decompiled output derived from the proprietary binaries lives under
 `build/analysis/ghidra18/` (ignored, never committed); this page describes
 behaviour and cites addresses so the analysis can be reproduced headlessly
 (`tools/README.md`, "Reverse-engineering workflow").
+
+> **Update, 2026-09-21 (GitHub Issue #19).** The architecture of §7 is
+> implemented — `src/gbp/gbp_input.c` behind the existing transport boundary,
+> the step as the first statement of the stream probe's pump slot — and built
+> as the candidate `stream-0014` (commit `0ff8355`, SHA-256 `ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c`),
+> which is **not executed anywhere**; no run is pre-registered. By the
+> Operator's decision the encoding descriptor is now filled with the
+> CORROBORATED assignment of §5 — bit 8 = L, bit 9 = R — in exactly one
+> place, as data, with its status and its falsifier at the definition, so
+> that the first physical run falsifies or keeps it. Nothing is promoted:
+> `REGISTERS.md` keeps H, U-GBP-010 stays OPEN, and the order is still not a
+> physical fact. The refresh policy §7 left open was frozen by the Issue:
+> write on change plus a refresh every 5 ms, the Disc's period. EVIDENCE
+> GBP-KEY-006 carries the software facts.
 
 **The physical record starts from nothing.** Open-GBP has never issued a
 KEYPAD write: every probe from GBP-PROBE-001 to RUN 13 kept the window
@@ -300,3 +316,8 @@ status, mints no `GBP-HW-` id (the static findings are GBP-KEY-002 …
 GBP-KEY-005) and closes no unknown. It changes nothing under `src/`,
 `poc/`, `tools/` or `Makefile`, and nothing in the video runtime, the service
 path, Policy A, the witness layer or any frozen format.
+
+**Update, 2026-09-21 (Issue #19):** the implementation now exists (the note
+at the top); the descriptor is filled as CORROBORATED data by the Operator's
+decision, not because a physical result exists. This section still describes
+what the *document* does not do, and it is unchanged.

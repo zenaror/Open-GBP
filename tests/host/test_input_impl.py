@@ -226,8 +226,9 @@ class TheDocumentsKeepTheStatus(unittest.TestCase):
             for line in read(os.path.join(DOCS, fn)).splitlines():
                 low = line.lower()
                 if "order is established" in low or "order is now fact" in low or "order is fact" in low:
-                    # the only place allowed to say it is a do-not-assume bullet, as the thing NOT to assume
-                    self.assertTrue(line.lstrip().startswith("- **That"), fn + ": " + line)
+                    # allowed only as the thing NOT to assume (a do-not-assume bullet) or as a negation
+                    self.assertTrue(line.lstrip().startswith("- **That") or "no document says" in low
+                                    or "not established" in low, fn + ": " + line)
         ev = read(os.path.join(DOCS, "research", "EVIDENCE.md"))
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
         self.assertEqual(hw, 260)
