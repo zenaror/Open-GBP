@@ -9956,3 +9956,82 @@ and GBP-VID-035 remain history.
 
 **Next.** The Orchestrator validates this ingestion and closes Hardware Issue
 #15; the next Phase-4 design is theirs. No run is pre-registered.
+
+## 2026-09-21 — Issue #17: Phase 4 assessed against its acceptance criterion — SATISFIED WITH NAMED RESIDUALS; the video path promoted with its ids
+
+**Goal.** Assess Phase 4 against the criterion `docs/ROADMAP.md` wrote before
+any of the evidence existed — "A real cartridge running on the physical GBP
+produces stable, correct video through the open-source runtime" — term by
+term, on existing evidence ids only, and promote into `docs/hardware/` and
+`docs/protocol/` exactly what the `RESEARCH_METHOD.md` chain supports.
+Documentation and assessment only: no code, no hardware, no run, no build, no
+new id, no status promoted, no run re-judged; the Orchestrator's framing that
+presentation / pixel-perfect is Phase 9 and not Phase 4 was verified against
+the ROADMAP's Phase 9 section and the runtime's own comment before anything
+was written.
+
+**The assessment (`docs/research/PHASE4_ASSESSMENT.md`).** *Real cartridge:*
+three retail runs — `stream-0003`, `stream-0004`, run 8 / GBP-VIDEO-005 —
+with transport, NORMAL startup and Policy A clean on retail content
+(GBP-HW-138…151, 224…226) and the picture observed by the operator
+(GBP-HW-144, 152, 227); no OGBPIDX verdict and no oracle check exist on retail
+content and none can. *Stable:* zero transport faults in every streaming run,
+`OBSERVED_CONTIGUOUS` in every prospectively qualified window but RUN 12's
+(explained by the stimulus, GBP-VID-034 RESOLVED), Policy A with zero interior
+drops and bounded latency on eight runs, the same ~165 ms startup on eight
+runs; the longest streaming observation with presentation is ≈ 44 s and the
+slice margin is unmeasured. *Correct video:* geometry (GBP-HW-081),
+composition (076, 077), colour (131, with §V3.19's intra-group limit),
+full-frame fidelity on eight sampled frames (258) and scanout as CLAIM-D (260)
+are FACT on controlled stimuli inside their boundaries; bytes 0/2 and bit 15's
+origin stay UNKNOWN. *Through the open-source runtime:* every run executed a
+DOL built from this repository with its identity recorded, the references used
+statically only. **The asymmetry, argued and not assumed:** the measured
+correctness rests on `indexed-0003` / `coord-0001` / `coord-0002` because an
+oracle, a frame index and known digits are what a retail cartridge cannot
+supply; the transfer to retail content is an inference about a content-blind
+path, CORROBORATED by identical machine-side metrics and operator
+observations, never FACT. The ROADMAP places cartridge validation in Phase 7,
+so that gap is a named residual with an owner, not a block.
+
+```text
+PHASE 4 VERDICT: SATISFIED WITH NAMED RESIDUALS
+```
+
+Eleven residuals, each with an owner or "not scheduled": retail-content
+measurement (Phase 7); presentation / scaling / GBP-VID-032 (Phase 9);
+physical pixel equality and per-frame scanout accounting (not scheduled);
+stability duration, breadth and the GB/GBC family (Phase 12, Phase 7); the
+colour intra-group limit (not scheduled); U-GBP-029 / 034 / 030 / 033 (open
+research residuals); rate conversion (Phase 9); audio and input (Phases 6 and
+5); BBA / Ethernet (Phase 11); production UX (Phases 9, 12). No U-GBP was
+closed: U-GBP-008, 014, 029, 030, 031, 033 and 034 were checked against the
+conditions each set for itself and none is met.
+
+**Promotion.** New `docs/protocol/VIDEO.md`: the block (size, geometry, pixel
+word, bytes 0/2 not consumed, colour with its limit, bit 15), the frame (40
+blocks, the marker, order, the measured cadence, the startup region), the
+service under sustained video, the startup to the first real hand-off, and the
+presentation-path structure the runtime relies on (texture path, native
+display, source-driven presents, Policy A in software and physically, rate
+conversion, hand-over vs scanout) — every row with its id and a status of F or
+C, U items only as pointers. Refreshed to the status EVIDENCE already carries:
+the Video row of `docs/hardware/ARCHITECTURE.md` (the "exact hardware word
+layout H" of Phase 2 now cites GBP-HW-081 / 131 / 129), the Video capture row
+and Frame timing of `docs/hardware/GBS-DOL.md` (geometry F (hw), the measured
+cadence), the VIDEO row and §2.2 of `docs/protocol/REGISTERS.md` (GBP-HW-076 /
+081 / 129), and `docs/protocol/README.md` (no longer "not yet verified on
+hardware"). `docs/README.md` indexes the two new files.
+
+**Tests.** `tests/host/test_phase4_assessment.py`: the verdict once and in the
+same words in ROADMAP, HANDOFF and the assessment; the criterion verbatim and
+Phase 9's ownership intact; every id cited by the promoted pages and the
+assessment defined in EVIDENCE / UNKNOWNS; the highest ids unchanged
+(GBP-HW-260, GBP-VID-035); every row of the video page with an id and an F / C
+status; the four terms, the asymmetry and an owner per residual; no unknown
+closed. `make test-python` green. No file under `src/`, `tools/`,
+`stimulus/`, `poc/` or `Makefile` changed.
+
+**Next.** The Orchestrator validates the assessment and the promotion; the
+Operator chooses the next phase (Phase 5 is the ROADMAP's next; Phase 9 stays
+gated by `CLAUDE.md` §26). No run is pre-registered.
