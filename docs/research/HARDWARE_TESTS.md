@@ -20644,4 +20644,185 @@ because of these two duplicates and that does not change); nothing about
 runs 1–11; no hardware, no RUN 13, no functional change; the model is a
 model — its predictions for digits 5–9 are what a future run would test.
 
+### V6.23 coord-0002 — the second implementation of OGBPCOORD1, timing-safe: the ten digit tables are built at boot and the entry PREPARE selects one (GitHub Issue #13, 2026-09-20) — **IMPLEMENTED, NOT PHYSICALLY EXECUTED, NO RUN RESERVED**
+
+A functional software checkpoint. It creates a NEW stimulus identity that
+publishes the SAME picture as `coord-0001` and removes the mechanism of
+GBP-VID-034 (§V6.22). It changes nothing about `coord-0001` (the RUN 12
+artifact, kept byte for byte), the GameCube runtime (`stream-0013 @ 7d7a6d8`,
+TEST_ID `GBP-VIDEO-004`), the frozen analyzers, the formats, Policy A, the
+gates, or the RUN 12 verdicts (both INCONCLUSIVE). Nothing here ran on
+hardware; nothing was flashed; no run is reserved.
+
+#### V6.23.1 Identities, frozen (software)
+
+```text
+canonical   build/stimulus/agb-coord2/agb-coord2.gba        3 620 B
+            sha256 319dacb759dd2f78b420691a896387b727accf5d9483f152a6a096865c95093f
+            source commit 74f9f4f (stimulus/agb-coord2/, Issue #13 commit A); the ROM embeds no commit; built twice from
+            scratch, byte-identical (cmp); reproduce: make stimulus-coord2
+            versioned copy: captures/fixtures/stimulus-coord-0002-canonical.gba (a build output, not a capture)
+delivery    build/physical/agb-coord2-cart.gba               3 620 B   (ignored path; never committed; NOT flashed)
+            sha256 276ad987c4cd0cefc7d7c532b86a7f5c336cf6603a32509f80f17aac9a56f700
+            tools/gbaderive.py: the 156-byte logo area 0x004..0x09F copied from the donor
+            build/physical/agb-color-bars-cart.gba (08a0153c…d818, the image that booted twice, §V3.7);
+            header complement recomputed (0x4D, unchanged); 154 bytes differ, all in 0x004..0x09F;
+            payload past 0x0C0 byte-identical to the canonical ROM
+header      title OPENGBPCOOR2 · game code CGB2 · maker OG   (coord-0001: OPENGBPCOORD / CGBP -- the two images are
+            told apart by the operator's cartridge menu; the header is not published video)
+coord-0001  UNTOUCHED: stimulus/agb-coord/source/main.c sha256 cf6db735e33ae158… (pinned), canonical 90343b64…0a1f,
+            delivery a769cc11…994f, §V6.22 and its fixture copy unchanged
+run number  NONE. No RUN 13 is reserved; no hardware procedure exists for this image.
+```
+
+#### V6.23.2 What changed, and what did not
+
+The contract did not: for every FRAME_ID and STATUS the intended published
+frame is OGBPCOORD1 — FLAG at x = 0, STRIP-L x = 1..54 byte-identical to
+OGBPIDX1, guards at 55 and 239, the field `y*183 + (x-56)`, the 48 × 80
+seven-segment digit at (123, 40) for FRAME_ID in [480k, 480k + 40), the six
+8 × 8 counter squares at (123 + 8i, 128), colour 0x7FFF, bit 15 never written,
+the same SYNC / CRC-8 / STATUS / VMARGIN semantics, the same schedule.
+`tools/icoord.py` remains the only oracle and is unchanged.
+
+The implementation did (the authorized strategy of Issue #13):
+
+```text
+coord-0001 (RUN 12)                                     coord-0002
+ENTRY PREPARE builds the 80 x 50 digit table:           ENTRY PREPARE selects the digit's table:
+  per pixel: reload sc->digit (IWRAM), read                one `ldr sc->digit`, one pointer store
+  seg_of_digit[digit] from GamePak ROM, up to seven         (glyph_sel = glyph_tables[digit], IWRAM); no
+  tests; unlit: EWRAM read + write; lit: EWRAM write        pixel computed, no ROM byte read, no EWRAM write
+  -> 260 043 .. 287 787 cycles by digit (§V6.22.5)         -> 86 972 cycles, every digit
+tables: glyph_rows[80][50] (EWRAM), rebuilt per entry     tables: glyph_tables[10][80][50] (EWRAM, .sbss NOLOAD),
+                                                          built ONCE by glyph_tables_init() at boot, after
+                                                          erase_tables_init() and BEFORE paint_background() and
+                                                          REG_DISPCNT; never written again
+PUBLISH: 80 DMAs of 25 words from glyph_rows (EWRAM)      PUBLISH: 80 DMAs of 25 words from glyph_sel[r] (EWRAM)
+squares, strips, exit erase, wait loops, STATUS latch,   identical (the squares are still prepared per shown frame:
+WAITCNT 4317h, DISPCNT 0403h, no interrupt               86 827 cycles at most, far below the budget)
+```
+
+No narrowly tuned delay; no special case for digits 1 and 4; all ten digits
+take the same path. No heap, filesystem, link, serial, network, interrupt or
+division; no GameCube dependency; deterministic; OGBPCOORD1 pixels are
+touched only through the established PUBLISH schedule.
+
+#### V6.23.3 Memory footprint (from the linked ELF; the ROM carries no table)
+
+```text
+section    coord-0001    coord-0002    note
+.crt0/.init   552           552        devkitARM crt0
+.text       1 048         1 472        main (ROM), now with the boot-time table build inlined
+.rodata       268           268        seg_of_digit (10 B) and crt0 data
+.iwram      1 584         1 284        prepare_frame 0x47c -> 0x348 B; publish_frame 0x1b4 -> 0x1bc B
+.bss (IWRAM) 10 052       10 056       pub_l 8 960 · pub_sq 800 · crc_tab 256 · flags · glyph_sel (4 B)
+.sbss (EWRAM) 16 800     88 800        glyph_tables 80 000 · glyph_erase 8 000 · sq_erase 800 -- NOLOAD (segment filesz 0)
+ROM image    3 496 B      3 620 B      +124 B; the LOAD segment at 0x02000000 has 0 file bytes: no 80 KiB payload
+EWRAM used   16 800 B     88 800 B     of 262 144;  IWRAM used  ≈ 11.4 KiB of 32 KiB (code, data, stack)
+```
+
+#### V6.23.4 The timing proof, on the exact generated image (tools/coordtime.py, profile coord-0002)
+
+Same model, same documented GBA timing (§V6.22.5: IWRAM 1/1/1, EWRAM 3/3/6,
+ROM at WAITCNT 4317h, VRAM 1/1/2, DMA 2N+2(n−1)S+2I, ARM7TDMI datasheet
+cycles), same conservative entry-budget methodology, the profile read off the
+coord-0002 disassembly (prepare 0x03000000, publish 0x03000348, tail entered
+at 0x080006a4 with the schedule at sp+16, first poll at 0x08000680).
+
+```text
+PUBLISH (unchanged output work)     cycles   ends at VCOUNT   model VMARGIN     coord-0001 (§V6.22.5)
+ordinary (strips only)              16 799      173.64            54             16 799   54   (RUN 12 read 54)
+entry (strips + paint + squares)    34 974      188.39            39             34 654   39   (RUN 12 read 39)   +320: the row pointer is loaded per row
+steady (strips + squares)           17 522      174.22            53             17 522   53
+exit (strips + erase + erase)       35 657      188.94            39             35 657   39   (RUN 12 read 39 / 38)
+DMA cycles per class identical to coord-0001's; the VMARGIN classes the hardware would read are unchanged.
+
+LOOP TAIL (ROM): ordinary 193 / 117 (36 instr) · entry with the schedule wrap 232 / 142 (46 instr)   [no-prefetch / prefetch]
+VCOUNT poll: 6 cycles to the first read after PREPARE returns; 24 per iteration
+BUDGET of an ENTRY PREPARE: 280 896 − 16 799 − 232 − 6 = 263 859 .. 263 835 (one poll late); prefetch bound 263 951 .. 263 935
+   DECLARED BAND 263 835 .. 263 951 (116 cycles);  CONSERVATIVE MINIMUM 263 835
+
+PREPARE                          cycles   lines   EWRAM r16   EWRAM w16   ROM reads   vs the minimum budget
+ordinary (k>=1, 40<phase<480)    77 905   63.23        0           0          0       under by 185 930
+pre-glyph (k=0)                  77 894   63.23        0           0          0       under by 185 941
+steady (phase 1)                 86 827   70.48      336           0          0       under by 177 008
+steady (phase 39)                86 443   70.16      144           0          0       under by 177 392
+exit (phase 40)                  77 914   63.24        0           0          0       under by 185 921
+ENTRY digit 0, 1, 2, ..., 9      86 972   70.59      400           0          0       under by 176 863   (every digit the same)
+```
+
+Gates of Issue #13: (1) every entry digit 0..9 makes the next VBlank — yes,
+all at 86 972; (2) `budget_min − max(entry)` = 263 835 − 86 972 = **176 863
+cycles ≥ 50 000** — yes (even one poll iteration late, and under the
+prefetch bound); (3) ordinary / steady / exit under the minimum — yes; (4)
+no class inside the band — yes; (5) PUBLISH consistent with the unchanged
+output work — yes (above); (6) zero per-pixel GamePak ROM reads in the entry
+path — yes, zero ROM reads and zero EWRAM writes in EVERY PREPARE class (the
+400 EWRAM reads of the entry are the squares' erase words, all six squares
+unlit at phase 0); (7) payload invariance — V6.23.5. Sensitivity over EWRAM
+wait states 1–3 and ROM N 3–5: every entry stays under the budget by more
+than 176 000 cycles in every cell (the pattern is `----` throughout).
+
+The one-time boot precompute (main entry → the first `prepare_frame`,
+modelled from ROM with and without the prefetch buffer): 4.66 – 7.48 M cycles
+= 278 – 446 ms, against coord-0001's 1.04 – 1.51 M = 62 – 90 ms; spent before
+`REG_DISPCNT` is written, so before any frame is published and before the
+GameCube's not-before gate (5 000 ms) could matter.
+
+#### V6.23.5 The actual entry payloads, and why the witness path cannot move an entry
+
+The strip loops branch on loop counters only; bit values are turned into
+symbols by conditional moves (`moveq` / `movne`), and the CRC-8 finish uses
+`eorne`. The cost of PREPARE is therefore a function of the frame class
+alone. Pinned on the exact images: coord-0002's entry PREPARE is 86 972 cycles
+for the four real RUN 12 tuples — FRAME_ID 480 / STATUS 0x36, 960 / 0x27,
+1440 / 0x26, 1920 / 0x26 (the STATUS bytes those frames carried, §V6.22.7) —
+and for the alternates (0, 0x00), (0xFFFFFF, 0xFF), (12345, 0x7F), (480,
+0x80), (1920, 0x18), (0x800000, 0x36) at k = 1, 7 and 10; ordinary PREPARE is
+77 905 for every alternate. The same invariance holds on coord-0001 (287 787
+/ 261 723 / 260 043 / 287 179 for the real tuples and for the extremes), which
+is what §V6.22 assumed when it costed each digit once.
+
+#### V6.23.6 Output parity, independently established (tests/host/test_agb_coord2.py)
+
+The ROM's own `main.c` compiled on the host with relocated bases, driven from
+frame 0 exactly as the loop drives it, its 38 400 VRAM words compared with
+`tools/icoord.py` — unchanged — word for word: ordinary and pre-glyph frames;
+every digit entry 0..9 (k = 1..10); steady frames as the counter squares
+change (phases 1, 2, 3, 5, 8, 16, 31, 39 and later appearances); every exit
+and the field's restoration under the glyph after it; the boundaries
+k·480 − 1 … k·480 + 41 for k = 1, 2, 3, 4, 10; the canonical witness against
+the frozen `istim` words with CRC and STATUS for nine (FRAME_ID, STATUS)
+pairs; bit 15 never set. coord-0001 and coord-0002, both driven identically,
+publish the same 240 × 160 frame for 29 (FRAME_ID, STATUS) cases across all
+classes, and both equal the model — the comparison is over the full picture,
+not the strip, and the oracle is the model, never an implementation buffer.
+Static audit: the entry path contains `glyph_sel = glyph_tables[sc->digit]`
+and neither `glyph_lit`, `seg_of_digit`, `glyph_erase` nor a row loop; the
+tables are `.sbss`; `glyph_tables_init()` runs once, after
+`erase_tables_init()`, before `paint_background()` and `REG_DISPCNT`;
+PUBLISH DMAs `glyph_sel[r]` over the same span; the frozen constants, the
+wait loops and the STATUS bracketing are unchanged; no heap / filesystem /
+link / serial / interrupt / division.
+
+#### V6.23.7 The historical coord-0001 analysis is unchanged
+
+`tools/coordtime.py` gained immutable profiles; the coord-0001 profile keeps
+every constant of §V6.22, its 21 pins pass untouched, and its report is the
+same to the number (PUBLISH 16 799 / 34 654 / 17 522 / 35 657; budget 263 839
+.. 263 953; entries 287 787 / 261 723 / 260 043 / 287 179; M--M). The only
+addition is a trailing row for the digit-0 entry (k = 10), 280 683 cycles —
+which would also have missed its VBlank — computed, not assumed, and not
+part of RUN 12's window.
+
+#### V6.23.8 What this checkpoint is not
+
+Not a hardware run, not a flash, not a RUN 13, not a display-chain change,
+not a reclassification: GBP-VIDEO-007 and GBP-VIDEO-008 remain INCONCLUSIVE
+for RUN 12, and coord-0001 remains RUN 12's artifact. The GameCube runtime
+is not rebuilt or relabelled. After the Orchestrator's independent
+validation, a separate research pre-registration decides whether and how the
+next physical run uses `coord-0002` with `stream-0013`.
+
 ---

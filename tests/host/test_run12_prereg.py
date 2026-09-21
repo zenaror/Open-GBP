@@ -94,10 +94,12 @@ class TheSectionExists(unittest.TestCase):
         self.assertEqual(t.count("### V6.20 "), 1)
         self.assertEqual(t.count("### V6.21 "), 1)          # Issue #11: GBP-VID-035 repaired, a post-run note
         self.assertEqual(t.count("### V6.22 "), 1)          # Issue #12: GBP-VID-034 root cause, research after the run
+        self.assertEqual(t.count("### V6.23 "), 1)          # Issue #13: coord-0002, the timing-safe implementation, not run
         self.assertLess(t.index("### V6.19 "), t.index("### V6.20 "))
         self.assertLess(t.index("### V6.20 "), t.index("### V6.21 "))
         self.assertLess(t.index("### V6.21 "), t.index("### V6.22 "))
-        self.assertNotIn("### V6.23 ", t)
+        self.assertLess(t.index("### V6.22 "), t.index("### V6.23 "))
+        self.assertNotIn("### V6.24 ", t)
         self.assertNotRegex(t, r"\n## V7 ")
 
 
