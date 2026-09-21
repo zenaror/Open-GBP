@@ -4,14 +4,17 @@ tests/host/test_input_path.py — the Phase 5 entry checkpoint (GitHub Issue #18
 
 Pinned: INPUT_PATH.md keeps L1 / L2 / L3 as separate sections and labels the
 mapping a POLICY; the U-GBP-010 outcome is stated once, in the same words in
-INPUT_PATH.md, UNKNOWNS.md and the ROADMAP, and the unknown is NOT closed;
-the physical record is declared empty; no order is adopted (the words
-"adopted", "defaulted" appear only in their negation); every evidence id the
-document cites exists; the keypad findings continue the GBP-KEY namespace
-(002…005) and no GBP-HW id was minted (the highest stays 260); Dolphin's
-order stays H in REGISTERS.md; the external register lists Enhanced mGBA with
-its exact commit; the ROADMAP's Phase 5 status and the HANDOFF row exist;
-and the keypad code that Issue #19 (2026-09-21) later added is the module §7 named.
+INPUT_PATH.md, UNKNOWNS.md and the ROADMAP, and the unknown was NOT closed by
+that checkpoint (Issue #24, 2026-09-21, later closed it on RUN 14 / RUN 15);
+the physical record was declared empty in INPUT_PATH.md (a dated statement);
+no order is adopted (the words "adopted", "defaulted" appear only in their
+negation); every evidence id the document cites exists; the keypad findings
+continue the GBP-KEY namespace (002…005; 006 / 007 / 008 / 009 followed) and
+Issue #18 minted no GBP-HW id (the highest is now 265, from Issue #24);
+Dolphin's order stays H in REGISTERS.md; the external register lists Enhanced
+mGBA with its exact commit; the ROADMAP's Phase 5 status and the HANDOFF row
+exist; and the keypad code that Issue #19 (2026-09-21) later added is the
+module §7 named.
 """
 import os
 import re
@@ -74,15 +77,16 @@ class TheLayersAreKeptApart(unittest.TestCase):
 
 
 class TheStaticAttemptIsStatedOnceAndStaysOpen(unittest.TestCase):
-    def test_the_outcome_appears_in_the_three_records_and_the_unknown_is_open(self):
+    def test_the_outcome_appears_in_the_three_records_and_the_unknown_closed_only_later_on_hardware(self):
         self.assertEqual(read(DOC).count("U-GBP-010 static attempt (2026-09-21): " + OUTCOME), 1)
         self.assertIn("Outcome: RESOLVED\nSTATICALLY at CORROBORATED; NOT closed", read(UNKNOWNS))
         self.assertIn(OUTCOME, flat(read(ROADMAP)))
         self.assertIn(OUTCOME, flat(read(HANDOFF)))
         m = re.search(r"^## U-GBP-010\b.*$", read(UNKNOWNS), re.M)
         self.assertIsNotNone(m)
-        self.assertNotIn("CLOSED", m.group(0))
-        self.assertIn("OPEN", m.group(0))
+        # the static attempt did not close it; RUN 14 / RUN 15 did (Issue #24, §V7.2), on the physical condition
+        self.assertIn("CLOSED 2026-09-21", m.group(0))
+        self.assertIn("RUN 14 and RUN 15", m.group(0))
         s5 = read(DOC).split("## 5.")[1].split("## 6.")[0]
         self.assertNotIn("NOT RESOLVABLE STATICALLY", s5)
         self.assertEqual(s5.count("RESOLVED STATICALLY"), 1)
@@ -103,12 +107,14 @@ class TheStaticAttemptIsStatedOnceAndStaysOpen(unittest.TestCase):
         ev = read(EVIDENCE)
         for n in (2, 3, 4, 5):
             self.assertEqual(len(re.findall(r"^## GBP-KEY-%03d\b" % n, ev, re.M)), 1, n)
-        # GBP-KEY-006 (Issue #19) and GBP-KEY-007 (Issue #22) followed; nothing beyond them is minted
-        self.assertEqual(re.findall(r"^## GBP-KEY-00[8-9]", ev, re.M), [])
+        # GBP-KEY-006 (Issue #19), GBP-KEY-007 (Issue #22), GBP-KEY-008 / 009 (Issue #24) followed; nothing beyond them
+        self.assertEqual(re.findall(r"^## GBP-KEY-00[8-9]", ev, re.M), ["## GBP-KEY-008", "## GBP-KEY-009"])
+        self.assertEqual(re.findall(r"^## GBP-KEY-01\d", ev, re.M), [])
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
-        self.assertEqual(hw, 260)
-        for p in (DOC, ROADMAP, HANDOFF):
-            self.assertNotRegex(read(p), r"GBP-HW-26[1-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d")
+        self.assertEqual(hw, 265)   # GBP-HW-261…265: RUN 14 / RUN 15 (Issue #24)
+        self.assertNotRegex(read(DOC), r"GBP-HW-26[1-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d")   # INPUT_PATH.md is the pre-run document
+        for p in (ROADMAP, HANDOFF):
+            self.assertNotRegex(read(p), r"GBP-HW-26[6-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d")
         self.assertIn("— FACT (static)", ev.split("## GBP-KEY-002")[1].split("\n")[0])
         self.assertIn("CORROBORATED for the encoding the references target; the physical routing NOT established",
                       ev.split("## GBP-KEY-004")[1].split("\n")[0])
@@ -137,12 +143,13 @@ class ProvenanceAndStateRecords(unittest.TestCase):
 
     def test_roadmap_and_handoff_carry_the_phase_5_entry(self):
         r = flat(read(ROADMAP))
-        self.assertIn("Status: ENTERED 2026-09-21 (GitHub Issue #18, research / design) and IMPLEMENTED AS SOFTWARE 2026-09-21 (GitHub Issue #19, candidate `stream-0014`, not executed); no KEYPAD write has been issued on hardware.", r)
+        # the status line grew with Issue #19 and again with Issue #24 (RUN 14 / RUN 15 executed and ingested)
+        self.assertIn("Status: ENTERED 2026-09-21 (GitHub Issue #18, research / design), IMPLEMENTED AS SOFTWARE 2026-09-21 (GitHub Issue #19, candidate `stream-0014`) and PHYSICALLY EXECUTED 2026-09-21 — RUN 14 and RUN 15, GBP-INPUT-001 (Hardware Issue #21; ingested `HARDWARE_TESTS.md` §V7.2, GitHub Issue #24): Question M = PASS · Question O = AS-ASSIGNED in both runs", r)
         self.assertIn("A real game can be controlled reliably using the GameCube controller.", read(ROADMAP))
         h = flat(read(HANDOFF))
-        self.assertIn("**Phase 5 — Input, implemented as software, unexecuted**", h)   # the row Issue #19 rewrote
-        self.assertIn("the physical keypad record is empty.", h)
-        self.assertIn("That the KEYPAD L/R order is established.", h)
+        self.assertIn("**Phase 5 — Input, implemented and physically executed once (GBP-INPUT-001)**", h)   # the row Issue #24 rewrote
+        self.assertIn("The physical keypad record now holds these two runs and nothing else.", h)
+        self.assertIn("That the KEYPAD L/R routing is a physical FACT.", h)
 
     def test_the_keypad_code_is_the_module_the_design_named(self):
         """Issue #18 shipped no code; Issue #19 (2026-09-21) implemented §7 as

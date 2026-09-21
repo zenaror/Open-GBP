@@ -131,9 +131,13 @@ class PromotionIsTraceableAndMintsNothing(unittest.TestCase):
         t = read(EVIDENCE)
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", t, re.M))
         vid = max(int(n) for n in re.findall(r"^#{2,4} +GBP-VID-(\d{3})\b", t, re.M))
-        self.assertEqual((hw, vid), (260, 35), "Issue #17 mints no id: the last ingestion left GBP-HW-260 and GBP-VID-035")
-        for p in PROMOTED + [ASSESS, ROADMAP, HANDOFF]:
+        # Issue #17 minted no id: it left GBP-HW-260 and GBP-VID-035. Issue #24 (RUN 14 / RUN 15, §V7.2) later minted
+        # GBP-HW-261..265; the assessment and the promoted pages still cite nothing beyond what Issue #17 saw.
+        self.assertEqual((hw, vid), (265, 35))
+        for p in PROMOTED + [ASSESS]:
             self.assertNotRegex(read(p), r"GBP-HW-26[1-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d|GBP-VID-03[6-9]|GBP-VID-0[4-9]\d", p)
+        for p in (ROADMAP, HANDOFF):
+            self.assertNotRegex(read(p), r"GBP-HW-26[6-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d|GBP-VID-03[6-9]|GBP-VID-0[4-9]\d", p)
 
     def test_every_row_of_the_video_page_carries_an_id_and_a_fact_or_corroborated_status(self):
         t = read(VIDEO)
