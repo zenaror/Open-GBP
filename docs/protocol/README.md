@@ -12,6 +12,13 @@ block, the frame, the service under sustained video, the startup up to the
 first real hand-off, and the presentation-path structure the runtime relies
 on; every row carries its evidence id and a status of F or C.
 
+`INPUT.md` — the KEYPAD / input path consolidated after GBP-INPUT-001
+(2026-09-21): the window and the 16-bit word, its polarity, the bit assignment
+with its status (the L/R order CORROBORATED, not FACT, observed through a
+generic third-party pad), the write cadence of the references and of the
+runtime, the controller mapping marked as this project's POLICY, and what is
+not established; every row carries its evidence id and a status of F or C.
+
 `REGISTERS.md` and `INITIALIZATION.md` were reconstructed from software in
 Phase 2 and have since been verified on this project's hardware wherever a row
 cites a `GBP-HW-` id; rows without one are still static analysis. Status

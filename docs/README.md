@@ -13,6 +13,8 @@ protocol/REGISTERS.md      register windows, transfer format, bit tables (Phase 
 protocol/INITIALIZATION.md detection / start / IRQ service / stop sequences (same rule)
 protocol/VIDEO.md          the VIDEO path consolidated after Phase 4 (block, frame, service,
                            startup, presentation-path structure), every row with its id
+protocol/INPUT.md          the KEYPAD / input path consolidated after GBP-INPUT-001 (window, word,
+                           bit assignment with its status, cadence, the mapping as POLICY)
 
 research/EVIDENCE.md       every claim with sources and status
 research/UNKNOWNS.md       open questions, prioritized
