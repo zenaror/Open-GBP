@@ -379,7 +379,11 @@ this adds the Disc's observed behaviour on this very hardware, as a
 recollection. One line worth keeping: the implementation follows the Disc
 (X and Y as SELECT), not GBI (Z as SELECT), which leaves **Z unmapped — the
 very button the Disc reserves for its OSD**: a free alignment for a future
-Phase 9 OSD, recorded, not acted on.
+Phase 9 OSD, recorded, not acted on. Consistent with it, informally: in the
+Operator's unregistered, incomplete trial of the candidate on 2026-09-21
+(`HARDWARE_TESTS.md` §V7.1.2) every counter of the test ROM incremented
+except under Z and the C stick, which produced nothing — OPERATOR
+OBSERVATION from an unregistered trial, supporting no claim.
 
 ### 10.3 The composition "Y → word bit 8 (static) + Y acts as L (observed)", evaluated — it holds as logic; OPERATOR OBSERVATION (recollection); changes no status
 

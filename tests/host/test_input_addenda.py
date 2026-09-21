@@ -52,13 +52,22 @@ def section10():
 
 
 class TheFrozenThingsAreUntouched(unittest.TestCase):
-    def test_v7_is_byte_identical_to_the_frozen_commit(self):
+    def test_the_parts_of_v7_issue_22_promised_not_to_touch_are_byte_identical(self):
+        """Issue #22 touched nothing in §V7. Issue #23 later amended RUN 15 and added
+        RUN 16 before hardware, so the whole-chapter comparison moved to
+        test_run14_prereg.py; what stays pinned here is that Question One, the
+        shared gates and the U-GBP-010 part are the frozen bytes."""
         old = git_show("docs/research/HARDWARE_TESTS.md")
         if old is None:
             self.skipTest("the frozen commit is not available in this checkout")
         now = read(HW)
-        self.assertEqual(now[now.index("\n## V7 "):], old[old.index("\n## V7 "):])
         self.assertEqual(now.count("\n## V7 "), 1)
+        def part(t, n):
+            i = t.index("#### V7.1.%d " % n)
+            j = t.find("#### V7.1.%d " % (n + 1), i)
+            return t[i:] if j < 0 else t[i:j]
+        for n in (1, 8, 10):
+            self.assertEqual(part(now, n), part(old, n), n)
 
     def test_the_module_and_the_descriptor_are_unchanged(self):
         for rel in ("src/gbp/gbp_input.c", "src/gbp/gbp_input.h"):
@@ -73,7 +82,7 @@ class TheFrozenThingsAreUntouched(unittest.TestCase):
         if r.returncode != 0:
             self.skipTest("the frozen commit is not available in this checkout")
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_COMMIT, "--", "src", "poc", "tools", "Makefile",
-                            "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus", "tests/host/test_run14_prereg.py"],
+                            "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "", "changed against the frozen commit: " + r.stdout)
