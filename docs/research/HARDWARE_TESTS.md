@@ -21454,7 +21454,7 @@ of Hardware Issue #15, then the next Phase-4 design — is the Orchestrator's.
 
 ---
 
-## V7 — GBP-INPUT-001: THE FIRST PHYSICAL KEYPAD WRITE — RUN 14 / RUN 15 PRE-REGISTERED (GitHub Issue #20, §V7.1; NOT RUN / NOT AUTHORISED HERE at that checkpoint; AMENDED BEFORE HARDWARE, Issue #23) — EXECUTED 2026-09-21 (Hardware Issue #21) AND INGESTED (Issue #24, §V7.2): QUESTION M = PASS · QUESTION O = AS-ASSIGNED, BOTH RUNS; U-GBP-010 CLOSED; THE ROUTING CORROBORATED, NOT FACT; RUN 16 NOT RUN · RUN 17 / RUN 18 PRE-REGISTERED (Issue #28, §V7.3): THE MACHINE-JOIN RUNS OF stream-0015, GBP-INPUT-002 — NOT RUN / NOT AUTHORISED HERE — EXECUTED 2026-09-21 (Hardware Issue #32) AND INGESTED (Issue #33, §V7.4): QUESTION J = FACT FOR ALL TEN WORD BITS, BITS 8 AND 9 ON TWO CONTROLLERS — THE ROUTING A PHYSICAL FACT (hw, the runs); RUN 16 EXECUTED LAST (UNDECIDED BY THE RULE · M = PASS · O NOT READABLE); truncated=0: GBP-KEY-008 VALIDATED · RUN 19 / RUN 20 PRE-REGISTERED (Issue #34, §V7.5): THE PHASE 5 ACCEPTANCE PAIR — A REAL GAME, BOTH CONTROLLERS, THE SAME ACTIONS, GBP-INPUT-003 — NOT RUN / NOT AUTHORISED HERE · AMENDED BEFORE HARDWARE (Issue #37): THE INSTRUMENT IS THE ENHANCED CONTROL CHECKER — THE OPERATOR'S CRITERION BY MACHINE ON BOTH ENDS, NOT THE ROADMAP'S ACCEPTANCE, WHICH STAYS OPEN; THE BUILD CHANGE ASSESSED, NOT MADE
+## V7 — GBP-INPUT-001: THE FIRST PHYSICAL KEYPAD WRITE — RUN 14 / RUN 15 PRE-REGISTERED (GitHub Issue #20, §V7.1; NOT RUN / NOT AUTHORISED HERE at that checkpoint; AMENDED BEFORE HARDWARE, Issue #23) — EXECUTED 2026-09-21 (Hardware Issue #21) AND INGESTED (Issue #24, §V7.2): QUESTION M = PASS · QUESTION O = AS-ASSIGNED, BOTH RUNS; U-GBP-010 CLOSED; THE ROUTING CORROBORATED, NOT FACT; RUN 16 NOT RUN · RUN 17 / RUN 18 PRE-REGISTERED (Issue #28, §V7.3): THE MACHINE-JOIN RUNS OF stream-0015, GBP-INPUT-002 — NOT RUN / NOT AUTHORISED HERE — EXECUTED 2026-09-21 (Hardware Issue #32) AND INGESTED (Issue #33, §V7.4): QUESTION J = FACT FOR ALL TEN WORD BITS, BITS 8 AND 9 ON TWO CONTROLLERS — THE ROUTING A PHYSICAL FACT (hw, the runs); RUN 16 EXECUTED LAST (UNDECIDED BY THE RULE · M = PASS · O NOT READABLE); truncated=0: GBP-KEY-008 VALIDATED · RUN 19 / RUN 20 PRE-REGISTERED (Issue #34, §V7.5): THE PHASE 5 ACCEPTANCE PAIR — A REAL GAME, BOTH CONTROLLERS, THE SAME ACTIONS, GBP-INPUT-003 — NOT RUN / NOT AUTHORISED HERE · AMENDED BEFORE HARDWARE (Issue #37): THE INSTRUMENT IS THE ENHANCED CONTROL CHECKER — THE OPERATOR'S CRITERION BY MACHINE ON BOTH ENDS, NOT THE ROADMAP'S ACCEPTANCE, WHICH STAYS OPEN; THE BUILD CHANGE ASSESSED, NOT MADE · WITHDRAWN BEFORE HARDWARE (Issue #37, the Operator's objection): RUN 19 / RUN 20 NOT RUN, THEIR NAMES RETIRED — THE ROUTING DOES NOT DEPEND ON THE PAD
 
 Phase 5 (`docs/ROADMAP.md`). Issue #18 reconstructed the input path on
 paper (`docs/research/INPUT_PATH.md`), Issue #19 implemented it as software
@@ -23899,7 +23899,7 @@ contract — is the Orchestrator's.
 
 ---
 
-### V7.5 RUN 19 / RUN 20 — GBP-INPUT-003, the two-pad equivalence on the Enhanced Control Checker: the Operator's criterion — both controllers work and present the same behaviour — answered by machine on both ends (the KEY record and the decoded counters), on the walks and the join §V7.3 froze; NOT the ROADMAP's acceptance, which stays open — **PRE-REGISTERED 2026-09-21 (GitHub Issue #34); NOT RUN / NOT AUTHORISED HERE** · **AMENDED BEFORE HARDWARE (GitHub Issue #37, 2026-09-21): the instrument is the checker, not a game; WarioWare: Twisted evaluated and REJECTED; the two criteria kept apart; the build change assessed, not made**
+### V7.5 RUN 19 / RUN 20 — GBP-INPUT-003, the two-pad equivalence on the Enhanced Control Checker: the Operator's criterion — both controllers work and present the same behaviour — answered by machine on both ends (the KEY record and the decoded counters), on the walks and the join §V7.3 froze; NOT the ROADMAP's acceptance, which stays open — **PRE-REGISTERED 2026-09-21 (GitHub Issue #34); AMENDED BEFORE HARDWARE (GitHub Issue #37, 2026-09-21): the instrument is the checker, not a game; WarioWare: Twisted evaluated and REJECTED; the two criteria kept apart; the build change assessed, not made; then WITHDRAWN BEFORE HARDWARE (GitHub Issue #37, 2026-09-21, the Operator's objection): RUN 19 / RUN 20 NOT RUN, NOT AUTHORISED, their names retired — the routing does not depend on the pad** (the text below is the pre-registration and its amendment as written, kept as provenance; the withdrawal record follows the amendment record)
 
 Written before the hardware is touched, and amended before it, on the same
 day, under its own Issue — dated and recorded here, never a silent edit
@@ -23955,6 +23955,49 @@ kept frozen        the criterion in his words (V7.5.1); the three-value cartridg
                    byte-identical; nothing about the routing; Phase 5's closure not decided.
 ```
 
+**THE WITHDRAWAL RECORD (2026-09-21, Issue #37 — after the amendment above was
+committed).** The amendment was committed and pushed (`ad4151e`, `ba8edb7`)
+before the Orchestrator's stop arrived; history is never rewritten, so the
+withdrawal is recorded ON TOP of it, dated, with both records kept:
+
+```text
+the objection     the Operator's, in substance: he has already used the Enhanced Control Checker in every controller test so far,
+                  and RUN 19 / RUN 20 would repeat the result. The Orchestrator accepted it, for a reason better than effort.
+the reasoning     THE ROUTING DOES NOT DEPEND ON THE PAD. Question J measures from the WORD the runtime sent to the COUNTER the AGB
+                  incremented; the pad sits upstream of the word, so a given word bit reaches the same AGB key whichever controller
+                  caused the runtime to send it. The walk x pad matrix therefore completes NOTHING about the routing -- it is
+                  already FACT for all ten bits from RUN 17 (bits 0-3, 8, 9) and RUN 18 (bits 4-7, 8, 9). The matrix framing was
+                  the Orchestrator's, accepted without checking whether its missing cells informed J; the Executor's V7.5.2 text
+                  compounded it ("every button machine-read on both pads" conflated pad -> word with word -> key); the Operator
+                  caught it. What the missing cells DO carry is the OTHER link, pad -> word, for button x pad combinations without
+                  a KEY record: the D-pad on the GENERIC pad -- exercised in RUN 15 on stream-0014, counted by the checker (M =
+                  PASS) but without the KEY record, so that link rests on the Operator's press count (§V7.2.8) -- and A / B /
+                  SELECT (X) / START on the ORIGINAL pad, never exercised. Real but narrow, and exactly what a game acceptance run
+                  exercises anyway, more meaningfully: if a pad's button does not register, the Operator meets it while playing.
+                  The unique contribution of RUN 19 / RUN 20 would have been that answer as MACHINE evidence rather than his
+                  judgement -- a supporting result, not the acceptance, and not worth two trips to the console.
+the decision      RUN 19 and RUN 20 are WITHDRAWN before execution. The ten reserved names of V7.5.5 are RETIRED -- never used,
+                  never reassigned, as the stream-0014-run16 names were; the numbers 19 and 20 are consumed (a new run takes the
+                  next number above every reserved one: 21). Hardware Issue #36 is closed as withdrawn-before-execution by the
+                  Orchestrator, not by the Executor.
+what is given up  stated so that a later reader sees a considered choice and not an oversight: (a) eight button x pad
+                  combinations keep no machine-decoded pad -> word reading -- UP / DOWN / LEFT / RIGHT on the generic pad (a
+                  human-count link only, RUN 15) and A / B / SELECT / START on the original pad (no reading at all); (b) the
+                  Operator's equivalence criterion -- "ambos os controles funcionam e tem que apresentar o mesmo comportamento" --
+                  will be answered by his report on a game rather than by decoded counters: the checker's machine-decoded two-pad
+                  comparison of V7.5.1 / V7.5.9 is NOT made.
+what is kept      WarioWare: Twisted evaluated and REJECTED with its reason (V7.5.2); the two criteria kept apart, neither
+                  borrowing the other's evidence (V7.5.1); the build assessment exactly as established, including that ~40 s
+                  suffices for the checker and the build is needed only for a real game (V7.5.3); the standing declarations
+                  (V7.5.4); the recovery block (V7.5.7); §V7.1-§V7.4 byte-identical; nothing about the routing; Phase 5's
+                  closure NOT decided, and further away, not nearer (V7.5.10).
+the arrangement   noted as the arrangement working: twice on this day the Operator caught a design error before it cost him a
+                  run -- the WarioWare title, and this. He is not only the hands; the checks run in every direction.
+what remains      the real-game acceptance run, open and unscheduled: a game that passes through the button path and, in all
+                  likelihood, the input-session build assessed in V7.5.3; its own pre-registration, when it comes; nothing here
+                  authorises it.
+```
+
 #### V7.5.1 The criterion — the Operator's, fixed before any data, read in his terms; TWO criteria, kept apart
 
 The ROADMAP's Phase 5 acceptance line is "A real game can be controlled
@@ -24001,6 +24044,8 @@ beside it, never merged, never overridden.
 
 #### V7.5.2 Run identity, the numbering, the experiment, the instrument; the game candidates evaluated
 
+**WITHDRAWN BEFORE HARDWARE (Issue #37; the withdrawal record at the head of this part): kept as provenance; no run follows.**
+
 ```text
 run numbers         RUN 19 and RUN 20: the next two numbers above every reserved one (V7.3.2's rule; RUN 16 / 17 / 18 used).
                     A reserved number belongs to its experiment whenever it runs.
@@ -24026,7 +24071,10 @@ the design          the walk x pad matrix, completed. RUN 17 was walk A on the G
                     repeated counts loses the join; why not both walks on both pads in one session: two runs suffice because
                     RUN 17 / RUN 18 are machine records of the same image, instrument and walks -- the comparison is
                     record-to-record, and the topology items that could differ between sessions are covered by the inventory
-                    and the standing declarations (V7.5.4). THE REASONING, worth more than the outcome: the two-pad question
+                    and the standing declarations (V7.5.4). CORRECTED BY THE WITHDRAWAL (Issue #37): "every one of the ten
+                    buttons has been walked on BOTH pads" conflated the pad -> word link with the word -> key link; the join
+                    reads the latter and does not depend on the pad, so the matrix informed the routing NOT AT ALL (the
+                    withdrawal record). THE REASONING, as it stood before the correction: the two-pad question
                     had been framed as a comparison bolted onto an acceptance run; it is in fact the MISSING HALF of a walk x
                     pad matrix the project had already half-built without noticing -- RUN 17 and RUN 18 put each walk on one
                     pad, so two more runs, each walk on the other pad, complete it with no new machinery and no new verdict
@@ -24192,6 +24240,8 @@ INCONCLUSIVE on that item.
 
 #### V7.5.5 Reserved raw-file names — before the hardware
 
+**WITHDRAWN BEFORE HARDWARE (Issue #37; the withdrawal record at the head of this part): kept as provenance; no run follows.**
+
 The console writes `GBP-VIDEO-004_stream-0015.log`, `-idxcap.bin`,
 `-disp.bin`, `-full.bin` and `-vi.bin` under `sd:/open-gbp/` — the SAME names
 as RUN 16 / 17 / 18 wrote and RUN 20 writes the same as RUN 19: each run's
@@ -24216,9 +24266,13 @@ captures/local/GBP-VIDEO-004_stream-0015-run20-vi.bin
 
 The KEY record lives inside the `.log` file; the Operator's tally vector and
 report are his own text, relayed on the Hardware Issue, quoted verbatim in the
-struct fixtures at ingestion, never a sixth file.
+struct fixtures at ingestion, never a sixth file. **RETIRED by the withdrawal
+(Issue #37):** never used, never reassigned; the numbers 19 and 20 are
+consumed and the next run takes 21.
 
 #### V7.5.6 Pre-run identity gate — required of the Operator before each launch
+
+**WITHDRAWN BEFORE HARDWARE (Issue #37; the withdrawal record at the head of this part): kept as provenance; no run follows.**
 
 ```text
 DOL on SD    /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol : exact size 514 880 B; exact SHA-256
@@ -24234,6 +24288,8 @@ rule         the Operator's media hashes are a double check; they do not redefin
 ```
 
 #### V7.5.7 Operator physical procedure — frozen: walk A on the original pad, walk B on the generic pad; the recovery procedure unchanged
+
+**WITHDRAWN BEFORE HARDWARE (Issue #37; the withdrawal record at the head of this part): kept as provenance; no run follows.**
 
 **The hazard, restated for what changed.** Nothing new touches the device:
 the image, the instrument and the walks are RUN 17 / RUN 18's; only the pad
@@ -24313,6 +24369,8 @@ because a pad "felt" different: a difference is a result (V7.5.9).
 
 #### V7.5.8 Shared admissibility gates — prospective, inherited from §V7.3.8 as written, plus the pair's own
 
+**WITHDRAWN BEFORE HARDWARE (Issue #37; the withdrawal record at the head of this part): kept as provenance; no run follows.**
+
 ```text
 IDENTITY / LOG   as §V7.3.8: exact DOL identity (V7.5.3); log header GBP-VIDEO-004 / stream-0015 @ da06500; dropped=0;
                  truncated=0 with ENVINPUT and ENVINPUT2 both present and complete; no storage fault; the summary records
@@ -24342,6 +24400,8 @@ SESSION          the run ended at stop=witness_target_reached; a run ended by th
 ```
 
 #### V7.5.9 GBP-INPUT-003 — the verdicts: W and S in the Operator's terms, read by machine on both ends; K the word level; the Operator's channel beside; failure reachable
+
+**WITHDRAWN BEFORE HARDWARE (Issue #37; the withdrawal record at the head of this part): kept as provenance; no run follows.**
 
 The criterion is read in the Operator's terms — "funcionam", "o mesmo
 comportamento" — from two machine records per run: the KEY lines (the word
@@ -24430,6 +24490,8 @@ Link Port, audio, the display chain.
 
 #### V7.5.11 Explicit non-claims, and the record to be filled AFTER each run — nothing pre-filled
 
+**WITHDRAWN BEFORE HARDWARE (Issue #37; the withdrawal record at the head of this part): kept as provenance; no run follows.**
+
 Even if the criterion holds in full for the checker, RUN 19 and RUN 20 do
 **not** establish: that a real game can be controlled reliably (the ROADMAP's
 criterion; NOT ASSESSED); input latency of any kind; that the 5 ms refresh is
@@ -24472,16 +24534,17 @@ expected vector (arithmetic)            1,2,0,0,0,0,6,5,3,4             1,2,3,4,
 Not authorised by this pre-registration or its amendment: hardware
 execution; staging, copying or flashing anything (the image is already on the
 SD and is re-verified, never re-copied by this part); booting; opening the
-Hardware Issue (opened by the Orchestrator as #36, blocked until this
-amendment is validated); any change to the runtime, the descriptor, the
+Hardware Issue (opened by the Orchestrator as #36, held, then closed by him as
+withdrawn-before-execution); any change to the runtime, the descriptor, the
 policy, the analyzers, the formats, the fixtures, the evidence rows or the
 gates (none was made); a new build or candidate (`stream-0015` is the image;
 the input-session build is ASSESSED in V7.5.3 and neither implemented nor
 proposed for this pair); anything about GB / GBC (Phase 7, Issue #31); a
 regional comparison; promoting the routing or touching §V7.1 – §V7.4 or any
 verdict; evidence ingestion; any verdict; deciding whether Phase 5 closes;
-reading a run on the checker as the ROADMAP's acceptance. No new physical
-evidence ID exists. RUN 19 and RUN 20 end this checkpoint as PRE-REGISTERED
-/ AMENDED BEFORE HARDWARE / NOT RUN.
+reading a run on the checker as the ROADMAP's acceptance; running RUN 19 or
+RUN 20 at all, or reusing their names. No new physical evidence ID exists.
+RUN 19 and RUN 20 end this checkpoint as PRE-REGISTERED / AMENDED BEFORE
+HARDWARE / WITHDRAWN BEFORE HARDWARE / NOT RUN, their names retired.
 
 ---

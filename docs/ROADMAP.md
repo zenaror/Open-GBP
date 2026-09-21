@@ -569,6 +569,19 @@ assessed in `HARDWARE_TESTS.md` §V7.5.3 from the source (the one success
 stop, the caps, the witness unbound, the frames' origin, the KEY record's
 headroom) and NOT made.
 
+**Withdrawn before hardware, 2026-09-21 (GitHub Issue #37, the Operator's
+objection):** RUN 19 / RUN 20 are NOT RUN and their names are retired. The
+Operator had used the checker in every controller test already, and the
+Orchestrator accepted the objection for a better reason than effort: the
+routing does not depend on the pad — Question J reads from the word the
+runtime sent to the counter the AGB incremented, and the pad is upstream of
+the word — so a walk × pad matrix adds nothing to §V7.4's FACT. What is given
+up is recorded in §V7.5: eight button × pad combinations without a
+machine-decoded pad → word reading, and the Operator's equivalence criterion
+to be answered by his report on a game. Everything else of the amendment
+stands; this phase's closure is further away, not nearer, and the next run
+number is 21.
+
 Implement and document GameCube controller → GBP keypad/input handling.
 
 Automated tests should cover button combinations and encoding.

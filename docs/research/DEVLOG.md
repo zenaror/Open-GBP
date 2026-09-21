@@ -10976,3 +10976,47 @@ Issue #36 not released (the Orchestrator's, after validation).
 
 **Next.** The Orchestrator validates #37 and releases Hardware Issue #36 with
 the checklist in chat.
+
+## 2026-09-21 — Issue #37 (continued): RUN 19 / RUN 20 WITHDRAWN BEFORE HARDWARE on the Operator's objection — the routing does not depend on the pad; the names retired; what is given up recorded; the amendment's other content kept; no hardware, no build, no code, no id
+
+**The sequence, stated.** The amendment (the checker as the instrument; the
+walk × pad matrix) was committed and pushed (`ad4151e`, `ba8edb7`) before the
+Orchestrator's stop arrived; history is never rewritten, so the withdrawal is
+recorded on top of it, dated, with both records kept in §V7.5.
+
+**The objection and the reasoning.** The Operator: he has already used the
+Enhanced Control Checker in every controller test so far, and RUN 19 / RUN
+20 would repeat the result. The Orchestrator accepted it, for a reason better
+than effort: THE ROUTING DOES NOT DEPEND ON THE PAD — Question J measures
+from the word the runtime sent to the counter the AGB incremented; the pad is
+upstream of the word; a word bit reaches the same key whichever pad caused
+it. The walk × pad matrix therefore completed nothing about the routing,
+already FACT for all ten bits (§V7.4). The framing was the Orchestrator's,
+accepted without checking whether its missing cells informed J; the
+Executor's text compounded it ("every button machine-read on both pads"
+conflated pad → word with word → key); the Operator caught it. The
+Executor's re-derivation, recorded: what the missing cells carry is the pad
+→ word link for eight button × pad combinations without a KEY record — the
+D-pad on the generic pad (exercised in RUN 15 on stream-0014, counted by the
+checker, the link resting on the Operator's press count) and A / B / SELECT /
+START on the original pad (never exercised) — real but narrow, and what a
+game acceptance run exercises anyway; the unique contribution would have
+been machine evidence of that, a supporting result, not the acceptance, not
+worth two trips.
+
+**The decision.** RUN 19 / RUN 20 WITHDRAWN before execution; the ten names
+RETIRED (never used, never reassigned; the numbers consumed, next run 21);
+Hardware Issue #36 to be closed by the Orchestrator as
+withdrawn-before-execution. What is given up, on record. Kept: WarioWare:
+Twisted evaluated and REJECTED; the two criteria apart; the build assessment
+exactly as established (~40 s enough for the checker; the build needed only
+for a real game); the standing declarations; the recovery block;
+§V7.1–§V7.4 byte-identical; nothing about the routing; Phase 5's closure NOT
+decided and further away, not nearer. Noted as the arrangement working: the
+Operator caught two design errors on one day before either cost him a run.
+
+**Not done, on purpose.** No hardware; no build; no code; no id; #36 not
+closed by the Executor; the real-game run and the input-session build stay
+open until the Operator has a game that passes through the button path.
+
+**Next.** The Orchestrator validates the withdrawal and closes #36.
