@@ -427,11 +427,13 @@ class NothingElseMoved(unittest.TestCase):
         r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE_COMMIT], capture_output=True)
         if r.returncode != 0:
             self.skipTest("the base commit is not available in this checkout")
-        # docs/protocol and docs/hardware left this guard with the Issue #26 promotion; the code paths stay frozen
+        # docs/protocol and docs/hardware left this guard with the Issue #26 promotion; Issue #27 touched the input
+        # module and the stream probe (the per-change record, the ENVINPUT repair) and nothing else under these paths
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
+        allowed = {"src/gbp/gbp_input.c", "src/gbp/gbp_input.h", "poc/gbp-video-stream-probe/source/main.c", "poc/gbp-video-stream-probe/Makefile"}
+        self.assertTrue(set(r.stdout.split()) <= allowed, "changed against the base: " + r.stdout)
         # Issue #24 added the RUN 14 / RUN 15 fixtures and nothing else under captures/fixtures
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
         for line in r.stdout.split():

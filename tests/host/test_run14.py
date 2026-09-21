@@ -350,9 +350,11 @@ class TheInputMachineGate(unittest.TestCase):
         old = git("show", "%s:src/gbp/gbp_input.c" % CANDIDATE_COMMIT)
         if old is None:
             self.skipTest("the candidate commit is not available in this checkout")
-        self.assertEqual(code, old, "the descriptor is kept exactly (U-GBP-010 closed AS-ASSIGNED)")
-        self.assertEqual(read(MAIN), git("show", "%s:poc/gbp-video-stream-probe/source/main.c" % CANDIDATE_COMMIT),
-                         "the per-change word logging (GBP-KEY-009) is NOT implemented; the ENVINPUT clip (GBP-KEY-008) is NOT repaired")
+        # Issue #27 (2026-09-21) implemented GBP-KEY-009 and repaired GBP-KEY-008 in the module and the probe
+        # (stream-0015, not executed); the descriptor is kept exactly (U-GBP-010 closed AS-ASSIGNED)
+        self.assertEqual(descriptor_from_source(), (bits, pressed))
+        old_bits = re.search(r"GBP_KEYPAD_DESCRIPTOR\s*=\s*\{\s*\{([^}]*)\}\s*,\s*(\d+)\s*\}", re.sub(r"/\*.*?\*/", "", old, flags=re.S))
+        self.assertEqual(([int(x) for x in old_bits.group(1).split(",")], int(old_bits.group(2))), (bits, pressed))
 
 
 class TheTallyFramesAreFactAsData(unittest.TestCase):
@@ -780,11 +782,13 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", FROZEN_V71_COMMIT], capture_output=True)
         if r.returncode != 0:
             self.skipTest("the base commit is not available in this checkout")
-        # docs/protocol and docs/hardware left this guard with the Issue #26 promotion; the code paths stay frozen
+        # docs/protocol and docs/hardware left this guard with the Issue #26 promotion; Issue #27 touched the input
+        # module and the stream probe (the per-change record, the ENVINPUT repair) and nothing else under these paths
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_V71_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
+        allowed = {"src/gbp/gbp_input.c", "src/gbp/gbp_input.h", "poc/gbp-video-stream-probe/source/main.c", "poc/gbp-video-stream-probe/Makefile"}
+        self.assertTrue(set(r.stdout.split()) <= allowed, "changed against the base: " + r.stdout)
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_V71_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
         for line in r.stdout.split():
             self.assertRegex(line, r"-run1[45]-", "only the RUN 14 / RUN 15 fixtures were added: " + line)

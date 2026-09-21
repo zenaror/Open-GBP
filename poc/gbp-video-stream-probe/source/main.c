@@ -708,12 +708,65 @@ _Static_assert(GBP_PAD_BUTTON_LEFT == PAD_BUTTON_LEFT && GBP_PAD_BUTTON_RIGHT ==
 _Static_assert(GBP_PAD_ERR_NONE == PAD_ERR_NONE && GBP_PAD_ERR_NO_CONTROLLER == PAD_ERR_NO_CONTROLLER,
                "the input module's pad error codes must be libogc2's");
 
+/* ---- Issue #27 (GBP-KEY-009): the per-change record ----------------------------
+ *
+ * ONE ringlog line ("KEY …", GBP_INPUT_EVENT_FMT of gbp_input.h) per write that
+ * was NOT a refresh -- first / change / retry -- emitted here, from the pump
+ * slot, right after the write it describes: never from the ISR, never inside
+ * the service transaction (the slot is after the RE-ARM, under the
+ * cause-pending yield rule). RUN 14 wrote 7 849 refreshes against 42 changes:
+ * a refresh is never recorded, only counted (INPUT refresh=).
+ *
+ * BOUND (CLAUDE.md §13). The store is the ringlog itself -- preallocated,
+ * LOG_LINES lines, never grown -- and a line is admitted only while
+ * KEYLOG_TAIL_RESERVE lines stay free for the post-run summary records
+ * (tests/host/test_input_keylog.py counts them against this constant). A run
+ * with more changes than the headroom holds keeps every summary, keeps
+ * `dropped=0`, and counts the surplus in keylog_lost (the KEYLOG record):
+ * bounded, never blocking, never silent. The cost is one vsnprintf of at most
+ * GBP_INPUT_EVENT_RENDER_MAX characters, measured with the transport's ticks
+ * and reported as KEYLOG emit_ticks -- outside the INPUTT step aggregate, so
+ * RUN 14 / RUN 15's step figures stay comparable.
+ *
+ * The instants are the transport's ticks64: the gbp_time64 base of
+ * OGBPIDXCAP1, OGBPDISP2 and OGBPVI1, so a join to the frame records needs no
+ * conversion. INPUT_PATH.md §8's observability guarantee is spent here. */
+#define KEYLOG_TAIL_RESERVE 64u
+static struct ringlog *keylog_rl;            /* armed with the run, like in_transport */
+static uint32_t keylog_emitted, keylog_lost, keylog_truncated;
+static uint32_t keylog_ticks_min, keylog_ticks_max, keylog_ticks_n;
+static uint64_t keylog_ticks_sum;
+
+static void keylog_emit(const struct gbp_transport *t)
+{
+    struct gbp_input_event e;
+    uint32_t t0, dt;
+    int r;
+
+    if (!gbp_input_take_event(&in_state, &e)) return;
+    if (!keylog_rl || !gbp_input_keylog_admit((uint32_t)keylog_rl->count, (uint32_t)keylog_rl->capacity, KEYLOG_TAIL_RESERVE)) {
+        keylog_lost++;
+        return;
+    }
+    t0 = t->ticks(t->ctx);
+    r = ringlog_printf(keylog_rl, GBP_INPUT_EVENT_FMT, GBP_INPUT_EVENT_ARGS(&e));
+    dt = t->ticks(t->ctx) - t0;
+    if (r < 0) { keylog_lost++; return; }        /* cannot happen under the admit rule; counted, never silent */
+    if (r > 0) keylog_truncated++;               /* cannot happen at GBP_INPUT_EVENT_RENDER_MAX < 248; counted */
+    keylog_emitted++;
+    if (keylog_ticks_n == 0u || dt < keylog_ticks_min) keylog_ticks_min = dt;
+    if (dt > keylog_ticks_max) keylog_ticks_max = dt;
+    keylog_ticks_n++;
+    keylog_ticks_sum += dt;
+}
+
 static void input_step(void)
 {
     const struct gbp_transport *t = in_transport;
     struct gbp_pad_sample s;
     uint32_t t0, connected;
     uint64_t t_poll;
+    enum gbp_input_action act;
 
     if (!t) return;
     if (!in_state.base) {
@@ -734,8 +787,11 @@ static void input_step(void)
     s.analog_a = PAD_AnalogA(PAD_CHAN0);
     s.analog_b = PAD_AnalogB(PAD_CHAN0);
     s.err = (connected & 1u) ? GBP_PAD_ERR_NONE : GBP_PAD_ERR_NO_CONTROLLER;
-    (void)gbp_input_step(&in_state, t, &s, t_poll);
+    act = gbp_input_step(&in_state, t, &s, t_poll);
     gbp_input_note_step_ticks(&in_state, t->ticks(t->ctx) - t0);
+    /* Issue #27: the record of a first / change / retry write, after the step's own measurement */
+    if (act == GBP_INPUT_WRITE_FIRST || act == GBP_INPUT_WRITE_CHANGE || act == GBP_INPUT_WRITE_RETRY)
+        keylog_emit(t);
 }
 
 static void pump(void *user)
@@ -1323,6 +1379,7 @@ int main(void)
 
     pump_res = &res;
     in_transport = &t;                       /* Issue #19: the slot writes through the probe's transport */
+    keylog_rl = &rl;                         /* Issue #27: and records its non-refresh writes in the ringlog */
     t_probe_enter = gettime();
     gbp_vstate_probe_run(&t, &rl, &cfg, &res);     /* returns only after the teardown */
     a = &res.a;
@@ -1344,6 +1401,7 @@ int main(void)
     cfg.stream = 0;                     /* no further publish can reach the queue */
     vq.pump = 0;                        /* and no further slice can be pumped     */
     in_transport = 0;                   /* Issue #19: and no further KEYPAD write   */
+    keylog_rl = 0;                      /* Issue #27: and no further KEY line       */
     if (gbp_vpresent_inflight(&present)) {
         GX_DrawDone();                  /* BLOCKING, and deliberately so: the GBP is already down */
         gx_drained_at_teardown = 1;
@@ -1409,6 +1467,17 @@ int main(void)
                    (unsigned long)(in_state.step_ticks_n ? in_state.step_ticks_min : 0u),
                    (unsigned long)gbp_input_step_ticks_mean(&in_state), (unsigned long)in_state.step_ticks_max,
                    (unsigned long)in_state.step_ticks_n);
+    /* Issue #27 (GBP-KEY-009): the per-change record's own accounting. events =
+     * non-refresh writes the module recorded; emitted = KEY lines in this log;
+     * lost = events refused by the bound (never dropped silently); truncated
+     * and overwritten are 0 by construction and reported so a reader can see
+     * that they are. */
+    ringlog_printf(&rl, "KEYLOG events=%lu emitted=%lu lost=%lu truncated=%lu overwritten=%lu reserve=%u emit_ticks=%lu/%lu/%lu n=%lu units=min/mean/max",
+                   (unsigned long)in_state.events_recorded, (unsigned long)keylog_emitted, (unsigned long)keylog_lost,
+                   (unsigned long)keylog_truncated, (unsigned long)in_state.events_overwritten, (unsigned)KEYLOG_TAIL_RESERVE,
+                   (unsigned long)(keylog_ticks_n ? keylog_ticks_min : 0u),
+                   (unsigned long)(keylog_ticks_n ? (uint32_t)(keylog_ticks_sum / keylog_ticks_n) : 0u),
+                   (unsigned long)keylog_ticks_max, (unsigned long)keylog_ticks_n);
     /* The ownership machine, whose defect rejected stream-0001. */
     ringlog_printf(&rl, "STREAMOWN acquire=%lu no_texture=%lu fills=%lu/%lu abandoned=%lu submit=%lu/%lu blocked_inflight=%lu blocked_shutdown=%lu",
                    (unsigned long)present.acquire_attempts, (unsigned long)present.acquire_no_free_texture,
@@ -1654,6 +1723,9 @@ int main(void)
            (unsigned long)in_state.steps, (unsigned long)in_state.writes_completed, (unsigned long)in_state.writes_first,
            (unsigned long)in_state.writes_change, (unsigned long)in_state.writes_refresh, (unsigned long)in_state.writes_retry,
            (unsigned long)in_state.writes_failed, (unsigned)in_state.word_written, in_selftest_ok ? "ok" : "NOT OK");
+    printf("  KEYLOG  %lu events (first/change/retry), %lu KEY lines emitted, %lu lost to the bound (reserve %u lines), %lu truncated\n",
+           (unsigned long)in_state.events_recorded, (unsigned long)keylog_emitted, (unsigned long)keylog_lost,
+           (unsigned)KEYLOG_TAIL_RESERVE, (unsigned long)keylog_truncated);
     printf("  GX      submit %lu/%lu (blocked in-flight %lu)  drawdone %lu (spurious %lu)  releases %lu  xfb %lu shown / %lu skipped\n",
            (unsigned long)present.submit_success, (unsigned long)present.submit_attempts,
            (unsigned long)present.submit_blocked_inflight, (unsigned long)present.drawdone_callbacks,
@@ -1690,10 +1762,11 @@ int main(void)
     gecko_puts(line);
     /* Issue #19: the input path's verdict line for an auxiliary run. */
     snprintf(line, sizeof line,
-             "OPENGBP-STREAM INPUT selftest=%d steps=%lu attempts=%lu completed=%lu failed=%lu last_word=%04x\n",
+             "OPENGBP-STREAM INPUT selftest=%d steps=%lu attempts=%lu completed=%lu failed=%lu last_word=%04x events=%lu emitted=%lu lost=%lu\n",
              in_selftest_ok, (unsigned long)in_state.steps, (unsigned long)in_state.attempts,
              (unsigned long)in_state.writes_completed, (unsigned long)in_state.writes_failed,
-             (unsigned)in_state.word_written);
+             (unsigned)in_state.word_written, (unsigned long)in_state.events_recorded,
+             (unsigned long)keylog_emitted, (unsigned long)keylog_lost);
     gecko_puts(line);
 
     printf("  WITQUAL required %lu, warm-up %lu frames (%lu disqualified, %lu resets), "

@@ -13,7 +13,7 @@ tests/host/test_input_impl.py — the input path implemented (GitHub Issue #19,
     through the transport (no gettime()/gettick() in input_step), and the service
     path / the frozen writers do not reference the input module;
   * nothing emits t_poll / t_write;
-  * the build wiring (BUILD_ID stream-0014, gbp_input.c in the POC, the unit test);
+  * the build wiring (BUILD_ID stream-0014, since Issue #27 stream-0015, gbp_input.c in the POC, the unit test);
   * the documents keep the status: no "order is established" (REGISTERS.md kept H
     until Issue #26 promoted the order to C, never FACT);
     after Issue #24 (RUN 14 / RUN 15 ingested, §V7.2) U-GBP-010 is CLOSED and the
@@ -179,15 +179,25 @@ class ThePumpSlotInsertion(unittest.TestCase):
 
 
 class NothingEmitsTheHeadInstants(unittest.TestCase):
-    def test_no_format_string_carries_t_poll_or_t_write(self):
+    def test_the_head_instants_are_emitted_only_through_the_key_line(self):
+        """Issue #19 emitted no head instant anywhere. Issue #27 (GBP-KEY-009) spends
+        INPUT_PATH.md §8's guarantee: t_poll and t_done are carried ONLY by the one
+        KEY format of gbp_input.h (a ringlog line from the pump slot), never by a
+        sidecar or a frozen format; the module formats nothing but that render."""
+        h = read(INPUT_H)
+        fmt = re.search(r'#define GBP_INPUT_EVENT_FMT "((?:[^"\\]|\\.)*)"', h).group(1)
+        self.assertIn("t_poll=%llx", fmt)
+        self.assertIn("t_done=%llx", fmt)
         for p in (MAIN, INPUT_C):
             for m in re.finditer(r'"((?:[^"\\]|\\.)*)"', read(p)):
                 s = m.group(1)
-                self.assertNotIn("t_poll", s, p)
-                self.assertNotIn("t_write", s, p)
-        c = strip_comments(read(INPUT_C))
-        for bad in ("printf", "ringlog", "sdlog", "fopen"):
-            self.assertNotIn(bad, c, bad)
+                self.assertNotIn("t_poll", s, (p, s))
+                self.assertNotIn("t_write", s, (p, s))
+        c = read(INPUT_C)
+        self.assertEqual(c.count("printf"), 1, "the module's only formatting is gbp_input_event_render()")
+        self.assertIn("return snprintf(dst, cap, GBP_INPUT_EVENT_FMT, GBP_INPUT_EVENT_ARGS(e));", c)
+        for fn in ("gbp_vidxdump.c", "gbp_vdispdump.c", "gbp_vfulldump.c", "gbp_vvidump.c", "gbp_vwitness.c", "gbp_vdisp.c", "gbp_vfull.c", "gbp_vvi.c"):
+            self.assertNotIn("t_poll", read(os.path.join(SRC, fn)), fn)
 
     def test_the_head_instants_are_fields(self):
         h = read(INPUT_H)
@@ -198,7 +208,7 @@ class NothingEmitsTheHeadInstants(unittest.TestCase):
 class TheBuildWiring(unittest.TestCase):
     def test_build_id_and_sources(self):
         m = read(STREAM_MAKE)
-        self.assertIsNotNone(re.search(r"^BUILD_ID\s*:=\s*stream-0014$", m, re.M))
+        self.assertIsNotNone(re.search(r"^BUILD_ID\s*:=\s*stream-0015$", m, re.M))   # Issue #27: the per-change record and the ENVINPUT repair
         self.assertIn("stream-0014 is stream-0013 plus the INPUT PATH", m)
         self.assertIn("NOT PHYSICALLY EXECUTED", m)
         srcs = re.search(r"^SRCS := (.*)$", m, re.M).group(1).split()

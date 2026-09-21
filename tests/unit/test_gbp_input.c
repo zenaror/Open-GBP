@@ -413,6 +413,116 @@ static void test_step_through_the_replay(void)
     }
 }
 
+/* Issue #27 (GBP-KEY-009): every non-refresh write leaves an event; a refresh
+ * leaves none; the caller takes it once; the render fits the ringlog payload at
+ * the worst case of every conversion; the bound is pure arithmetic. */
+static void test_events_through_the_mock(void)
+{
+    struct gbp_mock m;
+    struct gbp_transport t;
+    struct gbp_input in;
+    struct gbp_pad_sample s;
+    struct gbp_input_event e;
+    const uint32_t tb_hz = 40500000u;
+    const uint64_t period = (uint64_t)tb_hz * GBP_INPUT_REFRESH_MS / 1000u;
+    char buf[GBP_INPUT_EVENT_RENDER_MAX + 1u];
+    int len;
+
+    gbp_mock_init(&m);
+    m.present = 1;
+    gbp_mock_transport(&m, &t);
+    gbp_input_init(&in, &GBP_INPUT_POLICY_DEFAULT, &GBP_KEYPAD_DESCRIPTOR, tb_hz);
+    gbp_input_set_base(&in, mock_base(&m));
+    CHECK(in.events_recorded == 0u && in.events_overwritten == 0u && in.event.pending == 0u);
+    memset(&e, 0, sizeof e);
+    CHECK(gbp_input_take_event(&in, &e) == 0);
+    CHECK(e.n == 0u);                                          /* untouched when nothing is pending */
+
+    /* FIRST: an event with the word, the set, and the three instants of the transport's base */
+    s = sample(0);
+    CHECK(gbp_input_step(&in, &t, &s, 5000u) == GBP_INPUT_WRITE_FIRST);
+    CHECK(in.events_recorded == 1u && in.event.pending == 1u);
+    CHECK(gbp_input_take_event(&in, &e) == 1);
+    CHECK(in.event.pending == 0u && gbp_input_take_event(&in, &e) == 0);
+    CHECK(e.n == 1u && e.action == GBP_INPUT_WRITE_FIRST && e.keys == 0u);
+    CHECK(e.word == gbp_keypad_encode(0, &GBP_KEYPAD_DESCRIPTOR));
+    CHECK(e.t_poll == 5000u);
+    CHECK(e.t_attempt == in.t_last_attempt && e.t_done == in.t_write && e.t_attempt < e.t_done);
+    CHECK(e.completed == 1u && e.rc == GBP_OK && e.xfer_ticks == in.last_write.info.ticks);
+
+    /* a REFRESH leaves no event */
+    m.tick64 = in.t_last_write + period - 10u - m.tick64_origin;
+    CHECK(gbp_input_step(&in, &t, &s, 5100u) == GBP_INPUT_WRITE_REFRESH);
+    CHECK(in.events_recorded == 1u && in.event.pending == 0u);
+    CHECK(gbp_input_take_event(&in, &e) == 0);
+
+    /* a CHANGE: the second event, with its logical set */
+    s = sample(GBP_PAD_BUTTON_A | GBP_PAD_BUTTON_L);
+    CHECK(gbp_input_step(&in, &t, &s, 6000u) == GBP_INPUT_WRITE_CHANGE);
+    CHECK(gbp_input_take_event(&in, &e) == 1);
+    CHECK(e.n == 2u && e.action == GBP_INPUT_WRITE_CHANGE);
+    CHECK(e.keys == (GBP_GBA_KEY_BIT(GBP_GBA_A) | GBP_GBA_KEY_BIT(GBP_GBA_L)));
+    CHECK(e.word == gbp_keypad_encode(e.keys, &GBP_KEYPAD_DESCRIPTOR) && e.completed == 1u);
+    CHECK(e.t_poll == 6000u && e.t_done == in.t_write);
+
+    /* a CHANGE that fails: recorded as attempted, not completed, with no done instant */
+    m.fail_at_op = m.transfers + 1u;
+    m.fail_rc = GBP_ERR_TIMEOUT;
+    s = sample(GBP_PAD_BUTTON_B);
+    CHECK(gbp_input_step(&in, &t, &s, 7000u) == GBP_INPUT_WRITE_CHANGE);
+    CHECK(gbp_input_take_event(&in, &e) == 1);
+    CHECK(e.n == 3u && e.completed == 0u && e.rc == GBP_ERR_TIMEOUT && e.t_done == 0u && e.xfer_ticks == 0u);
+    CHECK(e.word == gbp_keypad_encode(GBP_GBA_KEY_BIT(GBP_GBA_B), &GBP_KEYPAD_DESCRIPTOR) && e.t_attempt == in.t_last_attempt);
+
+    /* the RETRY one period later: the fourth event */
+    m.tick64 = in.t_last_attempt + period - 10u - m.tick64_origin;
+    CHECK(gbp_input_step(&in, &t, &s, 8000u) == GBP_INPUT_WRITE_RETRY);
+    CHECK(gbp_input_take_event(&in, &e) == 1);
+    CHECK(e.n == 4u && e.action == GBP_INPUT_WRITE_RETRY && e.completed == 1u && e.rc == GBP_OK);
+    CHECK(in.events_recorded == 4u && in.events_overwritten == 0u);
+
+    /* two non-refresh writes without a take: the first is counted as overwritten, the last survives */
+    s = sample(GBP_PAD_BUTTON_X);
+    CHECK(gbp_input_step(&in, &t, &s, 9000u) == GBP_INPUT_WRITE_CHANGE);
+    s = sample(0);
+    CHECK(gbp_input_step(&in, &t, &s, 9100u) == GBP_INPUT_WRITE_CHANGE);
+    CHECK(in.events_recorded == 6u && in.events_overwritten == 1u);
+    CHECK(gbp_input_take_event(&in, &e) == 1);
+    CHECK(e.n == 6u && e.keys == 0u && e.t_poll == 9100u);
+
+    /* the render: the one format, its field order, and the length it reports */
+    len = gbp_input_event_render(&e, buf, sizeof buf);
+    CHECK(len > 0 && (size_t)len < sizeof buf);
+    CHECK(strncmp(buf, "KEY n=6 act=change keys=0000 word=0000 t_poll=", 46) == 0);
+    CHECK(strstr(buf, " t_attempt=") != 0 && strstr(buf, " t_done=") != 0 && strstr(buf, " xfer=") != 0 && strstr(buf, " rc=ok") != 0);
+    CHECK((size_t)len == strlen(buf));
+    /* the worst case of every conversion: the longest names, every number at its type's maximum */
+    e.n = 0xFFFFFFFFu;
+    e.action = GBP_INPUT_WRITE_REFRESH;                        /* "refresh", the longest name -- never recorded, the bound holds anyway */
+    e.keys = 0xFFFFu;
+    e.word = 0xFFFFu;
+    e.t_poll = e.t_attempt = e.t_done = UINT64_MAX;
+    e.xfer_ticks = 0xFFFFFFFFu;
+    e.rc = GBP_ERR_BACKEND;                                    /* "backend": 7 characters, as "timeout" */
+    len = gbp_input_event_render(&e, buf, sizeof buf);
+    CHECK(len > 0 && (size_t)len < sizeof buf);
+    CHECK(len <= (int)GBP_INPUT_EVENT_RENDER_MAX);
+    CHECK(len <= 248);                                         /* the ringlog payload: LOG_LINE_LEN 256 - 7 - NUL */
+    CHECK(strcmp(gbp_status_name(GBP_ERR_TIMEOUT), "timeout") == 0 && strcmp(gbp_status_name(GBP_ERR_BACKEND), "backend") == 0);
+
+    /* the bound, pure: a line is admitted while the reserve stays free */
+    CHECK(gbp_input_keylog_admit(0u, 1024u, 64u) == 1);
+    CHECK(gbp_input_keylog_admit(959u, 1024u, 64u) == 1);
+    CHECK(gbp_input_keylog_admit(960u, 1024u, 64u) == 0);
+    CHECK(gbp_input_keylog_admit(1023u, 1024u, 0u) == 1);
+    CHECK(gbp_input_keylog_admit(1024u, 1024u, 0u) == 0);
+    CHECK(gbp_input_keylog_admit(0u, 0u, 0u) == 0);
+    CHECK(gbp_input_keylog_admit(0xFFFFFFF0u, 0xFFFFFFFFu, 0x20u) == 0);
+    CHECK(gbp_input_keylog_admit(0xFFFFFFF0u, 0xFFFFFFFFu, 0x0Eu) == 1);
+    CHECK(gbp_mock_writes_outside(&m, mock_base(&m), 0xC) == 0u);
+    CHECK(m.violations == 0u);
+}
+
 int main(void)
 {
     test_descriptors();
@@ -424,6 +534,7 @@ int main(void)
     test_step_policy_through_the_mock();
     test_zero_timebase_refreshes_every_step();
     test_step_through_the_replay();
+    test_events_through_the_mock();
     printf("test_gbp_input: %d checks, %d failures\n", checks, fails);
     return fails ? 1 : 0;
 }

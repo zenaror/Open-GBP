@@ -71,23 +71,31 @@ class TheFrozenThingsAreUntouched(unittest.TestCase):
         for n in (1, 8, 10):
             self.assertEqual(part(now, n), part(old, n), n)
 
-    def test_the_module_and_the_descriptor_are_unchanged(self):
-        for rel in ("src/gbp/gbp_input.c", "src/gbp/gbp_input.h"):
-            old = git_show(rel)
-            if old is None:
-                self.skipTest("the frozen commit is not available in this checkout")
-            self.assertEqual(read(os.path.join(ROOT, rel)), old, rel)
+    def test_the_descriptor_and_the_policy_are_unchanged(self):
+        """Issue #22 changed no code. Issue #27 (2026-09-21) later added the per-change
+        record to the module; the descriptor and the policy stay the frozen bytes."""
+        old = git_show("src/gbp/gbp_input.c")
+        if old is None:
+            self.skipTest("the frozen commit is not available in this checkout")
+        def initializers(src):
+            src = re.sub(r"/\*.*?\*/", " ", src, flags=re.S)
+            d = re.search(r"GBP_KEYPAD_DESCRIPTOR\s*=\s*\{\s*\{([^}]*)\}\s*,\s*(\d+)\s*\}", src)
+            p = re.search(r"GBP_INPUT_POLICY_DEFAULT\s*=\s*\{(.*?)\};", src, re.S)
+            return (re.sub(r"\s+", "", d.group(1)), d.group(2), re.sub(r"\s+", "", p.group(1)))
+        self.assertEqual(initializers(read(os.path.join(ROOT, "src", "gbp", "gbp_input.c"))), initializers(old))
         self.assertIn("{ 0, 1, 2, 3, 4, 5, 6, 7, /* R -> bit */ 9, /* L -> bit */ 8 }, 1", read(os.path.join(ROOT, "src", "gbp", "gbp_input.c")))
 
     def test_nothing_under_the_untouchable_paths_changed(self):
         r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", FROZEN_COMMIT], capture_output=True)
         if r.returncode != 0:
             self.skipTest("the frozen commit is not available in this checkout")
-        # docs/protocol and docs/hardware left this guard with Issue #26 (the promotion); the code paths stay
+        # docs/protocol and docs/hardware left this guard with Issue #26 (the promotion); Issue #27 (the per-change
+        # record and the ENVINPUT repair) touched the input module and the stream probe, and nothing else
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(r.stdout.strip(), "", "changed against the frozen commit: " + r.stdout)
+        allowed = {"src/gbp/gbp_input.c", "src/gbp/gbp_input.h", "poc/gbp-video-stream-probe/source/main.c", "poc/gbp-video-stream-probe/Makefile"}
+        self.assertTrue(set(r.stdout.split()) <= allowed, "changed against the frozen commit: " + r.stdout)
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
         for line in r.stdout.split():
             self.assertRegex(line, r"-run1[45]-", "only the RUN 14 / RUN 15 fixtures (Issue #24) were added: " + line)
