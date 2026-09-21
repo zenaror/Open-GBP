@@ -10705,3 +10705,70 @@ froze src/ and poc/ allow exactly the four files of this checkpoint.
 that spends the candidate — pre-registration, staging, the instrument, the
 KEY-to-frame join — for the Operator; then Phase 5's real acceptance with a
 commercial game.
+
+## 2026-09-21 — Issue #28: RUN 17 / RUN 18 PRE-REGISTERED as GBP-INPUT-002 (§V7.3), the machine-join runs of `stream-0015` — Question One answered first: FACT is reachable per bit by the whole-run join, not by an interval join and not per press; NOT RUN / NOT AUTHORISED HERE; INPUT.md corrected on its date; no hardware, no code, no build, no staging
+
+**Question One, from the code and the data, before any gate.** OGBPFULL1
+samples K = 8 every 256 frames (`GBP_VFULL_K 8u`, `GBP_VFULL_SPACING 256u`,
+static-asserted): one frame every 4.286 s at 59.727 Hz, at +6.084 … +36.087 s
+after CONTROL in RUN 14 / RUN 15. The walk of RUN 14 ran from before s0 to
+between s2 and s3 (9–13 s, three intervals, several buttons each). Per press
+in time: NOT supported (latency stays out of reach). Per interval: a
+consistency check only — within one interval the counts are NOT distinct
+(RUN 14: R +2 and B +2 in the same interval; RUN 15: R +2 and DOWN +2), so an
+interval-local count join cannot bind which bit moved which counter. The
+whole run: SUPPORTED, and it binds — the KEY record gives every word bit's
+rising-edge total R_b, the last samples give every counter's final tally T_c
+(FACT as data), and the walk's distinct counts make the map b → c unique from
+the totals alone, with no timing, no boundary rule, no pacing and no human
+link (the Operator produces presses, he no longer counts them; a miscount
+degrades only the bits that tie). **FACT is reachable per bit with
+`stream-0015` exactly as it is.** What would raise the granularity is
+recorded, not proposed: a denser full-frame store (a build change, and K = 8
+already holds 1.84 MB against 1.65 MB free), a per-frame record of the tally
+cells (a new format), the project-owned stimulus publishing KEYINPUT into
+the witnessed strip (the route to a per-press join and a latency figure);
+pacing the walk is EXCLUDED. No stronger join was needed for FACT, so no
+stop condition fired.
+
+**What §V7.3 freezes.** The numbering resolved (RUN 16 keeps the optional
+menu reading and its stream-0014 names; a reserved number belongs to its
+experiment whenever it runs; RUN 17 = walk A, RUN 18 = walk B, ten
+stream-0015 names reserved, verified absent); the identity (514 880 B,
+`dd545c01…3a49`, `da06500`, NOT rebuilt); the Swiss slot reused again with
+stream-0014 preserved first to `build/archive/gbp-video-stream-probe-stream-0014-0ff8355.dol`
+(reproducible from `0ff8355`), the SD path and the exact hash in the
+checklist, the staging not performed here; the topology by the declared
+inventory for the units and per-run declarations for the rest, the generic
+pad's scope travelling with any L/R statement; the recovery procedure
+byte-identical to §V7.1.7's; the shared gates plus the KEY record's own
+(`KEYLOG events = emitted, lost 0, truncated 0, overwritten 0`; `truncated=0`
+a gate again, which also validates GBP-KEY-008's repair physically); the
+join's definitions frozen so the ingestion cannot tune them (completed words
+only, rising edges from 0000, the end state = the vector common to at least
+two samples after the last KEY line, blank = 0 recorded again); verdicts per
+word bit — FACT / FACT-SWAPPED / NOT CLOSED (informative, the failed join
+reachable and read against the stated assumptions A1–A3) / UNDECIDED /
+INCONCLUSIVE — with the interval check recorded under a pre-registered
+boundary convention (B = 3 source frames) that is never a latency figure,
+and the Operator's channel (M, O) beside the join, never merged; what a FACT
+would change (GBP-KEY-004 and the consolidated pages, by the ingestion) and
+what nothing here measures; the commercial-game run not pre-registered (a
+game supplies only one end of the join).
+
+**Also.** `docs/protocol/INPUT.md`'s "GBP-KEY-009; recorded, not implemented"
+corrected in its own commit with its date kept (implemented the same day in
+`stream-0015`, executed nowhere; RUN 17 / RUN 18 pre-registered to spend it);
+the routing's status unchanged. HANDOFF (the ten names, the state block, the
+Phase-5 row, the candidate row, blocker, next action, trail, two do-not-assume
+bullets), ROADMAP Phase 5. `tests/host/test_run17_prereg.py` pins the part in
+the style of `test_run14_prereg.py`; `test_run13_prereg.py` /
+`test_run14_prereg.py` move their "no run-17+ name" pin to run-19+;
+`test_input_promotion.py` and `test_run14.py` slice §V7 at §V7.3.
+
+**Not done, on purpose.** No hardware; no staging; no build; no code; no
+change to §V7.1 or §V7.2, a verdict, a gate or an evidence status; no
+promotion; no GBP-HW id; the commercial-game run not pre-registered.
+
+**Next.** The Orchestrator validates #28 and opens the Hardware Issue for RUN
+17 (RUN 18 to follow under its own authorisation).

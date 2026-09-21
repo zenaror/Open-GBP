@@ -21454,7 +21454,7 @@ of Hardware Issue #15, then the next Phase-4 design — is the Orchestrator's.
 
 ---
 
-## V7 — GBP-INPUT-001: THE FIRST PHYSICAL KEYPAD WRITE — RUN 14 / RUN 15 PRE-REGISTERED (GitHub Issue #20, §V7.1; NOT RUN / NOT AUTHORISED HERE at that checkpoint; AMENDED BEFORE HARDWARE, Issue #23) — EXECUTED 2026-09-21 (Hardware Issue #21) AND INGESTED (Issue #24, §V7.2): QUESTION M = PASS · QUESTION O = AS-ASSIGNED, BOTH RUNS; U-GBP-010 CLOSED; THE ROUTING CORROBORATED, NOT FACT; RUN 16 NOT RUN
+## V7 — GBP-INPUT-001: THE FIRST PHYSICAL KEYPAD WRITE — RUN 14 / RUN 15 PRE-REGISTERED (GitHub Issue #20, §V7.1; NOT RUN / NOT AUTHORISED HERE at that checkpoint; AMENDED BEFORE HARDWARE, Issue #23) — EXECUTED 2026-09-21 (Hardware Issue #21) AND INGESTED (Issue #24, §V7.2): QUESTION M = PASS · QUESTION O = AS-ASSIGNED, BOTH RUNS; U-GBP-010 CLOSED; THE ROUTING CORROBORATED, NOT FACT; RUN 16 NOT RUN · RUN 17 / RUN 18 PRE-REGISTERED (Issue #28, §V7.3): THE MACHINE-JOIN RUNS OF stream-0015, GBP-INPUT-002 — NOT RUN / NOT AUTHORISED HERE
 
 Phase 5 (`docs/ROADMAP.md`). Issue #18 reconstructed the input path on
 paper (`docs/research/INPUT_PATH.md`), Issue #19 implemented it as software
@@ -22712,5 +22712,524 @@ these ids. No rerun is pre-registered. What comes next — the validation of
 this ingestion, the closing of Hardware Issue #21, and whether the two
 functional items (GBP-KEY-008, GBP-KEY-009) become a checkpoint — is the
 Orchestrator's.
+
+---
+
+### V7.3 RUN 17 / RUN 18 — GBP-INPUT-002, the machine-join runs: the KEY record of `stream-0015` joined to the checker's counters, the run that can take the routing from CORROBORATED to FACT — **PRE-REGISTERED 2026-09-21 (GitHub Issue #28); NOT RUN / NOT AUTHORISED HERE**
+
+Written before the hardware is touched. GitHub Issue #28 is the complete
+prospective pre-registration contract and this part persists it in substance:
+Question One answered from the code and from RUN 14 / RUN 15's data before
+any gate was written, the run identity with the numbering resolved, the exact
+artifact verified on disk without a rebuild and the Swiss slot decision, the
+topology, the reserved raw names, the pre-run identity gate, the Operator
+procedure with the recovery procedure unchanged, the shared admissibility
+gates, the gates and verdicts of the join with a failed join reachable and
+described, what a FACT would and would not change, and the non-claims. **No
+hardware run is authorized by this part.** After it is pushed and
+independently validated by the Orchestrator, a separate Hardware Issue moves
+RUN 17 to the Operator; RUN 18 follows it in order under its own
+authorisation. Nothing here is evidence; no evidence ID is allocated; nothing
+is classified; the routing stays CORROBORATED; the descriptor is unchanged;
+`stream-0015` is frozen as the candidate and nothing here authorises another.
+The commercial-game acceptance run is NOT pre-registered here: it needs the
+Operator's choice of game and a prospective definition of "reliably", and a
+game supplies only one end of this join.
+
+#### V7.3.1 Question One — the granularity the eight samples support, from the code and from RUN 14 / RUN 15; FACT is reachable, by the whole-run join
+
+**The code.** OGBPFULL1 keeps K = 8 samples at `frame_index` = origin +
+256·i (`GBP_VFULL_K 8u`, `GBP_VFULL_SPACING 256u`, pinned by a
+`_Static_assert` in `gbp_vfull.h`; the origin is the first retained witness
+frame, 356 in both runs), one sample every 4.286 s at the measured 59.727 Hz:
+RUN 14 and RUN 15 took them at +6.084, 10.370, 14.656, 18.943, 23.229, 27.515,
+31.801 and 36.087 s after the CONTROL transform. Changing K or the spacing is
+a build change, and `stream-0015` is frozen. The KEY record (GBP-KEY-010)
+timestamps every non-refresh write with `t_attempt` and `t_done` on the
+transport's ticks64 — the base of the samples' own `t_take` (OGBPFULL1), of
+OGBPDISP2's `t_take` and of OGBPIDXCAP1's `t_first_block` — so every KEY line
+is placed in a sample interval exactly, by comparison, with no conversion.
+The checker increments a counter once per rising edge of its key as the AGB
+sees it at VBlank (`keysDown()`, edge-triggered; source verified, V7.1.3): a
+press is one increment however long it is held, two presses separated by a
+release are two.
+
+**The data.** In RUN 14 the walk was under way before s0 (L at 1 at +6.084 s)
+and finished between s2 (+14.656 s, START at 3) and s3 (+18.943 s, final):
+21 presses over roughly 9 to 13 s, spanning three sample intervals, several
+buttons per interval. Per interval the counters moved: RUN 14 (s0 → s1) R +2,
+A +3, B +2; (s1 → s2) B +2, SELECT +5, START +3; (s2 → s3) START +3. RUN 15
+(s0 → s1) R +2, UP +3, DOWN +2; (s1 → s2) DOWN +2, LEFT +5, RIGHT +1; (s2 →
+s3) RIGHT +5. Two facts follow. (a) The intermediate tallies are legible:
+every partial decoded exactly (§V7.2.6). (b) Within an interval the
+increments are NOT distinct: R +2 and B +2 share the first interval of RUN
+14, R +2 and DOWN +2 that of RUN 15. An interval-wise count join therefore
+cannot, by itself, bind which word bit moved which counter: with two bits
+sent twice and two counters up by two in the same interval, both assignments
+fit.
+
+**Three granularities, and what each supports.**
+
+```text
+per press, in time   NOT SUPPORTED. One frame per 4.286 s against presses ~0.5 s apart: the samples cannot say which
+                     frame first showed an increment. Input latency stays out of reach of this run (V7.1.11 stands).
+per interval         a CONSISTENCY CHECK, not a binding. For each interval (t_take(s_i), t_take(s_i+1)] the counters'
+                     increments must be explainable by the rising edges of the KEY lines whose t_attempt falls in it,
+                     up to the presses near a boundary: a press written less than the (unmeasured) write-to-display
+                     delay before a sample's t_take may show in that sample or in the next. Recorded per interval
+                     (V7.3.9, Question I); never a gate for FACT; a recurring unexplained interval is a finding.
+the whole run        SUPPORTED, AND IT BINDS. Over the run the KEY record gives the number of rising edges R_b of every
+                     word bit b (from the sequence of completed words), and the last samples give the final tally T_c
+                     of every counter c, machine-decoded (FACT as data, §V7.2.6). The walk's counts are pairwise
+                     distinct by design (1, 2, 3, 4, 5, 6), so each pressed bit's R_b equals exactly one counter's
+                     T_c: the map b -> c is unique from the totals alone -- no timing, no boundary rule, no pacing,
+                     and no human link. The Operator's job is to PRODUCE presses, not to count them: if he miscounts,
+                     R_b changes together with T_c and the map still closes, unless two bits end with the same total,
+                     in which case those two bits, and only those, are undecidable in that run.
+```
+
+**Answer.** FACT is REACHABLE — for the routing of every word bit whose
+total is distinct — by the whole-run join, with `stream-0015` exactly as it
+is. What it takes: the two machine ends agree for every pressed bit
+(T_{c(b)} = R_b for a unique c(b); every unpressed counter blank; the end
+state stable), under the assumptions V7.3.9 states. What FACT then says: the
+GBS-DOL delivers word bit b to the AGB's key c(b), on this hardware. What it
+does not say: anything about latency, about the refresh, about other pads,
+or about a game.
+
+**What would raise the granularity — recorded, not proposed, none authorised
+here.** A denser OGBPFULL1 (K or the spacing) is a build change, and K = 8
+already holds 1.84 MB of MEM1 against 1.65 MB free, so a denser full-frame
+store is not a constant change but a new, smaller record; a per-frame record
+of the twenty tally cells only would be a new sidecar format; the
+project-owned stimulus that publishes KEYINPUT into every frame's canonical
+strip — which OGBPIDXCAP1 already witnesses per frame — is the route to a
+per-press join and to a latency figure (V7.1.10); **pacing the walk to the
+sample cadence is EXCLUDED**: the procedure never asks the Operator to time
+anything. A stronger join than the whole-run totals needs one of the first
+three, that is, code or a build; this part stops at the totals, which
+suffice for FACT on the routing.
+
+#### V7.3.2 Run identity, the numbering resolved, the experiment, the walks
+
+```text
+run numbers         RUN 17 and RUN 18. RESOLUTION, stated: V7.1.2 numbers runs in the ORDER OF EXECUTION and V7.1.5
+                    reserved the run16 names for the optional EZ-Flash menu reading, TAKEN even if that run never
+                    happens. Both hold, read together: a reserved number belongs to its pre-registered experiment
+                    from the moment it is reserved, whenever it executes; a new run always takes the next number
+                    above every reserved one. RUN 16 stays the menu reading (its five stream-0014 names unchanged),
+                    whether it runs before, after or never; the machine-join runs are RUN 17 and RUN 18 with their
+                    own names (V7.3.5). No reserved name changes experiment.
+experiment          GBP-INPUT-002, one experiment, one question answered by machine (V7.3.9):
+                      J  the join -- for each word bit the runtime sent, which AGB key received it, from the KEY record
+                         and the checker's counters alone. FACT if it closes; recorded either way.
+                    plus, beside it and never merged, the Operator's channel of V7.1.9 (M and O), read as before.
+image               stream-0015 (V7.3.3): stream-0014 plus the KEY record and the ENVINPUT repair, nothing else
+                    (GBP-KEY-010). Embedded TEST_ID stays GBP-VIDEO-004.
+instrument          the Enhanced Control Checker GBA on the EZ-Flash Omega DE's NOR (V7.1.3's provenance: commit
+                    76924c13..., prebuilt 69 348 B 53c212c7...b6e; the Operator's media; nothing enters the tree),
+                    booted STRAIGHT INTO. The AGS test ROM is NOT a fallback here: its display cannot be decoded from
+                    the frames, so it cannot close the join -- if the checker cannot boot, the run is not made.
+RUN 17              the checker's counted walk A: L x1, R x2, A x3, B x4, SELECT (the pad's X) x5, START x6 --
+                    word bits 8, 9, 0, 1, 2, 3; L and R first and smallest. THE run this part is about: bits 8 and 9
+                    are U-GBP-010's routing.
+RUN 18              the checker's counted walk B: L x1, R x2, UP x3, DOWN x4, LEFT x5, RIGHT x6 -- bits 8, 9 again
+                    and 4, 5, 6, 7; follows RUN 17 in order, planned for the same session, its own authorisation.
+                    Stop rule as RUN 15's: if RUN 17 shows no press reaching the cartridge at all, a functional
+                    Issue comes first.
+why both            FACT is per bit and needs the bit pressed with a distinct count; walk A settles the question
+                    (bits 8, 9) and four more, walk B the remaining four. Why not one 55-press walk: V7.1.2's
+                    schedule arithmetic is unchanged -- 55 presses fit the ~40.4 s window only at a sustained two
+                    per second with ~3 s to spare, no margin for a run that must not be paced.
+what the Operator does that is new   NOTHING. The KEY record is written by the runtime; the walk, the reading of
+                    the tallies and the report are RUN 14 / RUN 15's. The join is computed at ingestion.
+budget              KEY lines expected per run: 1 (first) + 2 x 21 (each press a change to and back) = 43, plus any
+                    retry; the ringlog holds ~670 more lines than the pre-run and post-run records need
+                    (LOG_LINES 1024, KEYLOG_TAIL_RESERVE 64; GBP-KEY-010): no bound is approached.
+```
+
+#### V7.3.3 The exact artifact — verified on disk 2026-09-21, NOT rebuilt; the Swiss slot decision: stream-0014 preserved first; the instrument
+
+```text
+DOL          build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol   514 880 B
+             dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49
+             embedded  OPENGBP-IDENT gbp-video-stream-probe stream-0015 da06500 ; TEST_ID GBP-VIDEO-004 ; no "dirty"
+             functional commits cee9165 + da06500 (Issue #27); build-info.txt: build_id=stream-0015 commit=da06500,
+             the same SHA-256; verified on disk for this part (size, hash, embedded identity, build-info), NOT
+             rebuilt (a rebuild at another commit is a different artifact); zero warnings; two consecutive clean
+             builds byte-identical; make stream-audit 0 findings; Dolphin absent / model PASS on their stated
+             conditions with the pump slot never running there (GBP-KEY-010)
+Swiss slot   12-stream, REUSED AGAIN, by the rule V7.1.3 set for stream-0013. `make swiss` copies the CURRENT build
+             into build/swiss/12-stream/boot.dol and refreshes INDEX.txt. CONSEQUENCE, RECORDED: staging overwrites
+             the host copy of stream-0014 -- build/swiss/12-stream/boot.dol = ef76a170...0b9c, 513 152 B, the exact
+             image RUN 14 and RUN 15 executed -- and, when the Operator copies the slot, the SD copy at
+             /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol. stream-0014 is NOT destroyed by accident:
+             (1) before the overwrite the Hardware Issue preserves the exact bytes -- cp --update=none
+             build/swiss/12-stream/boot.dol build/archive/gbp-video-stream-probe-stream-0014-0ff8355.dol ; cmp ;
+             sha256sum = ef76a170...0b9c ; beside the stream-0013 archive of V7.1.3 -- and (2) stream-0014 is
+             REPRODUCIBLE: it is the build of the tree at commit 0ff8355 in the project image
+             (ghcr.io/extremscorner/libogc2:20260805; build-info recorded commit=0ff8355), and this build line is
+             deterministic (two consecutive clean builds byte-identical for stream-0014, GBP-KEY-006, and for
+             stream-0015, GBP-KEY-010): `rm -rf build/poc && GIT_COMMIT=0ff8355 GIT_DIRTY= make build`. The RUN 14 /
+             RUN 15 records keep citing ef76a170...0b9c unchanged. After staging, INDEX.txt's 12-stream row reads
+             stream-0015 / da06500 / 514880 / dd545c01...3a49; the SD copy is verified by hash before every boot
+             (V7.3.6). The staging itself is NOT performed by this part.
+build/physical
+             NOTHING: the checker is the Operator's media (V7.1.3); build/physical becomes relevant only if the
+             project-owned stimulus of V7.1.10 is built later.
+tools        tools/vindex.py, vidxcap.py, vdisp.py, vfull.py, vvi.py, vpace.py: unchanged, used observationally
+             (V7.1.8). NO analyzer parses the KEY record or computes the join: the ingestion checkpoint implements
+             the algorithm V7.3.9 freezes, as a host test recomputing from the fixtures and, if authorised then,
+             a tool under tools/; the algorithm is frozen HERE so the ingestion cannot tune it to the data.
+```
+
+If any identity differs on the day, **DO NOT RUN**. No artifact is rebuilt or
+re-derived to satisfy this gate.
+
+#### V7.3.4 Physical topology — the inventory for the units, the rest declared per run
+
+```text
+console            the same GameCube: by the Operator's DECLARED HARDWARE INVENTORY (2026-09-21, Issue #25 -- exactly
+Game Boy Player    one GameCube, exactly one Game Boy Player; GBP-HW-261, HANDOFF "Do not rediscover"); cited, not
+                   asked again; a declaration, never an inference
+controller         ONE GameCube controller in port 1 (PAD_CHAN0); the Operator DECLARES which -- the generic third-party
+                   pad of RUN 14 / RUN 15 is the one in use unless he declares otherwise; the scope of any L/R
+                   statement follows the pad declared (the official Nintendo pad remains unexercised unless it is the
+                   one declared); nothing in ports 2-4
+BBA / Ethernet     DECLARED per run (RUN 14 / RUN 15: PRESENT, DISCONNECTED, "BBA conectado sem cabo de rede");
+                   no network code in stream-0015
+cartridge          the EZ-Flash Omega DE with the checker on its NOR, booting STRAIGHT INTO IT -- declared per run
+display chain      DECLARED per run; RUN 14 / RUN 15's: GameCube -> composite / RCA -> low-cost RCA-to-HDMI converter
+                   (1080p out) -> HYDIS HV150UX2 / M.NT68676.2A. TOPOLOGY only; nothing about the display is claimed;
+                   the join reads the FRAMES, not the screen, so the chain is not part of the join
+camera             optional (§V6.10); the photographs were useless as an aid in RUN 14 / RUN 15 (no upscaler in the
+                   chain) and are not asked for
+```
+
+A deviation not recorded before execution makes the affected run
+INCONCLUSIVE.
+
+#### V7.3.5 Reserved raw-file names — before the hardware
+
+The console writes `GBP-VIDEO-004_stream-0015.log`, `-idxcap.bin`,
+`-disp.bin`, `-full.bin` and `-vi.bin` under `sd:/open-gbp/` — RUN 18 writes
+the SAME names as RUN 17: each run's five files are copied off the SD and
+archived under their reserved names BEFORE the next run boots, per
+`captures/README.md` ("Receiving a new physical run": rename BEFORE copy,
+`cp --update=none`, `cmp`, hash on receipt; a per-run subdirectory under
+`logs/`, as RUN 15 used, is the convention that avoids the bare-name
+collision). Verified absent on 2026-09-21. **Reserved now, and TAKEN even if
+a run aborts, never starts, or RUN 18 is never executed:**
+
+```text
+captures/local/GBP-VIDEO-004_stream-0015-run17.log
+captures/local/GBP-VIDEO-004_stream-0015-run17-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0015-run17-disp.bin
+captures/local/GBP-VIDEO-004_stream-0015-run17-full.bin
+captures/local/GBP-VIDEO-004_stream-0015-run17-vi.bin
+captures/local/GBP-VIDEO-004_stream-0015-run18.log
+captures/local/GBP-VIDEO-004_stream-0015-run18-idxcap.bin
+captures/local/GBP-VIDEO-004_stream-0015-run18-disp.bin
+captures/local/GBP-VIDEO-004_stream-0015-run18-full.bin
+captures/local/GBP-VIDEO-004_stream-0015-run18-vi.bin
+```
+
+The run16 names of V7.1.5 are untouched and still carry the optional menu
+reading on stream-0014. The KEY record lives inside the `.log` file; it has
+no sidecar of its own.
+
+#### V7.3.6 Pre-run identity gate — required of the Operator before each launch
+
+```text
+staging      performed under the Hardware Issue, never here, in this order: (1) preserve stream-0014 as V7.3.3
+             (cp --update=none build/swiss/12-stream/boot.dol build/archive/gbp-video-stream-probe-stream-0014-0ff8355.dol,
+             cmp, sha256sum ef76a170...0b9c, 513 152 B); (2) `make swiss` on the tree at 48e5c24 or later WITHOUT
+             rebuilding -- build/poc must still hold dd545c01...3a49 (if `make swiss` finds no DOL, or a different
+             one, STOP: nothing is rebuilt to pass this gate); (3) verify build/swiss/12-stream/boot.dol = 514 880 B,
+             dd545c01...3a49, cmp identical to build/poc, INDEX row stream-0015 / da06500; (4) copy the 12-stream
+             directory to the SD
+DOL on SD    /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol : exact size 514 880 B; exact SHA-256
+             dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49; embedded
+             gbp-video-stream-probe / stream-0015 / da06500; TEST_ID GBP-VIDEO-004; no -dirty. If it still reads
+             ef76a170...0b9c (stream-0014), the copy did not happen: DO NOT RUN.
+SD state     before RUN 17: no sd:/open-gbp/GBP-VIDEO-004_stream-0015.* file exists on the SD; before RUN 18: RUN 17's
+             five files already archived under V7.3.5's names. Any such file found is MOVED ASIDE, never deleted,
+             reported, and never treated as a run artifact (V7.1.6's rule).
+cartridge    the EZ-Flash Omega DE boots straight into the Enhanced Control Checker on its NOR (declared; V7.3.2)
+controller   one pad in port 1, declared (V7.3.4); nothing in ports 2-4
+rule         the Operator's media hashes are a double check; they do not redefine the project's identities.
+             If ANY identity differs: DO NOT RUN.
+```
+
+#### V7.3.7 Operator physical procedure — frozen: walk A, walk B; the recovery procedure unchanged
+
+**The hazard, restated for what changed.** The KEYPAD write is no longer a
+first: RUN 14 and RUN 15 issued 7 892 and 7 895 of them with the hazard of
+V7.1.7 not occurring. What is new in `stream-0015` is software in the pump
+slot — one formatted ringlog line per key change — and a repaired report
+line; neither touches the device. `CLAUDE.md` §18 still applies: one new
+variable (the record), a clean commit and a recorded hash, every wait bounded
+by the runtime, and the recovery procedure below, byte-identical to V7.1.7's.
+
+**Recovery procedure — frozen by the Operator:**
+
+```text
+If the AGB hangs, input behaves as if stuck, or a menu navigates by itself:
+power the console off at the button, wait, power on. Do not try to correct
+it with the controller. Record what was seen before the power-off.
+```
+
+The forbidden walk of V7.1.7 stays forbidden (one press per button leaves
+totals that cannot bind), the distinct counts stay, and the Operator records
+BOTH channels as before — the join does not replace his report, it stands
+beside it. The Hardware Issue reduces each run to this literal checklist;
+nothing asks the Operator to count frames by eye, to time anything, or to
+pace the walk to the samples.
+
+**RUN 17 — the checker's counted walk A (the first executed run of this
+part; the Hardware Issue the Orchestrator opens):**
+
+```text
+ 1  Cite the inventory (V7.3.4): the one GameCube and the one Game Boy Player. Declare the controller in port 1
+    (the generic third-party pad, unless another is used -- then say which).
+ 2  Declare BBA state, Ethernet state and the display chain (V7.3.4).
+ 3  Confirm the EZ-Flash Omega DE boots straight into the Enhanced Control Checker on its NOR (V7.3.2). If it shows
+    its menu instead, launch the checker from the menu and record that (the D-pad and A are then the first words the
+    runtime sends, and they are in the KEY record). If the checker cannot be booted at all: do NOT run (V7.3.2).
+ 4  Verify the exact DOL on the SD: /media/rafael/SD_GC/Open-GBP/12-stream/boot.dol, 514 880 B, dd545c01...3a49
+    (V7.3.6). If it reads ef76a170...0b9c, the stream-0014 image is still on the card: DO NOT RUN.
+ 5  Confirm no sd:/open-gbp/GBP-VIDEO-004_stream-0015.* file is on the SD (V7.3.6); a leftover is MOVED ASIDE.
+ 6  Boot the exact stream-0015 through Swiss (12-stream). Touch nothing until the checker's screen is on: the title
+    "Enhanced Control Checker GBA" and the ten labels. If it has not appeared by roughly 15 s after boot, press
+    nothing and let the run end (INCONCLUSIVE, recorded).
+ 7  Walk A, in this order and with these counts: L x1, R x2, A x3, B x4, SELECT (the X button of the GameCube pad)
+    x5, START x6. Press nothing else: not the D-pad, not the stick, not Y, not Z. NEVER one press per button.
+    Every press fully released. Live channel: note, when you can see it, which labelled row moved at each press.
+ 8  Read the ten tallies from the screen and record them as a vector in the checker's order -- L, R, UP, DOWN, LEFT,
+    RIGHT, START, SELECT, A, B -- BEFORE the run ends (~40 s after boot the AGB image leaves the screen). Record
+    also whether any tally changed without a press.
+ 9  If a tally changes without a press, anything happens by itself, or input looks stuck: RECOVERY, above.
+10  Let the witness target stop the experiment; a walk cut by the target is recorded as far as it went. Do not
+    stop it early.
+11  When the text console returns: press X once to save; wait for the status line (it reports the KEY lines
+    emitted); then power-cycle the console.
+12  Copy the five console files off the SD into a per-run subdirectory under logs/ and archive them under the
+    reserved run17 names (V7.3.5), no-overwrite semantics, BEFORE anything else boots.
+13  Return the five raw artifacts, the tally vector, the literal report and the declarations of steps 1-3.
+```
+
+**RUN 18 — the checker's counted walk B (follows RUN 17 in order; planned
+for the same session; its own authorisation):**
+
+```text
+ 1  RUN 17 archived (V7.3.5); the same DOL still on the SD (re-verify the hash, V7.3.6); the checker still on the NOR.
+    Stop rule: if RUN 17 showed no press reaching the cartridge at all, do not run RUN 18 -- a functional Issue first.
+ 2  Boot the exact stream-0015 through Swiss (12-stream); wait for the checker's screen as RUN 17 step 6.
+ 3  Walk B, in this order and with these counts: L x1, R x2, UP x3, DOWN x4, LEFT x5, RIGHT x6 -- the D-pad, not
+    the stick. Press nothing else: not A, B, X, Y, Start or Z. NEVER one press per button. Every press fully
+    released. Live channel: note, when you can see it, which labelled row moved at each press.
+ 4  Read the ten tallies and record the vector in the checker's order BEFORE the run ends; note any change without
+    a press.
+ 5  If anything changes by itself or input looks stuck: RECOVERY, above.
+ 6  Let the witness target stop the experiment; a cut walk is recorded as far as it went. Do not stop it early.
+ 7  When the text console returns: press X once to save; wait; power-cycle the console.
+ 8  Archive the five console files under the reserved run18 names (V7.3.5), no-overwrite semantics.
+ 9  Return the five raw artifacts, the tally vector, the literal report and the declarations.
+```
+
+Do not infer a frame number, a latency or a timing from anything seen by
+eye. Approximate timing may be noted; it is not a gate.
+
+#### V7.3.8 Shared admissibility gates — prospective, inherited, plus the KEY record's own
+
+```text
+IDENTITY / LOG   exact DOL identity (V7.3.3); log header GBP-VIDEO-004 / stream-0015 @ da06500; dropped=0;
+                 truncated=0 -- now a gate again: the record that clipped in RUN 14 / RUN 15 is repaired (GBP-KEY-008),
+                 so truncated=0 with ENVINPUT and ENVINPUT2 both present and complete is required, and a run that
+                 meets it PHYSICALLY VALIDATES the repair as run 11 validated WITELIG's (recorded as such); no storage
+                 fault; the summary records complete (COUNTERS, INPUT, INPUTT, KEYLOG, ENVINPUT, ENVINPUT2, WITELIG,
+                 WITELIG2)
+KEY RECORD       KEYLOG events = emitted, lost = 0, truncated = 0, overwritten = 0; the number of KEY lines in the log
+                 equals emitted; every KEY line parses under GBP_INPUT_EVENT_FMT with n increasing by one; events =
+                 INPUT first + change + retry. A run that fails this is INCONCLUSIVE for the join (the record is the
+                 experiment's instrument) and its INPUT / M / O readings are recorded as V7.1.8 / V7.1.9 define them.
+TRANSPORT        errors 0, transport_ok 1, timeouts 0, busy 0, overflow 0, uncertain 0; balanced service accounting
+                 (unmasks = deliveries = acks = re-arms); teardown restore ok
+STARTUP          NORMAL; recorded, no tolerance invented
+INPUT (machine)  as V7.1.8: selftest = 1, steps > 0, attempts > 0, completed = attempts, failed = 0, first = 1,
+                 refresh > 0, change >= 4; INPUTT observational; a run with steps = 0, completed < attempts or
+                 failed > 0 is INCONCLUSIVE for the join (a retry that COMPLETED is not a failure of the join: its
+                 completed line delivers the word; the failed attempt is recorded)
+FRAMES           OGBPFULL1 parses with valid CRCs, 8 of K = 8 samples COMPLETE, origin = the first retained frame,
+                 texture == the Python conversion in every sample; every sample shows the checker's screen and every
+                 tally cell decodes by the six-glyph table of §V7.2.6 (an unknown glyph aborts the reading: recorded,
+                 the join INCONCLUSIVE); the video-path verdicts (vindex, vfull) are expected INCONCLUSIVE on this
+                 content and are RECORDED, not judged; the other sidecars parse with valid CRCs
+TOPOLOGY         declared as V7.3.4 before execution; an unrecorded deviation is INCONCLUSIVE for the run
+SESSION          the run ended at stop=witness_target_reached; a run ended by the recovery power-off is recorded with
+                 its partial report and is INCONCLUSIVE for the join unless the log and the frames were saved (they are
+                 not: the save is at the end), so a recovery power-off is INCONCLUSIVE for the join
+```
+
+#### V7.3.9 GBP-INPUT-002 — the join: definitions frozen, verdicts per word bit, a failed join reachable; the Operator's channel beside it
+
+The join reads two machine records and nothing else: the KEY lines of the
+log and the OGBPFULL1 frames. The Operator's report is read separately, as
+V7.1.9 defines, and the two are compared at the end, never merged.
+
+**Assumptions the join rests on, stated so that a failed join can be read:**
+
+```text
+A1  the AGB's key lines have no source but the KEYPAD window: the Game Boy Player has no buttons, the runtime writes
+    only the words its policy maps from the pad (no detection handshake bits, Z never sent), and the checker counts
+    KEYINPUT and nothing else (source verified). If A1 failed, a counter would move with no word sent: NOT CLOSED.
+A2  a completed 32-byte write presents its word to the AGB until the next completed write (the references' model,
+    GBP-KEY-002/003; consistent with RUN 14 / RUN 15). If a completed write were not presented, a pressed bit's total
+    would exceed its counter: NOT CLOSED.
+A3  the checker's counters are edge-triggered (keysDown() at VBlank; source verified): one increment per rising edge
+    however long the key is held. A press shorter than one AGB frame may not be seen: the counter would fall short of
+    the KEY total -- NOT CLOSED, and a finding about the pace, not about the routing.
+```
+
+**Definitions, frozen here so the ingestion cannot tune them:**
+
+```text
+KEY lines      fields n, act, keys, word, t_poll, t_attempt, t_done, xfer, rc (GBP_INPUT_EVENT_FMT, GBP-KEY-010). A line
+               COUNTS only with rc=ok (a failed write never reached the device; its retry, when completed, delivers
+               that word). The completed words are taken in n order, starting from 0000 (nothing held before the
+               first write; a first completed word with bits set counts those bits as rising edges).
+R_b            the number of 0 -> 1 transitions of word bit b across the sequence of completed words, b = 0..15;
+               PRESSED bits are those with R_b > 0.
+tallies        every OGBPFULL1 sample decoded by the §V7.2.6 method: the frozen tools/vfull.py parser, consumed_words(),
+               the background at pixel (0, 0), a cell lit when |lum - lum(bg)| > 20, the tally field at console column
+               22 of rows 4..13 read by EXACT match against the six-glyph table (1..6) plus, if a tens digit ever
+               appears, a glyph transcribed and recorded; an unknown glyph aborts the reading.
+END STATE      the tally vector common to every sample whose t_take is later than the last completed KEY line's t_done;
+               at least TWO such samples, all identical -- else no end state (INCONCLUSIVE). T_c = the end state's
+               count at counter c, blank read as 0 (the V7.1.9 wording mismatch, recorded again, not smoothed).
+c(b)           the AGB key the descriptor expects for word bit b: A, B, SELECT, START, RIGHT, LEFT, UP, DOWN for bits
+               0..7; L for bit 8; R for bit 9 (GBP-KEY-006's descriptor, CORROBORATED, not FACT).
+```
+
+```text
+QUESTION J -- the machine join, per word bit
+FACT          for a pressed bit b: R_b is distinct from every other pressed bit's total, exactly one counter reads R_b,
+              and that counter is c(b). MEANS: the GBS-DOL delivers word bit b to the AGB's key c(b) -- a physical
+              FACT for this hardware, by machine end to end; the descriptor's entry for b is kept; GBP-KEY-004's row
+              is promoted for that bit by the ingestion, and the consolidated pages follow (V7.3.10).
+FACT-SWAPPED  as FACT, but the one counter reading R_b is c' != c(b). MEANS: word bit b reaches the AGB's key c' -- a
+              physical FACT the other way; the descriptor's entry for b changes in a functional Issue and GBP-KEY-004
+              records the falsification. It is NOT a failure of the run: the join closed.
+NOT CLOSED    a pressed bit's total appears at no counter; a counter moved by a value no pressed bit was sent; or the
+              sum of the counters' final counts differs from the sum of the R_b: the two machine ends disagree. The
+              join is RECORDED as not closed, with the discrepancy and which assumption (A1..A3) it points at -- an
+              INFORMATIVE result about the instrumentation or the transport, never a failed run: the Operator-channel
+              readings M and O of V7.1.9 still stand on their own vector, the next step is a functional Issue, and the
+              routing stays CORROBORATED.
+UNDECIDED     two or more pressed bits ended with the same total (a miscounted walk): those bits, and only those, are
+              not bound in this run; every other pressed bit is read as above.
+INCONCLUSIVE  run inadmissible (V7.3.8); the KEY record incomplete or unparsable; no end state; a tally cell that
+              does not decode; identity or topology not as declared; the walk not started (R_b = 0 for every b).
+
+QUESTION I -- the interval check, RECORDED, never a gate
+              for each interval (t_take(s_i), t_take(s_i+1)], i = 0..6, and for the head before s0: the counters'
+              increments between the two samples against the rising edges of the KEY lines with t_attempt in the
+              interval. EXACT when they agree; EXPLAINED when they agree after attributing to the neighbouring interval
+              every press whose t_attempt lies within B = 3 source frames (~50 ms) before the boundary sample's t_take
+              -- B is a CONVENTION of this check, chosen before the data from the mechanism's expected reach (VBlank
+              sampling, one frame to draw, one frame to capture), NOT a latency figure and NOT tuned afterwards;
+              UNEXPLAINED otherwise. Every interval's status is recorded; an UNEXPLAINED interval is a finding about
+              the sampling or a lost press, never a verdict on the routing. If a press near a boundary happens to be
+              visible in the sample that follows it by less than B, that is an observation of the write-to-display
+              delay's order of magnitude; it is recorded as such and NO latency figure is derived from it.
+
+QUESTION M / QUESTION O -- the Operator's channel, exactly as V7.1.9 defines them, read from his tally vector alone
+              and never fed into the join; then the vector and the decoded end state are compared and their agreement
+              (or not) is stated. A disagreement between the two channels makes the human reading INCONCLUSIVE for the
+              buttons concerned and leaves the join as computed.
+```
+
+**Reading rules, applied before any verdict:** the join is computed per run
+and per bit; RUN 17 binds bits 8, 9, 0, 1, 2, 3 and RUN 18 bits 8, 9, 4, 5,
+6, 7 (bits 8 and 9 twice); a bit not pressed in a run is "not observed" in
+that run; a walk cut by the witness target keeps every completed press (its
+R_b is what was sent; the end state is what the last samples show), and the
+join is read on what both records contain; nothing is extrapolated. The
+ingestion implements exactly the definitions above as a host test
+recomputing from the versioned fixtures — the log's summary and KEY lines
+quoted verbatim in the struct fixture, the frames byte-identical — and
+reports every intermediate quantity (each R_b, each sample's vector, each
+interval's status) so that a reader can redo the arithmetic by hand.
+
+#### V7.3.10 U-GBP-010 stays CLOSED; what a FACT changes and does not; what is not measured
+
+`U-GBP-010` closed on RUN 14 / RUN 15 (§V7.2) and stays closed; this part
+does not reopen it. What a FACT verdict changes: GBP-KEY-004's row gains a
+dated addendum promoting the routing of the bits bound to **FACT (hw, the
+run)**; `REGISTERS.md` §2 / §2.3, `GBS-DOL.md`, `ARCHITECTURE.md` and
+`INPUT.md` move those bits from "C, not FACT" to F with the run's ids and the
+declared pad's scope beside them — by the ingestion checkpoint, under its own
+authorisation, never here. What a FACT-SWAPPED changes: the descriptor's
+entry in a functional Issue, and the same promotion the other way. What a
+NOT CLOSED changes: nothing in status — the routing stays CORROBORATED, the
+discrepancy becomes a finding, and the functional Issue that follows is about
+the instrument or the transport, not about the routing. What no verdict here
+measures: input latency (V7.3.1: out of reach of this sampling), the need for
+the 5 ms refresh, the official Nintendo pad (unless declared as the pad in
+use), any other cartridge, rumble, the Link Port, and Phase 5's acceptance
+criterion — a real game, which is a separate run with its own contract.
+
+#### V7.3.11 Explicit non-claims, and the record to be filled AFTER each run — nothing pre-filled
+
+Even if the join closes as FACT in both runs, RUN 17 and RUN 18 do **not**
+establish: input latency of any kind; that the 5 ms refresh is needed or
+sufficient; the stick threshold or any policy value as more than policy;
+behaviour with a pad other than the one declared, or with another port or
+cartridge; rumble or any GBP-aware feature; the Link Port; audio; the display
+chain; a game; Phase 6, 7 or 9. The video-path records are collected and
+reported observationally and promote nothing.
+
+```text
+field                                   RUN 17 (walk A)      RUN 18 (walk B)
+DOL SHA-256 on the SD                   --                   --   (dd545c01...3a49 expected)
+stream-0014 preserved before staging    --                        (ef76a170...0b9c at build/archive/, by the Hardware Issue)
+controller / port (declared)            --                   --
+BBA / Ethernet / chain (declared)       --                   --
+boot screen (checker on NOR)            --                   --
+checker screen seen inside the window   --                   --   (yes / no; approximate time)
+log lines / dropped / truncated         --                   --   (truncated=0 expected: GBP-KEY-008's validation)
+ENVINPUT / ENVINPUT2 complete           --                   --
+INPUT steps / attempts / completed      --                   --
+INPUT first / change / refresh / retry  --                   --
+KEYLOG events / emitted / lost          --                   --
+KEYLOG truncated / overwritten          --                   --
+KEY lines parsed / rc=ok / retries      --                   --
+R_b per pressed bit                     --                   --
+samples decoded (of 8) / end state from --                   --
+end state vector (decoded)              --                   --
+tally vector as read (Operator)         --                   --
+channels agree                          --                   --
+sum of R_b / sum of counters            --                   --
+interval check (per interval)           --                   --   (EXACT / EXPLAINED / UNEXPLAINED)
+Question J per bit                      --                   --   (FACT / FACT-SWAPPED / NOT CLOSED / UNDECIDED / INCONCLUSIVE)
+Question M / Question O (Operator)      --                   --
+expected vector (arithmetic)            1,2,0,0,0,0,6,5,3,4  1,2,3,4,5,6,0,0,0,0
+```
+
+#### V7.3.12 What this part is not
+
+Not authorized by this pre-registration: hardware execution; staging,
+copying or flashing anything (the Hardware Issue tells the Operator what to
+copy, and preserves stream-0014 first); booting; opening the Hardware Issue
+(the Orchestrator's, after independent validation); any change to the
+runtime, the descriptor, the policy, the analyzers, the formats, the
+fixtures, the evidence rows or the gates (none was made); a new build or
+candidate (`stream-0015` is the candidate); the project-owned stimulus of
+V7.1.10 (recorded, not started); the commercial-game acceptance run (its own
+contract, not written here); evidence ingestion; any verdict; promoting the
+routing; reopening U-GBP-010; updating `docs/protocol/` beyond the dated
+correction of `INPUT.md` made in its own commit under Issue #28. No new
+physical evidence ID exists. RUN 17 and RUN 18 end this checkpoint as
+PRE-REGISTERED / NOT RUN.
 
 ---
