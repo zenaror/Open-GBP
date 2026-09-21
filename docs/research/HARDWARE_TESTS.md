@@ -23254,8 +23254,10 @@ Evidence: GBP-HW-266 … GBP-HW-271 (physical); GBP-KEY-004 promoted by its
 own falsifier's outcome; GBP-KEY-008, GBP-KEY-009 and GBP-KEY-010 with dated
 addenda. Two things are recorded rather than smoothed over (V7.4.2, V7.4.4):
 the BBA / Ethernet / display-chain items of §V7.3.4 were NOT declared for
-these runs and are recorded as absent, and RUN 16's direction per trigger was
-not reported and is not inferred.
+these runs at ingestion and were recorded as absent — the Operator declared
+them afterwards, the same day, and the declaration replaced that note under
+Issue #35 with the history kept (V7.4.2); and RUN 16's direction per trigger
+was not reported and is not inferred.
 
 #### V7.4.1 Classification — read from §V7.3.8 / §V7.3.9 as written, per run and per bit
 
@@ -23323,7 +23325,7 @@ only there), bits 4–7 on the original pad only (walk B ran only there). Both
 pads were read by their digital click (`trigger_threshold=0`, both ENVINPUT
 records); the analogue trigger value is not read.
 
-#### V7.4.2 Operator declarations and the Operator's channel — preserved literally, kept beside the machine channel; what was not declared
+#### V7.4.2 Operator declarations and the Operator's channel — preserved literally, kept beside the machine channel; what was not declared at ingestion, and the declaration that followed (Issue #35)
 
 ```text
 TALLY VECTORS  (the channel §V7.1.9 reads M and O from; order L, R, UP, DOWN, LEFT, RIGHT, START, SELECT, A, B; relayed as digits
@@ -23344,11 +23346,26 @@ BOOT SCREEN    RUN 17 / RUN 18: straight into the checker on the NOR (declared; 
                (declared: it is the menu reading; by machine: only L / R words in the record, 33 lines = 1 + 2 x 16).
 CONSOLE / GBP  the one GameCube and the one Game Boy Player of the Operator's DECLARED HARDWARE INVENTORY (Issue #25; V7.3.4:
                cited, not asked again; a declaration, never an inference).
-BBA / ETHERNET NOT DECLARED for RUN 16 / 17 / 18 at ingestion -- no per-run declaration exists on Hardware Issue #32 or Issue #33.
-DISPLAY CHAIN  RECORDED AS ABSENT, NOT INFERRED (the precedent of Issue #24 / #25 for the controller). No deviation was reported.
-               stream-0015 links no network code, and the join reads the FRAMES, not the screen (V7.3.4), so neither item touches
-               the join's substance; the §V7.3.8 TOPOLOGY line is read in V7.4.4 with this stated. The Orchestrator may obtain the
-               declaration and add it, as Issue #25 did for RUN 14 / RUN 15.
+BBA / ETHERNET PRESENT / DISCONNECTED -- his words: "BBA como sempre (presente mas nao conectado no cabo)"                  DECLARED
+DISPLAY CHAIN  UNCHANGED (the chain of V7.1.4 / §V6.24.3: GameCube -> composite / RCA -> low-cost RCA-to-HDMI
+               converter, 1080p out -> HYDIS HV150UX2 / M.NT68676.2A) -- his words: "video inalterado"                DECLARED
+               (TOPOLOGY only; nothing about the display is claimed; the join reads the FRAMES, not the screen, V7.3.4)
+               OPERATOR DECLARATION, given AFTER the ingestion and relayed by the Orchestrator (Issue #35, 2026-09-21).
+               THE HISTORY, KEPT: at ingestion (Issue #33) no per-run declaration of these two items existed on Hardware
+               Issue #32 or on Issue #33, and both were RECORDED AS ABSENT, NOT INFERRED (the precedent of Issue #24 / #25
+               for the controller); the declaration above replaced that note under Issue #35. No deviation was reported,
+               then or since; stream-0015 links no network code and the join reads the frames, so neither item touches
+               the join's substance; the §V7.3.8 TOPOLOGY line is read in V7.4.4 with this stated.
+STANDING       Two of these are STANDING declarations -- operator declarations WITH A STATED DURATION, in his words:
+DECLARATIONS     display chain   "video inalterado e ira permanecer assim ate que eu anuncie o contrario"
+                 BBA             "BBA também permanecera presente e sem cabo, ate que seja solicitado para remover ou conectar o cabo"
+               They hold until he announces a change, like the hardware inventory (Issue #25), and a future
+               pre-registration CITES them instead of asking (HANDOFF, "Do not rediscover"). They are NOT a licence to
+               infer and do NOT make the topology "known": each item stays DECLARED, by him, until he says otherwise; if
+               he announces a change and a run's record does not reflect it, that run is INCONCLUSIVE on that item
+               exactly as V7.1.4 says. What still MUST be declared per run: the cartridge and its boot screen, and the
+               controller -- he owns a generic third-party pad and an original Nintendo pad and has used both (RUN 14 /
+               15 / 17 the generic, RUN 16 / 18 the original), so it is never assumed.
 EXECUTION      raw write times: run17 14:13:32, run18 14:19:30, run16 14:22:08 (-03:00): the walks ran first, the menu test LAST.
 ORDER          The numbering follows §V7.3.2 -- a reserved number belongs to its experiment whenever it runs -- NOT the order.
                Both are recorded so neither is inferred later.
@@ -23459,10 +23476,12 @@ FRAMES           PASS   RUN 17 / RUN 18: OGBPFULL1 parses with valid CRCs, 8 of 
                         construction, RECORDED not judged (V7.4.9).  RUN 16: the container PASSES the same way (8/8 COMPLETE, valid
                         CRCs, texture == conversion 8/8) and the content is the EZ-Flash MENU, not the checker: the tally reader
                         aborts at an unknown bitmap (recorded verbatim, V7.4.6) -- the join is not applicable to RUN 16 by design.
-TOPOLOGY         PASS*  for the items declared: console and Game Boy Player by the inventory; the controller per run; the boot
-                        screen per run, corroborated by machine (V7.4.2). * BBA / Ethernet / display chain NOT DECLARED for these
-                        runs -- recorded as absent, not inferred; no deviation reported; neither item is part of the join (no network
-                        code; the join reads the frames). The gate text is unchanged; the reading is stated here.
+TOPOLOGY         PASS   for the items declared: console and Game Boy Player by the inventory; the controller per run; the boot
+                        screen per run, corroborated by machine; BBA PRESENT / Ethernet DISCONNECTED and the display chain UNCHANGED,
+                        declared by the Operator after the ingestion (Issue #35, 2026-09-21; standing declarations, V7.4.2). HISTORY:
+                        at ingestion these two were NOT DECLARED, the line read PASS* and they were recorded as absent, not inferred;
+                        no deviation was reported then or since; neither item is part of the join (no network code; the join reads
+                        the frames). The gate text is unchanged; the reading is stated here.
 SESSION          PASS   all three ended at stop=witness_target_reached; the recovery procedure was not needed: the §V7.3.7 hazard did
                         not occur (the KEY record holds only the walk's own words in every run; restore=ok; in RUN 16 no menu item
                         launched by itself -- the record has no A / START word).
@@ -23743,7 +23762,8 @@ field                                   RUN 17 (walk A)              RUN 18 (wal
 DOL SHA-256 on the SD                   the Operator's check (V7.3.6 step 4); all three log headers stream-0015 @ da06500
 stream-0014 preserved before staging    done 2026-09-21 (ef76a170...0b9c at build/archive/, Hardware Issue #32, verified by the Orchestrator)
 controller / port (declared)            port 1, GENERIC third-party    port 1, ORIGINAL Nintendo    port 1, ORIGINAL Nintendo
-BBA / Ethernet / chain (declared)       NOT DECLARED -- recorded as absent, not inferred; no deviation reported (all three)
+BBA / Ethernet / chain (declared)       BBA PRESENT, no Ethernet cable; display chain UNCHANGED -- declared after the ingestion (Issue #35;
+                                        STANDING, V7.4.2); at ingestion NOT DECLARED, recorded as absent, not inferred; no deviation (all three)
 boot screen                             checker on NOR (declared;    checker on NOR (declared;    EZ-Flash menu (declared; only
                                         no navigation word)          no navigation word)          L / R words)
 checker screen seen inside the window   yes: every preserved frame   yes: every preserved frame   n/a (the menu from s1, +10.370 s)
@@ -23777,8 +23797,9 @@ captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run17-full.bin   1 844 
 captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run17-vi.bin     152 396 B    ae8c484d…8fbc  byte-identical
 captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run17-qual.bin        24 652 B     7117fd30…a66e  content-blind projection naming the raw
                                                                            witness (8 946 060 B, e32af1a6…44ac)
-captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run17-struct.json     75 359 B     every identity; the declarations AS declarations (the
-                                                                           controller per run; BBA / chain recorded as absent); the
+captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run17-struct.json     77 690 B     every identity; the declarations AS declarations (the
+                                                                           controller per run; BBA / chain recorded as absent at ingestion,
+                                                                           declared under Issue #35 with that history); the
                                                                            Operator's vector; the receipt; the summary records AND
                                                                            EVERY KEY LINE verbatim (the other end of the join); the
                                                                            INPUT and KEY RECORD gates; the join with every intermediate
@@ -23789,12 +23810,12 @@ captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run18-disp.bin   400 67
 captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run18-full.bin   1 844 492 B  4a724784…6d  byte-identical (the tally frames)
 captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run18-vi.bin     152 396 B    69eff4d1…f0b5  byte-identical
 captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run18-qual.bin        24 652 B     8f3315e5…cfac  projection of 6be30f15…8204
-captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run18-struct.json     76 040 B     as run17's, for walk B (the comparison with RUN 15)
+captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run18-struct.json     78 371 B     as run17's, for walk B (the comparison with RUN 15)
 captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run16-disp.bin   400 796 B    9da66d6e…2e5e  byte-identical
 captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run16-full.bin   1 844 492 B  3cfb7dd9…af07  byte-identical (the menu; no tally)
 captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0015-run16-vi.bin     152 396 B    f98d0974…4266  byte-identical
 captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run16-qual.bin        24 652 B     0e5685ee…d973  projection of e07cb0b4…f1c1
-captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run16-struct.json     74 122 B     as run17's, for the menu reading: the KEY record, R_8 = R_9
+captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run16-struct.json     76 578 B     as run17's, for the menu reading: the KEY record, R_8 = R_9
                                                                            = 8, UNDECIDED, the reader's abort verbatim, M / O on §V7.1.9's
                                                                            terms, the direction limit; the comparison with RUN 14
 tests/host/test_run17.py                                                   all three runs, RECOMPUTED from the versioned fixtures, never
@@ -23862,8 +23883,8 @@ more than policy; behaviour with any pad other than the two declared (bits
 0–3 on the generic pad only, bits 4–7 on the original only), or with another
 port or cartridge; RUN 16's direction per trigger (not reported, not
 inferred); the menu's convention for L and R; rumble or any GBP-aware
-feature; the Link Port; audio; the display chain (not declared, not part of
-the join); the boot-presentation parity as more than a qualitative
+feature; the Link Port; audio; the display chain (declared unchanged under
+Issue #35; not part of the join); the boot-presentation parity as more than a qualitative
 observation (a frame-by-frame comparison is Phase 9 work, not started);
 Phase 5's acceptance criterion — a real game can be controlled reliably —
 NOT assessed: the instrument is a test ROM, and no game has been played

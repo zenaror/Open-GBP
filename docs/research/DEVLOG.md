@@ -10830,3 +10830,37 @@ recorded as stale, not changed.
 **Next.** The Orchestrator validates #33, closes Hardware Issue #32, obtains
 the BBA / chain declaration if wanted on record, and designs Phase 5's
 acceptance run with a commercial game.
+
+## 2026-09-21 — Issue #35: the RUN 16 / 17 / 18 topology declaration recorded with its history, and two STANDING declarations — BBA present without the Ethernet cable, display chain unchanged, "until he announces a change"; per-run declarations reduce to the cartridge / boot screen and the controller; no hardware, no code, no verdict or gate change
+
+**What was recorded.** After the ingestion (Issue #33) the Operator declared
+the two topology items §V7.4 had recorded as ABSENT for RUN 16 / 17 / 18 —
+"BBA como sempre (presente mas nao conectado no cabo)"; "video inalterado" — and made
+two of them STANDING declarations, in his words: the display chain "video inalterado e ira permanecer assim ate que eu anuncie o contrario"; the BBA "BBA também permanecera presente e sem cabo, ate que seja solicitado para remover ou conectar o cabo". §V7.4.2 now carries the declaration with the history kept exactly
+as §V7.2.2 kept RUN 14 / RUN 15's (absent at ingestion, recorded as such,
+not inferred; declared the same day by this route; replaced under this
+Issue); §V7.4.4's TOPOLOGY line reads PASS with that history; §V7.4.10's row
+and §V7.4.11 / 12 follow; GBP-HW-266 gains the dated addendum (no new id);
+the three struct fixtures' topology block is regenerated as Issue #25 did
+(every other section unchanged); HANDOFF's "Do not rediscover" row carries
+the standing declarations beside the inventory, and a new do-not-assume
+bullet says what a standing declaration is not.
+
+**The care.** A standing declaration is an operator declaration WITH A
+STATED DURATION — cited by a future pre-registration instead of asked, never
+a licence to infer, never "the topology is known": each item stays declared,
+by him, until he says otherwise, and a run whose record does not reflect an
+announced change is INCONCLUSIVE on that item (§V7.1.4). What still needs a
+per-run declaration: the cartridge and its boot screen, and the controller —
+both his pads have been used (RUN 14 / 15 / 17 generic, RUN 16 / 18
+original), so it is never assumed.
+
+**Tests.** `tests/host/test_topology_standing.py` pins the declaration, its
+standing nature, its history, the reduced per-run list, the fixtures and the
+freeze (§V7.1–§V7.3 and §V7.4's results byte-identical to `aaee492`); the
+two pins that named the absent note moved.
+
+**Not done, on purpose.** No hardware; no code; no verdict, gate, evidence
+status or id; nothing inferred; Issue #34 (the acceptance run) not started.
+
+**Next.** The Orchestrator validates #35; then Issue #34.

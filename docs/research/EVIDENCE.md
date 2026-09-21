@@ -7077,6 +7077,20 @@ Ethernet state and the display chain for these runs — recorded as ABSENT,
 not inferred; no deviation reported; neither is part of the join (§V7.4.2,
 §V7.4.4). The Operator's boot-presentation observation is GBP-HW-271.
 
+**2026-09-21, Issue #35 (declared after the ingestion; the note above kept as
+history):** the Operator declared, for RUN 16 / 17 / 18, BBA PRESENT with no
+Ethernet cable — "BBA como sempre (presente mas nao conectado no cabo)" — and the
+display chain UNCHANGED — "video inalterado" — and made two of these
+STANDING declarations, operator declarations WITH A STATED DURATION, in his
+words: the display chain "video inalterado e ira permanecer assim ate que eu anuncie o contrario"; the BBA "BBA também permanecera presente e sem cabo, ate que seja solicitado para remover ou conectar o cabo". They hold until he announces a change, like the hardware inventory
+(Issue #25); future pre-registrations cite them instead of asking; they are
+NOT a licence to infer — each item stays DECLARED, by him, until he says
+otherwise, and a run whose record does not reflect an announced change is
+INCONCLUSIVE on that item (§V7.1.4). What still needs a per-run declaration:
+the cartridge and its boot screen, and the controller (both his pads have
+been used; never assumed). §V7.4.2 / §V7.4.4 carry the declaration with the
+history; no verdict, gate or status changes; no new id.
+
 ---
 
 ### GBP-HW-267 — the KEY record's first hardware exercise: `KEYLOG` 43 / 43 / 33 events, none lost, none truncated, none overwritten, every line parsed, the word the runtime sent at every change; `truncated=0` with ENVINPUT (170) and ENVINPUT2 (105) complete — GBP-KEY-008's repair physically validated; INPUT 7 898 / 7 898 / 7 890 completed writes, failed 0; transport, startup and Policy A clean — FACT
