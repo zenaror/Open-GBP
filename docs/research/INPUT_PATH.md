@@ -438,3 +438,20 @@ Hardware Issue if wanted:
  e  Report literally, as OPERATOR OBSERVATION. Even recorded, it is never FACT: FACT needs the project-owned
     stimulus joined to the runtime's own records (§5, §7.1.10 of HARDWARE_TESTS).
 ```
+
+## 11. Addendum after RUN 14 / RUN 15 — §8's guarantee spent (GitHub Issue #27, 2026-09-21)
+
+RUN 14 and RUN 15 executed and were ingested (`HARDWARE_TESTS.md` §V7.2;
+U-GBP-010 CLOSED, the routing CORROBORATED, not FACT); the physical record no
+longer starts from nothing — the sentence in §1 is dated. The one link the
+machine record lacked was *which word the runtime sent at each change*, and
+§8 kept exactly the instants that carry it. Issue #27 spends the guarantee:
+`stream-0015` (`da06500`, not executed) emits one `KEY` ringlog line per
+first / change / retry write with the word, the logical set and `t_poll`,
+`t_attempt`, `t_done` in the transport's ticks64 base — the base of the
+sidecars, so the join of §8 needs no conversion (GBP-KEY-009, GBP-KEY-010).
+Choice 2 of §8 is therefore made: ring-log lines, no sidecar, no format
+version, and no existing sidecar semantics changed; the head is bounded by
+the ringlog's own capacity with a reserve for the post-run records. Nothing
+in this addendum is a latency figure, and the routing stays CORROBORATED
+until a run joins this record to an instrument showing what the AGB received.

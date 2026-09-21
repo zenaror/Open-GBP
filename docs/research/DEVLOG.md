@@ -10640,3 +10640,68 @@ U-GBP-010 not reopened; GBP-KEY-009 not implemented; no GBP-HW id.
 per-key-change word logging that takes the routing to FACT — as a functional
 checkpoint with its own pre-registration, and Phase 5's real acceptance with
 a commercial game, which the Operator schedules.
+
+## 2026-09-21 — Issue #27: GBP-KEY-009 implemented (one KEY line per key change, bounded, in the sidecars' time base) and GBP-KEY-008 repaired (ENVINPUT + ENVINPUT2) with a general payload guard; candidate `stream-0015` built, executed nowhere; no hardware
+
+**Why this one matters.** The routing is CORROBORATED and not FACT for one
+reason: the machine record of RUN 14 / RUN 15 knows 42 key changes and not
+which buttons. This checkpoint closes that link in software: every write that
+is not a refresh — first, change, retry — now leaves one ringlog line, `KEY
+n= act= keys= word= t_poll= t_attempt= t_done= xfer= rc=`, with the word, the
+logical set and three instants in the transport's ticks64 base, the base of
+OGBPIDXCAP1 / OGBPDISP2 / OGBPVI1, so a future run's join needs no conversion
+(INPUT_PATH.md §8's guarantee, spent; §11 added there). A refresh never
+produces a line (RUN 14: 7 849 refreshes against 42 changes). FACT is now
+reachable by a run; it is not actual.
+
+**The four constraints, held.** (1) No flood: refreshes counted, never
+recorded. (2) Bounded, never blocking (CLAUDE.md §13): the store is the
+ringlog itself, preallocated, never grown; a line is admitted only while a
+64-line reserve stays free for the 27 post-run records, so a run with more
+changes than the ≈ 700-line headroom keeps every summary, keeps `dropped=0`,
+and counts the surplus in `KEYLOG lost`; truncated and overwritten counted,
+0 by construction; the line's cost measured (`KEYLOG emit_ticks`) outside the
+INPUTT step aggregate. (3) The instants are the transport's ticks64. (4) The
+worst-case rendering is DERIVED: 158 of 248, in the C unit test (every
+conversion at its type's maximum, the longest names) and in the Python
+guard; the emission is from the pump slot after the write, through the
+transport's clock — the stream audit's `gettime` pins unchanged.
+
+**Deliverable B.** ENVINPUT split as WITELIG was: `ENVINPUT` (229 at the worst
+case) and `ENVINPUT2` (222), every field kept. And the guard made general:
+`tests/host/test_ringlog_payloads.py` renders every `ringlog_printf` of the
+probe at the worst case of every conversion, with every `%s` bounded by the
+vocabulary of its source (checked against the code), in two tiers stated
+honestly — STRICT for the owned records, a RATCHET for four older records
+that exceed 248 at the pure type width (ENVSTORE 303, INPUT 269, WITQUAL 307,
+DISPTRACE 253; frozen, so growth or any new over-long record fails a test,
+and their physical renderings in the versioned RUN 14 / RUN 15 records are
+far below the payload) — and it is shown able to fail on the stream-0014
+ENVINPUT. Records emitted by the library probe code (src/gbp) are outside
+its scope, stated.
+
+**Candidate.** `stream-0015` = commit `da06500` (clean), 514 880 B, SHA-256
+`dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49`, zero warnings, none suppressed; two consecutive clean builds byte-identical, `make stream-audit` 0 findings (the ext and base one-shot handlers identical to the physically validated GBP-VIDEO-001 build); Dolphin absent —
+RESULT PASS (4.2 s) on the stated conditions: READY build=stream-0015 commit=da06500, INPUTSELFTEST ok=1 device_touched=0, COUNTERS balanced=1 sci_clean_at_probe=1 inv_fail=0 storage_fault=-; model — RESULT PASS (4.1 s) on the same conditions (HSPDevice=2, GBPlayerRom): in both the probe stops before any
+service cycle, so the pump slot, the KEYPAD write and the KEY record are not
+exercised there (said, not implied). NOT executed; no run name reserved;
+nothing pre-registered; `build/swiss/` untouched.
+
+**Records.** EVIDENCE GBP-KEY-010 (new, software) and dated addenda to
+GBP-KEY-008 (REPAIRED, physical validation pending) and GBP-KEY-009
+(IMPLEMENTED, FACT reachable); UNKNOWNS U-GBP-010 note; ROADMAP Phase 5;
+HANDOFF (candidate row, state block, Phase-5 row, blocker, next action, trail,
+do-not-assume); INPUT_PATH.md §11. `docs/protocol/INPUT.md` still says
+"recorded, not implemented" for GBP-KEY-009: untouchable here, the
+Orchestrator's to update after validation. Tests: 8 505 C checks;
+`tests/host/test_input_keylog.py`; the Issue #19 pin "no format carries the
+head instants" became "only the KEY format carries them"; the guards that
+froze src/ and poc/ allow exactly the four files of this checkpoint.
+
+**Two commits, one purpose each:** `cee9165` (the record) and `da06500`
+(the repair and the guard); the docs follow with the identity.
+
+**Next.** The Orchestrator validates #27 and designs the hardware checkpoint
+that spends the candidate — pre-registration, staging, the instrument, the
+KEY-to-frame join — for the Operator; then Phase 5's real acceptance with a
+commercial game.

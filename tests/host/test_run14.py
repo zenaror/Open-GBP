@@ -573,7 +573,7 @@ class TheVerdictsAsReadFromTheFrozenGate(unittest.TestCase):
         self.assertEqual(len(re.findall(r"^## GBP-KEY-009 ", ev, re.M)), 1)
         self.assertIn("NOT repaired here", ev[ev.index("## GBP-KEY-008 "):].splitlines()[0])
         self.assertIn("NOT implemented", ev[ev.index("## GBP-KEY-009 "):].splitlines()[0])
-        self.assertEqual(re.findall(r"^## GBP-KEY-01\d", ev, re.M), [])
+        self.assertEqual(re.findall(r"^## GBP-KEY-01\d", ev, re.M), ["## GBP-KEY-010"])   # Issue #27: the record and the repair as software
 
 
 class TheVideoPathRecordedNotJudged(unittest.TestCase):
