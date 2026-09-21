@@ -3,8 +3,14 @@
 tools/coordtime.py — a reproducible cycle model of the frozen coord-0001 ROM
 (HARDWARE_TESTS §V6.22, GBP-VID-034; GitHub Issue #12).
 
-    tools/coordtime.py analyse [<agb-coord.gba>]       the full report
+    tools/coordtime.py analyse [<rom.gba>]             the full report (profile chosen by the ROM's SHA-256)
     tools/coordtime.py check                           the interpreter self-test
+
+PROFILES (immutable; a ROM is analysed under the profile whose identity it has)
+  coord-0001  the RUN 12 stimulus (90343b64…): PREPARE builds the digit table on the entry frame
+  coord-0002  the repair (Issue #13, §V6.23): the ten digit tables are built at boot; the entry
+              frame selects one.  The coord-0001 numbers are pinned by tests/host/test_coordtime.py
+              and do not change when a profile is added.
 
 WHAT IT IS
   A minimal ARM7TDMI (ARM state) interpreter that executes the EXACT generated
@@ -41,8 +47,59 @@ import hashlib
 import os
 import sys
 
-ROM_SHA256 = "90343b64eda9602c173364171637cd1068f265c385464361b40ec073b11f0a1f"
-ROM_SIZE = 3496
+class Profile:
+    """Everything the model needs to know about one frozen build: its identity,
+    where the linker put the two IWRAM functions and the flags PUBLISH reads,
+    where the loop code is in ROM, and the register state main holds at the
+    two points the tail and the poll are entered (read off the disassembly)."""
+
+    def __init__(self, name, rom_sha256, rom_size, prepare_addr, publish_addr, iwram_image_len, prepare_head, publish_head,
+                 crc_tab_addr, op_digit_addr, op_sq_addr, main_after_publish, main_after_prepare, main_loop_head,
+                 tail_regs, poll_regs, sched_addr=0x03007F00, sp=0x03007E00, extra_iwram=None, tail_sched_off=0,
+                 main_entry=0x080002AC, main_first_prepare=None):
+        self.name = name
+        self.rom_sha256, self.rom_size = rom_sha256, rom_size
+        self.prepare_addr, self.publish_addr, self.iwram_image_len = prepare_addr, publish_addr, iwram_image_len
+        self.prepare_head, self.publish_head = prepare_head, publish_head
+        self.crc_tab_addr, self.op_digit_addr, self.op_sq_addr = crc_tab_addr, op_digit_addr, op_sq_addr
+        self.main_after_publish, self.main_after_prepare, self.main_loop_head = main_after_publish, main_after_prepare, main_loop_head
+        self.tail_regs, self.poll_regs = tail_regs, poll_regs        # {reg index: value} beyond sp / pc / vc0 / t0 / frame_id / vmargin / fault
+        self.sched_addr, self.sp = sched_addr, sp
+        self.extra_iwram = extra_iwram or {}                          # {addr: bytes} placed before a run (e.g. a pointer PUBLISH reads)
+        self.tail_sched_off = tail_sched_off                          # where main keeps `struct sched` relative to sp
+        self.main_entry, self.main_first_prepare = main_entry, main_first_prepare   # boot: main() to its first `bl prepare`
+
+
+COORD1 = Profile(
+    name="coord-0001",
+    rom_sha256="90343b64eda9602c173364171637cd1068f265c385464361b40ec073b11f0a1f", rom_size=3496,
+    prepare_addr=0x03000000, publish_addr=0x0300047C, iwram_image_len=0x630,
+    prepare_head=bytes.fromhex("2038e0e1f04f2de9"),      # mvn r3, r0, lsr #16 ; push {r4-r9, sl, fp, lr}
+    publish_head=bytes.fromhex("00c0a0e370402de9"),      # mov ip, #0 ; push {r4, r5, r6, lr}
+    crc_tab_addr=0x03002C70, op_digit_addr=0x0300064D, op_sq_addr=0x0300064C,
+    main_after_publish=0x08000504, main_after_prepare=0x080004E0, main_loop_head=0x0800048C,
+    tail_regs={4: 0x04000000, 7: 0x04000100, 9: 0x51D, 5: 100, 6: 54, 8: 0, 10: 160, 11: 100},
+    poll_regs={4: 0x04000000}, main_first_prepare=0x08000474)
+
+COORD2 = Profile(
+    name="coord-0002",
+    rom_sha256="319dacb759dd2f78b420691a896387b727accf5d9483f152a6a096865c95093f", rom_size=3620,
+    prepare_addr=0x03000000, publish_addr=0x03000348, iwram_image_len=0x504,
+    prepare_head=bytes.fromhex("2038e0e1f04f2de9"),      # mvn r3, r0, lsr #16 ; push {r4-r9, sl, fp, lr}
+    publish_head=bytes.fromhex("00c0a0e370402de9"),      # mov ip, #0 ; push {r4, r5, r6, lr}
+    crc_tab_addr=0x03002B48, op_digit_addr=0x03000521, op_sq_addr=0x03000520,
+    main_after_publish=0x080006A4, main_after_prepare=0x08000680, main_loop_head=0x08000628,
+    tail_regs={4: 0x04000000, 6: 0x04000100, 8: 0x51D, 5: 100, 9: 54, 7: 0, 10: 160, 11: 100},
+    poll_regs={4: 0x04000000}, tail_sched_off=16, main_first_prepare=0x08000610,
+    # glyph_sel (IWRAM 0x03000524): PREPARE points it at glyph_tables[digit] on an entry frame; a
+    # PUBLISH modelled on its own needs it to name an EWRAM table, as it would after that PREPARE
+    extra_iwram={0x03000524: (0x02002260).to_bytes(4, "little")})
+
+PROFILES = {COORD1.rom_sha256: COORD1, COORD2.rom_sha256: COORD2}
+
+# backward-compatible aliases (the coord-0001 numbers are pinned by their tests)
+ROM_SHA256 = COORD1.rom_sha256
+ROM_SIZE = COORD1.rom_size
 
 IWRAM_BASE, IWRAM_SIZE = 0x03000000, 0x8000
 EWRAM_BASE, EWRAM_SIZE = 0x02000000, 0x40000
@@ -52,16 +109,15 @@ OAM_BASE, OAM_SIZE = 0x07000000, 0x400
 ROM_BASE = 0x08000000
 SENTINEL = 0xFFFFFFF0
 
-PREPARE_ADDR, PUBLISH_ADDR = 0x03000000, 0x0300047C
-IWRAM_IMAGE_LEN = 0x630
-PREPARE_HEAD = bytes.fromhex("2038e0e1f04f2de9")     # mvn r3, r0, lsr #16 ; push {r4-r9, sl, fp, lr}
-PUBLISH_HEAD = bytes.fromhex("00c0a0e370402de9")     # mov ip, #0 ; push {r4, r5, r6, lr}
+PREPARE_ADDR, PUBLISH_ADDR = COORD1.prepare_addr, COORD1.publish_addr
+IWRAM_IMAGE_LEN = COORD1.iwram_image_len
+PREPARE_HEAD, PUBLISH_HEAD = COORD1.prepare_head, COORD1.publish_head
 SEG_OF_DIGIT_ADDR = 0x08000758
-CRC_TAB_ADDR = 0x03002C70
-OP_DIGIT_ADDR, OP_SQ_ADDR = 0x0300064D, 0x0300064C
-MAIN_AFTER_PUBLISH = 0x08000504      # the instruction after `bl __publish_frame_veneer`
-MAIN_AFTER_PREPARE = 0x080004E0      # the first VCOUNT poll after `bl __prepare_frame_veneer`
-MAIN_LOOP_HEAD = 0x0800048C
+CRC_TAB_ADDR = COORD1.crc_tab_addr
+OP_DIGIT_ADDR, OP_SQ_ADDR = COORD1.op_digit_addr, COORD1.op_sq_addr
+MAIN_AFTER_PUBLISH = COORD1.main_after_publish      # the instruction after `bl __publish_frame_veneer`
+MAIN_AFTER_PREPARE = COORD1.main_after_prepare      # the first VCOUNT poll after `bl __prepare_frame_veneer`
+MAIN_LOOP_HEAD = COORD1.main_loop_head
 
 LINE_CYCLES = 1232
 LINES = 228
@@ -467,24 +523,31 @@ class CPU:
 
 
 # --------------------------------------------------------------- the ROM -----
+def profile_of(rom):
+    sha = hashlib.sha256(rom).hexdigest()
+    p = PROFILES.get(sha)
+    if p is None or len(rom) != p.rom_size:
+        raise ValueError("not a frozen stimulus image this tool knows: %d B, sha256 %s" % (len(rom), sha))
+    return p
+
+
 def load_rom(path, check=True):
     with open(path, "rb") as f:
         rom = f.read()
     if check:
-        sha = hashlib.sha256(rom).hexdigest()
-        if len(rom) != ROM_SIZE or sha != ROM_SHA256:
-            raise ValueError("not the frozen coord-0001 image: %d B, sha256 %s" % (len(rom), sha))
+        profile_of(rom)
     return rom
 
 
-def iwram_image(rom):
+def iwram_image(rom, profile=None):
     """The .iwram load image inside the ROM: located by the first words of
     prepare_frame and checked against the first words of publish_frame."""
-    off = rom.find(PREPARE_HEAD)
-    if off < 0 or rom.find(PREPARE_HEAD, off + 1) >= 0:
+    p = profile or profile_of(rom)
+    off = rom.find(p.prepare_head)
+    if off < 0 or rom.find(p.prepare_head, off + 1) >= 0:
         raise ValueError("prepare_frame image not found exactly once in the ROM")
-    img = rom[off:off + IWRAM_IMAGE_LEN]
-    if img[PUBLISH_ADDR - PREPARE_ADDR:PUBLISH_ADDR - PREPARE_ADDR + 8] != PUBLISH_HEAD:
+    img = rom[off:off + p.iwram_image_len]
+    if img[p.publish_addr - p.prepare_addr:p.publish_addr - p.prepare_addr + 8] != p.publish_head:
         raise ValueError("publish_frame image is not where the frozen build placed it")
     return off, img
 
@@ -500,19 +563,21 @@ def crc_table():
 
 
 class Model:
-    def __init__(self, rom, timing=None, check=True):
+    def __init__(self, rom, timing=None, check=True, profile=None):
         self.rom = rom
         self.timing = timing or Timing()
-        self.img_off, self.img = iwram_image(rom)
+        self.p = profile or profile_of(rom)
+        self.img_off, self.img = iwram_image(rom, self.p)
+        self.SCHED, self.SP = self.p.sched_addr, self.p.sp
 
     def _fresh(self):
         m = Mem(self.rom, self.timing)
-        m.iwram[0:IWRAM_IMAGE_LEN] = self.img
-        m.iwram[CRC_TAB_ADDR - IWRAM_BASE:CRC_TAB_ADDR - IWRAM_BASE + 256] = crc_table()
+        p = self.p
+        m.iwram[0:p.iwram_image_len] = self.img
+        m.iwram[p.crc_tab_addr - IWRAM_BASE:p.crc_tab_addr - IWRAM_BASE + 256] = crc_table()
+        for addr, data in p.extra_iwram.items():
+            m.iwram[addr - IWRAM_BASE:addr - IWRAM_BASE + len(data)] = data
         return m
-
-    SCHED = 0x03007F00
-    SP = 0x03007E00
 
     def _sched(self, m, phase, k, digit):
         for i, v in enumerate((phase, k, digit)):
@@ -524,45 +589,56 @@ class Model:
         self._sched(m, phase, k, digit)
         c = CPU(m)
         c.r[0], c.r[1], c.r[2] = frame_id & 0xFFFFFF, status & 0xFF, self.SCHED
-        c.r[13], c.r[14], c.r[15] = self.SP, SENTINEL, PREPARE_ADDR
+        c.r[13], c.r[14], c.r[15] = self.SP, SENTINEL, self.p.prepare_addr
         if trace:
             c.pc_trace = []
         c.run()
         cnt = m.counts
         acc = {"ewram_r16": cnt.get((0x02, 16, "r"), 0), "ewram_w16": cnt.get((0x02, 16, "w"), 0),
-               "rom_r8": cnt.get((0x08, 8, "r"), 0), "iwram_r": sum(v for (r, w, k), v in cnt.items() if r == 0x03 and k == "r"),
+               "rom_r8": cnt.get((0x08, 8, "r"), 0), "rom_r": sum(v for (r, w, k), v in cnt.items() if r in (0x08, 0x09) and k == "r"),
+               "iwram_r": sum(v for (r, w, k), v in cnt.items() if r == 0x03 and k == "r"),
                "iwram_w": sum(v for (r, w, k), v in cnt.items() if r == 0x03 and k == "w")}
         return {"cycles": c.cycles, "instructions": c.instructions, "access": acc,
-                "op_digit": m.read(OP_DIGIT_ADDR, 8, count=False), "op_sq": m.read(OP_SQ_ADDR, 8, count=False), "trace": c.pc_trace}
+                "op_digit": m.read(self.p.op_digit_addr, 8, count=False), "op_sq": m.read(self.p.op_sq_addr, 8, count=False), "trace": c.pc_trace}
 
     def publish(self, op_digit, op_sq):
         """Cycles of publish_frame() from IWRAM, DMA transfers included."""
         m = self._fresh()
-        m.write(OP_DIGIT_ADDR, 8, op_digit)
-        m.write(OP_SQ_ADDR, 8, op_sq)
+        m.write(self.p.op_digit_addr, 8, op_digit)
+        m.write(self.p.op_sq_addr, 8, op_sq)
         c = CPU(m)
-        c.r[13], c.r[14], c.r[15] = self.SP, SENTINEL, PUBLISH_ADDR
+        c.r[13], c.r[14], c.r[15] = self.SP, SENTINEL, self.p.publish_addr
         c.run()
         return {"cycles": c.cycles + m.dma_cycles, "cpu_cycles": c.cycles, "dma_cycles": m.dma_cycles,
                 "dma_count": len(m.dma_log), "dma_units": sum(x[2] for x in m.dma_log), "instructions": c.instructions}
 
-    def tail(self, phase_before, k, digit, vc1=173, vmargin=54):
+    def tail(self, phase_before, k, digit, vc1=173):
         """Cycles of main's loop from the return of publish_frame to the entry of
         prepare_frame (ROM code): status_measure, sched_advance, frame_id,
         status_byte, the call through the veneer."""
         m = self._fresh()
         sp = 0x03007F00
         for i, v in enumerate((phase_before, k, digit)):
-            m.write(sp + 4 * i, 32, v)
+            m.write(sp + self.p.tail_sched_off + 4 * i, 32, v)
         m.write(0x04000006, 16, vc1)
         m.write(0x04000100, 16, 700)
         c = CPU(m)
-        c.r[4], c.r[7], c.r[9] = 0x04000000, 0x04000100, 0x51D
-        c.r[5], c.r[6], c.r[8] = 100, vmargin, 0
-        c.r[10], c.r[11] = 160, 100                 # vc0, t0
-        c.r[13], c.r[15] = sp, MAIN_AFTER_PUBLISH
-        c.run(until=PREPARE_ADDR)
-        return {"cycles": c.cycles, "instructions": c.instructions, "phase_after": m.read(sp, 32), "k_after": m.read(sp + 4, 32)}
+        for i, v in self.p.tail_regs.items():
+            c.r[i] = v
+        c.r[13], c.r[15] = sp, self.p.main_after_publish
+        c.run(until=self.p.prepare_addr)
+        o = self.p.tail_sched_off
+        return {"cycles": c.cycles, "instructions": c.instructions, "phase_after": m.read(sp + o, 32), "k_after": m.read(sp + o + 4, 32)}
+
+    def boot(self):
+        """Cycles of main() from its entry to its first `bl prepare_frame` (ROM
+        code: register setup, OAM clear, WAITCNT, timer, the CRC table, the
+        erase tables, coord-0002's ten digit tables, the background picture)."""
+        m = self._fresh()
+        c = CPU(m)
+        c.r[13], c.r[14], c.r[15] = 0x03007F00, SENTINEL, self.p.main_entry
+        c.run(until=self.p.main_first_prepare, limit=200_000_000)
+        return {"cycles": c.cycles, "instructions": c.instructions, "ms": c.cycles / 16_777_216 * 1000.0}
 
     def poll(self, vcount):
         """One iteration of a VCOUNT wait loop in ROM (ldrh / cmp / b), and the
@@ -570,7 +646,9 @@ class Model:
         m = self._fresh()
         m.write(0x04000006, 16, vcount)
         c = CPU(m)
-        c.r[4], c.r[13], c.r[15] = 0x04000000, 0x03007F00, MAIN_AFTER_PREPARE
+        for i, v in self.p.poll_regs.items():
+            c.r[i] = v
+        c.r[13], c.r[15] = 0x03007F00, self.p.main_after_prepare
         c.step()                                    # ldrh r3, [r4, #6]
         first_read = c.cycles
         c.step()                                    # cmp
@@ -584,6 +662,7 @@ def frame_classes():
            ("steady (phase 39)", 39, 1, 1), ("exit (phase 40)", 40, 1, 1)]
     for d in range(1, 10):
         out.append(("entry digit %d" % d, 0, d, d))
+    out.append(("entry digit 0 (k=10)", 0, 10, 0))
     return out
 
 
@@ -600,8 +679,8 @@ def unlit_pixels(digit):
     return 3840 - lit
 
 
-def analyse(rom, timing=None):
-    model = Model(rom, timing)
+def analyse(rom, timing=None, profile=None):
+    model = Model(rom, timing, profile=profile)
     res = {"prepare": {}, "publish": {}, "tail": {}, "poll": {}}
     for name, phase, k, digit in frame_classes():
         r = model.prepare(0x1234, 0x36, phase, k, digit)
@@ -631,14 +710,14 @@ def budget(res, prev_publish="ordinary (strips only)", tail="entry (schedule wra
 
 def format_report(rom, res, b, res_pf=None, b_pf=None):
     L = LINE_CYCLES
-    out = ["coord-0001 cycle model — canonical %d B, sha256 %s" % (len(rom), hashlib.sha256(rom).hexdigest()[:16] + "…"),
+    out = ["%s cycle model — canonical %d B, sha256 %s" % (profile_of(rom).name, len(rom), hashlib.sha256(rom).hexdigest()[:16] + "…"),
            "memory model: IWRAM 1/1/1 · EWRAM 3/3/6 (2 WS) · ROM WAITCNT 4317h N 4 / S 2 per 16-bit · VRAM 1/1/2 · I/O 1",
            "", "PUBLISH (IWRAM code + DMA), against the hardware VMARGIN:"]
     for name, r in res["publish"].items():
         end_line = VBLANK_FIRST + r["cycles"] / L
         out.append("  %-46s %6d cycles = %6.2f lines -> ends at VCOUNT %6.2f -> VMARGIN %d..%d   (%d DMAs, %d units)" % (
             name, r["cycles"], r["cycles"] / L, end_line, 227 - int(end_line) - (1 if end_line % 1 > 0.999 else 0), 227 - int(end_line), r["dma_count"], r["dma_units"]))
-    out.append("  measured (RUN 12, GBP-HW-251): ordinary 54 · entry 39 · exit 38 (one exit read 39, the knife-edge)")
+    out.append("  measured on coord-0001 (RUN 12, GBP-HW-251): ordinary 54 · entry 39 · exit 38 (one exit read 39, the knife-edge)")
     out.append("")
     out.append("LOOP TAIL in ROM (publish return -> prepare entry), no-prefetch bound%s:" % ("" if res_pf is None else " / with-prefetch bound"))
     for name, r in res["tail"].items():
@@ -656,19 +735,19 @@ def format_report(rom, res, b, res_pf=None, b_pf=None):
     hi = max(b["max"], b_pf["max"] if b_pf else b["max"])
     out.append("")
     out.append("PREPARE (IWRAM code; EWRAM tables; one ROM byte per glyph pixel):")
-    out.append("  %-32s %8s %7s %6s %6s %6s %6s %5s  %s" % ("frame class", "cycles", "lines", "unlit", "ewr16", "eww16", "rom8", "ops", "vs budget [%d .. %d]" % (lo, hi)))
+    out.append("  %-32s %8s %7s %6s %6s %6s %6s %5s  %s" % ("frame class", "cycles", "lines", "unlit", "ewr16", "eww16", "rom_r", "ops", "vs budget [%d .. %d]" % (lo, hi)))
     for name, r in res["prepare"].items():
-        unlit = unlit_pixels(int(name.split()[-1])) if name.startswith("entry") else "-"
+        unlit = unlit_pixels(int(name.split()[2])) if name.startswith("entry") else "-"
         c = r["cycles"]
         a = r["access"]
         verdict = "OVER by %d..%d -> VBlank MISSED, previous FRAME_ID captured twice" % (c - hi, c - lo) if c >= hi else \
                   ("UNDER by %d..%d -> publishes in the next VBlank" % (lo - c, hi - c) if c < lo else "INSIDE the uncertainty band")
-        out.append("  %-32s %8d %7.2f %6s %6d %6d %6d %5s  %s" % (name, c, c / L, unlit, a["ewram_r16"], a["ewram_w16"], a["rom_r8"],
+        out.append("  %-32s %8d %7.2f %6s %6d %6d %6d %5s  %s" % (name, c, c / L, unlit, a["ewram_r16"], a["ewram_w16"], a["rom_r"],
                                                                  "%d/%d" % (r["op_digit"], r["op_sq"]), verdict))
     return "\n".join(out)
 
 
-def sensitivity(rom, ws_values=(1, 2, 3), rom_n_values=(3, 4, 5)):
+def sensitivity(rom, ws_values=(1, 2, 3), rom_n_values=(3, 4, 5), profile=None):
     """The verdict for the four RUN 12 entries under every combination of the two
     memory-timing terms that are not pinned by the ARM7TDMI datasheet, beside
     the PUBLISH end lines those same terms predict (the hardware read 54/39/38)."""
@@ -676,7 +755,7 @@ def sensitivity(rom, ws_values=(1, 2, 3), rom_n_values=(3, 4, 5)):
     for ws in ws_values:
         for rn in rom_n_values:
             t = Timing(ewram_ws=ws, rom_n=rn, rom_s=2)
-            m = Model(rom, t)
+            m = Model(rom, t, profile=profile)
             pub = {k: m.publish(*v)["cycles"] for k, v in (("ordinary", (0, 0)), ("entry", (1, 1)), ("exit", (2, 2)))}
             vm = {k: 227 - int(VBLANK_FIRST + c / LINE_CYCLES) for k, c in pub.items()}
             res = {"publish": {"ordinary (strips only)": {"cycles": pub["ordinary"]}},
