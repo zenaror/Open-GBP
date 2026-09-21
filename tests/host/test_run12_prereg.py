@@ -101,7 +101,9 @@ class TheSectionExists(unittest.TestCase):
         self.assertLess(t.index("### V6.21 "), t.index("### V6.22 "))
         self.assertLess(t.index("### V6.22 "), t.index("### V6.23 "))
         self.assertLess(t.index("### V6.23 "), t.index("### V6.24 "))
-        self.assertNotIn("### V6.25 ", t)
+        self.assertEqual(t.count("### V6.25 "), 1)          # Issue #16: RUN 13 ingested, both verdicts PASS inside their boundaries
+        self.assertLess(t.index("### V6.24 "), t.index("### V6.25 "))
+        self.assertNotIn("### V6.26 ", t)
         self.assertNotRegex(t, r"\n## V7 ")
 
 

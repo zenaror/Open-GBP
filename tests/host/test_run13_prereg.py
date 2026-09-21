@@ -73,22 +73,25 @@ def part(n):
 
 
 class TheSectionExists(unittest.TestCase):
-    def test_twelve_parts_in_order_and_the_heading_says_pre_registered_not_run(self):
+    def test_twelve_parts_in_order_and_the_heading_carries_the_status(self):
         t = prereg()
         pos = [t.index("#### V6.24.%d " % n) for n in range(1, 13)]
         self.assertEqual(pos, sorted(pos))
         head = t.splitlines()[0]
-        for tok in ("RUN 13", "coord-0002", "PRE-REGISTERED 2026-09-20 (GitHub Issue #14)", "NOT RUN", "NOT AUTHORIZED HERE"):
+        for tok in ("RUN 13", "coord-0002", "PRE-REGISTERED 2026-09-20 (GitHub Issue #14)", "EXECUTED 2026-09-21 (Hardware Issue #15)",
+                    "INGESTED in §V6.25 (Issue #16)", "kept verbatim as provenance"):
             self.assertIn(tok, head, tok)
 
-    def test_it_follows_v6_23_and_nothing_follows_it(self):
+    def test_it_follows_v6_23_and_the_result_follows_it_as_v6_25(self):
         t = read(HW)
         self.assertEqual(t.count("### V6.24 "), 1)
         self.assertLess(t.index("### V6.23 "), t.index("### V6.24 "))
-        self.assertNotIn("### V6.25 ", t)
+        self.assertEqual(t.count("### V6.25 "), 1)
+        self.assertLess(t.index("### V6.24 "), t.index("### V6.25 "))
+        self.assertNotIn("### V6.26 ", t)
         v6 = [l for l in t.splitlines() if l.startswith("## V6 ")]
         self.assertEqual(len(v6), 1)
-        self.assertIn("RUN 13 PRE-REGISTERED (Issue #14, §V6.24) WITH coord-0002 — NOT RUN", v6[0])
+        self.assertIn("RUN 13 PRE-REGISTERED (Issue #14, §V6.24), EXECUTED (Issue #15), INGESTED (Issue #16, §V6.25): GBP-VIDEO-007 = PASS · GBP-VIDEO-008 = PASS", v6[0])
 
 
 class IdentitiesAreTheFrozenOnes(unittest.TestCase):
@@ -161,7 +164,7 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
             self.assertEqual(h.count(n), 1, n)
         for n in NAMES:
             self.assertEqual(h.count(n.replace("run13", "run12")), 1, n)
-        self.assertIn("RUN 13 is pre-registered", plain(h))
+        self.assertIn("RUN 13 was executed and ingested", plain(h))
 
     def test_the_photograph_is_optional_and_not_one_of_the_five(self):
         p = part(4)
@@ -169,9 +172,11 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
         self.assertIn("never one of the five names", p)
         self.assertIn("not frame-accurate evidence", p)
 
-    def test_no_run13_archive_exists_locally(self):
-        for n in NAMES:
-            self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
+    def test_the_ingestion_archived_under_exactly_the_reserved_names(self):
+        import json
+        with open(os.path.join(ROOT, "captures", "fixtures", "hw-gamecube-gbp-2026-09-21-idxcap-run13-struct.json")) as f:
+            raw = json.load(f)["raw"]
+        self.assertEqual([raw[k]["archived_as"] for k in ("log", "idxcap", "disp", "full", "vi")], NAMES)
 
 
 class GatesAreProspective(unittest.TestCase):
@@ -273,8 +278,8 @@ class TopologyIsRecordedNotClaimed(unittest.TestCase):
         self.assertIn("HYDIS HV150UX2", h)
         self.assertIn("Morph 2K", h)
         self.assertRegex(h, r"RUN 13[^\n]*PRE-REGISTERED|PRE-REGISTERED[^\n]*RUN 13")
-        self.assertRegex(h, r"RUN 13[^\n]*NOT RUN|NOT RUN[^\n]*RUN 13")
-        self.assertIn("That RUN 13 has run.", h)
+        self.assertRegex(h, r"RUN 13[^\n]*EXECUTED|EXECUTED[^\n]*RUN 13")
+        self.assertIn("That RUN 13 established more than its two boundaries.", h)
 
 
 class TheProcedureAndTheIdentityGate(unittest.TestCase):
@@ -300,7 +305,8 @@ class NothingElseMoved(unittest.TestCase):
     def test_the_devlog_records_the_checkpoint_as_pre_registration_only(self):
         d = read(DEVLOG)
         i = d.rindex("## 2026-09-20 — Issue #14")
-        e = d[i:]
+        j = d.find("\n## 2026", i + 1)
+        e = d[i:j if j > 0 else None]
         self.assertIn("RUN 13 pre-registered", e)
         self.assertIn("NOT RUN", e)
         self.assertIn("no hardware, no flash", e)
