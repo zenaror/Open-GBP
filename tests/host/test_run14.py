@@ -252,7 +252,7 @@ class TheFixturesAreThePhysicalFiles(unittest.TestCase):
                 self.assertFalse(s["stimulus"]["flashed_image_hashed_by_executor"])
                 self.assertEqual(s["tools"]["ingestion_head"], FROZEN_V71_COMMIT)
                 self.assertEqual(s["github_issues"], {"pre_registration": 20, "amendment_before_hardware": 23, "hardware": 21,
-                                                      "operator_inputs_outside_v7": 22, "ingestion": 24})
+                                                      "operator_inputs_outside_v7": 22, "ingestion": 24, "topology_declaration": 25})
                 self.assertIn("cp --update=none", s["raw_receipt"]["archived"])
                 self.assertIn("NOT versioned", s["fixtures"]["raw_log"])
 
@@ -464,7 +464,9 @@ class TheVerdictsAsReadFromTheFrozenGate(unittest.TestCase):
                 self.assertEqual(v["shared_gates"]["INPUT_MACHINE"], "MET")
                 self.assertTrue(v["shared_gates"]["IDENTITY_LOG"].startswith("PASS with one recorded exception"))
                 self.assertIn("RECORDED, not judged", v["shared_gates"]["VIDEO_PATH"])
-                self.assertIn("no literal post-run confirmation posted", v["shared_gates"]["TOPOLOGY"])
+                self.assertIn("declared hardware inventory", v["shared_gates"]["TOPOLOGY"])   # Issue #25: the declaration joined the gate's reading
+                self.assertIn("a declaration, not an inference", v["shared_gates"]["TOPOLOGY"])
+                self.assertIn("a generic third-party controller", v["shared_gates"]["TOPOLOGY"])
                 self.assertTrue(v["no_rerun_preregistered"])
                 self.assertIn("NOT RUN", v["run_16"])
         # the union of the two runs observes all ten buttons
@@ -499,6 +501,59 @@ class TheVerdictsAsReadFromTheFrozenGate(unittest.TestCase):
         self.assertIn("GBP-KEY-009", block)
         for run in RUNS:
             self.assertIn("CLOSED on its own stated condition", struct(run)["verdicts"]["u_gbp_010"])
+
+    def test_the_post_run_topology_declaration_and_the_controller_scope(self):
+        """Issue #25: the Operator's declaration, given after the runs, recorded as a declaration and mapped onto
+        §V7.1.4; the Game Boy Player NOT SEPARATELY DECLARED (never inferred); the pad named for the first time,
+        and the scope it puts on the L / R result stated where the verdicts are read. Nothing else moved."""
+        for run in RUNS:
+            with self.subTest(run=run):
+                s = struct(run)
+                tp = s["topology_declared_by_operator"]
+                self.assertEqual(tp["declared_after_the_runs"]["issue"], 25)
+                self.assertEqual(len(tp["declared_after_the_runs"]["items"]), 5)
+                self.assertIn("DECLARED", tp["console"])
+                # the Game Boy Player: DECLARED by the Operator's hardware inventory (one console, one GBP), never inferred
+                self.assertIn("DECLARED HARDWARE INVENTORY", tp["game_boy_player"])
+                self.assertIn("NOT an inference", tp["game_boy_player"])
+                self.assertIn("exactly one Game Boy Player", tp["game_boy_player"])
+                self.assertIn("first recorded as not", tp["game_boy_player"])
+                self.assertIn("declared per run: BBA and Ethernet state, the display chain, the cartridge and its boot screen, the controller",
+                              tp["standing_note_for_future_pre_registrations"])
+                self.assertIn("GENERIC", tp["controller"])
+                self.assertIn("NOT the one used", tp["controller"])
+                self.assertIn("BBA conectado sem cabo de rede", tp["bba_present"])
+                self.assertIn("UNCHANGED", tp["display_chain_declared"])
+                self.assertEqual(tp["deviation_reported"], "none")
+                for tok in ("DIGITAL CLICK", "trigger_threshold=0", "first two buttons", "third-party pad", "encouraging", "limit", "verdicts are unchanged"):
+                    self.assertIn(tok, tp["controller_scope"], tok)
+                self.assertIn("recorded as absent", tp["declaration_history"])
+                self.assertIn("OPERATOR DECLARATION", tp["source"])
+                # the scope claim is tied to data: the policy the run reported reads no analogue trigger
+                self.assertEqual(kv(s["log_records_verbatim"]["ENVINPUT"])["trigger_threshold"], "0")
+                self.assertEqual((s["verdicts"]["question_M"]["verdict"], s["verdicts"]["question_O"]["verdict"]), ("PASS", "AS-ASSIGNED"))
+        self.assertIn("0 = the analogue triggers are not read", read(os.path.join(ROOT, "src", "gbp", "gbp_input.h")))
+        s = plain(v72())
+        for tok in ("OPERATOR DECLARATION, given AFTER the runs", "DECLARED HARDWARE INVENTORY", "NOT an inference from the console declaration",
+                    "recorded as NOT SEPARATELY DECLARED, and the inventory declaration", "BBA conectado sem cabo de rede",
+                    "ONE GENERIC (third-party) GameCube controller", "was NOT the one used", "RECORDED AS ABSENT, not inferred",
+                    "The controller, and what it bounds (Issue #25).", "digital click of a third-party pad", "official Nintendo pad was not exercised",
+                    "the same Game Boy Player by the Operator's declared hardware inventory (one console, one GBP) -- a declaration, not an inference",
+                    "QUESTION M PASS PASS", "QUESTION O AS-ASSIGNED AS-ASSIGNED"):
+            self.assertIn(tok, s, tok)
+        self.assertNotIn("same GBP", s)
+        ev = read(EVIDENCE)
+        b261 = plain(ev[ev.index("### GBP-HW-261 "):ev.index("### GBP-HW-262 ")])
+        for tok in ("OPERATOR DECLARATION, given after the runs", "declared hardware inventory", "not an inference from the console declaration",
+                    "GENERIC, third-party", "was NOT the one used", "Scope the pad puts on the L / R result"):
+            self.assertIn(tok, b261, tok)
+        b265 = ev[ev.index("### GBP-HW-265 "):ev.index("### GBP-VID-034 ")]
+        self.assertIn("**Scope of the pad (Issue #25):**", b265)
+        self.assertIn("Question M = PASS and Question O = AS-ASSIGNED in RUN 14 and in RUN 15", b265.splitlines()[0], "the verdict row's heading is unchanged")
+        self.assertNotIn("same GBP", b261)
+        h = plain(read(HANDOFF))
+        self.assertIn("The console and the Game Boy Player are the same two units in every run of this project", h)
+        self.assertIn("What still varies and MUST be declared per run: BBA and Ethernet state, the display chain, the cartridge and its boot screen, and the controller", h)
 
     def test_the_blank_and_the_clip_are_recorded_not_smoothed_over(self):
         t = v72()
@@ -688,7 +743,7 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         self.assertIn("OPERATOR OBSERVATION (literal, relayed by the Orchestrator)", ev[ev.index("### GBP-HW-263 "):].splitlines()[0])
         self.assertIn("FACT (data, recomputable)", ev[ev.index("### GBP-HW-264 "):].splitlines()[0])
         self.assertIn("7 892 / 7 895", ev[ev.index("### GBP-HW-262 "):].splitlines()[0])
-        self.assertIn("Recorded as absent, not inferred", b261)
+        self.assertIn("Declaration history, kept", b261)   # Issue #25 replaced the 'recorded as absent' note and kept its history
         for run in RUNS:
             self.assertEqual(struct(run)["evidence_ids"], ["GBP-HW-261", "GBP-HW-262", "GBP-HW-263", "GBP-HW-264", "GBP-HW-265", "GBP-KEY-008", "GBP-KEY-009"])
 
