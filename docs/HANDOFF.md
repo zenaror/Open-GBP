@@ -96,8 +96,10 @@ LAST PHYSICAL EVIDENCE INGESTED
   word at each key change, would close it (GBP-KEY-009, recorded, NOT implemented).
   Ten raw files archived first under the reserved run14 / run15 names (RUN 15 arrived in
   logs/run15/, so nothing was overwritten); fixtures versioned (the tally frames byte-identical);
-  tests/host/test_run14.py. Hardware Issue #21 stays open until the Orchestrator validates this
-  ingestion. RUN 16 NOT RUN. No rerun pre-registered. Phase 5's acceptance criterion (a real game)
+  tests/host/test_run14.py. Hardware Issue #21 CLOSED after validation; #24 / #25 validated;
+  the consolidated pages promoted under Issue #26 (docs/protocol/INPUT.md; the keypad rows of
+  REGISTERS.md, GBS-DOL.md, ARCHITECTURE.md; INITIALIZATION.md §15) -- the L/R order C, not FACT.
+  RUN 16 NOT RUN. No rerun pre-registered. Phase 5's acceptance criterion (a real game)
   NOT assessed.
 
   Previous: RUN 13 --
@@ -235,7 +237,7 @@ On conflict, use the source closest to the evidence and record the divergence.
 
 | item | status | owner |
 | --- | --- | --- |
-| **Phase 5 — Input, implemented and physically executed once (GBP-INPUT-001)** | **Issue #18 (2026-09-21)** reconstructed the path (`docs/research/INPUT_PATH.md`: three layers kept apart; U-GBP-010 RESOLVED STATICALLY at CORROBORATED and OPEN). **Issue #19 (2026-09-21)** implemented it: `src/gbp/gbp_input.c` behind the existing transport boundary — the mapping as a policy table, the encoding descriptor as data in ONE place filled with the CORROBORATED assignment by the Operator's decision (status and falsifier at the definition; flipping it is one line), one 32-byte write, write-on-change plus a 5 ms refresh — the step as the first statement of the stream probe's pump slot, host tests (8 453 C checks; the Python pins), and the candidate **`stream-0014` = commit `0ff8355`, 513 152 B, SHA-256 `ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c`**. **Issue #20 / #23** pre-registered and amended before hardware (§V7.1). **EXECUTED 2026-09-21 (Hardware Issue #21) AND INGESTED (§V7.2, Issue #24): RUN 14 (the Enhanced Control Checker's counted walk A) and RUN 15 (walk B) on the unchanged image — Question M = PASS · Question O = AS-ASSIGNED in both.** Machine side: INPUT attempts = completed = 7 892 / 7 895, failed 0, 42 key changes each (the runtime polled, encoded and wrote; the window is write-only). Human side: the Operator's tally vectors `1 2 · · · · 6 5 3 4` and `1 2 3 4 5 6 · · · ·` = the walks' expectation. Independently: the checker's screen in the preserved OGBPFULL1 frames decodes pixel-exactly to the same vectors (FACT as data). **The physical keypad record now holds these two runs and nothing else.** U-GBP-010 CLOSED with the descriptor kept; **the routing stays CORROBORATED, not FACT** (the Operator having pressed L exactly once is in no machine record; one log line would close it — GBP-KEY-009, not implemented); `truncated=1` in both logs = the clipped ENVINPUT record (GBP-KEY-008). Not established: latency, the refresh's necessity, other pads / cartridges, rumble, the display chain, the acceptance criterion (a real game; NOT assessed). RUN 16 NOT RUN. `REGISTERS.md` H until `docs/protocol/` is updated (Orchestrator). | `docs/research/INPUT_PATH.md`; `EVIDENCE.md` GBP-KEY-002…009, GBP-HW-261…265; `UNKNOWNS.md` U-GBP-010 (CLOSED); `docs/ROADMAP.md` Phase 5; `HARDWARE_TESTS.md` §V7.1, §V7.2 |
+| **Phase 5 — Input, implemented and physically executed once (GBP-INPUT-001)** | **Issue #18 (2026-09-21)** reconstructed the path (`docs/research/INPUT_PATH.md`: three layers kept apart; U-GBP-010 RESOLVED STATICALLY at CORROBORATED and OPEN). **Issue #19 (2026-09-21)** implemented it: `src/gbp/gbp_input.c` behind the existing transport boundary — the mapping as a policy table, the encoding descriptor as data in ONE place filled with the CORROBORATED assignment by the Operator's decision (status and falsifier at the definition; flipping it is one line), one 32-byte write, write-on-change plus a 5 ms refresh — the step as the first statement of the stream probe's pump slot, host tests (8 453 C checks; the Python pins), and the candidate **`stream-0014` = commit `0ff8355`, 513 152 B, SHA-256 `ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c`**. **Issue #20 / #23** pre-registered and amended before hardware (§V7.1). **EXECUTED 2026-09-21 (Hardware Issue #21) AND INGESTED (§V7.2, Issue #24): RUN 14 (the Enhanced Control Checker's counted walk A) and RUN 15 (walk B) on the unchanged image — Question M = PASS · Question O = AS-ASSIGNED in both.** Machine side: INPUT attempts = completed = 7 892 / 7 895, failed 0, 42 key changes each (the runtime polled, encoded and wrote; the window is write-only). Human side: the Operator's tally vectors `1 2 · · · · 6 5 3 4` and `1 2 3 4 5 6 · · · ·` = the walks' expectation. Independently: the checker's screen in the preserved OGBPFULL1 frames decodes pixel-exactly to the same vectors (FACT as data). **The physical keypad record now holds these two runs and nothing else.** U-GBP-010 CLOSED with the descriptor kept; **the routing stays CORROBORATED, not FACT** (the Operator having pressed L exactly once is in no machine record; one log line would close it — GBP-KEY-009, not implemented); `truncated=1` in both logs = the clipped ENVINPUT record (GBP-KEY-008). Not established: latency, the refresh's necessity, other pads / cartridges, rumble, the display chain, the acceptance criterion (a real game; NOT assessed). RUN 16 NOT RUN. **Promoted (Issue #26):** `docs/protocol/INPUT.md` written; the keypad rows of `REGISTERS.md` (§2, §2.3), `GBS-DOL.md` and `ARCHITECTURE.md` and `INITIALIZATION.md` §15 carry the state — the L/R order C, not FACT, with the generic-pad scope beside it; no status changed. | `docs/research/INPUT_PATH.md`; `docs/protocol/INPUT.md`; `EVIDENCE.md` GBP-KEY-002…009, GBP-HW-261…265; `UNKNOWNS.md` U-GBP-010 (CLOSED); `docs/ROADMAP.md` Phase 5; `HARDWARE_TESTS.md` §V7.1, §V7.2 |
 | **GBP-INPUT-001** (the first physical KEYPAD write; L/R order) | **RUN 14 AND RUN 15 EXECUTED 2026-09-21 AND INGESTED (§V7.2; Hardware Issue #21, ingestion Issue #24): Question M = PASS · Question O = AS-ASSIGNED, in both runs — each inside its pre-registered boundary (§V7.1.9, frozen before the runs) and nothing wider.** Two runs of the unchanged `stream-0014` (`0ff8355`, `ef76a170…`) with the Enhanced Control Checker (`76924c13…`, the Operator's media on the EZ-Flash NOR): walk A (L 1, R 2, A 3, B 4, SELECT 5, START 6) and walk B (L 1, R 2, UP 3, DOWN 4, LEFT 5, RIGHT 6), 21 presses each, ended at the witness target. INPUT machine gate met in both (attempts = completed = 7 892 / 7 895, failed 0, 42 key changes = 2 × 21, descriptor `0,1,2,3,4,5,6,7,9,8` as data); inherited transport / startup / Policy A clean; `truncated=1` = the ENVINPUT record clipped at 248 of 266 characters, lost fields recoverable (GBP-KEY-008). The Operator's vectors (`1 2 · · · · 6 5 3 4`, `1 2 3 4 5 6 · · · ·`) and the vectors decoded from the OGBPFULL1 frames agree digit for digit and are recorded apart; a blank counter is read as never incremented (the frozen gate says 0; the instrument prints nothing — recorded). U-GBP-010 CLOSED on its own condition, descriptor kept; the routing CORROBORATED, not FACT (GBP-HW-265); the finding: one log line — the word at each key change — would make it FACT (GBP-KEY-009, not implemented). Video path recorded not judged (vindex / vfull INCONCLUSIVE by construction on non-OGBPCOORD1 content; vdisp, Policy A, corrected vvi clean; RUN 15 `frame_index` 1169 latched two retraces after its hand-over — instrumentation semantics). Topology declared after the runs (Issue #25): same GameCube; BBA present without a network cable; video chain unchanged; a GENERIC third-party controller (the official pad owned, not used) — so the L / R result is the digital click of a third-party pad, encouraging and a limit (the official pad not exercised); the same Game Boy Player by the Operator's declared hardware inventory (exactly one GameCube, exactly one GBP — a declaration, not an inference). Ten raw files archived first; tally frames versioned; `tests/host/test_run14.py`. No rerun pre-registered; RUN 16 NOT RUN; nothing under `src/`, `poc/`, `tools/`, `Makefile` moved | `HARDWARE_TESTS.md` §V7.1, §V7.2; GBP-HW-261…265; GBP-KEY-008, GBP-KEY-009 |
 | **Phase 4 — Video, against its acceptance criterion** | **Phase 4 ASSESSED 2026-09-21 (GitHub Issue #17): `PHASE 4 VERDICT: SATISFIED WITH NAMED RESIDUALS`.** The criterion — a real cartridge running on the physical GBP produces stable, correct video through the open-source runtime — is satisfied for the video path as a path: a retail cartridge ran three times with transport, NORMAL startup and Policy A measured clean on retail content (GBP-HW-138…151, 224…226) and the picture observed by the operator (GBP-HW-144, 152, 227); the path's correctness — geometry GBP-HW-081, composition GBP-HW-076/077, colour GBP-HW-131, full-frame fidelity on eight sampled frames GBP-HW-258, scanout as CLAIM-D GBP-HW-260 — is FACT on controlled stimuli inside each run's boundary. The named residuals and their owners: correctness of retail content by measurement (**Phase 7**); presentation / scaling / pixel-perfect GBP-VID-032 (**Phase 9**); physical pixel equality and per-frame scanout accounting (**not scheduled**); stability duration and breadth, GB/GBC (**Phase 12**, **Phase 7**); the colour intra-group limit (**not scheduled**); U-GBP-029 / 034 / 030 / 033 (open research residuals); rate conversion (**Phase 9**); audio (**Phase 6**), input (**Phase 5**); BBA / Ethernet (**Phase 11**); production UX (**Phase 9**, **Phase 12**). The assessment re-judges no run, promotes no status, closes no unknown, mints no id and **does not authorise Phase 9 work** or any run. Promoted with ids: `docs/protocol/VIDEO.md` (new) and the video rows of `docs/hardware/ARCHITECTURE.md`, `docs/hardware/GBS-DOL.md`, `docs/protocol/REGISTERS.md` | `docs/research/PHASE4_ASSESSMENT.md`; `docs/ROADMAP.md` Phase 4 "Phase 4 assessment"; `docs/protocol/VIDEO.md` |
 | **GBP-VIDEO-007 / GBP-VIDEO-008** (physical scanout; full-frame fidelity) | **RUN 13 EXECUTED 2026-09-21 AND INGESTED (§V6.25; Hardware Issue #15, ingestion Issue #16): GBP-VIDEO-007 = PASS · GBP-VIDEO-008 = PASS — each inside its pre-registered boundary and nothing wider.** The shared prospective source-window gate passed — frozen `tools/vindex.py` reads `OBSERVED_CONTIGUOUS` (2048 intact, INVALID 0, FAULT 0, 2046/2046 decisive transitions +1, FRAME_ID 52..2099); the four appearance entries came +1, so §V6.22's expectation for `coord-0002` is read off the data (no new finding). GBP-VIDEO-008 = PASS is CLAIM-A / CLAIM-B for the eight prospectively sampled frames only: unchanged `tools/vfull.py` 8/8, 0 mismatches in all 38 400 words of every sample, texture == Python == host C == tiled oracle; no physical pixel equality, nothing about the 2 040 unsampled frames. GBP-VIDEO-007 = PASS is CLAIM-D only: the corrected `tools/vvi.py` (§V6.21, used prospectively) reads 2371/2371 and L = 40/40/39/40 (the one R_3 hand-over not in L_3, `frame_index` 1754, is SUPERSEDED — instrumentation semantics, never non-scanout), and the operator saw 1, 2, 3, 4 in order (~8 s apart, a human estimate, never timing evidence) under the declared composite → RCA-to-HDMI converter → HYDIS HV150UX2 chain; a digit is bound to a 40-frame appearance set, never to one frame; no pixel, tearing, presentation, scaling or converter claim. Transport / startup / Policy A clean. **RUN 12 (§V6.20; Hardware Issue #9, ingestion Issue #10) remains historical: GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE.** The shared prospective source-window gate failed there — frozen `tools/vindex.py` reads `OBSERVED_DISCONTINUITY` (2048 intact, INVALID 0, FAULT 0, two duplicate FRAME_ID transitions 479→479 and 1919→1919; GBP-VID-034, mechanism RESOLVED by Issue #12 — PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames, §V6.22). Preserved beside the verdicts and promoting neither: the frozen `tools/vfull.py` full-frame dependent-variable analysis PASS 8/8 with 0 mismatches (subordinate; never a PASS of the GBP-VIDEO-008 experiment); the operator's literal report — digits 1, 2, 3, 4 in order, nothing missing or anomalous — under the declared composite → RCA-to-HDMI converter → HYDIS HV150UX2 chain; OGBPVI1 2377 handed / 2370 latched with frozen L_k = 0 (the `tools/vvi.py` frozen at the run masked the address before the flag shift — GBP-VID-035, analyzer defect, REPAIRED in software by Issue #11, §V6.21: the corrected post-run replay reads 2370/2370 and L = 40/40/38/40, and changes no verdict). Transport / startup / Policy A clean. No rerun pre-registered; `coord-0001`, the analyzers, the formats and the gates unchanged. **`coord-0002` (§V6.23) is the timing-safe re-implementation of the same picture: implemented, proven on its exact image (every entry PREPARE 176 863 cycles under the budget, zero ROM reads), physically executed once, in RUN 13 (pre-registered §V6.24, Issue #14; executed Hardware Issue #15; ingested §V6.25, Issue #16), where the source gate passed with no duplicate at any entry** | `HARDWARE_TESTS.md` §V6.19, §V6.20, §V6.22, §V6.23, §V6.24, §V6.25; GBP-HW-250…255, GBP-HW-256…260 |
@@ -442,12 +444,14 @@ Question M = PASS and Question O = AS-ASSIGNED — the first KEYPAD words
 Open-GBP wrote reached the cartridge as the presses made, L at L and R at R;
 U-GBP-010 is CLOSED with the descriptor kept; the routing stays CORROBORATED,
 not FACT, because the machine record holds 42 key changes and not which
-buttons (GBP-HW-265). No blocker. The next step is the Orchestrator's:
-validate the ingestion and close Hardware Issue #21; then decide whether the
-two recorded functional items become a checkpoint — the clipped ENVINPUT
-line (GBP-KEY-008) and the one log line that would bind every press to the
-word sent (GBP-KEY-009) — and how the Phase-5 acceptance criterion ("a real
-game can be controlled reliably") is assessed: the checker is a test ROM, and
+buttons (GBP-HW-265). No blocker. Issues #24 and #25 are validated, Hardware
+Issue #21 is closed, and the consolidated pages carry the keypad plane
+(Issue #26: `docs/protocol/INPUT.md`; the keypad rows of `REGISTERS.md`,
+`GBS-DOL.md`, `ARCHITECTURE.md`; `INITIALIZATION.md` §15) with the order stated
+as CORROBORATED, not FACT. The next front is GBP-KEY-009 — the per-key-change
+word logging that takes the routing to FACT (the clipped ENVINPUT line,
+GBP-KEY-008, can ride along) — and then Phase 5's real acceptance with a
+commercial game, which the Operator schedules: the checker is a test ROM, and
 no game has been played through the input path. Nothing below changed for
 Phase 4.
 
@@ -546,17 +550,20 @@ still does not measure the margin.
 
 ## Next safe action
 
-**RUN 14 and RUN 15 are EXECUTED and INGESTED (Hardware Issue #21; Issue
-#24, `HARDWARE_TESTS.md` §V7.2): M = PASS, O = AS-ASSIGNED, both runs.** The
-next safe action is the Orchestrator's: validate the ingestion against
-`origin/main` (the fixtures, `tests/host/test_run14.py`, GBP-HW-261…265,
-GBP-KEY-008 / 009, U-GBP-010 CLOSED, §V7.1 byte-identical to `ed7dea2`), close
-Hardware Issue #21, update `docs/protocol/INITIALIZATION.md`'s "KEYPAD, never
-written" and `REGISTERS.md`'s H with these ids if it chooses, and open the
-next bounded Issue — the two functional items are recorded, not started
-(GBP-KEY-008: split or shorten ENVINPUT and add the payload guard; GBP-KEY-009:
-log the word at each key change), and the acceptance criterion still needs a
-real game. RUN 16 is optional and independent; nothing is pre-registered.
+**RUN 14 and RUN 15 are EXECUTED, INGESTED and VALIDATED (Hardware Issue
+#21 closed; Issues #24 / #25; `HARDWARE_TESTS.md` §V7.2): M = PASS, O =
+AS-ASSIGNED, both runs — and PROMOTED (Issue #26): `docs/protocol/INPUT.md`,
+the keypad rows of `REGISTERS.md`, `GBS-DOL.md` and `ARCHITECTURE.md`, and
+`INITIALIZATION.md` §15, with the L/R order stated as CORROBORATED, not FACT,
+and the generic-pad scope beside it.** The next safe action is the
+Orchestrator's: validate the promotion against `origin/main`
+(`tests/host/test_input_promotion.py`; no status changed, no id minted, §V7
+byte-identical to `4e54583`), then the next bounded Issue — GBP-KEY-009, the
+per-key-change word logging that takes the routing to FACT (GBP-KEY-008's
+ENVINPUT clip can ride along), a functional checkpoint with its own
+pre-registration; then Phase 5's real acceptance with a commercial game,
+which the Operator schedules. RUN 16 is optional and independent; nothing is
+pre-registered.
 
 **Phase 4 is assessed (Issue #17, 2026-09-21: SATISFIED WITH NAMED
 RESIDUALS, `docs/research/PHASE4_ASSESSMENT.md`).**
@@ -704,8 +711,16 @@ issue 25    TOPOLOGY DECLARATION recorded (§V7.2.2, GBP-HW-261; the scope in §
             SEPARATELY DECLARED, then DECLARED the same day by the Operator's hardware inventory (exactly one GameCube,
             exactly one GBP -- a declaration, not an inference); struct fixtures regenerated for that section only; no
             verdict, gate or status change
-next        orchestrator-owned: validate #24 / #25; close Hardware Issue #21; decide the functional checkpoint
-            (GBP-KEY-008 / GBP-KEY-009) and the game-based assessment of Phase 5's criterion; RUN 16 optional
+issue 26    PROMOTION of the input path into the consolidated documentation: docs/protocol/INPUT.md (window,
+            word, polarity, bit assignment with its status, cadence, the mapping as POLICY, not established);
+            INITIALIZATION.md "KEYPAD, never written" superseded on its date with a §15; REGISTERS.md KEYPAD row
+            and §2.3 -- the L/R order C, not FACT, was H until 2026-09-21; GBS-DOL.md and ARCHITECTURE.md keypad
+            rows refreshed (ARCHITECTURE's "active-low" contradicted GBP-KEY-001 / 005: fixed to 1 = pressed);
+            VIDEO.md pointer dated; indexes; the generic-pad scope and GBP-KEY-009 beside every statement of the
+            order; no status changed, no id minted, §V7 untouched; tests/host/test_input_promotion.py
+next        orchestrator-owned: validate #26; then GBP-KEY-009 (the per-key-change word logging that takes the
+            routing to FACT; GBP-KEY-008 may ride along) as a functional checkpoint with its own pre-registration;
+            then Phase 5's real acceptance with a commercial game (the Operator schedules); RUN 16 optional
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
@@ -1038,8 +1053,9 @@ believe one is wrong, argue against the source, do not re-run the discovery.
   that assignment (Question O = AS-ASSIGNED, U-GBP-010 CLOSED) — CORROBORATED,
   not FACT: the window is write-only, only the AGB observes it, and the link
   "the Operator pressed L exactly once" is in no machine record; one log line
-  would carry it (GBP-KEY-009). `REGISTERS.md` keeps Dolphin's order at H until
-  `docs/protocol/` is updated with these ids (`docs/research/INPUT_PATH.md`
+  would carry it (GBP-KEY-009). `REGISTERS.md`, `GBS-DOL.md`, `ARCHITECTURE.md`
+  and `docs/protocol/INPUT.md` state the order as CORROBORATED, not FACT, with
+  the generic-pad scope beside it (Issue #26; `docs/research/INPUT_PATH.md`
   §5, GBP-KEY-004, GBP-HW-265).
 - **That the keypad plane inherits the video plane's confidence.** It does
   not: before RUN 14 every keypad statement in the project was static

@@ -78,7 +78,8 @@ Physical pixel equality on any display and per-frame scanout accounting
 correctness of retail content by measurement (GBP-HW-225, 230: no OGBPIDX
 verdict on retail content); presentation and pixel-perfect scaling
 (GBP-VID-032, Phase 9); the AUDIO block's format and cadence (U-GBP-012,
-U-GBP-014, Phase 6); KEYPAD, never written (Phase 5); bytes 0/2 (U-GBP-029);
+U-GBP-014, Phase 6); KEYPAD (Phase 5 — never written at the time of the
+assessment; written on hardware 2026-09-21, `INPUT.md`); bytes 0/2 (U-GBP-029);
 bit 15's origin (U-GBP-034); the startup-region short intervals (U-GBP-030);
 the IRQ-window non-uniformity's mechanism (U-GBP-033). The assessment that
 weighed these against Phase 4's acceptance criterion is

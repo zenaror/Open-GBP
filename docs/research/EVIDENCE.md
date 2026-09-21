@@ -561,6 +561,13 @@ physical run falsifies or keeps it. The status of this row is unchanged:
 CORROBORATED, not FACT; `REGISTERS.md` keeps H; U-GBP-010 stays OPEN
 (GBP-KEY-006 carries the implementation facts).
 
+**2026-09-21, Issue #26 (promotion; no status change):** after RUN 14 / RUN 15
+(GBP-HW-263, GBP-HW-264, GBP-HW-265; U-GBP-010 CLOSED) the consolidated pages
+carry this order as CORROBORATED, not FACT — `REGISTERS.md` §2 / §2.3 (H
+until 2026-09-21), `docs/hardware/GBS-DOL.md`, `docs/hardware/ARCHITECTURE.md`
+and the new `docs/protocol/INPUT.md` — each with the generic-pad scope
+(GBP-HW-261) and GBP-KEY-009 beside it. The status of this row is unchanged.
+
 ## GBP-KEY-005 — The Disc's detection handshake on the keypad side, and GBATEK's AGB-side observation of it — FACT (static) for the Disc; CORROBORATED for polarity and the direction bits 4–7 at the window
 
 Once its embedded logo frame (GBP-VID-010, the 44-colour Game Boy Player
