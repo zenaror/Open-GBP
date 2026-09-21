@@ -101,8 +101,9 @@ class TheStaticAttemptIsStatedOnceAndStaysOpen(unittest.TestCase):
                        "REGISTERS.md keeps Dolphin's order at H", "GBI's `0x0304` was **not** used as evidence"):
             self.assertIn(phrase, f.replace("`REGISTERS.md`", "REGISTERS.md"), phrase)
         regs = read(REGISTERS)
-        self.assertNotIn("H (L/R bit order)", regs)          # Issue #26: C, never FACT
-        self.assertIn("L/R bit order: C", regs)
+        self.assertNotIn("H (L/R bit order)", regs)          # Issue #26: C; Issue #33: F (hw, run-scoped) with the history kept
+        self.assertIn("C — was H until 2026-09-21", regs)
+        self.assertIn("L/R bit order: F (hw, run-scoped) since 2026-09-21", regs)
         self.assertIn("lo byte = GBA keys 0–7; hi bit0→L(key 9), bit1→R(key 8)", regs)
 
     def test_the_findings_use_the_keypad_namespace_and_mint_no_hardware_id(self):
@@ -114,10 +115,10 @@ class TheStaticAttemptIsStatedOnceAndStaysOpen(unittest.TestCase):
         self.assertEqual(re.findall(r"^## GBP-KEY-00[8-9]", ev, re.M), ["## GBP-KEY-008", "## GBP-KEY-009"])
         self.assertEqual(re.findall(r"^## GBP-KEY-01\d", ev, re.M), ["## GBP-KEY-010"])
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
-        self.assertEqual(hw, 265)   # GBP-HW-261…265: RUN 14 / RUN 15 (Issue #24)
+        self.assertEqual(hw, 271)   # GBP-HW-261…265: RUN 14 / RUN 15 (Issue #24); 266…271: RUN 16 / 17 / 18 (Issue #33)
         self.assertNotRegex(read(DOC), r"GBP-HW-26[1-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d")   # INPUT_PATH.md is the pre-run document
         for p in (ROADMAP, HANDOFF):
-            self.assertNotRegex(read(p), r"GBP-HW-26[6-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d")
+            self.assertNotRegex(read(p), r"GBP-HW-27[2-9]|GBP-HW-2[8-9]\d|GBP-HW-[3-9]\d\d")
         self.assertIn("— FACT (static)", ev.split("## GBP-KEY-002")[1].split("\n")[0])
         self.assertIn("CORROBORATED for the encoding the references target; the physical routing NOT established",
                       ev.split("## GBP-KEY-004")[1].split("\n")[0])
@@ -150,9 +151,9 @@ class ProvenanceAndStateRecords(unittest.TestCase):
         self.assertIn("Status: ENTERED 2026-09-21 (GitHub Issue #18, research / design), IMPLEMENTED AS SOFTWARE 2026-09-21 (GitHub Issue #19, candidate `stream-0014`) and PHYSICALLY EXECUTED 2026-09-21 — RUN 14 and RUN 15, GBP-INPUT-001 (Hardware Issue #21; ingested `HARDWARE_TESTS.md` §V7.2, GitHub Issue #24): Question M = PASS · Question O = AS-ASSIGNED in both runs", r)
         self.assertIn("A real game can be controlled reliably using the GameCube controller.", read(ROADMAP))
         h = flat(read(HANDOFF))
-        self.assertIn("**Phase 5 — Input, implemented and physically executed once (GBP-INPUT-001)**", h)   # the row Issue #24 rewrote
-        self.assertIn("The physical keypad record now holds these two runs and nothing else.", h)
-        self.assertIn("That the KEYPAD L/R routing is a physical FACT.", h)
+        self.assertIn("**Phase 5 — Input, implemented and physically executed (GBP-INPUT-001, GBP-INPUT-002: the routing FACT)**", h)   # Issue #24's row, Issue #33's title
+        self.assertIn("The physical keypad record held these two runs and nothing else until Issue #33 added RUN 17 / RUN 18 / RUN 16", h)
+        self.assertIn("That the KEYPAD L/R routing is a physical FACT beyond the runs' scope", h)   # Issue #33: FACT (hw, the runs), scoped
 
     def test_the_keypad_code_is_the_module_the_design_named(self):
         """Issue #18 shipped no code; Issue #19 (2026-09-21) implemented §7 as

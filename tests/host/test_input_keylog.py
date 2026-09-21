@@ -215,7 +215,9 @@ class NothingElseMoved(unittest.TestCase):
         # Issue #28 (2026-09-21) corrected docs/protocol/INPUT.md's "GBP-KEY-009; recorded, not implemented" on its
         # date, in its own commit, and appended the RUN 17 / RUN 18 pre-registration (§V7.3) after §V7.2; the
         # chapter heading grew; §V7.1 and §V7.2 stay the bytes of this checkpoint's base
-        allowed = ALLOWED | {"docs/protocol/INPUT.md"}
+        # ... and Issue #33 (2026-09-21) ingested RUN 16 / 17 / 18: fixtures added, the consolidated pages promoted (tests/host/test_run17.py pins them)
+        allowed = ALLOWED | {"docs/protocol/INPUT.md", "docs/protocol/REGISTERS.md", "docs/protocol/INITIALIZATION.md", "docs/hardware/GBS-DOL.md",
+                             "docs/hardware/ARCHITECTURE.md"} | {p for p in changed if re.search(r"^captures/fixtures/.*-run1[678]-", p)}
         self.assertTrue(changed <= allowed, "changed beyond the input and logging modules: %s" % sorted(changed - allowed))
         old = git("show", "%s:docs/research/HARDWARE_TESTS.md" % BASE)
         new = read(HW)

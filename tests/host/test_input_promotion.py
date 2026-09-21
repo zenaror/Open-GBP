@@ -104,12 +104,14 @@ class TheStaleStatementsAreGoneWithTheirHistoryKept(unittest.TestCase):
         row = [l for l in t.splitlines() if l.startswith("| 0xC | KEYPAD |")]
         self.assertEqual(len(row), 1)
         r = row[0]
-        for tok in ("L/R bit order: C", "was H until 2026-09-21", "not FACT", "generic third-party pad", "GBP-KEY-009", "GBP-KEY-004",
-                    "GBP-HW-262", "GBP-HW-265", "U-GBP-010 CLOSED", "`INPUT.md`", "lo byte = GBA keys 0–7; hi bit0→L(key 9), bit1→R(key 8)"):
+        # Issue #33 (2026-09-21) promoted the row to F (hw, run-scoped) by RUN 17 / RUN 18 with this checkpoint's C kept as history
+        for tok in ("L/R bit order: F (hw, run-scoped) since 2026-09-21", "C — was H until 2026-09-21", "then not FACT", "generic third-party pad", "GBP-KEY-009", "GBP-KEY-004",
+                    "GBP-HW-262", "GBP-HW-265", "GBP-HW-270", "U-GBP-010 CLOSED", "`INPUT.md`", "lo byte = GBA keys 0–7; hi bit0→L(key 9), bit1→R(key 8)"):
             self.assertIn(tok, r, tok)
         self.assertEqual(t.count("### 2.3 KEYPAD word"), 1)
         s23 = t[t.index("### 2.3 KEYPAD word"):t.index("## 3. CONTROL register bits")]
-        self.assertIn("C, not FACT", s23)
+        self.assertIn("C, not FACT", s23)                                             # the history of Issue #26
+        self.assertIn("F (hw, run-scoped) since 2026-09-21", s23)                     # Issue #33
         self.assertIn("generic third-party pad", s23)
         self.assertIn("GBP-KEY-009", s23)
 
@@ -139,14 +141,35 @@ class TheStaleStatementsAreGoneWithTheirHistoryKept(unittest.TestCase):
             self.assertIn(tok, read(p), p)
 
 
-class TheOrderIsCorroboratedNeverFactAndThePadScopeTravelsWithIt(unittest.TestCase):
-    def test_no_page_asserts_the_order_or_the_routing_as_fact(self):
+def fact_for_the_order_is_run_scoped(text):
+    """Issue #33 (2026-09-21): RUN 17 / RUN 18 made the routing FACT (hw, the runs). Every 'FACT' that stands near a
+    statement of the L/R order or the routing is now either a negation (the history this promotion keeps) or the
+    run-scoped one -- tied, within its sentence, to `(hw`, GBP-HW-270, the join or GBP-INPUT-002."""
+    bad = []
+    for m in re.finditer(r"\bFACT\b", text):
+        pre = text[max(0, m.start() - 200):m.start()]
+        if re.search(r"bit 8|bit 9|bits 8|L/R|L and R|routing|order", pre):
+            if re.search(r"\b(not|NOT|never|Never)\b", text[max(0, m.start() - 45):m.start()]):
+                continue
+            ctx = text[max(0, m.start() - 160):m.end() + 160]
+            if not re.search(r"\(hw|GBP-HW-270|the join|GBP-INPUT-002|machine join", ctx):
+                bad.append(text[max(0, m.start() - 80):m.end() + 20].replace("\n", " "))
+    return bad
+
+
+class TheOrderWasCorroboratedUntilTheJoinAndThePadScopeTravelsWithIt(unittest.TestCase):
+    def test_every_fact_about_the_order_is_the_run_scoped_one_or_a_kept_negation(self):
+        """Until Issue #33 this test asserted that no page states the order or the routing as FACT
+        (fact_never_asserted_for_the_order). RUN 17 / RUN 18 changed the fact; the pin now asserts the shape the
+        promotion must keep: every FACT near the order is run-scoped and cites the join, and the history stays."""
         for p in PAGES_STATING_THE_ORDER:
             with self.subTest(page=os.path.relpath(p, ROOT)):
-                self.assertEqual(fact_never_asserted_for_the_order(read(p)), [])
+                self.assertEqual(fact_for_the_order_is_run_scoped(read(p)), [])
                 t = flat(read(p))
                 self.assertNotIn("order is established", t.lower())
                 self.assertNotIn("order is fact", t.lower())
+                self.assertIn("GBP-HW-270", t)
+                self.assertRegex(t, r"not FACT|NOT FACT", "the history of Issue #26 kept on every page")
 
     def test_the_generic_pad_scope_accompanies_every_statement_of_the_order(self):
         for p in PAGES_STATING_THE_ORDER:
@@ -158,7 +181,7 @@ class TheOrderIsCorroboratedNeverFactAndThePadScopeTravelsWithIt(unittest.TestCa
                     window = t[h:h + 2200]
                     self.assertIn("generic", window, t[h:h + 120])
                     self.assertIn("third-party", window, t[h:h + 120])
-                    self.assertRegex(window, r"not FACT|NOT FACT|not a physical FACT", t[h:h + 120])
+                    self.assertRegex(window, r"not FACT|NOT FACT|not a physical FACT|FACT \(hw|F \(hw", t[h:h + 120])   # the status, stated (Issue #33: F (hw, run-scoped))
 
     def test_the_two_evidence_kinds_stay_apart_where_a_sentence_leans_on_them(self):
         f = flat(read(INPUT))
@@ -209,11 +232,15 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
         self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.3 ")].rstrip("\n"), old[old.index("### V7.1 "):].rstrip("\n"), "§V7.1 and §V7.2 untouched")
         ev_old, ev_new = git_show("docs/research/EVIDENCE.md"), read(EVIDENCE)
         heads = lambda t: [l for l in t.splitlines() if re.match(r"^#{2,4} +(GBP-KEY-00[1-9]|GBP-HW-26[1-5])\b", l)]
-        self.assertEqual(heads(ev_new), heads(ev_old), "no evidence status changed")
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev_new, re.M)), 265, "no GBP-HW id minted")
+        # Issue #33 (2026-09-21) later extended GBP-KEY-004's heading (the routing FACT by RUN 17 / RUN 18) and minted GBP-HW-266…271;
+        # this checkpoint changed no status: every heading of the base is a prefix of today's
+        for a, b in zip(heads(ev_old), heads(ev_new)):
+            self.assertTrue(b.startswith(a), (a, b))
+        self.assertEqual(len(heads(ev_new)), len(heads(ev_old)))
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev_new, re.M)), 271, "GBP-HW-266…271: Issue #33")
         u_old, u_new = git_show("docs/research/UNKNOWNS.md"), read(UNKNOWNS)
         h = lambda t: re.search(r"^## U-GBP-010\b.*$", t, re.M).group(0)
-        self.assertEqual(h(u_new), h(u_old))
+        self.assertTrue(h(u_new).startswith(h(u_old)))
         self.assertIn("Issue #26", u_new[u_new.index("## U-GBP-010"):u_new.index("## U-GBP-011")])
 
     def test_nothing_under_the_untouchable_paths_changed(self):
@@ -229,7 +256,9 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
 
     def test_the_records_of_the_checkpoint(self):
         d = read(DEVLOG)
-        e = d[d.rindex("## 2026-09-21 — Issue #26"):]
+        i = d.rindex("## 2026-09-21 — Issue #26")
+        j = d.find("\n## 2026", i + 1)
+        e = d[i:j if j > 0 else None]
         for tok in ("INPUT.md", "never written", "CORROBORATED, not FACT", "active-low", "POLICY", "no status", "GBP-KEY-009"):
             self.assertIn(tok, e, tok)
         self.assertNotRegex(e, r"GBP-HW-26[6-9]")

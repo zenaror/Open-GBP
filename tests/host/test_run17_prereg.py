@@ -156,8 +156,10 @@ class IdentitiesAreTheFrozenOnes(unittest.TestCase):
                     "If it still reads ef76a170...0b9c (stream-0014), the copy did not happen: DO NOT RUN", "WITHOUT rebuilding",
                     "If ANY identity differs: DO NOT RUN"):
             self.assertIn(tok, g, tok)
-        self.assertFalse(os.path.exists(os.path.join(ROOT, "build", "archive", "gbp-video-stream-probe-stream-0014-0ff8355.dol")),
-                         "stream-0014 is preserved by the Hardware Issue, not by this part")
+        # Hardware Issue #32 (2026-09-21) preserved stream-0014 before staging stream-0015 (§V7.3.6 steps 1-3); the archive, when present, is the exact bytes
+        arch = os.path.join(ROOT, "build", "archive", "gbp-video-stream-probe-stream-0014-0ff8355.dol")
+        if os.path.exists(arch):
+            self.assertEqual((os.path.getsize(arch), hashlib.sha256(open(arch, "rb").read()).hexdigest()), (513152, PREV_SHA))
 
     def test_the_built_artifact_if_present_is_the_one_named(self):
         info = os.path.join(ROOT, "build", "poc", "gbp-video-stream-probe", "build-info.txt")
@@ -171,7 +173,7 @@ class IdentitiesAreTheFrozenOnes(unittest.TestCase):
         swiss = os.path.join(ROOT, "build", "swiss", "12-stream", "boot.dol")
         if os.path.exists(swiss):
             with open(swiss, "rb") as f:
-                self.assertEqual(hashlib.sha256(f.read()).hexdigest(), PREV_SHA, "nothing staged: the Swiss slot still holds stream-0014")
+                self.assertIn(hashlib.sha256(f.read()).hexdigest(), (PREV_SHA, DOL_SHA), "the Swiss slot holds stream-0014 (before Hardware Issue #32) or stream-0015 (staged under it)")
 
 
 class TheNumberingAndTheNames(unittest.TestCase):
@@ -189,12 +191,13 @@ class TheNumberingAndTheNames(unittest.TestCase):
             self.assertEqual(p.count(n), 1, n)
             self.assertEqual(t.count(n), 1, n)
             self.assertEqual(h.count(n), 1, n)
-            self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
+            # Hardware Issue #32 (2026-09-21) executed RUN 17 / RUN 18: the names are USED (Issue #33 ingested them, §V7.4, tests/host/test_run17.py)
         self.assertEqual(len(re.findall(r"captures/local/\S*run17\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*run18\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*run(?:19|2\d)\S*", t)), 0)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run16\S*", t)), 5, "the run16 names of V7.1.5 untouched")
-        self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015*")), [])
+        self.assertEqual(len(re.findall(r"captures/local/\S*stream-0014-run16\S*", t)), 5, "the run16 names of V7.1.5 untouched (retired by Issue #33, never reassigned)")
+        self.assertEqual(len(re.findall(r"captures/local/\S*stream-0015-run16\S*", t)), 5, "the names RUN 16 actually used (§V7.4.3, Issue #33)")
+        self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run19*")), [])   # nothing beyond the executed runs
         f = plain(part(5))
         for tok in ("TAKEN even if a run aborts, never starts, or RUN 18 is never executed", "cp --update=none", "Verified absent on 2026-09-21",
                     "The run16 names of V7.1.5 are untouched", "The KEY record lives inside the .log file"):
@@ -299,23 +302,22 @@ class NothingElseMoved(unittest.TestCase):
     def test_input_md_is_corrected_on_its_date_and_the_routing_stays_c(self):
         t = read(INPUT_MD)
         self.assertNotIn("recorded, not\nimplemented", t)
-        self.assertIn("recorded on\n2026-09-21 as not implemented — implemented the same day in `stream-0015`", t)
-        self.assertIn("executed nowhere yet", t)
+        self.assertIn("recorded on 2026-09-21 as not implemented — implemented the same day in `stream-0015`", re.sub(r"\s+", " ", t))
+        # Issue #33 (2026-09-21) then ingested RUN 17 / RUN 18: the routing is FACT (hw, the runs) and the page says so with its history
+        # (tests/host/test_run17.py pins the promotion); this checkpoint's dated correction is kept inside that history
         self.assertIn("pre-registered to spend it, `HARDWARE_TESTS.md` §V7.3", t)
-        self.assertIn("| C, not FACT — the paragraph below is part of this row |", t)
-        self.assertIn("**The L/R order is CORROBORATED, not FACT.**", t)
-        old = git_show("docs/protocol/INPUT.md")
-        if old is not None:
-            self.assertEqual(old.count("FACT"), t.count("FACT"), "no FACT added or removed: the status is unchanged")
+        self.assertIn("was\nCORROBORATED, not FACT, until the join later that day", t)
 
     def test_the_records(self):
         d = read(DEVLOG)
-        e = d[d.rindex("## 2026-09-21 — Issue #28"):]
+        i = d.rindex("## 2026-09-21 — Issue #28")
+        j = d.find("\n## 2026", i + 1)
+        e = d[i:j if j > 0 else None]
         for tok in ("Question One", "FACT is reachable per bit", "NOT RUN / NOT AUTHORISED HERE", "pacing the walk is EXCLUDED", "no hardware, no code, no build, no staging"):
             self.assertIn(tok, e, tok)
         self.assertNotRegex(e, r"GBP-HW-26[6-9]")
         h = plain(read(HANDOFF))
-        for tok in ("issue 28", "RUN 17 and RUN 18 (GBP-INPUT-002", "That the interval-wise join binds the routing", "validate #28"):
+        for tok in ("issue 28", "RUN 17 and RUN 18 (GBP-INPUT-002", "That the interval-wise join binds the routing"):   # the trail's `next` moved on with Issue #33
             self.assertIn(tok, h, tok)
         self.assertIn("Pre-registered 2026-09-21 (GitHub Issue #28)", plain(read(ROADMAP)))
 
@@ -323,12 +325,16 @@ class NothingElseMoved(unittest.TestCase):
         r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE_COMMIT], capture_output=True)
         if r.returncode != 0:
             self.skipTest("the base commit is not available in this checkout")
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus",
-                            "captures/fixtures", "docs/hardware"], capture_output=True, text=True)
+        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "docs/protocol"], capture_output=True, text=True)
-        self.assertTrue(set(r.stdout.split()) <= {"docs/protocol/INPUT.md"}, r.stdout)
+        # Issue #33 (2026-09-21) added the RUN 16 / 17 / 18 fixtures and promoted the consolidated pages (tests/host/test_run17.py pins both)
+        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
+        for line in r.stdout.split():
+            self.assertRegex(line, r"-run1[678]-", line)
+        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "docs/protocol", "docs/hardware"], capture_output=True, text=True)
+        self.assertTrue(set(r.stdout.split()) <= {"docs/protocol/INPUT.md", "docs/protocol/REGISTERS.md", "docs/protocol/INITIALIZATION.md",
+                                                  "docs/hardware/GBS-DOL.md", "docs/hardware/ARCHITECTURE.md"}, r.stdout)
 
 
 if __name__ == "__main__":

@@ -98,7 +98,7 @@ class TheFrozenThingsAreUntouched(unittest.TestCase):
         self.assertTrue(set(r.stdout.split()) <= allowed, "changed against the frozen commit: " + r.stdout)
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
         for line in r.stdout.split():
-            self.assertRegex(line, r"-run1[45]-", "only the RUN 14 / RUN 15 fixtures (Issue #24) were added: " + line)
+            self.assertRegex(line, r"-run1[45678]-", "only the RUN 14 / RUN 15 (Issue #24) and RUN 16 / 17 / 18 (Issue #33) fixtures were added: " + line)
 
 
 class TheRejectedInstrument(unittest.TestCase):
@@ -153,14 +153,15 @@ class TheRecollectionAndTheComposition(unittest.TestCase):
                     "U-GBP-010 stays OPEN", "the descriptor is unchanged", "never FACT", "nothing physical was measured by this project"):
             self.assertIn(tok, body, tok)
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
-        self.assertEqual(hw, 265)   # GBP-HW-261…265: RUN 14 / RUN 15 (Issue #24)
+        self.assertEqual(hw, 271)   # GBP-HW-261…265: RUN 14 / RUN 15 (Issue #24); 266…271: RUN 16 / 17 / 18 (Issue #33)
         u = read(UNKNOWNS)
         m = re.search(r"^## U-GBP-010\b.*$", u, re.M)
         self.assertIn("CLOSED 2026-09-21", m.group(0))   # closed by RUN 14 / RUN 15, not by the recollection
         self.assertIn("GBP-KEY-007", u)
         # Issue #26 promoted the order to C (never FACT) in REGISTERS.md; the H of this checkpoint is history
         self.assertNotIn("H (L/R bit order)", read(REGISTERS))
-        self.assertIn("L/R bit order: C", read(REGISTERS))
+        self.assertIn("C — was H until 2026-09-21", read(REGISTERS))                      # the history kept
+        self.assertIn("L/R bit order: F (hw, run-scoped) since 2026-09-21", read(REGISTERS))   # Issue #33: RUN 17 / RUN 18
 
 
 class TheRecords(unittest.TestCase):
