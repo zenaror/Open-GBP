@@ -1268,11 +1268,21 @@ int main(void)
                    (unsigned)STREAM_SLICE_TILE_ROWS, (unsigned)STREAM_TEX_BUFFERS,
                    (unsigned)GBP_VPIX_TEX_BYTES, (unsigned long)gbp_vstate_ring_slots(&vstate));
     /* Issue #19: what the input path is configured to do. The descriptor is
-     * reported as DATA (its ten positions and its polarity), not as a claim. */
-    ringlog_printf(&rl, "ENVINPUT port=1 policy=default stick_threshold=%d trigger_threshold=%u analog_ab_threshold=%u filter_opposites=%u refresh_ms=%u refresh_ticks=%llu layout=gbi-u16-replicated index=%u desc=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u pressed_is_one=%u desc_status=CORROBORATED_not_FACT selftest=%d",
+     * reported as DATA (its ten positions and its polarity), not as a claim.
+     *
+     * Issue #27 (GBP-KEY-008): TWO records, not one. The single-record form
+     * rendered to 266 characters against the 248-character ringlog payload and
+     * was clipped after `desc_status=CORROBORATED_n` in RUN 14 and RUN 15 --
+     * the same class as GBP-VID-033's WITELIG. The split is the whole fix:
+     * every field name unchanged (index moves to the second record), no
+     * buffer enlarged, and tests/host/test_ringlog_payloads.py proves both
+     * records fit at the WORST-CASE width of every conversion. */
+    ringlog_printf(&rl, "ENVINPUT port=1 policy=default stick_threshold=%d trigger_threshold=%u analog_ab_threshold=%u filter_opposites=%u refresh_ms=%u refresh_ticks=%llu layout=gbi-u16-replicated",
                    (int)GBP_INPUT_POLICY_DEFAULT.stick_threshold, (unsigned)GBP_INPUT_POLICY_DEFAULT.trigger_threshold,
                    (unsigned)GBP_INPUT_POLICY_DEFAULT.analog_ab_threshold, (unsigned)GBP_INPUT_POLICY_DEFAULT.filter_opposites,
-                   (unsigned)GBP_INPUT_REFRESH_MS, (unsigned long long)in_state.refresh_ticks, (unsigned)GBP_KEYPAD_INDEX,
+                   (unsigned)GBP_INPUT_REFRESH_MS, (unsigned long long)in_state.refresh_ticks);
+    ringlog_printf(&rl, "ENVINPUT2 index=%u desc=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u pressed_is_one=%u desc_status=CORROBORATED_not_FACT selftest=%d",
+                   (unsigned)GBP_KEYPAD_INDEX,
                    (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[0], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[1], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[2],
                    (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[3], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[4], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[5],
                    (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[6], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[7], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[8],

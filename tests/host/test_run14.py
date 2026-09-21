@@ -308,8 +308,12 @@ class TheInputMachineGate(unittest.TestCase):
                 self.assertIn("never a latency claim", t["note"])
 
     def test_the_envinput_clip_is_rederived_from_the_source_format(self):
-        """truncated=1: LOG_LINE_LEN 256 - 7 prefix - NUL = 248 payload; the ENVINPUT format of main.c renders longer."""
-        src = read(MAIN)
+        """truncated=1: LOG_LINE_LEN 256 - 7 prefix - NUL = 248 payload; the ENVINPUT format of the main.c that RAN
+        (stream-0014, 0ff8355) renders longer. Issue #27 repaired it in stream-0015 (ENVINPUT + ENVINPUT2), so the
+        derivation reads the candidate's source from git, never the working tree."""
+        src = git("show", "%s:poc/gbp-video-stream-probe/source/main.c" % CANDIDATE_COMMIT)
+        if src is None:
+            self.skipTest("the candidate commit is not available in this checkout")
         m = re.search(r'ringlog_printf\(&rl, "(ENVINPUT [^"]*)"', src)
         self.assertIsNotNone(m, "the ENVINPUT format string")
         fmt = m.group(1).replace("%llu", "%d").replace("%u", "%d")
