@@ -198,7 +198,7 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
         self.assertEqual(len(re.findall(r"captures/local/\S*run14\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*run15\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*stream-0014-run16\S*", t)), 5)   # RUN 16 ran on stream-0015 (Issue #33): these five are retired, listed once
-        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:19|2\d)\S*", t)), 0)   # run17 / run18: Issue #28, §V7.3
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:2[1-9]|[3-9]\d)\S*", t)), 0)   # run17 / run18: Issue #28, §V7.3; run19 / run20: Issue #34, §V7.5
 
     def test_the_handoff_reserves_the_same_fifteen_names_once_and_the_run_13_names_stay(self):
         h = read(HANDOFF)

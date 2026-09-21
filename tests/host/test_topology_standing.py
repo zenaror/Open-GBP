@@ -161,7 +161,7 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
             self.assertIn(tok, r, tok)
         self.assertNotIn("MUST be declared per run: BBA and Ethernet state", r)
         p = plain(h)
-        for tok in ("- That the topology is known. It is DECLARED", "issue 35", "validate #35; then Issue #34",
+        for tok in ("- That the topology is known. It is DECLARED", "issue 35",   # the trail's `next` moved on with Issue #34
                     "at ingestion recorded absent, not inferred; history kept"):
             self.assertIn(tok, p, tok)
         self.assertIn("Issue #35", plain(read(README)))
@@ -178,7 +178,9 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         new = read(HW)
         self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.4 ")], old[old.index("### V7.1 "):old.index("### V7.4 ")])
         self.assertEqual(old[:old.index("\n## V7 ")], new[:new.index("\n## V7 ")])
-        self.assertEqual([l for l in old.splitlines() if l.startswith("## V7 ")], [l for l in new.splitlines() if l.startswith("## V7 ")], "the chapter heading unchanged")
+        old_head = [l for l in old.splitlines() if l.startswith("## V7 ")][0]
+        new_head = [l for l in new.splitlines() if l.startswith("## V7 ")][0]
+        self.assertTrue(new_head.startswith(old_head), "the chapter heading only grows (Issue #34 appended the RUN 19 / RUN 20 clause)")
         # the results: every part of §V7.4 except the ones the Issue names (the intro, 2, 4, 10, 11, 12) is byte-identical
         for n in (1, 3, 5, 6, 7, 8, 9):
             self.assertEqual(part(n, new), part(n, old), "V7.4.%d untouched" % n)
