@@ -111,14 +111,17 @@ class TheSectionAndTheAmendmentRecord(unittest.TestCase):
         self.assertNotIn("#### V7.5.13 ", t)
         head = t.splitlines()[0]
         for tok in ("RUN 19 / RUN 20", "GBP-INPUT-003", "the two-pad equivalence on the Enhanced Control Checker", "NOT the ROADMAP's acceptance, which stays open",
-                    "PRE-REGISTERED 2026-09-21 (GitHub Issue #34)", "NOT RUN / NOT AUTHORISED HERE", "AMENDED BEFORE HARDWARE (GitHub Issue #37, 2026-09-21)",
-                    "WarioWare: Twisted evaluated and REJECTED", "the build change assessed, not made"):
+                    "PRE-REGISTERED 2026-09-21 (GitHub Issue #34)", "AMENDED BEFORE HARDWARE (GitHub Issue #37, 2026-09-21)",
+                    "WarioWare: Twisted evaluated and REJECTED", "the build change assessed, not made",
+                    "then WITHDRAWN BEFORE HARDWARE (GitHub Issue #37, 2026-09-21, the Operator's objection)", "RUN 19 / RUN 20 NOT RUN, NOT AUTHORISED, their names retired",
+                    "the routing does not depend on the pad", "kept as provenance"):
             self.assertIn(tok, head, tok)
         full = read(HW)
         self.assertEqual((full.count("### V7.5 "), full.count("\n## V7 ")), (1, 1))
         v7 = [l for l in full.splitlines() if l.startswith("## V7 ")][0]
         for tok in ("RUN 19 / RUN 20 PRE-REGISTERED (Issue #34, §V7.5)", "AMENDED BEFORE HARDWARE (Issue #37)", "THE INSTRUMENT IS THE ENHANCED CONTROL CHECKER",
-                    "NOT THE ROADMAP'S ACCEPTANCE, WHICH STAYS OPEN", "THE BUILD CHANGE ASSESSED, NOT MADE"):
+                    "NOT THE ROADMAP'S ACCEPTANCE, WHICH STAYS OPEN", "THE BUILD CHANGE ASSESSED, NOT MADE",
+                    "WITHDRAWN BEFORE HARDWARE (Issue #37, the Operator's objection): RUN 19 / RUN 20 NOT RUN, THEIR NAMES RETIRED"):
             self.assertIn(tok, v7, tok)
 
     def test_the_amendment_is_recorded_dated_with_the_three_changes_and_what_stays_frozen(self):
@@ -132,6 +135,29 @@ class TheSectionAndTheAmendmentRecord(unittest.TestCase):
                     "the reserved names", "§V7.1-§V7.4 byte-identical", "nothing about the routing", "Phase 5's closure not decided",
                     "whether Phase 5 then CLOSES is NOT decided here", "further away, not nearer"):
             self.assertIn(tok, intro, tok)
+
+    def test_the_withdrawal_is_recorded_on_top_with_its_reasoning_and_what_is_given_up(self):
+        intro = plain(prereg().split("#### V7.5.1 ")[0])
+        for tok in ("THE WITHDRAWAL RECORD (2026-09-21, Issue #37 -- after the amendment above was committed)".replace("--", "—"),
+                    "committed and pushed (ad4151e, ba8edb7) before the Orchestrator's stop arrived", "history is never rewritten",
+                    "the objection the Operator's, in substance: he has already used the Enhanced Control Checker in every controller test so far",
+                    "THE ROUTING DOES NOT DEPEND ON THE PAD", "the pad sits upstream of the word", "completes NOTHING about the routing",
+                    "The matrix framing was the Orchestrator's, accepted without checking whether its missing cells informed J",
+                    "conflated pad -> word with word -> key", "the Operator caught it",
+                    "exercised in RUN 15 on stream-0014, counted by the checker (M = PASS) but without the KEY record",
+                    "A / B / SELECT (X) / START on the ORIGINAL pad, never exercised", "not worth two trips to the console",
+                    "RUN 19 and RUN 20 are WITHDRAWN before execution", "RETIRED -- never used, never reassigned, as the stream-0014-run16 names were",
+                    "the numbers 19 and 20 are consumed", "closed as withdrawn-before-execution by the Orchestrator, not by the Executor",
+                    "what is given up stated so that a later reader sees a considered choice and not an oversight",
+                    "eight button x pad combinations keep no machine-decoded pad -> word reading", "a human-count link only, RUN 15", "no reading at all",
+                    "will be answered by his report on a game rather than by decoded counters", "the arrangement noted as the arrangement working",
+                    "twice on this day the Operator caught a design error before it cost him a run", "He is not only the hands",
+                    "what remains the real-game acceptance run, open and unscheduled"):
+            self.assertIn(tok, intro, tok)
+        p = plain(prereg())
+        self.assertEqual(p.count("WITHDRAWN BEFORE HARDWARE (Issue #37; the withdrawal record at the head of this part): kept as provenance; no run follows."), 7)
+        self.assertIn("CORRECTED BY THE WITHDRAWAL (Issue #37)", plain(part(2)))
+        self.assertIn("RETIRED by the withdrawal (Issue #37): never used, never reassigned; the numbers 19 and 20 are consumed and the next run takes 21", plain(part(5)))
 
 
 class TheTwoCriteriaAndTheInstrument(unittest.TestCase):
@@ -147,7 +173,7 @@ class TheTwoCriteriaAndTheInstrument(unittest.TestCase):
                     "they answer the Operator's criterion for the ten buttons of the walks, on the two pads he owns",
                     "the ROADMAP's acceptance; Phase 5's closure (further away, not nearer: a real game is still required)"):
             self.assertIn(tok, p, tok)
-        self.assertEqual(prereg().count(CRITERION), 3, "quoted in the criterion part, read in the verdicts, and named in the two-criteria block")
+        self.assertEqual(prereg().count(CRITERION), 4, "quoted in the criterion part, read in the verdicts, named in the two-criteria block, and in the withdrawal's what-is-given-up")
 
     def test_the_rejected_candidate_the_corrected_recommendation_and_the_relayed_intention(self):
         p = plain(part(2))
@@ -171,7 +197,7 @@ class TheTwoCriteriaAndTheInstrument(unittest.TestCase):
                     "RUN 19 = walk A on the ORIGINAL pad; RUN 20 = walk B on the GENERIC pad", "every one of the ten buttons has been walked on BOTH pads",
                     "walk A (L 1, R 2, A 3, B 4, SELECT 5, START 6)", "walk B (L 1, R 2, UP 3, DOWN 4, LEFT 5, RIGHT 6)",
                     "Each run is also a join run: §V7.3.9's join closes it per bit (W by machine)", "55 distinct-count presses do not fit the window unpaced",
-                    "THE REASONING, worth more than the outcome", "the MISSING HALF of a walk x pad matrix the project had already half-built without noticing",
+                    "THE REASONING, as it stood before the correction", "the MISSING HALF of a walk x pad matrix the project had already half-built without noticing",
                     "no new machinery and no new verdict vocabulary", "what the Operator does that is new NOTHING"):
             self.assertIn(tok, p, tok)
 
@@ -281,7 +307,8 @@ class GatesVerdictsAndNonClaims(unittest.TestCase):
         self.assertNotIn("RESULT", p)
         self.assertNotRegex(p, r"EXECUTED 2026|ingested 2026|ingested on")
         self.assertIn("Nothing here is evidence", p)
-        self.assertIn("PRE-REGISTERED\n/ AMENDED BEFORE HARDWARE / NOT RUN", part(12))
+        self.assertIn("PRE-REGISTERED / AMENDED BEFORE HARDWARE / WITHDRAWN BEFORE HARDWARE / NOT RUN, their names retired", plain(part(12)))
+        self.assertIn("running RUN 19 or RUN 20 at all, or reusing their names", plain(part(12)))
 
     def test_the_shared_gates_are_v7_3_8s_plus_the_walk_and_the_pairs_own(self):
         f = plain(part(8))
@@ -334,16 +361,20 @@ class NothingElseMoved(unittest.TestCase):
 
     def test_the_records(self):
         h = plain(read(HANDOFF))
-        for tok in ("RUN 19 and RUN 20 (GBP-INPUT-003", "issue 37", "validate #37", "That RUN 19 / RUN 20 have run, or that Phase 5 is closed, or that a run on the checker can close it",
-                    "That WarioWare is an instrument for an input test", "AMENDED BEFORE HARDWARE under Issue #37", "further away"):
+        for tok in ("RUN 19 and RUN 20 (GBP-INPUT-003", "issue 37", "validate #37's withdrawal", "That RUN 19 / RUN 20 will run, or that Phase 5 is closed, or that a checker run on the other pad would add to the routing's FACT",
+                    "That WarioWare is an instrument for an input test", "AMENDED then WITHDRAWN BEFORE HARDWARE under Issue #37", "their ten names below are RETIRED",
+                    "THE ROUTING DOES NOT DEPEND ON THE PAD", "The next run number is 21", "further away"):
             self.assertIn(tok, h, tok)
         r = plain(read(ROADMAP))
         for tok in ("Pre-registered 2026-09-21 (GitHub Issue #34)", "Amended before hardware, 2026-09-21 (GitHub Issue #37)", CRITERION, "NOT RUN / NOT AUTHORISED HERE",
-                    "this phase's closure is further away, not nearer", "assessed in HARDWARE_TESTS.md §V7.5.3 from the source", "NOT made"):
+                    "this phase's closure is further away, not nearer", "assessed in HARDWARE_TESTS.md §V7.5.3 from the source", "NOT made",
+                    "Withdrawn before hardware, 2026-09-21 (GitHub Issue #37, the Operator's objection)", "the routing does not depend on the pad", "the next run number is 21"):
             self.assertIn(tok, r, tok)
         d = read(DEVLOG)
-        e = plain(d[d.rindex("## 2026-09-21 — Issue #37"):])
-        for tok in ("evaluated and REJECTED", "the two criteria apart", "The build change, assessed and not made", "further away, not nearer", "No hardware; no build; no code; no id"):
+        e = plain(d[d.index("## 2026-09-21 — Issue #37"):])          # the amendment entry and the withdrawal entry that follows it
+        for tok in ("evaluated and REJECTED", "the two criteria apart", "The build change, assessed and not made", "further away, not nearer", "No hardware; no build; no code; no id",
+                    "Issue #37 (continued): RUN 19 / RUN 20 WITHDRAWN BEFORE HARDWARE", "THE ROUTING DOES NOT DEPEND ON THE PAD", "the Operator caught it",
+                    "exercised in RUN 15 on stream-0014", "never used, never reassigned; the numbers consumed, next run 21"):
             self.assertIn(tok, e, tok)
         self.assertNotRegex(e, r"GBP-HW-27[2-9]")
 
