@@ -228,9 +228,9 @@ class TheBuildWiring(unittest.TestCase):
 class TheDocumentsKeepTheStatus(unittest.TestCase):
     def test_registers_h_unknown_open_no_promotion(self):
         regs = read(os.path.join(DOCS, "protocol", "REGISTERS.md"))
-        self.assertNotIn("H (L/R bit order)", regs)          # Issue #26: C, never FACT
-        self.assertIn("L/R bit order: C", regs)
-        self.assertIn("not FACT", regs)
+        self.assertNotIn("H (L/R bit order)", regs)          # Issue #26: C; Issue #33: F (hw, run-scoped) by RUN 17 / RUN 18, history kept
+        self.assertIn("C — was H until 2026-09-21", regs)
+        self.assertIn("L/R bit order: F (hw, run-scoped) since 2026-09-21", regs)
         unk = read(os.path.join(DOCS, "research", "UNKNOWNS.md"))
         m = re.search(r"^## U-GBP-010\b.*$", unk, re.M)
         self.assertIsNotNone(m)
@@ -245,7 +245,7 @@ class TheDocumentsKeepTheStatus(unittest.TestCase):
                                     or "not established" in low, fn + ": " + line)
         ev = read(os.path.join(DOCS, "research", "EVIDENCE.md"))
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
-        self.assertEqual(hw, 265)   # GBP-HW-261…265 (Issue #24)
+        self.assertEqual(hw, 271)   # GBP-HW-261…265 (Issue #24); 266…271 (Issue #33)
 
 
 if __name__ == "__main__":

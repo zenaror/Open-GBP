@@ -494,9 +494,10 @@ class TheVerdictsAsReadFromTheFrozenGate(unittest.TestCase):
         head = ev[ev.index("### GBP-HW-265 "):].splitlines()[0]
         self.assertIn("CORROBORATED (the routing), not FACT", head)
         self.assertIn("## GBP-KEY-004 — The static result on the L/R order: the Start-up Disc, GBI and Dolphin's model all put L at word bit 8 and R at word bit 9, the reverse of KEYINPUT — CORROBORATED for the encoding the references target; the physical routing NOT established", ev)
-        regs = read(os.path.join(ROOT, "docs", "protocol", "REGISTERS.md"))   # Issue #26: C, never FACT
+        regs = read(os.path.join(ROOT, "docs", "protocol", "REGISTERS.md"))   # Issue #26: C; Issue #33: F (hw, run-scoped) by RUN 17 / RUN 18, history kept
         self.assertNotIn("H (L/R bit order)", regs)
-        self.assertIn("not FACT", regs)
+        self.assertIn("C — was H until 2026-09-21", regs)
+        self.assertIn("L/R bit order: F (hw, run-scoped) since 2026-09-21", regs)
         self.assertIn("The routing conclusion — the GameCube L reaching the AGB's L line — is a\nchain of four links", v72())
 
     def test_u_gbp_010_is_closed_on_its_own_condition_with_the_descriptor_kept(self):
@@ -745,7 +746,7 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         ev = read(EVIDENCE)
         for n in range(261, 266):
             self.assertEqual(len(re.findall(r"^### GBP-HW-%d " % n, ev, re.M)), 1, n)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 265)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 271)   # GBP-HW-266…271: RUN 16 / 17 / 18 (Issue #33)
         b261 = ev[ev.index("### GBP-HW-261 "):ev.index("### GBP-HW-262 ")]
         for run, R in RUNS.items():
             for k in ("log", "idxcap", "disp", "full", "vi"):
@@ -764,9 +765,10 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
             self.assertIn(tok, r, tok)
         self.assertIn("A real game can be controlled reliably using the GameCube controller.", read(ROADMAP))
         h = read(HANDOFF)
-        for tok in ("**Phase 5 — Input, implemented and physically executed once (GBP-INPUT-001)**", "| **GBP-INPUT-001** (the first physical KEYPAD write; L/R order) |",
-                    "issue 24", "That RUN 16 has run, or that RUN 14 / RUN 15 made the L/R routing a", "That the KEYPAD L/R routing is a physical FACT.",
-                    "That the input path is a finished feature because RUN 14 / RUN 15", "The physical keypad record now holds these two runs and nothing"):
+        # Issue #33 (2026-09-21) rewrote the Phase-5 title and the do-not-assume bullets when RUN 17 / RUN 18 made the routing FACT
+        for tok in ("**Phase 5 — Input, implemented and physically executed (GBP-INPUT-001, GBP-INPUT-002: the routing FACT)**", "| **GBP-INPUT-001** (the first physical KEYPAD write; L/R order) |",
+                    "issue 24", "That RUN 14 / RUN 15 made the L/R routing a FACT, or that RUN 16 answered", "That the KEYPAD L/R routing is a physical FACT beyond the runs' scope",
+                    "That the input path is a finished feature because RUN 14 / RUN 15", "The physical keypad record held these two runs and nothing else until Issue #33"):
             self.assertIn(tok, h, tok)
         d = read(DEVLOG)
         e = d[d.rindex("## 2026-09-21 — Issue #24"):]
@@ -797,7 +799,7 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         self.assertTrue(set(r.stdout.split()) <= allowed, "changed against the base: " + r.stdout)
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_V71_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
         for line in r.stdout.split():
-            self.assertRegex(line, r"-run1[45]-", "only the RUN 14 / RUN 15 fixtures were added: " + line)
+            self.assertRegex(line, r"-run1[45678]-", "only the RUN 14 / RUN 15 (Issue #24) and RUN 16 / 17 / 18 (Issue #33) fixtures were added: " + line)
 
 
 if __name__ == "__main__":

@@ -197,7 +197,7 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
             self.assertEqual(t.count(n), 1, n)
         self.assertEqual(len(re.findall(r"captures/local/\S*run14\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*run15\S*", t)), 5)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run16\S*", t)), 5)
+        self.assertEqual(len(re.findall(r"captures/local/\S*stream-0014-run16\S*", t)), 5)   # RUN 16 ran on stream-0015 (Issue #33): these five are retired, listed once
         self.assertEqual(len(re.findall(r"captures/local/\S*run(?:19|2\d)\S*", t)), 0)   # run17 / run18: Issue #28, §V7.3
 
     def test_the_handoff_reserves_the_same_fifteen_names_once_and_the_run_13_names_stay(self):
@@ -218,7 +218,8 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
                 self.assertEqual(os.path.getsize(p), sizes[n.split("stream-0014-")[1]], n)
         for n in NAMES[10:]:
             self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
-        self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*run16*")), [])
+        # RUN 16 ran on stream-0015 (Issue #33, §V7.4): its stream-0014 names of §V7.1.5 are retired and never came into existence
+        self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0014-run16*")), [])
 
     def test_the_photograph_is_optional_and_not_one_of_the_fifteen(self):
         p = part(5)
@@ -415,7 +416,7 @@ class NothingElseMoved(unittest.TestCase):
         h = read(HANDOFF)
         self.assertRegex(h, r"RUN 14[^\n]*PRE-REGISTERED|PRE-REGISTERED[^\n]*RUN 14")
         # Issue #24: the runs executed; the bullet now guards RUN 16 and the routing's status
-        self.assertIn("That RUN 16 has run, or that RUN 14 / RUN 15 made the L/R routing a", h)
+        self.assertIn("That RUN 14 / RUN 15 made the L/R routing a FACT, or that RUN 16 answered", h)
 
     def test_part_12_says_what_was_not_authorized(self):
         f = plain(part(12))
