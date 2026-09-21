@@ -552,6 +552,23 @@ NOT AUTHORISED HERE.** Whether this phase then closes is an assessment step
 of its own, after the pair (Issue #17's precedent). **Next:** the Hardware
 Issue the Orchestrator opens after validating §V7.5.
 
+**Amended before hardware, 2026-09-21 (GitHub Issue #37):** the WarioWare
+the Operator owns is WarioWare: Twisted — the gyroscope title, most of whose
+interaction bypasses the button path — evaluated and REJECTED as an input
+instrument, the recommendation withdrawn; the Operator will test on the
+Enhanced Control Checker, which answers HIS criterion (better than a game:
+machine-decoded counters on one end, the KEY record on the other) and NOT
+this phase's — a test ROM is not a real game. RUN 19 / RUN 20 become the
+two-pad equivalence on the checker (walk A on the original pad, walk B on
+the generic pad, completing the walk × pad matrix with RUN 17 / 18) and
+claim exactly that. **The acceptance with a real game stays open and
+unscheduled, and this phase's closure is further away, not nearer:** it
+needs a game that passes through the button path and, in all likelihood,
+the build change that frees an input run from the video witness's stop —
+assessed in `HARDWARE_TESTS.md` §V7.5.3 from the source (the one success
+stop, the caps, the witness unbound, the frames' origin, the KEY record's
+headroom) and NOT made.
+
 Implement and document GameCube controller → GBP keypad/input handling.
 
 Automated tests should cover button combinations and encoding.
