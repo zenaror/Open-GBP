@@ -22212,6 +22212,19 @@ in the preserved OGBPFULL1 frames (V7.2.6) — a machine-decodable record that
 agrees with the Operator's vectors digit for digit. The two channels are
 recorded separately and their agreement is stated, never merged.
 
+**The controller, and what it bounds (Issue #25).** The Operator's post-run
+declaration (V7.2.2) names the pad for the first time: a GENERIC, third-party
+GameCube controller; the official Nintendo pad he also owns was NOT the one
+used. The implemented policy reads L and R by their DIGITAL CLICK only —
+`trigger_threshold=0` in both ENVINPUT records: the analogue trigger value is
+not read (GBP-KEY-006) — and L and R were the first two buttons of both
+walks. So what RUN 14 and RUN 15 establish about L and R, they establish
+through the digital click of a third-party pad. Both edges are recorded: it
+is encouraging that the path worked with a generic controller — its clicks
+reached the checker's L and R as assigned; and it is a limit — the official
+Nintendo pad was not exercised, and this project has no data on it. The
+verdicts are unchanged; their scope now names the pad.
+
 #### V7.2.2 Operator declarations and the Operator's channel — preserved literally, kept beside the machine channel
 
 ```text
@@ -22223,17 +22236,34 @@ LIVE CHANNEL   no per-press "which row moved" record was relayed; V7.1.9 makes t
                read from and the live channel a corroboration when seen -- absent, it neither adds nor subtracts
 BUTTONS        RUN 14: L, R, A, B, SELECT (the pad's X), START all completed; RUN 15: L, R, UP, DOWN, LEFT, RIGHT
                (the D-pad) all completed; no walk was cut; no tally moved without a press (as relayed)
-TOPOLOGY       as pre-registered in V7.1.4 and held: the same GameCube and Game Boy Player as RUN 13; ONE controller in
-               port 1; BBA PRESENT; Ethernet DISCONNECTED; no network code; the EZ-Flash Omega DE with the checker on its
-               NOR, booted STRAIGHT INTO IT; display chain GameCube -> composite / RCA -> low-cost RCA-to-HDMI converter
-               (1080p out) -> HYDIS HV150UX2 / M.NT68676.2A (TOPOLOGY only; nothing about the display is claimed).
-               No deviation was reported.
-NOT POSTED     no literal post-run topology / controller-model / boot-screen declaration exists on Hardware Issue #21
-               (its comments are the staging report, the Orchestrator's staging verification and the two archiving
-               reports) or in Issue #24 at ingestion; the runs are relayed by the Orchestrator's ingestion contract as
-               executed under #21 on the pre-registered topology; the controller model V7.1.4 asked for is therefore
-               RECORDED AS ABSENT, not inferred. The V7.1.8 TOPOLOGY gate is read from the pre-execution declaration
-               with no reported deviation.
+TOPOLOGY       OPERATOR DECLARATION, given AFTER the runs and relayed by the Orchestrator (Issue #25, 2026-09-21), mapped
+               onto what V7.1.4 asked for:
+                 console          the same GameCube                                                        DECLARED
+                 Game Boy Player  the same Game Boy Player                                                 DECLARED
+                                  on the basis of the Operator's DECLARED HARDWARE INVENTORY (2026-09-21): he owns EXACTLY
+                                  ONE GameCube and EXACTLY ONE Game Boy Player, so every run of this project uses the same
+                                  two units; he asked not to be questioned on this point again. This is an operator
+                                  declaration, which is sound -- NOT an inference from the console declaration, which
+                                  would be an inference about a topology item, the thing that makes a run INCONCLUSIVE.
+                                  The project tracks the two as distinct units and V7.1.4 asks for both: the Operator
+                                  first declared the console only, the Game Boy Player was recorded as NOT SEPARATELY
+                                  DECLARED, and the inventory declaration, given the same day, closed that item.
+                 BBA / Ethernet   PRESENT / DISCONNECTED -- his words: "BBA conectado sem cabo de rede"      DECLARED
+                 display chain    UNCHANGED (the chain of V7.1.4 / §V6.24.3: GameCube -> composite / RCA -> low-cost
+                                  RCA-to-HDMI converter, 1080p out -> HYDIS HV150UX2 / M.NT68676.2A)       DECLARED
+                                  (TOPOLOGY only; nothing about the display is claimed)
+                 controller       ONE GENERIC (third-party) GameCube controller in port 1 -- on record for the FIRST
+                                  time; the Operator also owns an official Nintendo pad, which was NOT the one used
+                 cartridge        the EZ-Flash Omega DE with the checker on its NOR, booted STRAIGHT INTO IT (as relayed,
+                                  Issue #24); network none (stream-0014 links no network code)
+               No deviation was reported. The declaration history is kept: at ingestion (Issue #24) no literal
+               post-run declaration existed on Hardware Issue #21 or on #24 and the controller model was RECORDED AS
+               ABSENT, not inferred; the declaration above replaced that note under Issue #25.
+CONTROLLER     the scope statement, stated where the verdicts are read (V7.2.1): the policy reads L and R by their
+SCOPE          DIGITAL CLICK only (ENVINPUT trigger_threshold=0: the analogue trigger value is not read, GBP-KEY-006), and
+               L and R were the first two buttons of both walks -- what RUN 14 and RUN 15 establish about L and R is
+               established through the digital click of a THIRD-PARTY pad: encouraging, and a limit (the official pad
+               was not exercised; the project has no data on it)
 IDENTITY       the SD copy and its pre-boot hash check (V7.1.6 step 4) were the Operator's; both log headers read
                build_id=stream-0014 commit=0ff8355 (V7.2.3), which is the identity the gate asks for
 PHOTOGRAPHS    attempted as the optional aid of V7.1.5 / V7.1.7 and USELESS: the display chain has no upscaler, so the
@@ -22329,8 +22359,11 @@ VIDEO PATH       RECORDED, not judged: vindex INCONCLUSIVE_TOO_FEW_INTACT_FRAMES
                         (the content is the checker's console screen, not OGBPCOORD1; the canonical strip is INVALID on
                         every one of 2048 frames, reason `symbol`, 40/40 blocks each); every sidecar parses with valid
                         CRCs; Policy A, vdisp and the corrected vvi clean (V7.2.9).
-TOPOLOGY         PASS   by the pre-execution declaration (V7.1.4), no deviation reported; no literal post-run
-                        confirmation posted -- recorded (V7.2.2).
+TOPOLOGY         PASS   the pre-execution declaration (V7.1.4) with no deviation reported, joined after the runs by the
+                        Operator's declaration (Issue #25, V7.2.2): same GameCube; BBA present without a network cable;
+                        video chain unchanged; a generic third-party controller; the same Game Boy Player by the
+                        Operator's declared hardware inventory (one console, one GBP) -- a declaration, not an inference.
+                        The gate text (V7.1.8) and the verdicts are unchanged.
 SESSION          PASS   both runs ended at stop=witness_target_reached; the recovery procedure was not needed: the V7.1.7
                         hazard (a stuck or wrong word navigating a menu, launching something unattended, hanging the
                         AGB) did not occur -- the checker's screen is on every preserved frame of both runs and restore=ok.
@@ -22450,7 +22483,8 @@ run — the two runs together observe all ten. Question O: AS-ASSIGNED in both
 (L = 1, R = 2, and no 1 or 2 at a counter that expected 0); with all counts
 distinct, exactly one permutation is consistent with each vector, and it is
 the identity. Both readings hold on the Operator's vector alone and,
-independently, on the machine vector of V7.2.6.
+independently, on the machine vector of V7.2.6. Both are readings of L and R
+pressed on a generic third-party pad's digital click (V7.2.1, Issue #25).
 
 **The blank.** §V7.1.9 says "every unpressed counter reads 0". The instrument
 prints a tally only on a press (`updateButtonTally` after `keysDown()`, verified
@@ -22568,7 +22602,10 @@ runs: the pump's invariants held with the input step inside the slot.
 field                                   RUN 14 (walk A)              RUN 15 (walk B)              RUN 16 (optional menu)
 DOL SHA-256 on the SD                   the Operator's check (step 4); both log headers stream-0014 @ 0ff8355   --  (not run)
 stream-0013 preserved before staging    done 2026-09-21 (5391c3fe...dd79 at build/archive/, Hardware Issue #21)
-controller / port                       port 1, one pad (pre-registered); model NOT POSTED (recorded absent)   --
+controller / port                       port 1, ONE GENERIC (third-party) pad, declared after the runs (Issue #25); --
+                                        the official Nintendo pad owned and NOT used
+topology declared after the runs        same GameCube; the same Game Boy Player by the declared inventory (one console,
+(Issue #25)                             one GBP); BBA connected without a network cable; video chain unchanged      --
 boot screen (checker on NOR / menu)     checker on NOR (relayed)     checker on NOR (relayed)     --
 checker screen seen inside the window   yes: on every preserved frame from +6.084 s after CONTROL (machine); the
                                         Operator read the tallies (relayed; no time estimate relayed)
@@ -22598,8 +22635,9 @@ captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0014-run14-full.bin   1 844 
 captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0014-run14-vi.bin     152 396 B    ef0a1261…927a  byte-identical
 captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run14-qual.bin        24 652 B     08cb48f5…d0d1  content-blind projection naming
                                                                            the raw witness (8 946 060 B, d42ebb1a…1de2)
-captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run14-struct.json     51 307 B     every identity, the declarations AS
-                                                                           declarations and what was NOT posted, the Operator's
+captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run14-struct.json     54 076 B     every identity, the declarations AS
+                                                                           declarations (the post-run declaration of Issue #25, the
+                                                                           Game Boy Player by the declared inventory), the Operator's
                                                                            vector, the receipt, the summary records VERBATIM, the
                                                                            INPUT machine gate with its reading, the truncated
                                                                            line's derivation, the tools' results, the per-sample
@@ -22610,7 +22648,7 @@ captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0014-run15-disp.bin   400 43
 captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0014-run15-full.bin   1 844 492 B  0c3e5612…54b7b byte-identical (the tally frames)
 captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0014-run15-vi.bin     152 396 B    fb6d12a7…f79f  byte-identical
 captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run15-qual.bin        24 652 B     9554e672…ef22  projection of be1785ce…94a8
-captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run15-struct.json     51 446 B     as run14's, for walk B
+captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run15-struct.json     54 215 B     as run14's, for walk B
 tests/host/test_run14.py                                                   both runs, recomputed from the versioned fixtures, not
                                                                            restated: the fixture identities; the INPUT machine gate
                                                                            re-parsed from the verbatim records and its arithmetic;
@@ -22640,8 +22678,11 @@ from the tree. Nothing from the checker enters the repository.
 #### V7.2.12 What RUN 14 and RUN 15 establish, and do not
 
 Establishes, as FACTs of these runs: the artifacts, the receipt and the
-identity, with the declarations recorded as relayed and what was not posted
-recorded as absent (GBP-HW-261); the first physical KEYPAD writes — 7 892 and
+identity, with the declarations recorded as relayed at ingestion and the
+Operator's post-run declaration recorded under Issue #25 — same GameCube, BBA
+without a network cable, video chain unchanged, a generic third-party
+controller, the same Game Boy Player by the Operator's declared hardware
+inventory (GBP-HW-261); the first physical KEYPAD writes — 7 892 and
 7 895 completed, none failed, 42 key changes each, the descriptor and policy
 as pre-registered — with transport, startup and Policy A clean and the
 `truncated=1` explained as the clipped ENVINPUT record (GBP-HW-262,
@@ -22656,8 +22697,10 @@ the word at each key change — would carry the missing link as data
 (GBP-KEY-009, not implemented). **Does not establish: the physical routing of
 any bit as FACT; input latency of any kind (no figure, no ordering claim);
 that the 5 ms refresh is needed or sufficient; the stick threshold or any
-policy value as more than policy; behaviour with any other controller, port,
-pad model or cartridge; rumble or any GBP-aware feature; the Link Port; audio;
+policy value as more than policy; behaviour with the official Nintendo pad
+(owned, NOT used: the runs exercised a generic third-party pad's digital
+click, Issue #25) or any other controller, port or cartridge; rumble or any
+GBP-aware feature; the Link Port; audio;
 anything about the display chain (the photographs' failure is about the
 camera, not the chain); Phase 5's acceptance criterion (a real game, not a
 test ROM); Phase 6, 7 or 9; anything about RUN 16.** The video-path figures
