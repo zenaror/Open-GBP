@@ -102,7 +102,8 @@ class ItCommitsNothingItHasNotDone(unittest.TestCase):
         self.assertIn("EXECUTED under Hardware Issue #9", head)
         self.assertIn("INGESTED in \u00a7V6.20", head)
         self.assertIn("GBP-VIDEO-007 INCONCLUSIVE and GBP-VIDEO-008 INCONCLUSIVE", head)
-        self.assertIn("No rerun is pre-registered", head)
+        # Issue #14: RUN 13 pre-registered in §V6.24 with coord-0002 -- still nothing run
+        self.assertIn("RUN 13 — the same experiments with coord-0002 and the same stream-0013 — is PRE-REGISTERED in §V6.24 (Issue #14) and NOT RUN", head)
         self.assertIn("No frozen format changes", head)
         self.assertIn("DESIGN ONLY", head)
         self.assertIn("kept verbatim as provenance", head)

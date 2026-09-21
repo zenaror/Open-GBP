@@ -9827,3 +9827,49 @@ host suite.
 pre-registration, no runtime rebuild, no verdict change. A separate research
 pre-registration decides whether the next physical run uses coord-0002 with
 the unchanged `stream-0013`.
+
+## 2026-09-20 — Issue #14: RUN 13 pre-registered — the same two experiments, coord-0002, the same stream-0013; nothing run
+
+**Goal.** Freeze the next physical run before hardware: GBP-VIDEO-007 and
+GBP-VIDEO-008 with the timing-safe `coord-0002` (§V6.23) on the unchanged
+`stream-0013`, as §V6.24. Pre-registration only: no hardware, no flash, no
+boot, no rebuild, no re-derivation, no classification, no evidence ID; the
+Hardware Issue is the Orchestrator's.
+
+**Verified on disk, not rebuilt.** The RUN 12 DOL (506 496 B,
+`5391c3fe…dd79`, embedded `stream-0013 7d7a6d8`, TEST_ID `GBP-VIDEO-004`,
+zero "dirty" strings, the Swiss `12-stream` copy byte-identical); the
+coord-0002 canonical (3 620 B, `319dacb7…093f`, equal to its versioned
+fixture) and delivery (3 620 B, `276ad987…6f700`, payload from 0x0C0
+identical to the canonical, 154 bytes differing only in the logo area);
+coord-0001 untouched and named as the thing not to substitute; the
+analyzers at their current accepted commits — `vvi.py` the corrected
+implementation of `0ee8aac`, unchanged since. The optional run-numbered
+Swiss copy (`13-stream`) was deliberately not created: the versioned layout
+numbers builds, and a run is not a build; the pre-run gate is the hash.
+
+**What §V6.24 freezes.** RUN 13 reserved, taken even if it aborts; one
+session, two independent verdicts; RUN 12's topology held (same GameCube and
+GBP, BBA present, Ethernet disconnected, composite → low-cost RCA-to-HDMI
+converter at 1080p → HYDIS HV150UX2 / M.NT68676.2A, a declaration only;
+Morph 2K and Samsung Q80T outside); five `…-run13…` archive names; the
+pre-run identity gate; a fifteen-step procedure with no frame counting and
+no stopwatch; the inherited admissibility gates with the source-window gate
+— the one RUN 12 failed — named first and unchanged (`OBSERVED_CONTIGUOUS`,
+2048 intact, INVALID 0, FAULT 0, no first FRAME_ID required); GBP-VIDEO-008
+with the unchanged `vfull.py` and `icoord.py`; GBP-VIDEO-007 with the
+corrected current `vvi.py`, SUPERSEDED kept as instrumentation semantics;
+the non-claims; the analysis order and a comparison table against run 12
+with nothing pre-filled, plus §V6.22's falsifiable expectation for
+coord-0002 to be read off the data.
+
+**Tests.** `tests/host/test_run13_prereg.py` pins the frozen identities,
+the five names exactly once in §V6.24 and once in the handoff (the run12
+names untouched), the prospective gates, the independent verdicts, the
+corrected-vvi and SUPERSEDED wording, the topology boundaries, the fifteen
+steps, and that no run13 archive exists; the RUN 12 pre-registration pin
+allows §V6.24. Docs and tests only; no runtime, stimulus, analyzer, format,
+fixture or evidence row changed.
+
+**Next.** The Orchestrator validates §V6.24 and opens the Hardware Issue;
+RUN 13 stays PRE-REGISTERED / NOT RUN until then.
