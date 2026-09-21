@@ -317,7 +317,12 @@ class NothingElseMoved(unittest.TestCase):
         self.assertIn("the runtime, coord-0001, coord-0002, the analyzers, the formats, the fixtures, the evidence rows or the gates (none was made)", flat(p))
         self.assertIn("Hardware Issue", p)
         m = read(os.path.join(ROOT, "poc", "gbp-video-stream-probe", "Makefile"))
-        self.assertIsNotNone(re.search(r"^BUILD_ID\s*:=\s*stream-0013$", m, re.M))
+        # RUN 13 ran the unchanged stream-0013; since Issue #19 (2026-09-21) the tree
+        # declares a later member of the series and keeps stream-0013 in its history.
+        self.assertIn("stream-0013 is stream-0012 plus the GBP-VIDEO-007/008", m)
+        decl = re.search(r"^BUILD_ID\s*:=\s*stream-(\d{4})$", m, re.M)
+        self.assertIsNotNone(decl)
+        self.assertGreaterEqual(int(decl.group(1)), 13)
         for mk, sid in (("agb-coord", "coord-0001"), ("agb-coord2", "coord-0002")):
             self.assertIsNotNone(re.search(r"^STIM_ID\s*:=\s*%s$" % sid, read(os.path.join(ROOT, "stimulus", mk, "Makefile")), re.M))
 

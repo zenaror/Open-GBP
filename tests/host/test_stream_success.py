@@ -82,8 +82,15 @@ class WhatDidNotChange(unittest.TestCase):
         self.assertRegex(read(os.path.join(ROOT, "src", "gbp", "gbp_vwitness.h")), r"#define GBP_VWITNESS_TARGET\s+2048u")
 
     def test_the_build_identity_moved_and_says_so(self):
+        """stream-0013 replaced stream-0012 and said so; since Issue #19 (2026-09-21)
+        the declared build is a later member of the series and the history keeps
+        both notes. The property is that the identity moved forward and the
+        Makefile says the candidate was not physically executed."""
         m = read(MAKEFILE)
-        self.assertIn("BUILD_ID   := stream-0013", m)
+        decl = re.search(r"^BUILD_ID\s*:=\s*stream-(\d{4})$", m, re.M)
+        self.assertIsNotNone(decl)
+        self.assertGreaterEqual(int(decl.group(1)), 13)
+        self.assertIn("stream-0013 is stream-0012 plus", m)
         self.assertNotIn("BUILD_ID   := stream-0012", m)
         self.assertIn("NOT\n# PHYSICALLY EXECUTED", m)
 

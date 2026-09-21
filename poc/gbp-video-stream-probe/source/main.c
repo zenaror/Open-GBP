@@ -120,6 +120,7 @@
 #include "hsp_backend.h"
 #include "hsp_backend_irq.h"
 #include "sdlog.h"
+#include "gbp_input.h"
 
 #ifndef OPENGBP_APP_NAME
 #define OPENGBP_APP_NAME "gbp-video-stream-probe"
@@ -662,10 +663,88 @@ static void display_selftest(void)
                    gbp_vpresent_invariant_failures(&present) == 0u) ? 1 : 0;
 }
 
+/* ---- Issue #19 (Phase 5): the input path in the pump slot ----------------------
+ *
+ * GameCube pad 1 -> gbp_input_map (POLICY) -> gbp_keypad_encode (the ONE
+ * descriptor in src/gbp/gbp_input.c) -> one 32-byte write at KEYPAD (index
+ * 0xC) through the SAME transport the RE-ARM uses -- written on change and as
+ * a periodic refresh every GBP_INPUT_REFRESH_MS (INPUT_PATH.md §7).
+ *
+ * WHERE: the first statement of pump(), i.e. inside the slot gbp_vqueue_pump()
+ * admits after the RE-ARM only when no cause is pending -- so the poll and the
+ * write obey the same yield rule as the consumer slice, run from the main loop,
+ * never in the ISR, never inside the service transaction, never overlapping a
+ * service DMA (the transport's write is synchronous and completion-polled).
+ * It runs BEFORE the slice's early returns so it is unconditional within the
+ * slot; the slice's own measurement (t0..t1 below) starts after it, so the
+ * STREAMPUMPT aggregate still measures the conversion alone.
+ *
+ * CLOCKS: every instant here comes from the transport's `ticks` / `ticks64`
+ * operations (h_ticks / h_ticks64), never from a direct gettime()/gettick():
+ * the stream audit pins the gettime call sites of pump() and main(), and the
+ * input path adds none. `t_poll` is taken right after PAD_ScanPads() returns;
+ * libogc2's PAD_ScanPads() copies the SI hardware's last poll response (pad.c,
+ * PAD_Read: no transfer is issued synchronously), and at the library's default
+ * sampling rate 0 the SI polls the pads twice per video frame (si.c, the xy
+ * table), so the sample precedes t_poll by at most one SI polling period.
+ * `t_write` is the transport's instant after the DMA completed. Both are
+ * FIELDS of `in_state`; nothing emits them (INPUT_PATH.md §8, Issue #19).
+ *
+ * The device's state is unknown before the first write, so the first admitted
+ * step always writes the current word -- with nothing held, that is the
+ * `KEYPAD := 0` both references start from. No release is written at the
+ * teardown: the validated stop sequence is untouched, and what the device
+ * keeps after it is a question for the first physical input run. */
+static struct gbp_input in_state;
+static const struct gbp_transport *in_transport;   /* the probe's transport; set before the run */
+static int in_selftest_ok;
+_Static_assert(GBP_PAD_BUTTON_LEFT == PAD_BUTTON_LEFT && GBP_PAD_BUTTON_RIGHT == PAD_BUTTON_RIGHT &&
+               GBP_PAD_BUTTON_DOWN == PAD_BUTTON_DOWN && GBP_PAD_BUTTON_UP == PAD_BUTTON_UP &&
+               GBP_PAD_BUTTON_Z == PAD_BUTTON_Z && GBP_PAD_BUTTON_R == PAD_BUTTON_R &&
+               GBP_PAD_BUTTON_L == PAD_BUTTON_L && GBP_PAD_BUTTON_A == PAD_BUTTON_A &&
+               GBP_PAD_BUTTON_B == PAD_BUTTON_B && GBP_PAD_BUTTON_X == PAD_BUTTON_X &&
+               GBP_PAD_BUTTON_Y == PAD_BUTTON_Y && GBP_PAD_BUTTON_START == PAD_BUTTON_START,
+               "the input module's controller bits must be libogc2's");
+_Static_assert(GBP_PAD_ERR_NONE == PAD_ERR_NONE && GBP_PAD_ERR_NO_CONTROLLER == PAD_ERR_NO_CONTROLLER,
+               "the input module's pad error codes must be libogc2's");
+
+static void input_step(void)
+{
+    const struct gbp_transport *t = in_transport;
+    struct gbp_pad_sample s;
+    uint32_t t0, connected;
+    uint64_t t_poll;
+
+    if (!t) return;
+    if (!in_state.base) {
+        /* the ARAM base is the 003A stage's; until it is known nothing is polled or written */
+        if (!pump_res || !pump_res->a.base) { in_state.skipped_no_base++; return; }
+        gbp_input_set_base(&in_state, pump_res->a.base);
+    }
+    t0 = t->ticks(t->ctx);
+    connected = PAD_ScanPads();
+    t_poll = t->ticks64(t->ctx);
+    s.buttons = (uint16_t)(PAD_ButtonsHeld(PAD_CHAN0) & 0xFFFFu);
+    s.stick_x = PAD_StickX(PAD_CHAN0);
+    s.stick_y = PAD_StickY(PAD_CHAN0);
+    s.substick_x = PAD_SubStickX(PAD_CHAN0);
+    s.substick_y = PAD_SubStickY(PAD_CHAN0);
+    s.trigger_l = PAD_TriggerL(PAD_CHAN0);
+    s.trigger_r = PAD_TriggerR(PAD_CHAN0);
+    s.analog_a = PAD_AnalogA(PAD_CHAN0);
+    s.analog_b = PAD_AnalogB(PAD_CHAN0);
+    s.err = (connected & 1u) ? GBP_PAD_ERR_NONE : GBP_PAD_ERR_NO_CONTROLLER;
+    (void)gbp_input_step(&in_state, t, &s, t_poll);
+    gbp_input_note_step_ticks(&in_state, t->ticks(t->ctx) - t0);
+}
+
 static void pump(void *user)
 {
     uint32_t t0, t1, row, n;
     (void)user;
+
+    /* Issue #19: the input step, FIRST in the slot. Nothing below it changed. */
+    input_step();
 
     /* §V5.55. ONE 64-bit compare per call until the gate releases, then
      * nothing: no wait, no spin, no device access, no formatting. The clock is
@@ -1019,6 +1098,8 @@ int main(void)
 
     gbp_vstate_config_default(&cfg);
     gbp_vstate_config_timebase(&cfg, tb_hz);
+    /* Issue #19: the default policy and THE descriptor; the base comes later, from the probe */
+    gbp_input_init(&in_state, &GBP_INPUT_POLICY_DEFAULT, &GBP_KEYPAD_DESCRIPTOR, tb_hz);
     /* No episode raw store: streaming does not use GBP-VIDEO-002's change
      * detector, and 2.81 MiB of it would sit unused. */
     gbp_vstate_init(&vstate, frame_store, (uint32_t)(sizeof frame_store / sizeof frame_store[0]),
@@ -1086,6 +1167,18 @@ int main(void)
     printf("  SELF-TEST accounting: %lu present / %lu repeat of its OWN, scientific counters %s\n",
            (unsigned long)selftest_presents, (unsigned long)selftest_repeats,
            selftest_sci_clean ? "CLEAN" : "CONTAMINATED");
+    /* Issue #19: the input path's PURE self-test -- the descriptor is well-formed,
+     * encode/decode is the identity, the default policy maps and filters, the
+     * block carries hi/lo at 0x1E/0x1F. No controller is read and no device is
+     * touched here; it proves the module executes on the target and lets an
+     * auxiliary Dolphin run assert it. It says nothing about which bit is L. */
+    in_selftest_ok = gbp_input_selftest();
+    snprintf(line, sizeof line,
+             "OPENGBP-STREAM INPUTSELFTEST ok=%d refresh_ms=%u stick_threshold=%d layout=gbi-u16-replicated device_touched=0\n",
+             in_selftest_ok, (unsigned)GBP_INPUT_REFRESH_MS, (int)GBP_INPUT_POLICY_DEFAULT.stick_threshold);
+    gecko_puts(line);
+    printf("  SELF-TEST input path: %s (pure: descriptor, encode/decode identity, default policy; no device access)\n",
+           in_selftest_ok ? "ok" : "NOT OK");
 
     /* §V5.52. The pre-handler masked wait is a DIAGNOSTIC and the base API
      * already defaults it to zero (`gbp_vstate_probe.c`). It is not a protocol
@@ -1118,6 +1211,16 @@ int main(void)
                    (unsigned long)STREAM_SAFETY_SECONDS,
                    (unsigned)STREAM_SLICE_TILE_ROWS, (unsigned)STREAM_TEX_BUFFERS,
                    (unsigned)GBP_VPIX_TEX_BYTES, (unsigned long)gbp_vstate_ring_slots(&vstate));
+    /* Issue #19: what the input path is configured to do. The descriptor is
+     * reported as DATA (its ten positions and its polarity), not as a claim. */
+    ringlog_printf(&rl, "ENVINPUT port=1 policy=default stick_threshold=%d trigger_threshold=%u analog_ab_threshold=%u filter_opposites=%u refresh_ms=%u refresh_ticks=%llu layout=gbi-u16-replicated index=%u desc=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u pressed_is_one=%u desc_status=CORROBORATED_not_FACT selftest=%d",
+                   (int)GBP_INPUT_POLICY_DEFAULT.stick_threshold, (unsigned)GBP_INPUT_POLICY_DEFAULT.trigger_threshold,
+                   (unsigned)GBP_INPUT_POLICY_DEFAULT.analog_ab_threshold, (unsigned)GBP_INPUT_POLICY_DEFAULT.filter_opposites,
+                   (unsigned)GBP_INPUT_REFRESH_MS, (unsigned long long)in_state.refresh_ticks, (unsigned)GBP_KEYPAD_INDEX,
+                   (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[0], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[1], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[2],
+                   (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[3], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[4], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[5],
+                   (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[6], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[7], (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[8],
+                   (unsigned)GBP_KEYPAD_DESCRIPTOR.bit[9], (unsigned)GBP_KEYPAD_DESCRIPTOR.pressed_is_one, in_selftest_ok);
     /* THE STORES AS CONFIGURED, beside what the contract requires, and with the
      * first unmet field by name. `stream-0002` aborted here with a reason that
      * named the gate and not the field, and the line that should have shown the
@@ -1201,6 +1304,9 @@ int main(void)
     printf("            drawn from a converted frame only; an incomplete or quarantined frame NEVER is.\n");
     printf("  Pre-handler wait: %lu ms with the AGB running and PI masked, before any capture.\n",
            (unsigned long)cfg.prehandler_wait_ms);
+    printf("  Input:    pad 1 -> KEYPAD (index 0xC) in the same slot: written on change and every %u ms.\n",
+           (unsigned)GBP_INPUT_REFRESH_MS);
+    printf("            L/R bit order CORROBORATED only, not FACT (GBP-KEY-004; U-GBP-010 OPEN). Issue #19.\n");
     printf("  Stop: witness target %lu records (no time target); safety cap %lu s. DO NOT PRESS ANYTHING during the run.\n\n",
            (unsigned long)GBP_VWITNESS_TARGET, (unsigned long)STREAM_SAFETY_SECONDS);
     if (!gbp_transport_has_bulk_read(&t) || !gbp_transport_has_irq_reset(&t) || !gbp_transport_has_time64(&t)) {
@@ -1216,6 +1322,7 @@ int main(void)
     VIDEO_Flush();
 
     pump_res = &res;
+    in_transport = &t;                       /* Issue #19: the slot writes through the probe's transport */
     t_probe_enter = gettime();
     gbp_vstate_probe_run(&t, &rl, &cfg, &res);     /* returns only after the teardown */
     a = &res.a;
@@ -1236,6 +1343,7 @@ int main(void)
     gbp_vpresent_shutdown(&present);
     cfg.stream = 0;                     /* no further publish can reach the queue */
     vq.pump = 0;                        /* and no further slice can be pumped     */
+    in_transport = 0;                   /* Issue #19: and no further KEYPAD write   */
     if (gbp_vpresent_inflight(&present)) {
         GX_DrawDone();                  /* BLOCKING, and deliberately so: the GBP is already down */
         gx_drained_at_teardown = 1;
@@ -1284,6 +1392,23 @@ int main(void)
                    (unsigned long)(vq.pump_ticks_n ? vq.pump_ticks_min : 0u), (unsigned long)vq.pump_ticks_max,
                    (unsigned long)gbp_vqueue_pump_ticks_mean(&vq), (unsigned long)vq.pump_ticks_n,
                    (unsigned)STREAM_SLICE_TILE_ROWS);
+    /* Issue #19: what the input path did. Counters and bounded aggregates only:
+     * the head instants t_poll / t_write are fields and are NOT reported. */
+    ringlog_printf(&rl, "INPUT selftest=%d steps=%lu invalid=%lu no_base=%lu key_changes=%lu attempts=%lu completed=%lu failed=%lu first=%lu change=%lu refresh=%lu retry=%lu last_word=%04x last_rc=%s",
+                   in_selftest_ok, (unsigned long)in_state.steps, (unsigned long)in_state.samples_invalid,
+                   (unsigned long)in_state.skipped_no_base, (unsigned long)in_state.keys_changes,
+                   (unsigned long)in_state.attempts, (unsigned long)in_state.writes_completed,
+                   (unsigned long)in_state.writes_failed, (unsigned long)in_state.writes_first,
+                   (unsigned long)in_state.writes_change, (unsigned long)in_state.writes_refresh,
+                   (unsigned long)in_state.writes_retry, (unsigned)in_state.word_written,
+                   in_state.attempts ? gbp_status_name(in_state.last_rc) : "-");
+    ringlog_printf(&rl, "INPUTT write_ticks=%lu/%lu/%lu n=%lu step_ticks=%lu/%lu/%lu n=%lu units=min/mean/max",
+                   (unsigned long)(in_state.write_ticks_n ? in_state.write_ticks_min : 0u),
+                   (unsigned long)gbp_input_write_ticks_mean(&in_state), (unsigned long)in_state.write_ticks_max,
+                   (unsigned long)in_state.write_ticks_n,
+                   (unsigned long)(in_state.step_ticks_n ? in_state.step_ticks_min : 0u),
+                   (unsigned long)gbp_input_step_ticks_mean(&in_state), (unsigned long)in_state.step_ticks_max,
+                   (unsigned long)in_state.step_ticks_n);
     /* The ownership machine, whose defect rejected stream-0001. */
     ringlog_printf(&rl, "STREAMOWN acquire=%lu no_texture=%lu fills=%lu/%lu abandoned=%lu submit=%lu/%lu blocked_inflight=%lu blocked_shutdown=%lu",
                    (unsigned long)present.acquire_attempts, (unsigned long)present.acquire_no_free_texture,
@@ -1525,6 +1650,10 @@ int main(void)
     printf("  CAUSE   pending before %lu / after %lu; arrived DURING a slice %lu  (a coincidence count, not causality)\n",
            (unsigned long)vq.cause_pending_before_pump, (unsigned long)vq.cause_pending_after_pump,
            (unsigned long)vq.cause_arrived_during_pump);
+    printf("  INPUT   %lu steps, %lu writes (%lu first, %lu change, %lu refresh, %lu retry), %lu failed, last word %04x, self-test %s\n",
+           (unsigned long)in_state.steps, (unsigned long)in_state.writes_completed, (unsigned long)in_state.writes_first,
+           (unsigned long)in_state.writes_change, (unsigned long)in_state.writes_refresh, (unsigned long)in_state.writes_retry,
+           (unsigned long)in_state.writes_failed, (unsigned)in_state.word_written, in_selftest_ok ? "ok" : "NOT OK");
     printf("  GX      submit %lu/%lu (blocked in-flight %lu)  drawdone %lu (spurious %lu)  releases %lu  xfb %lu shown / %lu skipped\n",
            (unsigned long)present.submit_success, (unsigned long)present.submit_attempts,
            (unsigned long)present.submit_blocked_inflight, (unsigned long)present.drawdone_callbacks,
@@ -1558,6 +1687,13 @@ int main(void)
              (unsigned long)gbp_vpresent_invariant_checks(&present),
              gbp_vpresent_consistent(&present),
              gbp_vstate_storage_fault(&vstate) ? gbp_vstate_storage_fault(&vstate) : "-");
+    gecko_puts(line);
+    /* Issue #19: the input path's verdict line for an auxiliary run. */
+    snprintf(line, sizeof line,
+             "OPENGBP-STREAM INPUT selftest=%d steps=%lu attempts=%lu completed=%lu failed=%lu last_word=%04x\n",
+             in_selftest_ok, (unsigned long)in_state.steps, (unsigned long)in_state.attempts,
+             (unsigned long)in_state.writes_completed, (unsigned long)in_state.writes_failed,
+             (unsigned)in_state.word_written);
     gecko_puts(line);
 
     printf("  WITQUAL required %lu, warm-up %lu frames (%lu disqualified, %lu resets), "

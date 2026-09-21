@@ -11,7 +11,7 @@ document cites exists; the keypad findings continue the GBP-KEY namespace
 (002…005) and no GBP-HW id was minted (the highest stays 260); Dolphin's
 order stays H in REGISTERS.md; the external register lists Enhanced mGBA with
 its exact commit; the ROADMAP's Phase 5 status and the HANDOFF row exist;
-and no keypad code exists under src/.
+and the keypad code that Issue #19 (2026-09-21) later added is the module §7 named.
 """
 import os
 import re
@@ -143,13 +143,13 @@ class ProvenanceAndStateRecords(unittest.TestCase):
         self.assertIn("The physical keypad record is empty.", h)
         self.assertIn("That the KEYPAD L/R order is established.", h)
 
-    def test_no_keypad_code_exists_yet(self):
-        src = os.path.join(ROOT, "src")
-        for dirpath, _, files in os.walk(src):
-            for fn in files:
-                if fn.endswith((".c", ".h")):
-                    self.assertNotIn("gbp_keypad", fn)
-                    self.assertNotIn("gbp_input", fn)
+    def test_the_keypad_code_is_the_module_the_design_named(self):
+        """Issue #18 shipped no code; Issue #19 (2026-09-21) implemented §7 as
+        src/gbp/gbp_input.c under the three names the design used."""
+        h = read(os.path.join(ROOT, "src", "gbp", "gbp_input.h"))
+        for name in ("gbp_input_map", "gbp_keypad_encode", "gbp_keypad_write"):
+            self.assertIn(name, h)
+        self.assertIn("## 7. Input architecture on paper (Deliverable E)", read(DOC))
 
 
 if __name__ == "__main__":
