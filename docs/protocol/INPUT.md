@@ -47,8 +47,11 @@ Operator having pressed L exactly once, which no machine record contains —
 the log counts 42 key changes, not which buttons, and the frames show what
 the cartridge displayed, not what the GameCube sent (GBP-HW-265). One log
 line — the word written at each key change, binding every press to what the
-runtime sent — would close that join by machine (GBP-KEY-009; recorded, not
-implemented). **Scope of the observation:** the runtime reads L and R by
+runtime sent — would close that join by machine (GBP-KEY-009; recorded on
+2026-09-21 as not implemented — implemented the same day in `stream-0015`
+under Issue #27, GBP-KEY-010, executed nowhere yet; RUN 17 / RUN 18 are
+pre-registered to spend it, `HARDWARE_TESTS.md` §V7.3). **Scope of the
+observation:** the runtime reads L and R by
 their digital click only (`trigger_threshold=0`, GBP-KEY-006), and both runs
 were made with a **generic, third-party GameCube controller** — the official
 Nintendo pad was not exercised and this project has no data on it
@@ -89,7 +92,9 @@ Input latency of any kind (no figure, no ordering claim; the instrument the
 latency question needs is the project-owned stimulus recorded in
 `docs/research/HARDWARE_TESTS.md` §V7.1.10, not started); whether the 5 ms
 refresh is needed or sufficient; the physical routing of bits 8 and 9 — not
-FACT, and GBP-KEY-009 names the one log line that would carry it; behaviour
+FACT; GBP-KEY-009 names the one log line that would carry it, implemented in
+`stream-0015` (Issue #27) and not yet run — RUN 17 / RUN 18 (§V7.3) are the
+pre-registered runs that could; behaviour
 with the official Nintendo pad, any other pad, port or cartridge; rumble and
 the GBP-aware features; the Link Port; a real game — Phase 5's acceptance
 criterion ("a real game can be controlled reliably using the GameCube
