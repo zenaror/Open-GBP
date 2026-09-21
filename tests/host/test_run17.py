@@ -561,9 +561,10 @@ class TheJoinRecomputedFromTheTwoMachineRecords(unittest.TestCase):
                 tp = struct(run)["topology_declared_by_operator"]
                 self.assertIn(R["pad"], tp["controller"])
                 self.assertIn("DECLARED per run", tp["controller"])
-                self.assertIn("NOT DECLARED", tp["bba_ethernet"])
-                self.assertIn("not inferred", tp["bba_ethernet"])
-                self.assertIn("NOT DECLARED", tp["display_chain"])
+                # Issue #35 (2026-09-21) recorded the Operator's declaration after the ingestion, keeping the absent note as history
+                self.assertIn("DECLARED by the Operator after the ingestion (Issue #35", tp["bba_ethernet"])
+                self.assertIn("RECORDED AS ABSENT, NOT INFERRED", tp["declaration_history"])
+                self.assertIn("DECLARED by the Operator after the ingestion (Issue #35", tp["display_chain"])
                 self.assertEqual(tp["deviation_reported"], "none")
                 self.assertIn("DECLARED HARDWARE INVENTORY", tp["console"])
                 self.assertEqual(kv(struct(run)["log_records_verbatim"]["ENVINPUT"])["trigger_threshold"], "0")
@@ -752,7 +753,7 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         self.assertIn("Pre-registered 2026-09-21 (GitHub Issue #28)", r, "the pre-registration paragraph kept as history")
         h = read(HANDOFF)
         for tok in ("**Phase 5 — Input, implemented and physically executed (GBP-INPUT-001, GBP-INPUT-002: the routing FACT)**",
-                    "**GBP-INPUT-002 image, EXECUTED**", "issue 32", "issue 33", "validate #33",
+                    "**GBP-INPUT-002 image, EXECUTED**", "issue 32", "issue 33",
                     "That `stream-0015` is still unexecuted, or that the routing is still only", "That RUN 14 / RUN 15 made the L/R routing a FACT, or that RUN 16 answered",
                     "That the KEYPAD L/R routing is a physical FACT beyond the runs' scope", "history, not to be rewritten",
                     "the five stream-0014-run16 names in\nthe block above are RETIRED", "recorded absent, not inferred"):

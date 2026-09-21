@@ -564,7 +564,9 @@ class TheVerdictsAsReadFromTheFrozenGate(unittest.TestCase):
         self.assertNotIn("same GBP", b261)
         h = plain(read(HANDOFF))
         self.assertIn("The console and the Game Boy Player are the same two units in every run of this project", h)
-        self.assertIn("What still varies and MUST be declared per run: BBA and Ethernet state, the display chain, the cartridge and its boot screen, and the controller", h)
+        # Issue #35 (2026-09-21) made the BBA / Ethernet state and the display chain STANDING declarations: the per-run list reduced
+        self.assertIn("What still varies and MUST be declared per run: the cartridge and its boot screen, and the controller", h)
+        self.assertIn("Two STANDING declarations (2026-09-21, Issue #35", h)
 
     def test_the_blank_and_the_clip_are_recorded_not_smoothed_over(self):
         t = v72()
