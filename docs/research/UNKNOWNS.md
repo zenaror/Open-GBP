@@ -242,7 +242,7 @@ unknown; the layout question for AV blocks is open with data, not closed.
 DOL-GBS-01/10/20, CPU AGB A vs A E, 16 Mb vs 128 Mb RAM. No behavioral
 difference is documented anywhere; the user's unit revision is unknown.
 
-## U-GBP-010 (P2, static attempt 2026-09-21: the references agree, the physical routing is still unmeasured — OPEN) — L/R bit order in KEYPAD
+## U-GBP-010 (P2 — **CLOSED 2026-09-21** by GBP-INPUT-001, RUN 14 and RUN 15 (`HARDWARE_TESTS.md` §V7.2, Issue #24): Question O = AS-ASSIGNED in both runs — L = 1 and R = 2 in the Operator's tally vectors and, independently, in the machine-decoded frames; the descriptor kept; the routing stays CORROBORATED, not FACT — GBP-HW-265) — L/R bit order in KEYPAD
 
 Dolphin maps hi byte bit 0 → L and bit 1 → R (swapped vs GBA KEYINPUT);
 GBI's 0x0304 sets both. Phase 5 test with a game that distinguishes L/R.
@@ -290,6 +290,26 @@ attribution been remembered the other way round the same composition would
 give the opposite answer. It changes nothing here: **still OPEN** for RUN 14,
 status CORROBORATED, the descriptor unchanged; the written Disc
 re-verification of §10.3 would make it a recorded observation, never FACT.
+
+**2026-09-21, CLOSED (Issue #24; `HARDWARE_TESTS.md` §V7.2; GBP-HW-263,
+GBP-HW-264, GBP-HW-265).** The closing condition this item stated — "a game
+that distinguishes L/R (OPERATOR OBSERVATION)" — was met by GBP-INPUT-001 on
+the Enhanced Control Checker (a test ROM that counts each button separately):
+RUN 14 (walk A) and RUN 15 (walk B), both on the unchanged `stream-0014`, read
+**Question O = AS-ASSIGNED** — the L tally 1 and the R tally 2 in the
+Operator's literal vectors (`1 2 · · · · 6 5 3 4`, `1 2 3 4 5 6 · · · ·`) and,
+independently, in the checker's screen preserved in the OGBPFULL1 frames and
+decoded pixel-exactly with the frozen parser (FACT as data). Closed with the
+descriptor kept exactly as it is (`src/gbp/gbp_input.c`: bit 8 = L, bit 9 = R,
+unchanged since `0ff8355`); GBP-KEY-004's falsifier did not fire. **What the
+closure does not do, per §V7.1.10:** the routing of the two bits stays
+CORROBORATED, not FACT — the chain's fourth link ("the Operator pressed L
+exactly once") is in no machine record (the log counts 42 key changes, not
+words; the frames show the cartridge's display, not the GameCube's word).
+The missing piece for FACT is one log line — the word at each key change
+(GBP-KEY-009, recorded, not implemented); the project-owned stimulus remains
+the latency instrument. `REGISTERS.md` keeps H until the Orchestrator updates
+`docs/protocol/` with these ids.
 
 ## U-GBP-011 (P2 — **CLOSED 2026-09-18** by GBP-VIDEO-003 / `color-0002`, the pre-registered confirmatory run: the outer 5-bit groups are exchanged, `CONFIRMED_EXACT_H1_OUTER_GROUP_SWAP`, promoting the colour order from CORROBORATED to **FACT**. Two residuals were never part of this item and stay open: bit 15's origin, now U-GBP-034, and the bytes 0/2 deviations, U-GBP-029) — VIDEO color bit order and exact word content
 

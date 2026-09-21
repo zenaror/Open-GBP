@@ -410,9 +410,15 @@ produced is `docs/protocol/VIDEO.md` and the refreshed video rows of
 
 ## Phase 5 — Input
 
-**Status: ENTERED 2026-09-21 (GitHub Issue #18, research / design) and
-IMPLEMENTED AS SOFTWARE 2026-09-21 (GitHub Issue #19, candidate `stream-0014`,
-not executed); no KEYPAD write has been issued on hardware.** The keypad
+**Status: ENTERED 2026-09-21 (GitHub Issue #18, research / design),
+IMPLEMENTED AS SOFTWARE 2026-09-21 (GitHub Issue #19, candidate `stream-0014`)
+and PHYSICALLY EXECUTED 2026-09-21 — RUN 14 and RUN 15, GBP-INPUT-001
+(Hardware Issue #21; ingested `HARDWARE_TESTS.md` §V7.2, GitHub Issue #24):
+Question M = PASS · Question O = AS-ASSIGNED in both runs — the first KEYPAD
+words Open-GBP wrote reached the cartridge as the presses made, L at L and R
+at R; U-GBP-010 CLOSED; the routing CORROBORATED, not FACT; the acceptance
+criterion below is NOT yet assessed (the instrument is a test ROM, not a
+game).** The keypad
 path is reconstructed on paper in `docs/research/INPUT_PATH.md` in three
 layers kept apart — the GBS-DOL KEYPAD window as the references write it
 (L1), the logical GBA button set from GBATEK (L2), and the GameCube
@@ -448,7 +454,35 @@ L 1, R 2, UP 3, DOWN 4, LEFT 5, RIGHT 6) and RUN 16 (the EZ-Flash menu's
 L/R tabs, optional and independent) as GBP-INPUT-001 in `HARDWARE_TESTS.md`
 §V7.1 — runs of the same `stream-0014` image, each ending at the witness
 target ~40.4 s after the CONTROL transform — **NOT RUN / NOT AUTHORISED
-HERE.** RUN 14 was moved to the Operator by Hardware Issue #21.
+HERE** at that checkpoint. RUN 14 was moved to the Operator by Hardware Issue
+#21.
+
+**Executed 2026-09-21 (Hardware Issue #21) and ingested 2026-09-21 (GitHub
+Issue #24, `HARDWARE_TESTS.md` §V7.2; GBP-HW-261…265, GBP-KEY-008, GBP-KEY-009):**
+RUN 14 (walk A) and RUN 15 (walk B) on the unchanged `stream-0014`, each
+carried to the witness target. Machine side: `INPUT attempts = completed =
+7 892 / 7 895, failed 0, 42 key changes` in each run — the runtime polled,
+encoded and wrote, which is all the write-only window lets it show; transport,
+startup and Policy A clean; `truncated=1` in both logs is the clipped
+`ENVINPUT` record (GBP-KEY-008, a functional item). Human side: the Operator's
+tally vectors `1 2 · · · · 6 5 3 4` and `1 2 3 4 5 6 · · · ·`, equal to the
+walks' arithmetic expectation. Independently, the checker's tally screen is in
+the preserved OGBPFULL1 frames of both runs and decodes pixel-exactly to the
+same vectors (FACT as data). **Question M = PASS in both** (every pressed
+button at its own counter, no unpressed counter moved, nothing moved without
+a press; all ten buttons across the two runs) and **Question O = AS-ASSIGNED
+in both** (L = 1, R = 2): U-GBP-010 CLOSED on its own condition with the
+descriptor kept; the routing's classification stays CORROBORATED, not FACT,
+because the Operator having pressed L exactly once is in no machine record —
+the recorded finding is that one log line (the word at each key change,
+GBP-KEY-009) would close that join by machine; not implemented. Not
+established: latency of any kind, the need for the 5 ms refresh, any policy
+value as more than policy, other pads or cartridges, rumble, the display
+chain, and this phase's acceptance criterion — a real game has not been
+played; RUN 16 was not run. **Next:** the Orchestrator's — validate the
+ingestion and close Hardware Issue #21; whether GBP-KEY-008 / GBP-KEY-009
+become a functional checkpoint, and the game-based assessment of the criterion
+below, are open.
 
 Implement and document GameCube controller → GBP keypad/input handling.
 

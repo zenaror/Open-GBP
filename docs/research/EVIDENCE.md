@@ -658,6 +658,46 @@ observation: the written Disc re-verification of INPUT_PATH.md §10.3 —
 still OPERATOR OBSERVATION, never FACT. **Status:** OPERATOR OBSERVATION
 (recollection); nothing physical was measured by this project.
 
+## GBP-KEY-008 — The `ENVINPUT` record of `stream-0014` exceeds the 248-character ringlog payload and is clipped after `desc_status=CORROBORATED_n` (`truncated=1` in RUN 14 and RUN 15) — FACT (software); NOT repaired here
+
+Both RUN 14 and RUN 15 logs carry `lines=686 dropped=0 truncated=1`
+(GBP-HW-262). Derived exactly as runs 9 and 10 derived their `WITELIG` clip
+(GBP-VID-033, §V5.58.1): `LOG_LINE_LEN 256` minus the 7-character `%06u `
+prefix and the NUL leaves 248 payload characters; the one record at 248 in
+each log is `ENVINPUT` (seq 3), new in `stream-0014` (Issue #19,
+`poc/gbp-video-stream-probe/source/main.c:1216`), whose format renders to 266
+characters with this build's values (recomputed by rendering the source
+format) and is therefore clipped after `desc_status=CORROBORATED_n`;
+`src/log/ringlog.c:46` counts the cut. Lost: `ot_FACT selftest=1` — the
+descriptor's status label (a constant of the format string) and the selftest
+flag (repeated verbatim in the `INPUT` record, which is complete). The next
+longest payload is `STARTUPT` at 218; the four binary sidecars are unaffected;
+no gate figure is derived from the clipped fields. It is the same reporting
+class `stream-0011` repaired for `WITELIG` and the guard GBP-VID-033 asked for
+("no required summary line can exceed the payload") was never added, so the
+new line was never checked. Consequence: the §V7.1.8 IDENTITY / LOG line's
+`truncated=0` is met with this one recorded exception, the INPUT machine gate
+reads from complete records, and the Orchestrator's classification stands.
+Repair — split or shorten the line and add the host guard — belongs to a
+functional Issue; nothing under `src/`, `poc/` or `tools/` moved here.
+
+## GBP-KEY-009 — What would make the L/R routing a FACT is one log line: the word written at each key change, binding every press to what the runtime sent — FINDING (software / data); recorded, NOT implemented
+
+§V7.1.10 supposed that FACT for U-GBP-010 needed a project-owned stimulus
+publishing KEYINPUT into its own video frames. RUN 14 and RUN 15 (GBP-HW-262,
+GBP-HW-264, GBP-HW-265) show the missing link is smaller: the routing chain's
+only non-machine link is "the Operator pressed L exactly once", because the
+`INPUT` record counts key changes (42) without the words, while the preserved
+frames record what the cartridge displayed. One log line — the word written
+at each key change, timestamped in the frames' time base (`change` is already
+counted and the word is in hand at the write) — would bind every press to
+what the runtime sent and close the join by machine end to end: word sent
+(log) ↔ counter that moved (frames). Any later checker run carrying that
+line would hold the fourth link as data. The project-owned stimulus remains
+the instrument the latency question needs (`INPUT_PATH.md` §8) and stays a
+recorded future option. Neither is authorised by Issue #24; the module and the
+POC are unchanged since `0ff8355`; the routing stays CORROBORATED (GBP-HW-265).
+
 ## GBP-VID-001 — VIDEO data format and cadence
 
 **Claim:** Index 0x1 delivers 0xF00 bytes per VIDEO IRQ = 4 scanlines ×
@@ -6630,6 +6670,206 @@ source-derived frame from every qualifying appearance was physically visible
 through the declared RUN 13 display chain (GBP-HW-256). The observation is
 bound to a 40-frame appearance set, never to one frame; nothing about pixels,
 tearing, presentation, scaling, the converter, the panel, Morph 2K or Q80T.
+
+---
+
+### GBP-HW-261 — the RUN 14 / RUN 15 artifacts, their receipt and identity, and the Operator's declarations as relayed (GBP-INPUT-001: the Enhanced Control Checker's walks A and B on `stream-0014`) — FACT (artifacts, identity) · OPERATOR OBSERVATION (declarations)
+
+Ten raw files, archived FIRST under the reserved run14 / run15 names of
+§V7.1.5 (verified absent, `cp --update=none`, `cmp` identical) and hashed by
+the Executor before anything was read into an interpretation, matching the
+Orchestrator's independent measurements: RUN 14 — log 90 652 B
+`e2ba3d82…1d54`, OGBPIDXCAP1 8 946 060 B `d42ebb1a…1de2`, OGBPDISP2 400 396 B
+`82bc7434…40c7`, OGBPFULL1 1 844 492 B `30c144d7…1b3c`, OGBPVI1 152 396 B
+`ef0a1261…927a`; RUN 15 — log 90 734 B `1cab151b…034e`, OGBPIDXCAP1 8 946 060 B
+`be1785ce…94a8`, OGBPDISP2 400 436 B `7577a72b…133b`, OGBPFULL1 1 844 492 B
+`0c3e5612…54b7b`, OGBPVI1 152 396 B `fb6d12a7…f79f` (full hashes in
+`HARDWARE_TESTS.md` §V7.2.3 and the struct fixtures). Generated under the
+console's names (`GBP-VIDEO-004_stream-0014.log` / `-idxcap.bin` / `-disp.bin`
+/ `-full.bin` / `-vi.bin`, kept as metadata); moved by the Operator off the SD
+card — RUN 14's into `logs/` under the bare names (mtimes 09:41 local), RUN
+15's into `logs/run15/`, a per-run subdirectory, so the second run did not
+overwrite the first; the card copies are deleted after the move, so `logs/`
+was the only copy until each archive existed; archived at 13:13 and 13:17 on
+the Orchestrator's request, reported on Hardware Issue #21; `logs/` left as
+found. Binary: `stream-0014 @ 0ff8355`, 513 152 B `ef76a170…0b9c` — Issue
+#19's candidate, NOT rebuilt, verified on disk, in the Swiss copy (`cmp`
+identical), in `build-info.txt` and in both log headers
+(`test_id=GBP-VIDEO-004 build_id=stream-0014 commit=0ff8355`); stream-0013
+preserved at `build/archive/` as `5391c3fe…dd79`, unchanged; no runtime, tool,
+format or gate file changed between `ed7dea2` (the ingestion HEAD) and any
+analyzer's last commit. Instrument: the Enhanced Control Checker GBA
+(github.com/nataliethenerd/enhancedcontrolcheckerGBA, main =
+`76924c1371d7bf761f8b1ed45ab36f195cd1374f`, CC BY-SA 4.0; the repository's
+prebuilt ROM 69 348 B `53c212c7…b6e`, hashed from a scratchpad clone), the
+Operator's media on the EZ-Flash Omega DE NOR, booted straight into; the
+flashed image was not hashed by the Executor; nothing from it enters the
+repository. **OPERATOR OBSERVATION / TOPOLOGY, as pre-registered in §V7.1.4
+and held, relayed by the Orchestrator (Issue #24):** the same GameCube and
+Game Boy Player as RUN 13; one controller in port 1; BBA PRESENT; Ethernet
+DISCONNECTED; no network code; the checker on the NOR as the boot screen;
+display chain GameCube → composite / RCA → low-cost RCA-to-HDMI converter
+(1080p out) → HYDIS HV150UX2 / M.NT68676.2A (topology only); no deviation
+reported. **Recorded as absent, not inferred:** no literal post-run
+topology / controller-model / boot-screen declaration was posted on Hardware
+Issue #21 (its comments are the staging report, the Orchestrator's staging
+verification and the two archiving reports) or in Issue #24 at ingestion;
+the controller model §V7.1.4 asked for is therefore not on record. The
+Operator's photographs of the tally screen were useless as an aid — the chain
+has no upscaler and the 240 × 160 console text does not survive the camera
+(relayed); an observation about the aid, no claim about the chain. The
+unregistered trial of 2026-09-21 (§V7.1.2) left no file and no leftover was
+found. The SD copy and its pre-boot hash check were the Operator's (§V7.1.6
+step 4).
+
+---
+
+### GBP-HW-262 — the first physical KEYPAD writes: `INPUT` attempts = completed = 7 892 / 7 895, failed 0, 42 key changes in each run, the descriptor and policy as pre-registered; transport, startup and Policy A clean under the inherited gates; `truncated=1` is the clipped `ENVINPUT` record — FACT
+
+**RUN 14:** `INPUT selftest=1 steps=183931 invalid=0 no_base=0 key_changes=42
+attempts=7892 completed=7892 failed=0 first=1 change=42 refresh=7849 retry=0
+last_word=0000 last_rc=ok`; `INPUTT write_ticks=30/30/38 n=7892
+step_ticks=98/169/1046 n=183931` (min/mean/max). **RUN 15:** `INPUT selftest=1
+steps=183942 invalid=0 no_base=0 key_changes=42 attempts=7895 completed=7895
+failed=0 first=1 change=42 refresh=7852 retry=0 last_word=0000 last_rc=ok`;
+`INPUTT write_ticks=30/30/38 n=7895 step_ticks=98/169/1045 n=183942`.
+**Both:** `ENVINPUT port=1 policy=default stick_threshold=48
+trigger_threshold=0 analog_ab_threshold=0 filter_opposites=1 refresh_ms=5
+refresh_ticks=202500 layout=gbi-u16-replicated index=12
+desc=0,1,2,3,4,5,6,7,9,8 pressed_is_one=1 desc_status=CORROBORATED_n` — the
+one-place descriptor of GBP-KEY-006 reported as data, unchanged. The §V7.1.8
+INPUT machine gate is met in both runs: selftest 1, steps > 0, attempts > 0,
+completed = attempts, failed = 0, first = 1, refresh > 0, change ≥ 4,
+invalid / no_base / retry 0, `last_rc=ok`, and `attempts = first + change +
+refresh + retry` closes. `key_changes = 42 = 2 × 21` in each run — each press
+a change to the word and back, each walk 21 presses — is CONSISTENT with the
+declared walks and is not a record of which buttons changed (the log carries
+counts, not words). `INPUTT` is observational: the 32-byte write 30 ticks
+(0.74 µs) at mean, 38 at most; the whole step 98 / 169 / 1 046 ticks (2.4 /
+4.2 / 25.8 µs) over ~184 000 passes of the pump slot. **These are the only
+machine facts of the experiment: the runtime issued 7 892 and 7 895 completed
+KEYPAD writes, none failed, none retried; whether any word reached the
+cartridge is not in these records** (GBP-HW-263, GBP-HW-264). Inherited
+gates, both runs: `stop=witness_target_reached`, restore ok; unmasks =
+deliveries = acks = re-arms = 254 618 (RUN 14) / 254 621 (RUN 15); video
+96 109/96 109; timeouts 0 busy 0 overflow 0 uncertain 0 errors 0 transport_ok
+1; WRITES irq 509 239 / 509 239 and 509 245 / 509 245; STATS transfers
+1 032 712 / 1 032 723, bulk 260 900 / 260 899. Startup NORMAL,
+`ticks_control_to_first_handoff` 6 696 178 = **165.337728 ms** and 6 696 209 =
+**165.338494 ms** (< 400 ms; +0.186 ms on RUN 13's 165.151852 ms, recorded, no
+tolerance, not explained). WITQUAL 64 / 356 / 26 / 355 / 356, WITELIG released
+1, `ticks_control_to_eligible` 202 507 660 (5.000189 s) / 202 507 561
+(5.000187 s), WITELIG2 292 / 26 / 0, STREAMWIT 2048/2048. Policy A over
+356..2403 in both: 2047 `SELECTED_NEW`, `[2403]` the capture edge, interior 0,
+order rebuilt, reorder 0, depth 1; 12 / 14 and 13 / 17 deferred / attempts in
+the join; frozen latency p99 0.003210 / 0.003185 ms, max 0.475383 / 0.475753
+ms (gates 1.0 / 2.5 PASS; the p99 fell below RUN 13's 0.308543 ms because the
+deferred count fell below 1 % of 2047 — arithmetic on the distribution, not a
+latency claim); cadence `{1: 2039, 2: 7}` → 7 repeats, observational. Log
+headers `lines=686 dropped=0 truncated=1` in both: the clipped record is
+`ENVINPUT` (seq 3, 248 of a rendered 266 characters; lost tail `ot_FACT
+selftest=1`, both recoverable — GBP-KEY-008); every other payload ≤ 218
+(`STARTUPT`); the sidecars are unaffected and no gate figure is derived from
+the clipped fields. `ENVFULL arena1_free=1650688`, 8 192 B below RUN 13
+(observation, cause not established). Every inherited gate passes with that
+one recorded exception; none was narrowed and none added.
+
+---
+
+### GBP-HW-263 — the Operator's tally vectors after walk A and walk B: `1 2 · · · · 6 5 3 4` and `1 2 3 4 5 6 · · · ·`, equal to the walks' arithmetic expectation, L = 1 and R = 2 in both — OPERATOR OBSERVATION (literal, relayed by the Orchestrator)
+
+Recorded literally from Issue #24 (2026-09-21), in the checker's order L, R,
+UP, DOWN, LEFT, RIGHT, START, SELECT, A, B with `·` a blank counter: **RUN 14
+(walk A: L ×1, R ×2, A ×3, B ×4, SELECT ×5, START ×6) `1 2 · · · · 6 5 3 4`;
+RUN 15 (walk B: L ×1, R ×2, UP ×3, DOWN ×4, LEFT ×5, RIGHT ×6) `1 2 3 4 5 6 · ·
+· ·`** — each equal to its walk's expectation (§V7.1.9) with a blank where the
+expectation says 0. Every walk completed; no tally moved without a press (as
+relayed); no per-press live-channel record was relayed (§V7.1.9 makes the
+vector the channel the verdict is read from and the live channel a
+corroboration when seen); the photographs were useless as an aid
+(GBP-HW-261). Prior exposure (§V7.1.2) is on record: the Operator had seen the
+unregistered trial's informal answer; the mitigation was the distinct-count
+scheme ("what number is on the screen"). This row is the human channel; it
+is placed beside the machine channel of GBP-HW-264, never fed into a tool and
+never merged with it — their agreement is stated in GBP-HW-264.
+
+---
+
+### GBP-HW-264 — the OGBPFULL1 frames of RUN 14 and RUN 15 carry the checker's tally screen; the counts, decoded pixel-exactly with the frozen parser, equal the walks' expectation with L = 1 and R = 2 in both; the machine vector agrees with the Operator's digit for digit — FACT (data, recomputable)
+
+Each run preserved K = 8 complete full-frame samples at `frame_index` 356 +
+256·i (the same content-blind OGBPFULL1 of RUN 12 and RUN 13; CRCs `33f665a5 /
+b48b2526` and `33f665a5 / 166c946e`; 8/8 COMPLETE, want_calls 2377, blocks
+copied 320). Under the UNMODIFIED `tools/vfull.py` (`load()`,
+`consumed_words()`: word16 = (byte1 << 8) | byte3 in raster order, GBP-VID-003)
+every one of the 16 samples shows the checker's console screen — title row lit
+522 pixels, three distinct words, the (0,0) word `0xc578` = the checker's
+`RGB15(17,11,24)` in R-high order with the reported-not-interpreted flag bit —
+and the tally field at console column 22 of rows 4–13 reads, by exact 8 × 8
+glyph match against a six-glyph table transcribed from the frames (an unknown
+bitmap aborts, never guesses; no tens digit anywhere): **RUN 14 — s0 (+6.084 s
+after CONTROL) `1 · · · · · · · · ·`; s1 (+10.370) `1 2 · · · · · · 3 2`; s2
+(+14.656) `1 2 · · · · 3 5 3 4`; s3 (+18.943) through s7 (+36.087) `1 2 · · · ·
+6 5 3 4`. RUN 15 — s0 `1 · · · · · · · · ·`; s1 `1 2 3 2 · · · · · ·`; s2 `1 2 3
+4 5 1 · · · ·`; s3 through s7 `1 2 3 4 5 6 · · · ·`.** The final state is
+reached by s3 and identical across the last five samples (17.1 s); the
+partials show the counters advancing in the declared walk order with L at 1
+before R moved. In both runs the final vector equals the walk's arithmetic
+expectation with a blank read as "never incremented", L = 1 and R = 2, and it
+agrees with the Operator's vector (GBP-HW-263) digit for digit — stated, not
+merged. The preserved texture equals the Python conversion of the preserved
+raw in all 16 samples (content-independent, checked outside the tool's oracle
+path). **FACT as data, classified by the Orchestrator and held: the preserved
+frames show the checker's tally screen with counts equal to the walks'
+expectation, reproducible from the archived files with the frozen parser —
+not operator observation. Not in the frames: which GameCube button was
+pressed** (GBP-HW-265). The tool's own verdict on these files is INCONCLUSIVE
+(STRIP-L inconsistent on every sample) because its oracle is OGBPCOORD1 —
+recorded, not judged, like `tools/vindex.py`'s
+`INCONCLUSIVE_TOO_FEW_INTACT_FRAMES` (2048 records, all 40 blocks, canonical
+strip INVALID on every frame by construction; CRCs `c4d18caf / 03716e77` and
+`5b3b8523 / ec26bd10`). Versioned byte-identical as
+`captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0014-run14-full.bin` and
+`…-run15-full.bin`; recomputed by `tests/host/test_run14.py`.
+
+---
+
+### GBP-HW-265 — GBP-INPUT-001 verdicts: Question M = PASS and Question O = AS-ASSIGNED in RUN 14 and in RUN 15; U-GBP-010 CLOSED on its stated condition with the descriptor kept; the blank-vs-0 reading recorded — FACT (the verdict record) · CORROBORATED (the routing), not FACT
+
+Read from §V7.1.9 as frozen before the runs, per run, from the Operator's
+vector (GBP-HW-263) and independently from the machine vector (GBP-HW-264):
+no zero where a count was expected; no unexpected non-zero where 0 was
+expected; no tally moved without a press; no walk cut; with all counts
+distinct exactly one permutation is consistent with each vector, the
+identity. **Question M = PASS** — RUN 14 for L, R, A, B, SELECT, START; RUN 15
+for L, R, UP, DOWN, LEFT, RIGHT; each run complete for what it answers, a
+button not pressed in a run "not observed" in that run, all ten observed
+across the two: a KEYPAD word written by Open-GBP reaches the cartridge as
+key presses, for the buttons pressed; nothing about latency, the refresh, or
+unpressed buttons. **Question O = AS-ASSIGNED** — L = 1 and R = 2 with no 1 or
+2 at a counter that expected 0: the GameCube L reached the checker's L and R
+its R. **The blank:** §V7.1.9 says an unpressed counter "reads 0"; the
+instrument prints a tally only on a press (`updateButtonTally` after
+`keysDown()`), so an unpressed counter is BLANK — read as "never incremented",
+the gate's substance; the wording mismatch is recorded here, in §V7.2.7 and in
+the fixtures, and the frozen text is not edited. **U-GBP-010 CLOSED** on its
+own condition — a game that distinguishes L from R, OPERATOR OBSERVATION —
+with the descriptor of `src/gbp/gbp_input.c` kept exactly (bit 8 = L, bit 9 =
+R; unchanged since `0ff8355`); supported by the Operator's report AND,
+independently, by the frames; `REGISTERS.md` still tabulates Dolphin's order
+at H (`docs/protocol/` is the Orchestrator's to update). **The routing —
+GameCube L reaching the AGB's L line — stays CORROBORATED, not FACT**, exactly
+as §V7.1.10 said after either outcome: its chain is the descriptor (code,
+GBP-KEY-006), the checker's `countL` on `KEY_L` (source), the L counter at 1
+and no other at 1 (data), and the Operator having pressed L exactly once —
+which no machine record contains (42 key changes, not which buttons; frames
+show what the cartridge displayed, not what the GameCube sent). The
+distinct-count design makes a wrong walk overwhelmingly unlikely to produce
+the expected vector — an argument, not a record. Classified by the
+Orchestrator (Issue #24) and reproduced here; no gate, threshold or verdict
+definition moved after the data was seen; GBP-KEY-004 unchanged, its
+falsifier did not fire; RUN 16 not run; Phase 5's acceptance criterion (a real
+game) not assessed.
 
 ---
 
