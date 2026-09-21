@@ -627,6 +627,37 @@ and with it the KEYPAD write, never ran in Dolphin. No Open-GBP build has
 ever issued a KEYPAD write anywhere. **Status:** FACT for what the software
 is and does; nothing here is evidence about the device.
 
+## GBP-KEY-007 — The Start-up Disc's controller behaviour on this hardware as recalled by the Operator, and its composition with the Disc's static alternate-mode mapping — OPERATOR OBSERVATION (recollection); changes no status
+
+Issue #22 (2026-09-21), relayed by the Orchestrator; `docs/research/INPUT_PATH.md`
+§10.2–§10.3. **The recollection:** from past use of the official Start-up Disc
+on this hardware — X and Y act as SELECT; L and R act as L and R; an OSD
+option inverts this (L and R → SELECT, Y → L, X → R); the left analogue stick
+and the D-pad have the same effect; the C stick has no effect; Start is
+START; Z opens the Disc's OSD. **Classification: OPERATOR OBSERVATION, and a
+recollection of past use rather than an observation under a pre-registered
+procedure** — weaker than RUN 14's report will be; not verified by the
+Executor. **Corroboration:** every item agrees with the implemented default
+policy (GBP-KEY-006: X and Y → Select, L / R on their clicks, the stick as
+the D-pad, the C stick unread, Start → Start, Z reserved and never sent); the
+policy rested on the Disc's decompiled code (GBP-KEY-002) and now also on its
+observed behaviour, as a recollection. Z unmapped is the button the Disc
+reserves for its OSD. **The composition:** T1 (FACT, static, GBP-KEY-002) —
+the alternate mode sends PAD Y to word bit 8 and PAD X to bit 9; T2 (this
+recollection) — with the swap option on, Y acts as L and X as R; under the
+identification of the option with the decompiled mode (supported by the
+match of all three roles and the code's two modes), the two compose to
+word bit 8 = L, bit 9 = R — the assignment GBP-KEY-004 records, reached with
+one hardware-side term, independent of the static agreement of the Disc,
+GBI and Dolphin. It holds as logic on two conditions: that identification,
+and the exact X/Y attribution — remembered the other way round, the same
+composition gives the opposite answer. **Consequence:** GBP-KEY-004 stays
+CORROBORATED, not FACT; U-GBP-010 stays OPEN for RUN 14; the descriptor is
+unchanged; `REGISTERS.md` keeps H. What would make it a recorded
+observation: the written Disc re-verification of INPUT_PATH.md §10.3 —
+still OPERATOR OBSERVATION, never FACT. **Status:** OPERATOR OBSERVATION
+(recollection); nothing physical was measured by this project.
+
 ## GBP-VID-001 — VIDEO data format and cadence
 
 **Claim:** Index 0x1 delivers 0xF00 bytes per VIDEO IRQ = 4 scanlines ×

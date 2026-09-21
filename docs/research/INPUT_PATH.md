@@ -133,6 +133,11 @@ Chosen by this project, revisable, never promoted as a device fact:
 | Ports | port 1 · all four OR-ed (GBI) | port 1 first; more ports later | smallest correct thing |
 | Hold / turbo | none · an option like GBI's Y flag (not traced) | none | Phase 9 territory |
 
+**Addendum 2026-09-21 (GitHub Issue #22):** the Operator's recollection of
+the Start-up Disc's behaviour on this hardware corroborates every row of
+this table that the Disc decides — see §10.2 (OPERATOR OBSERVATION, a
+recollection of past use; GBP-KEY-007). It changes no recommendation.
+
 ## 4. Reference survey — provenance and authority (Deliverable B)
 
 | Reference | What was consulted | Authority |
@@ -321,3 +326,111 @@ path, Policy A, the witness layer or any frozen format.
 at the top); the descriptor is filled as CORROBORATED data by the Operator's
 decision, not because a physical result exists. This section still describes
 what the *document* does not do, and it is unchanged.
+
+## 10. Addenda after the pre-registration (GitHub Issue #22, 2026-09-21)
+
+Two pieces of Operator input arrived after RUN 14 / RUN 15 were
+pre-registered (`HARDWARE_TESTS.md` §V7.1, frozen) and are recorded here,
+not there. Every statement below carries its classification; nothing
+changes a status, the descriptor, or §V7.
+
+### 10.1 An instrument evaluated and REJECTED — the homebrew input-test ROM `romhacking.net/homebrew/142`
+
+Reported by the Operator from using it (OPERATOR OBSERVATION, not verified
+by the Executor): it starts roughly 21 seconds after the boot logo; it needs
+a START press to reach the screen that shows the input state; and it does
+not support button combinations — with two buttons held its text oscillates
+between them. Against the ≈ 40 s window §V7.1.1 derives: ~3 s of BIOS logo
+plus ~21 s of start-up puts its first observable state around 24 s after
+the CONTROL transform, more than half the session; the START gate costs
+more; and the missing combination support defeats the L + R-together
+observation outright and leaves a ten-button walk to be read by a human in
+under 15 s. **Verdict: rejected as an instrument for RUN 14 and RUN 15**; the
+EZ-Flash Omega DE menu and the AGS test ROM stay the instruments. It is
+third-party homebrew whose provenance and licence were not evaluated; it is
+not a project artifact and nothing from it enters the repository. Rule drawn
+from it: an instrument for this line must show its input state well inside
+the window and must accept simultaneous presses.
+
+### 10.2 The Operator's recollection of the Start-up Disc on this hardware — OPERATOR OBSERVATION (recollection); the L3 policy corroborated
+
+The Operator states, from past use of the official Start-up Disc on this
+hardware (relayed by the Orchestrator): X and Y act as SELECT; L and R act
+as L and R; an OSD option INVERTS this — L and R become SELECT, Y becomes L,
+X becomes R; the left analogue stick and the D-pad have the same effect; the
+C stick has no effect; Start is START; Z opens the Disc's OSD (swap SELECT /
+L-R, scaling, eject the Game Pak, and so on). **Classification: OPERATOR
+OBSERVATION, and a recollection of past use, not an observation made under
+a pre-registered procedure** — weaker than what RUN 14 will produce, and not
+verified by the Executor.
+
+| Recollection | The implemented default policy (`GBP_INPUT_POLICY_DEFAULT`, Issue #19) | Agrees |
+| --- | --- | --- |
+| X and Y act as SELECT | X and Y → Select | yes |
+| L and R act as L and R | L → L, R → R on the digital click | yes |
+| the left stick and the D-pad have the same effect | main stick as the D-pad beyond ±48 (the Disc's threshold unknown) | yes, threshold aside |
+| the C stick has no effect | C stick unread | yes |
+| Start is START | Start → Start | yes |
+| Z opens the Disc's OSD | Z reserved for the runtime, never sent | yes — see below |
+| an OSD option inverts SELECT and L/R | no counterpart yet (a later configuration item) | consistent with the code's two modes |
+
+Until now the policy rested on the Disc's decompiled code (GBP-KEY-002);
+this adds the Disc's observed behaviour on this very hardware, as a
+recollection. One line worth keeping: the implementation follows the Disc
+(X and Y as SELECT), not GBI (Z as SELECT), which leaves **Z unmapped — the
+very button the Disc reserves for its OSD**: a free alignment for a future
+Phase 9 OSD, recorded, not acted on.
+
+### 10.3 The composition "Y → word bit 8 (static) + Y acts as L (observed)", evaluated — it holds as logic; OPERATOR OBSERVATION (recollection); changes no status
+
+*Term T1 (FACT, static — §3.1, GBP-KEY-002).* In the Disc's alternate mode
+(`+0x8c == 1` at `0x8000822c`) PAD Y goes to word bit 8, PAD X to word bit
+9, and L and R to bit 2 (Select); in the default mode PAD L goes to bit 8,
+PAD R to bit 9, and X and Y to bit 2.
+
+*Term T2 (the recollection, §10.2).* With the swap option on, Y acts as L
+and X as R while L and R act as SELECT; with it off, L acts as L, R as R,
+and X and Y as SELECT.
+
+*Identification I.* The swap option IS the decompiled alternate mode —
+supported because the option's three described effects match mode 1's code
+in every role (L and R → SELECT; X and Y taking the L/R roles) and the code
+has exactly two modes. Not verified by reading the Disc's option code path.
+
+*Composition.* Under I, T1 and T2 give: **word bit 8 reaches the AGB as L,
+and bit 9 as R** — the assignment GBP-KEY-004 records, reached this time
+through a chain whose second term is an observed effect on real hardware
+rather than more code, independent of the static agreement of the Disc, GBI
+and Dolphin. The default-mode chain (PAD L → bit 8; "L acts as L") composes
+to the same answer, but "L acts as L" could be an expectation rather than an
+observation; "Y acts as L" cannot, which is why the alternate-mode chain is
+the stronger of the two.
+
+*Does it hold?* As logic, yes, on two conditions: I, and the exactness of
+T2's X/Y attribution — had the recollection Y and X exchanged (Y acting as
+R), the same composition would yield bit 8 = R, the opposite conclusion; the
+inference therefore rests on precisely the detail memory is least reliable
+about.
+
+*Classification and consequence, stated once.* OPERATOR OBSERVATION, a
+recollection; recorded as GBP-KEY-007, consistent with GBP-KEY-004's
+assignment and the first hardware-side term that assignment has ever had.
+It does NOT change GBP-KEY-004's status (CORROBORATED, not FACT), does NOT
+close U-GBP-010 (left OPEN for RUN 14), and the descriptor stays exactly as
+it is; `REGISTERS.md` keeps H.
+
+*What would turn it into a recorded observation.* A short written
+re-verification on the official Start-up Disc, on this hardware, reported
+literally — official software only, no Open-GBP code, no files, not part of
+§V7 and not a condition of RUN 14; for the Orchestrator to attach to a
+Hardware Issue if wanted:
+
+```text
+ a  Boot the official Start-up Disc (the Operator's own original) with the EZ-Flash Omega DE menu as the display
+    instrument (or the AGS test ROM's controller test, launched from that menu).
+ b  Default settings: press L; press R; press X; press Y -- one at a time. Record what the AGB reacted to each.
+ c  Open the Disc's OSD with Z; enable its SELECT / L-R swap option; close the OSD.
+ d  Press Y; press X; press L; press R -- one at a time. Record each as in b.
+ e  Report literally, as OPERATOR OBSERVATION. Even recorded, it is never FACT: FACT needs the project-owned
+    stimulus joined to the runtime's own records (§5, §7.1.10 of HARDWARE_TESTS).
+```
