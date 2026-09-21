@@ -14,8 +14,9 @@ tests/host/test_input_impl.py — the input path implemented (GitHub Issue #19,
     path / the frozen writers do not reference the input module;
   * nothing emits t_poll / t_write;
   * the build wiring (BUILD_ID stream-0014, gbp_input.c in the POC, the unit test);
-  * the documents keep the status: REGISTERS.md H, U-GBP-010 OPEN, no "order is
-    established", no GBP-HW id above 260.
+  * the documents keep the status: REGISTERS.md H, no "order is established";
+    after Issue #24 (RUN 14 / RUN 15 ingested, §V7.2) U-GBP-010 is CLOSED and the
+    highest GBP-HW id is 265.
 """
 import os
 import re
@@ -220,8 +221,8 @@ class TheDocumentsKeepTheStatus(unittest.TestCase):
         unk = read(os.path.join(DOCS, "research", "UNKNOWNS.md"))
         m = re.search(r"^## U-GBP-010\b.*$", unk, re.M)
         self.assertIsNotNone(m)
-        self.assertIn("OPEN", m.group(0))
-        self.assertNotIn("CLOSED", m.group(0))
+        self.assertIn("CLOSED 2026-09-21", m.group(0))   # Issue #24: closed AS-ASSIGNED with the descriptor kept
+        self.assertIn("CORROBORATED, not FACT", m.group(0))
         for fn in ("research/INPUT_PATH.md", "research/EVIDENCE.md", "HANDOFF.md", "ROADMAP.md", "research/DEVLOG.md"):
             for line in read(os.path.join(DOCS, fn)).splitlines():
                 low = line.lower()
@@ -231,7 +232,7 @@ class TheDocumentsKeepTheStatus(unittest.TestCase):
                                     or "not established" in low, fn + ": " + line)
         ev = read(os.path.join(DOCS, "research", "EVIDENCE.md"))
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
-        self.assertEqual(hw, 260)
+        self.assertEqual(hw, 265)   # GBP-HW-261…265 (Issue #24)
 
 
 if __name__ == "__main__":

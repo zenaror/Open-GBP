@@ -17,6 +17,11 @@ closing condition is restated with neither outcome making the routing FACT;
 the future stimulus is recorded and unstarted; and nothing under src/, poc/,
 tools/, Makefile, docs/protocol or docs/hardware moved. Nothing here runs a
 program.
+
+Issue #24 (2026-09-21) ingested RUN 14 and RUN 15 as §V7.2: the pins that
+described the pre-executed state (no archive on disk, no fixtures, the
+"has run" do-not-assume bullet) are updated here; §V7.1 itself stays
+byte-identical (tests/host/test_run14.py pins it against ed7dea2).
 """
 import glob
 import os
@@ -202,11 +207,17 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
         for n in NAMES[:5]:
             self.assertEqual(h.count(n.replace("stream-0014-run14", "stream-0013-run13")), 1, n)
 
-    def test_none_of_the_names_exists_on_disk(self):
-        for n in NAMES:
+    def test_the_run_16_names_are_absent_and_the_run_14_15_archives_if_present_are_the_recorded_sizes(self):
+        """RUN 14 and RUN 15 executed and were archived under their reserved names (Issue #24, §V7.2);
+        their identities are pinned by tests/host/test_run14.py. RUN 16 is not run: its names stay absent."""
+        sizes = {"run14.log": 90652, "run14-idxcap.bin": 8946060, "run14-disp.bin": 400396, "run14-full.bin": 1844492, "run14-vi.bin": 152396,
+                 "run15.log": 90734, "run15-idxcap.bin": 8946060, "run15-disp.bin": 400436, "run15-full.bin": 1844492, "run15-vi.bin": 152396}
+        for n in NAMES[:10]:
+            p = os.path.join(ROOT, n)
+            if os.path.exists(p):
+                self.assertEqual(os.path.getsize(p), sizes[n.split("stream-0014-")[1]], n)
+        for n in NAMES[10:]:
             self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
-        self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*run14*")), [])
-        self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*run15*")), [])
         self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*run16*")), [])
 
     def test_the_photograph_is_optional_and_not_one_of_the_fifteen(self):
@@ -369,7 +380,7 @@ class TheProcedureTheHazardAndTheRecovery(unittest.TestCase):
 
 
 class TheUnknownAndTheFutureOption(unittest.TestCase):
-    def test_u_gbp_010_is_restated_and_not_closed(self):
+    def test_u_gbp_010_is_restated_with_its_closing_condition(self):
         f = plain(part(10))
         for tok in ("closes on a game that distinguishes L from R, as OPERATOR OBSERVATION",
                     "AS-ASSIGNED closes it with the assignment kept", "SWAPPED closes it the other way",
@@ -378,8 +389,9 @@ class TheUnknownAndTheFutureOption(unittest.TestCase):
             self.assertIn(tok, f, tok)
         u = read(UNKNOWNS)
         m = re.search(r"^## U-GBP-010\b.*$", u, re.M)
-        self.assertIn("OPEN", m.group(0))
-        self.assertNotIn("CLOSED", m.group(0))
+        # the part restates the closing condition; RUN 14 / RUN 15 later met it (Issue #24, §V7.2) with the routing CORROBORATED
+        self.assertIn("CLOSED 2026-09-21", m.group(0))
+        self.assertIn("CORROBORATED, not FACT", m.group(0))
         self.assertIn("§V7.1", u)
 
     def test_the_future_stimulus_is_recorded_and_unstarted(self):
@@ -402,7 +414,8 @@ class NothingElseMoved(unittest.TestCase):
         self.assertNotRegex(e, r"GBP-HW-\d{3}")
         h = read(HANDOFF)
         self.assertRegex(h, r"RUN 14[^\n]*PRE-REGISTERED|PRE-REGISTERED[^\n]*RUN 14")
-        self.assertIn("That RUN 14 or RUN 15 has run", h)
+        # Issue #24: the runs executed; the bullet now guards RUN 16 and the routing's status
+        self.assertIn("That RUN 16 has run, or that RUN 14 / RUN 15 made the L/R routing a", h)
 
     def test_part_12_says_what_was_not_authorized(self):
         f = plain(part(12))
@@ -415,9 +428,13 @@ class NothingElseMoved(unittest.TestCase):
         if r.returncode != 0:
             self.skipTest("the base commit is not available in this checkout")
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "src", "poc", "tools", "Makefile",
-                            "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"], capture_output=True, text=True)
+                            "docs/protocol", "docs/hardware", "stimulus"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
+        # Issue #24 added the RUN 14 / RUN 15 fixtures and nothing else under captures/fixtures
+        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
+        for line in r.stdout.split():
+            self.assertRegex(line, r"-run1[45]-", line)
 
 
 if __name__ == "__main__":

@@ -9,8 +9,10 @@ same commit; INPUT_PATH.md §10 records the rejected instrument with its reasons
 the Start-up Disc recollection with its classification, and the composition
 with its two conditions and its weakness; EVIDENCE GBP-KEY-007 exists once as
 OPERATOR OBSERVATION (recollection) and GBP-KEY-004's heading is unchanged;
-U-GBP-010 stays OPEN; REGISTERS.md keeps H; no GBP-HW id above 260; nothing
-under src/, poc/, tools/, Makefile, docs/protocol or docs/hardware moved.
+REGISTERS.md keeps H; nothing under src/, poc/, tools/, Makefile, docs/protocol
+or docs/hardware moved. Issue #24 (2026-09-21) then ingested RUN 14 / RUN 15
+(§V7.2): U-GBP-010 is CLOSED, GBP-HW-261…265 and GBP-KEY-008 / 009 exist, and
+the RUN 14 / RUN 15 fixtures were added -- the pins below say so.
 """
 import os
 import re
@@ -82,10 +84,13 @@ class TheFrozenThingsAreUntouched(unittest.TestCase):
         if r.returncode != 0:
             self.skipTest("the frozen commit is not available in this checkout")
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_COMMIT, "--", "src", "poc", "tools", "Makefile",
-                            "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"],
+                            "docs/protocol", "docs/hardware", "stimulus"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "", "changed against the frozen commit: " + r.stdout)
+        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
+        for line in r.stdout.split():
+            self.assertRegex(line, r"-run1[45]-", "only the RUN 14 / RUN 15 fixtures (Issue #24) were added: " + line)
 
 
 class TheRejectedInstrument(unittest.TestCase):
@@ -133,18 +138,17 @@ class TheRecollectionAndTheComposition(unittest.TestCase):
         self.assertEqual(len(re.findall(r"^## GBP-KEY-007 ", ev, re.M)), 1)
         head = ev[ev.index("## GBP-KEY-007 "):].splitlines()[0]
         self.assertIn("OPERATOR OBSERVATION (recollection); changes no status", head)
-        self.assertEqual(re.findall(r"^## GBP-KEY-00[8-9]", ev, re.M), [])
+        self.assertEqual(re.findall(r"^## GBP-KEY-00[8-9]", ev, re.M), ["## GBP-KEY-008", "## GBP-KEY-009"])   # Issue #24's findings
         self.assertIn("## GBP-KEY-004 — The static result on the L/R order: the Start-up Disc, GBI and Dolphin's model all put L at word bit 8 and R at word bit 9, the reverse of KEYINPUT — CORROBORATED for the encoding the references target; the physical routing NOT established", ev)
         body = plain(ev[ev.index("## GBP-KEY-007 "):ev.index("## GBP-VID-001 ")])
         for tok in ("recollection of past use", "not verified by the Executor", "GBP-KEY-004 stays CORROBORATED, not FACT",
                     "U-GBP-010 stays OPEN", "the descriptor is unchanged", "never FACT", "nothing physical was measured by this project"):
             self.assertIn(tok, body, tok)
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
-        self.assertEqual(hw, 260)
+        self.assertEqual(hw, 265)   # GBP-HW-261…265: RUN 14 / RUN 15 (Issue #24)
         u = read(UNKNOWNS)
         m = re.search(r"^## U-GBP-010\b.*$", u, re.M)
-        self.assertIn("OPEN", m.group(0))
-        self.assertNotIn("CLOSED", m.group(0))
+        self.assertIn("CLOSED 2026-09-21", m.group(0))   # closed by RUN 14 / RUN 15, not by the recollection
         self.assertIn("GBP-KEY-007", u)
         self.assertIn("C (existence/format), H (L/R bit order)", read(REGISTERS))
 
@@ -153,7 +157,8 @@ class TheRecords(unittest.TestCase):
     def test_devlog_and_handoff(self):
         d = read(DEVLOG)
         i = d.rindex("## 2026-09-21 — Issue #22")
-        e = d[i:]
+        j = d.find("\n## 2026", i + 1)
+        e = d[i:j if j > 0 else None]
         for tok in ("REJECTED", "recollection", "GBP-KEY-007", "U-GBP-010 OPEN", "byte-identical", "no hardware, no code"):
             self.assertIn(tok, e, tok)
         self.assertNotRegex(e, r"GBP-HW-\d{3}")
