@@ -486,7 +486,9 @@ class TheVerdictsAsReadFromTheFrozenGate(unittest.TestCase):
         head = ev[ev.index("### GBP-HW-265 "):].splitlines()[0]
         self.assertIn("CORROBORATED (the routing), not FACT", head)
         self.assertIn("## GBP-KEY-004 — The static result on the L/R order: the Start-up Disc, GBI and Dolphin's model all put L at word bit 8 and R at word bit 9, the reverse of KEYINPUT — CORROBORATED for the encoding the references target; the physical routing NOT established", ev)
-        self.assertIn("C (existence/format), H (L/R bit order)", read(os.path.join(ROOT, "docs", "protocol", "REGISTERS.md")))
+        regs = read(os.path.join(ROOT, "docs", "protocol", "REGISTERS.md"))   # Issue #26: C, never FACT
+        self.assertNotIn("H (L/R bit order)", regs)
+        self.assertIn("not FACT", regs)
         self.assertIn("The routing conclusion — the GameCube L reaching the AGB's L line — is a\nchain of four links", v72())
 
     def test_u_gbp_010_is_closed_on_its_own_condition_with_the_descriptor_kept(self):
@@ -778,8 +780,9 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", FROZEN_V71_COMMIT], capture_output=True)
         if r.returncode != 0:
             self.skipTest("the base commit is not available in this checkout")
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_V71_COMMIT, "--", "src", "poc", "tools", "Makefile",
-                            "docs/protocol", "docs/hardware", "stimulus"], capture_output=True, text=True)
+        # docs/protocol and docs/hardware left this guard with the Issue #26 promotion; the code paths stay frozen
+        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_V71_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus"],
+                           capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_V71_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)

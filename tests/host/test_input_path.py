@@ -11,7 +11,8 @@ no order is adopted (the words "adopted", "defaulted" appear only in their
 negation); every evidence id the document cites exists; the keypad findings
 continue the GBP-KEY namespace (002…005; 006 / 007 / 008 / 009 followed) and
 Issue #18 minted no GBP-HW id (the highest is now 265, from Issue #24);
-Dolphin's order stays H in REGISTERS.md; the external register lists Enhanced
+Dolphin's order stayed H in REGISTERS.md until Issue #26 promoted it to C
+(never FACT); the external register lists Enhanced
 mGBA with its exact commit; the ROADMAP's Phase 5 status and the HANDOFF row
 exist; and the keypad code that Issue #19 (2026-09-21) later added is the
 module §7 named.
@@ -100,7 +101,8 @@ class TheStaticAttemptIsStatedOnceAndStaysOpen(unittest.TestCase):
                        "REGISTERS.md keeps Dolphin's order at H", "GBI's `0x0304` was **not** used as evidence"):
             self.assertIn(phrase, f.replace("`REGISTERS.md`", "REGISTERS.md"), phrase)
         regs = read(REGISTERS)
-        self.assertIn("C (existence/format), H (L/R bit order)", regs)
+        self.assertNotIn("H (L/R bit order)", regs)          # Issue #26: C, never FACT
+        self.assertIn("L/R bit order: C", regs)
         self.assertIn("lo byte = GBA keys 0–7; hi bit0→L(key 9), bit1→R(key 8)", regs)
 
     def test_the_findings_use_the_keypad_namespace_and_mint_no_hardware_id(self):
