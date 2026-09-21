@@ -438,7 +438,7 @@ class NothingElseMoved(unittest.TestCase):
         # Issue #24 added the RUN 14 / RUN 15 fixtures and nothing else under captures/fixtures
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
         for line in r.stdout.split():
-            self.assertRegex(line, r"-run1[45]-", line)
+            self.assertRegex(line, r"-run1[45678]-", line)
 
 
 if __name__ == "__main__":

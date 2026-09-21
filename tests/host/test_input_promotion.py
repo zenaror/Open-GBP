@@ -250,9 +250,12 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE, "--", "src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        # Issue #27 (after this promotion) touched the input module and the stream probe, and nothing else here
+        # Issue #27 (after this promotion) touched the input module and the stream probe; Issue #33 (2026-09-21) added the
+        # RUN 16 / 17 / 18 fixtures (tests/host/test_run17.py pins them); nothing else here
+        changed = set(r.stdout.split())
         allowed = {"src/gbp/gbp_input.c", "src/gbp/gbp_input.h", "poc/gbp-video-stream-probe/source/main.c", "poc/gbp-video-stream-probe/Makefile"}
-        self.assertTrue(set(r.stdout.split()) <= allowed, "changed against the base: " + r.stdout)
+        allowed |= {p for p in changed if re.search(r"^captures/fixtures/hw-gamecube-gbp-2026-09-21-(idxcap|stream-0015)-run1[678]-", p)}
+        self.assertTrue(changed <= allowed, "changed against the base: " + r.stdout)
 
     def test_the_records_of_the_checkpoint(self):
         d = read(DEVLOG)
