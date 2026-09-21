@@ -1,0 +1,1618 @@
+{
+ "format": "OGBPIDX-STRUCT-1",
+ "run": 14,
+ "experiment": "RUN 14 -- GBP-INPUT-001, the first physical KEYPAD write (the Enhanced Control Checker's counted walk A), one of two staged runs of the same stream-0014 image; pre-registered HARDWARE_TESTS §V7.1 (Issue #20, amended before hardware by Issue #23), executed under Hardware Issue #21, ingested under Issue #24 (§V7.2)",
+ "github_issues": {
+  "pre_registration": 20,
+  "amendment_before_hardware": 23,
+  "hardware": 21,
+  "operator_inputs_outside_v7": 22,
+  "ingestion": 24
+ },
+ "runtime_embedded": {
+  "test_id": "GBP-VIDEO-004",
+  "build_id": "stream-0014",
+  "commit": "0ff8355",
+  "note": "embedded id intentionally GBP-VIDEO-004 (§V6.17 decision 5, inherited by stream-0014); the experiment label GBP-INPUT-001 is the pre-registration's; the image is Issue #19's candidate, NOT rebuilt"
+ },
+ "dol": {
+  "path_operator": "build/swiss/12-stream/boot.dol",
+  "path_authority": "build/poc/gbp-video-stream-probe/gbp-video-stream-probe.dol",
+  "size": 513152,
+  "sha256": "ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c",
+  "swiss_sha256": "ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c",
+  "build": "stream-0014",
+  "commit": "0ff8355",
+  "commit_full": "0ff8355c15aeaca00ccb2aee2bd51f23d74edbc2",
+  "stream_0013_preserved": {
+   "path": "build/archive/gbp-video-stream-probe-stream-0013-7d7a6d8.dol",
+   "sha256": "5391c3fe962dc4b2f4e493f3846ac7407ded064c58f5d4bb583a51e5a725dd79"
+  },
+  "note": "verified on disk before the runs (§V7.1.3, Hardware Issue #21 staging: the Executor's steps 1-3 and the Orchestrator's independent recomputation) and again at ingestion; the SD copy and its pre-boot hash check were the Operator's (§V7.1.6 step 4); the Swiss directory number 12 is the build layout number, not the run number"
+ },
+ "stimulus": {
+  "name": "Enhanced Control Checker GBA (the instrument of RUN 14 and RUN 15 after the pre-hardware amendment, Issue #23)",
+  "repository": "https://github.com/nataliethenerd/enhancedcontrolcheckerGBA",
+  "commit": "76924c1371d7bf761f8b1ed45ab36f195cd1374f",
+  "commit_date": "2024-08-11",
+  "license": "CC BY-SA 4.0",
+  "prebuilt_rom": {
+   "name": "enhancedcontrolchecker.gba",
+   "size": 69348,
+   "sha256": "53c212c73e814875fcbac16a4dc22ea5d6c752f85cdddc433db97439caef2b6e",
+   "hashed_from": "a scratchpad clone (§V7.1.3); nothing enters the repository"
+  },
+  "route": "the Operator's media, flashed to the EZ-Flash Omega DE NOR and booted straight into (declared, §V7.1.4)",
+  "flashed_image_hashed_by_executor": false,
+  "source_facts_relied_on": "ten counters at rows 4-13 (L, R, UP, DOWN, LEFT, RIGHT, START, SELECT, A, B), one `if` per button over keysDown() in a VBlankIntrWait() loop, the tally printed at console column 22 with `%2d` ONLY on a press, consoleDemoInit() with no splash / menu / START gate (verified in the source at the commit above)"
+ },
+ "walk": {
+  "name": "A",
+  "presses": [
+   [
+    "L",
+    1
+   ],
+   [
+    "R",
+    2
+   ],
+   [
+    "A",
+    3
+   ],
+   [
+    "B",
+    4
+   ],
+   [
+    "SELECT",
+    5
+   ],
+   [
+    "START",
+    6
+   ]
+  ],
+  "total_presses": 21,
+  "expected_vector_arithmetic": [
+   1,
+   2,
+   0,
+   0,
+   0,
+   0,
+   6,
+   5,
+   3,
+   4
+  ],
+  "counter_order": [
+   "L",
+   "R",
+   "UP",
+   "DOWN",
+   "LEFT",
+   "RIGHT",
+   "START",
+   "SELECT",
+   "A",
+   "B"
+  ],
+  "expected_key_changes": 42,
+  "pad_buttons": {
+   "SELECT": "the X button of the GameCube pad (policy: X | Y -> Select)",
+   "UP/DOWN/LEFT/RIGHT": "the D-pad, not the stick"
+  }
+ },
+ "topology_declared_by_operator": {
+  "console": "the same physical GameCube as RUN 13 (pre-registered declaration, §V7.1.4)",
+  "game_boy_player": "the same physical unit as RUN 13 (pre-registered declaration)",
+  "controller": "ONE GameCube controller in port 1 (PAD_CHAN0); the exact model was to be declared by the Operator -- NOT literally posted on Hardware Issue #21 or in Issue #24 at ingestion (recorded as absent, not inferred)",
+  "bba_present": "YES (pre-registered)",
+  "ethernet": "DISCONNECTED (pre-registered)",
+  "network": "none (stream-0014 links no network code)",
+  "cartridge": "EZ-Flash Omega DE, the Enhanced Control Checker on its NOR, booted straight into (relayed by the Orchestrator, Issue #24; pre-registered §V7.1.4)",
+  "display_chain": [
+   "GameCube",
+   "composite / RCA",
+   "low-cost RCA-to-HDMI converter, HDMI output configured to 1080p",
+   "HYDIS HV150UX2 panel, M.NT68676.2A controller, custom iMac G3 modification"
+  ],
+  "display_chain_note": "held at RUN 13's by the pre-registration (§V7.1.4, §V6.24.3); TOPOLOGY only -- nothing about the display is claimed; the chain has no upscaler, which is why the Operator's photographs of the 240x160 console text are unreadable (Issue #24) -- an observation about the camera aid, no claim about the chain's fidelity",
+  "deviation_reported": "none",
+  "post_run_confirmation": "no literal post-run topology / controller / boot-screen declaration was posted on Hardware Issue #21 (its comments are the staging report, the Orchestrator's staging verification and the two archiving reports) or in Issue #24 at ingestion; the runs are relayed by the Orchestrator's ingestion contract as executed under #21 on the pre-registered topology with the checker on the NOR; the §V7.1.8 TOPOLOGY gate is read from the pre-execution declaration with no reported deviation",
+  "source": "OPERATOR OBSERVATION / TOPOLOGY DECLARATION as pre-registered in §V7.1.4 and relayed by the Orchestrator (Issue #24); not derived from files or logs"
+ },
+ "operator_report": {
+  "tally_vector_literal": "1 2 · · · ·  6 5 3 4",
+  "tally_vector": [
+   1,
+   2,
+   null,
+   null,
+   null,
+   null,
+   6,
+   5,
+   3,
+   4
+  ],
+  "counter_order": [
+   "L",
+   "R",
+   "UP",
+   "DOWN",
+   "LEFT",
+   "RIGHT",
+   "START",
+   "SELECT",
+   "A",
+   "B"
+  ],
+  "blank_marker": "·",
+  "equals_expected_with_blank_as_no_count": true,
+  "live_channel": "not relayed per press (Issue #24 carries the final vectors; the vector is the channel §V7.1.9 reads the verdict from; the live channel corroborates when seen and was not required)",
+  "buttons_completed": [
+   "L",
+   "R",
+   "A",
+   "B",
+   "SELECT",
+   "START"
+  ],
+  "buttons_cut": [],
+  "tallies_moved_without_a_press": "none reported",
+  "photograph": "taken, unreadable: the display chain has no upscaler and the 240x160 console text does not survive the camera (Issue #24); never one of the fifteen names, never evidence by itself (§V6.10) -- that is why the captured frames mattered",
+  "prior_exposure": "the Operator had seen the unregistered trial's informal answer before the official runs (§V7.1.2); mitigation: the distinct-count scheme (`what number is on the screen`); the photographs did not help",
+  "source": "OPERATOR OBSERVATION, literal as relayed by the Orchestrator in Issue #24 (2026-09-21); never fed into a tool; placed BESIDE the machine channel, never merged with it"
+ },
+ "raw": {
+  "log": {
+   "supplied_name": "GBP-VIDEO-004_stream-0014.log",
+   "found_at": "logs/ (the bare console names; file mtimes 2026-09-21 09:41 local)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0014-run14.log",
+   "size": 90652,
+   "sha256": "e2ba3d82fc23e5ccf6eb214abdf0c979e0807f276456220a1ab5b0a77b5d1d54"
+  },
+  "idxcap": {
+   "supplied_name": "GBP-VIDEO-004_stream-0014-idxcap.bin",
+   "found_at": "logs/ (the bare console names; file mtimes 2026-09-21 09:41 local)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0014-run14-idxcap.bin",
+   "size": 8946060,
+   "sha256": "d42ebb1adbf7afe358fb0a074a23267b031f581b04c0cd66d405a04fe1541de2"
+  },
+  "disp": {
+   "supplied_name": "GBP-VIDEO-004_stream-0014-disp.bin",
+   "found_at": "logs/ (the bare console names; file mtimes 2026-09-21 09:41 local)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0014-run14-disp.bin",
+   "size": 400396,
+   "sha256": "82bc7434acf30df78175d7bebd2dfc67caa4f5fa0d2088f1d423901da2540c7b"
+  },
+  "full": {
+   "supplied_name": "GBP-VIDEO-004_stream-0014-full.bin",
+   "found_at": "logs/ (the bare console names; file mtimes 2026-09-21 09:41 local)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0014-run14-full.bin",
+   "size": 1844492,
+   "sha256": "30c144d7aa3a6b4c485a783403b1ef6ee1316e523385befdcd806faa181e1b3c"
+  },
+  "vi": {
+   "supplied_name": "GBP-VIDEO-004_stream-0014-vi.bin",
+   "found_at": "logs/ (the bare console names; file mtimes 2026-09-21 09:41 local)",
+   "archived_as": "captures/local/GBP-VIDEO-004_stream-0014-run14-vi.bin",
+   "size": 152396,
+   "sha256": "ef0a1261ca1bd83dc8a4f16befc9c1372f0244c64d7565765bfbdf5b36a1927a"
+  }
+ },
+ "raw_receipt": {
+  "generated_on": "the live GameCube SD card under the console's normal stream-0014 names; moved by the Operator into logs/ (RUN 14: the bare names; RUN 15: logs/run15/, a per-run subdirectory, so RUN 14's bare-name copies were not overwritten -- the convention argued for in Issue #23); the card copies are deleted by the Operator after the move, so logs/ was the ONLY copy until the archive existed",
+  "archived": "cp --update=none into the §V7.1.5 reserved run14 names (verified absent first), cmp identical, SHA-256 recomputed by the Executor before any interpretation, reported on Hardware Issue #21 (2026-09-21 13:13 local); logs/ left as found (never edited)",
+  "located_by": "the Orchestrator's cross-session request naming the five files and their hashes; the Executor's hashes are the identity, the Orchestrator's the double check (all ten matched)",
+  "unregistered_trial": "left no file on the SD (§V7.1.2); no leftover was found or moved aside"
+ },
+ "fixtures": {
+  "disp": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0014-run14-disp.bin",
+   "sha256": "82bc7434acf30df78175d7bebd2dfc67caa4f5fa0d2088f1d423901da2540c7b",
+   "note": "byte-identical copy of the console's OGBPDISP2"
+  },
+  "full": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0014-run14-full.bin",
+   "sha256": "30c144d7aa3a6b4c485a783403b1ef6ee1316e523385befdcd806faa181e1b3c",
+   "note": "byte-identical copy of the console's OGBPFULL1 -- the machine-decodable tally record (FACT as data)"
+  },
+  "vi": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-stream-0014-run14-vi.bin",
+   "sha256": "ef0a1261ca1bd83dc8a4f16befc9c1372f0244c64d7565765bfbdf5b36a1927a",
+   "note": "byte-identical copy of the console's OGBPVI1"
+  },
+  "qual": {
+   "path": "captures/fixtures/hw-gamecube-gbp-2026-09-21-idxcap-run14-qual.bin",
+   "sha256": "08cb48f5f7dd406251464ae3e03240deb3ade7af1ba28ae99ffd422cf9d7d0d1",
+   "note": "content-blind OGBPQUAL1 projection of the raw OGBPIDXCAP1, naming its size and SHA-256"
+  },
+  "raw_log": "NOT versioned (established policy; identity preserved by size and SHA-256; the summary records are quoted VERBATIM in `log_records_verbatim` so the INPUT machine gate is recomputable from this file)",
+  "raw_idxcap": "NOT versioned (8 946 060 B; identity preserved by size and SHA-256; the per-record decode is in `records`)"
+ },
+ "tools": {
+  "vindex": "tools/vindex.py UNMODIFIED (10250a4)",
+  "vidxcap": "tools/vidxcap.py UNMODIFIED (10250a4)",
+  "vdisp": "tools/vdisp.py UNMODIFIED (59d2f57)",
+  "vqual": "tools/vqual.py UNMODIFIED (b71da06)",
+  "vfull": "tools/vfull.py UNMODIFIED (2c7ff0e; frozen RUN 12 semantics; its parser and consumed_words() are the tally reader's only dependency)",
+  "vvi": "tools/vvi.py CORRECTED implementation (0ee8aac, §V6.21), unchanged since",
+  "vpace": "tools/vpace.py UNMODIFIED (025f2e7); run as it is over the disp file alone it prints nothing (its CLI expects the idxcap join) -- recorded; the Policy A figures here are vdisp's, as for RUN 13",
+  "icoord": "tools/icoord.py UNMODIFIED (99496a6)",
+  "istim": "tools/istim.py UNMODIFIED (05cb1c7)",
+  "gbp_vpix_c": "src/gbp/gbp_vpix.c host-built by tools/vfull.py for the C conversion comparison",
+  "ingestion_head": "ed7dea264836b0bfdc4ed608e29ed41a81e6abc7"
+ },
+ "verdicts": {
+  "shared_gates": {
+   "IDENTITY_LOG": "PASS with one recorded exception: exact identities (log header GBP-VIDEO-004 / stream-0014 @ 0ff8355); dropped=0; no storage fault; the summary records present once each; truncated=1 -- the ENVINPUT record is clipped (see log_header.truncated_line): its lost fields are recoverable and the INPUT machine gate reads from complete records",
+   "TRANSPORT": "PASS",
+   "STARTUP": "PASS (NORMAL; recorded, no tolerance)",
+   "INPUT_MACHINE": "MET",
+   "VIDEO_PATH": "RECORDED, not judged (vindex INCONCLUSIVE_TOO_FEW_INTACT_FRAMES and vfull INCONCLUSIVE by construction on non-OGBPCOORD1 content; every sidecar parses with valid CRCs; Policy A / vdisp / vvi clean)",
+   "TOPOLOGY": "PASS by the pre-execution declaration (§V7.1.4) with no reported deviation; no literal post-run confirmation posted (recorded)",
+   "SESSION": "PASS (stop=witness_target_reached)"
+  },
+  "question_M": {
+   "verdict": "PASS",
+   "reading": "admissible run, INPUT machine gate met, and every pressed button's expected count sits at its own counter (the identity permutation), every unpressed counter shows no count (BLANK, read as 0 -- the wording mismatch recorded), and no tally moved without a press",
+   "means": "a KEYPAD word written by Open-GBP reaches the cartridge as key presses, for the buttons pressed. Nothing about latency, about the refresh being needed, or about buttons not pressed",
+   "buttons_observed": [
+    "L",
+    "R",
+    "A",
+    "B",
+    "SELECT",
+    "START"
+   ],
+   "buttons_not_observed": [
+    "UP",
+    "DOWN",
+    "LEFT",
+    "RIGHT"
+   ]
+  },
+  "question_O": {
+   "verdict": "AS-ASSIGNED",
+   "reading": "the L tally reads 1 and the R tally reads 2, and neither 1 nor 2 appears at a counter that expected 0: the GameCube L reached the checker's L and R its R",
+   "means": "U-GBP-010 closes as OPERATOR OBSERVATION with the descriptor kept as it is; the routing stays CORROBORATED, not FACT (§V7.1.10)"
+  },
+  "read_from": "the Operator's literal tally vector (the channel §V7.1.9 names) AND, independently, the machine-decodable OGBPFULL1 frames; the two channels agree digit for digit and are recorded separately",
+  "classified_by": "Orchestrator, against the §V7.1.9 gates frozen before the runs (Issue #24 contract); every figure reproduced here from the raw files with the unchanged tools",
+  "routing_classification": {
+   "status": "CORROBORATED, not FACT",
+   "chain": [
+    "the descriptor maps L to word bit 8 (code, GBP-KEY-006)",
+    "the checker increments countL only on KEY_L (source, verified)",
+    "the L counter reads exactly 1 and no other counter reads 1 (data, this file)",
+    "the Operator pressed L exactly once (NOT in the machine record: the log knows 42 key changes, not which buttons)"
+   ],
+   "argument_not_record": "the distinct-count design makes a wrong walk overwhelmingly unlikely to produce the expected vector, but that is an argument, not a record",
+   "what_would_make_it_FACT": "one log line: the word written at each key change, binding every press to the word the runtime sent -- the join closed by machine end to end (recorded as a finding, GBP-KEY-009; NOT implemented here)"
+  },
+  "u_gbp_010": "CLOSED on its own stated condition (a game that distinguishes L from R, OPERATOR OBSERVATION), supported by the Operator's vector AND independently by the frames; the descriptor kept; the routing stays CORROBORATED either way (§V7.1.10)",
+  "no_rerun_preregistered": true,
+  "run_16": "NOT RUN (optional, independent; nothing about it is claimed)"
+ },
+ "official_vindex": {
+  "verdict": "INCONCLUSIVE_TOO_FEW_INTACT_FRAMES",
+  "observed": 2048,
+  "intact": 0,
+  "counts": {
+   "INVALID_CANONICAL_STRIP": 2048
+  },
+  "decisive_transitions": 0,
+  "fault_seen": null,
+  "first_last_observed": [
+   null,
+   null
+  ],
+  "header_crc32": "c4d18caf",
+  "total_crc32": "03716e77",
+  "flags": "0x1a target_reached|service_ok|stop_is_target",
+  "stop_reason": 11,
+  "frames_seen": 2048,
+  "frames_discarded": 0,
+  "records_n": 2048,
+  "blocks_staged_placed": [
+   81921,
+   81921
+  ],
+  "blocks_out_of_range": 0,
+  "copy_ticks": {
+   "min": 5,
+   "max": 1594,
+   "n": 96109,
+   "mean": 77.5
+  },
+  "usable_for_decisive_claim": true,
+  "every_record_all_40_blocks": true,
+  "note": "RECORDED, NOT A GATE (§V7.1.8 VIDEO PATH): the content is the Enhanced Control Checker's console screen, not OGBPCOORD1, so the canonical strip is INVALID on every frame by construction and the tool's verdict is expected; the container is intact (2048 records, every one with all 40 blocks, valid CRCs, stop = witness target)"
+ },
+ "official_vfull": {
+  "verdict": "INCONCLUSIVE",
+  "why": "8 sample(s) inconclusive",
+  "boundary": "source -> converted texture only; nothing about the VI, the XFB or a display",
+  "header_crc32": "33f665a5",
+  "total_crc32": "b48b2526",
+  "flags": "0x2",
+  "k": 8,
+  "records_n": 8,
+  "spacing": 256,
+  "origin": 356,
+  "want_calls": 2377,
+  "wanted": 8,
+  "opened": 8,
+  "completed": 8,
+  "refused": 0,
+  "skipped_capacity": 0,
+  "blocks_copied": 320,
+  "samples": [
+   {
+    "sample": 0,
+    "frame_index": 356,
+    "seq": 331,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 1,
+    "frame_index": 612,
+    "seq": 587,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 2,
+    "frame_index": 868,
+    "seq": 843,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 3,
+    "frame_index": 1124,
+    "seq": 1099,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 4,
+    "frame_index": 1380,
+    "seq": 1355,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 5,
+    "frame_index": 1636,
+    "seq": 1611,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 6,
+    "frame_index": 1892,
+    "seq": 1867,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   },
+   {
+    "sample": 7,
+    "frame_index": 2148,
+    "seq": 2123,
+    "state": "COMPLETE",
+    "verdict": "INCONCLUSIVE",
+    "why": "STRIP-L inconsistent: {'blocks_ok': 0, '"
+   }
+  ],
+  "texture_equals_convert_py": "8/8",
+  "note": "RECORDED, NOT A GATE: the oracle is OGBPCOORD1 and the content is the checker's screen, so STRIP-L is inconsistent on every sample and the tool's verdict is INCONCLUSIVE by construction; the container facts are intact (8/8 COMPLETE, valid CRCs) and the preserved texture equals the Python conversion of the preserved raw in every sample (a content-independent CLAIM-B-type equality, checked here outside the tool's oracle path)"
+ },
+ "official_vdisp": {
+  "ready": true,
+  "header_crc32": "2c4ff3e4",
+  "life_crc32": "66727e2c",
+  "event_crc32": "79583b90",
+  "total_crc32": "bfb0edf1",
+  "lifecycles": 2378,
+  "events": 2392,
+  "decisions": 2377,
+  "window_opens_at": 355,
+  "life_overflow": 0,
+  "event_overflow": 0,
+  "drawdone_unmatched": 0,
+  "retrace_delta_hist_all_decisions": {
+   "0": 15,
+   "1": 2354,
+   "2": 12,
+   "3": 9,
+   "4": 1
+  },
+  "interval_ticks": {
+   "n": 6,
+   "min": "max",
+   "p50": "n",
+   "p90": "p90",
+   "max": "p90"
+  },
+  "join": {
+   "source_records": 2048,
+   "with_a_lifecycle": 2047,
+   "not_in_trace": [
+    2403
+   ],
+   "disposition": {
+    "SELECTED_NEW": 2047
+   }
+  }
+ },
+ "official_vvi": {
+  "tool": "tools/vvi.py CORRECTED implementation (GBP-VID-035 repaired, commit 0ee8aac, §V6.21), unchanged since",
+  "header_crc32": "a118b51d",
+  "total_crc32": "2dac3866",
+  "records": 2377,
+  "records_cap": 4096,
+  "handed": 2377,
+  "latched": 2372,
+  "superseded": 4,
+  "overflow": 0,
+  "observe_calls": 2372,
+  "awaiting_at_end": 2376,
+  "regs_consistent_top_matches": "2372/2372",
+  "regs_consistent_bottom_plausible": "2372/2372",
+  "boundary": "SOFTWARE CHAIN ONLY (CLAIM-C); recorded, not a gate of GBP-INPUT-001"
+ },
+ "vi_register_model": {
+  "corrected_rule": "libogc2 __setFbbRegs: flag unless every base < 0x01000000; bases >> 5 when flagged; reg18 carries no flag (§V6.21)",
+  "top_vs_handed_phys": "2372/2372",
+  "bottom_plausible": "2372/2372",
+  "vi_flag_values": [
+   1
+  ],
+  "distinct_phys": [
+   "0x013a9f20",
+   "0x0143ff40"
+  ],
+  "retrace_latch_minus_handed_hist": {
+   "1": 2372
+  },
+  "t_latch_minus_handed_ms": {
+   "min": 0.11395061728395062,
+   "p50": 8.751925925925926,
+   "max": 16.877456790123457
+  },
+  "superseded_frame_index": [
+   334,
+   888,
+   889,
+   1734
+  ],
+  "latched_more_than_one_retrace_after_handed": [],
+  "latch_note": "every latch is the retrace after its hand-over except the records listed (instrumentation semantics, recorded, not judged)",
+  "awaiting_frame_index": [
+   2402
+  ],
+  "R_k_table": "NOT APPLICABLE: the content is the checker's console screen, not OGBPCOORD1; the tool's R_k / H_k / L_k rows are 40/0/0/0 by construction and mean nothing here (recorded, not judged)"
+ },
+ "tally_frames": {
+  "method": "tools/vfull.py UNMODIFIED: load() + consumed_words() (word16 = (byte1 << 8) | byte3, raster order, GBP-VID-003); background = the word at pixel (0,0); a pixel is lit when |lum - lum(bg)| > 20 with lum = R+G+B of the 5-bit fields (bits 14-10, 9-5, 4-0); the checker's tally field `%2d` at console column 22 (8x8 cells; rows 4..13 = L, R, UP, DOWN, LEFT, RIGHT, START, SELECT, A, B, from the checker's source); a cell is read ONLY by exact match against the glyph table below, transcribed from the frames; an unknown bitmap aborts the reading",
+  "glyph_table": {
+   "1": [
+    "....##..",
+    "...###..",
+    "..####..",
+    "....##..",
+    "....##..",
+    "....##..",
+    "....##..",
+    "........"
+   ],
+   "2": [
+    "...####.",
+    "..##..##",
+    "......##",
+    ".....##.",
+    "....##..",
+    "...##...",
+    "..######",
+    "........"
+   ],
+   "3": [
+    "...####.",
+    "..##..##",
+    "......##",
+    "....###.",
+    "......##",
+    "..##..##",
+    "...####.",
+    "........"
+   ],
+   "4": [
+    "....###.",
+    "...####.",
+    "..##.##.",
+    ".##..##.",
+    ".#######",
+    ".....##.",
+    ".....##.",
+    "........"
+   ],
+   "5": [
+    "..######",
+    "..##....",
+    "..#####.",
+    "......##",
+    "......##",
+    "..##..##",
+    "...####.",
+    "........"
+   ],
+   "6": [
+    "....###.",
+    "...##...",
+    "..##....",
+    "..#####.",
+    "..##..##",
+    "..##..##",
+    "...####.",
+    "........"
+   ]
+  },
+  "counter_order": [
+   "L",
+   "R",
+   "UP",
+   "DOWN",
+   "LEFT",
+   "RIGHT",
+   "START",
+   "SELECT",
+   "A",
+   "B"
+  ],
+  "samples": [
+   {
+    "sample_index": 0,
+    "frame_index": 356,
+    "seq": 331,
+    "state": "COMPLETE",
+    "t_take": 34154039899877240,
+    "s_after_control": 6.084127,
+    "s_after_sample_0": 0.0,
+    "title_row_lit_pixels": 522,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "readings": {
+     "L": "1",
+     "R": "blank",
+     "UP": "blank",
+     "DOWN": "blank",
+     "LEFT": "blank",
+     "RIGHT": "blank",
+     "START": "blank",
+     "SELECT": "blank",
+     "A": "blank",
+     "B": "blank"
+    },
+    "vector_as_read": [
+     "1",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ],
+    "tens_column_blank": true,
+    "texture_equals_convert_py": true
+   },
+   {
+    "sample_index": 1,
+    "frame_index": 612,
+    "seq": 587,
+    "state": "COMPLETE",
+    "t_take": 34154040073466520,
+    "s_after_control": 10.370282,
+    "s_after_sample_0": 4.286155,
+    "title_row_lit_pixels": 522,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "blank",
+     "DOWN": "blank",
+     "LEFT": "blank",
+     "RIGHT": "blank",
+     "START": "blank",
+     "SELECT": "blank",
+     "A": "3",
+     "B": "2"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "3",
+     "2"
+    ],
+    "tens_column_blank": true,
+    "texture_equals_convert_py": true
+   },
+   {
+    "sample_index": 2,
+    "frame_index": 868,
+    "seq": 843,
+    "state": "COMPLETE",
+    "t_take": 34154040247055935,
+    "s_after_control": 14.656441,
+    "s_after_sample_0": 8.572313,
+    "title_row_lit_pixels": 522,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "blank",
+     "DOWN": "blank",
+     "LEFT": "blank",
+     "RIGHT": "blank",
+     "START": "3",
+     "SELECT": "5",
+     "A": "3",
+     "B": "4"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "3",
+     "5",
+     "3",
+     "4"
+    ],
+    "tens_column_blank": true,
+    "texture_equals_convert_py": true
+   },
+   {
+    "sample_index": 3,
+    "frame_index": 1124,
+    "seq": 1099,
+    "state": "COMPLETE",
+    "t_take": 34154040420645205,
+    "s_after_control": 18.942596,
+    "s_after_sample_0": 12.858468,
+    "title_row_lit_pixels": 522,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "blank",
+     "DOWN": "blank",
+     "LEFT": "blank",
+     "RIGHT": "blank",
+     "START": "6",
+     "SELECT": "5",
+     "A": "3",
+     "B": "4"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "6",
+     "5",
+     "3",
+     "4"
+    ],
+    "tens_column_blank": true,
+    "texture_equals_convert_py": true
+   },
+   {
+    "sample_index": 4,
+    "frame_index": 1380,
+    "seq": 1355,
+    "state": "COMPLETE",
+    "t_take": 34154040594234547,
+    "s_after_control": 23.228752,
+    "s_after_sample_0": 17.144625,
+    "title_row_lit_pixels": 522,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "blank",
+     "DOWN": "blank",
+     "LEFT": "blank",
+     "RIGHT": "blank",
+     "START": "6",
+     "SELECT": "5",
+     "A": "3",
+     "B": "4"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "6",
+     "5",
+     "3",
+     "4"
+    ],
+    "tens_column_blank": true,
+    "texture_equals_convert_py": true
+   },
+   {
+    "sample_index": 5,
+    "frame_index": 1636,
+    "seq": 1611,
+    "state": "COMPLETE",
+    "t_take": 34154040767823882,
+    "s_after_control": 27.514909,
+    "s_after_sample_0": 21.430781,
+    "title_row_lit_pixels": 522,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "blank",
+     "DOWN": "blank",
+     "LEFT": "blank",
+     "RIGHT": "blank",
+     "START": "6",
+     "SELECT": "5",
+     "A": "3",
+     "B": "4"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "6",
+     "5",
+     "3",
+     "4"
+    ],
+    "tens_column_blank": true,
+    "texture_equals_convert_py": true
+   },
+   {
+    "sample_index": 6,
+    "frame_index": 1892,
+    "seq": 1867,
+    "state": "COMPLETE",
+    "t_take": 34154040941413209,
+    "s_after_control": 31.801065,
+    "s_after_sample_0": 25.716938,
+    "title_row_lit_pixels": 522,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "blank",
+     "DOWN": "blank",
+     "LEFT": "blank",
+     "RIGHT": "blank",
+     "START": "6",
+     "SELECT": "5",
+     "A": "3",
+     "B": "4"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "6",
+     "5",
+     "3",
+     "4"
+    ],
+    "tens_column_blank": true,
+    "texture_equals_convert_py": true
+   },
+   {
+    "sample_index": 7,
+    "frame_index": 2148,
+    "seq": 2123,
+    "state": "COMPLETE",
+    "t_take": 34154041115002551,
+    "s_after_control": 36.087221,
+    "s_after_sample_0": 30.003094,
+    "title_row_lit_pixels": 522,
+    "distinct_words": 3,
+    "background_word": "0xc578",
+    "readings": {
+     "L": "1",
+     "R": "2",
+     "UP": "blank",
+     "DOWN": "blank",
+     "LEFT": "blank",
+     "RIGHT": "blank",
+     "START": "6",
+     "SELECT": "5",
+     "A": "3",
+     "B": "4"
+    },
+    "vector_as_read": [
+     "1",
+     "2",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "6",
+     "5",
+     "3",
+     "4"
+    ],
+    "tens_column_blank": true,
+    "texture_equals_convert_py": true
+   }
+  ],
+  "texture_equals_convert_py_all": true,
+  "final_state_from_sample": 3,
+  "final_vector_as_read": [
+   "1",
+   "2",
+   "blank",
+   "blank",
+   "blank",
+   "blank",
+   "6",
+   "5",
+   "3",
+   "4"
+  ],
+  "final_vector_blank_read_as_never_incremented": [
+   1,
+   2,
+   0,
+   0,
+   0,
+   0,
+   6,
+   5,
+   3,
+   4
+  ],
+  "expected_vector_arithmetic": [
+   1,
+   2,
+   0,
+   0,
+   0,
+   0,
+   6,
+   5,
+   3,
+   4
+  ],
+  "final_equals_expected": true,
+  "walk_in_progress": [
+   {
+    "sample_index": 0,
+    "vector_as_read": [
+     "1",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank"
+    ]
+   },
+   {
+    "sample_index": 1,
+    "vector_as_read": [
+     "1",
+     "2",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "3",
+     "2"
+    ]
+   },
+   {
+    "sample_index": 2,
+    "vector_as_read": [
+     "1",
+     "2",
+     "blank",
+     "blank",
+     "blank",
+     "blank",
+     "3",
+     "5",
+     "3",
+     "4"
+    ]
+   }
+  ],
+  "walk_order_visible": "the partial samples show the counters advancing in the declared walk order (L, R, then the run's four)",
+  "classification": "FACT (data, recomputable): the preserved OGBPFULL1 frames of this run show the checker's tally screen with counts equal to the walk's arithmetic expectation, L = 1 and R = 2, reproducible from the archived file with the frozen parser -- NOT operator observation. The frames do not record which GameCube button was pressed.",
+  "blank_vs_zero": "§V7.1.9 says an unpressed counter `reads 0`; the instrument prints a tally only on a press (updateButtonTally after keysDown), so an unpressed counter is BLANK -- read here as `never incremented`, the substance of the gate; the wording mismatch is recorded, not smoothed over"
+ },
+ "input_machine_gate": {
+  "ENVINPUT": {
+   "port": 1,
+   "policy": "default",
+   "stick_threshold": 48,
+   "trigger_threshold": 0,
+   "analog_ab_threshold": 0,
+   "filter_opposites": 1,
+   "refresh_ms": 5,
+   "refresh_ticks": 202500,
+   "layout": "gbi-u16-replicated",
+   "index": 12,
+   "desc": "0,1,2,3,4,5,6,7,9,8",
+   "pressed_is_one": 1,
+   "desc_status": "CORROBORATED_n"
+  },
+  "INPUT": {
+   "selftest": 1,
+   "steps": 183931,
+   "invalid": 0,
+   "no_base": 0,
+   "key_changes": 42,
+   "attempts": 7892,
+   "completed": 7892,
+   "failed": 0,
+   "first": 1,
+   "change": 42,
+   "refresh": 7849,
+   "retry": 0,
+   "last_word": "0000",
+   "last_rc": "ok"
+  },
+  "INPUTT": {
+   "write_ticks_min_mean_max": [
+    30,
+    30,
+    38
+   ],
+   "write_n": 7892,
+   "step_ticks_min_mean_max": [
+    98,
+    169,
+    1046
+   ],
+   "step_n": 183931,
+   "write_us_min_mean_max": [
+    0.741,
+    0.741,
+    0.938
+   ],
+   "step_us_min_mean_max": [
+    2.42,
+    4.173,
+    25.827
+   ],
+   "note": "OBSERVATIONAL: the slot cost of the poll+encode+write step and of the 32-byte write, never a latency claim (§V7.1.8)"
+  },
+  "gate": {
+   "selftest": true,
+   "steps_gt_0": true,
+   "attempts_gt_0": true,
+   "completed_eq_attempts": true,
+   "failed_eq_0": true,
+   "first_eq_1": true,
+   "refresh_gt_0": true,
+   "change_ge_4": true,
+   "invalid_eq_0": true,
+   "no_base_eq_0": true,
+   "retry_eq_0": true,
+   "last_rc_ok": true,
+   "envinput_selftest_recoverable": "the ENVINPUT selftest field is in the clipped tail; INPUT selftest=1 carries the same flag",
+   "descriptor_as_data": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    9,
+    8
+   ],
+   "pressed_is_one": 1,
+   "attempts_eq_first_plus_change_plus_refresh_plus_retry": true,
+   "key_changes_eq_change": true,
+   "key_changes_vs_walk": {
+    "key_changes": 42,
+    "presses_in_walk": 21,
+    "equals_two_per_press": true,
+    "note": "each press is a change to the pressed word and a change back; 42 = 2 x 21 is CONSISTENT with the walk and is not a record of WHICH buttons changed (the log carries counts, not words)"
+   },
+   "last_word": "0000",
+   "last_word_note": "0000 = no button held when the run ended at the witness target",
+   "MET": true
+  },
+  "what_it_is": "the ONLY machine facts of GBP-INPUT-001 (§V7.1.8): the runtime polled, encoded and wrote; the KEYPAD window is write-only and the device never answers; nothing here says what the cartridge received"
+ },
+ "log_header": {
+  "lines": 686,
+  "dropped": 0,
+  "truncated": 1,
+  "end_dropped": 0,
+  "truncated_line": {
+   "tag": "ENVINPUT",
+   "seq": 3,
+   "payload_chars_saved": 248,
+   "limit": 248,
+   "saved_ends_with": "e=1 desc_status=CORROBORATED_n",
+   "rendered_payload_chars": 266,
+   "lost_tail": "ot_FACT selftest=1",
+   "derivation": "LOG_LINE_LEN 256 minus the 7-character `%06u ` prefix and the NUL leaves 248 payload characters (GBP-VID-033 / §V5.58.1, the derivation runs 9 and 10 used); src/log/ringlog.c:46 counts the cut; the ENVINPUT format (poc/gbp-video-stream-probe/source/main.c:1216, new in stream-0014) renders to 266 characters with this run's values, so it is clipped after `desc_status=CORROBORATED_n`",
+   "affects": "the ENVINPUT record's last two fields only: the descriptor's status label (a constant of the format string, `CORROBORATED_not_FACT`) and `selftest=1` (repeated verbatim in the INPUT record); every other record is complete (the next longest payload is STARTUPT at 218); the four binary sidecars are unaffected; no gate figure is derived from the clipped fields",
+   "gate_reading": "the §V7.1.8 IDENTITY / LOG line asks truncated=0 and the summary records complete: the ENVINPUT record is the one incomplete record, its lost fields are recoverable from the format and the INPUT record, and the INPUT machine gate reads from INPUT / INPUTT, which are complete -- recorded as the honesty item Issue #24 names, not smoothed over; the Orchestrator's classification stands",
+   "only_clipped_record": true
+  },
+  "longest_payload": {
+   "chars": 248,
+   "tag": "ENVINPUT",
+   "limit": 248
+  },
+  "next_longest_payload": {
+   "chars": 218,
+   "tag": "STARTUPT"
+  },
+  "tag_counts": {
+   "WITELIG": 1,
+   "WITELIG2": 1,
+   "WITQUAL": 1,
+   "FULLSTORE": 1,
+   "VISTORE": 1,
+   "DISPSRC": 1,
+   "STREAMWIT": 1,
+   "STARTUP": 1,
+   "COUNTERS": 1,
+   "ENVFULL": 1,
+   "ENVINPUT": 1,
+   "INPUT": 1,
+   "INPUTT": 1,
+   "STATS": 1,
+   "STREAMPUMP": 1,
+   "STREAMPUMPT": 1
+  },
+  "sidecars_declared": null,
+  "header_lines": {
+   "test_id": "GBP-VIDEO-004",
+   "build_id": "stream-0014",
+   "commit": "0ff8355"
+  }
+ },
+ "log_records_verbatim": {
+  "IDENT": "000000 IDENT test=GBP-VIDEO-004 app=gbp-video-stream-probe build=stream-0014 commit=0ff8355 libogc=libogc2 r2442.094b250",
+  "ENV": "000001 ENV bus_hz=162000000 tb_hz=40500000 dma_timeout_ms=200 t_max_ms=2000 t_delivery_ms=100 t_next_cause_ms=100 csr=0804",
+  "ENVSTREAM": "000002 ENVSTREAM time_target=disabled safety_s=60 slice_tile_rows=1 tex_buffers=2 tex_bytes=76800 ring_slots=4",
+  "ENVINPUT": "000003 ENVINPUT port=1 policy=default stick_threshold=48 trigger_threshold=0 analog_ab_threshold=0 filter_opposites=1 refresh_ms=5 refresh_ticks=202500 layout=gbi-u16-replicated index=12 desc=0,1,2,3,4,5,6,7,9,8 pressed_is_one=1 desc_status=CORROBORATED_n",
+  "ENVSTORE": "000004 ENVSTORE frames=16384/16384 events=4096/4096 raw_ring=737280/552960 slots=4/3 episode_raw=2949120/2949120 audio_raw=12288/12288 configured_bytes=7106560 required_bytes=6922240 fault=- ok=1",
+  "ENVFULL": "000007 ENVFULL k=8 spacing=256 full_raw=1228800 full_tex=614400 vvi=229376 arena1_free=1650688",
+  "COUNTERS": "000656 COUNTERS unmasks=254618 deliveries=254618 acks=254618 rearms=254618 lean=254614 verify=4 audio=164791 video=96109/96109 isr_w1c=254618 main_w1c=0 teardown_w1c=1 overflow=0 uncertain=0 control_ok=1",
+  "STATS": "000660 STATS transfers=1032712 timeouts=0 busy=0 bulk_transfers=260900 bulk_bytes=1044042496",
+  "STREAMSRC": "000661 STREAMSRC closed=2404 complete=2378 incomplete=13 quarantined=0 anomaly=13 published=2378",
+  "STREAMCONS": "000662 STREAMCONS taken=2377 converted=2377 presented=2377 overrun=0 dropped_before_convert=0 repeats=0 no_cpu_texture=0 abandoned_no_raw=0 balanced=1",
+  "STREAMPUMP": "000664 STREAMPUMP calls=254618 slices=95080 completed=2377 skipped_cause_pending=70687 pending_before=70687 pending_after=31640 arrived_during=31640",
+  "STREAMPUMPT": "000665 STREAMPUMPT ticks_min=1156 ticks_max=2596 ticks_mean=1501 n=95080 tile_rows_per_slice=1",
+  "INPUT": "000666 INPUT selftest=1 steps=183931 invalid=0 no_base=0 key_changes=42 attempts=7892 completed=7892 failed=0 first=1 change=42 refresh=7849 retry=0 last_word=0000 last_rc=ok",
+  "INPUTT": "000667 INPUTT write_ticks=30/30/38 n=7892 step_ticks=98/169/1046 n=183931 units=min/mean/max",
+  "STREAMINV": "000670 STREAMINV checks=187214 failures=0 main=0/184836 isr=0/2378 consistent_at_end=1",
+  "WITQUAL": "000672 WITQUAL policy=consecutive_structural_complete required=64 state=2 streak_max=64 resets=0 warmup_frames=356 warmup_disqualified=26 qualify_frame=355 qualified=1 armed=1 window_first_block=0 first_record_frame=356",
+  "WITELIG": "000673 WITELIG policy=time_not_before origin=control not_before_ms=5000 gated_at_init=1 released=1 still_gated=0 t_eligible=7956eb1542950d ticks_control_to_eligible=202507660",
+  "WITELIG2": "000674 WITELIG2 frames_seen_before_eligible=292 disqualified_before_eligible=26 qual_streak_at_eligible=0",
+  "FULLSTORE": "000675 FULLSTORE k=8 spacing=256 origin=356 origin_set=1 want_calls=2377 wanted=8 opened=8 completed=8 refused=0 skipped_capacity=0 blocks_copied=320",
+  "VISTORE": "000676 VISTORE handed=2377 latched=2372 superseded=4 overflow=0 observe_calls=2372 awaiting_at_end=2376 records=2377/4096",
+  "DISPSRC": "000678 DISPSRC handoffs=2377 deferred_frames=15 defer_attempts=18 dropped_interior=0 terminal_pending=0 max_defer_depth=1 order_violations=0 selected_new=2377 hold_previous=0",
+  "STARTUP": "000679 STARTUP mode=normal selftest_run=1 selftest_visible=0 prehandler_wait_ms=0 clear_fb=1 normal_clean=1 presented_synthetic=0 headless_submits=1",
+  "STARTUPT": "000680 STARTUPT tb_hz=40500000 t_program=7956eb09033f61 t_video=7956eb09127585 t_selftest_begin=7956eb0915386b t_selftest_end=7956eb091cc503 t_probe_enter=7956eb0928a45f t_control=7956eb09308f81 t_capture_start=7956eb09731bb7",
+  "STARTUPV": "000681 STARTUPV have_first=1 first_frame_index=2 t_take=7956eb0991acde t_convert_done=7956eb0996bbf3 t_decision=7956eb0996bc73 t_drawdone=7956eb0996cdc7 ticks_control_to_first_handoff=6696178",
+  "STREAMWIT": "000682 STREAMWIT records=2048/2048 target=2048 frames_seen=2048 discarded=0 staged=81921 placed=81921 out_of_range=0 store_full=0 target_reached=1",
+  "STREAMWITT": "000683 STREAMWITT copy_ticks_min=5 copy_ticks_max=1594 copy_ticks_mean=77 n=96109 tb_hz=40500000",
+  "STREAMPACE": "000684 STREAMPACE publish_min=675023 publish_max=2036141 publish_mean=684929 n=2377 convert_min=52717 convert_max=98309 convert_mean=60067 n=2377",
+  "STREAMFLAG15": "000685 STREAMFLAG15 last_count=1 first_x=0 first_y=0 note=reported_not_interpreted",
+  "TEARDOWNVSTATE": "000247 TEARDOWNVSTATE variant=S5_witness_target stop=witness_target_reached deliveries=254618 video=96109 acks=254618 rearms=254618 unmasks=254618 next_cause_at_end=1",
+  "VSTATE end": "000248 VSTATE end status=ok_structured_change_observed class=ok reason=- stop=witness_target_reached restore=ok restore_reason=- teardown=S5_witness_target power_cycle_required=1 errors=0 transport_ok=1",
+  "CONTROL semantic": "000033 CONTROL semantic orig=92 exp=8e method=gbi-majority-vote transform=(v&~10)|0c",
+  "CONTROL restore": "000229 CONTROL restore semantic=92 rc=ok readback_rc=ok readback_vote=92 readback_b1f=92 ok=1",
+  "TEARDOWN start": "000226 TEARDOWN start control_written=1 irq_attempted=509238 irq_completed=509238 uncertain_writes=0 intsr13_seen=1 pi_policy=unmasked_per_cycle",
+  "AUDIOAGG": "000263 AUDIOAGG selected=164791 attempted=164791 completed=164791 failures=0 bytes=674983936 raw_kept=2 first_valid=1 last_valid=2",
+  "WRITES": "000249 WRITES control_written=1 irq_attempted=509239 irq_completed=509239 ctl_exp=1/1 a1=1/1 a2=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 power_cycle_required=1 format=attempted/completed"
+ },
+ "startup": {
+  "mode": "normal",
+  "selftest_run": 1,
+  "selftest_visible": 0,
+  "prehandler_wait_ms": 0,
+  "presented_synthetic": 0,
+  "headless_submits": 1,
+  "ticks_control_to_first_handoff": 6696178,
+  "ms_control_to_first_handoff": 165.337728,
+  "tb_hz": 40500000,
+  "gate": "< 400 ms: PASS; RUN 13 165.151852 ms; recorded, no tolerance"
+ },
+ "witelig": {
+  "policy": "time_not_before",
+  "origin": "control",
+  "not_before_ms": 5000,
+  "gated_at_init": 1,
+  "released": 1,
+  "still_gated": 0,
+  "t_eligible": "7956eb1542950d",
+  "ticks_control_to_eligible": 202507660,
+  "frames_seen_before_eligible": 292,
+  "disqualified_before_eligible": 26,
+  "qual_streak_at_eligible": {
+   "direct_value": 0,
+   "counter_cross_check": "warmup 356 - elig_before 292 = 64 = required; qualify_frame 355 = 292 + 63; resets 0",
+   "agrees": true
+  }
+ },
+ "witqual": {
+  "required": 64,
+  "state": 2,
+  "streak_max": 64,
+  "resets": 0,
+  "warmup_frames": 356,
+  "warmup_disqualified": 26,
+  "qualify_frame": 355,
+  "qualified": 1,
+  "armed": 1,
+  "window_first_block": 0,
+  "first_record_frame": 356
+ },
+ "timing_after_control_s": {
+  "program_to_control_s": 0.073324,
+  "control_to_capture_start_s": 0.107686,
+  "eligibility": 5.000189,
+  "first_retained_record": 6.067234,
+  "first_retained_record_basis": "OGBPIDXCAP1 record 0 (frame_index 356) t_first_block minus STARTUPT t_control",
+  "first_retained_take": 6.084127,
+  "last_retained_record": 40.339753,
+  "first_handoff_ms": 165.337728
+ },
+ "transport": {
+  "unmasks": 254618,
+  "deliveries": 254618,
+  "acks": 254618,
+  "rearms": 254618,
+  "lean": 254614,
+  "verify": 4,
+  "audio": 164791,
+  "video": "96109/96109",
+  "isr_w1c": 254618,
+  "main_w1c": 0,
+  "teardown_w1c": 1,
+  "overflow": 0,
+  "uncertain": 0,
+  "control_ok": 1,
+  "transfers": 1032712,
+  "timeouts": 0,
+  "busy": 0,
+  "bulk_transfers": 260900,
+  "bulk_bytes": 1044042496,
+  "errors": 0,
+  "transport_ok": 1,
+  "stop": "witness_target_reached",
+  "restore": "ok",
+  "power_cycle_required": 1,
+  "teardown_variant": "S5_witness_target",
+  "next_cause_at_end": 1,
+  "balanced": true,
+  "irq_attempted": 509239,
+  "irq_completed": 509239,
+  "irq_record": "WRITES irq_attempted/irq_completed"
+ },
+ "runtime_summaries": {
+  "FULLSTORE": {
+   "k": 8,
+   "spacing": 256,
+   "origin": 356,
+   "origin_set": 1,
+   "want_calls": 2377,
+   "wanted": 8,
+   "opened": 8,
+   "completed": 8,
+   "refused": 0,
+   "skipped_capacity": 0,
+   "blocks_copied": 320
+  },
+  "VISTORE": {
+   "handed": 2377,
+   "latched": 2372,
+   "superseded": 4,
+   "overflow": 0,
+   "observe_calls": 2372,
+   "awaiting_at_end": 2376,
+   "records": "2377/4096"
+  },
+  "DISPSRC": {
+   "handoffs": 2377,
+   "deferred_frames": 15,
+   "defer_attempts": 18,
+   "dropped_interior": 0,
+   "terminal_pending": 0,
+   "max_defer_depth": 1,
+   "order_violations": 0,
+   "selected_new": 2377,
+   "hold_previous": 0
+  },
+  "STREAMWIT": {
+   "records": "2048/2048",
+   "target": 2048,
+   "frames_seen": 2048,
+   "discarded": 0,
+   "staged": 81921,
+   "placed": 81921,
+   "out_of_range": 0,
+   "store_full": 0,
+   "target_reached": 1
+  },
+  "STREAMWITT": {
+   "copy_ticks_min": 5,
+   "copy_ticks_max": 1594,
+   "copy_ticks_mean": 77,
+   "n": 96109,
+   "tb_hz": 40500000
+  },
+  "ENVFULL": {
+   "k": 8,
+   "spacing": 256,
+   "full_raw": 1228800,
+   "full_tex": 614400,
+   "vvi": 229376,
+   "arena1_free": 1650688
+  },
+  "STREAMSRC": {
+   "closed": 2404,
+   "complete": 2378,
+   "incomplete": 13,
+   "quarantined": 0,
+   "anomaly": 13,
+   "published": 2378
+  },
+  "STREAMCONS": {
+   "taken": 2377,
+   "converted": 2377,
+   "presented": 2377,
+   "overrun": 0,
+   "dropped_before_convert": 0,
+   "repeats": 0,
+   "no_cpu_texture": 0,
+   "abandoned_no_raw": 0,
+   "balanced": 1
+  },
+  "STREAMPUMP": {
+   "calls": 254618,
+   "slices": 95080,
+   "completed": 2377,
+   "skipped_cause_pending": 70687,
+   "pending_before": 70687,
+   "pending_after": 31640,
+   "arrived_during": 31640
+  },
+  "STREAMPUMPT": {
+   "ticks_min": 1156,
+   "ticks_max": 2596,
+   "ticks_mean": 1501,
+   "n": 95080,
+   "tile_rows_per_slice": 1
+  },
+  "STREAMINV": {
+   "checks": 187214,
+   "failures": 0,
+   "main": "0/184836",
+   "isr": "0/2378",
+   "consistent_at_end": 1
+  },
+  "STREAMPACE": {
+   "publish_min": 675023,
+   "publish_max": 2036141,
+   "publish_mean": 684929,
+   "n": 2377,
+   "convert_min": 52717,
+   "convert_max": 98309,
+   "convert_mean": 60067
+  },
+  "envfull_note": "arena1_free 1650688: 8192 B below RUN 13's 1 658 880 (observation; the cause is not established here and is not judged)"
+ },
+ "policy_a": {
+  "decisions": 2377,
+  "deferred_frames": 15,
+  "defer_attempts": 18,
+  "event_n": 2392,
+  "joined": 2047,
+  "missing": [
+   2403
+  ],
+  "interior_drops": 0,
+  "reorder": 0,
+  "deferred_join": [
+   12,
+   14
+  ],
+  "max_deferred_depth": 1,
+  "order_violations": 0,
+  "frozen_latency_ms": {
+   "definition": "ready = t_convert_done -> t_decision, all 2047 join hand-offs, vpace percentile convention",
+   "p99": 0.00321,
+   "max": 0.475383
+  },
+  "alternate_first_attempt_ms": {
+   "p99": 0.473358,
+   "max": 0.473358
+  },
+  "retrace_delta_hist": {
+   "1": 2039,
+   "2": 7
+  },
+  "display_repeat_intervals": 7,
+  "display_repeat_note": "OBSERVATIONAL, never a gate",
+  "gates": {
+   "p99_le_1_0_ms": "PASS",
+   "max_le_2_5_ms": "PASS",
+   "interior_drops_0": "PASS",
+   "reorder_0": "PASS",
+   "depth_le_1": "PASS"
+  },
+  "note": "RECORDED as inherited video-path observations (§V7.1.8 VIDEO PATH): not gates of GBP-INPUT-001"
+ },
+ "findings": {
+  "hazard": "the §V7.1.7 hazard (a stuck or wrong word navigating a menu, launching something unattended, hanging the AGB) did not occur: the run ended at stop=witness_target_reached with restore=ok, the checker's screen is on every preserved frame, no tally moved without a press in the relayed report; the recovery procedure was not needed",
+  "photographs": "the optional photographs of the final tally screen did not serve as an aid: the chain has no upscaler and the 240x160 console text does not survive the camera (Issue #24); no claim about the chain's fidelity; the captured frames are the machine-decodable record instead",
+  "GBP-KEY-008": "the ENVINPUT record of stream-0014 exceeds the 248-character ringlog payload and is clipped (the same reporting class GBP-VID-033 repaired for WITELIG in stream-0011) -- FACT (software); a functional Issue, not this ingestion",
+  "GBP-KEY-009": "§V7.1.10 supposed a project-owned stimulus was required for FACT; these runs show the missing piece is one log line -- the word written at each key change -- recorded as the finding it is, NOT implemented",
+  "unregistered_trial": "recorded in §V7.1.2 for what it is (not a run, no claim); the runs ingested here are the registered ones"
+ },
+ "evidence_ids": [
+  "GBP-HW-261",
+  "GBP-HW-262",
+  "GBP-HW-263",
+  "GBP-HW-264",
+  "GBP-HW-265",
+  "GBP-KEY-008",
+  "GBP-KEY-009"
+ ],
+ "comparison_vs_run13": {
+  "run13_fixture": "hw-gamecube-gbp-2026-09-21-idxcap-run13-struct.json",
+  "build": [
+   "stream-0013",
+   "stream-0014"
+  ],
+  "dol_sha256": [
+   "5391c3fe962dc4b2f4e493f3846ac7407ded064c58f5d4bb583a51e5a725dd79",
+   "ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c"
+  ],
+  "content": [
+   "coord-0002 delivery (OGBPCOORD1)",
+   "Enhanced Control Checker (console text)"
+  ],
+  "input_path": [
+   "absent (no INPUT record; no KEYPAD write)",
+   "present: INPUT attempts=7892 completed=7892 failed=0"
+  ],
+  "log_lines_dropped_truncated": [
+   [
+    658,
+    0,
+    0
+   ],
+   [
+    686,
+    0,
+    1
+   ]
+  ],
+  "first_handoff_ticks": [
+   6688650,
+   6696178
+  ],
+  "first_handoff_ms": [
+   165.15185185185186,
+   165.337728
+  ],
+  "eligibility_ticks": [
+   202506118,
+   202507660
+  ],
+  "first_record_after_control_s": [
+   6.067203308641975,
+   6.067234
+  ],
+  "source_verdict": [
+   "OBSERVED_CONTIGUOUS",
+   "INCONCLUSIVE_TOO_FEW_INTACT_FRAMES"
+  ],
+  "intact_invalid": [
+   [
+    2048,
+    0
+   ],
+   [
+    0,
+    2048
+   ]
+  ],
+  "joined": [
+   2047,
+   2047
+  ],
+  "interior_drops": [
+   0,
+   0
+  ],
+  "reorder": [
+   0,
+   0
+  ],
+  "deferred_join": [
+   [
+    37,
+    81
+   ],
+   [
+    12,
+    14
+   ]
+  ],
+  "max_depth": [
+   1,
+   1
+  ],
+  "frozen_p99_max_ms": [
+   [
+    0.308543,
+    1.005012
+   ],
+   [
+    0.00321,
+    0.475383
+   ]
+  ],
+  "display_repeats": [
+   7,
+   7
+  ],
+  "transport_unmasks": [
+   254862,
+   254618
+  ],
+  "transfers": [
+   1025553,
+   1032712
+  ],
+  "bulk_transfers_bytes": [
+   [
+    260901,
+    1044046336
+   ],
+   [
+    260900,
+    1044042496
+   ]
+  ],
+  "streampump_skipped_cause_pending": [
+   64364,
+   70687
+  ],
+  "streampump_pending_after": [
+   25518,
+   31640
+  ],
+  "streampumpt_min_max_mean": [
+   [
+    1152,
+    2489,
+    1412
+   ],
+   [
+    1156,
+    2596,
+    1501
+   ]
+  ],
+  "streaminv_checks_failures": [
+   [
+    200348,
+    0
+   ],
+   [
+    187214,
+    0
+   ]
+  ],
+  "streamsrc_closed_complete_incomplete": [
+   [
+    2404,
+    2378,
+    13
+   ],
+   [
+    2404,
+    2378,
+    13
+   ]
+  ],
+  "vistore_latched_superseded": [
+   [
+    2371,
+    5
+   ],
+   [
+    2372,
+    4
+   ]
+  ],
+  "arena1_free": [
+   1658880,
+   1650688
+  ],
+  "deferrals_and_the_p99": "the frozen p99 fell from RUN 13's 0.308543 ms to 0.00321 ms because the deferred hand-offs in the join fell from 37 (> 1% of 2047 = 20.47) to 12 (< 1%): the 99th percentile now lands inside the never-deferred population; the maximum (0.475383 ms vs 1.005012 ms) is the deferred population's; arithmetic on the distribution, not a latency claim and not a gate of GBP-INPUT-001",
+  "note": "two things differ by design between RUN 13 and this run -- the image (stream-0013 -> stream-0014: the input path in the pump slot, nothing else, Issue #19) and the content (OGBPCOORD1 -> the checker's screen) -- so the source verdict, the STRIP-dependent tools and the pump's skipped-cause-pending figure are expected to move; the transport, startup, Policy A and sidecar-integrity figures are observations beside RUN 13's, not a tolerance and not proof of anything"
+ },
+ "records_uniform": {
+  "n": 2048,
+  "frame_index_range": [
+   356,
+   2403
+  ],
+  "every_record": {
+   "valid_blocks": 0,
+   "index_ok": 0,
+   "frame_id": null,
+   "status": null,
+   "outcome": "INVALID_CANONICAL_STRIP",
+   "invalid_by_reason": {
+    "symbol": 40
+   }
+  },
+  "deviations": [],
+  "note": "the per-record frozen decode is uniform on this content (the checker's console screen carries no OGBPCOORD1 strip), so it is stored once with any deviation listed; the content-blind per-record structure (40 blocks, flags, completeness) is in the qual projection"
+ }
+}
