@@ -178,6 +178,10 @@ class ThePumpSlotInsertion(unittest.TestCase):
         # existed: tools/v7611.py recomputes them and is exercised on SYNTHETIC vectors only, so the
         # ingestion cannot tune the constructions to the data. It reads no run and changes nothing.
         changed = changed - {"tools/v7611.py"}
+        # Issue #58 (2026-09-22) pre-registered Phase 6's first physical run (§V8, GBP-AUDIO-001) and made its
+        # three-model predictions executable BEFORE any build or log existed: tools/v8audio.py is exercised on
+        # SYNTHETIC vectors only, reads no run, authorises nothing and promotes nothing.
+        changed = changed - {"tools/v8audio.py"}
         # Issue #39 (2026-09-21) added the operator's session end to the service-path module -- one flag read in
         # CHECK_ADMISSION, a stop reason, a status, a config field; no device operation added, removed or reordered
         # (tests/host/test_play_image.py pins the change) -- and the `play` audit profile and the Swiss slot to tools/

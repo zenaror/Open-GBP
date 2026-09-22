@@ -436,6 +436,10 @@ class NothingElseMoved(unittest.TestCase):
         # existed: tools/v7611.py recomputes them and is exercised on SYNTHETIC vectors only, so the
         # ingestion cannot tune the constructions to the data. It reads no run and changes nothing.
         changed = changed - {"tools/v7611.py"}
+        # Issue #58 (2026-09-22) pre-registered Phase 6's first physical run (§V8, GBP-AUDIO-001) and made its
+        # three-model predictions executable BEFORE any build or log existed: tools/v8audio.py is exercised on
+        # SYNTHETIC vectors only, reads no run, authorises nothing and promotes nothing.
+        changed = changed - {"tools/v8audio.py"}
         # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing, and
         # Issue #44 (2026-09-22) hardened the staging tool against destroying a frozen slot: the manifest gained a frozen_sha256 column
         changed = changed - {"tools/reconcile.py", "tools/swiss_export.py", "tools/swiss-layout.tsv"}
