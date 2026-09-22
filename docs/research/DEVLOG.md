@@ -11300,3 +11300,65 @@ twelve freeze guards that list `tools/` were widened for it with the reason in
 place.
 
 **Next.** B (Issue #31, the GB/GBC design) and C (Issue #30).
+
+## 2026-09-21 — Issue #31: GB/GBC for Phase 7, DESIGN ONLY — the Operator's framing checked against the pages, two experiments with their gates, and one result the archive already carried: the CONTROL cartridge bit, 12 logs without a Game Pak against 22 with one
+
+**`docs/research/GBC_PATH.md`.** Design material for a phase two gates ahead,
+written while Phase 5 is current: no run, no pre-registration, no code, no
+evidence id, no status change, no phase crossing. The two Operator observations
+stay OPERATOR OBSERVATION, the second explicitly a recollection of using the
+Start-up Disc rather than a test.
+
+**His architectural framing was checked, not adopted.** Where the pages agree
+they are quoted (`GBS-DOL.md`: the chip "sits between the GameCube HSP and the
+CPU AGB A"; the AGB free-runs and the GameCube side observes; both references
+READ a cartridge-type bit to choose the words "Game Boy" and "Game Boy
+Advance"). Where they are silent it is said so: nothing in `docs/` describes how
+a CPU AGB A runs a GB/GBC cartridge, so the compatibility core is general Game
+Boy Advance knowledge and stays his account. And one sharpening that changes the
+experiment: on a retail GBA the L/R stretch is **the AGB's own** behaviour, so
+the Disc is not passing a command through — it injects L or R through the same
+KEYPAD window this project's runtime already writes, which is why the prediction
+costs no new runtime capability.
+
+**The archive already answers half of a question `U-GBP-017` asked for.** Every
+physical log records the original CONTROL byte before any write, and the 34 logs
+split exactly: **12 read `0x90`** — the era before the ROM delivery route
+existed, and GBP-VIDEO-002's own normative question is "in a session WITHOUT a
+Game Pak", so they are cartridge-less by their own records — and **22 read
+`0x92`**, every run from the moment a cartridge was in the slot. The difference
+is exactly bit `0x02`, with no exception in either direction, which is the
+`CART_INSERTED` / "present" flag all three references read and which had never
+been measured against a controlled cartridge state. `U-GBP-017`'s Needs list
+literally asked for "a run with a cartridge"; there are twenty-two.
+**Nothing was promoted here**: the observation is offered to a promotion
+checkpoint, with the reconciliation sweep to run over `REGISTERS.md`,
+`GBS-DOL.md` and `U-GBP-017`, and with its caveats attached (one console, one
+GBP, one flashcart as the only cartridge, one instant of one sequence). Bit
+`0x01` read 0 in all thirty-four — every run used no cartridge or a GBA one — and
+that is the gap a GB/GBC boot fills.
+
+**Two experiments, designed with their gates first.** (1) The cartridge type
+bit, at the cost of one boot and **no new code**: the prediction is written
+before the data (`0x93` confirms the references on hardware, `0x92` refutes the
+type bit at that instant and is a divergence from all three, `0x90` would say
+the Game Pak is not sensed at all), and the verdict is the byte rather than an
+interpretation of it. (2) The L/R stretch made testable: the KEY record supplies
+the SENT / NOT SENT half unchanged from §V7.6.11, the VIDEO path supplies what
+arrived, and NOT CHANGED is a real result — it would be the first measured
+divergence between GBA and GB/GBC mode. §4.1 comes before §4.2, because a
+stretch experiment in a mode nobody established the console entered reads
+nothing.
+
+**Delivery.** The Everdrive GB X7 does for GB/GBC what the EZ-Flash does for
+GBA. Four things to verify rather than assume when Phase 7 opens: that it is
+recognised through the GBP (which is §4.1's byte), that its menu's presses are
+treated as the EZ-Flash's were (an explicit topology item, cut off at the list's
+first key), that the three-value status axis applies to his unofficial GB/GBC
+cartridges and to the flashcart, and that nothing is inferred from the GBA
+route.
+
+**Gates.** `tests/host/test_gbc_path.py` pins the design and RE-DERIVES the
+CONTROL split from `captures/local/` rather than trusting the document's
+numbers; `make test-python` green on the committed tree; nothing under `src/`,
+`poc/`, `tools/` or the Makefile.
