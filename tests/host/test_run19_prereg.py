@@ -397,6 +397,10 @@ class NothingElseMoved(unittest.TestCase):
         # existed: tools/v7611.py recomputes them and is exercised on SYNTHETIC vectors only, so the
         # ingestion cannot tune the constructions to the data. It reads no run and changes nothing.
         changed = changed - {"tools/v7611.py"}
+        # Issue #58 (2026-09-22) pre-registered Phase 6's first physical run (§V8, GBP-AUDIO-001) and made its
+        # three-model predictions executable BEFORE any build or log existed: tools/v8audio.py is exercised on
+        # SYNTHETIC vectors only, reads no run, authorises nothing and promotes nothing.
+        changed = changed - {"tools/v8audio.py"}
         # Issue #46 (2026-09-22) promoted the CONTROL bit 0x02 split as GBP-HW-272: the evidence entry, the REGISTERS.md
         # row that now separates the references' USAGE (C) from this project's measurement (F) from the cause (H), and
         # U-GBP-017's Needs list, which records one of its three items answered and stays OPEN at P2
