@@ -11130,3 +11130,97 @@ untouched.
 **Next.** The Orchestrator validates the build; the acceptance run's
 pre-registration follows when a game is at hand, its first run doubling as
 the measurement of the shorter pass.
+
+## 2026-09-21 — Issue #41: RUN 21 / RUN 22 PRE-REGISTERED (§V7.6) — play-0001's first runs: Phase 5's acceptance on a real game, both pads, and the timing of the shortened service pass on the same runs under a separate gate; the instrument settled (WarioWare normal, a ROM on the flashcart) and its cartridge hardware checked; documentation only
+
+**The pre-registration (`HARDWARE_TESTS.md` §V7.6, fourteen parts).** Written
+before the hardware is touched, under GitHub Issue #41. RUN 21 and RUN 22 —
+RUN 19 / RUN 20's numbers are consumed by their withdrawal — are one pair of
+runs of `play-0001` (`2e48ca7`, `d0ee3c29…99de`, verified on disk, not
+rebuilt, NOT staged) carrying two experiments under §V6.13's rule.
+
+**Question A — Phase 5's acceptance,** read through the Operator's own
+definition of "reliably", fixed before any data: *"ambos os controles
+funcionam e tem que apresentar o mesmo comportamento… tanto o paralelo como
+original."* W / S / K keep §V7.5's structure. What changed with the
+instrument is stated rather than discovered later: a game gives no decodable
+statement of what it received, and `play-0001` writes no frames at all, so
+what the game did is the Operator's channel alone. The machine half is the
+KEY record, and it is spent on the one thing it can decide — every "it did
+not work" splits into **SENT** (the runtime sent the word; the failure is
+downstream) and **NOT SENT** (the press never became a word; the failure is
+upstream, in the pad or the policy).
+
+**Question T — the timing of the shortened service pass,** with RUN 17's
+figures as the reference (the witness step at 5 / 70 / 1 547 ticks per VIDEO
+block = 0.41 % of that capture; the ACK → RE-ARM gap 886–1 197 ticks on VIDEO
+cycles and 12 on AUDIO-only ones; 6 329 deliveries/s; the service identities;
+27.4 % of pump calls skipped on a pending cause). Verdicts NOMINAL /
+ANOMALOUS / **FAULT** / INCONCLUSIVE, with FAULT reachable by construction:
+it means the shortened transaction misbehaved, which is the first measurement
+of a change the project made deliberately (Issue #39) and recorded as
+unchecked. No figure is a threshold; the reading is direction and shape.
+
+**The one interaction, frozen:** a run whose service failed had no session, so
+it is INCONCLUSIVE for A as well. Otherwise T never reads the Operator's
+report and A never reads the cycle records.
+
+**The instrument: THREE CANDIDATES named before the run, declared at run
+time.** The Operator's words: *"nomeie os 3 jogos por enquanto… Quando eu
+testar eu informo."* Naming three before the data and letting him declare one
+is not indecision — every candidate is evaluated here, so none can be chosen
+afterwards to suit a result — and the pair must use the same one. (1)
+**WarioWare, Inc.: Mega Microgame$!**, the NORMAL one, a ROM on the EZ-Flash
+NOR: the crispest feedback of the three, because a microgame demands one input
+and fails visibly at the instant of the press, and dozens in sequence exercise
+the button path without a memorised list; mostly the D-pad and A, so L, R,
+SELECT and possibly B are expected N/A. (2) **Pokémon Emerald**, his note that
+it uses L and R: it covers the most keys, at a slower pace where "it
+responded" is a softer judgement; its cartridge carries a real-time clock and
+from a flashcart that clock may be absent or emulated, which touches berry
+growth and tides and **not** the input path — recorded so a clock-driven
+oddity is never mistaken for an input finding. (3) **Yoshi's Island**, his
+BELIEF that it uses L and R, recorded as his statement and not asserted by the
+part. Each one's cartridge hardware was CHECKED rather than presumed, which is
+the class of assumption that cost the project Twisted; Twisted stays rejected
+and is recorded as owned in two regional originals. **The choice got easier
+because of Issue #39:** a `stream-0015` session was bounded at about +40.3 s
+by the video witness's target, so a long boot, a save load or a title sequence
+could eat the window; `play-0001`'s session ends when the Operator ends it,
+inside 720 s. Removing that constraint is what made three ordinary games
+viable at all.
+
+**The procedure.** The separated notation is used for the first time (button
+and count apart, `×` with whitespace, digits never glued to a name, dual names
+for SELECT): the Operator misread the compressed form and the compression was
+the project's, not his error; the frozen lists of §V7.1, §V7.3 and §V7.5 keep
+their text. The list leans on ORDINARY PLAY — a short deliberate head on an
+idle screen, about three minutes of microgames, a closing sweep of the ten
+keys, then the end — and states that **L, R, SELECT and possibly B are
+expected N/A for WarioWare, which is an answer and never a finding: a game
+that never asks for L is not evidence that L fails, and which keys a title
+uses differs across the three candidates**. The session is the
+Operator's: Z held about a second → `stop=session_end`, the only success; the
+whole session must fit inside the 720 s safety budget. Two raw names reserved
+(one file per run; this image writes no sidecars). Two gate items are his,
+before the first boot: the cartridge declaration and that the Z hold is
+workable.
+
+**A correction on the record (`INPUT_PATH.md` §13.8).** Issue #39's report and
+records say the `play` audit profile finds "105 things wrong with the stream
+image"; the correct figure for the committed profile on the committed build is
+**102**. The cause was verified here, not guessed: 105 was measured with the
+profile's first draft, before three of its pins were corrected against the
+real listing, and those same three findings also fire against the stream
+image. The Orchestrator measured 102 independently. The earlier text keeps its
+words with a pointer; the property the figure illustrates is unchanged and is
+what the host test asserts.
+
+**Gates.** Documentation only: nothing under `src/`, `poc/`, `tools/` or the
+Makefile; `make test-python` green on the committed tree;
+`tests/host/test_run21_prereg.py` pins the part; the four "no run above 20"
+guards moved to "no run above 22" with their reason.
+
+**Next.** The Orchestrator validates the pre-registration, obtains the two
+gate items, and opens the Hardware Issue that stages `13-play` and moves RUN
+21 and then RUN 22.
