@@ -13115,3 +13115,69 @@ later arrival joins the archive without joining the derivation.
 `stimulus/agb-tone`, and it is a checkpoint of its own with its own
 pre-registration.
 
+---
+
+## 2026-09-22 — Issue #63: four ports, one controller — the Operator names a **behavioural gap**, and R6 stops being "untested" and becomes "not implemented"
+
+**RECORD AND SCOPE ONLY.** No code, no evidence id, no status change, no
+hardware, no ROADMAP edit.
+
+**His words, recorded verbatim in `INPUT_PATH.md` §15.1** as an OPERATOR
+OBSERVATION of the references' behaviour: the GameCube's four ports all work on
+the Game Boy Player, and four connected controllers — *"independente se for um
+GBA via multiboot ROM ou controle fisico"* — all act as **one** controller; it
+is not restricted to port 1, *"que é o que acontece hoje"*.
+
+**He is right about us, and it was verified rather than accepted.** Every
+controller read in the repository is `PAD_CHAN0` — **29 occurrences across the
+three images that have an input path**, covering buttons, both sticks, both
+triggers, the analogue buttons and the pad's error code, with `PAD_CHAN1/2/3`
+appearing **nowhere**, and `src/` holding no channel of its own. A test now
+checks that against the tree on every run, because it is the one statement in
+§15 that a later checkpoint will make false.
+
+**And it is a gap, not a decision.** Nothing in `INPUT_PATH.md`, in
+`gbp_input.c` or in any pre-registration ever said *"port 1 only"*: the single
+channel was inherited from the first probe and never revisited. **A choice
+nobody wrote down is not a policy; it is an omission**, and §15 is where it
+stops being invisible. What it does **not** touch: §V7.4's routing FACT is
+about what the AGB receives for a given word, and a word is a word wherever it
+came from — more ports add sources to L3 and change nothing in L1 or L2.
+
+**Half of #60's open question is answered, and more widely than it was asked.**
+#60 left *"how multiple GBAs combine into one button set"* open as POLICY. His
+sentence answers **whether** they merge, and answers it **source-agnostically**:
+a GBA and a GameCube pad are not two cases. So L3 gets **one rule, not two** —
+a GBA contributes through the identity mapping, a pad through
+`GBP_INPUT_POLICY_DEFAULT`, and the merge sits after both and cares about
+neither.
+
+**HOW they merge is still POLICY, and the OR reading is labelled an
+INFERENCE.** *"All act as one"* is almost certainly an OR, but that is a reading
+of his sentence and not a measurement — the alternatives (last-writer-wins,
+first-seen) differ only when two controllers **disagree**, which neither this
+project nor his report has ever observed.
+
+**And the question nobody had faced is named rather than resolved.**
+`GBP_INPUT_POLICY_DEFAULT` already filters opposite directions **within** one
+pad. Two pads, one holding LEFT and one holding RIGHT: **filter-then-merge**
+produces exactly the LEFT+RIGHT the within-pad filter exists to prevent, and
+**merge-then-filter** suppresses both, so two players pushing against each other
+produce no direction at all. Neither is obviously right and the references'
+answer is unknown. It is written down **so the implementation checkpoint meets
+it as a stated question instead of discovering it in a physical run** — the
+same reason §V8.3.1's frame latency was written down before RUN 30 rather than
+found in its data.
+
+**R6 is re-priced on top, dated, keeping its words** (`PHASE5_ASSESSMENT.md`
+§6b): it was *"ports 2-4 are untested"* and is now *"the references read all
+four and merge them; Open-GBP reads one"*. Its cost changes with it — a run
+designed for ports 2-4 today would only re-measure that Open-GBP ignores them,
+so what retires it is now a policy record, then an implementation checkpoint,
+then a run, **and the run is the cheapest part**. **This does not reopen Phase
+5:** the verdict was SATISFIED WITH NAMED RESIDUALS, R6 was one of the named
+ones, and a residual becoming better understood is the system working.
+
+**Next:** the implementation is a checkpoint of its own with its own
+pre-registration, and it is **not** dispatched.
+

@@ -923,3 +923,124 @@ the transition it is trying to find.
 pre-registration may only freeze a comparison its own instrument can
 **delimit**. Freezing the arithmetic is not enough if the segment the
 arithmetic runs over cannot be located in the record.
+
+
+## 15. FOUR PORTS, ONE CONTROLLER — the Operator's observation, what Open-GBP actually does, and the policy that is still open (GitHub Issue #63, 2026-09-22)
+
+**RECORD AND SCOPE ONLY. No code, no evidence id, no status change, no
+hardware.** The implementation is a checkpoint of its own with its own
+pre-registration and is not dispatched by this section.
+
+### 15.1 The observation, verbatim — OPERATOR OBSERVATION of the references' behaviour
+
+> *o gamecube tem 4 portas, todas no GB Player funcionam. então se eu conectar
+> 4 controles (independente se for um GBA via multiboot ROM ou controle
+> fisico) todos atuam como 1 controle. ele não restringe a só e somente só a
+> porta 1 (que é o que acontece hoje)*
+
+**It is his report of how the Start-up Disc and GBI behave, not a measurement
+this project performed**, and writing it down does not promote it
+(`AGENTS.md`'s vocabulary). It carries three separate things, and they belong
+in three different places — §15.2, §15.3 and §15.4 below.
+
+### 15.2 What Open-GBP does today: **port 1 only** — VERIFIED, not inferred
+
+His *"que é o que acontece hoje"* is right, and it was checked against the tree
+rather than accepted:
+
+```text
+every controller read in the repository is PAD_CHAN0
+  poc/gbp-video-stream-probe/source/main.c    the input step and main's wait loops
+  poc/gbp-play-session/source/main.c          the same, plus the Z sample of the session end
+  poc/gbp-audio-window-probe/source/main.c    the same
+  29 occurrences in all; PAD_CHAN1, PAD_CHAN2 and PAD_CHAN3 appear NOWHERE
+covering                                       buttons, stick X/Y, substick X/Y, both triggers,
+                                               both analogue buttons and the pad's error code
+```
+
+**This is a gap, not a decision.** Nothing in this document, in
+`src/gbp/gbp_input.c` or in any pre-registration ever says *"port 1 only"* —
+the single channel was inherited from the first probe and never revisited. A
+choice nobody wrote down is not a policy; it is an omission, and this section
+is where it stops being invisible.
+
+**What it does NOT invalidate.** The routing FACT of `HARDWARE_TESTS.md` §V7.4
+is about what the AGB receives for a given word, and every run that established
+it used one pad in port 1. **A word is a word wherever it came from**, so
+reading more ports adds sources to L3 and changes nothing about L1 or L2.
+
+### 15.3 The merge is real, and it is SOURCE-AGNOSTIC — this answers half of #60's open question
+
+GitHub Issue #60 (BACKLOG) left this on its open list:
+
+> **how multiple GBAs combine into one button set — a POLICY decision, not an
+> observation**
+
+**The Operator's sentence answers WHETHER, and it answers it more widely than
+the question was asked.** *"independente se for um GBA via multiboot ROM ou
+controle fisico"* — the reference implementations merge **whatever is
+connected**, of whatever kind, on whatever port.
+
+```text
+ANSWERED (as an OPERATOR OBSERVATION of the references)
+  THAT they merge                all four ports are read and act as ONE controller
+  that the rule is one rule      a GBA and a GameCube pad are not two cases: the merge does not care
+                                 which kind of device a button set came from
+  why there is only one set      the GBP has ONE AGB with ONE keypad. There is no second player to be
+                                 -- the Operator's own Super Game Boy contrast in #60, recorded there
+                                 as the negative it is
+STILL OPEN, and it is POLICY
+  HOW they merge                 OR, last-writer-wins, first-seen, or something else
+```
+
+**So Open-GBP's L3 gets ONE rule and not two.** A GBA contributes its buttons
+through the identity mapping (they *are* the logical GBA set); a GameCube pad
+contributes them through `GBP_INPUT_POLICY_DEFAULT`. **The merge sits after
+both**, and it is the same merge.
+
+### 15.4 HOW they merge is still POLICY — and the OR reading is an INFERENCE
+
+**"All act as one controller" is almost certainly an OR** — any controller
+holding A means A is held. **That is a reading of the Operator's sentence, not
+a measurement, and it is labelled as one here** rather than becoming a fact by
+being written down.
+
+```text
+the candidates, and they differ only when two controllers DISAGREE
+  OR                 the union of the held sets. A held anywhere = A held. Nobody has to "have" control.
+  LAST-WRITER-WINS   the most recently changed controller defines the whole set; the others are ignored
+                     until they change
+  FIRST-SEEN         the first controller to report in a session owns the set; the rest are read and
+                     discarded
+what decides it      the references' behaviour with two controllers disagreeing, which NOBODY HAS
+                     OBSERVED -- neither this project nor the Operator's report, which describes
+                     agreement ("todos atuam como 1 controle") and not conflict
+```
+
+**THE QUESTION NOBODY HAS FACED, and it is named here rather than resolved.**
+`GBP_INPUT_POLICY_DEFAULT` already **filters opposite directions WITHIN one
+pad** (§3: LEFT+RIGHT and UP+DOWN cannot both reach the word, because the
+references' own policies suppress them). A merge across pads meets that filter
+immediately:
+
+```text
+two pads, one holding LEFT and the other holding RIGHT
+  filter-then-merge   each pad passes its own (unfiltered) direction; the MERGE then produces LEFT+RIGHT,
+                      which is exactly the state the within-pad filter exists to prevent
+  merge-then-filter   the union is LEFT+RIGHT, and the existing filter suppresses BOTH -- so two players
+                      pushing against each other produce NO direction at all
+  neither is obviously right, and the references' answer is unknown
+```
+
+**This is not resolved here.** It is written down so that the implementation
+checkpoint meets it as a stated question instead of discovering it in a
+physical run — which is the same reason §V8.3.1's latency was written down
+before RUN 30 rather than found in its data.
+
+### 15.5 What this section does not do
+
+No code. No `PAD_CHAN1`. No evidence id, no status change, no promotion, no
+hardware, no ROADMAP edit. It does not decide the merge rule, it does not
+reopen Phase 5 — `PHASE5_ASSESSMENT.md` §6b re-prices **R6** on top, keeping
+its words, and a residual becoming better understood is the system working —
+and it does not touch `#60`, which stays BACKLOG with its remaining items.

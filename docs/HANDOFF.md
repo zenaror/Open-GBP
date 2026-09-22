@@ -1328,6 +1328,20 @@ issue 62    RUN 30 EXECUTED 2026-09-22 AND INGESTED (§V8.13). AU = CARRIES / OT
             negative control it was. THE RISING-EDGE ANCHOR CONFIRMED ON HARDWARE: presses=4 releases=4 gave
             FOUR windows, not eight. ids GBP-HW-285..294; GBP-HW-272 gains a 44th log (RUN 30 orig=92, a
             FOURTH image); §V7.9.7's derivation pinned to its seven builds
+issue 63    FOUR PORTS, ONE CONTROLLER -- a RECORD and a SCOPE CORRECTION, no code. The Operator: the
+            GameCube's four ports all work on the GBP and four controllers, GBA-by-multiboot or physical
+            pad alike, ACT AS ONE -- "não restringe a só e somente só a porta 1 (que é o que acontece
+            hoje)". VERIFIED against the tree, not accepted: every controller read is PAD_CHAN0, 29
+            occurrences across the three images with an input path, PAD_CHAN1/2/3 NOWHERE, src/ holding
+            no channel of its own -- and a test checks that on every run because it is the statement a
+            later checkpoint makes false. IT IS A GAP, NOT A DECISION: nothing ever said "port 1 only".
+            HALF OF #60's OPEN QUESTION IS ANSWERED and more widely than asked -- the merge is
+            SOURCE-AGNOSTIC, so L3 gets ONE rule and not two. HOW they merge stays POLICY and the OR
+            reading is LABELLED AN INFERENCE; the opposite-direction interaction with
+            GBP_INPUT_POLICY_DEFAULT's within-pad filter (filter-then-merge vs merge-then-filter) is
+            NAMED AND NOT RESOLVED. R6 RE-PRICED ON TOP (PHASE5_ASSESSMENT §6b), words kept: from
+            "untested" to "an implementation gap in front of the run", and the run is now the cheapest
+            part. PHASE 5 IS NOT REOPENED. INPUT_PATH.md §15; tests/host/test_four_ports.py
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59 and #61 ACCEPTED with the identity
             recomputed from the card; still to validate #41's pre-registration, #46 through #58, #42 and
             #62; close #36. PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED,
