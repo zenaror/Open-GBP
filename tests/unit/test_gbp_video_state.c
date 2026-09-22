@@ -205,6 +205,10 @@ static void run_cfg_colour(struct gbp_mock *m, struct ringlog *rl, struct gbp_vs
     gbp_vstate_probe_run(&t, rl, cfg, res);
 }
 
+/* A scenario may wrap the ordering witness in its own write hook (Issue #39's
+ * session tests raise the caller's flag from it); the witness keeps running. */
+static void (*hook_override)(struct gbp_mock *m, uint32_t addr, const uint8_t data[GBP_BLOCK_SIZE], void *user);
+
 static void run_cfg(struct gbp_mock *m, struct ringlog *rl, struct gbp_vstate_result *res, struct gbp_vstate_config *cfg)
 {
     struct gbp_transport t;
@@ -217,7 +221,7 @@ static void run_cfg(struct gbp_mock *m, struct ringlog *rl, struct gbp_vstate_re
     memset(&witness, 0, sizeof witness);
     witness.rl = rl;
     witness.base = gbp_internal_size_from_arinfo(m->arinfo);
-    m->write_hook = on_write;
+    m->write_hook = hook_override ? hook_override : on_write;
     m->write_hook_user = &witness;
     gbp_vstate_probe_run(&t, rl, cfg, res);
 }
@@ -532,6 +536,174 @@ static void test_delivery_cap(void)
     CHECK(res.deliveries == 50u);
     CHECK(res.next_cause_at_end == 1);        /* the cause stays latched for the teardown */
     CHECK(res.a.pi_cleanup_performed == 1);
+    check_invariants(&m, &res, &rl);
+}
+
+/* ===================================================================== */
+/* Issue #39: the operator's session end -- the playable image's success.  */
+
+static int session_flag;                 /* the caller-owned flag cfg.session_end points at */
+static unsigned session_rearms_seen;     /* RE-ARM writes (IRQ := 0x0000 with a delivery behind them) observed so far */
+static unsigned session_raise_at_rearm;  /* raise the flag at the RE-ARM of this delivery; 0 = never */
+
+/* The way the pump slot raises the flag: from the main loop, between two
+ * transactions, after a RE-ARM. The hook watches the IRQ-window writes whose
+ * value is 0x0000 (the RE-ARM; bytes 0x1E/0x1F carry hi/lo) and raises the
+ * flag at the one written while the mock has delivered exactly N handler
+ * entries -- the 003A stage's own zero writes happen at 0 deliveries and are
+ * not transactions -- with the ordering witness still running underneath. */
+static void on_write_session(struct gbp_mock *m, uint32_t addr, const uint8_t data[GBP_BLOCK_SIZE], void *user)
+{
+    on_write(m, addr, data, user);
+    if (addr != witness.base + ((uint32_t)GBP_IDX_IRQ << 20)) return;
+    if (data[0x1E] != 0u || data[0x1F] != 0u || m->deliveries == 0u) return;
+    session_rearms_seen++;
+    if (session_raise_at_rearm && m->deliveries == session_raise_at_rearm) session_flag = 1;
+}
+
+static void session_setup(struct gbp_vstate_config *cfg, unsigned raise_at)
+{
+    cfg_default(cfg);
+    cfg->min_valid_observation_ticks = (uint64_t)1 << 40;   /* the time target never fires */
+    cfg->hard_wallclock_ticks = (uint64_t)1 << 40;          /* nor the safety budget */
+    cfg->max_deliveries = 4000u;
+    cfg->session_end = &session_flag;
+    session_flag = 0;
+    session_rearms_seen = 0;
+    session_raise_at_rearm = raise_at;
+    hook_override = on_write_session;
+}
+
+static void test_session_end_is_a_success(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    printf("-- Issue #39: the session end raised after the 7th RE-ARM ends the run as a SUCCESS at the next admission\n");
+    session_setup(&cfg, 7u);
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    run_cfg(&m, &rl, &res, &cfg);
+    hook_override = 0;
+    CHECK(res.service_ok == 1);
+    CHECK(res.stop == GBP_VSTATE_STOP_SESSION_END);
+    CHECK(res.status == GBP_VSTATE_OK_SESSION_ENDED);
+    CHECK(strcmp(res.status_name, "ok_session_ended") == 0);
+    CHECK(strcmp(res.status_class, "ok") == 0);
+    CHECK(strcmp(res.stop_name, "session_end") == 0);
+    CHECK(strcmp(res.teardown_variant, "S5_session_end") == 0);
+    CHECK(gbp_vstate_main_status(&res) == GBP_VSTATE_OK_SESSION_ENDED);
+    /* the transaction in flight completed WHOLE: its ACK and its RE-ARM were written, and the
+     * run ended at the admission point of the next one */
+    CHECK(res.deliveries == 7u);
+    CHECK(res.acks == 7u);
+    CHECK(res.rearms == 7u);
+    CHECK(res.next_cause_at_end == 1);        /* the cause stays latched for the teardown */
+    CHECK(res.a.pi_cleanup_performed == 1);   /* and the teardown ran: PI cleaned, CONTROL restored */
+    CHECK(res.restore_ok == 1);
+    CHECK(res.h.handler_restored == 1);
+    CHECK(res.a.control_restore_ok == 1);
+    CHECK(line_index(&rl, "TEARDOWNVSTATE variant=S5_session_end stop=session_end deliveries=7 ") >= 0);
+    CHECK(line_index(&rl, "VSTATE end status=ok_session_ended class=ok reason=- stop=session_end restore=ok") >= 0);
+    CHECK(line_index(&rl, "MATRIX service=ok service_reason=- stop=session_end ") >= 0);
+    CHECK(line_index(&rl, "type=stop ") >= 0);
+    check_invariants(&m, &res, &rl);
+    printf("   deliveries=%lu acks=%lu rearms=%lu rearms_seen_by_hook=%u stop=%s status=%s\n", (unsigned long)res.deliveries,
+           (unsigned long)res.acks, (unsigned long)res.rearms, session_rearms_seen, gbp_vstate_stop_name(res.stop), res.status_name);
+}
+
+static void test_session_end_never_interrupts_a_transaction(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    printf("-- Issue #39: a flag already set before the first delivery: the first transaction still completes whole\n");
+    session_setup(&cfg, 0u);
+    session_flag = 1;                          /* set before the run: the earliest possible request */
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    run_cfg(&m, &rl, &res, &cfg);
+    hook_override = 0;
+    CHECK(res.service_ok == 1);
+    CHECK(res.stop == GBP_VSTATE_STOP_SESSION_END);
+    CHECK(res.status == GBP_VSTATE_OK_SESSION_ENDED);
+    CHECK(res.deliveries == 1u);               /* CHECK_ADMISSION runs from n = 1: the first cycle is admitted unconditionally */
+    CHECK(res.acks == 1u && res.rearms == 1u);
+    CHECK(res.next_cause_at_end == 1);
+    check_invariants(&m, &res, &rl);
+}
+
+static void test_session_end_loses_to_the_safety_budget(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    printf("-- Issue #39: precedence -- the safety budget wins over a session end raised at the same admission\n");
+    session_setup(&cfg, 0u);
+    session_flag = 1;
+    cfg.hard_wallclock_ticks = 1u;             /* expired by the first admission */
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    run_cfg(&m, &rl, &res, &cfg);
+    hook_override = 0;
+    CHECK(res.service_ok == 1);
+    CHECK(res.stop == GBP_VSTATE_STOP_SAFETY_BUDGET);
+    CHECK(res.status == GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE);
+    CHECK(res.status != GBP_VSTATE_OK_SESSION_ENDED);
+    CHECK(strcmp(res.teardown_variant, "S5_safety_budget") == 0);
+    check_invariants(&m, &res, &rl);
+}
+
+static void test_session_end_is_the_status_whatever_the_detector_saw(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    printf("-- Issue #39: a session that opened an episode still ends as ok_session_ended, never as structured_change\n");
+    session_setup(&cfg, 900u);
+    sched_reset(0xFFu);
+    sched_change(240u, 0x11u);                 /* the screen changes at frame 6, after the baseline */
+    mock_vstate(&m, bits, 1u, 50u);
+    run_cfg(&m, &rl, &res, &cfg);
+    hook_override = 0;
+    CHECK(res.service_ok == 1);
+    CHECK(vstate.baseline_valid == 1);
+    CHECK(vstate.episode_count > 0u);
+    CHECK(res.stop == GBP_VSTATE_STOP_SESSION_END);
+    CHECK(res.status == GBP_VSTATE_OK_SESSION_ENDED);
+    CHECK(gbp_vstate_main_status(&res) == GBP_VSTATE_OK_SESSION_ENDED);
+    CHECK(res.deliveries == 900u);
+    CHECK(line_index(&rl, "STRUCTURED status=observed") >= 0);   /* the detector's own record is untouched */
+    check_invariants(&m, &res, &rl);
+}
+
+static void test_session_end_absent_changes_nothing(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    printf("-- Issue #39: with no flag installed a raised flag is nobody's: the delivery guard ends the run as before\n");
+    session_setup(&cfg, 3u);
+    cfg.session_end = 0;                       /* every earlier build */
+    cfg.max_deliveries = 20u;
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    run_cfg(&m, &rl, &res, &cfg);
+    hook_override = 0;
+    CHECK(session_flag == 1);                  /* the hook did raise it */
+    CHECK(res.stop == GBP_VSTATE_STOP_DELIVERY_CAP);
+    CHECK(res.deliveries == 20u);
+    CHECK(res.status != GBP_VSTATE_OK_SESSION_ENDED);
     check_invariants(&m, &res, &rl);
 }
 
@@ -3881,6 +4053,13 @@ int main(int argc, char **argv)
         CHECK(defaults.hard_wallclock_s == 180u);
         CHECK(defaults.max_deliveries == 2000000u);
         CHECK(defaults.verify_cycles == 4u);
+        CHECK(defaults.session_end == 0);            /* Issue #39: no session end unless a caller installs one */
+        CHECK(strcmp(gbp_vstate_stop_name(GBP_VSTATE_STOP_SESSION_END), "session_end") == 0);
+        CHECK(strcmp(gbp_vstate_status_name(GBP_VSTATE_OK_SESSION_ENDED), "ok_session_ended") == 0);
+        CHECK(strcmp(gbp_vstate_status_class(GBP_VSTATE_OK_SESSION_ENDED), "ok") == 0);
+        /* appended, never inserted: every earlier code keeps its number (the sidecars carry them) */
+        CHECK(GBP_VSTATE_STOP_SESSION_END == GBP_VSTATE_STOP_WITNESS_STORE_FULL + 1);
+        CHECK(GBP_VSTATE_OK_SESSION_ENDED == GBP_VSTATE_ANOMALY_REARM_STATE + 1);
         gbp_vstate_config_timebase(&defaults, GBP_TIME64_NOMINAL_HZ);
         CHECK(defaults.hard_wallclock_ticks == GBP_VSTATE_HARD_WALLCLOCK_LIMIT_TICKS_U64);
         CHECK(defaults.hard_wallclock_ticks == 7290000000ull);
@@ -3895,6 +4074,11 @@ int main(int argc, char **argv)
     test_target_with_episode_open();
     test_no_next_cause();
     test_delivery_cap();
+    test_session_end_is_a_success();
+    test_session_end_never_interrupts_a_transaction();
+    test_session_end_loses_to_the_safety_budget();
+    test_session_end_is_the_status_whatever_the_detector_saw();
+    test_session_end_absent_changes_nothing();
     test_audio_policy();
     test_disagreement_and_intervals();
     test_byte0_opens_no_episode();
