@@ -1105,10 +1105,28 @@ issue 50    §V7.6.11's VERDICTS WRITTEN AS CODE BEFORE THE LOGS EXIST (tools/v7
             the session completing. N/A is machine-checkable: a reported N/A whose bit never rose comes back
             INCONCLUSIVE with the reason quoted. Item 2: the reconcile display shows the amended pointer
             WHOLE under the flag rather than widening the 120-char bound, because widening moves the cliff
+issue 51    §V7.6 AMENDED BEFORE HARDWARE (§V7.6.15, written on top and dated; §V7.6.1-14 kept verbatim).
+            BOTH AMBIGUITIES #50 REPORTED ARE NOW RESOLVED. Question K is computed over STEPS 2-12 ONLY,
+            from the START cut-off §V7.6.11 already defines; K's TAIL IS NOT COMPUTED and is recorded as
+            NOT DEFINED BY THE PRE-REGISTRATION, never as INCONCLUSIVE -- the run is not inconclusive about
+            it and no rerun would help. THE HARD CONSTRAINT SHAPED IT: nothing the Operator does changes,
+            because he has the checklist and the runs may already be performed, so this is ingestion-side
+            only and §V7.6.9 is untouched. WHAT IS LOST IS STATED: the closing sweep still produces his
+            per-key report, which feeds W and S unchanged; only the machine-side ordered comparison between
+            the pads AFTER minutes of play is lost; nothing about W or T changes. S reads his channel alone
+            over steps 14-15 and says so per key. The typo corrected: step 13 is the play, step 14 is START
+            x1 then START x1, and the literal reading was self-defeating. THE REJECTED RULES ARE
+            DEMONSTRATED WRONG rather than declared so: on a vector where he fumbles one press in the sweep,
+            trailing-twelve is right on the clean run and silently wrong on the fumbled one (it drops step
+            14's first START and reports START against A while every element still looks valid), and the
+            time-gap rule cuts inside the play at a cutscene-length pause. Both live in the test file only.
+            Forward rule recorded in §V7.6.15 and INPUT_PATH §14 and NOT applied to this pair: a future list
+            must put a machine-locatable boundary in the record, cheapest a simultaneous two-key press the
+            scripted parts never use. General form: a pre-registration may only freeze a comparison its own
+            instrument can DELIMIT
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46,
-            #47, #48, #49 and #50 -- #50 carries TWO AMBIGUITIES needing a dated pre-hardware amendment
-            BEFORE the runs are ingested; the Operator's declaration and the runs on #43; close #36.
-            Executor: the queue is empty -- next checkpoint on dispatch
+            #47, #48, #49, #50 and #51; the Operator's declaration and the runs on #43; close #36. Executor:
+            the queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
