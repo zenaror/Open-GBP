@@ -666,7 +666,8 @@ class PreHandlerWait(unittest.TestCase):
             # The normal profile asks for zero and the diagnostic profile for
             # the value GBP-HW-120 validated. What this guard still enforces is
             # the thing it was written for: no POC invents a wait of its own.
-            if d == "gbp-video-stream-probe":
+            # Issue #39: the playable image is built from the stream probe and takes the wait from the same profile
+            if d in ("gbp-video-stream-probe", "gbp-play-session"):
                 self.assertIn("cfg.prehandler_wait_ms = startup.prehandler_wait_ms;", text)
                 self.assertNotIn("cfg.prehandler_wait_ms = 5000u;", text)
                 h = self._read("src/gbp/gbp_startup.h")

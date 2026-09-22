@@ -29,6 +29,12 @@
 #                       GBP-VIDEO-001 reference, which the target builds itself; every *-audit rebuilds a
 #                       stale POC first and reads the -dr AND -r listings of every object (F3/F8, §V5.59)
 #   make vstate-dolphin run the gbp-video-state-probe DOL in Dolphin (absent -> abort_inconsistent; GBPlayer model -> shape abort)
+#   make play-audit     audit gbp-play-session (profile play: the stream profile's service-path pins, the
+#                       instrumentation objects FORBIDDEN, the witness never bound, the session end from the
+#                       pump only) and compare its handlers with the GBP-VIDEO-001 reference
+#   make play-dolphin   run the gbp-play-session DOL in Dolphin (absent -> the boot, GX init, both self-tests,
+#                       the storage gate with the enlarged stores and the abort path; the pump slot never runs
+#                       there, so the input path, the KEY record and the session end are NOT covered)
 #   make swiss          export every built DOL to build/swiss/NN-short/boot.dol with an
 #                       INDEX.txt, so the right build is obvious in Swiss (numbers are
 #                       stable; the copy is byte-identical and build/poc stays the authority)
@@ -78,7 +84,7 @@ IN_CONTAINER := $(COMPOSE) run --rm -T -e GIT_COMMIT="$(GIT_COMMIT)" -e GIT_DIRT
 PYTHON ?= python3
 PYTEST := $(shell command -v pytest 2>/dev/null)
 
-POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe gbp-av-service-probe gbp-video-capture-probe gbp-video-state-probe gbp-video-color-probe gbp-video-stream-probe
+POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe gbp-av-service-probe gbp-video-capture-probe gbp-video-state-probe gbp-video-color-probe gbp-video-stream-probe gbp-play-session
 AVSVC_OUT := build/poc/gbp-av-service-probe
 AVSVC_DOL := $(AVSVC_OUT)/gbp-av-service-probe.dol
 VIDEO_OUT := build/poc/gbp-video-capture-probe
@@ -88,6 +94,8 @@ VSTATE_DOL := $(VSTATE_OUT)/gbp-video-state-probe.dol
 COLOR_OUT := build/poc/gbp-video-color-probe
 STREAM_OUT := build/poc/gbp-video-stream-probe
 STREAM_DOL := $(STREAM_OUT)/gbp-video-stream-probe.dol
+PLAY_OUT := build/poc/gbp-play-session
+PLAY_DOL := $(PLAY_OUT)/gbp-play-session.dol
 COLOR_DOL := $(COLOR_OUT)/gbp-video-color-probe.dol
 STIM_OUT  := build/stimulus/agb-color-bars
 STIM_ROM  := $(STIM_OUT)/agb-color-bars.gba
@@ -174,6 +182,8 @@ $(eval $(call ISR_RULE,$(COLOR_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_
 $(eval $(call ISR_RULE,$(COLOR_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
 $(eval $(call ISR_RULE,$(STREAM_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
 $(eval $(call ISR_RULE,$(STREAM_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(PLAY_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(PLAY_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
 $(eval $(call POC_AUDIT_RULE,$(INITIRQA_OUT),003a))
 $(eval $(call POC_AUDIT_RULE,$(INITIRQB_OUT),003b))
 $(eval $(call POC_AUDIT_RULE,$(INITIRQ4_OUT),004))
@@ -182,9 +192,11 @@ $(eval $(call POC_AUDIT_RULE,$(VIDEO_OUT),video))
 $(eval $(call POC_AUDIT_RULE,$(VSTATE_OUT),vstate))
 $(eval $(call POC_AUDIT_RULE,$(COLOR_OUT),color))
 $(eval $(call POC_AUDIT_RULE,$(STREAM_OUT),stream))
+$(eval $(call POC_AUDIT_RULE,$(PLAY_OUT),play))
 $(eval $(call ISR_COMPARE_TARGET,vstate-audit,$(VSTATE_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,color-audit,$(COLOR_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,stream-audit,$(STREAM_OUT)))
+$(eval $(call ISR_COMPARE_TARGET,play-audit,$(PLAY_OUT)))
 
 # GBP-INIT-002's handler audit and the GBP-INIT-001 INTMR negative control keep
 # their historical paths (tests/host/test_isr_audit.py, test_poc_audit.py): they
@@ -198,7 +210,7 @@ $(INITIRQ_OUT)/isr-audit.txt: $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt tools/i
 	$(PYTHON) tools/isr_audit.py $< --report $@
 
 
-.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed swiss swiss-check all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed swiss swiss-check all shell clean
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -588,6 +600,23 @@ stream-dolphin-gbp:
 
 # stream-audit: the rule is generated above (ISR_COMPARE_TARGET). `make stream-audit`
 # alone builds what it compares against; nothing has to be run before it.
+
+# GBP-PLAY-001 (Issue #39) in Dolphin, HSP device ABSENT: the boot, the GX
+# initialisation, the display and input self-tests, the storage gate with the
+# ENLARGED stores (the very gate stream-0002 failed physically), the memory
+# proof, the counters and the probe's own abort path -- all deterministic
+# without a device. THE CEILING, stated as Issues #19 and #27 stated it: the
+# probe stops before any service cycle, so the pump slot never runs; nothing
+# about the input path, the KEY record, the presentation of a real frame or
+# the session end is exercised here. AUXILIARY, never physical evidence.
+play-dolphin:
+	$(PYTHON) tools/dolphin_smoke.py --dol $(PLAY_DOL) --build-info $(PLAY_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-PLAY SELFTEST ok=1' --expect 'sci_clean=1' --expect 'inv_fail=0' \
+	  --expect 'OPENGBP-PLAY INPUTSELFTEST ok=1' --expect 'OPENGBP-PLAY ENVMEM .*arena1_free=[1-9][0-9]*' \
+	  --expect 'OPENGBP-PLAY COUNTERS balanced=1' --expect 'storage_fault=-' \
+	  --expect 'OPENGBP-PLAY SESSION requested=0 samples=0 held=0 holds=0 released=0 hold_ms=250' \
+	  --expect 'OPENGBP-PLAY RESULT status=abort_inconsistent class=abort reason=inconsistent stop=failure teardown=stage_a service=0 deliveries=0 restore=1' \
+	  --report $(PLAY_OUT)/dolphin-report-absent.json --screen-png $(PLAY_OUT)/dolphin-screen-absent.png
 
 all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirqa-dolphin initirqb-dolphin initirq4-dolphin avsvc-dolphin video-dolphin vstate-dolphin color-dolphin
 

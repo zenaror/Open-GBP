@@ -255,6 +255,8 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
         changed = set(r.stdout.split())
         allowed = {"src/gbp/gbp_input.c", "src/gbp/gbp_input.h", "poc/gbp-video-stream-probe/source/main.c", "poc/gbp-video-stream-probe/Makefile"}
         allowed |= {p for p in changed if re.search(r"^captures/fixtures/hw-gamecube-gbp-2026-09-21-(idxcap|stream-0015)-run1[678]-", p)}
+        # Issue #39 (2026-09-21) built the playable image: the session end in the service-path module (tests/host/test_play_image.py pins it), a new POC, its audit profile and its Swiss slot
+        allowed |= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"}
         self.assertTrue(changed <= allowed, "changed against the base: " + r.stdout)
 
     def test_the_records_of_the_checkpoint(self):

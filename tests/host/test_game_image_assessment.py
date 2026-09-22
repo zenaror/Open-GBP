@@ -124,7 +124,12 @@ class OnceTheWitnessIsGoneNoStopIsASuccess(unittest.TestCase):
         self.assertIn("The classification keys on valid_observation_elapsed, NEVER on which\n * cap fired", vs)
 
     def test_no_session_stop_exists_and_the_poc_cannot_end_the_run(self):
-        h = read(VSTATE_PROBE_H)
+        # THE STATE THE ASSESSMENT DESCRIBED: the module at the base commit. Issue #39 then added exactly the stop the
+        # assessment found missing (tests/host/test_play_image.py pins it), so this test reads the header at BASE_COMMIT.
+        r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE_COMMIT], capture_output=True)
+        if r.returncode != 0:
+            self.skipTest("the base commit is not available in this checkout")
+        h = subprocess.run(["git", "-C", ROOT, "show", "%s:src/gbp/gbp_vstate_probe.h" % BASE_COMMIT], capture_output=True, text=True, check=True).stdout
         enum = h[h.index("GBP_VSTATE_STOP_NONE = 0"):h.index("GBP_VSTATE_STOP_WITNESS_STORE_FULL")]
         self.assertNotRegex(enum, r"SESSION|OPERATOR", "no session / operator-end stop reason exists")
         cfg = h[h.index("struct gbp_vstate_config {"):h.index("static inline void gbp_vstate_config_disable_time_target")]
@@ -136,6 +141,8 @@ class OnceTheWitnessIsGoneNoStopIsASuccess(unittest.TestCase):
         self.assertIn("gbp_vstate_probe_run(&t, &rl, &cfg, &res);     /* returns only after the teardown */", read(MAIN))
         self.assertIn("gbp_vstate_config_disable_time_target(&cfg);", read(MAIN))
         self.assertEqual(define(VSTATE_PROBE_H, "GBP_VSTATE_MIN_VALID_OBSERVATION_DISABLED_TICKS"), "UINT64_MAX")
+        # and the header of today carries the stop Issue #39 added on top of that state
+        self.assertIn("GBP_VSTATE_STOP_SESSION_END", read(VSTATE_PROBE_H))
 
     def test_the_bounds_the_assessment_computes(self):
         self.assertEqual(define(MAIN, "STREAM_SAFETY_SECONDS"), "60u")
@@ -189,9 +196,11 @@ class TheAssessmentIsRecordedAndNothingWasBuilt(unittest.TestCase):
 
     def test_nothing_was_built_and_nothing_under_the_untouchable_paths_changed(self):
         self.assertIsNotNone(re.search(r"^BUILD_ID\s*:=\s*stream-0015$", read(MAKEFILE), re.M))
+        # the twelve POCs of the assessment's base, plus the one Issue #39 built afterwards (its own checkpoint)
         self.assertEqual(sorted(p for p in os.listdir(os.path.join(ROOT, "poc")) if os.path.isdir(os.path.join(ROOT, "poc", p))),
                          ["gbp-av-service-probe", "gbp-init-irq-deliver-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-service-probe",
-                          "gbp-init-probe", "gbp-probe", "gbp-video-capture-probe", "gbp-video-color-probe", "gbp-video-state-probe", "gbp-video-stream-probe", "smoke-test"])
+                          "gbp-init-probe", "gbp-play-session", "gbp-probe", "gbp-video-capture-probe", "gbp-video-color-probe", "gbp-video-state-probe",
+                          "gbp-video-stream-probe", "smoke-test"])
         r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE_COMMIT], capture_output=True)
         if r.returncode != 0:
             self.skipTest("the base commit is not available in this checkout")
@@ -199,7 +208,8 @@ class TheAssessmentIsRecordedAndNothingWasBuilt(unittest.TestCase):
                             "docs/protocol", "docs/hardware", "docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
+        # nothing was built UNDER ISSUE #38; Issue #39 (2026-09-21) built the playable image: the session end in the service-path module (tests/host/test_play_image.py pins it), a new POC, its audit profile and its Swiss slot
+        self.assertTrue(set(r.stdout.split()) <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"} | {"docs/research/UNKNOWNS.md"}, "changed against the base: " + r.stdout)
         r = subprocess.run(["git", "-C", ROOT, "ls-files", "--others", "--exclude-standard", "--", "src", "poc", "tools", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware"],
                            capture_output=True, text=True)
         self.assertEqual(r.stdout.strip(), "", "untracked files under the guarded paths: " + r.stdout)

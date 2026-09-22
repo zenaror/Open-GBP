@@ -191,6 +191,18 @@ class ColourCandidate(unittest.TestCase):
         dst = os.path.join(ROOT, "build", "swiss", "11-color", "boot.dol")
         if not (os.path.exists(src) and os.path.exists(dst)):
             self.skipTest("run `make build && make swiss` to check the exported colour DOL")
+        # The export is a snapshot: a later code checkpoint rebuilds the colour probe (it links the service-path
+        # module, which Issue #39 changed) without re-exporting the staged layout, and must not -- build/swiss holds
+        # what the operator launches. So the bytes are compared only when INDEX.txt says the export came from the
+        # build this tree carries; otherwise the export is EARLIER, not wrong.
+        info = os.path.join(ROOT, "build", "poc", "gbp-video-color-probe", "build-info.txt")
+        index = os.path.join(ROOT, "build", "swiss", "INDEX.txt")
+        if os.path.exists(info) and os.path.exists(index):
+            commit = dict(l.split("=", 1) for l in open(info).read().splitlines() if "=" in l).get("commit", "-")
+            row = [l for l in open(index).read().splitlines() if l.startswith("11-color ")]
+            if row and ("| %s " % commit) not in row[0]:
+                self.skipTest("build/swiss/11-color is the export of an earlier build (%s); the tree now builds the colour probe at %s"
+                              % (row[0].split("|")[3].strip(), commit))
         self.assertEqual(hashlib.sha256(open(src, "rb").read()).hexdigest(),
                          hashlib.sha256(open(dst, "rb").read()).hexdigest())
 
