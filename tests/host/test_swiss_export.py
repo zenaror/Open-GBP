@@ -64,19 +64,19 @@ class Manifest(unittest.TestCase):
                 self.assertLess(n, 80, "%s is a canonical POC and belongs below 80" % r["dir"])
 
     def test_a_duplicate_number_is_refused(self):
-        self._refuse("01\tdup\tsmoke-test\tx.dol\tsmoke-test\tbuild\t1\n")
+        self._refuse("01\tdup\tsmoke-test\tx.dol\tsmoke-test\tbuild\t1\t-\n")
 
     def test_a_one_digit_number_is_refused(self):
-        self._refuse("7\tseven\tsmoke-test\tx.dol\tsmoke-test\tbuild\t1\n")
+        self._refuse("7\tseven\tsmoke-test\tx.dol\tsmoke-test\tbuild\t1\t-\n")
 
     def test_a_long_directory_name_is_refused(self):
-        self._refuse("70\tway-too-long-name\tsmoke-test\tx.dol\tsmoke-test\tbuild\t1\n")
+        self._refuse("70\tway-too-long-name\tsmoke-test\tx.dol\tsmoke-test\tbuild\t1\t-\n")
 
     def test_a_duplicate_short_name_is_refused(self):
-        self._refuse("70\tsmoke\tsmoke-test\tx.dol\tsmoke-test\tbuild\t1\n")
+        self._refuse("70\tsmoke\tsmoke-test\tx.dol\tsmoke-test\tbuild\t1\t-\n")
 
     def test_a_wrong_field_count_is_refused(self):
-        self._refuse("70\tshort\tsmoke-test\n")
+        self._refuse("70\tshort\tsmoke-test\n")   # three fields: still a wrong count against the eight
 
     def _refuse(self, extra_line):
         with tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False) as f:
@@ -105,7 +105,16 @@ class Export(unittest.TestCase):
             with open(os.path.join(d, "build-info.txt"), "w") as f:
                 f.write("build_id=%s\ncommit=deadbee\n" % r["short_name"])
         os.makedirs(os.path.join(self.tmp, "poc"), exist_ok=True)
-        shutil.copy(MANIFEST, os.path.join(self.tmp, "layout.tsv"))
+        # The real manifest's ROWS, with the frozen column cleared: these tests exercise the export
+        # MECHANICS against synthetic bytes, and a frozen slot refuses synthetic bytes by design
+        # (that refusal is what FrozenSlotsCannotBeDestroyed proves, in its own temporary root).
+        with open(os.path.join(self.tmp, "layout.tsv"), "w") as f:
+            for line in open(MANIFEST):
+                if line.strip() and not line.lstrip().startswith("#"):
+                    parts = line.rstrip("\n").split("\t")
+                    parts[-1] = "-"
+                    line = "\t".join(parts) + "\n"
+                f.write(line)
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -215,6 +224,115 @@ class NotTracked(unittest.TestCase):
     def test_no_exported_dol_is_tracked(self):
         r = subprocess.run(["git", "ls-files", "build/"], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(r.stdout.strip(), "")
+
+
+class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
+    """GitHub Issue #44: the refusals are PROVED in a temporary root, never asserted.
+
+    The hazard this protects against was live on 2026-09-21: `build/swiss/12-stream` held the image
+    three physical runs executed, `build/poc` held a rebuild at another commit, and a full export
+    would have replaced the slot, rewritten its INDEX row to agree, and left the Operator's SD as
+    the only copy -- with exit code 0.
+    """
+    FROZEN = "a" * 0      # filled in setUp from the real bytes
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="swiss-frozen-")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        # a root with one POC that builds "new bytes", and an export tree already holding "old bytes"
+        self.poc = os.path.join(self.tmp, "build", "poc", "p")
+        os.makedirs(self.poc)
+        self.src = os.path.join(self.poc, "p.dol")
+        with open(self.src, "wb") as f:
+            f.write(b"NEW BYTES, a rebuild at another commit\n")
+        os.makedirs(os.path.join(self.tmp, "poc", "p"))
+        self.out = os.path.join(self.tmp, "build", "swiss")
+        os.makedirs(os.path.join(self.out, "70-frozen"))
+        self.staged = os.path.join(self.out, "70-frozen", "boot.dol")
+        with open(self.staged, "wb") as f:
+            f.write(b"OLD BYTES, the image a physical run executed\n")
+        self.frozen_hash = hashlib.sha256(open(self.staged, "rb").read()).hexdigest()
+        self.manifest = os.path.join(self.tmp, "layout.tsv")
+        self._write_manifest(self.frozen_hash)
+        with open(os.path.join(self.out, "INDEX.txt"), "w") as f:
+            f.write("Open-GBP - Swiss launch layout\n\n"
+                    "%-12s | %-18s | %-22s | %-9s | %10s | %-64s | %s\n"
+                    % ("DIR", "TEST ID", "BUILD ID", "COMMIT", "SIZE", "SHA-256", "SOURCE")
+                    + "%-12s | %-18s | %-22s | %-9s | %10d | %s | %s\n"
+                    % ("70-frozen", "THE-TEST-001", "frozen-0001", "deadbee", os.path.getsize(self.staged),
+                       self.frozen_hash, "build/poc/p/p.dol"))
+
+    def _write_manifest(self, frozen):
+        with open(self.manifest, "w") as f:
+            f.write("#number\tshort_name\tsource_poc\tdol\tout_dir\tmake_target\tenabled\tfrozen_sha256\n")
+            f.write("70\tfrozen\tp\tp.dol\tp\tbuild\t1\t%s\n" % frozen)
+
+    def _run(self, *extra_args):
+        return swiss_export.main(["--root", self.tmp, "--out", self.out, "--manifest", self.manifest] + list(extra_args))
+
+    def test_a_full_export_refuses_and_changes_nothing(self):
+        before = open(self.staged, "rb").read()
+        index_before = open(os.path.join(self.out, "INDEX.txt")).read()
+        rc = self._run()
+        self.assertNotEqual(rc, 0, "the export must REFUSE, not succeed")
+        self.assertEqual(rc, 4)
+        self.assertEqual(open(self.staged, "rb").read(), before, "the frozen slot's bytes were changed")
+        self.assertEqual(open(os.path.join(self.out, "INDEX.txt")).read(), index_before,
+                         "INDEX.txt was rewritten while the export was refusing")
+
+    def test_only_another_slot_leaves_the_frozen_one_alone(self):
+        os.makedirs(os.path.join(self.tmp, "poc", "q"))
+        os.makedirs(os.path.join(self.tmp, "build", "poc", "q"))
+        with open(os.path.join(self.tmp, "build", "poc", "q", "q.dol"), "wb") as f:
+            f.write(b"a new slot's bytes\n")
+        with open(self.manifest, "a") as f:
+            f.write("71\tfresh\tq\tq.dol\tq\tbuild\t1\t-\n")
+        before = open(self.staged, "rb").read()
+        rc = self._run("--only", "71-fresh")
+        self.assertEqual(rc, 0)
+        self.assertEqual(open(self.staged, "rb").read(), before, "a --only export touched another slot")
+        self.assertTrue(os.path.exists(os.path.join(self.out, "71-fresh", "boot.dol")))
+        # and the frozen slot's INDEX row is CARRIED OVER, not recomputed from build/poc
+        index = open(os.path.join(self.out, "INDEX.txt")).read()
+        self.assertIn("frozen-0001", index, "the carried-over row lost the identity it recorded")
+        self.assertIn("deadbee", index)
+        self.assertIn(self.frozen_hash, index)
+
+    def test_the_index_refuses_to_re_describe_a_frozen_slot_whose_bytes_moved(self):
+        """If the staged bytes are not the pinned ones, the index must not learn a new identity for them."""
+        with open(self.staged, "wb") as f:
+            f.write(b"SOMETHING ELSE ENTIRELY\n")
+        os.makedirs(os.path.join(self.tmp, "poc", "q"))
+        os.makedirs(os.path.join(self.tmp, "build", "poc", "q"))
+        with open(os.path.join(self.tmp, "build", "poc", "q", "q.dol"), "wb") as f:
+            f.write(b"a new slot's bytes\n")
+        with open(self.manifest, "a") as f:
+            f.write("71\tfresh\tq\tq.dol\tq\tbuild\t1\t-\n")
+        rc = self._run("--only", "71-fresh")
+        self.assertEqual(rc, 5, "the index must refuse to describe a frozen slot it cannot vouch for")
+
+    def test_an_export_that_writes_the_pinned_bytes_is_allowed(self):
+        """The freeze is not a lock on the slot: it is a lock on the BYTES."""
+        with open(self.src, "wb") as f:
+            f.write(open(self.staged, "rb").read())
+        rc = self._run()
+        self.assertEqual(rc, 0)
+        self.assertEqual(hashlib.sha256(open(self.staged, "rb").read()).hexdigest(), self.frozen_hash)
+
+    def test_a_bad_frozen_column_is_refused_by_the_manifest(self):
+        self._write_manifest("not-a-hash")
+        with self.assertRaises(ValueError):
+            swiss_export.load(self.manifest)
+
+    def test_the_real_manifest_freezes_the_two_slots_the_records_name(self):
+        rows = {r["dir"]: r["frozen_sha256"] for r in swiss_export.load(MANIFEST)}
+        self.assertEqual(rows["12-stream"], "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49")
+        self.assertEqual(rows["13-play"], "d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de")
+        self.assertEqual(sorted(d for d, f in rows.items() if f != "-"), ["12-stream", "13-play"])
+        # and those hashes are the ones the records name, so the manifest cannot drift from them
+        hw = open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8").read()
+        for h in (rows["12-stream"], rows["13-play"]):
+            self.assertIn(h, hw)
 
 
 if __name__ == "__main__":
