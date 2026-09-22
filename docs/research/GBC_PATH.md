@@ -113,6 +113,12 @@ bit 0x01                READ 0 IN ALL THIRTY-FOUR. Every run used either no cart
                         type bit has never been observed in its other state. THIS IS THE GAP A GB/GBC BOOT FILLS.
 ```
 
+**PROMOTED 2026-09-22 (GitHub Issue #46) as `GBP-HW-272`:** the split is FACT,
+the causal reading is HYPOTHESIS with the confound below named in the entry,
+and `U-GBP-017`'s "run with a cartridge" is answered for bit `0x02` only
+without closing the item. The paragraphs below are the offer as this document
+made it, kept as written.
+
 **What this supports, stated carefully and NOT promoted here.** The
 present-bit half of §3's table now has a hardware discriminator: 12 runs
 without a Game Pak read `0x90`, 22 with one read `0x92`, and bit `0x02` is the

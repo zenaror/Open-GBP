@@ -601,6 +601,24 @@ Pak inserted. This is pattern-matching against a model, not evidence.
 Needs: repeat run, run with a cartridge, run after a controlled stop
 sequence — each a separate, justified experiment.
 
+**Needs, updated 2026-09-22 (GitHub Issue #46; `GBP-HW-272`). The item stays
+OPEN at P2 and nothing here closes it.**
+
+```text
+repeat run                    STILL OPEN
+run with a cartridge          ANSWERED FROM THE ARCHIVE, FOR BIT 0x02 ONLY, 2026-09-22. It had already happened 22
+                              times: the original CONTROL byte reads 0x90 in the 12 cartridge-less logs and 0x92 in
+                              the 22 with a cartridge, differing by bit 0x02 alone (GBP-HW-272, FACT for the split).
+                              That the bit REPORTS presence stays HYPOTHESIS -- the archive pairs no late build with
+                              an empty slot, so cartridge and build era are not separated, and Dolphin's "GamePak
+                              source" is a bit of the IRQ register, not this one. The named breaker is one boot of
+                              12-stream with the cartridge removed; it is not scheduled here.
+run after a stop sequence     STILL OPEN
+what is STILL UNKNOWN here    the meaning of 0x10 and 0x80 -- the two bits that make 0x90 what it is -- and of 0x94,
+                              and of IRQ 0x8AAE at idle. The hypothesis in this item's first paragraph is untouched:
+                              GBP-HW-272 speaks about ONE bit of the byte and says nothing about the rest.
+```
+
 ## U-GBP-018 (P2) — Is the TEST complement readable only once?
 
 Raw TEST dumps after the handshake read `00` (GBP-HW-006). Either the
