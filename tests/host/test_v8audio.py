@@ -57,10 +57,18 @@ CLAIMS = re.compile(
     r"|\bthe run showed\b|\bwe (observed|measured)\b", re.I)
 
 
+def _bounded(t, start):
+    """From `start`'s heading to the NEXT top-level V heading, never to EOF.
+    §V8's slices ran to the end of the document and had silently been reading
+    §V9 for a whole checkpoint; §V10 is what made it visible. The fix is to
+    BOUND the slice, not to move a pin -- the lesson of Issue #50."""
+    i = t.index(start)
+    j = t.find("\n## V", i + 1)
+    return t[i:j] if j >= 0 else t[i:]
+
+
 def section_v8():
-    t = read(HW)
-    i = t.index("\n## V8 — GBP-AUDIO-001")
-    return t[i:]
+    return _bounded(read(HW), "\n## V8 — GBP-AUDIO-001")
 
 
 # --------------------------------------------------------------- the vectors
