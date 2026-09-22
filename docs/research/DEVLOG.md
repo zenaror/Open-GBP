@@ -13311,3 +13311,64 @@ the happy path would not be testing the decision that was actually made.
 **Next:** the ROM's build is a checkpoint of its own; the run is another.
 Nothing here authorises either.
 
+---
+
+## 2026-09-22 — Issue #65: `agb-tone` BUILT (`tone-0001`) — silent until the first press, the key-down edge only, and a counter he can read across the room
+
+**BUILT AND HOST-VALIDATED. NEVER RUN**, and §V9's run is still not authorised.
+**The ROM is the only new artifact in this entire run**: `stream-0016` is
+reused unchanged and `14-audio` is already on the card with its hash verified.
+
+```text
+canonical  build/stimulus/agb-tone/agb-tone.gba    1 404 B  e14ec62d…df48
+DELIVERED  build/physical/agb-tone-cart.gba        1 404 B  ff5298f0…44a0   <-- the file he flashes
+stimulus   tone-0001   header OPENGBPTONE / TGBP / OG   route §V3.7 route 1, NOR / Mode B
+```
+
+**The hash does not depend on the commit** — checked by building twice with
+different commit strings and getting the same 1 404 bytes, because the commit is
+stamped into `build-info.txt` and not into the image. So the hash recorded is
+the hash of the file he will be given.
+
+**The three requirements are demonstrated rather than asserted**, by compiling
+**the ROM's own code** for the host with the two hardware bases relocated and
+reading the fake APU registers back after each step:
+
+```text
+SILENT UNTIL THE FIRST PRESS   all six APU registers read 0 after reset, and the master enable is
+                               CLEARED EXPLICITLY rather than assumed clear from reset. §V9's control
+                               window stays a resting-state observation, so the free comparison against
+                               RUN 30's control survives -- which is the whole reason the requirement
+                               exists.
+THE KEY-DOWN EDGE ONLY         down, up, down, up, … gives pressed = 1,0,1,0,… The releases count for
+                               nothing, which is the SAME edge the capture arms on (#59). Any key
+                               counts, and two keys in ONE sample is ONE press, because that is one
+                               rising edge of the word.
+THE COUNTER                    four 40×48 boxes filling left to right PLUS a whole-screen background
+                               colour — two readings of one number that never share a colour, so a
+                               missed fill is caught by the background. A FIFTH press turns it MAGENTA.
+```
+
+**The notes are §V9.3.2's and the ROM moved to meet them, not the other way
+round:** `n = 1024` / `n = 1792`, alternating and continuing past four,
+`SOUND1CNT_X = 0x8000 | n` with **bit 14 never set**, envelope **step time 0**
+so nothing decays, no sweep, and **`SOUNDCNT_H` written to 100 %** — the
+register §V8.6 had to call an UNKNOWN because the checker never touched it.
+**That unknown does not ride along into §V9's run.**
+
+**What a host test cannot do is said rather than implied.** There is no APU
+here: what is verified is the register values and the order they are written
+in. **Whether a real AGB then emits 128.0 Hz is what the physical run is for.**
+
+**One accepted cost, named rather than discovered:** a full repaint does not fit
+in one VBlank and overruns into the visible period of the frame a press lands
+on — four or five torn frames in a session of a thousand, invisible to a
+person, and the AUDIO window does not read VRAM at all.
+
+**`tools/v9tone.py` untouched**, with a test diffing it against the commit that
+wrote it: it was written before this ROM existed and that is the point of it.
+
+**Next:** the run. It needs the Operator to flash one ROM — which **replaces
+the Enhanced Control Checker on the NOR**, §V9.12 — and it is a Hardware Issue
+of its own. Nothing here authorises it.
+
