@@ -12360,3 +12360,95 @@ what they will find.**
 **Result.** `make test-python` on the committed tree: **1673 passed, 7 skipped,
 103 subtests passed**. The test recomputes both spreads from the archive, so
 §V7.9.7's figures cannot drift from the runs they were derived from.
+## 2026-09-22 — Issue #42: PHASE 5 ASSESSED — **SATISFIED WITH NAMED RESIDUALS**; the criterion is met at the resolution the EVIDENCE carries and not at the resolution the PRE-REGISTRATION defined, and six residuals are priced
+
+**The verdict.** `docs/research/PHASE5_ASSESSMENT.md`, stated once and
+identically there, in `ROADMAP.md` and in `HANDOFF.md`. It promotes nothing,
+mints no evidence id, changes no status and authorises nothing.
+
+**The first thing the assessment does is exclude the past two days' work from
+the evidence, by name.** Guards, the skip ledger, the promotions,
+`tools/v7611.py`, §V7.6.15, §V7.9 and the reconciliation sweep improved **how
+this project decides things**. **None of them is a game being controlled.** If
+the criterion is met it is met by the runs, and the document says so before it
+weighs anything.
+
+**Term by term.**
+
+```text
+"a real game"            MET -- a retail GBA title played by a person for minutes, twice; the first input
+                         result in this project whose instrument is not a test ROM. WITH A CAVEAT THAT COULD
+                         NOT BE LIFTED: §V7.6.4 required the cartridge's FORM on the three-value axis and
+                         HE DECLARED THE TITLE AND NOT THE FORM, so §V7.6.11's attribution caveat stands.
+"using the GameCube      MET, and the strongest term. The routing of all ten bits is FACT on both pads
+ controller"             (§V7.4, inherited not re-argued); all ten rose on both pads in real play; 93 849
+                         write attempts, all completed, failed = 0; the KEY record clean in all four runs.
+"controlled"             MET at the level the evidence carries -- the session, not the key. A game responded
+                         in character with its screen, for minutes, on both pads (GBP-HW-284). But the
+                         report is GLOBAL and §V7.6.11 defines WORKS per key, so W is INCONCLUSIVE for every
+                         key in all four runs. A GLOBAL IMPRESSION IS NOT TEN VERDICTS.
+"reliably"               PARTLY MET. The Operator's second half -- "o mesmo comportamento" -- is answered by
+                         machine: K = AGREE, identical ordered press sequences on both pads, each matching
+                         the list press for press, computed by code written before the logs existed. His
+                         first half -- "ambos os controles funcionam" -- is supported in aggregate and
+                         UNMEASURED PER KEY, and §V7.6.9's STEP 15 WAS NEVER PERFORMED, so "do the ten keys
+                         still work after minutes of play" has no scripted evidence on either pad.
+```
+
+**Why SATISFIED WITH NAMED RESIDUALS and not either extreme**, argued both ways
+in the document rather than asserted. Not NOT SATISFIED: a real game was played
+for minutes on both pads with every key delivered and zero failed writes, and
+the phase's goal was demonstrated. Not SATISFIED: the criterion's operative word
+is *reliably*, the Operator's definition of it is binding, and **the project
+chose a per-key instrument before the data and did not produce it** — calling
+that SATISFIED would be quietly lowering the bar the project set for itself.
+
+**Six residuals, each priced, because a residual without a price is a wish.**
+
+```text
+R1  per-key W on a game     one run per pad of the list AS ONE SESSION with the ten-row form filled DURING
+                            it. No build, no code: play-0001 writes the KEY record and §V7.6.11 is the
+                            reading. The catch is #52's lesson -- a report gathered afterwards is global by
+                            nature, and a global report cannot become ten verdicts.
+R2  the closing sweep       the same run; it IS step 15. Free inside R1.
+R3  the cartridge's FORM    ONE MESSAGE to the Operator about a run already performed. The cheapest item on
+                            the list, and it retires a caveat that currently rides every citation of these
+                            four runs. If the answer is not "original", the caveat may be PERMANENT for this
+                            instrument -- recorded as such rather than paid off.
+R4  Question T              one run read under T' (§V7.9), already fixed and derived. RIDES ON R1's RUN.
+R5  duration and breadth    repetition and other titles are his time; a longer session needs the event store
+                            resized (it binds at ~274 s, GBP-HW-282) -- a code change, and Phase 12's.
+R6  analogue trigger,       a checkpoint of its own; nothing is blocked by it.
+    ports 2-4, other pads
+```
+
+**R1 + R2 + R4 are ONE RUN PER PAD**: two sessions, a form in his hand, nothing
+to build. That is the shape of the cheapest closure and the assessment says so.
+
+**A finding the assessment surfaced rather than inherited: the cartridge's FORM
+was never declared.** §V7.6.4 left it as the Operator's to declare and §V7.6.10
+makes an unrecorded declaration INCONCLUSIVE for the run on that item. Nobody
+had noticed, because the title was declared and reads like a complete answer.
+The consequence is precise: **the attribution caveat cannot be lifted OR
+confirmed**, so it stands in its conservative form over all four runs.
+
+**The sweep (Issue #29) found nothing to correct**, recorded including the
+"nothing", over `GBP-KEY-001`/`002`/`004`/`005`/`008`/`009`/`010`,
+`GBP-HW-265`, `GBP-HW-270` and `U-GBP-010`. `GBP-HW-279`/`280`/`283`/`284` are
+cited by no consolidated page — correct, since the assessment promotes nothing
+— and that is written down as **checked and left, not overlooked**.
+
+**What the head runs do and do not add.** RUN 25 / RUN 26 give an ordered
+sequence per pad covering all ten keys, which is a sample **consistent** with
+the routing on both pads. It is **not** promoted: the chain rests on the
+Operator having pressed the list in order with no independent witness, unlike
+§V7.4's join to the checker's counters. `GBP-HW-270` stays exactly as it was.
+
+**The standing declaration** — the generic pad from now on unless a run
+strictly requires the original — is recorded with **what supports its
+condition and no more**: `K = AGREE` over the scripted head, which is 17
+presses on an idle screen, the machine half only, and says nothing about what
+the game did with them.
+
+**Result.** `make test-python` on the committed tree: **1686 passed, 7 skipped,
+103 subtests passed**.
