@@ -62,25 +62,49 @@ def evidence_status():
     `**Status:**` line in the body instead (e.g. GBP-CTL-001: "CORROBORATED for usage of 0x01-0x10;
     HYPOTHESIS for …"). The first sweep run in anger (GitHub Issue #46) printed "-" for every older
     entry it touched, which is honest but useless, so both places are read -- heading first, then the
-    body line, and a body line with more than one status word is reported as the whole phrase because
+    body line, and either one with more than one status word is reported as the whole phrase because
     a compound status is exactly what must not be collapsed to a letter.
+
+    TWO WAYS THIS TOOL HANDED OUT A STALE OR HALF STATUS, both found by using it on Issue #48, where
+    the job was to COPY statuses onto a consolidated page:
+
+      * a HEADING can be compound too. GBP-HW-272 reads "FACT for the split; … is HYPOTHESIS", and
+        taking the last word reported HYPOTHESIS, which is half of what the entry says.
+      * an entry can carry a LATER AMENDMENT in its body. GBP-HW-272's amendment moved its second
+        claim from HYPOTHESIS to CORROBORATED, and nothing in the heading says so, because this
+        project amends on top instead of rewriting. A reader copying the heading would have carried
+        a status the entry no longer holds.
+
+    So a compound heading is reported whole, and an amended entry is flagged. The tool still judges
+    nothing: it points at the entry and says "read the amendment before you copy".
     """
     out = {}
     for p in (EVIDENCE, UNKNOWNS):
         text = read(p)
         heads = list(re.finditer(r"^#{2,4} +((?:GBP|ENV)-[A-Z]+-\d{3}|U-(?:GBP|ENV)-\d{3})\b(.*)$", text, re.M))
         for i, m in enumerate(heads):
-            words = re.findall(STATUS_WORDS, m.group(2))
-            status = words[-1] if words else "-"
-            if status == "-":
-                body = text[m.end():heads[i + 1].start() if i + 1 < len(heads) else len(text)]
+            body = text[m.end():heads[i + 1].start() if i + 1 < len(heads) else len(text)]
+            first = re.search(STATUS_WORDS, m.group(2))
+            if first:
+                # from the FIRST status word to the end of the heading: "FACT" alone prints as
+                # "FACT", while "FACT for the split … is HYPOTHESIS" prints as what it says
+                status = _phrase(m.group(2)[first.start():])
+            else:
+                status = "-"
                 b = re.search(r"^\*\*Status:\*\*(.+?)(?:\n\n|\Z)", body, re.M | re.S)
-                if b:
-                    phrase = re.sub(r"\s+", " ", b.group(1)).strip().rstrip(".")
-                    if re.search(STATUS_WORDS, phrase):
-                        status = phrase if len(phrase) < 120 else phrase[:117] + "..."
+                if b and re.search(STATUS_WORDS, b.group(1)):
+                    status = _phrase(b.group(1))
+            if re.search(r"\*\*AMEND(MENT|ED)\b", body):
+                status += "   [+ LATER AMENDMENT IN THE BODY -- read it before copying this status]"
             out[m.group(1)] = (status, m.group(0).strip())
     return out
+
+
+def _phrase(s):
+    """A compound status, verbatim and bounded -- never collapsed to one word."""
+    phrase = re.sub(r"\s+", " ", s).strip().strip("-— ").rstrip(".")
+    phrase = phrase.replace("**", "")
+    return phrase if len(phrase) < 120 else phrase[:117] + "..."
 
 
 def pages():
