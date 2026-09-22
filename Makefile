@@ -37,7 +37,12 @@
 #                       there, so the input path, the KEY record and the session end are NOT covered)
 #   make swiss          export every built DOL to build/swiss/NN-short/boot.dol with an
 #                       INDEX.txt, so the right build is obvious in Swiss (numbers are
-#                       stable; the copy is byte-identical and build/poc stays the authority)
+#                       stable; the copy is byte-identical and build/poc stays the authority).
+#                       A slot FROZEN in tools/swiss-layout.tsv -- one a physical run executed, or one
+#                       staged for a pending run -- is never written with other bytes, never removed and
+#                       never re-described in INDEX.txt: the export REFUSES with a non-zero exit (Issue
+#                       #44). To stage ONE slot without touching the rest:
+#                           python3 tools/swiss_export.py --root . --only 13-play
 #   make swiss-check    validate tools/swiss-layout.tsv without building anything
 #   make prehandler-wait build the pre-handler masked-wait DIAGNOSTIC (default 5000 ms;
 #                       PREWAIT_MS=N to change). Separate build id and directory: it is

@@ -431,8 +431,10 @@ class NothingFrozenMoved(unittest.TestCase):
         self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.6 ")].rstrip("\n"),
                          old[old.index("### V7.1 "):].rstrip("\n"), "§V7.1–§V7.5 byte-identical")
         changed = guards.changed_since(BASE, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"])   # Issue #29: tracked AND untracked, one implementation
-        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing
-        changed = changed - {"tools/reconcile.py"}
+        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing, and
+        # Issue #44 (2026-09-22) hardened the staging tool against destroying a frozen slot: the manifest gained a frozen_sha256 column
+        changed = changed - {"tools/reconcile.py", "tools/swiss_export.py", "tools/swiss-layout.tsv",
+                             "Makefile"}   # Issue #44: the Makefile's help names the --only staging path
         self.assertEqual(" ".join(sorted(changed)).strip(), "", "changed against the base: " + " ".join(sorted(changed)))
 
     def test_no_evidence_id_was_minted_and_the_records_agree(self):

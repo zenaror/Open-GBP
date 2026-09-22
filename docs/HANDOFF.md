@@ -957,8 +957,11 @@ issue 29    THE GUARD BLIND SPOTS, written properly: tests/host/guards.py is the
             skips stopped covering and CANNOT skip when a slot exists (INDEX consistency, the frozen slots against
             the documented hashes, the hashes required to still be quoted in the documents, the SD when mounted; a
             missing INDEX with slots present is a FAILURE). skip_ledger.py registers all 63 skip reasons over 217
-            sites in eight classes, each with what covers the risk; the dangerous class IDENTITY_NOT_CURRENT must
-            name its cover; enforced statically (any runner) and at run time (conftest fails the pytest session on
+            sites in eight classes, each with what covers the risk (FIGURE CORRECTED by Issue #44: the regex
+            extractor double-counted and was blind to 27 %-formatted reasons; the `ast` extractor reports 155 sites
+            -- 86 calls, 69 decorators -- 128 literal, 27 format-prefix, 0 unextractable, 67 distinct reasons, and
+            the command that reproduces it is in tests/host/test_guard_shape.py's skip_sites docstring); the
+            dangerous class IDENTITY_NOT_CURRENT must name its cover; enforced statically (any runner) and at run time (conftest fails the pytest session on
             an unregistered reason -- verified by probe: exit 1 unregistered, 0 registered). The page-vs-EVIDENCE
             comparison was MEASURED and is NOT a gate: 44 of 278 rows are comparable, 8 read weaker, all 8 correctly
             (compound aspect-scoped statuses vs one status per claim), so tools/reconcile.py is a REPORT that judges
@@ -978,8 +981,23 @@ issue 31    GB/GBC FOR PHASE 7, DESIGN ONLY (docs/research/GBC_PATH.md): no run,
             the gap a GB/GBC boot fills: experiment one is one boot with NO new code and its prediction (0x93 / 0x92 /
             0x90) is written before the data; experiment two makes the stretch testable with NOT CHANGED reachable as
             a real result. Delivery solved by the Everdrive GB X7, with four things to verify rather than assume
-next        orchestrator-owned: validate #41's pre-registration, #29 and #31; the Operator's declaration and the runs
-            on #43; close #36. Executor: C (Issue #30)
+issue 44    THE STAGING TOOL CANNOT DESTROY A FROZEN SLOT, and the skip ledger's static half sees the formatted
+            reasons. tools/swiss-layout.tsv gained a frozen_sha256 column (12-stream dd545c01...3a49, 13-play
+            d0ee3c29...99de); tools/swiss_export.py REFUSES with a non-zero exit to write a frozen slot with other
+            bytes (exit 4, before anything is written or removed), to remove one, or to let INDEX.txt re-describe
+            one (exit 5) -- a row for a slot this run did not write is CARRIED OVER when the bytes still hash to it
+            and is otherwise written with "-" in the columns that came from build/poc; there is no unconditional
+            rmtree while a frozen slot is staged; --only <slot> exports one slot and touches no other. The refusals
+            are PROVED in a temporary root and against the live tree (a full export here exits 4; --only 13-play
+            succeeds). The skip extractor is ast-based -- every skipTest call and skipUnless/skipIf decorator, the
+            literal prefix of a %-format or f-string, and NO literal prefix at all fails the test -- and it caught a
+            site the regex never saw (test_play_image's audit decorator). The #29 figure is corrected: 155 sites
+            (86 calls + 69 decorators), 128 literal, 27 format-prefix, 0 unextractable, 67 distinct reasons, with
+            the reproducing one-liner in skip_sites()'s docstring. HANDOFF's Swiss section corrected (it said
+            13-play was not exported; Hardware Issue #43 exported it), the rule it was making kept, the dead line
+            removed
+next        orchestrator-owned: validate #41's pre-registration, #29, #31 and #44; the Operator's declaration and
+            the runs on #43; close #36. Executor: C (Issue #30)
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
@@ -1555,11 +1573,27 @@ with an `INDEX.txt`, numbered by the versioned manifest
 [`tools/swiss-layout.tsv`](../tools/swiss-layout.tsv). Numbers are stable and
 never reused; `01-69` are canonical POCs and `80-89` physical diagnostics.
 
-Slot `13-play` (`gbp-play-session`, Issue #39) exists in the manifest and
-is NOT exported yet: `build/swiss/` was deliberately left as the Hardware
-Issue #32 staging (`12-stream` = `stream-0015`), and a code checkpoint never
-re-exports it. Exporting `13-play` is the staging step of a future
-pre-registration, not of the build.
+Slot `13-play` (`gbp-play-session`, Issue #39) was EXPORTED and staged under
+**Hardware Issue #43 on 2026-09-21**: `build/swiss/13-play/boot.dol` and
+`/media/rafael/SD_GC/Open-GBP/13-play/boot.dol`, both
+`d0ee3c29…99de`, the hash read back from the card. `12-stream` was left
+exactly as Hardware Issue #32 staged it (`dd545c01…3a49`). **The rule that
+section was making still holds and is unchanged:** a code checkpoint never
+exports; staging is a HARDWARE Issue's step, under its own authorisation.
+
+**Stage one slot, never the tree.** `make swiss` re-exports every enabled slot
+from `build/poc`, which holds whatever this tree last built — on 2026-09-21
+that would have replaced the frozen `12-stream` with a rebuild at another
+commit and rewritten its `INDEX.txt` row to agree. Since **Issue #44** the
+manifest carries a `frozen_sha256` column and `tools/swiss_export.py` REFUSES
+(non-zero exit, nothing written or removed) to write a frozen slot with other
+bytes, to remove one, or to let `INDEX.txt` re-describe one; `--only <slot>`
+exports a single slot and touches no other. The staging command for a new slot
+is therefore:
+
+```text
+python3 tools/swiss_export.py --root . --only 13-play      # then copy that slot to the SD and verify the hash FROM the card
+```
 
 **An exported `boot.dol` gains no physical status by being exported.** It is a
 byte-for-byte copy and the authority remains `build/poc/<out_dir>/<dol>`.

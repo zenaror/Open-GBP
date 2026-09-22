@@ -11362,3 +11362,68 @@ route.
 CONTROL split from `captures/local/` rather than trusting the document's
 numbers; `make test-python` green on the committed tree; nothing under `src/`,
 `poc/`, `tools/` or the Makefile.
+
+## 2026-09-22 — Issue #44: the staging tool can no longer destroy a frozen slot, the skip ledger's static half sees the formatted reasons, and two records corrected — including one figure of mine that did not reproduce
+
+**Item 1 — `tools/swiss_export.py`.** The near-miss of Hardware Issue #43 was
+sharper than the report put it, and the Orchestrator read the source to say so:
+the tool does not overwrite one slot, it `rmtree`s the whole export tree; its
+`HASH MISMATCH` check compares the source with its own copy, so it proves the
+copy is faithful to whatever is in `build/poc` *now* and says nothing about
+whether that is the frozen artifact; and `INDEX.txt` is REGENERATED, so a
+replaced slot's size, hash and commit column would have been rewritten to agree
+with the replacement — the file whose job is to pin identity would have stopped
+dissenting. With `build/poc`'s stream probe at `19666b54…` the executed image
+exists in exactly two places, so a full export would have left the Operator's
+card as the only copy, with exit code 0.
+
+The manifest now carries a **`frozen_sha256`** column (`12-stream` =
+`dd545c01…3a49`, `13-play` = `d0ee3c29…99de`, everything else `-`), and three
+rules are refusals with a non-zero exit rather than warnings: a frozen slot is
+never written with bytes whose hash is not its pinned one (exit 4, before
+anything is written or removed); a frozen slot's directory is never removed,
+and there is no unconditional `rmtree` while any frozen slot is staged — the
+tree is cleaned slot by slot, only for slots being written; and `INDEX.txt`
+never re-describes a frozen slot (exit 5), with a row for a slot this run did
+not write **carried over** from the previous index when the bytes still hash to
+it, and otherwise written with `-` in the columns that came from `build/poc`.
+`--only <slot>` exports named slots and touches no other. The refusals are
+**proved** in a temporary root — a frozen slot with differing source bytes,
+asserting the non-zero exit, the slot's bytes unchanged and `INDEX.txt`
+unchanged — and the live tree proves it too: a full export against this
+repository today exits 4 and names both hashes, while `--only 13-play`
+succeeds. The real staging was not touched by any of it.
+
+**Item 2 — the skip ledger's static half.** `test_guard_shape.py`'s extractor
+required a literal string, so it reported clean over the sites it could not
+see. It is now `ast`-based: every `skipTest` call and every
+`skipUnless`/`skipIf` decorator, with the literal prefix taken from a
+`%`-format or an f-string, and **anything with no literal prefix at all fails
+the test** rather than being ignored. It immediately caught a site the regex
+had never seen — `test_play_image.py`'s "run `make play-audit stream-audit` to
+audit the real listings" — whose ledger pattern was too narrow; the pattern is
+widened and the catch is recorded in the ledger entry itself.
+
+**The figure I reported for Issue #29 did not reproduce, and that is the
+finding.** The report said "63 distinct reasons over 217 sites". The regex
+extractor double-counted (three overlapping patterns) and was blind to 27
+formatted reasons at once. The reproducible count, from the `ast` extractor and
+from a one-liner in `skip_sites()`'s docstring that anyone can run:
+
+```text
+155 sites   86 skipTest calls + 69 decorators
+128 literal · 27 format-prefix · 0 f-string · 0 unextractable
+ 67 distinct reasons, all classified
+```
+
+**Item 3 — `docs/HANDOFF.md` contradicted itself** about `13-play`: the Issue
+table and the do-not-assume entry recorded the staging, while the "Swiss
+operator layout" section still said it was not exported. Corrected, with the
+rule that section was making kept intact (a code checkpoint never exports;
+staging is a Hardware Issue's step) and the new `--only` path named there and
+in the Makefile's help. **Item 4:** the dead `if False` line is gone.
+
+**Gates.** `make test-python` on the committed clean tree: **1543 passed, 7
+skipped, 103 subtests**. Nothing under `src/` or `poc/`; `build/swiss/12-stream`,
+`13-play` and the SD untouched (hashed before and after); no evidence status
+moved; no pre-registered text touched.

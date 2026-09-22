@@ -100,7 +100,9 @@ class TheRecordsSayWhatTheImageIs(unittest.TestCase):
                     # the durable pin is the trail entry itself, above
                     "That play-0001 has run, or that its timing was checked",
                     "That stop=session_end is anything but the only success of a play session",
-                    "That the disposition question is answered for a long session", "Slot 13-play (gbp-play-session, Issue #39) exists in the manifest and is NOT exported yet"):
+                    "That the disposition question is answered for a long session", # Hardware Issue #43 staged it on 2026-09-21; what the section must still say is the RULE
+                    "a code checkpoint never exports; staging is a HARDWARE Issue's step",
+                    "Stage one slot, never the tree"):
             self.assertIn(tok, h, tok)
         r = plain(read(ROADMAP))
         self.assertIn("The image for the acceptance run — built, not run (GitHub Issue #39, 2026-09-21)", r)
