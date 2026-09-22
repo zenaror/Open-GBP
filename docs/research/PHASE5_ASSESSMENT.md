@@ -316,6 +316,50 @@ its own: it rides on the next physical run that reaches the service loop,
 whatever phase that belongs to. **R5 and R6 never depended on R1** and are
 unchanged.
 
+### 6b. R6 RE-PRICED 2026-09-22 (GitHub Issue #63) — **its words above stay; what changed is what is now KNOWN about it**
+
+**R6 said *"everything"* is missing, and that was accurate. It is now too
+weak**, because the Operator has named what the references do:
+
+> *o gamecube tem 4 portas, todas no GB Player funcionam. então se eu conectar
+> 4 controles (independente se for um GBA via multiboot ROM ou controle
+> fisico) todos atuam como 1 controle. ele não restringe a só e somente só a
+> porta 1 (que é o que acontece hoje)*
+
+```text
+R6 WAS    ports 2-4 and other pads are UNTESTED. Nobody knows what happens.
+R6 IS     the references READ ALL FOUR PORTS and merge them into ONE controller, and Open-GBP reads
+          ONE port. That is a BEHAVIOURAL GAP AGAINST THE REFERENCES -- and functional parity with
+          them is the mission (CLAUDE.md §2), so it is a gap in the runtime and not only in the
+          testing.
+```
+
+**Open-GBP reads port 1 only, verified rather than taken:** every controller
+read in the tree is `PAD_CHAN0` — **29 occurrences across the three images that
+have an input path** (`gbp-video-stream-probe`, `gbp-play-session`,
+`gbp-audio-window-probe`), buttons, both sticks and both triggers, with no
+other channel named anywhere. `INPUT_PATH.md` §15 holds the record.
+
+**The re-pricing, which is the point of this part:**
+
+```text
+what is missing   UNCHANGED for the analogue trigger and for other pads: everything.
+                  CHANGED for ports 2-4: the run is no longer the first thing needed. AN IMPLEMENTATION
+                  GAP SITS IN FRONT OF IT -- reading four ports and merging them -- and a run designed
+                  for ports 2-4 today would only re-measure that Open-GBP ignores them.
+what retires it   FOR PORTS 2-4: (1) a POLICY decision written down -- how N button sets combine
+                  (INPUT_PATH.md §15, still open); (2) an implementation checkpoint with its own
+                  pre-registration; (3) then a run. For the trigger and other pads: unchanged.
+what it costs     MORE than "a checkpoint of its own": a policy record, a code change in the input
+                  path's L3 layer, a rebuild, and a physical run -- and the run is the cheapest part.
+```
+
+**This does NOT reopen Phase 5.** Its verdict was **SATISFIED WITH NAMED
+RESIDUALS** and R6 was one of the named ones. **A residual becoming better
+understood is the system working**, not a verdict changing: nothing that was
+established is weakened, and what was already outside the criterion stays
+outside it.
+
 ---
 
 ## 7. What Phase 5 does NOT establish, and which phase owns it
@@ -326,7 +370,10 @@ cartridge compatibility, other titles, GB/GBC    Phase 7 (and GBC_PATH.md's desi
 the physical Link Port                           Phase 8
 presentation, scaling, the pixel-perfect goal    Phase 9
 duration, margin, long-session instrumentation   Phase 12 (with U-GBP-035)
-the analogue trigger, ports 2-4, other pads      not scheduled; a checkpoint of its own
+the analogue trigger, ports 2-4, other pads      not scheduled; a checkpoint of its own -- AND, for
+                                                 ports 2-4, an IMPLEMENTATION gap in front of the run
+                                                 (§6b, Issue #63): the references merge four ports into
+                                                 one controller and Open-GBP reads PAD_CHAN0 only
 the timing of the shortened service pass         T' (§V7.9), unscheduled
 why CONTROL bit 0x01 arrives late                U-GBP-036, not blocking Phase 5
 ```
