@@ -94,7 +94,9 @@ class TheRecordsSayWhatTheImageIs(unittest.TestCase):
         self.assertIn("no run of play-0001 should be read as answering it", u)
         h = plain(read(HANDOFF))
         for tok in ("ISSUE #39 (the playable image): BUILT, NOT RUN", "issue 39 THE PLAYABLE IMAGE BUILT, NOT RUN",
-                    "validate #39's build", "That play-0001 has run, or that its timing was checked",
+                    # the trail's `next` line is orchestrator-owned and moves every checkpoint (Issue #41 moved it):
+                    # the durable pin is the trail entry itself, above
+                    "That play-0001 has run, or that its timing was checked",
                     "That stop=session_end is anything but the only success of a play session",
                     "That the disposition question is answered for a long session", "Slot 13-play (gbp-play-session, Issue #39) exists in the manifest and is NOT exported yet"):
             self.assertIn(tok, h, tok)
@@ -121,12 +123,15 @@ class NothingFrozenMoved(unittest.TestCase):
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE, "--", "docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md",
                             "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(r.stdout.strip(), "", "frozen paths changed: " + r.stdout)
+        # Issue #41 (2026-09-21) pre-registered RUN 21 / RUN 22 as §V7.6 (tests/host/test_run21_prereg.py pins it) -- the ONLY change allowed here since: §V7.6 appended, §V7.1-§V7.5 byte-identical (that test checks it)
+        self.assertTrue(set(r.stdout.split()) <= {"docs/research/HARDWARE_TESTS.md"}, "frozen paths changed: " + r.stdout)
         hw = read(HW)
-        self.assertNotIn("RUN 21", hw)
-        self.assertNotIn("GBP-PLAY-001", hw)              # nothing pre-registered under the embedded id
-        self.assertNotIn("GBP-HW-272", read(EVIDENCE))    # no evidence id minted by a build
-        self.assertIn("The next run number is 21.", read(HANDOFF))
+        # the image's runs are pre-registered now; what must still hold is that NOTHING RAN and no id was minted
+        self.assertIn("### V7.6 RUN 21 / RUN 22", hw)
+        self.assertIn("NOT RUN / NOT AUTHORISED HERE", hw[hw.index("### V7.6 RUN 21 / RUN 22"):].splitlines()[0])
+        self.assertNotIn("RUN 23", hw)
+        self.assertNotIn("GBP-HW-272", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
+        self.assertNotIn("GBP-PLAY-001", read(EVIDENCE))
 
 
 if __name__ == "__main__":
