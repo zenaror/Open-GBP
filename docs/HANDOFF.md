@@ -131,6 +131,20 @@ LAST PHYSICAL EVIDENCE INGESTED
   failed one, and the POC cannot end the run itself (the pump hook is void; the config has no session field). A usable
   image needs a success stop in CHECK_ADMISSION (src/gbp/gbp_vstate_probe) and a new POC with its own audit profile: a
   REDESIGN, its own checkpoint. INPUT_PATH.md §12 has the assessment; the input path and the KEY record stay untouched.
+  ISSUE #39 (the playable image): BUILT, NOT RUN. play-0001 @ 2e48ca7 (sha256 d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de; 487 968 B) = stream-0015's runtime
+  without its research instrumentation (the witness never bound, the sampler / VI trace / disposition trace and the
+  four sidecars out), the input path and the KEY record BYTE-IDENTICAL (the two functions diffed by test), plus the
+  operator's session end: Z held 250 ms -> gbp_session -> cfg.session_end -> stop=session_end status=ok_session_ended
+  teardown=S5_session_end, THE ONLY SUCCESS (new stop / status / config field in src/gbp/gbp_vstate_probe, read once per
+  admission after the safety budget and the store caps; unit-tested through the real run loop). Sized for 720 s
+  (frame store 45056 = 754 s, events 16384, guard 6 M, ringlog 8192 with a 640-line reserve; +8.1 MB of stores and log
+  against 11.05 MB freed; arena1_free 5 439 488 B measured in Dolphin). Zero warnings; two from-scratch builds
+  byte-identical; play-audit 0 findings (handlers identical to GBP-VIDEO-001's; the profile fails the stream image
+  both ways); Dolphin PASS on the absent-device abort path with the ceiling stated (the pump never runs there). THE
+  SERVICE PASS IS SHORTER by the witness step (RUN 17: 5/70/1547 ticks per VIDEO block); the pre-witness shape has
+  precedent (stream-0003 / 0004) but never with the input path: UNCHECKED until the image's first run, which is the
+  measurement (INPUT_PATH.md §13.5). U-GBP-035 opened (long-session presentation: no instrument). Nothing staged, not
+  exported (build/swiss/12-stream keeps stream-0015), no run name, nothing pre-registered, no game chosen.
 
   Previous: RUN 13 --
   GBP-VIDEO-007 / GBP-VIDEO-008 / stream-0013 @ 7d7a6d8 + coord-0002, executed 2026-09-21 -- RUN 13
@@ -353,6 +367,7 @@ different hash. Match the SHA-256 before saying "physically tested".
 | GBP-VIDEO-004 | `stream-0002` | `2457d51` | `76fa1ff797a05aee37d50fe2b2ae1c7c7ffb2d57fb97166a1322a9c54f24831d` | **PHYSICALLY EXECUTED 2026-09-18 — ABORTED PRE-SERVICE (`store_or_bounds_invalid`).** 466 272 B. Historical; never rebuilt, never re-labelled. Superseded by `stream-0003` | `HARDWARE_TESTS.md` §V5.29; GBP-HW-134…137 |
 | GBP-VIDEO-004 | `stream-0003` | `03b32a9` | `2f8e362e40b7e7dae1b3c2069a2a0fdb6376d22f43e3476cc7b28d7c13d199e3` | **PHYSICALLY EXECUTED 2026-09-18 — REAL CARTRIDGE VIDEO ON SCREEN.** 471 648 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.34; GBP-HW-138…145 |
 | GBP-VIDEO-004 | `stream-0004` | `e11df66` | `56f2687377f261a865ec05efb8d71ec71c79b664389fec8b31dc038545977c43` | **PHYSICALLY EXECUTED 2026-09-19 — P1 AND P2 CONFIRMED FIXED.** 472 160 B. Historical; never rebuilt or re-labelled | `HARDWARE_TESTS.md` §V5.38; GBP-HW-146…152 |
+| **GBP-PLAY-001 / the playable image (Issue #39)** | `play-0001` | `2e48ca7` | `d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de` | **NOT PHYSICALLY EXECUTED; no run pre-registered; not staged; not exported.** 487 968 B; zero warnings, none suppressed; two from-scratch builds at `2e48ca7` byte-identical; `make play-audit` 0 findings (the ext and base one-shot handlers identical to the physically validated GBP-VIDEO-001 build's); Dolphin PASS, device absent (the abort path; the pump slot never runs there). The input path and the KEY record byte-identical to stream-0015's; the session end on Z is the only success; the service pass shorter by the witness step, UNCHECKED until the first run | `INPUT_PATH.md` §13; Issue #39 |
 | GBP-VIDEO-004 (embedded id) / **GBP-INPUT-002 image, EXECUTED** | `stream-0015` | `da06500` | `dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49` | **EXECUTED 2026-09-21 — RUN 17, RUN 18 and RUN 16 (Hardware Issue #32; ingested §V7.4, Issue #33): the join closed FACT for all ten word bits; staged in `build/swiss/12-stream/` with stream-0014 preserved to `build/archive/` first (`ef76a170…0b9c`).** 514 880 B; stream-0014 plus the per-change `KEY` record (GBP-KEY-009: one line per first / change / retry write, the word and three instants in the sidecars' time base, bounded by the ringlog with a 64-line reserve) and the ENVINPUT repair (GBP-KEY-008: `ENVINPUT` + `ENVINPUT2`); zero warnings, none suppressed; two consecutive clean builds byte-identical; `make stream-audit` 0 findings (the ext and base one-shot handlers identical to the physically validated GBP-VIDEO-001 build); Dolphin absent / model on the stated conditions — the pump slot never runs there, so neither the write nor the record is exercised by it. The descriptor and the policy byte-equal to `0ff8355`. **Reproduce with `rm -rf build/poc && GIT_COMMIT=da06500 GIT_DIRTY= make build`** | `EVIDENCE.md` GBP-KEY-010; Issue #27 |
 | GBP-VIDEO-004 (embedded id) / **GBP-INPUT-001** **last physically executed** | `stream-0014` | `0ff8355` | `ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c` | **PHYSICALLY EXECUTED 2026-09-21 — RUN 14 (walk A) and RUN 15 (walk B), Hardware Issue #21; ingested §V7.2, Issue #24: Question M = PASS · Question O = AS-ASSIGNED in both; INPUT attempts = completed = 7 892 / 7 895, failed 0, 42 key changes each; `lines=686 dropped=0 truncated=1` (the clipped ENVINPUT record, GBP-KEY-008); the checker's tally screen decoded from the preserved OGBPFULL1 frames equals the Operator's vectors.** 513 152 B; stream-0013 plus the input path in the pump slot (Issue #19). Never rebuilt or re-labelled; stream-0013 preserved at `build/archive/` | `HARDWARE_TESTS.md` §V7.1, §V7.2; GBP-HW-261…265 |
 | GBP-VIDEO-004 / **GBP-VIDEO-007 / GBP-VIDEO-008** **previously executed** | `stream-0013` | `7d7a6d8` | `5391c3fe962dc4b2f4e493f3846ac7407ded064c58f5d4bb583a51e5a725dd79` | **PHYSICALLY EXECUTED 2026-09-20 — RUN 12 (Hardware Issue #9; pre-registered §V6.19; ingested §V6.20, Issue #10): GBP-VIDEO-007 INCONCLUSIVE · GBP-VIDEO-008 INCONCLUSIVE — the shared source gate failed (`OBSERVED_DISCONTINUITY`, two duplicate FRAME_ID transitions, GBP-VID-034); transport / startup / Policy A clean (`lines=674 dropped=0 truncated=0`, first hand-off 165.152173 ms, frozen p99 0.308642 ms); frozen vfull 8/8 subordinate; GBP-HW-250…255. Historical; never rebuilt or re-labelled. EXECUTED AGAIN 2026-09-21 — RUN 13 (Hardware Issue #15; pre-registered §V6.24; ingested §V6.25, Issue #16) with coord-0002, the same bytes, NOT rebuilt: GBP-VIDEO-007 = PASS · GBP-VIDEO-008 = PASS inside their boundaries; the shared source gate passed (`OBSERVED_CONTIGUOUS`); GBP-HW-256…260.** 506 496 B, built twice from scratch at `7d7a6d8` and byte-identical (`cmp`), Swiss `build/swiss/12-stream/boot.dol` byte-identical, no `-dirty`, Dolphin PASS (normal and GBP profiles; auxiliary). Embeds `stream-0013 7d7a6d8` and TEST_ID `GBP-VIDEO-004`. **Reproduce with `rm -rf build/poc && GIT_COMMIT=7d7a6d8 GIT_DIRTY= make build`.** `stream-0012` plus the §V6 instrumentation: K = 8 content-blind full-frame samples (`OGBPFULL1 v1`, `-full.bin`) and the hand-over / VI-latch trace (`OGBPVI1 v1`, `-vi.bin`); `ENVFULL` reports `arena1_free=1658880` after 2 080 768 B of new static stores. No witness, transport, Policy A, display, startup or frozen-format semantics change; `gbp_vwitness.*` and every frozen tool unchanged since `97c78c2` (git) | `HARDWARE_TESTS.md` §V6.18 |
@@ -583,6 +598,15 @@ yielding 24.95 % / 25.01 %, pre-streaming window median **42.8** µs, p25
 still does not measure the margin.
 
 ## Next safe action
+
+**Issue #39 (2026-09-21) BUILT the playable image `play-0001` (`2e48ca7`,
+SHA-256 `d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de`): NOT RUN, not staged, not
+pre-registered. The next safe action is the Orchestrator's: validate the
+build against `origin/main` (`tests/host/test_play_image.py`,
+`test_play_records.py`; `make play-audit`; `make play-dolphin`), then open
+the acceptance run's pre-registration when a game that passes through the
+button path is at hand — whose first run is also the measurement of the
+shorter service pass (`INPUT_PATH.md` §13.5).**
 
 **RUN 14 and RUN 15 are EXECUTED, INGESTED and VALIDATED (Hardware Issue
 #21 closed; Issues #24 / #25; `HARDWARE_TESTS.md` §V7.2): M = PASS, O =
@@ -857,8 +881,21 @@ issue 38    the runtime image fit for a game ASSESSED, NOT BUILT (INPUT_PATH.md 
             a larger frame store or a stated 274 s bound, a larger ringlog (~350 presses at 1024 lines), a new POC with
             its own Makefile, BUILD_ID, poc_audit profile, Dolphin conditions and Swiss number, and its own
             pre-registration -- a REDESIGN, stopped per the Issue's rule; no code, no build, no id
-next        orchestrator-owned: validate #38's assessment; open the redesign checkpoint for the input-session image
-            (INPUT_PATH.md §12.4, items 1-7) when a game that passes through the button path is at hand; close #36
+issue 39    THE PLAYABLE IMAGE BUILT, NOT RUN: play-0001 = 2e48ca7, 487 968 B, sha256 d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de,
+            zero warnings, none suppressed; two from-scratch builds byte-identical; play-audit 0 findings (handlers
+            identical to GBP-VIDEO-001's; the `play` profile finds 105 things wrong with the stream image, the `stream`
+            profile 33 with this one); Dolphin PASS on the absent-device path with the ceiling stated. stream-0015's
+            runtime minus the witness (never bound), the sampler, the VI trace, the disposition trace and the sidecars;
+            keylog_emit / input_step byte-identical; Policy A and the GX order unchanged (the lines that moved are
+            enumerated in INPUT_PATH.md §13.2); the session end on Z (250 ms hold) as the only success -- a new stop,
+            status and config field in the service-path module, read once per admission after the safety budget and
+            the store caps, unit-tested through the real run loop; sized for 720 s (45056 frame records, 16384 events,
+            6 M deliveries, 8192 log lines with a 640-line reserve, the costs stated); the service pass shorter by the
+            witness step, UNCHECKED until the first run; U-GBP-035 opened; a finding about stream-0015's 64-line reserve
+            recorded, not acted on; the freeze-guard pins of nine earlier checkpoints moved with their reasons
+next        orchestrator-owned: validate #39's build; open the acceptance run's pre-registration (a game through the
+            button path; the first run of play-0001 also measures the shorter service pass) when the game is at hand;
+            close #36
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
@@ -1115,6 +1152,19 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 
 ## Do not assume
 
+- **That `play-0001` has run, or that its timing was checked.** It has not
+  and it was not: the image is built and audited, its service pass is shorter
+  than stream-0015's by the witness step (RUN 17: 5 / 70 / 1 547 ticks per
+  VIDEO block), the pre-witness shape has precedent (stream-0003 / 0004) but
+  never with the input path, and the only instrument that can check the gap
+  is the first run (`INPUT_PATH.md` §13.5). "The device operations are the
+  same" is a statement about the operation stream, not about timing.
+- **That `stop=session_end` is anything but the only success of a play
+  session.** A session that ended by the 720 s budget, a store cap or the
+  guard has gone wrong, however well the game played.
+- **That the disposition question is answered for a long session.** The
+  trace is out of the playable image by decision; U-GBP-035 records that no
+  instrument exists for presentation behaviour over minutes of real content.
 - **That 5000 ms guarantees the bars are already on screen.** `color-0001`
   showed 5000 ms was *sufficient in that setup* (GBP-HW-120). That is one run on
   one unit with one cartridge, not a boot-time guarantee.
@@ -1390,6 +1440,12 @@ provides the log.
 with an `INDEX.txt`, numbered by the versioned manifest
 [`tools/swiss-layout.tsv`](../tools/swiss-layout.tsv). Numbers are stable and
 never reused; `01-69` are canonical POCs and `80-89` physical diagnostics.
+
+Slot `13-play` (`gbp-play-session`, Issue #39) exists in the manifest and
+is NOT exported yet: `build/swiss/` was deliberately left as the Hardware
+Issue #32 staging (`12-stream` = `stream-0015`), and a code checkpoint never
+re-exports it. Exporting `13-play` is the staging step of a future
+pre-registration, not of the build.
 
 **An exported `boot.dol` gains no physical status by being exported.** It is a
 byte-for-byte copy and the authority remains `build/poc/<out_dir>/<dol>`.

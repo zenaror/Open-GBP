@@ -11070,3 +11070,63 @@ source it is read from.
 
 **Next.** The Orchestrator validates the assessment and opens the redesign
 checkpoint (§12.4, items 1–7) when a game is at hand.
+
+## 2026-09-21 — Issue #39: the playable image BUILT, NOT RUN — play-0001: stream-0015's runtime without its research instrumentation, the input path and the KEY record byte-identical, the operator's session end on Z as the only success, sized for 720 s; the service pass shorter by the witness step, unchecked until the first run
+
+**Goal.** Build the runtime image Issue #38 concluded did not exist, with the
+three decisions the Orchestrator made in the Issue: Z ends the session (a
+first-class success), the disposition trace comes out, at least five minutes
+of play after the boot.
+
+**The service-path module (`8c98f0c`).** `src/gbp/gbp_vstate_probe.{h,c}`:
+`const int *session_end` in the config (NULL in every earlier build); one
+flag read in CHECK_ADMISSION after the safety budget and the two store caps,
+before every other success; `GBP_VSTATE_STOP_SESSION_END` / `S5_session_end`
+/ `ok_session_ended` (class ok), both codes APPENDED (the sidecars serialize
+them); `gbp_vstate_main_status` returns the session status whatever the
+detector saw. `src/gbp/gbp_session`: the hold state machine, no outward
+edge. Five unit scenarios through the real run loop (deliveries = acks =
+rearms = N at the next admission; the transaction never interrupted; the
+safety budget wins; an episode does not change the status; NULL changes
+nothing) plus the session module's own.
+
+**The POC (`2e48ca7`).** `poc/gbp-play-session`, BUILD_ID `play-0001`,
+embedded id GBP-PLAY-001: the subtraction of INPUT_PATH.md §12.2 done
+(the witness never bound, the sampler, the VI trace, the disposition trace
+and the sidecars out; the witness module linked for the module's
+predicates), `keylog_emit()` / `input_step()` the text of stream-0015's, the
+lines that moved in `pump()` / `submit_ready()` enumerated in §13.2 (no
+decision, no GX order, no wait changed; the take ordinal replaces the
+trace's lifecycle index as the offer key). Sizing: 720 s safety, 45056
+frame records (754 s), 16384 events, 6 M deliveries, 8192 log lines with a
+640-line reserve (the ringlog drops; RUN 17's post-run report was 462
+lines — stream-0015's 64-line reserve is a recorded finding). Audit profile
+`play` (0 findings; 105 on the stream image; the stream profile 33 on this
+one), Swiss slot 13 (not exported), `play-dolphin` pinned to the observed
+absent-device path with the ceiling stated.
+
+**Gates.** Zero warnings, none suppressed; two from-scratch builds at
+`2e48ca7` byte-identical, SHA-256 `d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de`,
+487 968 B; `make play-audit` 0 findings, both one-shot handlers identical to
+the GBP-VIDEO-001 build's; Dolphin PASS (SELFTEST ok=1, INPUTSELFTEST ok=1,
+ENVMEM arena1_free=5439488, COUNTERS balanced=1 storage_fault=-, SESSION
+requested=0, RESULT abort_inconsistent / stage_a) — the pump slot never runs
+there, so nothing about the input path, the KEY record, a real frame or the
+session end is covered; `make test-unit` green; `make test-python` green on
+the committed tree (the freeze-guard pins of nine earlier checkpoints moved
+with their reasons: the module, the new POC, the profile and the layout are
+Issue #39's paths).
+
+**Stated, not assumed.** The service pass is SHORTER by the witness step
+(RUN 17: 5 / 70 / 1 547 ticks per VIDEO block, n = 96 109); the pre-witness
+shape ran physically (stream-0003 / 0004) but never with the input path;
+the first run of the image is the only measurement (§13.5). Dolphin covers
+none of the pump slot. `build/swiss` not re-exported. U-GBP-035 opened.
+
+**Not done.** No run, no pre-registration, no game, nothing staged;
+§V7.1–§V7.5, the verdicts, the evidence statuses and the routing FACT
+untouched.
+
+**Next.** The Orchestrator validates the build; the acceptance run's
+pre-registration follows when a game is at hand, its first run doubling as
+the measurement of the shorter pass.

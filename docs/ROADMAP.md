@@ -592,6 +592,17 @@ ringlog and a new POC with its own audit profile: a redesign, its own
 checkpoint (`docs/research/INPUT_PATH.md` §12). The acceptance run stays
 open; nothing was built.
 
+**The image for the acceptance run — built, not run (GitHub Issue #39,
+2026-09-21):** `play-0001` (`2e48ca7`, `docs/research/INPUT_PATH.md` §13) is
+`stream-0015`'s runtime without its research instrumentation, the input path
+and the KEY record byte-identical, plus the operator's session end on Z as
+the only success (a new stop in the service-path module, unit-tested), sized
+for a 720 s session. Zero warnings, byte-identical clean builds, audit clean,
+Dolphin on the absent-device path only. Its service pass is shorter than
+stream-0015's by the witness step and is unchecked until its first run. The
+acceptance run still needs its pre-registration and a game; the
+long-session presentation question is U-GBP-035 (Phase 9 / 12).
+
 Implement and document GameCube controller → GBP keypad/input handling.
 
 Automated tests should cover button combinations and encoding.

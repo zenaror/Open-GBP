@@ -31,7 +31,9 @@ REGISTERS = os.path.join(ROOT, "docs", "protocol", "REGISTERS.md")
 EXTERNAL = os.path.join(ROOT, "external", "README.md")
 OUTCOME = "RESOLVED STATICALLY at CORROBORATED"
 MGBA_COMMIT = "8692b26b6d882c049bc70958e0ef8ba0e607a4b7"
-ID = re.compile(r"\b(GBP-(?!VIDEO|BBA|INIT|AV|PROBE|BASELINE)[A-Z]+-\d{3}|ENV-[A-Z]+-\d{3}|U-GBP-\d{3}|U-ENV-\d{3})\b")
+# test-id FAMILIES are not evidence ids: VIDEO / INIT / AV / PROBE / BASELINE were always excluded, and PLAY joins them
+# with Issue #39 (GBP-PLAY-001 is the playable image's embedded id; its record in HARDWARE_TESTS comes with a pre-registration)
+ID = re.compile(r"\b(GBP-(?!VIDEO|BBA|INIT|AV|PROBE|BASELINE|PLAY)[A-Z]+-\d{3}|ENV-[A-Z]+-\d{3}|U-GBP-\d{3}|U-ENV-\d{3})\b")
 
 
 def read(p):

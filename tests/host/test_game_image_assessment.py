@@ -182,7 +182,7 @@ class TheAssessmentIsRecordedAndNothingWasBuilt(unittest.TestCase):
 
     def test_the_records(self):
         h = plain(read(HANDOFF))
-        for tok in ("ISSUE #38 (the runtime image fit for a game): ASSESSED, NOT BUILT -- STOP by the Issue's own rule", "issue 38", "validate #38's assessment",
+        for tok in ("ISSUE #38 (the runtime image fit for a game): ASSESSED, NOT BUILT -- STOP by the Issue's own rule", "issue 38 the runtime image fit for a game ASSESSED, NOT BUILT (INPUT_PATH.md §12)",
                     "That a smaller stream probe is an acceptance image"):
             self.assertIn(tok, h, tok)
         r = plain(read(ROADMAP))
