@@ -1510,6 +1510,21 @@ different GB/GBC cartridge tells whether it is the medium. Both are Phase 7
 work with a pre-registration of their own. Related: `U-GBP-017`,
 `GBC_PATH.md` §3 and §4.1.
 
+**SECOND DATA POINT 2026-09-22 (GitHub Issue #55). THE QUESTION IS
+UNCHANGED.** RUN 27 repeated RUN 24 with the same cartridge and a guaranteed
+power cycle, and the bit still arrives late, in the same scheduled bracket, and
+persists (§V7.10; `GBP-HW-275`'s amendment). **One thing this item listed is
+answered and it is not the question:** *"the bound comes from two SNAP records
+450 µs apart … One run"* — it is now two runs, and the bracket is the same.
+
+**Nothing else moves.** The three parts of the question stand exactly as
+written: **what triggers it** is still undetermined, because the transform's
+power/reset bits, the `A1` write and plain elapsed time all still fall inside
+that one bracket — **two runs that agree separate them no better than one**;
+**why not at power-on** is untouched; and the bracket is still 450 µs wide,
+because it is the probe's own schedule and nothing in either run narrows it.
+**A repeat answers "does it reproduce", never "what causes it".**
+
 **ADDENDUM 2026-09-22 (GitHub Issue #52) — the first measurement of how far a
 session of `play-0001` actually reaches, and it is not 720 s.** RUN 21 stopped
 at `stop=event_store_cap` after **273.918 s**: the event store's 16 384 entries

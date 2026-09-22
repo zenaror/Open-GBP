@@ -7433,7 +7433,7 @@ and the same one-line derivation now prints
 ```text
 grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
      13 CONTROL semantic orig=90
-     27 CONTROL semantic orig=92
+     30 CONTROL semantic orig=92
 ```
 
 The six logs added the same day are RUN 23 (`stream-0015-run23`, no cartridge,
@@ -7442,8 +7442,10 @@ the four sessions of **RUN 21, RUN 22, RUN 25 and RUN 26** (`play-0001-run21`,
 `play-0001-run22`, `play-0001-run25` and `play-0001-run26`, a GBA cartridge,
 `0x92` — GitHub Issue #52). **The last four are a THIRD IMAGE**: `play-0001` is not `stream-0015`
 and carries none of its research instrumentation, yet it records the same field
-and falls in the same family, so the split now holds over **40 logs across
-three images and both build eras**. **Bit `0x01` is still 0 in all 40 ORIGINAL
+and falls in the same family, so the split now holds over **43 logs across
+three images and both build eras** — the latest are RUN 27, RUN 28 and RUN 29
+(`stream-0015-run27`, `stream-0015-run28` and `stream-0015-run29`; three
+different GB/GBC cartridges, all `0x92`, GitHub Issue #55). **Bit `0x01` is still 0 in all 43 ORIGINAL
 bytes** — RUN 24 sets it only later, which is `GBP-HW-275` and not this
 entry's subject.
 
@@ -7481,7 +7483,7 @@ this project. The machine record is the byte above.
 
 ---
 
-### GBP-HW-274 — RUN 24: with a **Game Boy Color** Game Pak inserted the ORIGINAL CONTROL byte is `0x92`, bit `0x01` CLEAR — the same byte a Game Boy Advance cartridge gives, so at the power-on read point the byte does not distinguish the two media — FACT (recomputable), and a NEGATIVE that closes a stated expectation
+### GBP-HW-274 — RUN 24: with a **Game Boy Color** Game Pak inserted the ORIGINAL CONTROL byte is `0x92`, bit `0x01` CLEAR — the same byte a Game Boy Advance cartridge gives, so at the power-on read point the byte does not distinguish the two media — FACT (recomputable), and a NEGATIVE that closes a stated expectation — **2026-09-22, Issue #55: REPRODUCED by RUN 27 with a guaranteed power cycle, element for element; the preceding-state confound CLOSED; the MEANING still C, not F, on this entry's own condition — a second, different GB/GBC cartridge — read the amendment at the end of this entry before copying a status**
 
 Executed 2026-09-22 by the Operator on his own initiative, **NOT
 pre-registered**. Same image `stream-0015` (`da06500`), a **Pokémon Crystal
@@ -7507,9 +7509,19 @@ byte, sampled before any write — and `GBP-HW-275` shows the same run answering
 differently a fraction of a millisecond later. It says nothing about whether
 the Game Pak was sensed at all, and nothing about GB/GBC mode.
 
+**AMENDMENT 2026-09-22 (GitHub Issue #55): three more runs, three distinct
+cartridges.** RUN 27 (the same cartridge, a guaranteed power cycle), RUN 28 (an
+Everdrive GB X7) and RUN 29 (an unofficial *Samurai Spirits*, a **DMG**
+cartridge) all read `orig=92 exp=8e` — **the original byte is `0x92` with bit
+`0x01` CLEAR in every one**, so this entry's observation now rests on four runs
+across three cartridges and two media families. **It is the reason the FACT of
+`GBP-HW-275` must always carry "the bit is NOT in the original byte"**: a
+reader who samples CONTROL before the transform write learns nothing about the
+medium. §V7.10.
+
 ---
 
-### GBP-HW-275 — RUN 24: bit `0x01` of CONTROL becomes 1 **after** the transform write, within 186–636 µs, and stays set through teardown — while four GBA-cartridge runs and one cartridge-less run of the same build hold their value — FACT for the transition and the contrast; the MEANING stays an inference
+### GBP-HW-275 — RUN 24: bit `0x01` of CONTROL becomes 1 **after** the transform write, within 186–636 µs, and stays set through teardown — while four GBA-cartridge runs and one cartridge-less run of the same build hold their value — FACT for the transition and the contrast; the MEANING stays an inference — **2026-09-22, Issue #55: REPRODUCED by RUN 27 with a guaranteed power cycle, element for element; the preceding-state confound CLOSED; the MEANING still C, not F, on this entry's own condition — a second, different GB/GBC cartridge — read the amendment at the end of this entry before copying a status**
 
 The whole trajectory, majority vote over the 32 replicas, one run per column:
 
@@ -7574,6 +7586,72 @@ appears late rather than at the original read. Whether the transform's power /
 reset bits (`0x04`/`0x08`) cause the sensing, or whether time or the `A1`
 write does. Whether a GBA cartridge would ever set it. Anything about GB/GBC
 video, input, audio, timing or mode entry. See `U-GBP-036`.
+
+**AMENDMENT 2026-09-22 (GitHub Issue #55) — three more runs, three distinct
+cartridges, one confound closed, one candidate pair excluded, and THE MEANING
+MOVED TO FACT with its scope stated.**
+
+**The runs.** RUN 27 repeated RUN 24 with the same cartridge and **a power
+cycle the Operator guaranteed beforehand**, unprompted; RUN 28 used an
+**Everdrive GB X7**; RUN 29 an unofficial ***Samurai Spirits***, a **DMG**
+cartridge through the GBC's backward compatibility. All four give `orig=92
+exp=8e` — bit `0x01` **clear in the original byte, every time** — then the bit
+set, persisting to the end, with `PREUNMASK ok=0 reason=control_changed` and
+the restore writing `0x92` and reading `0x93` in every one (§V7.10).
+
+**WHAT CLOSES.** RUN 24's console state beforehand was never declared, so
+*"something the previous session left behind"* was an available explanation for
+the late arrival. **It is no longer available**: RUN 27 guaranteed the power
+cycle and the bit still arrives late.
+
+**THE NEW FINDING — the arrival window is CARTRIDGE-DEPENDENT, and the two
+windows are DISJOINT.** The three ordinary cartridges flip between 185 µs and
+636 µs after the transform write; the **Everdrive flips between 698 µs and
+1148 µs**, three probe points later, with no overlap. The probe's sequence is
+identical in all four runs, so **elapsed time alone and the `A1` write alone
+are both EXCLUDED as sufficient explanations** — each predicts the same window
+for every cartridge. What remains is **the cartridge/AGB side**. That is the
+first separation among `U-GBP-036`'s three candidates, and **it does not close
+the item**: one flashcart against three ordinary cartridges is a contrast, not
+a mechanism.
+
+**A NEGATIVE RESULT.** RUN 29's DMG cartridge behaves **identically** to the
+CGB title of RUN 24 and RUN 27. **At this read point the bit separates the
+GB/GBC family from Game Boy Advance and nothing finer: it does not distinguish
+DMG from CGB.**
+
+**THE STATUS, ARGUED RATHER THAN AWARDED.** This entry set its own bar before
+any of these runs existed — *"a repeat with the same cartridge **and** a run
+with a second, different GB/GBC cartridge"* — and the bar is met twice over:
+one repeat and **three distinct cartridges**. A bar being met is a reason to
+write the argument, not a substitute for it, so here it is.
+
+```text
+WHAT BECOMES FACT   with GB/GBC media in the slot, CONTROL bit 0x01 reads 1 after the transform write and
+  (hw, four runs,   holds to the end of the run; with a Game Boy Advance cartridge, or with an empty slot, it
+   three cartridges) reads 0 throughout. DIRECTLY MEASURED in every case, never inferred from a model: four
+                    GB/GBC runs across three cartridges and two media families (CGB and DMG) against four
+                    GBA-cartridge runs and one cartridge-less run of the same image.
+WHY THIS IS NOT     bit 0x02's causal step stayed CORROBORATED because a rival explanation -- the build era --
+ BIT 0x02's CASE    was not excluded by the archive. Here no rival survives: the cartridge is the only thing
+                    that varied, the contrast is complete over three slot states, and the one remaining
+                    alternative reading -- that the bit follows what the AGB DOES with the medium rather than
+                    what is inserted -- is a REFINEMENT of the same observation and is named below rather
+                    than left implicit.
+THE SCOPE, WHICH    one console, one Game Boy Player; this read sequence and no other; and -- the part that
+ TRAVELS WITH IT    must never be dropped -- THE BIT IS NOT IN THE ORIGINAL BYTE. A reader who samples CONTROL
+                    before the transform write gets 0x92 and learns nothing about the medium (GBP-HW-274).
+WHAT STAYS OPEN     WHY it arrives late and WHAT triggers it (U-GBP-036, narrowed but open). Whether the bit
+                    reports the MEDIUM or the AGB's response to it -- and RUN 28's cartridge-dependent window
+                    is evidence for the second, since a static slot property would not move with the
+                    cartridge. Nothing about DMG versus CGB, which this run shows it does not carry.
+```
+
+**So the MEANING moves from CORROBORATED to FACT, stated as the observation it
+is and scoped as above** — and `REGISTERS.md` §3 carries it with the same
+scope. The refinement in the last row is why the FACT is worded as *"reads 1
+with GB/GBC media in the slot"* and not as *"reports the cartridge type"*: the
+first is what was measured, the second is a name for it.
 
 ---
 

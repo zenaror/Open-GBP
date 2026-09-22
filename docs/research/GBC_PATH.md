@@ -301,6 +301,22 @@ caveat is what it costs, and §4.2's instrument requirement (a picture whose
 stretch is legible) is judged on the day from what is on screen, not from a
 title nobody has.
 
+**A PLANNING CONSTRAINT, declared by the Operator 2026-09-22 (GitHub Issue
+#55) and not assumed by this document.** His words:
+
+> *O everdrive GB x7 sempre acessa o menu dele. mesmo que eu tenha carregado
+> uma ROM antes de desligar. Ele exige o cartão SD, para carregar o S.O. dele.*
+
+**The Everdrive GB X7 always runs its own menu and operating system, loaded
+from its SD card, and cannot present a plain ROM without them.** So **any
+future GB/GBC experiment on that device tests "GBP + Everdrive OS", not "GBP +
+game"**, unless the Operator has another GB/GBC cartridge in hand. §4.1's
+experiment and §4.2's stretch design both inherit this: a title-screen or
+in-game observation cannot be made through a device that interposes its own
+firmware, and the first thing any such run reports is the Everdrive's menu.
+RUN 28 (`HARDWARE_TESTS.md` §V7.10) is the first run with that device and
+already shows a CONTROL behaviour distinct from three ordinary cartridges.
+
 ```text
 to be verified when Phase 7 opens, never assumed
   it fits and boots      the GBP's slot is a Game Boy Advance slot and accepts GB/GBC media; that the X7 specifically
