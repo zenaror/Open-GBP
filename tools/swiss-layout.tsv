@@ -48,4 +48,5 @@
 11	color	gbp-video-color-probe	gbp-video-color-probe.dol	gbp-video-color-probe	build	1	-
 12	stream	gbp-video-stream-probe	gbp-video-stream-probe.dol	gbp-video-stream-probe	build	1	dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49
 13	play	gbp-play-session	gbp-play-session.dol	gbp-play-session	build	1	d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de
+14	audio	gbp-audio-window-probe	gbp-audio-window-probe.dol	gbp-audio-window-probe	build	1	c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54
 80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1	-

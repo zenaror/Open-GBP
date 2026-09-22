@@ -52,6 +52,8 @@ TOP_MAKEFILE = os.path.join(ROOT, "Makefile")
 UNIT_MAKEFILE = os.path.join(ROOT, "tests", "unit", "Makefile")
 AUDIT = os.path.join(ROOT, "tools", "poc_audit.py")
 AWIN_OUT = os.path.join(ROOT, "build", "poc", "gbp-audio-window-probe")
+# the identity Hardware Issue #61 carries, recomputed by the Orchestrator from the clean tree
+AWIN_DOL_SHA256 = "c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54"
 PLAY_OUT = os.path.join(ROOT, "build", "poc", "gbp-play-session")
 
 # origin/main at the start of Issue #19, the base every service-path freeze uses
@@ -325,21 +327,38 @@ class ThePlumbing(unittest.TestCase):
         self.assertIn('#define TEST_ID "GBP-AUDIO-001"', a)
         self.assertIn("gbp_awin.c gbp_awindump.c", mk)
 
-    def test_the_frozen_slots_are_not_touched(self):
-        layout = read(os.path.join(ROOT, "tools", "swiss-layout.tsv"))
+    def test_the_slot_is_14_and_the_frozen_slots_are_not_touched(self):
+        """Hardware Issue #61 authorised the staging of a NEW slot. 12-stream
+        and 13-play keep their FROZEN hashes -- #44's refusal is what makes
+        adding a slot beside them safe -- and 14-audio is frozen from the
+        start, because it is staged FOR a run that has not happened yet."""
         rows = {}
-        for line in layout.splitlines():
+        for line in read(os.path.join(ROOT, "tools", "swiss-layout.tsv")).splitlines():
             if line.startswith("#") or not line.strip():
                 continue
             f = line.split("\t")
             rows[f[0]] = f
-        # 12-stream and 13-play keep their FROZEN hashes: #44's refusal is what
-        # makes staging this image later safe, and this checkpoint stages nothing.
         self.assertEqual(rows["12"][1], "stream")
         self.assertEqual(rows["13"][1], "play")
-        self.assertNotEqual(rows["12"][-1], "-")
-        self.assertNotEqual(rows["13"][-1], "-")
-        self.assertNotIn("gbp-audio-window-probe", layout)
+        self.assertEqual(rows["12"][-1], "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49")
+        self.assertEqual(rows["13"][-1], "d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de")
+        self.assertEqual(rows["14"][1], "audio")
+        self.assertEqual(rows["14"][2], "gbp-audio-window-probe")
+        self.assertEqual(rows["14"][3], "gbp-audio-window-probe.dol")
+        self.assertEqual(rows["14"][6], "1")
+        self.assertEqual(rows["14"][-1], AWIN_DOL_SHA256)
+        # and it is a NEW number: nothing was renumbered
+        self.assertNotIn("15", rows)
+
+    def test_what_is_staged_is_the_image_this_checkpoint_built(self):
+        """The slot's bytes, when it is staged in this checkout. The DOL's own
+        hash is the authority; the manifest row repeats it and must agree."""
+        import hashlib
+        staged = os.path.join(ROOT, "build", "swiss", "14-audio", "boot.dol")
+        if not os.path.exists(staged):
+            self.skipTest("14-audio is not staged in this checkout")
+        with open(staged, "rb") as f:
+            self.assertEqual(hashlib.sha256(f.read()).hexdigest(), AWIN_DOL_SHA256)
 
     def test_the_dolphin_target_states_its_ceiling(self):
         top = read(TOP_MAKEFILE)

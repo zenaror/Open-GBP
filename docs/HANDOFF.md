@@ -1300,16 +1300,22 @@ issue 59    THE IMAGE §V8 NEEDS IS BUILT: poc/gbp-audio-window-probe, app gbp-a
             the chunk. AUDIT PROFILE `awin` DERIVED from `play`, discriminating BOTH WAYS by running the
             auditor: 0 findings here, "expected object missing: gbp_awin.o" on the play image, and `play`
             fails this one; both one-shot handlers byte-identical to GBP-VIDEO-001's
-next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46
-            through #59 and #42; close #36. The RAG reindex is the Orchestrator's since 2026-09-22 (the
-            Executor pushes and says so; the Executor reindexed after #58's push and said so). PHASE 5 HAS NO
-            OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 now rides on §V8's run, R5 / R6
-            unchanged. PHASE 6: the first run is PRE-REGISTERED (§V8) and the IMAGE IS BUILT (stream-0016,
-            #59). NOTHING IS AUTHORISED BY EITHER. What is left before hardware is the Orchestrator's:
-            validate the image, stage it to a NEW Swiss slot (14-audio, with 12-stream and 13-play FROZEN)
-            on a clean commit with the DOL hash recorded, and open the Hardware Issue with §V8.10's action
-            list. #31 (Phase 7, GB/GBC) stays backlog. Executor: the queue is empty -- next checkpoint on
-            dispatch
+issue 61    HARDWARE ISSUE OPEN: GBP-AUDIO-001 RUN 30 on stream-0016, §V8's gates unchanged. STAGING
+            AUTHORISED THERE AND PERFORMED BY THE EXECUTOR (the #43 / §V7.6.8 pattern; the Orchestrator's
+            seat opens and validates, it does not stage): slot 14-audio, a NEW number, exported with
+            tools/swiss_export.py --only, manifest row FROZEN from the start, hash READ BACK FROM THE CARD
+            (c3281a8c...9c54, 498 496 B), 12-stream and 13-play unchanged on BOTH copies before and after,
+            no leftover log for this image to move aside. THE RUN IS THE OPERATOR'S and the Executor STOPS
+            here. The reindex is the ORCHESTRATOR'S from now on (his correction, the Operator's
+            instruction): the Executor pushes and says so
+next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59 ACCEPTED with the identity recomputed;
+            still to validate #41's pre-registration, #46 through #58 and #42; close #36. PHASE 5 HAS NO
+            OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 now rides on §V8's run,
+            R5 / R6 unchanged. PHASE 6: the first run is PRE-REGISTERED (§V8), the IMAGE IS BUILT
+            (stream-0016, #59) and IT IS STAGED to 14-audio (#61). THE NEXT MOVE IS THE OPERATOR'S: §V8.10's
+            four presses. Then INGESTION, a separate checkpoint, classifying ONLY against §V8's frozen gates
+            with tools/v8audio.py unadjusted. #31 (Phase 7, GB/GBC) stays backlog. Executor: the queue is
+            empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
