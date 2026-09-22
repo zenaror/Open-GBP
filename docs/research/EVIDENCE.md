@@ -7282,6 +7282,119 @@ consolidated page moves on this row.
 
 ---
 
+### GBP-HW-272 — the original CONTROL byte splits all 34 archived physical logs exactly at bit `0x02`: the 12 cartridge-less runs read `0x90`, the 22 runs with a cartridge read `0x92` — **FACT for the split**; that the bit REPORTS Game Pak presence is **HYPOTHESIS**, with an empty diagonal and a named breaker
+
+Found in the archive by Issue #31 while writing `GBC_PATH.md` §3, which
+offered it and promoted nothing; recomputed independently by the Orchestrator;
+promoted here under Issue #46. **No hardware was run for it: every byte was
+already on disk.**
+
+**CLAIM 1 — the split. FACT.** Every Open-GBP probe from `init-0001` onward
+records the original CONTROL byte before it writes anything, as
+`CONTROL semantic orig=<byte> exp=<byte> method=gbi-majority-vote
+transform=(v&~10)|0c`. Over the 34 physical logs in `captures/local/`:
+
+```text
+orig = 0x90   12 logs   init-0001, initirq-0001, initirqa-0001, initirqb-0001, initirq4-0001, avsvc-0001, video-0001,
+                        vstate-0001, vstate-0002, vstate-0003, vstate-0004, vstate-prewait-5000
+orig = 0x92   22 logs   color-0001, color-0002, stream-0003, stream-0004, stream-0005, stream-0005-run2,
+                        stream-0005-run3, stream-0006-run4, stream-0007-run5, stream-0008-run6, stream-0009-run7,
+                        stream-0009-run8, stream-0010-run9, stream-0010-run10, stream-0011-run11, stream-0013-run12,
+                        stream-0013-run13, stream-0014-run14, stream-0014-run15, stream-0015-run16,
+                        stream-0015-run17, stream-0015-run18
+difference              bit 0x02, and nothing else: 0x90 ^ 0x92 == 0x02, in every one of the 34, with no exception in
+                        either direction
+bit 0x01                reads 0 in ALL 34. One observed state is not a result: every run used no cartridge or a GBA
+                        cartridge, so the type bit has never been seen in its other state (GBC_PATH.md §4.1).
+```
+
+**The selection rule is mechanical, not curated: every log in
+`captures/local/` that carries the field, all of them.** The directory holds 40
+files and 6 carry no such record — `probe-0001` and its transcript and the two
+`smoke-0002` logs, which predate the record; and the two runs made deliberately
+with no Game Boy Player attached (`init-0001-semGBP`, `probe-0001` of
+`GBP-BASELINE-NOGBP-001`), where the probe aborts at `DET verdict=absent` /
+`status=abort_not_present` before any register is read. **None of the six was
+dropped by a judgement about what it showed**; there is nothing to drop,
+because the device was not there or the field did not yet exist.
+
+The 12 are the era before the physical ROM delivery route existed (§V3.7) and
+are cartridge-less **by their own records** — GBP-VIDEO-002's normative
+question is *"in a session WITHOUT a Game Pak…"* (`gbp_vstate_probe.h`), and
+the early setups are recorded as "no cartridge" in `HARDWARE_TESTS.md`. The 22
+are every run from the moment a cartridge was in the slot. **This is FACT
+because anyone can re-derive it from the files**, not because of who found it:
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     12 CONTROL semantic orig=90
+     22 CONTROL semantic orig=92
+```
+
+**CLAIM 2 — that bit `0x02` reports Game Pak presence. HYPOTHESIS. Not FACT,
+and not CORROBORATED either.** The two-by-two has an empty diagonal:
+
+```text
+                  early builds      late builds (color / stream)
+no Game Pak       12 logs  0x90     NONE
+Game Pak          NONE              22 logs  0x92
+```
+
+"Bit `0x02` tracks the cartridge" and "bit `0x02` tracks something the later
+builds do at startup" are **not separated by this archive**. What makes the
+second unlikely rather than excluded: the record has the same form and position
+in both families, is taken before any experimental write, and `exp` is the
+deterministic `(orig & ~0x10) | 0x0C` in both — nothing in the later builds
+transforms `orig`. Unlikely is not measured.
+
+**And Dolphin is not corroboration for this.** Its `CART_INSERTED` names
+CONTROL bit `0x02` in its own model, but its *"GamePak source"* is bit 2 of the
+**IRQ** register (index `0xD`) — a different bit in a different register, and
+whether the two are related is open. The Start-up Disc's "present" status flag
+and GBI's "Game Pak" string are one line of reasoning about what the SOFTWARE
+does with the bit (`GBP-CTL-001`, CORROBORATED for usage), not a second
+independent measurement of what the DEVICE reports.
+
+**THE BREAKER, named so nobody rediscovers it: one boot of `12-stream` with
+the cartridge REMOVED** fills the empty "late build, no Game Pak" cell. It
+needs no new build, no new code and no new write — `12-stream` is staged, has
+run five times, and logs the field. `play-0001` cannot do it (it logs
+`t_control`, not the byte). **Not pre-registered and not authorised here**; it
+is not folded into RUN 21 / RUN 22, whose one variable is the controller and
+whose cartridge must be identical in both.
+
+**What this answers, and what it leaves open.** `U-GBP-017`'s Needs list has
+read *"repeat run, run with a cartridge, run after a controlled stop
+sequence"* since 2026-09-14; **the second item is answered from the archive for
+bit `0x02` only**, and the item stays OPEN at P2 — `0x10`, `0x80` and `0x94`
+are untouched by this, and so is the meaning of the other bits of `0x90`.
+
+**THE RECONCILIATION SWEEP (`RESEARCH_METHOD.md`), run before this entry was
+written, outcome recorded INCLUDING "nothing".** `tools/reconcile.py` was run
+over `GBP-CTL-001`, `GBP-HW-004`, `GBP-HW-005`, `GBP-HW-024` and `U-GBP-017`,
+and the consolidated pages that speak about CONTROL were read against it:
+`REGISTERS.md` §3, `GBS-DOL.md`, `ARCHITECTURE.md`'s control/status row.
+**Nothing had to be corrected, relocated or weakened, and that is the finding
+rather than an absence of one** — because every existing statement is about the
+REFERENCES' USAGE of the bit (`GBP-CTL-001`: "CORROBORATED for usage of
+0x01–0x10"; `ARCHITECTURE.md`: "C for usage, H for names") and this entry is
+about the DEVICE'S OWN BYTE. Two different propositions about the same bit, so
+neither displaces the other and both stay on the page. **If the sweep had found
+a page asserting the causal claim, that page would have been corrected here.**
+The sweep also improved its own tool: it printed "-" for every entry whose
+status lives in a body `**Status:**` line rather than in the heading, which is
+how the older entries are written, so `tools/reconcile.py` now reads that line
+and reports a compound status verbatim instead of collapsing it to a letter.
+
+**Limits.** One console, one Game Boy Player, one flashcart as the only
+cartridge ever inserted; one instant of one sequence (before the first
+experimental write); nothing about a GB/GBC cartridge, another cartridge, or
+another unit. No consolidated page gains a causal claim from this row:
+`REGISTERS.md` §3 carries the split as `F (hw, 34 logs)` beside the references'
+usage `C`, and the causal reading as `H`.
+
+---
+
 ### GBP-VID-034 — RUN 12 carries two duplicate OGBPCOORD1 FRAME_ID transitions (479 → 479, 1919 → 1919) — FACT of this run; MECHANISM RESOLVED 2026-09-20 (Issue #12, software analysis, CORROBORATED): PREPARE-side missed VBlanks at the digit-1 and digit-4 entry frames
 
 Observed by the frozen analyzer and reproduced by an independent decode

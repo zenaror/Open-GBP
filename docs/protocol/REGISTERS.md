@@ -108,8 +108,8 @@ the software does, not what the bit "is".
 
 | Bit | DISC usage | GBI usage | DOLPHIN name / model | Status |
 |----:|-----------|-----------|----------------------|--------|
-| 0x01 | read → status flag "type" | read → selects "Game Boy" vs "Game Boy Advance" strings | `CART_IS_GB` (1 = GB/GBC game pak) | C |
-| 0x02 | read → status flag "present"; a 1→0 edge arms a 61-tick timer | read → appends "Game Pak" | `CART_INSERTED` | C |
+| 0x01 | read → status flag "type" | read → selects "Game Boy" vs "Game Boy Advance" strings | `CART_IS_GB` (1 = GB/GBC game pak) | C (usage). **Hardware: ONE OBSERVED STATE** — 0 in all 34 archived logs, every one of which ran with no cartridge or a GBA cartridge; one state is not a result (GBP-HW-272) |
+| 0x02 | read → status flag "present"; a 1→0 edge arms a 61-tick timer | read → appends "Game Pak" | `CART_INSERTED` | C (usage). **F (hw, 34 logs, 2026-09-22):** the original byte is `0x90` in the 12 cartridge-less runs and `0x92` in the 22 with a cartridge — the difference is this bit alone, no exception. **H for the CAUSE:** that the bit *reports presence* is not separated from "something the later builds do at startup" (empty diagonal), and Dolphin's "GamePak source" is IRQ bit 2, another register (GBP-HW-272) |
 | 0x04 | set in *start*, cleared in *stop* | set in *start* (`\|= 0x0C`), cleared in *stop* (`& 0xE3`) | `CONTROL_3V`; 0→1 of (0x04\|0x08) resets the emulated GBA | C (usage), H (name) |
 | 0x08 | set when the AGB is started (after *start*), cleared in *stop* | set in *start*, cleared in *stop* | `CONTROL_5V`; both cleared → GBA stopped | C (usage), H (name) |
 | 0x10 | set in *stop* and on the *sleep* IRQ; cleared at the end of *start* | cleared in *start* (`& 0xE7`), set in *stop* | `CONTROL_MASK_IRQ`: 1 blocks the PI interrupt | C |
@@ -119,6 +119,18 @@ the software does, not what the bit "is".
 
 Dolphin masks writes with `0xFC` (bits 0–1 read-only). DISC never writes
 bits 0–1 deliberately; consistent, but unverified on hardware.
+
+**The usage column and the hardware column are different claims, and bit
+`0x02`'s row is where that first matters (GBP-HW-272, 2026-09-22).** "C" in
+this table has always meant *the references agree on what the software does
+with the bit* — the Disc reads a "present" status flag, GBI appends the string
+"Game Pak", Dolphin's model names it `CART_INSERTED`. The new "F (hw)" is a
+different proposition: *the byte this project read from the device differed by
+exactly this bit between runs with and without a cartridge*, 34 times. Neither
+upgrades the other, and the causal step between them — that the bit **reports**
+presence — is **H**, because no archived run pairs a late build with an empty
+slot. One boot of `12-stream` with the cartridge removed would settle it; it is
+not scheduled here.
 
 ## 4. IRQ register (16-bit)
 
