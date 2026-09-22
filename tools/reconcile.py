@@ -52,13 +52,34 @@ def read(p):
         return f.read()
 
 
+STATUS_WORDS = r"\b(FACT|CORROBORATED|HYPOTHESIS|UNKNOWN|OPEN|CLOSED)\b"
+
+
 def evidence_status():
-    """id -> (status word, the heading line) for everything EVIDENCE and UNKNOWNS define."""
+    """id -> (status, the heading line) for everything EVIDENCE and UNKNOWNS define.
+
+    The status of a recent entry is in its HEADING ("… — FACT"); an older one carries it in a
+    `**Status:**` line in the body instead (e.g. GBP-CTL-001: "CORROBORATED for usage of 0x01-0x10;
+    HYPOTHESIS for …"). The first sweep run in anger (GitHub Issue #46) printed "-" for every older
+    entry it touched, which is honest but useless, so both places are read -- heading first, then the
+    body line, and a body line with more than one status word is reported as the whole phrase because
+    a compound status is exactly what must not be collapsed to a letter.
+    """
     out = {}
     for p in (EVIDENCE, UNKNOWNS):
-        for m in re.finditer(r"^#{2,4} +((?:GBP|ENV)-[A-Z]+-\d{3}|U-(?:GBP|ENV)-\d{3})\b(.*)$", read(p), re.M):
-            words = re.findall(r"\b(FACT|CORROBORATED|HYPOTHESIS|UNKNOWN|OPEN|CLOSED)\b", m.group(2))
-            out[m.group(1)] = (words[-1] if words else "-", m.group(0).strip())
+        text = read(p)
+        heads = list(re.finditer(r"^#{2,4} +((?:GBP|ENV)-[A-Z]+-\d{3}|U-(?:GBP|ENV)-\d{3})\b(.*)$", text, re.M))
+        for i, m in enumerate(heads):
+            words = re.findall(STATUS_WORDS, m.group(2))
+            status = words[-1] if words else "-"
+            if status == "-":
+                body = text[m.end():heads[i + 1].start() if i + 1 < len(heads) else len(text)]
+                b = re.search(r"^\*\*Status:\*\*(.+?)(?:\n\n|\Z)", body, re.M | re.S)
+                if b:
+                    phrase = re.sub(r"\s+", " ", b.group(1)).strip().rstrip(".")
+                    if re.search(STATUS_WORDS, phrase):
+                        status = phrase if len(phrase) < 120 else phrase[:117] + "..."
+            out[m.group(1)] = (status, m.group(0).strip())
     return out
 
 
