@@ -11879,3 +11879,120 @@ nothing here. The whole suite passes unchanged.
 **Result.** `make test-python` on the committed tree: **1592 passed, 9 skipped,
 103 subtests passed**. Nothing was learned about the hardware; a record was made
 to say what it already meant.
+## 2026-09-22 — Issue #50: §V7.6.11's verdicts written as code BEFORE the logs exist — synthetic vectors only, and TWO AMBIGUITIES IN THE FROZEN TEXT REPORTED RATHER THAN RESOLVED
+
+**Why the order matters more than the code.** RUN 21 / RUN 22 are with the
+Operator. `play-0001` has never been run, so its log has never been ingested,
+and when the two logs land the natural thing to do is write the recomputation
+with the data on the desk. §V7.6.11 froze its constructions *"so the ingestion
+cannot tune them to the data"*, and code written beside a log is exactly that
+tuning — the kind nobody notices doing, where a construction that gives an
+awkward answer gets "fixed" until it gives a clean one and every step feels
+like debugging. So `tools/v7611.py` was written from the frozen text alone.
+
+**THE BOUND WAS KEPT.** Not one verdict in this checkpoint was computed from
+RUN 21, RUN 22 or any archived log, and no output was compared against a real
+run's numbers. One test opens real files — every archived `KEY` record — and
+checks **format only**: that the lines parse under the runtime's own
+`GBP_INPUT_EVENT_FMT` and that `n` increases by one. That is a parser question.
+
+---
+
+### THE TWO AMBIGUITIES. Reported, not resolved.
+
+**One — Question K has no machine boundary for step 13, and this is the one
+that matters.** §V7.6.11 says K *"is compared over steps 2-12, 14 and 15, the
+scripted parts, and step 13's words are reported as counts per bit and never
+compared press for press"*. Steps 14 and 15 come **after** step 13's several
+minutes of ordinary play, whose presses are unbounded and unscripted, and
+**neither §V7.6.11 nor §V7.6.9 gives any rule for locating the boundary between
+step 13 and step 14 in a KEY record.** §V7.6.9 defines the steps for the
+Operator, not for a parser, and his report carries no `n` and no timestamp.
+
+Every rule this checkpoint could have invented is a construction chosen after
+the freeze:
+
+```text
+match the trailing twelve presses      assumes step 15 was performed exactly and that nothing follows it
+split on an inter-press time gap       invents a threshold, which §V7.6.3 separately refuses ("no threshold
+                                       invented after the fact")
+trust the Operator's step numbering    his channel has no index into the KEY record
+compare only the head (steps 2-12)     silently narrows what §V7.6.11 says K compares
+```
+
+So `question_K()` returns **`PENDING_AMENDMENT`** and says why, in its own
+docstring and in its return value. `question_K_head()` implements the part that
+**is** defined without ambiguity — the deliberate head, steps 2-12, which
+begins at §V7.6.11's own START cut-off and is scripted press for press — and it
+is used meanwhile. **An ambiguity found before the data is a dated pre-hardware
+amendment and costs nothing; the same one found after the data is unfixable.**
+
+**Two — a smaller inconsistency, in §V7.6.11's closing "Reading rules".** That
+paragraph says *"step 14's ordinary play is read as the Operator reports
+it"*, but step 14 is `START × 1` then `START × 1` (a pause and a resume) and
+**step 13** is the ordinary play. Two other statements say 13 — K's own line
+above, and §V7.6.9's closing paragraph — so the frozen text disagrees with
+itself in one place out of three. Taken literally the sentence is
+self-defeating, since it would exclude the pause from K and compare three
+minutes of play press for press, which §V7.6.9 says cannot be done. **Not
+resolved here either.**
+
+---
+
+### What IS implemented, from the frozen text, with the section cited at each construction
+
+```text
+parsing            KEY lines under the runtime's own GBP_INPUT_EVENT_FMT; an unparsable line is a PROBLEM, never a
+                   silent skip; completed words = rc=ok only, in n order, from 0000
+R_b                the rising edges of word bit b -- edges, not levels: a key held across two words is one edge
+PRESS SEQUENCE     the ordered rising edges, with menu-launch presses cut off at the first rising edge of START. If
+                   START never rose the list was never started, which K reads as INCONCLUSIVE -- the empty sequence
+                   is the INPUT to that reading and not a decision taken here
+c(b)               the descriptor's key for bit b, NOT re-derived: §V7.4 made it FACT (bits 0-7 in KEYINPUT order,
+                   bit 8 = L, bit 9 = R)
+QUESTION A / W     WORKS / N/A / DOES NOT WORK split SENT | NOT SENT / SPURIOUS / INCONCLUSIVE, per key, from his
+                   report with the KEY record beside it
+QUESTION A / S     SAME only when both reports agree in kind AND K agrees; DIFFERENT and INCONCLUSIVE as frozen
+QUESTION A / K     the head only; the rest PENDING_AMENDMENT (above)
+QUESTION T         NOMINAL / ANOMALOUS / FAULT, reading the machine records only, with RUN 17's figures supplied BY
+                   THE CALLER because this module holds no run data
+THE GATES          §V7.6.10's six, as checks that REPORT: each returns met/why/scope, and the scope is the frozen
+                   text's own ("the machine half", "the session gate ALONE -- not W, S or T", ...)
+THE INTERACTION    §V7.6.10's four cases, including the one that is easiest to get wrong: T = FAULT with the session
+                   COMPLETING leaves Question A untouched and records the fault as CONTEXT, never as A's verdict
+```
+
+**`N/A` is machine-checkable and that is the single most valuable line in the
+section.** §V7.6.11 requires the KEY record to show the bit rose before `N/A`
+may be written. A reported `N/A` whose bit never rose is not `N/A` here: it
+comes back INCONCLUSIVE with the reason quoted, so the distinction cannot
+quietly become a reviewer's memory.
+
+**The adversarial vectors** (30 tests): a dropped press reading NOT SENT with
+the end of the chain named; a press that became a word but did nothing reading
+SENT; a doubled press and a ghost bit as SPURIOUS, named per bit; a stick read
+past ±48 showing as a D-pad bit; a list cut short read on the common prefix; a
+KEY record with `lost > 0` and one with non-monotonic `n`, both INCONCLUSIVE
+for the machine half only; an unparsable line as a problem; a session ended by
+the safety budget, which is **not** a success and touches neither W nor T; a
+clean transaction with nothing moving (NOMINAL); the VIDEO gap longer and the
+rate lower (ANOMALOUS); the AUDIO-only control moving, which the removal does
+not predict; `skipped_cause_pending` far from RUN 17's figure, reported with
+both numbers and no threshold; a dirty accounting and a `CYCA` record (FAULT,
+which is a RESULT); and T = FAULT with the session completing.
+
+### Item 2 — the reconcile display, fixed by the principle and not by a number
+
+The 120-character bound cut `GBP-HW-272`'s line before the pointer #49
+appended. **The bound was not widened — that moves the cliff instead of
+removing it.** When an entry is flagged as amended, the pointer is now printed
+**whole, on its own line, under the flag**, extracted as the heading's last
+bold segment. A flagged heading with no pointer says so rather than printing
+nothing. The status line above it is still truncated, and a test asserts both.
+
+**Result.** `make test-python` on the committed tree: **1624 passed, 9
+skipped, 103 subtests passed**. Twelve freeze guards moved with their reason,
+`tools/` being a frozen path in all of them.
+
+**Nothing about the runs is known and nothing is claimed.** What exists now is
+the reading, written down before the thing it will read.

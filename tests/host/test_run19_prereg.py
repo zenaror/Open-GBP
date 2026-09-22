@@ -393,6 +393,10 @@ class NothingElseMoved(unittest.TestCase):
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE_COMMIT)
         changed = guards.changed_since(BASE_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #50 (2026-09-22) made §V7.6.11's frozen verdicts executable BEFORE RUN 21 / RUN 22's logs
+        # existed: tools/v7611.py recomputes them and is exercised on SYNTHETIC vectors only, so the
+        # ingestion cannot tune the constructions to the data. It reads no run and changes nothing.
+        changed = changed - {"tools/v7611.py"}
         # Issue #46 (2026-09-22) promoted the CONTROL bit 0x02 split as GBP-HW-272: the evidence entry, the REGISTERS.md
         # row that now separates the references' USAGE (C) from this project's measurement (F) from the cause (H), and
         # U-GBP-017's Needs list, which records one of its three items answered and stays OPEN at P2

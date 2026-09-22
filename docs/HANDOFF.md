@@ -1089,9 +1089,26 @@ issue 49    A HEADING THAT OUTLIVED ITS STATUS. Amending on top means that when 
             and guards the APPEND itself -- the heading must still start with the exact bytes it had. No
             guard was tripped: #47's retroactive-editing guard reads the enumeration block, not the heading,
             so it is out of scope by construction rather than by luck
+issue 50    §V7.6.11's VERDICTS WRITTEN AS CODE BEFORE THE LOGS EXIST (tools/v7611.py), from the frozen text
+            alone and exercised on SYNTHETIC vectors only -- no verdict computed from RUN 21, RUN 22 or any
+            archived log, and the one test that opens real files checks the KEY format only. TWO AMBIGUITIES
+            IN THE FROZEN TEXT REPORTED, NOT RESOLVED. (1) Question K is "compared over steps 2-12, 14 and
+            15" but steps 14 and 15 follow step 13's unbounded ordinary play and NOTHING in §V7.6.11 or
+            §V7.6.9 locates that boundary in a KEY record; every rule that could be invented is a
+            construction chosen after the freeze, so question_K() returns PENDING_AMENDMENT and
+            question_K_head() implements the part that IS defined (steps 2-12, from the START cut-off).
+            (2) §V7.6.11's closing Reading rules say "step 14's ordinary play" while step 14 is the
+            pause/resume and step 13 is the play -- two other statements say 13, so the text disagrees with
+            itself once in three. Implemented: the parser, R_b, the press sequence with its cut-off, W with
+            the SENT/NOT SENT split, S, T with RUN 17's figures supplied BY THE CALLER, §V7.6.10's six gates
+            as checks that REPORT and never pass or fail, and the ONE interaction including T = FAULT with
+            the session completing. N/A is machine-checkable: a reported N/A whose bit never rose comes back
+            INCONCLUSIVE with the reason quoted. Item 2: the reconcile display shows the amended pointer
+            WHOLE under the flag rather than widening the 120-char bound, because widening moves the cliff
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46,
-            #47, #48 and #49; the Operator's declaration and the runs on #43; close #36. Executor: the queue
-            is empty -- next checkpoint on dispatch
+            #47, #48, #49 and #50 -- #50 carries TWO AMBIGUITIES needing a dated pre-hardware amendment
+            BEFORE the runs are ingested; the Operator's declaration and the runs on #43; close #36.
+            Executor: the queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet

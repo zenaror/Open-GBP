@@ -174,6 +174,10 @@ class ThePumpSlotInsertion(unittest.TestCase):
                  "src/gbp/gbp_transport.c", "src/gbp/gbp_transport.h", "src/gbp/gbp_regwrite.c",
                  "src/platform/hsp_backend.c", "src/platform/hsp_backend_irq.c", "tools"]   # docs/protocol and docs/hardware left this list with the Issue #26 promotion
         changed = guards.changed_since(BASE_COMMIT, paths)   # Issue #29: tracked AND untracked, one implementation
+        # Issue #50 (2026-09-22) made §V7.6.11's frozen verdicts executable BEFORE RUN 21 / RUN 22's logs
+        # existed: tools/v7611.py recomputes them and is exercised on SYNTHETIC vectors only, so the
+        # ingestion cannot tune the constructions to the data. It reads no run and changes nothing.
+        changed = changed - {"tools/v7611.py"}
         # Issue #39 (2026-09-21) added the operator's session end to the service-path module -- one flag read in
         # CHECK_ADMISSION, a stop reason, a status, a config field; no device operation added, removed or reordered
         # (tests/host/test_play_image.py pins the change) -- and the `play` audit profile and the Swiss slot to tools/
