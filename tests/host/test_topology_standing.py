@@ -22,6 +22,8 @@ import re
 import subprocess
 import unittest
 
+import guards
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 FX = os.path.join(ROOT, "captures", "fixtures")
 P = "hw-gamecube-gbp-2026-09-21-"
@@ -187,20 +189,16 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         self.assertEqual(part(11, new).replace("declared under Issue #35 with that history", "").count("recorded as absent"), 1)
 
     def test_nothing_under_the_forbidden_paths_changed(self):
-        r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE_COMMIT], capture_output=True)
-        if r.returncode != 0:
-            self.skipTest("the base commit is not available in this checkout")
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus", "docs/protocol", "docs/hardware"],
-                           capture_output=True, text=True)
-        self.assertEqual(r.returncode, 0, r.stderr)
+        if not guards.base_available(BASE_COMMIT):
+            self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE_COMMIT)
+        changed = guards.changed_since(BASE_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus", "docs/protocol", "docs/hardware"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing
+        changed = changed - {"tools/reconcile.py"}
         # Issue #39 (2026-09-21) built the playable image: the session end in the service-path module (tests/host/test_play_image.py pins it), a new POC, its audit profile and its Swiss slot
-        self.assertTrue(set(r.stdout.split()) <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"}, "changed against the base: " + r.stdout)
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
-        self.assertTrue(set(r.stdout.split()) <= {"captures/fixtures/" + P + "idxcap-run%d-struct.json" % n for n in (16, 17, 18)}, r.stdout)
+        self.assertTrue(changed <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"}, "changed against the base: " + " ".join(sorted(changed)))
+        changed2 = guards.changed_since(BASE_COMMIT, ["captures/fixtures"])   # Issue #29: tracked AND untracked, one implementation
+        self.assertTrue(changed2 <= {"captures/fixtures/" + P + "idxcap-run%d-struct.json" % n for n in (16, 17, 18)}, " ".join(sorted(changed2)))
         # the guard's blind spot (Issue #29): untracked files are invisible to git diff -- none may exist under these paths
-        r = subprocess.run(["git", "-C", ROOT, "ls-files", "--others", "--exclude-standard", "--", "src", "poc", "tools", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware"],
-                           capture_output=True, text=True)
-        self.assertEqual(r.stdout.strip(), "", "untracked files under the guarded paths: " + r.stdout)
 
 
 if __name__ == "__main__":
