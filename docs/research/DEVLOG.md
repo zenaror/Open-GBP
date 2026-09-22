@@ -12201,3 +12201,96 @@ tuning the freeze exists to prevent.
 **Not decided here.** Phase 5's acceptance (Issue #42, which reads this);
 §V7.6.11's criterion, which needs W and has K's half only; pad equivalence
 beyond the words the two pads produced.
+## 2026-09-22 — Issue #53: Question T = INCONCLUSIVE — the frozen reference was POSITIONAL and the deciding statistic was never named; the portable lesson recorded, the project audited for the same defect, and T′ pre-registered
+
+**THREE DEFECTS IN ONE PRE-REGISTRATION, AND ALL THREE WERE FOUND BY TRYING TO
+APPLY IT IN CODE.** K's undefinable boundary (Issue #50, amended in §V7.6.15),
+the "step 14" typo (same), and now the positional reference. None was visible
+while §V7.6 was being written or reviewed as prose; each became obvious the
+moment a machine was asked to compute the thing the text described. **That is
+the argument for Issue #50 in one sentence**, and it is why the constructions
+were made executable before the logs arrived rather than after.
+
+**The decision.** Question T is **INCONCLUSIVE** for RUN 21, 22, 25 and 26. It
+is *"a verdict about the pre-registration, not about the device"*, and the
+sentence that carries it is **the gate as frozen cannot be applied**.
+
+**Two defects, and only one of them is decisive.**
+
+```text
+DECISIVE, a CATEGORY ERROR   §V7.6.3's reference is per-index while the indices do not denote the same thing:
+                             CYCLT i=6 is AUDIO-only in RUN 17 and carries a VIDEO block in both new runs, so
+                             comparing i=6 to i=6 compares different kinds of cycle. IT IS WRONG INDEPENDENTLY
+                             OF THE ANSWER IT PRODUCES -- which is exactly what made it safe to act on AFTER
+                             the data. A defect recognisable only by disliking its output would not be, and
+                             that distinction is what let this be decided without breaking the freeze.
+SECOND AND SEPARATE          §V7.6.11 says "unchanged" and "far from" without naming a statistic, so the frozen
+                             construction returns ANOMALOUS over a 1.1-tick difference in a MEAN of nine
+                             samples -- an artefact of a choice the text never made. Left as reported (§V7.8.6).
+```
+
+**Neither verdict was available.** NOMINAL would resolve an ambiguity after the
+data. ANOMALOUS would elevate an artefact of an unstated statistic, computed
+over a non-portable reference, into a finding about hardware — worse, because
+it would look like a result. FAULT is excluded on its own terms: the TRANSPORT
+gate is clean in all four runs.
+
+**The measurements stand and are marked so they cannot be mistaken for a
+verdict**, including by a reader who only looks at the table: the VIDEO gap
+shorter element for element, the AUDIO-only control unchanged at 12–13 ticks in
+all three runs, the within-run control unmoved. The record says in the table's
+own heading that it *"is not `T = NOMINAL` and must never be read, cited or
+summarised as one"*.
+
+**THE PORTABLE LESSON, which is worth more than the verdict** and is now in
+`RESEARCH_METHOD.md` beside the pre-registration rules: **a reference figure is
+defined by what the element CONTAINS, never by its position.** *"The AUDIO-only
+cycles"* is a reference; *"`CYCLT i=6,7`"* is not, even when those indices
+happen to hold the AUDIO-only cycles in the run the table was written from. The
+index is a position in a bounded ring of recent cycles, and **what that position
+holds depends on what the device was doing when the ring was captured**. A
+reference table may print index labels as provenance; it may not use them as
+the matching key.
+
+**THE AUDIT for the same defect elsewhere — reported, nothing fixed.**
+
+```text
+§V7.6.3's CYCFT i=0,1,2 / CYCLT i=6,7      THE ONE THAT BIT. Frozen; recorded in §V7.8.10 and NOT edited.
+§V5.30.4's baseline comparison             SAFE, and an example of the rule already being followed: it compares
+                                           BY NAMED FIELD (frame table, event store, raw ring, episode raw,
+                                           audio raw) and its host guard "resolves each POC's declarations
+                                           rather than comparing argument spellings".
+the sampled full frames (k=8, spacing 256) SAFE: each sampled frame is compared against an oracle computed from
+                                           its OWN FRAME_ID, never against another run's sample at the same
+                                           ordinal.
+the OGBPIDXCAP1 witness analyses           SAFE: FRAME_ID transitions are read WITHIN a run; there is no
+                                           cross-run element pairing to be positional about.
+the colour cross-run claim                 THE FORM IS PRESENT AND CANNOT BITE: "its three certified frames are
+  (color-0002 against color-0001)          byte-identical to color-0001's ... in all three pairs" pairs by
+                                           ordinal, but the three certified frames WITHIN each run are
+                                           identical by that run's own record (one sig[40] for all three), so
+                                           every pairing gives the same answer. Reported because the prose does
+                                           not say why it cannot bite, which is the only gap. NOT edited.
+```
+
+**T′ is pre-registered (§V7.9) and schedules no hardware.** It names, in
+advance: the population matched **by content** (a cycle is VIDEO-carrying if
+its record shows a VIDEO block, AUDIO-only otherwise, the predicate applied to
+**both** sides, with unclassifiable records excluded and counted); the
+**median** as the deciding statistic, with the full ordered list always
+reported, chosen because every run of this family shows one large value in its
+early verify region and a mean is dragged by it; a threshold for each of the
+four words §V7.6.11 left undefined; a minimum of five cycles per class per run;
+the within-run control read **first**, whose failure makes T′ INCONCLUSIVE for
+the removal because the treatment could not then be attributed to it; and the
+decision rule.
+
+**And its first paragraph is the bar:** T′ **may not be applied retrospectively
+to RUN 17, 21, 22, 25 or 26 as a verdict**. A construction written after seeing
+those logs can never be a gate over them. A labelled retrospective computation
+is allowed, is marked `RETROSPECTIVE — NOT A VERDICT` at the point of use, and
+is not one.
+
+**Result.** `make test-python` on the committed tree: **1665 passed, 7 skipped,
+103 subtests passed**. `tools/v7611.py` was **not edited**: the construction was
+not what was wrong — the reference it was given was.
