@@ -1230,10 +1230,24 @@ issue 56    A METHOD RULE MOVED OUT OF A PHASE'S ASSESSMENT: "a later direct ans
             the words: the rule's body must exist in exactly one file, proved by injecting a copy into
             AGENTS.md and watching it fail. Nothing else moved -- no id, no status, no verdict, no residual.
             #43 closed by the Orchestrator; the board shows no hardware pending
+issue 57    THE OPERATOR DECLINES R1 AND R2 ("não vejo necessidade de outra run na fase 5..."), recorded
+            verbatim and dated. A THIRD RESIDUAL STATE: open means nobody decided, retired means the evidence
+            exists, DECLINED means he weighed a priced option and chose -- the evidence does NOT exist and
+            each declined residual KEEPS ITS PRICE, so the decision is reversible without re-deriving it. His
+            two halves are separated without argument: "ambos controles se comportam iguais" is SUPPORTED
+            (GBP-HW-283 / 279 / 280); "todos botões responderam conforme esperado" is HIS OBSERVATION and
+            stands as that, with W still INCONCLUSIVE PER KEY. So the per-key resolution is NOT MEASURED, not
+            answered -- an unanswered, an answered-and-kept and a declined item must not look alike, now
+            enforced for all three states by a test. R4 IS NOT DEAD: §V7.9 needs "one session of any length
+            that reaches the service loop", so it rides on THE NEXT PHYSICAL RUN OF ANYTHING, whichever phase
+            brings it; declining R1 cost it nothing but time. R5 and R6 unchanged. THE VERDICT DOES NOT
+            CHANGE
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46
-            through #56 and #42; close #36. The RAG reindex is the Orchestrator's since 2026-09-22 (the
-            Executor pushes and says so). Phase 5's outstanding work is R1 + R2 + R4, one run per pad, at the
-            Operator's choice with no deadline. Executor: the queue is empty -- next checkpoint on dispatch
+            through #57 and #42; close #36. The RAG reindex is the Orchestrator's since 2026-09-22 (the
+            Executor pushes and says so). PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2
+            DECLINED, R4 rides on the next physical run of any image, R5 / R6 unchanged. The next physical
+            run is whatever a future phase needs -- #45 (Phase 6, audio) is AUTHORISED and is the Executor's
+            next checkpoint; #31 (Phase 7, GB/GBC) stays backlog
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet

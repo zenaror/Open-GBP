@@ -207,8 +207,50 @@ defined. The residuals below say exactly what is missing and what it costs.
 **A residual without a price is a wish.** Each of these is priced in what the
 Operator would have to do.
 
+**THE OPERATOR DECIDED ON 2026-09-22, and the record carries three states
+rather than two** (GitHub Issue #57). His words, verbatim — **OPERATOR
+OBSERVATION and a DECISION**:
+
+> *não vejo necessidade de outra run na fase 5, visto que ambos controles se
+> comportam iguais e todos botões responderam conforme esperado.*
+
 ```text
-R1  PER-KEY RELIABILITY ON A GAME  (the hinge)
+OPEN      nobody has decided; the work would retire it
+RETIRED   the evidence that closes it EXISTS
+DECLINED  the Operator has weighed a priced option and chosen; THE EVIDENCE DOES NOT EXIST and the
+          residual is still named, with its price intact
+```
+
+**A declined residual keeps its price**, so the decision is reversible without
+re-deriving what it would take — by a later reader, or by him in a month.
+
+**His reasoning has two halves and they are not equally supported.** The record
+says what it holds, which is not the same as adopting his sentence as its own,
+and it does not argue with the decision — that was his to make and the
+residuals were priced so that he could make it.
+
+```text
+"ambos controles se comportam iguais"     SUPPORTED. K = AGREE -- identical ordered press sequences on both
+                                          pads over all 17 scripted presses (GBP-HW-283); all ten bits rose
+                                          on both pads in ordinary play (GBP-HW-279); zero failed writes in
+                                          93 849 attempts (GBP-HW-280).
+"todos botões responderam conforme        HIS OBSERVATION, and it stands as that. The machine half shows
+ esperado"                                every key was SENT; W stays INCONCLUSIVE PER KEY, because a report
+                                          gathered afterwards is global by nature and cannot become ten
+                                          verdicts (§V7.6.11, GBP-HW-284).
+```
+
+**So: the Operator judges the remaining resolution unnecessary, and the per-key
+resolution is therefore NOT MEASURED.** It is not that the per-key question was
+answered. **An unanswered item, an answered-and-kept item and a declined item
+must not look alike in a citation** — the same distinction R3 draws, applied
+once more.
+
+```text
+R1  PER-KEY RELIABILITY ON A GAME  (the hinge) -- **DECLINED BY THE OPERATOR, 2026-09-22**
+    the disposition   DECLINED, not retired and not open: he judged the remaining resolution unnecessary, so
+                      THE EVIDENCE DOES NOT EXIST and W stays INCONCLUSIVE PER KEY. The price below is kept
+                      intact so the decision is reversible without re-deriving it.
     what is missing   W per key, per pad: "RESPONDED / NO RESPONSE / OTHER / N/A" for each of the ten keys,
                       recorded AT THE TIME rather than remembered afterwards.
     what retires it   ONE run per pad of §V7.6.9's list performed AS ONE SESSION, with the per-step column
@@ -218,7 +260,9 @@ R1  PER-KEY RELIABILITY ON A GAME  (the hinge)
                       written (§V7.6.11, tools/v7611.py).
     the catch         it must be filled DURING the run. #52's lesson is that a report gathered afterwards is
                       global by nature, and a global report cannot become ten verdicts.
-R2  THE CLOSING SWEEP AFTER MINUTES OF PLAY  (step 15)
+R2  THE CLOSING SWEEP AFTER MINUTES OF PLAY  (step 15) -- **DECLINED BY THE OPERATOR, 2026-09-22**
+    the disposition   DECLINED with R1, since it was step 15 of R1's run. No evidence exists that the ten
+                      keys still work after minutes of play, on either pad; the price is kept.
     what is missing   any evidence that the ten keys still work after the game has been played for minutes.
     what retires it   the same run as R1 -- it IS step 15 of that list.
     what it costs     seconds, inside R1. Free if R1 is done.
@@ -243,12 +287,15 @@ R3  THE CARTRIDGE'S FORM -- **ANSWERED 2026-09-22, AND THE ANSWER KEEPS THE CAVE
                       route 1, RESOLVED over two physical runs and used by every delivered stimulus since
                       `color-0001` -- so it is cited as that and NOT interpreted further: what Mode B does
                       inside the flashcart is not a claim this project makes.
-R4  THE TIMING OF THE SHORTENED SERVICE PASS
+R4  THE TIMING OF THE SHORTENED SERVICE PASS -- **STILL OPEN, AND NOT AFFECTED BY R1's DECLINE**
     what is missing   any verdict on Question T (§V7.8.10 INCONCLUSIVE).
     what retires it   one run read under T' (§V7.9), whose statistic, content-matching rule and thresholds
                       are already fixed and derived (§V7.9.7).
-    what it costs     one session of any length that reaches the service loop; no new build, no new code, no
-                      new analysis to write. It can ride on R1's run -- THE SAME SESSION ANSWERS BOTH.
+    what it costs     §V7.9 needs "ONE SESSION OF ANY LENGTH THAT REACHES THE SERVICE LOOP" -- so ANY future
+                      physical run of ANY image satisfies it, with no new build, no new code and no new
+                      analysis. It was written as riding on R1's run; with R1 declined it RIDES ON THE NEXT
+                      PHYSICAL RUN OF ANYTHING -- the Phase 6 audio run, a Phase 7 GB/GBC run, a repeat,
+                      whatever comes first. DECLINING R1 COSTS R4 NOTHING BUT TIME, and no door was closed.
 R5  DURATION, REPETITION AND BREADTH
     what is missing   more than one title, more than one session per pad, and a session longer than ~274 s.
     what retires it   repetition, other titles, and -- for length -- resizing play-0001's event store, which
@@ -261,8 +308,13 @@ R6  THE ANALOGUE TRIGGER, PORTS 2-4, OTHER PADS
     what it costs     a checkpoint of its own; nothing here is blocked by it.
 ```
 
-**R1 + R2 + R4 are ONE run per pad.** That is the shape of the cheapest
-closure: two sessions, a form in his hand, and nothing to build.
+**That shape is now historical, and it is kept because a declined option has to
+stay legible.** R1 + R2 + R4 were one run per pad — two sessions, a form in his
+hand, nothing to build — which is exactly the option the Operator weighed and
+declined on 2026-09-22. **R4 alone survives it** and no longer needs a run of
+its own: it rides on the next physical run that reaches the service loop,
+whatever phase that belongs to. **R5 and R6 never depended on R1** and are
+unchanged.
 
 ---
 

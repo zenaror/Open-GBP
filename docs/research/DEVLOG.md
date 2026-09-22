@@ -12639,3 +12639,59 @@ reason it was closed.** Had the September ambiguity been read away instead of
 flagged, Phase 5's four runs would have carried an instrument nobody had
 confirmed, and the attribution caveat would have been lifted or kept on a
 guess. Flagging cost one sentence and one day.
+## 2026-09-22 — Issue #57: the Operator declines R1 and R2 — a THIRD residual state, each keeping its price, and R4 re-attached to "the next physical run of anything"
+
+**His decision, verbatim, recorded as OPERATOR OBSERVATION and as a
+DECISION:** *"não vejo necessidade de outra run na fase 5, visto que ambos
+controles se comportam iguais e todos botões responderam conforme esperado."*
+
+**The residuals were priced so that he could decide, and he has.** The record's
+job here is to be accurate about what exists, not to relitigate a choice that
+was his, and **nothing in the text argues with it.**
+
+**THREE STATES, because two were not enough.**
+
+```text
+OPEN      nobody has decided; the work would retire it
+RETIRED   the evidence that closes it EXISTS
+DECLINED  he weighed a priced option and chose; THE EVIDENCE DOES NOT EXIST and the residual is still
+          named, WITH ITS PRICE INTACT
+```
+
+**A declined residual keeps its price**, so the decision is reversible without
+re-deriving what it would take — by a later reader, or by him in a month. R1's
+row still carries "a ten-row form in his hand, no build, no code"; what changed
+is its disposition, not its cost.
+
+**His reasoning has two halves and the record separates them without arguing.**
+*"Ambos controles se comportam iguais"* is **supported** — `K = AGREE` over all
+17 scripted presses on both pads (`GBP-HW-283`), all ten bits risen on both in
+ordinary play (`GBP-HW-279`), zero failed writes in 93 849 attempts
+(`GBP-HW-280`). *"Todos botões responderam conforme esperado"* is **his
+observation and stands as that**: the machine half shows every key was SENT,
+and `W` stays INCONCLUSIVE **per key**, because a report gathered afterwards is
+global by nature and cannot become ten verdicts.
+
+**So the wording is: the Operator judges the remaining resolution unnecessary,
+and the per-key resolution is therefore NOT MEASURED** — not that the per-key
+question was answered. **An unanswered item, an answered-and-kept item and a
+declined item must not look alike in a citation.** That is R3's lesson applied
+a second time, and it is now enforced by a test for all three states.
+
+**R4 IS NOT DEAD, and that is the part worth telling him.** R1's run was one
+way to answer Question T, not the only one: §V7.9 needs *"one session of any
+length that reaches the service loop"*, so **any future physical run of any
+image satisfies it** — no new build, no new code, no new analysis. R4 moves
+from *"rides on R1's run"* to **"rides on the next physical run of anything"**,
+whichever phase brings it. **Declining R1 cost R4 nothing but time, and no door
+was closed.** R5 and R6 never depended on R1.
+
+**The shape "R1 + R2 + R4 are one run per pad" is kept as historical rather
+than deleted**, because a declined option that vanishes from the record cannot
+be reversed: it is precisely the option he weighed.
+
+**Phase 5's verdict does not change.** SATISFIED WITH NAMED RESIDUALS stands;
+what changed is the disposition of two of them. `ROADMAP.md` says the same.
+
+**Result.** `make test-python` on the committed tree: **1714 passed, 7 skipped,
+103 subtests passed**. No evidence id, no status and no verdict moved.

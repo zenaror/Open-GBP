@@ -433,8 +433,18 @@ reporting the game responding normally — and is **not** met at the resolution
 the pre-registration defined: `W` is INCONCLUSIVE **per key** in all four runs,
 §V7.6.9's **step 15 was never performed**, Question T is INCONCLUSIVE
 (§V7.8.10), and the cartridge's FORM was never declared so the attribution
-caveat cannot be lifted. Six residuals are named and **priced**; R1 + R2 + R4
-are **one run per pad with a form in hand and nothing to build**. The
+caveat cannot be lifted. Six residuals are named and **priced**. **The Operator decided on 2026-09-22
+(GitHub Issue #57): R1 and R2 are DECLINED — a third state beside open and
+retired, meaning he weighed a priced option and chose, so the evidence does not
+exist and each keeps its price for reversibility.** His words: *"não vejo
+necessidade de outra run na fase 5, visto que ambos controles se comportam
+iguais e todos botões responderam conforme esperado."* Of its two halves, *"os
+dois controles se comportam iguais"* is supported (`GBP-HW-283`, `279`, `280`)
+and *"todos botões responderam conforme esperado"* is **his observation**: W
+remains INCONCLUSIVE **per key**, so **the per-key resolution is not measured
+rather than answered**. **R4 is unaffected and still open**, and now rides on
+the next physical run of any image that reaches the service loop (§V7.9), not
+on a Phase 5 run. R5 and R6 are unchanged. **The verdict does not change.** The
 assessment promotes nothing, mints no id and changes no status. The keypad
 path is reconstructed on paper in `docs/research/INPUT_PATH.md` in three
 layers kept apart — the GBS-DOL KEYPAD window as the references write it
