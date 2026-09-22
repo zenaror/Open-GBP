@@ -113,6 +113,21 @@ bit 0x01                READ 0 IN ALL THIRTY-FOUR. Every run used either no cart
                         type bit has never been observed in its other state. THIS IS THE GAP A GB/GBC BOOT FILLS.
 ```
 
+**THE GAP OF THIS SECTION WAS FILLED 2026-09-22 (GitHub Issue #47), by two
+runs the Operator performed on his own initiative, and the answer is in two
+parts — a negative and a positive.** Bit `0x01` is **CLEAR** in the original
+byte with a Game Boy Color cartridge inserted: `orig=0x92`, byte-identical to
+what a GBA cartridge gives, so **at that read point the CONTROL byte does not
+distinguish the two media** (`GBP-HW-274`). It then becomes **SET** 186–636 µs
+after the transform write and stays set (`GBP-HW-275`), while four
+GBA-cartridge runs and one cartridge-less run of the same build hold their
+value. The sentence below — *"THIS IS THE GAP A GB/GBC BOOT FILLS"* — is
+therefore answered, and what it predicted was right about the bit and wrong
+about WHERE to look for it. §4.1's prediction table is resolved in §4.1's own
+amendment. **The paragraphs of this section are kept exactly as they were
+written before those runs existed**, because their value now is that they were
+written first.
+
 **PROMOTED 2026-09-22 (GitHub Issue #46) as `GBP-HW-272`:** the split is FACT,
 the causal reading is HYPOTHESIS with the confound below named in the entry,
 and `U-GBP-017`'s "run with a cartridge" is answered for bit `0x02` only
@@ -188,6 +203,22 @@ if the type bit is not carried at that instant    orig = 0x92   (indistinguishab
 if the Game Pak is not sensed at all in GB mode   orig = 0x90   (a different and more interesting result)
 anything else                                     recorded as it fell; the byte is 8 bits and three of them are H or U
 ```
+
+**RESOLVED 2026-09-22 (GitHub Issue #47), by RUN 24 rather than by this
+experiment, and the prediction table above is left exactly as written.** The
+observed byte was **`0x92`** — the table's second line, *"the type bit is not
+carried at that instant (indistinguishable from a GBA cartridge)"* — so the
+prediction that the references' reading would show as `0x93` is **REFUTED at
+that instant**. The table did not anticipate the third state the same run
+produced: the bit arrives **later**, within 186–636 µs of the transform write,
+and stays (`GBP-HW-275`). **EXPERIMENT ONE therefore no longer needs a run of
+its own**; what is left of it is the repeat and the second cartridge that
+`GBP-HW-275` names as the way to FACT, and those belong to Phase 7 with a
+pre-registration, not here. **Note what RUN 24 did NOT deliver:** it aborted at
+the pre-unmask guard (`GBP-HW-276`) and captured no frame, so §4.2's stretch
+experiment is untouched and still has everything to do — and it now has a
+precondition nobody had thought to write, since a session that stops before
+unmasking cannot show a picture at all.
 
 **Gates, before the hardware.** The run is admissible if the log carries the
 `CONTROL semantic orig=` record and the identity gate passes; the reading is

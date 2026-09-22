@@ -108,8 +108,8 @@ the software does, not what the bit "is".
 
 | Bit | DISC usage | GBI usage | DOLPHIN name / model | Status |
 |----:|-----------|-----------|----------------------|--------|
-| 0x01 | read → status flag "type" | read → selects "Game Boy" vs "Game Boy Advance" strings | `CART_IS_GB` (1 = GB/GBC game pak) | C (usage). **Hardware: ONE OBSERVED STATE** — 0 in all 34 archived logs, every one of which ran with no cartridge or a GBA cartridge; one state is not a result (GBP-HW-272) |
-| 0x02 | read → status flag "present"; a 1→0 edge arms a 61-tick timer | read → appends "Game Pak" | `CART_INSERTED` | C (usage). **F (hw, 34 logs, 2026-09-22):** the original byte is `0x90` in the 12 cartridge-less runs and `0x92` in the 22 with a cartridge — the difference is this bit alone, no exception. **H for the CAUSE:** that the bit *reports presence* is not separated from "something the later builds do at startup" (empty diagonal), and Dolphin's "GamePak source" is IRQ bit 2, another register (GBP-HW-272) |
+| 0x01 | read → status flag "type" | read → selects "Game Boy" vs "Game Boy Advance" strings | `CART_IS_GB` (1 = GB/GBC game pak) | C (usage). **F (hw, RUN 24, 2026-09-22):** with a **GB/GBC** Game Pak the bit is CLEAR in the original byte (`0x92`, indistinguishable from a GBA cartridge) and becomes SET 186–636 µs after the transform write (`0x8e`→`0x8f`), staying set through teardown; four GBA-cartridge runs and one cartridge-less run of the same build hold their value (GBP-HW-274, GBP-HW-275). **C, not F, for the MEANING** "a GB/GBC Game Pak is present": one run, one cartridge. Why it appears late is UNKNOWN (U-GBP-036) |
+| 0x02 | read → status flag "present"; a 1→0 edge arms a 61-tick timer | read → appends "Game Pak" | `CART_INSERTED` | C (usage). **F (hw, 36 logs, 2026-09-22):** the original byte is `0x90` in the 13 cartridge-less runs and `0x92` in the 23 with a cartridge — the difference is this bit alone, no exception. **C for the CAUSE** since RUN 23: a LATE build with an empty slot reads `0x90`, so the build-era rival is disconfirmed by measurement, not argued away; still not F, because presence is inferred from correlation and never from watching the bit change while only the cartridge changed (GBP-HW-272 with its amendment, GBP-HW-273) |
 | 0x04 | set in *start*, cleared in *stop* | set in *start* (`\|= 0x0C`), cleared in *stop* (`& 0xE3`) | `CONTROL_3V`; 0→1 of (0x04\|0x08) resets the emulated GBA | C (usage), H (name) |
 | 0x08 | set when the AGB is started (after *start*), cleared in *stop* | set in *start*, cleared in *stop* | `CONTROL_5V`; both cleared → GBA stopped | C (usage), H (name) |
 | 0x10 | set in *stop* and on the *sleep* IRQ; cleared at the end of *start* | cleared in *start* (`& 0xE7`), set in *stop* | `CONTROL_MASK_IRQ`: 1 blocks the PI interrupt | C |
@@ -128,9 +128,19 @@ with the bit* — the Disc reads a "present" status flag, GBI appends the string
 different proposition: *the byte this project read from the device differed by
 exactly this bit between runs with and without a cartridge*, 34 times. Neither
 upgrades the other, and the causal step between them — that the bit **reports**
-presence — is **H**, because no archived run pairs a late build with an empty
-slot. One boot of `12-stream` with the cartridge removed would settle it; it is
-not scheduled here.
+presence — was **H** on the day this paragraph was written, because no archived
+run paired a late build with an empty slot.
+
+**That boot happened the same day (RUN 23, GitHub Issue #47, 2026-09-22) and
+the causal step is now C.** A late build with an empty slot reads `0x90`, so
+"the later builds do something at startup" contradicts a measurement instead of
+merely being unlikely. It is still not **F**: presence is inferred from a
+correlation with what was in the slot, on one console and one Game Boy Player,
+never from watching the bit change while only the cartridge changed. **The same
+day also gave bit `0x01` its first hardware content** — and its first surprise,
+which is that the bit is NOT in the original byte and arrives a fraction of a
+millisecond later (`GBP-HW-275`). A row of this table describes a bit at a READ
+POINT; for bit `0x01` that distinction is the whole result.
 
 ## 4. IRQ register (16-bit)
 

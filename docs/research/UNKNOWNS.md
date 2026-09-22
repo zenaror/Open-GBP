@@ -619,6 +619,25 @@ what is STILL UNKNOWN here    the meaning of 0x10 and 0x80 -- the two bits that 
                               GBP-HW-272 speaks about ONE bit of the byte and says nothing about the rest.
 ```
 
+**Needs, updated again 2026-09-22 the same day (GitHub Issue #47). The item
+STILL stays OPEN at P2.**
+
+```text
+the breaker RAN, unbidden      The Operator performed it on his own initiative before anyone scheduled it: RUN 23,
+                               12-stream with no cartridge, reads 0x90 (GBP-HW-273). The build-era rival is
+                               disconfirmed BY MEASUREMENT and bit 0x02's causal reading moves H -> C. What is
+                               still missing for FACT is unchanged and is not this item's: watching the bit change
+                               while only the cartridge changes.
+and bit 0x01 stopped being     RUN 24, with a Game Boy Color cartridge: the ORIGINAL byte is 0x92 with bit 0x01
+  a one-state bit              CLEAR, and the bit becomes SET 186-636 us after the transform write, staying set
+                               through a restore that consequently fails (GBP-HW-274, GBP-HW-275, GBP-HW-276).
+                               The idle 0x90 this item is about is therefore a byte whose bit 0x01 can change
+                               UNDER THE RUNTIME'S FEET when the media differ -- which is new, and which this
+                               item's first paragraph never contemplated.
+what this item still asks      the meaning of 0x10 and 0x80, of 0x94, and of IRQ 0x8AAE at idle. Untouched by
+                               either run.
+```
+
 ## U-GBP-018 (P2) — Is the TEST complement readable only once?
 
 Raw TEST dumps after the handshake read `00` (GBP-HW-006). Either the
@@ -1451,3 +1470,42 @@ does to the deferral pattern. **UNKNOWN.** Non-blocking for Phase 5; it
 belongs to Phase 9 (GBI-class functional parity) / Phase 12 (runtime
 stabilization), as its own checkpoint, and no run of `play-0001` should be
 read as answering it.
+
+---
+
+### U-GBP-036 — why does CONTROL bit `0x01` appear 186–636 µs AFTER the transform write rather than in the original byte, and what causes the sensing? — OPEN (opened 2026-09-22, Issue #47; P2; not blocking Phase 5)
+
+**What is established** (`GBP-HW-274`, `GBP-HW-275`, both FACT for the
+observation). With a Game Boy Color Game Pak inserted, the original CONTROL
+byte is `0x92` — bit `0x01` clear, byte-identical to a GBA cartridge's. The
+bit becomes set between 185.6 µs and 635.6 µs after the runtime writes the
+transform `(v & ~0x10) | 0x0C`, in all 31 stable replicas, and stays set
+through teardown, so the restore reads back `0x93` after writing `0x92`. Four
+GBA-cartridge runs and one cartridge-less run of the same image hold their
+value at the same read points.
+
+**The question, in three parts, none of them answered.**
+
+```text
+WHAT triggers it     the transform sets bits 0x04 and 0x08, which the references describe as the AGB's power /
+                     reset (REGISTERS.md §3, C for usage). "The GBS-DOL senses the Game Pak type once the AGB is
+                     powered" is the obvious reading and it is NOT measured: the A1 IRQ-register write falls inside
+                     the same window, and so does plain elapsed time. Three candidate causes, one observation.
+WHY NOT AT POWER-ON  whether the bit is simply not sensed before the AGB runs, or is sensed and not exposed at that
+                     address, or is exposed and clear for a reason of its own -- undetermined. The 13 cartridge-less
+                     and 22 GBA-cartridge runs cannot separate these, because in all of them the bit stays 0.
+IS THE WINDOW REAL   the bound comes from two SNAP records 450 us apart; the transition could be anywhere inside it
+                     and could differ per cartridge or per power cycle. One run.
+```
+
+**Why it matters beyond curiosity.** Any Open-GBP code that reads the cartridge
+type at startup would read it WRONG if it read the original byte, and a restore
+that compares a read-back against what it wrote will legitimately fail after a
+GB/GBC session (`GBP-HW-276`). Phase 7 will need to know when the byte may be
+trusted; this item is where that question lives until then.
+
+**Cheapest next step, NOT scheduled and NOT authorised here.** A repeat of RUN
+24 with the same cartridge tells whether the window reproduces; a second,
+different GB/GBC cartridge tells whether it is the medium. Both are Phase 7
+work with a pre-registration of their own. Related: `U-GBP-017`,
+`GBC_PATH.md` §3 and §4.1.

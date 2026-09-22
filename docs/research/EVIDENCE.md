@@ -7331,6 +7331,10 @@ grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
      22 CONTROL semantic orig=92
 ```
 
+**That output is the archive AS IT STOOD when this entry was written.** It grew
+the same day; the amendment below carries the current counts and the same
+command produces them.
+
 **CLAIM 2 — that bit `0x02` reports Game Pak presence. HYPOTHESIS. Not FACT,
 and not CORROBORATED either.** The two-by-two has an empty diagonal:
 
@@ -7392,6 +7396,229 @@ experimental write); nothing about a GB/GBC cartridge, another cartridge, or
 another unit. No consolidated page gains a causal claim from this row:
 `REGISTERS.md` §3 carries the split as `F (hw, 34 logs)` beside the references'
 usage `C`, and the causal reading as `H`.
+
+**AMENDMENT 2026-09-22 (GitHub Issue #47), the same day, written on top and
+changing nothing above it.** The empty cell was filled the morning this entry
+was written, by two runs the Operator performed on his own initiative before
+either of us knew of them. **RUN 23 is a LATE build (`stream-0015`) with NO
+Game Pak and it reads `0x90`** (`GBP-HW-273`). The rival reading this entry
+could not exclude — "bit `0x02` tracks something the later builds do at
+startup" — is therefore **DISCONFIRMED BY MEASUREMENT**, not argued away, and
+the two-by-two now has three of its four cells filled with the fourth (an
+early build with a Game Pak) unobtainable, since those builds are historical.
+**CLAIM 2 accordingly moves from HYPOTHESIS to CORROBORATED** — the three
+references' usage and the hardware contrast across 35 runs and both build eras
+now agree, which is this project's definition of the status — and it is still
+NOT FACT: presence is inferred from a correlation with what was in the slot,
+on one console, one Game Boy Player and two kinds of cartridge, never from
+watching the bit change while the cartridge changed and nothing else did.
+**That remains the named falsifier**, and it is the one experiment this entry
+asked for. CLAIM 1 is untouched: it was FACT over 34 logs and is FACT over 36,
+and the same one-line derivation now prints
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     23 CONTROL semantic orig=92
+```
+
+the two new logs being RUN 23 (`stream-0015-run23`, no cartridge, `0x90`) and
+RUN 24 (`stream-0015-run24`, a Game Boy Color cartridge, `0x92`). **Bit `0x01` is still 0 in all
+36 ORIGINAL bytes** — RUN 24 sets it only later, which is `GBP-HW-275` and not
+this entry's subject.
+
+---
+
+### GBP-HW-273 — RUN 23: a LATE build with NO Game Pak reads CONTROL `0x90` — the empty diagonal cell of `GBP-HW-272` filled, and the build-era reading disconfirmed by measurement — FACT (recomputable from the archived log)
+
+Executed 2026-09-22 by the Operator on his own initiative, **NOT
+pre-registered** (§V7.7 states that plainly and what it costs). `stream-0015`
+(`da06500`), the image already staged in the `12-stream` slot, with no
+cartridge in the machine; log 91 182 B
+`83b4f0e706c6a7d4538a730b9b88009017146bc90ca37ec1beb83afacebecaea`.
+
+```text
+000031 RAW BASE idx=4 ... sem_vote=90 sem_b1f=90
+000034 CONTROL semantic orig=90 exp=8c method=gbi-majority-vote transform=(v&~10)|0c
+```
+
+**What it settles.** `GBP-HW-272` recorded 12 cartridge-less logs at `0x90`
+and 22 cartridge logs at `0x92` and could not separate CARTRIDGE from BUILD
+ERA, because every cartridge-less log came from an early build. This run is
+the same late build as 11 of the `0x92` logs, run with an empty slot, and it
+reads `0x90`. **A build-era explanation now contradicts a measurement.**
+
+**What it does not settle.** That the bit *reports* presence remains an
+inference from correlation; see `GBP-HW-272`'s amendment for the status
+argument and the falsifier. Nothing here speaks about `0x10`, `0x80` or
+`0x94`.
+
+**The Operator's channel, kept as his:** *"rodei o 12-stream sem cartucho. ele
+chamou o boot logo do Gameboy Advance, e não avançou mais, comportamento
+similar ao console e esperado."* — **OPERATOR OBSERVATION**, his words,
+consistent with a real console with an empty slot and not a measurement by
+this project. The machine record is the byte above.
+
+---
+
+### GBP-HW-274 — RUN 24: with a **Game Boy Color** Game Pak inserted the ORIGINAL CONTROL byte is `0x92`, bit `0x01` CLEAR — the same byte a Game Boy Advance cartridge gives, so at the power-on read point the byte does not distinguish the two media — FACT (recomputable), and a NEGATIVE that closes a stated expectation
+
+Executed 2026-09-22 by the Operator on his own initiative, **NOT
+pre-registered**. Same image `stream-0015` (`da06500`), a **Pokémon Crystal
+(JP)** Game Boy Color cartridge in the slot (his declaration; the title is
+his, not read by any instrument here); log 22 415 B
+`8599bc0f5b57999bd0d368d31f6d5e41734192ce499304fe417dc0e71227f443`.
+
+```text
+000031 RAW BASE idx=4 ... sem_vote=92 sem_b1f=92
+000034 CONTROL semantic orig=92 exp=8e method=gbi-majority-vote transform=(v&~10)|0c
+```
+
+**Why this is a result and not a disappointment.** `GBC_PATH.md` §3 stated the
+expectation in advance and in public (commit `f99bc96`, before these runs
+existed): bit `0x01` had read 0 in all 34 archived logs because every run used
+no cartridge or a GBA cartridge, and the other state was named *"THE GAP A
+GB/GBC BOOT FILLS"*. The gap is filled and the answer at that read point is
+**NO**: `0x92`, bit `0x01` clear, byte-identical to what 22 GBA-cartridge runs
+give. **A prediction that fails is evidence.**
+
+**Read this narrowly.** It is a statement about ONE read point — the original
+byte, sampled before any write — and `GBP-HW-275` shows the same run answering
+differently a fraction of a millisecond later. It says nothing about whether
+the Game Pak was sensed at all, and nothing about GB/GBC mode.
+
+---
+
+### GBP-HW-275 — RUN 24: bit `0x01` of CONTROL becomes 1 **after** the transform write, within 186–636 µs, and stays set through teardown — while four GBA-cartridge runs and one cartridge-less run of the same build hold their value — FACT for the transition and the contrast; the MEANING stays an inference
+
+The whole trajectory, majority vote over the 32 replicas, one run per column:
+
+```text
+                       RUN 23          RUN 24          RUN 18 / RUN 17 / RUN 15 / color-0002
+                       no Game Pak     GBC Game Pak    GBA Game Pak (four runs)
+BASE   (original)      90              92              92
+       written (exp)   8c              8e              8e
+P0                     8c              8e              8e
+A1-0                   8c              8e              8e
+A1-50US                8c              8e              8e
+A1-500US               8c              8f   <- HERE    8e
+A2-0 / A2-50MS         8c              8f              8e
+EVENT / PREUNMASK      8c              8f              8e
+restore: wrote / read  90 / 90 ok      92 / 93 FAIL    92 / 92 ok
+```
+
+**The window.** The `SNAP` records bound it: `since_control=7518` ticks at
+`A1-50US` (still `0x8e`) and `since_control=25742` at `A1-500US` (already
+`0x8f`), at `tb_hz=40500000` — **between 185.6 µs and 635.6 µs after the
+CONTROL transform write**, equivalently 50.1 µs to 500.0 µs after the `A1` IRQ
+write. It is not instantaneous with the write and it is not late.
+
+**Why the contrast carries weight.** The same binary, the same fixed sequence
+and the same read points are exercised by five other physical runs in this
+archive. Four of them have a GBA cartridge and hold `0x8e` at every one of
+those points; one has an empty slot and holds `0x8c`. **The only run in which
+any bit of the byte changes under the runtime's feet is the one with the
+GB/GBC cartridge**, and the change is bit `0x01` — the bit the Disc reads as a
+"type" flag, GBI uses to choose between the strings "Game Boy" and "Game Boy
+Advance", and Dolphin's model names `CART_IS_GB` (`REGISTERS.md` §3,
+`GBP-CTL-001`).
+
+**Replica 0 is excluded deliberately and it matters.** The first of the 32
+replicas is noisy in every run of this family — `8a` against `8c` in RUN 23,
+`be` then `fe` then `be` in RUN 18, `ee`/`ef` in RUN 24 — which is why the
+runtime takes a majority. **In RUN 24 the change is in all 31 stable replicas
+as well as in replica 0**, which is what makes it a reading of the device
+rather than of the anomaly.
+
+**AND THE CLAIM IS UNANIMITY AND PERSISTENCE, NOT THE VALUE.** Checking those
+replicas turned up four reads, out of 48 across these six runs, where one of
+the 31 deviates — and **two of them are an isolated replica reading `0x8f` in
+RUN 17, which had a GBA cartridge** (`A2-50MS` replica 26, `PREUNMASK` replica
+20; the other two are RUN 23 `A2-50MS` replica 14 = `8a` and RUN 15 `P0`
+replica 18 = `9e`). **So a single replica showing `0x8f` proves nothing**, and
+anyone reading these logs later must not take one for the type bit. What is
+unique to RUN 24 is that the change is **unanimous across all 32 replicas** and
+**persists from `A1-500US` to the end of the run**, including the restore
+read-back. §V7.7 carries the list and a host test pins it exactly.
+
+**Status, argued.** The transition, the window and the five-run contrast are
+**FACT**: they recompute from the archived files with no interpretation. That
+the bit **means** "a GB/GBC Game Pak is present" is an inference, and with the
+three references agreeing on that usage it is **CORROBORATED, not FACT** — one
+run, one cartridge, one console, one Game Boy Player. **What would make it
+FACT:** a repeat with the same cartridge and a run with a second, different
+GB/GBC cartridge, and the same window measured again.
+
+**What is NOT established, and must not be read into this.** Why the bit
+appears late rather than at the original read. Whether the transform's power /
+reset bits (`0x04`/`0x08`) cause the sensing, or whether time or the `A1`
+write does. Whether a GBA cartridge would ever set it. Anything about GB/GBC
+video, input, audio, timing or mode entry. See `U-GBP-036`.
+
+---
+
+### GBP-HW-276 — RUN 24 captured nothing because the runtime's own pre-unmask guard refused the session: `PREUNMASK ok=0 reason=control_changed`, teardown `S2_before_unmask`, zero unmasks — the machine explanation for five near-empty files, and a restore that failed for the same reason — FACT (read from the log)
+
+The Operator reported that the GBC run *"nem chamou o boot logo do
+GameBoy... ficou só no terminal (tela com textos) e apareceu a opção para
+gerar o log direto"* (**OPERATOR OBSERVATION**). The log gives the mechanism
+and it is not a defect:
+
+```text
+000098 PREUNMASK ok=0 reason=control_changed ... control=8f irq=0500/0500
+000099 TEARDOWN start control_written=1 irq_attempted=2 irq_completed=2 uncertain_writes=0
+000102 CONTROL restore semantic=92 rc=ok readback_rc=ok readback_vote=93 readback_b1f=93 ok=0
+000121 VSTATE end status=anomaly_control_changed class=anomaly reason=control_changed_PREUNMASK
+       stop=failure restore=error restore_reason=control_restore_failed teardown=S2_before_unmask
+       power_cycle_required=1 errors=0 transport_ok=1
+```
+
+**The chain, end to end.** The runtime writes `0x8e` and, before installing
+the handler and unmasking, re-reads CONTROL and compares it with what it
+wrote. The device is reporting `0x8f` (`GBP-HW-275`), so the guard refuses,
+the run takes the teardown path at stage S2, **no handler is unmasked
+(`unmasks=0`), no service cycle runs, no frame is captured** — hence
+`t_capture_start=0`, `STREAMWIT records=0/2048`, `VISTORE handed=0`,
+`DISPSRC handoffs=0`, and the four sidecars holding nothing but their headers
+(396 / 460 / 268 / 268 B against RUN 23's 8 946 060 / 401 372 / 1 844 492 /
+152 524). The text console with the save option is the teardown's own screen.
+**No boot logo appeared because no frame was ever captured or presented**, not
+because the AGB was known to be held in reset — that part is not measured.
+
+**The restore failure has the same single cause.** The runtime writes the
+original `0x92` back and reads `0x93`: bit `0x01` is still set, so
+`control_restore_ok=0` and `power_cycle_required=1`. **The device is reporting
+a bit the runtime never wrote**, which is the guard working, not a runtime
+defect. The hardware-safety consequence is recorded in §V7.7: a console left
+in that state is power-cycled before the next run.
+
+**`transport_ok=1` and `errors=0` throughout**, `dropped=0 truncated=0`, the
+log complete to its `# --- end ---`: nothing about the transport, the log or
+the media is implicated.
+
+---
+
+### GBP-HW-277 — RUN 23: the full streaming path reaches its witness target with NO Game Pak — 2048 / 2048 records, `stop=witness_target_reached`, restore ok, 0 errors — FACT (read from the log)
+
+```text
+000250 VSTATE end status=ok_structured_change_observed class=ok reason=- stop=witness_target_reached
+       restore=ok teardown=S5_witness_target power_cycle_required=1 errors=0 transport_ok=1
+000685 STREAMWIT records=2048/2048 target=2048 frames_seen=2048 discarded=0 target_reached=1
+000679 VISTORE handed=2379 latched=2372 superseded=6 overflow=0
+000681 DISPSRC handoffs=2379 deferred_frames=31 defer_attempts=44 dropped_interior=0 order_violations=0
+```
+
+254 746 unmasks, a clean restore (`control_restore_ok=1`, readback `0x90`), and
+the four sidecars at full size. **The video capture path does not need a Game
+Pak**: with an empty slot the AGB produces its own screen and the GBS-DOL
+delivers 2379 frames of it through the same path, to the same target, with the
+same accounting as a cartridge run. Previously every cartridge-less run in the
+archive came from an early build that never reached this stage, so this is the
+first time the streaming path has been exercised without media.
+
+**Not claimed:** anything about the content of those frames, which no
+instrument in this run judged; any comparison with a cartridge run's picture;
+any acceptance criterion.
 
 ---
 
