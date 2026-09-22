@@ -208,8 +208,8 @@ class TheAssessmentIsRecordedAndNothingWasBuilt(unittest.TestCase):
                             "docs/protocol", "docs/hardware", "docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        # nothing was built UNDER ISSUE #38; Issue #39 (2026-09-21) built the playable image: the session end in the service-path module (tests/host/test_play_image.py pins it), a new POC, its audit profile and its Swiss slot
-        self.assertTrue(set(r.stdout.split()) <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"} | {"docs/research/UNKNOWNS.md"}, "changed against the base: " + r.stdout)
+        # nothing was built UNDER ISSUE #38; Issue #39 (2026-09-21) built the playable image: the session end in the service-path module (tests/host/test_play_image.py pins it), a new POC, its audit profile and its Swiss slot; Issue #41 (2026-09-21) pre-registered RUN 21 / RUN 22 as §V7.6 (tests/host/test_run21_prereg.py pins it)
+        self.assertTrue(set(r.stdout.split()) <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"} | {"docs/research/UNKNOWNS.md", "docs/research/HARDWARE_TESTS.md"}, "changed against the base: " + r.stdout)
         r = subprocess.run(["git", "-C", ROOT, "ls-files", "--others", "--exclude-standard", "--", "src", "poc", "tools", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware"],
                            capture_output=True, text=True)
         self.assertEqual(r.stdout.strip(), "", "untracked files under the guarded paths: " + r.stdout)

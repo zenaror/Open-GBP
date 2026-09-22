@@ -1,0 +1,432 @@
+"""
+tests/host/test_run21_prereg.py — GitHub Issue #41: RUN 21 / RUN 22 are
+PRE-REGISTERED in HARDWARE_TESTS §V7.6 (GBP-INPUT-004, `play-0001`'s first
+runs) and NOT RUN.
+
+The point of a pre-registration test is that the part cannot be tuned to data
+that does not exist yet, so everything here is checked against something
+INDEPENDENT of the future runs:
+
+  - Question T's baseline table is RECOMPUTED from RUN 17's archived log, line
+    by line: every figure §V7.6.3 quotes must be in that file or derivable from
+    it by the arithmetic the section states;
+  - the image's identity is the one Issue #39 recorded and, when the tree is
+    built, what build-info says;
+  - the two questions, their separate gates and the ONE interaction between
+    them are pinned as written, including that a FAULT on T is a result;
+  - the instrument is the settled one, with its form on the three-value axis,
+    its attribution caveat beside the verdicts and its cartridge-hardware
+    check recorded as made rather than presumed;
+  - the action list obeys the separated notation (no digits glued to a button
+    name, the count carrying × and whitespace, dual names for SELECT) and the
+    frozen lists of §V7.1 / §V7.3 / §V7.5 keep their old text;
+  - the two raw names are reserved exactly once, are absent from the tree, and
+    no name above run22 exists anywhere;
+  - nothing frozen moved: §V7.1–§V7.5 byte-identical, EVIDENCE untouched, no
+    GBP-HW id minted, nothing under src/, poc/, tools/ or the Makefile.
+"""
+import os
+import re
+import subprocess
+import unittest
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
+HANDOFF = os.path.join(ROOT, "docs", "HANDOFF.md")
+ROADMAP = os.path.join(ROOT, "docs", "ROADMAP.md")
+DEVLOG = os.path.join(ROOT, "docs", "research", "DEVLOG.md")
+INPUT_PATH = os.path.join(ROOT, "docs", "research", "INPUT_PATH.md")
+EVIDENCE = os.path.join(ROOT, "docs", "research", "EVIDENCE.md")
+RUN17_LOG = os.path.join(ROOT, "captures", "local", "GBP-VIDEO-004_stream-0015-run17.log")
+BUILD_INFO = os.path.join(ROOT, "build", "poc", "gbp-play-session", "build-info.txt")
+BASE = "fe79f22"                 # origin/main before Issue #41
+DOL_SHA = "d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de"
+DOL_SIZE = "487 968"
+COMMIT = "2e48ca7"
+NAMES = ["captures/local/GBP-PLAY-001_play-0001-run21.log",
+         "captures/local/GBP-PLAY-001_play-0001-run22.log"]
+
+
+def read(p):
+    with open(p, encoding="utf-8") as f:
+        return f.read()
+
+
+def plain(s):
+    return re.sub(r"\s+", " ", s).replace("`", "").replace("**", "")
+
+
+def v76():
+    t = read(HW)
+    return t[t.index("### V7.6 RUN 21 / RUN 22"):]
+
+
+def part(n):
+    """One #### V7.6.n subsection."""
+    t = v76()
+    i = t.index("#### V7.6.%d " % n)
+    j = t.find("#### V7.6.%d " % (n + 1), i)
+    return t[i:] if j < 0 else t[i:j]
+
+
+def run17():
+    if not os.path.isfile(RUN17_LOG):
+        return None
+    return read(RUN17_LOG)
+
+
+class ThePartExistsAndSaysWhatItIs(unittest.TestCase):
+    def test_the_heading_and_the_chapter(self):
+        h = v76().splitlines()[0]
+        for tok in ("### V7.6 RUN 21 / RUN 22", "GBP-INPUT-004", "play-0001", "SEPARATE GATES",
+                    "**PRE-REGISTERED 2026-09-21 (GitHub Issue #41); NOT RUN / NOT AUTHORISED HERE**"):
+            self.assertIn(tok, h, tok)
+        chapter = [l for l in read(HW).splitlines() if l.startswith("## V7 ")][0]
+        self.assertIn("RUN 21 / RUN 22 PRE-REGISTERED (Issue #41, §V7.6)", chapter)
+        self.assertIn("NOT RUN / NOT AUTHORISED HERE", chapter.split("Issue #41")[1])
+        # the chapter heading GREW: the old one is a prefix of the new one
+        old = subprocess.run(["git", "-C", ROOT, "show", "%s:docs/research/HARDWARE_TESTS.md" % BASE],
+                             capture_output=True, text=True)
+        if old.returncode == 0:
+            old_chapter = [l for l in old.stdout.splitlines() if l.startswith("## V7 ")][0]
+            self.assertTrue(chapter.startswith(old_chapter), "the chapter heading grows, it does not change")
+        for n in range(1, 15):
+            self.assertIn("#### V7.6.%d " % n, v76(), n)
+
+    def test_the_two_questions_and_the_one_interaction(self):
+        one = plain(part(1))
+        for tok in ("§V6.13's rule applied", "neither verdict consults the other's evidence",
+                    "QUESTION A Phase 5's acceptance", "QUESTION T the timing of the shortened service pass",
+                    "a run whose service FAILED had no session to judge, so it is INCONCLUSIVE for A as well",
+                    "T never reads the Operator's report; A never reads the cycle records",
+                    "A timing anomaly is an EXPECTED POSSIBLE OUTCOME of this pair, not a failed run"):
+            self.assertIn(tok, one, tok)
+        ten = plain(part(10))
+        for tok in ("T = FAULT and the run had no session", "Question A is INCONCLUSIVE for that run",
+                    "T = FAULT but the session completed", "Question A is read on its own records, unchanged",
+                    "NEVER A's verdict", "T = ANOMALOUS (accounting clean) -> Question A is untouched",
+                    "Question T is untouched: T reads the machine records only"):
+            self.assertIn(tok, ten, tok)
+
+
+class QuestionTsBaselineIsRecomputedFromRun17(unittest.TestCase):
+    """Every figure §V7.6.3 quotes is in RUN 17's archived log, or follows from it."""
+
+    def setUp(self):
+        self.log = run17()
+        if self.log is None:
+            self.skipTest("RUN 17's log is a local capture; not present in this checkout")
+        self.three = part(3)
+
+    def field(self, tag, key):
+        m = re.search(r"^\d+ %s .*?\b%s=(\S+)" % (re.escape(tag), re.escape(key)), self.log, re.M)
+        self.assertIsNotNone(m, "%s %s" % (tag, key))
+        return m.group(1)
+
+    def test_the_witness_step_and_its_share(self):
+        self.assertEqual(self.field("STREAMWITT", "copy_ticks_min"), "5")
+        self.assertEqual(self.field("STREAMWITT", "copy_ticks_mean"), "70")
+        self.assertEqual(self.field("STREAMWITT", "copy_ticks_max"), "1547")
+        self.assertEqual(self.field("STREAMWITT", "n"), "96109")
+        self.assertIn("STREAMWITT 5 / 70 / 1 547 ticks, n = 96 109", self.three)
+        self.assertIn("0.12 / 1.73 / 38.20 us", self.three)
+        for ticks, us in ((5, 0.12), (70, 1.73), (1547, 38.20)):
+            self.assertAlmostEqual(ticks / 40.5, us, places=2)
+        self.assertIn("70 x 96 109 = 0.166 s of 40.248 s = 0.41 %", self.three)
+        self.assertAlmostEqual(70 * 96109 / 40.5e6, 0.166, places=3)
+        self.assertAlmostEqual(100 * (70 * 96109 / 40.5e6) / 40.248, 0.41, places=2)
+
+    def test_the_cycle_gaps(self):
+        gaps = []
+        for tag in ("CYCFT", "CYCLT"):
+            for line in re.findall(r"^\d+ %s i=(\d+) .*$" % tag, self.log, re.M):
+                pass
+        def gap(tag, i):
+            m = re.search(r"^\d+ %s i=%d .*?ack=([0-9a-f]+) rearm=([0-9a-f]+) next=([0-9a-f]+)" % (tag, i), self.log, re.M)
+            self.assertIsNotNone(m, "%s i=%d" % (tag, i))
+            a, r, n = (int(x, 16) for x in m.groups())
+            return r - a, n - r
+        first = [gap("CYCFT", i) for i in (0, 1, 2)]
+        self.assertEqual([g[0] for g in first], [1197, 895, 886])
+        self.assertEqual([g[1] for g in first], [1171, 1067, 1067])
+        last = [gap("CYCLT", i) for i in (6, 7)]
+        self.assertEqual([g[0] for g in last], [12, 12])
+        self.assertEqual([g[1] for g in last], [6663, 6661])
+        self.assertIn("CYCFT i=0,1,2: 1 197 / 895 / 886 ticks", self.three)
+        self.assertIn("(29.56 / 22.10 / 21.88 us)", self.three)
+        self.assertIn("CYCLT i=6,7: 12 ticks (0.30 us)", self.three)
+        self.assertIn("CYCFT 1 171 / 1 067 / 1 067; CYCLT 6 663 / 6 661", self.three)
+        for ticks, us in ((1197, 29.56), (895, 22.10), (886, 21.88), (12, 0.30)):
+            self.assertAlmostEqual(ticks / 40.5, us, places=2)
+
+    def test_the_rates_the_accounting_and_the_rest(self):
+        self.assertEqual(self.field("COUNTERS", "deliveries"), "254723")
+        self.assertEqual(self.field("CLOCKSEC", "capture_s"), "40.248")
+        self.assertIn("254 723 in capture_s 40.248", self.three)
+        self.assertIn("6 329/s (capture clock) · 6 312/s (safety clock)", self.three)
+        self.assertEqual(round(254723 / 40.248), 6329)
+        self.assertEqual(round(254723 / 40.356), 6312)
+        self.assertEqual(self.field("CLOCKSEC", "safety_s"), "40.356")
+        for key, want in (("acks", "254723"), ("rearms", "254723"), ("unmasks", "254723"), ("lean", "254719"),
+                          ("verify", "4"), ("isr_w1c", "254723"), ("main_w1c", "0"), ("teardown_w1c", "1"),
+                          ("overflow", "0"), ("uncertain", "0"), ("control_ok", "1")):
+            self.assertEqual(self.field("COUNTERS", key), want, key)
+        self.assertIn("acks = rearms = unmasks = deliveries = 254 723; lean 254 719; verify 4; isr_w1c = deliveries;", self.three)
+        self.assertIn("main_w1c = 0; teardown_w1c = 1; overflow = 0; uncertain = 0; control_ok = 1; errors = 0", self.three)
+        self.assertEqual(self.field("STATS", "timeouts"), "0")
+        self.assertEqual(self.field("STATS", "busy"), "0")
+        self.assertEqual(self.field("STATS", "transfers"), "1033033")
+        self.assertEqual(self.field("STATS", "bulk_transfers"), "260900")
+        self.assertIn("STATS timeouts = 0, busy = 0, transfers 1 033 033, bulk 260 900", self.three)
+        self.assertEqual(len(re.findall(r"^\d+ CYCA ", self.log, re.M)), 0)
+        self.assertIn("CYCA: none written", self.three)
+        self.assertEqual(self.field("STREAMPUMP", "calls"), "254723")
+        self.assertEqual(self.field("STREAMPUMP", "slices"), "95080")
+        self.assertEqual(self.field("STREAMPUMP", "skipped_cause_pending"), "69770")
+        self.assertEqual(self.field("STREAMPUMP", "arrived_during"), "32442")
+        self.assertIn("skipped_cause_pending 69 770 (27.4 %)", self.three)
+        self.assertEqual(round(100 * 69770 / 254723, 1), 27.4)
+        self.assertEqual((self.field("STREAMPUMPT", "ticks_min"), self.field("STREAMPUMPT", "ticks_mean"),
+                          self.field("STREAMPUMPT", "ticks_max"), self.field("STREAMPUMPT", "n")),
+                         ("1154", "1494", "2578", "95080"))
+        self.assertIn("STREAMPUMPT 1 154 / 1 494 / 2 578 ticks, n = 95 080", self.three)
+        self.assertEqual((self.field("INPUT", "steps"), self.field("INPUT", "attempts"), self.field("INPUT", "completed"),
+                          self.field("INPUT", "failed"), self.field("INPUT", "retry")),
+                         ("184953", "7898", "7898", "0", "0"))
+        self.assertIn("INPUT steps 184 953, attempts = completed = 7 898, failed = 0, retry = 0;", self.three)
+        self.assertIn("INPUTT write 30 / 30 / 38, step 95 / 160 / 1 106 ticks", self.three)
+        self.assertIn("write_ticks=30/30/38", self.log)
+        self.assertIn("step_ticks=95/160/1106", self.log)
+        for key, want in (("events", "43"), ("emitted", "43"), ("lost", "0"), ("truncated", "0"), ("overwritten", "0")):
+            self.assertEqual(self.field("KEYLOG", key), want, key)
+        self.assertIn("KEYLOG events = emitted = 43, lost = 0, truncated = 0, overwritten = 0", self.three)
+        self.assertEqual((self.field("STREAMINV", "checks"), self.field("STREAMINV", "failures")), ("189258", "0"))
+        self.assertIn("STREAMINV checks 189 258, failures 0", self.three)
+        self.assertIn("STREAMSRC closed 2 404, complete 2 378, incomplete 13, anomaly 13, published 2 378", self.three)
+        self.assertEqual(self.field("STREAMSRC", "closed"), "2404")
+        self.assertEqual(self.field("STREAMCONS", "presented"), "2377")
+
+    def test_no_figure_is_a_threshold(self):
+        p = plain(self.three)
+        for tok in ("no figure here is a threshold and none is a tolerance",
+                    "What is comparable is the SHAPE",
+                    "A game also produces a different VIDEO / AUDIO mix than the indexed stimulus, so the rate is read with that stated, never against a fixed number",
+                    "the first run is the measurement"):
+            self.assertIn(tok, p, tok)
+
+
+class QuestionAAndTheInstrument(unittest.TestCase):
+    def test_the_criterion_is_his_and_the_machine_half_is_scoped(self):
+        two = plain(part(2))
+        for tok in ('"ambos os controles funcionam e tem que apresentar o mesmo comportamento… > tanto o paralelo como original."',
+                    "not to be reinterpreted after the run",
+                    "play-0001 writes NO frames at all", "What the game did is the OPERATOR'S CHANNEL, alone",
+                    "whether the word was SENT AT ALL", "This pair addresses BOTH",
+                    "its evidence is weaker per key than the checker's was, which is stated here rather than discovered at ingestion"):
+            self.assertIn(tok, two, tok)
+
+    def test_the_verdicts_split_a_failure_by_the_key_record(self):
+        eleven = plain(part(11))
+        for tok in ("QUESTION A / W", "SENT R_b rose as expected -> the runtime sent the word; the failure is DOWNSTREAM",
+                    "NOT SENT R_b did not rise -> the press never became a word; the failure is UPSTREAM",
+                    "N/A the game ignores the key", "NOT a failure", "SPURIOUS",
+                    "QUESTION A / S", "QUESTION A / K", "QUESTION T -- the timing",
+                    "NOMINAL", "ANOMALOUS", "FAULT", "THIS IS THE EXPECTED POSSIBLE OUTCOME",
+                    "It is a RESULT, not a failed run",
+                    "with no threshold invented after the fact"):
+            self.assertIn(tok, eleven, tok)
+        # the form's caveat sits beside the verdicts, and is not softened
+        for tok in ("THE TITLE AND", "THE FORM,", "BESIDE THEM", "A ROM DELIVERED BY THE FLASHCART",
+                    "WHICH of the three candidates", "If he declares an ORIGINAL, the caveat is lifted for that run",
+                    "CANNOT BE ATTRIBUTED WITH CERTAINTY BETWEEN THE RUNTIME AND THE CARTRIDGE",
+                    "A good instrument does not soften this"):
+            self.assertIn(tok, eleven, tok)
+
+    def test_three_candidates_are_named_each_evaluated_and_he_declares_at_run_time(self):
+        four = plain(part(4))
+        for tok in ('"nomeie os 3 jogos por enquanto... Quando eu testar eu informo."',
+                    "THREE CANDIDATES ARE NAMED HERE and HE DECLARES AT RUN TIME which one he used",
+                    "every candidate is evaluated HERE, before any data, so none can be chosen after the fact to suit a result",
+                    "the two runs of the PAIR must use the SAME one",
+                    # 1 WarioWare
+                    "WarioWare, Inc.: Mega Microgame$! -- the NORMAL WarioWare, NOT Twisted",
+                    '"sobre o WarioWare seria o WarioWare normal... Nao o Twisted."',
+                    "A ROM DELIVERED BY THE FLASHCART, on the EZ-Flash Omega DE's NOR -- the third value of the status axis",
+                    "THE CRISPEST FEEDBACK OF THE THREE", "a mapping error is not ambiguous",
+                    "L, R, SELECT and possibly B are EXPECTED N/A",
+                    "NO gyroscope, NO accelerometer or tilt sensor, NO solar sensor, NO rumble motor, NO real-time clock",
+                    # 2 Emerald
+                    "Pokemon Emerald", "HIS NOTE, recorded as his: he knows it uses L and R",
+                    "COVERS THE MOST BUTTONS of the three", "a slower-paced game, so \"it responded reliably\" is a softer judgement",
+                    "the Pokemon Emerald cartridge carries a REAL-TIME CLOCK", "FROM A FLASHCART the RTC may be ABSENT OR EMULATED",
+                    "berry growth, tides and other time-of-day events -- NOT the input path",
+                    "a reader must not later mistake a clock-driven oddity for an input finding",
+                    # 3 Yoshi
+                    "Super Mario Advance 3: Yoshi's Island", "recorded as HIS STATEMENT and NOT asserted by this part",
+                    "he BELIEVES it uses L and R",
+                    # the reason the choice got easier, and the caveats
+                    "IT IS NOT THE CONSTRAINT IT WAS, and the reason is Issue #39",
+                    "THE WINDOW IS GONE", "Removing that constraint is what Issue #39 bought",
+                    "THE CAVEAT TRAVELS WITH EVERY CITATION, never silently and never softened",
+                    "If he declares an ORIGINAL on the day, the caveat is lifted FOR THAT RUN",
+                    "still rejected WarioWare: TWISTED",
+                    "OWNS it as an ORIGINAL cartridge in two regional versions",
+                    "The Simpsons: Road Rage, his earlier \"paralelo\", is not among the three",
+                    "N/A IS NOT A FINDING", "a game that never asks for L is NOT evidence that L fails"):
+            self.assertIn(tok, four, tok)
+        # the three are named and nothing else is proposed as the instrument
+        self.assertEqual(len(re.findall(r"^  \d  ", part(4), re.M)), 3)
+        # the two gate items
+        for tok in ("GATE ITEM 1", "GATE ITEM 2", "holding Z for 250 ms to end the session is workable in practice",
+                    "If it is awkward, that is a finding NOW and a constant in main.c, not a lost pair of runs"):
+            self.assertIn(tok, four, tok)
+
+
+class TheProcedureAndTheNotation(unittest.TestCase):
+    def test_the_notation_rule_starts_here_and_the_frozen_lists_keep_their_text(self):
+        nine = part(9)
+        p = plain(nine)
+        for tok in ("THE NOTATION, from here on", "L1 R2 A3", "PlayStation shoulder", "the compression was the project's, not his error",
+                    "every operator-facing action list separates the button from its count, the count carries × and whitespace",
+                    "The frozen lists of §V7.1, §V7.3 and §V7.5 keep their text"):
+            self.assertIn(tok, p, tok)
+        # the list itself obeys the rule: a count is always "× N" with whitespace, never glued to a name
+        rows = [l for l in nine.splitlines() if re.match(r"^\s{0,3}\d{1,2}\s{3}\S", l)]
+        self.assertGreaterEqual(len(rows), 14)
+        for l in rows:
+            self.assertNotRegex(l, r"\b(START|SELECT|A|B|L|R|UP|DOWN|LEFT|RIGHT|Z)\d", "digits glued to a name: " + l)
+        # inside the action-list block only: prose about the rule is not a row of it
+        block = nine[nine.index("step  action"):nine.index("```", nine.index("step  action"))]
+        self.assertIn("×", block)
+        for l in block.splitlines():
+            if "×" in l:
+                self.assertRegex(l, r"\S\s\s+×\s+\d", "the count must carry × with whitespace: " + l)
+        self.assertIn("SELECT (the pad's X = GBA SELECT)", nine)          # dual-named
+        # ordinary play, the N/A expectation, the session end
+        for tok in ("LEANING ON ORDINARY PLAY", "PLAY THE GAME for about three minutes",
+                    "EXPECT A COLUMN OF N/A, AND READ IT AS THE REAL ANSWER IT IS",
+                    "L, R, SELECT and possibly B are expected N/A", "A game that never asks for L is NOT evidence that L fails",
+                    "It is not a finding, it is not \"DOES NOT WORK\"",
+                    "END THE SESSION: hold Z for about one", "K is computed over steps 2-12, 14 and 15",
+                    "One press each in step 15 is allowed here, and was forbidden before"):
+            self.assertIn(tok, p, tok)
+        # the recovery procedure is the frozen one, byte for byte
+        self.assertIn("""```text
+If the AGB hangs, input behaves as if stuck, or a menu navigates by itself:
+power the console off at the button, wait, power on. Do not try to correct
+it with the controller. Record what was seen before the power-off.
+```""", nine)
+
+    def test_the_session_and_the_identity_gate(self):
+        five, eight = plain(part(5)), plain(part(8))
+        for tok in ("ONE file: sd:/open-gbp/GBP-PLAY-001_play-0001.log", "NO SIDECARS",
+                    "BOUNDED BY THE OPERATOR, not by the runtime", "Z held 250 ms -> stop=session_end, the only success",
+                    "THE WHOLE SESSION MUST FIT INSIDE 720 s", "NOT EXPORTED and NOT STAGED by this part",
+                    "12-stream = stream-0015, dd545c01...3a49, untouched"):
+            self.assertIn(tok, five, tok)
+        for tok in ("/media/rafael/SD_GC/Open-GBP/13-play/boot.dol", "487 968 B", DOL_SHA,
+                    "no sd:/open-gbp/GBP-PLAY-001_play-0001.log exists on the SD",
+                    "MOVED ASIDE, never deleted", "If ANY identity differs: DO NOT RUN"):
+            self.assertIn(tok, eight, tok)
+        self.assertIn(DOL_SHA, plain(part(5)))
+        self.assertIn(COMMIT, plain(part(5)))
+
+    @unittest.skipUnless(os.path.isfile(BUILD_INFO), "run `make build` first")
+    def test_the_named_artifact_is_the_built_one(self):
+        info = dict(l.split("=", 1) for l in read(BUILD_INFO).splitlines() if "=" in l)
+        if info.get("commit") != COMMIT:
+            self.skipTest("the play image on this host is built at %s; the part names %s's" % (info.get("commit"), COMMIT))
+        self.assertEqual(info["sha256_dol"], DOL_SHA)
+        self.assertEqual(info["build_id"], "play-0001")
+        self.assertEqual(os.path.getsize(os.path.join(ROOT, "build", "poc", "gbp-play-session", "gbp-play-session.dol")),
+                         int(DOL_SIZE.replace(" ", "")))
+
+
+class TheNamesAndTheEmptyRecord(unittest.TestCase):
+    def test_the_two_names_are_reserved_once_absent_and_nothing_above_run22_exists(self):
+        t = read(HW)
+        for n in NAMES:
+            self.assertEqual(t.count(n), 1, n)
+            self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
+        self.assertEqual(read(HANDOFF).count(NAMES[0]), 1)
+        self.assertIn("Two names, where every previous pair reserved ten", plain(part(7)))
+        self.assertIn("writes ONE file per run and no sidecars", plain(read(HANDOFF)))
+        # no raw name above run22 anywhere
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[3-9]|[3-9]\d)\S*", t), [])
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[3-9]|[3-9]\d)\S*", read(HANDOFF)), [])
+
+    def test_the_record_table_is_empty(self):
+        table = part(13)
+        i = table.index("field                                     RUN 21")
+        rows = [l for l in table[i:].splitlines() if re.match(r"^\S.*  --", l)]
+        self.assertGreaterEqual(len(rows), 25)
+        for l in rows:
+            # the CELLS are everything before the trailing "(hint)"; a hint may legitimately name what is expected
+            cells = l.split("  (")[0]
+            self.assertGreaterEqual(len(re.findall(r"(?<= )(--)(?= |$)", cells)), 1, l)
+            self.assertNotRegex(cells, r"\bPASS\b|\bFAIL\b|\bWORKS\b|=\s*\d", "nothing is pre-filled: " + l)
+        self.assertIn("nothing pre-filled", plain(table))
+
+    def test_what_the_part_is_not(self):
+        p = plain(part(14))
+        for tok in ("Not authorised by this pre-registration: hardware execution",
+                    "staging, exporting, copying or flashing anything", "slot 13-play is exported under the Hardware Issue",
+                    "choosing the Operator's game for him beyond the requirement that it passes through the button path",
+                    "deciding whether Phase 5 closes", "No new physical evidence ID exists",
+                    "PRE-REGISTERED / NOT RUN / NOT AUTHORISED HERE"):
+            self.assertIn(tok, p, tok)
+        self.assertIn("Whether Phase 5 closes is still not decided by the runs", plain(part(2)))
+        self.assertIn("What it does NOT decide: whether Phase 5 closes", plain(part(12)))
+
+
+class TheCorrectionOfTheAuditFigure(unittest.TestCase):
+    def test_the_correction_is_recorded_on_top_with_its_cause(self):
+        s = plain(read(INPUT_PATH))
+        self.assertIn("### 13.8 CORRECTION (2026-09-21, Issue #41) — the audit cross-check figure of §13.1", s)
+        for tok in ("The correct figure for the committed profile on the committed build is 102",
+                    "gbp_keypad_write's call sites 1 -> 2", "gbp_input_map / gbp_keypad_encode removed from elf_required",
+                    "105 - 3 = 102", "0 findings on the play image, 102 on the stream image, 33 for the stream profile on the play image",
+                    "The host test asserts the property", "never the exact count, so no test moved",
+                    "a figure measured against an intermediate state is not the figure for the checkpoint"):
+            self.assertIn(tok, s, tok)
+        # the earlier text keeps its words
+        self.assertIn("the `play` profile finds 105 things wrong with the stream image", read(INPUT_PATH))
+        self.assertIn("CORRECTED to 102", read(HANDOFF))
+
+
+class NothingFrozenMoved(unittest.TestCase):
+    def test_the_earlier_parts_are_byte_identical_and_nothing_else_changed(self):
+        r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE], capture_output=True)
+        if r.returncode != 0:
+            self.skipTest("the base commit is not available in this checkout")
+        old = subprocess.run(["git", "-C", ROOT, "show", "%s:docs/research/HARDWARE_TESTS.md" % BASE],
+                             capture_output=True, text=True, check=True).stdout
+        new = read(HW)
+        self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.6 ")].rstrip("\n"),
+                         old[old.index("### V7.1 "):].rstrip("\n"), "§V7.1–§V7.5 byte-identical")
+        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE, "--", "src", "poc", "tools", "Makefile",
+                            "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware",
+                            "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
+        r = subprocess.run(["git", "-C", ROOT, "ls-files", "--others", "--exclude-standard", "--", "src", "poc", "tools",
+                            "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware"], capture_output=True, text=True)
+        self.assertEqual(r.stdout.strip(), "", "untracked files under the guarded paths: " + r.stdout)
+
+    def test_no_evidence_id_was_minted_and_the_records_agree(self):
+        ev = read(EVIDENCE)
+        self.assertNotIn("GBP-HW-272", ev)
+        self.assertNotIn("GBP-PLAY-001", ev)
+        h = plain(read(HANDOFF))
+        for tok in ("ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004", "issue 41",
+                    "validate #41's pre-registration", "That RUN 21 / RUN 22 have run, or that the image is staged",
+                    "That a column of N/A in the acceptance runs is a finding"):
+            self.assertIn(tok, h, tok)
+        self.assertIn("The acceptance pair, pre-registered — RUN 21 / RUN 22 (GitHub Issue #41", plain(read(ROADMAP)))
+        d = read(DEVLOG)
+        self.assertIn("## 2026-09-21 — Issue #41: RUN 21 / RUN 22 PRE-REGISTERED", d)
+        self.assertIn("documentation only", plain(d[d.rindex("## 2026-09-21 — Issue #41"):]))
+
+
+if __name__ == "__main__":
+    unittest.main()
