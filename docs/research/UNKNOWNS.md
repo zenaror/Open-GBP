@@ -1509,3 +1509,21 @@ trusted; this item is where that question lives until then.
 different GB/GBC cartridge tells whether it is the medium. Both are Phase 7
 work with a pre-registration of their own. Related: `U-GBP-017`,
 `GBC_PATH.md` §3 and §4.1.
+
+**ADDENDUM 2026-09-22 (GitHub Issue #52) — the first measurement of how far a
+session of `play-0001` actually reaches, and it is not 720 s.** RUN 21 stopped
+at `stop=event_store_cap` after **273.918 s**: the event store's 16 384 entries
+filled at **59.81 events/s**, which is the published-frame rate (59.61/s) and
+not the Operator's input rate (2.91 key changes/s). The frame store would have
+bound at ~756 s, `max_deliveries` at ~948 s, and the 720 s safety budget was
+never approached. RUN 22 corroborates it from the other side: 202.103 s, ended
+on Z, 11 894 events — 73 % of the same cap — and a HIGHER key-change rate than
+RUN 21, which is why the cap is not about the pad. `GBP-HW-282`.
+
+**What it adds to this item.** The question here was what a long real-content
+session does and what would instrument it. The answer so far is that the
+instrument **stops at about 274 s**, a little over a third of the length the
+image was sized for, and that what bounds it is an event stream tied to the
+frame rate — so any future long-session instrument must either size that store
+for the session it intends or sample it. **Nothing is unexplained**, so this
+opens no new unknown; it narrows this one.

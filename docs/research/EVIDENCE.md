@@ -7433,13 +7433,19 @@ and the same one-line derivation now prints
 ```text
 grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
      13 CONTROL semantic orig=90
-     23 CONTROL semantic orig=92
+     27 CONTROL semantic orig=92
 ```
 
-the two new logs being RUN 23 (`stream-0015-run23`, no cartridge, `0x90`) and
-RUN 24 (`stream-0015-run24`, a Game Boy Color cartridge, `0x92`). **Bit `0x01` is still 0 in all
-36 ORIGINAL bytes** — RUN 24 sets it only later, which is `GBP-HW-275` and not
-this entry's subject.
+The six logs added the same day are RUN 23 (`stream-0015-run23`, no cartridge,
+`0x90`), RUN 24 (`stream-0015-run24`, a Game Boy Color cartridge, `0x92`), and
+the four sessions of **RUN 21, RUN 22, RUN 25 and RUN 26** (`play-0001-run21`,
+`play-0001-run22`, `play-0001-run25` and `play-0001-run26`, a GBA cartridge,
+`0x92` — GitHub Issue #52). **The last four are a THIRD IMAGE**: `play-0001` is not `stream-0015`
+and carries none of its research instrumentation, yet it records the same field
+and falls in the same family, so the split now holds over **40 logs across
+three images and both build eras**. **Bit `0x01` is still 0 in all 40 ORIGINAL
+bytes** — RUN 24 sets it only later, which is `GBP-HW-275` and not this
+entry's subject.
 
 ---
 
@@ -7633,6 +7639,224 @@ first time the streaming path has been exercised without media.
 **Not claimed:** anything about the content of those frames, which no
 instrument in this run judged; any comparison with a cartridge run's picture;
 any acceptance criterion.
+
+---
+
+### GBP-HW-278 — RUN 21 / RUN 22 / RUN 25 / RUN 26: **four sessions**, their artifacts and identity, and what the Operator actually did — §V7.6.9 performed in two halves, in separate sessions — FACT (artifacts, identity, the split as recorded) · OPERATOR OBSERVATION (his reports)
+
+Executed 2026-09-22 on `play-0001` (`2e48ca7`), the image §V7.6.5 names, NOT
+rebuilt. Archived first under the reserved names, both drops carrying the same
+filename: RUN 21 log 195 301 B
+`cae3ecfcd16ae319ad19968190560f900c0989ed7463f54da45e1dd5a4fc09c4`, RUN 22 log
+168 773 B `a7bf2dbf014b6dca059e7b6a436e6bd81a1b01b28310bbd383cdea7b0d005c14`;
+both complete (`dropped=0 truncated=0`, closing `# --- end ---`); both matching
+the Orchestrator's independent hashes. Cartridge **Yoshi's Island — Super Mario
+Advance 3** in both (his declaration); **RUN 21 the ORIGINAL pad, RUN 22 the
+GENERIC pad**, §V7.6.6's one variable.
+
+**WHAT WAS DONE.** The Operator performed the pre-registered list **in two
+halves, in separate sessions**: *"apenas abri o jogo e fiz uma jogatina
+normal.. na 22 usei a saida pelo Z, na 21 ele saiu automatico"* and *"favor
+olhar os logs com -head no fim do nome... esses foram os que fiz HEAD e depois
+Z"* — **OPERATOR OBSERVATION**, both messages, recorded as what was done and
+never as a fault of his or of the runs.
+
+```text
+RUN 21  ORIGINAL pad  ordinary play only (step 13)    ended event_store_cap   195 301 B  cae3ecfc...09c4
+RUN 22  GENERIC  pad  ordinary play only (step 13)    ended Z                 168 773 B  a7bf2dbf...5c14
+RUN 25  GENERIC  pad  the scripted head (steps 2-12)  ended Z                  94 398 B  70b24767...42a2
+RUN 26  ORIGINAL pad  the scripted head (steps 2-12)  ended Z                  94 354 B  5fb2161b...2f15d
+```
+
+**The numbering does not encode the pad.** RUN 21 / RUN 22 keep the meaning the
+Operator's folders give them; the head sessions take the next free numbers **by
+the logs' own time base** (`t_control` `7959be75…` before `7959c04e…`), which
+puts the generic pad at RUN 25 and the original at RUN 26 and therefore inverts
+the pad order of the first pair. **By the same time base the generic pad ran
+before the original in BOTH pairs**, the reverse of the order §V7.6's numbering
+suggests; recorded as a deviation, and **no gate depends on execution order**
+(§V7.8.1).
+
+---
+
+### GBP-HW-279 — every one of the ten KEYPAD word bits rose on both pads during ordinary play: R_b per bit per run, the pre-registered reading of step 13 — FACT (recomputable from the two logs)
+
+§V7.6.11 provides for exactly this: step 13's words *"are reported as counts
+per bit and never compared press for press"*. Recomputed with `tools/v7611.py`
+from each log alone (a `KEY` line counts only with `rc=ok`, the completed words
+in `n` order from `0000`, R_b = the rising edges of bit b):
+
+```text
+START 7 / 2 · A 118 / 83 · B 54 / 22 · SELECT 9 / 2 · RIGHT 94 / 62 · LEFT 66 / 45
+UP 6 / 34 · DOWN 17 / 14 · L 8 / 18 · R 25 / 26        (RUN 21 / RUN 22)
+totals 404 and 308 rising edges over 273.918 s and 202.103 s
+```
+
+**All ten bits rose in both runs**: the runtime encoded and wrote a word
+carrying each of the ten keys, on the original Nintendo pad and on the generic
+third-party pad, during ordinary play of a title the Operator says uses all
+ten.
+
+**What this is NOT.** Not S, not K, and not evidence that the game responded to
+any of them — a rising edge is the runtime sending a word (the routing itself
+is FACT since §V7.4 and is not re-derived). Not evidence that the pads behave
+alike: two different play sessions produce different counts for reasons that
+have nothing to do with the controller, and §V7.6.11 forbids comparing these
+press for press.
+
+---
+
+### GBP-HW-280 — the §V7.6.10 gates: five met in every session, and RUN 21's SESSION gate the only unmet one, exactly as the pre-registration wrote in advance — FACT (read from the logs)
+
+IDENTITY / LOG, KEY RECORD, TRANSPORT, STARTUP and INPUT are met in both runs.
+RUN 22's SESSION gate is met — `stop=session_end`, `status=ok_session_ended`,
+`teardown=S5_session_end`, with `SESSION requested=1 holds=1 held=1155` — which
+is §V7.6.10's only success for that gate: **the Operator's own end on Z, and
+the first time this project's session-end mechanism has been exercised on
+hardware.** RUN 21's is not: `stop=event_store_cap`,
+`teardown=S5_event_store_cap`. **RUN 25 and RUN 26 also ended on Z**
+(`requested=1 holds=1` in both), so the session-end mechanism is exercised
+three times out of four, on both pads.
+
+The KEY record is clean in both (798 and 599 lines, every one parsing under
+`GBP_INPUT_EVENT_FMT`, `n` increasing by one, `events = emitted`, `lost =
+truncated = overwritten = 0`), and so is the input path (`attempts = completed`
+= 54 004 and 39 845, `failed = 0`, `retry = 0`).
+
+**RUN 21's unmet gate diminishes nothing else about it**, and the
+pre-registration said so before the run: a store cap *"is recorded EXACTLY as
+it fell and is NOT a success: … the run is INCONCLUSIVE for the session gate
+alone — not for W, S or T"*.
+
+---
+
+### GBP-HW-281 — Question T measured on the two PLAY sessions (RUN 21 / RUN 22; the head sessions were not read for T in this checkpoint): the VIDEO ACK → RE-ARM gap SHORTER and the AUDIO-only control UNCHANGED, with the frozen construction returning ANOMALOUS on a statistic the text does not specify — FACT for the measurement; **the verdict is NOT declared here**
+
+The measurement, recomputed from the bounded cycle records and split by what
+each cycle carried (ticks at 40.5 MHz):
+
+```text
+VIDEO cycles      RUN 17  1197  895  886  885  854  869  3112
+                  RUN 21  1093  876  867  868  849  872  1748
+                  RUN 22  1094  876  871  869  848  878  837  840  837  838
+AUDIO-only        RUN 17    13   22   13   12   13   13   13   12   12
+                  RUN 21    15   12   12   12   13   13   12   12   12
+                  RUN 22    17   12   12   12   12   14
+delivery rate     6328.8 / 6330.6 / 6329.7 per second      skipped_cause_pending 27.39 / 27.08 / 27.08 %
+```
+
+The first three VIDEO records compare element for element against RUN 17 at
+−104 / −19 / −19 and −103 / −19 / −15; the AUDIO-only body is 12–13 ticks in
+all three runs. **That is the direction the removal predicts, on the quantity
+it predicts, with the within-run control unmoved** (§V7.6.3's differential).
+
+**The frozen construction nevertheless returns ANOMALOUS on both runs**,
+naming the AUDIO-only *mean* (12.6 and 13.2 against 13.7) and
+`skipped_cause_pending` (27.08 % against 27.39 %). `tools/v7611.py` was written
+before these logs existed and **was not edited**: §V7.6.11 says NOMINAL
+requires the AUDIO-only gap *"unchanged"* and ANOMALOUS names a figure *"far
+from"* the reference, and **the frozen text does not say which statistic
+decides either** — nor is §V7.6.3's per-index reference portable, since `CYCLT
+i=6` carries a VIDEO block in both new runs and an AUDIO-only cycle in RUN 17.
+
+**So no T verdict is recorded.** Declaring NOMINAL would resolve an ambiguity
+after seeing the data, which is what the freeze exists to prevent. The
+measurement stands; the reading is the Orchestrator's to amend, dated
+(§V7.8.6).
+
+---
+
+### GBP-HW-282 — `play-0001` is bounded at about 274 s by its EVENT STORE, not by the 720 s it was sized for, and the store fills at the frame rate rather than with input — FACT (measured on RUN 21, corroborated by RUN 22)
+
+RUN 21 ran 273.918 s from the CONTROL transform to teardown and stopped at
+`stop=event_store_cap` with `EVENTS n=16384 store_full=1 dropped=3`. RUN 22 ran
+202.103 s, ended on Z, and reached 11 894 events — 73 % of the same cap.
+
+```text
+event store     16384 events    binds at ~274 s    <-- what actually stopped RUN 21
+frame store     45056 frames    would bind ~756 s
+max_deliveries  6 000 000       would bind ~948 s
+safety budget   720 s           never approached (273.918 s reached)
+```
+
+**The store fills at the FRAME rate, not with the Operator's input**: 16 384
+events over 273.918 s is 59.81/s against a published-frame rate of 59.61/s, and
+the retained event lines are consecutive `episode_stabilising` records carrying
+consecutive frame indices. Key changes are 2.91/s (RUN 21) and 2.96/s (RUN 22),
+and **the pad that filled the store produced FEWER key changes per second** —
+RUN 21 hit the cap because it RAN LONGER, not because of its pad.
+
+**And the store filled before the run could record its own ending:** RUN 21's
+`dropped=3` are exactly the three terminal events RUN 22 retained (`stop`,
+`teardown_begin`, `teardown_end`).
+
+**What this is about.** The image, not the run: a session of `play-0001` is
+bounded at about 38 % of the length it was sized for. Recorded as an addendum
+to `U-GBP-035`; **no new unknown is opened**, because nothing here is
+unexplained.
+
+---
+
+### GBP-HW-283 — Question K = **AGREE** over steps 2–12: the two pads produced IDENTICAL ordered press sequences, each matching §V7.6.9's list press for press — FACT (recomputed by a construction that predates the logs)
+
+RUN 25 (generic pad) and RUN 26 (original pad), the scripted-head sessions.
+`tools/v7611.py` was written under Issue #50 from the frozen text with **no
+data in reach**, narrowed to steps 2–12 by §V7.6.15 under Issue #51, and **was
+not touched for this reading**.
+
+```text
+RUN 25   START A A DOWN DOWN UP RIGHT RIGHT RIGHT LEFT LEFT B B L R SELECT A
+RUN 26   START A A DOWN DOWN UP RIGHT RIGHT RIGHT LEFT LEFT B B L R SELECT A
+list     START A A DOWN DOWN UP RIGHT RIGHT RIGHT LEFT LEFT B B L R SELECT A     (§V7.6.9 steps 2-12)
+```
+
+**Two results.** `question_K_head` returns **AGREE** — *"identical press
+sequences over the common prefix of the list"*, §V7.6.11's own words, over all
+17 presses. And **each sequence equals the list exactly**, with the right keys
+in the right order and the right counts, which is the machine's witness that
+the list was made as listed (§V7.6.10's THE LIST).
+
+Both records are clean: `KEYLOG events = emitted = 35`, `lost = truncated =
+overwritten = 0`, every line parsing with `n` increasing by one; both sessions
+ended on Z.
+
+**What AGREE does NOT say.** That the game responded to any of it — that is W,
+which has no per-key report and is INCONCLUSIVE (`GBP-HW-284`). That the pads
+are alike in any sense beyond the words they produced. Anything past the
+seventeen presses of the head: **K's tail stays `NOT DEFINED BY THE
+PRE-REGISTRATION`** (§V7.6.15), because step 15 was not performed in these
+sessions either.
+
+**This is the machine half of the Operator's criterion** (*"o mesmo
+comportamento"*) for the scripted head, and only that half.
+
+---
+
+### GBP-HW-284 — the Operator's channel for the head sessions: the game responded in character on both pads, reported GLOBALLY and not per key — OPERATOR OBSERVATION (global, qualitative); **W stays INCONCLUSIVE per key and is not inferred from it**
+
+Asked what he observed in RUN 25 and RUN 26, verbatim:
+
+> *"o jogo reagiu.... entrando em menus, saindo, pulando cutscenes... ele
+> respondeu aos toques de acordo com a tela que ele estava no momento... ou
+> seja... agiu normal"*
+
+**What it carries.** Across the scripted head, on both pads, the game acted in
+character with the screen it was on: menus entered and left, cutscenes skipped.
+Beside it, the machine shows all seventeen presses of the list sent in each
+session with `lost = 0` and the two sequences identical (`GBP-HW-283`).
+
+**What it does not carry, and why that is recorded rather than smoothed over.**
+It is **not a per-key report**. §V7.6.11 defines `WORKS` per key — *"he reports
+RESPONDED for the key at a step where the game uses it, AND the KEY record
+carries R_b > 0 for that key's bit at that point"* — so **this is not expanded
+into ten WORKS verdicts** and **W stays INCONCLUSIVE per key**. The per-key
+resolution was never produced because he was asked for what he remembered of
+sessions already performed, not asked to re-run them against a form: **a
+limitation of the evidence, not a fault of the run.**
+
+**For S: no difference between the pads was reported.** That is the exact
+statement — not *"he reported them identical"*, which he was not asked and did
+not claim. The identity claim lives in the machine half (`GBP-HW-283`).
 
 ---
 
