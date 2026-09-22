@@ -31,6 +31,9 @@ import v8audio as v8  # noqa: E402
 
 HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 UNK = os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")
+# RUN 30's raws, hashed at the ingestion (Issue #62)
+LOG_SHA = "3d1830eb62939807756778c33e5f6bedac0dc609bb7ce1fa4900c662dbbc2c77"
+BIN_SHA = "b3597b72adeae0cb8627e5c1b00584ca8a30bb2ff592c4b645e98cd9428ac564"
 
 
 def read(p):
@@ -424,25 +427,43 @@ class TheReservedNamesAreReservedAndNothingMore(unittest.TestCase):
     NAMES = ("captures/local/GBP-AUDIO-001_stream-0016-run30.log",
              "captures/local/GBP-AUDIO-001_stream-0016-run30-audio.bin")
 
-    def test_each_name_is_reserved_exactly_once(self):
+    def test_each_name_is_reserved_once_and_now_appears_in_its_result(self):
+        """§V7.6.7's shape: a name is RESERVED once, and once the run exists it
+        appears a second time in the run's own record and nowhere else."""
         t = read(HW)
         for n in self.NAMES:
-            self.assertEqual(t.count(n), 1, "%s is not reserved exactly once" % n)
+            self.assertEqual(t.count(n), 2,
+                             "%s should appear exactly twice: its reservation (§V8.9) and its result (§V8.13)" % n)
+            self.assertLess(t.index("### V8.9 "), t.index(n), n)
 
-    def test_none_of_them_exists_on_disk(self):
+    def test_the_names_are_the_ones_the_run_landed_under(self):
+        """EXPIRED AND MOVED 2026-09-22 (Issue #62). These two cases asserted that
+        RUN 30 had not happened; it has. A guard whose condition has been
+        overtaken is not deleted -- it becomes the guard for what replaced it,
+        which here is that the archived copies are under §V8.9's RESERVED names
+        and carry the hashes the ingestion recorded. captures/local is ignored by
+        git, so a clone legitimately has neither."""
+        import hashlib
+        want = {self.NAMES[0]: "%s" % LOG_SHA, self.NAMES[1]: "%s" % BIN_SHA}
+        present = [n for n in self.NAMES if os.path.exists(os.path.join(ROOT, n))]
+        if not present:
+            self.skipTest("RUN 30's archived copies are not in this checkout (captures/local is ignored)")
+        self.assertEqual(sorted(present), sorted(self.NAMES), "one of the two archived copies is missing")
         for n in self.NAMES:
-            self.assertFalse(os.path.exists(os.path.join(ROOT, n)),
-                             "%s exists: §V8 reserves a name, and a name is not a run" % n)
+            with open(os.path.join(ROOT, n), "rb") as f:
+                self.assertEqual(hashlib.sha256(f.read()).hexdigest(), want[n], n)
 
-    def test_no_run30_artefact_exists_anywhere_under_captures_or_logs(self):
-        for base in ("captures", "logs"):
-            d = os.path.join(ROOT, base)
-            if not os.path.isdir(d):
-                continue
-            for dirpath, _, files in os.walk(d):
-                for f in files:
-                    self.assertNotIn("run30", f,
-                                     "a run30 artefact exists in %s before the run" % dirpath)
+    def test_the_operators_raw_drop_is_untouched(self):
+        """logs/ is the Operator's, never edited and never versioned: the archived
+        copy must be byte-identical to it."""
+        import hashlib
+        raw = {os.path.join(ROOT, "logs", "run30", "GBP-AUDIO-001_stream-0016.log"): LOG_SHA,
+               os.path.join(ROOT, "logs", "run30", "GBP-AUDIO-001_stream-0016-audio.bin"): BIN_SHA}
+        if not all(os.path.exists(f) for f in raw):
+            self.skipTest("the raw drop is not in this checkout (logs/ is ignored)")
+        for f, want in raw.items():
+            with open(f, "rb") as fh:
+                self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), want, f)
 
     def test_the_handoff_carries_the_reservation_and_not_a_result(self):
         h = read(os.path.join(ROOT, "docs", "HANDOFF.md"))

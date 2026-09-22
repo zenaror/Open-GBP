@@ -13024,3 +13024,94 @@ in `HARDWARE_TESTS.md` — ONE named document, not either of two.
 **Next:** the run is the Operator's (§V8.10's list, Issue #61). Ingestion is a
 separate checkpoint and classifies **only** against §V8's frozen gates.
 
+---
+
+## 2026-09-22 — Issue #62: RUN 30 ingested — **the AUDIO window DOES change with the press, one GBA frame later — and the shape is not the predicted one.** AU = CARRIES / OTHER SHAPE · SP = NOT OBSERVED · T′ = NOMINAL, its first answer · `U-GBP-012` stays OPEN
+
+**The raws are the Operator's and were hashed before anything was read**:
+`logs/run30/…log` 88 929 B `3d1830eb…`, `…-audio.bin` 5 243 788 B
+`b3597b72…`, archived to `captures/local/` under §V8.9's reserved names, the
+raw drop untouched. The sidecar was verified **before** it was read
+(`tools/awinparse.py`): every CRC recomputed from the bytes and **then** found
+to agree with what the image recorded — the only order in which that agreement
+carries information.
+
+**THE CONTROL WINDOW WAS READ FIRST, and it is not silence.** §V8.5.1 makes it
+the baseline and what it contains changed how the presses read: window 0, armed
+five seconds before the first press, carries a **two-level square of exactly
+256-byte period**, four byte values `{00,01,FE,FF}`, duty `128/256` in every
+block, 245 of its 256 blocks byte-identical. So *"a wave appears"* was never an
+available discriminator; what a press can show is a **change in a wave that is
+already there**.
+
+**And the window does change.** Three byte values that occur nowhere in the
+control or in press 1 — `0x80`, `0x81`, `0xF8`/`0xFA` — appear in presses 2, 3
+and 4, growing monotonically (0, 0, 5 564, 10 749, 19 309 occurrences of
+`0x80`). **The onset is 18.32, 15.88 and 12.21 ms after the GBP-side key
+change** — bracketing one GBA frame, **which is exactly the latency §V8.3.1
+predicted and the reason the window was corrected from 128 blocks to 256 before
+the run.** The correction paid for itself on the first run.
+
+**What the run did NOT show.** The period never changes: **0 of 1 280 blocks**
+have an inter-edge interval other than 256 bytes. No frequency transition, and
+no duty slope of 12.5 / 25 / 50 / 75 across the presses — the duty takes
+`104/256`, `128/256`, `160/256` in no order. **Press 1 changed nothing at all**
+in its 62.5 ms window (`U-GBP-038`).
+
+**AU = CARRIES / OTHER SHAPE**, by §V8.5.2's words, computed by
+`tools/v8audio.py` with **not one line edited** — a test now diffs that file
+against the commit that introduced it, because this was the moment #50 was
+built for and the moment the temptation was highest.
+
+**Why the prediction missed is structural, and it is the run's most useful
+finding.** §V8.2 computed "one 64.00 Hz period = 63.98 blocks" from the premise
+that one 4096-byte block is 0.2442 ms of audio. **The bytes say sixteen whole
+cycles fit inside a single block.** That premise is what the run falsified, and
+it is recorded rather than repaired: `U-GBP-037` opens at **P1** for the sample
+rate and for whether a block is a time series or a re-read buffer, and names
+`stimulus/agb-tone` — the fallback §V8.5.2 already designated — as what closes
+it, since a tone of known frequency turns the period in bytes into a rate
+directly.
+
+**T′ = NOMINAL, §V7.9's first real answer** (`tools/tprime.py`, written at this
+ingestion because none existed — the one thing about it worth distrusting, so
+every figure it used is printed). Control read first: AUDIO-only median 13
+ticks against RUN 17's 13, unchanged; VIDEO median 870 against 886, not longer;
+delivery rate 0.999989× against a 0.995 bound; `skipped_cause_pending` 0.451 pp
+apart against a 5 pp bound.
+
+**§V8.10's prose is CORRECTED on top (§V8.10.1), and the wrong sentence is
+kept.** It said the Operator's *"whether he heard a tone"* bears on SP. **It
+does not and never could:** the image links `-lfat -logc` and **no audio
+library** — the AUDIO blocks are drained and stored and nothing reaches the
+GameCube's output, exactly as in `play-0001`. So *"não ouvi nenhum som"* is the
+designed behaviour. **This is not a post-hoc reinterpretation of a gate**: §V8.4
+defines SP from the bytes and always did, the error is in the prose, and it was
+readable off the Makefile before the console was switched on. **The Orchestrator
+relayed the action list without that warning, and the record says so.** The
+question is **not deleted** — it was a **negative control**, and a positive
+answer would have been a major finding about a path nobody has modelled.
+
+**The rising-edge anchor is confirmed on hardware:** `presses=4 releases=4`
+gave **four windows, not eight**. The releases armed nothing and the first
+event — the policy's `KEYPAD := 0` with nothing held — armed nothing. Had it
+armed, window 1 would have been spent on the boot's initialising write and the
+run would have returned three windows of tone and one of silence: **a partial
+result rather than a visible fault.**
+
+**The service path's new copy, measured rather than assumed:** 1 / 19 / 1 399
+ticks (0.025 / 0.47 / 34.5 µs) over 89 203 received AUDIO blocks, of which
+1 280 were copied. T′'s control class is identical to RUN 17's to within one
+tick, which is the same statement made from the other side.
+
+**Ids:** `GBP-HW-285` … `GBP-HW-294`; `U-GBP-037` and `U-GBP-038` opened;
+`U-GBP-012` gains its first data with a cartridge running and **stays open**.
+`GBP-HW-272` gains a 44th log — RUN 30 reads `orig=92` with a cartridge
+present, a **fourth image** in the split, CLAIM 1 still FACT and CLAIM 2
+untouched. §V7.9.7's derivation is pinned to the seven builds it used, so a
+later arrival joins the archive without joining the derivation.
+
+**Next:** nothing is authorised. The instrument `U-GBP-037` names is
+`stimulus/agb-tone`, and it is a checkpoint of its own with its own
+pre-registration.
+

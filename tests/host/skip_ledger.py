@@ -53,6 +53,24 @@ LEDGER = [
      "same; this is guards.assert_confined's own wording"),
     # Issue #61: §V8.1 – §V8.11 are diffed against the commit that wrote them, found by its
     # message rather than by a pinned hash, so a rebase cannot silently disarm the check.
+    (r"^no post-derivation build is archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
+     "the check is that a LATER arrival stays out of §V7.9.7's derivation; with no later arrival on disk "
+     "there is nothing to keep out, and the derivation's own seven builds are pinned by name in the "
+     "same file"),
+    # Issue #62: RUN 30's raws and its 5.2 MB sidecar live under captures/local and logs/,
+    # both ignored by design, so a clone has neither and every recomputation skips.
+    (r"^(RUN 30 is not archived in this checkout \(captures/local is ignored\)"
+     r"|the raw drop is not in this checkout \(logs/ is ignored\)"
+     r"|RUN 30's sidecar is not in this checkout"
+     r"|RUN 30 or its reference is not in this checkout"
+     r"|RUN 30's archived copies are not in this checkout \(captures/local is ignored\))$",
+     "LOCAL_ARTIFACT_ABSENT",
+     "the document's own figures are pinned from the SOURCES in the same file -- the frozen-construction "
+     "diff, the prose correction, U-GBP-012's status and the two new unknowns never skip -- and the "
+     "Operator's machine, where the files are, runs the suite before every push"),
+    (r"^the commit that introduced tools/v8audio\.py is not in this checkout$", "HISTORY_ABSENT",
+     "the frozen constructions are also pinned by tests/host/test_v8audio.py, which exercises them on "
+     "synthetic vectors and fails loudly if a construction changed behaviour"),
     (r"^the pre-registration's commit is not in this checkout$", "HISTORY_ABSENT",
      "§V8.12's own text states that §V8.1 – §V8.11 are untouched, and test_awin_image.py's other "
      "cases pin the new part's contents and the heading pointer without needing history"),

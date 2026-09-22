@@ -208,8 +208,8 @@ class EveryResidualHasAPrice(unittest.TestCase):
 class TheAssessmentPromotedNothing(unittest.TestCase):
     def test_no_id_was_minted_and_no_status_moved(self):
         ev = read(EVIDENCE)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 284)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +U-GBP-(\d{3})\b", read(UNKNOWNS), re.M)), 36)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 294)   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +U-GBP-(\d{3})\b", read(UNKNOWNS), re.M)), 38)   # 37, 38: Issue #62 (RUN 30)
         self.assertNotRegex(read(DOC), r"^### GBP-", re.M)
         p = plain(read(DOC))
         self.assertIn("It promotes nothing and mints no evidence id", p)

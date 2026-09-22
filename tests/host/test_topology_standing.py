@@ -149,7 +149,7 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         self.assertIn("**2026-09-21, Issue #35 (declared after the ingestion; the note above kept as\nhistory):**", b266)
         for tok in (W_BBA, W_CHAIN, W_BBA_STANDING, "WITH A STATED DURATION", "NOT a licence to infer", "INCONCLUSIVE on that item", "no new id"):
             self.assertIn(tok, plain(b266), tok)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 284)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 294)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)
 
     def test_the_handoff_carries_the_standing_declarations_where_a_pre_registration_will_meet_them(self):
         h = read(HANDOFF)
@@ -195,6 +195,11 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE_COMMIT)
         changed = guards.changed_since(BASE_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus", "docs/protocol", "docs/hardware"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
+        # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
+        # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
+        # against the commit that wrote it.
+        changed = changed - {"tools/awinparse.py", "tools/tprime.py"}
         # Issue #59 (2026-09-22) BUILT the image §V8 needs: the AUDIO window and its OGBPAW1 sidecar
         # (src/gbp/gbp_awin*, host-testable, no libogc) and the POC that carries them, stream-0016. The
         # service path gains ONE optional config field and ONE call after the AUDIO drain and its commit;

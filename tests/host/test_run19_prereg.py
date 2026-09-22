@@ -393,6 +393,11 @@ class NothingElseMoved(unittest.TestCase):
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE_COMMIT)
         changed = guards.changed_since(BASE_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
+        # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
+        # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
+        # against the commit that wrote it.
+        changed = changed - {"tools/awinparse.py", "tools/tprime.py"}
         # Issue #59 (2026-09-22) BUILT the image §V8 needs: the AUDIO window and its OGBPAW1 sidecar
         # (src/gbp/gbp_awin*, host-testable, no libogc) and the POC that carries them, stream-0016. The
         # service path gains ONE optional config field and ONE call after the AUDIO drain and its commit;
