@@ -63,7 +63,7 @@ LEDGER = [
     # profile is exercised against whichever images ARE built, in both
     # directions, so a checkout with neither built loses the comparison and
     # nothing else; the source-level pins of test_awin_image.py do not skip.
-    (r"^(.*is not built in this checkout|the audio image is not built in this checkout)$", "NOT_BUILT",
+    (r"^(.*is not built in this checkout|the audio image is not built in this checkout|14-audio is not staged in this checkout)$", "NOT_BUILT",
      "`make build` and `make awin-audit` produce them; the subtraction, the budget and the window's "
      "constants are pinned from the SOURCES in the same file and never skip"),
     (r"^gcc unavailable", "TOOLCHAIN_ABSENT",

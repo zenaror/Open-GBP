@@ -12993,7 +12993,21 @@ release, a drain that did not complete — because those are what decide whether
 §V8's run is readable, and each has to be visible in the sidecar rather than
 silently absorbed.
 
-**Next:** nothing is authorised. Staging to a new Swiss slot (`14-audio`) and
-the Hardware Issue are the Orchestrator's, on a clean commit with the DOL hash
-recorded.
+**STAGED 2026-09-22 under Hardware Issue #61** — authorised there, performed
+here, and the run is still the Operator's.
+
+```text
+identity   app gbp-audio-window-probe   build stream-0016   commit 04121fe (clean)
+DOL        498 496 B   sha256 c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54
+slot       14-audio -- a NEW number; nothing was renumbered
+manifest   tools/swiss-layout.tsv gains the row, FROZEN from the start because the image is staged
+           FOR a run that has not happened yet (#44's rule)
+verified   the hash READ BACK FROM THE CARD after the copy, never recomputed from the source
+frozen     12-stream dd545c01...3a49 and 13-play d0ee3c29...99de unchanged on BOTH copies, before
+           and after
+leftovers  none: no log for this image existed on the card, so nothing had to be moved aside
+```
+
+**Next:** the run is the Operator's (§V8.10's list, Issue #61). Ingestion is a
+separate checkpoint and classifies **only** against §V8's frozen gates.
 

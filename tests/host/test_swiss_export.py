@@ -328,11 +328,20 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         rows = {r["dir"]: r["frozen_sha256"] for r in swiss_export.load(MANIFEST)}
         self.assertEqual(rows["12-stream"], "dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49")
         self.assertEqual(rows["13-play"], "d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de")
-        self.assertEqual(sorted(d for d, f in rows.items() if f != "-"), ["12-stream", "13-play"])
-        # and those hashes are the ones the records name, so the manifest cannot drift from them
-        hw = open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8").read()
-        for h in (rows["12-stream"], rows["13-play"]):
-            self.assertIn(h, hw)
+        # Hardware Issue #61 (2026-09-22) staged 14-audio, frozen from the start because it is
+        # staged FOR a run that has not happened yet
+        self.assertEqual(rows["14-audio"], "c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54")
+        self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
+                         ["12-stream", "13-play", "14-audio"])
+        # and every frozen hash is one THE RECORDS NAME, so the manifest cannot drift from them.
+        # HARDWARE_TESTS.md carries the two whose runs are written up there; stream-0016's identity
+        # is in the DEVLOG, because §V8 is a FROZEN pre-registration and an image that did not exist
+        # when it was written does not get added to it afterwards.
+        records = "".join(open(os.path.join(ROOT, "docs", "research", f), encoding="utf-8").read()
+                          for f in ("HARDWARE_TESTS.md", "DEVLOG.md"))
+        for d, h in sorted(rows.items()):
+            if h != "-":
+                self.assertIn(h, records, d)
 
 
 if __name__ == "__main__":

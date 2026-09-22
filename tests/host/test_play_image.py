@@ -324,7 +324,9 @@ class ThePlumbing(unittest.TestCase):
         # bytes are pinned there, so the staging tool refuses to overwrite them
         self.assertEqual(play, [["13", "play", "gbp-play-session", "gbp-play-session.dol", "gbp-play-session", "build",
                                  "1", "d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de"]])
-        self.assertEqual([r[0] for r in rows if r[0] < "80"], ["%02d" % i for i in range(1, 14)])
+        # Hardware Issue #61 (2026-09-22) added 14-audio beside it; nothing was renumbered,
+        # which is the property this line exists for.
+        self.assertEqual([r[0] for r in rows if r[0] < "80"], ["%02d" % i for i in range(1, 15)])
 
     def test_the_gecko_protocol_and_the_identity(self):
         p = read(PLAY_MAIN)
