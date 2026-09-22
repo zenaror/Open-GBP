@@ -128,6 +128,10 @@ class NothingFrozenMoved(unittest.TestCase):
         # row that now separates the references' USAGE (C) from this project's measurement (F) from the cause (H), and
         # U-GBP-017's Needs list, which records one of its three items answered and stays OPEN at P2
         changed = changed - {"docs/protocol/REGISTERS.md", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"}
+        # Issue #48 (2026-09-22) promoted the cartridge-sensing bits into the consolidated hardware pages:
+        # the rows carried the references' usage only while the Keypad rows beside them carried their
+        # hardware history, so they understated 36 runs. Statuses were COPIED from EVIDENCE, none changed.
+        changed = changed - {"docs/hardware/GBS-DOL.md", "docs/hardware/ARCHITECTURE.md"}
         # Issue #41 (2026-09-21) pre-registered RUN 21 / RUN 22 as §V7.6 (tests/host/test_run21_prereg.py pins it) -- the ONLY change allowed here since: §V7.6 appended, §V7.1-§V7.5 byte-identical (that test checks it)
         self.assertTrue(changed <= {"docs/research/HARDWARE_TESTS.md"}, "frozen paths changed: " + " ".join(sorted(changed)))
         hw = read(HW)

@@ -440,6 +440,10 @@ class NothingFrozenMoved(unittest.TestCase):
         # Issue #46 (2026-09-22) promoted the CONTROL bit 0x02 split as GBP-HW-272: the evidence entry, the REGISTERS.md row
         # separating USAGE (C) from this project's measurement (F) from the cause (H), and U-GBP-017's Needs list
         changed = changed - {"docs/protocol/REGISTERS.md", "docs/research/EVIDENCE.md"}
+        # Issue #48 (2026-09-22) promoted the cartridge-sensing bits into the consolidated hardware pages:
+        # the rows carried the references' usage only while the Keypad rows beside them carried their
+        # hardware history, so they understated 36 runs. Statuses were COPIED from EVIDENCE, none changed.
+        changed = changed - {"docs/hardware/GBS-DOL.md", "docs/hardware/ARCHITECTURE.md"}
         self.assertEqual(" ".join(sorted(changed)).strip(), "", "changed against the base: " + " ".join(sorted(changed)))
 
     def test_no_evidence_id_was_minted_and_the_records_agree(self):

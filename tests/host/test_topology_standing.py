@@ -198,6 +198,10 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing, and
         # Issue #44 (2026-09-22) hardened the staging tool against destroying a frozen slot: the manifest gained a frozen_sha256 column
         changed = changed - {"tools/reconcile.py", "tools/swiss_export.py", "tools/swiss-layout.tsv"}
+        # Issue #48 (2026-09-22) promoted the cartridge-sensing bits into the consolidated hardware pages:
+        # the rows carried the references' usage only while the Keypad rows beside them carried their
+        # hardware history, so they understated 36 runs. Statuses were COPIED from EVIDENCE, none changed.
+        changed = changed - {"docs/hardware/GBS-DOL.md", "docs/hardware/ARCHITECTURE.md"}
         # Issue #46 (2026-09-22): the REGISTERS.md row for CONTROL bit 0x02 now separates the references' USAGE (C)
         # from this project's own measurement (F) from the causal reading (H), citing GBP-HW-272
         changed = changed - {"docs/protocol/REGISTERS.md"}
