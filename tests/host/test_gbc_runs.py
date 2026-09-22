@@ -286,7 +286,14 @@ class TheStatusWasArguedNotAwarded(unittest.TestCase):
 
     def test_the_unknown_is_narrowed_and_open(self):
         u = read(UNKNOWNS)
-        body = u[u.index("### U-GBP-036 —"):]
+        # BOUNDED to U-GBP-036's own entry. It ran to EOF until Issue #67, and a
+        # heading-to-EOF slice picks up every item minted afterwards -- U-GBP-038
+        # was CLOSED four checkpoints later and tripped this pin, which is a
+        # defect in the pin and not in the record (the same lesson as the two
+        # DEVLOG slices of Issue #50).
+        start = u.index("### U-GBP-036 —")
+        nxt = [j for j in (u.find("\n### U-GBP-", start + 1), u.find("\n## U-GBP-", start + 1)) if j != -1]
+        body = u[start:min(nxt)] if nxt else u[start:]
         self.assertIn("OPEN (opened 2026-09-22", u)
         p = plain(body)
         self.assertIn("A repeat answers \"does it reproduce\", never \"what causes it\"", p)

@@ -57,6 +57,15 @@ LEDGER = [
      "the check is that a LATER arrival stays out of §V7.9.7's derivation; with no later arrival on disk "
      "there is nothing to keep out, and the derivation's own seven builds are pinned by name in the "
      "same file"),
+    # Issue #67: the same for RUN 31, plus the cases that need BOTH runs to compare.
+    (r"^(RUN 31 is not archived in this checkout( \(captures/local is ignored\))?"
+     r"|RUN 31's sidecar is not in this checkout"
+     r"|RUN 30 is not archived in this checkout"
+     r"|both runs are needed and are not both archived here)$",
+     "LOCAL_ARTIFACT_ABSENT",
+     "the document's own figures are pinned from the SOURCES in the same file -- the frozen-construction "
+     "diff, the naming defect, the unknowns' statuses -- and the Operator's machine, where the files are, "
+     "runs the suite before every push"),
     # Issue #62: RUN 30's raws and its 5.2 MB sidecar live under captures/local and logs/,
     # both ignored by design, so a clone has neither and every recomputation skips.
     (r"^(RUN 30 is not archived in this checkout \(captures/local is ignored\)"

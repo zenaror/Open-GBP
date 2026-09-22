@@ -7433,7 +7433,7 @@ and the same one-line derivation now prints
 ```text
 grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
      13 CONTROL semantic orig=90
-     31 CONTROL semantic orig=92
+     32 CONTROL semantic orig=92
 ```
 
 The six logs added the same day are RUN 23 (`stream-0015-run23`, no cartridge,
@@ -7459,6 +7459,14 @@ FACT and gains a log; CLAIM 2's status is untouched by it** — a 44th
 cartridge-present log reading `0x92` adds a sample to the same cell, not a new
 kind of evidence, and the diagonal it would take to move CLAIM 2 is the one
 `GBP-HW-273` already filled.
+
+**2026-09-22, Issue #67 — RUN 31 (`stream-0016-run31`) makes it 45 logs, and
+the cartridge is this project's own.** The same image on `stimulus/agb-tone`, a ROM this project
+wrote and delivered through the flashcart, records `orig=92`: **13 at `0x90`
+and 32 at `0x92`.** It adds nothing to CLAIM 2 — another cartridge-present log
+is another sample in the same cell — but it is the first entry in the family
+whose cartridge content is entirely under this project's control, which is
+worth noting for any future attempt on the diagonal.
 
 ---
 
@@ -8241,3 +8249,125 @@ modelled, and that would have been a finding. §V8.10's prose said his answer
 defines SP from the bytes and always did. Corrected on top in §V8.10.1, with
 the wrong words kept, and the briefing gap recorded: the Orchestrator relayed
 the action list without warning that the image cannot play audio.
+
+### GBP-HW-295 — RUN 31's sidecar is intact and the run is admissible; **§V9.6's two independent press counts RAN AND AGREED on their first use** — **FACT (this run)**
+
+`captures/local/GBP-AUDIO-002_stream-0016-run31-audio.bin`, 5 243 788 B, sha256
+`8ff09d34006a485d2adaf96d5e008d25a9b27735c717b964940c2c2133cd2e07`; the log
+90 070 B, sha256 `487c0c4935cbb33483f47eb76aa899c7b17ada6b819e557673ac0add57975bc7`.
+Header CRC `9390bc85`, total CRC `d5d225b6`, every anchor accepted — recomputed
+from the bytes and **then** compared with the run's own `AWINSAVE` record.
+
+5 windows armed and closed, 1 280 blocks stored, 0 failed, 0 skipped,
+`presses=4 releases=4`, KEY events 8 emitted 8 `lost=0`, service
+`ok_session_ended`, `main_w1c=0`, `transport_ok=1`. Press spacing 3.303 /
+3.320 / 3.136 s.
+
+**The cross-check §V9.6 was built for ran for the first time and agreed.** The
+Operator, verbatim: *"ainda não ouvi nada. Mas apareceu as cores Vermelho,
+verde, azul e saiu no quarto aperto"* — three colours seen and the session
+ending itself on the fourth press, which is the capture completing: **four by
+his count, four by the machine's.** He heard nothing, which is the designed
+behaviour of the image and of the ROM and bears on nothing.
+
+### GBP-HW-296 — the 256-byte square in the AUDIO window is present **with the AGB's sound hardware provably disabled**: it is a property of the PATH, not of any tone — **FACT (this run)**
+
+RUN 31's control window, armed 5.000 s after the CONTROL transform and 0.924 s
+before the first press: five byte values `{00, 03, 07, FC, FF}`, structure
+`07×1 03×7 FF×120 FC×8 00×120` repeating, **period exactly 256 bytes in all
+256 blocks** with uniformity 1.0, duty `128/256` throughout.
+
+**What makes this decisive and `GBP-HW-288` not:** `agb-tone` writes all six
+APU registers to zero at reset and does not enable the master until the first
+press, and that is demonstrated on the host by running the ROM's own code
+(§V9.14.2). So the square is present **with the instrument's sound hardware
+disabled by construction**, on a cartridge unrelated to RUN 30's.
+
+The transition bytes differ between the two cartridges — `{01, FE}` in RUN 30,
+`{03, 07, FC}` here — and that is recorded, not explained.
+`HARDWARE_TESTS.md` §V9.15.3.
+
+### GBP-HW-297 — **QUESTION R = RATIO DOES NOT HOLD**, by the construction frozen before the ROM existed
+
+`tools/v9tone.py`, not one line edited — its third outing and **the first where
+it decides against us**. §V9.8's estimator over the 1 280 stored blocks:
+**256 bytes in every one of them**, uniformity 1.0, zero `PERIOD ABSENT`, in
+the control and in all four press windows alike. Predicted 128 bytes for F1 and
+32 for F2; `period(F1)/period(F2) = 1.0000` against the predicted `4.0000`.
+
+§V9.4's own words for this outcome: *"A REAL RESULT, not a failed run"*.
+**The period does not follow the note.** §V9.15.4.
+
+### GBP-HW-298 — the AGB's audio IS in the window, at the predicted ratio, as the modulation ACROSS blocks — **FACT for the measurement (this run); the reading of it is CORROBORATED by two windows and not yet FACT**
+
+The presses changed the **duty** of the 256-byte cell and never its length, and
+the duty changes **from block to block**. Read as a series across blocks and
+measured with **§V9.8's unmodified estimator**:
+
+```text
+w3 (F1 = 128.0 Hz, after its onset at block 44)   32 blocks   6 edges   uniformity 1.000
+w4 (F2 = 512.0 Hz, whole window)                   8 blocks  30 edges   uniformity 0.966
+w1, w2                                             PERIOD ABSENT -- no edges at all
+ratio 32 / 8 = 4.0000            <- §V9.4's predicted ratio, exactly
+as time      7.8156 ms and 1.9539 ms at the drain cadence of §V7.8.6
+as frequency 127.95 Hz and 511.80 Hz against the ROM's 128.0 and 512.0 -- 0.04 %
+and each window independently implies a drain rate of 4 096.0 blocks/s
+```
+
+**This is a MEASUREMENT reported beside §V9's verdict, not a gate that was
+passed**, and one decision inside it is named rather than buried: w4 passes over
+the whole window, **w3 needs the slice after its onset, and that slice was
+chosen after seeing the data.**
+
+**What it supports:** one drained block behaves as **one sample** of the AGB's
+output, so the region is re-read rather than being a time series inside one
+block — and §V9's construction measured the transfer's own cell instead of the
+audio. That is the second of the two readings Issue #67 put forward, and the
+bytes support it. **It is one run and one cartridge**; a repeat and a third
+frequency are what would make it FACT. §V9.15.5.
+
+### GBP-HW-299 — the AUDIO window does not carry the cartridge's sound until **(10.045, 12.547] s after the CONTROL transform** — **CORROBORATED across two runs, two cartridges and two instruments**; it ANSWERS `U-GBP-038`
+
+Read against the CONTROL transform rather than against the press ordinal, RUN
+30 and RUN 31 agree:
+
+```text
+RUN 31  press 1   +5.924 s   no        RUN 31  press 3  +12.547 s  YES (+10.75 ms after the press)
+RUN 31  press 2   +9.227 s   no        RUN 30  press 2  +14.182 s  YES (+18.32 ms)
+RUN 30  press 1  +10.045 s   no        RUN 30  press 3  +18.153 s  YES
+                                        RUN 31  press 4  +15.684 s  YES, from block 0 -- press 3's tone
+                                                                    was still sounding
+```
+
+**Which press it is has nothing to do with it.** `U-GBP-038` asked why RUN 30's
+first press changed nothing; the answer is that it was **early**, not first.
+
+**RUN 31 sharpens it in a way RUN 30 could not:** its ROM enabled the APU at
+**+5.924 s** and the Operator's colours confirm the ROM was running, so **the
+AGB was emitting for roughly six seconds before the window carried anything.**
+
+**The mechanism is NOT determined** — an initialisation the GBS-DOL performs, a
+buffer that must fill, or something else — and `U-GBP-039` opens for it.
+§V9.15.6.
+
+### GBP-HW-300 — reusing an image across experiments makes the console's filenames stop identifying the experiment — **a defect recorded with its cost, not a measurement**
+
+`stream-0016` was reused unchanged for RUN 31 (§V9.9, and the reuse was right:
+no new build, no new identity, no staging risk). Its embedded `TEST_ID` is
+`GBP-AUDIO-001`, so **it wrote RUN 30's two filenames again**.
+
+RUN 30's copies had already been taken off the card, so **nothing was lost** —
+but had they been there, RUN 31 would have overwritten them silently, which is
+the collision class that has destroyed a raw drop twice before.
+
+```text
+the standing consequence   the archive name must distinguish runs the CONSOLE does not, so the archive
+                           name and the file's own test_id WILL disagree -- here the copies say
+                           AUDIO-002 and their contents say AUDIO-001, and that is correct
+what a pre-registration    reserve names from the IMAGE's TEST_ID, not from the experiment's
+ must do
+what the SD-state check    it must be run against the names THE IMAGE WRITES, not the names the
+ must compare              experiment reserved
+```
+
+§V9.15.1.
