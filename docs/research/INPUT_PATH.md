@@ -881,3 +881,45 @@ the process point   the same shape as the gate-figure rule: a figure measured ag
 The §13.1 line and the HANDOFF and DEVLOG entries of Issue #39 keep their
 text with a pointer to this correction: the record of what was reported is
 not rewritten, and the corrected figure is here.
+
+## 14. A lesson for the next action list — put the boundary in the record (GitHub Issue #51, 2026-09-22)
+
+**Not applied to RUN 21 / RUN 22.** Their checklist is in the Operator's hands
+and may already have been executed; §V7.6.15's hard constraint is that nothing
+he does changes. This is written for the list after them.
+
+**What went wrong, in one sentence.** §V7.6.11 froze a machine comparison —
+Question K over *"steps 2-12, 14 and 15"* — across a boundary that **no
+machine can find**: steps 14 and 15 follow several minutes of unscripted play,
+the runtime has no notion of a "step", and the Operator's channel carries no
+`n` and no timestamp into the `KEY` record. The defect was found by making the
+verdicts executable before any data existed (Issue #50) and amended on top
+(§V7.6.15, Issue #51): K is computed over steps 2-12 only, and its tail is
+recorded as `NOT DEFINED BY THE PRE-REGISTRATION` rather than INCONCLUSIVE.
+
+**THE RULE FOR THE NEXT LIST.** Any action list that a machine will have to
+segment must put a **machine-locatable boundary into the record itself**. The
+cheapest known one:
+
+```text
+a SIMULTANEOUS TWO-KEY PRESS that the scripted parts never use
+  in the record      two bits rising in ONE completed word -- unambiguous to a parser, and impossible to
+                     confuse with an ordinary press, because every scripted step presses one key at a time
+  for the Operator   one action, at the point where the segments divide
+  what it buys       the segmentation is READ rather than inferred, so no rule has to be invented later and
+                     no fumbled press can slide a window
+```
+
+**Why the alternatives are not alternatives** (demonstrated, not asserted, in
+`tests/host/test_v7611.py`): a trailing-window rule is right on a clean run and
+**silently wrong on a fumbled one** — one doubled press slides the window, and
+the comparison then reads the wrong presses while every element of its output
+still looks valid; and a time-gap rule invents a threshold that
+`HARDWARE_TESTS.md` §V7.6.3 refuses, on facts that defeat it anyway, since a
+cutscene, a menu or a death inside three minutes of play is a longer pause than
+the transition it is trying to find.
+
+**The general form of the lesson, which outlives this list.** A
+pre-registration may only freeze a comparison its own instrument can
+**delimit**. Freezing the arithmetic is not enough if the segment the
+arithmetic runs over cannot be located in the record.
