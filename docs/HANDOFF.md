@@ -1124,9 +1124,28 @@ issue 51    §V7.6 AMENDED BEFORE HARDWARE (§V7.6.15, written on top and dated;
             must put a machine-locatable boundary in the record, cheapest a simultaneous two-key press the
             scripted parts never use. General form: a pre-registration may only freeze a comparison its own
             instrument can DELIMIT
+issue 52    RUN 21 / 22 / 25 / 26 INGESTED (§V7.8) -- FOUR sessions, because the Operator split §V7.6.9 in
+            two: 21 (original) and 22 (generic) are ORDINARY PLAY ONLY, 25 (generic) and 26 (original) are
+            THE SCRIPTED HEAD. Numbering taken from the logs' own time base BEFORE the copy; the number does
+            not encode the pad, and by that time base the generic ran before the original in both pairs (a
+            deviation; no gate depends on execution order). QUESTION K = AGREE over steps 2-12: identical
+            ordered press sequences on the two pads, each equal to the list press for press -- computed by
+            tools/v7611.py, written before any of these logs existed and NOT adjusted to them. QUESTION T
+            MEASURED AND ITS VERDICT NOT DECLARED: the VIDEO gap is shorter and the AUDIO-only control
+            unchanged (the direction the removal predicts), while the frozen construction returns ANOMALOUS
+            on a statistic §V7.6.11 never specified -- a THIRD AMBIGUITY reported, not resolved, and the code
+            not edited. W = INCONCLUSIVE per key in all four: his head report is GLOBAL ("agiu normal") and
+            is NOT expanded into ten verdicts; for S, NO DIFFERENCE BETWEEN THE PADS WAS REPORTED, which is
+            not "he reported them identical". play-0001 IS BOUNDED AT ~274 s BY ITS EVENT STORE, not the
+            720 s it was sized for: the store fills at the FRAME rate (59.81/s against 59.61 frames/s) and
+            the pad that filled it produced FEWER key changes per second; it even filled before the run could
+            record its own ending. New standing declaration: the generic pad from now on unless strictly
+            necessary, WITH ITS CONDITION unmet. GBP-HW-278…284; GBP-HW-272's amendment now spans 40 logs
+            across three images
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46,
-            #47, #48, #49, #50 and #51; the Operator's declaration and the runs on #43; close #36. Executor:
-            the queue is empty -- next checkpoint on dispatch
+            #47, #48, #49, #50, #51 and #52 -- #52 carries a THIRD AMBIGUITY (which statistic decides
+            Question T) needing a dated amendment; close #36; Phase 5's acceptance is #42 and reads §V7.8.
+            Executor: the queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet

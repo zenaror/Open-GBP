@@ -140,8 +140,8 @@ class NothingFrozenMoved(unittest.TestCase):
         self.assertIn("NOT RUN / NOT AUTHORISED HERE", hw[hw.index("### V7.6 RUN 21 / RUN 22"):].splitlines()[0])
         # Issue #47 (2026-09-22) ingested RUN 23 / RUN 24 in §V7.7; the pin moves to the next unused number so it
         # goes on asserting that THIS checkpoint (the play-0001 build) executed nothing
-        self.assertNotIn("RUN 25", hw)
-        self.assertNotIn("GBP-HW-278", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
+        self.assertNotIn("RUN 27", hw)
+        self.assertNotIn("GBP-HW-285", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test
         self.assertNotIn("GBP-PLAY-001", read(EVIDENCE))

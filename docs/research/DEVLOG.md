@@ -12093,3 +12093,111 @@ rather than glossing: the SD card is mounted on this host again, so the two
 staged-artifact checks that skipped while it was in the console now run. That
 is an observation about the card's whereabouts and nothing else; no run data
 was opened.
+## 2026-09-22 — Issue #52: RUN 21 / RUN 22 / RUN 25 / RUN 26 INGESTED — four sessions, not two; **Question K = AGREE over the head, computed by code that predates every one of these logs and was not adjusted to them**; Question T measured and its verdict NOT declared on a third ambiguity; `play-0001` bounded at 274 s by its event store
+
+**Four sessions, each one console boot and one log.** The Operator split
+§V7.6.9 in two: RUN 21 (original pad) and RUN 22 (generic pad) are **ordinary
+play only**, step 13; RUN 25 (generic) and RUN 26 (original) are **the scripted
+head**, steps 2–12. All four archived before anything was read — both pairs
+carry the same filename inside their own directories — with the numbering of
+the head sessions decided **before the copy** and from the logs' own time base,
+because a run-suffixed name encoding the wrong order is worse than no name.
+**The number does not encode the pad**, and the record says so everywhere.
+
+**THE RESULT THIS CHECKPOINT EXISTS FOR: Question K = AGREE.**
+
+```text
+RUN 25 (GENERIC)    START A A DOWN DOWN UP RIGHT RIGHT RIGHT LEFT LEFT B B L R SELECT A
+RUN 26 (ORIGINAL)   START A A DOWN DOWN UP RIGHT RIGHT RIGHT LEFT LEFT B B L R SELECT A
+§V7.6.9 steps 2-12  START A A DOWN DOWN UP RIGHT RIGHT RIGHT LEFT LEFT B B L R SELECT A
+```
+
+Identical ordered press sequences over all 17 presses, **and each equal to the
+list press for press** — the machine's witness that the list was made as
+listed. `KEYLOG events = emitted = 35`, `lost = 0` in both; both ended on Z.
+**This is the machine half of the Operator's "o mesmo comportamento" for the
+head, and only that half.**
+
+**What makes it worth anything is when the code was written.**
+`tools/v7611.py` was written under Issue #50 from the frozen text with no data
+in reach, narrowed to steps 2–12 by §V7.6.15 under Issue #51, and **was not
+touched for this reading**. The AGREE came out of a construction nobody could
+have tuned, because the data did not exist when it was written. That is the
+whole argument for #50 and #51, paid back in one line of output.
+
+**Question T: measured, and its verdict NOT declared.** The ACK → RE-ARM gap of
+the VIDEO cycles is shorter than RUN 17's in both play sessions (−104 / −19 /
+−19 and −103 / −19 / −15 on the records §V7.6.3 tabulates) and the AUDIO-only
+control is unchanged at 12–13 ticks in all three runs; the delivery rate did
+not fall. **That is the direction the removal predicts, with the within-run
+control unmoved.** And the frozen construction returns **ANOMALOUS** on both,
+naming the AUDIO-only *mean* and `skipped_cause_pending` — because §V7.6.11
+says "unchanged" and "far from" **without saying which statistic decides
+either**, and §V7.6.3's per-index reference is not portable (`CYCLT i=6` is a
+VIDEO cycle in both new runs and AUDIO-only in RUN 17).
+
+**That is the THIRD AMBIGUITY, and it was reported, not resolved. The code was
+not edited.** Declaring NOMINAL would resolve an ambiguity after seeing the
+data; declaring ANOMALOUS as the project's reading would elevate an artefact of
+one unstated statistic into a finding about the hardware. **So no T verdict is
+recorded for either run**, and the measurement stands on its own.
+
+**Question A / W = INCONCLUSIVE per key in all four, and the reason is written
+down.** For the play sessions his channel is a play report. For the head
+sessions his report arrived and is **global**: *"o jogo reagiu.... entrando em
+menus, saindo, pulando cutscenes... ele respondeu aos toques de acordo com a
+tela que ele estava no momento... ou seja... agiu normal"*. §V7.6.11 defines
+`WORKS` **per key**, so **that is not expanded into ten verdicts**. The per-key
+resolution was never produced because he was asked what he remembered of
+sessions already performed, not asked to re-run them against a form: **a
+limitation of the evidence, not a fault of the run.** For S the wording is
+exact — **no difference between the pads was reported** — and not "he reported
+them identical", which he was neither asked nor claimed.
+
+**`play-0001` is bounded at about 274 s, not the 720 s it was sized for.** RUN
+21 stopped at `event_store_cap` after 273.918 s with the 16384-entry event
+store full; the frame store would have bound at ~756 s and `max_deliveries` at
+~948 s. **The store fills at the frame rate, not with input**: 59.81 events/s
+against 59.61 published frames/s, with key changes at 2.91/s — and **the pad
+that filled it produced FEWER key changes per second than the one that did
+not**. RUN 21 hit the cap because it ran longer, full stop. It even filled
+before the run could record its own ending: its three dropped events are
+exactly the three terminal ones RUN 22 retained. Recorded as an addendum to
+`U-GBP-035`; **no new unknown**, because nothing here is unexplained.
+
+**The execution order deviated and it costs nothing.** By the logs' time base
+the generic pad ran before the original in both pairs, the reverse of what
+§V7.6's numbering suggests. **No gate depends on execution order** — §V7.6.10
+requires the pad *declared per run* to match the assignment, which it does —
+and the deviation is recorded because it happened.
+
+**The Operator's new standing declaration**, recorded beside the two of Issue
+#35: the **generic** pad from now on unless a run strictly requires the
+original. **Its condition is part of it and is not satisfied**: he makes it
+conditional on the pads behaving alike, and these sessions decide that only for
+the head's press sequences (K), not for what the game did with them (W).
+
+**Evidence.** `GBP-HW-278` (four sessions, artifacts, what was done),
+`GBP-HW-279` (the per-bit counts of the play sessions: every one of the ten
+bits rose on both pads), `GBP-HW-280` (the gates; three of four ended on Z),
+`GBP-HW-281` (T's measurement, verdict not declared), `GBP-HW-282` (the event
+store), `GBP-HW-283` (K = AGREE), `GBP-HW-284` (his global report, and what it
+is not). `GBP-HW-272`'s amendment now spans **40 logs across three images**,
+because `play-0001` records the same CONTROL field and all four of its sessions
+read `0x92`.
+
+**Tests.** `tests/host/test_run21_run22.py` recomputes the hashes against the
+record, the gates, R_b per bit, K from the head sessions, the event-store
+arithmetic including the three dropped terminal events, and the timing split by
+cycle kind — **and pins that the frozen construction still returns ANOMALOUS**,
+so a later "fix" that made it read NOMINAL would fail loudly. The
+summary-record parser lives in the test file, **not** in `tools/v7611.py`:
+adding data-facing plumbing to the frozen module would be the first step of the
+tuning the freeze exists to prevent.
+
+**Result.** `make test-python` on the committed tree: **1655 passed, 7 skipped,
+103 subtests passed**.
+
+**Not decided here.** Phase 5's acceptance (Issue #42, which reads this);
+§V7.6.11's criterion, which needs W and has K's half only; pad equivalence
+beyond the words the two pads produced.

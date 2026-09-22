@@ -179,7 +179,9 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         # Issue #47: two runs were added to the archive AFTER this document was written, and §3 is kept as
         # written on purpose — its value is that it predates them. So the document must state the counts of
         # the archive MINUS the runs its own amendment names, and the amendment must name them.
-        later = {"GBP-VIDEO-004_stream-0015-run23.log": "90", "GBP-VIDEO-004_stream-0015-run24.log": "92"}
+        later = {"GBP-VIDEO-004_stream-0015-run23.log": "90", "GBP-VIDEO-004_stream-0015-run24.log": "92",
+                 "GBP-PLAY-001_play-0001-run21.log": "92", "GBP-PLAY-001_play-0001-run22.log": "92",
+                 "GBP-PLAY-001_play-0001-run25.log": "92", "GBP-PLAY-001_play-0001-run26.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1
@@ -200,7 +202,12 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         self.assertIn(run23, cartless)
         self.assertTrue(all(re.search(r"(init|initirq|initirqa|initirqb|initirq4|avsvc|video|vstate)", f)
                             for f in cartless - {run23}), sorted(cartless))
-        self.assertTrue(all(re.search(r"(color|stream)", f) for f, v in origins.items() if v == "92"))
+        # Issue #52: play-0001 is a THIRD image whose four sessions also read 0x92; it is neither a
+        # "color" nor a "stream" build, so it is named rather than swept into the era regex
+        cart = {f for f, v in origins.items() if v == "92"}
+        play = {f for f in cart if "play-0001" in f}
+        self.assertEqual(len(play), 4, sorted(play))
+        self.assertTrue(all(re.search(r"(color|stream)", f) for f in cart - play))
 
     def test_the_document_says_what_the_split_does_not_support(self):
         d = plain(read(DOC))

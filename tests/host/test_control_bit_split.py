@@ -44,7 +44,11 @@ CARTLESS = ["avsvc-0001", "init-0001", "initirq-0001", "initirq4-0001", "initirq
 # Issue #47 (2026-09-22): the archive grew by two runs the Operator performed himself. They are NOT in
 # GBP-HW-272's enumeration (the entry predates them by hours) and they ARE in its amendment, so the test
 # keeps the two populations apart: the entry enumerates 34, the archive holds 36, and both must be true.
-LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92}
+LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92,
+         # Issue #52: play-0001 is a THIRD image and records the same field; all four of its
+         # sessions ran with a GBA cartridge, so they join the 0x92 family (40 logs in all)
+         "play-0001-run21": 0x92, "play-0001-run22": 0x92,
+         "play-0001-run25": 0x92, "play-0001-run26": 0x92}
 
 WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0005", "stream-0005-run2",
              "stream-0005-run3", "stream-0006-run4", "stream-0007-run5", "stream-0008-run6", "stream-0009-run7",
@@ -168,7 +172,8 @@ class TheSplitIsRecomputedNotQuoted(unittest.TestCase):
         got = dict((v, int(n)) for n, v in re.findall(r"\s*(\d+) CONTROL semantic orig=([0-9a-f]+)", out.stdout))
         printed = dict((v, int(n)) for n, v in re.findall(r"\s*(\d+) CONTROL semantic orig=([0-9a-f]+)", cmds[1][1]))
         self.assertEqual(got, printed, "the amendment's printed output is not what the command produces now")
-        self.assertEqual(got, {"90": len(CARTLESS) + 1, "92": len(WITH_CART) + 1}, out.stdout)
+        self.assertEqual(got, {"90": len(CARTLESS) + sum(1 for v in LATER.values() if v == 0x90),
+                               "92": len(WITH_CART) + sum(1 for v in LATER.values() if v == 0x92)}, out.stdout)
         self.assertEqual(dict((v, int(n)) for n, v in re.findall(r"\s*(\d+) CONTROL semantic orig=([0-9a-f]+)", cmds[0][1])),
                          {"90": len(CARTLESS), "92": len(WITH_CART)}, "the original block keeps the numbers it was written with")
 
