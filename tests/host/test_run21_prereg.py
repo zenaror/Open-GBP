@@ -79,7 +79,8 @@ class ThePartExistsAndSaysWhatItIs(unittest.TestCase):
     def test_the_heading_and_the_chapter(self):
         h = v76().splitlines()[0]
         for tok in ("### V7.6 RUN 21 / RUN 22", "GBP-INPUT-004", "play-0001", "SEPARATE GATES",
-                    "**PRE-REGISTERED 2026-09-21 (GitHub Issue #41); NOT RUN / NOT AUTHORISED HERE**"):
+                    "**PRE-REGISTERED 2026-09-21 (GitHub Issue #41)", "AMENDED BEFORE HARDWARE the same day",
+                    "NOT RUN / NOT AUTHORISED HERE**"):
             self.assertIn(tok, h, tok)
         chapter = [l for l in read(HW).splitlines() if l.startswith("## V7 ")][0]
         self.assertIn("RUN 21 / RUN 22 PRE-REGISTERED (Issue #41, §V7.6)", chapter)
@@ -276,10 +277,34 @@ class QuestionAAndTheInstrument(unittest.TestCase):
             self.assertIn(tok, four, tok)
         # the three are named and nothing else is proposed as the instrument
         self.assertEqual(len(re.findall(r"^  \d  ", part(4), re.M)), 3)
-        # the two gate items
-        for tok in ("GATE ITEM 1", "GATE ITEM 2", "holding Z for 250 ms to end the session is workable in practice",
-                    "If it is awkward, that is a finding NOW and a constant in main.c, not a lost pair of runs"):
+        # the two gate items: 1 answered at run time by design, 2 ANSWERED before the runs (the amendment record)
+        for tok in ("GATE ITEM 1", "GATE ITEM 2 -- ANSWERED", '"Sobre o Z, tudo bem"',
+                    '"segurar Z encerra a sessao e vai para a tela para gerar os logs, correto?", confirmed',
+                    "WHAT IS ANSWERED IS THE END, NOT THE 250 ms DURATION",
+                    "If it is awkward, that is a FINDING of the run", "never a broken gate and never a reason to discard a run"):
             self.assertIn(tok, four, tok)
+
+    def test_the_amendment_is_recorded_dated_and_additive(self):
+        head = plain(v76()[:v76().index("#### V7.6.1")])
+        for tok in ("AMENDED BEFORE HARDWARE the same day (Issue #41 continued)",
+                    "GATE ITEM 2 ANSWERED by the Operator", "Question T's AUDIO-only control stated for what it is",
+                    "THE AMENDMENT RECORD (2026-09-21, Issue #41 continued)",
+                    "dated and never a silent edit", "the precedent is Issue #23's amendment of §V7.1 and Issue #37's of §V7.5",
+                    "Two changes, both additive; nothing else in this part moves",
+                    '"Sobre o Z, tudo bem."', "WHAT HE CONFIRMED IS THE END, NOT THE 250 ms DURATION SPECIFICALLY",
+                    "that is a FINDING OF THE RUN", "The constant is one line of main.c and is changed by a checkpoint, never by the day",
+                    "a CONTROL INSIDE THE SAME RUN"):
+            self.assertIn(tok, head, tok)
+
+    def test_the_audio_only_gap_is_the_control_inside_the_run(self):
+        three = plain(part(3))
+        for tok in ("THE CONTROL IS INSIDE THE SAME RUN, which is what makes this a measurement and not an assertion",
+                    "an AUDIO-only cycle never had one", "the VIDEO cycles are the treatment", "the AUDIO-only cycles are the control",
+                    "predicts them UNCHANGED at RUN 17's 12 ticks",
+                    "needs no cross-run comparison at all",
+                    "If BOTH gaps move, the cause is not the witness step and the run says so",
+                    "RUN 17's table is its reference, not its authority"):
+            self.assertIn(tok, three, tok)
 
 
 class TheProcedureAndTheNotation(unittest.TestCase):

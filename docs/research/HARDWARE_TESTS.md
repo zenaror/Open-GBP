@@ -24549,7 +24549,7 @@ HARDWARE / WITHDRAWN BEFORE HARDWARE / NOT RUN, their names retired.
 
 ---
 
-### V7.6 RUN 21 / RUN 22 — GBP-INPUT-004 on `play-0001`: the Phase 5 acceptance pair on a real game, both controllers, the same actions — and, on the SAME runs and with SEPARATE GATES, the timing of the shortened service pass the project changed deliberately and recorded as unchecked — **PRE-REGISTERED 2026-09-21 (GitHub Issue #41); NOT RUN / NOT AUTHORISED HERE**
+### V7.6 RUN 21 / RUN 22 — GBP-INPUT-004 on `play-0001`: the Phase 5 acceptance pair on a real game, both controllers, the same actions — and, on the SAME runs and with SEPARATE GATES, the timing of the shortened service pass the project changed deliberately and recorded as unchecked — **PRE-REGISTERED 2026-09-21 (GitHub Issue #41); AMENDED BEFORE HARDWARE the same day (Issue #41 continued): GATE ITEM 2 ANSWERED by the Operator, and Question T's AUDIO-only control stated for what it is; NOT RUN / NOT AUTHORISED HERE**
 
 Written before the hardware is touched. GitHub Issue #41 is the
 pre-registration contract. This part freezes: the two questions and the rule
@@ -24569,10 +24569,29 @@ no evidence ID is allocated; nothing is classified; the routing's FACT (§V7.4)
 stands and is not the subject; **whether Phase 5 CLOSES is NOT decided here**
 (V7.6.12).
 
-**Two gate items are the Operator's and are answered BEFORE the first boot**
-(V7.6.4): which cartridge, in which form, and how it boots; and that holding
-Z for 250 ms to end the session is workable in practice. Neither is a
-blocker for writing this part; both are gates for running it.
+**Two gate items are the Operator's** (V7.6.4): which cartridge, in which
+form, and how it boots — answered at run time by design — and that holding Z
+to end the session is workable in practice. **GATE ITEM 2 IS ANSWERED**, by
+the amendment record below.
+
+**THE AMENDMENT RECORD (2026-09-21, Issue #41 continued) — before any
+hardware, on the same day, dated and never a silent edit (the precedent is
+Issue #23's amendment of §V7.1 and Issue #37's of §V7.5). Two changes, both
+additive; nothing else in this part moves:**
+
+```text
+1  GATE ITEM 2      ANSWERED by the Operator, relayed by the Orchestrator. His words: "Sobre o Z, tudo bem." He then
+   (the Z end)      asked the Orchestrator to confirm the flow -- "segurar Z encerra a sessao e vai para a tela para
+                    gerar os logs, correto?" -- and the Orchestrator confirmed it. So he has ACCEPTED holding Z as
+                    workable AND understood what it does: the hold ends the session and the console returns to the text
+                    screen where X saves the log. WHAT HE CONFIRMED IS THE END, NOT THE 250 ms DURATION SPECIFICALLY:
+                    if the hold turns out to be awkward in practice -- too short and ended by accident, too long to be
+                    comfortable on one of the pads -- that is a FINDING OF THE RUN (recorded in the per-step report and
+                    in the SESSION record), not a broken gate and not a reason to discard the run. The constant is one
+                    line of main.c and is changed by a checkpoint, never by the day.
+2  QUESTION T's     the AUDIO-only cycles are stated for what they are: a CONTROL INSIDE THE SAME RUN (V7.6.3), so the
+   internal control  core of the measurement is differential and no cross-run comparison has to be trusted for it.
+```
 
 #### V7.6.1 Two questions, one pair of runs, separate gates — §V6.13's rule applied
 
@@ -24689,6 +24708,20 @@ source / consumer                   STREAMSRC closed 2 404, complete 2 378, inco
                                     STREAMCONS taken = converted = presented = 2 377, overrun 0, balanced 1
 ```
 
+**THE CONTROL IS INSIDE THE SAME RUN, which is what makes this a measurement
+and not an assertion.** The witness step ran only on cycles that carried a
+VIDEO block; an AUDIO-only cycle never had one. So each run contains BOTH
+arms: the VIDEO cycles are the treatment (the step is gone) and the AUDIO-only
+cycles are the control (nothing was removed from them, and the removal
+predicts them UNCHANGED at RUN 17's 12 ticks). They come from one log, one
+session, one cartridge, one thermal and timing environment — so the reading
+"the VIDEO gap moved and the AUDIO gap did not" needs no cross-run comparison
+at all, while "the VIDEO gap moved by about the witness mean" is the weaker
+cross-run statement the figures below support. If BOTH gaps move, the cause is
+not the witness step and the run says so; if NEITHER moves, the removal did
+not reach the gap the bounded records sample. That differential is Question
+T's core, and RUN 17's table is its reference, not its authority.
+
 **Why a comparison is legitimate at all, and where it is not.** RUN 21 / RUN
 22 run a different image on a different cartridge for a different length, so
 **no figure here is a threshold and none is a tolerance**. What is comparable
@@ -24786,11 +24819,15 @@ the cartridge    GATE ITEM 1, the Operator's: THREE CANDIDATES ARE NAMED HERE an
                  Emerald: all ten by his note; Yoshi's Island: his belief), so the N/A column is a property of the GAME
                  and never of the pad or the runtime -- provided the KEY record shows the word was sent, which is what
                  V7.6.11 requires before N/A may be written at all.
-the session end  GATE ITEM 2, the Operator's, answered BEFORE the first boot: that holding Z for 250 ms to end the session
-                 is workable in practice. Z was chosen because it is the one input the policy deliberately never sends to
-                 the AGB (INPUT.md §4; GBP-KEY-006 / GBP-KEY-007), so a hold cannot be a game action -- but whether the hold
-                 is comfortable on both pads, and whether 250 ms is too short (an accidental end) or too long, is his to
-                 say. If it is awkward, that is a finding NOW and a constant in main.c, not a lost pair of runs.
+the session end  GATE ITEM 2 -- ANSWERED (2026-09-21; the amendment record at the head of this part). Z was chosen because
+                 it is the one input the policy deliberately never sends to the AGB (INPUT.md §4; GBP-KEY-006 /
+                 GBP-KEY-007), so a hold cannot be a game action. The Operator ACCEPTED it in his words -- "Sobre o Z,
+                 tudo bem" -- and confirmed the flow with the Orchestrator ("segurar Z encerra a sessao e vai para a tela
+                 para gerar os logs, correto?", confirmed). WHAT IS ANSWERED IS THE END, NOT THE 250 ms DURATION: whether
+                 the hold is comfortable on both pads, and whether 250 ms is too short (an accidental end) or too long,
+                 is observed ON the runs. If it is awkward, that is a FINDING of the run -- recorded in the per-step
+                 report and in the SESSION record -- and a constant in main.c for a later checkpoint, never a broken gate
+                 and never a reason to discard a run.
 what the Operator he plays a game and reports, in his words, what happened. No counting, no timing, no pacing, no tallies to
   does that is new read off a screen: this instrument has none.
 ```
@@ -24902,7 +24939,8 @@ SD state     before RUN 21: no sd:/open-gbp/GBP-PLAY-001_play-0001.log exists on
              treated as a run artifact (§V7.1.6's rule).
 cartridge    declared per V7.6.4 / V7.6.6, with its boot screen
 controller   RUN 21 the ORIGINAL Nintendo pad, RUN 22 the GENERIC third-party pad, in port 1; nothing in ports 2-4; declared
-gate items   both answered (V7.6.4): the cartridge declaration, and that holding Z for 250 ms is workable
+gate items   gate item 1 answered AT THE LAUNCH (which candidate, its form, its boot); gate item 2 ANSWERED ALREADY
+             (V7.6.4, the amendment record): the Operator accepted the Z end and confirmed the flow
 rule         the Operator's media hashes are a double check; they do not redefine the project's identities.
              If ANY identity differs: DO NOT RUN.
 ```
@@ -25030,8 +25068,9 @@ run of this part; the Hardware Issue the Orchestrator opens):**
 ```text
  1  Cite the inventory (V7.6.6) and the two standing declarations (Issue #35). DECLARE THE CARTRIDGE: WHICH of the three
     candidates (V7.6.4) is in the machine, its FORM (original / unofficial / a ROM on the EZ-Flash), the region where it
-    matters, and how it boots. Declare the CONTROLLER in port 1: the ORIGINAL Nintendo pad. Confirm GATE ITEM 2: holding
-    Z for 250 ms is workable.
+    matters, and how it boots. Declare the CONTROLLER in port 1: the ORIGINAL Nintendo pad. (GATE ITEM 2 -- the Z end --
+    is already ANSWERED: V7.6.4. Nothing to confirm at the console; if the hold feels wrong, that is a finding to report,
+    not a reason to stop.)
  2  Verify the exact DOL on the SD: /media/rafael/SD_GC/Open-GBP/13-play/boot.dol, 487 968 B, d0ee3c29...99de (V7.6.8).
  3  Confirm no sd:/open-gbp/GBP-PLAY-001_play-0001.log is on the SD (V7.6.8); a leftover is MOVED ASIDE, never deleted.
  4  Have the action list (V7.6.9) in view and the per-step form at hand.
@@ -25268,7 +25307,8 @@ cartridge-hardware check (V7.6.4)         --                        --   (boots 
                                                                        anything sensor-like observed is recorded)
 controller / port (declared)              --                        --
 inventory / standing declarations cited   --                        --   (Issue #25; Issue #35)
-gate item: Z hold workable (declared)     --                        --
+Z end: how the hold felt (his words)      --                        --   (gate item 2 was ANSWERED before the runs; an
+                                                                       awkward hold is a FINDING, not a broken gate)
 first interactive screen (step 1)         --                        --   (which screen; roughly how long after boot)
 session ended by                          --                        --   (Z / safety budget / a cap / recovery power-off)
 SESSION record: requested / holds / after --                        --
