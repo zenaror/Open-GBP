@@ -12994,7 +12994,10 @@ release, a drain that did not complete — because those are what decide whether
 silently absorbed.
 
 **STAGED 2026-09-22 under Hardware Issue #61** — authorised there, performed
-here, and the run is still the Operator's.
+here, and the run is still the Operator's. **The identity and the staging are
+recorded in `HARDWARE_TESTS.md` §V8.12**, a NEW dated part appended to the
+frozen pre-registration (§V8.1 – §V8.11 untouched); what follows is the
+narrative and points at it.
 
 ```text
 identity   app gbp-audio-window-probe   build stream-0016   commit 04121fe (clean)
@@ -13007,6 +13010,16 @@ frozen     12-stream dd545c01...3a49 and 13-play d0ee3c29...99de unchanged on BO
            and after
 leftovers  none: no log for this image existed on the card, so nothing had to be moved aside
 ```
+
+**Where the identity lives, and why it moved.** It was first recorded only
+here, and the Orchestrator asked for §V8.12 instead — the argument is about
+where a future reader looks. An identity that **gates a physical run** belongs
+with the run's record, which is exactly where §V7.6.5 and §V7.6.8 carried
+`play-0001`'s; the DEVLOG is chronological narrative and explicitly not a
+transcript (`CLAUDE.md` §25), so an identity here is discoverable by search and
+not by structure. **And the manifest's anti-drift check gets its strictness
+back**: `tests/host/test_swiss_export.py` requires every frozen hash to appear
+in `HARDWARE_TESTS.md` — ONE named document, not either of two.
 
 **Next:** the run is the Operator's (§V8.10's list, Issue #61). Ingestion is a
 separate checkpoint and classifies **only** against §V8's frozen gates.

@@ -367,6 +367,52 @@ class ThePlumbing(unittest.TestCase):
         self.assertIn("AUXILIARY, never physical evidence", block)
 
 
+class TheIdentityIsInTheRunsOwnRecord(unittest.TestCase):
+    """Hardware Issue #61: §V8.12, a NEW dated part appended to the frozen
+    pre-registration. The test that matters is not that §V8.12 exists -- it is
+    that §V8.1 through §V8.11 did NOT MOVE to make room for it."""
+
+    def _v8(self, text):
+        return text[text.index("\n## V8 — GBP-AUDIO-001"):]
+
+    def test_the_frozen_parts_are_byte_identical_to_the_pre_registration(self):
+        """§V8.1 – §V8.11 as Issue #58 committed them, character for character."""
+        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
+                               "Issue #58 -- Phase 6's first physical run pre-registered"],
+                              capture_output=True, text=True).stdout.strip()
+        if not base:
+            self.skipTest("the pre-registration's commit is not in this checkout")
+        old = subprocess.run(["git", "-C", ROOT, "show", "%s:docs/research/HARDWARE_TESTS.md" % base],
+                             capture_output=True, text=True, check=True).stdout
+        now, then = self._v8(read(HW)), self._v8(old)
+        # everything from §V8.1 up to the appended part is unchanged
+        self.assertEqual(now[now.index("### V8.1 "):now.index("### V8.12 ")].rstrip("\n"),
+                         then[then.index("### V8.1 "):].rstrip("\n"),
+                         "§V8.1 – §V8.11 moved: a frozen pre-registration keeps its words")
+
+    def test_the_new_part_carries_the_identity_and_the_staging(self):
+        s = re.sub(r"\s+", " ", read(HW)[read(HW).index("### V8.12 "):])
+        for wanted in ("stream-0016", "04121fe", AWIN_DOL_SHA256, "498 496 B",
+                       "14-audio", "READ BACK FROM THE CARD",
+                       "dd545c01...3a49", "d0ee3c29...99de",
+                       "53c212c7...2b6e", "DO NOT RUN"):
+            self.assertIn(wanted, s, wanted)
+        # and it still answers nothing
+        self.assertIn("RUN 30 has not happened", s)
+        self.assertIn("must not be adjusted to", s)
+        self.assertIn("the files do not exist", s)
+
+    def test_the_heading_gained_a_pointer_and_kept_its_words(self):
+        head = [l for l in read(HW).splitlines() if l.startswith("## V8 — GBP-AUDIO-001")][0]
+        self.assertIn("PRE-REGISTERED 2026-09-22 (GitHub Issue #58); NOT RUN, NOT AUTHORISED HERE", head)
+        self.assertIn("THE IMAGE IS BUILT AND STAGED", head)
+        self.assertIn("RUN 30 IS STILL NOT RUN", head)
+
+    def test_the_devlog_points_at_it_instead_of_holding_it(self):
+        d = read(os.path.join(ROOT, "docs", "research", "DEVLOG.md"))
+        self.assertIn("recorded in `HARDWARE_TESTS.md` §V8.12", d)
+
+
 class TheIdentityWhenBuilt(unittest.TestCase):
 
     def test_build_info_and_the_dol_agree(self):
