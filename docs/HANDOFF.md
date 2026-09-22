@@ -1058,9 +1058,27 @@ issue 47    RUN 23 / RUN 24 INGESTED (§V7.7) -- two UNREGISTERED runs of the st
             GB/GBC session at all. RUN 23 also reached its 2048-record witness target with no Game Pak.
             U-GBP-017 STILL OPEN; U-GBP-036 opened for why the bit appears late. Run numbers 23 and 24
             PRECEDE 21 and 22 in wall-clock time: a number is an allocation, not a clock
-next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46
-            and #47; the Operator's declaration and the runs on #43; close #36. Executor: the queue is empty
-            -- next checkpoint on dispatch
+issue 48    THE CARTRIDGE-SENSING BITS PROMOTED INTO docs/hardware/. GBS-DOL.md's Cartridge sensing row and
+            ARCHITECTURE.md's Control/status row described the bits only as the REFERENCES use them, status C,
+            the GBS-DOL row with NO evidence id at all, while the Keypad rows three lines away carried their
+            run-scoped FACT and eight ids. Statuses COPIED from EVIDENCE, none changed, no id minted. Both
+            rows now carry: bit 0x02's split over 36 runs spanning both build eras and three slot states, F
+            (hw) for the split and C NOT F for the causal reading WITH THE FALSIFIER IN THE SAME ROW (nobody
+            has yet watched the bit change while only the cartridge changed); and bit 0x01 with THE READ
+            POINT AS THE RESULT -- clear in the original byte, indistinguishable from a GBA cartridge, set
+            186-636 us after the transform write, persisting so a read-back-comparing restore fails, why it
+            arrives late UNKNOWN (U-GBP-036) -- plus the caveat that nearly broke the claim: byte 0 prints 8f
+            in 23 of RUN 17's 26 reads and RUN 17 had a GBA cartridge, so the value is not the discriminator
+            and unanimity plus persistence is. GBP-CTL-001 gains pointers and KEEPS ITS STATUS: what the
+            software does with the register and what the device reports are different propositions. THE SWEEP
+            MOVED FROM "NOTHING" ON #46 TO THIS, which is Issue #29's instruction paying for itself after it
+            measured a general gate at ~18 % false and declined to build one. And the sweep handed out a
+            wrong status to copy -- GBP-HW-272's heading reads "FACT for the split ... is HYPOTHESIS" and the
+            tool took the last word, which #47's amendment had superseded -- so tools/reconcile.py now
+            reports a compound heading whole and FLAGS an entry carrying a later amendment
+next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46,
+            #47 and #48; the Operator's declaration and the runs on #43; close #36. Executor: the queue is
+            empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet

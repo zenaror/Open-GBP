@@ -11739,3 +11739,92 @@ RUN 22.
 of RUN 24 with the same cartridge tells whether the window reproduces; a second
 GB/GBC cartridge tells whether it is the medium. Both are Phase 7 with a
 pre-registration of their own.
+## 2026-09-22 — Issue #48: the cartridge-sensing bits promoted into `docs/hardware/` — the rows understated 36 runs, the `0x01` row carries its read point, and the sweep that found "nothing" on #46 found this
+
+**What this is.** `docs/hardware/GBS-DOL.md`'s *Cartridge sensing* row and
+`ARCHITECTURE.md`'s *Control/status* row described the bits **only as the
+references use them**, status `C`, with no hardware observation and — in the
+GBS-DOL row — **no evidence id at all**, while the Keypad rows three lines away
+carried their run-scoped FACT and eight ids. Bit `0x02` had 36 runs behind it
+and bit `0x01` a measured transition. The pages understated what was known.
+Nothing was minted here and no status changed: every status was **copied** from
+`EVIDENCE.md`.
+
+**This is Issue #29's instruction paying for itself, and that is worth saying.**
+#29 measured the page-vs-EVIDENCE comparison, found a general gate would be
+about 18 % false on the rows it could compare and blind to 84 % of them,
+**declined to build it**, and left the reconciliation instruction instead. The
+sweep ran on #46 and correctly reported nothing — there was nothing about the
+device's byte to add that day. It ran again here and reported this. A
+checkpoint that declines to build a gate usually leaves nothing behind to point
+at; this one does.
+
+**THE SWEEP'S OUTCOME, recorded as the instruction requires, and it MOVED.**
+
+```text
+on #46 (2026-09-22, earlier)   NOTHING. Every existing statement was about the REFERENCES' USAGE and the new entry
+                               was about the DEVICE'S BYTE: two propositions, neither displacing the other.
+on #48 (2026-09-22, later)     SOMETHING, and it is the pages under docs/hardware/:
+                                 GBP-HW-272 / 273 / 274 / 275   cited by docs/protocol/REGISTERS.md only
+                                 GBP-HW-276 / 277               "cited by no consolidated page"
+                                 the GBS-DOL cartridge row      carried no id, so the sweep could not even find it
+                               272-275 are now carried by both hardware pages. 276 (why RUN 24 captured nothing) and
+                               277 (the streaming path reaching its target with no Game Pak) stay uncited BY DECISION:
+                               they are about a run's mechanism and a path's reach, not about a register's semantics,
+                               and CHECKED-AND-LEFT is a different outcome from OVERLOOKED.
+```
+
+**And the sweep handed me a wrong status to copy, in the one checkpoint whose
+rule is that statuses are copied.** `tools/reconcile.py` took the LAST status
+word of a heading, so `GBP-HW-272` — *"FACT for the split; … is HYPOTHESIS"* —
+reported as `HYPOTHESIS`: half of what the heading says, and **superseded**, because
+#47's amendment moved that claim to CORROBORATED in the body while the heading
+kept its original words, as this project's amend-on-top rule requires. Both are
+fixed: a compound heading is now reported **from its first status word to the
+end**, and an entry carrying a later amendment is flagged
+`[+ LATER AMENDMENT IN THE BODY -- read it before copying this status]`. The
+tool still judges nothing. **The failure mode it removes is specific**: amend
+on top, and a tool that reads headings will hand a future reader a status the
+entry no longer holds.
+
+**What the two rows now say, and the two traps they are written against.** A
+consolidated page is where a reader stops, so:
+
+```text
+THE READ POINT IS THE RESULT   "a GB/GBC Game Pak sets bit 0x01" is FALSE as written and would erase the finding.
+                               Both rows state that the bit is CLEAR in the original byte -- indistinguishable from
+                               a GBA cartridge's -- and becomes set 186-636 us after the transform write, persisting
+                               through teardown so a read-back-comparing restore fails and a power cycle is needed,
+                               with WHY IT ARRIVES LATE UNKNOWN (U-GBP-036).
+THE FALSIFIER TRAVELS WITH     a page saying the causal reading is corroborated without saying what would break it
+THE STATUS                     is more confident than its evidence. Both rows carry "nobody has yet watched the bit
+                               change while only the cartridge changed", in the same row as the status.
+THE VALUE IS NOT THE           byte 0 of the block prints 8f in 23 of RUN 17's 26 reads and RUN 17 had a GBA
+DISCRIMINATOR                  cartridge. Both rows say so, and the host test RECOMPUTES the 23-of-26 from the log
+                               so the page cannot drift from it. What is unique to the GB/GBC run is unanimity
+                               across the 31 stable replicas plus persistence.
+```
+
+**`GBP-CTL-001` gains pointers and keeps its status**, stated in the entry
+itself: its claim is what the SOFTWARE does with the register, the device's
+byte is a different proposition carried by the new ids, and neither upgrades
+the other — the distinction `REGISTERS.md` §3 already sets out and which both
+new rows now repeat.
+
+**Tests.** `tests/host/test_hardware_pages_cartridge_bits.py`, seven tests and
+**narrow on purpose**: these two rows cite their ids including the amendment,
+carry the falsifier beside the status, carry the read point, and carry the
+`0x8f` caveat with its count recomputed from RUN 17's log; no id was minted
+(`GBP-HW` stays at 277, `U-GBP` at 36); `GBP-CTL-001`'s Status line is
+unchanged. A general "every row must cite" gate is exactly what #29 measured
+and declined, and this test does not become one.
+
+**Five freeze guards moved with their reason** (`docs/hardware/` is a frozen
+path in four of them and `tools/` in the fifth).
+
+**Result.** `make test-python` on the committed tree: **1587 passed, 9 skipped,
+103 subtests passed**.
+
+**Nothing new was learned about the hardware here.** The checkpoint moved
+knowledge that already existed to the place where a reader will meet it, and
+made the sweep that found it less likely to mislead the next person.
