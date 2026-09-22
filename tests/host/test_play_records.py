@@ -156,7 +156,7 @@ class NothingFrozenMoved(unittest.TestCase):
         # Issue #64 (2026-09-22) reserved RUN 31 in §V9's pre-registration; the pin moves again to the
         # next unused number, and it still asserts what it was written to assert
         self.assertNotIn("RUN 32", hw)
-        self.assertNotIn("GBP-HW-301", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
+        self.assertNotIn("GBP-HW-303", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test
         self.assertNotIn("GBP-PLAY-001", read(EVIDENCE))

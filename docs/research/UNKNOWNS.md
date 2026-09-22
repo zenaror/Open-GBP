@@ -549,6 +549,43 @@ the level alternates ACROSS blocks and the wave is INSIDE one.
 instrument is the one §V8.5.2 already named — **`stimulus/agb-tone`, a ROM
 whose output this project controls end to end**.
 
+**2026-09-22 (Issue #67 and its validation) — RUN 31 SPLITS THIS ITEM IN TWO,
+and the two halves now have different answers.** `stimulus/agb-tone` ran with
+two known notes, and the result is that **§V8.5's original premise was right
+after all**: the level alternates ACROSS blocks, and RUN 30's within-block
+square was the transfer's own cell hiding it.
+
+```text
+THE RATE -- ANSWERED, and it is DOLPHIN'S OWN NUMBER
+   one drained block = ONE SAMPLE, at 4 096.0 blocks/s recovered independently from two windows at
+   two frequencies (GBP-HW-298, GBP-HW-301). GBP-AUD-001 records Dolphin's model as "produced at
+   4096 Hz" -- CORROBORATED BY HARDWARE TO FOUR FIGURES.
+THE BYTE LAYOUT -- STILL OPEN, and it is what this item now IS
+   Dolphin's 0x400 bytes mirrored x4, one bit per 32-bit word, 1-bits contiguous and leading, is
+   REFUSED: the bytes are not contiguous-leading (GBP-HW-287), and the 256-byte cell is the TRANSFER's
+   -- present with the APU PROVABLY OFF (GBP-HW-296).
+```
+
+**"Dolphin was wrong" is too coarse and this item must not be read that way**:
+the cadence its model was built around is the cadence the hardware delivers,
+and only the arrangement of bytes inside a block is refused.
+
+**A HYPOTHESIS, labelled as one and NOT promoted by this run** (the
+Orchestrator's, on validating Issue #67): if a sample is carried as the **duty
+of the 256-byte cell** — `96/256`, `128/256`, `160/256` are the three values
+seen — then **the encoding IS pulse-width modulation, at the BLOCK level rather
+than the 32-bit-word level**, and Dolphin would have had the mechanism right
+and the scale wrong.
+
+```text
+what supports it   three duty values, symmetric about the control's 128/256, changing with the tone
+what refuses it    nothing yet -- which is the problem: three values are not a curve
+WHAT WOULD TEST IT a stimulus that sweeps AMPLITUDE rather than frequency. If the duty tracks the
+                   envelope monotonically over many levels, the reading holds; if it takes only a few
+                   values whatever the amplitude, it does not.
+where it belongs   a pre-registration of its own, with the prediction written before the run. NOT here.
+```
+
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the
@@ -1750,3 +1787,39 @@ WHAT WOULD NARROW IT CHEAPLY
 **Why P2.** It bounds every future audio experiment's action list — a run whose
 presses land inside the first twelve seconds measures nothing — and the current
 action list (§V9.12) does not say so.
+
+**2026-09-22 — THE CHEAPEST PROBE HAS BEEN RUN, and it is a NEGATIVE result**
+(`GBP-HW-302`). Measuring the same bound against `t_capture_start`,
+`t_probe_enter` and `t_program` instead of the CONTROL transform, over the two
+logs already in hand:
+
+```text
+t_program        -0.055 s from t_control        bound (10.099, 12.602] s
+t_probe_enter    -0.013 s                       bound (10.058, 12.560] s
+t_control         0.000 s                       bound (10.045, 12.547] s
+t_capture_start  +0.108 s                       bound ( 9.937, 12.440] s
+```
+
+**All four epochs are within 163 ms of each other and the bound is 2.5 s wide,
+so the probe cannot separate them.** In this image the program's start, the
+CONTROL transform and the capture's start are **confounded**, and no analysis
+of these logs can tell which one the delay is counted from. **The cheap probe
+is exhausted**, and knowing that before a run is spent on the assumption is
+what it bought.
+
+**WHAT WOULD SEPARATE THEM, and it already exists as a build option.**
+`gbp_vstate_probe.h`'s `prehandler_wait_ms` inserts a bounded wait **after**
+stage A has put CONTROL in its running shape and **before** the handler is
+installed, with physical precedent at 5000 ms (`GBP-HW-120`). Setting it moves
+`t_capture_start` away from `t_control` **by the wait**, and the delay then
+follows whichever epoch owns it:
+
+```text
+if the delay follows t_control           it is the GBP's own initialisation after the transform
+if it follows t_capture_start            it is something the service path's start sets in motion
+if it follows neither and stays ~11 s    it is elapsed time since power, and neither epoch matters
+```
+
+**It costs a rebuild with an existing option and no new code.** Not authorised
+here; it is the obvious content of the next pre-registration that touches this
+item, and it can ride on any audio run rather than needing one of its own.
