@@ -124,6 +124,11 @@ class NothingFrozenMoved(unittest.TestCase):
         if not guards.base_available(BASE):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE)
         changed = guards.changed_since(BASE, ["docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md", "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
+        # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
+        # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
+        # against the commit that wrote it.
+        changed = changed - {"tools/awinparse.py", "tools/tprime.py"}
         # Issue #46 (2026-09-22) promoted the CONTROL bit 0x02 split as GBP-HW-272: the evidence entry, the REGISTERS.md
         # row that now separates the references' USAGE (C) from this project's measurement (F) from the cause (H), and
         # U-GBP-017's Needs list, which records one of its three items answered and stays OPEN at P2
@@ -141,7 +146,7 @@ class NothingFrozenMoved(unittest.TestCase):
         # Issue #47 (2026-09-22) ingested RUN 23 / RUN 24 in §V7.7; the pin moves to the next unused number so it
         # goes on asserting that THIS checkpoint (the play-0001 build) executed nothing
         self.assertNotIn("RUN 31", hw)
-        self.assertNotIn("GBP-HW-285", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
+        self.assertNotIn("GBP-HW-295", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test
         self.assertNotIn("GBP-PLAY-001", read(EVIDENCE))

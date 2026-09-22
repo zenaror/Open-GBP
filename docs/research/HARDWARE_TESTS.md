@@ -26330,8 +26330,16 @@ as long as the number is fixed before the run it judges. It is.
 
 ##### The measurement — every archived run that reached the service loop
 
-17 runs across 7 builds, each contributing `deliveries ÷ (teardown − capture
+17 runs across 7 builds **as the archive stood on 2026-09-22**, each contributing `deliveries ÷ (teardown − capture
 start)` from its own time base and `skipped_cause_pending ÷ pump calls`:
+
+**2026-09-22 (Issue #62), appended: `stream-0016` joined the archive with RUN 30
+and is NOT part of this derivation.** A derivation is a statement about the data
+it used, so the population stays the seven builds listed below; re-deriving on a
+larger archive is a checkpoint with its own record, not something that happens
+because a file appeared. `tests/host/test_tprime_bounds.py` pins those seven by
+name and checks that the later arrival is in the archive and out of the
+derivation.
 
 ```text
 build          n   delivery/s   min .. max        skipped_cause_pending %   min .. max
@@ -26604,7 +26612,7 @@ nothing here attempts to.
 
 ---
 
-## V8 — GBP-AUDIO-001: DOES THE GBP's AUDIO WINDOW CARRY THE AGB's SOUND, AND IN THE PREDICTED SHAPE? — **PRE-REGISTERED 2026-09-22 (GitHub Issue #58); NOT RUN, NOT AUTHORISED HERE; THE BUILD IS SCOPED HERE AND AUTHORISED SEPARATELY** · **THE IMAGE IS BUILT AND STAGED (Issue #59, Hardware Issue #61, §V8.12): `stream-0016`, slot `14-audio`, hash verified from the card — RUN 30 IS STILL NOT RUN and no gate above changed**
+## V8 — GBP-AUDIO-001: DOES THE GBP's AUDIO WINDOW CARRY THE AGB's SOUND, AND IN THE PREDICTED SHAPE? — **PRE-REGISTERED 2026-09-22 (GitHub Issue #58); NOT RUN, NOT AUTHORISED HERE; THE BUILD IS SCOPED HERE AND AUTHORISED SEPARATELY** · **THE IMAGE IS BUILT AND STAGED (Issue #59, Hardware Issue #61, §V8.12): `stream-0016`, slot `14-audio`, hash verified from the card — RUN 30 IS STILL NOT RUN and no gate above changed** · **RUN 30 EXECUTED 2026-09-22 AND INGESTED (Issue #62, §V8.13): AU = CARRIES / OTHER SHAPE — the window DOES change with the press, one GBA frame later, but the period never changes and the duty slope is not the predicted one; SP = NOT OBSERVED; T′ = NOMINAL, its first answer; `U-GBP-012` stays OPEN · §V8.10's prose CORRECTED on top (§V8.10.1): the image links no audio library, so "I heard no tone" bears on nothing**
 
 ### V8.1 What this is, and the one thing that makes it possible
 
@@ -26931,6 +26939,44 @@ evidence about the instrument — it bears on SP — and the machine half reads 
 same blocks either way. **What he hears is an OPERATOR OBSERVATION and is never
 a gate**; AU and SP are decided from the bytes.
 
+##### V8.10.1 CORRECTED 2026-09-22 (GitHub Issue #62), on top — **the sentence above is wrong about SP, and it was wrong when it was written**
+
+**The wrong words stay.** *"It is evidence about the instrument — it bears on
+SP"* is **false**, and the correction is appended rather than substituted
+because that is how this project amends (`RESEARCH_METHOD.md`).
+
+**Why it is false, and it was knowable before the run.**
+`poc/gbp-audio-window-probe/Makefile` links `-lfat -logc` and **no audio
+library**. The image does not reproduce audio at all — exactly as `play-0001`
+does not: the AUDIO blocks are drained and stored, and **nothing is ever sent
+to the GameCube's audio output.** So *"I heard no tone"* is this image's
+**designed behaviour** and carries **no information about SP whatsoever**. It
+was never going to be positive.
+
+**This is NOT a post-hoc reinterpretation of a gate**, and the difference
+matters: **§V8.4 defines SP as decided from the bytes, and always did.** The
+error is in §V8.10's *prose*, it contradicts §V8's own gate definition, and it
+could have been read off the Makefile before the console was switched on. No
+gate moved; a sentence that was never a gate is corrected.
+
+**The Operator was briefed without this.** The ORCHESTRATOR relayed the action
+list, including *"record whether you heard a tone"*, with no warning that the
+image cannot play audio, and the Operator's *"não ouvi nenhum som"* is exactly
+what that briefing asked for. The gap is the briefing's, not his.
+
+**The question is NOT deleted, because it was a NEGATIVE CONTROL.** Had he
+heard anything, audio would have reached the television by a path nobody in
+this project has modelled, and **that would have been a major finding**. It
+needed framing, not removal. Restated for every future run of this family:
+
+```text
+the question     "did you hear anything?" -- asked because a POSITIVE answer would be a finding about a
+                 path that is not supposed to exist
+the expectation  NO. This image links no audio library and reproduces nothing.
+what NO means    nothing. It is the designed behaviour and bears on no gate.
+what YES means   a finding, and the run's analysis would start over from it.
+```
+
 ### V8.11 What this part does NOT do
 
 It authorises **no hardware and no build**. It answers **nothing**: `U-GBP-012`
@@ -27011,3 +27057,217 @@ no question is answered; `U-GBP-012` stays open; `tools/v8audio.py` carries
 §V8.5's three models from the frozen text and **must not be adjusted to
 whatever the run produces**. The two names of §V8.9 are reserved and **the
 files do not exist**.
+
+### V8.13 RUN 30 — **EXECUTED 2026-09-22 (Hardware Issue #61) AND INGESTED (Issue #62)**: the AUDIO window **DOES** carry something that changes with the press — **AU = CARRIES / OTHER SHAPE**, and the shape is not the predicted one. **SP = NOT OBSERVED. T′ = NOMINAL, its first answer.** `U-GBP-012` gets its first data with a cartridge running and **stays OPEN**
+
+#### V8.13.1 The raws, and what was recomputed rather than received
+
+**The Operator's drop, hashed here first; the raw files in `logs/` are never
+edited, normalised or versioned.**
+
+```text
+logs/run30/GBP-AUDIO-001_stream-0016.log          88 929 B  sha256 3d1830eb62939807756778c33e5f6bedac0dc609bb7ce1fa4900c662dbbc2c77
+logs/run30/GBP-AUDIO-001_stream-0016-audio.bin  5 243 788 B  sha256 b3597b72adeae0cb8627e5c1b00584ca8a30bb2ff592c4b645e98cd9428ac564
+archived to  captures/local/GBP-AUDIO-001_stream-0016-run30.log       (§V8.9's reserved name)
+             captures/local/GBP-AUDIO-001_stream-0016-run30-audio.bin (§V8.9's reserved name)
+```
+
+**§V8.9's names are the ones used.** Hardware Issue #61 reserved a second name
+`…-run30-awin.bin` for the region; the image writes the suffix `-audio.bin` and
+**§V8.9 is the frozen pre-registration**, so its name stands and #61's variant
+is recorded here as the slip it was.
+
+**The sidecar was verified BEFORE anything in it was read** (`tools/awinparse.py`,
+a strict reader of the `OGBPAW1` contract):
+
+```text
+magic / version / record size / block size   accepted
+header CRC-32 over the first 0xFC bytes      7491c1e7  -- and the run's own log recorded header_crc=7491c1e7
+footer magic and CRC-32 over the whole body  73a74a49  -- and the run's own log recorded total_crc=73a74a49
+per-anchor CRC-32, reserved bytes, offsets   all five accepted
+total size                                   5 243 788 B = 0x100 + 5x128 + 1280x4096 + 12, and the run's own
+                                             log recorded written=5243788
+identity in the file                         GBP-AUDIO-001 / gbp-audio-window-probe / stream-0016 / 04121fe
+```
+
+**Nothing here is quoted from the run's log as a figure**: every number above
+was recomputed from the bytes and then found to agree with what the image
+recorded, which is the only order in which that agreement means anything.
+
+#### V8.13.2 Admissibility, against §V8's gates and nothing else
+
+```text
+the image        stream-0016, commit 04121fe, no -dirty, the identity §V8.12 staged and #61 gated
+the capture      5 windows, 5 closed, 1280 blocks stored, 0 failed, 0 skipped, no window INCOMPLETE, no GAP
+the arming       arms=5, refused_busy=0, refused_full=0 -- every press got a window and none was overwritten
+the input        presses=4, releases=4, KEY events 8 emitted 8, lost=0, truncated=0
+the service      status ok_session_ended, stop session_end, teardown S5_session_end, restore ok, errors=0,
+                 service transport_ok=1, deliveries 137 931, w1c ISR 137 931 / main 0 / teardown 1
+the spacing      4.138 s, 3.970 s, 3.687 s between the press arms -- every one above §V8.10's three-second
+                 minimum, so no press restarted a channel the previous one had left sounding
+VERDICT          ADMISSIBLE. Not one of §V8.5.2's INCONCLUSIVE conditions is met.
+```
+
+**THE RISING-EDGE ANCHOR IS CONFIRMED ON HARDWARE.** `presses=4 releases=4`
+produced **four windows, not eight**: the four releases armed nothing, and the
+first event — the policy's `KEYPAD := 0` with nothing held — armed nothing
+because it sets no bit. Had it armed, window 1 would have been spent on the
+boot's initialising write and the run would have returned **three windows of
+tone and one of silence** — which reads as a partial result, not as a defect.
+
+#### V8.13.3 THE CONTROL WINDOW, READ FIRST (§V8.5.1) — and it is **not silence-shaped**
+
+**It is read first because §V8.5.1 makes it the baseline, and what it contains
+changes how the presses read.** It does.
+
+```text
+window 0, armed 5.045 s before the first press, 256 blocks, 1 048 576 bytes
+byte values        EXACTLY FOUR: 00, 01, FE, FF. No other value occurs.
+structure          a two-level square, run lengths 01x8, FFx120, FEx8, 00x120, repeating
+period             EXACTLY 256 bytes, sixteen whole cycles per 4096-byte block
+duty               128/256 = 0.500, in every one of the 256 blocks
+stationarity       245 of the 256 blocks are byte-identical to each other
+```
+
+**So the within-run baseline is NOT silence: it is a standing square wave.**
+Three consequences, and they are the reason this is read before the presses:
+
+```text
+1  the discriminator changes    "a wave appears" is not available. What the presses can show is a CHANGE
+                                in a wave that is already there.
+2  the archive's pattern is absent   this is NOT the sparse byte-0 pattern of every cartridge-less capture
+                                (U-GBP-021, GBP-HW-057): non-zero bytes are everywhere, not at offset 0 of
+                                each 32-byte line.
+3  the PWM model refuses it     the bytes 01 and FE do not have contiguous leading 1 bits, so Dolphin's
+                                model rejects EVERY block of this run rather than fitting it loosely
+```
+
+**What the 256-byte period MEANS is not established.** It is a length in bytes;
+turning it into a frequency needs the AUDIO region's sample rate, which this
+project has never measured. **`U-GBP-037` opens for exactly that** and this
+part claims no frequency.
+
+#### V8.13.4 The presses — what changed, and when
+
+**The measurement, per window** (one drained block = 0.2442 ms at the cadence
+this run itself confirms: 89 203 audio drains over 137 931 deliveries at
+6 328.6 deliveries/s = 4 094 blocks/s, §V7.8.6's figure reproduced):
+
+```text
+window  distinct byte values            0x80 count   duty values seen        first block carrying a value
+                                                                             the control NEVER shows
+w0 ctrl  4  {00,01,FE,FF}                        0   0.500 only              -- none --
+w1 p1    4  {00,01,FE,FF}                        0   0.500 only              -- none --
+w2 p2    8  {..,80,81,F8,FA}                 5 564   0.406 / 0.500 / 0.625   block 75  = 18.32 ms
+w3 p3    8  {..,80,81,F8,FA}                10 749   0.406 / 0.500 / 0.625   block 65  = 15.88 ms
+w4 p4    8  {..,80,81,F8,FA}                19 309   0.406 / 0.500 / 0.625   block 50  = 12.21 ms
+```
+
+**THE PERIOD NEVER CHANGES.** Over all 1 280 stored blocks, **zero** have an
+inter-edge interval other than exactly 256 bytes. Whatever the presses did,
+they did not change the period of this wave.
+
+**THE LEVELS DO.** Three byte values that occur **nowhere** in the control or
+in press 1 — `0x80`, `0x81`, and the pair `0xF8`/`0xFA` — appear in presses 2,
+3 and 4, and their count **grows monotonically with the press**: 0, 0, 5 564,
+10 749, 19 309. `0x80` is mid-scale between the `0x00` and `0xFF` the standing
+square already uses.
+
+**AND THE ONSET IS ONE GBA FRAME.** 18.32 ms, 15.88 ms and 12.21 ms after the
+**GBP-side** key change — bracketing the 16.74 ms of one GBA frame. **§V8.3.1
+predicted this and it is why the window was corrected from 128 blocks to 256:**
+a 128-block window is 31.26 ms, and it would have caught only 13–19 ms of
+changed content after the onset. The correction paid for itself on the first
+run.
+
+**PRESS 1 SHOWS NO CHANGE AT ALL** in its 62.5 ms window: four byte values,
+duty 0.500 throughout, nothing the control does not also show. **This is
+recorded as observed and not explained** — `U-GBP-038`.
+
+#### V8.13.5 The verdicts, by the FROZEN constructions — `tools/v8audio.py` unmodified
+
+**Not one line of `tools/v8audio.py` was edited for this run**, which is the
+whole of Issue #50's purpose and is the moment the temptation was highest.
+
+```text
+QUESTION AU   CARRIES / OTHER SHAPE
+              §V8.5.2's words: "the windows differ from the silent control and REPEAT with the press, but
+              not into the predicted shape. A REAL RESULT: either the prediction or the reading of the
+              checker is wrong." Three of the four press windows differ from the control; one (press 1)
+              does not; the differences repeat with the press.
+QUESTION SP   NOT OBSERVED -- and §V8.5.3 separates that from "the stop worked". No window shows the two
+              predicted periods either side of a split, because NO window shows any period but 256 bytes.
+QUESTION T'   NOMINAL. §V7.9's first real answer (§V7.9.1: T' has an answer only for a run performed after
+              that section was written).
+```
+
+**Why AU is not CARRIES / PREDICTED SHAPE, stated against the prediction rather
+than around it.** §V8.5 predicted two things and **neither is present**:
+
+```text
+predicted                                        observed
+the alternation period changes 26.5 -> 64        NO period change anywhere: 1280 of 1280 blocks at 256 bytes
+ BLOCKS at the transition
+the mark-space ratio runs 1:7, 1:3, 1:1, 3:1     the duty takes 104/256, 128/256, 160/256 and a handful of
+ across the four presses                          values between, in no order across the presses
+```
+
+**And the reason the prediction missed is structural, not numerical: the
+prediction assumed the level alternates ACROSS blocks, and the wave is INSIDE
+one.** §V8.2 computed "one 64.00 Hz period = 63.98 blocks" from the premise
+that a block is 0.2442 ms of audio. The bytes say otherwise: sixteen whole
+cycles fit inside a single 4096-byte block. **That premise is what the run
+falsified**, and it is recorded here rather than repaired in the code —
+`tools/v8audio.py` keeps its constructions and a dated amendment is what a
+future pre-registration builds on (`U-GBP-037`).
+
+**T′, computed by §V7.9.2 – §V7.9.5 exactly** (`tools/tprime.py`, written at
+this ingestion because none existed — which is the one thing about it worth
+distrusting, so every figure it used is printed here):
+
+```text
+population    CYCF/CYCFT and CYCL/CYCLT only, 16 cycles per run, 0 excluded, classified by v=1/1
+reference     RUN 17 (stream-0015), recomputed from its own log by the same rule -- never quoted
+CONTROL, read first    AUDIO-only median 13 ticks (run 30) against 13 (RUN 17): |0| <= 1 tick -> UNCHANGED
+                       lists 12,13,13,13,13,13,13,16,16   against   12,12,12,13,13,13,13,13,22
+treatment              VIDEO median 870 ticks against 886: NOT LONGER (a direction, no magnitude)
+                       lists 845,863,867,870,878,952,1097 against 854,869,885,886,895,1197,3112
+delivery rate          6 328.62/s against 6 328.69/s = 0.999989 x, and the bound is 0.995 (§V7.9.7)
+skipped_cause_pending  26.940 % against 27.391 % = 0.451 pp apart, and the bound is 5 pp
+VERDICT       NOMINAL
+```
+
+#### V8.13.6 What this does to `U-GBP-012`, in its own terms
+
+**It is NOT closed, and one run could not close it.**
+
+```text
+WHAT IS NOW KNOWN, on hardware with a cartridge running, that was not before:
+  the AUDIO window is NOT empty and NOT the cartridge-less byte-0 pattern
+  it carries a two-level square of exactly 256-byte period, values {00,01,FE,FF}
+  it is NOT PWM-shaped: Dolphin's model refuses every block of this run
+  its content CHANGES when a button is pressed, one GBA frame later, by the appearance of intermediate
+    levels -- and the change repeats across three presses and grows with them
+WHAT IS STILL UNKNOWN:
+  the sample rate, and therefore every frequency (U-GBP-037)
+  whether a block is a time series or a repeatedly re-read buffer (U-GBP-037)
+  whether the standing square is the AGB's, the GBP's, or the region's reset content
+  what the press actually adds -- a second channel, a mix, or something else
+  why press 1 changed nothing (U-GBP-038)
+```
+
+**The prerequisite of the phase is answered and the format is not.** *"Does the
+AUDIO window carry the AGB's audio"* now has evidence for the first time: the
+window responds to the cartridge, one frame after the input. *"What the bytes
+mean"* does not, and §V8.5.2 already named what that makes the next instrument
+— **`stimulus/agb-tone`, a ROM whose output this project controls end to end**,
+which was designed as the fallback for exactly this outcome.
+
+#### V8.13.7 What this part does NOT claim
+
+No frequency. No sample rate. No statement that the square is the AGB's audio
+rather than the path's. **No promotion of `U-GBP-012`, which stays OPEN**, and
+no closure of Phase 6, whose acceptance is an **exit** question. `tools/v8audio.py`
+is unchanged and stays unchanged. §V8.1 – §V8.11 keep their words; this part
+and §V8.12 are appended on top.
+

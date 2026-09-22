@@ -1308,14 +1308,35 @@ issue 61    HARDWARE ISSUE OPEN: GBP-AUDIO-001 RUN 30 on stream-0016, §V8's gat
             no leftover log for this image to move aside. THE RUN IS THE OPERATOR'S and the Executor STOPS
             here. The reindex is the ORCHESTRATOR'S from now on (his correction, the Operator's
             instruction): the Executor pushes and says so
-next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59 ACCEPTED with the identity recomputed;
-            still to validate #41's pre-registration, #46 through #58 and #42; close #36. PHASE 5 HAS NO
-            OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 now rides on §V8's run,
-            R5 / R6 unchanged. PHASE 6: the first run is PRE-REGISTERED (§V8), the IMAGE IS BUILT
-            (stream-0016, #59) and IT IS STAGED to 14-audio (#61). THE NEXT MOVE IS THE OPERATOR'S: §V8.10's
-            four presses. Then INGESTION, a separate checkpoint, classifying ONLY against §V8's frozen gates
-            with tools/v8audio.py unadjusted. #31 (Phase 7, GB/GBC) stays backlog. Executor: the queue is
-            empty -- next checkpoint on dispatch
+issue 62    RUN 30 EXECUTED 2026-09-22 AND INGESTED (§V8.13). AU = CARRIES / OTHER SHAPE · SP = NOT
+            OBSERVED · T' = NOMINAL (§V7.9's FIRST real answer) · U-GBP-012 STAYS OPEN. THE CONTROL WINDOW
+            WAS READ FIRST AND IS NOT SILENCE: a two-level square of EXACTLY 256-byte period, values
+            {00,01,FE,FF}, duty 128/256, 245 of 256 blocks byte-identical -- so "a wave appears" was never
+            an available discriminator and what a press can show is a CHANGE in a wave already there. AND
+            IT DOES: 0x80 / 0x81 / 0xF8 / 0xFA appear ONLY in presses 2, 3, 4, growing 0, 0, 5 564, 10 749,
+            19 309, with the onset 18.32 / 15.88 / 12.21 ms after the GBP-side key change -- BRACKETING ONE
+            GBA FRAME, the latency §V8.3.1 predicted and the reason the window went from 128 blocks to 256.
+            WHAT IS ABSENT: the period NEVER changes (0 of 1 280 blocks) and the duty slope is not the
+            predicted 12.5/25/50/75. THE PREDICTION MISSED STRUCTURALLY -- §V8.2 assumed the level
+            alternates ACROSS blocks and the wave is INSIDE one -- so U-GBP-037 opens at P1 (the sample
+            rate; whether a block is a time series or a re-read buffer) and names stimulus/agb-tone as what
+            closes it; U-GBP-038 (press 1 changed nothing) at P3. tools/v8audio.py NOT ONE LINE EDITED, and
+            a test diffs it against the commit that wrote it. §V8.10's prose CORRECTED ON TOP (§V8.10.1),
+            wrong sentence kept: the image links -lfat -logc and NO AUDIO LIBRARY, so "não ouvi nenhum som"
+            bears on nothing -- not a post-hoc reinterpretation (§V8.4 always defined SP from the bytes),
+            the Orchestrator briefed the Operator without that warning, and the question is KEPT as the
+            negative control it was. THE RISING-EDGE ANCHOR CONFIRMED ON HARDWARE: presses=4 releases=4 gave
+            FOUR windows, not eight. ids GBP-HW-285..294; GBP-HW-272 gains a 44th log (RUN 30 orig=92, a
+            FOURTH image); §V7.9.7's derivation pinned to its seven builds
+next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59 and #61 ACCEPTED with the identity
+            recomputed from the card; still to validate #41's pre-registration, #46 through #58, #42 and
+            #62; close #36. PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED,
+            R4 SATISFIED by RUN 30 (T' = NOMINAL), R5 / R6 unchanged -- R6 is re-priced by #63. PHASE 6
+            HAS ITS FIRST DATA: the window carries something and changes with the press, and the FORMAT is
+            not established. THE NEXT INSTRUMENT IS NAMED BY U-GBP-037: stimulus/agb-tone, a ROM whose
+            output this project controls end to end, and it is a checkpoint of its own with its own
+            pre-registration -- NOT dispatched. #31 (Phase 7, GB/GBC) stays backlog. Executor: #63 is the
+            live work after #62
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet

@@ -444,6 +444,11 @@ class NothingFrozenMoved(unittest.TestCase):
         self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.6 ")].rstrip("\n"),
                          old[old.index("### V7.1 "):].rstrip("\n"), "§V7.1–§V7.5 byte-identical")
         changed = guards.changed_since(BASE, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
+        # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
+        # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
+        # against the commit that wrote it.
+        changed = changed - {"tools/awinparse.py", "tools/tprime.py"}
         # Issue #59 (2026-09-22) BUILT the image §V8 needs: the AUDIO window and its OGBPAW1 sidecar
         # (src/gbp/gbp_awin*, host-testable, no libogc) and the POC that carries them, stream-0016. The
         # service path gains ONE optional config field and ONE call after the AUDIO drain and its commit;
@@ -481,7 +486,7 @@ class NothingFrozenMoved(unittest.TestCase):
         ev = read(EVIDENCE)
         # Issue #46 (2026-09-22) minted GBP-HW-272 (the CONTROL bit 0x02 split, from the archive); #41 minted none,
         # so the sentinel moves to the next free id and this guard goes on testing what it was written to test
-        self.assertNotIn("GBP-HW-285", ev)
+        self.assertNotIn("GBP-HW-295", ev)
         self.assertNotIn("GBP-PLAY-001", ev)
         h = plain(read(HANDOFF))
         for tok in ("ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004", "issue 41",

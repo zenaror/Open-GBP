@@ -750,7 +750,7 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         ev = read(EVIDENCE)
         for n in range(261, 266):
             self.assertEqual(len(re.findall(r"^### GBP-HW-%d " % n, ev, re.M)), 1, n)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 284)   # GBP-HW-266…271: RUN 16 / 17 / 18 (Issue #33)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 294)   # GBP-HW-266…271: RUN 16 / 17 / 18 (Issue #33)   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)
         b261 = ev[ev.index("### GBP-HW-261 "):ev.index("### GBP-HW-262 ")]
         for run, R in RUNS.items():
             for k in ("log", "idxcap", "disp", "full", "vi"):
@@ -796,6 +796,11 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         # docs/protocol and docs/hardware left this guard with the Issue #26 promotion; Issue #27 touched the input
         # module and the stream probe (the per-change record, the ENVINPUT repair) and nothing else under these paths
         changed = guards.changed_since(FROZEN_V71_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
+        # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
+        # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
+        # against the commit that wrote it.
+        changed = changed - {"tools/awinparse.py", "tools/tprime.py"}
         # Issue #59 (2026-09-22) BUILT the image §V8 needs: the AUDIO window and its OGBPAW1 sidecar
         # (src/gbp/gbp_awin*, host-testable, no libogc) and the POC that carries them, stream-0016. The
         # service path gains ONE optional config field and ONE call after the AUDIO drain and its commit;

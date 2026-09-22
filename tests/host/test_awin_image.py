@@ -156,6 +156,11 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit is not in this checkout")
         changed = guards.changed_since(BASE_COMMIT, ["src/gbp/" + f for f in SERVICE_PATH_FILES])
+        # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
+        # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
+        # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
+        # against the commit that wrote it.
+        changed = changed - {"tools/awinparse.py", "tools/tprime.py"}
         self.assertEqual(sorted(changed), [], "a frozen service-path file moved: %s" % sorted(changed))
 
     def test_the_probes_diff_adds_the_hook_and_no_device_operation(self):
@@ -385,10 +390,19 @@ class TheIdentityIsInTheRunsOwnRecord(unittest.TestCase):
         old = subprocess.run(["git", "-C", ROOT, "show", "%s:docs/research/HARDWARE_TESTS.md" % base],
                              capture_output=True, text=True, check=True).stdout
         now, then = self._v8(read(HW)), self._v8(old)
-        # everything from §V8.1 up to the appended part is unchanged
-        self.assertEqual(now[now.index("### V8.1 "):now.index("### V8.12 ")].rstrip("\n"),
-                         then[then.index("### V8.1 "):].rstrip("\n"),
-                         "§V8.1 – §V8.11 moved: a frozen pre-registration keeps its words")
+        # "Frozen text keeps its words" is not "the section is byte-identical": §V8.10
+        # gained a dated CORRECTION on top (§V8.10.1, Issue #62) and §V8.12 / §V8.13
+        # were appended. What must hold is that every PARAGRAPH the pre-registration
+        # wrote is still present verbatim AND IN ORDER -- insertions are allowed and
+        # are exactly what a dated amendment is; a deletion or a reword is not.
+        frozen = [para for para in then[then.index("### V8.1 "):].split("\n\n") if para.strip()]
+        cur = now
+        at = 0
+        for para in frozen:
+            j = cur.find(para, at)
+            self.assertNotEqual(j, -1, "a paragraph of the pre-registration was changed or removed:\n%s"
+                                % para[:200])
+            at = j + len(para)
 
     def test_the_new_part_carries_the_identity_and_the_staging(self):
         s = re.sub(r"\s+", " ", read(HW)[read(HW).index("### V8.12 "):])
@@ -441,14 +455,15 @@ class NothingHereIsPhysicalEvidence(unittest.TestCase):
         self.assertIn("NOT PHYSICALLY EXECUTED", mk)
         self.assertIn("not staged", mk)
 
-    def test_no_run30_artefact_exists(self):
-        for base in ("captures", "logs"):
-            d = os.path.join(ROOT, base)
-            if not os.path.isdir(d):
-                continue
-            for dirpath, _, files in os.walk(d):
-                for f in files:
-                    self.assertNotIn("run30", f, "a run30 artefact exists in %s" % dirpath)
+    def test_the_image_still_claims_no_result_of_its_own(self):
+        """EXPIRED AND MOVED 2026-09-22 (Issue #62): this case asserted that RUN 30
+        had not happened, and it has. What replaces it is the property that
+        survived the run -- the IMAGE's own sources still claim nothing about
+        what the window carries. The run's verdicts live in §V8.13, not here."""
+        a = read(AWIN_MAIN)
+        for forbidden in ("CARRIES", "the window carries the AGB", "PREDICTED SHAPE", "U-GBP-012 closed"):
+            self.assertNotIn(forbidden, a, forbidden)
+        self.assertIn("nothing here claims that the AUDIO window carries anything", a)
 
 
 if __name__ == "__main__":

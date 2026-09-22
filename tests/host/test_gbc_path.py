@@ -183,7 +183,10 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
                  "GBP-PLAY-001_play-0001-run21.log": "92", "GBP-PLAY-001_play-0001-run22.log": "92",
                  "GBP-PLAY-001_play-0001-run25.log": "92", "GBP-PLAY-001_play-0001-run26.log": "92",
                  "GBP-VIDEO-004_stream-0015-run27.log": "92",
-                 "GBP-VIDEO-004_stream-0015-run28.log": "92", "GBP-VIDEO-004_stream-0015-run29.log": "92"}
+                 "GBP-VIDEO-004_stream-0015-run28.log": "92", "GBP-VIDEO-004_stream-0015-run29.log": "92",
+                 # Issue #62: RUN 30, a FOURTH image (stream-0016) with a GBA flash cartridge. It postdates
+                 # this document by a day and is named in GBP-HW-272's amendment, not here.
+                 "GBP-AUDIO-001_stream-0016-run30.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1

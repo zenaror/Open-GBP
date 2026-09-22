@@ -44,8 +44,19 @@ def part(name):
     return t[i:min(nxt)] if nxt else t[i:]
 
 
-def families():
-    """build -> [(run, delivery/s, skipped %)] for every archived run that reached the service loop."""
+# Issue #54 derived the two bounds from the archive AS IT STOOD on 2026-09-22.
+# A derivation is a statement about the data it used, so the population is pinned
+# to those seven builds rather than to "whatever is on disk now": stream-0016
+# joined the archive with RUN 30 (Issue #62) and is NOT part of this derivation.
+# Re-deriving on a larger archive is a checkpoint with its own record, not
+# something a test should do silently when a file appears.
+DERIVATION_BUILDS = ("play-0001", "stream-0015", "stream-0014", "stream-0013",
+                     "stream-0011", "stream-0010", "stream-0009")
+
+
+def families(builds=DERIVATION_BUILDS):
+    """build -> [(run, delivery/s, skipped %)] for every archived run of the
+    derivation's builds that reached the service loop."""
     out = {}
     for f in sorted(glob.glob(os.path.join(LOCAL, "*.log"))):
         t = read(f)
@@ -61,6 +72,8 @@ def families():
         dl = int(cd["deliveries"])
         win = (int(td.group(1), 16) - int(st.group(1), 16)) / TB
         if dl == 0 or win <= 1:
+            continue
+        if builds is not None and b.group(1) not in builds:
             continue
         out.setdefault(b.group(1), []).append(
             (os.path.basename(f), dl / win, 100.0 * int(pd["skipped_cause_pending"]) / int(pd["calls"])))
@@ -78,6 +91,17 @@ class TheBoundsAreDerivedFromTheArchive(unittest.TestCase):
         self.assertEqual((n, len(self.fam)), (17, 7))
         p = plain(part("#### V7.9.7"))
         self.assertIn("17 runs across 7 builds", p)
+        # and the record says WHICH seven, so a later arrival cannot silently join them
+        self.assertIn("stream-0016 joined the archive with RUN 30", p)
+
+    def test_a_later_run_joins_the_archive_and_not_the_derivation(self):
+        """RUN 30 (stream-0016) is in captures/local and must NOT be counted."""
+        everything = families(builds=None)
+        later = set(everything) - set(DERIVATION_BUILDS)
+        if not later:
+            self.skipTest("no post-derivation build is archived in this checkout")
+        self.assertNotIn("stream-0016", self.fam)
+        self.assertIn("stream-0016", everything)
 
     def test_the_delivery_bound_is_replaced_and_its_multiple_is_right(self):
         r = [x[1] for v in self.fam.values() for x in v]

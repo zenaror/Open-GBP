@@ -501,7 +501,7 @@ occurrence on the first block of the first request. Direction: repeated
 captures (block sequence, flag periodicity) before a known-color
 cartridge (GBP-VIDEO-001 direction, DEVLOG 2026-09-16).
 
-## U-GBP-012 (P2 — **STILL OPEN**; 2026-09-22, Issue #58: the first experiment against it is PRE-REGISTERED, `HARDWARE_TESTS.md` §V8, GBP-AUDIO-001 — **NOT RUN, NOT AUTHORISED**, and a pre-registration answers nothing) — AUDIO block format on hardware
+## U-GBP-012 (P2 — **STILL OPEN**; 2026-09-22, Issue #58: the first experiment against it is PRE-REGISTERED, `HARDWARE_TESTS.md` §V8, GBP-AUDIO-001 — **NOT RUN, NOT AUTHORISED**, and a pre-registration answers nothing — **RUN 30 EXECUTED AND INGESTED 2026-09-22 (Issue #62, §V8.13): the first data with a cartridge running. AU = CARRIES / OTHER SHAPE. The prerequisite is answered; the FORMAT is not, and this item STAYS OPEN**) — AUDIO block format on hardware
 
 Dolphin's PWM model ("1 bits contiguous and leading", 4096 Hz, 9-bit
 samples) comes from making the DISC happy, not from measurement.
@@ -523,6 +523,31 @@ control from the same run (§V8.5.1). **Nothing is authorised, nothing is run,
 and this item is not answered by the pre-registration** — it is pointed at it.
 The three-model prediction lives in code as `tools/v8audio.py`, written from
 §V8's frozen text before any log exists.
+
+**2026-09-22 (Issue #62) — RUN 30, and what it did and did not settle.**
+`GBP-HW-287` … `GBP-HW-291`, `HARDWARE_TESTS.md` §V8.13.
+
+```text
+NOW KNOWN, on hardware, with a cartridge running -- none of it was known before:
+  the window is NOT empty and NOT GBP-HW-057's sparse byte-0 pattern
+  it carries a two-level square of EXACTLY 256-byte period, values {00,01,FE,FF}, 1280/1280 blocks
+  it is NOT PWM-shaped: Dolphin's model refuses every block rather than fitting it loosely
+  its content CHANGES when a button is pressed -- intermediate levels appear, ONE GBA FRAME after the
+    GBP-side key change (18.32 / 15.88 / 12.21 ms), repeating across three presses and growing with them
+  the within-run control is NOT silence: the square is already there before any press (GBP-HW-288)
+STILL UNKNOWN, and this is why the item does not close:
+  the sample rate, and therefore EVERY frequency (U-GBP-037)
+  whether a block is a time series or a repeatedly re-read buffer (U-GBP-037)
+  whether the standing square is the AGB's, the GBP's, or the region's reset content
+  what a press actually adds -- a second channel, a mix, or something else
+  why press 1 changed nothing (U-GBP-038)
+```
+
+**The prediction of §V8.5 failed structurally, not numerically**: it assumed
+the level alternates ACROSS blocks and the wave is INSIDE one.
+`tools/v8audio.py` keeps its constructions unedited (Issue #50); the next
+instrument is the one §V8.5.2 already named — **`stimulus/agb-tone`, a ROM
+whose output this project controls end to end**.
 
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
@@ -1554,3 +1579,54 @@ image was sized for, and that what bounds it is an event stream tied to the
 frame rate — so any future long-session instrument must either size that store
 for the session it intends or sample it. **Nothing is unexplained**, so this
 opens no new unknown; it narrows this one.
+
+## U-GBP-037 (P1, opened 2026-09-22 after RUN 30) — what the AUDIO region's 256-byte period IS: the sample rate, and whether a block is a time series or a re-read buffer
+
+**The measurement is solid and the interpretation is empty.** RUN 30's 1 280
+blocks all carry a two-level square whose period is **exactly 256 bytes**
+(`GBP-HW-287`). Nothing in this project says what one byte is worth in time, so
+**no frequency can be stated** — and §V8.5's whole prediction rested on an
+assumption about that which the run falsified.
+
+```text
+what §V8.2 assumed      one 4096-byte block is 0.2442 ms of audio, so a 64 Hz period spans ~64 BLOCKS
+what RUN 30 shows       sixteen whole cycles INSIDE one block, and 245 of 256 control blocks byte-identical
+what that rules out     the assumed mapping. A source advancing at an audio rate would shift block to block
+what it does NOT settle whether the region is a buffer the AGB rewrites in place and the drain re-reads, or
+                        a time series at a rate far above audio, or something else
+```
+
+**Why it is P1.** Every frequency claim in Phase 6 — the transition, the duty
+slope, the envelope — is unreadable until this is fixed, and the two questions
+of §V8 could only return "other shape" without it.
+
+**What would close it.** A stimulus whose emission this project controls end to
+end: `stimulus/agb-tone`, playing a tone of **known** frequency, changed
+between two known values inside one run. The period in bytes then gives the
+sample rate directly, and a second tone checks it. **That is the instrument
+§V8.5.2 already names for a `CARRIES / OTHER SHAPE` outcome**, and it needs no
+new hardware access beyond one run.
+
+**Not to be answered by reading a reference.** Dolphin's model and the Disc's
+constants are what `U-GBP-012` already distrusts; this is a measurement.
+
+## U-GBP-038 (P3, opened 2026-09-22 after RUN 30) — why the FIRST press changed nothing in its window while the next three did
+
+RUN 30's press 1 window (256 blocks, 62.5 ms, anchored on the KEY write of the
+first A press) carries **four byte values and duty 0.500 throughout** — nothing
+the within-run control does not also show. Presses 2, 3 and 4 each show
+intermediate levels appearing 12–19 ms after their key change (`GBP-HW-289`).
+
+```text
+what is NOT the explanation   the window was too short: it is the same 256 blocks as the others, and the
+                              others showed their change inside 19 ms
+candidates, none measured     the program's first call does something later calls do not; the first press's
+                              emission is below whatever threshold the path shows; the AGB was still in a
+                              state the press did not reach; the change happened after the window closed
+```
+
+**P3 because nothing depends on it yet** — AU's verdict was reached on the
+other three — but it is the kind of asymmetry that turns into a real finding or
+a real defect once `U-GBP-037` makes the bytes readable. A run with more than
+four presses, or with the window armed on a later press, would separate the
+candidates cheaply.

@@ -7433,7 +7433,7 @@ and the same one-line derivation now prints
 ```text
 grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
      13 CONTROL semantic orig=90
-     30 CONTROL semantic orig=92
+     31 CONTROL semantic orig=92
 ```
 
 The six logs added the same day are RUN 23 (`stream-0015-run23`, no cartridge,
@@ -7448,6 +7448,17 @@ three images and both build eras** — the latest are RUN 27, RUN 28 and RUN 29
 different GB/GBC cartridges, all `0x92`, GitHub Issue #55). **Bit `0x01` is still 0 in all 43 ORIGINAL
 bytes** — RUN 24 sets it only later, which is `GBP-HW-275` and not this
 entry's subject.
+
+**2026-09-22, Issue #62 — a FOURTH IMAGE, and the split holds.** RUN 30
+(`stream-0016-run30`, the audio window image, a GBA flash cartridge in the
+slot) records `orig=92`, so the count above is now **13 at `0x90` and 31 at
+`0x92`, 44 logs across four images.** `stream-0016` shares `stream-0015`'s
+service path and none of its research instrumentation, and it is the first
+image of the family built for a question that is not video. **CLAIM 1 stays
+FACT and gains a log; CLAIM 2's status is untouched by it** — a 44th
+cartridge-present log reading `0x92` adds a sample to the same cell, not a new
+kind of evidence, and the diagonal it would take to move CLAIM 2 is the one
+`GBP-HW-273` already filled.
 
 ---
 
@@ -8062,3 +8073,156 @@ hardware, no RUN 13. The §V6.19.9 gate asked for at least one
 handed-and-latched frame per qualifying appearance; all four corrected sets
 are non-empty, and that satisfies the software-chain population requirement
 of a future admissible run, not of this one.
+
+### GBP-HW-285 — RUN 30's sidecar is INTACT: `OGBPAW1` parsed strictly, every CRC recomputed from the bytes, and only then found to agree with what the image recorded — **FACT (this run)**
+
+`captures/local/GBP-AUDIO-001_stream-0016-run30-audio.bin`, 5 243 788 B, sha256
+`b3597b72adeae0cb8627e5c1b00584ca8a30bb2ff592c4b645e98cd9428ac564`, archived
+from the Operator's untouched drop `logs/run30/…-audio.bin` of the same hash.
+
+Read with `tools/awinparse.py` against the frozen contract of
+`src/gbp/gbp_awindump.h`: magic, version, record size and block size accepted;
+the header CRC-32 over the first 0xFC bytes is `7491c1e7`; the footer magic is
+present and the CRC-32 over the whole body is `73a74a49`; all five anchors'
+own CRC-32s and reserved bytes accepted; the size is exactly
+`0x100 + 5×128 + 1280×4096 + 12`.
+
+**The run's own log recorded `header_crc=7491c1e7 total_crc=73a74a49
+written=5243788`** — recomputed first, compared second, which is the only order
+in which the agreement carries information. `HARDWARE_TESTS.md` §V8.13.1.
+
+### GBP-HW-286 — RUN 30's capture is COMPLETE, and the rising-edge anchor is confirmed on hardware: four presses produced FOUR windows, not eight — **FACT (this run)**
+
+5 windows armed and 5 closed, 1 280 blocks stored, 0 failed, 0 skipped, no
+window INCOMPLETE and none flagged GAP; `arms=5 refused_busy=0
+refused_full=0`; `presses=4 releases=4`; KEY events 8 emitted 8, `lost=0
+truncated=0`.
+
+**The four releases armed nothing and the first event — the policy's
+`KEYPAD := 0` with nothing held — armed nothing, because neither sets a bit
+the previous word did not.** The anchor rule was introduced in Issue #59 from
+reading the input module, before any run. Had it been a key-event rule, window
+1 would have been spent on the boot's initialising write and the run would have
+returned three windows of tone and one of silence — **a partial result rather
+than a visible fault.** §V8.13.2.
+
+### GBP-HW-287 — with a cartridge running, the GBP's AUDIO window carries a two-level square of EXACTLY 256-byte period; it is neither the cartridge-less byte-0 pattern nor PWM-shaped — **FACT (this run, 1 280 blocks)**
+
+Every one of the 1 280 stored blocks: byte values drawn from
+`{00, 01, FE, FF}` in the control and press 1, run lengths `01×8, FF×120,
+FE×8, 00×120` repeating, **sixteen whole cycles per 4096-byte block**. Over all
+1 280 blocks, **zero** have an inter-edge interval other than exactly 256
+bytes.
+
+**It is not `GBP-HW-057`'s pattern:** that capture, with no Game Pak, had 3 969
+of 4 096 bytes zero and the non-zero bytes at offset 0 of each 32-byte line.
+Here non-zero bytes are everywhere. **And it is not PWM:** `0x01` and `0xFE`
+do not have contiguous leading 1 bits, so Dolphin's model (`U-GBP-012`) refuses
+every block of this run rather than fitting it loosely.
+
+**NO FREQUENCY IS CLAIMED.** 256 bytes is a length; turning it into a frequency
+needs the region's sample rate, which this project has never measured
+(`U-GBP-037`). §V8.13.3.
+
+### GBP-HW-288 — the within-run control of RUN 30 is NOT silence-shaped: the standing square is already there before any press — **FACT (this run)**
+
+Window 0, armed 5.045 s before the first press: four byte values, duty
+`128/256 = 0.500` in every one of its 256 blocks, and **245 of the 256 blocks
+byte-identical to each other**.
+
+**This changes how the presses are read**, which is why §V8.5.1 requires the
+control to be read first: *"a wave appears"* was not an available
+discriminator, and what the presses can show is a **change in a wave that is
+already there**. Whether the standing square is the AGB's output, the GBP's, or
+the region's reset content is **not determined** by this run. §V8.13.3.
+
+### GBP-HW-289 — the AUDIO window CHANGES with the press, ONE GBA FRAME LATER, by the appearance of intermediate levels — **FACT (this run, three of four presses)**
+
+Three byte values that occur **nowhere** in the control window or in press 1's
+— `0x80`, `0x81` and the pair `0xF8`/`0xFA` — appear in presses 2, 3 and 4, and
+their count grows monotonically: `0x80` occurs 0, 0, 5 564, 10 749 and 19 309
+times in windows 0…4. `0x80` is mid-scale between the `0x00` and `0xFF` the
+standing square already uses.
+
+**The onset, measured from the GBP-side key change:** block 75 = **18.32 ms**,
+block 65 = **15.88 ms**, block 50 = **12.21 ms** — bracketing the **16.74 ms**
+of one GBA frame, which is the latency §V8.3.1 predicted and the reason the
+window was corrected from 128 blocks to 256 before the run.
+
+**PRESS 1 SHOWS NO CHANGE AT ALL** in its 62.5 ms window and that is recorded
+as observed, not explained (`U-GBP-038`). §V8.13.4.
+
+### GBP-HW-290 — **QUESTION AU = CARRIES / OTHER SHAPE**, by §V8.5.2's construction frozen before the image existed
+
+`tools/v8audio.py`, not one line edited for this run, over the four press
+windows against the within-run control: three of the four differ from the
+control and the differences repeat with the press; none matches the predicted
+shape.
+
+**Neither half of §V8.5's prediction is present.** The alternation period was
+predicted to change from ~26.5 to ~64 **blocks** at the transition — no period
+changes anywhere. The mark-space ratio was predicted to run 1:7, 1:3, 1:1, 3:1
+across the four presses — the duty takes `104/256`, `128/256`, `160/256` and a
+few values between, in no order across the presses.
+
+**The reason the prediction missed is structural:** it assumed the level
+alternates ACROSS blocks (§V8.2's "one 64.00 Hz period = 63.98 blocks", from
+the premise that a block is 0.2442 ms of audio), and the wave is INSIDE one
+block. **That premise is what the run falsified.** The construction keeps its
+words; the amendment is `U-GBP-037` and a future pre-registration.
+§V8.13.5.
+
+### GBP-HW-291 — **QUESTION SP = NOT OBSERVED**, which §V8.5.3 separates from "the stop worked"
+
+No window shows the two predicted periods either side of a split, because no
+window shows any period but 256 bytes. **Nothing is concluded about the
+checker's stop sequence**, and `PHASE6_ENTRY.md` §2.1's a-priori prediction is
+neither confirmed nor refuted by this run. §V8.13.5.
+
+### GBP-HW-292 — **QUESTION T′ = NOMINAL**, §V7.9's first real answer
+
+`tools/tprime.py` over CYCF/CYCFT and CYCL/CYCLT only, 16 cycles per run, 0
+excluded, classified by `v=1/1`, against RUN 17 recomputed from its own log by
+the same rule.
+
+```text
+CONTROL (read first)   AUDIO-only median 13 ticks against 13 -> UNCHANGED (|0| <= 1 tick)
+                       12,13,13,13,13,13,13,16,16   against   12,12,12,13,13,13,13,13,22
+treatment              VIDEO median 870 against 886 -> NOT LONGER (a direction, no magnitude)
+                       845,863,867,870,878,952,1097 against 854,869,885,886,895,1197,3112
+delivery rate          6 328.62/s against 6 328.69/s = 0.999989x, bound 0.995 (§V7.9.7)
+skipped_cause_pending  26.940 % against 27.391 %, 0.451 pp apart, bound 5 pp
+```
+
+`tools/tprime.py` was written at this ingestion because no implementation
+existed — the one thing about this entry worth distrusting — so every figure it
+used is printed here and in §V8.13.5. §V7.9.1's bar holds: T′ is **not**
+applied to RUN 17, 21, 22, 25 or 26 as a verdict.
+
+### GBP-HW-293 — the cost of the window's copy IN the service path, measured: 1 / 19 / 1 399 ticks over 89 203 blocks — **FACT (this run)**
+
+At the run's own 40.5 MHz time base that is **0.025 µs / 0.47 µs / 34.5 µs**
+(min / mean / max) per received AUDIO block, for the 4096-byte copy Issue #59
+added after the drain and its commit. 89 203 audio drains were seen and 1 280
+were copied; the other 87 923 cost the branch alone.
+
+The service pass around it is unchanged by measurement, not by assertion:
+`GBP-HW-292`'s control class is identical to RUN 17's to within one tick.
+§V8.13.2.
+
+### GBP-HW-294 — the Operator heard nothing, and that carries NO information about SP — **OPERATOR OBSERVATION, framed**
+
+Verbatim: *"Logs do run30 na pasta, não ouvi nenhum som"*.
+
+**The image links no audio library.** `poc/gbp-audio-window-probe/Makefile` is
+`LIBS := -lfat -logc`; the AUDIO blocks are drained and stored and **nothing
+is ever sent to the GameCube's audio output**, exactly as in `play-0001`. So
+silence is this image's designed behaviour and was never going to be otherwise.
+
+**The question was a NEGATIVE control and is kept as one:** had he heard
+anything, audio would have reached the television by a path nobody has
+modelled, and that would have been a finding. §V8.10's prose said his answer
+*"bears on SP"* — **that sentence is wrong and was wrong when written**; §V8.4
+defines SP from the bytes and always did. Corrected on top in §V8.10.1, with
+the wrong words kept, and the briefing gap recorded: the Orchestrator relayed
+the action list without warning that the image cannot play audio.

@@ -174,6 +174,11 @@ class ThePumpSlotInsertion(unittest.TestCase):
                  "src/gbp/gbp_transport.c", "src/gbp/gbp_transport.h", "src/gbp/gbp_regwrite.c",
                  "src/platform/hsp_backend.c", "src/platform/hsp_backend_irq.c", "tools"]   # docs/protocol and docs/hardware left this list with the Issue #26 promotion
         changed = guards.changed_since(BASE_COMMIT, paths)   # Issue #29: tracked AND untracked, one implementation
+        # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
+        # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
+        # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
+        # against the commit that wrote it.
+        changed = changed - {"tools/awinparse.py", "tools/tprime.py"}
         # Issue #50 (2026-09-22) made §V7.6.11's frozen verdicts executable BEFORE RUN 21 / RUN 22's logs
         # existed: tools/v7611.py recomputes them and is exercised on SYNTHETIC vectors only, so the
         # ingestion cannot tune the constructions to the data. It reads no run and changes nothing.
@@ -260,7 +265,7 @@ class TheDocumentsKeepTheStatus(unittest.TestCase):
                                     or "not established" in low, fn + ": " + line)
         ev = read(os.path.join(DOCS, "research", "EVIDENCE.md"))
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
-        self.assertEqual(hw, 284)   # GBP-HW-261…265 (Issue #24); 266…271 (Issue #33)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause); 273…277: Issue #47 (RUN 23 / RUN 24, §V7.7); 278…284: Issue #52 (RUN 21 / 22 / 25 / 26, §V7.8)
+        self.assertEqual(hw, 294)   # GBP-HW-261…265 (Issue #24); 266…271 (Issue #33)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause); 273…277: Issue #47 (RUN 23 / RUN 24, §V7.7); 278…284: Issue #52 (RUN 21 / 22 / 25 / 26, §V7.8)   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)
 
 
 if __name__ == "__main__":
