@@ -796,6 +796,14 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         # docs/protocol and docs/hardware left this guard with the Issue #26 promotion; Issue #27 touched the input
         # module and the stream probe (the per-change record, the ENVINPUT repair) and nothing else under these paths
         changed = guards.changed_since(FROZEN_V71_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #59 (2026-09-22) BUILT the image §V8 needs: the AUDIO window and its OGBPAW1 sidecar
+        # (src/gbp/gbp_awin*, host-testable, no libogc) and the POC that carries them, stream-0016. The
+        # service path gains ONE optional config field and ONE call after the AUDIO drain and its commit;
+        # no device operation is added, removed or reordered (tests/host/test_awin_image.py diffs it).
+        changed = changed - {"src/gbp/gbp_awin.c", "src/gbp/gbp_awin.h",
+                             "src/gbp/gbp_awindump.c", "src/gbp/gbp_awindump.h",
+                             "poc/gbp-audio-window-probe/Makefile",
+                             "poc/gbp-audio-window-probe/source/main.c"}
         # Issue #50 (2026-09-22) made §V7.6.11's frozen verdicts executable BEFORE RUN 21 / RUN 22's logs
         # existed: tools/v7611.py recomputes them and is exercised on SYNTHETIC vectors only, so the
         # ingestion cannot tune the constructions to the data. It reads no run and changes nothing.

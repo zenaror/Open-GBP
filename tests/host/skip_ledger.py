@@ -59,6 +59,13 @@ LEDGER = [
      "the named make target produces the artifact; the analysis it feeds is re-run when it exists"),
     (r"^run `make build && make swiss`", "NOT_BUILT",
      "test_staged_artifacts.py checks whatever IS staged, and fails rather than skips when it cannot"),
+    # Issue #59: the audio window image's audit listings and build-info. The
+    # profile is exercised against whichever images ARE built, in both
+    # directions, so a checkout with neither built loses the comparison and
+    # nothing else; the source-level pins of test_awin_image.py do not skip.
+    (r"^(.*is not built in this checkout|the audio image is not built in this checkout)$", "NOT_BUILT",
+     "`make build` and `make awin-audit` produce them; the subtraction, the budget and the window's "
+     "constants are pinned from the SOURCES in the same file and never skip"),
     (r"^gcc unavailable", "TOOLCHAIN_ABSENT",
      "the same property is asserted statically by the source pins in the same file"),
     (r"^run `make [^`]*-audit", "AUDIT_INPUT_ABSENT",

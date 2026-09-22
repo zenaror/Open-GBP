@@ -98,6 +98,7 @@ from __future__ import annotations
 
 import glob
 import json
+import copy
 import os
 import re
 import sys
@@ -848,6 +849,89 @@ PROFILES = {
                                "gbp_vstatedump_stream", "sdlog_stream_open", "sdlog_save_blob"),
     },
 }
+
+
+def _awin_profile():
+    """Issue #59: the `awin` profile IS the `play` profile with its deltas named.
+
+    Deriving it instead of copying it is the point. A pasted 140-line profile
+    drifts from its parent silently, and then "the audio image audits like the
+    playable one" stops being true without anything saying so. Here the parent
+    is the code, and everything this image adds or is allowed to do is a named
+    line below — which is also the subtraction Issue #59 item 4 asks for, in
+    the auditor rather than in prose.
+
+    IT DISCRIMINATES BOTH WAYS, which is item 6. The play image fails `awin`
+    (it has no gbp_awin.o and main.o never calls gbp_awin_init), and the audio
+    image fails `play` (it links two objects `play` does not require and calls
+    the sidecar functions `play` forbids). tests/host/test_awin_image.py runs
+    both directions rather than counting anything.
+    """
+    p = copy.deepcopy(PROFILES["play"])
+
+    # (1) the two new objects, and nothing else new
+    p["required_objects"] = p["required_objects"] + ("gbp_awin.o", "gbp_awindump.o")
+
+    # (2) the sidecar. `play` writes ONE log and no sidecar, so it forbids the
+    # streaming writer outright; this image emits the window through it, so the
+    # forbidding is lifted for those three and for nothing else -- sdlog_save_blob
+    # stays forbidden, as it is everywhere.
+    lifted = ("sdlog_stream_open", "sdlog_stream_write", "sdlog_stream_close")
+    p["forbidden_symbols"] = tuple(s for s in p["forbidden_symbols"] if s not in lifted)
+    p["main_must_not_call"] = tuple(s for s in p["main_must_not_call"] if s not in lifted)
+
+    # (3) WHERE EACH NEW CALL MAY COME FROM. This is the property the profile
+    # exists to state: the window's SINK is called from the service-path module
+    # and from nowhere else, the arms are called from the pump slot's two
+    # insertions and from nowhere else, and the sidecar is written from main
+    # after the teardown.
+    p["symbol_callers"] = dict(p["symbol_callers"])
+    p["symbol_callers"].update({
+        "gbp_awin_block": {"gbp_vstate_probe_run": 1},
+        "gbp_awin_note_ticks": {"gbp_vstate_probe_run": 1},
+        # THE PUMP SLOT AND NOWHERE ELSE. awin_note_event() and awin_gate() are
+        # static and GCC inlines them into pump(), so pinning them BY NAME would
+        # pin a compiler decision; what is pinned is the property -- the arms are
+        # attributed to the pump slot and to no other function. The same
+        # reasoning the gbp_keypad_write pin above is written under.
+        "gbp_awin_arm_press": {"pump": 1},
+        "gbp_awin_arm_control": {"pump": 1},
+        "gbp_awin_init": {"main": 1},
+        "gbp_awin_finish": {"main": 1},
+        # main gains a THIRD wait loop: the window's store gate refuses to run
+        # and waits for START, before any device access.
+        "PAD_ScanPads": {"main": 3, "pump": 1},
+        "gbp_awindump_stream": {"main": 1},
+        "sdlog_stream_open": {"main": 1},
+        "sdlog_stream_write": {"sink_sd": 1},
+        "sdlog_stream_close": {"main": 1},
+    })
+
+    # (4) what must SHIP, and what main must reach
+    p["elf_required"] = p["elf_required"] + (
+        "gbp_awin_init", "gbp_awin_block", "gbp_awin_arm_press", "gbp_awin_arm_control",
+        "gbp_awin_finish", "gbp_awindump_stream", "gbp_awindump_set_identity")
+    p["main_must_call"] = p["main_must_call"] + (
+        "gbp_awin_init", "gbp_awin_finish", "gbp_awindump_stream", "sdlog_stream_open")
+
+    # (5) what the two new objects may reach. The window is in the SERVICE path,
+    # so it gets the capture family's bar: no filesystem, no CRC, no serializer.
+    # The dump is a POST-CAPTURE serializer, so it may use the CRC and must not
+    # touch the filesystem itself -- it writes through the caller's sink.
+    p["object_must_not_reference"] = dict(p["object_must_not_reference"])
+    p["object_must_not_reference"]["gbp_awin.o"] = _CAPTURE_SYMBOLS
+    p["object_must_not_reference"]["gbp_awindump.o"] = _FS_SYMBOLS
+    p["object_may_only_reference"] = dict(p["object_may_only_reference"])
+    # memcpy and memset are the copy and the init; nothing else, and no clock:
+    # gbp_awin reads no time of its own (the caller measures it).
+    # __udivdi3 is the 64-bit division of gbp_awin_ticks_mean(), read from main
+    # after the teardown and never from the service path -- the same allowance
+    # gbp_vwitness.o carries above, for the same reason.
+    p["object_may_only_reference"]["gbp_awin.o"] = ("memcpy", "memset", "__udivdi3")
+    return p
+
+
+PROFILES["awin"] = _awin_profile()
 # the GBP-INIT-003A names, kept for callers that import them
 FORBIDDEN_OBJECTS = PROFILES["003a"]["forbidden_objects"]
 FORBIDDEN_SYMBOLS = PROFILES["003a"]["forbidden_symbols"]

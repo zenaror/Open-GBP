@@ -197,14 +197,24 @@ class TheAssessmentIsRecordedAndNothingWasBuilt(unittest.TestCase):
 
     def test_nothing_was_built_and_nothing_under_the_untouchable_paths_changed(self):
         self.assertIsNotNone(re.search(r"^BUILD_ID\s*:=\s*stream-0015$", read(MAKEFILE), re.M))
-        # the twelve POCs of the assessment's base, plus the one Issue #39 built afterwards (its own checkpoint)
+        # the twelve POCs of the assessment's base, plus the one Issue #39 built afterwards and the one
+        # Issue #59 built for §V8 -- each in its own checkpoint, and neither part of THIS assessment
         self.assertEqual(sorted(p for p in os.listdir(os.path.join(ROOT, "poc")) if os.path.isdir(os.path.join(ROOT, "poc", p))),
-                         ["gbp-av-service-probe", "gbp-init-irq-deliver-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-service-probe",
+                         ["gbp-audio-window-probe",
+                          "gbp-av-service-probe", "gbp-init-irq-deliver-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-service-probe",
                           "gbp-init-probe", "gbp-play-session", "gbp-probe", "gbp-video-capture-probe", "gbp-video-color-probe", "gbp-video-state-probe",
                           "gbp-video-stream-probe", "smoke-test"])
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE_COMMIT)
         changed = guards.changed_since(BASE_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware", "docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #59 (2026-09-22) BUILT the image §V8 needs: the AUDIO window and its OGBPAW1 sidecar
+        # (src/gbp/gbp_awin*, host-testable, no libogc) and the POC that carries them, stream-0016. The
+        # service path gains ONE optional config field and ONE call after the AUDIO drain and its commit;
+        # no device operation is added, removed or reordered (tests/host/test_awin_image.py diffs it).
+        changed = changed - {"src/gbp/gbp_awin.c", "src/gbp/gbp_awin.h",
+                             "src/gbp/gbp_awindump.c", "src/gbp/gbp_awindump.h",
+                             "poc/gbp-audio-window-probe/Makefile",
+                             "poc/gbp-audio-window-probe/source/main.c"}
         # Issue #50 (2026-09-22) made §V7.6.11's frozen verdicts executable BEFORE RUN 21 / RUN 22's logs
         # existed: tools/v7611.py recomputes them and is exercised on SYNTHETIC vectors only, so the
         # ingestion cannot tune the constructions to the data. It reads no run and changes nothing.

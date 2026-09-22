@@ -258,6 +258,8 @@ typedef enum {
     GBP_VSTATE_OK_SESSION_ENDED
 } gbp_vstate_status;
 
+struct gbp_awin;   /* Issue #59: opaque here; only the audio image links it */
+
 struct gbp_vstate_config {
     struct gbp_initirqa_config a;        /* the 003A stage, verbatim */
     uint32_t t_delivery_ms, t_delivery_ticks;
@@ -316,6 +318,21 @@ struct gbp_vstate_config {
      * slot, from the controller: gbp_session); this module never writes it,
      * never clears it and never reads the controller. */
     const int *session_end;
+    /* ---- Issue #59 (GBP-AUDIO-001, §V8): THE AUDIO WINDOW ----
+     * NULL in every earlier build, and then this field does not exist as far
+     * as the device is concerned: not one read, write, wait, reorder or log
+     * line is added. When the audio image supplies a window here, ONE extra
+     * thing happens per RECEIVED AUDIO BLOCK -- a 4096-byte copy in RAM out of
+     * the slot the drain already filled, and only while a window is armed --
+     * and it happens AFTER the drain and its commit, so the device operation
+     * stream is byte for byte the one vstate-0004 validated.
+     *
+     * The copy is MEASURED, not asserted: two `now32` reads around it, the
+     * same shape the witness hook has used since §V5.39, and the mean, min and
+     * max are reported. Nothing here arms a window, reads the controller or
+     * touches a clock of its own; arming is the pump slot's (gbp_awin), and
+     * this module never writes the store's control fields. */
+    struct gbp_awin *awin;
     /* ---- PRE-HANDLER MASKED WAIT: a DIAGNOSTIC, and nothing else ----
      * 0 in every ordinary build, and then this field does not exist as far as
      * the device is concerned: no wait, no extra read, no log line, the same
