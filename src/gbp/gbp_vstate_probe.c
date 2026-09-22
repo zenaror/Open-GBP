@@ -1,5 +1,6 @@
 #include "gbp_vstate_probe.h"
 #include "gbp_vwitness_drive.h"
+#include "gbp_awin.h"       /* Issue #59: the AUDIO window, NULL in every earlier build */
 
 #include <stdio.h>
 #include <string.h>
@@ -1307,6 +1308,18 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             bump(res, &res->audio_drains);
             gbp_avblock_read(t, res->a.base, &res->audio, &res->a.errors);
             gbp_vstate_audio_commit(st, slot, res->audio.completed, res->audio.completed ? cfg->audio_len : 0u, n);
+            /* Issue #59 (GBP-AUDIO-001, §V8): the ONE extra thing the audio
+             * window does, and it happens after the drain and its commit. With
+             * cfg->awin NULL this block does nothing and costs one predictable
+             * branch. Cost when armed: one 4096-byte copy in RAM, no device
+             * access, no allocation, no filesystem, no clock of its own -- and
+             * MEASURED here, the way the witness step has been since §V5.39. */
+            if (cfg->awin) {
+                uint32_t q0 = now32(t), q1;
+                gbp_awin_block(cfg->awin, buf, cfg->audio_len, n, res->audio.completed);
+                q1 = now32(t);
+                gbp_awin_note_ticks(cfg->awin, (uint32_t)(q1 - q0));
+            }
             cyc.audio_completed = (uint8_t)(res->audio.completed ? 1u : 0u);
             cyc.audio_wait = res->audio.info.ticks;
             cyc.rc |= (uint32_t)res->audio.rc;

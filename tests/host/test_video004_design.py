@@ -180,13 +180,18 @@ class GroundedInRealArtifacts(unittest.TestCase):
         design made that false, which is recorded there with its date rather than
         rewritten. ONE such POC until Issue #39 (2026-09-21): the playable image
         is built from the stream probe and owns the same display path, so there
-        are exactly TWO, and no object under src/gbp may reach GX in either."""
+        were exactly TWO. Issue #59 (2026-09-22) makes it THREE for the same
+        reason -- the audio window image is built from the playable one and owns
+        that same path -- and no object under src/gbp may reach GX in any of
+        them, which is the property this guard exists for."""
         hits = []
         for root, _dirs, files in os.walk(os.path.join(ROOT, "poc")):
             for fn in files:
                 if fn.endswith((".c", ".h")) and "GX_Init" in read(os.path.join(root, fn)):
                     hits.append(os.path.relpath(os.path.join(root, fn), ROOT))
-        self.assertEqual(sorted(hits), ["poc/gbp-play-session/source/main.c", "poc/gbp-video-stream-probe/source/main.c"], hits)
+        self.assertEqual(sorted(hits), ["poc/gbp-audio-window-probe/source/main.c",
+                                        "poc/gbp-play-session/source/main.c",
+                                        "poc/gbp-video-stream-probe/source/main.c"], hits)
         self.assertIn("Changed 2026-09-18 by the implementation of this design", flat(v5()))
 
     def test_the_cadence_arithmetic_is_right(self):

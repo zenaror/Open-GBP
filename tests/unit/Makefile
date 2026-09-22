@@ -24,12 +24,12 @@ CPPFLAGS += -I$(ROOT)/src/common -I$(ROOT)/src/log -I$(ROOT)/src/gbp -I$(ROOT)/t
 # next to a wrong answer.
 HEADERS := $(wildcard $(ROOT)/src/common/*.h $(ROOT)/src/log/*.h $(ROOT)/src/gbp/*.h $(ROOT)/tests/mocks/*.h)
 
-TESTS    := test_ident test_ringlog test_gbp_vfull test_gbp_vvi test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4 test_gbp_avdump test_gbp_avsvc test_gbp_avseq test_gbp_video test_gbp_vsig test_gbp_vstate test_gbp_video_state test_gbp_vcolor test_gbp_vstream test_gbp_vwitness test_gbp_vdisp test_gbp_startup test_gbp_input test_gbp_session
+TESTS    := test_ident test_ringlog test_gbp_vfull test_gbp_vvi test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4 test_gbp_avdump test_gbp_avsvc test_gbp_avseq test_gbp_video test_gbp_vsig test_gbp_vstate test_gbp_video_state test_gbp_vcolor test_gbp_vstream test_gbp_vwitness test_gbp_vdisp test_gbp_startup test_gbp_input test_gbp_session test_gbp_awin test_gbp_awindump
 BINS     := $(addprefix $(OUTDIR)/,$(TESTS))
 
 COMMON_SRC := $(ROOT)/src/common/opengbp_ident.c $(ROOT)/src/common/gbp_time64.c
 LOG_SRC    := $(ROOT)/src/log/ringlog.c
-GBP_SRC    := $(ROOT)/src/gbp/gbp_transport.c $(ROOT)/src/gbp/gbp_probe.c $(ROOT)/src/gbp/gbp_replay.c $(ROOT)/src/gbp/gbp_detect.c $(ROOT)/src/gbp/gbp_init_probe.c $(ROOT)/src/gbp/gbp_rawlog.c $(ROOT)/src/gbp/gbp_init_irq_probe.c $(ROOT)/src/gbp/gbp_regwrite.c $(ROOT)/src/gbp/gbp_initirqa_probe.c $(ROOT)/src/gbp/gbp_irq_service.c $(ROOT)/src/gbp/gbp_initirqb_probe.c $(ROOT)/src/gbp/gbp_initirq4_probe.c $(ROOT)/src/gbp/gbp_crc32.c $(ROOT)/src/gbp/gbp_avblock.c $(ROOT)/src/gbp/gbp_avdump.c $(ROOT)/src/gbp/gbp_avsvc_probe.c $(ROOT)/src/gbp/gbp_avseq.c $(ROOT)/src/gbp/gbp_avseqdump.c $(ROOT)/src/gbp/gbp_video_probe.c $(ROOT)/src/common/gbp_time64.c $(ROOT)/src/gbp/gbp_vsig.c $(ROOT)/src/gbp/gbp_vstate.c $(ROOT)/src/gbp/gbp_vcolor.c $(ROOT)/src/gbp/gbp_vpix.c $(ROOT)/src/gbp/gbp_vqueue.c $(ROOT)/src/gbp/gbp_vpresent.c $(ROOT)/src/gbp/gbp_vwitness.c $(ROOT)/src/gbp/gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdispdump.c $(ROOT)/src/gbp/gbp_vstate_probe.c $(ROOT)/src/gbp/gbp_vstatedump.c $(ROOT)/src/gbp/gbp_vcoldump.c
+GBP_SRC    := $(ROOT)/src/gbp/gbp_transport.c $(ROOT)/src/gbp/gbp_probe.c $(ROOT)/src/gbp/gbp_replay.c $(ROOT)/src/gbp/gbp_detect.c $(ROOT)/src/gbp/gbp_init_probe.c $(ROOT)/src/gbp/gbp_rawlog.c $(ROOT)/src/gbp/gbp_init_irq_probe.c $(ROOT)/src/gbp/gbp_regwrite.c $(ROOT)/src/gbp/gbp_initirqa_probe.c $(ROOT)/src/gbp/gbp_irq_service.c $(ROOT)/src/gbp/gbp_initirqb_probe.c $(ROOT)/src/gbp/gbp_initirq4_probe.c $(ROOT)/src/gbp/gbp_crc32.c $(ROOT)/src/gbp/gbp_avblock.c $(ROOT)/src/gbp/gbp_avdump.c $(ROOT)/src/gbp/gbp_avsvc_probe.c $(ROOT)/src/gbp/gbp_avseq.c $(ROOT)/src/gbp/gbp_avseqdump.c $(ROOT)/src/gbp/gbp_video_probe.c $(ROOT)/src/common/gbp_time64.c $(ROOT)/src/gbp/gbp_vsig.c $(ROOT)/src/gbp/gbp_vstate.c $(ROOT)/src/gbp/gbp_vcolor.c $(ROOT)/src/gbp/gbp_vpix.c $(ROOT)/src/gbp/gbp_vqueue.c $(ROOT)/src/gbp/gbp_vpresent.c $(ROOT)/src/gbp/gbp_vwitness.c $(ROOT)/src/gbp/gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdispdump.c $(ROOT)/src/gbp/gbp_vstate_probe.c $(ROOT)/src/gbp/gbp_vstatedump.c $(ROOT)/src/gbp/gbp_vcoldump.c $(ROOT)/src/gbp/gbp_awin.c
 MOCK_SRC   := $(ROOT)/tests/mocks/gbp_mock.c
 
 .PHONY: all run clean
@@ -132,6 +132,15 @@ $(OUTDIR)/test_gbp_input: test_gbp_input.c $(ROOT)/src/gbp/gbp_input.c $(LOG_SRC
 # Issue #39: the operator's session end, a pure state machine with no outward edge.
 $(OUTDIR)/test_gbp_session: test_gbp_session.c $(ROOT)/src/gbp/gbp_session.c $(HEADERS) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_session.c $(ROOT)/src/gbp/gbp_session.c
+
+# Issue #59: the AUDIO window and its sidecar. gbp_awin links alone -- it
+# depends on stdint and string.h and nothing else, which is what lets the
+# window be exercised on the host at all.
+$(OUTDIR)/test_gbp_awin: test_gbp_awin.c $(ROOT)/src/gbp/gbp_awin.c $(HEADERS) | $(OUTDIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_awin.c $(ROOT)/src/gbp/gbp_awin.c
+
+$(OUTDIR)/test_gbp_awindump: test_gbp_awindump.c $(ROOT)/src/gbp/gbp_awindump.c $(ROOT)/src/gbp/gbp_awin.c $(ROOT)/src/gbp/gbp_crc32.c $(HEADERS) | $(OUTDIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_awindump.c $(ROOT)/src/gbp/gbp_awindump.c $(ROOT)/src/gbp/gbp_awin.c $(ROOT)/src/gbp/gbp_crc32.c
 
 $(OUTDIR)/test_gbp_vdisp: test_gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdispdump.c $(ROOT)/src/gbp/gbp_crc32.c $(HEADERS) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdispdump.c $(ROOT)/src/gbp/gbp_crc32.c

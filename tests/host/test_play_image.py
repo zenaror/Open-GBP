@@ -303,7 +303,8 @@ class TheAuditProfileIsARealCheck(unittest.TestCase):
 class ThePlumbing(unittest.TestCase):
     def test_the_top_level_makefile(self):
         m = read(TOP_MAKEFILE)
-        self.assertIsNotNone(re.search(r"^POCS\s*:=.* gbp-video-stream-probe gbp-play-session$", m, re.M))
+        # Issue #59 appended gbp-audio-window-probe; play-0001's own place in the list is what is pinned
+        self.assertIsNotNone(re.search(r"^POCS\s*:=.* gbp-video-stream-probe gbp-play-session\b", m, re.M))
         for tok in ("PLAY_OUT := build/poc/gbp-play-session", "$(eval $(call POC_AUDIT_RULE,$(PLAY_OUT),play))",
                     "$(eval $(call ISR_COMPARE_TARGET,play-audit,$(PLAY_OUT)))",
                     "$(eval $(call ISR_RULE,$(PLAY_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))",
