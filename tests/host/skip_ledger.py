@@ -51,6 +51,11 @@ LEDGER = [
      "the freeze is also pinned by the records themselves (the part's own text) and re-checked on any full clone"),
     (r"^the base commit %s is not in this checkout", "HISTORY_ABSENT",
      "same; this is guards.assert_confined's own wording"),
+    # Issue #61: §V8.1 – §V8.11 are diffed against the commit that wrote them, found by its
+    # message rather than by a pinned hash, so a rebase cannot silently disarm the check.
+    (r"^the pre-registration's commit is not in this checkout$", "HISTORY_ABSENT",
+     "§V8.12's own text states that §V8.1 – §V8.11 are untouched, and test_awin_image.py's other "
+     "cases pin the new part's contents and the heading pointer without needing history"),
     (r"^(build the unit tests first|run `make -C tests/unit`)", "NOT_BUILT",
      "`make test-unit` builds and runs them; `make test` runs both halves"),
     (r"^(run `make build`|build output missing|no build metadata|build-info\.txt|elf\.nm\.txt|build$|audit$|map not built|stimulus not built)", "NOT_BUILT",
