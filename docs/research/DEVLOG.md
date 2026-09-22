@@ -12294,3 +12294,69 @@ is not one.
 **Result.** `make test-python` on the committed tree: **1665 passed, 7 skipped,
 103 subtests passed**. `tools/v7611.py` was **not edited**: the construction was
 not what was wrong — the reference it was given was.
+## 2026-09-22 — Issue #54: T′'s two chosen thresholds DERIVED from the archive's own spread — one replaced, one kept, and a build-dependence found that would otherwise have read as a finding; the harmless positional form annotated
+
+**Deriving a bound is not post-hoc when the bound governs a future run.** T′
+judges a run that has not happened; using a quantity's historical variation to
+bound a future measurement of it is how a control limit is set, and the freeze
+holds because the number is fixed before the run it judges. §V7.9.3 keeps its
+words and its form; §V7.9.7 is written on top and dated.
+
+**The measurement: 17 runs across 7 builds**, each contributing `deliveries ÷
+(teardown − capture start)` from its own time base and `skipped_cause_pending ÷
+pump calls`.
+
+```text
+                            WITHIN a build (n>1)        BETWEEN builds
+delivery rate               at most 3.44/s (0.054 %)     6326.1 .. 6333.1 = 0.110 % of the median
+skipped_cause_pending       at most 0.027 pp             25.250 .. 27.762 = 2.512 percentage points
+```
+
+**"not lower": 1 % REPLACED by 0.5 %.** The number written in §V7.9.3 was
+**9.1 ×** the observed between-build spread — a floor so far below historical
+variation that a real regression could sit under it untouched. The bound
+becomes **0.5 %**, which is **4.5 ×** the full observed spread and 5.4 × the
+largest deviation from the median: clear of noise by a wide margin, and
+catching a regression twice as small as the old number would. The rule's
+**form** is unchanged.
+
+**"far from": 5 percentage points KEPT**, because it is **1.99 ×** the observed
+between-build spread of 2.512 pp — a control limit of the right shape, just
+outside everything the archive contains.
+
+**AND THE FINDING THE DERIVATION TURNED UP, which is worth more than either
+number: `skipped_cause_pending` is a property of the BUILD, not of the run.**
+Within a build it repeats to **0.027 percentage points** across up to four
+runs; between builds it moves by up to **2.512**, in visibly separate families
+(~25.3 % for `stream-0009`…`0013`, ~27.4 % for `stream-0015`, 27.76 % for
+`stream-0014`, ~27.07 % for `play-0001`).
+
+**Why that matters and is now in the pre-registration.** T′ compares against a
+**named reference run that may be a different image**, so a difference of up to
+about 2.5 pp is **ordinary and not a finding**. Without this split, a bound
+derived from within-build stability (0.027 pp) would have fired on every
+cross-build comparison — and §V7.8.6's 27.08 % against 27.39 % would read as an
+anomaly when it is simply two builds.
+
+**The one positional form that cannot bite is now annotated, not corrected**
+(`captures/README.md`). The `color-0002` row's cross-run sentence pairs the two
+runs' certified frames **by ordinal**; it cannot bite because the three
+certified frames within each run are identical by that run's own record, so
+every pairing gives the same comparison. **Its words are unchanged.** The note
+exists because the audit of Issue #53 had to re-derive that harmlessness from a
+property stated in another section, and **a later auditor would have done the
+same work with no hint that it ends well.** It is recorded as the harmless twin
+of the defect that did bite (§V7.8.10).
+
+**And the lesson's framing is corrected, which makes it more accurate rather
+than weaker.** `RESEARCH_METHOD.md` now says: **it was a lapse in one table,
+not a blind spot in the method.** §V5.30.4 already compares by named field with
+a guard that *"resolves each POC's declarations rather than comparing argument
+spellings"* — the project was doing the right thing elsewhere before anyone
+wrote the rule down. **A rule recorded as novel invites the reader to treat
+earlier work as suspect; recorded as a lapse, it tells them where to look and
+what they will find.**
+
+**Result.** `make test-python` on the committed tree: **1673 passed, 7 skipped,
+103 subtests passed**. The test recomputes both spreads from the archive, so
+§V7.9.7's figures cannot drift from the runs they were derived from.

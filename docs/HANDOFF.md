@@ -1158,9 +1158,23 @@ issue 53    QUESTION T = INCONCLUSIVE for RUN 21 / 22 / 25 / 26 (§V7.8.10, writ
             statistic, a threshold for each of the four undefined words, the within-run control read FIRST,
             and its first paragraph the bar: T' may NEVER be applied to RUN 17 / 21 / 22 / 25 / 26 as a
             verdict. THREE DEFECTS IN ONE PRE-REGISTRATION, ALL THREE FOUND BY APPLYING IT IN CODE
-next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46,
-            #47, #48, #49, #50, #51, #52 and #53; close #36; Phase 5's acceptance is #42 and reads §V7.8 and
-            §V7.8.10. Executor: the queue is empty -- next checkpoint on dispatch
+issue 54    T'S TWO CHOSEN THRESHOLDS DERIVED from the archive's own spread (§V7.9.7, on top and dated;
+            §V7.9.3 keeps its words and its form). 17 runs across 7 builds. "not lower" 1 % REPLACED BY
+            0.5 %, because 1 % was 9.1x the observed between-build spread of 0.110 % and 0.5 % is 4.5x it --
+            clear of noise and catching a regression twice as small. "far from" KEPT at 5 pp, which is 1.99x
+            the observed 2.512 pp. AND THE FINDING THE DERIVATION TURNED UP, worth more than either number:
+            skipped_cause_pending IS A PROPERTY OF THE BUILD, repeating to 0.027 pp within a build and moving
+            up to 2.512 pp between them, so a ~2.5 pp difference against a reference of another image is
+            ORDINARY -- without which §V7.8.6's 27.08 % against 27.39 % would read as an anomaly when it is
+            two builds. Deriving is not post-hoc because T' governs a FUTURE run. The harmless positional
+            form ANNOTATED, not corrected (captures/README.md): the colour cross-run pairing is ordinal and
+            cannot bite because the three certified frames within each run are identical by that run's own
+            record; its words are unchanged, and the note exists because a later auditor would otherwise
+            re-derive that with no hint it ends well. The lesson reframed: A LAPSE IN ONE TABLE, NOT A BLIND
+            SPOT IN THE METHOD, since §V5.30.4 already compared by named field
+next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46
+            through #54; close #36; Phase 5's acceptance is #42 and reads §V7.8, §V7.8.10 and §V7.9.
+            Executor: the queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
