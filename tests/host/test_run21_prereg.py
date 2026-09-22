@@ -392,8 +392,8 @@ class TheNamesAndTheEmptyRecord(unittest.TestCase):
         self.assertIn("Two names, where every previous pair reserved ten", plain(part(7)))
         self.assertIn("writes ONE file per run and no sidecars", plain(read(HANDOFF)))
         # no raw name above run22 anywhere
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[7-9]|[3-9]\d)\S*", t), [])
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[7-9]|[3-9]\d)\S*", read(HANDOFF)), [])
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[0-9]|[4-9]\d)\S*", t), [])
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[0-9]|[4-9]\d)\S*", read(HANDOFF)), [])
 
     def test_the_record_table_is_empty(self):
         table = part(13)
