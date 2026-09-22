@@ -231,6 +231,13 @@ class TheCausalClaimIsNowhereStatedAsSettled(unittest.TestCase):
     # the CORRECT status: the guard would have been forbidding the truth. What still cannot be said, and
     # is what this guard is really for, is FACT. Presence is still inferred from a correlation, and
     # nobody has yet watched the bit change while only the cartridge changed.
+    #
+    # AND IT DOES NOT GET RE-AIMED TWICE (the Orchestrator's condition on accepting the first re-aim,
+    # 2026-09-22, recorded here because here is where the next person will meet it). The re-aim above
+    # survived the only test that makes one legitimate: NEW PHYSICAL EVIDENCE answered the falsifier
+    # this guard itself had named. The next time this line stands between a document and the status
+    # somebody wants, the answer is the EXPERIMENT -- watch the bit while only the cartridge changes --
+    # and not another amendment. Once is evidence arriving; twice is a pattern.
     SETTLED = re.compile(r"\bFACT\b")
 
     @staticmethod
