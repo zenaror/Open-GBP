@@ -1172,9 +1172,24 @@ issue 54    T'S TWO CHOSEN THRESHOLDS DERIVED from the archive's own spread (§V
             record; its words are unchanged, and the note exists because a later auditor would otherwise
             re-derive that with no hint it ends well. The lesson reframed: A LAPSE IN ONE TABLE, NOT A BLIND
             SPOT IN THE METHOD, since §V5.30.4 already compared by named field
+issue 42    PHASE 5 ASSESSED (docs/research/PHASE5_ASSESSMENT.md): **SATISFIED WITH NAMED RESIDUALS**. The
+            criterion is met at the resolution the EVIDENCE carries and not at the resolution the
+            PRE-REGISTRATION defined, and the assessment says which is which. FOR: a retail game played for
+            minutes on BOTH pads, all ten keys delivered with 0 failed writes out of 93 849 attempts, K =
+            AGREE over the scripted head (identical ordered press sequences, each matching the list, by code
+            written before the logs existed), and the Operator reporting the game responding normally.
+            AGAINST: W INCONCLUSIVE PER KEY in all four runs (his report is global and is NOT converted into
+            ten verdicts), step 15's closing sweep NEVER PERFORMED so "do the ten keys still work after
+            minutes of play" has no scripted evidence, T INCONCLUSIVE (§V7.8.10), and THE CARTRIDGE'S FORM
+            WAS NEVER DECLARED so §V7.6.11's attribution caveat cannot be lifted. SIX RESIDUALS, EACH PRICED
+            -- R1 per-key W (one run per pad, a ten-row form filled DURING the run, no build), R2 the closing
+            sweep (free inside R1), R3 the form (ONE MESSAGE, the cheapest), R4 T' (rides on R1's run), R5
+            duration/breadth (Phase 12; the event store binds at ~274 s), R6 the analogue trigger and other
+            pads. R1+R2+R4 ARE ONE RUN PER PAD. The infrastructure of the last two days is EXCLUDED from the
+            evidence by name: none of it is a game being controlled. The sweep found nothing to correct.
+            Promotes nothing, mints no id, changes no status
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46
-            through #54; close #36; Phase 5's acceptance is #42 and reads §V7.8, §V7.8.10 and §V7.9.
-            Executor: the queue is empty -- next checkpoint on dispatch
+            through #54 and #42; close #36. Executor: the queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
