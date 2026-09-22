@@ -26217,7 +26217,7 @@ given was.
 ---
 
 
-### V7.9 QUESTION T′ — the timing of the shortened service pass, PRE-REGISTERED PROPERLY (2026-09-22, GitHub Issue #53). **NO HARDWARE IS SCHEDULED, NO RUN IS AUTHORISED**, and T′ may NEVER be applied to RUN 17, 21, 22, 25 or 26 as a verdict
+### V7.9 QUESTION T′ — the timing of the shortened service pass, PRE-REGISTERED PROPERLY (2026-09-22, GitHub Issue #53). **NO HARDWARE IS SCHEDULED, NO RUN IS AUTHORISED**, and T′ may NEVER be applied to RUN 17, 21, 22, 25 or 26 as a verdict · **AMENDED 2026-09-22 (Issue #54, §V7.9.7): the two chosen thresholds DERIVED from the archive's spread — "not lower" replaced 1 % by 0.5 % (4.5 × the observed spread), "far from" kept at 5 pp (2.0 ×), and `skipped_cause_pending` found to be a property of the BUILD, so a ~2.5 pp difference against a reference of another image is ORDINARY**
 
 **Why this exists.** Question T's gate could not be applied (§V7.8.10): its
 reference was positional and its deciding statistic was never named. T′ is the
@@ -26319,4 +26319,86 @@ argument that they should have been anything else. And it is a
 pre-registration, not a result: it has answered nothing.
 
 ---
+
+#### V7.9.7 AMENDED 2026-09-22 (GitHub Issue #54) — the two chosen thresholds DERIVED from the archive's own run-to-run spread; one number replaced, one kept, and a build-dependence found that would otherwise read as a finding
+
+**§V7.9.3 keeps its words and its form.** Two of its four thresholds were
+judgements rather than derivations, and this part derives them. **Deriving a
+bound from a quantity's historical variation is not post-hoc, because T′
+governs a FUTURE run**: that is how a control limit is set, and the freeze holds
+as long as the number is fixed before the run it judges. It is.
+
+##### The measurement — every archived run that reached the service loop
+
+17 runs across 7 builds, each contributing `deliveries ÷ (teardown − capture
+start)` from its own time base and `skipped_cause_pending ÷ pump calls`:
+
+```text
+build          n   delivery/s   min .. max        skipped_cause_pending %   min .. max
+play-0001      4   6329.6 .. 6333.1              27.057 .. 27.084          (run21, run22, run25, run26)
+stream-0015    4   6328.7 .. 6329.3              27.390 .. 27.400          (run16, run17, run18, run23)
+stream-0014    2   6326.1 .. 6326.2              27.759 .. 27.762
+stream-0013    2   6332.1 .. 6332.2              25.250 .. 25.254
+stream-0011    1   6332.2                        25.296
+stream-0010    2   6332.4 .. 6332.4              25.286 .. 25.288
+stream-0009    2   6331.9 .. 6332.1              25.301 .. 25.303
+WITHIN a build (families with n > 1)    delivery spread at most 3.44/s (0.054 %) · skipped at most 0.027 pp
+BETWEEN builds                          delivery 6326.1 .. 6333.1 = 6.96/s = 0.110 % of the median
+                                        skipped   25.250 .. 27.762 = 2.512 percentage points
+```
+
+##### "not lower": 1 % REPLACED by 0.5 %
+
+The observed between-build spread of the delivery rate is **0.110 %**. The
+number written in §V7.9.3 — 1 % — is **9.1 times** that, which is a floor so
+far below historical variation that a real regression could sit under it
+untouched. **The bound becomes 0.5 %, which is 4.5 × the observed full spread
+and 5.4 × the largest deviation from the median.** It stays clear of noise by a
+wide margin and catches a regression twice as small as the old number would.
+
+```text
+T' §V7.9.3, as amended:  "not lower"  =  delivery rate >= 0.995 x the reference's
+```
+
+**Why a multiple of the spread and not a tighter fit.** The quantity is
+extremely stable — within a build it repeats to 0.054 % across up to four runs
+— so a bound at 1 or 2 × the spread would fire on ordinary variation between
+images. Between 4 and 5 × is outside anything the archive has ever shown and
+still an order of magnitude tighter than the old number.
+
+##### "far from": 5 percentage points KEPT
+
+The observed between-build spread of `skipped_cause_pending` is **2.512
+percentage points**, so 5 pp is **1.99 ×** it. That is a control limit of the
+right shape — just outside everything the archive contains — and it needs no
+change.
+
+##### AND THE FINDING THIS DERIVATION TURNED UP, which matters more than either number
+
+**`skipped_cause_pending` is a property of the BUILD, not of the run.** Within
+a build it repeats to **0.027 percentage points** across up to four runs; between
+builds it moves by up to **2.512**. The families are visibly separate: ~25.3 %
+for `stream-0009` through `stream-0013`, ~27.4 % for `stream-0015`, 27.76 % for
+`stream-0014`, ~27.07 % for `play-0001`.
+
+**T′ compares a run against a NAMED REFERENCE RUN which may be a different
+image** (RUN 17 is `stream-0015`; any T′ run will not be). So **a difference of
+up to about 2.5 pp against a reference of another build is ORDINARY and is not
+a finding**, and this is written here so that nobody reads §V7.8.6's 27.08 %
+against 27.39 % as an anomaly: **those two figures are two builds, and the
+difference between them is smaller than the spread between builds that the
+archive already contains.** Had T′'s bound been derived without this split, it
+would have been set from within-build stability and would have fired on every
+cross-build comparison.
+
+##### What is unchanged
+
+The statistic (the median, derived in §V7.9.3), the content-matching rule, the
+within-run control read first, the direction test for the treatment quantity
+(**"not longer" still carries no magnitude at all**), the decision rule's shape,
+the minimum of five cycles per class, and §V7.9.1's bar: **T′ may not be
+applied to RUN 17, 21, 22, 25 or 26 as a verdict.** No hardware is scheduled.
+
+---
+
 

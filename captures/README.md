@@ -207,3 +207,35 @@ build initirqa-0001 (the global flag was printed in the A1 record); the
 primary records show INTSR bit 13 = 0 throughout A1, the fixture keeps the
 log's chronology, and the corrected probe reports `intsr13_in_phase=0`
 when it replays it.
+
+## A note on one cross-run comparison — appended 2026-09-22 (GitHub Issue #54)
+
+The `color-0002` row above says *"Cross-run: its three certified frames are
+byte-identical to `color-0001`'s in the consumed projection, 38400/38400 in all
+three pairs."* **Its words are unchanged and the claim is correct.** This is an
+annotation, not a correction.
+
+**The pairing in that sentence is ORDINAL**, which is the form
+`RESEARCH_METHOD.md` now warns about (*"a reference figure is defined by what
+the element CONTAINS, never by its position"*, GitHub Issue #53) — and here it
+**cannot bite**, for a reason recorded elsewhere in each run and therefore not
+visible from the sentence itself:
+
+```text
+within EACH run the three certified frames are IDENTICAL by that run's own record -- one sig[40] for all
+three, which is condition 4 of §V4.10's confirmatory contract ("flag15 bitmaps identical across A, B and
+C") together with condition 3's within-run consumed-word equality across all three pairs.
+=> every pairing of one run's three frames with the other's gives THE SAME comparison, so the ordinal
+   pairing is arbitrary in the only sense that matters: no other pairing could give a different answer.
+```
+
+**Why the note exists at all.** The audit of Issue #53 swept the project for
+positional references, found this one, and had to re-derive the harmlessness
+from a property stated in a different section. **A later auditor would have to
+do the same work with no hint that it ends well**, which is a cost the note
+removes. The defect that did bite — §V7.6.3's per-index reference for Question
+T — is recorded in `HARDWARE_TESTS.md` §V7.8.10; this one is its harmless
+twin, and the difference between them is worth being able to see at a glance.
+
+**Verified 2026-09-22 against the sections that record the within-run
+identity.** Nothing above is edited.

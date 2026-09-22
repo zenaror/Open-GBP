@@ -168,6 +168,22 @@ either reading gives. **A defect that can only be recognised by disliking its
 output is not safe to act on after the data**, and must be reported and left
 (`HARDWARE_TESTS.md` §V7.8.6, where the unnamed-statistic half was).
 
+**IT WAS A LAPSE IN ONE TABLE, NOT A BLIND SPOT IN THE METHOD, and the
+distinction matters to how this rule is read.** The project was already doing
+the right thing elsewhere before anyone wrote it down: `HARDWARE_TESTS.md`
+§V5.30.4 compares a candidate build against the last physically validated one
+**by named field** — frame table, event store, raw ring, episode raw, audio raw
+— and its host guard *"resolves each POC's declarations rather than comparing
+argument spellings"*, which is content-matching in the strictest sense
+available to it. The audit of Issue #54 also found the ordinal form in one
+cross-run colour comparison where it **cannot bite** (`captures/README.md`, the
+appended note; the three certified frames within each run are identical by that
+run's own record, so every pairing gives the same answer). **So this rule is
+not a new idea being introduced — it is an existing practice being written
+down, after one table failed to follow it.** A rule recorded as novel invites
+the reader to treat earlier work as suspect; recorded as a lapse, it tells them
+where to look and what they will find.
+
 **How to satisfy the rule.** State the predicate that selects the elements —
 "every cycle whose record shows a VIDEO block", "every frame whose FRAME_ID is
 in the sampled set" — and have the analysis apply that predicate to **both**
