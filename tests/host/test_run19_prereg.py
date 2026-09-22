@@ -268,7 +268,7 @@ class TopologyNamesGateAndProcedure(unittest.TestCase):
             self.assertEqual(t.count(n), 1, n)
             self.assertEqual(h.count(n), 1, n)
             self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[1-9]|[4-9]\d)\S*", t)), 0)   # run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk)
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[2-9]|[4-9]\d)\S*", t)), 0)   # run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk)
         self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run19*")) + glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run20*")), [])
         self.assertIn("TAKEN even if a run aborts, never starts, or RUN 20 is never executed", plain(part(5)))
 
@@ -393,6 +393,10 @@ class NothingElseMoved(unittest.TestCase):
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE_COMMIT)
         changed = guards.changed_since(BASE_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #64 (2026-09-22) pre-registered agb-tone (§V9) and made its constructions executable BEFORE
+        # the ROM exists: tools/v9tone.py is exercised on SYNTHETIC vectors only, reads no run, authorises
+        # nothing and promotes nothing.
+        changed = changed - {"tools/v9tone.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs

@@ -1580,7 +1580,7 @@ frame rate — so any future long-session instrument must either size that store
 for the session it intends or sample it. **Nothing is unexplained**, so this
 opens no new unknown; it narrows this one.
 
-## U-GBP-037 (P1, opened 2026-09-22 after RUN 30) — what the AUDIO region's 256-byte period IS: the sample rate, and whether a block is a time series or a re-read buffer
+## U-GBP-037 (P1, opened 2026-09-22 after RUN 30 — **2026-09-22, Issue #64: the instrument this item names is now PRE-REGISTERED, `HARDWARE_TESTS.md` §V9, GBP-AUDIO-002 — NOT RUN, NOT AUTHORISED, the ROM does not exist, and a pre-registration answers nothing; the item STAYS OPEN**) — what the AUDIO region's 256-byte period IS: the sample rate, and whether a block is a time series or a re-read buffer
 
 **The measurement is solid and the interpretation is empty.** RUN 30's 1 280
 blocks all carry a two-level square whose period is **exactly 256 bytes**
@@ -1633,6 +1633,25 @@ rate follows directly and this item closes; if it does not, the buffer reading
 is wrong and something else is producing the pattern.** Either way the run
 decides, and the prediction is written down before it — which is the only form
 this project accepts.
+
+**2026-09-22 (Issue #64) — that prediction is now FROZEN in `HARDWARE_TESTS.md`
+§V9 and executable in `tools/v9tone.py`, both written before the ROM exists.**
+The instrument is `stimulus/agb-tone`, two notes in one run:
+
+```text
+F1   n = 1024   128.0 Hz exact   predicted 128 bytes   }  the ratio is 4.000000, and a RATIO of two
+F2   n = 1792   512.0 Hz exact   predicted  32 bytes   }  periods is INDEPENDENT of the sample rate
+THE TEST NEEDS NO RATE AND ASSUMES NONE -- the only reason one session can decide a question about a
+rate nobody has measured. The sizing assumption above chose the notes and decides nothing.
+RATIO HOLDS          this item's first half CLOSES and the rate follows from either window (R = f x period)
+RATIO DOES NOT HOLD  the re-read-buffer reading is WRONG, the second half is answered in the NEGATIVE,
+                     and that is a RESULT rather than a failed run
+```
+
+**A factor of FOUR, not two, and §V9.3.2 says why:** a half-period miscount
+produces *exactly* a factor of 2, so a factor-2 design could not distinguish
+*"F2 is twice F1"* from *"I counted the other edge"*. **Nothing is
+authorised** — the ROM does not exist and no run is scheduled.
 
 ## U-GBP-038 (P3, opened 2026-09-22 after RUN 30) — why the FIRST press changed nothing in its window while the next three did
 

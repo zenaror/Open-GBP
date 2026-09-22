@@ -13229,3 +13229,85 @@ between **two** known frequencies inside one run should move the period in bytes
 if it does not, the buffer reading is wrong. Either way the run decides and the
 prediction is on paper first.
 
+---
+
+## 2026-09-22 — Issue #64: `agb-tone` designed and PRE-REGISTERED (§V9, `GBP-AUDIO-002`) — **two known frequencies in one run, and a verdict that needs no sample rate**
+
+**NOT RUN, NOT AUTHORISED, AND THE ROM DOES NOT EXIST.** The build and the run
+are separate authorisations after this is frozen. The Operator has agreed to
+flash it — *"Topo gravar essa ROM de vocês"* — which is what made the
+checkpoint possible.
+
+**The one structural idea, and everything else follows from it: THE VERDICT IS
+A RATIO BETWEEN TWO WINDOWS OF THE SAME RUN.** `period_bytes(F) = R / F` for
+whatever the AUDIO region's byte rate `R` is, so `period(F1)/period(F2) =
+F2/F1` **exactly and `R` cancels**. That is the only reason one session can
+decide a question about a rate nobody has ever measured — and it is why the
+sizing assumption (RUN 30's resting 256-byte square is 64 Hz) can choose the
+notes while deciding nothing.
+
+```text
+F1   n = 1024   2048−n = 1024   128.0 Hz exact   predicted 128 bytes    32 cycles per block
+F2   n = 1792   2048−n =  256   512.0 Hz exact   predicted  32 bytes   128 cycles per block
+                                                 the ratio 4.000000
+```
+
+**A factor of FOUR, argued rather than assumed.** The separation is not
+defending against noise — RUN 30 measured its period as exactly 256 bytes in
+**1 280 of 1 280** blocks. It defends against a **misreading of the
+structure**, and the likeliest is counting half-periods, **which produces
+exactly a factor of 2**. A factor-2 design could not tell *"F2 is twice F1"*
+from *"I counted the other edge"*; four cannot be produced by that error and is
+the smallest factor that cannot. The choice is also forced: `f` is an exact
+integer only when `(2048 − n)` is a power of two, and both notes must differ
+from the resting 256 bytes, which leaves exactly one factor-4 pair.
+
+**And the choice is bounded rather than bet on**: both periods stay measurable
+for any rate between **12 288 and 175 000 bytes/s** — a factor of 14 around the
+assumption. Outside it, a window returns `PERIOD ABSENT`, which is reported and
+is itself worth knowing.
+
+**The alternation F1, F2, F1, F2 is a decision against `U-GBP-038`**, not a
+pattern chosen for neatness: if press 1 changes nothing again, presses 2–4 still
+give F2, F1, F2 and **both frequencies survive**. `§V9.9.1` therefore locates
+the informative comparison at **any two windows whose frequencies differ**, not
+at a particular press — so press 1 being lost costs the run nothing and gains a
+second observation of `U-GBP-038` on a different cartridge.
+
+**THE ROM MUST SHOW THE PRESS COUNT ON SCREEN, and this is the Orchestrator's
+line rather than mine.** In RUN 30 the Operator pressed four times **into a
+void**: he could not hear (no audio library) and nothing acknowledged him, so
+his only feedback was the log afterwards. A row of four boxes plus a background
+colour that advances gives him **two independent readings of the same number**,
+reportable at the time — and if his count and the log's disagree, **that is a
+finding about the input path this project has never been able to catch.**
+
+**`stream-0016` is reused UNCHANGED, and the argument is made rather than
+assumed.** The image knows nothing about the cartridge: it arms on a KEY change,
+copies AUDIO blocks and emits them. No new build, no new identity, no staging
+risk, and `14-audio` already holds the bytes RUN 30 executed. **The ROM is not
+bent to fit it** — the one place they touch is the window's 62.5 ms against the
+AGB's 12–18 ms reaction, and §V9.2's *deterministic from reset, one write per
+press* is what keeps that margin. If a ROM needed a slower reaction, **the image
+would have to change**, and that is said in those words.
+
+**The free observation costs nothing: `QUESTION C`.** RUN 30's control window
+was not silence. A control window on a **different cartridge** says whether that
+resting 256-byte square belongs to the **path** or to the **checker** — read
+first, as §V8.5.1 requires, with its own verdicts and its own gate.
+
+**The Operator's cost is stated where he will read it:** flashing `agb-tone`
+**replaces the Enhanced Control Checker on the NOR**, and re-flashing the
+checker is the way back. He accepted it; the record carries it so he never has
+to rediscover it.
+
+**`tools/v9tone.py`** holds the constructions, written from §V9's frozen text
+with no ROM and no run in existence — the third outing of #50's discipline and
+the second time it has to survive a surprise. `tests/host/test_v9tone.py` (29
+cases, synthetic only) includes the case that matters most: **a ~2 quotient is
+caught and named as the half-period miscount**, because a test that only showed
+the happy path would not be testing the decision that was actually made.
+
+**Next:** the ROM's build is a checkpoint of its own; the run is another.
+Nothing here authorises either.
+

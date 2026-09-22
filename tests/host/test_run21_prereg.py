@@ -392,8 +392,8 @@ class TheNamesAndTheEmptyRecord(unittest.TestCase):
         self.assertIn("Two names, where every previous pair reserved ten", plain(part(7)))
         self.assertIn("writes ONE file per run and no sidecars", plain(read(HANDOFF)))
         # no raw name above run22 anywhere
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[1-9]|[4-9]\d)\S*", t), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk)
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[1-9]|[4-9]\d)\S*", read(HANDOFF)), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk)
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[2-9]|[4-9]\d)\S*", t), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk)
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[2-9]|[4-9]\d)\S*", read(HANDOFF)), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk)
 
     def test_the_record_table_is_empty(self):
         table = part(13)
@@ -444,6 +444,10 @@ class NothingFrozenMoved(unittest.TestCase):
         self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.6 ")].rstrip("\n"),
                          old[old.index("### V7.1 "):].rstrip("\n"), "§V7.1–§V7.5 byte-identical")
         changed = guards.changed_since(BASE, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #64 (2026-09-22) pre-registered agb-tone (§V9) and made its constructions executable BEFORE
+        # the ROM exists: tools/v9tone.py is exercised on SYNTHETIC vectors only, reads no run, authorises
+        # nothing and promotes nothing.
+        changed = changed - {"tools/v9tone.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
