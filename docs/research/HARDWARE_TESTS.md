@@ -26604,3 +26604,341 @@ nothing here attempts to.
 
 ---
 
+## V8 — GBP-AUDIO-001: DOES THE GBP's AUDIO WINDOW CARRY THE AGB's SOUND, AND IN THE PREDICTED SHAPE? — **PRE-REGISTERED 2026-09-22 (GitHub Issue #58); NOT RUN, NOT AUTHORISED HERE; THE BUILD IS SCOPED HERE AND AUTHORISED SEPARATELY**
+
+### V8.1 What this is, and the one thing that makes it possible
+
+**Every AUDIO block this project has archived was captured with NO Game Pak**
+(`docs/research/PHASE6_ENTRY.md` §5), so *"the AUDIO window carries the AGB's
+audio"* has been **assumed and never observed**. It is a prerequisite of the
+whole phase and it has no data at all.
+
+**What makes the experiment cheap is that the instrument is a KNOWN tone.** The
+Enhanced Control Checker already on the Operator's EZ-Flash NOR — the
+instrument of RUN 14, 15, 17 and 18 — emits a tone on every button press, and
+its frequency, duty, envelope and stop behaviour are determined by the program
+(`PHASE6_ENTRY.md` §2, read at §V7.1's pinned commit **outside this tree**, CC
+BY-SA 4.0, **nothing carried**). **So the discriminator is not "the blocks
+changed after a press" — which an unknown tone cannot separate from "the blocks
+changed" — but "the blocks changed INTO THE PREDICTED SHAPE".**
+
+**Nothing here is authorised.** No hardware, no build, no promotion, no
+evidence id. The build is *scoped* in §V8.7 and authorised separately once this
+part is frozen.
+
+### V8.2 THE PREDICTION, written before the image exists
+
+Restated from `PHASE6_ENTRY.md` §2 and §2.1, whose numbers come from reading
+the program against GBATEK's register semantics. **`tools/v8audio.py`
+implements this text in code, before any log exists** — the #50 rule: the
+constructions are written from the frozen text and are never adjusted to the
+data.
+
+```text
+per press, the predicted EMISSION
+  phase 1   the busy-wait, uncalibrated   154.57 Hz square = 131072 / (2048 - 1200), at the press's duty
+  phase 2   until the envelope dies        64.00 Hz square = 131072 / (2048 -    0), same duty,
+                                           envelope stepping 15 -> 0
+  the step  109.375 ms per envelope step   = 7 / 64 s, 15 steps, so 1.641 s to silence
+  the duty  CYCLES PER PRESS               12.5 % -> 25 % -> 50 % -> 75 %, repeating, and NOT per button
+```
+
+**At the drain cadence recomputed from RUN 17 — 4 096.0 B per drain exactly,
+4 094.4 drains/s (§V7.8.6 and the #45 correction) — one block is 0.2442 ms**,
+so:
+
+```text
+one 64.00 Hz period       15.625 ms  =    63.98 blocks   -> one period is 64 blocks
+one 154.57 Hz period       6.470 ms  =    26.49 blocks
+one envelope step        109.375 ms  =   447.8  blocks
+the whole decay            1.641 s   = 6 717    blocks   = 27.5 MB  -- NOT captured; see §V8.3
+```
+
+### V8.3 DECISION 1 — the window, its anchor, its latency and its arithmetic
+
+**The principle that chose it: PREFER DISCRIMINATORS THAT SURVIVE AN UNKNOWN
+GAIN.** The chain from the AGB's APU to whatever the AUDIO window carries has
+unknown gain and an unwritten mixing register (§V8.6).
+
+```text
+STRONG  the FREQUENCY TRANSITION  154.57 Hz -> 64.00 Hz: a change of SHAPE, gain-independent
+STRONG  the DUTY SLOPE            12.5 / 25 / 50 / 75 at ONE frequency over four presses: a RATIO
+                                  structure, gain-independent
+WEAK    absolute amplitude        inherits every unknown in the chain
+WEAK    the envelope staircase    15 steps of AMPLITUDE, readable only if the chain is linear enough,
+                                  which nothing has established
+```
+
+**So the capture is a DENSE WINDOW AROUND EACH OF FOUR CONSECUTIVE PRESSES, not
+the 27.5 MB decay.** Four presses give the whole duty slope and four instances
+of the transition.
+
+#### V8.3.1 The anchor, and the latency the anchor does NOT remove
+
+```text
+THE ANCHOR    the block being drained when the KEY record's t_attempt is taken for that press -- the
+              same shared time base §V7.4 established for the input path. The window runs FORWARD from
+              there; nothing before the press is retained by it.
+THE LATENCY   the GBP-side key change is NOT the emission. The AGB reads its own keypad at its own
+              cadence, so up to ONE GBA FRAME -- 16.74 ms -- may pass before the program sees the press
+              at all, and the beep routine's busy-wait (uncalibrated, PHASE6_ENTRY §2) runs before the
+              154.57 Hz phase ends. A WINDOW ANCHORED AT THE KEY CHANGE IS THEREFORE NOT A WINDOW OF
+              TONE: its first ~17 ms may carry whatever the AUDIO window carries at rest.
+```
+
+#### V8.3.2 The window, with its arithmetic
+
+```text
+  blocks per window   256   = 62.52 ms = 4.00 full periods of 64.00 Hz
+  worst case covered  62.52 - 16.74 = 45.78 ms = 2.93 periods of the 64 Hz phase, even if the AGB sees
+                      the press a whole frame late and phase 1 ends immediately
+  windows per run     4     = one per press; the four presses give the four duty values
+  total blocks        1 024
+  total bytes         4 194 304 = 4.00 MB
+  why not 128         128 blocks = 31.26 ms leaves 14.52 ms -- 0.93 of a period -- in that same worst
+                      case, and a duty ratio measured over less than one whole period is not measured.
+                      PHASE6_ENTRY §4 said "comfortably 128 for two periods"; THAT ASSESSMENT DID NOT
+                      CARRY THE AGB-SIDE DETECTION LATENCY, and this pre-registration corrects it
+                      upward. The correction is made BEFORE any data exists, which is the only time a
+                      window may be changed.
+  why not 512         1.6 MB per window, 8 388 608 B for four: larger than the store §V8.7 can reclaim,
+                      and it buys more periods of a thing already measured four times.
+  what is DROPPED     everything outside the four windows: 6 717 blocks of decay per press, 26 869
+                      blocks = 110.1 MB over four presses, of which this run keeps 1 024 = 3.8 %.
+                      THE ENVELOPE STAIRCASE IS NOT COVERED END TO END -- one window spans 0.57 of one
+                      envelope step -- so the 15-step decay is NOT a question this run can answer.
+  the budget          arena 1 had 1 650 688 B free in RUN 17 (403 blocks). 1 024 blocks needs 4.00 MB,
+                      so the build MUST reclaim it; the obvious source is the video witness store,
+                      8 847 360 B in that same run, which an AUDIO question does not read. THAT IS A
+                      BUILD-SCOPING ITEM (§V8.7), not a decision taken here.
+```
+
+**The envelope staircase is therefore a SECONDARY, OPPORTUNISTIC reading**, made
+only if a window happens to straddle a step boundary. **It may come back `NOT
+READABLE`, which is a result and not a failure**, and no verdict below depends
+on it.
+
+### V8.4 The questions, with SEPARATE GATES (§V6.13's rule, applied as in §V7.6.1)
+
+```text
+QUESTION AU   does the GBP's AUDIO window carry the AGB's audio, and IN THE PREDICTED SHAPE?
+              evidence   the captured blocks against §V8.5's per-model predictions, each window against
+                         the within-run silent control (§V8.5.1)
+              this is    the phase's entry question and U-GBP-012's first data with a cartridge present
+QUESTION SP   does the checker's stop sequence fail as PHASE6_ENTRY §2.1 predicts -- a short 154.57 Hz
+              phase followed by a long 64.00 Hz decay, rather than silence?
+              evidence   the same blocks; the presence or absence of a 64 Hz phase after the transition
+              SEPARATE   SP = WRONG does NOT make AU inconclusive. It re-dates the window and is recorded
+                         as A CORRECTION TO THIS PROJECT'S READING OF THE CODE -- not a fault of the
+                         Operator's instrument, and not a failed run.
+QUESTION T'   §V7.9, riding free (Issue #57, R4): this run reaches the service loop, so T' is read on it
+              with the statistic, the content-matching rule and both thresholds already fixed and
+              derived (§V7.9.3, §V7.9.7). It needs nothing from this design and adds nothing to its cost.
+```
+
+**AU cannot be answered from SP and SP cannot be answered from AU**: AU asks
+whether the window carries the AGB's audio, SP asks what the program emitted.
+**A run in which the window carries nothing leaves SP UNREADABLE, and a run in
+which SP is wrong still answers AU** from whatever shape the window does carry.
+
+### V8.5 THE PREDICTIONS PER MODEL — written before the build exists
+
+For a window containing the transition and at least two whole 64 Hz periods:
+
+```text
+                    PWM (Dolphin's model)        PCM                          BYTE-0 ONLY
+                    0x400 B mirrored x4, the     the bytes are samples        only byte 0 of each
+                    leading-1-bit count is                                    32-byte line is non-zero
+                    the level
+the transition      the ALTERNATION PERIOD of    the ALTERNATION PERIOD of    NOTHING CHANGES at the
+154.57 -> 64.00 Hz  the leading-1-bit count      the sample level changes     press: the same sparse
+                    changes from ~26.5 to ~64    from ~26.5 to ~64 blocks     pattern before, during
+                    blocks                                                    and after (U-GBP-021)
+the duty, across    the MARK-SPACE RATIO of      the mark-space ratio of      no ratio exists to
+the four presses    the high and low             the high and low sample      measure; any apparent
+12.5/25/50/75       leading-1-bit counts runs    levels runs 1:7, 1:3, 1:1,   one is an artefact of
+                    1:7, 1:3, 1:1, 3:1           3:1                          the 32-byte stride
+the mirroring       the 0x1000 block is 0x400    NO mirroring: 4 096          mirroring, if present,
+                    B repeated FOUR TIMES -- a   distinct sample bytes per    belongs to the transfer,
+                    check that costs nothing     block                        not to the audio
+silence, no press   a constant leading-1-bit     a constant level             the same sparse pattern
+                    count, no alternation
+```
+
+**A model that can absorb any block is not a model.** The discipline is
+§V3.19's — *"this design does not manufacture hypotheses to defeat"*, and a
+limit written down **before** the run rather than after. These three predict
+different bytes for the same window, and the run distinguishes them or says it
+cannot.
+
+#### V8.5.1 The within-run silent control
+
+**Each window is compared against blocks from the SAME RUN taken while no tone
+should be sounding** — the settled period before the first press, and the tail
+of the inter-press gaps if the build retains any. This makes the measurement
+differential **within one session**, so a difference cannot be a difference
+between sessions, builds or boots. **If no silent blocks are retained, AU's
+positive verdict is not available** and the run reports `INCONCLUSIVE` for lack
+of a control; that is a **build requirement** stated here so it cannot be
+discovered afterwards.
+
+#### V8.5.2 AU's verdicts, fixed here
+
+```text
+CARRIES / PREDICTED SHAPE  the windows show the predicted alternation period AND the duty ratio matches
+                           the press's expected value, on AT LEAST TWO of the four presses, against the
+                           silent control
+CARRIES / OTHER SHAPE      the windows differ from the silent control and repeat with the press, but not
+                           into the predicted shape. A REAL RESULT: the window carries something, and
+                           either the prediction or the reading of the checker is wrong. Recorded with
+                           what was seen, and it is what makes stimulus/agb-tone the next instrument.
+DOES NOT CARRY             the windows are indistinguishable from the silent control on EVERY CAPTURED
+                           press and match the cartridge-less archive's sparse byte-0 pattern. A REAL
+                           RESULT, and one Phase 6 must have before anything else is designed.
+INCONCLUSIVE               the run did not reach the service loop; fewer than two windows were captured;
+                           no silent control was retained; the KEY record is unusable; the windows cannot
+                           be aligned to presses in the shared time base; or EXACTLY ONE window differs
+                           from the control, which is a difference and not a repetition.
+```
+
+**No verdict is promoted by this section.** Whatever AU returns is a reading of
+one run and enters `EVIDENCE.md` at the status one run supports.
+
+#### V8.5.3 The tolerances, fixed HERE and not afterwards
+
+**A construction with an unfixed tolerance is not pre-registered**, because the
+tolerance is where a disappointing result gets rescued. These are chosen from
+the arithmetic, before any data exists, and `tools/v8audio.py` implements them:
+
+```text
+A PERIOD MATCHES        within 15 % of the predicted value. The two predicted periods, 26.49 and 63.98
+                        blocks, differ by 141 %, so 15 % cannot confuse them; one-block quantisation is
+                        3.8 % at 26.49 blocks and 1.6 % at 63.98.
+A PERIOD IS ESTIMATED   only from AT LEAST THREE rising edges, i.e. two whole inter-edge intervals, and
+ AT ALL                 the estimator is their MEDIAN. With fewer edges the segment's period is NOT
+                        ESTIMATED, and the transition is then reported NOT OBSERVED -- which is not the
+                        same as reporting that it did not happen.
+A DUTY RATIO MATCHES    the mark fraction within +/- 0.06 of the predicted 0.125 / 0.25 / 0.50 / 0.75.
+                        The smallest gap between two adjacent predictions is 0.125, so +/- 0.06 cannot
+                        let one press's prediction match its neighbour's.
+A WINDOW DIFFERS FROM   it has at least two rising edges where the control has none, OR its mark
+ THE SILENT CONTROL     fraction differs from the control's by more than 0.06. Both are measured on the
+                        SAME model's reduction of the bytes; a difference between models is not a
+                        difference between windows.
+NOTHING ELSE IS A       no threshold not written here may decide AU or SP. A quantity without a
+ THRESHOLD              pre-registered threshold is REPORTED with its value and decides nothing
+                        (§V7.6.11's rule, unchanged).
+```
+
+### V8.6 DECISION 3 — `SOUNDCNT_H` is an UNKNOWN, named as one
+
+**Determined by reading the code, not chosen.** At the pinned commit the beep
+routine writes **five distinct APU registers** in six writes — the sweep
+(`0x04000060`), the duty/length/envelope (`0x04000062`), the frequency/control
+(`0x04000064`, written twice: the restart and the "stop"), the PSG mix
+(`0x04000080`) and the master enable (`0x04000084`). **It does not write
+`SOUNDCNT_H` (`0x04000082`) at any point.**
+
+So the PSG-to-output volume ratio and the DMA-sound mixing are **whatever the
+reset or the GBP's boot path left**. That is an **UNKNOWN, named here**, and
+**every amplitude-dependent prediction inherits it** — which is exactly why
+§V8.3 keeps the discriminators off amplitude. **It is not measured, and it is
+not assumed to a convenient value in order to make a prediction fit.** It does
+not affect frequency, duty or the envelope's *shape*.
+
+### V8.7 DECISION 2 — the image, scoped here and NOT authorised here
+
+**Extend the STREAM probe** (`PHASE6_ENTRY.md` §4). It already has the input
+path, the `KEY` record with `t_poll` / `t_attempt` / `t_done` in the shared time
+base, and it already links the dump module that can emit an audio region.
+
+```text
+ADD         audio-block RETENTION sized for §V8.3.2's window, anchored per §V8.3.1, plus retention of
+            the silent control §V8.5.1 requires, and EMISSION of the region as its own sidecar
+UNCHANGED   the validated service path and the input path -- byte-identical, and SHOWN to be by the same
+            audit the earlier candidates used
+NEW ID      stream-0016, and a new Swiss slot (14-audio is the next free one). stream-0015 / 12-stream
+            and play-0001 / 13-play stay FROZEN and untouched; tools/swiss_export.py's --only and its
+            frozen-slot refusal (#44) exist for exactly this.
+TO RESOLVE  where the 4.00 MB comes from (§V8.3.2's budget); what the run's stop condition is once the
+ IN THE     capture is the goal rather than the video witness target; and how the four windows are
+ BUILD      armed so that a fifth press cannot silently overwrite the first.
+```
+
+**The build is authorised separately, after this part is frozen.** Nothing in
+this section builds, flashes or stages anything.
+
+### V8.8 Identity — a gate, re-declared, never inherited
+
+```text
+the instrument   the Enhanced Control Checker already on the Operator's EZ-Flash NOR, flashed 2026-09-21
+the identity     prebuilt image 69 348 B, SHA-256 53c212c7...2b6e, at commit 76924c13...374f
+the rule         §V7.1's, unchanged: the hash of HIS copy is a double check and NEVER a gate on its own,
+                 because it is his media -- AND IF ANY IDENTITY DIFFERS ON THE DAY, DO NOT RUN
+not inherited    it is re-declared for THIS run; September's declaration does not carry forward
+the medium       the cartridge's form is declared per run on §V7.6.4's three-value axis. This instrument
+                 is a ROM on a flash cartridge, never an original, so §V7.6.11's attribution caveat
+                 applies to this run as it does to RUN 14, 15, 17 and 18.
+```
+
+### V8.9 Reserved raw-file names
+
+```text
+captures/local/GBP-AUDIO-001_stream-0016-run30.log
+captures/local/GBP-AUDIO-001_stream-0016-run30-audio.bin     the new region
+captures/local/GBP-AUDIO-001_stream-0016-run30-<other>.bin   whatever sidecars the build keeps
+```
+
+**RUN 30 is the next free number**: RUN 1–18 and RUN 21–29 are executed, and
+RUN 19 / RUN 20 were **retired without ever running** (§V7.5's withdrawal) —
+their numbers are not reused. **One run is
+reserved, not ten.** If the build takes an id other than `stream-0016`, the
+names take that id; what is reserved here is the run number and the test id.
+**The names are reserved and the files do not exist** — §V7.6.7's rule applies:
+a reserved name is not evidence, and nothing may cite one until the Operator's
+raw drop exists in `logs/`.
+
+### V8.10 The Operator's action list — one short run, nothing to flash
+
+**No new flashing and no new cartridge**: the checker is already on his NOR.
+
+```text
+step  action                                             press with           what he records
+  1   boot the console with the checker cartridge        (nothing)            that it reached the
+      inserted and the capture image launched from SD                         checker's own screen
+  2   wait until that screen is up and stable            (nothing)            roughly how long
+      ---- THE FOUR PRESSES. LEAVE AT LEAST THREE SECONDS BETWEEN THEM: the tone is predicted to last
+           about 1.6 s, and a second press while it still sounds restarts the channel at the NEXT duty,
+           which destroys the four-point slope this run exists to measure.
+  3   A  × 1                                             the pad's A          whether he heard a tone
+  4   wait  ≈ 3 s                                        (nothing)            --
+  5   A  × 1                                             the pad's A          whether he heard a tone
+  6   wait  ≈ 3 s                                        (nothing)            --
+  7   A  × 1                                             the pad's A          whether he heard a tone
+  8   wait  ≈ 3 s                                        (nothing)            --
+  9   A  × 1                                             the pad's A          whether he heard a tone
+ 10   end the session the way the image asks             --                   that the log was saved
+```
+
+**Why one button four times**: every button calls the same routine and the duty
+advances **per press**, not per button, so four presses of one button give the
+four duty values with the fewest ways for the procedure to go wrong. **Why A**:
+it carries the same name on the GameCube pad and on the GBA, so it needs no
+dual name.
+
+**If he hears no tone at all, that is recorded and THE RUN CONTINUES.** It is
+evidence about the instrument — it bears on SP — and the machine half reads the
+same blocks either way. **What he hears is an OPERATOR OBSERVATION and is never
+a gate**; AU and SP are decided from the bytes.
+
+### V8.11 What this part does NOT do
+
+It authorises **no hardware and no build**. It answers **nothing**: `U-GBP-012`
+stays OPEN and is **pointed at** this part, not by it. It promotes nothing,
+mints no evidence id and changes no status. It does not touch `stream-0015`,
+`play-0001`, the staged slots or the Operator's card. It does not decide Phase
+6's acceptance, which is an **exit** question — *a real cartridge produces
+stable audio without breaking video or input* — and not an entry one. It does
+not read the envelope staircase (§V8.3.2). And **nothing from the checker's
+repository enters this one**: describe the behaviour, never carry the
+expression.

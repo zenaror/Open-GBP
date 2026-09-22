@@ -12780,3 +12780,107 @@ source's own lines and its binary, and says so in its docstring.
 
 **Result.** `make test-python` on the committed tree: **1729 passed, 7 skipped,
 103 subtests passed**.
+
+---
+
+## 2026-09-22 — Issue #58: Phase 6's first physical run **PRE-REGISTERED** (`HARDWARE_TESTS.md` §V8, `GBP-AUDIO-001`) — two questions on separate gates, three models predicting different bytes for the same window, and the window corrected upward **before** any data exists
+
+**NOT RUN, NOT AUTHORISED, NOTHING PROMOTED.** §V8 pre-registers one run; it
+authorises no hardware and no build, mints no evidence id and changes no
+status. `U-GBP-012` is **pointed at** it and stays OPEN.
+
+**The two questions have separate gates** (§V6.13's rule, as §V7.6.1 applied
+it). **AU**: does the GBP's AUDIO window carry the AGB's audio, *and in the
+predicted shape*? **SP**: does the checker's stop sequence fail the way
+`PHASE6_ENTRY.md` §2.1 predicts? **SP = WRONG does not make AU inconclusive** —
+it is a correction to this project's reading of the code, not a fault of the
+Operator's instrument. **T′ rides free** (§V7.9, Issue #57's R4) with its
+statistic and both thresholds already derived.
+
+**The predictions are in code before the build exists** — `tools/v8audio.py`,
+written from §V8's frozen text with no log in reach, the same discipline
+`tools/v7611.py` was written under (Issue #50). PWM, PCM and the byte-0
+phenomenon each get **their own reduction of the same 4096 bytes**, and each
+**refuses the others' blocks**: PWM requires every byte's 1 bits contiguous and
+leading *and* the 0x400 quarter mirrored four times, PCM requires the mirroring
+to be absent, byte-0 requires every non-zero byte at offset 0 of a 32-byte
+line. A model that can absorb any block is not a model.
+
+**THE WINDOW WAS CORRECTED UPWARD, AND THE CORRECTION IS THE ENTRY'S REAL
+CONTENT.** `PHASE6_ENTRY.md` §4 had said "comfortably 128 blocks for two
+periods". **That assessment did not carry the AGB-side detection latency**: the
+GBP-side key change is not the emission, because the AGB reads its own keypad
+at its own cadence and up to one GBA frame — 16.74 ms — may pass before the
+program sees the press at all. A 128-block window (31.26 ms) anchored at the
+key change leaves **0.93 of a 64 Hz period** in that worst case, and a duty
+ratio measured over less than one whole period is not measured. **256 blocks =
+62.52 ms = 4.00 periods, leaving 45.78 ms = 2.93 periods even in the worst
+case.** Four windows = 1 024 blocks = **4.00 MB**, against `arena1_free =
+1 650 688 B` in RUN 17 and the 8 847 360 B video-witness store an audio
+question does not read. **The correction was made before any data existed,
+which is the only time a window may be changed.**
+
+**What is dropped is named**: 6 717 blocks of decay per press, 26 869 blocks =
+110.1 MB over four presses, of which the run keeps **3.8 %**. One window spans
+**0.57 of one envelope step**, so the 15-step staircase is **NOT READABLE** by
+this run — stated here rather than discovered afterwards, and no verdict
+depends on it.
+
+**The tolerances are fixed in the pre-registration, not in the ingestion**
+(§V8.5.3): a period matches within **15 %** (the two predicted periods differ
+by 141 %, and one-block quantisation is 3.8 % at 26.49 blocks), a period is
+estimated **only from three rising edges**, a duty matches within **±0.06**
+(half the smallest gap between adjacent predictions, so no press can match its
+neighbour's), and a window differs from the **within-run silent control** by
+two rising edges where the control has none or a mark fraction beyond that same
+0.06. A quantity without a pre-registered threshold is reported and decides
+nothing.
+
+**`SOUNDCNT_H` is an UNKNOWN, named as one.** At the pinned commit the beep
+routine writes five distinct APU registers in six writes — `0x04000060`,
+`0x04000062`, `0x04000064` twice, `0x04000080`, `0x04000084` — and **never
+`0x04000082`**. So the PSG-to-output ratio is whatever the boot left, every
+amplitude-dependent prediction inherits that, and **that is exactly why the
+discriminators are frequency and ratio rather than amplitude**. It is not
+measured to make a prediction fit.
+
+**The build is scoped and authorised separately**: extend the stream probe
+(retention, the silent control, the region as a sidecar), new id `stream-0016`
+and new slot `14-audio`; `stream-0015` / `12-stream` and `play-0001` /
+`13-play` stay frozen. **The silent control is stated as a BUILD requirement**
+— without it AU's positive verdict is unavailable and the run reports
+`INCONCLUSIVE`.
+
+**The Operator's list is four presses of one button with ≥ 3 s between them**,
+in the notation his own correction produced (the count separated from the name,
+`A  × 1`, never glued). Four presses of *one* button give the four duty values
+because the duty advances **per press, not per button**. **If he hears no tone,
+that is recorded and the run continues**: it bears on SP, and the machine half
+reads the same blocks either way.
+
+**One correction carried out of the entry assessment.** `PHASE6_ENTRY.md` §3
+cited §V3.19 for *"a model that can absorb any block is not a model"*; **§V3.19
+does not contain that sentence.** What it holds is the same discipline in its
+own words — *"this design does not manufacture hypotheses to defeat"*, a
+residual ambiguity written down before the run. §V8.5 cites it that way, and
+the assessment is **amended on top**, not rewritten.
+
+**Tests:** `tests/host/test_v8audio.py`, 45 cases, **synthetic vectors only** —
+no log exists anywhere to tune them against. They recompute §V8.3.2's
+arithmetic from the cadence and check the **document** against it, so the two
+cannot drift; they show each model refusing the others' bytes; they show the
+right duty at the wrong press failing; they show one window differing read as
+`INCONCLUSIVE` rather than as a repetition; they show `NOT OBSERVED` kept
+distinct from "did not happen"; and the negative guard that §V8 may not claim a
+run is **shown to bite** on three injected offenders while not firing on the
+true statement about the existing archive.
+
+**The twelve freeze guards that name `tools/v7611.py` now name
+`tools/v8audio.py` beside it**, each with its own dated reason, and the five
+"nothing beyond run N exists yet" bounds moved from *run 30+* to *run 31+* —
+the reservations they must not see are §V8.9's, and a bound that is not moved
+with its reason is a guard that stops guarding.
+
+**Next:** the build (`stream-0016`), authorised on its own, with the retention,
+the control and the sidecar — then the run.
+

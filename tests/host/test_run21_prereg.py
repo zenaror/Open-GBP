@@ -392,8 +392,8 @@ class TheNamesAndTheEmptyRecord(unittest.TestCase):
         self.assertIn("Two names, where every previous pair reserved ten", plain(part(7)))
         self.assertIn("writes ONE file per run and no sidecars", plain(read(HANDOFF)))
         # no raw name above run22 anywhere
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[0-9]|[4-9]\d)\S*", t), [])
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[0-9]|[4-9]\d)\S*", read(HANDOFF)), [])
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[1-9]|[4-9]\d)\S*", t), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk)
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[1-9]|[4-9]\d)\S*", read(HANDOFF)), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk)
 
     def test_the_record_table_is_empty(self):
         table = part(13)

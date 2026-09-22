@@ -501,7 +501,7 @@ occurrence on the first block of the first request. Direction: repeated
 captures (block sequence, flag periodicity) before a known-color
 cartridge (GBP-VIDEO-001 direction, DEVLOG 2026-09-16).
 
-## U-GBP-012 (P2) — AUDIO block format on hardware
+## U-GBP-012 (P2 — **STILL OPEN**; 2026-09-22, Issue #58: the first experiment against it is PRE-REGISTERED, `HARDWARE_TESTS.md` §V8, GBP-AUDIO-001 — **NOT RUN, NOT AUTHORISED**, and a pre-registration answers nothing) — AUDIO block format on hardware
 
 Dolphin's PWM model ("1 bits contiguous and leading", 4096 Hz, 9-bit
 samples) comes from making the DISC happy, not from measurement.
@@ -511,6 +511,18 @@ bytes zero, values `00`/`01`/`11` only, the non-zero bytes at offset 0 of
 123 of the 128 32-byte lines (`01` ×121, `11` ×2) plus four isolated `01`.
 Not called silence, PCM or PWM; the per-line byte 0 may be payload or the
 transfer's byte-0 phenomenon (U-GBP-021) — undecidable from one block.
+
+**2026-09-22 (Issue #58) — where the first real data would come from.** Every
+AUDIO block archived so far was captured **with no Game Pak**, so this item has
+no data from a running cartridge at all. `HARDWARE_TESTS.md` §V8
+(`GBP-AUDIO-001`) pre-registers the experiment that would produce some: four
+windows of 256 drained blocks each, anchored on a press of a cartridge whose
+tone is known a priori, with the PWM, PCM and byte-0 models predicting
+**different bytes for the same window** (§V8.5) and compared against a silent
+control from the same run (§V8.5.1). **Nothing is authorised, nothing is run,
+and this item is not answered by the pre-registration** — it is pointed at it.
+The three-model prediction lives in code as `tools/v8audio.py`, written from
+§V8's frozen text before any log exists.
 
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
