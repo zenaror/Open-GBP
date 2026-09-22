@@ -199,6 +199,10 @@ class NothingElseMoved(unittest.TestCase):
         t = read(info)
         if "build_id=stream-0015" not in t:
             self.skipTest("the tree builds a different stream candidate")
+        if "commit=da06500" not in t:
+            # a later code checkpoint (Issue #39 changed the service-path module) rebuilds the stream probe at ITS commit;
+            # that artifact is not the candidate, whose identity is da06500's. The staged copy is what the runs used.
+            self.skipTest("the stream-0015 artifact on this host was rebuilt at another commit; the candidate is da06500's")
         self.assertNotIn("-dirty", t)
         if STREAM15_SHA is None:
             self.skipTest("the candidate's identity is pinned by the docs checkpoint")
@@ -218,6 +222,8 @@ class NothingElseMoved(unittest.TestCase):
         # ... and Issue #33 (2026-09-21) ingested RUN 16 / 17 / 18: fixtures added, the consolidated pages promoted (tests/host/test_run17.py pins them)
         allowed = ALLOWED | {"docs/protocol/INPUT.md", "docs/protocol/REGISTERS.md", "docs/protocol/INITIALIZATION.md", "docs/hardware/GBS-DOL.md",
                              "docs/hardware/ARCHITECTURE.md"} | {p for p in changed if re.search(r"^captures/fixtures/.*-run1[678]-", p)}
+        # Issue #39 (2026-09-21) built the playable image: the session end in the service-path module (tests/host/test_play_image.py pins it), a new POC, its audit profile and its Swiss slot
+        allowed |= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"}
         self.assertTrue(changed <= allowed, "changed beyond the input and logging modules: %s" % sorted(changed - allowed))
         old = git("show", "%s:docs/research/HARDWARE_TESTS.md" % BASE)
         new = read(HW)

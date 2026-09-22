@@ -168,6 +168,9 @@ class IdentitiesAreTheFrozenOnes(unittest.TestCase):
         t = read(info)
         if "build_id=stream-0015" not in t:
             self.skipTest("the tree builds a different stream candidate")
+        if "commit=da06500" not in t:
+            # rebuilt at a later commit by a later code checkpoint (Issue #39): not the artifact this section names
+            self.skipTest("the stream-0015 artifact on this host was rebuilt at another commit; the named one is da06500's")
         self.assertIn("sha256_dol=" + DOL_SHA, t)
         self.assertIn("commit=da06500\n", t)
         swiss = os.path.join(ROOT, "build", "swiss", "12-stream", "boot.dol")
@@ -327,7 +330,8 @@ class NothingElseMoved(unittest.TestCase):
             self.skipTest("the base commit is not available in this checkout")
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
+        # Issue #39 (2026-09-21) built the playable image: the session end in the service-path module (tests/host/test_play_image.py pins it), a new POC, its audit profile and its Swiss slot
+        self.assertTrue(set(r.stdout.split()) <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"}, "changed against the base: " + r.stdout)
         # Issue #33 (2026-09-21) added the RUN 16 / 17 / 18 fixtures and promoted the consolidated pages (tests/host/test_run17.py pins both)
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
         for line in r.stdout.split():

@@ -26,9 +26,10 @@ AUDITED = {
     "gbp-init-irq-service-probe": "004", "gbp-av-service-probe": "avsvc",
     "gbp-video-capture-probe": "video", "gbp-video-state-probe": "vstate",
     "gbp-video-color-probe": "color", "gbp-video-stream-probe": "stream",
+    "gbp-play-session": "play",
 }
 COMPARING = {"stream-audit": STREAM, "color-audit": "build/poc/gbp-video-color-probe",
-             "vstate-audit": "build/poc/gbp-video-state-probe"}
+             "vstate-audit": "build/poc/gbp-video-state-probe", "play-audit": "build/poc/gbp-play-session"}
 _C = {}
 
 

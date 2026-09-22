@@ -175,7 +175,11 @@ class ThePumpSlotInsertion(unittest.TestCase):
         r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--"] + paths,
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
+        # Issue #39 (2026-09-21) added the operator's session end to the service-path module -- one flag read in
+        # CHECK_ADMISSION, a stop reason, a status, a config field; no device operation added, removed or reordered
+        # (tests/host/test_play_image.py pins the change) -- and the `play` audit profile and the Swiss slot to tools/
+        self.assertTrue(set(r.stdout.split()) <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "tools/poc_audit.py", "tools/swiss-layout.tsv"},
+                        "changed against the base: " + r.stdout)
 
 
 class NothingEmitsTheHeadInstants(unittest.TestCase):

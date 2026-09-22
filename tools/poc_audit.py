@@ -91,7 +91,7 @@ forbidden-symbol, forbidden-prefix, allowlist and must-not-reference check as
 text and nothing else: an address taken in data is reported under "data
 references", never as a call. A missing listing is a finding, not a downgrade.
 
-Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b|004|avsvc|video|vstate|color|stream] [--report FILE] [--json]
+Usage:  tools/poc_audit.py <audit-dir> [--profile 003a|003b|004|avsvc|video|vstate|color|stream|play] [--report FILE] [--json]
 Exit status 0 when there is no finding.
 """
 from __future__ import annotations
@@ -679,6 +679,173 @@ PROFILES = {
                                "hsp_backend_intmr_transport", "gbp_initirqa_probe_run", "gbp_initirqb_probe_run",
                                "gbp_initirq4_probe_run", "gbp_initirq_probe_run", "gbp_avsvc_probe_run",
                                "gbp_video_probe_run", "gbp_irq_service_ack", "gbp_vqueue_publish"),
+    },
+    # GBP-PLAY-001 (Issue #39): THE PLAYABLE IMAGE. Everything the `stream`
+    # profile pins about the service path, the interrupt path and the
+    # display boundary, with three differences that ARE the image:
+    #   1. the research instrumentation is FORBIDDEN, not required: the
+    #      OGBPIDXCAP1 / OGBPDISP2 / OGBPFULL1 / OGBPVI1 stores, serializers
+    #      and call sites must be absent, and main.o may name no gbp_vwitness_
+    #      / gbp_vidxdump_ / gbp_vfull / gbp_vvi / gbp_vdisp symbol at all.
+    #      gbp_vwitness.o itself is still LINKED, because the service-path
+    #      module references its predicates under `if (cfg->witness)`; the
+    #      profile pins those sites exactly as the stream profile does, so
+    #      the service-path code is provably the same code -- and pins that
+    #      nothing else references the witness (no init, no gate, no release).
+    #   2. the session end: gbp_session_sample is called from the pump slot
+    #      and from nowhere else (never the service path, never the ISR), and
+    #      gbp_session.o has NO outward edge -- an empty allowlist.
+    #   3. the input path is required to ship (gbp_input.o) and may reach no
+    #      filesystem or CRC; the Z read adds no controller scan: PAD_ScanPads
+    #      has the same sites as in stream-0015, PAD_ButtonsHeld one more.
+    # The SAME check fails the stream image (forbidden objects present) and the
+    # stream profile fails this image (required objects missing):
+    # tests/host/test_play_image.py runs both directions on the real listings.
+    "play": {
+        "forbidden_objects": ("hsp_backend_irq_multi.o", "hsp_backend_intmr.o", "gbp_initirqb_probe.o",
+                              "gbp_initirq4_probe.o", "gbp_init_irq_probe.o", "gbp_init_probe.o",
+                              "gbp_avsvc_probe.o", "gbp_video_probe.o", "gbp_avdump.o", "gbp_avseq.o",
+                              "gbp_avseqdump.o", "gbp_vcoldump.o",
+                              # the research instrumentation, out by construction
+                              "gbp_vidxdump.o", "gbp_vfull.o", "gbp_vfulldump.o", "gbp_vvi.o", "gbp_vvidump.o",
+                              "gbp_vdisp.o", "gbp_vdispdump.o"),
+        "required_objects": ("hsp_backend_irq.o", "hsp_backend.o", "gbp_initirqa_probe.o", "gbp_irq_service.o",
+                             "gbp_avblock.o", "gbp_time64.o", "gbp_vsig.o", "gbp_vstate.o",
+                             "gbp_vstate_probe.o", "gbp_vstatedump.o", "gbp_vpix.o", "gbp_vqueue.o", "gbp_vpresent.o",
+                             "gbp_vwitness.o",          # linked for the service-path module's predicates; never bound
+                             "gbp_input.o", "gbp_session.o",
+                             "gbp_crc32.o", "sdlog.o", "main.o"),
+        "forbidden_symbols": ("IRQ_Free", "hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
+                              "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi",
+                              "gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run",
+                              "gbp_initirq4_probe_run", "gbp_avsvc_probe_run", "gbp_video_probe_run",
+                              "gbp_vcoldump_stream", "gbp_vidxdump_stream", "gbp_vdispdump_stream",
+                              "gbp_vfulldump_stream", "gbp_vvidump_stream",
+                              "gbp_vwitness_init", "gbp_vwitness_gate_streak", "gbp_vwitness_release_streak",
+                              "gbp_vwitness_set_qualification", "gbp_vwitness_meta_at",
+                              "sdlog_stream_open", "sdlog_stream_write", "sdlog_stream_close", "sdlog_save_blob"),
+        "forbidden_symbol_prefixes": ("ARQ_", "AR_", "AUDIO_", "ASND", "AESND", "GX_", "net_", "DSP_", "SI_", "SIO",
+                                      # the instrumentation families: a reference anywhere is a finding ...
+                                      "gbp_vidxdump_", "gbp_vfull", "gbp_vvi", "gbp_vdisp", "gbp_vwitness_"),
+        # ... except the service-path module's own witness predicates and step,
+        # which exist in every video-family build and are pinned by count below.
+        "prefix_exempt_objects": {"main.o": ("GX_", "SI_"),
+                                  "gbp_vstate_probe.o": ("gbp_vwitness_",)},
+        "investigate_symbols": (),
+        "symbol_callers": {"__UnmaskIrq": {"h_irq_unmask": 1},
+                           "IRQ_Request": {"h_irq_install": 1, "h_irq_restore": 1},
+                           "__MaskIrq": {"h_irq_mask": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+                           "gbp_avblock_read": {"gbp_vstate_probe_run": 2},
+                           "gbp_irq_service_deliver_quiet": {"gbp_vstate_probe_run": 2, "gbp_irq_service_deliver": 1},
+                           "gbp_irq_service_ack_write_postack": {"gbp_vstate_probe_run": 1, "gbp_irq_service_ack": 1},
+                           "gbp_irq_service_deliver": {},
+                           "gbp_irq_service_ack": {},
+                           "gbp_vsig_block": {"gbp_vstate_probe_run": 1},
+                           "gbp_vstate_block": {"gbp_vstate_probe_run": 1},
+                           # §V5.7: the publish is ONE call site, in the service path
+                           "gbp_vqueue_publish": {"gbp_vstate_probe_run": 1},
+                           # the ownership machine: reached from main.o only, the callback releases one buffer
+                           "gbp_vpresent_draw_done": {"on_draw_done": 1},
+                           "gbp_vpresent_submit": {"main": 1, "submit_ready": 1},
+                           # the service-path module's witness sites, the SAME code as stream-0015's (pinned
+                           # so a change to the module would show), and NOTHING else reaching the witness
+                           "gbp_vwitness_stage": {"gbp_vstate_probe_run": 2},
+                           "gbp_vwitness_place": {"gbp_vstate_probe_run": 2},
+                           "gbp_vwitness_commit": {"gbp_vstate_probe_run": 1},
+                           "gbp_vwitness_note_ticks": {"gbp_vstate_probe_run": 1},
+                           "gbp_vwitness_store_full": {"gbp_vstate_probe_run": 1},
+                           "gbp_vwitness_target_reached": {"gbp_vstate_probe_run": 1},
+                           "gbp_vwitness_gate_streak": {},
+                           "gbp_vwitness_release_streak": {},
+                           "gbp_vwitness_init": {},
+                           # the clock: the transport's 64-bit hook, five startup timestamps in main, the take
+                           # and the convert-done instants of the first-frame record in pump, the decision
+                           # instant in submit_ready. The draw-done callback reads NO clock any more (the
+                           # disposition trace took that timestamp), so on_draw_done is absent.
+                           "gettime": {"h_ticks64": 1, "main": 5, "pump": 2, "submit_ready": 1},
+                           # the conversion is CONSUMER ONLY: one tile row per slice, from pump
+                           "gbp_vpix_block": {"pump": 1, "gbp_vpix_frame": 1},
+                           # the session end: sampled in the pump slot and nowhere else; initialised in main
+                           "gbp_session_sample": {"pump": 1},
+                           "gbp_session_init": {"main": 1},
+                           # the controller: scanned by the input step (first in pump) and by main's two
+                           # wait loops; the Z read is a second PAD_ButtonsHeld in pump, never a second scan
+                           "PAD_ScanPads": {"main": 2, "pump": 1},
+                           "PAD_ButtonsHeld": {"pump": 2},
+                           # the input path: one step per pump call, its record taken right after
+                           "gbp_input_step": {"pump": 1},
+                           "gbp_input_take_event": {"pump": 1},
+                           # the ONE KEYPAD write function is reached from gbp_input_step and from nowhere
+                           # else; GCC lays it out as two call sites (the change/first path and the
+                           # refresh/retry path), which is the compiler's business -- the property is the
+                           # absence of every other caller
+                           "gbp_keypad_write": {"gbp_input_step": 2},
+                           # the ONE save, from main, after the teardown; no sidecar stream anywhere
+                           "sdlog_save": {"main": 1},
+                           "sdlog_stream_open": {}, "sdlog_stream_write": {}, "sdlog_stream_close": {}},
+        "elf_required": ("gbp_vstate_probe_run", "gbp_vstate_report", "gbp_vstate_block", "gbp_vsig_block",
+                         "gbp_vqueue_publish", "gbp_vqueue_take", "gbp_vqueue_commit", "gbp_vpix_block",
+                         "gbp_vpresent_acquire", "gbp_vpresent_submit", "gbp_vpresent_draw_done",
+                         "gbp_vpresent_xfb_target", "gbp_vpresent_shutdown", "GX_SetDrawDoneCallback",
+                         "gbp_vstate_storage_fault", "gbp_vstate_configured_bytes",
+                         "gbp_vqueue_pristine", "gbp_vpresent_invariant_failures",
+                         # the input path and the session end must SHIP
+                         # (gbp_input_map and gbp_keypad_encode are inlined into gbp_input_step and
+                         # garbage-collected from the ELF; the step, the write and the self-test ship)
+                         "gbp_input_step", "gbp_keypad_write",
+                         "gbp_input_selftest", "gbp_input_take_event", "gbp_input_keylog_admit",
+                         "gbp_session_init", "gbp_session_sample",
+                         "gbp_initirqa_run_cause", "gbp_initirqa_teardown", "gbp_regwrite_irq_u16",
+                         "gbp_regwrite_control_byte", "hsp_backend_oneshot_isr_ext",
+                         "hsp_backend_irq_transport_ext", "__UnmaskIrq", "__MaskIrq", "IRQ_Request",
+                         "GX_Init", "GX_InitTexObj", "GX_LoadTexObj", "DCFlushRange"),
+        "elf_forbidden": ("gbp_initirq_probe_run", "gbp_init_probe_run", "gbp_initirqb_probe_run",
+                          "gbp_initirq4_probe_run", "gbp_avsvc_probe_run", "gbp_avdump_serialize",
+                          "gbp_video_probe_run", "gbp_avseqdump_serialize", "gbp_vcoldump_stream",
+                          "hsp_backend_intmr_transport", "hsp_backend_oneshot_isr_multi",
+                          "hsp_backend_irq_transport_multi", "hsp_backend_irq_transport",
+                          "ARQ_Init", "AR_Init", "AUDIO_Init", "ASND_Init", "net_init",
+                          # the instrumentation: not linked at all
+                          "gbp_vidxdump_stream", "gbp_vidxdump_layout", "gbp_vdispdump_stream", "gbp_vdisp_take",
+                          "gbp_vfull_want", "gbp_vfull_block", "gbp_vfulldump_stream",
+                          "gbp_vvi_handed", "gbp_vvi_latch", "gbp_vvidump_stream"),
+        "irq_write_sites": {"gbp_initirqa_probe.o": 3, "gbp_irq_service.o": 1, "gbp_vstate_probe.o": 3},
+        "control_write_sites": {"gbp_initirqa_probe.o": 2},
+        "intsr_store_sites": {"h_write_intsr": 1, "hsp_backend_oneshot_isr": 1, "hsp_backend_oneshot_isr_ext": 1},
+        "object_may_only_reference": {
+            "gbp_vwitness.o": ("memset", "__udivdi3"),
+            # the session end reaches NOTHING: no clock, no controller, no memset
+            "gbp_session.o": (),
+        },
+        "object_must_not_reference": {
+            "gbp_vstate_probe.o": _CAPTURE_SYMBOLS,
+            "gbp_vstate.o": _CAPTURE_SYMBOLS,
+            "gbp_vwitness.o": _CAPTURE_SYMBOLS,
+            "gbp_vpix.o": _FS_SYMBOLS,
+            "gbp_vqueue.o": _FS_SYMBOLS,
+            "gbp_vpresent.o": _FS_SYMBOLS,
+            "gbp_vsig.o": _CAPTURE_SYMBOLS,
+            "gbp_vstatedump.o": _FS_SYMBOLS,
+            "gbp_time64.o": _FS_SYMBOLS,
+            "gbp_avblock.o": _FS_SYMBOLS,
+            "gbp_irq_service.o": _CAPTURE_SYMBOLS,
+            "gbp_initirqa_probe.o": _FS_SYMBOLS,
+            "hsp_backend.o": _FS_SYMBOLS,
+            "hsp_backend_irq.o": _FS_SYMBOLS,
+            # the pump slot's two modules: no filesystem, no CRC, no serializer
+            "gbp_input.o": _CAPTURE_SYMBOLS,
+            "gbp_session.o": _CAPTURE_SYMBOLS,
+        },
+        "main_must_call": ("hsp_backend_irq_transport_ext", "gbp_vstate_probe_run", "sdlog_save",
+                           "GX_Init", "GX_InitTexObj", "GX_LoadTexObj", "DCFlushRange",
+                           "GX_SetDrawDoneCallback", "GX_SetDrawDone",
+                           "gbp_input_init", "gbp_input_step", "gbp_input_selftest", "gbp_input_take_event",
+                           "gbp_session_init", "gbp_session_sample", "PAD_ScanPads", "PAD_ButtonsHeld"),
+        "main_must_not_call": ("hsp_backend_irq_transport", "hsp_backend_irq_transport_multi",
+                               "hsp_backend_intmr_transport", "gbp_initirqa_probe_run", "gbp_initirqb_probe_run",
+                               "gbp_initirq4_probe_run", "gbp_initirq_probe_run", "gbp_avsvc_probe_run",
+                               "gbp_video_probe_run", "gbp_irq_service_ack", "gbp_vqueue_publish",
+                               "gbp_vstatedump_stream", "sdlog_stream_open", "sdlog_save_blob"),
     },
 }
 # the GBP-INIT-003A names, kept for callers that import them
