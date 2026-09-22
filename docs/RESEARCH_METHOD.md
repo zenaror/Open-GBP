@@ -142,6 +142,40 @@ docs/research/HARDWARE_TESTS.md
 
 for experiments actually executed on physical hardware.
 
+### A later direct answer outranks a better reading of an earlier ambiguous one (2026-09-22, GitHub Issue #56)
+
+**The rule has two halves and they are one rule seen from two sides.**
+
+```text
+THE EVIDENCE HALF     a later DIRECT answer about the thing outranks a better READING of an earlier ambiguous
+                      statement about it. The ambiguous sentence is not reinterpreted, not retro-fitted and
+                      not quietly dropped: it is left as it stands, and the direct answer is what the record
+                      rests on.
+THE OPERATIONAL HALF  when an Operator statement is ambiguous, THE REPAIR IS TO ASK ABOUT THE THING, not to
+                      re-read the sentence more carefully. A more careful reading of an ambiguous sentence
+                      produces a more confident guess, which is the failure mode, not the fix.
+```
+
+**The case that produced it.** On 2026-09-21 the Operator wrote *"na RUN estou
+usando ez-flash e o road rage paralelo apenas"*. It was relayed as a settled
+choice of instrument and it was not one — the sentence names two things and
+settles neither for the runs that were eventually performed. **It was flagged
+as ambiguous at the time rather than resolved, which was right.** On 2026-09-22
+it was settled by asking about the runs themselves, and the answer was direct:
+*"EZ-Flash. Gravei a ROM na NOR e coloquei o flashcart no modo B"*
+(`docs/research/PHASE5_ASSESSMENT.md` §7b and R3, which remain the case).
+
+**The old sentence is still unread, and that is part of the rule rather than an
+omission.** Nobody went back to decide what it had meant, because the question
+it was ambiguous about now has a direct answer. A record that re-reads its way
+to a conclusion cannot show anyone how it got there.
+
+**Why the flagging mattered more than the resolution.** Had the ambiguity been
+read away in September, the four runs of Phase 5 would have carried an
+instrument nobody had actually confirmed, and the attribution caveat would have
+been lifted or kept on a guess. Flagging cost one sentence and one day; the
+alternative would have cost the record.
+
 ### A reference figure is defined by what the element CONTAINS, never by its position (2026-09-22, GitHub Issue #53)
 
 **The rule.** When a pre-registration freezes a comparison against a reference
