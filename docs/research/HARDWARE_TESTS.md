@@ -25749,7 +25749,7 @@ Phase 7 work.
 ---
 
 
-### V7.8 RUN 21 / RUN 22 / RUN 25 / RUN 26 — **FOUR sessions**, executed 2026-09-22 and ingested (GitHub Issue #52). The Operator split §V7.6.9 in two: **RUN 21 / RUN 22 are ordinary play only** (step 13) and **RUN 25 / RUN 26 are the scripted head** (steps 2–12), each pad in each. **Question K = AGREE over the head, computed by code written before any of these logs existed and not adjusted to them**; the two pads produced identical ordered press sequences, each matching the list press for press. Question T measured and its verdict NOT declared, on a third ambiguity reported rather than resolved; Question A/W still has no per-key report; RUN 21 ended on the EVENT STORE CAP, a finding about the image
+### V7.8 RUN 21 / RUN 22 / RUN 25 / RUN 26 — **FOUR sessions**, executed 2026-09-22 and ingested (GitHub Issue #52). The Operator split §V7.6.9 in two: **RUN 21 / RUN 22 are ordinary play only** (step 13) and **RUN 25 / RUN 26 are the scripted head** (steps 2–12), each pad in each. **Question K = AGREE over the head, computed by code written before any of these logs existed and not adjusted to them**; the two pads produced identical ordered press sequences, each matching the list press for press. Question T measured and its verdict NOT declared, on a third ambiguity reported rather than resolved; Question A/W still has no per-key report; RUN 21 ended on the EVENT STORE CAP, a finding about the image · **AMENDED 2026-09-22 (Issue #53, §V7.8.10): Question T = INCONCLUSIVE for all four runs — the gate as frozen cannot be applied, because its reference is positional and its statistic was never named; the measurements stand as measurements and are NOT a verdict**
 
 #### V7.8.1 WHAT THE OPERATOR ACTUALLY DID — four sessions, not two, and §V7.6.9 split in half
 
@@ -26142,3 +26142,181 @@ is recorded anywhere a gate did not apply**, and the one gate that was not met
 is RUN 21's SESSION, recorded exactly as §V7.6.10 wrote it in advance.
 
 ---
+
+#### V7.8.10 AMENDED 2026-09-22 (GitHub Issue #53) — **Question T = INCONCLUSIVE for RUN 21, RUN 22, RUN 25 and RUN 26.** A verdict about the PRE-REGISTRATION, not about the device
+
+**Written on top. §V7.6.3, §V7.6.11 and every part of §V7.8 above keep their
+words.** §V7.8.6 reported the ambiguity and declined to resolve it, which was
+the right move with the data fresh; this is the Orchestrator's resolution,
+dated, and it decides **one** thing: that **the gate as frozen cannot be
+applied.**
+
+##### The two defects, and why one of them is decisive
+
+```text
+DECISIVE -- a CATEGORY ERROR
+  §V7.6.3's reference is PER-INDEX while the indices do not denote the same thing across runs. It names
+  "CYCLT i=6,7: 12 ticks" as the AUDIO-only reference, and CYCLT i=6 carries a VIDEO BLOCK in both new
+  runs (1748 ticks in RUN 21, 838 in RUN 22). Comparing i=6 to i=6 compares an AUDIO-only cycle with a
+  VIDEO-carrying one. IT IS WRONG INDEPENDENTLY OF THE ANSWER IT PRODUCES, which is precisely what makes
+  it safe to act on AFTER the data: a defect that could only be recognised by disliking its output would
+  not be, and that distinction is what lets this be decided without breaking the freeze.
+SECOND, AND SEPARATE -- an UNNAMED STATISTIC
+  §V7.6.11 says NOMINAL needs the AUDIO-only gap "unchanged" and ANOMALOUS names a figure "far from" the
+  reference, and the frozen text NEVER SAYS WHICH STATISTIC DECIDES EITHER. The construction implements
+  equality, the only threshold-free reading, so it returns ANOMALOUS over a 1.1-tick difference in a mean
+  of nine samples -- an artefact of a choice the text never made.
+```
+
+##### Why not either verdict
+
+```text
+NOMINAL    would resolve an ambiguity AFTER the data. Forbidden by the freeze, and by nothing else it needs.
+ANOMALOUS  would elevate an artefact of one unstated statistic, computed over a non-portable reference,
+           into a finding about the hardware. Worse than the first, because it would look like a result.
+FAULT      excluded on its own terms: the TRANSPORT gate is clean in all four runs (§V7.8.3).
+```
+
+**So: INCONCLUSIVE, and the sentence that carries it is *the gate as frozen
+cannot be applied*.** It says nothing about the device, nothing about the
+shortened service pass, and nothing about whether the removal disturbed the
+transaction. **It is a verdict about a pre-registration this project wrote.**
+
+##### THE MEASUREMENTS STAND, AND THEY ARE NOT A VERDICT
+
+**This table is a MEASUREMENT. It is not `T = NOMINAL` and must never be read,
+cited or summarised as one.** Question T has **no** verdict for these runs.
+
+```text
+ACK -> RE-ARM, ticks at 40.5 MHz, split by WHAT THE CYCLE CARRIED (not by index)
+  VIDEO cycles        RUN 17   1197  895  886  885  854  869  3112
+                      RUN 21   1093  876  867  868  849  872  1748
+                      RUN 22   1094  876  871  869  848  878  837  840  837  838
+  AUDIO-only cycles   RUN 17     13   22   13   12   13   13   13   12   12
+                      RUN 21     15   12   12   12   13   13   12   12   12
+                      RUN 22     17   12   12   12   12   14
+  element for element, the first three VIDEO records   RUN 21  -104 / -19 / -19     vs RUN 17
+                                                       RUN 22  -103 / -19 / -15
+  delivery rate       6328.8 (RUN 17) · 6330.6 (RUN 21) · 6329.7 (RUN 22) per second
+  skipped_cause_pending  27.39 % · 27.08 % · 27.08 %
+THE READING, AS AN OBSERVATION AND NOTHING MORE
+  the VIDEO gap is SHORTER in both runs and the AUDIO-only control is UNCHANGED at 12-13 ticks in all
+  three. That is the direction the removal predicts, on the quantity it predicts, WITH THE WITHIN-RUN
+  CONTROL UNMOVED -- which is what makes it more than noise, and still not a gate outcome.
+  A LATER RUN UNDER §V7.9's T' CAN TURN THIS INTO A VERDICT. These four runs cannot.
+```
+
+##### What this changes elsewhere: nothing
+
+Question A, K, W and S are untouched (§V7.8.5, §V7.8.9). The TRANSPORT gate's
+own outcome is untouched. `tools/v7611.py` is **not edited**: its
+`question_T()` still returns what it returns, and the test that pins that
+remains, because the construction is not what was wrong — the reference it was
+given was.
+
+---
+
+
+### V7.9 QUESTION T′ — the timing of the shortened service pass, PRE-REGISTERED PROPERLY (2026-09-22, GitHub Issue #53). **NO HARDWARE IS SCHEDULED, NO RUN IS AUTHORISED**, and T′ may NEVER be applied to RUN 17, 21, 22, 25 or 26 as a verdict
+
+**Why this exists.** Question T's gate could not be applied (§V7.8.10): its
+reference was positional and its deciding statistic was never named. T′ is the
+same question asked so that it can be answered. **It replaces nothing**:
+§V7.6.3 and §V7.6.11 keep their words and their history, and T stays
+INCONCLUSIVE for the four runs that have happened.
+
+#### V7.9.1 THE BAR THAT MATTERS MOST, stated first
+
+**T′ MAY NOT BE APPLIED RETROSPECTIVELY TO RUN 17, RUN 21, RUN 22, RUN 25 OR
+RUN 26 AS A VERDICT.** A construction written after seeing those logs can never
+be a gate over them — that is the whole content of pre-registration, and it
+does not stop being true because the new construction is better than the old
+one.
+
+**A labelled retrospective computation is allowed and is NOT a verdict.** If
+anyone runs T′'s arithmetic over the existing logs, the output is marked
+`RETROSPECTIVE — NOT A VERDICT` at the point of use, and it may be cited only
+as an illustration of what the rule computes, never as T′'s answer for that
+run. **T′ has an answer only for a run performed after this section was
+written.**
+
+#### V7.9.2 The population, matched BY CONTENT
+
+```text
+the records        the bounded cycle records the image writes: CYCF/CYCFT (the first cycles) and CYCL/CYCLT
+                   (the last cycles). The INDEX IS PROVENANCE ONLY and is never a matching key (§V7.8.10;
+                   RESEARCH_METHOD.md, "A reference figure is defined by what the element CONTAINS").
+the classifier     each cycle is VIDEO-CARRYING if its CYCF/CYCL record shows a VIDEO block read (the v=1/1
+                   field) and AUDIO-ONLY otherwise. The predicate is applied to BOTH sides -- the reference
+                   run and the run under test -- and a record whose class cannot be determined is EXCLUDED
+                   and counted, never guessed.
+the quantity       ACK -> RE-ARM, in ticks of the run's own time base, taken as rearm - ack from the CYC*T
+                   record of the same cycle.
+minimum n          at least 5 cycles in EACH class in EACH run. Fewer than 5 in either class, in either run,
+                   is INCONCLUSIVE for T' and says which class was short.
+```
+
+#### V7.9.3 The statistic and the thresholds, fixed HERE, before any run
+
+```text
+the statistic      the MEDIAN of each class, and the full ordered list is reported beside it, always. The
+                   median is chosen because every run of this family shows ONE large value in its early
+                   verify region (RUN 17: 22 ticks; RUN 21: 15; RUN 22: 17 in the AUDIO-only class) and a
+                   mean is dragged by it -- which is exactly how the frozen construction came to return
+                   ANOMALOUS over a 1.1-tick difference.
+"unchanged"        |median(new) - median(reference)| <= 1 tick, for the AUDIO-only class. One tick is the
+                   quantisation of the values this class actually takes (12, 13, 14), so the threshold is
+                   the resolution of the measurement and not a tolerance chosen to fit.
+"not longer"       median(VIDEO, new) <= median(VIDEO, reference). A DIRECTION, with no magnitude: the
+                   removal predicts shorter, and "not longer" is what that predicts.
+"not lower"        delivery rate (deliveries / capture seconds) >= 0.99 x the reference's. The 1 % is fixed
+                   here and is the only allowance in this section.
+"far from"         |skipped_cause_pending(new) - reference| > 5 percentage points. Fixed here.
+the reference      A NAMED RUN, whose figures are RECOMPUTED by this same content-matching rule from its own
+                   log -- never quoted from §V7.6.3's table, which is the positional artefact this replaces.
+                   RUN 17 is the reference unless the pre-registration of the actual run names another.
+```
+
+#### V7.9.4 The within-run control, which is what makes this a measurement
+
+The witness step ran only on cycles that carried a VIDEO block, so **each run
+contains both arms**: the VIDEO-carrying cycles are the treatment and the
+AUDIO-only cycles are the control, from one log, one session, one thermal and
+timing environment. **The control is read FIRST**, and its reading gates the
+treatment's:
+
+```text
+if the AUDIO-only control is NOT "unchanged"   -> T' = INCONCLUSIVE for the removal. Something moved that the
+                                                  removal does not touch, so the VIDEO reading cannot be
+                                                  attributed to it. Reported with both classes' figures.
+if the control IS "unchanged"                  -> the VIDEO class is read against "not longer", and the
+                                                  cross-run comparison is the weaker, secondary statement.
+```
+
+#### V7.9.5 The decision rule
+
+```text
+FAULT         the TRANSPORT gate of §V7.6.10 is not met, or an anomaly record (CYCA) exists, or main_w1c > 0,
+              or a re-entry, or a service status other than ok. Checked FIRST and decides alone.
+INCONCLUSIVE  fewer than 5 cycles in either class in either run; the control not "unchanged" (§V7.9.4); the
+              cycle records absent or unclassifiable; the run never reached the service loop.
+NOMINAL       accounting clean AND the control unchanged AND median(VIDEO) not longer AND the delivery rate
+              not lower AND skipped_cause_pending not "far from" the reference.
+ANOMALOUS     accounting clean, the control unchanged, and at least one of the remaining three moves the way
+              the removal does NOT predict. NAMED with its figure and the reference's beside it.
+```
+
+**Every verdict reports every intermediate quantity** — both classes' full
+ordered lists, both medians, the n in each class, the excluded records and why
+— so a reader can redo the reading by hand. A magnitude is still not a verdict.
+
+#### V7.9.6 What T′ does not do
+
+It does not schedule a run, authorise a build, or change any image. It does not
+touch Question A, K, W or S. It does not re-open T for the four runs that have
+happened: **they stay INCONCLUSIVE** (§V7.8.10), and this section is not an
+argument that they should have been anything else. And it is a
+pre-registration, not a result: it has answered nothing.
+
+---
+
