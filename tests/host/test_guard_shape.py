@@ -16,6 +16,7 @@ enforced here, for EVERY test of the shape and not only the ones that failed:
      static — it reads the reasons out of the sources — so it runs under
      pytest and under `unittest discover` alike.
 """
+import ast
 import os
 import re
 import unittest
@@ -37,6 +38,56 @@ def read(f):
         return fh.read()
 
 
+def _reason_of(node):
+    """The skip reason a node gives, and how it was obtained.
+
+    A reason is not always a literal: 27 of the suite's sites pass a %-formatted string, starting with
+    guards.py's own "the base commit %s is not in this checkout…", which fires from every converted
+    guard. A regex over string literals therefore reported clean over sites it never saw (GitHub Issue
+    #44, item 2). `ast` sees them all, and for a non-literal the LITERAL PREFIX is what must classify:
+    the left operand of a `%`, or the leading literal of an f-string. Anything with no literal prefix
+    at all is returned as unextractable, and the test below fails on it rather than ignoring it.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value, "literal"
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
+        left, _how = _reason_of(node.left)
+        return (left, "format-prefix") if left is not None else (None, "unextractable")
+    if isinstance(node, ast.JoinedStr):
+        for v in node.values:
+            if isinstance(v, ast.Constant) and isinstance(v.value, str) and v.value.strip():
+                return v.value, "fstring-prefix"
+        return None, "unextractable"
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in ("format", "join"):
+        return _reason_of(node.func.value)
+    return None, "unextractable"
+
+
+def skip_sites(files=None):
+    """Every skip site in tests/host, by `ast`: (file, line, reason-or-None, how, kind).
+
+    Reproducible from a shell, which is the point of reporting a figure at all:
+
+        python3 -c "import sys; sys.path.insert(0,'tests/host'); import test_guard_shape as g; \
+                    s=g.skip_sites(); print(len(s), 'sites,', len({r for _f,_l,r,_h,_k in s if r}), 'distinct reasons')"
+    """
+    out = []
+    for f in (files if files is not None else sorted(x for x in os.listdir(HOST) if x.endswith(".py"))):
+        if f == "test_guard_shape.py":
+            continue                      # this file's own probes are not suite skips
+        tree = ast.parse(read(f), filename=f)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "skipTest":
+                arg = node.args[0] if node.args else None
+                r, how = _reason_of(arg) if arg is not None else (None, "unextractable")
+                out.append((f, node.lineno, r, how, "call"))
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in ("skipUnless", "skipIf"):
+                arg = node.args[1] if len(node.args) > 1 else None
+                r, how = _reason_of(arg) if arg is not None else (None, "unextractable")
+                out.append((f, node.lineno, r, how, "decorator"))
+    return out
+
+
 class EveryGitQuestionGoesThroughTheHelper(unittest.TestCase):
     def test_no_test_asks_git_what_changed_by_itself(self):
         offenders = []
@@ -50,7 +101,7 @@ class EveryGitQuestionGoesThroughTheHelper(unittest.TestCase):
         self.assertEqual(offenders, [], "\n".join(offenders))
 
     def test_the_helper_asks_both_halves_and_says_what_it_omits(self):
-        src = read("../host/guards.py") if False else open(os.path.join(HOST, "guards.py"), encoding="utf-8").read()
+        src = open(os.path.join(HOST, "guards.py"), encoding="utf-8").read()
         self.assertIn('"diff", "--name-only"', src)
         self.assertIn('"ls-files", "--others", "--exclude-standard"', src)
         self.assertIn("return tracked_changes(base, paths) | untracked(paths)", src)
@@ -97,21 +148,27 @@ class EveryGitQuestionGoesThroughTheHelper(unittest.TestCase):
 
 class EverySkipIsRegisteredWithWhatCoversIt(unittest.TestCase):
     def skip_reasons(self):
-        out = []
-        for f in host_tests():
-            if f == "test_guard_shape.py":
-                continue
-            t = read(f)
-            for m in re.finditer(r'skipTest\(\s*("(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\')', t):
-                out.append((f, m.group(1)[1:-1]))
-            for m in re.finditer(r'@unittest\.skip(?:Unless|If)\((?:[^()]|\([^()]*\))*?,\s*\n?\s*("(?:[^"\\]|\\.)*")\s*\)', t):
-                out.append((f, m.group(1)[1:-1]))
-        return out
+        return [(f, r) for f, _l, r, _how, _k in skip_sites() if r is not None]
 
     def test_every_reason_in_the_sources_classifies(self):
         unregistered = ["%s: %s" % (f, r) for f, r in self.skip_reasons() if skip_ledger.classify(r) is None]
         self.assertEqual(unregistered, [], "unregistered skip reasons (add them to skip_ledger.py with their class "
                                            "and with what covers the risk instead):\n" + "\n".join(unregistered))
+
+    def test_the_extractor_sees_every_site_including_the_formatted_ones(self):
+        """Issue #44 item 2: a regex over literals reported clean over sites it never saw."""
+        sites = skip_sites()
+        kinds = {k: sum(1 for s in sites if s[4] == k) for k in ("call", "decorator")}
+        hows = {h: sum(1 for s in sites if s[3] == h) for h in ("literal", "format-prefix", "fstring-prefix", "unextractable")}
+        self.assertEqual(hows["unextractable"], 0,
+                         "a skip reason with no literal prefix cannot be registered or reviewed: %s"
+                         % [(f, l) for f, l, r, h, _k in sites if h == "unextractable"])
+        self.assertGreater(hows["format-prefix"], 10, "the formatted reasons are the ones the regex missed; if this "
+                                                      "collapses to zero the extractor is no longer proving anything")
+        self.assertGreater(kinds["call"], 50)
+        self.assertGreater(kinds["decorator"], 40)
+        # guards.py's own formatted reason is in the set, which is the site the regex missed first
+        self.assertTrue(any(f == "guards.py" and h == "format-prefix" for f, _l, _r, h, _k in sites))
 
     def test_the_ledger_is_well_formed_and_nothing_in_it_is_stale(self):
         reasons = [r for _f, r in self.skip_reasons()]

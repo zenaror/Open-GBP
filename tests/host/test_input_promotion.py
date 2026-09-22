@@ -249,8 +249,9 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
         if not guards.base_available(BASE):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE)
         changed = guards.changed_since(BASE, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures"])   # Issue #29: tracked AND untracked, one implementation
-        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing
-        changed = changed - {"tools/reconcile.py"}
+        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing, and
+        # Issue #44 (2026-09-22) hardened the staging tool against destroying a frozen slot: the manifest gained a frozen_sha256 column
+        changed = changed - {"tools/reconcile.py", "tools/swiss_export.py", "tools/swiss-layout.tsv"}
         # Issue #27 (after this promotion) touched the input module and the stream probe; Issue #33 (2026-09-21) added the
         # RUN 16 / 17 / 18 fixtures (tests/host/test_run17.py pins them); nothing else here
         changed = changed

@@ -179,7 +179,9 @@ class ThePumpSlotInsertion(unittest.TestCase):
         # (tests/host/test_play_image.py pins the change) -- and the `play` audit profile and the Swiss slot to tools/
         # Issue #29 (2026-09-21) added the promotion sweep tool under tools/; it reads the pages and judges nothing
         self.assertTrue(changed <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "tools/poc_audit.py",
-                                    "tools/swiss-layout.tsv", "tools/reconcile.py"},
+                                    "tools/swiss-layout.tsv", "tools/reconcile.py",
+                                    # Issue #44 (2026-09-22): the staging tool's frozen-slot refusal
+                                    "tools/swiss_export.py"},
                         "changed against the base: " + " ".join(sorted(changed)))
 
 

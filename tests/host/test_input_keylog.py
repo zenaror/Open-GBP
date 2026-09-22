@@ -214,8 +214,9 @@ class NothingElseMoved(unittest.TestCase):
         if not guards.base_available(BASE):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE)
         changed = guards.changed_since(BASE, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware"])   # Issue #29: tracked AND untracked, one implementation
-        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing
-        changed = changed - {"tools/reconcile.py"}
+        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing, and
+        # Issue #44 (2026-09-22) hardened the staging tool against destroying a frozen slot: the manifest gained a frozen_sha256 column
+        changed = changed - {"tools/reconcile.py", "tools/swiss_export.py", "tools/swiss-layout.tsv"}
         changed = changed
         # Issue #28 (2026-09-21) corrected docs/protocol/INPUT.md's "GBP-KEY-009; recorded, not implemented" on its
         # date, in its own commit, and appended the RUN 17 / RUN 18 pre-registration (§V7.3) after §V7.2; the

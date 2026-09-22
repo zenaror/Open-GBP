@@ -61,9 +61,10 @@ LEDGER = [
      "test_staged_artifacts.py checks whatever IS staged, and fails rather than skips when it cannot"),
     (r"^gcc unavailable", "TOOLCHAIN_ABSENT",
      "the same property is asserted statically by the source pins in the same file"),
-    (r"^run `make (build )?\w+-audit`", "AUDIT_INPUT_ABSENT",
+    (r"^run `make [^`]*-audit", "AUDIT_INPUT_ABSENT",
      "`make <x>-audit` is run in the checkpoint that changes the code it audits, and its 0-finding result is reported "
-     "there; the suite records the decision rather than silently depending on it"),
+     "there; the suite records the decision rather than silently depending on it. (The `ast` extractor of Issue #44 "
+     "caught one site of this class that the literal-only regex never saw: test_play_image.py's decorator.)"),
     (r"^(physical .*(fixture|sidecar) (missing|is required)|raw log not available locally|local raw log not present|"
      r"no local archive on this host|the physical .*(sidecar|fixture).*|color-0001 sidecar missing|physical v3 sidecar missing|"
      r"the v5 replay fixture is missing)", "LOCAL_ARTIFACT_ABSENT",

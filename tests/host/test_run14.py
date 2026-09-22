@@ -796,8 +796,9 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         # docs/protocol and docs/hardware left this guard with the Issue #26 promotion; Issue #27 touched the input
         # module and the stream probe (the per-change record, the ENVINPUT repair) and nothing else under these paths
         changed = guards.changed_since(FROZEN_V71_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus"])   # Issue #29: tracked AND untracked, one implementation
-        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing
-        changed = changed - {"tools/reconcile.py"}
+        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing, and
+        # Issue #44 (2026-09-22) hardened the staging tool against destroying a frozen slot: the manifest gained a frozen_sha256 column
+        changed = changed - {"tools/reconcile.py", "tools/swiss_export.py", "tools/swiss-layout.tsv"}
         allowed = {"src/gbp/gbp_input.c", "src/gbp/gbp_input.h", "poc/gbp-video-stream-probe/source/main.c", "poc/gbp-video-stream-probe/Makefile"}
         # Issue #39 (2026-09-21) built the playable image: the session end in the service-path module (tests/host/test_play_image.py pins it), a new POC, its audit profile and its Swiss slot
         allowed |= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"}
