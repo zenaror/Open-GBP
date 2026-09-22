@@ -12884,3 +12884,116 @@ with its reason is a guard that stops guarding.
 **Next:** the build (`stream-0016`), authorised on its own, with the retention,
 the control and the sidecar — then the run.
 
+---
+
+## 2026-09-22 — Issue #59: the image §V8 needs is BUILT — `stream-0016`, the audio window, four press windows and a silent control, with the service path unchanged and the budget stated in advance
+
+**BUILT AND HOST-VALIDATED. It has never touched hardware**, the run it exists
+for is pre-registered (§V8, `GBP-AUDIO-001`) and **NOT authorised**, and it is
+**not staged**: `12-stream` and `13-play` keep their frozen hashes and the
+layout has no row for this image.
+
+**Identity:**
+
+```text
+poc/gbp-audio-window-probe   app gbp-audio-window-probe   build stream-0016
+DOL  build/poc/gbp-audio-window-probe/gbp-audio-window-probe.dol   498 496 B
+```
+
+The DOL hash is recorded with the clean commit in the Issue report: a `-dirty`
+build is never a physical candidate (`CLAUDE.md` §18).
+
+**What it is.** `play-0001`'s runtime — and so `stream-0015`'s service,
+presentation and input paths — plus the two things §V8 needs and no image had:
+**retention** of whole runs of consecutive AUDIO blocks and **emission** of
+them with an anchor.
+
+**THE CHANGE TO THE SERVICE PATH IS ONE OPTIONAL FIELD AND ONE CALL.**
+`cfg->awin`, NULL in every earlier build, and — after the drain and after
+`gbp_vstate_audio_commit` — at most one 4096-byte `memcpy` in RAM, measured
+between two `now32` reads, in exactly the shape the witness hook has had since
+§V5.39. **No device operation is added, removed or reordered**, and the test
+proves that by diffing the module against the Issue #19 base and checking that
+no added line names a device operation. Every strictly frozen service-path file
+is byte-identical.
+
+**THE SUBTRACTION IS A DIFF, NOT AN ASSERTION** (#39's precedent, #59's item
+4). `input_step()`, `session_step()`, `submit_ready()` and
+`offer_oldest_ready()` are **character-for-character** play-0001's.
+`keylog_emit()` and `pump()` gained **exactly one line each**, and the test
+names both:
+
+```text
+keylog_emit()   awin_note_event(&e);   -- the anchor, BEFORE the ringlog's own admission test, so the
+                                          window can never depend on the log's headroom
+pump()          awin_gate();           -- after input_step() and session_step(), in that order
+```
+
+**THE ANCHOR IS A RISING EDGE, NOT A KEY EVENT.** `gbp_input` reports a write
+on every *change*, so one press produces two — the key down and the key up. Four
+windows and four presses means a release must not consume one, so a window is
+armed only when the new word has a bit the previous word did not. **This is the
+kind of thing that would have cost a physical run to discover.**
+
+**The window is the pre-registration's, not the build's.** 4 press windows ×
+256 blocks (§V8.3.2) **plus one control window of the same size** (§V8.5.1,
+without which AU's positive verdict is unavailable), = **5 242 880 B**,
+asserted at compile time against the module's constants, with
+`_Static_assert(... "a build may not economise")` beside it.
+
+**THE BUDGET, STATED IN ADVANCE — play-0001's own lesson.** Its event store
+bound its session at ~274 s and nobody had said so beforehand (`GBP-HW-282`).
+Here:
+
+```text
+safety budget     120 s        the bound that fires in a run that does not complete its capture
+frame store       16384        the storage contract's MINIMUM (a smaller set is refused at the first
+                               gate, GBP-HW-136) and 274 s at 59.727 Hz -- it never bounds the session
+event store       8192         ABOVE the contract's 4096 on purpose: the archive's figure for this store
+                               is the FRAME rate (59.81/s), not the ~4/s play-0001 assumed, so 4096
+                               would have bounded the session at 68 s -- INSIDE the budget
+given up          6 029 312 B  against play-0001's stores
+taken             5 242 880 B  the window
+net               the image is 775 104 B SMALLER than play-0001, measured on the ELF
+unmeasurable here a session longer than 120 s, and the video research instrumentation play-0001
+                  already did without (the OGBPIDX1 witness, the full-frame samples, the VI latch
+                  trace, the disposition trace)
+```
+
+**Nothing was economised on the window.** Had the budget not covered it, that
+would have been a finding to report — the window is frozen and the image is not.
+
+**The sidecar is a new contract, `OGBPAW1`**, because no existing one carries a
+window anchor and a frozen contract is never extended in place. Header, one
+128-byte anchor per window — the KEY event's number, the word, the three
+instants in the transport's `ticks64` base, the service delivery index of the
+first and last stored block, the flags — then the blocks in window order and in
+drain order, then a footer CRC over everything. **The 5 MB is never copied
+through the chunk**: each block goes to the sink straight out of the store.
+
+**The audit profile `awin` is DERIVED from `play`, not pasted** — a pasted
+profile drifts from its parent silently. It **discriminates both ways**, and the
+test runs the auditor rather than counting its rules (#44's lesson): `awin`
+passes this image with 0 findings, fails the play image (`expected object
+missing: gbp_awin.o`), and `play` fails this image. Both one-shot handlers are
+**byte-identical** to the physically validated GBP-VIDEO-001 build's.
+
+**Two things the audit taught, and they are recorded rather than worked
+around.** `awin_note_event()` and `awin_gate()` are static and **GCC inlines
+them into `pump()`**, so pinning them by name would pin a compiler decision:
+the profile pins the *property* — the arms are attributed to the pump slot and
+to no other function. And `main` gained a **third** wait loop, the window's own
+store-fault refusal, which the `PAD_ScanPads` pin now states.
+
+**Tests:** `tests/unit/test_gbp_awin.c` (91 checks) and
+`tests/unit/test_gbp_awindump.c` (66 checks), synthetic only; and
+`tests/host/test_awin_image.py` (26 cases). The unit tests spend most of their
+weight on the **refusals** — a press while a window is filling, a fifth press, a
+release, a drain that did not complete — because those are what decide whether
+§V8's run is readable, and each has to be visible in the sidecar rather than
+silently absorbed.
+
+**Next:** nothing is authorised. Staging to a new Swiss slot (`14-audio`) and
+the Hardware Issue are the Orchestrator's, on a clean commit with the DOL hash
+recorded.
+
