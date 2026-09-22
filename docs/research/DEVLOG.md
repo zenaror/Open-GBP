@@ -11996,3 +11996,100 @@ skipped, 103 subtests passed**. Twelve freeze guards moved with their reason,
 
 **Nothing about the runs is known and nothing is claimed.** What exists now is
 the reading, written down before the thing it will read.
+## 2026-09-22 — Issue #51: §V7.6 AMENDED BEFORE HARDWARE — Question K narrowed to steps 2–12, because the frozen text named a comparison its own instrument cannot delimit; the typo corrected; nothing the Operator does changes
+
+**The decision, and where it came from.** Issue #50 made §V7.6.11's verdicts
+executable from the frozen text with no data in reach, and **refused** to
+compute Question K: §V7.6.11 compares K over *"steps 2-12, 14 and 15"*, steps
+14 and 15 follow step 13's unbounded ordinary play, and nothing in the frozen
+text locates that boundary in a `KEY` record. The Orchestrator decided both
+reported ambiguities and this checkpoint writes the amendment.
+
+**§V7.6.15, written on top and dated.** Every word of §V7.6.1 – §V7.6.14 is
+kept verbatim. **K is computed over steps 2-12 only**, from the START cut-off
+§V7.6.11 already defines. **K's tail is NOT COMPUTED and is recorded as
+`NOT DEFINED BY THE PRE-REGISTRATION`, never as INCONCLUSIVE** — the run is not
+inconclusive about it; the pre-registration never defined it, and the
+distinction is not pedantry, because an INCONCLUSIVE invites a rerun that
+cannot help.
+
+**THE HARD CONSTRAINT, and it shaped the amendment.** Nothing the Operator does
+changes. He has the checklist and the runs may already have been performed, so
+this is **ingestion-side only**: not one step, press, order or instruction was
+altered and §V7.6.9 was not touched.
+
+**What is lost, stated rather than left to be reconstructed.** The closing
+sweep still happens and still produces his per-key report, which feeds **W and
+S unchanged**. What is lost is only the machine-side ordered comparison between
+the two pads **after** minutes of play. Nothing about W or T changes at all.
+Where S leaned on K for the tail, S reads his channel alone there and says so
+per key, carrying `machine half: NOT DEFINED BY THE PRE-REGISTRATION` beside
+the reading.
+
+**The typo, corrected as one.** §V7.6.11's closing Reading rules said *"step
+14's ordinary play"*; step 13 is the play and step 14 is `START × 1` then
+`START × 1`. Two of the three statements said 13. It is a typo and not a live
+alternative because the literal reading is **self-defeating**: it would exclude
+the pause from K while requiring three minutes of play to be compared press for
+press, which §V7.6.9 says cannot be done.
+
+**THE REJECTED RULES ARE DEMONSTRATED WRONG, not merely declared so**, which
+was the Orchestrator's specific request and is the most durable thing in this
+checkpoint. On a vector where the Operator fumbles ONE press in the closing
+sweep:
+
+```text
+the amendment (steps 2-12)   AGREE. The head is identical in both runs and the fumble cannot reach it.
+trailing twelve              RIGHT on the clean run -- which is what makes it tempting -- and WRONG on the
+                             fumbled one: the extra press pushes the window forward, so it silently drops
+                             step 14's first START and reports "START against A" at the same position, from
+                             two runs whose true segments both begin with START. Every element of its output
+                             is a valid key and the lengths match, so NOTHING IN THE ANSWER SAYS THE WINDOW
+                             SLID: a reader would attribute the difference to the pads.
+largest time gap             cuts inside the play, because the vector puts a cutscene-length pause there --
+                             longer than the step-13 -> step-14 transition, which §V7.6.15 says certainly
+                             happens in three minutes of play. Its segment then carries play presses and it
+                             disagrees with the trailing-window rule on the same clean run.
+```
+
+Both rejected rules live **in the test file and nowhere else**; `tools/v7611.py`
+implements neither.
+
+**A forward rule, recorded and NOT applied to this pair** (§V7.6.15 and
+`INPUT_PATH.md` §14): any future action list a machine must segment has to put
+a **machine-locatable boundary into the record itself** — cheapest is a
+simultaneous two-key press the scripted parts never use, which appears as two
+bits rising in one completed word, unambiguous to a parser, at a cost of one
+action to the Operator. The general form outlives the list: **a
+pre-registration may only freeze a comparison its own instrument can
+delimit.**
+
+**Two things the Orchestrator checked and endorsed, recorded here because they
+are the argument for Issue #50 itself.** The prepended `0x0000` of
+`completed_words()` is right, and for a reason now in the comment: if the
+`act=first word=0000` line is ever absent and the first completed word already
+carries a bit, the prepend produces the rising edge that genuinely occurred —
+a duplicate in the normal case and correct in the abnormal one. And the branch
+ordering is exactly §V7.6.11: `R_b = 0` is NOT SENT when he reports NO
+RESPONSE and INCONCLUSIVE when his report is missing, the same machine evidence
+told apart only by his channel. **That a synthetic dropped-press vector caught
+the first version of that branch, before any hardware existed, is the whole
+argument for #50: a checkpoint that finds its own bug on invented data has paid
+for itself twice.**
+
+**K's verdict vocabulary was also corrected while implementing the amendment.**
+The #50 code returned `DIFFERENT` for a differing head, which is **S's**
+vocabulary; K's four are AGREE / EXPLAINED / FINDING / INCONCLUSIVE.
+`question_K_head` now returns FINDING for §V7.6.11's two FINDING clauses (the
+second computed only when his report is supplied) and `DIFFERS` — stated as
+**not a verdict** — where EXPLAINED would need his channel, which the code does
+not decide.
+
+**Result.** `make test-python` on the committed tree: **1635 passed, 7 skipped,
+103 subtests passed**. No gate was renegotiated after a result, because there
+is no result: nothing from RUN 21 or RUN 22 was read in this checkpoint. **The
+skip count fell from 9 to 7 between #50 and #51** for a reason worth recording
+rather than glossing: the SD card is mounted on this host again, so the two
+staged-artifact checks that skipped while it was in the console now run. That
+is an observation about the card's whereabouts and nothing else; no run data
+was opened.

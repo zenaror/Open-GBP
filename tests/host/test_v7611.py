@@ -47,14 +47,19 @@ def press(*keys):
     return out
 
 
-def keylog(words, rc="ok", start_n=1, step=1):
-    """A synthetic KEY record in the runtime's own format (GBP_INPUT_EVENT_FMT)."""
+def keylog(words, rc="ok", start_n=1, step=1, times=None):
+    """A synthetic KEY record in the runtime's own format (GBP_INPUT_EVENT_FMT).
+
+    `times` supplies t_poll per word when a vector needs controlled timing (the
+    rejected time-gap rule is demonstrated with it).
+    """
     out = ["000100 KEY n=%d act=first keys=0000 word=0000 t_poll=1 t_attempt=2 t_done=3 xfer=30 rc=%s" % (start_n, rc)]
     n = start_n
     for i, word in enumerate(words):
         n += step
+        tp = times[i] if times else 100 + i
         out.append("0001%02d KEY n=%d act=change keys=%04x word=%04x t_poll=%x t_attempt=%x t_done=%x xfer=31 rc=%s"
-                   % (i + 1, n, word, word, 100 + i, 101 + i, 102 + i, rc))
+                   % (i + 1, n, word, word, tp, tp + 1, tp + 2, rc))
     return "\n".join(out)
 
 
@@ -334,17 +339,65 @@ class QuestionSAndTheRefusalInK(unittest.TestCase):
         self.assertTrue(all(v[0] == "INCONCLUSIVE" for v in s.values()))
         self.assertIn("different cartridge or boot path", s["A"][1])
 
-    def test_K_refuses_to_invent_the_step_13_boundary(self):
-        """The ambiguity Issue #50 told me to report rather than resolve."""
+    def test_K_is_the_head_and_its_tail_is_not_defined_rather_than_inconclusive(self):
+        """§V7.6.15 (Issue #51): the amendment Issue #50's refusal earned."""
         seq, _ = v7611.press_sequence(words_of(keylog(HEAD)))
         k = v7611.question_K(seq, seq)
-        self.assertEqual(k["verdict"], v7611.PENDING_AMENDMENT)
-        self.assertIn("no machine rule for finding where step 13's ordinary play ends", k["why"])
-        self.assertIn("Reported, not resolved", k["why"])
-        # and the part that IS defined still computes
-        self.assertEqual(k["head"]["verdict"], "AGREE")
-        self.assertIn("compared over steps 2-12, 14 and 15", v7611.question_K.__doc__)
-        self.assertIn("NOT IMPLEMENTED, BY REFUSAL", v7611.question_K.__doc__)
+        self.assertEqual(k["verdict"], "AGREE")
+        self.assertIn("steps 2-12 only (§V7.6.15)", k["scope"])
+        self.assertEqual(k["tail"]["verdict"], v7611.NOT_DEFINED)
+        self.assertEqual(k["tail"]["steps"], "14 and 15")
+        # NOT inconclusive, and the reason the distinction matters is carried with it
+        self.assertNotIn("INCONCLUSIVE", k["tail"]["verdict"])
+        self.assertIn("no rerun would help", k["tail"]["why"])
+        self.assertIn("named a comparison its own instrument cannot delimit", k["tail"]["why"])
+        self.assertIn("K is computed over steps 2-12 only", v7611.question_K.__doc__)
+
+    def test_nothing_returns_the_retired_pending_name(self):
+        seq, _ = v7611.press_sequence(words_of(keylog(HEAD)))
+        for result in (v7611.question_K(seq, seq), v7611.question_K_head(seq, seq)):
+            self.assertNotIn(v7611.PENDING_AMENDMENT, repr(result))
+
+    def test_K_uses_only_its_own_four_verdicts(self):
+        """AGREE / EXPLAINED / FINDING / INCONCLUSIVE are K's vocabulary (§V7.6.11).
+
+        A difference this code cannot attribute comes back as DIFFERS, which is
+        stated as NOT a verdict: EXPLAINED needs the Operator's report, and the
+        code does not decide that.
+        """
+        a, _ = v7611.press_sequence(words_of(keylog(HEAD)))
+        swapped = HEAD[:2] + press("B") + HEAD[4:]          # A replaced by B at press 2
+        b, _ = v7611.press_sequence(words_of(keylog(swapped)))
+        k = v7611.question_K_head(a, b)
+        self.assertIn(k["verdict"], ("FINDING", "DIFFERS"))
+        if k["verdict"] == "DIFFERS":
+            self.assertIn("not a verdict", k["note"])
+            self.assertIn("EXPLAINED requires the Operator's report", k["note"])
+
+    def test_a_list_key_he_reports_but_that_never_appears_is_a_FINDING(self):
+        """§V7.6.11's second FINDING clause, which needs his channel."""
+        dropped = [x for x in HEAD]
+        i = dropped.index(w("L"))
+        del dropped[i:i + 2]
+        a, _ = v7611.press_sequence(words_of(keylog(HEAD)))
+        b, _ = v7611.press_sequence(words_of(keylog(dropped)))
+        rep = dict((k, "RESPONDED") for k in B)
+        k = v7611.question_K_head(a, b, rep, rep)
+        self.assertEqual(k["verdict"], "FINDING")
+        self.assertTrue(any(x["key"] == "L" and x["pad"] == "B" for x in k["never_appeared"]), k)
+
+    def test_S_over_the_sweep_reads_his_channel_alone_and_says_so(self):
+        """§V7.6.15: S keeps both halves over the head and carries the note over the sweep."""
+        rep = dict((k, "RESPONDED") for k in B)
+        wv = dict((k, ("WORKS", "")) for k in B)
+        head = v7611.question_A_S(wv, wv, rep, rep, "AGREE", True, segment="head")
+        sweep = v7611.question_A_S(wv, wv, rep, rep, v7611.NOT_DEFINED, True, segment="sweep")
+        self.assertTrue(all(v[0] == "SAME" for v in head.values()))
+        self.assertTrue(all(v[2] is None for v in head.values()))
+        # over the sweep S is still SAME -- his channel carries it -- and the machine half is named
+        self.assertTrue(all(v[0] == "SAME" for v in sweep.values()))
+        self.assertTrue(all(v7611.NOT_DEFINED in v[2] for v in sweep.values()))
+        self.assertIn("his channel alone over steps 14-15", sweep["A"][1])
 
 
 class TheParserAgreesWithTheRuntimesOwnFormat(unittest.TestCase):
@@ -379,3 +432,143 @@ class TheParserAgreesWithTheRuntimesOwnFormat(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# The two rejected rules, implemented HERE and nowhere else, so that the reason
+# they were rejected survives as a demonstration rather than as a paragraph.
+# §V7.6.15 rejects both; `tools/v7611.py` implements neither.
+# ---------------------------------------------------------------------------
+def rejected_trailing_twelve(seq):
+    """"the last twelve presses are steps 14 and 15" — rejected by §V7.6.15."""
+    return [k for _, k in seq][-12:]
+
+
+def rejected_largest_time_gap(lines):
+    """"steps 14-15 begin after the longest pause" — rejected by §V7.6.15."""
+    ok = [l for l in sorted(lines, key=lambda l: l.n) if l.rc == "ok"]
+    rises = []
+    prev = 0
+    for l in ok:
+        rose = l.word & ~prev
+        prev = l.word
+        if rose:
+            for b in sorted(v7611.C):
+                if rose & (1 << b):
+                    rises.append((l.t_poll, v7611.C[b]))
+    if len(rises) < 2:
+        return [k for _, k in rises]
+    gaps = [(rises[i + 1][0] - rises[i][0], i + 1) for i in range(len(rises) - 1)]
+    _, cut = max(gaps)
+    return [k for _, k in rises[cut:]]
+
+
+class TheRejectedRulesAreDemonstratedWrong(unittest.TestCase):
+    """§V7.6.15, and the Orchestrator's specific request on Issue #51.
+
+    A paragraph saying "we rejected the trailing-twelve rule" is forgettable. A
+    test showing it read the WRONG PRESSES WHILE LOOKING CORRECT is not. The
+    vector is the realistic one: the Operator fumbles a single press in the
+    closing sweep, which is exactly what a person does and exactly what the
+    rule cannot survive.
+    """
+
+    def session(self, fumble=False, cutscene=True):
+        """HEAD, then ordinary play, then step 14 (START ×2), then step 15's sweep.
+
+        `cutscene` puts a pause INSIDE the play that is longer than the
+        step-13 → step-14 transition, which §V7.6.15 says certainly happens in
+        three minutes of platforming.
+        """
+        play = press("A", "RIGHT", "A", "B", "RIGHT", "A")
+        step14 = press("START", "START")
+        sweep = press(*v7611.SWEEP_SEQUENCE)
+        if fumble:
+            sweep = press("START", "A", "A") + press(*v7611.SWEEP_SEQUENCE[2:])   # one doubled A
+        words = HEAD + play + step14 + sweep
+        times, tick = [], 0
+        for i in range(len(words)):
+            # a long pause in the middle of the play, and a shorter one before step 14
+            if cutscene and i == len(HEAD) + 6:
+                tick += 10_000_000          # the cutscene
+            elif i == len(HEAD) + len(play):
+                tick += 2_000_000           # the step-13 -> step-14 transition, SHORTER than the cutscene
+            else:
+                tick += 1_000
+            times.append(tick)
+        text = keylog(words, times=times)
+        lines, problems = v7611.parse_key_lines(text)
+        assert not problems
+        seq, started = v7611.press_sequence(v7611.completed_words(lines))
+        assert started
+        # the TRUE tail (steps 14 and 15), which the test knows because it built the vector
+        # and which no rule reading only the KEY record can know
+        true_tail = ["START", "START"] + ([k for k in v7611.SWEEP_SEQUENCE] if not fumble
+                                          else ["START", "A", "A"] + list(v7611.SWEEP_SEQUENCE[2:]))
+        return seq, lines, true_tail
+
+    def test_the_amendments_K_is_unaffected_by_a_fumble_in_step_15(self):
+        a, _, _ = self.session()
+        b, _, _ = self.session(fumble=True)
+        k = v7611.question_K(a, b)
+        self.assertEqual(k["verdict"], "AGREE")
+        self.assertEqual(k["head"]["common_prefix"], len(v7611.HEAD_SEQUENCE))
+        self.assertEqual(k["tail"]["verdict"], v7611.NOT_DEFINED)
+
+    def test_trailing_twelve_reads_the_wrong_presses_while_looking_correct(self):
+        a, _, tail_a = self.session()
+        b, _, tail_b = self.session(fumble=True)
+        wa, wb = rejected_trailing_twelve(a), rejected_trailing_twelve(b)
+        # on the clean run the rule happens to be right, which is what makes it tempting
+        self.assertEqual(wa, tail_a)
+        # on the fumbled run it is WRONG: the extra press pushed the window forward, so it
+        # silently dropped the first START of step 14 and took a play press in its place
+        self.assertNotEqual(wb, tail_b)
+        self.assertEqual(wb, tail_b[1:])
+        self.assertEqual(len(wa), len(wb))
+        self.assertNotEqual(wa, wb)                      # and it reports a difference
+        # THE FAILURE IS THAT ITS ANSWER LOOKS LIKE A REAL COMPARISON. Every element is a
+        # valid key, the lengths match, and nothing in the output says the window slid -- a
+        # reader would attribute the difference to the two pads.
+        self.assertTrue(all(k in v7611.BIT for k in wb))
+        first = next(i for i in range(len(wa)) if wa[i] != wb[i])
+        self.assertEqual((wa[first], wb[first]), ("START", "A"),
+                         "the rule reports START against A at the same position, from two runs "
+                         "whose true segments both begin with START")
+
+    def test_the_time_gap_rule_cuts_inside_the_play_and_answers_differently(self):
+        _, lines_a, _ = self.session()
+        seg = rejected_largest_time_gap(lines_a)
+        # it cut at the cutscene, so its "steps 14-15" segment carries play presses
+        self.assertNotEqual(seg[:2], ["START", "START"])
+        self.assertGreater(len(seg), 12)
+        # and it disagrees with the other rejected rule on the same clean run
+        a, _, _ = self.session()
+        self.assertNotEqual(seg, rejected_trailing_twelve(a))
+
+    def test_the_two_rejected_rules_disagree_with_each_other_and_with_the_amendment(self):
+        a, la, _ = self.session()
+        b, lb, _ = self.session(fumble=True)
+        answers = {
+            "amendment (steps 2-12)": v7611.question_K(a, b)["verdict"] == "AGREE",
+            "trailing twelve": rejected_trailing_twelve(a) == rejected_trailing_twelve(b),
+            "largest time gap": rejected_largest_time_gap(la) == rejected_largest_time_gap(lb),
+        }
+        self.assertTrue(answers["amendment (steps 2-12)"], "the head is identical in both runs")
+        self.assertFalse(answers["trailing twelve"], "the rejected rule reports a difference that is not there")
+        # the three do not agree, which is the whole demonstration
+        self.assertIn(False, list(answers.values()))
+        self.assertIn(True, list(answers.values()))
+
+    def test_the_amendment_says_why_both_were_rejected(self):
+        hw = open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8").read()
+        part = hw[hw.index("#### V7.6.15 "):hw.index("### V7.7 ")]
+        p = re.sub(r"\s+", " ", part).replace("`", "").replace("**", "")
+        self.assertIn("reads the wrong presses WHILE LOOKING CORRECT", p)
+        self.assertIn("pauses longer than the step-13 -> step-14 transition certainly occur", p)
+        self.assertIn("NOT DEFINED BY THE PRE-REGISTRATION", p)
+        self.assertIn("never as INCONCLUSIVE", p)
+        self.assertIn("NOTHING THE OPERATOR DOES CHANGES", p)
+        self.assertIn("simultaneous two-key press that the scripted parts never use", p)
+        self.assertIn("This is NOT added to RUN 21 / RUN 22", p)
+        self.assertIn("Step 13 is the ordinary play; step 14 is START × 1 then START × 1", p)
