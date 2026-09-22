@@ -965,8 +965,21 @@ issue 29    THE GUARD BLIND SPOTS, written properly: tests/host/guards.py is the
             nothing, RESEARCH_METHOD.md's promotion section instructs the sweep and requires the outcome recorded
             including "nothing", and test_page_citations.py gates the half that cannot be argued about (every cited
             id must exist; 175 ids over 545 citations resolve today)
-next        orchestrator-owned: validate #41's pre-registration and #29; the Operator's declaration and the runs on
-            #43; close #36. Executor: B (Issue #31, the GB/GBC design), then C (Issue #30)
+issue 31    GB/GBC FOR PHASE 7, DESIGN ONLY (docs/research/GBC_PATH.md): no run, no pre-registration, no code, no
+            evidence id, no status change, no gate crossing. The Operator's framing CHECKED against the pages (they
+            agree on the GBS-DOL's place and on both references reading a cartridge-type bit; they are SILENT on how
+            a CPU AGB A runs GB/GBC media, so that stays his account) with one sharpening: the L/R stretch is the
+            AGB's OWN behaviour, so the Disc injects the same KEYPAD word this runtime already writes -- the
+            prediction needs no new capability. AND ONE RESULT THE ARCHIVE ALREADY CARRIED: the original CONTROL byte
+            splits 12 logs at 0x90 (the cartridge-less era; GBP-VIDEO-002's own question is "WITHOUT a Game Pak")
+            against 22 at 0x92 (every run with a cartridge), the difference exactly bit 0x02 = CART_INSERTED, with no
+            exception -- which is what U-GBP-017's Needs list asked for and had never been measured. NOT PROMOTED
+            here: offered to a promotion checkpoint with its caveats. Bit 0x01 read 0 in all 34, so the type bit is
+            the gap a GB/GBC boot fills: experiment one is one boot with NO new code and its prediction (0x93 / 0x92 /
+            0x90) is written before the data; experiment two makes the stretch testable with NOT CHANGED reachable as
+            a real result. Delivery solved by the Everdrive GB X7, with four things to verify rather than assume
+next        orchestrator-owned: validate #41's pre-registration, #29 and #31; the Operator's declaration and the runs
+            on #43; close #36. Executor: C (Issue #30)
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
