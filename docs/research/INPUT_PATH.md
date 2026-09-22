@@ -651,3 +651,200 @@ No code; no build; no `BUILD_ID`; no run name; nothing staged; §V7.1–§V7.5
 untouched; the routing untouched; the Issue's constraints kept by stopping.
 The redesign — items 1 to 7 — is a checkpoint of its own, for the
 Orchestrator to open; it is not a silent expansion of this one.
+
+## 13. The playable image — BUILT, NOT RUN (GitHub Issue #39, 2026-09-21)
+
+Issue #39 opened the redesign §12.4 called for and decided the three things
+§12 had left open: the operator ends the session with Z; the disposition
+trace comes out; the image is sized for at least five minutes of play after
+the game boots. This section records what was built, from the sources it is
+read from (`tests/host/test_play_image.py` pins every claim to them), and
+what it does NOT claim. Nothing here has run on hardware.
+
+### 13.1 The image
+
+```text
+POC            poc/gbp-play-session            (Swiss slot 13 "play" in tools/swiss-layout.tsv; build/swiss NOT re-exported:
+                                                12-stream keeps the stream-0015 the runs used)
+embedded id    GBP-PLAY-001                    (the image's own; no run is pre-registered under it; one line to rename)
+BUILD_ID       play-0001
+commit         2e48ca7                         (the two code commits of Issue #39: 8c98f0c the module, 2e48ca7 the POC; clean, no -dirty)
+SHA-256        d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de
+size           487 968 B                       (stream-0015: 514 880 B)
+warnings       0, none suppressed               (-Wall -Wextra -Wshadow; two from-scratch builds at 2e48ca7, byte-identical)
+audit          make play-audit: 0 findings; the ext and base one-shot handlers IDENTICAL to the physically validated
+               GBP-VIDEO-001 build's; the `play` profile finds 105 things wrong with the stream image and the `stream`
+               profile 33 with this one (both directions run by the host test on the real listings)
+Dolphin        make play-dolphin PASS, HSP device ABSENT: READY, SELFTEST ok=1 sci_clean=1 inv_fail=0, INPUTSELFTEST ok=1,
+               ENVMEM arena1_free=5439488 (5 439 488 B), COUNTERS balanced=1 storage_fault=- (the enlarged stores pass the gate
+               stream-0002 failed physically), SESSION requested=0 samples=0, RESULT status=abort_inconsistent class=abort
+               reason=inconsistent stop=failure teardown=stage_a service=0 deliveries=0 restore=1.
+               THE CEILING, as Issues #19 and #27 stated it: the probe stops before any service cycle, so the pump slot
+               never runs -- the input path, the KEY record, the presentation of a real frame and the session end are
+               NOT exercised in Dolphin. Auxiliary, never physical evidence.
+status         NOT PHYSICALLY EXECUTED; no run name reserved; nothing pre-registered; nothing staged.
+```
+
+### 13.2 What came out, what stayed, and exactly what moved in the presentation path
+
+Out (§12.2's subtraction, done): the OGBPIDX1 witness -- `cfg.witness` stays
+NULL, so the witness step never runs inside the service transaction and the
+two witness stops do not exist; no store (8 847 360 + 98 304 B), no
+qualification, no eligibility gate; the full-frame sampler (1 843 200 B), the
+VI latch trace (262 144 B), the disposition trace (§V5.46) and the four
+sidecars. The witness MODULE is still linked, because
+`src/gbp/gbp_vstate_probe.c` references its predicates under
+`if (cfg->witness)`; the `play` audit profile pins those sites by count
+exactly as the `stream` profile does (so the module is provably the same
+code) and pins that nothing else in the image names a `gbp_vwitness_`
+symbol.
+
+Stayed, byte for byte: `keylog_emit()` and `input_step()` are the TEXT of
+stream-0015's (the host test diffs the two function bodies); the descriptor,
+the policy, the KEY line format and the admit rule are the shared `src/gbp`
+data and code; the KEYPAD write is the same 32-byte write through the same
+transport, on change and every 5 ms, first in the pump slot. The service
+path's device operations, their order and Policy A are unchanged.
+
+What moved, textually, in the presentation path -- and why "unchanged" is a
+statement about behaviour, not bytes:
+
+```text
+pump()            REMOVED  the §V5.55 eligibility compare (gbp_vwitness_streak_gated / release_streak);
+                           the §V6.8 VI latch (gbp_vvi_awaiting / vi_regs / gbp_vvi_latch);
+                           at the take: gbp_vdisp_take, tex_life, the sampler's origin (gbp_vwitness_meta_at),
+                           gbp_vfull_want / gbp_vfull_open, tex_sample;
+                           gbp_vdisp_convert_first; the per-block gbp_vfull_block copy;
+                           on the two abandon paths: gbp_vdisp_abandon, gbp_vfull_refuse, tex_sample / tex_life resets;
+                           at the end: gbp_vdisp_convert_done, gbp_vfull_convert_done
+                  ADDED    session_step() right after input_step(); tex_seq / tex_frame / tex_t_take at the take;
+                           tex_t_done at the end; tex_seq resets on the abandon paths
+                  KEPT     input_step() first; offer_oldest_ready(); acquire -> take -> one tile row per slice -> the
+                           generation guard (gbp_vqueue_commit / still_valid) -> DCFlushRange -> fill_done -> offer
+submit_ready()    REMOVED  pend / tstate / rt / inflight reads (they fed the trace), gbp_vdisp_defer,
+                           gbp_vdisp_submit_refused, gbp_vdisp_submit, gbp_vdisp_decision, gbp_vfull_decision,
+                           gbp_vvi_handed, tex_life
+                  ADDED    the first real hand-off's record (first_real: frame index, t_take, t_convert_done, t_decision);
+                           tex_seq reset
+                  KEPT     Policy A verbatim in its decisions: xfb_target FIRST (defer = the texture stays READY, nothing
+                           consumed); ONE token in flight (a refused submit is offered again); the GX ORDER draw ->
+                           GX_SetDrawDone -> GX_CopyDisp -> GX_Flush -> VIDEO_SetNextFramebuffer -> VIDEO_Flush ->
+                           xfb_handed; no wait anywhere
+offer_oldest_ready()  the ordering key is the take ordinal tex_seq (assigned in take order) instead of the trace's
+                           lifecycle index (assigned in take order): the same order, §V5.49 I2 kept by construction
+on_draw_done()    REMOVED  gbp_vdisp_drawdone(gettime()): the callback now does exactly one thing and reads no clock
+display_selftest / selftest_submit_headless   REMOVED the trace's take / convert_done / submit records
+```
+
+The `play` profile's `gettime` pins say the same from the listing: `main 5,
+pump 2, submit_ready 1, h_ticks64 1`, and `on_draw_done` absent (stream:
+`main 8, pump 5, submit_ready 2, on_draw_done 1`).
+
+### 13.3 The session end
+
+```text
+the button      Z, held continuously for PLAY_SESSION_END_HOLD_MS = 250 ms (a tap does nothing) -- the one input the
+                policy never sends to the AGB (INPUT.md §4), the button the Start-up Disc reserves for its own menu
+where           session_step(), right after input_step() in the pump slot: it reads PAD_ButtonsHeld on the sample
+                input_step() just took (no second scan, no SI transfer), takes the transport's ticks64, and feeds
+                src/gbp/gbp_session -- a pure state machine with NO outward edge (the audit allowlists the object empty);
+                the same admission as input_step(): nothing before the ARAM base is known
+the flag        session.end_requested, installed once as cfg.session_end (the new field of struct gbp_vstate_config;
+                NULL in every earlier build, and then the block does not exist)
+the stop        CHECK_ADMISSION reads the flag ONCE per admitted cycle -- after the safety budget (safety always wins) and
+                after the frame / event store caps (a run that lost its bookkeeping at the same admission is reported
+                as the cap it hit), before the witness, colour, time-target and delivery stops -- and ends the run as
+                stop=session_end  status=ok_session_ended (class ok)  teardown=S5_session_end
+                THE ONLY SUCCESS. The transaction in flight completes whole (its ACK and its RE-ARM are written), the
+                cause stays latched for the teardown, and the teardown is the one every admission stop gets.
+the codes       GBP_VSTATE_STOP_SESSION_END and GBP_VSTATE_OK_SESSION_ENDED are APPENDED to their enums, never inserted:
+                the frozen sidecar writers serialize the numeric codes (OGBPIDXCAP1 stop_reason / status_code)
+the status      gbp_vstate_main_status returns ok_session_ended for that stop whatever the change detector saw: an
+                ended game session is the run's normal end, not "structured change observed"
+the record      SESSION end=Z hold_ms hold_ticks requested t_hold_begin t_requested samples held holds released after stop
+                teardown; the gecko line OPENGBP-PLAY SESSION; the on-screen "SESSION ENDED BY THE OPERATOR (success)"
+the tests       tests/unit/test_gbp_video_state.c drives the real probe against the mock: raised at the 7th RE-ARM ->
+                deliveries = acks = rearms = 7, stop=session_end, ok_session_ended, S5_session_end, PI cleaned, CONTROL
+                restored, the TEARDOWNVSTATE / VSTATE end / MATRIX lines; raised before the first delivery -> the first
+                transaction still completes whole; the safety budget wins at the same admission; an opened episode does
+                not change the status; with no flag installed nothing changes. tests/unit/test_gbp_session.c: the hold,
+                the tap, the latch, the zero bound, a high 64-bit clock.
+```
+
+### 13.4 The sizing, and what bounds a session
+
+None of these is a property of the Game Boy Player; each is a bound of this
+image, stated so a pre-registration can state it.
+
+```text
+PLAY_SAFETY_SECONDS      720 s   the hard budget from the CONTROL transform (the AGB's boot included); a run the operator
+                                 did not end; NEVER a success. Five minutes of play after a boot and a menu of up to seven.
+PLAY_FRAME_RECORDS       45056   754 s at 59.727 Hz > 720 s: in a nominal stream (one closed frame per 40 VIDEO blocks)
+                                 the safety budget always fires first; a pathological stream that closes frames faster
+                                 ends the run as frame_store_cap -- visible. COST over the contract's 16384: +5 505 024 B.
+PLAY_EVENT_RECORDS       16384   68 min at the four events per second a moving game can produce at most (one episode
+                                 close per second of change: EPISODE_MAX_FRAMES = 60). COST over 4096: +786 432 B.
+PLAY_MAX_DELIVERIES   6 000 000  the u32 guard above the budget: 720 s x RUN 17's 6 314/s = 4.55 M, 1.32x below it
+                                 (a factor, as the design's guard always was); binds only above ~8 300/s.
+LOG_LINES / reserve   8192 / 640 the ringlog DROPS when full (src/log/ringlog.c), so the reserve must cover the WHOLE
+                                 post-run report -- the state machine's EV / CYC / READDISAGREE / SEM lines plus main's
+                                 records: 462 lines after the last KEY line in RUN 17. KEY headroom: 8192 - 640 - ~240
+                                 pre-run lines = ~7 300 KEY lines = ~3 650 presses (two lines per press). COST: +1 835 008 B.
+memory (measured)     ENVMEM arena1_free=5439488 B in Dolphin (the same MEM1 layout as the console; a build fact, not
+                                 a device fact). Freed by the subtraction 11 051 008 B; spent on the stores and the log
+                                 8 126 464 B; stream-0015 had 1 650 688 B free on the console (RUN 17).
+the session, then     ends by Z (success), else by the 720 s budget (gone wrong); the frame store, the event store and
+                      the guard sit above it in a nominal stream; a KEY-heavy session loses KEY lines to the bound, counted
+                      in KEYLOG lost, never the summaries.
+```
+
+### 13.5 The shorter service pass — stated, not assumed benign
+
+The witness step ran INSIDE the service transaction of every stream build
+since stream-0005: after the assembler consumed the VIDEO block and before
+the publish and the RE-ARM (so after the ACK). RUN 17 measured it per VIDEO
+block (`STREAMWITT`, n = 96 109): min 5, mean 70, max 1 547 ticks at
+40.5 MHz = 0.12 / 1.73 / 38.2 µs. In this image the step does not exist, so
+the ACK → RE-ARM gap of every VIDEO cycle is shorter by that amount, and the
+next cause is invited that much sooner. The device sees the same operation
+stream in the same order; only that gap changes.
+
+What that shape has behind it: `stream-0003` (RUN 3, real cartridge video on
+screen) and `stream-0004` (RUN 4) ran the service transaction WITHOUT a
+witness step and WITH this presentation path -- the pre-witness shape. What
+it does not have behind it: the input path, which has only ever run with the
+witness step present (stream-0014 / stream-0015, RUN 14–18). So the
+combination in this image -- the KEYPAD write in the pump slot and the
+shorter transaction -- has NOT run.
+
+What would measure it, and it is the first run of the image itself, because
+no measurement of a hot-path gap exists off the device: the CYC records
+(`t_ack` → `t_rearm` → `t_next` per cycle, first / last / anomaly), the
+delivery rate against RUN 17's 6 314/s, `COUNTERS` (anomalies, uncertain,
+errors, control_ok), `STREAMPUMP` (skipped_cause_pending against RUN 17's
+share), `INPUT` retries and `KEYLOG` against RUN 17's log as the reference.
+Until a run reads clean on those, the image's timing is UNCHECKED, and the
+Issue's stop condition on this point was met by saying so here rather than
+by not building: the shape has precedent and a measured delta, and the only
+instrument that can check it is the run.
+
+### 13.6 A finding about stream-0015, recorded, not acted on
+
+stream-0015's `KEYLOG_TAIL_RESERVE` is 64 lines, justified against main's
+own post-run records; the state machine's report that precedes them is
+~430 lines (RUN 17: 462 after the last KEY line). Because the ringlog drops,
+a run with more than ~330 KEY lines (~165 presses) would have dropped
+report lines and set `dropped > 0`. RUN 14–18 were far below that (RUN 17:
+43 KEY lines), so no executed run was affected; the frozen image is not
+changed. The playable image's reserve of 640 is the correction.
+
+### 13.7 What is open, and what this checkpoint did not do
+
+- **U-GBP-035** — presentation behaviour during a long real-content session
+  has NO instrument: the disposition trace is out by decision (it would have
+  covered ~68 s of a multi-minute session and counted overflow for the
+  rest), and a partial trace is not evidence about the session. Its own
+  checkpoint, Phase 9 / Phase 12.
+- No run; no pre-registration; no game chosen; §V7.1–§V7.5, every verdict,
+  every evidence status and the routing FACT untouched; `build/swiss` not
+  re-exported; nothing staged.

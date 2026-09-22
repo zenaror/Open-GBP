@@ -1385,3 +1385,29 @@ would be a stimulus whose first pixel is non-black and non-white together with a
 capture spanning several frames, so position, count and periodicity are measured
 rather than assumed — not scheduled, and not a reason to spend a physical run on
 its own.
+
+### U-GBP-035 — how does the presentation path behave over a long real-content session, and what would instrument it? — OPEN (opened 2026-09-21, Issue #39; no instrument yet; not blocking)
+
+**Why this is an item.** Every physical stream run so far lasted under a
+minute and was instrumented by the downstream disposition trace (§V5.46,
+OGBPDISP2: 4 096 lifecycles, 8 192 events). The playable image of Issue #39
+(`play-0001`, INPUT_PATH.md §13) is sized for a session of up to 720 s, and
+the trace was taken OUT of it by decision: past ~68 s it would cover a
+fraction of the session and count overflow for the rest, and a partial trace
+is nearly useless as evidence about that session while still costing memory
+and complexity. So the question the trace answered — what Policy A decided,
+how often a frame deferred, how deep the deferral went, whether the order
+held — has no instrument for a session of minutes with real game content.
+
+**What is established.** Policy A's behaviour over the qualified windows of
+the short runs (§V5.49, RUN 4–13); the balance identity and the invariant
+checks the runtime keeps counting in every image (STREAMDISP / STREAMINV /
+STREAMOWN are in `play-0001` too, as aggregates).
+
+**What is NOT established.** Whether those aggregates suffice to detect a
+degradation over minutes; whether a bounded, sampled or windowed trace can be
+designed that stays useful at that length; what a real game's frame cadence
+does to the deferral pattern. **UNKNOWN.** Non-blocking for Phase 5; it
+belongs to Phase 9 (GBI-class functional parity) / Phase 12 (runtime
+stabilization), as its own checkpoint, and no run of `play-0001` should be
+read as answering it.
