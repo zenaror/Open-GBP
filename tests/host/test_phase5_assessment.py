@@ -114,6 +114,16 @@ class EveryResidualHasAPrice(unittest.TestCase):
         # each residual carries BOTH halves inside its own block, which is the rule
         for i, s in enumerate(starts):
             body = block[s:starts[i + 1]] if i + 1 < len(starts) else block[s:]
+            if "DECLINED" in body.splitlines()[0]:
+                # THE POINT OF "DECLINED" IS THAT THE PRICE SURVIVES IT. Open means nobody
+                # decided; retired means the evidence exists; declined means he weighed a priced
+                # option and chose, so the price must still be there for the decision to be
+                # reversible without re-deriving it.
+                self.assertIn("the disposition", body, "residual %d is declined with no disposition" % (i + 1))
+                self.assertIn("what is missing", body, "residual %d lost what it is missing" % (i + 1))
+                self.assertIn("DECLINED, not retired and not open", body + block,
+                              "the three states are not distinguished")
+                continue
             if "ANSWERED" in body.splitlines()[0]:
                 # an answered residual states what retired it AND what the answer was, because
                 # "answered" without an outcome is worse than an open item: it looks closed
@@ -125,8 +135,13 @@ class EveryResidualHasAPrice(unittest.TestCase):
         p = plain(block)
         # the cheapest one is named as such, and the shape of the cheapest closure is stated
         self.assertIn("It WAS the cheapest item on this list, and it was paid", p)
-        self.assertIn("R1 + R2 + R4 are ONE run per pad", p)
-        self.assertIn("two sessions, a form in his hand, and nothing to build", p)
+        # Issue #57: that shape is now HISTORICAL -- it is the option the Operator weighed and
+        # declined, and it is kept legible rather than deleted, because a declined option that
+        # vanishes from the record cannot be reversed
+        self.assertIn("That shape is now historical, and it is kept because a declined option has to stay "
+                      "legible", p)
+        self.assertIn("two sessions, a form in his hand, nothing to build", p)
+        self.assertIn("exactly the option the Operator weighed and declined", p)
         # and R1 carries the lesson that produced it
         self.assertIn("it must be filled DURING the run", p)
         self.assertIn("a global report cannot become ten verdicts", p)
@@ -144,6 +159,43 @@ class EveryResidualHasAPrice(unittest.TestCase):
         self.assertIn("THE ROM IS IN NOR, and THE CARTRIDGE WAS IN MODE B", p)
         self.assertIn("what Mode B does inside the flashcart is not a claim this project makes", p)
         self.assertIn("§V3.7's route 1", p)
+
+    def test_a_declined_residual_keeps_its_price_and_is_not_an_answer(self):
+        """Issue #57: an unanswered item, an answered-and-kept one and a declined one
+        must not look alike in a citation."""
+        d = read(DOC)
+        block = d[d.index("## 6. Named residuals"):d.index("## 7. ")]
+        p = plain(block)
+        self.assertIn("não vejo necessidade de outra run na fase 5", p)
+        self.assertIn("OPEN nobody has decided", p)
+        self.assertIn("RETIRED the evidence that closes it EXISTS", p)
+        self.assertIn("DECLINED the Operator has weighed a priced option and chosen; THE EVIDENCE DOES NOT "
+                      "EXIST and the residual is still named, with its price intact", p)
+        self.assertIn("A declined residual keeps its price", p)
+        # R1 and R2 are declined, and R1 still carries its full price
+        r1 = block[block.index("R1  PER-KEY"):block.index("R2  THE CLOSING")]
+        self.assertIn("DECLINED BY THE OPERATOR, 2026-09-22", r1)
+        self.assertIn("what it costs", r1)
+        self.assertIn("a ten-row form in his hand", plain(r1))
+
+    def test_the_per_key_state_is_not_recorded_as_answered(self):
+        p = plain(read(DOC))
+        self.assertIn("the Operator judges the remaining resolution unnecessary, and the per-key resolution "
+                      "is therefore NOT MEASURED", p)
+        self.assertIn("It is not that the per-key question was answered", p)
+        self.assertIn("W stays INCONCLUSIVE PER KEY", p)
+        # his two halves are separated, and the record does not adopt his sentence as its own
+        self.assertIn("\"ambos controles se comportam iguais\" SUPPORTED", p)
+        self.assertIn("HIS OBSERVATION, and it stands as that", p)
+        self.assertIn("which is not the same as adopting his sentence as its own", p)
+        self.assertIn("it does not argue with the decision", p)
+
+    def test_R4_survives_the_decline_and_says_what_it_now_rides_on(self):
+        p = plain(read(DOC))
+        self.assertIn("STILL OPEN, AND NOT AFFECTED BY R1's DECLINE", p)
+        self.assertIn("ANY future physical run of ANY image satisfies it", p)
+        self.assertIn("RIDES ON THE NEXT PHYSICAL RUN OF ANYTHING", p)
+        self.assertIn("DECLINING R1 COSTS R4 NOTHING BUT TIME, and no door was closed", p)
 
     def test_the_older_ambiguity_is_closed_by_a_direct_answer_not_a_reading(self):
         p = plain(read(DOC))
