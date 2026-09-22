@@ -283,6 +283,14 @@ why CONTROL bit 0x01 arrives late                U-GBP-036, not blocking Phase 5
 
 ## 7b. An older ambiguity, closed by the same answer (2026-09-22)
 
+**POINTER, appended 2026-09-22 (GitHub Issue #56), the words below unchanged.**
+The principle this section states is no longer only here: it is a method rule,
+**"A later direct answer outranks a better reading of an earlier ambiguous
+one"** in `docs/RESEARCH_METHOD.md`, with its operational half pointed at from
+`AGENTS.md`'s ORCHESTRATOR section. **This section remains the case**, and the
+rule cites it. Appending rather than rewriting is #49's convention, applied to
+a document instead of a heading.
+
 On 2026-09-21 the Operator wrote *"na RUN estou usando ez-flash e o road rage
 paralelo apenas"*, which was relayed as a settled choice of instrument and was
 **not** one — the sentence names two things and settles neither for the runs

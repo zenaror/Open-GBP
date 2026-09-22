@@ -12593,3 +12593,49 @@ outcome is worse than an open item: it looks closed.
 local retrieval index is now the Orchestrator's, by the Operator's instruction.
 The Executor pushes and says so; the Orchestrator fetches, confirms the tree is
 clean and `HEAD == origin/main`, then reindexes.
+## 2026-09-22 — Issue #56: a method rule moved out of a phase's assessment — *a later direct answer outranks a better reading of an earlier ambiguous one*, stated once and POINTED AT once
+
+**Not a new rule.** It was written, agreed and dated on 2026-09-22 inside
+`PHASE5_ASSESSMENT.md` §7b, which is a phase's assessment: when Phase 5 is
+history nobody reading the method would find it, and it is a rule about
+**evidence quality** and about **what the Orchestrator does when an Operator
+sentence is ambiguous** — neither of which is phase-specific. Declining to move
+it unasked was the boundary working: what the project's method says is not the
+Executor's to decide off its own bat.
+
+**`RESEARCH_METHOD.md` gains it, in the shape of the two siblings the same day
+added** (the positional-reference rule, Issue #53; the heading-pointer rule,
+Issue #49) — title, date, Issue, the case. Both halves are stated because they
+are one rule from two sides:
+
+an **evidence** half about which statement outranks which, and an
+**operational** half about what to do when an Operator sentence is ambiguous.
+**This entry does not reproduce them** — they are in the method, and an entry
+that copied them would be the second copy the checkpoint exists to prevent.
+Practising the rule in the record of moving it costs nothing and is the only
+demonstration that matters.
+
+**`AGENTS.md`'s ORCHESTRATOR section gets ONE line, pointing at it — not a
+second copy.** Two copies of a rule drift apart, which is the exact class Issue
+#29 exists about, and **a rule about not letting records drift should not begin
+by drifting.** §7b keeps its words and becomes the case, with a pointer
+appended: #49's convention applied to a document instead of a heading.
+
+**THE TEST'S JOB IS THE DUPLICATION, NOT THE WORDS.** Confirming the rule's
+text exists would be nearly worthless; what matters is catching the day someone
+helpfully pastes it into `AGENTS.md` as well. `tests/host/test_ambiguity_rule.py`
+asserts the rule's body exists in **exactly one file** across the whole
+documentation tree, that `AGENTS.md` carries the pointer and none of the body,
+and that §7b still contains its original sentence. **Proved by injection**: a
+copy appended to `AGENTS.md` makes two assertions fail and names the file; the
+file was restored and the suite is green.
+
+**Result.** `make test-python` on the committed tree: **1711 passed, 7 skipped,
+103 subtests passed**. No evidence id, no status, no verdict and no residual
+changed.
+
+**And the case is worth keeping for the reason it was flagged rather than the
+reason it was closed.** Had the September ambiguity been read away instead of
+flagged, Phase 5's four runs would have carried an instrument nobody had
+confirmed, and the attribution caveat would have been lifted or kept on a
+guess. Flagging cost one sentence and one day.

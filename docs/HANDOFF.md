@@ -1217,9 +1217,23 @@ r3 answered R3 of the Phase 5 assessment ANSWERED 2026-09-22 AND THE ANSWER KEEP
             as §V3.7's validated route 1 and NOT interpreted further. An older ambiguity ("road rage
             paralelo", 2026-09-21, relayed as settled and flagged at the time) is closed BY A DIRECT ANSWER
             ABOUT THE RUNS, not by re-reading the old sentence. The verdict and R1+R2+R4 are unchanged
+issue 56    A METHOD RULE MOVED OUT OF A PHASE'S ASSESSMENT: "a later direct answer outranks a better
+            reading of an earlier ambiguous one" now lives in RESEARCH_METHOD.md, in the shape of the two
+            siblings the same day added (#53's positional reference, #49's heading pointer). BOTH HALVES
+            stated -- the evidence half (a later direct answer about the thing outranks a better reading of
+            an earlier ambiguous statement; the old sentence is LEFT UNREAD) and the operational half (when
+            an Operator statement is ambiguous, ASK ABOUT THE THING rather than re-read the sentence, because
+            a more careful reading produces a more confident GUESS). AGENTS.md's ORCHESTRATOR section carries
+            ONE POINTER LINE AND NO COPY, because two copies of a rule drift apart and a rule about drift
+            should not begin by drifting. PHASE5_ASSESSMENT §7b keeps its words and becomes THE CASE, with a
+            pointer appended (#49's convention applied to a document). The test's job is the DUPLICATION, not
+            the words: the rule's body must exist in exactly one file, proved by injecting a copy into
+            AGENTS.md and watching it fail. Nothing else moved -- no id, no status, no verdict, no residual.
+            #43 closed by the Orchestrator; the board shows no hardware pending
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46
-            through #55 and #42; close #36. The RAG reindex is the Orchestrator's since 2026-09-22 (the
-            Executor pushes and says so). Executor: the queue is empty -- next checkpoint on dispatch
+            through #56 and #42; close #36. The RAG reindex is the Orchestrator's since 2026-09-22 (the
+            Executor pushes and says so). Phase 5's outstanding work is R1 + R2 + R4, one run per pad, at the
+            Operator's choice with no deadline. Executor: the queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet

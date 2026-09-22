@@ -109,7 +109,12 @@ by machine evidence. The operator need not be the same person forever.
 - establishes or reviews prospective PASS/FAIL gates **before** hardware;
 - hands the executor bounded checkpoints;
 - distinguishes historical facts from current state;
-- prevents resolved questions from being reopened without a new reason.
+- prevents resolved questions from being reopened without a new reason;
+- when an Operator statement is ambiguous, **asks about the thing rather than
+  re-reading the sentence more carefully** — the rule, its two halves and the
+  case that produced it are in `docs/RESEARCH_METHOD.md` ("A later direct
+  answer outranks a better reading of an earlier ambiguous one"), and are
+  **not** repeated here, because two copies of a rule drift apart.
 
 The orchestrator normally does **not** modify source or execute the
 implementation. It may be an AI or a human.
