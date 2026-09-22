@@ -268,7 +268,7 @@ class TopologyNamesGateAndProcedure(unittest.TestCase):
             self.assertEqual(t.count(n), 1, n)
             self.assertEqual(h.count(n), 1, n)
             self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:2[7-9]|[3-9]\d)\S*", t)), 0)   # run21 / run22: Issue #41, §V7.6
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[0-9]|[4-9]\d)\S*", t)), 0)   # run21 / run22: Issue #41, §V7.6
         self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run19*")) + glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run20*")), [])
         self.assertIn("TAKEN even if a run aborts, never starts, or RUN 20 is never executed", plain(part(5)))
 

@@ -1188,8 +1188,26 @@ issue 42    PHASE 5 ASSESSED (docs/research/PHASE5_ASSESSMENT.md): **SATISFIED W
             pads. R1+R2+R4 ARE ONE RUN PER PAD. The infrastructure of the last two days is EXCLUDED from the
             evidence by name: none of it is a game being controlled. The sweep found nothing to correct.
             Promotes nothing, mints no id, changes no status
+issue 55    RUN 27 / 28 / 29 INGESTED (§V7.10), all UNREGISTERED and all the Operator's own initiative: a
+            repeat with a GUARANTEED POWER CYCLE (closing the preceding-state confound), an EVERDRIVE GB X7,
+            and an unofficial SAMURAI SPIRITS -- a DMG cartridge. THE ARRIVAL WINDOW IS CARTRIDGE-DEPENDENT
+            AND THE TWO WINDOWS ARE DISJOINT: 185-636 us for the three ordinary cartridges, 698-1148 us for
+            the Everdrive. The probe's sequence is identical in all four, so ELAPSED TIME ALONE and THE A1
+            WRITE ALONE are both EXCLUDED as sufficient explanations -- the first separation among
+            U-GBP-036's three candidates, which does NOT close it. AND THE OBVIOUS EXPLANATION IS EXCLUDED BY
+            TIMESCALE: the Operator declared the Everdrive always boots its own OS from SD, but both
+            transitions are SUB-MILLISECOND and an SD load is tens to hundreds of ms -- two to three orders
+            of magnitude. Written down as excluded, with the arithmetic. NEGATIVE RESULT: bit 0x01 does NOT
+            distinguish DMG from CGB; at this read point it separates the GB/GBC family from GBA and nothing
+            finer. The guard refusal is now a property of THE IMAGE AND THE PATH (four runs, three
+            cartridges), a Phase 7 precondition, and GBC_PATH §5 carries the planning constraint that any
+            GB/GBC experiment on the Everdrive tests "GBP + Everdrive OS", not "GBP + game". BIT 0x01's
+            MEANING MOVED TO FACT -- its own bar, written before these runs, was met twice over, and the
+            argument was WRITTEN OUT with its scope: one console, one GBP, this read sequence, and THE BIT IS
+            NOT IN THE ORIGINAL BYTE. Byte 0 takes four values across the four runs and is constant in two:
+            third and fourth confirmation that the unanimity is the signal
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46
-            through #54 and #42; close #36. Executor: the queue is empty -- next checkpoint on dispatch
+            through #55 and #42; close #36. Executor: the queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet

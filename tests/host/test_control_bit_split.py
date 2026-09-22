@@ -48,7 +48,8 @@ LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92,
          # Issue #52: play-0001 is a THIRD image and records the same field; all four of its
          # sessions ran with a GBA cartridge, so they join the 0x92 family (40 logs in all)
          "play-0001-run21": 0x92, "play-0001-run22": 0x92,
-         "play-0001-run25": 0x92, "play-0001-run26": 0x92}
+         "play-0001-run25": 0x92, "play-0001-run26": 0x92,
+         "stream-0015-run27": 0x92, "stream-0015-run28": 0x92, "stream-0015-run29": 0x92}
 
 WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0005", "stream-0005-run2",
              "stream-0005-run3", "stream-0006-run4", "stream-0007-run5", "stream-0008-run6", "stream-0009-run7",
@@ -293,8 +294,11 @@ class TheCausalClaimIsNowhereStatedAsSettled(unittest.TestCase):
         self.assertIn("GBP-HW-273", r)
         # bit 0x01's row carried ONE OBSERVED STATE until RUN 24 gave it the other one
         r1 = [l for l in read(REGISTERS).splitlines() if l.startswith("| 0x01 |")][0]
-        self.assertIn("F (hw, RUN 24", r1)
-        self.assertIn("C, not F, for the MEANING", r1)
+        # Issue #55: RUN 27 / 28 / 29 met this row's own stated bar (a repeat AND a second
+        # cartridge), the argument was written out, and the MEANING moved to FACT with its scope
+        self.assertIn("F (hw, four runs, three cartridges", r1)
+        self.assertIn("THE BIT IS NOT IN THE ORIGINAL BYTE", r1)
+        self.assertNotIn("C, not F, for the MEANING", r1)
         self.assertIn("U-GBP-036", r1)
         # and the page says why the two columns are different claims
         p = plain(read(REGISTERS))

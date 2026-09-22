@@ -12452,3 +12452,92 @@ the game did with them.
 
 **Result.** `make test-python` on the committed tree: **1686 passed, 7 skipped,
 103 subtests passed**.
+## 2026-09-22 — Issue #55: RUN 27 / 28 / 29 — the GB/GBC transition reproduces across THREE cartridges, the arrival window is CARTRIDGE-DEPENDENT and excludes two of `U-GBP-036`'s three candidates, bit `0x01` does not tell DMG from CGB, and its MEANING moves to **FACT** with the argument written out
+
+**Three unregistered runs, all the Operator's own initiative** (§V7.10): RUN 27
+repeated RUN 24 with the same Pokémon Crystal and **a power cycle he guaranteed
+unprompted**; RUN 28 used an **Everdrive GB X7**; RUN 29 an unofficial
+***Samurai Spirits***, a **DMG** cartridge through the GBC's backward
+compatibility. Four directories now hold the same console-generated filename,
+so every file was archived under a run-suffixed name before anything was read.
+**The numbering is chronological from the logs' time base, and the cartridge
+mapping was CHECKED against the data**: the earlier drop is independently the
+one whose transition arrives late, which is what the Everdrive was relayed as
+doing. The relay and the files agree.
+
+**THE NEW FINDING — the arrival window is cartridge-dependent, and the two
+windows are DISJOINT.**
+
+```text
+                                  last 8e          first 8f         after the transform write
+Crystal (x2) and the DMG title    A1-50US          A1-500US         185.2 .. 635.9 us
+the Everdrive                     A2-50US          A2-500US         698.0 .. 1148.0 us
+```
+
+The probe's sequence is identical in all four runs, so **elapsed time alone and
+the `A1` write alone are both EXCLUDED as sufficient explanations** — each
+predicts the same window for every cartridge. What remains is the cartridge/AGB
+side. **That is the first thing in this project to separate any of
+`U-GBP-036`'s three candidates**, and it does not close the item.
+
+**And the explanation every reader reaches for first is excluded by
+timescale.** The Operator declared what RUN 28's stimulus actually was: *"O
+everdrive GB x7 sempre acessa o menu dele… Ele exige o cartão SD, para
+carregar o S.O. dele."* — the device always runs its own menu and OS from SD.
+So *"of course the Everdrive is slower, it boots from SD"*. **It is not**: the
+probe's schedule is deterministic to **7 ticks (0.2 µs)** across the four runs,
+the bit appears **50.1–500.0 µs** after `A1` for the ordinary cartridges and
+**562.1–1012.1 µs** for the Everdrive, and **both are sub-millisecond**. An
+SD-card OS load is tens to hundreds of milliseconds — **two to three orders of
+magnitude longer than the whole interval in which both transitions happen**.
+Written down as excluded, with the arithmetic, because **a hypothesis retired
+with a checkable argument is worth more than one nobody raised**. No mechanism
+is named; the difference is about half a millisecond, at a scale that looks
+electrical rather than firmware-driven.
+
+**A NEGATIVE RESULT: bit `0x01` does not distinguish DMG from CGB.** RUN 29's
+DMG cartridge behaves identically to the CGB title — same original byte, same
+bracket, same persistence. **At this read point the bit separates the GB/GBC
+family from Game Boy Advance and nothing finer.**
+
+**The guard refusal is now a property of the IMAGE AND THE PATH.** `PREUNMASK
+ok=0 reason=control_changed` and the failed restore in **all four GB/GBC runs
+across three distinct cartridges** — where §V7.7 could only say it of one. That
+is a Phase 7 precondition, and `GBC_PATH.md` §5 now also carries the planning
+constraint the Everdrive declaration creates: **any GB/GBC experiment on that
+device tests "GBP + Everdrive OS", not "GBP + game".**
+
+**THE STATUS MOVED, AND THE ARGUMENT WAS WRITTEN OUT BEFORE IT DID.**
+`GBP-HW-275` set its own bar before any of these runs existed — *"a repeat with
+the same cartridge **and** a run with a second, different GB/GBC cartridge"* —
+and it is met twice over. **A bar being met is a reason to write the argument,
+not a substitute for it**, so the entry argues it: what becomes FACT (with
+GB/GBC media the bit reads 1 after the transform write and holds; with a GBA
+cartridge or an empty slot it reads 0 throughout — four runs, three cartridges,
+two media families, against four GBA runs and one cartridge-less run); why this
+is **not** bit `0x02`'s case (there a rival explanation survived the data; here
+the cartridge is the only thing that varied and the contrast is complete over
+three slot states); the **scope** that travels with it (one console, one GBP,
+this read sequence, and **the bit is NOT in the original byte**); and what stays
+open (why it arrives late, and whether the bit reports the medium or the AGB's
+response to it — for which RUN 28's cartridge-dependent window is evidence,
+since a static slot property would not move with the cartridge).
+
+**That last point is why the FACT is worded as the measurement and not as a
+name.** *"Reads 1 with GB/GBC media in the slot"* is what was observed;
+*"reports the cartridge type"* is a name for it, and the cartridge-dependent
+window is a reason not to assume the name is complete.
+
+**Byte 0, third and fourth confirmation.** It takes four different values across
+the four runs — `ee`/`ef`, `9f`, `de`/`df`, `9f` — and **in two of them does not
+move at all**, while the stable replicas give the same answer in every run. Had
+byte 0 been the reading, **the runs would have contradicted each other about
+the finding itself**. And the stable replicas are not perfectly uniform either:
+**43 of 44 reads agree**, the one exception being RUN 29 at `A2-50US` where
+replica 8 reads `9f` — *exactly the value byte 0 holds throughout that run*.
+The same anomaly, in a different replica, once; the vote unaffected. Recorded
+and pinned at one so it cannot grow unnoticed.
+
+**Result.** `make test-python` on the committed tree: **1703 passed, 7 skipped,
+103 subtests passed**. `GBP-HW-272`'s split now spans **43 logs across three
+images**.

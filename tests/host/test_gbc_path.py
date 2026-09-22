@@ -181,7 +181,9 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         # the archive MINUS the runs its own amendment names, and the amendment must name them.
         later = {"GBP-VIDEO-004_stream-0015-run23.log": "90", "GBP-VIDEO-004_stream-0015-run24.log": "92",
                  "GBP-PLAY-001_play-0001-run21.log": "92", "GBP-PLAY-001_play-0001-run22.log": "92",
-                 "GBP-PLAY-001_play-0001-run25.log": "92", "GBP-PLAY-001_play-0001-run26.log": "92"}
+                 "GBP-PLAY-001_play-0001-run25.log": "92", "GBP-PLAY-001_play-0001-run26.log": "92",
+                 "GBP-VIDEO-004_stream-0015-run27.log": "92",
+                 "GBP-VIDEO-004_stream-0015-run28.log": "92", "GBP-VIDEO-004_stream-0015-run29.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1
