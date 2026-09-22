@@ -49,6 +49,9 @@
  *                                       episode and over the tail; a cap that
  *                                       could be extended would not be hard)
  *   3 frame store full / event store full -> frame_store_cap / event_store_cap
+ *   3s the caller's session-end flag set   -> session_end  (Issue #39: the
+ *                                       playable image's SUCCESS; NULL in every
+ *                                       earlier build, so it does not exist there)
  *   4 baseline_valid and valid_observation_elapsed >= MIN_VALID_OBSERVATION
  *        no episode open -> nominal_negative
  *        episode open    -> the bounded finalisation tail, then nominal_negative
@@ -194,7 +197,17 @@ enum gbp_vstate_stop {
      *                       not supposed to reach this, so the analyzer refuses
      *                       a decisive verdict. Overflow is never a normal stop. */
     GBP_VSTATE_STOP_WITNESS_TARGET,
-    GBP_VSTATE_STOP_WITNESS_STORE_FULL
+    GBP_VSTATE_STOP_WITNESS_STORE_FULL,
+    /* ---- Issue #39: THE OPERATOR'S SESSION END ----
+     * APPENDED, never inserted: the numeric stop code is serialized by the
+     * frozen sidecar writers (OGBPIDXCAP1 carries `stop_reason`), so every
+     * value above keeps the number it has always had. A playable image has no
+     * scientific target; its session is ended by the operator, from the pump
+     * slot, through the caller-owned flag `session_end` of the config. It is a
+     * SUCCESS -- the run's normal end -- and it has its own reason so a reader
+     * never has to guess whether a session ended because the operator ended it
+     * or because a cap fired. */
+    GBP_VSTATE_STOP_SESSION_END
 };
 
 typedef enum {
@@ -237,7 +250,12 @@ typedef enum {
     GBP_VSTATE_ANOMALY_CONTROL_CHANGED,
     GBP_VSTATE_ANOMALY_POSTACK_SHAPE,
     GBP_VSTATE_ANOMALY_PI_STICKY,
-    GBP_VSTATE_ANOMALY_REARM_STATE
+    GBP_VSTATE_ANOMALY_REARM_STATE,
+    /* Issue #39. APPENDED for the same reason the stop reason is (OGBPIDXCAP1
+     * carries `status_code`): the status of a run the operator ended. Class
+     * "ok", a normal end; it is the main status whatever the change detector
+     * saw, because the session end is the run's success and not a cap. */
+    GBP_VSTATE_OK_SESSION_ENDED
 } gbp_vstate_status;
 
 struct gbp_vstate_config {
@@ -285,6 +303,19 @@ struct gbp_vstate_config {
      * exactly the bias that would make a source-continuity claim worthless
      * (§V5.39.4). No device access, no filesystem, no allocation is added. */
     struct gbp_vwitness *witness;
+    /* ---- Issue #39: THE OPERATOR'S SESSION END -- a playable image's success ----
+     * NULL in every earlier build, and then this field does not exist as far as
+     * the device is concerned: not one read, write, wait or log line is added.
+     * When a playable image supplies a flag here, CHECK_ADMISSION reads it ONCE
+     * per admitted cycle -- after the safety budget and the two store caps,
+     * before every other success -- and a non-zero value ends the run as
+     * GBP_VSTATE_STOP_SESSION_END / S5_session_end / ok_session_ended: the
+     * accepted transaction completes whole (ACK and re-arm written), the cause
+     * stays latched for the teardown, and the teardown runs exactly as for every
+     * other admission stop. The flag is caller-owned and caller-set (the pump
+     * slot, from the controller: gbp_session); this module never writes it,
+     * never clears it and never reads the controller. */
+    const int *session_end;
     /* ---- PRE-HANDLER MASKED WAIT: a DIAGNOSTIC, and nothing else ----
      * 0 in every ordinary build, and then this field does not exist as far as
      * the device is concerned: no wait, no extra read, no log line, the same

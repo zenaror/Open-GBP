@@ -92,6 +92,7 @@ const char *gbp_vstate_status_name(gbp_vstate_status s)
     case GBP_VSTATE_ANOMALY_POSTACK_SHAPE: return "anomaly_postack_shape";
     case GBP_VSTATE_ANOMALY_PI_STICKY: return "anomaly_pi_sticky";
     case GBP_VSTATE_ANOMALY_REARM_STATE: return "anomaly_rearm_state";
+    case GBP_VSTATE_OK_SESSION_ENDED: return "ok_session_ended";
     default: return "?";
     }
 }
@@ -101,7 +102,8 @@ const char *gbp_vstate_status_class(gbp_vstate_status s)
     switch (s) {
     case GBP_VSTATE_OK_STRUCTURED_CHANGE_OBSERVED:
     case GBP_VSTATE_OK_NO_CHANGE_NOMINAL_INTERVAL:
-    case GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE: return "ok";
+    case GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE:
+    case GBP_VSTATE_OK_SESSION_ENDED: return "ok";
     case GBP_VSTATE_OBSERVATION_NO_NEXT_CAUSE:
     case GBP_VSTATE_NO_INITIAL_CAUSE:
     case GBP_VSTATE_FIRST_DELIVERY_TIMEOUT: return "observation";
@@ -145,6 +147,7 @@ const char *gbp_vstate_stop_name(int stop)
     case GBP_VSTATE_STOP_COLOR_FRAME_CAP: return "color_frame_cap";
     case GBP_VSTATE_STOP_WITNESS_TARGET: return "witness_target_reached";
     case GBP_VSTATE_STOP_WITNESS_STORE_FULL: return "witness_store_full";
+    case GBP_VSTATE_STOP_SESSION_END: return "session_end";
     default: return "none";
     }
 }
@@ -154,11 +157,17 @@ const char *gbp_vstate_stop_name(int stop)
  * else. The classification keys on valid_observation_elapsed, NEVER on which
  * cap fired: a safety stop before the target is `ok_no_change_inconclusive`,
  * never `nominal_negative`.
+ *
+ * Issue #39: the ONE stop that is not a cap and not the scientific target --
+ * the operator's session end -- is its own status, whatever the change
+ * detector saw. An ended session is the run's normal end, and a game session
+ * that opened episodes is not thereby "structured change observed".
  */
 gbp_vstate_status gbp_vstate_main_status(const struct gbp_vstate_result *res)
 {
     const struct gbp_vstate *st = res->st;
     if (!res->service_ok) return res->status;
+    if (res->stop == GBP_VSTATE_STOP_SESSION_END) return GBP_VSTATE_OK_SESSION_ENDED;
     if (st && st->episode_count > 0u) return GBP_VSTATE_OK_STRUCTURED_CHANGE_OBSERVED;
     if (res->stop == GBP_VSTATE_STOP_NOMINAL_NEGATIVE) return GBP_VSTATE_OK_NO_CHANGE_NOMINAL_INTERVAL;
     if (res->stop == GBP_VSTATE_STOP_NO_NEXT_CAUSE) return GBP_VSTATE_OBSERVATION_NO_NEXT_CAUSE;
@@ -1062,6 +1071,20 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
                 res->next_cause_at_end = 1;
                 if (st->tail_active) gbp_vstate_tail_truncate(st, tnow);
                 finish(x, GBP_VSTATE_OK_NO_CHANGE_INCONCLUSIVE, "-", "S5_event_store_cap", GBP_VSTATE_STOP_EVENT_STORE_CAP);
+                return 0;
+            }
+            /* 3s. Issue #39: THE OPERATOR'S SESSION END. A SUCCESS, evaluated
+             *     AFTER the safety budget (safety always wins: a run past its
+             *     budget has gone wrong whatever the operator pressed) and
+             *     AFTER the two store caps (a run that lost its bookkeeping at
+             *     the same admission is reported as the cap it hit, never as a
+             *     clean end), and BEFORE every other success. One flag read,
+             *     no device access. With cfg->session_end NULL this block does
+             *     not exist for any earlier build. */
+            if (cfg->session_end && *cfg->session_end) {
+                res->next_cause_at_end = 1;
+                if (st->tail_active) gbp_vstate_tail_truncate(st, tnow);
+                finish(x, GBP_VSTATE_OK_SESSION_ENDED, "-", "S5_session_end", GBP_VSTATE_STOP_SESSION_END);
                 return 0;
             }
             /* 3a. GBP-VIDEO-004's indexed retention (§V5.39.3). It sits with the

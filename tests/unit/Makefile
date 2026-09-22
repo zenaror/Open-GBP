@@ -24,7 +24,7 @@ CPPFLAGS += -I$(ROOT)/src/common -I$(ROOT)/src/log -I$(ROOT)/src/gbp -I$(ROOT)/t
 # next to a wrong answer.
 HEADERS := $(wildcard $(ROOT)/src/common/*.h $(ROOT)/src/log/*.h $(ROOT)/src/gbp/*.h $(ROOT)/tests/mocks/*.h)
 
-TESTS    := test_ident test_ringlog test_gbp_vfull test_gbp_vvi test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4 test_gbp_avdump test_gbp_avsvc test_gbp_avseq test_gbp_video test_gbp_vsig test_gbp_vstate test_gbp_video_state test_gbp_vcolor test_gbp_vstream test_gbp_vwitness test_gbp_vdisp test_gbp_startup test_gbp_input
+TESTS    := test_ident test_ringlog test_gbp_vfull test_gbp_vvi test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4 test_gbp_avdump test_gbp_avsvc test_gbp_avseq test_gbp_video test_gbp_vsig test_gbp_vstate test_gbp_video_state test_gbp_vcolor test_gbp_vstream test_gbp_vwitness test_gbp_vdisp test_gbp_startup test_gbp_input test_gbp_session
 BINS     := $(addprefix $(OUTDIR)/,$(TESTS))
 
 COMMON_SRC := $(ROOT)/src/common/opengbp_ident.c $(ROOT)/src/common/gbp_time64.c
@@ -128,6 +128,10 @@ $(OUTDIR)/test_gbp_startup: test_gbp_startup.c $(HEADERS) | $(OUTDIR)
 # synthetic descriptors, the write through the mock and the replay, the refresh policy.
 $(OUTDIR)/test_gbp_input: test_gbp_input.c $(ROOT)/src/gbp/gbp_input.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC) $(HEADERS) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_input.c $(ROOT)/src/gbp/gbp_input.c $(LOG_SRC) $(GBP_SRC) $(MOCK_SRC)
+
+# Issue #39: the operator's session end, a pure state machine with no outward edge.
+$(OUTDIR)/test_gbp_session: test_gbp_session.c $(ROOT)/src/gbp/gbp_session.c $(HEADERS) | $(OUTDIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_session.c $(ROOT)/src/gbp/gbp_session.c
 
 $(OUTDIR)/test_gbp_vdisp: test_gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdispdump.c $(ROOT)/src/gbp/gbp_crc32.c $(HEADERS) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdispdump.c $(ROOT)/src/gbp/gbp_crc32.c
