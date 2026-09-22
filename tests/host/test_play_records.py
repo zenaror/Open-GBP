@@ -124,6 +124,10 @@ class NothingFrozenMoved(unittest.TestCase):
         if not guards.base_available(BASE):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE)
         changed = guards.changed_since(BASE, ["docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md", "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #65 (2026-09-22) BUILT stimulus/agb-tone (tone-0001), §V9's two-frequency stimulus: a new
+        # stimulus ROM beside the four the family already had. It touches no runtime path, no image and no
+        # slot; §V9.14 records its identity and tests/host/test_agb_tone.py runs its own code on the host.
+        changed = changed - {"stimulus/agb-tone/Makefile", "stimulus/agb-tone/source/main.c"}
         # Issue #64 (2026-09-22) pre-registered agb-tone (§V9) and made its constructions executable BEFORE
         # the ROM exists: tools/v9tone.py is exercised on SYNTHETIC vectors only, reads no run, authorises
         # nothing and promotes nothing.

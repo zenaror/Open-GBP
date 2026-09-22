@@ -68,6 +68,9 @@ LEDGER = [
      "the document's own figures are pinned from the SOURCES in the same file -- the frozen-construction "
      "diff, the prose correction, U-GBP-012's status and the two new unknowns never skip -- and the "
      "Operator's machine, where the files are, runs the suite before every push"),
+    (r"^the commit that introduced tools/v9tone\.py is not in this checkout$", "HISTORY_ABSENT",
+     "the frozen constructions are also pinned by tests/host/test_v9tone.py, which exercises them on "
+     "synthetic vectors and fails loudly if a construction changed behaviour"),
     (r"^the commit that introduced tools/v8audio\.py is not in this checkout$", "HISTORY_ABSENT",
      "the frozen constructions are also pinned by tests/host/test_v8audio.py, which exercises them on "
      "synthetic vectors and fails loudly if a construction changed behaviour"),

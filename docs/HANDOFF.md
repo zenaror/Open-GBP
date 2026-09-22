@@ -1361,6 +1361,23 @@ issue 64    agb-tone DESIGNED AND PRE-REGISTERED (HARDWARE_TESTS §V9, GBP-AUDIO
             belongs to the PATH or to the checker. HIS COST IS STATED: flashing agb-tone REPLACES the
             Enhanced Control Checker on the NOR and re-flashing it is the way back. tools/v9tone.py +
             tests/host/test_v9tone.py (29 cases, synthetic only), written before the ROM
+issue 65    agb-tone BUILT (tone-0001, HARDWARE_TESTS §V9.14): canonical 1 404 B e14ec62d...df48,
+            DELIVERED build/physical/agb-tone-cart.gba 1 404 B ff5298f0...44a0 -- the file he flashes.
+            HOST-VALIDATED, NEVER RUN, NOT STAGED; §V9's run is NOT authorised. THE ROM IS THE ONLY NEW
+            ARTIFACT IN THE WHOLE RUN: stream-0016 reused unchanged, 14-audio already on the card. The
+            hash does NOT depend on the commit (built twice with different commit strings, same 1 404
+            bytes; the commit is stamped into build-info.txt, not the image). THE THREE REQUIREMENTS ARE
+            DEMONSTRATED by compiling the ROM's OWN code for the host with the hardware bases relocated:
+            SILENT UNTIL THE FIRST PRESS (all six APU registers read 0 after reset, master enable cleared
+            EXPLICITLY, so §V9's control window stays a resting-state observation and the free comparison
+            with RUN 30's control survives); THE KEY-DOWN EDGE ONLY (down/up/down/up gives 1,0,1,0 -- the
+            same edge the capture arms on, any key counts, two keys in one sample is ONE press); THE
+            COUNTER (four boxes + a background colour, two readings of one number that never share a
+            colour, MAGENTA past four). Notes are §V9.3.2's: n=1024/n=1792, length flag NEVER set,
+            envelope step time 0 so nothing decays, and SOUNDCNT_H WRITTEN at 100 % -- the register §V8.6
+            had to call an UNKNOWN. NO SOUND IS TESTED HERE and the record says so: a host has no APU,
+            only the register values and their order are checked. tools/v9tone.py untouched, diffed
+            against the commit that wrote it
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62 and #63 ACCEPTED and CLOSED
             (#61 by him after the ingestion); still to validate #41's pre-registration, #46 through #58 and
             #42; close #36. PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED,
@@ -1374,6 +1391,10 @@ next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62 an
             image IS reusable unchanged (it knows nothing about the cartridge), and press 1 is NOT relied
             on (the comparison lives at any two windows of different frequency, which the alternation
             guarantees among presses 2-4 alone).
+            THE ROM IS NOW BUILT (issue 65 above). WHAT IS LEFT BEFORE THE RUN IS THE OPERATOR'S ONE
+            ACTION: flash build/physical/agb-tone-cart.gba (ff5298f0...44a0) to the EZ-Flash Omega DE in
+            NOR / Mode B, WHICH REPLACES THE ENHANCED CONTROL CHECKER -- re-flashing the checker is the
+            way back, and he accepted that. The Hardware Issue is the Orchestrator's to open.
             #31 (Phase 7, GB/GBC) stays backlog. Executor: THE QUEUE IS EMPTY -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,

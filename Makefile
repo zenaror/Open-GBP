@@ -227,7 +227,7 @@ $(INITIRQ_OUT)/isr-audit.txt: $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt tools/i
 	$(PYTHON) tools/isr_audit.py $< --report $@
 
 
-.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed swiss swiss-check all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone swiss swiss-check all shell clean
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -549,6 +549,19 @@ STIM_COORD2_ROM := build/stimulus/agb-coord2/agb-coord2.gba
 stimulus-coord2:
 	$(IN_CONTAINER) sh -c 'set -e; export DEVKITARM=$$DEVKITPRO/devkitARM; make --no-print-directory -C stimulus/agb-coord2'
 	@$(PYTHON) tools/gbahdr.py show $(STIM_COORD2_ROM)
+
+# agb-tone (tone-0001, HARDWARE_TESTS §V9, GitHub Issue #65): the TWO-FREQUENCY
+# audio stimulus. Silent until the first press, then alternating n = 1024
+# (128.0 Hz) and n = 1792 (512.0 Hz) with a four-box press counter on screen --
+# the Operator's half of §V9.6's two independent counts. Its state machine and
+# its picture are driven on the host by tests/unit/test_agb_tone.c and pinned
+# against §V9's table by tests/host/test_agb_tone.py. NOT PHYSICALLY EXECUTED;
+# §V9's run is not authorised. Delivery image derived locally, never committed:
+#   tools/gbaderive.py build/stimulus/agb-tone/agb-tone.gba <donor> build/physical/agb-tone-cart.gba
+STIM_TONE_ROM := build/stimulus/agb-tone/agb-tone.gba
+stimulus-tone:
+	$(IN_CONTAINER) sh -c 'set -e; export DEVKITARM=$$DEVKITPRO/devkitARM; make --no-print-directory -C stimulus/agb-tone'
+	@$(PYTHON) tools/gbahdr.py show $(STIM_TONE_ROM)
 
 # GBP-VIDEO-003 colour probe under Dolphin. AUXILIARY ONLY: Dolphin's GBPlayer model is
 # not physical truth and CANNOT say anything about colour mapping (§54 of the

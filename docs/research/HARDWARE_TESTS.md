@@ -27314,7 +27314,7 @@ is unchanged and stays unchanged. §V8.1 – §V8.11 keep their words; this part
 and §V8.12 are appended on top.
 
 
-## V9 — GBP-AUDIO-002: **TWO KNOWN FREQUENCIES IN ONE RUN** — is a block a time series or a re-read buffer? — **PRE-REGISTERED 2026-09-22 (GitHub Issue #64); NOT RUN, NOT AUTHORISED HERE; THE ROM AND THE RUN ARE AUTHORISED SEPARATELY**
+## V9 — GBP-AUDIO-002: **TWO KNOWN FREQUENCIES IN ONE RUN** — is a block a time series or a re-read buffer? — **PRE-REGISTERED 2026-09-22 (GitHub Issue #64); NOT RUN, NOT AUTHORISED HERE; THE ROM AND THE RUN ARE AUTHORISED SEPARATELY** · **THE ROM IS BUILT (Issue #65, §V9.14): `tone-0001`, delivered image 1 404 B `ff5298f0…44a0`, host-validated and NEVER RUN — silent until the first press, the key-DOWN edge only, and the counter on screen. RUN 31 is still NOT RUN and no gate above changed**
 
 ### V9.1 Why this exists, and what RUN 30 left it to do
 
@@ -27667,3 +27667,84 @@ evidence id and moves no status. It does not touch `stream-0016`, the staged
 slot or the card, and it changes nothing in §V8 — **§V8's gates decided RUN 30
 and are not reused here**: this part has its own questions, its own verdicts
 and its own tolerances. Nothing from any third-party repository enters this one.
+
+### V9.14 THE ROM, BUILT — **APPENDED 2026-09-22 (GitHub Issue #65). §V9.1 – §V9.13 ARE UNTOUCHED**
+
+**§V9.10 said this part could not state the ROM's identity because the ROM did
+not exist. It does now.** Built, host-validated, **never run**, and §V9's run is
+still not authorised. The pre-registration above kept every word: the ROM moved
+to meet it.
+
+#### V9.14.1 Identity
+
+```text
+source        stimulus/agb-tone/source/main.c          built by tools of the container only
+canonical     build/stimulus/agb-tone/agb-tone.gba     1 404 B
+              sha256 e14ec62d67fa362274b639f9f173dbde02a84aefa185224998dd928628c6df48
+DELIVERED     build/physical/agb-tone-cart.gba         1 404 B      <-- THE FILE HE FLASHES
+              sha256 ff5298f08c4dd7665981dbe39d0eb5b282a1bd122aa60a31923cab967a3844a0
+derived by    tools/gbaderive.py, from the donor build/physical/agb-color-bars-cart.gba whose logo area
+              (sha256 08a0153c...d818) has booted the flashcart route twice; everything past 0x0C0 is
+              byte-identical to the canonical ROM, verified by the tool at derive time
+header        title OPENGBPTONE, code TGBP, maker OG, complement 0x4D
+stimulus id   tone-0001
+route         §V3.7 route 1 -- EZ-Flash Omega DE in NOR / Mode B. The derived image lives under
+              build/physical/, which Git ignores, and NO PROPRIETARY BYTES ENTER THIS REPOSITORY.
+```
+
+**The ROM's hash does not depend on the commit.** The build stamps the commit
+into `build-info.txt` and not into the image, which was checked by building it
+twice with different commit strings and getting the same 1 404 bytes — so the
+hash above is the hash of the file he will be given, whatever commit it is
+rebuilt at.
+
+#### V9.14.2 The three requirements, demonstrated rather than asserted
+
+`tests/host/test_agb_tone.py` compiles **the ROM's own code** for the host with
+the two hardware bases relocated — the family's established trick — and drives
+it through a scripted key sequence, reading the fake APU registers back after
+each step. So what is checked below is the code that will be on the cartridge.
+
+```text
+1  SILENT UNTIL THE FIRST PRESS   all six APU registers read 0 after reset and before any press, and
+                                  the master enable is CLEARED EXPLICITLY rather than assumed clear.
+                                  §V9's control window therefore stays a resting-state observation and
+                                  the free comparison against RUN 30's control survives.
+2  THE KEY-DOWN EDGE ONLY         the scripted sequence down, up, down, up, down, up, down, up, down
+                                  produces pressed = 1,0,1,0,1,0,1,0,1 -- the releases count for
+                                  nothing, which is the same edge the capture arms on (Issue #59).
+                                  ANY key counts, and two keys going down in ONE sample is ONE press,
+                                  because that is one rising edge of the word.
+3  THE COUNTER                    four 40x48 boxes filling left to right PLUS a whole-screen background
+                                  colour, read back from the fake VRAM at the centre of each box: the
+                                  two channels never share a colour, so a missed fill is caught by the
+                                  background. A FIFTH press turns it MAGENTA, which says "more than
+                                  four" at a glance.
+```
+
+**And the notes, against §V9.3.2's table:** `n = 1024` and `n = 1792`, the
+alternation F1, F2, F1, F2 (continuing past four), `SOUND1CNT_X = 0x8000 | n`
+with **bit 14, the length flag, never set**, `SOUND1CNT_H` with **envelope step
+time 0** so the level never decays, no sweep, and **`SOUNDCNT_H` written to
+100 %** — the register §V8.6 had to call an UNKNOWN because the checker never
+touched it. No second channel and no FIFO register is referenced anywhere.
+
+#### V9.14.3 What a host test CANNOT do, said rather than implied
+
+**There is no sound here.** The host has no APU, so what is verified is the
+**register values and the order they are written in**, against GBATEK's field
+layout and §V9.3.2's table. **Whether a real AGB then emits 128.0 Hz is exactly
+what the physical run is for**, and nothing above stands in for it.
+
+**One accepted cost, named rather than discovered.** A full repaint does not fit
+in one VBlank and overruns into the visible period of the frame a press lands
+on. That is four or five torn frames in a session of a thousand, invisible to a
+person, and the AUDIO window this run measures does not read VRAM at all.
+
+#### V9.14.4 What this appendix does NOT do
+
+It authorises **no hardware and no staging**. `stream-0016` is untouched,
+`14-audio` is untouched, the card is untouched, and **the ROM is the only new
+artifact in this entire run**. `tools/v9tone.py` is unchanged and a test diffs
+it against the commit that wrote it. §V9's gates decided nothing here and are
+not re-opened: this appendix records an artifact, not a result.
