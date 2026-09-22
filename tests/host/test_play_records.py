@@ -124,6 +124,10 @@ class NothingFrozenMoved(unittest.TestCase):
         if not guards.base_available(BASE):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE)
         changed = guards.changed_since(BASE, ["docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md", "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #64 (2026-09-22) pre-registered agb-tone (§V9) and made its constructions executable BEFORE
+        # the ROM exists: tools/v9tone.py is exercised on SYNTHETIC vectors only, reads no run, authorises
+        # nothing and promotes nothing.
+        changed = changed - {"tools/v9tone.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
@@ -145,7 +149,9 @@ class NothingFrozenMoved(unittest.TestCase):
         self.assertIn("NOT RUN / NOT AUTHORISED HERE", hw[hw.index("### V7.6 RUN 21 / RUN 22"):].splitlines()[0])
         # Issue #47 (2026-09-22) ingested RUN 23 / RUN 24 in §V7.7; the pin moves to the next unused number so it
         # goes on asserting that THIS checkpoint (the play-0001 build) executed nothing
-        self.assertNotIn("RUN 31", hw)
+        # Issue #64 (2026-09-22) reserved RUN 31 in §V9's pre-registration; the pin moves again to the
+        # next unused number, and it still asserts what it was written to assert
+        self.assertNotIn("RUN 32", hw)
         self.assertNotIn("GBP-HW-295", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test

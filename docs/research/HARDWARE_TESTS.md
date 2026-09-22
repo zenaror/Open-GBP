@@ -27313,3 +27313,357 @@ no closure of Phase 6, whose acceptance is an **exit** question. `tools/v8audio.
 is unchanged and stays unchanged. §V8.1 – §V8.11 keep their words; this part
 and §V8.12 are appended on top.
 
+
+## V9 — GBP-AUDIO-002: **TWO KNOWN FREQUENCIES IN ONE RUN** — is a block a time series or a re-read buffer? — **PRE-REGISTERED 2026-09-22 (GitHub Issue #64); NOT RUN, NOT AUTHORISED HERE; THE ROM AND THE RUN ARE AUTHORISED SEPARATELY**
+
+### V9.1 Why this exists, and what RUN 30 left it to do
+
+**RUN 30 answered the prerequisite and not the format** (§V8.13): the AUDIO
+window carries something, it changes with the press one GBA frame later, and
+its shape is a two-level square of **exactly 256 bytes** — but *"256 bytes"* is
+a length, and nothing in this project turns it into a frequency. `U-GBP-037`
+(P1) holds that gap and names this instrument; §V8.5.2 designated it as the
+fallback for exactly the `CARRIES / OTHER SHAPE` outcome RUN 30 produced.
+
+**The instrument changes from a borrowed ROM to a project-owned one, and that
+is the whole point.** The Enhanced Control Checker's tone was known *a priori*
+from reading its source; `agb-tone`'s is known because **this project writes
+it**, so the frequency is an input rather than an inference.
+
+**Nothing here is authorised.** No build, no hardware, no promotion, no id.
+
+### V9.2 What the ROM must be
+
+```text
+WHERE            stimulus/agb-tone -- the fifth of the family (agb-color-bars, agb-coord, agb-coord2,
+                 agb-indexed), delivered by the established route: tools/gbaderive.py ->
+                 build/physical/*.gba -> the EZ-Flash Omega DE in NOR / Mode B (§V3.7 route 1), which
+                 has carried every delivered stimulus since color-0001
+DETERMINISTIC    from reset: no menu, no saved state, nothing to press before it is doing its job
+THE TONE         PSG channel 1, a square, ONE parameter changing per press: the FREQUENCY. Duty,
+                 envelope and volume are set once and never touched again, so the only thing that moves
+                 between windows is the quantity under test.
+NO ENVELOPE DECAY  the envelope is set to a CONSTANT level, not a decaying one. The checker's decay was
+                 harmless to RUN 30 because nothing depended on amplitude; here a level that falls
+                 during a window would change the very bytes the period is read from.
+THE ALTERNATION  press 1 -> F1, press 2 -> F2, press 3 -> F1, press 4 -> F2
+AND IT MUST SHOW THE PRESS COUNT ON SCREEN (§V9.6)
+```
+
+#### V9.2.1 Why the frequency ALTERNATES rather than stepping — a decision against `U-GBP-038`
+
+**`U-GBP-038` is open: in RUN 30 the first press changed nothing at all.** A
+sequence that spent press 1 on F1 and never returned to it would lose F1
+entirely if that repeats.
+
+```text
+if press 1 behaves       windows are F1, F2, F1, F2 -- two frequencies, two windows each, and the
+                         comparison can be made four ways
+if press 1 is lost again windows are (nothing), F2, F1, F2 -- BOTH frequencies still present, and the
+                         comparison still has at least one clean pair
+```
+
+**So the run survives either answer to `U-GBP-038`, and the alternation is a
+design decision against a known observation rather than a pattern chosen for
+neatness.**
+
+### V9.3 THE FREQUENCIES — the arithmetic, shown
+
+**GBATEK's formula, cited and not assumed:** `f = 131072 / (2048 − n)`, with
+the 11-bit frequency value `n` in 0…2047. **The lowest note the channel has is
+`n = 0` → 64.0 Hz**, and there is nothing below it — which is worth stating
+because RUN 30's resting wave sits exactly there under the sizing assumption
+below.
+
+#### V9.3.1 The sizing assumption, labelled — it chooses the notes and decides NOTHING
+
+```text
+THE ASSUMPTION   RUN 30's resting 256-byte square is the 64.0 Hz the checker's "stop" leaves sounding
+                 (n = 0). It is U-GBP-037's own INFERENCE and it is NOT established.
+WHAT IT IS USED FOR    choosing two notes whose periods land in a measurable range. Nothing else.
+WHAT IT IS NOT USED FOR   the verdict. §V9.4's test is a RATIO between two windows of the SAME run, and
+                 a ratio of two periods is independent of the sample rate entirely -- which is exactly
+                 why this instrument can answer a question about a rate nobody has measured.
+IF IT IS WRONG   the periods land somewhere else. §V9.5 states the range over which the choice still
+                 works and what happens outside it.
+```
+
+Under it, one byte is `1/16384 s = 61.04 µs` and
+
+```text
+predicted period in bytes  =  16384 / f  =  16384 × (2048 − n) / 131072  =  (2048 − n) / 8
+```
+
+#### V9.3.2 The two notes, and why these
+
+```text
+             n       2048 − n      f = 131072/(2048−n)     predicted period      cycles per 4096-byte block
+F1        1024           1024          128.0 Hz  exact          128 bytes                 32.0
+F2        1792            256          512.0 Hz  exact           32 bytes                128.0
+the ratio                                 4.000000              4.000000
+```
+
+**Why a factor of FOUR and not two.** The separation is not defending against
+noise — RUN 30 measured the period as exactly 256 bytes in **1 280 of 1 280**
+blocks, with no deviation at all. It is defending against **a misreading of the
+structure**, and the most likely one is counting half-periods:
+
+```text
+a half-period miscount produces EXACTLY a factor of 2
+so a factor-2 design cannot distinguish "F2 is twice F1" from "I counted the other edge"
+a factor of 4 cannot be produced by that error, and it is the smallest factor that cannot
+```
+
+**Why these two and not another factor-4 pair.** `f` is an exact integer only
+when `(2048 − n)` is a power of two, and both notes must differ from the
+resting 256 bytes so that a window is never confused with the rest state. That
+leaves `(2048 − n) ∈ {1024, 256}` as the only factor-4 pair of powers of two
+with both periods clear of 256 and both above the transition scale below.
+
+**The one cost of the choice, named.** RUN 30's square carried **8-byte
+transition runs** (`01×8`, `FE×8`). At 32 bytes the short period is **4× that
+scale** rather than 32×, so F2's square will be visibly distorted. **It is
+still measurable — the edges are what the period is read from, and there are
+128 of them per block — and if it proves too coarse the fallback is
+`(2048 − n) = 512` (256.0 Hz, 64 bytes, factor 2 against F1), which is
+recorded here as the second choice rather than invented later.**
+
+### V9.4 QUESTION R — the ratio, frozen before the ROM exists
+
+```text
+QUESTION R    does period_bytes(F2) / period_bytes(F1) equal F1 / F2?
+              evidence   the measured byte-period of every window, compared WITHIN this run
+              why it is rate-independent   period_bytes(F) = R / F for whatever the region's rate R is,
+                         so the ratio is F1/F2 exactly and R cancels. THE TEST NEEDS NO RATE AND
+                         ASSUMES NONE.
+              the prediction   period(F2)/period(F1) = 1/4, i.e. period(F1)/period(F2) = 4.000000
+QUESTION C    what does the control window contain on a DIFFERENT cartridge? (§V9.7)
+              SEPARATE GATE: C is read FIRST and its answer does not decide R.
+```
+
+**R's verdicts, fixed here:**
+
+```text
+RATIO HOLDS        two windows of different frequency both give a period, and their ratio is 4 within
+                   §V9.8's tolerance. THEN the sample rate follows from either window --
+                   R = f × period_bytes -- and U-GBP-037's first half closes.
+RATIO DOES NOT HOLD  both periods are measured and their ratio is not 4. A REAL RESULT, not a failed
+                   run: the re-read-buffer reading is wrong, U-GBP-037's second half is answered in
+                   the NEGATIVE, and what the block is remains open with one model fewer.
+PERIOD ABSENT      a window carries no measurable alternation at all -- the bytes did not change with
+                   the press, or changed into something with no period. Recorded with what was seen.
+INCONCLUSIVE       fewer than two windows with DIFFERENT frequencies were captured; the run did not
+                   reach the service loop; the KEY record is unusable; the windows cannot be aligned
+                   to presses.
+```
+
+**What each outcome looks like in the bytes, written before the build:**
+
+```text
+RATIO HOLDS          window(F1): edges every ~128 bytes, ~32 cycles per block
+                     window(F2): edges every ~32 bytes, ~128 cycles per block
+                     and 128/32 = 4 whatever the absolute numbers turn out to be
+RATIO DOES NOT HOLD  both windows show a period, and the quotient is something other than 4 --
+                     1 (the period does not follow the note), 2 (a half-period miscount, which is why
+                     the factor is 4), or a number with no obvious reading
+PERIOD ABSENT        a window that looks like RUN 30's control: one period, unchanged, or no alternation
+```
+
+### V9.5 The range over which the choice works, and what happens outside it
+
+**A period is measurable when it is long enough to show above the 8-byte
+transition scale and short enough to repeat three times inside a block** (three
+rising edges is §V8.5.3's minimum for an estimate, and that rule is inherited
+unchanged).
+
+```text
+resolvable window            period ∈ [24, 1365] bytes
+predicted pair               128 and 32 bytes
+if the true rate is k × the sizing assumption, the pair becomes 128k and 32k
+  k ≥ 0.75   the short period stays ≥ 24
+  k ≤ 10.7   the long period stays ≤ 1365
+SO THE CHOICE WORKS FOR ANY RATE BETWEEN 12 288 AND 175 000 BYTES/S -- a factor of 14, centred on the
+assumption rather than betting on it
+OUTSIDE IT   one or both windows return PERIOD ABSENT, which is reported as such. The run then says
+             the rate is outside that range, which is itself worth knowing and costs one session.
+```
+
+### V9.6 THE PRESS MUST BE VISIBLE ON SCREEN — a requirement about the Operator, not about the signal
+
+**In RUN 30 he pressed four times into a void.** He could not hear anything
+(the image links no audio library — §V8.10.1) and nothing on screen
+acknowledged him, so his only feedback was the log, afterwards. **Every run so
+far has asked him to act blind and then asked him what he observed.**
+
+```text
+THE REQUIREMENT   the ROM displays the press count unambiguously and advances it on every press
+THE FORM          a row of four boxes, filled left to right, one per press, PLUS the background colour
+                  changing with the count -- two independent readings of the same number, so a missed
+                  fill is caught by the colour
+WHY BOTH          he reports the count he SAW at the time, and the machine reports the count it
+                  RECORDED. Two independent counts of the same thing is the cheapest cross-check this
+                  project has ever had available, and it has never had it.
+WHAT IT IS NOT    a gate. AU-style verdicts come from the bytes; what he saw is an OPERATOR OBSERVATION
+                  and stays one (§V8.10.1's lesson, applied forward rather than repeated).
+```
+
+### V9.7 QUESTION C — the free observation, on a different cartridge
+
+**RUN 30's control window was not silence: the AUDIO window carried a 256-byte
+square at rest, with no tone playing** (`GBP-HW-288`). **Nobody knows whether
+that is a property of the PATH or of the checker**, and this run answers it for
+nothing: it is a different cartridge, the control window is armed the same way,
+and it is read first.
+
+```text
+C = SAME SHAPE        a 256-byte square at rest on a second, unrelated cartridge -> the resting wave is
+                      a property of the PATH or of the GBP, not of the instrument. That is a real
+                      finding about what the AUDIO window is.
+C = DIFFERENT SHAPE   whatever it is, recorded. The resting wave then belongs to the checker or to its
+                      state, and RUN 30's control must be re-read as an instrument artefact.
+C = SILENCE           the window at rest carries nothing on this cartridge -> the strongest form of the
+                      same finding, and it makes RUN 30's control the odd one out.
+```
+
+**C is read BEFORE the presses and its answer does not decide R.** It changes
+how R's windows are read — as it did in RUN 30 — which is exactly why §V8.5.1's
+rule is inherited.
+
+### V9.8 The tolerances, fixed HERE
+
+```text
+A PERIOD IS ESTIMATED   only from at least THREE rising edges (two whole intervals), estimator the
+ AT ALL                 MEDIAN of the inter-edge intervals -- §V8.5.3's rule, unchanged and inherited
+THE RATIO MATCHES       within 10 % of 4.000. RUN 30 measured its period with ZERO deviation over 1 280
+                        blocks, so 10 % is not a noise allowance: it is the margin that still refuses
+                        3.6 and 4.4 while being far from the 2 a half-period miscount would give.
+A WINDOW HAS A PERIOD   at least three rising edges AND at least 90 % of its inter-edge intervals equal
+                        to the median. RUN 30's were 100 % equal; a window that cannot manage 90 % is
+                        not a square and is reported as PERIOD ABSENT rather than averaged into a number.
+NOTHING ELSE IS A       no threshold not written here may decide R or C. A quantity without a
+ THRESHOLD              pre-registered threshold is reported with its value and decides nothing.
+```
+
+### V9.9 THE IMAGE — `stream-0016` is reused UNCHANGED, and the argument is made rather than assumed
+
+```text
+WHAT THE IMAGE KNOWS ABOUT THE CARTRIDGE    nothing. It arms a window on a KEY change, copies AUDIO
+                                            blocks, and emits them. No part of it names the checker,
+                                            a frequency, a duty or a tone.
+WHAT THE EXPERIMENT NEEDS                   a window anchored on each press and the blocks inside it
+                                            -- which is precisely what §V8.3.1's anchor and §V8.3.2's
+                                            window are
+WHAT CHANGES                                the cartridge in the slot, and nothing else
+```
+
+**So it is reused unchanged: no new build, no new identity, no new staging
+risk, and `14-audio` already holds the exact bytes RUN 30 executed.** The
+Orchestrator's instruction was *do not bend the ROM to fit the image if bending
+the image is more honest* — **the ROM is not bent**: its specification (§V9.2)
+was written from the question, and the image happens to fit it because the
+image was written to be cartridge-agnostic in the first place.
+
+**The one place they touch, checked rather than assumed.** The window is 256
+blocks (62.5 ms) anchored at the GBP-side key change, and RUN 30 measured the
+AGB-side latency at 12–18 ms, leaving ~44 ms of post-change content. **A ROM
+that reacts within one frame leaves the same margin**, so §V9.2's *deterministic
+from reset, one write per press* is also what keeps the existing window big
+enough. **If the ROM needed a slower reaction the window would be too small and
+the IMAGE would have to change** — which is the honest form of the same
+sentence, and it is why the requirement sits on the ROM's side.
+
+#### V9.9.1 Is press 1 a usable anchor? — the comparison does NOT depend on it
+
+**`U-GBP-038` says press 1 changed nothing in RUN 30, and nobody knows why.**
+The pre-registration therefore locates the informative comparison **not at any
+particular press** but at **any two captured windows whose frequencies differ**:
+
+```text
+R is answered by    ANY pair of windows with different F, and the alternation guarantees at least one
+                    such pair exists among presses 2, 3 and 4 alone
+press 1             is still armed, still captured and still reported. If it carries F1 it joins the
+                    comparison; if it repeats U-GBP-038 it is a SECOND observation of that unknown,
+                    on a different cartridge, which is worth having and costs nothing
+what is NOT done    pressing a fifth time to "make up for" press 1. Four windows is what the image
+                    holds, and a fifth press is refused and counted (§V8.7) rather than silently
+                    overwriting the first.
+```
+
+### V9.10 Identity — a gate, declared per run, never inherited
+
+```text
+the instrument   stimulus/agb-tone, built by this project. Its exact SHA-256 and size are recorded when
+                 it is BUILT -- a separate authorisation -- and the run's pre-flight re-declares them.
+                 THIS PART CANNOT STATE THEM: the ROM does not exist.
+the image        gbp-audio-window-probe / stream-0016 / commit 04121fe, DOL 498 496 B, SHA-256
+                 c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54, staged at slot
+                 14-audio and verified from the card (§V8.12.2). UNCHANGED for this run.
+the rule         §V7.1's, unchanged: the hash of the Operator's own media is a double check and never a
+                 gate on its own -- AND IF ANY IDENTITY DIFFERS ON THE DAY, DO NOT RUN.
+the medium       the EZ-Flash Omega DE in NOR / Mode B: a ROM on a flash cartridge, never an original,
+                 so §V7.6.11's attribution caveat applies to this run as it does to every delivered
+                 stimulus.
+```
+
+### V9.11 Reserved raw-file names
+
+```text
+captures/local/GBP-AUDIO-002_stream-0016-run31.log
+captures/local/GBP-AUDIO-002_stream-0016-run31-audio.bin
+```
+
+**RUN 31 is the next free number** (RUN 30 executed; 19/20 retired without
+running). One run is reserved, not several. **The names are reserved and the
+files do not exist** — §V7.6.7's rule applies: a reserved name is not evidence,
+and nothing may cite one until the Operator's raw drop exists in `logs/`.
+
+### V9.12 The Operator's action list — and **what it costs him**, stated plainly
+
+**THE COST FIRST, because he should not have to rediscover it: flashing
+`agb-tone` to the NOR REPLACES the Enhanced Control Checker.** He loses the
+checker from the cartridge, and **re-flashing the checker is the way back** —
+the same operation, in the other direction, with the image he already has. He
+has accepted this; it is written here so the record carries it and so any
+future run of this family states it again.
+
+```text
+step  action                                              press with           what he records
+  1   flash stimulus/agb-tone to the EZ-Flash Omega DE    --                   that the write completed
+      in NOR / Mode B, the same way the checker was
+  2   boot the console with that cartridge inserted       (nothing)            that the ROM's own screen
+      and 14-audio launched from SD                                            came up
+  3   wait until the screen is up and stable              (nothing)            roughly how long, AND the
+                                                                               press counter reading 0
+      ---- THE FOUR PRESSES. AT LEAST THREE SECONDS BETWEEN THEM.
+  4   A  × 1                                              the pad's A          the counter after it
+  5   wait  ≈ 3 s                                         (nothing)            --
+  6   A  × 1                                              the pad's A          the counter after it
+  7   wait  ≈ 3 s                                         (nothing)            --
+  8   A  × 1                                              the pad's A          the counter after it
+  9   wait  ≈ 3 s                                         (nothing)            --
+ 10   A  × 1                                              the pad's A          the counter after it
+ 11   end the session the way the image asks              --                   that the log was saved
+```
+
+**Why three seconds is still the rule**: the window is 62.5 ms and the AGB
+takes up to a frame to see the press, but the spacing exists so that each
+window belongs to one press and one frequency. RUN 30's 4.14 / 3.97 / 3.69 s
+were comfortable and are the model.
+
+**What he reports that he could not before:** the counter after each press. **If
+the counter and the log disagree, that is a finding about the input path** and
+it is the first time this project has been able to catch such a thing at all.
+
+**He will still hear nothing.** The image reproduces no audio (§V8.10.1) and
+this ROM does not change that: the tone exists for the GBP's AUDIO window, not
+for the television. **If he DOES hear anything, that is a finding** and the run
+is reported with it.
+
+### V9.13 What this part does NOT do
+
+It authorises **no ROM, no build, no hardware**. It answers **nothing**:
+`U-GBP-037` and `U-GBP-012` stay open and are pointed at, not by. It mints no
+evidence id and moves no status. It does not touch `stream-0016`, the staged
+slot or the card, and it changes nothing in §V8 — **§V8's gates decided RUN 30
+and are not reused here**: this part has its own questions, its own verdicts
+and its own tolerances. Nothing from any third-party repository enters this one.

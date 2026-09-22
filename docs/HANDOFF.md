@@ -1342,23 +1342,38 @@ issue 63    FOUR PORTS, ONE CONTROLLER -- a RECORD and a SCOPE CORRECTION, no co
             NAMED AND NOT RESOLVED. R6 RE-PRICED ON TOP (PHASE5_ASSESSMENT §6b), words kept: from
             "untested" to "an implementation gap in front of the run", and the run is now the cheapest
             part. PHASE 5 IS NOT REOPENED. INPUT_PATH.md §15; tests/host/test_four_ports.py
+issue 64    agb-tone DESIGNED AND PRE-REGISTERED (HARDWARE_TESTS §V9, GBP-AUDIO-002): NOT RUN, NOT
+            AUTHORISED, THE ROM DOES NOT EXIST; build and run are separate authorisations. The Operator
+            agreed to flash it ("Topo gravar essa ROM de vocês"). THE VERDICT IS A RATIO BETWEEN TWO
+            WINDOWS OF THE SAME RUN: period_bytes(F) = R/F, so period(F1)/period(F2) = F2/F1 exactly and
+            R CANCELS -- the test needs no sample rate and assumes none, which is the only reason one
+            session can decide a question about a rate nobody has measured. F1 n=1024 128.0 Hz exact ->
+            128 bytes predicted; F2 n=1792 512.0 Hz exact -> 32 bytes; ratio 4.000000. A FACTOR OF FOUR
+            BECAUSE A HALF-PERIOD MISCOUNT PRODUCES EXACTLY 2 -- and it is forced: f is integer only when
+            (2048-n) is a power of two and both notes must differ from the resting 256 bytes. The choice
+            holds for ANY rate between 12 288 and 175 000 bytes/s (a factor of 14). THE ALTERNATION F1,
+            F2, F1, F2 IS A DECISION AGAINST U-GBP-038: if press 1 is lost again, presses 2-4 still carry
+            both notes, and §V9.9.1 puts the comparison at ANY two windows of different F rather than at a
+            press. THE ROM MUST SHOW THE PRESS COUNT ON SCREEN -- in RUN 30 he pressed four times into a
+            void -- giving two independent counts of the same number. stream-0016 REUSED UNCHANGED, argued:
+            the image knows nothing about the cartridge, so no new build, no new identity, no staging risk.
+            QUESTION C is free: a control window on a DIFFERENT cartridge says whether the resting square
+            belongs to the PATH or to the checker. HIS COST IS STATED: flashing agb-tone REPLACES the
+            Enhanced Control Checker on the NOR and re-flashing it is the way back. tools/v9tone.py +
+            tests/host/test_v9tone.py (29 cases, synthetic only), written before the ROM
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62 and #63 ACCEPTED and CLOSED
             (#61 by him after the ingestion); still to validate #41's pre-registration, #46 through #58 and
             #42; close #36. PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED,
             R4 SATISFIED by RUN 30 (T' = NOMINAL), R5 unchanged, R6 RE-PRICED by #63 (an implementation gap
             in front of the run). PHASE 6 HAS ITS FIRST DATA: the window carries something and changes with
             the press one GBA frame later, and the FORMAT is not established.
-            THE NEXT INSTRUMENT IS U-GBP-037's: stimulus/agb-tone, a project-owned ROM whose output this
-            project controls end to end. NOT DISPATCHED AND NOT STARTED -- it is HELD until the Operator
-            answers on flashing, because it is the first thing in a while that asks him to write a
-            cartridge. The Orchestrator's intended shape, relayed so it is not lost and NOT acted on: a ROM
-            deterministic from reset that CHANGES FREQUENCY PER PRESS (F1, F2, F1, F2), reusing the existing
-            capture image unchanged if it can, so the press-anchored windows give a within-run 2x2 and
-            U-GBP-037's prediction is tested by comparing windows AGAINST EACH OTHER rather than against
-            any absolute. Two questions he asked the Executor to argue AT DISPATCH, not before: whether
-            U-GBP-038 (press 1 changed nothing) makes press 1 unreliable as an anchor so the sequence should
-            start at press 2, and whether the image can really be reused or the ROM's own first-press
-            behaviour has to be designed around the anchor.
+            THE NEXT INSTRUMENT IS U-GBP-037's: stimulus/agb-tone, and it is now DESIGNED AND
+            PRE-REGISTERED (§V9, issue 64 above) -- the Operator agreed to flash it. NOTHING IS AUTHORISED
+            BY THAT: the ROM does not exist, the build is a checkpoint of its own and the run is another.
+            Both of the Orchestrator's open questions were argued in the part rather than assumed: the
+            image IS reusable unchanged (it knows nothing about the cartridge), and press 1 is NOT relied
+            on (the comparison lives at any two windows of different frequency, which the alternation
+            guarantees among presses 2-4 alone).
             #31 (Phase 7, GB/GBC) stays backlog. Executor: THE QUEUE IS EMPTY -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,

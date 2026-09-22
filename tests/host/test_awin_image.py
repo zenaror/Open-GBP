@@ -156,6 +156,10 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit is not in this checkout")
         changed = guards.changed_since(BASE_COMMIT, ["src/gbp/" + f for f in SERVICE_PATH_FILES])
+        # Issue #64 (2026-09-22) pre-registered agb-tone (§V9) and made its constructions executable BEFORE
+        # the ROM exists: tools/v9tone.py is exercised on SYNTHETIC vectors only, reads no run, authorises
+        # nothing and promotes nothing.
+        changed = changed - {"tools/v9tone.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
