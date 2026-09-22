@@ -422,7 +422,20 @@ game).** **EXECUTED AGAIN 2026-09-21 — RUN 17, RUN 18 and RUN 16 on
 `stream-0015`, GBP-INPUT-002 (Hardware Issue #32; ingested §V7.4, GitHub
 Issue #33): Question J = FACT for all ten KEYPAD word bits, bits 8 and 9 on
 two controllers — the routing a physical FACT (hw, the runs); RUN 16 UNDECIDED
-by the rule; the acceptance criterion still NOT assessed.** The keypad
+by the rule; the acceptance criterion still NOT assessed.**
+**ASSESSED 2026-09-22 (GitHub Issue #42): PHASE 5 VERDICT — SATISFIED WITH
+NAMED RESIDUALS** (`docs/research/PHASE5_ASSESSMENT.md`). The criterion is met
+at the resolution the evidence carries — a retail game played for minutes on
+both pads (RUN 21 / RUN 22), all ten keys delivered with zero failed writes out
+of 93 849 attempts, `K = AGREE` over the scripted head with identical ordered
+press sequences on both pads (RUN 25 / RUN 26, `GBP-HW-283`), and the Operator
+reporting the game responding normally — and is **not** met at the resolution
+the pre-registration defined: `W` is INCONCLUSIVE **per key** in all four runs,
+§V7.6.9's **step 15 was never performed**, Question T is INCONCLUSIVE
+(§V7.8.10), and the cartridge's FORM was never declared so the attribution
+caveat cannot be lifted. Six residuals are named and **priced**; R1 + R2 + R4
+are **one run per pad with a form in hand and nothing to build**. The
+assessment promotes nothing, mints no id and changes no status. The keypad
 path is reconstructed on paper in `docs/research/INPUT_PATH.md` in three
 layers kept apart — the GBS-DOL KEYPAD window as the references write it
 (L1), the logical GBA button set from GBATEK (L2), and the GameCube
