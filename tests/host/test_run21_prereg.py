@@ -30,6 +30,8 @@ import re
 import subprocess
 import unittest
 
+import guards
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 HANDOFF = os.path.join(ROOT, "docs", "HANDOFF.md")
@@ -421,22 +423,17 @@ class TheCorrectionOfTheAuditFigure(unittest.TestCase):
 
 class NothingFrozenMoved(unittest.TestCase):
     def test_the_earlier_parts_are_byte_identical_and_nothing_else_changed(self):
-        r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE], capture_output=True)
-        if r.returncode != 0:
-            self.skipTest("the base commit is not available in this checkout")
+        if not guards.base_available(BASE):
+            self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE)
         old = subprocess.run(["git", "-C", ROOT, "show", "%s:docs/research/HARDWARE_TESTS.md" % BASE],
                              capture_output=True, text=True, check=True).stdout
         new = read(HW)
         self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.6 ")].rstrip("\n"),
                          old[old.index("### V7.1 "):].rstrip("\n"), "§V7.1–§V7.5 byte-identical")
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE, "--", "src", "poc", "tools", "Makefile",
-                            "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware",
-                            "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"], capture_output=True, text=True)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(r.stdout.strip(), "", "changed against the base: " + r.stdout)
-        r = subprocess.run(["git", "-C", ROOT, "ls-files", "--others", "--exclude-standard", "--", "src", "poc", "tools",
-                            "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware"], capture_output=True, text=True)
-        self.assertEqual(r.stdout.strip(), "", "untracked files under the guarded paths: " + r.stdout)
+        changed = guards.changed_since(BASE, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing
+        changed = changed - {"tools/reconcile.py"}
+        self.assertEqual(" ".join(sorted(changed)).strip(), "", "changed against the base: " + " ".join(sorted(changed)))
 
     def test_no_evidence_id_was_minted_and_the_records_agree(self):
         ev = read(EVIDENCE)
@@ -444,7 +441,10 @@ class NothingFrozenMoved(unittest.TestCase):
         self.assertNotIn("GBP-PLAY-001", ev)
         h = plain(read(HANDOFF))
         for tok in ("ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004", "issue 41",
-                    "validate #41's pre-registration", "That RUN 21 / RUN 22 have run, or that the image is staged",
+                    "validate #41's pre-registration",
+                    # the bullet was rewritten when Hardware Issue #43 staged the image (2026-09-21): what must still
+                    # hold is that nothing has RUN, which is what the pin now reads
+                    "That RUN 21 / RUN 22 have run.",
                     "That a column of N/A in the acceptance runs is a finding"):
             self.assertIn(tok, h, tok)
         self.assertIn("The acceptance pair, pre-registered — RUN 21 / RUN 22 (GitHub Issue #41", plain(read(ROADMAP)))

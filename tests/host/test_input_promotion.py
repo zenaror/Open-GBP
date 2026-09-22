@@ -19,6 +19,8 @@ import re
 import subprocess
 import unittest
 
+import guards
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 D = lambda *p: os.path.join(ROOT, "docs", *p)
 INPUT = D("protocol", "INPUT.md")
@@ -244,20 +246,19 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
         self.assertIn("Issue #26", u_new[u_new.index("## U-GBP-010"):u_new.index("## U-GBP-011")])
 
     def test_nothing_under_the_untouchable_paths_changed(self):
-        r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE], capture_output=True)
-        if r.returncode != 0:
-            self.skipTest("the base commit is not available in this checkout")
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE, "--", "src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures"],
-                           capture_output=True, text=True)
-        self.assertEqual(r.returncode, 0, r.stderr)
+        if not guards.base_available(BASE):
+            self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE)
+        changed = guards.changed_since(BASE, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing
+        changed = changed - {"tools/reconcile.py"}
         # Issue #27 (after this promotion) touched the input module and the stream probe; Issue #33 (2026-09-21) added the
         # RUN 16 / 17 / 18 fixtures (tests/host/test_run17.py pins them); nothing else here
-        changed = set(r.stdout.split())
+        changed = changed
         allowed = {"src/gbp/gbp_input.c", "src/gbp/gbp_input.h", "poc/gbp-video-stream-probe/source/main.c", "poc/gbp-video-stream-probe/Makefile"}
         allowed |= {p for p in changed if re.search(r"^captures/fixtures/hw-gamecube-gbp-2026-09-21-(idxcap|stream-0015)-run1[678]-", p)}
         # Issue #39 (2026-09-21) built the playable image: the session end in the service-path module (tests/host/test_play_image.py pins it), a new POC, its audit profile and its Swiss slot
         allowed |= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"}
-        self.assertTrue(changed <= allowed, "changed against the base: " + r.stdout)
+        self.assertTrue(changed <= allowed, "changed against the base: " + " ".join(sorted(changed)))
 
     def test_the_records_of_the_checkpoint(self):
         d = read(DEVLOG)

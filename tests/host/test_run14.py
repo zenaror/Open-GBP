@@ -26,6 +26,8 @@ import subprocess
 import sys
 import unittest
 
+import guards
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import vdisp  # noqa: E402
@@ -789,20 +791,19 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
             self.assertEqual(read(HANDOFF).count(n), 1, n)
 
     def test_nothing_under_the_untouchable_paths_changed_against_the_base(self):
-        r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", FROZEN_V71_COMMIT], capture_output=True)
-        if r.returncode != 0:
-            self.skipTest("the base commit is not available in this checkout")
+        if not guards.base_available(FROZEN_V71_COMMIT):
+            self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % FROZEN_V71_COMMIT)
         # docs/protocol and docs/hardware left this guard with the Issue #26 promotion; Issue #27 touched the input
         # module and the stream probe (the per-change record, the ENVINPUT repair) and nothing else under these paths
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_V71_COMMIT, "--", "src", "poc", "tools", "Makefile", "stimulus"],
-                           capture_output=True, text=True)
-        self.assertEqual(r.returncode, 0, r.stderr)
+        changed = guards.changed_since(FROZEN_V71_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing
+        changed = changed - {"tools/reconcile.py"}
         allowed = {"src/gbp/gbp_input.c", "src/gbp/gbp_input.h", "poc/gbp-video-stream-probe/source/main.c", "poc/gbp-video-stream-probe/Makefile"}
         # Issue #39 (2026-09-21) built the playable image: the session end in the service-path module (tests/host/test_play_image.py pins it), a new POC, its audit profile and its Swiss slot
         allowed |= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"}
-        self.assertTrue(set(r.stdout.split()) <= allowed, "changed against the base: " + r.stdout)
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", FROZEN_V71_COMMIT, "--", "captures/fixtures"], capture_output=True, text=True)
-        for line in r.stdout.split():
+        self.assertTrue(changed <= allowed, "changed against the base: " + " ".join(sorted(changed)))
+        changed2 = guards.changed_since(FROZEN_V71_COMMIT, ["captures/fixtures"])   # Issue #29: tracked AND untracked, one implementation
+        for line in sorted(changed2):
             self.assertRegex(line, r"-run1[45678]-", "only the RUN 14 / RUN 15 (Issue #24) and RUN 16 / 17 / 18 (Issue #33) fixtures were added: " + line)
 
 

@@ -18,6 +18,8 @@ import re
 import subprocess
 import unittest
 
+import guards
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 MAIN = os.path.join(ROOT, "poc", "gbp-video-stream-probe", "source", "main.c")
 POC_MAKE = os.path.join(ROOT, "poc", "gbp-video-stream-probe", "Makefile")
@@ -209,13 +211,12 @@ class NothingElseMoved(unittest.TestCase):
         self.assertIn("sha256_dol=" + STREAM15_SHA, t)
 
     def test_only_the_four_files_of_issue_27_moved_under_the_frozen_paths(self):
-        r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE], capture_output=True)
-        if r.returncode != 0:
-            self.skipTest("the base commit is not available in this checkout")
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE, "--", "src", "poc", "tools", "Makefile", "stimulus",
-                            "captures/fixtures", "docs/protocol", "docs/hardware"], capture_output=True, text=True)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        changed = set(r.stdout.split())
+        if not guards.base_available(BASE):
+            self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE)
+        changed = guards.changed_since(BASE, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing
+        changed = changed - {"tools/reconcile.py"}
+        changed = changed
         # Issue #28 (2026-09-21) corrected docs/protocol/INPUT.md's "GBP-KEY-009; recorded, not implemented" on its
         # date, in its own commit, and appended the RUN 17 / RUN 18 pre-registration (§V7.3) after §V7.2; the
         # chapter heading grew; §V7.1 and §V7.2 stay the bytes of this checkpoint's base

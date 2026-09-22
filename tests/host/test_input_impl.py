@@ -24,6 +24,8 @@ import re
 import subprocess
 import unittest
 
+import guards
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SRC = os.path.join(ROOT, "src", "gbp")
 INPUT_C = os.path.join(SRC, "gbp_input.c")
@@ -166,20 +168,19 @@ class ThePumpSlotInsertion(unittest.TestCase):
             self.assertNotIn("KEYPAD_DESCRIPTOR", body, fn)
 
     def test_the_service_path_and_the_frozen_writers_are_byte_identical_to_the_base(self):
-        r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE_COMMIT], capture_output=True)
-        if r.returncode != 0:
-            self.skipTest("the base commit is not available in this checkout")
+        if not guards.base_available(BASE_COMMIT):
+            self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE_COMMIT)
         paths = ["src/gbp/" + f for f in SERVICE_PATH_FILES] + ["src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_vqueue.h",
                  "src/gbp/gbp_transport.c", "src/gbp/gbp_transport.h", "src/gbp/gbp_regwrite.c",
                  "src/platform/hsp_backend.c", "src/platform/hsp_backend_irq.c", "tools"]   # docs/protocol and docs/hardware left this list with the Issue #26 promotion
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE_COMMIT, "--"] + paths,
-                           capture_output=True, text=True)
-        self.assertEqual(r.returncode, 0, r.stderr)
+        changed = guards.changed_since(BASE_COMMIT, paths)   # Issue #29: tracked AND untracked, one implementation
         # Issue #39 (2026-09-21) added the operator's session end to the service-path module -- one flag read in
         # CHECK_ADMISSION, a stop reason, a status, a config field; no device operation added, removed or reordered
         # (tests/host/test_play_image.py pins the change) -- and the `play` audit profile and the Swiss slot to tools/
-        self.assertTrue(set(r.stdout.split()) <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "tools/poc_audit.py", "tools/swiss-layout.tsv"},
-                        "changed against the base: " + r.stdout)
+        # Issue #29 (2026-09-21) added the promotion sweep tool under tools/; it reads the pages and judges nothing
+        self.assertTrue(changed <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "tools/poc_audit.py",
+                                    "tools/swiss-layout.tsv", "tools/reconcile.py"},
+                        "changed against the base: " + " ".join(sorted(changed)))
 
 
 class NothingEmitsTheHeadInstants(unittest.TestCase):

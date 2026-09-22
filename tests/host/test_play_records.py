@@ -13,6 +13,8 @@ import re
 import subprocess
 import unittest
 
+import guards
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 INPUT_PATH = os.path.join(ROOT, "docs", "research", "INPUT_PATH.md")
 UNKNOWNS = os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")
@@ -117,14 +119,11 @@ class TheRecordsSayWhatTheImageIs(unittest.TestCase):
 
 class NothingFrozenMoved(unittest.TestCase):
     def test_hardware_tests_evidence_and_the_run_numbers(self):
-        r = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", BASE], capture_output=True)
-        if r.returncode != 0:
-            self.skipTest("the base commit is not available in this checkout")
-        r = subprocess.run(["git", "-C", ROOT, "diff", "--name-only", BASE, "--", "docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md",
-                            "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"], capture_output=True, text=True)
-        self.assertEqual(r.returncode, 0, r.stderr)
+        if not guards.base_available(BASE):
+            self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE)
+        changed = guards.changed_since(BASE, ["docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md", "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"])   # Issue #29: tracked AND untracked, one implementation
         # Issue #41 (2026-09-21) pre-registered RUN 21 / RUN 22 as §V7.6 (tests/host/test_run21_prereg.py pins it) -- the ONLY change allowed here since: §V7.6 appended, §V7.1-§V7.5 byte-identical (that test checks it)
-        self.assertTrue(set(r.stdout.split()) <= {"docs/research/HARDWARE_TESTS.md"}, "frozen paths changed: " + r.stdout)
+        self.assertTrue(changed <= {"docs/research/HARDWARE_TESTS.md"}, "frozen paths changed: " + " ".join(sorted(changed)))
         hw = read(HW)
         # the image's runs are pre-registered now; what must still hold is that NOTHING RAN and no id was minted
         self.assertIn("### V7.6 RUN 21 / RUN 22", hw)
