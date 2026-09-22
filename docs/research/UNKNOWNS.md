@@ -242,6 +242,28 @@ unknown; the layout question for AV blocks is open with data, not closed.
 DOL-GBS-01/10/20, CPU AGB A vs A E, 16 Mb vs 128 Mb RAM. No behavioral
 difference is documented anywhere; the user's unit revision is unknown.
 
+**A procedure exists, added 2026-09-22 (GitHub Issue #30). The status does not
+change: this stays OPEN, P3, and NO revision is attributed to the Operator's
+unit.** Before this, the second sentence above was an open question with no
+stated way to answer it. It now has one, and knowing *how* a question would be
+answered is worth recording even when the decision is not to answer it:
+
+```text
+where the revision is    printed on the PCB itself, as DOL-GBS-xx beside the "© 2003 Nintendo" line -- so answering
+                         it is a matter of LOOKING, not of measuring
+what catalogues them     Gekkio's Game Boy hardware database (external/README.md, "Web references"), which documents
+                         individual units -- e.g. gekkio-1, a DOL-GBS-10 -- with component lists and PCB photographs.
+                         IT DOCUMENTS SOMEBODY ELSE'S CONSOLE. Nothing there says anything about this project's unit,
+                         and no revision may be inferred from it for ours.
+what it would cost       opening the Game Boy Player.
+THE STANDING DECISION    THE OPERATOR WILL NOT BE ASKED TO OPEN HIS UNIT. This item is P3, no behavioural difference
+                         between revisions is documented anywhere, and nothing in the roadmap depends on it; opening
+                         the unit is invasive and the return today is low. Recorded so the decision is not revisited
+                         by accident.
+when that is revisited   if a divergence appears between what this project measures and what another source reports
+                         for the same behaviour -- and then the procedure above is already known.
+```
+
 ## U-GBP-010 (P2 — **CLOSED 2026-09-21** by GBP-INPUT-001, RUN 14 and RUN 15 (`HARDWARE_TESTS.md` §V7.2, Issue #24): Question O = AS-ASSIGNED in both runs — L = 1 and R = 2 in the Operator's tally vectors and, independently, in the machine-decoded frames; the descriptor kept; the routing stays CORROBORATED, not FACT — GBP-HW-265) — L/R bit order in KEYPAD — **2026-09-21, Issue #33: the routing FACT (hw, the runs) by the machine join of RUN 17 / RUN 18, GBP-HW-270; stays CLOSED**
 
 Dolphin maps hi byte bit 0 → L and bit 1 → R (swapped vs GBA KEYINPUT);

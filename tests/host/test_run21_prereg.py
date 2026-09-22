@@ -434,7 +434,9 @@ class NothingFrozenMoved(unittest.TestCase):
         # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing, and
         # Issue #44 (2026-09-22) hardened the staging tool against destroying a frozen slot: the manifest gained a frozen_sha256 column
         changed = changed - {"tools/reconcile.py", "tools/swiss_export.py", "tools/swiss-layout.tsv",
-                             "Makefile"}   # Issue #44: the Makefile's help names the --only staging path
+                             "Makefile",                      # Issue #44: the Makefile's help names the --only path
+                             "docs/research/UNKNOWNS.md"}     # Issue #30: U-GBP-009 gained a PROCEDURE; its status
+                                                              # did not move (tests/host/test_external_reference.py)
         self.assertEqual(" ".join(sorted(changed)).strip(), "", "changed against the base: " + " ".join(sorted(changed)))
 
     def test_no_evidence_id_was_minted_and_the_records_agree(self):
