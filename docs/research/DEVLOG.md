@@ -11620,3 +11620,122 @@ named, nearly free experiment attached to it.
 **Next highest-value experiment for this line.** The empty cell: one boot of
 `12-stream` with no cartridge. It is the Orchestrator's to authorise and the
 Operator's to run, and it is not pre-registered.
+## 2026-09-22 — Issue #47: RUN 23 / RUN 24 INGESTED — two UNREGISTERED runs the Operator performed himself; the bit `0x02` era confound broken by measurement, bit `0x01` measured for the first time and it is NOT in the original byte, and RUN 24's empty capture explained by the runtime's own guard
+
+**What arrived.** Two complete runs of the staged `12-stream` image
+(`stream-0015`, `da06500`), performed on the Operator's own initiative before
+anyone scheduled them: one with **no cartridge**, one with a **Game Boy Color**
+cartridge (Pokémon Crystal JP, his reading of the label). Five files each,
+under names **identical between the two drops**, which is why the archiving
+came first and used run-suffixed targets with `cp --update=none` and `cmp`.
+`logs/` untouched; hashes in §V7.7 and pinned by a host test against the bytes
+on disk.
+
+**These runs were not pre-registered, and the record says so in the first
+paragraph of §V7.7.** No PASS and no FAIL appears anywhere in this checkpoint:
+a verdict is a judgement against a gate written beforehand, and no gate
+existed. What protects them from post-hoc reasoning is different and weaker,
+and is written down as such: the question and the discriminator were **public
+first** — `GBC_PATH.md` §3 and §4.1 at `f99bc96`, the Orchestrator's #31
+validation, `GBP-HW-272`'s confound table — all timestamped ahead of the
+Operator's message, so nobody could have chosen the analysis after seeing the
+data. That is not a pre-registration of these runs and the section says that
+too.
+
+**Run numbers 23 and 24 precede 21 and 22 in wall-clock time.** 19/20 are
+retired, 21/22 are reserved for `play-0001` and were being executed by the
+Operator while this was written. A run number is an allocation, not a clock.
+
+**RESULT 1 — the empty diagonal cell is filled** (`GBP-HW-273`). A **late**
+build with an **empty slot** reads `0x90`. `GBP-HW-272` could not separate
+CARTRIDGE from BUILD ERA because every cartridge-less log came from an early
+build; now the era reading contradicts a measurement instead of merely being
+unlikely. CLAIM 2 moves **HYPOTHESIS → CORROBORATED** in a dated amendment
+written on top of the entry, with what is still missing for FACT unchanged:
+nobody has watched the bit change while only the cartridge changed.
+
+**RESULT 2 — the stated gap is filled with a NEGATIVE** (`GBP-HW-274`). With
+the GB/GBC cartridge the **original** byte is `0x92`, bit `0x01` clear,
+byte-identical to what 22 GBA-cartridge runs give. `GBC_PATH.md` §3 had called
+the other state *"THE GAP A GB/GBC BOOT FILLS"* and §4.1 had written three
+candidate bytes before any such run existed; the observed byte is the line that
+says *"indistinguishable from a GBA cartridge"*. **A prediction that fails is
+evidence**, and it is recorded as one.
+
+**RESULT 3 — and then the bit appears** (`GBP-HW-275`). Same run, `0x8e` →
+`0x8f` between `A1-50US` and `A1-500US`: **185.6 µs to 635.6 µs after the
+transform write**, bounded by the run's own `SNAP` records. It stays set to the
+end, so the restore writes `0x92` and reads `0x93`. Four GBA-cartridge runs and
+one cartridge-less run of the same image hold their value at the same eight
+read points.
+
+**And the claim had to be sharpened while checking it.** The 31 stable replicas
+are uniform in 44 of 48 reads across those six runs; of the four exceptions,
+**two are an isolated replica reading `0x8f` in RUN 17, which had a GBA
+cartridge**. So `0x8f` by itself proves nothing. What is unique to RUN 24 is
+that the change is **unanimous across all 32 replicas** and **persistent to the
+end of the run** — the result rests on that, never on the value, and the four
+deviations are listed in §V7.7 with a host test pinning them exactly so the
+list cannot grow unnoticed. This is the kind of detail that would have made a
+later reader distrust the whole record had it been found by someone else first.
+
+**RESULT 4 — the machine explanation for the empty capture** (`GBP-HW-276`).
+The runtime re-reads CONTROL before installing the handler and compares it with
+what it wrote; it wrote `0x8e`, the device reports `0x8f`, and the pre-unmask
+guard refuses: `PREUNMASK ok=0 reason=control_changed`,
+`teardown=S2_before_unmask`, `unmasks=0`. Nothing is captured, hence
+`t_capture_start=0`, `records=0/2048`, `handed=0`, `handoffs=0`, and four
+sidecars holding only their headers. The Operator's *"text console with the
+save option"* is the teardown's own screen, and **no boot logo appeared because
+no frame was ever captured or presented** — which is not the same as the AGB
+being held in reset, and this run does not measure that. `transport_ok=1`,
+`errors=0`, `dropped=0 truncated=0`: nothing about the transport or the log is
+implicated. **The guard working is the finding**; the consequence is that the
+current image cannot exercise a GB/GBC session at all.
+
+**RESULT 5 — the streaming path does not need a Game Pak** (`GBP-HW-277`). RUN
+23 reached its 2048-record witness target with an empty slot, 254 746 unmasks,
+2 379 frames handed, clean restore, zero errors. Every earlier cartridge-less
+run came from an early build that never reached this stage. Nothing is claimed
+about the CONTENT of those frames.
+
+**`U-GBP-017` stays OPEN at P2** with a second dated Needs update: the breaker
+it named ran unbidden, and bit `0x01` stopped being a one-state bit. **A new
+item, `U-GBP-036`,** asks why the bit appears late and what triggers it: the
+transform's power/reset bits, the `A1` write and elapsed time all fall inside
+the same window and this run separates none of them. Its practical edge is
+recorded — a startup that reads the type from the original byte reads it wrong,
+and a restore that compares a read-back will legitimately fail after a GB/GBC
+session.
+
+**Tests.** `tests/host/test_run23_run24.py` (14 tests): the ten archived files
+hashed against the table in §V7.7, both logs complete and carrying the same
+identity, the original bytes, the eight-read-point trajectory recomputed for
+all six runs, the window recomputed from ticks and compared with the figure
+every document states, the four replica deviations pinned exactly, RUN 23's
+completion and RUN 24's refusal in every accounting the runtime keeps, and the
+records' own discipline statements.
+
+**One guard was RE-AIMED, deliberately and in the open.** Issue #46's negative
+forbade FACT *and* CORROBORATED beside the causal reading of bit `0x02`. RUN 23
+made CORROBORATED the correct status, so the guard would have been forbidding
+the truth. It now forbids **FACT** only, which is the line that still holds,
+and the reason sits in the source.
+
+**Freeze pins moved with their reasons:** the highest-id sentinels to 277, the
+"nothing was minted here" sentinels to 278, the consolidated-page citation
+sentinel to 278, and five "no artifacts beyond run N" globs from 23 to 25. One
+pin was fixed rather than moved: `test_handoff.py` required an **absolute**
+path on the Operator's SD card to exist, so the suite depended on whether the
+card was in the reader; that test says in its own docstring that it checks repo
+paths, and it now does.
+
+**Result.** `make test-python` on the committed tree: **1580 passed, 9
+skipped, 103 subtests passed**. The two extra skips are the staged-artifact
+checks: the SD card is in the console because the Operator is running RUN 21 /
+RUN 22.
+
+**Next highest-value experiment for this line, NOT scheduled here.** A repeat
+of RUN 24 with the same cartridge tells whether the window reproduces; a second
+GB/GBC cartridge tells whether it is the medium. Both are Phase 7 with a
+pre-registration of their own.

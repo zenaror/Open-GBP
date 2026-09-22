@@ -134,8 +134,10 @@ class NothingFrozenMoved(unittest.TestCase):
         # the image's runs are pre-registered now; what must still hold is that NOTHING RAN and no id was minted
         self.assertIn("### V7.6 RUN 21 / RUN 22", hw)
         self.assertIn("NOT RUN / NOT AUTHORISED HERE", hw[hw.index("### V7.6 RUN 21 / RUN 22"):].splitlines()[0])
-        self.assertNotIn("RUN 23", hw)
-        self.assertNotIn("GBP-HW-273", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
+        # Issue #47 (2026-09-22) ingested RUN 23 / RUN 24 in §V7.7; the pin moves to the next unused number so it
+        # goes on asserting that THIS checkpoint (the play-0001 build) executed nothing
+        self.assertNotIn("RUN 25", hw)
+        self.assertNotIn("GBP-HW-278", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test
         self.assertNotIn("GBP-PLAY-001", read(EVIDENCE))

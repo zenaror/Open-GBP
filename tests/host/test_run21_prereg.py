@@ -379,8 +379,8 @@ class TheNamesAndTheEmptyRecord(unittest.TestCase):
         self.assertIn("Two names, where every previous pair reserved ten", plain(part(7)))
         self.assertIn("writes ONE file per run and no sidecars", plain(read(HANDOFF)))
         # no raw name above run22 anywhere
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[3-9]|[3-9]\d)\S*", t), [])
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[3-9]|[3-9]\d)\S*", read(HANDOFF)), [])
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[5-9]|[3-9]\d)\S*", t), [])
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[5-9]|[3-9]\d)\S*", read(HANDOFF)), [])
 
     def test_the_record_table_is_empty(self):
         table = part(13)
@@ -446,7 +446,7 @@ class NothingFrozenMoved(unittest.TestCase):
         ev = read(EVIDENCE)
         # Issue #46 (2026-09-22) minted GBP-HW-272 (the CONTROL bit 0x02 split, from the archive); #41 minted none,
         # so the sentinel moves to the next free id and this guard goes on testing what it was written to test
-        self.assertNotIn("GBP-HW-273", ev)
+        self.assertNotIn("GBP-HW-278", ev)
         self.assertNotIn("GBP-PLAY-001", ev)
         h = plain(read(HANDOFF))
         for tok in ("ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004", "issue 41",
