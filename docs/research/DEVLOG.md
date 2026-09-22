@@ -11828,3 +11828,54 @@ path in four of them and `tools/` in the fifth).
 **Nothing new was learned about the hardware here.** The checkpoint moved
 knowledge that already existed to the place where a reader will meet it, and
 made the sweep that found it less likely to mislead the next person.
+## 2026-09-22 — Issue #49: a heading that outlived its status — the pointer appended to `GBP-HW-272`, and the convention the project already followed written down once
+
+**The problem, in one sentence.** This project amends records **on top**, which
+is right, and the consequence is that when an amendment changes a **status**
+the heading goes on saying what it said. `GBP-HW-272`'s heading read *"FACT for
+the split; … is HYPOTHESIS"* while #47's amendment had moved that second claim
+to CORROBORATED. Issue #48 found it the hard way: `tools/reconcile.py` reported
+the heading's status in the one checkpoint whose rule was that statuses are
+copied from `EVIDENCE.md`. The tool was fixed there; the document is fixed
+here.
+
+**What was done, and what was deliberately not done.** The heading gained a
+pointer **appended after its existing words**, which are untouched — not
+reordered, not softened, not requalified. **No status moved**: the status moved
+under #47's authorisation and this records that it did, where a reader who
+stops at the heading will see it. No id was minted.
+
+**The convention is written down as RECOGNISED, not introduced**
+(`RESEARCH_METHOD.md`, under "Research records"), because the project has been
+doing it for a long time in at least two places: `U-GBP-010`'s heading carries
+each checkpoint's outcome appended after its original words, and
+`HARDWARE_TESTS.md` §V7's heading has done the same across seven checkpoints.
+`GBP-HW-272` was the outlier. A test asserts both precedents really say what
+the rule quotes them as saying, so the citation cannot rot into a claim nobody
+can check.
+
+**The test drives its population from the tool rather than from a list**
+(`tests/host/test_amended_headings.py`): every entry `tools/reconcile.py`
+reports with a later amendment in its body must carry a dated pointer to it,
+and the pointer must be the **last** thing in the heading. Two details make it
+worth having rather than vacuous:
+
+```text
+the population is asserted NON-EMPTY   a rule whose population has silently become zero passes for ever and guards
+                                       nothing. Today it is exactly one entry, and the test says so by name.
+the APPEND is guarded, not just the    GBP-HW-272's heading must still START with the exact bytes it had before the
+pointer                                pointer was added. Rewriting a recorded claim is what the convention exists
+                                       to prevent, so a test that only looked for a pointer would miss the failure
+                                       that actually matters.
+```
+
+**The Issue's caution, answered: no guard was tripped.** #47's guard against
+retroactive editing (`assertNotIn(b, block, "a later run leaked into the
+entry's original enumeration")`) reads the entry's **enumeration block**, not
+its heading, so appending a pointer is outside its scope **by construction**
+rather than by luck — which is the right design and is why the caution cost
+nothing here. The whole suite passes unchanged.
+
+**Result.** `make test-python` on the committed tree: **1592 passed, 9 skipped,
+103 subtests passed**. Nothing was learned about the hardware; a record was made
+to say what it already meant.

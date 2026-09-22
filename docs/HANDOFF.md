@@ -1076,9 +1076,22 @@ issue 48    THE CARTRIDGE-SENSING BITS PROMOTED INTO docs/hardware/. GBS-DOL.md'
             wrong status to copy -- GBP-HW-272's heading reads "FACT for the split ... is HYPOTHESIS" and the
             tool took the last word, which #47's amendment had superseded -- so tools/reconcile.py now
             reports a compound heading whole and FLAGS an entry carrying a later amendment
+issue 49    A HEADING THAT OUTLIVED ITS STATUS. Amending on top means that when an amendment changes a
+            STATUS the heading goes on saying what it said -- GBP-HW-272 read "FACT for the split ... is
+            HYPOTHESIS" while #47's amendment had moved that claim to CORROBORATED, which is how #48's
+            sweep came to report a superseded status in the one checkpoint whose rule was that statuses are
+            copied. The heading gained a POINTER APPENDED after its existing words, which are untouched; no
+            status moved (it moved under #47) and no id was minted. The convention is written in
+            RESEARCH_METHOD.md as RECOGNISED rather than introduced, citing the two places the project
+            already did it: U-GBP-010's heading and HARDWARE_TESTS §V7's, the latter across seven
+            checkpoints. tests/host/test_amended_headings.py drives its population FROM THE TOOL rather than
+            from a list, asserts that population is NON-EMPTY (a rule with nothing in it passes for ever),
+            and guards the APPEND itself -- the heading must still start with the exact bytes it had. No
+            guard was tripped: #47's retroactive-editing guard reads the enumeration block, not the heading,
+            so it is out of scope by construction rather than by luck
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46,
-            #47 and #48; the Operator's declaration and the runs on #43; close #36. Executor: the queue is
-            empty -- next checkpoint on dispatch
+            #47, #48 and #49; the Operator's declaration and the runs on #43; close #36. Executor: the queue
+            is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
