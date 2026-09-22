@@ -370,17 +370,30 @@ it with the controller. Record what was seen before the power-off.
 
 
 class TheNamesAndTheEmptyRecord(unittest.TestCase):
-    def test_the_two_names_are_reserved_once_absent_and_nothing_above_run22_exists(self):
+    def test_the_two_names_are_reserved_once_and_now_also_appear_in_their_result(self):
+        """Issue #52: the runs happened, so the reserved names are USED as well as reserved.
+
+        The pin was "reserved exactly once and the file does not exist". After
+        execution each name legitimately appears twice on the page — once in
+        §V7.6.7's reservation and once in §V7.8.2's receipt — and the archived
+        file DOES exist, which is the point of reserving a name. What survives
+        of the original guard is the part still worth guarding: the name is
+        reserved exactly once, it is never used for a THIRD thing, and nothing
+        beyond the runs that have happened is named anywhere.
+        """
         t = read(HW)
+        reservation = t[t.index("#### V7.6.7 "):t.index("#### V7.6.8 ")]
+        result = t[t.index("### V7.8 "):]
         for n in NAMES:
-            self.assertEqual(t.count(n), 1, n)
-            self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
+            self.assertEqual(reservation.count(n), 1, "%s is not reserved exactly once" % n)
+            self.assertEqual(result.count(n), 1, "%s does not appear exactly once in its result" % n)
+            self.assertEqual(t.count(n), 2, "%s appears somewhere other than its reservation and its result" % n)
         self.assertEqual(read(HANDOFF).count(NAMES[0]), 1)
         self.assertIn("Two names, where every previous pair reserved ten", plain(part(7)))
         self.assertIn("writes ONE file per run and no sidecars", plain(read(HANDOFF)))
         # no raw name above run22 anywhere
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[5-9]|[3-9]\d)\S*", t), [])
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[5-9]|[3-9]\d)\S*", read(HANDOFF)), [])
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[7-9]|[3-9]\d)\S*", t), [])
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:2[7-9]|[3-9]\d)\S*", read(HANDOFF)), [])
 
     def test_the_record_table_is_empty(self):
         table = part(13)
@@ -454,7 +467,7 @@ class NothingFrozenMoved(unittest.TestCase):
         ev = read(EVIDENCE)
         # Issue #46 (2026-09-22) minted GBP-HW-272 (the CONTROL bit 0x02 split, from the archive); #41 minted none,
         # so the sentinel moves to the next free id and this guard goes on testing what it was written to test
-        self.assertNotIn("GBP-HW-278", ev)
+        self.assertNotIn("GBP-HW-285", ev)
         self.assertNotIn("GBP-PLAY-001", ev)
         h = plain(read(HANDOFF))
         for tok in ("ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004", "issue 41",

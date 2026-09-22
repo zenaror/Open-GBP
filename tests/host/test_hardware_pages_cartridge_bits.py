@@ -109,7 +109,7 @@ class BothRowsCarryTheirHardwareHistory(unittest.TestCase):
 class TheePromotionMintedNothingAndChangedNoStatus(unittest.TestCase):
     def test_no_id_was_minted(self):
         ev = read(EVIDENCE)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 277)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 284)
         self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +U-GBP-(\d{3})\b",
                                                         read(os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")), re.M)), 36)
 

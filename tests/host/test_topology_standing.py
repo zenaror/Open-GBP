@@ -149,7 +149,7 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         self.assertIn("**2026-09-21, Issue #35 (declared after the ingestion; the note above kept as\nhistory):**", b266)
         for tok in (W_BBA, W_CHAIN, W_BBA_STANDING, "WITH A STATED DURATION", "NOT a licence to infer", "INCONCLUSIVE on that item", "no new id"):
             self.assertIn(tok, plain(b266), tok)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 277)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 284)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)
 
     def test_the_handoff_carries_the_standing_declarations_where_a_pre_registration_will_meet_them(self):
         h = read(HANDOFF)

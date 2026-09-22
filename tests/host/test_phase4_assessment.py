@@ -134,15 +134,17 @@ class PromotionIsTraceableAndMintsNothing(unittest.TestCase):
         # Issue #17 minted no id: it left GBP-HW-260 and GBP-VID-035. Issue #24 (RUN 14 / RUN 15, §V7.2) later minted
         # GBP-HW-261..265, and Issue #26 promoted them into the keypad rows of the hardware / register pages; the
         # assessment itself still cites nothing beyond what Issue #17 saw.
-        self.assertEqual((hw, vid), (277, 35))   # Issue #33 (RUN 16 / 17 / 18, §V7.4) minted GBP-HW-266..271;
-                                                 # Issue #46 minted GBP-HW-272 (the CONTROL bit 0x02 split); Issue #47 minted 273…277 (RUN 23 / RUN 24)
+        self.assertEqual((hw, vid), (284, 35))   # Issue #33 (RUN 16 / 17 / 18, §V7.4) minted GBP-HW-266..271;
+                                                 # Issue #46 minted GBP-HW-272 (the CONTROL bit 0x02 split); Issue #47 minted 273…277; Issue #52 minted 278…284 (RUN 21 / 22 / 25 / 26)
         self.assertNotRegex(read(ASSESS), r"GBP-HW-26[1-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d|GBP-VID-03[6-9]|GBP-VID-0[4-9]\d")
         # Issue #47 (2026-09-22) ingested RUN 23 / RUN 24 and REGISTERS.md's bit 0x01 and 0x02 rows cite 273…275.
         # Issue #46 (2026-09-22) promoted GBP-HW-272 and REGISTERS.md's CONTROL bit 0x02 row now cites it, which is
         # what a promotion IS; the sentinel moves to the next free id so the guard keeps catching a consolidated page
         # that cites evidence nobody has written yet.
         for p in PROMOTED + [ROADMAP, HANDOFF]:
-            self.assertNotRegex(read(p), r"GBP-HW-27[8-9]|GBP-HW-2[8-9]\d|GBP-HW-[3-9]\d\d|GBP-VID-03[6-9]|GBP-VID-0[4-9]\d", p)
+        # Issue #52 (2026-09-22) ingested RUN 21 / 22 / 25 / 26 and minted GBP-HW-278…284; the HANDOFF's
+        # trail names them, which is what a trail is for. The sentinel moves to the next free id.
+            self.assertNotRegex(read(p), r"GBP-HW-28[5-9]|GBP-HW-29\d|GBP-HW-[3-9]\d\d|GBP-VID-03[6-9]|GBP-VID-0[4-9]\d", p)
 
     def test_every_row_of_the_video_page_carries_an_id_and_a_fact_or_corroborated_status(self):
         t = read(VIDEO)
