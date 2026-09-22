@@ -1342,15 +1342,24 @@ issue 63    FOUR PORTS, ONE CONTROLLER -- a RECORD and a SCOPE CORRECTION, no co
             NAMED AND NOT RESOLVED. R6 RE-PRICED ON TOP (PHASE5_ASSESSMENT §6b), words kept: from
             "untested" to "an implementation gap in front of the run", and the run is now the cheapest
             part. PHASE 5 IS NOT REOPENED. INPUT_PATH.md §15; tests/host/test_four_ports.py
-next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59 and #61 ACCEPTED with the identity
-            recomputed from the card; still to validate #41's pre-registration, #46 through #58, #42 and
-            #62; close #36. PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED,
-            R4 SATISFIED by RUN 30 (T' = NOMINAL), R5 / R6 unchanged -- R6 is re-priced by #63. PHASE 6
-            HAS ITS FIRST DATA: the window carries something and changes with the press, and the FORMAT is
-            not established. THE NEXT INSTRUMENT IS NAMED BY U-GBP-037: stimulus/agb-tone, a ROM whose
-            output this project controls end to end, and it is a checkpoint of its own with its own
-            pre-registration -- NOT dispatched. #31 (Phase 7, GB/GBC) stays backlog. Executor: #63 is the
-            live work after #62
+next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62 and #63 ACCEPTED and CLOSED
+            (#61 by him after the ingestion); still to validate #41's pre-registration, #46 through #58 and
+            #42; close #36. PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED,
+            R4 SATISFIED by RUN 30 (T' = NOMINAL), R5 unchanged, R6 RE-PRICED by #63 (an implementation gap
+            in front of the run). PHASE 6 HAS ITS FIRST DATA: the window carries something and changes with
+            the press one GBA frame later, and the FORMAT is not established.
+            THE NEXT INSTRUMENT IS U-GBP-037's: stimulus/agb-tone, a project-owned ROM whose output this
+            project controls end to end. NOT DISPATCHED AND NOT STARTED -- it is HELD until the Operator
+            answers on flashing, because it is the first thing in a while that asks him to write a
+            cartridge. The Orchestrator's intended shape, relayed so it is not lost and NOT acted on: a ROM
+            deterministic from reset that CHANGES FREQUENCY PER PRESS (F1, F2, F1, F2), reusing the existing
+            capture image unchanged if it can, so the press-anchored windows give a within-run 2x2 and
+            U-GBP-037's prediction is tested by comparing windows AGAINST EACH OTHER rather than against
+            any absolute. Two questions he asked the Executor to argue AT DISPATCH, not before: whether
+            U-GBP-038 (press 1 changed nothing) makes press 1 unreliable as an anchor so the sequence should
+            start at press 2, and whether the image can really be reused or the ROM's own first-press
+            behaviour has to be designed around the anchor.
+            #31 (Phase 7, GB/GBC) stays backlog. Executor: THE QUEUE IS EMPTY -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
