@@ -1206,8 +1206,20 @@ issue 55    RUN 27 / 28 / 29 INGESTED (§V7.10), all UNREGISTERED and all the Op
             argument was WRITTEN OUT with its scope: one console, one GBP, this read sequence, and THE BIT IS
             NOT IN THE ORIGINAL BYTE. Byte 0 takes four values across the four runs and is constant in two:
             third and fourth confirmation that the unanimity is the signal
+r3 answered R3 of the Phase 5 assessment ANSWERED 2026-09-22 AND THE ANSWER KEEPS THE CAVEAT. The instrument
+            of RUN 21 / 22 / 25 / 26 was A ROM ON THE EZ-FLASH, NOR / MODE B -- his words, "Gravei a ROM na
+            NOR e coloquei o flashcart no modo B" -- which is §V7.6.4's THIRD value and not an original
+            cartridge. §V7.6.11 lifts the caveat only for an ORIGINAL, so the attribution caveat is NOT
+            LIFTED and is now PERMANENT FOR THIS INSTRUMENT, recorded as such rather than paid off. THE
+            DISTINCTION IS IN THE RECORD: an unanswered caveat and an answered-and-kept one look identical in
+            a citation unless it says which -- the same distinction GBP-HW-276 / -277 draw. His two
+            volunteered details kept as his (the ROM in NOR, the cartridge in Mode B) with NOR / Mode B cited
+            as §V3.7's validated route 1 and NOT interpreted further. An older ambiguity ("road rage
+            paralelo", 2026-09-21, relayed as settled and flagged at the time) is closed BY A DIRECT ANSWER
+            ABOUT THE RUNS, not by re-reading the old sentence. The verdict and R1+R2+R4 are unchanged
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46
-            through #55 and #42; close #36. Executor: the queue is empty -- next checkpoint on dispatch
+            through #55 and #42; close #36. The RAG reindex is the Orchestrator's since 2026-09-22 (the
+            Executor pushes and says so). Executor: the queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
