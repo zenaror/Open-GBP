@@ -25747,3 +25747,398 @@ this section is the ingestion of runs that already happened, not the start of
 Phase 7 work.
 
 ---
+
+
+### V7.8 RUN 21 / RUN 22 / RUN 25 / RUN 26 — **FOUR sessions**, executed 2026-09-22 and ingested (GitHub Issue #52). The Operator split §V7.6.9 in two: **RUN 21 / RUN 22 are ordinary play only** (step 13) and **RUN 25 / RUN 26 are the scripted head** (steps 2–12), each pad in each. **Question K = AGREE over the head, computed by code written before any of these logs existed and not adjusted to them**; the two pads produced identical ordered press sequences, each matching the list press for press. Question T measured and its verdict NOT declared, on a third ambiguity reported rather than resolved; Question A/W still has no per-key report; RUN 21 ended on the EVENT STORE CAP, a finding about the image
+
+#### V7.8.1 WHAT THE OPERATOR ACTUALLY DID — four sessions, not two, and §V7.6.9 split in half
+
+**Each session is one console boot and one log, and there are four.** The
+Operator performed the pre-registered action list **in two halves, in separate
+sessions**, which §V7.6.9 did not contemplate and which is recorded here as
+**what was done** — never as a fault of his or of the runs.
+
+```text
+RUN 21   logs/run21/…play-0001.log        ORIGINAL pad   ORDINARY PLAY only (step 13)        ended: event_store_cap
+RUN 22   logs/run22/…play-0001.log        GENERIC  pad   ORDINARY PLAY only (step 13)        ended: Z
+RUN 25   logs/run22/…play-0001-head.log   GENERIC  pad   THE SCRIPTED HEAD (steps 2-12)      ended: Z
+RUN 26   logs/run21/…play-0001-head.log   ORIGINAL pad   THE SCRIPTED HEAD (steps 2-12)      ended: Z
+```
+
+His words, **OPERATOR OBSERVATION**, both messages: *"apenas abri o jogo e fiz
+uma jogatina normal.. na 22 usei a saida pelo Z, na 21 ele saiu automatico"*
+and *"favor olhar os logs com -head no fim do nome... esses foram os que fiz
+HEAD e depois Z"*.
+
+**THE NUMBERING, and it does not encode the pad.** RUN 21 and RUN 22 keep the
+meaning the Operator's own folders give them. The two head sessions take the
+next free numbers **by the logs' own time base, not by file timestamps**:
+`t_control` is `7959be757a9aed` for the generic-pad head and `7959c04e9eddac`
+for the original-pad head, so the generic ran first and is **RUN 25**, the
+original second and **RUN 26**. That inverts the pad order of RUN 21 / RUN 22,
+so **the pad is stated per run everywhere and must never be inferred from the
+number.**
+
+**THE EXECUTION ORDER, recorded as a deviation and checked against the gates.**
+By the same time base the whole sequence is: RUN 22 play (generic), RUN 21 play
+(original), RUN 25 head (generic), RUN 26 head (original) — **the generic pad
+before the original in both pairs**, the reverse of the order §V7.6's numbering
+suggests. **No gate depends on execution order**: §V7.6.10's TOPOLOGY gate
+requires the pad to be *declared per run* and to match the assignment (the
+ORIGINAL in RUN 21, the GENERIC in RUN 22), which it does, and nothing in
+§V7.6.10 or §V7.6.11 reads the order in which the runs were performed. The
+deviation is recorded because it happened, not because it costs anything.
+
+**What each question gets, and nothing is stretched to cover a gap:**
+
+```text
+QUESTION T     FULLY READABLE on all four. T reads the machine records ALONE and never the Operator's report
+               (V7.6.10's interaction table), so neither the split nor the order has any bearing on it. Read in
+               V7.8.6, where its verdict is NOT declared for a reason given there.
+QUESTION A / K HAS REAL INPUT, from RUN 25 and RUN 26. This is the pair the head sessions exist for, and V7.8.9
+               is its reading: AGREE over steps 2-12, the scope V7.6.15 left it. The PLAY sessions contribute
+               nothing to K and are not made to: K compares scripted sequences and ordinary play has none.
+QUESTION A / W needs his PER-KEY report at the scripted steps. He has not given one for RUN 25 or RUN 26, and
+               for RUN 21 / RUN 22 he made a play report instead. His report for the head sessions HAS ARRIVED
+               and is GLOBAL, not per key ("agiu normal", V7.8.5). W is therefore INCONCLUSIVE for every key
+               in all four -- not because anything failed, but because the per-key resolution V7.6.11 defines
+               was never produced. A limitation of the evidence, stated as one.
+QUESTION A / S read from his channel alone. He reports both play sessions as ordinary play with nothing called
+               out, and for the head sessions a GLOBAL "agiu normal" on both pads with NO DIFFERENCE BETWEEN
+               THE PADS REPORTED -- which is not the same statement as "he reported them identical" (V7.8.5).
+PER-BIT COUNTS PRE-REGISTERED AND READ for the play sessions: V7.6.11 says step 13's words "are reported as
+               counts per bit and never compared press for press", and that is exactly what RUN 21 and RUN 22
+               are (V7.8.5).
+```
+
+#### V7.8.2 The artifacts, their receipt and identity
+
+Archived before anything was read: both drops carry the **same filename**
+(`GBP-PLAY-001_play-0001.log`), so the targets were verified absent, copied
+with `cp --update=none`, `cmp`-ed against the source, and hashed from the
+copies; `logs/` was left exactly as found.
+
+```text
+RUN 21   captures/local/GBP-PLAY-001_play-0001-run21.log   195 301 B
+         cae3ecfcd16ae319ad19968190560f900c0989ed7463f54da45e1dd5a4fc09c4     (source: logs/run21/)
+RUN 22   captures/local/GBP-PLAY-001_play-0001-run22.log   168 773 B
+         a7bf2dbf014b6dca059e7b6a436e6bd81a1b01b28310bbd383cdea7b0d005c14     (source: logs/run22/)
+RUN 25   captures/local/GBP-PLAY-001_play-0001-run25.log    94 398 B
+         70b247675e6f116881872162f0900c8d79fd80f67e703ffb50dac4e0eb2d42a2     (source: logs/run22/…-head.log)
+RUN 26   captures/local/GBP-PLAY-001_play-0001-run26.log    94 354 B
+         5fb2161b4306b3d21860da19bbf5390ffd1b17a80661598c17587ed5b382f15d     (source: logs/run21/…-head.log)
+```
+
+**The head logs share a filename with each other exactly as the play logs do**,
+and they live in the same two directories, so the same hazard applied and the
+same rule was followed. The numbering was decided **before the copy** and from
+the logs' own time base, because a run-suffixed name that encodes the wrong
+order would be worse than no name at all.
+
+Both match the hashes computed independently by the Orchestrator on receipt.
+Both headers carry `test_id=GBP-PLAY-001 build_id=play-0001 commit=2e48ca7`,
+`sidecar=none`, `safety_s=720`, `session_end=Z hold_ms=250`, and both are
+complete: `dropped=0 truncated=0` and a closing `# --- end --- dropped=0`.
+**The image was not rebuilt**: `2e48ca7` is the commit §V7.6.5 names, and
+`play-0001` writes ONE log and no sidecars by design (Issue #39).
+
+**Topology as declared:** cartridge **Yoshi's Island — Super Mario Advance 3**
+in both runs (his declaration; his note that it uses all ten keys); **RUN 21 =
+the ORIGINAL Nintendo pad, RUN 22 = the GENERIC third-party pad**, which is
+§V7.6.6's one variable. The standing declarations of Issue #35 (BBA present
+without its cable; display chain unchanged) are cited, not re-asked.
+
+#### V7.8.3 §V7.6.10's gates, per run — five met in both, and one difference
+
+```text
+gate                RUN 21                          RUN 22
+IDENTITY / LOG      MET                             MET
+KEY RECORD          MET (798 lines, 0 problems,     MET (599 lines, 0 problems, n increasing by one,
+                    n increasing by one,             events = emitted = 599, lost/truncated/overwritten = 0)
+                    events = emitted = 798,
+                    lost/truncated/overwritten = 0)
+TRANSPORT           MET                             MET
+STARTUP             MET (normal)                    MET (normal)
+INPUT (machine)     MET (selftest 1, steps 1264407, MET (selftest 1, steps 932802, attempts = completed
+                    attempts = completed = 54004,    = 39845, failed 0, retry 0, first 1, change 598)
+                    failed 0, retry 0, first 1,
+                    change 797)
+SESSION             NOT MET -- stop=event_store_cap  MET -- stop=session_end, status=ok_session_ended,
+                    teardown=S5_event_store_cap      teardown=S5_session_end; SESSION requested=1 holds=1
+                                                     held=1155 -- the Operator's own end on Z, which is
+                                                     V7.6.10's ONLY success for this gate
+```
+
+**RUN 21's unmet SESSION gate is exactly the case §V7.6.10 wrote down in
+advance**: *"A run ended by the safety budget (720 s), a store cap or the
+delivery guard is recorded EXACTLY as it fell and is NOT a success: the list
+and the play are read as far as they went, and the run is INCONCLUSIVE for the
+session gate alone — not for W, S or T, which read what happened before the
+end."* Nothing else about RUN 21 is diminished by it.
+
+#### V7.8.4 RUN 21's end is a FINDING ABOUT THE IMAGE, with its numbers
+
+`play-0001` was sized for a session of up to 720 s (`INPUT_PATH.md` §13, Issue
+#39). It was not the binding constraint and never came close to being one:
+
+```text
+what could stop the session       configured        reached                     when it would bind
+event store                       16384 events      RUN 21: 16384, store_full=1  ~274 s   <-- WHAT ACTUALLY BOUND IT
+                                                    RUN 22: 11894, store_full=0
+frame store                       45056 frames      RUN 21: 16328 published      ~756 s
+max_deliveries                    6 000 000         RUN 21: 1 734 055            ~948 s
+safety budget                     720 s             RUN 21: 273.918 s            720 s    <-- never approached
+```
+
+**Measured, not modelled.** RUN 21 ran 273.918 s from the CONTROL transform to
+teardown and filled the event store exactly at its 16384 cap; RUN 22 ran
+202.103 s and ended on Z with 11894 events, 73 % of the cap. **The event store
+fills at the FRAME rate, not with the Operator's input**: 16384 events over
+273.918 s is 59.81 events/s against a published-frame rate of 59.61/s, and the
+retained event lines are consecutive `episode_stabilising` records carrying
+consecutive frame indices. Key changes are 2.91/s in RUN 21 and 2.96/s in RUN
+22 — three orders of magnitude too few to matter, and **the pad that filled the
+store is the one that produced FEWER key changes per second.**
+
+**So the reason RUN 21 hit the cap and RUN 22 did not is that RUN 21 RAN
+LONGER**, not that its pad produced more input. A session of this image is
+bounded at **about 274 seconds**, which is 38 % of the 720 s it was sized for,
+by a store nobody had identified as the limit.
+
+**One corroboration that costs nothing and is worth keeping.** RUN 21's
+`EVENTS` record reads `dropped=3 store_full=1`; RUN 22's reads `dropped=0`.
+The three events RUN 22 recorded and RUN 21 could not are exactly the three
+terminal ones — `stop`, `teardown_begin`, `teardown_end` — which appear in RUN
+22's retained sample and not in RUN 21's. The store did not merely fill: it
+filled **before the run could record its own ending**.
+
+Recorded as an addendum to `U-GBP-035` (long-session behaviour and what would
+instrument it), because that item already asks what a session of minutes does
+to this runtime's instrumentation and this is the first measurement of its
+reach. **No new unknown is opened**: nothing here is unexplained.
+
+#### V7.8.5 Question A — the per-bit counts, and W as far as his words carry it
+
+**The per-bit counts are the pre-registered reading of step 13** (§V7.6.11:
+step 13's words *"are reported as counts per bit and never compared press for
+press"*). R_b, recomputed with `tools/v7611.py` from each log alone:
+
+```text
+bit  key       RUN 21 (ORIGINAL pad)   RUN 22 (GENERIC pad)
+ 3   START                        7                      2
+ 0   A                          118                     83
+ 1   B                           54                     22
+ 2   SELECT                       9                      2
+ 4   RIGHT                       94                     62
+ 5   LEFT                        66                     45
+ 6   UP                           6                     34
+ 7   DOWN                        17                     14
+ 8   L                            8                     18
+ 9   R                           25                     26
+     TOTAL rising edges         404                    308
+     session length         273.918 s              202.103 s
+```
+
+**EVERY ONE OF THE TEN BITS ROSE ON BOTH PADS.** Read carefully, that is: the
+runtime encoded and wrote a word carrying each of the ten keys, on the original
+Nintendo pad and on the generic third-party pad, during ordinary play of a
+title the Operator says uses all ten. It is a **count**, and §V7.6.11 forbids
+comparing these press for press between runs — the two columns are two
+different sessions of a game, not two performances of a list.
+
+**What the counts do NOT support.** They are not S, they are not K, and they do
+not say the game responded to any of them: a rising edge is the runtime sending
+a word, and what the AGB or the game did with it is Question A/W's business,
+which has no per-key report here. They also do not say the pads behave alike;
+two different play sessions produce different counts for reasons that have
+nothing to do with the controller.
+
+**Question A / W = INCONCLUSIVE for every key in all four sessions, per
+§V7.6.11's own clause** (*"his report missing or uncertain for that key"*).
+This is not a failure of the pads or of the runtime: **the channel W reads does
+not exist yet.** For RUN 21 / RUN 22 his report is a play report — the session
+played normally, he ended RUN 22 himself on Z, RUN 21 ended on its own — and
+**a play report is not a per-key verdict and is not promoted into one**. For
+RUN 25 / RUN 26 he performed the scripted head but has not reported what the
+game did at each step, which is the one input W needs.
+
+**HIS REPORT FOR THE HEAD SESSIONS ARRIVED, and it is recorded at the level it
+carries and no higher.** Verbatim, **OPERATOR OBSERVATION**:
+
+> *"o jogo reagiu.... entrando em menus, saindo, pulando cutscenes...*
+> *ele respondeu aos toques de acordo com a tela que ele estava no momento...*
+> *ou seja... agiu normal"*
+
+**What that is.** A **GLOBAL** report across the head, on both pads: the game
+acted in character with whatever screen it was on — menus entered and left,
+cutscenes skipped. Beside it the machine shows all seventeen presses sent in
+each session with `lost = 0` (§V7.8.9).
+
+**What it is NOT, and this is where the discipline is.** It is **not a per-key
+report**, and §V7.6.11's `WORKS` is defined **per key** — *"he reports
+RESPONDED for the key at a step where the game uses it, AND the KEY record
+carries R_b > 0 for that key's bit at that point"*. **So it is not expanded
+into ten per-key WORKS verdicts.** W therefore stays **INCONCLUSIVE per key**,
+and the reason is written down rather than left implicit: **the per-key
+resolution §V7.6.11 defines was never produced**, because he was asked for what
+he remembered of sessions already performed, not asked to re-run them against a
+form. **That is a limitation of the evidence, not a fault of the run**, and it
+is not papered over by reading a global "agiu normal" as ten verdicts it does
+not contain.
+
+**No verdict is inferred from the KEY record alone either**: a bit rising says
+the runtime sent the word, and §V7.6.11 requires his channel for every one of
+WORKS, N/A and DOES NOT WORK.
+
+**S's operator half, worded exactly as it stands: NO DIFFERENCE BETWEEN THE
+PADS WAS REPORTED.** Not *"he reported them identical"* — he was not asked to
+compare them side by side and did not claim to. The identity claim lives in the
+machine half, where it is strong (§V7.8.9, K = AGREE). **Nothing further is
+pending on the Operator for this checkpoint.**
+
+#### V7.8.6 Question T — read with the frozen construction, and a THIRD AMBIGUITY reported rather than resolved
+
+**The construction was written before these logs existed** (`tools/v7611.py`,
+Issue #50) and **was not adjusted to them.** Run unedited over both logs it
+returns:
+
+```text
+                         RUN 21        RUN 22        RUN 17 (the reference, V7.6.3)
+TRANSPORT gate           MET           MET           --
+QUESTION T               ANOMALOUS     ANOMALOUS     --
+  naming                 the AUDIO-only mean 12.6 (RUN 22: 13.2) against RUN 17's 13.7, and
+                         skipped_cause_pending 27.08 % against RUN 17's 27.39 %
+```
+
+**And read as §V7.6.3 asks — "as a shape, not a norm", record by record — the
+same data says the opposite.** The ACK → RE-ARM gap, split by what the cycle
+carried, which is the differential §V7.6.3 calls Question T's core:
+
+```text
+                     ACK -> RE-ARM, ticks at 40.5 MHz
+VIDEO cycles         RUN 17   1197  895  886  885  854  869  3112
+  (the treatment:    RUN 21   1093  876  867  868  849  872  1748
+   the step removed) RUN 22   1094  876  871  869  848  878  837  840  837  838
+AUDIO-only cycles    RUN 17     13   22   13   12   13   13   13   12   12
+  (the control:      RUN 21     15   12   12   12   13   13   12   12   12
+   nothing removed)  RUN 22     17   12   12   12   12   14
+```
+
+**The VIDEO gap is shorter in both runs and the AUDIO-only control is
+unchanged.** The first three VIDEO records compare element for element against
+RUN 17 at −104 / −19 / −19 (RUN 21) and −103 / −19 / −15 (RUN 22); the
+AUDIO-only body is 12–13 ticks in all three runs, with one larger value in each
+run's early verify region (22 / 15 / 17). The delivery rate did not fall
+(6330.6 and 6329.7 against 6328.8 per second) and `skipped_cause_pending` is
+27.08 % against 27.39 %. **That is the direction the removal predicts, on the
+quantity it predicts, with the within-run control unmoved.**
+
+**THE THIRD AMBIGUITY, reported and NOT resolved, and the code NOT edited.**
+The two readings differ because §V7.6.11 does not say **which statistic** to
+compare:
+
+```text
+"the AUDIO-only gap is unchanged"     unchanged BY WHAT MEASURE? Equality of a mean is unattainable across runs
+  (NOMINAL's third condition)         and the code implements equality because it is the only threshold-free
+                                      reading; a 1.1-tick difference in a mean of nine samples then reads as a
+                                      change, while every record's body value is identical at 12-13 ticks.
+"far from RUN 17's 27.4 %"            FAR BY WHAT MEASURE? V7.6.3 forbids inventing a threshold, and without one
+  (ANOMALOUS's clause)                27.08 % against 27.39 % is neither clearly "far" nor clearly "unchanged".
+V7.6.3's reference figures            ARE PER-INDEX and are not portable: it names "CYCLT i=6,7: 12 ticks" as the
+  name RECORDS, not kinds             AUDIO-only reference, but CYCLT i=6 carries a VIDEO block in BOTH new runs
+                                      (1748 and 838 ticks). Comparing by index across runs compares different
+                                      things; comparing by what the cycle CARRIED is the comparison that means
+                                      something, and the frozen text does not say so.
+```
+
+**What is recorded as the result, therefore:** the **measurement** above, which
+is recomputable from the files and is not in dispute; and the fact that **the
+frozen construction returns ANOMALOUS on both runs while the shape reading
+§V7.6.3 describes is met.** **So no T verdict is recorded for either run.**
+Declaring NOMINAL would resolve an ambiguity after seeing the data, which is
+exactly what §V7.6.11 was frozen to prevent; declaring ANOMALOUS as the
+project's reading would elevate an artefact of one unstated statistic into a
+finding about the hardware. It is the Orchestrator's to amend, dated, with
+this text kept. **`tools/v7611.py` was not touched**, and its output is
+reported as it stands.
+
+#### V7.8.7 The Operator's new STANDING DECLARATION, with its condition attached
+
+> *"se o comportamento dos 2 gamepads forem iguais. então nao usarei mais o
+> original, conforme ja tinha falado (a não ser que seja estritamente
+> necessário)"*
+
+**Recorded as a standing topology declaration**, beside the two of Issue #35
+(BBA present without its cable; display chain unchanged): **from now on the
+GENERIC third-party pad is the controller, unless a run strictly requires the
+original.** It holds until he announces a change, and a run whose record does
+not reflect it is INCONCLUSIVE on that item — the same rule as the other two.
+
+**ITS CONDITION IS PART OF IT AND IS NOT SATISFIED.** He makes it conditional
+on the two pads behaving alike, and **these runs do not decide that by
+machine**: Question S has only his channel here, Question K was never
+performed, and the per-bit counts of §V7.8.5 are two different play sessions
+and compare nothing. So the declaration is recorded as **his operating
+decision**, which it is, and **not** as a finding that the pads are equivalent,
+which nothing here establishes. Any later reading that needs pad equivalence
+must get it from a run designed for it.
+
+#### V7.8.9 Question K — AGREE over steps 2–12, from RUN 25 and RUN 26, computed by code that predates the logs
+
+**This is what the head sessions exist for, and it is the first time Question K
+has had any input at all.** `tools/v7611.py` was written under Issue #50 from
+the frozen text with no data in reach, narrowed to steps 2–12 by §V7.6.15 under
+Issue #51, and **was not touched for this reading**.
+
+```text
+RUN 25 (GENERIC pad)    START A A DOWN DOWN UP RIGHT RIGHT RIGHT LEFT LEFT B B L R SELECT A
+RUN 26 (ORIGINAL pad)   START A A DOWN DOWN UP RIGHT RIGHT RIGHT LEFT LEFT B B L R SELECT A
+§V7.6.9 steps 2-12      START A A DOWN DOWN UP RIGHT RIGHT RIGHT LEFT LEFT B B L R SELECT A
+```
+
+**Two results, and the second is the stronger one.**
+
+```text
+K = AGREE            identical press sequences over the common prefix of the list -- 17 presses, press for
+                     press, on two independent controllers. This is §V7.6.11's AGREE, in its own words, and
+                     it is the MACHINE HALF of the Operator's "o mesmo comportamento" for the scripted head.
+EACH RUN MATCHES     and each sequence equals §V7.6.9's list EXACTLY -- the right keys, in the right order,
+THE LIST ITSELF      with the right counts (START x1, A x2, DOWN x2, UP x1, RIGHT x3, LEFT x2, B x2, L x1,
+                     R x1, SELECT x1, A x1). The machine's witness that the list was made as listed, which
+                     is what §V7.6.10's THE LIST asks of it.
+```
+
+Both sessions are clean where it matters: `KEYLOG events = emitted = 35`,
+`lost = truncated = overwritten = 0`, every `KEY` line parsing under
+`GBP_INPUT_EVENT_FMT` with `n` increasing by one, and both ended on **Z**
+(`requested=1 holds=1`) — §V7.6.10's only SESSION success, now exercised three
+times out of four. RUN 25 ran 53.238 s and RUN 26 31.233 s from the CONTROL
+transform to teardown.
+
+**K's tail stays `NOT DEFINED BY THE PRE-REGISTRATION`** (§V7.6.15): the
+closing sweep of step 15 was not performed in these sessions either, and the
+amendment's reasoning is unchanged — the run is not inconclusive about it; the
+pre-registration never defined it.
+
+**WHAT AGREE DOES NOT SAY, and the distinction is the whole value of having a
+machine half.** It says the two pads produced **the same words in the same
+order** when the same list was pressed on each. It does **not** say the game
+responded to them, which is W's business and has no input yet; it does not say
+the pads are electrically or mechanically alike; and it does not extend past
+the seventeen presses of the head. **The Operator's criterion has two halves
+and this is one of them.**
+
+#### V7.8.8 What these four sessions do NOT decide
+
+Phase 5's acceptance (that is Issue #42, which reads this result and is not
+this section's business); the criterion of §V7.6.11 (*"ambos os controles
+funcionam e tem que apresentar o mesmo comportamento"*), which needs **W and
+S** and has K's half only — *"o mesmo comportamento"* has its machine half
+answered for the head (§V7.8.9) and *"funcionam"* has nothing until he reports
+per key; anything about pad equivalence beyond the words the two pads
+PRODUCED; anything about latency, the
+display chain, or the game's own mapping; K in any form. **No PASS and no FAIL
+is recorded anywhere a gate did not apply**, and the one gate that was not met
+is RUN 21's SESSION, recorded exactly as §V7.6.10 wrote it in advance.
+
+---
