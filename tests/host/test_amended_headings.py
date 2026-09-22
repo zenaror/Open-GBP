@@ -99,6 +99,34 @@ class EveryAmendedHeadingCarriesItsPointer(unittest.TestCase):
         self.assertIn("CLAIM 2 accordingly moves from HYPOTHESIS to CORROBORATED", plain(ev))
 
 
+class TheDisplayNeverHidesThePointer(unittest.TestCase):
+    """Issue #50, item 2: a display bound may shorten a heading; it must never hide the
+    pointer that says the displayed status is superseded. Widening the bound would only
+    move the cliff, so the pointer is printed whole, on its own line, under the flag."""
+
+    def test_the_pointer_is_extracted_whole_and_is_not_subject_to_the_bound(self):
+        for i, head in sorted(amended().items()):
+            ptr = reconcile.heading_pointer(head)
+            self.assertTrue(ptr, "%s: no pointer could be extracted from its heading" % i)
+            self.assertGreater(len(ptr), 120, "the pointer is the thing the 120-char bound was hiding")
+            self.assertIn("Issue #", ptr)
+
+    def test_the_report_prints_it_under_the_flag(self):
+        import io
+        import contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            reconcile.main(["GBP-HW-272"])
+        out = buf.getvalue().splitlines()
+        flagged = [n for n, l in enumerate(out) if FLAG in l]
+        self.assertEqual(len(flagged), 1, out)
+        self.assertIn("HYPOTHESIS → CORROBORATED", out[flagged[0] + 1],
+                      "the line after the flag is not the pointer")
+        self.assertIn("read it before copying a status from these words", out[flagged[0] + 1])
+        # and the bound itself was not widened: the status line is still truncated
+        self.assertIn("...", out[flagged[0]])
+
+
 class TheConventionIsWrittenDownAsRecognised(unittest.TestCase):
     def test_it_is_in_the_method_with_its_precedent(self):
         m = plain(read(METHOD))

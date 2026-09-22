@@ -95,9 +95,22 @@ def evidence_status():
                 if b and re.search(STATUS_WORDS, b.group(1)):
                     status = _phrase(b.group(1))
             if re.search(r"\*\*AMEND(MENT|ED)\b", body):
-                status += "   [+ LATER AMENDMENT IN THE BODY -- read it before copying this status]"
+                status += "   [+ %s -- read it before copying this status]" % AMENDED_FLAG
             out[m.group(1)] = (status, m.group(0).strip())
     return out
+
+
+AMENDED_FLAG = "LATER AMENDMENT IN THE BODY"
+# the convention of Issue #49: the pointer is the LAST bold segment of the heading and carries
+# a date and the Issue that made the change (docs/RESEARCH_METHOD.md, "A heading that outlived
+# its status"). Extracted rather than assumed, so a heading without one is reported as such.
+POINTER_RE = re.compile(r"\*\*\s*\d{4}-\d{2}-\d{2}[^*]*Issue #\d+[^*]*\*\*")
+
+
+def heading_pointer(heading):
+    """The appended pointer of an amended heading, whole and unbounded, or None."""
+    found = POINTER_RE.findall(heading or "")
+    return found[-1].strip("* ").strip() if found else None
 
 
 def _phrase(s):
@@ -161,6 +174,14 @@ def main(argv=None):
         st, heading = status.get(i, ("NOT DEFINED", "(no heading in EVIDENCE.md or UNKNOWNS.md)"))
         print("=" * 100)
         print("%s   EVIDENCE says: %s" % (i, st))
+        if AMENDED_FLAG in st:
+            # Issue #50: a display bound may SHORTEN a heading; it must never hide the pointer
+            # that says the displayed status is superseded. So when an entry is flagged, the
+            # pointer #49's convention appended is printed in full, on its own line, whatever
+            # the bound did to the status above. Widening the bound would only move the cliff.
+            print("   %s" % (heading_pointer(heading) or
+                             "(flagged as amended, but the heading carries no pointer -- see "
+                             "RESEARCH_METHOD.md and tests/host/test_amended_headings.py)"))
         print("   %s" % heading[:150])
         rows = [(p, n, l) for p, n, l, _h in citations([i])]
         if not rows:
