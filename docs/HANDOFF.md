@@ -1259,12 +1259,33 @@ issue 45    PHASE 6's ENTRY ASSESSED (docs/research/PHASE6_ENTRY.md), DESIGN ONL
             EMISSION, and the cheapest change is to extend the STREAM probe. The comparison is honest rather
             than flattering: his tone is a side effect of a press in a program written for another purpose,
             and the reason to prefer it is that it is free and falsifiable in the same run
+issue 58    PHASE 6's FIRST PHYSICAL RUN PRE-REGISTERED (HARDWARE_TESTS.md §V8, GBP-AUDIO-001): NOT RUN,
+            NOT AUTHORISED THERE, NOT STAGED, and THE BUILD IS SCOPED THERE AND AUTHORISED SEPARATELY.
+            TWO QUESTIONS ON SEPARATE GATES -- AU (does the AUDIO window carry the AGB's audio, AND IN THE
+            PREDICTED SHAPE?) and SP (does the checker's stop sequence fail as PHASE6_ENTRY §2.1 predicts?);
+            SP = WRONG does NOT make AU inconclusive. T' RIDES FREE (§V7.9, #57's R4). THE PREDICTIONS ARE IN
+            CODE BEFORE THE BUILD EXISTS (tools/v8audio.py, #50's rule): PWM, PCM and BYTE-0 each get their
+            own reduction of the same 4096 bytes and each REFUSES the others' blocks. THE WINDOW WAS
+            CORRECTED UPWARD BEFORE ANY DATA EXISTED: PHASE6_ENTRY §4's "comfortably 128" did not carry the
+            AGB-SIDE DETECTION LATENCY (up to one GBA frame, 16.74 ms, before the program sees the press), and
+            128 blocks would leave 0.93 of a 64 Hz period in the worst case -- so 4 windows x 256 blocks =
+            1 024 blocks = 4.00 MB, 2.93 periods covered in the worst case, against arena1_free 1 650 688 B
+            and the 8 847 360 B video witness store the build must reclaim from. WHAT IS DROPPED IS NAMED:
+            26 869 blocks = 110.1 MB emitted, 3.8 % kept, and the 15-step envelope is NOT READABLE (one window
+            spans 0.57 of a step). THE TOLERANCES ARE FIXED IN THE PRE-REGISTRATION (§V8.5.3): period +/-15 %,
+            three rising edges minimum, duty +/-0.06, and a within-run SILENT CONTROL without which AU's
+            positive verdict is unavailable -- a BUILD requirement. SOUNDCNT_H (0x04000082) IS AN UNKNOWN,
+            NAMED AS ONE: the program never writes it. Reserved: captures/local/GBP-AUDIO-001_stream-0016-run30*
+            -- RUN 30, one run, names reserved and NOT ON DISK. Operator: A × 4 with >= 3 s between presses,
+            nothing to flash. U-GBP-012 POINTED AT IT AND NOT ANSWERED
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46
-            through #57, #42 and #45; close #36. The RAG reindex is the Orchestrator's since 2026-09-22 (the
+            through #58 and #42; close #36. The RAG reindex is the Orchestrator's since 2026-09-22 (the
             Executor pushes and says so). PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2
-            DECLINED, R4 rides on the next physical run of any image, R5 / R6 unchanged. PHASE 6's entry is
-            assessed and its pre-registration is the NEXT checkpoint if the Orchestrator dispatches it; #31
-            (Phase 7, GB/GBC) stays backlog. Executor: the queue is empty -- next checkpoint on dispatch
+            DECLINED, R4 now rides on §V8's run, R5 / R6 unchanged. PHASE 6's first run IS PRE-REGISTERED
+            (§V8) and NOTHING IS AUTHORISED BY IT: the next checkpoint is the stream-0016 BUILD, authorised on
+            its own -- retention sized for the window, the silent control, the region as a sidecar, slot
+            14-audio, with 12-stream and 13-play FROZEN. #31 (Phase 7, GB/GBC) stays backlog. Executor: the
+            queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet

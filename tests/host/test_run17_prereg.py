@@ -199,7 +199,7 @@ class TheNumberingAndTheNames(unittest.TestCase):
             # Hardware Issue #32 (2026-09-21) executed RUN 17 / RUN 18: the names are USED (Issue #33 ingested them, §V7.4, tests/host/test_run17.py)
         self.assertEqual(len(re.findall(r"captures/local/\S*run17\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*run18\S*", t)), 5)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[0-9]|[4-9]\d)\S*", t)), 0)   # run19 / run20: Issue #34, §V7.5; run21 / run22: Issue #41, §V7.6
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[1-9]|[4-9]\d)\S*", t)), 0)   # run19 / run20: Issue #34, §V7.5; run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk)
         self.assertEqual(len(re.findall(r"captures/local/\S*stream-0014-run16\S*", t)), 5, "the run16 names of V7.1.5 untouched (retired by Issue #33, never reassigned)")
         self.assertEqual(len(re.findall(r"captures/local/\S*stream-0015-run16\S*", t)), 5, "the names RUN 16 actually used (§V7.4.3, Issue #33)")
         # Issue #47 (2026-09-22): RUN 23 and RUN 24 were executed by the Operator and their artifacts are archived

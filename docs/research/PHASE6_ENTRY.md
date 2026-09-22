@@ -123,6 +123,13 @@ what each model predicts
 **The prediction is written before any capture exists, which is the whole
 point.** A model that can absorb any block is not a model (§V3.19).
 
+**2026-09-22 (Issue #58) — that pointer is loose, and it is corrected here
+rather than rewritten.** §V3.19 does not contain the sentence above. What it
+holds is the same discipline in its own words — *"this design does not
+manufacture hypotheses to defeat"*, a residual ambiguity written down **before**
+the run — and that is what the citation was reaching for. `HARDWARE_TESTS.md`
+§V8.5 cites it that way.
+
 **What the source does NOT buy, and this is the limit.** It gives the a-priori
 prediction of **what the program asks the APU for**. What the AGB's APU emits,
 and what the GBP's AUDIO window carries, is still the measurement — **that gap
