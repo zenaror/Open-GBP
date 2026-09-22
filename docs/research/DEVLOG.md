@@ -12541,3 +12541,55 @@ and pinned at one so it cannot grow unnoticed.
 **Result.** `make test-python` on the committed tree: **1703 passed, 7 skipped,
 103 subtests passed**. `GBP-HW-272`'s split now spans **43 logs across three
 images**.
+## 2026-09-22 — R3 ANSWERED, and the answer keeps the caveat: the instrument was a ROM on the EZ-Flash in NOR / Mode B, so §V7.6.11's attribution caveat is now PERMANENT for it rather than pending
+
+**The cheapest residual of the Phase 5 assessment was paid, and it bought a
+limit rather than a lift.** R3 asked which of §V7.6.4's three values the
+instrument of RUN 21 / 22 / 25 / 26 was. The Operator answered, verbatim —
+**OPERATOR OBSERVATION**:
+
+> *EZ-Flash. Gravei a ROM na NOR e coloquei o flashcart no modo B*
+
+**The third value: a ROM delivered by the flashcart, not an original
+cartridge.** §V7.6.11 lifts the attribution caveat only *"if he declares an
+ORIGINAL"*, so **the caveat is not lifted — and it is now PERMANENT for this
+instrument**, exactly as R3's own pre-written handling said it would be.
+Retiring it would need an original cartridge of a title this project has no
+reason to believe he owns. **Recorded as permanent, not paid off.**
+
+**AND THE DISTINCTION IS RECORDED, because without it the two states look
+alike.** An **unanswered** caveat and an **answered-and-kept** caveat are
+indistinguishable in a citation unless the record says which. This one was
+asked, answered and kept — the same distinction `GBP-HW-276` / `-277` draw
+between an id **considered and left** and one **overlooked**.
+
+**His two volunteered details are kept as his, and the route is cited rather
+than interpreted.** He gave two things §V7.6.4 never asked for: **the ROM is in
+NOR**, and **the cartridge was in Mode B**. "NOR / Mode B" is **this project's
+own validated delivery route** — §V3.7's route 1, RESOLVED over two physical
+runs and used by every delivered stimulus since `color-0001` — so it is cited
+as that and **not interpreted further**: what Mode B does inside the flashcart
+is not a claim this project makes.
+
+**An older ambiguity is closed by the same answer, and not by re-reading the
+old sentence.** On 2026-09-21 he wrote *"na RUN estou usando ez-flash e o road
+rage paralelo apenas"*, which was relayed as a settled choice of instrument and
+was not one — it names two things and settles neither for the runs that were
+eventually performed. That was flagged at the time rather than resolved, which
+was right. **It is settled now by a direct declaration about the actual runs**,
+and the 2026-09-21 wording is left as it stands, unread: **a later, direct
+answer about the runs themselves is better evidence than a better reading of an
+earlier ambiguous one.**
+
+**Nothing else in the assessment changes.** The verdict stands — SATISFIED WITH
+NAMED RESIDUALS — and **R1 + R2 + R4 remain one run per pad**.
+
+**Result.** `make test-python` on the committed tree: **1704 passed, 7 skipped,
+103 subtests passed**. The test now requires an **answered** residual to state
+**what retired it and what the outcome was**, because "answered" without an
+outcome is worse than an open item: it looks closed.
+
+**One process change, recorded so it is not rediscovered:** refreshing the
+local retrieval index is now the Orchestrator's, by the Operator's instruction.
+The Executor pushes and says so; the Orchestrator fetches, confirms the tree is
+clean and `HEAD == origin/main`, then reindexes.

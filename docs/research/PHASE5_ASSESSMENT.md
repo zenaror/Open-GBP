@@ -61,17 +61,22 @@ was a game (§V7.6.4; RUN 14 – 18).
 
 **What it does not reach.** §V7.6.4 required the cartridge's **FORM** on the
 three-value axis — an original cartridge, an unofficial cartridge, or a ROM
-delivered by the flashcart — to be declared per run, and for Yoshi's Island the
-part says in as many words *"FORM his to declare"*. **He declared the title and
-not the form.** §V7.6.10's TOPOLOGY gate makes an unrecorded declaration
-INCONCLUSIVE for the run **on that item**, so:
+delivered by the flashcart — to be declared per run. It was not declared when
+this assessment was first written, which made the runs INCONCLUSIVE on that
+item under §V7.6.10's TOPOLOGY gate.
 
-**the attribution caveat of §V7.6.11 stands and cannot be lifted.** That
-section lifts it only *"if he declares an ORIGINAL"*; with the form undeclared,
-the conservative reading is the binding one — **behaviour that looked right
-cannot be attributed with certainty between the runtime and the delivery path,
-and neither could behaviour that looked wrong.** This is residual **R3** and it
-is the cheapest one on the list.
+**ANSWERED 2026-09-22, and the answer keeps the caveat** (residual R3, now
+closed as a question and permanent as a limit). The Operator's words:
+*"EZ-Flash. Gravei a ROM na NOR e coloquei o flashcart no modo B"* — **a ROM
+delivered by the flashcart**, the third value of the axis. §V7.6.11 lifts the
+caveat only *"if he declares an ORIGINAL"*, so:
+
+**the attribution caveat of §V7.6.11 STANDS, and it is now PERMANENT for this
+instrument rather than pending an answer.** Behaviour that looked right cannot
+be attributed with certainty between the runtime and the delivery path, and
+neither could behaviour that looked wrong. **The distinction matters in a
+citation**: this is not a caveat nobody asked about, it is one that was asked,
+answered, and kept.
 
 ### 3.2 "using the GameCube controller" — **MET, and this is the strongest term**
 
@@ -217,15 +222,27 @@ R2  THE CLOSING SWEEP AFTER MINUTES OF PLAY  (step 15)
     what is missing   any evidence that the ten keys still work after the game has been played for minutes.
     what retires it   the same run as R1 -- it IS step 15 of that list.
     what it costs     seconds, inside R1. Free if R1 is done.
-R3  THE CARTRIDGE'S FORM
-    what is missing   which of the three values the instrument was: original, unofficial, or a ROM on the
-                      flashcart. Without it the attribution caveat cannot be lifted OR confirmed.
-    what retires it   one question to the Operator about a run already performed.
-    what it costs     one message. THE CHEAPEST ITEM ON THIS LIST, and it retires a caveat that currently
-                      rides every citation of these four runs.
-    if the answer     "an original cartridge" lifts the caveat for these runs (§V7.6.11). Anything else keeps
-      is not ORIGINAL it, and retiring it then needs an original cartridge he may not own -- in which case the
-                      caveat is permanent for this instrument and is recorded as such, not paid off.
+R3  THE CARTRIDGE'S FORM -- **ANSWERED 2026-09-22, AND THE ANSWER KEEPS THE CAVEAT**
+    what was missing  which of the three values the instrument was: original, unofficial, or a ROM on the
+                      flashcart. Without it the attribution caveat could be neither lifted NOR confirmed.
+    what retired it   one question to the Operator. It was asked and he answered, verbatim:
+                        "EZ-Flash. Gravei a ROM na NOR e coloquei o flashcart no modo B"
+    the answer        THE THIRD VALUE of §V7.6.4's axis: A ROM DELIVERED BY THE FLASHCART -- not an original
+                      cartridge. §V7.6.11 lifts the caveat only "if he declares an ORIGINAL".
+    THE OUTCOME       **THE ATTRIBUTION CAVEAT IS NOT LIFTED, AND IT IS NOW PERMANENT FOR THIS INSTRUMENT**,
+                      exactly as this row's own pre-written handling said it would be. Retiring it would need
+                      an original cartridge of a title this project has no reason to believe he owns.
+                      RECORDED AS PERMANENT, NOT PAID OFF. It WAS the cheapest item on this list, and it was
+                      paid: the answer simply was not the one that lifts anything.
+    the distinction   an UNANSWERED caveat and an ANSWERED-AND-KEPT caveat look identical in a citation unless
+                      the record says which. This one was asked, answered and kept -- the same distinction
+                      GBP-HW-276 / -277 draw between an id CONSIDERED AND LEFT and one OVERLOOKED.
+    his two details   volunteered, not asked for by §V7.6.4, and recorded because a later reader comparing
+                      runs on this flashcart will want them: THE ROM IS IN NOR, and THE CARTRIDGE WAS IN
+                      MODE B. "NOR / Mode B" is this project's own validated delivery route -- §V3.7's
+                      route 1, RESOLVED over two physical runs and used by every delivered stimulus since
+                      `color-0001` -- so it is cited as that and NOT interpreted further: what Mode B does
+                      inside the flashcart is not a claim this project makes.
 R4  THE TIMING OF THE SHORTENED SERVICE PASS
     what is missing   any verdict on Question T (§V7.8.10 INCONCLUSIVE).
     what retires it   one run read under T' (§V7.9), whose statistic, content-matching rule and thresholds
@@ -263,6 +280,20 @@ why CONTROL bit 0x01 arrives late                U-GBP-036, not blocking Phase 5
 ```
 
 ---
+
+## 7b. An older ambiguity, closed by the same answer (2026-09-22)
+
+On 2026-09-21 the Operator wrote *"na RUN estou usando ez-flash e o road rage
+paralelo apenas"*, which was relayed as a settled choice of instrument and was
+**not** one — the sentence names two things and settles neither for the runs
+that were eventually performed. That ambiguity was flagged at the time rather
+than resolved, which was right.
+
+**It is settled now, and not by interpreting the old sentence**: the direct
+declaration above is about the actual runs, and it says the instrument was a
+ROM on the EZ-Flash in NOR / Mode B. The 2026-09-21 wording is left as it
+stands, unread; **a later, direct answer about the runs themselves is better
+evidence than a better reading of an earlier ambiguous one.**
 
 ## 8. The Operator's standing declaration, with its condition
 

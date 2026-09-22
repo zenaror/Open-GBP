@@ -83,8 +83,11 @@ class TheEvidenceIsWeighedHonestly(unittest.TestCase):
                       "on either pad", p)
         self.assertIn("has no scripted evidence at all", p)
         self.assertIn("Question T is INCONCLUSIVE", p)
-        self.assertIn("He declared the title and not the form", p)
-        self.assertIn("the attribution caveat of §V7.6.11 stands and cannot be lifted", p)
+        self.assertIn("EZ-Flash. Gravei a ROM na NOR e coloquei o flashcart no modo B", p)
+        self.assertIn("the attribution caveat of §V7.6.11 STANDS, and it is now PERMANENT for this "
+                      "instrument rather than pending an answer", p)
+        self.assertIn("this is not a caveat nobody asked about, it is one that was asked, answered, and "
+                      "kept", p)
 
     def test_both_sides_of_the_verdict_are_argued(self):
         p = plain(read(DOC))
@@ -111,21 +114,43 @@ class EveryResidualHasAPrice(unittest.TestCase):
         # each residual carries BOTH halves inside its own block, which is the rule
         for i, s in enumerate(starts):
             body = block[s:starts[i + 1]] if i + 1 < len(starts) else block[s:]
+            if "ANSWERED" in body.splitlines()[0]:
+                # an answered residual states what retired it AND what the answer was, because
+                # "answered" without an outcome is worse than an open item: it looks closed
+                self.assertIn("what retired it", body, "residual %d was answered by nothing" % (i + 1))
+                self.assertIn("THE OUTCOME", body, "residual %d is answered with no outcome" % (i + 1))
+                continue
             self.assertIn("what retires it", body, "residual %d has no exit" % (i + 1))
             self.assertIn("what it costs", body, "residual %d has no price" % (i + 1))
         p = plain(block)
         # the cheapest one is named as such, and the shape of the cheapest closure is stated
-        self.assertIn("THE CHEAPEST ITEM ON THIS LIST", p)
+        self.assertIn("It WAS the cheapest item on this list, and it was paid", p)
         self.assertIn("R1 + R2 + R4 are ONE run per pad", p)
         self.assertIn("two sessions, a form in his hand, and nothing to build", p)
         # and R1 carries the lesson that produced it
         self.assertIn("it must be filled DURING the run", p)
         self.assertIn("a global report cannot become ten verdicts", p)
 
-    def test_the_unpayable_case_is_stated_rather_than_assumed_away(self):
+    def test_the_answered_residual_keeps_its_caveat_and_says_so(self):
+        """R3 was the cheapest item and its answer was the one that keeps the limit."""
         p = plain(read(DOC))
-        self.assertIn("an original cartridge he may not own -- in which case the caveat is permanent for this "
-                      "instrument and is recorded as such, not paid off", p.replace("—", "--"))
+        self.assertIn("THE ATTRIBUTION CAVEAT IS NOT LIFTED, AND IT IS NOW PERMANENT FOR THIS INSTRUMENT", p)
+        self.assertIn("RECORDED AS PERMANENT, NOT PAID OFF", p)
+        # an unanswered caveat and an answered-and-kept one must not look alike in a citation
+        self.assertIn("an UNANSWERED caveat and an ANSWERED-AND-KEPT caveat look identical in a citation "
+                      "unless the record says which", p)
+        self.assertIn("GBP-HW-276 / -277", p)
+        # the two volunteered details are kept as his, and the route is cited rather than interpreted
+        self.assertIn("THE ROM IS IN NOR, and THE CARTRIDGE WAS IN MODE B", p)
+        self.assertIn("what Mode B does inside the flashcart is not a claim this project makes", p)
+        self.assertIn("§V3.7's route 1", p)
+
+    def test_the_older_ambiguity_is_closed_by_a_direct_answer_not_a_reading(self):
+        p = plain(read(DOC))
+        self.assertIn("na RUN estou usando ez-flash e o road rage paralelo apenas", p)
+        self.assertIn("was relayed as a settled choice of instrument and was not one", p)
+        self.assertIn("a later, direct answer about the runs themselves is better evidence than a better "
+                      "reading of an earlier ambiguous one", p)
 
 
 class TheAssessmentPromotedNothing(unittest.TestCase):
