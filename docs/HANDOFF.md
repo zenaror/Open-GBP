@@ -145,6 +145,27 @@ LAST PHYSICAL EVIDENCE INGESTED
   precedent (stream-0003 / 0004) but never with the input path: UNCHECKED until the image's first run, which is the
   measurement (INPUT_PATH.md §13.5). U-GBP-035 opened (long-session presentation: no instrument). Nothing staged, not
   exported (build/swiss/12-stream keeps stream-0015), no run name, nothing pre-registered, no game chosen.
+  (The "105 findings" figure of that checkpoint is CORRECTED to 102: INPUT_PATH.md §13.8, Issue #41.)
+  ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004 (HARDWARE_TESTS §V7.6), NOT RUN, NOT
+  AUTHORISED there, NOT STAGED. play-0001's first runs, on the ONE pair: QUESTION A = Phase 5's acceptance in the
+  Operator's terms (W / S / K; his report is the game's channel, the KEY record beside it splitting every "did not
+  work" into SENT and NOT SENT) and QUESTION T = the timing of the shortened service pass, SEPARATE GATES by §V6.13,
+  with ONE interaction frozen (a run whose service failed had no session, so it is inconclusive for A too). A timing
+  FAULT is an EXPECTED POSSIBLE OUTCOME, not a failed run. THREE CANDIDATE GAMES are named before the run and the
+  Operator DECLARES AT RUN TIME which he used ("nomeie os 3 jogos por enquanto... Quando eu testar eu informo"), the
+  same title and form in both runs: (1) WarioWare, Inc.: Mega Microgame$! -- the NORMAL one, not Twisted -- a ROM on the
+  EZ-Flash NOR, the crispest feedback (a microgame demands one input and fails visibly), mostly D-pad and A so L / R /
+  SELECT / B are expected N/A; (2) Pokemon Emerald, his note that it uses L and R, covering the most keys but at a
+  slower pace, its cartridge RTC recorded as possibly absent or emulated from a flashcart -- which affects berries and
+  tides, NOT input; (3) Yoshi's Island (Super Mario Advance 3), his BELIEF that it uses L and R, recorded as his
+  statement and not asserted. Each candidate's cartridge hardware CHECKED, not presumed; Twisted stays rejected (owned
+  as an original, JP and US). The choice got easier because Issue #39 removed the ~40 s window: the session now ends
+  when he ends it. The attribution caveat rides every citation unless he declares an ORIGINAL. RUN 21 = ORIGINAL pad,
+  RUN 22 = GENERIC pad, same game, same list. The action list LEANS ON ORDINARY PLAY with a short deliberate head and a
+  closing sweep; N/A IS NOT A FINDING -- a game that never asks for L is not evidence that L fails. The session is the Operator's:
+  Z held ~1 s -> stop=session_end, the only success; the whole session must fit inside 720 s. TWO gate items for him
+  before the first boot: the cartridge declaration and that the Z hold is workable. Two raw names reserved (this image
+  writes ONE file and no sidecars). Phase 5's closure NOT decided.
 
   Previous: RUN 13 --
   GBP-VIDEO-007 / GBP-VIDEO-008 / stream-0013 @ 7d7a6d8 + coord-0002, executed 2026-09-21 -- RUN 13
@@ -599,14 +620,21 @@ still does not measure the margin.
 
 ## Next safe action
 
+**Issue #41 (2026-09-21) PRE-REGISTERED RUN 21 and RUN 22
+(`HARDWARE_TESTS.md` §V7.6, GBP-INPUT-004): `play-0001`'s first runs, the
+Phase 5 acceptance pair on a real game — three candidates named, the Operator
+declaring at run time which he used — on both pads, with Question T, the
+timing of the shortened service pass, on the same runs under a separate gate. NOT RUN, NOT
+AUTHORISED there, NOT STAGED. The next safe action is the Orchestrator's:
+validate the pre-registration against `origin/main`
+(`tests/host/test_run21_prereg.py`), obtain the Operator's two gate items
+(the cartridge declaration; that holding Z for 250 ms is workable), and open
+the Hardware Issue that stages Swiss slot `13-play` onto the SD and moves RUN
+21 and then RUN 22 to him.**
+
 **Issue #39 (2026-09-21) BUILT the playable image `play-0001` (`2e48ca7`,
 SHA-256 `d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de`): NOT RUN, not staged, not
-pre-registered. The next safe action is the Orchestrator's: validate the
-build against `origin/main` (`tests/host/test_play_image.py`,
-`test_play_records.py`; `make play-audit`; `make play-dolphin`), then open
-the acceptance run's pre-registration when a game that passes through the
-button path is at hand — whose first run is also the measurement of the
-shorter service pass (`INPUT_PATH.md` §13.5).**
+pre-registered there; its runs are pre-registered by Issue #41, above.**
 
 **RUN 14 and RUN 15 are EXECUTED, INGESTED and VALIDATED (Hardware Issue
 #21 closed; Issues #24 / #25; `HARDWARE_TESTS.md` §V7.2): M = PASS, O =
@@ -893,9 +921,28 @@ issue 39    THE PLAYABLE IMAGE BUILT, NOT RUN: play-0001 = 2e48ca7, 487 968 B, s
             6 M deliveries, 8192 log lines with a 640-line reserve, the costs stated); the service pass shorter by the
             witness step, UNCHECKED until the first run; U-GBP-035 opened; a finding about stream-0015's 64-line reserve
             recorded, not acted on; the freeze-guard pins of nine earlier checkpoints moved with their reasons
-next        orchestrator-owned: validate #39's build; open the acceptance run's pre-registration (a game through the
-            button path; the first run of play-0001 also measures the shorter service pass) when the game is at hand;
-            close #36
+issue 41    RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004 (HARDWARE_TESTS §V7.6), NOT RUN, NOT STAGED: play-0001's
+            first runs, TWO QUESTIONS on ONE pair with SEPARATE GATES (§V6.13) -- A = Phase 5's acceptance in the
+            Operator's terms (W / S / K, his report as the game's channel, the KEY record beside it splitting a "did
+            not work" into SENT and NOT SENT, which is the one honest half a game leaves the machine) and T = the
+            timing of the shortened service pass against RUN 17's figures, whose FAULT is an EXPECTED POSSIBLE
+            OUTCOME; ONE interaction frozen (no session -> A inconclusive too), otherwise neither reads the other's
+            evidence. THREE CANDIDATES named before the run, the Operator declaring at run time which he used and in
+            which form, the same in both runs: WarioWare NORMAL (a ROM on the NOR; crispest feedback; L / R / SELECT /
+            B expected N/A), Pokemon Emerald (his note: uses L and R; most keys, softer judgement; its RTC possibly
+            absent or emulated from a flashcart, which touches berries and tides and NOT input), Yoshi's Island (his
+            BELIEF about L and R, recorded as his statement, not asserted). Each one's cartridge hardware CHECKED,
+            not presumed; the attribution caveat beside the verdicts unless he declares an original; Twisted stays
+            rejected and is recorded as owned original, JP and US. The choice got easier because Issue #39 removed
+            the ~40 s window.
+            RUN 21 = ORIGINAL pad, RUN 22 = GENERIC pad. The list leans on ORDINARY PLAY with a deliberate head and
+            a closing sweep, in the SEPARATED NOTATION (button and count apart, × and whitespace, dual names) -- its
+            first use, the frozen lists untouched; L / R / SELECT / B expected N/A, and N/A is an answer. The session
+            is the Operator's (Z ~1 s -> stop=session_end, the only success; the whole session inside 720 s). Two raw
+            names reserved (one file per run, no sidecars). Two gate items for the Operator. The 105 -> 102 audit
+            figure of #39 corrected (INPUT_PATH.md §13.8). Phase 5's closure NOT decided; nothing staged, no id
+next        orchestrator-owned: validate #41's pre-registration; get the Operator's two gate items; open the Hardware
+            Issue that stages 13-play and moves RUN 21 and then RUN 22; close #36
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
@@ -976,6 +1023,17 @@ captures/local/GBP-VIDEO-004_stream-0014-run16-idxcap.bin
 captures/local/GBP-VIDEO-004_stream-0014-run16-disp.bin
 captures/local/GBP-VIDEO-004_stream-0014-run16-full.bin
 captures/local/GBP-VIDEO-004_stream-0014-run16-vi.bin
+```
+
+**RUN 21 and RUN 22 (GBP-INPUT-004, `play-0001`'s first runs,
+`HARDWARE_TESTS.md` §V7.6, Issue #41) are PRE-REGISTERED and NOT RUN. TWO
+names, not ten: `play-0001` writes ONE file per run and no sidecars. Verified
+absent on 2026-09-21; RESERVED and TAKEN even if a run aborts, never starts,
+or RUN 22 is never executed.**
+
+```text
+captures/local/GBP-PLAY-001_play-0001-run21.log
+captures/local/GBP-PLAY-001_play-0001-run22.log
 ```
 
 **RUN 17 and RUN 18 (GBP-INPUT-002, the machine-join runs of `stream-0015`,
@@ -1152,6 +1210,18 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 
 ## Do not assume
 
+- **That RUN 21 / RUN 22 have run, or that the image is staged.** They are
+  pre-registered (§V7.6) and nothing more: `build/swiss/` still holds Hardware
+  Issue #32's staging (`12-stream` = `stream-0015`), slot `13-play` is not
+  exported, the SD has no `13-play`, and two gate items are still the
+  Operator's to answer.
+- **That a column of `N/A` in the acceptance runs is a finding.** A game that
+  never asks for L is not evidence that L fails: which keys a title uses is a
+  property of the title, and it differs across the three candidates
+  (WarioWare's microgames are mostly the D-pad and A). `N/A` means the pad
+  produced the press and the runtime sent the word and the game had nothing to
+  do with it, which §V7.6.11 requires the KEY record to show. It is not "DOES
+  NOT WORK".
 - **That `play-0001` has run, or that its timing was checked.** It has not
   and it was not: the image is built and audited, its service pass is shorter
   than stream-0015's by the witness step (RUN 17: 5 / 70 / 1 547 ticks per

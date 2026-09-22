@@ -847,4 +847,37 @@ changed. The playable image's reserve of 640 is the correction.
   checkpoint, Phase 9 / Phase 12.
 - No run; no pre-registration; no game chosen; §V7.1–§V7.5, every verdict,
   every evidence status and the routing FACT untouched; `build/swiss` not
-  re-exported; nothing staged.
+  re-exported; nothing staged. **Superseded on the same day, in order:** the
+  runs are pre-registered as RUN 21 / RUN 22 in `HARDWARE_TESTS.md` §V7.6
+  (Issue #41) and the game is settled there (WarioWare, Inc.: Mega
+  Microgame$!, a ROM on the flashcart). Still true: nothing is staged and
+  nothing has run.
+
+### 13.8 CORRECTION (2026-09-21, Issue #41) — the audit cross-check figure of §13.1
+
+§13.1 records that the `play` profile "finds 105 things wrong with the stream
+image". **The correct figure for the committed profile on the committed build
+is 102.** The Orchestrator measured 102 independently and recorded what he
+measured; this is the cause, verified here rather than guessed:
+
+```text
+what was measured   105, with the FIRST DRAFT of the `play` profile, on listings built from the working tree before the
+                    module change was committed
+what changed after  three pins of the profile were corrected against the real listing and committed with it:
+                    gbp_keypad_write's call sites 1 -> 2 (GCC lays the one function out at two sites inside
+                    gbp_input_step), and gbp_input_map / gbp_keypad_encode removed from elf_required (both are inlined
+                    into gbp_input_step and garbage-collected from the ELF)
+why the difference  those same three pins also fire against the STREAM image, which has the same two call sites and the
+                    same two absent symbols. 105 - 3 = 102, reproduced exactly by running the draft profile and the
+                    committed profile over the same listings.
+what it does NOT    the property the figure illustrates, all three measured on the committed build:
+  change            0 findings on the play image, 102 on the stream image, 33 for the `stream` profile on the play image.
+                    The host test asserts the property (findings on this image = 0; more than twenty against each other
+                    image, with named examples), never the exact count, so no test moved.
+the process point   the same shape as the gate-figure rule: a figure measured against an intermediate state is not the
+                    figure for the checkpoint. The rule was already held for the SUITE figure and not for this one.
+```
+
+The §13.1 line and the HANDOFF and DEVLOG entries of Issue #39 keep their
+text with a pointer to this correction: the record of what was reported is
+not rewritten, and the corrected figure is here.

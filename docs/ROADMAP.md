@@ -603,6 +603,20 @@ stream-0015's by the witness step and is unchecked until its first run. The
 acceptance run still needs its pre-registration and a game; the
 long-session presentation question is U-GBP-035 (Phase 9 / 12).
 
+**The acceptance pair, pre-registered — RUN 21 / RUN 22 (GitHub Issue #41,
+2026-09-21, `HARDWARE_TESTS.md` §V7.6; NOT RUN, NOT STAGED):** `play-0001`'s
+first runs answer this phase's criterion in the Operator's own terms — both
+controllers work and present the same behaviour — on a real game, once on each
+pad. Three candidates are named before the runs (WarioWare, Inc.: Mega
+Microgame$!; Pokémon Emerald; Yoshi's Island) and the Operator declares at run
+time which he used and in which form, with the attribution caveat a
+non-original form carries. The same runs carry a SECOND question
+under a separate gate: the timing of the service pass Issue #39 shortened,
+whose anomaly is an expected possible outcome and not a failed run. **Whether
+this phase closes is still not decided by the runs:** that assessment is its
+own step, as Issue #17 was for Phase 4, and it reads the pair rather than
+being performed by it.
+
 Implement and document GameCube controller → GBP keypad/input handling.
 
 Automated tests should cover button combinations and encoding.
