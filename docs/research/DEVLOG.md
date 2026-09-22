@@ -11427,3 +11427,59 @@ in the Makefile's help. **Item 4:** the dead `if False` line is gone.
 skipped, 103 subtests**. Nothing under `src/` or `poc/`; `build/swiss/12-stream`,
 `13-play` and the SD untouched (hashed before and after); no evidence status
 moved; no pre-registered text touched.
+
+## 2026-09-22 — Issue #30: gbhwdb recorded as a web reference with its licence checked, the two board photographs moved out of the raw log drop, and U-GBP-009 given a procedure without an answer — plus the GB/GBC confound named in GBC_PATH §3
+
+**The source.** `external/README.md` gains a second table — **web references,
+consulted, not checked out, nothing vendored** — because a page is not a
+repository: there is no commit to pin, so what is recorded is the URL, the date
+it was read, what was taken from it, and **whose hardware it documents**. The
+entry is Gekkio's Game Boy hardware database page for the GBS unit `gekkio-1`,
+read for its licence and contents on 2026-09-22: **CC BY-SA 4.0 for the data
+and photographs** (the site's own statement; its source code is MIT), board
+revision `DOL-GBS-10`, and a component list the page gives as U1 CPU AGB A, U2
+WRAM `D442012AGY`, U4 `GBS-DOL`, U5/U6 regulators, Y1 crystal, weeks 18–20 of
+2003. **It documents somebody else's Game Boy Player** and scopes, qualifies or
+explains nothing about any run this project has executed; the entry says so in
+those words.
+
+**The licence was checked, and it is the reason nothing is committed rather
+than an obstacle that had to be cleared.** CC BY-SA would in fact permit
+redistribution with attribution — and its share-alike term would then reach a
+repository carrying the images. A URL costs nothing and avoids the question
+entirely, which is what the Issue proposed.
+
+**The photographs were MOVED, never deleted.** The Operator had placed them in
+`logs/`, which is the raw drop of physical runs (`CLAUDE.md` §12); a
+third-party board photograph is not a run artifact and its presence there
+muddies a directory the project's workflow relies on. They are now in
+`external/gbhwdb/` — ignored like every other `external/` checkout — with their
+hashes recorded in the reference entry, and `logs/motherboard/` is gone.
+
+**One discrepancy recorded rather than resolved:** Issue #30's reading of the
+front photograph names "U3 as an NEC D442012A0Y"; the page's own component list
+gives the WRAM as U2 `D442012AGY` and the GBS-DOL as U4. Nothing here depends
+on either reading, so the difference is noted and left open.
+
+**`U-GBP-009` gained a procedure and no answer.** Its status does not change —
+OPEN, P3, and **no revision is attributed to the Operator's unit**. What it
+gained: the revision is *printed on the PCB* as `DOL-GBS-xx` beside the
+copyright line, so answering it is a matter of looking rather than measuring; a
+public database catalogues the variants; the cost is opening the console; and
+the standing decision is recorded so it is not revisited by accident — **the
+Operator will not be asked to open his unit**, because the item is P3, no
+behavioural difference between revisions is documented anywhere, and nothing in
+the roadmap depends on it. It is revisited only if this project's measurements
+and another source diverge, and then the procedure is already known.
+`tests/host/test_external_reference.py` pins all of it, including the negative
+that matters: no board revision is attributed to this project's hardware
+anywhere in the documents.
+
+**And, from the Orchestrator's validation of Issue #31,** `GBC_PATH.md` §3 now
+names the confound a promotion checkpoint would otherwise have to find:
+cartridge and build ERA are not separated by the archive, because the
+two-by-two has an empty diagonal (no late build without a Game Pak, no early
+build with one). The identical record form and position in both families makes
+the era reading unlikely, not excluded. The cheap cell is named too — one boot
+of the already staged `12-stream` with the cartridge removed — with the reasons
+it is **not** folded into RUN 21 / RUN 22 and **not** pre-registered here.

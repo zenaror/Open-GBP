@@ -128,6 +128,33 @@ evidence id and changes no status.**
 state; nothing about what `0x90`'s other bits mean (`U-GBP-017` stays open on
 `0x10` and `0x80`); nothing about `0x94`; and nothing about GB/GBC mode itself.
 
+**THE CONFOUND, named before a promotion has to find it (the Orchestrator's, on
+validating this part, 2026-09-21).** Establishing that the `0x90` runs are
+cartridge-less *by their own records* is not the same as separating CARTRIDGE
+from ERA. The two-by-two has an empty diagonal:
+
+```text
+                      no Game Pak        Game Pak
+  early builds        12 logs, 0x90      -- none --
+  later builds        -- none --         22 logs, 0x92
+```
+
+So a build-era explanation is not excluded by the data, only made unlikely: the
+record has the SAME FORM AND POSITION in both families — `CONTROL semantic
+orig=.. exp=.. method=gbi-majority-vote transform=(v&~10)|0c`, taken before any
+write, with `exp` the deterministic `(orig & ~0x10) | 0x0C` in both — and
+nothing in the later builds transforms `orig`. **A promotion checkpoint must
+name this confound and say which cell breaks it.**
+
+**And one cell is nearly free.** `12-stream` is already staged on the card, has
+run five times, and logs `CONTROL semantic orig=`: ONE boot of it with the
+cartridge REMOVED fills the empty "later build, no Game Pak" cell — no new
+build, no new code, no new write. `play-0001` cannot do it (it logs
+`t_control`, not the byte). **It is NOT folded into RUN 21 / RUN 22**, whose
+one variable is the controller and whose cartridge must be identical in both;
+it would be its own run number after RUN 22, and it is **not pre-registered
+here** — the Operator has been asked and has not answered.
+
 ---
 
 ## 4. The experiments this generates — designed, gates first, NOT authorised

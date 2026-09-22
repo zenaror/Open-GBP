@@ -996,8 +996,23 @@ issue 44    THE STAGING TOOL CANNOT DESTROY A FROZEN SLOT, and the skip ledger's
             the reproducing one-liner in skip_sites()'s docstring. HANDOFF's Swiss section corrected (it said
             13-play was not exported; Hardware Issue #43 exported it), the rule it was making kept, the dead line
             removed
-next        orchestrator-owned: validate #41's pre-registration, #29, #31 and #44; the Operator's declaration and
-            the runs on #43; close #36. Executor: C (Issue #30)
+issue 30    gbhwdb RECORDED as a WEB REFERENCE (external/README.md's second table: a page is not a repository, so
+            the URL, the date read, what was taken and WHOSE hardware it documents). Licence CHECKED -- CC BY-SA 4.0
+            for the data and photos, MIT for the site's code -- and it is the REASON nothing is committed:
+            share-alike would reach a repository carrying the images, and a URL avoids the question. The two board
+            photographs were MOVED, never deleted, from logs/ (the raw drop of physical runs) to external/gbhwdb/,
+            hashes recorded, logs/motherboard/ gone. One discrepancy recorded rather than resolved (the Issue reads
+            U3 D442012A0Y; the page's list gives U2 WRAM D442012AGY and U4 GBS-DOL). U-GBP-009 gained a PROCEDURE
+            and no answer -- the revision is printed on the PCB beside the copyright line, the variants are
+            catalogued, the cost is opening the console -- with the standing decision recorded so it is not
+            revisited by accident: THE OPERATOR WILL NOT BE ASKED TO OPEN HIS UNIT (P3, no behavioural difference
+            documented, nothing in the roadmap depends on it), revisited only on a divergence. Status unchanged:
+            OPEN, P3, NO revision attributed to this project's unit -- which a host test pins as a negative across
+            UNKNOWNS, EVIDENCE, GBS-DOL.md and this file. GBC_PATH §3 also gained the cartridge-vs-ERA confound
+            (the empty diagonal) from the Orchestrator's #31 validation, with the nearly-free cell named and NOT
+            pre-registered
+next        orchestrator-owned: validate #41's pre-registration, #29, #31, #44 and #30; the Operator's declaration
+            and the runs on #43; close #36. Executor: the queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
