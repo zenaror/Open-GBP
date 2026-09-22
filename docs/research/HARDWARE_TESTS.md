@@ -27945,3 +27945,465 @@ test diffs it against the commit that wrote it. The across-block reading of
 slice chosen after the fact — it is what the next pre-registration tests, not
 something this part promotes. The delay of §V9.15.6 is bounded by two runs and
 its mechanism is unknown.
+
+## V10 — GBP-AUDIO-003: **THE AMPLITUDE SWEEP** — what the duty of the 256-byte cell ENCODES, and one ROM for every audio question left in the phase — **DESIGNED AND ASSESSED 2026-09-22 (GitHub Issue #68). NOT A PRE-REGISTRATION: NO ROM, NO BUILD, NO IMAGE, NO RUN, AND NOTHING HERE IS FROZEN** · the sweep's four amplitudes and their predicted duties, the six forms of failure told apart from one another, the ONE-ROM two-axis shape **RECOMMENDED** on a capability the capture already has, `U-GBP-039`'s rider **PRICED AND DEFERRED**, and `GBP-HW-299`'s twelve-second bound written into the SHAPE OF THE ACTION LIST
+
+### V10.1 Why this is next, and what it is not
+
+`U-GBP-012`'s **rate** half is answered and corroborates Dolphin to four
+figures (`GBP-HW-301`). Its **layout** half is open: what a sample's value is
+carried *as*. Phase 6's acceptance — *a real cartridge produces stable audio
+without breaking video or input* — is an **exit** question, and it cannot be
+reached without the layout half, because nothing can be reproduced from bytes
+whose meaning is unknown. **That is why this is next, and it is said here so
+the record carries the reason and not only the order.**
+
+`GBP-HW-298`'s reading — one drained block is one **sample**, and the tone
+appears as the modulation of successive drains — is CORROBORATED by two
+windows of one run. The thing that reading does *not* say is what the duty of
+the 256-byte cell **means**. Three duty values have been seen (`0.375`, `0.500`,
+`0.625`, and RUN 30's `0.406`), all at one amplitude. **A sweep that produces
+more than three, in an order fixed before the run, is what turns the
+hypothesis into a measurement.**
+
+### V10.2 The hypothesis, stated so that it can fail
+
+> **H-PWM.** One drained block carries one sample of the AGB's audio, and the
+> sample's **magnitude** is carried as the **duty** of the block's 256-byte
+> cell, linearly, about a resting duty of `0.500`.
+
+It is a **HYPOTHESIS** (`U-GBP-012`) and this part does not promote it. It has
+three separable parts, and the sweep is aimed at the third:
+
+```text
+one block = one sample          CORROBORATED (GBP-HW-298), not tested again here
+the cell's DUTY is the carrier  the thing under test
+the map is LINEAR in magnitude  the thing under test, and separately
+```
+
+### V10.3 THE AMPLITUDE AXIS
+
+#### V10.3.1 The envelope's natural staircase — and why a step-per-press is cleaner
+
+The GBA's envelope (`SOUND1CNT_H` bits 8–10, step time *n*) decays one volume
+unit every *n*/64 s. Against a window of **256 blocks at 4 096.0 blocks/s =
+62.5 ms**:
+
+```text
+step time   one step      steps inside ONE 62.5 ms window
+    1       15.625 ms     4.0
+    2       31.25  ms     2.0
+    4       62.5   ms     1.0      <- the window is exactly one step
+    7      109.375 ms     0.57
+```
+
+**A decaying envelope would put several amplitudes inside one window, and that
+is exactly what must not happen**, for three reasons, each on its own
+sufficient:
+
+1. **The estimator assumes stationarity.** §V9.8's `window_period` reads a
+   period out of the duty series *across* blocks. A decay makes the series a
+   function of block index as well as of phase, and the period it returns
+   would be a mixture, not a measurement.
+2. **The two effects superimpose and do not separate.** The tone already
+   modulates the duty block to block. An amplitude that also moves block to
+   block is added to it in the one series available, and one run cannot pull
+   them apart.
+3. **There is not room.** At the fastest useful step time the window holds four
+   levels — 64 blocks each, two periods of F1 apiece. Two periods is not a
+   measurement of a duty.
+
+**So: one amplitude per window, changed only by a press.** Each window is then
+stationary in amplitude and the existing estimator applies unmodified, which
+is also what keeps this comparable with RUN 31.
+
+#### V10.3.2 The four levels, and what each predicts
+
+The knob is `SOUND1CNT_H`'s **envelope initial volume** (bits 12–15, 0…15) with
+**step time 0**, so the level is set at the restart and never moves. It is
+preferred over `SOUNDCNT_L`'s PSG master volume (0…7) and `SOUNDCNT_H`'s
+PSG-to-output ratio (25/50/100 %) because it is the finest of the three and
+because the other two are held at the values RUN 31 used, so **only one thing
+differs from RUN 31**.
+
+RUN 31 measured, at initial volume 15, duties `0.375` and `0.625` — a deviation
+of **±0.125** about the resting `0.500`. Under **H-PWM linear**:
+
+```text
+                          deviation = 0.125 x (V / 15)
+
+  V    V/15     deviation   duty_low  duty_high   as bytes of the 256-byte cell
+ 15   1.0000      0.1250     0.3750    0.6250      96.0 / 160.0   <- RUN 31, replicated
+ 11   0.7333      0.0917     0.4083    0.5917     104.5 / 151.5
+  7   0.4667      0.0583     0.4417    0.5583     113.1 / 142.9
+  3   0.2000      0.0250     0.4750    0.5250     121.6 / 134.4
+```
+
+**Why these four and not others.** The steps are even in *V* (4 apart), so the
+predicted deviations are even too (**8.5 bytes of 256 apart**) — far above the
+`1/256` quantisation and above any spread yet seen in a stationary window. The
+smallest, `0.025`, is still **6.4 bytes** from the rest value, so no point sits
+near the resolution floor. And the largest is **15, the value RUN 31 ran**: the
+sweep's first point is a replication, not a new condition.
+
+Frequency is held at **F1 = 128.0 Hz** (`n = 1024`) throughout, because at
+32 blocks per period each half-period is **16 blocks at one level** — the most
+blocks per level of any frequency already exercised, which is what a duty
+measurement wants.
+
+#### V10.3.3 The competing model, and how four points separate it
+
+The plausible alternative to a linear map is a **compressive** one, as audio
+paths commonly apply. Taking `deviation ∝ log2(1 + V) / log2(16)` as its
+representative:
+
+```text
+  V     LINEAR deviation    COMPRESSIVE deviation    difference, in bytes of 256
+ 15         0.1250                0.1250              0.0    (both anchored on RUN 31)
+ 11         0.0917                0.1120              5.2
+  7         0.0583                0.0938              9.1
+  3         0.0250                0.0625              9.6
+```
+
+**The two models separate by at least 5 bytes at every point that is not the
+anchor, and by more than 9 at two of them.** That is the real content of
+choosing four levels rather than two: a two-point sweep can only confirm "it
+moved", and a four-point sweep says *how*.
+
+#### V10.3.4 The null is the INTERCEPT, not a fifth window
+
+The obvious fifth condition — initial volume **0** — is **deliberately not in
+the sweep**, and the reason is a confound rather than a shortage of windows:
+
+> A window at volume 0 and a window that **has not begun carrying** (`U-GBP-038`)
+> look **identical**: flat `0.500` in all 256 blocks, no edges anywhere. RUN 31's
+> presses 1 and 2 are exactly that signature. A design in which one window
+> *predicts* the failure signature cannot tell the two apart.
+
+So the null is tested as the **intercept of the four-point fit**: under H-PWM
+linear the deviations are proportional to *V*, and the line through them must
+pass through the origin. **This costs no window, and it leaves every window
+predicting a non-flat result — so any flat window in this run is unambiguously
+a carriage failure and not a result.**
+
+### V10.4 What failure looks like — the forms, and how each is told apart
+
+A design that cannot say in advance what refutation looks like is not a test.
+Six outcomes, distinguishable from one another by the data the run already
+produces:
+
+```text
+F1  THE DUTIES DO NOT MOVE          all four windows give 0.375/0.625 regardless of V.
+    H-PWM REFUTED for amplitude     The duty is structural to the transfer, not the sample's
+                                    magnitude. Would stand even if the duty still tracks FREQUENCY.
+
+F2  THEY MOVE, NOT MONOTONICALLY    the order fixed in V10.3.2 is violated. Refutes the simple
+    H-PWM REFUTED as stated         encoding; says the duty answers to something that co-varies.
+
+F3  MONOTONE, NOT PROPORTIONAL      the order holds, the linear intercept misses the origin, or
+    the LINEAR half refuted only    the compressive column fits better. A REAL PARTIAL RESULT:
+                                    "the duty encodes magnitude" survives, "linearly" does not.
+
+F4  AMPLITUDE IS IN THE VALUES      the duty stays 0.500 but the block's BYTE ALPHABET changes with
+    a DIFFERENT encoding, not a     V (RUN 30 saw {00,01,FE,FF}, RUN 31 {03,07,FC}). Then the cell
+    failure                         carries magnitude in its LEVELS, not in its duty -- a second
+                                    candidate this same run can see AT NO EXTRA COST, provided the
+                                    analysis records the alphabet per window. IT MUST.
+
+F5  THE DUTY IS NOT TWO-VALUED      a continuum of per-block duties with no two levels. The square
+    the reading itself is wrong     wave's own levels are not being resolved and GBP-HW-298's
+                                    reading needs re-examining before anything is built on it.
+
+F6  A WINDOW CARRIES NOTHING        flat 0.500, no edges -- U-GBP-038's signature. NOT a verdict on
+    a RUN failure, not a result     H-PWM. V10.3.4 is what keeps this distinguishable, and V10.8 is
+                                    what makes it unlikely.
+```
+
+**F4 is the one a narrower design would have thrown away.** Recording the byte
+alphabet per window costs one line of analysis and turns "the hypothesis
+failed" into "the hypothesis failed **and here is the other place to look**".
+
+### V10.5 The measurement's own decisions, to be FIXED IN CODE before the run
+
+RUN 31's honesty item was a slice chosen **after** seeing the data — w3's onset
+at block 44. That must not recur, so the pre-registration that follows fixes,
+before anything exists:
+
+```text
+THE ONSET SLICE       discard the first 96 blocks of every press window, and measure on the
+                      remaining 160 (5.0 periods of F1, 10 half-periods, 16 blocks each).
+                      96 blocks = 23.4 ms, against the largest onset yet observed -- 18.32 ms,
+                      block 75, RUN 30 press 2 -- so the margin is 28 %. RUN 31's own onset was
+                      block 44. THE NUMBER IS FIXED HERE SO IT CANNOT BE CHOSEN LATER.
+
+THE DUTY              the definition RUN 31 used, unchanged: per block, lo = min, hi = max,
+                      duty = |{x : x > (lo+hi)/2}| / 4096.
+
+THE LEVELS            per window, the two modal duties of the sliced series, reported to the
+                      nearest 1/256, with the count of blocks at each.
+
+THE ALPHABET          per window, the sorted set of distinct byte values -- F4's evidence.
+
+THE VERDICT           on the ORDER first (monotone in V, as fixed in V10.3.2), and the linear
+                      vs compressive comparison reported BESIDE it as a measurement, never as
+                      a gate. V9's discipline, which is why this run can report more than it
+                      decides.
+```
+
+### V10.6 ONE ROM, TWO AXES — the assessment, and the answer is **YES**
+
+#### V10.6.1 What the capture already does, and it needs no change at all
+
+The Orchestrator asked whether the `KEY` record could name which bit rose.
+**It already does, and not only in the log:**
+
+```text
+poc/.../main.c  awin_note_event()   arms on ANY rising bit of the word, whichever key it is
+src/gbp/gbp_awin.h  struct gbp_awin_anchor
+                    uint32_t word;   the word written for that press
+                    uint32_t keys;   the logical set the word encodes
+tools/awinparse.py  parses both, per window, at offsets 0x14 and 0x18
+```
+
+**So each of the five windows in the sidecar already says which button armed
+it.** The GameCube side needs **no change** for a two-axis stimulus — not one
+line.
+
+And the mapping is physically established, not assumed: `GBP_INPUT_POLICY_DEFAULT`
+sends the pad's **A** to GBA **A** (logical key 0, word bit 0) and the pad's
+**B** to GBA **B** (key 1, bit 1), and RUN 14 pressed A, B, SELECT, START, L
+and R and **every pressed button landed at its own counter** — the identity
+permutation, `GBP-INPUT-001` Question M = PASS, `GBP-HW-261 … 265`. The two
+axes rest on a corroborated capability.
+
+#### V10.6.2 The two schedules — and each is the other's fixed condition
+
+```text
+A advances the FREQUENCY   F1 128.0 Hz (n=1024)  ->  F2 512.0 Hz (1792)  ->  F3 256.0 Hz (1536)
+                           ->  F4 1024.0 Hz (1920), then HOLDS
+B advances the AMPLITUDE   V 15  ->  11  ->  7  ->  3, then HOLDS
+```
+
+All four `2048 - n` are powers of two, so all four frequencies are exact, and
+they sit at **32 / 8 / 16 / 4 blocks per period** at 4 096.0 blocks/s.
+
+**The property that makes one ROM work is that each schedule starts where the
+other run needs it held:**
+
+```text
+a pure-B run    frequency never leaves F1 = 128.0 Hz    <- V10.3.2's fixed frequency, for free
+a pure-A run    amplitude never leaves V = 15           <- RUN 31's amplitude, for free
+```
+
+No mode switch, no configuration, no second image: **which question the run
+asks is decided by which button the Operator presses**, and the sidecar records
+which that was.
+
+**The A axis is not filler.** `GBP-HW-298` names what would make its reading
+FACT: *"a repeat and a third frequency"*. A four-press A run delivers **both**
+— F1 and F2 repeated on a new instrument in a new run, **and** two new
+frequencies — giving three independent ratio checks instead of one.
+
+**HOLD, not wrap, at the end of each schedule.** A fifth press then changes
+nothing that is sounding, so the four captured windows stay interpretable; the
+capture refuses the fifth window anyway (`arm_refused_full`), and a wrap would
+make that refusal silently coincide with a changed condition.
+
+#### V10.6.3 The risk ordering — the known point first, deliberately
+
+`U-GBP-038` says the first window may carry nothing, and §V10.8 is what makes
+that unlikely rather than impossible. **Both schedules therefore spend their
+first press on the value that is already measured:**
+
+```text
+A: F1 first     128.0 Hz is measured (RUN 31 w3)      losing it costs a replication
+B: V=15 first   the RUN 31 amplitude                  losing it costs a replication
+A: F3, F4 last  the two NEW frequencies               protected by being late
+B: V=3 last     the point that separates the models   protected by being late
+```
+
+This replaces §V9.2.1's alternation, which existed for the same reason before
+the bound was known. **Alternation was the right answer to an unmeasured
+delay; an ordering is the right answer to a measured one**, and it is strictly
+better because it buys two new frequencies with the same four presses.
+
+#### V10.6.4 The display — shape, not colour, because the chain is cheap
+
+§V9.6 requires the press to be visible, and the Operator reads it on an
+RCA→HDMI converter at 240×160. The count must now also say **which axis** each
+press moved. Colour-coding the boxes fails: the background already walks the
+primaries with the count, so a red box would vanish on the red background at
+count 1.
+
+**So the axis is carried by shape:**
+
+```text
+background colour   = the total press count, unchanged from agb-tone
+                      black / red / green / blue / yellow, MAGENTA past four
+box i, filled       = the i-th press happened
+   filled UPPER half   that press was A  (frequency)
+   filled LOWER half   that press was B  (amplitude)
+   dark grey           no press yet
+```
+
+Two independent readings of the count, as §V9.6 requires, plus a third thing it
+could not show: **he can see that he pressed the button the checklist asked
+for**, and a mis-press is visible to him *during* the run rather than to us
+afterwards.
+
+#### V10.6.5 What it costs, stated plainly
+
+**It costs one more NOR write, and it is the last one Phase 6's audio needs.**
+§V9.12 records that flashing `agb-tone` **replaced the Enhanced Control
+Checker** on the EZ-Flash Omega DE's NOR; the same is true again. What he
+loses this time is **`agb-tone` itself**:
+
+```text
+before    NOR holds agb-tone            RUN 31's stimulus, physically present
+after     NOR holds the new ROM         agb-tone gone until re-flashed
+mitigated agb-tone stays in the repo, rebuildable at its recorded commit and hash, and the new
+          ROM reproduces BOTH of its conditions (F1 and F2 at V=15) inside a four-press A run
+```
+
+So the artefact is not lost in any sense that matters: **a pure-A run is a
+superset of RUN 31.** And it must be a **new** stimulus, `agb-sweep`, never an
+edit of `stimulus/agb-tone` — RUN 31's stimulus keeps its identity and its
+hash, exactly as `tools/v9tone.py` keeps its bytes.
+
+#### V10.6.6 What would make this the wrong shape
+
+Honesty about the failure of the recommendation, not only about the failure of
+the experiment:
+
+```text
+if a mis-press confounded a run          it does NOT go undetected: the anchor's `keys` says which
+                                         button armed each window, so the ingestion refuses a
+                                         sequence that does not match the checklist rather than
+                                         mis-attributing an amplitude. DETECTABLE > UNLIKELY.
+if the ROM's extra state were wrong      the schedules are a pure state machine, host-tested exactly
+                                         as tone_step() is; nothing in them touches the device
+if either axis ever needs 5+ points      the capture holds FOUR press windows. A fifth point needs a
+                                         second RUN, not a second ROM -- and a second run is free,
+                                         because the ROM is already flashed
+```
+
+**The last line is the real argument.** One ROM does not mean one run: it means
+**every remaining audio run of this phase is a boot and a press sequence**,
+with no flash, no new artefact and no new identity to verify. That is what is
+being bought.
+
+### V10.7 `U-GBP-039`'s separator as a rider — priced, and the recommendation is **WAIT**
+
+`prehandler_wait_ms` exists, has physical precedent at 5000 ms (`GBP-HW-120`),
+and moves `t_capture_start` away from `t_control` by the wait — which is what
+would separate the four confounded epochs of `GBP-HW-302`. The question is
+whether it rides on this run. **The recommendation is that it does not**, and
+the reason is not its cost:
+
+> **It manipulates the precondition of the primary question.** The amplitude
+> sweep's entire value rests on all four windows carrying, and what decides
+> whether a window carries is the very delay `prehandler_wait_ms` is being
+> moved to interrogate. That is not two questions with separate gates; it is
+> one question standing on the other's manipulation.
+
+The cost, for completeness:
+
+```text
+a second DOL from a build-option flip    cheap: no new code
+a second staging slot and SD copy        the Executor's, not his
+a SECOND BOOT and a second press run     HIS, and it is the real cost
+a second archive and a second ingestion  ours
+and a DIFFERENT wait in the checklist    if the delay follows t_capture_start, the rider's windows
+                                         do not begin carrying until t_control + 5 s + ~11 s, so the
+                                         rider needs ~22 s where the base run needs 20 -- TWO
+                                         checklists, and crossing them loses a run
+```
+
+**And §V6.13 is not quite the precedent it looks like.** GBP-VIDEO-007 and
+GBP-VIDEO-008 were two questions with separate gates on **one image and one
+run** — they shared everything and differed only in what was read out of it.
+This rider needs a **different image**, hence a different boot: it is a second
+run wearing one checkpoint's name.
+
+**When it becomes cheap.** Any later run that already needs two images for its
+own reasons, or any run whose primary question does not depend on when the
+window starts carrying. `U-GBP-039` is **priced, not blocking**: nothing in
+Phase 6's acceptance needs to know *why* the delay exists, only *that* it does
+— and that is answered and already actionable, which is §V10.8.
+
+### V10.8 THE TWELVE-SECOND BOUND GOES IN THE STEPS
+
+`GBP-HW-299` bounds it: **the AUDIO window carries nothing until between
+10.045 s and 12.547 s after the CONTROL transform**. It is in `EVIDENCE.md`,
+`UNKNOWNS.md` and `HANDOFF.md`, and that is not where it does its work.
+
+**An action list that tells the Operator to press promptly is asking for a
+wasted window**, and §V9.12's did — it said *"wait until the screen is up and
+stable"* and then pressed. RUN 31 lost two of its four windows to that.
+
+The wait, with margin, and with what he can actually see:
+
+```text
+THE EPOCH HE CAN OBSERVE   the picture appearing. GBP-VIDEO-005 measured the first real hand-off at
+                           164.696 ms after the CONTROL transform, so the screen is within ~0.2 s of
+                           the epoch the bound is measured from -- negligible against 20 s.
+THE WAIT                   20 s from the picture being up, before the FIRST press.
+THE MARGIN                 20.0 - 12.547 = 7.45 s, 59 % over the upper edge. NOT at the edge.
+WHAT IT COSTS              20 s of his time, once per run, against a 120 s safety budget
+                           (PLAY_SAFETY_SECONDS) that also has to hold 4 presses at >= 3 s: 20 + 9 = 29 s.
+WHY IT IS NOT 13 s         the bound's upper edge is the EARLIEST time a window was OBSERVED to carry,
+                           over two runs. It is not a property of the hardware and the next run may
+                           sit outside it. The margin is what makes that a near miss instead of a loss.
+```
+
+**The shape the next action list must have**, in the separated notation:
+
+```text
+  n   wait for the picture, counter reading 0              (nothing)        that it came up
+ n+1  WAIT 20 s -- a phone timer, not a count              (nothing)        that he waited
+      ---- WHY: the AUDIO window carries nothing for the first ~12 s after the console starts
+           driving the GBP (GBP-HW-299). A press inside that window measures NOTHING. This is
+           not caution; it is the difference between four results and two.
+ n+2  B  × 1                                               the pad's B      the counter, and that
+                                                                            the box filled LOW
+ n+3  wait  >= 3 s                                         (nothing)        --
+ ...  (B x 1 / wait, to four presses)
+```
+
+**The reason travels with the step.** A checklist that says "wait 20 s" without
+saying why invites the next Operator — or the next agent writing the next
+checklist — to trim it.
+
+### V10.9 Two cheap improvements the implementation checkpoint should weigh
+
+Neither is authorised here and neither is required by the design above.
+
+```text
+1  THE CONTROL WINDOW'S EPOCH       AWIN_NOT_BEFORE_MS is 5000, so the control window is armed at
+   one constant                     t_control + 5 s -- INSIDE the dead zone GBP-HW-299 measured. It
+                                    is still a valid resting observation of the BYTES, which is what
+                                    §V8.5.1 asked of it, but it cannot distinguish "at rest" from
+                                    "not yet carrying". Arming it at ~15 s would put it in the same
+                                    regime as the press windows. WHAT IT DOES NOT DO: prove the path
+                                    was carrying then -- a silent window is silent either way. It
+                                    narrows the gap; it does not close it.
+
+2  awinparse's SUMMARY LINE         it parses `keys` (offset 0x18) and prints only `word`. With a
+   one line                         two-axis stimulus the axis of each window is the first thing a
+                                    reader wants. Printing it costs one format field.
+```
+
+### V10.10 What this part does NOT do
+
+It authorises **no ROM, no build, no image, no staging and no hardware**. It
+**freezes nothing**: every number here — the four amplitudes, the four
+frequencies, the 96-block slice, the 20 s wait — is a proposal, and a proposal
+adopted after data exists is worth nothing, so the pre-registration that
+follows must put them in code **first**. It answers **nothing**: `U-GBP-012`'s
+layout half stays open and `U-GBP-039` stays open and priced. It **promotes no
+hypothesis**: H-PWM is named so it can fail, and naming it is not evidence for
+it. It mints no evidence id and moves no status. It does not touch §V8 or §V9,
+whose gates decided RUN 30 and RUN 31 and are not reused; `tools/v8audio.py`
+and `tools/v9tone.py` are not edited. It does not touch `stream-0016`, the
+staged slot, the card, or `stimulus/agb-tone`. Nothing from any third-party
+repository enters this one.

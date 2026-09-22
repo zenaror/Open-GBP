@@ -1408,23 +1408,47 @@ validation  #67's validation, same day: DOLPHIN'S RATE IS CORROBORATED TO FOUR F
             separate them. WHAT SEPARATES THEM ALREADY EXISTS: prehandler_wait_ms moves t_capture_start
             away from t_control BY THE WAIT (physical precedent GBP-HW-120, 5000 ms) -- a rebuild with an
             existing option, no new code, able to ride on any audio run. ids GBP-HW-301, 302
-next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62 and #63 ACCEPTED and CLOSED
-            (#61 by him after the ingestion); still to validate #41's pre-registration, #46 through #58 and
-            #42; close #36. PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED,
-            R4 SATISFIED by RUN 30 (T' = NOMINAL), R5 unchanged, R6 RE-PRICED by #63 (an implementation gap
-            in front of the run). PHASE 6 HAS ITS FIRST DATA: the window carries something and changes with
-            the press one GBA frame later, and the FORMAT is not established.
-            THE NEXT INSTRUMENT IS U-GBP-037's: stimulus/agb-tone, and it is now DESIGNED AND
-            PRE-REGISTERED (§V9, issue 64 above) -- the Operator agreed to flash it. NOTHING IS AUTHORISED
-            BY THAT: the ROM does not exist, the build is a checkpoint of its own and the run is another.
-            Both of the Orchestrator's open questions were argued in the part rather than assumed: the
-            image IS reusable unchanged (it knows nothing about the cartridge), and press 1 is NOT relied
-            on (the comparison lives at any two windows of different frequency, which the alternation
-            guarantees among presses 2-4 alone).
-            THE ROM IS NOW BUILT (issue 65 above). WHAT IS LEFT BEFORE THE RUN IS THE OPERATOR'S ONE
-            ACTION: flash build/physical/agb-tone-cart.gba (ff5298f0...44a0) to the EZ-Flash Omega DE in
-            NOR / Mode B, WHICH REPLACES THE ENHANCED CONTROL CHECKER -- re-flashing the checker is the
-            way back, and he accepted that. The Hardware Issue is the Orchestrator's to open.
+issue 68    THE AMPLITUDE SWEEP IS DESIGNED, AND ONLY DESIGNED (§V10, GBP-AUDIO-003). NO ROM, NO BUILD,
+            NO RUN, NOTHING FROZEN -- every number becomes real only when a pre-registration puts it in
+            code BEFORE data exists. Four envelope levels 15 / 11 / 7 / 3 at a fixed 128.0 Hz, one per
+            press; predicted deviations 8.5 bytes of 256 apart, smallest still 6.4 bytes off the rest
+            value, largest = RUN 31's, so the first point is a REPLICATION. A LINEAR map and a
+            COMPRESSIVE one are written side by side and differ by >= 5 bytes at every non-anchor point.
+            THE NULL IS THE INTERCEPT, NOT A FIFTH WINDOW: a volume-0 window and a window that has not
+            begun carrying are the SAME PICTURE, so no window may predict the failure signature -- and a
+            SECOND candidate encoding rides free, since recording each window's BYTE ALPHABET would see
+            magnitude carried in the cell's LEVELS instead of its duty. RUN 31's post-hoc slice is
+            pre-empted: the onset slice is FIXED at 96 blocks (23.4 ms, 28 % over the largest onset seen).
+            ONE ROM RECOMMENDED, on a capability THE CAPTURE ALREADY HAS: gbp_awin_anchor carries `word`
+            and `keys` per window, awinparse parses both, awin_note_event arms on ANY rising bit -- the
+            GameCube side needs NO change, and RUN 14 already landed A, B, SELECT, START, L and R each at
+            its own counter. A advances frequency (128 -> 512 -> 256 -> 1024 Hz, exact, 32/8/16/4 blocks
+            per period), B advances amplitude, both HOLD at the end; EACH SCHEDULE STARTS WHERE THE OTHER
+            RUN NEEDS IT HELD, so the button pressed decides the question -- no mode, no config, no second
+            image. Both put the already-measured point FIRST because U-GBP-038 says window 1 is the one at
+            risk; that replaces §V9.2.1's alternation and buys two NEW frequencies with the same four
+            presses. The display carries the axis BY SHAPE (upper half = A, lower = B), because the
+            background already walks the primaries with the count. Cost: one more NOR write and agb-tone
+            leaves the cartridge -- mitigated, a pure-A run is a SUPERSET of RUN 31, and it must be a NEW
+            stimulus (agb-sweep), never an edit of stimulus/agb-tone.
+            U-GBP-039's RIDER PRICED AND DEFERRED, for a reason that is not cost: prehandler_wait_ms moves
+            the very delay that decides whether the sweep's windows carry, so it would put the primary
+            question's PRECONDITION under the rider's variable. §V6.13's precedent was two readings of ONE
+            image and ONE run; this needs a second image, hence a second boot.
+            THE TWELVE-SECOND BOUND NOW HAS A PLACE IN THE STEPS: wait 20 s FROM THE PICTURE APPEARING
+            before the first press (the picture is within ~0.2 s of the CONTROL transform, GBP-VIDEO-005;
+            margin 7.45 s = 59 % over the 12.547 s edge; 20 + 9 = 29 s of a 120 s budget), WITH THE REASON
+            BESIDE IT so the next checklist cannot trim it. Two cheap improvements NAMED, NOT AUTHORISED:
+            AWIN_NOT_BEFORE_MS = 5000 arms the control window INSIDE the dead zone, and awinparse prints
+            `word` but not `keys`. NO id, NO status, NO promotion: U-GBP-012 and U-GBP-039 gained dated
+            pointers and stay exactly as open as they were.
+next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
+            or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
+            PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED
+            by RUN 30 (T' = NOMINAL), R5 unchanged, R6 RE-PRICED by #63 (an implementation gap in front
+            of the run).
+            PHASE 6's NEXT CHECKPOINT IS THE PRE-REGISTRATION that puts §V10's numbers in code before the
+            ROM exists, then the build (agb-sweep), then the run.
             #31 (Phase 7, GB/GBC) stays backlog. Executor: THE QUEUE IS EMPTY -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,

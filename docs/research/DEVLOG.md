@@ -13518,3 +13518,112 @@ with an existing option, no new code, and it can ride on any audio run.
 **Ids:** `GBP-HW-301` and `GBP-HW-302`; `GBP-AUD-001` amended; `U-GBP-012`
 split; `U-GBP-039` records the probe and its successor.
 
+
+## 2026-09-22 — Issue #68: the amplitude sweep DESIGNED, one ROM argued FOR, and the rider argued AGAINST
+
+**Goal.** `U-GBP-012`'s layout half is what Phase 6's acceptance needs — nothing
+can be *reproduced* from bytes whose meaning is unknown — and its named test is
+an amplitude sweep. Design it, with the predictions and the failure forms
+written before anything exists. Assess whether **one** ROM can carry both the
+frequency and the amplitude axis. Price `U-GBP-039`'s `prehandler_wait_ms`
+rider. Put `GBP-HW-299`'s twelve-second bound into the **shape of the action
+list**. **Design only: no ROM, no build, no run, nothing frozen.**
+
+**`HARDWARE_TESTS.md` §V10 (GBP-AUDIO-003).**
+
+**The sweep.** Four envelope levels — **15 / 11 / 7 / 3**, initial volume with
+step time 0 — at a fixed **128.0 Hz**, one level per press. Even steps in *V*
+give even steps in the predicted deviation (**8.5 bytes of 256 apart**), the
+smallest prediction still sits **6.4 bytes** off the resting duty, and the
+largest is the value RUN 31 ran, so **the sweep's first point is a
+replication**. The envelope's natural staircase was considered and **rejected**:
+one window is 62.5 ms and a decay would put several amplitudes inside it, which
+breaks the estimator's stationarity and superimposes two modulations on the one
+series available.
+
+**Four points, not two, because four separate two models.** A linear map and a
+compressive one are written side by side, and they differ by **≥5 bytes of 256
+at every point that is not the anchor** and by **>9 at two of them**. A
+two-point sweep could only say "it moved".
+
+**Two design decisions worth more than the sweep itself.**
+
+- **The null is the intercept, not a fifth window.** A window at volume 0 and a
+  window that has not begun carrying are the **same picture** — flat 0.500, no
+  edges, exactly RUN 31's presses 1 and 2. A design in which a window
+  *predicts* the failure signature cannot tell them apart, so the null is
+  tested as the intercept of the four-point fit. Every window then predicts a
+  non-flat result, and **any flat window is unambiguously a carriage failure**.
+- **A second candidate encoding rides for free.** If the duty stays at 0.500 but
+  the block's byte **alphabet** changes with amplitude (RUN 30 saw
+  `{00,01,FE,FF}`, RUN 31 `{03,07,FC}`), then the cell carries magnitude in its
+  **levels**, not its duty. Recording the alphabet per window costs one line and
+  turns a refutation into a direction.
+
+**And RUN 31's honesty item is pre-empted:** the onset slice is fixed at **96
+blocks** (23.4 ms, 28 % over the largest onset yet observed) *here*, so it
+cannot be chosen after the data as w3's was.
+
+**ONE ROM — recommended, on a capability the capture already has.** The
+Orchestrator asked whether the `KEY` record could name which bit rose. **It
+already does, and in the anchor**: `struct gbp_awin_anchor` carries `word` and
+`keys` per window, `awinparse.py` parses both, and `awin_note_event()` arms on
+**any** rising bit. **The GameCube side needs no change — not one line.** The
+mapping is physically established too: `GBP_INPUT_POLICY_DEFAULT` sends the
+pad's A to GBA A and B to GBA B, and RUN 14 landed A, B, SELECT, START, L and R
+each at its own counter.
+
+The shape: **A advances the frequency** (128 → 512 → 256 → 1024 Hz, all exact,
+32/8/16/4 blocks per period), **B advances the amplitude** (15 → 11 → 7 → 3),
+both **holding** at the end. The property that makes it work is that **each
+schedule starts where the other run needs it held** — a pure-B run never leaves
+128.0 Hz, a pure-A run never leaves V=15 — so which question a run asks is
+decided by **which button is pressed**, with no mode, no configuration and no
+second image. The A axis is not filler: `GBP-HW-298` names *"a repeat and a
+third frequency"* as what would make its reading FACT, and a four-press A run
+delivers both plus a fourth.
+
+**Both schedules put the already-measured point first**, because `U-GBP-038`
+says the first window is the one at risk. That replaces §V9.2.1's alternation —
+which was the right answer to an *unmeasured* delay — and buys two new
+frequencies with the same four presses.
+
+**The display carries the axis by SHAPE, not colour:** the filled box's upper
+half means A, its lower half means B, because the background already walks the
+primaries with the count and a red box would vanish on a red background. He can
+then see that he pressed the button the checklist asked for.
+
+**The cost, stated:** one more NOR write, and `agb-tone` leaves the cartridge.
+Mitigated because a pure-A run is a **superset** of RUN 31, and because it must
+be a **new** stimulus (`agb-sweep`), never an edit of `stimulus/agb-tone`.
+
+**`U-GBP-039`'s rider — priced and DEFERRED, for a reason that is not cost.**
+`prehandler_wait_ms` moves the very delay that decides whether the sweep's four
+windows carry anything, so riding it here would put the primary question's
+**precondition** under the rider's variable. And §V6.13 is not quite the
+precedent it looks like: GBP-VIDEO-007 and -008 were two readings of **one
+image and one run**; this needs a second image, hence a second boot — a second
+run wearing one checkpoint's name.
+
+**The twelve-second bound, in the STEPS.** §V9.12 said *"wait until the screen
+is up and stable"* and then pressed, and RUN 31 lost two of its four windows to
+that. The next action list waits **20 s from the picture appearing** — the
+picture is within ~0.2 s of the CONTROL transform (`GBP-VIDEO-005`: first
+hand-off 164.696 ms), the margin over the bound's upper edge is **7.45 s, 59 %**,
+and 20 + 9 = 29 s sits well inside the 120 s safety budget. **The reason
+travels with the step**, so the next person to write a checklist cannot trim it
+without meeting the argument.
+
+**Two cheap improvements named, neither authorised:** `AWIN_NOT_BEFORE_MS` is
+5000, so the control window is armed **inside** the dead zone — moving it to
+~15 s would put it in the same regime as the press windows, though a silent
+window is silent either way and this narrows the gap rather than closing it;
+and `awinparse.py` parses `keys` but prints only `word`.
+
+**Nothing moved.** No evidence id, no status, no promotion. `U-GBP-012` and
+`U-GBP-039` gained dated pointers saying their named tests are *designed*, and
+stay exactly as open as they were. §V8, §V9, `tools/v8audio.py` and
+`tools/v9tone.py` are untouched.
+
+**Next.** The pre-registration that puts §V10's numbers in code **before** the
+ROM exists.
