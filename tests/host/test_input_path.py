@@ -117,10 +117,12 @@ class TheStaticAttemptIsStatedOnceAndStaysOpen(unittest.TestCase):
         self.assertEqual(re.findall(r"^## GBP-KEY-00[8-9]", ev, re.M), ["## GBP-KEY-008", "## GBP-KEY-009"])
         self.assertEqual(re.findall(r"^## GBP-KEY-01\d", ev, re.M), ["## GBP-KEY-010"])
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
-        self.assertEqual(hw, 271)   # GBP-HW-261…265: RUN 14 / RUN 15 (Issue #24); 266…271: RUN 16 / 17 / 18 (Issue #33)
+        self.assertEqual(hw, 272)   # GBP-HW-261…265: RUN 14 / RUN 15 (Issue #24); 266…271: RUN 16 / 17 / 18 (Issue #33)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)
         self.assertNotRegex(read(DOC), r"GBP-HW-26[1-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d")   # INPUT_PATH.md is the pre-run document
+        # Issue #46 (2026-09-22) minted GBP-HW-272 and HANDOFF's trail names it; the sentinel moves to the next
+        # free id so it keeps catching a record that cites evidence nobody has written yet
         for p in (ROADMAP, HANDOFF):
-            self.assertNotRegex(read(p), r"GBP-HW-27[2-9]|GBP-HW-2[8-9]\d|GBP-HW-[3-9]\d\d")
+            self.assertNotRegex(read(p), r"GBP-HW-27[3-9]|GBP-HW-2[8-9]\d|GBP-HW-[3-9]\d\d")
         self.assertIn("— FACT (static)", ev.split("## GBP-KEY-002")[1].split("\n")[0])
         self.assertIn("CORROBORATED for the encoding the references target; the physical routing NOT established",
                       ev.split("## GBP-KEY-004")[1].split("\n")[0])

@@ -149,7 +149,7 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         self.assertIn("**2026-09-21, Issue #35 (declared after the ingestion; the note above kept as\nhistory):**", b266)
         for tok in (W_BBA, W_CHAIN, W_BBA_STANDING, "WITH A STATED DURATION", "NOT a licence to infer", "INCONCLUSIVE on that item", "no new id"):
             self.assertIn(tok, plain(b266), tok)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 271)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 272)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)
 
     def test_the_handoff_carries_the_standing_declarations_where_a_pre_registration_will_meet_them(self):
         h = read(HANDOFF)
@@ -168,7 +168,10 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
             self.assertIn(tok, p, tok)
         self.assertIn("Issue #35", plain(read(README)))
         d = read(DEVLOG)
+        # Issue #46 (2026-09-22): bounded to the Issue #35 entry. It ran to END OF FILE, so the sentinel below
+        # fired on GBP-HW-272, minted by a later checkpoint and named in a later entry.
         e = d[d.rindex("## 2026-09-21 — Issue #35"):]
+        e = e[:e.index("\n## ", 1)] if "\n## " in e[1:] else e
         for tok in (W_CHAIN, "WITH A STATED DURATION", "never a licence to infer", "No hardware; no code", "Issue #34 (the acceptance run) not started"):
             self.assertIn(tok, plain(e), tok)
         self.assertNotRegex(e, r"GBP-HW-27[2-9]")
@@ -195,6 +198,9 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing, and
         # Issue #44 (2026-09-22) hardened the staging tool against destroying a frozen slot: the manifest gained a frozen_sha256 column
         changed = changed - {"tools/reconcile.py", "tools/swiss_export.py", "tools/swiss-layout.tsv"}
+        # Issue #46 (2026-09-22): the REGISTERS.md row for CONTROL bit 0x02 now separates the references' USAGE (C)
+        # from this project's own measurement (F) from the causal reading (H), citing GBP-HW-272
+        changed = changed - {"docs/protocol/REGISTERS.md"}
         # Issue #39 (2026-09-21) built the playable image: the session end in the service-path module (tests/host/test_play_image.py pins it), a new POC, its audit profile and its Swiss slot
         self.assertTrue(changed <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"}, "changed against the base: " + " ".join(sorted(changed)))
         changed2 = guards.changed_since(BASE_COMMIT, ["captures/fixtures"])   # Issue #29: tracked AND untracked, one implementation

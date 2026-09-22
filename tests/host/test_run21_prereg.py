@@ -437,11 +437,16 @@ class NothingFrozenMoved(unittest.TestCase):
                              "Makefile",                      # Issue #44: the Makefile's help names the --only path
                              "docs/research/UNKNOWNS.md"}     # Issue #30: U-GBP-009 gained a PROCEDURE; its status
                                                               # did not move (tests/host/test_external_reference.py)
+        # Issue #46 (2026-09-22) promoted the CONTROL bit 0x02 split as GBP-HW-272: the evidence entry, the REGISTERS.md row
+        # separating USAGE (C) from this project's measurement (F) from the cause (H), and U-GBP-017's Needs list
+        changed = changed - {"docs/protocol/REGISTERS.md", "docs/research/EVIDENCE.md"}
         self.assertEqual(" ".join(sorted(changed)).strip(), "", "changed against the base: " + " ".join(sorted(changed)))
 
     def test_no_evidence_id_was_minted_and_the_records_agree(self):
         ev = read(EVIDENCE)
-        self.assertNotIn("GBP-HW-272", ev)
+        # Issue #46 (2026-09-22) minted GBP-HW-272 (the CONTROL bit 0x02 split, from the archive); #41 minted none,
+        # so the sentinel moves to the next free id and this guard goes on testing what it was written to test
+        self.assertNotIn("GBP-HW-273", ev)
         self.assertNotIn("GBP-PLAY-001", ev)
         h = plain(read(HANDOFF))
         for tok in ("ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004", "issue 41",

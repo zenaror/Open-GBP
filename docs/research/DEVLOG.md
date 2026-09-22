@@ -11483,3 +11483,140 @@ build with one). The identical record form and position in both families makes
 the era reading unlikely, not excluded. The cheap cell is named too — one boot
 of the already staged `12-stream` with the cartridge removed — with the reasons
 it is **not** folded into RUN 21 / RUN 22 and **not** pre-registered here.
+## 2026-09-22 — Issue #46: the CONTROL bit `0x02` split PROMOTED — FACT for the split, HYPOTHESIS for the cause, with the era confound and the breaker in the record; the reconciliation sweep run and its outcome recorded, including "nothing"
+
+**Goal.** Promote the result Issue #31 found sitting in the archive and
+deliberately did not promote: the original CONTROL byte reads `0x90` in the
+cartridge-less runs and `0x92` in the runs with a cartridge. **Two claims, two
+statuses, and the entire checkpoint is about keeping them apart.** No hardware
+was run: every byte was already on disk.
+
+**What was promoted, and as what.** `GBP-HW-272` in `EVIDENCE.md`.
+
+```text
+CLAIM 1  the split            FACT          12 logs at 0x90, 22 at 0x92, difference exactly bit 0x02, no exception in
+                                            either direction; bit 0x01 reads 0 in all 34. FACT because it is
+                                            RECOMPUTABLE FROM THE FILES -- the entry carries the command and the
+                                            output it produces, and the host test RUNS that command.
+CLAIM 2  the bit reports      HYPOTHESIS    the two-by-two has an EMPTY DIAGONAL: no early build with a Game Pak, no
+         Game Pak presence                  late build without one. "Bit 0x02 tracks the cartridge" and "bit 0x02
+                                            tracks something the later builds do at startup" are not separated by
+                                            this archive. Unlikely is not measured.
+```
+
+**The selection rule is mechanical, and that is what makes CLAIM 1 FACT rather
+than a curated 34.** `captures/local/` holds 40 log files; 34 carry the field
+and all 34 are used. The six that do not are `probe-0001` and its transcript
+and the two `smoke-0002` logs, which predate the record, and the two runs made
+deliberately with no Game Boy Player attached, where the probe aborts at `DET
+verdict=absent` / `status=abort_not_present` before any register is read. None
+was dropped by a judgement about what it showed.
+
+**Dolphin is not corroboration for this, and the reason is specific** (the
+Orchestrator's, on dispatching the Issue): its *"GamePak source"* is bit 2 of
+the **IRQ** register at index `0xD`, not bit `0x02` of CONTROL at index `0x4`.
+A different bit in a different register. What the Disc and GBI give is one line
+of reasoning about what the SOFTWARE does with the bit — that is
+`GBP-CTL-001`, CORROBORATED for usage — not a second independent measurement of
+what the DEVICE reports.
+
+**THE BREAKER IS NAMED so nobody has to rediscover it.** One boot of the
+already staged `12-stream` with the cartridge REMOVED fills the empty cell: no
+new build, no new code, no new write. `play-0001` cannot do it (it logs
+`t_control`, not the byte). **Not pre-registered and not authorised here**, and
+explicitly not folded into RUN 21 / RUN 22, whose one variable is the
+controller and whose cartridge must be identical in both.
+
+**The reconciliation sweep, and its outcome recorded including "nothing".**
+`RESEARCH_METHOD.md`'s promotion section requires it and this is the first
+promotion since it was written. `tools/reconcile.py` was run over
+`GBP-CTL-001`, `GBP-HW-004`, `GBP-HW-005`, `GBP-HW-024` and `U-GBP-017`, and
+the consolidated pages that speak about CONTROL were read against it —
+`REGISTERS.md` §3, `GBS-DOL.md`, `ARCHITECTURE.md`'s control/status row.
+**Nothing had to be corrected, relocated or weakened, and that is the finding
+rather than an absence of one:** every existing statement is about the
+REFERENCES' USAGE of the bit and the new entry is about the DEVICE'S OWN BYTE.
+Two different propositions about the same bit; neither displaces the other.
+Had the sweep found a page asserting the causal claim, that page would have
+been corrected in this checkpoint.
+
+**The sweep improved its own tool.** Its first real run printed `-` for the
+status of every older entry, because those carry their status in a body
+`**Status:**` line rather than in the heading. `tools/reconcile.py` now falls
+back to that line and reports a **compound status verbatim** (truncated at 120
+characters) instead of collapsing it to a letter — a compound status is exactly
+what must not be collapsed. `GBP-CTL-001` now reads as it is written:
+*"CORROBORATED for usage of 0x01–0x10 (DISC …)"*.
+
+**`REGISTERS.md` §3 now carries three separate claims on one row**, which is
+the first place the distinction had to be made visible:
+
+```text
+C (usage)          the references agree on what the SOFTWARE does with the bit -- what "C" in this table has always
+                   meant (Disc: a "present" status flag; GBI: the string "Game Pak"; Dolphin's model: CART_INSERTED)
+F (hw, 34 logs)    the byte THIS PROJECT read from the device differed by exactly this bit, 34 times
+H for the CAUSE    the step between them -- that the bit REPORTS presence -- because no archived run pairs a late
+                   build with an empty slot
+```
+
+Bit `0x01`'s row states its **single observed state as not a result**: 0 in all
+34, every run having used no cartridge or a GBA cartridge. The page also says
+in prose why the usage column and the hardware column are different claims and
+that neither upgrades the other.
+
+**`U-GBP-017` stays OPEN at P2 and nothing closed it.** One of its three Needs
+is answered — *"run with a cartridge"*, **for bit `0x02` only**, from the
+archive, 2026-09-22 — and the other two stay open, with a fourth line
+recording what is still unknown here: `0x10`, `0x80`, `0x94` and the idle IRQ
+`0x8AAE`. The item's original Needs sentence is kept, not rewritten.
+
+**Tests.** `tests/host/test_control_bit_split.py` (new, 16 tests): the split
+recomputed from `captures/local/` and compared as SETS against the entry's own
+enumeration; the six fieldless logs accounted for; **the command the entry
+offers a reader is executed and its output parsed**; the two statuses, the
+confound, the breaker, the Dolphin refusal and the limits pinned; `U-GBP-017`
+open with one Need answered. **And the negative, which is the half that rots
+quietly:** no page under `docs/` may put FACT or CORROBORATED beside bit `0x02`
+and "presence" unless the sentence says WHICH proposition is settled (the
+split, or the references' usage) or says in as many words that the causal
+reading is not.
+
+**The negative's first version was decoration, and the proof caught it.** It
+split text on sentence punctuation, so the injected offender *"bit 0x02 reports
+Game Pak presence; this is FACT."* became two units — the claim in one, its
+status in the other — and passed. The unit is now the paragraph or the single
+table row, which is where a claim and the word that settles it actually live;
+re-injected, the guard fails and names the file and the sentence. That proof
+is itself a test (`test_the_guard_bites`).
+
+**`tests/host/test_gbc_path.py`'s design-only guard was retuned, not
+loosened.** It forbade the string `GBP-HW-2` outright — right while nothing had
+been promoted, wrong afterwards, since a dangling offer nobody can follow is no
+improvement on a design document minting its own id. It now enforces the
+distinction the Issue turns on: the document may say WHERE a promotion
+happened and may not BE one. Every hardware id it names must sit in the single
+pointer paragraph, the pointer must name the Issue and the minting file, the
+"mints no evidence id" sentence must survive, and the pointer must not dangle.
+
+**Fourteen freeze guards expired, which is what they are for**, and each was
+moved with its reason: seven highest-minted-id pins (271 → 272), two
+"nothing was minted by this checkpoint" sentinels (moved to the next free id,
+273, so they keep testing what they were written to test), one
+consolidated-page citation sentinel, and four allow-lists that now name
+`REGISTERS.md`, `EVIDENCE.md` and `UNKNOWNS.md` with the reason each moved.
+
+**Result.** `make test-python` on the committed tree: **1568 passed, 7
+skipped, 103 subtests passed**, `git status` clean.
+
+**Newly confirmed.** Nothing about the hardware that was not already on disk;
+the promotion is a change of record, not of knowledge.
+
+**Rejected here.** That the split establishes what bit `0x02` means; that
+Dolphin corroborates it; that `U-GBP-017` can close.
+
+**New unknowns.** None opened. The existing gap is unchanged and now has a
+named, nearly free experiment attached to it.
+
+**Next highest-value experiment for this line.** The empty cell: one boot of
+`12-stream` with no cartridge. It is the Orchestrator's to authorise and the
+Operator's to run, and it is not pre-registered.
