@@ -305,3 +305,86 @@ class TheDelayIsBoundedByTwoRuns(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheRateIsDolphinsAndTheLayoutIsNot(unittest.TestCase):
+    """Issue #67's validation: the model has two parts and they got different
+    answers. "Dolphin was wrong" is the reading this class exists to prevent."""
+
+    def test_the_rate_the_two_windows_give_is_dolphins_own_number(self):
+        if not os.path.exists(BIN):
+            self.skipTest("RUN 31's sidecar is not in this checkout")
+        import v9tone as v9
+        _, _, _, wins = capture()
+        s3 = [duty(b) for b in wins[3]]
+        onset = next(i for i, x in enumerate(s3) if abs(x - 0.5) > 0.01)
+        p3 = v9.window_period(s3[onset:])["period"]
+        p4 = v9.window_period([duty(b) for b in wins[4]])["period"]
+        # one block = one sample: the rate follows from f x period, from each window alone
+        self.assertAlmostEqual(128.0 * p3, 4096.0, places=1)
+        self.assertAlmostEqual(512.0 * p4, 4096.0, places=1)
+        # and that is the number GBP-AUD-001 records for Dolphin's model
+        self.assertIn("produced at 4096 Hz", read(EVIDENCE))
+
+    def test_the_amendment_splits_the_rate_from_the_layout(self):
+        ev = read(EVIDENCE)
+        i = ev.index("## GBP-AUD-001")
+        entry = plain(ev[i:ev.index("## GBP-SIO-001")])
+        self.assertIn("the model has TWO parts and RUN 31 answers them DIFFERENTLY", entry)
+        self.assertIn('Do not read "Dolphin was wrong"', entry)
+        self.assertIn("CORROBORATED BY HARDWARE TO FOUR FIGURES", entry)
+        self.assertIn("REFUSED, and that is the half U-GBP-012 still carries", entry)
+
+    def test_u_gbp_012_carries_the_open_half_and_labels_the_hypothesis(self):
+        u = read(UNK)
+        body = u[u.index("## U-GBP-012"):u.index("## U-GBP-013")]
+        self.assertIn("THE RATE -- ANSWERED", body)
+        self.assertIn("THE BYTE LAYOUT -- STILL OPEN", body)
+        self.assertIn("A HYPOTHESIS, labelled as one and NOT promoted by this run", body)
+        self.assertIn("sweeps AMPLITUDE rather than frequency", body)
+        self.assertIn("three values are not a curve", body)
+
+
+class TheCheapestProbeWasRunAndIsNegative(unittest.TestCase):
+
+    def test_the_four_epochs_are_confounded_in_these_logs(self):
+        """GBP-HW-302, recomputed: the probe's own result."""
+        import awinparse
+        out = {}
+        for tag, b, l in (("run30", os.path.join(LOCAL, "GBP-AUDIO-001_stream-0016-run30-audio.bin"),
+                           os.path.join(LOCAL, "GBP-AUDIO-001_stream-0016-run30.log")),
+                          ("run31", BIN, LOG)):
+            if not (os.path.exists(b) and os.path.exists(l)):
+                self.skipTest("both runs are needed and are not both archived here")
+            data, h, anchors, wins = awinparse.load(b)
+            txt = read(l)
+            ep = {k: int(re.search(r"%s=([0-9a-f]+)" % k, txt).group(1), 16)
+                  for k in ("t_program", "t_probe_enter", "t_control", "t_capture_start")}
+            out[tag] = (h["tb_hz"], ep, anchors, wins)
+        for tag, (tb, ep, anchors, wins) in out.items():
+            spread = (max(ep.values()) - min(ep.values())) / tb
+            self.assertLess(spread, 0.163 + 1e-3, "%s: the epochs must be within 163 ms" % tag)
+        # the bound against each epoch, and every one of them is ~2.5 s wide
+        for epoch in ("t_program", "t_probe_enter", "t_control", "t_capture_start"):
+            silent, carried = [], []
+            for tag, (tb, ep, anchors, wins) in out.items():
+                ctrl = set()
+                for x in wins[0]:
+                    ctrl.update(x)
+                for a in anchors[1:]:
+                    w = wins[a["index"]]
+                    k = next((j for j, x in enumerate(w) if not set(x) <= ctrl), None)
+                    (carried if k is not None else silent).append((a["t_arm"] - ep[epoch]) / tb)
+            self.assertLess(max(silent), min(carried), epoch)
+            self.assertGreater(min(carried) - max(silent), 2.0, epoch)
+
+    def test_the_record_says_the_probe_is_exhausted_and_what_separates_them(self):
+        u = read(UNK)
+        body = plain(u[u.index("## U-GBP-039"):])
+        self.assertIn("THE CHEAPEST PROBE HAS BEEN RUN, and it is a NEGATIVE result", body)
+        self.assertIn("All four epochs are within 163 ms of each other", body)
+        self.assertIn("The cheap probe is exhausted", body)
+        self.assertIn("prehandler_wait_ms", body)
+        self.assertIn("It costs a rebuild with an existing option and no new code", body)
+        # and that option really exists, checked against the source rather than the prose
+        self.assertIn("prehandler_wait_ms", read(os.path.join(ROOT, "src", "gbp", "gbp_vstate_probe.h")))

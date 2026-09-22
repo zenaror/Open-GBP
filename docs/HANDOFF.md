@@ -1395,6 +1395,19 @@ issue 67    RUN 31 EXECUTED AND INGESTED (§V9.15). QUESTION R = RATIO DOES NOT 
             was lost only because the card was clear -- reusing an image means the console's filenames stop
             identifying the experiment. ids GBP-HW-295..300; U-GBP-038 CLOSED; U-GBP-039 opened P2;
             U-GBP-037 P1 -> P3, second half answered, open for a repeat and a THIRD frequency
+validation  #67's validation, same day: DOLPHIN'S RATE IS CORROBORATED TO FOUR FIGURES and only its BYTE
+            LAYOUT is refused. GBP-AUD-001 records "produced at 4096 Hz"; RUN 31 measures 4 096.0 blocks/s
+            with ONE BLOCK = ONE SAMPLE from two windows independently (GBP-HW-301). "Dolphin was wrong"
+            is TOO COARSE and the amendment says so in as many words. U-GBP-012 SPLIT: the rate half
+            ANSWERED, the layout half is what the item now IS. A HYPOTHESIS recorded and NOT promoted: if
+            a sample is the DUTY of the 256-byte cell (96/128/160 seen) the encoding IS pulse-width
+            modulation at the BLOCK level -- three values are not a curve, and the test is a stimulus that
+            sweeps AMPLITUDE, in its own pre-registration. U-GBP-039's CHEAPEST PROBE RAN AND IS NEGATIVE
+            (GBP-HW-302): t_program, t_probe_enter, t_control and t_capture_start are all within 163 ms of
+            each other against a 2.5 s bound, so they are CONFOUNDED and no analysis of these logs can
+            separate them. WHAT SEPARATES THEM ALREADY EXISTS: prehandler_wait_ms moves t_capture_start
+            away from t_control BY THE WAIT (physical precedent GBP-HW-120, 5000 ms) -- a rebuild with an
+            existing option, no new code, able to ride on any audio run. ids GBP-HW-301, 302
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62 and #63 ACCEPTED and CLOSED
             (#61 by him after the ingestion); still to validate #41's pre-registration, #46 through #58 and
             #42; close #36. PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED,

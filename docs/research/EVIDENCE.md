@@ -880,7 +880,7 @@ no zero byte. Recorded raw, not interpreted; the geometry (4 lines × 240)
 is not tested by one block (a DMA of the requested length completes
 regardless), so the status stays CORROBORATED.
 
-## GBP-AUD-001 — AUDIO data size and cadence
+## GBP-AUD-001 — AUDIO data size and cadence — **2026-09-22, Issue #67: the model splits in two and the halves get DIFFERENT answers — the RATE (4096 Hz) is CORROBORATED BY HARDWARE to four figures (`GBP-HW-301`), the BYTE LAYOUT is REFUSED (`GBP-HW-287`, `GBP-HW-296`); read the amendment before copying a status from these words**
 
 **Claim:** Index 0x8 delivers 0x1000 bytes per AUDIO IRQ; DISC keeps 70
 ring buffers and feeds them to its audio pipeline; GBI reads 0x1000 on
@@ -895,6 +895,26 @@ GBP-HW-050/057):** one DMA of 0x1000 bytes from index 0x8 completed
 zero bytes, values `00`/`01`/`11` only, the non-zero bytes at offset 0 of
 123 of the 128 32-byte lines plus four isolated bytes. Recorded raw; the
 PWM model is neither confirmed nor rejected by it.
+
+**AMENDED 2026-09-22 (GitHub Issue #67's validation) — the model has TWO parts
+and RUN 31 answers them DIFFERENTLY. Do not read "Dolphin was wrong".**
+
+```text
+THE RATE        Dolphin says 4096 Hz. RUN 31 measures 4 096.0 blocks/s with ONE BLOCK = ONE SAMPLE,
+                recovered INDEPENDENTLY from two windows at two known frequencies (GBP-HW-298, GBP-HW-301).
+                -> CORROBORATED BY HARDWARE TO FOUR FIGURES.
+THE BYTE LAYOUT Dolphin says 0x400 PWM bytes mirrored x4, 1 bit per 32-bit word, 1-bits contiguous and
+                leading. RUN 30 and RUN 31 refuse it: the bytes are not contiguous-leading (GBP-HW-287),
+                the 256-byte cell is the TRANSFER's and is present with the APU provably off
+                (GBP-HW-296), and the audio is the modulation ACROSS blocks, not within one.
+                -> REFUSED, and that is the half U-GBP-012 still carries.
+```
+
+**Why the distinction is worth minting rather than leaving implicit:** *"the
+PWM model is refused"* is what the last three entries say, and a later reader
+would take it to mean the whole model failed. **It did not: the cadence
+Dolphin's model was built around is exactly the cadence the hardware
+delivers**, and only the arrangement of bytes inside a block is wrong.
 
 ## GBP-SIO-001 — Internal serial path exists and is used by the official disc
 
@@ -8371,3 +8391,60 @@ what the SD-state check    it must be run against the names THE IMAGE WRITES, no
 ```
 
 §V9.15.1.
+
+### GBP-HW-301 — Dolphin's AUDIO **RATE** is corroborated by hardware to four figures; only its **byte layout** is refused — **CORROBORATED (two windows of one run, two frequencies)**
+
+`GBP-AUD-001` records Dolphin's model as *0x400 PWM bytes each mirrored ×4,
+**produced at 4096 Hz***. RUN 31 measures the across-block modulation of two
+known notes and each window independently implies **4 096.0 blocks/s** with
+**one block = one sample** (`GBP-HW-298`): 32 blocks at 128.0 Hz, 8 at 512.0 Hz.
+
+```text
+Dolphin's rate      4096 Hz
+measured            4 096.0 blocks/s from F1 and 4 096.0 from F2, independently
+this project's own  4 094.4 drains/s, the cadence recomputed from RUN 17's archive (§V7.8.6) --
+ drain cadence      0.04 % from the figure the two notes give
+```
+
+**What is refused is the LAYOUT and not the rate** (`GBP-HW-287`,
+`GBP-HW-296`): the bytes are not contiguous-leading, the 256-byte cell belongs
+to the transfer and survives the APU being off, and the audio lives **across**
+blocks. **"Dolphin was wrong" is too coarse and would mislead a later reader**
+— the cadence its model was built around is the cadence the hardware delivers.
+
+**Not FACT:** one run, one cartridge, two windows, and one of the two needed a
+slice chosen after the data (§V9.15.5). A repeat and a third frequency are what
+would make it FACT. `GBP-AUD-001` amended; `U-GBP-012` carries the open half.
+
+### GBP-HW-302 — `U-GBP-039`'s cheapest probe RAN, and it **cannot discriminate**: the four candidate epochs sit within 163 ms of each other — **a NEGATIVE result, from logs already in hand**
+
+`U-GBP-039` listed *"the bound against `t_capture_start` rather than the CONTROL
+transform, which the existing logs already carry and which costs one analysis
+rather than one run"* as its cheapest probe. It was run over RUN 30's and
+RUN 31's logs:
+
+```text
+epoch              RUN 30 / RUN 31, relative to t_control      the delay bound it gives
+t_program                    -0.055 s                          (10.099, 12.602] s
+t_video                      -0.032 s                          --
+t_probe_enter                -0.013 s                          (10.058, 12.560] s
+t_control                     0.000 s                          (10.045, 12.547] s
+t_capture_start              +0.108 s                          ( 9.937, 12.440] s
+```
+
+**Every candidate epoch is within 163 ms of every other, and the bound is 2.5 s
+wide.** So the probe **cannot** separate *"an initialisation the GBS-DOL
+performs"* from *"something the runtime's capture start triggers"* from
+*"elapsed time since the program began"*: in this image they all happen within
+a sixth of a second of each other. **The cheap probe is exhausted and it says
+the epochs are CONFOUNDED**, which is worth knowing before a run is spent
+assuming otherwise.
+
+**What WOULD separate them, and it already exists.** The service-path module
+carries `prehandler_wait_ms` — a bounded wait inserted **after** stage A has put
+CONTROL in its running shape and **before** the handler is installed
+(`gbp_vstate_probe.h`), with physical precedent at 5000 ms (`GBP-HW-120`). A
+run with that wait set **moves `t_capture_start` away from `t_control` by the
+wait**, and the delay then follows whichever one it belongs to. It costs a
+rebuild with an existing option, **no new code**, and it is not authorised
+here. `U-GBP-039` records it.

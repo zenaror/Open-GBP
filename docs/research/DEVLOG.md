@@ -13458,3 +13458,63 @@ opened at P2; `U-GBP-037` **P1 → P3**, second half answered in the affirmative
 first half reshaped, and open for the repeat and the third frequency that would
 make it FACT.
 
+---
+
+## 2026-09-22 — Issue #67's validation: **Dolphin's RATE is corroborated to four figures and only its LAYOUT is refused** — and `U-GBP-039`'s cheapest probe ran and came back negative
+
+**The correction that matters most is a reading, not a number.** The last three
+entries say the PWM model is refused, and a later reader would take that to mean
+Dolphin was wrong. **It was not.** `GBP-AUD-001` records the model as *"0x400
+PWM bytes each mirrored ×4, **produced at 4096 Hz**"*, and RUN 31 measures
+**4 096.0 blocks/s with one block = one sample**, recovered independently from
+two windows at two known frequencies.
+
+```text
+THE RATE          Dolphin 4096 Hz · measured 4 096.0 from F1 and 4 096.0 from F2, independently
+                  -> CORROBORATED BY HARDWARE TO FOUR FIGURES (GBP-HW-301)
+THE BYTE LAYOUT   0x400 bytes mirrored x4, 1 bit per 32-bit word, contiguous and leading
+                  -> REFUSED, and it is what U-GBP-012 now IS
+```
+
+**`GBP-AUD-001` is amended on top and `U-GBP-012` is split in two**, with the
+rate half answered and the layout half carrying the item. A test asserts the
+amendment says *"do not read Dolphin was wrong"* in as many words, because the
+coarse reading is the one that will otherwise survive.
+
+**And §V8.5's original premise turns out to have been right all along** — the
+level does alternate ACROSS blocks. RUN 30's within-block square was the
+transfer's own cell hiding it, which is why the prediction failed on a run
+whose instrument was borrowed and succeeded on one whose ROM this project
+wrote.
+
+**A hypothesis recorded and explicitly not promoted** (the Orchestrator's): if
+a sample is carried as the **duty of the 256-byte cell** — `96`, `128`, `160`
+are the three values seen — then the encoding **is** pulse-width modulation, at
+the **block** level rather than the word level, and Dolphin had the mechanism
+right and the scale wrong. **Three duty values are not a curve.** The test is a
+stimulus that sweeps **amplitude** rather than frequency, and it belongs in a
+pre-registration of its own.
+
+**`U-GBP-039`'s cheapest probe was run, and it is a NEGATIVE result**
+(`GBP-HW-302`) — which is exactly the kind of step that gets skipped because a
+run feels more decisive. Measuring the delay against `t_capture_start`,
+`t_probe_enter` and `t_program` instead of the CONTROL transform, over the two
+logs already in hand:
+
+```text
+t_program -0.055 s · t_probe_enter -0.013 s · t_control 0.000 s · t_capture_start +0.108 s
+every epoch within 163 ms of every other, against a bound 2.5 s wide
+```
+
+**So the epochs are CONFOUNDED and no analysis of these logs can separate
+them.** The probe is exhausted, and knowing that before a run is spent assuming
+otherwise is what it bought. **What separates them already exists as a build
+option:** `prehandler_wait_ms` inserts a bounded wait after stage A puts CONTROL
+in its running shape and before the handler is installed, with physical
+precedent at 5000 ms — setting it moves `t_capture_start` away from `t_control`
+**by the wait**, and the delay then follows whichever epoch owns it. A rebuild
+with an existing option, no new code, and it can ride on any audio run.
+
+**Ids:** `GBP-HW-301` and `GBP-HW-302`; `GBP-AUD-001` amended; `U-GBP-012`
+split; `U-GBP-039` records the probe and its successor.
+
