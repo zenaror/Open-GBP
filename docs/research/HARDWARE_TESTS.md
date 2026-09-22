@@ -21454,7 +21454,7 @@ of Hardware Issue #15, then the next Phase-4 design — is the Orchestrator's.
 
 ---
 
-## V7 — GBP-INPUT-001: THE FIRST PHYSICAL KEYPAD WRITE — RUN 14 / RUN 15 PRE-REGISTERED (GitHub Issue #20, §V7.1; NOT RUN / NOT AUTHORISED HERE at that checkpoint; AMENDED BEFORE HARDWARE, Issue #23) — EXECUTED 2026-09-21 (Hardware Issue #21) AND INGESTED (Issue #24, §V7.2): QUESTION M = PASS · QUESTION O = AS-ASSIGNED, BOTH RUNS; U-GBP-010 CLOSED; THE ROUTING CORROBORATED, NOT FACT; RUN 16 NOT RUN · RUN 17 / RUN 18 PRE-REGISTERED (Issue #28, §V7.3): THE MACHINE-JOIN RUNS OF stream-0015, GBP-INPUT-002 — NOT RUN / NOT AUTHORISED HERE — EXECUTED 2026-09-21 (Hardware Issue #32) AND INGESTED (Issue #33, §V7.4): QUESTION J = FACT FOR ALL TEN WORD BITS, BITS 8 AND 9 ON TWO CONTROLLERS — THE ROUTING A PHYSICAL FACT (hw, the runs); RUN 16 EXECUTED LAST (UNDECIDED BY THE RULE · M = PASS · O NOT READABLE); truncated=0: GBP-KEY-008 VALIDATED · RUN 19 / RUN 20 PRE-REGISTERED (Issue #34, §V7.5): THE PHASE 5 ACCEPTANCE PAIR — A REAL GAME, BOTH CONTROLLERS, THE SAME ACTIONS, GBP-INPUT-003 — NOT RUN / NOT AUTHORISED HERE · AMENDED BEFORE HARDWARE (Issue #37): THE INSTRUMENT IS THE ENHANCED CONTROL CHECKER — THE OPERATOR'S CRITERION BY MACHINE ON BOTH ENDS, NOT THE ROADMAP'S ACCEPTANCE, WHICH STAYS OPEN; THE BUILD CHANGE ASSESSED, NOT MADE · WITHDRAWN BEFORE HARDWARE (Issue #37, the Operator's objection): RUN 19 / RUN 20 NOT RUN, THEIR NAMES RETIRED — THE ROUTING DOES NOT DEPEND ON THE PAD · RUN 21 / RUN 22 PRE-REGISTERED (Issue #41, §V7.6): play-0001's FIRST RUNS — GBP-INPUT-004, THE ACCEPTANCE PAIR ON A REAL GAME, BOTH PADS, AND THE TIMING OF THE SHORTENED SERVICE PASS ON THE SAME RUNS WITH SEPARATE GATES — NOT RUN / NOT AUTHORISED HERE
+## V7 — GBP-INPUT-001: THE FIRST PHYSICAL KEYPAD WRITE — RUN 14 / RUN 15 PRE-REGISTERED (GitHub Issue #20, §V7.1; NOT RUN / NOT AUTHORISED HERE at that checkpoint; AMENDED BEFORE HARDWARE, Issue #23) — EXECUTED 2026-09-21 (Hardware Issue #21) AND INGESTED (Issue #24, §V7.2): QUESTION M = PASS · QUESTION O = AS-ASSIGNED, BOTH RUNS; U-GBP-010 CLOSED; THE ROUTING CORROBORATED, NOT FACT; RUN 16 NOT RUN · RUN 17 / RUN 18 PRE-REGISTERED (Issue #28, §V7.3): THE MACHINE-JOIN RUNS OF stream-0015, GBP-INPUT-002 — NOT RUN / NOT AUTHORISED HERE — EXECUTED 2026-09-21 (Hardware Issue #32) AND INGESTED (Issue #33, §V7.4): QUESTION J = FACT FOR ALL TEN WORD BITS, BITS 8 AND 9 ON TWO CONTROLLERS — THE ROUTING A PHYSICAL FACT (hw, the runs); RUN 16 EXECUTED LAST (UNDECIDED BY THE RULE · M = PASS · O NOT READABLE); truncated=0: GBP-KEY-008 VALIDATED · RUN 19 / RUN 20 PRE-REGISTERED (Issue #34, §V7.5): THE PHASE 5 ACCEPTANCE PAIR — A REAL GAME, BOTH CONTROLLERS, THE SAME ACTIONS, GBP-INPUT-003 — NOT RUN / NOT AUTHORISED HERE · AMENDED BEFORE HARDWARE (Issue #37): THE INSTRUMENT IS THE ENHANCED CONTROL CHECKER — THE OPERATOR'S CRITERION BY MACHINE ON BOTH ENDS, NOT THE ROADMAP'S ACCEPTANCE, WHICH STAYS OPEN; THE BUILD CHANGE ASSESSED, NOT MADE · WITHDRAWN BEFORE HARDWARE (Issue #37, the Operator's objection): RUN 19 / RUN 20 NOT RUN, THEIR NAMES RETIRED — THE ROUTING DOES NOT DEPEND ON THE PAD · RUN 21 / RUN 22 PRE-REGISTERED (Issue #41, §V7.6): play-0001's FIRST RUNS — GBP-INPUT-004, THE ACCEPTANCE PAIR ON A REAL GAME, BOTH PADS, AND THE TIMING OF THE SHORTENED SERVICE PASS ON THE SAME RUNS WITH SEPARATE GATES — NOT RUN / NOT AUTHORISED HERE · RUN 23 / RUN 24 — TWO UNREGISTERED RUNS OF 12-stream THE OPERATOR PERFORMED HIMSELF, INGESTED (Issue #47, §V7.7): NO PASS/FAIL BECAUSE NO GATE EXISTED — A LATE BUILD WITH NO GAME PAK READS CONTROL 0x90, BREAKING GBP-HW-272's ERA CONFOUND BY MEASUREMENT; WITH A GAME BOY COLOR GAME PAK THE ORIGINAL BYTE IS 0x92 WITH BIT 0x01 CLEAR (THE STATED GAP FILLED WITH A NEGATIVE) AND THE BIT THEN APPEARS 186–636 µs AFTER THE TRANSFORM WRITE AND STAYS (U-GBP-036 OPENED); RUN 24 CAPTURED NOTHING BECAUSE THE PRE-UNMASK GUARD REFUSED THE SESSION — THE NUMBERS 23 AND 24 PRECEDE 21 AND 22 IN WALL-CLOCK TIME
 
 Phase 5 (`docs/ROADMAP.md`). Issue #18 reconstructed the input path on
 paper (`docs/research/INPUT_PATH.md`), Issue #19 implemented it as software
@@ -25361,5 +25361,289 @@ comparison; promoting the routing or touching §V7.1 – §V7.5 or any verdict;
 evidence ingestion; any verdict; deciding whether Phase 5 closes. No new
 physical evidence ID exists. RUN 21 and RUN 22 end this checkpoint as
 **PRE-REGISTERED / NOT RUN / NOT AUTHORISED HERE**, their two names reserved.
+
+---
+
+### V7.7 RUN 23 / RUN 24 — two **UNREGISTERED** runs of `12-stream` the Operator performed on his own initiative, ingested 2026-09-22 (GitHub Issue #47) — one with **no cartridge**, one with a **Game Boy Color** cartridge. `GBP-HW-272`'s era confound BROKEN by measurement; CONTROL bit `0x01` measured for the first time and it is **not in the original byte**; RUN 24 captured nothing and the runtime's own guard says why
+
+#### V7.7.1 What these two runs are, and what they are not
+
+They were **not pre-registered**. There was no question written for them, no
+gate, no admissibility rule, no prediction fixed for these particular runs, no
+reserved name, no identity gate, no authorization. The Operator ran the image
+already staged in the `12-stream` slot twice on the morning of 2026-09-22,
+changing only what was in the cartridge slot, and both logs survived complete.
+
+**Therefore this section records NO PASS and NO FAIL.** A verdict is a
+judgement against a gate written beforehand; no gate existed, so none can be
+applied afterwards without inventing it. What this section does instead is
+what the archive always allows: read what the files contain, state which
+claims are recomputable from them, and say plainly which are inferences.
+
+**What nevertheless protects these runs from post-hoc reasoning**, and it is
+worth being precise about, because it is not the same thing as
+pre-registration:
+
+```text
+the question was public first   GBC_PATH.md §3 (commit f99bc96, 2026-09-21) named bit 0x01's single observed state
+                                and called the other state "THE GAP A GB/GBC BOOT FILLS"; §4.1 wrote a prediction
+                                table for the exact byte, BEFORE any GB/GBC cartridge had been near the machine.
+the discriminator was public    GBP-HW-272 (Issue #46, the same week) named the empty diagonal cell and the exact
+                                run that would fill it: 12-stream with the cartridge REMOVED.
+both are timestamped ahead      the commits and the Issue comments predate the Operator's message, in a public
+                                repository neither he nor this seat can rewrite.
+WHAT THAT IS WORTH              nobody can have chosen the analysis after seeing the data, because the analysis
+                                was written down before the data existed.
+WHAT IT IS NOT WORTH            it is not a pre-registration OF THESE RUNS. The conditions were not fixed, the
+                                cartridge was not declared in advance, the number of runs was not fixed, and
+                                nothing constrained what would count as admissible. A repeat under a real
+                                pre-registration is what turns any of this into FACT about the medium.
+```
+
+#### V7.7.2 The numbering — 23 and 24 **precede** 21 and 22 in wall-clock time
+
+```text
+RUN 19 / RUN 20   RETIRED, never executed (§V7.5, Issue #37). The numbers are consumed and never reused.
+RUN 21 / RUN 22   RESERVED and pre-registered for play-0001 (§V7.6, Issue #41). NOT YET EXECUTED at the time
+                  these two runs happened, and being performed by the Operator while this section is written.
+RUN 23 / RUN 24   THESE TWO, executed 2026-09-22 ~04:56 and ~04:59 (the raw file times), the next free numbers.
+```
+
+**A run number is an allocation, not a clock.** §V7.3.2 already says a reserved
+number belongs to its experiment whenever it runs; the consequence is visible
+here for the first time, with 23 and 24 executed **before** 21 and 22. **The
+dates carry the chronology and the numbers carry nothing but order of
+allocation.** Any reader joining these sections by number will get the history
+backwards unless this is stated, so it is stated.
+
+#### V7.7.3 The artifacts, their receipt and identity
+
+Both drops arrived under the console's own names, which are **identical
+between the two runs** and identical to those of RUN 16 / 17 / 18 —
+`GBP-VIDEO-004_stream-0015.log`, `…-idxcap.bin`, `…-disp.bin`, `…-full.bin`,
+`…-vi.bin`. They were in two separate directories (`logs/12-stream - SEM
+CARTUCHO/` and `logs/12-stream - GBC/`), which is the only reason a flat copy
+would not have destroyed one of them. Archived FIRST, before any reading, per
+`captures/README.md`: targets verified absent, `cp --update=none`, `cmp`
+against the source, SHA-256 taken from the copies, `logs/` left exactly as
+found and never edited.
+
+```text
+RUN 23 — captures/local/GBP-VIDEO-004_stream-0015-run23*        (source: logs/12-stream - SEM CARTUCHO/)
+  log            91 182 B   83b4f0e706c6a7d4538a730b9b88009017146bc90ca37ec1beb83afacebecaea
+  idxcap      8 946 060 B   3310bc56067365cdc6d22806a02b8750e7308dead1eae3b3b0efbe77506393dc
+  disp          401 372 B   e198d15d435d92d5cc4ff07b7620e15c0e121e69248b6784a753dd56657ed152
+  full        1 844 492 B   4803a83a3c08445cd587e6b10a9cf66e6273b930a56c3d2243f6eccfa8da840b
+  vi            152 524 B   93ea1f9abfd147b4df87baebac0b672808921b9c5a3dbb607cd00085adad94cd
+RUN 24 — captures/local/GBP-VIDEO-004_stream-0015-run24*        (source: logs/12-stream - GBC/)
+  log            22 415 B   8599bc0f5b57999bd0d368d31f6d5e41734192ce499304fe417dc0e71227f443
+  idxcap            396 B   a8d20cbc074709ddedfa1b4c560616d197798148c6640916cc4bf1dbcf6e032e
+  disp              460 B   6054e776578f8575ce734188715a567fbece23172cb3d58b621074710c441686
+  full              268 B   c9a8e5c9298b8ff3b5f17f954a4cbf8eb4564bbb6958580cebd7b483101e3f46
+  vi                268 B   a150d3542c4c1aa6e4ba95cc080088936bac74ce2229c33f5c3672ef2b1c1d4a
+```
+
+**Identity.** Both log headers carry `test_id=GBP-VIDEO-004`,
+`build_id=stream-0015`, `commit=da06500`, `libogc2 r2442.094b250`, the same
+`format=OGBPIDXCAP1_v1` and the same sidecar set as RUN 16 / 17 / 18. **The
+image was not rebuilt for these runs**: it is the one frozen in the `12-stream`
+slot, whose bytes `tools/swiss_export.py` now refuses to overwrite (Issue #44).
+Both logs are complete — `dropped=0 truncated=0` in the header and a
+`# --- end --- dropped=0` at the close — so nothing was lost in logging, and
+RUN 24's small size is a property of the run, not of the record.
+
+#### V7.7.4 What the Operator declared, kept as his
+
+**OPERATOR OBSERVATION** in both cases, his words, relayed verbatim through
+the Orchestrator and never converted into a measurement by being written here:
+
+> rodei o 12-stream sem cartucho. ele chamou o boot logo do Gameboy Advance, e
+> não avançou mais, comportamento similar ao console e esperado.
+
+> também gerei uma versão do 12-stream com um cartucho de Gameboy Color
+> (Pokemon Crytal JP) inserido, e o mesmo nem chamou o boot logo do GameBoy...
+> ficou só no terminal (tela com textos) e apareceu a opção para gerar o log
+> direto
+
+**Not declared and therefore not recorded as known:** the console and Game Boy
+Player are the Operator's single declared units (his standing inventory
+declaration, not an inference from these runs); the display chain and the BBA
+state were not restated for these runs and the standing declarations of §V7.4
+are **not** extended to them by this section; the cartridge's title is his
+reading of the label, unverified by any instrument here, and **nothing in this
+project's analysis depends on which GB/GBC title it is** — only on the medium
+being GB/GBC.
+
+#### V7.7.5 RUN 23 — no cartridge, the run completed
+
+```text
+000034 CONTROL semantic orig=90 exp=8c method=gbi-majority-vote transform=(v&~10)|0c
+000250 VSTATE end status=ok_structured_change_observed class=ok stop=witness_target_reached restore=ok
+       teardown=S5_witness_target power_cycle_required=1 errors=0 transport_ok=1
+000685 STREAMWIT records=2048/2048 target=2048 frames_seen=2048 discarded=0 target_reached=1
+```
+
+**The byte is the result** (`GBP-HW-273`): a **late** build with an **empty
+slot** reads `0x90`. That is exactly the cell `GBP-HW-272` recorded as empty,
+and the rival reading it could not exclude — "bit `0x02` tracks something the
+later builds do at startup" — now contradicts a measurement. The entry's
+amendment moves CLAIM 2 from HYPOTHESIS to CORROBORATED and says what is still
+missing for FACT.
+
+**And the run itself is a result** (`GBP-HW-277`): 254 746 unmasks, 2 379
+frames handed to the presentation path, the witness target reached at
+2048/2048, a clean restore reading back `0x90`, `errors=0`, `transport_ok=1`.
+**The streaming path does not need a Game Pak.** Every earlier cartridge-less
+log came from an early build that never reached this stage, so this is the
+first time the full path has been exercised with an empty slot. Nothing is
+claimed about the CONTENT of those frames: no instrument in this run judged it,
+and the AGB's no-cartridge screen is not a stimulus this project controls.
+
+#### V7.7.6 RUN 24 — the original byte with a GB/GBC cartridge, and the negative
+
+```text
+000034 CONTROL semantic orig=92 exp=8e method=gbi-majority-vote transform=(v&~10)|0c
+```
+
+`0x92`. Bit `0x01` **clear**, byte-identical to what 22 GBA-cartridge runs
+give. `GBC_PATH.md` §3 predicted in public that this was the gap a GB/GBC boot
+would fill, and §4.1 wrote the three candidate bytes before any such run
+existed; the observed byte is the line that says *"the type bit is not carried
+at that instant — indistinguishable from a GBA cartridge"*. **A prediction that
+fails is a result** (`GBP-HW-274`), and it is recorded as one rather than
+quietly reworded.
+
+#### V7.7.7 RUN 24 — and then the bit appears
+
+The same run, a fraction of a millisecond later. Majority vote over the 32
+replicas, at the fixed read points the sequence already had:
+
+```text
+                       RUN 23          RUN 24          RUN 18 / RUN 17 / RUN 15 / color-0002
+                       no Game Pak     GBC Game Pak    GBA Game Pak (four runs)
+BASE (original)        90              92              92
+written (exp)          8c              8e              8e
+P0                     8c              8e              8e
+A1-0                   8c              8e              8e
+A1-50US                8c              8e              8e
+A1-500US               8c              8f  <- HERE     8e
+A2-0 / A2-50MS         8c              8f              8e
+EVENT / PREUNMASK      8c              8f              8e
+restore: wrote / read  90 / 90 ok      92 / 93 FAIL    92 / 92 ok
+```
+
+**The window is bounded by the run's own records**: `since_control=7518` ticks
+at `A1-50US` (still `0x8e`) and `since_control=25742` at `A1-500US` (already
+`0x8f`), at `tb_hz=40500000` — **185.6 µs to 635.6 µs after the transform
+write**, or 50.1 µs to 500.0 µs after the `A1` IRQ write. **Replica 0 is
+excluded on purpose**: it is noisy in every run of this family (`8a` against
+`8c` in RUN 23, `be`/`fe`/`be` in RUN 18, `ee`/`ef` in RUN 24), which is why
+the runtime votes; in RUN 24 the change is in **all 31 stable replicas**, and
+replica 0 moves with them (`ee`→`ef`).
+
+**AND A DEVIATION THAT MATTERS TO HOW THIS RESULT IS STATED, found while
+checking the replicas and reported because it was found.** Across these six
+runs at eight read points the 31 stable replicas are uniform in 44 of 48 reads.
+The four exceptions are:
+
+```text
+run23  A2-50MS    replica 14 = 8a   against 30 x 8c
+run17  A2-50MS    replica 26 = 8f   against 30 x 8e     <- bit 0x01 SET, in a run with a GBA cartridge
+run17  PREUNMASK  replica 20 = 8f   against 30 x 8e     <- the same
+run15  P0         replica 18 = 9e   against 30 x 8e
+```
+
+**So the value `0x8f` by itself is NOT unique to the GB/GBC run**: an isolated
+replica reads it twice in RUN 17, which had a GBA cartridge. What is unique to
+RUN 24 is different and stronger — the change is **UNANIMOUS** (all 32
+replicas, including the noisy one) and **PERSISTENT** (every read point from
+`A1-500US` to the end of the run, and still set at the restore read-back).
+**The result therefore rests on unanimity and persistence, never on the value
+alone**, and any future reading that treats a single replica of `0x8f` as the
+type bit would be wrong. No mechanism is claimed for these four; they are
+recorded so a later reader does not discover them as a surprise, and the host
+test pins the exact list so it cannot grow unnoticed.
+
+**What is FACT here** (`GBP-HW-275`): the transition, its window, and the
+five-run contrast — one binary, one fixed sequence, the same read points, and
+the only run in which any bit moves under the runtime's feet is the one with
+the GB/GBC cartridge. **What is inference**: that the bit *means* "a GB/GBC
+Game Pak is present". With the three references agreeing on that usage it is
+**CORROBORATED, not FACT** — one run, one cartridge. **Why the bit is not in
+the original byte, and what triggers it, is UNKNOWN and is now `U-GBP-036`**;
+the transform's power/reset bits, the `A1` write and plain elapsed time all
+fall inside the same window and this run separates none of them.
+
+#### V7.7.8 RUN 24 — why it captured almost nothing, answered by machine
+
+```text
+000098 PREUNMASK ok=0 reason=control_changed ... control=8f irq=0500/0500 src=0500 odd=0000 bit15=0
+000121 VSTATE end status=anomaly_control_changed class=anomaly reason=control_changed_PREUNMASK
+       stop=failure restore=error restore_reason=control_restore_failed teardown=S2_before_unmask
+       power_cycle_required=1 errors=0 transport_ok=1
+```
+
+The runtime re-reads CONTROL before installing the handler and compares it with
+what it wrote. It wrote `0x8e`; the device now reports `0x8f`; **the guard
+refuses and the run takes the teardown path at stage S2**. No handler is
+unmasked (`unmasks=0`), no service cycle runs, no frame is captured — hence
+`t_capture_start=0`, `STREAMWIT records=0/2048`, `VISTORE handed=0`,
+`DISPSRC handoffs=0`, and four sidecars holding nothing but their headers.
+**The Operator's "text console with the save option" is the teardown's own
+screen, and no boot logo appeared because no frame was ever captured or
+presented** — which is not the same as saying the AGB was held in reset, and
+this run does not measure that (`GBP-HW-276`).
+
+**This is the guard working, not a defect.** It exists precisely to refuse a
+session whose device state is not the one the runtime established. Its cost is
+that **the GB/GBC path cannot be exercised at all by the current image**: any
+GB/GBC session will trip the same guard in the same place, roughly half a
+millisecond in.
+
+#### V7.7.9 Hardware safety — the failed restore and the power cycle
+
+RUN 24 wrote the original `0x92` back at teardown and read `0x93`
+(`control_restore_ok=0`, `power_cycle_required=1`). The device is reporting a
+bit the runtime never wrote, so **the console was left with CONTROL not equal
+to the value the run found**. §18 of `CLAUDE.md` governs: after an experiment
+that may leave device state not fully acknowledged, the console is
+power-cycled. The Operator power-cycled between runs in the ordinary course of
+using the machine; **for any future GB/GBC run this is not optional and is
+recorded here as a standing requirement of that path**, not as a defect of the
+runtime.
+
+#### V7.7.10 What this section establishes, and what it must not be read as
+
+```text
+ESTABLISHED, recomputable from the archived files
+  GBP-HW-273   a late build with no Game Pak reads 0x90; GBP-HW-272's era rival is disconfirmed by measurement
+  GBP-HW-274   with a GB/GBC Game Pak the ORIGINAL byte is 0x92, bit 0x01 clear -- the stated gap filled with a
+               negative at that read point
+  GBP-HW-275   bit 0x01 becomes set 186-636 us after the transform write and stays set; five-run contrast
+  GBP-HW-276   the near-empty capture is the pre-unmask guard refusing; the failed restore has the same one cause
+  GBP-HW-277   the streaming path reaches its witness target with no Game Pak, 2048/2048, restore clean
+INFERRED, and labelled as inference
+  that bit 0x02 REPORTS presence            CORROBORATED (references' usage + the hardware contrast), not FACT
+  that bit 0x01 REPORTS GB/GBC media        CORROBORATED (same shape), not FACT: one run, one cartridge
+NOT ESTABLISHED BY ANYTHING HERE
+  why bit 0x01 appears late, or what triggers it                      U-GBP-036, opened here
+  whether the window reproduces, or differs per cartridge             one run
+  anything about GB/GBC video, audio, input, timing or mode entry     nothing was captured
+  that the AGB was or was not held in reset in RUN 24                 not measured
+  the meaning of 0x10, 0x80, 0x94 or the idle IRQ                     U-GBP-017, untouched
+  any PASS or FAIL                                                    no gate existed; none is invented here
+```
+
+#### V7.7.11 What this checkpoint does NOT do
+
+No hardware was requested and none is authorised. Nothing is pre-registered:
+not the repeat of RUN 24, not the second GB/GBC cartridge, not the
+`GBC_PATH.md` §4.2 stretch experiment, which RUN 24 leaves entirely untouched
+because it captured no frame. `stream-0015`'s staged bytes, the card,
+`play-0001`, `13-play`, §V7.6 and RUN 21 / RUN 22 are not touched by this
+section; the Operator is performing RUN 21 / RUN 22 while it is written.
+Phase 7 does not open here, and no phase gate is crossed: the GB/GBC content of
+this section is the ingestion of runs that already happened, not the start of
+Phase 7 work.
 
 ---
