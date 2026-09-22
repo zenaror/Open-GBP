@@ -211,6 +211,59 @@ class ThePressesChangeTheWindowOneGbaFrameLater(unittest.TestCase):
                     bad += 1
         self.assertEqual(bad, 0, "the 256-byte period is not universal")
 
+    BASE = {0x00, 0x01, 0xFE, 0xFF}
+    NEW4 = {0x80, 0x81, 0xF8, 0xFA}
+
+    def _counts(self):
+        """The TWO quantities §V8.13.4.1 defines, over the STORED blocks only."""
+        outside, only80, per = [], [], []
+        for w in self.wins:
+            c = Counter()
+            for b in w:
+                c.update(b)
+            outside.append(sum(n for v, n in c.items() if v not in self.BASE))
+            only80.append(c[0x80])
+            per.append({v: n for v, n in c.items() if v not in self.BASE})
+        return outside, only80, per
+
+    def test_both_counts_are_the_ones_the_record_defines(self):
+        outside, only80, per = self._counts()
+        self.assertEqual(outside, [0, 0, 23234, 24608, 26709])
+        self.assertEqual(only80, [0, 0, 5564, 10749, 19309])
+        # restricting "outside the base set" to exactly the four named values gives the same thing
+        for w, o in zip(self.wins, outside):
+            c = Counter()
+            for b in w:
+                c.update(b)
+            self.assertEqual(sum(n for v, n in c.items() if v in self.NEW4), o)
+        # only B is monotone; A's composition changes direction, which the record says
+        self.assertEqual(only80, sorted(only80))
+        self.assertGreater(per[4][0x80], per[2][0x80])
+        self.assertLess(per[4][0xF8], per[2][0xF8])
+        # and the per-value breakdown is on the page
+        s = re.sub(r" +", " ", plain(v8_part()))
+        for tok in ("80: 5 564", "81: 326", "F8: 15 165", "FA: 2 179",
+                    "80:19 309", "81: 1 176", "F8: 5 441", "FA: 783"):
+            self.assertIn(re.sub(r" +", " ", tok), s, tok)
+
+    def test_a_window_ends_where_its_block_count_says(self):
+        """The 12-byte gap an independent recomputation hit: window 4's blocks
+        are followed immediately by the OGBPAW1 footer, and a slice that runs to
+        end-of-file swallows it. All twelve footer bytes are outside the base
+        set, which is exactly the difference that was seen."""
+        import awinparse
+        data, h, anchors, _ = awinparse.load(BIN)
+        footer = data[h["off_footer"]:]
+        self.assertEqual(len(footer), 12)
+        self.assertEqual(footer[:8], b"OGBPAWND")
+        self.assertEqual(sum(1 for b in footer if b not in self.BASE), 12)
+        off = h["off_blocks"] + sum(a["blocks"] for a in anchors[:4]) * 4096
+        blocks_only = sum(1 for b in data[off:off + 256 * 4096] if b not in self.BASE)
+        to_eof = sum(1 for b in data[off:] if b not in self.BASE)
+        self.assertEqual(blocks_only, 26709)
+        self.assertEqual(to_eof, 26721)
+        self.assertEqual(to_eof - blocks_only, 12)
+
     def test_new_levels_appear_only_in_presses_2_3_and_4(self):
         counts = []
         for w in self.wins:
@@ -332,6 +385,24 @@ class TheRecordSaysWhatWasFoundAndWhatWasNot(unittest.TestCase):
         u37 = t[t.index("## U-GBP-037"):t.index("## U-GBP-038")]
         self.assertIn("stimulus/agb-tone", u37)
         self.assertIn("What would close it", u37)
+
+    def test_the_oversupply_is_an_inference_and_says_so(self):
+        u = read(UNK)
+        u37 = u[u.index("## U-GBP-037"):u.index("## U-GBP-038")]
+        self.assertIn("AN INFERENCE", u37)
+        self.assertIn("NOT a finding", u37)
+        self.assertIn("what it is NOT        established", u37)
+        self.assertIn("that is circular", u37)
+        # the arithmetic, recomputed rather than trusted
+        byte_us = 1000000.0 / 16384          # IF 256 bytes is one 64 Hz period
+        self.assertAlmostEqual(byte_us, 61.04, places=2)
+        self.assertAlmostEqual(4096 * byte_us / 1000.0, 250.0, places=1)
+        self.assertAlmostEqual((4096 * byte_us / 1000.0) / (1000.0 / 4094.4), 1024.0, places=0)
+        self.assertIn("~61 µs", u37)
+        self.assertIn("~250 ms of audio", u37)
+        # and the prediction it hands to the next instrument
+        self.assertIn("move the period **proportionally**", u37)
+        self.assertIn("written down before it", u37)
 
     def test_the_part_claims_no_frequency(self):
         s = plain(v8_part())

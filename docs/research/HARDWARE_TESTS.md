@@ -27154,14 +27154,53 @@ this run itself confirms: 89 203 audio drains over 137 931 deliveries at
 6 328.6 deliveries/s = 4 094 blocks/s, §V7.8.6's figure reproduced):
 
 ```text
-window  distinct byte values            0x80 count   duty values seen        first block carrying a value
-                                                                             the control NEVER shows
-w0 ctrl  4  {00,01,FE,FF}                        0   0.500 only              -- none --
-w1 p1    4  {00,01,FE,FF}                        0   0.500 only              -- none --
-w2 p2    8  {..,80,81,F8,FA}                 5 564   0.406 / 0.500 / 0.625   block 75  = 18.32 ms
-w3 p3    8  {..,80,81,F8,FA}                10 749   0.406 / 0.500 / 0.625   block 65  = 15.88 ms
-w4 p4    8  {..,80,81,F8,FA}                19 309   0.406 / 0.500 / 0.625   block 50  = 12.21 ms
+window  distinct byte values     bytes NOT in the      of which the      duty values seen      first block carrying
+                                 base set {00,01,FE,FF}  byte 0x80                             a value the control
+                                 over the 256 stored     alone                                 NEVER shows
+                                 blocks
+w0 ctrl  4  {00,01,FE,FF}                 0                     0        0.500 only            -- none --
+w1 p1    4  {00,01,FE,FF}                 0                     0        0.500 only            -- none --
+w2 p2    8  {..,80,81,F8,FA}         23 234                 5 564        0.406/0.500/0.625     block 75 = 18.32 ms
+w3 p3    8  {..,80,81,F8,FA}         24 608                10 749        0.406/0.500/0.625     block 65 = 15.88 ms
+w4 p4    8  {..,80,81,F8,FA}         26 709                19 309        0.406/0.500/0.625     block 50 = 12.21 ms
 ```
+
+##### V8.13.4.1 THE COUNT, DEFINED — appended 2026-09-22 (Issue #62's validation), because a derived figure whose definition is not on the page is a defect whatever its value
+
+**As first written, this part gave only the middle column and introduced it as
+*"their count"* after naming four byte values.** Two different quantities can be
+read out of that sentence, and the Orchestrator computed the other one when he
+reproduced the run from the raw bytes. **Both are now on the page, defined, with
+the breakdown that makes either recomputable.** The wrong wording is not the
+figure — the figure was right — it is that a reader had to guess which quantity
+it was.
+
+```text
+THE TWO QUANTITIES, over the 256 STORED BLOCKS of each window and nothing else
+  A  bytes not in {00,01,FE,FF}   0, 0, 23 234, 24 608, 26 709
+  B  the byte 0x80 alone          0, 0,  5 564, 10 749, 19 309      (a subset of A)
+  and restricting A to exactly {80,81,F8,FA} gives A again -- no other value occurs outside the base set
+
+PER-VALUE, so neither has to be taken on trust
+  w2   80: 5 564   81:   326   F8: 15 165   FA: 2 179      = 23 234
+  w3   80:10 749   81:   659   F8: 11 544   FA: 1 656      = 24 608
+  w4   80:19 309   81: 1 176   F8:  5 441   FA:   783      = 26 709
+```
+
+**Only B is monotone.** A grows too, but gently (23 234 → 24 608 → 26 709),
+and its composition **changes direction**: `0x80` rises by 3.5× across the
+three presses while `0xF8` falls by 2.8×. **`GBP-HW-289`'s "grows
+monotonically" is true of B and must not be read of A's composition**, and the
+entry now says which.
+
+**And the boundary of the count matters, which is worth recording because it
+already caught someone.** The independent recomputation gave **26 721** for
+window 4 rather than 26 709 — a difference of **exactly 12**, which is the
+`OGBPAW1` footer: `4f 47 42 50 41 57 4e 44 73 a7 4a 49` (`OGBPAWND` plus the
+total CRC), all twelve outside the base set, sitting immediately after the last
+window's last block. **A window's bytes end where its block count says they
+end, not at end-of-file** — `tools/awinparse.py` slices by the anchor's own
+block count and a test now pins both figures and that 12-byte gap.
 
 **THE PERIOD NEVER CHANGES.** Over all 1 280 stored blocks, **zero** have an
 inter-edge interval other than exactly 256 bytes. Whatever the presses did,
@@ -27169,9 +27208,12 @@ they did not change the period of this wave.
 
 **THE LEVELS DO.** Three byte values that occur **nowhere** in the control or
 in press 1 — `0x80`, `0x81`, and the pair `0xF8`/`0xFA` — appear in presses 2,
-3 and 4, and their count **grows monotonically with the press**: 0, 0, 5 564,
-10 749, 19 309. `0x80` is mid-scale between the `0x00` and `0xFF` the standing
-square already uses.
+3 and 4. **The count of `0x80` alone** (quantity B of §V8.13.4.1) **grows
+monotonically with the press**: 0, 0, 5 564, 10 749, 19 309; the count of
+everything outside the base set (quantity A) also grows — 0, 0, 23 234,
+24 608, 26 709 — but its composition shifts, so the word *monotonically* is
+about B and is not a claim about A. `0x80` is mid-scale between the `0x00` and
+`0xFF` the standing square already uses.
 
 **AND THE ONSET IS ONE GBA FRAME.** 18.32 ms, 15.88 ms and 12.21 ms after the
 **GBP-side** key change — bracketing the 16.74 ms of one GBA frame. **§V8.3.1

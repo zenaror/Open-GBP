@@ -1610,6 +1610,30 @@ new hardware access beyond one run.
 **Not to be answered by reading a reference.** Dolphin's model and the Disc's
 constants are what `U-GBP-012` already distrusts; this is a measurement.
 
+**2026-09-22, on validation — AN INFERENCE, offered for the next
+pre-registration and NOT a finding.** *If* the 256-byte period is the 64 Hz
+wave the checker's stop leaves sounding, then one byte is **~61 µs** and a
+4096-byte block is **~250 ms of audio** — delivered every **0.244 ms**, a
+**~1 000× oversupply**.
+
+```text
+what that points at   a RE-READ BUFFER rather than a time series: the drain would be re-reading a region
+                      the AGB refills far more slowly than it is read, which is also the simplest reading
+                      of RUN 30's 245-of-256 byte-identical control blocks
+what it is NOT        established. The premise ("the period IS the 64 Hz wave") is exactly what this item
+                      says is unknown, so the arithmetic cannot be used to prove it -- that is circular,
+                      and it is written here as an inference precisely so nobody inherits it as a fact
+```
+
+**AND IT GIVES `stimulus/agb-tone` A SHARP PREDICTION TO TEST, which is worth
+more than the inference itself:** a tone of **known** frequency, changed between
+**two** known values inside one run, should move the period **proportionally**
+— halve the frequency and the period in bytes doubles. **If it does, the sample
+rate follows directly and this item closes; if it does not, the buffer reading
+is wrong and something else is producing the pattern.** Either way the run
+decides, and the prediction is written down before it — which is the only form
+this project accepts.
+
 ## U-GBP-038 (P3, opened 2026-09-22 after RUN 30) — why the FIRST press changed nothing in its window while the next three did
 
 RUN 30's press 1 window (256 blocks, 62.5 ms, anchored on the KEY write of the
