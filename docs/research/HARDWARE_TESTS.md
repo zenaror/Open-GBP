@@ -26402,3 +26402,205 @@ applied to RUN 17, 21, 22, 25 or 26 as a verdict.** No hardware is scheduled.
 ---
 
 
+### V7.10 RUN 27 / RUN 28 / RUN 29 — three more GB/GBC runs, UNREGISTERED like RUN 23 / RUN 24, ingested 2026-09-22 (GitHub Issue #55): the transition REPRODUCES across **three distinct cartridges**, the preceding-state confound CLOSES, **the arrival window is CARTRIDGE-DEPENDENT** and separates two of `U-GBP-036`'s three candidates, bit `0x01` does **not** distinguish DMG from CGB, and byte 0 would have made the runs contradict each other
+
+#### V7.10.1 What these runs are, and what they are not
+
+**None of them was pre-registered.** Like RUN 23 and RUN 24 (§V7.7.1), the
+Operator performed them on his own initiative; no gate existed beforehand, so
+**this section records no PASS and no FAIL.**
+
+**The Operator's words for RUN 27, verbatim — OPERATOR OBSERVATION:**
+
+> *gerei o "12-stream - GBC 2" — é o mesmo teste do "12-stream - GBC", feito
+> com o pokemon crystal... mas dessa vez garanti o power cycle (não me recordo
+> se tinha feito anteriormente)*
+
+RUN 28 and RUN 29 are two further GB/GBC media, relayed through the
+Orchestrator: **RUN 28 an Everdrive GB X7**, **RUN 29 an unofficial *Samurai
+Spirits*, a DMG cartridge running through the GBC's backward compatibility**.
+
+**The numbering is chronological, from the logs' own time base**, and the
+cartridge mapping was **checked against the data rather than taken**: `GBC 3`
+(`t_control 7959eda2…`) precedes `GBC 4` (`7959ef1b…`), so `GBC 3` is RUN 28 —
+and RUN 28 is independently the run whose transition arrives late (§V7.10.4),
+which is what the Everdrive was relayed as doing. The relay and the files
+agree.
+
+#### V7.10.2 The artifacts — four directories, one filename
+
+Every GB/GBC drop carries the same console-generated filename, so each was
+archived under a run-suffixed name before anything was read: targets verified
+absent, `cp --update=none`, `cmp`, hashes from the copies, `logs/` untouched.
+
+```text
+RUN 27   …-run27.log   22 413 B   5b8a98b5c778675cc6047b03b95cd0ffd9655bdec64fcac6d31b7d6256b249c3
+RUN 28   …-run28.log              10b64d342425be702e2e7170a87023ff0607d0ca8119e2502d26a8e50efe3bff
+RUN 29   …-run29.log              a1be040ebc20de28f165bac4861ec1d13781d28083a247b9491767acb7351d24
+the sidecars   …-idxcap.bin, …-full.bin and …-vi.bin are BYTE-IDENTICAL across RUN 24, 27, 28 and 29
+               (a8d20cbc…, c9a8e5c9…, a150d354…): a session that captured nothing, four times. Only the
+               disposition sidecar differs, and its header is not constant.
+```
+
+`stream-0015` unchanged on the card; every log complete, `dropped=0
+truncated=0`, **171 lines in all four**.
+
+#### V7.10.3 The transition reproduces across three distinct cartridges
+
+Recomputed from the four logs, never quoted:
+
+```text
+                       RUN 24        RUN 27        RUN 28            RUN 29
+                       Pokémon       Pokémon       Everdrive GB X7   Samurai Spirits
+                       Crystal (JP)  Crystal (JP)  (flashcart)       (unofficial, DMG)
+CONTROL semantic       orig=92 exp=8e in all four -- bit 0x01 CLEAR in the original byte, every time
+P0 / A1-0 / A1-50US    8e            8e            8e                8e
+A1-500US               8f            8f            8e  <- STILL 8e   8f
+A2-0 / A2-50US         8f            8f            8e  <- STILL 8e   8f
+A2-500US onward        8f            8f            8f  <- HERE       8f
+EVENT / PREUNMASK      8f            8f            8f                8f
+PREUNMASK              ok=0 reason=control_changed control=8f    -- ALL FOUR
+CONTROL restore        wrote 92, read 93, ok=0                   -- ALL FOUR
+VSTATE end             status=anomaly_control_changed reason=control_changed_PREUNMASK  -- ALL FOUR
+```
+
+#### V7.10.4 THE NEW FINDING — the arrival window is CARTRIDGE-DEPENDENT, and the two windows are DISJOINT
+
+```text
+                       last 8e                first 8f               the bracket, after the transform write
+RUN 24  Crystal        A1-50US    7 518 ticks  A1-500US  25 742      185.6 .. 635.6 us
+RUN 27  Crystal        A1-50US    7 530        A1-500US  25 754      185.9 .. 635.9 us
+RUN 29  Samurai (DMG)  A1-50US    7 501        A1-500US  25 729      185.2 .. 635.3 us
+RUN 28  EVERDRIVE      A2-50US   28 271        A2-500US  46 492      698.0 .. 1148.0 us   <- THREE PROBE POINTS LATER
+```
+
+**The two brackets do not overlap**: the three ordinary cartridges finish by
+635.9 µs and the Everdrive has not moved until 698.0 µs. This is a separation,
+not a marginal difference.
+
+**WHAT IT SEPARATES, and it is the first thing in this project to separate any
+of `U-GBP-036`'s three candidates.** The probe's sequence is identical in all
+four runs — the same writes at the same scheduled points, the same `since_control`
+values at the same tags — so:
+
+```text
+ELAPSED TIME ALONE    predicts the SAME window for every cartridge. The windows are disjoint.
+                      EXCLUDED as a sufficient explanation.
+THE A1 WRITE ALONE    is issued at the same point of the same sequence in all four runs, so it too predicts
+                      the same window. EXCLUDED as a sufficient explanation.
+THE CARTRIDGE / AGB   is the only thing that varied. A window that MOVES WITH THE CARTRIDGE points there --
+ SIDE                 plausibly at how long the AGB takes after the transform's power/reset bits with that
+                      medium. NOT established: this is where the remaining candidate lives, not a mechanism.
+```
+
+**WHAT RUN 28's STIMULUS ACTUALLY WAS — the Operator's declaration, verbatim,
+OPERATOR OBSERVATION:**
+
+> *O everdrive GB x7 sempre acessa o menu dele. mesmo que eu tenha carregado
+> uma ROM antes de desligar. Ele exige o cartão SD, para carregar o S.O. dele.*
+
+**So RUN 28's stimulus is the Everdrive's own menu and operating system, loaded
+from its SD card, and the device cannot present a plain ROM without that.**
+"Flashcart" in this row therefore means *a cartridge that always runs its own
+firmware first*, declared rather than assumed.
+
+##### AND THE EXPLANATION EVERY READER WILL REACH FOR FIRST IS EXCLUDED BY TIMESCALE
+
+The obvious hypothesis is *"the Everdrive boots its OS from SD, so of course it
+takes longer"*. **It does not survive the arithmetic**, and the arithmetic is
+checkable because the probe's schedule is deterministic: the `since_a1` values
+at the four points agree across all four runs to within **7 ticks (0.2 µs)**.
+
+```text
+the probe's own schedule, recomputed from the logs (40.5 MHz)
+  A1-50US    2 028 ticks =   50.1 us after the A1 write
+  A1-500US  20 252 ticks =  500.0 us
+  A2-50US   22 767 ticks =  562.1 us
+  A2-500US  40 988 ticks = 1012.0 us
+where the bit appears
+  Crystal (x2) and the DMG cartridge     between  50.1 us and  500.0 us after A1
+  the Everdrive                          between 562.1 us and 1012.1 us after A1
+the difference                           roughly HALF A MILLISECOND -- and BOTH ARE SUB-MILLISECOND
+an SD-card OS load                       TENS TO HUNDREDS OF MILLISECONDS: two to three orders of magnitude
+                                         longer than the entire interval in which both transitions happen
+```
+
+**So the SD/OS-load explanation is excluded**, and it is written down as
+excluded rather than never raised — a hypothesis retired with a checkable
+argument is worth more than one nobody thought of. What remains is that the
+window differs by about half a millisecond between a flashcart and three
+ordinary cartridges, **at a scale that looks electrical rather than
+firmware-driven**. **NO MECHANISM IS NAMED HERE.**
+
+**`U-GBP-036` DOES NOT CLOSE.** One flashcart against three ordinary cartridges
+is a **contrast, not a mechanism**, and the Everdrive is now known to run its
+own firmware first — which makes it a different stimulus in a way that is
+declared but not characterised. The item gains a real narrowing, one excluded
+explanation, and keeps its question.
+
+#### V7.10.5 A NEGATIVE RESULT — bit `0x01` does not distinguish DMG from CGB
+
+RUN 29's cartridge is a **DMG** title running through the GBC's backward
+compatibility; RUN 24 and RUN 27's is a **CGB** title. **They behave
+identically** — the same original byte, the same arrival bracket, the same
+persistence, the same guard refusal.
+
+**So at this read point the bit separates the GB/GBC family from Game Boy
+Advance, and nothing finer.** Anyone expecting it to tell DMG from CGB — which
+the reference names (`CART_IS_GB`, the Disc's "type" flag) leave open — should
+read this as the answer: **it does not.**
+
+#### V7.10.6 The guard refusal is now a property of the IMAGE AND THE PATH
+
+`PREUNMASK ok=0 reason=control_changed`, the teardown at `S2_before_unmask` and
+the failed restore occur in **all four GB/GBC runs across three distinct
+cartridges**. §V7.7 could only say `stream-0015` failed to exercise a GB/GBC
+session **with one cartridge**; it is now a property of **the image and the
+path**, not of a cartridge. **That is a Phase 7 precondition**: any GB/GBC work
+on this image trips the same guard about half a millisecond in — or, with a
+cartridge like the Everdrive, about a millisecond in.
+
+#### V7.10.7 BYTE 0 WOULD HAVE MADE THE RUNS CONTRADICT EACH OTHER
+
+§V7.7.7 and `GBP-HW-275` rested the claim on **unanimity of the 31 stable
+replicas plus persistence**, never on the value. Four samples now test that:
+
+```text
+             byte 0 at P0 / A1-500US / PREUNMASK     the 31 stable replicas
+RUN 24       ee      ef      ef                      8e -> 8f at A1-500US
+RUN 27       9f      9f      9f     <- CONSTANT      8e -> 8f at A1-500US
+RUN 28       de      de      df                      8e -> 8f at A2-500US
+RUN 29       9f      9f      9f     <- CONSTANT      8e -> 8f at A1-500US
+```
+
+**And the stable replicas are not perfectly uniform either — once in 44
+reads, and it is recorded because it was found.** Across these four runs at
+eleven read points each, the 31 stable replicas agree with the vote in **43 of
+44 reads**. The one exception is **RUN 29 at `A2-50US`, where replica 8 reads
+`9f` against a vote of `8f`** — and `9f` is exactly the value **byte 0 holds
+throughout that run**. So the single deviation carries the same anomaly that
+normally sits in byte 0, in a different replica, once; the vote is unaffected
+and no verdict rests on it. It is noted so a later reader does not discover it
+as a surprise, and the host test pins the list at exactly one entry so it
+cannot grow unnoticed.
+
+**Byte 0 takes four different values across four runs and in two of them does
+not move at all.** Had it been the reading, RUN 27 and RUN 29 would have
+reported the bit set from the first read and RUN 24 would have reported it
+arriving at `A1-500US` — **the runs would have contradicted each other about
+the finding itself.** The stable replicas agree in every run. **Third and
+fourth confirmation that the value is noise and the unanimity is the signal**,
+from samples that could have said otherwise.
+
+#### V7.10.8 What this section does not do
+
+It schedules no run and authorises nothing. It does not close `U-GBP-036`, and
+it does not touch `12-stream`'s staged bytes, the card, Phase 5's assessment or
+Phase 7's opening. It records no PASS and no FAIL, because no gate existed for
+runs nobody registered. **What RUN 28's Everdrive was running IS now recorded**
+— the Operator answered, and it is its own menu and OS from SD (§V7.10.4) —
+but what that firmware does to the CONTROL path is **not** characterised, and
+nothing here attempts to.
+
+---
+
