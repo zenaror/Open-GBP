@@ -7296,7 +7296,7 @@ consolidated page moves on this row.
 
 ---
 
-### GBP-HW-272 — the original CONTROL byte splits all 34 archived physical logs exactly at bit `0x02`: the 12 cartridge-less runs read `0x90`, the 22 runs with a cartridge read `0x92` — **FACT for the split**; that the bit REPORTS Game Pak presence is **HYPOTHESIS**, with an empty diagonal and a named breaker
+### GBP-HW-272 — the original CONTROL byte splits all 34 archived physical logs exactly at bit `0x02`: the 12 cartridge-less runs read `0x90`, the 22 runs with a cartridge read `0x92` — **FACT for the split**; that the bit REPORTS Game Pak presence is **HYPOTHESIS**, with an empty diagonal and a named breaker — **2026-09-22, Issue #47: the empty diagonal cell filled by RUN 23 (GBP-HW-273), so CLAIM 2 moved HYPOTHESIS → CORROBORATED in the amendment at the end of this entry — read it before copying a status from these words; CLAIM 1 unchanged and now over 36 logs; still NOT FACT**
 
 Found in the archive by Issue #31 while writing `GBC_PATH.md` §3, which
 offered it and promoted nothing; recomputed independently by the Orchestrator;

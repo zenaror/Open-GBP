@@ -142,6 +142,51 @@ docs/research/HARDWARE_TESTS.md
 
 for experiments actually executed on physical hardware.
 
+### A heading that outlived its status — append the pointer, never rewrite the words (recognised 2026-09-22, GitHub Issue #49)
+
+A record is amended **on top**: the original words stay, and the correction is
+added below them with its date and its Issue. That is why "Failed experiments"
+below says not to delete a rejected hypothesis merely because a later
+explanation was found, and it is how every correction in this project has been
+made.
+
+**It has one consequence that is easy to miss, and this project has already
+been bitten by it.** When the amendment changes a **status**, the heading keeps
+saying what it said — and a heading is the first thing a reader meets, and the
+only thing most tools read. Issue #48 found `tools/reconcile.py` reporting
+`GBP-HW-272` as `HYPOTHESIS` while the amendment in its body had moved that
+claim to `CORROBORATED`, in the one checkpoint whose rule was that statuses are
+copied. The tool was fixed to flag such entries; the document had to be fixed
+too.
+
+**So: when an amendment changes a claim's status, the heading gains a POINTER,
+appended after its existing words. The existing words are not reordered, not
+softened and not requalified.** The pointer carries the date, the Issue and the
+status the amendment actually holds.
+
+**This is recognised here, not introduced.** The project has done it for a long
+time in at least two places:
+
+```text
+UNKNOWNS.md   ## U-GBP-010 (P2 — CLOSED 2026-09-21 by … GBP-HW-265) — L/R bit order in KEYPAD —
+              **2026-09-21, Issue #33: the routing FACT (hw, the runs) by the machine join of
+              RUN 17 / RUN 18, GBP-HW-270; stays CLOSED**
+                   ^ the original heading intact, each checkpoint's outcome appended after it
+HARDWARE_TESTS.md
+              ## V7 — … RUN 14 / RUN 15 … · RUN 17 / RUN 18 … · RUN 19 / RUN 20 … WITHDRAWN …
+              · RUN 21 / RUN 22 … · RUN 23 / RUN 24 … (Issue #47, §V7.7)
+                   ^ the same, appended across seven checkpoints
+```
+
+**Appending a pointer is not a status change.** The status changed when the
+amendment was authorised; the pointer records that it did, where a reader who
+stops at the heading will see it. Changing the status itself is a separate
+decision with its own checkpoint.
+
+`tests/host/test_amended_headings.py` holds the rule to its population: any
+entry `tools/reconcile.py` reports with a later amendment in its body must
+carry a pointer in its heading.
+
 ## Documentation promotion
 
 Research notes are not automatically public protocol documentation.
