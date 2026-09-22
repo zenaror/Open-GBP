@@ -333,15 +333,16 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         self.assertEqual(rows["14-audio"], "c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
                          ["12-stream", "13-play", "14-audio"])
-        # and every frozen hash is one THE RECORDS NAME, so the manifest cannot drift from them.
-        # HARDWARE_TESTS.md carries the two whose runs are written up there; stream-0016's identity
-        # is in the DEVLOG, because §V8 is a FROZEN pre-registration and an image that did not exist
-        # when it was written does not get added to it afterwards.
-        records = "".join(open(os.path.join(ROOT, "docs", "research", f), encoding="utf-8").read()
-                          for f in ("HARDWARE_TESTS.md", "DEVLOG.md"))
+        # and every frozen hash is one HARDWARE_TESTS.md names, so the manifest cannot drift from the
+        # record. ONE document, deliberately: an invariant that may be satisfied by either of two files
+        # is weaker than one that must be satisfied by a named file, and this project has already paid
+        # for a check whose scope widened for a good reason (Issue #29's three instances, #44's fourth).
+        # stream-0016's identity is in §V8.12, a NEW dated part APPENDED to the frozen pre-registration:
+        # frozen text keeps its words and the record grows on top.
+        hw = open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8").read()
         for d, h in sorted(rows.items()):
             if h != "-":
-                self.assertIn(h, records, d)
+                self.assertIn(h, hw, d)
 
 
 if __name__ == "__main__":

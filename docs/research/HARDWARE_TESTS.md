@@ -26604,7 +26604,7 @@ nothing here attempts to.
 
 ---
 
-## V8 — GBP-AUDIO-001: DOES THE GBP's AUDIO WINDOW CARRY THE AGB's SOUND, AND IN THE PREDICTED SHAPE? — **PRE-REGISTERED 2026-09-22 (GitHub Issue #58); NOT RUN, NOT AUTHORISED HERE; THE BUILD IS SCOPED HERE AND AUTHORISED SEPARATELY**
+## V8 — GBP-AUDIO-001: DOES THE GBP's AUDIO WINDOW CARRY THE AGB's SOUND, AND IN THE PREDICTED SHAPE? — **PRE-REGISTERED 2026-09-22 (GitHub Issue #58); NOT RUN, NOT AUTHORISED HERE; THE BUILD IS SCOPED HERE AND AUTHORISED SEPARATELY** · **THE IMAGE IS BUILT AND STAGED (Issue #59, Hardware Issue #61, §V8.12): `stream-0016`, slot `14-audio`, hash verified from the card — RUN 30 IS STILL NOT RUN and no gate above changed**
 
 ### V8.1 What this is, and the one thing that makes it possible
 
@@ -26942,3 +26942,72 @@ stable audio without breaking video or input* — and not an entry one. It does
 not read the envelope staircase (§V8.3.2). And **nothing from the checker's
 repository enters this one**: describe the behaviour, never carry the
 expression.
+
+### V8.12 THE IMAGE, BUILT AND STAGED — **APPENDED 2026-09-22 (GitHub Issue #59, then Hardware Issue #61). §V8.1 – §V8.11 ARE UNTOUCHED**
+
+**Why this part exists, and why it is APPENDED rather than folded in.** §V8.7
+scoped an image that did not exist and authorised it separately; the identity
+that now gates RUN 30 could not have been written there. Frozen text keeps its
+words and **the record grows on top** — the convention `RESEARCH_METHOD.md`
+states and §V7.6's own amendments follow. **Nothing above this line changed.**
+
+**And it lives HERE, not in the DEVLOG.** An identity that gates a physical run
+belongs with the run's record, which is exactly where §V7.6.5 and §V7.6.8
+carried `play-0001`'s. The DEVLOG carries the narrative and points at this
+part; a reader asking *"what was staged for RUN 30"* opens this file.
+
+#### V8.12.1 The image (GitHub Issue #59)
+
+```text
+app          gbp-audio-window-probe          POC poc/gbp-audio-window-probe
+build id     stream-0016                     commit 04121fe, CLEAN -- no -dirty
+DOL          build/poc/gbp-audio-window-probe/gbp-audio-window-probe.dol
+size         498 496 B, padded to 32
+SHA-256      c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54
+what it is   play-0001's runtime -- and so stream-0015's service, presentation and input paths -- PLUS
+             the retention and the emission §V8 needs, and nothing else
+host gate    make test-python 1800 / 7 / 103 at that commit; make awin-audit 0 findings; both one-shot
+             handlers byte-identical to the physically validated GBP-VIDEO-001 build's
+never run    host-validated only. It has never touched hardware.
+```
+
+**The window is §V8.3.2's and §V8.5.1's, asserted at compile time**: four press
+windows of 256 blocks plus one control window of the same size, 5 242 880 B,
+with `"a build may not economise"` as a `_Static_assert` rather than a comment.
+**The sidecar is `OGBPAW1`**, a new contract: one 128-byte anchor per window —
+the KEY event's number, the word, `t_poll` / `t_attempt` / `t_done` in the
+transport's `ticks64` base, the first and last service delivery index, the
+flags — then the blocks in window order and in drain order, then a footer CRC.
+
+#### V8.12.2 The staging (Hardware Issue #61)
+
+```text
+staging      UNDER THE HARDWARE ISSUE's authorisation, not this part's: tools/swiss_export.py --only 14-audio
+             exported ONE slot and carried over thirteen, and the DOL was copied to
+             /media/rafael/SD_GC/Open-GBP/14-audio/boot.dol
+slot         14-audio -- a NEW number. Nothing was renumbered; 12-stream and 13-play keep theirs.
+DOL on SD    /media/rafael/SD_GC/Open-GBP/14-audio/boot.dol : exact size 498 496 B; exact SHA-256
+             c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54; embedded
+             gbp-audio-window-probe / stream-0016 / 04121fe; no -dirty. Re-verified before EACH boot.
+verified     the hash was READ BACK FROM THE CARD after the copy, never recomputed from the source
+frozen       12-stream dd545c01...3a49 and 13-play d0ee3c29...99de hashed BEFORE and AFTER, on BOTH the
+             build/swiss copy and the card: unchanged. The manifest row for 14-audio is FROZEN from the
+             start, because the image is staged FOR a run that has not happened yet (Issue #44's rule).
+SD state     before RUN 30: no file for this experiment exists on the card -- and on a FAT card
+             sd:/open-gbp/ IS the directory that holds the slots, so the check covers both. Any such file
+             found is MOVED ASIDE, never deleted, reported, and never treated as a run artifact
+             (§V7.1.6's rule).
+```
+
+**The identity gate of §V8.8 is unchanged and is re-declared at the launch**:
+the image above AND the Enhanced Control Checker (69 348 B, SHA-256
+`53c212c7...2b6e`). **If ANY identity differs: DO NOT RUN.** The Operator's own
+hashes are a double check; they do not redefine the project's identities.
+
+#### V8.12.3 What this part still does not do
+
+**RUN 30 has not happened.** No gate above is changed, softened or reordered;
+no question is answered; `U-GBP-012` stays open; `tools/v8audio.py` carries
+§V8.5's three models from the frozen text and **must not be adjusted to
+whatever the run produces**. The two names of §V8.9 are reserved and **the
+files do not exist**.
