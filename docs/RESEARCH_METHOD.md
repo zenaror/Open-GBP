@@ -142,6 +142,38 @@ docs/research/HARDWARE_TESTS.md
 
 for experiments actually executed on physical hardware.
 
+### A reference figure is defined by what the element CONTAINS, never by its position (2026-09-22, GitHub Issue #53)
+
+**The rule.** When a pre-registration freezes a comparison against a reference
+run, it must identify the reference elements by **what they contain**, not by
+where they sit. "The AUDIO-only cycles" is a reference; "`CYCLT i=6,7`" is not,
+even when i=6 and i=7 happen to be the AUDIO-only cycles in the run the table
+was written from.
+
+**The case that produced it**, and it is worth keeping because the failure is
+not obvious in advance. §V7.6.3 tabulated Question T's baseline from RUN 17 by
+record index — *"ACK → RE-ARM, AUDIO-only cycles: CYCLT i=6,7: 12 ticks"*. In
+RUN 21 and RUN 22, `CYCLT i=6` **carries a VIDEO block**. The index is a
+position in a bounded ring of recent cycles; **what that position holds depends
+on what the device was doing when the ring was captured**, so the same index
+denotes different kinds of thing in different runs. Comparing `i=6` to `i=6`
+compares an AUDIO-only cycle with a VIDEO-carrying one — a category error,
+found only when the gate was applied in code to real logs (Issue #52), and the
+reason Question T was recorded **INCONCLUSIVE** (`HARDWARE_TESTS.md` §V7.8.10).
+
+**Why this one could be fixed after the data and the others could not.** The
+defect is wrong **independently of the answer it produces**: it can be
+demonstrated by pointing at the two records, without knowing what verdict
+either reading gives. **A defect that can only be recognised by disliking its
+output is not safe to act on after the data**, and must be reported and left
+(`HARDWARE_TESTS.md` §V7.8.6, where the unnamed-statistic half was).
+
+**How to satisfy the rule.** State the predicate that selects the elements —
+"every cycle whose record shows a VIDEO block", "every frame whose FRAME_ID is
+in the sampled set" — and have the analysis apply that predicate to **both**
+sides. A reference table may still print index labels as provenance; it may not
+use them as the matching key.
+
 ### A heading that outlived its status — append the pointer, never rewrite the words (recognised 2026-09-22, GitHub Issue #49)
 
 A record is amended **on top**: the original words stay, and the correction is
