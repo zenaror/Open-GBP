@@ -1142,10 +1142,25 @@ issue 52    RUN 21 / 22 / 25 / 26 INGESTED (§V7.8) -- FOUR sessions, because th
             record its own ending. New standing declaration: the generic pad from now on unless strictly
             necessary, WITH ITS CONDITION unmet. GBP-HW-278…284; GBP-HW-272's amendment now spans 40 logs
             across three images
+issue 53    QUESTION T = INCONCLUSIVE for RUN 21 / 22 / 25 / 26 (§V7.8.10, written on top and dated) -- A
+            VERDICT ABOUT THE PRE-REGISTRATION, NOT THE DEVICE: "the gate as frozen cannot be applied". Two
+            defects, one decisive: §V7.6.3's reference is PER-INDEX while the indices do not denote the same
+            thing (CYCLT i=6 is AUDIO-only in RUN 17 and VIDEO-carrying in both new runs), which is a CATEGORY
+            ERROR and is wrong INDEPENDENTLY OF THE ANSWER IT PRODUCES -- the property that made it safe to
+            act on after the data. The second, separate, is the unnamed statistic, left as reported. The
+            measurements STAND and are marked so no reader can take them for T = NOMINAL. THE PORTABLE LESSON
+            is in RESEARCH_METHOD.md: a reference figure is defined by what the element CONTAINS, never by its
+            position; a table may print index labels as provenance, never as the matching key. THE AUDIT for
+            the same defect: §V5.30.4 is SAFE (compares by named field), the sampled frames and the witness
+            analyses are SAFE (matched by FRAME_ID, within-run), and the colour cross-run claim has the FORM
+            but cannot bite (the three certified frames are identical within each run) -- reported, nothing
+            fixed. T' PRE-REGISTERED (§V7.9), NO HARDWARE SCHEDULED, matching BY CONTENT, the MEDIAN as its
+            statistic, a threshold for each of the four undefined words, the within-run control read FIRST,
+            and its first paragraph the bar: T' may NEVER be applied to RUN 17 / 21 / 22 / 25 / 26 as a
+            verdict. THREE DEFECTS IN ONE PRE-REGISTRATION, ALL THREE FOUND BY APPLYING IT IN CODE
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46,
-            #47, #48, #49, #50, #51 and #52 -- #52 carries a THIRD AMBIGUITY (which statistic decides
-            Question T) needing a dated amendment; close #36; Phase 5's acceptance is #42 and reads §V7.8.
-            Executor: the queue is empty -- next checkpoint on dispatch
+            #47, #48, #49, #50, #51, #52 and #53; close #36; Phase 5's acceptance is #42 and reads §V7.8 and
+            §V7.8.10. Executor: the queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
