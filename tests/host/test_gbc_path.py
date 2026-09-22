@@ -53,15 +53,49 @@ class ItIsDesignOnlyAndSaysSo(unittest.TestCase):
 
     def test_it_mints_nothing_and_touches_no_status(self):
         d = read(DOC)
-        self.assertNotIn("GBP-HW-2", d)            # no new hardware evidence id
         self.assertEqual(re.findall(r"\bGBP-GBC-\d+\b", d), [])
         # it may CITE an open unknown, but it must not restate its status
         self.assertIn("U-GBP-017", d)
         self.assertIn("U-GBP-017 stays open", plain(d))
-        # and the evidence files are untouched by this document's checkpoint
-        self.assertNotIn("GBC_PATH", read(EVIDENCE))
         self.assertNotIn("GBC_PATH", read(UNKNOWNS))
         self.assertNotIn("GBC_PATH", read(HW))     # no pre-registration references it
+
+    def test_a_promotion_made_elsewhere_may_be_POINTED_AT_but_never_performed_here(self):
+        """GitHub Issue #46 promoted this document's §3 finding as GBP-HW-272.
+
+        The original guard forbade the string `GBP-HW-2` outright, which was the
+        right rule while nothing had been promoted and the wrong one afterwards:
+        a dangling offer nobody can follow is not an improvement on a design
+        document that mints its own id. So the rule is now the distinction the
+        Issue turns on — the document may say WHERE a promotion happened, and
+        may not BE one. Every hardware id it names sits in the pointer
+        paragraph, the pointer names the Issue and the file that did the
+        minting, and the offer paragraphs keep the words they had.
+        """
+        d = read(DOC)
+        ids = re.findall(r"\bGBP-HW-\d+\b", d)
+        self.assertEqual(sorted(set(ids)), ["GBP-HW-272"], "the design document names a hardware id it should not")
+        paras = [p for p in re.split(r"\n\s*\n", d) if "GBP-HW-272" in p]
+        self.assertEqual(len(paras), 1, "GBP-HW-272 is named outside the single pointer paragraph")
+        p = plain(paras[0])
+        self.assertIn("PROMOTED 2026-09-22 (GitHub Issue #46) as GBP-HW-272", p)
+        self.assertIn("the split is FACT", p)
+        self.assertIn("the causal reading is HYPOTHESIS", p)
+        self.assertIn("without closing the item", p)
+        self.assertIn("The paragraphs below are the offer as this document made it, kept as written", p)
+        # the design text still disclaims minting, and still offers rather than promotes
+        pd = plain(d)
+        self.assertIn("This document mints no evidence id and changes no status", pd)
+        self.assertIn("is offered to a promotion checkpoint, not performed here", pd)
+        # the pointer is not dangling: the id exists, in the file that minted it
+        self.assertIn("### GBP-HW-272 ", read(EVIDENCE))
+        # and EVIDENCE names this document only as PROVENANCE, inside that entry
+        ev = read(EVIDENCE)
+        for m in re.finditer(r"GBP_PATH|GBC_PATH", ev):
+            entry = ev.rfind("\n### ", 0, m.start())
+            self.assertTrue(ev[entry:entry + 20].startswith("\n### GBP-HW-272"),
+                            "EVIDENCE cites the design document outside GBP-HW-272")
+        self.assertIn("which offered it and promoted nothing", plain(ev))
 
     def test_the_observations_stay_the_operators(self):
         d = plain(read(DOC))
