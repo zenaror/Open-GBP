@@ -13372,3 +13372,89 @@ wrote it: it was written before this ROM existed and that is the point of it.
 the Enhanced Control Checker on the NOR**, §V9.12 — and it is a Hardware Issue
 of its own. Nothing here authorises it.
 
+---
+
+## 2026-09-22 — Issue #67: RUN 31 ingested — **§V9's frozen question said RATIO DOES NOT HOLD, and the audio was there all along at exactly the predicted ratio, on a feature §V9 did not measure**
+
+**`tools/v9tone.py` was not touched.** Third outing, **first time it decided
+against us**, which is precisely when the discipline is worth what it cost.
+
+**QUESTION C first, and this time the silence is PROVEN.** RUN 30 could only
+note that its control window was not silent; `agb-tone` writes all six APU
+registers to zero at reset and does not enable the master until the first press
+— demonstrated on the host by running the ROM's own code. So RUN 31's control
+carries the **same 256-byte square, duty 128/256, in all 256 blocks, with the
+instrument's sound hardware disabled by construction**, on an unrelated
+cartridge. **The 256-byte cell is the PATH's, not a tone** (`GBP-HW-296`). Its
+transition bytes differ between the two cartridges — `{01,FE}` then,
+`{03,07,FC}` now — recorded, not explained.
+
+**QUESTION R = RATIO DOES NOT HOLD** (`GBP-HW-297`). §V9.8's estimator finds
+**256 bytes in every one of the 1 280 blocks**, uniformity 1.0, zero `PERIOD
+ABSENT`, control and presses alike. Predicted 128 and 32; measured 1.0000
+against 4.0000. §V9 pre-registered that outcome in its own words: *a REAL
+RESULT, not a failed run*.
+
+**AND THEN THE MEASUREMENT BESIDE IT, which is the run's real content.** What
+the presses changed was the **duty** of the cell — `96/256` and `160/256`,
+symmetric about the control's `128/256` — and it changed **from block to
+block**. Reading the per-block duty as a series **across** blocks, with §V9.8's
+**unmodified** estimator:
+
+```text
+w3 (F1 = 128.0 Hz, after its onset)   32 blocks   uniformity 1.000
+w4 (F2 = 512.0 Hz, whole window)       8 blocks   uniformity 0.966
+w1, w2                                 PERIOD ABSENT -- no edges at all
+ratio 32/8 = 4.0000          exactly §V9.4's predicted ratio
+as frequencies 127.95 Hz and 511.80 Hz against the ROM's 128.0 and 512.0 -- 0.04 %
+and each window independently implies a drain rate of 4 096.0 blocks/s
+```
+
+**So one drained block behaves as ONE SAMPLE of the AGB's output**, the region
+is re-read rather than being a time series inside a block, and **§V9's
+construction was aimed at the transfer's own cell instead of at the audio** —
+the Orchestrator's second reading, now demonstrated rather than offered.
+
+**This is a measurement and not a gate**, and the one decision inside it is
+named rather than buried: w4 passes over the whole window, **w3 needs the slice
+after its onset, and that slice was chosen after seeing the data.**
+
+**AND THE TWO RUNS TOGETHER ANSWER `U-GBP-038`.** Read against the CONTROL
+transform instead of the press ordinal:
+
+```text
+silent:  RUN 31 +5.924 s · RUN 31 +9.227 s · RUN 30 +10.045 s
+carried: RUN 31 +12.547 s · RUN 30 +14.182 s · RUN 30 +18.153 s · RUN 31 +15.684 s
+```
+
+**The AUDIO window does not carry the cartridge's sound until between 10.045 s
+and 12.547 s after the CONTROL transform, and which press it is has nothing to
+do with it** (`GBP-HW-299`). RUN 30's press 1 was not special — **it was
+early**. RUN 31 sharpens it: its ROM enabled the APU at +5.924 s and the
+Operator's colours prove the ROM was running, so **the AGB emitted for about
+six seconds before the window carried anything.** The mechanism is unknown and
+`U-GBP-039` (P2) opens for it, with the three cheap ways to narrow it — later
+presses, a cartridge-less run, and the same bound measured against
+`t_capture_start`, which costs an analysis rather than a run.
+
+**§V9.6's cross-check ran for the first time and agreed.** *"ainda não ouvi
+nada. Mas apareceu as cores Vermelho, verde, azul e saiu no quarto aperto"* —
+three colours seen and the session ending itself on the fourth press: **four by
+his count, four by the machine's.** The counter was built one checkpoint ago
+for exactly this and it worked on first use.
+
+**A defect of mine, recorded with its cost** (`GBP-HW-300`). The image is
+`stream-0016` reused unchanged, its embedded `TEST_ID` is `GBP-AUDIO-001`, and
+**it wrote RUN 30's two filenames again.** RUN 30's copies were already off the
+card so nothing was lost, but they would have been overwritten silently — the
+collision class that has destroyed a raw drop twice. **The standing
+consequence: reusing an image across experiments means the console's filenames
+stop identifying the experiment**, so the archive names must distinguish what
+the console does not, a pre-registration must reserve names from the **image's**
+`TEST_ID`, and the SD-state check must compare the names **the image writes**.
+
+**Ids:** `GBP-HW-295`…`300`. `U-GBP-038` **ANSWERED AND CLOSED**; `U-GBP-039`
+opened at P2; `U-GBP-037` **P1 → P3**, second half answered in the affirmative,
+first half reshaped, and open for the repeat and the third frequency that would
+make it FACT.
+

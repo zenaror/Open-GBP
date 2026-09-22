@@ -1580,7 +1580,7 @@ frame rate — so any future long-session instrument must either size that store
 for the session it intends or sample it. **Nothing is unexplained**, so this
 opens no new unknown; it narrows this one.
 
-## U-GBP-037 (P1, opened 2026-09-22 after RUN 30 — **2026-09-22, Issue #64: the instrument this item names is now PRE-REGISTERED, `HARDWARE_TESTS.md` §V9, GBP-AUDIO-002 — NOT RUN, NOT AUTHORISED, the ROM does not exist, and a pre-registration answers nothing; the item STAYS OPEN**) — what the AUDIO region's 256-byte period IS: the sample rate, and whether a block is a time series or a re-read buffer
+## U-GBP-037 (P1, opened 2026-09-22 after RUN 30 — **2026-09-22, Issue #64: the instrument this item names is now PRE-REGISTERED, `HARDWARE_TESTS.md` §V9, GBP-AUDIO-002 — NOT RUN, NOT AUTHORISED, the ROM does not exist, and a pre-registration answers nothing; the item STAYS OPEN** — **2026-09-22, Issue #67: RUN 31 EXECUTED. THE 256-BYTE PERIOD IS THE TRANSFER'S, NOT A TONE (`GBP-HW-296`, measured with the APU provably off), and the audio is the modulation ACROSS blocks at the predicted ratio (`GBP-HW-298`). The item's SECOND half is answered — a block is a re-read SAMPLE, not a time series — and its FIRST half changes shape: the rate that matters is the DRAIN rate, 4 096.0 blocks/s from two windows independently. **P1 → P3, and it stays OPEN for the repeat that would make it FACT**) — what the AUDIO region's 256-byte period IS: the sample rate, and whether a block is a time series or a re-read buffer
 
 **The measurement is solid and the interpretation is empty.** RUN 30's 1 280
 blocks all carry a two-level square whose period is **exactly 256 bytes**
@@ -1653,7 +1653,35 @@ produces *exactly* a factor of 2, so a factor-2 design could not distinguish
 *"F2 is twice F1"* from *"I counted the other edge"*. **Nothing is
 authorised** — the ROM does not exist and no run is scheduled.
 
-## U-GBP-038 (P3, opened 2026-09-22 after RUN 30) — why the FIRST press changed nothing in its window while the next three did
+**2026-09-22 (Issue #67) — RUN 31 ANSWERED THE SECOND HALF AND MOVED THE
+FIRST.** §V9's own frozen question returned `RATIO DOES NOT HOLD`
+(`GBP-HW-297`) — the within-block period is 256 bytes in all 1 280 blocks and
+never follows the note. **And the audio is there, on the feature §V9 did not
+measure:**
+
+```text
+the 256-byte cell   is the TRANSFER's. It is present with the APU PROVABLY OFF (GBP-HW-296), so it is
+                    not a tone and never was. The presses change its CONTENT, never its LENGTH.
+the audio           is the modulation ACROSS blocks: 32 blocks at 128.0 Hz and 8 at 512.0 Hz, ratio
+                    4.0000 -- §V9's predicted ratio, on the wrong feature (GBP-HW-298)
+so a block          behaves as ONE SAMPLE of the AGB's output -- a RE-READ snapshot, which is this
+                    item's second half answered in the AFFIRMATIVE rather than the negative
+and the rate        is the DRAIN rate: 4 096.0 blocks/s, recovered independently from two windows at
+                    two frequencies, against §V7.8.6's measured cadence of 4 094.4/s
+```
+
+**Why it does not CLOSE.** One run, one cartridge, and one of the two windows
+needed a slice chosen **after** seeing the data to pass §V9.8's uniformity rule
+(§V9.15.5 names that). **What closes it: a repeat, and a THIRD frequency** —
+the same construction on a note neither run has used, predicted before the run,
+which turns two points into three. The priority drops to **P3** because nothing
+in front of Phase 6 now depends on it.
+
+**What is still genuinely unknown:** what the 256-byte cell's internal
+structure means, and why its transition bytes differ between cartridges
+(`{01, FE}` in RUN 30, `{03, 07, FC}` in RUN 31).
+
+## U-GBP-038 (P3, opened 2026-09-22 after RUN 30 — **ANSWERED AND CLOSED 2026-09-22, Issue #67, by RUN 31 read together with RUN 30: the press was not special, it was EARLY. The AUDIO window does not carry the cartridge's sound until (10.045, 12.547] s after the CONTROL transform, `GBP-HW-299`. The MECHANISM is not determined and moves to `U-GBP-039`**) — why the FIRST press changed nothing in its window while the next three did
 
 RUN 30's press 1 window (256 blocks, 62.5 ms, anchored on the KEY write of the
 first A press) carries **four byte values and duty 0.500 throughout** — nothing
@@ -1673,3 +1701,52 @@ other three — but it is the kind of asymmetry that turns into a real finding o
 a real defect once `U-GBP-037` makes the bytes readable. A run with more than
 four presses, or with the window armed on a later press, would separate the
 candidates cheaply.
+
+
+**ANSWERED 2026-09-22 (Issue #67).** RUN 31's presses 1 **and** 2 changed
+nothing either, and read against the CONTROL transform rather than against the
+press ordinal the two runs agree exactly:
+
+```text
+RUN 31  press 1   +5.924 s   no          RUN 31  press 3  +12.547 s   YES
+RUN 31  press 2   +9.227 s   no          RUN 30  press 2  +14.182 s   YES
+RUN 30  press 1  +10.045 s   no          RUN 30  press 3  +18.153 s   YES
+```
+
+**Which press it is has nothing to do with it** (`GBP-HW-299`). Of the
+candidates this item listed, *"the AGB was still in a state the press did not
+reach"* is the closest, and none of the others survives: the window was not too
+short, the program's first call is not special (RUN 31's ROM is deterministic
+and its first press did enable the APU — the Operator's colours prove the ROM
+reacted), and the change did not happen after the window closed.
+
+**What remains is the mechanism, and it is `U-GBP-039`.**
+
+## U-GBP-039 (P2, opened 2026-09-22 after RUN 31) — WHY the AUDIO window carries nothing for the first ~10–12 s after the CONTROL transform
+
+`GBP-HW-299`: across two runs, two cartridges and two instruments, the AUDIO
+window carries the cartridge's sound only from somewhere in **(10.045,
+12.547] s** after the CONTROL transform. RUN 31 makes the gap unambiguous: its
+ROM enabled the APU at **+5.924 s** and the Operator's on-screen counter
+confirms the ROM was running, so **the AGB was emitting for about six seconds
+before the window carried anything.**
+
+```text
+WHAT IS KNOWN        the bound, from two runs; that it does not depend on which press; that the window
+                     carries the transfer's 256-byte cell throughout, before and after (GBP-HW-296)
+CANDIDATES, none measured
+   an initialisation the GBS-DOL performs on the audio path, finishing at its own pace
+   a buffer that must fill before the region reflects anything
+   an enable this project has never written, which something else eventually performs
+   an AGB-side settling that has nothing to do with the GBP
+WHAT WOULD NARROW IT CHEAPLY
+   a run whose presses start LATER and are spaced WIDER: the bound tightens with no new code
+   a run with the SAME image and NO cartridge: if the transition still happens, it is the path's and
+     not the cartridge's, and the cartridge-less archive already holds the AUDIO blocks to compare
+   the bound against t_capture_start rather than the CONTROL transform, which the existing logs
+     already carry and which costs one analysis rather than one run
+```
+
+**Why P2.** It bounds every future audio experiment's action list — a run whose
+presses land inside the first twelve seconds measures nothing — and the current
+action list (§V9.12) does not say so.

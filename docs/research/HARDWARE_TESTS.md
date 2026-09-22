@@ -27314,7 +27314,7 @@ is unchanged and stays unchanged. §V8.1 – §V8.11 keep their words; this part
 and §V8.12 are appended on top.
 
 
-## V9 — GBP-AUDIO-002: **TWO KNOWN FREQUENCIES IN ONE RUN** — is a block a time series or a re-read buffer? — **PRE-REGISTERED 2026-09-22 (GitHub Issue #64); NOT RUN, NOT AUTHORISED HERE; THE ROM AND THE RUN ARE AUTHORISED SEPARATELY** · **THE ROM IS BUILT (Issue #65, §V9.14): `tone-0001`, delivered image 1 404 B `ff5298f0…44a0`, host-validated and NEVER RUN — silent until the first press, the key-DOWN edge only, and the counter on screen. RUN 31 is still NOT RUN and no gate above changed**
+## V9 — GBP-AUDIO-002: **TWO KNOWN FREQUENCIES IN ONE RUN** — is a block a time series or a re-read buffer? — **PRE-REGISTERED 2026-09-22 (GitHub Issue #64); NOT RUN, NOT AUTHORISED HERE; THE ROM AND THE RUN ARE AUTHORISED SEPARATELY** · **THE ROM IS BUILT (Issue #65, §V9.14): `tone-0001`, delivered image 1 404 B `ff5298f0…44a0`, host-validated and NEVER RUN — silent until the first press, the key-DOWN edge only, and the counter on screen. RUN 31 is still NOT RUN and no gate above changed** · **RUN 31 EXECUTED AND INGESTED (Issue #67, §V9.15): QUESTION R = RATIO DOES NOT HOLD by its own frozen construction — AND THE AUDIO IS THERE at the predicted ratio 4.0000, on the ACROSS-BLOCK modulation §V9 did not measure; QUESTION C = SAME SHAPE with the APU PROVABLY OFF, so the 256-byte cell is the PATH's; and the two runs together bound the delay before the window carries sound at (10.045, 12.547] s after the CONTROL transform, which ANSWERS `U-GBP-038`**
 
 ### V9.1 Why this exists, and what RUN 30 left it to do
 
@@ -27748,3 +27748,200 @@ It authorises **no hardware and no staging**. `stream-0016` is untouched,
 artifact in this entire run**. `tools/v9tone.py` is unchanged and a test diffs
 it against the commit that wrote it. §V9's gates decided nothing here and are
 not re-opened: this appendix records an artifact, not a result.
+
+
+### V9.15 RUN 31 — **EXECUTED 2026-09-22 (Hardware Issue #66) AND INGESTED (Issue #67)**: `QUESTION R` = **RATIO DOES NOT HOLD** by its own frozen construction — **and the audio is there, at the predicted ratio, on a feature §V9 did not measure.** `QUESTION C` = **SAME SHAPE with the APU PROVABLY OFF**, which is what makes it decisive
+
+#### V9.15.1 The raws, and a naming defect that nearly cost a drop
+
+```text
+logs/run31/GBP-AUDIO-001_stream-0016.log          90 070 B  sha256 487c0c4935cbb33483f47eb76aa899c7b17ada6b819e557673ac0add57975bc7
+logs/run31/GBP-AUDIO-001_stream-0016-audio.bin  5 243 788 B  sha256 8ff09d34006a485d2adaf96d5e008d25a9b27735c717b964940c2c2133cd2e07
+archived to  captures/local/GBP-AUDIO-002_stream-0016-run31.log
+             captures/local/GBP-AUDIO-002_stream-0016-run31-audio.bin
+```
+
+**THE CONSOLE WROTE `GBP-AUDIO-001`, NOT `GBP-AUDIO-002`.** The image is
+`stream-0016` **reused unchanged** (§V9.9) and its embedded `TEST_ID` is
+`GBP-AUDIO-001`, so the filenames it writes name the experiment the image was
+built for and not the experiment being run. §V9.11 reserved `GBP-AUDIO-002…`
+names without checking that.
+
+**The consequence is not cosmetic: RUN 31 wrote the same two filenames RUN 30
+wrote.** RUN 30's copies had already been taken off the card, so **nothing was
+lost** — but had they been there, RUN 31 would have overwritten them silently,
+which is the collision class that has destroyed a raw drop twice before.
+
+```text
+THE STANDING CONSEQUENCE OF IMAGE REUSE, priced here because nobody priced it before
+  reusing an image across experiments means THE CONSOLE'S FILENAMES NO LONGER IDENTIFY THE EXPERIMENT
+  the archive name must therefore distinguish the runs even though the console does not, and the
+    ARCHIVE NAME AND THE FILE'S OWN test_id WILL DISAGREE -- here the copies say AUDIO-002 and their
+    contents say AUDIO-001, and that is correct rather than an error
+  the pre-registration that reserves names must read the IMAGE's TEST_ID, not the experiment's
+  the card must be clear of the PREVIOUS run's files before a reused image runs again (§V8.12.2's
+    SD-state check already says this; what is new is that it now has to be checked against the names
+    the IMAGE writes rather than the names the experiment reserves)
+```
+
+**Reuse was still the right call** — no new build, no new identity, no staging
+risk (§V9.9) — and this is its cost, now written down.
+
+#### V9.15.2 Admissibility, and §V9.6's cross-check on its first use
+
+```text
+the capture      5 windows, 5 closed, 1 280 blocks stored, 0 failed, 0 skipped, no INCOMPLETE, no GAP
+the arming       arms=5, refused_busy=0, refused_full=0
+the input        presses=4, releases=4, KEY events 8 emitted 8, lost=0, truncated=0
+the service      ok_session_ended, restore ok, errors=0, transport_ok=1, deliveries 98 931, main_w1c=0
+the sidecar      header CRC 9390bc85, total CRC d5d225b6, 5 243 788 B -- recomputed from the bytes and
+                 THEN found to agree with the run's own AWINSAVE record
+the spacing      3.303 s, 3.320 s, 3.136 s between the press arms, all above §V9.12's three seconds
+VERDICT          ADMISSIBLE
+```
+
+**§V9.6's two independent counts RAN AND AGREED, on their first use.** The
+Operator, verbatim: *"ainda não ouvi nada. Mas apareceu as cores Vermelho,
+verde, azul e saiu no quarto aperto"* — three background colours seen, and the
+session ending itself on the fourth press, which is the capture completing.
+**Four by his count and four by the machine's.** He heard nothing, which is the
+designed behaviour of both the image and the ROM (§V8.10.1, §V9.12) and bears
+on nothing.
+
+#### V9.15.3 QUESTION C, read FIRST — and this time the silence is PROVEN
+
+```text
+window 0, armed 5.000 s after the CONTROL transform and 0.924 s before the first press
+byte values    FIVE: 00, 03, 07, FC, FF
+structure      07x1, 03x7, FFx120, FCx8, 00x120, repeating -- a two-level square with 8-byte transitions
+period         EXACTLY 256 bytes, in all 256 blocks, uniformity 1.0 by §V9.8's estimator
+duty           128/256 in every block
+VERDICT        SAME SHAPE (§V9.7)
+```
+
+**And the thing RUN 30 could not do: the APU is PROVABLY OFF.** `agb-tone`
+writes all six APU registers to zero at reset and does not enable the master
+until the first press (§V9.14.2, demonstrated on the host). So this square is
+present **with the instrument's sound hardware disabled by construction**, on a
+cartridge unrelated to RUN 30's.
+
+**Therefore the 256-byte square is a property of the PATH, not of the
+instrument and not of any tone.** RUN 30 could only note that its control was
+not silent (`GBP-HW-288`); this run makes it a controlled observation. The
+transition bytes differ between the two cartridges — `{01, FE}` in RUN 30,
+`{03, 07, FC}` here — which is recorded and not explained.
+
+#### V9.15.4 QUESTION R — **RATIO DOES NOT HOLD**, by the construction frozen before the ROM existed
+
+**`tools/v9tone.py` was not touched.** This is its third outing and **the first
+where it decides against us**, which is exactly when the discipline is worth
+what it cost.
+
+```text
+the estimator     §V9.8's, unmodified: rising edges at the midpoint, the MEDIAN inter-edge interval,
+                  and at least 90 % of the intervals equal to it
+measured          256 bytes in EVERY ONE of the 1 280 stored blocks, with uniformity 1.0 and ZERO
+                  PERIOD ABSENT -- in the control and in all four press windows alike
+predicted         128 bytes for F1 and 32 bytes for F2
+the ratio         period(F1)/period(F2) = 256/256 = 1.0000, against the predicted 4.0000
+VERDICT           RATIO DOES NOT HOLD -- §V9.4's own words: "A REAL RESULT, not a failed run"
+```
+
+**The period does not follow the note.** §V9 pre-registered that outcome and
+what it means, and the verdict stands as written.
+
+#### V9.15.5 AND THE AUDIO IS THERE — on a feature §V9 did not measure
+
+**This is a MEASUREMENT reported beside the verdict, NOT a gate that was
+passed.** §V9 froze one question and the answer to it is above. What follows is
+what the bytes contain, and it is what a future pre-registration must be built
+on.
+
+**What changed with the presses was the DUTY, not the period** — and it changed
+**from block to block**:
+
+```text
+window            duty values over the 256 blocks
+w0 control        0.500 in all 256
+w1 press 1        0.500 in all 256      -- nothing changed
+w2 press 2        0.500 in all 256      -- nothing changed
+w3 press 3 (F1)   0.375 x105, 0.625 x93, 0.500 x44, and a few between
+w4 press 4 (F2)   0.375 x102, 0.625 x94, 0.4375 x30, 0.5625 x30
+```
+
+`0.375 = 96/256` and `0.625 = 160/256` are **symmetric about the control's
+128/256**. Reading the per-block duty as a series **ACROSS blocks** — the very
+feature §V8.5 predicted for RUN 30 and which the transfer's own 256-byte cell
+hid — and applying **§V9.8's unmodified estimator** to that series:
+
+```text
+window                    across-block period      edges   uniformity
+w3 (F1, after its onset)      32 blocks              6        1.000
+w4 (F2, whole window)          8 blocks             30        0.966
+w1, w2                     PERIOD ABSENT: no edges at all
+THE RATIO                 32 / 8 = 4.0000           <-- §V9.4's predicted ratio, exactly
+AS TIME                   7.8156 ms and 1.9539 ms at 4 094.4 blocks/s
+AS FREQUENCIES            127.95 Hz and 511.80 Hz   against the ROM's 128.0 and 512.0 -- 0.04 %
+AND INDEPENDENTLY         each window implies a drain rate of 4 096.0 blocks/s, from different data
+```
+
+**One decision inside that measurement is named rather than buried:** w4's
+period passes the 90 % uniformity rule over the **whole** window; w3's needs the
+slice **after its onset** (block 44), because the 44 flat blocks before the tone
+arrives are not part of the signal. **That slice was chosen after seeing the
+data** and is why this is a measurement and not a verdict.
+
+**What it says, and it is the run's real content:**
+
+```text
+THE 256-BYTE CELL IS THE TRANSFER'S    present with the APU provably off (§V9.15.3); the presses change
+                                       its CONTENT and never its LENGTH
+THE AUDIO IS THE ACROSS-BLOCK          one drained block behaves as ONE SAMPLE of the AGB's output, and
+ MODULATION                            the tone appears as the modulation of successive drains
+THE RATE                               4 096.0 blocks/s, recovered independently from two windows at two
+                                       frequencies -- and §V7.8.6's measured drain cadence is 4 094.4/s
+SO §V9's CONSTRUCTION WAS AIMED AT     the Orchestrator's second reading (#67) is the one the bytes
+ THE WRONG FEATURE                     support, and it is now demonstrated rather than offered
+```
+
+#### V9.15.6 WHY THE FIRST PRESSES CHANGED NOTHING — the two runs answer it together
+
+**RUN 30 left `U-GBP-038` open: its press 1 changed nothing.** RUN 31's presses
+1 **and** 2 changed nothing. Read against the CONTROL transform rather than
+against the press ordinal, the two runs agree:
+
+```text
+                     window armed at            carried the audio?
+RUN 31  press 1      +5.924 s                   no
+RUN 31  press 2      +9.227 s                   no
+RUN 30  press 1     +10.045 s                   no
+RUN 31  press 3     +12.547 s                   YES, from block 44 (+10.75 ms after the press)
+RUN 30  press 2     +14.182 s                   YES, from block 75 (+18.32 ms)
+RUN 30  press 3     +18.153 s                   YES
+RUN 31  press 4     +15.684 s                   YES, from block 0 -- press 3's tone was still sounding
+RUN 30  press 4     +21.840 s                   YES
+```
+
+**THE AUDIO WINDOW DOES NOT CARRY THE CARTRIDGE'S SOUND UNTIL BETWEEN 10.045 s
+AND 12.547 s AFTER THE CONTROL TRANSFORM**, and which press it is has nothing
+to do with it. **Two runs, two cartridges, two instruments, one bound.**
+
+**That answers `U-GBP-038`** — press 1 was not special, it was early — and it
+is a property of the path nobody had looked for. `RUN 31`'s ROM makes it
+sharper than RUN 30 could: the ROM enabled its APU at **+5.924 s** and the
+Operator's colours confirm it was running, so **the AGB was emitting for six
+seconds before the window carried anything**.
+
+**What this does NOT say:** why. Whether it is an initialisation the GBS-DOL
+performs, a buffer that must fill, or something else is **not determined**, and
+`U-GBP-039` opens for it with what would measure it.
+
+#### V9.15.7 What this part does NOT claim
+
+No promotion of `U-GBP-012` to a format. **No change to §V9**, whose gates
+decided this run and are not re-opened; `tools/v9tone.py` is unchanged and a
+test diffs it against the commit that wrote it. The across-block reading of
+§V9.15.5 is **one run's measurement**, with one of its two windows needing a
+slice chosen after the fact — it is what the next pre-registration tests, not
+something this part promotes. The delay of §V9.15.6 is bounded by two runs and
+its mechanism is unknown.

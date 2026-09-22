@@ -1378,6 +1378,23 @@ issue 65    agb-tone BUILT (tone-0001, HARDWARE_TESTS §V9.14): canonical 1 404 
             had to call an UNKNOWN. NO SOUND IS TESTED HERE and the record says so: a host has no APU,
             only the register values and their order are checked. tools/v9tone.py untouched, diffed
             against the commit that wrote it
+issue 67    RUN 31 EXECUTED AND INGESTED (§V9.15). QUESTION R = RATIO DOES NOT HOLD by its own frozen
+            construction (256 bytes in ALL 1 280 blocks, ratio 1.0000 against 4.0000) -- AND THE AUDIO IS
+            THERE at exactly the predicted ratio on the feature §V9 did NOT measure: the per-block DUTY
+            read ACROSS blocks gives 32 blocks at 128.0 Hz and 8 at 512.0 Hz, ratio 4.0000, frequencies
+            127.95 / 511.80 Hz against the ROM's 128.0 / 512.0, and each window independently implies
+            4 096.0 blocks/s. SO ONE DRAINED BLOCK IS ONE SAMPLE and the 256-byte cell is the TRANSFER's
+            -- proved by QUESTION C = SAME SHAPE WITH THE APU PROVABLY OFF (the ROM writes all six APU
+            registers to zero at reset; RUN 30 could not do that). It is a MEASUREMENT beside the verdict,
+            not a gate: w4 passes over the whole window, w3 needs a slice chosen AFTER seeing the data,
+            and the record says so. THE TWO RUNS TOGETHER ANSWER U-GBP-038: the AUDIO window carries
+            nothing until (10.045, 12.547] s after the CONTROL transform and WHICH PRESS IT IS DOES NOT
+            MATTER -- RUN 30's press 1 was EARLY, not special. §V9.6's cross-check RAN AND AGREED on first
+            use (his three colours + the self-ending fourth press = four, the machine's four). A DEFECT
+            RECORDED WITH ITS COST (GBP-HW-300): the reused image wrote RUN 30's filenames again, nothing
+            was lost only because the card was clear -- reusing an image means the console's filenames stop
+            identifying the experiment. ids GBP-HW-295..300; U-GBP-038 CLOSED; U-GBP-039 opened P2;
+            U-GBP-037 P1 -> P3, second half answered, open for a repeat and a THIRD frequency
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62 and #63 ACCEPTED and CLOSED
             (#61 by him after the ingestion); still to validate #41's pre-registration, #46 through #58 and
             #42; close #36. PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED,
