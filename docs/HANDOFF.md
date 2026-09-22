@@ -1011,8 +1011,28 @@ issue 30    gbhwdb RECORDED as a WEB REFERENCE (external/README.md's second tabl
             UNKNOWNS, EVIDENCE, GBS-DOL.md and this file. GBC_PATH §3 also gained the cartridge-vs-ERA confound
             (the empty diagonal) from the Orchestrator's #31 validation, with the nearly-free cell named and NOT
             pre-registered
-next        orchestrator-owned: validate #41's pre-registration, #29, #31, #44 and #30; the Operator's declaration
-            and the runs on #43; close #36. Executor: the queue is empty -- next checkpoint on dispatch
+issue 46    THE CONTROL BIT 0x02 SPLIT PROMOTED, two claims kept apart (EVIDENCE.md GBP-HW-272). CLAIM 1, the
+            split, is FACT: 12 logs at 0x90, 22 at 0x92, the difference exactly bit 0x02, no exception either way,
+            bit 0x01 reading 0 in all 34 -- FACT because it is RECOMPUTABLE, so the entry carries the command and
+            the output it produces and the host test RUNS that command. The selection is MECHANICAL, not curated:
+            captures/local holds 40 logs, 34 carry the field, all 34 are used, and the six that do not are the ones
+            predating the record or aborting at DET verdict=absent with no device to read. CLAIM 2, that the bit
+            REPORTS Game Pak presence, is HYPOTHESIS: the two-by-two has an empty diagonal, so cartridge and build
+            ERA are not separated -- unlikely is not measured. Dolphin is NOT corroboration (its "GamePak source"
+            is bit 2 of the IRQ register at index 0xD, not CONTROL 0x02 at index 0x4). THE BREAKER IS NAMED: one
+            boot of the staged 12-stream with the cartridge REMOVED, not pre-registered and not folded into RUN 21 /
+            RUN 22. THE RECONCILIATION SWEEP RAN and its outcome is recorded INCLUDING "nothing": every existing
+            statement is about the REFERENCES' USAGE and the new entry is about the DEVICE'S BYTE, so nothing moved
+            -- and the sweep improved its own tool (tools/reconcile.py now reads the body **Status:** line and
+            reports a COMPOUND status verbatim instead of "-"). REGISTERS.md §3 now carries three separate claims on
+            one row -- C (usage) / F (hw, 34 logs) / H for the CAUSE -- with bit 0x01's single observed state stated
+            as NOT a result. U-GBP-017 STAYS OPEN at P2 with one of three Needs answered for bit 0x02 only. The
+            negative is the durable half and it is proved: no page may put FACT or CORROBORATED beside bit 0x02 and
+            "presence" unless the sentence names WHICH proposition is settled (test_the_guard_bites; its first
+            version split on ";" and let the offender through)
+next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration and #46;
+            the Operator's declaration and the runs on #43; close #36. Executor: the queue is empty -- next
+            checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet

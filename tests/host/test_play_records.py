@@ -124,6 +124,10 @@ class NothingFrozenMoved(unittest.TestCase):
         if not guards.base_available(BASE):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE)
         changed = guards.changed_since(BASE, ["docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md", "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #46 (2026-09-22) promoted the CONTROL bit 0x02 split as GBP-HW-272: the evidence entry, the REGISTERS.md
+        # row that now separates the references' USAGE (C) from this project's measurement (F) from the cause (H), and
+        # U-GBP-017's Needs list, which records one of its three items answered and stays OPEN at P2
+        changed = changed - {"docs/protocol/REGISTERS.md", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"}
         # Issue #41 (2026-09-21) pre-registered RUN 21 / RUN 22 as §V7.6 (tests/host/test_run21_prereg.py pins it) -- the ONLY change allowed here since: §V7.6 appended, §V7.1-§V7.5 byte-identical (that test checks it)
         self.assertTrue(changed <= {"docs/research/HARDWARE_TESTS.md"}, "frozen paths changed: " + " ".join(sorted(changed)))
         hw = read(HW)
@@ -131,7 +135,9 @@ class NothingFrozenMoved(unittest.TestCase):
         self.assertIn("### V7.6 RUN 21 / RUN 22", hw)
         self.assertIn("NOT RUN / NOT AUTHORISED HERE", hw[hw.index("### V7.6 RUN 21 / RUN 22"):].splitlines()[0])
         self.assertNotIn("RUN 23", hw)
-        self.assertNotIn("GBP-HW-272", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
+        self.assertNotIn("GBP-HW-273", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
+        # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
+        # next free id so this guard keeps testing what it was written to test
         self.assertNotIn("GBP-PLAY-001", read(EVIDENCE))
 
 

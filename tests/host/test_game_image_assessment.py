@@ -205,6 +205,10 @@ class TheAssessmentIsRecordedAndNothingWasBuilt(unittest.TestCase):
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE_COMMIT)
         changed = guards.changed_since(BASE_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "docs/protocol", "docs/hardware", "docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #46 (2026-09-22) promoted the CONTROL bit 0x02 split as GBP-HW-272: the evidence entry, the REGISTERS.md
+        # row that now separates the references' USAGE (C) from this project's measurement (F) from the cause (H), and
+        # U-GBP-017's Needs list, which records one of its three items answered and stays OPEN at P2
+        changed = changed - {"docs/protocol/REGISTERS.md", "docs/research/EVIDENCE.md", "docs/research/UNKNOWNS.md"}
         # Issue #29 (2026-09-21) added the promotion sweep tool; it reads the pages and judges nothing, and
         # Issue #44 (2026-09-22) hardened the staging tool against destroying a frozen slot: the manifest gained a frozen_sha256 column
         changed = changed - {"tools/reconcile.py", "tools/swiss_export.py", "tools/swiss-layout.tsv"}
