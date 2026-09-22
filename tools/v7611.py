@@ -48,7 +48,14 @@ HEAD_SEQUENCE = tuple(k for _, k, n in HEAD_STEPS for _ in range(n))
 # §V7.6.9 step 15, the closing sweep, in its frozen order
 SWEEP_SEQUENCE = ("START", "A", "DOWN", "UP", "RIGHT", "LEFT", "B", "L", "R", "SELECT")
 
-PENDING_AMENDMENT = "PENDING_AMENDMENT"   # see question_K.__doc__
+# Issue #50 reported that §V7.6.11 named a K comparison its own instrument cannot delimit, and
+# §V7.6.15 (2026-09-22, Issue #51) amended it BEFORE HARDWARE: K is computed over steps 2-12 only
+# and its tail is NOT COMPUTED. The tail is reported with this string and NEVER as INCONCLUSIVE --
+# the run is not inconclusive about it; the pre-registration never defined it, and an INCONCLUSIVE
+# would invite a rerun that could not help.
+NOT_DEFINED = "NOT DEFINED BY THE PRE-REGISTRATION"
+PENDING_AMENDMENT = "PENDING_AMENDMENT"   # retired by §V7.6.15; kept only so the tests can assert
+                                          # that nothing returns it any more
 
 KEY_RE = re.compile(
     r"KEY n=(?P<n>\d+) act=(?P<act>\S+) keys=(?P<keys>[0-9a-f]{4}) word=(?P<word>[0-9a-f]{4}) "
@@ -293,74 +300,107 @@ def spurious(sequence, expected):
     return out
 
 
-def question_A_S(w_a, w_b, report_a, report_b, k_verdict, same_instrument):
-    """S, per key — §V7.6.11. SAME requires BOTH reports to agree in kind AND K to agree."""
+def question_A_S(w_a, w_b, report_a, report_b, k_verdict, same_instrument, segment="head"):
+    """S, per key — §V7.6.11, with §V7.6.15's resolution of its dependence on K.
+
+    `segment` is "head" (steps 2-12) or "sweep" (steps 14-15). Over the head, S
+    keeps both halves — his report and K. Over the sweep, §V7.6.15 says S reads
+    the Operator's channel ALONE and says so per key, because K's tail is not
+    computed: the closing sweep still produces his per-key report and only the
+    machine-side ordered comparison is lost.
+    """
+    assert segment in ("head", "sweep"), segment
     out = {}
     for key in sorted(BIT, key=lambda k: BIT[k]):
+        note = None if segment == "head" else "machine half: " + NOT_DEFINED + " (§V7.6.15)"
         if not same_instrument:
-            out[key] = ("INCONCLUSIVE", "a different cartridge or boot path between the runs")
+            out[key] = ("INCONCLUSIVE", "a different cartridge or boot path between the runs", note)
             continue
         ra, rb = report_a.get(key), report_b.get(key)
         if ra in (None, "", "UNCERTAIN") or rb in (None, "", "UNCERTAIN"):
-            out[key] = ("INCONCLUSIVE", "his report is missing for this key in one of the runs")
+            out[key] = ("INCONCLUSIVE", "his report is missing for this key in one of the runs", note)
         elif "INCONCLUSIVE" in (w_a.get(key, ("INCONCLUSIVE",))[0], w_b.get(key, ("INCONCLUSIVE",))[0]):
-            out[key] = ("INCONCLUSIVE", "one run is missing or inadmissible for this key")
+            out[key] = ("INCONCLUSIVE", "one run is missing or inadmissible for this key", note)
         elif ra != rb:
-            out[key] = ("DIFFERENT", "reported %s on one pad and %s on the other" % (ra, rb))
+            out[key] = ("DIFFERENT", "reported %s on one pad and %s on the other" % (ra, rb), note)
+        elif segment == "sweep":
+            out[key] = ("SAME", "both reports %s; read from his channel alone over steps 14-15" % ra, note)
         elif k_verdict not in ("AGREE", "EXPLAINED"):
-            out[key] = ("DIFFERENT", "K = %s: the press sequences differ" % k_verdict)
+            out[key] = ("DIFFERENT", "K = %s over steps 2-12: the press sequences differ" % k_verdict, note)
         else:
-            out[key] = ("SAME", "both reports %s, and K = %s" % (ra, k_verdict))
+            out[key] = ("SAME", "both reports %s, and K = %s" % (ra, k_verdict), note)
     return out
 
 
-def question_K_head(seq_a, seq_b):
-    """K over the DELIBERATE HEAD (steps 2-12) — the segment §V7.6.11 locates without ambiguity.
+def question_K_head(seq_a, seq_b, report_a=None, report_b=None):
+    """K over the DELIBERATE HEAD, steps 2-12 — the whole of K since §V7.6.15.
 
-    "AGREE: identical press sequences over the common prefix of the list."
-    Compared as key names, over the common prefix, which is what a list cut
-    short in one run leaves (§V7.6.10, THE LIST).
+    §V7.6.11's verdicts, and only those: AGREE / EXPLAINED / FINDING /
+    INCONCLUSIVE. Two of them need the Operator's channel and this code does
+    not invent it:
+
+      AGREE        identical press sequences over the common prefix of the list
+      FINDING      "a rising edge of a key not in the list at that point, or a list key that never
+                   appears on one pad though he reports pressing it" -- the first clause is computed
+                   here against the scripted head; the second needs his report and is computed when
+                   it is supplied
+      EXPLAINED    requires his report to explain the difference. NOT decided here: a difference this
+                   code cannot attribute comes back as DIFFERS, which is not a verdict but a fact,
+                   and the reader promotes it to EXPLAINED with his channel in hand.
+      INCONCLUSIVE either KEY record incomplete or unparsable; the list not started
     """
     a = [k for _, k in seq_a][:len(HEAD_SEQUENCE)]
     b = [k for _, k in seq_b][:len(HEAD_SEQUENCE)]
     n = min(len(a), len(b))
+    scope = "steps 2-12 only (§V7.6.15); K's tail is " + NOT_DEFINED
     if n == 0:
         return {"verdict": "INCONCLUSIVE", "why": "the list was not started in at least one run",
-                "common_prefix": 0}
-    if a[:n] == b[:n]:
+                "common_prefix": 0, "scope": scope}
+    off_list = spurious([(i, k) for i, k in seq_a[:n]], HEAD_SEQUENCE) + \
+               spurious([(i, k) for i, k in seq_b[:n]], HEAD_SEQUENCE)
+    never_appeared = []
+    for rep, seq, which in ((report_a, a, "A"), (report_b, b, "B")):
+        if not rep:
+            continue
+        for key in set(HEAD_SEQUENCE):
+            if key not in seq and rep.get(key) not in (None, "", "UNCERTAIN"):
+                never_appeared.append({"pad": which, "key": key,
+                                       "note": "a list key that never appears on this pad though he reports it"})
+    if a[:n] == b[:n] and not off_list and not never_appeared:
         return {"verdict": "AGREE", "why": "identical over the common prefix of %d presses" % n,
-                "common_prefix": n}
+                "common_prefix": n, "scope": scope}
+    if off_list or never_appeared:
+        return {"verdict": "FINDING", "common_prefix": n, "scope": scope,
+                "off_list": off_list, "never_appeared": never_appeared,
+                "why": "a rising edge the list did not press at that point, or a list key absent on one pad"}
     diff = next(i for i in range(n) if a[i] != b[i])
-    return {"verdict": "DIFFERENT", "common_prefix": n,
+    return {"verdict": "DIFFERS", "common_prefix": n, "scope": scope,
             "why": "first difference at press %d: %s against %s" % (diff + 1, a[diff], b[diff]),
-            "note": "EXPLAINED requires the Operator's report to explain it (§V7.6.11); this code does not decide that"}
+            "note": "not a verdict: §V7.6.11's EXPLAINED requires the Operator's report to explain the "
+                    "difference, and this code does not decide that"}
 
 
-def question_K(seq_a, seq_b):
-    """K over steps 2-12, 14 and 15 — NOT IMPLEMENTED, BY REFUSAL. See Issue #50's report.
+def question_K(seq_a, seq_b, report_a=None, report_b=None):
+    """K — §V7.6.11 as amended by §V7.6.15 (2026-09-22, Issue #51).
 
-    §V7.6.11 says K "is compared over steps 2-12, 14 and 15, the scripted
-    parts, and step 13's words are reported as counts per bit and never
-    compared press for press". Steps 14 and 15 come AFTER step 13's several
-    minutes of ordinary play, whose number of presses is unbounded and
-    unscripted, and **the frozen text gives no machine rule for locating the
-    boundary between step 13 and step 14 in a KEY record**. Neither does
-    §V7.6.9, which defines the steps for the Operator and not for a parser.
+    THE HISTORY MATTERS AND IS KEPT HERE. §V7.6.11 said K was "compared over
+    steps 2-12, 14 and 15". Steps 14 and 15 follow step 13's unbounded ordinary
+    play, and nothing in the frozen text located that boundary in a KEY record,
+    so Issue #50 REFUSED to compute K and reported the defect before any data
+    existed. §V7.6.15 amended it on top: **K is computed over steps 2-12 only**,
+    and its tail is NOT COMPUTED -- recorded as NOT_DEFINED, never as
+    INCONCLUSIVE, because the run is not inconclusive about it.
 
-    Any rule this module invented — match the trailing twelve presses, split on
-    an inter-press time gap, trust the Operator's step numbering — would be a
-    construction chosen after the freeze, which is precisely what §V7.6.11
-    exists to prevent, and §V7.6.3 separately refuses thresholds "invented
-    after the fact".
-
-    So this returns PENDING_AMENDMENT. `question_K_head` implements the part
-    that IS defined and is used meanwhile; the pair's reading over 14 and 15
-    waits for a dated pre-hardware amendment from the Orchestrator.
+    What is lost is only the machine-side ordered comparison between the two
+    pads after minutes of play. The closing sweep still produces the Operator's
+    per-key report, which feeds W and S unchanged (§V7.6.15).
     """
-    return {"verdict": PENDING_AMENDMENT,
-            "why": "§V7.6.11 compares K over steps 2-12, 14 and 15, and the frozen text gives no machine "
-                   "rule for finding where step 13's ordinary play ends. Reported, not resolved (Issue #50).",
-            "head": question_K_head(seq_a, seq_b)}
+    head = question_K_head(seq_a, seq_b, report_a, report_b)
+    return {"verdict": head["verdict"], "scope": head["scope"], "head": head,
+            "tail": {"steps": "14 and 15", "verdict": NOT_DEFINED,
+                     "why": "§V7.6.11 named a comparison its own instrument cannot delimit; §V7.6.15 "
+                            "narrowed K to steps 2-12 rather than invent a boundary. NOT inconclusive: "
+                            "the pre-registration never defined it, and no rerun would help."}}
 
 
 # ---------------------------------------------------------------- Question T
