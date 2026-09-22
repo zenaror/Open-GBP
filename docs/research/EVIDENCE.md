@@ -449,6 +449,20 @@ MASK_IRQ` (+ commented `SLEEP, LINK_CABLE, LINK_ENABLE`), reset on
 Advance"/"Game Pak" chosen from bits 0/1); **HYPOTHESIS** for the meaning
 of 0x20–0x80 and for the names "3V/5V" (U-GBP-006).
 
+**Pointers added 2026-09-22 (GitHub Issue #48). THE STATUS LINE ABOVE IS
+UNCHANGED and nothing here revises it.** This entry's claim is what the
+SOFTWARE does with the register, read out of three reference implementations;
+**the byte the DEVICE reports is a different proposition**, and it is carried
+by its own ids: the presence bit's split over 36 runs and the causal reading it
+supports (`GBP-HW-272` **with its 2026-09-22 amendment**, `GBP-HW-273`), and
+the type bit's measured transition with its read-point distinction and its open
+question (`GBP-HW-274`, `GBP-HW-275`, `U-GBP-036`). **Neither upgrades the
+other**, which is the distinction `docs/protocol/REGISTERS.md` §3 sets out in
+the paragraph beginning *"The usage column and the hardware column are
+different claims"*. The hardware pages now carry both, stated apart:
+`docs/hardware/GBS-DOL.md` (cartridge sensing) and
+`docs/hardware/ARCHITECTURE.md` (control/status).
+
 ## GBP-KEY-001 — KEYPAD register
 
 **Claim:** Index 0xC accepts a 16-bit value in bytes 0x1E–0x1F, 1 =
