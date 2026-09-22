@@ -77,6 +77,11 @@ LEDGER = [
      "the document's own figures are pinned from the SOURCES in the same file -- the frozen-construction "
      "diff, the prose correction, U-GBP-012's status and the two new unknowns never skip -- and the "
      "Operator's machine, where the files are, runs the suite before every push"),
+    # Issue #68: §V10 checks that stimulus/agb-tone was NOT edited by the design checkpoint,
+    # finding its build commit by message rather than by a pinned hash.
+    (r"^the commit that built agb-tone is not in this checkout$", "HISTORY_ABSENT",
+     "the ROM's identity is pinned by hash and size in §V9.14 and in test_agb_tone.py, which do not "
+     "skip; an edit that changed the bytes would break those first"),
     (r"^the commit that introduced tools/v9tone\.py is not in this checkout$", "HISTORY_ABSENT",
      "the frozen constructions are also pinned by tests/host/test_v9tone.py, which exercises them on "
      "synthetic vectors and fails loudly if a construction changed behaviour"),

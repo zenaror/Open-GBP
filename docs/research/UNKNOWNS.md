@@ -586,6 +586,20 @@ WHAT WOULD TEST IT a stimulus that sweeps AMPLITUDE rather than frequency. If th
 where it belongs   a pre-registration of its own, with the prediction written before the run. NOT here.
 ```
 
+**2026-09-22, Issue #68 — THE TEST NAMED ABOVE IS NOW DESIGNED**, and only
+designed: `HARDWARE_TESTS.md` **§V10**, GBP-AUDIO-003. Four envelope levels
+(15 / 11 / 7 / 3) at a fixed 128.0 Hz, one level per press, with the predicted
+duties written out and the **linear** map separated from a **compressive** one
+by at least 5 bytes of 256 at every point that is not the anchor. **No ROM, no
+build, no run, and nothing frozen**: §V10 is a design, its numbers become real
+only when a pre-registration puts them in code before data exists, and **this
+item stays exactly as OPEN as it was**. Two things §V10 adds that this entry
+did not have: the null is tested as the **intercept** of the four points rather
+than as a fifth window — because a zero-amplitude window and a window that has
+not begun carrying are the same picture — and a **second candidate encoding**
+rides along for free, since a run that records each window's byte **alphabet**
+can see magnitude carried in the cell's LEVELS instead of its duty.
+
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the
@@ -1823,3 +1837,14 @@ if it follows neither and stays ~11 s    it is elapsed time since power, and nei
 **It costs a rebuild with an existing option and no new code.** Not authorised
 here; it is the obvious content of the next pre-registration that touches this
 item, and it can ride on any audio run rather than needing one of its own.
+
+**2026-09-22, Issue #68 — PRICED AGAINST THE NEXT RUN, AND DEFERRED.** §V10.7
+assesses the rider on GBP-AUDIO-003 and recommends **against** it, for a reason
+that is not its cost: `prehandler_wait_ms` moves the very delay that decides
+whether the amplitude sweep's four windows carry anything, so riding it there
+would put the primary question's **precondition** under the rider's variable.
+§V6.13's precedent — two questions, separate gates — was two readings of **one
+image and one run**; this needs a second image and therefore a second boot.
+**The item is unchanged and still P2**: what moves is that the rider now has a
+price and a stated better moment — any later run that already needs two images,
+or one whose question does not depend on when the window starts carrying.
