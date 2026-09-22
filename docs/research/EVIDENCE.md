@@ -8139,10 +8139,25 @@ the region's reset content is **not determined** by this run. §V8.13.3.
 ### GBP-HW-289 — the AUDIO window CHANGES with the press, ONE GBA FRAME LATER, by the appearance of intermediate levels — **FACT (this run, three of four presses)**
 
 Three byte values that occur **nowhere** in the control window or in press 1's
-— `0x80`, `0x81` and the pair `0xF8`/`0xFA` — appear in presses 2, 3 and 4, and
-their count grows monotonically: `0x80` occurs 0, 0, 5 564, 10 749 and 19 309
-times in windows 0…4. `0x80` is mid-scale between the `0x00` and `0xFF` the
-standing square already uses.
+— `0x80`, `0x81` and the pair `0xF8`/`0xFA` — appear in presses 2, 3 and 4.
+`0x80` is mid-scale between the `0x00` and `0xFF` the standing square already
+uses.
+
+**The counts, both of them, over the 256 STORED blocks of each window**
+(`0x80` alone was the only one first published, introduced as *"their count"*,
+which a reader could take either way — §V8.13.4.1, appended on validation):
+
+```text
+A  bytes not in {00,01,FE,FF}   0, 0, 23 234, 24 608, 26 709   -- grows, composition shifts
+B  the byte 0x80 alone          0, 0,  5 564, 10 749, 19 309   -- MONOTONE; a subset of A
+per value  w2  80:5 564  81:326    F8:15 165  FA:2 179
+           w3  80:10 749 81:659    F8:11 544  FA:1 656
+           w4  80:19 309 81:1 176  F8: 5 441  FA:  783
+```
+
+**"Grows monotonically" is a claim about B.** A also grows, but its composition
+changes direction — `0x80` rises 3.5× across the three presses while `0xF8`
+falls 2.8× — and nothing here reads a meaning into either.
 
 **The onset, measured from the GBP-side key change:** block 75 = **18.32 ms**,
 block 65 = **15.88 ms**, block 50 = **12.21 ms** — bracketing the **16.74 ms**

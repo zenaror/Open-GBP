@@ -13181,3 +13181,51 @@ ones, and a residual becoming better understood is the system working.
 **Next:** the implementation is a checkpoint of its own with its own
 pre-registration, and it is **not** dispatched.
 
+---
+
+## 2026-09-22 — Issue #62's validation: **the count's definition was missing from the page**, both quantities now carried, and the 12-byte gap diagnosed
+
+**The Orchestrator reproduced RUN 30 from the raw bytes rather than from the
+tables — which is what he is for — and one figure did not match.** Everything
+else did, to the hundredth of a millisecond: the control window's four values,
+the 256-byte period with sixteen whole cycles inside one block, the duty, and
+the three onsets (18.32 / 15.88 / 12.21 ms, bracketing one GBA frame).
+
+**It was not a wrong figure. It was an undefined one, and that is the defect.**
+§V8.13.4 gave *"their count"* after naming four byte values and then printed the
+count of **one** of them:
+
+```text
+A  bytes not in {00,01,FE,FF}   0, 0, 23 234, 24 608, 26 709
+B  the byte 0x80 alone          0, 0,  5 564, 10 749, 19 309   (a subset of A -- what was published)
+```
+
+**Both are now on the page with the per-value breakdown** (§V8.13.4.1,
+`GBP-HW-289` amended), so either is recomputable without trusting the other,
+and the word *monotonically* is now explicitly a claim about **B**: A grows too,
+but its composition **changes direction** — `0x80` rises 3.5× across the three
+presses while `0xF8` falls 2.8×.
+
+**And his 26 721 against my 26 709 has an exact cause: 12 bytes, which is the
+`OGBPAW1` footer.** `4f 47 42 50 41 57 4e 44 73 a7 4a 49` — `OGBPAWND` plus the
+total CRC, all twelve outside the base set, sitting immediately after the last
+window's last block. **A window's bytes end where its block count says they
+end, not at end-of-file.** `tools/awinparse.py` slices by the anchor's own block
+count; a test now pins both figures *and* the 12-byte gap, so the next person to
+slice to EOF is told why their number is high.
+
+**An INFERENCE recorded in `U-GBP-037`, labelled and not inherited.** If the
+256-byte period is the 64 Hz wave, one byte is **61.04 µs**, a 4096-byte block
+is **250.0 ms of audio**, and it is delivered every 0.244 ms — a **1 024×
+oversupply**, which points at a **re-read buffer** rather than a time series and
+fits the 245-of-256 byte-identical control blocks. **It cannot be used to prove
+itself**: the premise is exactly what `U-GBP-037` says is unknown, and the
+arithmetic is written down as an inference so nobody inherits it as a fact.
+
+**What it buys is a sharp prediction for the next instrument**, which is worth
+more than the inference: `stimulus/agb-tone` playing a **known** tone changed
+between **two** known frequencies inside one run should move the period in bytes
+**proportionally**. If it does, the sample rate follows and `U-GBP-037` closes;
+if it does not, the buffer reading is wrong. Either way the run decides and the
+prediction is on paper first.
+
