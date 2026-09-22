@@ -493,6 +493,13 @@ a dirty build (`CLAUDE.md` §18).
   artifact? `color-0001` is the strongest test so far (a non-uniform picture,
   every deviation confined to bytes 0 and 2, none in 1 or 3) and still not
   decisive.
+- **U-GBP-036** — why does CONTROL bit `0x01` appear 186–636 µs AFTER the
+  transform write rather than in the original byte, and what causes the
+  sensing? Opened 2026-09-22 by RUN 24, the first run with a GB/GBC cartridge.
+  The transform's power/reset bits, the `A1` write and elapsed time all fall
+  inside the same window and one run separates none of them. Not blocking
+  Phase 5; it bites in Phase 7, and it already says that a startup reading the
+  type from the original byte would read it wrong.
 - **U-GBP-033** — what mechanism produces semantic non-uniformity among the
   eight replicas of the IRQ window. Three physical runs corroborate the
   *policy*; none explains the *cause*.
@@ -1030,9 +1037,30 @@ issue 46    THE CONTROL BIT 0x02 SPLIT PROMOTED, two claims kept apart (EVIDENCE
             negative is the durable half and it is proved: no page may put FACT or CORROBORATED beside bit 0x02 and
             "presence" unless the sentence names WHICH proposition is settled (test_the_guard_bites; its first
             version split on ";" and let the offender through)
-next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration and #46;
-            the Operator's declaration and the runs on #43; close #36. Executor: the queue is empty -- next
-            checkpoint on dispatch
+issue 47    RUN 23 / RUN 24 INGESTED (§V7.7) -- two UNREGISTERED runs of the staged 12-stream the Operator
+            performed himself, one with NO cartridge and one with a GAME BOY COLOR cartridge. Archived FIRST:
+            the two drops carry IDENTICAL filenames, so a flat copy would have destroyed one; run-suffixed
+            targets, cp --update=none, cmp, hashes from the copies, logs/ untouched. NO PASS AND NO FAIL
+            APPEARS ANYWHERE: no gate existed beforehand, and the section says so in its first paragraph.
+            What protects them is weaker and is written as such -- the question and the discriminator were
+            PUBLIC FIRST (GBC_PATH §3/§4.1 at f99bc96, the #31 validation, GBP-HW-272's confound table), all
+            timestamped ahead of the Operator's message. RUN 23: a LATE build with an EMPTY SLOT reads 0x90 --
+            the empty diagonal cell filled, the build-era rival DISCONFIRMED BY MEASUREMENT, and bit 0x02's
+            causal reading moved HYPOTHESIS -> CORROBORATED in a dated amendment on top of GBP-HW-272 (still
+            not FACT: nobody has watched the bit change while only the cartridge changed). RUN 24: the
+            ORIGINAL byte is 0x92 with bit 0x01 CLEAR, byte-identical to a GBA cartridge -- GBC_PATH's stated
+            gap filled with a NEGATIVE -- and the bit then becomes SET 186-636 us after the transform write
+            and stays set, so the restore writes 0x92 and reads 0x93. THE CLAIM IS UNANIMITY AND PERSISTENCE,
+            NOT THE VALUE: an isolated replica reads 0x8f twice in RUN 17, which had a GBA cartridge, so the
+            four replica deviations are listed and pinned. RUN 24 captured nothing because the runtime's own
+            pre-unmask guard refused the session (reason=control_changed, teardown S2_before_unmask,
+            unmasks=0) -- the guard working, not a defect, and the reason the current image cannot exercise a
+            GB/GBC session at all. RUN 23 also reached its 2048-record witness target with no Game Pak.
+            U-GBP-017 STILL OPEN; U-GBP-036 opened for why the bit appears late. Run numbers 23 and 24
+            PRECEDE 21 and 22 in wall-clock time: a number is an allocation, not a clock
+next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46
+            and #47; the Operator's declaration and the runs on #43; close #36. Executor: the queue is empty
+            -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet

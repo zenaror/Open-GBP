@@ -68,6 +68,10 @@ class Links(unittest.TestCase):
                 continue
             if p.startswith("ogc/"):          # a toolchain header, not a repo path
                 continue
+            if p.startswith("/"):             # Issue #47: an ABSOLUTE path is the Operator's removable media
+                continue                      # (the SD card, mounted only when it is in the reader); whether it
+                                              # is plugged in is not a property of this tree, and this test says
+                                              # in its own docstring that it checks REPO paths
             if not os.path.exists(os.path.join(ROOT, p)):
                 missing.append(p)
         self.assertEqual(sorted(set(missing)), [],

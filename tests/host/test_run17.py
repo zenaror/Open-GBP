@@ -685,7 +685,7 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         ev = read(EVIDENCE)
         for n in range(266, 272):
             self.assertEqual(len(re.findall(r"^### GBP-HW-%d " % n, ev, re.M)), 1, n)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 272)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 277)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)
         b266 = ev[ev.index("### GBP-HW-266 "):ev.index("### GBP-HW-267 ")]
         for run, R in RUNS.items():
             for k in ("log", "idxcap", "disp", "full", "vi"):

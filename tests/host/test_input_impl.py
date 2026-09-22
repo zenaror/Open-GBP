@@ -252,7 +252,7 @@ class TheDocumentsKeepTheStatus(unittest.TestCase):
                                     or "not established" in low, fn + ": " + line)
         ev = read(os.path.join(DOCS, "research", "EVIDENCE.md"))
         hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
-        self.assertEqual(hw, 272)   # GBP-HW-261…265 (Issue #24); 266…271 (Issue #33)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)
+        self.assertEqual(hw, 277)   # GBP-HW-261…265 (Issue #24); 266…271 (Issue #33)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause); 273…277: Issue #47 (RUN 23 / RUN 24, ingested §V7.7)
 
 
 if __name__ == "__main__":

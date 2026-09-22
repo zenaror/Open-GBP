@@ -41,6 +41,11 @@ DOCS = os.path.join(ROOT, "docs")
 
 CARTLESS = ["avsvc-0001", "init-0001", "initirq-0001", "initirq4-0001", "initirqa-0001", "initirqb-0001",
             "video-0001", "vstate-0001", "vstate-0002", "vstate-0003", "vstate-0004", "vstate-prewait-5000"]
+# Issue #47 (2026-09-22): the archive grew by two runs the Operator performed himself. They are NOT in
+# GBP-HW-272's enumeration (the entry predates them by hours) and they ARE in its amendment, so the test
+# keeps the two populations apart: the entry enumerates 34, the archive holds 36, and both must be true.
+LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92}
+
 WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0005", "stream-0005-run2",
              "stream-0005-run3", "stream-0006-run4", "stream-0007-run5", "stream-0008-run6", "stream-0009-run7",
              "stream-0009-run8", "stream-0010-run10", "stream-0010-run9", "stream-0011-run11", "stream-0013-run12",
@@ -91,9 +96,13 @@ class TheSplitIsRecomputedNotQuoted(unittest.TestCase):
 
     def test_the_split_is_in_the_files(self):
         o = self.origins()
-        self.assertEqual(len(o), 34, "the archive carries %d logs with the field, not 34" % len(o))
-        self.assertEqual(sorted(b for b, v in o.items() if v == 0x90), sorted(CARTLESS))
-        self.assertEqual(sorted(b for b, v in o.items() if v == 0x92), sorted(WITH_CART))
+        self.assertEqual(len(o), 34 + len(LATER), "the archive carries %d logs with the field" % len(o))
+        for b, v in LATER.items():
+            self.assertEqual(o.get(b), v, "%s is not in the archive with the byte the records name" % b)
+        self.assertEqual(sorted(b for b, v in o.items() if v == 0x90),
+                         sorted(CARTLESS + [b for b, v in LATER.items() if v == 0x90]))
+        self.assertEqual(sorted(b for b, v in o.items() if v == 0x92),
+                         sorted(WITH_CART + [b for b, v in LATER.items() if v == 0x92]))
         self.assertEqual(sorted(set(o.values())), [0x90, 0x92])
         # the difference is that bit and nothing else, which is the claim
         self.assertEqual(0x90 ^ 0x92, 0x02)
@@ -114,8 +123,12 @@ class TheSplitIsRecomputedNotQuoted(unittest.TestCase):
             seg = block[block.index("orig = %s" % value):]
             seg = seg[:seg.index("\norig = ")] if "\norig = " in seg else seg[:seg.index("difference")]
             listed[want] = set(re.findall(r"\b(?:stream|vstate|color|initirq[a-b4]?|init|avsvc|video)-[0-9a-z-]+", seg))
-        self.assertEqual(listed[0x90], {b for b, v in o.items() if v == 0x90})
-        self.assertEqual(listed[0x92], {b for b, v in o.items() if v == 0x92})
+        # the ENTRY enumerates the 34 it was written over; the two later runs are in its AMENDMENT
+        self.assertEqual(listed[0x90], {b for b, v in o.items() if v == 0x90} - set(LATER))
+        self.assertEqual(listed[0x92], {b for b, v in o.items() if v == 0x92} - set(LATER))
+        for b in LATER:
+            self.assertNotIn(b, block, "a later run leaked into the entry's original enumeration")
+            self.assertIn(b.split("-")[-1], e, "the amendment does not name %s" % b)
         self.assertEqual(len(listed[0x90]), 12)
         self.assertEqual(len(listed[0x92]), 22)
         self.assertIn("12 logs", plain(e))
@@ -136,16 +149,28 @@ class TheSplitIsRecomputedNotQuoted(unittest.TestCase):
             self.assertIn("abort_not_present", read(os.path.join(LOCAL, f)))
 
     def test_the_command_the_entry_offers_a_reader_actually_runs(self):
-        """'Anyone can re-derive it' is a claim like any other, so it is tested."""
-        m = re.search(r"```text\n(grep -ho [^\n]+)\n", entry())
-        self.assertTrue(m, "GBP-HW-272 carries no runnable derivation")
-        out = subprocess.run(["bash", "-c", m.group(1)], cwd=ROOT, capture_output=True, text=True, timeout=120)
+        """'Anyone can re-derive it' is a claim like any other, so it is tested.
+
+        Issue #47: the entry now carries TWO printed outputs — the one the
+        archive gave when the entry was written, labelled as such, and the one
+        it gives now, in the amendment. The command is run once and must
+        reproduce the SECOND. The first is checked for being labelled rather
+        than for being current, which is the honest way to keep a record that
+        was true when it was written.
+        """
+        e = entry()
+        cmds = re.findall(r"```text\n(grep -ho [^\n]+)\n((?:\s+\d+ CONTROL[^\n]*\n)+)", e)
+        self.assertEqual(len(cmds), 2, "GBP-HW-272 should carry the original derivation and the amended one")
+        self.assertEqual(cmds[0][0], cmds[1][0], "the two blocks must run the SAME command")
+        self.assertIn("the archive AS IT STOOD when this entry was written", plain(e))
+        out = subprocess.run(["bash", "-c", cmds[1][0]], cwd=ROOT, capture_output=True, text=True, timeout=120)
         self.assertEqual(out.returncode, 0, out.stderr)
         got = dict((v, int(n)) for n, v in re.findall(r"\s*(\d+) CONTROL semantic orig=([0-9a-f]+)", out.stdout))
-        self.assertEqual(got, {"90": 12, "92": 22}, out.stdout)
-        # and the entry prints the same output it would produce
-        for line in ("     12 CONTROL semantic orig=90", "     22 CONTROL semantic orig=92"):
-            self.assertIn(line, entry())
+        printed = dict((v, int(n)) for n, v in re.findall(r"\s*(\d+) CONTROL semantic orig=([0-9a-f]+)", cmds[1][1]))
+        self.assertEqual(got, printed, "the amendment's printed output is not what the command produces now")
+        self.assertEqual(got, {"90": len(CARTLESS) + 1, "92": len(WITH_CART) + 1}, out.stdout)
+        self.assertEqual(dict((v, int(n)) for n, v in re.findall(r"\s*(\d+) CONTROL semantic orig=([0-9a-f]+)", cmds[0][1])),
+                         {"90": len(CARTLESS), "92": len(WITH_CART)}, "the original block keeps the numbers it was written with")
 
 
 class TheTwoClaimsAreKeptApart(unittest.TestCase):
@@ -200,7 +225,13 @@ class TheCausalClaimIsNowhereStatedAsSettled(unittest.TestCase):
     """THE NEGATIVE. This is the test that has to outlive the checkpoint."""
 
     CAUSAL = re.compile(r"(0x02|CART_INSERTED)[^.]{0,200}?presen[ct]|presen[ct][^.]{0,200}?(0x02|CART_INSERTED)", re.I)
-    SETTLED = re.compile(r"\b(FACT|CORROBORATED)\b")
+    # Issue #47 (2026-09-22) RE-AIMED this guard, deliberately and in the open. It forbade FACT *and*
+    # CORROBORATED beside the causal reading. Then RUN 23 filled the empty cell -- a late build with no
+    # Game Pak reads 0x90 -- the build-era rival was disconfirmed by measurement, and CORROBORATED became
+    # the CORRECT status: the guard would have been forbidding the truth. What still cannot be said, and
+    # is what this guard is really for, is FACT. Presence is still inferred from a correlation, and
+    # nobody has yet watched the bit change while only the cartridge changed.
+    SETTLED = re.compile(r"\bFACT\b")
 
     @staticmethod
     def units(text):
@@ -243,14 +274,16 @@ class TheCausalClaimIsNowhereStatedAsSettled(unittest.TestCase):
         self.assertEqual(len(row), 1, row)
         r = row[0]
         self.assertIn("C (usage)", r)                       # what the references do with the bit
-        self.assertIn("F (hw, 34 logs", r)                  # what this project measured
-        self.assertIn("H for the CAUSE", r)                 # the step between them
+        self.assertIn("F (hw, 36 logs", r)                  # what this project measured -- 34 + RUN 23 / RUN 24
+        self.assertIn("C for the CAUSE", r)                 # Issue #47: H -> C, the era rival disconfirmed by RUN 23
+        self.assertNotIn("F for the CAUSE", r)              # the line that still holds
         self.assertIn("GBP-HW-272", r)
-        # bit 0x01's row states its single state as NOT a result
+        self.assertIn("GBP-HW-273", r)
+        # bit 0x01's row carried ONE OBSERVED STATE until RUN 24 gave it the other one
         r1 = [l for l in read(REGISTERS).splitlines() if l.startswith("| 0x01 |")][0]
-        self.assertIn("ONE OBSERVED STATE", r1)
-        self.assertIn("one state is not a result", r1)
-        self.assertIn("GBP-HW-272", r1)
+        self.assertIn("F (hw, RUN 24", r1)
+        self.assertIn("C, not F, for the MEANING", r1)
+        self.assertIn("U-GBP-036", r1)
         # and the page says why the two columns are different claims
         p = plain(read(REGISTERS))
         self.assertIn("The usage column and the hardware column are different claims", p)

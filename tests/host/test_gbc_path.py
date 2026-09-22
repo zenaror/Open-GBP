@@ -57,8 +57,21 @@ class ItIsDesignOnlyAndSaysSo(unittest.TestCase):
         # it may CITE an open unknown, but it must not restate its status
         self.assertIn("U-GBP-017", d)
         self.assertIn("U-GBP-017 stays open", plain(d))
-        self.assertNotIn("GBC_PATH", read(UNKNOWNS))
-        self.assertNotIn("GBC_PATH", read(HW))     # no pre-registration references it
+        # Issue #47 opened U-GBP-036 and it cites this document; what must stay true is that the item this
+        # design document was ABOUT (U-GBP-017) does not lean on it, and that any citation names its Issue
+        un = read(UNKNOWNS)
+        u017 = un[un.index("## U-GBP-017 (P2) —"):un.index("\n## ", un.index("## U-GBP-017 (P2) —"))]
+        self.assertNotIn("GBC_PATH", u017)
+        u036 = un[un.index("### U-GBP-036 —"):]
+        self.assertEqual(un.count("GBC_PATH"), u036.count("GBC_PATH"),
+                         "UNKNOWNS cites the design document outside U-GBP-036, which Issue #47 opened for it")
+        # Issue #47: §V7.7 ingests the two runs that answered this document's stated gap and cites it for
+        # that reason. No PRE-REGISTRATION may reference it, which is what this pin was always about, so the
+        # citation must live inside §V7.7 and nowhere else on the page.
+        hw = read(HW)
+        v77 = hw[hw.index("### V7.7 "):]
+        self.assertEqual(hw.count("GBC_PATH"), v77.count("GBC_PATH"),
+                         "a section other than the §V7.7 ingestion references the design document")
 
     def test_a_promotion_made_elsewhere_may_be_POINTED_AT_but_never_performed_here(self):
         """GitHub Issue #46 promoted this document's §3 finding as GBP-HW-272.
@@ -73,8 +86,17 @@ class ItIsDesignOnlyAndSaysSo(unittest.TestCase):
         minting, and the offer paragraphs keep the words they had.
         """
         d = read(DOC)
-        ids = re.findall(r"\bGBP-HW-\d+\b", d)
-        self.assertEqual(sorted(set(ids)), ["GBP-HW-272"], "the design document names a hardware id it should not")
+        ids = sorted(set(re.findall(r"\bGBP-HW-\d+\b", d)))
+        # Issue #46 promoted this document's §3 finding (272); Issue #47 ingested the two runs that answered
+        # its stated gap (274, 275) and explained what RUN 24 did not deliver (276). Every one of them was
+        # minted ELSEWHERE, and the rule is unchanged: each must sit in a paragraph that names the Issue
+        # that did the minting, so a reader can always tell a pointer from a promotion.
+        self.assertEqual(ids, ["GBP-HW-272", "GBP-HW-274", "GBP-HW-275", "GBP-HW-276"],
+                         "the design document names a hardware id it should not")
+        for i in ids:
+            for para in [q for q in re.split(r"\n\s*\n", d) if i in q]:
+                self.assertRegex(plain(para), r"GitHub Issue #4[67]",
+                                 "%s is named in a paragraph that does not say who promoted it" % i)
         paras = [p for p in re.split(r"\n\s*\n", d) if "GBP-HW-272" in p]
         self.assertEqual(len(paras), 1, "GBP-HW-272 is named outside the single pointer paragraph")
         p = plain(paras[0])
@@ -91,10 +113,15 @@ class ItIsDesignOnlyAndSaysSo(unittest.TestCase):
         self.assertIn("### GBP-HW-272 ", read(EVIDENCE))
         # and EVIDENCE names this document only as PROVENANCE, inside that entry
         ev = read(EVIDENCE)
-        for m in re.finditer(r"GBP_PATH|GBC_PATH", ev):
-            entry = ev.rfind("\n### ", 0, m.start())
-            self.assertTrue(ev[entry:entry + 20].startswith("\n### GBP-HW-272"),
-                            "EVIDENCE cites the design document outside GBP-HW-272")
+        # Issue #47: GBP-HW-274 cites this document too, because the expectation it refutes was written
+        # here first — which is the whole reason that entry is a result and not a shrug. The rule is that
+        # only entries ABOUT this document's content may cite it, and they are named.
+        citing = set()
+        for m in re.finditer(r"GBC_PATH", ev):
+            head = ev[ev.rfind("\n### ", 0, m.start()):][:24]
+            citing.add(head.strip().split(" ")[1] if " " in head.strip() else head.strip())
+        self.assertEqual(sorted(citing), ["GBP-HW-272", "GBP-HW-274"],
+                         "EVIDENCE cites the design document from an entry that is not about it")
         self.assertIn("which offered it and promoted nothing", plain(ev))
 
     def test_the_observations_stay_the_operators(self):
@@ -149,6 +176,15 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
             counts[v] = counts.get(v, 0) + 1
         self.assertEqual(sorted(counts), ["90", "92"], "the archive carries a CONTROL value the document does not know: %s" % counts)
         d = plain(read(DOC))
+        # Issue #47: two runs were added to the archive AFTER this document was written, and §3 is kept as
+        # written on purpose — its value is that it predates them. So the document must state the counts of
+        # the archive MINUS the runs its own amendment names, and the amendment must name them.
+        later = {"GBP-VIDEO-004_stream-0015-run23.log": "90", "GBP-VIDEO-004_stream-0015-run24.log": "92"}
+        for b, v in later.items():
+            self.assertEqual(origins.get(b), v, b)
+            counts[v] -= 1
+        self.assertIn("RUN 24", d)
+        self.assertIn("THE GAP OF THIS SECTION WAS FILLED 2026-09-22 (GitHub Issue #47)", d)
         self.assertIn("orig = 0x90 %d logs" % counts["90"], d)
         self.assertIn("orig = 0x92 %d logs" % counts["92"], d)
         self.assertIn("in every one of the %d logs, with no exception in either direction" % sum(counts.values()), d)
@@ -158,7 +194,12 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         self.assertEqual(sum(counts.values()), 34)
         # the cartridge-less era is the 0x90 one, by the runs' own names
         cartless = {f for f, v in origins.items() if v == "90"}
-        self.assertTrue(all(re.search(r"(init|initirq|initirqa|initirqb|initirq4|avsvc|video|vstate)", f) for f in cartless), sorted(cartless))
+        # RUN 23 is the one cartridge-less log that is NOT from the early era, and that is precisely why it
+        # matters: a LATE build with an empty slot. It is exempt from the era-name check and asserted apart.
+        run23 = "GBP-VIDEO-004_stream-0015-run23.log"
+        self.assertIn(run23, cartless)
+        self.assertTrue(all(re.search(r"(init|initirq|initirqa|initirqb|initirq4|avsvc|video|vstate)", f)
+                            for f in cartless - {run23}), sorted(cartless))
         self.assertTrue(all(re.search(r"(color|stream)", f) for f, v in origins.items() if v == "92"))
 
     def test_the_document_says_what_the_split_does_not_support(self):
