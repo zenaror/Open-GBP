@@ -25,23 +25,27 @@
 #   out_dir       directory under build/poc/ (differs from source_poc for variants)
 #   make_target   what builds it (`build` for the ordinary POCs)
 #   enabled       1 = exported, 0 = present but not exported
+#   frozen_sha256 the pinned SHA-256 of a slot that holds an image a physical run executed, or one staged for a
+#                 run that has not happened yet -- or `-`. A frozen slot is NEVER written with other bytes, its
+#                 directory is never removed, and INDEX.txt never re-describes it (tools/swiss_export.py, the
+#                 FROZEN SLOTS rules; GitHub Issue #44). Unfreeze only when the records that name the image say so.
 #
 # The export copies the DOL byte for byte and verifies the hash; it never
 # rewrites a build id, a commit or a single byte of the image. Authority stays
 # with build/poc/<out_dir>/<dol>.
 #
-#number	short_name	source_poc	dol	out_dir	make_target	enabled
-01	smoke	smoke-test	smoke-test.dol	smoke-test	build	1
-02	probe	gbp-probe	gbp-probe.dol	gbp-probe	build	1
-03	init	gbp-init-probe	gbp-init-probe.dol	gbp-init-probe	build	1
-04	irq	gbp-init-irq-probe	gbp-init-irq-probe.dol	gbp-init-irq-probe	build	1
-05	irq-a	gbp-init-irq-program-probe	gbp-init-irq-program-probe.dol	gbp-init-irq-program-probe	build	1
-06	irq-b	gbp-init-irq-deliver-probe	gbp-init-irq-deliver-probe.dol	gbp-init-irq-deliver-probe	build	1
-07	irq-svc	gbp-init-irq-service-probe	gbp-init-irq-service-probe.dol	gbp-init-irq-service-probe	build	1
-08	av	gbp-av-service-probe	gbp-av-service-probe.dol	gbp-av-service-probe	build	1
-09	video	gbp-video-capture-probe	gbp-video-capture-probe.dol	gbp-video-capture-probe	build	1
-10	vstate	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe	build	1
-11	color	gbp-video-color-probe	gbp-video-color-probe.dol	gbp-video-color-probe	build	1
-12	stream	gbp-video-stream-probe	gbp-video-stream-probe.dol	gbp-video-stream-probe	build	1
-13	play	gbp-play-session	gbp-play-session.dol	gbp-play-session	build	1
-80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1
+#number	short_name	source_poc	dol	out_dir	make_target	enabled	frozen_sha256
+01	smoke	smoke-test	smoke-test.dol	smoke-test	build	1	-
+02	probe	gbp-probe	gbp-probe.dol	gbp-probe	build	1	-
+03	init	gbp-init-probe	gbp-init-probe.dol	gbp-init-probe	build	1	-
+04	irq	gbp-init-irq-probe	gbp-init-irq-probe.dol	gbp-init-irq-probe	build	1	-
+05	irq-a	gbp-init-irq-program-probe	gbp-init-irq-program-probe.dol	gbp-init-irq-program-probe	build	1	-
+06	irq-b	gbp-init-irq-deliver-probe	gbp-init-irq-deliver-probe.dol	gbp-init-irq-deliver-probe	build	1	-
+07	irq-svc	gbp-init-irq-service-probe	gbp-init-irq-service-probe.dol	gbp-init-irq-service-probe	build	1	-
+08	av	gbp-av-service-probe	gbp-av-service-probe.dol	gbp-av-service-probe	build	1	-
+09	video	gbp-video-capture-probe	gbp-video-capture-probe.dol	gbp-video-capture-probe	build	1	-
+10	vstate	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe	build	1	-
+11	color	gbp-video-color-probe	gbp-video-color-probe.dol	gbp-video-color-probe	build	1	-
+12	stream	gbp-video-stream-probe	gbp-video-stream-probe.dol	gbp-video-stream-probe	build	1	dd545c01cfa99ee2437cd3a53fad44cb01439e3c794991c8cae94407373a3d49
+13	play	gbp-play-session	gbp-play-session.dol	gbp-play-session	build	1	d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de
+80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1	-
