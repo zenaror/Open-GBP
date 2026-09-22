@@ -941,8 +941,32 @@ issue 41    RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004 (HARDWARE_TESTS §V7
             is the Operator's (Z ~1 s -> stop=session_end, the only success; the whole session inside 720 s). Two raw
             names reserved (one file per run, no sidecars). Two gate items for the Operator. The 105 -> 102 audit
             figure of #39 corrected (INPUT_PATH.md §13.8). Phase 5's closure NOT decided; nothing staged, no id
-next        orchestrator-owned: validate #41's pre-registration; get the Operator's two gate items; open the Hardware
-            Issue that stages 13-play and moves RUN 21 and then RUN 22; close #36
+issue 43    HARDWARE (open): 13-play STAGED and hash-verified -- build/swiss/13-play/boot.dol and
+            /media/rafael/SD_GC/Open-GBP/13-play/boot.dol both d0ee3c29...99de, 487 968 B, the hash read back FROM
+            the card after sync; 12-stream untouched on both copies (dd545c01...3a49 before and after); no leftover
+            console log on the SD; INDEX.txt row added in the exporter's format. `make swiss` was NOT used and must
+            not be: it re-exports EVERY slot from build/poc, whose stream probe is now a rebuild at 2e48ca7
+            (19666b54...), so the documented staging command would have overwritten the frozen 12-stream silently
+            (recorded on #43 and on #29 as a fourth instance). Nothing else on the card was touched; the runs are
+            the Operator's
+issue 29    THE GUARD BLIND SPOTS, written properly: tests/host/guards.py is the ONE implementation of every
+            "nothing moved" question (git diff UNIONED with the untracked list; the ignored paths excluded by design
+            and documented where the function is), thirteen files converted, and test_guard_shape.py fails any host
+            test that asks git directly -- and PROVES the property by writing an untracked file under a guarded path
+            and showing git diff alone misses it. test_staged_artifacts.py covers what the five artifact-identity
+            skips stopped covering and CANNOT skip when a slot exists (INDEX consistency, the frozen slots against
+            the documented hashes, the hashes required to still be quoted in the documents, the SD when mounted; a
+            missing INDEX with slots present is a FAILURE). skip_ledger.py registers all 63 skip reasons over 217
+            sites in eight classes, each with what covers the risk; the dangerous class IDENTITY_NOT_CURRENT must
+            name its cover; enforced statically (any runner) and at run time (conftest fails the pytest session on
+            an unregistered reason -- verified by probe: exit 1 unregistered, 0 registered). The page-vs-EVIDENCE
+            comparison was MEASURED and is NOT a gate: 44 of 278 rows are comparable, 8 read weaker, all 8 correctly
+            (compound aspect-scoped statuses vs one status per claim), so tools/reconcile.py is a REPORT that judges
+            nothing, RESEARCH_METHOD.md's promotion section instructs the sweep and requires the outcome recorded
+            including "nothing", and test_page_citations.py gates the half that cannot be argued about (every cited
+            id must exist; 175 ids over 545 citations resolve today)
+next        orchestrator-owned: validate #41's pre-registration and #29; the Operator's declaration and the runs on
+            #43; close #36. Executor: B (Issue #31, the GB/GBC design), then C (Issue #30)
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet
@@ -1210,11 +1234,18 @@ believe one is wrong, argue against the source, do not re-run the discovery.
 
 ## Do not assume
 
-- **That RUN 21 / RUN 22 have run, or that the image is staged.** They are
-  pre-registered (§V7.6) and nothing more: `build/swiss/` still holds Hardware
-  Issue #32's staging (`12-stream` = `stream-0015`), slot `13-play` is not
-  exported, the SD has no `13-play`, and two gate items are still the
-  Operator's to answer.
+- **That RUN 21 / RUN 22 have run.** They are pre-registered (§V7.6) and the
+  image is STAGED (Hardware Issue #43, 2026-09-21: `build/swiss/13-play` and
+  the SD's `13-play`, both `d0ee3c29…99de`, verified from the card; `12-stream`
+  untouched). Nothing has run, and gate item 1 (which cartridge, in which form)
+  is answered by the Operator at the launch.
+- **That `make swiss` is safe to run.** It re-exports EVERY enabled slot from
+  `build/poc`, which holds whatever this tree last built. On 2026-09-21 it
+  would have replaced the frozen `12-stream` (`dd545c01…3a49`, the image RUN
+  16/17/18 executed) with a rebuild at another commit, silently and with a
+  successful exit code. Stage ONE slot by hand until `tools/swiss_export.py`
+  grows a `--only` option and a refusal to overwrite a slot whose hash differs
+  from what it would write.
 - **That a column of `N/A` in the acceptance runs is a finding.** A game that
   never asks for L is not evidence that L fails: which keys a title uses is a
   property of the title, and it differs across the three candidates

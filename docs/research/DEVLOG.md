@@ -11224,3 +11224,79 @@ guards moved to "no run above 22" with their reason.
 **Next.** The Orchestrator validates the pre-registration, obtains the two
 gate items, and opens the Hardware Issue that stages `13-play` and moves RUN
 21 and then RUN 22.
+
+## 2026-09-21 — Issue #29: the guard blind spots, written properly — one implementation for every "nothing moved" guard, a skip ledger that fails on a new kind of silence, a staged-artifact guard that cannot go quiet, and the honest answer about the page-vs-EVIDENCE comparison (it is a report, not a gate); Hardware Issue #43's staging of 13-play performed first
+
+**The staging (Hardware Issue #43), done before the research items because the
+Operator is away and it is the only thing between his return and a run.**
+Swiss slot `13-play` = `play-0001` (`d0ee3c29…99de`, 487 968 B) is on the SD at
+`/media/rafael/SD_GC/Open-GBP/13-play/boot.dol`, hash read back FROM the card
+after `sync`; `12-stream` is untouched on both copies (`dd545c01…3a49` before
+and after); no leftover console log on the SD. **`make swiss` was NOT used, and
+that is a finding:** it re-exports every slot from `build/poc`, and this tree's
+stream probe is now a rebuild at `2e48ca7` (`19666b54…`), so the documented
+staging command would have replaced the frozen `12-stream` with a different
+image, silently, with a successful exit code. The slot was staged by hand —
+`cp`, `cmp`, `sha256sum` from the card, and the `INDEX.txt` row in the
+exporter's own format. Recorded on #43 and on #29 as a fourth instance of the
+same family: a routine command whose safety depends on state nothing checks.
+
+**Instance 2 — `git diff` is blind to untracked files — fixed for every guard,
+not for the two that failed.** `tests/host/guards.py` is now the ONE
+implementation: `changed_since(base, paths)` unions `git diff --name-only` with
+`git ls-files --others --exclude-standard`, and thirteen test files ask their
+question through it. `tests/host/test_guard_shape.py` fails if any host test
+runs either git command itself, so the class cannot come back through a new
+guard, and it PROVES the property rather than asserting it: it writes an
+untracked file under a guarded path, shows the helper sees it and `git diff`
+alone does not, and removes it. The deliberate omission is documented where the
+function is: `--exclude-standard` means an IGNORED path (`captures/local/`,
+`logs/`, `build/`, `input/`) is not reported, because those are the Operator's
+raw drops and local artifacts, never versioned — and a guard about those cannot
+be a git question at all. A second test proves an ignored file stays invisible.
+
+**Instance 3 — guards that stop guarding exactly when they are needed — two
+answers.** First, the risk those five skips stopped covering is now covered by
+a test that CANNOT skip when it matters: `tests/host/test_staged_artifacts.py`
+hashes every staged slot against `build/swiss/INDEX.txt`, hashes the slots the
+records freeze (`12-stream`, `13-play`) against the documented value — and
+requires that value to still be quoted in the document, so the test and the
+records cannot drift apart — and does the same for the SD when it is mounted.
+It skips only when nothing is staged, which is a "nothing to check". A missing
+`INDEX.txt` with slots present is a FAILURE, not a skip. Second, the general
+problem that a skip is indistinguishable from a pass: `tests/host/skip_ledger.py`
+registers every skip reason the suite may give, with its CLASS and with what
+covers the risk instead; the class `IDENTITY_NOT_CURRENT` — the dangerous one —
+must name its cover, and a test checks that it does. Both halves are enforced:
+statically (`test_guard_shape.py` reads the reasons out of the sources, under
+any runner) and at run time (`tests/host/conftest.py` fails the pytest session
+with the offending reason printed). Verified by probe: an unregistered skip
+exits 1, a registered one exits 0. Sixty-three distinct reasons over 217 sites
+classify into eight classes.
+
+**Instance 1 — consolidated pages drifting from EVIDENCE — measured, and the
+answer is a report, not a gate.** The Issue invited "say so if that is the
+finding", and it is: of 278 table rows in `docs/protocol` and `docs/hardware`,
+only 44 carry both a status letter and an id `EVIDENCE.md` defines, and 8 of
+those 44 read "weaker" than their evidence under a mechanical comparison — all
+8 CORRECTLY, because a page row carries a compound, aspect-scoped status ("C
+(format and polarity …); F (hw, run-scoped)") while an evidence entry carries
+one status for one claim. A gate on that would be wrong about a fifth of what
+it can see and blind to the other 84 %, and it would be switched off within two
+checkpoints. So: `tools/reconcile.py` prints, for the ids a checkpoint touches
+(or `--since <commit>`), every page line citing them with EVIDENCE's status
+beside it, and JUDGES NOTHING; `RESEARCH_METHOD.md`'s promotion section now
+instructs the sweep, requires the outcome to be recorded INCLUDING "nothing",
+and repeats the Issue's rule that a genuine disagreement is escalated and never
+fixed by editing the page to match a guess. The mechanical half that IS a gate
+is the one that cannot be argued about: `tests/host/test_page_citations.py`
+fails on a citation that does not resolve (175 distinct evidence ids over 545
+citations resolve today; the eight test-id families are excluded by name, and a
+second test requires those to be named in `HARDWARE_TESTS.md`).
+
+**Gates.** `make test-python` green on the committed tree; no runtime change
+(`src/` and `poc/` untouched); `tools/reconcile.py` is new and reads only; the
+twelve freeze guards that list `tools/` were widened for it with the reason in
+place.
+
+**Next.** B (Issue #31, the GB/GBC design) and C (Issue #30).

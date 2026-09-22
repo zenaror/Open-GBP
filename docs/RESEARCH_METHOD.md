@@ -164,6 +164,46 @@ docs/protocol or docs/hardware
 
 When information is promoted into the consolidated documentation, preserve references to the evidence that supports it.
 
+
+### Reconciliation sweep — before promoting anything (GitHub Issue #29, 2026-09-21)
+
+Consolidated pages drift from `EVIDENCE.md` because nothing in the process
+compares the two layers. The project found it twice, by accident both times:
+Issue #17 found four Phase-2 pages **understating** what EVIDENCE already
+carried, and Issue #26 found `ARCHITECTURE.md`'s keypad plane **contradicting**
+`GBP-KEY-001` / `GBP-KEY-005` on the polarity. So, as part of every promotion:
+
+1. **Run the sweep** for the evidence the checkpoint touches:
+
+   ```text
+   tools/reconcile.py GBP-KEY-004 GBP-HW-270     # the ids by name
+   tools/reconcile.py --since <commit>           # the ids whose EVIDENCE entries changed
+   ```
+
+   It prints every line of every page in `docs/protocol/` and `docs/hardware/`
+   that cites those ids, with EVIDENCE's status beside it. **It judges
+   nothing.**
+
+2. **Read the lines it prints** and **record what you found in the checkpoint,
+   including "nothing"**. A sweep that found nothing is a result and is written
+   down as one; a sweep nobody records is indistinguishable from a sweep nobody
+   ran.
+
+3. **A sweep relocates or corrects WORDING.** A genuine disagreement between a
+   page and `EVIDENCE.md` — a page claiming more than the evidence, or the
+   opposite of it — is **escalated**, never resolved by editing the page to
+   match a guess, and never by editing the evidence to match the page.
+
+**Why this is an instruction and not a test.** Measured on 2026-09-21: of 278
+table rows in the consolidated pages, only 44 carry both a status letter and an
+id `EVIDENCE.md` defines, and 8 of those 44 read "weaker" than their evidence
+under a mechanical comparison — all 8 correctly, because a page row carries a
+**compound, aspect-scoped** status ("C (format and polarity …); F (hw,
+run-scoped)") while an evidence entry carries one status for one claim. A gate
+built on that comparison would be wrong about a fifth of what it could see and
+blind to the rest, and it would be switched off within two checkpoints. What IS
+mechanical is the half that cannot be argued about: every id a page cites must
+exist (`tests/host/test_page_citations.py`, every run).
 ## Synthetic-first testing policy
 
 Manual physical hardware interaction should be minimized.
