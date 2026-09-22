@@ -1242,12 +1242,29 @@ issue 57    THE OPERATOR DECLINES R1 AND R2 ("não vejo necessidade de outra run
             that reaches the service loop", so it rides on THE NEXT PHYSICAL RUN OF ANYTHING, whichever phase
             brings it; declining R1 cost it nothing but time. R5 and R6 unchanged. THE VERDICT DOES NOT
             CHANGE
+issue 45    PHASE 6's ENTRY ASSESSED (docs/research/PHASE6_ENTRY.md), DESIGN ONLY. THE OPERATOR'S
+            INSTRUMENT IS A KNOWN TONE and the two stages COLLAPSE: stimulus/agb-tone becomes a FALLBACK,
+            not a prerequisite -- HE REMOVED A BUILD FROM THE PHASE. Read at §V7.1's pinned commit OUTSIDE
+            the tree, CC BY-SA 4.0, nothing entering the repository, the prebuilt image hashing to exactly
+            what §V7.1 recorded. The tone, described not copied and with the register semantics cited to
+            GBATEK: PSG channel 1, sweep off, envelope 15 DECREASING at 109.4 ms per step, restart with the
+            length flag and frequency value 1200 = 154.57 Hz, a busy-wait, then a write that zeroes the
+            frequency AND CLEARS THE LENGTH FLAG. THE STOP DOES NOT STOP IT: predicted emission is a few ms
+            at 154.57 Hz then ~1.64 s at 64.0 Hz decaying in 15 steps -- an a-priori PREDICTION the capture
+            tests. THE DUTY CYCLES PER PRESS (12.5/25/50/75, not per button): a four-point slope at one
+            frequency. At 4 094.4 drains/s one block is 0.244 ms, so a 64 Hz period is ~64 blocks, an
+            envelope step ~448, the whole decay ~6 700 (~27 MB) -- THE CAPTURE MUST BE A WINDOW. FEASIBILITY:
+            the capture probe does NOT reference gbp_input at all while the stream and play probes have the
+            input path but keep 3 slots and emit no audio sidecar -- NO IMAGE HAS INPUT AND RETENTION AND
+            EMISSION, and the cheapest change is to extend the STREAM probe. The comparison is honest rather
+            than flattering: his tone is a side effect of a press in a program written for another purpose,
+            and the reason to prefer it is that it is free and falsifiable in the same run
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; still to validate #41's pre-registration, #46
-            through #57 and #42; close #36. The RAG reindex is the Orchestrator's since 2026-09-22 (the
+            through #57, #42 and #45; close #36. The RAG reindex is the Orchestrator's since 2026-09-22 (the
             Executor pushes and says so). PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2
-            DECLINED, R4 rides on the next physical run of any image, R5 / R6 unchanged. The next physical
-            run is whatever a future phase needs -- #45 (Phase 6, audio) is AUTHORISED and is the Executor's
-            next checkpoint; #31 (Phase 7, GB/GBC) stays backlog
+            DECLINED, R4 rides on the next physical run of any image, R5 / R6 unchanged. PHASE 6's entry is
+            assessed and its pre-registration is the NEXT checkpoint if the Orchestrator dispatches it; #31
+            (Phase 7, GB/GBC) stays backlog. Executor: the queue is empty -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,
             Phase 11, networking, BBA initialisation, Ethernet

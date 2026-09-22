@@ -12695,3 +12695,88 @@ what changed is the disposition of two of them. `ROADMAP.md` says the same.
 
 **Result.** `make test-python` on the committed tree: **1714 passed, 7 skipped,
 103 subtests passed**. No evidence id, no status and no verdict moved.
+## 2026-09-22 — Issue #45: Phase 6's entry assessed — **the Operator's instrument is a KNOWN tone, the two stages collapse, and a build leaves the phase**
+
+**DESIGN AND ASSESSMENT ONLY** (`docs/research/PHASE6_ENTRY.md`): no build, no
+hardware, no pre-registration, no id, no status.
+
+**The objection that split the phase's entry in two does not survive the
+source.** Stage A (does the AUDIO window carry cartridge sound at all?) and
+Stage B (what do the bytes mean?) were separated because the checker's beep was
+an *unknown* tone. It is not unknown. Read at the commit §V7.1 pinned in
+September — **outside the project tree, CC BY-SA 4.0, nothing entering the
+repository** — the program determines the tone completely, and the prebuilt
+image at that commit hashes to exactly what §V7.1 recorded.
+
+**What the tone is, described and not copied** (the register semantics cited to
+`external/gbatek/gba.md`, not assumed): PSG channel 1, sweep off, channel
+enabled both sides at PSG volume 7/7; envelope initial volume 15 **decreasing**
+with step time 7 = **109.4 ms per step**; restart with the length flag set and
+frequency value 1200 → **154.57 Hz**; a bounded busy-wait; then a write that
+zeroes the frequency field **and clears the length flag**.
+
+**THE STOP DOES NOT STOP IT, and that is knowable a priori.** Clearing the
+length flag removes the only stop the program armed, and the channel is never
+disabled — so the predicted emission per press is a few milliseconds at
+154.57 Hz followed by **~1.64 s at 64.0 Hz** with a 15-step decaying envelope.
+**The program appears to intend a short beep and asks the hardware for
+something else.** This is a prediction, not an observation, and the capture
+tests it — which makes the experiment check the reading of the code at the same
+time as it answers the real question.
+
+**AND THE DUTY CYCLES PER PRESS**: 12.5 %, 25 %, 50 %, 75 %, repeating every
+four presses, from a table advanced on every call — **not** per button. Four
+presses give four different duty ratios at one frequency: a within-run,
+four-point slope no free-running tone provides.
+
+**So: predictable enough, by three independent shapes.** At the measured
+4 094.4 drains/s of 4 096 B each, one block is 0.244 ms — a 64 Hz period is
+~64 blocks, an envelope step ~448 blocks, the whole decay ~6 700 blocks (~27
+MB). A two-level square at a known frequency, a known duty with a four-point
+slope, and a 15-step staircase decay: **PWM, PCM and the byte-0 phenomenon
+predict different bytes for each**, and the prediction is written before any
+capture exists.
+
+**The stages collapse. `stimulus/agb-tone` becomes a FALLBACK rather than a
+prerequisite — the Operator has removed a build from the phase.** What upgrades
+Stage A is not that the tone is loud but that the discriminator changes from
+*"the blocks changed after a press"* — which an unknown tone cannot separate
+from *"the blocks changed"* — to **"the blocks changed INTO THE PREDICTED
+SHAPE"**.
+
+**The feasibility blocker is real and is not where the design placed it**,
+verified by reading the tree: `gbp-video-capture-probe` **does not reference
+`gbp_input` at all** but keeps 10 audio slots and emits the region;
+`gbp-video-stream-probe` and `gbp-play-session` have the input path and the KEY
+record but keep 3 slots and write no audio sidecar. **No image has input AND
+retention AND emission.** The cheapest honest change is to extend the **stream**
+probe — it already links the dump module that can write the region — rather
+than to add a whole input path to the capture probe for a press it has never
+had.
+
+**The comparison is honest rather than flattering to his instrument.** The
+checker's tone is a side effect of a button press in a program written for
+another purpose, and its emission depends on a stop sequence this document
+predicts is not doing what its author intended. `stimulus/agb-tone` would have
+none of that ambiguity. **The reason to prefer the checker is not that it is
+better — it is that it is free, already flashed, already identity-pinned, and
+its prediction is falsifiable in the same run.**
+
+**Limits carried:** identity stays a gate and is **re-declared per run**, never
+inherited from September, with DO NOT RUN on a difference; `SOUNDCNT_H` is
+never written by the program, so the PSG-to-output ratio is a **declared
+assumption**; and the source gives the a-priori prediction only — **what the
+APU emits and what the AUDIO window carries remains the measurement**, which is
+the experiment and not something the code answers. `R4` (Issue #57) rides on
+whatever run comes out of this.
+
+**One test earned its place by being wrong first.** The share-alike containment
+check forbade the source's symbol names, and `updateButtonTally` has been in
+`EVIDENCE.md` and `HARDWARE_TESTS.md` since §V7.1's amendment — correctly, as a
+**fact about behaviour**. The line is between **naming** and **carrying**:
+naming a function to say what a program does is a fact; carrying its statements
+is expression, and that is what share-alike reaches. The test now forbids the
+source's own lines and its binary, and says so in its docstring.
+
+**Result.** `make test-python` on the committed tree: **1729 passed, 7 skipped,
+103 subtests passed**.
