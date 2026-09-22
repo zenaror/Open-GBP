@@ -69,6 +69,16 @@ def read(p):
         return f.read()
 
 
+def _bounded(t, start):
+    """From `start`'s heading to the NEXT top-level V heading, never to EOF.
+    §V8's slices ran to the end of the document and had silently been reading
+    §V9 for a whole checkpoint; §V10 is what made it visible. The fix is to
+    BOUND the slice, not to move a pin -- the lesson of Issue #50."""
+    i = t.index(start)
+    j = t.find("\n## V", i + 1)
+    return t[i:j] if j >= 0 else t[i:]
+
+
 def define(src, name):
     m = re.search(r"^#define\s+%s\s+(\S+)" % re.escape(name), src, re.M)
     assert m, name
@@ -218,7 +228,7 @@ class TheWindowIsThePreRegistrationsAndNotThisBuilds(unittest.TestCase):
         self.assertEqual(5 * 256 * 0x1000, 5242880)
 
     def test_the_document_and_the_code_state_the_same_window(self):
-        s = re.sub(r"\s+", " ", read(HW)[read(HW).index("\n## V8 — GBP-AUDIO-001"):])
+        s = re.sub(r"\s+", " ", _bounded(read(HW), "\n## V8 — GBP-AUDIO-001"))
         self.assertIn("256 = 62.52 ms = 4.00 full periods", s)
         self.assertIn("total blocks 1 024", s)
         self.assertIn("total bytes 4 194 304 = 4.00 MB", s)
@@ -386,7 +396,7 @@ class TheIdentityIsInTheRunsOwnRecord(unittest.TestCase):
     that §V8.1 through §V8.11 did NOT MOVE to make room for it."""
 
     def _v8(self, text):
-        return text[text.index("\n## V8 — GBP-AUDIO-001"):]
+        return _bounded(text, "\n## V8 — GBP-AUDIO-001")
 
     def test_the_frozen_parts_are_byte_identical_to_the_pre_registration(self):
         """§V8.1 – §V8.11 as Issue #58 committed them, character for character."""

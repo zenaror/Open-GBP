@@ -34,9 +34,18 @@ def plain(s):
     return re.sub(r"\s+", " ", s).replace("`", "").replace("**", "").replace("*", "")
 
 
+def _bounded(t, start):
+    """From `start`'s heading to the NEXT top-level V heading, never to EOF.
+    §V8's slices ran to the end of the document and had silently been reading
+    §V9 for a whole checkpoint; §V10 is what made it visible. The fix is to
+    BOUND the slice, not to move a pin -- the lesson of Issue #50."""
+    i = t.index(start)
+    j = t.find("\n## V", i + 1)
+    return t[i:j] if j >= 0 else t[i:]
+
+
 def v9_part():
-    t = read(HW)
-    return t[t.index("\n## V9 — GBP-AUDIO-002"):]
+    return _bounded(read(HW), "\n## V9 — GBP-AUDIO-002")
 
 
 def square(n_bytes, period, mark=0.5, hi=255, lo=0, phase=0):
