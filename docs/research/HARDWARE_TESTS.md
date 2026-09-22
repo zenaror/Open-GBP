@@ -24549,7 +24549,7 @@ HARDWARE / WITHDRAWN BEFORE HARDWARE / NOT RUN, their names retired.
 
 ---
 
-### V7.6 RUN 21 / RUN 22 — GBP-INPUT-004 on `play-0001`: the Phase 5 acceptance pair on a real game, both controllers, the same actions — and, on the SAME runs and with SEPARATE GATES, the timing of the shortened service pass the project changed deliberately and recorded as unchecked — **PRE-REGISTERED 2026-09-21 (GitHub Issue #41); AMENDED BEFORE HARDWARE the same day (Issue #41 continued): GATE ITEM 2 ANSWERED by the Operator, and Question T's AUDIO-only control stated for what it is; NOT RUN / NOT AUTHORISED HERE**
+### V7.6 RUN 21 / RUN 22 — GBP-INPUT-004 on `play-0001`: the Phase 5 acceptance pair on a real game, both controllers, the same actions — and, on the SAME runs and with SEPARATE GATES, the timing of the shortened service pass the project changed deliberately and recorded as unchecked — **PRE-REGISTERED 2026-09-21 (GitHub Issue #41); AMENDED BEFORE HARDWARE the same day (Issue #41 continued): GATE ITEM 2 ANSWERED by the Operator, and Question T's AUDIO-only control stated for what it is; NOT RUN / NOT AUTHORISED HERE** · **AMENDED BEFORE HARDWARE AGAIN — 2026-09-22, Issue #51 (§V7.6.15): Question K narrowed to steps 2–12 because the frozen text named a comparison its own instrument cannot delimit; K's tail recorded as NOT DEFINED BY THE PRE-REGISTRATION, never INCONCLUSIVE; one typo corrected (the ordinary play is step 13); nothing the Operator does changes**
 
 Written before the hardware is touched. GitHub Issue #41 is the
 pre-registration contract. This part freezes: the two questions and the rule
@@ -25361,6 +25361,106 @@ comparison; promoting the routing or touching §V7.1 – §V7.5 or any verdict;
 evidence ingestion; any verdict; deciding whether Phase 5 closes. No new
 physical evidence ID exists. RUN 21 and RUN 22 end this checkpoint as
 **PRE-REGISTERED / NOT RUN / NOT AUTHORISED HERE**, their two names reserved.
+
+---
+
+#### V7.6.15 AMENDED BEFORE HARDWARE — 2026-09-22, GitHub Issue #51: Question K is narrowed to steps 2–12, because §V7.6.11 named a comparison its own instrument cannot delimit; and one typo corrected
+
+**Written on top. Every word of §V7.6.1 – §V7.6.14 above is kept verbatim as
+provenance and none of it is edited.** No gate is renegotiated after a result,
+because there is no result: RUN 21 and RUN 22 had not been ingested when this
+was written, and the defect was found by making the verdicts executable from
+the frozen text with no data in reach (Issue #50).
+
+**NOTHING THE OPERATOR DOES CHANGES.** He has the checklist of §V7.6.9 and the
+runs may already have been performed. This amendment is **ingestion-side
+only**: not one step, press, order or instruction to him is altered, and
+§V7.6.9 is not touched.
+
+##### The defect
+
+§V7.6.11 computes K *"over steps 2-12, 14 and 15, the scripted parts"*. Steps
+14 and 15 come **after** step 13's several minutes of unscripted ordinary play.
+The runtime has no notion of a "step"; the Operator's channel carries no `n`
+and no timestamp into the `KEY` record; and neither §V7.6.11 nor §V7.6.9 gives
+any rule for locating that boundary. **The pre-registration named a comparison
+that its own instrument cannot delimit.**
+
+##### The four candidate rules, rejected — and two fail on their own terms
+
+```text
+trailing twelve     assumes step 15 was performed EXACTLY and that nothing follows it. One doubled or missed
+                    press, or any input after the sweep, silently shifts the window: the comparison then reads
+                    the wrong presses WHILE LOOKING CORRECT. That is the worst failure a machine check can have.
+time gap            invents a threshold, which §V7.6.3 refuses ("no threshold invented after the fact"), and it
+                    is unreliable on its own facts: pauses longer than the step-13 -> step-14 transition
+                    certainly occur inside three minutes of play -- a cutscene, a menu, a death.
+his step numbering  carries no index into the record. It is his channel, not the machine's, and the whole point
+                    of K is to be the machine half.
+compare only 2-12   the right ANSWER, and wrong if taken QUIETLY: it would narrow what K compares while leaving
+                    the frozen text saying otherwise. Writing it down here is the difference.
+```
+
+##### THE AMENDMENT
+
+**K is computed over steps 2–12 only** — from the first rising edge of START
+that §V7.6.11 already defines as the cut-off, press for press, on both pads,
+with the distinct counts of steps 2–12 intact. **K's tail (steps 14 and 15) is
+NOT COMPUTED.** It is recorded as **`NOT DEFINED BY THE PRE-REGISTRATION`**,
+and never as INCONCLUSIVE: the run is not inconclusive about it; the
+pre-registration never defined it. The distinction is not pedantry — an
+INCONCLUSIVE invites a rerun, and no rerun would help.
+
+**WHAT IS LOST, stated here so nobody has to reconstruct it later.** The
+closing sweep still happens and still produces the Operator's **per-key
+report**, which feeds **W** and **S** exactly as before. What is lost is only
+the *machine-side ordered comparison between the two pads after minutes of
+play*. **Nothing about W or T changes at all**, and nothing about his channel
+changes.
+
+**S's dependence, resolved explicitly.** Over steps 2–12, S keeps both halves —
+his report and K. Over steps 14–15, **S reads the Operator's channel alone and
+says so per key**, carrying `machine half: NOT DEFINED BY THE PRE-REGISTRATION`
+beside the reading.
+
+##### The typo, corrected as one
+
+§V7.6.11's closing Reading rules say *"step 14's ordinary play is read as the
+Operator reports it"*. **Step 13 is the ordinary play; step 14 is `START × 1`
+then `START × 1`** (§V7.6.9's own table), and two of the three statements in
+the frozen text say 13 — K's own line and §V7.6.9's closing paragraph. **Read
+as step 13.** The prior wording is kept above, unedited.
+
+**Why it is a typo and not a live alternative**, recorded so the correction is
+checkable rather than asserted: the literal reading is **self-defeating**. It
+would exclude the pause from K while requiring three minutes of ordinary play
+to be compared press for press — which §V7.6.9 says in as many words cannot be
+done ("Two runs of ordinary play cannot produce identical press sequences and
+are not expected to").
+
+##### A forward rule — recorded, and NOT applied to this pair
+
+**Any future action list of this shape must put a machine-locatable boundary
+into the record itself.** The cheapest known one: a **simultaneous two-key
+press that the scripted parts never use**, which appears in a completed word as
+two bits rising together and is unambiguous to a parser, at a cost of one
+action to the Operator.
+
+**This is NOT added to RUN 21 / RUN 22.** Their checklist is in the Operator's
+hands and may already have been executed; adding to it now would be exactly the
+thing the hard constraint forbids. It is recorded here and in
+`docs/research/INPUT_PATH.md` as a lesson for the next list.
+
+##### Where this is implemented
+
+`tools/v7611.py` — written under Issue #50 from the frozen text before any log
+existed, and amended here: `question_K()` computes the head and reports the
+tail as `NOT DEFINED BY THE PRE-REGISTRATION`, `question_A_S()` carries the
+per-segment resolution. `tests/host/test_v7611.py` exercises the boundary on
+synthetic vectors, **including a demonstration that the two rejected rules give
+a different answer** when the Operator fumbles one press in step 15 — the
+cheapest permanent proof of why they were rejected, still readable when the
+reasoning has been forgotten.
 
 ---
 
