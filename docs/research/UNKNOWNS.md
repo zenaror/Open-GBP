@@ -2078,3 +2078,34 @@ touches 85 % of flat blocks against 23 %. It shows no bunching by slice index.
 slice-opening family (`07 03 …` in RUN 33, `01 01 …` in RUN 34; the runs also
 rest at different levels, 1025 and 1024). **Cause not established; no decode
 depends on it today.**
+
+## U-GBP-044 (P2, opened 2026-09-23, decided on Issue #84) — what produces the 13 start-up stalls of the shared service path, and where are the three the log does not locate?
+
+`GBP-HW-317`, FACT about the archive, is that the start-up signature is invariant.
+All seven archived sessions (play-0001 RUN 21/22/25/26, stream-0016 RUN 33/34/35)
+show 13 incomplete frames, 26 resyncs and the same four PRESERVED episodes, opening
+at frames 8, 30, 90 and 150 and closing by frame 197, with `store_full=1
+descriptors=4 raw_slots=16`. That holds however long the session runs (27.9 s to
+273.8 s) and however many later episodes it has (11 to 540 not preserved). The
+later episodes produce no incomplete frame.
+
+**The HYPOTHESIS, not established.** Ten of the 13 are visible in the event log:
+frame 0, then the open, +3 and +6 frames of the first three preserved episodes. The
+same pattern at the fourth preserved episode (open 150) would put the other three
+at about 151, 154 and 157, inside the range the log does not print (`EVENTS
+shown=192`: its first 128 and last 64 events). So 13 = 1 + 3 × 4 fits every
+session. That is consistent with PRESERVING an episode's raw frames (`raw=4/4`) being
+what stalls the service, and with the stalls ending once the 4-descriptor store is
+full. It is an arithmetic fit with three frames unlocated and no cost measured. That
+the four episodes sit at the same frames in every session is consistent with the
+AGB's start-up, which is the same for any cartridge; that is untested too.
+
+**Why it matters.** If the preserved-episode capture is the cause, then the
+runtime's start-up loss belongs to the research instrumentation, not to the
+service, and a runtime without raw episode preservation would have none. §V19's
+D1 is unaffected either way: A4.5 keeps every start-up stall out of its windows by
+construction.
+
+**What would settle it:** a log that prints the events in the unprinted range, or
+the same image with raw episode preservation disabled, compared like for like.
+Neither is planned.
