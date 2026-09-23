@@ -14972,3 +14972,75 @@ no optional module, **is a follow-up** and was not done inside this review.
   evidence was lost; or hold it for further Dolphin investigation first. The code
   review above establishes, without Dolphin, that no wait on the device is
   unbounded.
+
+## 2026-09-23 — Issue #88: neither `build/poc` nor `build/swiss` is an authority — and 01–11 on the card are not the executed images
+
+**Goal.** Correct the record that called `build/poc` the authority, now that
+`make build` works again (#87) and `build/poc` moves with HEAD. Nothing was
+rebuilt, relabelled or restaged.
+
+**The live path, from `swiss_export.py:181-194`.** RULE 1 verifies `build/poc`
+against the pin only for slots that HAVE a `frozen_sha256`, and only 12, 13 and 14
+do. For every other slot a full export copied `build/poc` on trust and rewrote
+INDEX to agree. **It had already fired.** Every staged slot 01–11, on disk and on
+the SD, holds a rebuild exported at `7d7a6d8` under the build id of an image that
+ran at another commit. None of those staged hashes appears in any record.
+Hand-verified examples:
+
+```text
+slot       build id     staged (7d7a6d8)   executed, per the records
+09-video   video-0001   de97c00d...        856d3e91...fd65 @ 6930dde   (HARDWARE_TESTS, GBP-VIDEO-001)
+10-vstate  vstate-0004  1a179b76...        b0ed33f0...97c5 @ b017e38   (HANDOFF:398, EVIDENCE:3117)
+11-color   color-0002   5cab1543...        d3c1f09e...c1c9 @ 39f1980   (HANDOFF:402, EVIDENCE:3440, §V4.10)
+```
+
+Smoke, init, initirq, initirqb, initirq4 and avsvc show the same pattern against
+their recorded hashes. §V4.10's sentence "build/swiss/11-color/boot.dol is a
+byte-identical copy of it" was true on 2026-09-18 and has been false since the
+`7d7a6d8` export. The Orchestrator's first table called `5cab1543` 11-color's "pin":
+it had been read from INDEX.txt, the record certifying itself, which is #83's
+pattern H a third time.
+
+**Why the slots were not pinned.**
+- Pinning 01–11 at their STAGED hashes would certify rebuilds.
+- Pinning them at the EXECUTED hashes would make RULE 3 refuse every export,
+  `--only 15` included, until the executed bytes were restaged. That is out of
+  scope.
+- So the record says which rows are verified, and the records stay the authority.
+
+**Done.**
+- **The authority claim** is corrected everywhere it appeared: `swiss_export`'s
+  docstring and INDEX header, two Makefile comments, HANDOFF, `test_swiss_export`'s
+  docstring, and the skip-ledger cover. That cover had named INDEX.txt as the
+  thing protecting 11-color.
+- **Per-row STATUS in INDEX.txt.** A row reads `PINNED-VERIFIED` only when its
+  slot is frozen and its bytes are the pin, and `UNPINNED-COPY` otherwise. It is
+  recomputed on every write, never carried over.
+- **`--index-only`** copies and removes nothing, and rewrites INDEX by RULE 3's
+  carry-over. I ran it on the real `build/swiss`, and every slot is identical in
+  content and mtime before and after. INDEX now shows 12, 13 and 14 as
+  PINNED-VERIFIED and 01–11 as UNPINNED-COPY. The SD's copy picks it up at the
+  next staging.
+- **The pre-run places** (HANDOFF, and `.github/ISSUE_TEMPLATE/hardware-run.md`)
+  now carry the warning, and the remedy, which is not applied: rebuild at the
+  image's own commit, confirm the recorded hash, pin, `--only`, and verify from the
+  card.
+- **`tests/host/test_swiss_authority.py`** checks four things:
+  - no file repeats the old sentence;
+  - every tool that reads `build/poc` is classified, and a new one fails until it
+    is;
+  - every pin is in HARDWARE_TESTS, with INDEX's commit beside it in a record;
+  - the statuses are right on the real INDEX and in a temporary root, and
+    `--index-only` touches nothing and upgrades an old INDEX.
+- **`test_staged_artifacts`** now carries 14-audio among the frozen slots. It
+  extends the executed-identity check to 09-video and 10-vstate, and requires
+  such rows to read UNPINNED-COPY.
+
+**Item 4, decided.** `make build` does not refuse to write `build/poc`. It is a
+build output. The one reader that turns it into something the Operator boots,
+`swiss_export`, verifies every pinned slot and labels every other row a copy.
+Nothing else reads `build/poc` as a record, and the test enforces that.
+
+**Next.** #86 continues. Staging 15 and 16 needs no change, provided each row is
+added FROZEN with its validated hash before the export (#44's rule, and RULE 1
+then checks `build/poc` against it).
