@@ -109,6 +109,12 @@ LEDGER = [
      "the same samples are regenerated from the versioned fixtures by tools/v17decode.write_wav -- "
      "the code that wrote those WAVs -- and compared integer for integer, and that test never skips "
      "for want of a local file"),
+    # Issue #84: the seven session logs AMENDMENT 4's prior and GBP-HW-317 are read from.
+    (r"^the seven drain-prior session logs are not archived in this checkout \(captures/local is ignored\)$",
+     "LOCAL_ARTIFACT_ABSENT",
+     "every figure §V19.11 and GBP-HW-317 quote is on the page with each log's full hash, and pinned "
+     "from the SOURCES by tests that never skip (the rows, the verbatim sentence, the claims it must "
+     "not make, the Makefiles' source lists); the Operator's machine, where the logs are, runs the suite first"),
     # Issue #85: RUN 35, under captures/local and logs/, ignored by design.
     (r"^RUN 35 is not archived in this checkout \(captures/local is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
      "§V20's hashes, verdict, rows and the write-happened check are quoted on the page and pinned from "

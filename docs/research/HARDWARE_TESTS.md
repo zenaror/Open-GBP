@@ -31935,6 +31935,228 @@ Orchestrator recorded, and which this part now carries: **a figure in a peer's
 message is not a figure in the record. The record carries the status; nothing is
 frozen without going to the document first.**
 
+
+### V19.11 **AMENDMENT 4 — 2026-09-23, BEFORE any hardware** — the base is `play-0001`; the four-session prior; and a late-episode FAIL is a TRUE finding
+
+*Appended after §V19.10. The frozen text above stands byte for byte: §V19.0 to
+§V19.10, all three earlier amendments and the transcription record. This amendment
+prevails where they differ. **It moves no gate.** D1's threshold, windows and
+boundary, D2's decision rule and QUESTION A's gate are as frozen. It settles which
+image the run measures, what the archive already says about that image, and how
+two outcomes shall be read.*
+
+**How it was reached.** The decision (build on `play-0001`) did not move. Its
+*reason* was corrected three times before hardware, each time by checking a premise
+against the archive instead of reasoning about it: against the seven raw session
+logs (`GBP-HW-317`), and against the three images' Makefile source lists. What
+follows is the reason that survived.
+
+#### A4.1 The base image is `play-0001`, for the reason that survived
+
+```text
+play-0001    poc/gbp-play-session @ 2e48ca7    stream-0015's runtime WITHOUT its research
+             instrumentation -- the OGBPIDX1 witness, the full-frame sampler, the VI latch
+             trace, the disposition trace (gbp_vidxdump, gbp_vdisp[dump], gbp_vfull[dump],
+             gbp_vvi[dump]) -- PLUS the Z session end (gbp_session)
+stream-0016  = play-0001 + gbp_awin.c + gbp_awindump.c, and NOTHING else (the SRCS lists)
+stream-0015  the only one of the three that carries the research instrumentation; it is
+             not in this run's comparison at all
+```
+
+**`play-0001` is the minimal runtime: no research capture of any kind.**
+`stream-0016` adds only the AUDIO window and its sidecar, which this run does not
+need. `play-0001` is the runtime a game would run on, so it is the right system to
+measure.
+
+**It drains AUDIO on its real service path, confirmed from its own raw logs**
+(RUN 21: `AUDIOAGG selected=1121456 attempted=1121456 completed=1121456
+failures=0`). It counts it only **in aggregate**. **The per-second coverage counter
+that A6 requires is new code on this base,** and so is the live read length that
+QUESTION A needs:
+
+```text
+new on play-0001, named here
+  cfg->audio_len_live   the AUDIO read length, read once per drain; NULL in every earlier
+                        build, and then the operation stream is op-for-op identical
+                        (tests/unit/test_gbp_video_state.c: 1511 operations, 0 differences)
+  the coverage counter  src/audio/gbp_adrain: one u32 per second of PHASE B, preallocated,
+                        bumped per AUDIO block with no I/O (CLAUDE.md §13)
+```
+
+**What the run drains is the real service path: AUDIO *and* VIDEO**, whenever the
+device flags them. It is not an audio-only loop. An audio-only loop would pass D1 by
+construction, and a gate that a simpler system passes trivially is not a gate.
+
+**`PLAY_SAFETY_SECONDS` is 120, as A3 froze it.** That is not `play-0001`'s own
+720, which was sized for play sessions. A3 set the value for *this* run, and a
+safety bound is not raised to fit an experiment.
+
+#### A4.2 §V19.2's heading STANDS
+
+*"Is the shortfall a startup cost or a steady-state incapacity?"* is the right
+question, and `play-0001` is the right system to ask it of. The 13 start-up stalls
+belong to the **shared** service path: `gbp_vstate.c` is linked by all three images.
+`play-0001` shows them at the same 13 incomplete frames as `stream-0016`
+(`GBP-HW-317`). The shortfall is therefore the runtime's, and so is the question.
+**The heading is not edited and is not corrected.** A correction had been planned on
+a premise that was later refuted, and it was withdrawn before it was written.
+
+#### A4.3 The four-session prior — on the runtime, over minutes
+
+From the four `play-0001` session logs. The method is `GBP-HW-316`'s: `AUDIOAGG
+completed` over `CLOCKS capture_elapsed` at 40.5 MHz. The same code reproduces that
+entry's 68.06 / 68.59 exactly. **Each rate × duration gives back the count to under
+one block**, the check §V19.8 B1 made standing.
+
+```text
+                 log sha256    AUDIO blocks    capture (s)    blocks/s   coverage   deficit   failures
+RUN 21  play-0001  cae3ecfc…     1 121 456     273.810586     4 095.74    0.99994     72.16       0
+RUN 22  play-0001  a7bf2dbf…       827 302     201.995601     4 095.64    0.99991     71.98       0
+RUN 25  play-0001  70b24767…       217 553      53.130126     4 094.72    0.99969     68.00       0
+RUN 26  play-0001  5fb2161b…       127 420      31.124795     4 093.84    0.99947     67.16       0
+```
+
+**Across an 8.8× range of durations the deficit stays at 67–72 AUDIO blocks, and
+coverage rises with duration** (0.99947 at 31 s, 0.99994 at 274 s), with
+`failures=0` throughout. That is the signature of **a fixed start-up cost over a
+sound steady state**. `GBP-HW-317` supplies the other half: the stall count does
+not scale with session length.
+
+**This prior is far stronger than A5's**, which rested on two 62 ms windows of the
+AUDIO-window image. This one covers the runtime itself, over minutes. The logic is
+A5's: **it makes a FAIL much more informative, because a FAIL would contradict four
+sessions rather than a hope.**
+
+#### A4.4 What the prior does NOT settle
+
+- **Totals cannot show a single bad second, and a single bad second is exactly D1's
+  question.** Coverage over 274 s would hide one window that lost 50 blocks. **The
+  prior is a prior, not an answer.**
+- **No clock sign is read from 67 → 72.** 71.98 at 202.0 s against 72.16 at
+  273.8 s is not a rate. The sign of the AGB's clock offset stays **not
+  established**, consistent with AMENDMENT 3.
+
+#### A4.5 A late-episode FAIL is a TRUE finding
+
+> **A D1 FAIL caused by a late episode is a TRUE finding and must not be excused as
+> an artefact.**
+
+The reason is the archive. It is not a claim that late episodes stall the drain;
+the archive says they have **not**:
+
+```text
+                  episodes   not preserved   incomplete frames   resyncs   deficit
+RUN 21 play-0001     544          540               13              26       72.16
+RUN 26 play-0001      27           23               13              26       67.16
+```
+
+In all seven archived sessions, **episodes that were not preserved (11 to 540 per
+session) produced no incomplete frame and no visible growth of the deficit**
+(`GBP-HW-317`). An episode-attributed FAIL in PHASE B would therefore be **new
+behaviour of the runtime's drain, contradicting seven sessions**. That makes it a
+finding, not noise to explain away. The lazy reading, that a FAIL is only the video
+detector's cost, is foreclosed here, in advance.
+
+**One claim was proposed during the review and is NOT adopted:** *"a game changing
+scenes would lose audio the same way"*. The archive says the opposite.
+
+**The 13 start-up stalls cannot fall inside a D1 window, and the POC makes this true
+by construction.** In every archived session the four preserved episodes close by
+frame 197, about 3.30 s after frame 0 at 59.73 Hz (`GBP-HW-317`). D1's first window
+starts 3.000 s into PHASE B, and PHASE B starts only after the A press and
+CONTROL1. The POC does not rely on the Operator's reaction time for this:
+**CONTROL1 cannot pass, and so PHASE B cannot open, before 5.000 s after the
+service's capture start.** The prompt appears only then. An A press made earlier is
+still forwarded to the AGB, as every press is, and it is registered: it is not
+lost and does not need repeating. A repeat would be harmful, because a second A
+press selects 512 Hz. So all four preserved episodes lie before PHASE B opens,
+whatever the Operator does. 5.000 s is an operational bound of this image, never a
+property of the hardware.
+
+#### A4.6 Not like-for-like — at its true size
+
+The two images share the service path and the start-up stall signature, so **their
+deficits are comparable**: `play-0001` 67.16 at 31.1 s and 68.00 at 53.1 s;
+`stream-0016` 68.06 at 27.9 s, 68.59 at 38.5 s and 67.32 at 42.0 s (RUN 35, by the
+same method). **The only difference between them is the AUDIO window.**
+
+That window copies a block **only while a window is armed**: 1 280 of 114 342 /
+157 803 / 171 880 blocks in RUN 33 / 34 / 35, i.e. 0.74–1.12 %. **The whole-session
+comparison therefore says nothing about per-block work on EVERY block**, because
+it is dominated by unarmed time. What does speak to per-block work is narrower, and
+it gives the POC a ceiling to design against:
+
+```text
+copy_ticks max      1309 / 1437 / 1384 ticks @ 40.5 MHz = 32.3 - 35.5 us per armed block
+one AUDIO block     1/4096 s = 244.1 us   ->  the copy took up to 14.5 % of a block's budget
+A5's two windows    RUN 33 w4, RUN 34 w4: 256 blocks each with the copy on EVERY block,
+                    0.315 / 0.426 AUDIO blocks short of expected
+```
+
+These are maxima; the log does not give the mean over armed blocks. The drain
+image's own per-block work in PHASE B and PHASE C is one clock read and one
+counter bump, orders of magnitude below that ceiling. The popcount decode of
+B4 runs only in the two controls and PHASE A.
+
+**D1 does not look at the start-up, so a PASS does not locate `stream-0016`'s 68
+blocks.** It says that the steady state holds on a runtime that shares their source,
+and nothing about where those 68 went.
+
+#### A4.7 Implementation definitions the frozen text leaves open — fixed here, before any code sees data
+
+§V19 and its amendments freeze *what* is decided. A POC also has to fix *how* a
+period is counted, how long a control looks and where the SD write happens.
+Leaving those to the implementation would let the implementation choose the
+answer, so they are fixed here:
+
+```text
+rising edge      v11sweep's rule on sample(N) (B4): prev <= 16384 < cur, i.e. RESTING_DUTY 0.5
+                 of the 32 768-bit full scale -- the instrument GBP-HW-313 used, unchanged
+period           the interval, in AUDIO blocks, between consecutive rising edges. A period
+                 counts in a step only if BOTH its edges fall inside that step, so the interval
+                 that spans a length change belongs to neither step
+programmed       32 AUDIO blocks: agb-sweep's FIRST A press, 128.0 Hz (GBATEK n = 1024)
+control window   2 048 AUDIO blocks (0.5 s) at full reads. PASS iff at least 48 periods are
+                 counted and every one is exactly 32: the gate's own min == max == programmed rule
+CONTROL1         evaluated window after window from the first A press. It cannot pass before
+                 capture start + 5.000 s (A4.5), and it is bounded at 10 s after that press.
+                 A failure there ends the run for a power cycle and a retry. A second A press
+                 is NOT the recovery, because it selects 512 Hz
+CONTROL2         ONE window, immediately before PHASE A. Its failure makes A INCONCLUSIVE (B3)
+the sweep        each step is evaluated live by the gate's rule when it ends, because the sweep
+                 must STOP at the first SYNC-LOST (§V19.4). A step with no period is SYNC-LOST
+recovery         after the sweep, or after the first SYNC-LOST: one control window at full reads.
+                 PASS -> RECOVERS, else NO-RECOVERY
+edge_recoverable per step: the blocks whose read portion shows a within-block step (256-byte
+                 slice popcounts over the bytes read differing by more than 32 bits), over the
+                 rest-crossings counted in that step. Reported, never folded into A (A7)
+D1 totals        counter_total = the sum of PHASE B's 60 per-second counts. timebase_total =
+                 the service's OWN AUDIO completion counter (gbp_vstate), read at PHASE B's first
+                 and last tick. They are two independent counters, compared for §V19.2's
+                 INCONCLUSIVE arm
+D2 write         65 536 bytes, ONE fwrite to a new file on the SD, issued from the pump slot
+                 (outside the ISR and outside the service transaction, A4) at PHASE B's start +
+                 65.000 s. The SD is mounted before the service starts, never during it: the file
+                 is opened before the service (sdlog_stream_open), written ONCE at the mark
+                 (sdlog_stream_write), and closed and unmounted after the teardown. The close's
+                 directory and FAT update is therefore OUTSIDE the measurement, which says so
+D2 figures       coverage_before = the counter's second 64, the whole second before the mark.
+                 gap_blocks = the sum of (4096 - count) over the seconds from 65 through the
+                 one in which the write returned. coverage_after = the first whole second
+                 after that. The longest interval between two AUDIO DMA completions in PHASE C
+                 is reported beside them
+```
+
+**One reading is resolved here and recorded, not settled silently.** §V19.2 makes
+D1 INCONCLUSIVE when *"the timebase and the counter disagree by more than one block
+over the phase"*. Read literally, as *blocks expected from the timebase against
+blocks counted*, every real loss of more than one AUDIO block would come out
+INCONCLUSIVE, and the FAIL arm could never be reached. **That reading makes the
+gate unable to fail, so it cannot be the one meant.** The arm is read as a
+consistency check between two independent counts of the same phase (the row
+above), and `tools/v19drain.py` receives both through its unchanged
+`counter_total` / `timebase_total` parameters.
+
 ## V20 — RUN 35 INGESTED (GitHub Issue #85, GBP-AUDIO-006): **`question_L_bits` = LINEAR**, self-contained in one run, and `GBP-HW-305` is **FACT** — **2026-09-23**
 
 **The verdict, before any commentary, as the Issue requires: `question_L_bits`
