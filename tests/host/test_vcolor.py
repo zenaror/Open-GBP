@@ -668,7 +668,8 @@ class PreHandlerWait(unittest.TestCase):
             # the thing it was written for: no POC invents a wait of its own.
             # Issue #39: the playable image is built from the stream probe and takes the wait from the same profile
             # Issue #59: and the audio window image is built from the playable one, with the same line
-            if d in ("gbp-video-stream-probe", "gbp-play-session", "gbp-audio-window-probe"):
+            # Issue #84: and so is the drain image (§V19.11 A4.1), line for line
+            if d in ("gbp-video-stream-probe", "gbp-play-session", "gbp-audio-window-probe", "gbp-audio-drain-probe"):
                 self.assertIn("cfg.prehandler_wait_ms = startup.prehandler_wait_ms;", text)
                 self.assertNotIn("cfg.prehandler_wait_ms = 5000u;", text)
                 h = self._read("src/gbp/gbp_startup.h")
