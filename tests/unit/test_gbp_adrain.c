@@ -116,7 +116,11 @@ static void test_the_phase_order(void)
     gbp_adrain_step(&d, now + 6ull * TB, 1);
     eqi(gbp_adrain_read_len(&d), 0x400, "and on to the highest");
     gbp_adrain_step(&d, now + 9ull * TB, 1);
-    eqi(d.phase, GBP_ADRAIN_DONE, "the run ends after the third step");
+    eqi(d.phase, GBP_ADRAIN_RECOVERY, "the third step hands over to the recovery window");
+    eqi(gbp_adrain_read_len(&d), 4096, "the recovery window reads whole AUDIO blocks");
+    gbp_adrain_step(&d, now + 9ull * TB, 1);
+    eqi(d.phase, GBP_ADRAIN_DONE, "a passing recovery window ends the run");
+    eqi(d.recovered, 1, "and says the path recovered");
 }
 
 static void test_a_silent_run_never_reaches_phase_a(void)
@@ -195,21 +199,98 @@ static void test_blocks_before_phase_b_are_not_in_the_windows(void)
     eqi(d.secs_used, 0, "but in no window: D1 is a PHASE B question");
 }
 
+/* Drive a correct run to the start of PHASE A. */
+static void to_phase_a(struct gbp_adrain *d, uint64_t *now)
+{
+    to_phase_b(d, now);
+    gbp_adrain_step(d, *now + 60ull * TB, 1);
+    gbp_adrain_step(d, *now + 70ull * TB, 1);
+    gbp_adrain_step(d, *now + 70ull * TB, 1);     /* CONTROL2 passes */
+    *now += 70ull * TB;
+}
+
 static void test_no_recovery_voids_the_run(void)
 {
     struct gbp_adrain d;
     uint64_t now = 0u;
-    to_phase_b(&d, &now);
-    gbp_adrain_sync_lost(&d, 0);
-    eqi(d.phase, GBP_ADRAIN_VOID, "no recovery voids the remaining phases");
+    to_phase_a(&d, &now);
+    eqi(d.phase, GBP_ADRAIN_A, "at PHASE A");
+    gbp_adrain_sync_lost(&d, now + TB);
+    eqi(d.phase, GBP_ADRAIN_RECOVERY, "a lost step stops the sweep and goes to recovery");
     eqi(d.sync_lost, 1, "and it is recorded");
-    gbp_adrain_step(&d, 999ull * TB, 1);
+    eqi(d.a_step, 0, "on the step that lost it");
+    gbp_adrain_step(&d, now + 2ull * TB, 0);
+    eqi(d.phase, GBP_ADRAIN_VOID, "no recovery voids the remaining phases");
+    eqi(d.recovered, 0, "NO-RECOVERY");
+    gbp_adrain_step(&d, now + 999ull * TB, 1);
     eqi(d.phase, GBP_ADRAIN_VOID, "a void run does not step on");
 
-    to_phase_b(&d, &now);
-    gbp_adrain_sync_lost(&d, 1);
+    now = 0u;
+    to_phase_a(&d, &now);
+    gbp_adrain_sync_lost(&d, now + TB);
+    gbp_adrain_step(&d, now + 2ull * TB, 1);
     eqi(d.phase, GBP_ADRAIN_DONE, "recovery ends the run normally");
     eqi(d.recovered, 1, "and says so");
+    eqi(d.sync_lost, 1, "while the loss stays recorded");
+
+    /* sync can only be lost in PHASE A */
+    to_phase_b(&d, &now);
+    gbp_adrain_sync_lost(&d, now);
+    eqi(d.phase, GBP_ADRAIN_B, "a loss reported outside PHASE A changes nothing");
+    eqi(d.sync_lost, 0, "and is not recorded");
+}
+
+static void test_control1_cannot_pass_before_the_bound(void)
+{
+    /* §V19.11 A4.5: PHASE B may not open before capture start + 5 s. */
+    struct gbp_adrain d;
+    const uint64_t cap = 100ull * TB;
+    gbp_adrain_init(&d, TB);
+    gbp_adrain_set_accept(&d, cap + (uint64_t)GBP_ADRAIN_ACCEPT_S * TB);
+    gbp_adrain_tone_started(&d, cap + TB);            /* pressed early, 1 s in */
+    gbp_adrain_step(&d, cap + 2ull * TB, 1);          /* a passing window at 2 s */
+    eqi(d.phase, GBP_ADRAIN_CONTROL1, "a passing window before the bound does not open PHASE B");
+    eqi(d.control1_early, 1, "and is counted as early");
+    eqi(d.control1_ok, 0, "and is not a pass");
+    gbp_adrain_step(&d, cap + 5ull * TB, 1);          /* exactly at the bound */
+    eqi(d.phase, GBP_ADRAIN_B, "the first passing window at the bound opens PHASE B");
+    ok(d.t_b == cap + 5ull * TB, "and PHASE B starts there");
+    eqi(d.control1_ok, 1, "CONTROL1 passed");
+}
+
+static void test_control1_is_bounded(void)
+{
+    /* §V19.11 A4.7: ten seconds after the press, CONTROL1 gives up and the run
+     * ends for a power cycle -- a second A press is NOT the recovery. */
+    struct gbp_adrain d;
+    gbp_adrain_init(&d, TB);
+    gbp_adrain_tone_started(&d, 0u);
+    gbp_adrain_step(&d, 9ull * TB, 0);
+    eqi(d.phase, GBP_ADRAIN_CONTROL1, "still waiting at 9 s");
+    gbp_adrain_step(&d, 10ull * TB, 0);
+    eqi(d.phase, GBP_ADRAIN_DONE, "at 10 s without a pass the run ends");
+    eqi(d.control1_gave_up, 1, "and says why");
+    eqi(d.control1_ok, 0, "CONTROL1 did not pass");
+    eqi(d.secs_used, 0, "and no PHASE B second was ever counted");
+}
+
+static void test_a_step_due(void)
+{
+    struct gbp_adrain d;
+    uint64_t now = 0u;
+    to_phase_a(&d, &now);
+    eqi(gbp_adrain_a_step_due(&d, now + 3ull * TB - 1u), 0, "not due one tick early");
+    eqi(gbp_adrain_a_step_due(&d, now + 3ull * TB), 1, "due at 3 s");
+    to_phase_b(&d, &now);
+    eqi(gbp_adrain_a_step_due(&d, now + 999ull * TB), 0, "never due outside PHASE A");
+}
+
+static void test_the_phase_names(void)
+{
+    ok(strcmp(gbp_adrain_phase_name(GBP_ADRAIN_B), "B") == 0, "B");
+    ok(strcmp(gbp_adrain_phase_name(GBP_ADRAIN_RECOVERY), "recovery") == 0, "recovery");
+    ok(strcmp(gbp_adrain_phase_name(GBP_ADRAIN_VOID), "void") == 0, "void");
+    ok(strcmp(gbp_adrain_phase_name((enum gbp_adrain_phase)99), "?") == 0, "unknown");
 }
 
 int main(void)
@@ -223,6 +304,10 @@ int main(void)
     test_a_block_past_the_array_is_counted_not_dropped();
     test_blocks_before_phase_b_are_not_in_the_windows();
     test_no_recovery_voids_the_run();
+    test_control1_cannot_pass_before_the_bound();
+    test_control1_is_bounded();
+    test_a_step_due();
+    test_the_phase_names();
     printf("test_gbp_adrain: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
