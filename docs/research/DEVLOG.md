@@ -14869,3 +14869,106 @@ commits by design, but `make build` over every POC fails at HEAD.
 
 **Next.** The Orchestrator validates the candidate and opens the Hardware Issue:
 stage 15-drain, then the run. After that, #86.
+
+## 2026-09-23 — Issue #87: pre-hardware review — drain-0001's Dolphin intermittency, and the HEAD link regression since #59
+
+**Goal.** A bounded review before any staging, at the Operator's instruction.
+Nothing was staged and no run was authorised.
+
+### A correction first: the "only READY" evidence I reported did not exist
+
+The #84 entry above says the failed Dolphin run *"FAILED after receiving only the
+READY line"*. **That is unsupported.** I had filtered that run's output with
+`grep -E "RESULT:|commit="`. READY is the one Gecko line that contains `commit=`, so
+every other line would have been hidden even if it arrived. The run's report and
+full output were then overwritten by the next run before I kept them. **All that
+is known of that run is `RESULT: FAIL (4.0s)`.** The Orchestrator had built #87's
+first narrowing on my claim (*"stopped inside `gbp_vstate_probe_run`"*). Even taken
+at face value, the code refutes that inference: SELFTEST, INPUTSELFTEST and ENVMEM
+are all printed before the service call (main.c:1112, 1122 and 1215, against 1270).
+
+### Part 1 — the intermittency: NOT EXPLAINED, and reported as a risk
+
+```text
+the same DOL throughout: drain-0001 @ 897ea6c, sha256 4c80ab8a..., hash checked before every run
+runs 1-5      1 FAIL (the first, evidence lost as above), 4 PASS
+runs 6-15     10 PASS
+runs 16-35    20 PASS, every run's stdout, report, dolphin.log and screenshot kept;
+              IDENTICAL on every recorded axis: 8 Gecko lines, the device-absent abort reached
+              (status=abort_inconsistent teardown=stage_a), self-test ok, 0 log errors,
+              5 961 known-benign ones, screen lit 0.1244, Dolphin never exited early
+runs 36-40    5 PASS replaying the ONLY condition that set the failure apart: the first smoke
+              run right after a from-scratch rebuild and `make drain-audit`
+              (rebuilt hash identical each time)
+total         1 FAIL in 40, and the failing check is unknown
+```
+
+**What can be said, and it is an inference from the harness's code, not an
+observation.** `tools/dolphin_smoke.py` leaves its reading loop early only when every
+expected line has matched, when the Dolphin process exits, when the socket closes,
+or at its 60 s deadline. A program-side hang keeps Dolphin running and would have
+ended near 60 s, not at 4.0 s. So the failure was not a hang of the image. It was
+either a later check (log or screen) or an early exit or close. **Which one cannot
+be recovered.** Per the Issue: unexplained, so a stated pre-hardware risk, and the
+Operator decides.
+
+**A process gap this exposed.** The smoke harness overwrites its report every run,
+so a failure keeps no evidence unless someone copies it by hand. Recorded, not
+changed here.
+
+### Every wait, when the device never responds (`CLAUDE.md` §18): BOUNDED
+
+Answered from the code, independently of Dolphin:
+
+```text
+before CONTROL   each device operation carries its own bound
+                 DMA completion poll            hsp_backend.c:81        timeout_ticks = 200 ms
+                 stage A observation windows    gbp_initirqa_probe.c:322  each ends at its deadline (<= 2 s)
+                 pre-handler masked wait        gbp_vstate_probe.c:952   time AND an iteration cap (0 ms here)
+after CONTROL    the same, plus the global bounds
+                 handler / delivery wait        gbp_irq_service.c:97     t_delivery (100 ms)
+                 next-cause wait                gbp_vstate_probe.c:738   t_next_cause (100 ms)
+                 the service loop               gbp_vstate_probe.c:1029  safety budget (120 s from CONTROL),
+                                                                         delivery cap, stores, session end
+the drain POC    tap and pump slot              no wait at all
+                 display self-test              <= 600 VSyncs
+NOT bounded, and none of them waits on the GBP
+                 VIDEO_WaitVSync                the console's own VI retrace
+                 GX_DrawDone after teardown     the console's own GP, only with a texture in flight;
+                                                inherited from stream-0015 and play-0001, executed in RUN 16-35
+                 the START / X loops            the Operator, by design
+```
+
+The service loop runs only after CONTROL, so the global safety budget covers all
+of it. Everything before CONTROL is bounded operation by operation. **No path waits
+on an unresponsive GBP without a bound.**
+
+### Part 2 — the link regression: classification C, confirmed
+
+- **A holds.** Every executed image reproduces at its own commit from HANDOFF's
+  per-image recipe, and nothing historical is at risk.
+- **B holds too.** `CLAUDE.md` §9's autonomous PowerPC link check was silently
+  unavailable for four POCs.
+
+Repaired forward (0da719d): the four link `gbp_awin.c` as they link
+`gbp_vwitness.c`, with cfg.awin NULL. All four link from the tree, built into a
+scratch OUTDIR, so no executed artifact was touched.
+`tests/host/test_poc_link_closure.py` is the guard. It is static, runs in under
+2 s, failed before the fix on exactly those four and nothing else, and keeps that
+demonstration. **The layering fix**, a config pointer so that the shared path names
+no optional module, **is a follow-up** and was not done inside this review.
+
+### Also recorded
+
+`U-GBP-044` (accea8e), the cause of the 13 start-up stalls, as decided on #84.
+
+### Part 4
+
+- **drain-0001 is unchanged by #87.** Part 2 touched none of its sources, and its
+  rebuilt hash is identical five times over. Nothing found here requires changing
+  it.
+- **The one open risk, stated as a decision:** proceed with drain-0001 as it is,
+  accepting one Dolphin smoke failure in 40 whose failing check is unknown and whose
+  evidence was lost; or hold it for further Dolphin investigation first. The code
+  review above establishes, without Dolphin, that no wait on the device is
+  unbounded.
