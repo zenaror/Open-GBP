@@ -600,6 +600,18 @@ not begun carrying are the same picture — and a **second candidate encoding**
 rides along for free, since a run that records each window's byte **alphabet**
 can see magnitude carried in the cell's LEVELS instead of its duty.
 
+**2026-09-22, Issue #69 — PRE-REGISTERED, `HARDWARE_TESTS.md` §V11**, with the
+constructions frozen in `tools/v11sweep.py` before `stimulus/agb-sweep` exists.
+Three questions with separate gates — the amplitude sweep on the ORDER, the
+frequency ladder on the RATIOS, the alphabet on the LEVELS — and neither
+consults the other's evidence. **NOT RUN, NOT AUTHORISED; a pre-registration
+answers nothing and this item STAYS OPEN.** What it adds to the entry above:
+the null is the fit's intercept, so **any flat window is a carriage failure and
+never a volume-0 reading**; a window with one distinct byte value is `NO CELL`,
+a finding in its own right; and the schedule a run exercised is **derived from
+the `KEY` record**, with a mismatched window **refused** rather than read as the
+other question.
+
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the

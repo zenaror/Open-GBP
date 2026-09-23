@@ -82,6 +82,10 @@ LEDGER = [
     (r"^the commit that built agb-tone is not in this checkout$", "HISTORY_ABSENT",
      "the ROM's identity is pinned by hash and size in §V9.14 and in test_agb_tone.py, which do not "
      "skip; an edit that changed the bytes would break those first"),
+    # Issue #69: tools/v11sweep.py is frozen the same way, found by its commit message.
+    (r"^the commit that introduced tools/v11sweep\.py is not in this checkout$", "HISTORY_ABSENT",
+     "§V11's own text carries every constant the module holds -- the schedules, the 96-block slice, "
+     "the thresholds -- and the tests that compare the two never skip; a drifting edit breaks those first"),
     (r"^the commit that introduced tools/v9tone\.py is not in this checkout$", "HISTORY_ABSENT",
      "the frozen constructions are also pinned by tests/host/test_v9tone.py, which exercises them on "
      "synthetic vectors and fails loudly if a construction changed behaviour"),

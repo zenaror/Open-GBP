@@ -132,6 +132,10 @@ class NothingFrozenMoved(unittest.TestCase):
         # the ROM exists: tools/v9tone.py is exercised on SYNTHETIC vectors only, reads no run, authorises
         # nothing and promotes nothing.
         changed = changed - {"tools/v9tone.py"}
+        # Issue #69 (2026-09-22) pre-registered the amplitude sweep (§V11) and froze its constructions
+        # BEFORE stimulus/agb-sweep exists: tools/v11sweep.py runs on SYNTHETIC vectors only, reads no
+        # run, authorises nothing and promotes nothing. It is the fourth outing of the same discipline.
+        changed = changed - {"tools/v11sweep.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
@@ -155,7 +159,9 @@ class NothingFrozenMoved(unittest.TestCase):
         # goes on asserting that THIS checkpoint (the play-0001 build) executed nothing
         # Issue #64 (2026-09-22) reserved RUN 31 in §V9's pre-registration; the pin moves again to the
         # next unused number, and it still asserts what it was written to assert
-        self.assertNotIn("RUN 32", hw)
+        # Issue #69 (2026-09-22) reserved RUN 32 in §V11's; same move, same reason -- a RESERVED name is
+        # not a run, and the pin's job is to catch a checkpoint that claims one
+        self.assertNotIn("RUN 33", hw)
         self.assertNotIn("GBP-HW-303", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test

@@ -13627,3 +13627,97 @@ stay exactly as open as they were. §V8, §V9, `tools/v8audio.py` and
 
 **Next.** The pre-registration that puts §V10's numbers in code **before** the
 ROM exists.
+
+## 2026-09-22 — Issue #69: the sweep PRE-REGISTERED — §V11, and the constructions frozen before the ROM exists
+
+**Goal.** Turn §V10's design into a pre-registration: the schedules, the
+predicted quantities, three questions with separate gates, the admissibility
+rules, the reserved names and the action list — and put every construction in
+`tools/v11sweep.py` **now**, so none of them can be adjusted once data exists.
+**No ROM, no build, no hardware.**
+
+**`HARDWARE_TESTS.md` §V11 (GBP-AUDIO-003) and `tools/v11sweep.py`.**
+
+**The fourth outing of #50's discipline, and the first where the instrument,
+the run and the two competing models are all written before any of them exist.**
+`v9tone.py`'s third outing decided *against* us and was not touched; that is the
+standard this one is held to, and a test diffs the file against its own commit.
+
+**Three questions, separate gates, and neither consults the other's evidence**
+(§V6.13's rule):
+
+```text
+QUESTION V   the amplitude sweep, read ONLY under B. Gate = THE ORDER:
+             ORDERED / MOVES, NOT ORDERED / DOES NOT MOVE / INCONCLUSIVE / REFUSED
+QUESTION F   the frequency ladder, read ONLY under A. Gate = THE RATIOS, §V9.8's 10 %
+QUESTION E   the ALPHABET -- the block's byte levels, not its duty -- with its own gate
+```
+
+**QUESTION E exists so that a duty which holds at 0.500 while the levels move is
+a DIRECTION and not a null result**, and it can only say that on its own
+evidence, which is why it is a separate function that never reads V's verdict.
+
+**The model comparison is a measurement beside QUESTION V and decides nothing**,
+and both models are **re-anchored on the window that actually measured volume
+15** — so what is compared is the *shape* of the fall, not an absolute scale
+nobody has measured. Their separation (≥5 bytes at every non-anchor point, >9 at
+two) is **asserted as a property** in `tests/host/test_v11sweep.py`, so an edit
+that narrowed the experiment fails rather than weakening it quietly.
+
+**The order gate deliberately does not refuse the competitor.** A compressive run
+returns `ORDERED` too — the discrimination lives in the measurement beside the
+verdict. A gate that only its favourite model could pass would not be a test.
+
+**THE NULL IS THE FIT'S INTERCEPT, and the consequence is encoded rather than
+remembered.** Because no schedule entry predicts a flat window, `classify_window`
+returns `CARRIAGE FAILURE` for a flat one and the question returns
+`INCONCLUSIVE` naming the windows and citing `U-GBP-038`. **A third state was
+named rather than discovered:** a window whose blocks each hold ONE distinct
+byte value has no duty at all — the definition divides a block at the midpoint
+of its own extremes and there is no midpoint when `lo == hi`. That is `NO CELL`,
+neither a failure nor a reading, and **a finding in its own right**, because
+every window observed so far has had a two-level 256-byte cell.
+
+**THE SCHEDULE IS DERIVED FROM THE `KEY` RECORD, NEVER DECLARED.** The anchor
+already carries `keys`, so `axis_of_window()` reads GBA A → the F schedule and
+GBA B → the V schedule, `derive_schedule()` returns the axis all four windows
+agree on (or MIXED, or UNKNOWN), and **a question handed a window that does not
+match its axis returns `REFUSED` and answers nothing** — it does not drop the
+window and continue, and it does not read it as the other question. A and B are
+adjacent on the pad and reading one as the other is silent.
+
+**`GBP-HW-300`'s first chance to bite again, and it was taken.** The console
+names files from the **image's** `TEST_ID` (`GBP-AUDIO-001`) and `sdlog.c`
+writes `<test_id>_<build_id>` with **no run number at all**, so this run will
+write RUN 30's and RUN 31's filenames for the third time. §V11.12 states the
+names the console will actually write, the archive names that distinguish
+RUN 32, and **that the two disagree by design** — the file's own `test_id=`
+header will say `AUDIO-001` while its archive name says `AUDIO-003`, and neither
+is an error. The SD-state check is therefore against **the names the image
+writes**.
+
+**The identity gate states the image and refuses to state the ROM's hash**,
+because `stimulus/agb-sweep` does not exist — and it says so rather than leaving
+a blank for someone to fill in later. A test asserts that the only 64-hex string
+in the whole part is the image's.
+
+**The action list** carries the 20 s wait with its inline `---- WHY:` — including
+that the bound is *the earliest a window was observed to carry over two runs and
+not a hardware property*, which is why there is margin — plus **USE THE SAME
+BUTTON ALL FOUR TIMES**, the per-press counter and box half he reports, and the
+cost: one more NOR write, `agb-tone` leaves the cartridge, re-flashing is the way
+back, and this is the last flash the phase's audio questions need.
+
+**One guard bug found by writing another.** `test_v10_design`'s own section
+slice ran to EOF, so §V11's reserved `RUN 32` tripped §V10's "nothing beyond
+run 31" assertion. Bounded, like the four in `a7c1a67` — the same defect class
+twice in one day, now fixed everywhere it existed.
+
+**Nothing moved.** No evidence id, no status, no promotion. `U-GBP-012` and
+`U-GBP-039` gained dated pointers. §V8, §V9 and §V10 keep their words;
+`v8audio.py` and `v9tone.py` are untouched and `stimulus/agb-tone` is
+byte-identical to the commit that built it. Two names are reserved and **the
+files do not exist**.
+
+**Next.** The build — `stimulus/agb-sweep` to §V11.2 — which is a checkpoint of
+its own, and then the run, which is another.
