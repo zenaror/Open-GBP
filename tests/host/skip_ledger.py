@@ -106,6 +106,10 @@ LEDGER = [
      "the ROM's identity is pinned by hash and size in §V9.14 and in test_agb_tone.py, which do not "
      "skip; an edit that changed the bytes would break those first"),
     # Issue #69: tools/v11sweep.py is frozen the same way, found by its commit message.
+    # Issue #75: tools/v13sep.py is frozen the same way, found by its commit message.
+    (r"^the commit that introduced tools/v13sep\.py is not in this checkout$", "HISTORY_ABSENT",
+     "§V13's own text carries every constant the module holds -- the ladder, the floor, the bound "
+     "on T -- and the tests that compare the two never skip"),
     (r"^the commit that introduced tools/v11sweep\.py is not in this checkout$", "HISTORY_ABSENT",
      "§V11's own text carries every constant the module holds -- the schedules, the 96-block slice, "
      "the thresholds -- and the tests that compare the two never skip; a drifting edit breaks those first"),

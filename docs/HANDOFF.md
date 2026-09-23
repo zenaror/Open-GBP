@@ -1612,7 +1612,8 @@ issue 74    THE OPERATOR'S PICO GECKO IS UP (§V12). The GameCube side needed NO
             NOT changed: the mapping belongs in the consumer, so the receiver writes the file RAW and
             maps LF->CRLF only on --echo. CLAUDE.md §14 restated twice: optional, NEVER NECESSARY, and
             the SD save stays the primary record. No evidence id: a bring-up is an instrument check.
-operator    RECEIVED AND NOT INGESTED -- it gets its own checkpoint, recorded here so it is not only
+operator    INGESTED BY #75 (§V13.1.1, §V13.1.2) -- kept here for the trail.
+ report     RECEIVED AND NOT INGESTED -- it gets its own checkpoint, recorded here so it is not only
  report     in chat. sweep-0002 EMITS ON ALL FOUR PRESSES on his GBA console, and the MARK READING is
             in: "nos toques de 1 a 4 ... a metade de baixo branca e a mudança de cor do fundo ...
             nada alem disso". NO CYAN MARKS ON ANY PRESS, and the picture is otherwise EXACTLY
@@ -1630,6 +1631,39 @@ operator    RECEIVED AND NOT INGESTED -- it gets its own checkpoint, recorded he
             SEQUENCE. It cost nothing this time (four presses, alarm not needed); it would cost a run
             the first time someone double-taps. Fix or record as a known limitation -- not left
             unstated.
+issue 75    THE SEPARATOR I NAMED IN §V11.16.9 WAS WRONG, and the Orchestrator caught it BEFORE a run
+            was spent on it. A LONG gap is where the two readings AGREE (ORDINAL: the next window
+            carries; ELAPSED: 10 s is past T, it carries). They disagree only on a window opening
+            BEFORE T, so THE SEPARATOR IS A SHORT GAP. The error was reasoning as if ORDINAL meant "a
+            fixed number of windows are dead whatever the time" -- a THIRD reading, not the one
+            written. Corrected ON TOP in §V11.16.9, GBP-HW-307 and U-GBP-038; nothing measured
+            changes, only the prescription did.
+            §V13 PRE-REGISTERS RUN 33 with tools/v13sep.py frozen before it (fifth outing). A LADDER,
+            not one gap, because T ∈ (0.0625, 3.33] is 53x WIDE: presses at 0, +0.3, +1.2, +4.0 s, the
+            last a POSITIVE CONTROL both readings predict carries. NEITHER PREDICATE NEEDS T, so the
+            gate is mechanical: ORDINAL refuted by any window after the emitting one that carries
+            nothing; ELAPSED refuted by a window that carries while a LATER one does not. D C C C is
+            NOT a null result -- it bounds T to (0.0625, 0.3625], ~9x tighter. Targets are TARGETS,
+            not tolerances: t_arm is recorded per window. The gap floor (~0.10 s) is DERIVED from the
+            62.5 ms window fill, and a refusal is VISIBLE (refused_busy). §V11.13's "at least three
+            seconds" IS THE THING BEING VARIED and the action list says so in a box before the presses.
+            The 20 s pre-press wait STAYS but the record says it NO LONGER HAS THE JOB IT HAD -- held
+            constant as a control, since the gaps are this run's one new variable.
+            ALL FOUR PRESSES ON A (volume held at 15); NO FLASH and NO STAGING -- sweep-0002 is on the
+            cartridge and stream-0016 is in 14-audio.
+            THE FIFTH-PRESS ALARM: the Operator PHOTOGRAPHED ALL FIVE PRESSES and presses 4 and 5
+            DIFFER IN EXACTLY ONE THING, THE BACKGROUND HUE -- identical boxes, because the box channel
+            has run out of boxes. So NEITHER channel distinguishes the fifth press. The sequence is now
+            in the record: black -> red -> green -> blue -> yellow -> MAGENTA, which makes magenta the
+            SIXTH TERM of a colour sequence. THE PROPERTY, in general terms: AN ALARM MUST NOT BE
+            REACHABLE BY ANY VALID STATE OF THE NORMAL INDICATORS. Fix specified (a PATTERN), NOT built:
+            re-weighed against the photographs and it stands, because step_for_count() HOLDS at the last
+            entry and gbp_awin_arm_press() returns before touching anything, so the four windows are
+            byte-for-byte what they would have been. An unnoticed fifth press costs a CONVERSATION, not
+            a run -- a statement about the code, not a hope. The absence of an at-the-time signal is a
+            recorded KNOWN LIMITATION with the case that would change it.
+            AND THE SAME PHOTOGRAPHS CONFIRM U-GBP-040: no cyan mark anywhere, on any press. FIXED AND
+            UNEXPLAINED, §V11.17's second pre-registered outcome, confirmed visually.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED

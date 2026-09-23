@@ -1774,10 +1774,13 @@ READING B  WINDOW ORDINAL from the first emission   the emitting window is dead,
 
 **Both fit RUN 30, RUN 31 and RUN 32, and no run separates them**, because every
 run so far spaced its presses 3.1–3.4 s apart — the spacing §V8.10 asked for,
-for an unrelated reason. **THE SEPARATOR IS A LONG GAP AFTER THE FIRST EMITTING
-PRESS**: a press ten seconds later that still carries nothing is the ordinal; one
-that carries is the time. It needs **no new ROM and no new image**, and the ROM
-defect must be fixed first or press 1 is wasted in every future run.
+for an unrelated reason. **THE SEPARATOR IS A SHORT GAP AFTER THE FIRST EMITTING PRESS** — corrected
+2026-09-23 (Issue #75); the first version of this entry said a LONG one and was
+wrong, because a long gap is where the two readings agree. They disagree only on
+a window that opens **before** T. §V13 pre-registers a **ladder** of gaps, so the
+run either refutes ORDINAL outright or tightens T by about an order of magnitude.
+It needs **no new ROM and no new image**, and the ROM defect is fixed
+(`sweep-0002`, §V11.17) so press 1 is no longer wasted.
 
 ## U-GBP-039 (P2, opened 2026-09-22 after RUN 31) — WHY the AUDIO window carries nothing for the first ~10–12 s after the CONTROL transform
 

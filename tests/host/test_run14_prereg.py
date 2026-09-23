@@ -200,7 +200,7 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
         self.assertEqual(len(re.findall(r"captures/local/\S*run14\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*run15\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*stream-0014-run16\S*", t)), 5)   # RUN 16 ran on stream-0015 (Issue #33): these five are retired, listed once
-        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[3-9]|[4-9]\d)\S*", t)), 0)   # run17 / run18: Issue #28, §V7.3; run19 / run20: Issue #34, §V7.5; run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[4-9]|[4-9]\d)\S*", t)), 0)   # run17 / run18: Issue #28, §V7.3; run19 / run20: Issue #34, §V7.5; run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67); run33: Issue #75, §V13 (GBP-AUDIO-004, reserved and not on disk)
 
     def test_the_handoff_reserves_the_same_fifteen_names_once_and_the_run_13_names_stay(self):
         h = read(HANDOFF)
@@ -453,6 +453,10 @@ class NothingElseMoved(unittest.TestCase):
         # Gecko. It reads a serial port and writes bytes to a file; it touches no image, no POC and
         # no runtime path, and CLAUDE.md §14 forbids anything coming to depend on the device.
         changed = changed - {"tools/geckorx.py"}
+        # Issue #75 (2026-09-23) pre-registered U-GBP-038's separator (§V13) and froze its
+        # construction BEFORE the run: tools/v13sep.py runs on SYNTHETIC vectors only, borrows
+        # v11sweep's classifier unchanged, reads no run and authorises nothing.
+        changed = changed - {"tools/v13sep.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs

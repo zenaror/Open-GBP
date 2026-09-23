@@ -796,6 +796,10 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         # Gecko. It reads a serial port and writes bytes to a file; it touches no image, no POC and
         # no runtime path, and CLAUDE.md §14 forbids anything coming to depend on the device.
         changed = changed - {"tools/geckorx.py"}
+        # Issue #75 (2026-09-23) pre-registered U-GBP-038's separator (§V13) and froze its
+        # construction BEFORE the run: tools/v13sep.py runs on SYNTHETIC vectors only, borrows
+        # v11sweep's classifier unchanged, reads no run and authorises nothing.
+        changed = changed - {"tools/v13sep.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
