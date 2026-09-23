@@ -14789,3 +14789,83 @@ slot. RUN 35 had one, and its log reads `orig=92`: 49 logs now, 13 at `0x90` and
 tests failed on the new log — which is the right way round: a run that enters a
 population is a data point for every claim defined over it, not only the one it
 was run for.
+
+## 2026-09-23 — Issue #84 (continued): AMENDMENT 4, `GBP-HW-317`, and the drain image `drain-0001`
+
+**Goal.** Finish #84: the base image and its reason (§V19.11, AMENDMENT 4), then
+GBP-AUDIO-005's POC.
+
+**The decision never moved; its reason was corrected three times, before any
+hardware.** Every correction came from checking a premise against the archive
+rather than reasoning about it:
+1. **The 13 start-up stalls belong to the shared service path.** play-0001 stalls
+   at the same frames as stream-0016, because the episode tracker is in
+   `gbp_vstate.c`, which all three images link.
+2. **Late episodes cost nothing.** My own premise, *"a late episode stalls the
+   runtime"*, was refuted. All seven archived sessions show 13 incomplete frames,
+   whether they carried 11 later episodes or 540.
+3. **stream-0016 never carried the video research instrumentation.** Its SRCS is
+   play-0001's plus the AUDIO window, and nothing else.
+
+The Orchestrator's point-6 addition failed the same check. It assumed the AUDIO
+window copies every block, but it copied 1 280 blocks per run (0.74–1.12 %). It
+was narrowed to A5's windows and to the copy's measured ceiling: at most
+35.5 µs, 14.5 % of a block's budget.
+
+**Recorded.**
+- `GBP-HW-317`, FACT about the archive: the invariant start-up signature
+  (13 / 26 / episodes 8, 30, 90, 150 in all seven sessions).
+- `GBP-HW-316` and §V18.6 narrowed: 10 of the 13 stalls are located, and 3 are
+  not located by the log (the log prints only its first 128 and last 64
+  events).
+- §V19.11 A4.1–A4.7. One reading of §V19.2's INCONCLUSIVE arm was resolved and
+  recorded, because the literal reading would make D1 unable to fail.
+
+**Built.**
+- **The service path.**
+  - `cfg->audio_len_live` (2138434) and `cfg->audio_tap` (dae6a4d). Both are
+    NULL in every earlier build, and each proves the operation stream identical
+    op for op (1 511 operations, 0 differences).
+- **The audio modules.**
+  - `src/audio/gbp_aperiod`: the period decoder, using the instrument's
+    rising-edge rule, with nothing adaptive. 43 checks.
+  - `gbp_adrain`: A4.5's accept bound, A4.7's CONTROL1 bound and the RECOVERY
+    window. 86 checks.
+- **The image.** `poc/gbp-audio-drain-probe`, drain-0001.
+  - The audit profile `drain` gives 0 findings and discriminates both ways:
+    7 findings when this image is audited as `play`, 28 when play-0001 is
+    audited as `drain`.
+  - The one-shot handlers are identical to GBP-VIDEO-001's.
+- **The report builder.**
+  - `tools/v19report.py` turns the log into the report the frozen gates read.
+    It is frozen at 897ea6c, and `tests/host/test_drain_image.py` pins it.
+  - Every DRAIN record fits the ringlog line even at its type maximum.
+  - Synthetic logs rendered from the image's own format strings go through the
+    builder and the frozen gates: PASS, a 5-block FAIL, D2 unmeasured, a lost
+    step, and an INCONCLUSIVE.
+
+**The candidate, NOT staged.**
+```text
+image      poc/gbp-audio-drain-probe / drain-0001 / 897ea6c (clean), TEST_ID GBP-AUDIO-005
+DOL        500 992 B   sha256 4c80ab8a34d9260793e036beda513a9a23be86d04c61c0d653c6f79fc7333884
+           two from-scratch builds, byte-identical
+slot       15-drain proposed (next free number; 12-stream, 13-play and 14-audio stay frozen)
+cartridge  agb-sweep, sweep-0002 -- delivered build/physical/agb-sweep-cart.gba, 9596ddee...95f2
+SD2SP2     needed: the D2 write and the log
+budget     about 82 s after the A press, against A3's 120 s safety bound
+```
+
+**Dolphin, device absent.** The boot, both self-tests, the D2 open attempt and the
+abort path pass 4 of 5 times. One run FAILED after receiving only the READY line,
+and its cause was not identified. This is auxiliary evidence and never physical,
+and it is recorded as observed.
+
+**Found, and not changed here.** Since #59 the service module references
+`gbp_awin_block` / `gbp_awin_note_ticks`. play-0001's, stream-0015's, vstate's
+and color's sources, as they stand at HEAD, therefore no longer link: the drain
+build, which is play's SRCS plus two files, failed on exactly those two symbols
+until `gbp_awin.c` was linked, unbound. Those images reproduce at their own
+commits by design, but `make build` over every POC fails at HEAD.
+
+**Next.** The Orchestrator validates the candidate and opens the Hardware Issue:
+stage 15-drain, then the run. After that, #86.
