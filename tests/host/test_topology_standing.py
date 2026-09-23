@@ -257,6 +257,13 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         # from recurring unobserved.
         changed = changed - {"poc/gbp-play-session/Makefile", "poc/gbp-video-stream-probe/Makefile",
                              "poc/gbp-video-state-probe/Makefile", "poc/gbp-video-color-probe/Makefile"}
+        # Issue #86 (2026-09-23) BUILT AOUT-HW-001, the OUTPUT-PATH image (not a GBP audio test): the
+        # listening sequence (src/audio/gbp_alisten.*, bit-identical to the #80/#81 reference on RUN 33,
+        # tests/host/test_audio_listen.py) and the POC that plays it through the AI. No GBP code is linked
+        # into it (the `aout` audit profile), and no runtime path, image or slot changed.
+        changed = changed - {"src/audio/gbp_alisten.c", "src/audio/gbp_alisten.h",
+                             "poc/audio-output-replay/Makefile", "poc/audio-output-replay/source/main.c",
+                             "poc/audio-output-replay/source/fixture_embed.S"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
