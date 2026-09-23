@@ -167,7 +167,7 @@ class NothingFrozenMoved(unittest.TestCase):
         # Issue #69 (2026-09-22) reserved RUN 32 in §V11's; same move, same reason -- a RESERVED name is
         # not a run, and the pin's job is to catch a checkpoint that claims one
         self.assertNotIn("RUN 33", hw)
-        self.assertNotIn("GBP-HW-303", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
+        self.assertNotIn("GBP-HW-308", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test
         self.assertNotIn("GBP-PLAY-001", read(EVIDENCE))

@@ -376,7 +376,7 @@ class ItAuthorisesNothingAndAnswersNothing(unittest.TestCase):
                       read(os.path.join(ROOT, "src", "platform", "sdlog.c")))
 
     def test_the_action_list_carries_the_wait_its_reason_and_the_button_warning(self):
-        s = part()
+        s = prereg()
         self.assertIn("WAIT 20 SECONDS", s)
         self.assertIn("---- WHY:", s)
         self.assertIn("NOT a hardware property", s)
@@ -390,15 +390,17 @@ class ItAuthorisesNothingAndAnswersNothing(unittest.TestCase):
         claims = re.compile(r"\b(RUN 32|the ROM|agb-sweep)\b[^.]{0,40}?\b(was|were)\s+"
                             r"(built|executed|run|captured|flashed|measured)\b"
                             r"|\bthe run showed\b|\bwe (observed|measured)\b", re.I)
-        for para in re.split(r"\n\s*\n", part()):
+        # the PRE-REGISTRATION may claim nothing; §V11.15 records a BUILD and §V11.16 a RUN,
+        # both appended after it and both entitled to say what happened (§V9.14 / §V9.15's split)
+        for para in re.split(r"\n\s*\n", prereg()):
             self.assertIsNone(claims.search(flat(para)),
-                              "§V11 claims something it cannot have:\n%s" % para[:200])
+                              "§V11's pre-registration claims something it cannot have:\n%s" % para[:200])
 
     def test_it_mints_no_evidence_id_and_moves_no_status(self):
         self.assertNotRegex(part(), r"^#{2,4} +GBP-[A-Z]+-\d{3}\b")
         ev = read(EV)
         self.assertEqual(max(int(n) for n in re.findall(
-            r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 302)
+            r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 307)
         self.assertNotIn("Issue #69", ev)
 
     def test_the_earlier_parts_keep_their_words(self):
@@ -416,11 +418,14 @@ class ItAuthorisesNothingAndAnswersNothing(unittest.TestCase):
         # separately. What still has to hold is that §V11.1 – §V11.14 did not move
         # to accommodate it: the ROM met the specification, not the other way round.
         self.assertIn("§V11.1 – §V11.14 ARE UNTOUCHED", part())
-        self.assertNotIn("### V11.16", part())
+        # Issue #72 (2026-09-23) appended §V11.16, RUN 32's ingestion. What still has to hold is
+        # that the PRE-REGISTRATION did not move to accommodate the result.
+        self.assertIn("### V11.16 RUN 32", part())
+        self.assertNotIn("### V11.17", part())
 
     def test_nothing_beyond_run_31_is_claimed_to_have_happened(self):
-        s = part()
-        self.assertNotIn("RUN 33", s)
+        self.assertNotIn("RUN 33", part())
+        s = prereg()
         self.assertIn("RUN 32 is the next free number", flat(s))
         self.assertIn("the files do not exist", s)
 

@@ -13879,3 +13879,100 @@ document and tripped on §V11.15.7 citing `GBP-HW-276`. **Third time today** —
 same defect class as `a7c1a67` and as §V10's own guard. Bounded, and the
 assertion sharpened while I was there: *minting* an id is a heading, and citing
 one in prose is not.
+
+## 2026-09-23 — Issue #72: RUN 32 ingested — `QUESTION V` INCONCLUSIVE, the linear model supported anyway, and `U-GBP-038` refuted
+
+**Goal.** Archive RUN 32, decide it by the frozen constructions, and find out
+why the two highest amplitudes produced nothing while the two lowest did.
+`tools/v11sweep.py` not adjusted — fourth outing, second time the data refuses
+the prediction.
+
+**Archived first.** `logs/run32/` untouched, hashes computed from the originals
+and re-verified from the copies. **The console wrote `GBP-AUDIO-001` for the
+third time**, exactly as §V11.12 predicted, and the archive name says
+`GBP-AUDIO-003` — the disagreement is correct by design.
+
+**§V11.8's derivation ran and passed on its first use:** every press anchor
+carries `keys=0002`, so the run reads under the V schedule and nothing is
+refused. **The Operator's channel agrees** — *"a metade de baixo ficava
+branca… E o fundo mudava de cor"* — and its limit is on the page beside it: the
+display shows the **count and the axis**, never the volume value.
+
+**`QUESTION V` = INCONCLUSIVE.** Windows 1 and 2 are `CARRIAGE FAILURE`, not a
+volume reading. **§V11.4.1's refusal is the reason this checkpoint did not
+conclude "volume 15 encodes nothing"** — and the two findings below show how
+close that call was.
+
+**`QUESTION E` = LEVELS DIFFER, NOT ORDERED — and its own quantity is
+saturated.** `00` and `ff` are in every window of every run, so the level span
+is 255 everywhere and can order nothing. **Recorded and not repaired**; §V11.6
+is frozen and this was its first outing. What the alphabet's *membership* shows
+is the opposite of what E was built for: it tracks **whether** a window carried,
+not how loud it was.
+
+**`T′` = NOMINAL** against both available references, and the reference choice
+is named because it is ours.
+
+**THE BLOCK IS A 1-BIT PWM PULSE.** ~120 bytes of `0xFF`, ~120 of `0x00`, and a
+few partial bytes at the edges — every value ever seen is a run of contiguous
+one-bits. §V11.4's `duty()` counts whole **bytes**, so the levels it measures
+are multiples of 8 from rest while transitional blocks land between them. Read
+at bit resolution the same quantity is continuous.
+
+**And then the run pays.** RUN 31's carrying windows were `agb-tone` at envelope
+volume 15 — so **volume 15 was already measured, on the same image and the same
+path**, at `30.0625/256`. That is the third point:
+
+```text
+  V     deviation /256    dev / V       slope 2.0007, INTERCEPT +0.0515 /256
+ 15       30.0625          2.0042       LINEAR re-anchored predicts 14.03 / 6.01, errors 0.03 / 0.04
+  7       14.0547          2.0078       COMPRESSIVE predicts 22.55 / 15.03, errors 8.49 / 8.98
+  3        6.0547          2.0182       -> the linear model is closer by a factor of 258
+```
+
+**§V11.4.1's null is the intercept and it lands 0.0515 bytes from the origin.**
+It is a **measurement beside an INCONCLUSIVE verdict**, on a cross-run anchor
+the pre-registration did not authorise — `U-GBP-012` is not closed and H-PWM is
+not promoted.
+
+**Two figures of my own were wrong and a test caught them**, which is the point
+of recomputing rather than quoting: I first wrote the intercept as `+0.046` from
+rounded inputs (it is `+0.0515`) and claimed *every* duty is a multiple of 8
+(only the settled levels are; 18 of 1 280 blocks are transitions). Both
+corrected in the document, not only in the test.
+
+**THE INSTRUMENT DEFECT.** The Operator put `agb-sweep` in his own Game Boy
+Advance: *"no primeiro toque nada é reproduzido… só a partir do segundo"*.
+**Press 1 does not emit, reproduced off the GBP entirely.** That explains
+window 1 completely and **does not explain window 2**. The write **order** is
+ruled out against the vendored GBATEK — the master enable is written first,
+which is what it requires. **The mechanism is not determined and is not
+guessed**; `U-GBP-040` opens at P1.
+
+**mGBA would not have caught it**, and that belongs next to §V11.15.7's
+decline: reading `external/mgba`, the reset branch runs only when the enable is
+**cleared**, so the model emits on press 1 where the hardware does not — a false
+pass. **And his own step 0.5 would have caught it.** He ran it after the run
+instead of before, and it still paid.
+
+**`U-GBP-038` REOPENED, and `GBP-HW-299` refuted as a property of the path.**
+RUN 32's dead/alive boundary is **(29.264, 32.634] s** after the CONTROL
+transform — **disjoint** from the recorded (10.045, 12.547]. There is no common
+bound against that epoch. Measured from the AGB's **first emission** — which
+`GBP-HW-306` places at press **2**, not press 1 — RUN 31 and RUN 32 agree that
+the window in which emission begins carries nothing and the next one carries,
++3.320 s and +3.370 s later.
+
+**Two readings, and this run does not separate them:** elapsed time from the
+first emission, or window ordinal from it. Every run so far spaced its presses
+3.1–3.4 s apart, so they are confounded. **The separator is a long gap after
+the first emitting press**, and it needs no new ROM and no new image.
+
+**Ids:** `GBP-HW-303` … `307`; `GBP-HW-299` amended with a dated pointer;
+`GBP-HW-272` gains RUN 32 (46 logs, 13/33); `U-GBP-038` reopened, `U-GBP-039`
+re-shaped, `U-GBP-040` opened.
+
+**Next.** `U-GBP-040` — the ROM defect — before any further audio run, because
+it costs a window every time. Probes 1 and 2 preserve *silent until the first
+press* exactly; only probe 3 would conflict with it, and that is the
+Orchestrator's to decide.

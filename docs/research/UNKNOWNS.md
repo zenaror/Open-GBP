@@ -1744,46 +1744,40 @@ in front of Phase 6 now depends on it.
 structure means, and why its transition bytes differ between cartridges
 (`{01, FE}` in RUN 30, `{03, 07, FC}` in RUN 31).
 
-## U-GBP-038 (P3, opened 2026-09-22 after RUN 30 — **ANSWERED AND CLOSED 2026-09-22, Issue #67, by RUN 31 read together with RUN 30: the press was not special, it was EARLY. The AUDIO window does not carry the cartridge's sound until (10.045, 12.547] s after the CONTROL transform, `GBP-HW-299`. The MECHANISM is not determined and moves to `U-GBP-039`**) — why the FIRST press changed nothing in its window while the next three did
+## U-GBP-038 (P3, opened 2026-09-22 after RUN 30 — **ANSWERED AND CLOSED 2026-09-22, Issue #67, by RUN 31 read together with RUN 30: the press was not special, it was EARLY. The AUDIO window does not carry the cartridge's sound until (10.045, 12.547] s after the CONTROL transform, `GBP-HW-299`. The MECHANISM is not determined and moves to `U-GBP-039`**) — why the FIRST press changed nothing in its window while the next three did — **REOPENED 2026-09-23, Issue #72: RUN 32 refutes the bound as a property of the path (`GBP-HW-307`) and `GBP-HW-306` shows our own ROM emptied one of the windows the bound was drawn from. The question is live again and its epoch has changed**
 
-RUN 30's press 1 window (256 blocks, 62.5 ms, anchored on the KEY write of the
-first A press) carries **four byte values and duty 0.500 throughout** — nothing
-the within-run control does not also show. Presses 2, 3 and 4 each show
-intermediate levels appearing 12–19 ms after their key change (`GBP-HW-289`).
+**2026-09-23, Issue #72 — REOPENED, and the epoch has moved.** Two things
+happened at once and they pull in the same direction.
 
-```text
-what is NOT the explanation   the window was too short: it is the same 256 blocks as the others, and the
-                              others showed their change inside 19 ms
-candidates, none measured     the program's first call does something later calls do not; the first press's
-                              emission is below whatever threshold the path shows; the AGB was still in a
-                              state the press did not reach; the change happened after the window closed
-```
+**First, the bound is not fixed.** RUN 32's presses landed at +26.161, +29.264,
++32.634 and +36.021 s after the CONTROL transform, and its dead/alive boundary
+is **(29.264, 32.634] s** — **disjoint** from the (10.045, 12.547] recorded
+here. Measured from the CONTROL transform the three runs have **no common
+bound** (`GBP-HW-307`).
 
-**P3 because nothing depends on it yet** — AU's verdict was reached on the
-other three — but it is the kind of asymmetry that turns into a real finding or
-a real defect once `U-GBP-037` makes the bytes readable. A run with more than
-four presses, or with the window armed on a later press, would separate the
-candidates cheaply.
+**Second, part of the old evidence base was our own instrument.** `GBP-HW-306`:
+`agb-sweep` does not emit on its **first press**, reproduced by the Operator on
+his own Game Boy Advance with no GameCube involved — and `agb-tone`'s
+`apu_play()` is structurally identical, so **RUN 31's press 1 was very probably
+silent for a ROM-side reason, not a path-side one.** A bound drawn partly from
+windows our ROM emptied cannot be read as a property of the path.
 
-
-**ANSWERED 2026-09-22 (Issue #67).** RUN 31's presses 1 **and** 2 changed
-nothing either, and read against the CONTROL transform rather than against the
-press ordinal the two runs agree exactly:
+**What survives, and it is tighter.** Measured from the AGB's **first
+emission** — which `GBP-HW-306` places at press **2** — RUN 31 and RUN 32 agree:
+the window in which emission begins carries nothing and the next one carries,
++3.320 s and +3.370 s later.
 
 ```text
-RUN 31  press 1   +5.924 s   no          RUN 31  press 3  +12.547 s   YES
-RUN 31  press 2   +9.227 s   no          RUN 30  press 2  +14.182 s   YES
-RUN 30  press 1  +10.045 s   no          RUN 30  press 3  +18.153 s   YES
+READING A  ELAPSED TIME from the first emission     ~3.1 to ~3.4 s before anything carries
+READING B  WINDOW ORDINAL from the first emission   the emitting window is dead, the next is alive
 ```
 
-**Which press it is has nothing to do with it** (`GBP-HW-299`). Of the
-candidates this item listed, *"the AGB was still in a state the press did not
-reach"* is the closest, and none of the others survives: the window was not too
-short, the program's first call is not special (RUN 31's ROM is deterministic
-and its first press did enable the APU — the Operator's colours prove the ROM
-reacted), and the change did not happen after the window closed.
-
-**What remains is the mechanism, and it is `U-GBP-039`.**
+**Both fit RUN 30, RUN 31 and RUN 32, and no run separates them**, because every
+run so far spaced its presses 3.1–3.4 s apart — the spacing §V8.10 asked for,
+for an unrelated reason. **THE SEPARATOR IS A LONG GAP AFTER THE FIRST EMITTING
+PRESS**: a press ten seconds later that still carries nothing is the ordinal; one
+that carries is the time. It needs **no new ROM and no new image**, and the ROM
+defect must be fixed first or press 1 is wasted in every future run.
 
 ## U-GBP-039 (P2, opened 2026-09-22 after RUN 31) — WHY the AUDIO window carries nothing for the first ~10–12 s after the CONTROL transform
 
@@ -1860,3 +1854,54 @@ image and one run**; this needs a second image and therefore a second boot.
 **The item is unchanged and still P2**: what moves is that the rider now has a
 price and a stated better moment — any later run that already needs two images,
 or one whose question does not depend on when the window starts carrying.
+
+**2026-09-23, Issue #72 — the question this item asks has changed shape.** It
+was opened to ask *why* the delay is counted from the CONTROL transform.
+`GBP-HW-307` shows it is **not** counted from there at all: RUN 32's interval is
+disjoint from RUN 30's and RUN 31's, and the epoch that fits is the AGB's own
+first emission. **`prehandler_wait_ms` was the separator for the old epoch and
+is not the separator for the new one** — varying the press spacing is
+(`U-GBP-038`). This item stays open for the mechanism and its rider stays
+deferred; what changed is that the epoch it was going to test has been refuted.
+
+## U-GBP-040 (P1, opened 2026-09-23 after RUN 32 — an INSTRUMENT defect, reproduced on hardware off the GBP entirely) — why does the AGB emit nothing on the FIRST press after the master enable's 0 → 1 transition?
+
+**`GBP-HW-306`.** The Operator put `agb-sweep` in his own Game Boy Advance:
+*"testei no console no primeiro toque nada é reproduzido também .. só a partir
+do segundo"*. **No sound on press 1; sound from press 2 onward.** No GameCube
+involved, so this is **our ROM**, not the path — and `agb-tone`'s `apu_play()`
+is structurally identical, so it is very probably not new to `agb-sweep`.
+
+**P1 because it costs a window in every run of this family**, and because
+`U-GBP-038`'s evidence base includes windows it may have emptied.
+
+```text
+WHAT IS RULED OUT   the write ORDER. apu_play() sets SOUNDCNT_X's master enable BEFORE any channel
+                    register, which is exactly what GBATEK requires (external/gbatek/gba.md:
+                    "all PSG registers at 4000060h..4000081h are reset to zero (and must be
+                    re-initialized after re-enabling sound)"). The ordering is right.
+WHAT IS KNOWN       the ONLY difference between press 1 and press 2 is the master enable's 0 -> 1
+                    transition. Every other register write is identical.
+WHAT IS NOT KNOWN   the mechanism. NOT GUESSED HERE.
+WHAT mGBA SAYS      it would NOT have caught this. GBAAudioWriteSOUNDCNT_X and GBAudioWriteNR52 take
+                    their reset branch only when the enable is CLEARED; on 0 -> 1 the model sets
+                    frame = 7 and honours every subsequent channel write, so it emits where the
+                    hardware does not. A static reading of external/mgba, not a run, and a MODEL.
+```
+
+**The cheapest probes, in order, and none is authorised here:**
+
+```text
+1  write apu_play()'s channel registers TWICE on each press -- idempotent for presses 2-4, and it
+   PRESERVES "silent until the first press" exactly, so it settles nothing the Orchestrator owns
+2  split the first press: enable on the press, write the channel registers on the NEXT frame edge
+   -- also preserves silence until the first press
+3  only if both fail: enable the master at BOOT with no channel triggered. THIS CONFLICTS with the
+   "silent until the first press" requirement (Issue #65, carried into #70) and is the Orchestrator's
+   to decide, not ours -- it would change what the control window observes
+```
+
+**Each is verified the same way and it costs nothing:** §V11.15.6's step 0.5, on
+his own console, before any GBP run. **That step — his own idea — would have
+caught this before RUN 32.** Related: [[U-GBP-038]], and `HARDWARE_TESTS.md`
+§V11.16.8.
