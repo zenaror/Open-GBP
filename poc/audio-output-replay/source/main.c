@@ -1,5 +1,5 @@
 /*
- * Open-GBP AOUT-HW-001, build aout-0001 — MAKE THE GAMECUBE PLAY IT (GitHub
+ * Open-GBP AOUT-HW-001, build aout-0002 — MAKE THE GAMECUBE PLAY IT (GitHub
  * Issue #86). IMPLEMENTED AND HOST-VALIDATED; NOT PHYSICALLY EXECUTED; the run
  * is staged by a separate Hardware Issue.
  *
@@ -19,6 +19,11 @@
  *      decoder and resampler, UNCHANGED -- as 32 000 Hz stereo, the same sample
  *      in both channels (tests/host/test_audio_listen.py: bit-identical to the
  *      #80 / #81 reference on the same fixture).
+ *   2b. aout-0002 (HARDWARE_TESTS §V21.6): REORDERS the four tones into a
+ *      SEALED play order, drawn by a random draw before this code existed and
+ *      kept in aout_order.h. The reorder moves whole (tone + gap) segments and
+ *      is exact (gbp_alisten_permute checks why). The order reaches the SD log
+ *      only -- never the screen, never the Gecko.
  *   3. Plays it through the AI DMA at the console's native 32 kHz, in
  *      AOUT_CHUNK_BYTES blocks queued from the DMA callback, then
  *      AOUT_REST_CHUNKS of silence, and again, until START.
@@ -44,6 +49,7 @@
 #include "ringlog.h"
 #include "sdlog.h"
 #include "gbp_alisten.h"
+#include "aout_order.h"
 
 #ifndef OPENGBP_APP_NAME
 #define OPENGBP_APP_NAME "audio-output-replay"
@@ -86,7 +92,9 @@ static const char *const TONE_HZ[GBP_ALISTEN_MAX_TONES] = { "128", "512", "256",
 static char log_storage[LOG_LINES * LOG_LINE_LEN];
 
 static uint8_t fixture[AOUT_FIXTURE_CAP] ATTRIBUTE_ALIGN(32);
-static int16_t pcm[AOUT_MAX_CHUNKS * AOUT_CHUNK_FRAMES * 2u] ATTRIBUTE_ALIGN(32);
+static int16_t built[AOUT_MAX_CHUNKS * AOUT_CHUNK_FRAMES * 2u] ATTRIBUTE_ALIGN(32);  /* window order */
+static int16_t pcm[AOUT_MAX_CHUNKS * AOUT_CHUNK_FRAMES * 2u] ATTRIBUTE_ALIGN(32);    /* the sealed play order */
+static struct gbp_alisten_info built_info;
 static uint8_t silence[AOUT_CHUNK_BYTES] ATTRIBUTE_ALIGN(32);
 static struct gbp_alisten_info info;
 
@@ -222,8 +230,15 @@ int main(void)
     printf("  Loading RUN 33's fixture ...\n");
     got = load_fixture(why, sizeof why);
     rc = 0;
-    if (got >= 0 && (unsigned long)got == AOUT_FIXTURE_BYTES)
-        rc = gbp_alisten_build(fixture, (size_t)got, pcm, AOUT_MAX_CHUNKS * AOUT_CHUNK_FRAMES, &info);
+    if (got >= 0 && (unsigned long)got == AOUT_FIXTURE_BYTES) {
+        rc = gbp_alisten_build(fixture, (size_t)got, built, AOUT_MAX_CHUNKS * AOUT_CHUNK_FRAMES, &built_info);
+        /* §V21.6: the sealed order, applied as whole segments; `info` is the PLAY table from here on */
+        if (rc == 0)
+            rc = gbp_alisten_permute(&built_info, built, AOUT_PLAY_ORDER, (uint32_t)sizeof AOUT_PLAY_ORDER, pcm,
+                                     AOUT_MAX_CHUNKS * AOUT_CHUNK_FRAMES, &info);
+        else
+            info = built_info;
+    }
     ringlog_printf(&rl, "FIXTURE rc=%ld want_bytes=%u %s", got, (unsigned)AOUT_FIXTURE_BYTES, why);
     snprintf(line, sizeof line, "OPENGBP-AOUT FIXTURE rc=%ld %s\n", got, why);
     gecko_puts(line);
@@ -256,11 +271,13 @@ int main(void)
                    rc, (unsigned)info.total_crc32, (unsigned)info.windows, (unsigned)info.tones,
                    (unsigned)info.in_samples, (unsigned)info.out_frames, (unsigned)info.dec_blocks,
                    (unsigned)info.dec_lost, (unsigned)info.dec_overflow, (unsigned)seq_chunks, (unsigned)cycle_chunks);
+    /* the SD log only: read after the run, never shown while it plays */
     for (k = 0u; k < info.tones; k++)
-        ringlog_printf(&rl, "TONE %u expected_hz=%s keys=%04x sliced=%u repeats=%u first=%u frames=%u gap_first=%u gap_frames=%u",
-                       (unsigned)k + 1u, TONE_HZ[k], (unsigned)info.keys[k], (unsigned)info.sliced[k],
-                       (unsigned)info.repeats[k], (unsigned)info.seg_first[2u * k], (unsigned)info.seg_frames[2u * k],
-                       (unsigned)info.seg_first[2u * k + 1u], (unsigned)info.seg_frames[2u * k + 1u]);
+        ringlog_printf(&rl, "PLAY position=%u window=w%u expected_hz=%s keys=%04x sliced=%u repeats=%u first=%u frames=%u gap_first=%u gap_frames=%u",
+                       (unsigned)k + 1u, (unsigned)info.source[k] + 1u, TONE_HZ[info.source[k]], (unsigned)info.keys[k],
+                       (unsigned)info.sliced[k], (unsigned)info.repeats[k], (unsigned)info.seg_first[2u * k],
+                       (unsigned)info.seg_frames[2u * k], (unsigned)info.seg_first[2u * k + 1u],
+                       (unsigned)info.seg_frames[2u * k + 1u]);
     snprintf(line, sizeof line, "OPENGBP-AOUT BUILT rc=%d crc=%08x tones=%u frames=%u chunks=%u\n", rc,
              (unsigned)info.total_crc32, (unsigned)info.tones, (unsigned)info.out_frames, (unsigned)seq_chunks);
     gecko_puts(line);
