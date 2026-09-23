@@ -26,6 +26,7 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
+import hostcc  # noqa: E402
 import istim          # noqa: E402
 import vidxcap        # noqa: E402
 import vindex         # noqa: E402
@@ -127,13 +128,10 @@ class Producer:
         csrc = os.path.join(self.tmp, "gen.c")
         with open(csrc, "w") as f:
             f.write(GENERATOR)
-        r = subprocess.run(["gcc", "-std=gnu11", "-O1", "-I", SRC, "-o", self.bin, csrc,
-                            os.path.join(SRC, "gbp_vwitness.c"),
-                            os.path.join(SRC, "gbp_vidxdump.c"),
-                            os.path.join(SRC, "gbp_crc32.c")],
-                           capture_output=True, text=True)
-        self.err = r.stderr
-        self.ok = r.returncode == 0
+        self.have, self.ok, self.err = hostcc.compile_c(["-std=gnu11", "-O1", "-I", SRC, "-o", self.bin, csrc,
+                                                         os.path.join(SRC, "gbp_vwitness.c"),
+                                                         os.path.join(SRC, "gbp_vidxdump.c"),
+                                                         os.path.join(SRC, "gbp_crc32.c")])
 
     def write(self, path, frames, target=None, cap=None,
               stop=STOP_WITNESS_TARGET, store_full=False):
@@ -160,8 +158,7 @@ def frame_words(frame_id, status=0x7F, phase=0):
 
 class SidecarRoundTrip(unittest.TestCase):
     def setUp(self):
-        if not PROD.ok:
-            self.skipTest("gcc unavailable: %s" % PROD.err[:200])
+        hostcc.require(self, PROD.have, PROD.ok, PROD.err)
         self.dir = tempfile.mkdtemp(prefix="opengbp-idxcap-t-")
 
     def path(self, name="cap.bin"):
@@ -243,8 +240,7 @@ class Admissibility(unittest.TestCase):
     """What the adapter REFUSES, which is the part that protects the claim."""
 
     def setUp(self):
-        if not PROD.ok:
-            self.skipTest("gcc unavailable")
+        hostcc.require(self, PROD.have, PROD.ok, PROD.err)
         self.dir = tempfile.mkdtemp(prefix="opengbp-idxcap-u-")
 
     def path(self, name="cap.bin"):

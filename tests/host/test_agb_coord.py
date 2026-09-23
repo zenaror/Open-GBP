@@ -16,6 +16,7 @@ import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+import hostcc  # noqa: E402
 import icoord  # noqa: E402
 import istim  # noqa: E402
 
@@ -77,9 +78,8 @@ class RomMatchesTheModel(unittest.TestCase):
         with open(src, "w") as f:
             f.write(HARNESS)
         cls.bin = os.path.join(cls.tmp, "harness")
-        r = subprocess.run(["gcc", "-std=gnu11", "-O1", "-Wall", "-Wextra", "-I", os.path.dirname(ROM_SRC),
-                            "-o", cls.bin, src], capture_output=True, text=True)
-        cls.built, cls.err = r.returncode == 0, r.stderr
+        cls.have, cls.built, cls.err = hostcc.compile_c(["-std=gnu11", "-O1", "-Wall", "-Wextra", "-I", os.path.dirname(ROM_SRC),
+                                                         "-o", cls.bin, src])
 
     def _rom(self, frame_id, status):
         r = subprocess.run([self.bin, str(frame_id), str(status)], capture_output=True, text=True)
@@ -89,8 +89,7 @@ class RomMatchesTheModel(unittest.TestCase):
         return w
 
     def test_the_rom_renders_exactly_what_the_model_says(self):
-        if not self.built:
-            self.skipTest("gcc unavailable: %s" % self.err[:200])
+        hostcc.require(self, self.have, self.built, self.err)
         # frames before, at, inside, at the end of and after appearances 1 and 2, plus digit wrap
         cases = [(0, 0x7F), (1, 0x7F), (479, 0x18), (480, 0x18), (481, 0x18), (500, 0x42), (519, 0x18),
                  (520, 0x18), (521, 0x00), (960, 0x18), (999, 0x18), (1000, 0x18), (1440, 0xFF), (1920, 0x80)]
@@ -108,16 +107,14 @@ class RomMatchesTheModel(unittest.TestCase):
             self.assertEqual(bad, 0, "f=%d st=0x%02x: %d words differ, first %s" % (fid, st, bad, first))
 
     def test_the_tenth_and_eleventh_appearances_wrap_the_digit(self):
-        if not self.built:
-            self.skipTest("gcc unavailable")
+        hostcc.require(self, self.have, self.built, self.err)
         for fid in (10 * 480, 11 * 480 + 39):
             rom = self._rom(fid, 0x18)
             self.assertTrue(all(rom[y * 240 + x] == icoord.expected_agb(fid, x, y, 0x18)
                                 for y in range(40, 136) for x in range(122, 172)))
 
     def test_the_canonical_witness_is_byte_identical_to_ogbpidx1(self):
-        if not self.built:
-            self.skipTest("gcc unavailable")
+        hostcc.require(self, self.have, self.built, self.err)
         for fid, st in ((0, 0x7F), (480, 0x18), (2120, 0x18)):
             rom = self._rom(fid, st)
             for b in range(40):
@@ -128,8 +125,7 @@ class RomMatchesTheModel(unittest.TestCase):
                 self.assertEqual((d["outcome"], d["frame_id"], d["index_ok"]), (istim.CANONICAL_OK, fid, True))
 
     def test_the_rom_never_writes_bit_15(self):
-        if not self.built:
-            self.skipTest("gcc unavailable")
+        hostcc.require(self, self.have, self.built, self.err)
         for fid in (0, 480, 1000):
             self.assertTrue(all(w < 0x8000 for w in self._rom(fid, 0x18)))
 

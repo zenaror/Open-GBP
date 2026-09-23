@@ -303,8 +303,9 @@ class TheCausalComparisonWithRun5(unittest.TestCase):
                       "hw-gamecube-gbp-2026-09-19-stream-0007-run5-disp.bin")
 
     def r5_handed(self):
-        if not os.path.exists(self.R5):
-            raise unittest.SkipTest("the run-5 fixture is not present")
+        # Issue #82: this file is VERSIONED under captures/fixtures/, so its absence is a
+        # defect of the checkout and fails; it was a skip, which would have hidden it.
+        self.assertTrue(os.path.exists(self.R5), "the versioned run-5 fixture is missing: " + self.R5)
         i = vdisp.load(self.R5)
         m = {r["frame_index"]: r for r in i["life"] if r["frame_index"] != KEY}
         o = [m[k] for k in range(SCI_LO, OVERLAP_HI + 1)]

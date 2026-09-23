@@ -32,7 +32,6 @@ import hashlib
 import math
 import os
 import re
-import shutil
 import struct
 import subprocess
 import sys
@@ -43,6 +42,7 @@ import wave
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import awinparse  # noqa: E402
+import hostcc  # noqa: E402
 import gen_aresamp  # noqa: E402
 import v11sweep  # noqa: E402
 import v17decode  # noqa: E402
@@ -230,13 +230,9 @@ class Harness(unittest.TestCase):
         with open(src, "w") as f:
             f.write(HARNESS)
         cls.bin = os.path.join(cls.tmp, "harness")
-        cls.have_gcc = shutil.which("gcc") is not None
-        r = subprocess.run(["gcc" if cls.have_gcc else "true", "-std=gnu11", "-O1", "-Wall", "-Wextra", "-Wconversion",
-                            "-I", AUDIO, "-I", os.path.join(ROOT, "src", "gbp"),
-                            "-I", os.path.join(ROOT, "src", "common"),
-                            "-o", cls.bin, src] + LINKED, capture_output=True, text=True)
-        cls.built = (r.returncode == 0)
-        cls.err = r.stderr
+        cls.have_gcc, cls.built, cls.err = hostcc.compile_c(
+            ["-std=gnu11", "-O1", "-Wall", "-Wextra", "-Wconversion", "-I", AUDIO,
+             "-I", os.path.join(ROOT, "src", "gbp"), "-o", cls.bin, src] + LINKED)
         cls.raw, cls.dec = {}, {}
         for label in RUNS:
             p = os.path.join(cls.tmp, label + ".bin")
@@ -275,12 +271,8 @@ class Harness(unittest.TestCase):
         return {"counts": counts, "acc": acc, "in": n_in, "out": n_out, "y": s16(b, o + 16, ny)}
 
     def need_gcc(self):
-        # ONLY a missing compiler skips. A harness that exists and does not build is a
-        # defect in the sources under test, and it fails here rather than going quiet.
-        if not self.have_gcc:
-            self.skipTest("gcc unavailable on this host")
-        if not self.built:
-            self.fail("the harness does not build: %s" % self.err[:2000])
+        # ONLY a missing compiler skips (tests/host/hostcc.py, Issue #82).
+        hostcc.require(self, self.have_gcc, self.built, self.err)
 
 
 class TheFixturesAreTheRawSidecarsLosslessly(Harness):

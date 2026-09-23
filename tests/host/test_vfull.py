@@ -15,6 +15,7 @@ import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+import hostcc  # noqa: E402
 import icoord  # noqa: E402
 import vfull  # noqa: E402
 
@@ -82,11 +83,9 @@ class Producer:
         src = os.path.join(self.tmp, "gen.c")
         with open(src, "w") as f:
             f.write(GENERATOR)
-        r = subprocess.run(["gcc", "-std=gnu11", "-O1", "-I", SRC, "-o", self.bin, src,
-                            os.path.join(SRC, "gbp_vfull.c"), os.path.join(SRC, "gbp_vfulldump.c"),
-                            os.path.join(SRC, "gbp_vpix.c"), os.path.join(SRC, "gbp_crc32.c")],
-                           capture_output=True, text=True)
-        self.ok, self.err = r.returncode == 0, r.stderr
+        self.have, self.ok, self.err = hostcc.compile_c(["-std=gnu11", "-O1", "-I", SRC, "-o", self.bin, src,
+                                                         os.path.join(SRC, "gbp_vfull.c"), os.path.join(SRC, "gbp_vfulldump.c"),
+                                                         os.path.join(SRC, "gbp_vpix.c"), os.path.join(SRC, "gbp_crc32.c")])
 
     def write(self, path, frames, modes, origin=356):
         r = subprocess.run([self.bin, path, str(origin), str(len(frames))] + list(modes),
@@ -129,8 +128,7 @@ def get_word(b, x, y):
 
 class TheContainer(unittest.TestCase):
     def setUp(self):
-        if not PROD.ok:
-            self.skipTest("gcc unavailable: %s" % PROD.err[:200])
+        hostcc.require(self, PROD.have, PROD.ok, PROD.err)
         self.tmp = tempfile.mkdtemp(prefix="opengbp-full-t-")
 
     def path(self, name="full.bin"):
@@ -178,8 +176,7 @@ class TheAnalysis(unittest.TestCase):
     """One sample at a time (origin 356, frame_id 73), the way a run would be judged."""
 
     def setUp(self):
-        if not PROD.ok:
-            self.skipTest("gcc unavailable")
+        hostcc.require(self, PROD.have, PROD.ok, PROD.err)
         self.tmp = tempfile.mkdtemp(prefix="opengbp-full-a-")
 
     def one(self, raw, mode="C", name="s.bin"):
