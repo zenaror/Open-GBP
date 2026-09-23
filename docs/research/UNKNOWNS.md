@@ -2046,6 +2046,19 @@ sample only where the block is flat, and never at an edge (§V18.5). **What
 settles it (hardware):** one run that reads fewer bytes at index 0x8 and counts
 delivered blocks against elapsed ticks. **Not authorised here.**
 
+**2026-09-23, Issue #84 — THE TEST IS NOW PRE-REGISTERED (`HARDWARE_TESTS.md`
+§V19, `QUESTION A`), and the item stays OPEN because a pre-registration answers
+nothing.** GBP-AUDIO-005 sweeps `N` over {32, 256, 1024} bytes — all legal
+multiples of the 32-byte DMA granule — low to high, stopping at the first
+`SYNC-LOST`. The instrument is `GBP-HW-313`: a programmed tone whose decoded
+period is exact if and only if the path stayed **sequence**-synchronised.
+`sample(N) = popcount(N bytes read) * 4096/N` is frozen, and so is the thing that
+would otherwise have refuted this item by accident: **a silent PHASE A reports
+INCONCLUSIVE, never SYNC-LOST** — *"nothing was playing"* and *"the short read
+broke it"* are different answers (AMENDMENT 2 B3). Edge degradation is measured
+beside the verdict and never folded into it, because §V18.5 established that a
+single slice cannot represent an edge block. **Not run, not authorised there.**
+
 ## U-GBP-043 (P3, opened 2026-09-23, Issue #82) — the 1–3-bit spread between slices of a flat block, and whether a slice's bit arrangement carries anything its count does not
 
 `GBP-HW-314`. The spread is present in both silent control windows (spread 1

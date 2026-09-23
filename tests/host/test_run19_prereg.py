@@ -438,6 +438,9 @@ class NothingElseMoved(unittest.TestCase):
         # Issue #82 (2026-09-23): tools/v18block.py, what one AUDIO block contains, measured on the
         # versioned fixtures (§V18). Descriptive, no gate; it reads captures and touches no image.
         changed = changed - {"tools/v18block.py"}
+        # Issue #84 (2026-09-23): tools/v19drain.py, §V19's three gates, FROZEN BEFORE the run
+        # (GBP-AUDIO-005). Synthetic vectors only; it reads no capture and authorises nothing.
+        changed = changed - {"tools/v19drain.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs

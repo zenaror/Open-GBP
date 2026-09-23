@@ -31442,3 +31442,435 @@ renamed file, a repeated commit message, a deleted versioned fixture, a
 re-exported slot or a missing build artifact could each have left the suite green
 or merely quieter. None of them can now, and each has a test that proves it by
 reproducing the failure rather than by describing it.
+
+## V19 — GBP-AUDIO-005: **THE CONTINUOUS-DRAIN PRE-REGISTRATION** — is the 68-block shortfall a startup cost, what does one SD write cost, and does a read shorter than an AUDIO block work (`U-GBP-042`)? — **PRE-REGISTERED 2026-09-23 (GitHub Issue #84); NOT RUN, NOT AUTHORISED HERE; the POC and the gates are built under this Issue, the run is staged by a separate Hardware Issue**
+
+**HOW TO READ THIS PART.** It is the Orchestrator's frozen text, transcribed
+**verbatim**, followed by two **pre-hardware amendments** that answer the
+Executor's review. Per this project's convention the original text stands
+**unedited** and the amendments are **appended, dated, and prevail** wherever
+they differ. Every figure the amendments correct is corrected *there*, not in
+the original — so what was frozen, what was found wrong, and when, all stay
+readable.
+
+```text
+§V19          the frozen pre-registration, as written before the review
+AMENDMENT 1   2026-09-23, 8 points from the Executor's review, all accepted
+AMENDMENT 2   2026-09-23, 4 further points accepted + 1 the Orchestrator adds
+              PREVAILS over AMENDMENT 1, which prevails over §V19
+```
+
+**Four of the Orchestrator's premises have now needed correcting before
+hardware, three of them found by reading the source before building on it.**
+`AMENDMENT 2` B1 is the fourth and the most dangerous kind: a figure that would
+have made the pre-registration contradict its own gate. **None reached
+hardware.**
+
+---
+
+### V19.0 What §V18 settled, and the one fork it left — *(transcribed; its rate line is superseded by AMENDMENT 2 B1)*
+
+```text
+raw rate           16 777 216 B/s = 2^24 = exactly one byte per AGB cycle
+payload             32 B per block (16 u16) = 0.78125 %
+block shape         flat or one step; the step on an even slice
+a slice = a sample  on flat blocks only, NEVER at an edge
+stream-0016         272 145 blocks, 0 failures, ~4028 blocks/s -- 68 short
+                    13 service stalls, all inside the first ~1.7 s, both runs
+1 s stall costs     16 MiB raw   vs   128 KiB decoded
+```
+
+**The architectural fork is `U-GBP-042`:** if a read shorter than `0x1000`
+works, the sustained requirement collapses from 16.8 MB/s toward 131 KB/s and
+the drain is a different piece of software. Nothing else in the design can be
+settled before it, so it is the variable this run introduces — **and the only
+one.**
+
+The 128:1 ratio between a raw stall and a decoded one already decides one thing
+without a run: **the ring buffer holds decoded samples, never raw blocks.**
+That is a consequence of §V18's arithmetic and is not at stake here.
+
+### V19.1 Order of phases — deliberate, and it is not the order of interest — *(PHASE A's duration is superseded by AMENDMENT 1 A3)*
+
+The run executes **B, then C, then A**. The new variable goes **last** so that a
+desynchronised path cannot contaminate the measurements taken with the
+known-good configuration.
+
+```text
+PHASE B   full 0x1000 reads, >= 60 s, coverage counter on          baseline
+PHASE C   full reads, one timed SD write at a marked instant       the stall
+PHASE A   short reads, N in {0x20, 0x100, 0x400}, 10 s each        the fork
+```
+
+Recovery if PHASE A desynchronises: the run ends, the report is still valid for
+B and C, and the console is power-cycled before anything else (`CLAUDE.md` §18).
+
+### V19.2 `QUESTION D1` — is the shortfall a startup cost or a steady-state incapacity? — *(its `expected()` is superseded by AMENDMENT 2 B2)*
+
+This is the question that decides whether continuous drain is possible at all,
+and §V18's 13 early stalls make it answerable in advance.
+
+**Frozen definition.** `expected(t) = floor(elapsed_ms * 4096 / 1000)` from the
+console's own timebase, sampled per 1 s window. `coverage(w) = read(w) /
+expected(w)`. The existing `failures` counter counts DMA completions and is
+**not** coverage; both are reported, never conflated.
+
+**Frozen prediction, written before the data:**
+
+> **After the first 3 s, `coverage(w) >= 0.999` for every 1 s window `w` of
+> PHASE B.**
+
+```text
+PASS            every window from t=3 s on is >= 0.999
+FAIL            any window from t=3 s on is < 0.999
+INCONCLUSIVE    PHASE B ran < 60 s, or the timebase and the counter disagree
+                by more than one block over the phase
+```
+
+**PASS means the 68-block shortfall is a startup cost and the steady state is
+sound. FAIL means the path cannot be drained continuously by this design**, and
+that is a result worth having — it would redirect the whole phase and it must
+not be softened into "mostly works".
+
+Report, beside the verdict and never in place of it: the worst window, the
+per-second series, and where the first 3 s went.
+
+### V19.3 `QUESTION D2` — how long does one SD write stall the drain?
+
+Nobody has ever measured this. There is no pass/fail because there is no prior
+value to test against; **inventing a threshold now would be a number chosen to
+be met.**
+
+**Frozen measurement:** one SD write of a stated size, at a marked instant
+inside PHASE C, with the coverage gap in blocks recorded either side of the
+mark. Report blocks lost, the wall time they represent, and the write's size.
+
+**Frozen decision rule it feeds** — this part *is* fixed in advance, so the
+answer cannot be argued into a convenient buffer size:
+
+> the decoded ring buffer shall hold **at least twice** the largest stall
+> measured here, and the POC that follows states its capacity in those units.
+
+### V19.4 `QUESTION A` — does a read shorter than `0x1000` work? (`U-GBP-042`)
+
+The instrument is `GBP-HW-313`: a stimulus emitting a **programmed, known**
+tone, decoded through the established layout. If the path stays synchronised the
+period is exact; if it does not, it will not be.
+
+**Frozen gate, per `N`:**
+
+```text
+SYNC-OK       the decoded period equals the programmed period EXACTLY,
+              min == max across the phase, as GBP-HW-313 reads it
+SYNC-LOST     it does not
+RECOVERS      full 0x1000 reads after the phase return to SYNC-OK
+NO-RECOVERY   they do not  -> the remaining phases are void, power-cycle
+```
+
+**Separately measured, never folded into the verdict:** what short reads do to
+**edge** blocks, which §V18 established a single slice cannot represent. Report
+the fraction of one-step blocks whose step index is no longer recoverable at
+each `N`. A frequency that survives while edges degrade is a real and useful
+outcome — it says the fork is open at a stated cost — and it is not a PASS.
+
+**`N` is swept low to high (`0x20`, `0x100`, `0x400`) and the phase stops at the
+first `SYNC-LOST`.** One variable, moved in one direction.
+
+### V19.5 What this run does NOT do
+
+- **no writes to undocumented registers.** Every phase is a read of a path the
+  project already reads; `N` is a length, not a new control bit;
+- `U-GBP-041` (uniform slice spacing) is **not** attempted. It needs a stimulus
+  with known timing and chaining it here would put two unverified assumptions in
+  one test (`CLAUDE.md` §18);
+- no audio is played. The AI plumbing waits on `QUESTION A`'s answer, which is
+  what decides its shape.
+
+### V19.6 Operator procedure (`CLAUDE.md` §15) — *(amended by AMENDMENT 2 B3: the tone's trigger)*
+
+```text
+Test ID:        GBP-AUDIO-005
+Build ID:       <assigned at build>
+DOL:            build/swiss/<slot>/boot.dol   (name the slot and the hash)
+Cartridge:      the stimulus carrying the programmed tone -- name it exactly
+Link Port:      nothing connected
+BBA:            absent
+Steps:          1. Boot through Swiss.  2. Wait for READY.
+                3. Press START once.  4. Wait for the on-screen DONE.
+                5. Press X to save the report.  6. Power-cycle.
+Runtime:        state it; the phases are automatic and bounded
+Answers:        D1 (startup cost or incapacity), D2 (the stall), A (the fork)
+```
+
+Every wait has an operational bound and is never presented as a hardware
+property. On-screen summary as well as the SD report, so an SD failure does not
+waste the run (`CLAUDE.md` §13).
+
+### V19.7 **AMENDMENT 1 — 2026-09-23, BEFORE any hardware** — eight points from the Executor's review, all accepted
+
+*The original §V19 above stands unedited; this amendment prevails where they
+differ, and nothing here may be revisited once data exists.*
+
+#### A1 — `N`'s definition, and a terminology trap worth more than the fix
+
+`gbp_transport.c:62` rejects `(len & (GBP_BLOCK_SIZE - 1u)) != 0u`, and
+`GBP_BLOCK_SIZE` is **32**, not 4096 — so the rejection is the 32-byte DMA
+granule, not the AUDIO block. `hsp_backend.c:78` masks the same five bits.
+Lines 63–64 also require the ARAM address **and the destination pointer** to be
+32-byte aligned; the POC must honour both.
+
+```text
+N in {32, 256, 1024} bytes -- all three already legal multiples of 32
+N = 256 is one slice, and is the interesting one
+```
+
+**The trap:** `GBP_BLOCK_SIZE` (32 B, a DMA granule) and "block" (4096 B, one
+AUDIO sample) are the same word for two things an order of magnitude apart, in a
+document about reading less than a block. **§V19 shall say "DMA granule" for 32
+and "AUDIO block" for 4096 and never "block" unqualified** — the transcription
+keeps the original's wording and this rule governs everything written after it.
+
+#### A2 — the register argument, replaced with the Executor's
+
+Strike *"`N` is a length, not a control change"* **as stated**; right in
+conclusion, wrong in its reason. The length **is** written to hardware, and
+writing it is what starts the transfer (`hsp_backend.c:78`, *"writing CNT_L
+starts the DMA"*).
+
+What holds instead: `DSP_AR_CNT_H/L` is **the GameCube's own ARAM DMA byte
+counter**, not a GBP or GBS-DOL register; it is written on every transfer and
+was written 272 145 times across RUN 33 and RUN 34; and the field is a **byte
+count, not a mode bit**. `CLAUDE.md` §18 governs speculative writes to
+**undocumented device control bits**, and this is not one.
+
+#### A3 — the time budget, and the safety bound does not move
+
+**`PLAY_SAFETY_SECONDS` stays at 120.** A safety bound raised to fit an
+experiment is not a safety bound.
+
+```text
+initial not_before        as built -- state it
+PHASE B   60 s exactly    load-bearing, does not shrink
+PHASE C   10 s            one write plus settle
+PHASE A    9 s            3 steps x 3 s   (SUPERSEDES §V19.1's "10 s each")
+                          3 s at 128 Hz is 384 periods; the gate needs a handful
+```
+
+If it does not fit, **B keeps its 60 s and A's steps shrink.** Report the
+measured budget.
+
+#### A4 — PHASE C, framed so §13 is not in tension
+
+The write is issued **outside the ISR**, under the teardown discipline the probe
+already follows, and what is measured is **its effect on drain coverage**. No
+write is added to the capture path. `CLAUDE.md` §13 forbids SD writes *inside*
+timing-critical HSP/SIO paths; measuring what a correctly-placed write costs the
+drain is the open question, not a violation of it.
+
+#### A5 — the prior measurement D1's prediction rests on
+
+```text
+RUN 33 w4   256 AUDIO blocks in 62.577 ms   against 62.500 expected   deficit 0.315 blocks
+RUN 34 w4   256 AUDIO blocks in 62.604 ms                             deficit 0.426 blocks
+            at ~28 s and ~38 s -- both far past the 3 s boundary
+```
+
+Sub-block, consistent with **zero steady-state loss** plus the `stop`
+timestamp's own offset. **It turns D1's prediction from a reasoned guess into
+one with a measurement behind it, and it makes a FAIL much more informative,
+because a FAIL would then contradict an existing measurement rather than a
+hope.**
+
+#### A6 — D1's operational definition — *(its window boundary is refined by AMENDMENT 2 B2)*
+
+```text
+ASSIGNMENT   an AUDIO block belongs to the window containing its DMA-COMPLETION
+             timestamp -- the moment it is in memory and counted. Not IRQ
+             arrival, which is earlier and does not mean the block was drained.
+WINDOWS      FIXED, non-overlapping, 1.000 s, the first beginning at exactly
+             t = 3.000 s measured from the start of PHASE B. Not sliding:
+             overlapping windows are correlated tests and inflate the chance
+             that one dips below by itself.
+PARTIAL      the final incomplete window is DISCARDED. Only whole windows are
+             evaluated, decided here rather than after seeing what it says.
+BOUNDARY     +-1 AUDIO block, which is 24.4 % of the 4.096-block margin. A
+             window that misses by one block IS A FAIL. No post-hoc rescue, no
+             rounding, no "within boundary noise". Stated in advance precisely
+             so it cannot be argued later.
+CLOCK        -12..-16 ppm is 0.07 block in 1 s. Negligible, and recorded so
+             that it is not rediscovered as an excuse.
+```
+
+**New instrumentation, explicitly in scope:** a **preallocated** per-second
+counter (one `u32` per second of PHASE B, fixed array, no allocation), bumped in
+the drain path with no I/O and no filesystem call, per `CLAUDE.md` §13. The
+probe's `AUDIOAGG` totals and 64 sampled `CYCE`/`CYCET` cycles cannot evaluate
+D1, so **without this counter the question is unanswerable** — it is part of the
+build, not an optional extra.
+
+#### A7 — what a PASS in `QUESTION A` does and does not mean
+
+An exact period tests **SEQUENCE synchronisation** — that consecutive reads
+still correspond to consecutive AUDIO blocks. **It does not test fidelity within
+an AUDIO block.** A PASS in `QUESTION A` does not mean the audio is intact; the
+edge-degradation figure is the within-block question, reported separately and
+never folded in.
+
+#### A8 — the 802's cause, corrected
+
+The data cannot single out `0x388` from `0x38C` — both give 802/176. The cause
+is known independently of the data, because it is what the Orchestrator's code
+did: `len - 1280*4096` = `0x38C`, with the last AUDIO block eating the 12-byte
+`OGBPAWND` trailer. Recorded as *a misaligned read consistent with `0x388` or
+`0x38C`, cause: the offset derived by subtraction from file length* (§V18.1,
+`GBP-HW-314`, corrected under Issue #83).
+
+### V19.8 **AMENDMENT 2 — 2026-09-23, BEFORE any hardware** — four further points accepted, and one the Orchestrator adds
+
+*Prevails over AMENDMENT 1 and over §V19. Originals unedited.*
+
+#### B1 — the rate. **The fourth premise error, and the self-contradicting kind**
+
+```text
+RUN 33   114 342 / 27.932144 s = 4093.56 /s   expected 114 410.06   short 68.06   coverage 0.99941
+RUN 34   157 803 / 38.542869 s = 4094.22 /s   expected 157 871.59   short 68.59   coverage 0.99957
+```
+
+**68 AUDIO blocks over each capture, not per second.** At 68/s RUN 33 would have
+lost 1 899. §V19.0's line is superseded by:
+
+> `272 145 AUDIO blocks, 0 failures, 4093.6 and 4094.2 blocks/s — 68 blocks
+> short over each capture, NOT per second (GBP-HW-316)`
+
+The per-stall figure follows: 68.06 / 13 = **5.24 AUDIO blocks = 1.28 ms per
+stall**, not the 353.7 derived from the same misreading and repeated to the
+Operator; that is being corrected with him.
+
+**Why it is not cosmetic.** 4028/4096 = 0.9834 **fails D1 in every window**, so
+the pre-registration would have stated a steady state that its own gate declares
+broken — a PASS would have looked like it contradicted the summary printed above
+it, and a FAIL would have looked predicted. **A self-contradicting
+pre-registration is worse than a merely wrong one, because neither outcome can
+be read.**
+
+**The check that would have caught it, now standing for every figure transcribed
+into a frozen document: does the rate reproduce the count over the duration?**
+4028 × 27.93 = 112 500, not 114 342. One multiplication. The Executor's original
+phrasing (*"fell 68.06 blocks short of 4096/s"*) is genuinely ambiguous, **which
+is exactly why the arithmetic has to be the arbiter and not the wording.**
+
+#### B2 — the window boundary in **ticks**, superseding §V19.2's `expected()`
+
+1 ms = 4.096 AUDIO blocks is **the entire margin** A6 rests on, so millisecond
+quantisation could hide all of it at a boundary.
+
+```text
+expected(w) = 4096 exactly, by construction of the 1.000 s window (A6)
+window w spans  [t0 + w*40 500 000, t0 + (w+1)*40 500 000)  ticks @ 40.5 MHz
+t0 = the tick at exactly 3.000 s into PHASE B
+quantisation    1 tick = 0.000101 AUDIO blocks -- 40 500x finer than 1 ms
+```
+
+`expected(t) = floor(elapsed_ms * 4096 / 1000)` is **superseded**.
+
+#### B3 — PHASE A in silence would have been a **false refutation**
+
+The same shape as #80's fixture premise: a setup error producing a false
+negative pinned to a frozen gate. **Second time, caught both times before
+hardware.** The tone comes from the cartridge, triggered through the keypad
+(`GameCube pad 1 -> gbp_input_map -> gbp_keypad_encode`), so the **Operator's**
+press starts it — which §V19.6 did not say.
+
+```text
+(a) the POC prompts "PRESS A TO START THE TONE" and the Operator presses
+    A ONCE -- the frequency axis, and NO OTHER BUTTON, because agb-sweep
+    spoils a run whose axes are mixed (stimulus/agb-sweep/source/main.c:229-238:
+    an A press with axis == V, or a B press with axis == F, sets `spoiled`).
+    No B press in this run.
+(b) POSITIVE CONTROL, twice: once at the prompt so a failure is recoverable
+    while the Operator is still standing there, and again IMMEDIATELY BEFORE
+    PHASE A drops N -- the second is the one the gate is anchored on.
+    Full 0x1000 reads, decoded period exact by GBP-HW-313.
+(c) if the control immediately before PHASE A does not pass, PHASE A reports
+    INCONCLUSIVE -- NEVER SYNC-LOST. "Nothing was playing" and "the short read
+    broke it" are different answers and the gate must not confuse them.
+    PHASE B and PHASE C remain valid and are still reported.
+```
+
+**Viable because of the ROM**: `agb-sweep` sets neither the length flag nor a
+decay (*"NO DECAY, NO LENGTH"*, `main.c`), so one trigger sounds indefinitely
+and PHASE A's 9 s needs no re-press. And `sweep-0002` emits on the **first**
+press — every press window carried in RUN 33 and RUN 34, against RUN 31/32 where
+press 1 emitted nothing (`U-GBP-040`, `GBP-HW-311`).
+
+**§V19.6 is amended: press A once at the prompt, then START; nothing else for
+the rest of the run.**
+
+#### B4 — the short-read sample, frozen
+
+```text
+sample(N) = popcount(the N bytes actually read) * 4096 / N
+```
+
+Exact on flat AUDIO blocks, **never at an edge** (§V18.5) — and the **period**
+is unaffected either way, because it is carried by the sequence of levels and
+not by any one block's value. That is precisely why A7's gate reads sequence and
+not fidelity, and freezing the formula is what keeps that distinction anchored
+instead of letting the implementation choose it.
+
+#### B5 — **the Orchestrator's own addition: what 0.999 does NOT exclude**
+
+Correcting the rate exposed a limit in the gate itself. Whole-capture coverage
+is already 0.99941 and 0.99957 **including the 13 early stalls**, so the gate
+sits between 0.9834 (what a real incapacity looks like) and 1.000. But:
+
+> **68 AUDIO blocks spread uniformly over 28 s is 2.44 blocks per window, which
+> PASSES a 0.999 gate while being exactly the steady-state loss D1 exists to
+> detect.** The threshold cannot see a uniform shortfall below 4.096 blocks/s.
+
+It **stays at 0.999** — tightening it would start failing on measurement
+artefacts, and 0.1 % is the right bar for *is this path drainable*. The limit is
+**stated rather than discovered later**, and one thing is added:
+
+```text
+FROZEN: the per-second coverage series is reported IN FULL beside the verdict,
+        PASS or FAIL. A uniform shortfall below the threshold must be VISIBLE
+        even when the gate passes, and a PASS shall never be reported as
+        "no loss" -- only as "no window lost more than 4.096 blocks".
+```
+
+### V19.9 Transcription record
+
+```text
+transcribed     2026-09-23, Issue #84, by the Executor, BEFORE any code that could see data
+source          the Issue body (§V19) and its two pre-hardware amendment comments
+verbatim        §V19.0 - §V19.6 and both amendments, including the figures later superseded
+superseded      §V19.0's rate line (B1), §V19.1's PHASE A duration (A3), §V19.2's expected() (B2),
+                §V19.5's "N is a length, not a new control bit" as REASONED (A2, the conclusion stands),
+                §V19.6's procedure (B3)
+NOT RUN         no hardware, no authorisation here; the run is a separate Hardware Issue
+```
+
+**ONE AMBIGUITY RESOLVED AT TRANSCRIPTION, recorded rather than settled
+silently.** `AMENDMENT 1` A6 reads *"a window that misses by one AUDIO block IS
+A FAIL"*. That admits two readings **3.096 AUDIO blocks apart**:
+
+```text
+LITERAL     any window under 4096 fails  -> an effective threshold of 0.99976
+ADOPTED     the +-1-block boundary noise may not RESCUE a window that has
+            fallen under the threshold   -> the threshold stays 0.999, and a
+            window fails from 5 AUDIO blocks short
+```
+
+**`AMENDMENT 2` B5 settles it in the ADOPTED sense, twice over**: *"the
+threshold cannot see a uniform shortfall below 4.096 blocks/s"*, and *"a PASS
+shall never be reported as 'no loss', only as 'no window lost more than 4.096
+blocks'"*. **Neither sentence is true under the literal reading**, so B5 — which
+prevails — decides it. A6's sentence is what forbids the post-hoc rescue, which
+is what *"stated in advance so it cannot be argued later"* exists for.
+`tools/v19drain.py` implements the adopted reading and says so at the constant.
+
+**Nothing in §V19 or its amendments may be edited once data exists.** A figure
+found wrong before the run is corrected in a dated amendment, as B1 was; a
+figure found wrong after the run is recorded as a finding and the gate stands as
+written.
