@@ -1503,6 +1503,21 @@ issue 70    agb-sweep IS BUILT (sweep-0001, §V11.15) and it is THE ONLY NEW ART
             his own GBA that it boots, is silent until the first press, and that A CHANGES THE PITCH
             while B CHANGES THE LOUDNESS -- worth more here than for agb-tone, because a wrong-button
             run is a DIFFERENT EXPERIMENT. §V11.13 is FROZEN and NOT edited; the step is on top.
+            mGBA ASSESSED AND DECLINED (§V11.15.7), nothing installed: mgba-sdl/qt have NO audio dump
+            and NO headless mode, so the GUI recorder needs a person and the Operator says the EXECUTOR
+            runs this check -- leaving only a libmgba.so binding, which needs the struct offsets of a
+            build we do not produce and pins a test to an unversioned directory outside the repo.
+            ITS VALUE WAS MEASURED, NOT ARGUED: 12 schedule mutations injected into the ROM one at a
+            time, 12/12 CAUGHT by tests/host/test_agb_sweep.py, tree restored, nothing committed. So it
+            would check our own arithmetic twice. THE ONE GAP IT WOULD HAVE COVERED -- the register
+            tests assert OUR READING of the field layout, and agb-tone only ever used volume 15, so the
+            ENVELOPE VOLUME FIELD IS CORROBORATED BY NO RUN -- is closed instead by the VENDORED GBATEK
+            (external/gbatek/gba.md:2380): bits 12-15 initial volume, step time 0 = No Envelope, duty 2
+            = 50 %, length used only with NR14 bit 6 (never set). A test reads those lines out of the
+            file. GBATEK also gave a SECOND reason the null is not in the schedule: volume 0 is
+            "No Sound" OUTRIGHT, so it would not have been a faint tone to extrapolate from.
+            Considered and left, not missed (GBP-HW-276/277's distinction). mGBA's APU is a MODEL with
+            Dolphin's status; NO figure from it may enter EVIDENCE.md as a hardware observation.
             NOT RUN, NOT AUTHORISED. §V11.1 - §V11.14 untouched and a test says so.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.

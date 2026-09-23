@@ -28973,3 +28973,109 @@ step  action                                              press with       what 
 **It replaces nothing.** The host tests still run, §V11.11's identity gate still
 gates, and §V11's three questions are still decided from the bytes the capture
 writes and from nothing else.
+
+#### V11.15.7 mGBA as a validation rung — **ASSESSED AND DECLINED**, with the measurement that decided it
+
+The Operator suggested driving the stimulus through **mGBA** to hear whether it
+emits: *"Lembre que o executor pode usar o mgba para validar a ROM e ver se sai
+som tb"* — and clarified that **the Executor runs it, never him**. Assessed
+here; **nothing was installed and nothing was changed on the host.**
+
+**The environment, verified rather than assumed.** mGBA 0.11 is already present
+as a portable build under a directory of the Operator's, with launchers that set
+`LD_LIBRARY_PATH`; `libmgba.so.0.11.0` exports the full `mCore` API (151
+symbols) plus the `GBAAudio*` entry points, so driving it **is** technically
+feasible. But `mgba-sdl --help` and `mgba-qt --help` expose **no audio-dump
+option and no headless mode** — generic, graphics and front-end switches only.
+So the two real options were:
+
+```text
+(a) mgba-qt's GUI "Record A/V"    produces a measurable file, and is NOT AUTOMATABLE -- it needs a
+                                  person at a window. The Operator has said the Executor runs this
+                                  check, so (a) is not available at all: an agent cannot click.
+(b) drive libmgba.so directly     automatable, and real work: mCore is a struct of FUNCTION POINTERS,
+                                  so a ctypes binding needs the struct offsets of a build we do not
+                                  produce. A C shim against external/mgba's headers is sturdier and
+                                  pins a build step to an UNVERSIONED DIRECTORY OUTSIDE THIS
+                                  REPOSITORY, free to move at any time -- so it would also need to
+                                  skip cleanly and be registered in skip_ledger.py.
+```
+
+**THE MEASUREMENT THAT DECIDED IT.** The value of (b) is *catching a wrong
+schedule before a trip*, which is worth exactly as much as the chance the
+schedule is wrong in a way the host tests do not already catch. That is
+measurable, so it was measured: **twelve schedule mutations were injected into
+`stimulus/agb-sweep/source/main.c` one at a time and `tests/host/test_agb_sweep.py`
+was run against each.**
+
+```text
+M1  volume order swapped                   CAUGHT     M7  volume never reaches the register    CAUGHT
+M2  frequency order swapped                CAUGHT     M8  length flag set                      CAUGHT
+M3  axes swapped (A walks volume)          CAUGHT     M9  not silent before the first press    CAUGHT
+M4  wrap instead of hold                   CAUGHT     M10 envelope decays (step time 2)        CAUGHT
+M5  off-by-one: press 1 plays entry 2      CAUGHT     M11 rail on the wrong side               CAUGHT
+M6  one wrong volume value (11 -> 12)      CAUGHT     M12 box half on the wrong side           CAUGHT
+
+12 / 12. The working tree was restored and is clean; no mutation is committed.
+```
+
+**So (b) would be checking our own arithmetic twice, and the answer is NO.**
+
+**What mutation testing cannot say, said rather than hidden:** it shows the tests
+catch the errors *someone thought of*. There is exactly one class it cannot
+cover, and it is the strongest argument (b) had:
+
+> The register tests assert `SOUND1CNT_H = volume << 12`, which is **our reading
+> of the field layout**. If that reading were wrong, every host test would pass
+> and the sweep would measure nothing. RUN 31 corroborated the **frequency**
+> field by measuring 127.95 / 511.80 Hz, but `agb-tone` only ever used volume
+> 15, so the **envelope volume field is not corroborated by any run**.
+
+**That gap is closed here, statically, for free, from a source that outranks an
+emulator's model** — GBATEK, vendored in this repository at
+`external/gbatek/gba.md:2380`:
+
+```text
+  Bit        Expl.
+  0-5   W    Sound length; units of (64-n)/256s  (0-63)
+  6-7   R/W  Wave Pattern Duty                   (0-3, see below)
+  8-10  R/W  Envelope Step-Time; units of n/64s  (1-7, 0=No Envelope)
+  11    R/W  Envelope Direction                  (0=Decrease, 1=Increase)
+  12-15 R/W  Initial Volume of envelope          (1-15, 0=No Sound)
+```
+
+Every field this ROM uses is confirmed: **bits 12-15 are the initial volume**,
+step time **0 means no envelope** (§V11.2's "no decay"), duty **2 is 50 %**, and
+the length value is used **only if NR14 bit 6 is set** — the bit §V11.2 never
+sets. `tests/host/test_agb_sweep.py` now checks the ROM's constants against
+those lines **read out of the vendored file**, so the reading is pinned to the
+reference and not to anyone's memory.
+
+**And GBATEK supplies a SECOND, independent reason the null is not in the
+schedule.** §V11.4.1 excluded volume 0 because a zero-amplitude window and a
+window that has not begun carrying are the same picture. GBATEK adds that
+volume 0 is **"No Sound"** outright — so a fifth window at volume 0 would not
+have been a faint tone to extrapolate from, it would have been nothing at all.
+The schedule's four entries are all in GBATEK's stated 1-15 range.
+
+**What remains uncovered, and what covers it.** If the volume field's *scaling*
+were non-linear in a way GBATEK does not say, no static check would show it —
+but **that is `U-GBP-012`'s own question**, and §V11.4's failure forms already
+distinguish it: `DOES NOT MOVE` is form F1 and `MONOTONE, NOT PROPORTIONAL` is
+form F3. The run diagnoses it; it costs one run, and an emulator's model could
+not have decided it anyway.
+
+**Recorded as considered and left, not missed** (the `GBP-HW-276` / `GBP-HW-277`
+distinction, reused): **mGBA is declined for `agb-sweep` because the host tests
+already catch every schedule error tried against them, 12 of 12, and the one
+gap they structurally could not cover is closed by GBATEK instead — at no cost,
+with no dependency outside this repository, and from a source an emulator's APU
+model does not outrank.** Should a later stimulus need a property that only a
+synthesised waveform can show, this assessment is where that work starts, and
+the binding it would need is described above.
+
+**And the standing caution, written where it would be needed:** mGBA's APU is a
+**MODEL**, with exactly the status `CLAUDE.md` §6.4 and §6.6 give Dolphin's GBP
+model. **No figure from it may ever enter `EVIDENCE.md` as a hardware
+observation** — the same caution §V11.15.6 attaches to the Operator's own
+console.

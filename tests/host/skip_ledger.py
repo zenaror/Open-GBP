@@ -84,6 +84,11 @@ LEDGER = [
     (r"^(neither build artifact is in this checkout \(build/ is ignored\)|the build artifacts are not in this checkout \(build/ is ignored\)|the commit that wrote §V11 is not in this checkout)$", "LOCAL_ARTIFACT_ABSENT",
      "§V11.15.1's two hashes and the 1 960-byte size are on the page and pinned by tests that never "
      "skip, and the ROM is rebuilt from source by `make stimulus-sweep` whenever it is needed"),
+    # Issue #70 (§V11.15.7): the ROM's APU field layout is pinned against the VENDORED GBATEK,
+    # which external/ does not ship in a clone.
+    (r"^external/gbatek is not in this checkout$", "LOCAL_ARTIFACT_ABSENT",
+     "the same constants are pinned against tools/v11sweep.py and against agb-tone's own word by "
+     "tests that never skip, and §V11.15.7 quotes the four GBATEK lines on the page"),
     (r"^the commit that built agb-tone is not in this checkout$", "HISTORY_ABSENT",
      "the ROM's identity is pinned by hash and size in §V9.14 and in test_agb_tone.py, which do not "
      "skip; an edit that changed the bytes would break those first"),

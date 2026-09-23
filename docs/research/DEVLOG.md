@@ -13809,3 +13809,73 @@ untouched and a test says so; `v11sweep.py`, `v8audio.py`, `v9tone.py` and
 **Next.** The Hardware Issue, which is the Orchestrator's to open. What is left
 before the run is the Operator's: verify `71c79811…11c9`, flash, run step 0.5 on
 his own GBA, then the capture run.
+
+## 2026-09-22 — Issue #70's addendum: mGBA assessed and DECLINED, and the one gap it had closed for free
+
+**The Operator suggested mGBA to hear whether the stimulus emits, and said the
+Executor runs it, never him.** Assessed; **nothing installed, nothing changed on
+the host.** §V11.15.7.
+
+**Verified rather than assumed.** mGBA 0.11 is already present as a portable
+build; `libmgba.so.0.11.0` exports the full `mCore` API (151 symbols), so
+driving it **is** feasible. But `mgba-sdl --help` and `mgba-qt --help` have **no
+audio-dump option and no headless mode**, so the GUI recorder needs a person at
+a window — which the Operator has said is not his job and an agent cannot do.
+That left one option: a binding over `libmgba.so`, which is real work, needs the
+**struct offsets of a build we do not produce**, and pins a test to an
+unversioned directory outside the repository.
+
+**The value of that binding is catching a wrong schedule before a trip, and that
+is measurable, so it was measured.** Twelve schedule mutations injected one at a
+time into the ROM, each run against `tests/host/test_agb_sweep.py`:
+
+```text
+volume order swapped · frequency order swapped · axes swapped · wrap instead of hold ·
+off-by-one · one wrong volume value (11 -> 12) · volume never reaching the register ·
+length flag set · not silent before the first press · envelope decaying ·
+rail on the wrong side · box half on the wrong side
+
+12 / 12 CAUGHT. The tree was restored; no mutation is committed.
+```
+
+**So it would check our own arithmetic twice, and the answer is no.**
+
+**What mutation testing cannot say, and it was the strongest argument for
+building it:** the register tests assert `SOUND1CNT_H = volume << 12`, which is
+**our reading** of the field layout. RUN 31 corroborated the *frequency* field by
+measuring 127.95 / 511.80 Hz, but `agb-tone` only ever used volume 15 — **the
+envelope volume field is corroborated by no run**, and if the reading were wrong
+every host test would pass while the sweep measured nothing.
+
+**That gap is closed statically, for free, from a source that outranks an
+emulator's model.** GBATEK is vendored in this repository:
+`external/gbatek/gba.md:2380` gives bits 12-15 as the initial volume, step time
+**0 = No Envelope**, duty **2 = 50 %**, and the length value used **only if NR14
+bit 6 is set** — the bit §V11.2 never sets. Every field the ROM uses is
+confirmed, and a test now reads those lines **out of the vendored file** and
+checks the ROM's constants against them, so the reading is pinned to the
+reference rather than to anyone's memory.
+
+**And GBATEK supplied something the design did not have: a SECOND, independent
+reason the null is not in the schedule.** §V11.4.1 excluded volume 0 because it
+is indistinguishable from a window that has not begun carrying. GBATEK says
+volume 0 is **"No Sound"** outright — so a fifth window at volume 0 would not
+have been a faint tone to extrapolate from; it would have been nothing at all.
+The exclusion was right for a reason we had not found.
+
+**What is left uncovered, and what covers it:** a *non-linear scaling* of the
+volume field would show in no static check — but that is `U-GBP-012`'s own
+question, and §V11.4's failure forms F1 and F3 already distinguish it. The run
+diagnoses it; an emulator's model could not have decided it anyway.
+
+**Recorded as considered and left, not missed** — the `GBP-HW-276` / `GBP-HW-277`
+distinction, reused. And the standing caution is written where it would be
+needed: **mGBA's APU is a MODEL**, with the status `CLAUDE.md` §6.4 and §6.6 give
+Dolphin's, and **no figure from it may ever enter `EVIDENCE.md` as a hardware
+observation.**
+
+**One recurrence worth naming:** a test sliced §V11.15.6 to the end of the
+document and tripped on §V11.15.7 citing `GBP-HW-276`. **Third time today** — the
+same defect class as `a7c1a67` and as §V10's own guard. Bounded, and the
+assertion sharpened while I was there: *minting* an id is a heading, and citing
+one in prose is not.
