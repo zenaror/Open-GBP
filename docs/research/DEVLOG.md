@@ -14167,3 +14167,94 @@ that the screen did not. Stated once so nobody reads it the other way later.
 
 **Next.** Both of #74's questions are answered. Independently, the cyan-mark
 reading unblocks the audio runs.
+
+## 2026-09-23 — Issue #75: the separator I named was WRONG, and §V13 carries the corrected one
+
+**Goal.** Decide the fifth-press alarm, and pre-register `U-GBP-038`'s
+separator. **The Orchestrator questioned my separator before the run rather than
+after, and he was right.**
+
+**§V11.16.9 said a LONG gap separates the two readings. It does not.**
+
+```text
+a LONG gap (10 s)    ORDINAL: the next window carries  ·  ELAPSED: 10 s is past T, it carries
+                     -> BOTH SAY CARRIES. NOT SEPARATED.
+a SHORT gap (0.3 s)  ORDINAL: the next window carries  ·  ELAPSED: 0.3 s has not reached T
+                     -> THEY DISAGREE. SEPARATED.
+```
+
+**Where the error came from, because that is the part worth keeping:** I reasoned
+as if ORDINAL meant *"a fixed number of windows are dead whatever the time"*.
+That is a **third** reading, not the one I had written two paragraphs earlier —
+which says the emitting window is dead and **the next one carries**. Under the
+reading as written, a long gap is exactly where the two agree. **Corrected on top
+in §V11.16.9, `GBP-HW-307` and `U-GBP-038`; nothing measured changes, only the
+prescription did.**
+
+**§V13, and `tools/v13sep.py` frozen before the run** — fifth outing of the
+discipline.
+
+**A LADDER, not a single short gap**, because `T ∈ (0.0625, 3.33]` is **53×
+wide** and one gap only separates the readings if T happens to fall above it:
+
+```text
+press 1 at 0     the emission begins here          press 3 at +1.2 s  a second rung
+press 2 at +0.3 s  the only place they disagree    press 4 at +4.0 s  THE POSITIVE CONTROL
+```
+
+**Neither predicate needs T, which is what makes the verdict mechanical:**
+ORDINAL is refuted by any window after the emitting one that carries nothing;
+ELAPSED is refuted by a window that carries while a **later** one does not. So
+`D D C C` and `D D D C` refute ORDINAL, `D C D C` refutes both, and **`D C C C`
+is NOT a null result** — it bounds T to `(0.0625, 0.3625]`, about nine times
+tighter. **The targets are targets, not tolerances**: `t_arm` is recorded per
+window, so the analysis uses the measured offsets and the Operator only has to
+produce two quick presses, a pause and a longer pause.
+
+**The floor on a gap is derived, not chosen:** a press inside the previous
+window's fill is **refused and counted**, a window fills in 62.5 ms, so the floor
+is ~0.10 s — and a refusal is **visible, never silent**.
+
+**And §V11.13's "at least three seconds" is the thing being varied**, which the
+action list says in a box before the presses, because following the old
+instruction correctly would produce a run that answers nothing.
+
+**The 20 s pre-press wait stays, and the record says it no longer has the job it
+had:** `GBP-HW-299`'s bound was measured from the CONTROL transform and RUN 32
+refuted it as a property; the delay we now believe in is measured from the AGB's
+first emission, which is press 1. **It is held constant as a control**, because
+the gaps are this run's one new variable.
+
+**THE FIFTH-PRESS ALARM — decided, and then the photographs arrived.**
+
+The Operator photographed all five presses. **Presses 4 and 5 differ in exactly
+one thing: the background hue.** The boxes are identical, because the box
+channel has run out of boxes. **So neither channel distinguishes the fifth
+press**, and the observed sequence — black → red → green → blue → yellow →
+**magenta** — makes magenta the *sixth term of a colour sequence*, not an alarm.
+The sequence was nowhere in the record; it is now.
+
+**The property, written down in general terms so the next alarm is tested
+against it:** *an alarm must not be reachable by any valid state of the normal
+indicators* — not "a different colour", because a sixth colour in a sequence of
+colours is a continuation of it. The spoiled-run alarm already satisfies it by
+being a **pattern**.
+
+**The fix is specified and deliberately NOT built**, and the deferral was
+re-weighed against the new evidence rather than restated. What decides it is a
+property of the code, checked: `step_for_count()` holds at the last entry, so a
+fifth press leaves the sounding note and level exactly where press 4 put them;
+and `gbp_awin_arm_press()` returns on the first failing line without touching
+anything, so a press arriving while window 4 is filling **leaves window 4
+undisturbed**. **The four windows are byte-for-byte what they would have been.**
+So an unnoticed fifth press costs a conversation and not a run — *a statement
+about the code rather than a hope* — and the absence of an at-the-time signal is
+recorded as a **known limitation**, with the named case that would change it.
+
+**And the same photographs confirm `U-GBP-040`'s other half:** no cyan mark
+anywhere, on any press. **FIXED AND UNEXPLAINED**, §V11.17's second
+pre-registered outcome, now confirmed visually.
+
+**Next.** The Hardware Issue for RUN 33, which is the Orchestrator's to open.
+**No flash and no staging**: `sweep-0002` is on the cartridge and `stream-0016`
+is in `14-audio`.

@@ -145,6 +145,10 @@ class NothingFrozenMoved(unittest.TestCase):
         # Gecko. It reads a serial port and writes bytes to a file; it touches no image, no POC and
         # no runtime path, and CLAUDE.md §14 forbids anything coming to depend on the device.
         changed = changed - {"tools/geckorx.py"}
+        # Issue #75 (2026-09-23) pre-registered U-GBP-038's separator (§V13) and froze its
+        # construction BEFORE the run: tools/v13sep.py runs on SYNTHETIC vectors only, borrows
+        # v11sweep's classifier unchanged, reads no run and authorises nothing.
+        changed = changed - {"tools/v13sep.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
@@ -170,7 +174,8 @@ class NothingFrozenMoved(unittest.TestCase):
         # next unused number, and it still asserts what it was written to assert
         # Issue #69 (2026-09-22) reserved RUN 32 in §V11's; same move, same reason -- a RESERVED name is
         # not a run, and the pin's job is to catch a checkpoint that claims one
-        self.assertNotIn("RUN 33", hw)
+        # Issue #75 (2026-09-23) reserved RUN 33 in §V13's. Same move again.
+        self.assertNotIn("RUN 34", hw)
         self.assertNotIn("GBP-HW-308", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test

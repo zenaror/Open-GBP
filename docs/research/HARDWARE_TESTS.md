@@ -29344,6 +29344,32 @@ emitting press**: if a press ten seconds later still carries nothing, it is the
 ordinal; if it carries, it is the time. That needs **no new ROM and no new
 image** — `agb-sweep` is flashed and `stream-0016` is staged.
 
+**CORRECTION, 2026-09-23 (Issue #75), written on top and changing nothing above
+it: THE SENTENCE ABOVE NAMES THE WRONG SEPARATOR.** It says a run with a LONG
+gap separates the two readings — *"if a press ten seconds later still carries
+nothing, it is the ordinal"*. **It does not, and the Orchestrator caught it
+before a run was spent on it.**
+
+```text
+a LONG gap (10 s)   ORDINAL says the next window carries         }  BOTH SAY CARRIES
+                    ELAPSED says 10 s is past any credible T     }  -> NOT SEPARATED
+a SHORT gap (0.3 s) ORDINAL says the next window carries         }  THEY DISAGREE
+                    ELAPSED says 0.3 s has not reached T         }  -> SEPARATED
+```
+
+**Where the error came from, because it is worth knowing:** the sentence
+reasons as if ORDINAL meant *"a fixed number of windows after the emission are
+dead, whatever the time"*. That is a **third** reading and not the one written
+two paragraphs above it, which says *the emitting window is dead and the next
+one carries*. Under the reading as written, a long gap is exactly where the two
+agree.
+
+**The two readings themselves are unchanged and so is everything measured.**
+What is wrong is only the prescription for separating them, and §V13 carries
+the corrected one: **a SHORT gap, and a ladder of gaps so the run is
+informative whatever the delay turns out to be.**
+
+
 **`U-GBP-038` is therefore REOPENED**, and `GBP-HW-299`'s interval is amended on
 top rather than deleted: it remains a true statement about RUN 30 and RUN 31 and
 is false as a property of the path.
@@ -29865,3 +29891,295 @@ unknown to us. Nothing it reports is a hardware observation about the GBP.
 > NECESSARY. The SD save stays the primary record**, every POC still treats the
 > device as absent by default, and no procedure may come to depend on one being
 > present.
+
+## V13 — GBP-AUDIO-004: **`U-GBP-038`'s SEPARATOR** — a SHORT gap, not a long one, and a ladder so the run pays whatever the delay is — **PRE-REGISTERED 2026-09-23 (GitHub Issue #75); NOT RUN, NOT AUTHORISED HERE** · and **the fifth-press alarm's defect, decided and deferred with its reason**
+
+### V13.1 THE FIFTH-PRESS ALARM — the defect, the property, and why it does **not** get a flash of its own
+
+`sweep-0002`'s background carries the press **count** — black, red, green, blue,
+yellow — and turns **magenta** past four. The Operator's own words on his fifth
+press: *"no 5 toque, só o fundo que já vinha mudando de cor, que mudou."*
+
+> **THE COUNT INDICATOR AND THE ALARM ARE THE SAME CHANNEL.** The background
+> changes on every press, so magenta is a **fifth colour**, not an alarm. It is
+> the same class as the RED/BLACK collision §V11.15.3 fixed, and the test that
+> caught that one asserted *adjacent bands differ* — the right property for the
+> bands and the **wrong one** for this.
+
+**THE PROPERTY THAT WAS MISSING, written down now so the next alarm anyone adds
+is tested against it:**
+
+```text
+AN ALARM MUST NOT BE REACHABLE BY ANY VALID STATE OF THE NORMAL INDICATORS.
+  not "a different colour from the other colours" -- a sixth colour in a sequence of colours is
+  a continuation of that sequence to the person watching it
+  the spoiled-run alarm already satisfies it, because it is a PATTERN and no count value draws one
+```
+
+**THE FIX, specified and not built here:** make `>4` a **pattern** rather than a
+sixth colour. No count value can produce a pattern, so the property above
+becomes **directly assertable** by a test instead of being argued from the
+palette.
+
+**AND IT DOES NOT SHIP ON ITS OWN, because the machine record already catches a
+fifth press — twice, independently of the screen.** Checked in the source rather
+than assumed:
+
+```text
+poc/…/main.c:656    awin_presses_seen++   runs BEFORE the arm is attempted, so a fifth press is
+                                          counted whether or not it gets a window
+gbp_awin.c:97       arm_refused_full++    a press with no free window is refused and counted
+the AWIN log line   arms=… refused_busy=… refused_full=… presses=… releases=…
+RUN 32 read         arms=5 refused_busy=0 refused_full=0 presses=4 releases=4
+a fifth press reads arms=5 refused_full=1 presses=5      <- two numbers, one line, no screen needed
+tests/unit/…        test_gbp_awin.c already asserts arm_refused_full == 1 on the fifth arm
+```
+
+**So the alarm is redundancy for the Operator at the console, not the only
+guard.** Its absence costs a **conversation** — "you pressed five times" —
+rather than a run. **The fix is applied the next time the ROM changes for
+another reason**; it does not spend one of his flashes on a diagnostic that has
+never fired.
+
+#### V13.1.1 **PHOTOGRAPHED AT ALL FIVE PRESSES** — the defect demonstrated, and the deferral re-weighed against it
+
+The Operator photographed his GBA's screen at every press. **It replaces the
+argument above with evidence, and the defect is worse than either of us put
+it.**
+
+```text
+press 1   background RED       box 1 lower half white, boxes 2-4 dark    rail at the BOTTOM
+press 2   background GREEN     boxes 1,2 filled
+press 3   background BLUE      boxes 1,2,3 filled
+press 4   background YELLOW    all four filled
+press 5   background MAGENTA   all four filled -- IDENTICAL BOXES TO PRESS 4
+```
+
+> **PRESSES 4 AND 5 DIFFER IN EXACTLY ONE THING: THE BACKGROUND HUE.** The boxes
+> are identical, because the box channel has **run out of boxes**. So **neither
+> channel distinguishes the fifth press**: one shows a fifth colour in a
+> sequence that has already shown four, and the other shows nothing at all.
+
+**That sentence is the one to keep**, because it is what stops someone
+re-introducing this later. The count sequence itself is nowhere else in the
+record, so it is here: **black (0) → red → green → blue → yellow → MAGENTA**,
+from `sweep_background()`. Magenta *is* the sixth term of that sequence. **It
+fires correctly and it is not legible as an alarm**, which is the whole purpose
+of having one.
+
+**AND THE SAME PHOTOGRAPHS CONFIRM `U-GBP-040`'s OTHER HALF.** The band between
+the boxes and the rail is **plain background colour in all five** — **no cyan
+mark anywhere, on any press**. The read-back mask was clear, the rail is at the
+bottom and the halves fill on the lower side. **`U-GBP-040` is FIXED AND
+UNEXPLAINED**, §V11.17's second pre-registered outcome, now confirmed visually as
+well as by his report.
+
+#### V13.1.2 The deferral, re-weighed — **it stands, and here is the fact that makes it stand**
+
+The Orchestrator's point against deferring is fair and is recorded: **the machine
+record catches a fifth press AFTERWARDS, and the alarm exists to catch it AT THE
+CONSOLE.** With both channels blind at press 5 there is currently **no
+at-the-time signal at all**, and that is a real limitation.
+
+**What decides it is not a preference but a property of the code, checked rather
+than assumed: a fifth press changes nothing that matters.**
+
+```text
+the SOUND      step_for_count() returns SWEEP_STEPS-1 for any count >= 4, so press 5 leaves the
+               sounding note and level EXACTLY where press 4 put them
+the CAPTURE    gbp_awin_arm_press() returns -1 on the FIRST line that fails and touches nothing:
+               a press arriving while window 4 is still filling increments refused_busy and
+               LEAVES WINDOW 4 UNDISTURBED; one arriving after it increments refused_full
+the FOUR       are therefore byte-for-byte what they would have been without the fifth press
+```
+
+**So an unnoticed fifth press costs a conversation and not a run** — and that is
+now a statement about the code rather than a hope. **The fix ships the next time
+the ROM changes for another reason**, and the absence of an at-the-time signal
+is recorded here as a **known limitation** rather than left to be rediscovered.
+
+**The one case that would change this** is a stimulus whose schedule does NOT
+hold at the end, or a capture that lets a refused arm disturb a filling window.
+**Neither is true today, and a future ROM that breaks either must ship the alarm
+fix with it.**
+
+### V13.2 The question, and **the separator I named was wrong**
+
+`GBP-HW-307` left two readings of the same three runs:
+
+```text
+ORDINAL   the window in which the AGB's emission BEGINS carries nothing; the NEXT one carries,
+          whenever it happens to fall
+ELAPSED   nothing carries until a delay T after the emission begins, and every window that
+          reaches past T carries
+```
+
+**§V11.16.9 said the separator was a LONG gap. It is not, and the Orchestrator
+caught it before a run was spent on it** (§V11.16.9's correction, on top):
+
+```text
+a LONG gap (10 s)    ORDINAL: the next window carries  ·  ELAPSED: 10 s is past T, it carries
+                     -> BOTH PREDICT THE SAME THING. NOT SEPARATED.
+a SHORT gap (0.3 s)  ORDINAL: the next window carries  ·  ELAPSED: 0.3 s has not reached T
+                     -> THEY DISAGREE. SEPARATED.
+```
+
+**The error was reasoning as if ORDINAL meant "a fixed number of windows are
+dead whatever the time".** That is a third reading, not the one written. Under
+the reading as written, a long gap is precisely where the two agree.
+
+### V13.3 What is already bounded, and what the run can add
+
+```text
+carriage had NOT begun one window-length after the emission     ->  T > 0.0625 s
+carriage HAD begun 3.320 s later (RUN 31) and 3.370 s (RUN 32)  ->  T <= 3.33 s
+so                                                                  T ∈ (0.0625, 3.33]
+```
+
+**That interval is 53× wide.** A single short gap would separate the readings
+only if T happens to fall above it; a **ladder** makes the run informative
+whatever T is.
+
+### V13.4 THE LADDER — four presses, three gaps, and the last one is a control
+
+**All four presses on the pad's A**, so the frequency schedule walks
+128 → 512 → 256 → 1024 Hz while the **envelope volume stays at 15** for all four
+(§V11.3). Volume is held because the question is *whether a window carries at
+all*, and the loudest setting is the one RUN 31 showed carrying.
+
+```text
+press   target offset from press 1      why
+  1      0.0 s    the emission begins here (sweep-0002 emits on press 1, §V11.17)
+  2     +0.3 s    A SHORT GAP -- the only place the two readings disagree
+  3     +1.2 s    a second rung, so a T between 0.3 and 1.2 is still caught
+  4     +4.0 s    THE POSITIVE CONTROL: past the whole bound, so BOTH readings predict it carries
+```
+
+**The targets are targets, not tolerances.** Each window's `t_arm` is recorded
+to the tick, so the analysis uses the **measured** offsets and the Operator only
+has to produce *two quick presses, a pause, and a longer pause*.
+
+**THE FLOOR ON A GAP, and it is not a preference.** A press that arrives while a
+window is still filling is **refused and counted** (`arm_refused_busy`), and a
+window fills in 62.5 ms; with the AGB's ~18 ms reaction the floor is about
+**0.10 s**. A comfortable double-tap is 0.2–0.3 s, so the ladder clears it — and
+**a refusal is visible, never silent**, so the run reports the counter rather
+than anyone assuming.
+
+### V13.5 QUESTION S — the gate, frozen in `tools/v13sep.py`
+
+**Neither predicate needs T, which is what makes the verdict mechanical.**
+Windows are ordered by their measured offset and the carriage pattern is read
+off:
+
+```text
+ORDINAL is refuted by   any window AFTER the emitting one that carries nothing
+ELAPSED is refuted by   a window that carries while a LATER one does not -- no single threshold
+                        can produce that
+
+D C C C   NOT SEPARATED    only the emitting window is dead: ORDINAL holds, and ELAPSED holds for a
+                           small enough T. The run then BOUNDS T to (0.0625, 0.3625] -- about nine
+                           times tighter than it is now, so this outcome is not a null result
+D D C C   ORDINAL REFUTED  T ∈ (0.3625, 1.2625]
+D D D C   ORDINAL REFUTED  T ∈ (1.2625, 4.0625]
+D C D C   BOTH REFUTED     and that is a finding: neither reading survives
+D D D D   INADMISSIBLE     the positive control carried nothing, so the run says nothing about
+                           either reading rather than being read as evidence against both
+C … …     INADMISSIBLE     the emitting window itself carried, which NO reading predicts and no run
+                           has shown
+```
+
+**Carriage is `tools/v11sweep.py`'s own `classify_window()`**, unedited: a window
+`CARRIES` when it is neither flat nor `NO CELL`. Nothing new decides it.
+
+**One ambiguity is named rather than discovered:** a window whose offset lands
+*within one window-length of T* may fall either way by construction. The
+analysis therefore reports the measured offsets beside the verdict, so a reader
+can see when a verdict rests on a window sitting on the boundary.
+
+### V13.6 Admissibility
+
+```text
+the capture     5 windows closed, no INCOMPLETE and no GAP flag on a window read
+the arming      arms == 5, refused_full == 0, and refused_busy == 0 -- a refusal means a press has
+                NO window, and §V13.5's ordering would then be reading three windows, not four
+the input       presses == 4, releases == 4, lost == 0, truncated == 0
+the schedule    derive_schedule() == "F" and refusals() empty (§V11.8) -- all four on the pad's A
+the gaps        every measured gap clears GAP_FLOOR; any that does not is named
+the control     the last window by offset carried (§V13.5)
+the identity    §V13.7, on the day
+```
+
+### V13.7 Identity — the image and the ROM both already exist
+
+```text
+the instrument  stimulus/agb-sweep, sweep-0002, DELIVERED build/physical/agb-sweep-cart.gba
+                2 352 B sha256 9596ddee9d3f969b21264384391656df91ab23cb91042f5162b1f696a80195f2
+                ALREADY FLASHED -- it is what he ran for U-GBP-040's step 0.5. NO NEW FLASH.
+the image       gbp-audio-window-probe / stream-0016 / commit 04121fe, DOL 498 496 B, sha256
+                c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54, staged at
+                14-audio and verified from the card. REUSED UNCHANGED. NO NEW STAGING.
+the rule        §V7.1's, unchanged: if any identity differs on the day, DO NOT RUN.
+```
+
+### V13.8 Reserved names — from the IMAGE's `TEST_ID`, as `GBP-HW-300` requires
+
+```text
+WHAT THE CONSOLE WILL WRITE   sd:/open-gbp/GBP-AUDIO-001_stream-0016.log  and  -audio.bin
+WHAT THE ARCHIVE WILL BE      captures/local/GBP-AUDIO-004_stream-0016-run33.log  and  -audio.bin
+```
+
+**They disagree by design**, for the fourth time. **The SD-state check is against
+the names the IMAGE writes**: `GBP-AUDIO-001_stream-0016.*` must not be on the
+card before this boots. **RUN 33 is the next free number**, the names are
+reserved and **the files do not exist**.
+
+### V13.9 The Operator's action list — **and the spacing is the thing being varied**
+
+> **READ THIS BEFORE THE PRESSES: §V11.13 told you "at least three seconds
+> between them" and THIS RUN DELIBERATELY BREAKS THAT.** The spacing is what is
+> being measured. Following the old instruction correctly would produce a run
+> that answers nothing.
+
+```text
+step  action                                                   press with    what he records
+  1   CHECK THE CARD: sd:/open-gbp/ must NOT contain           --            that it was clear
+      GBP-AUDIO-001_stream-0016.log or -audio.bin
+  2   boot with the cartridge in and 14-audio from SD          (nothing)     that the screen came up,
+                                                                             counter 0
+  3   WAIT 20 SECONDS -- a phone timer, not a count            (nothing)     that he waited
+      ---- WHY IT STAYS, and it is not the reason it had: GBP-HW-299's bound was measured from the
+           CONTROL transform and RUN 32 REFUTED it as a property. The delay we now believe in is
+           measured from the AGB's own first emission, which is press 1 -- so this wait has no
+           known job left. IT IS HELD CONSTANT ANYWAY, as a control: the GAPS are this run's one
+           new variable and changing two things at once would waste the run.
+      ---- THE FOUR PRESSES. ALL FOUR ON A. THE SPACING IS NOT THE USUAL ONE.
+  4   A  × 1                                                   the pad's A   the counter; the box's
+                                                                             UPPER half; the rail at
+                                                                             the TOP
+  5   A  × 1  AS SOON AS HE COMFORTABLY CAN -- a deliberate     the pad's A   the counter
+      double-tap, about a third of a second, NOT three seconds
+      ---- NOT FASTER THAN ABOUT A FIFTH OF A SECOND: a press inside the previous window's fill is
+           REFUSED, and then that press has no window at all. The log reports it (refused_busy), so
+           it is visible rather than silent -- but the press is spent.
+  6   wait about ONE SECOND                                    (nothing)     --
+  7   A  × 1                                                   the pad's A   the counter
+  8   wait about THREE SECONDS                                 (nothing)     --
+  9   A  × 1                                                   the pad's A   the counter
+ 10   end the session the way the image asks                   --            that the log was saved
+```
+
+**He will still hear nothing** (§V8.10.1), and **if he DOES hear anything that is
+a finding**. **If any cyan mark appears, that is `U-GBP-040` reporting itself and
+he should say which and on which press** (§V11.17.5).
+
+### V13.10 What this part does NOT do
+
+It authorises **no run, no build, no flash and no staging** — `sweep-0002` is
+already on the cartridge and `stream-0016` is already in `14-audio`. It answers
+**nothing**: `U-GBP-038` stays open, and so does `U-GBP-040`, whose mechanism is
+**unexplained** and is not touched here. It **promotes nothing** and mints no
+evidence id. It does not edit §V11 or any frozen construction;
+`tools/v11sweep.py` supplies the carriage test unchanged. **The fifth-press
+alarm is specified and deliberately NOT built** (§V13.1). Two names are reserved
+and **the files do not exist**.

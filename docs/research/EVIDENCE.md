@@ -8567,8 +8567,17 @@ READING B  WINDOW ORDINAL from the first emission   the emitting window is dead,
 ```
 
 **Both fit all three runs and this run does not separate them**, because every
-run so far spaced its presses 3.1–3.4 s apart. **The separator is a long gap
-after the first emitting press**, and it needs no new ROM and no new image.
+run so far spaced its presses 3.1–3.4 s apart.
+
+**CORRECTION, 2026-09-23 (Issue #75), on top: the separator named in the first
+version of this entry — "a long gap after the first emitting press" — IS
+WRONG.** A long gap is where the two readings AGREE: ORDINAL says the next
+window carries and ELAPSED says a gap past T carries, so both predict the same
+thing. **They disagree only on a window that opens BEFORE T, which is a window
+that opens SOON.** The separator is a **SHORT** gap, and §V13 pre-registers a
+ladder of gaps so the run is informative whatever T turns out to be. **Nothing
+measured changes; only the prescription did.** It still needs no new ROM and no
+new image.
 
 `GBP-HW-299` keeps its words: it remains true of RUN 30 and RUN 31 and is false
 as a property of the path. **`U-GBP-038` is REOPENED.** §V11.16.9.
