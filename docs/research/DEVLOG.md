@@ -14715,6 +14715,22 @@ describes (it really does pass 2.4 blocks/window) and the contrast (4028/4096
 fails all 57 windows), so both are properties of the code rather than claims
 about it.
 
-**Next in this checkpoint:** the POC, with the preallocated per-second counter
-that makes D1 answerable at all, and the wall-clock budget — 84 s against the
-120 s safety bound, which fits with 36 s of margin.
+**The phase machine** (`src/audio/gbp_adrain.c`, 58 unit checks) holds everything
+§V19 decides that does not need a device: the phase order, the preallocated
+per-second coverage counter, both positive controls and the N sweep. It is a
+module rather than POC code because all of it is arithmetic over a tick and a
+count (`CLAUDE.md` §10), so the whole of §V19's order is testable before the POC
+exists — including the cases only a wrong run reaches: a silent tone that must
+never enter PHASE A, a sweep that does not recover, and a block arriving past
+the counter's end (counted as overflow, never dropped silently). **Coverage and
+`failures` are separate fields and are never added**, which is the lesson
+`GBP-HW-316` cost: two runs reported `failures=0` having each lost ~68 AUDIO
+blocks. PowerPC: clean under `-Werror -Wconversion`, no floating point, 2 016
+bytes of text.
+
+**Wall-clock budget, as the Issue asks:** 5 s not_before + 60 + 10 + 9 = **84 s
+against the 120 s safety bound**, 36 s of margin. `PLAY_SAFETY_SECONDS` does not
+move.
+
+**Next in this checkpoint:** the POC proper — the GameCube application that
+supplies ticks and blocks to this module, its Swiss slot and its audit profile.
