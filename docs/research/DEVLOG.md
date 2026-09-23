@@ -14658,3 +14658,63 @@ untouched: a test that starts checking something does not change what is known.
 
 **Next.** #84's §V19, the continuous-drain pre-registration, whose amendment
 already carries the eight corrections from my review.
+
+## 2026-09-23 — Issue #84: §V19 transcribed and its gates frozen, after a fourth premise error
+
+**Goal.** Transcribe the continuous-drain pre-registration and build its gates,
+both before any code that could see data. GBP-AUDIO-005. No hardware.
+
+**I did not transcribe it as written.** §V19.0 stated the service reads
+*"~4028 blocks/s — 68 short"*. That subtracts a deficit measured over a whole
+capture from a per-second rate: the rates are **4093.56/s and 4094.22/s**, and
+the 68 blocks are the shortfall over 27.9 s and 38.5 s. At 68/s RUN 33 would
+have lost 1 899 blocks.
+
+**Why it had to be caught before freezing, and not after:** 4028/4096 = 0.9834,
+which **fails D1 in every window**. Frozen as written, the pre-registration
+would have stated a steady state that its own gate declares broken — a PASS
+would have looked like it contradicted the summary printed above it, and a FAIL
+would have looked predicted. **Neither outcome could have been read.** That is
+worse than a merely wrong figure, and a pre-registration cannot be edited
+afterwards. The Orchestrator accepted it, corrected the per-stall figure that
+followed from the same misreading (5.24 blocks = 1.28 ms, not 353.7), and
+adopted the arithmetic check that would have caught it: **does the rate
+reproduce the count over the duration?** 4028 × 27.93 = 112 500, not 114 342.
+
+Three more accepted: the window boundary moves from **milliseconds to ticks**
+(1 ms is 4.096 blocks, which is the *entire* margin the gate rests on — 40 500×
+coarser than a tick); PHASE A gets a **positive control**, because the tone
+comes from the cartridge and is started by the Operator's button, so a silent
+phase would have read as SYNC-LOST and **falsely refuted `U-GBP-042`** — the
+same shape as #80's fixture premise, caught a second time; and `sample(N)` is
+frozen rather than left to the implementation.
+
+**He added a fifth himself, and it is the best one.** Correcting the rate
+exposed that 68 blocks spread uniformly over 28 s is 2.44 per window, which
+**passes** a 0.999 gate while being exactly the steady-state loss D1 exists to
+detect. He kept the threshold — tightening it would fail on artefacts — and
+froze instead that the per-second series is reported **in full beside the
+verdict, PASS or FAIL**, and that a PASS is never worded as "no loss", only as
+"no window lost more than 4.096 blocks". A limitation stated in advance rather
+than discovered afterwards.
+
+**Transcribed** §V19 + both amendments, originals unedited, amendments
+prevailing — so what was frozen, what was wrong and when all stay readable.
+
+**One ambiguity I resolved at transcription and recorded rather than settled
+silently:** A6's *"a window that misses by one block IS A FAIL"* against a
+4.096-block margin admits two readings 3.096 blocks apart. B5 settles it twice
+over in the sense that the ±1 boundary noise may not *rescue* a window already
+under the threshold. §V19.9 records both readings and which is adopted;
+`tools/v19drain.py` says so at the constant.
+
+**The gates** (`tools/v19drain.py`, 31 synthetic tests) decide D1, report D2
+without a pass/fail, and decide A. Exercised on constructed vectors only — it
+reads no capture and imports no parser. The tests pin the blind spot B5
+describes (it really does pass 2.4 blocks/window) and the contrast (4028/4096
+fails all 57 windows), so both are properties of the code rather than claims
+about it.
+
+**Next in this checkpoint:** the POC, with the preallocated per-second counter
+that makes D1 answerable at all, and the wall-clock budget — 84 s against the
+120 s safety bound, which fits with 36 s of margin.
