@@ -50,5 +50,5 @@
 13	play	gbp-play-session	gbp-play-session.dol	gbp-play-session	build	1	d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de
 14	audio	gbp-audio-window-probe	gbp-audio-window-probe.dol	gbp-audio-window-probe	build	1	c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54
 15	drain	gbp-audio-drain-probe	gbp-audio-drain-probe.dol	gbp-audio-drain-probe	build	1	4c80ab8a34d9260793e036beda513a9a23be86d04c61c0d653c6f79fc7333884
-16	aout	audio-output-replay	audio-output-replay.dol	audio-output-replay	build	1	161492325661ffc63288c33712dcf7be98554828581e3d8e4564d0381b13ba90
+16	aout	audio-output-replay	audio-output-replay.dol	audio-output-replay	build	1	97f113ca0bbc9ec94e5ca945a2a34dae4f5bd5ff9386b2b8362cc32e8d7145e2
 80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1	-

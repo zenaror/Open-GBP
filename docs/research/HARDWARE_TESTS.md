@@ -32413,3 +32413,53 @@ supersedes     §V21.2's EXPECTED line, for aout-0002. That line describes aout-
 classes        §V21.5's classes are UNCHANGED. They read a count and three relations, and "as expected"
                now means the line above
 ```
+
+### V21.7 The candidate, RE-STAGED — 2026-09-23 — `aout-0002` in slot `16-aout`, AMENDMENT 2's sealed order
+
+*Appended. §V21.0–§V21.6 stand. `aout-0001` (§V21.4) is SUPERSEDED before any run: the
+order it plays had been told to the Operator, so it is no longer on the card and must not
+run.*
+
+```text
+slot       16-aout -- its FROZEN pin in tools/swiss-layout.tsv moved from aout-0001 to aout-0002
+           BEFORE the export (Issue #44's rule); 12-stream, 13-play, 14-audio and 15-drain untouched
+image      poc/audio-output-replay / aout-0002 / commit 28cbb97 (clean) / AOUT-HW-001
+DOL        363 168 B   sha256 97f113ca0bbc9ec94e5ca945a2a34dae4f5bd5ff9386b2b8362cc32e8d7145e2
+           two builds from an empty output directory at 28cbb97, byte-identical
+audit      poc_audit profile aout: 0 findings (gbp_alisten_permute required, called once, from main)
+Dolphin    make aout-dolphin: the refusal without a card, PASS (READY build=aout-0002 commit=28cbb97);
+           make aout-dolphin-play: the EMBED=1 variant aout-0002-dolphin @ 28cbb97 (sha256 621ed326...d34bc,
+           never staged): BUILT rc=0 crc=d3dbd9a6 tones=4 frames=194000 chunks=25, one whole pass,
+           dma_irqs=34, PASS. Dolphin's audio is not evidence (CLAUDE.md §6.4)
+fixture    unchanged on the card since §V21.4 (5 243 788 B, sha256 cfe472d3...252b8, re-read: same)
+card       16-aout/boot.dol and INDEX.txt re-copied; every file under sd:/open-gbp re-read by a
+           page-cache-bypassing read after writing: 16-aout/boot.dol = the hash above, INDEX.txt
+           f17a941b...11493 (5 277 B) = build/swiss/INDEX.txt, row 16-aout PINNED-VERIFIED;
+           the other 16 files byte-identical to before the re-stage
+```
+
+**What changed from `aout-0001`, and what did not.** The four tones are built exactly
+as `aout-0001` built them. `gbp_alisten_permute` then moves whole (tone + gap)
+segments into the order §V21.6 sealed. Each segment is 6 208 inputs, a whole number
+of the resampler's 16-input phase cycles, and every gap clears its 16-input history.
+So each played segment is byte-for-byte the segment built in its own position
+(`tests/host/test_audio_listen.py`, `TheReorderIsExact`), and §V21.3's host checks
+carry over segment by segment. The screen still says "TONE k of 4" by **play
+position**. The order reaches only the SD log, when the Operator presses X, and never
+the screen or the Gecko (`tests/host/test_aout_image.py`).
+
+**AMENDMENT 1's classes, checked against the permutation rather than assumed.**
+
+- **The COUNT is unchanged.** Each pass plays the same four windows, each once, whatever
+  the order. Four distinct scheduled pitches are still the expectation.
+- **The THREE RELATIONS are still** tone 2 against 1, 3 against 2 and 4 against 3, in
+  play position, the numbering the screen shows. For `aout-0002`, "as §V21.2 expects"
+  in PASS reads **as §V21.6 expects**. §V21.6 already supersedes §V21.2's EXPECTED line
+  for this build, and nothing else in §V21.2 moves.
+- **INCONCLUSIVE covers the one new refusal.** A permutation the image rejects refuses
+  the same way a failed decode does: REFUSED on screen, nothing played.
+- **PITCHES-MERGED and PITCHES-NONE are about pitch content.** They do not depend on
+  order.
+- The class still comes from the Operator's words, quoted verbatim. Because the saved
+  log names the play order, **the Operator's report is recorded before the log is
+  opened**.
