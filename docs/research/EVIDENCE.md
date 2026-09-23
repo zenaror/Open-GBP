@@ -8727,8 +8727,11 @@ byte-identical    RUN 33 798 of 1 280, RUN 34 180 of 1 280  (at block level iden
 threshold         the split is identical for 3..61 bits over the archive, 3..97 over controls + sliced regions
 ```
 
-The Orchestrator's *"802 of 1280 identical"* is reproduced exactly by reading RUN 33's blocks 8 bytes late
-(offset 0x388 instead of 0x380); nothing aligned gives it. The small spread's cause is **not established**
+The Orchestrator's *"802 of 1280 identical"* is a MISALIGNED read of RUN 33 -- 0x388 and 0x38C both give
+802 / 176 and the data cannot separate them; nothing aligned gives it. The cause is 0x38C, identified from
+his own code (`len - 1280*4096`, which assumes the blocks run to EOF and so swallows the 12-byte OGBPAWND
+trailer). This entry first said "8 bytes late", which named a cause the bytes cannot single out; corrected
+2026-09-23 under Issue #83. The small spread's cause is **not established**
 (`U-GBP-043`). Not a hardware claim beyond the bytes: what they are is in `GBP-HW-315`.
 
 ### GBP-HW-315 — the step blocks are **exactly the programmed edges**: one every P/2 blocks at one slice index per tone, each plateau equal to its neighbouring block, every transition on an **even** slice — **FACT for the coincidence; CORROBORATED that slice order is time order, at two-slice granularity**

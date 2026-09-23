@@ -252,6 +252,22 @@ LAST PHYSICAL EVIDENCE INGESTED
   record in HARDWARE_TESTS.md and is never re-judged.
 ```
 
+### What a gate figure is worth (Issue #83, pattern G)
+
+`make test-python` reports a skip count — 7 on the Operator's machine. **That
+number is this host's, not the tree's.** It depends on the SD card being mounted
+and on `logs/` and `captures/local/` being present, none of which is versioned.
+
+```text
+A DIFFERENT COUNT ON ANOTHER MACHINE IS INFORMATION, NOT AN ALARM.
+THE SAME COUNT ON ANOTHER MACHINE IS A COINCIDENCE, NOT A CONFIRMATION.
+```
+
+What is portable is that **0 failed**, and that every skip that fires carries a
+reason registered in `tests/host/skip_ledger.py` with what covers its risk
+instead (`conftest.py` fails the session otherwise). Read a reported gate figure
+as "0 failed, and N skips each accounted for" — never as "N is the right number".
+
 ### Staleness check — run this before trusting anything below
 
 This file is **not automatically true because it exists**. Before relying on the
@@ -1759,6 +1775,26 @@ issue 82    INPUTS FOR THE DRAIN PRE-REGISTRATION (§V18), no hardware, no build
             compile-failure-as-skip class was in 7 older files (63 tests) and is closed (hostcc.py,
             test_compile_skips.py); the extractor now sees `raise SkipTest` (8 unregistered reasons found);
             7 further risk patterns listed in §V18.7 for the Orchestrator. U-GBP-041 / 042 / 043 opened.
+issue 83    §V18.7's NINE PATTERNS DECIDED AND FIXED (§V18.9); no hardware, no build. PRINCIPLE (the
+            Orchestrator's): #81's defect was never about gcc -- it was AN ERROR CONDITION RENDERED AS AN
+            ABSENCE (B, C, D), and F / H are a second shape, A RECORD THAT CERTIFIES ITSELF.
+            THE REAL RESULT: instrumenting every exists()/isfile() call in the suite showed 18 of the 19
+            D-sites were checking, and ONE NEVER EVALUATED ITS CONDITION AT ALL -- test_run17_prereg's
+            check of the staged 12-stream slot, behind three skipTest calls, the third of which always
+            fires here. It had never run AND would have passed having checked nothing. Now its own test.
+            D: one helper (artifacts.py), three outcomes, no fourth; the 3 already-correct sites rewritten
+            through it too, so the detector needs NO exceptions. B: guards.show() skips an absent COMMIT
+            and FAILS an absent PATH (14 sites). F: frozen.py pins the HASH; an ambiguous `--grep` phrase
+            now fails the moment it becomes ambiguous (17 sites; one did `continue`, verifying nothing and
+            not even counted as a skip). H: build/archive was pinned by NOTHING; 11-color has no
+            documentary hash for today's bytes, so §V3.28's own identity warning is enforced instead --
+            either the slot IS the executed image or INDEX.txt names another commit. C: 24 guards over
+            VERSIONED fixtures (12 -> assertions, 12 -> one central rule). E: two `cc` harnesses folded
+            into hostcc, invisible to #82's "gcc"-only pin. G / I recorded, not changed.
+            EVERY FIX HAS A BEHAVIOURAL REGRESSION TEST (test_vacuous_pass.py, test_error_not_absence.py).
+            NOTHING WAS MASKED ON THIS HOST, checked pattern by pattern. The 802's cause CORRECTED: 0x388
+            and 0x38C are indistinguishable in the data; the cause is 0x38C (len - 1280*4096, swallowing
+            the 12-byte trailer), which is his own diagnosis and my error one level up.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED
