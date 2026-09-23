@@ -61,6 +61,20 @@ LEDGER = [
     (r"^the bring-up log is not archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
      "§V12.10's hash and the gecko=1 line are quoted on the page and pinned by tests that never "
      "skip; the cross-check's five quantities are all in the document"),
+    # Issue #81: the runtime decoder is proved from the VERSIONED fixtures; the raw drops and
+    # #80's WAVs are extra comparisons made only where they exist.
+    (r"^the raw sidecars are not in this checkout \(logs/ is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
+     "the fixtures' own hashes and the raw sidecars' hashes (as §V15 records them) are pinned on "
+     "the decompressed bytes by tests that never skip, and recompressing them reproduces the .gz"),
+    (r"^the decoded WAVs of Issue #80 are not in this checkout \(captures/local is ignored\)$",
+     "LOCAL_ARTIFACT_ABSENT",
+     "the same samples are regenerated from the versioned fixtures by tools/v17decode.write_wav -- "
+     "the code that wrote those WAVs -- and compared integer for integer, and that test never skips "
+     "for want of a local file"),
+    (r"^gcc unavailable on this host$", "TOOLCHAIN_ABSENT",
+     "the fixtures' hashes, the coefficient table against its generator and the drain-path source "
+     "pins do not need a compiler and never skip; a compiler that exists and fails to build the "
+     "harness FAILS the test instead of skipping it"),
     # Issue #78: RUN 33 and RUN 34, under captures/local and logs/, ignored by design.
     (r"^RUN 33 or RUN 34 is not archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
      "§V15's hashes, offsets, verdicts and measurements are all on the page and pinned from the "
