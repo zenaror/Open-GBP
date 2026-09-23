@@ -49,6 +49,34 @@ FROZEN = {
                 "play-0001 @ 2e48ca7, staged under Hardware Issue #43 for RUN 21 / RUN 22 (§V7.6.8)"),
 }
 
+# Issue #83, pattern H: A RECORD THAT CERTIFIES ITSELF.
+#
+# build/swiss/INDEX.txt is written by the same `make swiss` that writes the slots, so a
+# slot agreeing with INDEX.txt proves only that the export was self-consistent. For the
+# two slots above the documents carry the hash, so the check has an outside authority.
+# 11-color does NOT: the image that was PHYSICALLY EXECUTED is recorded (§V4.10) and the
+# slot on this host is a later rebuild, whose hash appears in no document at all.
+#
+# So the property that can be checked, and is, is the one §V3.28's own IDENTITY WARNING
+# states: a rebuilt DOL must never be mistaken for the tested artifact. Either the slot
+# IS the executed image, or INDEX.txt names a commit that is NOT the executed one.
+#
+# slot -> (sha256 of the image physically executed, the document, its commit, its size)
+EXECUTED = {
+    "11-color": ("d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1", HW, "39f1980", 442592),
+}
+
+# the preserved originals, whose hashes the documents carry in full
+# file under build/archive/ -> (sha256, the document that names it, size, what it is)
+ARCHIVE = {
+    "gbp-video-stream-probe-stream-0013-7d7a6d8.dol":
+        ("5391c3fe962dc4b2f4e493f3846ac7407ded064c58f5d4bb583a51e5a725dd79", HW, 506496,
+         "stream-0013 @ 7d7a6d8, the image RUN 12 and RUN 13 executed, preserved before stream-0014 was staged"),
+    "gbp-video-stream-probe-stream-0014-0ff8355.dol":
+        ("ef76a170c10d335e62c017e53f74c60e410e44f5ce2fbca6774ab43c68ec0b9c", HANDOFF, 513152,
+         "stream-0014 @ 0ff8355, the image RUN 14 / RUN 15 executed, preserved under Hardware Issue #32"),
+}
+
 
 def sha256(path):
     h = hashlib.sha256()
@@ -120,6 +148,47 @@ class TheStagedImagesAreWhatTheRecordsName(unittest.TestCase):
             got = sha256(slots[slot])
             self.assertEqual(got, want, "STAGED SLOT %s IS NOT THE IMAGE THE RECORDS NAME (%s).\n"
                                         "  on disk  %s\n  records  %s" % (slot, what, got, want))
+
+    def test_the_preserved_archives_are_the_documented_bytes(self):
+        """Issue #83 (H). build/archive/ was pinned by NOTHING: the ledger's stated cover for
+        the identity skips is test_staged_artifacts.py, and it did not reach the archive at
+        all. The hash must be in the document whether or not the file is on this host, so the
+        first half of this test never skips."""
+        for name, (want, doc, size, what) in sorted(ARCHIVE.items()):
+            self.assertIn(want, read(doc),
+                          "%s's hash is not in %s any more; the records moved and this test did not"
+                          % (name, os.path.relpath(doc, ROOT)))
+        present = [n for n in ARCHIVE if os.path.isfile(os.path.join(ROOT, "build", "archive", n))]
+        if not present:
+            self.skipTest("no preserved archive is in this checkout (build/ is not versioned)")
+        for name in sorted(present):
+            want, _doc, size, what = ARCHIVE[name]
+            p = os.path.join(ROOT, "build", "archive", name)
+            self.assertEqual((os.path.getsize(p), sha256(p)), (size, want),
+                             "THE PRESERVED ORIGINAL %s IS NOT THE IMAGE THE RECORDS NAME (%s)" % (name, what))
+
+    def test_a_rebuilt_slot_is_never_mistaken_for_the_executed_image(self):
+        """Issue #83 (H), the self-certifying half. 11-color's only authority is INDEX.txt,
+        written by the same export that wrote the slot. What an outside record does fix is the
+        image that was PHYSICALLY EXECUTED, so the checkable property is §V3.28's own identity
+        warning: the staged bytes are either that image, or INDEX.txt names a different commit.
+        A re-export that kept the executed commit's name on different bytes fails here."""
+        slots = staged_slots(SWISS)
+        rows = index_rows()
+        for slot, (want, doc, commit, size) in sorted(EXECUTED.items()):
+            self.assertIn(want, read(doc), "%s's EXECUTED identity left %s" % (slot, os.path.relpath(doc, ROOT)))
+            if slot not in slots:
+                continue
+            got = sha256(slots[slot])
+            if got == want:
+                self.assertEqual(os.path.getsize(slots[slot]), size)
+                continue
+            self.assertIn(slot, rows, "slot %s is staged, is NOT the executed image, and INDEX.txt does not "
+                                      "record what it is" % slot)
+            self.assertNotEqual(rows[slot]["commit"], commit,
+                                "build/swiss/%s holds bytes that are NOT the executed image (%s), yet INDEX.txt "
+                                "still names the commit that was executed (%s). A rebuilt DOL must never carry "
+                                "the tested artifact's identity (§V3.28)." % (slot, got[:12], commit))
 
     def test_the_sd_carries_the_same_images(self):
         if not os.path.isdir(SD):

@@ -25,6 +25,10 @@ import sys
 import tempfile
 import unittest
 
+import hostcc  # noqa: E402  (tests/host is on the path)
+
+import frozen  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import v11sweep  # noqa: E402
@@ -167,11 +171,12 @@ def run_rom():
         with open(src, "w") as f:
             f.write(HARNESS)
         exe = os.path.join(d, "rom")
-        cc = subprocess.run(["cc", "-std=gnu11", "-O1", "-Wall", "-Wextra",
-                             "-Wno-unused-function", "-I", os.path.dirname(ROM_SRC),
-                             "-o", exe, src], capture_output=True, text=True)
-        if cc.returncode != 0:
-            raise AssertionError("the ROM does not compile for the host:\n" + cc.stderr[-4000:])
+        # Issue #83 (E): through hostcc, so the one rule covers `cc` too -- a missing
+        # compiler skips, a compiler that cannot build the ROM fails.
+        have, ok, err = hostcc.compile_c(["-std=gnu11", "-O1", "-Wall", "-Wextra",
+                                          "-Wno-unused-function", "-I", os.path.dirname(ROM_SRC),
+                                          "-o", exe, src], cc="cc")
+        hostcc.require_build(have, ok, err, "the agb-sweep ROM harness")
         r = subprocess.run([exe], capture_output=True, text=True, timeout=60)
         assert r.returncode == 0, r.stderr
     _OUT.append(r.stdout)
@@ -472,11 +477,7 @@ class ThePlumbingAndTheRecord(unittest.TestCase):
         self.assertIn("stimulus-sweep", re.search(r"^\.PHONY:.*$", mk, re.M).group(0))
 
     def test_agb_tone_is_not_touched_by_this_build(self):
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "Issue #65 -- agb-tone built"], capture_output=True,
-                              text=True).stdout.strip()
-        if not base:
-            self.skipTest("the commit that built agb-tone is not in this checkout")
+        base = frozen.base("Issue #65 -- agb-tone built")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         d = subprocess.run(["git", "-C", ROOT, "diff", "--stat", base, "--",
                             "stimulus/agb-tone"], capture_output=True, text=True).stdout
         self.assertEqual(d.strip(), "", "stimulus/agb-tone changed since it was built")
@@ -489,13 +490,7 @@ class ThePlumbingAndTheRecord(unittest.TestCase):
     def test_v11_is_unchanged_by_the_build(self):
         """§V11's gates decided nothing yet and this checkpoint may not move
         them: the build implements the specification, it does not amend it."""
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "Issue #69 -- the sweep pre-registered"],
-                              capture_output=True, text=True).stdout.strip()
-        if not base:
-            self.skipTest("the commit that wrote §V11 is not in this checkout")
-        then = subprocess.run(["git", "-C", ROOT, "show", "%s:tools/v11sweep.py" % base],
-                              capture_output=True, text=True).stdout
+        then = frozen.source("Issue #69 -- the sweep pre-registered", "tools/v11sweep.py")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         self.assertEqual(then, read(os.path.join(ROOT, "tools", "v11sweep.py")))
 
     def test_the_identity_the_record_states_is_the_file_that_was_built(self):
@@ -674,11 +669,7 @@ class TheFirstPressFixIsAppliedAndMeasuresItself(unittest.TestCase):
         self.assertIn("measured rather than argued", src)
 
     def test_agb_tone_is_STILL_untouched_by_the_fix(self):
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "Issue #65 -- agb-tone built"], capture_output=True,
-                              text=True).stdout.strip()
-        if not base:
-            self.skipTest("the commit that built agb-tone is not in this checkout")
+        base = frozen.base("Issue #65 -- agb-tone built")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         d = subprocess.run(["git", "-C", ROOT, "diff", "--stat", base, "--",
                             "stimulus/agb-tone"], capture_output=True, text=True).stdout
         self.assertEqual(d.strip(), "")

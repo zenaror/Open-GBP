@@ -29,6 +29,8 @@ import re
 import subprocess
 import unittest
 
+import artifacts  # noqa: E402  (tests/host is on the path)
+
 import guards
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -81,11 +83,9 @@ def part(n, text=None):
 
 
 def frozen_prereg():
-    import subprocess
-    r = subprocess.run(["git", "-C", ROOT, "show", "%s:docs/research/HARDWARE_TESTS.md" % FROZEN_COMMIT], capture_output=True, text=True)
-    if r.returncode != 0:
-        return None
-    t = r.stdout
+    """Issue #83 (B): an absent COMMIT skips; a path missing from a commit that IS
+    here fails, because that is a moved file and not an absent history."""
+    t = guards.show(FROZEN_COMMIT, "docs/research/HARDWARE_TESTS.md")
     return t[t.index("### V7.1 "):]
 
 
@@ -214,10 +214,13 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
         their identities are pinned by tests/host/test_run14.py. RUN 16 is not run: its names stay absent."""
         sizes = {"run14.log": 90652, "run14-idxcap.bin": 8946060, "run14-disp.bin": 400396, "run14-full.bin": 1844492, "run14-vi.bin": 152396,
                  "run15.log": 90734, "run15-idxcap.bin": 8946060, "run15-disp.bin": 400436, "run15-full.bin": 1844492, "run15-vi.bin": 152396}
-        for n in NAMES[:10]:
-            p = os.path.join(ROOT, n)
-            if os.path.exists(p):
-                self.assertEqual(os.path.getsize(p), sizes[n.split("stream-0014-")[1]], n)
+        # Issue #83 (D): was `if os.path.exists(p)` with no else, so a checkout with none of
+        # the archives passed having checked nothing. Now the ones that ARE here are checked
+        # and a checkout with none of them skips.
+        present = artifacts.any_of(self, [os.path.join(ROOT, n) for n in NAMES[:10]],
+                                   "no local archive on this host (captures/local is ignored)")
+        for p in present:
+            self.assertEqual(os.path.getsize(p), sizes[os.path.basename(p).split("stream-0014-")[1]], p)
         for n in NAMES[10:]:
             self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
         # RUN 16 ran on stream-0015 (Issue #33, §V7.4): its stream-0014 names of §V7.1.5 are retired and never came into existence
@@ -315,9 +318,7 @@ class TheProcedureTheHazardAndTheRecovery(unittest.TestCase):
         this amendment may not touch keeps its bytes: Question One, the shared
         admissibility gates, the hazard paragraph, the recovery block with the
         banner note, and the U-GBP-010 part."""
-        old = frozen_prereg()
-        if old is None:
-            self.skipTest("the frozen commit is not available in this checkout")
+        old = frozen_prereg()  # Issue #83 (B): absent COMMIT skips, absent PATH fails
         new = prereg()
         for n in (1, 8, 10):
             self.assertEqual(part(n, new), part(n, old), n)

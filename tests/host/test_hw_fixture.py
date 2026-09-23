@@ -525,13 +525,24 @@ class HardwareFixtureAvsvc(unittest.TestCase):
             raw = f.read()
         self.assertEqual(len(raw), 8204)
         self.assertEqual(hashlib.sha256(raw).hexdigest(), "1c17a2d77fa60b4446863032ced62cc3d2390625de2a42b120a195eb074edc1e")
-        if os.path.isfile(AVSVC_LOG_BLOCKS):
-            with open(AVSVC_LOG_BLOCKS, "rb") as f:
-                self.assertEqual(f.read(), raw)                            # the fixture's sidecar is the console's file, byte for byte
-        if os.path.isfile(AVSVC_LOG):
-            with open(AVSVC_LOG, "rb") as f:
-                log = f.read()
-            self.assertEqual((len(log), hashlib.sha256(log).hexdigest()), (23154, "d0324b6d12f02984a0d748f896f1c16f724d69c0e3022bef5460f8ed32a03713"))
+
+    # Issue #83 (D): these two were `if os.path.isfile(...)` inside the test above, which
+    # passed having checked nothing when the local raw drop was absent. captures/local is
+    # ignored by design, so their absence is legitimate -- and now it SKIPS, visibly.
+    @unittest.skipUnless(os.path.isfile(AVSVC_LOG_BLOCKS), "local raw log not present (captures/local is not versioned)")
+    def test_the_fixture_sidecar_is_the_consoles_file_byte_for_byte(self):
+        with open(AVSVC_BLOCKS, "rb") as f:
+            raw = f.read()
+        with open(AVSVC_LOG_BLOCKS, "rb") as f:
+            self.assertEqual(f.read(), raw)
+
+    @unittest.skipUnless(os.path.isfile(AVSVC_LOG), "local raw log not present (captures/local is not versioned)")
+    def test_the_local_raw_log_is_the_recorded_bytes(self):
+        import hashlib
+        with open(AVSVC_LOG, "rb") as f:
+            log = f.read()
+        self.assertEqual((len(log), hashlib.sha256(log).hexdigest()),
+                         (23154, "d0324b6d12f02984a0d748f896f1c16f724d69c0e3022bef5460f8ed32a03713"))
 
     @unittest.skipUnless(os.path.isfile(AVSVC_LOG), "local raw log not present (captures/local is not versioned)")
     def test_records_regenerate_from_the_raw_log(self):

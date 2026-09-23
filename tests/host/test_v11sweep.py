@@ -16,6 +16,8 @@ import subprocess
 import sys
 import unittest
 
+import frozen  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
@@ -333,13 +335,7 @@ class TheConstantsAreTheOnesOnThePage(unittest.TestCase):
         self.assertIn("The linear model predicts a span", flat(part()))
 
     def test_the_construction_is_not_edited_after_its_commit(self):
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "Issue #69 -- the sweep pre-registered"],
-                              capture_output=True, text=True).stdout.strip()
-        if not base:
-            self.skipTest("the commit that introduced tools/v11sweep.py is not in this checkout")
-        then = subprocess.run(["git", "-C", ROOT, "show", "%s:tools/v11sweep.py" % base],
-                              capture_output=True, text=True).stdout
+        then = frozen.source("Issue #69 -- the sweep pre-registered", "tools/v11sweep.py")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         self.assertEqual(then, read(os.path.join(ROOT, "tools", "v11sweep.py")),
                          "tools/v11sweep.py changed after the commit that froze it")
 

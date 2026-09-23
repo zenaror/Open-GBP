@@ -48,8 +48,9 @@ def plain(s):
 
 
 def git_show(path, commit=BASE_COMMIT):
-    r = subprocess.run(["git", "-C", ROOT, "show", "%s:%s" % (commit, path)], capture_output=True, text=True)
-    return None if r.returncode != 0 else r.stdout
+    """Issue #83 (B): an absent COMMIT skips; a path missing from a commit that IS
+    here fails, because that is a moved file and not an absent history."""
+    return guards.show(commit, path)
 
 
 def v74(text=None):
@@ -125,9 +126,7 @@ class TheDeclarationIsRecordedWithItsHistory(unittest.TestCase):
                 self.assertIn("replaced that note under Issue #35", tp["declaration_history"])
                 self.assertIn("HISTORY: at ingestion these two were NOT DECLARED", s["verdicts"]["shared_gates"]["TOPOLOGY"])
                 self.assertIn("regenerated_for_issue_35", s["tools"])
-                old = git_show("captures/fixtures/" + P + "idxcap-run%d-struct.json" % run)
-                if old is None:
-                    self.skipTest("the base commit is not available in this checkout")
+                old = git_show("captures/fixtures/" + P + "idxcap-run%d-struct.json" % run)  # Issue #83 (B)
                 o = json.loads(old)
                 for k in ("bba_ethernet", "display_chain"):
                     self.assertTrue(o["topology_declared_by_operator"][k].startswith("NOT DECLARED"), "the base recorded the item as absent")
@@ -177,9 +176,7 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         self.assertNotRegex(e, r"GBP-HW-27[2-9]")
 
     def test_v7_1_to_v7_3_and_v7_4s_results_are_the_bytes_of_the_base(self):
-        old = git_show("docs/research/HARDWARE_TESTS.md")
-        if old is None:
-            self.skipTest("the base commit is not available in this checkout")
+        old = git_show("docs/research/HARDWARE_TESTS.md")  # Issue #83 (B): absent COMMIT skips, absent PATH fails
         new = read(HW)
         self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.4 ")], old[old.index("### V7.1 "):old.index("### V7.4 ")])
         self.assertEqual(old[:old.index("\n## V7 ")], new[:new.index("\n## V7 ")])

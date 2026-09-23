@@ -15,6 +15,8 @@ import subprocess
 import sys
 import unittest
 
+import frozen  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import v11sweep as v  # noqa: E402
@@ -143,13 +145,7 @@ class TheRunIsAdmissibleAndTheScheduleIsDerived(unittest.TestCase):
 class TheFrozenConstructionsDecidedThisRun(unittest.TestCase):
 
     def test_v11sweep_is_byte_identical_to_the_commit_that_froze_it(self):
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "Issue #69 -- the sweep pre-registered"],
-                              capture_output=True, text=True).stdout.strip()
-        if not base:
-            self.skipTest("the commit that introduced tools/v11sweep.py is not in this checkout")
-        then = subprocess.run(["git", "-C", ROOT, "show", "%s:tools/v11sweep.py" % base],
-                              capture_output=True, text=True).stdout
+        then = frozen.source("Issue #69 -- the sweep pre-registered", "tools/v11sweep.py")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         self.assertEqual(then, read(os.path.join(ROOT, "tools", "v11sweep.py")))
 
     def test_QUESTION_V_is_INCONCLUSIVE_and_the_two_flat_windows_are_FAILURES(self):

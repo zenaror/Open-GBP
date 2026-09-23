@@ -30,6 +30,8 @@ import sys
 import tempfile
 import unittest
 
+import artifacts  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
@@ -237,8 +239,10 @@ class AvsvcRoundTrip(unittest.TestCase):
                                             PHYSICAL_COLOR, PHYSICAL_COLOR2), fx_path)
         self.assertFalse(fx.startswith(os.path.join(ROOT, "captures")))
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_003B), "physical GBP-INIT-003B fixture missing")
     def test_physical_003b_prefix_up_to_the_presvc_reads(self):
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_003B, "a versioned fixture under captures/fixtures/")
         with open(PHYSICAL_003B, encoding="utf-8") as f:
             text = f.read()
         cut = os.path.join(outdir(), "initirqb-0001-prefix-for-avsvc.gbpreplay")
@@ -258,8 +262,10 @@ class AvsvcRoundTrip(unittest.TestCase):
         self.assertEqual((m.group(7), m.group(8)), ("0", "0"))           # no whole-block read was ever replayed from a physical record
         self.assertFalse(cut.startswith(os.path.join(ROOT, "captures")))
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_004), "physical GBP-INIT-004 fixture missing")
     def test_physical_004_prefix_up_to_the_presvc_reads(self):
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_004, "a versioned fixture under captures/fixtures/")
         with open(PHYSICAL_004, encoding="utf-8") as f:
             text = f.read()
         cut = os.path.join(outdir(), "initirq4-0001-prefix-for-avsvc.gbpreplay")
@@ -275,13 +281,16 @@ class AvsvcRoundTrip(unittest.TestCase):
         self.assertEqual((m.group(3), m.group(7), m.group(8)), ("0", "0", "0"))
         self.assertGreater(int(m.group(2)), 0)
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_AVSVC) and os.path.isfile(PHYSICAL_AVSVC_BLOCKS), "physical GBP-AV-SERVICE-001 fixture missing")
     def test_physical_avsvc_fixture_replays_to_the_physical_result(self):
         # 2026-09-16, avsvc-0001, commit d3a6d23: one delivery (72 ticks), PRESVC 0x0500, AUDIO 0x1000 then VIDEO 0xF00 by one
         # whole-block DMA each (bytes from the sidecar, CRCs fec5e4e7 / fe45ff08), POSTDRAIN still 0x0500, ACK 0x8500,
         # POSTACK 0x8000 with PI clear, no main W1C, re-arm 0x0000, REARMPOST B (INTSR bit 13 = 1, IRQ 0x0400) 1778 ticks
         # later, the next cause found at once and never delivered, teardown S4B with one W1C; every recorded operation
         # replays, nothing is invented
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_AVSVC, "a versioned fixture under captures/fixtures/")
+        artifacts.required(self, PHYSICAL_AVSVC_BLOCKS, "a versioned fixture under captures/fixtures/")
         run = subprocess.run([BIN, "--replay", PHYSICAL_AVSVC, PHYSICAL_AVSVC_BLOCKS], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         summary = [l for l in run.stdout.splitlines() if l.startswith("SUMMARY ")][0]
@@ -297,10 +306,12 @@ class AvsvcRoundTrip(unittest.TestCase):
         self.assertIsNotNone(m, run.stdout)
         self.assertEqual(m.groups(), ("132", "0", "0", "0", "1", "179", "2", "0", "0"))
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_AVSVC), "physical GBP-AV-SERVICE-001 fixture missing")
     def test_physical_avsvc_fixture_without_its_sidecar_reports_the_blocks_missing(self):
         # the script carries no block bytes: without the sidecar both whole-block reads are counted missing and the
         # run exits 1; the buffers keep the probe's pre-fill (CRC suffixes 0011 / 3467), never the physical bytes
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_AVSVC, "a versioned fixture under captures/fixtures/")
         run = subprocess.run([BIN, "--replay", PHYSICAL_AVSVC], capture_output=True, text=True)
         self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
         summary = [l for l in run.stdout.splitlines() if l.startswith("SUMMARY ")][0]
@@ -309,8 +320,11 @@ class AvsvcRoundTrip(unittest.TestCase):
         m = REPLAY_RE.search(run.stdout)
         self.assertEqual((m.group(1), m.group(2), m.group(3), m.group(7), m.group(8), m.group(9)), ("132", "0", "0", "2", "2", "0"))
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_AVSVC) and os.path.isfile(PHYSICAL_AVSVC_BLOCKS), "physical GBP-AV-SERVICE-001 fixture missing")
     def test_physical_avsvc_fixture_rejects_a_tampered_sidecar(self):
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_AVSVC, "a versioned fixture under captures/fixtures/")
+        artifacts.required(self, PHYSICAL_AVSVC_BLOCKS, "a versioned fixture under captures/fixtures/")
         with open(PHYSICAL_AVSVC_BLOCKS, "rb") as f:
             raw = bytearray(f.read())
         raw[0x100 + 0x20] ^= 0x01                                        # one audio payload bit
@@ -322,8 +336,10 @@ class AvsvcRoundTrip(unittest.TestCase):
         self.assertIn("bad sidecar", run.stderr)
         self.assertFalse(bad.startswith(os.path.join(ROOT, "captures")))
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_003A), "physical GBP-INIT-003A fixture missing")
     def test_physical_003a_fixture_stops_at_the_install(self):
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_003A, "a versioned fixture under captures/fixtures/")
         run = subprocess.run([BIN, "--replay", PHYSICAL_003A], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         summary = [l for l in run.stdout.splitlines() if l.startswith("SUMMARY ")][0]

@@ -46,8 +46,9 @@ def plain(s):
 
 
 def git_show(path):
-    r = subprocess.run(["git", "-C", ROOT, "show", "%s:%s" % (FROZEN_COMMIT, path)], capture_output=True, text=True)
-    return None if r.returncode != 0 else r.stdout
+    """Issue #83 (B): an absent COMMIT skips; a path missing from a commit that IS
+    here fails, because that is a moved file and not an absent history."""
+    return guards.show(FROZEN_COMMIT, path)
 
 
 def section10():
@@ -61,9 +62,7 @@ class TheFrozenThingsAreUntouched(unittest.TestCase):
         RUN 16 before hardware, so the whole-chapter comparison moved to
         test_run14_prereg.py; what stays pinned here is that Question One, the
         shared gates and the U-GBP-010 part are the frozen bytes."""
-        old = git_show("docs/research/HARDWARE_TESTS.md")
-        if old is None:
-            self.skipTest("the frozen commit is not available in this checkout")
+        old = git_show("docs/research/HARDWARE_TESTS.md")  # Issue #83 (B): absent COMMIT skips, absent PATH fails
         now = read(HW)
         self.assertEqual(now.count("\n## V7 "), 1)
         def part(t, n):
@@ -76,9 +75,7 @@ class TheFrozenThingsAreUntouched(unittest.TestCase):
     def test_the_descriptor_and_the_policy_are_unchanged(self):
         """Issue #22 changed no code. Issue #27 (2026-09-21) later added the per-change
         record to the module; the descriptor and the policy stay the frozen bytes."""
-        old = git_show("src/gbp/gbp_input.c")
-        if old is None:
-            self.skipTest("the frozen commit is not available in this checkout")
+        old = git_show("src/gbp/gbp_input.c")  # Issue #83 (B): absent COMMIT skips, absent PATH fails
         def initializers(src):
             src = re.sub(r"/\*.*?\*/", " ", src, flags=re.S)
             d = re.search(r"GBP_KEYPAD_DESCRIPTOR\s*=\s*\{\s*\{([^}]*)\}\s*,\s*(\d+)\s*\}", src)

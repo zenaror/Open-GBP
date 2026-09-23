@@ -20,6 +20,10 @@ import sys
 import tempfile
 import unittest
 
+import hostcc  # noqa: E402  (tests/host is on the path)
+
+import frozen  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import v9tone  # noqa: E402
@@ -155,18 +159,16 @@ def num(s):
 
 
 def run_rom():
-    if not os.path.exists("/usr/bin/cc") and not os.path.exists("/usr/bin/gcc"):
-        return None
+    """Issue #83 (E): through hostcc. It used to return None when no compiler was found,
+    and the caller turned that into an unregistered `raise SkipTest("no host compiler")`."""
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "harness.c")
         with open(src, "w") as f:
             f.write(HARNESS)
         exe = os.path.join(d, "rom")
-        cc = subprocess.run(["cc", "-std=gnu11", "-O1", "-Wall", "-Wextra", "-Wno-unused-function",
-                             "-I", os.path.dirname(ROM_SRC), "-o", exe, src],
-                            capture_output=True, text=True)
-        if cc.returncode != 0:
-            raise AssertionError("the ROM does not compile for the host:\n" + cc.stderr[-4000:])
+        have, ok, err = hostcc.compile_c(["-std=gnu11", "-O1", "-Wall", "-Wextra", "-Wno-unused-function",
+                                          "-I", os.path.dirname(ROM_SRC), "-o", exe, src], cc="cc")
+        hostcc.require_build(have, ok, err, "the agb-tone ROM harness")
         r = subprocess.run([exe], capture_output=True, text=True, timeout=60)
         assert r.returncode == 0, r.stderr
         return r.stdout
@@ -222,8 +224,6 @@ class TheRomRunsOnTheHostAndBehaves(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.out = run_rom()
-        if cls.out is None:
-            raise unittest.SkipTest("no host compiler")
 
     def apu(self, tag):
         m = re.findall(r"APU %s 60=(\w+) 62=(\w+) 64=(\w+) 80=(\w+) 82=(\w+) 84=(\w+)" % tag, self.out)
@@ -358,13 +358,7 @@ class ThePlumbingAndTheRecord(unittest.TestCase):
         self.assertIn("the ROM is the only new artifact in this entire run", s)
 
     def test_v9tone_is_untouched(self):
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "Issue #64 -- agb-tone designed and pre-registered"],
-                              capture_output=True, text=True).stdout.strip()
-        if not base:
-            self.skipTest("the commit that introduced tools/v9tone.py is not in this checkout")
-        then = subprocess.run(["git", "-C", ROOT, "show", "%s:tools/v9tone.py" % base],
-                              capture_output=True, text=True, check=True).stdout
+        then = frozen.source("Issue #64 -- agb-tone designed and pre-registered", "tools/v9tone.py")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         self.assertEqual(read(os.path.join(ROOT, "tools", "v9tone.py")), then,
                          "tools/v9tone.py was edited by the build it was written before")
 

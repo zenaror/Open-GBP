@@ -28,6 +28,8 @@ import subprocess
 import sys
 import unittest
 
+import artifacts  # noqa: E402  (tests/host is on the path)
+
 import guards
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -303,15 +305,13 @@ class TheFixturesAreThePhysicalFiles(unittest.TestCase):
         self.assertTrue(all("stream-0014-run16" in n for n in struct(16)["retired_names"]["names"]))
 
     def test_the_archives_if_present_on_this_host_are_the_recorded_bytes(self):
-        seen = 0
-        for run, R in RUNS.items():
-            for k in ("log", "idxcap", "disp", "full", "vi"):
-                p = os.path.join(ROOT, struct(run)["raw"][k]["archived_as"])
-                if os.path.exists(p):
-                    seen += 1
-                    self.assertEqual((os.path.getsize(p), sha(p)), R[k], p)
-        if not seen:
-            self.skipTest("no local archive on this host (captures/local is ignored)")
+        # Issue #83 (D): this was already correct -- a `seen` counter and a skip when it stayed
+        # zero -- and is written through the shared helper so that the rule "no conditional check
+        # without an else" holds with NO exceptions, and its detector needs none either.
+        want = {os.path.join(ROOT, struct(run)["raw"][k]["archived_as"]): R[k]
+                for run, R in RUNS.items() for k in ("log", "idxcap", "disp", "full", "vi")}
+        for p in artifacts.any_of(self, sorted(want), "no local archive on this host (captures/local is ignored)"):
+            self.assertEqual((os.path.getsize(p), sha(p)), want[p], p)
         # the retired names never came into existence
         self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0014-run16*")), [])
         self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*unidentified*")), [])
@@ -671,9 +671,7 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
             self.assertEqual(read(HANDOFF).count(n), 1, n)
 
     def test_v7_1_to_v7_3_are_byte_identical_to_the_base_and_the_heading_only_grew(self):
-        old = git("show", "%s:docs/research/HARDWARE_TESTS.md" % BASE_COMMIT)
-        if old is None:
-            self.skipTest("the base commit is not available in this checkout")
+        old = guards.show(BASE_COMMIT, "docs/research/HARDWARE_TESTS.md")  # Issue #83 (B): absent COMMIT skips, absent PATH fails
         new = read(HW)
         self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.4 ")].rstrip("\n"), old[old.index("### V7.1 "):].rstrip("\n"))
         old_head = [l for l in old.splitlines() if l.startswith("## V7 ")][0]

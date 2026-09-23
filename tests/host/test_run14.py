@@ -26,6 +26,8 @@ import subprocess
 import sys
 import unittest
 
+import artifacts  # noqa: E402  (tests/host is on the path)
+
 import guards
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -261,15 +263,13 @@ class TheFixturesAreThePhysicalFiles(unittest.TestCase):
                 self.assertIn("NOT versioned", s["fixtures"]["raw_log"])
 
     def test_the_archives_if_present_on_this_host_are_the_recorded_bytes(self):
-        seen = 0
-        for run, R in RUNS.items():
-            for k in ("log", "idxcap", "disp", "full", "vi"):
-                p = os.path.join(ROOT, struct(run)["raw"][k]["archived_as"])
-                if os.path.exists(p):
-                    seen += 1
-                    self.assertEqual((os.path.getsize(p), sha(p)), R[k], p)
-        if not seen:
-            self.skipTest("no local archive on this host (captures/local is ignored)")
+        # Issue #83 (D): this was already correct -- a `seen` counter and a skip when it stayed
+        # zero -- and is written through the shared helper so that the rule "no conditional check
+        # without an else" holds with NO exceptions, and its detector needs none either.
+        want = {os.path.join(ROOT, struct(run)["raw"][k]["archived_as"]): R[k]
+                for run, R in RUNS.items() for k in ("log", "idxcap", "disp", "full", "vi")}
+        for p in artifacts.any_of(self, sorted(want), "no local archive on this host (captures/local is ignored)"):
+            self.assertEqual((os.path.getsize(p), sha(p)), want[p], p)
 
 
 class TheInputMachineGate(unittest.TestCase):
@@ -315,9 +315,7 @@ class TheInputMachineGate(unittest.TestCase):
         """truncated=1: LOG_LINE_LEN 256 - 7 prefix - NUL = 248 payload; the ENVINPUT format of the main.c that RAN
         (stream-0014, 0ff8355) renders longer. Issue #27 repaired it in stream-0015 (ENVINPUT + ENVINPUT2), so the
         derivation reads the candidate's source from git, never the working tree."""
-        src = git("show", "%s:poc/gbp-video-stream-probe/source/main.c" % CANDIDATE_COMMIT)
-        if src is None:
-            self.skipTest("the candidate commit is not available in this checkout")
+        src = guards.show(CANDIDATE_COMMIT, "poc/gbp-video-stream-probe/source/main.c")  # Issue #83 (B): absent COMMIT skips, absent PATH fails
         m = re.search(r'ringlog_printf\(&rl, "(ENVINPUT [^"]*)"', src)
         self.assertIsNotNone(m, "the ENVINPUT format string")
         fmt = m.group(1).replace("%llu", "%d").replace("%u", "%d")
@@ -355,9 +353,7 @@ class TheInputMachineGate(unittest.TestCase):
         code = read(INPUT_C)
         bits, pressed = descriptor_from_source()
         self.assertEqual((bits[:8], bits[8], bits[9], pressed), (list(range(8)), 9, 8, 1))
-        old = git("show", "%s:src/gbp/gbp_input.c" % CANDIDATE_COMMIT)
-        if old is None:
-            self.skipTest("the candidate commit is not available in this checkout")
+        old = guards.show(CANDIDATE_COMMIT, "src/gbp/gbp_input.c")  # Issue #83 (B): absent COMMIT skips, absent PATH fails
         # Issue #27 (2026-09-21) implemented GBP-KEY-009 and repaired GBP-KEY-008 in the module and the probe
         # (stream-0015, not executed); the descriptor is kept exactly (U-GBP-010 closed AS-ASSIGNED)
         self.assertEqual(descriptor_from_source(), (bits, pressed))
@@ -737,9 +733,7 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
             self.assertEqual(t.count(n), 1, "the reserved names appear once, in §V7.1.5")
 
     def test_v7_1_is_byte_identical_to_the_last_commit_that_changed_it(self):
-        old = git("show", "%s:docs/research/HARDWARE_TESTS.md" % FROZEN_V71_COMMIT)
-        if old is None:
-            self.skipTest("the base commit is not available in this checkout")
+        old = guards.show(FROZEN_V71_COMMIT, "docs/research/HARDWARE_TESTS.md")  # Issue #83 (B): absent COMMIT skips, absent PATH fails
         new = read(HW)
         old_slice = old[old.index("### V7.1 "):]
         new_slice = new[new.index("### V7.1 "):new.index("### V7.2 ")]

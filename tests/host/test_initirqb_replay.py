@@ -22,6 +22,8 @@ import sys
 import tempfile
 import unittest
 
+import artifacts  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
@@ -116,8 +118,10 @@ class InitirqbRoundTrip(unittest.TestCase):
             self.assertTrue("# SOURCE=physical GameCube" in head or "MODEL DATA, NOT HARDWARE" in head, fx_path)
         self.assertFalse(fx.startswith(os.path.join(ROOT, "captures")))
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_003B), "physical GBP-INIT-003B fixture missing")
     def test_physical_003b_fixture_replays_the_whole_delivery(self):
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_003B, "a versioned fixture under captures/fixtures/")
         run = subprocess.run([BIN, "--replay", PHYSICAL_003B], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         summary = [l for l in run.stdout.splitlines() if l.startswith("SUMMARY ")][0]
@@ -131,8 +135,10 @@ class InitirqbRoundTrip(unittest.TestCase):
         m = re.search(r"REPLAY step=(\d+) exhausted=(\d+) mismatches=(\d+) tick_polls=(\d+) timeline=(\d+)", run.stdout)
         self.assertEqual((m.group(1), m.group(2), m.group(3), m.group(4), m.group(5)), ("111", "0", "0", "0", "1"))
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_003A), "physical GBP-INIT-003A fixture missing")
     def test_physical_003a_fixture_is_the_prefix_up_to_the_event(self):
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_003A, "a versioned fixture under captures/fixtures/")
         run = subprocess.run([BIN, "--replay", PHYSICAL_003A], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         summary = [l for l in run.stdout.splitlines() if l.startswith("SUMMARY ")][0]

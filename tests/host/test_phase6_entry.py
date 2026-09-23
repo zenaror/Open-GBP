@@ -22,6 +22,8 @@ import os
 import re
 import unittest
 
+import artifacts  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOC = os.path.join(ROOT, "docs", "research", "PHASE6_ENTRY.md")
 
@@ -100,8 +102,8 @@ class TheToneArithmeticIsRecomputable(unittest.TestCase):
         self.assertIn("131072 / 2048 = 64.0 Hz", p)
         # and the formula is cited to the reference rather than asserted
         gbatek = os.path.join(ROOT, "external", "gbatek", "gba.md")
-        if os.path.exists(gbatek):
-            self.assertIn("Frequency; 131072/(2048-n)Hz", read(gbatek))
+        artifacts.optional(self, gbatek, "external/gbatek is not in this checkout")   # Issue #83 (D)
+        self.assertIn("Frequency; 131072/(2048-n)Hz", read(gbatek))
 
     def test_the_envelope_and_the_block_counts(self):
         self.assertAlmostEqual(7.0 / 64.0 * 1000, 109.4, places=1)      # envelope step, ms
@@ -133,8 +135,8 @@ class TheStopThatDoesNotStop(unittest.TestCase):
                       "question", p)
         # GBATEK's wording is the authority for the length flag
         gbatek = os.path.join(ROOT, "external", "gbatek", "gba.md")
-        if os.path.exists(gbatek):
-            self.assertIn("Length Flag  (1=Stop output when length in NR11 expires)", read(gbatek))
+        artifacts.optional(self, gbatek, "external/gbatek is not in this checkout")   # Issue #83 (D)
+        self.assertIn("Length Flag  (1=Stop output when length in NR11 expires)", read(gbatek))
 
     def test_the_unwritten_register_is_declared(self):
         p = plain(read(DOC))

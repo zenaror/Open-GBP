@@ -33,8 +33,11 @@ import subprocess
 import sys
 import unittest
 
+import frozen  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+import artifacts  # noqa: E402
 import guards  # noqa: E402
 
 AWIN_MAIN = os.path.join(ROOT, "poc", "gbp-audio-window-probe", "source", "main.c")
@@ -438,23 +441,17 @@ class TheIdentityIsInTheRunsOwnRecord(unittest.TestCase):
 
     def test_the_frozen_parts_are_byte_identical_to_the_pre_registration(self):
         """§V8.1 – §V8.11 as Issue #58 committed them, character for character."""
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "Issue #58 -- Phase 6's first physical run pre-registered"],
-                              capture_output=True, text=True).stdout.strip()
-        if not base:
-            self.skipTest("the pre-registration's commit is not in this checkout")
-        old = subprocess.run(["git", "-C", ROOT, "show", "%s:docs/research/HARDWARE_TESTS.md" % base],
-                             capture_output=True, text=True, check=True).stdout
+        old = frozen.source("Issue #58 -- Phase 6's first physical run pre-registered", "docs/research/HARDWARE_TESTS.md")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         now, then = self._v8(read(HW)), self._v8(old)
         # "Frozen text keeps its words" is not "the section is byte-identical": §V8.10
         # gained a dated CORRECTION on top (§V8.10.1, Issue #62) and §V8.12 / §V8.13
         # were appended. What must hold is that every PARAGRAPH the pre-registration
         # wrote is still present verbatim AND IN ORDER -- insertions are allowed and
         # are exactly what a dated amendment is; a deletion or a reword is not.
-        frozen = [para for para in then[then.index("### V8.1 "):].split("\n\n") if para.strip()]
+        frozen_paras = [para for para in then[then.index("### V8.1 "):].split("\n\n") if para.strip()]
         cur = now
         at = 0
-        for para in frozen:
+        for para in frozen_paras:
             j = cur.find(para, at)
             self.assertNotEqual(j, -1, "a paragraph of the pre-registration was changed or removed:\n%s"
                                 % para[:200])
@@ -494,11 +491,14 @@ class TheIdentityWhenBuilt(unittest.TestCase):
         self.assertIn("app=gbp-audio-window-probe", text)
         m = re.search(r"^sha256_dol=([0-9a-f]{64})$", text, re.M)
         self.assertTrue(m, "build-info carries no DOL hash")
+        # Issue #83 (D): was `if os.path.exists(dol)`, which passed having checked nothing.
+        # The build-info was produced BY the build that wrote the DOL, so if one is here the
+        # other must be: its absence is a broken build tree, not an absence.
         dol = os.path.join(AWIN_OUT, "gbp-audio-window-probe.dol")
-        if os.path.exists(dol):
-            import hashlib
-            with open(dol, "rb") as f:
-                self.assertEqual(hashlib.sha256(f.read()).hexdigest(), m.group(1))
+        artifacts.required(self, dol, "build-info.txt for this POC is present, so its DOL must be too")
+        import hashlib
+        with open(dol, "rb") as f:
+            self.assertEqual(hashlib.sha256(f.read()).hexdigest(), m.group(1))
 
 
 class NothingHereIsPhysicalEvidence(unittest.TestCase):

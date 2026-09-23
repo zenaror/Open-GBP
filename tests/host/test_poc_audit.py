@@ -798,11 +798,16 @@ class PocAuditOnBuild003B(unittest.TestCase):
         self.assertTrue(any("forbidden object linked: gbp_initirqb_probe.o" in f for f in findings), findings)
         self.assertTrue(any("hsp_backend_irq.o references __UnmaskIrq" in f for f in findings), findings)
         self.assertTrue(any("gbp_irq_service.o calls gbp_regwrite_irq_u16 (1)" in f for f in findings), findings)
-        if os.path.isfile(os.path.join(AUDIT_DIR, "elf.nm.txt")):
-            findings, _ = poc_audit.audit_dir(AUDIT_DIR, "003b")
-            self.assertTrue(any("expected object missing: hsp_backend_irq.o" in f for f in findings), findings)
-            self.assertTrue(any("expected object missing: gbp_initirqb_probe.o" in f for f in findings), findings)
-            self.assertTrue(any(f.startswith("__UnmaskIrq call sites") for f in findings), findings)
+
+    @unittest.skipUnless(os.path.isfile(os.path.join(AUDIT_DIR, "elf.nm.txt")),
+                         "run `make build initirqa-audit` to produce the audit inputs")
+    def test_the_003a_objects_fail_the_003b_profile(self):
+        """Issue #83 (D): this was an `if os.path.isfile(...)`, which passed having checked
+        NOTHING when that build was absent. Now it skips, with a registered reason."""
+        findings, _ = poc_audit.audit_dir(AUDIT_DIR, "003b")
+        self.assertTrue(any("expected object missing: hsp_backend_irq.o" in f for f in findings), findings)
+        self.assertTrue(any("expected object missing: gbp_initirqb_probe.o" in f for f in findings), findings)
+        self.assertTrue(any(f.startswith("__UnmaskIrq call sites") for f in findings), findings)
 
 
 @unittest.skipUnless(os.path.isfile(os.path.join(AUDIT_DIR_4, "elf.nm.txt")), "run `make build initirq4-audit` to produce the audit inputs")
@@ -838,11 +843,16 @@ class PocAuditOnBuild004(unittest.TestCase):
         findings, _ = poc_audit.audit_dir(AUDIT_DIR_4, "003a")
         self.assertTrue(any("hsp_backend_irq_multi.o references __UnmaskIrq" in f for f in findings), findings)
         self.assertTrue(any("gbp_initirq4_probe.o calls gbp_regwrite_irq_u16 (1)" in f for f in findings), findings)
-        if os.path.isfile(os.path.join(AUDIT_DIR_B, "elf.nm.txt")):
-            findings, _ = poc_audit.audit_dir(AUDIT_DIR_B, "004")
-            self.assertTrue(any("forbidden object linked: hsp_backend_irq.o" in f for f in findings), findings)
-            self.assertTrue(any("expected object missing: hsp_backend_irq_multi.o" in f for f in findings), findings)
-            self.assertTrue(any("forbidden object linked: gbp_initirqb_probe.o" in f for f in findings), findings)
+
+    @unittest.skipUnless(os.path.isfile(os.path.join(AUDIT_DIR_B, "elf.nm.txt")),
+                         "run `make build initirqb-audit` to produce the audit inputs")
+    def test_the_003b_objects_fail_the_004_profile(self):
+        """Issue #83 (D): this was an `if os.path.isfile(...)`, which passed having checked
+        NOTHING when that build was absent. Now it skips, with a registered reason."""
+        findings, _ = poc_audit.audit_dir(AUDIT_DIR_B, "004")
+        self.assertTrue(any("forbidden object linked: hsp_backend_irq.o" in f for f in findings), findings)
+        self.assertTrue(any("expected object missing: hsp_backend_irq_multi.o" in f for f in findings), findings)
+        self.assertTrue(any("forbidden object linked: gbp_initirqb_probe.o" in f for f in findings), findings)
 
 
 @unittest.skipUnless(os.path.isfile(os.path.join(AUDIT_DIR_AV, "elf.nm.txt")), "run `make build avsvc-audit` to produce the audit inputs")
@@ -924,14 +934,24 @@ class PocAuditOnBuildAVSVC(unittest.TestCase):
         self.assertTrue(any("expected object missing: gbp_initirqb_probe.o" in f for f in findings), findings)
         findings, _ = poc_audit.audit_dir(AUDIT_DIR_AV, "003a")
         self.assertTrue(any("hsp_backend_irq.o references __UnmaskIrq" in f for f in findings), findings)
-        if os.path.isfile(os.path.join(AUDIT_DIR_4, "elf.nm.txt")):
-            findings, _ = poc_audit.audit_dir(AUDIT_DIR_4, "avsvc")
-            self.assertTrue(any("forbidden object linked: hsp_backend_irq_multi.o" in f for f in findings), findings)
-            self.assertTrue(any("expected object missing: gbp_avblock.o" in f for f in findings), findings)
-        if os.path.isfile(os.path.join(AUDIT_DIR_B, "elf.nm.txt")):
-            findings, _ = poc_audit.audit_dir(AUDIT_DIR_B, "avsvc")
-            self.assertTrue(any("forbidden object linked: gbp_initirqb_probe.o" in f for f in findings), findings)
-            self.assertTrue(any("expected object missing: gbp_avsvc_probe.o" in f for f in findings), findings)
+
+    @unittest.skipUnless(os.path.isfile(os.path.join(AUDIT_DIR_4, "elf.nm.txt")),
+                         "run `make build initirq4-audit` to produce the audit inputs")
+    def test_the_004_objects_fail_the_avsvc_profile(self):
+        """Issue #83 (D): this was an `if os.path.isfile(...)`, which passed having checked
+        NOTHING when that build was absent. Now it skips, with a registered reason."""
+        findings, _ = poc_audit.audit_dir(AUDIT_DIR_4, "avsvc")
+        self.assertTrue(any("forbidden object linked: hsp_backend_irq_multi.o" in f for f in findings), findings)
+        self.assertTrue(any("expected object missing: gbp_avblock.o" in f for f in findings), findings)
+
+    @unittest.skipUnless(os.path.isfile(os.path.join(AUDIT_DIR_B, "elf.nm.txt")),
+                         "run `make build initirqb-audit` to produce the audit inputs")
+    def test_the_003b_objects_fail_the_avsvc_profile(self):
+        """Issue #83 (D): this was an `if os.path.isfile(...)`, which passed having checked
+        NOTHING when that build was absent. Now it skips, with a registered reason."""
+        findings, _ = poc_audit.audit_dir(AUDIT_DIR_B, "avsvc")
+        self.assertTrue(any("forbidden object linked: gbp_initirqb_probe.o" in f for f in findings), findings)
+        self.assertTrue(any("expected object missing: gbp_avsvc_probe.o" in f for f in findings), findings)
 
 
 # ---- GBP-VIDEO-001 (profile video): the repeated drained service ----
@@ -1119,12 +1139,15 @@ class PocAuditOnBuildVIDEO(unittest.TestCase):
                          ["h_write_intsr", "hsp_backend_oneshot_isr", "hsp_backend_oneshot_isr_ext"])
         self.assertEqual(sorted(set(h[0] for h in report["intsr_stores"])), ["hsp_backend.o", "hsp_backend_irq.o"])
 
-    def test_the_avsvc_build_fails_this_profile_and_vice_versa(self):
-        if os.path.isfile(os.path.join(AUDIT_DIR_AV, "elf.nm.txt")):
-            findings, _ = poc_audit.audit_dir(AUDIT_DIR_AV, "video")
-            self.assertTrue(any("expected object missing: gbp_video_probe.o" in f for f in findings), findings)
-            findings, _ = poc_audit.audit_dir(AUDIT_DIR_VIDEO, "avsvc")
-            self.assertTrue(any("expected object missing: gbp_avsvc_probe.o" in f for f in findings), findings)
+    @unittest.skipUnless(os.path.isfile(os.path.join(AUDIT_DIR_AV, "elf.nm.txt")),
+                         "run `make build avsvc-audit` to produce the audit inputs")
+    def test_the_avsvc_objects_fail_the_video_profile(self):
+        """Issue #83 (D): this was an `if os.path.isfile(...)`, which passed having checked
+        NOTHING when that build was absent. Now it skips, with a registered reason."""
+        findings, _ = poc_audit.audit_dir(AUDIT_DIR_AV, "video")
+        self.assertTrue(any("expected object missing: gbp_video_probe.o" in f for f in findings), findings)
+        findings, _ = poc_audit.audit_dir(AUDIT_DIR_VIDEO, "avsvc")
+        self.assertTrue(any("expected object missing: gbp_avsvc_probe.o" in f for f in findings), findings)
 
 
 if __name__ == "__main__":

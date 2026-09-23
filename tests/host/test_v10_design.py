@@ -15,6 +15,8 @@ import re
 import subprocess
 import unittest
 
+import frozen  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 EV = os.path.join(ROOT, "docs", "research", "EVIDENCE.md")
@@ -195,11 +197,7 @@ class TheOneRomShapeIsArguedFromWhatAlreadyExists(unittest.TestCase):
         self.assertIn("a pure-a run is a superset of run 31", s.lower())
         self.assertIn("never an edit of `stimulus/agb-tone`", s)
         # and it really is not edited
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "Issue #65 -- agb-tone built"], capture_output=True,
-                              text=True).stdout.strip()
-        if not base:
-            self.skipTest("the commit that built agb-tone is not in this checkout")
+        base = frozen.base("Issue #65 -- agb-tone built")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         d = subprocess.run(["git", "-C", ROOT, "diff", "--stat", base, "--",
                             "stimulus/agb-tone"], capture_output=True, text=True).stdout
         self.assertEqual(d.strip(), "", "stimulus/agb-tone changed since it was built")

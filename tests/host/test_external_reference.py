@@ -14,6 +14,8 @@ import os
 import re
 import unittest
 
+import artifacts  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 EXTERNAL = os.path.join(ROOT, "external", "README.md")
 UNKNOWNS = os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")
@@ -80,11 +82,12 @@ class NothingThirdPartyIsCommittedAndTheLogDropIsClean(unittest.TestCase):
         for name in PHOTOS:
             self.assertFalse(os.path.exists(os.path.join(logs, name)), name)
         # moved, not deleted: when the machine still has them, they are where the reference says
+        # Issue #83 (D): was `if os.path.isdir(dest)`, which passed having checked nothing.
         dest = os.path.join(ROOT, "external", "gbhwdb")
-        if os.path.isdir(dest):
-            for name in PHOTOS:
-                self.assertTrue(os.path.exists(os.path.join(dest, name)),
-                                "%s is neither in logs/ nor in external/gbhwdb/: it must be MOVED, never deleted" % name)
+        artifacts.optional(self, dest, "external/gbhwdb is not in this checkout")
+        for name in PHOTOS:
+            self.assertTrue(os.path.exists(os.path.join(dest, name)),
+                            "%s is neither in logs/ nor in external/gbhwdb/: it must be MOVED, never deleted" % name)
 
 
 class TheUnknownGainedAProcedureAndNoAnswer(unittest.TestCase):

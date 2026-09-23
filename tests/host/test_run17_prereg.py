@@ -26,6 +26,8 @@ import re
 import subprocess
 import unittest
 
+import artifacts  # noqa: E402  (tests/host is on the path)
+
 import guards
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -57,8 +59,9 @@ def plain(s):
 
 
 def git_show(path, commit=BASE_COMMIT):
-    r = subprocess.run(["git", "-C", ROOT, "show", "%s:%s" % (commit, path)], capture_output=True, text=True)
-    return None if r.returncode != 0 else r.stdout
+    """Issue #83 (B): an absent COMMIT skips; a path missing from a commit that IS
+    here fails, because that is a moved file and not an absent history."""
+    return guards.show(commit, path)
 
 
 def prereg():
@@ -160,8 +163,8 @@ class IdentitiesAreTheFrozenOnes(unittest.TestCase):
             self.assertIn(tok, g, tok)
         # Hardware Issue #32 (2026-09-21) preserved stream-0014 before staging stream-0015 (§V7.3.6 steps 1-3); the archive, when present, is the exact bytes
         arch = os.path.join(ROOT, "build", "archive", "gbp-video-stream-probe-stream-0014-0ff8355.dol")
-        if os.path.exists(arch):
-            self.assertEqual((os.path.getsize(arch), hashlib.sha256(open(arch, "rb").read()).hexdigest()), (513152, PREV_SHA))
+        artifacts.optional(self, arch, "the preserved stream-0014 archive is not in this checkout")   # Issue #83 (D)
+        self.assertEqual((os.path.getsize(arch), hashlib.sha256(open(arch, "rb").read()).hexdigest()), (513152, PREV_SHA))
 
     def test_the_built_artifact_if_present_is_the_one_named(self):
         info = os.path.join(ROOT, "build", "poc", "gbp-video-stream-probe", "build-info.txt")
@@ -175,10 +178,18 @@ class IdentitiesAreTheFrozenOnes(unittest.TestCase):
             self.skipTest("the stream-0015 artifact on this host was rebuilt at another commit; the named one is da06500's")
         self.assertIn("sha256_dol=" + DOL_SHA, t)
         self.assertIn("commit=da06500\n", t)
+
+    def test_the_staged_slot_holds_one_of_the_two_named_images(self):
+        """Issue #83 (D), and THE ONE SITE THAT WAS PROVABLY DEAD. This check used to be the
+        last three lines of the test above, behind THREE skipTest calls; Issue #83's runtime
+        instrumentation showed the condition was NEVER EVALUATED on this host, because the
+        third skip always fires here. What is staged has nothing to do with what the tree
+        builds, so it is its own test and does not inherit those skips."""
         swiss = os.path.join(ROOT, "build", "swiss", "12-stream", "boot.dol")
-        if os.path.exists(swiss):
-            with open(swiss, "rb") as f:
-                self.assertIn(hashlib.sha256(f.read()).hexdigest(), (PREV_SHA, DOL_SHA), "the Swiss slot holds stream-0014 (before Hardware Issue #32) or stream-0015 (staged under it)")
+        artifacts.optional(self, swiss, "nothing is staged under build/swiss")
+        with open(swiss, "rb") as f:
+            self.assertIn(hashlib.sha256(f.read()).hexdigest(), (PREV_SHA, DOL_SHA),
+                          "the Swiss slot holds stream-0014 (before Hardware Issue #32) or stream-0015 (staged under it)")
 
 
 class TheNumberingAndTheNames(unittest.TestCase):
@@ -297,9 +308,7 @@ class TheProcedureAndTheRecovery(unittest.TestCase):
 
 class NothingElseMoved(unittest.TestCase):
     def test_v7_1_and_v7_2_are_the_bytes_of_the_base(self):
-        old = git_show("docs/research/HARDWARE_TESTS.md")
-        if old is None:
-            self.skipTest("the base commit is not available in this checkout")
+        old = git_show("docs/research/HARDWARE_TESTS.md")  # Issue #83 (B): absent COMMIT skips, absent PATH fails
         new = read(HW)
         self.assertEqual(new[new.index("### V7.1 "):new.index("### V7.3 ")].rstrip("\n"), old[old.index("### V7.1 "):].rstrip("\n"))
         old_head = [l for l in old.splitlines() if l.startswith("## V7 ")][0]

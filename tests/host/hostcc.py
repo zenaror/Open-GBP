@@ -22,12 +22,14 @@ import subprocess
 import unittest
 
 
-def compile_c(args):
-    """Run `gcc args...`. Returns (have, ok, err): have is False, and nothing is
-    run, when the host has no gcc on its PATH."""
-    if shutil.which("gcc") is None:
+def compile_c(args, cc="gcc"):
+    """Run `<cc> args...`. Returns (have, ok, err): have is False, and nothing is
+    run, when the host has no such compiler on its PATH. `cc` exists because two
+    stimulus harnesses invoke `cc` rather than `gcc` (Issue #83, pattern E); the
+    RULE below does not change with the name."""
+    if shutil.which(cc) is None:
         return False, False, ""
-    r = subprocess.run(["gcc"] + list(args), capture_output=True, text=True)
+    r = subprocess.run([cc] + list(args), capture_output=True, text=True)
     return True, r.returncode == 0, r.stderr
 
 
@@ -48,3 +50,9 @@ def require_here(have, ok, err, what="the C harness"):
     if not ok:
         raise AssertionError("%s does not build with the host gcc -- a defect in the sources under test, "
                              "never a skip:\n%s" % (what, (err or "")[:2000]))
+
+
+def require_build(have, ok, err, what):
+    """`require_here` under its own name, for module-level harness builders that
+    must fail rather than return a sentinel (Issue #83, pattern E)."""
+    return require_here(have, ok, err, what)

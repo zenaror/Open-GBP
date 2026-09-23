@@ -16,6 +16,10 @@ import subprocess
 import sys
 import unittest
 
+import frozen  # noqa: E402  (tests/host is on the path)
+
+import artifacts  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import v11sweep as v  # noqa: E402
@@ -68,16 +72,14 @@ class TheRawsAreArchivedAndTheIssuesTableWasSwapped(unittest.TestCase):
                 ("run33", "GBP-AUDIO-001_stream-0016-audio.bin"): "cfe472d36ba6040ecbedf9adfc601b73b501d401f363ccc78c20cafa136252b8",
                 ("run34", "GBP-AUDIO-001_stream-0016.log"): "b184311246a6d91df7915a5fdbf61f4b2f54ee24b75eadb508da0bdb012cb8af",
                 ("run34", "GBP-AUDIO-001_stream-0016-audio.bin"): "4db12f2ea62fee633c131b6bd38d971e6b60b1d2f9dae775eeb3ef17e20c58b0"}
-        seen = 0
-        for (run, name), h in want.items():
+        # every hash is on the page whether or not the raw drop is on this machine
+        for h in want.values():
             self.assertIn(h, part())
-            p = os.path.join(ROOT, "logs", run, name)
-            if os.path.exists(p):
-                with open(p, "rb") as f:
-                    self.assertEqual(hashlib.sha256(f.read()).hexdigest(), h, p)
-                seen += 1
-        if not seen:
-            self.skipTest("the raw drop is not in this checkout (logs/ is ignored)")
+        # Issue #83 (D): written through the shared helper, so the rule holds with no exceptions
+        paths = {os.path.join(ROOT, "logs", run, name): h for (run, name), h in want.items()}
+        for p in artifacts.any_of(self, sorted(paths), "the raw drop is not in this checkout (logs/ is ignored)"):
+            with open(p, "rb") as f:
+                self.assertEqual(hashlib.sha256(f.read()).hexdigest(), paths[p], p)
 
     def test_the_swapped_pairing_in_the_issue_is_named(self):
         s = plain(part())
@@ -97,10 +99,11 @@ class ThreeChannelsAgreeOnTheSidecarCRC(unittest.TestCase):
             self.assertEqual(struct.unpack(">I", raw[-4:])[0], want)
         log33 = os.path.join(LOCAL, "GBP-AUDIO-004_stream-0016-run33.log")
         self.assertIn("crc=d3dbd9a6", read(log33))
-        if os.path.exists(GECKO):
-            g = read(GECKO)
-            self.assertIn("crc=d3dbd9a6", g)
-            self.assertIn("crc=4c45d84f", g)
+        # Issue #83 (D): was `if os.path.exists(GECKO)`, which passed having checked nothing.
+        artifacts.optional(self, GECKO, "the bring-up log is not archived in this checkout")
+        g = read(GECKO)
+        self.assertIn("crc=d3dbd9a6", g)
+        self.assertIn("crc=4c45d84f", g)
 
     def test_the_live_capture_is_kept_with_its_provenance_and_out_of_the_log_population(self):
         s = plain(part())
@@ -179,15 +182,12 @@ class TheFrozenVerdictsAreWhatTheyAre(unittest.TestCase):
         self.assertEqual([len(a) for a in res["alphabets"]], [8, 10, 10, 11])
 
     def test_the_frozen_tools_are_unedited(self):
-        for tool, grep in (("v11sweep.py", "Issue #69 -- the sweep pre-registered"),
-                           ("v13sep.py", "Issue #75 -- U-GBP-038's separator pre-registered"),
-                           ("v14repeat.py", "RUN 34 pre-registered")):
-            base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep", grep],
-                                  capture_output=True, text=True).stdout.strip()
-            if not base:
-                continue
-            then = subprocess.run(["git", "-C", ROOT, "show", "%s:tools/%s" % (base, tool)],
-                                  capture_output=True, text=True).stdout
+        # Issue #83 (F): pinned by HASH, and `continue` on a missing base is gone -- it was the
+        # quietest form of the defect, a loop that verified nothing and did not even skip.
+        for tool, phrase in (("v11sweep.py", "Issue #69 -- the sweep pre-registered"),
+                             ("v13sep.py", "Issue #75 -- U-GBP-038's separator pre-registered"),
+                             ("v14repeat.py", "RUN 34 pre-registered")):
+            then = frozen.source(phrase, "tools/" + tool)
             self.assertEqual(then, read(os.path.join(ROOT, "tools", tool)), tool)
 
 
