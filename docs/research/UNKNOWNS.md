@@ -646,6 +646,17 @@ the series has four levels per period, two of them edge-straddling and symmetric
 about the rest, which is what an integrating sampler would give; that is a
 HYPOTHESIS from one window.
 
+**2026-09-23, Issue #82 — what a block carries beyond its sample** (`GBP-HW-314`,
+`GBP-HW-315`, `HARDWARE_TESTS.md` §V18). The layout is not reopened and
+`GBP-HW-313` stands. The H-PWM sample is the **sum of sixteen 256-byte slice
+counts**, and every block is either flat over them or one step at a slice index
+where the level changed. The steps are exactly the programmed edges, and every
+transition falls on an even slice. So *"what each sample integrates over"* has a
+concrete answer as far as the bytes go: sixteen time-ordered slices, ordered at
+two-slice granularity. What stays open moves to `U-GBP-041` (are the slices
+uniform in time?) and `U-GBP-043` (the 1–3-bit spread and the bit arrangement).
+**The item stays OPEN.**
+
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the
@@ -2006,3 +2017,41 @@ predicted.** With `sweep-0002` the dead windows `U-GBP-038` described are gone
 press 2 and RUN 30 press 1 unexplained. The item stays open: the mechanism of the
 first-press silence is still not determined.
 
+
+## U-GBP-041 (P1, opened 2026-09-23, Issue #82) — are the sixteen slices of an AUDIO block UNIFORM in time, and is the two-slice transition grid the path's or the source's?
+
+`GBP-HW-315`: slice order is time order between two-slice groups, and every
+transition in RUN 33 / RUN 34 falls on an even slice. Uniform spacing would make
+the slices 65 536 per second and the grid 32 768 per second. **The archive cannot
+measure it**: every programmed tone has a whole-number period in blocks, so all of
+a tone's edges share one k. A verifier's cross-press test (AGB frame = 68 blocks +
+9.25 slices if uniform) fits at p ≈ 0.6–0.8 % but needs a model of the ROM and one
+post-hoc allowance, and is recorded in §V18.4 as a HYPOTHESIS, not evidence.
+
+**Why it matters to the drain:** if the slices are uniform, a runtime that reads
+whole blocks already has audio at eight times the H-PWM rate, and the decoder
+could use it. **What settles it (hardware):** a tone whose half-period is not a
+whole number of two-slice units, so that k moves from edge to edge by a
+predictable amount. Even that resolves only the 32 768/s grid, unless the
+quantisation is the source's.
+
+## U-GBP-042 (P1, opened 2026-09-23, Issue #82) — can the AUDIO block (index 0x8) be read SHORTER than 0x1000, and does the device then deliver the next block normally?
+
+Every physical AUDIO read so far is the whole 0x1000: this project's 272 145 in
+RUN 33 / RUN 34, the Start-up Disc and GBI (`GBP-AUD-001`). The transport accepts
+any 32-byte multiple (`read_bulk`), but a shorter read has **never been
+observed**. It matters because it is the difference between moving 16 MiB/s and
+moving less. The data side does not rescue it: one slice reproduces the block
+sample only where the block is flat, and never at an edge (§V18.5). **What
+settles it (hardware):** one run that reads fewer bytes at index 0x8 and counts
+delivered blocks against elapsed ticks. **Not authorised here.**
+
+## U-GBP-043 (P3, opened 2026-09-23, Issue #82) — the 1–3-bit spread between slices of a flat block, and whether a slice's bit arrangement carries anything its count does not
+
+`GBP-HW-314`. The spread is present in both silent control windows (spread 1
+only). It is only ever above the mode in RUN 33 (+1, once +2) and −2 to +3 in RUN 34, where it
+touches 85 % of flat blocks against 23 %. It shows no bunching by slice index.
+3 059 slice pairs have equal counts and different bytes, and each run has its own
+slice-opening family (`07 03 …` in RUN 33, `01 01 …` in RUN 34; the runs also
+rest at different levels, 1025 and 1024). **Cause not established; no decode
+depends on it today.**

@@ -14529,3 +14529,59 @@ own POC and pre-registration. No hardware, no Dolphin.
 
 **Next highest-value experiment.** That continuous-drain question, pre-registered
 before any build.
+
+## 2026-09-23 — Issue #82: what one AUDIO block contains, what the drain must move, and the skip audit
+
+**Goal.** Give the Orchestrator the facts his continuous-drain pre-registration
+needs, from bytes already owned, before any premise is frozen. No hardware, no
+build. §V18.
+
+**How it was checked.** Seven claims went to twenty-one independent verifiers,
+three per claim with different lenses, each writing its own code and told to
+refute. **They corrected five of my figures before any was written down**, and
+every correction was re-derived before use:
+- the threshold range: 3–61 bits, not 3–96;
+- the drain deficit: 68, not 67/65, because the log truncates `capture_s`;
+- where the loss sits: in 13 early stalls, not at the capture's edges;
+- the per-block cost: 68.6/80 µs, not 64.7;
+- slice spacing: the archive does say something about it, since every transition is on an even slice.
+
+The lesson is the one #81's defect taught: **a figure I have not tried to break
+is a guess with a decimal point.**
+
+**The 802 is reproduced.** Reading RUN 33's blocks 8 bytes late (0x388 for 0x380)
+gives exactly the Orchestrator's 802 / 478; aligned, it is 798 (RUN 34: 180). But
+byte identity is the wrong ruler anyway: the silent control windows have
+non-identical blocks.
+
+**What a block is.**
+- Take each 256-byte slice's one-bit count: **every one of the 2 560 blocks is flat (1–3 bits of spread) or a single step**, and no block is anything else.
+- The steps are **exactly the programmed edges**: one every P/2 blocks, at one slice index per tone, each plateau equal to its neighbouring block.
+- **Every transition falls on an even slice.**
+- So a block does not carry one sample sixteen times. At a level change it carries *where* in the block the change fell, at least 8× the resolution the H-PWM sample averages over.
+- §V17.6.1's four 1024 Hz levels are simply steps at k = 14, summed.
+- `GBP-HW-313` stands untouched. `GBP-HW-314` (FACT), `GBP-HW-315` (FACT for the coincidence, CORROBORATED for time order).
+
+**Less than a block.** One slice equals the block sample only where the block is
+flat, never at an edge, so bit-identity needs all 4096 bytes. Whether the
+hardware even allows a shorter read is **UNKNOWN** (`U-GBP-042`): every AUDIO read
+ever made, ours and both references', is the full 0x1000.
+
+**What the runtime moves.**
+- 16 MiB/s raw, exactly one byte per AGB cycle.
+- The payload any validated decode uses is 0.78 % of it.
+- The existing service already read 272 145 whole blocks with 0 failures, and **still lost ~68 blocks per run** in 13 early stalls that its failure counter never saw (`GBP-HW-316`).
+- **The drain needs a coverage counter, not only a failure counter.**
+- The audio service costs 28–33 % of wall time as the probe does it.
+- Decoding in the drain path turns a 1 s stall from 16 MiB of ring into 8–128 KiB.
+- The stall to size for is UNKNOWN.
+
+**The skip audit.**
+- The seven are genuine.
+- But #81's defect class was wider: seven older files turned a compile failure into a skip (63 tests silent under a broken compiler). Fixed with `hostcc.py` plus a behavioural regression test.
+- The static extractor could not see `raise SkipTest(...)`, and eight such reasons were registered nowhere. Fixed; one of them, a versioned fixture, now fails instead.
+- Seven further risk patterns are listed in §V18.7 with file:line, for the Orchestrator to decide.
+
+**Next.** The continuous-drain pre-registration is the Orchestrator's. The three
+open questions that need the console are `U-GBP-041` (slice spacing), `U-GBP-042`
+(shorter reads) and the flush stall.

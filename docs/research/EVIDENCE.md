@@ -8712,3 +8712,57 @@ picks between equally common levels by a tie-break. A four-level pattern
 symmetric about the rest is what a sampler that **integrates over each block's
 interval** would produce: a **HYPOTHESIS**, one window, not promoted.
 `HARDWARE_TESTS.md` §V17.6.
+
+
+### GBP-HW-314 — every AUDIO block of RUN 33 and RUN 34 is **FLAT or ONE STEP** over its sixteen 256-byte slices; byte identity is 798 / 180 of 1 280 and is not the edge set — **FACT, a recomputable property of the archive**
+
+`tools/v18block.py`, `tests/host/test_v18block.py`, `HARDWARE_TESTS.md` §V18.1–§V18.2, from the versioned
+fixtures (Issue #81). Per slice, the one-bit count; per block, the shape of the sixteen counts:
+
+```text
+2 560 blocks   flat (spread <= 3 bits) 2 256 = spread 0/1/2/3: 978/1039/232/7    one step 304    other 0
+control windows   flat only, spread 0 or 1 (both silent windows have non-identical blocks: 21 and 191)
+byte-identical    RUN 33 798 of 1 280, RUN 34 180 of 1 280  (at block level identical bytes <=> spread 0;
+                  per slice pair it does NOT hold: 3 059 pairs in 619 blocks differ in bytes with equal counts)
+threshold         the split is identical for 3..61 bits over the archive, 3..97 over controls + sliced regions
+```
+
+The Orchestrator's *"802 of 1280 identical"* is reproduced exactly by reading RUN 33's blocks 8 bytes late
+(offset 0x388 instead of 0x380); nothing aligned gives it. The small spread's cause is **not established**
+(`U-GBP-043`). Not a hardware claim beyond the bytes: what they are is in `GBP-HW-315`.
+
+### GBP-HW-315 — the step blocks are **exactly the programmed edges**: one every P/2 blocks at one slice index per tone, each plateau equal to its neighbouring block, every transition on an **even** slice — **FACT for the coincidence; CORROBORATED that slice order is time order, at two-slice granularity**
+
+`HARDWARE_TESTS.md` §V18.3. In the sliced region of all eight press windows, against `v17pred`'s frozen periods:
+RUN 33 steps every 16 / 4 / 8 / 2 blocks (10 / 40 / 20 / 80 steps) at k = 8 / 12 / 10 / 14; RUN 34 every 16
+(10 each) at k = 14 / 10 / 6 / 14; no step outside an edge; controls none. Each step's first plateau equals
+the previous block's level and its second the next block's, within 1.25 bits (reversed: >= 97 bits off). All
+304 transitions in the archive, onsets and RUN 34's in-block VOLUME changes included, fall on k in
+{4, 6, 8, 10, 12, 14}.
+
+**So the block does not carry one sample sixteen times**: at a level change it carries where in the block the
+change fell, on a two-slice grid -- at least 8x the time resolution the H-PWM sample averages over.
+§V17.6.1's four 1024 Hz levels are steps at k = 14 summed. **`GBP-HW-313` is not extended and stands.**
+CORROBORATED, not FACT, for time order: one construction, and only between two-slice groups. That the grid is
+32 768/s and is the AGB's PWM rate is a **HYPOTHESIS** (it assumes uniform slices, `U-GBP-041`).
+
+### GBP-HW-316 — stream-0016's service read **272 145 AUDIO blocks, all whole 0x1000, 0 failures**, and still fell **68 blocks short** of 4 096/s in both runs, in **13 early service stalls** that no failure counter saw — **FACT for the counts (raw logs); the location of the audio loss is an INFERENCE**
+
+`HARDWARE_TESTS.md` §V18.6, from the RUN 33 / RUN 34 raw logs (hashes in `captures/README.md`):
+
+```text
+RUN 33   114 342 blocks in 27.932144 s (capture_elapsed 0x436d8875) = 4 093.56/s   short 68.06 blocks (16.6 ms)
+RUN 34   157 803 blocks in 38.542869 s (capture_elapsed 0x5d0ac253) = 4 094.22/s   short 68.59 blocks (16.7 ms)
+both     FRAMECAP incomplete=13 -- 50 video blocks never read, same frames in both runs, all in the first
+         ~100 frames (start-up and the probe's own episode openings); deliveries 6 308.85/s over the first
+         4.89 s against 6 330-6 337/s over every later segment; no stored window overlaps a stall
+cost     DMA 0x1000 63.8-68.7 us; audio-only lean cycles: read->ack 68.6 us, cause->rearm ~80 us median
+         = 28.1 % / 32.8 % of wall time at 4 096/s, busy-polled -- a lower bound, all logged near frame 8
+```
+
+The shortfall is the same in runs of different length (not proportional loss), is not at the capture edges
+(reads start 0.106 ms after `capture_start`) and is not a clock offset (-600 / -430 ppm against a timebase the
+frame times put within ~16 ppm). Audio blocks carry no sequence number, so the log cannot place audio losses;
+that the ~68 blocks were lost in the same stalls is **consistent with** the 50 lost video blocks (~14.7 ms)
+and the start-up (~4.6 ms), and is recorded as an inference. **`failures=0` counts DMA completions, not
+coverage.**
