@@ -268,7 +268,7 @@ class TopologyNamesGateAndProcedure(unittest.TestCase):
             self.assertEqual(t.count(n), 1, n)
             self.assertEqual(h.count(n), 1, n)
             self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[4-9]|[4-9]\d)\S*", t)), 0)   # run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67); run33: Issue #75, §V13 (GBP-AUDIO-004, reserved and not on disk)
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[5-9]|[4-9]\d)\S*", t)), 0)   # run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67); run33: Issue #75, §V13 (GBP-AUDIO-004, reserved and not on disk); run34: §V14 (GBP-AUDIO-003 repeated, reserved and not on disk)
         self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run19*")) + glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run20*")), [])
         self.assertIn("TAKEN even if a run aborts, never starts, or RUN 20 is never executed", plain(part(5)))
 
@@ -418,6 +418,9 @@ class NothingElseMoved(unittest.TestCase):
         # construction BEFORE the run: tools/v13sep.py runs on SYNTHETIC vectors only, borrows
         # v11sweep's classifier unchanged, reads no run and authorises nothing.
         changed = changed - {"tools/v13sep.py"}
+        # §V14 (2026-09-23) froze the METHOD of RUN 34's measurement before the run:
+        # tools/v14repeat.py contains no gate, reproduces §V11.16.7 exactly, reads no run.
+        changed = changed - {"tools/v14repeat.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs

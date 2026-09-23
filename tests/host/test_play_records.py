@@ -149,6 +149,9 @@ class NothingFrozenMoved(unittest.TestCase):
         # construction BEFORE the run: tools/v13sep.py runs on SYNTHETIC vectors only, borrows
         # v11sweep's classifier unchanged, reads no run and authorises nothing.
         changed = changed - {"tools/v13sep.py"}
+        # §V14 (2026-09-23) froze the METHOD of RUN 34's measurement before the run:
+        # tools/v14repeat.py contains no gate, reproduces §V11.16.7 exactly, reads no run.
+        changed = changed - {"tools/v14repeat.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
@@ -175,7 +178,8 @@ class NothingFrozenMoved(unittest.TestCase):
         # Issue #69 (2026-09-22) reserved RUN 32 in §V11's; same move, same reason -- a RESERVED name is
         # not a run, and the pin's job is to catch a checkpoint that claims one
         # Issue #75 (2026-09-23) reserved RUN 33 in §V13's. Same move again.
-        self.assertNotIn("RUN 34", hw)
+        # §V14 (2026-09-23) reserved RUN 34, the repeat of §V11's sweep. And again.
+        self.assertNotIn("RUN 35", hw)
         self.assertNotIn("GBP-HW-308", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test

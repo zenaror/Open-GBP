@@ -1664,6 +1664,22 @@ issue 75    THE SEPARATOR I NAMED IN §V11.16.9 WAS WRONG, and the Orchestrator 
             recorded KNOWN LIMITATION with the case that would change it.
             AND THE SAME PHOTOGRAPHS CONFIRM U-GBP-040: no cyan mark anywhere, on any press. FIXED AND
             UNEXPLAINED, §V11.17's second pre-registered outcome, confirmed visually.
+run 34      PRE-REGISTERED (§V14), authorised by the Orchestrator's message after the restart; NO ISSUE
+            YET, and the Hardware Issue is his to open only if the Operator agrees to the boot. §V11's
+            sweep REPEATED with sweep-0002, under §V11's gates UNEDITED -- no new gate, no flash, no
+            staging. THE PREMISE ("four clean amplitude windows") NEEDED TWO CORRECTIONS:
+            (1) a four-press run CANNOT deliver four carrying windows while U-GBP-038 holds -- press 1
+            IS the emission and its window is dead under BOTH readings -- so question_V will be
+            INCONCLUSIVE BY CONSTRUCTION. The loss is FREE: the lost amplitude is V=15, already measured
+            twice in RUN 31, which is exactly why §V11.3 put it first.
+            (2) §V11.13's "at least three seconds" is INSIDE T's bound (0.0625, 3.33] -- RUN 34 spaces
+            at FIVE, safe under either reading and independent of RUN 33's outcome.
+            DELIVERS: V=11, the only amplitude never measured, and a like-for-like REPEAT of V=7 and
+            V=3 -- what GBP-HW-305 needs before it can be FACT. tools/v14repeat.py freezes the
+            measurement METHOD only (no gate) and reproduces §V11.16.7 on RUN 32 to the last digit.
+            §V11.4's ">= 5 bytes" claim QUALIFIED ON TOP: re-anchored on the measured 30.0625, V=11
+            separates by 4.90. CARD RULE, first step of the list: RUN 33 and RUN 34 write the SAME
+            names, so RUN 33's files come off the card before the second boot.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED

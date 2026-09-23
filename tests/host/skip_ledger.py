@@ -107,6 +107,10 @@ LEDGER = [
      "skip; an edit that changed the bytes would break those first"),
     # Issue #69: tools/v11sweep.py is frozen the same way, found by its commit message.
     # Issue #75: tools/v13sep.py is frozen the same way, found by its commit message.
+    # §V14: tools/v14repeat.py (a measurement method, no gate) is frozen the same way.
+    (r"^the commit that introduced tools/v14repeat\.py is not in this checkout$", "HISTORY_ABSENT",
+     "a second test shows the module reproduces §V11.16.7's published figures on RUN 32 to the "
+     "last digit, which pins the method whether or not the commit is present"),
     (r"^the commit that introduced tools/v13sep\.py is not in this checkout$", "HISTORY_ABSENT",
      "§V13's own text carries every constant the module holds -- the ladder, the floor, the bound "
      "on T -- and the tests that compare the two never skip"),
