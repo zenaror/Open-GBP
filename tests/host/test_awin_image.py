@@ -221,6 +221,13 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
         # Issue #84: src/audio/gbp_adrain.* -- GBP-AUDIO-005's phase machine and coverage
         # counter, host-tested only (tests/unit/test_gbp_adrain.c). No image links it yet.
         changed = changed - {"src/audio/gbp_adrain.c", "src/audio/gbp_adrain.h"}
+        # Issue #84 (2026-09-23) BUILT GBP-AUDIO-005's image, drain-0001 (§V19.11 A4.1): play-0001 plus
+        # the drain's period decoder (src/audio/gbp_aperiod.*, host-tested), the POC that carries it, and
+        # tools/v19report.py, the log -> report builder frozen before the run. The service path gains two
+        # optional hooks, NULL in every earlier build (tests/unit/test_gbp_video_state.c proves the operation
+        # stream identical), and tests/host/test_drain_image.py diffs the image against play-0001.
+        changed = changed - {"poc/gbp-audio-drain-probe/Makefile", "poc/gbp-audio-drain-probe/source/main.c",
+                             "src/audio/gbp_aperiod.c", "src/audio/gbp_aperiod.h", "tools/v19report.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
@@ -249,6 +256,12 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
         self.assertIn("const uint32_t alen = cfg->audio_len_live ? *cfg->audio_len_live : cfg->audio_len;", added)
         self.assertIn("gbp_awin_block(cfg->awin, buf, alen, n, res->audio.completed);", added)
         self.assertIn("if (res->audio.completed) res->bytes_audio += alen;", added)
+        # Issue #84 again: THE AUDIO TAP. With cfg->audio_tap NULL (every earlier build) no clock is
+        # read and nothing is called; tests/unit/test_gbp_video_state.c proves the operation stream
+        # identical with and without a tap. The same consequence as the live length above.
+        self.assertIn("const uint64_t t_adone = cfg->audio_tap ? now64(t) : 0u;", added)
+        self.assertIn("if (cfg->audio_tap) cfg->audio_tap(cfg->audio_tap_user, buf, alen, t_adone, "
+                      "res->audio.completed);", added)
         # NO device operation was added by either issue
         for line in added:
             for op in ("gbp_avblock_read", "gbp_regwrite", "hsp_backend", "h_write", "h_read",
@@ -271,6 +284,7 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
         self.assertLess(h.index("const int *session_end;"), h.index("struct gbp_awin *awin;"))
         # Issue #84's live AUDIO length follows the window, the same way
         self.assertLess(h.index("struct gbp_awin *awin;"), h.index("const uint32_t *audio_len_live;"))
+        self.assertLess(h.index("const uint32_t *audio_len_live;"), h.index("void *audio_tap_user;"))
         # the header does not drag the window into every includer
         self.assertNotIn('#include "gbp_awin.h"', h)
 
