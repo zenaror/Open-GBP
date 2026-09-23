@@ -448,6 +448,11 @@ class NothingFrozenMoved(unittest.TestCase):
         # stimulus ROM beside the four the family already had. It touches no runtime path, no image and no
         # slot; §V9.14 records its identity and tests/host/test_agb_tone.py runs its own code on the host.
         changed = changed - {"stimulus/agb-tone/Makefile", "stimulus/agb-tone/source/main.c"}
+        # Issue #70 (2026-09-22) BUILT stimulus/agb-sweep (sweep-0001), §V11's TWO-AXIS stimulus: a new
+        # stimulus ROM beside the five the family now has, and agb-tone is NOT touched (a test pins it
+        # byte-identical). It touches no runtime path, no image and no slot; §V11.15 records its
+        # identity and tests/host/test_agb_sweep.py runs its own code on the host.
+        changed = changed - {"stimulus/agb-sweep/Makefile", "stimulus/agb-sweep/source/main.c"}
         # Issue #64 (2026-09-22) pre-registered agb-tone (§V9) and made its constructions executable BEFORE
         # the ROM exists: tools/v9tone.py is exercised on SYNTHETIC vectors only, reads no run, authorises
         # nothing and promotes nothing.

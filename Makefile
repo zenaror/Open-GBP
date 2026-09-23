@@ -227,7 +227,7 @@ $(INITIRQ_OUT)/isr-audit.txt: $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt tools/i
 	$(PYTHON) tools/isr_audit.py $< --report $@
 
 
-.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone swiss swiss-check all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone stimulus-sweep swiss swiss-check all shell clean
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -562,6 +562,23 @@ STIM_TONE_ROM := build/stimulus/agb-tone/agb-tone.gba
 stimulus-tone:
 	$(IN_CONTAINER) sh -c 'set -e; export DEVKITARM=$$DEVKITPRO/devkitARM; make --no-print-directory -C stimulus/agb-tone'
 	@$(PYTHON) tools/gbahdr.py show $(STIM_TONE_ROM)
+
+# GBP-AUDIO-003 (HARDWARE_TESTS §V11, Issue #70): `agb-sweep`, the TWO-AXIS audio
+# stimulus. Silent until the first press; then the pad's A walks the FREQUENCY
+# schedule (128.0 -> 512.0 -> 256.0 -> 1024.0 Hz, all exact) and B walks the
+# AMPLITUDE schedule (envelope volume 15 -> 11 -> 7 -> 3), both HOLDING at the
+# last entry, so ONE ROM serves both experiments and the button decides which.
+# The screen carries the press count AND which axis each press advanced, because
+# §V11.8 refuses a wrong-button run only after the trip. Driven on the host by
+# tests/host/test_agb_sweep.py against §V11's frozen table and against
+# tools/v11sweep.py's own schedules. NOT PHYSICALLY EXECUTED; §V11's run is not
+# authorised. stimulus/agb-tone is NOT touched. Delivery image derived locally,
+# never committed:
+#   tools/gbaderive.py build/stimulus/agb-sweep/agb-sweep.gba <donor> build/physical/agb-sweep-cart.gba
+STIM_SWEEP_ROM := build/stimulus/agb-sweep/agb-sweep.gba
+stimulus-sweep:
+	$(IN_CONTAINER) sh -c 'set -e; export DEVKITARM=$$DEVKITPRO/devkitARM; make --no-print-directory -C stimulus/agb-sweep'
+	@$(PYTHON) tools/gbahdr.py show $(STIM_SWEEP_ROM)
 
 # GBP-VIDEO-003 colour probe under Dolphin. AUXILIARY ONLY: Dolphin's GBPlayer model is
 # not physical truth and CANNOT say anything about colour mapping (§54 of the

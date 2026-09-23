@@ -79,6 +79,11 @@ LEDGER = [
      "Operator's machine, where the files are, runs the suite before every push"),
     # Issue #68: §V10 checks that stimulus/agb-tone was NOT edited by the design checkpoint,
     # finding its build commit by message rather than by a pinned hash.
+    # Issue #70: the same for agb-sweep's own artifacts, which live under build/ (Git-ignored),
+    # and for the two §V11 freezes this checkpoint checks by commit message.
+    (r"^(neither build artifact is in this checkout \(build/ is ignored\)|the build artifacts are not in this checkout \(build/ is ignored\)|the commit that wrote §V11 is not in this checkout)$", "LOCAL_ARTIFACT_ABSENT",
+     "§V11.15.1's two hashes and the 1 960-byte size are on the page and pinned by tests that never "
+     "skip, and the ROM is rebuilt from source by `make stimulus-sweep` whenever it is needed"),
     (r"^the commit that built agb-tone is not in this checkout$", "HISTORY_ABSENT",
      "the ROM's identity is pinned by hash and size in §V9.14 and in test_agb_tone.py, which do not "
      "skip; an edit that changed the bytes would break those first"),
