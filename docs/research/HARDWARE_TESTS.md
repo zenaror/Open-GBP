@@ -32364,3 +32364,27 @@ fixture    sd:/open-gbp/aout/run33-audio.bin = captures/fixtures/...-run33-audio
 card       both VERIFIED FROM THE CARD by a page-cache-bypassing read after writing
 ```
 
+### V21.5 **AMENDMENT 1 — 2026-09-23, BEFORE the run** — the Operator's report has more outcomes than PASS and FAIL
+
+*Appended. §V21.0–§V21.4 stand. PASS does not move.* §V21.2 collapses into one
+FAIL outcomes that the report can tell apart, and a single PASS/FAIL would throw
+away what the Operator's ears give. The report is **a COUNT** (distinct pitches
+heard) and **THREE RELATIONS** (tone 2 against 1, 3 against 2, 4 against 3). The
+ingestion classifies it in this order, first match wins:
+
+```text
+INCONCLUSIVE    as §V21.2: the fixture was refused, or the AI counter on screen stopped
+SILENT          the counter advances and nothing is heard: the output path emits nothing
+PASS            count 4 AND all three relations as §V21.2 expects
+PITCHES-ORDER   count 4, one or more relations NOT as expected: the path emits four distinct pitches;
+                the order is the open question (the listener, the sequence, or the samples).
+                A PARTIAL result about the output path, never a PASS
+PITCHES-MERGED  count 2 or 3: some tones are not told apart -- a DIFFERENT failure, about pitch content
+                (rate, resampling, clipping), not about order
+PITCHES-NONE    sound, but no distinct pitch (clicks, noise, one steady tone): the samples do not reach
+                the output as the tones they encode
+```
+
+The class comes from the Operator's words, quoted verbatim in the ingestion, and
+never from the log. The log can confirm what played, but it cannot say what was
+heard.
