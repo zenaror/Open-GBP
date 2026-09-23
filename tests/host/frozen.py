@@ -52,6 +52,9 @@ BASES = {
     # Issue #84: the drain log -> report builder, frozen with the image, before GBP-AUDIO-005 runs
     "Issue #84 -- the drain report builder":
         "897ea6c42e5d104ad85dcfc631758d2ba2e00481",
+    # Issue #86: AOUT-HW-001's scope and gate, frozen before the run
+    "Issue #86 -- §V21 pre-registers AOUT-HW-001":
+        "2f140289aa1ffd421102c0cc8e27d74180cb9771",
 }
 
 

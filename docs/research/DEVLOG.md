@@ -15091,3 +15091,17 @@ from a stop.
 
 **The same finding as #88 applies here.** The row must be added FROZEN before the
 export.
+
+**The candidate (built after the commits above, NOT staged).**
+```text
+image      poc/audio-output-replay / aout-0001 / 2f14028 (clean) / AOUT-HW-001
+DOL        362 016 B   sha256 161492325661ffc63288c33712dcf7be98554828581e3d8e4564d0381b13ba90
+           two from-scratch builds at 2f14028, byte-identical
+audit      aout: 0 findings
+Dolphin    aout-dolphin: the refusal without a card, PASS; aout-dolphin-play (the EMBED=1 variant,
+           aout-0001-dolphin): sequence built from RUN 33, AI DMA running, one whole pass, PASS
+staging    slot 16-aout proposed, added FROZEN at this hash before the export; the fixture file at
+           sd:/open-gbp/aout/run33-audio.bin (5 243 788 B, sha256 cfe472d3...252b8), verified from the card
+```
+§V21 is frozen at 2f14028 (`tests/host/frozen.py`), and `test_aout_image` checks that
+anything later is appended to it and never edited in.

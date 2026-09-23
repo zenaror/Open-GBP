@@ -155,6 +155,21 @@ class ThePreRegistrationStatesTheScopeFirst(unittest.TestCase):
         self.assertIn("Dolphin's audio is not evidence of anything", flat(self.part()))
 
 
+class TheGateIsFrozen(unittest.TestCase):
+    """§V21 as committed at 2f14028 is the start of §V21 now: the gate was written before the
+    candidate existed, and anything later is appended, never edited in."""
+
+    def test_v21_is_the_frozen_text_at_its_start(self):
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import frozen
+        then = frozen.source("Issue #86 -- §V21 pre-registers AOUT-HW-001", "docs/research/HARDWARE_TESTS.md")
+        i = then.index("\n## V21 — AOUT-HW-001")
+        frozen_part = then[i:]
+        now = read(HW)
+        j = now.index("\n## V21 — AOUT-HW-001")
+        self.assertTrue(now[j:].startswith(frozen_part.rstrip("\n")), "§V21 was edited after it was frozen")
+
+
 class TheAuditDiscriminatesBothWays(unittest.TestCase):
 
     def _run(self, out_dir, profile):
