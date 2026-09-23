@@ -7460,7 +7460,7 @@ and the same one-line derivation now prints
 ```text
 grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
      13 CONTROL semantic orig=90
-     35 CONTROL semantic orig=92
+     36 CONTROL semantic orig=92
 ```
 
 The six logs added the same day are RUN 23 (`stream-0015-run23`, no cartridge,
@@ -7506,6 +7506,11 @@ already full.
 **2026-09-23, Issue #78 — RUN 33 (`stream-0016-run33`) and RUN 34
 (`stream-0016-run34`) make it 48 logs**, both on `sweep-0002`: **13 at `0x90`
 and 35 at `0x92`**. CLAIM 1 stays FACT; CLAIM 2 untouched.
+
+**2026-09-23, Issue #85 — RUN 35 (`stream-0016-run35`) makes it 49 logs**, on
+`sweep-0002` with the cartridge in the slot, and it reads `orig=92` exactly as the
+split predicts: **13 at `0x90` and 36 at `0x92`**. The printed output above is the
+archive as it stands now. CLAIM 1 stays FACT; CLAIM 2 untouched.
 ---
 
 ### GBP-HW-273 — RUN 23: a LATE build with NO Game Pak reads CONTROL `0x90` — the empty diagonal cell of `GBP-HW-272` filled, and the build-era reading disconfirmed by measurement — FACT (recomputable from the archived log)
@@ -8497,7 +8502,7 @@ rest, while blocks in transition between the levels take intermediate values.
 **This does not change any verdict** — a flat window is flat at either
 resolution — and §V11.4's construction keeps its definition. §V11.16.7.
 
-### GBP-HW-305 — the duty's deviation is **LINEAR in the envelope volume**, three points across two runs, intercept **+0.046/256** — **CORROBORATED, not FACT** — **2026-09-23, Issue #78: the repeat this entry named now EXISTS and agrees to under 0.08 bytes (`GBP-HW-310`); NOT promoted, because the pre-registered gate returned INCONCLUSIVE — still CORROBORATED** — **2026-09-23, Issue #79: DECIDED — CORROBORATED, which it has been since #72; the basis is now a like-for-like independent repeat. THE PRE-REGISTERED GATE DECLINED (`GBP-HW-309`), SO FACT IS STILL OWED. And this heading's "+0.046" is the rounded-input figure: the intercept is +0.0515 (§V11.16.7)**
+### GBP-HW-305 — the duty's deviation is **LINEAR in the envelope volume**, three points across two runs, intercept **+0.046/256** — **CORROBORATED, not FACT** — **2026-09-23, Issue #78: the repeat this entry named now EXISTS and agrees to under 0.08 bytes (`GBP-HW-310`); NOT promoted, because the pre-registered gate returned INCONCLUSIVE — still CORROBORATED** — **2026-09-23, Issue #79: DECIDED — CORROBORATED, which it has been since #72; the basis is now a like-for-like independent repeat. THE PRE-REGISTERED GATE DECLINED (`GBP-HW-309`), SO FACT IS STILL OWED. And this heading's "+0.046" is the rounded-input figure: the intercept is +0.0515 (§V11.16.7)** — **2026-09-23, Issue #85: FACT — RUN 35, self-contained in one run, and the gate frozen before it (`question_L_bits`) returned LINEAR (§V20)**
 
 Read at bit resolution (`GBP-HW-304`), with the anchor taken from the run that
 actually measured envelope volume 15:
@@ -8521,6 +8526,35 @@ passed.** One of the three points comes from a different run and a different
 ROM, which the pre-registration did not authorise; it is one instrument, one
 cartridge, one console. **`U-GBP-012` is not closed and H-PWM is not promoted.**
 §V11.16.7.
+
+**2026-09-23, Issue #85 — PROMOTED TO FACT, and on exactly the two grounds this
+entry named as missing.** RUN 35 (GBP-AUDIO-006, `HARDWARE_TESTS.md` §V20) is
+§V14.10 repeated unchanged, judged by `question_L_bits` (`tools/v16bitgate.py`),
+frozen at `f951079` before this run existed and byte-identical at `HEAD`.
+
+```text
+question_L_bits   LINEAR          anchor V=15 = 29.8594 /256, THIS run's own window
+  V     measured     linear    compressive   half-gap    |m - lin|   |m - comp|
+ 11     21.9883     21.8969       26.7612     2.4322       0.0914      4.7729
+  7     13.9922     13.9344       22.3945     4.2301       0.0578      8.4023
+  3      5.9336      5.9719       14.9297     4.4789       0.0383      8.9961
+question_V_bits   ORDERED         29.86 > 21.99 > 13.99 > 5.93
+```
+
+- **"one of the three points comes from a different run and a different ROM"** —
+  closed: `question_L_bits` re-anchors on this run's OWN V=15, so all four points
+  come from one run and one ROM (`sweep-0002`).
+- **"the pre-registered gate declined, so FACT is still owed"** — closed: the gate
+  frozen before the run returned LINEAR, with every volume inside the linear
+  model's half-gap and every one outside the compressive model's by 4.8-9.0 bytes.
+
+That meets `RESEARCH_METHOD.md`'s FACT — *a hardware trace repeatedly reports a
+specific value under a controlled condition*: RUN 32, RUN 34 and RUN 35 agree, and
+the last under a gate fixed before it ran. **What stays true and is not changed by
+the promotion**: it is one instrument, one cartridge and one console — the
+project's permanent condition (a single GameCube and a single Game Boy Player), not
+a gap this run could close. **`U-GBP-012` is not closed by this**: the layout's
+open question is what each AUDIO block integrates over, not how the envelope scales.
 
 ### GBP-HW-306 — `agb-sweep` **does not emit on its first press**, reproduced on hardware **off the GBP entirely** — an INSTRUMENT DEFECT, not a path observation
 

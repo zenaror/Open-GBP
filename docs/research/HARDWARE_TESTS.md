@@ -31919,3 +31919,115 @@ the error would have become load-bearing for a frozen gate. The rule the
 Orchestrator recorded, and which this part now carries: **a figure in a peer's
 message is not a figure in the record. The record carries the status; nothing is
 frozen without going to the document first.**
+
+## V20 — RUN 35 INGESTED (GitHub Issue #85, GBP-AUDIO-006): **`question_L_bits` = LINEAR**, self-contained in one run, and `GBP-HW-305` is **FACT** — **2026-09-23**
+
+**The verdict, before any commentary, as the Issue requires: `question_L_bits`
+returned `LINEAR`.** It is the gate `GBP-HW-305` had been owed since Issue #79,
+frozen in `tools/v16bitgate.py` at `f951079` **before this run existed**, and run
+here **unedited**: the module was touched by exactly one commit, and its bytes
+hash identically at `f951079`, `8fd9565` and `HEAD`.
+
+### V20.1 What ran, and the files
+
+```text
+procedure   §V14.10 VERBATIM AND UNCHANGED -- four presses on B, >= 5 s apart, after a 20 s wait
+image       14-audio  GBP-AUDIO-001 / gbp-audio-window-probe / stream-0016 / commit 04121fe
+            (already staged and frozen; nothing written to the card)
+cartridge   sweep-0002 on the EZ-Flash since RUN 33, no re-flash
+Link Port   nothing connected          BBA  absent
+archive     GBP-AUDIO-006 -- GBP-AUDIO-005 is reserved for the drain run (§V19.6); the console
+            writes GBP-AUDIO-001_stream-0016 regardless (GBP-HW-300)
+```
+
+```text
+raw drop (logs/run35/, never edited)                      archived copy (captures/local/)
+GBP-AUDIO-001_stream-0016-audio.bin  5 243 788 B          GBP-AUDIO-006_stream-0016-run35-audio.bin
+   sha256 258790a4c43c901b9255273a537fdf73226a17fca1a76e626631c5890d38d7b6
+GBP-AUDIO-001_stream-0016.log           90 756 B          GBP-AUDIO-006_stream-0016-run35.log
+   sha256 7e7fc90752285a1c98bd78e19f74edd2d5ba312d38cde3e1946df5a423a2d493
+```
+
+**THE FIRST CHECK, made before anything else: the write happened.** `GBP-HW-300`
+means a failed write would leave the previous run's files looking exactly like
+this run's. RUN 35's hashes match **neither** RUN 34's (`4db12f2e…` sidecar,
+`b1843112…` log) **nor** RUN 33's (`cfe472d3…`, `8c9d085e…`). **New bytes.** The
+card check of §V14.10 step 1 exists for exactly this, and it did its job.
+
+**Integrity.** `awinparse` parses the sidecar strictly: header CRC `bd5d1d2b`,
+total CRC `6b1e8337`, five windows of 256 AUDIO blocks, all closed, `skipped=0`,
+`failed=0`, identity `stream-0016 / 04121fe`. **Three independent channels agree
+on the sidecar CRC `6b1e8337`**: the file's own footer, the SD log's `AWINSAVE`
+line, and the Pico Gecko stream the Orchestrator captured live (clean: the capture
+held the port alone — an orphaned second reader from five hours earlier was found
+and killed before the boot, which would otherwise have split the byte stream).
+
+**The presses, from the SD log** (`AWIN … presses=4 releases=4`), and every press
+window carries `word=0002` — **B**, the volume axis. The Gecko channel prints an
+`INPUT … events=8` line that the SD log does not carry (the SD log has
+`key_changes=7`); **they are different counters and are not mapped onto each
+other** — the press accounting is the SD log's.
+
+### V20.2 `question_L_bits` = **LINEAR**
+
+```text
+anchor            V=15 = 29.8594 /256 -- THIS run's own window, so the gate is self-contained
+  V     measured     linear    compressive   half-gap    |m - lin|   |m - comp|
+ 11     21.9883     21.8969       26.7612     2.4322       0.0914      4.7729
+  7     13.9922     13.9344       22.3945     4.2301       0.0578      8.4023
+  3      5.9336      5.9719       14.9297     4.4789       0.0383      8.9961
+verdict           LINEAR -- every volume within the linear model's half-gap, every one
+                  outside the compressive model's by 4.8 to 9.0 bytes
+order             question_V_bits = ORDERED   29.86 > 21.99 > 13.99 > 5.93
+```
+
+The linear errors are **0.04 to 0.09 bytes** against half-gaps of 2.4 to 4.5 —
+the margin is not close. RUN 34, read by **the same bit-resolution instrument**
+(`question_V_bits`), measured the same four volumes at 29.9883 / 22.1094 / 14.0977
+/ 6.1211; RUN 35's are within **0.19 bytes** of those at every volume (−0.13,
+−0.12, −0.11, −0.19), so the repeat agrees with its predecessor as well as passing
+its own gate. *(Caught before commit: a first draft compared against 30.0625,
+which is RUN 31's V=15 on `agb-tone`, not RUN 34's — a figure taken from the wrong
+row, the same failure mode §V19.10 names.)*
+
+### V20.3 The two older gates, unchanged, exactly as RUN 34 had them
+
+```text
+question_V   INCONCLUSIVE   "a window has no two levels to measure a deviation from"
+question_E   LEVELS DIFFER, NOT ORDERED
+```
+
+**Both reproduce RUN 34 exactly, and for the reason already on record.**
+`question_V` reads byte duty, which is phase-sensitive at V=3 (`GBP-HW-309`) and
+counts a one-bit `0x80` byte as a whole high byte (`GBP-HW-312`) — the defect
+`question_L_bits` was written to repair forward. That the old gate declines again,
+for the same reason, on a like-for-like repeat is itself a confirmation that the
+defect is the gate's and not the run's.
+
+### V20.4 The waits were kept for REPETITION, not belief
+
+**§V14.10's 20 s wait and its 5 s spacing were held exactly as written, and not
+because anyone believes they do anything.** §V15.9 established that they have **no
+known job left**: the premise they served — a path-side delay before the window
+carries — was refuted when the emitting window carried in RUN 33 and RUN 34
+(`GBP-HW-311`). They were kept because **this run's entire value is being a
+like-for-like repeat** of RUN 34, and changing the timing would have made it a
+different experiment. **Their presence in RUN 35 is not evidence that they are
+needed, and must never be read as such.**
+
+### V20.5 What this establishes, and what it does not
+
+- **`GBP-HW-305` is FACT** — the duty's deviation is linear in the envelope volume.
+  RUN 35 closes both objections that held it at CORROBORATED: all four points now
+  come from **one run and one ROM** (the gate re-anchors on this run's own V=15),
+  and **the pre-registered gate passed** where the earlier one declined. RUN 32,
+  RUN 34 and RUN 35 agree, the last under a gate fixed before it ran.
+- **Nothing else is promoted.** `GBP-HW-313` (the H-PWM layout) stays CORROBORATED;
+  `U-GBP-012` stays OPEN — its question is what each AUDIO block integrates over
+  (§V18), not how the envelope scales.
+- **One console, one cartridge, one instrument** — the project's permanent
+  condition, not a gap this run could close, and recorded so the FACT is read with
+  it.
+
+**No new evidence ID was minted**: RUN 35 is the evidence *for* `GBP-HW-305`, and
+it is recorded in that entry's body under a dated heading pointer.

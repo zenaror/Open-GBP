@@ -1795,6 +1795,15 @@ issue 83    §V18.7's NINE PATTERNS DECIDED AND FIXED (§V18.9); no hardware, no
             NOTHING WAS MASKED ON THIS HOST, checked pattern by pattern. The 802's cause CORRECTED: 0x388
             and 0x38C are indistinguishable in the data; the cause is 0x38C (len - 1280*4096, swallowing
             the 12-byte trailer), which is his own diagnosis and my error one level up.
+issue 85    RUN 35 INGESTED (§V20, GBP-AUDIO-006). question_L_bits = LINEAR, reported before any commentary,
+            self-contained in one run (anchor = THIS run's V=15, 29.86/256); V=11/7/3 within 0.04-0.09 bytes of
+            linear, 4.8-9.0 from compressive. GBP-HW-305 -> FACT, on exactly the two objections its entry named
+            (one run + one ROM now; the pre-registered gate passed). Checked FIRST: the write happened (hashes
+            match neither RUN 33 nor RUN 34 -- GBP-HW-300), the gate is the bytes frozen at f951079, and three
+            channels agree on the sidecar CRC 6b1e8337. Older gates repeat RUN 34 (question_V INCONCLUSIVE on the
+            known byte-duty defect). The 20 s wait and 5 s gaps kept FOR REPETITION, NOT BELIEF (§V20.4).
+            GBP-HW-313 stays CORROBORATED, U-GBP-012 stays OPEN. Own draft error caught before commit: RUN 34 was
+            first quoted at 30.0625, which is RUN 31's V=15; same instrument gives 29.9883.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED
