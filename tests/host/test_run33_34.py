@@ -232,7 +232,7 @@ class NothingIsPromotedPastItsOwnGate(unittest.TestCase):
 
     def test_the_new_ids_are_308_to_311(self):
         ev = read(EV)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 312)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 313)
         for i in range(308, 312):
             self.assertIn("### GBP-HW-%d" % i, ev)
 

@@ -520,7 +520,7 @@ class NothingFrozenMoved(unittest.TestCase):
         ev = read(EVIDENCE)
         # Issue #46 (2026-09-22) minted GBP-HW-272 (the CONTROL bit 0x02 split, from the archive); #41 minted none,
         # so the sentinel moves to the next free id and this guard goes on testing what it was written to test
-        self.assertNotIn("GBP-HW-313", ev)
+        self.assertNotIn("GBP-HW-314", ev)
         self.assertNotIn("GBP-PLAY-001", ev)
         h = plain(read(HANDOFF))
         for tok in ("ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004", "issue 41",

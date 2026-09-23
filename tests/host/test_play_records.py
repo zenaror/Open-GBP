@@ -187,7 +187,7 @@ class NothingFrozenMoved(unittest.TestCase):
         # §V14 (2026-09-23) reserved RUN 34, the repeat of §V11's sweep. And again.
         # Issue #79 (2026-09-23) reserved RUN 35 to ride along. And again.
         self.assertNotIn("RUN 36", hw)
-        self.assertNotIn("GBP-HW-313", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
+        self.assertNotIn("GBP-HW-314", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test
         self.assertNotIn("GBP-PLAY-001", read(EVIDENCE))

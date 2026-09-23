@@ -8682,3 +8682,33 @@ falls on the byte grid, not in amplitude. **Refines `GBP-HW-304`.** The repair i
 `tools/v16bitgate.py`, forward only (`HARDWARE_TESTS.md` §V16.3), and it may not be
 applied to RUN 32 or RUN 34 to produce a verdict.
 
+
+### GBP-HW-313 — **the AUDIO window DECODES to the AGB's tones under H-PWM's layout**: every period exact at four frequencies, and the amplitude falls with the volume — **CORROBORATED for the layout, not FACT**
+
+`tools/v17decode.py` against `tools/v17pred.py` (frozen in the previous commit):
+one block = one sample, the sample = the block's one-bit fraction minus the run's
+own resting level, 4096 samples/s.
+
+```text
+RUN 33 (A)   periods 32 / 8 / 16 / 4 samples = 128 / 512 / 256 / 1024 Hz -- EXACTLY as predicted
+RUN 34 (B)   period 32 samples = 128 Hz in all four; amplitude 29.99 > 22.11 > 14.10 > 6.12 /256
+uniformity   1.000 in all eight windows
+DFT peak     129 / 512 / 256 / 1024 Hz and 129 / 128 / 129 / 127 Hz -- independent of the period
+QUESTION D   LAYOUT HOLDS, both runs
+```
+
+**CORROBORATED, not FACT**: one decode construction agreeing with one set of
+predictions, on one cartridge and one console; the predictions come from the ROM
+and the decode from this project's reading of the bytes, and both could share an
+error neither can see. **It is the first decode of the Game Boy Player's AUDIO
+window that plays back as the tones the AGB was asked to make**, and the WAV files
+are in `captures/local/decoded/`.
+
+**One correction made during the ingestion, and it is the kind that is easy to
+make the other way:** the 1024 Hz window's lower "deviation" (26.30 against 30.06)
+is **not** an attenuation. That window has four levels per period — the same
+extremes as at 128 Hz plus two edge-straddling ones — and the modal-level summary
+picks between equally common levels by a tie-break. A four-level pattern
+symmetric about the rest is what a sampler that **integrates over each block's
+interval** would produce: a **HYPOTHESIS**, one window, not promoted.
+`HARDWARE_TESTS.md` §V17.6.

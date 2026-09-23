@@ -14421,3 +14421,44 @@ RUN 34 it produces measurements only — INCONCLUSIVE and ORDERED, with LINEAR f
 **RUN 35 rides along**: RUN 34's console procedure unchanged, judged by the two
 repaired gates. It can take the ORDER to FACT, and with LINEAR, `GBP-HW-305`'s
 linearity. It cannot touch the layout.
+
+## 2026-09-23 — Issue #80: the AUDIO window decodes to the AGB's tones, and plays
+
+**Goal.** Decode RUN 34's sidecar to audio under H-PWM, predictions frozen in their
+own commit before any output existed. §V17.
+
+**The fixture needed correcting before anything was frozen.** The Issue predicted
+RUN 34's windows at 128 / 512 / 256 / 1024 Hz; RUN 34 was four B presses and B
+walks only the volume, so all four are 128 Hz. The four frequencies are **RUN 33**.
+Split across the two runs, one axis each — the better design. `v17pred.predict()`
+takes one axis, derived from the capture's own KEY record, so the conflation
+cannot recur through it. **Committed and pushed first (`078b25a`), with a
+disclosure** that the periods and deviations had been seen while checking the
+premise: the periods have no free parameter, so nothing was tuned.
+
+**QUESTION D = LAYOUT HOLDS on both runs.** Every period is **exactly** the
+prediction — 32 / 8 / 16 / 4 on RUN 33, 32 in all four on RUN 34 — with uniformity
+1.000 in all eight windows; the one-sample tolerance was never used. RUN 34's
+amplitude falls 29.99 > 22.11 > 14.10 > 6.12. An independent DFT peak agrees: 129 /
+512 / 256 / 1024 Hz. `GBP-HW-313`, **CORROBORATED for the layout, not FACT** — one
+construction agreeing with one prediction set.
+
+**And a correction to my own disclosure, made in the ingestion rather than by
+editing the pre-registration.** I had disclosed that RUN 33's 1024 Hz window "read
+lower", and kept amplitude-versus-frequency out of the gate as an analog-chain
+property. Keeping it out was right; the reading was wrong. At four samples per
+period the series has **four** levels — the **same extremes as at 128 Hz** plus two
+edge-straddling ones, symmetric about the rest — and `deviation()`'s modal pick
+was a tie-break. The near-exact 7/8 that looked like a filter was the tie.
+**No attenuation is shown.** The four-level pattern is what a sampler that
+integrates over each block's interval would give — a HYPOTHESIS, one window.
+
+**The audio exists.** `captures/local/decoded/`: each window and the four
+concatenated at 4096 Hz (the evidence), the same at 48 kHz (a stdlib windowed-sinc
+upsample, exactly 375/32, cutoff at the input Nyquist), and a 4-second looped
+listening file per run — looped on whole periods so it joins without a click, and
+named as not evidence. One fixed gain for every file, derived from no measured
+value.
+
+**No hardware was used.** `U-GBP-012` narrows — the layout is now a decode that
+plays — and stays open for what each sample integrates over.
