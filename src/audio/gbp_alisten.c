@@ -104,6 +104,7 @@ int gbp_alisten_build(const uint8_t *sidecar, size_t n, int16_t *out, uint32_t c
             if (!gbp_adec_pop(&d, &pcm[i]))
                 pcm[i] = 0;                        /* cannot happen: one push, one pop */
         }
+        info->source[t] = t;
         info->keys[t] = rep.win[w].keys;
         info->sliced[t] = len;
         /* 4. repeated to about one second: v17decode's max(1, round(4096 / len)) */
@@ -138,6 +139,63 @@ int gbp_alisten_build(const uint8_t *sidecar, size_t n, int16_t *out, uint32_t c
     info->dec_blocks = d.blocks_in;
     info->dec_lost = d.lost;
     info->dec_overflow = d.overflow;
+    return 0;
+}
+
+/* the resampler returns to phase 0 after every 16 inputs (125 outputs) */
+#define ALISTEN_PHASE_INPUTS 16u
+_Static_assert(GBP_ALISTEN_GAP_IN >= ALISTEN_PHASE_INPUTS, "a gap must clear the resampler's 16-input history");
+
+int gbp_alisten_permute(const struct gbp_alisten_info *info, const int16_t *in, const uint8_t *order,
+                        uint32_t n, int16_t *out, uint32_t cap_frames, struct gbp_alisten_info *out_info)
+{
+    uint32_t k, t, seen = 0u, pos = 0u;
+    if (!out_info)
+        return GBP_ALISTEN_ERR_ARG;
+    memset(out_info, 0, sizeof *out_info);
+    if (!info || !in || !order || !out || info->rc != 0 || n != info->tones || n == 0u || n > GBP_ALISTEN_MAX_TONES) {
+        out_info->rc = GBP_ALISTEN_ERR_ARG;
+        return out_info->rc;
+    }
+    /* a permutation of 0..n-1, and every segment exact to move */
+    for (k = 0u; k < n; k++) {
+        if (order[k] >= n || (seen & (1u << order[k]))) {
+            out_info->rc = GBP_ALISTEN_ERR_ORDER;
+            return out_info->rc;
+        }
+        seen |= 1u << order[k];
+    }
+    for (t = 0u; t < n; t++) {
+        const uint32_t in_tone = info->sliced[t] * info->repeats[t];
+        const uint32_t first = info->seg_first[2u * t];
+        if ((in_tone + GBP_ALISTEN_GAP_IN) % ALISTEN_PHASE_INPUTS != 0u ||
+            info->seg_first[2u * t + 1u] != first + info->seg_frames[2u * t] ||
+            (t + 1u < n && info->seg_first[2u * t + 2u] != info->seg_first[2u * t + 1u] + info->seg_frames[2u * t + 1u]) ||
+            (t == 0u && first != 0u)) {
+            out_info->rc = GBP_ALISTEN_ERR_ORDER;
+            return out_info->rc;
+        }
+    }
+    if (info->out_frames > cap_frames) {
+        out_info->rc = GBP_ALISTEN_ERR_CAPACITY;
+        return out_info->rc;
+    }
+    *out_info = *info;
+    for (k = 0u; k < n; k++) {
+        const uint32_t src = order[k];
+        const uint32_t frames = info->seg_frames[2u * src] + info->seg_frames[2u * src + 1u];
+        memcpy(out + 2u * pos, in + 2u * info->seg_first[2u * src], (size_t)frames * 2u * sizeof out[0]);
+        out_info->source[k] = info->source[src];
+        out_info->keys[k] = info->keys[src];
+        out_info->sliced[k] = info->sliced[src];
+        out_info->repeats[k] = info->repeats[src];
+        out_info->seg_first[2u * k] = pos;
+        out_info->seg_frames[2u * k] = info->seg_frames[2u * src];
+        out_info->seg_first[2u * k + 1u] = pos + info->seg_frames[2u * src];
+        out_info->seg_frames[2u * k + 1u] = info->seg_frames[2u * src + 1u];
+        pos += frames;
+    }
+    out_info->rc = 0;
     return 0;
 }
 
