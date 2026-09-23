@@ -685,7 +685,7 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         ev = read(EVIDENCE)
         for n in range(266, 272):
             self.assertEqual(len(re.findall(r"^### GBP-HW-%d " % n, ev, re.M)), 1, n)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 311)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)   # 295…300: Issue #67 (RUN 31 ingested, §V9.15); 301…302: #67's validation (the rate/layout split, U-GBP-039's probe); 303…307: #72, RUN 32; 308…311: #78, RUN 33 and RUN 34
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 312)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)   # 295…300: Issue #67 (RUN 31 ingested, §V9.15); 301…302: #67's validation (the rate/layout split, U-GBP-039's probe); 303…307: #72, RUN 32; 308…311: #78, RUN 33 and RUN 34; 312: #79, duty()'s mechanism
         b266 = ev[ev.index("### GBP-HW-266 "):ev.index("### GBP-HW-267 ")]
         for run, R in RUNS.items():
             for k in ("log", "idxcap", "disp", "full", "vi"):
@@ -803,6 +803,9 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         # §V14 (2026-09-23) froze the METHOD of RUN 34's measurement before the run:
         # tools/v14repeat.py contains no gate, reproduces §V11.16.7 exactly, reads no run.
         changed = changed - {"tools/v14repeat.py"}
+        # Issue #79 (2026-09-23): tools/v16bitgate.py, QUESTION V repaired at bit resolution and
+        # QUESTION L, frozen forward only; it imports v11sweep and edits nothing.
+        changed = changed - {"tools/v16bitgate.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs

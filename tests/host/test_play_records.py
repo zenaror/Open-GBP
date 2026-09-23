@@ -152,6 +152,9 @@ class NothingFrozenMoved(unittest.TestCase):
         # §V14 (2026-09-23) froze the METHOD of RUN 34's measurement before the run:
         # tools/v14repeat.py contains no gate, reproduces §V11.16.7 exactly, reads no run.
         changed = changed - {"tools/v14repeat.py"}
+        # Issue #79 (2026-09-23): tools/v16bitgate.py, QUESTION V repaired at bit resolution and
+        # QUESTION L, frozen forward only; it imports v11sweep and edits nothing.
+        changed = changed - {"tools/v16bitgate.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
@@ -179,8 +182,9 @@ class NothingFrozenMoved(unittest.TestCase):
         # not a run, and the pin's job is to catch a checkpoint that claims one
         # Issue #75 (2026-09-23) reserved RUN 33 in §V13's. Same move again.
         # §V14 (2026-09-23) reserved RUN 34, the repeat of §V11's sweep. And again.
-        self.assertNotIn("RUN 35", hw)
-        self.assertNotIn("GBP-HW-312", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
+        # Issue #79 (2026-09-23) reserved RUN 35 to ride along. And again.
+        self.assertNotIn("RUN 36", hw)
+        self.assertNotIn("GBP-HW-313", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test
         self.assertNotIn("GBP-PLAY-001", read(EVIDENCE))

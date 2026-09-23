@@ -199,7 +199,7 @@ class TheNumberingAndTheNames(unittest.TestCase):
             # Hardware Issue #32 (2026-09-21) executed RUN 17 / RUN 18: the names are USED (Issue #33 ingested them, §V7.4, tests/host/test_run17.py)
         self.assertEqual(len(re.findall(r"captures/local/\S*run17\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*run18\S*", t)), 5)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[5-9]|[4-9]\d)\S*", t)), 0)   # run19 / run20: Issue #34, §V7.5; run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67); run33: Issue #75, §V13 (GBP-AUDIO-004, reserved and not on disk); run34: §V14 (GBP-AUDIO-003 repeated, reserved and not on disk)
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[6-9]|[4-9]\d)\S*", t)), 0)   # run19 / run20: Issue #34, §V7.5; run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67); run33: Issue #75, §V13 (GBP-AUDIO-004, reserved and not on disk); run34: §V14 (GBP-AUDIO-003 repeated, reserved and not on disk); run35: §V16.5 (rides along, reserved)
         self.assertEqual(len(re.findall(r"captures/local/\S*stream-0014-run16\S*", t)), 5, "the run16 names of V7.1.5 untouched (retired by Issue #33, never reassigned)")
         self.assertEqual(len(re.findall(r"captures/local/\S*stream-0015-run16\S*", t)), 5, "the names RUN 16 actually used (§V7.4.3, Issue #33)")
         # Issue #47 (2026-09-22): RUN 23 and RUN 24 were executed by the Operator and their artifacts are archived
@@ -361,6 +361,9 @@ class NothingElseMoved(unittest.TestCase):
         # §V14 (2026-09-23) froze the METHOD of RUN 34's measurement before the run:
         # tools/v14repeat.py contains no gate, reproduces §V11.16.7 exactly, reads no run.
         changed = changed - {"tools/v14repeat.py"}
+        # Issue #79 (2026-09-23): tools/v16bitgate.py, QUESTION V repaired at bit resolution and
+        # QUESTION L, frozen forward only; it imports v11sweep and edits nothing.
+        changed = changed - {"tools/v16bitgate.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs

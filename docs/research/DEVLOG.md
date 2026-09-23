@@ -14380,3 +14380,44 @@ job left**, and §V15.9 says so rather than letting them persist as superstition
 
 **Ids:** `GBP-HW-308` … `311`; heading pointers on `GBP-HW-299`, `304`, `305` and
 `307`, and on §V13 and §V14; `GBP-HW-272` gains two logs (48, 13/35).
+
+## 2026-09-23 — Issue #79: `GBP-HW-305` decided, `duty()`'s defect named exactly, and the gate repaired forward only
+
+**Goal.** The Orchestrator's ruling on `GBP-HW-305`, a FACT id for the gate's
+defect, a repaired gate frozen forward only, and a pre-registered ride-along run.
+§V16.
+
+**Three corrections to the Issue's framing, each verified before writing:**
+
+- **`GBP-HW-305` has read CORROBORATED since #72**, so "→ CORROBORATED" moves no
+  label. What is new is the *basis* — a like-for-like independent repeat measured
+  by a method frozen before it existed — and the record now says, where the
+  status is written, that **the gate declined and FACT is still owed**. Recording
+  a promotion that did not happen here would have been its own small falsehood.
+- **Its heading still carried "+0.046"**, the rounded-input figure #72 corrected
+  to +0.0515 in the body and never in the heading. Pointed, not rewritten.
+- **`question_V`'s gate decides ORDER, not linearity** — §V11.4 made the model
+  comparison "a measurement, never a gate". So a ride-along judged by it could
+  take *"the deviation falls with the volume"* to FACT and never *"linear in the
+  volume"*. **A second gate, `question_L_bits`, is frozen for that**, with its
+  tolerance taken from the models (half the gap between the two predictions) and
+  not from the residuals already seen — a band chosen from 0.03–0.12 bytes would
+  have been chosen with the data in hand.
+
+**`GBP-HW-312`, verified against the archive rather than taken from the Issue:**
+every block spans `0x00..0xFF`, so `duty()`'s midpoint is 127.5 in all 256 and
+`x > mid` is `x >= 0x80` — a byte carrying **one** bit. RUN 34's V=3 low level has
+eight `0x80` bytes per cell and RUN 32's has none; 128 − 120 = 8. **The same
+number of one-bits, laid differently across the byte grid.** A FACT about the
+instrument, not about hardware.
+
+**`tools/v16bitgate.py` is one substitution** — `bitduty` in place of `duty` —
+with every other part of the question imported from `v11sweep`, not copied.
+Synthetic vectors reproduce the exact `0x80` shape and show the old gate losing
+the low level while the new one keeps it. **Non-retroactivity**: on RUN 32 and
+RUN 34 it produces measurements only — INCONCLUSIVE and ORDERED, with LINEAR from
+`question_L_bits` — and §V15.6 and §V15.8 stand unedited.
+
+**RUN 35 rides along**: RUN 34's console procedure unchanged, judged by the two
+repaired gates. It can take the ORDER to FACT, and with LINEAR, `GBP-HW-305`'s
+linearity. It cannot touch the layout.

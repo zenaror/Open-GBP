@@ -113,6 +113,10 @@ LEDGER = [
     # Issue #69: tools/v11sweep.py is frozen the same way, found by its commit message.
     # Issue #75: tools/v13sep.py is frozen the same way, found by its commit message.
     # §V14: tools/v14repeat.py (a measurement method, no gate) is frozen the same way.
+    # Issue #79: tools/v16bitgate.py, the repaired gate, frozen the same way.
+    (r"^the commit that introduced tools/v16bitgate\.py is not in this checkout$", "HISTORY_ABSENT",
+     "synthetic vectors reproduce the exact 0x80 defect and show the repair fixing it, and the "
+     "one-substitution claim is checked against the source, whether or not the commit is present"),
     (r"^the commit that introduced tools/v14repeat\.py is not in this checkout$", "HISTORY_ABSENT",
      "a second test shows the module reproduces §V11.16.7's published figures on RUN 32 to the "
      "last digit, which pins the method whether or not the commit is present"),

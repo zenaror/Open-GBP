@@ -1699,6 +1699,19 @@ issue 78    RUN 33 AND RUN 34 INGESTED (§V15). Both known clean BEFORE the copy
             PREMISE REFUTED, not answered. The defect-caused-it hypothesis is SUPPORTED, NOT
             ESTABLISHED; its test is sweep-0001 re-flashed, which costs a flash and is his to spend.
             The 20 s wait and the 5 s spacing have NO KNOWN JOB LEFT. ids GBP-HW-308..311.
+issue 79    GBP-HW-305 DECIDED (§V16): CORROBORATED -- WHICH IT HAS BEEN SINCE #72, so no label moved; the
+            BASIS is now a like-for-like independent repeat, and the record says THE GATE DECLINED and
+            FACT IS STILL OWED. Its heading's stale "+0.046" pointed to +0.0515.
+            GBP-HW-312 (FACT, property of code and data): duty()'s midpoint is 127.5 in every block, so
+            x > mid is x >= 0x80 -- ONE bit counted as eight. RUN 34's V=3 low carries eight 0x80 per
+            cell, RUN 32's none; 128 - 120 = 8. Refines GBP-HW-304.
+            tools/v16bitgate.py -- ONE SUBSTITUTION (bitduty for duty), the rest imported from v11sweep.
+            NON-RETROACTIVE: on RUN 32 / RUN 34 it yields MEASUREMENTS only (INCONCLUSIVE / ORDERED,
+            LINEAR); §V15.6 and §V15.8 stand. question_V's gate decides ORDER, NOT linearity, so a
+            second gate question_L_bits is frozen with a MODEL-DERIVED band (half the gap between the
+            predictions), not one taken from the residuals already seen.
+            RUN 35 RIDES ALONG -- §V14.10 unchanged on the console, judged by the two repaired gates.
+            The next hardware round picks it up without being asked.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED
