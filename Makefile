@@ -47,6 +47,10 @@
 #   make drain-dolphin  run the gbp-audio-drain-probe DOL in Dolphin (absent -> the boot, GX init, both
 #                       self-tests, the D2 open attempt and the abort path; the service never runs, so no
 #                       AUDIO block reaches the tap and no phase is ever entered)
+#   make aout-audit     audit audio-output-replay (profile aout: NO Game Boy Player object or register write
+#                       linked, the AI reached from main and the DMA callback only)
+#   make aout-dolphin   run the audio-output-replay DOL in Dolphin (no SD there -> the boot and the refusal to
+#                       play without RUN 33's fixture; Dolphin's audio is never evidence of anything)
 #   make swiss          export every built DOL to build/swiss/NN-short/boot.dol with an
 #                       INDEX.txt, so the right build is obvious in Swiss (numbers are
 #                       stable; the copy is byte-identical and NOTHING here is an authority: an
@@ -103,7 +107,7 @@ IN_CONTAINER := $(COMPOSE) run --rm -T -e GIT_COMMIT="$(GIT_COMMIT)" -e GIT_DIRT
 PYTHON ?= python3
 PYTEST := $(shell command -v pytest 2>/dev/null)
 
-POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe gbp-av-service-probe gbp-video-capture-probe gbp-video-state-probe gbp-video-color-probe gbp-video-stream-probe gbp-play-session gbp-audio-window-probe gbp-audio-drain-probe
+POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe gbp-av-service-probe gbp-video-capture-probe gbp-video-state-probe gbp-video-color-probe gbp-video-stream-probe gbp-play-session gbp-audio-window-probe gbp-audio-drain-probe audio-output-replay
 AVSVC_OUT := build/poc/gbp-av-service-probe
 AVSVC_DOL := $(AVSVC_OUT)/gbp-av-service-probe.dol
 VIDEO_OUT := build/poc/gbp-video-capture-probe
@@ -119,6 +123,8 @@ AWIN_OUT := build/poc/gbp-audio-window-probe
 AWIN_DOL := $(AWIN_OUT)/gbp-audio-window-probe.dol
 DRAIN_OUT := build/poc/gbp-audio-drain-probe
 DRAIN_DOL := $(DRAIN_OUT)/gbp-audio-drain-probe.dol
+AOUT_OUT := build/poc/audio-output-replay
+AOUT_DOL := $(AOUT_OUT)/audio-output-replay.dol
 COLOR_DOL := $(COLOR_OUT)/gbp-video-color-probe.dol
 STIM_OUT  := build/stimulus/agb-color-bars
 STIM_ROM  := $(STIM_OUT)/agb-color-bars.gba
@@ -222,6 +228,7 @@ $(eval $(call POC_AUDIT_RULE,$(STREAM_OUT),stream))
 $(eval $(call POC_AUDIT_RULE,$(PLAY_OUT),play))
 $(eval $(call POC_AUDIT_RULE,$(AWIN_OUT),awin))
 $(eval $(call POC_AUDIT_RULE,$(DRAIN_OUT),drain))
+$(eval $(call POC_AUDIT_RULE,$(AOUT_OUT),aout))
 $(eval $(call ISR_COMPARE_TARGET,vstate-audit,$(VSTATE_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,color-audit,$(COLOR_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,stream-audit,$(STREAM_OUT)))
@@ -241,7 +248,7 @@ $(INITIRQ_OUT)/isr-audit.txt: $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt tools/i
 	$(PYTHON) tools/isr_audit.py $< --report $@
 
 
-.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin drain-audit drain-dolphin smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone stimulus-sweep swiss swiss-check all shell clean
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin drain-audit drain-dolphin aout-audit aout-dolphin aout-dolphin-play smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone stimulus-sweep swiss swiss-check all shell clean
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -709,6 +716,36 @@ drain-dolphin:
 	  --expect 'OPENGBP-DRAIN COUNTERS balanced=1' --expect 'storage_fault=-' \
 	  --expect 'OPENGBP-DRAIN RESULT status=abort_inconsistent class=abort reason=inconsistent stop=failure teardown=stage_a service=0 deliveries=0 restore=1' \
 	  --report $(DRAIN_OUT)/dolphin-report-absent.json --screen-png $(DRAIN_OUT)/dolphin-screen-absent.png
+
+# AOUT-HW-001 (Issue #86): the audit. The image links no GBP code at all, so there is
+# no one-shot handler to compare with GBP-VIDEO-001's; the profile proves the absence.
+aout-audit: $(AOUT_OUT)/poc-audit.txt
+	@cat $<
+
+# AOUT-HW-001 in Dolphin. Dolphin has no SD2SP2 here, so the image boots, fails to
+# read RUN 33's fixture and REFUSES to play: that refusal is the flow checked. The
+# decode and the resampling are checked on the host (tests/host/test_audio_listen.py);
+# the AI output is checked by the Operator's ears. Dolphin's audio is not evidence.
+aout-dolphin:
+	$(PYTHON) tools/dolphin_smoke.py --dol $(AOUT_DOL) --build-info $(AOUT_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-AOUT FIXTURE rc=-' \
+	  --expect 'OPENGBP-AOUT REFUSED got=-[0-9]+ build_rc=0 crc=00000000 tones=0' \
+	  --report $(AOUT_OUT)/dolphin-report-absent.json --screen-png $(AOUT_OUT)/dolphin-screen-absent.png
+
+# AOUT-HW-001's PLAYBACK path in Dolphin, through the DOLPHIN FLOW variant (EMBED=1: the fixture
+# linked in, build id aout-0001-dolphin, its own output directory, never staged, never for the
+# console). Checked: the sequence builds from RUN 33 (CRC, four tones, 194 000 frames), the AI DMA
+# runs and its callback cycles the blocks through a whole pass. NOT checked, and not checkable here:
+# what the audio sounds like -- Dolphin's audio is not evidence (CLAUDE.md §6.4).
+AOUT_DOLPHIN_OUT := build/poc/audio-output-replay-dolphin
+aout-dolphin-play:
+	$(IN_CONTAINER) sh -c 'make --no-print-directory -C poc/audio-output-replay EMBED=1'
+	$(PYTHON) tools/dolphin_smoke.py --dol $(AOUT_DOLPHIN_OUT)/audio-output-replay.dol \
+	  --build-info $(AOUT_DOLPHIN_OUT)/build-info.txt --heartbeats 0 \
+	  --expect 'OPENGBP-AOUT FIXTURE rc=5243788 EMBEDDED' \
+	  --expect 'OPENGBP-AOUT BUILT rc=0 crc=d3dbd9a6 tones=4 frames=194000 chunks=25' \
+	  --expect 'OPENGBP-AOUT PLAYING' --expect 'OPENGBP-AOUT PASS 1 dma_irqs=[0-9]+' \
+	  --report $(AOUT_DOLPHIN_OUT)/dolphin-report-play.json --screen-png $(AOUT_DOLPHIN_OUT)/dolphin-screen-play.png
 
 all: test smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirqa-dolphin initirqb-dolphin initirq4-dolphin avsvc-dolphin video-dolphin vstate-dolphin color-dolphin
 

@@ -1013,7 +1013,62 @@ def _drain_profile():
 # gbp_aperiod_feed's call sites in the tap: the control windows' and PHASE A's.
 DRAIN_TAP_FEED_SITES = {"drain_tap": 2}
 
+# AOUT-HW-001's call sites: the AI is programmed from main (the first block) and from the DMA
+# callback (every block after it), and from nowhere else; the sequence is built once, in main.
+# GCC inlines chunk_addr() into dma_cb and lays its two branches (a sequence block, the silence
+# block) out as two call sites -- the compiler's business, as with gbp_keypad_write above; the
+# property is the absence of every other caller.
+AOUT_SYMBOL_CALLERS = {
+    "AUDIO_InitDMA": {"main": 1, "dma_cb": 2},
+    "AUDIO_StartDMA": {"main": 1},
+    "AUDIO_StopDMA": {"main": 1},
+    "AUDIO_RegisterDMACallback": {"main": 2},
+    "gbp_alisten_build": {"main": 1},
+    "sdlog_save": {"main": 1},
+}
+
 PROFILES["drain"] = _drain_profile()
+
+
+# Issue #86: AOUT-HW-001, the OUTPUT PATH image. It is not built on any GBP image, so its
+# profile is not derived from one: it is written as the set of things that must be ABSENT.
+# The point of the image is that the console is made to play without the Game Boy Player
+# being touched, and that is a property of what is linked, which this checks.
+_GBP_OBJECTS = ("hsp_backend.o", "hsp_backend_irq.o", "hsp_backend_irq_multi.o", "hsp_backend_intmr.o",
+                "gbp_transport.o", "gbp_detect.o", "gbp_probe.o", "gbp_init_probe.o", "gbp_init_irq_probe.o",
+                "gbp_initirqa_probe.o", "gbp_initirqb_probe.o", "gbp_initirq4_probe.o", "gbp_irq_service.o",
+                "gbp_regwrite.o", "gbp_rawlog.o", "gbp_avblock.o", "gbp_avsvc_probe.o", "gbp_video_probe.o",
+                "gbp_vstate.o", "gbp_vstate_probe.o", "gbp_vstatedump.o", "gbp_vsig.o", "gbp_vqueue.o",
+                "gbp_vpresent.o", "gbp_vpix.o", "gbp_vwitness.o", "gbp_vcolor.o", "gbp_input.o", "gbp_session.o",
+                "gbp_adrain.o", "gbp_aperiod.o")
+PROFILES["aout"] = {
+    "forbidden_objects": _GBP_OBJECTS,
+    "required_objects": ("main.o", "gbp_alisten.o", "gbp_adec.o", "gbp_asrc.o", "gbp_aresamp.o",
+                         "gbp_awindump.o", "gbp_awin.o", "gbp_crc32.o", "sdlog.o", "ringlog.o", "opengbp_ident.o"),
+    "forbidden_symbols": ("hsp_backend_init", "hsp_backend_transport", "hsp_backend_irq_transport_ext",
+                          "gbp_regwrite_irq_u16", "gbp_regwrite_control_byte", "gbp_vstate_probe_run",
+                          "__UnmaskIrq", "__MaskIrq", "IRQ_Request", "IRQ_Free", "AR_Init", "ARQ_Init",
+                          "sdlog_stream_open", "sdlog_stream_write", "sdlog_save_blob"),
+    "investigate_symbols": (),
+    "symbol_callers": AOUT_SYMBOL_CALLERS,
+    "irq_write_sites": {},
+    "control_write_sites": {},
+    "intsr_store_sites": {},
+    "elf_required": ("gbp_alisten_build", "gbp_adec_push_block", "gbp_aresamp_push", "gbp_awindump_parse",
+                     "AUDIO_Init", "AUDIO_InitDMA", "AUDIO_StartDMA", "AUDIO_RegisterDMACallback"),
+    "elf_forbidden": ("gbp_vstate_probe_run", "hsp_backend_transport", "hsp_backend_irq_transport_ext",
+                      "gbp_regwrite_irq_u16", "gbp_regwrite_control_byte", "gbp_input_step"),
+    # the listening sequence reaches the #81 modules and the parser, and nothing else: no clock,
+    # no device, no file
+    "object_may_only_reference": {
+        "gbp_alisten.o": ("memset", "gbp_awindump_parse", "gbp_asrc_replay_open", "gbp_adec_init",
+                          "gbp_adec_calibrate", "gbp_adec_push_block", "gbp_adec_pop", "gbp_aresamp_init",
+                          "gbp_aresamp_push"),
+    },
+    "main_must_call": ("gbp_alisten_build", "AUDIO_Init", "AUDIO_SetDSPSampleRate", "AUDIO_RegisterDMACallback",
+                       "AUDIO_InitDMA", "AUDIO_StartDMA", "AUDIO_StopDMA", "sdlog_save", "fatMountSimple"),
+    "main_must_not_call": ("hsp_backend_init", "gbp_vstate_probe_run", "__UnmaskIrq", "IRQ_Request"),
+}
 # the GBP-INIT-003A names, kept for callers that import them
 FORBIDDEN_OBJECTS = PROFILES["003a"]["forbidden_objects"]
 FORBIDDEN_SYMBOLS = PROFILES["003a"]["forbidden_symbols"]
