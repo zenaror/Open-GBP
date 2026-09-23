@@ -46,6 +46,9 @@ BASES = {
         "078b25ae37d3a6e0209b1db6e4b6320b2798879a",
     "RUN 34 pre-registered":
         "ca3ed787501dbe370cd9ba0dd218f7f4909d9abb",
+    # Issue #84: §V19's three gates, frozen before GBP-AUDIO-005 runs
+    "Issue #84 -- §V19 transcribed":
+        "364be8416e674427ad4c377d6706046a86c35398",
 }
 
 

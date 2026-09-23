@@ -33,6 +33,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import v19drain as v  # noqa: E402
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import frozen  # noqa: E402
+
 HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 
 
@@ -280,6 +283,23 @@ class TheShortReadSample(unittest.TestCase):
                 v.sample_from_short_read(b"\x00" * 4096, n)
         self.assertEqual([v.legal_n(n) for n in (32, 256, 1024, 4096)], [True] * 4)
         self.assertEqual([v.legal_n(n) for n in (0, 31, 100, 4097, 8192)], [False] * 5)
+
+
+class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
+    """The discipline every frozen construction in this project carries, and which
+    Issue #83 pattern F repaired: the base is pinned by HASH in tests/host/frozen.py,
+    not found by searching commit messages. A gate edited after the data exists is
+    not a pre-registration, and GBP-AUDIO-005 has not run."""
+
+    def test_the_gates_are_the_bytes_of_the_commit_that_froze_them(self):
+        then = frozen.source("Issue #84 -- §V19 transcribed", "tools/v19drain.py")
+        self.assertEqual(then, read(os.path.join(ROOT, "tools", "v19drain.py")),
+                         "tools/v19drain.py was edited after it was frozen")
+
+    def test_the_part_was_frozen_in_the_same_commit(self):
+        then = frozen.source("Issue #84 -- §V19 transcribed", "docs/research/HARDWARE_TESTS.md")
+        i = then.index("\n## V19 — GBP-AUDIO-005")
+        self.assertEqual(then[i:], part(), "§V19 was edited after it was frozen")
 
 
 class TheModuleAuthorisesNothing(unittest.TestCase):
