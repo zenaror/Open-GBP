@@ -16,6 +16,7 @@ import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+import hostcc  # noqa: E402
 import icoord  # noqa: E402
 import vvi  # noqa: E402
 
@@ -65,10 +66,9 @@ class Producer:
         src = os.path.join(self.tmp, "gen.c")
         with open(src, "w") as f:
             f.write(GENERATOR)
-        r = subprocess.run(["gcc", "-std=gnu11", "-O1", "-I", SRC, "-o", self.bin, src,
-                            os.path.join(SRC, "gbp_vvi.c"), os.path.join(SRC, "gbp_vvidump.c"),
-                            os.path.join(SRC, "gbp_crc32.c")], capture_output=True, text=True)
-        self.ok, self.err = r.returncode == 0, r.stderr
+        self.have, self.ok, self.err = hostcc.compile_c(["-std=gnu11", "-O1", "-I", SRC, "-o", self.bin, src,
+                                                         os.path.join(SRC, "gbp_vvi.c"), os.path.join(SRC, "gbp_vvidump.c"),
+                                                         os.path.join(SRC, "gbp_crc32.c")])
 
     def write(self, path, script):
         r = subprocess.run([self.bin, path], input=script, capture_output=True, text=True)
@@ -95,8 +95,7 @@ def latch(t, rt, xfb, wrong=False):
 
 class TheContainer(unittest.TestCase):
     def setUp(self):
-        if not PROD.ok:
-            self.skipTest("gcc unavailable: %s" % PROD.err[:200])
+        hostcc.require(self, PROD.have, PROD.ok, PROD.err)
         self.tmp = tempfile.mkdtemp(prefix="opengbp-vi-t-")
 
     def path(self, name="vi.bin"):
@@ -140,8 +139,7 @@ class TheContainer(unittest.TestCase):
 
 class TheJoin(unittest.TestCase):
     def setUp(self):
-        if not PROD.ok:
-            self.skipTest("gcc unavailable")
+        hostcc.require(self, PROD.have, PROD.ok, PROD.err)
         self.tmp = tempfile.mkdtemp(prefix="opengbp-vi-j-")
 
     def test_r_h_l_from_synthetic_records(self):
@@ -265,8 +263,7 @@ class ItDoesNotClassifyVisibility(unittest.TestCase):
         self.assertIn("does not classify GBP-VIDEO-007", src)
 
     def test_the_report_carries_the_boundary_line(self):
-        if not PROD.ok:
-            self.skipTest("gcc unavailable")
+        hostcc.require(self, PROD.have, PROD.ok, PROD.err)
         p = PROD.write(os.path.join(tempfile.mkdtemp(), "vi.bin"), handoff(1, 1, 0, 100, 1))
         text = vvi.format_report(vvi.load(p))
         self.assertIn("SOFTWARE CHAIN ONLY", text)

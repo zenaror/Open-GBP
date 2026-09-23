@@ -25,6 +25,7 @@ import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+import hostcc  # noqa: E402
 import icoord  # noqa: E402
 import istim  # noqa: E402
 
@@ -89,9 +90,8 @@ def build(src_dir, name):
     with open(src, "w") as f:
         f.write(HARNESS)
     exe = os.path.join(tmp, "harness")
-    r = subprocess.run(["gcc", "-std=gnu11", "-O1", "-Wall", "-Wextra", "-I", src_dir, "-o", exe, src],
-                       capture_output=True, text=True)
-    return (exe if r.returncode == 0 else None), r.stderr
+    have, ok, err = hostcc.compile_c(["-std=gnu11", "-O1", "-Wall", "-Wextra", "-I", src_dir, "-o", exe, src])
+    return exe, have, ok, err
 
 
 _B = {}
@@ -100,9 +100,8 @@ _B = {}
 def rom(which, frame_id, status):
     if which not in _B:
         _B[which] = build(os.path.dirname(ROM1_SRC if which == 1 else ROM2_SRC), "c%d" % which)
-    exe, err = _B[which]
-    if exe is None:
-        raise unittest.SkipTest("gcc unavailable: %s" % err[:200])
+    exe, have, ok, err = _B[which]
+    hostcc.require_here(have, ok, err, "the coord-000%d ROM harness" % which)
     r = subprocess.run([exe, str(frame_id), str(status)], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     w = [int(x, 16) for x in r.stdout.split()]

@@ -61,6 +61,17 @@ LEDGER = [
     (r"^the bring-up log is not archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
      "§V12.10's hash and the gecko=1 line are quoted on the page and pinned by tests that never "
      "skip; the cross-check's five quantities are all in the document"),
+    # Issue #82: these fire from `raise unittest.SkipTest(...)`, which the static extractor did not
+    # see until #82, so they were registered nowhere. Each reads a RAW capture or log under logs/ or
+    # captures/local/; the fixtures DERIVED from those runs are versioned and read unconditionally.
+    (r"^(the (run-[0-9]+|%s) (witness )?capture is not on this machine|the run-8 log is not on this machine"
+     r"|run-8 log absent)$", "LOCAL_ARTIFACT_ABSENT",
+     "the derived fixtures of those runs live under captures/fixtures/ and are read without a guard "
+     "(test_disp_run5.py opens the run-5 disp fixture and pins its hash; test_disp_run6.py now FAILS "
+     "if that versioned fixture is missing); the raw captures are the provenance, hashed in the records"),
+    (r"^no host compiler$", "TOOLCHAIN_ABSENT",
+     "test_agb_tone.run_rom() skips only when neither /usr/bin/cc nor /usr/bin/gcc exists; a compiler "
+     "that exists and does not compile the ROM raises AssertionError with its output"),
     # Issue #81: the runtime decoder is proved from the VERSIONED fixtures; the raw drops and
     # #80's WAVs are extra comparisons made only where they exist.
     (r"^the raw sidecars are not in this checkout \(logs/ is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
@@ -71,10 +82,6 @@ LEDGER = [
      "the same samples are regenerated from the versioned fixtures by tools/v17decode.write_wav -- "
      "the code that wrote those WAVs -- and compared integer for integer, and that test never skips "
      "for want of a local file"),
-    (r"^gcc unavailable on this host$", "TOOLCHAIN_ABSENT",
-     "the fixtures' hashes, the coefficient table against its generator and the drain-path source "
-     "pins do not need a compiler and never skip; a compiler that exists and fails to build the "
-     "harness FAILS the test instead of skipping it"),
     # Issue #78: RUN 33 and RUN 34, under captures/local and logs/, ignored by design.
     (r"^RUN 33 or RUN 34 is not archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
      "§V15's hashes, offsets, verdicts and measurements are all on the page and pinned from the "
@@ -168,8 +175,13 @@ LEDGER = [
     (r"^(.*is not built in this checkout|the audio image is not built in this checkout|14-audio is not staged in this checkout)$", "NOT_BUILT",
      "`make build` and `make awin-audit` produce them; the subtraction, the budget and the window's "
      "constants are pinned from the SOURCES in the same file and never skip"),
-    (r"^gcc unavailable", "TOOLCHAIN_ABSENT",
-     "the same property is asserted statically by the source pins in the same file"),
+    # Issue #82: the ONLY compiler skip. It is exact, so the old "gcc unavailable: <the compiler's
+    # error>" -- a COMPILE FAILURE reported as a skip, which seven files did until #82 -- no longer
+    # classifies anywhere, statically or at run time.
+    (r"^gcc unavailable on this host$", "TOOLCHAIN_ABSENT",
+     "tests/host/hostcc.py skips ONLY when the host has no gcc; a gcc that exists and fails to build "
+     "a harness FAILS the test, and tests/host/test_compile_skips.py runs every C-compiling test under "
+     "both conditions to pin it. `make test-unit` compiles the C sources with the same compiler"),
     (r"^run `make [^`]*-audit", "AUDIT_INPUT_ABSENT",
      "`make <x>-audit` is run in the checkpoint that changes the code it audits, and its 0-finding result is reported "
      "there; the suite records the decision rather than silently depending on it. (The `ast` extractor of Issue #44 "

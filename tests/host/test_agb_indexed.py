@@ -14,6 +14,7 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+import hostcc  # noqa: E402
 import istim   # noqa: E402
 import vindex  # noqa: E402
 
@@ -72,12 +73,9 @@ class RomMatchesTheReferenceModel(unittest.TestCase):
         with open(src, "w") as f:
             f.write(HARNESS)
         cls.bin = os.path.join(cls.tmp, "harness")
-        r = subprocess.run(["gcc", "-std=gnu11", "-O1", "-Wall", "-Wextra",
-                            "-I", os.path.dirname(ROM_SRC),
-                            "-o", cls.bin, src],
-                           capture_output=True, text=True)
-        cls.built = (r.returncode == 0)
-        cls.err = r.stderr
+        cls.have, cls.built, cls.err = hostcc.compile_c(["-std=gnu11", "-O1", "-Wall", "-Wextra",
+                                                         "-I", os.path.dirname(ROM_SRC),
+                                                         "-o", cls.bin, src])
 
     def _rom_frame(self, frame_id, status, prev_phase):
         r = subprocess.run([self.bin, str(frame_id), str(status), str(prev_phase)],
@@ -89,8 +87,7 @@ class RomMatchesTheReferenceModel(unittest.TestCase):
 
     def test_the_rom_renders_exactly_what_the_model_says(self):
         """§35: 38 400 of 38 400 AGB words, for a broad deterministic set."""
-        if not self.built:
-            self.skipTest("gcc unavailable: %s" % self.err[:200])
+        hostcc.require(self, self.have, self.built, self.err)
         cases = [(0, 0x7F), (1, 0x7F), (2, 0x40), (30, 0x00), (31, 0x7F),
                  (1000, 0x42), (0x123456, 0x05), (0xFFFFFF, 0xFF),
                  (0xFFFFFF, 0x80), (12345, 0x13)]
@@ -113,8 +110,7 @@ class RomMatchesTheReferenceModel(unittest.TestCase):
 
     def test_the_canonical_witness_matches_word_for_word(self):
         """§35: every block's canonical witness, as the analyzer would read it."""
-        if not self.built:
-            self.skipTest("gcc unavailable")
+        hostcc.require(self, self.have, self.built, self.err)
         for frame_id, status in ((0, 0x7F), (777, 0x21), (0xFFFFFF, 0x80)):
             prev = (frame_id - 1) % istim.BAR_PERIOD
             rom = self._rom_frame(frame_id, status, prev)
@@ -125,16 +121,14 @@ class RomMatchesTheReferenceModel(unittest.TestCase):
                 self.assertEqual(got, want, "f=0x%06x b=%d" % (frame_id, b))
 
     def test_the_rom_never_writes_bit15(self):
-        if not self.built:
-            self.skipTest("gcc unavailable")
+        hostcc.require(self, self.have, self.built, self.err)
         rom = self._rom_frame(4242, 0x55, 4241 % istim.BAR_PERIOD)
         self.assertEqual([w for w in rom if w & 0x8000], [])
 
     def test_frame_zero_is_complete_before_the_mode_is_selected(self):
         """§30: no partially initialised visible frame. Frame 0 must already
         decode completely."""
-        if not self.built:
-            self.skipTest("gcc unavailable")
+        hostcc.require(self, self.have, self.built, self.err)
         rom = self._rom_frame(0, istim.STATUS_MARGIN_INIT, 0)
         w = []
         for b in range(istim.BLOCKS):
@@ -192,15 +186,11 @@ class TheValidatorIsTheAuthority(unittest.TestCase):
         with open(src, "w") as f:
             f.write(FAULT_HARNESS)
         cls.bin = os.path.join(cls.tmp, "fault")
-        r = subprocess.run(["gcc", "-std=gnu11", "-O1", "-Wall", "-Wextra",
-                            "-I", os.path.dirname(ROM_SRC), "-o", cls.bin, src],
-                           capture_output=True, text=True)
-        cls.built = (r.returncode == 0)
-        cls.err = r.stderr
+        cls.have, cls.built, cls.err = hostcc.compile_c(["-std=gnu11", "-O1", "-Wall", "-Wextra",
+                                                         "-I", os.path.dirname(ROM_SRC), "-o", cls.bin, src])
 
     def run_steps(self, *steps):
-        if not self.built:
-            self.skipTest("gcc unavailable: %s" % self.err[:200])
+        hostcc.require(self, self.have, self.built, self.err)
         r = subprocess.run([self.bin] + list(steps), capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         return [int(x, 16) for x in r.stdout.split()]

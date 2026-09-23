@@ -11,6 +11,7 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+import hostcc  # noqa: E402
 import istim  # noqa: E402
 
 
@@ -398,13 +399,10 @@ int main(void) {
         with open(src, "w") as f:
             f.write(cls.SHIM)
         cls.bin = os.path.join(cls.tmp, "shim")
-        r = subprocess.run(["gcc", "-std=gnu11", "-O1", "-Wall", "-Wextra",
-                            "-I", os.path.join(ROOT, "src", "gbp"),
-                            "-o", cls.bin, src,
-                            os.path.join(ROOT, "src", "gbp", "gbp_vsig.c")],
-                           capture_output=True, text=True)
-        cls.built = (r.returncode == 0)
-        cls.build_err = r.stderr
+        cls.have, cls.built, cls.build_err = hostcc.compile_c(["-std=gnu11", "-O1", "-Wall", "-Wextra",
+                                                               "-I", os.path.join(ROOT, "src", "gbp"),
+                                                               "-o", cls.bin, src,
+                                                               os.path.join(ROOT, "src", "gbp", "gbp_vsig.c")])
 
     def _c(self, raw):
         r = subprocess.run([self.bin], input=raw, capture_output=True)
@@ -412,8 +410,7 @@ int main(void) {
         return int(r.stdout.strip(), 16)
 
     def test_the_python_model_matches_the_c_on_real_stimulus_blocks(self):
-        if not self.built:
-            self.skipTest("gcc unavailable: %s" % self.build_err[:200])
+        hostcc.require(self, self.have, self.built, self.build_err)
         for f, b in ((0, 0), (1, 0), (7, 13), (0x123456, 39)):
             raw = istim.render_block_raw(f, b)
             self.assertEqual(istim.vsig_block(raw), self._c(raw), (f, b))
@@ -430,8 +427,7 @@ int main(void) {
         self.assertEqual(istim.vsig_block_fast(0, 0, True), c)
 
     def test_bytes_0_and_2_cannot_change_the_signature(self):
-        if not self.built:
-            self.skipTest("gcc unavailable")
+        hostcc.require(self, self.have, self.built, self.build_err)
         a = istim.render_block_raw(0, 5, filler=0x00)
         b = istim.render_block_raw(0, 5, filler=0xA5)
         self.assertNotEqual(a, b)

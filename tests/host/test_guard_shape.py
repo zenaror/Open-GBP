@@ -85,6 +85,14 @@ def skip_sites(files=None):
                 arg = node.args[1] if len(node.args) > 1 else None
                 r, how = _reason_of(arg) if arg is not None else (None, "unextractable")
                 out.append((f, node.lineno, r, how, "decorator"))
+            # Issue #82: `raise unittest.SkipTest(...)` skips exactly like .skipTest(...) and the
+            # extractor did not see it -- eight such reasons were in no ledger entry at all.
+            elif isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and (
+                    (isinstance(node.exc.func, ast.Attribute) and node.exc.func.attr == "SkipTest")
+                    or (isinstance(node.exc.func, ast.Name) and node.exc.func.id == "SkipTest")):
+                arg = node.exc.args[0] if node.exc.args else None
+                r, how = _reason_of(arg) if arg is not None else (None, "unextractable")
+                out.append((f, node.lineno, r, how, "raise"))
     return out
 
 
@@ -158,7 +166,7 @@ class EverySkipIsRegisteredWithWhatCoversIt(unittest.TestCase):
     def test_the_extractor_sees_every_site_including_the_formatted_ones(self):
         """Issue #44 item 2: a regex over literals reported clean over sites it never saw."""
         sites = skip_sites()
-        kinds = {k: sum(1 for s in sites if s[4] == k) for k in ("call", "decorator")}
+        kinds = {k: sum(1 for s in sites if s[4] == k) for k in ("call", "decorator", "raise")}
         hows = {h: sum(1 for s in sites if s[3] == h) for h in ("literal", "format-prefix", "fstring-prefix", "unextractable")}
         self.assertEqual(hows["unextractable"], 0,
                          "a skip reason with no literal prefix cannot be registered or reviewed: %s"
@@ -167,6 +175,9 @@ class EverySkipIsRegisteredWithWhatCoversIt(unittest.TestCase):
                                                       "collapses to zero the extractor is no longer proving anything")
         self.assertGreater(kinds["call"], 50)
         self.assertGreater(kinds["decorator"], 40)
+        # Issue #82: the raise form is seen too -- fifteen sites when it was added, one of which (a
+        # VERSIONED fixture) was turned into a failure in the same checkpoint
+        self.assertGreaterEqual(kinds["raise"], 14)
         # guards.py's own formatted reason is in the set, which is the site the regex missed first
         self.assertTrue(any(f == "guards.py" and h == "format-prefix" for f, _l, _r, h, _k in sites))
 
