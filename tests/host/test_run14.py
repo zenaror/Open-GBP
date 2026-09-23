@@ -830,6 +830,15 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         # Issue #80 (2026-09-23): tools/v17pred.py (the predictions, frozen first) and
         # tools/v17decode.py (the H-PWM decoder); they read the captures and touch no image.
         changed = changed - {"tools/v17pred.py", "tools/v17decode.py"}
+        # Issue #81 (2026-09-23): the AUDIO decode as runtime code -- src/audio/ (the decoder, the
+        # replay backend, the 125/16 resampler and its generated table), its generator
+        # tools/gen_aresamp.py, and RUN 33 / RUN 34's raw sidecars versioned as fixtures. Host-tested
+        # only: no image links src/audio/, and no POC, slot or runtime path changed.
+        changed = changed - {"src/audio/gbp_adec.c", "src/audio/gbp_adec.h", "src/audio/gbp_asrc.c",
+                             "src/audio/gbp_asrc.h", "src/audio/gbp_aresamp.c", "src/audio/gbp_aresamp.h",
+                             "src/audio/gbp_aresamp_coef.h", "tools/gen_aresamp.py", "captures/README.md",
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
@@ -859,6 +868,10 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         allowed |= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"}
         self.assertTrue(changed <= allowed, "changed against the base: " + " ".join(sorted(changed)))
         changed2 = guards.changed_since(FROZEN_V71_COMMIT, ["captures/fixtures"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #81 (2026-09-23): RUN 33 / RUN 34's raw audio sidecars, versioned as replay fixtures
+        # (captures/README.md); the first fixtures since RUN 18, and they touch none of the above.
+        changed2 = changed2 - {"captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
+                               "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz"}
         for line in sorted(changed2):
             self.assertRegex(line, r"-run1[45678]-", "only the RUN 14 / RUN 15 (Issue #24) and RUN 16 / 17 / 18 (Issue #33) fixtures were added: " + line)
 
