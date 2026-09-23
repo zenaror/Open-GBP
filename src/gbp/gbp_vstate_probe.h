@@ -333,6 +333,32 @@ struct gbp_vstate_config {
      * touches a clock of its own; arming is the pump slot's (gbp_awin), and
      * this module never writes the store's control fields. */
     struct gbp_awin *awin;
+    /* ---- Issue #84 (GBP-AUDIO-005, §V19): THE AUDIO READ LENGTH, LIVE ----
+     * NULL in every earlier build, and then this field does not exist as far
+     * as the device is concerned: the AUDIO read length is `audio_len`, fixed
+     * for the run, exactly as before -- not one read, write, wait, reorder or
+     * log line is added. The same shape as `session_end`, for the same reason:
+     * `cfg` is const to this module, so a value the caller changes mid-run
+     * must be reached through a pointer the caller owns.
+     *
+     * When the drain image supplies a length here, it is read ONCE per AUDIO
+     * drain, at the start of that drain, and the whole drain -- the read, its
+     * commit, the awin copy and the byte total -- uses that one value, so a
+     * length change can never split a single drain. The length must be a
+     * positive multiple of the 32-byte DMA granule and at most one AUDIO
+     * block (4096), which gbp_avblock_read's transport already enforces
+     * (gbp_bulk_args_ok): an illegal length fails the drain, never truncates.
+     *
+     * CONSEQUENCE, stated where the change is (Issue #84 decision 1): every
+     * physically executed image that links this module -- vstate-0004
+     * (10-vstate), color-0002 (11-color), stream-0015 (12-stream), play-0001
+     * (13-play) and stream-0016 (14-audio) -- reproduces at ITS OWN commit,
+     * not at the commit that adds this field. Their physical results are tied
+     * to their STAGED bytes by hash, which this change does not move, and
+     * tests/host/test_staged_artifacts.py checks those bytes: every staged
+     * slot against build/swiss/INDEX.txt, the frozen slots against the
+     * records. */
+    const uint32_t *audio_len_live;
     /* ---- PRE-HANDLER MASKED WAIT: a DIAGNOSTIC, and nothing else ----
      * 0 in every ordinary build, and then this field does not exist as far as
      * the device is concerned: no wait, no extra read, no log line, the same
