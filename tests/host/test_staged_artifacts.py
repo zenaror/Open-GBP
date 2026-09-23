@@ -53,8 +53,10 @@ FROZEN = {
     # 2026-09-23: the one sitting the Operator decided on (§V19.12, §V21.4)
     "15-drain": ("4c80ab8a34d9260793e036beda513a9a23be86d04c61c0d653c6f79fc7333884", HW,
                  "drain-0001 @ 897ea6c, GBP-AUDIO-005, staged for its first run"),
-    "16-aout": ("161492325661ffc63288c33712dcf7be98554828581e3d8e4564d0381b13ba90", HW,
-                "aout-0001 @ 2f14028, AOUT-HW-001, staged for its first run"),
+    # §V21.7: aout-0001 was superseded before any run (its order had been told); aout-0002 plays
+    # §V21.6's sealed order
+    "16-aout": ("97f113ca0bbc9ec94e5ca945a2a34dae4f5bd5ff9386b2b8362cc32e8d7145e2", HW,
+                "aout-0002 @ 28cbb97, AOUT-HW-001, re-staged for its first run"),
 }
 
 # Issue #83, pattern H: A RECORD THAT CERTIFIES ITSELF.

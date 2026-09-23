@@ -336,7 +336,7 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         # Issue #84 / #86 (2026-09-23): the drain and output-path candidates, frozen from the start for
         # the one sitting the Operator decided on (§V19.12, §V21.4)
         self.assertEqual(rows["15-drain"], "4c80ab8a34d9260793e036beda513a9a23be86d04c61c0d653c6f79fc7333884")
-        self.assertEqual(rows["16-aout"], "161492325661ffc63288c33712dcf7be98554828581e3d8e4564d0381b13ba90")
+        self.assertEqual(rows["16-aout"], "97f113ca0bbc9ec94e5ca945a2a34dae4f5bd5ff9386b2b8362cc32e8d7145e2")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
                          ["12-stream", "13-play", "14-audio", "15-drain", "16-aout"])
         # and every frozen hash is one HARDWARE_TESTS.md names, so the manifest cannot drift from the

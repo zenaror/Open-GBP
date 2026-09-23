@@ -15105,3 +15105,46 @@ staging    slot 16-aout proposed, added FROZEN at this hash before the export; t
 ```
 §V21 is frozen at 2f14028 (`tests/host/frozen.py`), and `test_aout_image` checks that
 anything later is appended to it and never edited in.
+
+## 2026-09-23 — AOUT-HW-001: the blind restored — `aout-0002` plays a sealed order, re-staged in `16-aout`
+
+**Goal.** Restore the blind of AOUT-HW-001's gate before its first run.
+
+**What happened.** After `aout-0001` was staged (§V21.4), the Executor told the
+Operator, in chat, the pitch pattern the tones would make. The ears are the gate
+(§V21.2), and they were no longer blind to the answer. The Executor disclosed this to
+the Orchestrator, who chose the remedy: play the tones in an order the Operator does
+not know.
+
+**Changes.**
+- §V21.5, AMENDMENT 1, before the run: the Operator's report is classified into
+  INCONCLUSIVE, SILENT, PASS, PITCHES-ORDER, PITCHES-MERGED or PITCHES-NONE, from his
+  quoted words.
+- §V21.6, AMENDMENT 2, before any code for it: the play order was drawn at random and
+  committed in the same commit as `poc/audio-output-replay/source/aout_order.h`
+  (459c434). The order is deliberately not repeated here.
+- `gbp_alisten_permute` moves whole (tone + gap) segments. Each segment is a whole
+  number of the resampler's 16-input cycles, so every played segment is byte-for-byte
+  the segment built in place. `TheReorderIsExact` checks that, along with every
+  refusal.
+- `aout-0002` @ 28cbb97 (363 168 B, sha256 `97f113ca…45e2`) plays the sealed order.
+  - It passed two identical from-scratch builds, a 0-finding `aout` audit, and both
+    Dolphin flows.
+  - Its order never reaches the screen or the Gecko (`test_aout_image`).
+  - The fourteen freeze guards now name the sealed header.
+
+**Staging.** The FROZEN pin of `16-aout` moved to `aout-0002` before the export. Only
+`16-aout/boot.dol` and `INDEX.txt` changed, in `build/swiss` and on the card. Every
+file on the card was re-read by a page-cache-bypassing read (§V21.7). `aout-0001` is
+superseded and must not run.
+
+**Checked, not assumed (§V21.7).** AMENDMENT 1's classes survive the permutation:
+- the count and the three relations, taken in play position, are unchanged;
+- PASS compares against §V21.6 in place of §V21.2's EXPECTED line;
+- a rejected permutation refuses, which is INCONCLUSIVE.
+
+The Operator's report is recorded before the saved log, which names the order, is
+opened.
+
+**Next.** The Orchestrator verifies the card independently, then writes the Hardware
+Issue for GBP-AUDIO-005 (`15-drain`) and AOUT-HW-001 (`16-aout`) in one sitting.
