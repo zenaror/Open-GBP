@@ -31443,6 +31443,21 @@ re-exported slot or a missing build artifact could each have left the suite gree
 or merely quieter. None of them can now, and each has a test that proves it by
 reproducing the failure rather than by describing it.
 
+### V18.10 §V18.6's stall location, NARROWED — **appended 2026-09-23 (GitHub Issue #84); the counts stand**
+
+§V18.6 says the 13 service stalls are *"in the first ~100 frames (~1.7 s)"*. The
+log shows less than that. It prints only the first 128 events and the last 64
+(`EVENTS n=309 shown=192`). **10 of the 13** incomplete frames are located, at
+frames 0, 9/12/15, 31/34/37 and 91/94/97. **3 are not located by the log.** The
+fourth preserved episode (open frame 150, close 197) lies in the unprinted range.
+The fit that places the three at ~151/154/157 is a HYPOTHESIS.
+
+The same 13 incomplete frames and 26 resyncs, and the same four preserved episodes,
+recur in **all seven** archived sessions of the shared service path, `play-0001`'s
+four included. That invariance is now its own entry, **`GBP-HW-317`**, and
+`GBP-HW-316` carries the dated narrowing on top. §V18.6 stays as written, per the
+convention.
+
 ## V19 — GBP-AUDIO-005: **THE CONTINUOUS-DRAIN PRE-REGISTRATION** — is the 68-block shortfall a startup cost, what does one SD write cost, and does a read shorter than an AUDIO block work (`U-GBP-042`)? — **PRE-REGISTERED 2026-09-23 (GitHub Issue #84); NOT RUN, NOT AUTHORISED HERE; the POC and the gates are built under this Issue, the run is staged by a separate Hardware Issue**
 
 **HOW TO READ THIS PART.** It is the Orchestrator's frozen text, transcribed

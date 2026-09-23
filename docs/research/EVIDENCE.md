@@ -8783,7 +8783,7 @@ change fell, on a two-slice grid -- at least 8x the time resolution the H-PWM sa
 CORROBORATED, not FACT, for time order: one construction, and only between two-slice groups. That the grid is
 32 768/s and is the AGB's PWM rate is a **HYPOTHESIS** (it assumes uniform slices, `U-GBP-041`).
 
-### GBP-HW-316 — stream-0016's service read **272 145 AUDIO blocks, all whole 0x1000, 0 failures**, and still fell **68 blocks short** of 4 096/s in both runs, in **13 early service stalls** that no failure counter saw — **FACT for the counts (raw logs); the location of the audio loss is an INFERENCE**
+### GBP-HW-316 — stream-0016's service read **272 145 AUDIO blocks, all whole 0x1000, 0 failures**, and still fell **68 blocks short** of 4 096/s in both runs, in **13 early service stalls** that no failure counter saw — **FACT for the counts (raw logs); the location of the audio loss is an INFERENCE** — **2026-09-23, Issue #84: the stalls' LOCATION narrowed — 10 of the 13 are located, in frames 0–97; the other 3 are not located by the log. The counts keep their FACT (`GBP-HW-317`)**
 
 `HARDWARE_TESTS.md` §V18.6, from the RUN 33 / RUN 34 raw logs (hashes in `captures/README.md`):
 
@@ -8803,3 +8803,84 @@ frame times put within ~16 ppm). Audio blocks carry no sequence number, so the l
 that the ~68 blocks were lost in the same stalls is **consistent with** the 50 lost video blocks (~14.7 ms)
 and the start-up (~4.6 ms), and is recorded as an inference. **`failures=0` counts DMA completions, not
 coverage.**
+
+**2026-09-23, Issue #84: the stalls' LOCATION narrowed; the counts keep their
+FACT.** This entry's *"all in the first ~100 frames"* claims more than the log
+shows, and so does §V18.6's *"in the first ~100 frames (~1.7 s)"*. The log prints
+only the first 128 events and the last 64 (`EVENTS n=309 shown=192` in both runs).
+Of the 13 incomplete frames, **10 are located**: `resync` and `incomplete_interval`
+at frames 0, 9/12/15, 31/34/37 and 91/94/97, all within frames 0–97 (~1.6 s).
+**The other 3 are not located by the log**, because they fall among the events it
+does not print.
+
+The fourth preserved episode opens at frame 150 and closes at 197 in both runs,
+which is inside that unprinted range. The fit that puts the three at ~151/154/157
+(~2.6 s) is a **HYPOTHESIS**, recorded in `GBP-HW-317` with the three frames
+explicitly unlocated. The delivery-rate contrast above (6 308.85/s over the first
+4.89 s, 6 330–6 337/s in every later segment) is **consistent with** all 13 lying
+early. It does not locate them.
+
+```text
+STANDS     the counts: 13 incomplete, 26 resyncs, 50 video blocks never read, 68.06 / 68.59 AUDIO
+           blocks short; the delivery-rate contrast; the inference about where the audio loss sits
+NARROWS    "all in the first ~100 frames"  ->  10 of 13 located in frames 0-97; 3 not located by the log
+```
+
+### GBP-HW-317 — the start-up stall signature is **INVARIANT across all seven archived sessions of the shared service path**: 13 incomplete frames, 26 resyncs and the same four preserved episodes (open frames 8 / 30 / 90 / 150) in two images, from 27.9 s to 273.8 s, with 11 to 540 later episodes — **FACT, a recomputable property of the archive; what produces the stalls is a HYPOTHESIS**
+
+`HARDWARE_TESTS.md` §V19.11 (AMENDMENT 4). Read from the seven raw session logs
+archived under `captures/local/` (`logs/` untouched). `gbp_vstate.c`, the service
+path's episode tracker, is linked by both images: `stream-0016` is `play-0001`
+plus the AUDIO window and nothing else.
+
+```text
+session              log sha256    frames   incomplete  resync  episodes  not_preserved  capture (s)  deficit
+RUN 21  play-0001    cae3ecfc…     16 354       13        26       544         540        273.810586    72.16
+RUN 22  play-0001    a7bf2dbf…     12 064       13        26       420         416        201.995601    71.98
+RUN 25  play-0001    70b24767…      3 173       13        26        27          23         53.130126    68.00
+RUN 26  play-0001    5fb2161b…      1 859       13        26        27          23         31.124795    67.16
+RUN 33  stream-0016  8c9d085e…      1 668       13        26        15          11         27.932144    68.06
+RUN 34  stream-0016  b1843112…      2 302       13        26        15          11         38.542869    68.59
+RUN 35  stream-0016  7e7fc907…      2 507       13        26        15          11         41.979327    67.32
+
+every session   STRUCTURED store_full=1 descriptors=4 raw_slots=16
+                EPISODE i=0..3  open_frame 8 / 30 / 90 / 150   close_frame 25 / 89 / 149 / 197   raw=4/4 each
+                failures=0 (AUDIOAGG)
+images          play-0001 @ 2e48ca7, stream-0016 @ 04121fe
+```
+
+Full log hashes: RUN 21
+`cae3ecfcd16ae319ad19968190560f900c0989ed7463f54da45e1dd5a4fc09c4`, RUN 22
+`a7bf2dbf014b6dca059e7b6a436e6bd81a1b01b28310bbd383cdea7b0d005c14`, RUN 25
+`70b247675e6f116881872162f0900c8d79fd80f67e703ffb50dac4e0eb2d42a2`, RUN 26
+`5fb2161b4306b3d21860da19bbf5390ffd1b17a80661598c17587ed5b382f15d`; RUN 33 / 34 / 35
+as in `captures/README.md` and §V20.
+
+**What it establishes (FACT, about the archive):**
+- **The stall count does not scale with session length.** It is 13 at 1 859 frames
+  and 13 at 16 354. Nor does it scale with the number of later episodes: 13 with 11
+  not preserved and 13 with 540. This is what turns *"coverage rises with duration"*
+  into *"a fixed start-up cost over a sound steady state"* (§V19.11 A4.3).
+- **Episodes that were not preserved cost no incomplete frame in any session.**
+  RUN 21 and RUN 26 differ 23× in them and carry the same 13.
+- **The whole-session deficit does not grow with them either**: 72.16 with 540,
+  67.16 with 23, over durations that differ 8.8×.
+
+**What it does NOT establish:**
+- **Where three of the 13 are.** The logs print the first 128 events (through frame
+  130) and the last 64 (`EVENTS shown=192`). **Ten** incomplete frames are visible:
+  0, 9/12/15, 31/34/37 and 91/94/97, identical in all seven sessions. **Three are
+  not located.**
+- **What produces them — a HYPOTHESIS.** The visible ten are frame 0 plus the open,
+  +3 and +6 frames of the first three preserved episodes. The same pattern at the
+  fourth (open 150) would put the other three at ~151/154/157. 13 = 1 + 3 × 4 then
+  fits every session, which is consistent with *preserving* an episode's raw frames
+  (`raw=4/4`) being what stalls the service, and with that ending once the
+  4-descriptor store is full (by frame 197). **It is an arithmetic fit with three
+  frames unlocated and no cost measured**, and it stays a HYPOTHESIS. That the
+  four episodes sit at the same frames in every session is consistent with the
+  AGB's start-up, which is the same for any cartridge. That is also untested.
+- **How many AUDIO blocks any one stall costs.** AUDIO blocks carry no sequence
+  number (`GBP-HW-316`).
+
+One console, one Game Boy Player, as every entry here.

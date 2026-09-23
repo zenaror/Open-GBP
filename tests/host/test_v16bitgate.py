@@ -156,7 +156,7 @@ class TheRecordSaysWhatItMust(unittest.TestCase):
         ev = read(EV)
         h = [l for l in ev.split("\n") if l.startswith("### GBP-HW-312")][0]
         self.assertIn("FACT, a property of code and data, recomputable; not a hardware claim", h)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 316)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 317)
 
     def test_the_mechanism_recomputes_from_the_archive(self):
         if not (os.path.exists(B32) and os.path.exists(B34)):
