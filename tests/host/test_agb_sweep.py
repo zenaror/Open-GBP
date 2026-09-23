@@ -541,6 +541,63 @@ class ThePlumbingAndTheRecord(unittest.TestCase):
         self.assertIn("13ed1108e0b1ba9ad9328c1230802fe0f1b72b1a885cd6c2087487c5c690b865", s)
 
 
+class TheFieldLayoutIsPinnedToGbatekAndNotToMemory(unittest.TestCase):
+    """§V11.15.7. The register tests assert `volume << 12` -- OUR READING of the
+    field layout. RUN 31 corroborated the FREQUENCY field by measuring it, but
+    agb-tone only ever used volume 15, so the envelope volume field is
+    corroborated by no run. These read the layout out of the VENDORED GBATEK
+    and check the ROM against it, which is the one thing an mGBA rung would
+    have added (§V11.15.7 declines it for that reason)."""
+
+    GBATEK = os.path.join(ROOT, "external", "gbatek", "gba.md")
+
+    def table(self):
+        if not os.path.exists(self.GBATEK):
+            self.skipTest("external/gbatek is not in this checkout")
+        t = read(self.GBATEK)
+        i = t.index("## 4000062h - SOUND1CNT")
+        return t[i:i + 900]
+
+    def test_bits_12_to_15_are_the_initial_volume(self):
+        self.assertRegex(self.table(), r"12-15\s+R/W\s+Initial Volume of envelope")
+        # and the ROM puts the volume exactly there
+        self.assertIn("(((u16)(v) << 12) | 0x0080u)", read(ROM_SRC))
+
+    def test_step_time_zero_really_means_no_envelope(self):
+        self.assertRegex(self.table(), r"8-10\s+R/W\s+Envelope Step-Time.*0=No Envelope")
+        for volume in v11sweep.AMPLITUDES:
+            self.assertEqual(((volume << 12) | 0x0080) & 0x0700, 0)
+
+    def test_duty_two_is_the_fifty_percent_square(self):
+        self.assertRegex(self.table(), r"6-7\s+R/W\s+Wave Pattern Duty")
+        self.assertIn("2: 50%", self.table())
+        self.assertEqual((0x0080 >> 6) & 3, 2)
+
+    def test_the_length_value_is_used_only_with_the_bit_the_rom_never_sets(self):
+        self.assertIn("The Length value is used only if Bit 6 in NR14 is set", self.table())
+        self.assertEqual(num(define(read(ROM_SRC), "SWEEP_RESTART")) & 0x4000, 0)
+
+    def test_gbatek_gives_a_SECOND_reason_the_null_is_not_in_the_schedule(self):
+        """§V11.4.1 excluded volume 0 because it is indistinguishable from a
+        window that has not begun carrying. GBATEK adds that it is No Sound
+        outright -- so it would not have been a faint tone to extrapolate from."""
+        self.assertRegex(self.table(), r"Initial Volume of envelope\s+\(1-15, 0=No Sound\)")
+        self.assertNotIn(0, v11sweep.AMPLITUDES)
+        for volume in v11sweep.AMPLITUDES:
+            self.assertTrue(1 <= volume <= 15)
+        s = plain(v11_part()[v11_part().index("#### V11.15.7"):])
+        self.assertIn("a SECOND, independent reason the null is not in the", s)
+
+    def test_the_assessment_records_the_measurement_and_the_decline(self):
+        s = plain(v11_part()[v11_part().index("#### V11.15.7"):])
+        self.assertIn("ASSESSED AND DECLINED", s)
+        self.assertIn("12 / 12", s)
+        self.assertIn("no mutation is committed", s)
+        self.assertIn("considered and left, not missed", s)
+        self.assertIn("mGBA's APU is a MODEL", s)
+        self.assertIn("No figure from it may ever enter EVIDENCE.md", s)
+
+
 class TheOperatorsPreFlightCheckIsSizedHonestly(unittest.TestCase):
     """§V11.15.6. He put agb-tone in his own GBA unasked and it made sound. That
     is a second channel and a free pre-flight step -- and it is NOT evidence
@@ -548,8 +605,13 @@ class TheOperatorsPreFlightCheckIsSizedHonestly(unittest.TestCase):
     will cite it as one."""
 
     def part(self):
+        """§V11.15.6 ALONE. Bounded at the next subsection, not run to the end
+        of the document -- the slice defect this project met three times in one
+        day, and §V11.15.7 cites GBP-HW-276 in its own text."""
         s = v11_part()
-        return s[s.index("#### V11.15.6"):]
+        i = s.index("#### V11.15.6")
+        j = s.find("\n#### ", i + 1)
+        return s[i:j] if j >= 0 else s[i:]
 
     def test_the_quote_is_carried_and_labelled_an_operator_observation(self):
         s = self.part()
@@ -567,6 +629,8 @@ class TheOperatorsPreFlightCheckIsSizedHonestly(unittest.TestCase):
         self.assertIn("the unit is UNDECLARED", s)
         self.assertIn("SO IT IS NOT EVIDENCE", s)
         self.assertIn("it mints no id", s)
+        # MINTING is a heading; citing an id in prose is not minting one
+        self.assertIsNone(re.search(r"^#{2,4} +GBP-[A-Z]+-\d{3}\b", self.part(), re.M))
         self.assertIsNone(re.search(r"GBP-[A-Z]+-\d{3}", self.part()))
 
     def test_it_is_a_check_and_not_a_gate_and_v1113_is_not_edited(self):
