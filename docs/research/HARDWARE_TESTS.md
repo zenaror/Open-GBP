@@ -32388,3 +32388,28 @@ PITCHES-NONE    sound, but no distinct pitch (clicks, noise, one steady tone): t
 The class comes from the Operator's words, quoted verbatim in the ingestion, and
 never from the log. The log can confirm what played, but it cannot say what was
 heard.
+
+### V21.6 **AMENDMENT 2 — THE SEALED ORDER, drawn 2026-09-23T19:44:07-03:00, BEFORE the run** — `aout-0002` plays the four windows in an order the Operator does not know
+
+*Appended. §V21.0–§V21.5 stand.* The Operator had read `aout-0001`'s expected
+pattern (the Executor's disclosure, 2026-09-23, recorded on Issue #86). The
+Orchestrator decided to restore a blind check by permuting. `aout-0002` plays RUN
+33's four press windows in the order below. The order was drawn at the instant
+stated, before any code for it existed, by a script that wrote it here and into
+`poc/audio-output-replay/source/aout_order.h` without displaying it. Nobody
+operator-facing has seen it, the Executor included. The Operator is told only
+"four windows, in an order you do not know".
+
+```text
+drawn          2026-09-23T19:44:07-03:00, secrets.SystemRandom, uniformly among the 19 of 24 orders that are NOT the
+               identity and whose relations are NOT up, down, up
+play order
+position 1   window w4   1024 Hz
+position 2   window w3    256 Hz
+position 3   window w2    512 Hz
+position 4   window w1    128 Hz
+expected       relations, positions 2, 3, 4 against the one before: down, up, down
+supersedes     §V21.2's EXPECTED line, for aout-0002. That line describes aout-0001, which will not run
+classes        §V21.5's classes are UNCHANGED. They read a count and three relations, and "as expected"
+               now means the line above
+```
