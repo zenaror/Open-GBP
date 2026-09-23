@@ -30677,3 +30677,150 @@ nothing**: `GBP-HW-305` stays CORROBORATED although its named repeat now exists,
 `U-GBP-040`'s defect caused `U-GBP-038`'s phenomenon. It amends §V13 and §V14
 only by a pointer appended to each heading. The live Gecko capture is kept with
 its provenance stated and nothing rests on it alone.
+
+## V16 — `GBP-HW-305` DECIDED, `duty()`'s defect named, and **the gate REPAIRED forward only** — with the ride-along run that could take the order and the linear model to FACT — **2026-09-23 (GitHub Issue #79); PRE-REGISTERED, NOT RUN, and it may not be applied retroactively**
+
+### V16.1 `GBP-HW-305`: **CORROBORATED — and it already was.** What this decision changes is the basis, not the label
+
+Issue #79 rules `GBP-HW-305` "→ CORROBORATED, not FACT". **The label does not
+move, because it has read CORROBORATED since Issue #72**, on RUN 31's V=15 and
+RUN 32's V=7 and V=3 — two runs, two ROMs. Writing this as a promotion would
+record a step that did not happen here.
+
+**What IS new, and it is worth more than the label:**
+
+```text
+the basis at #72      two runs with DIFFERENT ROMs, a cross-run anchor, three points
+the basis now         a like-for-like INDEPENDENT REPEAT (same ROM family, reflash and power cycle
+                      between), measured by a method FROZEN BEFORE the repeat existed, agreeing to
+                      < 0.08 bytes of 256 at every volume both runs measured -- and V=11, never
+                      measured before and predicted in §V14.5, landing 0.06 from linear
+```
+
+**THE GATE DECLINED, and the record says so where the status is written.**
+`QUESTION V`, pre-registered to decide this, returned **INCONCLUSIVE** on RUN 34
+(`GBP-HW-309`). A measurement beside an INCONCLUSIVE verdict does not become a
+verdict by being good. **FACT is what the gate was for, and FACT is still owed.**
+Nobody reading `EVIDENCE.md` later should be able to mistake the repeat for the
+gate having passed.
+
+**And one stale figure is corrected on top.** `GBP-HW-305`'s heading still reads
+*"intercept +0.046/256"* — the rounded-input value that Issue #72 corrected to
+**+0.0515** in the body and never in the heading. The heading gains a pointer; its
+words are not rewritten.
+
+### V16.2 `GBP-HW-312` — **the exact mechanism of the gate's decline**, a FACT about the instrument
+
+Verified against the frozen code and the archived bytes rather than taken from
+the Issue:
+
+```text
+every block in RUN 32 and RUN 34 spans 0x00..0xFF, so duty()'s midpoint is 127.5 in ALL 256
+x > 127.5  is  x >= 0x80, and 0x80 carries ONE bit in eight
+
+0x80 bytes per 256-byte cell, V=3 window, sliced region:
+  RUN 32  low level (byte duty 120)    0 in every cell
+  RUN 34  low level (byte duty 128)    8 in 1 096 cells, 7 in 28, 9 in 76
+  128 - 120 = 8, exactly
+```
+
+**RUN 34's V=3 low level is written with eight `0x80` bytes per cell; `duty()`
+counts each as a whole high byte, so those 8 bits count as 64.** The low level
+reads 128 where RUN 32's reads 120, and at bit level the two are identical (976
+of 2048 both). **The runs differ in how the same number of one-bits is laid out
+across the byte grid, not in amplitude.**
+
+**Class: a property of code and data, recomputable from the archive — not a
+hardware claim.** It refines `GBP-HW-304` on top, which said "quantised to 8 bits":
+the quantisation is real, and on top of it a byte holding a single bit can land
+on the counted side of the threshold. (Issue #79 calls `0x80` "the rest value";
+it is the first byte value the threshold counts as high, and "rest" is kept here
+for the resting *duty* of 0.5, so the two are not confused.)
+
+### V16.3 THE REPAIR — `tools/v16bitgate.py`, and **the non-retroactivity clause**
+
+**One substitution.** `classify_window_bits()` and `question_V_bits()` are
+`v11sweep`'s `classify_window()` and `question_V()` with the per-block duty taken
+at **bit** resolution (`v14repeat.bitduty`), where a `0x80` byte contributes 1/8
+and there is no threshold for an edge byte to land on. **Every other part is
+imported from `v11sweep`, not copied** — the slice, the flat tolerance, the modal
+levels, the order gate, the move threshold, the refusals, NO CELL and CARRIAGE
+FAILURE. **The question is unchanged; only the ruler is.** The flat tolerance
+still fits: a resting window reads within 0.0006 of 0.5 at bit level and the
+smallest signal deviates by about 0.024.
+
+> **THE CLAUSE, and it is the reason for doing this now rather than after the next
+> run:** `question_V_bits` **may not be applied to RUN 32 or RUN 34 to produce a
+> verdict.** §V15.6's INCONCLUSIVE stands, and **§V15.8 stands unedited**. Run on
+> them, it produces the following — **MEASUREMENTS, labelled as such, and never
+> the question having been answered:**
+
+```text
+RUN 32   INCONCLUSIVE   windows 1 and 2 carried nothing (U-GBP-040's defect)
+RUN 34   ORDERED        deviations 29.988 / 22.109 / 14.098 / 6.121   -- a MEASUREMENT
+```
+
+**Frozen**: a test diffs `tools/v16bitgate.py` against the commit that introduces
+it.
+
+### V16.4 **QUESTION L** — why a second gate exists, and why its tolerance is not taken from the data
+
+**The gap in the ask, stated plainly.** `question_V`'s gate is the **ORDER**: §V11.4
+made the linear-versus-compressive comparison *"a MEASUREMENT beside the verdict,
+never a gate"*. So an ORDERED verdict can take **"the deviation falls with the
+volume"** to FACT — and can **never** take **"the deviation is linear in the
+volume"** there. The run Issue #79 asks for — *"the run that would take the
+linear model to FACT"* — therefore needs a gate that decides linearity, and none
+existed.
+
+**`question_L_bits`, frozen in the same module.** Both models re-anchored on the
+**run's own** V=15 window, so the gate is self-contained in one run:
+
+```text
+LINEAR        at every non-anchor volume, the measured deviation lies within HALF THE GAP
+              between the two predictions, around the LINEAR one
+COMPRESSIVE   the same, around the compressive one
+NEITHER       neither holds at every volume
+INCONCLUSIVE  the ORDER gate was inconclusive, or no window measured V=15
+```
+
+**Its tolerance comes from §V11.4's two formulas and nothing else.** RUN 32 and
+RUN 34 put the linear errors at 0.03–0.12 bytes; a band chosen from those would
+be a band chosen with the data in hand. **Half the model gap** is fixed by the
+models: ±2.44 at V=11, ±4.25 at V=7, ±4.50 at V=3 on RUN 34's own anchor. Run on
+RUN 34 — **as a measurement** — it reads LINEAR, every point within 0.13 bytes of
+the line.
+
+### V16.5 The run that decides them — **RUN 35, riding along, no session of its own**
+
+**It is RUN 34 again, byte for byte on the console side**: `sweep-0002` (already
+flashed), `stream-0016` at `14-audio` (already staged), **§V14.10's action list
+unchanged** — B × 4, at least five seconds apart. **The only difference is
+analysis-side: it is judged by `question_V_bits` and `question_L_bits`**, frozen
+here before it exists. The hardware procedure is not touched, so the gate is the
+only new variable.
+
+```text
+WHAT IT CAN TAKE TO FACT     ORDERED                -> "the deviation falls with the envelope volume"
+                             ORDERED and LINEAR     -> GBP-HW-305's linearity, at last by a gate
+WHAT IT CANNOT               the layout (U-GBP-012), which neither gate decides
+WHAT THE CONSOLE WRITES      sd:/open-gbp/GBP-AUDIO-001_stream-0016.log / -audio.bin
+WHAT THE ARCHIVE WILL BE     captures/local/GBP-AUDIO-003_stream-0016-run35.log / -audio.bin
+```
+
+> **IT RIDES ALONG.** It needs no session of its own: the next time the console is
+> booted for anything, RUN 35 is four presses of B and one more boot. **The next
+> hardware round should pick it up without being asked.** If it shares a session
+> with another `stream-0016` run, **the first run's two files come off the card
+> before the second boot** — both write the same names (`GBP-HW-300`).
+
+**RUN 35 is reserved and the files do not exist.**
+
+### V16.6 What this part does NOT do
+
+It **promotes nothing**: `GBP-HW-305` stays CORROBORATED with its basis restated
+and its gate's decline written in. It **repairs nothing retroactively**: §V15.6 and
+§V15.8 stand, and the repaired gates produce only labelled measurements on RUN 32
+and RUN 34. It **does not edit `tools/v11sweep.py`** — the repair is a new module
+that imports it. It authorises **no run** — RUN 35 is pre-registered to ride
+along. `U-GBP-012` stays open and H-PWM stays a hypothesis.

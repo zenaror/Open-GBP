@@ -392,8 +392,8 @@ class TheNamesAndTheEmptyRecord(unittest.TestCase):
         self.assertIn("Two names, where every previous pair reserved ten", plain(part(7)))
         self.assertIn("writes ONE file per run and no sidecars", plain(read(HANDOFF)))
         # no raw name above run22 anywhere
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[5-9]|[4-9]\d)\S*", t), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[5-9]|[4-9]\d)\S*", read(HANDOFF)), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[6-9]|[4-9]\d)\S*", t), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[6-9]|[4-9]\d)\S*", read(HANDOFF)), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)
 
     def test_the_record_table_is_empty(self):
         table = part(13)
@@ -472,6 +472,9 @@ class NothingFrozenMoved(unittest.TestCase):
         # §V14 (2026-09-23) froze the METHOD of RUN 34's measurement before the run:
         # tools/v14repeat.py contains no gate, reproduces §V11.16.7 exactly, reads no run.
         changed = changed - {"tools/v14repeat.py"}
+        # Issue #79 (2026-09-23): tools/v16bitgate.py, QUESTION V repaired at bit resolution and
+        # QUESTION L, frozen forward only; it imports v11sweep and edits nothing.
+        changed = changed - {"tools/v16bitgate.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
@@ -514,7 +517,7 @@ class NothingFrozenMoved(unittest.TestCase):
         ev = read(EVIDENCE)
         # Issue #46 (2026-09-22) minted GBP-HW-272 (the CONTROL bit 0x02 split, from the archive); #41 minted none,
         # so the sentinel moves to the next free id and this guard goes on testing what it was written to test
-        self.assertNotIn("GBP-HW-312", ev)
+        self.assertNotIn("GBP-HW-313", ev)
         self.assertNotIn("GBP-PLAY-001", ev)
         h = plain(read(HANDOFF))
         for tok in ("ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004", "issue 41",

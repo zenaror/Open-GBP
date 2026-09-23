@@ -8485,7 +8485,7 @@ schedule entry predicts a flat window, so a flat window is a carriage failure
 and never "volume 15 encodes nothing". `GBP-HW-305` and `GBP-HW-306` show how
 right that was. The construction was not adjusted. §V11.16.4.
 
-### GBP-HW-304 — the AUDIO block is a **1-bit PWM pulse**, not a byte pattern — **FACT for the structure (three runs)** — **2026-09-23, Issue #78: byte duty is not only quantised but PHASE-SENSITIVE (`GBP-HW-309`) — read that entry before relying on a byte-duty figure**
+### GBP-HW-304 — the AUDIO block is a **1-bit PWM pulse**, not a byte pattern — **FACT for the structure (three runs)** — **2026-09-23, Issue #78: byte duty is not only quantised but PHASE-SENSITIVE (`GBP-HW-309`) — read that entry before relying on a byte-duty figure** — **2026-09-23, Issue #79: the exact mechanism is `GBP-HW-312`**
 
 A 4096-byte block is ~120 bytes of `0xFF`, ~120 of `0x00`, and a few partial
 bytes at the two edges; every distinct value seen across RUN 30, RUN 31 and
@@ -8497,7 +8497,7 @@ rest, while blocks in transition between the levels take intermediate values.
 **This does not change any verdict** — a flat window is flat at either
 resolution — and §V11.4's construction keeps its definition. §V11.16.7.
 
-### GBP-HW-305 — the duty's deviation is **LINEAR in the envelope volume**, three points across two runs, intercept **+0.046/256** — **CORROBORATED, not FACT** — **2026-09-23, Issue #78: the repeat this entry named now EXISTS and agrees to under 0.08 bytes (`GBP-HW-310`); NOT promoted, because the pre-registered gate returned INCONCLUSIVE — still CORROBORATED**
+### GBP-HW-305 — the duty's deviation is **LINEAR in the envelope volume**, three points across two runs, intercept **+0.046/256** — **CORROBORATED, not FACT** — **2026-09-23, Issue #78: the repeat this entry named now EXISTS and agrees to under 0.08 bytes (`GBP-HW-310`); NOT promoted, because the pre-registered gate returned INCONCLUSIVE — still CORROBORATED** — **2026-09-23, Issue #79: DECIDED — CORROBORATED, which it has been since #72; the basis is now a like-for-like independent repeat. THE PRE-REGISTERED GATE DECLINED (`GBP-HW-309`), SO FACT IS STILL OWED. And this heading's "+0.046" is the rounded-input figure: the intercept is +0.0515 (§V11.16.7)**
 
 Read at bit resolution (`GBP-HW-304`), with the anchor taken from the run that
 actually measured envelope volume 15:
@@ -8663,3 +8663,22 @@ press, and it does **not** explain RUN 31/32's second press (audible at the
 Operator's GBA, dead in the capture) or RUN 30's first (a different cartridge).
 **What would test it:** `sweep-0001` re-flashed and run with five-second
 spacing. §V15.9.
+
+### GBP-HW-312 — `v11sweep.duty()` counts a **one-bit byte (`0x80`) as a whole high byte**, which is the exact mechanism of `GBP-HW-309` — **FACT, a property of code and data, recomputable; not a hardware claim**
+
+```text
+every block in RUN 32 and RUN 34 spans 0x00..0xFF -> duty()'s midpoint is 127.5 in all 256
+x > 127.5  is  x >= 0x80, and 0x80 carries one bit in eight
+
+0x80 bytes per 256-byte cell, V=3 window, sliced region:
+  RUN 32  low level (byte duty 120)    0 in every cell
+  RUN 34  low level (byte duty 128)    8 in 1 096 cells, 7 in 28, 9 in 76      128 - 120 = 8
+```
+
+RUN 34's V=3 low level carries eight `0x80` bytes per cell; `duty()` counts them
+as 64 bits' worth, so the level reads 128 where RUN 32's reads 120 — **and at bit
+level the two are identical**. The runs differ in how the same number of one-bits
+falls on the byte grid, not in amplitude. **Refines `GBP-HW-304`.** The repair is
+`tools/v16bitgate.py`, forward only (`HARDWARE_TESTS.md` §V16.3), and it may not be
+applied to RUN 32 or RUN 34 to produce a verdict.
+
