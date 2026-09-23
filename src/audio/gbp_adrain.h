@@ -51,6 +51,15 @@ extern "C" {
 #define GBP_ADRAIN_A_STEP_SECONDS   3u
 #define GBP_ADRAIN_A_STEPS          3u
 
+/* §V19.11 AMENDMENT 4 A4.5 and A4.7: operational bounds of the drain image,
+ * never properties of the hardware. CONTROL1 cannot pass before
+ * GBP_ADRAIN_ACCEPT_S after the service's capture start, which keeps every
+ * start-up stall out of PHASE B; and it gives up GBP_ADRAIN_CONTROL1_BOUND_S
+ * after the A press, because a second A press would select 512 Hz and is not
+ * the recovery. */
+#define GBP_ADRAIN_ACCEPT_S         5u
+#define GBP_ADRAIN_CONTROL1_BOUND_S 10u
+
 /* One u32 per second of PHASE B, plus room for C and A so one array serves the
  * whole run and nothing is allocated later. */
 #define GBP_ADRAIN_MAX_SECONDS    128u
@@ -67,6 +76,7 @@ enum gbp_adrain_phase {
     GBP_ADRAIN_C,            /* one timed SD write, issued OUTSIDE the ISR */
     GBP_ADRAIN_CONTROL2,     /* the control the gate is anchored on (AMENDMENT 2 B3) */
     GBP_ADRAIN_A,            /* the short reads: the one new variable, and it goes LAST */
+    GBP_ADRAIN_RECOVERY,     /* one control window at full reads after the sweep (A4.7) */
     GBP_ADRAIN_DONE,
     GBP_ADRAIN_VOID          /* PHASE A lost sync and full reads did not recover */
 };
@@ -76,6 +86,8 @@ struct gbp_adrain {
     enum gbp_adrain_phase phase;
     uint64_t t_phase;              /* tick at which the current phase began */
     uint64_t t_b;                  /* tick at which PHASE B began; D1's windows count from it */
+    uint64_t t_accept;             /* CONTROL1 cannot pass before this tick (A4.5); 0 = no bound */
+    uint64_t t_tone;               /* the A press, as the input path wrote it */
 
     /* THE COVERAGE COUNTER: one AUDIO-block count per second of the run. */
     uint32_t sec[GBP_ADRAIN_MAX_SECONDS];
@@ -90,6 +102,8 @@ struct gbp_adrain {
     uint32_t a_step;               /* 0..GBP_ADRAIN_A_STEPS-1 */
     uint8_t  control1_ok, control2_ok;
     uint8_t  sync_lost, recovered;
+    uint8_t  control1_gave_up;     /* CONTROL1 reached its bound without a passing window */
+    uint32_t control1_early;       /* windows that passed before t_accept, and so did not count */
 };
 
 /* Every N the sweep uses, in the frozen order (low to high). */
@@ -117,14 +131,31 @@ void gbp_adrain_block(struct gbp_adrain *d, uint64_t tick);
 void gbp_adrain_failure(struct gbp_adrain *d);
 
 /* Advance the phase machine. `now` is the transport's tick; `tone_ok` is the
- * positive control's answer where one is due. Returns the phase after stepping. */
+ * positive control's answer where one is due. Returns the phase after stepping.
+ *
+ * In the TIMED phases (B, C, A) `tone_ok` is ignored and the call may be made
+ * as often as the caller likes. In the CONTROL phases (CONTROL1, CONTROL2,
+ * RECOVERY) the call IS the verdict of one control window, and must be made
+ * once per window and never otherwise. */
 enum gbp_adrain_phase gbp_adrain_step(struct gbp_adrain *d, uint64_t now, int tone_ok);
+
+/* A4.5: CONTROL1 cannot pass before `t_accept`. */
+void gbp_adrain_set_accept(struct gbp_adrain *d, uint64_t t_accept);
+
+/* PHASE A's current step has run its GBP_ADRAIN_A_STEP_SECONDS: the caller
+ * evaluates it by the gate's rule BEFORE stepping, because the sweep must stop
+ * at the first SYNC-LOST (§V19.4). */
+int gbp_adrain_a_step_due(const struct gbp_adrain *d, uint64_t now);
+
+/* The phase's name, for the report and the screen. */
+const char *gbp_adrain_phase_name(enum gbp_adrain_phase p);
 
 /* The Operator pressed A at the prompt. */
 void gbp_adrain_tone_started(struct gbp_adrain *d, uint64_t now);
 
-/* PHASE A's outcome, once the sweep is over. */
-void gbp_adrain_sync_lost(struct gbp_adrain *d, int recovered);
+/* A step of PHASE A lost sync: the sweep stops there and the run goes to
+ * RECOVERY, whose one control window decides RECOVERS or NO-RECOVERY. */
+void gbp_adrain_sync_lost(struct gbp_adrain *d, uint64_t now);
 
 /* Seconds elapsed in PHASE B, for the report. */
 uint32_t gbp_adrain_b_seconds(const struct gbp_adrain *d, uint64_t now);

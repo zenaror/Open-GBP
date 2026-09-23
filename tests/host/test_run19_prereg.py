@@ -444,6 +444,13 @@ class NothingElseMoved(unittest.TestCase):
         # Issue #84: src/audio/gbp_adrain.* -- GBP-AUDIO-005's phase machine and coverage
         # counter, host-tested only (tests/unit/test_gbp_adrain.c). No image links it yet.
         changed = changed - {"src/audio/gbp_adrain.c", "src/audio/gbp_adrain.h"}
+        # Issue #84 (2026-09-23) BUILT GBP-AUDIO-005's image, drain-0001 (§V19.11 A4.1): play-0001 plus
+        # the drain's period decoder (src/audio/gbp_aperiod.*, host-tested), the POC that carries it, and
+        # tools/v19report.py, the log -> report builder frozen before the run. The service path gains two
+        # optional hooks, NULL in every earlier build (tests/unit/test_gbp_video_state.c proves the operation
+        # stream identical), and tests/host/test_drain_image.py diffs the image against play-0001.
+        changed = changed - {"poc/gbp-audio-drain-probe/Makefile", "poc/gbp-audio-drain-probe/source/main.c",
+                             "src/audio/gbp_aperiod.c", "src/audio/gbp_aperiod.h", "tools/v19report.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs

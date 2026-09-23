@@ -48,6 +48,8 @@ void gbp_adrain_init(struct gbp_adrain *d, uint32_t tb_hz)
     d->phase = GBP_ADRAIN_PROMPT;
     d->t_phase = 0u;
     d->t_b = 0u;
+    d->t_accept = 0u;
+    d->t_tone = 0u;
     for (i = 0u; i < GBP_ADRAIN_MAX_SECONDS; i++)
         d->sec[i] = 0u;
     d->secs_used = 0u;
@@ -59,6 +61,8 @@ void gbp_adrain_init(struct gbp_adrain *d, uint32_t tb_hz)
     d->control2_ok = 0u;
     d->sync_lost = 0u;
     d->recovered = 0u;
+    d->control1_gave_up = 0u;
+    d->control1_early = 0u;
 }
 
 uint32_t gbp_adrain_read_len(const struct gbp_adrain *d)
@@ -101,14 +105,42 @@ void gbp_adrain_tone_started(struct gbp_adrain *d, uint64_t now)
     if (!d || d->phase != GBP_ADRAIN_PROMPT) return;
     d->phase = GBP_ADRAIN_CONTROL1;
     d->t_phase = now;
+    d->t_tone = now;
 }
 
-void gbp_adrain_sync_lost(struct gbp_adrain *d, int recovered)
+void gbp_adrain_set_accept(struct gbp_adrain *d, uint64_t t_accept)
 {
-    if (!d) return;
+    if (d) d->t_accept = t_accept;
+}
+
+void gbp_adrain_sync_lost(struct gbp_adrain *d, uint64_t now)
+{
+    if (!d || d->phase != GBP_ADRAIN_A) return;
     d->sync_lost = 1u;
-    d->recovered = recovered ? 1u : 0u;
-    d->phase = recovered ? GBP_ADRAIN_DONE : GBP_ADRAIN_VOID;
+    d->phase = GBP_ADRAIN_RECOVERY;              /* the sweep stops at the first SYNC-LOST */
+    d->t_phase = now;
+}
+
+int gbp_adrain_a_step_due(const struct gbp_adrain *d, uint64_t now)
+{
+    if (!d || d->phase != GBP_ADRAIN_A || d->tb_hz == 0u) return 0;
+    return (now >= d->t_phase && now - d->t_phase >= (uint64_t)GBP_ADRAIN_A_STEP_SECONDS * d->tb_hz) ? 1 : 0;
+}
+
+const char *gbp_adrain_phase_name(enum gbp_adrain_phase p)
+{
+    switch (p) {
+    case GBP_ADRAIN_PROMPT: return "prompt";
+    case GBP_ADRAIN_CONTROL1: return "control1";
+    case GBP_ADRAIN_B: return "B";
+    case GBP_ADRAIN_C: return "C";
+    case GBP_ADRAIN_CONTROL2: return "control2";
+    case GBP_ADRAIN_A: return "A";
+    case GBP_ADRAIN_RECOVERY: return "recovery";
+    case GBP_ADRAIN_DONE: return "done";
+    case GBP_ADRAIN_VOID: return "void";
+    default: return "?";
+    }
 }
 
 static uint64_t elapsed(const struct gbp_adrain *d, uint64_t now)
@@ -129,11 +161,23 @@ enum gbp_adrain_phase gbp_adrain_step(struct gbp_adrain *d, uint64_t now, int to
     case GBP_ADRAIN_CONTROL1:
         /* Recoverable while he is still standing there: a failure here does not
          * void the run, it just says the tone is not established yet. */
-        d->control1_ok = tone_ok ? 1u : 0u;
-        if (tone_ok) {
+        if (tone_ok && now < d->t_accept) {
+            /* A4.5: a passing window before the bound does not count -- PHASE B
+             * may not open while a start-up stall could still follow it. */
+            d->control1_early++;
+        } else if (tone_ok) {
+            d->control1_ok = 1u;
             d->phase = GBP_ADRAIN_B;
             d->t_phase = now;
             d->t_b = now;                          /* D1's windows count from here */
+        } else if (now >= d->t_tone &&
+                   now - d->t_tone >= (uint64_t)GBP_ADRAIN_CONTROL1_BOUND_S * d->tb_hz) {
+            /* A4.7: bounded. The run ends for a power cycle and a retry; a
+             * second A press would select 512 Hz and is NOT the recovery. */
+            d->control1_ok = 0u;
+            d->control1_gave_up = 1u;
+            d->phase = GBP_ADRAIN_DONE;
+            d->t_phase = now;
         }
         break;
     case GBP_ADRAIN_B:
@@ -161,8 +205,15 @@ enum gbp_adrain_phase gbp_adrain_step(struct gbp_adrain *d, uint64_t now, int to
             d->a_step++;
             d->t_phase = now;
             if (d->a_step >= GBP_ADRAIN_A_STEPS)
-                d->phase = GBP_ADRAIN_DONE;
+                d->phase = GBP_ADRAIN_RECOVERY;    /* the sweep is over: one full-read window */
         }
+        break;
+    case GBP_ADRAIN_RECOVERY:
+        /* A4.7: the one control window at full reads after the sweep, or after
+         * the first SYNC-LOST. Its verdict is RECOVERS or NO-RECOVERY. */
+        d->recovered = tone_ok ? 1u : 0u;
+        d->phase = tone_ok ? GBP_ADRAIN_DONE : GBP_ADRAIN_VOID;
+        d->t_phase = now;
         break;
     default:
         break;
