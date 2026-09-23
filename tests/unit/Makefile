@@ -14,7 +14,7 @@ ROOT     := ../..
 OUTDIR   := $(ROOT)/build/tests/unit
 CC       ?= cc
 CFLAGS   ?= -std=gnu11 -O1 -g -Wall -Wextra -Wpedantic -Wshadow -Wconversion
-CPPFLAGS += -I$(ROOT)/src/common -I$(ROOT)/src/log -I$(ROOT)/src/gbp -I$(ROOT)/tests/mocks
+CPPFLAGS += -I$(ROOT)/src/common -I$(ROOT)/src/log -I$(ROOT)/src/gbp -I$(ROOT)/src/audio -I$(ROOT)/tests/mocks
 
 # HEADERS ARE PREREQUISITES. Without this a header edit leaves a stale binary and
 # the suite silently reports the PREVIOUS build's result — which is exactly how an
@@ -22,9 +22,9 @@ CPPFLAGS += -I$(ROOT)/src/common -I$(ROOT)/src/log -I$(ROOT)/src/gbp -I$(ROOT)/t
 # it (HARDWARE_TESTS §V5.27.9). Every test relinks whenever any shared header
 # changes; these binaries build in about a second each, so the cost is nothing
 # next to a wrong answer.
-HEADERS := $(wildcard $(ROOT)/src/common/*.h $(ROOT)/src/log/*.h $(ROOT)/src/gbp/*.h $(ROOT)/tests/mocks/*.h)
+HEADERS := $(wildcard $(ROOT)/src/common/*.h $(ROOT)/src/log/*.h $(ROOT)/src/gbp/*.h $(ROOT)/src/audio/*.h $(ROOT)/tests/mocks/*.h)
 
-TESTS    := test_ident test_ringlog test_gbp_vfull test_gbp_vvi test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4 test_gbp_avdump test_gbp_avsvc test_gbp_avseq test_gbp_video test_gbp_vsig test_gbp_vstate test_gbp_video_state test_gbp_vcolor test_gbp_vstream test_gbp_vwitness test_gbp_vdisp test_gbp_startup test_gbp_input test_gbp_session test_gbp_awin test_gbp_awindump
+TESTS    := test_ident test_ringlog test_gbp_vfull test_gbp_vvi test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4 test_gbp_avdump test_gbp_avsvc test_gbp_avseq test_gbp_video test_gbp_vsig test_gbp_vstate test_gbp_video_state test_gbp_vcolor test_gbp_vstream test_gbp_vwitness test_gbp_vdisp test_gbp_startup test_gbp_input test_gbp_session test_gbp_awin test_gbp_awindump test_gbp_adec
 BINS     := $(addprefix $(OUTDIR)/,$(TESTS))
 
 COMMON_SRC := $(ROOT)/src/common/opengbp_ident.c $(ROOT)/src/common/gbp_time64.c
@@ -141,6 +141,11 @@ $(OUTDIR)/test_gbp_awin: test_gbp_awin.c $(ROOT)/src/gbp/gbp_awin.c $(HEADERS) |
 
 $(OUTDIR)/test_gbp_awindump: test_gbp_awindump.c $(ROOT)/src/gbp/gbp_awindump.c $(ROOT)/src/gbp/gbp_awin.c $(ROOT)/src/gbp/gbp_crc32.c $(HEADERS) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_awindump.c $(ROOT)/src/gbp/gbp_awindump.c $(ROOT)/src/gbp/gbp_awin.c $(ROOT)/src/gbp/gbp_crc32.c
+
+# Issue #81: the AUDIO decoder and the 125/16 resampler. Integer only; they link
+# alone, with no libogc and no device, and are checked on synthetic blocks here.
+$(OUTDIR)/test_gbp_adec: test_gbp_adec.c $(ROOT)/src/audio/gbp_adec.c $(ROOT)/src/audio/gbp_aresamp.c $(HEADERS) | $(OUTDIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_adec.c $(ROOT)/src/audio/gbp_adec.c $(ROOT)/src/audio/gbp_aresamp.c
 
 $(OUTDIR)/test_gbp_vdisp: test_gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdispdump.c $(ROOT)/src/gbp/gbp_crc32.c $(HEADERS) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdisp.c $(ROOT)/src/gbp/gbp_vdispdump.c $(ROOT)/src/gbp/gbp_crc32.c
