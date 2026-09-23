@@ -26,9 +26,11 @@ include $(DEVKITPRO)/libogc2/gamecube_rules
 # Identity
 #---------------------------------------------------------------------------------
 APP_NAME   := audio-output-replay
-# Issue #86. aout-0001 is the first build. NOT PHYSICALLY EXECUTED; the run is
-# staged by a separate Hardware Issue, bundled with GBP-AUDIO-005's.
-BUILD_ID   := aout-0001
+# Issue #86. aout-0001 was the first build; aout-0002 plays the tones in the
+# order SEALED in §V21.6 (source/aout_order.h), after the Operator had read
+# aout-0001's expected pattern. NOT PHYSICALLY EXECUTED; staged by a separate
+# Hardware Issue, bundled with GBP-AUDIO-005's.
+BUILD_ID   := aout-0002
 # EMBED=1 builds the DOLPHIN FLOW variant and nothing else: RUN 33's fixture is
 # linked into the image (Dolphin has no SD2SP2), under its OWN build id and in its
 # OWN output directory. It is never exported to Swiss and never run on the
@@ -36,7 +38,7 @@ BUILD_ID   := aout-0001
 # anything that is not RUN 33's.
 EMBED ?= 0
 ifeq ($(EMBED),1)
-BUILD_ID   := aout-0001-dolphin
+BUILD_ID   := aout-0002-dolphin
 endif
 GIT_COMMIT ?= $(shell git -C "$(CURDIR)" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 GIT_DIRTY  ?= $(shell git -C "$(CURDIR)" diff --quiet HEAD -- 2>/dev/null || echo -dirty)

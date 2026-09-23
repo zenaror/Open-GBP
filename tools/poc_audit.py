@@ -1024,6 +1024,8 @@ AOUT_SYMBOL_CALLERS = {
     "AUDIO_StopDMA": {"main": 1},
     "AUDIO_RegisterDMACallback": {"main": 2},
     "gbp_alisten_build": {"main": 1},
+    # §V21.6 (aout-0002): the sealed order is applied once, in main, after the build
+    "gbp_alisten_permute": {"main": 1},
     "sdlog_save": {"main": 1},
 }
 
@@ -1054,18 +1056,18 @@ PROFILES["aout"] = {
     "irq_write_sites": {},
     "control_write_sites": {},
     "intsr_store_sites": {},
-    "elf_required": ("gbp_alisten_build", "gbp_adec_push_block", "gbp_aresamp_push", "gbp_awindump_parse",
+    "elf_required": ("gbp_alisten_build", "gbp_alisten_permute", "gbp_adec_push_block", "gbp_aresamp_push", "gbp_awindump_parse",
                      "AUDIO_Init", "AUDIO_InitDMA", "AUDIO_StartDMA", "AUDIO_RegisterDMACallback"),
     "elf_forbidden": ("gbp_vstate_probe_run", "hsp_backend_transport", "hsp_backend_irq_transport_ext",
                       "gbp_regwrite_irq_u16", "gbp_regwrite_control_byte", "gbp_input_step"),
     # the listening sequence reaches the #81 modules and the parser, and nothing else: no clock,
     # no device, no file
     "object_may_only_reference": {
-        "gbp_alisten.o": ("memset", "gbp_awindump_parse", "gbp_asrc_replay_open", "gbp_adec_init",
+        "gbp_alisten.o": ("memset", "memcpy", "gbp_awindump_parse", "gbp_asrc_replay_open", "gbp_adec_init",
                           "gbp_adec_calibrate", "gbp_adec_push_block", "gbp_adec_pop", "gbp_aresamp_init",
                           "gbp_aresamp_push"),
     },
-    "main_must_call": ("gbp_alisten_build", "AUDIO_Init", "AUDIO_SetDSPSampleRate", "AUDIO_RegisterDMACallback",
+    "main_must_call": ("gbp_alisten_build", "gbp_alisten_permute", "AUDIO_Init", "AUDIO_SetDSPSampleRate", "AUDIO_RegisterDMACallback",
                        "AUDIO_InitDMA", "AUDIO_StartDMA", "AUDIO_StopDMA", "sdlog_save", "fatMountSimple"),
     "main_must_not_call": ("hsp_backend_init", "gbp_vstate_probe_run", "__UnmaskIrq", "IRQ_Request"),
 }

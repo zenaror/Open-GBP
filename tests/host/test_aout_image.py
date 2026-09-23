@@ -111,7 +111,7 @@ class TheDolphinVariantCannotBeTheConsoleImage(unittest.TestCase):
     def test_embedding_is_gated_and_renamed(self):
         mk = read(MAKEFILE)
         self.assertIn("EMBED ?= 0", mk)
-        self.assertIn("BUILD_ID   := aout-0001-dolphin", mk)
+        self.assertIn("BUILD_ID   := aout-0002-dolphin", mk)
         self.assertIn("OUTDIR  := $(ROOT)/build/poc/$(APP_NAME)$(if $(filter 1,$(EMBED)),-dolphin,)", mk)
         self.assertNotIn("fixture_embed", " ".join(srcs()))              # not in the console list
         self.assertIn("ifeq ($(EMBED),1)\nSRCS += fixture_embed.S\nendif", mk)
@@ -124,6 +124,54 @@ class TheDolphinVariantCannotBeTheConsoleImage(unittest.TestCase):
         self.assertNotIn("aout_embedded_fixture", m[j:k])
         self.assertIn("fatMountSimple", m[j:k])
         self.assertIn("DOLPHIN FLOW BUILD", m[i:j])
+
+
+class TheSealedOrderIsAppliedAndNeverShown(unittest.TestCase):
+    """§V21.6 (aout-0002). The order was drawn and committed before this code existed.
+    These checks NEVER echo it: failures say what disagreed, not the values."""
+
+    def sealed_from_doc(self):
+        t = read(HW)
+        p = t[t.index("### V21.6 **AMENDMENT 2"):]
+        return [int(m) - 1 for m in re.findall(r"^position \d   window w(\d)", p, re.M)]
+
+    def sealed_from_header(self):
+        h = read(os.path.join(POC, "source", "aout_order.h"))
+        m = re.search(r"AOUT_PLAY_ORDER\[4\] = \{ ([0-9, ]+) \};", h)
+        return [int(x) for x in m.group(1).split(",")]
+
+    def test_the_header_is_the_sealed_order_and_a_legal_one(self):
+        doc, hdr = self.sealed_from_doc(), self.sealed_from_header()
+        self.assertTrue(len(doc) == 4 and doc == hdr, "aout_order.h and §V21.6 disagree")
+        self.assertTrue(sorted(hdr) == [0, 1, 2, 3], "the sealed order is not a permutation")
+        hz = (128, 512, 256, 1024)
+        rel = ["up" if hz[b] > hz[a] else "down" for a, b in zip(hdr, hdr[1:])]
+        self.assertTrue(hdr != [0, 1, 2, 3] and rel != ["up", "down", "up"],
+                        "the sealed order breaks the draw's own exclusions")
+        exp = re.search(r"expected\s+relations, positions 2, 3, 4 against the one before: ([a-z, ]+)", read(HW))
+        self.assertTrue(exp and [w.strip() for w in exp.group(1).split(",")] == rel,
+                        "§V21.6's expected relations do not follow from its order")
+
+    def test_the_seal_came_before_the_code(self):
+        """The commit that sealed the order touched no code that uses it."""
+        r = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "--diff-filter=A", "--",
+                            "poc/audio-output-replay/source/aout_order.h"], capture_output=True, text=True)
+        seal = r.stdout.split()[-1]
+        files = subprocess.run(["git", "-C", ROOT, "show", "--name-only", "--format=", seal],
+                               capture_output=True, text=True).stdout.split()
+        self.assertEqual(sorted(files), ["docs/research/HARDWARE_TESTS.md",
+                                         "poc/audio-output-replay/source/aout_order.h"])
+
+    def test_the_order_reaches_the_log_only(self):
+        m = read(MAIN)
+        body = m[m.index("int main(void)"):]
+        for l in body.splitlines():
+            if "AOUT_PLAY_ORDER" in l or "info.source" in l:
+                self.assertFalse(re.search(r"\bprintf\(|gecko_puts|snprintf\(line", l), l)
+        self.assertIn("gbp_alisten_permute(&built_info, built, AOUT_PLAY_ORDER", m)
+        self.assertIn('"PLAY position=%u window=w%u expected_hz=%s', m)
+        self.assertEqual(define(read(MAKEFILE).replace(":=", "").replace("BUILD_ID   ", "#define BUILD_ID "),
+                                "BUILD_ID"), "aout-0002")
 
 
 class ThePreRegistrationStatesTheScopeFirst(unittest.TestCase):
