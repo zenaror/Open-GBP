@@ -106,10 +106,17 @@ class TheBaseAndItsSurvivingReason(unittest.TestCase):
             self.assertNotIn(phrase, a)
 
     def test_stream_0016_is_play_0001_plus_the_window_and_the_makefiles_say_so(self):
-        def srcs(rel):
-            return set(re.search(r"^SRCS := (.*)$", read(os.path.join(ROOT, rel)), re.M).group(1).split())
-        play = srcs("poc/gbp-play-session/Makefile")
-        awin = srcs("poc/gbp-audio-window-probe/Makefile")
+        """A4.1 is about the two EXECUTED images, so their lists are read at their own
+        commits -- play-0001 at 2e48ca7, stream-0016 at 04121fe -- not at HEAD, where
+        Issue #87 links gbp_awin.c into play's list to repair the #59 link regression."""
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import guards
+
+        def srcs(commit, rel):
+            return set(re.search(r"^SRCS := (.*)$", guards.show(commit, rel), re.M).group(1).split())
+        play = srcs("2e48ca7", "poc/gbp-play-session/Makefile")
+        awin = srcs("04121fe", "poc/gbp-audio-window-probe/Makefile")
         self.assertEqual(awin - play, {"gbp_awin.c", "gbp_awindump.c"})
         self.assertEqual(play - awin, set())
         self.assertIn("gbp_vstate.c", play & awin)   # the shared episode tracker

@@ -71,7 +71,14 @@ vpath %.c $(CURDIR)/source $(ROOT)/src/common $(ROOT)/src/log $(ROOT)/src/gbp $(
 # gbp_vfull.c gbp_vfulldump.c gbp_vvi.c gbp_vvidump.c, PLUS gbp_session.c.
 # gbp_vwitness.c stays: the service-path module references its predicates
 # (under `if (cfg->witness)`, never taken here); no store exists for it.
-SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vpix.c gbp_vqueue.c gbp_vpresent.c gbp_vwitness.c gbp_vcolor.c gbp_vstate_probe.c gbp_vstatedump.c gbp_input.c gbp_session.c hsp_backend.c hsp_backend_irq.c sdlog.c
+# Issue #84 (2026-09-23): gbp_awin.c is linked for the reason gbp_vwitness.c is --
+# since Issue #59 the service-path module references the AUDIO window's two
+# functions (under `if (cfg->awin)`, never taken here), so without it this image
+# does not link at HEAD. cfg.awin stays NULL and no window store exists. The
+# physically executed build of this image reproduces at ITS OWN commit, with its
+# own list; tests/host/test_poc_link_closure.py now keeps this class from
+# recurring silently.
+SRCS := main.c opengbp_ident.c ringlog.c gbp_transport.c gbp_detect.c gbp_rawlog.c gbp_regwrite.c gbp_initirqa_probe.c gbp_irq_service.c gbp_crc32.c gbp_avblock.c gbp_time64.c gbp_vsig.c gbp_vstate.c gbp_vpix.c gbp_vqueue.c gbp_vpresent.c gbp_vwitness.c gbp_vcolor.c gbp_vstate_probe.c gbp_awin.c gbp_vstatedump.c gbp_input.c gbp_session.c hsp_backend.c hsp_backend_irq.c sdlog.c
 OBJS := $(addprefix $(OBJDIR)/,$(SRCS:.c=.o))
 DEPS := $(OBJS:.o=.d)
 
