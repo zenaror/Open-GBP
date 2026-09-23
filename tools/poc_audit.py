@@ -932,6 +932,88 @@ def _awin_profile():
 
 
 PROFILES["awin"] = _awin_profile()
+
+
+def _drain_profile():
+    """Issue #84: the `drain` profile IS the `play` profile with its deltas named,
+    exactly as `awin` is (§V19.11 AMENDMENT 4 A4.1: play-0001 is the base).
+
+    What it states, as properties rather than counts where it can:
+      * the drain's two modules are linked and are CAPTURE-class code (they run in
+        the audio tap, inside the service transaction): no filesystem, no CRC, no
+        serializer, and an allowlist of what they may reach;
+      * the tap's work -- the coverage counter and the period decoder -- is reached
+        from the tap and from nowhere else, and the tap is reached only through the
+        service module's function pointer (main.o takes its address; no call);
+      * the AUDIO window is linked only because the service module references it:
+        main.o names no gbp_awin_ symbol, no window is ever armed, and the sidecar
+        (gbp_awindump.o) is not linked at all;
+      * the D2 stream: opened and closed in main, written from the pump slot, once.
+
+    IT DISCRIMINATES BOTH WAYS: the play image fails `drain` (no drain objects, no
+    D2 stream), and this image fails `play` (it links three objects `play` does not
+    require and calls the stream functions `play` forbids).
+    """
+    p = copy.deepcopy(PROFILES["play"])
+
+    # (1) the new objects, and the window's object for the link only
+    p["required_objects"] = p["required_objects"] + ("gbp_adrain.o", "gbp_aperiod.o", "gbp_awin.o")
+    p["forbidden_objects"] = p["forbidden_objects"] + ("gbp_awindump.o", "gbp_adec.o", "gbp_asrc.o", "gbp_aresamp.o")
+
+    # (2) the D2 write goes through the streaming writer, so `play`'s ban on it is
+    # lifted for those three and for nothing else; sdlog_save_blob stays forbidden
+    lifted = ("sdlog_stream_open", "sdlog_stream_write", "sdlog_stream_close")
+    p["forbidden_symbols"] = tuple(s for s in p["forbidden_symbols"] if s not in lifted) + (
+        "gbp_awindump_stream", "gbp_awindump_set_identity")
+    p["main_must_not_call"] = tuple(s for s in p["main_must_not_call"] if s not in lifted) + (
+        "gbp_awin_init", "gbp_awin_arm_press", "gbp_awin_arm_control", "gbp_awin_finish", "gbp_awin_block")
+
+    # (3) WHERE EACH CALL MAY COME FROM
+    p["symbol_callers"] = dict(p["symbol_callers"])
+    p["symbol_callers"].update({
+        # the window: the service module's two references, and no arm, ever
+        "gbp_awin_block": {"gbp_vstate_probe_run": 1},
+        "gbp_awin_note_ticks": {"gbp_vstate_probe_run": 1},
+        "gbp_awin_arm_press": {}, "gbp_awin_arm_control": {}, "gbp_awin_init": {},
+        # the coverage counter and the period decoder: the tap's, and only the tap's
+        "gbp_adrain_block": {"drain_tap": 1},
+        "gbp_adrain_failure": {"drain_tap": 1},
+        "gbp_aperiod_feed": DRAIN_TAP_FEED_SITES,
+        "gbp_adrain_init": {"main": 1},
+        # the D2 stream: open and close in main, the ONE write from the pump slot
+        "sdlog_stream_open": {"main": 1},
+        "sdlog_stream_write": {"pump": 1},
+        "sdlog_stream_close": {"main": 1},
+    })
+
+    # (4) what must ship
+    p["elf_required"] = p["elf_required"] + (
+        "gbp_adrain_init", "gbp_adrain_block", "gbp_adrain_step", "gbp_adrain_read_len",
+        "gbp_aperiod_feed", "gbp_aperiod_exact", "gbp_aperiod_reset",
+        "sdlog_stream_open", "sdlog_stream_write", "sdlog_stream_close")
+    p["elf_forbidden"] = p["elf_forbidden"] + ("gbp_awindump_stream", "gbp_adec_block", "gbp_asrc_push")
+    p["main_must_call"] = p["main_must_call"] + (
+        "gbp_adrain_init", "gbp_adrain_block", "gbp_aperiod_feed", "sdlog_stream_open", "sdlog_stream_write",
+        "sdlog_stream_close")
+
+    # (5) the two modules run INSIDE the service transaction: the capture family's
+    # bar, and an allowlist -- gbp_adrain divides a 64-bit tick by the timebase
+    # (__udivdi3), and GCC turns gbp_adrain_init()'s zeroing of the counter into
+    # memset (init runs from main, before the service, never from the tap);
+    # gbp_aperiod reaches nothing at all.
+    p["object_must_not_reference"] = dict(p["object_must_not_reference"])
+    p["object_must_not_reference"]["gbp_adrain.o"] = _CAPTURE_SYMBOLS
+    p["object_must_not_reference"]["gbp_aperiod.o"] = _CAPTURE_SYMBOLS
+    p["object_may_only_reference"] = dict(p["object_may_only_reference"])
+    p["object_may_only_reference"]["gbp_adrain.o"] = ("__udivdi3", "memset")
+    p["object_may_only_reference"]["gbp_aperiod.o"] = ()
+    return p
+
+
+# gbp_aperiod_feed's call sites in the tap: the control windows' and PHASE A's.
+DRAIN_TAP_FEED_SITES = {"drain_tap": 2}
+
+PROFILES["drain"] = _drain_profile()
 # the GBP-INIT-003A names, kept for callers that import them
 FORBIDDEN_OBJECTS = PROFILES["003a"]["forbidden_objects"]
 FORBIDDEN_SYMBOLS = PROFILES["003a"]["forbidden_symbols"]
