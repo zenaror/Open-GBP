@@ -1301,13 +1301,18 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
         if (cyc.audio_selected) {
             unsigned slot = 0;
             uint8_t *buf = gbp_vstate_audio_target(st, &slot);
+            /* Issue #84: the length is read ONCE for this drain and used by all of
+             * it -- the read, its commit, the awin copy and the byte total -- so a
+             * caller changing it mid-run can never split one drain. With
+             * cfg->audio_len_live NULL this is cfg->audio_len, as it always was. */
+            const uint32_t alen = cfg->audio_len_live ? *cfg->audio_len_live : cfg->audio_len;
             if (!buf) { finish(x, GBP_VSTATE_ABORT_CAPACITY, "audio_slot_unavailable", "S3_service_aborted", GBP_VSTATE_STOP_FAILURE); return 0; }
             bump(res, &st->audio.selected);
-            gbp_avblock_init(&res->audio, "audio", cfg->audio_index, cfg->audio_src, buf, GBP_VSTATE_AUDIO_BLOCK_SIZE, cfg->audio_len);
+            gbp_avblock_init(&res->audio, "audio", cfg->audio_index, cfg->audio_src, buf, GBP_VSTATE_AUDIO_BLOCK_SIZE, alen);
             res->audio.selected = 1;
             bump(res, &res->audio_drains);
             gbp_avblock_read(t, res->a.base, &res->audio, &res->a.errors);
-            gbp_vstate_audio_commit(st, slot, res->audio.completed, res->audio.completed ? cfg->audio_len : 0u, n);
+            gbp_vstate_audio_commit(st, slot, res->audio.completed, res->audio.completed ? alen : 0u, n);
             /* Issue #59 (GBP-AUDIO-001, §V8): the ONE extra thing the audio
              * window does, and it happens after the drain and its commit. With
              * cfg->awin NULL this block does nothing and costs one predictable
@@ -1316,14 +1321,14 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
              * MEASURED here, the way the witness step has been since §V5.39. */
             if (cfg->awin) {
                 uint32_t q0 = now32(t), q1;
-                gbp_awin_block(cfg->awin, buf, cfg->audio_len, n, res->audio.completed);
+                gbp_awin_block(cfg->awin, buf, alen, n, res->audio.completed);
                 q1 = now32(t);
                 gbp_awin_note_ticks(cfg->awin, (uint32_t)(q1 - q0));
             }
             cyc.audio_completed = (uint8_t)(res->audio.completed ? 1u : 0u);
             cyc.audio_wait = res->audio.info.ticks;
             cyc.rc |= (uint32_t)res->audio.rc;
-            if (res->audio.completed) res->bytes_audio += cfg->audio_len;
+            if (res->audio.completed) res->bytes_audio += alen;
             if ((majority_extra & cfg->audio_src) && res->audio.completed) {
                 /* §R3.22: a completed drain gives a real CRC; a failed one is
                  * fatal by the existing transport rule and records no CRC. */

@@ -236,8 +236,19 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
         added = [l.strip() for l in added_lines(old, read(PROBE_C)) if l.strip() and not l.strip().startswith(("*", "/*"))]
         # Issue #39 added the session-end read; Issue #59 adds the window hook. Nothing else.
         self.assertIn("if (cfg->awin) {", added)
-        self.assertIn("gbp_awin_block(cfg->awin, buf, cfg->audio_len, n, res->audio.completed);", added)
         self.assertIn("gbp_awin_note_ticks(cfg->awin, (uint32_t)(q1 - q0));", added)
+        # Issue #84 (GBP-AUDIO-005, §V19) routes the AUDIO read length through ONE local, read once
+        # per drain: cfg->audio_len_live when a drain image supplies it, cfg->audio_len -- as always --
+        # when it is NULL, which it is in every earlier build. The hook passes that local; under NULL
+        # it IS cfg->audio_len, and tests/unit/test_gbp_video_state.c proves the whole operation
+        # stream op-for-op identical to a pointer at 4096. CONSEQUENCE, stated where it is pinned:
+        # every physically executed image that links gbp_vstate_probe.c -- vstate-0004, color-0002,
+        # stream-0015, play-0001 and this image, stream-0016 -- reproduces at ITS OWN commit, not at
+        # HEAD. Their results are tied to their STAGED bytes, which tests/host/test_staged_artifacts.py
+        # checks and this change does not move.
+        self.assertIn("const uint32_t alen = cfg->audio_len_live ? *cfg->audio_len_live : cfg->audio_len;", added)
+        self.assertIn("gbp_awin_block(cfg->awin, buf, alen, n, res->audio.completed);", added)
+        self.assertIn("if (res->audio.completed) res->bytes_audio += alen;", added)
         # NO device operation was added by either issue
         for line in added:
             for op in ("gbp_avblock_read", "gbp_regwrite", "hsp_backend", "h_write", "h_read",
@@ -258,6 +269,8 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
         self.assertIn("struct gbp_awin *awin;", h)
         # appended AFTER session_end, so no earlier field moved
         self.assertLess(h.index("const int *session_end;"), h.index("struct gbp_awin *awin;"))
+        # Issue #84's live AUDIO length follows the window, the same way
+        self.assertLess(h.index("struct gbp_awin *awin;"), h.index("const uint32_t *audio_len_live;"))
         # the header does not drag the window into every includer
         self.assertNotIn('#include "gbp_awin.h"', h)
 
