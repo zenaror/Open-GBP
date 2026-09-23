@@ -30183,3 +30183,241 @@ evidence id. It does not edit §V11 or any frozen construction;
 `tools/v11sweep.py` supplies the carriage test unchanged. **The fifth-press
 alarm is specified and deliberately NOT built** (§V13.1). Two names are reserved
 and **the files do not exist**.
+
+## V14 — GBP-AUDIO-003, RUN 34: **§V11's amplitude sweep REPEATED with the repaired instrument** — under §V11's existing gates, and with two findings the repeat's premise did not have — **PRE-REGISTERED 2026-09-23 (authorised by the Orchestrator's message after the session restart; no Issue yet); NOT RUN, NOT AUTHORISED HERE**
+
+### V14.1 What this is, and what it is not
+
+RUN 32's `QUESTION V` came back **INCONCLUSIVE** because windows 1 and 2 were
+emptied — window 1 by the first-press defect (`GBP-HW-306`), which `sweep-0002`
+has since fixed and the Operator confirmed on his own console. **This is the
+same experiment with the repaired instrument**: the same ROM already on the
+cartridge, the same image already in `14-audio`, the B axis, one more boot.
+
+**NO NEW GATE.** The verdict is `tools/v11sweep.py`'s `question_V` and
+`question_E`, **unedited**, exactly as they judged RUN 32. What is frozen new is
+only the **method** of the measurement beside the verdict (§V14.6), in
+`tools/v14repeat.py`, which contains no verdict at all.
+
+**It is `GBP-AUDIO-003` again, not a new experiment id.** RUN 32 and RUN 34 are
+two runs of one pre-registered question.
+
+### V14.2 **FINDING 1: a four-press run CANNOT deliver four carrying amplitude windows while `U-GBP-038` holds**
+
+The premise that the repaired instrument *"would give four clean amplitude
+windows"* does not survive the bound we now have:
+
+```text
+sweep-0002 emits on its FIRST press       so press 1 IS the AGB's first emission
+U-GBP-038, EITHER reading                 the window in which emission begins carries nothing:
+                                            ORDINAL says so outright; ELAPSED says so because
+                                            T > 0.0625 s, and one window IS 0.0625 s
+therefore                                 window 1 (envelope volume 15) is dead in EVERY run of
+                                          this family, until U-GBP-038 is answered otherwise
+```
+
+**So `question_V` — which requires four carrying windows — will return
+INCONCLUSIVE for RUN 34 by its own construction**, as it did for RUN 32. **That
+is not a defect in the gate**: it says, correctly, that the run did not deliver
+four carrying amplitude windows. **§V11's QUESTION V is unanswerable in a single
+four-press run for as long as `U-GBP-038` holds**, and this part says so before
+the run rather than discovering it in the ingestion.
+
+**And the loss is FREE, because §V11.3 ordered the schedule for exactly this.**
+It put the already-measured point first — *"Losing window 1 then costs a
+replication"* — against a delay that was then only a risk. **It is now a
+certainty, and the ordering pays in full**: the window RUN 34 loses is envelope
+volume 15, which **RUN 31 has already measured twice at 30.0625/256**.
+
+**What would answer §V11's QUESTION V in one run**, named so nobody rediscovers
+it: a capture with a **fifth** press window, so one can be spent on the emission.
+`GBP_AWIN_PRESS_WINDOWS` is 4 in `stream-0016`; changing it is a **new image, a
+new staging and a new identity**. **Not proposed here** — RUN 34 gets the
+amplitude curve completed without it (§V14.4).
+
+**The one mixed-axis trick that would avoid the loss is closed, and the reason
+is on the record:** pressing A first to start the emission and then B four times
+would leave the B schedule at its first entry — but `sweep-0002` **spoils** any
+run that changes axis (§V11.15.3's bands, audio frozen), by design. The guard
+that makes the display trustworthy is the same guard that forbids the trick.
+
+### V14.3 **FINDING 2: §V11.13's "at least three seconds" is no longer safe**
+
+`U-GBP-038`'s bound is **T ∈ (0.0625, 3.33] s**. §V11.13 asked for at least 3 s
+between presses, **and 3 s is INSIDE that interval**:
+
+```text
+gap 3.0 s   window 2 carries under ELAPSED only if T < 3.0625 s   -- T may be up to 3.33: NOT SAFE
+gap 4.0 s                                    only if T < 4.0625 s   -- safe, 0.73 s of margin
+gap 5.0 s                                    only if T < 5.0625 s   -- safe, 1.73 s of margin
+```
+
+**RUN 34 spaces its presses at least FIVE seconds apart.** Four would clear the
+bound, but the bound has already been refuted once as a fixed property
+(`GBP-HW-307`), and the margin is what turns a surprise into a near miss.
+**It does not depend on RUN 33's outcome**: whatever RUN 33 finds, T ≤ 3.33 s is
+already known, so 5 s is safe under either reading and the two runs can share a
+session (§V14.9).
+
+### V14.4 What RUN 34 delivers, with window 1 spent
+
+```text
+window 1   V=15   predicted DEAD      -- the emitting window; already measured twice in RUN 31
+window 2   V=11   predicted CARRIES   -- THE ONLY AMPLITUDE NEVER MEASURED
+window 3   V= 7   predicted CARRIES   -- a REPEAT of RUN 32's 14.0547
+window 4   V= 3   predicted CARRIES   -- a REPEAT of RUN 32's  6.0547
+```
+
+**That is worth a boot for two separate reasons:**
+
+- **It completes the curve.** With RUN 31's anchor, the four schedule amplitudes
+  are measured — three of them in one run.
+- **It is the repeat `GBP-HW-305` asked for.** That entry says *"a repeat … would
+  make it FACT"*; RUN 34 measures V=7 and V=3 a second time, on the same image
+  and the same cartridge, so the repeat is like for like.
+
+**If window 1 CARRIES, that is a finding against `U-GBP-038` under BOTH
+readings** — neither predicts it — and `question_V` could then pass. It is not
+expected and it would be reported as the surprise it is.
+
+### V14.5 The predictions, re-anchored on the MEASURED V=15 — and one honest shortfall
+
+§V11.4 anchored both models on RUN 31's *predicted* ±32 bytes. The comparison it
+specifies re-anchors on **the window that actually measured V=15**, which is
+**30.0625**, and that scales every separation by 30.0625 / 32 = 0.939:
+
+```text
+  V     LINEAR     COMPRESSIVE    apart     status
+ 15      30.06        30.06        0.00     the anchor, RUN 31
+ 11      22.05        26.94        4.90     NEVER MEASURED -- RUN 34's new point
+  7      14.03        22.55        8.52     measured 14.0547 in RUN 32
+  3       6.01        15.03        9.02     measured  6.0547 in RUN 32
+```
+
+> **§V11.4 claimed the models separate by "≥ 5 bytes at every point that is not
+> the anchor". Re-anchored on the measured value, V=11 separates by 4.90.** The
+> claim held for the predicted anchor and does not hold for the real one. It
+> decides nothing — the comparison is a measurement beside the verdict and never
+> a gate — but it is stated rather than left for someone to find, and §V11.4
+> keeps its words.
+
+**It also matters less than it looks**: RUN 32's V=7 and V=3 already separate the
+models by **258×**. V=11 is not needed to choose between them. Its value is that
+it is a **fresh** point the fit was not built from.
+
+### V14.6 The measurement beside the verdict — frozen NOW, in `tools/v14repeat.py`
+
+§V11.16.7 defined its bit-resolution reading during an ingestion. **Defining it
+again after RUN 34's data exists would be the choice-after-the-fact this project
+forbids**, so it is fixed here, and a test shows it reproduces §V11.16.7's
+published figures on RUN 32 **to the last digit** — 30.0625, 14.0547, 6.0547,
+slope 2.0007, intercept +0.0515, 258× — so it is the method already used and not
+a new one.
+
+```text
+bitduty(block)        one-bits / (len x 8)            the duty, at the resolution it is written in
+deviation(blocks)     half the separation of the two modal levels over §V11.9's sliced 160 blocks
+fit(points)           least-squares slope and intercept -- the intercept is §V11.4.1's null
+model_errors(points)  both §V11.4 models re-anchored on the MEASURED V=15; a measurement, never a gate
+repeat_delta(a, b)    RUN 34 minus RUN 32 for the same volume, in bytes of 256
+```
+
+**Reported beside the verdict, in this order, and nothing else:**
+
+```text
+1  question_V and question_E from tools/v11sweep.py, unedited -- the verdict
+2  each window's deviation by v14repeat.deviation()
+3  the REPEAT: RUN 34 minus RUN 32 at V=7 and V=3
+4  the fit through RUN 31's V=15 and RUN 34's carrying windows, with its intercept
+5  the model errors, re-anchored on the measured V=15
+```
+
+**No tolerance is set on the repeat.** Two runs of one cartridge on one console
+do not establish what "the same" means, and inventing a threshold now would be
+inventing it without data. The delta is reported with its value and decides
+nothing.
+
+### V14.7 Admissibility — §V11.10's, with the spacing changed
+
+```text
+the capture     5 windows closed, no INCOMPLETE and no GAP flag on a window read
+the arming      arms == 5, refused_busy == 0, refused_full == 0
+the input       presses == 4, releases == 4, lost == 0, truncated == 0
+the schedule    derive_schedule() == "V" and refusals() empty -- all four on the pad's B
+the spacing     every gap >= 5 s (§V14.3), measured from t_arm; any shorter gap is NAMED and its
+                window reported as possibly inside T rather than silently read
+the identity    §V14.8, on the day
+```
+
+### V14.8 Identity — nothing new exists, and nothing new is needed
+
+```text
+the instrument  stimulus/agb-sweep, sweep-0002, DELIVERED build/physical/agb-sweep-cart.gba
+                2 352 B sha256 9596ddee9d3f969b21264384391656df91ab23cb91042f5162b1f696a80195f2
+                ALREADY FLASHED. NO NEW FLASH.
+the image       gbp-audio-window-probe / stream-0016 / commit 04121fe, DOL 498 496 B, sha256
+                c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54, at 14-audio.
+                REUSED UNCHANGED. NO NEW STAGING.
+the rule        §V7.1's: if any identity differs on the day, DO NOT RUN.
+```
+
+### V14.9 Reserved names — from the IMAGE's `TEST_ID` — and **the rule if 33 and 34 share a session**
+
+```text
+WHAT THE CONSOLE WILL WRITE   sd:/open-gbp/GBP-AUDIO-001_stream-0016.log  and  -audio.bin
+WHAT THE ARCHIVE WILL BE      captures/local/GBP-AUDIO-003_stream-0016-run34.log  and  -audio.bin
+```
+
+**They disagree by design** (`GBP-HW-300`), and **RUN 33 writes the SAME TWO
+NAMES**. `src/platform/sdlog.c` writes `<test_id>_<build_id>` with no run number
+at all, so the console cannot tell the two runs apart:
+
+> **IF RUN 33 AND RUN 34 ARE RUN IN ONE SESSION, RUN 33's TWO FILES MUST COME OFF
+> THE CARD BEFORE THE SECOND BOOT.** Otherwise RUN 34 overwrites them silently,
+> and RUN 33 is lost with no error anywhere. The card check in §V14.10 is against
+> the names **the image writes**, not the names reserved above.
+
+**RUN 34 is reserved; RUN 33 is reserved by §V13.** Neither file exists.
+
+### V14.10 The Operator's action list
+
+```text
+step  action                                                   press with    what he records
+  1   CHECK THE CARD: sd:/open-gbp/ must NOT contain           --            that it was clear
+      GBP-AUDIO-001_stream-0016.log or -audio.bin
+      ---- IF RUN 33 WAS JUST RUN: those two files ARE RUN 33. Copy them off BEFORE this boot, or
+           this run overwrites them and RUN 33 is gone.
+  2   boot with the cartridge in and 14-audio from SD          (nothing)     that the screen came up,
+                                                                             counter 0
+  3   WAIT 20 SECONDS -- a phone timer, not a count            (nothing)     that he waited
+      ---- WHY: held constant as a control, exactly as in §V13.9 -- it is not this run's variable.
+      ---- THE FOUR PRESSES. ALL FOUR ON B. AT LEAST FIVE SECONDS BETWEEN THEM.
+      ---- WHY FIVE AND NOT THREE: a press less than ~3.3 s after the first may land inside the delay
+           before the window carries (U-GBP-038), and then its window is empty. Five clears it.
+  4   B  × 1                                                   the pad's B   the counter; the box's
+                                                                             LOWER half; the rail at
+                                                                             the BOTTOM
+  5   wait  >= 5 s                                             (nothing)     --
+  6   B  × 1                                                   the pad's B   the counter, the box
+  7   wait  >= 5 s                                             (nothing)     --
+  8   B  × 1                                                   the pad's B   the counter, the box
+  9   wait  >= 5 s                                             (nothing)     --
+ 10   B  × 1                                                   the pad's B   the counter, the box
+ 11   end the session the way the image asks                   --            that the log was saved
+```
+
+**Twenty seconds plus three five-second gaps is 35 s, inside the 120 s safety
+budget.** **He will still hear nothing** (§V8.10.1). **If any cyan mark appears,
+that is `U-GBP-040` reporting itself** — say which and on which press.
+
+### V14.11 What this part does NOT do
+
+It authorises **no run, no flash, no build and no staging**; the Hardware Issue
+is the Orchestrator's, and only if the Operator agrees to the boot. It adds **no
+gate**: `question_V` and `question_E` judge RUN 34 unedited, and
+`tools/v14repeat.py` defines a measurement method only. It edits **no frozen
+construction** and **§V11 keeps its words**, including §V11.4's ≥ 5-byte claim,
+which §V14.5 qualifies on top. It answers nothing and **promotes nothing**:
+`U-GBP-012` stays open and H-PWM stays a hypothesis whatever RUN 34 shows, and
+`U-GBP-038` and `U-GBP-040` are untouched. **RUN 34 is reserved and the files do
+not exist.**

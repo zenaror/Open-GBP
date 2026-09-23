@@ -612,6 +612,18 @@ a finding in its own right; and the schedule a run exercised is **derived from
 the `KEY` record**, with a mismatched window **refused** rather than read as the
 other question.
 
+
+**2026-09-23 — RUN 34 PRE-REGISTERED as §V11's sweep REPEATED
+(`HARDWARE_TESTS.md` §V14)**, under §V11's gates unedited. **Not run; this item
+stays exactly as open as it was.** Two things it establishes before the run:
+**a four-press run cannot deliver four carrying amplitude windows while
+`U-GBP-038` holds**, because the first press is the emission and its window is
+dead under either reading — so `question_V` will be INCONCLUSIVE by
+construction, and the loss is free because the lost amplitude is V=15, already
+measured twice in RUN 31; and **§V11.13's three-second spacing is inside T's
+bound**, so RUN 34 spaces at five. What it would add: **V=11, the only amplitude
+never measured**, and a like-for-like **repeat** of V=7 and V=3 — which is what
+`GBP-HW-305` names as needed before its reading can be FACT.
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the

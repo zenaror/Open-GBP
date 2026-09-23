@@ -14258,3 +14258,61 @@ pre-registered outcome, now confirmed visually.
 **Next.** The Hardware Issue for RUN 33, which is the Orchestrator's to open.
 **No flash and no staging**: `sweep-0002` is on the cartridge and `stream-0016`
 is in `14-audio`.
+
+## 2026-09-23 — RUN 34 pre-registered: §V11's sweep repeated, and the premise needed two corrections
+
+**Goal.** After the session restart, the Orchestrator asked for a bounded task:
+pre-register RUN 34 as the repeat of §V11's `QUESTION V` with the repaired
+instrument, **under §V11's existing gates**, on the premise that it *"would give
+four clean amplitude windows"*. **No Issue exists for it; the authorisation is
+his message**, and the Hardware Issue is his to open only if the Operator agrees
+to the boot. §V14.
+
+**The premise does not survive the bound we now have, and that is the main
+content of the checkpoint.**
+
+**First: a four-press run cannot deliver four carrying amplitude windows while
+`U-GBP-038` holds.** `sweep-0002` emits on its first press, so press 1 *is* the
+AGB's first emission — and the emitting window carries nothing under **both**
+readings (ORDINAL by definition, ELAPSED because T > 0.0625 s, which is one
+window). So `question_V`, which needs four, **will return INCONCLUSIVE by its own
+construction**. That is the gate being right, not wrong, and it is said before
+the run rather than found in the ingestion. **And the loss is free**: §V11.3 put
+the already-measured point first against what was then only a risk, and the
+lost amplitude is V=15, which RUN 31 measured twice. A design choice made for one
+reason paid for a sharper one.
+
+**Second: §V11.13's "at least three seconds" is no longer safe.** T's bound is
+(0.0625, 3.33] s, and three seconds is inside it — a 3 s gap can leave window 2
+empty under ELAPSED. **RUN 34 spaces at five**, which clears the bound by 1.73 s
+under either reading and does not depend on RUN 33's outcome, so the two can
+share a session.
+
+**What the run delivers with window 1 spent is still worth a boot:** V=11, the
+only amplitude never measured, and a **like-for-like repeat** of V=7 and V=3 —
+the repeat `GBP-HW-305` names as what would make its reading FACT.
+
+**One honest shortfall in a frozen claim, qualified on top:** §V11.4 said the two
+models separate by "≥ 5 bytes at every point that is not the anchor". That held
+for the *predicted* anchor of 32. Re-anchored on the *measured* 30.0625, as the
+comparison is specified to be, **V=11 separates by 4.90**. It decides nothing —
+the comparison is never a gate, and RUN 32 already separates the models 258× —
+but it is stated rather than left.
+
+**No new gate.** The verdict is `question_V` and `question_E`, unedited.
+**`tools/v14repeat.py` freezes only the measurement METHOD** — bit resolution,
+the one §V11.16.7 defined during an ingestion — and a test shows it reproduces
+§V11.16.7's published figures on RUN 32 to the last digit, so RUN 34 is measured
+with the same ruler as RUN 32. **No tolerance is invented for the repeat**: two
+runs of one cartridge on one console do not establish what "the same" means.
+
+**The card rule is in the action list, first step:** RUN 33 and RUN 34 both write
+`GBP-AUDIO-001_stream-0016.*`, so if they share a session **RUN 33's files come
+off the card before the second boot**, or they are overwritten with no error.
+
+**One thing the mixed-axis idea would have fixed, and why it cannot:** pressing A
+first to spend the emission and then B four times would keep V=15 — but
+`sweep-0002` spoils any run that changes axis, by design. The guard that makes
+the display trustworthy is the guard that forbids the trick. **What would answer
+§V11's question in one run is a fifth press window**, which is a new image; named
+and not proposed.
