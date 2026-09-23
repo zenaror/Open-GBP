@@ -297,9 +297,22 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
                          "tools/v19drain.py was edited after it was frozen")
 
     def test_the_part_was_frozen_in_the_same_commit(self):
+        """WIDENED DELIBERATELY, 2026-09-23 (§V19.10, AMENDMENT 3), and to exactly this: the
+        frozen text must still be BYTE-IDENTICAL as the START of the part. What changed is
+        that dated amendments may now be APPENDED after it -- the amend-on-top convention
+        Issue #49 established, which every other freeze in this project already permits.
+
+        What it still catches is the thing a freeze exists for: ANY edit to a frozen byte,
+        anywhere in §V19.0 - §V19.9, fails here. Only growth past the end is allowed."""
         then = frozen.source("Issue #84 -- §V19 transcribed", "docs/research/HARDWARE_TESTS.md")
         i = then.index("\n## V19 — GBP-AUDIO-005")
-        self.assertEqual(then[i:], part(), "§V19 was edited after it was frozen")
+        frozen_part = then[i:].rstrip("\n")
+        now = part()
+        self.assertTrue(now.startswith(frozen_part),
+                        "§V19's FROZEN bytes were edited after it was frozen -- appending is allowed, "
+                        "changing is not")
+        self.assertIn("### V19.10 **AMENDMENT 3", now[len(frozen_part):],
+                      "anything appended after the frozen text must be a numbered, dated amendment")
 
 
 class TheModuleAuthorisesNothing(unittest.TestCase):

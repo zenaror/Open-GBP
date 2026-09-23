@@ -31874,3 +31874,48 @@ is what *"stated in advance so it cannot be argued later"* exists for.
 found wrong before the run is corrected in a dated amendment, as B1 was; a
 figure found wrong after the run is recorded as a finding and the gate stands as
 written.
+
+### V19.10 **AMENDMENT 3 — 2026-09-23, BEFORE any hardware** — why the adopted reading of A6 is adopted, and a signed clock figure withdrawn
+
+*Appended after §V19.9; the frozen text above — §V19.0 to §V19.9, both earlier
+amendments and the transcription record — stands byte for byte. This amendment
+changes **no instruction and moves no gate**. It is numbered rather than filed as
+a note because it settles a gate's effective threshold (0.999, not 0.99976), and a
+reader scanning for what was frozen and when should find one numbered series.*
+
+**1. The literal reading of A6 is self-contradictory, and that is the reason the
+adopted reading is adopted.** §V19.9 recorded both readings and that `AMENDMENT 2`
+B5 settles them. The stronger reason needs no measurement at all:
+
+> A6 declares **±1 AUDIO block of boundary noise**, and a DMA completion that lands
+> just across a window boundary leaves one window at **4095** and the next at
+> **4097**, with nothing lost. The literal reading would fail the 4095. So the
+> literal reading fails a lossless path **by the noise A6 itself declares** — it is
+> not a stricter gate, it is a broken one. Clock drift can add to this only if the
+> AGB runs slow; its sign is not established (§V18.6 records a magnitude bound only).
+
+It holds under every drift sign and every magnitude, which a clock-based argument
+would not: at +4.4 ppm drift produces windows of 4097, never 4095, and would fail
+nothing. **The threshold stays 0.999**, and A6's sentence forbids the post-hoc
+rescue by boundary noise of a window that has already failed 0.999.
+
+**2. A6's "−12..−16 ppm" is withdrawn as a signed figure.** It is a signed figure
+the record does not carry: §V18.6 and `GBP-HW-316` state a **magnitude bound only**
+(*"within ~16 ppm"*), because the signed range came from a naive least-squares fit
+over every logged event that the independent verifiers contradicted — **+4.4 ppm**
+on one subset, **−3..−5 ppm** on another. The signed range entered this frozen
+document only through A6's CLOCK line, transcribed verbatim.
+
+**A6's operational conclusion is unaffected.** At any sign and any magnitude within
+the ~16 ppm bound the clock is worth **≤ 0.066 AUDIO blocks in 1 s** (16 ppm ×
+4096), which is what A6 uses it for and why it called it negligible. Only the
+signed range is withdrawn; A6's words stay as written, per the convention, and are
+corrected here on top.
+
+**What this amendment is about, beyond the numbers.** Twice in this document's
+lineage a figure was taken from a message instead of from the document that
+carries its status — the 4028 of §V19.0, and this signed range — and in both cases
+the error would have become load-bearing for a frozen gate. The rule the
+Orchestrator recorded, and which this part now carries: **a figure in a peer's
+message is not a figure in the record. The record carries the status; nothing is
+frozen without going to the document first.**
