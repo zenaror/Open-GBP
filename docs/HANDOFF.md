@@ -1712,6 +1712,20 @@ issue 79    GBP-HW-305 DECIDED (§V16): CORROBORATED -- WHICH IT HAS BEEN SINCE 
             predictions), not one taken from the residuals already seen.
             RUN 35 RIDES ALONG -- §V14.10 unchanged on the console, judged by the two repaired gates.
             The next hardware round picks it up without being asked.
+issue 80    THE AUDIO WINDOW DECODES TO THE AGB'S TONES AND PLAYS (§V17, GBP-HW-313, CORROBORATED for the
+            layout). FIXTURE CORRECTED FIRST: RUN 34 was B x4, so 128 Hz in all four windows; the four
+            frequencies are RUN 33. Predictions (tools/v17pred.py) frozen and pushed in their own commit
+            (078b25a) BEFORE the decoder existed, one axis per run, derived from the KEY record.
+            QUESTION D = LAYOUT HOLDS on both: every period EXACTLY the prediction (32/8/16/4; 32 x4),
+            uniformity 1.000 in all eight windows; RUN 34's amplitude falls with the volume; an
+            independent DFT agrees (129/512/256/1024 Hz).
+            CORRECTION TO MY OWN DISCLOSURE: the 1024 Hz window is NOT attenuated -- it has FOUR levels
+            per period, the same extremes as 128 Hz plus two edge-straddling ones, and deviation()'s modal
+            pick was a tie-break; the near-exact 7/8 was the tie. Integrating-sampler reading: HYPOTHESIS.
+            AUDIO: captures/local/decoded/ -- per window and concatenated at 4096 Hz (THE EVIDENCE), 48 kHz
+            (stdlib windowed-sinc, 375/32, a convenience), and a 4 s looped LISTEN file per run. RUN 33
+            sounds like four pitches at one loudness; RUN 34 like one low pitch getting quieter.
+            No hardware. U-GBP-012 narrowed and still open (what each sample integrates over).
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED

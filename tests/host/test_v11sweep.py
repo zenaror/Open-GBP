@@ -400,7 +400,7 @@ class ItAuthorisesNothingAndAnswersNothing(unittest.TestCase):
         self.assertNotRegex(part(), r"^#{2,4} +GBP-[A-Z]+-\d{3}\b")
         ev = read(EV)
         self.assertEqual(max(int(n) for n in re.findall(
-            r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 312)
+            r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 313)
         self.assertNotIn("Issue #69", ev)
 
     def test_the_earlier_parts_keep_their_words(self):

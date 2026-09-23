@@ -633,6 +633,19 @@ at V=3, `GBP-HW-309`), **so this item stays OPEN and H-PWM is not promoted.** Th
 layout half is better measured than it has ever been and still not answered by
 the gate that was built to answer it.
 
+
+**2026-09-23, Issue #80 — THE LAYOUT DECODES AND PLAYS** (`GBP-HW-313`,
+CORROBORATED). Under H-PWM — one block = one sample, the one-bit fraction minus
+the rest, 4096/s — RUN 33 decodes to exactly 128 / 512 / 256 / 1024 Hz and RUN 34
+to 128 Hz falling in loudness with the volume. **What this narrowed:** the layout
+is no longer a pattern that fits the numbers; it is a decode whose output is the
+AGB's own tones, with WAV files anyone can play. **What it did not:** the item
+stays OPEN. It is one construction agreeing with one prediction set, and the next
+question has already appeared — **what each sample integrates over.** At 1024 Hz
+the series has four levels per period, two of them edge-straddling and symmetric
+about the rest, which is what an integrating sampler would give; that is a
+HYPOTHESIS from one window.
+
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the

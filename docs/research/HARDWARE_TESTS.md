@@ -30909,3 +30909,116 @@ of this one.
 **No decoder, no decoded output, no audio file and no verdict.** They come in the
 next commit, judged against what is frozen here. `U-GBP-012` stays open, and no
 hardware is asked for.
+
+### V17.6 THE DECODE — **QUESTION D = LAYOUT HOLDS on both runs**, judged against §V17.3 unedited — **appended 2026-09-23 (Issue #80), commit 2 of 2**
+
+`tools/v17decode.py`. The period is §V9.8's estimator and the amplitude is
+`v14repeat.deviation`, both unedited; the predictions are `tools/v17pred.py`,
+frozen in the previous commit. **Nothing that decides the verdict is new here.**
+
+```text
+RUN 33, axis F (derived from the KEY record)
+  predicted    128.0 Hz   512.0 Hz   256.0 Hz   1024.0 Hz
+  period       32 / 32    8 / 8      16 / 16    4 / 4        predicted / MEASURED, samples
+  uniformity   1.000      1.000      1.000      1.000
+  -> LAYOUT HOLDS: every period in band
+
+RUN 34, axis V
+  predicted    128.0 Hz at volume 15 / 11 / 7 / 3
+  period       32 / 32 in all four windows, uniformity 1.000
+  amplitude    29.9883 > 22.1094 > 14.0977 > 6.1211   /256 -- strictly falling
+  -> LAYOUT HOLDS: every period in band, and the amplitude falls with the volume
+```
+
+**Every period is not merely in band — it is EXACTLY the prediction**, with
+uniformity 1.000 in all eight windows. The one-sample tolerance was never used.
+
+**An independent measurement beside it, never a gate** — the discrete-time
+Fourier peak of each window's decoded, sliced series, at 1 Hz steps, which
+shares nothing with the period estimator:
+
+```text
+RUN 33   129 / 512 / 256 / 1024 Hz        RUN 34   129 / 128 / 129 / 127 Hz
+```
+
+The ±1 Hz at 128 Hz is well inside the main lobe of a 39 ms window (160 samples,
+a 25.6 Hz bin).
+
+#### V17.6.1 **A CORRECTION TO §V17.4's DISCLOSURE — the 1024 Hz window is not attenuated**
+
+§V17.4 disclosed that RUN 33's 1024 Hz window *"was seen to read lower than its
+128 Hz window"* and kept amplitude-versus-frequency out of the gate as a property
+of the analog chain. **Keeping it out was right. The reading behind the
+disclosure was wrong**, and it is corrected here rather than in §V17.4:
+
+```text
+                 bit-level levels in the sliced window (of 2048), x count
+RUN 33 w1 128 Hz     785 x75     1266 x75                        (1026 x10 -- the transitions)
+RUN 33 w4 1024 Hz    785 x40     1266 x40     845 x40     1206 x40
+```
+
+**At 1024 Hz the decoded series has FOUR levels, not two. Its extremes — 785 and
+1266 — are EXACTLY the 128 Hz window's.** The two middle levels are samples whose
+block straddles the square wave's edge, and they come in a pair symmetric about
+the resting level: (1266 + 785) / 2 = (1206 + 845) / 2 = 1025.5. With all four
+levels equally common, `v14repeat.deviation` picks its "modal" level on each side
+by a tie-break, and 26.3047 is the (1266 − 845) / 2 pair — 26.3125 with the levels
+rounded to 1/2048 of a cell as shown above, 26.3047 at the block resolution the
+function actually uses. **The near-exact 7/8 ratio that made it look like a filter
+is a symptom of the tie.**
+
+**So nothing here says the path attenuates at 1024 Hz.** What it does show is
+that `v14repeat.deviation` — two modal levels — is the wrong summary for a series
+with four samples per period. **A limitation of that measurement at high
+frequency, recorded and not repaired**; it does not touch §V17.4's gate, which
+never used amplitude on the F axis.
+
+**And the four-level pattern is itself worth keeping, labelled as a HYPOTHESIS:**
+a square wave sampled at four samples per period with a sub-sample phase offset,
+by a sampler that **integrates over each block's interval**, produces exactly two
+full-level samples and two edge-straddling samples per period, symmetric about the
+rest. That is a finer claim than H-PWM made (H-PWM says one block is one sample;
+it did not say what the sample integrates over), and **one window is not enough to
+promote it.**
+
+#### V17.6.2 THE AUDIO — the first audible artefact of Phase 6
+
+Written by `tools/v17decode.py` to `captures/local/decoded/` (git-ignored, and
+regenerable byte for byte from the archived sidecars):
+
+```text
+<RUN>_w1..w4_4096Hz.wav     each press window, 256 samples = 62.5 ms     <- THE EVIDENCE
+<RUN>_all_4096Hz.wav        the four concatenated, 250 ms                <- THE EVIDENCE
+<RUN>_w1..w4_48000Hz.wav    the same, resampled -- a CONVENIENCE
+<RUN>_all_48000Hz.wav
+<RUN>_LISTEN-looped_48000Hz.wav   each window's sliced region looped to ~1 s, 4.06 s in all
+```
+
+**16-bit mono, one fixed gain for every file** — a deviation of 0.125 (the ±32/256
+§V11.4 predicted at volume 15) maps to 80 % of full scale — so loudness is
+comparable across windows and runs and depends on no measured value.
+
+**The resampler, said plainly:** 4096 → 48 000 Hz is exactly 375/32. Each output
+sample is a band-limited interpolation — a sinc with its cutoff at the **input**
+Nyquist (2048 Hz), tapered by a Hann window over ±16 input samples — so it invents
+nothing the 4096 Hz evidence cannot represent. **It adds no information.**
+
+**Why a looped file exists at all:** 62.5 ms is at the edge of what an ear resolves
+as pitch. The loop uses each window's sliced region, 160 samples, which is a
+**whole number of periods at every frequency in the schedule** (5, 20, 10, 40), so
+it joins without a click. **It is for listening, not evidence, and says so in its
+name.** What it should sound like: RUN 33 — four rising-and-falling pitches at one
+loudness (128, 512, 256, 1024 Hz); RUN 34 — one low pitch (128 Hz) getting
+quieter four times.
+
+#### V17.6.3 What this establishes, and what it does not
+
+**H-PWM's layout survives a test that could have refuted it, on both axes**: the
+timebase (four exact periods at four frequencies) and the sample value (the
+amplitude falls with the envelope volume). **It is one construction agreeing with
+one set of predictions** — CORROBORATED for the layout at best, and not hardware
+confirming it: the predictions came from the ROM, the decode from this project's
+reading of the bytes, and both could share an error that neither can see.
+**`U-GBP-012` narrows and stays open**: the layout is now a decode that plays and
+not a pattern that fits, and what the sample integrates over is the next question
+(§V17.6.1). **No hardware was used.**

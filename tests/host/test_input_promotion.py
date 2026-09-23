@@ -239,7 +239,7 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
         for a, b in zip(heads(ev_old), heads(ev_new)):
             self.assertTrue(b.startswith(a), (a, b))
         self.assertEqual(len(heads(ev_new)), len(heads(ev_old)))
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev_new, re.M)), 312, "266…271: #33; 272: #46; 273…277: #47; 278…284: #52, the four play-0001 sessions; 285…294: #62, RUN 30; 295…300: #67, RUN 31; 301…302: #67's validation")
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev_new, re.M)), 313, "266…271: #33; 272: #46; 273…277: #47; 278…284: #52, the four play-0001 sessions; 285…294: #62, RUN 30; 295…300: #67, RUN 31; 301…302: #67's validation")
         u_old, u_new = git_show("docs/research/UNKNOWNS.md"), read(UNKNOWNS)
         h = lambda t: re.search(r"^## U-GBP-010\b.*$", t, re.M).group(0)
         self.assertTrue(h(u_new).startswith(h(u_old)))
