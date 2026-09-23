@@ -1474,15 +1474,47 @@ issue 69    THE SWEEP IS PRE-REGISTERED (§V11, GBP-AUDIO-003) and its construct
             bound is the EARLIEST a window was OBSERVED to carry over two runs, not a hardware property),
             USE THE SAME BUTTON ALL FOUR TIMES, the per-press counter and box half, and the cost.
             NOT RUN, NOT AUTHORISED. No id, no status, no promotion. RUN 32 RESERVED, files do not exist.
+issue 70    agb-sweep IS BUILT (sweep-0001, §V11.15) and it is THE ONLY NEW ARTIFACT: no hardware, no
+            staging, stream-0016 / 14-audio / the card untouched, stimulus/agb-tone byte-identical to
+            the commit that built it. canonical build/stimulus/agb-sweep/agb-sweep.gba 1 960 B
+            13ed1108...b865; DELIVERED build/physical/agb-sweep-cart.gba 1 960 B 71c79811...11c9 -- the
+            file he flashes, and HE MUST CHECK THE HASH BEFORE FLASHING because the NOR cannot be read
+            back. The hash does NOT depend on the commit (built twice with different commit strings,
+            same bytes). Schedules asserted EQUAL to tools/v11sweep.py's constants, not retyped; at
+            volume 15 SOUND1CNT_H is 0xF080, byte for byte agb-tone's word, which is what makes "a
+            pure-A run is a superset of RUN 31" true rather than rhetorical.
+            THE SCREEN NAMES THE AXIS: background = count (unchanged), a box's filled HALF = which axis
+            that press advanced (UPPER A, LOWER B; a half is 40x48, exactly agb-tone's whole box), plus
+            a 240 px rail at the top for A and the bottom for B, redundant by design. He does not need
+            to know what upper and lower MEAN -- he is told "press B, the boxes fill on the LOWER half"
+            and only has to see that it matches.
+            TWO SPOILED-RUN SIGNALS, PRICED DIFFERENTLY: >4 presses = MAGENTA (agb-tone's meaning; the
+            fifth window is refused, both schedules HOLD, the four are still good); a press that is NOT
+            the run's button = RED AND WHITE BANDS, sticky, nothing else drawn, and THE AUDIO FREEZES.
+            Any key that is not exactly A or exactly B spoils it, because §V11.8 can give none of them
+            an axis. The bands began RED/BLACK and A TEST FAILED -- the background is already red at
+            count 1 -- so they became RED/WHITE and the test now checks that ADJACENT BANDS DIFFER.
+            §V11.15.6 -- THE OPERATOR'S OWN PRE-FLIGHT CHECK, SIZED HONESTLY. He put agb-tone in his own
+            GBA unasked and reported it makes sound: a SECOND INDEPENDENT CHANNEL saying the ROM emits
+            (RUN 31's 127.95 / 511.80 Hz was the first), and confirmation from the other end that the
+            silence in RUN 30/31 was entirely the capture image's. IT IS NOT EVIDENCE ABOUT AGB
+            BEHAVIOUR: he HEARD it, his console is not the GBP's internal AGB, the unit is UNDECLARED.
+            No id, no status. What it generalises into is a STEP 0.5, A CHECK AND NOT A GATE: confirm on
+            his own GBA that it boots, is silent until the first press, and that A CHANGES THE PITCH
+            while B CHANGES THE LOUDNESS -- worth more here than for agb-tone, because a wrong-button
+            run is a DIFFERENT EXPERIMENT. §V11.13 is FROZEN and NOT edited; the step is on top.
+            NOT RUN, NOT AUTHORISED. §V11.1 - §V11.14 untouched and a test says so.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED
             by RUN 30 (T' = NOMINAL), R5 unchanged, R6 RE-PRICED by #63 (an implementation gap in front
             of the run).
-            PHASE 6's NEXT CHECKPOINT IS THE BUILD: stimulus/agb-sweep to §V11.2 -- silent until the first
-            press, the key-DOWN edge only, two axes on A and B, both schedules HOLDING at the end, and the
-            count AND the axis on screen (background = count, box upper half = A, lower half = B). Then
-            the run, which is another checkpoint. #69 pre-registered it; NOTHING IS AUTHORISED BY THAT.
+            PHASE 6's NEXT CHECKPOINT IS THE HARDWARE ISSUE, which is the Orchestrator's to open. WHAT IS
+            LEFT BEFORE THE RUN IS THE OPERATOR'S: verify build/physical/agb-sweep-cart.gba against
+            71c79811...11c9 (1 960 B), flash it to the EZ-Flash Omega DE in NOR / Mode B -- WHICH REPLACES
+            agb-tone, re-flashing being the way back -- run §V11.15.6's step 0.5 on his own GBA, then the
+            capture run: wait 20 s from the picture, then FOUR PRESSES OF ONE BUTTON, >= 3 s apart.
+            The image is stream-0016 UNCHANGED in slot 14-audio; nothing is staged and nothing is copied.
             #31 (Phase 7, GB/GBC) stays backlog. Executor: THE QUEUE IS EMPTY -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,

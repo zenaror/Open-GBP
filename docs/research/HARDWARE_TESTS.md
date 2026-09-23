@@ -28771,3 +28771,205 @@ stand; `tools/v8audio.py` and `tools/v9tone.py` are not edited, and
 `stimulus/agb-tone` is byte-identical to the commit that built it. It reserves
 two names and **the files do not exist**. Nothing from any third-party
 repository enters this one.
+
+### V11.15 THE ROM, BUILT — **APPENDED 2026-09-22 (GitHub Issue #70). §V11.1 – §V11.14 ARE UNTOUCHED**
+
+**§V11.11 said this part could not state the ROM's identity because the ROM did
+not exist. It does now.** Built, host-validated, **NEVER RUN**, and §V11's run
+is still not authorised. The pre-registration above kept every word: the ROM
+moved to meet it.
+
+#### V11.15.1 Identity
+
+```text
+source        stimulus/agb-sweep/source/main.c         built by tools of the container only
+canonical     build/stimulus/agb-sweep/agb-sweep.gba   1 960 B
+              sha256 13ed1108e0b1ba9ad9328c1230802fe0f1b72b1a885cd6c2087487c5c690b865
+DELIVERED     build/physical/agb-sweep-cart.gba        1 960 B      <-- THE FILE HE FLASHES
+              sha256 71c79811c67970322d31c5715b8384100db2fae171be8c67e9ed5550831711c9
+derived by    tools/gbaderive.py, from the donor build/physical/agb-color-bars-cart.gba whose logo area
+              (sha256 08a0153c...d818) has booted the flashcart route twice -- the SAME donor agb-tone
+              used; everything past 0x0C0 is byte-identical to the canonical ROM, verified by the tool
+header        title OPENGBPSWEEP, code SGBP, maker OG, complement 0x00 (recomputed from the file and OK)
+stimulus id   sweep-0001
+route         §V3.7 route 1 -- EZ-Flash Omega DE in NOR / Mode B. The derived image lives under
+              build/physical/, which Git ignores, and NO PROPRIETARY BYTES ENTER THIS REPOSITORY.
+```
+
+**He must verify the DELIVERED hash before flashing, because the NOR cannot be
+read back afterwards.** `sha256sum build/physical/agb-sweep-cart.gba` must print
+`71c79811…11c9` and the file must be 1 960 bytes. **If it does not, do not
+flash**: §V7.1's rule, and here it is the only check there will ever be.
+
+**The ROM's hash does not depend on the commit.** The build stamps the commit
+into `build-info.txt` and not into the image — checked by building it twice with
+different commit strings and getting the same 1 960 bytes and the same SHA-256 —
+so the hash above is the hash of the file he will be given, whatever commit it is
+rebuilt at.
+
+**`stimulus/agb-tone` is byte-identical to the commit that built it**, so RUN 31's
+instrument keeps its identity; a test asserts it.
+
+#### V11.15.2 The requirements, demonstrated rather than asserted
+
+`tests/host/test_agb_sweep.py` compiles **the ROM's own code** for the host with
+the two hardware bases relocated — the family's established trick — and drives it
+through five scripted key sequences, reading the fake APU registers and the fake
+VRAM back after each step. So what is checked below is the code that will be on
+the cartridge.
+
+```text
+1  SILENT UNTIL THE FIRST PRESS   all six APU registers read 0 after reset and before any press, and
+                                  the master enable is CLEARED EXPLICITLY rather than assumed clear.
+                                  §V11's control window therefore stays a resting-state observation.
+2  THE KEY-DOWN EDGE ONLY         down, up, down, up ... gives pressed = 1,0,1,0,... -- the releases
+                                  count for nothing, which is the edge the capture arms on (Issue #59).
+3  THE TWO SCHEDULES              a four-press B run walks volume 15, 11, 7, 3 and NEVER leaves
+                                  128.0 Hz; a four-press A run walks n = 1024, 1792, 1536, 1920 and
+                                  NEVER leaves volume 15. Compared against tools/v11sweep.py's own
+                                  constants, not against numbers retyped in the test.
+4  THE HOLD                       a FIFTH press leaves v_step at 3 and the sounding level at 3: the
+                                  schedule holds and the capture's refused fifth window costs nothing.
+5  THE REGISTERS                  SOUND1CNT_H = volume<<12 | 0x0080 -- envelope step time 0, duty 50 %,
+                                  and at volume 15 it is 0xF080, BYTE FOR BYTE agb-tone's word, which is
+                                  what makes "a pure-A run is a superset of RUN 31" true rather than
+                                  rhetorical. SOUND1CNT_X = 0x8000 | n with BIT 14, THE LENGTH FLAG,
+                                  NEVER SET. No sweep. SOUNDCNT_H written to 100 %.
+```
+
+#### V11.15.3 THE SCREEN NAMES THE AXIS — the requirement §V11 could not have
+
+§V11.8 refuses a wrong-button run **correctly, loudly, and after the trip**. A
+and B are adjacent on the pad and the consequence is silent at the time, so the
+Operator has to be able to see **at the first press** that he is running the
+experiment he was asked to run.
+
+```text
+the background      the press COUNT: black, red, green, blue, yellow -- unchanged from agb-tone
+a box's filled HALF WHICH AXIS that press advanced. UPPER = A, LOWER = B; the other half stays grey.
+                    A filled half is 40x48 -- exactly the block agb-tone used for a WHOLE box, so the
+                    half is as legible on his converter as the box already was.
+the rail            the same up/down answer 240 px wide: a 240x16 bar at the TOP for an A run and at
+                    the BOTTOM for a B run. Redundant with the halves BY DESIGN, and readable across
+                    the room.
+```
+
+**He is told "press B, the boxes must fill on the LOWER half".** He does not have
+to know what upper and lower *mean*: he has to see that what happened matches
+what he was told. That is a check he can perform without interpreting anything,
+which is the difference between a display and a diagnostic.
+
+**The two ways a run is spoiled get different signals, because they cost
+different amounts:**
+
+```text
+MORE THAN FOUR PRESSES    the background turns MAGENTA -- exactly what it meant in agb-tone, and the
+                          colour he has already seen. The fifth window is refused by the capture and
+                          both schedules HOLD, so the four captured windows are still good.
+A PRESS THAT IS NOT THE   RED AND WHITE BANDS across the whole screen, and they STICK. Worse than a
+RUN'S BUTTON              fifth press: the capture arms a window for ANY rising bit, so a stray press
+                          consumes one of the four AND makes derive_schedule return MIXED or UNKNOWN,
+                          which refuses the WHOLE run. Nothing else is drawn over the bands: at that
+                          point the only thing worth communicating is THAT the run is spent.
+ANY key that is not       START, the D-pad, L, R, or A and B in one sample -- every one of them arms a
+exactly A or exactly B    window §V11.8 can give no axis to, so every one of them spoils the run.
+AND THE AUDIO FREEZES     after a stray press the ROM stops touching the APU. The run is refused at
+                          ingestion whatever happens next, and the quietest behaviour is the one that
+                          adds nothing further to explain.
+```
+
+**What identifies the spoiled screen is not a colour but that ADJACENT BANDS
+DIFFER** — the background is already red at count 1, so a single red pixel must
+not be able to stand for it. White is a colour the background never takes, and
+no valid state of this ROM or of `agb-tone` produces a striped screen. A test
+samples two band rows in the left margin and asserts they are **equal in every
+valid state and different in every spoiled one**.
+
+#### V11.15.4 What a host test CANNOT do, said rather than implied
+
+**There is no sound here.** The host has no APU, so what is verified is the
+**register values and the order they are written in**, against GBATEK's field
+layout and §V11.3's schedules. **Whether a real AGB then emits 128.0 Hz at
+envelope volume 7 is exactly what the physical run is for**, and nothing above
+stands in for it.
+
+**Nor can a host test say the screen is LEGIBLE.** The geometry that was argued
+for is checked — the 40×48 half, the four boxes centred in 240, the rail inside
+the screen — but whether it reads on a cheap RCA→HDMI converter at the Game
+Boy's native resolution is a judgement about his chain, and only he can make it.
+
+**One accepted cost, named rather than discovered**, and it is `agb-tone`'s: a
+full repaint does not fit in one VBlank and overruns into the visible period of
+the frame a press lands on. Four or five torn frames in a session of a thousand,
+invisible to a person, and §V11's AUDIO window does not read VRAM at all.
+
+#### V11.15.5 What this appendix does NOT do
+
+It authorises **no hardware and no staging**. `stream-0016` is untouched,
+`14-audio` is untouched, the other slots are untouched, the card is untouched,
+and **the ROM is the only new artifact in this run**. `tools/v11sweep.py` is
+unchanged and a test diffs it against the commit that wrote it; `v8audio.py`,
+`v9tone.py` and `stimulus/agb-tone` are untouched. §V11's gates decided nothing
+here and are not re-opened: **this appendix records an artifact, not a result.**
+
+#### V11.15.6 A PRE-FLIGHT CHECK THE OPERATOR INVENTED — and the exact size of what it can say
+
+**Nobody asked for this.** While `agb-tone` was still in the NOR the Operator put
+that cartridge into **his own Game Boy Advance console** and reported:
+
+> **OPERATOR OBSERVATION, 2026-09-22 (quoted, and it stays an operator
+> observation):** *"Sobre a ROM da run 31, testei no console GBA e ela sai som
+> normal… É só no nosso DOL que não está saindo mesmo."*
+
+**What it is worth.** §V9.14.3 said in as many words that a host test verifies
+**register values and their order** and that *whether a real AGB emits 128.0 Hz
+is what the physical run is for*. There is now a **second, independent channel**
+saying the ROM emits at all — RUN 31's measured 127.95 / 511.80 Hz out of the
+block series being the first — and it comes from the opposite end of the path.
+It also confirms from that end that the silence in RUN 30 and RUN 31 was
+**entirely the capture image's** (§V8.10.1: the image links no audio library).
+
+**What it is NOT, and this is written here so that nobody cites it otherwise in
+two months:**
+
+```text
+he HEARD it            no frequency, no amplitude, no waveform, no duration. An ear is not an instrument
+                       and no quantity of any kind follows from this.
+his console is NOT     it is a retail Game Boy Advance, and the experiment's subject is the GBP's
+the GBP's internal AGB INTERNAL AGB reached through GBS-DOL. The two are not the same device.
+the unit is UNDECLARED no model, no revision, no serial, no declaration -- §V7.1's identity discipline
+                       was not applied because this was not a pre-registered test
+SO IT IS NOT EVIDENCE  it mints no id, it corroborates no claim about AGB behaviour, and it changes no
+                       status. It is an INSTRUMENT CHECK ON THE STIMULUS, performed on an undeclared
+                       unit, and that is the whole of it.
+```
+
+**The useful part is that it generalises into a step that costs nothing**, and it
+matters more for `agb-sweep` than it did for `agb-tone`: two axes on two
+**adjacent** buttons means a wrong-button run is a *different experiment*, and
+§V11.8 refuses it **after the trip**. On his own console he can confirm
+beforehand that **A changes the pitch and B changes the loudness** — the same
+failure §V11.15.3's on-screen display exists to catch at the console, caught one
+step earlier and for free.
+
+**§V11.13's action list is frozen and is NOT edited.** It gains, on top, one step
+before its step 1 — recorded here for the same reason §V8.10.1 was:
+
+```text
+step  action                                              press with       what he records
+ 0.5  CHECK, NOT A GATE. Put the flashed cartridge in     A a few times,   that it boots; that it makes
+      his own Game Boy Advance and confirm it boots,      then B a few     sound after the first press
+      is silent until the first press, makes sound        times            and NOT before; that A and B
+      after it, and that A CHANGES THE PITCH while                          move DIFFERENT things; which
+      B CHANGES THE LOUDNESS.                                               half of the box filled for each
+      ---- WHY: a wrong-button run is a DIFFERENT EXPERIMENT and §V11.8 refuses it only after the
+           trip. This catches a mis-built or mis-flashed ROM, and a swapped axis, before the GBP run.
+      ---- WHAT IT CANNOT DO: a ROM that PASSES this has told us NOTHING about the Game Boy Player.
+           His console is not the GBP's internal AGB and the unit is undeclared. A ROM that FAILS it
+           should not be taken to the GBP; a ROM that passes it has only shown that the cartridge and
+           the ROM work.
+```
+
+**It replaces nothing.** The host tests still run, §V11.11's identity gate still
+gates, and §V11's three questions are still decided from the bytes the capture
+writes and from nothing else.

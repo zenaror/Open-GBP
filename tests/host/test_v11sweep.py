@@ -39,6 +39,16 @@ def part():
     return _bounded(read(HW), "\n## V11 — GBP-AUDIO-003").lstrip("\n")
 
 
+def prereg():
+    """§V11.1 – §V11.14: the PRE-REGISTRATION PROPER, which is what the freeze
+    guards below are about. §V11.15 is Issue #70's build appendix, appended
+    after it and recording an artifact rather than a gate -- the same split
+    §V9.14 made, and the reason the ROM's hash may appear there and only there."""
+    s = part()
+    i = s.find("\n### V11.15 ")
+    return s[:i] if i >= 0 else s
+
+
 def flat(s):
     return re.sub(r" +", " ", s.replace("\n", " "))
 
@@ -344,11 +354,12 @@ class ItAuthorisesNothingAndAnswersNothing(unittest.TestCase):
         self.assertIn("PRE-REGISTERED", h)
 
     def test_the_rom_hash_is_refused_rather_than_left_blank(self):
-        s = flat(part())
+        s = flat(prereg())
         self.assertIn("IT DOES NOT EXIST", s)
         self.assertIn("THIS PART CANNOT STATE THEM AND DOES NOT LEAVE A BLANK FOR THEM", s)
-        # no 64-hex string may appear except the image's, which does exist
-        hashes = set(re.findall(r"\b[0-9a-f]{64}\b", part()))
+        # no 64-hex string may appear in the PRE-REGISTRATION except the image's,
+        # which did exist. Issue #70's appendix (§V11.15) carries the ROM's.
+        hashes = set(re.findall(r"\b[0-9a-f]{64}\b", prereg()))
         self.assertEqual(hashes, {"c3281a8c1382a1136a881c5548ef8238d69fa"
                                   "7862861d66741310b3d1f5f9c54"})
 
@@ -401,7 +412,11 @@ class ItAuthorisesNothingAndAnswersNothing(unittest.TestCase):
                                 "tools/" + name], capture_output=True, text=True).stdout
             self.assertEqual(d.strip(), "", "tools/%s changed" % name)
         self.assertIn("§V9.2.1 keeps its words; it is not edited", flat(part()))
-        self.assertFalse(os.path.exists(os.path.join(ROOT, "stimulus", "agb-sweep")))
+        # Issue #70 (2026-09-22) BUILT stimulus/agb-sweep, which §V11 authorised
+        # separately. What still has to hold is that §V11.1 – §V11.14 did not move
+        # to accommodate it: the ROM met the specification, not the other way round.
+        self.assertIn("§V11.1 – §V11.14 ARE UNTOUCHED", part())
+        self.assertNotIn("### V11.16", part())
 
     def test_nothing_beyond_run_31_is_claimed_to_have_happened(self):
         s = part()
