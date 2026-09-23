@@ -1680,6 +1680,25 @@ run 34      PRE-REGISTERED (§V14), authorised by the Orchestrator's message aft
             §V11.4's ">= 5 bytes" claim QUALIFIED ON TOP: re-anchored on the measured 30.0625, V=11
             separates by 4.90. CARD RULE, first step of the list: RUN 33 and RUN 34 write the SAME
             names, so RUN 33's files come off the card before the second boot.
+issue 78    RUN 33 AND RUN 34 INGESTED (§V15). Both known clean BEFORE the copy, from the live Gecko
+            capture; THREE channels agree on the sidecar CRC (live line, footer, SD log: d3dbd9a6).
+            classify_window() UNEDITED: EVERY press window CARRIES in both runs, INCLUDING the emitting
+            one. QUESTION S = INADMISSIBLE (§V13.5's row, as written). QUESTION V = INCONCLUSIVE and NOT
+            for §V14.2's reason: window 1 carried, but V=3 had "no two levels" at BYTE resolution --
+            at BIT level RUN 32 and RUN 34 measured V=3 IDENTICALLY (976/1073-1074) while byte duty read
+            one low side as 120 and the other as 128, THE REST VALUE. BYTE DUTY IS PHASE-SENSITIVE
+            (GBP-HW-309, refining GBP-HW-304) -- a limitation of the frozen gate, recorded, NOT repaired.
+            QUESTION E = LEVELS DIFFER, NOT ORDERED (span saturated, as before).
+            THE MEASUREMENT BESIDE IT: all four amplitudes in ONE run; V=11 -- NEVER MEASURED -- lands
+            0.06 bytes from the linear prediction; the repeat agrees to < 0.08; linear closer by 92x.
+            GBP-HW-305 IS NOT PROMOTED although its named repeat now exists, because the gate that was
+            to decide it returned INCONCLUSIVE. The promotion is a separate decision.
+            U-GBP-038 RESCOPED: no window lost in eight presses with sweep-0002, so ORDINAL and ELAPSED
+            are REFUTED AS PROPERTIES OF THE PATH; what stays open is two past dead windows (RUN 31/32
+            press 2, audible on his GBA; RUN 30 press 1, a different cartridge). U-GBP-039 CLOSED --
+            PREMISE REFUTED, not answered. The defect-caused-it hypothesis is SUPPORTED, NOT
+            ESTABLISHED; its test is sweep-0001 re-flashed, which costs a flash and is his to spend.
+            The 20 s wait and the 5 s spacing have NO KNOWN JOB LEFT. ids GBP-HW-308..311.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED

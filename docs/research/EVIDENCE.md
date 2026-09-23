@@ -7460,7 +7460,7 @@ and the same one-line derivation now prints
 ```text
 grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
      13 CONTROL semantic orig=90
-     33 CONTROL semantic orig=92
+     35 CONTROL semantic orig=92
 ```
 
 The six logs added the same day are RUN 23 (`stream-0015-run23`, no cartridge,
@@ -7502,6 +7502,10 @@ project's: **13 at `0x90` and 33 at `0x92`**, from the same one-line derivation
 above. **CLAIM 1 stays FACT and gains a log; CLAIM 2's status is untouched** —
 a 46th cartridge-present log reading `0x92` is another sample in a cell that is
 already full.
+
+**2026-09-23, Issue #78 — RUN 33 (`stream-0016-run33`) and RUN 34
+(`stream-0016-run34`) make it 48 logs**, both on `sweep-0002`: **13 at `0x90`
+and 35 at `0x92`**. CLAIM 1 stays FACT; CLAIM 2 untouched.
 ---
 
 ### GBP-HW-273 — RUN 23: a LATE build with NO Game Pak reads CONTROL `0x90` — the empty diagonal cell of `GBP-HW-272` filled, and the build-era reading disconfirmed by measurement — FACT (recomputable from the archived log)
@@ -8360,7 +8364,7 @@ audio. That is the second of the two readings Issue #67 put forward, and the
 bytes support it. **It is one run and one cartridge**; a repeat and a third
 frequency are what would make it FACT. §V9.15.5.
 
-### GBP-HW-299 — the AUDIO window does not carry the cartridge's sound until **(10.045, 12.547] s after the CONTROL transform** — **CORROBORATED across two runs, two cartridges and two instruments**; it ANSWERS `U-GBP-038` — **2026-09-23, Issue #72: REFUTED AS A FIXED PROPERTY OF THE PATH by RUN 32, whose interval (29.264, 32.634] s is DISJOINT from this one (`GBP-HW-307`); these words stay TRUE OF RUN 30 AND RUN 31 and are false as a property — read the amendment before citing the interval**
+### GBP-HW-299 — the AUDIO window does not carry the cartridge's sound until **(10.045, 12.547] s after the CONTROL transform** — **CORROBORATED across two runs, two cartridges and two instruments**; it ANSWERS `U-GBP-038` — **2026-09-23, Issue #72: REFUTED AS A FIXED PROPERTY OF THE PATH by RUN 32, whose interval (29.264, 32.634] s is DISJOINT from this one (`GBP-HW-307`); these words stay TRUE OF RUN 30 AND RUN 31 and are false as a property — read the amendment before citing the interval** — **2026-09-23, Issue #78: and with the instrument repaired NO delay is observed at all (`GBP-HW-311`) — RUN 33 and RUN 34 carried from the emitting window**
 
 Read against the CONTROL transform rather than against the press ordinal, RUN
 30 and RUN 31 agree:
@@ -8481,7 +8485,7 @@ schedule entry predicts a flat window, so a flat window is a carriage failure
 and never "volume 15 encodes nothing". `GBP-HW-305` and `GBP-HW-306` show how
 right that was. The construction was not adjusted. §V11.16.4.
 
-### GBP-HW-304 — the AUDIO block is a **1-bit PWM pulse**, not a byte pattern — **FACT for the structure (three runs)**
+### GBP-HW-304 — the AUDIO block is a **1-bit PWM pulse**, not a byte pattern — **FACT for the structure (three runs)** — **2026-09-23, Issue #78: byte duty is not only quantised but PHASE-SENSITIVE (`GBP-HW-309`) — read that entry before relying on a byte-duty figure**
 
 A 4096-byte block is ~120 bytes of `0xFF`, ~120 of `0x00`, and a few partial
 bytes at the two edges; every distinct value seen across RUN 30, RUN 31 and
@@ -8493,7 +8497,7 @@ rest, while blocks in transition between the levels take intermediate values.
 **This does not change any verdict** — a flat window is flat at either
 resolution — and §V11.4's construction keeps its definition. §V11.16.7.
 
-### GBP-HW-305 — the duty's deviation is **LINEAR in the envelope volume**, three points across two runs, intercept **+0.046/256** — **CORROBORATED, not FACT**
+### GBP-HW-305 — the duty's deviation is **LINEAR in the envelope volume**, three points across two runs, intercept **+0.046/256** — **CORROBORATED, not FACT** — **2026-09-23, Issue #78: the repeat this entry named now EXISTS and agrees to under 0.08 bytes (`GBP-HW-310`); NOT promoted, because the pre-registered gate returned INCONCLUSIVE — still CORROBORATED**
 
 Read at bit resolution (`GBP-HW-304`), with the anchor taken from the run that
 actually measured envelope volume 15:
@@ -8542,7 +8546,7 @@ mGBA                would NOT have caught it: its model takes the reset branch o
 His console is an **undeclared unit** and this says nothing about the GBP's
 internal AGB. §V11.16.8.
 
-### GBP-HW-307 — `GBP-HW-299`'s bound is **REFUTED as a fixed property of the path**; measured from the AGB's first emission the runs agree — **two readings, NOT separated**
+### GBP-HW-307 — `GBP-HW-299`'s bound is **REFUTED as a fixed property of the path**; measured from the AGB's first emission the runs agree — **two readings, NOT separated** — **2026-09-23, Issue #78: BOTH readings refuted as properties of the path — the emitting window carried in RUN 33 and RUN 34 (`GBP-HW-311`)**
 
 `GBP-HW-299` recorded *(10.045, 12.547] s after the CONTROL transform*,
 corroborated across RUN 30 and RUN 31. **RUN 32's interval is
@@ -8581,3 +8585,81 @@ new image.
 
 `GBP-HW-299` keeps its words: it remains true of RUN 30 and RUN 31 and is false
 as a property of the path. **`U-GBP-038` is REOPENED.** §V11.16.9.
+
+### GBP-HW-308 — **`QUESTION S` (RUN 33) = INADMISSIBLE**: the emitting window CARRIED, which neither reading of `U-GBP-038` predicted
+
+RUN 33, `sweep-0002` on the pad's A, presses at 0 / +0.267 / +1.852 / +4.688 s.
+`classify_window()` unedited: all four press windows `CARRIES`. `tools/v13sep.py`
+unedited returns **INADMISSIBLE** — *"the emitting window itself carried, which
+neither reading predicts and which no run has shown"*. **The run cannot answer
+§V13's question, and that is a result about `U-GBP-038` rather than a failed
+run**: ORDINAL and ELAPSED both predicted window 1 dead. §V15.5.
+
+### GBP-HW-309 — **`QUESTION V` (RUN 34) = INCONCLUSIVE**, and the reason is that **byte duty is PHASE-SENSITIVE** — **FACT for the mechanism of the verdict (two runs, same volume)**
+
+All four RUN 34 windows carried, so §V14.2's predicted cause (a dead window 1)
+did not occur. `question_V` unedited still returns INCONCLUSIVE, because window 4
+(V=3) has *"no two levels"* at byte resolution:
+
+```text
+                   BYTE duty levels (of 256)      BIT duty levels (of 2048)
+RUN 32 w4 (V=3)    136 x75, 120 x74               1073 x75, 976 x74
+RUN 34 w4 (V=3)    136 x75, 128 x75  <- REST      1074 x75, 976 x75
+```
+
+**At bit level the two runs measured V=3 identically; at byte level one low side
+read 120 and the other 128, the resting value.** §V11.4's `duty()` counts a byte
+as high when it lies above the midpoint of the block's extremes, so an edge byte
+like `0x80` (one bit) counts as wholly high. **The same pulse width reads as a
+different byte duty depending on where its edge falls inside a byte**, and the
+two runs' edge alphabets differ. **This refines `GBP-HW-304`**, which said byte
+duty is quantised to 8 bits: it is quantised **and phase-sensitive**. A
+limitation of a frozen gate, found by data, **recorded and not repaired**.
+§V15.6.
+
+### GBP-HW-310 — all four amplitudes in ONE run: **V=11 lands on the linear prediction to 0.06 bytes, and the repeat agrees to under 0.08** — **CORROBORATED, and NOT promoted although `GBP-HW-305`'s named repeat now exists**
+
+`tools/v14repeat.py` unedited, bit resolution, /256:
+
+```text
+V=15  29.9883   V=11  22.1094   V=7  14.0977   V=3  6.1211        (RUN 34, one run)
+linear predicts 30.06 / 22.05 / 14.03 / 6.01   compressive 30.06 / 26.94 / 22.55 / 15.03
+repeat  V=7 +0.0430 (vs RUN 32)   V=3 +0.0664 (vs RUN 32)   V=15 -0.0742 (vs RUN 31)
+fit through RUN 31's V=15 and RUN 34's four:  slope 1.9922, INTERCEPT +0.1558
+model errors re-anchored on RUN 31's V=15:     linear 0.2406, compressive 22.1932 -> 92x
+```
+
+**V=11 was predicted before the run (§V14.5) and the fit was not built from
+it.** The repeat's deltas are two orders of magnitude below the separation
+between the models; §V14.6 set no tolerance and none is invented.
+
+**`GBP-HW-305` named a repeat as what would make its reading FACT, and the repeat
+now exists. It is NOT promoted here**, because the pre-registered gate that was to
+decide it (`QUESTION V`, `GBP-HW-309`) returned INCONCLUSIVE — and promoting past
+one's own gate because the numbers look good is the move the discipline exists to
+prevent. **The promotion is a separate decision with this entry as its input.**
+One cartridge, one console, one Game Boy Player. §V15.8.
+
+### GBP-HW-311 — **no path-side delay is observed once the instrument works**; `U-GBP-038`'s two readings are **refuted as properties of the path**, and two dead windows remain unexplained
+
+```text
+run      instrument     dead windows       the AGB emitting at that press?
+RUN 30   the checker    press 1            unknown -- not our ROM
+RUN 31   agb-tone       presses 1, 2       press 1 no (U-GBP-040); press 2 yes (Operator's GBA)
+RUN 32   sweep-0001     presses 1, 2       press 1 no (U-GBP-040); press 2 yes (Operator's GBA)
+RUN 33   sweep-0002     NONE               from press 1
+RUN 34   sweep-0002     NONE               from press 1
+```
+
+**REFUTED as properties of the path:** ORDINAL (the emitting window carried in
+both runs); ELAPSED with any T of one window or more (window 1 opens at the
+emission and carried); any delay from the CONTROL transform (`GBP-HW-307`
+already). **SURVIVES:** every observation — the dead windows were really dead,
+and `GBP-HW-299`'s words stay true of RUN 30 and RUN 31.
+
+**The hypothesis that `U-GBP-040`'s defect caused `U-GBP-038`'s phenomenon is
+SUPPORTED and NOT ESTABLISHED**: it explains RUN 33/34 and RUN 31/32's first
+press, and it does **not** explain RUN 31/32's second press (audible at the
+Operator's GBA, dead in the capture) or RUN 30's first (a different cartridge).
+**What would test it:** `sweep-0001` re-flashed and run with five-second
+spacing. §V15.9.

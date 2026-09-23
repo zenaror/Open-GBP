@@ -624,6 +624,15 @@ measured twice in RUN 31; and **§V11.13's three-second spacing is inside T's
 bound**, so RUN 34 spaces at five. What it would add: **V=11, the only amplitude
 never measured**, and a like-for-like **repeat** of V=7 and V=3 — which is what
 `GBP-HW-305` names as needed before its reading can be FACT.
+
+**2026-09-23, Issue #78 — RUN 34 measured ALL FOUR amplitudes in one run**
+(`GBP-HW-310`): V=11, never measured before, lands 0.06 bytes from the linear
+prediction; the repeat of V=7, V=3 and V=15 agrees to under 0.08 bytes. **The
+pre-registered `QUESTION V` returned INCONCLUSIVE** (byte duty is phase-sensitive
+at V=3, `GBP-HW-309`), **so this item stays OPEN and H-PWM is not promoted.** The
+layout half is better measured than it has ever been and still not answered by
+the gate that was built to answer it.
+
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the
@@ -1756,7 +1765,7 @@ in front of Phase 6 now depends on it.
 structure means, and why its transition bytes differ between cartridges
 (`{01, FE}` in RUN 30, `{03, 07, FC}` in RUN 31).
 
-## U-GBP-038 (P3, opened 2026-09-22 after RUN 30 — **ANSWERED AND CLOSED 2026-09-22, Issue #67, by RUN 31 read together with RUN 30: the press was not special, it was EARLY. The AUDIO window does not carry the cartridge's sound until (10.045, 12.547] s after the CONTROL transform, `GBP-HW-299`. The MECHANISM is not determined and moves to `U-GBP-039`**) — why the FIRST press changed nothing in its window while the next three did — **REOPENED 2026-09-23, Issue #72: RUN 32 refutes the bound as a property of the path (`GBP-HW-307`) and `GBP-HW-306` shows our own ROM emptied one of the windows the bound was drawn from. The question is live again and its epoch has changed**
+## U-GBP-038 (P3, opened 2026-09-22 after RUN 30 — **ANSWERED AND CLOSED 2026-09-22, Issue #67, by RUN 31 read together with RUN 30: the press was not special, it was EARLY. The AUDIO window does not carry the cartridge's sound until (10.045, 12.547] s after the CONTROL transform, `GBP-HW-299`. The MECHANISM is not determined and moves to `U-GBP-039`**) — why the FIRST press changed nothing in its window while the next three did — **REOPENED 2026-09-23, Issue #72: RUN 32 refutes the bound as a property of the path (`GBP-HW-307`) and `GBP-HW-306` shows our own ROM emptied one of the windows the bound was drawn from. The question is live again and its epoch has changed** — **2026-09-23, Issue #78: RESCOPED. With the repaired instrument NO window is lost (RUN 33, RUN 34), so the phenomenon is not a property of the path (`GBP-HW-311`). What stays open is why RUN 30's press 1 and RUN 31/32's press 2 were dead**
 
 **2026-09-23, Issue #72 — REOPENED, and the epoch has moved.** Two things
 happened at once and they pull in the same direction.
@@ -1794,7 +1803,28 @@ run either refutes ORDINAL outright or tightens T by about an order of magnitude
 It needs **no new ROM and no new image**, and the ROM defect is fixed
 (`sweep-0002`, §V11.17) so press 1 is no longer wasted.
 
-## U-GBP-039 (P2, opened 2026-09-22 after RUN 31) — WHY the AUDIO window carries nothing for the first ~10–12 s after the CONTROL transform
+
+**2026-09-23, Issue #78 — RESCOPED, and the question is now small.** RUN 33 and
+RUN 34, both on `sweep-0002`, **carried from the emitting window on every
+press** — eight presses, no window lost (`GBP-HW-311`). So ORDINAL and ELAPSED
+are both refuted **as properties of the path**, and the operational rule this item
+produced — wait, then space generously — **has no known job left**.
+
+**What remains open is two dead windows in past runs:**
+
+```text
+RUN 31 / RUN 32 press 2   the Operator's GBA says sweep-0001 was AUDIBLE from press 2, yet the
+                          capture's window 2 carried nothing
+RUN 30 press 1            the Enhanced Control Checker, a different cartridge, not our ROM
+```
+
+**Leading candidate, SUPPORTED and NOT ESTABLISHED:** `U-GBP-040`'s first-press
+defect left something in a state the speaker does not reveal and the AUDIO path
+does. **Its test:** re-flash `sweep-0001` and run it with five-second spacing —
+windows 1 and 2 dead again means the defect reproduces it. **It costs a flash, and
+that is the Operator's to spend.** P3 unchanged.
+
+## U-GBP-039 (P2, opened 2026-09-22 after RUN 31) — WHY the AUDIO window carries nothing for the first ~10–12 s after the CONTROL transform — **CLOSED 2026-09-23, Issue #78: PREMISE REFUTED. It asked for the mechanism of a delay counted from the CONTROL transform; `GBP-HW-307` refuted that epoch and RUN 33 and RUN 34 show no delay at all once the instrument works (`GBP-HW-311`). Nothing is left for it to explain; the residue is `U-GBP-038`'s two past windows**
 
 `GBP-HW-299`: across two runs, two cartridges and two instruments, the AUDIO
 window carries the cartridge's sound only from somewhere in **(10.045,
@@ -1879,6 +1909,15 @@ is not the separator for the new one** — varying the press spacing is
 (`U-GBP-038`). This item stays open for the mechanism and its rider stays
 deferred; what changed is that the epoch it was going to test has been refuted.
 
+
+**2026-09-23, Issue #78 — CLOSED, PREMISE REFUTED.** This item asked *why* the
+AUDIO window carries nothing for ~10–12 s after the CONTROL transform. RUN 32
+refuted that epoch (`GBP-HW-307`), and RUN 33 and RUN 34 show **no delay at all**
+once `U-GBP-040`'s defect is fixed (`GBP-HW-311`). **There is no phenomenon left
+for a mechanism to explain.** `prehandler_wait_ms` — the separator it named —
+would have been testing an epoch that no longer exists. The two unexplained dead
+windows belong to `U-GBP-038`, rescoped. **Closed as refuted, not as answered.**
+
 ## U-GBP-040 (P1, opened 2026-09-23 after RUN 32 — an INSTRUMENT defect, reproduced on hardware off the GBP entirely) — why does the AGB emit nothing on the FIRST press after the master enable's 0 → 1 transition?
 
 **`GBP-HW-306`.** The Operator put `agb-sweep` in his own Game Boy Advance:
@@ -1946,3 +1985,11 @@ defect is fixed and UNEXPLAINED — and this item stays open saying so.**
 control window observes at rest, and that window is the baseline RUN 30, RUN 31
 and RUN 32 share. It remains the Orchestrator's call if probes 1 and 2 both
 fail.
+
+**2026-09-23, Issue #78 — the fix may have had a SECOND consequence nobody
+predicted.** With `sweep-0002` the dead windows `U-GBP-038` described are gone
+(`GBP-HW-311`). **If** the defect caused them, "fixed and unexplained" also fixed
+`U-GBP-038`'s phenomenon — **SUPPORTED, NOT ESTABLISHED**, and it leaves RUN 31/32
+press 2 and RUN 30 press 1 unexplained. The item stays open: the mechanism of the
+first-press silence is still not determined.
+
