@@ -29360,3 +29360,142 @@ emit, or about **why** the window does not carry at first. The Operator's consol
 is an **undeclared unit** and says nothing about the GBP's internal AGB
 (§V11.15.6). No figure from any emulator enters this record as a hardware
 observation.
+
+### V11.17 `U-GBP-040` — **THE FIRST-PRESS DEFECT FIXED, AND THE FIX MEASURES ITSELF** — appended 2026-09-23 (GitHub Issue #73). §V11.1 – §V11.16 ARE UNTOUCHED, and `stimulus/agb-tone` is not edited
+
+`GBP-HW-306`: `agb-sweep` and `agb-tone` make **no sound on their first press**
+and sound on every press after it, reproduced by the Operator on his own Game
+Boy Advance with no GameCube involved. **It costs a window in every run**, and
+RUN 32 spent two of four before anything else went wrong. This part fixes it.
+**No hardware is authorised here and no audio question is answered.**
+
+#### V11.17.1 Identity — `sweep-0002`, and `sweep-0001` keeps its own
+
+```text
+source        stimulus/agb-sweep/source/main.c        edited; agb-tone is NOT
+canonical     build/stimulus/agb-sweep/agb-sweep.gba  2 352 B
+              sha256 5ba0f2cb874d10ce9b49ac8fc652559bc42e98eb1020b44d9d12b7637b56e84b
+DELIVERED     build/physical/agb-sweep-cart.gba       2 352 B     <-- THE FILE HE FLASHES
+              sha256 9596ddee9d3f969b21264384391656df91ab23cb91042f5162b1f696a80195f2
+stimulus id   sweep-0002                              (RUN 32 ran sweep-0001, 1 960 B, 71c79811…11c9)
+derived by    tools/gbaderive.py from the same donor, everything past 0x0C0 byte-identical to the
+              canonical ROM and verified by the tool
+route         §V3.7 route 1 -- EZ-Flash Omega DE in NOR / Mode B, which REPLACES sweep-0001
+```
+
+**He must verify `9596ddee…95f2` and 2 352 bytes before flashing**, because the
+NOR cannot be read back. The hash does not depend on the commit — built twice
+with different commit strings, same bytes. **§V11.15.1 keeps `sweep-0001`'s
+identity**: it is the record of what RUN 32 ran and is reproducible by rebuilding
+at that commit.
+
+#### V11.17.2 What was ruled out, and the hypothesis that is NOT promoted
+
+**The write order is not the bug.** `apu_play()` already set the master enable
+before any channel register, which is exactly what GBATEK requires:
+*"while Bit 7 is cleared … all PSG registers at 4000060h..4000081h are reset to
+zero (and must be re-initialized after re-enabling sound)"*
+(`external/gbatek/gba.md`, read rather than cited).
+
+**The only thing that differs between press 1 and press 2** is that `SOUNDCNT_X`
+bit 7 goes **0 → 1** on the first and is already 1 on the rest.
+
+> **A HYPOTHESIS, LABELLED AND NOT PROMOTED.** If the APU takes any time at all
+> to come out of that reset, the writes immediately following the enable land
+> while it is still held — and **`SOUNDCNT_L` (0x4000080) is INSIDE the
+> 0x60..0x81 range** GBATEK names, while `SOUNDCNT_H` (0x4000082) is outside it.
+> `SOUNDCNT_L` carries the channel's **left/right routing**. A channel that
+> triggers with `SOUNDCNT_L` still zero **runs and reaches neither output**,
+> which is exactly *"the note is playing and nothing is heard"*.
+
+**It is not asserted, it is not in `EVIDENCE.md`, and this part does not
+conclude it.** It is written down because it is what the measurement below was
+built to test.
+
+#### V11.17.3 The fix and the measurement are the same two lines
+
+```text
+THE FIX          every press applies the register set TWICE, unconditionally. The two passes are
+                 IDENTICAL and there is no branch, so no press takes a different path from another
+                 -- which is the very thing that went wrong. Idempotent: presses 2-4 were already
+                 correct and are unaffected.
+THE MEASUREMENT  between the two passes the R/W registers are READ BACK and compared with what was
+                 just written. One bit per register in `apu_marks`:
+                    0x01 SOUNDCNT_X    the master enable
+                    0x02 SOUNDCNT_H    the PSG-to-output ratio
+                    0x04 SOUNDCNT_L    the LEFT/RIGHT routing   <- the hypothesis
+                    0x08 SOUND1CNT_H   duty and envelope, compared above bit 6 only
+                 SOUND1CNT_X is deliberately NOT compared: its restart bit reads back as 0 and its
+                 low bits are write-only, so a mismatch there would mean nothing.
+```
+
+**So one flash settles both.** If the mask comes up with `0x04` on the first
+press and clear on the others, §V11.17.2's hypothesis is **measured** rather
+than argued. If it comes up clear and the sound is fixed anyway, the defect is
+fixed and **unexplained**, which is an honest state and `U-GBP-040` stays open.
+
+#### V11.17.4 What it shows on screen, and it shows NOTHING when healthy
+
+Four 12×12 **cyan** marks in the free band between the top rail and the boxes,
+one per register bit, **drawn only when that bit is set**. With a zero mask the
+picture is **exactly** the one §V11.15.3 describes — background = count, a box's
+filled half = the axis, the rail — so the instrument is unchanged for the
+measurement it exists to make.
+
+#### V11.17.5 How it is verified, and why a host test cannot do it
+
+**A host cannot reproduce this defect**: the test harness's fake IO keeps every
+write, so `apu_marks` is zero there by construction. **The host tests passed
+while the defect existed — twelve schedule mutations and all — and that is the
+point** (§V11.15.7). **mGBA cannot do it either**: its reset branch runs only
+when the enable is *cleared*, so the model emits on press 1 where the hardware
+does not, and it would return a **false pass**.
+
+**So the fix is verified the way the defect was found — on the Operator's own
+console, as §V11.15.6's step 0.5, before any GBP run is proposed:**
+
+```text
+step  action                                              press with       what he records
+ 0.5  Put the flashed cartridge in his own Game Boy       A a few times,   THAT THE FIRST PRESS NOW
+      Advance. Confirm it is silent before any press,     then B a few     MAKES SOUND -- this is the
+      that THE FIRST PRESS MAKES SOUND, and that A        times            whole point of the flash;
+      changes the pitch while B changes the loudness.                      and whether ANY CYAN MARKS
+      ---- WHY: this is the one check that can see the defect at all. The host cannot and mGBA
+           would wave it through.                                          appear near the top-left
+      ---- IF CYAN MARKS APPEAR: that is a RESULT, not a failure -- it is U-GBP-040's mechanism
+           reporting itself, and he should say WHICH of the four lit and on which press.
+```
+
+**What a pass here does NOT establish:** his console is an **undeclared unit**
+and is not the GBP's internal AGB (§V11.15.6). A pass says the cartridge and the
+ROM work; it says nothing about the Game Boy Player.
+
+#### V11.17.6 What the defect contaminates — the check, and it is small
+
+```text
+RUN 30 press 1     the Enhanced Control Checker, NOT our ROM -> NOT contaminated by U-GBP-040
+RUN 31 press 1     agb-tone's first press -> contaminated; it is one of the windows GBP-HW-299's
+                   bound was drawn from, which is why that entry is amended and U-GBP-038 reopened
+RUN 32 press 1     agb-sweep's first press -> contaminated; §V11.16.4 already reports it as a
+                   CARRIAGE FAILURE and no figure is derived from it
+```
+
+**Nothing else derives a figure from a first-press window.** `GBP-HW-298`'s
+ratio used windows 3 and 4; `GBP-HW-305`'s three points use RUN 31's windows 3
+and 4 and RUN 32's windows 3 and 4. **And §V9.9.1 had already refused to depend
+on press 1** — *"the comparison does NOT depend on it"* — written against
+`U-GBP-038` for a completely different reason, and it is what kept §V9's own
+verdict clear of this.
+
+#### V11.17.7 What this part does NOT do
+
+It authorises **no hardware and no staging**; `stream-0016` and `14-audio` are
+untouched and **the ROM is the only new artifact**. It answers **no audio
+question**: §V11's three questions are not re-opened and `tools/v11sweep.py` is
+not edited. **`stimulus/agb-tone` is not edited**, so RUN 31 stays reproducible,
+and the fix reaches it only if a later checkpoint builds it anew with its own
+identity. It **promotes no hypothesis** — §V11.17.2's is written so the ROM can
+test it, and writing it down is not evidence for it. **`U-GBP-040` stays open**
+until the mask is read on hardware. **Probe 3 — enabling the master at boot — was
+NOT taken**: it would change what the control window observes at rest, and that
+window is the baseline RUN 30, RUN 31 and RUN 32 share.

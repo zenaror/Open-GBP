@@ -289,8 +289,10 @@ class TheInstrumentDefectIsSeparatedFromThePath(unittest.TestCase):
         if not os.path.exists(g):
             self.skipTest("external/gbatek is not in this checkout")
         self.assertIn("must be re-initialized\nafter re-enabling sound", read(g))
+        # Issue #73 split the writes into apu_apply(); the ORDER is what this pins,
+        # and it is the same order sweep-0001 had when the defect was found.
         src = read(os.path.join(ROOT, "stimulus", "agb-sweep", "source", "main.c"))
-        body = src[src.index("static void apu_play"):]
+        body = src[src.index("static u16 apu_apply"):]
         self.assertLess(body.index("REG_SOUNDCNT_X"), body.index("REG_SOUND1CNT_H"))
 
     def test_the_mechanism_is_not_guessed_and_an_unknown_carries_it(self):

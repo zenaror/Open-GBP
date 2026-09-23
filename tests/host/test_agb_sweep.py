@@ -60,6 +60,8 @@ static void dump_apu(const char *tag)
            io16(0x060), io16(0x062), io16(0x064), io16(0x080), io16(0x082), io16(0x084));
 }
 
+static void dump_marks(void) { printf("MARKS %04x\n", apu_marks); }
+
 static void dump_state(struct sweep_state *s)
 {
     printf("STATE presses=%u axis=%u spoiled=%u f_step=%u v_step=%u n=%u vol=%u sounding=%u bg=%04x\n",
@@ -100,7 +102,7 @@ static void drive(const char *tag, const unsigned short *seq, unsigned n)
         }
         printf("STEP %u key=%04x pressed=%d\n", i, seq[i], pressed);
         dump_state(&st);
-        if (pressed) { dump_apu("after"); dump_pixels(); }
+        if (pressed) { dump_apu("after"); dump_marks(); dump_pixels(); }
     }
 }
 
@@ -241,7 +243,12 @@ class TheRegistersAreSectionV11sTable(unittest.TestCase):
     def test_the_length_flag_is_never_set_and_the_envelope_never_decays(self):
         src = read(ROM_SRC)
         self.assertEqual(num(define(src, "SWEEP_RESTART")), 0x8000)
-        self.assertNotIn("0x4000", src)                      # bit 14, the length flag
+        # bit 14, the length flag, is never set anywhere in the CODE. Comments may name
+        # register addresses like 0x4000080, which is why the search strips them first
+        # (Issue #73 added GBATEK's 4000060h..4000081h range to a comment).
+        code = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+        code = re.sub(r"//[^\n]*", "", code)
+        self.assertNotIn("0x4000", code)
         # SOUND1CNT_H = volume<<12 | 0x0080: direction 0, STEP TIME 0, duty 2
         self.assertIn("(((u16)(v) << 12) | 0x0080u)", src)
         for volume in v11sweep.AMPLITUDES:
@@ -328,7 +335,7 @@ class TheRomRunsOnTheHostAndBehaves(unittest.TestCase):
 
     def test_the_master_enable_is_written_before_any_channel_register(self):
         src = read(ROM_SRC)
-        body = src[src.index("static void apu_play"):]
+        body = src[src.index("static u16 apu_apply"):]
         self.assertLess(body.index("REG_SOUNDCNT_X"), body.index("REG_SOUND1CNT_H"))
 
 
@@ -453,7 +460,7 @@ class ThePlumbingAndTheRecord(unittest.TestCase):
     def test_the_makefile_identity(self):
         mk = read(ROM_MK)
         self.assertIn("APP_NAME   := agb-sweep", mk)
-        self.assertIn("STIM_ID    := sweep-0001", mk)
+        self.assertIn("STIM_ID    := sweep-0002", mk)   # Issue #73: U-GBP-040's fix
         self.assertIn("GAME_TITLE := OPENGBPSWEEP", mk)
         self.assertIn("GAME_CODE  := SGBP", mk)
         self.assertLessEqual(len("OPENGBPSWEEP"), 12)
@@ -498,8 +505,12 @@ class ThePlumbingAndTheRecord(unittest.TestCase):
         import hashlib
         canon = os.path.join(ROOT, "build", "stimulus", "agb-sweep", "agb-sweep.gba")
         deliv = os.path.join(ROOT, "build", "physical", "agb-sweep-cart.gba")
-        want = {canon: "13ed1108e0b1ba9ad9328c1230802fe0f1b72b1a885cd6c2087487c5c690b865",
-                deliv: "71c79811c67970322d31c5715b8384100db2fae171be8c67e9ed5550831711c9"}
+        # Issue #73 (2026-09-23) rebuilt as sweep-0002 with U-GBP-040's fix, so build/ now
+        # holds THAT. §V11.15.1 keeps sweep-0001's hashes as the record of what RUN 32 ran;
+        # they are reproducible only by rebuilding at that commit, which is why the check
+        # follows the CURRENT record (§V11.17.1) and the older one is pinned as text.
+        want = {canon: "5ba0f2cb874d10ce9b49ac8fc652559bc42e98eb1020b44d9d12b7637b56e84b",
+                deliv: "9596ddee9d3f969b21264384391656df91ab23cb91042f5162b1f696a80195f2"}
         seen = 0
         for path, h in want.items():
             if not os.path.exists(path):
@@ -507,7 +518,7 @@ class ThePlumbingAndTheRecord(unittest.TestCase):
             with open(path, "rb") as f:
                 data = f.read()
             self.assertEqual(hashlib.sha256(data).hexdigest(), h, path)
-            self.assertEqual(len(data), 1960, path)
+            self.assertEqual(len(data), 2352, path)
             seen += 1
         if not seen:
             self.skipTest("neither build artifact is in this checkout (build/ is ignored)")
@@ -536,9 +547,11 @@ class ThePlumbingAndTheRecord(unittest.TestCase):
         self.assertIn("### V11.15", s)
         self.assertIn("sweep-0001", s)
         self.assertIn("NEVER RUN", s)
-        self.assertIn("1 960", s)
+        self.assertIn("1 960", s)          # sweep-0001, what RUN 32 ran
         self.assertIn("71c79811c67970322d31c5715b8384100db2fae171be8c67e9ed5550831711c9", s)
         self.assertIn("13ed1108e0b1ba9ad9328c1230802fe0f1b72b1a885cd6c2087487c5c690b865", s)
+        self.assertIn("2 352", s)          # sweep-0002, U-GBP-040's fix
+        self.assertIn("9596ddee9d3f969b21264384391656df91ab23cb91042f5162b1f696a80195f2", s)
 
 
 class TheFieldLayoutIsPinnedToGbatekAndNotToMemory(unittest.TestCase):
@@ -596,6 +609,79 @@ class TheFieldLayoutIsPinnedToGbatekAndNotToMemory(unittest.TestCase):
         self.assertIn("considered and left, not missed", s)
         self.assertIn("mGBA's APU is a MODEL", s)
         self.assertIn("No figure from it may ever enter EVIDENCE.md", s)
+
+
+class TheFirstPressFixIsAppliedAndMeasuresItself(unittest.TestCase):
+    """U-GBP-040 (Issue #73). The fix and the measurement are the same two
+    lines: every press applies the register set TWICE, and between the two
+    passes the R/W registers are read back so the ROM can say WHICH one did not
+    hold. A host cannot reproduce the defect — the fake IO keeps every write —
+    so what is checked here is that the mechanism is in place and that a healthy
+    device draws nothing extra."""
+
+    def test_every_press_applies_the_register_set_twice(self):
+        src = read(ROM_SRC)
+        body = src[src.index("static void apu_play"):]
+        body = body[:body.index("\n}")]
+        self.assertEqual(body.count("apu_apply(n, volume)"), 2)
+        self.assertIn("the same writes again, unconditionally", body)
+
+    def test_the_two_passes_are_identical_so_no_press_differs_from_another(self):
+        """A conditional retry would make press 1 take a different path from
+        presses 2-4, which is the very thing that went wrong."""
+        src = read(ROM_SRC)
+        body = src[src.index("static void apu_play"):]
+        body = body[:body.index("\n}")]
+        self.assertNotIn("if", body)
+
+    def test_the_read_back_covers_the_register_the_hypothesis_implicates(self):
+        src = read(ROM_SRC)
+        self.assertIn("APU_BAD_CNT_L", src)
+        self.assertIn("if (REG_SOUNDCNT_L != SWEEP_CNT_MIX)", src)
+        # SOUND1CNT_X is deliberately NOT compared, and the reason is written down
+        self.assertIn("SOUND1CNT_X is NOT read back", src)
+        self.assertIn("bits 0-5 are the write-only length", src)
+
+    def test_SOUNDCNT_L_is_inside_the_range_GBATEK_says_is_reset(self):
+        """The hypothesis rests on 0x4000080 being inside 0x60..0x81, and
+        0x4000082 being outside it. Both read out of the vendored GBATEK."""
+        g = os.path.join(ROOT, "external", "gbatek", "gba.md")
+        if not os.path.exists(g):
+            self.skipTest("external/gbatek is not in this checkout")
+        self.assertIn("all PSG\nregisters at 4000060h..4000081h are reset to zero", read(g))
+        self.assertTrue(0x60 <= 0x80 <= 0x81)      # SOUNDCNT_L, inside
+        self.assertFalse(0x60 <= 0x82 <= 0x81)     # SOUNDCNT_H, outside
+
+    def test_a_healthy_device_draws_NOTHING_extra(self):
+        """The picture §V11.15.3 describes must be unchanged when the mask is
+        zero, or the fix would have changed the instrument."""
+        out = run_rom()
+        for line in re.findall(r"^MARKS (\w+)$", out, re.M):
+            self.assertEqual(line, "0000")
+        for tag in ("B", "A"):
+            for line in pixels(block(out, tag)):
+                pass
+        # the marks live in the free band under the top rail, clear of everything
+        src = read(ROM_SRC)
+        y, w = num(define(src, "MARK_Y")), num(define(src, "MARK_W"))
+        self.assertGreaterEqual(y, num(define(src, "RAIL_H")))
+        self.assertLessEqual(y + w, num(define(src, "BOX_Y")))
+        self.assertIn("NOTHING is drawn when it is zero", src)
+
+    def test_the_hypothesis_is_LABELLED_and_not_asserted(self):
+        src = read(ROM_SRC)
+        self.assertIn("A HYPOTHESIS, LABELLED AS ONE AND NOT PROMOTED BY THIS ROM", src)
+        self.assertIn("measured rather than argued", src)
+
+    def test_agb_tone_is_STILL_untouched_by_the_fix(self):
+        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
+                               "Issue #65 -- agb-tone built"], capture_output=True,
+                              text=True).stdout.strip()
+        if not base:
+            self.skipTest("the commit that built agb-tone is not in this checkout")
+        d = subprocess.run(["git", "-C", ROOT, "diff", "--stat", base, "--",
+                            "stimulus/agb-tone"], capture_output=True, text=True).stdout
+        self.assertEqual(d.strip(), "")
 
 
 class TheOperatorsPreFlightCheckIsSizedHonestly(unittest.TestCase):
