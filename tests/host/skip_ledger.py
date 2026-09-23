@@ -114,6 +114,10 @@ LEDGER = [
     # Issue #75: tools/v13sep.py is frozen the same way, found by its commit message.
     # §V14: tools/v14repeat.py (a measurement method, no gate) is frozen the same way.
     # Issue #79: tools/v16bitgate.py, the repaired gate, frozen the same way.
+    # Issue #80: tools/v17pred.py, the predictions frozen before the decoder, and the decoder.
+    (r"^the commit that introduced tools/v17(pred|decode)\.py is not in this checkout$", "HISTORY_ABSENT",
+     "the predictions are checked against the ROM's own tables and GBATEK's formula by tests that "
+     "never skip, so a drifting edit breaks those first"),
     (r"^the commit that introduced tools/v16bitgate\.py is not in this checkout$", "HISTORY_ABSENT",
      "synthetic vectors reproduce the exact 0x80 defect and show the repair fixing it, and the "
      "one-substitution claim is checked against the source, whether or not the commit is present"),

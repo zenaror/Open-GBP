@@ -30824,3 +30824,88 @@ and its gate's decline written in. It **repairs nothing retroactively**: §V15.6
 and RUN 34. It **does not edit `tools/v11sweep.py`** — the repair is a new module
 that imports it. It authorises **no run** — RUN 35 is pre-registered to ride
 along. `U-GBP-012` stays open and H-PWM stays a hypothesis.
+
+## V17 — GBP-AUDIO-006: **DECODE THE CAPTURES TO AUDIO** — H-PWM's layout tested on RUN 33 and RUN 34, and the first audible artefact of Phase 6 — **PREDICTIONS PRE-REGISTERED 2026-09-23 (GitHub Issue #80), in their own commit, before any decoded output exists**
+
+### V17.1 The fixture — and the correction it needed before anything was frozen
+
+Issue #80 read `agb-sweep`'s two tables side by side and predicted **RUN 34's**
+four windows at 128 / 512 / 256 / 1024 Hz with the volume falling. **That is not
+what the ROM does.** A walks the **frequency** schedule and B walks the
+**volume** schedule, never both (`main.c:234-238`: a B press touches `v_step`
+alone). Checked against the captures before writing a prediction:
+
+```text
+RUN 33 (A x4)   128.0 / 512.0 / 256.0 / 1024.0 Hz, all at envelope volume 15
+RUN 34 (B x4)   128.0 Hz in every window, volume 15 / 11 / 7 / 3
+```
+
+**The fixture the Issue wanted exists — split across the two runs, one axis each,
+which is the better design**: RUN 33 tests the **timebase** with the amplitude
+held, RUN 34 tests the **sample value** with the frequency held. `predict(axis)`
+takes the axis — derived at decode time from the capture's own `KEY` record — so
+the conflation cannot be repeated through the module.
+
+### V17.2 The layout under test, in one paragraph
+
+> **H-PWM's layout.** Each 4096-byte AUDIO block drained from the window is
+> **one sample**. The sample's value is the **fraction of one-bits in the block**
+> (`v14repeat.bitduty`, `GBP-HW-304`/`312` — the byte grid is the wrong ruler).
+> The order of bytes within a block does not matter under this layout, and the
+> block's sixteen repeated 256-byte cells all carry the same sample. **Samples
+> arrive at 4096 per second** (`GBP-HW-301`; §V7.8.6 measured the drain at
+> 4094.4/s). **Discarded:** the sidecar's header, its 128-byte anchors and its
+> footer. **The resting level is subtracted**, so silence decodes to zero.
+> For the verdict the first 96 blocks of each press window are skipped
+> (§V11.9's onset slice); **the audio files keep every block.**
+
+### V17.3 The predictions — `tools/v17pred.py`, derived from the ROM and GBATEK
+
+```text
+RUN 33 (axis F)   n 1024 / 1792 / 1536 / 1920   ->  128.0 / 512.0 / 256.0 / 1024.0 Hz
+                                                     period 32 / 8 / 16 / 4 samples, volume 15
+RUN 34 (axis V)   n 1024 throughout              ->  128.0 Hz, period 32 samples
+                                                     volume 15 / 11 / 7 / 3
+```
+
+The schedules are **parsed out of the ROM source**, not retyped, and
+f = 131072 / (2048 − n) is GBATEK's.
+
+### V17.4 QUESTION D — the gate, and what it deliberately leaves out
+
+```text
+PERIOD      every window's decoded period within ONE SAMPLE of (2048 - n) / 32, with §V9.8's
+            uniformity >= 0.90                                       -- the TIMEBASE claim
+AMPLITUDE   on the V axis only: the decoded amplitude strictly DECREASES window to window
+                                                                     -- the SAMPLE-VALUE claim
+
+LAYOUT HOLDS    every window passes PERIOD, and on the V axis AMPLITUDE holds
+LAYOUT REFUTED  any window's period falls outside its band, or the V-axis amplitude does not fall
+INCONCLUSIVE    a window has no period at all, or the axis cannot be derived
+```
+
+**Why one sample.** The decoded period is an integer-indexed estimate, so one
+sample is the smallest non-zero tolerance it admits; the path's 0.04 % rate
+offset is far below a sample over any period in the schedule. **What it costs, in
+hertz:** 124.1–132.1 Hz at 128 Hz, but **819–1365 Hz at 1024 Hz** — four samples
+per period is two from Nyquist, and a pass there says less. Said here, not after.
+
+**Amplitude against FREQUENCY is NOT in the gate.** H-PWM claims block = sample
+and sample = duty; it claims nothing about how the AGB's analog chain attenuates
+with frequency. **And a disclosure:** checking the Issue's premise measured both
+runs' periods and deviations before this section was written. The periods have no
+free parameter here, so seeing them tuned nothing. **RUN 33's 1024 Hz window was
+seen to read lower than its 128 Hz window** — which is exactly why
+amplitude-versus-frequency stays out: a tolerance written to fit it would be
+tuning, and "equal" would assert something about the analog chain that the layout
+never claimed. It is reported beside the verdict.
+
+**If the decode disagrees, that is a result against H-PWM's layout**, and a second
+layout would be a second pre-registered hypothesis in its own commit — not an edit
+of this one.
+
+### V17.5 What this commit does NOT contain
+
+**No decoder, no decoded output, no audio file and no verdict.** They come in the
+next commit, judged against what is frozen here. `U-GBP-012` stays open, and no
+hardware is asked for.
