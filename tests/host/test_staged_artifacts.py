@@ -47,6 +47,9 @@ FROZEN = {
                   "requires it untouched"),
     "13-play": ("d0ee3c29d04254d1b86d4f006291008876b5e886e07280d0421b7c1161c499de", HW,
                 "play-0001 @ 2e48ca7, staged under Hardware Issue #43 for RUN 21 / RUN 22 (§V7.6.8)"),
+    # Issue #88: the third pinned slot, which this dict had not carried
+    "14-audio": ("c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54", HW,
+                 "stream-0016 @ 04121fe, staged under Hardware Issue #61; RUN 33, 34 and 35 executed it"),
 }
 
 # Issue #83, pattern H: A RECORD THAT CERTIFIES ITSELF.
@@ -64,7 +67,21 @@ FROZEN = {
 # slot -> (sha256 of the image physically executed, the document, its commit, its size)
 EXECUTED = {
     "11-color": ("d3c1f09efb105a0027d3bc596528448c579a234cbbe8306469d7f1222cbf29c1", HW, "39f1980", 442592),
+    # Issue #88 (2026-09-23): the same property for every slot whose record carries the executed
+    # image's hash and commit. On that date slots 01-11 all held rebuilds exported at 7d7a6d8; a
+    # record that writes the hash abbreviated ("head…tail") is matched in that form, and a size the
+    # record does not carry is None.
+    "10-vstate": ("b0ed33f06e257d1e775d382f86116a59b756d90b528c0be3f233e086d00597c5", HANDOFF, "b017e38", None),
+    "09-video": ("856d3e91…fd65", HW, "6930dde", None),
 }
+
+
+def same_image(got, want):
+    """`want` is a full hash, or the abbreviated head…tail form a record writes."""
+    if "…" in want:
+        head, tail = want.split("…")
+        return got.startswith(head) and got.endswith(tail)
+    return got == want
 
 # the preserved originals, whose hashes the documents carry in full
 # file under build/archive/ -> (sha256, the document that names it, size, what it is)
@@ -92,12 +109,18 @@ def read(p):
 
 
 def index_rows():
+    """The rows of build/swiss/INDEX.txt, read by the exporter's OWN row pattern (Issue #88
+    added the STATUS column; one pattern, so the reader and the writer cannot drift)."""
+    import sys
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import swiss_export
     rows = {}
     for line in read(INDEX).splitlines():
-        m = re.match(r"^(\S+)\s+\|\s+(\S+)\s+\|\s+(\S+)\s+\|\s+(\S+)\s+\|\s+(\d+)\s+\|\s+([0-9a-f]{64})\s+\|\s+(\S+)\s*$", line)
+        m = swiss_export.INDEX_ROW_RE.match(line)
         if m:
             rows[m.group(1)] = {"test_id": m.group(2), "build_id": m.group(3), "commit": m.group(4),
-                                "size": int(m.group(5)), "sha256": m.group(6), "source": m.group(7)}
+                                "size": int(m.group(5)), "sha256": m.group(6), "status": m.group(7),
+                                "source": m.group(8)}
     return rows
 
 
@@ -180,11 +203,16 @@ class TheStagedImagesAreWhatTheRecordsName(unittest.TestCase):
             if slot not in slots:
                 continue
             got = sha256(slots[slot])
-            if got == want:
-                self.assertEqual(os.path.getsize(slots[slot]), size)
+            if same_image(got, want):
+                if size is not None:
+                    self.assertEqual(os.path.getsize(slots[slot]), size)
                 continue
             self.assertIn(slot, rows, "slot %s is staged, is NOT the executed image, and INDEX.txt does not "
                                       "record what it is" % slot)
+            if rows[slot].get("status"):
+                self.assertEqual(rows[slot]["status"], "UNPINNED-COPY",
+                                 "build/swiss/%s is NOT the executed image, yet INDEX.txt marks it %s"
+                                 % (slot, rows[slot]["status"]))
             self.assertNotEqual(rows[slot]["commit"], commit,
                                 "build/swiss/%s holds bytes that are NOT the executed image (%s), yet INDEX.txt "
                                 "still names the commit that was executed (%s). A rebuilt DOL must never carry "

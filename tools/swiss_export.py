@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """swiss_export.py - export the built DOLs into a numbered, short-named tree.
 
-    tools/swiss_export.py [--root DIR] [--out DIR] [--only SLOT ...] [--check]
+    tools/swiss_export.py [--root DIR] [--out DIR] [--only SLOT ...] [--index-only] [--check]
 
 WHAT THIS IS FOR. Swiss lists directories. The build tree is named for the
 source, and `gbp-init-irq-program-probe` next to `gbp-init-irq-deliver-probe` in
@@ -10,13 +10,27 @@ each launchable DOL into `build/swiss/NN-short/boot.dol`, where the numbers come
 from the versioned manifest `tools/swiss-layout.tsv` and never move.
 
 WHAT THIS IS NOT. It is not a build step and it is not an identity. The copy is
-byte for byte and the hash is verified after it; the build id, the commit and
-every byte of the image stay exactly what the POC produced. If a physical run is
-ever attributed to something, it is attributed to `build/poc/<out_dir>/<dol>`,
-which is the authority. `build/swiss` is presentation.
+byte for byte and the hash is verified after it.
+
+WHERE THE AUTHORITY IS -- corrected by GitHub Issue #88 (2026-09-23). This
+docstring and INDEX.txt used to say that `build/poc/<out_dir>/<dol>` was the
+authority. It never was: `build/poc` is a BUILD OUTPUT and holds whatever the tree
+last built, and once `make build` works (Issue #87) it moves with HEAD. On
+2026-09-23 eleven of fourteen staged slots (01 to 11) held rebuilds made at
+7d7a6d8 under the build ids of images that had run at other commits. What a
+physical run executed is identified by the SHA-256 and the commit the RECORDS
+carry (EVIDENCE.md, HARDWARE_TESTS.md, HANDOFF.md). A staged slot is those bytes
+only when its manifest row is FROZEN, because only then does this tool verify the
+bytes against the pinned hash. Every other staged row is a copy of whatever
+`build/poc` held at export time: its build id and commit name that build, and it
+carries no physical status.
 
 `--check` exports nothing and only validates the manifest, which is what the
 host test uses.
+
+`--index-only` (Issue #88) copies nothing and removes nothing. It rewrites
+INDEX.txt from the slots already staged, carrying each row over by RULE 3, so a
+correction to the index's own text reaches the index without restaging anything.
 
 FROZEN SLOTS (GitHub Issue #44, after the near-miss of Hardware Issue #43).
 A slot that holds an image a physical run executed, or one staged for a run
@@ -132,12 +146,29 @@ def parse_index(out):
     if not os.path.exists(p):
         return rows
     for line in open(p):
-        m = re.match(r"^(\S+)\s+\|\s+(\S+)\s+\|\s+(\S+)\s+\|\s+(\S+)\s+\|\s+(\d+)\s+\|\s+([0-9a-f]{64})\s+\|\s+(\S+)\s*$", line)
+        m = INDEX_ROW_RE.match(line)
         if m:
             rows[m.group(1)] = {"dir": m.group(1), "test_id": m.group(2), "build_id": m.group(3),
                                 "commit": m.group(4), "size": int(m.group(5)), "sha256": m.group(6),
-                                "source": m.group(7)}
+                                "source": m.group(8)}
     return rows
+
+
+# One INDEX row. The STATUS column is Issue #88's; an INDEX written before it has none,
+# and its rows must still be carried over, so the column is optional when READING.
+# It is never carried over when WRITING: the status is recomputed every time, from the
+# manifest's pins and the bytes on disk, because a status copied from an old file would be
+# a record certifying itself (Issue #83, pattern H).
+STATUS_PINNED = "PINNED-VERIFIED"
+STATUS_COPY = "UNPINNED-COPY"
+INDEX_ROW_RE = re.compile(r"^(\S+)\s+\|\s+(\S+)\s+\|\s+(\S+)\s+\|\s+(\S+)\s+\|\s+(\d+)\s+\|\s+([0-9a-f]{64})\s+\|"
+                          r"\s+(?:(%s|%s)\s+\|\s+)?(.+?)\s*$" % (STATUS_PINNED, STATUS_COPY))
+
+
+def row_status(frozen, entry):
+    """PINNED-VERIFIED only when the slot is frozen AND its bytes are the pin; otherwise a copy."""
+    pin = frozen.get(entry["dir"])
+    return STATUS_PINNED if pin and pin == entry["sha256"] else STATUS_COPY
 
 
 def staged_hash(out, slot):
@@ -153,6 +184,8 @@ def main(argv=None):
     ap.add_argument("--check", action="store_true", help="validate the manifest and exit")
     ap.add_argument("--only", action="append", default=[], metavar="SLOT",
                     help="export only this slot (repeatable): '12-stream' or '12'. No other slot is touched.")
+    ap.add_argument("--index-only", action="store_true",
+                    help="copy and remove NOTHING; rewrite INDEX.txt from the staged slots (RULE 3's carry-over)")
     args = ap.parse_args(argv)
 
     root = os.path.abspath(args.root)
@@ -171,6 +204,14 @@ def main(argv=None):
 
     # which slots this run writes
     selected = [r for r in rows if r["enabled"] == "1"]
+    if args.index_only:
+        if args.only:
+            print("--index-only writes no slot, so it takes no --only", file=sys.stderr)
+            return 2
+        if not os.path.isdir(out):
+            print("--index-only: nothing is staged under %s" % out, file=sys.stderr)
+            return 2
+        selected = []
     if args.only:
         want = set(args.only) | {s.split("-")[0] for s in args.only}
         selected = [r for r in selected if r["dir"] in want or r["number"] in want]
@@ -195,7 +236,7 @@ def main(argv=None):
 
     # RULE 2: never an unconditional rmtree while a frozen slot is staged; clean slot by slot instead
     staged_frozen = [d for d in frozen if os.path.isdir(os.path.join(out, d))]
-    if os.path.exists(out) and not staged_frozen and not args.only:
+    if os.path.exists(out) and not staged_frozen and not args.only and not args.index_only:
         shutil.rmtree(out)                      # a clean export of a tree holding nothing frozen
     os.makedirs(out, exist_ok=True)
     for row in selected:
@@ -251,23 +292,30 @@ def main(argv=None):
     lines = [
         "Open-GBP - Swiss launch layout",
         "",
-        "Each directory holds one boot.dol, copied byte for byte from build/poc.",
-        "The AUTHORITY is the source path below, never this copy. Numbers are stable:",
-        "a new build takes the next free number and nothing is renumbered.",
+        "Each directory holds one boot.dol, copied byte for byte from build/poc when it was exported.",
+        "NEITHER THIS FILE NOR build/poc IS AN AUTHORITY. The bytes a physical run executed are",
+        "identified by the SHA-256 and commit in the records (EVIDENCE.md, HARDWARE_TESTS.md, HANDOFF.md).",
+        "A row is those bytes ONLY if its STATUS reads PINNED-VERIFIED: its slot is FROZEN below and its",
+        "bytes were checked against the pinned hash when this file was written. A row reading UNPINNED-COPY",
+        "is a copy of whatever build/poc held at export time; its BUILD ID and COMMIT name that build, and",
+        "it has NO physical status -- booting it does NOT reproduce any executed run. To run such an image",
+        "again, restage it first from its own commit (docs/HANDOFF.md, the per-image recipe) and pin it.",
+        "Numbers are stable: a new build takes the next free number and nothing is renumbered.",
         "A row whose SOURCE reads \"(not written by this export)\" was already staged and was left alone.",
         "",
-        "%-12s | %-18s | %-22s | %-9s | %10s | %-64s | %s"
-        % ("DIR", "TEST ID", "BUILD ID", "COMMIT", "SIZE", "SHA-256", "SOURCE"),
+        "%-12s | %-18s | %-22s | %-9s | %10s | %-64s | %-15s | %s"
+        % ("DIR", "TEST ID", "BUILD ID", "COMMIT", "SIZE", "SHA-256", "STATUS", "SOURCE"),
     ]
     for e in index:
-        lines.append("%-12s | %-18s | %-22s | %-9s | %10d | %s | %s"
-                     % (e["dir"], e["test_id"], e["build_id"], e["commit"], e["size"], e["sha256"], e["source"]))
+        lines.append("%-12s | %-18s | %-22s | %-9s | %10d | %s | %-15s | %s"
+                     % (e["dir"], e["test_id"], e["build_id"], e["commit"], e["size"], e["sha256"],
+                        row_status(frozen, e), e["source"]))
     if missing:
         lines += ["", "NOT EXPORTED (not built):"]
         for d, p, tgt in missing:
             lines.append("  %-12s %s   (run: make %s)" % (d, p, tgt))
     if frozen:
-        lines += ["", "FROZEN SLOTS (tools/swiss-layout.tsv; never rewritten with other bytes):"]
+        lines += ["", "FROZEN SLOTS (tools/swiss-layout.tsv; verified against the pin, never rewritten with other bytes):"]
         for d in sorted(frozen):
             lines.append("  %-12s %s" % (d, frozen[d]))
     text = "\n".join(lines) + "\n"

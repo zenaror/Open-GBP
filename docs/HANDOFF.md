@@ -2423,10 +2423,25 @@ python3 tools/swiss_export.py --root . --only 13-play      # then copy that slot
 ```
 
 **An exported `boot.dol` gains no physical status by being exported.** It is a
-byte-for-byte copy and the authority remains `build/poc/<out_dir>/<dol>`.
-Physical status belongs to the exact SHA-256 and commit recorded in
-`EVIDENCE.md` / `HARDWARE_TESTS.md` — and `build/swiss/80-prewait/boot.dol` rebuilt at any
-commit other than `500429a` is **not** the DOL that ran on hardware.
+byte-for-byte copy of whatever `build/poc` held when it was exported, and
+**`build/poc` is not an authority either**: it is a build output that moves with
+HEAD (Issue #88, correcting this paragraph, which said it was). Physical status
+belongs to the exact SHA-256 and commit recorded in `EVIDENCE.md` /
+`HARDWARE_TESTS.md` / the table above — and `build/swiss/80-prewait/boot.dol`
+rebuilt at any commit other than `500429a` is **not** the DOL that ran on hardware.
+
+> **BEFORE ANY RUN — THE CARD (2026-09-23, Issue #88).** Only a slot whose
+> `INDEX.txt` row reads **`PINNED-VERIFIED`** holds the bytes its records name;
+> those are the FROZEN slots (12-stream, 13-play, 14-audio at the time of
+> writing). **Slots 01–11 on the card are rebuilds exported at `7d7a6d8`**, under
+> the build ids of images that ran at other commits (color-0002 ran as
+> `d3c1f09e…` @ `39f1980`; the card's 11-color is `5cab1543…` @ `7d7a6d8`).
+> Booting one of them does NOT reproduce any executed run. **The remedy, not
+> applied:** to run such an image again, rebuild it at its own commit with the
+> per-image recipe (`rm -rf build/poc && GIT_COMMIT=<c> GIT_DIRTY= make build`),
+> confirm the DOL hashes to the recorded value, add that hash as the slot's
+> `frozen_sha256`, then `tools/swiss_export.py --only <slot>` and verify from the
+> card.
 
 ## Handoff update policy
 

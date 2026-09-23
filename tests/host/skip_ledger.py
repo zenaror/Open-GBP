@@ -214,7 +214,9 @@ LEDGER = [
     (r"^the play image on this host is built at", "IDENTITY_NOT_CURRENT",
      "tests/host/test_staged_artifacts.py, as above; §V7.6.8's identity gate re-verifies before each boot"),
     (r"^build/swiss/11-color is the export of an earlier build", "IDENTITY_NOT_CURRENT",
-     "tests/host/test_staged_artifacts.py hashes every staged slot against build/swiss/INDEX.txt and fails on a mismatch"),
+     "NOT INDEX.txt, which the same export writes (Issue #88 corrected this cover, which named it): "
+     "tests/host/test_staged_artifacts.py checks the staged bytes against the EXECUTED identity the "
+     "records carry (color-0002 = d3c1f09e @ 39f1980), and INDEX.txt's row must read UNPINNED-COPY"),
     (r"^the candidate's identity is pinned by the docs checkpoint", "IDENTITY_NOT_CURRENT",
      "the docs checkpoint's own test pins the hash; test_staged_artifacts.py covers the staged copy"),
     (r"^RUN 17's log is a local capture", "LOCAL_ARTIFACT_ABSENT",
