@@ -75,6 +75,9 @@ def skip_sites(files=None):
     for f in (files if files is not None else sorted(x for x in os.listdir(HOST) if x.endswith(".py"))):
         if f == "test_guard_shape.py":
             continue                      # this file's own probes are not suite skips
+        if f == "artifacts.py":
+            continue                      # Issue #83: it RELAYS the caller's reason; the literals
+                                          # live at the call sites, which the branch above reads
         tree = ast.parse(read(f), filename=f)
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "skipTest":
@@ -87,6 +90,16 @@ def skip_sites(files=None):
                 out.append((f, node.lineno, r, how, "decorator"))
             # Issue #82: `raise unittest.SkipTest(...)` skips exactly like .skipTest(...) and the
             # extractor did not see it -- eight such reasons were in no ledger entry at all.
+            # Issue #83: artifacts.optional(tc, path, reason) / any_of(tc, paths, reason) skip
+            # too. They are the D-pattern helper, and their reasons are literals at the CALL
+            # SITE -- invisible here until this branch existed, which would have let a whole
+            # new family of skips go unregistered.
+            elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                  and node.func.attr in ("optional", "any_of")
+                  and isinstance(node.func.value, ast.Name) and node.func.value.id == "artifacts"):
+                arg = node.args[2] if len(node.args) > 2 else None
+                r, how = _reason_of(arg) if arg is not None else (None, "unextractable")
+                out.append((f, node.lineno, r, how, "call"))
             elif isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and (
                     (isinstance(node.exc.func, ast.Attribute) and node.exc.func.attr == "SkipTest")
                     or (isinstance(node.exc.func, ast.Name) and node.exc.func.id == "SkipTest")):

@@ -178,9 +178,7 @@ class TheEmissionPointAndTheBound(unittest.TestCase):
 
 class NothingElseMoved(unittest.TestCase):
     def test_the_descriptor_and_the_policy_are_the_bytes_of_the_candidate_that_ran(self):
-        old = git("show", "%s:src/gbp/gbp_input.c" % CANDIDATE_RAN)
-        if old is None:
-            self.skipTest("the candidate commit is not available in this checkout")
+        old = guards.show(CANDIDATE_RAN, "src/gbp/gbp_input.c")  # Issue #83 (B): absent COMMIT skips, absent PATH fails
         self.assertEqual(descriptor_and_policy(read(INPUT_C)), descriptor_and_policy(old))
         bits, pressed, _ = descriptor_and_policy(read(INPUT_C))
         self.assertEqual((bits[:8], bits[8], bits[9], pressed), (list(range(8)), 9, 8, 1), "R -> bit 9, L -> bit 8, 1 = pressed: kept (U-GBP-010 closed AS-ASSIGNED)")

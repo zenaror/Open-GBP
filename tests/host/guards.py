@@ -39,6 +39,7 @@ repository, the index or the working tree.
 """
 import os
 import subprocess
+import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -51,6 +52,30 @@ def _git(*args):
 def base_available(base):
     """True when `base` is an object this checkout actually has."""
     return _git("cat-file", "-e", base).returncode == 0
+
+
+def show(base, path):
+    """The bytes of `path` as of `base`.
+
+    TWO FAILURES, AND THEY ARE NOT THE SAME THING (GitHub Issue #83, pattern B of
+    `HARDWARE_TESTS.md` §V18.7). `git show <commit>:<path>` exits non-zero both when
+    the COMMIT is absent -- a shallow clone, and a real "cannot check here" -- and
+    when the commit is present but the PATH is not in it, which means the file moved
+    or the test names it wrongly. Fourteen sites turned both into the same skip, so a
+    freeze test could go quiet about a file that had been renamed out from under it.
+    That is Issue #81's defect exactly: an error condition rendered as an absence.
+
+    Absent commit -> SkipTest, with the reason the ledger classifies.
+    Absent path in a present commit -> AssertionError, because it is a defect.
+    """
+    if not base_available(base):
+        raise unittest.SkipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % base)
+    r = _git("show", "%s:%s" % (base, path))
+    if r.returncode != 0:
+        raise AssertionError(
+            "%s IS in this checkout but %s is not in it. That is a moved or misnamed path, not an "
+            "absent history, and it must not be skipped over: %s" % (base, path, r.stderr.strip()))
+    return r.stdout
 
 
 def tracked_changes(base, paths):

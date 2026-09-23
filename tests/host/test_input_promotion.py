@@ -50,8 +50,9 @@ def flat(s):
 
 
 def git_show(path, commit=BASE):
-    r = subprocess.run(["git", "-C", ROOT, "show", "%s:%s" % (commit, path)], capture_output=True, text=True)
-    return None if r.returncode != 0 else r.stdout
+    """Issue #83 (B): an absent COMMIT skips; a path missing from a commit that IS
+    here fails, because that is a moved file and not an absent history."""
+    return guards.show(commit, path)
 
 
 def defined_ids():
@@ -223,9 +224,7 @@ class TheConsolidatedInputPage(unittest.TestCase):
 
 class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
     def test_hardware_tests_v7_evidence_headings_and_u_gbp_010_are_the_bytes_of_the_base(self):
-        old = git_show("docs/research/HARDWARE_TESTS.md")
-        if old is None:
-            self.skipTest("the base commit is not available in this checkout")
+        old = git_show("docs/research/HARDWARE_TESTS.md")  # Issue #83 (B): absent COMMIT skips, absent PATH fails
         new = read(HW)
         # Issue #28 appended §V7.3 and extended the chapter heading; §V7.1 and §V7.2 stay the bytes of the base
         old_head = old[old.index("\n## V7 "):].splitlines()[1]

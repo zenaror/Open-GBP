@@ -26,6 +26,8 @@ import sys
 import tempfile
 import unittest
 
+import artifacts  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
@@ -137,10 +139,12 @@ class Initirq4RoundTrip(unittest.TestCase):
             self.assertTrue("# SOURCE=physical GameCube" in head or "MODEL DATA, NOT HARDWARE" in head, fx_path)
         self.assertFalse(fx.startswith(os.path.join(ROOT, "captures")))
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_004), "physical GBP-INIT-004 fixture missing")
     def test_physical_004_fixture_replays_to_the_physical_result(self):
         # 2026-09-16, initirq4-0001, commit 741630b: one delivery, one ACK, POSTACK-0 0x8400 with PI clear 26.0 us after the
         # ACK, anomaly_source_not_cleared, NO re-arm; every recorded operation replays, nothing after the record is invented
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_004, "a versioned fixture under captures/fixtures/")
         run = subprocess.run([BIN, "--replay", PHYSICAL_004], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         summary = [l for l in run.stdout.splitlines() if l.startswith("SUMMARY ")][0]
@@ -157,8 +161,10 @@ class Initirq4RoundTrip(unittest.TestCase):
         self.assertIn("# SOURCE=physical GameCube", head)
         self.assertNotIn("SYNTHETIC", head)
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_003B), "physical GBP-INIT-003B fixture missing")
     def test_physical_003b_fixture_is_the_prefix_of_cycle_0(self):
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_003B, "a versioned fixture under captures/fixtures/")
         with open(PHYSICAL_003B, encoding="utf-8") as f:
             text = f.read()
         # cut before the 003B CONTROL restore (the second "W 01400000 ok"): the physical run never re-armed
@@ -184,8 +190,10 @@ class Initirq4RoundTrip(unittest.TestCase):
         self.assertGreater(int(m.group(2)), 0)                            # exhausted only after the last recorded operation
         self.assertEqual(m.group(5), "1")
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_003A), "physical GBP-INIT-003A fixture missing")
     def test_physical_003a_fixture_is_the_prefix_up_to_the_event(self):
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_003A, "a versioned fixture under captures/fixtures/")
         run = subprocess.run([BIN, "--replay", PHYSICAL_003A], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         summary = [l for l in run.stdout.splitlines() if l.startswith("SUMMARY ")][0]

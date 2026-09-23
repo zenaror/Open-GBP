@@ -21,6 +21,8 @@ import re
 import subprocess
 import sys
 import unittest
+
+import frozen  # noqa: E402  (tests/host is on the path)
 from collections import Counter
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -79,13 +81,7 @@ class TheConstructionsWereNotAdjustedToTheData(unittest.TestCase):
     """Issue #50's whole purpose, and the moment it was built for."""
 
     def test_v8audio_is_byte_identical_to_the_commit_that_wrote_it(self):
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "Issue #58 -- the three models in code before the build exists"],
-                              capture_output=True, text=True).stdout.strip()
-        if not base:
-            self.skipTest("the commit that introduced tools/v8audio.py is not in this checkout")
-        then = subprocess.run(["git", "-C", ROOT, "show", "%s:tools/v8audio.py" % base],
-                              capture_output=True, text=True, check=True).stdout
+        then = frozen.source("Issue #58 -- the three models in code before the build exists", "tools/v8audio.py")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         self.assertEqual(read(os.path.join(ROOT, "tools", "v8audio.py")), then,
                          "tools/v8audio.py was edited after the data existed")
 

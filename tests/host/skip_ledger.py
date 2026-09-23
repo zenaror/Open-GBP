@@ -45,12 +45,25 @@ CLASSES = {
                       "file with no ACK, an observational record that does not exist in that version).",
 }
 
+# THE ORDER MATTERS, and that is recorded rather than engineered away (Issue #83, pattern I
+# of HARDWARE_TESTS §V18.9.6). `classify()` returns the FIRST entry that matches, so a reason
+# such as "run `make build initirq-audit` to produce the audit inputs" lands in NOT_BUILT
+# rather than AUDIT_INPUT_ABSENT because the NOT_BUILT pattern appears earlier. Both classes
+# are honest for that reason and both name the same `make` target as the cover, so this is
+# cosmetic; the classifier was deliberately NOT restructured for it. A NEW entry that must
+# win over an existing one has to be placed ABOVE it, not merely written more specifically.
+
 # (regex on the skip reason, class, what covers the risk instead)
 LEDGER = [
     (r"^the (base|candidate|frozen) commit .*is not (available|in this checkout)", "HISTORY_ABSENT",
      "the freeze is also pinned by the records themselves (the part's own text) and re-checked on any full clone"),
     (r"^the base commit %s is not in this checkout", "HISTORY_ABSENT",
-     "same; this is guards.assert_confined's own wording"),
+     "same; this is guards.assert_confined's own wording, and since Issue #83 it is ALSO the one "
+     "reason every frozen-module test gives. Nine per-module reasons were retired with the "
+     "`git log -1 --grep` lookup they belonged to (HARDWARE_TESTS §V18.9.3): the base is pinned by "
+     "HASH in tests/host/frozen.py now, and what covered each module still covers it -- each frozen "
+     "tool is also exercised on synthetic vectors by its own tests/host/test_*.py, which never skip, "
+     "and the constants each module holds are quoted in the part that froze it"),
     # Issue #61: §V8.1 – §V8.11 are diffed against the commit that wrote them, found by its
     # message rather than by a pinned hash, so a rebase cannot silently disarm the check.
     (r"^no post-derivation build is archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
@@ -69,13 +82,23 @@ LEDGER = [
      "the derived fixtures of those runs live under captures/fixtures/ and are read without a guard "
      "(test_disp_run5.py opens the run-5 disp fixture and pins its hash; test_disp_run6.py now FAILS "
      "if that versioned fixture is missing); the raw captures are the provenance, hashed in the records"),
-    (r"^no host compiler$", "TOOLCHAIN_ABSENT",
-     "test_agb_tone.run_rom() skips only when neither /usr/bin/cc nor /usr/bin/gcc exists; a compiler "
-     "that exists and does not compile the ROM raises AssertionError with its output"),
     # Issue #82: §V18 quotes four drain figures from the RUN 33 / RUN 34 logs, which are raw drops.
     (r"^the RUN 33 / RUN 34 logs are not in this checkout \(logs/ is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
      "every block-structure figure of §V18 is recomputed from the VERSIONED fixtures by tests that never "
      "skip; the drain lines are quoted verbatim in §V18 with the logs' hashes (captures/README.md)"),
+    # Issue #83 (pattern H): build/archive/ was pinned by nothing at all until this checkpoint.
+    (r"^no preserved archive is in this checkout \(build/ is not versioned\)$", "LOCAL_ARTIFACT_ABSENT",
+     "the same test asserts UNCONDITIONALLY that each archive's hash is still in the document that "
+     "names it (§V4 / HANDOFF); only the byte comparison needs the file, and build/ is never versioned"),
+    # Issue #83 (pattern D): two reasons that did not exist before, because these two checks
+    # used to be `if os.path.exists(...)` blocks that passed having checked nothing.
+    (r"^external/gbhwdb is not in this checkout$", "LOCAL_ARTIFACT_ABSENT",
+     "the same test asserts UNCONDITIONALLY that the photographs are not under logs/; what needs "
+     "external/gbhwdb is only the second half, that they were MOVED there rather than deleted"),
+    (r"^the preserved stream-0014 archive is not in this checkout$", "LOCAL_ARTIFACT_ABSENT",
+     "build/ is not versioned; §V7.3's own text carries the archive's size and hash, and the "
+     "staged slot is checked separately by test_staged_artifacts.py and by this file's own "
+     "test_the_staged_slot_holds_one_of_the_two_named_images, neither of which needs build/archive"),
     # Issue #81: the runtime decoder is proved from the VERSIONED fixtures; the raw drops and
     # #80's WAVs are extra comparisons made only where they exist.
     (r"^the raw sidecars are not in this checkout \(logs/ is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
@@ -132,39 +155,12 @@ LEDGER = [
     (r"^external/gbatek is not in this checkout$", "LOCAL_ARTIFACT_ABSENT",
      "the same constants are pinned against tools/v11sweep.py and against agb-tone's own word by "
      "tests that never skip, and §V11.15.7 quotes the four GBATEK lines on the page"),
-    (r"^the commit that built agb-tone is not in this checkout$", "HISTORY_ABSENT",
-     "the ROM's identity is pinned by hash and size in §V9.14 and in test_agb_tone.py, which do not "
-     "skip; an edit that changed the bytes would break those first"),
-    # Issue #69: tools/v11sweep.py is frozen the same way, found by its commit message.
+        # Issue #69: tools/v11sweep.py is frozen the same way, found by its commit message.
     # Issue #75: tools/v13sep.py is frozen the same way, found by its commit message.
     # §V14: tools/v14repeat.py (a measurement method, no gate) is frozen the same way.
     # Issue #79: tools/v16bitgate.py, the repaired gate, frozen the same way.
     # Issue #80: tools/v17pred.py, the predictions frozen before the decoder, and the decoder.
-    (r"^the commit that introduced tools/v17(pred|decode)\.py is not in this checkout$", "HISTORY_ABSENT",
-     "the predictions are checked against the ROM's own tables and GBATEK's formula by tests that "
-     "never skip, so a drifting edit breaks those first"),
-    (r"^the commit that introduced tools/v16bitgate\.py is not in this checkout$", "HISTORY_ABSENT",
-     "synthetic vectors reproduce the exact 0x80 defect and show the repair fixing it, and the "
-     "one-substitution claim is checked against the source, whether or not the commit is present"),
-    (r"^the commit that introduced tools/v14repeat\.py is not in this checkout$", "HISTORY_ABSENT",
-     "a second test shows the module reproduces §V11.16.7's published figures on RUN 32 to the "
-     "last digit, which pins the method whether or not the commit is present"),
-    (r"^the commit that introduced tools/v13sep\.py is not in this checkout$", "HISTORY_ABSENT",
-     "§V13's own text carries every constant the module holds -- the ladder, the floor, the bound "
-     "on T -- and the tests that compare the two never skip"),
-    (r"^the commit that introduced tools/v11sweep\.py is not in this checkout$", "HISTORY_ABSENT",
-     "§V11's own text carries every constant the module holds -- the schedules, the 96-block slice, "
-     "the thresholds -- and the tests that compare the two never skip; a drifting edit breaks those first"),
-    (r"^the commit that introduced tools/v9tone\.py is not in this checkout$", "HISTORY_ABSENT",
-     "the frozen constructions are also pinned by tests/host/test_v9tone.py, which exercises them on "
-     "synthetic vectors and fails loudly if a construction changed behaviour"),
-    (r"^the commit that introduced tools/v8audio\.py is not in this checkout$", "HISTORY_ABSENT",
-     "the frozen constructions are also pinned by tests/host/test_v8audio.py, which exercises them on "
-     "synthetic vectors and fails loudly if a construction changed behaviour"),
-    (r"^the pre-registration's commit is not in this checkout$", "HISTORY_ABSENT",
-     "§V8.12's own text states that §V8.1 – §V8.11 are untouched, and test_awin_image.py's other "
-     "cases pin the new part's contents and the heading pointer without needing history"),
-    (r"^(build the unit tests first|run `make -C tests/unit`)", "NOT_BUILT",
+                                    (r"^(build the unit tests first|run `make -C tests/unit`)", "NOT_BUILT",
      "`make test-unit` builds and runs them; `make test` runs both halves"),
     (r"^(run `make build`|build output missing|no build metadata|build-info\.txt|elf\.nm\.txt|build$|audit$|map not built|stimulus not built)", "NOT_BUILT",
      "`make build` produces them and `make test` runs the suite after it"),

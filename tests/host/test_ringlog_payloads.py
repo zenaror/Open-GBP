@@ -29,6 +29,8 @@ import re
 import subprocess
 import unittest
 
+import guards  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 MAIN = os.path.join(ROOT, "poc", "gbp-video-stream-probe", "source", "main.c")
 INPUT_H = os.path.join(ROOT, "src", "gbp", "gbp_input.h")
@@ -232,11 +234,8 @@ class EveryRecordIsBounded(unittest.TestCase):
 
 class TheRepairOfEnvinput(unittest.TestCase):
     def test_the_old_single_record_would_not_fit_and_the_guard_can_fail(self):
-        r = subprocess.run(["git", "-C", ROOT, "show", "%s:poc/gbp-video-stream-probe/source/main.c" % CANDIDATE_THAT_CLIPPED],
-                           capture_output=True, text=True)
-        if r.returncode != 0:
-            self.skipTest("the candidate commit is not available in this checkout")
-        old = {tag: (fmt, args) for tag, fmt, args in calls(r.stdout, read(INPUT_H))}
+        src = guards.show(CANDIDATE_THAT_CLIPPED, "poc/gbp-video-stream-probe/source/main.c")  # Issue #83 (B): absent COMMIT skips, absent PATH fails
+        old = {tag: (fmt, args) for tag, fmt, args in calls(src, read(INPUT_H))}
         w, _, _ = worst_case(*old["ENVINPUT"])
         self.assertGreater(w, PAYLOAD_MAX)
         self.assertNotIn("ENVINPUT2", old)

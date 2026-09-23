@@ -21,6 +21,8 @@ import sys
 import tempfile
 import unittest
 
+import artifacts  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
@@ -272,7 +274,9 @@ class StrictParsing(unittest.TestCase):
         avseq must refuse a format 2 or 3 file. Every parser checks version and header size first."""
         with self.assertRaises(ValueError):
             avseq.parse(sidecar_bytes())
-        if os.path.isfile(VIDEO_BIN):
+        # Issue #83 (D): was `if os.path.isfile(VIDEO_BIN)`, which passed having checked nothing.
+        artifacts.optional(self, VIDEO_BIN, "run `make -C tests/unit` first")
+        if True:
             d = outdir()
             log = os.path.join(d, "v1-for-vstate.log")
             seq = os.path.join(d, "v1-for-vstate-seq.bin")
@@ -1391,8 +1395,10 @@ class PhysicalV5(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(int(r.stdout.strip().split("=")[1]), 0)
 
-    @unittest.skipUnless(os.path.isfile(PHYSICAL_V5_FIXTURE), "the v5 replay fixture is missing")
     def test_the_fixture_declares_the_run_honestly(self):
+        # Issue #83 (C): these fixtures are VERSIONED, so their absence is a broken checkout,
+        # not a legitimate absence. It used to skip, which made a deleted fixture look fine.
+        artifacts.required(self, PHYSICAL_V5_FIXTURE, "a versioned fixture under captures/fixtures/")
         with open(PHYSICAL_V5_FIXTURE, encoding="utf-8") as f:
             text = f.read()
         self.assertIn("# SOURCE=physical GameCube", text)

@@ -12,6 +12,8 @@ import subprocess
 import sys
 import unittest
 
+import frozen  # noqa: E402  (tests/host is on the path)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import v11sweep  # noqa: E402
@@ -81,13 +83,7 @@ class TheMethodIsTheOneAlreadyUsed(unittest.TestCase):
         self.assertIn("THIS MODULE CONTAINS NO GATE", src)
 
     def test_the_module_is_not_edited_after_its_commit(self):
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "RUN 34 pre-registered"], capture_output=True,
-                              text=True).stdout.strip()
-        if not base:
-            self.skipTest("the commit that introduced tools/v14repeat.py is not in this checkout")
-        then = subprocess.run(["git", "-C", ROOT, "show", "%s:tools/v14repeat.py" % base],
-                              capture_output=True, text=True).stdout
+        then = frozen.source("RUN 34 pre-registered", "tools/v14repeat.py")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         self.assertEqual(then, read(os.path.join(ROOT, "tools", "v14repeat.py")))
 
 

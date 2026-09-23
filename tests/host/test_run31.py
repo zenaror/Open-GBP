@@ -22,6 +22,8 @@ import re
 import subprocess
 import sys
 import unittest
+
+import frozen  # noqa: E402  (tests/host is on the path)
 from collections import Counter
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -68,13 +70,7 @@ def duty(b):
 class TheConstructionDecidedAgainstUsAndWasNotEdited(unittest.TestCase):
 
     def test_v9tone_is_byte_identical_to_the_commit_that_wrote_it(self):
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "Issue #64 -- agb-tone designed and pre-registered"],
-                              capture_output=True, text=True).stdout.strip()
-        if not base:
-            self.skipTest("the commit that introduced tools/v9tone.py is not in this checkout")
-        then = subprocess.run(["git", "-C", ROOT, "show", "%s:tools/v9tone.py" % base],
-                              capture_output=True, text=True, check=True).stdout
+        then = frozen.source("Issue #64 -- agb-tone designed and pre-registered", "tools/v9tone.py")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         self.assertEqual(read(os.path.join(ROOT, "tools", "v9tone.py")), then,
                          "tools/v9tone.py was edited after its prediction failed")
 

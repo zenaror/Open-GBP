@@ -12,6 +12,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
+import frozen  # noqa: E402  (tests/host is on the path)
 import wave
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -113,15 +115,10 @@ class TheDecoderOnSyntheticSquares(unittest.TestCase):
         self.assertAlmostEqual(d.GAIN, 0.80 / 0.125)
 
     def test_the_decoder_does_not_edit_the_frozen_predictions(self):
-        base = subprocess.run(["git", "-C", ROOT, "log", "--format=%H", "-1", "--grep",
-                               "Issue #80 -- predictions frozen"], capture_output=True,
-                              text=True).stdout.strip()
-        if not base:
-            self.skipTest("the commit that introduced tools/v17pred.py is not in this checkout")
-        then = subprocess.run(["git", "-C", ROOT, "show", "%s:tools/v17pred.py" % base],
-                              capture_output=True, text=True).stdout
+        then = frozen.source("Issue #80 -- predictions frozen", "tools/v17pred.py")   # Issue #83 (F): pinned by HASH; the phrase is checked, not searched
         self.assertEqual(then, read(os.path.join(ROOT, "tools", "v17pred.py")))
         # and the decoder did not exist in that commit
+        base = frozen.base("Issue #80 -- predictions frozen")
         exists = subprocess.run(["git", "-C", ROOT, "cat-file", "-e", "%s:tools/v17decode.py" % base],
                                 capture_output=True).returncode
         self.assertNotEqual(exists, 0, "the decoder existed when the predictions were frozen")

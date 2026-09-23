@@ -34,7 +34,7 @@ mode, names = sys.argv[2], sys.argv[3:]
 if mode == "broken":
     real = subprocess.run
     def run(args, **kw):
-        if args and args[0] == "gcc":
+        if args and args[0] in ("gcc", "cc"):        # Issue #83 (E) brought `cc` harnesses in
             return subprocess.CompletedProcess(args, 1, "", "x.c:1:1: error: simulated compile failure")
         return real(args, **kw)
     hostcc.subprocess = types.SimpleNamespace(run=run)
@@ -82,11 +82,24 @@ class NoHostTestRunsGccExceptThroughHostcc(unittest.TestCase):
                 offenders.append(f)
         self.assertEqual(offenders, [], "these run gcc directly; route them through tests/host/hostcc.py")
 
-    def test_the_eight_known_harness_files_are_all_covered(self):
+    def test_every_known_harness_file_is_covered(self):
         mods = compiling_modules()
         for m in ("test_agb_coord", "test_agb_coord2", "test_agb_indexed", "test_istim", "test_vfull",
-                  "test_vidxcap", "test_vvi", "test_audio_runtime"):
+                  "test_vidxcap", "test_vvi", "test_audio_runtime",
+                  "test_agb_tone", "test_agb_sweep"):    # the two `cc` harnesses, Issue #83 (E)
             self.assertIn(m, mods)
+
+    def test_no_host_test_runs_a_bare_cc_either(self):
+        """Issue #83 (E): the static pin above only looked for "gcc", so two harnesses
+        calling "cc" were invisible to it."""
+        offenders = []
+        for f in sorted(os.listdir(HOST)):
+            if not f.endswith(".py") or f in ("hostcc.py", "test_compile_skips.py"):
+                continue
+            with open(os.path.join(HOST, f), encoding="utf-8") as fh:
+                if re.search(r"""\[\s*["']cc["']""", fh.read()):
+                    offenders.append(f)
+        self.assertEqual(offenders, [], "these run `cc` directly; route them through tests/host/hostcc.py")
 
 
 class ACompileFailureFailsAndOnlyAMissingCompilerSkips(unittest.TestCase):
@@ -113,6 +126,15 @@ class ACompileFailureFailsAndOnlyAMissingCompilerSkips(unittest.TestCase):
         gcc_skips = [(t, r) for t, r in self.absent["skipped"] if "gcc" in r]
         self.assertGreaterEqual(len(gcc_skips), 63 + 12)
         self.assertEqual({r for _t, r in gcc_skips}, {"gcc unavailable on this host"})
-        # and the SAME tests: what a broken compiler fails is exactly what a missing one skips
-        self.assertEqual(sorted(t for t, _r in gcc_skips),
-                         sorted(t for t, _tb in self.broken["failures"] + self.broken["errors"]))
+        # and the SAME work: what a broken compiler fails is exactly what a missing one skips.
+        # Compared per CLASS, because a skip raised in setUpClass is reported as
+        # "setUpClass (mod.Class)" while a failure there is reported per test (Issue #83 E
+        # brought two such harnesses in); the class is the unit either way.
+        def classes(ids):
+            out = set()
+            for i in ids:
+                i = i[len("setUpClass ("):-1] if i.startswith("setUpClass (") else i.rsplit(".", 1)[0]
+                out.add(i)
+            return out
+        self.assertEqual(classes(t for t, _r in gcc_skips),
+                         classes(t for t, _tb in self.broken["failures"] + self.broken["errors"]))
