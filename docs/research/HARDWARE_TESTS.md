@@ -29892,7 +29892,7 @@ unknown to us. Nothing it reports is a hardware observation about the GBP.
 > device as absent by default, and no procedure may come to depend on one being
 > present.
 
-## V13 — GBP-AUDIO-004: **`U-GBP-038`'s SEPARATOR** — a SHORT gap, not a long one, and a ladder so the run pays whatever the delay is — **PRE-REGISTERED 2026-09-23 (GitHub Issue #75); NOT RUN, NOT AUTHORISED HERE** · and **the fifth-press alarm's defect, decided and deferred with its reason**
+## V13 — GBP-AUDIO-004: **`U-GBP-038`'s SEPARATOR** — a SHORT gap, not a long one, and a ladder so the run pays whatever the delay is — **PRE-REGISTERED 2026-09-23 (GitHub Issue #75); NOT RUN, NOT AUTHORISED HERE** · and **the fifth-press alarm's defect, decided and deferred with its reason** · **RUN 33 EXECUTED 2026-09-23 AND INGESTED (Issue #78, §V15): QUESTION S = INADMISSIBLE — the emitting window CARRIED, which neither reading predicted**
 
 ### V13.1 THE FIFTH-PRESS ALARM — the defect, the property, and why it does **not** get a flash of its own
 
@@ -30184,7 +30184,7 @@ evidence id. It does not edit §V11 or any frozen construction;
 alarm is specified and deliberately NOT built** (§V13.1). Two names are reserved
 and **the files do not exist**.
 
-## V14 — GBP-AUDIO-003, RUN 34: **§V11's amplitude sweep REPEATED with the repaired instrument** — under §V11's existing gates, and with two findings the repeat's premise did not have — **PRE-REGISTERED 2026-09-23 (authorised by the Orchestrator's message after the session restart; no Issue yet); NOT RUN, NOT AUTHORISED HERE**
+## V14 — GBP-AUDIO-003, RUN 34: **§V11's amplitude sweep REPEATED with the repaired instrument** — under §V11's existing gates, and with two findings the repeat's premise did not have — **PRE-REGISTERED 2026-09-23 (authorised by the Orchestrator's message after the session restart; no Issue yet); NOT RUN, NOT AUTHORISED HERE** · **RUN 34 EXECUTED 2026-09-23 AND INGESTED (Issue #78, §V15): all four windows CARRIED, contrary to §V14.2; QUESTION V = INCONCLUSIVE because byte duty is PHASE-SENSITIVE at V=3 — V=11 measured on the linear prediction to 0.06 bytes**
 
 ### V14.1 What this is, and what it is not
 
@@ -30421,3 +30421,259 @@ which §V14.5 qualifies on top. It answers nothing and **promotes nothing**:
 `U-GBP-012` stays open and H-PWM stays a hypothesis whatever RUN 34 shows, and
 `U-GBP-038` and `U-GBP-040` are untouched. **RUN 34 is reserved and the files do
 not exist.**
+
+## V15 — RUN 33 and RUN 34 INGESTED (GitHub Issue #78): **the emitting window CARRIES in both** — `QUESTION S` = **INADMISSIBLE**, `QUESTION V` = **INCONCLUSIVE** for a reason nobody predicted, and **no path-side delay is observed once the instrument works** — `U-GBP-038` rescoped, `U-GBP-039`'s premise refuted
+
+### V15.1 The raws, archived first
+
+```text
+logs/run33/GBP-AUDIO-001_stream-0016.log         91 993 B  sha256 8c9d085e2ff3b043e292390103030eea34a26e5aeed5ff62143f4da943c3721e
+logs/run33/GBP-AUDIO-001_stream-0016-audio.bin 5 243 788 B  sha256 cfe472d36ba6040ecbedf9adfc601b73b501d401f363ccc78c20cafa136252b8
+logs/run34/GBP-AUDIO-001_stream-0016.log         92 558 B  sha256 b184311246a6d91df7915a5fdbf61f4b2f54ee24b75eadb508da0bdb012cb8af
+logs/run34/GBP-AUDIO-001_stream-0016-audio.bin 5 243 788 B  sha256 4db12f2ea62fee633c131b6bd38d971e6b60b1d2f9dae775eeb3ef17e20c58b0
+archived to   captures/local/GBP-AUDIO-004_stream-0016-run33.log / -audio.bin   (§V13.8's names)
+              captures/local/GBP-AUDIO-003_stream-0016-run34.log / -audio.bin   (§V14.9's names)
+```
+
+Hashes computed from the **originals** and re-verified from every copy; the raw
+drop is untouched. **The console wrote `GBP-AUDIO-001` for both, as `GBP-HW-300`
+predicts**, and the file headers disagree with the archive names by design.
+**Issue #78's hash table pairs each hash with the wrong suffix** — `cfe472d3…`
+and `4db12f2e…` are the **audio sidecars**, `8c9d085e…` and `b1843112…` the
+logs; all four values are right, only the pairing is swapped, and the table
+above is recomputed from the files.
+
+### V15.2 Both runs were known clean BEFORE the files were copied — and three channels agree
+
+**For the first time, a run's health was known live**: the Orchestrator captured
+both sessions over the Operator's Pico Gecko (§V12) while they ran.
+
+> **PROVENANCE, stated because it matters:** the live capture is **an
+> Orchestrator-side capture of the Operator's hardware, not a project
+> artefact**. It is kept in `captures/local/GECKO-LIVE-run33-run34-orchestrator-capture.txt`
+> (a terminal capture, so `.txt` as §V12.7's receiver names its output — it is **not** a
+> console log and must not join the population `GBP-HW-272` is defined over)
+> 6 186 B, sha256 `4766186926c018b75023078003c98e1b068e23eb3cbf0f61b625bb5d7bf9f282`,
+> git-ignored, and nothing in this section rests on it alone.
+
+```text
+                    RUN 33 (A)                         RUN 34 (B)
+INPUT               attempts 5474 = completed 5474     attempts 7554 = completed 7554, failed 0
+events              8, lost 0                          8, lost 0
+last_word           0001 -- the pad's A                0002 -- the pad's B
+health              SELFTEST ok=1, INPUTSELFTEST ok=1, COUNTERS balanced=1 consistent_at_end=1,
+                    RESULT ok_session_ended, restore=1, SAVEAUDIO rc=0, SAVELOG rc=0 -- in both
+```
+
+**The sidecar CRC is now corroborated by three independent channels:**
+
+```text
+                    the live Gecko line     the sidecar's own footer     the SD log's record
+RUN 33              crc=d3dbd9a6            d3dbd9a6                     crc=d3dbd9a6
+RUN 34              crc=4c45d84f            4c45d84f                     --
+```
+
+The footer is read big-endian from the last four bytes after `OGBPAWND`, and
+`awinparse` verifies it on load. **§V12.10's point, made again on a real run:
+the Gecko carries what the image believes it is sending.**
+
+### V15.3 Admissibility, and the schedules DERIVED
+
+```text
+RUN 33   keys 0001 x4 -> derive_schedule = "F", refusals = []   offsets 0 / +0.267 / +1.852 / +4.688 s
+RUN 34   keys 0002 x4 -> derive_schedule = "V", refusals = []   offsets 0 / +5.105 / +10.310 / +15.766 s
+```
+
+**Both action lists were performed as written.** RUN 33's short gap of 0.267 s
+clears §V13.4's ~0.10 s floor and no arm was refused; every RUN 34 gap clears
+§V14.3's five seconds.
+
+### V15.4 Carriage, read with `classify_window()` UNEDITED — and it agrees with the Orchestrator's crude read
+
+```text
+            control   press 1    press 2    press 3    press 4
+RUN 33 (A)  flat      CARRIES    CARRIES    CARRIES    CARRIES
+RUN 34 (B)  flat      CARRIES    CARRIES    CARRIES    CARRIES
+```
+
+**Every press window carries in both runs, including the emitting window.** The
+frozen classifier and Issue #78's crude detector agree on all ten windows, so the
+boundary cases where they could have differed do not arise. (For the control,
+`classify_window()` prints `CARRIAGE FAILURE`; that label only means anything for
+a press window — a flat control is the expected resting state, as §V11.16.3
+noted.)
+
+### V15.5 `QUESTION S` (RUN 33) = **INADMISSIBLE**, by `tools/v13sep.py` unedited
+
+```text
+offsets  0.000 / 0.267 / 1.852 / 4.688 s     carried  C C C C
+verdict  INADMISSIBLE -- "the emitting window itself carried, which neither reading predicts and
+                         which no run has shown"
+```
+
+**RUN 33 cannot answer the question it was built for, and that is a result, not a
+failed run.** §V13.5 wrote this row before the run so that it would be read as
+exactly this and not as evidence against both readings. **Both ORDINAL and
+ELAPSED predicted window 1 dead; it carried.** What that means for `U-GBP-038` is
+§V15.8.
+
+### V15.6 `QUESTION V` (RUN 34) = **INCONCLUSIVE** — and **not** for the reason §V14.2 predicted
+
+**§V14.2 predicted INCONCLUSIVE because window 1 would be dead. Window 1
+carried** — all four did — so the carriage precondition passed. **The gate still
+returned INCONCLUSIVE, for a different reason:**
+
+```text
+states           CARRIES   CARRIES   CARRIES   CARRIES
+byte deviation   28.0      20.0      12.0      None      <- window 4 (V=3) has "no two levels"
+why              "a window has no two levels to measure a deviation from"
+```
+
+**`tools/v11sweep.py` is not adjusted**, and here is precisely why it said that:
+
+```text
+                   BYTE duty levels (of 256)      BIT duty levels (of 2048)
+RUN 32 w4 (V=3)    136 x75, 120 x74               1073 x75, 976 x74
+RUN 34 w4 (V=3)    136 x75, 128 x75   <- REST     1074 x75, 976 x75
+```
+
+> **AT BIT LEVEL THE TWO RUNS MEASURED V=3 IDENTICALLY — 976 and 1073/1074.**
+> At byte level, RUN 32's low side read 120 and RUN 34's read **128, the resting
+> value**, so `modal_levels()` found no low side at all.
+
+**Byte duty is not merely quantised (`GBP-HW-304` said 8 bits); it is
+PHASE-SENSITIVE.** It counts a byte as "high" when it lies above the midpoint of
+the block's own extremes, so an edge byte such as `0x80` — one bit set, the top
+one — counts as a whole high byte, and `0x08` as a whole low one. **The same
+pulse width therefore reads as a different byte duty depending on where its edge
+falls inside a byte**, and the two runs' edge alphabets differ (RUN 32 `03 83 fc
+f0 f1`; RUN 34 `08 09 80 81 f8 fc fd`). At the smallest amplitude in its own
+schedule, §V11.4's ruler can round a real level onto the rest value.
+
+**That is a limitation of the frozen gate, discovered by the data — recorded and
+NOT repaired.** The gate says INCONCLUSIVE; that is the verdict.
+
+### V15.7 `QUESTION E` = **LEVELS DIFFER, NOT ORDERED**, and the saturation §V11.16.5 recorded
+
+Spans 255 / 255 / 255 / 255 — `00` and `ff` are in every window, as before, so
+the level span orders nothing. **The alphabet grows 8 → 10 → 10 → 11 as the
+volume falls**, which is the direction §V11.6 was built to look for, but E's
+frozen quantity is the span and the span cannot see it. Reported, not repaired.
+
+### V15.8 THE MEASUREMENT BESIDE THE VERDICT — §V14.6's list, in its order, by `tools/v14repeat.py` unedited
+
+**This is a MEASUREMENT beside an INCONCLUSIVE verdict, not a gate that was
+passed.** It is also **the first time all four amplitudes were measured in one
+run**, which §V14.2 said could not happen.
+
+```text
+item 2   each window, bit resolution, /256       LINEAR      COMPRESSIVE
+         V=15   29.9883                          30.06       30.06
+         V=11   22.1094   <- NEVER MEASURED       22.05       26.94
+         V= 7   14.0977                          14.03       22.55
+         V= 3    6.1211                           6.01       15.03
+
+item 3   THE REPEAT, RUN 34 minus the earlier run, /256
+         V= 7   14.0547 -> 14.0977   delta +0.0430   (RUN 32)
+         V= 3    6.0547 ->  6.1211   delta +0.0664   (RUN 32)
+         V=15   30.0625 -> 29.9883   delta -0.0742   (RUN 31)
+
+item 4   fit through RUN 31's V=15 and RUN 34's four windows (five points)
+         slope 1.9922 /256 per volume unit   INTERCEPT +0.1558 /256
+
+item 5   model errors, re-anchored on RUN 31's measured V=15
+         linear 0.2406   compressive 22.1932   -> the linear model is closer by a factor of 92
+```
+
+**Three things in that table, and none of them is a verdict:**
+
+- **V=11, the only amplitude never measured, lands 0.06 bytes from the linear
+  prediction and 4.83 from the compressive one.** It was predicted before the run
+  (§V14.5) and the fit was not built from it.
+- **The repeat agrees to under 0.08 bytes at every volume** — two orders of
+  magnitude below the 4.9–9.0-byte separation between the models. §V14.6 set **no
+  tolerance** on the repeat and none is invented now; the deltas are reported
+  with their values.
+- **The intercept lands 0.16 bytes from the origin**, against a smallest
+  deviation of 6.
+
+**Not specified by §V14.6, and reported for completeness only:** RUN 34's four
+in-run points alone fit slope 1.9903, intercept +0.1661.
+
+**WHAT THIS IS NOT, and the temptation is named.** The data is better than the
+prediction, and the pre-registered gate still says INCONCLUSIVE. **`GBP-HW-305`
+named "a repeat" as what would make its reading FACT, and the repeat now
+exists — but it is NOT promoted here**, because the pre-registered question that
+was supposed to decide it returned INCONCLUSIVE, and promoting past one's own
+gate because the numbers look good is exactly the move this discipline exists to
+prevent. **The promotion is a separate decision, with this section as its
+input.** `U-GBP-012` is not closed and H-PWM stays a hypothesis.
+
+### V15.9 `U-GBP-038` and `GBP-HW-299` RE-EXAMINED — what survives, what is refuted, what is unexplained
+
+**Every dead window ever observed:**
+
+```text
+run      instrument       dead windows          the AGB emitting at that press?
+RUN 30   the checker      press 1               unknown -- not our ROM
+RUN 31   agb-tone         presses 1 and 2       press 1: NO (U-GBP-040); press 2: yes, by the Operator's GBA
+RUN 32   sweep-0001       presses 1 and 2       press 1: NO (U-GBP-040); press 2: yes, by the Operator's GBA
+RUN 33   sweep-0002       NONE                  yes, from press 1
+RUN 34   sweep-0002       NONE                  yes, from press 1
+```
+
+**REFUTED, as properties of the path:**
+
+```text
+ORDINAL                  "the emitting window carries nothing" -- it carried in RUN 33 and RUN 34
+ELAPSED with T > 0.0625  window 1 opens AT the emission and carried in both runs, so no delay of
+                         even one window is observed
+any delay counted        GBP-HW-307 already refuted the CONTROL-transform epoch; RUN 33 and RUN 34
+ from any epoch          show NO delay at all with a working instrument
+```
+
+**SURVIVES:** every observation. RUN 30's, RUN 31's and RUN 32's dead windows were
+really dead; `GBP-HW-299`'s words remain true of RUN 30 and RUN 31, as its
+earlier amendment said. **What does not survive is any reading of them as a
+property of the Game Boy Player's AUDIO path.**
+
+**THE HYPOTHESIS THE ORCHESTRATOR OFFERED, weighed and NOT concluded:**
+*`U-GBP-038`'s phenomenon was a consequence of `U-GBP-040`'s defect.*
+
+```text
+consistent with     RUN 33 and RUN 34: fix the defect and the dead windows vanish
+                    RUN 31 and RUN 32 press 1: the ROM did not emit, so the window had nothing
+NOT explained by it RUN 31 and RUN 32 press 2 -- the Operator's GBA says sweep-0001 was AUDIBLE from
+                    press 2, yet the capture's window 2 carried nothing
+                    RUN 30 press 1 -- a different cartridge entirely; U-GBP-040 is not in it
+```
+
+**So it is SUPPORTED and NOT ESTABLISHED, and two dead windows remain
+unexplained.** One gap keeps it alive for window 2: *audible at a GBA's speaker*
+and *carried by the GBP's AUDIO window* are not the same observation — the
+second passes through a path whose layout is `U-GBP-012`'s open half — so a
+defective first press may leave the path in a state the speaker does not reveal.
+That is an argument, not a measurement.
+
+**What would test it**, named and not proposed: **run `sweep-0001` again** — the
+defective ROM, re-flashed — with RUN 34's five-second spacing. If windows 1 and 2
+are dead again, the defect reproduces the phenomenon; if only window 1 is, window
+2's death in RUN 31/32 was something else. It costs a flash, which is the
+Operator's to spend.
+
+**Operationally the question has stopped costing windows.** With `sweep-0002` no
+window has been lost in eight presses across two runs, so **the 20-second wait and
+the five-second spacing have no known job left** — they are held only until the
+Orchestrator decides the next action list, and the record says so rather than
+letting them persist as superstition.
+
+### V15.10 What this part does NOT do
+
+It edits **no frozen construction** — `tools/v11sweep.py`, `v13sep.py` and
+`v14repeat.py` are byte-identical to their commits, and their verdicts
+(INADMISSIBLE, INCONCLUSIVE, LEVELS DIFFER) stand as they came out. It **promotes
+nothing**: `GBP-HW-305` stays CORROBORATED although its named repeat now exists,
+`U-GBP-012` stays open and H-PWM stays a hypothesis. It does **not conclude** that
+`U-GBP-040`'s defect caused `U-GBP-038`'s phenomenon. It amends §V13 and §V14
+only by a pointer appended to each heading. The live Gecko capture is kept with
+its provenance stated and nothing rests on it alone.

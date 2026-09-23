@@ -61,6 +61,11 @@ LEDGER = [
     (r"^the bring-up log is not archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
      "§V12.10's hash and the gecko=1 line are quoted on the page and pinned by tests that never "
      "skip; the cross-check's five quantities are all in the document"),
+    # Issue #78: RUN 33 and RUN 34, under captures/local and logs/, ignored by design.
+    (r"^RUN 33 or RUN 34 is not archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
+     "§V15's hashes, offsets, verdicts and measurements are all on the page and pinned from the "
+     "SOURCES by tests that never skip -- the frozen-tool diffs, the unknowns, the heading pointers "
+     "and the new ids -- and the Operator's machine, where the files are, runs the suite first"),
     # Issue #72: the same for RUN 32, whose raws and 5.2 MB sidecar live under captures/local
     # and logs/, both ignored by design.
     (r"^(RUN 32 is not archived in this checkout( \(captures/local is ignored\))?"

@@ -14316,3 +14316,67 @@ first to spend the emission and then B four times would keep V=15 — but
 the display trustworthy is the guard that forbids the trick. **What would answer
 §V11's question in one run is a fifth press window**, which is a new image; named
 and not proposed.
+
+## 2026-09-23 — Issue #78: RUN 33 and RUN 34 ingested — the emitting window carries, and both gates still decline
+
+**Goal.** Archive both runs, read carriage with the frozen classifier, and decide
+`QUESTION S`, `QUESTION V` and `QUESTION E` with the tools **unedited** — the
+first time the data looked *better* than the prediction, which the Orchestrator
+named as its own kind of temptation. §V15.
+
+**Both runs were known clean before the files were copied**, from the
+Orchestrator's live capture over the Pico Gecko. **Three channels agree on the
+sidecar CRC** — the live line, the sidecar's own footer and the SD log all say
+`d3dbd9a6` for RUN 33 (and `4c45d84f` for RUN 34 between the first two). The
+capture is kept as `.txt` with its provenance stated — it is an
+Orchestrator-side capture of the Operator's hardware, not a console log, and
+renaming it kept it out of the population `GBP-HW-272` is defined over, which
+its `.log` extension had silently put it into.
+
+**The Issue's hash table had each hash on the wrong suffix**; all four values
+were right. Recorded.
+
+**`classify_window()` agrees with the crude read on all ten windows: every press
+window carries, including the emitting one, in both runs.**
+
+**`QUESTION S` = INADMISSIBLE.** §V13.5 wrote that row before the run so this
+would be read as a result about `U-GBP-038` and not as evidence against both
+readings.
+
+**`QUESTION V` = INCONCLUSIVE — and not for the reason §V14.2 predicted.** Window 1
+carried, so the carriage precondition passed. The gate declined anyway because
+window 4 (V=3) had "no two levels" at byte resolution — and the diagnosis is the
+sharpest thing in the checkpoint: **at bit level RUN 32 and RUN 34 measured V=3
+identically (976 / 1073–1074); at byte level one low side read 120 and the other
+128, the resting value.** Byte duty is not merely quantised, it is
+**phase-sensitive**: an edge byte like `0x80` counts as wholly high, so the same
+pulse width reads differently depending on where its edge falls in a byte, and
+the two runs' edge alphabets differ. **A limitation of the frozen gate, found by
+data, recorded and not repaired.** `GBP-HW-304` is refined on top.
+
+**The measurement beside the verdict is the best the project has had:** all four
+amplitudes in one run for the first time, **V=11 — never measured before —
+landing 0.06 bytes from the linear prediction** and 4.83 from the compressive
+one; the repeat of V=7, V=3 and V=15 agreeing to under 0.08 bytes; the linear
+model closer by 92×. **And `GBP-HW-305` is NOT promoted**, although the repeat it
+named as its condition for FACT now exists — because the pre-registered gate
+returned INCONCLUSIVE, and promoting past one's own gate because the numbers look
+good is exactly what the discipline exists to prevent. The promotion is a
+separate decision with §V15.8 as its input.
+
+**`U-GBP-038` re-examined.** With `sweep-0002`, eight presses across two runs lost
+no window. **ORDINAL and ELAPSED are both refuted as properties of the path**, and
+every observation survives as an observation. **`U-GBP-039` is CLOSED as
+refuted, not as answered** — it asked for the mechanism of a delay that no longer
+exists. **The Orchestrator's hypothesis — that `U-GBP-040`'s defect caused the
+phenomenon — is SUPPORTED and NOT ESTABLISHED**: it explains RUN 33/34 and
+RUN 31/32's first press, and it does not explain RUN 31/32's second press (audible
+on his GBA, dead in the capture) or RUN 30's first (a different cartridge). The
+test is `sweep-0001` re-flashed with five-second spacing; that costs a flash and
+is his to spend.
+
+**Operationally**: the 20-second wait and the five-second spacing have **no known
+job left**, and §V15.9 says so rather than letting them persist as superstition.
+
+**Ids:** `GBP-HW-308` … `311`; heading pointers on `GBP-HW-299`, `304`, `305` and
+`307`, and on §V13 and §V14; `GBP-HW-272` gains two logs (48, 13/35).

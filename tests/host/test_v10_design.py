@@ -275,7 +275,7 @@ class NothingWasFrozenMintedOrPromoted(unittest.TestCase):
         # and EVIDENCE.md gained nothing
         ev = read(EV)
         self.assertEqual(max(int(n) for n in re.findall(
-            r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 307)
+            r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 311)
         self.assertNotIn("Issue #68", ev)
 
     def test_the_unknowns_kept_their_status_and_only_gained_pointers(self):
