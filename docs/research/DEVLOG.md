@@ -14734,3 +14734,58 @@ move.
 
 **Next in this checkpoint:** the POC proper — the GameCube application that
 supplies ticks and blocks to this module, its Swiss slot and its audit profile.
+
+## 2026-09-23 — Issue #85: RUN 35 ingested — `question_L_bits` = LINEAR, and `GBP-HW-305` is FACT
+
+**Goal.** Ingest RUN 35 (GBP-AUDIO-006), §V14.10 repeated unchanged, and let the
+gate frozen before it decide `GBP-HW-305`. §V20.
+
+**The verdict first, as the Issue required: `question_L_bits` = LINEAR.** Anchor
+V=15 = 29.86/256, this run's own window. V=11, V=7 and V=3 land 0.04–0.09 bytes
+from the linear model, inside half-gaps of 2.4–4.5, and 4.8–9.0 bytes from the
+compressive one. The margin is not close.
+
+**Checked before anything else, and it is the check the card procedure exists
+for.** `GBP-HW-300` means a failed write leaves the previous run's files looking
+exactly like this run's. RUN 35's hashes match neither RUN 34's nor RUN 33's —
+new bytes, so the write happened. Then the gate: `tools/v16bitgate.py` was touched
+by exactly one commit, and its bytes hash identically at `f951079`, `8fd9565` and
+`HEAD`. Three channels agree on the sidecar CRC (`6b1e8337`): its footer, the SD
+log, and the Orchestrator's live Gecko capture.
+
+**`GBP-HW-305` is FACT**, and on exactly the two grounds its own entry named as
+missing: all four points now come from one run and one ROM (the gate re-anchors
+on RUN 35's own V=15, where the earlier reading borrowed RUN 31's), and the
+pre-registered gate passed where the earlier one declined. RUN 32, RUN 34 and
+RUN 35 agree. Promoted on top: the original heading words stay and a dated
+pointer carries the new status. Nothing else is promoted; `GBP-HW-313` stays
+CORROBORATED and `U-GBP-012` stays OPEN, because its question is what each AUDIO
+block integrates over, not how the envelope scales.
+
+**The older gates repeat RUN 34 exactly** — `question_V` INCONCLUSIVE for the
+byte-duty defect already on record, `question_E` LEVELS DIFFER, NOT ORDERED. A
+defect that declines the same way on a like-for-like repeat is the gate's, not the
+run's.
+
+**The waits were kept for repetition, not belief.** §V15.9 found they have no
+known job left. They were held because this run's whole value was being a
+like-for-like repeat, and §V20.4 says so in those words so their presence is never
+read as evidence they are needed.
+
+**An error I caught in my own draft, before commit.** I first compared RUN 35 to
+"RUN 34 at 30.0625 …" — but 30.0625 is **RUN 31's** V=15 on `agb-tone`, not
+RUN 34's. By the same bit-resolution instrument RUN 34's is 29.9883, and RUN 35
+agrees with it to 0.19 bytes, not 0.21. A figure taken from the wrong row: the
+failure mode §V19.10 had just named, one hour earlier, about someone else. The
+test pins the correction.
+
+**No new ID minted**: RUN 35 is the evidence *for* `GBP-HW-305` and is recorded in
+that entry.
+
+**It also joined `GBP-HW-272`'s population, and confirmed it.** The CONTROL byte's
+bit `0x02` splits every archived physical log by whether a cartridge is in the
+slot. RUN 35 had one, and its log reads `orig=92`: 49 logs now, 13 at `0x90` and
+36 at `0x92`, no exception. The suite caught this before I did — two population
+tests failed on the new log — which is the right way round: a run that enters a
+population is a data point for every claim defined over it, not only the one it
+was run for.

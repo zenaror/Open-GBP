@@ -657,6 +657,16 @@ two-slice granularity. What stays open moves to `U-GBP-041` (are the slices
 uniform in time?) and `U-GBP-043` (the 1–3-bit spread and the bit arrangement).
 **The item stays OPEN.**
 
+**2026-09-23, Issue #85 — `GBP-HW-305` is FACT, and this item stays OPEN.** RUN 35
+(`HARDWARE_TESTS.md` §V20), §V14.10 repeated unchanged, was judged by
+`question_L_bits` — frozen before it ran — and returned **LINEAR**, self-contained
+in one run. That closes the two objections the paragraphs above named as standing
+between `GBP-HW-305` and FACT: all four points now come from one run and one ROM,
+and the pre-registered gate passed. **What it settles is how the envelope volume
+scales the decoded amplitude — linearly. It does not settle this item's question**,
+which since §V18 is what each AUDIO block integrates over and whether its sixteen
+slices are uniform in time (`U-GBP-041`). **The item stays OPEN.**
+
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the

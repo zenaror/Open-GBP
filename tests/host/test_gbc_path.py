@@ -193,7 +193,9 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
                  "GBP-AUDIO-003_stream-0016-run32.log": "92",
                  # Issue #78 (2026-09-23): RUN 33 and RUN 34, sweep-0002
                  "GBP-AUDIO-004_stream-0016-run33.log": "92",
-                 "GBP-AUDIO-003_stream-0016-run34.log": "92"}
+                 "GBP-AUDIO-003_stream-0016-run34.log": "92",
+                 # Issue #85 (2026-09-23): RUN 35, sweep-0002
+                 "GBP-AUDIO-006_stream-0016-run35.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1

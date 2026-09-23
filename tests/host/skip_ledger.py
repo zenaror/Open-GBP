@@ -109,6 +109,11 @@ LEDGER = [
      "the same samples are regenerated from the versioned fixtures by tools/v17decode.write_wav -- "
      "the code that wrote those WAVs -- and compared integer for integer, and that test never skips "
      "for want of a local file"),
+    # Issue #85: RUN 35, under captures/local and logs/, ignored by design.
+    (r"^RUN 35 is not archived in this checkout \(captures/local is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
+     "§V20's hashes, verdict, rows and the write-happened check are quoted on the page and pinned from "
+     "the SOURCES by tests that never skip (the verdict-first rule, GBP-HW-305's FACT pointer, the gate's "
+     "freeze by hash); the Operator's machine, where the files are, runs the suite first"),
     # Issue #78: RUN 33 and RUN 34, under captures/local and logs/, ignored by design.
     (r"^RUN 33 or RUN 34 is not archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
      "§V15's hashes, offsets, verdicts and measurements are all on the page and pinned from the "
