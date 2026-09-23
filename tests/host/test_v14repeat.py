@@ -217,7 +217,7 @@ class ItIsAPreRegistrationThatAddsNoGate(unittest.TestCase):
         self.assertIsNone(re.search(r"^#{2,4} +GBP-[A-Z]+-\d{3}\b", part(), re.M))
         ev = read(EV)
         self.assertEqual(max(int(n) for n in re.findall(
-            r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 313)
+            r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 316)
         s = plain(part())
         self.assertIn("H-PWM stays a hypothesis whatever RUN 34 shows", s)
 

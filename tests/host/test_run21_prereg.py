@@ -487,6 +487,9 @@ class NothingFrozenMoved(unittest.TestCase):
                              "src/audio/gbp_aresamp_coef.h", "tools/gen_aresamp.py", "captures/README.md",
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz"}
+        # Issue #82 (2026-09-23): tools/v18block.py, what one AUDIO block contains, measured on the
+        # versioned fixtures (§V18). Descriptive, no gate; it reads captures and touches no image.
+        changed = changed - {"tools/v18block.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
@@ -529,7 +532,7 @@ class NothingFrozenMoved(unittest.TestCase):
         ev = read(EVIDENCE)
         # Issue #46 (2026-09-22) minted GBP-HW-272 (the CONTROL bit 0x02 split, from the archive); #41 minted none,
         # so the sentinel moves to the next free id and this guard goes on testing what it was written to test
-        self.assertNotIn("GBP-HW-314", ev)
+        self.assertNotIn("GBP-HW-317", ev)
         self.assertNotIn("GBP-PLAY-001", ev)
         h = plain(read(HANDOFF))
         for tok in ("ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004", "issue 41",

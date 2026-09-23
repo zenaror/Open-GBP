@@ -134,7 +134,7 @@ class PromotionIsTraceableAndMintsNothing(unittest.TestCase):
         # Issue #17 minted no id: it left GBP-HW-260 and GBP-VID-035. Issue #24 (RUN 14 / RUN 15, §V7.2) later minted
         # GBP-HW-261..265, and Issue #26 promoted them into the keypad rows of the hardware / register pages; the
         # assessment itself still cites nothing beyond what Issue #17 saw.
-        self.assertEqual((hw, vid), (313, 35))   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)   # Issue #33 (RUN 16 / 17 / 18, §V7.4) minted GBP-HW-266..271;   # 295…300: Issue #67; 301…302: #67's validation (the rate/layout split, U-GBP-039's probe); 303…307: #72, RUN 32; 308…311: #78, RUN 33 and RUN 34; 312: #79, duty()'s mechanism; 313: #80, the H-PWM decode
+        self.assertEqual((hw, vid), (316, 35))   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)   # Issue #33 (RUN 16 / 17 / 18, §V7.4) minted GBP-HW-266..271;   # 295…300: Issue #67; 301…302: #67's validation (the rate/layout split, U-GBP-039's probe); 303…307: #72, RUN 32; 308…311: #78, RUN 33 and RUN 34; 312: #79, duty()'s mechanism; 313: #80, the H-PWM decode; 314…316: #82, the block structure and the drain (§V18)
                                                  # Issue #46 minted GBP-HW-272 (the CONTROL bit 0x02 split); Issue #47 minted 273…277; Issue #52 minted 278…284 (RUN 21 / 22 / 25 / 26)
         self.assertNotRegex(read(ASSESS), r"GBP-HW-26[1-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d|GBP-VID-03[6-9]|GBP-VID-0[4-9]\d")
         # Issue #47 (2026-09-22) ingested RUN 23 / RUN 24 and REGISTERS.md's bit 0x01 and 0x02 rows cite 273…275.
@@ -145,7 +145,7 @@ class PromotionIsTraceableAndMintsNothing(unittest.TestCase):
         # Issue #52 (2026-09-22) ingested RUN 21 / 22 / 25 / 26 and minted GBP-HW-278…284; the HANDOFF's
         # trail names them, which is what a trail is for. The sentinel moves to the next free id.
             # Issue #62 minted GBP-HW-285…294 when RUN 30 was ingested; the sentinel moves past them
-            self.assertNotRegex(read(p), r"GBP-HW-31[4-9]|GBP-HW-3[2-9]\d|GBP-HW-[4-9]\d\d|GBP-VID-03[6-9]|GBP-VID-0[4-9]\d", p)
+            self.assertNotRegex(read(p), r"GBP-HW-31[7-9]|GBP-HW-3[2-9]\d|GBP-HW-[4-9]\d\d|GBP-VID-03[6-9]|GBP-VID-0[4-9]\d", p)
 
     def test_every_row_of_the_video_page_carries_an_id_and_a_fact_or_corroborated_status(self):
         t = read(VIDEO)

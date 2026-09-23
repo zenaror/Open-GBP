@@ -72,6 +72,10 @@ LEDGER = [
     (r"^no host compiler$", "TOOLCHAIN_ABSENT",
      "test_agb_tone.run_rom() skips only when neither /usr/bin/cc nor /usr/bin/gcc exists; a compiler "
      "that exists and does not compile the ROM raises AssertionError with its output"),
+    # Issue #82: §V18 quotes four drain figures from the RUN 33 / RUN 34 logs, which are raw drops.
+    (r"^the RUN 33 / RUN 34 logs are not in this checkout \(logs/ is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
+     "every block-structure figure of §V18 is recomputed from the VERSIONED fixtures by tests that never "
+     "skip; the drain lines are quoted verbatim in §V18 with the logs' hashes (captures/README.md)"),
     # Issue #81: the runtime decoder is proved from the VERSIONED fixtures; the raw drops and
     # #80's WAVs are extra comparisons made only where they exist.
     (r"^the raw sidecars are not in this checkout \(logs/ is ignored\)$", "LOCAL_ARTIFACT_ABSENT",

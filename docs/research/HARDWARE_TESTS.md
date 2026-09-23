@@ -31022,3 +31022,280 @@ reading of the bytes, and both could share an error that neither can see.
 **`U-GBP-012` narrows and stays open**: the layout is now a decode that plays and
 not a pattern that fits, and what the sample integrates over is the next question
 (§V17.6.1). **No hardware was used.**
+
+## V18 — **WHAT ONE AUDIO BLOCK CONTAINS, AND WHAT THE RUNTIME MUST MOVE** — inputs for the continuous-drain pre-registration, from bytes already owned — **2026-09-23 (GitHub Issue #82); NO HARDWARE, NO BUILD, NOTHING PRE-REGISTERED, AND `GBP-HW-313` NOT REOPENED**
+
+The Orchestrator is about to pre-register the continuous drain and asked for the
+facts first. His own premise check found that *"802 of 1280 blocks have all
+sixteen slices byte-identical, 478 do not"*, so a guess of *"one 256-byte cell
+replicated 16x"* would have put a 16x error into a frozen buffer size. This part
+answers from `captures/fixtures/` (RUN 33 and RUN 34, versioned by Issue #81) and
+from the two runs' raw logs. **Nothing here needed the console.** Where an answer
+does need it, the answer is **UNKNOWN** and the measurement is named.
+
+**How the figures were checked.** `tools/v18block.py` computes every block figure
+and `tests/host/test_v18block.py` recomputes each one from the versioned fixtures.
+Before any of it was written down, seven claims were given to **twenty-one
+independent verifiers**: three per claim, each with its own lens (independent
+recomputation, hidden assumptions, counterexample hunt). Each wrote its own
+code, and each was told to refute. Nineteen returned; two were lost to API
+errors, not findings. **They corrected five things**, and every correction below
+was re-derived by the executor before it was used:
+
+```text
+- the flat/step split is threshold-proof over 3..61 bits on the whole archive, not 3..96 as first stated
+- the drain deficit is 68.06 / 68.59 blocks, not 67 / 65: the log truncates capture_s
+- the deficit is NOT at the capture's edges: it sits in 13 service stalls in the first ~1.7 s
+- the audio service costs ~68.6 us of DMA and ~80 us of cycle per block, not the 64.7 us first quoted
+- the archive CAN say something about slice spacing: every transition falls on an EVEN slice
+```
+
+### V18.1 The 802 — reproduced, and it is not the edge set
+
+```text
+blocks whose sixteen 256-byte slices are byte-identical (blocks taken from the parser's offset 0x380)
+  RUN 33   235 / 174 / 143 / 164 / 82   = 798 of 1280      (w0 = control, w1..w4 = presses)
+  RUN 34    65 /  45 /  19 /  19 / 32   = 180 of 1280
+the same count with every block read 8 BYTES LATE (offset 0x388)
+  RUN 33   802 of 1280, 478 not        <- exactly the Orchestrator's figure
+  RUN 34   176 of 1280
+```
+
+**The 802 is reproduced exactly by an 8-byte misaligned read of RUN 33**, and by
+nothing aligned: the verifiers also tried per run, per window, the sliced region,
+the control windows plus the sliced region, the whole archive, slice openings of 1
+to 32 bytes dropped, 512/1024/2048-byte pieces and *"slices 1..15 identical"*
+(812). That is the **probable** source, not an established one. The Orchestrator
+can check his reading.
+
+**Byte identity is the wrong ruler whatever the offset.** The **silent** control
+windows have non-identical blocks (21 of 256 in RUN 33, 191 of 256 in RUN 34), and
+RUN 34, which carries four tones, has only 180 identical blocks in 1280. So the
+478 cannot be *"the blocks an edge falls inside"*: most of them are not near an
+edge.
+
+### V18.2 What a block is — every one of 2 560 blocks is FLAT or ONE STEP
+
+Take each 256-byte slice's **one-bit count** (the quantity H-PWM decodes):
+
+```text
+                   flat (spread of the 16 counts <= 3 bits)       step (two flat plateaus)   other
+  all 2 560        2 256   spread 0 / 1 / 2 / 3 = 978 / 1039 / 232 / 7      304            0
+  RUN 33           1 039                        798 /  240 /   1 / 0        241            0
+  RUN 34           1 217                        180 /  799 / 231 / 7         63            0
+  control windows  256 + 256, spread 0 or 1 only                              0            0
+```
+
+- **Two different things make slices differ, and byte identity cannot tell them apart.**
+  - **The small spread**: one to three bits between slices of a block at a single level. It is present in both silent control windows. It is only ever above the mode in RUN 33 (+1 in 281 slices, +2 in one) and ranges from −2 to +3 in RUN 34. It shows no bunching by slice index (a verifier folded the deviant positions at 16 to 512 slices and at one AGB frame; every fold came out flat). **Its cause is not established.**
+  - **The step**: the sixteen counts hold one level up to slice *k* and another level from *k* on.
+- **The split does not depend on the threshold.** It is identical for every flatness threshold from **3 to 61 bits** over the whole archive, and from **3 to 97** over the control windows plus the sliced regions. The smallest plateau jump anywhere is 62 bits (RUN 34 w2, block 3, 1264 → 1202). It is one of three **volume** changes inside a block before a RUN 34 press window's onset slice (62, 63.75, 64 bits). Below 3, one block (RUN 34 w4 block 114) reads as OTHER.
+- **Byte identity ⇔ spread 0 at block level only.** No non-identical block has sixteen equal counts. Pairwise it does not hold: **3 059 slice pairs, in 619 blocks, differ in bytes and have equal counts.** So a count does not fix a slice's bytes. Whether the arrangement of bits inside a slice carries anything the count does not is **not established** (`U-GBP-043`).
+- **The slice opening is per run, not fixed.** In RUN 33, every slice opens with the `07 03 03 …` family (four variants). In RUN 34, every slice opens with the `01 01 01 …` family (two variants). Not analysed further here; `GBP-HW-296` puts the cell's shape in the path.
+
+### V18.3 The steps ARE the edges — at the programmed spacing, with one slice index per tone
+
+In each press window's sliced region (blocks 96–255, `v11sweep.ONSET_SLICE_BLOCKS`,
+unchanged), against the periods #80's frozen predictions give (`v17pred.predict`,
+axis derived from the KEY record):
+
+```text
+            tone        P (blocks)   an edge every   steps (expected)   gaps     slice index k
+RUN 33 w1   128 Hz      32           16              10 (10)            {16}     8
+RUN 33 w2   512 Hz       8            4              40 (40)            {4}      12
+RUN 33 w3   256 Hz      16            8              20 (20)            {8}      10
+RUN 33 w4   1024 Hz      4            2              80 (80)            {2}      14
+RUN 34 w1   128 Hz, V15 32           16              10 (10)            {16}     14
+RUN 34 w2   128 Hz, V11 32           16              10 (10)            {16}     10
+RUN 34 w3   128 Hz, V7  32           16              10 (10)            {16}     6
+RUN 34 w4   128 Hz, V3  32           16              10 (10)            {16}     14
+control windows                                       0
+```
+
+- **Every step block in every sliced region is an edge of the programmed tone.** Every edge falls in a step block, and no other block is a step.
+- **Each step's first plateau equals the previous block's level, and its second plateau equals the next block's** (within 1.25 bits on the plateau means; the reverse order misses by at least 97 bits). The two step blocks at index 255 (RUN 33 w2, w4) have no next block, so only the first half applies to them. **So a slice before *k* precedes a slice from *k* on: slice order is time order.**
+- **Every transition anywhere in the archive falls on an EVEN slice.** That includes the 304 steps, the onsets and RUN 34's volume changes: k ∈ {4, 6, 8, 10, 12, 14}, no odd k, never 0 or 2. With about eight independent phases, chance would give this about once in 2⁸. **The level changes only on a two-slice grid.** Time order is therefore established between two-slice groups, not slice by slice.
+- **Before block 96**, the previous tone is still sounding. Its edges carry over into the next window at the previous window's k (RUN 33 w3 opens with seven k=12 edges at w2's spacing of 4). RUN 34's volume change appears two slices before that window's own edge grid, three times (k 8→10, 4→6, 12→14). Both confirm the phase is kept across windows.
+- **The 1024 Hz window's four levels (§V17.6.1) follow directly.** Its straddle blocks are steps at k = 14. (14×785 + 2×1266)/16 = 845 and (14×1266 + 2×785)/16 = 1206: the two middle levels. The HYPOTHESIS recorded there, *"a sampler that integrates over each block's interval"*, is literally what the block sum does, since the H-PWM sample is the sum of the sixteen slice counts.
+
+**What this means for "one block = one sample".** `GBP-HW-313` stands: the block
+sum decodes to the programmed tones, and nothing here changes a decoded sample.
+**But the block does not carry one sample sixteen times.** Where the level is
+constant it carries one level sixteen times, to within one to three bits. Where
+the level changes it carries **where in the block** the change happened, on a
+two-slice grid. That is eight positions per block, **at least 8x the time
+resolution the H-PWM sample averages over.** If the slices are uniform in time,
+that grid is 32 768 per second. That is the AGB's default PWM sample rate, a
+coincidence recorded as a **HYPOTHESIS** and not used.
+
+### V18.4 Slice spacing — what the archive can and cannot say
+
+- **Uniform spacing of individual slices is not measurable here.** Every programmed tone has a whole-number period in blocks, so all edges of a tone share one k. Every transition is also on the two-slice grid.
+- **One verifier built a cross-press test** (not re-derived by the executor; recorded as a **HYPOTHESIS**):
+  - `agb-sweep` polls the keypad once per frame, after VBlank, so each press restarts the tone a fixed delay after an AGB VBlank.
+  - If slices are uniform, one AGB frame (280 896 cycles) is 68 blocks + 9.25 slices.
+  - The number of frames between presses, from the GameCube timebase, then predicts each tone's k.
+  - Five of six intervals fit after rounding to even. The sixth needs an 8-slice offset argued from the 1024 Hz tone's duty step, and one starting phase is fitted.
+  - Chance of passing: ≈ 0.8 % (RUN 33) and 0.6 % (RUN 34).
+  - It depends on a model of the ROM and on one post-hoc allowance, so it is not evidence here.
+- **The measurement that would settle it needs hardware.** A tone whose half-period is not a whole number of two-slice units would move k from edge to edge by a predictable amount. Even that resolves only the 32 768/s grid, unless the two-slice quantisation belongs to the source rather than the path (`U-GBP-041`).
+
+### V18.5 Less than a block — what one slice gives, and whether a read can be shorter
+
+**Data side.** Take slice *j*'s count × 16 in place of the block count, in #81's
+int16 arithmetic (`gbp_adec.c`; the tool restates it exactly). Over the sliced
+regions:
+
+```text
+                 flat blocks, worst over all j         step blocks, worst over all j, per window
+RUN 33           96 int16  (359 of 490 exact)          24 723 / 36 946 / 30 880 / 43 109
+RUN 34           250 int16 ( 58 of 600 exact)          43 020 / 22 732 / 14 560 /  8 864
+```
+
+- **One slice reproduces #81's block sample exactly only where the block is byte-identical.** Nothing tells the reader which blocks those are without reading the rest.
+- **At every edge, no slice index reproduces the block for any j.** Before the sliced region, flat blocks reach 192 (RUN 33) and 199 (RUN 34).
+- **Bit-identity with the block decode therefore needs all 4 096 bytes.** A single slice is a *point* in the block, not its average. For audio that is a different sampling, not necessarily a worse one, and which one the runtime wants is a design decision this part does not make.
+
+**Transfer side: UNKNOWN, needs a physical measurement (`U-GBP-042`).**
+- Our transport accepts any 32-byte multiple (`read_bulk`).
+- But every physical AUDIO read in this project reads the full 0x1000, and so do both references (the Start-up Disc and GBI, `GBP-AUD-001`). That includes the 272 145 blocks of RUN 33 and RUN 34.
+- Whether a shorter DMA of index 0x8 returns those bytes, **and** leaves the device delivering the next block normally, has never been observed.
+
+### V18.6 What the runtime must move — the arithmetic to freeze
+
+```text
+RATE          4 096 blocks/s (GBP-HW-301, CORROBORATED). One block = 4 096 AGB cycles at 2^24 Hz.
+RAW           4 096 x 4 096 = 16 777 216 B/s = 16 MiB/s  -- exactly ONE BYTE PER AGB CYCLE
+  per AGB frame (280 896 cycles, 16.743 ms)      68.578 blocks = 280 896 B
+  per 1/60 s                                      68.267 blocks = 279 620 B
+PAYLOAD       what any validated decode uses per block: 16 one-bit counts (each 0..2048)
+  as 16 x u16                                     32 B/block = 131 072 B/s   (0.78 % of the bytes)
+  the H-PWM sample alone, int16                    2 B/block =   8 192 B/s   (0.05 %)
+  the rest (99.2 %) is the transfer's pulse-width representation -- whether it carries more: U-GBP-043
+OUTPUT        AI at 32 kHz, 16-bit stereo = 128 000 B/s (mono 64 000 B/s)
+```
+
+**What the existing service already did, from the run logs (stream-0016).**
+The logs are raw drops, identified in `captures/README.md`. The lines below are
+quoted verbatim.
+
+```text
+RUN 33   AUDIOAGG selected=114342 attempted=114342 completed=114342 failures=0 bytes=468344832
+         CLOCKS capture_elapsed=436d8875 (1 131 251 829 ticks at 40.5 MHz = 27.932144 s)
+RUN 34   AUDIOAGG selected=157803 attempted=157803 completed=157803 failures=0 bytes=646361088
+         CLOCKS capture_elapsed=5d0ac253 (1 560 986 195 ticks = 38.542869 s)
+both     FRAMECAP ... incomplete=13 resync=26      INTERVALS 30:1,34:4,38:8,...
+```
+
+- **Every block read was read in full: 272 145 whole 0x1000 reads, 0 failures.** Over the capture that is **4 093.56 and 4 094.22 blocks/s**, 68.06 and 68.59 blocks short of 4 096/s (16.6 / 16.7 ms).
+  - The log's `capture_s` is truncated to the millisecond; the exact figure comes from the ticks.
+  - The shortfall is the **same** in runs of different length, so it is not proportional loss. It is also not the capture edges: the reads start 0.1 ms after `capture_start` and end at `stop`. Nor is it a clock offset: 68 blocks is −600 / −430 ppm, and fits of the logged frame times put the AGB within ~16 ppm of the timebase.
+- **It sits in 13 service stalls in the first ~100 frames (~1.7 s), identical in both runs.**
+  - 13 video frames are incomplete: 50 video blocks were never read.
+  - They are at the probe's own start-up and at its research instrumentation's episode openings: frames 0, 9, 12, 15, 31, 34, 37, 91, 94, 97, …
+  - The delivery rate is **6 308.85/s over the first 4.89 s and 6 330–6 337/s over every later segment**, in both runs.
+  - **No stored window overlaps a stall.**
+- **Audio blocks carry no sequence number, so the log cannot place audio losses.** The ~68-block deficit is **consistent with** audio lost in those same stalls: 50 lost video blocks ≈ 14.7 ms, plus ≈ 4.6 ms at start-up. That is an inference, recorded as such.
+- **`failures=0` counts DMA completions, not coverage.** The drain needs a **coverage** counter: blocks expected from elapsed ticks against blocks read. A failure counter would have reported this run as lossless.
+
+**Cost per block with the current synchronous DMA.**
+- The DMA of 0x1000 took **63.8–68.7 µs** (the 8 verbose reads, median 64.7).
+- In the 34 audio-only lean cycles logged per run, read → ack has a median of **68.6 µs**, and cause → rearm is **~80 µs**.
+- At 4 096/s that is **28.1 % and 32.8 % of wall time**, busy-polled (~760 polls per DMA). This is a **lower bound** on the audio service's CPU cost as the probe does it. All those cycles sit near frame 8; no steady-state cycle is logged.
+
+**Buffers.** A ring that must survive a stall of S seconds holds:
+
+```text
+                              per second      50 ms         100 ms        1 s
+raw blocks                    16 MiB          800 KiB       1.6 MiB       16 MiB   (main RAM is 24 MiB)
+16 counts per block (u16)     128 KiB         6.4 KiB       12.8 KiB      128 KiB
+H-PWM samples (int16)         8 KiB           410 B         820 B         8 KiB
+```
+
+- **Decoding in the drain path turns a 1-second stall from 16 MiB into 8–128 KiB.**
+- **The stall to size for is UNKNOWN on this hardware.** No SD write has ever been timed while a drain ran; this probe writes its sidecar after teardown.
+- The one reference figure: `GBP-AUD-001` records the Start-up Disc keeping 70 buffers of 0x1000. That is 286 720 B, or 17.1 ms of blocks. It is a claim from the disc analysis, not re-derived here.
+
+### V18.7 The skip audit (Issue #82, item 4) — the seven, and the class behind them
+
+`make test-python` on this host reports **7 skipped**. **All seven are genuine,
+and none hides a failure.** Each premise was checked on disk by the executor and
+again by two independent verifiers:
+
+```text
+1 test_input_keylog.py:197       IDENTITY_NOT_CURRENT  local stream probe = stream-0015 @ 2e48ca7 (19666b54...),
+2 test_run17_prereg.py:166       IDENTITY_NOT_CURRENT  not the pinned da06500 build; build/swiss/12-stream/boot.dol
+                                                       IS dd545c01... byte for byte (test_staged_artifacts.py passes)
+3 test_run12_prereg.py:155       IDENTITY_NOT_CURRENT  local build is not stream-0013; build/archive/ holds it, 5391c3fe...
+4 test_run14_prereg.py:175       IDENTITY_NOT_CURRENT  local build is not stream-0014; build/archive/ holds it, ef76a170...
+5 test_swiss_export.py:196       IDENTITY_NOT_CURRENT  11-color exported from 7d7a6d8, local colour build is 2e48ca7;
+                                                       build/swiss/11-color/boot.dol IS 5cab1543... as INDEX.txt says
+6 test_isr_audit.py:163          NOT_BUILT (reads as)  the two listings are absent. RUN on listings made from the
+7 test_poc_audit.py:745          AUDIT_INPUT_ABSENT    unchanged 2e48ca7 objects in the scratchpad (no build, no write
+                                                       to build/): BOTH PASS.
+```
+
+**But the class behind #81's defect was wider than one file, and it is closed:**
+
+- **A compile failure reported as a skip.**
+  - Seven older files ran gcc and skipped with *"gcc unavailable: <the compiler's error>"* on ANY failure: `test_agb_coord`, `test_agb_coord2`, `test_agb_indexed`, `test_istim`, `test_vfull`, `test_vidxcap` and `test_vvi`.
+  - Under a gcc that exists and fails, **63 tests went silent and none failed**. With no gcc at all, they crashed instead of skipping.
+  - None of this fired on this host, so no published gate figure was affected. `tests/host/hostcc.py` now holds the one rule, and `tests/host/test_compile_skips.py` runs all 75 compiler-dependent tests under a broken compiler (all fail, with the compiler's output) and under none (all skip, one reason).
+  - The ledger's generic `^gcc unavailable` entry is gone, so the old wording no longer classifies.
+- **A blind spot in the static extractor.**
+  - `test_guard_shape.skip_sites()` did not see `raise unittest.SkipTest(...)`. Fifteen sites used it, and **eight had reasons registered nowhere**. They would have passed silently under the `unittest` fallback, contradicting `conftest.py`'s own promise.
+  - The extractor now sees them, and the seven legitimate reasons are registered.
+  - The eighth skipped when a **versioned** fixture was missing (`test_disp_run6.py:307`); it now **fails**.
+
+**Left for the Orchestrator's decision, recorded and not changed here.** None
+fires today and each is covered elsewhere, but each is a way a regression could
+read as a skip or as a pass:
+
+```text
+B  git helpers that turn ANY git error into the "commit not available" (HISTORY_ABSENT) skip, including a
+   path missing from a commit that IS present: test_input_keylog.py:48-50, 181-183; test_input_addenda.py:64-66,
+   79-81; test_input_promotion.py:226-228; test_ringlog_payloads.py:235-238; test_run14.py:318-320, 358-360,
+   740-742; test_run14_prereg.py:319-320; test_run17.py:674-676; test_run17_prereg.py:300-302;
+   test_run19_prereg.py:354-356; test_topology_standing.py:128-130, 180-182
+C  skipUnless on VERSIONED fixtures, classified LOCAL_ARTIFACT_ABSENT: test_avsvc_replay.py:240, 261, 278, 300,
+   312, 325; test_initirq4_replay.py:140, 160, 187; test_initirqb_replay.py:119, 134; test_avdump.py:179;
+   test_avseq.py:63 (test_hw_fixture.py opens most of those files without a guard, so a deletion is still caught)
+D  19 `if os.path.exists(...)` blocks with asserts and no else -- a test that passes having checked nothing,
+   which no skip count can show (e.g. test_run17_prereg.py:163, 179; test_run33_34.py:75, 100;
+   test_poc_audit.py:801, 841, 927, 931, 1123; test_hw_fixture.py:528, 531)
+E  test_agb_tone.py:165 and test_agb_sweep.py:170 compile with "cc" outside hostcc; both FAIL correctly
+F  frozen-module tests find their base with `git log -1 --grep <phrase>`: a later commit repeating the phrase
+   would move the base silently (every phrase matches exactly one commit today)
+G  the count "7" is this host's: it needs the SD mounted and logs/ and captures/local present
+H  no suite test pins build/archive/ (stream-0013's archive is hashed nowhere); 11-color's only authority is
+   build/swiss/INDEX.txt, written by the same export that wrote the slot
+I  skip 6's reason classifies as NOT_BUILT, not AUDIT_INPUT_ABSENT, because the NOT_BUILT pattern comes first
+```
+
+### V18.8 What this establishes, and what it does not
+
+**Established, recomputable from the archive (FACT):**
+- the block's shape: flat or one step, 2 560 of 2 560;
+- the steps coincide with the programmed edges at P/2, at one slice index per tone;
+- every transition falls on an even slice;
+- 798 / 180 byte-identical blocks, and 802 from an 8-byte-late read.
+
+**From the logs (FACT for the counts):**
+- 272 145 full reads with 0 failures;
+- a fixed 68-block shortfall;
+- 13 incomplete video frames, all early.
+
+**Stated with their status:**
+- slice order is time order, at two-slice granularity: CORROBORATED;
+- the audio loss sits in the early stalls: an inference;
+- the 32 768/s grid is the AGB PWM rate: HYPOTHESIS;
+- the verifier's cross-press spacing test: HYPOTHESIS.
+
+**UNKNOWN, and each needs the console:**
+- whether the slices are uniformly spaced (`U-GBP-041`);
+- whether a read shorter than 0x1000 works (`U-GBP-042`);
+- what the 1–3-bit spread is, and whether a slice's bit arrangement means anything (`U-GBP-043`);
+- the flush stall the drain must survive.
+
+`GBP-HW-313` is not extended and the layout is not reopened.
+**No hardware was used and nothing was built.**

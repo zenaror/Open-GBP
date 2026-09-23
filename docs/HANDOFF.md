@@ -1746,6 +1746,19 @@ issue 81    THE AUDIO DECODE IS RUNTIME CODE, proved on the bytes already owned;
             on an input sample; the table is int32 and the generator asserts the range.
             OUT OF SCOPE AND NOT STARTED: the AI plumbing and the continuous 4096 blocks/s drain -- the
             real hardware question, its own POC and pre-registration.
+issue 82    INPUTS FOR THE DRAIN PRE-REGISTRATION (§V18), no hardware, no build; 21 independent verifiers
+            corrected 5 figures before any was written. THE 802: RUN 33 read 8 bytes late (aligned: 798 / 180).
+            A BLOCK = 16 slices of 256 B; every block FLAT (1-3 bit spread) or ONE STEP; the steps are EXACTLY
+            the programmed edges at P/2, one slice index per tone, plateaus = neighbours, every transition on an
+            EVEN slice (GBP-HW-314 FACT, GBP-HW-315 FACT/CORROBORATED). One block != one sample sixteen times:
+            it carries where the level changed, >= 8x the H-PWM resolution; GBP-HW-313 stands. ONE SLICE != the
+            block at any edge; a read < 0x1000 never observed (U-GBP-042). RATE 16 MiB/s = 1 byte per AGB
+            cycle; payload 0.78 %. stream-0016 read 272 145 whole blocks, 0 failures, and STILL lost ~68 per
+            run in 13 early stalls no counter saw (GBP-HW-316): THE DRAIN NEEDS A COVERAGE COUNTER. Cost
+            28-33 % of wall time busy-polled. Stall to size for: UNKNOWN. SKIP AUDIT: the 7 are genuine; the
+            compile-failure-as-skip class was in 7 older files (63 tests) and is closed (hostcc.py,
+            test_compile_skips.py); the extractor now sees `raise SkipTest` (8 unregistered reasons found);
+            7 further risk patterns listed in §V18.7 for the Orchestrator. U-GBP-041 / 042 / 043 opened.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED

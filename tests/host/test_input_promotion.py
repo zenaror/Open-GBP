@@ -239,7 +239,7 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
         for a, b in zip(heads(ev_old), heads(ev_new)):
             self.assertTrue(b.startswith(a), (a, b))
         self.assertEqual(len(heads(ev_new)), len(heads(ev_old)))
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev_new, re.M)), 313, "266…271: #33; 272: #46; 273…277: #47; 278…284: #52, the four play-0001 sessions; 285…294: #62, RUN 30; 295…300: #67, RUN 31; 301…302: #67's validation")
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev_new, re.M)), 316, "266…271: #33; 272: #46; 273…277: #47; 278…284: #52, the four play-0001 sessions; 285…294: #62, RUN 30; 295…300: #67, RUN 31; 301…302: #67's validation")
         u_old, u_new = git_show("docs/research/UNKNOWNS.md"), read(UNKNOWNS)
         h = lambda t: re.search(r"^## U-GBP-010\b.*$", t, re.M).group(0)
         self.assertTrue(h(u_new).startswith(h(u_old)))
@@ -292,6 +292,9 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
                              "src/audio/gbp_aresamp_coef.h", "tools/gen_aresamp.py", "captures/README.md",
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz"}
+        # Issue #82 (2026-09-23): tools/v18block.py, what one AUDIO block contains, measured on the
+        # versioned fixtures (§V18). Descriptive, no gate; it reads captures and touches no image.
+        changed = changed - {"tools/v18block.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs

@@ -475,6 +475,9 @@ class NothingElseMoved(unittest.TestCase):
                              "src/audio/gbp_aresamp_coef.h", "tools/gen_aresamp.py", "captures/README.md",
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz"}
+        # Issue #82 (2026-09-23): tools/v18block.py, what one AUDIO block contains, measured on the
+        # versioned fixtures (§V18). Descriptive, no gate; it reads captures and touches no image.
+        changed = changed - {"tools/v18block.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
