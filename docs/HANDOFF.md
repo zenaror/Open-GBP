@@ -1578,6 +1578,58 @@ issue 73    U-GBP-040 FIXED AND THE FIX MEASURES ITSELF (§V11.17, sweep-0002). 
             §V11.16.4 reporting RUN 32's as a carriage failure with no figure derived). NOTHING ELSE
             derives a figure from a first-press window, and §V9.9.1 had already refused to depend on
             press 1 -- for a different reason, and it is what kept §V9's verdict clear of this.
+issue 74    THE OPERATOR'S PICO GECKO IS UP (§V12). The GameCube side needed NOTHING BUILT: all fourteen
+            POCs already detect and use one through libogc2's API and every log header carries
+            gecko=0/1. New: tools/geckorx.py, stdlib only -- resolved BY ID (never ttyACM0, which
+            renumbers), two devices REFUSE rather than guess, nothing timestamped or parsed, flushed
+            every read, exits on SIGINT / --until / --idle-exit, and TESTABLE WITH NO DEVICE.
+            Writing the tests found a defect in my own default: the pattern ended in "-if", which a
+            firmware reporting a SERIAL NUMBER would not match at all. Broadened.
+            HE THEN RAN IT BEFORE THE RECEIVER EXISTED (§V12.9): picocom -b 115200, 01-smoke, whole
+            session captured -- Swiss's boot log INCLUDING "USB Gecko - Slot B only", then READY,
+            fifteen HEARTBEATs to frames=900, EXIT. Identity checks out against this repo (smoke-0002
+            is the Makefile's BUILD_ID; 7d7a6d8 is a commit here).
+            ALL THREE CRITERIA MET (§V12.10). He ran it again with --logfile and pressed X:
+            gecko=1 in the SD header is criterion 2 directly; criterion 1 is met BY INFERENCE
+            (gecko_puts sends only when gecko_present, so any line arriving IS proof the detect
+            returned true -- an inference from the SOURCE, not a reading of the screen, and it says
+            so); criterion 3 by the capture itself.
+            THE TWO CHANNELS CROSS-CHECK ON FIVE INDEPENDENT QUANTITIES, neither derived from the
+            other: "saved 3 lines" vs lines=3; xfb_hash=f5587dc5 in 13 beats vs hash=f5587dc5; the
+            SAVE sitting between n=11 (660) and n=12 (720) vs frames=692; X triggering the SAVE vs
+            buttons_seen=0400; and 0x1000 ABSENT, so they agree on THE ORDER of two events and not
+            only on values -- buttons_seen accumulates every frame, so a record written at exit would
+            carry START.
+            A GUARD CAUGHT WHAT MEMORY WOULD NOT: the bring-up left its log on the card, GBP-HW-300's
+            collision class, and it is criterion 2's own evidence. Preserved raw in logs/gecko-bringup/,
+            archived to captures/local/GECKO-SMOKE-HW-001_smoke-0002-bringup.log, REMOVED from the card;
+            hash 432bfbab...8865 identical in all three, computed from the card BEFORE the copy.
+            GBP-HW-272's excluded set gains a seventh log with its reason (01-smoke touches no GBP
+            register), so the split's population is unchanged.
+            SWISS CAME THROUGH BEFORE OUR IMAGE LOADED -- so the Gecko is live from console boot, which
+            is EXACTLY the window a hang would swallow. That is §V12.1's whole reason, confirmed.
+            THE STAIRCASE IS A TERMINAL ARTEFACT (LF without CR; Swiss does it too) and gecko_puts is
+            NOT changed: the mapping belongs in the consumer, so the receiver writes the file RAW and
+            maps LF->CRLF only on --echo. CLAUDE.md §14 restated twice: optional, NEVER NECESSARY, and
+            the SD save stays the primary record. No evidence id: a bring-up is an instrument check.
+operator    RECEIVED AND NOT INGESTED -- it gets its own checkpoint, recorded here so it is not only
+ report     in chat. sweep-0002 EMITS ON ALL FOUR PRESSES on his GBA console, and the MARK READING is
+            in: "nos toques de 1 a 4 ... a metade de baixo branca e a mudança de cor do fundo ...
+            nada alem disso". NO CYAN MARKS ON ANY PRESS, and the picture is otherwise EXACTLY
+            §V11.15.3's -- rail at the BOTTOM (a B run), lower halves, background advancing.
+            SO U-GBP-040 IS **FIXED AND UNEXPLAINED**, which §V11.17 PRE-REGISTERED as one of its two
+            outcomes: the double apply makes every press emit, the read-back mask was CLEAR, and the
+            SOUNDCNT_L-inside-the-reset-range hypothesis is therefore NOT CONFIRMED. It stays a
+            labelled hypothesis and must not become the explanation merely because it fits.
+            AND A DEFECT IN THE FIFTH-PRESS ALARM, exposed by his own wording ("no 5 toque, so o fundo
+            que ja vinha mudando de cor, que mudou"): THE COUNT INDICATOR AND THE >4 ALARM ARE THE
+            SAME CHANNEL. The background changes on every press, so magenta is a FIFTH COLOUR, not an
+            alarm. Same class as the RED/BLACK collision -- and the test that caught that one asserted
+            "adjacent bands differ", which is the right property for the bands and the WRONG one here.
+            The property nothing asserts: THE ALARM MUST NOT BE REACHABLE BY THE NORMAL COUNT
+            SEQUENCE. It cost nothing this time (four presses, alarm not needed); it would cost a run
+            the first time someone double-taps. Fix or record as a known limitation -- not left
+            unstated.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED

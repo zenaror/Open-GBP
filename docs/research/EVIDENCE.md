@@ -7352,6 +7352,13 @@ with no Game Boy Player attached (`init-0001-semGBP`, `probe-0001` of
 dropped by a judgement about what it showed**; there is nothing to drop,
 because the device was not there or the field did not yet exist.
 
+**2026-09-23, Issue #74 — a SEVENTH log with no such record, and the same
+reason.** `GECKO-SMOKE-HW-001_smoke-0002-bringup.log` is `01-smoke`'s save from
+the Pico Gecko bring-up (`HARDWARE_TESTS.md` §V12.10). **`01-smoke` touches no
+GBP register at all** — it predates the `CONTROL semantic` record and has no
+Game Boy Player in its question — so there is nothing to drop here either. The
+split's population is unchanged.
+
 The 12 are the era before the physical ROM delivery route existed (§V3.7) and
 are cartridge-less **by their own records** — GBP-VIDEO-002's normative
 question is *"in a session WITHOUT a Game Pak…"* (`gbp_vstate_probe.h`), and
