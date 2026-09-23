@@ -421,7 +421,11 @@ class ItAuthorisesNothingAndAnswersNothing(unittest.TestCase):
         # Issue #72 (2026-09-23) appended §V11.16, RUN 32's ingestion. What still has to hold is
         # that the PRE-REGISTRATION did not move to accommodate the result.
         self.assertIn("### V11.16 RUN 32", part())
-        self.assertNotIn("### V11.17", part())
+        # Issue #73 (2026-09-23) appended §V11.17, U-GBP-040's fix. Same rule: the
+        # PRE-REGISTRATION did not move to accommodate a build or a result.
+        self.assertIn("### V11.17 `U-GBP-040`", part())
+        self.assertIn("§V11.1 – §V11.16 ARE UNTOUCHED", part())
+        self.assertNotIn("### V11.18", part())
 
     def test_nothing_beyond_run_31_is_claimed_to_have_happened(self):
         self.assertNotIn("RUN 33", part())

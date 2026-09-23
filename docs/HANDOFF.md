@@ -1549,20 +1549,49 @@ issue 72    RUN 32 EXECUTED 2026-09-23 AND INGESTED (§V11.16). QUESTION V = INC
             FIRST EMITTING PRESS; no new ROM, no new image.
             ids GBP-HW-303..307; GBP-HW-299 amended; GBP-HW-272 gains RUN 32 (46 logs, 13/33);
             U-GBP-038 reopened, U-GBP-039 re-shaped, U-GBP-040 opened.
+issue 73    U-GBP-040 FIXED AND THE FIX MEASURES ITSELF (§V11.17, sweep-0002). agb-tone NOT edited;
+            no hardware; no audio question answered. canonical 2 352 B 5ba0f2cb...6e84b; DELIVERED
+            build/physical/agb-sweep-cart.gba 2 352 B 9596ddee...95f2 -- HE MUST VERIFY IT BEFORE
+            FLASHING, the NOR cannot be read back. Commit-independent (built twice). sweep-0001 keeps
+            its identity in §V11.15.1 as the record of what RUN 32 ran.
+            THE WRITE ORDER WAS ALREADY RULED OUT against the vendored GBATEK; the ONLY difference
+            between press 1 and press 2 is SOUNDCNT_X bit 7 going 0 -> 1. HYPOTHESIS, LABELLED AND NOT
+            PROMOTED: SOUNDCNT_L (0x4000080) is INSIDE GBATEK's 0x60..0x81 reset range and carries the
+            LEFT/RIGHT ROUTING, while SOUNDCNT_H (0x4000082) is outside it -- a channel triggering with
+            SOUNDCNT_L still zero RUNS AND REACHES NEITHER OUTPUT.
+            THE FIX AND THE MEASUREMENT ARE THE SAME TWO LINES, so one flash settles both: every press
+            applies the register set TWICE, unconditionally and WITH NO BRANCH (a conditional retry
+            would make press 1 take a different path from the rest, which is what went wrong); between
+            the passes the R/W registers are READ BACK, one bit each -- 0x01 SOUNDCNT_X, 0x02
+            SOUNDCNT_H, 0x04 SOUNDCNT_L (the hypothesis), 0x08 SOUND1CNT_H. Mask 0x04 on press 1 and
+            clear on the others = the mechanism MEASURED; clear mask with the sound fixed = fixed and
+            UNEXPLAINED, and U-GBP-040 stays open saying so. FOUR CYAN MARKS on screen, drawn ONLY for
+            a bit that is set, so a healthy ROM shows EXACTLY §V11.15.3's picture.
+            VERIFIED THE WAY THE DEFECT WAS FOUND: a host CANNOT reproduce it (the fake IO keeps every
+            write) and the host tests passed while the defect existed, twelve mutations and all; mGBA
+            would give a FALSE PASS. So the check is §V11.15.6's step 0.5 on the Operator's own console,
+            which now also asks WHETHER ANY CYAN MARK APPEARED AND WHICH.
+            PROBE 3 NOT TAKEN, and the reason is recorded: enabling the master at boot changes what the
+            control window observes at rest, and that window is the baseline RUN 30/31/32 SHARE.
+            CONTAMINATION CHECK: RUN 30's press 1 was the checker, not our ROM; RUN 31's and RUN 32's
+            are contaminated and BOTH ALREADY HANDLED (GBP-HW-299 amended, U-GBP-038 reopened,
+            §V11.16.4 reporting RUN 32's as a carriage failure with no figure derived). NOTHING ELSE
+            derives a figure from a first-press window, and §V9.9.1 had already refused to depend on
+            press 1 -- for a different reason, and it is what kept §V9's verdict clear of this.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED
             by RUN 30 (T' = NOMINAL), R5 unchanged, R6 RE-PRICED by #63 (an implementation gap in front
             of the run).
-            PHASE 6's NEXT CHECKPOINT IS U-GBP-040, THE ROM DEFECT, and it comes before any further audio
-            run because it costs a window every time. Probes 1 and 2 (write the channel registers twice;
-            or split the first press across two frame edges) PRESERVE "silent until the first press"
-            exactly and settle nothing the Orchestrator owns; only probe 3 (enable the master at boot)
-            would conflict with that requirement and is HIS to decide. Each is verified for free by
-            §V11.15.6's step 0.5 on the Operator's own console, before any GBP run.
-            AFTER IT: the run that separates U-GBP-038's two readings -- a LONG GAP after the first
-            emitting press. No new ROM and no new image; agb-sweep is flashed and stream-0016 is staged
-            in slot 14-audio.
+            PHASE 6's NEXT STEP IS THE OPERATOR'S, and it is not a GBP run: verify
+            build/physical/agb-sweep-cart.gba against 9596ddee...95f2 (2 352 B), flash it -- WHICH
+            REPLACES sweep-0001 -- and run §V11.17.5's step 0.5 ON HIS OWN GBA. What he reports:
+            whether THE FIRST PRESS NOW MAKES SOUND, and whether any CYAN MARK appeared near the
+            top-left and which. That is the only check that can see this defect; the host cannot and
+            mGBA would wave it through.
+            AFTER IT, IF THE FIRST PRESS SOUNDS: the run that separates U-GBP-038's two readings -- a
+            LONG GAP after the first emitting press. No new image; stream-0016 stays staged in
+            14-audio and nothing is copied.
             #31 (Phase 7, GB/GBC) stays backlog. Executor: THE QUEUE IS EMPTY -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,

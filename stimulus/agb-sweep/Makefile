@@ -54,7 +54,7 @@ endif
 # Identity
 #---------------------------------------------------------------------------------
 APP_NAME   := agb-sweep
-STIM_ID    := sweep-0001
+STIM_ID    := sweep-0002
 GAME_TITLE := OPENGBPSWEEP
 GAME_CODE  := SGBP
 MAKER_CODE := OG

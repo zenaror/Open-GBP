@@ -143,6 +143,7 @@ static const u8 SWEEP_VOLUME[SWEEP_STEPS] = { 15u, 11u, 7u, 3u };
 #define COL_MAGENTA 0x7C1Fu        /* MORE THAN FOUR: agb-tone's meaning, kept */
 #define COL_WHITE   0x7FFFu
 #define COL_GREY    0x2108u        /* the unfilled half, and an unpressed box */
+#define COL_CYAN    0x7FE0u        /* U-GBP-040's read-back marks, and nothing else */
 
 /* ---- the picture's geometry --------------------------------------------
  * Four 40x96 boxes: a filled HALF is 40x48, which is the same block agb-tone
@@ -159,6 +160,11 @@ static const u8 SWEEP_VOLUME[SWEEP_STEPS] = { 15u, 11u, 7u, 3u };
 #define RAIL_Y_F   0u                         /* the A / frequency rail, at the TOP */
 #define RAIL_Y_V   (SCREEN_H - RAIL_H)        /* the B / amplitude rail, at the BOTTOM */
 #define BAND_H     16u                        /* the spoiled-run bands */
+/* U-GBP-040's read-back marks: the free band between the top rail and the boxes */
+#define MARK_W     12u
+#define MARK_GAP    4u
+#define MARK_X0     4u
+#define MARK_Y     18u
 
 /* The GBA key bits §V11.8 reads out of the anchor: A is logical key 0 and B is
  * key 1 (gbp_input.h's descriptor, and GBP_INPUT_POLICY_DEFAULT maps the pad's
@@ -258,6 +264,13 @@ unsigned sweep_boxes_filled(const struct sweep_state *s)
     return (s->presses > BOX_N) ? BOX_N : (unsigned)s->presses;
 }
 
+#define APU_BAD_CNT_X   0x01u    /* SOUNDCNT_X   master enable did not stick */
+#define APU_BAD_CNT_H   0x02u    /* SOUNDCNT_H   PSG-to-output ratio */
+#define APU_BAD_CNT_L   0x04u    /* SOUNDCNT_L   the LEFT/RIGHT routing -- the hypothesis */
+#define APU_BAD_1CNT_H  0x08u    /* SOUND1CNT_H  duty and envelope */
+
+static u16 apu_marks;            /* every bit that failed on any press, kept for the screen */
+
 /* ---- the picture --------------------------------------------------------- */
 static void fill_rect(unsigned x0, unsigned y0, unsigned w, unsigned h, u16 c)
 {
@@ -292,6 +305,17 @@ void sweep_paint(const struct sweep_state *s)
     else if (s->axis == (u8)SWEEP_AXIS_V)
         fill_rect(0u, RAIL_Y_V, SCREEN_W, RAIL_H, COL_WHITE);
 
+    /* U-GBP-040's read-back mask, and NOTHING is drawn when it is zero: the
+     * picture §V11.15.3 describes is unchanged on a healthy ROM. Four 12x12
+     * marks in the free band under the top rail, one per register, lit for a
+     * register that did not hold the value just written to it. */
+    if (apu_marks) {
+        unsigned k;
+        for (k = 0; k < 4u; k++)
+            if (apu_marks & (1u << k))
+                fill_rect(MARK_X0 + k * (MARK_W + MARK_GAP), MARK_Y, MARK_W, MARK_W, COL_CYAN);
+    }
+
     filled = sweep_boxes_filled(s);
     for (i = 0; i < BOX_N; i++) {
         unsigned x = BOX_X0 + i * (BOX_W + BOX_GAP);
@@ -316,8 +340,45 @@ static void apu_silence(void)
     REG_SOUNDCNT_H = 0u;
 }
 
-static void apu_play(u16 n, u8 volume)
+/* ---- U-GBP-040: THE FIRST PRESS DID NOT EMIT ----------------------------
+ * sweep-0001 and agb-tone made no sound on their FIRST press and made sound on
+ * every press after it -- reproduced by the Operator on his own Game Boy
+ * Advance, with no GameCube involved (GBP-HW-306). The write ORDER was ruled
+ * out against the vendored GBATEK: the master enable IS written first, which is
+ * what it requires.
+ *
+ * WHAT IS DIFFERENT ABOUT THE FIRST PRESS, and it is the only thing: SOUNDCNT_X
+ * bit 7 goes 0 -> 1 there and is already 1 on every later press. GBATEK: "while
+ * Bit 7 is cleared ... all PSG registers at 4000060h..4000081h are reset to zero
+ * (and must be re-initialized after re-enabling sound)".
+ *
+ * A HYPOTHESIS, LABELLED AS ONE AND NOT PROMOTED BY THIS ROM: if the APU takes
+ * any time at all to come out of that reset, the writes immediately following
+ * the enable land while it is still held -- and SOUNDCNT_L (0x4000080) is INSIDE
+ * that range and carries the channel's LEFT/RIGHT routing. A channel that
+ * triggers with SOUNDCNT_L still zero runs and reaches neither output, which is
+ * exactly "the note is playing and nothing is heard".
+ *
+ * THE FIX AND THE MEASUREMENT ARE THE SAME TWO LINES, so one flash settles both:
+ *
+ *   THE FIX          every press applies the register set TWICE. Identical on
+ *                    every press, so no press behaves differently from another,
+ *                    and the second pass lands after any reset has been
+ *                    released. Idempotent: presses 2-4 were already correct.
+ *   THE MEASUREMENT  between the two passes the R/W registers are READ BACK. A
+ *                    bit is set for each one that did not hold the value just
+ *                    written, and that mask is shown on screen (apu_marks).
+ *                    If the mask comes up with SOUNDCNT_L's bit on the first
+ *                    press and clear on the others, the hypothesis above is
+ *                    measured rather than argued.
+ *
+ * SOUND1CNT_X is NOT read back: its restart bit reads as 0 and its low bits are
+ * write-only, so a mismatch there would mean nothing. SOUND1CNT_H is compared
+ * only above bit 6, because bits 0-5 are the write-only length.
+ */
+static u16 apu_apply(u16 n, u8 volume)
 {
+    u16 bad = 0u;
     /* The master enable must be set before any channel register is written:
      * with SOUNDCNT_X bit 7 clear the APU ignores writes (GBATEK). */
     REG_SOUNDCNT_X = SWEEP_MASTER_ON;
@@ -326,6 +387,18 @@ static void apu_play(u16 n, u8 volume)
     REG_SOUND1CNT_L = 0u;                        /* no sweep: the note must not glide */
     REG_SOUND1CNT_H = SWEEP_CNT_H(volume);
     REG_SOUND1CNT_X = (u16)(SWEEP_RESTART | n);  /* restart, length flag CLEAR */
+    if ((REG_SOUNDCNT_X & SWEEP_MASTER_ON) != SWEEP_MASTER_ON) bad |= APU_BAD_CNT_X;
+    if (REG_SOUNDCNT_H != SWEEP_CNT_RATIO)                     bad |= APU_BAD_CNT_H;
+    if (REG_SOUNDCNT_L != SWEEP_CNT_MIX)                       bad |= APU_BAD_CNT_L;
+    if ((REG_SOUND1CNT_H & 0xFFC0u) != (u16)(SWEEP_CNT_H(volume) & 0xFFC0u))
+        bad |= APU_BAD_1CNT_H;
+    return bad;
+}
+
+static void apu_play(u16 n, u8 volume)
+{
+    apu_marks = (u16)(apu_marks | apu_apply(n, volume));
+    (void)apu_apply(n, volume);      /* the same writes again, unconditionally */
 }
 
 static void wait_vblank(void)

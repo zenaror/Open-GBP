@@ -1905,3 +1905,29 @@ WHAT mGBA SAYS      it would NOT have caught this. GBAAudioWriteSOUNDCNT_X and G
 his own console, before any GBP run. **That step — his own idea — would have
 caught this before RUN 32.** Related: [[U-GBP-038]], and `HARDWARE_TESTS.md`
 §V11.16.8.
+
+**2026-09-23, Issue #73 — PROBE 1 IS BUILT, AND IT MEASURES ITSELF**
+(`HARDWARE_TESTS.md` §V11.17, `sweep-0002`). **The item STAYS OPEN**: a fix that
+has not been on hardware answers nothing.
+
+Every press now applies the register set **twice, unconditionally and without a
+branch**, so no press takes a different path from another — which is the very
+thing that went wrong. Between the two passes the R/W registers are **read back**
+and one bit per register is kept for the screen:
+
+```text
+0x01 SOUNDCNT_X   0x02 SOUNDCNT_H   0x04 SOUNDCNT_L   0x08 SOUND1CNT_H
+```
+
+**`0x04` is the one the hypothesis implicates**, because `SOUNDCNT_L`
+(0x4000080) is **inside** GBATEK's 0x60..0x81 reset range and carries the
+channel's left/right routing, while `SOUNDCNT_H` (0x4000082) is outside it. A
+channel that triggers with `SOUNDCNT_L` still zero runs and reaches neither
+output. **If the mask reads `0x04` on the first press and clear on the others,
+the mechanism is measured; if it reads clear and the sound is fixed anyway, the
+defect is fixed and UNEXPLAINED — and this item stays open saying so.**
+
+**Probe 3 was NOT taken.** Enabling the master at boot would change what the
+control window observes at rest, and that window is the baseline RUN 30, RUN 31
+and RUN 32 share. It remains the Orchestrator's call if probes 1 and 2 both
+fail.

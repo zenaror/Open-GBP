@@ -13976,3 +13976,69 @@ re-shaped, `U-GBP-040` opened.
 it costs a window every time. Probes 1 and 2 preserve *silent until the first
 press* exactly; only probe 3 would conflict with it, and that is the
 Orchestrator's to decide.
+
+## 2026-09-23 — Issue #73: `U-GBP-040` fixed, and the fix measures itself
+
+**Goal.** The ROMs do not emit on their first press, so every run loses a
+window. Fix it before any further audio run — probes 1 and 2 first, probe 3 not
+at all. **`stimulus/agb-tone` untouched; no hardware; no audio question.**
+
+**`stimulus/agb-sweep` → `sweep-0002`, §V11.17.** Canonical 2 352 B
+`5ba0f2cb…6e84b`; **delivered `build/physical/agb-sweep-cart.gba` 2 352 B
+`9596ddee…95f2`**, commit-independent, verified by building twice with
+different commit strings. `sweep-0001` keeps its identity in §V11.15.1 as the
+record of what RUN 32 ran.
+
+**The write order was already ruled out** against the vendored GBATEK. **The
+only difference between press 1 and press 2 is `SOUNDCNT_X` bit 7 going 0 → 1.**
+
+**The hypothesis, labelled and not promoted:** if the APU takes any time to come
+out of that reset, the writes immediately after the enable land while it is
+still held — and **`SOUNDCNT_L` (0x4000080) is INSIDE** GBATEK's 0x60..0x81
+range while `SOUNDCNT_H` (0x4000082) is outside it. `SOUNDCNT_L` carries the
+left/right routing, so a channel triggering with it still zero **runs and
+reaches neither output**. That is exactly "the note is playing and nothing is
+heard".
+
+**THE FIX AND THE MEASUREMENT ARE THE SAME TWO LINES, so one flash settles
+both.** Every press applies the register set **twice, unconditionally and with
+no branch** — a conditional retry would make press 1 take a different path from
+the rest, which is what went wrong in the first place. Between the passes the
+R/W registers are **read back**, one bit per register, and `0x04` is
+`SOUNDCNT_L`, the one the hypothesis implicates. **If the mask reads `0x04` on
+press 1 and clear on the others, the mechanism is measured rather than argued;
+if it reads clear and the sound works, the defect is fixed and unexplained —
+and `U-GBP-040` stays open saying so.**
+
+**The marks show nothing when healthy.** Four 12×12 cyan squares in the free
+band between the top rail and the boxes, drawn only for a bit that is set. With
+a zero mask the picture is exactly §V11.15.3's, so the instrument is unchanged
+for the measurement it exists to make.
+
+**Verified the way the defect was found.** A host cannot reproduce it — the fake
+IO keeps every write, so `apu_marks` is zero there by construction, and **the
+host tests passed while the defect existed, twelve mutations and all**. mGBA
+would give a false pass. **So the check is §V11.15.6's step 0.5 on the
+Operator's own console**, and the step now also asks him whether any cyan mark
+appeared and which.
+
+**Probe 3 was not taken** and the reason is recorded: enabling the master at
+boot changes what the control window observes at rest, and that window is the
+baseline RUN 30, RUN 31 and RUN 32 share. It stays the Orchestrator's call.
+
+**The contamination check is small.** RUN 30's press 1 was the checker, not our
+ROM. RUN 31's and RUN 32's press 1 are contaminated — and both are already
+handled: `GBP-HW-299` amended, `U-GBP-038` reopened, §V11.16.4 reporting RUN 32's
+as a carriage failure with no figure derived from it. **Nothing else derives a
+figure from a first-press window**, and §V9.9.1 had already refused to depend on
+press 1 — written against `U-GBP-038` for a different reason, and it is what
+kept §V9's verdict clear of this.
+
+**A test of mine was too crude and the change exposed it:** "the length flag is
+never set" searched for `0x4000` in the whole source, and a comment naming
+`0x4000080` tripped it. Narrowed to strip comments first — the constant is what
+the test is about, not the prose.
+
+**Next.** The Operator's step 0.5 on `9596ddee…95f2`. If the first press now
+sounds, the audio runs can resume and the first of them is `U-GBP-038`'s
+separator: a long gap after the first emitting press.
