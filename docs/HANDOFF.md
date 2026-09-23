@@ -1519,17 +1519,50 @@ issue 70    agb-sweep IS BUILT (sweep-0001, §V11.15) and it is THE ONLY NEW ART
             Considered and left, not missed (GBP-HW-276/277's distinction). mGBA's APU is a MODEL with
             Dolphin's status; NO figure from it may enter EVIDENCE.md as a hardware observation.
             NOT RUN, NOT AUTHORISED. §V11.1 - §V11.14 untouched and a test says so.
+issue 72    RUN 32 EXECUTED 2026-09-23 AND INGESTED (§V11.16). QUESTION V = INCONCLUSIVE by the frozen
+            construction: windows 1 and 2 (V=15, V=11) are CARRIAGE FAILURE, windows 3 and 4 (V=7, V=3)
+            CARRY. §V11.4.1's refusal is why this did NOT conclude "volume 15 encodes nothing" -- and
+            two findings show how close that call was. QUESTION E = LEVELS DIFFER, NOT ORDERED, and its
+            own quantity is SATURATED (00 and ff are in every window, so the span is 255 everywhere):
+            recorded, NOT repaired. T' = NOMINAL against both references, the choice named as ours.
+            THE BLOCK IS A 1-BIT PWM PULSE (GBP-HW-304): ~120 bytes of ff, ~120 of 00, partial bytes at
+            the edges, every value a run of contiguous ones. §V11.4's duty() counts BYTES, so the levels
+            it measures are multiples of 8 from rest and transitional blocks land between them.
+            AND THEN THE RUN PAYS (GBP-HW-305): RUN 31's carrying windows were agb-tone at volume 15 on
+            the SAME image and path, 30.0625/256. Three points -- 15/30.0625, 7/14.0547, 3/6.0547 --
+            slope 2.0007, INTERCEPT +0.0515/256, linear closer than compressive by 258x. A MEASUREMENT
+            beside an INCONCLUSIVE verdict, on a cross-run anchor §V11 did not authorise: U-GBP-012 NOT
+            closed, H-PWM NOT promoted.
+            THE INSTRUMENT DEFECT (GBP-HW-306): the Operator put agb-sweep in HIS OWN GBA -- "no
+            primeiro toque nada é reproduzido .. só a partir do segundo". PRESS 1 DOES NOT EMIT,
+            reproduced OFF THE GBP ENTIRELY. Explains window 1 completely; does NOT explain window 2.
+            The write ORDER is ruled out against the vendored GBATEK. MECHANISM NOT DETERMINED, NOT
+            GUESSED -- U-GBP-040 opens at P1. mGBA would NOT have caught it (its reset branch runs only
+            on DISABLE, so the model emits where the hardware does not): a false pass, which strengthens
+            §V11.15.7's decline. His own step 0.5 WOULD have caught it.
+            U-GBP-038 REOPENED and GBP-HW-299 REFUTED AS A FIXED PROPERTY (GBP-HW-307): RUN 32's
+            boundary is (29.264, 32.634] s after CONTROL -- DISJOINT from the recorded (10.045, 12.547].
+            Measured from the AGB's FIRST EMISSION (which GBP-HW-306 places at press 2) RUN 31 and
+            RUN 32 agree: the window where emission begins carries nothing, the NEXT one carries,
+            +3.320 s and +3.370 s later. TWO READINGS -- elapsed time, or window ordinal -- CONFOUNDED,
+            because every run so far spaced presses 3.1-3.4 s. THE SEPARATOR IS A LONG GAP AFTER THE
+            FIRST EMITTING PRESS; no new ROM, no new image.
+            ids GBP-HW-303..307; GBP-HW-299 amended; GBP-HW-272 gains RUN 32 (46 logs, 13/33);
+            U-GBP-038 reopened, U-GBP-039 re-shaped, U-GBP-040 opened.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED
             by RUN 30 (T' = NOMINAL), R5 unchanged, R6 RE-PRICED by #63 (an implementation gap in front
             of the run).
-            PHASE 6's NEXT CHECKPOINT IS THE HARDWARE ISSUE, which is the Orchestrator's to open. WHAT IS
-            LEFT BEFORE THE RUN IS THE OPERATOR'S: verify build/physical/agb-sweep-cart.gba against
-            71c79811...11c9 (1 960 B), flash it to the EZ-Flash Omega DE in NOR / Mode B -- WHICH REPLACES
-            agb-tone, re-flashing being the way back -- run §V11.15.6's step 0.5 on his own GBA, then the
-            capture run: wait 20 s from the picture, then FOUR PRESSES OF ONE BUTTON, >= 3 s apart.
-            The image is stream-0016 UNCHANGED in slot 14-audio; nothing is staged and nothing is copied.
+            PHASE 6's NEXT CHECKPOINT IS U-GBP-040, THE ROM DEFECT, and it comes before any further audio
+            run because it costs a window every time. Probes 1 and 2 (write the channel registers twice;
+            or split the first press across two frame edges) PRESERVE "silent until the first press"
+            exactly and settle nothing the Orchestrator owns; only probe 3 (enable the master at boot)
+            would conflict with that requirement and is HIS to decide. Each is verified for free by
+            §V11.15.6's step 0.5 on the Operator's own console, before any GBP run.
+            AFTER IT: the run that separates U-GBP-038's two readings -- a LONG GAP after the first
+            emitting press. No new ROM and no new image; agb-sweep is flashed and stream-0016 is staged
+            in slot 14-audio.
             #31 (Phase 7, GB/GBC) stays backlog. Executor: THE QUEUE IS EMPTY -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,

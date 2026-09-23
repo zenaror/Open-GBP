@@ -57,6 +57,15 @@ LEDGER = [
      "the check is that a LATER arrival stays out of §V7.9.7's derivation; with no later arrival on disk "
      "there is nothing to keep out, and the derivation's own seven builds are pinned by name in the "
      "same file"),
+    # Issue #72: the same for RUN 32, whose raws and 5.2 MB sidecar live under captures/local
+    # and logs/, both ignored by design.
+    (r"^(RUN 32 is not archived in this checkout( \(captures/local is ignored\))?"
+     r"|RUN 32's sidecar is not in this checkout"
+     r"|both references are needed and are not both archived here)$",
+     "LOCAL_ARTIFACT_ABSENT",
+     "§V11.16's figures are pinned from the SOURCES in the same file -- the frozen-construction "
+     "diff, the reopened U-GBP-038, the GBP-HW-299 pointer and the new ids never skip -- and the "
+     "Operator's machine, where the files are, runs the suite before every push"),
     # Issue #67: the same for RUN 31, plus the cases that need BOTH runs to compare.
     (r"^(RUN 31 is not archived in this checkout( \(captures/local is ignored\))?"
      r"|RUN 31's sidecar is not in this checkout"

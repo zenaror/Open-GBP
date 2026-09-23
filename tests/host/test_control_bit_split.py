@@ -54,7 +54,9 @@ LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92,
          # cartridge in the slot, orig=92 -- 44 logs in all
          "stream-0016-run30": 0x92,
          # Issue #67: RUN 31, the same image on a project-owned cartridge, orig=92 -- 45 logs
-         "stream-0016-run31": 0x92}
+         "stream-0016-run31": 0x92,
+         # Issue #72: RUN 32, the same image on agb-sweep, orig=92 -- 46 logs
+         "stream-0016-run32": 0x92}
 
 WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0005", "stream-0005-run2",
              "stream-0005-run3", "stream-0006-run4", "stream-0007-run5", "stream-0008-run6", "stream-0009-run7",

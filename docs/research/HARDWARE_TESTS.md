@@ -29079,3 +29079,284 @@ the binding it would need is described above.
 model. **No figure from it may ever enter `EVIDENCE.md` as a hardware
 observation** — the same caution §V11.15.6 attaches to the Operator's own
 console.
+
+### V11.16 RUN 32 — **EXECUTED 2026-09-23 AND INGESTED (GitHub Issue #72)**: `QUESTION V` = **INCONCLUSIVE** by its own frozen construction, because two of the four windows carried nothing — **and the windows that did carry fit the LINEAR model to 0.04 bytes of 256 while refusing the compressive one by 258×.** Press 1's silence is an **instrument defect reproduced off the GBP entirely**, and `U-GBP-038`'s bound is **REFUTED as a fixed property of the path**
+
+#### V11.16.1 The raws, and `GBP-HW-300`'s prediction coming true a third time
+
+```text
+logs/run32/GBP-AUDIO-001_stream-0016.log          92 639 B  sha256 d0f1f980dfcd6d1ad087448eb2722290cf674a9c8be546bce0a7f45447eb522a
+logs/run32/GBP-AUDIO-001_stream-0016-audio.bin  5 243 788 B  sha256 ab370d0ac4f578e65b10a0aa420e4c89d10a90c9b2fd5823c9b1a84e4721d989
+archived to  captures/local/GBP-AUDIO-003_stream-0016-run32.log
+             captures/local/GBP-AUDIO-003_stream-0016-run32-audio.bin
+```
+
+Hashes computed from the **originals** and re-verified from the copies; the raw
+drop is byte-identical and untouched. **The console wrote `GBP-AUDIO-001` for the
+third time**, exactly as §V11.12 said it would, and the file's own
+`test_id=GBP-AUDIO-001` header disagrees with its archive name `GBP-AUDIO-003`
+— **which is correct by design** and is why the SD-state check is written
+against the names the image writes.
+
+#### V11.16.2 Admissibility, the schedule DERIVED, and the Operator's own channel
+
+```text
+the capture    AWIN fault=- complete=1 windows=5 closed=5 stored=1280 failed=0
+the arming     arms=5 refused_busy=0 refused_full=0
+the input      presses=4 releases=4, KEYLOG events=8 emitted=8 lost=0 truncated=0
+the schedule   KEY n=2,4,6,8 all keys=0002 -> derive_schedule() = "V", refusals under V = []
+the identity   stream-0016 / commit 04121fe, unchanged
+```
+
+**§V11.8's derivation ran and passed on its first use**: every press window's
+anchor carries `keys=0002`, the pad's B, so the run is read under the V schedule
+and **no window is refused**.
+
+**THE OPERATOR'S CHANNEL, quoted, and it is an OPERATOR OBSERVATION:**
+
+> *"para cada toque eu eu dava, a metade de baixo ficava branca., das 4 caixas .
+> E o fundo mudava de cor"*
+
+**The LOWER half filled, four times → the B axis. The background changed colour
+each press → the counter advanced.** No red/white bands → no wrong-button press;
+no magenta → no fifth press. **So "the ROM did not advance the schedule" is
+excluded**, and §V9.6's cross-check agrees with the machine record on its second
+use.
+
+**THE LIMIT OF THAT REPORT, stated here rather than in a footnote.** The display
+shows the **count** and the **axis**. It does **not** show the volume value. He
+confirms *four presses on B*; he does **not** confirm *the register held 15, then
+11, then 7, then 3*. That comes from the schedule the ROM was built with, which
+`tests/host/test_agb_sweep.py` pins against `tools/v11sweep.py` and which twelve
+mutations probed (§V11.15.7). **His channel narrows the question; it does not
+close the loop on the field's value.**
+
+#### V11.16.3 The control window, read FIRST
+
+```text
+within-block period over the 256 control blocks   PERIOD ABSENT x179, 256 x77
+alphabet                                          6 values: 00 03 83 fc fe ff
+mean bit-duty                                     0.500539
+```
+
+**§V11 defines no QUESTION C** — that gate is §V9's and is not reused here, so
+nothing is decided from it. What the control establishes is that the resting
+window is **not silent in bytes** (`GBP-HW-288` again) and sits within `0.0005`
+of half duty.
+
+**The resting pattern is not the same in every run**, which is recorded as an
+observation and not explained:
+
+```text
+RUN 30  4 values  00 01 fe ff        mean bit-duty 0.499999   (the checker cartridge)
+RUN 31  5 values  00 03 07 fc ff     mean bit-duty 0.500491   (agb-tone, APU provably off)
+RUN 32  6 values  00 03 83 fc fe ff  mean bit-duty 0.500539   (agb-sweep, APU provably off)
+```
+
+#### V11.16.4 `QUESTION V` = **INCONCLUSIVE**, by `tools/v11sweep.py` unedited
+
+```text
+press 1 (V=15)   CARRIAGE FAILURE      flat within one byte of rest in all 160 sliced blocks
+press 2 (V=11)   CARRIAGE FAILURE      the same
+press 3 (V= 7)   CARRIES               duty 112 / 144 of 256
+press 4 (V= 3)   CARRIES               duty 120 / 136 of 256
+
+verdict  INCONCLUSIVE
+why      "windows [1, 2] carried nothing (U-GBP-038), and no schedule entry predicts a flat window"
+```
+
+**This is §V11.4.1's decision doing exactly the work it was built for.** A flat
+window is reported as a **carriage failure and never as "volume 15 encodes
+nothing"**, because the schedule contains no entry that predicts flat — and the
+two sections that follow show how right that refusal was. **The construction was
+not adjusted; a test diffs it against the commit that froze it.**
+
+#### V11.16.5 `QUESTION E` = **LEVELS DIFFER, NOT ORDERED** — and a limitation of its own quantity
+
+```text
+press 1 (V=15)  6 values  00 03 83 fc fe ff        level span 255
+press 2 (V=11)  6 values  00 03 83 fc fe ff        level span 255
+press 3 (V= 7)  7 values  00 03 83 f0 f1 fc ff     level span 255
+press 4 (V= 3)  7 values  00 03 83 f0 f1 fc ff     level span 255
+```
+
+**E's gate reads the level SPAN, and the span is saturated**: `00` and `ff` are
+present in every window of every run, so `max - min` is 255 everywhere and can
+never order anything. **That is a limitation of the construction, recorded and
+not repaired** — §V11.6 is frozen and this is its first outing.
+
+What the alphabet's **membership** does show is worth keeping: the two windows
+that carry contain `f0` and `f1` and lose `fe`; the two that do not are
+byte-for-byte the control's alphabet. **The alphabet tracks whether the window
+carried, not how loud it was** — which is the opposite of what E was built to
+look for, and it is reported as an observation.
+
+**The Orchestrator's preliminary count of 19 distinct values in window 4 is the
+`#62` artefact recurring:** window 4 is the last in the file, so a slice to
+end-of-file swallows the 12-byte `OGBPAWND` + CRC footer
+(`4f 47 42 50 41 57 4e 44 90 11 39 bc`). Window 4 alone holds **7** values; the
+footer contributes 12 more; 7 + 12 = 19 exactly.
+
+#### V11.16.6 `T′` = **NOMINAL**, against both available references
+
+```text
+vs RUN 17   audio median 13 / 13     video 868 / 886     6331 / 6329 deliveries/s   all three checks pass
+vs RUN 31   audio median 13 / 13.5   video 868 / 868.5   6331 / 6326 deliveries/s   all three checks pass
+```
+
+**The reference choice is named because it is ours**: §V7.9 fixes the rule, not
+the reference, and both were run so that neither could be selected after seeing
+the answer. `control_unchanged` is true in both.
+
+#### V11.16.7 THE MEASUREMENT BESIDE THE VERDICT — the cell is a **1-bit PWM pulse**, and three points fit the LINEAR model to 0.04 bytes
+
+**This is a MEASUREMENT reported beside the verdict, NOT a gate that was
+passed**, and one of its three points comes from a different run, which §V11 did
+not authorise. It decides nothing.
+
+**What the bytes actually are.** A 4096-byte block is not a byte pattern at all:
+it is a **pulse at BIT resolution** — about 120 bytes of `0xFF`, about 120 of
+`0x00`, and a handful of partial bytes at the two edges (`03`, `fc`, `83`, `fe`,
+`f0`, `f1` are all runs of contiguous ones). **§V11.4's `duty()` counts whole
+bytes, so it quantises the sample to 8 bits**: the levels each window settles at
+are multiples of 8 from rest — `112 / 144` and `120 / 136` — while the blocks in
+transition between them take intermediate values (18 of this run's 1 280, all but
+two of them in window 4, which opens on press 3's level and falls to press 4's). Read at bit resolution the same quantity is continuous:
+
+```text
+                                    §V11's byte duty     the same window at BIT resolution
+press 3 (V=7)                       16.0 /256            14.05 /256
+press 4 (V=3)                        8.0 /256             6.05 /256
+RUN 31's carrying windows (V=15)    32   /256            30.06 /256   (both windows, identical)
+```
+
+**And that is three points on the amplitude axis, across two runs:**
+
+```text
+  V     deviation /256      dev / V
+ 15        30.0625           2.0042      <- RUN 31, agb-tone, envelope volume 15
+  7        14.0547           2.0078      <- RUN 32 press 3
+  3         6.0547           2.0182      <- RUN 32 press 4
+
+least-squares line through all three:   slope 2.0007 /256 per volume unit
+                                        INTERCEPT  +0.0515 /256
+```
+
+**§V11.4.1's null is the intercept, and it lands 0.0515 bytes from the origin.**
+
+**Both §V11.4 models, re-anchored on the window that actually measured V=15:**
+
+```text
+  V    measured   LINEAR predicts  error      COMPRESSIVE predicts  error
+  7      14.0547       14.03       0.03              22.55          8.49
+  3       6.0547        6.01       0.04              15.03          8.98
+                        total      0.07                            17.47
+```
+
+**The linear model is closer by a factor of 258.** §V11.4 required the two to
+differ by at least 5 bytes at every non-anchor point; here they differ by 8.5 and
+9.0, and the data sits on one of them.
+
+**WHAT THIS IS NOT.** `QUESTION V` is INCONCLUSIVE and stays so. Two of the three
+points come from RUN 32 and one from RUN 31 — **a cross-run anchor the
+pre-registration did not authorise** — and the two runs used different ROMs. It
+is one instrument, one cartridge, one console. **`U-GBP-012` is not closed and
+H-PWM is not promoted.**
+
+#### V11.16.8 PRESS 1 DOES NOT EMIT — an instrument defect, reproduced **off the GBP entirely**
+
+> **OPERATOR OBSERVATION, 2026-09-23 (quoted):** *"testei no console no primeiro
+> toque nada é reproduzido também .. só a partir do segundo"*
+
+**He put `agb-sweep` in his own Game Boy Advance and the first press made no
+sound; from the second press onward it did.** That is **our ROM's defect**, it is
+reproducible without the GameCube, and it explains window 1 of RUN 32 completely.
+
+**It does not explain window 2**, which his console says should have emitted.
+**Window 2 remains a genuine open observation.**
+
+**What is already ruled out, so the next checkpoint does not chase it.**
+`apu_play()` writes the master enable **first** — `REG_SOUNDCNT_X` before any
+channel register — which is what GBATEK requires: *"While Bit 7 is cleared, both
+PSG and FIFO sounds are disabled, and all PSG registers at 4000060h..4000081h are
+reset to zero (and must be re-initialized after re-enabling sound)"*
+(`external/gbatek/gba.md`). **The ordering is right and is not the bug.**
+
+**THE MECHANISM IS NOT DETERMINED and is not guessed here.** What is recorded is
+that the only thing which differs between press 1 and press 2 is the master
+enable's **0 → 1 transition**, and that `agb-tone`'s `apu_play()` is structurally
+identical, so the defect is very probably not new to `agb-sweep`.
+
+**mGBA would NOT have caught this, and that is worth saying where §V11.15.7
+declined it.** Reading `external/mgba`: `GBAAudioWriteSOUNDCNT_X` and
+`GBAudioWriteNR52` take their reset branch only when the enable is **cleared**;
+on the 0 → 1 transition the model sets `frame = 7` and honours every subsequent
+channel write. **So the model emits on press 1 where the hardware does not** — an
+mGBA rung would have returned a false pass. That strengthens the decline rather
+than undermining it, and it is exactly the status `CLAUDE.md` §6.4 and §6.6 give
+an emulator's model.
+
+**AND HIS OWN PRE-FLIGHT CHECK WOULD HAVE CAUGHT IT.** §V11.15.6's step 0.5 —
+his idea, not ours — is *"confirm on his own GBA that it boots, is silent until
+the first press, and makes sound after it"*. **He ran it after the run instead of
+before, and it still paid.** The step is worth more than it was priced at.
+
+#### V11.16.9 `U-GBP-038` RE-EXAMINED — its bound is **REFUTED as a fixed property**
+
+`GBP-HW-299` recorded *"the AUDIO window carries nothing until (10.045, 12.547] s
+after the CONTROL transform"*, CORROBORATED across two runs. **RUN 32 is outside
+that interval by more than a factor of two**, and §V11.8's own action list had
+already said the bound was *"the earliest a window was OBSERVED to carry over two
+runs — NOT a hardware property"*.
+
+```text
+                      against the CONTROL transform            against the AGB's FIRST EMISSION
+RUN 30   dead / alive  (10.045, 14.182]                         the checker's APU timing is not ours
+RUN 31   dead / alive  ( 9.227, 12.547]                         (3.303, 6.623]
+RUN 32   dead / alive  (29.264, 32.634]   <- DISJOINT from RUN 31's
+```
+
+**Measured from the CONTROL transform the three runs have no common bound.
+Measured from the moment the AGB first emits, RUN 31 and RUN 32 agree closely.**
+
+**And §V11.16.8 sharpens it further.** If the ROM does not emit on press 1, the
+AGB's first emission is **press 2**, not press 1 — and then:
+
+```text
+RUN 31   press 3 carried, +3.320 s after the first emitting press
+RUN 32   press 3 carried, +3.370 s after the first emitting press
+both     the window in which emission BEGINS carries nothing; the NEXT one carries
+```
+
+**TWO READINGS, AND THIS RUN DOES NOT SEPARATE THEM:**
+
+```text
+READING A  ELAPSED TIME. Nothing carries until somewhere between ~3.1 and ~3.4 s after the AGB
+           first emits.
+READING B  WINDOW ORDINAL. The window in which emission begins carries nothing; the next carries,
+           whenever it happens to fall.
+```
+
+Both fit RUN 30, RUN 31 and RUN 32. **They are confounded because every run so
+far spaced its presses 3.1–3.4 s apart** — the spacing §V8.10 asked for, for an
+unrelated reason. **The separator is a run with a LONG gap after the first
+emitting press**: if a press ten seconds later still carries nothing, it is the
+ordinal; if it carries, it is the time. That needs **no new ROM and no new
+image** — `agb-sweep` is flashed and `stream-0016` is staged.
+
+**`U-GBP-038` is therefore REOPENED**, and `GBP-HW-299`'s interval is amended on
+top rather than deleted: it remains a true statement about RUN 30 and RUN 31 and
+is false as a property of the path.
+
+#### V11.16.10 What this part does NOT claim
+
+`QUESTION V` is INCONCLUSIVE and `U-GBP-012` stays open; **H-PWM is not
+promoted** and three points across two runs with two different ROMs do not make
+it FACT. `tools/v11sweep.py` is **unedited** and a test diffs it against the
+commit that froze it; §V11.1 – §V11.14 are untouched and no gate moved. The
+bit-resolution reading is a **measurement**, not a new construction, and §V11.4's
+`duty()` keeps its definition. Nothing is concluded about **why** press 1 does not
+emit, or about **why** the window does not carry at first. The Operator's console
+is an **undeclared unit** and says nothing about the GBP's internal AGB
+(§V11.15.6). No figure from any emulator enters this record as a hardware
+observation.

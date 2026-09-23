@@ -7453,7 +7453,7 @@ and the same one-line derivation now prints
 ```text
 grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
      13 CONTROL semantic orig=90
-     32 CONTROL semantic orig=92
+     33 CONTROL semantic orig=92
 ```
 
 The six logs added the same day are RUN 23 (`stream-0015-run23`, no cartridge,
@@ -7488,6 +7488,13 @@ is another sample in the same cell — but it is the first entry in the family
 whose cartridge content is entirely under this project's control, which is
 worth noting for any future attempt on the diagonal.
 
+
+**2026-09-23, Issue #72 — RUN 32 (`stream-0016-run32`) makes it 46 logs**, on
+`stimulus/agb-sweep`, again a cartridge whose content is entirely this
+project's: **13 at `0x90` and 33 at `0x92`**, from the same one-line derivation
+above. **CLAIM 1 stays FACT and gains a log; CLAIM 2's status is untouched** —
+a 46th cartridge-present log reading `0x92` is another sample in a cell that is
+already full.
 ---
 
 ### GBP-HW-273 — RUN 23: a LATE build with NO Game Pak reads CONTROL `0x90` — the empty diagonal cell of `GBP-HW-272` filled, and the build-era reading disconfirmed by measurement — FACT (recomputable from the archived log)
@@ -8346,7 +8353,7 @@ audio. That is the second of the two readings Issue #67 put forward, and the
 bytes support it. **It is one run and one cartridge**; a repeat and a third
 frequency are what would make it FACT. §V9.15.5.
 
-### GBP-HW-299 — the AUDIO window does not carry the cartridge's sound until **(10.045, 12.547] s after the CONTROL transform** — **CORROBORATED across two runs, two cartridges and two instruments**; it ANSWERS `U-GBP-038`
+### GBP-HW-299 — the AUDIO window does not carry the cartridge's sound until **(10.045, 12.547] s after the CONTROL transform** — **CORROBORATED across two runs, two cartridges and two instruments**; it ANSWERS `U-GBP-038` — **2026-09-23, Issue #72: REFUTED AS A FIXED PROPERTY OF THE PATH by RUN 32, whose interval (29.264, 32.634] s is DISJOINT from this one (`GBP-HW-307`); these words stay TRUE OF RUN 30 AND RUN 31 and are false as a property — read the amendment before citing the interval**
 
 Read against the CONTROL transform rather than against the press ordinal, RUN
 30 and RUN 31 agree:
@@ -8448,3 +8455,113 @@ run with that wait set **moves `t_capture_start` away from `t_control` by the
 wait**, and the delay then follows whichever one it belongs to. It costs a
 rebuild with an existing option, **no new code**, and it is not authorised
 here. `U-GBP-039` records it.
+
+### GBP-HW-303 — **`QUESTION V` = INCONCLUSIVE**, by `tools/v11sweep.py` frozen before the ROM existed — two of four windows carried nothing
+
+RUN 32, `agb-sweep` on the EZ-Flash NOR, `stream-0016` unchanged. All four
+presses were the pad's **B** (`keys=0002` in every press anchor), so §V11.8's
+derivation reads the run under the V schedule and refuses no window.
+
+```text
+press 1 (V=15)  CARRIAGE FAILURE   flat within one byte of rest in all 160 sliced blocks
+press 2 (V=11)  CARRIAGE FAILURE   the same
+press 3 (V= 7)  CARRIES            duty 112 / 144 of 256
+press 4 (V= 3)  CARRIES            duty 120 / 136 of 256
+```
+
+**§V11.4.1's refusal is what makes this a failure and not a reading:** no
+schedule entry predicts a flat window, so a flat window is a carriage failure
+and never "volume 15 encodes nothing". `GBP-HW-305` and `GBP-HW-306` show how
+right that was. The construction was not adjusted. §V11.16.4.
+
+### GBP-HW-304 — the AUDIO block is a **1-bit PWM pulse**, not a byte pattern — **FACT for the structure (three runs)**
+
+A 4096-byte block is ~120 bytes of `0xFF`, ~120 of `0x00`, and a few partial
+bytes at the two edges; every distinct value seen across RUN 30, RUN 31 and
+RUN 32 (`00 01 03 07 83 f0 f1 fc fe ff`) is a run of **contiguous one-bits**.
+The sample is the pulse's width **in bits**, so §V11.4's byte-counting `duty()`
+quantises it to 8 bits: the levels a window settles at are multiples of 8 from
+rest, while blocks in transition between the levels take intermediate values.
+
+**This does not change any verdict** — a flat window is flat at either
+resolution — and §V11.4's construction keeps its definition. §V11.16.7.
+
+### GBP-HW-305 — the duty's deviation is **LINEAR in the envelope volume**, three points across two runs, intercept **+0.046/256** — **CORROBORATED, not FACT**
+
+Read at bit resolution (`GBP-HW-304`), with the anchor taken from the run that
+actually measured envelope volume 15:
+
+```text
+  V     deviation /256      dev / V              source
+ 15        30.0625           2.0042              RUN 31, agb-tone, both carrying windows, identical
+  7        14.0547           2.0078              RUN 32 press 3
+  3         6.0547           2.0182              RUN 32 press 4
+
+least-squares line through the three:  slope 2.0007 /256 per volume unit, INTERCEPT +0.0515 /256
+LINEAR re-anchored on V=15:            predicts 14.03 and 6.01 -- errors 0.03 and 0.04
+COMPRESSIVE re-anchored on V=15:       predicts 22.55 and 15.03 -- errors 8.49 and 8.98
+```
+
+**The linear model is closer by a factor of 258**, and §V11.4.1's null — the
+intercept of the fit — lands **0.0515 bytes from the origin**.
+
+**This is a MEASUREMENT beside an INCONCLUSIVE verdict, not a gate that was
+passed.** One of the three points comes from a different run and a different
+ROM, which the pre-registration did not authorise; it is one instrument, one
+cartridge, one console. **`U-GBP-012` is not closed and H-PWM is not promoted.**
+§V11.16.7.
+
+### GBP-HW-306 — `agb-sweep` **does not emit on its first press**, reproduced on hardware **off the GBP entirely** — an INSTRUMENT DEFECT, not a path observation
+
+**OPERATOR OBSERVATION, 2026-09-23:** *"testei no console no primeiro toque nada
+é reproduzido também .. só a partir do segundo"* — the ROM in his own Game Boy
+Advance makes no sound on press 1 and does from press 2 onward.
+
+**It explains RUN 32's window 1 completely and does NOT explain window 2**,
+which his console says should have emitted.
+
+```text
+what is ruled out   the write ORDER. apu_play() sets the master enable BEFORE any channel register,
+                    which is what GBATEK requires (external/gbatek/gba.md, SOUNDCNT_X).
+what is known       the only difference between press 1 and press 2 is the master enable's 0 -> 1
+                    transition; agb-tone's apu_play() is structurally identical, so the defect is
+                    very probably not new to agb-sweep
+the mechanism       NOT DETERMINED, and not guessed. U-GBP-040.
+mGBA                would NOT have caught it: its model takes the reset branch only on DISABLE and
+                    honours every channel write after a 0 -> 1 enable, so it emits where the hardware
+                    does not (a static reading of external/mgba, not a run)
+```
+
+His console is an **undeclared unit** and this says nothing about the GBP's
+internal AGB. §V11.16.8.
+
+### GBP-HW-307 — `GBP-HW-299`'s bound is **REFUTED as a fixed property of the path**; measured from the AGB's first emission the runs agree — **two readings, NOT separated**
+
+`GBP-HW-299` recorded *(10.045, 12.547] s after the CONTROL transform*,
+corroborated across RUN 30 and RUN 31. **RUN 32's interval is
+(29.264, 32.634] s — disjoint from it.** No common bound exists against that
+epoch, and §V11.8 had already said the interval was the earliest a window was
+*observed* to carry and not a hardware property.
+
+```text
+                        vs the CONTROL transform      vs the AGB's FIRST EMISSION
+RUN 30  dead/alive       (10.045, 14.182]              the checker's APU timing is not ours
+RUN 31  dead/alive       ( 9.227, 12.547]              (3.303, 6.623]
+RUN 32  dead/alive       (29.264, 32.634]              (3.103, 6.473]
+```
+
+With `GBP-HW-306` the first emission is **press 2**, not press 1, and then RUN 31
+and RUN 32 agree that **the window in which emission begins carries nothing and
+the next one carries**, +3.320 s and +3.370 s later.
+
+```text
+READING A  ELAPSED TIME from the first emission     ~3.1 to ~3.4 s
+READING B  WINDOW ORDINAL from the first emission   the emitting window is dead, the next is alive
+```
+
+**Both fit all three runs and this run does not separate them**, because every
+run so far spaced its presses 3.1–3.4 s apart. **The separator is a long gap
+after the first emitting press**, and it needs no new ROM and no new image.
+
+`GBP-HW-299` keeps its words: it remains true of RUN 30 and RUN 31 and is false
+as a property of the path. **`U-GBP-038` is REOPENED.** §V11.16.9.
