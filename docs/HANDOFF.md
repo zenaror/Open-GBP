@@ -1442,13 +1442,47 @@ issue 68    THE AMPLITUDE SWEEP IS DESIGNED, AND ONLY DESIGNED (§V10, GBP-AUDIO
             AWIN_NOT_BEFORE_MS = 5000 arms the control window INSIDE the dead zone, and awinparse prints
             `word` but not `keys`. NO id, NO status, NO promotion: U-GBP-012 and U-GBP-039 gained dated
             pointers and stay exactly as open as they were.
+issue 69    THE SWEEP IS PRE-REGISTERED (§V11, GBP-AUDIO-003) and its constructions are FROZEN IN CODE
+            before stimulus/agb-sweep exists -- tools/v11sweep.py, synthetic vectors only, diffed against
+            its own commit. Fourth outing of #50's discipline and the FIRST where the instrument, the run
+            AND the two competing models are all written before any of them exist. THREE QUESTIONS,
+            SEPARATE GATES, neither consulting the other's evidence: V = the amplitude sweep read ONLY
+            under B, gate = THE ORDER (ORDERED / MOVES, NOT ORDERED / DOES NOT MOVE / INCONCLUSIVE /
+            REFUSED); F = the frequency ladder read ONLY under A, gate = THE RATIOS at §V9.8's 10 %, six
+            pairs from four notes; E = THE ALPHABET, the block's byte LEVELS rather than its duty, its own
+            gate -- so a duty holding at 0.500 while the levels move is a DIRECTION and not a null.
+            The order gate deliberately does NOT refuse the competitor: a compressive run also returns
+            ORDERED, and the discrimination lives in the MEASUREMENT beside the verdict, both models
+            re-anchored on the window that actually measured volume 15 so the SHAPE is compared and not a
+            scale nobody has measured. Their separation (>= 5 bytes everywhere off the anchor, > 9 at two)
+            is ASSERTED AS A PROPERTY, so a narrowing edit fails instead of weakening the experiment.
+            THE NULL IS THE FIT'S INTERCEPT and the consequence is ENCODED: no schedule entry predicts a
+            flat window, so classify_window returns CARRIAGE FAILURE for one and the question returns
+            INCONCLUSIVE citing U-GBP-038. A THIRD STATE NAMED RATHER THAN DISCOVERED: a window whose
+            blocks each hold ONE byte value has no duty at all (no midpoint when lo == hi) -- NO CELL,
+            neither failure nor reading, and a finding in its own right.
+            THE SCHEDULE IS DERIVED FROM THE KEY RECORD, NEVER DECLARED: GBA A -> F schedule, B -> V
+            schedule, and a question handed a window that does not match its axis returns REFUSED and
+            answers NOTHING. A and B are adjacent and reading one as the other is silent.
+            GBP-HW-300's first chance to bite again, TAKEN: the console names files from the IMAGE's
+            TEST_ID (GBP-AUDIO-001) and sdlog.c writes <test_id>_<build_id> with NO RUN NUMBER, so this
+            run writes RUN 30's and RUN 31's filenames for the THIRD time. §V11.12 states both sets and
+            says THE TWO DISAGREE BY DESIGN; the SD-state check is against the names THE IMAGE WRITES.
+            The identity gate states the image and REFUSES to state the ROM's hash -- agb-sweep does not
+            exist -- rather than leaving a blank; a test asserts the only 64-hex string in the part is the
+            image's. The action list carries the 20 s wait with its inline ---- WHY: (including that the
+            bound is the EARLIEST a window was OBSERVED to carry over two runs, not a hardware property),
+            USE THE SAME BUTTON ALL FOUR TIMES, the per-press counter and box half, and the cost.
+            NOT RUN, NOT AUTHORISED. No id, no status, no promotion. RUN 32 RESERVED, files do not exist.
 next        orchestrator-owned: #29, #31, #44 and #30 ACCEPTED; #59, #61, #62, #63, #67 and #68 ACCEPTED
             or CLOSED; still to validate #41's pre-registration, #46 through #58 and #42; close #36.
             PHASE 5 HAS NO OUTSTANDING WORK THE OPERATOR INTENDS TO DO: R1 / R2 DECLINED, R4 SATISFIED
             by RUN 30 (T' = NOMINAL), R5 unchanged, R6 RE-PRICED by #63 (an implementation gap in front
             of the run).
-            PHASE 6's NEXT CHECKPOINT IS THE PRE-REGISTRATION that puts §V10's numbers in code before the
-            ROM exists, then the build (agb-sweep), then the run.
+            PHASE 6's NEXT CHECKPOINT IS THE BUILD: stimulus/agb-sweep to §V11.2 -- silent until the first
+            press, the key-DOWN edge only, two axes on A and B, both schedules HOLDING at the end, and the
+            count AND the axis on screen (background = count, box upper half = A, lower half = B). Then
+            the run, which is another checkpoint. #69 pre-registered it; NOTHING IS AUTHORISED BY THAT.
             #31 (Phase 7, GB/GBC) stays backlog. Executor: THE QUEUE IS EMPTY -- next checkpoint on dispatch
 forbidden   frozen analyzers and formats (OGBPIDX1, OGBPIDXCAP1, OGBPDISP2, and now OGBPCOORD1,
             OGBPFULL1 v1, OGBPVI1 v1), Policy A, witness semantics, evidence of runs 1-11,

@@ -28407,3 +28407,367 @@ whose gates decided RUN 30 and RUN 31 and are not reused; `tools/v8audio.py`
 and `tools/v9tone.py` are not edited. It does not touch `stream-0016`, the
 staged slot, the card, or `stimulus/agb-tone`. Nothing from any third-party
 repository enters this one.
+
+## V11 — GBP-AUDIO-003: **THE AMPLITUDE SWEEP, PRE-REGISTERED** — §V10's design frozen, its constructions written in `tools/v11sweep.py` **before the ROM exists**, the null carried as the fit's intercept, the schedule DERIVED from the `KEY` record and a mismatched window REFUSED — **PRE-REGISTERED 2026-09-22 (GitHub Issue #69); NOT RUN, NOT AUTHORISED HERE; THE ROM AND THE RUN ARE AUTHORISED SEPARATELY**
+
+### V11.1 What this freezes, and what §V10 keeps
+
+§V10 is the design and **keeps its words**. This part turns it into a
+pre-registration: the two schedules, the predicted quantities, three questions
+with **separate gates**, the admissibility rules, the reserved names and the
+action list — and it puts every construction in `tools/v11sweep.py` **now**, so
+that none of them can be adjusted once data exists. A test diffs that file
+against the commit that introduced it.
+
+**It is the fourth outing of the discipline** (`tools/v7611.py`, `v8audio.py`,
+`v9tone.py`) and the first where the **instrument, the run and the two
+competing models** are all written before any of them exist. `v9tone.py`'s
+third outing decided **against** us and was not touched; that is the standard
+this one is held to.
+
+**NO ROM, NO BUILD, NO HARDWARE.** `stimulus/agb-sweep` does not exist.
+
+### V11.2 THE INSTRUMENT — what `agb-sweep` must be
+
+```text
+SILENT UNTIL THE FIRST PRESS   the master enable (SOUNDCNT_X bit 7) is written for the FIRST TIME on
+                               the first press; before it the APU is explicitly OFF, so the capture's
+                               control window stays a resting-state observation (§V8.5.1, §V9.2)
+A PRESS IS A KEY GOING DOWN    the rising edge only, mirroring the capture's own arming (Issue #59);
+                               KEYINPUT is active LOW, so the ROM advances on a bit going 1 -> 0
+TWO AXES, ONE ROM              the pad's A advances the FREQUENCY schedule, B the AMPLITUDE schedule;
+                               every other key is ignored
+BOTH SCHEDULES HOLD            at the last entry. A fifth press changes nothing that is sounding, so
+                               the four captured windows stay interpretable; the capture refuses the
+                               fifth window anyway (arm_refused_full, §V8.7)
+NO DECAY, NO LENGTH            envelope step time 0 and the length flag never set, exactly as agb-tone:
+                               a level that fell inside a window would change the bytes the duty is
+                               read from
+SOUNDCNT_H IS WRITTEN          PSG-to-output ratio 100 %, as agb-tone, so §V8.6's UNKNOWN does not ride
+                               along
+THE COUNT AND THE AXIS ON      §V9.6's requirement, extended: the background colour carries the press
+ SCREEN                        COUNT and each filled box carries WHICH AXIS -- upper half A, lower half
+                               B. Shape, not colour, because the background already walks the primaries
+                               and a red box would vanish on the red background at count 1
+```
+
+**Why the axis must be visible and not only logged:** A and B are adjacent on
+the pad, and a mis-press turns the run into the *other* experiment. The log
+catches it afterwards (§V11.8); the screen lets the Operator catch it while he
+can still do something about it.
+
+### V11.3 THE TWO SCHEDULES — frozen, in this order
+
+```text
+A advances FREQUENCY   n = 1024 -> 1792 -> 1536 -> 1920     f = 128.0 -> 512.0 -> 256.0 -> 1024.0 Hz
+                       all four 2048-n are powers of two, so all four frequencies are EXACT
+                       blocks per period at 4 096.0 blocks/s:  32 -> 8 -> 16 -> 4
+B advances AMPLITUDE   SOUND1CNT_H initial volume 15 -> 11 -> 7 -> 3, step time 0
+```
+
+**Each schedule starts where the other run needs it held.** A pure-B run never
+leaves 128.0 Hz — §V11.4's fixed frequency, for free. A pure-A run never leaves
+volume 15 — RUN 31's amplitude, for free. **Which question a run asks is
+decided by which button is pressed**, with no mode, no configuration and no
+second image.
+
+**Both put the already-measured point first**, because `GBP-HW-299` says the
+first window is the one at risk of carrying nothing. Losing window 1 then costs
+a **replication** (128.0 Hz and volume 15 are both measured) rather than one of
+the new points. This supersedes §V9.2.1's alternation, which was the right
+answer to an **unmeasured** delay and is the wrong one now that the delay is
+measured — a frozen choice superseded by data, not by taste. **§V9.2.1 keeps
+its words; it is not edited.**
+
+### V11.4 QUESTION V — the amplitude sweep. **Its gate is the ORDER**
+
+Read **only** under the B schedule (§V11.8). Per window: discard §V11.9's
+onset, reduce each block to its duty, take the two modal levels, and call half
+their separation the **deviation**.
+
+```text
+THE VERDICT IS ON THE ORDER
+  ORDERED              span >= 8/256 AND every consecutive step is non-increasing within 1/256 slack
+  MOVES, NOT ORDERED   span >= 8/256 and the order is violated
+  DOES NOT MOVE        span < 8/256
+  INCONCLUSIVE         any window flat (§V11.4.1), any window with no two levels, or NO CELL
+  REFUSED              any window not armed by B (§V11.8)
+where span = deviation(first window) - deviation(last window)
+```
+
+**The predicted deviations, and the competitor, anchored on the same window:**
+
+```text
+  V      LINEAR      COMPRESSIVE      they differ by, in bytes of 256
+ 15      32.0 B         32.0 B         0.0   <- both anchored here, by construction
+ 11      23.5 B         28.7 B         5.2
+  7      14.9 B         24.0 B         9.1
+  3       6.4 B         16.0 B         9.6
+```
+
+**That separation is itself a property**, asserted by
+`tests/host/test_v11sweep.py` and not merely printed here: **≥ 5 bytes at every
+point that is not the anchor and > 9 at two of them**. An edit that narrowed it
+would fail a test rather than quietly weaken the experiment.
+
+**The model comparison is a MEASUREMENT reported beside the verdict and decides
+nothing** (§V9's discipline, which is why RUN 31 could report more than it
+decided). Both models are **re-anchored on the window that actually measured
+volume 15**, so what is compared is the SHAPE of the fall and not an absolute
+scale nobody has measured.
+
+#### V11.4.1 THE NULL IS THE FIT'S INTERCEPT, and no window may predict flat
+
+```text
+A window at envelope volume 0        flat 0.500 in every block, no edges anywhere
+A window that has not begun          flat 0.500 in every block, no edges anywhere
+ carrying (U-GBP-038)                -- RUN 31's presses 1 and 2, exactly
+```
+
+**They are the same picture.** A design in which a window *predicts* the
+failure signature cannot tell the two apart, so **volume 0 is not in the
+schedule.** The null is tested as the **intercept of the least-squares line
+through the four (volume, deviation) points**: H-PWM linear predicts it passes
+through the origin.
+
+**The consequence is encoded rather than remembered:** every schedule entry
+predicts a non-flat window, therefore
+
+> **ANY FLAT WINDOW IN THIS RUN IS A CARRIAGE FAILURE, NEVER A VOLUME-0
+> READING.** `classify_window()` returns `CARRIAGE FAILURE` for it and the
+> question returns `INCONCLUSIVE` naming the windows, citing `U-GBP-038`.
+
+**And a third state is named rather than discovered:** a window whose blocks
+each hold **one** distinct byte value has **no duty at all** — the definition
+divides a block at the midpoint of its own extremes and there is no midpoint
+when `lo == hi`. That window is `NO CELL`: neither a carriage failure nor a
+reading, and **a finding in its own right**, because every window observed so
+far has had a two-level 256-byte cell.
+
+### V11.5 QUESTION F — the frequency ladder. **Its gate is the RATIOS**
+
+Read **only** under the A schedule. Per window, the across-block period by
+§V9.8's estimator, unchanged and inherited.
+
+```text
+RATIOS HOLD          every pair of windows that both have a period holds its predicted ratio
+                     within 10 % (§V9.8's tolerance, unchanged)
+RATIOS DO NOT HOLD   any such pair does not
+INCONCLUSIVE         no pair has two periods; any window flat or NO CELL
+REFUSED              any window not armed by A
+predicted periods    32 / 8 / 16 / 4 blocks, so six pairs and six predicted ratios
+```
+
+**Why the A axis is worth a run at all:** `GBP-HW-298` names *"a repeat and a
+third frequency"* as what would make its reading FACT. A four-press A run gives
+the repeat of **both** measured notes on a new instrument **and** two new
+frequencies — **six ratio checks from one run** instead of RUN 31's one.
+
+**The fourth note is deliberately near the limit.** 1024.0 Hz is 4 blocks per
+period — two blocks high, two low. At 4 096.0 blocks/s the Nyquist limit is
+2 048 Hz, so this is the last note the one-block-one-sample model can carry at
+all. **If it comes back PERIOD ABSENT that is a result, not a fault**, and it is
+reported as one: the model would be breaking where it was predicted to be
+weakest.
+
+### V11.6 QUESTION E — the alphabet. **Its own reading, its own gate**
+
+The block's byte **levels**, not its duty. RUN 30 held `{00, 01, FE, FF}` and
+RUN 31 `{03, 07, FC}`; if the duty holds at 0.500 while **this** moves with the
+schedule, the cell carries magnitude in its LEVELS.
+
+```text
+LEVELS MOVE                  the alphabets differ across windows, the level span (max - min byte)
+                             is non-increasing, and span(first) - span(last) >= 2
+LEVELS STABLE                every window has the identical alphabet
+LEVELS DIFFER, NOT ORDERED   they differ, but not in the schedule's order or not by enough
+REFUSED                      any window not matching the axis it is read under
+```
+
+**QUESTION E does not consult QUESTION V's verdict, and V does not consult E's.**
+§V6.13's rule. The point of the separation: a run that returns
+`V = DOES NOT MOVE` **and** `E = LEVELS MOVE` is not a null result — it is a
+**direction**, and it can only say so if E can reach its verdict on its own
+evidence.
+
+### V11.7 The tolerances, fixed HERE
+
+```text
+ONE BYTE               1/256 of the cell, the duty's quantum. FLAT is every block within one byte
+                       of 0.500; a non-increasing step may rise by at most one byte
+THE MOVE THRESHOLD     8/256 between the first and last deviation. The linear model predicts a span
+                       of 25.6 bytes and the compressive one 16.0, so 8 refuses "all four equal"
+                       while sitting far below either prediction
+THE RATIO TOLERANCE    10 % of the predicted ratio -- §V9.8's, unchanged
+A PERIOD AT ALL        at least three rising edges, estimator the MEDIAN inter-edge interval, at
+                       least 90 % of intervals equal to it -- §V8.5.3's and §V9.8's, unchanged
+THE LEVEL THRESHOLD    2 byte units between the first and last level span
+NOTHING ELSE IS A      a quantity without a threshold written here is reported with its value and
+ THRESHOLD             decides nothing
+```
+
+### V11.8 THE SCHEDULE IS DERIVED FROM THE `KEY` RECORD, NEVER DECLARED
+
+`struct gbp_awin_anchor` already carries `word` and `keys` per window
+(`src/gbp/gbp_awin.h`), `tools/awinparse.py` already parses both, and
+`awin_note_event()` arms on **any** rising bit. **So the sidecar itself says
+which button armed each window**, and the ingestion reads it rather than being
+told.
+
+```text
+axis_of_window(keys)    keys == 0x0001 (GBA A)  -> the F schedule
+                        keys == 0x0002 (GBA B)  -> the V schedule
+                        anything else            -> None: zero bits, several bits, or another key
+derive_schedule(...)    the axis all four press windows agree on, or MIXED, or UNKNOWN
+refusals(...)           the ordinals whose bit does not match the axis they are about to be read under
+```
+
+> **A question handed a window that does not match its axis returns `REFUSED`
+> and answers NOTHING.** It does not drop the window and continue; it does not
+> read it as the other question. **A run where the wrong button was pressed
+> must fail loudly**, because A and B are adjacent and reading one as the other
+> is silent.
+
+The mapping is physically established and not assumed:
+`GBP_INPUT_POLICY_DEFAULT` sends the pad's **A** to GBA **A** (logical key 0)
+and **B** to **B** (key 1), and RUN 14 pressed A, B, SELECT, START, L and R with
+**every one landing at its own counter** — `GBP-INPUT-001` Question M = PASS,
+`GBP-HW-261 … 265`.
+
+**The control window is exempt**: it is armed by the gate and not by a press,
+so its `keys` is 0 and the refusal applies to the four press windows only.
+
+### V11.9 The onset slice — a CONSTANT, with its derivation beside it
+
+```text
+ONSET_SLICE_BLOCKS = 96      discard the first 96 blocks of every press window
+  96 blocks = 23.4375 ms at 4 096.0 blocks/s
+  the largest onset yet observed is 18.32 ms = 75.0 blocks (RUN 30 press 2); RUN 31's was block 44
+  96 / 75 = 1.28, so the margin is 28 %
+  what is left: 160 blocks = 5.0 periods of 128.0 Hz, 10 half-periods of 16 blocks each
+```
+
+**This is the one decision §V9.15.5 had to name as post-hoc** — w3's slice was
+chosen after seeing the data. Fixing it here is what stops that recurring, and
+it is a constant in `tools/v11sweep.py`, **not a parameter**.
+
+### V11.10 Admissibility — a run that fails these answers nothing
+
+```text
+the capture     5 windows closed, no INCOMPLETE and no GAP flag on any window read
+the arming      arms == 5, refused_busy == 0, refused_full == 0
+the input       presses == 4, releases == 4, lost == 0, truncated == 0
+the schedule    derive_schedule(...) is V or F -- never MIXED, never UNKNOWN (§V11.8)
+the transport   transport_ok on the VSTATE end record (§V7.9's reading, unchanged)
+the counts      §V9.6's cross-check: the Operator's on-screen count equals the machine's press count
+the identity    §V11.11, on the day
+```
+
+### V11.11 Identity — and the ROM's hash **cannot** be stated here
+
+```text
+the instrument   stimulus/agb-sweep, built by this project. IT DOES NOT EXIST. Its SHA-256 and size are
+                 recorded when it is BUILT -- a separate authorisation -- and the run's pre-flight
+                 re-declares them. THIS PART CANNOT STATE THEM AND DOES NOT LEAVE A BLANK FOR THEM.
+the image        gbp-audio-window-probe / stream-0016 / commit 04121fe, DOL 498 496 B, SHA-256
+                 c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54, staged at slot
+                 14-audio and verified from the card (§V8.12.2). REUSED UNCHANGED, for §V9.9's reasons:
+                 the image knows nothing about the cartridge.
+the rule         §V7.1's, unchanged: the hash of the Operator's own media is a double check and never a
+                 gate on its own -- AND IF ANY IDENTITY DIFFERS ON THE DAY, DO NOT RUN.
+the medium       the EZ-Flash Omega DE in NOR / Mode B, so §V7.6.11's attribution caveat applies.
+```
+
+### V11.12 Reserved names — **taken from the IMAGE's `TEST_ID`**, and the disagreement is BY DESIGN
+
+`GBP-HW-300` is the standing consequence of reusing an image, and this is its
+first chance to bite again. **The console names files from the image's embedded
+`TEST_ID`, which is `GBP-AUDIO-001`** (`poc/gbp-audio-window-probe/source/main.c`),
+and `src/platform/sdlog.c` writes `<test_id>_<build_id>` with **no run number at
+all**:
+
+```text
+WHAT THE CONSOLE WILL ACTUALLY WRITE
+  sd:/open-gbp/GBP-AUDIO-001_stream-0016.log
+  sd:/open-gbp/GBP-AUDIO-001_stream-0016-audio.bin
+
+WHAT THE ARCHIVE WILL BE CALLED
+  captures/local/GBP-AUDIO-003_stream-0016-run32.log
+  captures/local/GBP-AUDIO-003_stream-0016-run32-audio.bin
+```
+
+> **THE TWO DISAGREE, AND THAT IS CORRECT.** The archive name must distinguish
+> a run the console does not distinguish; the file's own `test_id=` header will
+> say `GBP-AUDIO-001` while its archive name says `GBP-AUDIO-003`. **Neither is
+> an error.** What *would* be an error is reserving names from the experiment
+> id and then checking the card against them.
+
+**So the SD-state check is against the names the IMAGE writes:** before this run
+boots, `sd:/open-gbp/GBP-AUDIO-001_stream-0016.log` and `-audio.bin` **must not
+be present**, because RUN 30's and RUN 31's copies bore exactly those names and
+a third run would overwrite whichever is still there, silently. **RUN 32 is the
+next free number.** The names are reserved and **the files do not exist**;
+§V7.6.7's rule applies and nothing may cite one until the Operator's raw drop
+exists in `logs/`.
+
+### V11.13 The Operator's action list — one run, one button
+
+**THE COST FIRST: flashing `agb-sweep` to the NOR REPLACES `agb-tone`**, exactly
+as flashing `agb-tone` replaced the Enhanced Control Checker (§V9.12). He loses
+`agb-tone` from the cartridge; **re-flashing it is the way back**, and the repo
+keeps it rebuildable at its recorded commit and hash. **This is the last flash
+this phase's audio questions need**: after it, every remaining run is a boot and
+a press sequence.
+
+```text
+step  action                                                press with       what he records
+  1   flash stimulus/agb-sweep to the EZ-Flash Omega DE      --               that the write completed
+      in NOR / Mode B, the same way agb-tone was
+  2   CHECK THE CARD: sd:/open-gbp/ must NOT contain         --               that it was clear, or what
+      GBP-AUDIO-001_stream-0016.log or -audio.bin                             he moved off it
+      (the image writes RUN 30's and RUN 31's names again -- GBP-HW-300)
+  3   boot the console with that cartridge inserted          (nothing)        that the ROM's screen
+      and 14-audio launched from SD                                            came up, counter 0
+  4   WAIT 20 SECONDS -- a phone timer, not a count          (nothing)        that he waited
+      ---- WHY: the AUDIO window carries NOTHING for the first ~12 s after the console starts
+           driving the GBP (GBP-HW-299). A press inside that window measures nothing and the
+           window is spent. This is not caution: it is the difference between four results and
+           two, and RUN 31 lost two windows to an action list that said "press when ready".
+           The bound (10.045, 12.547] s is THE EARLIEST A WINDOW WAS OBSERVED TO CARRY over two
+           runs -- it is NOT a hardware property, and the next run may sit outside it. That is
+           why the wait has margin instead of being 13 s.
+      ---- THE FOUR PRESSES. AT LEAST THREE SECONDS BETWEEN THEM.
+           USE THE SAME BUTTON ALL FOUR TIMES. Pressing the other one makes this a DIFFERENT
+           EXPERIMENT -- the log will detect it and the run will be refused rather than
+           misread, but the run is then spent. B for the amplitude run, A for the frequency run.
+  5   B  × 1                                                 the pad's B      the counter, and that the
+                                                                               box filled on its LOWER half
+  6   wait  >= 3 s                                           (nothing)        --
+  7   B  × 1                                                 the pad's B      the counter, and the box
+  8   wait  >= 3 s                                           (nothing)        --
+  9   B  × 1                                                 the pad's B      the counter, and the box
+ 10   wait  >= 3 s                                           (nothing)        --
+ 11   B  × 1                                                 the pad's B      the counter, and the box
+ 12   end the session the way the image asks                 --               that the log was saved
+```
+
+**What he reports that the machine cannot:** the counter after each press, and
+the half of each box that filled. §V9.6's cross-check ran once and agreed; this
+adds the axis to it.
+
+**He will still hear nothing.** The image reproduces no audio (§V8.10.1) and
+this ROM does not change that. **If he DOES hear anything, that is a finding**
+and the run is reported with it.
+
+### V11.14 What this part does NOT do
+
+It authorises **no ROM, no build, no image, no staging and no hardware**;
+`stimulus/agb-sweep` does not exist and this part does not create it. It answers
+**nothing**: `U-GBP-012`'s layout half stays open and `U-GBP-039` stays open and
+deferred (§V10.7). It **promotes nothing** — H-PWM is written so it can fail,
+and a pre-registration is not evidence for what it predicts. It mints no
+evidence id and moves no status. It does not touch §V8, §V9 or §V10, whose words
+stand; `tools/v8audio.py` and `tools/v9tone.py` are not edited, and
+`stimulus/agb-tone` is byte-identical to the commit that built it. It reserves
+two names and **the files do not exist**. Nothing from any third-party
+repository enters this one.

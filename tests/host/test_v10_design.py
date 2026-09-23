@@ -34,7 +34,8 @@ def part():
     """§V10, from its heading to the end of the document."""
     t = read(HW)
     i = t.index("\n## V10 ")
-    return t[i + 1:]
+    j = t.find("\n## V", i + 1)
+    return (t[i:j] if j >= 0 else t[i:]).lstrip("\n")
 
 
 # --------------------------------------------------------------- the arithmetic
