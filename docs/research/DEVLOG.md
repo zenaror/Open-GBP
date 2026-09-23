@@ -14585,3 +14585,76 @@ ever made, ours and both references', is the full 0x1000.
 **Next.** The continuous-drain pre-registration is the Orchestrator's. The three
 open questions that need the console are `U-GBP-041` (slice spacing), `U-GBP-042`
 (shorter reads) and the flush stall.
+
+## 2026-09-23 — Issue #83: §V18.7's nine patterns decided and fixed, and one check was already dead
+
+**Goal.** Close the nine ways a regression could read as a skip or as a pass that
+§V18.7 left for the Orchestrator. He decided them with the principle stated:
+**Issue #81's defect was never about gcc — it was an error condition rendered as
+an absence.** §V18.9.
+
+**The real result (item 4).** I instrumented every `os.path.exists`/`isfile`/
+`isdir` call in the suite, recorded caller and answer, and ran the whole thing.
+Of the nineteen `if exists(...)` sites, eighteen evaluated their condition and
+all eighteen answered true — they were checking. **One never evaluated its
+condition at all**: `test_run17_prereg.py`'s check that the staged `12-stream`
+slot is one of the two named images sat at the end of a test whose first three
+statements are `skipTest` calls, and the third fires on this host every time.
+**So the check had never run, and would have passed having checked nothing even
+if it had** — the two defect shapes compounded. It is its own test now, because
+what is staged has nothing to do with what the tree builds.
+
+**D.** All nineteen go through one helper (`artifacts.py`) with three outcomes
+and no fourth: `required` (absence is a defect → fail), `optional` (absence is
+legitimate → skip, reason registered), `any_of` (check what is here, skip when
+nothing is). Three sites were already correct by hand; I rewrote them through the
+helper anyway, **so the detector needs no exceptions** — an exception list is
+where the next one would hide.
+
+**B.** `git show <commit>:<path>` fails for two different reasons and fourteen
+sites reported both as "the base commit is not available". `guards.show()` now
+skips for an absent commit and **fails** for a path missing from a commit that is
+present, which means a file moved or the test names it wrongly.
+
+**F.** Seventeen freeze tests found their base with `git log -1 --grep`, so a
+later commit repeating the phrase would silently move the base of the test that
+proves a tool was frozen before the data. `frozen.py` pins the **hash**; the
+phrase is checked, not searched, and an ambiguous phrase fails the moment it
+becomes ambiguous. One site was worse than a skip: a loop over three frozen tools
+that did `continue` when a base was missing — verifying nothing, and not even
+appearing in the skip count.
+
+**H.** `build/archive/` was pinned by nothing at all, though the ledger names
+`test_staged_artifacts.py` as the cover for the identity skips. Both preserved
+originals are now checked against the hash the documents carry in full. For
+`11-color` there is no documentary hash for the bytes staged today, and inventing
+one from the local file would be the same self-certification with an extra step —
+so what is enforced is §V3.28's own identity warning, which the records state and
+nothing checked: **either the slot is the executed image, or `INDEX.txt` names a
+commit that is not the executed one.**
+
+**C, E, G, I.** Twenty-four skip guards named versioned fixtures; twelve became
+assertions and the other twelve (class decorators) are covered by one central
+rule. Two `cc` harnesses folded into `hostcc` — Issue #82's static pin looked for
+`"gcc"` alone and never saw them. G and I are recorded, not changed: **the skip
+count 7 is this host's, so the same count elsewhere would be a coincidence, not a
+confirmation** — now written where the gate figure is read.
+
+**Every fix has a behavioural regression test**, not a "the code changed" test:
+`test_vacuous_pass.py` hides each file and requires skip or failure;
+`test_error_not_absence.py` simulates the moved path, the ambiguous phrase and
+the re-export wearing the executed identity, and requires each to fail.
+
+**A correction I owed.** §V18.1 said the Orchestrator's 802 came from "an 8-byte
+late read". The data cannot single that out — 0x388 and 0x38C give identical
+counts. He identified the real cause from his own code (`len - 1280*4096` =
+0x38C, which assumes the blocks run to EOF and swallows the 12-byte trailer).
+**Naming a cause the bytes cannot separate is the same error one level up**, and
+§V18.1, `GBP-HW-314` and the test now say so.
+
+**Nothing was masked on this host**, which I checked pattern by pattern rather
+than assumed. What changed is what a future regression can do. `EVIDENCE.md`
+untouched: a test that starts checking something does not change what is known.
+
+**Next.** #84's §V19, the continuous-drain pre-registration, whose amendment
+already carries the eight corrections from my review.

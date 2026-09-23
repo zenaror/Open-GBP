@@ -31056,17 +31056,26 @@ was re-derived by the executor before it was used:
 blocks whose sixteen 256-byte slices are byte-identical (blocks taken from the parser's offset 0x380)
   RUN 33   235 / 174 / 143 / 164 / 82   = 798 of 1280      (w0 = control, w1..w4 = presses)
   RUN 34    65 /  45 /  19 /  19 / 32   = 180 of 1280
-the same count with every block read 8 BYTES LATE (offset 0x388)
-  RUN 33   802 of 1280, 478 not        <- exactly the Orchestrator's figure
-  RUN 34   176 of 1280
+the same count with every block read MISALIGNED
+  offset 0x388 (8 bytes late)    RUN 33  802 of 1280, 478 not     RUN 34  176
+  offset 0x38C (12 bytes late)   RUN 33  802 of 1280, 478 not     RUN 34  176
 ```
 
-**The 802 is reproduced exactly by an 8-byte misaligned read of RUN 33**, and by
-nothing aligned: the verifiers also tried per run, per window, the sliced region,
-the control windows plus the sliced region, the whole archive, slice openings of 1
-to 32 bytes dropped, 512/1024/2048-byte pieces and *"slices 1..15 identical"*
-(812). That is the **probable** source, not an established one. The Orchestrator
-can check his reading.
+**The 802 is a misaligned read of RUN 33**, and no aligned reading gives it: the
+verifiers also tried per run, per window, the sliced region, the control windows
+plus the sliced region, the whole archive, slice openings of 1 to 32 bytes
+dropped, 512/1024/2048-byte pieces and *"slices 1..15 identical"* (812).
+
+**CORRECTED 2026-09-23 (Issue #83), and the correction is the point.** This part
+first named the cause as *"an 8-byte late read"*. **The data cannot single that
+out**: 0x388 and 0x38C give identical counts in both runs, so the bytes do not
+distinguish them. The Orchestrator identified the actual cause from his own code:
+he derived the offset as `len - 1280*4096` = **0x38C**, which assumes the blocks
+run to the end of the file — they do not, because a 12-byte `OGBPAWND` + CRC
+trailer follows, so the last block ate the footer. **Naming a cause the data
+cannot separate is the same error one level up**, and the fix he recorded is the
+general one: never derive the block offset by subtracting from the file length;
+read it from the header (`awinparse.parse` returns it, 0x380 here).
 
 **Byte identity is the wrong ruler whatever the offset.** The **silent** control
 windows have non-identical blocks (21 of 256 in RUN 33, 191 of 256 in RUN 34), and
@@ -31299,3 +31308,137 @@ I  skip 6's reason classifies as NOT_BUILT, not AUDIT_INPUT_ABSENT, because the 
 
 `GBP-HW-313` is not extended and the layout is not reopened.
 **No hardware was used and nothing was built.**
+
+### V18.9 §V18.7's nine patterns, DECIDED AND FIXED — **appended 2026-09-23 (GitHub Issue #83); no hardware, no build, and one site was provably dead**
+
+§V18.7 listed nine ways a regression could read as a skip or as a pass. The
+Orchestrator decided them, with the principle stated rather than a preference:
+**Issue #81's defect was never about gcc — it was an error condition rendered as
+an absence.** `B`, `C` and `D` are that shape in different clothes. `F` and `H`
+are a second shape, **a record that certifies itself**, which is the defect
+caught in `make swiss` under Issue #44. Both defeat gates rather than features.
+
+Every fix below has a **behavioural** regression test: not "the code changed",
+but the defect re-simulated and caught. `tests/host/test_vacuous_pass.py` (D, C)
+and `tests/host/test_error_not_absence.py` (B, F, H) join
+`tests/host/test_compile_skips.py` from Issue #82.
+
+#### V18.9.1 `D` — **one of the nineteen was already dead**, and that is Issue #83's real result
+
+Item 4 of the Issue asked whether any of the nineteen `if os.path.exists(...)`
+blocks was **actually** passing vacuously today. The suite was run with every
+`os.path.exists` / `isfile` / `isdir` call instrumented to record its caller and
+its answer:
+
+```text
+18 of the 19 sites evaluated their condition, and every one answered TRUE -- so they were checking
+ 1 site NEVER EVALUATED ITS CONDITION AT ALL:
+     tests/host/test_run17_prereg.py:179, the check that build/swiss/12-stream/boot.dol is one of the
+     two named images. It sat at the END of a test whose first three statements are skipTest calls,
+     and the third fires on this host every time (the local tree builds stream-0015 at another commit).
+```
+
+**So the check had never run, and would have passed having checked nothing even
+if it had.** It is the two shapes compounded: a skip hiding a site that would
+itself have been silent. It is now its own test — what is staged has nothing to
+do with what the tree builds — and hiding the slot reaches it.
+
+**All 19 treated**, through one helper (`tests/host/artifacts.py`) with three
+outcomes and no fourth: `required` (absence is a defect → FAIL), `optional`
+(absence is legitimate → SKIP with a registered reason), `any_of` (check the ones
+that are here; skip when none is). Three sites were already correct by hand and
+were rewritten through the same helper anyway, **so the detector needs no
+exceptions** — an exception list is exactly where the next one would hide.
+
+#### V18.9.2 `B` — an absent path is not an absent history
+
+Fourteen sites turned any `git show <commit>:<path>` failure into the skip *"the
+base commit is not available"*. But that command fails for **two** reasons: the
+commit is absent (a shallow clone — a real "cannot check here"), or the commit is
+present and the **path** is not in it, which means the file moved or the test
+names it wrongly. The second is a defect, and a freeze test could go quiet about
+a file renamed out from under it. `guards.show()` separates them: SkipTest for
+the first, AssertionError for the second, and all fourteen use it.
+
+#### V18.9.3 `F` — a freeze test may not choose its own base
+
+Seventeen freeze tests located their base with `git log -1 --grep "<phrase>"`.
+`-1` takes the **newest** match, so a later commit repeating the phrase silently
+moves the base of the test that proves a tool was frozen before the data. Every
+phrase matches exactly one commit today; the risk was entirely in the future.
+`tests/host/frozen.py` now records the **hash**, and the phrase is checked rather
+than searched: a phrase matching more than one commit, or matching a different
+commit than the pin, **fails at the moment it becomes ambiguous**.
+
+One site was worse than a skip and is worth naming: `test_run33_34.py` looped
+over three frozen tools and did `continue` when a base was missing — a loop that
+verified nothing and did not even appear in the skip count.
+
+#### V18.9.4 `H` — a record that certifies itself
+
+`build/swiss/INDEX.txt` is written by the same `make swiss` that writes the
+slots, so a slot agreeing with it proves only that the export was self-consistent.
+
+- **`build/archive/` was pinned by nothing.** The skip ledger names
+  `test_staged_artifacts.py` as the cover for the identity skips, and that file
+  never reached the archive. Both preserved originals are now checked against the
+  hash **the documents carry in full** (`5391c3fe…` in §V4/HANDOFF, `ef76a170…`
+  in HANDOFF/INPUT_PATH/EVIDENCE), and the "is the hash still in the document"
+  half never skips.
+- **`11-color` has no documentary hash for the bytes staged today**, and inventing
+  one from the local file would be the same self-certification with an extra step.
+  What an outside record *does* fix is the image **physically executed**
+  (§V4.10: `d3c1f09e…`, 442 592 B, commit `39f1980`). The slot here is a later
+  rebuild — 448 352 B at `7d7a6d8` — which is legitimate and is why
+  `test_swiss_export.py` skips. So the property now enforced is §V3.28's own
+  IDENTITY WARNING, which the records already state and nothing checked: **either
+  the slot IS the executed image, or `INDEX.txt` names a commit that is not the
+  executed one.** A re-export that kept the executed commit's name on different
+  bytes fails.
+
+#### V18.9.5 `C` and `E`
+
+- **`C`**: twenty-four `skipUnless(isfile(F))` guards name files **versioned**
+  under `captures/fixtures/`, classified `LOCAL_ARTIFACT_ABSENT` — the class for
+  the Operator's ignored raw drops. Deleting one would have turned its tests into
+  classified skips with the suite still green. Twelve guarded single methods and
+  became `artifacts.required`; the other twelve decorate whole classes, where a
+  per-test assertion does not fit, so **one** test covers every such guard
+  including any added later.
+- **`E`**: two stimulus harnesses compiled with `cc` rather than `gcc`, outside
+  `hostcc` and invisible to Issue #82's static pin, which looked for `"gcc"`
+  alone. Both fail correctly on a compile error, so nothing was masked — but the
+  rule now covers them, the static pin looks for `cc` too, and the broken-compiler
+  driver intercepts both names. `test_agb_tone`'s `run_rom()` also returned `None`
+  when no compiler existed, which the caller turned into an unregistered
+  `raise SkipTest("no host compiler")`.
+
+#### V18.9.6 `G` and `I` — recorded, not changed
+
+- **`G`: the number 7 is this host's.** The skip count depends on the SD being
+  mounted and on `logs/` and `captures/local/` being present. **A different count
+  on another machine is information, not an alarm — and the same count would be a
+  coincidence, not a confirmation.** Every gate figure this project publishes
+  should be read that way. Not a defect, and nothing was changed for it.
+- **`I`**: the reason `run \`make build initirq-audit\`…` classifies as
+  `NOT_BUILT` rather than `AUDIT_INPUT_ABSENT` because `skip_ledger.LEDGER` is
+  scanned in order and the `NOT_BUILT` pattern comes first. Cosmetic: both classes
+  are honest for that reason, and the cover recorded for each is the same build
+  target. The ordering dependency is noted next to the ledger; the classifier was
+  **not** restructured for it.
+
+#### V18.9.7 What this changes about every figure already published
+
+**Nothing was masked on this host.** Each pattern was checked against what
+actually happened here: the compile-failure class never fired, the fourteen git
+sites never hit the path-missing case, every freeze phrase still matches exactly
+one commit, and every versioned fixture is present. The one exception is §V18.9.1's
+dead site, which verified nothing — and its risk was covered throughout by
+`test_staged_artifacts.py`, which hashes the staged slot against the records and
+passes.
+
+**What changes is what a future regression can do.** Before this checkpoint a
+renamed file, a repeated commit message, a deleted versioned fixture, a
+re-exported slot or a missing build artifact could each have left the suite green
+or merely quieter. None of them can now, and each has a test that proves it by
+reproducing the failure rather than by describing it.

@@ -126,13 +126,19 @@ class TheFiguresTheVerifiersCorrected(Archive):
         with open(os.path.join(FIX, RUNS[lab]), "rb") as f:
             return gzip.decompress(f.read())
 
-    def test_the_orchestrators_802_is_an_8_byte_late_read_of_run_33(self):
-        for lab, want in (("RUN33", (798, 802)), ("RUN34", (180, 176))):
+    def test_the_orchestrators_802_is_a_misaligned_read_of_run_33(self):
+        """The aligned count, and the two misalignments that give 802. They are
+        INDISTINGUISHABLE in the data (Issue #83): 0x38C is identified as the cause by
+        knowing that the offset was derived as len - 1280*4096, which swallows the
+        12-byte OGBPAWND trailer -- not by the bytes."""
+        for lab, want in (("RUN33", (798, 802, 802)), ("RUN34", (180, 176, 176))):
             raw = self.raw(lab)
             _h, _a, off = awinparse.parse(raw)
             self.assertEqual(off, 0x380)
+            self.assertEqual(len(raw) - 1280 * 4096, 0x38C)         # the offset his code computed
+            self.assertEqual(raw[-12:-4], b"OGBPAWND")              # what the last block would eat
             got = tuple(sum(1 for i in range(1280) if v.byte_identical(raw[off + s + i * 4096:off + s + (i + 1) * 4096]))
-                        for s in (0, 8))
+                        for s in (0, 8, 12))
             self.assertEqual(got, want, lab)
 
     def test_every_transition_in_the_archive_is_on_an_even_slice(self):
