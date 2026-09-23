@@ -113,8 +113,17 @@ class TheSubtractionAgainstPlay0001(unittest.TestCase):
             self.assertIn(kept, after)
 
     def test_the_sources_are_play_0001s_plus_three(self):
-        self.assertEqual(set(srcs(DRAIN_MAKEFILE)) - set(srcs(PLAY_MAKEFILE)),
-                         {"gbp_adrain.c", "gbp_aperiod.c", "gbp_awin.c"})
+        """Against play-0001 AS EXECUTED (2e48ca7): plus gbp_awin.c, gbp_adrain.c,
+        gbp_aperiod.c. Against play's list at HEAD, which since Issue #87 links
+        gbp_awin.c too (the #59 link regression, repaired): plus the two drain
+        modules and nothing else."""
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import guards
+        executed = re.search(r"^SRCS := (.*)$", guards.show("2e48ca7", "poc/gbp-play-session/Makefile"),
+                             re.M).group(1).split()
+        self.assertEqual(set(srcs(DRAIN_MAKEFILE)) - set(executed), {"gbp_adrain.c", "gbp_aperiod.c", "gbp_awin.c"})
+        self.assertEqual(set(executed) - set(srcs(DRAIN_MAKEFILE)), set())
+        self.assertEqual(set(srcs(DRAIN_MAKEFILE)) - set(srcs(PLAY_MAKEFILE)), {"gbp_adrain.c", "gbp_aperiod.c"})
         self.assertEqual(set(srcs(PLAY_MAKEFILE)) - set(srcs(DRAIN_MAKEFILE)), set())
         self.assertNotIn("gbp_awindump.c", srcs(DRAIN_MAKEFILE))   # no window sidecar
 

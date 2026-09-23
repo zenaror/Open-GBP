@@ -271,6 +271,12 @@ class NothingElseMoved(unittest.TestCase):
         # stream identical), and tests/host/test_drain_image.py diffs the image against play-0001.
         changed = changed - {"poc/gbp-audio-drain-probe/Makefile", "poc/gbp-audio-drain-probe/source/main.c",
                              "src/audio/gbp_aperiod.c", "src/audio/gbp_aperiod.h", "tools/v19report.py"}
+        # Issue #87 (2026-09-23) restored `make build` at HEAD: since #59 the service module references the
+        # AUDIO window, so these four POCs link gbp_awin.c the way they link gbp_vwitness.c, cfg.awin NULL.
+        # No executed artifact is rebuilt or relabelled; tests/host/test_poc_link_closure.py keeps the class
+        # from recurring unobserved.
+        changed = changed - {"poc/gbp-play-session/Makefile", "poc/gbp-video-stream-probe/Makefile",
+                             "poc/gbp-video-state-probe/Makefile", "poc/gbp-video-color-probe/Makefile"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
