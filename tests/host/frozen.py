@@ -49,6 +49,9 @@ BASES = {
     # Issue #84: §V19's three gates, frozen before GBP-AUDIO-005 runs
     "Issue #84 -- §V19 transcribed":
         "364be8416e674427ad4c377d6706046a86c35398",
+    # Issue #84: the drain log -> report builder, frozen with the image, before GBP-AUDIO-005 runs
+    "Issue #84 -- the drain report builder":
+        "897ea6c42e5d104ad85dcfc631758d2ba2e00481",
 }
 
 

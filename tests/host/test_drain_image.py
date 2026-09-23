@@ -302,6 +302,25 @@ class TheParserReadsWhatTheImageWrites(unittest.TestCase):
         self.assertEqual(v19drain.evaluate(rep)["D1"]["verdict"], "INCONCLUSIVE")
 
 
+class TheReportBuilderIsFrozenBeforeTheRun(unittest.TestCase):
+    """tools/v19report.py decides nothing, but every choice in it could be argued
+    into by data: it is the bytes of the commit that built the image, or the
+    report the gates read is not the one that was frozen."""
+
+    def test_v19report_is_the_bytes_of_the_commit_that_froze_it(self):
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import frozen
+        then = frozen.source("Issue #84 -- the drain report builder", "tools/v19report.py")
+        self.assertEqual(then, read(os.path.join(ROOT, "tools", "v19report.py")),
+                         "the report builder was edited after it was frozen")
+
+    def test_the_gates_are_still_the_ones_frozen_at_364be84(self):
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import frozen
+        then = frozen.source("Issue #84 -- §V19 transcribed", "tools/v19drain.py")
+        self.assertEqual(then, read(os.path.join(ROOT, "tools", "v19drain.py")))
+
+
 class TheAuditDiscriminatesBothWays(unittest.TestCase):
     """Run the auditor on the real listings; never count its rules."""
 
