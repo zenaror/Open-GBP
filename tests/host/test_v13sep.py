@@ -257,7 +257,7 @@ class ItAuthorisesNothing(unittest.TestCase):
         self.assertIsNone(re.search(r"^#{2,4} +GBP-[A-Z]+-\d{3}\b", part(), re.M))
         ev = read(EV)
         self.assertEqual(max(int(n) for n in re.findall(
-            r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 316)
+            r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 317)
         s = plain(part())
         self.assertIn("U-GBP-038 stays open", s)
         self.assertIn("whose mechanism is unexplained", s)

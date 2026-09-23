@@ -148,7 +148,7 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         self.assertIn("**2026-09-21, Issue #35 (declared after the ingestion; the note above kept as\nhistory):**", b266)
         for tok in (W_BBA, W_CHAIN, W_BBA_STANDING, "WITH A STATED DURATION", "NOT a licence to infer", "INCONCLUSIVE on that item", "no new id"):
             self.assertIn(tok, plain(b266), tok)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 316)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)   # 295…300: Issue #67 (RUN 31 ingested, §V9.15); 301…302: #67's validation (the rate/layout split, U-GBP-039's probe); 303…307: #72, RUN 32; 308…311: #78, RUN 33 and RUN 34; 312: #79, duty()'s mechanism; 313: #80, the H-PWM decode; 314…316: #82, the block structure and the drain (§V18)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 317)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause)   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)   # 295…300: Issue #67 (RUN 31 ingested, §V9.15); 301…302: #67's validation (the rate/layout split, U-GBP-039's probe); 303…307: #72, RUN 32; 308…311: #78, RUN 33 and RUN 34; 312: #79, duty()'s mechanism; 313: #80, the H-PWM decode; 314…316: #82, the block structure and the drain (§V18); 317: #84, the start-up stall invariance (§V19.11)
 
     def test_the_handoff_carries_the_standing_declarations_where_a_pre_registration_will_meet_them(self):
         h = read(HANDOFF)
