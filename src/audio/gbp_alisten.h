@@ -55,6 +55,7 @@ struct gbp_alisten_info {
     int      rc;                          /* 0, or the failure below */
     uint32_t total_crc32;                 /* the sidecar's own, as its parser read it */
     uint32_t windows, controls, tones;
+    uint32_t source[GBP_ALISTEN_MAX_TONES];         /* the tone (press-window order) at each position */
     uint32_t keys[GBP_ALISTEN_MAX_TONES];           /* each tone's anchor keys */
     uint32_t sliced[GBP_ALISTEN_MAX_TONES];         /* decoded samples per tone, before repetition */
     uint32_t repeats[GBP_ALISTEN_MAX_TONES];
@@ -70,11 +71,24 @@ struct gbp_alisten_info {
 #define GBP_ALISTEN_ERR_TONES    -3   /* no PRESS window, or one with nothing past the onset */
 #define GBP_ALISTEN_ERR_CAPACITY -4   /* the caller's buffer is too small */
 #define GBP_ALISTEN_ERR_ARG      -5
+#define GBP_ALISTEN_ERR_ORDER    -6   /* not a permutation, or a segment the reorder could not keep exact */
 
 /* Build the sequence into `out` (2 * cap_frames int16). Returns 0 or a negative
  * GBP_ALISTEN_ERR_*; `info` says what was built either way. */
 int gbp_alisten_build(const uint8_t *sidecar, size_t n, int16_t *out, uint32_t cap_frames,
                       struct gbp_alisten_info *info);
+
+/* Issue #86 (§V21.6): the built sequence rearranged into a PLAY ORDER, as whole
+ * (tone + gap) segments -- order[k] is the tone played at position k. EXACT: the
+ * result is, sample for sample, what the builder produces for the windows fed in
+ * that order, because every segment's input length is a multiple of 16 (the
+ * 125/16 resampler is back at phase 0) and every segment starts on at least 16
+ * zero inputs (the stream's start, or the gap before it), so no output depends on
+ * what preceded it. Both conditions are CHECKED; a sequence that fails them is
+ * refused with GBP_ALISTEN_ERR_ORDER rather than reordered inexactly. `out_info`
+ * gets the permuted segment table (segment 2k is position k) and `source`. */
+int gbp_alisten_permute(const struct gbp_alisten_info *info, const int16_t *in, const uint8_t *order,
+                        uint32_t n, int16_t *out, uint32_t cap_frames, struct gbp_alisten_info *out_info);
 
 /* Which segment an output frame falls in: 2k for tone k, 2k+1 for its gap, -1 past the end. */
 int gbp_alisten_segment(const struct gbp_alisten_info *info, uint32_t frame);

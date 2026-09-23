@@ -200,5 +200,119 @@ class TheListeningSequence(unittest.TestCase):
         self.assertIn("rc=-1 ", r.stdout)                      # the total CRC catches it
 
 
+PERMUTE_HARNESS = r"""
+#include <stdio.h>
+#include <string.h>
+#include "gbp_alisten.h"
+static int16_t built[2u * GBP_ALISTEN_MAX_FRAMES], out[2u * GBP_ALISTEN_MAX_FRAMES];
+static uint8_t buf[6u << 20];
+int main(int argc, char **argv)
+{
+    FILE *f = fopen(argv[1], "rb");
+    size_t n = fread(buf, 1, sizeof buf, f);
+    struct gbp_alisten_info info, pinfo, bad;
+    uint8_t order[4];
+    unsigned k;
+    fclose(f);
+    if (gbp_alisten_build(buf, n, built, GBP_ALISTEN_MAX_FRAMES, &info)) return 2;
+    if (strcmp(argv[2], "refusals") == 0) {
+        uint8_t dup[4] = { 0, 0, 1, 2 }, big[4] = { 0, 1, 2, 4 }, ok[4] = { 3, 2, 1, 0 };
+        printf("dup=%d", gbp_alisten_permute(&info, built, dup, 4, out, GBP_ALISTEN_MAX_FRAMES, &pinfo));
+        printf(" big=%d", gbp_alisten_permute(&info, built, big, 4, out, GBP_ALISTEN_MAX_FRAMES, &pinfo));
+        printf(" count=%d", gbp_alisten_permute(&info, built, ok, 3, out, GBP_ALISTEN_MAX_FRAMES, &pinfo));
+        bad = info; bad.sliced[1] += 1u;        /* 161 x 26 + 2048: a segment no longer a multiple of 16 inputs */
+        printf(" phase=%d", gbp_alisten_permute(&bad, built, ok, 4, out, GBP_ALISTEN_MAX_FRAMES, &pinfo));
+        bad = info; bad.seg_first[2] += 2u;     /* segments no longer contiguous */
+        printf(" gap=%d", gbp_alisten_permute(&bad, built, ok, 4, out, GBP_ALISTEN_MAX_FRAMES, &pinfo));
+        printf(" cap=%d\n", gbp_alisten_permute(&info, built, ok, 4, out, 1000u, &pinfo));
+        return 0;
+    }
+    for (k = 0; k < 4; k++) order[k] = (uint8_t)(argv[2][k] - '0');
+    if (gbp_alisten_permute(&info, built, order, 4, out, GBP_ALISTEN_MAX_FRAMES, &pinfo)) return 3;
+    for (k = 0; k < 4; k++)
+        printf("pos %u source=%u first=%u frames=%u gap_first=%u gap_frames=%u\n", k, pinfo.source[k],
+               pinfo.seg_first[2 * k], pinfo.seg_frames[2 * k], pinfo.seg_first[2 * k + 1], pinfo.seg_frames[2 * k + 1]);
+    f = fopen(argv[3], "wb");
+    fwrite(out, sizeof out[0], 2u * pinfo.out_frames, f);
+    fclose(f);
+    return 0;
+}
+"""
+
+
+class TheReorderIsExact(unittest.TestCase):
+    """Issue #86 (§V21.6): aout-0002 plays the windows in a SEALED order. The reorder moves whole
+    (tone + gap) segments, which is exact only because each segment is a multiple of 16 inputs and
+    starts on zeros. Proved here for EVERY one of the 24 orders structurally, and bit for bit against
+    the resampler model fed the permuted input for two fixed orders. Nothing printed identifies the
+    sealed order: all 24 are exercised alike."""
+
+    @classmethod
+    def setUpClass(cls):
+        import itertools
+        cls.tmp = tempfile.mkdtemp(prefix="apermute-")
+        with gzip.open(FIXTURE, "rb") as f:
+            cls.bin = os.path.join(cls.tmp, "run33.bin")
+            with open(cls.bin, "wb") as g:
+                g.write(f.read())
+        src = os.path.join(cls.tmp, "p.c")
+        with open(src, "w") as f:
+            f.write(PERMUTE_HARNESS)
+        cls.exe = os.path.join(cls.tmp, "p")
+        have, ok, err = hostcc.compile_c(["-std=gnu11", "-O2", "-Wall", "-Wextra", "-I", AUDIO, "-I", GBP,
+                                          "-o", cls.exe, src] + SOURCES)
+        hostcc.require_build(have, ok, err, "the permute harness")
+        cls.runs = {}
+        for order in itertools.permutations(range(4)):
+            key = "".join(str(x) for x in order)
+            out = os.path.join(cls.tmp, key + ".s16")
+            r = subprocess.run([cls.exe, cls.bin, key, out], capture_output=True, text=True)
+            with open(out, "rb") as f:
+                raw = f.read()
+            cls.runs[key] = (r.returncode, r.stdout, list(struct.unpack("<%dh" % (len(raw) // 2), raw)))
+
+    @classmethod
+    def tearDownClass(cls):
+        import shutil
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def segments(self, pcm):
+        """The identity order's four whole (tone + gap) segments, 48 500 frames each."""
+        left = pcm[0::2]
+        self.assertEqual(len(left) % 4, 0)
+        n = len(left) // 4
+        self.assertEqual(n, 48500)
+        return [pcm[2 * k * n: 2 * (k + 1) * n] for k in range(4)]
+
+    def test_every_order_is_the_identity_segments_rearranged(self):
+        rc, _, ident = self.runs["0123"]
+        self.assertEqual(rc, 0)
+        seg = self.segments(ident)
+        for key, (rc, out, pcm) in sorted(self.runs.items()):
+            self.assertEqual(rc, 0)
+            self.assertTrue(pcm == seg[int(key[0])] + seg[int(key[1])] + seg[int(key[2])] + seg[int(key[3])],
+                            "a reorder did not move whole segments")
+            sources = [int(l.split()[2].split("=")[1]) for l in out.splitlines()]
+            self.assertTrue(sources == [int(c) for c in key], "the source table does not follow the order")
+
+    def test_two_orders_are_bit_identical_to_building_them_in_that_order(self):
+        _, _, anc, wins = awinparse.load(self.bin)
+        rest = v17decode.resting_level(wins[0])
+        tones = []
+        for w in wins[1:]:
+            pcm = reference_int16(v17decode.decode(v11sweep.sliced(w), rest))
+            tones.append(pcm * max(1, int(round(4096 / float(len(pcm))))) + [0] * 2048)
+        for key in ("3210", "1302"):
+            seq = [s for k in key for s in tones[int(k)]]
+            model = resample_model(seq)
+            _, _, pcm = self.runs[key]
+            self.assertTrue(pcm[0::2] == model and pcm[1::2] == model,
+                            "the reordered output is not what building in that order gives")
+
+    def test_what_the_reorder_refuses(self):
+        r = subprocess.run([self.exe, self.bin, "refusals"], capture_output=True, text=True)
+        self.assertEqual(r.stdout.split(), ["dup=-6", "big=-6", "count=-5", "phase=-6", "gap=-6", "cap=-4"])
+
+
 if __name__ == "__main__":
     unittest.main()
