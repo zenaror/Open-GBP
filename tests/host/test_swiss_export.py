@@ -4,8 +4,10 @@ The manifest is an OPERATIONAL INTERFACE: an operator reads `10-vstate` off a
 television and launches it. So the properties worth testing are the ones that
 would let the wrong DOL be launched — a duplicate number, a name Swiss
 truncates, a source that does not exist — plus the one property that makes the
-export safe to ignore entirely: the copy is byte for byte, so the authority
-never moves out of build/poc.
+export safe to ignore entirely: the copy is byte for byte. Neither build/poc
+nor the export is an authority (Issue #88, correcting this docstring): an
+executed image is its recorded SHA-256 and commit, and only a FROZEN slot is
+checked against it.
 """
 import hashlib
 import os

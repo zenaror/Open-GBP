@@ -26,6 +26,13 @@ One sentence. A run answers a specific research question.
 build id · commit (CLEAN, no `-dirty`) · DOL SHA-256 · size · Swiss slot
 (`build/swiss/NN-…/boot.dol` is a byte copy, not a second identity).
 
+**The slot booted must read `PINNED-VERIFIED` in `build/swiss/INDEX.txt`**, which
+means it is FROZEN in `tools/swiss-layout.tsv` and its bytes were checked
+against the pin. A slot reading `UNPINNED-COPY` is **not** any executed image,
+whatever build id it shows: on 2026-09-23 slots 01–11 on the card were
+rebuilds from `7d7a6d8` (Issue #88). To rerun such an image, restage it first
+from its own commit and pin it (`docs/HANDOFF.md`, the per-image recipe).
+
 ## Stimulus / cartridge
 
 Name · SHA-256 · flashed or not since the previous run.

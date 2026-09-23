@@ -49,7 +49,9 @@
 #                       AUDIO block reaches the tap and no phase is ever entered)
 #   make swiss          export every built DOL to build/swiss/NN-short/boot.dol with an
 #                       INDEX.txt, so the right build is obvious in Swiss (numbers are
-#                       stable; the copy is byte-identical and build/poc stays the authority).
+#                       stable; the copy is byte-identical and NOTHING here is an authority: an
+#                       executed image is its recorded SHA-256 + commit, and only a FROZEN slot,
+#                       whose INDEX row reads PINNED-VERIFIED, is checked against it -- Issue #88).
 #                       A slot FROZEN in tools/swiss-layout.tsv -- one a physical run executed, or one
 #                       staged for a pending run -- is never written with other bytes, never removed and
 #                       never re-described in INDEX.txt: the export REFUSES with a non-zero exit (Issue
@@ -486,8 +488,11 @@ vstate-dolphin:
 # versioned manifest tools/swiss-layout.tsv.
 #
 # The copy is byte for byte and the hash is verified afterwards: no build id, no
-# commit and no byte of the image changes. The AUTHORITY stays build/poc/...;
-# build/swiss is presentation, is ignored by Git, and is safe to delete.
+# commit and no byte of the image changes. NEITHER build/poc NOR build/swiss is an
+# authority (Issue #88): build/poc is a build output that moves with HEAD, and an
+# executed image is identified by the SHA-256 and commit in the records. A staged
+# slot is those bytes only when its manifest row is FROZEN (INDEX: PINNED-VERIFIED).
+# build/swiss is ignored by Git.
 swiss:
 	$(PYTHON) tools/swiss_export.py --root .
 
