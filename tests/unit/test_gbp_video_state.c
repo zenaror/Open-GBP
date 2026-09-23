@@ -819,6 +819,98 @@ static void test_audio_len_live_sets_the_read_length(void)
            na, (unsigned long)alen, m.video_reads, (unsigned long long)res.bytes_audio);
 }
 
+/* ---- Issue #84: cfg->audio_tap, called once per AUDIO drain with the completion instant ---- */
+static struct {
+    unsigned calls, completed, bad_len, bad_order, zero_t;
+    uint32_t len;
+    uint64_t last_t;
+    const uint8_t *last_buf;
+} tapped;
+
+static void record_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_done, int completed)
+{
+    (void)user;
+    if (tapped.calls && len != tapped.len) tapped.bad_len++;
+    if (tapped.calls && t_done < tapped.last_t) tapped.bad_order++;
+    if (!t_done) tapped.zero_t++;
+    tapped.len = len;
+    tapped.last_t = t_done;
+    tapped.last_buf = bytes;
+    tapped.calls++;
+    if (completed) tapped.completed++;
+}
+
+static void test_audio_tap_null_adds_no_operation(void)
+{
+    /* The tap touches no device, so installing one must not change a single
+     * operation either: NULL (every earlier build) against a recording tap. */
+    struct gbp_mock a, b;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    unsigned i, diffs = 0;
+    printf("-- Issue #84: audio_tap NULL is every earlier build; a tap adds no operation and sees every drain\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 120u;
+    CHECK(cfg.audio_tap == 0 && cfg.audio_tap_user == 0);   /* the default leaves both NULL */
+    sched_reset(0xFFu);
+    mock_vstate(&a, bits, 1u, 50u);
+    run_cfg(&a, &rl, &res, &cfg);
+    CHECK(res.service_ok == 1);
+
+    memset(&tapped, 0, sizeof tapped);
+    cfg.audio_tap = record_tap;
+    sched_reset(0xFFu);
+    mock_vstate(&b, bits, 1u, 50u);
+    run_cfg(&b, &rl, &res, &cfg);
+    cfg.audio_tap = 0;
+    CHECK(res.service_ok == 1);
+    CHECK(a.ops_dropped == 0u && b.ops_dropped == 0u);
+    CHECK(a.nops == b.nops);
+    for (i = 0; i < a.nops && i < b.nops; i++) {
+        const struct gbp_mock_op *p = &a.ops[i], *q = &b.ops[i];
+        if (p->kind != q->kind || p->addr != q->addr || p->len != q->len || p->rc != q->rc ||
+            memcmp(p->data, q->data, GBP_BLOCK_SIZE) != 0) diffs++;
+    }
+    CHECK(diffs == 0);
+    /* and the tap saw exactly what the service drained, in order, with its instant */
+    CHECK(tapped.calls == res.audio_drains);
+    CHECK(tapped.completed == res.audio_drains);
+    CHECK(tapped.len == GBP_VSTATE_AUDIO_BLOCK_SIZE && tapped.bad_len == 0u);
+    CHECK(tapped.bad_order == 0u && tapped.zero_t == 0u);
+    CHECK(tapped.last_buf != 0);
+    printf("   %u operations compared, %u differences; %u taps, %u completed\n", a.nops, diffs,
+           tapped.calls, tapped.completed);
+}
+
+static void test_audio_tap_sees_the_live_length(void)
+{
+    struct gbp_mock m;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    printf("-- Issue #84: the tap is handed the length READ, not the configured one\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 60u;
+    memset(&tapped, 0, sizeof tapped);
+    audio_len_value = 0x400u;
+    cfg.audio_len_live = &audio_len_value;
+    cfg.audio_tap = record_tap;
+    sched_reset(0xFFu);
+    mock_vstate(&m, bits, 1u, 50u);
+    run_cfg(&m, &rl, &res, &cfg);
+    cfg.audio_tap = 0;
+    cfg.audio_len_live = 0;
+    CHECK(res.service_ok == 1);
+    CHECK(tapped.calls == res.audio_drains && tapped.calls == 60u);
+    CHECK(tapped.len == 0x400u && tapped.bad_len == 0u);
+    check_invariants(&m, &res, &rl);
+}
+
 static void test_audio_policy(void)
 {
     struct gbp_mock m;
@@ -4190,6 +4282,8 @@ int main(int argc, char **argv)
     test_session_end_never_interrupts_a_transaction();
     test_audio_len_live_null_adds_no_operation();
     test_audio_len_live_sets_the_read_length();
+    test_audio_tap_null_adds_no_operation();
+    test_audio_tap_sees_the_live_length();
     test_session_end_loses_to_the_safety_budget();
     test_session_end_is_the_status_whatever_the_detector_saw();
     test_session_end_absent_changes_nothing();

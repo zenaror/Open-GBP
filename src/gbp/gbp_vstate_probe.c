@@ -1312,6 +1312,10 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             res->audio.selected = 1;
             bump(res, &res->audio_drains);
             gbp_avblock_read(t, res->a.base, &res->audio, &res->a.errors);
+            /* Issue #84: the DMA-completion instant, which §V19 AMENDMENT 1 A6
+             * assigns a block to a window by. Read ONLY when a tap is installed:
+             * with cfg->audio_tap NULL no clock is read here, as before. */
+            const uint64_t t_adone = cfg->audio_tap ? now64(t) : 0u;
             gbp_vstate_audio_commit(st, slot, res->audio.completed, res->audio.completed ? alen : 0u, n);
             /* Issue #59 (GBP-AUDIO-001, §V8): the ONE extra thing the audio
              * window does, and it happens after the drain and its commit. With
@@ -1325,6 +1329,11 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
                 q1 = now32(t);
                 gbp_awin_note_ticks(cfg->awin, (uint32_t)(q1 - q0));
             }
+            /* Issue #84 (GBP-AUDIO-005, §V19.11 A4.1): THE AUDIO TAP, after the
+             * drain, its commit and the window hook. With cfg->audio_tap NULL --
+             * every earlier build -- this is one predictable branch and nothing
+             * else. The tap is the caller's and touches no device. */
+            if (cfg->audio_tap) cfg->audio_tap(cfg->audio_tap_user, buf, alen, t_adone, res->audio.completed);
             cyc.audio_completed = (uint8_t)(res->audio.completed ? 1u : 0u);
             cyc.audio_wait = res->audio.info.ticks;
             cyc.rc |= (uint32_t)res->audio.rc;

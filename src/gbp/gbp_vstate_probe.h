@@ -359,6 +359,26 @@ struct gbp_vstate_config {
      * slot against build/swiss/INDEX.txt, the frozen slots against the
      * records. */
     const uint32_t *audio_len_live;
+    /* ---- Issue #84 (GBP-AUDIO-005, §V19.11 A4.1): THE AUDIO TAP ----
+     * NULL in every earlier build, and then it does not exist as far as the
+     * device is concerned: no call, and no clock read (the completion instant
+     * below is read only when a tap is installed). The same shape as `awin`.
+     *
+     * When installed it is called ONCE per AUDIO drain, after the drain, its
+     * commit and the window hook, and before the VIDEO drain, with: the
+     * buffer the drain filled, the length READ (`audio_len_live` or
+     * `audio_len`), the transport's 64-bit instant taken right after the DMA
+     * returned -- the DMA-COMPLETION timestamp A6 assigns a block to a window
+     * by -- and whether the drain completed. It runs INSIDE the service
+     * transaction, so it must be bounded, touch no device, allocate nothing,
+     * and never reach a filesystem (CLAUDE.md §13). The drain image's tap
+     * counts a block and, only in the controls and PHASE A, popcounts the
+     * bytes read: a cost under the AUDIO window's measured copy (§V19.11 A4.6).
+     *
+     * CONSEQUENCE, as for `audio_len_live` above: the images that link this
+     * module reproduce at their own commits, not at this one. */
+    void (*audio_tap)(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_done, int completed);
+    void *audio_tap_user;
     /* ---- PRE-HANDLER MASKED WAIT: a DIAGNOSTIC, and nothing else ----
      * 0 in every ordinary build, and then this field does not exist as far as
      * the device is concerned: no wait, no extra read, no log line, the same
