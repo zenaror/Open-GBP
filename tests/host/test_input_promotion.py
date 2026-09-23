@@ -266,6 +266,10 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
         # BEFORE stimulus/agb-sweep exists: tools/v11sweep.py runs on SYNTHETIC vectors only, reads no
         # run, authorises nothing and promotes nothing. It is the fourth outing of the same discipline.
         changed = changed - {"tools/v11sweep.py"}
+        # Issue #74 (2026-09-23) added tools/geckorx.py, the HOST receiver for the Operator's Pico
+        # Gecko. It reads a serial port and writes bytes to a file; it touches no image, no POC and
+        # no runtime path, and CLAUDE.md §14 forbids anything coming to depend on the device.
+        changed = changed - {"tools/geckorx.py"}
         # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
         # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
         # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs

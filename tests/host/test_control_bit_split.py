@@ -146,11 +146,17 @@ class TheSplitIsRecomputedNotQuoted(unittest.TestCase):
         self.assertIn("12 logs", plain(e))
         self.assertIn("22 logs", plain(e))
 
-    def test_the_six_logs_without_the_field_are_accounted_for_not_dropped(self):
-        """A curated 34 would not be FACT. The rule has to be mechanical."""
+    def test_the_logs_without_the_field_are_accounted_for_not_dropped(self):
+        """A curated 34 would not be FACT. The rule has to be mechanical.
+
+        Issue #74 (2026-09-23) added a SEVENTH: 01-smoke's save from the Pico
+        Gecko bring-up. Same reason as the others -- 01-smoke touches no GBP
+        register at all -- and the entry says so rather than the count moving
+        silently."""
         missing = [f for f in sorted(os.listdir(LOCAL))
                    if f.endswith(".log") and "CONTROL semantic orig=" not in read(os.path.join(LOCAL, f))]
-        self.assertEqual(len(missing), 6, missing)
+        self.assertEqual(len(missing), 7, missing)
+        self.assertIn("GECKO-SMOKE-HW-001_smoke-0002-bringup.log", missing)
         e = plain(entry())
         self.assertIn("The selection rule is mechanical, not curated", e)
         self.assertIn("None of the six was dropped by a judgement about what it showed", e)

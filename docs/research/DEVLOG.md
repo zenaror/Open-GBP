@@ -14042,3 +14042,128 @@ the test is about, not the prose.
 **Next.** The Operator's step 0.5 on `9596ddee…95f2`. If the first press now
 sounds, the audio runs can resume and the first of them is `U-GBP-038`'s
 separator: a long gap after the first emitting press.
+
+## 2026-09-23 — Issue #74: the Operator's Pico Gecko, brought up — and it worked before the receiver existed
+
+**Goal.** He built a Pico Gecko and asked how to test it. **The GameCube side
+needs nothing built** — all fourteen POCs already detect and use one through
+libogc2's standard API — so this is a host tool, a test definition, and the
+declaration. §V12.
+
+**`tools/geckorx.py`, standard library only** so a clone can run it and its
+tests without pyserial.
+
+```text
+resolved BY ID           /dev/serial/by-id/, never ttyACM0, which renumbers per boot
+two devices REFUSE       one device with several interfaces takes its data interface (-if00);
+                         two devices raise and ask for --port
+nothing timestamped      the file is the byte stream as it arrived, comparable with the SD log
+ or parsed               without a decoder in between; everything the tool says goes to stderr
+flushed every read       a run that never reaches its own save still leaves what it managed to say
+exits cleanly            SIGINT/SIGTERM, --until '<regex>', or --idle-exit
+testable with NO device  resolution takes a list of names, the pump takes any file descriptor
+```
+
+**Writing the tests found a real defect in my own default.** The pattern was
+`usb-Raspberry_Pi_Pico-if`, which matches the Operator's device today — but a
+firmware that reports a **serial number** names itself
+`usb-Raspberry_Pi_Pico_E66141…-if00` and the pattern would then match **nothing
+at all**. Broadened to stop before the `-if`, with the `-if00` preference doing
+the interface selection instead.
+
+**And the baud is stated rather than justified.** The port is CDC-ACM; a rate has
+to be set because `termios` requires one, and it is carried to the device as
+line coding — which a CDC device is free to ignore. **We do not know what this
+firmware does with it.** `--baud` exists for the case where it turns out to
+matter, and garbage rather than silence is the symptom that would say so.
+
+**THEN HE RAN IT, before the receiver existed** (§V12.9). `picocom -b 115200`,
+`01-smoke`, the whole session captured:
+
+```text
+Swiss's own boot log, including "Checking device availability for device USB Gecko - Slot B only"
+OPENGBP-SMOKE READY app=smoke-test build=smoke-0002 commit=7d7a6d8 con=80x30 …
+OPENGBP-SMOKE HEARTBEAT n=1 … n=15 frames=900
+OPENGBP-SMOKE EXIT reason=start
+```
+
+**The identity checks out against this repository** — `smoke-0002` is the
+Makefile's `BUILD_ID` and `7d7a6d8` is a commit in this history.
+
+**Two of the three criteria are met and the third is not, and the difference is
+written down.** The lines arriving is criterion 3 directly. Criterion 1 — the
+screen saying *detected* — is met **by inference**, because `gecko_puts()` sends
+only when `gecko_present` is true, so the arrival of any line **is** proof the
+detect returned true; that is an inference from the source, not a reading of the
+screen, and it says so. **Criterion 2, `gecko=1` in the saved log's header, is
+genuinely open**: the SD save is a different mechanism and this capture says
+nothing about it.
+
+**The operationally important part: Swiss's output came through before our image
+loaded.** So the Gecko is live from console boot, not from when our code runs —
+**exactly the window a hang would otherwise swallow**, which is the reason §V12.1
+gives for wanting one, now confirmed rather than assumed.
+
+**The staircase is a terminal artefact and `gecko_puts()` is NOT changed.** Bare
+`\n` is the convention on this wire and Swiss does it too; "fixing" it would
+mean editing fourteen images and their logs to work around a cursor setting.
+**The mapping belongs in the consumer**: the receiver writes the file raw and
+maps LF→CRLF only on `--echo`, the terminal's copy.
+
+**One incidental, recorded as an observation:** `xfb_hash` is constant across all
+fifteen heartbeats — 900 frames — while `xfb_lit` drifts. That is the smoke
+test's own design working (the hash covers the static block, `lit` the whole
+frame including the rewritten heartbeat row), over a longer window than it is
+usually watched for, and it cost nothing.
+
+**`CLAUDE.md` §14 is restated at the result, in §V12.1 and again in §V12.9.5:
+optional support may be added, it must never become necessary, and the SD save
+stays the primary record.** No evidence id is minted; a bring-up is an
+instrument check.
+
+**Received while this was in flight and NOT ingested here:** the Operator reports
+that `sweep-0002` now emits on all four presses on his GBA. **`U-GBP-040` is not
+answered by that** — §V11.17's whole construction separates *"the sound works"*
+from *"the mechanism was measured"*, and the second needs the cyan-mark reading,
+which has not arrived. Recorded in `HANDOFF.md` so it is not only in chat, and
+left for its own checkpoint.
+
+**THEN HE RAN IT AGAIN WITH `--logfile` AND PRESSED X, and all three criteria
+are met** (§V12.10). `gecko=1` in the SD header is criterion 2, directly.
+
+**And the two channels cross-check each other on FIVE independent quantities**,
+which is what a second channel is *for* — neither is derived from the other, one
+written to SD at the end and one streamed over EXI as it happened:
+
+```text
+"saved 3 lines"         vs  lines=3                    agree
+xfb_hash=f5587dc5 x13   vs  hash=f5587dc5              agree
+SAVE between n=11 and   vs  frames=692                 agree: 660 < 692 < 720
+ n=12 (660 / 720)
+X triggers the SAVE     vs  buttons_seen=0400          agree: PAD_BUTTON_X
+0x1000 ABSENT           vs  START came later           agree ON THE ORDER, not just the values
+```
+
+**The last one is the one I would keep.** `buttons_seen` accumulates every
+frame, so a record written at exit would carry START's `0x1000`. It carries only
+X's `0x0400` — exactly where the source puts the write, inside the X branch,
+before the loop can see START. **The two channels agree about the order of two
+events and not only about their values.**
+
+**A guard caught something I would have missed: the bring-up left its log on the
+card.** That is `GBP-HW-300`'s collision class — a second boot of `01-smoke`
+would have overwritten it silently, and it is **criterion 2's own evidence**. It
+is now preserved raw in `logs/gecko-bringup/`, archived to `captures/local/`,
+and removed from the card; the hash `432bfbab…8865` is identical in all three
+places and was computed from the card *before* the copy. **Nothing was deleted
+without a copy and without saying where it went.** `GBP-HW-272`'s excluded set
+gains a seventh log with its reason — `01-smoke` touches no GBP register — so
+the split's population is unchanged and the count did not move silently.
+
+**One observation, free:** `xfb_lit` jumps 7679 → 9287 right after the SAVE while
+`xfb_hash` holds. The status line lands **outside** the hashed window
+(`hash_rows=185`), so a stable hash means *the test pattern* did not change — not
+that the screen did not. Stated once so nobody reads it the other way later.
+
+**Next.** Both of #74's questions are answered. Independently, the cyan-mark
+reading unblocks the audio runs.

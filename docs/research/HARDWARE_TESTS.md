@@ -29499,3 +29499,369 @@ test it, and writing it down is not evidence for it. **`U-GBP-040` stays open**
 until the mask is read on hardware. **Probe 3 — enabling the master at boot — was
 NOT taken**: it would change what the control window observes at rest, and that
 window is the baseline RUN 30, RUN 31 and RUN 32 share.
+
+## V12 — **THE OPERATOR'S PICO GECKO: HOST-SIDE BRING-UP** — `tools/geckorx.py` and a test on `01-smoke` — **DEFINED 2026-09-23 (GitHub Issue #74); NOT RUN, and it authorises no Game Boy Player question** · optional support, and **`CLAUDE.md` §14 says it must never become necessary**
+
+### V12.1 Why this exists, and what it buys
+
+The Operator built one and asked how to test it: *"montei um Pico GECKO, como
+podemos testa-lo?"*
+
+**Today a run's log is written ONLY at the end of a session** (§V7.6.10). A run
+that hangs, or that the recovery procedure ends at the power button, produces
+**nothing** — the four GB/GBC runs saved almost nothing because the guard
+refused the session early, and a genuine hang would save zero. **A Gecko turns
+"the trip is lost" into "we have it up to the point it stopped".** For Phase 7,
+where the current image cannot open a GB/GBC session at all, that is the
+difference between a wasted run and a diagnosis.
+
+> **`CLAUDE.md` §14, restated here because this is where it would be forgotten:
+> optional support for other debug hardware may be added, but IT MUST NEVER
+> BECOME NECESSARY.** Nothing in any procedure may come to depend on a Gecko
+> being present, **the SD save stays the primary record**, and every POC already
+> treats the device as absent by default — `usb_isgeckoalive()` decides and the
+> send path is skipped silently when it says no.
+
+### V12.2 The GameCube side needs **nothing built**
+
+All fourteen POCs already detect and use a Gecko through libogc2's standard API,
+and every log header carries `gecko=0` or `gecko=1`. `01-smoke`
+(`poc/smoke-test/source/main.c`) is the image this is tested on:
+
+```text
+#define GECKO_CHANNEL EXI_CHANNEL_1          slot B
+gecko_present = usb_isgeckoalive(GECKO_CHANNEL)
+gecko_puts()  -> usb_sendbuffer_safe(...)    guarded by `if (gecko_present)`, so absent is silent
+on screen     "Gecko : detected (slot B)" or "absent"
+in the log    VIDEO ... gecko=1
+```
+
+**And it sends a continuous stream, not two lines** — which is what makes it a
+usable bring-up target:
+
+```text
+OPENGBP-SMOKE READY <ident> con=..x.. font_h=.. hb_row=.. hash_rows=..
+OPENGBP-SMOKE HEARTBEAT n=1 frames=.. xfb_lit=.. xfb_hash=........     <- ONE PER SECOND
+OPENGBP-SMOKE SAVE rc=0 ...                                            <- when X is pressed
+OPENGBP-SMOKE EXIT reason=start                                        <- when START is pressed
+```
+
+**The heartbeat carries the same numbers the screen shows and the SD log's
+`STATE` record holds**, so the three channels can be compared against each other
+rather than each being taken on trust.
+
+### V12.3 `01-smoke` and not a GBP image, and the reason is not caution for its own sake
+
+```text
+it touches NO GBP register        nothing to leave in an unknown state if the bring-up misbehaves
+it is the oldest and most-run     a surprise is the Gecko's, not the image's
+it already prints the state       the screen answers "detected?" with no new code
+it needs no cartridge             and no Game Boy Player question rides on it
+```
+
+**Do not use a GBP image for a first bring-up.** A new transport and an
+undocumented device at the same time is two variables.
+
+### V12.4 The receiver — `tools/geckorx.py`
+
+Standard library only, so a clone can run it and its tests without pyserial.
+
+```text
+THE PORT IS RESOLVED BY ID     /dev/serial/by-id/, never /dev/ttyACM0. The kernel numbers ACM
+                               devices in the order they appear, so ttyACM0 is whichever CDC device
+                               enumerated first this boot; a receiver that opened it would silently
+                               read somebody else's modem.
+TWO DEVICES REFUSE             one device with several interfaces resolves to its DATA interface
+                               (`-if00`); two devices raise and ask for --port. Guessing between two
+                               Picos is the mistake resolving by id exists to prevent.
+NOTHING IS TIMESTAMPED         the output file is the byte stream exactly as it arrived, so it can
+ OR PARSED                     be compared with the SD log without a decoder in between. Everything
+                               the tool has to say goes to stderr.
+FLUSHED EVERY READ             the whole point is that a run which never reaches its own save still
+                               leaves what it managed to say
+IT EXITS CLEANLY               SIGINT/SIGTERM, --until '<regex>' (e.g. 'EXIT reason='), or
+                               --idle-exit <seconds>; a device that disappears mid-stream stops the
+                               copy and keeps the bytes
+TESTABLE WITH NO DEVICE        resolution takes a list of names and the pump takes any file
+                               descriptor, so tests/host/test_geckorx.py drives both from a fake
+                               directory and a pipe
+```
+
+**ABOUT THE BAUD, SAID RATHER THAN ASSUMED.** The port is a USB CDC-ACM
+interface. A rate has to be set because `termios` requires one, and the value is
+carried to the device as CDC line coding — but a CDC device is free to ignore
+it, and for a bridge whose far side runs at a fixed hardware clock (the EXI bus)
+it normally does. **We do not know what this firmware does with it**, so the
+default of 115200 is *stated, not justified*, and `--baud` exists for the case
+where it turns out to matter. **If the first bring-up produces garbage rather
+than nothing, the baud is the first thing to vary.**
+
+### V12.5 The device's identity — **his own hardware, unpinned by this project**
+
+```text
+by-id       /dev/serial/by-id/usb-Raspberry_Pi_Pico-if00  ->  /dev/ttyACM0
+udev        ID_VENDOR=Raspberry_Pi  ID_VENDOR_ID=2e8a  ID_MODEL=Pico  ID_MODEL_ID=000a
+            ID_SERIAL=Raspberry_Pi_Pico
+firmware    the Operator's, and NOT recorded here because we do not know which build it is
+```
+
+**It is his hardware, built by him, and unpinned by this project** — the same
+handling §V11.15.6 gives his Game Boy Advance. Nothing it reports is a hardware
+observation about the Game Boy Player, and no figure from it may be promoted on
+its own.
+
+### V12.6 The test, and **success is three things recorded separately**
+
+```text
+  1  the SCREEN says "Gecko : detected (slot B)"          the EXI side saw the device
+  2  the saved log's header carries gecko=1                the image agreed, and the SD save worked
+  3  THE RECEIVER CAPTURED THE LINES, and they match       the USB side actually carried bytes
+     what the log holds
+```
+
+**They are recorded separately because the partial results are different
+failures and each is informative:**
+
+```text
+detected but no bytes    the EXI side works and the USB side does not -- firmware, cable or receiver
+bytes but not detected   impossible on this image (the send path is guarded by the detect), so it
+                         would mean the detect is lying, which is a finding about libogc2's probe
+neither                  the device is not on the bus: slot, seating, or the build
+both but MISMATCHED      the stream and the SD log disagree about the same run, which is the most
+                         interesting outcome of the three and the reason item 3 says "and they match"
+```
+
+### V12.7 The Operator's part — short, and **not on the Game Boy Player**
+
+```text
+step  action                                                        what he records
+  1   confirm memory card SLOT B is free (the SD2SP2 is in serial   that it was free
+      port 2 and does not conflict -- he confirms, we do not assume)
+  2   plug the Pico Gecko into slot B                               --
+  3   say when he is ready: the receiver must ALREADY be running    --
+      on the PC before the console boots
+  4   boot 01-smoke from the SD                                     --
+  5   read the screen                                               "Gecko : detected (slot B)"
+                                                                     or "absent"
+  6   let it run a few seconds, press X to save, START to exit      the heartbeat reading he sees
+  7   report, and hand over the saved log                           --
+```
+
+**No cartridge, no Game Boy Player question, nothing timing-critical. If it does
+not work, nothing is lost and no run was spent.**
+
+On the PC, before step 4:
+
+```text
+tools/geckorx.py --out captures/local/GECKO-SMOKE-HW-001-run1.txt --until 'EXIT reason=' --echo
+```
+
+### V12.8 What this part does NOT do
+
+It authorises **no Game Boy Player question, no cartridge and no audio run** —
+`U-GBP-040`'s step 0.5 is separately with the Operator and is not blocked by
+this. It **changes no POC**: the GameCube side already does everything needed,
+and this checkpoint adds one host tool and this section. It mints **no evidence
+id** and moves no status; a bring-up is an instrument check, not a measurement.
+**Nothing is made to depend on a Gecko**, and `CLAUDE.md` §14 is restated in
+§V12.1 for the next person who is tempted to.
+
+### V12.9 **THE BRING-UP HAPPENED — the Operator ran it before the receiver existed**, and it works — appended 2026-09-23 (Issue #74)
+
+> **OPERATOR OBSERVATION, 2026-09-23 (his method, his hardware):** he ran
+> `picocom -b 115200 /dev/ttyACM0`, booted `01-smoke`, and captured the whole
+> session.
+
+**What arrived, in order:** Swiss's own boot log — including its device sweep
+line *"Checking device availability for device USB Gecko - Slot B only"* — and
+then the image:
+
+```text
+OPENGBP-SMOKE READY app=smoke-test build=smoke-0002 commit=7d7a6d8 con=80x30 font_h=15 hb_row=12 hash_rows=185
+OPENGBP-SMOKE HEARTBEAT n=1  frames=60  xfb_lit=6414 xfb_hash=f5587dc5
+…
+OPENGBP-SMOKE HEARTBEAT n=15 frames=900 xfb_lit=7679 xfb_hash=f5587dc5
+OPENGBP-SMOKE EXIT reason=start
+```
+
+**The identity checks out against this repository:** `smoke-0002` is
+`poc/smoke-test/Makefile`'s `BUILD_ID`, and `7d7a6d8` is a commit in this
+history. It is the staged `01-smoke` and not something else.
+
+#### V12.9.1 Which of §V12.6's three criteria this meets, and which it does not
+
+```text
+3  THE RECEIVER CAPTURED THE LINES     MET, directly: the lines are in his capture
+1  the SCREEN says "detected (slot B)" MET BY INFERENCE, not by his eyes -- see below
+2  the saved log's header has gecko=1  NOT YET: it needs the SD log, which is still to come
+```
+
+**The inference, and it is stated as one.** `gecko_puts()` sends **only** when
+`gecko_present` is true, and `gecko_present` is `usb_isgeckoalive(GECKO_CHANNEL)`
+read once at startup:
+
+```c
+static void gecko_puts(const char *line)
+{
+    if (gecko_present) { usb_sendbuffer_safe(GECKO_CHANNEL, line, (int)strlen(line)); }
+}
+```
+
+**So the arrival of ANY `OPENGBP-SMOKE` line IS proof that the detect returned
+true**, which is the same fact the screen would have reported. It is an
+inference from the source rather than a reading of the screen, and it is written
+that way. **Criterion 2 remains genuinely open**: the SD save is a different
+mechanism and this capture says nothing about it.
+
+#### V12.9.2 The operationally important part — **Swiss came through first**
+
+His capture contains **Swiss's boot output before our image was loaded**, so the
+Gecko is live from the moment the console starts, not from the moment our code
+runs. **That is exactly the window a hang would otherwise swallow**: a run that
+never reaches its own save now leaves everything from power-on to the point it
+stopped. That is the whole reason §V12.1 gives for wanting one, and it is
+confirmed rather than assumed.
+
+#### V12.9.3 The staircase is a TERMINAL ARTEFACT and `gecko_puts()` is NOT changed
+
+Each line in his capture starts where the previous one ended — the classic
+result of **LF without CR** in a raw terminal. **Swiss's own lines do it too**,
+so it is not this project's code and bare `\n` is the convention on this wire.
+
+> **`gecko_puts()` must NOT be "fixed" to send `\r\n`.** It would mean editing
+> fourteen images and their logs to work around a cursor setting, and Swiss
+> would still disagree with the result. **The mapping belongs in the consumer.**
+
+`tools/geckorx.py` writes the file **raw** — so a captured file never has the
+problem at all — and maps LF to CRLF **only** on `--echo`, which is the
+terminal's copy. Interactively, `picocom --imap lfcrlf` does the same.
+
+#### V12.9.4 One incidental, recorded as an observation and not as a finding
+
+`xfb_hash=f5587dc5` is **constant across all fifteen heartbeats — 900 frames**
+— while `xfb_lit` drifts `6414 → 7679`. **That is the smoke test's own design
+working, not a discovery:** the hash covers rows `[0, hash_rows)`, the static
+identity block, while `lit` counts the whole frame including the heartbeat row
+that is rewritten every second. The invariant held over a longer window than it
+is usually watched for, and it cost nothing to see.
+
+#### V12.9.5 What this does NOT establish
+
+`gecko=1` in the saved log's header (criterion 2) is **not** shown by this
+capture. Nothing here is a Game Boy Player observation: `01-smoke` touches no
+GBP register and there was no cartridge. The Pico Gecko and its firmware remain
+**the Operator's own hardware, unpinned by this project** (§V12.5), and
+`CLAUDE.md` §14 is unchanged — **the SD save stays the primary record and
+nothing may come to depend on the device.** The receiver is still worth having
+for §V12.9.2's reason: `picocom` is interactive and a capture that survives an
+unattended hang needs a tool that writes to a file and flushes.
+
+### V12.10 **ALL THREE CRITERIA MET — and the two channels cross-check each other on five independent quantities** — appended 2026-09-23 (Issue #74)
+
+The Operator ran it a second time with `picocom --logfile` and pressed **X**, so
+both channels exist for the same boot.
+
+```text
+test_id=SMOKE-HW-001  build_id=smoke-0002  commit=7d7a6d8   lines=3 dropped=0 truncated=0
+000001 VIDEO 640x480 tvmode=0 gecko=1
+000002 STATE seconds=11 frames=692 lit=7658 hash=f5587dc5 buttons_seen=0400
+```
+
+```text
+§V12.6 criterion                          status
+1  the screen says "detected (slot B)"    MET -- by §V12.9.1's inference, and now also by gecko=1
+2  the saved log's header carries gecko=1 MET -- directly, above
+3  the receiver captured the lines        MET -- and they MATCH, which is the next section
+```
+
+#### V12.10.1 The cross-check, and **this is what a second channel is for**
+
+**Neither channel is derived from the other**: one is written to the SD card at
+the end of the session by `sdlog_save()`, the other is streamed over EXI line by
+line as it happens. They agree on **five** quantities:
+
+```text
+quantity        the GECKO stream                              the SD log            agree?
+line count      "SAVE rc=0 saved 3 lines to sd:/open-gbp/…"   lines=3               YES
+the hash        xfb_hash=f5587dc5 in every one of 13 beats    hash=f5587dc5         YES
+the frame       SAVE sits between HEARTBEAT n=11 (frames=660) frames=692            YES -- 660 < 692 < 720
+                and n=12 (frames=720)
+the button      X is what triggers the SAVE line              buttons_seen=0400     YES -- PAD_BUTTON_X
+the ORDER       buttons_seen has 0x0400 and NOT 0x1000        START came later      YES -- the STATE record
+                                                                                    is written in the X
+                                                                                    handler, before the
+                                                                                    START that ended the run
+```
+
+**The last one is worth keeping.** `buttons_seen` accumulates with `|=` every
+frame, so if the record had been written at exit it would carry START's `0x1000`
+as well. It carries only `0x0400`, which is exactly where the source puts the
+write — inside the X branch, before the loop can see START. **The two channels
+agree about the ORDER of two events, not only about their values.**
+
+**That is the strongest demonstration this project has that the Gecko path
+carries what the image believes it is sending**, and it is an instrument check,
+not a hardware measurement.
+
+#### V12.10.2 The environment, for the record
+
+```text
+Swiss        GIT Commit fb5656b4, GIT Revision 2092
+storage      "Detected SD Card - SD2SP2", SD speed set to 32MHz
+Swiss sweep  "Checking device availability for device USB Gecko - Slot B only"
+```
+
+**Both Swiss's log and ours came through before any of our code ran** —
+§V12.9.2's point, confirmed a second time.
+
+#### V12.10.3 Two observations, free and neither a finding
+
+**`xfb_lit` jumps 7679 → 9287 immediately after the SAVE** while `xfb_hash`
+stays `f5587dc5` throughout. That is the status line being drawn: `lit` counts
+the whole frame and the hash covers only rows `[0, hash_rows)` with
+`hash_rows=185`, so the row the status line lands on is **outside the hashed
+window**. Expected, and stated once **so that nobody later reads a stable hash
+as "the screen did not change"** — it means the test pattern did not change,
+which is all it was ever measuring.
+
+**The formatting is clean in the captured file.** `--imap lfcrlf` on the display
+side, and the file itself has proper line separation — **confirming §V12.9.3:
+the staircase was a terminal artefact and nothing in `gecko_puts()` needs
+changing.**
+
+#### V12.10.35 THE SD LOG IS ARCHIVED AND THE CARD IS CLEAR — caught by a guard, not by memory
+
+`tests/host/test_staged_artifacts.py` fired: **the bring-up left its log on the
+card**, which is the collision class `GBP-HW-300` is about — the console names
+files from the image's `TEST_ID` and a second boot of `01-smoke` would have
+overwritten this one silently.
+
+```text
+found on the card   /media/rafael/SD_GC/Open-GBP/SMOKE-HW-001_smoke-0002.log   366 B
+                    sha256 432bfbab5681e7a15fdd8c43b6955259caf76cc67421d4064c847a29b10a8865
+preserved raw       logs/gecko-bringup/SMOKE-HW-001_smoke-0002.log
+archived            captures/local/GECKO-SMOKE-HW-001_smoke-0002-bringup.log
+then removed        from the card, so the next run cannot collide with it
+```
+
+**The hash is identical in all three places**, computed from the card before the
+copy and re-verified from each copy afterwards. **Nothing was deleted without a
+copy and without saying where it went** — and the file is criterion 2's own
+evidence, so losing it would have cost the result.
+
+#### V12.10.4 What this establishes, and the limits that do not move
+
+**The bring-up is complete**: the device works, the image's detect agrees with
+it, and the stream matches the saved log. **No evidence id is minted** — this is
+an instrument check on a transport, not a measurement of anything about the
+Game Boy Player, and `01-smoke` touches no GBP register.
+
+**The device stays the Operator's own hardware, built by him and unpinned by
+this project**: VID `2e8a`, PID `000a`, `usb-Raspberry_Pi_Pico-if00`, firmware
+unknown to us. Nothing it reports is a hardware observation about the GBP.
+
+> **`CLAUDE.md` §14, for the third time in this part and deliberately: optional
+> support for other debug hardware may be added, but IT MUST NEVER BECOME
+> NECESSARY. The SD save stays the primary record**, every POC still treats the
+> device as absent by default, and no procedure may come to depend on one being
+> present.

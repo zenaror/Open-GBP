@@ -57,6 +57,10 @@ LEDGER = [
      "the check is that a LATER arrival stays out of §V7.9.7's derivation; with no later arrival on disk "
      "there is nothing to keep out, and the derivation's own seven builds are pinned by name in the "
      "same file"),
+    # Issue #74: the Pico Gecko bring-up log lives under captures/local, ignored by design.
+    (r"^the bring-up log is not archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
+     "§V12.10's hash and the gecko=1 line are quoted on the page and pinned by tests that never "
+     "skip; the cross-check's five quantities are all in the document"),
     # Issue #72: the same for RUN 32, whose raws and 5.2 MB sidecar live under captures/local
     # and logs/, both ignored by design.
     (r"^(RUN 32 is not archived in this checkout( \(captures/local is ignored\))?"
