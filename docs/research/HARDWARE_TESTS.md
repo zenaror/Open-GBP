@@ -32268,3 +32268,70 @@ needed, and must never be read as such.**
 
 **No new evidence ID was minted**: RUN 35 is the evidence *for* `GBP-HW-305`, and
 it is recorded in that entry's body under a dated heading pointer.
+
+## V21 — AOUT-HW-001: **MAKE THE GAMECUBE PLAY IT** — an OUTPUT-PATH test, NOT a Game Boy Player audio test — **PRE-REGISTERED 2026-09-23 (GitHub Issue #86); NOT RUN; staged by a separate Hardware Issue, bundled with GBP-AUDIO-005's**
+
+**SCOPE, stated first so a PASS is never read as more than it is.** AOUT-HW-001
+proves, or fails to prove, ONE thing: that the console can be made to emit the
+samples the project's decoder produces. **It proves nothing about live capture,
+continuous drain or timing, and a PASS here is NOT Phase 6's acceptance.** The Game
+Boy Player is not touched. The image links no transport, no HSP backend, no
+service path and no GBP register write, and the `aout` audit profile proves that on
+the real listings. The test family is deliberately not GBP-AUDIO.
+
+### V21.1 What plays
+
+```text
+image      poc/audio-output-replay, build aout-0001 (identity recorded at build, on a clean commit)
+source     RUN 33's AUDIO-window sidecar, read from the card at sd:/open-gbp/aout/run33-audio.bin
+           = captures/fixtures/...-run33-audio.bin.gz decompressed: 5 243 788 B, sha256 cfe472d3...252b8,
+           total CRC d3dbd9a6. Any other file is REFUSED on screen, and nothing plays
+decode     src/audio/gbp_alisten -> the #81 modules UNCHANGED: calibrate on the CONTROL window, decode each
+           PRESS window's sliced region (blocks 96-255, 160 samples), repeat 26x (~1.02 s), 0.5 s of
+           silence after each tone, the frozen 125/16 resampler -> 32 000 Hz, the same sample in L and R.
+           Bit-identical to the #80 / #81 reference: tests/host/test_audio_listen.py
+output     the AI DMA at its native 32 kHz, 0.25 s blocks queued from the DMA callback; 2 s of silence
+           after each pass; repeats until START
+tones      played in RUN 33's press order: 128, 512, 256, 1024 Hz (agb-sweep sweep-0002, A schedule)
+screen     "TONE k of 4", a pass counter and a heartbeat with the AI block count. NEVER the frequencies:
+           the Operator's ears are the check
+```
+
+### V21.2 The gate — the Operator's ears, frozen before the run
+
+For tones 2, 3 and 4, the Operator reports whether each one is **higher** or
+**lower** than the tone before it, and how many **distinct** pitches he heard.
+
+```text
+EXPECTED     four distinct pitches; tone 2 HIGHER than tone 1, tone 3 LOWER than tone 2,
+             tone 4 HIGHER than tone 3 -- "up, down, up" -- and tone 4 the highest of all
+             (played 128, 512, 256, 1024 Hz)
+PASS         four distinct pitches AND "up, down, up"
+FAIL         the AI block counter on screen advances and no sound is heard; OR fewer than four
+             distinct pitches; OR any other pattern
+INCONCLUSIVE the image refuses (no fixture, wrong size, wrong CRC); OR the counter on screen stops
+             advancing -- a crash or a stall, which is not an answer about audio
+```
+
+The counter is what separates "silent" from "stopped". Silence while it advances
+is a real FAIL of the output path. A frozen counter is not an audio result.
+
+### V21.3 What was checked before the run, and what could not be
+
+- **On the host:** every sample, bit for bit, against the #80 / #81 reference.
+  Each tone is within 2 % of its scheduled pitch at 32 kHz, and each gap is exactly
+  silent after the resampler's 125-frame ring-out. A damaged sidecar and a short
+  buffer are refused.
+- **In Dolphin,** through a DOLPHIN FLOW variant (`make aout-dolphin-play`, EMBED=1:
+  the fixture linked in, build id `aout-0001-dolphin`, its own output directory,
+  never staged, never for the console):
+  - the sequence builds from RUN 33 (CRC `d3dbd9a6`, 4 tones, 194 000 frames);
+  - the AI DMA runs;
+  - its callback completes a whole pass (34 blocks started, when block 0 plays
+    again).
+
+  The console image's own Dolphin run (`make aout-dolphin`) checks the refusal
+  without a card. **Dolphin's audio is not evidence of anything** (`CLAUDE.md`
+  §6.4).
+- **Not checkable before the run:** whether the console's AI actually emits these
+  samples as sound. That is the whole of this test.

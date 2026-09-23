@@ -15044,3 +15044,50 @@ Nothing else reads `build/poc` as a record, and the test enforces that.
 **Next.** #86 continues. Staging 15 and 16 needs no change, provided each row is
 added FROZEN with its validated hash before the export (#44's rule, and RULE 1
 then checks `build/poc` against it).
+
+## 2026-09-23 — Issue #86: AOUT-HW-001 — the output path, built and pre-registered (not a GBP audio test)
+
+**Goal.** Make the GameCube emit sound from the RUN 33 fixture through `src/audio/`,
+unchanged. This is an OUTPUT-PATH test, NOT a Game Boy Player audio test. No POC
+had ever linked an audio output: the console had never been asked to make a sound.
+
+**Built.**
+- **`src/audio/gbp_alisten`.** It builds v17decode's LISTEN construction at the
+  runtime's own rate, through the #81 modules unchanged:
+  - calibrate on the control window;
+  - decode each press window's sliced region;
+  - repeat it to about 1 s;
+  - add 0.5 s of silence (the one thing the #80 file did not have);
+  - pass everything through one frozen 125/16 resampler, to 32 kHz stereo.
+
+  `tests/host/test_audio_listen.py` compares it with the RUN 33 fixture:
+  - bit-identical to the reference, built from `v17decode` plus the integer model
+    of the resampler, both imported from #81's test so they cannot drift;
+  - every tone within 2 % of 128, 512, 256 and 1024 Hz;
+  - exact silence in the gaps;
+  - a short buffer and a damaged sidecar are refused.
+- **`poc/audio-output-replay`, `aout-0001`, AOUT-HW-001.** It reads the fixture from
+  the SD and refuses anything that is not RUN 33 (size and CRC). It plays through
+  the AI DMA at 32 kHz, in 0.25 s blocks queued from the callback. The screen
+  shows the tone number, never the frequency.
+- **The `aout` audit profile** is written as the set of what must be ABSENT. It
+  finds 0 findings, and it discriminates both ways: 98 findings for this image
+  audited as `play`, 71 for play-0001 audited as `aout`.
+- **`tests/host/test_aout_image.py`.**
+- **The DOLPHIN FLOW variant.** Dolphin has no SD2SP2, so `EMBED=1` links the
+  fixture in, under its own build id and its own directory, never staged. This is
+  what lets the playback path run in Dolphin: the sequence builds, the AI DMA
+  runs, and the callback completes a pass. Dolphin's audio is not evidence.
+
+**Recorded.** §V21 pre-registers the Operator's gate before the run: four
+distinct pitches, "up, down, up". The AI block counter on screen separates silence
+from a stop.
+
+**For staging (the Hardware Issue).**
+- Slot 16-aout is proposed.
+- The DOL is built on a clean commit, and its hash is recorded then.
+- The fixture file goes to `sd:/open-gbp/aout/run33-audio.bin` (5 243 788 B,
+  sha256 `cfe472d3…252b8`) and is verified from the card.
+
+**The same finding as #88 applies here.** The row must be added FROZEN before the
+export.
