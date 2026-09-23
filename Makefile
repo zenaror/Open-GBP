@@ -733,7 +733,7 @@ aout-dolphin:
 	  --report $(AOUT_OUT)/dolphin-report-absent.json --screen-png $(AOUT_OUT)/dolphin-screen-absent.png
 
 # AOUT-HW-001's PLAYBACK path in Dolphin, through the DOLPHIN FLOW variant (EMBED=1: the fixture
-# linked in, build id aout-0001-dolphin, its own output directory, never staged, never for the
+# linked in, build id aout-0002-dolphin, its own output directory, never staged, never for the
 # console). Checked: the sequence builds from RUN 33 (CRC, four tones, 194 000 frames), the AI DMA
 # runs and its callback cycles the blocks through a whole pass. NOT checked, and not checkable here:
 # what the audio sounds like -- Dolphin's audio is not evidence (CLAUDE.md §6.4).
