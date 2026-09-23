@@ -457,8 +457,12 @@ class ThePlumbing(unittest.TestCase):
         self.assertEqual(rows["14"][3], "gbp-audio-window-probe.dol")
         self.assertEqual(rows["14"][6], "1")
         self.assertEqual(rows["14"][-1], AWIN_DOL_SHA256)
-        # and it is a NEW number: nothing was renumbered
-        self.assertNotIn("15", rows)
+        # and it is a NEW number: nothing was renumbered. 2026-09-23: the drain and output-path
+        # candidates took the next two numbers for the one sitting the Operator decided on
+        # (§V19.12, §V21.4) -- NEW numbers again, and 12..14 above still hold their pins
+        self.assertEqual((rows["15"][1], rows["15"][2]), ("drain", "gbp-audio-drain-probe"))
+        self.assertEqual((rows["16"][1], rows["16"][2]), ("aout", "audio-output-replay"))
+        self.assertNotIn("17", rows)
 
     def test_what_is_staged_is_the_image_this_checkpoint_built(self):
         """The slot's bytes, when it is staged in this checkout. The DOL's own

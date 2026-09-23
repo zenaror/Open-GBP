@@ -333,8 +333,12 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         # Hardware Issue #61 (2026-09-22) staged 14-audio, frozen from the start because it is
         # staged FOR a run that has not happened yet
         self.assertEqual(rows["14-audio"], "c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54")
+        # Issue #84 / #86 (2026-09-23): the drain and output-path candidates, frozen from the start for
+        # the one sitting the Operator decided on (§V19.12, §V21.4)
+        self.assertEqual(rows["15-drain"], "4c80ab8a34d9260793e036beda513a9a23be86d04c61c0d653c6f79fc7333884")
+        self.assertEqual(rows["16-aout"], "161492325661ffc63288c33712dcf7be98554828581e3d8e4564d0381b13ba90")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
-                         ["12-stream", "13-play", "14-audio"])
+                         ["12-stream", "13-play", "14-audio", "15-drain", "16-aout"])
         # and every frozen hash is one HARDWARE_TESTS.md names, so the manifest cannot drift from the
         # record. ONE document, deliberately: an invariant that may be satisfied by either of two files
         # is weaker than one that must be satisfied by a named file, and this project has already paid
