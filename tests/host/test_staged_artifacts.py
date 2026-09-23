@@ -50,6 +50,11 @@ FROZEN = {
     # Issue #88: the third pinned slot, which this dict had not carried
     "14-audio": ("c3281a8c1382a1136a881c5548ef8238d69fa7862861d66741310b3d1f5f9c54", HW,
                  "stream-0016 @ 04121fe, staged under Hardware Issue #61; RUN 33, 34 and 35 executed it"),
+    # 2026-09-23: the one sitting the Operator decided on (§V19.12, §V21.4)
+    "15-drain": ("4c80ab8a34d9260793e036beda513a9a23be86d04c61c0d653c6f79fc7333884", HW,
+                 "drain-0001 @ 897ea6c, GBP-AUDIO-005, staged for its first run"),
+    "16-aout": ("161492325661ffc63288c33712dcf7be98554828581e3d8e4564d0381b13ba90", HW,
+                "aout-0001 @ 2f14028, AOUT-HW-001, staged for its first run"),
 }
 
 # Issue #83, pattern H: A RECORD THAT CERTIFIES ITSELF.

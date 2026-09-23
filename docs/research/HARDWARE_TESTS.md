@@ -32157,6 +32157,21 @@ consistency check between two independent counts of the same phase (the row
 above), and `tools/v19drain.py` receives both through its unchanged
 `counter_total` / `timebase_total` parameters.
 
+### V19.12 The candidate, STAGED — 2026-09-23 — `drain-0001` in slot `15-drain`
+
+*Appended; nothing above is edited.* Staged at the Operator's decision, relayed by
+the Orchestrator: both runs in one sitting, accepting the unexplained 1-in-40
+Dolphin smoke failure recorded by Issue #87.
+
+```text
+slot       15-drain -- FROZEN in tools/swiss-layout.tsv before the export (Issue #44's rule)
+image      poc/gbp-audio-drain-probe / drain-0001 / commit 897ea6c (clean) / GBP-AUDIO-005
+DOL        500 992 B   sha256 4c80ab8a34d9260793e036beda513a9a23be86d04c61c0d653c6f79fc7333884
+cartridge  agb-sweep sweep-0002 (build/physical/agb-sweep-cart.gba, 9596ddee...95f2)
+card       written by tools/swiss_export.py --only 15-drain, copied to the SD and VERIFIED FROM THE
+           CARD by a page-cache-bypassing read
+```
+
 ## V20 — RUN 35 INGESTED (GitHub Issue #85, GBP-AUDIO-006): **`question_L_bits` = LINEAR**, self-contained in one run, and `GBP-HW-305` is **FACT** — **2026-09-23**
 
 **The verdict, before any commentary, as the Issue requires: `question_L_bits`
@@ -32335,3 +32350,17 @@ is a real FAIL of the output path. A frozen counter is not an audio result.
   §6.4).
 - **Not checkable before the run:** whether the console's AI actually emits these
   samples as sound. That is the whole of this test.
+
+### V21.4 The candidate, STAGED — 2026-09-23 — `aout-0001` in slot `16-aout`, and the fixture on the card
+
+*Appended; §V21 up to §V21.3 stands as frozen at 2f14028.*
+
+```text
+slot       16-aout -- FROZEN in tools/swiss-layout.tsv before the export (Issue #44's rule)
+image      poc/audio-output-replay / aout-0001 / commit 2f14028 (clean) / AOUT-HW-001
+DOL        362 016 B   sha256 161492325661ffc63288c33712dcf7be98554828581e3d8e4564d0381b13ba90
+fixture    sd:/open-gbp/aout/run33-audio.bin = captures/fixtures/...-run33-audio.bin.gz decompressed,
+           5 243 788 B, sha256 cfe472d36ba6040ecbedf9adfc601b73b501d401f363ccc78c20cafa136252b8
+card       both VERIFIED FROM THE CARD by a page-cache-bypassing read after writing
+```
+
