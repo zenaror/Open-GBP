@@ -164,6 +164,61 @@ static void test_the_file(void)
     CHECK(gbp_atrace_emit(&tr, put_fail, 0, stage, sizeof stage) == 0u);
 }
 
+/* Issue #105 (Run B, §V24.4, §V24.7): version 2 -- a tag in each step's spare byte, and every step of each
+ * sample_every-th AI cycle kept with no floor. Version 1 is what every earlier build emits. */
+static struct gbp_atrace_step sample[GBP_ATRACE_SAMPLE_MAX];
+
+static void test_version_2_tags_and_the_floorless_sample(void)
+{
+    struct gbp_atrace tr;
+    struct gbp_atrace_storage s;
+    static uint8_t stage[512];
+    uint32_t n, o, i, k;
+    printf("-- Issue #105: version 2, the tag and the floorless sample of every N-th cycle\n");
+    storage(&s);
+    s.sample = sample;
+    gbp_atrace_init(&tr, &s, 40500000u);
+    tr.sample_every = 8u;
+    /* cycle 0 (before the first callback): not sampled */
+    (void)gbp_atrace_step_tagged(&tr, GBP_ATRACE_PRODUCE, 1000u, 1050u, 7u);
+    CHECK(tr.sample_n == 0u);
+    /* cycle 1 (after callback 1): sampled -- a 50-tick step too, and its tag */
+    (void)gbp_atrace_callback(&tr, 2000u, 2067u);
+    (void)gbp_atrace_step_tagged(&tr, GBP_ATRACE_PRODUCE, 3000u, 3050u, 0x0Bu);
+    (void)gbp_atrace_step_tagged(&tr, GBP_ATRACE_PRODUCE, 4000u, 6000u, 0x09u);
+    (void)gbp_atrace_step(&tr, GBP_ATRACE_PROCESS, 7000u, 7020u);
+    CHECK(tr.sample_n == 3u && tr.sample_base == 3000u);
+    CHECK(sample[0].dur == 50u && sample[0].tag == 0x0Bu && sample[0].start_rel == 0u);
+    CHECK(sample[2].kind == GBP_ATRACE_PROCESS && sample[2].tag == 0u && sample[2].start_rel == 4000u);
+    CHECK(tr.step_n == 1u && steps[0].tag == 0x09u);          /* the kept (above-floor) step keeps its tag */
+    /* cycles 2..8: not sampled; cycle 9: sampled again */
+    for (k = 2u; k <= 9u; k++) (void)gbp_atrace_callback(&tr, 2000u + k * 100000u, 2067u + k * 100000u);
+    (void)gbp_atrace_step_tagged(&tr, GBP_ATRACE_PRODUCE, 950000u, 950010u, 1u);
+    CHECK(tr.sample_n == 4u);
+    tr.sample_n = GBP_ATRACE_SAMPLE_MAX;                       /* a full sample is counted, never overrun */
+    (void)gbp_atrace_step(&tr, GBP_ATRACE_PROCESS, 950100u, 950110u);
+    CHECK(tr.sample_dropped == 1u);
+    tr.sample_n = 4u;
+    out_n = 0u;
+    n = gbp_atrace_emit(&tr, put_mem, 0, stage, sizeof stage);
+    CHECK(n == out_n && rd32(out + 8) == 2u);                 /* version 2 */
+    CHECK(rd32(out + n - 4u) == gbp_crc32(out, n - 4u));
+    /* the kept step's spare byte is its tag in version 2 */
+    o = 0x64u + 4u * 4u + 4u * 4u * GBP_ATRACE_HIST_BINS + 16u * tr.cb_n;   /* no AUDIO/VIDEO records here */
+    CHECK(out[o + 11u] == 0x09u);
+    /* the sample block: header then records, right before the CRC */
+    o = n - 4u - 12u * 4u - 20u;
+    CHECK(rd32(out + o) == 8u && rd32(out + o + 4u) == 4u && rd32(out + o + 8u) == 1u && rd64(out + o + 12u) == 3000u);
+    for (i = 0; i < 4u; i++) CHECK(out[o + 20u + 12u * i + 11u] == sample[i].tag);
+    /* and with sample_every 0 the same records give a version-1 file with every spare byte 0 */
+    tr.sample_every = 0u;
+    out_n = 0u;
+    n = gbp_atrace_emit(&tr, put_mem, 0, stage, sizeof stage);
+    CHECK(rd32(out + 8) == 1u);
+    o = 0x64u + 4u * 4u + 4u * 4u * GBP_ATRACE_HIST_BINS + 16u * tr.cb_n;   /* no AUDIO/VIDEO records here */
+    CHECK(out[o + 11u] == 0u);
+}
+
 int main(void)
 {
     test_audio();
@@ -171,6 +226,7 @@ int main(void)
     test_callbacks_steps_and_cost();
     test_full_buffers_are_counted();
     test_the_file();
+    test_version_2_tags_and_the_floorless_sample();
     printf("test_gbp_atrace: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

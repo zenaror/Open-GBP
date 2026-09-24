@@ -95,11 +95,34 @@ struct gbp_atrace_cb *gbp_atrace_callback(struct gbp_atrace *tr, uint64_t entry,
 
 struct gbp_atrace_step *gbp_atrace_step(struct gbp_atrace *tr, enum gbp_atrace_kind kind, uint64_t start, uint64_t end)
 {
+    return gbp_atrace_step_tagged(tr, kind, start, end, 0u);
+}
+
+struct gbp_atrace_step *gbp_atrace_step_tagged(struct gbp_atrace *tr, enum gbp_atrace_kind kind, uint64_t start,
+                                               uint64_t end, uint8_t tag)
+{
     struct gbp_atrace_step *st;
     uint64_t dur = end - start;
     if ((unsigned)kind < 4u) {
         tr->calls[kind]++;
         tr->hist[kind][log2_bin(dur)]++;
+    }
+    /* Issue #105 (§V24.4): in a sampled cycle, every step, with no floor */
+    if (tr->sample_every && tr->s.sample && tr->cb_n % tr->sample_every == 1u) {
+        if (!tr->sample_armed) {
+            tr->sample_armed = 1;
+            tr->sample_base = start;
+        }
+        if (tr->sample_n < GBP_ATRACE_SAMPLE_MAX) {
+            struct gbp_atrace_step *sp = &tr->s.sample[tr->sample_n++];
+            sp->start_rel = (uint32_t)(start - tr->sample_base);
+            sp->dur = (uint32_t)dur;
+            sp->rec = 0u;
+            sp->kind = (uint8_t)kind;
+            sp->tag = tag;
+        } else {
+            tr->sample_dropped++;
+        }
     }
     if (kind != GBP_ATRACE_FLUSH_QUEUE && dur < GBP_ATRACE_STEP_FLOOR) return 0;
     if (!tr->step_armed) {
@@ -112,6 +135,7 @@ struct gbp_atrace_step *gbp_atrace_step(struct gbp_atrace *tr, enum gbp_atrace_k
     st->dur = (uint32_t)dur;
     st->rec = 0u;
     st->kind = (uint8_t)kind;
+    st->tag = tag;
     return st;
 }
 
@@ -206,6 +230,9 @@ static void be64(struct emitter *e, uint64_t v)
  *   ....  (u64 entry, u32 dur, u32 rec) x cb_n
  *   ....  (u32 start_rel, u32 dur, u16 rec, u8 kind, u8 0) x step_n
  *   ....  u32 x cycles_n         the recorder's other writes, per AI callback cycle
+ *   VERSION 2 ONLY (sample_every != 0; Issue #105): each step's spare byte is its tag, and
+ *   ....  u32  sample_every, sample_n, sample_dropped; u64 sample_base
+ *   ....  (u32 start_rel, u32 dur, u16 0, u8 kind, u8 tag) x sample_n
  *   ....  u32                    CRC-32 of every byte before it
  */
 uint32_t gbp_atrace_emit(const struct gbp_atrace *tr, gbp_atrace_put put, void *ctx, uint8_t *stage, uint32_t cap)
@@ -221,7 +248,7 @@ uint32_t gbp_atrace_emit(const struct gbp_atrace *tr, gbp_atrace_put put, void *
     e.cap = cap;
     e.crc = gbp_crc32_init();
     put_bytes(&e, magic, 8u);
-    be32(&e, 1u);
+    be32(&e, tr->sample_every ? 2u : 1u);
     be32(&e, tr->tb_hz);
     be32(&e, tr->a_n); be32(&e, tr->a_sat_n); be32(&e, tr->v_n); be32(&e, tr->v_sat_n);
     be32(&e, cb_n); be32(&e, tr->step_n); be32(&e, tr->cycles_n);
@@ -244,10 +271,23 @@ uint32_t gbp_atrace_emit(const struct gbp_atrace *tr, gbp_atrace_put put, void *
         be32(&e, tr->s.step[i].dur);
         be16(&e, tr->s.step[i].rec);
         kz[0] = tr->s.step[i].kind;
-        kz[1] = 0u;
+        kz[1] = tr->sample_every ? tr->s.step[i].tag : 0u;
         put_bytes(&e, kz, 2u);
     }
     for (i = 0; i < tr->cycles_n; i++) be32(&e, tr->s.cycles[i]);
+    if (tr->sample_every) {
+        be32(&e, tr->sample_every); be32(&e, tr->sample_n); be32(&e, tr->sample_dropped);
+        be64(&e, tr->sample_base);
+        for (i = 0; i < tr->sample_n; i++) {
+            uint8_t kz[2];
+            be32(&e, tr->s.sample[i].start_rel);
+            be32(&e, tr->s.sample[i].dur);
+            be16(&e, 0u);
+            kz[0] = tr->s.sample[i].kind;
+            kz[1] = tr->s.sample[i].tag;
+            put_bytes(&e, kz, 2u);
+        }
+    }
     {
         uint32_t crc = gbp_crc32_final(e.crc);
         uint8_t b[4];

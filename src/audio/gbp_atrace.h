@@ -24,8 +24,16 @@
  *            accumulation into the cycle, a few instructions after the second read of
  *            the clock, is the one part outside it.
  *
+ *   SAMPLE   Issue #105 (Run B, §V24.4): with sample_every set, EVERY chain step of every
+ *            sample_every-th AI cycle (cycles 1, 1 + N, ...) is also kept WITHOUT a floor,
+ *            with its tag, in its own bounded store. Descriptive; it decides nothing.
+ *   TAG      Issue #105 (§V24.7): a step may carry a tag in its spare byte (Run B: the
+ *            chunk's arm, a first-step mark and the chunk's seq mod 64).
+ *
  * A full buffer is counted, never overflowed. The emitted file is big-endian, CRC-32
- * terminated, and tools/v23report.py turns it into the report tools/v23accept.py reads.
+ * terminated. VERSION 1 (trace-0001, sample off): the step's spare byte is 0 and nothing
+ * follows the cycles -- tools/v23report.py reads it. VERSION 2 (sample on): the spare byte
+ * is the tag and the sample block follows the cycles -- tools/v24report.py reads it.
  * tests/unit/test_gbp_atrace.c exercises it with no hardware.
  */
 #ifndef OPENGBP_GBP_ATRACE_H
@@ -48,6 +56,7 @@
 #define GBP_ATRACE_CYCLES_MAX    4097u   /* index 0: before the first callback */
 #define GBP_ATRACE_STEP_FLOOR     200u   /* 4.9 us: below it a produce or process is counted, not kept */
 #define GBP_ATRACE_HIST_BINS       32u   /* log2 of the duration in ticks */
+#define GBP_ATRACE_SAMPLE_MAX   65536u   /* §V24.4: ~60 k floorless steps, every 8th cycle of 64 s */
 
 #define GBP_ATRACE_A_SAT       0xFFFFu
 #define GBP_ATRACE_V_START     0x8000u
@@ -61,7 +70,7 @@ enum gbp_atrace_kind {
 
 struct gbp_atrace_sat { uint32_t index; uint64_t t; };
 struct gbp_atrace_cb { uint64_t entry; uint32_t dur; uint32_t rec; };
-struct gbp_atrace_step { uint32_t start_rel; uint32_t dur; uint16_t rec; uint8_t kind; };
+struct gbp_atrace_step { uint32_t start_rel; uint32_t dur; uint16_t rec; uint8_t kind; uint8_t tag; };
 
 struct gbp_atrace_storage {
     int16_t *a_decoded;                 /* GBP_ATRACE_A_MAX */
@@ -72,6 +81,7 @@ struct gbp_atrace_storage {
     struct gbp_atrace_cb *cb;           /* GBP_ATRACE_CB_MAX */
     struct gbp_atrace_step *step;       /* GBP_ATRACE_STEP_MAX */
     uint32_t *cycles;                   /* GBP_ATRACE_CYCLES_MAX */
+    struct gbp_atrace_step *sample;     /* GBP_ATRACE_SAMPLE_MAX; NULL when there is no sample */
 };
 
 struct gbp_atrace {
@@ -85,6 +95,10 @@ struct gbp_atrace {
     uint32_t calls[4];                  /* every call, by kind */
     uint32_t hist[4][GBP_ATRACE_HIST_BINS];
     int step_armed;
+    /* Issue #105: the floorless sample; sample_every 0 (every earlier build) means none, version 1 */
+    uint32_t sample_every, sample_n, sample_dropped;
+    uint64_t sample_base;
+    int sample_armed;
 };
 
 void gbp_atrace_init(struct gbp_atrace *tr, const struct gbp_atrace_storage *s, uint32_t tb_hz);
@@ -97,6 +111,9 @@ void gbp_atrace_video(struct gbp_atrace *tr, int frame_start, uint64_t t_done);
 struct gbp_atrace_cb *gbp_atrace_callback(struct gbp_atrace *tr, uint64_t entry, uint64_t exit_);
 /* the pump slot: the chain step's start and end; the step base is the first step's start */
 struct gbp_atrace_step *gbp_atrace_step(struct gbp_atrace *tr, enum gbp_atrace_kind kind, uint64_t start, uint64_t end);
+/* the same, with a tag for the step's spare byte (Issue #105); gbp_atrace_step is this with tag 0 */
+struct gbp_atrace_step *gbp_atrace_step_tagged(struct gbp_atrace *tr, enum gbp_atrace_kind kind, uint64_t start,
+                                               uint64_t end, uint8_t tag);
 /* the recorder's own write of a step, measured by the caller right after gbp_atrace_step:
  * kept, it is the step's rec; not kept (under the floor, or the buffer full), it goes to
  * the cycle's cost like every other recorder write */
