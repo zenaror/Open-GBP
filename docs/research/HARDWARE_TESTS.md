@@ -35585,3 +35585,101 @@ The answers map one to one onto §V25.8's declaration (r11):
 
 The typography follows the Operator's own rule: a button and its count are separated
 (`A  × 1`), and a button with two names carries both (`X  ou  Y  = o SELECT do GBA`).
+
+
+### V25.10 **AMENDMENT 1** — 2026-09-24, BEFORE any hardware — `QUESTION V`'s bound stated in RUN 40's own integers
+
+*Appended. §V25.0–§V25.9 stand. The amendment replaces one threshold: the `0.694/s` of
+§V25.7 4 and reading (r10). Everything else in §V25 stands, and nothing about the image
+changes.*
+
+**Sources.** Both forms are given, as §V25.8 defines them: **raw** is the body's own
+characters; **printed** is `gh api … --jq .body`, which appends one `\n`.
+
+```text
+source                     what                                               chars  raw sha256                                                        printed sha256
+issuecomment-5820375603    AMENDMENT 1 as first posted -- SUPERSEDED before   1 561  ced2aaa8258b220e8e05cbbd7c09ca54dde3df3b2f32d4f829299de2f9dd38a5  96cfcb32d4e5264699e4cf906ad057e2e4410ca4b40c612c9a80a32a5f0f6b55
+                           any transcription, NOT transcribed
+issuecomment-5820406569    AMENDMENT 1, CORRECTED TEXT -- transcribed below   2 347  5392c9164b8b7198009f1924d4598cd3241d3a99e3564f702d2e48cde8fc8ac0  1820c2004aa47ad899df18dc9f38943af81fe837ecfa06afc79821cd763e5de5
+```
+
+**Why the first posting is not transcribed.** It replaced `0.694` with `44 / 63.384 s` and
+said the bound "cannot be re-rounded". But `63.384 s` is itself RUN 40's AI span rounded up,
+from 2 567 047 476 ticks = 63.38388830 s. The bound it gave, 0.69418150/s, still sat
+1.22e-06/s below RUN 40's own rate of 0.69418272/s. The Executor showed this on the
+Orchestrator's channel before any transcription. The Orchestrator reproduced every figure and
+posted the corrected text, which is the one transcribed.
+
+The corrected text, transcribed verbatim from the line after its title. The only edit is that
+`### ` becomes `#### `:
+
+**AMENDMENT 1 as I first wrote it reproduced the defect it fixed, one level
+down.** The Executor caught it before transcription. The superseded text stays
+above; this is what §V25.10 carries.
+
+#### What was wrong with my fix
+
+I replaced the rounded decimal `0.694` with the quotient `44 / 63.384` and wrote
+that it *"cannot be re-rounded by whoever reads it next"*.
+
+**`63.384` is itself a rounding.** Verified:
+
+```text
+RUN 40's AI span      2 567 047 476 ticks at 40.5 MHz  =  63.38388830 s
+RUN 40's own rate     44 x 40 500 000 / 2 567 047 476  =  0.69418272 /s
+my amended bound      44 / 63.384                      =  0.69418150 /s
+                      the bound sits 1.22e-06 /s BELOW RUN 40's own rate
+```
+
+So a run identical to RUN 40 — 44 frames over the same 2 567 047 476 ticks —
+**still reads DOES NOT HOLD.** I moved the rounding from the numerator into the
+denominator and asserted in the same sentence that it was gone.
+
+#### The corrected bound — integers only, nothing rounded anywhere
+
+```text
+QUESTION V holds iff
+
+    E_inside  x  2 567 047 476   <=   44  x  (t_ai_stop - t_ai_start)
+
+integer arithmetic, inclusive, in ticks of the 40.5 MHz timebase.
+The decimal 0.69418272… /s is CONTEXT and is NEVER the threshold.
+```
+
+Both integers are already pinned: `test_v25_prior` asserts the span
+`2 567 047 476` from RUN 40's `LIVET2`, and `FRAMECAP incomplete = 57 = 13 + 44`.
+
+**A run exactly at RUN 40's rate now HOLDS, with equality** — which is what the
+amendment was for.
+
+#### What this says about the method, and it is not flattering to me
+
+The original defect was a rounded threshold that excluded its own reference case.
+**My fix introduced a smaller rounding and claimed in its own text to have
+removed rounding.** A false claim, made in the sentence that was supposed to
+guarantee the opposite.
+
+**A threshold derived from measurements should be stated in the integers those
+measurements produced, not in any decimal.** A decimal is a rendering of a
+number, the way a `--jq`-printed body is a rendering of a document — and this
+project has now been bitten by both in one day.
+
+Nothing else in §V25 changes. `QUESTION V` remains a guard against gross
+breakage, not a claim the video is unaffected, and the half arm's 0.19/s stays
+beside it as context only.
+
+**Applied, and nothing else.**
+- **`tools/v25accept.py`.** `V_RATE_MAX` is gone. In its place are `V_REF_E = 44` and
+  `V_REF_TICKS = 2567047476`, and the video clause compares
+  `E_inside × V_REF_TICKS <= V_REF_E × (t_ai_stop − t_ai_start)` in integers.
+- **Pinned against the frozen tool.** `tests/host/test_v25accept.py` pins the tool against
+  `54383e6`: the ONLY eight lines gone are V's old bound — its docstring line, the seconds
+  line it needed, the constant, and the comparison with its two messages. The tool's bytes are
+  pinned at this amendment's commit from now on.
+- **The reference case.**
+  - A run exactly at RUN 40's rate (44 over 2 567 047 476 ticks) HOLDS, with equality:
+    112 950 088 944 ≤ 112 950 088 944.
+  - 88 over twice the span holds. One tick short fails. 45 over the span fails.
+  - `tests/host/test_v25_prior.py` asserts that the two integers are RUN 40's own: the
+    span from its LIVET2, and the 44 from FRAMECAP 57 = 13 + 44.
+- **§V25.8's knife-edge paragraph stays as written.** It records why this amendment exists.

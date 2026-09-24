@@ -38,10 +38,13 @@ WHAT IS FROZEN HERE, AND WHERE EACH PART COMES FROM
       open. Any other defect marked "yes" leaves his verdict standing, the clip count beside.
 
   V   §V25.4 as §V25.7 4 decides, read by (r7) and (r10). PASS only if ALL of:
-          the video clause HOLDS:  E_outside == 0  AND  E_inside / AI seconds <= 0.694
+          the video clause HOLDS:  E_outside == 0  AND
+                                   E_inside x 2 567 047 476  <=  44 x (t_ai_stop - t_ai_start)
               E_outside = incomplete frames BEFORE + AFTER the AI span - 13
               E_inside  = incomplete frames INSIDE it, by each frame's t_last_block
-              AI seconds = (t_ai_stop - t_ai_start) / 40.5 MHz
+              the bound is RUN 40's own rate in the two integers it measured -- 44 incomplete
+              frames over 2 567 047 476 ticks of the 40.5 MHz timebase -- compared in integers,
+              inclusive (§V25.10, AMENDMENT 1). 0.69418272.../s is CONTEXT, never the threshold
           and he reports the PICTURE normal and the CONTROLS responding.
       E_outside != 0 in EITHER direction is not a PASS. A guard against gross breakage, NOT
       a claim the video is unaffected; E_inside's rate is reported beside the half arm's
@@ -117,7 +120,10 @@ R_READING = ("this run's workload against RUN 40's -- one run cannot separate th
 
 # V (§V25.7 4, (r7), (r10))
 START_UP_SIGNATURE = 13
-V_RATE_MAX = Fraction(694, 1000)      # 44 / 63.38 s, INCLUSIVE
+# §V25.10 AMENDMENT 1: RUN 40's own integers, never a decimal. A run exactly at RUN 40's rate HOLDS,
+# with equality: E_inside x V_REF_TICKS <= V_REF_E x (t_ai_stop - t_ai_start), in 40.5 MHz ticks
+V_REF_E = 44                          # RUN 40's incomplete frames inside its AI span (FRAMECAP 57 = 13 + 44)
+V_REF_TICKS = 2567047476              # RUN 40's AI span, t_ai_stop - t_ai_start (LIVET2)
 V_CONTEXT = "RUN 40's half arm: 0.19/s (6 of 44 by gap time, DESCRIPTIVE -- GBP-HW-334), CONTEXT only"
 
 # A (§V25.7 3(a), 3(b), (r11))
@@ -244,12 +250,14 @@ def video_clause(report):
         out.update(verdict="DOES NOT HOLD",
                    why="E outside the AI span is %+d: the start-up signature of 13 changed (%d before, %d after)"
                        % (e_out, v["before"], v["after"]))
-    elif rate > V_RATE_MAX:
-        out.update(verdict="DOES NOT HOLD", why="E inside the AI span is %d over %.3f s = %.4f/s, above 0.694/s"
-                                                % (e_in, ai_ticks / float(TB_HZ), rate))
+    elif e_in * V_REF_TICKS > V_REF_E * ai_ticks:
+        out.update(verdict="DOES NOT HOLD",
+                   why="E inside the AI span is %d over %d ticks (%.4f/s): %d x 2567047476 > 44 x %d, above RUN "
+                       "40's own rate (§V25.10)" % (e_in, ai_ticks, rate, e_in, ai_ticks))
     else:
-        out.update(verdict="HOLDS", why="E outside 0; E inside %d over %.3f s = %.4f/s <= 0.694/s"
-                                        % (e_in, ai_ticks / float(TB_HZ), rate))
+        out.update(verdict="HOLDS",
+                   why="E outside 0; E inside %d over %d ticks (%.4f/s): %d x 2567047476 <= 44 x %d, at or under "
+                       "RUN 40's own rate (§V25.10)" % (e_in, ai_ticks, rate, e_in, ai_ticks))
     return out
 
 

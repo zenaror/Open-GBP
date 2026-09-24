@@ -5,8 +5,9 @@ numbers froze, recomputed from the versioned fixtures (captures/fixtures/…-spl
 Everything goes through frozen code: tools/v22report.py (R's `not_drained`), tools/v24report.py (the trace),
 tools/v23accept.py's audio_losses (the tone-located losses and their k) and tools/u045arms.py's cycle -> arm
 rule. Pinned: that the count R now uses agrees with the tone detector it replaces; the half arm's prior in
-blocks per second, 8.39, and 9.23 beside it by the per-cycle count; and RUN 40's AI span, which puts its own
-44 incomplete frames at 0.69418/s, just above §V25's literal 0.694.
+blocks per second, 8.39, and 9.23 beside it by the per-cycle count; and RUN 40's AI span, which put its own
+44 incomplete frames at 0.69418/s, just above §V25's first literal 0.694 -- and which §V25.10 AMENDMENT 1 made
+the bound itself, in the two integers RUN 40 measured.
 """
 import bisect
 import os
@@ -79,7 +80,8 @@ class RUN40AsSection25SawIt(unittest.TestCase):
         self.assertEqual(span, 2567047476)
         rate = 44 * TB / span
         self.assertAlmostEqual(rate, 0.69418, places=5)
-        self.assertGreater(rate, float(v25accept.V_RATE_MAX))
+        self.assertGreater(rate, 0.694)                               # why the first literal was amended
+        self.assertEqual((v25accept.V_REF_E, v25accept.V_REF_TICKS), (44, span))   # §V25.10: the bound's integers
         self.assertIn("incomplete=57", self.log)                     # 57 = 13 + 44
         self.assertTrue(re.search(r"FRAMECAP frames=\d+ complete=\d+ incomplete=57 ", self.log))
 

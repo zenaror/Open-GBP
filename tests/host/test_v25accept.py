@@ -196,23 +196,28 @@ class QuestionV(unittest.TestCase):
             self.assertEqual(vid["verdict"], "DOES NOT HOLD", (before, after))
             self.assertIn("start-up signature of 13 changed", vid["why"])
 
-    def test_the_rate_bound_is_inclusive(self):
-        span = 500 * TB                                       # 347 / 500 s = 0.694 exactly
-        ok = report(video__inside=347, video__stored=360, video__framecap_incomplete=360,
-                    video__t_ai_stop=AI0 + span)
-        self.assertEqual(v.video_clause(ok)["verdict"], "HOLDS")
-        over = report(video__inside=348, video__stored=361, video__framecap_incomplete=361,
-                      video__t_ai_stop=AI0 + span)
-        self.assertEqual(v.video_clause(over)["verdict"], "DOES NOT HOLD")
+    def at(self, inside, ticks):
+        return v.video_clause(report(video__inside=inside, video__stored=13 + inside,
+                                     video__framecap_incomplete=13 + inside, video__t_ai_stop=AI0 + ticks))
 
-    def test_RUN_40s_own_figure_sits_just_above_the_rounded_bound(self):
-        """44 over RUN 40's 63.3839 s is 0.69418/s; the frozen bound is the literal 0.694. Pinned so the
-        knife edge is visible, not discovered."""
-        r = report(video__inside=44, video__stored=57, video__framecap_incomplete=57,
-                   video__t_ai_stop=AI0 + 2567047476)
-        vid = v.video_clause(r)
-        self.assertEqual(vid["verdict"], "DOES NOT HOLD")
-        self.assertAlmostEqual(vid["rate"], 0.69418, places=5)
+    def test_the_bound_is_RUN_40s_own_integers(self):
+        """§V25.10 AMENDMENT 1: E_inside x 2 567 047 476 <= 44 x span, in ticks. No decimal anywhere."""
+        self.assertEqual((v.V_REF_E, v.V_REF_TICKS), (44, 2567047476))
+        self.assertFalse(hasattr(v, "V_RATE_MAX"), "the rounded 0.694 must not survive as a threshold")
+
+    def test_RUN_40s_own_figure_holds_with_equality(self):
+        vid = self.at(44, 2567047476)
+        self.assertEqual(vid["verdict"], "HOLDS")
+        self.assertIn("44 x 2567047476 <= 44 x 2567047476", vid["why"])
+        self.assertAlmostEqual(vid["rate"], 0.69418272, places=8)     # CONTEXT, never the threshold
+
+    def test_the_bound_is_inclusive_and_exact(self):
+        self.assertEqual(self.at(45, 2567047476)["verdict"], "DOES NOT HOLD")
+        self.assertEqual(self.at(88, 2 * 2567047476)["verdict"], "HOLDS")                 # the same rate
+        self.assertEqual(self.at(88, 2 * 2567047476 - 1)["verdict"], "DOES NOT HOLD")      # one tick short
+        # both superseded roundings: each would have failed a run at RUN 40's exact rate
+        self.assertGreater(44 * TB / 2567047476.0, 0.694)
+        self.assertGreater(44 * TB / 2567047476.0, 44 / 63.384)
 
     def test_the_store_must_reconcile(self):
         self.assertEqual(v.video_clause(report(video__store_full=1))["verdict"], "INCONCLUSIVE")
@@ -359,12 +364,28 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
         j = t.find("\n## V26 ", i)
         return t[i:j] if j >= 0 else t[i:]
 
-    def test_the_gates_are_the_bytes_of_the_commit_that_froze_them(self):
+    # §V25.10 AMENDMENT 1 replaced V's bound and nothing else: these are the ONLY lines of the frozen tool
+    # that are gone
+    AMENDED = [
+        '          the video clause HOLDS:  E_outside == 0  AND  E_inside / AI seconds <= 0.694',
+        '              AI seconds = (t_ai_stop - t_ai_start) / 40.5 MHz',
+        'V_RATE_MAX = Fraction(694, 1000)      # 44 / 63.38 s, INCLUSIVE',
+        '    elif rate > V_RATE_MAX:',
+        '        out.update(verdict="DOES NOT HOLD", why="E inside the AI span is %d over %.3f s = %.4f/s, above 0.694/s"',
+        '                                                % (e_in, ai_ticks / float(TB_HZ), rate))',
+        '        out.update(verdict="HOLDS", why="E outside 0; E inside %d over %.3f s = %.4f/s <= 0.694/s"',
+        '                                        % (e_in, ai_ticks / float(TB_HZ), rate))',
+    ]
+
+    def test_the_frozen_gates_changed_only_by_amendment_1(self):
+        import difflib
         import frozen
+        then = frozen.source(self.KEY, "tools/v25accept.py").splitlines()
         with open(os.path.join(ROOT, "tools", "v25accept.py"), encoding="utf-8") as f:
-            now = f.read()
-        self.assertEqual(frozen.source(self.KEY, "tools/v25accept.py"), now,
-                         "tools/v25accept.py was edited after it was frozen")
+            now = f.read().splitlines()
+        removed = [l for tag, i1, i2, _j1, _j2 in difflib.SequenceMatcher(None, then, now, autojunk=False).get_opcodes()
+                   if tag != "equal" for l in then[i1:i2]]
+        self.assertEqual(removed, self.AMENDED)
 
     def test_the_part_was_frozen_in_the_same_commit_and_only_grows(self):
         import frozen
