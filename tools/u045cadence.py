@@ -50,14 +50,19 @@ def record(text, tag):
 # ------------------------------------------------------------------------------------------ AUDIO
 
 def half_periods(decoded):
-    """(start index, length) of every half-period between two transitions of the kept stream."""
+    """(start index, length) of every half-period between two transitions of the kept stream.
+
+    A mark is the index of the half's step sample, its last. When the step sample was not drained,
+    the mark is the plateau's last sample, so the half that lost its step measures 15 and the next 16.
+    CORRECTED 2026-09-24 (Issue #101): the mark was placed BETWEEN the two plateau samples, which made
+    both halves 15.5, and rounding hid the loss -- 10 of RUN 38's 306 losses were missed that way."""
     cls = ["H" if v > HIGH else "L" if v < LOW else "E" for v in decoded]
     marks = []
     for i in range(len(decoded) - 1):
         if cls[i] == "E":
-            marks.append(float(i))
+            marks.append(i)
         elif cls[i] != cls[i + 1] and cls[i + 1] != "E":
-            marks.append(i + 0.5)                     # a step with no intermediate sample
+            marks.append(i)                           # a step with no intermediate sample: the plateau's end
     return [(marks[k], marks[k + 1] - marks[k]) for k in range(len(marks) - 1)]
 
 
@@ -66,7 +71,7 @@ def audio_losses(decoded):
     halves = half_periods(decoded)
     out, before = [], 0
     for start, length in halves:
-        k = HALF - int(round(length))
+        k = HALF - length
         if k > 0:
             out.append(((start + before) / BLOCKS_PER_S, k))
             before += k

@@ -2204,3 +2204,8 @@ What stays open, and is now this item's question:
 The image and the conditions stay those of RUN 38, and the timestamps are recorded
 read-only. The design sketch is on Issue #100. The pre-registration is the
 Orchestrator's.
+
+**CORRECTED 2026-09-24 (GitHub Issue #101).** The "62 %" above is `GBP-HW-327`'s AUDIO
+figure as first computed. A transition whose step sample was not drained had its loss
+hidden by rounding. Corrected: 306 losses, 206 episodes, 65 % of chunk periods, R 0.957.
+The question this item asks is unchanged.
