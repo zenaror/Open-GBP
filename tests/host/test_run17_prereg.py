@@ -386,7 +386,9 @@ class NothingElseMoved(unittest.TestCase):
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz",
                              # Issue #90: RUN 36's console log, byte for byte (§V21.9)
-                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log"}
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log",
+                             # Issue #91: RUN 37's console log, byte for byte (§V19.14)
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-drain-0001-run37.log"}
         # Issue #82 (2026-09-23): tools/v18block.py, what one AUDIO block contains, measured on the
         # versioned fixtures (§V18). Descriptive, no gate; it reads captures and touches no image.
         changed = changed - {"tools/v18block.py"}
@@ -451,7 +453,9 @@ class NothingElseMoved(unittest.TestCase):
         changed2 = changed2 - {"captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
                                "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz",
                                # Issue #90: RUN 36's console log, byte for byte (§V21.9)
-                               "captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log"}
+                               "captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log",
+                               # Issue #91: RUN 37's console log, byte for byte (§V19.14)
+                               "captures/fixtures/hw-gamecube-gbp-2026-09-23-drain-0001-run37.log"}
         for line in sorted(changed2):
             self.assertRegex(line, r"-run1[678]-", line)
         changed3 = guards.changed_since(BASE_COMMIT, ["docs/protocol", "docs/hardware"])   # Issue #29: tracked AND untracked, one implementation
