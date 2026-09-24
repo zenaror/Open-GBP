@@ -1251,6 +1251,53 @@ TRACE_OBJECT_REFERENCES = {
 
 PROFILES["trace"] = _trace_profile()
 
+
+def _split_profile():
+    """Issue #105: the `split` profile IS the `trace` profile with Run B's variable named
+    (HARDWARE_TESTS §V24). The image is trace-0001 with production split by the frozen
+    assignment and nothing else, so every pin of `trace` holds except the ones the variable
+    must move, each moved here by name.
+
+    What it states:
+      * the assignment (gbp_asplit.o) is linked, reaches NOTHING outside itself, is set up
+        from main alone, and is reached otherwise only through the gbp_aplay hook, a
+        function pointer (main takes its address; no call);
+      * the production step is recorded through gbp_atrace_step_tagged, from the pump slot
+        alone; the other two steps keep gbp_atrace_step;
+      * the recorder's object may now copy its larger storage descriptor (memcpy) and call
+        its own tagged entry, and the sidecar's emit feeds the CRC twice more (the sample
+        block) -- still from gbp_atrace_emit alone, still after the session.
+    """
+    p = copy.deepcopy(PROFILES["trace"])
+    p["required_objects"] = p["required_objects"] + ("gbp_asplit.o",)
+    p["symbol_callers"] = dict(p["symbol_callers"])
+    p["symbol_callers"].update(SPLIT_SYMBOL_CALLERS)
+    p["elf_required"] = p["elf_required"] + ("gbp_asplit_init", "gbp_asplit_step_pushes", "gbp_atrace_step_tagged")
+    p["main_must_call"] = p["main_must_call"] + ("gbp_asplit_init",)
+    p["object_must_not_reference"] = dict(p["object_must_not_reference"])
+    p["object_must_not_reference"]["gbp_asplit.o"] = _CAPTURE_SYMBOLS
+    p["object_may_only_reference"] = dict(p["object_may_only_reference"])
+    p["object_may_only_reference"].update(SPLIT_OBJECT_REFERENCES)
+    return p
+
+
+# Run B's call sites, read from split-0001's listings and PINNED, on top of trace's.
+SPLIT_SYMBOL_CALLERS = {
+    "gbp_asplit_init": {"main": 1},
+    # the hook: its address is taken in main and it is called only through gbp_aplay's pointer
+    "gbp_asplit_step_pushes": {"main": 0},
+    "gbp_atrace_step_tagged": {"pump": 1, "gbp_atrace_step": 1},
+    "gbp_atrace_step": {"pump": 2},
+    "gbp_crc32_update": {"gbp_atrace_emit": 8, "be32": 1, "emit.part.0": 1},
+}
+SPLIT_OBJECT_REFERENCES = {
+    "gbp_asplit.o": ("gbp_asplit_arm",),        # its own public function, from its hook
+    "gbp_atrace.o": ("memset", "memcpy", "gbp_crc32_init", "gbp_crc32_update", "gbp_crc32_final",
+                     "gbp_atrace_step_tagged"),
+}
+
+PROFILES["split"] = _split_profile()
+
 # Issue #86: AOUT-HW-001, the OUTPUT PATH image. It is not built on any GBP image, so its
 # profile is not derived from one: it is written as the set of things that must be ABSENT.
 # The point of the image is that the console is made to play without the Game Boy Player
