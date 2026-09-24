@@ -15969,3 +15969,53 @@ with no effect; exclusions are counted; a refusal is INCONCLUSIVE, never a FAIL.
 - The row was frozen before the export; `--only 19-split`.
 - The card was written and verified with `O_DIRECT`: only `19-split` and `INDEX.txt`
   changed, and no `GBP-AUDIO-009*` file exists.
+
+## 2026-09-24 — Issue #107: RUN 40 ingested — Run B's `QUESTION S` is CAUSE: half-size production steps cut the losses to a third
+
+**Goal.** Ingest Run B (`split-0001`, GBP-AUDIO-009, Hardware Issue #106) in #107's order:
+the recount first, then the preconditions (arm tags, observer gate, NEITHER), then
+`QUESTION S`, each in the frozen tools' words.
+
+**Archive and seal.**
+- The three raws were archived run-suffixed with `cmp`; they had been moved off the card.
+- The Orchestrator's complete Gecko capture is kept as
+  `GECKO-LIVE-run40-orchestrator-capture.txt`.
+- Five frozen tools ran unedited. Four outputs were sealed by hash before either session
+  read a verdict, opened after #107 was written, and are reproduced by
+  `tests/host/test_run40.py`.
+
+**What the frozen gates say.**
+- **The arm tags** of all 2 035 chunks agree with the frozen assignment.
+- **The observer gate HOLDS:** 19.02 blocks/s and 44 frames. The recorder costs 0.28 % of
+  a cycle (at most ~0.41 %) and is credited with 0 gaps.
+- **NEITHER does not apply:** the stretch ratio is 0.516 at the median and 0.429 at p90.
+- **`QUESTION S`: CAUSE.** The half arm had 0.2532 loss gaps per cycle against the full
+  arm's 0.7416: ratio **0.341, 90 % CI 0.306–0.379**, permutation p < 1/20 000. Total work
+  was identical, the arms were interleaved in one session, and the image applied the
+  assignment verifiably. About two-thirds of the losses went with the halved stretch.
+- **Beside S:** `P` names `produce` again; `K` is NOT COINCIDENT again; (f) finds 13
+  start-up signature frames, 44 inside the span and 0 after.
+
+**Descriptive, each at its own status.**
+- §V23.12's rule on the totals is unresolved again.
+- The floorless sample — the per-step, no-floor records the first "unresolved" asked
+  for — shows, inside the 12 sampled `neither` gaps, only 0.1–0.2 % coverage by chain
+  steps. That is an observation about 1 cycle in 8, not a verdict, and an argument for
+  pre-registering the question next time.
+
+**The Gecko pair.** RUN 39's capture was empty; RUN 40's is complete, and the pre-run
+channel check is what differs in procedure. That shows the procedure can deliver a whole
+capture. It does not establish what emptied RUN 39's.
+
+**Records.**
+- EVIDENCE `GBP-HW-332`: FACT for this run, with the mechanism CORROBORATED.
+- EVIDENCE `GBP-HW-333`: the carried-over gates and the descriptive records.
+- `U-GBP-045` rescoped on top, `HARDWARE_TESTS.md` §V24.10, the fixtures versioned, and
+  the recount as commit 1.
+
+**Not a repair.** Any runtime change, such as bounding production's contiguous stretch, is
+decided separately on its own merits.
+
+**Next highest-value experiment:** the Orchestrator's to choose. Candidates are the
+residue (the half arm still loses 0.25 gaps per cycle) and the `neither` gaps' cause,
+properly pre-registered.
