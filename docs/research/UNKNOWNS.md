@@ -2155,7 +2155,7 @@ construction.
 the same image with raw episode preservation disabled, compared like for like.
 Neither is planned.
 
-## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open** — **Issue #108: by arm, the residue is still `produce`, and `neither` and VIDEO followed the arms (GBP-HW-334)**
+## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open** — **Issue #108: by arm, the residue is still `produce`, and `neither` and VIDEO followed the arms (GBP-HW-334)** — **Issue #112 (RUN 41, a real game): both losses rose together while the picture worked hardest; the video workload added to the chain's is the new HYPOTHESIS (GBP-HW-336)**
 
 **What is FACT.**
 - **The composed image drained less than the drain alone.** RUN 38's `live-0001` (the
@@ -2299,3 +2299,35 @@ What stays open:
 - whether a shorter stretch removes more;
 - the mechanism by which production reaches gaps it does not overlap;
 - whether the perturbation the Operator heard is these losses.
+
+**RESCOPED 2026-09-24 (GitHub Issue #112, RUN 41 on a real cartridge), on top; nothing above is rewritten.**
+RUN 41 ran the adopted 8-push runtime on Yoshi's Island (`HARDWARE_TESTS.md` §V25.12,
+`GBP-HW-335`, `GBP-HW-336`).
+- **The loss is still there, at about the half arm's level.** 7.547 blocks/s over C's
+  64 s, inside §V25.2's band around RUN 40's half arm (8.39).
+- **It was not uniform.** Both channels roughly tripled in the same ~10 s:
+  - the AUDIO losses were 16.3 blocks/s in window seconds 20–29, against 5.93/s over the
+    other 54 s;
+  - 16 of the 27 inside incomplete frames fall in AI seconds 17–29.
+
+  That stretch is about 30–42 s into the capture, plausibly while the game was loading the
+  level or had frozen.
+- **The audio's content cannot be the cause.** The chain's work is content-independent:
+  a popcount over a fixed length, fixed arithmetic, DUP/DROP from ring fill. What differed
+  from a tone is what the picture did: **2 177 vstate events against RUN 40's 370**, and
+  178 episodes not preserved against 8.
+- **The new HYPOTHESIS:** the video workload, added to the chain's, drives the shared
+  starvation of the service path.
+  - It is consistent with `GBP-HW-334`'s rate correlation and with K's NOT COINCIDENT: a
+    common cause on the service path, loaded by video activity, would give correlated
+    rates without coincident events.
+  - **It is constrained by the archive.** `play-0001` ran this same game, with up to 540
+    episodes not preserved and no chain, and lost nothing in steady state (§V19.11 A4.3,
+    `GBP-HW-317`). So the video workload alone does not starve the drain. Only the
+    combination could.
+  - Recorded, **not designed from here.**
+
+What stays open, in addition:
+- whether the rise follows the picture's activity within a run, which needs the event
+  times this image's log omits (`EVGAP`);
+- whether it is the episode machinery or something else the moving picture does.

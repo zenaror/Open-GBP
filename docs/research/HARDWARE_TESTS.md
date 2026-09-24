@@ -35714,3 +35714,223 @@ card         before: 21 files under SD_GC/Open-GBP -- 01-19/boot.dol and INDEX.t
                      files byte-identical to before; no GBP-AUDIO-010*; .Trash-1000 empty
 reads        every file hashed through dd iflag=direct (page cache bypassed), before and after
 ```
+
+### V25.12 RUN 41 EXECUTED AND INGESTED — 2026-09-24 (GitHub Issue #112) — L2, C and A PASS; `QUESTION V` NOT PASS on its start-up clause, by one frame; **PHASE 6 STAYS OPEN**
+
+*Appended. §V25.0–§V25.11 stand. **§V25 is not amended after data. The failing clause is
+NOT relaxed.** Hardware Issue #111 ran the image; the ingestion Issue #112 was written after
+the seal was opened, and the verdicts below are the frozen tools' own.*
+
+#### V25.12.0 What this run does NOT establish (§V25.6, repeated before any verdict)
+
+Not Phase 7 or GB/GBC. Not latency or video synchronisation. Not mixing with GameCube sound.
+**`U-GBP-045`'s residue stays open whatever happens** — a runtime that loses less is not one
+that loses nothing.
+
+#### V25.12.1 The run, the files and the seal
+
+```text
+image      game-0001 / GBP-AUDIO-010 / commit 6129104, slot 20-game (§V25.11)
+cartridge  Yoshi's Island -- Super Mario Advance 3, the Operator's own; Link Port empty; BBA absent
+log        logs/run41/GBP-AUDIO-010_game-0001.log       94 768 B  dfea2f1a641970cf303ef7e4f903070bf950e00191a9aac28841bfff67be2d38
+L2         logs/run41/GBP-AUDIO-010_game-0001-l2.bin    83 190 B  eca8e0185d88b034632afcd227bdbfe3885d12b5909855412079eb01a69d03a8
+gecko      captures/local/GECKO-LIVE-run41-orchestrator-capture.txt  3 203 B  8ecb938b71dda3bddeaea0863a811e225330cdf756ed6d43391103688ffcb56f
+archived   captures/local/GBP-AUDIO-010_game-0001-run41{.log,-l2.bin}, cp --update=none, cmp OK
+fixtures   captures/fixtures/hw-gamecube-gbp-2026-09-24-game-0001-run41{.log,-l2.bin}, byte for byte, and
+           -run41-declaration.json, the Operator's words as the Orchestrator structured them (§V25.12.2)
+identity   IDENT test=GBP-AUDIO-010 app=gbp-audio-game build=game-0001 commit=6129104
+session    RESULT status=ok_session_ended class=ok stop=session_end teardown=S5_session_end deliveries=467984
+           restore=1; the window closed the session (Z never held: SESSION held=0)
+presses    A 6, other 2, inside the session; KEYLOG 17 key changes, none lost
+card       both files were MOVED from the card to logs/run41; 20-game/boot.dol still reads 2e73a39d... by direct read
+```
+
+- **The tools ran UNEDITED:** `tools/v25report.py` at `6129104` and `tools/v25accept.py` as
+  amended at `4591f9b`, with L2, C and M through `tools/v22accept.py`.
+- **The outputs were sealed with no declaration**, at `f385b07`, before the Operator's words
+  reached the Executor. The Orchestrator held the questions back until it knew when the game
+  had frozen. The sealed outputs are:
+  - the report JSON, `b195215a3ec8581f492181b8b190db03f5ef884d76df619176d1359f9f628424`;
+  - the printed verdicts, `25e373a118261f5076dea0fff4ab619554f0085b5575018cd3f5751728e7417c`;
+  - the gates' JSON, `b2cc15fa318108c2965a88585e07c2c2104717d652293fbb5c9ab092557fa918`.
+- **The seal was opened after the declaration was recorded on #111.** The outputs with it are:
+  - the printed verdicts, `d1022e3532364f6aa2bce79be56534e88a9856d7ff76f1217ed0cb05ffdd45d3`;
+  - the gates' JSON, `9edd994ab16f89bcd0efeffddbfa2bbb5e6663f4cd47296f862f6d265082a11c`.
+- `tests/host/test_run41.py` reproduces all five to their hashes from the fixtures.
+
+#### V25.12.2 The Operator's declaration — OPERATOR OBSERVATION, verbatim
+
+It is recorded on #111 as `issuecomment-5821017811`:
+- raw sha256 `c3aacf71d41b162ff45389a53056819d20c06e64a69312c5791f3a8a76ea25c5`;
+- printed `ca37fdfd5cbc8e099730ae6a92d056b0bcc6b3eb87c76736aacc783b5e02d218`.
+
+It was given at **2026-09-24T19:43:23.470Z**, after the run and before either session had
+opened a log.
+
+```text
+A - PASS
+B - Nao para todos... pelo menos do que notei
+C - pareceu estavel.
+d - so o abafado
+e - imagem ok, mas ainda em resolucao nativa aparentemente
+f - responderam ok
+```
+
+- **The structure** (r11) is the Orchestrator's: `A_STABILITY` PASS; all six defects "no";
+  `PICTURE` normal; `CONTROLS` responded. **PASS with every defect "no" is the consistent
+  combination**, so `v25accept`'s contradiction refusal does not apply.
+- **His qualifier, "pelo menos do que notei", is part of his answer.** It is carried beside the
+  class in `a_words`, not dropped as politeness.
+- **E's "ainda em resolução nativa" is EXPECTED:** §V25.9 told him the picture is native and
+  unscaled. He is observing it, not reporting a fault.
+- **D, "só o abafado", is the known bandwidth limit** he was told about in advance (§V25.7
+  3(a)). It is fidelity, and it gates nothing.
+
+#### V25.12.3 The verdicts, as the frozen tool prints them
+
+```text
+GBP-AUDIO-010 / game-0001 / 6129104
+  L2  PASS          the host reproduced the CRC 178e3c3f of 320 chunks x 1000 frames exactly (199 DUP, 0 DROP, 0 SILENCE applied)
+  C   PASS          zero OVERFLOW and zero UNDERRUN over 64.000 s; NOT DRAINED 483 AUDIO blocks; 827 DUP and 0 DROP corrections. That is what the counters say, and it is NOT a claim of no loss.
+  A   PASS          he reports the game's audio sounds as it should
+  V   NOT PASS      the video clause: E outside the AI span is +1: the start-up signature of 13 changed (14 before, 0 after)
+      silence fraction of the L2 window: 0.0000 (§V22.9 A2)
+      A-FIDELITY, his words, NOT gated: 'so o abafado'
+      A-FIDELITY is his words and NOT gated: the chain carries nothing above ~2 kHz (4096 samples/s), and whether the stream is L, R or a mix is UNKNOWN (§V25.7 3(a))
+      video: E outside 1, E inside 27 over 63.376 s = 0.4260/s; RUN 40's half arm: 0.19/s (6 of 44 by gap time, DESCRIPTIVE -- GBP-HW-334), CONTEXT only
+      video per second of the AI span: [0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 3, 2, 3, 1, 0, 2, 0, 1, 0, 2, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0]
+      picture normal ('imagem ok, mas ainda em resolucao nativa aparentemente'); controls responded ('responderam ok')
+  R   AS EXPECTED   7.547 blocks/s, inside the band [5.59, 12.59] -- NOT A GATE
+      prior 8.39 blocks/s (RUN 40's half arm); beside it 9.23: RUN 40's half arm by the per-cycle COUNT split (292.6 blocks): arrival jitter at cycle boundaries moves blocks between arms -- the two arms' count deficits sum to 1236 against the window's 1216.2
+      A4.3, this cartridge on play-0001 with no chain: a fixed 67-72-block start-up deficit, about 0 blocks/s in steady state -- a FLOOR, not an expectation
+      reading: this run's workload against RUN 40's -- one run cannot separate the five differences; never "a game's audio load", which the chain cannot have (§V25.7 1)
+        (i) no §V23/§V24 recorder: cheaper, toward BETTER
+        (ii) no interleave with 16-push chunks
+        (iii) a moving picture: play-0001's event machinery (RUN 21 filled 16384 events in 273.8 s)
+        (iv) presses: each KEY line is a ringlog vsnprintf (RUN 40 had 3)
+        (v) the VI hand-over restored (two register writes per presented frame)
+      blocks lost per whole second of C's window: [4, 6, 4, 9, 8, 7, 7, 8, 11, 5, 8, 7, 5, 10, 1, 7, 8, 9, 5, 6, 15, 16, 19, 16, 17, 19, 19, 11, 14, 17, 8, 9, 5, 6, 6, 5, 7, 7, 9, 5, 3, 2, 5, 6, 6, 6, 3, 6, 9, 5, 1, 6, 2, 7, 7, 2, 8, 8, 4, 6, 3, 6, 5, 2]
+  M   AI rate 32028.476 Hz over 2030 callbacks (+889.9 ppm vs 32 000)
+  reported: calibration {'rest_sum': 66882991, 'rest_n': 4096, 'pmin': 13571, 'pmax': 19390, 'spread': 5819}; clipped 2084; L (DESCRIPTIVE) {'periods': 3540, 'pmax': 12865, 'pmin': 2}
+  PHASE 6  STAYS OPEN -- not all four PASS (§V25.5); a partial result is not a partial closure
+           V NOT PASS: the video clause: E outside the AI span is +1: the start-up signature of 13 changed (14 before, 0 after)
+```
+
+#### V25.12.4 PHASE 6 STAYS OPEN — on one incomplete frame before the AI had started
+
+**Three of the four held, including the two hardest.** L2 held: the frames handed to the AI
+are bit-exact against the frozen resampler, on a real game's audio. A held: a real game,
+judged by the ear of an Operator who knows it. C held as well. **Phase 6 did not close,
+because of one incomplete frame before the AI had started.**
+- **V's rate half HOLDS, comfortably:** 27 × 2 567 047 476 = 69 310 281 852 ≤
+  44 × 2 566 709 992 = 112 935 239 648, or 0.426/s against RUN 40's own 0.694/s.
+- **His picture and controls are normal.**
+- **Its start-up clause FAILS:** `E_outside` = 14 − 13 = +1. (r10) says `E_outside ≠ 0` in
+  either direction is not a PASS. It was frozen before the image existed, and **it is not
+  relaxed**. A clause relaxed after seeing the data it failed on is worth nothing, and so would
+  every frozen gate in this project be, retrospectively.
+
+**THE SCOPE OF `QUESTION A`, in the record and not beside it.** A = PASS is a PASS over
+**menu-weight audio, not gameplay**:
+- The game froze on a level load during the window. He reproduced the freeze **on his own GBA
+  console, with nothing of ours involved** ("O travamento foi do meu lado... Travou no console
+  gba também"). Our session ended `class=ok` with an ordered teardown, which is consistent with
+  that.
+- The freeze did not silence the audio or stick a note: "so nao carregou o llevel... mas os
+  menus, musicas que deveriam tocar... todas ok".
+- So this was a real cartridge producing real game audio under a lighter load than a running
+  level, with fewer simultaneous effects. A later reader must be able to see that the
+  acceptance was taken on menus and a failed level load, not on a level played through.
+- His hypothesis, "deve ter dado algum problema com o save", is HIS and is not established.
+
+#### V25.12.5 The `+1` — descriptive; the verdict does not move
+
+**Where it can be, from this run's records:**
+- The log prints events 1–128 and the last 64 of 2 177 (`EVGAP omitted=1985`). This image
+  writes no vstate sidecar, so the omitted events are gone.
+- The head always ends at 2.170 s. It shows **the same ten start-up incomplete frames as
+  RUN 38 and RUN 40**, at frames 1/10/13/16/32/35/38/92/95/98, all by 1.635 s.
+- The same four start-up episodes are preserved (open frames 8/30/90/150), as in every earlier
+  session.
+- **The four before-frames the log cannot show lie in (2.170 s, 11.872 s).** The press is at
+  10.248 s, the origin at 11.248 s and the AI start at 11.872 s. By `GBP-HW-331`'s RUN 39,
+  which located all thirteen, three of them plausibly sit at ~151–157, just past the head.
+  **The fourth is not located.**
+
+**THE CLAUSE'S OWN DEFECT, recorded in this order:**
+1. **The clause ignored `GBP-HW-331`'s press frame.** `E_outside = 0` was the Executor's
+   proposal (§V25.7 4), derived from RUN 40's 57 = 13 + 44, and the Orchestrator confirmed it
+   in (r10) in the same terms. Neither read `GBP-HW-331`. Its heading already says RUN 39's 88
+   incomplete frames were *"13 … start-up signature, **one falls at the A press**, 74 inside
+   the AI's span"*, which is 14 before the AI. **The bound excluded a case the reference family
+   had already produced.** It is the same class of defect as §V25.10's rounding: a bound that
+   fails a case already in the evidence.
+2. **RUN 41 failed the clause by the same `+1` that RUN 39 would have.**
+3. **The candidates, all HYPOTHESES:**
+   - **the A press, the one with a precedent.** `trace-0001` has no mid-capture VI hand-over
+     and lost a frame at the press. `live_screen` writes four console lines from the pump slot
+     at the press, a stall of our own making, unchanged here but for their text;
+   - **the mid-capture VI hand-over,** new in this image;
+   - the longer pre-press period, 10.2 s against RUN 40's 6.3 s;
+   - the game's own boot;
+   - chance.
+
+   **No candidate is established.** RUN 40 lost no frame at its press (`GBP-HW-333`).
+
+**What the clause bought:** the start-up count moved on the first image with a new start-up
+mechanism. **That is detection of a start-up change, NOT evidence that the new mechanism caused
+it.**
+
+**A correction of the Executor's own report, recorded so it does not travel.** It said
+signature frames 11–13 were "never visible in any log". That is true only of the text logs'
+event lists, and `GBP-HW-317` already says so ("Three are not located"). **RUN 39's per-block
+VIDEO trace located all thirteen** (`GBP-HW-331`). The 13 does not rest on a count alone.
+
+#### V25.12.6 Reported, not gated — each on its own line
+
+- **`clipped = 2 084`.** The decoder's gain DOES clip on this game. The Operator reported no
+  distortion, so the GAIN rule never engaged. **Both facts stand: the clip is real, and it was
+  inaudible to him.** It is a finding about the gain, not a reason to change it here.
+- **The calibration was NOT silent.** The one-bit spread was 13 571..19 390, i.e. 5 819. The
+  rest mean was 16 328.86 against 16 384, about +1.1 % FS of DC. (r3) existed to make exactly
+  this visible rather than silently wrong, and it did.
+- **Both loss channels roughly tripled in the same ~10 s:**
+  - R lost 163 blocks in window seconds 20–29, 16.3/s, against 5.93/s over the other 54 s;
+  - 16 of the 27 inside incomplete frames fall in AI seconds 17–29;
+  - that is about 30–42 s into the capture, plausibly the level load or the freeze.
+- **R = 7.547 blocks/s, AS EXPECTED** (not a gate). **M = 32 028.476 Hz** (+889.9 ppm), the
+  third measurement of the AI rate.
+- **The picture worked the service path far harder than a tone's:** 2 177 events against
+  RUN 40's 370, and 178 episodes not preserved against 8.
+
+#### V25.12.7 The `U-GBP-045` lead — HYPOTHESIS, not designed from here
+
+The chain's work is content-independent: popcount and fixed arithmetic. So **the audio being a
+game cannot be what tripled the loss.** What differed is what the picture did.
+- **The HYPOTHESIS:** the video workload, added to the chain's, drives the shared starvation.
+- **It is consistent with** `GBP-HW-334`'s rate correlation and with `K`'s NOT COINCIDENT,
+  which suggest a common cause on the service path, loaded by video activity.
+- **It is constrained by the archive:** `play-0001` played this same game, with up to 540
+  episodes not preserved and no chain, and lost nothing in steady state (§V19.11 A4.3,
+  `GBP-HW-317`). The video workload alone does not starve the drain.
+- It is recorded in `UNKNOWNS.md` at HYPOTHESIS.
+
+#### V25.12.8 What Phase 6 now needs
+
+**One re-run with one added record.**
+- **The record:** each before-AI incomplete frame's `t_last_block`, written from the frame
+  store after the session. That is the one thing that can say where the `+1` fell, at the
+  press or elsewhere. **Nothing else in the image needs to change** for that question.
+- **The next clause must be built on what that record shows, not on "13".** On the evidence,
+  the start-up figure is **13, plus possibly one at the A press**:
+  - RUN 39 had it (`GBP-HW-331`);
+  - RUN 40 did not (`GBP-HW-333`);
+  - RUN 41 had one more, not located.
+
+  Whether that frame is systematic is what the record decides, and a clause frozen on "13"
+  would repeat the defect recorded in §V25.12.5.
+- **L2, C and A need nothing new.** They held on a real cartridge. A's scope sentence goes with
+  them: menu-weight audio.
+- **A re-run's A should cover gameplay.** A game that does not freeze on its level load, or a
+  save that loads, would let A cover gameplay rather than menus. That is the Operator's choice
+  of cartridge, as before.

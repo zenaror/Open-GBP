@@ -199,5 +199,90 @@ class TheDescriptiveFigures(unittest.TestCase):
         self.assertIn("EVENTS n=2177 ", read(LOG))
 
 
+def plain(s):
+    return re.sub(r"\s+", " ", s).replace("`", "").replace("**", "").replace("*", "")
+
+
+def section():
+    t = read(HW)
+    i = t.index("\n### V25.12 ")
+    j = t.find("\n### ", i + 1)
+    j = t.find("\n## ", i + 1) if j < 0 else j
+    return t[i:j] if j >= 0 else t[i:]
+
+
+def entry(eid):
+    t = read(EV)
+    i = t.index("\n### %s " % eid)
+    j = t.find("\n### ", i + 1)
+    return t[i:j] if j >= 0 else t[i:]
+
+
+class TheRecord(unittest.TestCase):
+    def test_the_page_prints_exactly_what_the_tool_prints(self):
+        s = section()
+        block = s[s.index("#### V25.12.3"):]
+        block = block[block.index("```text\n") + 8:]
+        block = block[:block.index("\n```")]
+        self.assertEqual(block, Run.get()["final"].decode("utf-8").rstrip("\n"))
+
+    def test_what_it_does_not_establish_comes_before_any_verdict(self):
+        s = section()
+        self.assertLess(s.index("#### V25.12.0 What this run does NOT establish"), s.index("#### V25.12.3"))
+        self.assertIn("U-GBP-045`'s residue stays open whatever happens", s)
+
+    def test_the_clause_is_not_relaxed_and_the_phase_stays_open(self):
+        p = plain(section())
+        for tok in ("§V25 is not amended after data. The failing clause is NOT relaxed.",
+                    "Phase 6 did not close, because of one incomplete frame before the AI had started.",
+                    "A clause relaxed after seeing the data it failed on is worth nothing"):
+            self.assertIn(tok, p, tok)
+
+    def test_the_scope_sentence_is_in_the_closure_record(self):
+        s = section()
+        closure = plain(s[s.index("#### V25.12.4"):s.index("#### V25.12.5")])
+        for tok in ("A = PASS is a PASS over menu-weight audio, not gameplay",
+                    "with nothing of ours involved", "not on a level played through",
+                    "His hypothesis, \"deve ter dado algum problema com o save\", is HIS and is not established."):
+            self.assertIn(tok, closure, tok)
+
+    def test_the_clause_defect_is_told_in_the_agreed_order(self):
+        s = plain(section())
+        a = s.index("The clause ignored GBP-HW-331's press frame.")
+        b = s.index("RUN 41 failed the clause by the same +1 that RUN 39 would have.")
+        c = s.index("the A press, the one with a precedent.")
+        self.assertLess(a, b)
+        self.assertLess(b, c)
+        self.assertIn("That is detection of a start-up change, NOT evidence that the new mechanism caused it.", s)
+        self.assertIn("RUN 39's per-block VIDEO trace located all thirteen", s)
+
+    def test_what_phase_6_now_needs(self):
+        s = section()
+        needs = plain(s[s.index("#### V25.12.8"):])
+        for tok in ("One re-run with one added record.",
+                    "The next clause must be built on what that record shows, not on \"13\".",
+                    "13, plus possibly one at the A press"):
+            self.assertIn(tok, needs, tok)
+
+    def test_the_evidence_is_what_is_established_and_nothing_more(self):
+        e5, e6 = plain(entry("GBP-HW-335")), plain(entry("GBP-HW-336"))
+        for tok in ("FACT (the frozen gates' results and counts, one run); A is OPERATOR OBSERVATION",
+                    "His judgement covers menu-weight audio, not gameplay",
+                    "That the new start-up mechanism caused it.", "not on 13"):
+            self.assertIn(tok, e5, tok)
+        for tok in ("FACT (counts, one run); the cause of the rise is a HYPOTHESIS",
+                    "it was inaudible to the Operator", "the same game with no chain lost nothing in steady state"):
+            self.assertIn(tok, e6, tok)
+
+    def test_the_unknown_is_rescoped_on_top_and_the_fixtures_are_listed(self):
+        u = read(UNK)
+        self.assertIn("RESCOPED 2026-09-24 (GitHub Issue #112, RUN 41 on a real cartridge), on top; nothing above is "
+                      "rewritten.", u)
+        self.assertIn("So the video workload alone does not starve the drain.", plain(u))
+        r = read(README)
+        for fx in ("game-0001-run41.log", "game-0001-run41-l2.bin", "game-0001-run41-declaration.json"):
+            self.assertIn("hw-gamecube-gbp-2026-09-24-" + fx, r, fx)
+
+
 if __name__ == "__main__":
     unittest.main()
