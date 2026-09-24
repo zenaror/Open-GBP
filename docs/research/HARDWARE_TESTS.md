@@ -33621,3 +33621,277 @@ breaking video/input."*
 **No gate FAILED. One gate did not PASS.** Whether that closes Phase 6 is the
 Orchestrator's judgement, and this section does not make it.
 
+## V23 — RUN A: which step of the AI chunk cycle starves the service path, and do the two losses coincide — **PRE-REGISTERED 2026-09-24 (GitHub Issue #101); NOT RUN, NOT AUTHORISED HERE; the image is built under this Issue and staged by a separate Hardware Issue**
+
+The Issue body's §V23 and every replacement, merged into one text. It supersedes
+both. Nothing below may change after the data.
+
+### V23.0 What is settled and not at stake
+
+```text
+one starvation, not two        both losses keep the AI chunk cadence (GBP-HW-327)
+                               R 0.94 at 31.222 ms against 0.75 on the tone's
+                               31.25 ms grid; 0 of 20 000 random video sets as locked
+the composition is CORRECT     L2 PASS, bit-exact (RUN 38)
+the clock is MEASURED          M = 32 028.483 Hz, +0.42 ppm from 108 MHz/3372
+```
+
+The two candidate periods differ by 0.089 %, but over the window's 320 cycles
+they drift 8.9 ms apart — 28 % of a period — so they are separable, and the
+periodogram's 31.215 ms falls on the AI side.
+
+**NOT settled, and this run's subject:** which step of the cycle does it, and
+whether individual losses coincide.
+
+### V23.1 Locating a loss — **no threshold**
+
+A completion gap above 1.5 block periods is **not** a lost block. `T` = 0.2441 ms;
+a block is readable for its whole period, so consecutive reads can sit `2T` apart
+with nothing lost, and one loss lands anywhere in `(T, 3T)`. **RUN 37's
+`drain-0001` had a steady-state max gap of 0.473 ms = 1.94T while draining
+4 096 ± 1 with nothing lost** (`GBP-HW-319`), and RUN 38's 0.537 ms = 2.20T puts
+most real losses inside the ambiguous band. A 1.5T rule counts jitter as loss; a
+>2T rule discards the losses.
+
+**Frozen:** keep the whole window's decoded stream (64 s × 4 096 × 2 B =
+512 KiB) and a `u16` completion-tick delta per drained block (512 KiB), against
+5.15 MB free in RUN 38. Flush both **after** the session, off the drain path.
+**The host locates each loss from the shortened half-period, exactly as #100
+did**, and takes its time from the largest completion gap inside that half.
+
+### V23.2 `QUESTION K` — do the losses coincide
+
+For every VIDEO gap (**§V23.7**), the distance to the nearest AUDIO gap.
+**Coincidence is within 0.244 ms**, one AUDIO block period.
+
+**The null must preserve the phase-lock we already established.**
+`GBP-HW-327`'s permutation tested phase **against the callbacks**; it is not a
+coincidence null. Under a uniform-time null, two *independent* steps sharing one
+phase band read as coincident:
+
+```text
+uniform null            p = 0.0122  ->  0.7 expected in 60 video gaps
+phase-preserving null   p = 0.0864  ->  5.2 expected in 60 video gaps
+```
+
+With ~5 observed, a uniform null returns p ≈ 0.0006 for genuinely independent
+events — the gate would rediscover the cadence and report it as coincidence.
+
+**Frozen gate:** move each video gap to a **random other callback cycle, keeping
+its phase after the callback**, ≥20 000 times.
+
+```text
+COINCIDENT      the count within 0.244 ms exceeds that null at p < 0.001
+NOT COINCIDENT  it does not
+INCONCLUSIVE    fewer than 10 VIDEO gaps in the window, or §V23.3 fails
+```
+
+**Report the uniform null too, labelled**, and the full distance distribution
+either way. A COINCIDENT resting on three points and a NOT COINCIDENT over forty
+are different objects.
+
+### V23.3 `QUESTION P` and the observer gate
+
+**`QUESTION P` has no pass/fail** — no prior value exists and a threshold
+invented now is a number chosen to be met (D2's reasoning).
+
+**Frozen measurement:** every AUDIO gap located by §V23.1 is attributed to
+exactly one of **a named chain step**, **the ISR window**, **`recorder`**, or
+**`neither`**, in the 40.5 MHz timebase. Report the distribution over all four
+and the duration histogram.
+
+**Frozen decision rule:** Run B changes the one step P names. **If P names
+`neither` for most gaps, Run B is not designed from this run** and we say so.
+
+#### The observer gate
+
+A recorder write is time the service is not polling, so gaps it causes land in
+`neither` or on the step they follow — **the instrument would defeat the rule
+written to protect against it.** Hence the `recorder` category above, and:
+
+**PRIMARY CHECK — the recorder's own measured self-cost**, max and total ticks
+per cycle, reported directly.
+
+**SANITY CHECK — the count bound**, from RUN 38's 25.41 blocks/s and FRAMECAP 82:
+
+```text
+mean undrained  <= 31.8 blocks/s        1.25x -- A CHOSEN NUMBER, NOT DERIVED
+FRAMECAP        scoped to C's window from the new video records;
+                if unavailable, (FRAMECAP - 13) x 1.25 + 13 ~= 99, reason stated
+```
+
+**Recorded beside it:** RUN 38's per-second SD is 4.25 over 64 s, so the mean's
+standard error is **0.531/s, 2.1 %**, and the within-run sampling bound would be
+mean + 3 SE ≈ **27.0/s**. The per-second spread of 15–36 does **not** calibrate a
+run mean, and **between-run variation is unknown from one run**. 1.25× is a
+judgement, stated as one.
+
+**If either bound is exceeded, `QUESTION K` is INCONCLUSIVE and `QUESTION P`'s
+attribution does not transfer to RUN 38.** The timing records then stand only as
+observations about this image's own losses, and the ingestion says so in those
+words.
+
+### V23.4 One variable
+
+The **only** change from `live-0001` is the read-only instrumentation: timestamp
+rings and the two kept streams, bounded, preallocated, flushed after the session
+and off the drain path. The tone, the press, the window, the correction band,
+the chunk size and the ring stay exactly as RUN 38 had them. **If a record
+cannot be added without changing one of those, do not add it — say which, and
+why.**
+
+### V23.5 What this does NOT establish
+
+Not a fix. Not Phase 6's closure. Not a real cartridge. Nothing about
+`U-GBP-012`. It answers where in the cycle, and whether the two losses are one
+event.
+
+### V23.6 Run B is NOT pre-registered here
+
+Chosen by `QUESTION P`'s answer and pre-registered separately, by me,
+afterwards. **A separating experiment, never a repair.**
+
+### V23.7 The VIDEO gap, defined
+
+**There is no within-frame block index.** A VIDEO block carries only the
+frame-start bit (`GBP-HW-077`); nothing inside it numbers the block, which is
+why RUN 38 stamps events at frame close. The implementable equivalent:
+
+```text
+RECORD     every VIDEO completion tick in the window, flagging frame starts,
+           so each frame is bounded by two frame-start blocks
+LOCATE     a frame with 40 - k blocks has its missing blocks at the k largest
+           gaps between consecutive completions INSIDE the frame.
+           The gap before a frame-start block is the vblank and NEVER counts
+TIMESTAMP  at the completion of the first VIDEO block after that gap -- so a
+           shared stall reads about one service pass apart (65-130 us)
+CONFIDENCE reported beside each: the ratio of the largest intra-frame gap to
+           the second largest. Video blocks arrive every ~0.294 ms and the same
+           jitter ambiguity applies, so the largest gap is the best estimate and
+           not a certainty. The ratio shows how often it is a close call
+```
+
+Stamping at frame close, as RUN 38 does, would put a shared stall milliseconds
+apart and fail `QUESTION K` by construction.
+
+---
+
+### The VIDEO tap — **YES, explicitly**
+
+Add it to `src/gbp/gbp_vstate_probe.c`, mirroring #84's AUDIO tap, with the
+clock read **only when a tap is installed** and the frame-start predicate in the
+image rather than the service.
+
+My condition was that the shared path must not move **while a staged image waits
+on a run**. None is waiting. Conditions:
+
+1. **NULL must be provably unchanged**, demonstrated as `audio_len_live` was —
+   op-for-op identical.
+2. `test_awin_image`'s hook-diff test updated to know about it.
+3. **State the consequence at the change**: the executed images reproduce at
+   their own commits, not at HEAD.
+
+### Numbering
+
+Your proposal, taken: §V23.0–§V23.6 keep their numbers and the definition is
+**§V23.7**, which §V23.2 points to.
+
+### V23.8 Transcription record — the source, the edits, and the readings this part leaves to the Orchestrator
+
+**Source.** The Orchestrator's comment on #101, `issuecomment-5814473348`, fetched with
+`gh api`. It carries the Issue body's §V23 and every replacement agreed afterwards,
+merged, and it supersedes both.
+
+```text
+sha256 of the body as `gh api ... --jq .body` prints it (one trailing newline)   e653bbf86b27a0dc75e887b781d52ffbbea90610fcce237408a3d92d984766c9
+sha256 of the body's own 7 789 characters                                       b5528db66c4e52c72c7126827badae44cbeb3c35bfcf1e9ecd13aa7166ff64ef
+```
+
+The first matches the figure the Orchestrator gave before this commit. The comment was
+transcribed byte for byte from the line after its title to its end. The only edits:
+- its title line ("# §V23 — COMPLETE AND CORRECTED. …") is replaced by this part's heading;
+- headings are re-levelled: `## §V23.k` becomes `### V23.k`, `## X` becomes `### X`, and
+  `### X` becomes `#### X`.
+
+**Readings the gates must fix and the prose leaves open.** The Executor proposed them.
+The Orchestrator **CONFIRMED all six before this commit**, on #101 as
+`issuecomment-5814528526` (sha256 of the body as `gh api ... --jq .body` prints it:
+`f0009a091ebe9aedc1affc8440c909ccbb68de1245d45a0b31157ac78119acbd`). Three of the
+confirmations carry an addition, which is part of the confirmation and is recorded after
+the table. All six are frozen as written in `tools/v23accept.py`. A later change to any of
+them is a dated AMENDMENT appended here **before any hardware**.
+
+```text
+(f) FRAMECAP in C's window   RUN 38 recorded no per-block video, so its window count was never measured.
+                             Bound: the window's incomplete frames <= 86 = 1.25 x (82 - 13), on the premise
+                             that RUN 38's 69 beyond the start-up signature fell inside the AI-running span
+                             (the chain runs only there; all 31 of the printed tail are after AI start).
+                             Fallback, as the prose says: whole-session FRAMECAP <= 99
+(t) the AUDIO loss's time    the completion that ENDS the loss's largest gap -- §V23.7's convention for video,
+                             so one stall reads about one service pass apart. One time per located loss
+                             half-period; a half two samples short is one gap whose k counts as losses
+(a) attribution              a loss's gap interval runs from the completion before it to the completion after
+                             it. It goes to the candidate that overlaps it LONGEST -- a named chain step, an
+                             ISR window, or a recorder write -- ties in the fixed order recorder, ISR, then the
+                             steps by name; `neither` if nothing overlaps. The named steps are `produce` (one
+                             bounded step), `flush_queue` (DCFlushRange and the queue) and `process`; the ISR
+                             window runs from the callback's entry to its exit
+(n) what "P names"           the category holding the most gaps. `neither` above half: "Run B is not designed
+                             from this run". `recorder` as the plurality: "the instrument, not the chain",
+                             and Run B is not designed from this run either
+(k) K's null in detail       each VIDEO gap keeps its phase after its preceding callback's entry and moves to a
+                             uniformly drawn OTHER callback of the window whose shifted time stays inside the
+                             recorded AUDIO span; 20 000 sets, fixed seed; p is the fraction with a count >= the
+                             observed one. The uniform null draws times uniformly over the same span, labelled
+(s) the recorder's self-cost every recorder write timed, the per-block stores in the taps included, grouped by AI
+                             callback cycle: the largest single write, the largest and the mean total per
+                             cycle, the number of cycles. No threshold, as the prose freezes
+```
+
+**The additions in the confirmation, recorded as part of it:**
+- **(f) The premise is tested in this run.** The bound assumes RUN 38's 69 incomplete frames
+  beyond start-up all fell inside the AI-running span. The per-block VIDEO records show where
+  Run A's own incomplete frames fall, so the report counts them before the AI starts, inside
+  its span and after it stops. If they are not confined to the span, the report says so,
+  because the bound was derived assuming they are. The VIDEO records therefore cover the whole
+  session, not only C's window.
+- **(t) A half two samples short is still one gap, and its k counts as losses.** Fixing which
+  end of the gap is stamped is necessary rather than cosmetic. Without it, the two channels
+  could be stamped at opposite ends of their gaps, giving `QUESTION K` a systematic offset of
+  up to one gap against a 0.244 ms criterion.
+- **(a) The tie order is deliberate: it biases AGAINST the finding we want.** An ambiguous gap
+  goes to the instrument before the chain, so the chain is named only when nothing else
+  overlaps longer. That is the conservative direction for an observer-effect concern.
+- **(n) A `recorder` plurality is a finding, not only a refusal.** It means this
+  instrumentation cannot answer the question at this granularity, and that the next attempt
+  needs a lighter instrument or a different method.
+- **(k) A known, accepted property.** Drawing only callbacks whose shifted time stays inside
+  the recorded AUDIO span biases the draw slightly toward the interior. Over a 64 s window of
+  31 ms cycles the effect is negligible, and the restriction is necessary: a moved gap with no
+  AUDIO to compare against is not a draw.
+- **(s) The self-cost is an UPPER BOUND.** The figure includes the cost of measuring itself.
+  There is a regress in principle, and this is its conservative end, which is the end we want.
+  It is not an exact figure.
+
+**A figure in §V23.0 was corrected after the comment was written, and the text above
+keeps it as written.** §V23.0 quotes `GBP-HW-327` as first computed: "R 0.94 at 31.222 ms
+against 0.75 on the tone's 31.25 ms grid". Exercising §V23.1 on synthetic vectors, before
+this commit, found that the #100 tool hid a loss whenever the loss was a transition's step
+sample. `GBP-HW-327` is corrected on top: R 0.957 against 0.839, with the periodogram
+peaking at 31.223 ms. §V23.0's conclusion stands: the AI side, and one starvation. The AUDIO
+side's margin between the two periods is narrower than §V23.0 says. The gate in
+`tools/v23accept.py` places a lost step's mark on the plateau's last sample, and a
+construction pins it.
+
+**An Executor addition that decides nothing.** Each located AUDIO loss carries the same
+confidence ratio §V23.7 gives VIDEO: the half's largest completion gap over its second
+largest. The reason is the one §V23.7 gives. A loss's gap lies in (T, 3T), and jitter
+reached 1.94T in RUN 37. A gap with nothing lost can therefore outgrow the loss's own gap,
+and the loss is then timed at the wrong read of its half. On the synthetic vectors this
+misses about one coincidence in seven at 0.6T of jitter. The report prints the close calls
+for both channels (ratio under 1.2), so a reader sees how many of K's distances rest on a
+close call.
+
+**Frozen here and not in the prose:** the constants, the report schema and the
+computations of `tools/v23accept.py`, exercised on synthetic vectors only
+(`tests/host/test_v23accept.py`), in the same commit as this text.
