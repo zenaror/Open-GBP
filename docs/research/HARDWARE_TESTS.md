@@ -34171,3 +34171,246 @@ frozen outputs, and the rule uses those instead.
   next image needs per-step records WITHOUT a floor inside a bounded sample of gaps, not a
   finer analysis of the floor. That belongs to Run B's image, which is being built anyway.
 - **Only "cannot" is a finding about the chain.** Neither "may" outcome is.
+
+### V23.13 RUN 39 EXECUTED AND INGESTED — 2026-09-24 (GitHub Issue #103) — the observer gate HOLDS; `P` names `produce`; `K` NOT COINCIDENT at one AUDIO block; the floor rule UNRESOLVED at this resolution
+
+*Appended. §V23.0–§V23.12 stand. Hardware Issue #102 ran the image; the ingestion Issue
+#103 was written before either session opened the sealed verdicts. The order below is
+#103's: what the run does not establish, then the observer gate, `P`, `K` and §V23.12's
+floor rule, each in the frozen tool's own words before any commentary.*
+
+#### V23.13.0 What this run does NOT establish (§V23.5, repeated before any verdict)
+
+Not a fix. Not Phase 6's closure. Not a real cartridge. Nothing about `U-GBP-012`. It
+answers where in the cycle, and whether the two losses are one event.
+
+**Run B is not designed here.** `P`'s answer chooses it, and the Orchestrator
+pre-registers it separately, afterwards: a separating experiment, never a repair.
+
+#### V23.13.1 The run, the files and the seal
+
+```text
+image      trace-0001 / GBP-AUDIO-008 / commit c1beea1, slot 18-trace (§V23.10, §V23.11), sweep-0002, one A press
+log        logs/run39/GBP-AUDIO-008_trace-0001.log            92 076 B  afc4a78f984b40bb49f20989420ed95789c5cfda47336fa71ad61e24ae85cc2e
+L2         logs/run39/GBP-AUDIO-008_trace-0001-l2.bin         83 916 B  d70eb11c28d8e95fd5bbf2b958a807f2b43f07ba33cb1d55aea270a003883cc8
+trace      logs/run39/GBP-AUDIO-008_trace-0001-trace.bin   1 691 756 B  4371dc13ce5741eb9e005cd2fa68cd0ddb7a4259d775b06199ea03ffdd6b184e
+archived   captures/local/GBP-AUDIO-008_trace-0001-run39{.log,-l2.bin,-trace.bin}, cp --update=none, cmp OK
+fixtures   captures/fixtures/hw-gamecube-gbp-2026-09-24-trace-0001-run39{.log,-l2.bin,-trace.bin}, byte for byte
+identity   IDENT test=GBP-AUDIO-008 app=gbp-audio-trace build=trace-0001 commit=c1beea1
+log        lines=707 dropped=0 truncated=0
+records    LIVETRACE a=260361 a_sat=0 v=167510 v_sat=4203 cb=2030 steps=18635 cycles=2031 cost_max=188 floor=200
+           LIVETRACE2 dropped=0/0/0/0/0/0 calls=239189/2035/239189
+           LIVETRACESAVE open=0 write=0 close=0 bytes=1691756; LIVEL2SAVE open=0 write=0 close=0 bytes=83916
+card       the three files were MOVED from the card to logs/run39: none is left on it
+```
+
+- **The tools ran UNEDITED.** They are `tools/v23report.py` at `484b5c4`,
+  `tools/v23accept.py` at `8e0e5e8` and `tools/v23floor.py` at `b7bd8fe`. The report
+  builder accepted the trace, so the CRC, the timebase, the LIVETRACE counts and every
+  saturated delta's tick all checked.
+- **The outputs were written and sealed before either session read a verdict.** They are:
+  - the report JSON, `578272469f40fe3b…`;
+  - the printed verdicts, `405c40033170309d…`;
+  - the evaluation JSON, `40b22342abeaf13c…`;
+  - the floor comparison, `ebdaaa6cc4f57f73…`;
+  - §V23.12's rule applied, `9babd8096a493dcd…`.
+- The seal was opened only after #103 was written, and each file was checked against its
+  hash when opened. `tests/host/test_run39.py` recomputes every one of them from the
+  fixtures.
+
+#### V23.13.2 The Gecko gap — two channels, not three
+
+The live Gecko capture recorded **zero bytes**. RUN 39 therefore has two independent
+channels, the SD log and the trace sidecar, instead of three. Both are complete, and they
+are the evidence. The Gecko was always corroboration.
+
+- **OPERATOR OBSERVATION:** "o gecko estava conectado... mas pode ser que ele sofreu algum
+  mal contado". What he observed is that it was connected. **His HYPOTHESIS**, an
+  intermittent contact, is offered as a possibility and is not established.
+- **The Orchestrator's mechanism, better supported and NOT established for RUN 39.** The
+  capture opened `/dev/ttyACM1` and held it throughout the run. Afterwards the Pico's
+  by-id link pointed at `ttyACM0` (link time 11:52), and `ttyACM1` no longer existed: the
+  device had re-enumerated. The 11:52 may be the Operator's own later `picocom` test,
+  which worked and showed `live-0001`'s lines.
+- **A property of `tools/geckorx.py`, read from its code: it cannot report a hangup.** The
+  device is opened blocking with `VMIN=1`, so a zero-length read can only mean the tty
+  hung up. `pump()` treats that as "no data yet" and loops. An `EIO` stops the capture
+  and exits 0 with only a byte count. The tool demonstrably cannot report the condition;
+  that is a mechanism it cannot see, not the cause of this gap.
+- **A property of the instrument, for every future run: a silent capture is
+  uninformative, never negative.** It cannot distinguish "the console emitted nothing"
+  from "the channel dropped". The Orchestrator now confirms that Swiss's own boot text
+  has arrived before the Operator presses anything, and has him reseat the Pico if it has
+  not. A fix to `geckorx.py` follows this Issue.
+
+#### V23.13.3 The OBSERVER GATE — first (§V23.3; the frozen tool's words)
+
+```text
+  OBSERVER  PRIMARY  the recorder's self-cost over 2030 cycles -- an UPPER BOUND, it includes the cost of measuring itself: largest single write 188 ticks, largest total per cycle 2950 ticks, mean total per cycle 2433.4 ticks
+            SANITY   mean undrained 27.86 /s (<= 31.8, A CHOSEN NUMBER); incomplete frames in C's window (§V23.8 (f)) 74 (<= 86) -> HOLDS
+```
+
+**PRIMARY — the recorder's self-cost.** It is an upper bound on what it times (§V23.9):
+- the largest single write is 188 ticks (4.6 µs);
+- the largest total in one AI cycle is 2 950 ticks (72.8 µs);
+- the mean per cycle is 2 433.4 ticks (60.1 µs), 0.19 % of the 31.222 ms cycle.
+
+**What no interval times** is clock reads (§V23.9). `LIVETRACECLK`, taken before the
+session, puts one read at **0..4 ticks through `gettime` and 0..5 through the transport**
+(1 024 back-to-back pairs each). The untimed reads per AI cycle are:
+- one per callback;
+- one per chain step: (239 189 + 2 035 + 239 189) calls over 2 031 cycles, about 237;
+- one per VIDEO block, the service module's read for the hook: about 75 at ~2 390 blocks/s.
+
+That is about 313 reads. At 5 ticks each they add at most about 1 570 ticks. On average
+the whole recorder is therefore at most about 4 000 ticks per cycle, 0.32 % of a cycle.
+
+**SANITY — HOLDS.**
+- The mean undrained is 27.86 blocks/s against the CHOSEN bound 31.8.
+- C's window has 74 incomplete frames against 86.
+
+`P`'s attribution therefore transfers to RUN 38 by §V23.3's rule. `QUESTION P` credits the
+recorder with **0** of 1 453 loss gaps.
+
+**Beside, deciding nothing.** RUN 38 lost 25.41 blocks/s, with 69 incomplete frames beyond
+start-up; RUN 39 lost 27.86/s, with 74 in C's window. With one run each, the difference is
+not separable from run-to-run variation. The gate, not the difference, decides transfer.
+
+#### V23.13.4 `QUESTION P` (the frozen tool's words)
+
+```text
+  P   no pass/fail -- P names `produce`
+      recorder 0  isr 1  produce 1279  flush_queue 0  process 0  neither 173
+      gap durations, in AUDIO block periods (quarters): 1.00:62  1.25:51  1.50:389  1.75:681  2.00:270
+```
+
+- **P names `produce`.** The chain's production step is the longest-overlapping candidate
+  for **1 279 of 1 453** loss gaps. `neither` takes 173, the ISR window 1, and the
+  recorder, `flush_queue` and `process` none.
+- **By §V23.8 (n)'s decision rule, Run B IS designed from this run.** That is the
+  Orchestrator's work, separately.
+- **The losses behind it.** 1 781 undrained blocks were located in 1 453 gaps; the
+  per-second coverage counts 1 783 short, so two blocks are not located by the
+  half-period method. Every loss gap lies between 1.00 T and 2.25 T. 486 of the 1 453
+  AUDIO locations are close calls.
+
+**What `P` establishes, and what it does not.** `P` attributes by longest overlap. The
+pump slot runs between two AUDIO completions by construction, so some pump-slot step is
+always inside a gap. The naming says that the production step is the longest recorded
+activity inside 88 % of the loss gaps. It does **not** say that production causes the
+loss. §V23.13.8 sets the naming against gaps without a loss in the same phase, where it is
+weaker than it looks.
+
+#### V23.13.5 `QUESTION K` (the frozen tool's words)
+
+```text
+  K   NOT COINCIDENT  2 of 75 VIDEO gaps within one AUDIO block of an AUDIO loss; phase-preserving null p = 0.98610
+      the UNIFORM null, for comparison only: p = 0.20470
+      distances to the nearest AUDIO loss, in AUDIO block periods: 0.41, 0.41, 1.05, 1.07, 1.13, 1.17, 1.20, 1.21, 1.21, 1.24, 1.26, 1.27, 1.27, 1.28, 1.28, 1.29, 1.30, 1.31, 1.32, 1.32, 1.32, 1.59, 1.61, 2.33, 2.34, 2.34, 2.43, 2.53, 2.54, 2.57, 2.58, 2.61, 2.81, 2.82, 2.83, 3.60, 3.67, 4.38, 4.60, 4.64, 4.66, 4.67, 4.67, 4.69, 4.69, 6.31, 6.37, 7.54, 8.57, 9.50, 9.51, 9.62, 9.69, 9.70, 9.70, 9.71, 9.71, 9.72, 9.75, 11.88, 20.73, 24.39, 119.54, 120.35, 126.24, 126.44, 126.45, 126.53, 126.63, 127.19, 128.47, 129.45, 245.58, 252.68, 259.70
+```
+
+**NOT COINCIDENT.**
+- 2 of 75 VIDEO gaps lie within one AUDIO block of an AUDIO loss.
+- The phase-preserving null gives p = 0.98610. The uniform null, for comparison only,
+  gives p = 0.20470.
+
+**A limitation found by the data — recorded, not repaired.** The frozen coincidence window
+is one AUDIO block period: 0.244 ms, 9 887.7 ticks. The VIDEO channel's own step inside a
+frame is coarser. The median spacing of consecutive VIDEO completions within a frame is
+11 212 ticks, **1.13 T** (p10 1.04 T, p90 1.58 T). **19 of the 75 distances lie in (1.0,
+1.35] T**: within one VIDEO step of an AUDIO loss, and outside the frozen window. On top
+of that, 61 of the 75 VIDEO gap locations are close calls.
+
+**The verdict stands as frozen: NOT COINCIDENT at one AUDIO block.** Whether the two
+losses are one event at the VIDEO channel's own resolution is NOT decided by this run.
+This section does not decide it.
+
+#### V23.13.6 §V23.12's floor rule, applied as frozen
+
+```text
+n        173 loss gaps went to `neither` (QUESTION P and tools/v23floor.py agree)
+N        [2 133 270, 3 848 785] ticks = 52.7 .. 95.0 ms, from P's gap histogram (the n smallest / n largest)
+S        [1 276 906, 2 282 798] ticks = 31.5 .. 56.4 ms: 461 778 steps the floor did not keep, EXACT
+         (step_dropped = 0): produce 222 909 of 239 189 calls, process 238 869 of 239 189
+rule     N_lo <= S_hi and N_hi > S_lo
+reading  "the floor may account for it, unresolved at this resolution"
+```
+
+**No side is taken.** This is the expected limit of session totals, not a surprise. What
+it asks for is per-step records **without a floor**, inside a bounded sample of gaps, in
+Run B's image. Only "cannot" would have been a finding about the chain, and this is not
+"cannot".
+
+#### V23.13.7 (f)'s premise, tested by the whole-session VIDEO records
+
+```text
+  (f) incomplete frames: 14 before the AI starts, 74 inside its span, 0 after it stops
+```
+
+The session's frame capture reads `FRAMECAP incomplete=88 resync=176`.
+
+**The 14 frames before the AI starts:**
+- **13 of them are the start-up signature.** They fall in the first 2.64 s after the
+  first VIDEO block, in five groups at frame positions (t / 16.743 ms) ≈ 0, 9–15, 31–37,
+  91–97 and 151–157. Those match `GBP-HW-317`'s invariant start-up episodes (open frames
+  8 / 30 / 90 / 150), and they give its count, 13.
+- **The 14th falls at 5.662 s, the instant of the A press** (`t_press`), 1.125 s before
+  the AI starts and before C's window opens at 6.162 s.
+
+**So the premise is not strictly true for this run.** Beyond the start-up signature, 74 of
+75 incomplete frames fall inside the AI span and one falls at the press, before it. None
+falls after the AI stops. The bound of 86 was derived assuming full confinement. It is
+applied to C's window, which the press frame precedes. It holds here, at 74.
+
+#### V23.13.8 Descriptive, not a gate — computed after the seal was opened; it decides nothing
+
+**Phase.**
+- 1 307 of the 1 450 losses with a defined phase (90 %) complete in the first tenth of
+  the AI cycle, the first 3.1 ms after a callback. 126 more complete in the second tenth.
+- 16 097 of 16 240 kept production steps (99 %) start in that same first tenth, a median
+  of 8 per cycle.
+- A kept production step lasts 1 877 to 3 061 ticks (46 to 76 µs; median 1 992) and
+  occupies 1.31 % of the window.
+
+**Overlap.**
+- A kept production step overlaps 1 279 of the 1 453 loss gaps (88 %) and 14 018 of the
+  258 907 other gaps (5.4 %).
+- **Inside the first tenth of the cycle** it overlaps 95.9 % of the loss gaps and 59.6 %
+  of the other gaps. Among the other gaps of **1.25 T or more** there, it overlaps
+  **96.9 %**.
+- In that phase, then, a long gap contains a production step whether or not a block was
+  lost.
+
+**Occupancy.** In that phase:
+- a loss gap (median 1.97 T) holds a median of **2** kept production steps, 0.39 T of
+  production;
+- another gap of 1.25–2.25 T (median 1.29 T) holds **1**, 0.20 T of production;
+- in both, the next AUDIO completion follows the last production step by a median
+  **0.48 T**.
+
+**What that does and does not separate.** The records fit production delaying the drain:
+two production steps in one interval between completions, and a block is lost. They fit
+equally a long interval that simply holds more pump passes. **This run's records do not
+separate the two.** That is the question a separating experiment answers. Close calls do
+not drive the naming: production overlaps 409 of the 486 close-call loss gaps (84 %) and
+870 of the 967 clear ones (90 %).
+
+**Beside, and not a §V23 gate:** C's playback figures. Underruns 0, DUP 2 034 (RUN 38:
+1 965), DROP 0. `gap_max` 22 016 ticks (2.23 T).
+
+#### V23.13.9 The verdicts, as the frozen tool prints them
+
+```text
+GBP-AUDIO-008 / trace-0001
+  OBSERVER  PRIMARY  the recorder's self-cost over 2030 cycles -- an UPPER BOUND, it includes the cost of measuring itself: largest single write 188 ticks, largest total per cycle 2950 ticks, mean total per cycle 2433.4 ticks
+            SANITY   mean undrained 27.86 /s (<= 31.8, A CHOSEN NUMBER); incomplete frames in C's window (§V23.8 (f)) 74 (<= 86) -> HOLDS
+  LOSSES    1781 undrained blocks located in 1453 gaps; 1783 blocks short by the per-second coverage
+            close calls (largest gap < 1.2 x the second largest): AUDIO 486 of 1453, VIDEO 61 of 75
+  K   NOT COINCIDENT  2 of 75 VIDEO gaps within one AUDIO block of an AUDIO loss; phase-preserving null p = 0.98610
+      the UNIFORM null, for comparison only: p = 0.20470
+      distances to the nearest AUDIO loss, in AUDIO block periods: 0.41, 0.41, 1.05, 1.07, 1.13, 1.17, 1.20, 1.21, 1.21, 1.24, 1.26, 1.27, 1.27, 1.28, 1.28, 1.29, 1.30, 1.31, 1.32, 1.32, 1.32, 1.59, 1.61, 2.33, 2.34, 2.34, 2.43, 2.53, 2.54, 2.57, 2.58, 2.61, 2.81, 2.82, 2.83, 3.60, 3.67, 4.38, 4.60, 4.64, 4.66, 4.67, 4.67, 4.69, 4.69, 6.31, 6.37, 7.54, 8.57, 9.50, 9.51, 9.62, 9.69, 9.70, 9.70, 9.71, 9.71, 9.72, 9.75, 11.88, 20.73, 24.39, 119.54, 120.35, 126.24, 126.44, 126.45, 126.53, 126.63, 127.19, 128.47, 129.45, 245.58, 252.68, 259.70
+  P   no pass/fail -- P names `produce`
+      recorder 0  isr 1  produce 1279  flush_queue 0  process 0  neither 173
+      gap durations, in AUDIO block periods (quarters): 1.00:62  1.25:51  1.50:389  1.75:681  2.00:270
+  (f) incomplete frames: 14 before the AI starts, 74 inside its span, 0 after it stops
+```

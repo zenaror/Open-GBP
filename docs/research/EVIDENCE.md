@@ -9294,3 +9294,121 @@ both" stays CORROBORATED.
 less than first written: 0.957 against 0.839. The periodogram's peak now lies 0.001 ms
 from the AI period, inside a resolution of about 0.1 ms. The VIDEO side is measured
 absolutely against the callbacks, and it carries the attribution to the AI cycle.
+
+---
+
+### GBP-HW-328 — RUN 39's observer gate HOLDS: `trace-0001` lost 27.86 AUDIO blocks/s and 74 frames in C's window, and its recorder cost at most about 0.3 % of each AI cycle — FACT (the counts and the frozen gate's result, one run)
+
+GitHub Issue #103; `HARDWARE_TESTS.md` §V23.13.3. RUN 39 ran `trace-0001` (GBP-AUDIO-008,
+commit `c1beea1`), which is `live-0001` with §V23's read-only records and nothing else, on
+`sweep-0002` with one A press. The frozen `tools/v23report.py` → `tools/v23accept.py`
+read the versioned log and trace sidecar (`captures/fixtures/hw-gamecube-gbp-2026-09-24-trace-0001-run39*`);
+`tests/host/test_run39.py` recomputes every figure.
+
+```text
+SANITY    mean undrained 27.86 blocks/s   <= 31.8 (§V23.3, a CHOSEN number)
+          incomplete frames in C's window 74   <= 86 (§V23.8 (f))                    -> HOLDS
+PRIMARY   2 030 AI cycles; largest single recorder write 188 ticks; largest total per cycle 2 950;
+          mean per cycle 2 433.4 ticks = 0.19 % of the 31.222 ms cycle (an upper bound on what it times)
+clock     LIVETRACECLK: one read 0..4 ticks (gettime), 0..5 (transport), 1 024 pairs each
+losses    1 781 undrained blocks in 1 453 gaps; the per-second coverage counts 1 783 short
+records   nothing dropped by any recorder buffer; the log's ring dropped and truncated nothing
+```
+
+About 313 clock reads per cycle fall outside every timed interval, at most 5 ticks each.
+Counting them, the recorder costs at most about 4 000 ticks per cycle, 0.32 %.
+`QUESTION P` credits the recorder with 0 of the 1 453 loss gaps.
+
+**What it establishes:** the gate held, so by §V23.3 `P`'s attribution transfers to
+RUN 38, and the instrument was light by its own measure.
+
+**What it does not establish:**
+- **That the instrument added nothing.** RUN 38 lost 25.41/s with none of it, and RUN 39
+  lost 27.86/s. With one run each, the difference is not separable from run-to-run
+  variation.
+- **Anything about `QUESTION K`'s or `P`'s answers.** One console, one Game Boy Player,
+  one run.
+
+---
+
+### GBP-HW-329 — `QUESTION P` names `produce`: the chain's production step is the longest recorded activity inside 1 279 of RUN 39's 1 453 loss gaps, and the losses sit in the first tenth of the AI cycle, where production runs — FACT (the frozen gate's output and the phase counts, one run); that production CAUSES the losses is a HYPOTHESIS, which this run does not separate from long gaps simply holding more production
+
+GitHub Issue #103; `HARDWARE_TESTS.md` §V23.13.4, §V23.13.6, §V23.13.8.
+
+```text
+P            recorder 0  isr 1  produce 1279  flush_queue 0  process 0  neither 173   -> "P names `produce`"
+gaps         every loss gap 1.00 .. 2.25 AUDIO block periods; 486 of 1 453 AUDIO locations are close calls
+phase        1 307 of 1 450 losses (90 %) and 16 097 of 16 240 kept production steps (99 %) in the first
+             tenth of the AI cycle (3.1 ms after the callback); 8 kept production steps per cycle (median)
+floor rule   n = 173; N 52.7 .. 95.0 ms; S 31.5 .. 56.4 ms (461 778 unkept steps, exact)
+             -> "the floor may account for it, unresolved at this resolution" (§V23.12; no side taken)
+```
+
+**By §V23.8 (n), Run B is designed from this run.** That design is the Orchestrator's.
+
+**What limits the naming (descriptive, computed after the seal was opened; it decides
+nothing).**
+- `P` attributes by longest overlap, and the pump slot runs between AUDIO completions by
+  construction.
+- Inside the first tenth of the cycle, a kept production step overlaps 95.9 % of the loss
+  gaps, and 96.9 % of the gaps of 1.25 T or more that lost nothing.
+- A loss gap there (median 1.97 T) holds a median of 2 production steps, 0.39 T of
+  production. A long gap with no loss (median 1.29 T) holds 1, 0.20 T. In both, the next
+  completion follows the last production step by a median of 0.48 T.
+- That fits production delaying the drain, and it fits equally a longer interval holding
+  more pump passes. **This run does not separate the two.**
+
+**The statuses.**
+- **FACT:** the gate's output and the counts.
+- **CORROBORATED, with `GBP-HW-327`:** the losses keep the AI chunk cycle.
+- **HYPOTHESIS:** production causes them.
+- **Unresolved by construction:** whether sub-floor steps account for `neither`. That is
+  a limit of session totals (§V23.12).
+
+---
+
+### GBP-HW-330 — `QUESTION K`: NOT COINCIDENT — 2 of RUN 39's 75 VIDEO gaps lie within one AUDIO block of an AUDIO loss, phase-preserving null p = 0.986 — FACT (the frozen gate's result, one run); the frozen window is narrower than the VIDEO channel's own step, so one event at the VIDEO resolution is NOT decided
+
+GitHub Issue #103; `HARDWARE_TESTS.md` §V23.13.5.
+
+```text
+K        NOT COINCIDENT: 2 of 75 within 9 887.7 ticks (one AUDIO block); phase-preserving p = 0.98610
+         (20 000 sets, seed 23); uniform p = 0.20470, for comparison only
+VIDEO    61 of 75 gap locations are close calls (largest intra-frame gap < 1.2 x the second)
+step     consecutive VIDEO completions inside a frame: median 11 212 ticks = 1.13 T (p10 1.04, p90 1.58)
+near     19 of the 75 distances lie in (1.0, 1.35] T: one VIDEO step away, outside the frozen window
+```
+
+**What it establishes:** under §V23.2 as frozen, the two losses do not coincide within one
+AUDIO block.
+
+**What it does not establish:**
+- **That they are two independent events.** `GBP-HW-327` still has both keeping the AI
+  chunk cycle.
+- **Whether they are one event at the VIDEO channel's resolution.** The window is
+  narrower than the VIDEO step, and most VIDEO locations are close calls. That is a
+  limitation found by the data, recorded and not repaired; the verdict stands as frozen.
+
+---
+
+### GBP-HW-331 — RUN 39's 88 incomplete frames: 13 are `GBP-HW-317`'s start-up signature, one falls at the A press, 74 lie inside the AI's span, none after it — FACT (the counts and times, one run); the identification of the 13 with the signature is CORROBORATED (same count, same frame positions)
+
+GitHub Issue #103; `HARDWARE_TESTS.md` §V23.13.7. This is the first run whose VIDEO
+records cover the whole session (§V23.8 (f)'s addition). The session's frame capture reads
+`FRAMECAP incomplete=88 resync=176`.
+
+```text
+before the AI starts   14 frames:
+                         13 in the first 2.64 s, at frame positions ~0, 9-15, 31-37, 91-97, 151-157
+                            (GBP-HW-317's start-up episodes open at 8 / 30 / 90 / 150; its count is 13)
+                         1 at 5.662 s = t_press, 1.125 s before the AI starts, before C's window
+inside the AI span     74 (= C's window count the observer gate reads)
+after the AI stops     0
+```
+
+**What it establishes:** the premise behind §V23.8 (f)'s bound was nearly, but not
+strictly, true here. Beyond the start-up signature, 74 of 75 incomplete frames fall inside
+the AI span and one falls at the A press.
+
+**What it does not establish:** why the press costs a frame, and whether RUN 38's 69 were
+confined the same way. RUN 38 had no per-block VIDEO records.
