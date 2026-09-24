@@ -15316,3 +15316,35 @@ at `c4b9ae23…5ee8d` before the export, and only that slot was exported. On the
 only `17-live/boot.dol` and `INDEX.txt` changed, and every file was verified with
 `O_DIRECT`. No `GBP-AUDIO-007*` file existed beforehand. The Orchestrator re-verifies
 from the medium before writing the Hardware Issue.
+
+## 2026-09-24 — Issue #94: Phase 7 evidence recovery — the archive already held it, and was already read
+
+**Question.** Does a log exist of the GB/GBC boot that #31's first Operator
+observation describes?
+
+**Answer.**
+- **That boot's log: no.** It predates #31 (2026-09-21). Nothing from it reached
+  `logs/`, and the card's reused names were overwritten by the runs after it.
+- **GB/GBC boots in the archive: yes, four.** RUN 24 and RUN 27 (Pokémon Crystal,
+  GBC), RUN 28 (Everdrive GB X7) and RUN 29 (Samurai Spirits, DMG), all on
+  `stream-0015` @ `da06500`. Their raw drops are the `logs/12-stream - GBC*` folders,
+  byte-identical to the `captures/local` run24/27/28/29 copies.
+- **They were already ingested on 2026-09-22** (§V7.7, §V7.10; Issues #47 and #55).
+  The three values #94 asks for are on the record, and re-reading the four logs
+  gives the same:
+
+```text
+CONTROL   orig=92 exp=8e in all four: bit 0x01 CLEAR in the original byte (GBP-HW-274, FACT);
+          then 0x8f, unanimous and persistent, 186-636 us after the transform write (GBP-HW-275)
+WITNESS   never engaged: STREAMWIT records=0/2048 frames_seen=0, WITQUAL qualified=0 armed=0
+VIDEO     none: PREUNMASK ok=0 reason=control_changed, teardown S2_before_unmask,
+          deliveries=0 video=0 unmasks=0 (GBP-HW-276)
+```
+
+**The one thing not yet written, now in `GBP-HW-272` as a dated paragraph.** A
+GB/GBC Game Pak sets bit `0x02` as a GBA one does, which excludes the narrower "a
+GBA cartridge" reading of CLAIM 2. It separates nothing else: not the era (already
+broken by RUN 23), not GBA from GB/GBC at that read point, and not the named
+falsifier. CLAIM 2 stays CORROBORATED.
+
+No id minted, no status moved, no Phase 7 work, and #31 stays BACKLOG.

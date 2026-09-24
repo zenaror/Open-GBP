@@ -7526,6 +7526,26 @@ log that cannot carry the field is the EIGHTH without it.**
   header says `gbp_touched=0`. It is the output-path test (§V21) and has no Game
   Boy Player in its question, so nothing is dropped. The split's population is
   unchanged by it.
+
+**2026-09-24, Issue #94 — what the GB/GBC Game Paks separate in CLAIM 2, and what
+they do not.** Nothing is re-measured and no status moves. The four GB/GBC logs
+already in the population (RUN 24, 27, 28 and 29, listed above; `GBP-HW-274`) were
+re-read for this paragraph.
+- **What they separate.** A GB/GBC Game Pak sets bit `0x02` exactly as a GBA one
+  does. The byte is `0x92` with a Game Boy Color cartridge, a DMG cartridge and an
+  Everdrive GB X7. So of CLAIM 2's possible readings, the narrower one -- bit `0x02`
+  reports *a GBA cartridge* -- is excluded by measurement. The reading it keeps is
+  *a Game Pak of either family*.
+- **What they do not separate:**
+  - the build era, which `GBP-HW-273` (RUN 23) had already broken;
+  - GBA from GB/GBC at this read point: the original byte is identical, and the
+    difference arrives only later, in bit `0x01` (`GBP-HW-275`), which is not this
+    entry's subject;
+  - the named falsifier: the bit changing inside one session while only the
+    cartridge changes, which none of these runs does.
+
+CLAIM 2 stays **CORROBORATED**.
+
 ---
 
 ### GBP-HW-273 — RUN 23: a LATE build with NO Game Pak reads CONTROL `0x90` — the empty diagonal cell of `GBP-HW-272` filled, and the build-era reading disconfirmed by measurement — FACT (recomputable from the archived log)
