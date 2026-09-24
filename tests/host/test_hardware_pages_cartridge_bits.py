@@ -31,6 +31,7 @@ register and what the device reports are different propositions.
 import os
 import re
 import unittest
+import guards
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 GBSDOL = os.path.join(ROOT, "docs", "hardware", "GBS-DOL.md")
@@ -109,9 +110,9 @@ class BothRowsCarryTheirHardwareHistory(unittest.TestCase):
 class TheePromotionMintedNothingAndChangedNoStatus(unittest.TestCase):
     def test_no_id_was_minted(self):
         ev = read(EVIDENCE)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 321)   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)   # 295…300: Issue #67 (RUN 31 ingested, §V9.15); 301…302: #67's validation (the rate/layout split, U-GBP-039's probe); 303…307: #72, RUN 32; 308…311: #78, RUN 33 and RUN 34; 312: #79, duty()'s mechanism; 313: #80, the H-PWM decode; 314…316: #82, the block structure and the drain (§V18); 317: #84, the start-up stall invariance; 318: #90, RUN 36; 319…321: #91, RUN 37 (§V19.11)   # 318: Issue #90 (RUN 36 ingested, the output path heard: §V21.9)   # 319…321: Issue #91 (RUN 37 ingested: D1, D2, QUESTION A; §V19.14)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", guards.at_close("docs/research/EVIDENCE.md"), re.M)), 321)   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)   # 295…300: Issue #67 (RUN 31 ingested, §V9.15); 301…302: #67's validation (the rate/layout split, U-GBP-039's probe); 303…307: #72, RUN 32; 308…311: #78, RUN 33 and RUN 34; 312: #79, duty()'s mechanism; 313: #80, the H-PWM decode; 314…316: #82, the block structure and the drain (§V18); 317: #84, the start-up stall invariance; 318: #90, RUN 36; 319…321: #91, RUN 37 (§V19.11)   # 318: Issue #90 (RUN 36 ingested, the output path heard: §V21.9)   # 319…321: Issue #91 (RUN 37 ingested: D1, D2, QUESTION A; §V19.14)
         self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +U-GBP-(\d{3})\b",
-                                                        read(os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")), re.M)), 44)   # 37, 38: Issue #62 (RUN 30); 39: Issue #67 (RUN 31); 40: #72; 41…43: Issue #82 (slice spacing, shorter reads, the in-block spread); 44: #84, the start-up stalls
+                                                        guards.at_close("docs/research/UNKNOWNS.md"), re.M)), 44)   # 37, 38: Issue #62 (RUN 30); 39: Issue #67 (RUN 31); 40: #72; 41…43: Issue #82 (slice spacing, shorter reads, the in-block spread); 44: #84, the start-up stalls
 
     def test_gbp_ctl_001_keeps_the_status_it_had(self):
         """Its claim is what the SOFTWARE does; the device's byte is a different proposition."""

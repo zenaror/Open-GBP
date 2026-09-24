@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 import unittest
+import guards
 
 import frozen  # noqa: E402  (tests/host is on the path)
 
@@ -346,7 +347,7 @@ class NothingWasPromotedAndTheIdsAreWhereTheyShouldBe(unittest.TestCase):
     def test_the_ids_minted_are_303_to_307(self):
         ev = read(EV)
         self.assertEqual(max(int(n) for n in re.findall(
-            r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 321)   # 318: Issue #90 (RUN 36 ingested, the output path heard: §V21.9)   # 319…321: Issue #91 (RUN 37 ingested: D1, D2, QUESTION A; §V19.14)
+            r"^#{2,4} +GBP-HW-(\d{3})\b", guards.at_close("docs/research/EVIDENCE.md"), re.M)), 321)   # 318: Issue #90 (RUN 36 ingested, the output path heard: §V21.9)   # 319…321: Issue #91 (RUN 37 ingested: D1, D2, QUESTION A; §V19.14)
         for i in range(303, 308):
             self.assertIn("### GBP-HW-%d" % i, ev)
 

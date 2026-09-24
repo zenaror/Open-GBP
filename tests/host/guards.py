@@ -158,3 +158,20 @@ def changed_between(base, end, paths):
     r = _git("diff", "--name-only", base, end, "--", *paths)
     assert r.returncode == 0, r.stderr
     return {p for p in r.stdout.split() if p}
+
+
+def at_close(path):
+    """The bytes of `path` as of CHECKPOINTS_CLOSED_AT (GitHub Issue #98).
+
+    Nineteen host tests pinned the record's CURRENT highest id ("the highest GBP-HW id is 321"),
+    three the NEXT free id or run number ("GBP-HW-322 is not in EVIDENCE", "RUN 38 is not in
+    HARDWARE_TESTS") and two a window of ids no record may cite yet. Each was written to say that ITS
+    checkpoint minted nothing, and each was then moved by hand at every ingestion that minted
+    something -- which every ingestion does. They could not see what they were said to protect: a
+    REUSED id changes neither the highest id nor the next free one (demonstrated in
+    tests/host/test_record_ids.py). They now read the record here, where they were last maintained
+    and true, and are never moved again; what they could not do is done by computed checks on the
+    record itself (test_record_ids.py): every id defined once, every family without a gap, every
+    id the HANDOFF and the ROADMAP cite defined.
+    """
+    return show(CHECKPOINTS_CLOSED_AT, path)

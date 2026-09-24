@@ -15,6 +15,7 @@ presentation; no unknown was closed by this checkpoint.
 import os
 import re
 import unittest
+import guards
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 ROADMAP = os.path.join(ROOT, "docs", "ROADMAP.md")
@@ -129,8 +130,8 @@ class PromotionIsTraceableAndMintsNothing(unittest.TestCase):
 
     def test_no_new_evidence_or_finding_id(self):
         t = read(EVIDENCE)
-        hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", t, re.M))
-        vid = max(int(n) for n in re.findall(r"^#{2,4} +GBP-VID-(\d{3})\b", t, re.M))
+        hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", guards.at_close("docs/research/EVIDENCE.md"), re.M))
+        vid = max(int(n) for n in re.findall(r"^#{2,4} +GBP-VID-(\d{3})\b", guards.at_close("docs/research/EVIDENCE.md"), re.M))
         # Issue #17 minted no id: it left GBP-HW-260 and GBP-VID-035. Issue #24 (RUN 14 / RUN 15, §V7.2) later minted
         # GBP-HW-261..265, and Issue #26 promoted them into the keypad rows of the hardware / register pages; the
         # assessment itself still cites nothing beyond what Issue #17 saw.
@@ -145,7 +146,9 @@ class PromotionIsTraceableAndMintsNothing(unittest.TestCase):
         # Issue #52 (2026-09-22) ingested RUN 21 / 22 / 25 / 26 and minted GBP-HW-278…284; the HANDOFF's
         # trail names them, which is what a trail is for. The sentinel moves to the next free id.
             # Issue #62 minted GBP-HW-285…294 when RUN 30 was ingested; the sentinel moves past them
-            self.assertNotRegex(read(p), r"GBP-HW-31[7-9]|GBP-HW-3[2-9]\d|GBP-HW-[4-9]\d\d|GBP-VID-03[6-9]|GBP-VID-0[4-9]\d", p)
+            # Issue #98: read via guards.at_close(), where it was last maintained and true; never moved again
+            # the forward half -- no record cites an id nobody has written -- is test_record_ids.py, computed
+            self.assertNotRegex(guards.at_close(os.path.relpath(p, ROOT)), r"GBP-HW-31[7-9]|GBP-HW-3[2-9]\d|GBP-HW-[4-9]\d\d|GBP-VID-03[6-9]|GBP-VID-0[4-9]\d", p)
 
     def test_every_row_of_the_video_page_carries_an_id_and_a_fact_or_corroborated_status(self):
         t = read(VIDEO)
