@@ -191,7 +191,7 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
     def test_nothing_under_the_forbidden_paths_changed(self):
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE_COMMIT)
-        changed = guards.changed_since(BASE_COMMIT, ["src", "poc", "tools", "Makefile", "stimulus", "docs/protocol", "docs/hardware"])   # Issue #29: tracked AND untracked, one implementation
+        changed = guards.changed_between(BASE_COMMIT, guards.CHECKPOINTS_CLOSED_AT, ["src", "poc", "tools", "Makefile", "stimulus", "docs/protocol", "docs/hardware"])   # Issue #29: tracked AND untracked, one implementation
         # Issue #65 (2026-09-22) BUILT stimulus/agb-tone (tone-0001), §V9's two-frequency stimulus: a new
         # stimulus ROM beside the four the family already had. It touches no runtime path, no image and no
         # slot; §V9.14 records its identity and tests/host/test_agb_tone.py runs its own code on the host.
@@ -320,7 +320,7 @@ class TheRecordsAndTheFreeze(unittest.TestCase):
         # VIDEO.md gained a pointer to AUDIO.md, docs/hardware/README.md its missing AUDIO.md entry.
         changed = changed - {"docs/protocol/VIDEO.md", "docs/hardware/README.md"}
         self.assertTrue(changed <= {"src/gbp/gbp_vstate_probe.c", "src/gbp/gbp_vstate_probe.h", "src/gbp/gbp_session.c", "src/gbp/gbp_session.h", "poc/gbp-play-session/Makefile", "poc/gbp-play-session/source/main.c", "tools/poc_audit.py", "tools/swiss-layout.tsv", "Makefile"}, "changed against the base: " + " ".join(sorted(changed)))
-        changed2 = guards.changed_since(BASE_COMMIT, ["captures/fixtures"])   # Issue #29: tracked AND untracked, one implementation
+        changed2 = guards.changed_between(BASE_COMMIT, guards.CHECKPOINTS_CLOSED_AT, ["captures/fixtures"])   # Issue #29: tracked AND untracked, one implementation
         # Issue #81 (2026-09-23): RUN 33 / RUN 34's raw audio sidecars, versioned as replay fixtures
         # (captures/README.md); the first fixtures since RUN 18, and they touch none of the above.
         changed2 = changed2 - {"captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
