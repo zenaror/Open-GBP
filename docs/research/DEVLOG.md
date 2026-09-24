@@ -15148,3 +15148,19 @@ opened.
 
 **Next.** The Orchestrator verifies the card independently, then writes the Hardware
 Issue for GBP-AUDIO-005 (`15-drain`) and AOUT-HW-001 (`16-aout`) in one sitting.
+
+## 2026-09-23 — The sitting's run numbers: RUN 36 = AOUT-HW-001, RUN 37 = GBP-AUDIO-005
+
+The Operator numbered the two runs of Hardware Issue #89 before running them, following
+RUN 35 in #89's order:
+- RUN 36 is AOUT-HW-001: `16-aout`, `aout-0002` @ 28cbb97, no cartridge.
+- RUN 37 is GBP-AUDIO-005: `15-drain`, `drain-0001` @ 897ea6c, `sweep-0002` on the
+  EZ-Flash.
+
+#89's "RUN A" and "RUN B" are the same runs, and those labels are superseded. Neither
+pre-registration had reserved a RUN number, only the test IDs. §V21.8 and §V19.13
+bind the numbers before any data exists, and change no gate.
+
+§V21.8 also states the handling of RUN 36's log. The log names the sealed order, so
+neither session opens or displays it until the Operator's count and relations are
+written in #89. Until then the files are only hashed and sized.

@@ -32172,6 +32172,24 @@ card       written by tools/swiss_export.py --only 15-drain, copied to the SD an
            CARD by a page-cache-bypassing read
 ```
 
+### V19.13 The run's name — **RUN 37**, assigned by the Operator on 2026-09-23, BEFORE the run
+
+*Appended. §V19.0–§V19.12 stand, and no gate, bound or definition moves.*
+
+§V19 reserved a test ID, `GBP-AUDIO-005`, and no RUN number. The Operator numbered the
+run, following RUN 35 in the order Hardware Issue #89 lists the two runs of the
+sitting:
+
+```text
+RUN 37     GBP-AUDIO-005, slot 15-drain, drain-0001 @ 897ea6c (clean),
+           500 992 B, sha256 4c80ab8a34d9260793e036beda513a9a23be86d04c61c0d653c6f79fc7333884
+cartridge  sweep-0002 on the EZ-Flash since RUN 33, no reflash. The delivered file
+           build/physical/agb-sweep-cart.gba is 2 352 B, sha256 9596ddee...95f2, as §V11.17.1 records;
+           the cartridge's contents are the Operator's, not re-read here
+alias      Hardware Issue #89's "RUN B". The same run, and that label is superseded;
+           the ingestion, the report and every record name it RUN 37
+```
+
 ## V20 — RUN 35 INGESTED (GitHub Issue #85, GBP-AUDIO-006): **`question_L_bits` = LINEAR**, self-contained in one run, and `GBP-HW-305` is **FACT** — **2026-09-23**
 
 **The verdict, before any commentary, as the Issue requires: `question_L_bits`
@@ -32463,3 +32481,27 @@ the screen or the Gecko (`tests/host/test_aout_image.py`).
 - The class still comes from the Operator's words, quoted verbatim. Because the saved
   log names the play order, **the Operator's report is recorded before the log is
   opened**.
+
+### V21.8 The run's name — **RUN 36**, assigned by the Operator on 2026-09-23, BEFORE the run
+
+*Appended. §V21.0–§V21.7 stand, and nothing in the gate or the classes moves.*
+
+§V21 reserved a test ID, `AOUT-HW-001`, and no RUN number. The Operator numbered the
+run, following RUN 35 in the order Hardware Issue #89 lists the two runs of the
+sitting:
+
+```text
+RUN 36     AOUT-HW-001, slot 16-aout, aout-0002 @ 28cbb97 (clean),
+           363 168 B, sha256 97f113ca0bbc9ec94e5ca945a2a34dae4f5bd5ff9386b2b8362cc32e8d7145e2
+cartridge  NONE. The Game Pak is out (#89), so nothing else on the console can make a sound he hears
+alias      Hardware Issue #89's "RUN A". The same run, and that label is superseded;
+           the ingestion, the report and every record name it RUN 36
+```
+
+§V21.7's rule applies to RUN 36 as written. The Operator's count and three relations
+are recorded in #89 before the saved log is copied or opened. If the files arrive
+before his written answer, the perceptual class is NOT ingested until that answer
+exists. **Neither session opens the log before then either.** Tool output and chat are
+channels the Operator reads, and one displayed PLAY line would unseal the order. Hashing
+the files and recording their sizes needs no display of their contents, and is all that
+happens to them until his answer is in #89.
