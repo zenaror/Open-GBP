@@ -47,19 +47,33 @@ def then(path):
 
 
 def entry(text, eid):
-    m = re.search(r"^### %s \S.*$" % re.escape(eid), text, re.M)
-    nxt = re.search(r"^### (?:GBP|ENV)-[A-Z]+-\d{3} ", text[m.end():], re.M)
+    m = re.search(r"^#{2,3} %s \S.*$" % re.escape(eid), text, re.M)
+    nxt = re.search(r"^#{2,3} (?:GBP|ENV)-[A-Z]+-\d{3} ", text[m.end():], re.M)
     body = text[m.end():m.end() + nxt.start() if nxt else len(text)]
     if nxt:
         body = body[:body.rfind("\n---\n")]
     return m.group(0), body
 
 
-def section(text, head_re):
+def section(text, head_re, stop=r"^#{1,3} "):
     m = re.search(head_re, text, re.M)
-    n = re.search(r"^#{1,3} ", text[m.end():], re.M)
+    n = re.search(stop, text[m.end():], re.M)
     return text[m.start():m.end() + n.start() if n else len(text)]
 
+
+def rows_append_only(tc, old, new):
+    """Every table row of the base page is still there, keyed by its first cell, and each of its cells is a prefix
+    of the row's cell now: text is appended inside a cell, never replaced."""
+    now_rows = dict((l.split(" | ")[0], l.split(" | ")) for l in new.splitlines() if l.startswith("| "))
+    for line in old.splitlines():
+        if not line.startswith("| "):
+            continue
+        cells = line.split(" | ")
+        tc.assertIn(cells[0], now_rows, line[:60])
+        got = now_rows[cells[0]]
+        tc.assertEqual(len(got), len(cells), line[:60])
+        for a, b in zip(cells, got):
+            tc.assertTrue(b.startswith(a.rstrip(" |")), (cells[0][:40], a[:50]))
 
 class OnTopNeverRewritten(unittest.TestCase):
     def test_every_amended_entry_keeps_its_text_and_ends_with_the_amendment(self):
@@ -82,14 +96,20 @@ class OnTopNeverRewritten(unittest.TestCase):
             self.assertIn("the statuses stand", last, eid)
             self.assertEqual(reconcile.heading_pointer(h), last.strip("* ").strip(), eid)
 
-    def test_no_other_entry_changed(self):
+    def test_no_other_entry_was_rewritten(self):
+        """Every entry that existed at the base is still there, in order, and still STARTS with its base text;
+        later Issues may append to any of them and add entries after GBP-HW-339."""
         old, new = then(EV), now(EV)
-        ids = re.findall(r"^### ((?:GBP|ENV)-[A-Z]+-\d{3}) ", old, re.M)
+        ids = re.findall(r"^#{2,3} ((?:GBP|ENV)-[A-Z]+-\d{3}) ", old, re.M)
+        self.assertGreater(len(ids), 400)                                     # both heading levels are guarded
         for eid in ids:
             if eid in AMENDED:
                 continue
-            self.assertEqual(entry(new, eid), entry(old, eid), eid)
-        self.assertEqual(re.findall(r"^### ((?:GBP|ENV)-[A-Z]+-\d{3}) ", new, re.M), ids + ["GBP-HW-339"])
+            h0, b0 = entry(old, eid)
+            h1, b1 = entry(new, eid)
+            self.assertTrue(h1.startswith(h0) and b1.startswith(b0.rstrip("\n")), eid)
+        new_ids = re.findall(r"^#{2,3} ((?:GBP|ENV)-[A-Z]+-\d{3}) ", new, re.M)
+        self.assertEqual(new_ids[:len(ids) + 1], ids + ["GBP-HW-339"])
 
     def test_U_GBP_045_heading_and_body(self):
         old, new = then(UN), now(UN)
@@ -101,7 +121,13 @@ class OnTopNeverRewritten(unittest.TestCase):
         s1 = section(new, r"^## U-GBP-045 ")
         self.assertTrue(s1[len(h1):].startswith(s0[len(h0):].rstrip("\n")))
         self.assertIn("**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten.**", s1)
-        self.assertEqual(new.replace(s1, "").replace(h1, h0), old.replace(s0, "").replace(h0, h0))
+        for uid in re.findall(r"^## (U-GBP-\d{3}) ", old, re.M):                # every other item: append-only,
+            if uid == "U-GBP-045":                                              # heading and body separately
+                continue
+            a, b = section(old, r"^## %s " % uid, r"^## U-GBP-\d{3} "), section(new, r"^## %s " % uid, r"^## U-GBP-\d{3} ")
+            ha, hb = a.split("\n", 1)[0], b.split("\n", 1)[0]
+            self.assertTrue(hb.startswith(ha), uid)
+            self.assertTrue(b[len(hb):].startswith(a[len(ha):].rstrip("\n")), uid)
 
     def test_the_run_sections_gain_a_final_subsection_and_nothing_else(self):
         old, new = then(HT), now(HT)
@@ -112,7 +138,7 @@ class OnTopNeverRewritten(unittest.TestCase):
             self.assertTrue(s1.startswith(s0.rstrip("\n")), sec)
             added = s1[len(s0.rstrip("\n")):]
             heads = re.findall(r"^#### (\S+) ", added, re.M)
-            self.assertEqual(heads, [num], sec)
+            self.assertEqual(heads[0], num, sec)                             # later Issues append after it
             self.assertIn("RE-DERIVED 2026-09-24 (GitHub Issue #116), on top", added, sec)
             self.assertIn("no verdict is re-judged", added, sec)
 
@@ -207,11 +233,17 @@ class TheRuleAndTheOtherPlaces(unittest.TestCase):
         a = now(AUDIO)
         self.assertIn("**2026-09-24, Issue #116, restated on top:**", a)
         self.assertIn("the ratio is **0.270** (90 % CI 0.235–0.308), a 69–77 % reduction", a)
-        self.assertIn("0.60 % outside the 10 s L2 window, 0.74 % inside it, `GBP-HW-339`", a)
+        self.assertIn("**2026-09-24, Issue #116:** 0.60 % outside the 10 s L2 window, 0.74 % inside it, `GBP-HW-339`", a)
         self.assertIn("second (24.50 outside the L2 instrument's window, `GBP-HW-339`)", a)
         old = then(AUDIO)
         self.assertIn("(90 % CI 0.306–0.379), a 62–69 % reduction", a)          # the published figure stays
-        self.assertEqual(len(a.splitlines()), len(old.splitlines()))            # cells appended, no row replaced
+        # ONE declared insertion: #116's note on "The live chain, run once" sits INSIDE the cell's parenthesis, not at
+        # its end, so that row is checked with the note removed; every other row is cell-wise append-only.
+        key = "| The live chain, run once"
+        note = "; **2026-09-24, Issue #116:** 0.60 % outside the 10 s L2 window, 0.74 % inside it, `GBP-HW-339`"
+        row = [l for l in a.splitlines() if l.startswith(key)][0]
+        self.assertIn(note, row)
+        rows_append_only(self, old, a.replace(row, row.replace(note, "")))
 
     def test_the_header_comment(self):
         h = now("src/audio/gbp_aplay.h")

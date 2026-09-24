@@ -501,7 +501,7 @@ occurrence on the first block of the first request. Direction: repeated
 captures (block sequence, flag periodicity) before a known-color
 cartridge (GBP-VIDEO-001 direction, DEVLOG 2026-09-16).
 
-## U-GBP-012 (P2 — **STILL OPEN**; 2026-09-22, Issue #58: the first experiment against it is PRE-REGISTERED, `HARDWARE_TESTS.md` §V8, GBP-AUDIO-001 — **NOT RUN, NOT AUTHORISED**, and a pre-registration answers nothing — **RUN 30 EXECUTED AND INGESTED 2026-09-22 (Issue #62, §V8.13): the first data with a cartridge running. AU = CARRIES / OTHER SHAPE. The prerequisite is answered; the FORMAT is not, and this item STAYS OPEN**) — AUDIO block format on hardware
+## U-GBP-012 (P2 — **STILL OPEN**; 2026-09-22, Issue #58: the first experiment against it is PRE-REGISTERED, `HARDWARE_TESTS.md` §V8, GBP-AUDIO-001 — **NOT RUN, NOT AUTHORISED**, and a pre-registration answers nothing — **RUN 30 EXECUTED AND INGESTED 2026-09-22 (Issue #62, §V8.13): the first data with a cartridge running. AU = CARRIES / OTHER SHAPE. The prerequisite is answered; the FORMAT is not, and this item STAYS OPEN**) — AUDIO block format on hardware — **2026-09-24, Issue #118: the FORMAT half answered for the archived tones, by arithmetic (GBP-HW-340: slice pairs carry the tone at 32 768 values/s, Hz conditional on U-GBP-041; the block decode nothing above 2 048 Hz); for a game it needs a raw-block capture; the Operator reports the references not muffled (OPERATOR OBSERVATION); STAYS OPEN for the physical half**
 
 Dolphin's PWM model ("1 bits contiguous and leading", 4096 Hz, 9-bit
 samples) comes from making the DISC happy, not from measurement.
@@ -686,6 +686,31 @@ last two play the game **through the same physical Game Boy Player**.
 - **It does not touch §V25.** Phase 6's acceptance judges stability, and the
   fidelity limit is told to the Operator in advance (§V25.7 3(a)). **The item
   stays OPEN.**
+
+**2026-09-24, Issue #118 — the FORMAT half, answered for the archived tones; the lead's test answered by
+the Operator (`GBP-HW-340`).**
+- **The Operator's words, OPERATOR OBSERVATION**, as transcribed by the Orchestrator in #118's body
+  (raw sha256 `bf31d679…85046c`, printed `d8f41214…ade2aa9`): *"acabei de testar neles e realmente
+  la nao tem atraso de audio (alem de nao sair abafado)"*. Under the Start-up Disc and GBI, on the
+  same cartridge and hardware (the Issue's framing), the game plays **not muffled**. That is the
+  test the #110 lead named, answered "not muffled", the negation of the lead's "muffled"; as the
+  lead says, it argues for a raw-block capture of a game and decides nothing here.
+- **The archive answers the format half for known tones, by arithmetic** (`tools/u012slices.py`):
+  - decoded by slice pairs, RUN 33's and RUN 34's blocks are the programmed square waves on the
+    pair grid, 32 768/s nominal (the Hz axis conditional on `U-GBP-041`), with 2.5–18.7 % of each
+    tone's energy above 2 048 Hz reproduced within 0.0001 and the harmonics within 0.0003;
+  - the runtime's one value per block has its Nyquist at 2 048 Hz, so none of that can be in it,
+    and its boxcar-and-decimate folds part of it onto in-band bins instead;
+  - **for these tones, the ~2 kHz limit is this project's decoder's**, by arithmetic;
+  - the slice decode adds nothing beyond the pair grid for these tones (`GBP-HW-315`'s even slices).
+- **It cannot answer it for a game.** The live family stored one decoded value per block. A
+  game's blocks need a new capture that keeps raw blocks, and a game may set SOUNDBIAS above
+  32.768 kHz, so that capture should be decoded at all sixteen slices.
+- **The cost of a slice decode is arithmetic in `GBP-HW-340`**: ×8 decoded samples, `TARGET` ×8 for
+  the same seconds, and a correction unit that would no longer keep up at one sample per chunk.
+
+What stays open: the physical half (what a slice's count integrates over), and every figure for a
+game.
 
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
@@ -2064,6 +2089,14 @@ could use it. **What settles it (hardware):** a tone whose half-period is not a
 whole number of two-slice units, so that k moves from edge to edge by a
 predictable amount. Even that resolves only the 32 768/s grid, unless the
 quantisation is the source's.
+
+**2026-09-24, Issue #118 — a consistency, not a test.** GBATEK's SOUNDBIAS default is "9bit / 32.768kHz"
+(`external/gbatek` `64b5087a`, gba.md "4000088h - SOUNDBIAS"). If the sixteen slices are uniform, the
+two-slice grid is 32 768/s, which is that rate. The other settings (65.536, 131.072, 262.144 kHz)
+would, under uniform slices, put transitions on odd slices or inside one. None of the project's
+stimulus ROMs writes SOUNDBIAS (`stimulus/`, by grep), so every archived tone ran the BIOS default,
+which GBATEK's I/O map lists under BIOS. This is documentation agreeing with a HYPOTHESIS, and the
+item stays open (`GBP-HW-340`).
 
 ## U-GBP-042 (P1 → **P3**, opened 2026-09-23, Issue #82; **ANSWERED FOR N = 0x20 by RUN 37, Issue #91: NO** — 0x100 and 0x400 untested, the mechanism unknown, no longer blocking) — can the AUDIO block (index 0x8) be read SHORTER than 0x1000, and does the device then deliver the next block normally?
 

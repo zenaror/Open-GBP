@@ -16377,3 +16377,40 @@ whole / outside / inside, and do not rely on balance.
 **Tests executed.** `make test-python` on the committed tree; the figure is in the #116 report.
 
 **Next.** The latency round (`U-GBP-046`) waits on gates the Orchestrator freezes; then Phase 7.
+
+## 2026-09-24 — Issue #118: does decoding the slices recover the bandwidth? — YES for the archived tones, by arithmetic; a game's blocks were never stored
+
+**Checked first, as asked.** Whole raw AUDIO blocks exist only for RUN 30–35's stimulus-ROM tones
+(1 280 blocks a run; RUN 33/34 versioned). The live family kept one decoded value per block, so
+RUN 42's slices do not exist and were not reconstructed. The game half needs a new raw-block
+capture.
+
+**The controlled half** (`tools/u012slices.py`, `tests/host/test_u012_slices.py`, `GBP-HW-340`).
+Three decodes of the same bytes over each press window's sliced region, against the programmed
+square wave with the phase as the one free parameter:
+- the block decode's Nyquist is 2 048 Hz, so 2.5–18.7 % of each tone cannot be in it; and its
+  boxcar-and-decimate has no anti-alias stage, so part of that folds in band (at 512 Hz its
+  |H3|/|H1| is 0.263 against 0.334);
+- the pair decode is the tone at 32 768/s nominal: correlation ≥ 0.99998, the same energy above
+  the cut within 0.0001, the same harmonics within 0.0003 up to the 127th;
+- the slice decode adds nothing beyond the pair grid, as `GBP-HW-315`'s even-slice transitions
+  predict.
+
+**Its limits, stated.** The Hz axis assumes uniform slices (`U-GBP-041`); GBATEK's SOUNDBIAS
+default of 32.768 kHz is consistent with the grid and tests nothing. A game may set a higher
+rate, so a runtime decode should keep all sixteen slices. `GBP-HW-315`'s status does not move.
+
+**The correction.** "Nothing above ~2 kHz" is this project's decoder's limit, and the record said
+"este decodificador"; it is not the path's. `L2 PASS` ≠ fidelity, written at the closure (§V25.12.10,
+§V26.11.9), in `AUDIO.md` and in `GBP-HW-340`. The Operator's re-test of the references is recorded
+verbatim as OPERATOR OBSERVATION in `U-GBP-012`: the #110 lead's test, answered "not muffled", which
+argues for a raw-block capture of a game and decides nothing.
+
+**The cost, arithmetic.** ×8 decoded samples; `TARGET` ×8 for the same seconds, which is why #117's
+levels are frozen in time; the correction unit would not keep up at one sample per chunk: 0.98 ms/s
+of slew at the pair rate against a need of 2.66 ms/s (RUN 42) to 7.09 ms/s (RUN 38, where 7.50 was
+observed, 96 % of today's ceiling).
+
+**Tests executed.** `make test-python` on the committed tree; the figure is in the #118 report.
+
+**Next.** #117's build resumes, with a proposal on whether a raw-block window can ride along.
