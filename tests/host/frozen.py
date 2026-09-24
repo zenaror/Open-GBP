@@ -72,6 +72,9 @@ BASES = {
     # Issue #101: Run A's log + trace -> report builder, frozen with the image, before any run
     "Issue #101 -- trace-0001 and its report builder":
         "484b5c4362db497d612682d722b055de864621f1",
+    # Issue #101: §V23.10's comparison of `neither` with what the step floor did not keep, frozen before any run
+    "Issue #101 -- §V23.10, the floor's comparison frozen":
+        "b7bd8fe32e2af5843bae43fbd16ef3dce08357a6",
 }
 
 
