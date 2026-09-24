@@ -32932,3 +32932,248 @@ something wrong. That is FACT, from the capture and the source. Together with th
 PASS, it says more about the image than the PASS does alone. A PASS shows the image
 plays the right thing when it plays. Boot 1 shows it does not play when it cannot
 play the right thing.
+
+## V22 — PHASE 6's ACCEPTANCE: drain live, decode, and play the cartridge's own tone through the GameCube — **PRE-REGISTERED 2026-09-23 (GitHub Issue #92); NOT RUN, NOT AUTHORISED HERE; the POC is built under this Issue and staged by a separate Hardware Issue**
+
+*Transcribed from the Orchestrator's corrected §V22 on #92 (comment 5805764388),
+before any code for it exists. First-person passages are the Orchestrator's. What
+was changed in transcription, and why, is §V22.8. The gates are frozen in
+`tools/v22accept.py` in the same commit, and exercised on synthetic vectors only.*
+
+### V22.0 What RUN 37 settled, and is not at stake
+
+```text
+whole 0x1000 AUDIO blocks, 16.8 MB/s sustained -- short reads are not a lever
+                                                  (QUESTION A: SYNC-LOST at 32 B, NO-RECOVERY)
+the ring holds DECODED int16 SAMPLES           -- one per AUDIO block, 2 B each
+                                                  >= 200 blocks = 400 B (D2's x2 rule)
+NO SD write on the drain's path                -- D2: one 64 KiB write cost 100 blocks, LOST
+the start-up stalls: INVARIANT (GBP-HW-317, FACT); their MECHANISM is
+   U-GBP-044's HYPOTHESIS and OPEN; the measurement window cannot overlap
+   them by construction (§V22.1's origin), which is why they do not matter here
+```
+
+**Correction to my figure:** I wrote "6 400 B", which is 200 × 32 — the block's
+*payload*, not the decoded sample. One block decodes to **one int16**, so 200
+blocks is **400 B**.
+
+**Size the ring at 4096 blocks (1 s, 8 KiB) anyway**, since the cost is nothing.
+But state in the code why: a larger ring **defers** underrun (1 108 s against
+54 s) and **does not fix drift**. Nobody should later read the size as a
+solution to §V22.4.
+
+### V22.1 `QUESTION L` — the tone's identity, machine-side
+
+**Time origin, frozen:** every window below is counted from the **end of the
+positive control**, in 40.5 MHz ticks. Not from boot, not from session start.
+
+**The tone is named:** **exactly ONE `A` press**, which selects `sweep-0002`'s
+first A-schedule tone, **128 Hz = period 32 AUDIO blocks** (RUN 37 measured
+`programmed_period=32`, controls exact at 32). **Any other press count gives
+INCONCLUSIVE** — not FAIL.
+
+```text
+PASS          min == max == 32 across the window, by GBP-HW-313's reading
+FAIL          any other constant, or not constant
+INCONCLUSIVE  no tone at the positive control; any press count but one;
+              or coverage in the window below D1's 0.999, which makes it a
+              drain result and not a playback one
+```
+
+`min == max` alone would pass a **constant wrong period**. `== 32` is the fix,
+and it is why the tone had to be named.
+
+**Confirmed readings, part of this gate (§V22.8):**
+
+- **Where L is read (e).** L is read on the drain's decoded stream as it leaves
+  the decoder, before any §V22.4 correction; the corrections are applied only
+  between the ring and the resampler, and only L2 sees them.
+- **L's window (c).** L is read over QUESTION C's window (≥ 60 s from the
+  origin), with coverage checked per 1.000 s window in ticks as in D1.
+- **The positive control (d).** The positive control is §V19's CONTROL window as
+  §V19.11 A4.7 defines it: 2048 full-read AUDIO blocks, at least 48 periods,
+  every one exactly 32, after the one A press. If it has not passed within §V19's
+  bound, the run is INCONCLUSIVE.
+
+### V22.2 `QUESTION L2` — the leg nothing has ever tested. **The real gate.**
+
+**You are right that `L` alone tests only what RUN 37 already proved.** RUN 37's
+CONTROL windows measured the decoded stream's period live — 63 periods, all 32 —
+so `L` is nearly implied by its own positive control. **Nothing in my §V22
+touched decode → resample → AI, which is the only thing this checkpoint composes
+for the first time.** A silent or garbled AI would have passed Phase 6's
+acceptance, with the Operator explicitly not the gate. That was a hole straight
+through the middle of it.
+
+```text
+WINDOW    10 s, inside QUESTION C's window, after the origin
+KEPT      the window's decoded int16 stream (10 s x 4096 x 2 B = 80 KB),
+          the CRC of the frames actually handed to the AI DMA,
+          and EVERY clock correction with its sample index and type (§V22.4)
+SAVED     after the session, off the drain path (D2)
+
+PASS      the host, recomputing the FROZEN gbp_aresamp over the kept decoded
+          stream and applying the recorded corrections, reproduces the CRC
+          EXACTLY
+FAIL      it does not
+```
+
+Exact, no threshold, and it tests the composition end to end.
+
+**The preconditions without which L2 is not decidable. They are part of the gate
+(§V22.8 (p)):**
+
+- **The resampler's state at the window's start is KEPT:** its 16-sample history
+  and its phase accumulator.
+- **The window is a whole number of AI chunks.**
+- **The CRC is taken over those chunks' bytes exactly as handed to
+  `AUDIO_InitDMA`.**
+- **If an UNDERRUN falls inside the window,** the index of every chunk handed as
+  silence instead is KEPT with the corrections. This is the Executor's addition,
+  for the same reason (§V22.8 (u)).
+
+**Do NOT gate on an output-side edge period.** At 128 Hz the output period is
+250 frames only for a perfectly periodic input; value noise moves an integer
+threshold crossing by ±1 frame. That is the A6-literal trap, and `AMENDMENT 3`
+is why we know it is real rather than theoretical — RUN 37 landed on exactly
+that case.
+
+### V22.3 `QUESTION C` — survival, with the premise corrected
+
+**My premise was inverted.** A producer stall — D2's write — **EMPTIES** the
+ring; it does not overflow it. D2's ×2 rule sizes against **UNDERRUN**. Three
+distinct losses, never conflated:
+
+```text
+NOT DRAINED   blocks the service never read        -> coverage; L's INCONCLUSIVE arm
+OVERFLOW      decoded samples dropped, ring full   -> producer ahead of consumer
+UNDERRUN      AI chunks starved, ring empty        -> consumer ahead of producer;
+                                                      a "blocks lost" counter NEVER sees it
+```
+
+```text
+WINDOW   at least 60 s, as D1's was
+PASS     zero OVERFLOW and zero UNDERRUN
+FAIL     either
+FROZEN   all three losses, the per-second coverage series AND the ring-fill
+         series are reported IN FULL beside the verdict, PASS or FAIL.
+         A PASS is NEVER reported as "no loss" -- only as what the counters say.
+```
+
+**Do not enlarge the ring to make this pass.** If it fails, that is the finding.
+
+### V22.4 The two clocks — a DESIGN DECISION, made here, before the run
+
+```text
+drain delivers        4 095.949 blocks/s          RUN 37, MEASURED on this console
+AI consumes           4 099.644 samples/s         IF the AI is 32 028.5 Hz
+deficit               3.695 samples/s = 0.090 %
+200-block ring        empties in 27-54 s
+4096-block ring       empties in ~1 108 s
+```
+
+**The AI figure is a HYPOTHESIS, not a premise.** It is `108 MHz / 3372` from
+Dolphin's model (`external/dolphin @ c185d27`,
+`Source/Core/Core/HW/AudioInterface.cpp`), which `CLAUDE.md` §6.4 makes auxiliary
+and never hardware truth. It has never been measured on this console.
+
+**DECISION: counted drop/duplicate. NOT a ratio servo.**
+
+- a ratio servo would break `125/16 exact` and take `L2` with it — trading away
+  the only gate that tests the new leg, in order to smooth the thing being
+  tested;
+- a drop or duplicate is **one discrete, counted event** at a recorded index, so
+  `L2` stays exactly checkable and the correction is visible in the record
+  rather than smeared into the signal;
+- at the predicted drift that is ~**222 events in 60 s**, each a 244 µs
+  perturbation.
+
+**FROZEN: §V22 states the predicted correction rate, so a rate far from it is
+read as a wrong clock model and not as a stall.** If the real AI rate is *below*
+the drain's, the corrections invert to drops and that is equally informative.
+
+### V22.5 `MEASUREMENT M` — the AI's real rate on this console
+
+Not a gate; there is no prior value from hardware to test against.
+
+**The POC timestamps AI DMA callbacks against the 40.5 MHz timebase and reports
+the AI's measured rate.** Whatever it returns is a **new FACT about this
+console**, and it either corroborates Dolphin's 32 028.5 Hz or refutes it — the
+first time this project measures it rather than inheriting it.
+
+### V22.6 The Operator's part, and what it is NOT
+
+He presses `A` **once** and listens. **His report is corroboration, never the
+gate** — every verdict above is machine-side. He is asked only whether he heard
+a tone, and whether it was continuous or broken, which he cannot answer wrongly
+by expectation because he is not identifying anything.
+
+**No blinding is required and none is claimed.** Say so, so nobody later reads
+"it sounded fine" as evidence that it was.
+
+### V22.7 What this does NOT establish
+
+Not GB/GBC. Not a real game's audio. Not latency, not synchronisation with
+video, not mixing with GameCube sound. **`U-GBP-012`'s layout half stays open** —
+reproducing the tone confirms the layout the decoder assumes; it does not close
+what the remaining bytes mean.
+
+### V22.8 Transcription record — what was changed, and the readings confirmed before freezing
+
+**Source.** The comment body was fetched with `gh api` (sha256 of the body as
+fetched: `348c0c55f1c2101e8d0f1c3fad83d055008834b77900827e803f7936760bfce0`). It was
+transcribed byte for byte from its "§V22.0" heading to the end of its "§V22.7". The
+only edits are listed here:
+- the headings are re-levelled from `## §V22.k` to this document's `### V22.k`;
+- the two insertions marked "(§V22.8)" in §V22.1 and §V22.2.
+
+Not transcribed:
+- the comment's own closing paragraph, "On the review itself", which is commentary;
+- the Issue body's first §V22, which it supersedes and which stays on #92 as the
+  record of what was first written.
+
+**Readings confirmed by the Orchestrator on 2026-09-23, before this commit,** in
+the Executor's wording (cross-session message; quoted on #92 in the Executor's
+report):
+
+```text
+(e) where L is read    on the decoder's output, BEFORE any §V22.4 correction. Without it, every
+                       duplicate turns one period into 33 (~222 of 7 680 in 60 s) and min == max == 32
+                       FAILS on a healthy system by construction: §V22.4 would have guaranteed the
+                       failure of §V22.1
+(c) L's window         QUESTION C's window, >= 60 s from the origin, coverage per 1.000 s window in
+                       ticks as in D1. The corrected §V22.1 had dropped the original "at least 10 s"
+                       and left "across the window" pointing at nothing
+(d) positive control   §V19.11 A4.7's frozen CONTROL window, named rather than rewritten so it cannot
+                       drift from the thing it names
+(p) L2's preconditions the snapshot, the whole chunks and the CRC as handed to AUDIO_InitDMA are in the
+                       GATE text, at the Orchestrator's instruction: "If the inputs required to
+                       reproduce it are not in the gate, the gate is not decidable"
+```
+
+**Added by the Executor, and reported on #92 for the Orchestrator to confirm or
+amend before the run:**
+
+```text
+(u) underrun inside the L2 window   the chunk index of every silence chunk is kept. Otherwise a C FAIL
+                                    inside the window would make L2 undecidable instead of checkable:
+                                    the gates would be conflated, which §V22.3 forbids for the losses
+(r) "any press count but one"       read STRICTLY: exactly one A press and no other button press between
+                                    boot and the end of C's window. The X that saves the log after the
+                                    window is outside it
+```
+
+**Frozen here and not in the prose:**
+- the constants, report schema and L2 sidecar format of `tools/v22accept.py`;
+- its recomputation of L2 through the frozen `gbp_aresamp`, using the table from
+  `tools/gen_aresamp.py` that `src/audio/gbp_aresamp_coef.h` is generated from.
+
+Two arms the prose leaves implicit, stated here so nothing is decided later:
+- **C over a window shorter than 60 s is INCONCLUSIVE**, as a PHASE B under 60 s
+  was for D1.
+- **L2 has no INCONCLUSIVE arm as §V22.2 is written.** A missing, short or
+  malformed record is a FAIL, reported with its reason: the host cannot reproduce
+  the CRC.
+
+MEASUREMENT M and §V22.4's predicted correction rate are REPORTED beside the
+verdicts and decide nothing.
