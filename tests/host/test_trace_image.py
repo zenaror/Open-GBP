@@ -477,6 +477,20 @@ class TheRecorderRoundTripsThroughTheBuilderAndTheGates(unittest.TestCase):
         self.assertEqual(r["K"]["video_gaps"], 1)
         self.assertTrue(r["observer"]["sanity_ok"], r["observer"])
 
+    def test_the_floor_comparison_reads_the_recorders_own_histograms(self):
+        """§V23.10: twelve produce steps of 100 ticks and twelve process steps of 90 were not kept;
+        the histogram the recorder wrote gives them back, exactly in count and within their bin in time."""
+        import v23report
+        import v23floor
+        data = self.trace()
+        out = v23floor.compare(v23report.build(self.log(data), data))
+        self.assertEqual((out["sub_floor"]["produce"]["count_min"], out["sub_floor"]["produce"]["count_max"]), (12, 12))
+        self.assertEqual((out["sub_floor"]["process"]["count_min"], out["sub_floor"]["process"]["count_max"]), (12, 12))
+        tot = out["sub_floor_total"]
+        self.assertEqual((tot["time_ticks_min"], tot["time_ticks_max"]), (24 * 64, 24 * 127))
+        self.assertLessEqual(tot["time_ticks_min"], 12 * 100 + 12 * 90)
+        self.assertGreaterEqual(tot["time_ticks_max"], 12 * 100 + 12 * 90)
+
     def test_a_trace_that_is_not_this_logs_is_refused(self):
         import v23report
         data = self.trace()

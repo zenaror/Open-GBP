@@ -34028,3 +34028,64 @@ the drain path:
 RUN 38 already lost ~25 blocks/s with none of it. Whether the instrument adds to that is exactly what the observer gate's
 PRIMARY figure and its count bound exist to report. A `recorder` plurality in
 `QUESTION P` would say the instrument is too heavy for the question (§V23.8 (n)).
+
+### V23.10 The Orchestrator's confirmation of §V23.9, and the staging in `build/swiss` — 2026-09-24
+
+*Appended. §V23.0–§V23.9 stand.*
+
+The Orchestrator validated the candidate: `5c08ea10…a9d953fe`, 523 232 B, `c1beea1` in
+`origin/main`, `build_id=trace-0001`. It **CONFIRMED all three choices §V23.9 left open,
+one of them with an addition**, and authorised staging as `18-trace`.
+
+**1. The step floor, 200 ticks — CONFIRMED, with a required comparison.** The Orchestrator's
+figures:
+- 200 ticks is 4.94 µs against a block period of 244.1 µs;
+- a sub-floor step is therefore 2.0 % of T and can never win the longest-overlap
+  attribution on its own;
+- but a *cluster* of them could be the cause, and would land in `neither`.
+
+**The addition:** if `neither` is large, the report must set it against the sub-floor step
+count and the total sub-floor time. Otherwise a large `neither` is ambiguous between "nothing
+in the chain did it" and "the floor hid what did".
+
+**What the record allows, stated before any run.** trace-0001 keeps every call's COUNT and a
+log2 HISTOGRAM of every call's duration; it keeps no sum of sub-floor durations.
+- **The sub-floor count is exact** (every call minus every kept step) when the step buffer
+  dropped nothing. When it dropped some, the count is an interval, because a dropped step
+  may have been above the floor.
+- **The total sub-floor time is an interval, never a figure.** Each bin wholly under the
+  floor contributes its count times its lower and upper edges. The bin the floor falls in,
+  [128, 255], contributes only its part not kept, times 128 and 199. The interval is within
+  a factor of 2.
+
+`tools/v23floor.py`, frozen here and exercised on synthetic reports
+(`tests/host/test_v23floor.py`), computes that comparison from `tools/v23report.py`'s report
+and the frozen `QUESTION P`. It sets **no threshold**: it is printed whatever `neither` is,
+so "large" stays the reader's word.
+
+The same comparison runs on the recorder's own bytes in
+`tests/host/test_trace_image.py`: the C recorder is compiled on the host and given 24 steps
+it does not keep, and it gives them back, 24 exactly in count and within their bin in time.
+
+**2. The ISR window, entry to exit after `AUDIO_InitDMA` — CONFIRMED.**
+
+**3. AUDIO in C's window, VIDEO over the whole session — CONFIRMED.** Whole-session VIDEO is
+what makes reading (f)'s premise testable. (f)'s addition asks the run whether its own
+incomplete frames are confined to the AI span, and that needs records OUTSIDE the span to
+compare against. **It is not waste and must not be trimmed.** The same is said at the
+capacity it sets, `GBP_ATRACE_V_MAX` in `src/audio/gbp_atrace.h` (a comment; the image's
+bytes are `c1beea1`'s).
+
+**The image is heavier by design.** `arena1_free` drops from 5 152 768 B (live-0001) to
+2 666 496 B. The difference is the recorder's preallocated storage (~2.5 MB), within budget.
+
+**Staged in `build/swiss`:**
+
+```text
+slot         18-trace -- FROZEN in tools/swiss-layout.tsv at 5c08ea10db8eb2116c06a0b410cc72e4b41b903fef26c5e37aa244e1a9d953fe
+             BEFORE the export (f2e31ec; Issue #44's rule); swiss_export --only 18-trace; nothing else exported
+build/swiss  only 18-trace/boot.dol (new, 523 232 B, the hash above) and INDEX.txt
+             (7f5c925ccc3acd5564f8d85932ed138721b84de81dafe57629dc15b9d38c588e, 5 869 B) changed; row 18-trace
+             PINNED-VERIFIED; the other 17 files, 01-17's boot.dol, byte-identical
+card         NOT yet written: the Operator's SD was not on this host. Recorded when it is.
+```
