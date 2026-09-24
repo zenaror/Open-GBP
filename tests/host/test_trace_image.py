@@ -506,6 +506,18 @@ class TheBuilderRefusesToGuessAbsoluteTime(unittest.TestCase):
                                             "VIDEO"), [10, 310, 5000])
 
 
+class TheReportBuilderIsFrozenBeforeTheRun(unittest.TestCase):
+    """tools/v23report.py decides nothing, but every choice it makes -- whole windows only, the
+    session's last FRAMECAP, the trace refused when it is not the log's -- is one the data could
+    otherwise be argued into."""
+
+    def test_v23report_is_the_bytes_of_the_commit_that_froze_it(self):
+        import frozen
+        then = frozen.source("Issue #101 -- trace-0001 and its report builder", "tools/v23report.py")
+        self.assertEqual(then, read(os.path.join(ROOT, "tools", "v23report.py")),
+                         "tools/v23report.py was edited after it was frozen")
+
+
 # ---- the audit ----------------------------------------------------------------------
 
 class TheAuditDiscriminatesBothWays(unittest.TestCase):

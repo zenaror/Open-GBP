@@ -69,6 +69,9 @@ BASES = {
     # Issue #101: Run A (§V23), transcribed and its gates frozen before the image exists
     "Issue #101 -- §V23 transcribed, Run A's gates frozen":
         "8e0e5e808583de5241b4765905138941a6514ebb",
+    # Issue #101: Run A's log + trace -> report builder, frozen with the image, before any run
+    "Issue #101 -- trace-0001 and its report builder":
+        "484b5c4362db497d612682d722b055de864621f1",
 }
 
 
