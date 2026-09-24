@@ -339,8 +339,10 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         self.assertEqual(rows["16-aout"], "97f113ca0bbc9ec94e5ca945a2a34dae4f5bd5ff9386b2b8362cc32e8d7145e2")
         # Issue #92 (2026-09-23): Phase 6's acceptance image, frozen before its export (§V22.11)
         self.assertEqual(rows["17-live"], "c4b9ae23a95a96eae60de11106ba7d01521071fd3e0ce43b734e856719f5ee8d")
+        # Issue #101 (2026-09-24): Run A's image, frozen before its export (§V23.9, §V23.10)
+        self.assertEqual(rows["18-trace"], "5c08ea10db8eb2116c06a0b410cc72e4b41b903fef26c5e37aa244e1a9d953fe")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
-                         ["12-stream", "13-play", "14-audio", "15-drain", "16-aout", "17-live"])
+                         ["12-stream", "13-play", "14-audio", "15-drain", "16-aout", "17-live", "18-trace"])
         # and every frozen hash is one HARDWARE_TESTS.md names, so the manifest cannot drift from the
         # record. ONE document, deliberately: an invariant that may be satisfied by either of two files
         # is weaker than one that must be satisfied by a named file, and this project has already paid
