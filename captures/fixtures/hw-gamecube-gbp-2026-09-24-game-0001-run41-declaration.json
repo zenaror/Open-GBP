@@ -1,0 +1,18 @@
+{
+  "a_stability": "PASS",
+  "defects": {
+    "dropouts": "no",
+    "stutter": "no",
+    "clicks": "no",
+    "crackle": "no",
+    "wobble": "no",
+    "distortion": "no"
+  },
+  "a_words": "B: Nao para todos... pelo menos do que notei | C: pareceu estavel.",
+  "a_fidelity": "so o abafado",
+  "picture": "normal",
+  "picture_words": "imagem ok, mas ainda em resolucao nativa aparentemente",
+  "controls": "responded",
+  "controls_words": "responderam ok",
+  "source": "issuecomment-5821017811 on #111, the Operator's words verbatim, structured per (r11) by the Orchestrator"
+}
