@@ -201,7 +201,9 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
                  # Issue #99 (2026-09-24): RUN 38, live-0001 on sweep-0002
                  "GBP-AUDIO-007_live-0001-run38.log": "92",
                  # Issue #103 (2026-09-24): RUN 39, trace-0001 on sweep-0002
-                 "GBP-AUDIO-008_trace-0001-run39.log": "92"}
+                 "GBP-AUDIO-008_trace-0001-run39.log": "92",
+                 # Issue #107 (2026-09-24): RUN 40, split-0001 on sweep-0002
+                 "GBP-AUDIO-009_split-0001-run40.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1
@@ -237,7 +239,10 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         # Issue #103: trace-0001 (RUN 39) is live-0001 with read-only records; named the same way
         trace = {f for f in cart if "trace-0001" in f}
         self.assertEqual(len(trace), 1, sorted(trace))
-        self.assertTrue(all(re.search(r"(color|stream)", f) for f in cart - play - drain - live - trace))
+        # Issue #107: split-0001 (RUN 40) is trace-0001 with production split; named the same way
+        split = {f for f in cart if "split-0001" in f}
+        self.assertEqual(len(split), 1, sorted(split))
+        self.assertTrue(all(re.search(r"(color|stream)", f) for f in cart - play - drain - live - trace - split))
 
     def test_the_document_says_what_the_split_does_not_support(self):
         d = plain(read(DOC))
