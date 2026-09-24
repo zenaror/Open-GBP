@@ -68,7 +68,10 @@ LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92,
          # Issue #103: RUN 39, trace-0001 (GBP-AUDIO-008) = live-0001 + read-only records, sweep-0002, orig=92 -- 52 logs
          "trace-0001-run39": 0x92,
          # Issue #107: RUN 40, split-0001 (GBP-AUDIO-009) = trace-0001 + split production, sweep-0002, orig=92 -- 53 logs
-         "split-0001-run40": 0x92}
+         "split-0001-run40": 0x92,
+         # Issue #112: RUN 41, game-0001 (GBP-AUDIO-010) = live-0001 + §V25's changes, Yoshi's Island (a real
+         # cartridge), orig=92 -- 54 logs
+         "game-0001-run41": 0x92}
 
 WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0005", "stream-0005-run2",
              "stream-0005-run3", "stream-0006-run4", "stream-0007-run5", "stream-0008-run6", "stream-0009-run7",
