@@ -2135,7 +2135,7 @@ construction.
 the same image with raw episode preservation disabled, compared like for like.
 Neither is planned.
 
-## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open**
+## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open** — **Issue #108: by arm, the residue is still `produce`, and `neither` and VIDEO followed the arms (GBP-HW-334)**
 
 **What is FACT.**
 - **The composed image drained less than the drain alone.** RUN 38's `live-0001` (the
@@ -2259,3 +2259,23 @@ channel's resolution it cannot be decided, a hard limit (§V24.5).
 
 **Not a repair.** Any runtime change, such as bounding the production stretch, is decided
 separately, on its own merits (§V24.5).
+
+**RESCOPED 2026-09-24 (GitHub Issue #108, RUN 40 by arm), on top; nothing above is rewritten.**
+RUN 40 was split by its manipulated variable, post hoc and descriptively (`GBP-HW-334`).
+- **The residue is still mostly `produce`:** 229 of the half arm's 257 losses, 89 %, the
+  same share as the full arm. The losses fall with the stretch's length rather than
+  vanishing at a threshold. Shortening further is the design this points to (HYPOTHESIS).
+- **The `neither` gaps followed the arm too**, 22 against 79 in nearly equal cycles. The
+  two open parts of this item may be **one question**: an effect of production that
+  outlasts the recorded step (HYPOTHESIS). The descriptive sample's "empty of chain steps"
+  (`GBP-HW-333`) does not contradict that.
+- **The VIDEO gaps followed the arm:** 6 against 38 of the 44 inside the AI span. At the
+  RATE level, that is the first evidence the two losses share a cause (HYPOTHESIS). It is
+  compatible with K's NOT COINCIDENT: a common cause acting separately on each channel
+  gives correlated rates without coincident events. A per-frame assignment is unavailable
+  by construction, so a next image that wants per-frame arms needs its own mapping.
+
+What stays open:
+- whether a shorter stretch removes more;
+- the mechanism by which production reaches gaps it does not overlap;
+- whether the perturbation the Operator heard is these losses.
