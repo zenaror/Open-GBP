@@ -372,6 +372,34 @@ class TheModuleAuthorisesNothing(unittest.TestCase):
         self.assertEqual(src.count("open("), 1, "main() opens the report it is given, nothing else")
 
 
+class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
+    """The base is pinned by HASH (tests/host/frozen.py). A gate edited after the image exists is not a
+    pre-registration, and neither is one edited after the data does."""
+    KEY = "Issue #101 -- §V23 transcribed, Run A's gates frozen"
+
+    def test_the_gates_are_the_bytes_of_the_commit_that_froze_them(self):
+        import frozen
+        with open(os.path.join(ROOT, "tools", "v23accept.py"), encoding="utf-8") as f:
+            now = f.read()
+        self.assertEqual(frozen.source(self.KEY, "tools/v23accept.py"), now,
+                         "tools/v23accept.py was edited after it was frozen")
+
+    def test_the_part_was_frozen_in_the_same_commit_and_only_grows(self):
+        """Byte-identical as the START of the part; numbered sections may be APPENDED -- a dated AMENDMENT,
+        or the record of the image built (the amend-on-top convention of Issue #49)."""
+        import frozen
+        then = frozen.source(self.KEY, "docs/research/HARDWARE_TESTS.md")
+        i = then.index("\n## V23 ")
+        frozen_part = then[i:].rstrip("\n")
+        now = ThePartSaysWhatItIs().part().rstrip("\n")
+        self.assertTrue(now.startswith(frozen_part), "§V23's FROZEN bytes were edited -- appending is allowed")
+        rest = now[len(frozen_part):].strip()
+        if rest:
+            self.assertRegex(rest, r"^### V23\.\d+ ", "anything appended must be a numbered section")
+            for h in re.findall(r"^### V23\.(\d+) ", rest, re.M):
+                self.assertGreater(int(h), 8, "an appended section reuses a frozen number")
+
+
 class ThePartSaysWhatItIs(unittest.TestCase):
     def part(self):
         with open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
