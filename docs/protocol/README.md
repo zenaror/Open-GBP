@@ -19,6 +19,14 @@ generic third-party pad), the write cadence of the references and of the
 runtime, the controller mapping marked as this project's POLICY, and what is
 not established; every row carries its evidence id and a status of F or C.
 
+`AUDIO.md` — the AUDIO path consolidated after Phase 6's research runs
+(2026-09-24): the window and its rate (4 096 blocks/s, CORROBORATED, not FACT),
+what one block carries (a 1-bit PWM pulse over sixteen 256-byte cells, FACT for
+the structure), the decode (CORROBORATED) and its amplitude law (FACT), what
+draining the window costs, this project's playback chain marked as DESIGN, and
+the open questions by id; every row carries its evidence id and a status of F
+or C.
+
 `REGISTERS.md` and `INITIALIZATION.md` were reconstructed from software in
 Phase 2 and have since been verified on this project's hardware wherever a row
 cites a `GBP-HW-` id; rows without one are still static analysis. Status

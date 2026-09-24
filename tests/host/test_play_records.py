@@ -225,6 +225,11 @@ class NothingFrozenMoved(unittest.TestCase):
         # hardware history, so they understated 36 runs. Statuses were COPIED from EVIDENCE, none changed.
         changed = changed - {"docs/hardware/GBS-DOL.md", "docs/hardware/ARCHITECTURE.md"}
         # Issue #41 (2026-09-21) pre-registered RUN 21 / RUN 22 as §V7.6 (tests/host/test_run21_prereg.py pins it) -- the ONLY change allowed here since: §V7.6 appended, §V7.1-§V7.5 byte-identical (that test checks it)
+        # Issue #95 (2026-09-24) promoted Phase 6 into docs/protocol/AUDIO.md (new), indexed it in README.md,
+        # and corrected the stale audio rows its reconciliation sweep found (REGISTERS.md, INITIALIZATION.md,
+        # ARCHITECTURE.md, GBS-DOL.md) as wording that cites EVIDENCE. Documentation only; no status moved.
+        changed = changed - {"docs/protocol/AUDIO.md", "docs/protocol/README.md", "docs/protocol/INITIALIZATION.md",
+                             "docs/protocol/REGISTERS.md", "docs/hardware/ARCHITECTURE.md", "docs/hardware/GBS-DOL.md"}
         self.assertTrue(changed <= {"docs/research/HARDWARE_TESTS.md"}, "frozen paths changed: " + " ".join(sorted(changed)))
         hw = read(HW)
         # the image's runs are pre-registered now; what must still hold is that NOTHING RAN and no id was minted
