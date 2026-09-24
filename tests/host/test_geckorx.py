@@ -116,7 +116,8 @@ class ThePumpKeepsWhatItHasAlreadyReceived(unittest.TestCase):
         os.write(w, b"OPENGBP-SMOKE HEARTBEAT n=1\n")
         os.close(w)
         rec = Recorder()
-        geckorx.pump(r, rec, idle_exit=0.0)
+        with self.assertRaises(geckorx.DeviceGone):     # Issue #104: the closed writer is a device gone
+            geckorx.pump(r, rec, idle_exit=0.0)
         os.close(r)
         self.assertTrue(rec.calls)
         for i, (kind, _) in enumerate(rec.calls):
@@ -140,9 +141,13 @@ class ThePumpKeepsWhatItHasAlreadyReceived(unittest.TestCase):
         self.assertEqual(n, len(got))
 
     def test_it_gives_up_after_an_idle_period_when_asked_to(self):
+        """Idle is a device that is still there and says nothing: the writer stays OPEN
+        and the read end is non-blocking, so a read with nothing to give raises EAGAIN.
+        (Until Issue #104 this test closed the writer to go idle -- which is exactly the
+        hangup the tool used to mistake for silence.)"""
         r, w = os.pipe()
+        os.set_blocking(r, False)
         os.write(w, b"hello")
-        os.close(w)                      # otherwise os.read blocks and never goes idle
         clock = [0.0]
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "o"), "wb") as out:
@@ -151,19 +156,40 @@ class ThePumpKeepsWhatItHasAlreadyReceived(unittest.TestCase):
                     return clock[0]
                 n = geckorx.pump(r, out, idle_exit=1.0, clock=tick)
         os.close(r)
+        os.close(w)
         self.assertEqual(n, 5)
 
-    def test_a_device_that_disappears_stops_cleanly_and_keeps_the_bytes(self):
+    def test_a_device_that_disappears_is_reported_LOUDLY_and_keeps_the_bytes(self):
+        """Issue #104. A zero-length read is a hangup: it used to be a clean stop (and on a
+        real port an endless silent loop). It now raises, carrying what was received."""
         r, w = os.pipe()
         os.write(w, b"partial run")
-        os.close(w)                      # EOF: os.read returns b"" for ever
+        os.close(w)                      # EOF: os.read returns b"" -- the writer is gone
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "o"), "wb") as out:
-                n = geckorx.pump(r, out, idle_exit=0.0)
+                with self.assertRaises(geckorx.DeviceGone) as cm:
+                    geckorx.pump(r, out, idle_exit=0.0)
             with open(os.path.join(d, "o"), "rb") as f:
                 self.assertEqual(f.read(), b"partial run")
         os.close(r)
-        self.assertEqual(n, 11)
+        self.assertEqual(cm.exception.total, 11)
+        self.assertIn("hung up", str(cm.exception))
+
+    def test_EIO_is_a_device_gone_too_not_a_quiet_exit(self):
+        """A pty whose other side closes gives EIO on Linux: the path whose comment already
+        said "the device went away" and still exited 0."""
+        m, sl = os.openpty()
+        os.write(sl, b"before the fall")
+        os.close(sl)
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "o"), "wb") as out:
+                with self.assertRaises(geckorx.DeviceGone) as cm:
+                    geckorx.pump(m, out)
+            with open(os.path.join(d, "o"), "rb") as f:
+                self.assertEqual(f.read(), b"before the fall")
+        os.close(m)
+        self.assertIn("EIO", str(cm.exception))
+        self.assertEqual(cm.exception.total, 15)
 
     def test_configure_does_not_blow_up_on_something_that_is_not_a_terminal(self):
         r, w = os.pipe()
@@ -179,6 +205,58 @@ class ThePumpKeepsWhatItHasAlreadyReceived(unittest.TestCase):
         self.assertNotIn("strftime", body)
         self.assertNotIn("time.time()", body)
         self.assertIn("out.write(chunk)", body)
+
+
+class AHangupEndsTheRunLoudlyAndNonZero(unittest.TestCase):
+    """Issue #104, behaviourally, on the tool as it is run: RUN 39's capture held a port
+    that had gone away and recorded zero bytes with exit 0. A FIFO opened by path is the
+    same shape -- blocking, and a read of zero bytes once the writer is gone -- so the
+    whole program is run against one, under a timeout: before the fix it never ends."""
+
+    def _run(self, payload, extra=()):
+        import subprocess
+        with tempfile.TemporaryDirectory() as d:
+            fifo, out = os.path.join(d, "port"), os.path.join(d, "capture.bin")
+            os.mkfifo(fifo)
+            p = subprocess.Popen([sys.executable, os.path.join(ROOT, "tools", "geckorx.py"),
+                                  "--port", fifo, "--out", out] + list(extra),
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            with open(fifo, "wb") as w:              # blocks until the tool has opened it
+                w.write(payload)
+            try:
+                _o, err = p.communicate(timeout=20)
+            except subprocess.TimeoutExpired:
+                p.kill()
+                p.communicate()
+                self.fail("the capture did not end when its device went away: the RUN 39 defect")
+            with open(out, "rb") as f:
+                got = f.read()
+        return p.returncode, err.decode("utf-8", "replace"), got
+
+    def test_a_hangup_is_reported_with_the_count_and_the_exit_code_is_non_zero(self):
+        rc, err, got = self._run(b"OPENGBP-LIVE READY app=x\nhalf a li")
+        self.assertEqual(rc, 3)
+        self.assertEqual(got, b"OPENGBP-LIVE READY app=x\nhalf a li")
+        for tok in ("DEVICE GONE", "after 34 bytes", "THE CAPTURE IS INCOMPLETE", "not evidence"):
+            self.assertIn(tok, err, tok)
+
+    def test_a_device_that_goes_away_before_saying_anything_is_still_reported(self):
+        rc, err, got = self._run(b"")
+        self.assertEqual((rc, got), (3, b""))
+        self.assertIn("after 0 bytes", err)
+
+    def test_an_ordinary_end_is_still_exit_0(self):
+        rc, err, got = self._run(b"READY\nEXIT reason=start\n", extra=("--until", "EXIT reason="))
+        self.assertEqual(rc, 0)
+        self.assertNotIn("DEVICE GONE", err)
+
+    def test_the_limits_are_said_in_the_tool(self):
+        doc = plain(geckorx.__doc__)
+        for tok in ("A silent capture is uninformative, never negative",
+                    "Swiss's own boot text must have arrived BEFORE the Operator presses anything",
+                    "it is not proof that the channel was sound the whole way",
+                    "re-resolving the port by id mid-capture", "a quiet-time threshold"):
+            self.assertIn(tok, doc, tok)
 
 
 class TheGameCubeSideNeedsNothingBuilt(unittest.TestCase):
