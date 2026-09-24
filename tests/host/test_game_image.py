@@ -304,6 +304,22 @@ class TheBuilderReadsTheImagesOwnFormats(unittest.TestCase):
         self.assertIn('"FRAMECAP frames=%lu complete=%lu incomplete=%lu ', read(PROBE_C))
 
 
+class TheReportBuilderIsFrozenBeforeTheRun(unittest.TestCase):
+    """tools/v25report.py decides nothing, but every choice it makes -- what it refuses, which seconds it
+    counts, where it reads the video's location -- is one the data could otherwise be argued into."""
+
+    def test_v25report_is_the_bytes_of_the_commit_that_froze_it(self):
+        import frozen
+        then = frozen.source("Issue #110 -- game-0001 and its report builder", "tools/v25report.py")
+        self.assertEqual(then, read(os.path.join(ROOT, "tools", "v25report.py")),
+                         "tools/v25report.py was edited after it was frozen")
+
+    def test_the_image_is_the_bytes_of_the_same_commit(self):
+        import frozen
+        then = frozen.source("Issue #110 -- game-0001 and its report builder", "poc/gbp-audio-game/source/main.c")
+        self.assertEqual(then, read(GAME_MAIN), "game-0001's source was edited after the candidate was built")
+
+
 class TheAuditIsExercised(unittest.TestCase):
 
     def _findings(self, out_dir, profile):
