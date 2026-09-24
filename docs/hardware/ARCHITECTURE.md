@@ -32,7 +32,7 @@ Status legend: **F** fact, **C** corroborated, **H** hypothesis, **U** unknown.
 | Claim | Status | Evidence |
 |-------|--------|----------|
 | The GBP contains a stock **CPU AGB A** (one unit with CPU AGB A E) plus an NEC custom **GBS-DOL** that bridges the HSP to the AGB signals | C | GBP-PHY-001 (gbpp article + gbhwdb) |
-| Three known board revisions: DOL-GBS-01, -10, -20; RAM chip varies (16 Mb or 128 Mb parts from Hynix/BSI/NEC/ST); Kinseki crystal | F | GBP-PHY-001 (gbhwdb, 10 units) |
+| Three known board revisions: DOL-GBS-01, -10, -20; RAM chip varies (16 Mb or 128 Mb parts from Hynix/BSI/NEC/ST); Kinseki crystal | C | GBP-PHY-001 (gbhwdb, 10 units; no hardware test by this project). This row read F until Issue #96, more than the entry's CORROBORATED |
 | The AGB's keypad lines, reset and the LCD vsync (SPS) are exposed on board test points (TP25 reset, TP29 vsync, TP33–42 keys) | F | GBP-PHY-002 (gbpp) |
 | The AGB runs at its native 59.73 Hz; the GameCube side outputs 59.94 Hz and the GBP "adds frames where it needs to" | F (observation by endrift) | GBP-PHY-003 |
 | The GBP's Link Port is the AGB's own serial port and works with external devices without GameCube involvement | F (user's PicoAdapterGB) | GBP-LINK-001 |

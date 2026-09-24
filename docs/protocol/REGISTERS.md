@@ -81,10 +81,14 @@ match this; they agree with hardware only at bytes 0x1D/0x1F.
   GBP-INIT-002 every group read `8F 8F AF AE` — offset ≡ 2 mod 4 carries
   bit 0 set, offset ≡ 3 mod 4 does not (U-GBP-025). Both references read
   only offsets ≡ 1 / ≡ 3 mod 4; do the same.
-- SIODATA and VIDEO/AUDIO layouts remain **U** (U-GBP-008). For AUDIO this is
-  superseded: the block's structure is **F** and its decode **C**, in `AUDIO.md`
-  (GBP-HW-304, GBP-HW-313); what each block integrates over stays open
-  (U-GBP-012).
+- What remains unknown of the read layouts is SIODATA's byte layout (U-GBP-002,
+  U-GBP-008) and whether byte 0 of a block is ever reliable (U-GBP-015). The
+  VIDEO block's geometry and pixel word are consolidated in `VIDEO.md`, F on
+  hardware (GBP-HW-081, GBP-HW-132), with bytes 0 and 2 unknown (U-GBP-029). The
+  AUDIO block's structure (F, GBP-HW-304) and its decode (C, GBP-HW-313) are in
+  `AUDIO.md`, and what each AUDIO block integrates over stays open (U-GBP-012).
+  *(Until Issue #96 this bullet read "SIODATA and VIDEO/AUDIO layouts remain U
+  (U-GBP-008)", which both of those pages contradict.)*
 
 ### 2.2 VIDEO word format
 

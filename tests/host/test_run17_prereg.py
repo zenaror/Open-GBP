@@ -473,6 +473,9 @@ class NothingElseMoved(unittest.TestCase):
         # ARCHITECTURE.md, GBS-DOL.md) as wording that cites EVIDENCE. Documentation only; no status moved.
         changed3 = changed3 - {"docs/protocol/AUDIO.md", "docs/protocol/README.md", "docs/protocol/INITIALIZATION.md",
                                "docs/protocol/REGISTERS.md", "docs/hardware/ARCHITECTURE.md", "docs/hardware/GBS-DOL.md"}
+        # Issue #96 (2026-09-24) swept the consolidated set for pages disagreeing with the record:
+        # VIDEO.md gained a pointer to AUDIO.md, docs/hardware/README.md its missing AUDIO.md entry.
+        changed3 = changed3 - {"docs/protocol/VIDEO.md", "docs/hardware/README.md"}
         self.assertTrue(changed3 <= {"docs/protocol/INPUT.md", "docs/protocol/REGISTERS.md", "docs/protocol/INITIALIZATION.md",
                                                   "docs/hardware/GBS-DOL.md", "docs/hardware/ARCHITECTURE.md"}, " ".join(sorted(changed3)))
 
