@@ -36422,3 +36422,33 @@ DEPOIS, RESPONDA (fica registrado literalmente na Issue de hardware)
 
 The answers map onto the declaration exactly as in §V25.9. Anything named
 `GBP-AUDIO-011_game-0002*` on the card from now on is the run's output.
+
+
+### V26.10 The candidate STAGED — 2026-09-24 — `game-0002` in slot `21-game2`
+
+*Appended. §V26.0–§V26.9 stand.*
+
+- **The authorisation.** The Orchestrator authorised staging `21-game2` at the candidate's
+  hash, frozen before the export, and verified the card itself with `O_DIRECT`. It is on #113 as
+  `issuecomment-5822131986`:
+  - raw sha256 `ecf7be2d48953bb26bcc6fe53423caa997b8b5dd0acda59ed9c4ddff37364b42`;
+  - printed `45d81fae130c4a458c15be722d14d34750c6e1ba8f29bfbc149445b19732a7ca`.
+- **The Executor's record of the staging** is `issuecomment-5822124413`:
+  - raw `571e337bd9ecfcc6a05eae8b0d0d0dc121926810ea22792828ce39c3acb27018`;
+  - printed `9f5f0fb69f01108ebad72f1e483e30c6feacda77b06a8bcac709eac2870f2c2b`.
+
+The hash conventions are §V26.8's.
+
+```text
+slot         21-game2 -- FROZEN in tools/swiss-layout.tsv at ba8ab59598398849dd4757cb4823cab7ed355107f1dc92cbf2295cd5440e12fa
+             (895956a) BEFORE the export; swiss_export --only 21-game2; "1 exported, 0 missing, 20 carried over"
+build/swiss  only 21-game2/boot.dol (new, 519 360 B) and INDEX.txt changed (f225289f... 6 461 B ->
+             075e621ad61e9b6fe0e8196c24913b742fb39b0cb6d1bee30cf94585f3ef7629, 6 758 B); row 21-game2 PINNED-VERIFIED;
+             01-20 byte-identical
+card         before: 22 files under SD_GC/Open-GBP, byte-identical to build/swiss (INDEX.txt f225289f..., the state
+                     §V25.11 left); aout/run33-audio.bin cfe472d3...52b8; no GBP-AUDIO-* anywhere; .Trash-1000 empty
+             write:  mkdir 21-game2; cp boot.dol; cp INDEX.txt; sync -- nothing else
+             after:  23 files; 21-game2/boot.dol 519 360 B ba8ab595...12fa; INDEX.txt = build/swiss's; the other 21 files
+                     byte-identical to before; no GBP-AUDIO-011*; .Trash-1000 empty
+reads        every file hashed through dd iflag=direct (page cache bypassed), before and after
+```
