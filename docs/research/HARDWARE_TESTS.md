@@ -34114,3 +34114,60 @@ after    18-trace/boot.dol   523 232 B  5c08ea10db8eb2116c06a0b410cc72e4b41b903f
 
 Anything named `GBP-AUDIO-008_trace-0001*` on the card from now on is the run's output. The
 Orchestrator verifies from the medium before writing the Hardware Issue.
+
+### V23.12 AMENDMENT — how `neither` is set against the step floor — 2026-09-24, before RUN 39's files exist
+
+*Appended. §V23.0–§V23.11 stand. Recorded while Hardware Issue #102 (RUN 39) was open with
+no comment. No `GBP-AUDIO-008*` file existed in `logs/`, in `captures/local`, or on the
+Operator's card, which was still mounted on this host.*
+
+**Why this exists.** §V23.10's addition asks the report to set `neither` against the
+sub-floor step count and time. The Orchestrator then fixed a rule for the ambiguous case.
+As first worded, the rule could not be evaluated: `neither` is a COUNT of loss gaps, the
+interval is sub-floor TIME, and `tools/v23floor.py` prints `neither` only as a count. The
+Orchestrator accepted that, and accepted a second correction: totals support ONE direction
+only. The definition below replaces the first wording. The Orchestrator's words are kept
+for the middle band.
+
+**The quantities**, each from a FROZEN tool; no new code:
+
+```text
+T      tb_hz / 4096 ticks, the block period QUESTION P itself uses
+S      [S_lo, S_hi] = tools/v23floor.py's sub_floor_total time_ticks_min, time_ticks_max (frozen at b7bd8fe)
+n      QUESTION P's `neither` count (tools/v23accept.py, frozen at 8e0e5e8; v23floor reports the same count)
+H      QUESTION P's gap_histogram_quarter_blocks: every located loss's gap, floored to a quarter block, so a
+       gap in bin b lies in [b T, (b + 0.25) T)
+N      the total duration of the `neither` gaps, sum of (g1 - g0). NOT computed by any frozen tool
+       (QUESTION P returns counts per category, not per-loss attributions), so it is BOUNDED from H:
+N_lo   the sum of b T over the n SMALLEST gaps in H   -- every `neither` gap is one of H's gaps
+N_hi   the sum of (b + 0.25) T over the n LARGEST gaps in H
+```
+
+**The rule — three outcomes, no threshold, no judgement at ingestion:**
+
+```text
+n = 0                 no gap went to `neither`; the comparison is not made
+N_lo > S_hi           "the floor cannot account for `neither`" -- even if every unkept step ran inside those
+                      gaps, they could not fill them
+N_hi <= S_lo          "the floor may account for it; totals cannot show that it did" -- no side is taken
+otherwise             "the floor may account for it, unresolved at this resolution" -- no side is taken
+```
+
+If `tools/v23floor.py` refuses the report (a histogram that does not add up, a kept step
+under the floor), the comparison is not made and the refusal is reported in its place.
+
+**A premise I stated is corrected here.** The Executor's first proposal bounded N by
+n × T, on the premise that every loss gap exceeds T ("a loss's gap lies in (T, 3T)",
+§V23.8). That premise describes the expected case; it is not guaranteed. A gap depends on
+when the previous block was drained, and a late drain can shorten it. The Orchestrator
+accepted the n × T version. H gives N_lo and N_hi with no premise at all, from the same
+frozen outputs, and the rule uses those instead.
+
+**The limit of this comparison, frozen with it (the Orchestrator's terms).**
+- **The global comparison is weak by construction.** The question is LOCAL: did sub-floor
+  steps fall inside the `neither` gaps? Session totals cannot answer that, and a sharper N
+  would not change it.
+- **"Unresolved" is therefore the expected limit of totals, not a surprise.** It says the
+  next image needs per-step records WITHOUT a floor inside a bounded sample of gaps, not a
+  finer analysis of the floor. That belongs to Run B's image, which is being built anyway.
+- **Only "cannot" is a finding about the chain.** Neither "may" outcome is.
