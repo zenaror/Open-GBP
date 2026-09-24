@@ -427,6 +427,39 @@ overflow/error counters
 
 Once captured, the trace should be usable by automated replay tests whenever practical.
 
+### An instrument that runs during part of a measurement window has a cost inside that window (2026-09-24, GitHub Issue #116)
+
+**An instrument that runs during part of a measurement window has a cost inside that window.
+Either measure the cost and report it separately, or do not run the instrument during the
+measurement.** A figure integrated over a window that contains the instrument is a figure about
+the instrument and the subject together.
+
+**Where this came from.**
+- Phase 6's L2 check CRC'd every chunk handed to the AI, for 10 s of a 64 s window
+  (`GBP-HW-338`).
+- Every AUDIO loss rate of RUN 38–42 was integrated over the whole window, instrument
+  included.
+- RUN 41's record then read the instrument's own rise as the game loading a level.
+- The contamination was not proportional:
+  - it fell mostly on the better arm of an interleaved design, so balanced arms did not cancel
+    it;
+  - it made the stretch effect look smaller than it was: 0.341 published, 0.270 outside the
+    window (`GBP-HW-339`).
+- **The result was plausible, so it survived review. It was believed, written down and reasoned
+  from for three runs.** That is what makes this failure worse than an absent or obviously wrong
+  result.
+
+**How to satisfy the rule when an instrument is designed.**
+- Say in the pre-registration when the instrument runs, and what it adds per cycle.
+- **Report every rate three ways: over the whole window, outside the instrument's span, and
+  inside it.** Report the whole-window figure only beside the other two.
+- **A balanced or interleaved design does not excuse this.** Balance cancels a cost that scales
+  every arm in proportion. A fixed or saturating cost does not scale that way, and it biases a
+  ratio even when the arms are exactly balanced.
+- Where the instrument can be located in the data itself, locate it there rather than infer it
+  from the code. In RUN 39 and RUN 40 the kept `process` steps are the CRC, one per cycle, and
+  nothing else.
+
 ## Hardware test requests
 
 A hardware test request should be small and deterministic.
