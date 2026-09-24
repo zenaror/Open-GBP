@@ -50,7 +50,7 @@ UNKNOWNS = os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")
 PAGE_DIRS = (os.path.join(ROOT, "docs", "protocol"), os.path.join(ROOT, "docs", "hardware"))
 ID = re.compile(r"\b((?:GBP|ENV)-[A-Z]+-\d{3}|U-(?:GBP|ENV)-\d{3})\b")
 # families that name an EXPERIMENT (a test id), not a piece of evidence: they are defined in HARDWARE_TESTS.md
-TEST_FAMILIES = ("VIDEO", "INIT", "AV", "PROBE", "BASELINE", "PLAY", "INPUT", "BBA")
+TEST_FAMILIES = ("VIDEO", "INIT", "AV", "PROBE", "BASELINE", "PLAY", "INPUT", "BBA", "AUDIO")
 
 
 def read(p):

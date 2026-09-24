@@ -32,7 +32,8 @@ PAGE_DIRS = ("docs/protocol", "docs/hardware")
 ID = re.compile(r"\b((?:GBP|ENV)-[A-Z]+-\d{3}|U-(?:GBP|ENV)-\d{3})\b")
 # families that name an EXPERIMENT rather than a piece of evidence; they are defined in HARDWARE_TESTS.md
 # and are listed here so the exclusion is deliberate and reviewable, never an accident of a regex
-TEST_FAMILIES = ("VIDEO", "INIT", "AV", "PROBE", "BASELINE", "PLAY", "INPUT", "BBA")
+TEST_FAMILIES = ("VIDEO", "INIT", "AV", "PROBE", "BASELINE", "PLAY", "INPUT", "BBA",
+                 "AUDIO")   # Issue #98: GBP-AUDIO-001…007 name Phase 6's experiments (RUN 30…38), not evidence
 
 
 def read(p):
