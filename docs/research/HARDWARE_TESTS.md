@@ -34089,3 +34089,28 @@ build/swiss  only 18-trace/boot.dol (new, 523 232 B, the hash above) and INDEX.t
              PINNED-VERIFIED; the other 17 files, 01-17's boot.dol, byte-identical
 card         NOT yet written: the Operator's SD was not on this host. Recorded when it is.
 ```
+
+### V23.11 The card, written — 2026-09-24 — `18-trace` on the Operator's SD
+
+*Appended. §V23.0–§V23.10 stand.*
+
+The Operator put the SD back; it mounted on this host as `/media/rafael/SD_GC` (exFAT).
+Every file under `sd:/open-gbp` was hashed before and after the write by a read that
+bypasses the page cache (`dd iflag=direct`). The write was followed by `sync` and nothing
+else.
+
+```text
+before   19 files under sd:/open-gbp:
+         - 01-17/boot.dol and INDEX.txt, byte-identical to build/swiss before the export
+           (INDEX.txt 1bb94bd2...6febf, 5 572 B, the state §V22.11 left);
+         - aout/run33-audio.bin 5 243 788 B cfe472d3...6252b8, the hash §V21 records for it.
+         No GBP-AUDIO-008* file anywhere on the card; .Trash-1000 empty
+written  18-trace/boot.dol (new directory) and INDEX.txt; nothing else
+after    18-trace/boot.dol   523 232 B  5c08ea10db8eb2116c06a0b410cc72e4b41b903fef26c5e37aa244e1a9d953fe
+         INDEX.txt             5 869 B  7f5c925ccc3acd5564f8d85932ed138721b84de81dafe57629dc15b9d38c588e (= build/swiss's)
+         the other 18 files, 01-17/boot.dol and aout/run33-audio.bin, byte-identical to before;
+         still no GBP-AUDIO-008* file; .Trash-1000 still empty
+```
+
+Anything named `GBP-AUDIO-008_trace-0001*` on the card from now on is the run's output. The
+Orchestrator verifies from the medium before writing the Hardware Issue.
