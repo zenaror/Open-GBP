@@ -115,6 +115,15 @@ LEDGER = [
      "every figure §V19.11 and GBP-HW-317 quote is on the page with each log's full hash, and pinned "
      "from the SOURCES by tests that never skip (the rows, the verbatim sentence, the claims it must "
      "not make, the Makefiles' source lists); the Operator's machine, where the logs are, runs the suite first"),
+    # Issue #90: RUN 36's archived copy and the live Gecko capture, under captures/local, ignored by design.
+    (r"^the RUN 36/37 Gecko capture is not archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
+     "§V21.9 quotes the capture's hash, size, line counts and every RUN 36 line it carries, and the log "
+     "itself is VERSIONED (captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log), from which "
+     "the played order and the class are recomputed by tests that never skip; the Operator's machine, "
+     "where the capture is, runs the suite first"),
+    (r"^RUN 36's archived copy is not in this checkout \(captures/local is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
+     "the versioned fixture is the same bytes and its hash is pinned by a test that never skips; this "
+     "check only confirms the local copy has not diverged from it"),
     # Issue #85: RUN 35, under captures/local and logs/, ignored by design.
     (r"^RUN 35 is not archived in this checkout \(captures/local is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
      "§V20's hashes, verdict, rows and the write-happened check are quoted on the page and pinned from "

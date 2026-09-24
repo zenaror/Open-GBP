@@ -8899,3 +8899,66 @@ as in `captures/README.md` and §V20.
   number (`GBP-HW-316`).
 
 One console, one Game Boy Player, as every entry here.
+
+---
+
+### GBP-HW-318 — the GameCube played the project decoder's own samples audibly: four distinct pitches, heard in the sealed relative order (RUN 36, AOUT-HW-001) — FACT (what played: log + Gecko) + OPERATOR OBSERVATION (what was heard)
+
+**Scope, first.** This is an OUTPUT-PATH result (`HARDWARE_TESTS.md` §V21).
+- The Game Boy Player was attached but never touched: `gbp_touched=0`, the `aout` audit
+  profile, and no Game Pak in the slot.
+- The samples are RUN 33's recorded AUDIO windows, decoded by the #80 / #81 decoder,
+  resampled 125/16 to 32 000 Hz, and played through the AI DMA.
+- **It says nothing about live capture, the drain or timing, and it is not Phase 6's
+  acceptance.**
+
+**FACT, from the log and the live Gecko capture: what played.**
+
+`aout-0002` @ `28cbb97`, boot 2 of the sitting:
+- It read the 5 243 788-byte fixture. The strict parser recomputed its CRC-32,
+  `d3dbd9a6`, over the whole file.
+- It built 4 tones and 194 000 frames. It played them in the order sealed before the
+  run (§V21.6): **1024, 256, 512, 128 Hz**.
+- It completed three passes, with `dma_irqs` 34 / 67 / 100, then `STOPPED dma_irqs=103`.
+
+Files:
+- The log: `captures/local/AOUT-HW-001_aout-0002-run36.log` (sha256
+  `d872a889…a870a`, also `captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log`).
+- The Gecko capture: `captures/local/GECKO-LIVE-run36-run37-orchestrator-capture.txt`
+  (sha256 `af2d1fe2…1af3`).
+
+Boot 1 of the sitting refused: `FIXTURE rc=-2`. The Operator had deleted the fixture
+by accident, and nothing played.
+
+**OPERATOR OBSERVATION: what was heard.** His words, given before any log was opened:
+- "e sim, na 36 foram 4 tons distintos" (COUNT, 00:11:32.427Z);
+- "Normal Grave agudo grave" (00:20:03.146Z);
+- "pelo menos na minha percepção foi assim" (00:20:47.554Z, unprompted).
+
+**One reading stands between his words and the verdict.** His words name the four
+tones in play order. Read each against the one before, they give **LOWER, HIGHER,
+LOWER**, which is the down, up, down §V21.6 expects. §V21.5 classifies that as
+**PASS**.
+
+His direct answers to the three relations (00:23:11.433Z) came **after** the order had
+been displayed on the Executor's terminal. They are a post-exposure confirmation with
+no independent weight (§V21.9.4).
+
+**What makes it more than agreement.** He had been told to expect up, down, up for
+the earlier image, and then told that expectation was void. His report is the
+opposite of that pattern in all three relations, so it is not that expectation
+replayed (§V21.9.5).
+
+**Relations, never absolute pitch.** The tone he called "Normal" was the highest
+played, 1024 Hz, and "agudo" was 512 Hz. As absolute labels his words would be wrong
+about 3 against 1, a comparison the gate never asked for.
+
+**Status.**
+- The perception stays OPERATOR OBSERVATION, and is not promoted.
+- What played is FACT from the log and the Gecko capture.
+- The executed bytes are identified by the identity line and a reproducible build, not
+  by the medium. The card was handled on a PC between verification and the run, and a
+  re-hash is pending (§V21.9.2).
+- `U-GBP-012` is untouched.
+
+One console, one Game Boy Player, one listener.

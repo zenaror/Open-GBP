@@ -1,0 +1,17 @@
+# OPENGBP-LOG v1
+test_id=AOUT-HW-001
+build_id=aout-0002
+commit=28cbb97
+libogc=libogc2 r2442.094b250 gecko=1 scope=output_path_only gbp_touched=0
+lines=9 dropped=0 truncated=0
+# --- records ---
+000000 IDENT test=AOUT-HW-001 app=audio-output-replay build=aout-0002 commit=28cbb97 libogc=libogc2 r2442.094b250
+000001 AOUT scope=output_path_only gbp_touched=0 fixture=sd:/open-gbp/aout/run33-audio.bin bytes=5243788 crc=d3dbd9a6 rate=32000 format=s16_stereo_same_sample_native_be chunk_bytes=32000 rest_chunks=8
+000002 FIXTURE rc=5243788 want_bytes=5243788 read 5243788 bytes from sd:/open-gbp/aout/run33-audio.bin
+000003 ALISTEN rc=0 crc=d3dbd9a6 windows=5 tones=4 in=24832 frames=194000 blocks=640 lost=0 overflow=0 seq_chunks=25 cycle_chunks=33
+000004 PLAY position=1 window=w4 expected_hz=1024 keys=0001 sliced=160 repeats=26 first=0 frames=32500 gap_first=32500 gap_frames=16000
+000005 PLAY position=2 window=w3 expected_hz=256 keys=0001 sliced=160 repeats=26 first=48500 frames=32500 gap_first=81000 gap_frames=16000
+000006 PLAY position=3 window=w2 expected_hz=512 keys=0001 sliced=160 repeats=26 first=97000 frames=32500 gap_first=129500 gap_frames=16000
+000007 PLAY position=4 window=w1 expected_hz=128 keys=0001 sliced=160 repeats=26 first=145500 frames=32500 gap_first=178000 gap_frames=16000
+000008 AOUTRUN dma_irqs=95 passes=2 playing=28
+# --- end --- dropped=0

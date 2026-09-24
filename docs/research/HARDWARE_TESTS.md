@@ -32505,3 +32505,189 @@ exists. **Neither session opens the log before then either.** Tool output and ch
 channels the Operator reads, and one displayed PLAY line would unseal the order. Hashing
 the files and recording their sizes needs no display of their contents, and is all that
 happens to them until his answer is in #89.
+
+### V21.9 RUN 36 INGESTED (GitHub Issue #90) — **AOUT-HW-001 = PASS**, a result about RELATIONS — 2026-09-23
+
+*Appended. §V21.0–§V21.8 stand. No gate, class or definition moved.*
+
+**SCOPE, stated before the verdict.** PASS means only this: **this console emitted
+the project decoder's own samples, audibly, as four distinct pitches in the sealed
+relative order.** It says nothing about:
+- live capture, the drain or timing;
+- the Game Boy Player, which the image never touches;
+- the fidelity of the analogue output, which nothing measured;
+- absolute pitch (§V21.9.6).
+
+**It is not Phase 6's acceptance.** This is the result most likely to be misread later
+as "the audio works". It does not say that.
+
+#### V21.9.1 What ran, and the files
+
+```text
+image       16-aout  AOUT-HW-001 / audio-output-replay / aout-0002 / commit 28cbb97 (§V21.7)
+cartridge   NONE -- the Game Pak out (#89, §V21.8)
+Link Port / BBA   not recorded for this sitting
+```
+
+```text
+raw drop (logs/run36/, never edited)          archived copy (captures/local/)
+AOUT-HW-001_aout-0002.log      1 371 B        AOUT-HW-001_aout-0002-run36.log
+   sha256 d872a889257d56276ebafd36091231371ba7ecec619d6ec0a9d8df89d04a870a
+versioned   captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log (the same bytes)
+Gecko       captures/local/GECKO-LIVE-run36-run37-orchestrator-capture.txt   7 668 B
+   sha256 af2d1fe29ee6b987fe06b7e51b84fabe1c3af36e25c9813a882e14a4e79c1af3
+```
+
+**Where the Gecko capture comes from, and what it can support.** The Orchestrator
+captured the Pico Gecko stream live through the whole sitting: three boots, 14
+`OPENGBP-AOUT` lines and 10 `OPENGBP-DRAIN` lines. The Executor archived it with
+`cp --update=none` and checked it with `cmp`.
+- **It supports:** both runs' Gecko line sets, end to end; RUN 36's two boots and three
+  passes; RUN 37's clean teardown. It does so independently of the SD, and it showed
+  them **before the Operator copied anything off the card**.
+- **It cannot support** anything about RUN 37's phases. `DRAINCFG`, `DRAIND2` and the
+  `DRAIN` records go to the ring log only, by design.
+- **It carries no `position=`, `window=` or `expected_hz` line.** The Orchestrator
+  checked this, and so did the Executor, counting in bytes mode because the stream
+  holds seven non-ASCII bytes. The play order never reached this channel.
+
+#### V21.9.2 Two boots: the first REFUSED, as designed; the second is the run
+
+- **Boot 1** (Gecko lines 45–48): `READY … build=aout-0002 commit=28cbb97`, then
+  `FIXTURE rc=-2 sd:/open-gbp/aout/run33-audio.bin not found on the card`, then
+  `REFUSED got=-2 build_rc=0 crc=00000000 tones=0` and `DONE`. Nothing played, and no
+  log was saved.
+  - The Operator's own words, sent in the Orchestrator's session at
+    2026-09-24T00:06:11.547Z (21:06 local): **"falha minha nessa primeira tentativa,
+    apaguei o bin sem querer... estou começando de novo o run 36"**.
+  - The refusal path did exactly what §V21.1 built it for. On its own, that boot would
+    classify INCONCLUSIVE. It is not the run.
+- **Between the boots, the card was handled on a PC.** At about 21:14 local, on this
+  host, the 16 slot directories under `sd:/open-gbp` read modification times of
+  21:00:14–21:00:21, and the card root held a `.Trash-1000` (created 21:00, changed
+  21:05). That is consistent with the deletion and restore he described. **Nothing
+  else about what was done on the PC is recorded.**
+- **Boot 2** (lines 93–102) is RUN 36:
+  - `FIXTURE rc=5243788`, then `BUILT rc=0 crc=d3dbd9a6 tones=4 frames=194000
+    chunks=25`. The strict parser recomputes the CRC-32 over the whole file before its
+    footer and refuses a mismatch. So **the restored fixture's content is RUN 33's
+    sidecar**, checked by the image itself.
+  - Then `PLAYING`, `PASS 1 dma_irqs=34`, `PASS 2 dma_irqs=67`, `SAVELOG rc=0`,
+    `PASS 3 dma_irqs=100`, `STOPPED dma_irqs=103 passes=3` and `DONE`.
+- **The executed bytes' identity, stated at its real strength.**
+  - Before the sitting, the card was verified from the medium: §V21.7, then the
+    Orchestrator's own check for #89.
+  - The card was then handled on a PC at 21:00–21:05, and **the slots were not
+    re-hashed from the medium afterwards**.
+  - Both boots print `aout-0002` @ `28cbb97`, and that identity belongs to exactly one
+    build in this project's history. The dirty predecessor printed `459c434-dirty`,
+    and the Dolphin variant prints `aout-0002-dolphin`. That build reproduces
+    byte-for-byte (`97f113ca…45e2`, two from-scratch builds), and `build/swiss` still
+    holds exactly the exported bytes.
+  - So the executed image is identified by its identity line together with a
+    reproducible build, **not by the medium**.
+  - **Pending:** hash `16-aout/boot.dol`, `15-drain/boot.dol` and
+    `aout/run33-audio.bin` from the card at its next mount.
+
+#### V21.9.3 What played — the log, opened only after the Operator's report
+
+```text
+000003 ALISTEN rc=0 crc=d3dbd9a6 windows=5 tones=4 in=24832 frames=194000 blocks=640 lost=0 overflow=0 seq_chunks=25 cycle_chunks=33
+000004 PLAY position=1 window=w4 expected_hz=1024 keys=0001 sliced=160 repeats=26 first=0 frames=32500 gap_first=32500 gap_frames=16000
+000005 PLAY position=2 window=w3 expected_hz=256 keys=0001 sliced=160 repeats=26 first=48500 frames=32500 gap_first=81000 gap_frames=16000
+000006 PLAY position=3 window=w2 expected_hz=512 keys=0001 sliced=160 repeats=26 first=97000 frames=32500 gap_first=129500 gap_frames=16000
+000007 PLAY position=4 window=w1 expected_hz=128 keys=0001 sliced=160 repeats=26 first=145500 frames=32500 gap_first=178000 gap_frames=16000
+000008 AOUTRUN dma_irqs=95 passes=2 playing=28
+```
+
+- The PLAY lines equal §V21.6 and `aout_order.h` exactly: **1024, 256, 512, 128 Hz**.
+  **Expected: down, up, down.**
+- `in=24832` is 4 × 6 208 inputs. Every segment starts on a multiple of 48 500 frames.
+- `AOUTRUN dma_irqs=95 passes=2` was written at the X press. It falls between the
+  Gecko's `PASS 2 = 67` and `PASS 3 = 100`, where `SAVELOG` sits.
+
+#### V21.9.4 The Operator's report, and when each part was given
+
+Times are UTC. The Operator's message times come from the Orchestrator's session
+transcript (`ea271193-…`); the Executor located each of the four there itself. The
+Executor's display times come from its own transcript (`9d304039-…`).
+
+```text
+00:11:32.427Z   "logs copiados… e sim, na 36 foram 4 tons distintos"          COUNT
+00:20:03.146Z   "Normal Grave agudo grave"                                     THE FOUR WORDS
+00:20:47.554Z   "pelo menos na minha percepção foi assim"                      HIS QUALIFIER, unprompted
+00:21:03Z       the above posted on #89 by the Orchestrator ("recorded before any log was opened")
+--------------------------------------------------------------------------------------------------
+00:22:11.007Z   the Executor displays the log -- the order is on the terminal the Operator reads
+00:22:26.364Z   the Executor displays aout_order.h and §V21.6, then narrates the order and "PASS"
+--------------------------------------------------------------------------------------------------
+00:23:11.433Z   his DIRECT answers: 2v1 GRAVE, 3v2 AGUDO, 4v3 GRAVE                  AFTER EXPOSURE
+00:23:31Z       posted on #89
+```
+
+**The class rests on the 00:20:03.146Z report.** The COUNT, the four words and the
+qualifier all precede the first display by minutes; the COUNT precedes it by nine.
+
+**How much interpretation stands between his ear and the verdict: one reading, stated
+openly.**
+- The four words name the four tones in play order. They are not the three relations
+  the gate asks for.
+- Reading each word against the one before gives: "Grave" after "Normal" is LOWER,
+  "agudo" after "Grave" is HIGHER, and "grave" after "agudo" is LOWER.
+- That is a READING. The Orchestrator made it first, and the Executor made the same
+  one independently. It is the only interpretive step in the chain.
+- It is also why the Orchestrator put a second question to him. That question was
+  still outstanding when the log was displayed, and the Executor had not been told so.
+
+**The direct answers are a POST-EXPOSURE confirmation.**
+- They were given 60 s after the order and the verdict were on the Executor's
+  terminal, which the Operator reads.
+- They agree with the reading, and that agreement carries **no independent weight**.
+- They are recorded as what was said and when, and never as the instrument's reading.
+
+**§V21.5, first match wins:**
+- **INCONCLUSIVE:** no. The fixture was read, and the counter advanced through three
+  passes.
+- **SILENT:** no.
+- **PASS:** COUNT 4 AND all three relations as §V21.6 expects (down, up, down).
+
+**Class: PASS.** Beside it, in his words: **"pelo menos na minha percepção foi assim"**.
+It separates what he heard from how sure he is. He offered it with nobody asking and
+nobody having told him whether anything matched.
+
+#### V21.9.5 Why this PASS is stronger than the design that was lost
+
+- Before the permutation, the Executor had told him to expect **up, down, up**
+  (§V21.2's pattern for `aout-0001`; the disclosure is recorded in §V21.6). He was later told that expectation was void and given no replacement.
+- He reported **down, up, down**. Each of the three relations is the **opposite** of
+  the only pattern he had ever been given.
+- The told expectation cannot have produced this report. Replaying it would have
+  classified PITCHES-ORDER.
+- The accident that cost the blind check thus produced a control against the one bias
+  known to be present. It is not a control against every bias. It is a control
+  against that one.
+
+#### V21.9.6 Relations, not absolute pitch
+
+- The tone he called "Normal" was the **highest** played (1024 Hz). The one he called
+  "agudo" was 512 Hz.
+- Read as absolute labels, the words would put tone 3 above tone 1, which is false.
+- Read as consecutive judgements, the way §V21.2 asked him to report, they are right.
+- The gate asks only 2v1, 3v2 and 4v3. It never asks 3v1.
+- The tones are octave-spaced: 1024 → 256 is −2 octaves, 256 → 512 is +1, and 512 → 128
+  is −2. Non-consecutive comparison across octaves is where ears are least reliable.
+
+**PASS is agreement on relations between consecutive tones, and never absolute-pitch
+agreement.**
+
+#### V21.9.7 Evidence, and what stays open
+
+- **`GBP-HW-318`** records what was played as FACT, from the log and the Gecko capture.
+  It records the perception as OPERATOR OBSERVATION: four distinct pitches, relations
+  down, up, down, with his qualifier. **The perception is not promoted past OPERATOR
+  OBSERVATION.**
+- **`U-GBP-012` is untouched by this run.** The fixture was decoded by the #80 / #81
+  decoder as it stood, and nothing here tests the AUDIO block format further.
+- **Not established:** live capture, drain, timing and output latency, the analogue
+  output's fidelity, absolute pitch, and Phase 6.
+- **Pending:** the card re-hash of §V21.9.2.

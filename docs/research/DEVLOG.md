@@ -15164,3 +15164,57 @@ bind the numbers before any data exists, and change no gate.
 §V21.8 also states the handling of RUN 36's log. The log names the sealed order, so
 neither session opens or displays it until the Operator's count and relations are
 written in #89. Until then the files are only hashed and sized.
+
+## 2026-09-23 — Issue #90: RUN 36 ingested — AOUT-HW-001 = PASS, on relations, and how much interpretation it rests on
+
+**Goal.** Ingest RUN 36 and state its scope before its verdict.
+
+**Scope.** The console emitted the project decoder's own samples, audibly, as four
+distinct pitches in the sealed relative order. That is all it shows. It says nothing
+about live capture, drain or timing, and it is not Phase 6's acceptance
+(§V21.9, `GBP-HW-318`).
+
+**What happened.**
+- **Two boots.** In boot 1 the fixture was missing: the Operator had deleted it by
+  accident, in his own words at 00:06:11Z. The image refused, and nothing played.
+- He restored the file and ran again. **Boot 2 is the run.** The image re-checked the
+  fixture's whole-file CRC, then played three passes, the Gecko showing `dma_irqs` 34
+  / 67 / 100.
+- The log, opened after his report, shows **1024, 256, 512, 128 Hz**. That is exactly
+  the sealed order, and the expected relations are down, up, down.
+
+**The report, and one mistake of timing.**
+- He gave the count at 00:11:32Z, the four words "Normal Grave agudo grave" at
+  00:20:03Z and his own qualifier at 00:20:47Z. All three came before anything was
+  displayed.
+- At 00:22:11Z the Executor displayed the log, then narrated the order and the verdict.
+  The Operator reads that terminal. The Orchestrator had a second question pending and
+  had not said so.
+- His direct answers came at 00:23:11Z, after that exposure. They agree, but they are
+  recorded as a post-exposure confirmation with no independent weight.
+
+**The class** rests on the 00:20:03Z words, read each against the one before, which
+is the one interpretive step. That reading gives LOWER, HIGHER, LOWER. By §V21.5 the
+class is **PASS**, with his qualifier beside it.
+
+**Why it is stronger than the lost design.** He had been told up, down, up, and he
+reported the opposite in all three relations.
+
+**Relations, never absolute pitch.** He called the highest tone "Normal".
+
+**Also done.**
+- The `GBP-HW-272` recount, covering both runs' logs (commit 1 of #90).
+- The Orchestrator's live Gecko capture, archived with its provenance.
+- The RUN 36 log, versioned as a fixture, with `tests/host/test_run36.py` deriving
+  both the played order and the class.
+- The evidence sentinel moved to `GBP-HW-319`.
+
+**Open.** The executed bytes are identified by the identity line plus a reproducible
+build, not by the medium. The card was handled on a PC between verification and the
+run, so it should be re-hashed at its next mount. `U-GBP-012` is untouched.
+
+**Process, on both sides.** The Executor keeps a sealed log undisplayed until the
+Orchestrator states that the Operator's answer is final. The Orchestrator will now
+state that before anything is opened.
+
+**Next.** #91, RUN 37's three gates.
