@@ -340,6 +340,17 @@ class ARunBSessionRoundTripsThroughTheRecorderTheBuilderAndTheGates(unittest.Tes
                                       data[:8] + b"\x00\x00\x00\x01" + data[12:-4]) & 0xFFFFFFFF))
 
 
+class TheReportBuilderIsFrozenBeforeTheRun(unittest.TestCase):
+    """tools/v24report.py decides nothing, but every choice it makes -- the version it accepts, the seed it
+    refuses, the sample's absolute ticks -- is one the data could otherwise be argued into."""
+
+    def test_v24report_is_the_bytes_of_the_commit_that_froze_it(self):
+        import frozen
+        then = frozen.source("Issue #105 -- split-0001 and its report builder", "tools/v24report.py")
+        self.assertEqual(then, read(os.path.join(ROOT, "tools", "v24report.py")),
+                         "tools/v24report.py was edited after it was frozen")
+
+
 # ---- the audit ----------------------------------------------------------------------
 
 class TheAuditDiscriminatesBothWays(unittest.TestCase):

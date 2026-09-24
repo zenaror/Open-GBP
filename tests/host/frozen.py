@@ -78,6 +78,9 @@ BASES = {
     # Issue #105: Run B (§V24), transcribed and QUESTION S frozen before the image exists
     "Issue #105 -- §V24 transcribed, Run B's QUESTION S frozen":
         "146e3d35e3fe355cb23dd6b69fa215c583b39645",
+    # Issue #105: Run B's log + trace -> report builder, frozen with the image, before any run
+    "Issue #105 -- split-0001 and its report builder":
+        "d6dc4f813378e6a5092d573db7c349880a79d5b0",
 }
 
 
