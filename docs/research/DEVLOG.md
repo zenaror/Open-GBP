@@ -15416,3 +15416,84 @@ on GBP-HW-050/057) agree with the record.
   where `INPUT.md` says FACT since 2026-09-21.
 
 **Next.** RUN 38 (Hardware Issue #93). This page does not wait on it.
+
+## 2026-09-24 — Issue #96: two consolidated documents disagreed on one status — fixed, swept, and a narrow guard
+
+**Goal.** Fix the two stale lines #95 reported and sweep the whole consolidated
+set for the same class. Guard the class where it can be guarded, and say where
+it cannot.
+
+**The two lines, routed by the record.**
+- **`docs/protocol/README.md`.** It read the L/R order as CORROBORATED, not
+  FACT. `INPUT.md` says FACT, and so does `GBP-HW-270`. The index now states no
+  status at all and describes what each page contains.
+- **`REGISTERS.md` §2.1.** Its blanket "VIDEO/AUDIO layouts remain U" now says
+  what does remain unknown: SIODATA's layout (U-GBP-002, U-GBP-008) and byte 0
+  (U-GBP-015). It points to `VIDEO.md` and `AUDIO.md` for the rest and keeps
+  the old sentence as history.
+
+**The sweep.** It had three layers:
+1. every page line that binds one status letter to one id — 43 lines, 1
+   disagreement;
+2. every line with ids and a status the cited entries do not name — 12 lines,
+   the same 1 disagreement;
+3. the 98 status lines that cite no id, read by hand.
+
+Corrected by the record:
+- **`ARCHITECTURE.md` §1.** It gave F to the board revisions, RAM and crystal,
+  citing `GBP-PHY-001`. The entry is CORROBORATED and this project has run no
+  hardware test of it. The row now reads C and records that it read F.
+- **`docs/protocol/README.md`'s AUDIO paragraph.** I wrote it in #95. It
+  restated statuses in the index, the same pattern that drifted, so the
+  statuses are removed.
+- **`docs/hardware/README.md`.** #95 missed it: it indexed `VIDEO.md` and
+  `INPUT.md` but not `AUDIO.md`. It is added.
+- **`VIDEO.md` §6.** "The AUDIO block's format and cadence", scoped "not
+  established by Phase 4", gains a pointer to `AUDIO.md`.
+
+Read and left alone, each consistent with the record at its own scope:
+- `INITIALIZATION.md:756`: the old L/R sentence, already amended on top at :769.
+- `GBS-DOL.md:22`: TEST inversion C, which is GBP-TEST-001, the references'
+  method. `REGISTERS.md`'s F is GBP-HW-003's hardware observation.
+- `GBS-DOL.md:14/16`: C for the device as the references present it. Parts of
+  it are F on hardware since (GBP-PI-004, the W1C of bits 2/8/10). The page
+  understates but does not contradict.
+- `REGISTERS.md:153`: "C (function)" beside GBP-HW-028's FACT (code) for the
+  callback slot.
+- `REGISTERS.md:95/158`, `HSP.md:56`, `INITIALIZATION.md:530/534/706`:
+  compound, aspect-scoped cells.
+- `REGISTERS.md:270`: matches the record's "CORROBORATED — VERY STRONG".
+- `REGISTERS.md:134–140`: matches GBP-HW-272's amendment.
+- `AUDIO.md:32/107` and `GBS-DOL.md:55`: the status word is not about the
+  cited id ("would make it FACT"; Dolphin's model).
+
+**The guard** is `tests/host/test_page_status_bindings.py`, with no exception
+list. It has two parts.
+
+**A** — a status bound to ONE id must be one the entry names. A binding is
+either a Status/Evidence table row with a bare letter and one id, or
+`**X** (ID)` in prose. An open question is never bound to F or C, and a
+CLOSED one is not pointed at.
+
+**B** — the two indexes state no status.
+
+It differs from the comparison #29 refused: it never compares a compound row
+with an entry.
+
+Its limits are written in the test and pinned by it:
+- it sees 42 of the 287 citing lines;
+- it checks membership, not equality;
+- it cannot see a claim with no id. README's line was such a claim, which is
+  why guard B exists.
+
+Mutation cases in the test show both forms catching a wrong letter and show
+what escapes. `RESEARCH_METHOD.md` and `tools/reconcile.py` record the gate
+and its limits.
+
+**Why the guard is worth having.** The Orchestrator gave four wrong statuses
+in #95's dispatch, the rate as FACT among them, when it is CORROBORATED. That
+status had drifted in the Orchestrator's memory within a day and reached a
+summary for the Operator. A reader coming to the consolidated set cold has less
+to go on than that.
+
+`EVIDENCE.md` is untouched; no id was minted and no status moved.
