@@ -65,6 +65,7 @@ ON_THE_PATH = ("live_tap", "live_vtap", "live_dma_cb", "live_step")
 # every assignment the TRACE blocks make: their own locals, the callback record's own write time,
 # the recorder's storage descriptor, and the VIDEO hook
 TRACE_WRITES = {"q0", "w", "tr_entry", "x", "r", "y", "r->rec", "tr_s0", "tr_s1", "tr_st",
+                "tr_clk_g", "tr_clk_t", "tr_k", "tr_ga", "tr_gd", "tr_ta", "tr_td",
                 "s.a_decoded", "s.a_delta", "s.a_sat", "s.v_rec", "s.v_sat", "s.cb", "s.step", "s.cycles",
                 "cfg.video_tap", "cfg.video_tap_user", "tr_status", "t_write", "t_close", "tn", "t_open"}
 PATH_CALLS = {"gettime", "ticks64", "gbp_atrace_audio", "gbp_atrace_video", "gbp_atrace_callback",
@@ -149,7 +150,10 @@ class TheImageIsLive0001PlusTheRecorder(unittest.TestCase):
                 self.assertTrue(all(l.startswith((" *", "/*")) for l in added), added[:3])
                 self.assertIn("GBP-AUDIO-008, build trace-0001", "\n".join(added[:3]))
             else:
-                self.assertIn("TRACE", added[0], "an added hunk at line %d is not marked TRACE: %r" % (j + 1, added[0]))
+                # difflib may start an insertion on a closing brace it shares with the line above;
+                # the first line that carries anything must be the marker
+                first = next(l for l in added if l.strip() not in ("", "{", "}"))
+                self.assertIn("TRACE", first, "an added hunk at line %d is not marked TRACE: %r" % (j + 1, first))
 
     def test_the_untouched_functions_are_live_0001s_character_for_character(self):
         live, trace = functions(read(LIVE_MAIN)), functions(read(TRACE_MAIN))
@@ -209,7 +213,9 @@ class TheImageIsLive0001PlusTheRecorder(unittest.TestCase):
         mask = int(re.search(r"#define GBP_VSIG_GBI_MASK (0x[0-9a-fA-F]+)u", read(VSIG_H)).group(1), 16)
         vtap = functions(read(TRACE_MAIN))["live_vtap"]
         self.assertIn("gbp_atrace_video(&tr, (w & 0x%08xu) == 0x%08xu, t_done);" % (mask, mask), vtap)
-        self.assertIn("if (!completed) return;", vtap)
+        self.assertIn("if (completed) {", vtap)
+        # its cost is timed from the tick the service module read for this call
+        self.assertIn("gbp_atrace_cost(&tr, (uint32_t)(gettime() - t_done));", vtap)
         self.assertIn("cfg.video_tap = live_vtap;", read(TRACE_MAIN))
 
     def test_the_sources_are_live_0001s_and_the_recorder(self):
@@ -237,7 +243,7 @@ class NoTraceRecordCanBeTruncated(unittest.TestCase):
     def test_every_live_record_fits_the_ringlog_line_at_its_worst(self):
         m = read(TRACE_MAIN)
         tags = sorted(set(re.findall(r'"(LIVE[A-Z0-9]*) ', m)))
-        self.assertTrue({"LIVETRACE", "LIVETRACE2", "LIVETRACESAVE"} <= set(tags), tags)
+        self.assertTrue({"LIVETRACE", "LIVETRACE2", "LIVETRACECLK", "LIVETRACESAVE"} <= set(tags), tags)
         status = int(re.search(r"char tr_status\[(\d+)\]", m).group(1))
         per_line = ",".join(["4294967295"] * 16)
         for tag in tags:
