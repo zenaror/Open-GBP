@@ -9200,3 +9200,63 @@ that fact beside it and carries no independent weight on "continuous or broken".
 is the ~56 one-sample discontinuities per second of `GBP-HW-322` and `GBP-HW-324`
 is a HYPOTHESIS (`U-GBP-045`). He is corroboration, never the gate, and no blinding
 is claimed.
+
+---
+
+### GBP-HW-327 — RUN 38's two losses keep ONE cadence, the AI chunk cycle: the undrained AUDIO blocks are phase-locked to a 31.2 ms period, and every incomplete video frame is detected 1.5–11.7 ms after an AI DMA callback — FACT (statistics recomputable from the archive); CORROBORATED that one cadence, the AI chunk cycle, orders both losses; which step of the cycle is UNKNOWN
+
+GitHub Issue #100. `tools/u045cadence.py` reads RUN 38's versioned log and L2 record and
+decides nothing; `tests/host/test_u045_cadence.py` proves its method on constructions and
+recomputes every figure below.
+
+**AUDIO, from the L2 window's kept decoded stream.** It is a 128 Hz square wave: 16
+samples per half-period. A block never drained removes one sample, so each loss is
+located to its half-period, about 3.9 ms.
+- 296 undrained blocks lie in 229 of 2 558 half-periods, over 9.994 s of device time.
+  They form 196 episodes, each one or two adjacent half-periods.
+- The episodes are **phase-locked**. At the AI chunk period of 31.2222 ms (1 000 frames
+  at M's 32 028.483 Hz, `GBP-HW-325`), R = 0.940. At the tone's 128-block grid of
+  31.25 ms, R = 0.746. A periodogram over 30.9–31.6 ms peaks at **31.215 ms**, R = 0.950.
+  Over this span its resolution is about 0.1 ms, so it favours the AI period without
+  excluding the grid by itself.
+- Consecutive episodes are 1 chunk period apart (140 times), 2 (17), 3 (16), 4 (15),
+  5 (6) or 8 (1). 62 % of chunk periods carry one episode.
+
+**VIDEO, from the contiguous tail of the printed EVENTS.** These are sequence numbers 357
+to 420 of 420, from 26.4 s to 64 s after the origin, and the list is complete over that
+span.
+- **All 31 incomplete frames are detected 1.5–11.7 ms after an AI DMA callback**, 23 of
+  them within 5.0 ms. The callbacks are taken from `LIVEM`'s first and last callback and
+  its count.
+- R = 0.788. **None** of 20 000 random sets of 31 frame boundaries from the same span is
+  as phase-locked.
+- An event's time is when the service closed the incomplete interval, so the missing
+  block lies in the frame before it.
+
+**SECONDS.** The per-second audio deficit and the per-second count of incomplete frames
+do not co-vary over s = 27..63: Pearson r = 0.033. A steady cadence would give exactly
+that.
+
+**What it establishes.**
+- **FACT: the statistics above**, recomputable from the fixtures.
+- **CORROBORATED: one cadence, the AI chunk cycle, orders both losses.** The audio
+  stream and the video event log are independent channels, and they agree on it. That is
+  the fork #100 asked about, answered as **one starvation, not two**, at the level of
+  cadence.
+
+**What it does NOT establish.**
+- **The archive cannot say whether an individual audio loss and an individual video loss
+  coincide.** The kept stream carries no absolute time, and a video event is quantised to
+  its frame.
+- **Which step of the chunk cycle does it is UNKNOWN.** The candidates are all HYPOTHESES:
+  - the chunk's production in the pump slot, in 8 bounded steps of 125 frames;
+  - its 4 000-byte `DCFlushRange` and queueing;
+  - the AI DMA interrupt and its `AUDIO_InitDMA`.
+- **Whether the per-block decode is a factor is also a HYPOTHESIS.** `live-0001`
+  decodes every block inside the service transaction (4 096 bytes popcounted), and
+  `drain-0001`'s PHASE B did not. That would narrow the service's margin, so that the
+  per-chunk work can overrun it.
+- The log carries no timing of any chain step. The only one it has is `LIVET2 gap_max`,
+  0.537 ms.
+
+One console, one Game Boy Player, one run.
