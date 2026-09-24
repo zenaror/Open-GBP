@@ -15568,3 +15568,75 @@ by hand at every ingestion (e.g. `e227248`, `0973faf`, `60dc9fd`).
   (U-GBP-007).
 
 `EVIDENCE.md` is untouched.
+
+## 2026-09-24 — Issue #98: the expiring pins could not see what they were said to protect — closed at the same commit as #97, and the record checked by construction
+
+**The question, answered first.** Inventory of the live pins that had to be
+moved by hand:
+
+```text
+20  "the highest id is N": 17 × GBP-HW = 321, 2 × U-GBP = 44, 1 × GBP-VID = 35, across 17 files
+ 3  "the next one is absent": GBP-HW-322 not in EVIDENCE (×2), RUN 38 not in HARDWARE_TESTS
+ 2  "no record cites ids beyond N": ROADMAP/HANDOFF, and four consolidated pages with them
+```
+
+Not in the inventory, and left alone because they never expire:
+- the eight "RUN N not in <frozen section>" pins;
+- the five citation windows over frozen documents.
+
+A frozen section must not later mention a later run. Those pins do that work,
+and nothing has ever needed moving.
+
+**What the pins protect.** Each was written to say that ITS checkpoint — a
+build, a pre-registration — minted or ran nothing. That is a claim about a
+closed range. At HEAD it becomes "nothing has been minted since", which every
+ingestion falsifies on purpose.
+
+**Recorded catches: none.** The commit history holds only moves: `ed760f9`
+("fourteen expired freeze pins moved"), `12ee068`, `26c172c`, `60dc9fd`,
+`e227248`, `0973faf`. Every sentinel mention in this DEVLOG is a move.
+
+**The case for keeping them, tested rather than assumed.** "A sentinel on the
+next id makes an accidental reuse visible." It cannot. A reused id is an
+existing number written again, which changes neither the highest id nor the
+next free one. Built as a mutation (a second `GBP-HW-160`), it passes both
+kinds of pin. Reuse has not happened: 0 duplicates and 0 gaps across the nine
+evidence families. But nothing checked it.
+
+**Two pins were worse than ceremony.**
+- **The citation windows were stale.** Unmoved since #84, they forbade
+  HANDOFF, ROADMAP, `VIDEO.md`, `ARCHITECTURE.md`, `GBS-DOL.md` and
+  `REGISTERS.md` from citing GBP-HW-317…321, ids that exist.
+- **The RUN 38 pin was waiting to fire.** HARDWARE_TESTS has never written
+  "RUN 38", so the pin would have fired at that run's ingestion.
+
+**The change, in #97's shape.** The 25 pins now read the record at
+`guards.CHECKPOINTS_CLOSED_AT` through `guards.at_close()`. That is the same
+single constant as #97: every pin is true there and none is moved again. What
+they were said to protect is now checked on the record itself, computed, with
+nothing to edit when an id is minted (`tests/host/test_record_ids.py`):
+- every evidence id is defined by exactly one heading;
+- every family is numbered from 001 with no gap;
+- every evidence id cited by HANDOFF and ROADMAP is defined;
+- every test id they cite names an experiment in HARDWARE_TESTS.
+
+The test also carries:
+- the reuse and gap mutations: the pins miss them and the checks catch them;
+- a structural rule: no test computes the highest id over the live record;
+- a floor of 25 converted pins, so deletion cannot pass for closure.
+
+**Found by the new check on its first run:** HANDOFF cites GBP-AUDIO-001…006.
+Those are Phase 6's experiment ids, and the one declaration of test families
+(`test_page_citations.TEST_FAMILIES`, mirrored in `tools/reconcile.py`) lacked
+`AUDIO`. It is added.
+
+**What is not covered.** Whether a checkpoint that should mint nothing minted
+something depends on what kind of checkpoint is running, and the record does
+not say that. It stays with the Orchestrator's validation, where it
+effectively always was.
+
+**Not touched.** The archive recount tests (GBP-HW-272's population) recompute
+a FACT over the archive, and a population change is a real event. They do
+work, and RUN 38's ingestion will still update them.
+
+`EVIDENCE.md` is untouched.
