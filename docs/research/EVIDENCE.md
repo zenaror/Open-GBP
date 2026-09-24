@@ -7460,7 +7460,7 @@ and the same one-line derivation now prints
 ```text
 grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
      13 CONTROL semantic orig=90
-     39 CONTROL semantic orig=92
+     40 CONTROL semantic orig=92
 ```
 
 The six logs added the same day are RUN 23 (`stream-0015-run23`, no cartridge,
@@ -7559,6 +7559,13 @@ archive as it stands now. CLAIM 1 stays FACT; CLAIM 2 is untouched.
 It ran on `sweep-0002` with the cartridge in the slot and records `orig=92`, as
 the split predicts: **13 at `0x90` and 39 at `0x92`**. The printed output above
 is the archive as it stands now. CLAIM 1 stays FACT; CLAIM 2 is untouched.
+
+**2026-09-24, Issue #107 — RUN 40 (`split-0001-run40`) makes it 53 logs.**
+`split-0001` is Run B's image (GBP-AUDIO-009, `HARDWARE_TESTS.md` §V24): `trace-0001`
+with production split by a frozen assignment, and so on `play-0001`'s service path. It
+ran on `sweep-0002` with the cartridge in the slot and records `orig=92`, as the split
+predicts: **13 at `0x90` and 40 at `0x92`**. The printed output above is the archive as
+it stands now. CLAIM 1 stays FACT; CLAIM 2 is untouched.
 
 ---
 
