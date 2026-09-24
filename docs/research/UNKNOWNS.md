@@ -2155,7 +2155,7 @@ construction.
 the same image with raw episode preservation disabled, compared like for like.
 Neither is planned.
 
-## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open** — **Issue #108: by arm, the residue is still `produce`, and `neither` and VIDEO followed the arms (GBP-HW-334)** — **Issue #112 (RUN 41, a real game): both losses rose together while the picture worked hardest; the video workload added to the chain's is the new HYPOTHESIS (GBP-HW-336)** — **Issue #115 (RUN 42): that rise is L2's own keep window in every run (GBP-HW-338); the video-workload HYPOTHESIS loses its observation**
+## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open** — **Issue #108: by arm, the residue is still `produce`, and `neither` and VIDEO followed the arms (GBP-HW-334)** — **Issue #112 (RUN 41, a real game): both losses rose together while the picture worked hardest; the video workload added to the chain's is the new HYPOTHESIS (GBP-HW-336)** — **Issue #115 (RUN 42): that rise is L2's own keep window in every run (GBP-HW-338); the video-workload HYPOTHESIS loses its observation** — **Issue #116: without L2's window the stretch effect is larger (0.270, not 0.341), the half arm's residue is 0.198 gaps per cycle and stands, and RUN 38's 25.41 blocks/s is 24.50 (GBP-HW-339)**
 
 **What is FACT.**
 - **The composed image drained less than the drain alone.** RUN 38's `live-0001` (the
@@ -2357,6 +2357,27 @@ What stays open, in addition:
 
 What stays open, in addition: the residue without L2, and whether moving or removing the CRC
 removes the rise.
+
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten.** Every rate this
+entry quotes was integrated over C's whole window, and L2 ran in 10 s of it (`GBP-HW-338`,
+`GBP-HW-339`).
+- **The question's own figure:** RUN 38's "about 25 AUDIO blocks per second" is 25.41 whole,
+  **24.50** outside the window, 30.3 inside.
+- **The stretch effect is larger than recorded:**
+  - half-size steps cut the loss gaps per cycle to **0.270** of the full-size arm's outside the
+    window, against 0.341 over it;
+  - the arms were balanced inside, and the window's cost was not proportional (×2.74 on the half
+    arm, ×1.07 on the full).
+- **The residue stands, smaller:** the half arm's 0.2532 gaps per cycle is **0.1981** outside the
+  window, `produce` 153 and `neither` 16 of 169.
+- **The cadence evidence:** `GBP-HW-327`'s AUDIO statistics were measured inside the window by
+  construction. Outside it, RUN 39's and RUN 40's traces keep the AI-cycle phase (90 % and 86 %
+  in the first tenth) and name `produce`.
+- **RUN 41/42:** 7.547 and 7.266 blocks/s whole-window are **5.926** and **5.537** outside it, and
+  16.3 and 16.6 inside.
+
+What stays open is unchanged: the residue's cause, and the `neither` gaps. No hypothesis about
+either is added here.
 
 ## U-GBP-046 (P1, opened 2026-09-24, Issue #115) — the audio-to-video OFFSET: audio lags the picture with Open-GBP's runtime, and not with GBI or the Start-up Disc
 
