@@ -33177,3 +33177,49 @@ Two arms the prose leaves implicit, stated here so nothing is decided later:
 
 MEASUREMENT M and §V22.4's predicted correction rate are REPORTED beside the
 verdicts and decide nothing.
+
+### V22.9 **AMENDMENT 1 — 2026-09-23, BEFORE the POC exists** — an ABSENT L2 record is INCONCLUSIVE, the silence fraction is reported, and X is refused inside the window
+
+*Appended. §V22.0–§V22.8 stand as frozen at 94b478d. Where this amendment says so,
+it prevails. The Orchestrator confirmed (u) and (r) with one addition each,
+confirmed C's short-window arm, and amended L2's missing arm (cross-session
+message, 2026-09-23; quoted on #92 in the Executor's report).*
+
+**A1 — L2's arms.** This replaces §V22.8's sentence "L2 has no INCONCLUSIVE arm as
+§V22.2 is written", which stays above as the record of what was first frozen.
+
+```text
+record ABSENT (never saved, save failed)          -> INCONCLUSIVE, with the reason
+record PRESENT but short, malformed, or
+   not reproducing the CRC                        -> FAIL, with the reason
+```
+
+Both are "not PASS", so neither becomes a soft pass. What differs is the diagnosis.
+If the SD write fails and L2 reports FAIL, the record says *the audio path is
+broken* when the truth is *the log did not save*. An absent record says nothing
+about the path. A present one that does not reproduce says a great deal. This is
+the converse of #81's and #83's error: there an error was rendered as an absence,
+and here an absence would be rendered as an error.
+
+The report builder passes the record as ABSENT when:
+- the file is missing, or
+- the log says the save of the sidecar failed.
+
+**A2 — (u), with an addition.** The report states the **SILENCE FRACTION of the L2
+window**: silence chunks divided by the window's chunks, printed beside L2's
+verdict. Without it, a runtime that underran almost continuously would hand all
+silence chunks, all correctly accounted, and L2 would PASS while C failed. Someone
+would then read "L2 PASS" as "the audio path works". This is B5's rule again: a
+PASS is never reported as more than the counters say.
+
+**A3 — (r), with an addition.** The image **does not act on X until C's window has
+closed**, and it **records any press that arrives inside the window**, X included.
+(r) is read from that record. The procedure is not trusted to prevent the slip,
+because a slip found at ingestion finds the run already spent.
+
+**A4 — confirmed:** C over a window shorter than 60 s is INCONCLUSIVE.
+
+`tools/v22accept.py` changes in this commit, and only these parts:
+- L2 with no record is INCONCLUSIVE;
+- the silence fraction is computed and printed.
+The freeze pin moves to this commit.

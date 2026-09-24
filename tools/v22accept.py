@@ -24,8 +24,11 @@ WHAT IS FROZEN HERE AND WHY EACH PART IS
       the frozen gbp_aresamp over the kept decoded stream, applying the recorded
       corrections and silence chunks, from the kept resampler state, and must
       reproduce the CRC of the chunks handed to AUDIO_InitDMA EXACTLY. No
-      threshold. As §V22.2 is written it has no INCONCLUSIVE arm: a missing,
-      short or malformed record is a FAIL, reported with its reason.
+      threshold. AMENDMENT 1 (§V22.9) A1: an ABSENT record (never saved, or the
+      log says its save failed; the caller passes None) is INCONCLUSIVE; a
+      PRESENT one that is short, malformed or does not reproduce is a FAIL. Its
+      SILENCE FRACTION is reported beside the verdict (A2), so a PASS over a
+      mostly silent window cannot be read as "the audio path works".
 
   C   survival. PASS is zero OVERFLOW and zero UNDERRUN over >= 60 s. The three
       losses are never conflated and are all reported, with the per-second
@@ -217,9 +220,10 @@ def resample_from(state, seq, frames_needed, rows=None):
 
 def question_L2(sidecar_bytes):
     """§V22.2 with its preconditions. PASS or FAIL, and why."""
-    out = {"verdict": None, "why": "", "crc_kept": None, "crc_host": None, "frames": 0}
+    out = {"verdict": None, "why": "", "crc_kept": None, "crc_host": None, "frames": 0, "silence_fraction": None}
     if sidecar_bytes is None:
-        out.update(verdict="FAIL", why="no L2 record: nothing for the host to reproduce")
+        out.update(verdict="INCONCLUSIVE", why="the L2 record is ABSENT (never saved, or its save failed): "
+                                               "this says nothing about the audio path (§V22.9 A1)")
         return out
     try:
         s = parse_sidecar(sidecar_bytes)
@@ -228,7 +232,7 @@ def question_L2(sidecar_bytes):
         out.update(verdict="FAIL", why="the L2 record is malformed: %s" % e)
         return out
     frames_window = s["chunks"] * s["chunk_frames"]
-    out.update(crc_kept=s["crc"], frames=frames_window)
+    out.update(crc_kept=s["crc"], frames=frames_window, silence_fraction=len(silence) / float(s["chunks"]))
     if frames_window < L2_MIN_FRAMES:
         out.update(verdict="FAIL", why="the window is %d frames, under §V22.2's %d (10 s)" % (frames_window,
                                                                                             L2_MIN_FRAMES))
@@ -337,6 +341,8 @@ def main(argv):
     print("%s / %s" % (r["test_id"], r["build_id"]))
     for q in ("L", "L2", "C"):
         print("  %-3s %-13s %s" % (q, r[q]["verdict"], r[q]["why"]))
+        if q == "L2" and r["L2"]["silence_fraction"] is not None:
+            print("      silence fraction of the L2 window: %.4f (§V22.9 A2)" % r["L2"]["silence_fraction"])
     c = r["C"]
     print("     three losses: NOT DRAINED %d  OVERFLOW %d  UNDERRUN %d" % (c["not_drained"], c["overflow"],
                                                                          c["underrun"]))
