@@ -2134,3 +2134,45 @@ construction.
 **What would settle it:** a log that prints the events in the unprinted range, or
 the same image with raw episode preservation disabled, compared like for like.
 Neither is planned.
+
+## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"?
+
+**What is FACT.**
+- **The composed image drained less than the drain alone.** RUN 38's `live-0001` (the
+  drain, decode, resample and AI chain) drained 4 060 to 4 081 AUDIO blocks in every
+  whole second of a 64 s window. That is a mean of 4 070.59/s, with 1 626 blocks not
+  drained (`GBP-HW-322`). RUN 37's `drain-0001`, the same service path without the
+  chain, drained 4 096 ± 1 (`GBP-HW-319`).
+- **The losses are small and many, not stalls.** No gap between decoded blocks
+  exceeded 0.537 ms, which is 2.2 block periods.
+- **The video capture also lost frames.** The session's frame capture counted 82
+  incomplete frames, against the start-up signature's 13 (`GBP-HW-317`).
+- **The ring hid the loss.** The correction band kept the ring level with 1 965
+  duplicated samples (`GBP-HW-324`). The Operator, having been shown figures that said
+  otherwise, reported the tone "um pouco vibrando" (`GBP-HW-326`).
+
+**The HYPOTHESES, none established.**
+1. **The chain's work costs the drain.** `live-0001` is `drain-0001` with its drain
+   module replaced by the chain (`HARDWARE_TESTS.md` §V22.10). The cost would then come
+   from the chain's work in the pump slot: producing and resampling 1 000-frame chunks,
+   handing them to the AI DMA, and servicing its interrupt. Which of these is not
+   known. This is a single comparison of two images that each ran once.
+2. **The duplications and drops are what he heard.** The ~30.7 duplicated samples and
+   ~25.4 missing blocks per second, about 56 one-sample discontinuities per second in a
+   128 Hz tone, would be what the Operator heard. His own hypothesis is his speaker or
+   the volume.
+
+**Why it matters.**
+- While coverage stays below D1's 0.999, `QUESTION L` cannot be decided, and it stays
+  INCONCLUSIVE.
+- The played tone carries discontinuities at tens per second.
+
+The output leg is not in question: L2 is bit-exact and C shows no underrun.
+
+**What would settle it.**
+- For hypothesis 1: the same image with the chain's per-chunk work moved or timed,
+  compared like for like against `drain-0001`, or the pump slot's own cost measured
+  in the composed image.
+- For hypothesis 2: a run whose drain holds 4 096 ± 1, listened to the same way.
+
+Neither run is designed yet.

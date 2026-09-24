@@ -9081,3 +9081,122 @@ one at 18.
 **For the design:** the runtime reads whole AUDIO blocks, 16.8 MB/s sustained,
 which `GBP-HW-319` shows the drain carries. `U-GBP-042` is answered for N = 0x20
 and stays open for the larger N.
+
+---
+
+### GBP-HW-322 — RUN 38, `QUESTION L` = INCONCLUSIVE: the composed image's drain did not keep up — every one of 64 whole seconds read 4 060–4 081 AUDIO blocks, 1 626 not drained (0.62 %), in losses of at most about two blocks — FACT (the counts and the gate's result, one run); that the chain's added work costs the drain is a HYPOTHESIS
+
+`HARDWARE_TESTS.md` §V22.12.3. The gate is `tools/v22accept.py`, frozen at `dfb0a96`,
+fed by `tools/v22report.py`, frozen at `feaf380`. Both ran unedited on the RUN 38 log
+(`captures/fixtures/hw-gamecube-gbp-2026-09-24-live-0001-run38.log`, sha256
+`05dc5b5a…3b18`).
+
+**FACT, recomputable from the log.**
+- The positive control passed: 61 periods, all exactly 32.
+- There was exactly one A press and no other.
+- C's window lasted 64.000 s. Every whole second drained between 4 060 and 4 081
+  blocks, against D1's 0.999 × 4 096. The mean was 4 070.59/s, and 1 626 blocks
+  were not drained.
+- **L = INCONCLUSIVE**, by §V22.1's frozen arm: "a drain result, not a playback
+  one".
+- The decoded period ranged 29..32 over 8 191 periods. No verdict is read from
+  that range.
+- The largest gap between decoded blocks was 0.537 ms, which is 2.2 block
+  periods. So the losses are small and many, about 25 per second, and not stalls.
+- The session's frame capture counted 82 incomplete frames and 164 resyncs,
+  against the start-up signature's 13 and 26 (`GBP-HW-317`).
+
+**What it does not establish.**
+- **The tone's identity in this window.** L is not PASS.
+- **What costs the drain.** RUN 37's `drain-0001`, the same service path without
+  the chain, drained 4 096 ± 1 (`GBP-HW-319`). That the chain's work in the pump
+  slot is the cost is a **HYPOTHESIS**, and the mechanism is `U-GBP-045`. Two
+  images each ran once, so this is a single comparison, not a corroboration.
+
+One console, one Game Boy Player, one run, one image (`live-0001` @ `9341ca7`).
+
+---
+
+### GBP-HW-323 — RUN 38, `QUESTION L2` = PASS: decode → the frozen resampler → counted corrections → the bytes handed to the AI DMA is bit-exact — the host reproduced CRC `3b453778` of 320 chunks × 1 000 frames — FACT (the gate's result, one run)
+
+`HARDWARE_TESTS.md` §V22.12.4. The L2 record is PRESENT (§V22.9 A1). The log has a
+`LIVEL2SAVE ... status=saved` line, and the sidecar is 83 916 B, sha256 `e5b66cf6…d9d3`,
+versioned as `captures/fixtures/hw-gamecube-gbp-2026-09-24-live-0001-run38-l2.bin`. The
+host recomputed the frozen `gbp_aresamp` over the kept decoded stream from the kept
+resampler state and applied the 320 recorded DUP, 0 DROP and 0 silence. It reproduced the
+CRC exactly. The silence fraction is 0.0000 (§V22.9 A2).
+
+**What it does not establish.**
+- **What the drain fed the chain.** The 1 626 undrained blocks of `GBP-HW-322` are
+  upstream of L2.
+- **Anything outside the 10 s window.**
+- **What the AI's DAC did with the bytes.** L2 ends at `AUDIO_InitDMA`.
+
+---
+
+### GBP-HW-324 — RUN 38, `QUESTION C` = PASS: zero OVERFLOW and zero UNDERRUN over 64.000 s, the ring's fill 1 808–2 001 after the first second — and NOT DRAINED 1 626, with 1 965 DUP — FACT (the counters, one run); a PASS is not "no loss"
+
+`HARDWARE_TESTS.md` §V22.12.5. `LIVEC overflow=0 underruns=0 silences=0 dup=1965 drop=0`.
+The AI was never handed silence. The three losses are reported as §V22.3 froze them:
+NOT DRAINED 1 626, OVERFLOW 0 and UNDERRUN 0. The per-second coverage and fill series
+are printed in full in §V22.12.2.
+
+`starved=579` is not an underrun. It counts producer steps that waited for the ring
+to hold a whole chunk, and where they fell is not recorded.
+
+**C tests whether the consumer survives, and the consumer survived.** That is all
+this PASS says.
+
+---
+
+### GBP-HW-325 — RUN 38, `MEASUREMENT M`: the GameCube's AI plays 32 028.483 frames per second of the console's own timebase — +0.42 ppm from Dolphin's 108 MHz / 3372, +890.1 ppm from 32 000 — FACT (the measurement, one run); it CORROBORATES Dolphin's model, and it refutes §V22.4's frozen reading of the correction rate
+
+`HARDWARE_TESTS.md` §V22.12.6. `LIVEM callbacks=2030 frames_per_callback=1000`. The first
+and last callbacks were 2 565 669 430 ticks apart, which is 63.349862 s at 40.5 MHz.
+So 2 029 000 frames played at 32 028.483 Hz.
+
+**This is the first time this project has measured the AI's rate rather than
+inheriting it.** It agrees with Dolphin's `108 MHz / 3372` (32 028.470 Hz) to under
+half a part per million. Both clocks are the console's own, and no external reference
+was used.
+
+**The correction rate follows from M and the run's own drain.**
+- Observed: 30.703 net DUP/s.
+- Predicted: 29.050/s by Dolphin's model and 29.052/s by M, both from this run's
+  drain of 4 070.594 blocks/s.
+- The remaining 1.65/s is not explained.
+
+**§V22.4 froze a different reading, and M refutes it.** §V22.4 predicted about 3.7/s
+from RUN 37's drain of 4 095.949 blocks/s, and read "a rate far from it" as a wrong
+clock model. The clock model is right. The ~8× gap is the drain (`GBP-HW-322`), a
+premise §V22.4 did not state. It is recorded as a limitation found by data, and it is
+not repaired.
+
+---
+
+### GBP-HW-326 — RUN 38, the Operator heard the tone and reports it "um pouco vibrando", against what he had been shown — OPERATOR OBSERVATION, EXPOSED; his attribution is his HYPOTHESIS
+
+`HARDWARE_TESTS.md` §V22.12.7. The Orchestrator recorded his words verbatim at
+2026-09-24T11:47:10.357Z and declared them FINAL: *"ouvi o tom. mas ele pareceu um
+pouco "vibrando", mas acredito ser devido a minha caixa de som ou volume alto...
+mas ele pareceu relativamente estavel"*.
+
+```text
+The Operator's corroboration for RUN 38 was EXPOSED before it was given. The
+Orchestrator published underruns=0, overflow=0, drop=0 and l=8191/29..32 to him,
+in a summary, before putting §V22.6's two questions. His answer is recorded with
+that fact beside it and carries no independent weight on "continuous or broken".
+```
+
+- **He heard the tone.** OPERATOR OBSERVATION.
+- **He heard a perturbation, "um pouco vibrando".** OPERATOR OBSERVATION. It is a
+  report **against** the figures he had been shown, so it survives the exposure.
+- **"the speaker or the volume"** is his HYPOTHESIS about a cause, and it is not an
+  observation of the path.
+- **"relativamente estável"** agrees with what he was shown, and it carries no
+  independent weight.
+
+**Not in §V22.6's two categories, and not forced into one.** That the perturbation
+is the ~56 one-sample discontinuities per second of `GBP-HW-322` and `GBP-HW-324`
+is a HYPOTHESIS (`U-GBP-045`). He is corroboration, never the gate, and no blinding
+is claimed.
