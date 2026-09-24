@@ -198,10 +198,11 @@ class TheAssessmentIsRecordedAndNothingWasBuilt(unittest.TestCase):
     def test_nothing_was_built_and_nothing_under_the_untouchable_paths_changed(self):
         self.assertIsNotNone(re.search(r"^BUILD_ID\s*:=\s*stream-0015$", read(MAKEFILE), re.M))
         # the twelve POCs of the assessment's base, plus the one Issue #39 built afterwards, the one
-        # Issue #59 built for §V8, the one Issue #84 built for §V19 and the output-path one Issue #86
-        # built -- each in its own checkpoint, and none of them part of THIS assessment
+        # Issue #59 built for §V8, the one Issue #84 built for §V19, the output-path one Issue #86
+        # built and Phase 6's acceptance image Issue #92 built for §V22 -- each in its own checkpoint,
+        # and none of them part of THIS assessment
         self.assertEqual(sorted(p for p in os.listdir(os.path.join(ROOT, "poc")) if os.path.isdir(os.path.join(ROOT, "poc", p))),
-                         ["audio-output-replay", "gbp-audio-drain-probe", "gbp-audio-window-probe",
+                         ["audio-output-replay", "gbp-audio-drain-probe", "gbp-audio-live", "gbp-audio-window-probe",
                           "gbp-av-service-probe", "gbp-init-irq-deliver-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-service-probe",
                           "gbp-init-probe", "gbp-play-session", "gbp-probe", "gbp-video-capture-probe", "gbp-video-color-probe", "gbp-video-state-probe",
                           "gbp-video-stream-probe", "smoke-test"])
@@ -264,6 +265,12 @@ class TheAssessmentIsRecordedAndNothingWasBuilt(unittest.TestCase):
         # Issue #92 (2026-09-23): tools/v22accept.py, §V22's gates (Phase 6's acceptance), FROZEN
         # BEFORE the POC exists. Synthetic vectors only; it reads no capture and authorises nothing.
         changed = changed - {"tools/v22accept.py"}
+        # Issue #92: Phase 6's acceptance image and its chain -- poc/gbp-audio-live, src/audio/gbp_alive.*
+        # and gbp_aplay.* (host-tested: tests/unit, tests/host/test_alive_chain.py), and the report
+        # builder frozen with it. No earlier image, path or module changed.
+        changed = changed - {"poc/gbp-audio-live/Makefile", "poc/gbp-audio-live/source/main.c",
+                             "src/audio/gbp_alive.c", "src/audio/gbp_alive.h", "src/audio/gbp_aplay.c",
+                             "src/audio/gbp_aplay.h", "tools/v22report.py"}
         # Issue #84: src/audio/gbp_adrain.* -- GBP-AUDIO-005's phase machine and coverage
         # counter, host-tested only (tests/unit/test_gbp_adrain.c). No image links it yet.
         changed = changed - {"src/audio/gbp_adrain.c", "src/audio/gbp_adrain.h"}

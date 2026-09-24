@@ -1032,6 +1032,150 @@ AOUT_SYMBOL_CALLERS = {
 PROFILES["drain"] = _drain_profile()
 
 
+
+def _live_profile():
+    """Issue #92: the `live` profile IS the `play` profile with its deltas named, as
+    `drain` is (RUN 37's base, §V22).
+
+    What it states, as properties rather than counts where it can:
+      * the chain's modules are linked and are CAPTURE-class code -- the accounting
+        and the decoder run in the audio tap, inside the service transaction; the
+        chain runs in the pump slot and its hand-off in the AI's callback: no
+        filesystem, no CRC of the capture family, no serializer, and an allowlist of
+        what each may reach;
+      * the tap's work is reached from the tap and from nowhere else, and the tap is
+        reached only through the service module's function pointer;
+      * the AI is initialised in main, STARTED and handed its blocks only from the
+        pump slot and its own DMA callback, and stopped from the pump slot or, after
+        the session, from main;
+      * the card: the L2 record and the log are written from main, AFTER the session,
+        and from nowhere else -- no SD write on the drain's path (§V22.0);
+      * the AUDIO window is linked only because the service module references it.
+    """
+    p = copy.deepcopy(PROFILES["play"])
+
+    # (1) the new objects, and the window's object for the link only
+    p["required_objects"] = p["required_objects"] + ("gbp_alive.o", "gbp_aplay.o", "gbp_adec.o",
+                                                     "gbp_aresamp.o", "gbp_aperiod.o", "gbp_awin.o")
+    p["forbidden_objects"] = p["forbidden_objects"] + ("gbp_adrain.o", "gbp_awindump.o", "gbp_asrc.o",
+                                                       "gbp_alisten.o")
+
+    # (2) the AI: main.o may name AUDIO_ (as it names GX_ and SI_), nothing else may
+    p["prefix_exempt_objects"] = dict(p["prefix_exempt_objects"])
+    p["prefix_exempt_objects"]["main.o"] = p["prefix_exempt_objects"]["main.o"] + ("AUDIO_",)
+    p["elf_forbidden"] = tuple(s for s in p["elf_forbidden"] if s != "AUDIO_Init") + (
+        "gbp_awindump_stream", "gbp_asrc_push", "gbp_adrain_block")
+    # the L2 record goes through the streaming writer: `play`'s ban is lifted for those
+    # three and nothing else; sdlog_save_blob stays forbidden
+    lifted = ("sdlog_stream_open", "sdlog_stream_write", "sdlog_stream_close")
+    p["forbidden_symbols"] = tuple(s for s in p["forbidden_symbols"] if s not in lifted) + (
+        "gbp_awindump_stream", "gbp_awindump_set_identity")
+    p["main_must_not_call"] = tuple(s for s in p["main_must_not_call"] if s not in lifted) + (
+        "gbp_awin_init", "gbp_awin_arm_press", "gbp_awin_arm_control", "gbp_awin_finish", "gbp_awin_block")
+
+    # (3) WHERE EACH CALL MAY COME FROM
+    p["symbol_callers"] = dict(p["symbol_callers"])
+    p["symbol_callers"].update(LIVE_SYMBOL_CALLERS)
+
+    # (4) what must ship, and what main must reach
+    p["elf_required"] = p["elf_required"] + (
+        "gbp_alive_init", "gbp_alive_start", "gbp_alive_block", "gbp_alive_control_window",
+        "gbp_alive_decoded", "gbp_alive_buttons", "gbp_aperiod_feed", "gbp_aperiod_exact",
+        "gbp_adec_init", "gbp_adec_calibrate", "gbp_adec_push_block", "gbp_adec_pop", "gbp_aresamp_push",
+        "gbp_aplay_init", "gbp_aplay_produce", "gbp_aplay_queue", "gbp_aplay_process",
+        "gbp_aplay_irq_handoff", "gbp_aplay_arm_l2", "gbp_aplay_sidecar",
+        "AUDIO_Init", "AUDIO_SetDSPSampleRate", "AUDIO_RegisterDMACallback", "AUDIO_InitDMA",
+        "AUDIO_StartDMA", "AUDIO_StopDMA", "sdlog_stream_open", "sdlog_stream_write", "sdlog_stream_close")
+    p["main_must_call"] = p["main_must_call"] + (
+        "gbp_alive_init", "gbp_adec_init", "gbp_aplay_init", "gbp_aplay_sidecar", "AUDIO_Init",
+        "AUDIO_SetDSPSampleRate", "AUDIO_RegisterDMACallback", "AUDIO_InitDMA", "AUDIO_StartDMA",
+        "AUDIO_StopDMA", "sdlog_stream_open", "sdlog_stream_write", "sdlog_stream_close")
+
+    # (5) the modules' bars. The accounting, the decoder and the period decoder run in
+    # the TAP; the chain in the pump slot and in the callback: the capture family's bar
+    # for all five, and each one's allowlist (the chain's CRC is its own table, never
+    # gbp_crc32, which the capture bar forbids).
+    p["object_must_not_reference"] = dict(p["object_must_not_reference"])
+    p["object_may_only_reference"] = dict(p["object_may_only_reference"])
+    for o in ("gbp_alive.o", "gbp_aplay.o", "gbp_adec.o", "gbp_aresamp.o", "gbp_aperiod.o"):
+        p["object_must_not_reference"][o] = _CAPTURE_SYMBOLS
+    p["object_may_only_reference"].update(LIVE_OBJECT_REFERENCES)
+    return p
+
+
+# GBP-AUDIO-007's call sites, read from live-0001's listings and PINNED: a new caller of any of
+# these is a finding. live_step() and live_screen() are static and GCC inlines them into pump(),
+# so the pump slot's calls are pump's; live_tap and live_dma_cb are reached through pointers and
+# keep their own names. gbp_alive_start's three sites are GCC's layout of the one call's two
+# argument branches -- the compiler's business, as with gbp_keypad_write above.
+LIVE_SYMBOL_CALLERS = {
+    # the tap's work: the tap's, and only the tap's (inside the service transaction)
+    "gbp_alive_start": {"live_tap": 3},
+    "gbp_alive_block": {"live_tap": 1},
+    "gbp_alive_control_window": {"live_tap": 1},
+    "gbp_alive_decoded": {"live_tap": 1},
+    "gbp_aperiod_feed": {"live_tap": 1},
+    "gbp_aperiod_exact": {"live_tap": 1},
+    "gbp_adec_calibrate": {"live_tap": 1},
+    "gbp_adec_push_block": {"live_tap": 1},
+    "gbp_alive_finished": {"live_tap": 1, "pump": 1},
+    # set up in main, before the service
+    "gbp_alive_init": {"main": 1},
+    "gbp_adec_init": {"main": 1},
+    "gbp_aplay_init": {"main": 1},
+    "gbp_aperiod_reset": {"main": 1, "live_tap": 1},
+    # the press record: the pump slot's, from the sample input_step() took (a THIRD
+    # PAD_ButtonsHeld in pump, never a second scan)
+    "gbp_alive_buttons": {"pump": 1},
+    "PAD_ButtonsHeld": {"pump": 3},
+    # the chain: the pump slot's; the ONE decoded-sample pop is the chain's own
+    "gbp_aplay_produce": {"pump": 1},
+    "gbp_aplay_queue": {"pump": 1},
+    "gbp_aplay_ready": {"pump": 1},
+    "gbp_aplay_arm_l2": {"pump": 1},
+    "gbp_aplay_process": {"pump": 2, "main": 1},
+    "gbp_adec_pop": {"gbp_aplay_produce": 1},
+    # the hand-off: the callback's, and the first block's from the pump slot
+    "gbp_aplay_irq_handoff": {"live_dma_cb": 1, "pump": 1},
+    # the AI: initialised in main, started and fed only from the pump slot and its callback,
+    # stopped from the pump slot (the window closed) or from main (after the session)
+    "AUDIO_Init": {"main": 1},
+    "AUDIO_SetDSPSampleRate": {"main": 1},
+    "AUDIO_RegisterDMACallback": {"main": 2},
+    "AUDIO_InitDMA": {"live_dma_cb": 1, "pump": 1},
+    "AUDIO_StartDMA": {"pump": 1},
+    "AUDIO_StopDMA": {"pump": 1, "main": 1},
+    # the clock: play's sites, plus the callback's instant (M) and main's AI stop instant
+    "gettime": {"h_ticks64": 1, "main": 6, "pump": 2, "submit_ready": 1, "live_dma_cb": 1},
+    # the card: the L2 record and the log, from main, AFTER the session -- never on the drain's path
+    "gbp_aplay_sidecar": {"main": 1},
+    "sdlog_stream_open": {"main": 1},
+    "sdlog_stream_write": {"main": 1},
+    "sdlog_stream_close": {"main": 1},
+    "sdlog_save": {"main": 1},
+    # the window: the service module's two references, and no arm, ever (as in drain)
+    "gbp_awin_block": {"gbp_vstate_probe_run": 1},
+    "gbp_awin_note_ticks": {"gbp_vstate_probe_run": 1},
+    "gbp_awin_arm_press": {}, "gbp_awin_arm_control": {}, "gbp_awin_init": {},
+}
+# What each module may reach outside itself. The accounting divides a 64-bit tick
+# (__udivdi3) and zeroes its state (memset); the chain pops the decoder's ring and
+# pushes the resampler; the decoder divides 64-bit sums (__divdi3, __moddi3); the
+# resampler and the period decoder reach nothing at all.
+# The lists also name each object's references to ITSELF (a public function it calls from
+# inside, its own static tables), because the auditor reads every relocation: the chain's CRC
+# table and its ready flag live in .bss, the sidecar's magic in .rodata.
+LIVE_OBJECT_REFERENCES = {
+    "gbp_alive.o": ("__udivdi3", "memset", "gbp_alive_period_feed"),
+    "gbp_aplay.o": ("gbp_adec_pop", "gbp_aresamp_init", "gbp_aresamp_push", "memset",
+                    "gbp_aplay_crc_update", ".bss.crc_table", ".bss.crc_ready", ".rodata"),
+    "gbp_adec.o": ("__divdi3", "__moddi3", "gbp_adec_sample"),
+    "gbp_aresamp.o": (),
+    "gbp_aperiod.o": (),
+}
+
+PROFILES["live"] = _live_profile()
+
 # Issue #86: AOUT-HW-001, the OUTPUT PATH image. It is not built on any GBP image, so its
 # profile is not derived from one: it is written as the set of things that must be ABSENT.
 # The point of the image is that the console is made to play without the Game Boy Player
