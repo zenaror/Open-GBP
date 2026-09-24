@@ -203,7 +203,9 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
                  # Issue #103 (2026-09-24): RUN 39, trace-0001 on sweep-0002
                  "GBP-AUDIO-008_trace-0001-run39.log": "92",
                  # Issue #107 (2026-09-24): RUN 40, split-0001 on sweep-0002
-                 "GBP-AUDIO-009_split-0001-run40.log": "92"}
+                 "GBP-AUDIO-009_split-0001-run40.log": "92",
+                 # Issue #112 (2026-09-24): RUN 41, game-0001 on Yoshi's Island, a real cartridge
+                 "GBP-AUDIO-010_game-0001-run41.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1
@@ -242,7 +244,10 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         # Issue #107: split-0001 (RUN 40) is trace-0001 with production split; named the same way
         split = {f for f in cart if "split-0001" in f}
         self.assertEqual(len(split), 1, sorted(split))
-        self.assertTrue(all(re.search(r"(color|stream)", f) for f in cart - play - drain - live - trace - split))
+        # Issue #112: game-0001 (RUN 41) is live-0001 with §V25's changes; named the same way
+        game = {f for f in cart if "game-0001" in f}
+        self.assertEqual(len(game), 1, sorted(game))
+        self.assertTrue(all(re.search(r"(color|stream)", f) for f in cart - play - drain - live - trace - split - game))
 
     def test_the_document_says_what_the_split_does_not_support(self):
         d = plain(read(DOC))
