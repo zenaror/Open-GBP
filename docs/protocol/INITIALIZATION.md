@@ -176,7 +176,11 @@ scanlines but aligned to the audio tick ("sending separately timed video
 IRQs breaks the game — I think the IRQs can't be cleared fast enough").
 Dolphin also ships `UGP.ini` with a 1.25× CPU overclock "to work around
 sporadic audio/video stream failures", which matches the DISC watchdog
-below.
+below. **Since Phase 6 the AUDIO half is no longer H:** the AUDIO block rate
+is 4 096 per second, **C** (GBP-HW-301), and a drain reading one block per
+AUDIO cause completed 4 096 ± 1 per second, **F** (one run, GBP-HW-319);
+`AUDIO.md` §1. The VIDEO half — the alignment to the audio tick — stays
+**H** (U-GBP-014).
 
 ## 5. DISC watchdog (periodic alarm, 200 Hz)
 
