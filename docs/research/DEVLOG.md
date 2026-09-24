@@ -15497,3 +15497,74 @@ summary for the Operator. A reader coming to the consolidated set cold has less
 to go on than that.
 
 `EVIDENCE.md` is untouched; no id was minted and no status moved.
+
+## 2026-09-24 — Issue #97: the path guards' exemptions were a registry, not a guard — thirteen ranges closed, one named-file freeze kept; GBS-DOL.md to the record's scope
+
+**The question, answered first.** Fourteen host tests carry path guards, not
+eight. The eight were only the ones whose paths include `docs/`. Two kinds:
+
+```text
+13  directory confinement of ONE checkpoint of 2026-09-21 (Issues #19-#41):
+    "nothing under src/ poc/ tools/ docs/... moved except these files", asked
+    base-of-that-day -> WORKING TREE. Right while the checkpoint was open (and
+    Issue #29 made it see untracked files); after it closed, every later change
+    under those paths tripped it and was exempted by the change that tripped it.
+ 1  test_awin_image: a freeze of NAMED files, the 14 service-path sources,
+    meant to hold forward. Zero legitimate exemptions since its base.
+```
+
+**The data.**
+- 938 exempted paths in total. 802 are live.
+- 136 are **dead**: they lie outside the guard's own watched paths and can
+  never match. They include **all 54** of `test_awin_image`'s and 47 of
+  `test_play_records`'. The exemptions were being pasted into every guard
+  without regard to what that guard watches.
+- Each file had 30–47 later commits, 15–24 of them exemption-only.
+- No record in DEVLOG or in the commit history shows a path guard catching
+  anything after its own checkpoint. The one "a guard caught" is the SD-log
+  guard, a different family.
+
+For the thirteen, the exemption was ceremony. For the one, the guard is real,
+but its exemptions were dead.
+
+**The change.**
+- **The thirteen now ask about a closed range.** They call
+  `guards.changed_between(BASE, guards.CHECKPOINTS_CLOSED_AT)`, with
+  `1881cd5` = #96's gate figure. That is exactly what they saw at the last
+  commit where all of them were maintained and green, so every existing
+  exemption stays true and none is needed again. The constant is pinned and
+  must not move: moving it would re-open all thirteen.
+- **The forward half of Issue #29's rule is now asked once.**
+  `test_guard_shape.py::NothingUntrackedUnderTheVersionedPaths` has no
+  exemption. Rule 1 is re-scoped, not repealed.
+- **`test_awin_image` stays an open guard.** Its 54 dead exemptions are
+  removed.
+- **`test_guard_shape` holds the arrangement in place.** It pins the constant,
+  the thirteen's closed form, and that the only open guard freezes named files.
+- **The proof:** this checkpoint's `GBS-DOL.md` edit needed no exemption
+  anywhere.
+
+**What is given up.** After `1881cd5` the thirteen confine nothing. They
+remain executable records of what their ranges contained. Their 82 dead
+entries are left in place, inert inside a closed range.
+
+**Not touched, and the same shape:** the "expiring pins". These are sentinels
+such as "GBP-HW-322 is not in EVIDENCE" and the unused run-number pins, moved
+by hand at every ingestion (e.g. `e227248`, `0973faf`, `60dc9fd`).
+
+**`GBS-DOL.md` §1, to the record's scope, not upward.**
+- **The eight windows.** C for the map and the transfer format
+  (GBP-HSP-001/003/004). F for the six windows that returned device content or
+  whose writes reached the cartridge (GBP-HW-003/058/005/057/004/262). No
+  entry records a hardware read of SIOCTL or SIODATA, and completion is not an
+  answer (GBP-HW-008).
+- **The IRQ source.** C for the layout and the pairing (GBP-IRQ-001/005). F
+  only for:
+  - the PI side of bit 13 and its delivery (GBP-PI-004, GBP-HW-037/043);
+  - the W1C of bits 2/8/10 (GBP-HW-028/032/039);
+  - the odd bits being level-written (GBP-HW-028/029).
+
+  The polarity is C (GBP-IRQ-008), and bit 15's function is not established
+  (U-GBP-007).
+
+`EVIDENCE.md` is untouched.
