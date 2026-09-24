@@ -1365,6 +1365,10 @@ int gbp_vstate_probe_run(const struct gbp_transport *t, struct ringlog *log,
             res->video.selected = 1;
             bump(res, &res->video_drains);
             gbp_avblock_read(t, res->a.base, &res->video, &res->a.errors);
+            /* Issue #101 (GBP-AUDIO-008, §V23.7): THE VIDEO TAP, the AUDIO tap's twin. With
+             * cfg->video_tap NULL -- every earlier build -- no clock is read and nothing is
+             * called: one predictable branch. The tap is the caller's and touches no device. */
+            if (cfg->video_tap) cfg->video_tap(cfg->video_tap_user, buf, cfg->video_len, now64(t), res->video.completed);
             cyc.video_completed = (uint8_t)(res->video.completed ? 1u : 0u);
             cyc.video_wait = res->video.info.ticks;
             cyc.rc |= (uint32_t)res->video.rc << 8;
