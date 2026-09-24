@@ -33223,3 +33223,65 @@ because a slip found at ingestion finds the run already spent.
 - L2 with no record is INCONCLUSIVE;
 - the silence fraction is computed and printed.
 The freeze pin moves to this commit.
+
+### V22.10 The image, BUILT — `live-0001` (GBP-AUDIO-007) — NOT staged, NOT run
+
+*Appended. §V22.0–§V22.9 stand. This records what the image is and the choices §V22
+left to it; the gates and their readings do not move.*
+
+```text
+image      poc/gbp-audio-live / live-0001 / commit 9341ca7 (clean) / TEST_ID GBP-AUDIO-007
+DOL        516 320 B   sha256 c4b9ae23a95a96eae60de11106ba7d01521071fd3e0ce43b734e856719f5ee8d
+           two builds from an empty output directory at 9341ca7, byte-identical
+audit      profile live (tools/poc_audit.py, derived from play): 0 findings; both one-shot
+           handlers identical to the physically validated GBP-VIDEO-001 build
+Dolphin    make live-dolphin: the HSP device absent -> the boot, both self-tests, the AI's
+           init and the abort path, PASS. The service never runs there, so nothing is
+           calibrated, decoded or played. Dolphin's audio is not evidence (CLAUDE.md §6.4)
+slot       proposed: 17-live. NOT staged; staging and the Hardware Issue are the Orchestrator's
+gates      tools/v22accept.py (frozen at 94b478d, amended at dfb0a96)
+report     tools/v22report.py (frozen with the image, at feaf380)
+```
+
+**The test ID.** §V22 reserved none. `GBP-AUDIO-007` is the family's next free ID, and
+no record or tool uses it for anything else.
+
+**What §V22 left to the image, and what it chose.**
+- **The base** is drain-0001, RUN 37's image on `play-0001`, with the drain's module
+  replaced by the chain. The decoder, the resampler and the positive control's period
+  decoder are linked unchanged.
+- **The calibration span.** #81 left open where a runtime gets it. This image uses one
+  second of silent blocks, from capture start + 2 s, before the prompt.
+- **C's window is 64 s** from the origin, so 60 whole windows survive whatever the
+  drain's phase is at the origin. **L2 is armed at +20 s** and keeps 320 chunks, which
+  is 10 s.
+- **The chain.**
+  - The ring is gbp_adec's own: 4096 decoded int16 samples. That size defers drift
+    and does not fix it.
+  - Chunks are 1000 frames, which is 128 inputs, so the accumulator is at 0 at every
+    boundary. Four chunks are kept ahead of the DMA. Playback starts at a fill of
+    2048.
+  - **Corrections: at most one per chunk, in a band of ±16 samples.** The band is
+    narrow on purpose. With ±256, the ~3.7/s drift would first cross the band ~69 s
+    in, after C's whole window, and the observed rate that §V22.4 freezes as the
+    reading of the clock model would say nothing.
+  - The two-clock host simulation (`tests/host/test_alive_chain.py`) gives:
+
+```text
+AI at 32 028.5 Hz (Dolphin's model)   222 DUP in 64 s          (§V22.4 predicted ~222 in 60 s)
+AI at 32 000 Hz                       4 DUP (start-up only)
+AI at 31 990 Hz                       DROPs, not DUPs          (the inversion §V22.4 names)
+```
+
+- **X and the AGB.** The image acts on X only after the session. Through the
+  default input policy, which is play-0001's and unchanged, the pad's X also reaches
+  the AGB as SELECT. A press of it inside the window is therefore recorded as an
+  `other` press, and by §V22.8 (r) it makes L INCONCLUSIVE. It is recorded and not
+  blocked, because blocking it would change the input path.
+
+**A risk named before the run, not a prediction.** The tap now pop-counts every
+AUDIO block of C's window, one 4096-byte pass per block, where drain-0001's PHASE B
+only counted. RUN 37's control windows did the same pass on every block and held
+every period exact (61 and 63), but only for 0.5 s. Whether 64 s of it costs
+coverage is what L's INCONCLUSIVE arm exists to report. Coverage under 0.999 in any
+window would be a drain result, and would say nothing about playback.
