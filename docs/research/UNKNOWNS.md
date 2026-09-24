@@ -667,6 +667,26 @@ scales the decoded amplitude — linearly. It does not settle this item's questi
 which since §V18 is what each AUDIO block integrates over and whether its sixteen
 slices are uniform in time (`U-GBP-041`). **The item stays OPEN.**
 
+**2026-09-24, Issue #110 — a LEAD, at HYPOTHESIS, recorded and NOT acted on.** The
+runtime decodes one sample per AUDIO block, 4 096 samples/s, so nothing above
+~2 kHz reaches the AI (`GBP-HW-313`). The Operator was asked which hardware he knows
+Yoshi's Island's audio from, since `play-0001` drained AUDIO and never played it.
+He named the GBA console, the Start-up Disc and GBI (verbatim on #110,
+`issuecomment-5819315360`; `HARDWARE_TESTS.md` §V25.8, OPERATOR OBSERVATION). The
+last two play the game **through the same physical Game Boy Player**.
+- **The HYPOTHESIS:** if GBI renders that game at full bandwidth on this device,
+  the ~2 kHz limit is this project's decoder, not the device. One sample per
+  4 096-byte block would then not be the whole of what a block carries, which is
+  this item's layout question. `GBP-HW-314`/`GBP-HW-315`'s sub-block step position
+  is the obvious place it would come from.
+- **What would test it:** the Operator listening under GBI or the Start-up Disc and
+  saying whether the game sounds full or muffled. That is an OPERATOR OBSERVATION
+  about GBI's output, not a measurement of ours. A "full" answer argues for a
+  future layout experiment; it answers nothing here.
+- **It does not touch §V25.** Phase 6's acceptance judges stability, and the
+  fidelity limit is told to the Operator in advance (§V25.7 3(a)). **The item
+  stays OPEN.**
+
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the
