@@ -7460,7 +7460,7 @@ and the same one-line derivation now prints
 ```text
 grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
      13 CONTROL semantic orig=90
-     41 CONTROL semantic orig=92
+     42 CONTROL semantic orig=92
 ```
 
 The six logs added the same day are RUN 23 (`stream-0015-run23`, no cartridge,
@@ -7573,6 +7573,14 @@ Phase 6's real-cartridge image (GBP-AUDIO-010, `HARDWARE_TESTS.md` §V25): `live
 Island (Super Mario Advance 3), not `sweep-0002`. It records `orig=92`, as the split
 predicts: **13 at `0x90` and 41 at `0x92`**. The printed output above is the archive as it
 stands now. CLAIM 1 stays FACT; CLAIM 2 is untouched.
+
+**2026-09-24, Issue #115 — RUN 42 (`game-0002-run42`) makes it 55 logs.** `game-0002` is
+Phase 6's second-attempt image (GBP-AUDIO-011, `HARDWARE_TESTS.md` §V26): `game-0001` plus one
+post-session record, and so on `play-0001`'s service path. It ran on the same real cartridge,
+Yoshi's Island. It records `orig=92`, as the split predicts. Before the run was archived the
+population was 54 logs, 13 at `0x90` and 41 at `0x92`; after it is **55: 13 at `0x90` and 42
+at `0x92`**. The printed output above is the archive as it stands now. CLAIM 1 stays FACT;
+CLAIM 2 is untouched.
 
 ---
 
