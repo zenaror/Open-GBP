@@ -1216,8 +1216,11 @@ def _trace_profile():
 # Run A's call sites, read from trace-0001's listings and PINNED, on top of live's. live_tap,
 # live_vtap and live_dma_cb are reached through pointers and keep their names; live_step is
 # inlined into pump, so the three steps are pump's. Each recording site reads the clock twice
-# (before and after its own write): the tap and the VIDEO tap 2 each, the callback 2 more
-# around its record on top of its entry and the hand-off's instant.
+# (before and after its own write): the tap 2; the VIDEO tap ONE in the source, timed from the
+# tick it is handed, which GCC lays out as two sites (the call and the cost are tail-duplicated
+# into both arms of `if (completed)` -- the compiler's business, as with gbp_alive_start); the
+# callback 2 more around its record on top of its entry and the hand-off's instant; main 2
+# more, the clock-read calibration before the session.
 TRACE_SYMBOL_CALLERS = {
     "gbp_atrace_init": {"main": 1},
     "gbp_atrace_audio": {"live_tap": 1},
@@ -1225,7 +1228,7 @@ TRACE_SYMBOL_CALLERS = {
     "gbp_atrace_callback": {"live_dma_cb": 1},
     "gbp_atrace_step": {"pump": 3},
     "gbp_atrace_step_rec": {"pump": 3},
-    "gbp_atrace_cost": {"live_tap": 1, "live_vtap": 1, "live_dma_cb": 1},
+    "gbp_atrace_cost": {"live_tap": 1, "live_vtap": 2, "live_dma_cb": 1},
     # the CRC: the sidecar's (gbp_atrace_emit and its static be32, which only emit and its be64
     # reach -- tests/host/test_trace_image.py reads that from the source) and the vstate
     # serializer's, which play already pins to main after the session. No recording entry.
@@ -1234,7 +1237,7 @@ TRACE_SYMBOL_CALLERS = {
     "gbp_crc32_final": {"gbp_atrace_emit": 1, "gbp_vstatedump_stream": 1},
     # the card: the trace is emitted from main after the session, and nowhere else
     "gbp_atrace_emit": {"main": 1},
-    "gettime": {"h_ticks64": 1, "main": 6, "pump": 2, "submit_ready": 1, "live_dma_cb": 4,
+    "gettime": {"h_ticks64": 1, "main": 8, "pump": 2, "submit_ready": 1, "live_dma_cb": 4,
                 "live_tap": 2, "live_vtap": 2},
     "sdlog_stream_open": {"main": 2},
     "sdlog_stream_write": {"main": 1, "trace_put": 1},

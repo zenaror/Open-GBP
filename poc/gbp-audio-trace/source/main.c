@@ -17,7 +17,8 @@
  *   TRACE 4  the chain's pump-slot steps -- produce, flush_queue, process -- with the
  *            recorder's own write time (§V23.8 (a))
  *   TRACE 5  every other recorder write is timed and accumulated per AI callback cycle:
- *            the recorder's self-cost, PRIMARY, an upper bound (§V23.8 (s))
+ *            the recorder's self-cost, PRIMARY (§V23.8 (s)); before the session, the cost
+ *            of one clock read, which bounds the few parts no interval can time
  *   TRACE 6  on X, after the session: the trace sidecar, off the drain path (§V23.4)
  *
  * The verdicts are not computed here: tools/v23report.py turns the log and the trace into
@@ -570,6 +571,7 @@ static struct gbp_atrace_step tr_step[GBP_ATRACE_STEP_MAX];
 static uint32_t tr_cycles[GBP_ATRACE_CYCLES_MAX];
 static struct gbp_atrace tr;
 static uint8_t tr_stage[4096] ATTRIBUTE_ALIGN(32);
+static uint32_t tr_clk_g[2] = { 0xFFFFFFFFu, 0u }, tr_clk_t[2] = { 0xFFFFFFFFu, 0u };   /* min, max */
 
 /* THE AUDIO TAP. Inside the service transaction, once per AUDIO drain, after the
  * drain and its commit: bounded, no device, no allocation, no filesystem, no print.
@@ -612,17 +614,18 @@ static void live_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_
 /* TRACE 2 (§V23.7): THE VIDEO TAP, installed as cfg.video_tap. Inside the service
  * transaction, once per VIDEO drain: a frame-start block by GBI's predicate on the first
  * word, (w & 0x80800000) == 0x80800000 (GBP-HW-077), and the completion tick. Bounded,
- * no device, no allocation, no filesystem, no print. */
+ * no device, no allocation, no filesystem, no print. Its cost is timed FROM t_done, the
+ * clock the service module read for this very call, so the hook's call is inside it. */
 static void live_vtap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_done, int completed)
 {
-    const uint64_t q0 = gettime();
     uint32_t w;
     (void)user;
     (void)len;
-    if (!completed) return;
-    w = ((uint32_t)bytes[0] << 24) | ((uint32_t)bytes[1] << 16) | ((uint32_t)bytes[2] << 8) | (uint32_t)bytes[3];
-    gbp_atrace_video(&tr, (w & 0x80800000u) == 0x80800000u, t_done);
-    gbp_atrace_cost(&tr, (uint32_t)(gettime() - q0));
+    if (completed) {
+        w = ((uint32_t)bytes[0] << 24) | ((uint32_t)bytes[1] << 16) | ((uint32_t)bytes[2] << 8) | (uint32_t)bytes[3];
+        gbp_atrace_video(&tr, (w & 0x80800000u) == 0x80800000u, t_done);
+    }
+    gbp_atrace_cost(&tr, (uint32_t)(gettime() - t_done));
 }
 
 /* THE AI DMA CALLBACK. Interrupt context: the block programmed last time has just
@@ -1284,6 +1287,23 @@ int main(void)
         for (;;) { VIDEO_WaitVSync(); PAD_ScanPads(); if (PAD_ButtonsDown(0) & PAD_BUTTON_START) break; }
         exit(1);
     }
+    {                                                                                 /* TRACE 5 */
+        /* A clock read's own cost, on this console, before the session. The parts of the
+         * recorder no interval can time are clock reads, so the log bounds them from the
+         * hardware: back-to-back pairs through both paths the recorder reads -- gettime()
+         * (the taps, the callback) and the transport (the pump slot's steps). */
+        uint32_t tr_k;
+        for (tr_k = 0; tr_k < 1024u; tr_k++) {
+            const uint64_t tr_ga = gettime();
+            const uint32_t tr_gd = (uint32_t)(gettime() - tr_ga);
+            const uint64_t tr_ta = t.ticks64(t.ctx);
+            const uint32_t tr_td = (uint32_t)(t.ticks64(t.ctx) - tr_ta);
+            if (tr_gd < tr_clk_g[0]) tr_clk_g[0] = tr_gd;
+            if (tr_gd > tr_clk_g[1]) tr_clk_g[1] = tr_gd;
+            if (tr_td < tr_clk_t[0]) tr_clk_t[0] = tr_td;
+            if (tr_td > tr_clk_t[1]) tr_clk_t[1] = tr_td;
+        }
+    }
     /* Issue #84: the console STAYS on screen. It is cleared once, here, before
      * the service, so nothing written during the run can make it scroll (a
      * scroll copies the whole framebuffer: a stall of our own making). */
@@ -1519,6 +1539,9 @@ int main(void)
                        (unsigned long)tr.a_n, (unsigned long)tr.a_sat_n, (unsigned long)tr.v_n,
                        (unsigned long)tr.v_sat_n, (unsigned long)tr.cb_n, (unsigned long)tr.step_n,
                        (unsigned long)tr.cycles_n, (unsigned long)tr.cost_max, (unsigned long)GBP_ATRACE_STEP_FLOOR);
+        ringlog_printf(&rl, "LIVETRACECLK reads=1024 gettime=%lu..%lu transport=%lu..%lu",
+                       (unsigned long)tr_clk_g[0], (unsigned long)tr_clk_g[1], (unsigned long)tr_clk_t[0],
+                       (unsigned long)tr_clk_t[1]);
         ringlog_printf(&rl, "LIVETRACE2 dropped=%lu/%lu/%lu/%lu/%lu/%lu calls=%lu/%lu/%lu",
                        (unsigned long)tr.a_dropped, (unsigned long)tr.a_sat_dropped, (unsigned long)tr.v_dropped,
                        (unsigned long)tr.v_sat_dropped, (unsigned long)tr.cb_dropped, (unsigned long)tr.step_dropped,
