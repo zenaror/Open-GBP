@@ -15959,3 +15959,13 @@ with no effect; exclusions are counted; a refusal is INCONCLUSIVE, never a FAIL.
   builder and the frozen gates reads the same verdict as read directly.
 
 **Next highest-value experiment:** Run B itself, once the Orchestrator stages it.
+
+**2026-09-24, later: `split-0001` staged in `19-split` (§V24.9).**
+- The three choices were confirmed with one addition: an overflowed sample is reported as
+  truncated and biased toward the early cycles, never as representative.
+- The Orchestrator's ~7 % headroom was answered from the code with ~9 %. `produce` is
+  called on every pump pass, so the split changes how many calls work, not how many are
+  made.
+- The row was frozen before the export; `--only 19-split`.
+- The card was written and verified with `O_DIRECT`: only `19-split` and `INDEX.txt`
+  changed, and no `GBP-AUDIO-009*` file exists.
