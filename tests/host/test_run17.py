@@ -826,6 +826,9 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         # Issue #84 (2026-09-23): tools/v19drain.py, §V19's three gates, FROZEN BEFORE the run
         # (GBP-AUDIO-005). Synthetic vectors only; it reads no capture and authorises nothing.
         changed = changed - {"tools/v19drain.py"}
+        # Issue #92 (2026-09-23): tools/v22accept.py, §V22's gates (Phase 6's acceptance), FROZEN
+        # BEFORE the POC exists. Synthetic vectors only; it reads no capture and authorises nothing.
+        changed = changed - {"tools/v22accept.py"}
         # Issue #84: src/audio/gbp_adrain.* -- GBP-AUDIO-005's phase machine and coverage
         # counter, host-tested only (tests/unit/test_gbp_adrain.c). No image links it yet.
         changed = changed - {"src/audio/gbp_adrain.c", "src/audio/gbp_adrain.h"}
