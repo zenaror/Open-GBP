@@ -15829,3 +15829,17 @@ reported with the Issue.
 floor, the ISR window's ends, and where each record lives.
 
 **Next highest-value experiment:** Run A itself, once staged by its Hardware Issue.
+
+**2026-09-24, later: the choices confirmed, `18-trace` staged in `build/swiss` (§V23.10).**
+- **The Orchestrator validated the candidate and confirmed §V23.9's three choices.** The
+  step floor's confirmation adds a requirement: a large `neither` must be set against the
+  sub-floor step count and total sub-floor time. The record gives the count exactly and the
+  time only as an interval from the log2 histogram. `tools/v23floor.py` computes the
+  comparison with no threshold, and is frozen before any run (`b7bd8fe`, pinned at
+  `a7943f7`).
+- **Staging.** The row was frozen at the candidate's hash before the export (`f2e31ec`),
+  then `--only 18-trace`. Only `18-trace/boot.dol` and `INDEX.txt` changed. The card is not
+  yet written: the SD was not on this host.
+- **A slip of mine:** `f2e31ec` was committed with one test failing. The freeze did not
+  update `test_swiss_export`'s list of frozen slots, and the commit was chained after the
+  test run without checking its result. `cef68f2` fixes it; neither was pushed apart.
