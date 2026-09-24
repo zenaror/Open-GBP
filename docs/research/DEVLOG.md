@@ -16019,3 +16019,35 @@ decided separately on its own merits.
 **Next highest-value experiment:** the Orchestrator's to choose. Candidates are the
 residue (the half arm still loses 0.25 gaps per cycle) and the `neither` gaps' cause,
 properly pre-registered.
+
+## 2026-09-24 — Issue #108: RUN 40 by arm — the residue is still `produce`; `neither` and VIDEO followed the arms too
+
+**Goal.** Answer two post hoc, descriptive questions from RUN 40's existing data, with no
+image and no pre-registration:
+- is the half arm's residue still `produce`?
+- did the VIDEO loss follow the arms?
+
+**How.** `tools/u045arms.py` uses only frozen rules: §V24.7 (r5)'s cycle-to-arm rule, and
+`v23accept`'s losses, `question_P` and `video_gaps`. `tests/host/test_u045_arms.py`
+recomputes everything from the versioned fixtures.
+
+**What it shows** (`GBP-HW-334`; the counts are FACT and post hoc, every reading a
+HYPOTHESIS):
+- **P by arm.** The half arm's 257 losses are 229 `produce`, 22 `neither` and 6 `process`
+  (89 % `produce`). The full arm's 752 are 673 `produce` and 79 `neither` (89 %). The
+  residue is still the stretch.
+- **The `neither` gaps fell with the arm, 22 against 79.** U-GBP-045's two open parts may
+  be one question: an effect of production that outlasts the recorded step.
+- **VIDEO.** Of the 44 gaps inside the AI span, 6 fall in half-arm cycles and 38 in
+  full-arm cycles, by their frozen time; the 10 clear gaps split 3 against 7. This is the
+  first evidence of a shared cause at the RATE level, and it is compatible with K's NOT
+  COINCIDENT.
+- **A per-frame assignment is unavailable by construction.** The gaps complete within
+  3.1 ms of a callback, so every incomplete frame straddles one.
+
+**A premise corrected.** The Issue compared RUN 40's 44 incomplete frames inside the AI
+span with "RUN 38's 74". The 74 are RUN 39's (trace-0001, all full steps). RUN 38 had no
+per-block VIDEO records: 82 in the session, 69 beyond the start-up signature.
+
+**Next.** It is the Orchestrator's to freeze. The data point to shortening the stretch
+further, and to pre-registering whether production reaches gaps it does not overlap.
