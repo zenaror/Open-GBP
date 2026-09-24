@@ -34694,3 +34694,46 @@ staging**):
 **A risk named before the run, not a prediction.** The sample adds one store per chain
 step in one cycle of eight, on the drain path. The observer gate's PRIMARY figure and its
 count bound, carried over unchanged (§V24.6), exist to report that.
+
+### V24.9 §V24.8's choices CONFIRMED, one addition; the candidate STAGED — 2026-09-24 — `split-0001` in slot `19-split`
+
+*Appended. §V24.0–§V24.8 stand.*
+
+The Orchestrator validated the candidate (`2afe3aa6…467d2d`, 524 960 B, `d6dc4f8` in
+`origin/main`) and **CONFIRMED all three choices of §V24.8**. It authorised staging as
+`19-split`. The record is on #105 as `issuecomment-5817900419` (body sha256 `c6160e0d4843af1d031b7a2304d7d09d1145040fa32a7c1a1fd7bd27bdb7165d`).
+
+- **(a)** Sampling starts at cycle 1: cycle 0 is pre-AI.
+- **(c)** The tag is the APPLIED arm, so (r6) tests the image rather than comparing the table
+  against itself.
+- **(b) The addition, part of the confirmation, and a rule for the ingestion.** If the sample
+  store overflows, the descriptive sample is **not** read as representative. The ingestion
+  reports how many sampled cycles were truncated and says that the sample is biased toward
+  the early cycles. The reading is qualified, not merely the count recorded.
+- **(b)'s headroom, two figures.** The Orchestrator estimated ~7 %, adding the half arm's
+  8 extra working produce steps per cycle. From the code the Executor reads ~9 %:
+  - `live_step` calls `gbp_aplay_produce` on **every** pump pass in the window, working or
+    not. RUN 39 made ~118 produce calls per cycle, of which 8 worked.
+  - Splitting changes how many of those calls work, not how many are made, so the steps per
+    cycle stay ~237 in both arms. Over 254 sampled cycles that is ≈ 60 081 steps against
+    65 536.
+
+  The addition holds either way: the headroom is thin.
+
+```text
+slot         19-split -- FROZEN in tools/swiss-layout.tsv at 2afe3aa606e6a6682b8e1fbfc758bade253195047e9b5f9624aadfa1ea467d2d
+             BEFORE the export; swiss_export --only 19-split; nothing else exported
+build/swiss  only 19-split/boot.dol (new) and INDEX.txt (68e0e8961497309488a80dd30d3aa896300ecd6fbee04dc454e2d84bd30dbaa9,
+             6 166 B) changed; row 19-split PINNED-VERIFIED; 01-18 byte-identical
+card         before: 20 files under sd:/open-gbp -- 01-18/boot.dol and INDEX.txt byte-identical to build/swiss before
+                     the export (INDEX.txt 7f5c925c..., the state §V23.11 left); aout/run33-audio.bin cfe472d3... (§V21);
+                     no GBP-AUDIO-009* anywhere on the card; .Trash-1000 empty
+             after:  19-split/boot.dol 524 960 B 2afe3aa6...467d2d; INDEX.txt = build/swiss's; the other 19 files
+                     byte-identical to before; still no GBP-AUDIO-009*. Every file read with a page-cache-bypassing
+                     read (dd iflag=direct) before and after; the write was followed by sync and nothing else
+```
+
+**The image is heavier by design again.** `arena1_free` is 1 875 968 B, against
+trace-0001's 2 666 496 B and live-0001's 5 152 768 B. Anything named
+`GBP-AUDIO-009_split-0001*` on the card from now on is the run's output. The Orchestrator
+verifies from the medium before writing the Hardware Issue.
