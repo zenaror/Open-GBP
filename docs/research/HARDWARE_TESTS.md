@@ -33285,3 +33285,21 @@ only counted. RUN 37's control windows did the same pass on every block and held
 every period exact (61 and 63), but only for 0.5 s. Whether 64 s of it costs
 coverage is what L's INCONCLUSIVE arm exists to report. Coverage under 0.999 in any
 window would be a drain result, and would say nothing about playback.
+
+### V22.11 The candidate, STAGED — 2026-09-23 — `live-0001` in slot `17-live`
+
+*Appended. §V22.0–§V22.10 stand.*
+
+```text
+slot       17-live -- FROZEN in tools/swiss-layout.tsv at the hash below BEFORE the export (Issue #44's
+           rule); swiss_export --only 17-live; nothing else exported
+image      poc/gbp-audio-live / live-0001 / commit 9341ca7 (clean) / GBP-AUDIO-007
+DOL        516 320 B   sha256 c4b9ae23a95a96eae60de11106ba7d01521071fd3e0ce43b734e856719f5ee8d
+build/swiss  only 17-live/boot.dol (new) and INDEX.txt changed; row 17-live PINNED-VERIFIED
+card       before: 18 files under sd:/open-gbp, byte-identical to the state after §V21.7's re-stage;
+           no GBP-AUDIO-007* file anywhere on the card; no .log, and the .Trash-1000 is empty
+           after: 17-live/boot.dol = the hash above; INDEX.txt 1bb94bd2...6febf (5 572 B) = build/swiss's;
+           the other 17 files -- 01-16 and aout/run33-audio.bin -- byte-identical to before.
+           Every file was re-read with a page-cache-bypassing read after writing
+cartridge  sweep-0002 on the EZ-Flash (one A press = 128 Hz, period 32)
+```

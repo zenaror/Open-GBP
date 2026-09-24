@@ -57,6 +57,9 @@ FROZEN = {
     # §V21.6's sealed order
     "16-aout": ("97f113ca0bbc9ec94e5ca945a2a34dae4f5bd5ff9386b2b8362cc32e8d7145e2", HW,
                 "aout-0002 @ 28cbb97, AOUT-HW-001, re-staged for its first run"),
+    # §V22.11: Phase 6's acceptance image, staged for its first run
+    "17-live": ("c4b9ae23a95a96eae60de11106ba7d01521071fd3e0ce43b734e856719f5ee8d", HW,
+                "live-0001 @ 9341ca7, GBP-AUDIO-007, staged for its first run"),
 }
 
 # Issue #83, pattern H: A RECORD THAT CERTIFIES ITSELF.
