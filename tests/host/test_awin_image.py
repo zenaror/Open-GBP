@@ -405,7 +405,9 @@ class ThePlumbing(unittest.TestCase):
         self.assertEqual((rows["17"][1], rows["17"][2]), ("live", "gbp-audio-live"))
         # Issue #101: Run A's image took the next one, frozen before its export (§V23.10)
         self.assertEqual((rows["18"][1], rows["18"][2]), ("trace", "gbp-audio-trace"))
-        self.assertNotIn("19", rows)
+        # Issue #105: Run B's image took the next one, frozen before its export (§V24.9)
+        self.assertEqual((rows["19"][1], rows["19"][2]), ("split", "gbp-audio-split"))
+        self.assertNotIn("20", rows)
 
     def test_what_is_staged_is_the_image_this_checkpoint_built(self):
         """The slot's bytes, when it is staged in this checkout. The DOL's own
