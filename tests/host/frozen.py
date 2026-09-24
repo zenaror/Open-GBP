@@ -61,6 +61,9 @@ BASES = {
         "94b478d579bc579ae7ba54e8f3ff5e81e0d3ca15",
     # Issue #92: §V22.9 AMENDMENT 1 changed L2's absent arm and added the silence fraction; the gates'
     # bytes are pinned HERE from now on (the text's frozen start stays the one above)
+    # Issue #92: the live image's log -> report builder, frozen with the image, before any run
+    "Issue #92 -- live-0001 and its report builder":
+        "feaf380fb0c08669570e34e0b97425d0de7d5493",
     "Issue #92 -- §V22 AMENDMENT 1 applied":
         "dfb0a965ec73120c55f75b2a0146e5d10a1d45c6",
 }
