@@ -885,6 +885,70 @@ static void test_audio_tap_null_adds_no_operation(void)
            tapped.calls, tapped.completed);
 }
 
+/* ---- Issue #101: cfg->video_tap, the AUDIO tap's twin, called once per VIDEO drain ---- */
+static struct {
+    unsigned calls, completed, bad_len, bad_order, zero_t;
+    uint32_t len;
+    uint64_t last_t;
+} vtapped;
+
+static void record_video_tap(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_done, int completed)
+{
+    (void)user;
+    (void)bytes;
+    if (vtapped.calls && len != vtapped.len) vtapped.bad_len++;
+    if (vtapped.calls && t_done < vtapped.last_t) vtapped.bad_order++;
+    if (!t_done) vtapped.zero_t++;
+    vtapped.len = len;
+    vtapped.last_t = t_done;
+    vtapped.calls++;
+    if (completed) vtapped.completed++;
+}
+
+static void test_video_tap_null_adds_no_operation(void)
+{
+    /* §V23's condition 1: NULL is provably unchanged, op for op, against a recording tap. */
+    struct gbp_mock a, b;
+    struct ringlog rl;
+    static struct gbp_vstate_result res;
+    struct gbp_vstate_config cfg;
+    const uint16_t bits[1] = { 0x0500u };
+    unsigned i, diffs = 0;
+    printf("-- Issue #101: video_tap NULL is every earlier build; a tap adds no operation and sees every drain\n");
+    cfg_default(&cfg);
+    cfg.min_valid_observation_ticks = (uint64_t)1 << 40;
+    cfg.max_deliveries = 120u;
+    CHECK(cfg.video_tap == 0 && cfg.video_tap_user == 0);   /* the default leaves both NULL */
+    sched_reset(0xFFu);
+    mock_vstate(&a, bits, 1u, 50u);
+    run_cfg(&a, &rl, &res, &cfg);
+    CHECK(res.service_ok == 1);
+
+    memset(&vtapped, 0, sizeof vtapped);
+    cfg.video_tap = record_video_tap;
+    sched_reset(0xFFu);
+    mock_vstate(&b, bits, 1u, 50u);
+    run_cfg(&b, &rl, &res, &cfg);
+    cfg.video_tap = 0;
+    CHECK(res.service_ok == 1);
+    CHECK(a.ops_dropped == 0u && b.ops_dropped == 0u);
+    CHECK(a.nops == b.nops);
+    for (i = 0; i < a.nops && i < b.nops; i++) {
+        const struct gbp_mock_op *p = &a.ops[i], *q = &b.ops[i];
+        if (p->kind != q->kind || p->addr != q->addr || p->len != q->len || p->rc != q->rc ||
+            memcmp(p->data, q->data, GBP_BLOCK_SIZE) != 0) diffs++;
+    }
+    CHECK(diffs == 0);
+    /* and the tap saw every VIDEO drain, in order, with its instant and the length read */
+    CHECK(vtapped.calls == res.video_drains);
+    CHECK(vtapped.calls > 0u);
+    CHECK(vtapped.completed == res.video_drains);
+    CHECK(vtapped.len == cfg.video_len && vtapped.bad_len == 0u);
+    CHECK(vtapped.bad_order == 0u && vtapped.zero_t == 0u);
+    printf("   %u operations compared, %u differences; %u VIDEO taps, %u completed\n", a.nops, diffs,
+           vtapped.calls, vtapped.completed);
+}
+
 static void test_audio_tap_sees_the_live_length(void)
 {
     struct gbp_mock m;
@@ -4284,6 +4348,7 @@ int main(int argc, char **argv)
     test_audio_len_live_sets_the_read_length();
     test_audio_tap_null_adds_no_operation();
     test_audio_tap_sees_the_live_length();
+    test_video_tap_null_adds_no_operation();
     test_session_end_loses_to_the_safety_budget();
     test_session_end_is_the_status_whatever_the_detector_saw();
     test_session_end_absent_changes_nothing();

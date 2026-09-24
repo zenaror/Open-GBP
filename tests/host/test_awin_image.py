@@ -203,6 +203,15 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
         self.assertIn("const uint64_t t_adone = cfg->audio_tap ? now64(t) : 0u;", added)
         self.assertIn("if (cfg->audio_tap) cfg->audio_tap(cfg->audio_tap_user, buf, alen, t_adone, "
                       "res->audio.completed);", added)
+        # Issue #101 (GBP-AUDIO-008, §V23.7): THE VIDEO TAP, the AUDIO tap's twin, authorised explicitly by
+        # the Orchestrator on #101 on three conditions. (1) NULL is provably unchanged: with cfg->video_tap
+        # NULL (every earlier build) no clock is read and nothing is called, and
+        # tests/unit/test_gbp_video_state.c proves the operation stream op-for-op identical with and without
+        # a tap. (2) This test knows about it. (3) THE CONSEQUENCE, stated here: every physically executed
+        # image that links gbp_vstate_probe.c -- those named above, drain-0001 and live-0001 included --
+        # reproduces at ITS OWN commit, not at HEAD; their results are tied to their staged bytes.
+        self.assertIn("if (cfg->video_tap) cfg->video_tap(cfg->video_tap_user, buf, cfg->video_len, now64(t), "
+                      "res->video.completed);", added)
         # NO device operation was added by either issue
         for line in added:
             for op in ("gbp_avblock_read", "gbp_regwrite", "hsp_backend", "h_write", "h_read",
@@ -226,6 +235,8 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
         # Issue #84's live AUDIO length follows the window, the same way
         self.assertLess(h.index("struct gbp_awin *awin;"), h.index("const uint32_t *audio_len_live;"))
         self.assertLess(h.index("const uint32_t *audio_len_live;"), h.index("void *audio_tap_user;"))
+        # Issue #101's VIDEO tap follows the AUDIO tap, the same way
+        self.assertLess(h.index("void *audio_tap_user;"), h.index("void *video_tap_user;"))
         # the header does not drag the window into every includer
         self.assertNotIn('#include "gbp_awin.h"', h)
 

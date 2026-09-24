@@ -379,6 +379,25 @@ struct gbp_vstate_config {
      * module reproduce at their own commits, not at this one. */
     void (*audio_tap)(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_done, int completed);
     void *audio_tap_user;
+    /* ---- Issue #101 (GBP-AUDIO-008, §V23.7): THE VIDEO TAP ----
+     * The AUDIO tap's twin, and NULL in every earlier build: no call and no
+     * clock read (the completion instant below is read only when a tap is
+     * installed), so the operation stream is the one those builds executed
+     * (tests/unit/test_gbp_video_state.c proves it op for op).
+     *
+     * When installed it is called ONCE per VIDEO drain, right after the DMA
+     * returned and before the drain's completion is checked, with: the buffer
+     * the drain filled, the length read (`video_len`), the transport's 64-bit
+     * instant taken right after the DMA returned, and whether it completed.
+     * The frame-start predicate is the IMAGE's, applied in its tap: the
+     * service decides nothing new. The same rules as the AUDIO tap: inside the
+     * service transaction, so bounded, no device, no allocation, no filesystem
+     * (CLAUDE.md §13).
+     *
+     * CONSEQUENCE, as for `audio_len_live` and `audio_tap`: the images that
+     * link this module reproduce at their own commits, not at this one. */
+    void (*video_tap)(void *user, const uint8_t *bytes, uint32_t len, uint64_t t_done, int completed);
+    void *video_tap_user;
     /* ---- PRE-HANDLER MASKED WAIT: a DIAGNOSTIC, and nothing else ----
      * 0 in every ordinary build, and then this field does not exist as far as
      * the device is concerned: no wait, no extra read, no log line, the same
