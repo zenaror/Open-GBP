@@ -36452,3 +36452,265 @@ card         before: 22 files under SD_GC/Open-GBP, byte-identical to build/swis
                      byte-identical to before; no GBP-AUDIO-011*; .Trash-1000 empty
 reads        every file hashed through dd iflag=direct (page cache bypassed), before and after
 ```
+
+### V26.11 RUN 42 EXECUTED AND INGESTED — 2026-09-24 (GitHub Issue #115) — L2, C, A and V all PASS: **PHASE 6 CLOSES**, on stable gameplay audio that carries a designed audio-path depth of about half a second, which the reference implementations do not have
+
+*Appended. §V26.0–§V26.10 stand. §V26 is not amended after data. Hardware Issue #114 ran the
+image. The ingestion Issue #115 fixed the order before any figure: the Operator's words were
+posted verbatim, and only then was the sealed run made and opened.*
+
+#### V26.11.0 What this run does NOT establish (§V26.6, repeated before any verdict)
+
+Not Phase 7. **`U-GBP-045` stays open whatever happens.** Its constraint stands: `play-0001`, on
+this same game with no chain, lost nothing in steady state. Not latency, video synchronisation or
+mixing: the offset the Operator reports is not a Phase 6 gate (§V26.11.5).
+
+#### V26.11.1 The run, the files, the order and the seal
+
+```text
+image      game-0002 / GBP-AUDIO-011 / commit dc13f37, slot 21-game2 (§V26.10); Yoshi's Island, the same cartridge
+canonical  the FLAT copies below; the earlier captures/local/run42/ duplicates were cmp-checked and removed
+log        logs/run42/GBP-AUDIO-011_game-0002.log      115 492 B  aed7a481d879379bdb7afafe116270e9cf572d20e613294284d7e91566a2bf97
+L2         logs/run42/GBP-AUDIO-011_game-0002-l2.bin    83 208 B  45119c6f3e1ff416e8ad42434ea69bdeaff4d3d554bb3922e25fa18d2b22016d
+gecko      captures/local/GECKO-LIVE-run42-orchestrator-capture.txt  3 206 B  ca3aa3f538a3caa205f6cef5e18a46eba4c846e4451624c40d463c8ff3f7232d
+archived   captures/local/GBP-AUDIO-011_game-0002-run42{.log,-l2.bin}, FLAT and run-suffixed (#115 §4), cmp OK;
+           GBP-HW-272's population 54 -> 55 logs (1686d46)
+fixtures   captures/fixtures/hw-gamecube-gbp-2026-09-24-game-0002-run42{.log,-l2.bin}, byte for byte, and
+           -run42-declaration.json, the Orchestrator's resolution of the Operator's answer (§V26.11.2)
+integrity  lines=881 dropped=0 truncated=0; seq 000000..000880 contiguous; "# --- end --- dropped=0"; identity
+           app=gbp-audio-game2 build=game-0002 commit=dc13f37 test=GBP-AUDIO-011 in the header, IDENT and the live
+           channel; 21-game2/boot.dol still ba8ab595... by direct read (#114, issuecomment-5822424891)
+```
+
+- **The order was #115 §6's.**
+  1. The Operator's answer was posted on #114 before any gate was computed.
+  2. The sealed run was made at `1686d46`, with no declaration. Its outputs are the report
+     `1178828cbf7f5e9d80459450e501714db6dba7ccb3146585e77740a16e98899e`, the printed verdicts
+     `06834e96eb3dfd3c7d4c26c8f1ff0440fd560e1e7e0c0d22c575e4aa0b415196` and the gates' JSON
+     `e5c780c88cfcbc68cf59288a19030ed74c4770611c261416a421804159b12c3f`. `rc`, stdout and
+     stderr are kept, with `HASHES.txt`.
+  3. It was then opened with the declaration. Its outputs are the printed verdicts
+     `e996b2fb858c2bca2ac61cc73eeec595bd2ba5dd2b5243a84a5b64b1ceda405f` and the gates' JSON
+     `372286fd6dccd0fe4fffd619b2efe9206cbc6eab32fa53938c9fea724116c370`.
+- **The tools ran UNEDITED:** `tools/v26report.py` at `dc13f37` and `tools/v26accept.py` at
+  `f874cc6`, which is `tools/v25accept.py` at `4591f9b` with V's start-up clause replaced.
+- `tests/host/test_run42.py` reproduces all five outputs to their hashes from the fixtures.
+
+#### V26.11.2 The Operator's declaration — OPERATOR OBSERVATION, verbatim, and an answer BY REFERENCE
+
+It is on #114 as `issuecomment-5822492702`:
+- raw `a9e4c567a756beb053ba9bb23ad7a6bda063fc32b73472c753af01da822d73be`;
+- printed `0a08341e17cf12ccf471fe1a312ec1479ddf42fcda68687bbfc409a53d4d2264`.
+
+It was given before any figure from the log reached him:
+
+```text
+As respostas de A até F seguem as mesmas... Tirando o atraso e o som abafado ainda
+```
+
+- **The referent** is his RUN 41 declaration (#111, `issuecomment-5821017811`, §V25.12.2):
+  - A PASS, all six B items "no", with "pelo menos do que notei";
+  - C "pareceu estavel.";
+  - D "so o abafado";
+  - E normal;
+  - F responded.
+- **The resolution is the Orchestrator's**, and he may correct it. Under either reading of
+  "Tirando", A–F is unchanged:
+  - "o som abafado ainda" is D, persisting. Fidelity gates nothing.
+  - "o atraso" is outside A–F altogether (§V26.11.5).
+- **No contradiction:** PASS with every B item "no".
+- **`A` now covers GAMEPLAY.** He reached a level: his latency message opens "agora com uma
+  jogatina", with no save created or overwritten, which is §V26.7 4's rule. **The same letters
+  as RUN 41 now rest on a heavier load, gameplay rather than menus.** That is a stronger result
+  in the same words, and the one thing this run was designed to add.
+
+#### V26.11.3 The verdicts, as the frozen tool prints them
+
+```text
+GBP-AUDIO-011 / game-0002 / dc13f37
+  L2  PASS          the host reproduced the CRC 07a7632b of 320 chunks x 1000 frames exactly (202 DUP, 0 DROP, 0 SILENCE applied)
+  C   PASS          zero OVERFLOW and zero UNDERRUN over 64.000 s; NOT DRAINED 465 AUDIO blocks; 811 DUP and 0 DROP corrections. That is what the counters say, and it is NOT a claim of no loss.
+  A   PASS          he reports the game's audio sounds as it should
+  V   PASS          the video clause holds, and he reports the picture normal and the controls responding
+      silence fraction of the L2 window: 0.0000 (§V22.9 A2)
+      A-FIDELITY, his words, NOT gated: "so o abafado (RUN 41) -- 'o som abafado ainda' (RUN 42)"
+      A-FIDELITY is his words and NOT gated: the chain carries nothing above ~2 kHz (4096 samples/s), and whether the stream is L, R or a mix is UNKNOWN (§V25.7 3(a))
+      video: E outside 1, E inside 17 over 63.376 s = 0.2682/s; RUN 40's half arm: 0.19/s (6 of 44 by gap time, DESCRIPTIVE -- GBP-HW-334), CONTEXT only
+      video per second of the AI span: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 1, 2, 1, 0, 1, 2, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]
+      picture normal ('imagem ok, mas ainda em resolucao nativa aparentemente'); controls responded ('responderam ok')
+  R   AS EXPECTED   7.266 blocks/s, inside the band [5.59, 12.59] -- NOT A GATE
+      prior 8.39 blocks/s (RUN 40's half arm); beside it 9.23: RUN 40's half arm by the per-cycle COUNT split (292.6 blocks): arrival jitter at cycle boundaries moves blocks between arms -- the two arms' count deficits sum to 1236 against the window's 1216.2
+      A4.3, this cartridge on play-0001 with no chain: a fixed 67-72-block start-up deficit, about 0 blocks/s in steady state -- a FLOOR, not an expectation
+      reading: this run's workload against RUN 40's -- one run cannot separate the five differences; never "a game's audio load", which the chain cannot have (§V25.7 1)
+        (i) no §V23/§V24 recorder: cheaper, toward BETTER
+        (ii) no interleave with 16-push chunks
+        (iii) a moving picture: play-0001's event machinery (RUN 21 filled 16384 events in 273.8 s)
+        (iv) presses: each KEY line is a ringlog vsnprintf (RUN 40 had 3)
+        (v) the VI hand-over restored (two register writes per presented frame)
+      blocks lost per whole second of C's window: [1, 7, 4, 5, 6, 3, 5, 8, 4, 4, 4, 6, 7, 9, 4, 6, 7, 3, 4, 5, 14, 19, 18, 15, 11, 20, 19, 19, 14, 17, 6, 3, 4, 4, 5, 6, 6, 5, 10, 6, 10, 6, 6, 9, 6, 6, 6, 6, 6, 7, 4, 6, 6, 8, 8, 2, 2, 7, 3, 5, 4, 8, 6, 5]
+  M   AI rate 32028.478 Hz over 2030 callbacks (+889.9 ppm vs 32 000)
+  reported: calibration {'rest_sum': 66557832, 'rest_n': 4096, 'pmin': 13460, 'pmax': 19311, 'spread': 5851}; clipped 10331; L (DESCRIPTIVE) {'periods': 12807, 'pmax': 12841, 'pmin': 2}
+  PHASE 6  CLOSES -- L2, C, A and V all PASS (§V25.5)
+  V's start-up clause (§V26.7): P {'index': 339, 'first_ms': -1.2399259259259259, 'last_ms': 10.145358024691358, 'next_ms': 15.430123456790124}; Q indices [0, 9, 12, 15, 31, 34, 37, 91, 94, 97, 151, 154, 157]; bound 197
+      P cannot be attributed between the console prints and the first VI hand-over, which coincide at the press (§V26.7 3)
+```
+
+**V in its own terms.**
+- **P** is store index 339, the frame in flight when the press was read: `t_first_block` is
+  1.24 ms before `t_press`, and the next frame's `t_first_block` is 15.43 ms after it.
+- **Q** is the thirteen frames at store indices 0, 9, 12, 15, 31, 34, 37, 91, 94, 97, 151, 154
+  and 157, all at or before the log's bound, 197. **They are exactly `GBP-HW-331`'s positions.**
+  The new record located all thirteen, including the three (151/154/157) that no text-log event
+  head had ever shown.
+- **None after the AI span: `after` = 0, and (s1) holds.**
+  - The printed verdict's `E outside 1` is §V25's DESCRIPTIVE count, before + after − 13 =
+    14 + 0 − 13 (`tools/v26accept.py:88`). It decides nothing, and the +1 is P.
+  - The after-AI count is in the tool's own outputs: the report's `video.after=0`, and the
+    clause's `why` in the gates' JSON, "… P present, in flight at the press; none after; …".
+    The log agrees (`000860 LIVEVINC ai=1 before=14 inside=17 after=0 stored=31 framecap=31`).
+  - (s1)'s check is `tools/v26accept.py:117` (`if v["after"] != 0`), and it did not fire.
+  - `before` = 14 = |Q| 13 + P. The same record gives `stored` = `framecap` = 31 with
+    `store_full=0`: the frame store never reached its cap, so no frame is missing from the census
+    the clause counts over.
+  - **A reporting gap, named and not fixed after data:** the tool's PRINTED text never shows
+    `after`. It is in the JSON, and the frozen tool is not edited after data, not even its print.
+    **It is carried forward as a requirement on the next pre-registered tool, stated generally:
+    every input a gate depends on appears in the PRINTED verdict, not only in the JSON.**
+- **The rate half holds in integers:** 17 × 2 567 047 476 = 43 639 807 092 ≤ 44 × 2 566 726 611
+  = 112 935 970 884. The decimal rate in the tool's printed line is the tool's context, never the
+  threshold.
+
+#### V26.11.4 PHASE 6 CLOSES — and the same paragraph carries what it does not fix
+
+**All four gates hold on a real cartridge, over gameplay:**
+- L2: bit-exact against the frozen resampler, CRC `07a7632b`;
+- C: zero overflow and zero underrun over 64 s;
+- A: the Operator's stability judgement, PASS, over gameplay-weight audio, with his qualifier
+  carried;
+- V: the start-up clause in the family's own positions, none after, and the rate half in
+  integers.
+
+`docs/ROADMAP.md`'s Phase 6 criterion, *"a real cartridge produces stable audio without breaking
+video/input"*, is met in the sense §V25/§V26 pre-registered it. **Phase 6 closes on stable
+gameplay audio that carries an audio-path depth of about half a second, designed into the chain
+and reported by the Operator as an audio-behind-video offset that GBI and the Start-up Disc,
+on the same cartridge and hardware, do not have** (§V26.11.5). Both halves belong together; the
+record would flatter the runtime with either alone.
+
+#### V26.11.5 The audio-to-video offset — OPERATOR OBSERVATIONS first, the arithmetic second
+
+His words, in the order he gave them. All of them are recorded on #114 and #115, and none of
+them is a gate:
+
+```text
+issuecomment-5822376092 (#114)  agora com uma jogatina, senti um atraso significativo no audio em relação a ação da tela
+issuecomment-5822510597 (#115)  Só existe aqui o atraso                  -- not with GBI, not with the Start-up Disc
+issuecomment-5822522354 (#115)  Parece que esta algo próximo de 1 segundo atrasado
+issuecomment-5822573219 (#115)  o delay entre video x botão, nao existe quase .. agora video x áudio, existe
+```
+
+The comments' hashes, raw / printed:
+- `5822376092`: `5b0dcc84…8c17` / `f574ea45…8483`;
+- `5822510597`: `27212b62…e9c1` / `061f9716…321e`;
+- `5822522354`: `70bbbc79…e343` / `a3a0fc7b…8d95`;
+- `5822573219`: `9097d8cd…dbe5` / `2f183f82…32c2`.
+
+**What they locate.**
+- The comparison with GBI and the Start-up Disc holds the cartridge, the console, the Game Boy
+  Player, the display and his ears constant. **The software is the variable.**
+- The split he made is decisive: button→video is near zero, video→audio is not. Button→video
+  is the whole video path against his own hand, so **a shared stall or a deep video queue is
+  refuted, and the offset lies in the audio path alone.**
+- His magnitude, "próximo de 1 segundo", is a perceptual estimate. It means hundreds of
+  milliseconds, not tens, and it is recorded as nothing finer.
+- **Button→video near zero is itself an input-and-video responsiveness observation**, the first
+  under gameplay load rather than in a menu. It corroborates F from the other side, and it is
+  recorded as its own OPERATOR OBSERVATION.
+
+**The arithmetic, second.** The units are read from `src/audio/gbp_aplay.h`, not assumed:
+
+```text
+the ring      RING 4096 / TARGET 2048 are DECODED int16 samples, one per AUDIO block (4 096 per s);
+              the corrections hold the fill near TARGET and playback starts there. This run's LIVEFILL,
+              s1-s63: 1 893..2 028 samples, 123 908 in 63 whole seconds -- about 0.48 s of audio waiting
+READY queue   AHEAD 4 chunks of 128 decoded samples (1 000 AI frames, 31.25 ms each): up to 0.125 s, designed,
+              not logged per second
+AI DMA        "the callback programs block k while k-1 plays": one chunk queued (31.25 ms) plus the playing
+              one's remainder (0..31.25 ms)
+resampler     a 16-tap FIR; its phase 0 lands 8 input samples back: about 2 ms
+shared        capture-to-drain, the GameCube's output, the television -- the same for GBI and ours
+```
+
+- **The audio path's own depth is therefore about half a second to two-thirds of a second**,
+  and the cushion (`TARGET`, 0.5 s by design, about 0.48 s measured) is most of it.
+- **It agrees with his observations in location and presence:**
+  - location: only the audio path;
+  - presence: absent where no cushion was designed.
+- **In size it accounts for MOST of his estimate, not all of it.** About half a second to
+  two-thirds against "próximo de 1 segundo" is compatible within a perceptual estimate's factor
+  of about two. **The unaccounted residue is named here, not absorbed.** Nothing measured says
+  what it is.
+- **Status: HYPOTHESIS.** The units are now read from source, which is one of the two steps that
+  would earn CORROBORATED. The other, a changed `TARGET` moving the perceived offset in the
+  predicted direction, has not been taken. `TARGET` is **not** changed here: that is a runtime
+  change that trades against `U-GBP-045`'s starvation work, and it belongs in its own round with
+  a before and after he can hear.
+- It is opened as `U-GBP-046` in `UNKNOWNS.md`.
+
+#### V26.11.6 Reported, not gated — and one correction to §V25.12 that this run makes possible
+
+**THE LOSS RISE IS L2's OWN WINDOW, in every run of the family.** RUN 41's record read "both
+loss channels roughly tripled in the same ~10 s … plausibly the level load or the freeze"
+(§V25.12.6, `GBP-HW-336`), and `U-GBP-045` took the picture's workload as a new HYPOTHESIS from
+it. RUN 42 shows the same rise in the same window seconds, 20–29, on gameplay, after the level
+had loaded. Those are exactly the seconds in which L2 is armed and keeps: `LIVE_L2_FROM_S` = 20,
+and 320 chunks is 10 s. Every archived run of the family agrees:
+
+```text
+lost AUDIO blocks   window s20-29   the other 54 s
+RUN 38 (live-0001)       303             1 323
+RUN 39 (trace-0001)      312             1 471
+RUN 40 (split-0001)      254               963
+RUN 41 (game-0001)       163               320
+RUN 42 (game-0002)       166               299
+```
+
+- **The rate inside is higher in all five.** On the 8-push runtime the ranges meet or
+  separate:
+  - RUN 42: every second inside is worse than every second outside (the lowest inside, 11, is
+    above the highest outside, 10);
+  - RUN 41: the lowest inside equals the highest outside, 11.
+- **The level-load reading is refuted by RUN 38–40 alone.** They ran a stimulus ROM, not a game,
+  and their excess sits in the same seconds.
+- **The class, named:** *the instrument perturbed the subject, and the perturbation was then
+  attributed to the subject.* It is more dangerous than an absent finding, because it produces a
+  plausible one. RUN 41's record did exactly that.
+- **The VIDEO incomplete frames cluster there too:** 13 of RUN 42's 17 fall in AI seconds 18–31.
+- **The mechanism candidate, a HYPOTHESIS.** During L2's hand-off window, `gbp_aplay_process`
+  computes a byte-wise table CRC-32 over each handed chunk's 4 000 bytes, in the pump slot, 32
+  times a second (`src/audio/gbp_aplay.c:220-227`). That lengthens a contiguous stretch, which
+  is `GBP-HW-332`'s own mechanism.
+- **Consequences, stated and not acted on:**
+  - `GBP-HW-336`'s "plausibly while the game was loading the level or had frozen" is wrong. The
+    entry gets a dated correction; nothing above it is rewritten.
+  - `U-GBP-045`'s video-workload HYPOTHESIS loses its only supporting observation.
+  - R includes the instrument's own cost: 465 blocks over 64 s in all, against 299 over the 54 s
+    outside L2's window.
+  - **L2 is test instrumentation and not part of a production runtime.** A runtime without it
+    would not pay this.
+- **`clipped = 10 331`.** The gain clips on gameplay audio about five times as often as on
+  RUN 41's menus. He reported no distortion, so the GAIN rule did not engage. The clip is real
+  and was inaudible to him; it is a finding about the gain, not a reason to change it here.
+- **The calibration was not silent again:** spread 13 460..19 311, i.e. 5 851.
+- **R** = AS EXPECTED, not a gate. **M** = 32 028.478 Hz, against RUN 41's 32 028.476 Hz.
+
+#### V26.11.7 What this does not change
+
+`U-GBP-045` stays open. `ROADMAP.md` records the phase's status in its own `docs:` commit, at
+the Orchestrator's direction on #115, with the offset in the same paragraph as the closure.
+- **First, host-side:** the family's loss rates re-derived with L2's window excluded, both
+  figures stated wherever a rate is quoted, corrected on top (§V26.11.6).
+- **The next audio work is `U-GBP-046`'s:** choosing a cushion. Its gates are frozen by the
+  Orchestrator before anything is built. That uses the starvation data this
+project already has to say how small the cushion can get before losses reappear, and GBI shows
+that a shallow one is survivable on this same hardware path.

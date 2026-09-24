@@ -9,6 +9,10 @@ with the declaration as the Orchestrator resolved it on #114 (-run42-declaration
 Two descriptive records are recomputed beside the verdicts and decide nothing: the loss rise inside L2's own
 10-second keep window, in every run of the family (RUN 38-42); and the audio path's designed depth, from the units
 src/audio/gbp_aplay.h declares and the ring fill the run measured.
+
+The ingestion's text is checked against the tools and against itself (TheRecord): the printed block is the frozen
+tool's output byte for byte, the closure never travels without the audio-to-video offset, and no record says more than
+its evidence.
 """
 import hashlib
 import json
@@ -209,7 +213,19 @@ class TheAudioPathsDepthInItsOwnUnits(unittest.TestCase):
         self.assertEqual((len(f), min(f), max(f), sum(f)), (63, 1893, 2028, 123908))
 
 
+HT = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
+EV = os.path.join(ROOT, "docs", "research", "EVIDENCE.md")
+UN = os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")
 README = os.path.join(ROOT, "captures", "README.md")
+
+
+def flat(t):
+    return " ".join(t.split())
+
+
+def between(t, a, b):
+    i = t.index(a)
+    return t[i:t.index(b, i)]
 
 
 class TheReadmeRows(unittest.TestCase):
@@ -225,6 +241,88 @@ class TheReadmeRows(unittest.TestCase):
             self.assertIn("`tests/host/test_run42.py`", row[0], suffix)
         self.assertEqual(RAW[LOG][0][:8] + "…" + RAW[LOG][0][-6:], "aed7a481…a2bf97")
         self.assertEqual(RAW[L2][0][:8] + "…" + RAW[L2][0][-6:], "45119c6f…22016d")
+
+
+class TheRecord(unittest.TestCase):
+    """The ingestion's text against the tools and against itself: the printed block is the tool's, the closure never
+    travels without the offset, and no record says more than its evidence."""
+
+    def v2611(self):
+        t = read(HT)
+        t = t[t.index("### V26.11 RUN 42"):]
+        nl = t.index("\n") + 1
+        m = re.search(r"^#{1,3} ", t[nl:], re.M)                     # the next heading at or above ###, if any
+        return t if m is None else t[:nl + m.start()]
+
+    def test_the_sections_in_order(self):
+        t = self.v2611()
+        heads = re.findall(r"^#### V26\.11\.(\d) ", t, re.M)
+        self.assertEqual(heads, [str(i) for i in range(8)])
+
+    def test_the_printed_block_is_the_frozen_tools_output_byte_for_byte(self):
+        sec = between(self.v2611(), "#### V26.11.3", "**V in its own terms.**")
+        blk = re.search(r"```text\n(.*?)```", sec, re.S).group(1)
+        self.assertEqual(blk, Run.get()["final"].decode("utf-8"))
+        self.assertEqual(sha(blk.encode("utf-8")), FINAL["verdicts"])
+
+    def test_after_is_quoted_from_the_json_and_the_log_and_the_gap_carried_forward(self):
+        sec = flat(between(self.v2611(), "#### V26.11.3", "#### V26.11.4"))
+        self.assertIn("000860 LIVEVINC ai=1 before=14 inside=17 after=0 stored=31 framecap=31", sec)
+        self.assertIn("000860 LIVEVINC ai=1 before=14 inside=17 after=0 stored=31 framecap=31", read(LOG))
+        self.assertEqual(Run.get()["rep"]["video"]["after"], 0)
+        self.assertIn("none after", Run.get()["acc"]["V"]["video"]["why"])
+        self.assertNotIn("after", Run.get()["final"].decode("utf-8").split("video: ", 1)[1].split("\n", 1)[0]
+                         .replace("E outside", ""))                      # the gap: the printed line never shows it
+        self.assertIn("every input a gate depends on appears in the PRINTED verdict", sec)
+        self.assertIn('if v["after"] != 0', read(os.path.join(ROOT, "tools", "v26accept.py")))
+
+    def test_the_closure_never_travels_without_the_offset(self):
+        para = flat(between(self.v2611(), "`docs/ROADMAP.md`'s Phase 6 criterion", "#### V26.11.5"))
+        self.assertIn("**Phase 6 closes on stable gameplay audio that carries an audio-path depth of about half a "
+                      "second", para)
+        self.assertTrue("GBI" in para and "Start-up Disc" in para)
+
+    def test_the_depth_accounts_for_most_never_explains(self):
+        docs = {n: flat(read(p)) for n, p in (("HT", HT), ("EV", EV), ("UN", UN))}
+        self.assertIn("**In size it accounts for MOST of his estimate, not all of it.**",
+                      flat(between(self.v2611(), "#### V26.11.5", "#### V26.11.6")))
+        self.assertIn("The unaccounted residue is named, not absorbed.", docs["UN"])
+        self.assertIn("It accounts for most of his \"próximo de 1 segundo\", not all of it; the residue is "
+                      "unaccounted.", docs["EV"])
+        for n, t in docs.items():
+            self.assertNotRegex(t, r"(?i)explains? (?:his|the Operator's) (?:~?1 s|estimate|second)", n)
+
+    def test_the_rise_names_its_class_and_its_refutation(self):
+        sec = flat(between(self.v2611(), "#### V26.11.6", "#### V26.11.7"))
+        ev = flat(between(read(EV), "### GBP-HW-338", "One console, one Game Boy Player, five runs."))
+        for t in (sec, ev):
+            self.assertIn("*the instrument perturbed the subject, and the perturbation was then attributed to the "
+                          "subject", t)
+            self.assertIn("RUN 38–40", t)
+        self.assertIn("in RUN 41 the two ranges meet", ev)
+        self.assertNotIn("do not overlap", ev)
+        self.assertNotIn("do not even overlap", sec)
+
+    def test_the_statuses(self):
+        ev = read(EV)
+        h337 = re.search(r"^### GBP-HW-337 .*$", ev, re.M).group(0)
+        for tok in ("**Phase 6 closes**", "FACT (the frozen gates' results and counts, one run)",
+                    "A and the offset are OPERATOR OBSERVATIONS", "the offset's cause is a HYPOTHESIS"):
+            self.assertIn(tok, h337, tok)
+        h338 = re.search(r"^### GBP-HW-338 .*$", ev, re.M).group(0)
+        self.assertIn("FACT (counts over five archived runs, recomputable)", h338)
+        self.assertIn("the cause is a HYPOTHESIS", h338)
+        self.assertIn("**CORRECTED 2026-09-24 (GitHub Issue #115, RUN 42), on top; nothing above is rewritten.**",
+                      between(ev, "### GBP-HW-336", "### GBP-HW-337"))
+        un = read(UN)
+        u46 = between(un, "## U-GBP-046 ", "input-and-video responsiveness OPERATOR OBSERVATION")
+        for tok in ("**The status is HYPOTHESIS.**", "**What would refute it:**", "**No measured offset\n  exists.**"):
+            self.assertIn(tok, u46, tok)
+
+    def test_the_flat_copies_are_canonical(self):
+        self.assertIn("canonical  the FLAT copies below; the earlier captures/local/run42/ duplicates were "
+                      "cmp-checked and removed", self.v2611())
+
 
 
 if __name__ == "__main__":

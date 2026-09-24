@@ -16255,3 +16255,59 @@ An early press inside the start-up span is INCONCLUSIVE (s4). The Operator is to
 
 **Next.** The Hardware Issue and the staging are the Orchestrator's. EVIDENCE gets nothing until
 the run.
+
+## 2026-09-24 — Issue #115: RUN 42 ingested — L2, C, A and V all PASS on gameplay: PHASE 6 CLOSES, with an audio-path offset the references do not have
+
+**The order was #115's.**
+1. The flat archive and the `GBP-HW-272` recount, 54 → 55 logs (`1686d46`).
+2. The Operator's answer posted verbatim before any figure: by reference to RUN 41, with
+   "Tirando o atraso e o som abafado ainda".
+3. The sealed run, with no declaration, at `1686d46`.
+4. The seal opened with the Orchestrator's resolution of his answer.
+
+**The verdicts are the frozen tools', unedited.**
+- **L2 PASS:** CRC `07a7632b`.
+- **C PASS:** 64 s, zero overflow, zero underrun.
+- **A PASS,** now over gameplay: he reached a level without writing the cartridge.
+- **V PASS:**
+  - P, index 339, is in flight at the press;
+  - Q is the thirteen at `GBP-HW-331`'s own positions, all ≤ 197, all located;
+  - none after: `after` = 0 in the report's JSON and in the log's `LIVEVINC`, and (s1) did not
+    fire. The printed text never shows `after`; the next pre-registered tool prints every input
+    a gate depends on;
+  - the rate half holds in integers.
+
+**Phase 6 closes.** In the same paragraph: on stable gameplay audio carrying an audio-path offset
+that GBI and the Start-up Disc do not have.
+
+**The offset, his observations first.** It exists only with our software. It is audio behind
+video, "próximo de 1 segundo", and button→video is near zero, so it lies in the audio path
+alone. The units are read from `src/audio/gbp_aplay.h`: `TARGET` = 2 048 decoded samples =
+0.5 s, and the measured ring fill is about 0.48 s. With the READY queue, the DMA and the
+resampler, the audio path's depth is about 0.5–0.67 s. That accounts for most of his estimate,
+not all of it; the residue is named and unaccounted. It is opened as `U-GBP-046` at HYPOTHESIS.
+`TARGET` is not changed.
+
+**A correction this run made possible.** RUN 41's "both channels tripled in ~10 s" is L2's own
+keep window, window seconds 20–29, in all five runs of the family (`GBP-HW-338`). It is not the
+level load: RUN 38–40, a stimulus ROM, show it in the same seconds. `GBP-HW-336` is corrected on
+top, and `U-GBP-045`'s video-workload HYPOTHESIS loses its only observation. The mechanism
+candidate is L2's per-chunk CRC in the pump slot. The class, named: *the instrument perturbed the
+subject, and the perturbation was then attributed to the subject.*
+
+**Three premise corrections to the Issue and its messages** (issuecomment-5822551252):
+- `device_touched=0` is a format-string literal, not evidence about an early press.
+- §V26.5 was rewritten by §V26.7 4.
+- `l=` is `gbp_alive`'s period reader, not `gbp_aperiod`.
+
+**Tests executed.** `make test-python` on the committed tree; the figure is in the #115 report.
+
+**ROADMAP.** Phase 6's status is recorded in its own `docs:` commit, at the Orchestrator's
+direction, with the offset in the same paragraph as the closure.
+
+**Next.**
+1. Re-derive the family's loss rates with L2's window excluded, host-side, corrected on top.
+2. `U-GBP-046`: choose a cushion, using the starvation data this project already has. It is its
+   own bounded round with a before/after the Operator can hear, and the Orchestrator freezes its
+   gates before anything is built.
+3. Phase 7 (#31).
