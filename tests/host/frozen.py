@@ -89,6 +89,10 @@ BASES = {
     # pinned HERE from now on (the text's frozen start stays the one above)
     "Issue #110 -- §V25 AMENDMENT 1 applied":
         "4591f9be5430224967347681c5fd892140eca543",
+    # Issue #113: Phase 6's second attempt (§V26), transcribed and its rebuilt start-up clause frozen before the
+    # image exists
+    "Issue #113 -- §V26 transcribed, the rebuilt start-up clause frozen":
+        "f874cc669b19bd451cc467eb403398ef29f9b2d5",
     # Issue #110: the real-cartridge image's log -> report builder, frozen with the image, before any run
     "Issue #110 -- game-0001 and its report builder":
         "61291048757cbdf1bf0c2fbad9bdb57adbd4785d",
