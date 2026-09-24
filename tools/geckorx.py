@@ -45,6 +45,30 @@ problem; only `--echo` does, and `--echo` maps LF to CRLF on its way to the
 terminal and leaves the file alone. Interactively, `picocom --imap lfcrlf` does
 the same thing.
 
+A HANGUP IS REPORTED, NOT SWALLOWED (GitHub Issue #104). RUN 39's capture opened
+`ttyACM1`, held it from before the boot until after the copy, recorded ZERO bytes
+and exited 0. The port is opened blocking with `VMIN = 1`, so a read returns only
+when a byte is there: a read that returns nothing can only mean the tty hung up,
+and `EIO` means the same. Both used to end the capture quietly -- the first by
+looping for ever, the second by exiting 0 with a byte count. Both now raise
+`DeviceGone`, and the tool says so on stderr, LOUDLY, with the byte count and the
+time, says the capture is INCOMPLETE, and exits 3. That is the whole fix: it makes a
+signal the kernel already gives visible, and adds nothing that moves. Two things
+were deliberately NOT added: re-resolving the port by id mid-capture (it could
+splice two streams into one file that looks whole and is not), and a quiet-time
+threshold (silence is legitimate for a minute at a time during a run).
+
+WHAT THIS DOES NOT COVER, and why a clean exit proves less than it seems. A device
+that stays enumerated but never sends -- a Pico that is not in the console's
+memory-card slot, a console that never boots -- produces a capture that is simply
+empty, with no hangup to report. **A silent capture is uninformative, never
+negative**: it cannot tell "the console said nothing" from "the channel carried
+nothing". The check for that is the Orchestrator's, before the run and not in this
+tool: Swiss's own boot text must have arrived BEFORE the Operator presses anything,
+and if it has not, the Pico is reseated. A capture that ends without a DEVICE GONE
+says only that the device did not go away; it is not proof that the channel was
+sound the whole way.
+
 Standard library only: no pyserial, so a clone can run this and its tests.
 """
 import argparse
@@ -72,6 +96,18 @@ class NoPort(Exception):
 
 class ManyPorts(Exception):
     pass
+
+
+class DeviceGone(Exception):
+    """The device went away mid-capture: a zero-length read on a blocking VMIN=1 port
+    (a hangup) or EIO. Carries what was already received and flushed."""
+
+    def __init__(self, why, total, seconds):
+        Exception.__init__(self, why)
+        self.why, self.total, self.seconds = why, total, seconds
+
+    def __str__(self):
+        return "after %d bytes, %.1f s into the capture (%s)" % (self.total, self.seconds, self.why)
 
 
 def match_ports(entries, pattern=DEFAULT_PATTERN):
@@ -143,22 +179,28 @@ def pump(fd, out, stop=None, idle_exit=None, until=None, on_chunk=None, clock=ti
 
     Flushes after every read, because the whole point is that a run which never
     reaches its own save still leaves what it managed to say. Returns the number
-    of bytes copied.
+    of bytes copied. Raises DeviceGone when the device goes away (Issue #104): the
+    bytes already received are in `out`, and the caller must say the capture is
+    incomplete.
     """
     total = 0
     tail = b""
-    last = clock()
+    last = start = clock()
     rx = re.compile(until.encode() if isinstance(until, str) else until) if until else None
     while not (stop and stop()):
         try:
             chunk = os.read(fd, 4096)
         except OSError as e:
             if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
-                chunk = b""
+                chunk = None              # a non-blocking fd with nothing yet: NOT a hangup
             elif e.errno == errno.EIO:
-                break                     # the device went away: stop, keep what we have
+                raise DeviceGone("EIO: the device went away", total, clock() - start)
             else:
                 raise
+        if chunk == b"":
+            # Blocking with VMIN=1, a read returns only when a byte is there, so zero
+            # bytes can only be a hangup. This used to loop here for ever (RUN 39).
+            raise DeviceGone("a read returned 0 bytes: the port hung up", total, clock() - start)
         if chunk:
             out.write(chunk)
             out.flush()
@@ -172,7 +214,7 @@ def pump(fd, out, stop=None, idle_exit=None, until=None, on_chunk=None, clock=ti
                     break
         elif idle_exit is not None and clock() - last >= idle_exit:
             break
-        elif not chunk:
+        else:
             time.sleep(0.005)
     return total
 
@@ -220,9 +262,16 @@ def main(argv=None):
         signal.signal(signal.SIGINT, lambda *_: stopped.append(True))
         signal.signal(signal.SIGTERM, lambda *_: stopped.append(True))
         with open(a.out, "wb") as out:
-            n = pump(fd, out, stop=lambda: bool(stopped), idle_exit=a.idle_exit,
-                     until=a.until,
-                     on_chunk=_echo if a.echo else None)
+            try:
+                n = pump(fd, out, stop=lambda: bool(stopped), idle_exit=a.idle_exit,
+                         until=a.until,
+                         on_chunk=_echo if a.echo else None)
+            except DeviceGone as g:
+                print("geckorx: DEVICE GONE %s at %s -- THE CAPTURE IS INCOMPLETE. Every byte up to "
+                      "here is in %s; nothing after it was received. Its silence from here on is "
+                      "not evidence that the console said nothing."
+                      % (g, time.strftime("%Y-%m-%dT%H:%M:%S%z"), a.out), file=sys.stderr)
+                return 3
         print("geckorx: %d bytes" % n, file=sys.stderr)
         return 0
     finally:

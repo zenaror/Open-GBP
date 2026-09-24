@@ -15899,3 +15899,18 @@ each in the frozen tool's own words.
 Orchestrator. It needs per-step records without a floor inside a bounded sample of gaps,
 and a way to tell a step that delays the next completion from one that merely falls
 inside a long interval. The `geckorx.py` hangup fix is dispatched separately.
+
+## 2026-09-24 — Issue #104: `tools/geckorx.py` reports a hangup instead of swallowing it
+
+- **The fix.** A zero-length read on the blocking `VMIN=1` port, and `EIO`, now raise
+  `DeviceGone`. The tool says DEVICE GONE on stderr with the byte count and the time,
+  says the capture is INCOMPLETE, and exits 3. Before, the first looped for ever and the
+  second exited 0, which is RUN 39's zero-byte capture.
+- **What is deliberately not added:** by-id re-resolution and any quiet-time threshold.
+- **What it does not cover, and says in its docstring:** a device that never sends. A
+  silent capture stays uninformative; the pre-run Swiss-boot-text check is the
+  Orchestrator's.
+- **The test is behavioural.** The whole tool is run against a FIFO whose writer goes
+  away, and against a pty for `EIO`. The same FIFO scenario on the previous version hangs
+  past its timeout.
+- Tooling only; EVIDENCE untouched.
