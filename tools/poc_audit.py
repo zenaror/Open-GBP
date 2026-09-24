@@ -1298,6 +1298,38 @@ SPLIT_OBJECT_REFERENCES = {
 
 PROFILES["split"] = _split_profile()
 
+
+def _game_profile():
+    """Issue #110: the `game` profile IS the `live` profile with §V25's changes named
+    (HARDWARE_TESTS §V25, §V25.7 5, reading (r8)). The image is live-0001 with the three things
+    that stood on the stimulus ROM's tone replaced; no recorder and no split are linked, so
+    nothing of `trace` or `split` applies. Every pin of `live` still holds -- the changes only
+    ADD call sites -- and the ones added are pinned here by name:
+      * the press origin (gbp_alive_use_press_origin) is set up from main alone, once, before
+        the service (GAME 1);
+      * the VI hand-over: play-0001's two writes return in the presentation path, one site each
+        in submit_ready, beside main's two (the console before the run and after it) (GAME 2);
+      * the frame store is walked in main after the session: no new call on any path (GAME 4).
+    `live` also passes this image, because every change is additive to its pins; this profile
+    is the one that FAILS live-0001 (no press origin, no hand-over in submit_ready).
+    """
+    p = copy.deepcopy(PROFILES["live"])
+    p["symbol_callers"] = dict(p["symbol_callers"])
+    p["symbol_callers"].update(GAME_SYMBOL_CALLERS)
+    p["elf_required"] = p["elf_required"] + ("gbp_alive_use_press_origin",)
+    p["main_must_call"] = p["main_must_call"] + ("gbp_alive_use_press_origin",)
+    return p
+
+
+# §V25's call sites, read from game-0001's listings and PINNED, on top of live's.
+GAME_SYMBOL_CALLERS = {
+    "gbp_alive_use_press_origin": {"main": 1},
+    "VIDEO_SetNextFramebuffer": {"main": 2, "submit_ready": 1},
+    "VIDEO_Flush": {"main": 2, "submit_ready": 1},
+}
+
+PROFILES["game"] = _game_profile()
+
 # Issue #86: AOUT-HW-001, the OUTPUT PATH image. It is not built on any GBP image, so its
 # profile is not derived from one: it is written as the set of things that must be ABSENT.
 # The point of the image is that the console is made to play without the Game Boy Player
