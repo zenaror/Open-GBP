@@ -34938,3 +34938,510 @@ GBP-AUDIO-009 / split-0001
             no-loss production gap (T, 6953)  p10 0.88  p25 0.99  p50 1.00  p75 1.22  p90 1.28  p99 1.81
       CONTEXT, not the discriminator: this run 19.02 /s; RUN 38 25.41 /s; RUN 39 27.86 /s -- context only: between-run variation is unknown from these runs (§V24.3)
 ```
+
+## V25 — PHASE 6's ACCEPTANCE ON A REAL CARTRIDGE: the stimulus-ROM instrument is gone and the Operator becomes the instrument — **PRE-REGISTERED 2026-09-24 (GitHub Issue #110); NOT RUN, NOT AUTHORISED HERE; the image is built under this Issue and staged by a separate Hardware Issue**
+
+This part has three layers:
+- §V25.0–§V25.6 are the Issue body's §V25, transcribed verbatim.
+- §V25.7 is the Orchestrator's decision of the Executor's seven points, also verbatim.
+  **Where it decides, it governs §V25.0–§V25.6.** In particular:
+  - `QUESTION R` is in blocks lost per second, and `WORSE`'s "a game's audio load"
+    reading is struck (§V25.7 1);
+  - the image's three tone gates are replaced (§V25.7 2);
+  - `QUESTION A` is split into stability and fidelity, and gains the GAIN rule
+    (§V25.7 3);
+  - `QUESTION V`'s video clause is §V25.7 4's.
+- §V25.8 is the transcription record: the sources and both forms of their hashes, the
+  twelve readings CONFIRMED, the Operator's reference, and what is frozen here and not in
+  the prose.
+
+### V25.0 The criterion, and the instrument we lose
+
+`ROADMAP.md:661`: **"A real cartridge produces stable audio without breaking
+video/input."**
+
+**Every audio run since RUN 31 has leaned on one instrument: a stimulus ROM
+emitting a frequency we programmed, checked against the frozen layout.** A game
+emits no such thing. **§V22's `QUESTION L` does not carry over and cannot be
+rebuilt** — there is no known period to compare against.
+
+So this run's gates are built on what survives, plus one instrument that only
+becomes available now.
+
+### V25.1 What survives unchanged
+
+```text
+L2   the frames handed to the AI must be BIT-EXACT against the frozen resampler
+     applied to the kept decoded stream. This needs NO known tone -- it is a
+     self-consistency check of the chain, and it is the leg that matters most
+C    zero overflow AND zero underrun, over >= 60 s
+M    the AI rate, measured again on a different workload
+```
+
+`L2` is the strongest gate we have and it is **workload-independent**. That is
+what makes this run possible at all.
+
+### V25.2 `QUESTION R` — the loss rate, against a KNOWN expectation
+
+RUN 40's half arm ran the configuration the runtime has now adopted, and lost
+**0.2532 gaps per cycle — about 8.1 blocks/s, 0.20 %**.
+
+**Frozen:** report the per-second coverage series in full and the mean loss rate,
+**with 0.2532 gaps/cycle named in advance as the expectation from RUN 40's half
+arm.**
+
+```text
+AS EXPECTED     the mean is within a factor of 1.5 of 0.2532 gaps/cycle
+WORSE           materially above it -- a game's audio load costs more than a
+                single tone, which would be a finding about real workloads
+BETTER          materially below it
+```
+
+**No pass/fail.** This is a measurement against a prior, and the prior comes
+from a different workload — a sustained tone against a game. **A difference is
+informative rather than a failure**, and 1.5× is a **chosen** band for reporting,
+not a gate.
+
+### V25.3 `QUESTION A` — "stable audio", and why the Operator IS the instrument here
+
+**For a stimulus ROM his ears were useless**: he had no idea what the tone should
+sound like, which is why RUN 36 had to be blinded and RUN 38 made him
+corroboration only.
+
+**For a game he knows, his ears are the right instrument and the only one.**
+"Stable" is the ROADMAP's own word and it is perceptual. Nobody can compute it
+from a log.
+
+```text
+PASS          he reports the game's audio sounds as it should -- music and
+              effects recognisable, no dropouts, crackle or roughness he would
+              not expect from the game itself
+FAIL          he reports audible defects
+QUALIFIED     he reports something in between, IN HIS OWN WORDS, and the words
+              are recorded rather than forced into PASS or FAIL
+```
+
+**No blinding is used, claimed, or possible**, and that is fine here: he is not
+being asked to detect a subtle pattern he could imagine into existence. He is
+being asked whether a game he knows sounds broken — a judgement robust to
+expectation in the way a pitch-order judgement was not. **Say so in the record**,
+so nobody later reads the absence of blinding as a defect.
+
+**He chooses the cartridge and names it.** A game he knows well serves the gate
+better than one we pick.
+
+### V25.4 `QUESTION V` — "without breaking video/input"
+
+```text
+VIDEO   incomplete frames against GBP-HW-317's start-up signature of 13.
+        RUN 39 (16-push, instrumented) gave 74 inside the AI span;
+        RUN 40's half arm gave 6 of 44. Report the count and the per-second
+        series; the Operator also reports whether the PICTURE looked right
+INPUT   his presses reach the game. He reports whether the controls responded
+```
+
+**Frozen:** `QUESTION V` PASSES only if **both** the video count is at or below
+RUN 40's whole-run figure **and** he reports picture and controls normal.
+Anything else is reported as it is.
+
+### V25.5 Phase 6 closes only if all four hold
+
+```text
+L2 PASS  and  C PASS  and  A PASS  and  V PASS
+```
+
+**Any other combination leaves Phase 6 open**, and the ingestion says which
+clause failed and why. **A partial result is not a partial closure.**
+
+### V25.6 What this does NOT establish
+
+Not Phase 7 or GB/GBC. Not latency or video synchronisation. Not mixing with
+GameCube sound. **`U-GBP-045`'s residue stays open whatever happens** — a runtime
+that loses less is not one that loses nothing.
+
+### V25.7 The Executor's seven points, DECIDED — the Orchestrator's comment, verbatim
+
+Orchestrator, 2026-09-24, **before any transcription.**
+
+#### 0. My premise was FALSE — accepted
+
+`play-0001` **drained** AUDIO and never played it: *"AUDIO %lu (drained, NOT
+reproduced)"*. No AI path existed before `live-0001`. **The Operator has never
+heard this game through the Game Boy Player.** His reference is the game on other
+hardware, and I am asking him which. Recorded as `OPERATOR OBSERVATION`.
+
+What survives: the 13 in RUN 21/22/25/26, and A4.3's coverage prior.
+
+#### 1. `QUESTION R` in BLOCKS LOST PER SECOND — accepted
+
+The tone detector locates losses by a shortened half-period of a 128 Hz tone.
+**A game has no half-period**, and block timing cannot replace it.
+
+**Frozen:** blocks not drained, by count, over C's window — and the validation
+that makes it usable is yours: RUN 40's window gives **tone-located Σk = 1215
+against a count deficit of 1216.2**. The replacement instrument agrees with the
+one it replaces.
+
+**Prior: 8.39 blocks/s (0.205 %)**, the half arm's Σk = 266 over 31.690 s. Report
+**9.23 beside it** with the arrival-jitter reason. **My "8.1 blocks/s" was 8.11
+GAPS/s — a unit error.**
+
+**Band 1.5× → [5.59, 12.59] blocks/s**, and "materially above/below" becomes
+**"above/below the band"**.
+
+**And `WORSE`'s reading is struck.** You are right that it is impossible by
+construction: popcount over a fixed length, fixed arithmetic, DUP/DROP from ring
+fill. **The chain cannot cost more because the samples are music.** Frozen as
+**"this run's workload against RUN 40's"**, with your five candidate differences
+listed and the statement that one run cannot separate them.
+
+#### 2. The tone gates — all four accepted
+
+- **(a) CONTROL:** replaced by **the A press plus a fixed delay, no positive
+  control.** A game cannot pass a 32-block-period check. **The ears take over the
+  control's role** — if nothing plays, he says so, and that is exactly what a
+  positive control was for.
+- **(b) CALIBRATE:** keep the span, **log its per-block min/max one-bit count** so
+  a non-silent calibration is visible. **No constant invented.** A bad
+  calibration becomes visible instead of silently wrong.
+- **(c) THE SCREEN:** **restore `play-0001`'s two hand-over writes** from the
+  press until the window closes. **He cannot judge a picture he cannot see, and
+  cannot play a game he cannot see.** Console before the press, game during,
+  console for the report.
+- **(d) THE PROMPT:** it must invite presses, not forbid them — `V`'s INPUT
+  clause needs them. **And he must be told not to hold Z**, which still ends the
+  session.
+
+#### 3(a). Fidelity is not stability — accepted, and he is TOLD in advance
+
+One sample per block at 4096 samples/s: **Nyquist 2048 Hz. Yoshi's Island will
+have nothing above ~2 kHz through this chain, whether it is stable or not.**
+
+```text
+A-STABILITY  THE GATE: dropouts, stutter, clicks, crackle, pitch or tempo wobble
+A-FIDELITY   reported in his words, NOT gated: muffled, dull, missing highs, stereo
+```
+
+**He is told the bandwidth limit, and that whether the stream carries L, R or a
+mix is UNKNOWN, so hard-panned content may be missing.** Without that he would
+report "it sounds wrong" and we would score a known limit as a failure. **This is
+scoping the question, not blinding** — he is not detecting a pattern he could
+imagine.
+
+#### 3(b). Clipping — **KEEP THE GAIN, ADD THE COUNTER**, and it cannot fail `A`
+
+The gain clips at ±0.15625 of the block; `sweep-0002`'s loudest was 0.117, so
+**we have never actually seen clipping.** A loud game may reach it, and the clip
+is currently **silent**.
+
+- **Add the clip counter.** Count only, no output byte changes, `L2` untouched.
+- **Keep the gain.** Changing it now is an unmeasured change made in anticipation
+  of a problem that may not occur, and a quieter stream is harder to judge.
+
+**FROZEN, and this is the part that matters:** if the clip counter is non-zero
+and he reports distortion, **`QUESTION A` is NOT a FAIL. It is a finding about
+the gain**, recorded as such, and the gain becomes its own decision. **A gain
+choice must not be scored as instability.**
+
+#### 4. `QUESTION V`'s clause — your version, accepted whole
+
+```text
+E = session incomplete - 13
+VIDEO PASSES iff   E outside the AI span = 0
+             AND   E inside it, per second of AI span, <= 0.694/s (44 / 63.38 s)
+```
+
+**Labelled a guard against gross breakage, not a claim the video is
+unaffected.** E's rate reported beside the half arm's 0.19/s as context.
+
+**And I agree with your refusal to build a tighter gate from 6/44** — the split
+is by gap time, per-frame assignment is unavailable by construction, and the
+readings are HYPOTHESIS. A bound built on them would look rigorous and rest on
+an inference.
+
+Your Yoshi's Island point is the strongest thing here: **four sessions of
+ordinary play, up to 273.8 s, moving picture, many presses, gave exactly 13.**
+The game's own video workload adds zero, which makes the subtraction clean.
+
+The post-run per-second incomplete series from the frame store, at zero cost on
+the drain path, is in.
+
+#### 5. Base and logistics — accepted
+
+`live-0001` with the 8-push default, plus 2(a)–(d) and 3(b)'s counter. No §V23 or
+§V24 recorder. Game Pak swap **console OFF**. The save warning goes in the
+Operator's procedure in his language.
+
+### V25.8 Transcription record — the sources, the readings CONFIRMED, the Operator's reference, and what is frozen here and not in the prose
+
+**Sources.** All were fetched with `gh api` on 2026-09-24, and each is hashed in **both**
+forms. The forms differ by one byte, and **which command produces which** is stated here
+so that a later reader never has to derive it from a mismatch:
+- **raw** — the sha256 of the body's own characters in UTF-8, as
+  `json.load(...)["body"]` gives them (Python, no newline added);
+- **printed** — the sha256 of what `gh api <url> --jq .body | sha256sum` hashes. gh
+  (2.101.0 here) **appends one `\n`** to the string it emits.
+
+The confirmation (`issuecomment-5819315360`) flagged that the readings' declared figure
+`1af4eb12…` did not reproduce by a pipeline that yields `a891552b…`. The table below shows
+that the two are the two forms of one unedited body.
+
+```text
+source                      what                                         chars  raw sha256                                                        printed sha256
+Issue #110 body             §V25.0-§V25.6                                 5 410  00bb6df733d8944e47976021cc96d9cf43a57e1a48f95f050738be6a0c53ff38  783fe5c792058e5aca47c74524b6bd64e011510a0fb193fbf892399148e7ec69
+issuecomment-5819226612     §V25.7, the Orchestrator's decisions          5 368  4ea01d6999b91548a30e3397d2eb2159872f0f5bc1536a5104c5e4efe9a1d428  38a650c4b1d0ebabd067e6b1741e47827015519da9a38cbdd4331a74ef156b27
+issuecomment-5819294644     the Executor's readings (r1)-(r12)            7 452  a891552be59692162c2c69bc3838e38688079277dd3eb1145cb6b920d8b9eb58  1af4eb12b17a9a56f8f08dd43a129a8dd78923b1bdd8e50984333e9f9876b877
+issuecomment-5819315360     the Orchestrator's confirmation, and the      3 733  c472d3c3b6deb8da91fe572c9f36e0a21a53fe05edf502b73629eb45c6e6a49e  8a200e62d6b053d52ab6ae8b05b50e2a58bbd2dce42a63392bb471b502eaf25c
+                            Operator's words
+```
+
+None of the four was edited after it was posted: `created_at == updated_at` for each.
+
+**Edits, and only these:**
+- **§V25.0–§V25.6:** the body's §V25, from the line after its title (`# §V25 — PHASE 6'S
+  ACCEPTANCE ON A REAL CARTRIDGE (transcribe verbatim)`) to the `---` before its
+  Deliverables. The title is replaced by this part's heading, and `## §V25.k` becomes
+  `### V25.k`.
+- **§V25.7:** the decisions comment, from the line after its title (`## §V25 — the
+  Executor's seven points, DECIDED. …`). `### ` becomes `#### `.
+- **The readings below:** the readings comment, from the line after its title (`## §V25 —
+  the Executor's READINGS …`). `### ` becomes `#### `.
+
+**The readings, CONFIRMED.**
+- The Executor's readings are `issuecomment-5819294644`.
+- The Orchestrator confirmed all twelve in `issuecomment-5819315360` **before this commit**.
+- The Orchestrator read the GAIN rule as reading (a): **GAIN is NOT PASS, and Phase 6
+  stays open.** The GAIN rule is the second half of (r11), under the declaration's
+  structure; where a message numbered it otherwise, the comment governs.
+- They are transcribed below, verbatim. A later change to any of them is a dated
+  AMENDMENT appended here **before any hardware**.
+
+Executor, 2026-09-24. The decisions are `issuecomment-5819226612` (sha256 of its body
+`38a650c4b1d0ebabd067e6b1741e47827015519da9a38cbdd4331a74ef156b27`). Everything below is
+a concrete value or rule the decisions leave to the implementation. **Each is marked
+CHOSEN or DERIVED.** Nothing is frozen until these are confirmed on this Issue.
+
+#### THE IMAGE
+
+**(r1) ORIGIN — 2(a).**
+- The window's origin is the completion tick of the first AUDIO block at or after
+  `t_press + 1.000 s`, where `t_press` is the first A press.
+- **D = 1.000 s is CHOSEN.** It keeps RUN 40's timeline: RUN 40's press-to-origin,
+  through two control windows, was 1.0002 s.
+- An A pressed during the calibration span still starts the delay. The origin is then
+  the first block at or after the later of `t_press + D` and the span's end, and
+  `press_before_prompt` is reported, as in `live-0001`.
+- C's window stays at 64 s.
+
+**(r2) NO POSITIVE CONTROL — 2(a).**
+- `gbp_aperiod` is not fed and no control window runs.
+- The report carries `control: none`.
+- L's period reader on the decoder's output is left in place: it is unchanged code and
+  was already under test. **Its record is reported as DESCRIPTIVE and gates nothing.**
+  §V25.0 says L does not carry over.
+
+**(r3) CALIBRATION SPREAD — 2(b).**
+- `gbp_adec` records the minimum and maximum one-bit count per block over the
+  calibration span.
+- A new record, `LIVECAL rest_sum rest_n pmin pmax`, logs them. `rest_sum` itself has
+  never been logged before.
+- **Reported, never gated.** A silent span has `pmax - pmin` of a few bits. A span that
+  saw sound does not.
+
+**(r4) CLIP COUNTER — 3(b).**
+- `gbp_adec` counts every decoded sample whose unclipped value lies outside
+  ±32767 (`clipped`), logged in `LIVEC`.
+- **The output is unchanged.** A unit test checks `gbp_adec_sample` byte-identical
+  against the pre-change formula over the whole one-bit range 0..32768, for several
+  calibrations.
+- `gbp_aresamp`'s own clip (`q15_round`) is **NOT** counted. It was not decided, and
+  its input is the already-clipped decode.
+
+**(r5) THE SCREEN — 2(c).**
+- `play-0001`'s two writes return per presented frame, exactly as `play-0001` has them:
+  `VIDEO_SetNextFramebuffer(xfb_stream_buf[xfb]); VIDEO_Flush();`
+- They execute **only while the phase is the post-press delay or C's window.**
+- The console shows before the press. The report goes to the console after the
+  teardown, which is `live-0001`'s order, unchanged.
+
+**(r6) THE PROMPT — 2(d).** On the console, before the press, in English like every
+image:
+- press A when ready;
+- the game then appears — PLAY it for about 65 s, any buttons;
+- **do not HOLD Z** (a 250 ms hold ends the session);
+- X does nothing until the end.
+
+**(r7) VIDEO, PER FRAME — 4.**
+- After the session, off the drain path, the image walks the frame store.
+- An incomplete frame is a stored frame whose completeness is not `COMPLETE_40`, the
+  predicate `FRAMECAP incomplete` counts.
+- It is **INSIDE** the AI span iff `t_ai_start <= t_last_block <= t_ai_stop`.
+  Otherwise it is **BEFORE** or **AFTER**, counted apart.
+- Records:
+  - `LIVEVINC before= inside= after= stored= framecap= store_full=`;
+  - `LIVEVSEC from= counts=`: per 1.000 s of the AI span from `t_ai_start`, by
+    `t_last_block`.
+- If the stored count differs from `FRAMECAP incomplete`, or the store filled, V's
+  video clause is **INCONCLUSIVE**.
+
+**(r8) BASE AND IDENTITY — 5.**
+- `poc/gbp-audio-game`, build `game-0001`, test id `GBP-AUDIO-010`.
+- It is `poc/gbp-audio-live` at `feaf380`, copied, with every change inside a block
+  marked `GAME n`.
+- A diff test in the manner of `test_trace_image.py` shows that nothing of `live-0001`
+  moved outside those blocks except its identity.
+- No §V23 or §V24 code. The 8-push default comes from `gbp_aplay` (Issue #109).
+- Slot `20-game` is frozen in `tools/swiss-layout.tsv` before any export, as #105 did
+  for `19-split`. **Not exported, not staged.**
+
+#### THE GATES (`tools/v25accept.py`, frozen on synthetic vectors only)
+
+**(r9) R — 1.**
+- blocks lost/s = `v22report`'s frozen `not_drained` / the whole seconds of C's window,
+  i.e. 4096 x whole 1.000 s windows minus the blocks they counted.
+- **On RUN 40 this definition gives 1217 over 64 s**, against Σk = 1215; the tap-span
+  count was 1216.2.
+- Prior 8.39. Band [5.59, 12.59], **inclusive**:
+  - AS EXPECTED inside;
+  - WORSE above;
+  - BETTER below.
+- 9.23 is printed beside it with the arrival-jitter reason, and A4.3's no-chain floor
+  as context.
+- **No gate.**
+
+**(r10) V's video clause — 4.**
+- E_outside = before + after − 13.
+- E_inside = inside.
+- AI seconds = (`t_ai_stop` − `t_ai_start`) / 40.5 MHz.
+- PASS iff E_outside == 0 and E_inside / AI seconds <= 0.694, **inclusive**.
+- **E_outside ≠ 0 in EITHER direction is not a PASS**: the start-up signature changed,
+  reported as it is.
+- E_inside's rate is printed beside the half arm's 0.19/s as CONTEXT.
+
+**(r11) The Operator's declaration — 3(a), 3(b), V.** It is recorded verbatim on the
+Hardware Issue, in pt-BR, and the tool reads a structured transcription of it:
+
+```text
+A_STABILITY   PASS / FAIL / QUALIFIED  -- his choice, per §V25.3
+DEFECTS       dropouts, stutter, clicks, crackle, pitch/tempo wobble, distortion on loud
+              passages: yes / no / unsure each
+A_WORDS       his words, verbatim
+A_FIDELITY    his words, verbatim, NOT gated
+PICTURE       normal / not normal, and his words
+CONTROLS      responded / did not, and his words
+```
+
+**The 3(b) rule, as I read it.**
+- A becomes **GAIN** (not FAIL) iff all three hold:
+  - A_STABILITY is FAIL or QUALIFIED;
+  - the clip counter is > 0;
+  - **distortion is the ONLY defect marked yes.**
+- Any other defect marked yes: his verdict stands, with the clip count beside it.
+- Clip counter 0 plus reported distortion: his verdict stands.
+- **GAIN is not PASS, so under §V25.5 Phase 6 stays open**, and the ingestion names the
+  gain as the reason. **Please confirm this reading in particular.** "Not a FAIL" could
+  also be read as "counts as PASS for §V25.5", and the two readings close the phase
+  differently.
+
+**(r12) INCONCLUSIVE.**
+- The window never opened: every gate is INCONCLUSIVE.
+- C's window is under 60 s, or L2's record is absent: `v22accept`'s frozen rules
+  apply, unchanged.
+- The declaration is absent: A and V are INCONCLUSIVE.
+- **Phase 6 closes iff L2, C, A and V are all PASS (§V25.5).** R and M decide nothing.
+
+#### WHAT THE OPERATOR IS TOLD IN ADVANCE — 3(a)
+
+The procedure says it in pt-BR:
+- the chain carries nothing above ~2 kHz, so the game **will sound muffled whether or
+  not it is stable**;
+- whether the stream carries L, R or a mix is UNKNOWN, so hard-panned sounds may be
+  missing;
+- he is asked about stability (the gate) and fidelity (his words, not a gate)
+  separately.
+
+The exact text is in the procedure for review before any run.
+
+#### RECORDS I WILL MAKE ONLY FROM THIS ISSUE
+
+1. The Operator's answer on which hardware he knows Yoshi's Island's audio from goes
+   into §V25's record as `OPERATOR OBSERVATION`. **It must be posted here first**,
+   because I cite Issue comments, not chat.
+2. The `U-GBP-012` lead: if GBI plays the game at full bandwidth through the same
+   device, the ~2 kHz limit is the decoder's and not the device's. It goes into
+   UNKNOWNS at HYPOTHESIS, as a lead, not acted on, and **outside §V25**.
+
+**The confirmation's words on GAIN**, verbatim from `issuecomment-5819315360`:
+
+> ### The `GAIN` rule — **reading (a): `GAIN` is NOT `PASS`. Phase 6 stays open.**
+>
+> Your comment already says exactly that at its GAIN item, and it is the right
+> reading. My §V25 intent was to stop a gain choice being **misattributed as
+> instability** — a diagnostic protection, not a permissive one.
+>
+> **Closing Phase 6 while the Operator reports audible distortion would make the
+> closure meaningless to anyone reading it later.** And the remedy is cheap and
+> known, so staying open costs one iteration rather than a research programme.
+>
+> Your three conditions are right and tight: `A_STABILITY` FAIL or QUALIFIED, the
+> clip counter > 0, **and distortion the only defect marked yes.** If he also
+> reports dropouts, instability is present whatever the gain, and it is a FAIL.
+
+**The Operator's reference — OPERATOR OBSERVATION.** The Orchestrator asked him which
+hardware he knows Yoshi's Island's audio from, since `play-0001` drained AUDIO and never
+reproduced it. His words, verbatim as recorded on the Issue (`issuecomment-5819315360`):
+
+> **"nossa DOL nunca tocou som.. entao por onde ouvi foi no console GBA... no
+> startup disc... no GBI..... qualquer lugar"**
+
+What his answer means for §V25:
+- **Two of those play the game through the same physical Game Boy Player.** His reference
+  is a full-fidelity rendition, so the A-STABILITY / A-FIDELITY split, and telling him
+  the ~2 kHz limit in advance, are load-bearing (§V25.7 3(a)).
+- **It gates nothing.**
+- The Orchestrator's earlier premise, that he had heard the game through this project's
+  image, was FALSE. §V25.7 0 records that correction.
+
+**Outside §V25.** His answer raises a `U-GBP-012` lead: GBI may render the game at full
+bandwidth through the same device. If it does, the ~2 kHz limit is the decoder's, not
+the device's.
+- The lead is recorded in `UNKNOWNS.md` at HYPOTHESIS and is not acted on.
+- It does not touch §V25.
+- Whatever he reports about GBI's output is an OPERATOR OBSERVATION about GBI, not a
+  measurement of ours.
+
+**What was checked on RUN 40 before the numbers froze.** The fixture is
+`captures/fixtures/…-split-0001-run40*`, read through the frozen `tools/v22report.py`,
+`tools/v24report.py`, `tools/v23accept.py`'s losses and `tools/u045arms.py`'s arms.
+`tests/host/test_v25_prior.py` pins every figure below:
+- **R's instrument agrees with the one it replaces.** `v22report`'s `not_drained` is 1 217
+  over 64 whole seconds, i.e. 19.02 blocks/s over both arms. The tone-located Σk is 1 215,
+  and the count over the tap span is 1 216.2.
+- **The prior.** The half arm has 1 015 cycles, 31.690 s and 257 loss gaps carrying
+  Σk = 266 blocks → **8.39 blocks/s**. Split by count per cycle, it gives 292.6 →
+  **9.23**. The full arm has 752 gaps, Σk = 943, and a count of 943.6.
+- **V's bound sits just under RUN 40's own figure.** RUN 40's AI span is
+  `t_ai_stop − t_ai_start` = 2 567 047 476 ticks = 63.384 s. 44 over it is **0.69418/s,
+  just ABOVE the frozen literal 0.694**. A run exactly at RUN 40's rate would not hold,
+  by 0.00018/s. The literal is what froze. This is recorded so the knife edge is visible
+  rather than discovered.
+
+**Frozen here and not in the prose.** These are the Executor's, and they decide nothing
+the readings do not:
+- **The shapes.** The report's and the declaration's JSON shapes are in
+  `tools/v25accept.py`'s docstring.
+- **The declaration.** A malformed declaration is REFUSED. So is a contradictory one:
+  PASS with a defect marked "yes". A contradiction is re-asked, never decided.
+  "unsure" is not "yes", both for GAIN's third condition and for this check.
+- **The outcome names.**
+  - R: AS EXPECTED / WORSE / BETTER / NOT MEASURED.
+  - The video clause: HOLDS / DOES NOT HOLD / INCONCLUSIVE.
+  - V: PASS / NOT PASS / INCONCLUSIVE (§V25.4: "Anything else is reported as it is").
+  - A definite failure — the video clause, his picture or his controls — is NOT PASS
+    even without a declaration. Otherwise a missing part is INCONCLUSIVE.
+- **L2's record.** It reaches `tools/v22accept.py`'s `question_L2` only when the report
+  says it is "present". A present record not supplied to the tool is INCONCLUSIVE.
+- **Exact comparison.** R's band and V's bound are compared exactly, as fractions, so
+  "inclusive" means inclusive.
+- **The tests.** `tests/host/test_v25accept.py`, in the same commit as this text,
+  exercises all of it on synthetic vectors only.
