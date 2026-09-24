@@ -34737,3 +34737,204 @@ card         before: 20 files under sd:/open-gbp -- 01-18/boot.dol and INDEX.txt
 trace-0001's 2 666 496 B and live-0001's 5 152 768 B. Anything named
 `GBP-AUDIO-009_split-0001*` on the card from now on is the run's output. The Orchestrator
 verifies from the medium before writing the Hardware Issue.
+
+### V24.10 RUN 40 EXECUTED AND INGESTED — 2026-09-24 (GitHub Issue #107) — the arm tags agree; the observer gate HOLDS; the variable took; `QUESTION S`: **CAUSE**, half/full loss ratio 0.341 (90 % CI 0.306–0.379)
+
+*Appended. §V24.0–§V24.9 stand; §V24 is not amended after data. Hardware Issue #106 ran the
+image; the ingestion Issue #107 was written before either session opened the sealed
+verdicts. The order is #107's: the preconditions first, each in the frozen tools' own words
+before any commentary.*
+
+#### V24.10.0 What this run does NOT establish (§V24.5, repeated before any verdict)
+
+**It is not a repair.** Smaller steps are the probe. The half arm losing fewer is the
+finding and not the fix. Any change adopted for the runtime is decided afterwards,
+separately, on its own merits.
+
+Not Phase 6's closure. Not a real cartridge. Nothing about `U-GBP-012`. **K's resolution
+limit is untouched and cannot be addressed**: the VIDEO channel's own step (1.13 T) is
+coarser than K's one-block criterion.
+
+#### V24.10.1 The run, the files and the seal
+
+```text
+image      split-0001 / GBP-AUDIO-009 / commit d6dc4f8, slot 19-split (§V24.9), sweep-0002, one A press
+log        logs/run40/GBP-AUDIO-009_split-0001.log            92 195 B  e068ac044ca7a4412e3ff63c287d10c83a44152a183fbfb73f444f5941048171
+L2         logs/run40/GBP-AUDIO-009_split-0001-l2.bin         83 724 B  26286f0ad86138938771024ecff8d552cea3f8f01c7f03ef7fb0dd2021448541
+trace      logs/run40/GBP-AUDIO-009_split-0001-trace.bin   2 505 950 B  98e4b0f606ee46392bd9f85f0e1eb140bf0e6f1256f030e054b45e578f532302
+gecko      captures/local/GECKO-LIVE-run40-orchestrator-capture.txt   3 263 B  6e9d089663699ef0edc81b594b4ec4e2ab16fb103e6b974097a44d35d139f2dc
+archived   captures/local/GBP-AUDIO-009_split-0001-run40{.log,-l2.bin,-trace.bin}, cp --update=none, cmp OK
+fixtures   captures/fixtures/hw-gamecube-gbp-2026-09-24-split-0001-run40{.log,-l2.bin,-trace.bin}, byte for byte
+identity   IDENT test=GBP-AUDIO-009 app=gbp-audio-split build=split-0001 commit=d6dc4f8; log lines=708 dropped=0 truncated=0
+records    LIVETRACE a=260927 a_sat=0 v=170159 v_sat=4269 cb=2031 steps=26779 cycles=2032 cost_max=165 floor=200
+           LIVETRACE2 dropped=0/0/0/0/0/0 calls=237493/2035/237493; LIVETRACECLK gettime=0..1 transport=0..5
+           LIVESPLIT seed=9e3779b9 half=1018 full=1017 sample_every=8 sample=59006 sample_dropped=0
+card       the three files were MOVED from the card to logs/run40: none is left on it
+```
+
+- **The tools ran UNEDITED.** `tools/v24report.py` at `d6dc4f8`, `tools/v24accept.py` at
+  `146e3d3`, and what §V24.6 carries over through `tools/v23accept.py` at `8e0e5e8`.
+  `tools/v23floor.py` (`b7bd8fe`) ran as a DESCRIPTIVE extra: §V24 carries no floor gate.
+- **The report builder accepted the trace:** the CRC, version 2, the frozen seed, and the
+  LIVETRACE and LIVESPLIT counts all checked.
+- **The four outputs were sealed before either session read a verdict:**
+  - the report JSON, `8dbfdf16bae89abf…`;
+  - the printed verdicts, `4935e4f461183fb6…`;
+  - the evaluation JSON, `954c30cbe7569c5b…`;
+  - the floor comparison, `ec814be22b390729…`.
+
+  They were opened after #107 was written and checked against their hashes when opened.
+  `tests/host/test_run40.py` reproduces every one of them.
+
+#### V24.10.2 The Gecko — three channels, and the pair with RUN 39
+
+RUN 40 has **three channels**: the SD log, the trace sidecar and the live Gecko capture.
+
+**The pre-run channel procedure ran in full:**
+- the device was checked by id before the capture opened (`ttyACM0`);
+- **Swiss's own boot text was confirmed arriving before the Operator pressed anything**;
+- the device was re-checked by id at the close, unchanged.
+
+**The capture is complete.** It holds Swiss's boot text, then the full Gecko line set of
+this run, from `READY` to `DONE`: `READY SELFTEST INPUTSELFTEST ENVMEM COUNTERS INPUT
+SESSION RESULT FIGURES L2SAVE TRACESAVE SAVELOG DONE`. It carries **nothing about the
+phases**; §V24's records are ring log and trace only.
+
+**The pair.** RUN 39's capture was EMPTY, and its cause is not established (§V23.13.2).
+RUN 40's is COMPLETE. What differs in procedure between the two runs is the pre-run
+channel check and the re-check at the close. This one pair is the only evidence that the
+procedure does something. It shows the procedure *can* deliver a whole capture; it does
+not by itself establish what emptied RUN 39's.
+
+#### V24.10.3 PRECONDITION 1 — the arm tags (§V24.7 (r6))
+
+The tags of all **2 035 chunks** agree with the frozen assignment, so the run was not
+refused. The image applied 1 018 chunks at HALF steps and 1 017 at FULL (`LIVESPLIT`).
+The step records and the floorless sample overflowed nothing.
+
+#### V24.10.4 PRECONDITION 2 — the OBSERVER GATE (§V23.3, carried over by §V24.6)
+
+```text
+  OBSERVER  SANITY mean undrained 19.02 /s (<= 31.8); incomplete frames in C's window (§V23.8 (f)) 44 (<= 86) -> HOLDS   PRIMARY {"cycles": 2031, "max_single_write_ticks": 231, "max_total_per_cycle_ticks": 4336, "mean_total_per_cycle_ticks": 3580.8532742491384}
+```
+
+**HOLDS.** 19.02 undrained blocks/s against 31.8, and 44 incomplete frames in C's window
+against 86.
+
+**PRIMARY: the recorder's self-cost.** It is a mean of 3 580.9 ticks per AI cycle (0.28 %
+of the cycle), with a largest cycle of 4 336 and a largest single write of 231. It is
+higher than RUN 39's 2 433.4 because of the tags and the floorless sample. The clock reads
+no interval times (`LIVETRACECLK` 0..1 / 0..5 ticks) add at most ~1 555 ticks per cycle,
+about 311 reads at 5 ticks. The whole recorder therefore costs at most ~5 140 ticks per
+cycle, 0.41 %. `QUESTION P` credits the recorder with **0** loss gaps.
+
+#### V24.10.5 PRECONDITION 3 — NEITHER: did the variable take?
+
+The stretch ratio (half over full) is **0.516 at the median and 0.429 at p90**, both at
+most 0.60. The half arm's kept production steps sit at about half the full arm's, so
+**the variable took**. The full arm's p90 is the chunk-start step (2 869 ticks), as
+§V24.7 predicted.
+
+#### V24.10.6 `QUESTION S` (the frozen tool's words)
+
+```text
+  S   CAUSE          the half arm has fewer loss gaps per cycle: ratio 0.341, 90 % CI [0.306, 0.379], one-sided permutation p = 0.00000 < 0.05
+      excluded cycles: {"no_production_step": 0, "open_last_cycle": 1, "two_chunks_steps": 1}; losses outside analysed cycles 4
+      half  cycles 1015  loss gaps 257  mean/cycle 0.2532
+            stretch (ticks, 16288 steps)  p10 973  p25 997  p50 1025  p75 1064  p90 1230  p99 1716
+            loss-gap length (T)        p10 1.53  p25 1.63  p50 1.73  p75 1.85  p90 1.91  p99 2.02
+            no-loss production gap (T, 15842)  p10 0.79  p25 1.00  p50 1.01  p75 1.15  p90 1.18  p99 1.32
+      full  cycles 1014  loss gaps 752  mean/cycle 0.7416
+            stretch (ticks, 8136 steps)  p10 1921  p25 1950  p50 1988  p75 2035  p90 2869  p99 2962
+            loss-gap length (T)        p10 1.58  p25 1.63  p50 1.96  p75 2.00  p90 2.01  p99 2.03
+            no-loss production gap (T, 6953)  p10 0.88  p25 0.99  p50 1.00  p75 1.22  p90 1.28  p99 1.81
+      CONTEXT, not the discriminator: this run 19.02 /s; RUN 38 25.41 /s; RUN 39 27.86 /s -- context only: between-run variation is unknown from these runs (§V24.3)
+```
+
+**CAUSE.**
+- **Rates:** the half arm had 0.2532 loss gaps per cycle over 1 015 cycles; the full arm
+  had 0.7416 over 1 014.
+- **Ratio:** **0.341, 90 % CI 0.306–0.379.** Splitting production into half steps, with
+  total work identical, removed about **two-thirds** of the losses (a 62–69 % reduction
+  at 90 %).
+- **Significance:** the one-sided permutation p is **0.00000**: none of the 20 000
+  permutations reached the observed difference, so p < 1/20 000.
+- **Size:** as #107 asked, the CI is reported so that the size reads as a size. **It is
+  large, not a trifle.**
+
+**What CAUSE means here, as written before it was known** (#107): **production makes the
+gaps.** In this run, halving the longest contiguous production stretch while doing the
+same work cut the loss rate to about a third. The arms shared one session, one instrument
+and one console state, assigned by a frozen pair-balanced sequence that the image applied
+and the host verified. It is **not a fix** (§V24.10.0).
+
+#### V24.10.7 Everything else — reported regardless of the verdict
+
+- **Excluded cycles** (r5): 0 with no production step and 1 with two chunks' steps, plus
+  the last, open cycle, 1. That leaves 2 029 analysed. **4** loss gaps fall outside the
+  analysed cycles.
+- **The floorless sample did NOT overflow:** 59 006 of 65 536 steps, 0 dropped. It is not
+  truncated, so #107's early-cycle bias does not arise.
+- **Per arm, at p10/25/50/75/90/99:** in the tool's own words in §V24.10.6. That covers
+  the stretch (half 1 025, full 1 988 ticks at the median), the loss-gap lengths and the
+  no-loss production gaps.
+  - The half arm's remaining loss gaps are somewhat shorter at the median, 1.73 T against
+    1.96 T. They still span a missing block (p10 1.53 T against 1.58 T), as §V24.2 said
+    loss gaps must.
+  - The half arm's no-loss gaps holding a production step have their p90 at 1.18 T
+    against 1.28 T.
+- **The aggregate rate, CONTEXT, never the discriminator.** 19.02 undrained blocks/s,
+  against RUN 38's 25.41 and RUN 39's 27.86. Half of RUN 40's chunks were at half steps,
+  so a lower aggregate is expected, and between-run variation is UNKNOWN.
+- **`QUESTION P`** (no pass/fail): `P   P names `produce`   {"flush_queue": 0, "isr": 0, "neither": 101, "process": 6, "produce": 906, "recorder": 0}`. It names `produce` again. That is
+  consistent with CAUSE, and it is not what decided it.
+- **`QUESTION K`:** `K   NOT COINCIDENT   1 of 44 VIDEO gaps within one AUDIO block of an AUDIO loss; phase-preserving null p = 0.94860`. NOT COINCIDENT again, at one AUDIO block; the
+  VIDEO-resolution question stays open by construction.
+- **(f):** 13 incomplete frames before the AI starts, 44 inside its span, 0 after. The 13
+  sit at `GBP-HW-317`'s start-up signature positions, the same frame groups as RUN 39's.
+  Unlike RUN 39, the A press (6.260 s) cost no frame. The session's frame capture reads
+  `FRAMECAP incomplete=57 resync=114`.
+
+#### V24.10.8 DESCRIPTIVE, not gates — each at its own status, neither borrowing the other's weight
+
+**§V23.12's rule on the session totals.** It is §V23's, and §V24 does not carry it over as
+a gate. With n = 101 `neither` gaps, N = [1 201 355, 2 246 979] ticks against S =
+[1 337 026, 2 249 128] ticks (450 242 unkept steps, exact), it reads **"the floor may
+account for it, unresolved at this resolution"** — the second unresolved in two runs. That
+is the expected limit of totals, and no side is taken.
+
+**What the floorless sample shows inside the sampled cycles.** This is §V24.4's record,
+the per-step, no-floor data §V23.12's "unresolved" asked for. It is **an observation about
+those cycles, NOT a verdict about the run**: §V24 pre-registered no gate for it, and it
+covers 1 cycle in 8.
+- 12 of the 101 `neither` gaps fall in sampled cycles.
+- In every one of them, the floorless steps overlapping the gap cover **0.1–0.2 %** of it
+  (6 to 33 ticks of 1.01–1.82 T).
+- Across all 135 loss gaps in sampled cycles, the median floorless coverage is 13 %, and
+  that includes the kept production steps.
+
+Within the sampled cycles, then, the `neither` gaps are nearly empty of chain activity at
+full resolution: there the floor hid nothing that could fill them. Read as the sample
+permits, whatever makes them lies outside the chain steps this instrument records. **That
+is an argument for pre-registering the question properly in a later run, not a decided
+result.**
+
+#### V24.10.9 The verdicts, as the frozen tool prints them
+
+```text
+GBP-AUDIO-009 / split-0001
+  OBSERVER  SANITY mean undrained 19.02 /s (<= 31.8); incomplete frames in C's window (§V23.8 (f)) 44 (<= 86) -> HOLDS   PRIMARY {"cycles": 2031, "max_single_write_ticks": 231, "max_total_per_cycle_ticks": 4336, "mean_total_per_cycle_ticks": 3580.8532742491384}
+  P   P names `produce`   {"flush_queue": 0, "isr": 0, "neither": 101, "process": 6, "produce": 906, "recorder": 0}
+  K   NOT COINCIDENT   1 of 44 VIDEO gaps within one AUDIO block of an AUDIO loss; phase-preserving null p = 0.94860
+  S   CAUSE          the half arm has fewer loss gaps per cycle: ratio 0.341, 90 % CI [0.306, 0.379], one-sided permutation p = 0.00000 < 0.05
+      excluded cycles: {"no_production_step": 0, "open_last_cycle": 1, "two_chunks_steps": 1}; losses outside analysed cycles 4
+      half  cycles 1015  loss gaps 257  mean/cycle 0.2532
+            stretch (ticks, 16288 steps)  p10 973  p25 997  p50 1025  p75 1064  p90 1230  p99 1716
+            loss-gap length (T)        p10 1.53  p25 1.63  p50 1.73  p75 1.85  p90 1.91  p99 2.02
+            no-loss production gap (T, 15842)  p10 0.79  p25 1.00  p50 1.01  p75 1.15  p90 1.18  p99 1.32
+      full  cycles 1014  loss gaps 752  mean/cycle 0.7416
+            stretch (ticks, 8136 steps)  p10 1921  p25 1950  p50 1988  p75 2035  p90 2869  p99 2962
+            loss-gap length (T)        p10 1.58  p25 1.63  p50 1.96  p75 2.00  p90 2.01  p99 2.03
+            no-loss production gap (T, 6953)  p10 0.88  p25 0.99  p50 1.00  p75 1.22  p90 1.28  p99 1.81
+      CONTEXT, not the discriminator: this run 19.02 /s; RUN 38 25.41 /s; RUN 39 27.86 /s -- context only: between-run variation is unknown from these runs (§V24.3)
+```
