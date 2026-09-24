@@ -68,6 +68,8 @@
 #                       the frame store walked in main after the session)
 #   make game-dolphin   run the gbp-audio-game DOL in Dolphin (absent -> live-dolphin's flow: the run never
 #                       leaves calibration, so no press, no picture, no AI; the new records still fit)
+#   make game2-audit    audit gbp-audio-game2 (profile game: game-0002 adds only a post-session record in main)
+#   make game2-dolphin  run the gbp-audio-game2 DOL in Dolphin (absent -> game-dolphin's flow)
 #   make aout-audit     audit audio-output-replay (profile aout: NO Game Boy Player object or register write
 #                       linked, the AI reached from main and the DMA callback only)
 #   make aout-dolphin   run the audio-output-replay DOL in Dolphin (no SD there -> the boot and the refusal to
@@ -128,7 +130,7 @@ IN_CONTAINER := $(COMPOSE) run --rm -T -e GIT_COMMIT="$(GIT_COMMIT)" -e GIT_DIRT
 PYTHON ?= python3
 PYTEST := $(shell command -v pytest 2>/dev/null)
 
-POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe gbp-av-service-probe gbp-video-capture-probe gbp-video-state-probe gbp-video-color-probe gbp-video-stream-probe gbp-play-session gbp-audio-window-probe gbp-audio-drain-probe audio-output-replay gbp-audio-live gbp-audio-trace gbp-audio-split gbp-audio-game
+POCS      := smoke-test gbp-probe gbp-init-probe gbp-init-irq-probe gbp-init-irq-program-probe gbp-init-irq-deliver-probe gbp-init-irq-service-probe gbp-av-service-probe gbp-video-capture-probe gbp-video-state-probe gbp-video-color-probe gbp-video-stream-probe gbp-play-session gbp-audio-window-probe gbp-audio-drain-probe audio-output-replay gbp-audio-live gbp-audio-trace gbp-audio-split gbp-audio-game gbp-audio-game2
 AVSVC_OUT := build/poc/gbp-av-service-probe
 AVSVC_DOL := $(AVSVC_OUT)/gbp-av-service-probe.dol
 VIDEO_OUT := build/poc/gbp-video-capture-probe
@@ -152,6 +154,8 @@ SPLIT_OUT := build/poc/gbp-audio-split
 SPLIT_DOL := $(SPLIT_OUT)/gbp-audio-split.dol
 GAME_OUT := build/poc/gbp-audio-game
 GAME_DOL := $(GAME_OUT)/gbp-audio-game.dol
+GAME2_OUT := build/poc/gbp-audio-game2
+GAME2_DOL := $(GAME2_OUT)/gbp-audio-game2.dol
 AOUT_OUT := build/poc/audio-output-replay
 AOUT_DOL := $(AOUT_OUT)/audio-output-replay.dol
 COLOR_DOL := $(COLOR_OUT)/gbp-video-color-probe.dol
@@ -254,6 +258,8 @@ $(eval $(call ISR_RULE,$(SPLIT_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_
 $(eval $(call ISR_RULE,$(SPLIT_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
 $(eval $(call ISR_RULE,$(GAME_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
 $(eval $(call ISR_RULE,$(GAME_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(GAME2_OUT),ext,hsp_backend_oneshot_isr_ext,hsp_backend_irq))
+$(eval $(call ISR_RULE,$(GAME2_OUT),base,hsp_backend_oneshot_isr,hsp_backend_irq))
 $(eval $(call POC_AUDIT_RULE,$(INITIRQA_OUT),003a))
 $(eval $(call POC_AUDIT_RULE,$(INITIRQB_OUT),003b))
 $(eval $(call POC_AUDIT_RULE,$(INITIRQ4_OUT),004))
@@ -269,6 +275,7 @@ $(eval $(call POC_AUDIT_RULE,$(LIVE_OUT),live))
 $(eval $(call POC_AUDIT_RULE,$(TRACE_OUT),trace))
 $(eval $(call POC_AUDIT_RULE,$(SPLIT_OUT),split))
 $(eval $(call POC_AUDIT_RULE,$(GAME_OUT),game))
+$(eval $(call POC_AUDIT_RULE,$(GAME2_OUT),game))
 $(eval $(call POC_AUDIT_RULE,$(AOUT_OUT),aout))
 $(eval $(call ISR_COMPARE_TARGET,vstate-audit,$(VSTATE_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,color-audit,$(COLOR_OUT)))
@@ -280,6 +287,7 @@ $(eval $(call ISR_COMPARE_TARGET,live-audit,$(LIVE_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,trace-audit,$(TRACE_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,split-audit,$(SPLIT_OUT)))
 $(eval $(call ISR_COMPARE_TARGET,game-audit,$(GAME_OUT)))
+$(eval $(call ISR_COMPARE_TARGET,game2-audit,$(GAME2_OUT)))
 
 # GBP-INIT-002's handler audit and the GBP-INIT-001 INTMR negative control keep
 # their historical paths (tests/host/test_isr_audit.py, test_poc_audit.py): they
@@ -293,7 +301,7 @@ $(INITIRQ_OUT)/isr-audit.txt: $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt tools/i
 	$(PYTHON) tools/isr_audit.py $< --report $@
 
 
-.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin drain-audit drain-dolphin aout-audit aout-dolphin aout-dolphin-play smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone stimulus-sweep swiss swiss-check all shell clean live-audit live-dolphin trace-audit trace-dolphin split-audit split-dolphin game-audit game-dolphin
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin drain-audit drain-dolphin aout-audit aout-dolphin aout-dolphin-play smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone stimulus-sweep swiss swiss-check all shell clean live-audit live-dolphin trace-audit trace-dolphin split-audit split-dolphin game-audit game-dolphin game2-audit game2-dolphin
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -815,6 +823,16 @@ game-dolphin:
 	  --expect 'OPENGBP-LIVE RESULT status=abort_inconsistent class=abort reason=inconsistent stop=failure teardown=stage_a service=0 deliveries=0 restore=1' \
 	  --expect 'OPENGBP-LIVE FIGURES phase=calibrate underruns=0 overflow=0 dup=0 drop=0 l=0/0..0 l2_done=0 l2_window=0 l2_silence=0 callbacks=0' \
 	  --report $(GAME_OUT)/dolphin-report-absent.json --screen-png $(GAME_OUT)/dolphin-screen-absent.png
+
+# GBP-AUDIO-011 (Issue #113) in Dolphin: game-dolphin's flow; the post-session record adds nothing on any path.
+game2-dolphin:
+	$(PYTHON) tools/dolphin_smoke.py --dol $(GAME2_DOL) --build-info $(GAME2_OUT)/build-info.txt \
+	  --heartbeats 0 --expect 'OPENGBP-LIVE SELFTEST ok=1' --expect 'sci_clean=1' --expect 'inv_fail=0' \
+	  --expect 'OPENGBP-LIVE INPUTSELFTEST ok=1' --expect 'OPENGBP-LIVE ENVMEM .*arena1_free=[1-9][0-9]*' \
+	  --expect 'OPENGBP-LIVE COUNTERS balanced=1' --expect 'storage_fault=-' \
+	  --expect 'OPENGBP-LIVE RESULT status=abort_inconsistent class=abort reason=inconsistent stop=failure teardown=stage_a service=0 deliveries=0 restore=1' \
+	  --expect 'OPENGBP-LIVE FIGURES phase=calibrate underruns=0 overflow=0 dup=0 drop=0 l=0/0..0 l2_done=0 l2_window=0 l2_silence=0 callbacks=0' \
+	  --report $(GAME2_OUT)/dolphin-report-absent.json --screen-png $(GAME2_OUT)/dolphin-screen-absent.png
 
 # AOUT-HW-001 (Issue #86): the audit. The image links no GBP code at all, so there is
 # no one-shot handler to compare with GBP-VIDEO-001's; the profile proves the absence.

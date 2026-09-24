@@ -673,8 +673,9 @@ class PreHandlerWait(unittest.TestCase):
             # Issue #101: and so is Run A's image, live-0001 with the recorder (§V23)
             # Issue #105: and Run B's, trace-0001 with production split (§V24)
             # Issue #110: and the real-cartridge image, live-0001 with §V25's changes
+            # Issue #113: and its second attempt, game-0001 with one post-session record
             if d in ("gbp-video-stream-probe", "gbp-play-session", "gbp-audio-window-probe", "gbp-audio-drain-probe",
-                     "gbp-audio-live", "gbp-audio-trace", "gbp-audio-split", "gbp-audio-game"):
+                     "gbp-audio-live", "gbp-audio-trace", "gbp-audio-split", "gbp-audio-game", "gbp-audio-game2"):
                 self.assertIn("cfg.prehandler_wait_ms = startup.prehandler_wait_ms;", text)
                 self.assertNotIn("cfg.prehandler_wait_ms = 5000u;", text)
                 h = self._read("src/gbp/gbp_startup.h")
