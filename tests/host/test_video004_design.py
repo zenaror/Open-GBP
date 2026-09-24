@@ -187,7 +187,8 @@ class GroundedInRealArtifacts(unittest.TestCase):
         (2026-09-23) makes it FOUR: the drain image is built from the playable
         one too, and keeps its presentation work so D1 measures the runtime. Issue #92
         (2026-09-23) makes it FIVE: Phase 6's acceptance image is built from the
-        drain image and keeps the same presentation work."""
+        drain image and keeps the same presentation work. Issue #101 (2026-09-24) makes it SIX:
+        Run A's image is live-0001 with the recorder, presentation unchanged."""
         hits = []
         for root, _dirs, files in os.walk(os.path.join(ROOT, "poc")):
             for fn in files:
@@ -195,6 +196,7 @@ class GroundedInRealArtifacts(unittest.TestCase):
                     hits.append(os.path.relpath(os.path.join(root, fn), ROOT))
         self.assertEqual(sorted(hits), ["poc/gbp-audio-drain-probe/source/main.c",
                                         "poc/gbp-audio-live/source/main.c",
+                                        "poc/gbp-audio-trace/source/main.c",
                                         "poc/gbp-audio-window-probe/source/main.c",
                                         "poc/gbp-play-session/source/main.c",
                                         "poc/gbp-video-stream-probe/source/main.c"], hits)

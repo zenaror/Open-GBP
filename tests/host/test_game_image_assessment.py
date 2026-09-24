@@ -200,9 +200,9 @@ class TheAssessmentIsRecordedAndNothingWasBuilt(unittest.TestCase):
         # the twelve POCs of the assessment's base, plus the one Issue #39 built afterwards, the one
         # Issue #59 built for §V8, the one Issue #84 built for §V19, the output-path one Issue #86
         # built and Phase 6's acceptance image Issue #92 built for §V22 -- each in its own checkpoint,
-        # and none of them part of THIS assessment
+        # and none of them part of THIS assessment. Issue #101 built Run A's image for §V23, the same way
         self.assertEqual(sorted(p for p in os.listdir(os.path.join(ROOT, "poc")) if os.path.isdir(os.path.join(ROOT, "poc", p))),
-                         ["audio-output-replay", "gbp-audio-drain-probe", "gbp-audio-live", "gbp-audio-window-probe",
+                         ["audio-output-replay", "gbp-audio-drain-probe", "gbp-audio-live", "gbp-audio-trace", "gbp-audio-window-probe",
                           "gbp-av-service-probe", "gbp-init-irq-deliver-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-service-probe",
                           "gbp-init-probe", "gbp-play-session", "gbp-probe", "gbp-video-capture-probe", "gbp-video-color-probe", "gbp-video-state-probe",
                           "gbp-video-stream-probe", "smoke-test"])
