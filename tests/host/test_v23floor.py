@@ -113,5 +113,15 @@ class ItRefusesRatherThanGuesses(unittest.TestCase):
             v23floor.compare(report(hist(b5=1000, b7=50, b11=50), PROCESS, KEPT))
 
 
+class TheToolIsFrozenBeforeTheRun(unittest.TestCase):
+
+    def test_v23floor_is_the_bytes_of_the_commit_that_froze_it(self):
+        import frozen
+        sys.path.insert(0, os.path.dirname(__file__))
+        then = frozen.source("Issue #101 -- §V23.10, the floor's comparison frozen", "tools/v23floor.py")
+        with open(os.path.join(ROOT, "tools", "v23floor.py"), encoding="utf-8") as f:
+            self.assertEqual(then, f.read(), "tools/v23floor.py was edited after it was frozen")
+
+
 if __name__ == "__main__":
     unittest.main()
