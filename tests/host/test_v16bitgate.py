@@ -156,7 +156,7 @@ class TheRecordSaysWhatItMust(unittest.TestCase):
         ev = read(EV)
         h = [l for l in ev.split("\n") if l.startswith("### GBP-HW-312")][0]
         self.assertIn("FACT, a property of code and data, recomputable; not a hardware claim", h)
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 318)   # 318: Issue #90 (RUN 36 ingested, the output path heard: §V21.9)
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M)), 321)   # 318: Issue #90 (RUN 36 ingested, the output path heard: §V21.9)   # 319…321: Issue #91 (RUN 37 ingested: D1, D2, QUESTION A; §V19.14)
 
     def test_the_mechanism_recomputes_from_the_archive(self):
         if not (os.path.exists(B32) and os.path.exists(B34)):
