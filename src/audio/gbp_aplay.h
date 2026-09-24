@@ -74,7 +74,24 @@ extern "C" {
 #define GBP_APLAY_RING          4096u    /* the decoder's ring: 1 s, 8 KiB (defers, never fixes, drift) */
 #define GBP_APLAY_TARGET        2048u    /* the fill the corrections hold, and the fill playback starts at */
 #define GBP_APLAY_BAND            16u    /* DUP below TARGET-BAND, DROP above TARGET+BAND (see THE CLOCKS) */
-#define GBP_APLAY_STEP_PUSHES     16u    /* one pump call produces at most this many pushes (125 frames) */
+/* One pump call produces at most this many pushes (62.5 frames). 8, ADOPTED by GitHub Issue #109
+ * from RUN 40 (HARDWARE_TESTS §V24.10); 16 in every build before it.
+ *
+ * The argument, from quantities measured in RUN 40:
+ *   - the gain: 8-push calls lost 0.341 of the 16-push calls' loss gaps per AI cycle (GBP-HW-332);
+ *     the `produce` share was 89 % in both arms, so the losses fall with the stretch's length
+ *     (GBP-HW-334), and the half arm's residue overlaps the ordinary calls (228 of 257), not the
+ *     chunk's first call (7).
+ *   - the cost is NOT the limit: 119.6 ticks per push and 64.0 fixed per call, so even 2-push
+ *     calls would add ~4 100 ticks per chunk, 0.3 % of an AI cycle.
+ *   - the limit is THROUGHPUT: the pump slot ran at least 110 times per AI cycle (floorless
+ *     sample, 254 cycles), and one chunk a cycle needs 128 pushes. 1-push calls (128 a chunk)
+ *     cannot keep up; 2 is the smallest that can (1.7x margin); 4 gives 3.4x, 8 gives 6.9x.
+ *   - 8 is where the evidence stops. Below it the effect is unmeasured -- a proportional
+ *     extrapolation, not a result -- so the runtime takes the measured value, and a Phase 6
+ *     run on it runs a configuration whose loss rate is known (the half arm: 0.25 gaps/cycle).
+ * NOT A FIX for the whole problem: the residue stands (U-GBP-045). */
+#define GBP_APLAY_STEP_PUSHES      8u
 #define GBP_APLAY_LOG            256u    /* the hand-off log, a power of two */
 #define GBP_APLAY_L2_CHUNKS      320u    /* produced chunks in the L2 window: 320 000 frames, 10 s */
 #define GBP_APLAY_KEEP_CAP     (GBP_APLAY_L2_CHUNKS * (GBP_APLAY_PUSHES + 1u))
@@ -113,8 +130,9 @@ struct gbp_aplay {
     uint8_t  cur_corr_done;
     uint32_t cur_step;                         /* this chunk's pushes per call, chosen at its start */
     /* Issue #105 (Run B, HARDWARE_TESTS §V24): each chunk's step size, asked once at the chunk's
-     * start with its production sequence number. NULL in every earlier build: every chunk takes
-     * GBP_APLAY_STEP_PUSHES, as before. Only the partition of the pushes into calls changes: the
+     * start with its production sequence number. NULL -- every build but Run B's -- means every
+     * chunk takes GBP_APLAY_STEP_PUSHES (8 since Issue #109, 16 before; an executed image reproduces
+     * at its own commit). Only the partition of the pushes into calls changes: the
      * same samples, the same arithmetic, the same DUP/DROP decision (taken at the chunk's start). */
     uint32_t (*step_pushes)(void *user, uint32_t seq);
     void    *step_pushes_user;
