@@ -36311,3 +36311,114 @@ readings do not:
   `video.before_listed`, `video.before_capped` and `video.episodes_close_max`.
 - **The tests.** `tests/host/test_v26accept.py`, in the same commit as this text, exercises
   all of it on synthetic vectors only.
+
+
+### V26.9 The image, BUILT — `game-0002` (GBP-AUDIO-011) — NOT staged, NOT run; and the Operator's procedure for the Hardware Issue
+
+*Appended. §V26.0–§V26.8 stand. This records what the image is. The clause and its readings do
+not move.*
+
+```text
+image      poc/gbp-audio-game2 / game-0002 / commit dc13f37 (clean) / TEST_ID GBP-AUDIO-011
+DOL        519 360 B   sha256 ba8ab59598398849dd4757cb4823cab7ed355107f1dc92cbf2295cd5440e12fa
+           two builds from an empty output directory at dc13f37, byte-identical (the ELF too);
+           embedded identity "OPENGBP-IDENT gbp-audio-game2 game-0002 dc13f37"
+base       game-0001 (poc/gbp-audio-game at 6129104, RUN 41's image). By diff, only its identity changes
+           and every added hunk is the header or a block marked GAME 6 (tests/host/test_game2_image.py)
+audit      profile game (tools/poc_audit.py): 0 findings; both one-shot handlers identical to the
+           physically validated GBP-VIDEO-001 build. GAME 6 adds only ringlog_printf in main, after the session
+Dolphin    make game2-dolphin: the HSP device absent -> game-dolphin's flow, PASS; arena1_free 5 148 672 B
+slot       21-game2, frozen in tools/swiss-layout.tsv at this hash by the next commit, before any export.
+           NOT exported, NOT staged: staging and the Hardware Issue are the Orchestrator's
+gates      tools/v26accept.py (frozen at f874cc6, pinned at 0967c36) = tools/v25accept.py (4591f9b) with
+           V's start-up clause replaced
+report     tools/v26report.py (frozen with the image at dc13f37, pinned at 43793ed) = tools/v25report.py's
+           report plus t_press, the before-AI frames and the start-up bound
+records    the log (game-0001's records plus LIVEVBEF and LIVEVBEFN) and
+           sd:/open-gbp/GBP-AUDIO-011_game-0002-l2.bin, both on X, after the session
+```
+
+**One correction to reading (s7): the slot is `21-game2`, not `21-game`.** The manifest refuses a
+repeated short name (`tools/swiss_export.py:92`), and `20-game` already holds `game`. Nothing else
+in (s7) changes.
+
+**What GAME 6 adds, and what it does not.**
+- **What it adds.** After the session, off the drain path, the frame store is walked once more.
+  Every before-AI incomplete frame gets one `LIVEVBEF` line. "Before-AI" is LIVEVINC's own
+  predicate, `!ai_started || t_last_block < t_ai_start`. Each line carries:
+  - the frame's store index;
+  - its `t_first_block` and its `t_last_block`;
+  - the NEXT stored frame's `t_first_block`.
+- **The cap.** At most 64 lines are written. `LIVEVBEFN` records how many there were, how many
+  are listed and whether the list was capped.
+- **The builder refuses** a list that disagrees with its own counts or with LIVEVINC's.
+- **Unchanged:** everything of game-0001. That covers the 8-push production, the press origin
+  and the hand-over at the press (the confound §V26.7 3 names), the prompt, the window, L2, the
+  clip counter, the calibration spread and every other record.
+
+**What the Operator must do.**
+- **The cartridge.** If Yoshi's Island is still in the Game Boy Player from RUN 41, nothing
+  changes. If anything else is in, swap it **with the console OFF**.
+- **The slot** is `21-game2`.
+- **The run's length is RUN 41's:** about 1.5 min.
+
+**The procedure**, in his language, for the Hardware Issue. It is §V25.9's, with three
+changes:
+- the slot;
+- the consequence of an early press, the addition to (s4);
+- §V26.5's rules as frozen, where the save rule wins.
+
+The 3(a) text and the questions A–F are §V25.9's, verbatim.
+
+```text
+ANTES DE LIGAR
+ 1. Console DESLIGADO. Se o cartucho do Yoshi's Island (Super Mario Advance 3) ainda estiver no Game
+    Boy Player, deixe-o. Se houver outro, troque com o console desligado.
+ 2. Nada na porta Link. Sem BBA. Controle na porta 1. O cartão de sempre no SD2SP2.
+ 3. Ligue e inicie pelo Swiss o slot 21-game2.
+
+A RODADA
+ 4. Aparece a tela de texto. O jogo já está rodando por trás, mas você ainda NÃO o vê.
+    Espere o aviso ">>> PRESS A when ready ..." (uns 5 s).
+ 5. Aperte   A  × 1   quando quiser, até uns 30 s depois do aviso. NÃO aperte A antes do aviso:
+    um A cedo demais pode tornar a rodada INCONCLUSIVA, sem culpa do programa.
+ 6. A imagem do jogo aparece (pequena, centralizada, sem escala: normal) e o som começa 1 s
+    depois do A. JOGUE por uns 65 s, com qualquer botão:
+       A, B, START, L, R, direcional ou analógico: como sempre
+       X  ou  Y  = o SELECT do GBA
+       NÃO SEGURE   Z   (segurar Z por 1/4 s encerra a sessão)
+ 7. Se puder, chegue a uma fase -- MAS SÓ se isso não criar um save novo nem sobrescrever nenhum.
+    Se para jogar uma fase for preciso gravar no cartucho, NÃO grave: ficar nos menus está bom
+    e a rodada vale.
+ 8. Se o jogo travar, NÃO segure Z: deixe a janela terminar sozinha.
+ 9. Depois de uns 65 s a imagem some e volta a tela de texto com o relatório.
+10. Aperte   X  × 1   para gravar o log e o registro L2 no SD. Depois   START  × 1   para
+    sair. DESLIGUE o console.
+
+ANTES DE OUVIR, SAIBA
+ - Este decodificador entrega 4096 amostras por segundo: nada acima de ~2 kHz passa. O jogo
+   VAI soar abafado, sem agudos, esteja estável ou não. É um limite conhecido, não o que está
+   sendo testado.
+ - Não se sabe se o som é o canal esquerdo, o direito ou a mistura: sons muito puxados para
+   um lado podem faltar.
+ - Por isso as perguntas separam ESTABILIDADE (o que decide) de FIDELIDADE (suas palavras,
+   que não decidem nada).
+
+DEPOIS, RESPONDA (fica registrado literalmente na Issue de hardware)
+ A. Estabilidade, escolha uma:
+      PASS       soa como o jogo deve soar, fora o abafado: música e efeitos reconhecíveis,
+                 sem defeitos que o próprio jogo não tenha
+      FAIL       defeitos audíveis
+      QUALIFIED  algo no meio: diga com suas palavras
+ B. Para cada item, sim / não / não sei:
+      cortes (o som some)            engasgos (trava ou repete)       cliques
+      chiado ou crepitação           variação de tom ou de andamento
+      distorção nas partes altas
+ C. Suas palavras sobre a estabilidade.
+ D. Fidelidade, com suas palavras (abafado, opaco, sem agudos, estéreo...). Não decide nada.
+ E. Imagem: normal / não normal, e suas palavras.
+ F. Controles: responderam / não responderam, e suas palavras.
+```
+
+The answers map onto the declaration exactly as in §V25.9. Anything named
+`GBP-AUDIO-011_game-0002*` on the card from now on is the run's output.
