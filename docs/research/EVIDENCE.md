@@ -9544,3 +9544,87 @@ The binomial tails are context only: post hoc, several cuts, no gate.
   overturns the other.
 
 One console, one Game Boy Player, one run.
+
+---
+
+### GBP-HW-335 — RUN 41, Phase 6's acceptance on a real cartridge: L2 bit-exact, C clean over 64 s, the Operator's stability judgement PASS over menu-weight audio, and `QUESTION V` NOT PASS on its start-up clause — 14 incomplete frames before the AI, not 13 — so Phase 6 stays open — FACT (the frozen gates' results and counts, one run); A is OPERATOR OBSERVATION
+
+GitHub Issue #112; `HARDWARE_TESTS.md` §V25.12. Image `game-0001` (GBP-AUDIO-010, commit
+`6129104`) on Yoshi's Island — Super Mario Advance 3. The verdicts were recomputed from the
+versioned fixtures by the frozen `tools/v25report.py` and `tools/v25accept.py`
+(`tests/host/test_run41.py`).
+
+```text
+L2  PASS       the host reproduced the CRC 178e3c3f of 320 chunks x 1000 frames exactly (199 DUP); silence 0
+C   PASS       zero OVERFLOW and zero UNDERRUN over 64.000 s; NOT DRAINED 483 blocks; 827 DUP, 0 DROP
+A   PASS       the Operator's, all six defects "no", with his qualifier "pelo menos do que notei"
+V   NOT PASS   E_outside = 14 - 13 = +1 (14 before the AI span, 0 after; FRAMECAP 41 = 14 + 27)
+               the rate half holds: 27 x 2 567 047 476 = 69 310 281 852 <= 44 x 2 566 709 992 (0.426/s)
+               picture normal, controls responded
+PHASE 6        STAYS OPEN, on V's start-up clause alone
+R   7.547 blocks/s, AS EXPECTED (not a gate)     M   32 028.476 Hz
+```
+
+**What it establishes:**
+- **FACT, one run.** On a real cartridge's audio, the composed chain's output to the AI is
+  bit-exact against the frozen resampler over L2's 10 s window. The ring neither overflowed nor
+  starved over C's 64 s.
+- **OPERATOR OBSERVATION.** The Operator judged the game's audio stable, apart from the known
+  bandwidth limit. **His judgement covers menu-weight audio, not gameplay:** the game froze on a
+  level load, and he reproduced the freeze on his own GBA console with nothing of ours
+  involved.
+- **FACT, one run.** The session's pre-AI incomplete frames numbered **14**, not 13. Ten are
+  visible in the log, at the same frames as RUN 38 and RUN 40. Four lie between 2.170 s and the
+  AI start, and this run's records locate none of them. By RUN 39's precedent (`GBP-HW-331`),
+  three plausibly sit at ~151–157.
+
+**What it does NOT establish:**
+- **Why there is a fourteenth, or where.** RUN 39 had one at the A press (`GBP-HW-331`), in an
+  image with no mid-capture VI hand-over. RUN 40 had none (`GBP-HW-333`). The candidates are
+  HYPOTHESES: the press (the one with a precedent), the hand-over, the longer pre-press period,
+  the game's boot, chance.
+- **That the new start-up mechanism caused it.** The clause detected a change and did not
+  attribute it.
+- **Gameplay-weight audio.** The run covered menus and a failed level load.
+- **Phase 7, latency, video synchronisation, mixing.** `U-GBP-045`'s residue stays open.
+
+**A defect in the clause itself, recorded because it bears on the verdict's meaning.**
+`E_outside = 0` excluded a case the reference family had already produced: `GBP-HW-331`'s
+heading records RUN 39's frame at the press. The verdict stands; §V25 is not amended after
+data. The next clause is to be built on what a before-AI `t_last_block` record shows
+(§V25.12.8), not on 13.
+
+One console, one Game Boy Player, one run.
+
+---
+
+### GBP-HW-336 — RUN 41's reported figures: the decoder clipped 2 084 samples, inaudible to the Operator; the calibration span was not silent; and both loss channels rose about threefold in the same ~10 s of the window — FACT (counts, one run); the cause of the rise is a HYPOTHESIS
+
+GitHub Issue #112; `HARDWARE_TESTS.md` §V25.12.6–§V25.12.7. From the same log, through the
+frozen `tools/v25report.py` (`tests/host/test_run41.py`).
+
+```text
+clipped      2 084 decoded samples beyond +-32767 (LIVEC clipped=)           -- he reported no distortion
+calibration  one-bit count per block 13 571..19 390 (spread 5 819); rest mean 16 328.86 vs 16 384 (~+1.1 % FS DC)
+losses       R: 163 blocks lost in window s20-29 (16.3/s) vs 5.93/s over the other 54 s
+             V: 16 of the 27 inside incomplete frames in AI seconds 17-29
+events       2 177 vstate events (178 episodes not preserved) vs RUN 40's 370 (8 not preserved)
+```
+
+**What it establishes (FACT, one run):**
+- **The fixed decoder gain clips on this game's audio.** It was measured by the counter added
+  for this purpose (§V25.7 3(b)), and it was inaudible to the Operator.
+- **The calibration span heard sound.** (r3)'s spread made that visible; before it, the error
+  would have been silent.
+- **The AUDIO losses and the VIDEO incomplete frames rose together, in one ~10 s stretch.** It
+  falls about 30–42 s into the capture, plausibly while the game was loading the level or had
+  frozen.
+
+**What it does NOT establish:**
+- **Why they rose.** The chain's work is content-independent, so it was not the audio being a
+  game. The HYPOTHESIS that the picture's workload, added to the chain's, drives the shared
+  starvation is recorded under `U-GBP-045`. `play-0001` constrains it: the same game with no
+  chain lost nothing in steady state (`GBP-HW-317`, §V19.11 A4.3).
+- **Whether the clip matters audibly on gameplay-weight audio.** The declaration covers menus.
+
+One console, one Game Boy Player, one run.

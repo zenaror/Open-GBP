@@ -16153,3 +16153,58 @@ Nothing is staged and nothing is run. EVIDENCE gets nothing until the run. The `
 
 **Next.** The Hardware Issue and the staging are the Orchestrator's. §V25.9 carries the
 Operator's procedure in pt-BR, with the Game Pak swap done console OFF and the save warning.
+
+## 2026-09-24 — Issue #112: RUN 41 ingested — L2, C and A PASS on a real cartridge; Phase 6 stays open on ONE start-up frame
+
+**The goal.** Ingest RUN 41: `game-0001`, GBP-AUDIO-010, on Yoshi's Island. It was Phase 6's
+acceptance, and it ran on #111.
+
+**The verdicts are the frozen tools', unedited.**
+- L2 PASS: CRC `178e3c3f`, reproduced exactly.
+- C PASS: zero overflow and zero underrun over 64 s.
+- A PASS: the Operator's verdict, with "pelo menos do que notei" carried.
+- V NOT PASS: `E_outside` = +1, 14 incomplete frames before the AI against 13. The rate half
+  holds at 0.426/s against RUN 40's own 0.694/s.
+
+**Phase 6 stays open.** The clause is NOT relaxed. §V25 is not amended after data.
+
+**The scope of A is in the record.** The game froze on a level load, and he reproduced the
+freeze on his own GBA. So A = PASS is a PASS over menu-weight audio, not gameplay.
+
+**What the ingestion corrected before it was written.**
+- **The Executor's report** said signature frames 11–13 were "never visible in any log". That
+  is true only of the text logs' event lists (`GBP-HW-317` already says so). RUN 39's per-block
+  trace located all thirteen (`GBP-HW-331`).
+- **The +1 has a precedent that is not the new VI hand-over.** RUN 39 lost a frame at the A
+  press in an image without one.
+- **The clause `E_outside = 0` was a joint premise miss.** The Executor proposed it, and the
+  Orchestrator confirmed it, from RUN 40 alone. `GBP-HW-331`'s heading already recorded RUN 39's
+  press frame. It is the day's second bound that failed a case already in the evidence; the
+  first was §V25.10's rounding.
+
+**Changes.**
+- `a5c42cd`: the `GBP-HW-272` recount. RUN 41 is the 54th log, `0x92`, and the first on a real
+  cartridge.
+- The ingestion commits:
+  - the fixtures (the log, the L2 record, the declaration);
+  - `tests/host/test_run41.py`, which reproduces all five sealed and opened outputs to their
+    hashes;
+  - §V25.11, the staging record, citing #110's authorisation;
+  - §V25.12, the ingestion;
+  - `GBP-HW-335` and `GBP-HW-336`;
+  - `U-GBP-045` rescoped.
+
+**Tests executed.** `make test-python` on the committed tree; the figure is in the #112
+report.
+
+**Result.** Three of the four gates held on a real cartridge, including bit-exactness and a
+real game judged by ear. Also reported:
+- the decoder's gain clips on this game (2 084 samples), and the clip was inaudible to him;
+- the calibration span was not silent, and (r3)'s spread showed it;
+- both loss channels tripled together in one ~10 s stretch, with the picture's events at
+  2 177 against RUN 40's 370. That is a new `U-GBP-045` HYPOTHESIS, constrained by
+  `play-0001`'s zero steady-state loss on the same game.
+
+**Next.** One re-run with one added record: each before-AI incomplete frame's
+`t_last_block`, written after the session. The next clause is built on what that shows, not
+on 13. The start-up figure is 13, plus possibly one at the press.
