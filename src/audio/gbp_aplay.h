@@ -90,7 +90,10 @@ extern "C" {
  *   - 8 is where the evidence stops. Below it the effect is unmeasured -- a proportional
  *     extrapolation, not a result -- so the runtime takes the measured value, and a Phase 6
  *     run on it runs a configuration whose loss rate is known (the half arm: 0.25 gaps/cycle).
- * NOT A FIX for the whole problem: the residue stands (U-GBP-045). */
+ * NOT A FIX for the whole problem: the residue stands (U-GBP-045).
+ * RESTATED 2026-09-24 (GitHub Issue #116), a comment only: the figures above integrate over RUN 40's 10 s L2 test
+ * window, whose cost fell mostly on the 8-push arm. Outside it the ratio is 0.270 (90 % CI 0.235-0.308) and the
+ * residue 0.198 gaps/cycle (GBP-HW-339): the gain is larger than argued, and the residue stands. */
 #define GBP_APLAY_STEP_PUSHES      8u
 #define GBP_APLAY_LOG            256u    /* the hand-off log, a power of two */
 #define GBP_APLAY_L2_CHUNKS      320u    /* produced chunks in the L2 window: 320 000 frames, 10 s */
