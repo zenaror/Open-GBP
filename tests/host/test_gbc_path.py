@@ -195,7 +195,9 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
                  "GBP-AUDIO-004_stream-0016-run33.log": "92",
                  "GBP-AUDIO-003_stream-0016-run34.log": "92",
                  # Issue #85 (2026-09-23): RUN 35, sweep-0002
-                 "GBP-AUDIO-006_stream-0016-run35.log": "92"}
+                 "GBP-AUDIO-006_stream-0016-run35.log": "92",
+                 # Issue #90 (2026-09-23): RUN 37, drain-0001 on sweep-0002
+                 "GBP-AUDIO-005_drain-0001-run37.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1
@@ -221,7 +223,11 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         cart = {f for f, v in origins.items() if v == "92"}
         play = {f for f in cart if "play-0001" in f}
         self.assertEqual(len(play), 4, sorted(play))
-        self.assertTrue(all(re.search(r"(color|stream)", f) for f in cart - play))
+        # Issue #90: drain-0001 (RUN 37) is a further image built on play-0001's service path; named the
+        # same way, for the same reason
+        drain = {f for f in cart if "drain-0001" in f}
+        self.assertEqual(len(drain), 1, sorted(drain))
+        self.assertTrue(all(re.search(r"(color|stream)", f) for f in cart - play - drain))
 
     def test_the_document_says_what_the_split_does_not_support(self):
         d = plain(read(DOC))

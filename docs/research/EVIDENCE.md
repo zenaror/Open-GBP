@@ -7460,7 +7460,7 @@ and the same one-line derivation now prints
 ```text
 grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
      13 CONTROL semantic orig=90
-     36 CONTROL semantic orig=92
+     37 CONTROL semantic orig=92
 ```
 
 The six logs added the same day are RUN 23 (`stream-0015-run23`, no cartridge,
@@ -7509,8 +7509,23 @@ and 35 at `0x92`**. CLAIM 1 stays FACT; CLAIM 2 untouched.
 
 **2026-09-23, Issue #85 — RUN 35 (`stream-0016-run35`) makes it 49 logs**, on
 `sweep-0002` with the cartridge in the slot, and it reads `orig=92` exactly as the
-split predicts: **13 at `0x90` and 36 at `0x92`**. The printed output above is the
-archive as it stands now. CLAIM 1 stays FACT; CLAIM 2 untouched.
+split predicts: **13 at `0x90` and 36 at `0x92`**. CLAIM 1 stays FACT; CLAIM 2
+untouched.
+
+**2026-09-23, Issue #90 — RUN 37 (`drain-0001-run37`) makes it 50 logs, and a
+log that cannot carry the field is the EIGHTH without it.**
+
+- **RUN 37.** `drain-0001` is another image: GBP-AUDIO-005's continuous-drain
+  probe, built on `play-0001`'s service path (`HARDWARE_TESTS.md` §V19.11). It ran
+  on `sweep-0002` with the cartridge in the slot and records `orig=92`, as the
+  split predicts: **13 at `0x90` and 37 at `0x92`**. The printed output above is
+  the archive as it stands now. CLAIM 1 stays FACT; CLAIM 2 is untouched.
+- **RUN 36.** `AOUT-HW-001_aout-0002-run36.log` has no `CONTROL semantic`
+  record, for the same reason as `01-smoke`. `AOUT-HW-001` links no Game Boy
+  Player code at all: the `aout` audit profile proves the absence, and the log
+  header says `gbp_touched=0`. It is the output-path test (§V21) and has no Game
+  Boy Player in its question, so nothing is dropped. The split's population is
+  unchanged by it.
 ---
 
 ### GBP-HW-273 — RUN 23: a LATE build with NO Game Pak reads CONTROL `0x90` — the empty diagonal cell of `GBP-HW-272` filled, and the build-era reading disconfirmed by measurement — FACT (recomputable from the archived log)
