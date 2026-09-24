@@ -46,6 +46,10 @@ struct gbp_adec {
     /* the calibration span: summed one-bit count and how many blocks it covers */
     int64_t  rest_sum;
     uint32_t rest_n;
+    /* Issue #110 (§V25.7 2(b)): the span's lowest and highest one-bit count per block,
+     * REPORTED and never used -- a silent span spreads a few bits, one that saw sound
+     * does not. Both 0 until the first calibration block. */
+    uint32_t rest_min, rest_max;
     /* the output ring: caller-provided storage, never allocated here */
     int16_t *ring;
     uint32_t cap, head, count;
@@ -54,6 +58,9 @@ struct gbp_adec {
     uint32_t blocks_in;           /* blocks decoded */
     uint32_t lost;                /* blocks the drain lost, replaced by a hold */
     uint32_t overflow;            /* samples dropped because the ring was full */
+    /* Issue #110 (§V25.7 3(b)): decoded samples whose value before the clip lay outside
+     * +-GBP_ADEC_FULL. A COUNT only: the clipped sample is the one it always was. */
+    uint32_t clipped;
 };
 
 /* Pure: the number of one-bits in one 4096-byte block, 0 .. 32768. */
@@ -61,7 +68,7 @@ uint32_t gbp_adec_popcount(const uint8_t *block);
 
 void gbp_adec_init(struct gbp_adec *d, int16_t *ring, uint32_t cap);
 
-/* Calibration: add one silent block to the resting level. */
+/* Calibration: add one silent block to the resting level, and widen rest_min/rest_max. */
 void gbp_adec_calibrate(struct gbp_adec *d, const uint8_t *block);
 
 /* Pure: the PCM sample for a one-bit count, given the calibration. 0 when the
@@ -69,7 +76,8 @@ void gbp_adec_calibrate(struct gbp_adec *d, const uint8_t *block);
 int16_t gbp_adec_sample(const struct gbp_adec *d, uint32_t popcount);
 
 /* Decode one drained block into the ring. 0, or -1 when the ring was full and
- * the sample was dropped (counted). */
+ * the sample was dropped (counted). A sample the formula took past full scale is
+ * clipped exactly as gbp_adec_sample() clips it, and counted in `clipped`. */
 int gbp_adec_push_block(struct gbp_adec *d, const uint8_t *block);
 
 /* The drain lost a block: hold the previous sample so the timebase is kept. */
