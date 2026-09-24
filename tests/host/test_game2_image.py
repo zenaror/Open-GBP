@@ -168,6 +168,16 @@ class TheBuilderAndTheFrozenGates(unittest.TestCase):
         self.assertEqual(e["V"]["video"]["verdict"], "INCONCLUSIVE")
 
 
+class TheReportBuilderIsFrozenBeforeTheRun(unittest.TestCase):
+    def test_v26report_and_the_image_are_the_bytes_of_the_commit_that_froze_them(self):
+        import frozen
+        key = "Issue #113 -- game-0002 and its report builder"
+        self.assertEqual(frozen.source(key, "tools/v26report.py"), read(os.path.join(ROOT, "tools", "v26report.py")),
+                         "tools/v26report.py was edited after it was frozen")
+        self.assertEqual(frozen.source(key, "poc/gbp-audio-game2/source/main.c"), read(G2_MAIN),
+                         "game-0002's source was edited after the candidate was built")
+
+
 class TheAuditIsExercised(unittest.TestCase):
     def test_the_game_profile_passes_game_0002(self):
         import poc_audit
