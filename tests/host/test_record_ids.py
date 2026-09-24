@@ -145,11 +145,25 @@ class NoPinOnTheRecordsCurrentHighestId(unittest.TestCase):
                                         "read it with guards.at_close(), or check a property of the record "
                                         "instead:\n" + "\n".join(offenders))
 
+    def test_no_run_number_window_reads_the_live_record(self):
+        """Issue #99: the fifth form, which #98's inventory missed -- "no captures/local name above
+        runN", with N moved by hand at every run. It reads the closed record or it does not exist."""
+        offenders = []
+        pat = re.compile(r're\.findall\(r"captures/local/\\S\*run\(\?:[^"]*",\s*(.+?)\)', re.S)
+        for f in sorted(os.listdir(HOST)):
+            if not (f.startswith("test_") and f.endswith(".py")) or f == os.path.basename(__file__):
+                continue
+            for m in pat.finditer(read(os.path.join(HOST, f))):
+                if not m.group(1).startswith("guards.at_close("):
+                    offenders.append("%s: a run-number window over %s" % (f, m.group(1)[:60]))
+        self.assertEqual(offenders, [], "\n".join(offenders))
+
     def test_the_converted_pins_are_all_still_there(self):
         n = sum(read(os.path.join(HOST, f)).count("guards.at_close(") for f in os.listdir(HOST)
                 if f.startswith("test_") and f.endswith(".py"))
-        self.assertGreaterEqual(n, 25, "20 highest-id pins, 3 next-id / run pins and 2 citation windows read the "
-                                       "closed record; if this collapses they were deleted, not closed")
+        self.assertGreaterEqual(n, 31, "20 highest-id pins, 3 next-id / run pins, 2 citation windows (#98) and 6 "
+                                       "run-number windows (#99) read the closed record; if this collapses they were "
+                                       "deleted, not closed")
 
 
 if __name__ == "__main__":

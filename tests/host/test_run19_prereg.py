@@ -269,7 +269,8 @@ class TopologyNamesGateAndProcedure(unittest.TestCase):
             self.assertEqual(t.count(n), 1, n)
             self.assertEqual(h.count(n), 1, n)
             self.assertFalse(os.path.exists(os.path.join(ROOT, n)), n)
-        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[8-9]|[4-9]\d)\S*", t)), 0)   # run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67); run33: Issue #75, §V13 (GBP-AUDIO-004, reserved and not on disk); run34: §V14 (GBP-AUDIO-003 repeated, reserved and not on disk); run35: §V16.5 (rides along, reserved)   # run36 / run37: Issue #90 (RUN 36 ingested, §V21.9) and #91
+        # Issue #99: a member of #98's family its inventory missed -- read via guards.at_close(), never moved again
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[8-9]|[4-9]\d)\S*", guards.at_close("docs/research/HARDWARE_TESTS.md"))), 0)   # run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67); run33: Issue #75, §V13 (GBP-AUDIO-004, reserved and not on disk); run34: §V14 (GBP-AUDIO-003 repeated, reserved and not on disk); run35: §V16.5 (rides along, reserved)   # run36 / run37: Issue #90 (RUN 36 ingested, §V21.9) and #91
         self.assertEqual(glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run19*")) + glob.glob(os.path.join(ROOT, "captures", "local", "*stream-0015-run20*")), [])
         self.assertIn("TAKEN even if a run aborts, never starts, or RUN 20 is never executed", plain(part(5)))
 
