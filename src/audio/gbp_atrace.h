@@ -34,12 +34,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define GBP_ATRACE_A_MAX       262144u   /* 64 s x 4096 decoded samples */
-#define GBP_ATRACE_V_MAX       196608u   /* the session's VIDEO completions, ~80 s at ~2390/s */
+#define GBP_ATRACE_A_MAX       266240u   /* C's 64 s x 4096 decoded samples, and one second of margin */
+#define GBP_ATRACE_V_MAX       294912u   /* the session's VIDEO completions: ~123 s at ~2390/s, past
+                                            the 120 s safety cap, since the prompt has no deadline */
 #define GBP_ATRACE_A_SAT_MAX     1024u
-#define GBP_ATRACE_V_SAT_MAX     8192u   /* every vblank, ~60/s */
+#define GBP_ATRACE_V_SAT_MAX     8192u   /* every vblank, ~60/s, for the same 120 s */
 #define GBP_ATRACE_CB_MAX        4096u   /* ~2050 AI callbacks in 64 s */
-#define GBP_ATRACE_STEP_MAX     32768u
+#define GBP_ATRACE_STEP_MAX     49152u   /* kept steps; the rest are counted and histogrammed */
 #define GBP_ATRACE_CYCLES_MAX    4097u   /* index 0: before the first callback */
 #define GBP_ATRACE_STEP_FLOOR     200u   /* 4.9 us: below it a produce or process is counted, not kept */
 #define GBP_ATRACE_HIST_BINS       32u   /* log2 of the duration in ticks */

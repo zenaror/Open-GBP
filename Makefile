@@ -56,7 +56,7 @@
 #   make trace-audit    audit gbp-audio-trace (profile trace: the live profile's pins PLUS Run A's recorder --
 #                       each recording entry reached from the one place §V23 put it, the trace emitted from
 #                       main after the session only, the recorder's object on an allowlist)
-#   make trace-dolphin  run the gbp-audio-trace DOL in Dolphin (absent -> live-dolphin's flow, plus the ~2 MiB of
+#   make trace-dolphin  run the gbp-audio-trace DOL in Dolphin (absent -> live-dolphin's flow, plus the ~2.4 MB of
 #                       preallocated records still leaving the arena free; nothing is recorded, nothing emitted)
 #   make aout-audit     audit audio-output-replay (profile aout: NO Game Boy Player object or register write
 #                       linked, the AI reached from main and the DMA callback only)
@@ -758,7 +758,7 @@ live-dolphin:
 # with Run A's recorder linked. THE CEILING: the probe stops before any service cycle, so no
 # tap, callback or step ever records anything, and X is never pressed, so nothing is emitted.
 # What it shows is that the image boots, self-tests and aborts as live-0001 does, and that
-# the arena stays free with the recorder's ~2 MiB preallocated. AUXILIARY, never physical.
+# the arena stays free with the recorder's ~2.4 MB preallocated. AUXILIARY, never physical.
 trace-dolphin:
 	$(PYTHON) tools/dolphin_smoke.py --dol $(TRACE_DOL) --build-info $(TRACE_OUT)/build-info.txt \
 	  --heartbeats 0 --expect 'OPENGBP-LIVE SELFTEST ok=1' --expect 'sci_clean=1' --expect 'inv_fail=0' \
