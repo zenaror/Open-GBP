@@ -35934,3 +35934,380 @@ game cannot be what tripled the loss.** What differed is what the picture did.
 - **A re-run's A should cover gameplay.** A game that does not freeze on its level load, or a
   save that loads, would let A cover gameplay rather than menus. That is the Operator's choice
   of cartridge, as before.
+
+
+## V26 — PHASE 6's ACCEPTANCE, SECOND ATTEMPT: the start-up clause rebuilt on the evidence, plus the one record that locates the frame — **PRE-REGISTERED 2026-09-24 (GitHub Issue #113); NOT RUN, NOT AUTHORISED HERE; the image is built under this Issue and staged by a separate Hardware Issue**
+
+This part has three layers:
+- §V26.0–§V26.6 are the Issue body's §V26, transcribed verbatim.
+- §V26.7 is the Orchestrator's decision of the Executor's five points, verbatim. **It REPLACES
+  §V26.3's clause and §V26.5's request, and it governs wherever it decides.**
+- §V26.8 is the transcription record: the sources and their hashes with the conventions stated
+  in words, the readings (s1)–(s10) and their confirmation verbatim, one correction, and what
+  is frozen here and not in the prose.
+
+**§V25 stands, and its gates carry over.** `tools/v26accept.py` is `tools/v25accept.py` with
+V's start-up clause replaced, and nothing else.
+
+### V26.0 What RUN 41 settled, and the single clause that did not
+
+```text
+L2  PASS   bit-exact, 320 x 1000 frames, CRC 178e3c3f
+C   PASS   zero overflow, zero underrun over 64.000 s
+A   PASS   the Operator's judgement, over MENU-WEIGHT audio
+V   NOT PASS on the start-up clause alone -- E_outside = +1
+           the RATE half held comfortably: 0.426/s against 0.694/s
+```
+
+**Three of four held, including the two hardest.** Only `V`'s start-up clause
+failed, **and the clause was wrong**: `E_outside = 0` excluded a case the
+reference family had already produced. `GBP-HW-331` records RUN 39 at **14**
+before the AI — the 13 plus one at `t_press` — and RUN 40 at 13. **The family has
+shown both, and the clause I confirmed demanded exactly 13.**
+
+### V26.1 The start-up figure is not 13
+
+**Frozen:** on the located evidence it is **"13, plus possibly one at the A
+press"**. RUN 39 had the press frame with **no** mid-capture VI hand-over; RUN 40
+did not have it. **So the press frame is a known behaviour of this image family
+and is not evidence of the new mechanism.**
+
+### V26.2 The one new record, and it is the whole point of this run
+
+**Each before-AI incomplete frame's `t_last_block`**, from the frame store, written
+after the session, at zero cost on the drain path.
+
+**Nothing else changes from `game-0001`.** Same 8-push production, same window,
+same gates, same procedure. **One variable, and it is a read-only record.**
+
+### V26.3 `QUESTION V` — the start-up clause, rebuilt on the evidence
+
+```text
+V's start-up clause HOLDS iff either
+
+  (a) E_outside = 0                                            -- RUN 40's case
+  (b) E_outside = +1 AND that frame is LOCATED AT THE A PRESS   -- RUN 39's case
+
+and FAILS otherwise, including E_outside = +1 with the frame located ANYWHERE
+ELSE, and any E_outside <= -1 or >= +2.
+```
+
+**"At the A press" is frozen as: the frame's `t_last_block` lies within one AI
+chunk period (31.222 ms) of `t_press`.** A chosen window, stated as chosen; the
+precedent frame in RUN 39 sat at `5.662 s = t_press` exactly.
+
+**This is the clause the evidence supports and no wider.** It admits the one
+extra frame the family has already shown, **at the place it has already shown
+it**, and admits nothing else. **A frame elsewhere is a new behaviour and fails.**
+
+The rate half is unchanged: `E_inside × 2 567 047 476 ≤ 44 × span`, integers,
+inclusive.
+
+### V26.4 Unchanged from §V25
+
+`L2`, `C`, `A`, `R`, `M`, the `GAIN` rule, the clip counter, the calibration
+spread record, the Operator's questions A–F and the 3(a) text he is told
+beforehand — **all carry over verbatim.** §V25.5 still governs: **Phase 6 closes
+only if all four hold.**
+
+### V26.5 The Operator, and what to ask him to do differently
+
+**Nothing about the procedure changes**, except one request: **if the game
+freezes again, play on through the window rather than stopping** — RUN 41's
+freeze cost nothing and he reproduced it on his own GBA, but a window spent in
+menus is a lighter load than one spent in a level. **Ask him to reach gameplay if
+he can**, so `A` covers more than menu-weight audio this time.
+
+**If he cannot, the run still stands** and the scope sentence is recorded again.
+**Do not make gameplay a precondition.**
+
+### V26.6 What this does NOT do
+
+Not Phase 7. **`U-GBP-045` stays open whatever happens**, with its new
+constraint: `play-0001` on this same game with **no chain** lost nothing in
+steady state, so **video alone does not starve the drain — only the combination
+could.**
+
+### V26.7 The Executor's five points, DECIDED — the Orchestrator's comment, verbatim
+
+#### 1 & 2 — REPLACED by your structural rule, whole
+
+**My window was wrong in kind, not in size.** At the press the AI has not
+started, so no chunk cycle exists to measure against. And I checked the
+corollary: **±31.222 ms admits three frames (j=337, 338, 339), where exactly one
+is correct.**
+
+**Your `t_last_block`-alone objection is the sharper half**: a stall that drops a
+frame's tail puts its `t_last_block` **before** `t_press`, so the rule would point
+outside its own window **because of the very defect it measures.**
+
+**Frozen, replacing §V26.3's (a)/(b) entirely:**
+
+```text
+P = the before-AI incomplete frame IN FLIGHT at the press, if any:
+      t_first_block <= t_press < t_first_block of the NEXT stored frame
+    (0 or 1 by construction)
+Q = every other before-AI incomplete frame
+
+V's start-up clause HOLDS iff
+      |Q| = 13
+  AND every Q frame's store index <= the last preserved start-up episode's
+      close frame, as the log records it (EPISODE i=3 close_frame=197,
+      identical in RUN 40 and RUN 41)
+
+and FAILS otherwise.
+```
+
+**Both bounds are structural, neither is chosen**, and it closes the masking I
+left open: my (a)/(b) would have passed **12 signature + press + 1 elsewhere**,
+and **12 + press**. Checking *where* the thirteen are rather than only how many
+is what the index buys.
+
+RUN 39's located thirteen all sit at ≤ ~157, inside 197. RUN 39's press frame
+satisfies P (`-3.682 ≤ 0 < +13.163`).
+
+**The record carries, per before-AI incomplete frame:** store index,
+`t_first_block`, `t_last_block`, and the next stored frame's `t_first_block`.
+Still one read-only post-session record.
+
+#### 3 — the confound is ACKNOWLEDGED, and NOT separated
+
+**Do not add a second variable.** In `game-0002` the press and the first
+hand-over coincide, so a frame in flight at the press **cannot be attributed
+between the console prints and the hand-over**, and a hand-over frame one frame
+later **fails** the rule.
+
+**Say all of that in the frozen text.** If the run holds, the attribution does
+not matter; if it fails on a frame one later, that is informative and *then* we
+separate them with a deliberate second run. **One variable stands.**
+
+#### 4 — §V26.5 REWRITTEN, and the save rule wins
+
+You are right that my wording was incoherent: the window runs 64 s regardless,
+the only way to stop it is holding Z, and **a frozen game cannot be played.**
+
+**And I created a conflict:** I asked him to reach gameplay *and* not to write to
+the cartridge, when his own hypothesis is a save that failed to load — so
+reaching a level might require creating or overwriting a file.
+
+**Frozen, and the save rule wins:**
+
+```text
+- If the game freezes, do NOT hold Z. Let the window run out.
+- Reach a level ONLY if it needs no new save and overwrites nothing.
+- If it would write to the cartridge, DO NOT. Menus are fine and the run stands,
+  with the menu-weight scope sentence recorded again.
+```
+
+**His cartridge is not ours to risk for a lighter scope sentence.** I will phrase
+it to him in those terms.
+
+#### 5 — identity accepted
+
+`game-0002` / `GBP-AUDIO-011` / slot `21-game`, `game-0001` plus the one
+post-session record.
+
+---
+
+**This is the third bound of mine today replaced by a structural one** — the
+rounding, then `E_outside = 0`, now the time window. The pattern is the same
+each time: **I reach for a number where the evidence offers a relationship.**
+
+### V26.8 Transcription record — the sources, the readings CONFIRMED, one correction, and what is frozen here and not in the prose
+
+**Sources.** Each is hashed in two forms. The conventions are stated here in words, because the
+number alone cannot say which pipeline produced it:
+- **raw** — the sha256 of the body string exactly as the API's JSON returns it,
+  `json.load(...)["body"]` encoded as UTF-8. The Executor's comments end in one `\n`. The
+  Orchestrator's comments and the Issue body end in none.
+- **printed** — the sha256 of raw plus one `\n`, which is what `gh api <url> --jq .body`
+  emits.
+- **A third figure exists and is NOT cited:** a shell's `$( … )` capture strips trailing
+  newlines. For a body that ends in `\n`, that gives a different sha256. For one that ends in
+  none, it equals raw.
+
+```text
+source                     what                                         chars  raw sha256                                                        printed sha256
+Issue #113 body            §V26.0-§V26.6 (never edited: lastEditedAt null) 4 241  68d32b590a6ba2d02e3a1dd94e0d4ed93fa4af94cfd913e5e606a3b0a485b7ae  d41be0cfe82a4db3dfcafee4e3ce2032b2e3eb8b5c1bda19785ba9c4ffa1a05d
+issuecomment-5821646454    §V26.7, the Orchestrator's decisions         3 461  acb2b40451860a0e5a62892c8a5010f0a597fd4d7f2172eef101f983685e1d05  ea9b6bb26f1202594f7633dcc674f08d31fe9a64e6c2e63a2486f7cdd79d3f83
+issuecomment-5821672396    the Executor's readings (s1)-(s10)           4 035  753e0decce7c9ef8d8dea9ba0df52bfe3128bfb58722cd17c40bddcabbfe8e1f  32831c0ecf2b2824543e443523bf3a974166a079937a5aab88259db8511f2842
+issuecomment-5821686765    the Orchestrator's confirmation              2 331  e7598cf14ead2409a71f68d6295b6f551c3b2710e061fcd31413769c1b9a15ca  954a7b99ca6639193fcaa221d5f2b2bc60586a395417b4bbc1e606781e281572
+```
+
+None of the four was edited after it was posted. For each comment `created_at ==
+updated_at`, and for the body `lastEditedAt` is null.
+
+**Edits, and only these:**
+- **§V26.0–§V26.6:** the body's §V26, from the line after its title (`# §V26 — PHASE 6's ACCEPTANCE, SECOND ATTEMPT (transcribe verbatim)`) to the
+  `---` before its Deliverables. The title is replaced by this part's heading, and
+  `## §V26.k` becomes `### V26.k`.
+- **§V26.7, the readings and the confirmation below:** each comment from the line after its
+  title; `### ` becomes `#### `.
+
+**The readings (s1)–(s10), CONFIRMED.**
+- The Executor's readings are `issuecomment-5821672396`.
+- The Orchestrator confirmed all ten in `issuecomment-5821686765` **before this commit**, with
+  (s1) and (s4) decided and one addition, to the Operator's procedure.
+- Both are transcribed verbatim.
+- A later change to any of them is a dated AMENDMENT appended here **before any hardware**.
+
+Executor, 2026-09-24. The decisions are `issuecomment-5821646454` (raw sha256
+`acb2b40451860a0e5a62892c8a5010f0a597fd4d7f2172eef101f983685e1d05`, printed
+`ea9b6bb26f1202594f7633dcc674f08d31fe9a64e6c2e63a2486f7cdd79d3f83`). Each item below is a
+value or rule the decisions leave to the implementation. **(s1) and (s4) decide something
+and need your word; the rest are mechanics.**
+
+#### THE CLAUSE
+
+**(s1) AFTER-AI frames — needs your word.** The new clause speaks only of before-AI frames.
+§V25's `E_outside` also counted frames AFTER the AI stopped, and RUN 39, 40 and 41 all have
+**0 after**. My reading carries (r10) over for them: **any incomplete frame after the AI span
+FAILS V's outside clause.** Otherwise a frame after the AI would be admitted silently, which
+neither the evidence nor the clause asks for.
+
+**(s2) BEFORE-AI, the predicate.** It is (r7)'s, unchanged: a stored incomplete frame whose
+`t_last_block < t_ai_start`, or any stored incomplete frame if the AI never started. `t_press`
+is `LIVET t_press`, the first A as `gbp_alive` records it.
+
+**(s3) THE BOUND 197 is read from the log, not written into the tool.** It is the largest
+`close_frame` among the run's `EPISODE` records, the four preserved start-up episodes.
+- It shares its index space with the frame store's: both are `f->index`
+  (`src/gbp/gbp_vstate.c:1043/1063`).
+- With no `EPISODE` record, V's start-up clause is INCONCLUSIVE.
+
+**(s4) AN EARLY PRESS — needs your word.** If the press is read while the start-up span is
+still open (P's store index ≤ the bound, i.e. before ≈ 3.3 s), P may absorb a signature
+frame. |Q| then reads 12 and the clause FAILS on a run that did nothing new. My reading: **if
+P's index ≤ the bound, V's start-up clause is INCONCLUSIVE, not FAIL**, because the rule cannot
+separate the two there. The prompt appears at ≈ 5 s, so this needs a press well before it
+(`press_before_prompt`).
+
+**(s5) P, mechanically.**
+- A frame is P iff `t_first_block <= t_press < t_first_block` of the next stored frame.
+- At most one frame can satisfy it.
+- A frame with no next stored frame is not P.
+- Everything else before the AI is Q.
+
+#### THE RECORD AND THE IMAGE
+
+**(s6) THE RECORD.** It is one line per before-AI incomplete frame, written after the
+session, off the drain path:
+
+```text
+LIVEVBEF i=<n> idx=<store index> t_first=<hex> t_last=<hex> t_next=<hex>
+```
+
+- It is capped at 64 lines.
+- More than 64 before-AI frames makes V's start-up clause INCONCLUSIVE, because their
+  positions are not all known.
+- The builder REFUSES a log whose LIVEVBEF count differs from LIVEVINC's `before`.
+
+**(s7) THE IMAGE.** `game-0002` / `GBP-AUDIO-011` / slot `21-game`.
+- It is `poc/gbp-audio-game` at `6129104`, copied, with the one record in a block marked
+  `GAME 6`.
+- A diff test against game-0001 shows nothing else moved except its identity.
+- No other change: same 8-push production, window, prompt, hand-over and records.
+
+**(s8) THE TOOLS.**
+- `tools/v26accept.py` imports `tools/v25accept.py` and replaces **only** V's start-up clause.
+  L2, C, A, R, M, GAIN and §V25.5's closure are v25accept's, called, not copied.
+- It is frozen on synthetic vectors only, and a test pins that nothing else is redefined.
+- `tools/v26report.py` imports `tools/v25report.py` and adds the before-frames and the bound.
+  It is frozen with the image.
+
+**(s9) CHECKED BEFORE FREEZING** (`tests/host/test_v26_prior.py`, from the versioned
+fixtures):
+- RUN 39's press frame satisfies P: −3.682 ≤ 0 < +13.163 ms, 39 blocks, its one missing block
+  straddling `t_press`.
+- The trace's GBI segmentation equals the frame store's Disc segmentation: `PREDICATES
+  disagreements=0` in RUN 39 and RUN 41.
+- RUN 40 and RUN 41 log `EPISODE i=3 close_frame=197`.
+
+#### THE OPERATOR
+
+**(s10)** §V26.5 as you froze it. Its pt-BR text goes in §V26's image record for your review
+before the Hardware Issue, together with §V25's procedure and the 3(a) text, verbatim.
+
+**The confirmation, verbatim:**
+
+#### (s1) frames AFTER the AI — **CONFIRMED, and this is my omission**
+
+Rewriting §V26.3 around before-AI frames, I **dropped §V25's after-AI half
+without meaning to.** Carrying `(r10)` over is right: **any incomplete frame
+after the AI span FAILS the outside clause.** Without it a frame there would be
+admitted silently, which neither the evidence nor the clause asks for — and
+RUN 39, 40 and 41 all have 0 after, so nothing is being accommodated that the
+family has shown.
+
+#### (s4) an early press — **CONFIRMED as INCONCLUSIVE, with one addition**
+
+If the press lands while the start-up span is still open, `P` can absorb a
+signature frame, `|Q|` reads 12, and the clause fails **on a run that did nothing
+new.** That is a measurement condition not met, not a defect — the same shape as
+every other INCONCLUSIVE arm we have frozen. **INCONCLUSIVE, detected by
+`P`'s store index <= the close_frame bound.**
+
+**Addition, to the Operator's procedure rather than the clause:** he is already
+told to wait for the prompt, but **the consequence of pressing early must be
+stated** — `A` before the prompt can make the run INCONCLUSIVE through no fault
+of the runtime. He should know *why* the instruction exists, not only that it
+does.
+
+#### (s2), (s3), (s5)–(s9) — confirmed as written
+
+`(s3)`'s **"no EPISODE record means INCONCLUSIVE"** and `(s6)`'s **"over the
+cap is INCONCLUSIVE"** plus the builder refusing a count that disagrees with
+`LIVEVINC` are the three places this could have defaulted silently instead of
+declining. That is the right instinct in all three.
+
+#### The hash conventions — there are now THREE
+
+```text
+body as stored, ending in one '\n'          753e0dec…   your "raw"
+body + one more '\n' (gh --jq output)       32831c0e…   your "printed"
+body with its trailing newline STRIPPED     6ee31dca…   bash $( ) capture
+```
+
+I reproduced your first two; the third is my shell's command substitution
+stripping the trailing newline. **Both your figures are correct.**
+
+This is the second time today the same class has bitten, and it is now clear the
+number alone can never settle it. **State the convention in words beside the
+figures**, as I asked on #110 — a reader with a fourth pipeline would otherwise
+be back where I was. — 2026-09-24
+
+**One correction to §V26.7's text, recorded and not edited into it.** §V26.7 says the
+superseded window "admits three frames (j=337, 338, 339)". **It admits four.** j=336's
+`t_last_block`, at −25.688 ms, is inside ±31.222 ms as well. The four `t_last_block`s are
+−25.688, −8.969, +7.795 and +24.516 ms relative to `t_press` (`tests/host/test_v26_prior.py`,
+from RUN 39's trace). The Executor's pushback had said four. Either count makes the same point:
+exactly one frame is correct.
+
+**What was checked before the clause froze** (`tests/host/test_v26_prior.py`, from the
+versioned fixtures):
+- **RUN 39's press frame is P.** Exactly one frame is in flight at `t_press`: −3.682 ≤ 0 <
+  +13.163 ms. It has 39 blocks, its neighbours have 40, and its one missing block is its largest
+  intra-frame gap, 0.714 ms at block 12, whose two ends straddle `t_press`.
+- **The trace segments the frames as the store does.** GBI's predicate and the store's Disc
+  predicate agree: `PREDICATES disagreements=0` in RUN 39 and RUN 41.
+- **The bound.** The four preserved start-up episodes open at 8/30/90/150, and the last closes
+  at **197** in RUN 39, RUN 40 and RUN 41.
+
+**Frozen here and not in the prose.** These are the Executor's, and they decide nothing the
+readings do not:
+- **How the tool is built.** `tools/v26accept.py` swaps its `video_clause` into
+  `tools/v25accept.py` for the duration of each call and restores it, even on error. L2, C, A,
+  R, M, GAIN, the declaration's checks, V's picture and controls, and §V25.5's closure all run
+  as v25accept's own code. A test pins that nothing else is redefined.
+- **More than one frame satisfying P** can only mean an unordered store, and it is
+  INCONCLUSIVE.
+- **The order of the failing reasons.** After-AI frames (s1) are checked first, then |Q|, then
+  Q beyond the bound, then the rate. The first that fails is the one reported.
+- **Reported beside the clause, deciding nothing:** §V25's `E_outside` count, P's position
+  relative to `t_press` (first, last and next, in ms), Q's indices, the bound, and the confound
+  sentence.
+- **The report's added fields:** `t_press`, and `video.before_frames` as
+  `[index, t_first_block, t_last_block, t_next_first_block]`. Also
+  `video.before_listed`, `video.before_capped` and `video.episodes_close_max`.
+- **The tests.** `tests/host/test_v26accept.py`, in the same commit as this text, exercises
+  all of it on synthetic vectors only.
