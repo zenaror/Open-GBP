@@ -9484,3 +9484,56 @@ sample       12 of the 101 `neither` gaps fall in sampled cycles; in each, floor
   that could fill the `neither` gaps. That suggests their cause lies outside the chain steps
   the instrument records — a HYPOTHESIS, and an argument for pre-registering the question in
   a later run, not a result.
+
+---
+
+### GBP-HW-334 — RUN 40 by arm: the half arm's remaining losses are still 89 % `produce`, the `neither` gaps fell with the arm (22 against 79), and so did the VIDEO gaps inside the AI span (6 against 38) — FACT (post hoc counts from one run, recomputable; no gate was pre-registered); every reading below is a HYPOTHESIS
+
+GitHub Issue #108. `tools/u045arms.py` splits RUN 40 by arm using only frozen rules:
+- §V24.7 (r5)'s cycle-to-arm rule;
+- `tools/v23accept.py`'s losses, `question_P` and `video_gaps`.
+
+`tests/host/test_u045_arms.py` recomputes every count from the versioned fixtures through the
+frozen `tools/v24report.py`. The analysed cycles are 1 015 half and 1 014 full, so the half
+arm's share is 0.500.
+
+```text
+P, half arm    257 losses: produce 229 (89 %), neither 22, process 6
+P, full arm    752 losses: produce 673 (89 %), neither 79
+neither        22 half / 79 full        binomial tail P(X <= 22 | n 101, 0.500) = 4.9e-09
+VIDEO gaps     6 half / 38 full of the 44 inside the AI span, by their frozen time;  tail 4.6e-07
+               clear gaps only (largest >= 1.2 x second): 3 half / 7 full;           tail 0.17
+               42 of the 44 complete in the first tenth of their cycle (within 3.1 ms of the callback)
+whole frames   0 of the 44 incomplete frames lie inside one cycle: every one straddles a callback
+```
+
+The binomial tails are context only: post hoc, several cuts, no gate.
+
+**What the counts establish, narrowly.** In RUN 40, split by the manipulated variable:
+- the half arm's residue is attributed like the full arm's losses, mostly to `produce`;
+- the `neither` gaps were about as much rarer in the half arm as the losses as a whole;
+- the VIDEO gaps inside the AI span sit mostly in full-arm cycles.
+
+**The limits of the VIDEO cut.**
+- **A per-frame assignment is unavailable by construction.** The gaps complete just after a
+  callback, so every incomplete frame straddles one; the assignment uses each gap's frozen
+  time.
+- **Most of the locations are close calls.** A misplaced gap moves to a neighbouring cycle,
+  which the pair-balanced assignment makes the other arm about half the time. Misplacement
+  therefore dilutes an arm difference and cannot make one.
+- **The 10 clear gaps alone decide nothing** (3 against 7).
+
+**The readings, all HYPOTHESES.**
+- **(1) The residue is still the stretch.** Losses fall with stretch length rather than
+  vanishing at a threshold, so shortening further should remove more.
+- **(2) The `neither` gaps are caused by production too**, through something the instrument
+  does not record as overlapping the gap (e.g. an effect outlasting the step). That would
+  make U-GBP-045's two open parts one question. It contrasts with RUN 40's descriptive
+  sample (`GBP-HW-333`), which found those gaps empty of chain steps: both can hold if the
+  cause outlasts the step.
+- **(3) The AUDIO and VIDEO losses share a cause, production's stretch, at the RATE level.**
+  **K's NOT COINCIDENT and correlated rates are compatible.** A common cause acting on each
+  channel separately gives correlated rates without coincident events. Neither result
+  overturns the other.
+
+One console, one Game Boy Player, one run.
