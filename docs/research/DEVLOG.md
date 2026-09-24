@@ -15310,3 +15310,9 @@ named one commit.
 
 **Not staged.** Staging and the Hardware Issue are the Orchestrator's. Slot proposed:
 17-live.
+
+**2026-09-23, later: `live-0001` staged in `17-live` (§V22.11).** Its row was frozen
+at `c4b9ae23…5ee8d` before the export, and only that slot was exported. On the card,
+only `17-live/boot.dol` and `INDEX.txt` changed, and every file was verified with
+`O_DIRECT`. No `GBP-AUDIO-007*` file existed beforehand. The Orchestrator re-verifies
+from the medium before writing the Hardware Issue.

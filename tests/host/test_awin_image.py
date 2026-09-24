@@ -477,7 +477,9 @@ class ThePlumbing(unittest.TestCase):
         # (§V19.12, §V21.4) -- NEW numbers again, and 12..14 above still hold their pins
         self.assertEqual((rows["15"][1], rows["15"][2]), ("drain", "gbp-audio-drain-probe"))
         self.assertEqual((rows["16"][1], rows["16"][2]), ("aout", "audio-output-replay"))
-        self.assertNotIn("17", rows)
+        # Issue #92: Phase 6's acceptance image took the next one (§V22.11)
+        self.assertEqual((rows["17"][1], rows["17"][2]), ("live", "gbp-audio-live"))
+        self.assertNotIn("18", rows)
 
     def test_what_is_staged_is_the_image_this_checkpoint_built(self):
         """The slot's bytes, when it is staged in this checkout. The DOL's own
