@@ -15348,3 +15348,71 @@ broken by RUN 23), not GBA from GB/GBC at that read point, and not the named
 falsifier. CLAIM 2 stays CORROBORATED.
 
 No id minted, no status moved, no Phase 7 work, and #31 stays BACKLOG.
+
+## 2026-09-24 — Issue #95: Phase 6 promoted into `docs/protocol/AUDIO.md`
+
+**Goal.** The consolidated reference had no audio page. Write it from `EVIDENCE.md`
+before RUN 38, carrying each claim's status, so that its outcome cannot shape it.
+
+**What the page holds.**
+- The window and the rate.
+- What one block carries.
+- The decode and its amplitude law.
+- What draining the window costs.
+- This project's playback chain, marked as design.
+- The open questions, by id.
+
+Every row cites an id and carries the status the entry gives it, compound where the
+entry is compound. `EVIDENCE.md` is unchanged: promotion establishes nothing.
+
+**The Orchestrator's list, checked against the record (the record governs):**
+
+```text
+the rate 4096 blocks/s   listed FACT         record: CORROBORATED (GBP-HW-301, two windows of one run;
+                                             the repeat is U-GBP-037). GBP-HW-319's 4096 +/- 1 per s
+                                             is FACT for one drain measurement, not the rate claim
+one block = one sample   (no status)         FACT for the measurement, CORROBORATED for the reading (GBP-HW-298)
+the structure            listed FACT         FACT for the pulse, the cell, the shape and the edge coincidence;
+                                             CORROBORATED that slice order is time order (GBP-HW-315)
+the layout               CORROBORATED        agrees (GBP-HW-313)
+amplitude                FACT                agrees, since Issue #85 (GBP-HW-305)
+the drain                (no status)         FACT, one run (GBP-HW-319)
+an SD write              (no status)         FACT, one write, one card, one size (GBP-HW-320)
+short reads              (no status)         FACT for the gate at 32 B, mechanism UNKNOWN (GBP-HW-321)
+the start-up stalls      FACT / HYPOTHESIS   agrees (GBP-HW-317, U-GBP-044) -- and they are a property of
+                                             this project's service path, not of the device; the page says so
+the block size 0x1000    (not listed)        CORROBORATED from the references (GBP-AUD-001); a whole DMA
+                                             completing is FACT (GBP-HW-050), which does not prove the size
+```
+
+**Claims left out, because the record does not carry the status they would need:**
+- **A carriage latency, or its absence.** `GBP-HW-308` and `GBP-HW-311` carry no
+  status, so the page states only that the earlier delays are refuted as properties
+  of the path.
+- **"A block integrates over its interval."** This is a HYPOTHESIS inside
+  `GBP-HW-313`.
+- **The 32 768/s grid.** This is a HYPOTHESIS inside `GBP-HW-315`.
+
+**`docs/hardware/`: no new content, only corrections.** The identity
+4 096 × 4 096 = 2^24 B/s, one byte per AGB cycle, stays on the protocol page as
+arithmetic that inherits the rate's C. In `ARCHITECTURE.md` or `HSP.md` it would
+read as a transfer mechanism, and nobody has measured one.
+
+**Reconciliation sweep** (`tools/reconcile.py` over the 25 audio ids): five stale
+lines, all corrected as wording that cites the current entries and points to
+`AUDIO.md`, with their history kept:
+- `REGISTERS.md` §2, the AUDIO row and the layout bullet;
+- `INITIALIZATION.md`, Dolphin's timing model, whose AUDIO half is now C;
+- `ARCHITECTURE.md` §3, the audio plane;
+- `GBS-DOL.md`, the audio-capture row.
+
+The other pages that cite these ids (`VIDEO.md`, `HSP.md`, `INITIALIZATION.md`
+on GBP-HW-050/057) agree with the record.
+
+**Outside audio, seen and not fixed:**
+- The "VIDEO … layouts remain U" half of `REGISTERS.md`'s layout bullet predates
+  `VIDEO.md`.
+- `README.md`'s `INPUT.md` paragraph still reads the L/R order as CORROBORATED,
+  where `INPUT.md` says FACT since 2026-09-21.
+
+**Next.** RUN 38 (Hardware Issue #93). This page does not wait on it.
