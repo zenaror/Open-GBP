@@ -15723,3 +15723,43 @@ rises to 31.
 
 **Next highest-value experiment:** `U-GBP-045` — what the chain costs the
 drain.
+
+## 2026-09-24 — Issue #100: U-GBP-045 from the archive — one starvation, not two: both losses keep the AI chunk cycle
+
+**Question.** RUN 38's composed runtime lost ~25 AUDIO blocks per second and ~69
+video frames beyond start-up. Is that one starvation or two? The rules for
+answering it: no hardware, no repair, no pre-registration, and RUN 37 not
+admitted as evidence.
+
+**The archive answers the fork.** `tools/u045cadence.py` recomputes everything
+from the fixtures, and `tests/host/test_u045_cadence.py` proves the method on
+constructions first.
+- **Audio.** The L2 window's kept decoded stream is a 128 Hz square wave, so
+  every undrained block shortens its half-period and is located to about
+  3.9 ms. There are 296 losses in 196 episodes, and they are **phase-locked**:
+  - R = 0.94 at the AI chunk period of 31.222 ms (1 000 frames at M's rate);
+  - the periodogram peaks at 31.215 ms;
+  - episodes are 1–8 chunk periods apart;
+  - 62 % of chunk periods carry one.
+- **Video.** The contiguous tail of the printed EVENTS gives 31 incomplete
+  frames. **Every one is detected 1.5–11.7 ms after an AI DMA callback**, 23 of
+  them within 5 ms. R = 0.79, and none of 20 000 random frame sets matches it.
+- **Seconds.** The two losses do not co-vary per second (r = 0.03), which a
+  steady cadence would predict.
+
+`GBP-HW-327` records the statistics as FACT, and "one cadence, the AI chunk
+cycle, orders both" as CORROBORATED: two independent channels agree on it.
+
+**What the archive cannot do.**
+- **Coincidence of individual losses.** The kept stream has no absolute time,
+  and video events are quantised to their frame.
+- **Which step of the cycle is responsible.** The candidates are production in
+  the pump slot, the flush and queue, the DMA interrupt, and the per-block
+  decode narrowing the margin. The log times none of them.
+
+`U-GBP-045` is rescoped on top to those questions. The design sketch that would
+settle them is on #100: a read-only timestamp run of RUN 38's image. The
+pre-registration is the Orchestrator's.
+
+**Next highest-value experiment.** That timestamp run. It is observation first,
+with one variable: the records themselves.
