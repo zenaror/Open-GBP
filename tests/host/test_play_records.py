@@ -249,9 +249,10 @@ class NothingFrozenMoved(unittest.TestCase):
         # Issue #79 (2026-09-23) reserved RUN 35 to ride along. And again.
         # The Operator (2026-09-23) numbered Hardware Issue #89's sitting: RUN 36 (§V21.8) and RUN 37
         # (§V19.13), reserved before either ran. And again.
-        self.assertNotIn("RUN 38", hw)
+        # Issue #98: read via guards.at_close(), where it was last maintained and true; never moved again
+        self.assertNotIn("RUN 38", guards.at_close("docs/research/HARDWARE_TESTS.md"))
         # 318: #90, RUN 36's ingestion; 319…321: #91, RUN 37's (physical runs, not builds) -- the sentinel moves to the next free id
-        self.assertNotIn("GBP-HW-322", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration (317: #84, an archive property)
+        self.assertNotIn("GBP-HW-322", guards.at_close("docs/research/EVIDENCE.md"))    # no evidence id minted by a build or a pre-registration (317: #84, an archive property)
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test
         self.assertNotIn("GBP-PLAY-001", read(EVIDENCE))

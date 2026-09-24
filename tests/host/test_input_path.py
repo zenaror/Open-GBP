@@ -20,6 +20,7 @@ module §7 named.
 import os
 import re
 import unittest
+import guards
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DOC = os.path.join(ROOT, "docs", "research", "INPUT_PATH.md")
@@ -116,7 +117,7 @@ class TheStaticAttemptIsStatedOnceAndStaysOpen(unittest.TestCase):
         # nothing beyond them
         self.assertEqual(re.findall(r"^## GBP-KEY-00[8-9]", ev, re.M), ["## GBP-KEY-008", "## GBP-KEY-009"])
         self.assertEqual(re.findall(r"^## GBP-KEY-01\d", ev, re.M), ["## GBP-KEY-010"])
-        hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev, re.M))
+        hw = max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", guards.at_close("docs/research/EVIDENCE.md"), re.M))
         self.assertEqual(hw, 321)   # GBP-HW-261…265: RUN 14 / RUN 15 (Issue #24); 266…271: RUN 16 / 17 / 18 (Issue #33)   # 272: Issue #46 (the CONTROL bit 0x02 split, FACT for the split / HYPOTHESIS for the cause); 273…277: Issue #47 (RUN 23 / RUN 24, §V7.7); 278…284: Issue #52 (RUN 21 / 22 / 25 / 26, §V7.8)   # 285…294: Issue #62 (RUN 30 ingested, §V8.13)   # 295…300: Issue #67 (RUN 31 ingested, §V9.15); 301…302: #67's validation (the rate/layout split, U-GBP-039's probe); 303…307: #72, RUN 32; 308…311: #78, RUN 33 and RUN 34; 312: #79, duty()'s mechanism; 313: #80, the H-PWM decode; 314…316: #82, the block structure and the drain (§V18); 317: #84, the start-up stall invariance (§V19.11)   # 318: Issue #90 (RUN 36 ingested, the output path heard: §V21.9)   # 319…321: Issue #91 (RUN 37 ingested: D1, D2, QUESTION A; §V19.14)
         self.assertNotRegex(read(DOC), r"GBP-HW-26[1-9]|GBP-HW-2[7-9]\d|GBP-HW-[3-9]\d\d")   # INPUT_PATH.md is the pre-run document
         # Issue #46 (2026-09-22) minted GBP-HW-272 and HANDOFF's trail names it; the sentinel moves to the next
@@ -125,7 +126,9 @@ class TheStaticAttemptIsStatedOnceAndStaysOpen(unittest.TestCase):
         # Issue #52 (2026-09-22) ingested RUN 21 / 22 / 25 / 26 and minted GBP-HW-278…284; the HANDOFF's
         # trail names them, which is what a trail is for. The sentinel moves to the next free id.
             # Issue #62 minted GBP-HW-285…294 when RUN 30 was ingested; the sentinel moves past them
-            self.assertNotRegex(read(p), r"GBP-HW-31[7-9]|GBP-HW-3[2-9]\d|GBP-HW-[4-9]\d\d")
+            # Issue #98: read via guards.at_close(), where it was last maintained and true; never moved again
+            # the forward half -- no record cites an id nobody has written -- is test_record_ids.py, computed
+            self.assertNotRegex(guards.at_close(os.path.relpath(p, ROOT)), r"GBP-HW-31[7-9]|GBP-HW-3[2-9]\d|GBP-HW-[4-9]\d\d")
         self.assertIn("— FACT (static)", ev.split("## GBP-KEY-002")[1].split("\n")[0])
         self.assertIn("CORROBORATED for the encoding the references target; the physical routing NOT established",
                       ev.split("## GBP-KEY-004")[1].split("\n")[0])

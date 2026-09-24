@@ -582,7 +582,8 @@ class NothingFrozenMoved(unittest.TestCase):
         # Issue #46 (2026-09-22) minted GBP-HW-272 (the CONTROL bit 0x02 split, from the archive); #41 minted none,
         # so the sentinel moves to the next free id and this guard goes on testing what it was written to test
         # 318: #90, RUN 36 ingested (the output path, heard); 319…321: #91, RUN 37; the sentinel moves again
-        self.assertNotIn("GBP-HW-322", ev)   # 317: #84, the start-up stall invariance (an archive property)
+        # Issue #98: read via guards.at_close(), where it was last maintained and true; never moved again
+        self.assertNotIn("GBP-HW-322", guards.at_close("docs/research/EVIDENCE.md"))   # 317: #84, the start-up stall invariance (an archive property)
         self.assertNotIn("GBP-PLAY-001", ev)
         h = plain(read(HANDOFF))
         for tok in ("ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004", "issue 41",
