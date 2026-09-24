@@ -75,6 +75,9 @@ BASES = {
     # Issue #101: §V23.10's comparison of `neither` with what the step floor did not keep, frozen before any run
     "Issue #101 -- §V23.10, the floor's comparison frozen":
         "b7bd8fe32e2af5843bae43fbd16ef3dce08357a6",
+    # Issue #105: Run B (§V24), transcribed and QUESTION S frozen before the image exists
+    "Issue #105 -- §V24 transcribed, Run B's QUESTION S frozen":
+        "146e3d35e3fe355cb23dd6b69fa215c583b39645",
 }
 
 
