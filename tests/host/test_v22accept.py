@@ -19,7 +19,8 @@ import tempfile
 import unittest
 import zlib
 
-import hostcc  # noqa: E402  (tests/host is on the path)
+import frozen  # noqa: E402  (tests/host is on the path)
+import hostcc  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
@@ -417,6 +418,30 @@ class TheModuleAuthorisesNothing(unittest.TestCase):
         for forbidden in ("captures/", "logs/", "subprocess", '"w"', "'w'", '"wb"'):
             self.assertNotIn(forbidden, src, forbidden)
         self.assertEqual(src.count("open("), 2, "main() opens the report and the sidecar it is given, nothing else")
+
+
+class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
+    """The base is pinned by HASH (tests/host/frozen.py). A gate edited after the data
+    exists is not a pre-registration, and neither is a gate edited after the POC does."""
+
+    def test_the_gates_are_the_bytes_of_the_commit_that_froze_them(self):
+        then = frozen.source("Issue #92 -- §V22 transcribed", "tools/v22accept.py")
+        self.assertEqual(then, read(os.path.join(ROOT, "tools", "v22accept.py")),
+                         "tools/v22accept.py was edited after it was frozen")
+
+    def test_the_part_was_frozen_in_the_same_commit_and_only_grows(self):
+        """Byte-identical as the START of the part; dated amendments may be APPENDED (the
+        amend-on-top convention of Issue #49, as §V19's freeze permits since AMENDMENT 3)."""
+        then = frozen.source("Issue #92 -- §V22 transcribed", "docs/research/HARDWARE_TESTS.md")
+        i = then.index("\n## V22 ")
+        frozen_part = then[i:].rstrip("\n")
+        now = part()
+        self.assertTrue(now.startswith(frozen_part), "§V22's FROZEN bytes were edited -- appending is allowed")
+        rest = now[len(frozen_part):].strip()
+        if rest:
+            self.assertRegex(rest, r"^### V22\.\d+ \*\*AMENDMENT", "anything appended must be a numbered amendment")
+        else:
+            self.assertEqual(rest, "")
 
 
 class ThePartIsWhatItSays(unittest.TestCase):

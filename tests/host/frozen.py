@@ -55,6 +55,9 @@ BASES = {
     # Issue #86: AOUT-HW-001's scope and gate, frozen before the run
     "Issue #86 -- §V21 pre-registers AOUT-HW-001":
         "2f140289aa1ffd421102c0cc8e27d74180cb9771",
+    # Issue #92: Phase 6's acceptance (§V22) and its gates, frozen before the POC exists
+    "Issue #92 -- §V22 transcribed":
+        "94b478d579bc579ae7ba54e8f3ff5e81e0d3ca15",
 }
 
 
