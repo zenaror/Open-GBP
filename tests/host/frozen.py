@@ -85,6 +85,9 @@ BASES = {
     # image exists
     "Issue #110 -- §V25 transcribed, Phase 6's real-cartridge gates frozen":
         "54383e60b9efafda98175fb098e10ce658319941",
+    # Issue #110: the real-cartridge image's log -> report builder, frozen with the image, before any run
+    "Issue #110 -- game-0001 and its report builder":
+        "61291048757cbdf1bf0c2fbad9bdb57adbd4785d",
 }
 
 
