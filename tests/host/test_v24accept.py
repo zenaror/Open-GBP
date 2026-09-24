@@ -228,5 +228,54 @@ class TheModuleAuthorisesNothing(unittest.TestCase):
         self.assertIn("base = v23accept.evaluate(report, k_trials)", src)
 
 
+class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
+    """The amend-on-top convention: the tool never changes; the part's frozen start never changes; numbered
+    sections may be APPENDED -- a dated AMENDMENT before any hardware, or the record of the image built."""
+    KEY = "Issue #105 -- §V24 transcribed, Run B's QUESTION S frozen"
+
+    def part(self):
+        with open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
+            t = f.read()
+        i = t.index("\n## V24 ")
+        j = t.find("\n## V25 ", i)
+        return t[i:j] if j >= 0 else t[i:]
+
+    def test_the_gates_are_the_bytes_of_the_commit_that_froze_them(self):
+        import frozen
+        with open(os.path.join(ROOT, "tools", "v24accept.py"), encoding="utf-8") as f:
+            now = f.read()
+        self.assertEqual(frozen.source(self.KEY, "tools/v24accept.py"), now,
+                         "tools/v24accept.py was edited after it was frozen")
+
+    def test_the_part_was_frozen_in_the_same_commit_and_only_grows(self):
+        import frozen
+        import re
+        then = frozen.source(self.KEY, "docs/research/HARDWARE_TESTS.md")
+        frozen_part = then[then.index("\n## V24 "):].rstrip("\n")
+        now = self.part().rstrip("\n")
+        self.assertTrue(now.startswith(frozen_part), "§V24's FROZEN bytes were edited -- appending is allowed")
+        rest = now[len(frozen_part):].strip()
+        if rest:
+            self.assertRegex(rest, r"^### V24\.\d+ ", "anything appended must be a numbered section")
+            for h in re.findall(r"^### V24\.(\d+) ", rest, re.M):
+                self.assertGreater(int(h), 7, "an appended section reuses a frozen number")
+
+    def test_the_transcription_is_the_comment_byte_for_byte(self):
+        """The source, as the frozen text records its hash: the body re-levelled is the part's body."""
+        p = self.part()
+        for tok in ("c965ef8009218500b6f95151d2a7d615307bcb0154f7f5df39470f68969a5e08",
+                    "d97a3ce1f48f0a77c38b775a3ee42193341a226dbdb601e0d189728b667c2427",
+                    "d37d98729b9aa09865dc7ce2cf9c893b05862fc6d4ea9c9a6139bf99b0a57380",
+                    "issuecomment-5817266651", "issuecomment-5817343526", "issuecomment-5817351397",
+                    "CONFIRMED all eight before this commit", "NOT RUN, NOT AUTHORISED HERE"):
+            self.assertIn(tok, p, tok)
+        flat = " ".join(p.split())
+        for tok in ("The signature of CAUSE is FEWER losses, not SHORTER loss gaps",
+                    "A LOW HALF ARM IS THE FINDING, NEVER A FAILURE",
+                    "the cause/accommodation distinction is made by the ARM CONTRAST, not per gap",
+                    "INCONCLUSIVE, never a FAIL", "roughly a 20 % chance of UNRESOLVED"):
+            self.assertIn(" ".join(tok.split()), flat.replace("**", ""), tok)
+
+
 if __name__ == "__main__":
     unittest.main()
