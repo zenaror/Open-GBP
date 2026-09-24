@@ -347,5 +347,65 @@ class TheModuleAuthorisesNothing(unittest.TestCase):
         self.assertNotIn("def question_C", src)
 
 
+class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
+    """The amend-on-top convention: the tool never changes; the part's frozen start never changes; numbered
+    sections may be APPENDED -- a dated AMENDMENT before any hardware, or the record of the image built."""
+    KEY = "Issue #110 -- §V25 transcribed, Phase 6's real-cartridge gates frozen"
+
+    def part(self):
+        with open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
+            t = f.read()
+        i = t.index("\n## V25 ")
+        j = t.find("\n## V26 ", i)
+        return t[i:j] if j >= 0 else t[i:]
+
+    def test_the_gates_are_the_bytes_of_the_commit_that_froze_them(self):
+        import frozen
+        with open(os.path.join(ROOT, "tools", "v25accept.py"), encoding="utf-8") as f:
+            now = f.read()
+        self.assertEqual(frozen.source(self.KEY, "tools/v25accept.py"), now,
+                         "tools/v25accept.py was edited after it was frozen")
+
+    def test_the_part_was_frozen_in_the_same_commit_and_only_grows(self):
+        import frozen
+        import re
+        then = frozen.source(self.KEY, "docs/research/HARDWARE_TESTS.md")
+        frozen_part = then[then.index("\n## V25 "):].rstrip("\n")
+        now = self.part().rstrip("\n")
+        self.assertTrue(now.startswith(frozen_part), "§V25's FROZEN bytes were edited -- appending is allowed")
+        rest = now[len(frozen_part):].strip()
+        if rest:
+            self.assertRegex(rest, r"^### V25\.\d+ ", "anything appended must be a numbered section")
+            for h in re.findall(r"^### V25\.(\d+) ", rest, re.M):
+                self.assertGreater(int(h), 8, "an appended section reuses a frozen number")
+
+    def test_the_transcription_carries_its_sources_in_both_forms(self):
+        p = self.part()
+        for tok in ("00bb6df733d8944e47976021cc96d9cf43a57e1a48f95f050738be6a0c53ff38",
+                    "783fe5c792058e5aca47c74524b6bd64e011510a0fb193fbf892399148e7ec69",
+                    "4ea01d6999b91548a30e3397d2eb2159872f0f5bc1536a5104c5e4efe9a1d428",
+                    "38a650c4b1d0ebabd067e6b1741e47827015519da9a38cbdd4331a74ef156b27",
+                    "a891552be59692162c2c69bc3838e38688079277dd3eb1145cb6b920d8b9eb58",
+                    "1af4eb12b17a9a56f8f08dd43a129a8dd78923b1bdd8e50984333e9f9876b877",
+                    "c472d3c3b6deb8da91fe572c9f36e0a21a53fe05edf502b73629eb45c6e6a49e",
+                    "8a200e62d6b053d52ab6ae8b05b50e2a58bbd2dce42a63392bb471b502eaf25c",
+                    "issuecomment-5819226612", "issuecomment-5819294644", "issuecomment-5819315360",
+                    "NOT RUN, NOT AUTHORISED HERE", "**appends one `\\n`**"):
+            self.assertIn(tok, p, tok)
+
+    def test_the_transcription_keeps_the_decisions_in_their_own_words(self):
+        import re
+        flat = " ".join(re.sub(r"^> ?", "", self.part().replace("**", ""), flags=re.M).split())
+        for tok in ("My \"8.1 blocks/s\" was 8.11 GAPS/s — a unit error.",
+                    "The chain cannot cost more because the samples are music.",
+                    "A gain choice must not be scored as instability.",
+                    "reading (a): `GAIN` is NOT `PASS`. Phase 6 stays open.",
+                    "E outside the AI span = 0",
+                    "nossa DOL nunca tocou som.. entao por onde ouvi foi no console GBA... no startup disc... "
+                    "no GBI..... qualquer lugar",
+                    "just ABOVE the frozen literal 0.694"):
+            self.assertIn(" ".join(tok.split()), flat, tok)
+
+
 if __name__ == "__main__":
     unittest.main()

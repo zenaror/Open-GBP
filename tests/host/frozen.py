@@ -81,6 +81,10 @@ BASES = {
     # Issue #105: Run B's log + trace -> report builder, frozen with the image, before any run
     "Issue #105 -- split-0001 and its report builder":
         "d6dc4f813378e6a5092d573db7c349880a79d5b0",
+    # Issue #110: Phase 6's acceptance on a real cartridge (§V25), transcribed and its gates frozen before the
+    # image exists
+    "Issue #110 -- §V25 transcribed, Phase 6's real-cartridge gates frozen":
+        "54383e60b9efafda98175fb098e10ce658319941",
 }
 
 
