@@ -55,9 +55,14 @@ BASES = {
     # Issue #86: AOUT-HW-001's scope and gate, frozen before the run
     "Issue #86 -- §V21 pre-registers AOUT-HW-001":
         "2f140289aa1ffd421102c0cc8e27d74180cb9771",
-    # Issue #92: Phase 6's acceptance (§V22) and its gates, frozen before the POC exists
-    "Issue #92 -- §V22 transcribed":
+    # Issue #92: Phase 6's acceptance (§V22), transcribed and frozen before the POC exists. The key is the
+    # commit's own subject: a shorter phrase also matched the pin commit's body, which base() caught
+    "Issue #92 -- §V22 transcribed, Phase 6's acceptance gates frozen":
         "94b478d579bc579ae7ba54e8f3ff5e81e0d3ca15",
+    # Issue #92: §V22.9 AMENDMENT 1 changed L2's absent arm and added the silence fraction; the gates'
+    # bytes are pinned HERE from now on (the text's frozen start stays the one above)
+    "Issue #92 -- §V22 AMENDMENT 1 applied":
+        "dfb0a965ec73120c55f75b2a0146e5d10a1d45c6",
 }
 
 
