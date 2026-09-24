@@ -111,6 +111,13 @@ struct gbp_aplay {
     uint32_t cur_frames, cur_pushes;
     uint32_t cur_corr;                         /* 0, DUP or DROP for this chunk */
     uint8_t  cur_corr_done;
+    uint32_t cur_step;                         /* this chunk's pushes per call, chosen at its start */
+    /* Issue #105 (Run B, HARDWARE_TESTS §V24): each chunk's step size, asked once at the chunk's
+     * start with its production sequence number. NULL in every earlier build: every chunk takes
+     * GBP_APLAY_STEP_PUSHES, as before. Only the partition of the pushes into calls changes: the
+     * same samples, the same arithmetic, the same DUP/DROP decision (taken at the chunk's start). */
+    uint32_t (*step_pushes)(void *user, uint32_t seq);
+    void    *step_pushes_user;
     /* READY queue, producer -> callback */
     volatile uint8_t  rq[GBP_APLAY_POOL];
     volatile uint32_t rq_head, rq_tail;        /* head: the callback's, tail: the producer's */
@@ -135,7 +142,8 @@ struct gbp_aplay {
 void gbp_aplay_init(struct gbp_aplay *p, uint8_t *pool, const uint8_t *silence, int16_t *keep,
                     struct gbp_aplay_event *events);
 
-/* Producer side (the pump slot). One bounded step: at most GBP_APLAY_STEP_PUSHES pushes.
+/* Producer side (the pump slot). One bounded step: at most the chunk's step size in pushes
+ * (GBP_APLAY_STEP_PUSHES unless p->step_pushes says otherwise).
  * Returns the index of a chunk it has just COMPLETED (flush it, then gbp_aplay_queue it),
  * or -1. It does nothing while the ring holds too few samples to finish a chunk. */
 int  gbp_aplay_produce(struct gbp_aplay *p, struct gbp_adec *d);

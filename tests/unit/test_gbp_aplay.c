@@ -177,6 +177,75 @@ static void test_l2_keeps_what_its_window_consumed(void)
     (void)handed;
 }
 
+/* Issue #105 (Run B, §V24): the step size is the ONLY thing the hook changes. Two producers are fed the
+ * same decoded stream, with DUPs and DROPs; one takes the default (16 pushes a call), one takes 8 for
+ * every odd chunk. Every chunk must come out byte for byte the same, with the same corrections, and the
+ * half-step chunks must take exactly twice as many working calls. */
+static uint8_t pool_b[GBP_APLAY_POOL * GBP_APLAY_CHUNK_BYTES];
+static int16_t keep_b[GBP_APLAY_KEEP_CAP];
+static struct gbp_aplay_event events_b[GBP_APLAY_EVENTS_CAP];
+static int16_t ring_b[GBP_APLAY_RING];
+
+static uint32_t half_on_odd(void *user, uint32_t seq)
+{
+    (void)user;
+    return (seq & 1u) ? 8u : 16u;
+}
+
+static void give_wave(struct gbp_adec *d, uint32_t n, uint32_t *phase)
+{
+    uint32_t k;
+    for (k = 0; k < n && d->count < d->cap; k++, (*phase)++) {
+        d->ring[(d->head + d->count) % d->cap] = (int16_t)((int32_t)((*phase * 2654435761u) >> 20) - 2048);
+        d->count++;
+    }
+}
+
+static void test_half_steps_change_nothing_but_the_partition(void)
+{
+    static struct gbp_aplay a, b;
+    struct gbp_adec da, db;
+    uint32_t pa = 0u, pb = 0u, chunk, calls_a, calls_b, total_a = 0u, total_b = 0u, same = 1u;
+    /* fills that walk under, inside and over the band, so DUP, nothing and DROP all occur */
+    static const uint32_t fill[] = { GBP_APLAY_TARGET - 40u, GBP_APLAY_TARGET, GBP_APLAY_TARGET + 40u,
+                                     GBP_APLAY_TARGET - 30u, GBP_APLAY_TARGET + 30u, GBP_APLAY_TARGET };
+    printf("-- Issue #105: half steps change the partition of the pushes and nothing else\n");
+    gbp_adec_init(&da, ring, GBP_APLAY_RING);
+    gbp_adec_init(&db, ring_b, GBP_APLAY_RING);
+    gbp_aplay_init(&a, pool, silence, keep, events);
+    gbp_aplay_init(&b, pool_b, silence, keep_b, events_b);
+    eqi(a.step_pushes == 0, 1, "the hook is NULL after init: every earlier build takes the default");
+    b.step_pushes = half_on_odd;
+    for (chunk = 0; chunk < 12u; chunk++) {
+        int ra = -1, rb = -1;
+        const uint32_t want = fill[chunk % 6u];
+        if (da.count < want) give_wave(&da, want - da.count, &pa);
+        if (db.count < want) give_wave(&db, want - db.count, &pb);
+        calls_a = calls_b = 0u;
+        while (ra < 0) { ra = gbp_aplay_produce(&a, &da); calls_a++; }
+        while (rb < 0) { rb = gbp_aplay_produce(&b, &db); calls_b++; }
+        total_a += calls_a;
+        total_b += calls_b;
+        if (memcmp(pool + (size_t)ra * GBP_APLAY_CHUNK_BYTES, pool_b + (size_t)rb * GBP_APLAY_CHUNK_BYTES,
+                   GBP_APLAY_CHUNK_BYTES) != 0)
+            same = 0u;
+        eqi(calls_b, (chunk & 1u) ? 2u * calls_a : calls_a, "a half-step chunk takes exactly twice the calls");
+        eqi(b.cur_step, (chunk & 1u) ? 8u : 16u, "the chunk's step size is the one the hook gave");
+        gbp_aplay_queue(&a, ra);
+        gbp_aplay_queue(&b, rb);
+        (void)gbp_aplay_irq_handoff(&a, 0u);
+        (void)gbp_aplay_irq_handoff(&b, 0u);
+        gbp_aplay_process(&a);
+        gbp_aplay_process(&b);
+    }
+    eqi(same, 1u, "every chunk is byte for byte the same");
+    eqi(a.dup, b.dup, "the same DUPs");
+    eqi(a.drop, b.drop, "the same DROPs");
+    eqi(a.dup > 0u && a.drop > 0u, 1, "and both corrections occurred");
+    eqi(a.produced, b.produced, "the same chunks");
+    eqi(total_b, total_a + total_a / 2u, "six of twelve chunks at half steps: 1.5 x the calls");
+}
+
 int main(void)
 {
     test_crc_is_zlibs();
@@ -185,6 +254,7 @@ int main(void)
     test_handoff_underrun_and_freeing();
     test_measuring();
     test_l2_keeps_what_its_window_consumed();
+    test_half_steps_change_nothing_but_the_partition();
     printf("test_gbp_aplay: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
