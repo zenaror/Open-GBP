@@ -23,6 +23,15 @@
  *              window, §V22.1) for GBP_ALIVE_WINDOW_S, in 40.5 MHz ticks.
  *   DONE / GAVE_UP
  *
+ * THE PRESS ORIGIN (GitHub Issue #110, §V25.7 2(a), reading (r1)). A game emits no
+ * programmed period, so a control can never pass on one. After
+ * gbp_alive_use_press_origin() the first A press moves PROMPT to DELAY instead of
+ * CONTROL, and the ORIGIN is the completion tick of the first block at or after the
+ * press + the delay; that block is the window's first. No control window runs. An A
+ * during the calibration span still counts: the delay starts at the press, and the
+ * origin is the first block after the span that is also past it. Without the call
+ * nothing changes: CONTROL is the path, as every earlier build took it.
+ *
  * L (§V22.1, §V22.8 (c) and (e)). The period of the decoder's OWN output, read
  * as each sample leaves the decoder -- BEFORE any clock correction -- over C's
  * window. A rising edge is prev <= 0 < cur: the decoder subtracts the calibrated
@@ -68,7 +77,8 @@ enum gbp_alive_phase {
     GBP_ALIVE_CONTROL,
     GBP_ALIVE_WINDOW,
     GBP_ALIVE_DONE,
-    GBP_ALIVE_GAVE_UP
+    GBP_ALIVE_GAVE_UP,
+    GBP_ALIVE_DELAY            /* Issue #110: the press origin's wait; LAST, so no value above moves */
 };
 
 struct gbp_alive_period {
@@ -104,9 +114,18 @@ struct gbp_alive {
     uint32_t presses_after;                   /* after it (the X that saves the log) */
     uint64_t t_first_a;
     uint8_t  press_before_prompt;             /* the A came during the calibration span: reported */
+    /* Issue #110: the press origin, off unless gbp_alive_use_press_origin() was called */
+    uint8_t  press_origin;
+    uint32_t origin_delay_ms;
+    uint64_t t_delay_end;                     /* t_press + the delay */
 };
 
 void gbp_alive_init(struct gbp_alive *a, uint32_t tb_hz);
+
+/* Issue #110: after init, before the first block. The first A press then starts a
+ * delay of `delay_ms` instead of the positive control, and C's window opens on the
+ * first block at or after its end. */
+void gbp_alive_use_press_origin(struct gbp_alive *a, uint32_t delay_ms);
 
 /* The service's capture start, as the tap first sees it. Fixes the calibration
  * span and the accept instant. */

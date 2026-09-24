@@ -43,6 +43,24 @@ void gbp_alive_init(struct gbp_alive *a, uint32_t tb_hz)
     gbp_alive_period_reset(&a->l, GBP_ALIVE_PERIOD);
 }
 
+void gbp_alive_use_press_origin(struct gbp_alive *a, uint32_t delay_ms)
+{
+    if (!a || a->t0) return;                                      /* before the first block, or not at all */
+    a->press_origin = 1u;
+    a->origin_delay_ms = delay_ms;
+}
+
+/* The first A has come: the control, or (Issue #110) the delay that replaces it. */
+static void after_the_press(struct gbp_alive *a)
+{
+    if (a->press_origin) {
+        a->t_delay_end = a->t_press + (uint64_t)a->origin_delay_ms * a->tb_hz / 1000u;
+        a->phase = GBP_ALIVE_DELAY;
+    } else {
+        a->phase = GBP_ALIVE_CONTROL;
+    }
+}
+
 void gbp_alive_start(struct gbp_alive *a, uint64_t t0)
 {
     if (!a || a->t0) return;
@@ -62,14 +80,25 @@ int gbp_alive_block(struct gbp_alive *a, uint64_t t_done, uint32_t ring_fill)
         if (a->calib_blocks >= GBP_ALIVE_CALIB_BLOCKS) {
             /* an A that came before the prompt still starts the tone: go straight to the
              * control, and say so -- the span may have seen the tone begin */
-            a->phase = a->presses_a ? GBP_ALIVE_CONTROL : GBP_ALIVE_PROMPT;
-            if (a->presses_a) a->press_before_prompt = 1u;
+            if (a->presses_a) {
+                after_the_press(a);
+                a->press_before_prompt = 1u;
+            } else {
+                a->phase = GBP_ALIVE_PROMPT;
+            }
         }
         return GBP_ALIVE_DO_CALIBRATE;
     case GBP_ALIVE_PROMPT:
         return GBP_ALIVE_DO_NOTHING;
     case GBP_ALIVE_CONTROL:
         return GBP_ALIVE_DO_CONTROL;
+    case GBP_ALIVE_DELAY:
+        /* Issue #110: the ORIGIN is this block's own tick, and the block is the window's first */
+        if (t_done < a->t_delay_end) return GBP_ALIVE_DO_NOTHING;
+        a->t_origin = t_done;
+        a->t_end = t_done + (uint64_t)GBP_ALIVE_WINDOW_S * a->tb_hz;
+        a->phase = GBP_ALIVE_WINDOW;
+        /* fall through */
     case GBP_ALIVE_WINDOW: {
         uint64_t s;
         if (t_done < a->t_origin) return GBP_ALIVE_DO_NOTHING;   /* cannot happen: the origin is a block's own tick */
@@ -159,7 +188,7 @@ void gbp_alive_buttons(struct gbp_alive *a, uint64_t t, uint16_t buttons)
         }
     }
     if (a->phase == GBP_ALIVE_PROMPT && a->presses_a == 1u && a->t_first_a == t)
-        a->phase = GBP_ALIVE_CONTROL;
+        after_the_press(a);
 }
 
 int gbp_alive_finished(const struct gbp_alive *a)
@@ -176,6 +205,7 @@ const char *gbp_alive_phase_name(enum gbp_alive_phase p)
     case GBP_ALIVE_WINDOW: return "window";
     case GBP_ALIVE_DONE: return "done";
     case GBP_ALIVE_GAVE_UP: return "gave_up";
+    case GBP_ALIVE_DELAY: return "delay";
     default: return "?";
     }
 }
