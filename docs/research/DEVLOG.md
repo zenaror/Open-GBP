@@ -16084,3 +16084,72 @@ and twice the calls. The #105 test now pins its 16-push producer explicitly.
 
 **Not a fix.** The residue stands (`U-GBP-045`). No image is built: the next hardware run is
 Phase 6's acceptance on a real cartridge, and its criterion is the Orchestrator's.
+
+## 2026-09-24 — Issue #110: §V25 pre-registered — Phase 6's acceptance on a real cartridge, and `game-0001` built (NOT staged, NOT run)
+
+**The goal.** `ROADMAP.md:661` asks that a real cartridge produce stable audio without
+breaking video or input. The Operator chose Yoshi's Island — Super Mario Advance 3, the
+cartridge of all four `play-0001` sessions.
+
+**What the premises check found before anything was transcribed.** Three findings would each
+have wasted the run, and the Orchestrator took all seven points (`issuecomment-5819226612`):
+- **R could not be measured as written.** The only loss detector in the tree locates losses
+  as shortened half-periods of sweep-0002's 128 Hz tone, and a game has none. It is restated
+  in blocks lost per second, by count (`v22report`'s `not_drained`). On RUN 40 that count
+  agrees with the tone detector: 1 217 against Σk 1 215. The prior is the half arm's
+  **8.39 blocks/s**. The Issue's "8.1 blocks/s" was 8.11 GAPS/s. WORSE's reading ("a game's
+  audio load") is impossible by construction and is struck.
+- **The image lineage stood on the tone in three places:**
+  - the positive control, which would never have opened the window;
+  - a calibration span that assumed silence;
+  - a VI kept on the text console, so he could neither see nor play the game.
+
+  Each is replaced (§V25.7 2).
+- **Two confounds in `QUESTION A`:**
+  - fidelity is not stability: at 4 096 samples/s nothing above ~2 kHz passes. A is split
+    into stability (the gate) and fidelity (his words), and he is told in advance;
+  - a gain that clips silently at ±0.15625 of the block. The gain is kept, and a counter is
+    added. Distortion with clips is GAIN: not a FAIL, and not a PASS.
+- **V's clause.** The whole-run figure was ambiguous, duration-dependent and dominated by the
+  retired arm. It becomes E over the start-up signature of 13: E_outside = 0, and E_inside
+  ≤ 0.694 per AI second.
+- **One premise of the Orchestrator's was false.** He had not heard the game through the GBP:
+  `play-0001` drained AUDIO and never played it. His reference is the GBA, the Start-up Disc
+  and GBI (OPERATOR OBSERVATION).
+
+**Readings.** Twelve readings (r1)–(r12) were posted and confirmed on #110 before anything
+froze. The Orchestrator's reading (a) settles GAIN: not PASS, so Phase 6 stays open.
+
+**Changes.**
+- `54383e6`: §V25 transcribed, with the decisions and the confirmed readings verbatim. All
+  four sources are hashed in both forms, the raw body and gh's printed body with one appended
+  newline. `tools/v25accept.py` freezes the gates on synthetic vectors, and
+  `tests/host/test_v25_prior.py` recomputes the RUN 40 figures. Pinned at `2c0f40f`.
+- `fd93eb7`: `gbp_adec` counts clips and records the calibration span's spread. Its output is
+  byte-identical over the whole one-bit range under four calibrations.
+- `2f67638`: `gbp_alive`'s press origin, the A press + 1.000 s with no positive control.
+  Without the call nothing changes.
+- `6129104`: `poc/gbp-audio-game`, game-0001 (GBP-AUDIO-010), with:
+  - `tools/v25report.py`;
+  - the `game` audit profile;
+  - `game-audit` and `game-dolphin`.
+
+  Pinned at `311e325`.
+
+**Tests executed.**
+- `make test-python` before the freeze, the gates' pin and the image commits: 2 744, 2 748
+  and 2 767 passed, 7 skipped each. Before the builder's pin, the 86 files that read the pins:
+  2 003 passed, 5 skipped.
+- `make -C tests/unit`: rc 0, `test_gbp_adec` 55 checks and `test_gbp_alive` 69 checks.
+- `game-audit`: 0 findings, and both one-shot handlers are identical to GBP-VIDEO-001's.
+- `game-dolphin`: PASS.
+- The candidate, rebuilt from an empty output directory, is byte-identical:
+  **2e73a39d…6725, 518 944 B, commit 6129104**.
+
+**Result.** `game-0001` is built and host-validated. Slot `20-game` is frozen before any export.
+Nothing is staged and nothing is run. EVIDENCE gets nothing until the run. The `U-GBP-012` lead
+(GBI may render the game at full bandwidth on this device) is recorded at HYPOTHESIS, outside
+§V25.
+
+**Next.** The Hardware Issue and the staging are the Orchestrator's. §V25.9 carries the
+Operator's procedure in pt-BR, with the Game Pak swap done console OFF and the save warning.

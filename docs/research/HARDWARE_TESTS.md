@@ -35445,3 +35445,143 @@ the readings do not:
   "inclusive" means inclusive.
 - **The tests.** `tests/host/test_v25accept.py`, in the same commit as this text,
   exercises all of it on synthetic vectors only.
+
+### V25.9 The image, BUILT — `game-0001` (GBP-AUDIO-010) — NOT staged, NOT run; and the Operator's procedure for the Hardware Issue
+
+*Appended. §V25.0–§V25.8 stand. This records what the image is, and what the Operator must
+do about the cartridge (the Issue's third deliverable). The gates and their readings do not
+move.*
+
+```text
+image      poc/gbp-audio-game / game-0001 / commit 6129104 (clean) / TEST_ID GBP-AUDIO-010
+DOL        518 944 B   sha256 2e73a39d931ee161df1144b4bfb01b358e21acb3ea5ceb3ede9a366378b76725
+           reproduced from an empty output directory with the identity 6129104, byte-identical
+           (the ELF too); between 6129104 and the pin commit 311e325 only two host-test files differ
+base       live-0001 (poc/gbp-audio-live at feaf380, RUN 38's image). By diff, only its identity and a
+           closed list of fifteen named lines change; every added hunk is marked GAME
+           (tests/host/test_game_image.py)
+runtime    gbp_alive's press origin (2f67638); gbp_adec's clip counter and calibration spread, output
+           byte-identical over the whole one-bit range (fd93eb7); gbp_aplay's 8-push default (#109)
+audit      profile game (tools/poc_audit.py, derived from live): 0 findings; both one-shot handlers
+           identical to the physically validated GBP-VIDEO-001 build. `game` fails live-0001 with five
+           findings; `live` passes game-0001, every change being additive to its pins
+Dolphin    make game-dolphin: the HSP device absent -> stage A refuses, as live-dolphin's; the run never
+           leaves calibration (no press, no picture, no AI), PASS. arena1_free 5 148 672 B
+slot       20-game, frozen in tools/swiss-layout.tsv at this hash by the next commit, before any export.
+           NOT exported, NOT staged: staging and the Hardware Issue are the Orchestrator's
+gates      tools/v25accept.py (frozen at 54383e6, pinned at 2c0f40f); L2, C and M are tools/v22accept.py's
+report     tools/v25report.py (frozen with the image at 6129104, pinned at 311e325)
+records    the log (LIVEGAME, LIVECAL, LIVEC clipped=, LIVEVINC, LIVEVSEC beside live-0001's) and
+           sd:/open-gbp/GBP-AUDIO-010_game-0001-l2.bin, both on X, after the session, as live-0001's
+```
+
+**What the image changes (GAME 1–5), and what it does not.**
+- **GAME 1, the origin.** It is `gbp_alive_use_press_origin(&live, 1000)`, (r1). The first A
+  moves PROMPT to DELAY. The window opens on the first AUDIO block at or after the press + 1 s,
+  and that block is the window's first. `gbp_aperiod` stays linked, because the tap still names
+  it, but it is never fed.
+- **GAME 2, the screen.** play-0001's two writes go into `submit_ready`, under
+  `live.phase == GBP_ALIVE_DELAY || live.phase == GBP_ALIVE_WINDOW`, (r5). The console shows
+  before the press. The game shows from the next presented frame after it. The console returns
+  for the report, in live-0001's teardown order.
+- **GAME 3, the prompt,** (r6). It is drawn at the delay, before the window, never inside it.
+- **GAME 4, the records,** (r3), (r4), (r7). They are written after the session. The walk of
+  the frame store costs nothing on the drain path. The builder refuses a log whose FRAMECAP and
+  LIVEVINC disagree.
+- **GAME 5.** The screen report shows the origin, the clips, the calibration spread and the
+  video's location, and names v25accept as the verdicts' tool. The inherited "AUDIO … (drained,
+  NOT reproduced)" is corrected: here the audio is played.
+- **Unchanged:** the decoder's output, the resampler, the chain and its 8-push calls, the band,
+  the ring, the 64 s window, L2's arming (20 s into the window, 10 s kept), the input path, the
+  Z session end, the 120 s safety bound, and every function live-0001 has except
+  `submit_ready`, `live_screen`, `live_screen_report` and `main`.
+
+**What the Operator must do about the cartridge** (the Issue's deliverable 3):
+- **A Game Pak swap is needed.** sweep-0002 runs from the EZ-Flash Omega DE. Yoshi's Island
+  — Super Mario Advance 3 goes in its place, **with the console OFF**.
+- **Only a GBA cartridge.** The image decodes the GBA's AUDIO layout (GBP-HW-313). GB/GBC is
+  Phase 7 and §V25.6 excludes it.
+- **How long.** About 1.5 minutes from the Swiss launch to the report:
+  - the calibration span, 2–3 s after the capture starts;
+  - the prompt at about 5 s;
+  - the press, when he is ready;
+  - 1 s of delay, then C's 64 s window.
+- **The press must come early enough.** The safety bound is 120 s from the AGB's boot, so the
+  press must come within about 50 s of the prompt. The procedure asks for 30.
+- **The intro's length does not matter.** The origin is his press, and the console hides the
+  game until then. His A also reaches the game; that is harmless.
+- **The calibration span may not be silent.** It may hear the BIOS chime or the game's first
+  sound. LIVECAL shows it, (r3).
+- **Saves.** Every run ends in POWER CYCLE REQUIRED, and a cut during a save write can corrupt
+  the save. He must do nothing that makes the game save, or play a file whose loss does not
+  matter.
+- **A cartridge battery** affects only a game that keeps its save or clock in battery-backed
+  memory. It touches neither the audio nor the video path, and nothing in the procedure
+  depends on it.
+- **Buttons.** Z is not sent to the game: the policy never maps it. X and Y are the GBA's
+  SELECT during play. After the report, X saves the log and START exits.
+- **The picture.** It is native 240×160, centred and unscaled; scaling is Phase 9. His
+  "picture normal" judges whether the game's picture is right — no corruption, tearing,
+  freezes or stutter he would not expect — not its size.
+
+**The Operator's procedure**, in his language, as the Hardware Issue should carry it. The
+3(a) text is the part §V25.8 said must be reviewed before any run:
+
+```text
+ANTES DE LIGAR
+ 1. Console DESLIGADO. Tire o EZ-Flash Omega DE e coloque o cartucho do Yoshi's Island
+    (Super Mario Advance 3) no Game Boy Player. Só cartucho de GBA.
+ 2. Nada na porta Link. Sem BBA. Controle na porta 1. O cartão de sempre no SD2SP2.
+ 3. Ligue e inicie pelo Swiss o slot 20-game.
+
+A RODADA
+ 4. Aparece a tela de texto. O jogo já está rodando por trás, mas você ainda NÃO o vê.
+    Espere o aviso ">>> PRESS A when ready ..." (uns 5 s).
+ 5. Aperte   A  × 1   quando quiser, até uns 30 s depois do aviso. O A também chega ao jogo.
+ 6. A imagem do jogo aparece (pequena, centralizada, sem escala: normal) e o som começa 1 s
+    depois do A. JOGUE por uns 65 s, com qualquer botão:
+       A, B, START, L, R, direcional ou analógico: como sempre
+       X  ou  Y  = o SELECT do GBA
+       NÃO SEGURE   Z   (segurar Z por 1/4 s encerra a sessão)
+ 7. NÃO SALVE durante a rodada: nada que grave no cartucho (por exemplo, concluir uma fase).
+    A rodada termina com o console precisando ser desligado. Na dúvida, use um arquivo que
+    pode ser perdido.
+ 8. Depois de uns 65 s a imagem some e volta a tela de texto com o relatório.
+ 9. Aperte   X  × 1   para gravar o log e o registro L2 no SD. Depois   START  × 1   para
+    sair. DESLIGUE o console.
+
+ANTES DE OUVIR, SAIBA
+ - Este decodificador entrega 4096 amostras por segundo: nada acima de ~2 kHz passa. O jogo
+   VAI soar abafado, sem agudos, esteja estável ou não. É um limite conhecido, não o que está
+   sendo testado.
+ - Não se sabe se o som é o canal esquerdo, o direito ou a mistura: sons muito puxados para
+   um lado podem faltar.
+ - Por isso as perguntas separam ESTABILIDADE (o que decide) de FIDELIDADE (suas palavras,
+   que não decidem nada).
+
+DEPOIS, RESPONDA (fica registrado literalmente na Issue de hardware)
+ A. Estabilidade, escolha uma:
+      PASS       soa como o jogo deve soar, fora o abafado: música e efeitos reconhecíveis,
+                 sem defeitos que o próprio jogo não tenha
+      FAIL       defeitos audíveis
+      QUALIFIED  algo no meio: diga com suas palavras
+ B. Para cada item, sim / não / não sei:
+      cortes (o som some)            engasgos (trava ou repete)       cliques
+      chiado ou crepitação           variação de tom ou de andamento
+      distorção nas partes altas
+ C. Suas palavras sobre a estabilidade.
+ D. Fidelidade, com suas palavras (abafado, opaco, sem agudos, estéreo...). Não decide nada.
+ E. Imagem: normal / não normal, e suas palavras.
+ F. Controles: responderam / não responderam, e suas palavras.
+```
+
+The answers map one to one onto §V25.8's declaration (r11):
+- A → `A_STABILITY`;
+- B → `DEFECTS`, in the order dropouts, stutter, clicks, crackle, wobble, distortion;
+- C → `A_WORDS`;
+- D → `A_FIDELITY`;
+- E → `PICTURE`;
+- F → `CONTROLS`.
+
+The typography follows the Operator's own rule: a button and its count are separated
+(`A  × 1`), and a button with two names carries both (`X  ou  Y  = o SELECT do GBA`).
