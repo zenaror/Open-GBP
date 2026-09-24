@@ -117,3 +117,44 @@ def assert_confined(tc, base, paths, allowed=(), why=""):
     tc.assertEqual(extra, [], "changed against %s beyond what the checkpoint allows%s: %s"
                    % (base, (" (" + why + ")") if why else "", extra))
     return changed
+
+
+# ---------------------------------------------------------------------------------------------
+# GitHub Issue #97 (2026-09-24): THE CHECKPOINT RANGES ARE CLOSED.
+#
+# Thirteen host tests confine a checkpoint of 2026-09-21 -- "nothing under src/, poc/, tools/,
+# docs/protocol/ … moved except these files" -- and they asked that question against a base of
+# that day and THE WORKING TREE. While the checkpoint was open that was the right question, and
+# Issue #29 made it see untracked files. Once the checkpoint closed, the same call kept asking it
+# of every later change, so every later change needed an exemption, written by the change that
+# tripped it, in thirteen places: 802 exempted paths by #96, none recorded as having caught
+# anything. That is a registry, not a guard.
+#
+# So the thirteen now ask about the range BASE..CHECKPOINTS_CLOSED_AT: two commits, immutable,
+# and exactly what they saw at the last commit where every one of them was maintained and green
+# (1881cd5, #96's gate figure, clean tree: tracked diff == what changed_since() saw). Every
+# exemption already written stays TRUE and stays needed. Nothing after the constant is in any
+# range, so no later change needs one. THE CONSTANT DOES NOT MOVE: moving it would re-open all
+# thirteen ranges and bring the ceremony back.
+#
+# What the thirteen did at HEAD that WAS work -- noticing an untracked file under a versioned
+# path -- is now ONE test, tests/host/test_guard_shape.py::NothingUntrackedUnderTheVersionedPaths,
+# with no exemption. What stays an OPEN guard is a freeze of NAMED files that is meant to hold
+# forward (test_awin_image: the shared service path), where a change is a real decision.
+# ---------------------------------------------------------------------------------------------
+CHECKPOINTS_CLOSED_AT = "1881cd5cb75644fa74afece5fb719509d8a6f63d"
+
+
+def changed_between(base, end, paths):
+    """Paths under `paths` that differ between two COMMITS: a closed, immutable range.
+
+    There is no untracked half: a range between two commits cannot contain a file that is not in
+    git. A commit absent from this checkout is a real "cannot check", reported as the same skip the
+    open guards give.
+    """
+    for c in (base, end):
+        if not base_available(c):
+            raise unittest.SkipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % c)
+    r = _git("diff", "--name-only", base, end, "--", *paths)
+    assert r.returncode == 0, r.stderr
+    return {p for p in r.stdout.split() if p}

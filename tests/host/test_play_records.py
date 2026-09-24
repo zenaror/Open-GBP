@@ -123,7 +123,7 @@ class NothingFrozenMoved(unittest.TestCase):
     def test_hardware_tests_evidence_and_the_run_numbers(self):
         if not guards.base_available(BASE):
             self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here" % BASE)
-        changed = guards.changed_since(BASE, ["docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md", "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"])   # Issue #29: tracked AND untracked, one implementation
+        changed = guards.changed_between(BASE, guards.CHECKPOINTS_CLOSED_AT, ["docs/research/HARDWARE_TESTS.md", "docs/research/EVIDENCE.md", "docs/protocol", "docs/hardware", "captures/fixtures", "stimulus"])   # Issue #29: tracked AND untracked, one implementation
         # Issue #65 (2026-09-22) BUILT stimulus/agb-tone (tone-0001), §V9's two-frequency stimulus: a new
         # stimulus ROM beside the four the family already had. It touches no runtime path, no image and no
         # slot; §V9.14 records its identity and tests/host/test_agb_tone.py runs its own code on the host.

@@ -11,6 +11,16 @@ enforced here, for EVERY test of the shape and not only the ones that failed:
      rule enforced: no host test may run `git diff --name-only` or
      `git ls-files` itself; the question goes through `guards.py`, which asks
      both halves in one call.
+
+     RE-SCOPED BY GITHUB ISSUE #97 (2026-09-24), not repealed. The rule is about an
+     OPEN question, base -> working tree. Thirteen checkpoint guards of 2026-09-21
+     kept asking that open question after their checkpoints closed, and every later
+     change had to be exempted in thirteen places. They now ask about a CLOSED range
+     between two commits (`guards.changed_between`, `guards.CHECKPOINTS_CLOSED_AT`),
+     which has no untracked half by definition. The forward half of the rule --
+     nothing untracked under a versioned path -- is asked ONCE, below, with no
+     exemption. An open guard stays legitimate where it freezes NAMED files that are
+     meant to hold forward (`test_awin_image.py`, the shared service path).
   2. Every skip reason must be registered in `skip_ledger.py` with its class
      and with what covers the risk instead (the third instance). This half is
      static — it reads the reasons out of the sources — so it runs under
@@ -162,6 +172,76 @@ class EveryGitQuestionGoesThroughTheHelper(unittest.TestCase):
                 f.write("probe\n")
             self.assertEqual(guards.untracked(["captures"]), guards.untracked(["captures"]) - {"captures/local/__issue29_probe__.log"})
             self.assertNotIn("captures/local/__issue29_probe__.log", guards.changed_since("HEAD", ["captures"]))
+        finally:
+            if os.path.exists(probe):
+                os.remove(probe)
+
+
+# the versioned paths the thirteen closed guards watched between them, plus tests/ and all of docs/
+VERSIONED = ["src", "poc", "tools", "Makefile", "stimulus", "captures/fixtures", "captures/README.md", "docs", "tests"]
+# the thirteen checkpoint guards whose ranges Issue #97 closed
+CLOSED = ("test_game_image_assessment.py", "test_input_addenda.py", "test_input_impl.py", "test_input_keylog.py",
+          "test_input_promotion.py", "test_play_records.py", "test_run14_prereg.py", "test_run14.py",
+          "test_run17_prereg.py", "test_run17.py", "test_run19_prereg.py", "test_run21_prereg.py",
+          "test_topology_standing.py")
+
+
+def calls_to(f, name):
+    """(line, source of the paths argument) for every guards.<name>(...) call in host test `f`."""
+    t = read(f)
+    out = []
+    for node in ast.walk(ast.parse(t)):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == name
+                and isinstance(node.func.value, ast.Name) and node.func.value.id == "guards"):
+            out.append((node.lineno, ast.get_source_segment(t, node.args[-1]) if node.args else ""))
+    return out
+
+
+class NothingUntrackedUnderTheVersionedPaths(unittest.TestCase):
+    """Issue #97: the forward half of Issue #29's rule, asked once instead of thirteen times."""
+
+    def test_no_untracked_file_under_a_versioned_path(self):
+        stray = sorted(guards.untracked(VERSIONED))
+        self.assertEqual(stray, [], "untracked files under versioned paths: %s -- commit them, `git add` them "
+                                    "before the run, or remove them; a gate figure is taken on a tree where "
+                                    "this is empty" % stray)
+
+
+class TheCheckpointRangesStayClosed(unittest.TestCase):
+    """Issue #97: why a new file no longer needs an exemption in thirteen tests, held in place."""
+
+    def test_the_constant_does_not_move(self):
+        # moving it re-opens thirteen ranges and brings back one exemption per guard per change
+        self.assertEqual(guards.CHECKPOINTS_CLOSED_AT, "1881cd5cb75644fa74afece5fb719509d8a6f63d")
+
+    def test_the_thirteen_ask_only_about_the_closed_range(self):
+        for f in CLOSED:
+            self.assertEqual(calls_to(f, "changed_since"), [], "%s asks an open question again" % f)
+            between = calls_to(f, "changed_between")
+            self.assertTrue(between, f)
+            t = read(f)
+            self.assertEqual(t.count("guards.changed_between("), t.count("guards.CHECKPOINTS_CLOSED_AT"), f)
+
+    def test_an_open_guard_freezes_named_files_only(self):
+        """The one declaration of which open guards exist: a new one is a decision, made here."""
+        users = sorted(f for f in host_tests() if f not in SELF and calls_to(f, "changed_since"))
+        self.assertEqual(users, ["test_awin_image.py"], users)
+        (_line, arg), = calls_to("test_awin_image.py", "changed_since")
+        self.assertIn("SERVICE_PATH_FILES", arg)
+
+    def test_a_closed_range_is_immutable_and_blind_to_the_working_tree(self):
+        if not guards.base_available(guards.CHECKPOINTS_CLOSED_AT):
+            self.skipTest("the base commit %s is not in this checkout, so the freeze cannot be checked here"
+                          % guards.CHECKPOINTS_CLOSED_AT)
+        probe = os.path.join(ROOT, "src", "__issue97_probe__.c")
+        self.assertFalse(os.path.exists(probe))
+        before = guards.changed_between("aaee492", guards.CHECKPOINTS_CLOSED_AT, ["src"])
+        try:
+            with open(probe, "w", encoding="utf-8") as fh:
+                fh.write("/* Issue #97 probe; removed by the test that wrote it */\n")
+            self.assertEqual(guards.changed_between("aaee492", guards.CHECKPOINTS_CLOSED_AT, ["src"]), before)
+            self.assertIn("src/__issue97_probe__.c", guards.untracked(["src"]),
+                          "the working tree is the untracked test's business, not the range's")
         finally:
             if os.path.exists(probe):
                 os.remove(probe)

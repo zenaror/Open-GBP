@@ -169,98 +169,11 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
         if not guards.base_available(BASE_COMMIT):
             self.skipTest("the base commit is not in this checkout")
         changed = guards.changed_since(BASE_COMMIT, ["src/gbp/" + f for f in SERVICE_PATH_FILES])
-        # Issue #65 (2026-09-22) BUILT stimulus/agb-tone (tone-0001), §V9's two-frequency stimulus: a new
-        # stimulus ROM beside the four the family already had. It touches no runtime path, no image and no
-        # slot; §V9.14 records its identity and tests/host/test_agb_tone.py runs its own code on the host.
-        changed = changed - {"stimulus/agb-tone/Makefile", "stimulus/agb-tone/source/main.c"}
-        # Issue #70 (2026-09-22) BUILT stimulus/agb-sweep (sweep-0001), §V11's TWO-AXIS stimulus: a new
-        # stimulus ROM beside the five the family now has, and agb-tone is NOT touched (a test pins it
-        # byte-identical). It touches no runtime path, no image and no slot; §V11.15 records its
-        # identity and tests/host/test_agb_sweep.py runs its own code on the host.
-        changed = changed - {"stimulus/agb-sweep/Makefile", "stimulus/agb-sweep/source/main.c"}
-        # Issue #64 (2026-09-22) pre-registered agb-tone (§V9) and made its constructions executable BEFORE
-        # the ROM exists: tools/v9tone.py is exercised on SYNTHETIC vectors only, reads no run, authorises
-        # nothing and promotes nothing.
-        changed = changed - {"tools/v9tone.py"}
-        # Issue #69 (2026-09-22) pre-registered the amplitude sweep (§V11) and froze its constructions
-        # BEFORE stimulus/agb-sweep exists: tools/v11sweep.py runs on SYNTHETIC vectors only, reads no
-        # run, authorises nothing and promotes nothing. It is the fourth outing of the same discipline.
-        changed = changed - {"tools/v11sweep.py"}
-        # Issue #74 (2026-09-23) added tools/geckorx.py, the HOST receiver for the Operator's Pico
-        # Gecko. It reads a serial port and writes bytes to a file; it touches no image, no POC and
-        # no runtime path, and CLAUDE.md §14 forbids anything coming to depend on the device.
-        changed = changed - {"tools/geckorx.py"}
-        # Issue #75 (2026-09-23) pre-registered U-GBP-038's separator (§V13) and froze its
-        # construction BEFORE the run: tools/v13sep.py runs on SYNTHETIC vectors only, borrows
-        # v11sweep's classifier unchanged, reads no run and authorises nothing.
-        changed = changed - {"tools/v13sep.py"}
-        # §V14 (2026-09-23) froze the METHOD of RUN 34's measurement before the run:
-        # tools/v14repeat.py contains no gate, reproduces §V11.16.7 exactly, reads no run.
-        changed = changed - {"tools/v14repeat.py"}
-        # Issue #79 (2026-09-23): tools/v16bitgate.py, QUESTION V repaired at bit resolution and
-        # QUESTION L, frozen forward only; it imports v11sweep and edits nothing.
-        changed = changed - {"tools/v16bitgate.py"}
-        # Issue #80 (2026-09-23): tools/v17pred.py (the predictions, frozen first) and
-        # tools/v17decode.py (the H-PWM decoder); they read the captures and touch no image.
-        changed = changed - {"tools/v17pred.py", "tools/v17decode.py"}
-        # Issue #81 (2026-09-23): the AUDIO decode as runtime code -- src/audio/ (the decoder, the
-        # replay backend, the 125/16 resampler and its generated table), its generator
-        # tools/gen_aresamp.py, and RUN 33 / RUN 34's raw sidecars versioned as fixtures. Host-tested
-        # only: no image links src/audio/, and no POC, slot or runtime path changed.
-        changed = changed - {"src/audio/gbp_adec.c", "src/audio/gbp_adec.h", "src/audio/gbp_asrc.c",
-                             "src/audio/gbp_asrc.h", "src/audio/gbp_aresamp.c", "src/audio/gbp_aresamp.h",
-                             "src/audio/gbp_aresamp_coef.h", "tools/gen_aresamp.py", "captures/README.md",
-                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
-                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz",
-                             # Issue #90: RUN 36's console log, byte for byte (§V21.9)
-                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log",
-                             # Issue #91: RUN 37's console log, byte for byte (§V19.14)
-                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-drain-0001-run37.log"}
-        # Issue #82 (2026-09-23): tools/v18block.py, what one AUDIO block contains, measured on the
-        # versioned fixtures (§V18). Descriptive, no gate; it reads captures and touches no image.
-        changed = changed - {"tools/v18block.py"}
-        # Issue #84 (2026-09-23): tools/v19drain.py, §V19's three gates, FROZEN BEFORE the run
-        # (GBP-AUDIO-005). Synthetic vectors only; it reads no capture and authorises nothing.
-        changed = changed - {"tools/v19drain.py"}
-        # Issue #92 (2026-09-23): tools/v22accept.py, §V22's gates (Phase 6's acceptance), FROZEN
-        # BEFORE the POC exists. Synthetic vectors only; it reads no capture and authorises nothing.
-        changed = changed - {"tools/v22accept.py"}
-        # Issue #92: Phase 6's acceptance image and its chain -- poc/gbp-audio-live, src/audio/gbp_alive.*
-        # and gbp_aplay.* (host-tested: tests/unit, tests/host/test_alive_chain.py), and the report
-        # builder frozen with it. No earlier image, path or module changed.
-        changed = changed - {"poc/gbp-audio-live/Makefile", "poc/gbp-audio-live/source/main.c",
-                             "src/audio/gbp_alive.c", "src/audio/gbp_alive.h", "src/audio/gbp_aplay.c",
-                             "src/audio/gbp_aplay.h", "tools/v22report.py"}
-        # Issue #84: src/audio/gbp_adrain.* -- GBP-AUDIO-005's phase machine and coverage
-        # counter, host-tested only (tests/unit/test_gbp_adrain.c). No image links it yet.
-        changed = changed - {"src/audio/gbp_adrain.c", "src/audio/gbp_adrain.h"}
-        # Issue #84 (2026-09-23) BUILT GBP-AUDIO-005's image, drain-0001 (§V19.11 A4.1): play-0001 plus
-        # the drain's period decoder (src/audio/gbp_aperiod.*, host-tested), the POC that carries it, and
-        # tools/v19report.py, the log -> report builder frozen before the run. The service path gains two
-        # optional hooks, NULL in every earlier build (tests/unit/test_gbp_video_state.c proves the operation
-        # stream identical), and tests/host/test_drain_image.py diffs the image against play-0001.
-        changed = changed - {"poc/gbp-audio-drain-probe/Makefile", "poc/gbp-audio-drain-probe/source/main.c",
-                             "src/audio/gbp_aperiod.c", "src/audio/gbp_aperiod.h", "tools/v19report.py"}
-        # Issue #87 (2026-09-23) restored `make build` at HEAD: since #59 the service module references the
-        # AUDIO window, so these four POCs link gbp_awin.c the way they link gbp_vwitness.c, cfg.awin NULL.
-        # No executed artifact is rebuilt or relabelled; tests/host/test_poc_link_closure.py keeps the class
-        # from recurring unobserved.
-        changed = changed - {"poc/gbp-play-session/Makefile", "poc/gbp-video-stream-probe/Makefile",
-                             "poc/gbp-video-state-probe/Makefile", "poc/gbp-video-color-probe/Makefile"}
-        # Issue #86 (2026-09-23) BUILT AOUT-HW-001, the OUTPUT-PATH image (not a GBP audio test): the
-        # listening sequence (src/audio/gbp_alisten.*, bit-identical to the #80/#81 reference on RUN 33,
-        # tests/host/test_audio_listen.py) and the POC that plays it through the AI. No GBP code is linked
-        # into it (the `aout` audit profile), and no runtime path, image or slot changed.
-        changed = changed - {"src/audio/gbp_alisten.c", "src/audio/gbp_alisten.h",
-                             "poc/audio-output-replay/Makefile", "poc/audio-output-replay/source/main.c",
-                             "poc/audio-output-replay/source/fixture_embed.S",
-                             # §V21.6: aout-0002's sealed play order, drawn and committed before the code
-                             "poc/audio-output-replay/source/aout_order.h"}
-        # Issue #62 (2026-09-22) ingested RUN 30 and needed two READERS that did not exist: awinparse.py,
-        # a strict parser for the OGBPAW1 sidecar, and tprime.py, §V7.9's decision rule. Both only read and
-        # report; the VERDICT constructions stay in tools/v8audio.py, which tests/host/test_run30.py diffs
-        # against the commit that wrote it.
-        changed = changed - {"tools/awinparse.py", "tools/tprime.py"}
+        # ONLY the named service-path files above are watched, so an exemption for any other path can
+        # never match. Issue #97 removed 54 such exemptions (stimulus/, tools/, src/audio/, poc/,
+        # captures/), copied here by the checkpoints that tripped the directory guards. Nothing has
+        # been exempted for a WATCHED file since the base: a change to one is a decision about the
+        # shared service path, declared here with its Issue, and this guard is meant to hold forward.
         self.assertEqual(sorted(changed), [], "a frozen service-path file moved: %s" % sorted(changed))
 
     def test_the_probes_diff_adds_the_hook_and_no_device_operation(self):
