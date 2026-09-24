@@ -85,6 +85,10 @@ BASES = {
     # image exists
     "Issue #110 -- §V25 transcribed, Phase 6's real-cartridge gates frozen":
         "54383e60b9efafda98175fb098e10ce658319941",
+    # Issue #110: §V25.10 AMENDMENT 1 replaced V's bound with RUN 40's own integers; the gates' bytes are
+    # pinned HERE from now on (the text's frozen start stays the one above)
+    "Issue #110 -- §V25 AMENDMENT 1 applied":
+        "4591f9be5430224967347681c5fd892140eca543",
     # Issue #110: the real-cartridge image's log -> report builder, frozen with the image, before any run
     "Issue #110 -- game-0001 and its report builder":
         "61291048757cbdf1bf0c2fbad9bdb57adbd4785d",

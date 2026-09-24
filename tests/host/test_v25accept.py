@@ -377,6 +377,23 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
         '                                        % (e_in, ai_ticks / float(TB_HZ), rate))',
     ]
 
+    def test_the_gates_are_the_bytes_of_the_amendment_that_last_changed_them(self):
+        import frozen
+        with open(os.path.join(ROOT, "tools", "v25accept.py"), encoding="utf-8") as f:
+            now = f.read()
+        self.assertEqual(frozen.source("Issue #110 -- §V25 AMENDMENT 1 applied", "tools/v25accept.py"), now,
+                         "tools/v25accept.py was edited after §V25.10 AMENDMENT 1")
+
+    def test_the_amendment_is_transcribed_with_both_postings_hashed(self):
+        p = self.part()
+        for tok in ("### V25.10 **AMENDMENT 1**", "issuecomment-5820375603", "issuecomment-5820406569",
+                    "ced2aaa8258b220e8e05cbbd7c09ca54dde3df3b2f32d4f829299de2f9dd38a5",
+                    "96cfcb32d4e5264699e4cf906ad057e2e4410ca4b40c612c9a80a32a5f0f6b55",
+                    "5392c9164b8b7198009f1924d4598cd3241d3a99e3564f702d2e48cde8fc8ac0",
+                    "1820c2004aa47ad899df18dc9f38943af81fe837ecfa06afc79821cd763e5de5",
+                    "E_inside  x  2 567 047 476   <=   44  x  (t_ai_stop - t_ai_start)"):
+            self.assertIn(tok, p, tok)
+
     def test_the_frozen_gates_changed_only_by_amendment_1(self):
         import difflib
         import frozen
