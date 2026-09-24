@@ -238,7 +238,7 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
         for a, b in zip(heads(ev_old), heads(ev_new)):
             self.assertTrue(b.startswith(a), (a, b))
         self.assertEqual(len(heads(ev_new)), len(heads(ev_old)))
-        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev_new, re.M)), 317, "266…271: #33; 272: #46; 273…277: #47; 278…284: #52, the four play-0001 sessions; 285…294: #62, RUN 30; 295…300: #67, RUN 31; 301…302: #67's validation; 317: #84, the start-up stall invariance")
+        self.assertEqual(max(int(n) for n in re.findall(r"^#{2,4} +GBP-HW-(\d{3})\b", ev_new, re.M)), 318, "266…271: #33; 272: #46; 273…277: #47; 278…284: #52, the four play-0001 sessions; 285…294: #62, RUN 30; 295…300: #67, RUN 31; 301…302: #67's validation; 317: #84, the start-up stall invariance; 318: #90, RUN 36")   # 318: Issue #90 (RUN 36 ingested, the output path heard: §V21.9)
         u_old, u_new = git_show("docs/research/UNKNOWNS.md"), read(UNKNOWNS)
         h = lambda t: re.search(r"^## U-GBP-010\b.*$", t, re.M).group(0)
         self.assertTrue(h(u_new).startswith(h(u_old)))
@@ -290,7 +290,9 @@ class NothingFrozenMovedAndNothingWasMinted(unittest.TestCase):
                              "src/audio/gbp_asrc.h", "src/audio/gbp_aresamp.c", "src/audio/gbp_aresamp.h",
                              "src/audio/gbp_aresamp_coef.h", "tools/gen_aresamp.py", "captures/README.md",
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
-                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz"}
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz",
+                             # Issue #90: RUN 36's console log, byte for byte (§V21.9)
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log"}
         # Issue #82 (2026-09-23): tools/v18block.py, what one AUDIO block contains, measured on the
         # versioned fixtures (§V18). Descriptive, no gate; it reads captures and touches no image.
         changed = changed - {"tools/v18block.py"}

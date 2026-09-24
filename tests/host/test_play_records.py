@@ -166,7 +166,9 @@ class NothingFrozenMoved(unittest.TestCase):
                              "src/audio/gbp_asrc.h", "src/audio/gbp_aresamp.c", "src/audio/gbp_aresamp.h",
                              "src/audio/gbp_aresamp_coef.h", "tools/gen_aresamp.py", "captures/README.md",
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
-                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz"}
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz",
+                             # Issue #90: RUN 36's console log, byte for byte (§V21.9)
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log"}
         # Issue #82 (2026-09-23): tools/v18block.py, what one AUDIO block contains, measured on the
         # versioned fixtures (§V18). Descriptive, no gate; it reads captures and touches no image.
         changed = changed - {"tools/v18block.py"}
@@ -229,7 +231,8 @@ class NothingFrozenMoved(unittest.TestCase):
         # The Operator (2026-09-23) numbered Hardware Issue #89's sitting: RUN 36 (§V21.8) and RUN 37
         # (§V19.13), reserved before either ran. And again.
         self.assertNotIn("RUN 38", hw)
-        self.assertNotIn("GBP-HW-318", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration (317: #84, an archive property)
+        # 318: #90, RUN 36's ingestion (a physical run, not a build) -- the sentinel moves to the next free id
+        self.assertNotIn("GBP-HW-319", read(EVIDENCE))    # no evidence id minted by a build or a pre-registration (317: #84, an archive property)
         # Issue #46 (2026-09-22) minted GBP-HW-272 from the ARCHIVE, not from a build: the sentinel moves to the
         # next free id so this guard keeps testing what it was written to test
         self.assertNotIn("GBP-PLAY-001", read(EVIDENCE))

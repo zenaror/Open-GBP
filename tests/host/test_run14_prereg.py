@@ -200,7 +200,7 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
         self.assertEqual(len(re.findall(r"captures/local/\S*run14\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*run15\S*", t)), 5)
         self.assertEqual(len(re.findall(r"captures/local/\S*stream-0014-run16\S*", t)), 5)   # RUN 16 ran on stream-0015 (Issue #33): these five are retired, listed once
-        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[6-9]|[4-9]\d)\S*", t)), 0)   # run17 / run18: Issue #28, §V7.3; run19 / run20: Issue #34, §V7.5; run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67); run33: Issue #75, §V13 (GBP-AUDIO-004, reserved and not on disk); run34: §V14 (GBP-AUDIO-003 repeated, reserved and not on disk); run35: §V16.5 (rides along, reserved)
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[8-9]|[4-9]\d)\S*", t)), 0)   # run17 / run18: Issue #28, §V7.3; run19 / run20: Issue #34, §V7.5; run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67); run33: Issue #75, §V13 (GBP-AUDIO-004, reserved and not on disk); run34: §V14 (GBP-AUDIO-003 repeated, reserved and not on disk); run35: §V16.5 (rides along, reserved)   # run36 / run37: Issue #90 (RUN 36 ingested, §V21.9) and #91
 
     def test_the_handoff_reserves_the_same_fifteen_names_once_and_the_run_13_names_stay(self):
         h = read(HANDOFF)
@@ -475,7 +475,9 @@ class NothingElseMoved(unittest.TestCase):
                              "src/audio/gbp_asrc.h", "src/audio/gbp_aresamp.c", "src/audio/gbp_aresamp.h",
                              "src/audio/gbp_aresamp_coef.h", "tools/gen_aresamp.py", "captures/README.md",
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
-                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz"}
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz",
+                             # Issue #90: RUN 36's console log, byte for byte (§V21.9)
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log"}
         # Issue #82 (2026-09-23): tools/v18block.py, what one AUDIO block contains, measured on the
         # versioned fixtures (§V18). Descriptive, no gate; it reads captures and touches no image.
         changed = changed - {"tools/v18block.py"}
@@ -540,7 +542,9 @@ class NothingElseMoved(unittest.TestCase):
         # Issue #81 (2026-09-23): RUN 33 / RUN 34's raw audio sidecars, versioned as replay fixtures
         # (captures/README.md); the first fixtures since RUN 18, and they touch none of the above.
         changed2 = changed2 - {"captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
-                               "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz"}
+                               "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz",
+                               # Issue #90: RUN 36's console log, byte for byte (§V21.9)
+                               "captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log"}
         for line in sorted(changed2):
             self.assertRegex(line, r"-run1[45678]-", line)
 

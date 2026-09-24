@@ -392,8 +392,8 @@ class TheNamesAndTheEmptyRecord(unittest.TestCase):
         self.assertIn("Two names, where every previous pair reserved ten", plain(part(7)))
         self.assertIn("writes ONE file per run and no sidecars", plain(read(HANDOFF)))
         # no raw name above run22 anywhere
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[6-9]|[4-9]\d)\S*", t), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[6-9]|[4-9]\d)\S*", read(HANDOFF)), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[8-9]|[4-9]\d)\S*", t), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)   # run36 / run37: Issue #90 (RUN 36 ingested, §V21.9) and #91
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[8-9]|[4-9]\d)\S*", read(HANDOFF)), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)   # run36 / run37: Issue #90 (RUN 36 ingested, §V21.9) and #91
 
     def test_the_record_table_is_empty(self):
         table = part(13)
@@ -486,7 +486,9 @@ class NothingFrozenMoved(unittest.TestCase):
                              "src/audio/gbp_asrc.h", "src/audio/gbp_aresamp.c", "src/audio/gbp_aresamp.h",
                              "src/audio/gbp_aresamp_coef.h", "tools/gen_aresamp.py", "captures/README.md",
                              "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run33-audio.bin.gz",
-                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz"}
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-stream-0016-run34-audio.bin.gz",
+                             # Issue #90: RUN 36's console log, byte for byte (§V21.9)
+                             "captures/fixtures/hw-gamecube-gbp-2026-09-23-aout-0002-run36.log"}
         # Issue #82 (2026-09-23): tools/v18block.py, what one AUDIO block contains, measured on the
         # versioned fixtures (§V18). Descriptive, no gate; it reads captures and touches no image.
         changed = changed - {"tools/v18block.py"}
@@ -560,7 +562,8 @@ class NothingFrozenMoved(unittest.TestCase):
         ev = read(EVIDENCE)
         # Issue #46 (2026-09-22) minted GBP-HW-272 (the CONTROL bit 0x02 split, from the archive); #41 minted none,
         # so the sentinel moves to the next free id and this guard goes on testing what it was written to test
-        self.assertNotIn("GBP-HW-318", ev)   # 317: #84, the start-up stall invariance (an archive property)
+        # 318: #90, RUN 36 ingested (the output path, heard); the sentinel moves again
+        self.assertNotIn("GBP-HW-319", ev)   # 317: #84, the start-up stall invariance (an archive property)
         self.assertNotIn("GBP-PLAY-001", ev)
         h = plain(read(HANDOFF))
         for tok in ("ISSUE #41 (2026-09-21): RUN 21 / RUN 22 PRE-REGISTERED as GBP-INPUT-004", "issue 41",
