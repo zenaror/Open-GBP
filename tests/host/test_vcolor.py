@@ -670,8 +670,9 @@ class PreHandlerWait(unittest.TestCase):
             # Issue #59: and the audio window image is built from the playable one, with the same line
             # Issue #84: and so is the drain image (§V19.11 A4.1), line for line
             # Issue #92: and so is the live image (Phase 6's acceptance, built on the drain image)
+            # Issue #101: and so is Run A's image, live-0001 with the recorder (§V23)
             if d in ("gbp-video-stream-probe", "gbp-play-session", "gbp-audio-window-probe", "gbp-audio-drain-probe",
-                     "gbp-audio-live"):
+                     "gbp-audio-live", "gbp-audio-trace"):
                 self.assertIn("cfg.prehandler_wait_ms = startup.prehandler_wait_ms;", text)
                 self.assertNotIn("cfg.prehandler_wait_ms = 5000u;", text)
                 h = self._read("src/gbp/gbp_startup.h")

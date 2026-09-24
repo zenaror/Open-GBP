@@ -1176,6 +1176,78 @@ LIVE_OBJECT_REFERENCES = {
 
 PROFILES["live"] = _live_profile()
 
+
+def _trace_profile():
+    """Issue #101: the `trace` profile IS the `live` profile with Run A's recorder named
+    (HARDWARE_TESTS §V23). The image is live-0001 with instrumentation only, so every pin of
+    `live` still holds except the ones the recorder must move, and each of those is moved here
+    by name, never by loosening a rule.
+
+    What it states:
+      * the recorder (gbp_atrace.o) is linked, and each of its recording entries is reached
+        from exactly the one place §V23 put it: the AUDIO sample from the audio tap, the VIDEO
+        completion from the VIDEO tap, the callback record from the AI DMA callback, the steps
+        from the pump slot; its cost accumulator from those and from its own step writer;
+      * THE CARD, still after the session only: the trace is emitted from main alone, and
+        emitting is the only way the recorder reaches the CRC; the sidecar's writer is
+        reached from nothing but main's emit, through a pointer (trace_put holds its one
+        sdlog_stream_write); main opens and closes two streams now, the L2 record's and the
+        trace's;
+      * the recorder's object reaches no filesystem, no serializer, and an allowlist of
+        exactly what it uses;
+      * the clock: the recorder's reads of it, per site, pinned.
+    """
+    p = copy.deepcopy(PROFILES["live"])
+    p["required_objects"] = p["required_objects"] + ("gbp_atrace.o",)
+    p["symbol_callers"] = dict(p["symbol_callers"])
+    p["symbol_callers"].update(TRACE_SYMBOL_CALLERS)
+    p["elf_required"] = p["elf_required"] + (
+        "gbp_atrace_init", "gbp_atrace_audio", "gbp_atrace_video", "gbp_atrace_callback", "gbp_atrace_step",
+        "gbp_atrace_step_rec", "gbp_atrace_cost", "gbp_atrace_emit")
+    p["main_must_call"] = p["main_must_call"] + ("gbp_atrace_init", "gbp_atrace_emit")
+    p["object_must_not_reference"] = dict(p["object_must_not_reference"])
+    p["object_must_not_reference"]["gbp_atrace.o"] = tuple(
+        s for s in _CAPTURE_SYMBOLS if s not in ("gbp_crc32_init", "gbp_crc32_update", "gbp_crc32_final"))
+    p["object_may_only_reference"] = dict(p["object_may_only_reference"])
+    p["object_may_only_reference"].update(TRACE_OBJECT_REFERENCES)
+    return p
+
+
+# Run A's call sites, read from trace-0001's listings and PINNED, on top of live's. live_tap,
+# live_vtap and live_dma_cb are reached through pointers and keep their names; live_step is
+# inlined into pump, so the three steps are pump's. Each recording site reads the clock twice
+# (before and after its own write): the tap and the VIDEO tap 2 each, the callback 2 more
+# around its record on top of its entry and the hand-off's instant.
+TRACE_SYMBOL_CALLERS = {
+    "gbp_atrace_init": {"main": 1},
+    "gbp_atrace_audio": {"live_tap": 1},
+    "gbp_atrace_video": {"live_vtap": 1},
+    "gbp_atrace_callback": {"live_dma_cb": 1},
+    "gbp_atrace_step": {"pump": 3},
+    "gbp_atrace_step_rec": {"pump": 3},
+    "gbp_atrace_cost": {"live_tap": 1, "live_vtap": 1, "live_dma_cb": 1},
+    # the CRC: the sidecar's (gbp_atrace_emit and its static be32, which only emit and its be64
+    # reach -- tests/host/test_trace_image.py reads that from the source) and the vstate
+    # serializer's, which play already pins to main after the session. No recording entry.
+    "gbp_crc32_update": {"gbp_atrace_emit": 6, "be32": 1, "emit.part.0": 1},
+    "gbp_crc32_init": {"gbp_atrace_emit": 1, "gbp_vstatedump_stream": 1},
+    "gbp_crc32_final": {"gbp_atrace_emit": 1, "gbp_vstatedump_stream": 1},
+    # the card: the trace is emitted from main after the session, and nowhere else
+    "gbp_atrace_emit": {"main": 1},
+    "gettime": {"h_ticks64": 1, "main": 6, "pump": 2, "submit_ready": 1, "live_dma_cb": 4,
+                "live_tap": 2, "live_vtap": 2},
+    "sdlog_stream_open": {"main": 2},
+    "sdlog_stream_write": {"main": 1, "trace_put": 1},
+    "sdlog_stream_close": {"main": 2},
+}
+# What the recorder may reach outside itself: zeroing its state, and the CRC for the sidecar
+# (called from gbp_atrace_emit only; the pin above keeps emit in main).
+TRACE_OBJECT_REFERENCES = {
+    "gbp_atrace.o": ("memset", "gbp_crc32_init", "gbp_crc32_update", "gbp_crc32_final"),
+}
+
+PROFILES["trace"] = _trace_profile()
+
 # Issue #86: AOUT-HW-001, the OUTPUT PATH image. It is not built on any GBP image, so its
 # profile is not derived from one: it is written as the set of things that must be ABSENT.
 # The point of the image is that the console is made to play without the Game Boy Player
