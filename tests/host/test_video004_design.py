@@ -185,13 +185,16 @@ class GroundedInRealArtifacts(unittest.TestCase):
         that same path -- and no object under src/gbp may reach GX in any of
         them, which is the property this guard exists for. Issue #84
         (2026-09-23) makes it FOUR: the drain image is built from the playable
-        one too, and keeps its presentation work so D1 measures the runtime."""
+        one too, and keeps its presentation work so D1 measures the runtime. Issue #92
+        (2026-09-23) makes it FIVE: Phase 6's acceptance image is built from the
+        drain image and keeps the same presentation work."""
         hits = []
         for root, _dirs, files in os.walk(os.path.join(ROOT, "poc")):
             for fn in files:
                 if fn.endswith((".c", ".h")) and "GX_Init" in read(os.path.join(root, fn)):
                     hits.append(os.path.relpath(os.path.join(root, fn), ROOT))
         self.assertEqual(sorted(hits), ["poc/gbp-audio-drain-probe/source/main.c",
+                                        "poc/gbp-audio-live/source/main.c",
                                         "poc/gbp-audio-window-probe/source/main.c",
                                         "poc/gbp-play-session/source/main.c",
                                         "poc/gbp-video-stream-probe/source/main.c"], hits)

@@ -225,6 +225,12 @@ class TheServicePathIsUnchangedExceptForOneHook(unittest.TestCase):
         # Issue #92 (2026-09-23): tools/v22accept.py, §V22's gates (Phase 6's acceptance), FROZEN
         # BEFORE the POC exists. Synthetic vectors only; it reads no capture and authorises nothing.
         changed = changed - {"tools/v22accept.py"}
+        # Issue #92: Phase 6's acceptance image and its chain -- poc/gbp-audio-live, src/audio/gbp_alive.*
+        # and gbp_aplay.* (host-tested: tests/unit, tests/host/test_alive_chain.py), and the report
+        # builder frozen with it. No earlier image, path or module changed.
+        changed = changed - {"poc/gbp-audio-live/Makefile", "poc/gbp-audio-live/source/main.c",
+                             "src/audio/gbp_alive.c", "src/audio/gbp_alive.h", "src/audio/gbp_aplay.c",
+                             "src/audio/gbp_aplay.h", "tools/v22report.py"}
         # Issue #84: src/audio/gbp_adrain.* -- GBP-AUDIO-005's phase machine and coverage
         # counter, host-tested only (tests/unit/test_gbp_adrain.c). No image links it yet.
         changed = changed - {"src/audio/gbp_adrain.c", "src/audio/gbp_adrain.h"}
