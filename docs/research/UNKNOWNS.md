@@ -2135,7 +2135,7 @@ construction.
 the same image with raw episode preservation disabled, compared like for like.
 Neither is planned.
 
-## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open**
+## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open**
 
 **What is FACT.**
 - **The composed image drained less than the drain alone.** RUN 38's `live-0001` (the
@@ -2209,3 +2209,29 @@ Orchestrator's.
 figure as first computed. A transition whose step sample was not drained had its loss
 hidden by rounding. Corrected: 306 losses, 206 episodes, 65 % of chunk periods, R 0.957.
 The question this item asks is unchanged.
+
+**RESCOPED 2026-09-24 (GitHub Issue #103, RUN 39), on top; nothing above is rewritten.**
+Run A (`trace-0001`, §V23) timed the losses, the AI callbacks and the chain's steps in one
+timebase. Its observer gate HELD, and the recorder cost at most about 0.3 % of each AI
+cycle (`GBP-HW-328`).
+
+**Question 1 — which step.** `QUESTION P` names `produce`: the chain's production step is
+the longest recorded activity inside 1 279 of 1 453 loss gaps. Losses and production
+steps both sit in the first tenth of the AI cycle (`GBP-HW-329`). What stays open is the
+**direction**. A long gap in that phase holds a production step whether or not a block
+was lost (96.9 % against 95.9 %). The records therefore fit production delaying the drain,
+and equally a longer interval holding more pump passes. The 173 `neither` gaps are
+unresolved against the step floor at this resolution (§V23.12).
+
+**Question 2 — one event?** `QUESTION K` says NOT COINCIDENT within one AUDIO block
+(`GBP-HW-330`). The frozen window is narrower than the VIDEO channel's own step (1.13 T),
+and 19 of 75 distances lie one VIDEO step away. So one event at the VIDEO resolution is
+not decided.
+
+**Question 3 — what the Operator heard.** Unchanged.
+
+**What would settle 1** is a separating experiment on the production step, Run B, chosen
+by `P`'s answer and pre-registered by the Orchestrator. It needs:
+- per-step records without a floor, inside a bounded sample of gaps;
+- a way to tell a step that delays the next completion from one that merely falls inside
+  a long interval.
