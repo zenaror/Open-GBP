@@ -15843,3 +15843,7 @@ floor, the ISR window's ends, and where each record lives.
 - **A slip of mine:** `f2e31ec` was committed with one test failing. The freeze did not
   update `test_swiss_export`'s list of frozen slots, and the commit was chained after the
   test run without checking its result. `cef68f2` fixes it; neither was pushed apart.
+- **The card, once the Operator put it back (§V23.11).** Only `18-trace/boot.dol` and
+  `INDEX.txt` were written. Every file was re-read with `O_DIRECT` before and after:
+  - 01–17 and `aout/run33-audio.bin` are byte-identical to before;
+  - there is no `GBP-AUDIO-008*` file anywhere on the card.
