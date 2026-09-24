@@ -2,7 +2,8 @@
 
 What GameCube software receives from the AUDIO window, how to turn it into sound, and
 what draining it costs. Consolidated from the physical runs of Phase 6
-(`docs/research/HARDWARE_TESTS.md` §V8–§V22, RUN 30 through RUN 38). **Every row carries
+(`docs/research/HARDWARE_TESTS.md` §V8–§V22, RUN 30 through RUN 38), with one timing
+requirement from §V24 (RUN 40, 2026-09-24, GitHub Issue #107). **Every row carries
 the evidence id that supports it and the status `docs/research/EVIDENCE.md` gives it**:
 **F** fact, **C** corroborated. Hardware observations come from this project's hardware
 unless marked *(code)*.
@@ -82,6 +83,7 @@ The instrument's first-press defect is `U-GBP-040`.
 | Start-up stalls — this project's service path, not the device | This project's shared service path (`gbp_vstate`) shows the same start-up signature in all seven archived sessions: 13 incomplete frames, 26 resyncs and the same four preserved episodes, over sessions of 27.9 s to 273.8 s. The ~70-block deficit of earlier sessions is a start-up cost. | F (the signature, a property of the archive); **C** ("a start-up cost") | GBP-HW-317, GBP-HW-319; what produces the stalls: `U-GBP-044` |
 | Short reads | A 32-byte read at index 0x8 does **not** keep the drain in sequence: the decoded period is 4–8 against the programmed 32. The full-read recovery window after it decoded 63 periods of exactly 32 and one of 18, which is NO-RECOVERY. **Read whole blocks.** | F (the gate's result); the mechanism is unknown | GBP-HW-321; 0x100 and 0x400 untested: `U-GBP-042` |
 | An SD write inside the drain | One 65 536-byte SD2SP2 write, made synchronously in the drain's pump slot, took 24.43 ms and cost **100 blocks, lost and not delayed**: that second counted 3 996, and the seconds either side counted 4 096. | F (one write, one card, one size) | GBP-HW-320 |
+| A producer stretch between services | Measured on this project's service loop, where producer work runs in a slot between two service cycles. **One uninterrupted stretch of about 0.2 of a block period (~49 µs) measurably costs blocks.** The same work split into half-size calls (~0.1 of a period) cut the gaps with an undrained block per AI cycle to **0.341** of the full-size calls' (90 % CI 0.306–0.379), a 62–69 % reduction. That came from an interleaved, pair-balanced comparison inside one session. The requirement it implies for any runtime: **keep each uninterrupted stretch of work between AUDIO services short.** Halving the stretch is **not a cure**: the half-size calls still lost 0.25 gaps per cycle, and what causes the rest is open. | F (the result, one run); **C** (that the stretch's length is what starves the drain: one manipulation, one run) | GBP-HW-332, GBP-HW-327, GBP-HW-329; the rest: `U-GBP-045` |
 
 ## 6. Playing it on a GameCube — this project's design, not the device
 
@@ -106,7 +108,9 @@ The instrument's first-press defect is `U-GBP-040`.
 - **`U-GBP-044`:** what produces the start-up stalls, and where the three the log
   does not locate fall.
 - **`U-GBP-045`:** what costs the composed runtime's drain about 25 AUDIO blocks per
-  second, and whether that is the perturbation the Operator heard.
+  second, and whether that is the perturbation the Operator heard. Since RUN 40, most of
+  that cost is a producer stretch (§5). What stays open is what causes the rest, including
+  the gaps no recorded step overlaps.
 - **`U-GBP-037`:** the repeat that would make the rate FACT.
 - **`U-GBP-014`:** AUDIO/VIDEO IRQ timing.
 - **`U-GBP-021`:** the byte-0 class of the cartridge-less capture.
