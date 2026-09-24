@@ -327,8 +327,8 @@ class ThePlumbing(unittest.TestCase):
         # Hardware Issue #61 (2026-09-22) added 14-audio beside it; nothing was renumbered,
         # which is the property this line exists for.
         # 2026-09-23: 15-drain and 16-aout were added the same way (§V19.12, §V21.4), and
-        # 17-live after them (§V22.11).
-        self.assertEqual([r[0] for r in rows if r[0] < "80"], ["%02d" % i for i in range(1, 18)])
+        # 17-live after them (§V22.11), and 18-trace after that (§V23.10).
+        self.assertEqual([r[0] for r in rows if r[0] < "80"], ["%02d" % i for i in range(1, 19)])
 
     def test_the_gecko_protocol_and_the_identity(self):
         p = read(PLAY_MAIN)
