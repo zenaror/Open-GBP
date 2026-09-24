@@ -291,6 +291,17 @@ class TheBuilderReadsWhatTheImageWrites(unittest.TestCase):
         self.assertEqual(r["L"]["verdict"], "INCONCLUSIVE")
 
 
+class TheReportBuilderIsFrozenBeforeTheRun(unittest.TestCase):
+    """tools/v22report.py decides nothing, but every choice it makes -- whole windows only, the
+    window's length, present or ABSENT -- is one the data could otherwise be argued into."""
+
+    def test_v22report_is_the_bytes_of_the_commit_that_froze_it(self):
+        import frozen
+        then = frozen.source("Issue #92 -- live-0001 and its report builder", "tools/v22report.py")
+        self.assertEqual(then, read(os.path.join(ROOT, "tools", "v22report.py")),
+                         "tools/v22report.py was edited after it was frozen")
+
+
 # ---- the audit ----------------------------------------------------------------------
 
 class TheAuditDiscriminatesBothWays(unittest.TestCase):
