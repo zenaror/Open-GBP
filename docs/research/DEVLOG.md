@@ -16051,3 +16051,36 @@ per-block VIDEO records: 82 in the session, 69 beyond the start-up signature.
 
 **Next.** It is the Orchestrator's to freeze. The data point to shortening the stretch
 further, and to pre-registering whether production reaches gaps it does not overlap.
+
+## 2026-09-24 — Issue #109: the runtime ADOPTS 8-push production calls — the value argued from RUN 40's measurements
+
+**The decision §V24.5 reserved, taken separately from the science.** `GBP_APLAY_STEP_PUSHES`
+goes from 16 to **8**. It is an engineering change with measured evidence behind it, and it
+establishes nothing about the device; EVIDENCE is untouched.
+
+**The value, from quantities measured in RUN 40.**
+- **Gain.** 8-push calls lost 0.341 of the 16-push calls' loss gaps (`GBP-HW-332`). The
+  `produce` share is 89 % in both arms, so the losses fall with the stretch's length
+  (`GBP-HW-334`). The half arm's residue overlaps ordinary calls (228 of 257), not the
+  chunk's first call (7), so shortening would target it.
+- **Cost, not the limit.** 119.6 ticks per push and 64.0 fixed per call, from the medians
+  of both arms. Even 2-push calls would add ~4 100 ticks per chunk, 0.3 % of a cycle.
+- **The limit is throughput.** The floorless sample counts every call in 254 cycles: the
+  pump slot ran at least 110 times per AI cycle (median 115). One chunk a cycle needs 128
+  pushes, so 1-push calls cannot keep up. 2 is the smallest that can (1.7×); 4 gives 3.4×
+  and 8 gives 6.9×.
+- **8 is where the evidence stops.** Below it the effect is an extrapolation, not a result.
+  The runtime takes the measured value, so the Phase 6 acceptance run will run a
+  configuration whose loss rate is known: the half arm's 0.25 gaps per cycle.
+
+**Measurable in a normal run.** The loss rate stays observable without §V24's
+instrumentation: `gbp_alive`'s per-second drained-block count (`LIVESEC`) and `gbp_aplay`'s
+DUP/DROP/underrun counters are part of the chain itself.
+
+**Tests.** `tests/unit/test_gbp_aplay.c` adds that with no hook every chunk takes 8-push
+calls and comes out byte for byte the same as 16-push production, with the same corrections
+and twice the calls. The #105 test now pins its 16-push producer explicitly.
+`docs/protocol/AUDIO.md` §6's design row names the adopted size and why.
+
+**Not a fix.** The residue stands (`U-GBP-045`). No image is built: the next hardware run is
+Phase 6's acceptance on a real cartridge, and its criterion is the Orchestrator's.
