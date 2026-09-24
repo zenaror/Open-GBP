@@ -33895,3 +33895,136 @@ close call.
 **Frozen here and not in the prose:** the constants, the report schema and the
 computations of `tools/v23accept.py`, exercised on synthetic vectors only
 (`tests/host/test_v23accept.py`), in the same commit as this text.
+
+### V23.9 The image, BUILT — `trace-0001` (GBP-AUDIO-008) — NOT staged, NOT run
+
+*Appended. §V23.0–§V23.8 stand. This records what the image is, the choices §V23 left to
+it, and what its self-cost does and does not time. The gates and their readings do not move.*
+
+```text
+image      poc/gbp-audio-trace / trace-0001 / commit c1beea1 (clean) / TEST_ID GBP-AUDIO-008
+DOL        523 232 B   sha256 5c08ea10db8eb2116c06a0b410cc72e4b41b903fef26c5e37aa244e1a9d953fe
+           two builds from an empty output directory at c1beea1, byte-identical (the ELF too)
+base       live-0001 (poc/gbp-audio-live at 9341ca7, RUN 38's image). By diff, only its five
+           identity lines change; every added hunk is a block marked TRACE
+           (tests/host/test_trace_image.py)
+audit      profile trace (tools/poc_audit.py, derived from live): 0 findings; both one-shot
+           handlers identical to the physically validated GBP-VIDEO-001 build
+Dolphin    make trace-dolphin: the HSP device absent -> live-dolphin's flow, PASS. The service
+           never runs there, so nothing is recorded and nothing is emitted. arena1_free
+           2 666 496 B (live-0001: 5 152 768 B on the console and in Dolphin; the difference,
+           2 486 272 B, is the recorder's preallocated storage)
+slot       NOT staged; staging and the Hardware Issue are the Orchestrator's
+gates      tools/v23accept.py (frozen at 8e0e5e8)
+report     tools/v23report.py (frozen with the image at 484b5c4, pinned at a9b08fd)
+sidecar    sd:/open-gbp/GBP-AUDIO-008_trace-0001-trace.bin, written on X after the L2 record
+           and before the log; the log's LIVETRACESAVE says whether it saved
+```
+
+**Two builds before this one were superseded before any was reported.** `484b5c4`
+(sha256 `41bcce42…061d94`) timed the VIDEO tap from its own first clock read, so the
+service module's clock read for the hook and the hook's call fell outside every timed
+interval, once per VIDEO block (fixed at `89e585c`). `89e585c` (sha256
+`3a7d6999…bf97ab`) sized the VIDEO records for ~82 s, but the prompt has no deadline, so a
+late A press could have pushed the end of C's window past them (fixed at `c1beea1`).
+Neither was staged.
+
+**The test ID.** §V23 reserved none. `GBP-AUDIO-008` is the family's next free ID.
+
+**What the image records.** All of it is in the console's 40.5 MHz timebase, preallocated
+(about 2.4 MB), and written without allocation, device access, print or I/O while the run
+lasts. A full buffer is counted in LIVETRACE2, never overrun.
+
+```text
+TRACE 1  AUDIO     each decoded sample of C's window as it left the decoder     266 240  (64 s x 4096 + 1 s)
+                   and a u16 completion delta; a delta that does not fit goes      1 024 side-ring ticks
+                   to a side ring with its full tick (§V23.1)
+TRACE 2  VIDEO     every VIDEO completion of the SESSION, a frame-start flag by   294 912  (~123 s at ~2390/s,
+                   GBI's predicate (GBP-HW-077) and a 15-bit delta; every           past the 120 s cap)
+                   vblank goes to the side ring (§V23.7, §V23.8 (f))              8 192 side-ring ticks
+TRACE 3  CALLBACK  every AI DMA callback: entry to exit, the ISR window, and     4 096
+                   the record's own write time (§V23.3)
+TRACE 4  STEP      the pump slot's produce, flush_queue (DCFlushRange + queue)    49 152 kept
+                   and process: start, end, the recorder's own write. A
+                   flush_queue is always kept; a produce or process is kept at
+                   >= 200 ticks (4.9 us); EVERY call is counted and histogrammed
+                   by log2 of its duration (§V23.8 (a))
+TRACE 5  COST      every other recorder write, per AI callback cycle, and the      4 097 cycles
+                   largest single one (§V23.8 (s)); before the session, 1 024
+                   back-to-back clock-read pairs per path (LIVETRACECLK)
+TRACE 6  SIDECAR   on X, after the session: the trace file, CRC-32 terminated
+```
+
+**The VIDEO tap: the change and its consequence, as the Orchestrator's conditions ask.**
+- The service path gains one optional hook, `cfg->video_tap`, the AUDIO tap's twin. It is
+  called after the VIDEO read with the block, its length, the completion tick and whether
+  it completed.
+- With the hook NULL, which is every earlier build, no clock is read and nothing is called.
+  `tests/unit/test_gbp_video_state.c` compares the operation stream op for op: 1 511
+  operations, 0 differences, and 120 taps when installed.
+- `tests/host/test_awin_image.py`'s hook diff names the new line.
+- **The consequence: an executed image reproduces at its own commit, not at HEAD.**
+  HEAD's service module now carries the hook, so rebuilding RUN 38's `live-0001`, or any
+  earlier executed image, at HEAD gives different bytes from the ones that ran. Each is
+  reproduced from its recorded commit.
+
+**What the self-cost times, and what it cannot.** §V23.8 (s) calls the figure an upper
+bound because it includes the cost of measuring itself.
+
+Inside a timed interval:
+- each AUDIO record, from a clock read before it to one after;
+- each VIDEO record, from `t_done`, the tick the service module read for that very call,
+  so the hook's call is inside it;
+- the callback record's write;
+- each kept step's record, from the step's end to after the record;
+- the histogram write of each step not kept.
+
+Outside every interval:
+- the accumulation into the cycle after each interval, a few instructions;
+- the clock read that opens the ISR window;
+- the part of the clock read before each step that precedes that read's sample;
+- the service module's branch on the hook.
+
+The same reads lie partly inside what they bracket, so a step or an ISR window is
+measured longer than it ran by up to one clock read.
+
+So the figure is an upper bound on what it times, and short of the whole recorder by
+those reads. Their size is not estimated from an instruction count: LIVETRACECLK logs the
+min..max cost of a read on this console, through both paths the recorder uses. A reader
+bounds the remainder per cycle as reads × max: one per callback, and one per pump-slot
+step from the histograms' call counts.
+
+**Choices §V23 left to the image, and what it chose** (for the Orchestrator to confirm or
+amend **before staging**):
+- **The step floor, 200 ticks.** Keeping every step is not possible. RUN 17 ran 6 314
+  deliveries/s. The pump slot runs at most once per service cycle: it yields when a cause
+  is already latched. Three steps per pass is therefore up to about 19 000 steps/s, or
+  1.2 M in C's window. A step under the floor
+  overlaps a loss's gap (>= one block period, 9 888 ticks) by at most 1/49 of it.
+  Dropping it can change `QUESTION P` only for a gap that NOTHING of 200 ticks or more
+  overlaps. There, the gap goes to `neither` or to a shorter candidate instead of to that
+  step. The histograms show how often steps were short, and `step_dropped` shows whether
+  the kept ones overflowed.
+- **The ISR window** runs from the callback's entry to its exit after `AUDIO_InitDMA`, the
+  hand-off included. The record's own write after that is the recorder's, not the ISR's.
+- **Where each record lives.** AUDIO only in C's window, where the tap decodes (§V23.1).
+  VIDEO over the whole session, as reading (f)'s addition asks. Callbacks and steps
+  wherever the AI and the chain run, which is inside C's window.
+- **The report builder** (`tools/v23report.py`, frozen with the image) rebuilds absolute
+  ticks from the first tick, the deltas and the side rings. It refuses rather than
+  guesses: a bad CRC; another timebase; a trace whose counts are not the log's
+  LIVETRACE; a saturated delta whose tick was not kept. `tests/host/test_trace_image.py`
+  compiles the recorder on the host, runs a synthetic session through it, the builder
+  and the frozen gates, and gets every tick back exactly.
+
+**A risk named before the run, not a prediction.** In C's window the recorder adds, on
+the drain path:
+- a store and two clock reads per AUDIO block (4 096/s);
+- a store and two clock reads per VIDEO block (~2 390/s): the service module's, for the
+  hook, and the tap's;
+- six clock reads and the step records per pump pass, nine when a chunk is queued;
+- three reads and a record per AI callback (~32/s).
+
+RUN 38 already lost ~25 blocks/s with none of it. Whether the instrument adds to that is exactly what the observer gate's
+PRIMARY figure and its count bound exist to report. A `recorder` plurality in
+`QUESTION P` would say the instrument is too heavy for the question (§V23.8 (n)).
