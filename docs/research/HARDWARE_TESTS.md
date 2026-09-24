@@ -34414,3 +34414,210 @@ GBP-AUDIO-008 / trace-0001
       gap durations, in AUDIO block periods (quarters): 1.00:62  1.25:51  1.50:389  1.75:681  2.00:270
   (f) incomplete frames: 14 before the AI starts, 74 inside its span, 0 after it stops
 ```
+
+## V24 — RUN B: split `produce`, hold total work constant, and separate CAUSE from ACCOMMODATION — **PRE-REGISTERED 2026-09-24 (GitHub Issue #105); NOT RUN, NOT AUTHORISED HERE; the image is built under this Issue and staged by a separate Hardware Issue**
+
+It supersedes the Issue body's §V24 entirely. All four of the Executor's points
+are taken; the three numbers he left to me are decided here.
+
+### V24.0 What RUN 39 settled, and the limitation that designs this run
+
+```text
+observer gate HOLDS   27.86 blocks/s <= 31.8 ; 74 frames <= 86 ; recorder 0 gaps
+P names `produce`     1279 of 1453 gaps ; neither 173 ; isr 1
+K NOT COINCIDENT      2 of 75 within 1 T ; phase-preserving p = 0.98610
+floor rule            "may account for it, unresolved at this resolution"
+```
+
+**`P` cannot tell CAUSE from ACCOMMODATION.** A loss gap holds a production step
+96.9 % of the time; a long *no-loss* gap holds one 95.9 % — **an odds ratio of
+1.34.** Naming `produce` says the gaps are where production is, not that
+production makes them.
+
+### V24.1 The design — interleaved WITHIN the run
+
+**Each AI chunk is produced in either 16-push or 8-push steps, by a seeded,
+balanced assignment frozen in this pre-registration.** Total work per chunk is
+identical: the same samples, the same arithmetic, the same DUP/DROP decisions,
+which are taken once at the chunk's start. Only the fixed per-call overhead
+doubles in count.
+
+**Both arms share one session, one instrument and one console state, so
+between-run variation drops out by construction.** That is what my previous
+draft claimed and could not deliver: with one step size per run, "within the
+run" had nothing to be within, and the discriminator collapsed into the
+between-run comparison it disclaimed.
+
+Power, for scale: RUN 39 gave 0.72 loss gaps per cycle over 2 030 cycles, so
+about **1 015 cycles and ~731 losses per arm**.
+
+### V24.2 `QUESTION S`
+
+**My previous CAUSE criterion could not be met even when production IS the
+cause.** A loss gap contains a missing block, so its length is floored near
+1.00 T by construction — RUN 39's all lay in [1.00, 2.25) T against a ~0.20 T
+production stretch. Halving the stretch removes losses; the ones that remain
+still span a missing block. **The signature of CAUSE is FEWER losses, not
+SHORTER loss gaps**, and as frozen a true cause would have read ACCOMMODATION.
+
+```text
+NEITHER        the half arm's kept production steps are not at about half the
+               full arm's: median OR p90 ratio > 0.60
+               -- 0.60 and not 0.50 because the fixed per-call overhead does not
+                  halve, it doubles in count. A CHOSEN allowance.
+
+CAUSE          the half arm has fewer loss gaps per cycle, by a PERMUTATION test
+               over cycles, one-sided, alpha = 0.05
+
+ACCOMMODATION  the stretch halved AND the 90 % CI for the half/full loss ratio
+               lies entirely above 0.90 -- i.e. a reduction larger than 10 % is
+               RULED OUT. "Not significant" is not "equal", so equivalence is
+               required rather than a failure to reject.
+
+UNRESOLVED     neither CAUSE nor ACCOMMODATION -- the run lacked the precision
+               to separate them, and says so
+
+INCONCLUSIVE   the observer gate fails, or the FULL arm has too few losses to
+               power the test. A LOW HALF ARM IS THE FINDING, NEVER A FAILURE
+```
+
+**The numbers, and why they are those numbers.** At ~731 losses per arm the SE
+of the log ratio is 0.052, so the 90 % CI is ±8.6 %: a 10 % equivalence margin
+is attainable and is the tighter, more informative claim. For CAUSE, a 20 %
+effect is 3.8 SD and a 10 % effect is 1.9 SD; **α = 0.01 would have been
+under-powered for the smaller effect we care about**, so α = 0.05 — one
+pre-registered one-sided comparison in a balanced randomised design, with no
+multiplicity to correct. All three are **chosen numbers with their arithmetic
+recorded**, not derived constants.
+
+**Reported beside the verdict, per arm, at the same quantiles:** the production
+stretch, the loss-gap lengths, and **the lengths of no-loss gaps that hold a
+production step** — which is where "the gaps shorten" can actually show.
+
+### V24.3 The aggregate rate
+
+Reported with RUN 38's 25.41/s and RUN 39's 27.86/s beside it, **and with
+between-run variation stated as unknown**. Context, never the discriminator.
+
+### V24.4 The finer records — DESCRIPTIVE
+
+**There is no per-gap geometric test.** RUN 39 shows the next completion
+following the last production step by 0.48 T at the median in loss and no-loss
+gaps alike, and a tight lock would also come from the service cadence alone. So
+the records are descriptive and **the cause/accommodation distinction is made by
+the ARM CONTRAST, not per gap.**
+
+Every chain step **without a floor**, in a bounded systematic sample — every 8th
+AI cycle, both arms, loss and no-loss gaps alike. About 60 k steps, ~0.7 MB
+against 2.67 MB free; that sample size is the bound.
+
+### V24.5 What this does NOT do
+
+**It is not a repair.** Smaller steps are the probe; if they also reduce losses,
+that is the finding and not the fix, and any change adopted for the runtime is
+decided afterwards, separately, on its own merits.
+
+Not Phase 6's closure. Not a real cartridge. Nothing about `U-GBP-012`.
+
+**K's resolution limit is NOT addressed and cannot be.** The VIDEO channel's own
+step is 1.13 T (p10 1.04, p90 1.58); 19 of 75 distances sit one video step away
+and 61 of 75 locations are close calls. **One event at VIDEO resolution can never
+be decided at this criterion** — the channel's granularity, not the
+instrument's. A hard limit; do not design around it.
+
+### V24.6 Unchanged from §V23
+
+The observer gate and its bounds, the `recorder` category, the attribution rule,
+`QUESTION P`'s no-pass/fail, and §V23.7's VIDEO gap definition all carry over as
+frozen. Only the interleaved variable and `QUESTION S` are new.
+
+### V24.7 Transcription record — the source, the edits, and the readings this part leaves to the Orchestrator
+
+**Source.** The Orchestrator's comment on #105, `issuecomment-5817266651`, fetched with
+`gh api`. It supersedes the Issue body's §V24 entirely.
+
+```text
+sha256 of the body as `gh api ... --jq .body` prints it (one trailing newline)   c965ef8009218500b6f95151d2a7d615307bcb0154f7f5df39470f68969a5e08
+sha256 of the body's own 5 700 characters                                       2abddceb336a5e7f49912176d2a49e931c305d2db90ef5b449fe94950989512c
+```
+
+The first matches the figure the Orchestrator gave before this commit. The comment is
+transcribed byte for byte from the line after its title to its end. The only edits:
+- its title line ("# §V24 — COMPLETE AND CORRECTED. …") is replaced by this part's heading;
+- headings are re-levelled: `## §V24.k` becomes `### V24.k`.
+
+**What was checked on RUN 39's data before the numbers were frozen**
+(`captures/fixtures/…-trace-0001-run39*`, through the frozen `tools/v23report.py`):
+- **NEITHER's 0.60.** The FIRST `produce` step of every chunk is ~830 ticks longer than
+  the other seven: 2 819 against ~1 985 at the median. That is the chunk-start work. In
+  the full arm first steps are 1/8 of the steps, so its p90 lands on them; in the half
+  arm they are 1/16. The binding ratio is therefore the median, ≈ 0.5 + x/3 970 for a
+  per-call fixed cost x, and it stays under 0.60 unless x exceeds ~400 ticks.
+- **Loss gaps per cycle are UNDER-dispersed:** mean 0.715, variance 0.400, D = 0.56. The
+  losses are about one per cycle, more regular than Poisson, so the SE of the log ratio
+  is ~0.039, not the 0.052 that §V24.2 took.
+- **ACCOMMODATION is attainable.** As an A/A check, 40 random splits of RUN 39's cycles
+  into two pseudo-arms were run with a cycle bootstrap. The 90 % CI lay entirely above
+  0.90 in 33 of the 40, with a mean width of 0.130.
+
+**Readings the gates must fix and the prose leaves open.** The Executor proposed them.
+The Orchestrator **CONFIRMED all eight before this commit**, with three additions that are
+part of the confirmation:
+- the Executor's record of them is on #105 as `issuecomment-5817343526` (body sha256
+  `d97a3ce1f48f0a77c38b775a3ee42193341a226dbdb601e0d189728b667c2427`);
+- the Orchestrator's confirmation of that record, in its words, is `issuecomment-5817351397`
+  (body sha256 `d37d98729b9aa09865dc7ce2cf9c893b05862fc6d4ea9c9a6139bf99b0a57380`).
+
+All eight are frozen as written in `tools/v24accept.py`. A later change to any of them is
+a dated AMENDMENT appended here **before any hardware**.
+
+```text
+(r1) the 90 % CI        a bootstrap over cycles within each arm: percentile interval, 20 000 resamples,
+                        seed 24; the ratio is the half arm's mean loss gaps per cycle over the full arm's
+(r2) the permutation    statistic = the difference of those means (half - full); arm labels permuted over
+                        the analysed cycles, 20 000 times, seed 24; one-sided p = the fraction of permuted
+                        statistics <= the observed one
+(r3) too few losses     the FULL arm has fewer than 250 loss gaps IN THE ANALYSED CYCLES:
+                        |log 0.8| / (1.645 + 0.84) = 0.0898 and n = 2 / SE^2 = 248 -> 250, conservative at
+                        D = 0.56. A chosen number with its arithmetic
+(r4) precedence         NEITHER -> INCONCLUSIVE -> CAUSE -> ACCOMMODATION -> UNRESOLVED; a CAUSE is reported
+                        with its CI, so a small one reads as small
+(r5) cycle -> arm       a cycle takes the arm of the chunk whose production steps fall in it; every step
+                        carries its chunk's arm in the step record's spare byte; a cycle with no
+                        production step, or with steps of two chunks, is excluded and counted; a loss maps
+                        to the cycle of the callback entry before its completion tick
+(r6) the assignment     pair-balanced: chunks 2j and 2j+1 take opposite arms, and which comes first is bit j
+                        of a fixed-seed xorshift32 (seed below); the host regenerates the sequence and
+                        REFUSES the run if the image's arm tags disagree
+(r7) the quantiles      p10, p25, p50, p75, p90, p99, per arm
+(r8) no-loss gaps       AUDIO completion gaps not located as a loss that overlap a kept production step;
+     with a production  a half step is ~1 000 ticks, safely above the 200-tick floor
+     step
+```
+
+**The additions, recorded as part of the confirmation:**
+- **To §V24.2:** there is roughly a 20 % chance of UNRESOLVED even when the truth is "no
+  effect". UNRESOLVED is a likely outcome by design and must not be read as the run having
+  gone wrong.
+- **To (r3):** the 250 counts only the ANALYSED cycles, after (r5)'s exclusions. The
+  excluded count is reported with its reason breakdown (no production step; two chunks'
+  steps). Excluded cycles are counted, never silently dropped.
+- **To (r6):** a refusal on the arm-tag mismatch is **INCONCLUSIVE, never a FAIL**. The run
+  did not answer; it was not wrong.
+
+**Frozen here and not in the prose** (the Executor's, deciding nothing the readings do not):
+- **The seed.** xorshift32 with seed `0x9E3779B9` (`x ^= x << 13; x ^= x >> 17; x ^= x << 5`,
+  32-bit). Bit j is bit (j mod 32) of the (j div 32 + 1)-th output word. Bit 1 means chunk
+  2j is produced in the HALF arm (8-push steps) and chunk 2j+1 in the FULL arm (16-push
+  steps); bit 0 means the reverse.
+- **The spare byte of a step record:** bit 0 is the arm (1 = half), bit 1 marks a chunk's
+  first step, and bits 2..7 carry the chunk's sequence number mod 64. The host rebuilds
+  the sequence from the first-step marks and checks both.
+- **(r6)'s refusal is checked before any verdict**, because every verdict reads the arms.
+  It is INCONCLUSIVE by the addition above. A trace whose step records overflowed
+  (`step_dropped > 0`) is refused the same way, since its arm tags cannot be verified.
+- **The quantile** of a sorted list of n values is its element at index floor(q × (n − 1)).
+- **The rest.** Only the cycles bounded by two callbacks are analysed; the last, open one
+  is excluded and counted like the others. The constants, the report schema and the
+  computations of `tools/v24accept.py` are exercised on synthetic vectors only
+  (`tests/host/test_v24accept.py`), in the same commit as this text.
