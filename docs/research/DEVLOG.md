@@ -15763,3 +15763,69 @@ pre-registration is the Orchestrator's.
 
 **Next highest-value experiment.** That timestamp run. It is observation first,
 with one variable: the records themselves.
+
+## 2026-09-24 — Issue #101: Run A pre-registered as §V23, its gates frozen, and its image built — NOT staged, NOT run
+
+**Goal.** Pre-register the read-only timestamp run #100 sketched (`U-GBP-045`: which step of
+the AI chunk cycle starves the service path, and do the two losses coincide). Then freeze
+its gates on synthetic vectors, and build its image on `live-0001` with instrumentation
+only. Staging and the Hardware Issue are the Orchestrator's.
+
+**§V23, transcribed and frozen before any image code** (`8e0e5e8`, pinned at `8b7196e`).
+- The Orchestrator's merged text is kept byte for byte, with its hash recorded.
+- The six readings the gates must fix are CONFIRMED on the Issue: (f), (t), (a), (n), (k)
+  and (s), three of them with additions that are part of the confirmation.
+- `tools/v23accept.py` holds `QUESTION K`, `QUESTION P` and the observer gate.
+  `tests/host/test_v23accept.py` exercises them on constructions. Examples:
+  - a 1.94T gap with nothing lost locates nothing;
+  - the same stall behind both channels is COINCIDENT;
+  - independent stalls in a shared band are NOT COINCIDENT under the phase-preserving null,
+    while the uniform null says p < 0.001, which is why §V23 rejected it.
+
+**A defect of mine, found by those constructions** (`15a0d7d`). #100's `u045cadence` hid a
+loss whenever the lost block was a transition's step sample, because a mark at i + 0.5
+rounded both halves to 16. `GBP-HW-327` is corrected on top: R 0.957 against 0.839, with
+the peak at 31.223 ms. The conclusion (the AI side, one starvation) stands; the margin is
+narrower. §V23.8 records it beside §V23.0's figure.
+
+**The image, `trace-0001` (GBP-AUDIO-008), at `c1beea1`.** DOL sha256
+`5c08ea10…a9d953fe`, 523 232 B, two builds byte-identical. It is `live-0001` with six
+TRACE blocks, and the diff shows nothing else. Every AUDIO sample of C's window, every
+VIDEO completion of the session, every AI callback's ISR window, and the chain's produce,
+flush_queue and process steps are recorded with their ticks. Every other recorder write is
+timed per AI cycle. The sidecar is written on X, after the session. §V23.9 has the table,
+the capacities and the choices §V23 left open.
+- **The VIDEO tap** (`cfg->video_tap`, the AUDIO tap's twin) is NULL in every earlier
+  build and unchanged op for op. Its consequence, stated at the change, in
+  `test_awin_image` and in §V23.9: an executed image reproduces at its own commit, not at
+  HEAD.
+- **The recorder** (`src/audio/gbp_atrace`) is host-tested (31 checks). The report builder
+  `tools/v23report.py` is frozen with the image (`484b5c4`, pinned at `a9b08fd`). It
+  refuses a bad CRC, another timebase, another run's trace, and a saturated delta whose
+  tick was lost.
+- **`tests/host/test_trace_image.py`** checks four things:
+  - the diff against `live-0001`;
+  - on the drain path, a TRACE block calls only the recorder and the clock, and writes
+    only its own locals;
+  - the recorder compiled on the host, with a synthetic session through the builder and
+    the frozen gates, returns every tick exactly;
+  - the new `trace` audit profile, both ways.
+- `make trace-audit`: 0 findings, ISR identical to GBP-VIDEO-001's. `make trace-dolphin`:
+  PASS, arena1_free 2 666 496 B.
+
+**Two builds superseded before reporting, both found by checking a claim against the
+image.**
+- (s) says the self-cost is an upper bound. The first build left the VIDEO hook's call
+  and its clock read outside every interval. The tap now times from the tick it is handed,
+  and a clock read's own cost is logged before the session (LIVETRACECLK), to bound the
+  reads no interval can time.
+- The VIDEO records were sized to RUN 38's ~71 s, but the prompt waits until the 120 s
+  cap. They are now sized to it.
+
+**Tests.** `make test-python` and `make -C tests/unit`, on the committed tree, are
+reported with the Issue.
+
+**Choices for the Orchestrator to confirm before staging** (§V23.9): the 200-tick step
+floor, the ISR window's ends, and where each record lives.
+
+**Next highest-value experiment:** Run A itself, once staged by its Hardware Issue.
