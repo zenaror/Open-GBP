@@ -2135,7 +2135,7 @@ construction.
 the same image with raw episode preservation disabled, compared like for like.
 Neither is planned.
 
-## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"?
+## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open**
 
 **What is FACT.**
 - **The composed image drained less than the drain alone.** RUN 38's `live-0001` (the
@@ -2176,3 +2176,31 @@ The output leg is not in question: L2 is bit-exact and C shows no underrun.
 - For hypothesis 2: a run whose drain holds 4 096 ± 1, listened to the same way.
 
 Neither run is designed yet.
+
+**RESCOPED 2026-09-24 (GitHub Issue #100), on top; nothing above is rewritten.** The
+fork "one starvation or two" is answered from the archive, at the level of cadence:
+**one** (`GBP-HW-327`).
+- **The audio losses.** They are phase-locked to the AI chunk period of 31.22 ms, and
+  62 % of chunk periods carry one.
+- **The video losses.** Every one is detected 1.5–11.7 ms after an AI DMA callback. The
+  chance that random frames would do as well is under 1 in 20 000.
+
+What stays open, and is now this item's question:
+1. **Which step of the chunk cycle starves the service.** The candidates are the
+   chunk's production in the pump slot, its flush and queueing, and the AI DMA
+   interrupt. Whether the per-block decode inside the service transaction narrows the
+   margin is also open. All are HYPOTHESES; the log times none of them.
+2. **Whether individual audio and video losses coincide.** The archive cannot say:
+   the kept stream has no absolute time, and a video event is quantised to its frame.
+3. **Whether the perturbation the Operator heard is these discontinuities.** This is
+   unchanged.
+
+**What would settle 1 and 2** is a run that timestamps, in the one 40.5 MHz timebase:
+- each AUDIO gap longer than 1.5 block periods;
+- each missing video block;
+- each AI callback;
+- each chain step, with its start and end.
+
+The image and the conditions stay those of RUN 38, and the timestamps are recorded
+read-only. The design sketch is on Issue #100. The pre-registration is the
+Orchestrator's.
