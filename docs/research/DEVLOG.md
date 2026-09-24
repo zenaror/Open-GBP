@@ -15218,3 +15218,55 @@ Orchestrator states that the Operator's answer is final. The Orchestrator will n
 state that before anything is opened.
 
 **Next.** #91, RUN 37's three gates.
+
+## 2026-09-23 — Issue #91: RUN 37 ingested — D1 PASS, D2 100 AUDIO blocks per 64 KiB write, QUESTION A SYNC-LOST at N = 0x20: the runtime reads whole AUDIO blocks
+
+**Goal.** Run §V19's three gates unedited on RUN 37 and report their verdicts
+before any commentary.
+
+**Verdicts,** from the frozen `tools/v19report.py` and `tools/v19drain.py` (§V19.14.1):
+- **D1 PASS.** 57 windows. 50 read exactly 4096; the rest are ±1 pairs across tick
+  boundaries plus the last window at 4095. The worst is 0.99976. The counter and the
+  timebase agree exactly (245 757 over 60.00002 s).
+- **D2 MEASURED.** One 65 536-byte SD write in the pump slot took 24.43 ms and cost
+  100 AUDIO blocks. They were **lost, not delayed**: the next second is exactly 4096.
+  Frozen consequence: the ring holds at least 200 blocks.
+- **QUESTION A: SYNC-LOST at N = 0x20, NO-RECOVERY.**
+  - The control before it was exact (63 periods of 32).
+  - The 32-byte reads decoded a period of 4–8.
+  - The full-read window afterwards had 63 periods of 32 and one of 18, a 14-block
+    discontinuity whose position is not recorded.
+  - N = 0x100 and 0x400 never ran, because the sweep stops at the first failure.
+
+**What it decides.**
+- The runtime reads **whole 0x1000 AUDIO blocks**, 16.8 MB/s sustained, which D1
+  shows the drain carries in steady state.
+- Short reads are not a lever.
+- SD writes must stay off the drain's path.
+- `U-GBP-042` is answered for N = 0x20 (no), stays open for the larger N and the
+  mechanism, and drops to P3.
+
+**What it does not.**
+- D1 does not measure the start-up. "The prior deficit is a start-up cost" is
+  CORROBORATED (with `GBP-HW-317`), not FACT.
+- **Why** 32-byte reads decode as 4–8 is UNKNOWN: either the sequence or the slice
+  failed, and B4's premise is contradicted without being replaced.
+- `edge_recoverable 0.0` at N = 0x20 is structural, not a measurement.
+
+**Evidence.**
+- `GBP-HW-319` (D1), `GBP-HW-320` (D2) and `GBP-HW-321` (A).
+- The RUN 37 log is versioned as a fixture. `tests/host/test_run37.py` recomputes
+  all three verdicts from it through the frozen tools and checks that §V19.14.1 is
+  exactly what they print.
+- The `-d2.bin` is 65 536 × `0xA5` and is not versioned.
+
+**Also.** §V21.10 records that RUN 36's refused boot 1 proved the image's refusal
+path on the console, the Orchestrator's point.
+
+**Open.**
+- The card re-hash, which the Orchestrator owns.
+- `U-GBP-042` for N = 0x100 / 0x400: one N per power-cycled session, if it is ever
+  wanted.
+
+**Next.** The Orchestrator's call: Phase 6's drain design around whole AUDIO blocks,
+a 200-block ring and logging off the drain's path.
