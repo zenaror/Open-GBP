@@ -66,6 +66,9 @@ BASES = {
         "feaf380fb0c08669570e34e0b97425d0de7d5493",
     "Issue #92 -- §V22 AMENDMENT 1 applied":
         "dfb0a965ec73120c55f75b2a0146e5d10a1d45c6",
+    # Issue #101: Run A (§V23), transcribed and its gates frozen before the image exists
+    "Issue #101 -- §V23 transcribed, Run A's gates frozen":
+        "8e0e5e808583de5241b4765905138941a6514ebb",
 }
 
 
