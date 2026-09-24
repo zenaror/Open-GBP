@@ -15640,3 +15640,86 @@ a FACT over the archive, and a population change is a real event. They do
 work, and RUN 38's ingestion will still update them.
 
 `EVIDENCE.md` is untouched.
+
+## 2026-09-24 — Issue #99: RUN 38 ingested — Phase 6's acceptance: L INCONCLUSIVE (the drain), L2 PASS, C PASS, and the AI's rate measured at 32 028.483 Hz
+
+**What this does not establish**, stated first as the Issue asks. It does not
+cover:
+- GB/GBC;
+- a real game's audio;
+- latency, video synchronisation or mixing;
+- `U-GBP-012`'s layout half.
+
+It is one run on one console, with a stimulus ROM.
+
+**The sequence.**
+1. The files landed and were archived first: hashes taken on `logs/run38`,
+   `cmp` after the copy. The Gecko capture was archived too.
+2. `tools/v22report.py` (`feaf380`) and `tools/v22accept.py` (`dfb0a96`) ran
+   unedited. Their outputs were hashed and **sealed**, because C answers the
+   Operator's second question.
+3. The seal was opened only after the Orchestrator declared his answer FINAL,
+   and checked against the hashes. `test_run38.py` reproduces both outputs byte
+   for byte from the versioned fixtures.
+
+**The verdicts, in their own words** (§V22.12.2):
+
+```text
+L   INCONCLUSIVE  64 1.000 s window(s) under D1's 0.999, first 0 at 4080 AUDIO blocks: a drain result, not a playback one
+L2  PASS          the host reproduced the CRC 3b453778 of 320 chunks x 1000 frames exactly (320 DUP, 0 DROP, 0 SILENCE applied)
+C   PASS          zero OVERFLOW and zero UNDERRUN over 64.000 s; NOT DRAINED 1626 AUDIO blocks; 1965 DUP and 0 DROP corrections
+M   AI rate 32028.483 Hz over 2030 callbacks (+890.1 ppm vs 32 000, +0.4 ppm vs Dolphin's 32 028.5)
+```
+
+**What the result is, and what it is not.**
+- **No gate FAILED. One gate did not PASS.**
+- **The output leg is bit-exact and survives.** That is decode → the frozen
+  resampler → counted corrections → the AI DMA, which no run had tested before.
+- **The composed runtime's drain does not keep up.** It drained 4 060–4 081
+  blocks/s, 0.62 % short, where `drain-0001` alone drained 4 096 ± 1. The
+  losses are small and many: no gap exceeded 2.2 block periods. That makes L
+  "a drain result, not a playback one". The cause is `U-GBP-045`, a
+  HYPOTHESIS.
+
+**M did not go the way the Issue expected.** The Issue was written before the
+seal was opened, and it guessed that M would refute Dolphin. M **corroborates**
+Dolphin's `108 MHz / 3372` to +0.42 ppm. The ~8× correction rate is the drain,
+not the clock: the frozen tool's own prediction from this run's drain is
+29.05/s, against 30.70/s observed.
+
+**That refutes §V22.4's frozen reading** ("far from ~3.7/s → wrong clock
+model"), which rested on an unstated premise: that the composed image drains at
+RUN 37's rate. It is recorded as a limitation found by data, not repaired.
+
+**The Operator.**
+- The exposure paragraph is recorded verbatim.
+- His answer, "ouvi o tom … um pouco "vibrando" … relativamente estável", is
+  split into observation, his own hypothesis and hedge.
+- The perturbation is the part that survives the exposure.
+- That it corresponds to the ~56 one-sample discontinuities per second
+  (duplicates plus undrained blocks) is a HYPOTHESIS, in `U-GBP-045`.
+
+**Records written.**
+- `HARDWARE_TESTS.md` §V22.12. §V22's heading gets no pointer: it is frozen
+  bytes, and `test_v22accept` rightly refused the one I first appended.
+- `EVIDENCE.md` `GBP-HW-322`…`326`: L, L2, C, M and the Operator.
+- `UNKNOWNS.md` `U-GBP-045` (P1).
+- The GBP-HW-272 recount, as commit 1: RUN 38 is the 51st log, `0x92`.
+- Fixtures: the log and the L2 record, byte for byte.
+- `docs/protocol/AUDIO.md` §6/§7. Without this correction the page would have
+  gone on saying "not yet run" and "not measured" against the record.
+
+**A miss in #98's inventory, found by this ingestion.** Six pins of the form "no
+`captures/local` name above runN", with N moved by hand at every run, failed on
+RUN 38's names. They are five in the `run13`–`run21` pre-registration tests,
+over HARDWARE_TESTS, and one over HANDOFF. #98's AST scan looked for three forms
+and not for `assertEqual(len(re.findall(...)), 0)`. They now read
+`guards.at_close()` like the other 25, instead of being moved again.
+`test_record_ids.py` gains the structural rule for this form, and its floor
+rises to 31.
+
+**Phase 6.** The closure judgement is the Orchestrator's. The inputs are in
+§V22.12.9, with the ROADMAP's criterion quoted beside them.
+
+**Next highest-value experiment:** `U-GBP-045` — what the chain costs the
+drain.
