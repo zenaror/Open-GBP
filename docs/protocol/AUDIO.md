@@ -2,7 +2,7 @@
 
 What GameCube software receives from the AUDIO window, how to turn it into sound, and
 what draining it costs. Consolidated from the physical runs of Phase 6
-(`docs/research/HARDWARE_TESTS.md` §V8–§V21, RUN 30 through RUN 37). **Every row carries
+(`docs/research/HARDWARE_TESTS.md` §V8–§V22, RUN 30 through RUN 38). **Every row carries
 the evidence id that supports it and the status `docs/research/EVIDENCE.md` gives it**:
 **F** fact, **C** corroborated. Hardware observations come from this project's hardware
 unless marked *(code)*.
@@ -88,8 +88,9 @@ The instrument's first-press defect is `U-GBP-040`.
 | Property | Value | Status | Evidence |
 | --- | --- | --- | --- |
 | Output path | The GameCube's AI played this project's decoded samples of recorded windows, resampled by 125/16 to 32 000 Hz. The listener heard four distinct pitches, in the sealed relative order. That is a result about the relations between the pitches, never about absolute pitch. | F (what played); OPERATOR OBSERVATION (what was heard) | GBP-HW-318 |
-| The live chain | Drain → decode → counted clock correction → resample → AI, all live, is **pre-registered and not yet run** (`HARDWARE_TESTS.md` §V22, RUN 38). The following are **design choices, not properties of the device**: the ring of 4 096 decoded samples, the 200-block minimum (twice the largest stall measured in `GBP-HW-320`, a rule frozen before that measurement), the ±16-sample correction band, and the 1 000-frame chunks. | — (design) | §V19.3, §V22.0, §V22.10 |
-| The AI's rate | Not measured on this console. Dolphin's model gives 32 028.5 Hz for "32 kHz", and §V22.5 is where it gets measured. | — (a HYPOTHESIS, §V22.4) | §V22.4, §V22.5 |
+| The live chain | Drain → decode → counted clock correction → resample → AI, all live, was run once (`HARDWARE_TESTS.md` §V22.12, RUN 38); its results are the next row. The following are **design choices, not properties of the device**: the ring of 4 096 decoded samples, the 200-block minimum (twice the largest stall measured in `GBP-HW-320`, a rule frozen before that measurement), the ±16-sample correction band, and the 1 000-frame chunks. | — (design) | §V19.3, §V22.0, §V22.10 |
+| The live chain, run once | The chain is bit-exact over a 10 s window: the host reproduced the CRC of the bytes handed to the AI DMA (L2 PASS). Over 64 s the AI was never handed silence and the ring never overflowed (C PASS). Composed, the drain lost 0.62 % of AUDIO blocks (4 060–4 081 per second), so `QUESTION L` was INCONCLUSIVE, and the correction band duplicated about 30 samples per second. What costs the drain is open (`U-GBP-045`). | F (the gates' results and the counts, one run) | GBP-HW-322, GBP-HW-323, GBP-HW-324 |
+| The AI's rate | 32 028.483 Hz in the console's own timebase over 2 030 DMA callbacks: +0.42 ppm from Dolphin's 108 MHz / 3372 and +890 ppm from 32 000. It corroborates Dolphin's model. | F (the measurement, one run) | GBP-HW-325 |
 
 ## 7. Not established — pointers only
 
@@ -104,6 +105,8 @@ The instrument's first-press defect is `U-GBP-040`.
   only.
 - **`U-GBP-044`:** what produces the start-up stalls, and where the three the log
   does not locate fall.
+- **`U-GBP-045`:** what costs the composed runtime's drain about 25 AUDIO blocks per
+  second, and whether that is the perturbation the Operator heard.
 - **`U-GBP-037`:** the repeat that would make the rate FACT.
 - **`U-GBP-014`:** AUDIO/VIDEO IRQ timing.
 - **`U-GBP-021`:** the byte-0 class of the cartridge-less capture.
@@ -114,5 +117,4 @@ These are also not established, and have no `U-GBP` id:
 - the carriage latency (§4);
 - whether the one pulse per block is the AGB's left, right or mixed output;
 - GB/GBC-mode audio (Phase 7);
-- synchronisation with video;
-- the composed live chain (RUN 38).
+- synchronisation with video.
