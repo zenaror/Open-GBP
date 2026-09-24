@@ -15270,3 +15270,43 @@ path on the console, the Orchestrator's point.
 
 **Next.** The Orchestrator's call: Phase 6's drain design around whole AUDIO blocks,
 a 200-block ring and logging off the drain's path.
+
+## 2026-09-23 — Issue #92: Phase 6's acceptance pre-registered, amended, frozen, and its image built
+
+**Goal.** Pre-register §V22 before any code, freeze its gates, and build the image
+that has to clear them.
+
+**The review before the freeze** found six premise problems in the first §V22 and
+three in the corrected one. The Orchestrator accepted each:
+- **L tested only what RUN 37 had already proved.** L2 now carries the gate: the
+  host must reproduce the CRC of the bytes handed to the AI.
+- **The two clocks.** Dolphin's model puts the AI at 32 028.5 Hz. The decision is
+  counted DUP / DROP, not a ratio servo, and MEASUREMENT M measures the real rate.
+- **(e): reading L after the corrections would have failed a healthy system by
+  construction**, because §V22.4 guaranteed the failure of §V22.1. L now reads
+  before them.
+- L's window, the positive control and L2's preconditions were defined.
+
+**AMENDMENT 1 (§V22.9).**
+- An ABSENT L2 record is INCONCLUSIVE; a PRESENT one that does not reproduce is a
+  FAIL.
+- The silence fraction is reported.
+- X is refused inside the window.
+
+**The freeze machinery caught the Executor.** 15e22b9's message body repeated its
+own freeze key, and `frozen.base()` refused the two-commit match until each key
+named one commit.
+
+**Built.**
+- gbp_alive (accounting) and gbp_aplay (chain), host-tested.
+- A two-clock simulation whose sidecars the FROZEN tool decides. It gives 222 DUPs
+  in 64 s at the model rate, the §V22.4 figure; L2 PASSes, including with a silence
+  chunk inside the window; M recovers the AI rate within 5 ppm.
+- The image live-0001 @ 9341ca7, sha256 `c4b9ae23…5ee8d`, 516 320 B. Two identical
+  builds, audit 0 findings, Dolphin PASS.
+- tools/v22report.py, frozen with it.
+- §V22.10 records the choices §V22 left to the image, and one named risk: the tap
+  now decodes every block of a 64 s window.
+
+**Not staged.** Staging and the Hardware Issue are the Orchestrator's. Slot proposed:
+17-live.
