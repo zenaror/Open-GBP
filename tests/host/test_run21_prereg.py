@@ -392,8 +392,10 @@ class TheNamesAndTheEmptyRecord(unittest.TestCase):
         self.assertIn("Two names, where every previous pair reserved ten", plain(part(7)))
         self.assertIn("writes ONE file per run and no sidecars", plain(read(HANDOFF)))
         # no raw name above run22 anywhere
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[8-9]|[4-9]\d)\S*", t), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)   # run36 / run37: Issue #90 (RUN 36 ingested, §V21.9) and #91
-        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[8-9]|[4-9]\d)\S*", read(HANDOFF)), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)   # run36 / run37: Issue #90 (RUN 36 ingested, §V21.9) and #91
+        # Issue #99: a member of #98's family its inventory missed -- read via guards.at_close(), never moved again
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[8-9]|[4-9]\d)\S*", guards.at_close("docs/research/HARDWARE_TESTS.md")), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)   # run36 / run37: Issue #90 (RUN 36 ingested, §V21.9) and #91
+        # Issue #99: a member of #98's family its inventory missed -- read via guards.at_close(), never moved again
+        self.assertEqual(re.findall(r"captures/local/\S*run(?:3[8-9]|[4-9]\d)\S*", guards.at_close("docs/HANDOFF.md")), [])   # the bound moves with the reservations it must not see; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67)   # run36 / run37: Issue #90 (RUN 36 ingested, §V21.9) and #91
 
     def test_the_record_table_is_empty(self):
         table = part(13)

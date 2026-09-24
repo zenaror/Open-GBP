@@ -17,6 +17,7 @@ import hashlib
 import os
 import re
 import unittest
+import guards
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 HW = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
@@ -158,7 +159,8 @@ class NamesAreReservedExactlyOnce(unittest.TestCase):
         self.assertEqual(len(re.findall(r"captures/local/\S*run13\S*", t)), 5)
         # RUN 14 / RUN 15 (Issue #20), RUN 16 (Issue #23), RUN 17 / RUN 18 (Issue #28, §V7.3) and RUN 19 / RUN 20 (Issue #34, §V7.5) are reserved;
         # nothing beyond them
-        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[8-9]|[4-9]\d)\S*", t)), 0)   # run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67); run33: Issue #75, §V13 (GBP-AUDIO-004, reserved and not on disk); run34: §V14 (GBP-AUDIO-003 repeated, reserved and not on disk); run35: §V16.5 (rides along, reserved)   # run36 / run37: Issue #90 (RUN 36 ingested, §V21.9) and #91
+        # Issue #99: a member of #98's family its inventory missed -- read via guards.at_close(), never moved again
+        self.assertEqual(len(re.findall(r"captures/local/\S*run(?:3[8-9]|[4-9]\d)\S*", guards.at_close("docs/research/HARDWARE_TESTS.md"))), 0)   # run21 / run22: Issue #41, §V7.6; run30: Issue #58, §V8 (GBP-AUDIO-001, reserved and not on disk); run31: Issue #64, §V9 (GBP-AUDIO-002, reserved and not on disk); run32: nothing beyond RUN 31 exists (Issue #67); run33: Issue #75, §V13 (GBP-AUDIO-004, reserved and not on disk); run34: §V14 (GBP-AUDIO-003 repeated, reserved and not on disk); run35: §V16.5 (rides along, reserved)   # run36 / run37: Issue #90 (RUN 36 ingested, §V21.9) and #91
 
     def test_the_handoff_reserves_the_same_five_names_once_and_the_run_12_names_stay(self):
         h = read(HANDOFF)
