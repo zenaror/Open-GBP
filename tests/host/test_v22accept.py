@@ -288,6 +288,15 @@ class QuestionL2(unittest.TestCase):
         r = v.question_L2(c.sidecar())
         self.assertEqual(r["verdict"], "PASS", r["why"])
         self.assertEqual(r["frames"], 321000)
+        self.assertAlmostEqual(r["silence_fraction"], 1 / 321.0)      # §V22.9 A2, printed beside the verdict
+
+    def test_a_mostly_silent_window_passes_L2_and_says_so(self):
+        """§V22.9 A2: all-silence chunks, correctly accounted, reproduce the CRC -- which is why the
+        fraction is reported: this PASS says nothing about the audio path."""
+        self.small()
+        c = self.console(silence={0, 1, 2})
+        r = v.question_L2(c.sidecar())
+        self.assertEqual((r["verdict"], r["silence_fraction"]), ("PASS", 0.75))
 
     def test_small_pass(self):
         self.small()
@@ -342,7 +351,10 @@ class QuestionL2(unittest.TestCase):
         self.small()
         c = self.console()
         good = c.sidecar()
-        self.assertEqual(v.question_L2(None)["verdict"], "FAIL")
+        # §V22.9 A1: ABSENT is INCONCLUSIVE; PRESENT-but-bad is FAIL
+        r = v.question_L2(None)
+        self.assertEqual(r["verdict"], "INCONCLUSIVE")
+        self.assertIn("ABSENT", r["why"])
         for bad, why in ((b"X" + good[1:], "magic"), (good[:-1] + bytes([good[-1] ^ 1]), "own CRC-32"),
                          (good[:100], "malformed")):
             r = v.question_L2(bad)
@@ -407,7 +419,7 @@ class TheCommandLine(unittest.TestCase):
                 json.dump(report(), f)
             out = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "v22accept.py"), j],
                                  capture_output=True, text=True, timeout=60, check=True).stdout
-        for tok in ("  L   PASS", "  L2  FAIL          no L2 record", "  C   PASS",
+        for tok in ("  L   PASS", "  L2  INCONCLUSIVE  the L2 record is ABSENT", "  C   PASS",
                     "reported IN FULL, PASS or FAIL", "       s= 59  drained 4096  fill 2048"):
             self.assertIn(tok, out, tok)
 
@@ -425,19 +437,20 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
     exists is not a pre-registration, and neither is a gate edited after the POC does."""
 
     def test_the_gates_are_the_bytes_of_the_commit_that_froze_them(self):
-        then = frozen.source("Issue #92 -- §V22 transcribed", "tools/v22accept.py")
+        then = frozen.source("Issue #92 -- §V22 AMENDMENT 1 applied", "tools/v22accept.py")
         self.assertEqual(then, read(os.path.join(ROOT, "tools", "v22accept.py")),
                          "tools/v22accept.py was edited after it was frozen")
 
     def test_the_part_was_frozen_in_the_same_commit_and_only_grows(self):
         """Byte-identical as the START of the part; dated amendments may be APPENDED (the
         amend-on-top convention of Issue #49, as §V19's freeze permits since AMENDMENT 3)."""
-        then = frozen.source("Issue #92 -- §V22 transcribed", "docs/research/HARDWARE_TESTS.md")
+        then = frozen.source("Issue #92 -- §V22 transcribed, Phase 6's acceptance gates frozen", "docs/research/HARDWARE_TESTS.md")
         i = then.index("\n## V22 ")
         frozen_part = then[i:].rstrip("\n")
         now = part()
         self.assertTrue(now.startswith(frozen_part), "§V22's FROZEN bytes were edited -- appending is allowed")
         rest = now[len(frozen_part):].strip()
+        self.assertIn("### V22.9 **AMENDMENT 1", rest)
         if rest:
             self.assertRegex(rest, r"^### V22\.\d+ \*\*AMENDMENT", "anything appended must be a numbered amendment")
         else:
