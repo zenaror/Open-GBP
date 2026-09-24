@@ -560,7 +560,7 @@ static int live_drawn_prompt, live_drawn_press;
 
 /* ---- TRACE (Issue #101, §V23): Run A's read-only timing records ----------------
  * Preallocated here, written without allocation or I/O while the run lasts, emitted on X
- * after the session (src/audio/gbp_atrace.h has the layout). About 2 MiB. */
+ * after the session (src/audio/gbp_atrace.h has the layout and the bounds). About 2.4 MB. */
 static int16_t tr_a_dec[GBP_ATRACE_A_MAX];
 static uint16_t tr_a_del[GBP_ATRACE_A_MAX];
 static struct gbp_atrace_sat tr_a_sat[GBP_ATRACE_A_SAT_MAX];
