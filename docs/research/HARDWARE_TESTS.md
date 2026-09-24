@@ -33303,3 +33303,321 @@ card       before: 18 files under sd:/open-gbp, byte-identical to the state afte
            Every file was re-read with a page-cache-bypassing read after writing
 cartridge  sweep-0002 on the EZ-Flash (one A press = 128 Hz, period 32)
 ```
+
+### V22.12 RUN 38 EXECUTED AND INGESTED — 2026-09-24 (GitHub Issue #99) — `L` INCONCLUSIVE, `L2` PASS, `C` PASS; `MEASUREMENT M` = 32 028.483 Hz
+
+*Appended. §V22.0–§V22.11 stand as frozen. Nothing in them is amended by data;
+where the data shows a premise §V22 did not state, it is recorded here beside it.*
+
+#### V22.12.0 What this run does NOT establish — stated before any verdict
+
+§V22.7, repeated:
+- **Not GB/GBC.**
+- **Not a real game's audio.**
+- **Not latency, not synchronisation with video, not mixing** with GameCube sound.
+- **`U-GBP-012`'s layout half stays open.** Reproducing the tone confirms the
+  layout the decoder assumes. It does not close what the remaining bytes mean.
+
+The run adds its own scope: one run, one console, one Game Boy Player, one
+cartridge (`sweep-0002`, a stimulus ROM on a flash cart, not a game), one tone
+(128 Hz), a 64 s window.
+
+#### V22.12.1 The run, its files and how they were read
+
+```text
+image      live-0001 @ 9341ca7, GBP-AUDIO-007, slot 17-live (§V22.11); the log's header agrees
+cartridge  sweep-0002 on the EZ-Flash; one A press (LIVE presses_a=1 presses_other=0 presses_after=0)
+raw        logs/run38/GBP-AUDIO-007_live-0001.log     91 726 B  sha256 05dc5b5ad8e4b5f7…c2cd443b18
+           logs/run38/GBP-AUDIO-007_live-0001-l2.bin  83 916 B  sha256 e5b66cf618cf0b8b…8a17e3d9d3
+archived   captures/local/GBP-AUDIO-007_live-0001-run38.log and -run38-l2.bin: hashed on logs/ first,
+           cmp-identical after the copy
+fixtures   captures/fixtures/hw-gamecube-gbp-2026-09-24-live-0001-run38.log and -run38-l2.bin,
+           byte for byte
+gecko      captures/local/GECKO-LIVE-run38-orchestrator-capture.txt  3 200 B  sha256 9e277e43611c5d3b…126501c
+```
+
+**The Gecko capture** is the Orchestrator's live capture of the console's Gecko
+output, archived byte for byte. It carries the full Gecko line set of this run,
+from READY to DONE, and **nothing about the phases**. §V22's records are ring-log
+only, so the SD log is their only channel.
+
+**§V22.9 A1 — the L2 record is PRESENT.**
+- The log has one `LIVEL2SAVE` record:
+  `open=0 write=0 close=0 bytes=83916 status=saved 83916 bytes to sd:/open-gbp/GBP-AUDIO-007_live-0001-l2.bin`.
+- The file is 83 916 B.
+- `tools/v22report.py` reports `l2_sidecar: present`.
+
+**The tools ran UNEDITED.** `tools/v22report.py` is byte-identical to `feaf380`
+and `tools/v22accept.py` to `dfb0a96`. The outputs were written before either
+session read a verdict:
+- the report JSON, sha256 `4198339161d02bdb…`;
+- the printed verdicts, sha256 `12fee5d3113328ca…`.
+
+Both were kept **sealed** until the Orchestrator declared the Operator's answer
+FINAL, then checked against those hashes when opened. `tests/host/test_run38.py`
+recomputes both from the fixtures.
+
+#### V22.12.2 The verdicts, as the frozen tool prints them
+
+```text
+GBP-AUDIO-007 / live-0001
+  L   INCONCLUSIVE  64 1.000 s window(s) under D1's 0.999, first 0 at 4080 AUDIO blocks: a drain result, not a playback one
+  L2  PASS          the host reproduced the CRC 3b453778 of 320 chunks x 1000 frames exactly (320 DUP, 0 DROP, 0 SILENCE applied)
+      silence fraction of the L2 window: 0.0000 (§V22.9 A2)
+  C   PASS          zero OVERFLOW and zero UNDERRUN over 64.000 s; NOT DRAINED 1626 AUDIO blocks; 1965 DUP and 0 DROP corrections. That is what the counters say, and it is NOT a claim of no loss.
+     three losses: NOT DRAINED 1626  OVERFLOW 0  UNDERRUN 0
+     per-second coverage and ring fill (reported IN FULL, PASS or FAIL):
+       s=  0  drained 4080  fill 0
+       s=  1  drained 4068  fill 1889
+       s=  2  drained 4075  fill 1845
+       s=  3  drained 4071  fill 1808
+       s=  4  drained 4072  fill 1815
+       s=  5  drained 4075  fill 1823
+       s=  6  drained 4066  fill 1834
+       s=  7  drained 4069  fill 1836
+       s=  8  drained 4076  fill 1841
+       s=  9  drained 4074  fill 1853
+       s= 10  drained 4070  fill 1863
+       s= 11  drained 4079  fill 1869
+       s= 12  drained 4075  fill 1884
+       s= 13  drained 4072  fill 1895
+       s= 14  drained 4067  fill 1903
+       s= 15  drained 4081  fill 1906
+       s= 16  drained 4065  fill 1923
+       s= 17  drained 4073  fill 1924
+       s= 18  drained 4068  fill 1933
+       s= 19  drained 4069  fill 1937
+       s= 20  drained 4062  fill 1942
+       s= 21  drained 4065  fill 1940
+       s= 22  drained 4062  fill 1941
+       s= 23  drained 4065  fill 1939
+       s= 24  drained 4072  fill 1940
+       s= 25  drained 4068  fill 1948
+       s= 26  drained 4067  fill 1952
+       s= 27  drained 4072  fill 1955
+       s= 28  drained 4060  fill 1963
+       s= 29  drained 4064  fill 1959
+       s= 30  drained 4071  fill 1959
+       s= 31  drained 4069  fill 1966
+       s= 32  drained 4070  fill 1971
+       s= 33  drained 4076  fill 1977
+       s= 34  drained 4072  fill 1989
+       s= 35  drained 4071  fill 1997
+       s= 36  drained 4070  fill 1973
+       s= 37  drained 4065  fill 1931
+       s= 38  drained 4077  fill 1900
+       s= 39  drained 4071  fill 1897
+       s= 40  drained 4070  fill 1904
+       s= 41  drained 4066  fill 1910
+       s= 42  drained 4076  fill 1912
+       s= 43  drained 4072  fill 1924
+       s= 44  drained 4072  fill 1932
+       s= 45  drained 4072  fill 1934
+       s= 46  drained 4075  fill 1940
+       s= 47  drained 4068  fill 1943
+       s= 48  drained 4069  fill 1946
+       s= 49  drained 4071  fill 1950
+       s= 50  drained 4068  fill 1955
+       s= 51  drained 4073  fill 1957
+       s= 52  drained 4067  fill 1961
+       s= 53  drained 4070  fill 1964
+       s= 54  drained 4069  fill 1969
+       s= 55  drained 4070  fill 1971
+       s= 56  drained 4073  fill 1975
+       s= 57  drained 4074  fill 1980
+       s= 58  drained 4068  fill 1984
+       s= 59  drained 4073  fill 1985
+       s= 60  drained 4075  fill 1989
+       s= 61  drained 4074  fill 1994
+       s= 62  drained 4069  fill 1998
+       s= 63  drained 4070  fill 2001
+  M   AI rate 32028.483 Hz over 2030 callbacks (+890.1 ppm vs 32 000, +0.4 ppm vs Dolphin's 32 028.5)
+  corrections: observed net DUP 30.703 /s; predicted 29.050 /s by Dolphin's model, 29.052 /s by M
+```
+
+#### V22.12.3 `L` — INCONCLUSIVE, by the arm §V22.1 froze for it
+
+**The positive control passed.** It covered 2 048 full-read blocks: 61 periods,
+every one exactly 32 (§V19.11 A4.7 asks for at least 48). The press count is
+exactly one A and no other press, which meets §V22.8 (r).
+
+**Every one of the 64 whole seconds of C's window drained below D1's 0.999.**
+- The counts ran 4 060 to 4 081 blocks per second, a mean of 4 070.59/s.
+- 1 626 blocks were NOT DRAINED, which is 0.62 %.
+
+That is the arm "coverage in the window below D1's 0.999, which makes it a drain
+result and not a playback one". **L is neither PASS nor FAIL.**
+
+**The decoded period ranged 29..32** over 8 191 periods (`LIVEL`: 1 274 of them
+not 32). A block that is not drained removes one sample from the decoded
+stream, so a period that loses one reads 31. This is what the INCONCLUSIVE arm
+exists for, and no verdict is read from the range.
+
+**The losses are many small ones, not stalls.** The largest gap between two
+decoded blocks in the decode phase was 21 757 ticks, or 0.537 ms (`LIVET2
+gap_max`). That is 2.2 block periods, against 0.244 ms per block. So no single
+gap lost more than about two blocks. The 1 626 losses are spread at about 25 per
+second.
+
+**This is not what the drain did alone.** RUN 37's `drain-0001` runs the same
+service path without the chain, and it drained 4 096 ± 1 in every whole second
+(`GBP-HW-319`). `live-0001` is `drain-0001` with its drain module replaced by
+the chain (§V22.10). The counts are FACT. That the chain's added work is what
+costs the drain about 25 blocks per second is a **HYPOTHESIS**, `U-GBP-045`.
+
+**Beside it, deciding nothing.**
+- **The session's frame capture reads `FRAMECAP incomplete=82 resync=164`.** The
+  start-up signature is 13 and 26 (`GBP-HW-317`), so the video capture also saw
+  losses beyond start-up.
+- **RUN 37's own figure (237 / 252) is not comparable.** Its phases A and C read
+  short blocks and wrote the SD on purpose.
+
+#### V22.12.4 `L2` — PASS
+
+**The host reproduced the CRC `3b453778` exactly.** It covers 320 chunks of
+1 000 frames, with the 320 recorded DUP applied, 0 DROP and 0 silence. The
+silence fraction is 0.0000 (§V22.9 A2).
+
+So the leg nothing had tested is **bit-exact over its 10 s window**:
+- the decoded stream,
+- through the frozen `gbp_aresamp`,
+- with the counted corrections,
+- into the bytes handed to `AUDIO_InitDMA`.
+
+**It says nothing about what the drain fed it.** L2 recomputes from the decoded
+stream the image kept, so the undrained blocks of §V22.12.3 are upstream of it.
+
+#### V22.12.5 `C` — PASS, and exactly what that means
+
+**Zero OVERFLOW and zero UNDERRUN over 64.000 s.** The ring never overflowed,
+and the AI was never handed silence (`LIVEC silences=0 underruns=0`).
+
+**The ring's fill.** After the first second it stayed between 1 808 and 2 001
+samples of 4 096, drifting up slowly: 1 889 at s = 1, 2 001 at s = 63.
+
+**`LIVEC starved=579` is not an underrun.** It counts producer steps that waited
+for the ring to hold a whole chunk (`gbp_aplay_produce`). Where they fell is not
+recorded. The per-second fill series never reads below 1 808 after s = 0.
+
+**The three losses, as frozen:** NOT DRAINED 1 626, OVERFLOW 0, UNDERRUN 0.
+
+**A PASS is not "no loss".** 1 626 blocks were never read, and 1 965 samples
+were duplicated to keep the ring level. C tests whether the consumer survives,
+and the consumer survived.
+
+#### V22.12.6 `MEASUREMENT M` — the AI's rate on this console, and §V22.4's reading refuted by it
+
+```text
+M        2 029 000 frames (2 030 callbacks x 1 000) in 63.349862 s of the 40.5 MHz timebase
+         = 32 028.483 Hz
+         +890.1 ppm from 32 000;  +0.42 ppm from Dolphin's 108 MHz / 3372 = 32 028.470 Hz
+```
+
+**A new FACT about this console, from one run, and it corroborates Dolphin's
+model** to under half a part per million. Both clocks in it are the console's
+own. The rate is measured in the GameCube's timebase, and no external reference
+was used.
+
+**The correction rate.** Observed: 30.703 net DUP/s. Predicted from this run's
+own drain (4 070.594 blocks/s): 29.050/s by Dolphin's model and 29.052/s by M.
+The remaining 1.65/s is reported and not explained.
+
+**The limitation found by data.** It is recorded as §V15 recorded `question_V`'s,
+and not repaired.
+- **What §V22.4 froze.** A predicted correction rate of about 3.7/s (about 222 in
+  60 s), computed from RUN 37's measured drain of 4 095.949 blocks/s. And its
+  reading: "a rate far from it is read as a wrong clock model and not as a
+  stall".
+- **What the run shows.** 30.703/s is about 8× that figure. By the frozen
+  reading, the clock model would be wrong. **M says the clock model is right.**
+  The difference is the drain, which delivered 25.4 blocks/s fewer than §V22.4
+  assumed.
+- **The unstated premise.** The reading assumed that the composed image drains
+  at `drain-0001`'s rate, and RUN 38 did not meet it.
+- **Tool and prose part ways here.** The frozen tool computes its prediction from
+  the run's own drain, which is why its figure (29.05/s) reads the model
+  correctly. The prose's figure did not.
+
+§V22.4 stands as written, with this beside it.
+
+#### V22.12.7 The Operator — his answer, exposed, and what survives the exposure
+
+```text
+The Operator's corroboration for RUN 38 was EXPOSED before it was given. The
+Orchestrator published underruns=0, overflow=0, drop=0 and l=8191/29..32 to him,
+in a summary, before putting §V22.6's two questions. His answer is recorded with
+that fact beside it and carries no independent weight on "continuous or broken".
+```
+
+His words, verbatim, at 2026-09-24T11:47:10.357Z, declared FINAL by the
+Orchestrator:
+
+> "ouvi o tom. mas ele pareceu um pouco "vibrando", mas acredito ser devido a
+> minha caixa de som ou volume alto... mas ele pareceu relativamente estavel"
+
+**The answer fits neither of §V22.6's two categories, and it is not forced into
+one.** Its parts are recorded apart:
+1. **He heard the tone.** OPERATOR OBSERVATION.
+2. **He reports a perturbation, "um pouco vibrando".** OPERATOR OBSERVATION. It
+   is a report **against** what he had been shown: `underruns=0`, `overflow=0`,
+   `drop=0`, glossed to him as "the buffer never starved or overflowed". It is
+   the part of his answer that **survives the exposure**, and it is not
+   flattened.
+3. **His attribution, his speaker or the volume, is his HYPOTHESIS.** It is not
+   an observation of the path. He was not asked for a cause.
+4. **"relativamente estável" agrees with what he was shown**, and so carries no
+   independent weight.
+
+**A candidate for the perturbation, as a HYPOTHESIS and nothing more.**
+- The stream the AI played carried about 30.7 duplicated samples per second and
+  about 25.4 missing blocks per second.
+- That is about 56 one-sample discontinuities per second in a 128 Hz tone. Each
+  moves the tone's phase by 1/32 of a period.
+
+Whether that is what he heard is not established (`U-GBP-045`). As §V22.6 says,
+no blinding is claimed.
+
+#### V22.12.8 What it means for the design
+
+**The composition is correct and it survives.**
+- L2 is bit-exact.
+- C shows zero underrun and zero overflow.
+- The decode → resample → AI leg, which no run had tested, works on the clock
+  Dolphin models.
+
+**The drain does not hold under the composition.** It loses 0.62 % of AUDIO
+blocks in steady state, where it lost none alone. The correction band hides the
+loss as about 30 duplicates per second.
+
+**So the next audio work is the drain's coverage inside the composed runtime
+(`U-GBP-045`), not the output leg.** Until coverage is back at 4 096 ± 1, L
+cannot be decided. The tone that plays carries discontinuities at tens per
+second.
+
+#### V22.12.9 Phase 6 — the inputs to the closure judgement, which is the Orchestrator's
+
+ROADMAP Phase 6's acceptance: *"A real cartridge produces stable audio without
+breaking video/input."*
+
+**For:**
+- The composed runtime played the cartridge's own tone, bit-exact (L2) and
+  without a gap in the AI stream (C).
+- It played on the measured AI clock (M).
+- The one A press was routed as input. `INPUT` has attempts = completed =
+  13 810, failed 0, and the KEY record holds the first write, A down (`0001`)
+  and A up (`0000`).
+
+**Not PASS, or not established:**
+- **L is INCONCLUSIVE.** This run's window does not machine-confirm the tone's
+  identity, because of the drain.
+- **The drain lost 0.62 % of blocks**, and about 30 samples per second were
+  duplicated.
+- **The Operator reports "vibrando".**
+- **Video was not a question of §V22.** The frame capture counted 82 incomplete
+  frames.
+- **The cartridge is a stimulus ROM on a flash cart, not a game.**
+- **There was one run.**
+
+**No gate FAILED. One gate did not PASS.** Whether that closes Phase 6 is the
+Orchestrator's judgement, and this section does not make it.
+
