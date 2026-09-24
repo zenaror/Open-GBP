@@ -62,7 +62,9 @@ LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92,
          # Issue #85: RUN 35, sweep-0002, orig=92 -- 49 logs
          "stream-0016-run35": 0x92,
          # Issue #90: RUN 37, a further image (drain-0001, GBP-AUDIO-005) on sweep-0002, orig=92 -- 50 logs
-         "drain-0001-run37": 0x92}
+         "drain-0001-run37": 0x92,
+         # Issue #99: RUN 38, live-0001 (GBP-AUDIO-007) on drain-0001's base, sweep-0002, orig=92 -- 51 logs
+         "live-0001-run38": 0x92}
 
 WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0005", "stream-0005-run2",
              "stream-0005-run3", "stream-0006-run4", "stream-0007-run5", "stream-0008-run6", "stream-0009-run7",
