@@ -2155,7 +2155,7 @@ construction.
 the same image with raw episode preservation disabled, compared like for like.
 Neither is planned.
 
-## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open** — **Issue #108: by arm, the residue is still `produce`, and `neither` and VIDEO followed the arms (GBP-HW-334)** — **Issue #112 (RUN 41, a real game): both losses rose together while the picture worked hardest; the video workload added to the chain's is the new HYPOTHESIS (GBP-HW-336)**
+## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open** — **Issue #108: by arm, the residue is still `produce`, and `neither` and VIDEO followed the arms (GBP-HW-334)** — **Issue #112 (RUN 41, a real game): both losses rose together while the picture worked hardest; the video workload added to the chain's is the new HYPOTHESIS (GBP-HW-336)** — **Issue #115 (RUN 42): that rise is L2's own keep window in every run (GBP-HW-338); the video-workload HYPOTHESIS loses its observation**
 
 **What is FACT.**
 - **The composed image drained less than the drain alone.** RUN 38's `live-0001` (the
@@ -2331,3 +2331,81 @@ What stays open, in addition:
 - whether the rise follows the picture's activity within a run, which needs the event
   times this image's log omits (`EVGAP`);
 - whether it is the episode machinery or something else the moving picture does.
+
+**RESCOPED 2026-09-24 (GitHub Issue #115, RUN 42), on top; nothing above is rewritten.**
+- **The "rise while the picture worked hardest" is L2's own window.** RUN 42 shows the same rise
+  in the same window seconds, 20–29, on gameplay, after the level had loaded. Those seconds are
+  exactly L2's keep window (`LIVE_L2_FROM_S` = 20, 10 s kept), and all five runs of the family
+  show it (`GBP-HW-338`):
+
+  ```text
+  lost AUDIO blocks   s20-29 / other 54 s
+  RUN 38   303 / 1 323      RUN 39   312 / 1 471      RUN 40   254 / 963
+  RUN 41   163 /   320      RUN 42   166 /   299
+  ```
+- **The video-workload HYPOTHESIS above loses its only supporting observation.** The event
+  counts (2 177 against 370) remain a fact that no longer points anywhere. It is not withdrawn,
+  because nothing refutes it, but nothing supports it now.
+- **The new HYPOTHESIS for the rise:** L2's per-chunk CRC. During the hand-off window it runs
+  over 4 000 bytes, byte-wise, in the pump slot, 32 times a second
+  (`src/audio/gbp_aplay.c:220-227`). That lengthens a contiguous stretch, which is
+  `GBP-HW-332`'s mechanism. It is instrument cost, not runtime cost.
+- **The residue outside the window, on the adopted runtime:** RUN 42 lost 299 blocks in the
+  54 s outside it, against 465 over C's 64 s in all. Every rate the family quotes carries the
+  instrument in its own proportion; the re-derivation without the window is the next host-side
+  round.
+
+What stays open, in addition: the residue without L2, and whether moving or removing the CRC
+removes the rise.
+
+## U-GBP-046 (P1, opened 2026-09-24, Issue #115) — the audio-to-video OFFSET: audio lags the picture with Open-GBP's runtime, and not with GBI or the Start-up Disc
+
+**What is observed — OPERATOR OBSERVATIONS, verbatim, in order** (#114, #115; `HARDWARE_TESTS.md`
+§V26.11.5):
+
+```text
+agora com uma jogatina, senti um atraso significativo no audio em relação a ação da tela
+Só existe aqui o atraso                                  -- not with GBI, not with the Start-up Disc
+Parece que esta algo próximo de 1 segundo atrasado
+o delay entre video x botão, nao existe quase .. agora video x áudio, existe
+```
+
+- **Located by his own comparisons.** The references share the cartridge, the console, the Game
+  Boy Player, the display and his ears, so the software is the variable. Button→video is near
+  zero, which refutes a shared stall or a deep video queue. **The offset lies in the audio path
+  alone.**
+- **Its magnitude is perceptual:** hundreds of milliseconds, not tens. **No measured offset
+  exists.**
+
+**The HYPOTHESIS: the audio path's designed depth.** The units are read from
+`src/audio/gbp_aplay.h`, not assumed:
+- **The ring.** `RING` = 4 096 and `TARGET` = 2 048 are decoded samples, one per AUDIO block
+  (4 096 per s). The chain holds the fill near `TARGET`, and playback starts there. RUN 42's
+  measured fill was 1 893..2 028 samples, about 0.48 s.
+- **The READY queue.** `AHEAD` = 4 chunks of 31.25 ms: up to 0.125 s.
+- **The AI DMA.** One queued chunk plus the playing one's remainder.
+- **The resampler.** About 2 ms.
+- **Together:** roughly half a second to two-thirds of a second, before anything shared with the
+  references.
+- **It accounts for MOST of his "próximo de 1 segundo", not all of it.** The two are compatible
+  within a perceptual estimate's factor of about two. The unaccounted residue is named, not
+  absorbed.
+- **The status is HYPOTHESIS.** The units' reading is one of the two steps to CORROBORATED. The
+  other, a changed `TARGET` moving the perceived offset in the predicted direction, has not been
+  taken.
+- **What would refute it:** a materially shallower `TARGET` that does NOT move his perception.
+  The cushion would then not be the cause, and the residue would be the whole effect.
+
+**Why it matters.** Latency is an explicit area of GBI-class functionality (`CLAUDE.md` §21). A
+perceptible audio-behind-video offset is a real defect for normal Game Boy Player use, even
+though Phase 6's gates do not measure it and did not fail on it.
+
+**The trade.** The cushion is what protects the drain from starvation (`U-GBP-045`). Choosing a
+shallower one needs the starvation data this project already has. GBI shows a shallow cushion is
+survivable on this same hardware path, which constrains any claim that ours must be this deep.
+
+**Not done here, by instruction:** `TARGET` is unchanged. Its change is its own bounded round,
+with a before and after the Operator can hear.
+
+**Also observed, and kept:** button→video near zero, under gameplay load. It is an
+input-and-video responsiveness OPERATOR OBSERVATION in its own right (`GBP-HW-337`).

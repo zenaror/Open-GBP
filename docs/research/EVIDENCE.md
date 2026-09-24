@@ -9636,3 +9636,93 @@ events       2 177 vstate events (178 episodes not preserved) vs RUN 40's 370 (8
 - **Whether the clip matters audibly on gameplay-weight audio.** The declaration covers menus.
 
 One console, one Game Boy Player, one run.
+
+**CORRECTED 2026-09-24 (GitHub Issue #115, RUN 42), on top; nothing above is rewritten.** The ~10 s
+in which both channels rose is window seconds 20–29, **exactly L2's own keep window**
+(`LIVE_L2_FROM_S` = 20, 320 chunks = 10 s). It is **not** "the level load or the freeze". RUN 42
+shows the same rise in the same seconds on gameplay, and every run of the family shows it
+(`GBP-HW-338`). The counts above stand as FACT. Their reading does not.
+
+---
+
+### GBP-HW-337 — RUN 42, Phase 6's acceptance, second attempt: L2 bit-exact, C clean over 64 s, the Operator's stability judgement PASS over GAMEPLAY, and V's rebuilt start-up clause HOLDS with all thirteen signature frames located — **Phase 6 closes**, on audio that carries an audio-path offset the reference implementations do not have — FACT (the frozen gates' results and counts, one run); A and the offset are OPERATOR OBSERVATIONS; the offset's cause is a HYPOTHESIS
+
+GitHub Issue #115; `HARDWARE_TESTS.md` §V26.11. Image `game-0002` (GBP-AUDIO-011, commit
+`dc13f37`) on Yoshi's Island. The verdicts were recomputed from the versioned fixtures by the
+frozen `tools/v26report.py` and `tools/v26accept.py` (`tests/host/test_run42.py`).
+
+```text
+L2  PASS   CRC 07a7632b, 320 x 1000 frames, 202 DUP; silence 0
+C   PASS   zero OVERFLOW and zero UNDERRUN over 64.000 s; NOT DRAINED 465
+A   PASS   the Operator's, by reference to RUN 41's answer, now over gameplay; "pelo menos do que notei" carried
+V   PASS   P = store index 339, in flight at the press; Q = 0, 9, 12, 15, 31, 34, 37, 91, 94, 97, 151, 154, 157 (13,
+           all <= 197); none after; 17 x 2 567 047 476 = 43 639 807 092 <= 44 x 2 566 726 611 = 112 935 970 884
+PHASE 6    CLOSES (§V25.5)
+```
+
+**What it establishes:**
+- **FACT, one run.** On a real cartridge's gameplay audio, the chain's output to the AI is
+  bit-exact against the frozen resampler, and the ring neither overflowed nor starved over 64 s.
+- **FACT, one run.** The session's pre-AI incomplete frames are the thirteen of `GBP-HW-331`'s
+  start-up positions plus one in flight at the A press, located by store index. That is RUN 39's
+  pattern, reproduced on a new image. **All thirteen are located**, three of them (151/154/157) for
+  the first time by the frame store's own record. RUN 39's per-block VIDEO trace had located them
+  in that image (`GBP-HW-331`); no text-log event head ever had.
+- **OPERATOR OBSERVATION.** The game's audio is stable over gameplay, apart from the known
+  bandwidth limit. The picture is normal and the controls respond; button→video is near zero.
+- **OPERATOR OBSERVATION, comparative.** Audio lags the picture, "próximo de 1 segundo", only
+  with this software: not with GBI or the Start-up Disc, on the same cartridge and hardware.
+
+**What it does NOT establish:**
+- **The offset's cause.** It is a HYPOTHESIS: the audio path's designed depth, mostly the
+  decoded-sample cushion `TARGET` = 2 048 = 0.5 s (units read from `src/audio/gbp_aplay.h`;
+  measured ring fill about 0.48 s). It accounts for most of his "próximo de 1 segundo", not all
+  of it; the residue is unaccounted. No changed `TARGET` has moved it (`U-GBP-046`).
+- **Which of the console prints and the first VI hand-over costs the frame at the press.** They
+  coincide in this image (§V26.7 3).
+- **Phase 7, latency, video synchronisation, mixing.** `U-GBP-045` stays open.
+
+**Phase 6 closes on stable gameplay audio carrying an audio-path offset of hundreds of
+milliseconds that the reference implementations do not have. Both halves, together.**
+
+One console, one Game Boy Player, one run.
+
+---
+
+### GBP-HW-338 — In every run of the live family (RUN 38–42), the AUDIO losses rise inside L2's own 10-second keep window, window seconds 20–29, and fall back after it; in RUN 42 every second inside is worse than every second outside, and in RUN 41 the two ranges meet — FACT (counts over five archived runs, recomputable); that L2's per-chunk CRC in the pump slot is the cause is a HYPOTHESIS
+
+GitHub Issue #115; `HARDWARE_TESTS.md` §V26.11.6. The counts are from each run's own `LIVESEC`
+records: 4 096 minus the blocks drained in each whole second of C's window. L2 is armed
+`LIVE_L2_FROM_S` = 20 s into that window and keeps 320 chunks, i.e. 10 s, in every one of these
+images (`tests/host/test_run42.py`).
+
+```text
+lost AUDIO blocks   window s20-29   the other 54 s
+RUN 38 (live-0001)       303             1 323
+RUN 39 (trace-0001)      312             1 471
+RUN 40 (split-0001)      254               963
+RUN 41 (game-0001)       163               320
+RUN 42 (game-0002)       166               299
+```
+
+**What it establishes:**
+- **FACT.** The loss rate is higher inside L2's window than outside it in all five runs:
+  - in RUN 42, every second inside is worse than every second outside (the lowest inside, 11,
+    is above the highest outside, 10);
+  - in RUN 41, the lowest inside equals the highest outside, 11.
+- **FACT.** RUN 38–40 ran a stimulus ROM, not a game, and show the excess in the same seconds.
+  That alone refutes a level-load reading.
+- **The class, named:** *the instrument perturbed the subject, and the perturbation was then
+  attributed to the subject* (`GBP-HW-336`, corrected).
+- **FACT, from the source.** During L2's hand-off window the chain CRCs every handed chunk,
+  4 000 bytes, byte by byte, in the pump slot (`src/audio/gbp_aplay.c:220-227`).
+
+**What it does NOT establish:**
+- **That the CRC is the cause.** It is a HYPOTHESIS. It fits `GBP-HW-332`'s mechanism, a longer
+  contiguous stretch, but nothing here varied it.
+- **The rate without L2.** L2 is test instrumentation. A runtime without it would not pay this,
+  and R as frozen includes it.
+- **Anything about the picture's workload.** `GBP-HW-336`'s reading is corrected, and
+  `U-GBP-045`'s video-workload HYPOTHESIS loses its only supporting observation.
+
+One console, one Game Boy Player, five runs.
