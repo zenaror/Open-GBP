@@ -344,8 +344,10 @@ as open. The two indexes (`docs/protocol/README.md`, `docs/hardware/README.md`)
 state no status at all: the instance that prompted #96 was an index restating
 a page's status and drifting from it.
 
-**What the gate does not do.** It covers 42 of the 287 page lines that cite an
-id, it checks membership rather than equality, and it cannot see a claim that
+**What the gate does not do.** When it was written (2026-09-24) it covered 42
+of the 287 page lines that cite an id, and its test states that measurement
+with its date. It checks membership rather than equality, and it cannot see a
+claim that
 cites no id. A green run therefore does not mean the consolidated set agrees
 with the record, and the sweep above stays the instruction. A binding that
 disagrees is corrected by the record or escalated. It is never excused by an

@@ -11,9 +11,27 @@ provenance). Status letters: F/C/H/U.
 
 - An ARAM-expansion device on the HSP: eight 1 MB windows at
   `internal_ARAM_size + (0x0,0x1,0x4,0x5,0x8,0x9,0xC,0xD) << 20`, each
-  answering 32-byte DMA transfers. **C**
+  answering 32-byte DMA transfers. **C** for the map and the transfer format,
+  from the references (GBP-HSP-001, GBP-HSP-003, GBP-HSP-004). **F on hardware
+  for six of the eight windows:** TEST, VIDEO, CONTROL, AUDIO and IRQ returned
+  device content (GBP-HW-003, GBP-HW-058, GBP-HW-005, GBP-HW-057, GBP-HW-004),
+  and KEYPAD writes reached the cartridge (GBP-HW-262). No entry records a
+  hardware read of SIOCTL (0x5) or SIODATA (0x9). A DMA that completes is not
+  an answer: completion does not depend on the GBP (GBP-HW-008).
 - An interrupt source on PI bit 13 with a 16-bit device-side IRQ
-  register holding six even-bit sources and six odd-bit masks. **C**
+  register holding six even-bit sources and six odd-bit masks. **C** for the
+  layout and the source/mask pairing, from the references (GBP-IRQ-001,
+  GBP-IRQ-005). **F on hardware, at these scopes only:**
+  - the PI side of bit 13: captured independently of the mask, latched, and
+    cleared by one W1C `0x2000` (GBP-PI-004); delivered to the CPU as IRQ 26
+    (GBP-HW-037, GBP-HW-043);
+  - source bits 2, 8 and 10 clear when written 1 (GBP-HW-028, GBP-HW-032,
+    GBP-HW-039);
+  - the odd bits are level-written (GBP-HW-028, GBP-HW-029).
+
+  The odd bits' polarity, 1 = masked, is C (GBP-IRQ-008). What bit 15 does is
+  not established (U-GBP-007). Per-bit detail is in `HSP.md` §2 and
+  `../protocol/INITIALIZATION.md`.
 
 ## Identification
 
