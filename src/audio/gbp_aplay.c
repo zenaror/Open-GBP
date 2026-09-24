@@ -111,6 +111,9 @@ int gbp_aplay_produce(struct gbp_aplay *p, struct gbp_adec *d)
         p->cur_frames = 0u;
         p->cur_pushes = 0u;
         p->cur_corr_done = 0u;
+        /* Issue #105: the chunk's step size, asked once, here; anything out of range is the default */
+        p->cur_step = p->step_pushes ? p->step_pushes(p->step_pushes_user, p->produced) : GBP_APLAY_STEP_PUSHES;
+        if (p->cur_step == 0u || p->cur_step > GBP_APLAY_PUSHES) p->cur_step = GBP_APLAY_STEP_PUSHES;
         /* §V22.4: at most one counted correction per chunk, decided at its start */
         p->cur_corr = (d->count < GBP_APLAY_TARGET - GBP_APLAY_BAND) ? GBP_APLAY_EV_DUP :
                       (d->count > GBP_APLAY_TARGET + GBP_APLAY_BAND) ? GBP_APLAY_EV_DROP : 0u;
@@ -123,7 +126,7 @@ int gbp_aplay_produce(struct gbp_aplay *p, struct gbp_adec *d)
             p->l2.acc = p->rs.acc;
         }
     }
-    while (p->cur_pushes < GBP_APLAY_PUSHES && step < GBP_APLAY_STEP_PUSHES) {
+    while (p->cur_pushes < GBP_APLAY_PUSHES && step < p->cur_step) {
         int16_t x;
         if (!take(p, d, &x)) { p->starved_steps++; return -1; }   /* cannot happen: checked at the start */
         if (p->cur_corr == GBP_APLAY_EV_DROP && !p->cur_corr_done) {
