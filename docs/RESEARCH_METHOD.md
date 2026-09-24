@@ -331,6 +331,25 @@ built on that comparison would be wrong about a fifth of what it could see and
 blind to the rest, and it would be switched off within two checkpoints. What IS
 mechanical is the half that cannot be argued about: every id a page cites must
 exist (`tests/host/test_page_citations.py`, every run).
+
+**Since Issue #96 (2026-09-24), one narrow comparison is a gate too**
+(`tests/host/test_page_status_bindings.py`). Where a page binds ONE status
+letter to ONE id, the letter must be one the entry names. Only two forms count
+as a binding:
+- a Status/Evidence table row with a bare letter and a single id;
+- `**X** (ID)` in prose.
+
+An open question is never bound to F or C, and a closed one is not pointed at
+as open. The two indexes (`docs/protocol/README.md`, `docs/hardware/README.md`)
+state no status at all: the instance that prompted #96 was an index restating
+a page's status and drifting from it.
+
+**What the gate does not do.** It covers 42 of the 287 page lines that cite an
+id, it checks membership rather than equality, and it cannot see a claim that
+cites no id. A green run therefore does not mean the consolidated set agrees
+with the record, and the sweep above stays the instruction. A binding that
+disagrees is corrected by the record or escalated. It is never excused by an
+exception list.
 ## Synthetic-first testing policy
 
 Manual physical hardware interaction should be minimized.

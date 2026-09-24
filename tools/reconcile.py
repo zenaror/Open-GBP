@@ -29,6 +29,12 @@ It would be switched off within two checkpoints. A report a person reads at
 promotion time is the honest mechanization; the CHEAP mechanical half that IS a
 gate lives in tests/host/test_page_citations.py (every cited id must exist).
 
+Issue #96 (2026-09-24) added the one comparison that DOES mean what it says: where a page
+binds ONE status letter to ONE id (a bare-letter Status cell beside a single-id Evidence
+cell, or "**X** (ID)" in prose), the letter must be one the entry names --
+tests/host/test_page_status_bindings.py. It sees 42 of the 287 citing lines and says so in its
+docstring. It does not make this report redundant.
+
     tools/reconcile.py GBP-KEY-004 GBP-HW-270      one or more ids
     tools/reconcile.py --since 2e48ca7             the ids whose EVIDENCE entries changed since a commit
     tools/reconcile.py --all                       every id the pages cite
