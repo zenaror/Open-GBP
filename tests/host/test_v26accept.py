@@ -231,5 +231,54 @@ class PhaseSix(unittest.TestCase):
         self.assertIs(v25accept.video_clause.__module__, "v25accept")
 
 
+class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
+    """The amend-on-top convention: the tool never changes; the part's frozen start never changes; numbered
+    sections may be APPENDED -- a dated AMENDMENT before any hardware, or the record of the image built."""
+    KEY = "Issue #113 -- §V26 transcribed, the rebuilt start-up clause frozen"
+
+    def part(self):
+        with open(os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md"), encoding="utf-8") as f:
+            t = f.read()
+        i = t.index("\n## V26 ")
+        j = t.find("\n## V27 ", i)
+        return t[i:j] if j >= 0 else t[i:]
+
+    def test_the_gates_are_the_bytes_of_the_commit_that_froze_them(self):
+        import frozen
+        with open(os.path.join(ROOT, "tools", "v26accept.py"), encoding="utf-8") as f:
+            now = f.read()
+        self.assertEqual(frozen.source(self.KEY, "tools/v26accept.py"), now,
+                         "tools/v26accept.py was edited after it was frozen")
+
+    def test_the_part_was_frozen_in_the_same_commit_and_only_grows(self):
+        import frozen
+        import re
+        then = frozen.source(self.KEY, "docs/research/HARDWARE_TESTS.md")
+        frozen_part = then[then.index("\n## V26 "):].rstrip("\n")
+        now = self.part().rstrip("\n")
+        self.assertTrue(now.startswith(frozen_part), "§V26's FROZEN bytes were edited -- appending is allowed")
+        rest = now[len(frozen_part):].strip()
+        if rest:
+            self.assertRegex(rest, r"^### V26\.\d+ ", "anything appended must be a numbered section")
+            for h in re.findall(r"^### V26\.(\d+) ", rest, re.M):
+                self.assertGreater(int(h), 8, "an appended section reuses a frozen number")
+
+    def test_the_transcription_carries_its_sources_and_the_correction(self):
+        import re
+        p = self.part()
+        for tok in ("68d32b590a6ba2d02e3a1dd94e0d4ed93fa4af94cfd913e5e606a3b0a485b7ae",
+                    "acb2b40451860a0e5a62892c8a5010f0a597fd4d7f2172eef101f983685e1d05",
+                    "753e0decce7c9ef8d8dea9ba0df52bfe3128bfb58722cd17c40bddcabbfe8e1f",
+                    "e7598cf14ead2409a71f68d6295b6f551c3b2710e061fcd31413769c1b9a15ca",
+                    "issuecomment-5821646454", "issuecomment-5821672396", "issuecomment-5821686765",
+                    "NOT RUN, NOT AUTHORISED HERE", "A third figure exists and is NOT cited"):
+            self.assertIn(tok, p, tok)
+        flat = " ".join(p.replace("**", "").split())
+        for tok in ("It admits four.", "t_first_block <= t_press < t_first_block of the NEXT stored frame",
+                    "any incomplete frame after the AI span FAILS the outside clause",
+                    "the consequence of pressing early must be stated"):
+            self.assertIn(tok, flat, tok)
+
+
 if __name__ == "__main__":
     unittest.main()
