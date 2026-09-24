@@ -35683,3 +35683,34 @@ beside it as context only.
   - `tests/host/test_v25_prior.py` asserts that the two integers are RUN 40's own: the
     span from its LIVET2, and the 44 from FRAMECAP 57 = 13 + 44.
 - **§V25.8's knife-edge paragraph stays as written.** It records why this amendment exists.
+
+
+### V25.11 The candidate STAGED — 2026-09-24 — `game-0001` in slot `20-game`
+
+*Appended. §V25.0–§V25.10 stand.*
+
+The Orchestrator authorised staging `20-game` at the candidate's hash, frozen before the
+export. It verified the card itself with `O_DIRECT` and accepted AMENDMENT 1 as applied. That
+authorisation reached the Executor first in session. **It is recorded on #110** as
+`issuecomment-5820681311`:
+- raw sha256 `def04cc4c44f4d4489b1a0ae2f8609d6942a135c49f5e6a7c6db6b126a8d4a54`;
+- printed `f59ced5b8ead9224f2e3f79df770c31de1b657aeb0ce7122931f69916de4092a`.
+
+The Executor's record of the staging is `issuecomment-5820667439`:
+- raw `ccbe0685eddade608d542006f34a4b6b34a116c9370d6c0cebc4cdddd4d33f1f`;
+- printed `a17e00bc16e5d407ad318284787e313de238ea5dd6cac1115f87e88900d60b6e`.
+
+```text
+slot         20-game -- FROZEN in tools/swiss-layout.tsv at 2e73a39d931ee161df1144b4bfb01b358e21acb3ea5ceb3ede9a366378b76725
+             (8c45ebd) BEFORE the export; swiss_export --only 20-game; "1 exported, 0 missing, 19 carried over"
+build/swiss  only 20-game/boot.dol (new, 518 944 B) and INDEX.txt changed (68e0e896... 6 166 B ->
+             f225289fef8f1e6796af4faec14b9bb196ef005536517bca8a8e2a1e96042596, 6 461 B); row 20-game PINNED-VERIFIED;
+             01-19 byte-identical
+card         before: 21 files under SD_GC/Open-GBP -- 01-19/boot.dol and INDEX.txt byte-identical to build/swiss
+                     (INDEX.txt 68e0e896..., the state §V24.9 left); aout/run33-audio.bin cfe472d3...52b8;
+                     no GBP-AUDIO-* anywhere on the card; .Trash-1000 empty
+             write:  mkdir 20-game; cp boot.dol; cp INDEX.txt; sync -- nothing else
+             after:  22 files; 20-game/boot.dol 518 944 B 2e73a39d...6725; INDEX.txt = build/swiss's; the other 20
+                     files byte-identical to before; no GBP-AUDIO-010*; .Trash-1000 empty
+reads        every file hashed through dd iflag=direct (page cache bypassed), before and after
+```
