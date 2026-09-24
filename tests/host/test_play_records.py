@@ -230,6 +230,9 @@ class NothingFrozenMoved(unittest.TestCase):
         # ARCHITECTURE.md, GBS-DOL.md) as wording that cites EVIDENCE. Documentation only; no status moved.
         changed = changed - {"docs/protocol/AUDIO.md", "docs/protocol/README.md", "docs/protocol/INITIALIZATION.md",
                              "docs/protocol/REGISTERS.md", "docs/hardware/ARCHITECTURE.md", "docs/hardware/GBS-DOL.md"}
+        # Issue #96 (2026-09-24) swept the consolidated set for pages disagreeing with the record:
+        # VIDEO.md gained a pointer to AUDIO.md, docs/hardware/README.md its missing AUDIO.md entry.
+        changed = changed - {"docs/protocol/VIDEO.md", "docs/hardware/README.md"}
         self.assertTrue(changed <= {"docs/research/HARDWARE_TESTS.md"}, "frozen paths changed: " + " ".join(sorted(changed)))
         hw = read(HW)
         # the image's runs are pre-registered now; what must still hold is that NOTHING RAN and no id was minted
