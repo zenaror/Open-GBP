@@ -32691,3 +32691,24 @@ agreement.**
 - **Not established:** live capture, drain, timing and output latency, the analogue
   output's fidelity, absolute pitch, and Phase 6.
 - **Pending:** the card re-hash of §V21.9.2.
+
+### V21.10 ADDENDUM (2026-09-23) — boot 1 proved the REFUSAL path on the console, which a PASS alone does not show
+
+*Appended. §V21.0–§V21.9 stand. The Orchestrator pointed this out after #90 closed,
+and it is recorded here so that it is not left in chat.*
+
+- **What boot 1 showed** (Gecko lines 45–48, §V21.9.2). Before RUN 36, the
+  refusal had been exercised only in Dolphin (`make aout-dolphin`). On the console,
+  with the fixture absent, the image printed
+  `FIXTURE rc=-2 … not found on the card`, then
+  `REFUSED got=-2 build_rc=0 crc=00000000 tones=0`, then a clean `DONE`.
+- **The audio interface was never started.** The refusal branch returns before
+  `AUDIO_Init` (`poc/audio-output-replay/source/main.c`), and no `PLAYING` line
+  appears.
+- **The console was not left in a bad state.** The next boot ran normally.
+
+**`aout-0002`'s own guarantee held on hardware:** it plays nothing rather than
+something wrong. That is FACT, from the capture and the source. Together with the
+PASS, it says more about the image than the PASS does alone. A PASS shows the image
+plays the right thing when it plays. Boot 1 shows it does not play when it cannot
+play the right thing.
