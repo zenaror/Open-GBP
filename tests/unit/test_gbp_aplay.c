@@ -192,6 +192,13 @@ static uint32_t half_on_odd(void *user, uint32_t seq)
     return (seq & 1u) ? 8u : 16u;
 }
 
+static uint32_t always_16(void *user, uint32_t seq)
+{
+    (void)user;
+    (void)seq;
+    return 16u;
+}
+
 static void give_wave(struct gbp_adec *d, uint32_t n, uint32_t *phase)
 {
     uint32_t k;
@@ -214,7 +221,8 @@ static void test_half_steps_change_nothing_but_the_partition(void)
     gbp_adec_init(&db, ring_b, GBP_APLAY_RING);
     gbp_aplay_init(&a, pool, silence, keep, events);
     gbp_aplay_init(&b, pool_b, silence, keep_b, events_b);
-    eqi(a.step_pushes == 0, 1, "the hook is NULL after init: every earlier build takes the default");
+    eqi(a.step_pushes == 0, 1, "the hook is NULL after init: every build without one takes the default");
+    a.step_pushes = always_16;                   /* the pre-#109 size, explicitly */
     b.step_pushes = half_on_odd;
     for (chunk = 0; chunk < 12u; chunk++) {
         int ra = -1, rb = -1;
@@ -246,6 +254,47 @@ static void test_half_steps_change_nothing_but_the_partition(void)
     eqi(total_b, total_a + total_a / 2u, "six of twelve chunks at half steps: 1.5 x the calls");
 }
 
+/* Issue #109: the ADOPTED default is 8 pushes a call. With no hook, every chunk takes 8-push calls -- exactly
+ * sixteen working calls -- and comes out byte for byte the same as 16-push production, with the same
+ * corrections: the runtime change moves the partition and nothing else. */
+static void test_the_adopted_default_is_8_and_changes_only_the_partition(void)
+{
+    static struct gbp_aplay a, b;
+    struct gbp_adec da, db;
+    uint32_t pa = 0u, pb = 0u, chunk, calls_a, calls_b, same = 1u;
+    static const uint32_t fill[] = { GBP_APLAY_TARGET - 40u, GBP_APLAY_TARGET, GBP_APLAY_TARGET + 40u };
+    printf("-- Issue #109: the adopted default, 8 pushes a call, changes the partition and nothing else\n");
+    eqi(GBP_APLAY_STEP_PUSHES, 8, "the adopted default");
+    gbp_adec_init(&da, ring, GBP_APLAY_RING);
+    gbp_adec_init(&db, ring_b, GBP_APLAY_RING);
+    gbp_aplay_init(&a, pool, silence, keep, events);
+    gbp_aplay_init(&b, pool_b, silence, keep_b, events_b);
+    a.step_pushes = always_16;                   /* b: no hook, the default */
+    for (chunk = 0; chunk < 9u; chunk++) {
+        int ra = -1, rb = -1;
+        const uint32_t want = fill[chunk % 3u];
+        if (da.count < want) give_wave(&da, want - da.count, &pa);
+        if (db.count < want) give_wave(&db, want - db.count, &pb);
+        calls_a = calls_b = 0u;
+        while (ra < 0) { ra = gbp_aplay_produce(&a, &da); calls_a++; }
+        while (rb < 0) { rb = gbp_aplay_produce(&b, &db); calls_b++; }
+        if (memcmp(pool + (size_t)ra * GBP_APLAY_CHUNK_BYTES, pool_b + (size_t)rb * GBP_APLAY_CHUNK_BYTES,
+                   GBP_APLAY_CHUNK_BYTES) != 0)
+            same = 0u;
+        eqi(calls_b, 2u * calls_a, "twice the calls of 16-push production");
+        eqi(b.cur_step, 8u, "no hook: the chunk takes the default");
+        gbp_aplay_queue(&a, ra);
+        gbp_aplay_queue(&b, rb);
+        (void)gbp_aplay_irq_handoff(&a, 0u);
+        (void)gbp_aplay_irq_handoff(&b, 0u);
+        gbp_aplay_process(&a);
+        gbp_aplay_process(&b);
+    }
+    eqi(same, 1u, "every chunk is byte for byte the same");
+    eqi(a.dup == b.dup && a.drop == b.drop && a.produced == b.produced, 1, "the same corrections and chunks");
+    eqi(a.dup > 0u && a.drop > 0u, 1, "and both corrections occurred");
+}
+
 int main(void)
 {
     test_crc_is_zlibs();
@@ -255,6 +304,7 @@ int main(void)
     test_measuring();
     test_l2_keeps_what_its_window_consumed();
     test_half_steps_change_nothing_but_the_partition();
+    test_the_adopted_default_is_8_and_changes_only_the_partition();
     printf("test_gbp_aplay: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
