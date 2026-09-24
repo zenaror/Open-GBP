@@ -9419,3 +9419,68 @@ the AI span and one falls at the A press.
 
 **What it does not establish:** why the press costs a frame, and whether RUN 38's 69 were
 confined the same way. RUN 38 had no per-block VIDEO records.
+
+---
+
+### GBP-HW-332 — RUN 40, Run B: producing each AI chunk in half-size steps, with total work identical, cut the loss gaps per cycle to 0.341 of the full-size arm (90 % CI 0.306–0.379), inside one session — FACT (the frozen gate's result on an interleaved, pair-balanced manipulation, one run); that the length of one contiguous production stretch is what starves the drain is CORROBORATED, with `GBP-HW-327` and `GBP-HW-329`
+
+GitHub Issue #107; `HARDWARE_TESTS.md` §V24.10. RUN 40 ran `split-0001` (GBP-AUDIO-009,
+commit `d6dc4f8`), which is `trace-0001` with each AI chunk produced in 16-push or 8-push
+steps by a frozen pair-balanced assignment. Total work per chunk is identical, proven bit
+for bit on the host (`tests/unit/test_gbp_aplay.c`). The frozen `tools/v24report.py` →
+`tools/v24accept.py` read the versioned log and trace
+(`captures/fixtures/hw-gamecube-gbp-2026-09-24-split-0001-run40*`);
+`tests/host/test_run40.py` recomputes every figure.
+
+```text
+arm tags        all 2 035 chunks agree with the frozen assignment (1 018 HALF, 1 017 FULL applied)
+observer gate   HOLDS: 19.02 undrained blocks/s <= 31.8; 44 frames in C's window <= 86;
+                recorder self-cost 0.28 % of a cycle (<= ~0.41 % with untimed reads), 0 gaps credited to it
+NEITHER         not: stretch ratio 0.516 at the median, 0.429 at p90 (<= 0.60) -- the variable took
+QUESTION S      CAUSE: half 0.2532 loss gaps/cycle (1 015 cycles), full 0.7416 (1 014 cycles);
+                ratio 0.341, 90 % CI [0.306, 0.379]; one-sided permutation p < 1/20 000
+excluded        1 cycle with two chunks' steps, the open last cycle; 4 loss gaps outside the analysed cycles
+```
+
+**What it establishes.** In this run, on this console, halving the longest contiguous
+production stretch while doing the same work removed about two-thirds of the undrained
+AUDIO blocks' gaps. The two arms differ only in the manipulated variable: one session, one
+instrument, one console state, a frozen assignment that the image applied and the host
+verified. That makes it a causal result about this run, not a correlation.
+
+**Why the mechanism is CORROBORATED and not FACT.** Three independent lines agree that the
+length of one contiguous production stretch is what starves the drain:
+- `GBP-HW-327`: the losses keep the AI chunk cycle;
+- `GBP-HW-329`: production is where the losses are;
+- this run: shortening the stretch removes most of them.
+
+It is one run, though, and between-run variation is unknown. The half arm still loses 0.25
+gaps per cycle, so the stretch is not the whole cause.
+
+**What it does not establish.** It is not a fix: any runtime change is decided separately.
+It says nothing of Phase 6's closure, of a real cartridge, or of `U-GBP-012`.
+
+---
+
+### GBP-HW-333 — RUN 40's carried-over gates and descriptive records: `P` names `produce` again, `K` NOT COINCIDENT again, the 13 pre-AI incompletes are the start-up signature; §V23.12's totals unresolved again, while inside the sampled cycles the `neither` gaps hold almost no chain activity — FACT (the tools' outputs and counts, one run); the sampled-cycle observation is DESCRIPTIVE, 12 gaps in 1 cycle of 8, and decides nothing
+
+GitHub Issue #107; `HARDWARE_TESTS.md` §V24.10.7, §V24.10.8.
+
+```text
+P            produce 906, neither 101, process 6, isr 0, recorder 0, flush_queue 0 of 1 013 loss gaps
+K            NOT COINCIDENT: 1 of 44 VIDEO gaps within one AUDIO block; phase-preserving p = 0.9486
+(f)          13 before the AI (GBP-HW-317's start-up signature positions), 44 inside, 0 after;
+             the A press cost no frame; FRAMECAP incomplete=57
+V23.12       totals: n = 101; N [1 201 355, 2 246 979] vs S [1 337 026, 2 249 128] ticks
+             -> "the floor may account for it, unresolved at this resolution" (second of two runs)
+sample       12 of the 101 `neither` gaps fall in sampled cycles; in each, floorless steps cover
+             0.1-0.2 % of the gap (6-33 ticks of 1.01-1.82 T); all 135 loss gaps there: median 13 %
+```
+
+**The status of each.**
+- **FACT:** the outputs and counts.
+- **Unresolved by construction:** the totals rule.
+- **DESCRIPTIVE:** the sampled-cycle observation. Within those cycles the floor hid nothing
+  that could fill the `neither` gaps. That suggests their cause lies outside the chain steps
+  the instrument records — a HYPOTHESIS, and an argument for pre-registering the question in
+  a later run, not a result.

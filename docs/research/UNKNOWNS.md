@@ -2135,7 +2135,7 @@ construction.
 the same image with raw episode preservation disabled, compared like for like.
 Neither is planned.
 
-## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open**
+## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open**
 
 **What is FACT.**
 - **The composed image drained less than the drain alone.** RUN 38's `live-0001` (the
@@ -2235,3 +2235,27 @@ by `P`'s answer and pre-registered by the Orchestrator. It needs:
 - per-step records without a floor, inside a bounded sample of gaps;
 - a way to tell a step that delays the next completion from one that merely falls inside
   a long interval.
+
+**RESCOPED 2026-09-24 (GitHub Issue #107, RUN 40), on top; nothing above is rewritten.**
+Run B (`split-0001`, §V24) answered question 1's direction.
+
+**Question 1 — which step, and cause or accommodation: CAUSE (`GBP-HW-332`).** Each chunk
+was produced in 16-push or 8-push steps, with total work identical, by a frozen
+pair-balanced assignment inside one session. The half arm had **0.341** of the full arm's
+loss gaps per cycle (90 % CI 0.306–0.379). The contiguous production stretch makes most of
+the losses: the result is FACT for this run, and the mechanism is CORROBORATED. What stays
+open:
+- **The residue.** The half arm still loses 0.25 gaps per cycle. Whether a shorter stretch
+  removes more, or a second cause remains, is not known.
+- **The `neither` gaps (101 of 1 013).** §V23.12's rule on totals stayed unresolved. The
+  floorless sample shows them nearly empty of chain activity inside the sampled cycles, 12
+  gaps. That is DESCRIPTIVE, and it suggests a cause outside the recorded chain steps
+  (`GBP-HW-333`).
+
+**Question 2 — one event?** NOT COINCIDENT again at one AUDIO block. At the VIDEO
+channel's resolution it cannot be decided, a hard limit (§V24.5).
+
+**Question 3 — what the Operator heard.** Unchanged.
+
+**Not a repair.** Any runtime change, such as bounding the production stretch, is decided
+separately, on its own merits (§V24.5).
