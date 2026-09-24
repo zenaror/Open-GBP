@@ -216,6 +216,7 @@ class TheAudioPathsDepthInItsOwnUnits(unittest.TestCase):
 HT = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 EV = os.path.join(ROOT, "docs", "research", "EVIDENCE.md")
 UN = os.path.join(ROOT, "docs", "research", "UNKNOWNS.md")
+ROADMAP = os.path.join(ROOT, "docs", "ROADMAP.md")
 README = os.path.join(ROOT, "captures", "README.md")
 
 
@@ -323,6 +324,15 @@ class TheRecord(unittest.TestCase):
         self.assertIn("canonical  the FLAT copies below; the earlier captures/local/run42/ duplicates were "
                       "cmp-checked and removed", self.v2611())
 
+    def test_the_roadmap_carries_the_closure_and_the_offset_in_one_paragraph(self):
+        body = between(read(ROADMAP), "## Phase 6 — Audio", "Implement and document").split("\n", 1)[1].strip()
+        self.assertNotIn("\n\n", body)                                   # ONE paragraph
+        para = flat(body)
+        self.assertTrue(para.startswith("**Status: CLOSED 2026-09-24 (GitHub Issue #115, RUN 42"))
+        for tok in ("GBI", "Start-up Disc", "próximo de 1 segundo", "accounts for most of that estimate, not all of "
+                    "it; the residue is unaccounted", "U-GBP-046", "U-GBP-045"):
+            self.assertIn(tok, para, tok)
+        self.assertIn("A real cartridge produces stable audio without breaking video/input.", read(ROADMAP))
 
 
 if __name__ == "__main__":

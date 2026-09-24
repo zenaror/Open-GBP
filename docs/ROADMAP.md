@@ -652,6 +652,27 @@ A real game can be controlled reliably using the GameCube controller.
 
 ## Phase 6 — Audio
 
+**Status: CLOSED 2026-09-24 (GitHub Issue #115, RUN 42, `HARDWARE_TESTS.md`
+§V26.11, `GBP-HW-337`) — on stable gameplay audio that carries an
+audio-behind-video offset the reference implementations do not have.** On a
+real cartridge (Yoshi's Island, image `game-0002`, commit `dc13f37`), over
+gameplay, the four gates frozen before the run all PASS: L2, the chain's
+output bit-exact against the frozen resampler (CRC `07a7632b`); C, zero
+overflow and zero underrun over 64 s; A, the Operator's stability judgement;
+V, the video start-up clause in the family's own positions, none after, and
+the rate half in integers. The criterion below is met in the sense §V25/§V26
+pre-registered it. **In the same breath:** the Operator hears the audio lag the
+picture, "próximo de 1 segundo", only with this software and not with GBI or
+the Start-up Disc on the same cartridge and hardware, while button→video is
+near zero. The audio path's designed depth (the decoded-sample cushion
+`TARGET` = 0.5 s, plus the READY queue, the DMA and the resampler: about
+0.5–0.67 s) accounts for most of that estimate, not all of it; the residue is
+unaccounted. It is a HYPOTHESIS and open as `U-GBP-046`, the next audio work.
+Phase 6's gates do not measure latency and did not fail on it; it is a real
+defect for normal Game Boy Player use (GBI-class latency, Phase 9) and it is
+not closed by this status. `U-GBP-045` (the residual AUDIO losses) also stays
+open.
+
 Implement and document the GBP audio path.
 
 Automated tests should cover buffering, state transitions, and malformed/edge input where practical.
