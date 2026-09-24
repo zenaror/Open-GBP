@@ -15914,3 +15914,48 @@ inside a long interval. The `geckorx.py` hangup fix is dispatched separately.
   away, and against a pty for `EIO`. The same FIFO scenario on the previous version hangs
   past its timeout.
 - Tooling only; EVIDENCE untouched.
+
+## 2026-09-24 — Issue #105: Run B pre-registered as §V24, `QUESTION S` frozen, and its image built — NOT staged, NOT run
+
+**Goal.** Pre-register the separating experiment `P`'s limitation designs: split
+`produce`, total work constant, and tell CAUSE from ACCOMMODATION. Freeze its gates on
+synthetic vectors and build the image.
+
+**Before transcribing: four pushbacks, all taken.**
+- The first draft's CAUSE ("loss-gap lengths shift in the same proportion") could not be
+  evaluated, and could not be met by a true cause: a loss gap contains a missing block, so
+  it is floored near 1 T. The signature is FEWER losses.
+- With one step size per run, "within the run" had nothing to be within.
+- INCONCLUSIVE fired on success.
+- No per-gap geometric test exists.
+
+The design became **interleaved**: each chunk is produced in 16-push or 8-push steps by a
+seeded, pair-balanced assignment inside one session.
+
+**Before freezing: §V24's numbers checked on RUN 39.**
+- NEITHER's 0.60 is safe: a chunk's first step carries ~830 ticks of start-up work, so
+  the median is the binding ratio.
+- Losses per cycle are UNDER-dispersed, D = 0.56: about one per cycle.
+- An A/A split put the 90 % CI above 0.90 in 33 of 40, so ACCOMMODATION is attainable.
+
+Eight readings were confirmed on #105, with three additions: UNRESOLVED is ~20 % likely
+with no effect; exclusions are counted; a refusal is INCONCLUSIVE, never a FAIL.
+
+**Frozen.**
+- §V24 transcribed byte for byte, with §V24.7, at `146e3d3`, pinned at `beb84b8`.
+- `tools/v24accept.py` computes `QUESTION S` and carries §V23's gates over from the frozen
+  `v23accept`. Its synthetic tests pin every verdict and the precedence. A small
+  significant reduction reads as CAUSE, and as small; a low half arm is the finding; the
+  UNRESOLVED vector is deterministic.
+
+**Built: `split-0001` (GBP-AUDIO-009) at `d6dc4f8`, DOL `2afe3aa6…467d2d`, NOT staged.**
+- The image is trace-0001 plus the `gbp_aplay` step-size hook (NULL before), the
+  assignment (`gbp_asplit`), the recorder's version 2 (tags and the floorless sample), and
+  `LIVESPLIT`.
+- Checks: 0 audit findings, ISR identical, Dolphin PASS, two builds byte-identical.
+  `tools/v24report.py` is frozen with it.
+- **Tests.** The host proves the split changes only the partition of the pushes, and that
+  the C assignment is the host's. A synthetic Run B session through the C recorder, the
+  builder and the frozen gates reads the same verdict as read directly.
+
+**Next highest-value experiment:** Run B itself, once the Orchestrator stages it.

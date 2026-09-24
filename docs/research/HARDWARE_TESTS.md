@@ -34621,3 +34621,76 @@ a dated AMENDMENT appended here **before any hardware**.
   is excluded and counted like the others. The constants, the report schema and the
   computations of `tools/v24accept.py` are exercised on synthetic vectors only
   (`tests/host/test_v24accept.py`), in the same commit as this text.
+
+### V24.8 The image, BUILT — `split-0001` (GBP-AUDIO-009) — NOT staged, NOT run
+
+*Appended. §V24.0–§V24.7 stand. This records what the image is and the choices §V24 left to
+it; the gates and their readings do not move.*
+
+```text
+image      poc/gbp-audio-split / split-0001 / commit d6dc4f8 (clean) / TEST_ID GBP-AUDIO-009
+DOL        524 960 B   sha256 2afe3aa606e6a6682b8e1fbfc758bade253195047e9b5f9624aadfa1ea467d2d
+           two builds from an empty output directory at d6dc4f8, byte-identical (the ELF too)
+base       trace-0001 (poc/gbp-audio-trace at c1beea1, RUN 39's image). By diff, only its identity
+           and the one production-step record change; every added hunk is a block marked SPLIT
+           (tests/host/test_split_image.py)
+audit      profile split (tools/poc_audit.py, derived from trace): 0 findings; both one-shot
+           handlers identical to the physically validated GBP-VIDEO-001 build
+Dolphin    make split-dolphin: the HSP device absent -> trace-dolphin's flow, PASS. No chunk is
+           produced there, so no arm is applied and nothing is recorded or emitted.
+           arena1_free 1 875 968 B (trace-0001: 2 666 496 B; the difference, 790 528 B, is the
+           floorless sample's store)
+slot       NOT staged; staging and the Hardware Issue are the Orchestrator's
+gates      tools/v24accept.py (frozen at 146e3d3, pinned at beb84b8); tools/v23accept.py for what
+           §V24.6 carries over
+report     tools/v24report.py (frozen with the image at d6dc4f8, pinned at 2ccac4c)
+sidecars   sd:/open-gbp/GBP-AUDIO-009_split-0001-trace.bin (version 2) and -l2.bin, on X, after
+           the session, as trace-0001's
+```
+
+**The test ID.** §V24 reserved none. `GBP-AUDIO-009` is the family's next free ID.
+
+**What the image changes (SPLIT 1–4), and what it does not.**
+- **SPLIT 1, the variable.** `gbp_aplay` gains a step-size hook, asked once at each
+  chunk's start. NULL, in every earlier build, it gives the default 16 pushes; here it is
+  `src/audio/gbp_asplit`, the frozen assignment.
+  - Total work per chunk is identical, and `tests/unit/test_gbp_aplay.c` proves it on the
+    host. Two producers take one decoded stream, with DUPs and DROPs; every chunk comes out
+    byte for byte the same, with the same corrections, and a half-step chunk takes exactly
+    twice the calls.
+  - The DUP/DROP decision is still taken once, at the chunk's start. A half-step chunk's
+    production spans twice as many pump passes; that is the variable itself.
+  - **Consequence:** `gbp_aplay`'s structure grew, so an executed image reproduces at its
+    own commit, not at HEAD, as `§V23.9` already says of the service module.
+- **SPLIT 2, the tag.** Each production step's record carries, in its spare byte:
+  - bit 0, the chunk's **APPLIED** arm, read from the step size the chain actually used;
+  - bit 1, a mark on the chunk's first call;
+  - bits 2..7, the chunk's seq mod 64.
+
+  A call that did no work is tagged 0. Because the tag records what was applied, not what
+  was scheduled, the host's (r6) check tests the image, not the table.
+- **SPLIT 3, the floorless sample (§V24.4).** Every chain step of every 8th AI cycle is kept
+  with its tag and no floor. These are cycles 1, 9, 17, …, counted from the first callback.
+  The recorder emits **version 2** only when the sample is on. trace-0001 and every earlier
+  build emit version 1 unchanged, which the frozen `tools/v23report.py` still reads.
+- **SPLIT 4.** The log's `LIVESPLIT` record: the seed, the chunks each arm received, the
+  sample's size and what it dropped.
+- **Unchanged:** the tone, the press, the window, the correction band, the chunk size, the
+  ring, the VIDEO tap, the recorder's other records, and every function trace-0001 has but
+  `live_step` and `main`. The drain path gains only the chain-state reads and the tagged
+  record.
+
+**Choices §V24 left to the image** (for the Orchestrator to confirm or amend **before
+staging**):
+- **The sampled cycles start at cycle 1, not 0.** Cycle 0 is before the first callback, and
+  sampling it would take all the pre-AI production.
+- **The sample's store holds 65 536 steps (~0.79 MB).** RUN 39 ran about 237 chain steps per
+  cycle, so about 60 000 are expected over 254 sampled cycles, with ~9 % headroom. If it
+  fills, the later sampled cycles are cut and the cut is counted (`sample_dropped`). The
+  sample is descriptive and decides nothing.
+- **The tag is the applied arm.** A tag that disagrees with the frozen assignment is an
+  image that did not apply it, and §V24.7 refuses the run INCONCLUSIVE.
+
+**A risk named before the run, not a prediction.** The sample adds one store per chain
+step in one cycle of eight, on the drain path. The observer gate's PRIMARY figure and its
+count bound, carried over unchanged (§V24.6), exist to report that.
