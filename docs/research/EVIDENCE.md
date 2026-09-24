@@ -9203,7 +9203,7 @@ is claimed.
 
 ---
 
-### GBP-HW-327 — RUN 38's two losses keep ONE cadence, the AI chunk cycle: the undrained AUDIO blocks are phase-locked to a 31.2 ms period, and every incomplete video frame is detected 1.5–11.7 ms after an AI DMA callback — FACT (statistics recomputable from the archive); CORROBORATED that one cadence, the AI chunk cycle, orders both losses; which step of the cycle is UNKNOWN
+### GBP-HW-327 — RUN 38's two losses keep ONE cadence, the AI chunk cycle: the undrained AUDIO blocks are phase-locked to a 31.2 ms period, and every incomplete video frame is detected 1.5–11.7 ms after an AI DMA callback — FACT (statistics recomputable from the archive); CORROBORATED that one cadence, the AI chunk cycle, orders both losses; which step of the cycle is UNKNOWN — **2026-09-24, Issue #101: the AUDIO figures CORRECTED upward (306 losses in 240 halves; R 0.957 at the AI period against 0.839 on the tone grid; peak 31.223 ms); the statuses stand**
 
 GitHub Issue #100. `tools/u045cadence.py` reads RUN 38's versioned log and L2 record and
 decides nothing; `tests/host/test_u045_cadence.py` proves its method on constructions and
@@ -9260,3 +9260,30 @@ that.
   0.537 ms.
 
 One console, one Game Boy Player, one run.
+
+**2026-09-24, Issue #101 — CORRECTED: the AUDIO figures undercounted.**
+`tools/u045cadence.py` misplaced the mark of a transition whose step sample was not
+drained. It put the mark BETWEEN the two plateau samples, so both halves measured 15.5,
+and rounding hid the loss. The defect was found while §V23's gates were exercised on
+synthetic vectors: a lost step sample at a known block was not found. With the mark on the
+plateau's last sample, the half that lost its step measures 15 and the next 16:
+
+```text
+                          as first recorded                 corrected
+losses                    296 in 229 half-periods           306 in 240 half-periods
+episodes                  196 (62 % of chunk periods)       206 (65 %)
+R at 31.2222 ms (AI)      0.940                             0.957
+R at 31.25 ms (grid)      0.746                             0.839
+periodogram peak          31.215 ms                         31.223 ms
+episode intervals         1x140 2x17 3x16 4x15 5x6 8x1      1x148 2x22 3x18 4x11 5x6
+```
+
+**Unchanged:** the VIDEO figures and the per-second r.
+
+**The statuses stand.** The statistics are FACT as corrected, and "one cadence orders
+both" stays CORROBORATED.
+
+**What the correction changes.** The AUDIO side separates the two candidate periods by
+less than first written: 0.957 against 0.839. The periodogram's peak now lies 0.001 ms
+from the AI period, inside a resolution of about 0.1 ms. The VIDEO side is measured
+absolutely against the callbacks, and it carries the attribution to the AI cycle.

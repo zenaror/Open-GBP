@@ -53,6 +53,12 @@ class TheMethodOnConstructions(unittest.TestCase):
             self.assertLessEqual(abs(t * U.BLOCKS_PER_S - 16 * h), 1.0)   # the half's start, within a sample
         self.assertEqual(sum(k for _t, k in losses), len(lost))
 
+    def test_a_lost_step_sample_is_found(self):
+        """Issue #101 found this missed: with the mark BETWEEN the two plateau samples both halves read
+        15.5 and rounding hid the loss. Block 47 is half 2's step sample."""
+        losses, _halves = U.audio_losses(square(10, {47}))
+        self.assertEqual([k for _t, k in losses], [1])
+
     def test_a_plateau_loss_is_placed_only_to_its_half(self):
         a = U.audio_losses(square(10, {33}))[0]
         b = U.audio_losses(square(10, {40}))[0]
@@ -72,17 +78,19 @@ class TheArchiveSays(unittest.TestCase):
 
     def test_the_audio_losses(self):
         r = self.r
-        self.assertEqual((r["samples"], r["losses"], r["loss_halves"], r["episodes"]), (40640, 296, 229, 196))
-        self.assertAlmostEqual(r["span_s"], 9.994, places=3)
+        # corrected 2026-09-24 (Issue #101): 296 / 229 / 196 before the step-sample fix
+        self.assertEqual((r["samples"], r["losses"], r["loss_halves"], r["episodes"]), (40640, 306, 240, 206))
+        self.assertAlmostEqual(r["span_s"], 9.997, places=3)
 
     def test_the_audio_losses_keep_the_ai_chunk_cadence(self):
         r = self.r
         self.assertAlmostEqual(r["ai_period_ms"], 31.2222, places=3)
-        self.assertGreater(r["audio_R_ai"], 0.93)
+        self.assertAlmostEqual(r["audio_R_ai"], 0.957, places=3)
+        self.assertAlmostEqual(r["audio_R_tone_grid"], 0.839, places=3)
         self.assertLess(r["audio_R_tone_grid"], r["audio_R_ai"])
-        self.assertAlmostEqual(r["audio_peak"][1] * 1e3, 31.215, places=3)
+        self.assertAlmostEqual(r["audio_peak"][1] * 1e3, 31.223, places=3)
         iv = r["audio_intervals_in_chunks"]
-        self.assertEqual({k: iv.count(k) for k in set(iv)}, {1: 140, 2: 17, 3: 16, 4: 15, 5: 6, 8: 1})
+        self.assertEqual({k: iv.count(k) for k in set(iv)}, {1: 148, 2: 22, 3: 18, 4: 11, 5: 6})
 
     def test_the_video_losses_follow_the_ai_callbacks(self):
         r = self.r
