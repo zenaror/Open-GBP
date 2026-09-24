@@ -115,6 +115,10 @@ LEDGER = [
      "every figure §V19.11 and GBP-HW-317 quote is on the page with each log's full hash, and pinned "
      "from the SOURCES by tests that never skip (the rows, the verbatim sentence, the claims it must "
      "not make, the Makefiles' source lists); the Operator's machine, where the logs are, runs the suite first"),
+    # Issue #91: RUN 37's d2 file, under captures/local, ignored by design (it is the 0xA5 fill pattern).
+    (r"^RUN 37's d2 file is not archived in this checkout \(captures/local is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
+     "the file carries no data (65 536 x 0xA5); its hash and size are on the page (§V19.14.2), and every D2 "
+     "figure is recomputed from the VERSIONED RUN 37 log by tests that never skip"),
     # Issue #90: RUN 36's archived copy and the live Gecko capture, under captures/local, ignored by design.
     (r"^the RUN 36/37 Gecko capture is not archived in this checkout$", "LOCAL_ARTIFACT_ABSENT",
      "§V21.9 quotes the capture's hash, size, line counts and every RUN 36 line it carries, and the log "

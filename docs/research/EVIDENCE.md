@@ -8962,3 +8962,95 @@ about 3 against 1, a comparison the gate never asked for.
 - `U-GBP-012` is untouched.
 
 One console, one Game Boy Player, one listener.
+
+---
+
+### GBP-HW-319 — with full 0x1000 reads the drain's STEADY STATE keeps up: 4096 ± 1 AUDIO blocks in every 1.000 s window from 3 s to 60 s of PHASE B (RUN 37, D1 PASS) — FACT (the measurement, one run); "the prior deficit is a start-up cost" is CORROBORATED, not FACT
+
+`HARDWARE_TESTS.md` §V19.14.3. The gate is `tools/v19drain.py`, frozen at 364be84,
+fed by `tools/v19report.py`, frozen at 897ea6c. It ran unedited on
+`captures/local/GBP-AUDIO-005_drain-0001-run37.log` (sha256 `24e2e588…7fa8`).
+
+**FACT, recomputable from the log.**
+- All 57 windows of PHASE B from t = 3.000 s were counted in 40.5 MHz ticks.
+- 50 windows read exactly 4096. Seven read 4095 or 4097; six of those are adjacent
+  pairs across a tick boundary, and the seventh is the last window.
+- The worst window is 0.99976.
+- The service's own completion counter and the per-second counter agree exactly:
+  245 757 over 60.000017 s, 3 short of 60 × 4096.
+- The largest completion gap in the phase is 0.473 ms.
+- **D1 = PASS.** In the frozen B5 wording, that is "no window lost more than 4.096
+  AUDIO blocks", never "no loss".
+
+**What it settles, and at what strength.**
+- §V19.2 asked whether the shortfall is a start-up cost or a steady-state
+  incapacity. For this run, the steady-state arm is **excluded**, and that part is
+  FACT.
+- That the ~70-block deficit of the four archived `play-0001` sessions **is** a
+  start-up cost is **CORROBORATED**: this FACT together with `GBP-HW-317`'s
+  invariance.
+- It is not FACT, because D1 never measures the start-up. PHASE B begins after the
+  accept, CONTROL1 and the A press.
+
+One console, one Game Boy Player, one run, one image (`drain-0001` @ `897ea6c`),
+identified by its identity line and a reproducible build. The card re-hash is
+pending (§V19.14.2).
+
+---
+
+### GBP-HW-320 — one 65 536-byte SD2SP2 write, made synchronously inside the drain's pump slot, took 24.43 ms and cost 100 AUDIO blocks, LOST and not delayed (RUN 37, D2) — FACT (one write, one card, one size)
+
+`HARDWARE_TESTS.md` §V19.14.4.
+
+**The measurement.**
+- The write began at the frozen mark, second 65 of PHASE B's counter, and returned
+  in the same second. `t_w1 − t_w0` = 989 444 ticks = 24.431 ms.
+- Second 65 counted 3996. Seconds 64 and 66 counted 4096 each.
+- **The 100 blocks were never delivered later.** The drain simply stood still for
+  the write: 100 blocks at 4096/s is 24.41 ms.
+- The largest completion gap in PHASE C is 24.573 ms.
+
+**The frozen consequence (§V19.3):** the decoded ring holds at least **200 AUDIO
+blocks**, which is 48.8 ms.
+
+**What it does not say:**
+- anything about other sizes, cards or instants;
+- whether a write can overlap the drain instead of running inside its pump slot.
+
+It is consistent with `CLAUDE.md` §13, which forbids SD writes in timing-critical
+paths, and it puts a number on that rule for the first time.
+
+---
+
+### GBP-HW-321 — a 32-byte read at index 0x8 does NOT keep the drain in sequence: decoded period 4–8 against the programmed 32, and the full-read window after it held one 14-block discontinuity (RUN 37, QUESTION A = SYNC-LOST at N = 0x20, NO-RECOVERY) — FACT (the gate's result); the MECHANISM is UNKNOWN
+
+`HARDWARE_TESTS.md` §V19.14.5.
+
+**The positive control held**, so this is not INCONCLUSIVE. CONTROL2, taken
+immediately before, had 63 periods, all exactly 32.
+
+**The step at N = 0x20.** It ran for 3 s:
+- 12 289 reads, all 32 bytes long;
+- 1 537 decoded periods, every one between 4 and 8.
+
+**The sweep stopped there, as frozen.** N = 0x100 and N = 0x400 are untested.
+
+**The recovery window** was 2048 full reads with 64 periods: 63 at exactly 32 and
+one at 18.
+- By the frozen rule that is NO-RECOVERY.
+- The decoder resets per stretch, so the 18 lies between two full-read edges
+  inside the window.
+- Where in the window it fell is not recorded.
+
+**Status, piece by piece.**
+- **The gate's result is FACT.**
+- **Why** 32-byte reads decode as 4–8 is **UNKNOWN**. It could be the device's block
+  sequence, or it could be that a 32-byte slice cannot carry the level (§V18.5,
+  `U-GBP-043`). B4's premise, that the period is unaffected by a short read, is
+  contradicted and not replaced.
+- That the SEQUENCE itself moved, as the 14-block discontinuity suggests, is a
+  **HYPOTHESIS**.
+
+**For the design:** the runtime reads whole AUDIO blocks, 16.8 MB/s sustained,
+which `GBP-HW-319` shows the drain carries. `U-GBP-042` is answered for N = 0x20
+and stays open for the larger N.

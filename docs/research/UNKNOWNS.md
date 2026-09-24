@@ -2045,7 +2045,7 @@ whole number of two-slice units, so that k moves from edge to edge by a
 predictable amount. Even that resolves only the 32 768/s grid, unless the
 quantisation is the source's.
 
-## U-GBP-042 (P1, opened 2026-09-23, Issue #82) — can the AUDIO block (index 0x8) be read SHORTER than 0x1000, and does the device then deliver the next block normally?
+## U-GBP-042 (P1 → **P3**, opened 2026-09-23, Issue #82; **ANSWERED FOR N = 0x20 by RUN 37, Issue #91: NO** — 0x100 and 0x400 untested, the mechanism unknown, no longer blocking) — can the AUDIO block (index 0x8) be read SHORTER than 0x1000, and does the device then deliver the next block normally?
 
 Every physical AUDIO read so far is the whole 0x1000: this project's 272 145 in
 RUN 33 / RUN 34, the Start-up Disc and GBI (`GBP-AUD-001`). The transport accepts
@@ -2068,6 +2068,31 @@ INCONCLUSIVE, never SYNC-LOST** — *"nothing was playing"* and *"the short read
 broke it"* are different answers (AMENDMENT 2 B3). Edge degradation is measured
 beside the verdict and never folded into it, because §V18.5 established that a
 single slice cannot represent an edge block. **Not run, not authorised there.**
+
+**2026-09-23, Issue #91: RUN 37 ANSWERS IT FOR N = 0x20, AND THE ANSWER IS NO**
+(`HARDWARE_TESTS.md` §V19.14.5, `GBP-HW-321`).
+
+- **The control held.** CONTROL2, immediately before, had 63 periods, all exactly
+  32.
+- **N = 0x20 failed.** 12 289 reads of 32 bytes decoded a period of 4–8 in all
+  1 537 periods, against the programmed 32: **SYNC-LOST**.
+- **The full-read window after it did not come back clean.** 63 of 64 periods were
+  32 and one was 18, a 14-block discontinuity whose position is not recorded:
+  **NO-RECOVERY** by the frozen rule.
+- **The sweep stopped there, as frozen,** so **0x100 and 0x400 are untested**.
+
+**Still open:**
+- **why** 32-byte reads decode as 4–8: the device's sequence, or a 32-byte slice
+  failing to carry the level (`U-GBP-043`);
+- **where** the 14-block discontinuity fell;
+- the two larger N.
+
+**Priority drops to P3, because nothing is blocked any more.**
+- The runtime reads whole AUDIO blocks, and RUN 37's D1 shows the drain carries
+  16.8 MB/s in steady state (`GBP-HW-319`).
+- A future experiment on N = 0x100 / 0x400 must start from a fresh power-cycle and
+  run one N per session. Full reads did not recover cleanly after N = 0x20, so the
+  steps cannot share a session.
 
 ## U-GBP-043 (P3, opened 2026-09-23, Issue #82) — the 1–3-bit spread between slices of a flat block, and whether a slice's bit arrangement carries anything its count does not
 

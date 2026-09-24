@@ -32190,6 +32190,226 @@ alias      Hardware Issue #89's "RUN B". The same run, and that label is superse
            the ingestion, the report and every record name it RUN 37
 ```
 
+### V19.14 RUN 37 INGESTED (GitHub Issue #91) — **D1 PASS · D2 MEASURED, 100 AUDIO blocks for one 64 KiB write · QUESTION A SYNC-LOST at N = 0x20, NO-RECOVERY** — 2026-09-23
+
+*Appended. §V19.0–§V19.13 stand. The gates ran UNEDITED:*
+- `tools/v19report.py` (frozen at 897ea6c) turned the log into a report;
+- `tools/v19drain.py` (frozen at 364be84) decided it.
+
+*Both files are byte-identical to their freeze commits. The verdicts come first,
+exactly as the tool prints them. Everything after them is explanation, and none of
+it moves a verdict.*
+
+#### V19.14.1 The verdicts, as `tools/v19drain.py` prints them
+
+```text
+GBP-AUDIO-005 / drain-0001
+  D1 PASS          no window lost more than 4.096 AUDIO blocks (worst window 45 at 0.99976). This does NOT mean no loss: a UNIFORM shortfall below 4.096 blocks/s passes this gate, and the per-second series is reported in full for that reason.
+     per-second coverage (reported IN FULL, PASS or FAIL):
+       t=   3.0 s   4096  1.00000
+       t=   4.0 s   4096  1.00000
+       t=   5.0 s   4096  1.00000
+       t=   6.0 s   4096  1.00000
+       t=   7.0 s   4096  1.00000
+       t=   8.0 s   4096  1.00000
+       t=   9.0 s   4096  1.00000
+       t=  10.0 s   4096  1.00000
+       t=  11.0 s   4096  1.00000
+       t=  12.0 s   4096  1.00000
+       t=  13.0 s   4096  1.00000
+       t=  14.0 s   4096  1.00000
+       t=  15.0 s   4096  1.00000
+       t=  16.0 s   4096  1.00000
+       t=  17.0 s   4096  1.00000
+       t=  18.0 s   4096  1.00000
+       t=  19.0 s   4096  1.00000
+       t=  20.0 s   4096  1.00000
+       t=  21.0 s   4096  1.00000
+       t=  22.0 s   4096  1.00000
+       t=  23.0 s   4096  1.00000
+       t=  24.0 s   4096  1.00000
+       t=  25.0 s   4096  1.00000
+       t=  26.0 s   4096  1.00000
+       t=  27.0 s   4096  1.00000
+       t=  28.0 s   4096  1.00000
+       t=  29.0 s   4096  1.00000
+       t=  30.0 s   4096  1.00000
+       t=  31.0 s   4096  1.00000
+       t=  32.0 s   4096  1.00000
+       t=  33.0 s   4096  1.00000
+       t=  34.0 s   4096  1.00000
+       t=  35.0 s   4096  1.00000
+       t=  36.0 s   4096  1.00000
+       t=  37.0 s   4096  1.00000
+       t=  38.0 s   4096  1.00000
+       t=  39.0 s   4096  1.00000
+       t=  40.0 s   4096  1.00000
+       t=  41.0 s   4096  1.00000
+       t=  42.0 s   4096  1.00000
+       t=  43.0 s   4096  1.00000
+       t=  44.0 s   4096  1.00000
+       t=  45.0 s   4096  1.00000
+       t=  46.0 s   4096  1.00000
+       t=  47.0 s   4096  1.00000
+       t=  48.0 s   4095  0.99976
+       t=  49.0 s   4097  1.00024
+       t=  50.0 s   4096  1.00000
+       t=  51.0 s   4096  1.00000
+       t=  52.0 s   4096  1.00000
+       t=  53.0 s   4095  0.99976
+       t=  54.0 s   4097  1.00024
+       t=  55.0 s   4095  0.99976
+       t=  56.0 s   4097  1.00024
+       t=  57.0 s   4096  1.00000
+       t=  58.0 s   4096  1.00000
+       t=  59.0 s   4095  0.99976
+  D2 MEASURED      100 AUDIO blocks = 24.41 ms for a 65536-byte write; ring >= 200 blocks
+  A  SYNC-LOST     N=0x20 lost sequence synchronisation (period 4..8 against the programmed 32); the sweep stops at the first SYNC-LOST. FULL READS DID NOT RECOVER: the remaining phases are void, power-cycle.
+       N=0x20    SYNC-LOST period 4..8  edges recoverable 0.0
+```
+
+#### V19.14.2 The run, and the files
+
+```text
+image       15-drain  GBP-AUDIO-005 / gbp-audio-drain-probe / drain-0001 / commit 897ea6c (§V19.12, §V19.13)
+cartridge   sweep-0002 on the EZ-Flash since RUN 33, no reflash
+procedure   one A press, nothing else: INPUT events=3 (A down, A up, X), a_presses=1, other_presses=0
+result      RESULT status=ok_session_ended class=ok teardown=S5_session_end deliveries=519192 restore=1
+            COUNTERS balanced=1 inv_fail=0 consistent_at_end=1 storage_fault=-; the console was power-cycled
+```
+
+```text
+raw drop (logs/run37/, never edited)             archived copy (captures/local/)
+GBP-AUDIO-005_drain-0001.log       92 486 B      GBP-AUDIO-005_drain-0001-run37.log
+   sha256 24e2e588eef1d79ff32dd922cf577861fa2295fd2d6e68f08bb2071aee6b7fa8   lines=710 dropped=0 truncated=0
+GBP-AUDIO-005_drain-0001-d2.bin    65 536 B      GBP-AUDIO-005_drain-0001-run37-d2.bin
+   sha256 77007cd74a06dc54e5114d01a41d2721679d5668a0c20022fe102c87ad4d65b8
+```
+
+- **The `-d2.bin` carries no audio.** It is 65 536 bytes of `0xA5`, the fill
+  pattern the image writes (`memset(d2_buf, 0xA5, …)`). It exists to be timed and
+  nothing else.
+- **The Gecko capture** (§V21.9.1) carries the drain's 10 console lines, from READY
+  through DONE. It carries **nothing** of the phases, which go to the ring log only
+  by design, and it is not cited for them.
+- **Identity.** The run is identified at the same strength as RUN 36 (§V21.9.2):
+  - the log's `IDENT` names `drain-0001` @ `897ea6c`, one clean, byte-reproducible
+    build (`4c80ab8a…3884`);
+  - the card was handled on a PC between the verification and the run, and **the
+    slot was not re-hashed from the medium afterwards**;
+  - the re-hash is pending, and the Orchestrator has asked for the card.
+
+#### V19.14.3 D1 — **PASS**, and what a PASS here is not
+
+- **The gate.** Every whole 1.000 s window from t = 3.000 s of PHASE B has
+  coverage ≥ 0.999. There are 57 windows. The worst is window 45 (t = 48 s) at
+  **0.99976**, which is 4095 AUDIO blocks.
+- **The series, in full above.** 50 of the 57 windows read exactly 4096. The others read 4095
+  or 4097, and they come in adjacent pairs: 4095 then 4097 at t = 48/49, 53/54 and
+  55/56. That is one completion landing on either side of a tick boundary: A6's
+  boundary noise, which here rescues nothing. The last window (t = 59) reads 4095;
+  its pair would fall after PHASE B ends.
+- **The two totals agree exactly.** `counter_total = timebase_total = 245 757` over
+  `b_ticks = 2 430 000 700` = 60.000017 s. That is **3 short of 60 × 4096 =
+  245 760**: seconds 0–2, which lie outside the gate, read 4094, 4096 and 4096, and
+  second 59 reads 4095.
+- **The largest completion gap in PHASE B** is `gap_max_b = 19 146` ticks =
+  **0.473 ms**, under two AUDIO blocks.
+- **B5, as frozen: a PASS is never "no loss".** No window lost more than 4.096
+  AUDIO blocks, and a uniform shortfall below 4.096 blocks/s would pass this gate.
+  That is why the series is printed in full. What it shows is that no window of the
+  57 was more than one AUDIO block from 4096.
+- **What D1 answers.** With full 0x1000 reads, the drain's steady state is not
+  incapable. For 57 consecutive seconds it completed 4096 ± 1 AUDIO blocks per
+  second. So the fork §V19.2 posed falls on the start-up side.
+- **What D1 does not answer: the start-up cost itself.** PHASE B begins after the
+  accept, CONTROL1 and the press. The prior (four `play-0001` sessions, a
+  near-fixed 67–72-block deficit) and `GBP-HW-317`'s invariance are **consistent**
+  with a start-up cost. They are context, and D1 did not measure the start-up.
+
+#### V19.14.4 D2 — **MEASURED**: one 65 536-byte SD write costs 100 AUDIO blocks, lost and not delayed
+
+- **The write** began in second 65 of the counter, the frozen mark, and returned in
+  the same second (`seconds_spanned [65, 65]`). `t_w1 − t_w0 = 989 444` ticks =
+  **24.431 ms**.
+- **The seconds around it.** Second 65 read **3996**, 100 short. Seconds 64 and 66
+  both read 4096 (coverage before and after: 1.000 / 1.000).
+- **Lost, not delayed.** Second 66 is exactly 4096, so the 100 AUDIO blocks were
+  never delivered later.
+- **The drain stood still for the write.** 100 blocks at 4096/s is 24.41 ms, the
+  write's own duration.
+- **The largest completion gap in PHASE C** is `gap_max_c = 995 193` ticks =
+  **24.573 ms**, which is the write.
+- **Its frozen consequence:** the decoded ring holds at least **2 × 100 = 200 AUDIO
+  blocks** (48.8 ms).
+- **What D2 does not answer:**
+  - any other size, card or instant;
+  - whether a write can run CONCURRENTLY with the drain. This one ran inside the
+    pump slot, synchronously, by design (§V19.3);
+  - whether anything could have held the 100 blocks. Nothing did.
+
+#### V19.14.5 QUESTION A — **SYNC-LOST at N = 0x20, NO-RECOVERY**
+
+- **The positive control held, so the INCONCLUSIVE arm does not apply.** CONTROL2
+  ran immediately before PHASE A: 2048 full reads, **63 periods, every one exactly
+  32**. CONTROL1 before it had 61 periods, all 32. The tone was established.
+- **Step 0, N = 0x20, 3 s** (the step length from AMENDMENT 1 A3):
+  - 12 289 reads, every one of length 32 (`wrong_len 0`);
+  - 1 538 rising edges and 1 537 periods, **every one off**: 4 to 8 reads against
+    the programmed 32.
+- **N = 0x100 and N = 0x400 did not run.** The frozen sweep stops at the first
+  SYNC-LOST.
+- **The recovery window failed on one period.**
+  - It had 2048 full reads (`wrong_len 0`), 65 rising edges and 64 periods: 63 at
+    exactly 32, and **one at 18**.
+  - The frozen rule requires every period to be exactly 32, so the verdict is
+    **NO-RECOVERY**.
+  - The period decoder is reset at every stretch, so the 18 lies between two rising
+    edges of FULL reads inside the window. It is not carried over from PHASE A.
+  - 18 = 32 − 14, and the crossings (130 = 2 × 65) show no spurious pulse. That is
+    **one 14-AUDIO-block discontinuity**, with the other 63 periods exact.
+  - **The log does not record where in the window it fell.**
+- **`edges recoverable 0.0` at N = 0x20 is STRUCTURAL, not a measurement.** The
+  within-block step is counted on whole 256-byte slices, and a 32-byte read holds
+  none. It says nothing about edges.
+- **Nothing was voided.** The tool's text says "the remaining phases are void,
+  power-cycle", but PHASE A runs last (§V19.1: B, then C, then A). B and C stand,
+  and the console was power-cycled as the procedure requires.
+
+#### V19.14.6 What QUESTION A decides for the design
+
+- **What was observed.** A 32-byte read at index 0x8 did not keep the drain in
+  sequence with the tone as the frozen gate measures it. The full reads that
+  followed did not come back clean within one window: one 14-block discontinuity.
+- **What was not tested.** Whether 0x100 or 0x400 would work: the frozen sweep
+  stopped at the first failure.
+- **So the runtime is designed around FULL 0x1000 AUDIO reads.**
+  - The sustained requirement stays at **16.8 MB/s** (4096 AUDIO blocks/s × 4096 B).
+  - D1 shows the current drain carries that in steady state: 57 consecutive
+    seconds at 4096 ± 1, no completion gap above 0.47 ms.
+  - Short reads are not a lever the runtime may use. They are not even harmless to
+    try, because full reads did not recover cleanly within one window.
+- **SD writes stay out of the drain.** 64 KiB inside the pump slot cost 100 AUDIO
+  blocks, lost and not delayed. Persistent logging during a capture has to move off
+  the drain's path, and the decoded ring holds at least 200 blocks.
+
+#### V19.14.7 What this does not establish, and what stays open
+
+- **Why N = 0x20 reads 4–8 is UNKNOWN.**
+  - B4's premise was that the period is unaffected by a short read, because it is
+    carried by the sequence of levels. The data contradicts it.
+  - The data cannot say which half failed: the device's block sequence, or a
+    32-byte slice's ability to carry the level through `sample(N)` (§V18.5,
+    `U-GBP-043`).
+  - The recovery window's 14-block discontinuity is the one sign that the SEQUENCE
+    itself moved. It is a HYPOTHESIS, because its position is not recorded.
+- **`U-GBP-042` is ANSWERED for N = 0x20: no.** It stays OPEN for 0x100 and 0x400
+  and for the mechanism. It no longer blocks, because the runtime does not need
+  short reads (D1).
+- **Not established:** the start-up cost itself, D1 for other images or lengths, D2
+  for any other write, and anything beyond one run on one console.
+- **Evidence:** `GBP-HW-319` (D1), `GBP-HW-320` (D2) and `GBP-HW-321` (QUESTION A).
+
 ## V20 — RUN 35 INGESTED (GitHub Issue #85, GBP-AUDIO-006): **`question_L_bits` = LINEAR**, self-contained in one run, and `GBP-HW-305` is **FACT** — **2026-09-23**
 
 **The verdict, before any commentary, as the Issue requires: `question_L_bits`

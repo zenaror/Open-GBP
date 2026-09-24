@@ -1,0 +1,718 @@
+# OPENGBP-LOG v1
+test_id=GBP-AUDIO-005
+build_id=drain-0001
+commit=897ea6c
+libogc=libogc2 r2442.094b250 gecko=1 power_cycle_required=1 sidecar=d2_write_only time_target=disabled safety_s=120 session_end=Z hold_ms=250 stop=session_end status=ok_session_ended witness=none
+lines=710 dropped=0 truncated=0
+# --- records ---
+000000 IDENT test=GBP-AUDIO-005 app=gbp-audio-drain-probe build=drain-0001 commit=897ea6c libogc=libogc2 r2442.094b250
+000001 ENV bus_hz=162000000 tb_hz=40500000 dma_timeout_ms=200 t_max_ms=2000 t_delivery_ms=100 t_next_cause_ms=100 csr=0804
+000002 ENVPLAY time_target=disabled safety_s=120 max_deliveries=6000000 session_end=Z hold_ms=250 hold_ticks=10125000 precedence=fatal,safety,stores,session_end,no_next_cause,delivery witness=none
+000003 ENVSTREAM time_target=disabled safety_s=120 slice_tile_rows=1 tex_buffers=2 tex_bytes=76800 ring_slots=4
+000004 ENVINPUT port=1 policy=default stick_threshold=48 trigger_threshold=0 analog_ab_threshold=0 filter_opposites=1 refresh_ms=5 refresh_ticks=202500 layout=gbi-u16-replicated
+000005 ENVINPUT2 index=12 desc=0,1,2,3,4,5,6,7,9,8 pressed_is_one=1 desc_status=FACT_hw_run_scoped selftest=1
+000006 ENVSTORE frames=45056/16384 events=16384/4096 raw_ring=737280/552960 slots=4/3 episode_raw=2949120/2949120 audio_raw=12288/12288 configured_bytes=13398016 required_bytes=6922240 fault=- ok=1
+000007 ENVBUF frames=005b18a0 events=004b18a0 raw_ring=003fd8a0 episode_raw=0012d8a0 audio_raw=0012a8a0 texA=000f6f80 texB=00109b80 fifo=000b6e20 log_lines=8192
+000008 ENVMEM bss_end=81020d18 arena1_lo=811e3000 arena1_hi=81700000 arena1_free=5361664 frames_bytes=8650752 events_bytes=1048576 log_bytes=2097152 witness=0 xfb=3x614400
+000009 DRAINCFG accept_s=5 control1_bound_s=10 control_blocks=2048 control_min_periods=48 programmed_period=32
+000010 DRAINCFG2 b_s=60 c_s=10 a_step_s=3 a_steps=3 n=20,100,400 d2_bytes=65536 d2_mark_s=65 safety_s=120 budget_s=79
+000011 DRAIND2OPEN rc=0 status=writing sd:/open-gbp/GBP-AUDIO-005_drain-0001-d2.bin
+000012 VSTATE start test=GBP-VIDEO-002 target_s=0 limit_s=120 limit_ticks=121adb700 max_deliveries=6000000 verify=4 t_delivery_ms=100 t_next_cause_ms=100
+000013 VSTATE stores frames=16384 x 192 event=4096 x 64 episodes=4 x 4 raw_ring=4 x 184320 audio_raw=3 n_stable=3 ep_max_frames=60 required_bytes=6922240
+000014 VSTATE storecfg frames=45056/16384 events=16384/4096 raw_ring=737280/552960 slots=4/3 episode_raw=2949120/2949120 audio_raw=12288/12288 configured_bytes=13398016 required_bytes=6922240 fault=-
+000015 VSTATE policy handler=003b_ext_installed_once record=reset_under_mask order=read_audio_video_ack_piclean_sign_rearm_waitnext checksum=between_ack_and_rearm oracle=offline_only early_positive_stop=none
+000016 VSTATE caps frame_store=stops event_store=stops episode_raw_store=does_not_stop safety_epoch=t_control_transform precedence=fatal,safety,stores,target,no_next_cause,delivery
+000017 INITIRQA start exp_code=3 clear=10 set=0c idle_shape=1 req_masks=0aaa req_set=8000 req_clear=7000 ack_or=8000 stop_or=8aaa tb_hz=40500000
+000018 INITIRQA window a1_obs_ticks=2025,20250 a2_obs_ticks=2025,20250,202500,2025000,20250000,81000000 n_a1=2 n_a2=6 t_max_ms=2000 poll=1 end_on_event=1
+000019 ARINFO orig value=0043 size_code=3 exp_code=0 base=01000000
+000020 ARINFO exp value=005b exp_code=3
+000021 TESTW tag=DET idx=0 addr=01000000 pattern=c3 rc=ok ticks=30 polls=7 dspcr=0804
+000022 TESTR tag=DET idx=0 addr=01000000 pattern=c3 expect=3c rc=ok ticks=34 polls=9 dspcr=0804 match_all=0 match_1f=1 match_b1=1 match_vote=1 vote=3c data=7c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c
+000023 TESTW tag=DET idx=0 addr=01000000 pattern=3c rc=ok ticks=30 polls=8 dspcr=0804
+000024 TESTR tag=DET idx=0 addr=01000000 pattern=3c expect=c3 rc=ok ticks=34 polls=9 dspcr=0804 match_all=0 match_1f=1 match_b1=1 match_vote=1 vote=c3 data=c7c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3
+000025 TESTW tag=DET idx=0 addr=01000000 pattern=ff rc=ok ticks=31 polls=8 dspcr=0804
+000026 TESTR tag=DET idx=0 addr=01000000 pattern=ff expect=00 rc=ok ticks=34 polls=9 dspcr=0804 match_all=1 match_1f=1 match_b1=1 match_vote=1 vote=00 data=0000000000000000000000000000000000000000000000000000000000000000
+000027 TESTW tag=DET idx=0 addr=01000000 pattern=00 rc=ok ticks=31 polls=8 dspcr=0804
+000028 TESTR tag=DET idx=0 addr=01000000 pattern=00 expect=ff rc=ok ticks=34 polls=9 dspcr=0804 match_all=1 match_1f=1 match_b1=1 match_vote=1 vote=ff data=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+000029 DET verdict=present run=4 transport_ok=4 vote_ok=4 b1_ok=4 all32_ok=2
+000030 PI tag=PRE intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000031 PRECOND intsr13=0 intmr13=0 irq_path_required=0 poll_intsr=1 write_intsr=1 ticks=1 ok=1 reason=-
+000032 SNAP tag=BASE ticks=3888767163 since_control=0 since_a1=0 since_a2=0 polls_before=0
+000033 PI tag=BASE intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000034 RAW BASE idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=92 sem_b1f=92 data=9692929292929292929292929292929292929292929292929292929292929292
+000035 RAW BASE idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=ae8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000036 RAW BASE idx=0 addr=01000000 rc=ok ticks=34 polls=9 dspcr=0804 data=0000000000000000000000000000000000000000000000000000000000000000
+000037 CONTROL semantic orig=92 exp=8e method=gbi-majority-vote transform=(v&~10)|0c
+000038 IRQSHAPE tag=BASE disc=8aae gbi=8aae agree=1 masks_ok=1 bit15_ok=1 high_ok=1 req_masks=0aaa req_set=8000 req_clear=7000 ok=1 reason=-
+000039 CTLW tag=EXP addr=01400000 semantic=8e rc=ok ticks=31 polls=8 dspcr=0804 t_after=3888772828 layout=gbi-replicated data=8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000040 SNAP tag=P0 ticks=3888773803 since_control=975 since_a1=0 since_a2=0 polls_before=0
+000041 PI tag=P0 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000042 RAW P0 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000043 RAW P0 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=ae8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000044 RAW P0 idx=0 addr=01000000 rc=ok ticks=34 polls=9 dspcr=0804 data=0000000000000000000000000000000000000000000000000000000000000000
+000045 P0CHK intsr13=0 intmr13=0 control=8e irq=8aae ok=1 reason=-
+000046 RAW A1PRE idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aae sem_gbi=8aae data=ae8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae8a8aaeae
+000047 IRQSHAPE tag=A1PRE disc=8aae gbi=8aae agree=1 masks_ok=1 bit15_ok=1 high_ok=1 req_masks=0aaa req_set=8000 req_clear=7000 ok=1 reason=-
+000048 A1 before=8aae ack_or=8000 ack_value=8aae formula=read|ack_or
+000049 IRQW tag=A1 addr=01d00000 before=8aae write=8aae layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=3888778223 data=8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae8aae
+000050 SNAP tag=A1-0 ticks=3888778241 since_control=5413 since_a1=18 since_a2=0 polls_before=0
+000051 PI tag=A1-0 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000052 RAW A1-0 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000053 RAW A1-0 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aaa sem_gbi=8aaa data=ae8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+000054 SNAP tag=A1-50US ticks=3888780252 since_control=7424 since_a1=2029 since_a2=0 polls_before=288
+000055 PI tag=A1-50US intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000056 RAW A1-50US idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000057 RAW A1-50US idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aaa sem_gbi=8aaa data=ae8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+000058 SNAP tag=A1-500US ticks=3888798477 since_control=25649 since_a1=20254 since_a2=0 polls_before=3341
+000059 PI tag=A1-500US intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000060 RAW A1-500US idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000061 RAW A1-500US idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aaa sem_gbi=8aaa data=ae8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+000062 WINDOW tag=A1 deadlines=2/2 polls=3341 poll_errors=0 intsr13_in_phase=0 no_timebase=0
+000063 RAW A2PRE idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aaa sem_gbi=8aaa data=ae8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+000064 PI tag=A2PRE intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000065 A2CHK irq_rc=ok pi_ok=1 intsr13=0 intmr13=0 ok=1
+000066 A2 before=8aaa value=0000 formula=zero
+000067 IRQW tag=A2 addr=01d00000 before=8aaa write=0000 layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=3888798969 data=0000000000000000000000000000000000000000000000000000000000000000
+000068 SNAP tag=A2-0 ticks=3888798987 since_control=26159 since_a1=20764 since_a2=18 polls_before=0
+000069 PI tag=A2-0 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000070 RAW A2-0 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000071 RAW A2-0 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0000 sem_gbi=0000 data=0000000000000000000000000000000000000000000000000000000000000000
+000072 SNAP tag=A2-50US ticks=3888800997 since_control=28169 since_a1=22774 since_a2=2028 polls_before=296
+000073 PI tag=A2-50US intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000074 RAW A2-50US idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000075 RAW A2-50US idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0000 sem_gbi=0000 data=0000000000000000000000000000000000000000000000000000000000000000
+000076 SNAP tag=A2-500US ticks=3888819219 since_control=46391 since_a1=40996 since_a2=20250 polls_before=3344
+000077 PI tag=A2-500US intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000078 RAW A2-500US idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000079 RAW A2-500US idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0000 sem_gbi=0000 data=0000000000000000000000000000000000000000000000000000000000000000
+000080 SNAP tag=A2-5MS ticks=3889001471 since_control=228643 since_a1=223248 since_a2=202502 polls_before=34292
+000081 PI tag=A2-5MS intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000082 RAW A2-5MS idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000083 RAW A2-5MS idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0000 sem_gbi=0000 data=0000000000000000000000000000000000000000000000000000000000000000
+000084 SNAP tag=A2-50MS ticks=3890823974 since_control=2051146 since_a1=2045751 since_a2=2025005 polls_before=344122
+000085 PI tag=A2-50MS intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000086 RAW A2-50MS idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000087 RAW A2-50MS idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0000 sem_gbi=0000 data=0000000000000000000000000000000000000000000000000000000000000000
+000088 SNAP tag=EVENT ticks=3893082655 since_control=4309827 since_a1=4304432 since_a2=4283686 polls_before=728143 poll_intsr=00012000
+000089 PI tag=EVENT intsr=00012000 intmr=00000ffa intsr13=1 intmr13=0
+000090 RAW EVENT idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000091 RAW EVENT idx=d addr=01d00000 rc=ok ticks=41 polls=11 dspcr=0804 sem_disc=0400 sem_gbi=0400 data=0404000004040400040404000404040004040400040404000404040004040400
+000092 WINDOW tag=A2 deadlines=4/6 polls=728143 poll_errors=0 ended_early=1 event=1 t_event=3893082655 intsr13_in_phase=1 t_end=3893082966 elapsed_ticks=4283997 elapsed_us=105777 no_timebase=0
+000093 REGION log_count_start=46 log_count_end=46 formatted_inside=0
+000094 EPOCH t64_pre=795e67e7c9ad15 t64_post=795e67e80c44bc t32_pre=3888753945 t_control32=3888772828 control_written=1 epoch_ok=1 t_control_transform=795e67e7c9f6d8 deadline=795e690977add8
+000095 IRQ install rc=ok old_handler=null record_count=0 record_fired=0
+000096 SNAP tag=PREUNMASK ticks=3893119900 since_control=4347072 since_a1=4341677 since_a2=4320931 polls_before=0
+000097 PI tag=PREUNMASK intsr=00012000 intmr=00000ffa intsr13=1 intmr13=0
+000098 PI tag=PREUNMASKb intsr=00012000 intmr=00000ffa intsr13=1 intmr13=0
+000099 RAW PREUNMASK idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000100 RAW PREUNMASK idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0500 sem_gbi=0500 data=0505050005050500050505000505050005050100050505000505050005050500
+000101 PREUNMASK ok=1 reason=- intsr13=1,1 intmr13=0,0 control=8e irq=0500/0500 src=0500 odd=0000 bit15=0
+000102 PI tag=UNMASKPRE-0 rc=ok intsr=00012000 intmr=00000ffa intsr13=1 intmr13=0
+000103 UNMASK n=0 t_unmask=3893125336 rc=ok t_post=3893125605 dt_post=269
+000104 PI tag=UNMASKPOST-0 rc=ok intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0 fired=1
+000105 IRQ mask tag=MAIN n=0 rc=ok
+000106 WAIT n=0 fired=1 timed_out=0 polls=1 wait_ticks=336 wait_us=8 t_delivery_ms=100 t_delivery_ticks=4050000
+000107 PI tag=REMASKCHK-0 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000108 HANDLER n=0 fired=1 count=1 t_entry=3893125424 t_unmask=3893125336 latency_ticks=88 latency_us=2 reentry=0
+000109 HANDLERPI n=0 intsr_at_entry=00012000 intmr_at_entry=00002ffa intmr_after_mask=00000ffa intsr_before_w1c=00012000 intsr_after_w1c=00010000 reentry_intsr=00000000 reentry_intmr=00000000
+000110 HANDLERPI2 n=0 t_second=3893125577 dt_second=153 intsr_second=00010000 intmr_second=00000ffa reentry_t=0
+000111 DELIVERY n=0 fired=1 count=1 latency_ticks=88 latency_us=2 intsr13_entry=1 intmr13_entry=1 intmr13_after_mask=0 intsr13_before_w1c=1 intsr13_after_w1c=0 intsr13_second=0 intmr13_second=0 main_mask_ok=1 reentry=0
+000112 SNAP tag=PRESVC-0 ticks=3893133326 since_control=4360498 since_a1=4355103 since_a2=4334357 polls_before=0
+000113 PI tag=PRESVC-0 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000114 PI tag=PRESVC-0b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000115 RAW PRESVC-0 idx=4 addr=01400000 rc=ok ticks=35 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000116 RAW PRESVC-0 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0500 sem_gbi=0500 data=0505050005050500050505000505050005050500050505000505050005050500
+000117 AUDIOREAD idx=8 addr=01800000 len=1000 selected=1 attempted=1 completed=1 rc=ok t_start=3893137488 t_end=3893140194 dt=2706 wait_ticks=2471 polls=759 csr_before=0804 csr_after=0804
+000118 VIDEOREAD idx=1 addr=01100000 len=0f00 selected=1 attempted=1 completed=1 rc=ok t_start=3893141840 t_end=3893144262 dt=2422 wait_ticks=2318 polls=712 csr_before=0804 csr_after=0804
+000119 SNAP tag=POSTDRAIN-0 ticks=3893145689 since_control=4372861 since_a1=4367466 since_a2=4346720 polls_before=0
+000120 PI tag=POSTDRAIN-0 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000121 PI tag=POSTDRAIN-0b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000122 RAW POSTDRAIN-0 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000123 RAW POSTDRAIN-0 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0500 sem_gbi=0500 data=0505040005050500050505000505050005050500050505000505050005050500
+000124 ACK n=0 before=0500 ack_or=8000 ack_value=8500 formula=read|ack_or
+000125 IRQW tag=ACK-0 addr=01d00000 before=0500 write=8500 layout=gbi-u16-replicated rc=ok ticks=30 polls=8 dspcr=0804 t_after=3893150294 data=8500850085008500850085008500850085008500850085008500850085008500
+000126 SNAP tag=POSTACK-0 ticks=3893151337 since_control=4378509 since_a1=4373114 since_a2=4352368 polls_before=0
+000127 PI tag=POSTACK-0 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000128 PI tag=POSTACK-0b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000129 RAW POSTACK-0 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000130 RAW POSTACK-0 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8000 sem_gbi=8000 data=8080000080800000808000008080000080800000808000008080000080800000
+000131 POSTACK n=0 intsr13=0,0 intmr13=0 control=8e irq=8000/8000 src_pending=0000 bit15=1 ack=1/1
+000132 MAINPICLEANUP n=0 site=POSTACK performed=0 intsr13=0 intmr13=0
+000133 IRQW tag=REARM-0 addr=01d00000 before=8000 write=0000 layout=gbi-u16-replicated rc=ok ticks=30 polls=8 dspcr=0804 t_after=3893157513 data=0000000000000000000000000000000000000000000000000000000000000000
+000134 PI tag=UNMASKPRE-1 rc=ok intsr=00012000 intmr=00000ffa intsr13=1 intmr13=0
+000135 UNMASK n=1 t_unmask=3893159525 rc=ok t_post=3893159543 dt_post=18
+000136 PI tag=UNMASKPOST-1 rc=ok intsr=00012000 intmr=00000ffa intsr13=1 intmr13=0 fired=1
+000137 IRQ mask tag=MAIN n=1 rc=ok
+000138 WAIT n=1 fired=1 timed_out=0 polls=1 wait_ticks=248 wait_us=6 t_delivery_ms=100 t_delivery_ticks=4050000
+000139 PI tag=REMASKCHK-1 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000140 HANDLER n=1 fired=1 count=1 t_entry=3893159593 t_unmask=3893159525 latency_ticks=68 latency_us=1 reentry=0
+000141 HANDLERPI n=1 intsr_at_entry=00012000 intmr_at_entry=00002ffa intmr_after_mask=00000ffa intsr_before_w1c=00012000 intsr_after_w1c=00010000 reentry_intsr=00000000 reentry_intmr=00000000
+000142 HANDLERPI2 n=1 t_second=3893159725 dt_second=132 intsr_second=00010000 intmr_second=00000ffa reentry_t=0
+000143 DELIVERY n=1 fired=1 count=1 latency_ticks=68 latency_us=1 intsr13_entry=1 intmr13_entry=1 intmr13_after_mask=0 intsr13_before_w1c=1 intsr13_after_w1c=0 intsr13_second=0 intmr13_second=0 main_mask_ok=1 reentry=0
+000144 SNAP tag=PRESVC-1 ticks=3893167066 since_control=4394238 since_a1=4388843 since_a2=4368097 polls_before=0
+000145 PI tag=PRESVC-1 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000146 PI tag=PRESVC-1b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000147 RAW PRESVC-1 idx=4 addr=01400000 rc=ok ticks=35 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000148 RAW PRESVC-1 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0500 sem_gbi=0500 data=0505050005050500050505000505050005050500050505000505050005050500
+000149 AUDIOREAD idx=8 addr=01800000 len=1000 selected=1 attempted=1 completed=1 rc=ok t_start=3893170976 t_end=3893173585 dt=2609 wait_ticks=2472 polls=759 csr_before=0804 csr_after=0804
+000150 VIDEOREAD idx=1 addr=01100000 len=0f00 selected=1 attempted=1 completed=1 rc=ok t_start=3893174997 t_end=3893177422 dt=2425 wait_ticks=2322 polls=713 csr_before=0804 csr_after=0804
+000151 SNAP tag=POSTDRAIN-1 ticks=3893178794 since_control=4405966 since_a1=4400571 since_a2=4379825 polls_before=0
+000152 PI tag=POSTDRAIN-1 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000153 PI tag=POSTDRAIN-1b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000154 RAW POSTDRAIN-1 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000155 RAW POSTDRAIN-1 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0500 sem_gbi=0500 data=0505050005050500050505000505040005050500050505000505050005050500
+000156 ACK n=1 before=0500 ack_or=8000 ack_value=8500 formula=read|ack_or
+000157 IRQW tag=ACK-1 addr=01d00000 before=0500 write=8500 layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=3893183157 data=8500850085008500850085008500850085008500850085008500850085008500
+000158 SNAP tag=POSTACK-1 ticks=3893184165 since_control=4411337 since_a1=4405942 since_a2=4385196 polls_before=0
+000159 PI tag=POSTACK-1 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000160 PI tag=POSTACK-1b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000161 RAW POSTACK-1 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000162 RAW POSTACK-1 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8000 sem_gbi=8000 data=8080000080800000808000008080000080800000808000008080000080800000
+000163 POSTACK n=1 intsr13=0,0 intmr13=0 control=8e irq=8000/8000 src_pending=0000 bit15=1 ack=1/1
+000164 MAINPICLEANUP n=1 site=POSTACK performed=0 intsr13=0 intmr13=0
+000165 IRQW tag=REARM-1 addr=01d00000 before=8000 write=0000 layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=3893190129 data=0000000000000000000000000000000000000000000000000000000000000000
+000166 PI tag=UNMASKPRE-2 rc=ok intsr=00012000 intmr=00000ffa intsr13=1 intmr13=0
+000167 UNMASK n=2 t_unmask=3893191891 rc=ok t_post=3893191902 dt_post=11
+000168 PI tag=UNMASKPOST-2 rc=ok intsr=00012000 intmr=00000ffa intsr13=1 intmr13=0 fired=1
+000169 IRQ mask tag=MAIN n=2 rc=ok
+000170 WAIT n=2 fired=1 timed_out=0 polls=1 wait_ticks=216 wait_us=5 t_delivery_ms=100 t_delivery_ticks=4050000
+000171 PI tag=REMASKCHK-2 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000172 HANDLER n=2 fired=1 count=1 t_entry=3893191936 t_unmask=3893191891 latency_ticks=45 latency_us=1 reentry=0
+000173 HANDLERPI n=2 intsr_at_entry=00012000 intmr_at_entry=00002ffa intmr_after_mask=00000ffa intsr_before_w1c=00012000 intsr_after_w1c=00010000 reentry_intsr=00000000 reentry_intmr=00000000
+000174 HANDLERPI2 n=2 t_second=3893192066 dt_second=130 intsr_second=00010000 intmr_second=00000ffa reentry_t=0
+000175 DELIVERY n=2 fired=1 count=1 latency_ticks=45 latency_us=1 intsr13_entry=1 intmr13_entry=1 intmr13_after_mask=0 intsr13_before_w1c=1 intsr13_after_w1c=0 intsr13_second=0 intmr13_second=0 main_mask_ok=1 reentry=0
+000176 SNAP tag=PRESVC-2 ticks=3893199386 since_control=4426558 since_a1=4421163 since_a2=4400417 polls_before=0
+000177 PI tag=PRESVC-2 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000178 PI tag=PRESVC-2b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000179 RAW PRESVC-2 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000180 RAW PRESVC-2 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0500 sem_gbi=0500 data=0505050005050500050505000505050005050400050505000505050005050500
+000181 AUDIOREAD idx=8 addr=01800000 len=1000 selected=1 attempted=1 completed=1 rc=ok t_start=3893203287 t_end=3893205918 dt=2631 wait_ticks=2472 polls=759 csr_before=0804 csr_after=0804
+000182 VIDEOREAD idx=1 addr=01100000 len=0f00 selected=1 attempted=1 completed=1 rc=ok t_start=3893207320 t_end=3893209742 dt=2422 wait_ticks=2319 polls=712 csr_before=0804 csr_after=0804
+000183 SNAP tag=POSTDRAIN-2 ticks=3893211114 since_control=4438286 since_a1=4432891 since_a2=4412145 polls_before=0
+000184 PI tag=POSTDRAIN-2 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000185 PI tag=POSTDRAIN-2b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000186 RAW POSTDRAIN-2 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000187 RAW POSTDRAIN-2 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0500 sem_gbi=0500 data=0505050005050500050505000505050005050500050505000505050005050500
+000188 ACK n=2 before=0500 ack_or=8000 ack_value=8500 formula=read|ack_or
+000189 IRQW tag=ACK-2 addr=01d00000 before=0500 write=8500 layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=3893215478 data=8500850085008500850085008500850085008500850085008500850085008500
+000190 SNAP tag=POSTACK-2 ticks=3893216486 since_control=4443658 since_a1=4438263 since_a2=4417517 polls_before=0
+000191 PI tag=POSTACK-2 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000192 PI tag=POSTACK-2b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000193 RAW POSTACK-2 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000194 RAW POSTACK-2 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8000 sem_gbi=8000 data=8080000080800000808000008080000080800000808000008080000080800000
+000195 POSTACK n=2 intsr13=0,0 intmr13=0 control=8e irq=8000/8000 src_pending=0000 bit15=1 ack=1/1
+000196 MAINPICLEANUP n=2 site=POSTACK performed=0 intsr13=0 intmr13=0
+000197 IRQW tag=REARM-2 addr=01d00000 before=8000 write=0000 layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=3893222338 data=0000000000000000000000000000000000000000000000000000000000000000
+000198 PI tag=UNMASKPRE-3 rc=ok intsr=00012000 intmr=00000ffa intsr13=1 intmr13=0
+000199 UNMASK n=3 t_unmask=3893224096 rc=ok t_post=3893224107 dt_post=11
+000200 PI tag=UNMASKPOST-3 rc=ok intsr=00012000 intmr=00000ffa intsr13=1 intmr13=0 fired=1
+000201 IRQ mask tag=MAIN n=3 rc=ok
+000202 WAIT n=3 fired=1 timed_out=0 polls=1 wait_ticks=213 wait_us=5 t_delivery_ms=100 t_delivery_ticks=4050000
+000203 PI tag=REMASKCHK-3 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000204 HANDLER n=3 fired=1 count=1 t_entry=3893224138 t_unmask=3893224096 latency_ticks=42 latency_us=1 reentry=0
+000205 HANDLERPI n=3 intsr_at_entry=00012000 intmr_at_entry=00002ffa intmr_after_mask=00000ffa intsr_before_w1c=00012000 intsr_after_w1c=00010000 reentry_intsr=00000000 reentry_intmr=00000000
+000206 HANDLERPI2 n=3 t_second=3893224269 dt_second=131 intsr_second=00010000 intmr_second=00000ffa reentry_t=0
+000207 DELIVERY n=3 fired=1 count=1 latency_ticks=42 latency_us=1 intsr13_entry=1 intmr13_entry=1 intmr13_after_mask=0 intsr13_before_w1c=1 intsr13_after_w1c=0 intsr13_second=0 intmr13_second=0 main_mask_ok=1 reentry=0
+000208 SNAP tag=PRESVC-3 ticks=3893231672 since_control=4458844 since_a1=4453449 since_a2=4432703 polls_before=0
+000209 PI tag=PRESVC-3 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000210 PI tag=PRESVC-3b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000211 RAW PRESVC-3 idx=4 addr=01400000 rc=ok ticks=31 polls=8 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000212 RAW PRESVC-3 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0500 sem_gbi=0500 data=0505050005050500050505000505050005050500050505000505050005050500
+000213 AUDIOREAD idx=8 addr=01800000 len=1000 selected=1 attempted=1 completed=1 rc=ok t_start=3893235566 t_end=3893238152 dt=2586 wait_ticks=2475 polls=760 csr_before=0804 csr_after=0804
+000214 VIDEOREAD idx=1 addr=01100000 len=0f00 selected=1 attempted=1 completed=1 rc=ok t_start=3893239554 t_end=3893241969 dt=2415 wait_ticks=2312 polls=710 csr_before=0804 csr_after=0804
+000215 SNAP tag=POSTDRAIN-3 ticks=3893243341 since_control=4470513 since_a1=4465118 since_a2=4444372 polls_before=0
+000216 PI tag=POSTDRAIN-3 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000217 PI tag=POSTDRAIN-3b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000218 RAW POSTDRAIN-3 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000219 RAW POSTDRAIN-3 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0500 sem_gbi=0500 data=0505050005050500050505000505050005050500050505000505050005050500
+000220 ACK n=3 before=0500 ack_or=8000 ack_value=8500 formula=read|ack_or
+000221 IRQW tag=ACK-3 addr=01d00000 before=0500 write=8500 layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=3893247704 data=8500850085008500850085008500850085008500850085008500850085008500
+000222 SNAP tag=POSTACK-3 ticks=3893248711 since_control=4475883 since_a1=4470488 since_a2=4449742 polls_before=0
+000223 PI tag=POSTACK-3 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000224 PI tag=POSTACK-3b intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000225 RAW POSTACK-3 idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=8e sem_b1f=8e data=ee8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e
+000226 RAW POSTACK-3 idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8100 sem_gbi=8100 data=8181000081810000818100008181000081810000818100008181000081810000
+000227 POSTACK n=3 intsr13=0,0 intmr13=0 control=8e irq=8100/8100 src_pending=0100 bit15=1 ack=1/1
+000228 MAINPICLEANUP n=3 site=POSTACK performed=0 intsr13=0 intmr13=0
+000229 IRQW tag=REARM-3 addr=01d00000 before=8100 write=0000 layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=3893254569 data=0000000000000000000000000000000000000000000000000000000000000000
+000230 KEY n=1 act=first keys=0000 word=0000 t_poll=795e67e80e7aa3 t_attempt=795e67e80e7b75 t_done=795e67e80e7c07 xfer=31 rc=ok
+000231 KEY n=2 act=change keys=0001 word=0001 t_poll=795e67fa304ff5 t_attempt=795e67fa30500e t_done=795e67fa305054 xfer=30 rc=ok
+000232 KEY n=3 act=change keys=0000 word=0000 t_poll=795e67fa8d1f17 t_attempt=795e67fa8d1f30 t_done=795e67fa8d1f76 xfer=31 rc=ok
+000233 TEARDOWN start control_written=1 irq_attempted=1038386 irq_completed=1038386 uncertain_writes=0 intsr13_seen=1 pi_policy=unmasked_per_cycle
+000234 CTLW tag=RESTORE addr=01400000 semantic=92 rc=ok ticks=30 polls=8 dspcr=0804 t_after=2919769147 layout=gbi-replicated data=9292929292929292929292929292929292929292929292929292929292929292
+000235 RAW TDCTL idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=92 sem_b1f=92 data=9692929292929292929292929292929292929292929292929292929292929292
+000236 CONTROL restore semantic=92 rc=ok readback_rc=ok readback_vote=92 readback_b1f=92 ok=1
+000237 RAW IRQSTOPPRE idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=0100 sem_gbi=0100 data=0101010001010100010101000101010001010100010101000101010001010100
+000238 IRQSTOP pre rc=ok disc=0100 gbi=0100 stop_or=8aaa stop_value=8baa formula=read|stop_or comment=startup-disc-stop-shadow
+000239 IRQW tag=STOP addr=01d00000 before=0100 write=8baa layout=gbi-u16-replicated rc=ok ticks=31 polls=8 dspcr=0804 t_after=2919773958 data=8baa8baa8baa8baa8baa8baa8baa8baa8baa8baa8baa8baa8baa8baa8baa8baa
+000240 RAW IRQSTOPPOST idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=8aaa sem_gbi=8aaa data=ae8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa8a8aaaaa
+000241 IRQSTOP post rc=ok disc=8aaa gbi=8aaa write_ok=1 readback_ok=1 masks_readback=1 bit15_readback=1
+000242 PI tag=CLEANUPCHK intsr=00012000 intmr=00000ffa intsr13=1 intmr13=0
+000243 PI tag=CLEANUP intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000244 CLEANUP performed=1 value=00002000 rc=ok intsr_before=00012000 intsr_after=00010000 intsr13_after=0 sticky=0 ok=1
+000245 IRQ restore rc=ok ok=1 old_handler=null
+000246 PI tag=MASKCHK intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000247 MASK final intmr=00000ffa intmr13=0 orig_intmr13=0 ok=1
+000248 ARINFO restore value=0043 rc=ok readback=0043 ok=1
+000249 SNAP tag=FINAL ticks=2919780188 since_control=3325974656 since_a1=3325969261 since_a2=3325948515 polls_before=0
+000250 PI tag=FINAL intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0
+000251 RAW FINAL idx=4 addr=01400000 rc=ok ticks=34 polls=9 dspcr=0804 sem_vote=00 sem_b1f=00 data=0000000000000000000000000000000000000000000000000000000000000000
+000252 RAW FINAL idx=d addr=01d00000 rc=ok ticks=34 polls=9 dspcr=0804 sem_disc=9292 sem_gbi=9292 data=9692929292929292929292929292929292929292929292929292929292929292
+000253 FINAL arinfo=0043 intsr=00010000 intmr=00000ffa intsr13=0 intmr13=0 control=00 irq=9292 power_cycle_required=1
+000254 TEARDOWNVSTATE variant=S5_session_end stop=session_end deliveries=519192 video=195835 acks=519192 rearms=519192 unmasks=519192 next_cause_at_end=1
+000255 VSTATE end status=ok_session_ended class=ok reason=- stop=session_end restore=ok restore_reason=- teardown=S5_session_end power_cycle_required=1 errors=0 transport_ok=1
+000256 WRITES control_written=1 irq_attempted=1038387 irq_completed=1038387 ctl_exp=1/1 a1=1/1 a2=1/1 stop=1/1 ctl_restore=1/1 uncertain=0 power_cycle_required=1 format=attempted/completed
+000257 OBSERVED intsr13_seen=1 t_first_intsr13=3893082655 first_phase=A2 first_value=00012000 polls_at_first=728143 event=1 ended_early=1
+000258 RESTORE control_restore_ok=1 irq_stop_write_ok=1 irq_stop_readback_ok=1 stop_masks_readback=1 stop_bit15_readback=1 pi_cleanup_performed=1 pi_cleanup_ok=1 pi_cleanup_sticky=0 arinfo_restore_ok=1
+000259 CLOCKS tb_hz=40500000 epoch=795e67e7c9f6d8 capture_start=795e67e80c7f81 stop=795e68ae081be9 capture_elapsed=c5fb9c68 baseline_elapsed=2feb29 valid=81895976 valid_at_target=0 safety=c63e2511
+000260 CLOCKSEC capture_s=82.014 baseline_s=0.077 valid_s=53.660 safety_s=82.122 target_s=0 limit_s=120
+000261 FRAMECAP frames=4939 complete=4702 incomplete=237 resync=252 anomaly_frame=64 anomaly_region=237 counted=4684 blocks=195835 pre_boundary=1431 store_full=0
+000262 PREDICATES boundaries_disc=4940 boundaries_gbi=4940 disagreements=0 first_frame=0 first_block=0 first4=00000000 segmentation=disc
+000263 INTERVALS 5:73,10:9,14:1,15:13,30:2,32:12,33:1,34:3,37:52,38:7,40:4702,42:33,45:5,47:1,49:25  (index 49 = 48 blocks with no boundary; 40 is never assumed)
+000264 BASELINE valid=1 frames_seen=3 frame_index=4 t_valid=795e67e83c6aaa sig0=7f0fff10 sig39=ff0fff0f reference_updates=10 early_candidates=0
+000265 STRUCTURED status=observed episodes=12 stable=10 unstable=2 not_preserved=8 store_full=1 descriptors=4 raw_slots=16 tail_frames=0 tail_ticks=0 tail_truncated=0
+000266 EPISODE i=0 idx=00000001 state=closed flags=0005 frames=18 stable_count=3 open_frame=8 close_frame=25 t_open=795e67e865cc96 t_close=795e67e915b100 raw=4/4 sig0=7f0fff10
+000267 EPISODE i=1 idx=00000002 state=closed flags=0006 frames=60 stable_count=1 open_frame=30 close_frame=89 t_open=795e67e9496d2d t_close=795e67ebabe19f raw=4/4 sig0=00000000
+000268 EPISODE i=2 idx=00000003 state=closed flags=0006 frames=60 stable_count=1 open_frame=90 close_frame=149 t_open=795e67ebb6448c t_close=795e67ee18b772 raw=4/4 sig0=00000000
+000269 EPISODE i=3 idx=00000004 state=closed flags=0005 frames=48 stable_count=3 open_frame=150 close_frame=197 t_open=795e67ee230841 t_close=795e67f00953e9 raw=4/4 sig0=7f0fff10
+000270 AUDIOAGG selected=335763 attempted=335763 completed=335763 failures=0 bytes=1325342752 raw_kept=2 first_valid=1 last_valid=2
+000271 SIGCOST samples=195835 min=777 median=823(exact=0,w=64) p95=951(exact=0,w=64) max=1130 mean=800 overflow=0 threshold=none
+000272 EV seq=1 t=795e67e80c7f81 type=capture_start f=0 ep=00000000 a=0 b=0 c=00000000 d=0
+000273 EV seq=2 t=795e67e81310b2 type=resync f=0 ep=00000000 a=0 b=30 c=00000001 d=2
+000274 EV seq=3 t=795e67e81310b2 type=incomplete_interval f=1 ep=00000000 a=0 b=30 c=00000002 d=1
+000275 EV seq=4 t=795e67e827bf2a type=baseline_candidate f=3 ep=00000000 a=2 b=1 c=00000000 d=0
+000276 EV seq=5 t=795e67e8321093 type=baseline_candidate f=4 ep=00000000 a=3 b=2 c=00000000 d=0
+000277 EV seq=6 t=795e67e83c6aaa type=baseline_candidate f=5 ep=00000000 a=4 b=3 c=00000000 d=0
+000278 EV seq=7 t=795e67e83c6aaa type=baseline_valid f=5 ep=00000000 a=4 b=3 c=7f0fff10 d=4279238415
+000279 EV seq=8 t=795e67e865cc96 type=episode_open f=9 ep=00000001 a=1 b=8 c=7f0fff10 d=2131754768
+000280 EV seq=9 t=795e67e8702acb type=resync f=9 ep=00000001 a=9 b=33 c=00000001 d=2
+000281 EV seq=10 t=795e67e8702acb type=incomplete_interval f=10 ep=00000001 a=9 b=33 c=00000002 d=1
+000282 EV seq=11 t=795e67e884d63f type=episode_stabilising f=12 ep=00000001 a=1 b=11 c=00000001 d=2131754768
+000283 EV seq=12 t=795e67e88f2f66 type=resync f=12 ep=00000001 a=12 b=37 c=00000001 d=2
+000284 EV seq=13 t=795e67e88f2f66 type=incomplete_interval f=13 ep=00000001 a=12 b=37 c=00000002 d=1
+000285 EV seq=14 t=795e67e8a3eab2 type=episode_stabilising f=15 ep=00000001 a=1 b=14 c=00000001 d=2131754768
+000286 EV seq=15 t=795e67e8ae39e3 type=resync f=15 ep=00000001 a=15 b=38 c=00000001 d=2
+000287 EV seq=16 t=795e67e8ae39e3 type=incomplete_interval f=16 ep=00000001 a=15 b=38 c=00000002 d=1
+000288 EV seq=17 t=795e67e8c2eb25 type=episode_stabilising f=18 ep=00000001 a=1 b=17 c=00000001 d=2131754768
+000289 EV seq=18 t=795e67e8cd43b0 type=episode_stabilising f=19 ep=00000001 a=1 b=18 c=00000001 d=2131754768
+000290 EV seq=19 t=795e67e8d79cb6 type=episode_stabilising f=20 ep=00000001 a=1 b=19 c=00000001 d=2131754768
+000291 EV seq=20 t=795e67e8e1f5ae type=episode_stabilising f=21 ep=00000001 a=1 b=20 c=00000001 d=2131754768
+000292 EV seq=21 t=795e67e8ec563c type=episode_stabilising f=22 ep=00000001 a=1 b=21 c=00000001 d=2131754768
+000293 EV seq=22 t=795e67e8f6a709 type=episode_stabilising f=23 ep=00000001 a=1 b=22 c=00000001 d=2131754768
+000294 EV seq=23 t=795e67e90101ba type=episode_stabilising f=24 ep=00000001 a=1 b=23 c=00000001 d=2131754768
+000295 EV seq=24 t=795e67e90b5889 type=episode_stabilising f=25 ep=00000001 a=1 b=24 c=00000002 d=0
+000296 EV seq=25 t=795e67e915b100 type=episode_stabilising f=26 ep=00000001 a=1 b=25 c=00000003 d=0
+000297 EV seq=26 t=795e67e915b100 type=episode_stable f=26 ep=00000001 a=1 b=25 c=00000003 d=2131754768
+000298 EV seq=27 t=795e67e915b100 type=episode_close f=26 ep=00000000 a=1 b=25 c=00000012 d=1
+000299 EV seq=28 t=795e67e9496d2d type=episode_open f=31 ep=00000002 a=2 b=30 c=7f0fff10 d=2131754768
+000300 EV seq=29 t=795e67e953c5dd type=resync f=31 ep=00000002 a=31 b=34 c=00000001 d=2
+000301 EV seq=30 t=795e67e953c5dd type=incomplete_interval f=32 ep=00000002 a=31 b=34 c=00000002 d=1
+000302 EV seq=31 t=795e67e96881f1 type=episode_stabilising f=34 ep=00000002 a=2 b=33 c=00000001 d=2131754768
+000303 EV seq=32 t=795e67e972d018 type=resync f=34 ep=00000002 a=34 b=38 c=00000001 d=2
+000304 EV seq=33 t=795e67e972d018 type=incomplete_interval f=35 ep=00000002 a=34 b=38 c=00000002 d=1
+000305 EV seq=34 t=795e67e98781a1 type=episode_stabilising f=37 ep=00000002 a=2 b=36 c=00000001 d=2131754768
+000306 EV seq=35 t=795e67e991da62 type=resync f=37 ep=00000002 a=37 b=38 c=00000001 d=2
+000307 EV seq=36 t=795e67e991da62 type=incomplete_interval f=38 ep=00000002 a=37 b=38 c=00000002 d=1
+000308 EV seq=37 t=795e67e9a68c42 type=episode_stabilising f=40 ep=00000002 a=2 b=39 c=00000001 d=2131754768
+000309 EV seq=38 t=795e67e9b0ed40 type=episode_stabilising f=41 ep=00000002 a=2 b=40 c=00000001 d=1253036032
+000310 EV seq=39 t=795e67e9bb3d68 type=episode_stabilising f=42 ep=00000002 a=2 b=41 c=00000001 d=3570750027
+000311 EV seq=40 t=795e67e9c598c9 type=episode_stabilising f=43 ep=00000002 a=2 b=42 c=00000001 d=2829788897
+000312 EV seq=41 t=795e67e9cfeeee type=episode_stabilising f=44 ep=00000002 a=2 b=43 c=00000001 d=3061132835
+000313 EV seq=42 t=795e67e9da4769 type=episode_stabilising f=45 ep=00000002 a=2 b=44 c=00000001 d=3852036073
+000314 EV seq=43 t=795e67e9e4aaa1 type=episode_stabilising f=46 ep=00000002 a=2 b=45 c=00000001 d=2404061003
+000315 EV seq=44 t=795e67e9eef976 type=episode_stabilising f=47 ep=00000002 a=2 b=46 c=00000001 d=4069487247
+000316 EV seq=45 t=795e67e9f958b9 type=episode_stabilising f=48 ep=00000002 a=2 b=47 c=00000001 d=170298694
+000317 EV seq=46 t=795e67ea03aad2 type=episode_stabilising f=49 ep=00000002 a=2 b=48 c=00000001 d=390499636
+000318 EV seq=47 t=795e67ea0e043d type=episode_stabilising f=50 ep=00000002 a=2 b=49 c=00000001 d=971620834
+000319 EV seq=48 t=795e67ea185c50 type=episode_stabilising f=51 ep=00000002 a=2 b=50 c=00000001 d=4276977389
+000320 EV seq=49 t=795e67ea22b535 type=episode_stabilising f=52 ep=00000002 a=2 b=51 c=00000001 d=71662270
+000321 EV seq=50 t=795e67ea2d18d2 type=episode_stabilising f=53 ep=00000002 a=2 b=52 c=00000001 d=3520480762
+000322 EV seq=51 t=795e67ea376682 type=episode_stabilising f=54 ep=00000002 a=2 b=53 c=00000001 d=3713292155
+000323 EV seq=52 t=795e67ea41c451 type=episode_stabilising f=55 ep=00000002 a=2 b=54 c=00000001 d=398038970
+000324 EV seq=53 t=795e67ea4c1817 type=episode_stabilising f=56 ep=00000002 a=2 b=55 c=00000001 d=2763072689
+000325 EV seq=54 t=795e67ea56710f type=episode_stabilising f=57 ep=00000002 a=2 b=56 c=00000001 d=3362734873
+000326 EV seq=55 t=795e67ea60c99a type=episode_stabilising f=58 ep=00000002 a=2 b=57 c=00000001 d=2533434077
+000327 EV seq=56 t=795e67ea6b22b8 type=episode_stabilising f=59 ep=00000002 a=2 b=58 c=00000001 d=2809210066
+000328 EV seq=57 t=795e67ea758448 type=episode_stabilising f=60 ep=00000002 a=2 b=59 c=00000001 d=4158226385
+000329 EV seq=58 t=795e67ea7fd3e8 type=episode_stabilising f=61 ep=00000002 a=2 b=60 c=00000001 d=2101280063
+000330 EV seq=59 t=795e67ea8a2fd0 type=episode_stabilising f=62 ep=00000002 a=2 b=61 c=00000001 d=4150884201
+000331 EV seq=60 t=795e67ea948558 type=episode_stabilising f=63 ep=00000002 a=2 b=62 c=00000001 d=3726596651
+000332 EV seq=61 t=795e67ea9edddf type=episode_stabilising f=64 ep=00000002 a=2 b=63 c=00000001 d=3781779817
+000333 EV seq=62 t=795e67eaa9410f type=episode_stabilising f=65 ep=00000002 a=2 b=64 c=00000001 d=863746274
+000334 EV seq=63 t=795e67eab39008 type=episode_stabilising f=66 ep=00000002 a=2 b=65 c=00000001 d=3277800287
+000335 EV seq=64 t=795e67eabdefcc type=episode_stabilising f=67 ep=00000002 a=2 b=66 c=00000001 d=271291670
+000336 EV seq=65 t=795e67eac84132 type=episode_stabilising f=68 ep=00000002 a=2 b=67 c=00000001 d=84117752
+000337 EV seq=66 t=795e67ead29b58 type=episode_stabilising f=69 ep=00000002 a=2 b=68 c=00000001 d=261655097
+000338 EV seq=67 t=795e67eadcf2ac type=episode_stabilising f=70 ep=00000002 a=2 b=69 c=00000001 d=1424479464
+000339 EV seq=68 t=795e67eae74b29 type=episode_stabilising f=71 ep=00000002 a=2 b=70 c=00000001 d=4246699295
+000340 EV seq=69 t=795e67eaf1ad81 type=episode_stabilising f=72 ep=00000002 a=2 b=71 c=00000001 d=4280778535
+000341 EV seq=70 t=795e67eafbfd33 type=episode_stabilising f=73 ep=00000002 a=2 b=72 c=00000001 d=3510129185
+000342 EV seq=71 t=795e67eb065b56 type=episode_stabilising f=74 ep=00000002 a=2 b=73 c=00000001 d=3314506902
+000343 EV seq=72 t=795e67eb10ae87 type=episode_stabilising f=75 ep=00000002 a=2 b=74 c=00000001 d=346264740
+000344 EV seq=73 t=795e67eb1b06cf type=episode_stabilising f=76 ep=00000002 a=2 b=75 c=00000001 d=2754421805
+000345 EV seq=74 t=795e67eb25602c type=episode_stabilising f=77 ep=00000002 a=2 b=76 c=00000001 d=508796500
+000346 EV seq=75 t=795e67eb2fb8fc type=episode_stabilising f=78 ep=00000002 a=2 b=77 c=00000001 d=1538250098
+000347 EV seq=76 t=795e67eb3a1bb7 type=episode_stabilising f=79 ep=00000002 a=2 b=78 c=00000001 d=1586552465
+000348 EV seq=77 t=795e67eb446a59 type=episode_stabilising f=80 ep=00000002 a=2 b=79 c=00000001 d=2131754768
+000349 EV seq=78 t=795e67eb4ec6f8 type=episode_stabilising f=81 ep=00000002 a=2 b=80 c=00000001 d=2131754768
+000350 EV seq=79 t=795e67eb591bcb type=episode_stabilising f=82 ep=00000002 a=2 b=81 c=00000001 d=2131754768
+000351 EV seq=80 t=795e67eb63748b type=episode_stabilising f=83 ep=00000002 a=2 b=82 c=00000001 d=2131754768
+000352 EV seq=81 t=795e67eb6dcd56 type=episode_stabilising f=84 ep=00000002 a=2 b=83 c=00000001 d=2131754768
+000353 EV seq=82 t=795e67eb78264b type=episode_stabilising f=85 ep=00000002 a=2 b=84 c=00000001 d=2131754768
+000354 EV seq=83 t=795e67eb8286d3 type=episode_stabilising f=86 ep=00000002 a=2 b=85 c=00000001 d=2131754768
+000355 EV seq=84 t=795e67eb8cd7a2 type=episode_stabilising f=87 ep=00000002 a=2 b=86 c=00000001 d=2131754768
+000356 EV seq=85 t=795e67eb973255 type=episode_stabilising f=88 ep=00000002 a=2 b=87 c=00000001 d=2131754768
+000357 EV seq=86 t=795e67eba18920 type=episode_stabilising f=89 ep=00000002 a=2 b=88 c=00000001 d=2131754768
+000358 EV seq=87 t=795e67ebabe19f type=episode_stabilising f=90 ep=00000002 a=2 b=89 c=00000001 d=2131754768
+000359 EV seq=88 t=795e67ebabe19f type=episode_close f=90 ep=00000000 a=2 b=89 c=0000003c d=0
+000360 EV seq=89 t=795e67ebb6448c type=episode_open f=91 ep=00000003 a=3 b=90 c=7f0fff10 d=2131754768
+000361 EV seq=90 t=795e67ebc093ac type=resync f=91 ep=00000003 a=91 b=34 c=00000001 d=2
+000362 EV seq=91 t=795e67ebc093ac type=incomplete_interval f=92 ep=00000003 a=91 b=34 c=00000002 d=1
+000363 EV seq=92 t=795e67ebd544ef type=episode_stabilising f=94 ep=00000003 a=3 b=93 c=00000001 d=2131754768
+000364 EV seq=93 t=795e67ebdf9dcd type=resync f=94 ep=00000003 a=94 b=38 c=00000001 d=2
+000365 EV seq=94 t=795e67ebdf9dcd type=incomplete_interval f=95 ep=00000003 a=94 b=38 c=00000002 d=1
+000366 EV seq=95 t=795e67ebf44f61 type=episode_stabilising f=97 ep=00000003 a=3 b=96 c=00000001 d=2131754768
+000367 EV seq=96 t=795e67ebfeb272 type=resync f=97 ep=00000003 a=97 b=38 c=00000001 d=2
+000368 EV seq=97 t=795e67ebfeb272 type=incomplete_interval f=98 ep=00000003 a=97 b=38 c=00000002 d=1
+000369 EV seq=98 t=795e67ec135e03 type=episode_stabilising f=100 ep=00000003 a=3 b=99 c=00000001 d=2131754768
+000370 EV seq=99 t=795e67ec1db23d type=episode_stabilising f=101 ep=00000003 a=3 b=100 c=00000001 d=2131754768
+000371 EV seq=100 t=795e67ec280b12 type=episode_stabilising f=102 ep=00000003 a=3 b=101 c=00000001 d=2131754768
+000372 EV seq=101 t=795e67ec3263bd type=episode_stabilising f=103 ep=00000003 a=3 b=102 c=00000001 d=2131754768
+000373 EV seq=102 t=795e67ec3cbce4 type=episode_stabilising f=104 ep=00000003 a=3 b=103 c=00000001 d=2131754768
+000374 EV seq=103 t=795e67ec471dd8 type=episode_stabilising f=105 ep=00000003 a=3 b=104 c=00000001 d=2131754768
+000375 EV seq=104 t=795e67ec516e13 type=episode_stabilising f=106 ep=00000003 a=3 b=105 c=00000001 d=2131754768
+000376 EV seq=105 t=795e67ec5bc95a type=episode_stabilising f=107 ep=00000003 a=3 b=106 c=00000001 d=2131754768
+000377 EV seq=106 t=795e67ec661f8c type=episode_stabilising f=108 ep=00000003 a=3 b=107 c=00000001 d=2131754768
+000378 EV seq=107 t=795e67ec707801 type=episode_stabilising f=109 ep=00000003 a=3 b=108 c=00000001 d=2131754768
+000379 EV seq=108 t=795e67ec7adb41 type=episode_stabilising f=110 ep=00000003 a=3 b=109 c=00000001 d=2131754768
+000380 EV seq=109 t=795e67ec852a14 type=episode_stabilising f=111 ep=00000003 a=3 b=110 c=00000001 d=2131754768
+000381 EV seq=110 t=795e67ec8f8960 type=episode_stabilising f=112 ep=00000003 a=3 b=111 c=00000001 d=2131754768
+000382 EV seq=111 t=795e67ec99db69 type=episode_stabilising f=113 ep=00000003 a=3 b=112 c=00000001 d=2131754768
+000383 EV seq=112 t=795e67eca434db type=episode_stabilising f=114 ep=00000003 a=3 b=113 c=00000001 d=2131754768
+000384 EV seq=113 t=795e67ecae8ce8 type=episode_stabilising f=115 ep=00000003 a=3 b=114 c=00000001 d=2131754768
+000385 EV seq=114 t=795e67ecb8e5de type=episode_stabilising f=116 ep=00000003 a=3 b=115 c=00000001 d=2131754768
+000386 EV seq=115 t=795e67ecc3496e type=episode_stabilising f=117 ep=00000003 a=3 b=116 c=00000001 d=2131754768
+000387 EV seq=116 t=795e67eccd971a type=episode_stabilising f=118 ep=00000003 a=3 b=117 c=00000001 d=2131754768
+000388 EV seq=117 t=795e67ecd7f4f2 type=episode_stabilising f=119 ep=00000003 a=3 b=118 c=00000001 d=2131754768
+000389 EV seq=118 t=795e67ece248a9 type=episode_stabilising f=120 ep=00000003 a=3 b=119 c=00000001 d=2131754768
+000390 EV seq=119 t=795e67ececa1b3 type=episode_stabilising f=121 ep=00000003 a=3 b=120 c=00000001 d=2131754768
+000391 EV seq=120 t=795e67ecf6fa34 type=episode_stabilising f=122 ep=00000003 a=3 b=121 c=00000001 d=2131754768
+000392 EV seq=121 t=795e67ed015355 type=episode_stabilising f=123 ep=00000003 a=3 b=122 c=00000001 d=2131754768
+000393 EV seq=122 t=795e67ed0bb4e6 type=episode_stabilising f=124 ep=00000003 a=3 b=123 c=00000001 d=2131754768
+000394 EV seq=123 t=795e67ed1604af type=episode_stabilising f=125 ep=00000003 a=3 b=124 c=00000001 d=2131754768
+000395 EV seq=124 t=795e67ed206060 type=episode_stabilising f=126 ep=00000003 a=3 b=125 c=00000001 d=2131754768
+000396 EV seq=125 t=795e67ed2ab626 type=episode_stabilising f=127 ep=00000003 a=3 b=126 c=00000001 d=2131754768
+000397 EV seq=126 t=795e67ed350e77 type=episode_stabilising f=128 ep=00000003 a=3 b=127 c=00000001 d=2131754768
+000398 EV seq=127 t=795e67ed3f71ba type=episode_stabilising f=129 ep=00000003 a=3 b=128 c=00000001 d=2131754768
+000399 EV seq=128 t=795e67ed49c076 type=episode_stabilising f=130 ep=00000003 a=3 b=129 c=00000001 d=2131754768
+000400 EVGAP omitted=330 (all of them are in the sidecar)
+000401 EV seq=459 t=795e68aafb6cf2 type=incomplete_interval f=4859 ep=00000000 a=4858 b=32 c=00000002 d=1
+000402 EV seq=460 t=795e68aafc557c type=incomplete_interval f=4860 ep=00000000 a=4859 b=5 c=00000002 d=1
+000403 EV seq=461 t=795e68ab070b2b type=incomplete_interval f=4861 ep=00000000 a=4860 b=42 c=00000003 d=1
+000404 EV seq=462 t=795e68ab08dbb4 type=incomplete_interval f=4862 ep=00000000 a=4861 b=10 c=00000002 d=1
+000405 EV seq=463 t=795e68ab09c410 type=incomplete_interval f=4863 ep=00000000 a=4862 b=5 c=00000002 d=1
+000406 EV seq=464 t=795e68ab139164 type=incomplete_interval f=4864 ep=00000000 a=4863 b=37 c=00000002 d=1
+000407 EV seq=465 t=795e68ab1479bf type=incomplete_interval f=4865 ep=00000000 a=4864 b=5 c=00000002 d=1
+000408 EV seq=466 t=795e68ab1e4719 type=incomplete_interval f=4866 ep=00000000 a=4865 b=37 c=00000002 d=1
+000409 EV seq=467 t=795e68ab1f2f74 type=incomplete_interval f=4867 ep=00000000 a=4866 b=5 c=00000002 d=1
+000410 EV seq=468 t=795e68ab2e1210 type=incomplete_interval f=4868 ep=00000000 a=4867 b=48 c=00000003 d=0
+000411 EV seq=469 t=795e68ab39de6d type=incomplete_interval f=4868 ep=00000000 a=4868 b=48 c=00000000 d=0
+000412 EV seq=470 t=795e68ab4da79f type=incomplete_interval f=4869 ep=00000000 a=4868 b=37 c=00000002 d=1
+000413 EV seq=471 t=795e68ab4e8ff8 type=incomplete_interval f=4870 ep=00000000 a=4869 b=5 c=00000002 d=1
+000414 EV seq=472 t=795e68ab4f7880 type=incomplete_interval f=4871 ep=00000000 a=4870 b=5 c=00000002 d=1
+000415 EV seq=473 t=795e68ab585d55 type=incomplete_interval f=4872 ep=00000000 a=4871 b=32 c=00000002 d=1
+000416 EV seq=474 t=795e68ab5945a7 type=incomplete_interval f=4873 ep=00000000 a=4872 b=5 c=00000002 d=1
+000417 EV seq=475 t=795e68ab63fb5e type=incomplete_interval f=4874 ep=00000000 a=4873 b=42 c=00000003 d=1
+000418 EV seq=476 t=795e68ab65cc16 type=incomplete_interval f=4875 ep=00000000 a=4874 b=10 c=00000002 d=1
+000419 EV seq=477 t=795e68ab66b46d type=incomplete_interval f=4876 ep=00000000 a=4875 b=5 c=00000002 d=1
+000420 EV seq=478 t=795e68ab7081b9 type=incomplete_interval f=4877 ep=00000000 a=4876 b=37 c=00000002 d=1
+000421 EV seq=479 t=795e68ab716a1e type=incomplete_interval f=4878 ep=00000000 a=4877 b=5 c=00000002 d=1
+000422 EV seq=480 t=795e68ab7b3771 type=incomplete_interval f=4879 ep=00000000 a=4878 b=37 c=00000002 d=1
+000423 EV seq=481 t=795e68ab7c1fce type=incomplete_interval f=4880 ep=00000000 a=4879 b=5 c=00000002 d=1
+000424 EV seq=482 t=795e68ab8b0245 type=incomplete_interval f=4881 ep=00000000 a=4880 b=48 c=00000003 d=0
+000425 EV seq=483 t=795e68ab96cec8 type=incomplete_interval f=4881 ep=00000000 a=4881 b=48 c=00000000 d=0
+000426 EV seq=484 t=795e68aba29b89 type=incomplete_interval f=4881 ep=00000000 a=4881 b=48 c=00000000 d=0
+000427 EV seq=485 t=795e68abac68a7 type=incomplete_interval f=4882 ep=00000000 a=4881 b=5 c=00000002 d=1
+000428 EV seq=486 t=795e68abb63608 type=incomplete_interval f=4883 ep=00000000 a=4882 b=37 c=00000002 d=1
+000429 EV seq=487 t=795e68abc0ebba type=incomplete_interval f=4884 ep=00000000 a=4883 b=42 c=00000003 d=1
+000430 EV seq=488 t=795e68abc3a4c0 type=incomplete_interval f=4885 ep=00000000 a=4884 b=15 c=00000002 d=1
+000431 EV seq=489 t=795e68abce5a70 type=incomplete_interval f=4886 ep=00000000 a=4885 b=42 c=00000003 d=1
+000432 EV seq=490 t=795e68abd827ff type=incomplete_interval f=4887 ep=00000000 a=4886 b=37 c=00000002 d=1
+000433 EV seq=491 t=795e68abd91021 type=incomplete_interval f=4888 ep=00000000 a=4887 b=5 c=00000002 d=1
+000434 EV seq=492 t=795e68abe4dd24 type=incomplete_interval f=4889 ep=00000000 a=4888 b=48 c=00000003 d=0
+000435 EV seq=493 t=795e68abf3bf23 type=incomplete_interval f=4889 ep=00000000 a=4889 b=48 c=00000000 d=0
+000436 EV seq=494 t=795e68abff8bb0 type=incomplete_interval f=4889 ep=00000000 a=4889 b=48 c=00000000 d=0
+000437 EV seq=495 t=795e68ac09591e type=incomplete_interval f=4890 ep=00000000 a=4889 b=5 c=00000002 d=1
+000438 EV seq=496 t=795e68ac132661 type=incomplete_interval f=4891 ep=00000000 a=4890 b=37 c=00000002 d=1
+000439 EV seq=497 t=795e68ac1ddc14 type=incomplete_interval f=4892 ep=00000000 a=4891 b=42 c=00000003 d=1
+000440 EV seq=498 t=795e68ac209551 type=incomplete_interval f=4893 ep=00000000 a=4892 b=15 c=00000002 d=1
+000441 EV seq=499 t=795e68ac2b4b00 type=incomplete_interval f=4894 ep=00000000 a=4893 b=42 c=00000003 d=1
+000442 EV seq=500 t=795e68ac351831 type=incomplete_interval f=4895 ep=00000000 a=4894 b=37 c=00000002 d=1
+000443 EV seq=501 t=795e68ac3600b4 type=incomplete_interval f=4896 ep=00000000 a=4895 b=5 c=00000002 d=1
+000444 EV seq=502 t=795e68ac41cd81 type=incomplete_interval f=4897 ep=00000000 a=4896 b=48 c=00000003 d=0
+000445 EV seq=503 t=795e68ac50af7d type=incomplete_interval f=4897 ep=00000000 a=4897 b=48 c=00000000 d=0
+000446 EV seq=504 t=795e68ac6478b3 type=incomplete_interval f=4898 ep=00000000 a=4897 b=37 c=00000002 d=1
+000447 EV seq=505 t=795e68ac65610f type=incomplete_interval f=4899 ep=00000000 a=4898 b=5 c=00000002 d=1
+000448 EV seq=506 t=795e68ac66497f type=incomplete_interval f=4900 ep=00000000 a=4899 b=5 c=00000002 d=1
+000449 EV seq=507 t=795e68ac7016c2 type=incomplete_interval f=4901 ep=00000000 a=4900 b=37 c=00000002 d=1
+000450 EV seq=508 t=795e68ac7acc67 type=incomplete_interval f=4902 ep=00000000 a=4901 b=42 c=00000003 d=1
+000451 EV seq=509 t=795e68ac7d8581 type=incomplete_interval f=4903 ep=00000000 a=4902 b=15 c=00000002 d=1
+000452 EV seq=510 t=795e68ac883b30 type=incomplete_interval f=4904 ep=00000000 a=4903 b=42 c=00000003 d=1
+000453 EV seq=511 t=795e68ac92088f type=incomplete_interval f=4905 ep=00000000 a=4904 b=37 c=00000002 d=1
+000454 EV seq=512 t=795e68ac92f0e5 type=incomplete_interval f=4906 ep=00000000 a=4905 b=5 c=00000002 d=1
+000455 EV seq=513 t=795e68ac9ebde8 type=incomplete_interval f=4907 ep=00000000 a=4906 b=48 c=00000003 d=0
+000456 EV seq=514 t=795e68acada00a type=incomplete_interval f=4907 ep=00000000 a=4907 b=48 c=00000000 d=0
+000457 EV seq=515 t=795e68acb96c6e type=incomplete_interval f=4907 ep=00000000 a=4907 b=48 c=00000000 d=0
+000458 EV seq=516 t=795e68acc339c4 type=incomplete_interval f=4908 ep=00000000 a=4907 b=5 c=00000002 d=1
+000459 EV seq=517 t=795e68accc1eb9 type=incomplete_interval f=4909 ep=00000000 a=4908 b=32 c=00000002 d=1
+000460 EV seq=518 t=795e68accd071c type=incomplete_interval f=4910 ep=00000000 a=4909 b=5 c=00000002 d=1
+000461 EV seq=519 t=795e68acd8e30a type=incomplete_interval f=4911 ep=00000000 a=4910 b=48 c=00000003 d=0
+000462 EV seq=520 t=795e68ae081be9 type=stop f=4939 ep=00000000 a=13 b=519192 c=0000134b d=12
+000463 EV seq=521 t=795e68ae081c95 type=teardown_begin f=4939 ep=00000000 a=519192 b=13 c=00000000 d=0
+000464 EV seq=522 t=795e68ae086009 type=teardown_end f=4939 ep=00000000 a=1 b=1 c=00000000 d=0
+000465 EVENTS n=522 shown=192 dropped=0 store_full=0 seq_last=522
+000466 READDISAGREE i=0 cycle=32802 read=READ class=source_serviced t=795e67f4987575 disc=0500 gbi=0100 delta=0400 dx=0400 mx=0000 auth=0100 ack=8100 svc=0100 flags=01c1
+000467 READDISAGREERAW i=0 raw=0101010001010100010101000101010001010100010101000101010005050500
+000468 READDISAGREEPI i=0 intsr=00012000/00010000 intmr=00002ffa ctl=8e frame=310 blk=28 lat=45 xfer=34/9 dspcr=0804/0804
+000469 READDISAGREEFU i=0 fu=source_present_next reason=- t_ack=795e67f49881b2 t_rearm=795e67f498855c t_next=795e67f49885c2 next=0400/0400 gapmin=5351 gapn=21220 pay=0000/00000000/00000000
+000470 READDISAGREE i=1 cycle=33325 read=READ class=source_serviced t=795e67f4cb75c9 disc=0500 gbi=0400 delta=0100 dx=0100 mx=0000 auth=0400 ack=8400 svc=0400 flags=01d1
+000471 READDISAGREERAW i=1 raw=0404040004040400040404000404040004040400040404000404040005050500
+000472 READDISAGREEPI i=1 intsr=00012000/00010000 intmr=00002ffa ctl=8e frame=315 blk=24 lat=39 xfer=34/9 dspcr=0804/0804
+000473 READDISAGREEFU i=1 fu=source_present_next reason=- t_ack=795e67f4cb81c4 t_rearm=795e67f4cb81d7 t_next=795e67f4cb8231 next=0100/0100 gapmin=8989 gapn=12571 pay=0000/00000000/00000000
+000474 READDISAGREE i=2 cycle=45950 read=READ class=source_serviced t=795e67f99ae6ad disc=0500 gbi=0400 delta=0100 dx=0100 mx=0000 auth=0400 ack=8400 svc=0400 flags=01d1
+000475 READDISAGREERAW i=2 raw=0404040004040400040404000404040005050500050505000505050005050500
+000476 READDISAGREEPI i=2 intsr=00012000/00010000 intmr=00002ffa ctl=8e frame=434 blk=25 lat=44 xfer=34/9 dspcr=0804/0804
+000477 READDISAGREEFU i=2 fu=source_present_next reason=- t_ack=795e67f99af28b t_rearm=795e67f99af29c t_next=795e67f99af2f2 next=0100/0100 gapmin=8989 gapn=17332 pay=0000/00000000/00000000
+000478 READDISAGREE i=3 cycle=49990 read=READ class=source_serviced t=795e67fb25bc38 disc=0500 gbi=0100 delta=0400 dx=0400 mx=0000 auth=0100 ack=8100 svc=0100 flags=01c1
+000479 READDISAGREERAW i=3 raw=0101010001010100010101000101010001010100050501000505050005050500
+000480 READDISAGREEPI i=3 intsr=00012000/00010000 intmr=00002ffa ctl=8e frame=472 blk=34 lat=62 xfer=34/9 dspcr=0804/0804
+000481 READDISAGREEFU i=3 fu=source_present_next reason=- t_ack=795e67fb25c884 t_rearm=795e67fb25cc31 t_next=795e67fb25cc9f next=0400/0400 gapmin=5351 gapn=32337 pay=0000/00000000/00000000
+000482 READDISAGREE i=4 cycle=148824 read=READ class=source_serviced t=795e6820d04e27 disc=0500 gbi=0400 delta=0100 dx=0100 mx=0000 auth=0400 ack=8400 svc=0400 flags=01d1
+000483 READDISAGREERAW i=4 raw=0404040004040400040404000404040004040400050505000505050005050500
+000484 READDISAGREEPI i=4 intsr=00012000/00010000 intmr=00002ffa ctl=8e frame=1404 blk=31 lat=37 xfer=31/8 dspcr=0804/0804
+000485 READDISAGREEFU i=4 fu=source_present_next reason=- t_ack=795e6820d05a72 t_rearm=795e6820d05a88 t_next=795e6820d05aea next=0100/0100 gapmin=8579 gapn=56138 pay=0000/00000000/00000000
+000486 READDISAGREE i=5 cycle=161326 read=READ class=source_serviced t=795e68259420ea disc=0500 gbi=0400 delta=0100 dx=0100 mx=0000 auth=0400 ack=8400 svc=0400 flags=01d1
+000487 READDISAGREERAW i=5 raw=0404040004040400040404000404040004040400040404000505050005050500
+000488 READDISAGREEPI i=5 intsr=00012000/00010000 intmr=00002ffa ctl=8e frame=1522 blk=25 lat=45 xfer=34/9 dspcr=0804/0804
+000489 READDISAGREEFU i=5 fu=source_present_next reason=- t_ack=795e6825942d02 t_rearm=795e6825942d18 t_next=795e6825942d71 next=0100/0100 gapmin=8579 gapn=60852 pay=0000/00000000/00000000
+000490 READDISAGREE i=6 cycle=163819 read=READ class=source_serviced t=795e68268817d9 disc=0500 gbi=0400 delta=0100 dx=0100 mx=0000 auth=0400 ack=8400 svc=0400 flags=01d1
+000491 READDISAGREERAW i=6 raw=0404040004040400040404000404040004040400040404000404040005050500
+000492 READDISAGREEPI i=6 intsr=00012000/00010000 intmr=00002ffa ctl=8e frame=1546 blk=1 lat=42 xfer=34/9 dspcr=0804/0804
+000493 READDISAGREEFU i=6 fu=source_present_next reason=- t_ack=795e68268823ff t_rearm=795e6826882419 t_next=795e6826882476 next=0100/0100 gapmin=8579 gapn=61788 pay=0000/00000000/00000000
+000494 READDISAGREE i=7 cycle=181688 read=READ class=source_serviced t=795e682d56b2b2 disc=0500 gbi=0400 delta=0100 dx=0100 mx=0000 auth=0400 ack=8400 svc=0400 flags=01d1
+000495 READDISAGREERAW i=7 raw=0404040004040400040404000404040004040400040404000404040005050500
+000496 READDISAGREEPI i=7 intsr=00012000/00010000 intmr=00002ffa ctl=8e frame=1714 blk=25 lat=36 xfer=34/9 dspcr=0804/0804
+000497 READDISAGREEFU i=7 fu=source_present_next reason=- t_ack=795e682d56becc t_rearm=795e682d56bee4 t_next=795e682d56bf42 next=0100/0100 gapmin=8579 gapn=65535 pay=0000/00000000/00000000
+000498 READDISAGREEMORE preserved=20 shown=8 (the sidecar carries every record)
+000499 SEMANTIC total=20 serviced=20 other=0 non_source=0 disc_extra=20 maj_extra=0 both=0 mx_video=0 mx_audio=0 quarantined=0 deferred=13
+000500 SEMANTIC2 preserved=20 not_preserved=0 capped=0 fu_present=20 fu_absent=0 fu_no_next=0 fu_unknown=0 observational=0 service_sel=20 payloads=0 incomplete=0
+000501 SEMGAP src=0100 n=195834 min=7186 max=1001450 last=14621
+000502 SEMGAP src=0400 n=335762 min=5351 max=994751 last=10378
+000503 CYCF i=0 n=0 f=0 blk=0 pend=0500 ack=8500 a=1/1 v=1/1 w1c=0 isr=1/0 next=1 lat=88 aw=2471 vw=2318 sig=808
+000504 CYCFT i=0 cause=795e67e80c5dc6 unmask=795e67e80c7f81 entry=795e67e80c7f81 read=795e67e80c8f93 ack=795e67e80cd9f3 rearm=795e67e80cde3a next=795e67e80ce2d3 pi=00012000/00010000/00010000/00012000 rc=00000000
+000505 CYCF i=1 n=1 f=0 blk=1 pend=0500 ack=8500 a=1/1 v=1/1 w1c=0 isr=1/0 next=1 lat=68 aw=2472 vw=2322 sig=779
+000506 CYCFT i=1 cause=795e67e80ce2d3 unmask=795e67e80d03c7 entry=795e67e80d03c7 read=795e67e80d12e5 ack=795e67e80d5a42 rearm=795e67e80d5db2 next=795e67e80d61f4 pi=00012000/00010000/00010000/00012000 rc=00000000
+000507 CYCF i=2 n=2 f=0 blk=2 pend=0500 ack=8500 a=1/1 v=1/1 w1c=0 isr=1/0 next=1 lat=45 aw=2472 vw=2319 sig=778
+000508 CYCFT i=2 cause=795e67e80d61f4 unmask=795e67e80d8208 entry=795e67e80d8208 read=795e67e80d9128 ack=795e67e80dd823 rearm=795e67e80ddb83 next=795e67e80ddfc3 pi=00012000/00010000/00010000/00012000 rc=00000000
+000509 CYCF i=3 n=3 f=0 blk=3 pend=0500 ack=8500 a=1/1 v=1/1 w1c=0 isr=1/0 next=1 lat=42 aw=2475 vw=2312 sig=778
+000510 CYCFT i=3 cause=795e67e80ddfc3 unmask=795e67e80e0025 entry=795e67e80e0025 read=795e67e80e0f43 ack=795e67e80e5607 rearm=795e67e80e596a next=795e67e80e5daa pi=00012000/00010000/00010000/00012000 rc=00000000
+000511 CYCF i=4 n=4 f=0 blk=4 pend=0500 ack=8500 a=1/1 v=1/1 w1c=0 isr=1/0 next=1 lat=45 aw=2472 vw=2319 sig=778
+000512 CYCFT i=4 cause=795e67e80e5daa unmask=795e67e80e5f3a entry=795e67e80e5f3a read=795e67e80e5f8e ack=795e67e80e7410 rearm=795e67e80e7761 next=795e67e80e9802 pi=00012000/00010000/00010000/00012000 rc=00000000
+000513 CYCF i=5 n=5 f=0 blk=5 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=42 aw=2475 vw=0 sig=0
+000514 CYCFT i=5 cause=795e67e80e9802 unmask=795e67e80e999a entry=795e67e80e999a read=795e67e80e99ed ack=795e67e80ea563 rearm=795e67e80ea576 next=795e67e80ea5d0 pi=00012000/00010000/00010000/00012000 rc=00000000
+000515 CYCF i=6 n=6 f=0 blk=5 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=36 aw=0 vw=2316 sig=781
+000516 CYCFT i=6 cause=795e67e80ea5d0 unmask=795e67e80ea72a entry=795e67e80ea72a read=795e67e80ea770 ack=795e67e80eb179 rearm=795e67e80eb4cc next=795e67e80ebe9d pi=00012000/00010000/00010000/00012000 rc=00000000
+000517 CYCF i=7 n=7 f=0 blk=6 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=38 aw=2472 vw=0 sig=0
+000518 CYCFT i=7 cause=795e67e80ebe9d unmask=795e67e80ebffd entry=795e67e80ebffd read=795e67e80ec041 ack=795e67e80ecafe rearm=795e67e80ecb0c next=795e67e80ecb60 pi=00012000/00010000/00010000/00012000 rc=00000000
+000519 CYCL i=0 n=519184 f=4939 blk=29 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2319 sig=779
+000520 CYCLT i=0 cause=795e68ae076075 unmask=795e68ae0761a6 entry=795e68ae0761a6 read=795e68ae0761e9 ack=795e68ae076c6f rearm=795e68ae076fb6 next=795e68ae077009 pi=00012000/00010000/00010000/00012000 rc=00000000
+000521 CYCL i=1 n=519185 f=4939 blk=30 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=35 aw=2475 vw=0 sig=0
+000522 CYCLT i=1 cause=795e68ae077009 unmask=795e68ae077139 entry=795e68ae077139 read=795e68ae07717c ack=795e68ae0781d9 rearm=795e68ae0781e5 next=795e68ae078b8f pi=00012000/00010000/00010000/00012000 rc=00000000
+000523 CYCL i=2 n=519186 f=4939 blk=30 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2322 sig=778
+000524 CYCLT i=2 cause=795e68ae078b8f unmask=795e68ae078cc1 entry=795e68ae078cc1 read=795e68ae078d07 ack=795e68ae079791 rearm=795e68ae079ad6 next=795e68ae079b29 pi=00012000/00010000/00010000/00012000 rc=00000000
+000525 CYCL i=3 n=519187 f=4939 blk=31 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=35 aw=2468 vw=0 sig=0
+000526 CYCLT i=3 cause=795e68ae079b29 unmask=795e68ae079c56 entry=795e68ae079c56 read=795e68ae079c9c ack=795e68ae07acea rearm=795e68ae07acf7 next=795e68ae07b9bb pi=00012000/00010000/00010000/00012000 rc=00000000
+000527 CYCL i=4 n=519188 f=4939 blk=31 pend=0500 ack=8500 a=1/1 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=2475 vw=2315 sig=779
+000528 CYCLT i=4 cause=795e68ae07b9bb unmask=795e68ae07baf3 entry=795e68ae07baf3 read=795e68ae07bb36 ack=795e68ae07d546 rearm=795e68ae07d88d next=795e68ae07e05c pi=00012000/00010000/00010000/00012000 rc=00000000
+000529 CYCL i=5 n=519189 f=4939 blk=32 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=37 aw=2475 vw=0 sig=0
+000530 CYCLT i=5 cause=795e68ae07e05c unmask=795e68ae07e1a0 entry=795e68ae07e1a0 read=795e68ae07e1e4 ack=795e68ae07f277 rearm=795e68ae07f284 next=795e68ae07f2d8 pi=00012000/00010000/00010000/00012000 rc=00000000
+000531 CYCL i=6 n=519190 f=4939 blk=32 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=36 aw=0 vw=2322 sig=895
+000532 CYCLT i=6 cause=795e68ae07f2d8 unmask=795e68ae07f407 entry=795e68ae07f407 read=795e68ae07f44e ack=795e68ae07fe5e rearm=795e68ae080219 next=795e68ae0808e6 pi=00012000/00010000/00010000/00012000 rc=00000000
+000533 CYCL i=7 n=519191 f=4939 blk=33 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=41 aw=2471 vw=0 sig=0
+000534 CYCLT i=7 cause=795e68ae0808e6 unmask=795e68ae080a19 entry=795e68ae080a19 read=795e68ae080a5d ack=795e68ae081b37 rearm=795e68ae081b43 next=795e68ae081b97 pi=00012000/00010000/00010000/00012000 rc=00000000
+000535 CYCE i=0 n=927 f=8 blk=40 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=35 aw=0 vw=2312 sig=780
+000536 CYCET i=0 cause=795e67e8690449 unmask=795e67e8690573 entry=795e67e8690573 read=795e67e86905b9 ack=795e67e8691010 rearm=795e67e86a5e68 next=795e67e86a5f09 pi=00012000/00010000/00010000/00012000 rc=00000000
+000537 CYCE i=1 n=928 f=9 blk=1 pend=0500 ack=8500 a=1/1 v=1/1 w1c=0 isr=1/0 next=1 lat=64 aw=2462 vw=2316 sig=778
+000538 CYCET i=1 cause=795e67e86a5f09 unmask=795e67e86a611e entry=795e67e86a611e read=795e67e86a6164 ack=795e67e86a760c rearm=795e67e86a7965 next=795e67e86a8217 pi=00012000/00010000/00010000/00012000 rc=00000000
+000539 CYCE i=2 n=929 f=9 blk=2 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=41 aw=2474 vw=0 sig=0
+000540 CYCET i=2 cause=795e67e86a8217 unmask=795e67e86a8394 entry=795e67e86a8394 read=795e67e86a83de ack=795e67e86a8fa2 rearm=795e67e86a8faf next=795e67e86aa09d pi=00012000/00010000/00010000/00012000 rc=00000000
+000541 CYCE i=3 n=930 f=9 blk=2 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=38 aw=2469 vw=0 sig=0
+000542 CYCET i=3 cause=795e67e86aa09d unmask=795e67e86aa282 entry=795e67e86aa282 read=795e67e86aa2d1 ack=795e67e86aad96 rearm=795e67e86aada3 next=795e67e86aadfa pi=00012000/00010000/00010000/00012000 rc=00000000
+000543 CYCE i=4 n=931 f=9 blk=2 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=35 aw=0 vw=2319 sig=786
+000544 CYCET i=4 cause=795e67e86aadfa unmask=795e67e86aaf4e entry=795e67e86aaf4e read=795e67e86aaf90 ack=795e67e86aba17 rearm=795e67e86abd79 next=795e67e86ac73d pi=00012000/00010000/00010000/00012000 rc=00000000
+000545 CYCE i=5 n=932 f=9 blk=3 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=42 aw=2474 vw=0 sig=0
+000546 CYCET i=5 cause=795e67e86ac73d unmask=795e67e86ac89d entry=795e67e86ac89d read=795e67e86ac8e5 ack=795e67e86ad42a rearm=795e67e86ad437 next=795e67e86ad48a pi=00012000/00010000/00010000/00012000 rc=00000000
+000547 CYCE i=6 n=933 f=9 blk=3 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2319 sig=778
+000548 CYCET i=6 cause=795e67e86ad48a unmask=795e67e86ad5e1 entry=795e67e86ad5e1 read=795e67e86ad623 ack=795e67e86ae02e rearm=795e67e86ae373 next=795e67e86aedde pi=00012000/00010000/00010000/00012000 rc=00000000
+000549 CYCE i=7 n=934 f=9 blk=4 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=39 aw=2475 vw=0 sig=0
+000550 CYCET i=7 cause=795e67e86aedde unmask=795e67e86aef3b entry=795e67e86aef3b read=795e67e86aef87 ack=795e67e86afaf7 rearm=795e67e86afb07 next=795e67e86b01d3 pi=00012000/00010000/00010000/00012000 rc=00000000
+000551 CYCE i=8 n=935 f=9 blk=4 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2322 sig=900
+000552 CYCET i=8 cause=795e67e86b01d3 unmask=795e67e86b032d entry=795e67e86b032d read=795e67e86b0373 ack=795e67e86b0db0 rearm=795e67e86b1172 next=795e67e86b180f pi=00012000/00010000/00010000/00012000 rc=00000000
+000553 CYCE i=9 n=936 f=9 blk=5 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=41 aw=2472 vw=0 sig=0
+000554 CYCET i=9 cause=795e67e86b180f unmask=795e67e86b198f entry=795e67e86b198f read=795e67e86b19d6 ack=795e67e86b251c rearm=795e67e86b2529 next=795e67e86b2f55 pi=00012000/00010000/00010000/00012000 rc=00000000
+000555 CYCE i=10 n=937 f=9 blk=5 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=38 aw=0 vw=2319 sig=778
+000556 CYCET i=10 cause=795e67e86b2f55 unmask=795e67e86b30a3 entry=795e67e86b30a3 read=795e67e86b30e9 ack=795e67e86b3b7a rearm=795e67e86b3ebf next=795e67e86b3f11 pi=00012000/00010000/00010000/00012000 rc=00000000
+000557 CYCE i=11 n=938 f=9 blk=6 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=37 aw=2468 vw=0 sig=0
+000558 CYCET i=11 cause=795e67e86b3f11 unmask=795e67e86b405d entry=795e67e86b405d read=795e67e86b40a2 ack=795e67e86b4b54 rearm=795e67e86b4b61 next=795e67e86b5dce pi=00012000/00010000/00010000/00012000 rc=00000000
+000559 CYCE i=12 n=939 f=9 blk=6 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=36 aw=0 vw=2319 sig=777
+000560 CYCET i=12 cause=795e67e86b5dce unmask=795e67e86b5f19 entry=795e67e86b5f19 read=795e67e86b5f60 ack=795e67e86b69df rearm=795e67e86b6d22 next=795e67e86b6d75 pi=00012000/00010000/00010000/00012000 rc=00000000
+000561 CYCE i=13 n=940 f=9 blk=7 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=35 aw=2475 vw=0 sig=0
+000562 CYCET i=13 cause=795e67e86b6d75 unmask=795e67e86b6ebd entry=795e67e86b6ebd read=795e67e86b6eff ack=795e67e86b79b6 rearm=795e67e86b79c3 next=795e67e86b8860 pi=00012000/00010000/00010000/00012000 rc=00000000
+000563 CYCE i=14 n=941 f=9 blk=7 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=36 aw=2475 vw=0 sig=0
+000564 CYCET i=14 cause=795e67e86b8860 unmask=795e67e86b89aa entry=795e67e86b89aa read=795e67e86b89ee ack=795e67e86b9518 rearm=795e67e86b9524 next=795e67e86b9577 pi=00012000/00010000/00010000/00012000 rc=00000000
+000565 CYCE i=15 n=942 f=9 blk=7 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=35 aw=0 vw=2322 sig=777
+000566 CYCET i=15 cause=795e67e86b9577 unmask=795e67e86b96be entry=795e67e86b96be read=795e67e86b9700 ack=795e67e86ba13b rearm=795e67e86ba483 next=795e67e86baefe pi=00012000/00010000/00010000/00012000 rc=00000000
+000567 CYCE i=16 n=943 f=9 blk=8 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=36 aw=2475 vw=0 sig=0
+000568 CYCET i=16 cause=795e67e86baefe unmask=795e67e86bb050 entry=795e67e86bb050 read=795e67e86bb094 ack=795e67e86bbbcf rearm=795e67e86bbbdc next=795e67e86bbc2e pi=00012000/00010000/00010000/00012000 rc=00000000
+000569 CYCE i=17 n=944 f=9 blk=8 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=35 aw=0 vw=2322 sig=778
+000570 CYCET i=17 cause=795e67e86bbc2e unmask=795e67e86bbd75 entry=795e67e86bbd75 read=795e67e86bbdb7 ack=795e67e86bc7c4 rearm=795e67e86bcb06 next=795e67e86bd59c pi=00012000/00010000/00010000/00012000 rc=00000000
+000571 CYCE i=18 n=945 f=9 blk=9 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=36 aw=2471 vw=0 sig=0
+000572 CYCET i=18 cause=795e67e86bd59c unmask=795e67e86bd6e9 entry=795e67e86bd6e9 read=795e67e86bd737 ack=795e67e86be1ee rearm=795e67e86be1fb next=795e67e86be93a pi=00012000/00010000/00010000/00012000 rc=00000000
+000573 CYCE i=19 n=946 f=9 blk=9 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2322 sig=901
+000574 CYCET i=19 cause=795e67e86be93a unmask=795e67e86bea86 entry=795e67e86bea86 read=795e67e86beace ack=795e67e86bf508 rearm=795e67e86bf8c8 next=795e67e86bfe4d pi=00012000/00010000/00010000/00012000 rc=00000000
+000575 CYCE i=20 n=947 f=9 blk=10 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=37 aw=2475 vw=0 sig=0
+000576 CYCET i=20 cause=795e67e86bfe4d unmask=795e67e86bff9a entry=795e67e86bff9a read=795e67e86bffe1 ack=795e67e86c0b44 rearm=795e67e86c0b50 next=795e67e86c17b0 pi=00012000/00010000/00010000/00012000 rc=00000000
+000577 CYCE i=21 n=948 f=9 blk=10 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=36 aw=0 vw=2319 sig=777
+000578 CYCET i=21 cause=795e67e86c17b0 unmask=795e67e86c18fa entry=795e67e86c18fa read=795e67e86c193d ack=795e67e86c23c7 rearm=795e67e86c270c next=795e67e86c2760 pi=00012000/00010000/00010000/00012000 rc=00000000
+000579 CYCE i=22 n=949 f=9 blk=11 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=36 aw=2469 vw=0 sig=0
+000580 CYCET i=22 cause=795e67e86c2760 unmask=795e67e86c28ab entry=795e67e86c28ab read=795e67e86c28f1 ack=795e67e86c33a2 rearm=795e67e86c33ae next=795e67e86c4628 pi=00012000/00010000/00010000/00012000 rc=00000000
+000581 CYCE i=23 n=950 f=9 blk=11 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2319 sig=778
+000582 CYCET i=23 cause=795e67e86c4628 unmask=795e67e86c4776 entry=795e67e86c4776 read=795e67e86c47be ack=795e67e86c5249 rearm=795e67e86c558f next=795e67e86c55e3 pi=00012000/00010000/00010000/00012000 rc=00000000
+000583 CYCE i=24 n=951 f=9 blk=12 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=36 aw=2471 vw=0 sig=0
+000584 CYCET i=24 cause=795e67e86c55e3 unmask=795e67e86c572c entry=795e67e86c572c read=795e67e86c576f ack=795e67e86c6223 rearm=795e67e86c6230 next=795e67e86c701d pi=00012000/00010000/00010000/00012000 rc=00000000
+000585 CYCE i=25 n=952 f=9 blk=12 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=36 aw=2475 vw=0 sig=0
+000586 CYCET i=25 cause=795e67e86c701d unmask=795e67e86c7168 entry=795e67e86c7168 read=795e67e86c71ac ack=795e67e86c7cd5 rearm=795e67e86c7ce2 next=795e67e86c7d35 pi=00012000/00010000/00010000/00012000 rc=00000000
+000587 CYCE i=26 n=953 f=9 blk=12 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=36 aw=0 vw=2313 sig=778
+000588 CYCET i=26 cause=795e67e86c7d35 unmask=795e67e86c7e7a entry=795e67e86c7e7a read=795e67e86c7ec0 ack=795e67e86c88c1 rearm=795e67e86c8c04 next=795e67e86c96bb pi=00012000/00010000/00010000/00012000 rc=00000000
+000589 CYCE i=27 n=954 f=9 blk=13 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=38 aw=2474 vw=0 sig=0
+000590 CYCET i=27 cause=795e67e86c96bb unmask=795e67e86c9809 entry=795e67e86c9809 read=795e67e86c9851 ack=795e67e86ca381 rearm=795e67e86ca38d next=795e67e86ca3e0 pi=00012000/00010000/00010000/00012000 rc=00000000
+000591 CYCE i=28 n=955 f=9 blk=13 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=35 aw=0 vw=2319 sig=778
+000592 CYCET i=28 cause=795e67e86ca3e0 unmask=795e67e86ca526 entry=795e67e86ca526 read=795e67e86ca56c ack=795e67e86caf74 rearm=795e67e86cb2b7 next=795e67e86cbd5e pi=00012000/00010000/00010000/00012000 rc=00000000
+000593 CYCE i=29 n=956 f=9 blk=14 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=37 aw=2468 vw=0 sig=0
+000594 CYCET i=29 cause=795e67e86cbd5e unmask=795e67e86cbeab entry=795e67e86cbeab read=795e67e86cbeef ack=795e67e86cc9a3 rearm=795e67e86cc9af next=795e67e86cd18f pi=00012000/00010000/00010000/00012000 rc=00000000
+000595 CYCE i=30 n=957 f=9 blk=14 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2322 sig=902
+000596 CYCET i=30 cause=795e67e86cd18f unmask=795e67e86cd2db entry=795e67e86cd2db read=795e67e86cd327 ack=795e67e86cdd89 rearm=795e67e86ce14d next=795e67e86ce809 pi=00012000/00010000/00010000/00012000 rc=00000000
+000597 CYCE i=31 n=958 f=9 blk=15 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=39 aw=2475 vw=0 sig=0
+000598 CYCET i=31 cause=795e67e86ce809 unmask=795e67e86ce981 entry=795e67e86ce981 read=795e67e86ce9c8 ack=795e67e86cf505 rearm=795e67e86cf513 next=795e67e86d000a pi=00012000/00010000/00010000/00012000 rc=00000000
+000599 CYCE i=32 n=959 f=9 blk=15 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=39 aw=0 vw=2322 sig=778
+000600 CYCET i=32 cause=795e67e86d000a unmask=795e67e86d0156 entry=795e67e86d0156 read=795e67e86d0199 ack=795e67e86d0c28 rearm=795e67e86d0f6e next=795e67e86d0fc0 pi=00012000/00010000/00010000/00012000 rc=00000000
+000601 CYCE i=33 n=960 f=9 blk=16 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=38 aw=2475 vw=0 sig=0
+000602 CYCET i=33 cause=795e67e86d0fc0 unmask=795e67e86d110d entry=795e67e86d110d read=795e67e86d1152 ack=795e67e86d1c0c rearm=795e67e86d1c19 next=795e67e86d2e7f pi=00012000/00010000/00010000/00012000 rc=00000000
+000603 CYCE i=34 n=961 f=9 blk=16 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2322 sig=778
+000604 CYCET i=34 cause=795e67e86d2e7f unmask=795e67e86d2fca entry=795e67e86d2fca read=795e67e86d3012 ack=795e67e86d3a94 rearm=795e67e86d3dd8 next=795e67e86d3e2a pi=00012000/00010000/00010000/00012000 rc=00000000
+000605 CYCE i=35 n=962 f=9 blk=17 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=35 aw=2475 vw=0 sig=0
+000606 CYCET i=35 cause=795e67e86d3e2a unmask=795e67e86d3f73 entry=795e67e86d3f73 read=795e67e86d3fb5 ack=795e67e86d4a6b rearm=795e67e86d4a78 next=795e67e86d57dd pi=00012000/00010000/00010000/00012000 rc=00000000
+000607 CYCE i=36 n=963 f=9 blk=17 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=36 aw=2475 vw=0 sig=0
+000608 CYCET i=36 cause=795e67e86d57dd unmask=795e67e86d5928 entry=795e67e86d5928 read=795e67e86d5970 ack=795e67e86d6499 rearm=795e67e86d64a6 next=795e67e86d64f9 pi=00012000/00010000/00010000/00012000 rc=00000000
+000609 CYCE i=37 n=964 f=9 blk=17 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=36 aw=0 vw=2316 sig=778
+000610 CYCET i=37 cause=795e67e86d64f9 unmask=795e67e86d663f entry=795e67e86d663f read=795e67e86d6685 ack=795e67e86d7089 rearm=795e67e86d73cc next=795e67e86d7e78 pi=00012000/00010000/00010000/00012000 rc=00000000
+000611 CYCE i=38 n=965 f=9 blk=18 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=41 aw=2471 vw=0 sig=0
+000612 CYCET i=38 cause=795e67e86d7e78 unmask=795e67e86d7fd5 entry=795e67e86d7fd5 read=795e67e86d8019 ack=795e67e86d8b4f rearm=795e67e86d8b5d next=795e67e86d8bb1 pi=00012000/00010000/00010000/00012000 rc=00000000
+000613 CYCE i=39 n=966 f=9 blk=18 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=35 aw=0 vw=2322 sig=778
+000614 CYCET i=39 cause=795e67e86d8bb1 unmask=795e67e86d8cf8 entry=795e67e86d8cf8 read=795e67e86d8d3a ack=795e67e86d9745 rearm=795e67e86d9a8b next=795e67e86da51c pi=00012000/00010000/00010000/00012000 rc=00000000
+000615 CYCE i=40 n=967 f=9 blk=19 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=39 aw=2475 vw=0 sig=0
+000616 CYCET i=40 cause=795e67e86da51c unmask=795e67e86da682 entry=795e67e86da682 read=795e67e86da6c5 ack=795e67e86db18f rearm=795e67e86db19d next=795e67e86db9ea pi=00012000/00010000/00010000/00012000 rc=00000000
+000617 CYCE i=41 n=968 f=9 blk=19 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2319 sig=778
+000618 CYCET i=41 cause=795e67e86db9ea unmask=795e67e86dbb36 entry=795e67e86dbb36 read=795e67e86dbb81 ack=795e67e86dc642 rearm=795e67e86dc994 next=795e67e86dd079 pi=00012000/00010000/00010000/00012000 rc=00000000
+000619 CYCE i=42 n=969 f=9 blk=20 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=39 aw=2472 vw=0 sig=0
+000620 CYCET i=42 cause=795e67e86dd079 unmask=795e67e86dd1d0 entry=795e67e86dd1d0 read=795e67e86dd217 ack=795e67e86ddded rearm=795e67e86dddfa next=795e67e86de861 pi=00012000/00010000/00010000/00012000 rc=00000000
+000621 CYCE i=43 n=970 f=9 blk=20 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=38 aw=0 vw=2319 sig=777
+000622 CYCET i=43 cause=795e67e86de861 unmask=795e67e86de9b7 entry=795e67e86de9b7 read=795e67e86de9fd ack=795e67e86df48c rearm=795e67e86df7d1 next=795e67e86df824 pi=00012000/00010000/00010000/00012000 rc=00000000
+000623 CYCE i=44 n=971 f=9 blk=21 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=38 aw=2475 vw=0 sig=0
+000624 CYCET i=44 cause=795e67e86df824 unmask=795e67e86df96f entry=795e67e86df96f read=795e67e86df9b2 ack=795e67e86e046b rearm=795e67e86e0478 next=795e67e86e16d9 pi=00012000/00010000/00010000/00012000 rc=00000000
+000625 CYCE i=45 n=972 f=9 blk=21 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=36 aw=0 vw=2315 sig=777
+000626 CYCET i=45 cause=795e67e86e16d9 unmask=795e67e86e1824 entry=795e67e86e1824 read=795e67e86e186c ack=795e67e86e2318 rearm=795e67e86e265d next=795e67e86e26af pi=00012000/00010000/00010000/00012000 rc=00000000
+000627 CYCE i=46 n=973 f=9 blk=22 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=37 aw=2471 vw=0 sig=0
+000628 CYCET i=46 cause=795e67e86e26af unmask=795e67e86e27fb entry=795e67e86e27fb read=795e67e86e2840 ack=795e67e86e32f5 rearm=795e67e86e3302 next=795e67e86e3f96 pi=00012000/00010000/00010000/00012000 rc=00000000
+000629 CYCE i=47 n=974 f=9 blk=22 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=36 aw=2475 vw=0 sig=0
+000630 CYCET i=47 cause=795e67e86e3f96 unmask=795e67e86e40e9 entry=795e67e86e40e9 read=795e67e86e4130 ack=795e67e86e4c5d rearm=795e67e86e4c6a next=795e67e86e4cbd pi=00012000/00010000/00010000/00012000 rc=00000000
+000631 CYCE i=48 n=975 f=9 blk=22 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=36 aw=0 vw=2319 sig=778
+000632 CYCET i=48 cause=795e67e86e4cbd unmask=795e67e86e4e04 entry=795e67e86e4e04 read=795e67e86e4e4a ack=795e67e86e5852 rearm=795e67e86e5b99 next=795e67e86e6637 pi=00012000/00010000/00010000/00012000 rc=00000000
+000633 CYCE i=49 n=976 f=9 blk=23 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=38 aw=2472 vw=0 sig=0
+000634 CYCET i=49 cause=795e67e86e6637 unmask=795e67e86e6785 entry=795e67e86e6785 read=795e67e86e67cd ack=795e67e86e7284 rearm=795e67e86e7307 next=795e67e86e79dc pi=00012000/00010000/00010008/00012000 rc=00000000
+000635 CYCE i=50 n=977 f=9 blk=23 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2322 sig=901
+000636 CYCET i=50 cause=795e67e86e79dc unmask=795e67e86e7b2a entry=795e67e86e7b2a read=795e67e86e7b6c ack=795e67e86e85ad rearm=795e67e86e896f next=795e67e86e902a pi=00012000/00010000/00010000/00012000 rc=00000000
+000637 CYCE i=51 n=978 f=9 blk=24 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=38 aw=2475 vw=0 sig=0
+000638 CYCET i=51 cause=795e67e86e902a unmask=795e67e86e91a2 entry=795e67e86e91a2 read=795e67e86e91e6 ack=795e67e86e9d26 rearm=795e67e86e9d33 next=795e67e86ea3ed pi=00012000/00010000/00010000/00012000 rc=00000000
+000639 CYCE i=52 n=979 f=9 blk=24 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=39 aw=0 vw=2322 sig=777
+000640 CYCET i=52 cause=795e67e86ea3ed unmask=795e67e86ea53c entry=795e67e86ea53c read=795e67e86ea57e ack=795e67e86eafb9 rearm=795e67e86eb37c next=795e67e86eb3ce pi=00012000/00010000/00010000/00012000 rc=00000000
+000641 CYCE i=53 n=980 f=9 blk=25 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=39 aw=2474 vw=0 sig=0
+000642 CYCET i=53 cause=795e67e86eb3ce unmask=795e67e86eb51b entry=795e67e86eb51b read=795e67e86eb55e ack=795e67e86ec018 rearm=795e67e86ec025 next=795e67e86ed0b9 pi=00012000/00010000/00010000/00012000 rc=00000000
+000643 CYCE i=54 n=981 f=9 blk=25 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2319 sig=778
+000644 CYCET i=54 cause=795e67e86ed0b9 unmask=795e67e86ed208 entry=795e67e86ed208 read=795e67e86ed24c ack=795e67e86edcce rearm=795e67e86ee014 next=795e67e86ee067 pi=00012000/00010000/00010000/00012000 rc=00000000
+000645 CYCE i=55 n=982 f=9 blk=26 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=36 aw=2472 vw=0 sig=0
+000646 CYCET i=55 cause=795e67e86ee067 unmask=795e67e86ee1ae entry=795e67e86ee1ae read=795e67e86ee1f1 ack=795e67e86eeca7 rearm=795e67e86eecb4 next=795e67e86eff34 pi=00012000/00010000/00010000/00012000 rc=00000000
+000647 CYCE i=56 n=983 f=9 blk=26 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=35 aw=0 vw=2322 sig=777
+000648 CYCET i=56 cause=795e67e86eff34 unmask=795e67e86f007e entry=795e67e86f007e read=795e67e86f00c2 ack=795e67e86f0b44 rearm=795e67e86f0e88 next=795e67e86f0eda pi=00012000/00010000/00010000/00012000 rc=00000000
+000649 CYCE i=57 n=984 f=9 blk=27 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=36 aw=2474 vw=0 sig=0
+000650 CYCET i=57 cause=795e67e86f0eda unmask=795e67e86f1022 entry=795e67e86f1022 read=795e67e86f1064 ack=795e67e86f1b1b rearm=795e67e86f1b28 next=795e67e86f2758 pi=00012000/00010000/00010000/00012000 rc=00000000
+000651 CYCE i=58 n=985 f=9 blk=27 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=35 aw=2471 vw=0 sig=0
+000652 CYCET i=58 cause=795e67e86f2758 unmask=795e67e86f28a1 entry=795e67e86f28a1 read=795e67e86f28e5 ack=795e67e86f340c rearm=795e67e86f3418 next=795e67e86f346b pi=00012000/00010000/00010000/00012000 rc=00000000
+000653 CYCE i=59 n=986 f=9 blk=27 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=36 aw=0 vw=2319 sig=778
+000654 CYCET i=59 cause=795e67e86f346b unmask=795e67e86f35b1 entry=795e67e86f35b1 read=795e67e86f35f7 ack=795e67e86f3fff rearm=795e67e86f4343 next=795e67e86f4df9 pi=00012000/00010000/00010000/00012000 rc=00000000
+000655 CYCE i=60 n=987 f=9 blk=28 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=37 aw=2475 vw=0 sig=0
+000656 CYCET i=60 cause=795e67e86f4df9 unmask=795e67e86f4f46 entry=795e67e86f4f46 read=795e67e86f4f8e ack=795e67e86f5ac0 rearm=795e67e86f5acc next=795e67e86f6198 pi=00012000/00010000/00010000/00012000 rc=00000000
+000657 CYCE i=61 n=988 f=9 blk=28 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=38 aw=0 vw=2322 sig=901
+000658 CYCET i=61 cause=795e67e86f6198 unmask=795e67e86f62eb entry=795e67e86f62eb read=795e67e86f632e ack=795e67e86f6d68 rearm=795e67e86f712a next=795e67e86f7e2b pi=00012000/00010000/00010000/00012000 rc=00000000
+000659 CYCE i=62 n=989 f=9 blk=29 pend=0400 ack=8400 a=1/1 v=0/0 w1c=0 isr=1/0 next=1 lat=68 aw=2471 vw=0 sig=0
+000660 CYCET i=62 cause=795e67e86f7e2b unmask=795e67e86f7fbd entry=795e67e86f7fbd read=795e67e86f8009 ack=795e67e86f8c37 rearm=795e67e86f8c45 next=795e67e86f8c9d pi=00012000/00010000/00010000/00012000 rc=00000000
+000661 CYCE i=63 n=990 f=9 blk=29 pend=0100 ack=8100 a=0/0 v=1/1 w1c=0 isr=1/0 next=1 lat=37 aw=0 vw=2322 sig=828
+000662 CYCET i=63 cause=795e67e86f8c9d unmask=795e67e86f8dee entry=795e67e86f8dee read=795e67e86f8e32 ack=795e67e86f9848 rearm=795e67e86f9bc8 next=795e67e86f9c1f pi=00012000/00010000/00010000/00012000 rc=00000000
+000663 COUNTERS unmasks=519192 deliveries=519192 acks=519192 rearms=519192 lean=519188 verify=4 audio=335763 video=195835/195835 isr_w1c=519192 main_w1c=0 teardown_w1c=1 overflow=0 uncertain=0 control_ok=1
+000664 BYTES video=752006400 audio=1325342752
+000665 MATRIX service=ok service_reason=- stop=session_end frame_capture=ok baseline=valid structured=observed reference_match=offline restore=ok save=deferred
+000666 RESTOREVSTATE handler_installed=1 handler_restored=1 old_handler=null mask_ok=1 intmr_final=00000ffa pi_sticky_final=0 unmasks=519192 teardown_begin=795e68ae081c95 teardown_end=795e68ae086009
+000667 STATS transfers=2105306 timeouts=0 busy=0 bulk_transfers=531598 bulk_bytes=2077349152
+000668 STREAMSRC closed=4939 complete=4687 incomplete=173 quarantined=0 anomaly=79 published=4687
+000669 STREAMCONS taken=4687 converted=4686 presented=4686 overrun=0 dropped_before_convert=0 repeats=0 no_cpu_texture=0 abandoned_no_raw=0 balanced=1
+000670 STREAMDISP converted=4686 presented=4686 overrun=0 repeated=0 undispositioned=0 identity=converted==presented+overrun+repeated(+residual<=2)
+000671 STREAMPUMP calls=519192 slices=187479 completed=4686 skipped_cause_pending=138203 pending_before=138203 pending_after=60444 arrived_during=60444
+000672 STREAMPUMPT ticks_min=1143 ticks_max=1770 ticks_mean=1467 n=187479 tile_rows_per_slice=1
+000673 INPUT selftest=1 steps=380989 invalid=0 no_base=0 key_changes=2 attempts=16066 completed=16066 failed=0 first=1 change=2 refresh=16063 retry=0 last_word=0000 last_rc=ok
+000674 INPUTT write_ticks=30/30/38 n=16066 step_ticks=93/152/1112 n=380989 units=min/mean/max
+000675 KEYLOG events=3 emitted=3 lost=0 truncated=0 overwritten=0 reserve=640 emit_ticks=887/1354/1717 n=3 units=min/mean/max
+000676 SESSION end=Z hold_ms=250 hold_ticks=10125000 requested=0 t_hold_begin=0 t_requested=0 samples=380989 held=0 holds=0 released=0 after=0 stop=session_end teardown=S5_session_end
+000677 STREAMOWN acquire=198198 no_texture=0 fills=4687/198198 abandoned=193510 submit=4687/4687 blocked_inflight=0 blocked_shutdown=0
+000678 STREAMGX drawdone=4687 spurious=0 releases=4687 xfb_presents=4686 xfb_skipped=0 consistent_at_end=1 inflight_at_end=0 drained=0 cb_restored=1
+000679 STREAMINV checks=405769 failures=0 main=0/401082 isr=0/4687 consistent_at_end=1
+000680 STREAMSELFTEST ok=1 converted=1 released=1 own_presents=0 own_repeats=0 sci_clean=1 note=synthetic_frame_before_capture_no_device_counters_isolated
+000681 STARTUP mode=normal selftest_run=1 selftest_visible=0 prehandler_wait_ms=0 clear_fb=1 normal_clean=1 presented_synthetic=0 headless_submits=1
+000682 STARTUPT tb_hz=40500000 t_program=795e67e6ee2c94 t_video=795e67e6faaf84 t_selftest_begin=795e67e7a8a580 t_selftest_end=795e67e7b44401 t_probe_enter=795e67e7c209ed t_control=795e67e7c9f6d8 t_capture_start=795e67e80c7f81
+000683 STARTUPV have_first=1 first_frame_index=2 t_take=795e67e82b0dff t_convert_done=795e67e8301ed8 t_decision=795e67e8301f2e ticks_control_to_first_handoff=6694998
+000684 STREAMPACE publish_min=673743 publish_max=124091141 publish_mean=708325 n=4686 convert_min=51824 convert_max=60323 convert_mean=58687 n=4686
+000685 STREAMFLAG15 last_count=1 first_x=0 first_y=0 note=reported_not_interpreted
+000686 DRAIN phase=void control1_ok=1 control1_gave_up=0 control1_early=0 control2_ok=1 sync_lost=1 recovered=0 a_steps_run=1
+000687 DRAINN blocks_in=335763 failures=0 taps=335763 taps_failed=0 secs_used=75 sec_overflow=0 a_presses=1 other_presses=0
+000688 DRAINT tb_hz=40500000 t0=795e67e80c7f81 t_accept=795e67f41e6721 t_press=795e67fa305054 t_b=795e67fb654c54 t_b_end=795e688c3c2a90
+000689 DRAIND1 counter_total=245757 timebase_total=245757 b_ticks=2430000700
+000690 DRAINSEC from=0 counts=4094,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096
+000691 DRAINSEC from=16 counts=4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096
+000692 DRAINSEC from=32 counts=4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096,4096
+000693 DRAINSEC from=48 counts=4095,4097,4096,4096,4096,4095,4097,4095,4097,4096,4096,4095,4096,4096,4096,4096
+000694 DRAINSEC from=64 counts=4096,3996,4096,4096,4096,4096,4097,4096,4096,4095,2
+000695 DRAIND2 open_rc=0 write_rc=0 close_rc=0 bytes=65536 done=1 t_w0=795e68984e150c t_w1=795e68985d2e10
+000696 DRAINGAP gap_max_b=19146 gap_at_b=795e67fb65971e gap_max_c=995193 gap_at_c=795e68985d426f
+000697 DRAIND2S status=saved 65536 bytes to sd:/open-gbp/GBP-AUDIO-005_drain-0001-d2.bin
+000698 DRAINCTL which=control1 ran=1 windows=1 passes=1 last_ok=1 blocks=2048 periods=61 pmin=32 pmax=32
+000699 DRAINCTL2 which=control1 off=0 edges=62 crossings=124 steps_visible=125 wrong_len=0
+000700 DRAINCTL which=control2 ran=1 windows=1 passes=1 last_ok=1 blocks=2048 periods=63 pmin=32 pmax=32
+000701 DRAINCTL2 which=control2 off=0 edges=64 crossings=128 steps_visible=128 wrong_len=0
+000702 DRAINCTL which=recovery ran=1 windows=1 passes=0 last_ok=0 blocks=2048 periods=64 pmin=18 pmax=32
+000703 DRAINCTL2 which=recovery off=1 edges=65 crossings=130 steps_visible=136 wrong_len=0
+000704 DRAINA step=0 n=20 ran=1 sync_ok=0 blocks=12289 periods=1537 pmin=4 pmax=8
+000705 DRAINA2 step=0 off=1537 edges=1538 crossings=3076 steps_visible=0 wrong_len=0
+000706 DRAINA step=1 n=100 ran=0 sync_ok=0 blocks=0 periods=0 pmin=0 pmax=0
+000707 DRAINA2 step=1 off=0 edges=0 crossings=0 steps_visible=0 wrong_len=0
+000708 DRAINA step=2 n=400 ran=0 sync_ok=0 blocks=0 periods=0 pmin=0 pmax=0
+000709 DRAINA2 step=2 off=0 edges=0 crossings=0 steps_visible=0 wrong_len=0
+# --- end --- dropped=0
