@@ -60,7 +60,9 @@ LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92,
          # Issue #78: RUN 33 and RUN 34, sweep-0002, orig=92 -- 48 logs
          "stream-0016-run33": 0x92, "stream-0016-run34": 0x92,
          # Issue #85: RUN 35, sweep-0002, orig=92 -- 49 logs
-         "stream-0016-run35": 0x92}
+         "stream-0016-run35": 0x92,
+         # Issue #90: RUN 37, a further image (drain-0001, GBP-AUDIO-005) on sweep-0002, orig=92 -- 50 logs
+         "drain-0001-run37": 0x92}
 
 WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0005", "stream-0005-run2",
              "stream-0005-run3", "stream-0006-run4", "stream-0007-run5", "stream-0008-run6", "stream-0009-run7",
@@ -156,11 +158,15 @@ class TheSplitIsRecomputedNotQuoted(unittest.TestCase):
         Issue #74 (2026-09-23) added a SEVENTH: 01-smoke's save from the Pico
         Gecko bring-up. Same reason as the others -- 01-smoke touches no GBP
         register at all -- and the entry says so rather than the count moving
-        silently."""
+        silently.
+
+        Issue #90 (2026-09-23) added an EIGHTH: RUN 36, AOUT-HW-001, the output
+        path test, which links no GBP code at all (the aout audit profile)."""
         missing = [f for f in sorted(os.listdir(LOCAL))
                    if f.endswith(".log") and "CONTROL semantic orig=" not in read(os.path.join(LOCAL, f))]
-        self.assertEqual(len(missing), 7, missing)
+        self.assertEqual(len(missing), 8, missing)
         self.assertIn("GECKO-SMOKE-HW-001_smoke-0002-bringup.log", missing)
+        self.assertIn("AOUT-HW-001_aout-0002-run36.log", missing)
         e = plain(entry())
         self.assertIn("The selection rule is mechanical, not curated", e)
         self.assertIn("None of the six was dropped by a judgement about what it showed", e)
