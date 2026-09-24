@@ -16311,3 +16311,69 @@ direction, with the offset in the same paragraph as the closure.
    own bounded round with a before/after the Operator can hear, and the Orchestrator freezes its
    gates before anything is built.
 3. Phase 7 (#31).
+
+## 2026-09-24 — Issue #116: the live family's AUDIO loss rates re-derived without L2's window — the stretch effect is LARGER than published, and balanced arms did not cancel the instrument
+
+**Goal.** `GBP-HW-338` showed that L2's keep window costs blocks. Every AUDIO loss rate of
+RUN 38–42 was integrated over C's whole window, instrument included. This round re-derives
+them host-side, states all three figures wherever one is stated, and checks which conclusions
+move. No hardware, no build, no runtime change.
+
+**The instrument, located in the data.** Both traces keep only the steps above a 200-tick
+floor. Of about 238 000 `process` calls per run, exactly 320 were kept, one per AI cycle over
+cycles 625–944. 320 is L2's chunk count, and those are exactly the kept chunks' hand-off cycles.
+The kept `process` steps are the CRC, about 58 µs each, longer than a production step of either
+arm.
+
+**What moved.**
+- **(a) R.** Every run's rate stated whole / outside / inside. RUN 42's 7.266 is 5.537 outside.
+  R's prior, RUN 40's half arm, is 8.39 whole and 6.50 outside.
+- **(b) `GBP-HW-332` — the item that could have been wrong.** The arms ARE balanced inside the
+  window (162 / 163), and balance did NOT cancel the contamination.
+  - The window multiplied the half arm's gaps per cycle by 2.74 and the full arm's by 1.07. Balance
+    cancels a proportional cost only.
+  - **The ratio is 0.270 outside the window (90 % CI 0.235–0.308), against 0.341 published.**
+    The reduction is 69–77 %, not 62–69 %: the figure was conservative.
+  - The result is the same under the CRC's cycles alone and under C's seconds 20–29. CAUSE stands.
+- **(c) The residue.** The half arm's 0.2532 gaps per cycle is 0.1981 outside the window. It
+  shrinks and stands.
+- **(d) The rest.**
+  - `GBP-HW-317` does not move: its images carry no L2.
+  - **`GBP-HW-327`'s AUDIO cadence statistics were measured entirely inside the window**, read
+    from L2's kept stream. Outside it, RUN 39's and RUN 40's traces keep the AI-cycle phase (90 %,
+    86 %) and `P` names `produce`.
+  - `GBP-HW-333`'s 6 `process` losses are all inside: the CRC.
+  - The VIDEO rates integrate over the window too; they are named and not derived.
+- **(e) The 8-push adoption's benefit.**
+  - Within RUN 40: 66 % → 73 % fewer gaps per cycle, and 72 % → 78 % fewer blocks lost per
+    second.
+  - Across runs, as context: the 8-push runs lose 0.20–0.24 of the 16-push runs' rate outside the
+    window, against 0.26–0.30 whole.
+
+**Premises corrected.**
+- The Issue's (b) expected that balanced arms cancel the contamination exactly. That holds for a
+  proportional cost only, and this one was not proportional.
+- The window holds two instrument operations, the keep's per-push store and the CRC; only the CRC
+  is visible as a step.
+- RUN 40's inside/outside rate ratio is 1.42, not 1.43.
+
+**The rule, written where instruments are designed:** `RESEARCH_METHOD.md`, "An instrument that
+runs during part of a measurement window has a cost inside that window". Report every rate
+whole / outside / inside, and do not rely on balance.
+
+**Recorded.**
+- `EVIDENCE.md`: `GBP-HW-339`, plus on-top notes in `GBP-HW-322`, 324, 327, 328, 329, 332, 333,
+  334, 335, 336, 337 and 338 (pointers appended to 332's and 327's headings).
+- `UNKNOWNS.md`: `U-GBP-045`.
+- `HARDWARE_TESTS.md`: §V22.12.10, §V23.13.10, §V24.10.10, §V25.12.9, §V26.11.8. The frozen
+  pre-registration text (§V23.3, §V24.0–7, §V25.2, §V25.8) is not edited.
+- `docs/protocol/AUDIO.md` §5–§7.
+- `src/audio/gbp_aplay.h`: a comment only.
+- The earlier DEVLOG entries are not edited.
+- `tools/u045window.py` and `tests/host/test_u045_window.py`.
+
+**No status moved.** A recomputed number restates a claim; it does not upgrade it.
+
+**Tests executed.** `make test-python` on the committed tree; the figure is in the #116 report.
+
+**Next.** The latency round (`U-GBP-046`) waits on gates the Orchestrator freezes; then Phase 7.

@@ -33621,6 +33621,21 @@ breaking video/input."*
 **No gate FAILED. One gate did not PASS.** Whether that closes Phase 6 is the
 Orchestrator's judgement, and this section does not make it.
 
+#### V22.12.10 RE-DERIVED 2026-09-24 (GitHub Issue #116), on top — the rates above without L2's window
+
+*Appended; nothing above is rewritten, and no verdict is re-judged. L2 ran in 10 s of C's 64 s window, and every rate above integrates over it (`GBP-HW-338`, `GBP-HW-339`, `tools/u045window.py`).*
+
+```text
+NOT DRAINED   whole 64 s    1 626 = 25.41 blocks/s (0.62 %)
+              outside 54 s  1 323 = 24.50 blocks/s (0.60 %)
+              inside 10 s     303 = 30.3  blocks/s (0.74 %)
+```
+
+- `L` stays INCONCLUSIVE: the drain did not keep up outside the window either.
+- **§V22.12's cadence figures came from L2's kept stream, i.e. from inside the window by
+  construction** (`GBP-HW-327`). Outside it, RUN 39's and RUN 40's traces keep the AI-cycle phase
+  (`GBP-HW-339`).
+
 ## V23 — RUN A: which step of the AI chunk cycle starves the service path, and do the two losses coincide — **PRE-REGISTERED 2026-09-24 (GitHub Issue #101); NOT RUN, NOT AUTHORISED HERE; the image is built under this Issue and staged by a separate Hardware Issue**
 
 The Issue body's §V23 and every replacement, merged into one text. It supersedes
@@ -34415,6 +34430,24 @@ GBP-AUDIO-008 / trace-0001
   (f) incomplete frames: 14 before the AI starts, 74 inside its span, 0 after it stops
 ```
 
+#### V23.13.10 RE-DERIVED 2026-09-24 (GitHub Issue #116), on top — the rates above without L2's window
+
+*Appended; nothing above is rewritten, and no verdict is re-judged. L2 ran in 10 s of C's 64 s window, and every rate above integrates over it (`GBP-HW-338`, `GBP-HW-339`, `tools/u045window.py`).*
+
+```text
+undrained     whole 64 s    1 783 = 27.86 blocks/s
+              outside 54 s  1 471 = 27.24 blocks/s
+              inside 10 s     312 = 31.2  blocks/s
+```
+
+- **The observer gate holds either way.**
+- **The footprint is in this run's own trace.** 320 kept `process` steps, one per AI cycle over
+  cycles 625–944, are L2's CRC. They are about 58 µs each (2 334 ticks median).
+- **`P` and the phase outside the footprint (cycles 620–944):**
+  - `produce` 1 057 and `neither` 141 of 1 198, so "P names `produce`";
+  - 1 078 (90 %) in the first tenth of the AI cycle.
+- **Inside the footprint:** 252 losses; `produce` 220, `neither` 31, `isr` 1.
+
 ## V24 — RUN B: split `produce`, hold total work constant, and separate CAUSE from ACCOMMODATION — **PRE-REGISTERED 2026-09-24 (GitHub Issue #105); NOT RUN, NOT AUTHORISED HERE; the image is built under this Issue and staged by a separate Hardware Issue**
 
 It supersedes the Issue body's §V24 entirely. All four of the Executor's points
@@ -34938,6 +34971,33 @@ GBP-AUDIO-009 / split-0001
             no-loss production gap (T, 6953)  p10 0.88  p25 0.99  p50 1.00  p75 1.22  p90 1.28  p99 1.81
       CONTEXT, not the discriminator: this run 19.02 /s; RUN 38 25.41 /s; RUN 39 27.86 /s -- context only: between-run variation is unknown from these runs (§V24.3)
 ```
+
+#### V24.10.10 RE-DERIVED 2026-09-24 (GitHub Issue #116), on top — the rates above without L2's window
+
+*Appended; nothing above is rewritten, and no verdict is re-judged. L2 ran in 10 s of C's 64 s window, and every rate above integrates over it (`GBP-HW-338`, `GBP-HW-339`, `tools/u045window.py`).*
+
+```text
+                 half: cycles  gaps  per cycle   full: cycles  gaps  per cycle   ratio   90 % CI
+all (published)        1 015   257   0.2532            1 014   752   0.7416      0.341   0.306-0.379
+outside the window       853   169   0.1981              851   624   0.7333      0.270   0.235-0.308
+inside the window        162    88   0.5432              163   128   0.7853      0.692   0.584-0.819
+```
+
+- **The arms were balanced inside the window (162 against 163), and balance did NOT cancel the
+  contamination.** The window multiplied the half arm's gaps per cycle by 2.74 and the full
+  arm's by 1.07.
+- **QUESTION S's ratio outside the window is 0.270**, a 69–77 % reduction against the published
+  62–69 %.
+  - The CRC's cycles alone give 0.270 / 0.693; C's seconds 20–29 give 0.272 / 0.685.
+  - CAUSE stands, with p < 1/20 000 outside.
+- **The observer gate's 19.02 undrained blocks/s** is 17.83 outside (963 over 54 s) and 25.4
+  inside (254 over 10 s).
+- **`P`'s 6 `process` losses are all inside, all in half-arm cycles**: the CRC.
+  - Outside the window: `produce` 711, `neither` 84 of 795.
+  - By arm, outside: half `produce` 153, `neither` 16 of 169; full 556 / 68 of 624.
+- **The half arm's residue, 0.2532 gaps per cycle, is 0.1981 outside.**
+- **In blocks/s**, the half arm's 8.39 (Sum k over its cycle time) is 6.50 outside, and the
+  full arm's 29.79 is 29.28.
 
 ## V25 — PHASE 6's ACCEPTANCE ON A REAL CARTRIDGE: the stimulus-ROM instrument is gone and the Operator becomes the instrument — **PRE-REGISTERED 2026-09-24 (GitHub Issue #110); NOT RUN, NOT AUTHORISED HERE; the image is built under this Issue and staged by a separate Hardware Issue**
 
@@ -35935,6 +35995,22 @@ game cannot be what tripled the loss.** What differed is what the picture did.
   save that loads, would let A cover gameplay rather than menus. That is the Operator's choice
   of cartridge, as before.
 
+#### V25.12.9 RE-DERIVED 2026-09-24 (GitHub Issue #116), on top — the rates above without L2's window
+
+*Appended; nothing above is rewritten, and no verdict is re-judged. L2 ran in 10 s of C's 64 s window, and every rate above integrates over it (`GBP-HW-338`, `GBP-HW-339`, `tools/u045window.py`).*
+
+```text
+R             whole 64 s      483 =  7.547 blocks/s
+              outside 54 s    320 =  5.926 blocks/s
+              inside 10 s     163 = 16.3   blocks/s
+R's prior     RUN 40's half arm: 8.39 over all its cycles -> 6.50 outside the window (Sum k 173 over 26.632 s);
+              beside it, 9.23 by the count deficit -> 7.51
+```
+
+- **Both sides of R's comparison carried the window, in different proportions.** R was not a
+  gate, and its AS EXPECTED is not re-judged.
+- **§V25.2 and §V25.8, where the prior and its band were frozen, are not edited:** they are
+  frozen text. This note is where the restatement lives.
 
 ## V26 — PHASE 6's ACCEPTANCE, SECOND ATTEMPT: the start-up clause rebuilt on the evidence, plus the one record that locates the frame — **PRE-REGISTERED 2026-09-24 (GitHub Issue #113); NOT RUN, NOT AUTHORISED HERE; the image is built under this Issue and staged by a separate Hardware Issue**
 
@@ -36714,3 +36790,17 @@ the Orchestrator's direction on #115, with the offset in the same paragraph as t
   Orchestrator before anything is built. That uses the starvation data this
 project already has to say how small the cushion can get before losses reappear, and GBI shows
 that a shallow one is survivable on this same hardware path.
+
+#### V26.11.8 RE-DERIVED 2026-09-24 (GitHub Issue #116), on top — the rates above without L2's window
+
+*Appended; nothing above is rewritten, and no verdict is re-judged. L2 ran in 10 s of C's 64 s window, and every rate above integrates over it (`GBP-HW-338`, `GBP-HW-339`, `tools/u045window.py`).*
+
+```text
+R             whole 64 s      465 =  7.266 blocks/s
+              outside 54 s    299 =  5.537 blocks/s
+              inside 10 s     166 = 16.6   blocks/s
+R's prior     8.39 -> 6.50 outside the window; 9.23 -> 7.51 (§V25.12.9)
+```
+
+- R was not a gate, and **Phase 6's closure does not rest on it**.
+- §V26.11.6 gave the whole and the outside counts; this adds the rates and the prior restated.

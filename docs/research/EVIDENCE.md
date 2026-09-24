@@ -9144,6 +9144,18 @@ fed by `tools/v22report.py`, frozen at `feaf380`. Both ran unedited on the RUN 3
 
 One console, one Game Boy Player, one run, one image (`live-0001` @ `9341ca7`).
 
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+L2 was armed 20 s into C's window and kept 10 s; every figure above integrates over it
+(`GBP-HW-338`). Stated all three ways (`GBP-HW-339`):
+
+```text
+NOT DRAINED   whole 64 s   1 626 = 25.41 blocks/s (0.62 %)
+              outside 54 s 1 323 = 24.50 blocks/s (0.60 %)
+              inside 10 s    303 = 30.3  blocks/s (0.74 %)
+```
+
+`QUESTION L` stays INCONCLUSIVE: the drain did not keep up outside the window either.
+
 ---
 
 ### GBP-HW-323 — RUN 38, `QUESTION L2` = PASS: decode → the frozen resampler → counted corrections → the bytes handed to the AI DMA is bit-exact — the host reproduced CRC `3b453778` of 320 chunks × 1 000 frames — FACT (the gate's result, one run)
@@ -9175,6 +9187,11 @@ to hold a whole chunk, and where they fell is not recorded.
 
 **C tests whether the consumer survives, and the consumer survived.** That is all
 this PASS says.
+
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+NOT DRAINED 1 626 over 64 s is 25.41 blocks/s. Outside L2's window it is 1 323 over 54 s,
+24.50 blocks/s; inside it, 303 over 10 s, 30.3 blocks/s (`GBP-HW-339`). C's PASS is unaffected:
+it counts overflow and underrun, not loss.
 
 ---
 
@@ -9232,7 +9249,7 @@ is claimed.
 
 ---
 
-### GBP-HW-327 — RUN 38's two losses keep ONE cadence, the AI chunk cycle: the undrained AUDIO blocks are phase-locked to a 31.2 ms period, and every incomplete video frame is detected 1.5–11.7 ms after an AI DMA callback — FACT (statistics recomputable from the archive); CORROBORATED that one cadence, the AI chunk cycle, orders both losses; which step of the cycle is UNKNOWN — **2026-09-24, Issue #101: the AUDIO figures CORRECTED upward (306 losses in 240 halves; R 0.957 at the AI period against 0.839 on the tone grid; peak 31.223 ms); the statuses stand**
+### GBP-HW-327 — RUN 38's two losses keep ONE cadence, the AI chunk cycle: the undrained AUDIO blocks are phase-locked to a 31.2 ms period, and every incomplete video frame is detected 1.5–11.7 ms after an AI DMA callback — FACT (statistics recomputable from the archive); CORROBORATED that one cadence, the AI chunk cycle, orders both losses; which step of the cycle is UNKNOWN — **2026-09-24, Issue #101: the AUDIO figures CORRECTED upward (306 losses in 240 halves; R 0.957 at the AI period against 0.839 on the tone grid; peak 31.223 ms); the statuses stand** — **2026-09-24, Issue #116: the AUDIO statistics were all measured inside L2's window; outside it RUN 39's and RUN 40's traces keep the cadence (`GBP-HW-339`); the statuses stand**
 
 GitHub Issue #100. `tools/u045cadence.py` reads RUN 38's versioned log and L2 record and
 decides nothing; `tests/host/test_u045_cadence.py` proves its method on constructions and
@@ -9317,6 +9334,22 @@ less than first written: 0.957 against 0.839. The periodogram's peak now lies 0.
 from the AI period, inside a resolution of about 0.1 ms. The VIDEO side is measured
 absolutely against the callbacks, and it carries the attribution to the AI cycle.
 
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+- **The AUDIO statistics above were measured INSIDE L2's window, all of them, by construction.**
+  They were read from L2's own kept stream (9.994 s of device time), the stretch in which the
+  instrument runs. The only `process` steps the traces ever kept are the instrument's own
+  (`GBP-HW-339`).
+- **The cadence holds outside it.** RUN 39's and RUN 40's traces cover the whole window, and
+  outside L2's footprint:
+  - 1 078 of RUN 39's 1 198 losses (90 %) lie in the first tenth of the AI cycle;
+  - so do 685 of RUN 40's 795 (86 %).
+
+  That is where production runs. The VIDEO statistics above span 26.4–64 s, of which the
+  window's last 3.7 s overlap.
+- **The statuses stand:** the statistics are FACT, and "one cadence, the AI chunk cycle, orders
+  both losses" stays CORROBORATED. The AUDIO side is now supported outside the instrument by
+  other runs, not by this one.
+
 ---
 
 ### GBP-HW-328 — RUN 39's observer gate HOLDS: `trace-0001` lost 27.86 AUDIO blocks/s and 74 frames in C's window, and its recorder cost at most about 0.3 % of each AI cycle — FACT (the counts and the frozen gate's result, one run)
@@ -9350,6 +9383,11 @@ RUN 38, and the instrument was light by its own measure.
   variation.
 - **Anything about `QUESTION K`'s or `P`'s answers.** One console, one Game Boy Player,
   one run.
+
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+27.86 blocks/s is 1 783 over C's 64 s. Outside L2's window it is 1 471 over 54 s, 27.24
+blocks/s; inside, 312 over 10 s, 31.2 blocks/s (`GBP-HW-339`). The observer gate holds either
+way.
 
 ---
 
@@ -9386,6 +9424,14 @@ nothing).**
 - **HYPOTHESIS:** production causes them.
 - **Unresolved by construction:** whether sub-floor steps account for `neither`. That is
   a limit of session totals (§V23.12).
+
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+Outside L2's footprint (cycles 620–944, `GBP-HW-339`), RUN 39's losses give the same naming:
+- `P`: `produce` 1 057, `neither` 141 of 1 198, i.e. "P names `produce`";
+- the phase: 1 078 of 1 198 (90 %) in the first tenth of the AI cycle.
+
+Inside the footprint: 252 losses, `produce` 220, `neither` 31, `isr` 1. The naming does not
+rest on the instrument's seconds.
 
 ---
 
@@ -9437,7 +9483,7 @@ confined the same way. RUN 38 had no per-block VIDEO records.
 
 ---
 
-### GBP-HW-332 — RUN 40, Run B: producing each AI chunk in half-size steps, with total work identical, cut the loss gaps per cycle to 0.341 of the full-size arm (90 % CI 0.306–0.379), inside one session — FACT (the frozen gate's result on an interleaved, pair-balanced manipulation, one run); that the length of one contiguous production stretch is what starves the drain is CORROBORATED, with `GBP-HW-327` and `GBP-HW-329`
+### GBP-HW-332 — RUN 40, Run B: producing each AI chunk in half-size steps, with total work identical, cut the loss gaps per cycle to 0.341 of the full-size arm (90 % CI 0.306–0.379), inside one session — FACT (the frozen gate's result on an interleaved, pair-balanced manipulation, one run); that the length of one contiguous production stretch is what starves the drain is CORROBORATED, with `GBP-HW-327` and `GBP-HW-329` — **2026-09-24, Issue #116: outside L2's window the ratio is 0.270 (90 % CI 0.235–0.308); the published 0.341 carries the instrument, and the balanced arms did not cancel it (`GBP-HW-339`); the statuses stand**
 
 GitHub Issue #107; `HARDWARE_TESTS.md` §V24.10. RUN 40 ran `split-0001` (GBP-AUDIO-009,
 commit `d6dc4f8`), which is `trace-0001` with each AI chunk produced in 16-push or 8-push
@@ -9475,6 +9521,27 @@ gaps per cycle, so the stretch is not the whole cause.
 **What it does not establish.** It is not a fix: any runtime change is decided separately.
 It says nothing of Phase 6's closure, of a real cartridge, or of `U-GBP-012`.
 
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+**The arms WERE balanced inside L2's window, and balance did NOT cancel the contamination.**
+Balance cancels a cost that scales each arm's losses in proportion. This one did not. Inside
+the window, the half arm's loss gaps per cycle rose 2.74-fold and the full arm's 1.07-fold
+(`GBP-HW-339`, `tools/u045window.py`, the frozen QUESTION S arithmetic on each subset):
+
+```text
+                 half: cycles  gaps  per cycle   full: cycles  gaps  per cycle   ratio   90 % CI
+all (published)        1 015   257   0.2532            1 014   752   0.7416      0.341   0.306-0.379
+outside the window       853   169   0.1981              851   624   0.7333      0.270   0.235-0.308
+inside the window        162    88   0.5432              163   128   0.7853      0.692   0.584-0.819
+```
+
+- **The published ratio carries the instrument.** Outside the window it is **0.270**, a 69–77 %
+  reduction against the published 62–69 %. The effect of halving the stretch is LARGER than
+  published.
+- **Robust to the window's definition:**
+  - the CRC's cycles alone give 0.270 outside and 0.693 inside;
+  - C's whole seconds 20–29 give 0.272 and 0.685.
+- **The verdict stands:** CAUSE, one-sided p < 1/20 000 outside as over all. The statuses stand.
+
 ---
 
 ### GBP-HW-333 — RUN 40's carried-over gates and descriptive records: `P` names `produce` again, `K` NOT COINCIDENT again, the 13 pre-AI incompletes are the start-up signature; §V23.12's totals unresolved again, while inside the sampled cycles the `neither` gaps hold almost no chain activity — FACT (the tools' outputs and counts, one run); the sampled-cycle observation is DESCRIPTIVE, 12 gaps in 1 cycle of 8, and decides nothing
@@ -9499,6 +9566,13 @@ sample       12 of the 101 `neither` gaps fall in sampled cycles; in each, floor
   that could fill the `neither` gaps. That suggests their cause lies outside the chain steps
   the instrument records — a HYPOTHESIS, and an argument for pre-registering the question in
   a later run, not a result.
+
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+- **The observer gate's 19.02 undrained blocks/s** is 1 217 over C's 64 s. Outside L2's window
+  it is 963 over 54 s, 17.83/s; inside, 254 over 10 s, 25.4/s. It holds either way.
+- **`P`'s 6 `process` losses are all inside L2's window, all in half-arm cycles.** The only
+  `process` steps the trace kept are the instrument's CRC (`GBP-HW-339`).
+- **Outside the window** `P` is `produce` 711, `neither` 84, `process` 0, of 795.
 
 ---
 
@@ -9553,6 +9627,14 @@ The binomial tails are context only: post hoc, several cuts, no gate.
 
 One console, one Game Boy Player, one run.
 
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+Outside L2's window (`GBP-HW-339`), by arm:
+- the half arm: `produce` 153 (91 %), `neither` 16 of 169;
+- the full arm: `produce` 556 (89 %), `neither` 68 of 624.
+
+The residue is still attributed like the full arm's losses, and `neither` still falls with the
+arm (16 against 68).
+
 ---
 
 ### GBP-HW-335 — RUN 41, Phase 6's acceptance on a real cartridge: L2 bit-exact, C clean over 64 s, the Operator's stability judgement PASS over menu-weight audio, and `QUESTION V` NOT PASS on its start-up clause — 14 incomplete frames before the AI, not 13 — so Phase 6 stays open — FACT (the frozen gates' results and counts, one run); A is OPERATOR OBSERVATION
@@ -9604,6 +9686,13 @@ data. The next clause is to be built on what a before-AI `t_last_block` record s
 
 One console, one Game Boy Player, one run.
 
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+R's 7.547 blocks/s is 483 over C's 64 s. Outside L2's window it is 320 over 54 s, 5.926/s;
+inside, 163 over 10 s, 16.3/s. **R's prior carried the window too:** RUN 40's half arm, 8.39
+blocks/s over all its cycles, is **6.50** outside it (Sum k 173 over 26.632 s). Beside it, 9.23
+by the count deficit is **7.51** (`GBP-HW-339`). R was not a gate, and its AS EXPECTED is not
+re-judged.
+
 ---
 
 ### GBP-HW-336 — RUN 41's reported figures: the decoder clipped 2 084 samples, inaudible to the Operator; the calibration span was not silent; and both loss channels rose about threefold in the same ~10 s of the window — FACT (counts, one run); the cause of the rise is a HYPOTHESIS
@@ -9642,6 +9731,10 @@ in which both channels rose is window seconds 20–29, **exactly L2's own keep w
 (`LIVE_L2_FROM_S` = 20, 320 chunks = 10 s). It is **not** "the level load or the freeze". RUN 42
 shows the same rise in the same seconds on gameplay, and every run of the family shows it
 (`GBP-HW-338`). The counts above stand as FACT. Their reading does not.
+
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+The run's rate, all three ways: 483 over 64 s = 7.547 blocks/s; 320 over the 54 s outside L2's
+window = 5.926/s; 163 over the 10 s inside = 16.3/s (`GBP-HW-339`).
 
 ---
 
@@ -9687,6 +9780,11 @@ milliseconds that the reference implementations do not have. Both halves, togeth
 
 One console, one Game Boy Player, one run.
 
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+NOT DRAINED 465 over 64 s is R's 7.266 blocks/s. Outside L2's window it is 299 over 54 s,
+5.537/s; inside, 166 over 10 s, 16.6/s. The prior restated is 6.50 blocks/s (`GBP-HW-339`).
+R was not a gate. Phase 6's closure does not rest on it.
+
 ---
 
 ### GBP-HW-338 — In every run of the live family (RUN 38–42), the AUDIO losses rise inside L2's own 10-second keep window, window seconds 20–29, and fall back after it; in RUN 42 every second inside is worse than every second outside, and in RUN 41 the two ranges meet — FACT (counts over five archived runs, recomputable); that L2's per-chunk CRC in the pump slot is the cause is a HYPOTHESIS
@@ -9724,5 +9822,125 @@ RUN 42 (game-0002)       166               299
   and R as frozen includes it.
 - **Anything about the picture's workload.** `GBP-HW-336`'s reading is corrected, and
   `U-GBP-045`'s video-workload HYPOTHESIS loses its only supporting observation.
+
+One console, one Game Boy Player, five runs.
+
+**RE-DERIVED 2026-09-24 (GitHub Issue #116), on top; nothing above is rewritten, and no verdict is re-judged.**
+- **The window is now LOCATED in the traces, not only inferred from the code**
+  (`GBP-HW-339`).
+  - RUN 39 and RUN 40 each kept exactly 320 `process` steps, one per AI cycle, over cycles
+    625–944, from 20.139 s to 30.098 s after C's origin.
+  - Each is about 58 µs (2 334 / 2 343 ticks median). That is longer than a production step of
+    either arm (medians about 1 024 and 1 990 ticks).
+  - The keep's per-push store adds 4–9 ticks to a production step's median in RUN 40. The window
+    therefore holds two instrument operations, and only the CRC is visible as a step.
+  - That the CRC is the cause stays a HYPOTHESIS.
+- **The rates, per second:**
+
+  ```text
+               whole 64 s          outside 54 s        inside 10 s     inside / outside rate
+  RUN 38   1 626 = 25.41/s     1 323 = 24.50/s     303 = 30.3/s    1.24
+  RUN 39   1 783 = 27.86/s     1 471 = 27.24/s     312 = 31.2/s    1.15
+  RUN 40   1 217 = 19.02/s       963 = 17.83/s     254 = 25.4/s    1.42
+  RUN 41     483 =  7.547/s      320 =  5.926/s    163 = 16.3/s    2.75
+  RUN 42     465 =  7.266/s      299 =  5.537/s    166 = 16.6/s    3.00
+  ```
+- **The window's cost is not proportional to the runtime's own losses.** In RUN 40 it
+  multiplied the half arm's loss gaps per cycle by 2.74 and the full arm's by 1.07. So a better
+  runtime carries a larger share of instrument in any whole-window figure. Ordered by the outside
+  rate (RUN 39, 38, 40, 41, 42), the last column rises at every step: 1.15, 1.24, 1.42, 2.75,
+  3.00.
+- The CRC's last step ends about 0.1 s into second 30. Dropping that second from "outside"
+  moves no figure by more than 0.05 blocks/s.
+
+---
+
+### GBP-HW-339 — The live family's AUDIO loss rates without L2's window (RUN 38–42): every published rate carried the instrument, the window's cost is not proportional, and RUN 40's balanced arms did not cancel it — the half/full ratio is 0.270 outside the window (90 % CI 0.235–0.308) against the published 0.341 — FACT (recomputable counts, and the frozen rules' arithmetic on subsets of five archived runs); that the kept `process` steps ARE L2's CRC is CORROBORATED; no status of an earlier entry moves
+
+GitHub Issue #116. `tools/u045window.py` is DESCRIPTIVE. It reads the versioned fixtures through
+the frozen rules:
+- `v22report`'s coverage;
+- `v23report` and `v24report`;
+- `v23accept`'s `audio_losses` and `question_P`;
+- `u045arms`'s cycle-to-arm rule;
+- `v24accept`'s QUESTION S arithmetic, reimplemented only so that it runs on a subset.
+
+`tests/host/test_u045_window.py` first reproduces every published figure. That includes
+`v24accept.question_S`'s own ratio, CI and p, exactly. Then it pins the restated ones.
+
+**The instrument's footprint, measured.**
+- Both traces keep only the steps longer than a 200-tick floor. Of 239 189 (RUN 39) and
+  237 493 (RUN 40) `process` calls, exactly 320 were kept in each:
+  - one per AI cycle, over cycles 625–944;
+  - from 20.139 s to 30.098 s after C's origin;
+  - each about 58 µs (2 334 / 2 343 ticks median).
+- 320 is `GBP_APLAY_L2_CHUNKS`. In RUN 40 the arm tags name chunk 626 as the first started after
+  the arming, and chunk *s* is handed at callback *s* − 1, so cycles 625–944 are exactly the
+  hand-off cycles of the kept chunks.
+- In RUN 40, the keep's per-push store lengthens a production step's median by 4–9 ticks.
+- "Inside" below means the cycles from the arming (cycle 620) to the last CRC step (cycle 944).
+  The untraced runs allow only C's whole seconds 20–29.
+
+**Per whole second, every run** (`GBP-HW-338`'s counts, now as rates):
+
+```text
+           whole 64 s          outside 54 s        inside 10 s     outside, second 30 dropped (53 s)
+RUN 38   1 626 = 25.41/s     1 323 = 24.50/s     303 = 30.3/s    1 298 = 24.49/s
+RUN 39   1 783 = 27.86/s     1 471 = 27.24/s     312 = 31.2/s    1 446 = 27.28/s
+RUN 40   1 217 = 19.02/s       963 = 17.83/s     254 = 25.4/s      947 = 17.87/s
+RUN 41     483 =  7.547/s      320 =  5.926/s    163 = 16.3/s      312 =  5.887/s
+RUN 42     465 =  7.266/s      299 =  5.537/s    166 = 16.6/s      293 =  5.528/s
+```
+
+**RUN 40 by arm and by the window:**
+
+```text
+                 half: cycles  gaps  per cycle  blocks/s    full: cycles  gaps  per cycle  blocks/s   ratio   90 % CI
+all (published)        1 015   257   0.2532     8.39              1 014   752   0.7416     29.79      0.341   0.306-0.379
+outside                  853   169   0.1981     6.50                851   624   0.7333     29.28      0.270   0.235-0.308
+inside                   162    88   0.5432    18.39                163   128   0.7853     32.42      0.692   0.584-0.819
+CRC cycles only          160 / 160                                                                   0.693 inside, 0.270 outside
+C's seconds 20-29        160 / 160                                                                   0.685 inside, 0.272 outside
+```
+
+Blocks/s is Sum k over the arm's cycle time. That is the rule of R's prior, whose count-deficit
+companion 9.23 becomes 7.51 outside.
+
+**The five questions of #116:**
+- **(a) R, every run:** the table above. R's prior, RUN 40's half arm, is 8.39 over all its cycles
+  and **6.50** outside the window. RUN 41's and RUN 42's R are 7.547 and 7.266 whole, **5.926** and
+  **5.537** outside. Both sides fall, and no R verdict is re-judged.
+- **(b) `GBP-HW-332`:** the arms are balanced inside the window (162 against 163), and balance
+  did NOT cancel it. The window multiplied the half arm's gaps per cycle by 2.74 and the full
+  arm's by 1.07, so it diluted the ratio.
+  - The ratio is **0.270** outside the window, against the published 0.341: a reduction of
+    69–77 % against 62–69 %.
+  - The verdict CAUSE stands (p < 1/20 000 outside).
+- **(c) `U-GBP-045`'s residue:** the half arm's 0.2532 gaps per cycle is **0.1981** outside the
+  window (169 of 853 cycles). It shrinks and stands. `produce` 153, `neither` 16.
+- **(d) The rest:**
+  - `GBP-HW-317` does not move: its images, `play-0001` and `stream-0016`, carry no L2, and the
+    signature lies in frames 0–197.
+  - **`GBP-HW-327`'s AUDIO statistics were all measured inside the window**, read from L2's kept
+    stream. Outside the window the traces keep the cadence: 90 % (RUN 39) and 86 % (RUN 40) of the
+    losses lie in the first tenth of the AI cycle, and `P` names `produce` (1 057 of 1 198;
+    711 of 795).
+  - `GBP-HW-333`'s 6 `process` losses are all inside, all in half-arm cycles.
+  - The observer gates hold either way (19.02 → 17.83; 27.86 → 27.24).
+  - **VIDEO** rates integrate over the window too: V's reference, RUN 40's 44 frames, and 13 of
+    RUN 42's 17 in AI seconds 18–31. That is named here and not derived.
+- **(e) The 8-push adoption's measured benefit is LARGER than published:**
+  - within RUN 40, gaps per cycle 0.341 → **0.270** (66 % → 73 % fewer);
+  - blocks lost per second, half over full, 8.39 / 29.79 = 0.282 → **6.50 / 29.28 = 0.222**
+    (72 % → 78 % fewer).
+  - Across runs, as CONTEXT only (other images and workloads, §V25.7): the 8-push RUN 41/42 lose
+    0.26–0.30 of the 16-push RUN 38/39's rate whole-window, and **0.20–0.24** outside the window.
+
+**What it does NOT establish.**
+- **Why the window's cost falls on the half arm.** It is measured, not explained, and no new
+  hypothesis is offered here.
+- That the CRC causes the rise stays a HYPOTHESIS (`GBP-HW-338`).
+- No earlier status moves: a recomputed number restates a claim; it does not upgrade it.
+- Between-run variation is unknown.
 
 One console, one Game Boy Player, five runs.
