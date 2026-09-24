@@ -189,13 +189,16 @@ class GroundedInRealArtifacts(unittest.TestCase):
         (2026-09-23) makes it FIVE: Phase 6's acceptance image is built from the
         drain image and keeps the same presentation work. Issue #101 (2026-09-24) makes it SIX:
         Run A's image is live-0001 with the recorder, presentation unchanged. Issue #105 makes it
-        SEVEN: Run B's image is trace-0001 with production split, presentation unchanged."""
+        SEVEN: Run B's image is trace-0001 with production split, presentation unchanged. Issue #110
+        makes it EIGHT: the real-cartridge image is live-0001 with §V25's changes, and it hands the
+        presented frame to the VI again from the press until the window closes."""
         hits = []
         for root, _dirs, files in os.walk(os.path.join(ROOT, "poc")):
             for fn in files:
                 if fn.endswith((".c", ".h")) and "GX_Init" in read(os.path.join(root, fn)):
                     hits.append(os.path.relpath(os.path.join(root, fn), ROOT))
         self.assertEqual(sorted(hits), ["poc/gbp-audio-drain-probe/source/main.c",
+                                        "poc/gbp-audio-game/source/main.c",
                                         "poc/gbp-audio-live/source/main.c",
                                         "poc/gbp-audio-split/source/main.c",
                                         "poc/gbp-audio-trace/source/main.c",
