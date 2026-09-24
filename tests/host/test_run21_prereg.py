@@ -567,6 +567,11 @@ class NothingFrozenMoved(unittest.TestCase):
         # the rows carried the references' usage only while the Keypad rows beside them carried their
         # hardware history, so they understated 36 runs. Statuses were COPIED from EVIDENCE, none changed.
         changed = changed - {"docs/hardware/GBS-DOL.md", "docs/hardware/ARCHITECTURE.md"}
+        # Issue #95 (2026-09-24) promoted Phase 6 into docs/protocol/AUDIO.md (new), indexed it in README.md,
+        # and corrected the stale audio rows its reconciliation sweep found (REGISTERS.md, INITIALIZATION.md,
+        # ARCHITECTURE.md, GBS-DOL.md) as wording that cites EVIDENCE. Documentation only; no status moved.
+        changed = changed - {"docs/protocol/AUDIO.md", "docs/protocol/README.md", "docs/protocol/INITIALIZATION.md",
+                             "docs/protocol/REGISTERS.md", "docs/hardware/ARCHITECTURE.md", "docs/hardware/GBS-DOL.md"}
         self.assertEqual(" ".join(sorted(changed)).strip(), "", "changed against the base: " + " ".join(sorted(changed)))
 
     def test_no_evidence_id_was_minted_and_the_records_agree(self):

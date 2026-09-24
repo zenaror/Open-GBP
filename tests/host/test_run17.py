@@ -898,6 +898,11 @@ class TheDocumentsAndTheFreeze(unittest.TestCase):
         for line in sorted(changed2):
             self.assertRegex(line, r"-run1[678]-", "only the RUN 16 / 17 / 18 fixtures were added: " + line)
         changed3 = guards.changed_since(BASE_COMMIT, ["docs/protocol", "docs/hardware"])   # Issue #29: tracked AND untracked, one implementation
+        # Issue #95 (2026-09-24) promoted Phase 6 into docs/protocol/AUDIO.md (new), indexed it in README.md,
+        # and corrected the stale audio rows its reconciliation sweep found (REGISTERS.md, INITIALIZATION.md,
+        # ARCHITECTURE.md, GBS-DOL.md) as wording that cites EVIDENCE. Documentation only; no status moved.
+        changed3 = changed3 - {"docs/protocol/AUDIO.md", "docs/protocol/README.md", "docs/protocol/INITIALIZATION.md",
+                               "docs/protocol/REGISTERS.md", "docs/hardware/ARCHITECTURE.md", "docs/hardware/GBS-DOL.md"}
         self.assertTrue(changed3 <= {"docs/protocol/INPUT.md", "docs/protocol/REGISTERS.md", "docs/protocol/INITIALIZATION.md",
                                                   "docs/hardware/GBS-DOL.md", "docs/hardware/ARCHITECTURE.md"}, " ".join(sorted(changed3)))
 
