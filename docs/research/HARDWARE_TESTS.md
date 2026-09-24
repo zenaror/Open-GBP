@@ -36012,6 +36012,18 @@ R's prior     RUN 40's half arm: 8.39 over all its cycles -> 6.50 outside the wi
 - **§V25.2 and §V25.8, where the prior and its band were frozen, are not edited:** they are
   frozen text. This note is where the restatement lives.
 
+#### V25.12.10 CORRECTED 2026-09-24 (GitHub Issue #118), on top — the fidelity note's scope, and what `L2 PASS` means
+
+*Appended; nothing above is rewritten, and no verdict is re-judged.* The verdict text above carries the
+frozen tool's note *"the chain carries nothing above ~2 kHz (4096 samples/s)"*. That is true of **this
+project's decoder**, and this section's procedure told the Operator so in those words (*"Este
+decodificador entrega 4096 amostras por segundo"*). It is not a property of the path: for known tones,
+the archived blocks decoded by slice pairs carry the tone at 32 768/s, with up to 18.7 % of its energy
+above 2 048 Hz that the runtime's decode drops (`GBP-HW-340`, arithmetic on RUN 33/34; the Hz axis is
+conditional on `U-GBP-041`). **`L2 PASS` means the chain reproduces on the host what it produced on
+the console. It never meant the chain captures what the cartridge played.** Phase 6's gates were
+bit-exactness and stability, not fidelity.
+
 ## V26 — PHASE 6's ACCEPTANCE, SECOND ATTEMPT: the start-up clause rebuilt on the evidence, plus the one record that locates the frame — **PRE-REGISTERED 2026-09-24 (GitHub Issue #113); NOT RUN, NOT AUTHORISED HERE; the image is built under this Issue and staged by a separate Hardware Issue**
 
 This part has three layers:
@@ -36804,3 +36816,15 @@ R's prior     8.39 -> 6.50 outside the window; 9.23 -> 7.51 (§V25.12.9)
 
 - R was not a gate, and **Phase 6's closure does not rest on it**.
 - §V26.11.6 gave the whole and the outside counts; this adds the rates and the prior restated.
+
+#### V26.11.9 CORRECTED 2026-09-24 (GitHub Issue #118), on top — the fidelity note's scope, and what `L2 PASS` means
+
+*Appended; nothing above is rewritten, and no verdict is re-judged.* The verdict text above carries the
+frozen tool's note *"the chain carries nothing above ~2 kHz (4096 samples/s)"*. That is true of **this
+project's decoder**, and this section's procedure told the Operator so in those words (*"Este
+decodificador entrega 4096 amostras por segundo"*). It is not a property of the path: for known tones,
+the archived blocks decoded by slice pairs carry the tone at 32 768/s, with up to 18.7 % of its energy
+above 2 048 Hz that the runtime's decode drops (`GBP-HW-340`, arithmetic on RUN 33/34; the Hz axis is
+conditional on `U-GBP-041`). **`L2 PASS` means the chain reproduces on the host what it produced on
+the console. It never meant the chain captures what the cartridge played.** Phase 6's gates were
+bit-exactness and stability, not fidelity.

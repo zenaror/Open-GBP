@@ -9944,3 +9944,121 @@ companion 9.23 becomes 7.51 outside.
 - Between-run variation is unknown.
 
 One console, one Game Boy Player, five runs.
+
+---
+
+### GBP-HW-340 — For RUN 33's and RUN 34's known square-wave tones, decoding the archived blocks by slice PAIRS gives the tone sampled at 32 768/s: correlation ≥ 0.99998 with the ideal square, the same odd harmonics to 0.0003 up to the 127th, and the same 2.5–18.7 % of the tone's energy above 2 048 Hz — energy the runtime's one-value-per-block decode cannot carry at all — FACT (arithmetic on the archive, recomputable); the Hz axis is conditional on uniform slices (`U-GBP-041`, a HYPOTHESIS); `GBP-HW-315` is not extended; no game's blocks exist in the archive
+
+GitHub Issue #118. `tools/u012slices.py` is DESCRIPTIVE. It reads the versioned RUN 33 / RUN 34
+raw captures through `tools/awinparse.py`, `tools/v18block.py`'s slice counts, `tools/v11sweep.py`'s
+schedule and onset, and `tools/v17pred.py`'s frozen periods. `tests/host/test_u012_slices.py` proves
+the method on constructions first, then pins every figure below.
+
+**What the archive holds.** Whole raw AUDIO blocks exist for RUN 30–35 only (OGBPAW1, 1 280 blocks
+a run), all stimulus-ROM tones; RUN 33 and RUN 34 are versioned. The live family (RUN 38–42, the
+game) kept one decoded value per block: the L2 file holds decoded int16 samples, the traces one
+`decoded` value per block, the logs counts. **A game's slices were never stored, and none is
+reconstructed.**
+
+**Three decodes of the same bytes**, over each press window's sliced region (blocks 96–255: 160
+blocks, a whole number of periods, so every harmonic falls on a DFT bin):
+- `block`: the runtime's, the block's one-bit count, 4 096/s;
+- `pair`: one value per two 256-byte slices, 32 768/s nominal, `GBP-HW-315`'s grid, on which every
+  transition falls;
+- `slice`: one value per slice, 65 536/s nominal.
+
+**The reference** is the programmed tone: a 50 % square of the period `v17pred` froze for the
+window, sampled at the decode's rate. Its phase is the one free parameter, fitted by correlation.
+
+```text
+                       energy above 2 048 Hz                  pair decode against the ideal square
+window     P   f0 Hz   pair    ideal   slice   ideal          corr      harmonics   largest |dev|
+RUN 33 w1  32    128   0.0250  0.0250  0.0252  0.0252         1.00000   3..127      0.0000
+RUN 33 w2   8    512   0.0981  0.0981  0.0990  0.0990         1.00000   3..31       0.0000
+RUN 33 w3  16    256   0.0498  0.0497  0.0502  0.0502         1.00000   3..63       0.0000
+RUN 33 w4   4  1 024   0.1868  0.1868  0.1888  0.1888         1.00000   3..15       0.0000
+RUN 34 w1  32    128   0.0250  0.0250  0.0252  0.0252         1.00000   3..127      0.0001
+RUN 34 w2  32    128   0.0250  0.0250  0.0252  0.0252         1.00000   3..127      0.0001
+RUN 34 w3  32    128   0.0250  0.0250  0.0252  0.0252         1.00000   3..127      0.0002
+RUN 34 w4  32    128   0.0249  0.0250  0.0252  0.0252         0.99999   3..127      0.0003
+controls   the pair decode's s.d. is 0.108 bits (RUN 33) and 0.362 bits (RUN 34): the noise floor
+```
+
+The block decode has no column: its Nyquist IS the cut, so "above 2 048 Hz" is 0 by identity, not by
+measurement.
+
+**What it establishes.**
+- **FACT, arithmetic:** the block decode's Nyquist is 2 048 Hz, so the 2.5 % (128 Hz), 5.0 % (256),
+  9.8 % (512) and 18.7 % (1 024) of each tone's energy that lies above it, exactly the odd-harmonic
+  series above the cut, cannot be in it. **Nor is it removed cleanly.** The runtime's value is a
+  boxcar over eight pair values then a decimation by eight with no anti-alias stage, so the
+  harmonics above the cut are attenuated and folded onto in-band bins, and the in-band ratios move
+  with where the edge falls in the block:
+  - at 512 Hz the block decode's |H3|/|H1| is 0.263 against the pair decode's 0.334;
+  - at 256 Hz its |H7|/|H1| is 0.063 against 0.144;
+  - at 128 Hz its |H15|/|H1| is 0.010 in RUN 33 w1 and 0.074 in RUN 34 w1, against 0.067.
+- **FACT, arithmetic:** the pair decode is the programmed square at 32 768/s nominal: the same
+  energy above 2 048 Hz within 0.0001, the same harmonic amplitudes within 0.0003, correlation
+  0.99998 or better.
+- **FACT, arithmetic:** the slice decode adds nothing beyond the pair grid for these signals. Every
+  transition is on an even slice (`GBP-HW-315`), so the slice decode is the pair decode held.
+- **So, for these signals, the bytes carry at least 8× the bandwidth the runtime decodes**, on the
+  pair grid, and 16× if the slices are read singly. How much of that a game uses is not in the
+  archive.
+
+**What it does NOT establish.**
+- **The Hz axis of the pair and slice decodes assumes uniform slices** (`U-GBP-041`). Without it,
+  "32 768/s" is a count of values, not a rate. GBATEK's SOUNDBIAS default, "9bit / 32.768kHz"
+  (`external/gbatek` `64b5087a`, gba.md "4000088h - SOUNDBIAS"), is consistent with the two-slice
+  grid under that assumption. Consistency is not a test of it, and the HYPOTHESIS stands.
+- **A game's audio.** No raw block of any game exists. A game may also set SOUNDBIAS to 65.536 kHz
+  or above, which, under uniform slices, would put transitions on odd slices or inside one, so a
+  runtime decode should keep all sixteen slices, not eight pairs, until a game's blocks have been
+  read.
+- **The transfer function** from the AGB's output to a slice's count (`U-GBP-012`'s physical half).
+- **Anything about `GBP-HW-315`'s status.** A re-reading of the same bytes is arithmetic, not new
+  evidence about hardware.
+
+**The correction #118 asked for, placed where a reader meets it.**
+- "The chain carries nothing above ~2 kHz (4 096 samples/s)" is true of **this project's decoder**,
+  and the record said so: the frozen procedure told the Operator *"Este decodificador entrega 4096
+  amostras por segundo"* (§V25.9, §V26.9), and `U-GBP-012`'s #110 lead named the test he has now
+  run. It is not a property of the path.
+- **`L2 PASS` means the chain reproduces on the host what it produced on the console. It never
+  meant the chain captures what the cartridge played.** Phase 6 closed on bit-exactness and
+  stability, not on fidelity, and it is not reopened.
+- **OPERATOR OBSERVATION**, verbatim as transcribed by the Orchestrator in #118's body (raw sha256
+  `bf31d679…85046c`, printed `d8f41214…ade2aa9`, §V26.8's conventions): *"acabei de testar neles e
+  realmente la nao tem atraso de audio (alem de nao sair abafado)"*. Under the Start-up Disc and
+  GBI, on the same cartridge and hardware (the Issue's framing): no delay, and not muffled. "Not
+  muffled" is the negation of the #110 lead's "muffled"; as that lead says, it argues for a
+  raw-block capture of a game and decides nothing here.
+
+**What a slice decode would cost — arithmetic in today's units, nothing measured**
+(`src/audio/gbp_aplay.h`):
+
+```text
+                              block (today)   pair         slice
+decoded samples per second    4 096           32 768       65 536
+the ring, 1 s                 4 096           32 768       65 536      int16: 8 KiB / 64 KiB / 128 KiB
+TARGET at 0.5 s               2 048           16 384       32 768      why #117's levels are frozen in time
+pushes per 1 000-frame chunk  128             1 024        2 048
+one correction per chunk      7.82 ms/s       0.98 ms/s    0.49 ms/s   of slew, at the 32.028 chunks/s ceiling
+```
+
+The need, from the record: the AI takes 32 028.483 frames/s (`GBP-HW-325`), i.e. 4 099.65 decoded
+samples/s through 125/16, and the drain supplies 4 096 minus its losses. RUN 38 drained 4 070.59/s,
+so it needed 29.05 samples/s of DUP = 7.09 ms/s, and 30.703/s = 7.50 ms/s was observed
+(`GBP-HW-325`): 96 % of the 32.028/s ceiling. RUN 42 drained 4 088.73/s: 10.91/s = 2.66 ms/s.
+
+- The drain's work per block is the same popcount over the same 4 096 bytes, with sixteen
+  accumulators instead of one.
+- The resampler turns from 4 096 → 32 000 (× 125/16, an upsampler) into 32 768 → 32 000
+  (× 125/128, a downsampler with an anti-alias design). Its work is per output frame and does not
+  change; each push then yields about one frame instead of eight, so the per-call stretch
+  (`GBP-HW-332`) is set by frames per call, and 64-push calls would do today's 8-push calls' work.
+- **The correction unit does not survive unchanged.** One sample per chunk is 0.98 ms/s of slew at
+  the pair rate, below RUN 42's 2.66 ms/s, let alone RUN 38's 7.09. A design consequence for
+  `U-GBP-045` and #117, not a result.
+
+One archive, two runs, arithmetic.

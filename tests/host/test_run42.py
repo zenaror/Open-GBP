@@ -257,8 +257,9 @@ class TheRecord(unittest.TestCase):
 
     def test_the_sections_in_order(self):
         t = self.v2611()
-        heads = re.findall(r"^#### V26\.11\.(\d) ", t, re.M)
-        self.assertEqual(heads, [str(i) for i in range(9)])     # .8 appended on top by Issue #116
+        heads = re.findall(r"^#### V26\.11\.(\d+) ", t, re.M)
+        self.assertEqual(heads[:8], [str(i) for i in range(8)])
+        self.assertEqual(heads, [str(i) for i in range(len(heads))])   # later Issues append on top, in order
 
     def test_the_printed_block_is_the_frozen_tools_output_byte_for_byte(self):
         sec = between(self.v2611(), "#### V26.11.3", "**V in its own terms.**")
