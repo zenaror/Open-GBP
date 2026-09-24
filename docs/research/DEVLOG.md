@@ -16208,3 +16208,50 @@ real game judged by ear. Also reported:
 **Next.** One re-run with one added record: each before-AI incomplete frame's
 `t_last_block`, written after the session. The next clause is built on what that shows, not
 on 13. The start-up figure is 13, plus possibly one at the press.
+
+## 2026-09-24 — Issue #113: §V26 pre-registered — the start-up clause rebuilt on the evidence, and `game-0002` built (NOT staged, NOT run)
+
+**The goal.** Phase 6's second attempt. It keeps RUN 41's three held gates and rebuilds the one
+clause that failed, because the clause itself was wrong.
+
+**The premise checks, before transcription.**
+- **The Orchestrator's window for "at the A press" was wrong in kind:** ±31.222 ms, one AI chunk
+  period, when no chunk cycle exists yet at the press.
+- **Measured on RUN 39's trace,** the press frame is the frame IN FLIGHT when the press was read:
+  −3.682 ≤ 0 < +13.163 ms. It has 39 blocks, and its one missing block straddles `t_press`.
+- **The window would have admitted four frames.** The decision text says three; §V26.8 records
+  the correction without editing it.
+- **A `t_last_block`-only rule defeats itself.** A stall that drops a frame's tail puts that
+  frame's `t_last_block` before the press.
+- **The count-only (a)/(b) masked** 12 + press + 1 elsewhere, and 12 + press.
+
+**The decided clause.** P is the before-AI incomplete frame in flight at the press
+(`t_first <= t_press < next t_first`), and Q is the rest. The clause holds iff:
+- |Q| = 13;
+- every Q index is <= the log's own last start-up episode close frame (197 in RUN 39–41);
+- no frame lies after the AI (s1, the after-AI half the rewrite had dropped).
+
+An early press inside the start-up span is INCONCLUSIVE (s4). The Operator is told why.
+
+**Changes.**
+- `f874cc6`: §V26 verbatim, with the decisions, readings and confirmation. The four sources are
+  hashed in two forms, with the conventions in words (raw; printed, +`\n`; and an uncited
+  shell-stripped third). `tools/v26accept.py` is `v25accept` with one function replaced;
+  `test_v26accept.py` is synthetic, and `test_v26_prior.py` covers RUN 39–41. Pinned at
+  `0967c36`.
+- `dc13f37`: `poc/gbp-audio-game2`, game-0002 (GBP-AUDIO-011) = game-0001 plus the LIVEVBEF
+  record; `tools/v26report.py`; game2-audit and game2-dolphin; `test_game2_image.py`. Pinned at
+  `43793ed`.
+- §V26.9: the image as built and the Operator's procedure. The slot is `21-game2`, not
+  `21-game`: the manifest refuses a repeated short name.
+
+**Tests executed.**
+- `make test-python` before each substantive commit: the last full run gave 2 835 passed and 7
+  skipped. The frozen-pin files were run before each pin.
+- `game2-audit`: 0 findings, one-shot handlers identical.
+- `game2-dolphin`: PASS.
+- The candidate is reproduced from an empty output directory byte for byte: **ba8ab595…12fa,
+  519 360 B, dc13f37**.
+
+**Next.** The Hardware Issue and the staging are the Orchestrator's. EVIDENCE gets nothing until
+the run.
