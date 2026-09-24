@@ -15847,3 +15847,55 @@ floor, the ISR window's ends, and where each record lives.
   `INDEX.txt` were written. Every file was re-read with `O_DIRECT` before and after:
   - 01–17 and `aout/run33-audio.bin` are byte-identical to before;
   - there is no `GBP-AUDIO-008*` file anywhere on the card.
+
+## 2026-09-24 — Issue #103: RUN 39 ingested — the observer gate held, `P` names `produce`, `K` NOT COINCIDENT at one AUDIO block, the floor rule unresolved
+
+**Goal.** Ingest Run A (`trace-0001`, GBP-AUDIO-008, Hardware Issue #102) in #103's
+order: the recount first, then the observer gate, `P`, `K` and §V23.12's floor rule,
+each in the frozen tool's own words.
+
+**Archive and seal.**
+- The three raws (log, L2, trace) were archived run-suffixed with `cmp`. They had been
+  moved off the card, so `logs/run39` was the only copy until then.
+- The three frozen tools ran unedited. Their five outputs were sealed by hash before
+  either session read a verdict, and opened only after #103 was written.
+  `tests/host/test_run39.py` reproduces all five to their hashes.
+- The live Gecko capture recorded zero bytes: two channels, not three.
+  `tools/geckorx.py` cannot report a hangup (a zero-length read loops; EIO exits 0).
+  That is a mechanism the tool cannot see, not the established cause. A fix follows
+  this Issue.
+
+**What the frozen gates say.**
+- **Observer gate — HOLDS.** 27.86 undrained blocks/s against 31.8, and 74 incomplete
+  frames in the window against 86. The recorder's self-cost is a mean of 2 433 ticks per
+  AI cycle (0.19 %), at most ~0.32 % counting the clock reads no interval times. `P`
+  credits the recorder with 0 gaps.
+- **`P` names `produce`**, for 1 279 of 1 453 loss gaps. So by §V23.8 (n) Run B is
+  designed from this run, by the Orchestrator.
+- **`K`: NOT COINCIDENT.** 2 of 75 VIDEO gaps lie within one AUDIO block; phase-preserving
+  p = 0.986.
+- **§V23.12's floor rule: "the floor may account for it, unresolved at this resolution".**
+  No side is taken.
+- **(f).** 14 incomplete frames fall before the AI (13 are `GBP-HW-317`'s start-up
+  signature, 1 falls at the A press), 74 inside its span, none after.
+
+**What the data added beyond the gates** (descriptive, after the seal; decides nothing):
+- Losses and production steps both sit in the first tenth of the AI cycle.
+- In that phase, a long gap holds a production step whether or not a block was lost
+  (96.9 % against 95.9 %). The naming therefore cannot tell production delaying the
+  drain from a long interval holding more pump passes.
+- `K`'s frozen window (one AUDIO block) is narrower than the VIDEO channel's own step
+  (1.13 T), and 19 of 75 distances lie one VIDEO step away. One event at the VIDEO
+  resolution is not decided.
+- Both limitations are recorded, not repaired.
+
+**Records.**
+- EVIDENCE: `GBP-HW-328` to `331`.
+- UNKNOWNS: `U-GBP-045` rescoped on top.
+- `HARDWARE_TESTS.md` §V23.13.
+- The fixtures are versioned, and the recount is commit 1.
+
+**Next highest-value experiment:** Run B, chosen by `P`'s answer and pre-registered by the
+Orchestrator. It needs per-step records without a floor inside a bounded sample of gaps,
+and a way to tell a step that delays the next completion from one that merely falls
+inside a long interval. The `geckorx.py` hangup fix is dispatched separately.
