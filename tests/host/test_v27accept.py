@@ -16,6 +16,8 @@ import frozen  # noqa: E402
 import v27accept as v  # noqa: E402
 
 KEY = "Issue #117 -- §V27 transcribed, the latency round's gates frozen"
+# the gate's bytes since §V27.14 (Phase 3 re-frozen before any data); §V27.0-§V27.12's text stays at KEY
+TOOL_KEY = "Issue #117 -- §V27.14 applied"
 HT = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 
 TB = 40500000                               # the 40.5 MHz timebase: ticks per second
@@ -398,7 +400,7 @@ class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
             return f.read()
 
     def test_the_tool_is_byte_identical_to_its_freeze(self):
-        then = frozen.source(KEY, "tools/v27accept.py")
+        then = frozen.source(TOOL_KEY, "tools/v27accept.py")
         then = then.decode("utf-8") if isinstance(then, bytes) else then
         self.assertEqual(then, self.read(os.path.join(ROOT, "tools", "v27accept.py")))
 

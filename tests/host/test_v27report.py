@@ -13,6 +13,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import v27accept  # noqa: E402
 import v27report as r  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import frozen  # noqa: E402
 
 SEED = 0x9E3779B9
 
@@ -331,6 +333,17 @@ class TheBuilder(unittest.TestCase):
             with open(os.path.join(d, "r.json")) as f:
                 self.assertEqual(json.load(f)["end"]["secs"], 50)
 
+
+
+class TheBuilderIsNotEditedAfterTheImage(unittest.TestCase):
+    """Frozen with the image, before any run: the builder is byte-identical to its commit."""
+    KEY = "Issue #117 -- v27report, the latency round's SD log"
+
+    def test_the_tool_is_byte_identical_to_its_freeze(self):
+        then = frozen.source(self.KEY, "tools/v27report.py")
+        then = then.decode("utf-8") if isinstance(then, bytes) else then
+        with open(os.path.join(ROOT, "tools", "v27report.py"), encoding="utf-8") as f:
+            self.assertEqual(then, f.read())
 
 if __name__ == "__main__":
     unittest.main()
