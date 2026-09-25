@@ -2,9 +2,11 @@
 fills, what fills it and what session a store permits. DESCRIPTIVE; a capacity fact, never a gate.
 
 On constructions: a log whose events come one per frame reads one per frame and 59.727 Hz worth of seconds per
-record; a log without its records is refused, not guessed. From the SOURCE: the episode path emits one event per
-frame while an episode is open (the claim the tool's docstring makes of src/gbp/gbp_vstate.c is checked against the
-file). Then the versioned runs are pinned: RUN 43 (sync-0001, the run the store stopped), RUN 42 and RUN 41 (the same
+record; a log without its records is refused, not guessed; the lower bound on the frames inside an episode counts the
+target, tail and safety records unless the log rules them out, and gives no bound once the frame store has filled.
+From the SOURCE: while an episode is open the episode path emits one event per CLEAN closed frame, and an unclean frame
+inside an episode (close_frame's `else if (s->episode_open)` branch) lengthens it and appends no episode event unless
+it caps it (the claim the tool's docstring makes of src/gbp/gbp_vstate.c is checked against the file). Then the versioned runs are pinned: RUN 43 (sync-0001, the run the store stopped), RUN 42 and RUN 41 (the same
 cartridge, 64 s windows); RUN 21 and RUN 22 (play-0001, GBP-HW-282) from the local archive when it is present.
 """
 import os
@@ -55,6 +57,36 @@ class OnConstructions(unittest.TestCase):
         self.assertAlmostEqual(r["permits_s"]["one_per_frame"], 16384 / 59.727, places=6)
         self.assertAlmostEqual(r["permits_s"]["episode_ceiling"], 16384 / (5.0 / 3.0 * 59.727), places=6)
         self.assertEqual(r["permits_s"]["design_assumed"], 4096.0)
+
+    def bound_log(self, envplay=True, stop="event_store_cap", store_full=0, n=100, episodes=10, stable=5):
+        head = ["000010 EV seq=%d t=%x type=%s f=%d ep=00000000 a=0 b=0 c=0 d=0" % (i + 1, 1000 + i, t, i)
+                for i, t in enumerate(["capture_start", "baseline_candidate", "baseline_valid"])]
+        lines = ["000001 CLOCKS tb_hz=40500000 epoch=0 capture_start=3e8 stop=0",
+                 "000002 CLOCKSEC capture_s=10.000",
+                 "000003 FRAMECAP frames=600 complete=600 incomplete=2 resync=4 anomaly_frame=0 anomaly_region=1 "
+                 "pre_boundary=50 store_full=%d" % store_full,
+                 "000004 STRUCTURED status=observed episodes=%d stable=%d unstable=%d not_preserved=1"
+                 % (episodes, stable, episodes - stable),
+                 "000005 PREDICATES boundaries_disc=0 boundaries_gbi=0 disagreements=0"]
+        if envplay:
+            lines.append("000006 ENVPLAY time_target=disabled safety_s=120")
+        if stop:
+            lines.append("000007 TEARDOWNVSTATE variant=S5 stop=%s" % stop)
+        return "\n".join(lines + head + ["000099 EVENTS n=%d shown=3 dropped=0 store_full=0 seq_last=%d" % (n, n)]) + "\n"
+
+    def test_the_episode_bound_counts_what_the_log_does_not_rule_out(self):
+        # other = capture start 1 + baseline 2 + incomplete 2 + pre-boundary 50 // 48 = 1 + anomaly regions 1
+        #         + episode store full 1 + disagreements 0 + stop and teardown 3 = 11
+        r = vevents.analyse(self.bound_log())
+        self.assertEqual(r["episode_frames_at_least"]["other_at_most"], 11)
+        self.assertEqual(r["episode_frames_at_least"]["records"], 100 - 5 - 10 - 11)
+        # no ENVPLAY and a safety stop: the three target/tail records and the safety record are counted
+        r = vevents.analyse(self.bound_log(envplay=False, stop="safety_budget"))
+        self.assertEqual(r["episode_frames_at_least"]["other_at_most"], 15)
+        # a full frame store appends cap_reached per frame, unbounded: no bound at all
+        self.assertIsNone(vevents.analyse(self.bound_log(store_full=1))["episode_frames_at_least"])
+        # never negative
+        self.assertEqual(vevents.analyse(self.bound_log(n=20))["episode_frames_at_least"]["records"], 0)
 
     def test_a_log_without_its_records_is_refused(self):
         text = "\n".join(l for l in synthetic(10).splitlines() if " FRAMECAP " not in l)
@@ -116,7 +148,8 @@ class TheRuns(unittest.TestCase):
         self.assertEqual(round(r["permits_s"]["measured"], 1), 249.7)
         self.assertEqual(round(r["permits_s"]["one_per_frame"], 1), 274.3)
         self.assertEqual(round(r["permits_s"]["episode_ceiling"], 1), 164.6)
-        self.assertEqual(r["episode_frames_at_least"], {"records": 13794, "other_at_most": 69})
+        self.assertEqual(r["episode_frames_at_least"], {"records": 13794, "other_at_most": 69,
+                                                        "target_possible": False, "safety_possible": False})
 
     def test_run43_frames_inside_an_episode_without_a_record(self):
         """The printed head shows it: episode 1 ran 18 frames and holds 12 open/stabilising records, episode 2 ran 60

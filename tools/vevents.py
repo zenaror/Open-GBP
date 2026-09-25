@@ -14,12 +14,15 @@ gbp_vstate_event(); nothing is overwritten, and once the store is full each furt
     stabilising event; the episode then adds `episode_stable` when the candidate has repeated GBP_VSTATE_N_STABLE = 3
     times, and `episode_close` (stable, or capped at GBP_VSTATE_EPISODE_MAX_FRAMES = 60). An UNCLEAN frame while an
     episode is open (incomplete, a region anomaly, the frame that clears a resync) lengthens the episode
-    (close_frame's `else if (s->episode_open)` branch, `ep->frames++`) and appends NO event unless it caps the
-    episode. So a picture that keeps changing emits about ONE EVENT PER CLEAN FRAME, not one per episode; the
+    (close_frame's `else if (s->episode_open)` branch, `ep->frames++`) and appends NO EPISODE event unless it caps
+    the episode; the frame path still appends its own `incomplete_interval` or `resync` for it. So a picture that keeps changing emits about ONE EVENT PER CLEAN FRAME, not one per episode; the
     episode path's ceiling is a run of 3-frame stable episodes: open, stabilising, stabilising + stable + close =
     5 events per 3 frames. It bounds the episode path only: the one-off events and one `predicate_disagreement` per
     disagreeing block come on top.
-  * the frame path: `incomplete_interval` per incomplete frame, `resync` once per region anomaly run, `cap_reached`;
+  * the frame path: `incomplete_interval` per incomplete frame, `resync` once per region anomaly run, and
+    `cap_reached` once per frame closed after the FRAME store fills;
+  * the session's: `scientific_target`, `tail_begin` and the tail's `cap_reached` (once each, only with a time
+    target), `safety_budget` (once, only on the safety stop);
   * the block path: `predicate_disagreement`, one per disagreeing BLOCK (up to 40 a frame);
   * the probe's own: capture start, baseline, stop, teardown.
 The semantic READ disagreements (READDISAGREE*) append NO event (HARDWARE_TESTS.md, GBP-VIDEO-002-R3).
@@ -71,7 +74,8 @@ def parse(text):
                         "f": int(m.group(4)), "ep": int(m.group(5), 16)})
             continue
         m = REC.match(line)
-        if m and m.group(1) in ("EVENTS", "CLOCKS", "CLOCKSEC", "FRAMECAP", "STRUCTURED", "PREDICATES") \
+        if m and m.group(1) in ("EVENTS", "CLOCKS", "CLOCKSEC", "FRAMECAP", "STRUCTURED", "PREDICATES", "ENVPLAY",
+                                "TEARDOWNVSTATE") \
                 and m.group(1) not in recs:
             recs[m.group(1)] = kv(m.group(2))
     for tag in ("EVENTS", "CLOCKS", "CLOCKSEC", "FRAMECAP", "STRUCTURED"):
@@ -123,19 +127,28 @@ def analyse(text, cap=CAP):
     # minus UPPER bounds on every other kind: `episode_stable` <= stable, `episode_close` <= episodes, and the rest
     # <= capture start (1) + the baseline's own events (all in the head once `baseline_valid` is there) + one
     # `incomplete_interval` per incomplete frame and per 48-block interval before the first boundary + one `resync`
-    # per region anomaly + one `episode_store_full` + one per predicate disagreement + stop and teardown (3).
-    # Unclean frames inside an episode add frames and no record, so there is no upper bound here.
+    # per region anomaly + one `episode_store_full` + one per predicate disagreement + stop and teardown (3); plus
+    # `scientific_target`, `tail_begin` and the tail's `cap_reached` (3) unless ENVPLAY says time_target=disabled,
+    # and `safety_budget` (1) unless the run stopped on something else (TEARDOWNVSTATE stop=). A run whose FRAME
+    # store filled appends a `cap_reached` per later frame, unbounded here, so it gets no bound at all.
+    # Unclean frames inside an episode add frames and no episode record, so there is no upper bound here.
     ht = out["head"]["types"] if out["head"] else {}
     base = None
     if ht.get("baseline_valid"):
         base = sum(ht.get(k, 0) for k in ("baseline_candidate", "baseline_valid", "early_candidate"))
-    need = ("anomaly_region", "pre_boundary")
-    if base is None or any(k not in F for k in need) or "not_preserved" not in ST or out["disagreements"] is None:
+    need = ("anomaly_region", "pre_boundary", "store_full")
+    if base is None or any(k not in F for k in need) or "not_preserved" not in ST or out["disagreements"] is None \
+            or int(F["store_full"]) != 0:
         out["episode_frames_at_least"] = None
     else:
+        target = recs.get("ENVPLAY", {}).get("time_target") != "disabled"
+        safety = recs.get("TEARDOWNVSTATE", {}).get("stop", "safety_budget") == "safety_budget"
         other = (1 + base + out["incomplete"] + int(F["pre_boundary"]) // 48 + int(F["anomaly_region"])
-                 + (1 if int(ST["not_preserved"]) else 0) + out["disagreements"] + 3)
-        out["episode_frames_at_least"] = {"records": n - out["stable"] - out["episodes"] - other, "other_at_most": other}
+                 + (1 if int(ST["not_preserved"]) else 0) + out["disagreements"] + 3
+                 + (3 if target else 0) + (1 if safety else 0))
+        out["episode_frames_at_least"] = {"records": max(0, n - out["stable"] - out["episodes"] - other),
+                                          "other_at_most": other, "target_possible": target,
+                                          "safety_possible": safety}
     return out
 
 
