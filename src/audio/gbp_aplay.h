@@ -14,7 +14,8 @@
  * samples per GameCube second; the AI consumes 32 000 x 16/125 of them per ITS
  * second, and its second is not proven to be the timebase's. The chain keeps the
  * ring's fill near its target (GBP_APLAY_TARGET by default) with COUNTED DROP / DUPLICATE of whole decoded
- * samples, at most one per chunk, applied BETWEEN the ring and the resampler -- never
+ * samples, at most one per chunk (k, spread one per sub-block, since Issue #123:
+ * gbp_aplay_set_corrections), applied BETWEEN the ring and the resampler -- never
  * a ratio servo, which would break 125/16 and L2 with it. Every correction is one
  * discrete event at a recorded index. L (gbp_alive) reads the samples BEFORE this.
  * The band is +-16 samples, NARROW ON PURPOSE: the drift moves the fill by only
@@ -48,7 +49,8 @@
  *     (the macro stays; since #121 it is the cushion in time, see THE CUSHION, IN TIME);
  *     gbp_aplay_set_target() moves it, clamped so a
  *     chunk can always start and the ring can always hold TARGET + BAND. BAND stays a
- *     macro. The decision is still taken once, at the chunk's start, from the fill.
+ *     macro. The decision is still taken once, at the chunk's start, from the fill (with k corrections
+ *     a chunk, Issue #123: every decision in the chunk's start frame, its fill and its target).
  *   - `mute`, a count of silence chunks the CALLBACK hands next, whatever the READY
  *     queue holds: a mute hand-off leaves rq untouched, counts neither a silence nor an
  *     underrun, counts `mute_handed`, and logs -2 (a plain silence logs -1). It is one
@@ -135,6 +137,10 @@ extern "C" {
 #define GBP_APLAY_STEP_PUSHES      8u
 #define GBP_APLAY_LOG            256u    /* the hand-off log, a power of two */
 #define GBP_APLAY_L2_CHUNKS      320u    /* produced chunks in the L2 window: 320 000 frames, 10 s */
+/* Issue #123, knowingly unchanged: KEEP_CAP is sized for one DROP a chunk. With k corrections a chunk
+ * (gbp_aplay_set_corrections) a surplus held above one DROP a chunk over the whole window, or more than
+ * EVENTS_CAP corrections in it, marks the L2 record overflowed (take(), l2_event(): the record is then
+ * incomplete, and says so). An image that arms L2 with k > 1 sizes both for PUSHES + k and its k. */
 #define GBP_APLAY_KEEP_CAP     (GBP_APLAY_L2_CHUNKS * (GBP_APLAY_PUSHES + 1u))
 #define GBP_APLAY_EVENTS_CAP    1024u
 
@@ -147,7 +153,9 @@ extern "C" {
 #define GBP_APLAY_HL_MUTE    (-2)
 
 /* the bounds gbp_aplay_set_target() clamps to: a chunk must be able to start (PUSHES + 1
- * samples, one more for a DROP) and the ring must hold TARGET + BAND without overflowing */
+ * samples, one more for a DROP) and the ring must hold TARGET + BAND without overflowing. Issue #123:
+ * k corrections a chunk need no more -- their decisions stop DROPping at the band's upper edge, so a
+ * chunk started at PUSHES + 1 always finishes (gbp_aplay.c, the chunk-start gate) */
 #define GBP_APLAY_TARGET_MIN (GBP_APLAY_PUSHES)      /* §V27.11's floor of 128 is realisable literally */
 #define GBP_APLAY_TARGET_MAX (GBP_APLAY_RING - GBP_APLAY_BAND - 1u)
 
@@ -176,8 +184,28 @@ struct gbp_aplay {
     /* the chunk being produced */
     int      cur;                              /* buffer index, or -1 */
     uint32_t cur_frames, cur_pushes;
-    uint32_t cur_corr;                         /* 0, DUP or DROP for this chunk */
+    uint32_t cur_corr;                         /* 0, DUP or DROP pending for this chunk's current sub-block */
     uint8_t  cur_corr_done;
+    /* Issue #123: corrections per chunk. 1 after init, every build before #123: one DUP or DROP a chunk,
+     * decided at its start (#92's image choice, §V22.10; §V22.4 decides that corrections are COUNTED
+     * events, not how many). k > 1, a divisor of GBP_APLAY_PUSHES no larger than half of it, set by
+     * gbp_aplay_set_corrections() and read once at a chunk's start, SPREADS them: k equal sub-blocks of
+     * PUSHES / k pushes, at most one decision in each, at its first push when a corrected call makes it
+     * (else the sub-block is forgone). Every decision is in the chunk's start frame: the chunk-start level
+     * less the chunk's own net corrections so far (cur_s0 + cur_pushes - cur_taken) against the
+     * chunk-start target. So a chunk corrects at most as far as the band's edge, samples arriving during
+     * production are not counted as surplus, and a set_target or discard mid-chunk acts from the next
+     * chunk. Before playback (playing == 0) a chunk takes at most one. A chunk started uncorrected (a
+     * transition's) never corrects, and no sub-block of any chunk is decided in an uncorrected call: a
+     * decision against a transition's new level would put a spurious sample into the held content
+     * (gbp_atrans.c). */
+    uint32_t corr_per_chunk;
+    uint32_t cur_k;                            /* corr_per_chunk as this chunk started with it */
+    uint32_t cur_s0;                           /* the ring's count at this chunk's start */
+    uint32_t cur_target;                       /* p->target at this chunk's start */
+    uint32_t cur_sub;                          /* the first sub-block not yet decided or passed */
+    uint32_t cur_taken;                        /* samples this chunk has taken from the ring */
+    uint8_t  cur_uncorrected;                  /* the chunk was started by an uncorrected call */
     uint32_t cur_step;                         /* this chunk's pushes per call, chosen at its start */
     /* Issue #105 (Run B, HARDWARE_TESTS §V24): each chunk's step size, asked once at the chunk's
      * start with its production sequence number. NULL -- every build but Run B's -- means every
@@ -187,7 +215,8 @@ struct gbp_aplay {
     uint32_t (*step_pushes)(void *user, uint32_t seq);
     void    *step_pushes_user;
     /* Issue #117 (§V27): the fill the corrections hold. GBP_APLAY_TARGET after init; moved
-     * only by gbp_aplay_set_target(), from the pump slot. Read once per chunk, at its start. */
+     * only by gbp_aplay_set_target(), from the pump slot. Read once per chunk, at its start (latched
+     * there for every decision of the chunk since Issue #123). */
     uint32_t target;
     /* READY queue, producer -> callback */
     volatile uint8_t  rq[GBP_APLAY_POOL];
@@ -231,13 +260,19 @@ uint32_t gbp_aplay_ready(const struct gbp_aplay *p);
 
 /* Issue #117. Producer side, all three.
  * set_target: the fill the next chunks' DUP/DROP decision holds, clamped to
- *   [GBP_APLAY_TARGET_MIN, GBP_APLAY_TARGET_MAX]. The chunk being produced keeps its decision.
+ *   [GBP_APLAY_TARGET_MIN, GBP_APLAY_TARGET_MAX]. The chunk being produced keeps its decision -- all
+ *   of them, with k corrections a chunk (Issue #123).
  * mute: the callback hands `chunks` chunks of silence next (0 cancels), see THE RUNTIME TARGET
  *   AND THE MUTE. A store, nothing else.
  * discard_chunk: a chunk gbp_aplay_produce() just returned, NOT to be queued: its buffer is FREE
  *   again and `discarded_chunks` counts it. 1 when discarded; 0 when `buf` is not a completed,
  *   unqueued chunk (out of range, still filling, READY, HANDED or already FREE), and nothing changes. */
 void gbp_aplay_set_target(struct gbp_aplay *p, uint32_t target);
+/* Issue #123: up to k corrections a chunk, at most one per sub-block of GBP_APLAY_PUSHES / k pushes.
+ * k must divide GBP_APLAY_PUSHES and be at most half of it (a DUP is two pushes). It takes effect
+ * from the next chunk that starts, and only while playing. 0 on success, -1 (and nothing changed) for
+ * any other k. The default, 1, is every earlier build's. */
+int gbp_aplay_set_corrections(struct gbp_aplay *p, uint32_t k);
 void gbp_aplay_mute(struct gbp_aplay *p, uint32_t chunks);
 int  gbp_aplay_discard_chunk(struct gbp_aplay *p, int buf);
 /* produce_discard: gbp_aplay_produce() with the READY-queue limit IGNORED (the queue is HELD full

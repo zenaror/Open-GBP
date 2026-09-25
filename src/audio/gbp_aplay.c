@@ -47,7 +47,17 @@ void gbp_aplay_init(struct gbp_aplay *p, uint8_t *pool, const uint8_t *silence, 
     p->cur = -1;
     p->last_handed[0] = p->last_handed[1] = -1;
     p->target = GBP_APLAY_TARGET;                       /* Issue #117: the field's default is the macro */
+    p->corr_per_chunk = 1u;                             /* Issue #123: one a chunk, every earlier build's */
     if (!crc_ready) crc_build();
+}
+
+/* ---- Issue #123: corrections per chunk --------------------------------------------- */
+int gbp_aplay_set_corrections(struct gbp_aplay *p, uint32_t k)
+{
+    /* a DUP is two pushes, so a sub-block must hold two: k <= PUSHES / 2 */
+    if (!p || k == 0u || k > GBP_APLAY_PUSHES / 2u || GBP_APLAY_PUSHES % k != 0u) return -1;
+    p->corr_per_chunk = k;                              /* read at each chunk's start */
+    return 0;
 }
 
 /* ---- Issue #121: the cushion in time, checked where it is compiled ------------------ */
@@ -131,7 +141,11 @@ static int produce_impl(struct gbp_aplay *p, struct gbp_adec *d, int uncorrected
     if (!p || !d) return -1;
     if (p->cur < 0) {
         int i, found = -1;
-        /* a chunk is only started when the ring can finish it: 128 pushes, one more with a DROP */
+        /* a chunk is only started when the ring can finish it: 128 pushes, one more for a DROP. Issue #123: k
+         * corrections a chunk need no more. Its decisions stop DROPping at the band's upper edge, so a chunk
+         * started at s0 takes at most 128 + (s0 - target - BAND) samples, which s0 holds because target + BAND
+         * >= 128; below the edge it takes at most 128. A gate of PUSHES + k sat at or above the band for large k
+         * and, under a batched feed, made every chunk start over the edge and DROP (the third review) */
         if (d->count < GBP_APLAY_PUSHES + 1u) {
             p->starved_steps++;                         /* every such step, the wait after a chunk included */
             /* Issue #117 (§V27.14): the steps where a chunk was WANTED -- the queue short of AHEAD (or an
@@ -153,17 +167,26 @@ static int produce_impl(struct gbp_aplay *p, struct gbp_adec *d, int uncorrected
         p->seq[found] = p->produced;
         p->cur_frames = 0u;
         p->cur_pushes = 0u;
-        p->cur_corr_done = 0u;
         /* Issue #105: the chunk's step size, asked once, here; anything out of range is the default */
         p->cur_step = p->step_pushes ? p->step_pushes(p->step_pushes_user, p->produced) : GBP_APLAY_STEP_PUSHES;
         if (p->cur_step == 0u || p->cur_step > GBP_APLAY_PUSHES) p->cur_step = GBP_APLAY_STEP_PUSHES;
-        /* §V22.4: at most one counted correction per chunk, decided at its start; the fill it
-         * holds is p->target (GBP_APLAY_TARGET unless gbp_aplay_set_target moved it, Issue #117) */
-        p->cur_corr = uncorrected ? 0u :                /* a transition's chunk (Issue #117): exactly 128 samples
-                                                         * out and no correction counted -- the executor holds
-                                                         * the level, not the band */
-                      (d->count < p->target - GBP_APLAY_BAND) ? GBP_APLAY_EV_DUP :
-                      (d->count > p->target + GBP_APLAY_BAND) ? GBP_APLAY_EV_DROP : 0u;
+        /* §V22.4 makes a correction a COUNTED event (a DUP or a DROP), not a ratio servo; how many a
+         * chunk may take is corr_per_chunk (1, #92's image choice, §V22.10, until Issue #123). Each is
+         * decided at the start of its sub-block, below. A transition's chunk (Issue #117) takes none:
+         * exactly 128 samples out and no correction counted -- the executor holds the level, not the
+         * band. */
+        p->cur_corr = 0u;
+        p->cur_corr_done = 1u;
+        /* latched: the gate above was checked against it. Before playback starts a chunk takes at most one
+         * correction: the ring filling up is not drift, and k DUPs a prefill chunk would only repeat samples */
+        p->cur_k = p->playing ? p->corr_per_chunk : 1u;
+        /* the chunk's frame, which every one of its decisions uses: the ring's count and the target at its start.
+         * A set_target or a discard made while it is produced takes effect from the next chunk */
+        p->cur_s0 = d->count;
+        p->cur_target = p->target;
+        p->cur_sub = 0u;
+        p->cur_taken = 0u;
+        p->cur_uncorrected = (uint8_t)(uncorrected ? 1u : 0u);
         /* L2: a chunk boundary, acc 0 -- the kept state is the resampler's here */
         if (p->l2.armed && !p->l2.keeping && !p->l2.done) {
             p->l2.keeping = 1u;
@@ -175,7 +198,26 @@ static int produce_impl(struct gbp_aplay *p, struct gbp_adec *d, int uncorrected
     }
     while (p->cur_pushes < GBP_APLAY_PUSHES && step < p->cur_step) {
         int16_t x;
+        /* Issue #123: a sub-block's decision, at its FIRST push, made by a corrected call -- a sub-block whose
+         * first push an uncorrected call made is forgone, never decided late (a late DUP could land beside the
+         * next sub-block's). It compares the chunk's frame: the chunk-start level less the chunk's own net
+         * corrections so far (a DROP takes one sample more than it pushes, a DUP one fewer),
+         * cur_s0 + cur_pushes - cur_taken, against the chunk-start target. Samples that arrive while the chunk
+         * is produced are not in it -- a matched feed would read as surplus -- and neither is the ring's fall,
+         * so the level holds at the band's edge instead of cycling past it (the review of Issue #123). With one
+         * correction a chunk this is the chunk's first push, where cur_s0 is the ring's count and cur_target
+         * the target: every earlier build's decision, unchanged. */
+        if (!uncorrected && !p->cur_uncorrected && p->cur_sub < p->cur_k &&
+            p->cur_pushes % (GBP_APLAY_PUSHES / p->cur_k) == 0u &&
+            p->cur_pushes / (GBP_APLAY_PUSHES / p->cur_k) >= p->cur_sub) {
+            const uint32_t fill = p->cur_s0 + p->cur_pushes - p->cur_taken;
+            p->cur_corr = (fill < p->cur_target - GBP_APLAY_BAND) ? GBP_APLAY_EV_DUP :
+                          (fill > p->cur_target + GBP_APLAY_BAND) ? GBP_APLAY_EV_DROP : 0u;
+            p->cur_corr_done = 0u;
+            p->cur_sub = p->cur_pushes / (GBP_APLAY_PUSHES / p->cur_k) + 1u;
+        }
         if (!take(p, d, &x)) { p->starved_steps++; return -1; }   /* cannot happen: checked at the start */
+        p->cur_taken++;
         if (p->cur_corr == GBP_APLAY_EV_DROP && !p->cur_corr_done) {
             p->cur_corr_done = 1u;
             p->drop++;
