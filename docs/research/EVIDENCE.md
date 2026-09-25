@@ -10190,8 +10190,8 @@ zero underruns in 71 s at 0.125 s: the rate is below 3/71 = 0.042 per second (95
 **What it establishes.**
 - **FACT.** In this session, at 0.125 s of cushion the drain lost no more AUDIO blocks per second than
   at 0.5 s: no increase was detected. The point estimate is lower, but a LOWER loss is not established.
-  The resampling interval stays below 1, yet with six dwells a side it is anti-conservative (#120's
-  review: under equal rates it excluded 1 in about 15 % of simulations, nominal 10 %), and the exact
+  The resampling interval stays below 1, yet with six dwells a side it is anti-conservative (under equal rates, with this run's dwell exposures and Poisson losses, it excluded 1 in 63 of 400
+  simulations, 15.75 % against the nominal 10 %: `tests/host/test_v27derive.py`), and the exact
   permutation of the 12 dwells gives a one-sided p of 0.068. No underrun and no overflow occurred in
   71 non-mute seconds at the shallow arm.
 - **FACT, descriptive.** Phase 2 held 384 (0.094 s) for 13 non-mute seconds, 9 settled, with no
@@ -10214,11 +10214,13 @@ GitHub Issue #120; `tools/vevents.py`, which reads the printed events and the co
 this family. The mechanism is read from `src/gbp/gbp_vstate.c`, not assumed. While an episode is open,
 every CLEAN closed frame appends one `episode_stabilising`. The frame that opens an episode appends
 `episode_open` in its place, and the episode adds `episode_stable` plus `episode_close` when it settles
-or is capped at 60 frames. An unclean frame inside an open episode lengthens it and appends nothing: in
-RUN 43's printed head, episode 1 ran 18 frames and holds 12 records. A picture that keeps changing
+or is capped at 60 frames. An unclean frame inside an open episode lengthens it and appends no EPISODE record; the frame
+path still appends its own `incomplete_interval` or `resync`. In RUN 43's printed head, episode 1 ran 18
+frames and holds 12 open or stabilising records, beside 3 `resync`, 3 `incomplete_interval` and its
+`episode_stable`. A picture that keeps changing
 therefore emits about one event per clean frame. The episode path's own ceiling is a run of 3-frame
-stable episodes, 5 events per 3 frames. The one-off events, and one `predicate_disagreement` per
-disagreeing block, come on top. Read disagreements append nothing. RUN 43 had no predicate
+stable episodes, 5 events per 3 frames. The frame path's `incomplete_interval` and `resync`, the one-off events, and one
+`predicate_disagreement` per disagreeing block come on top. Read disagreements append nothing. RUN 43 had no predicate
 disagreement.
 
 ```text
@@ -10234,7 +10236,9 @@ RUN 22   play-0001  11 894        0    201.995   12 064   58.88     0.9859      
                       4 096 s at the comment's assumed 4 per second
 RUN 43, from the capture's start: origin 7.56 s, Phase 1 46.03-195.22 s, Phase 2 from 195.22 s,
 the store full at 249.73 s = 242.17 s after the origin; at least 13 794 of its 14 912 frames were inside an open
-episode (one open or stabilising record each; every other kind of record bounded above)
+episode (one open or stabilising record each; every other kind bounded above; no target, tail or
+safety record, as this run had no time target and stopped on the event store; the frame store never
+filled)
 ```
 
 **What it establishes.**
@@ -10259,8 +10263,9 @@ episode (one open or stabilising record each; every other kind of record bounded
   min"*, and its `_Static_assert(PLAY_EVENT_RECORDS >= PLAY_SAFETY_SECONDS * 4u)` were written on
   2026-09-21. `GBP-HW-282` measured 59.81/s the next day. `stream-0016` (#59) applied that rate to its
   own store. Both lines were then carried into `drain-0001`, `live-0001`, `trace-0001`, `split-0001`,
-  `game-0001`, `game-0002` and `sync-0001`, where no session was long enough for them to matter: each had a
-  120 s safety wall, under the 249 s the store lasts. §V27.10 raised the session cap to 720 s.
+  `game-0001` and `game-0002`, where no session was long enough for them to matter: each had a 120 s
+  safety wall, under the 249 s the store lasts. §V27.10 raised the session cap to 720 s, and both lines
+  were carried into `sync-0001` as well.
   **Building `sync-0001`, the Executor set the safety wall at 785 s and sized the FRAME store for it,
   with the arithmetic in the comment and a static assert (§V27.17, defect 6), and left the EVENT store
   at 16 384 under a comment the archive had refuted.** §V27.13's rule, "a frozen mechanism carries its
@@ -10276,7 +10281,7 @@ store for the session it intends. RUN 43 is its second instance.
 
 ---
 
-### GBP-HW-345 — RUN 43's raw window, the first raw AUDIO blocks of a game: its level changes recur every 6.23438 slices — 1 596.0 AGB cycles under a 256-cycle slice, 10 512 Hz nominal — on odd and even slice boundaries alike, and never split a slice, so the two-slice grid of `GBP-HW-315` is the stimulus ROM's, not the path's, and the game's own output is quantised on a grid that coincides with the slices; 12 blocks are missing inside the window, located by the content and matched by the header's own instants — FACT (arithmetic on one capture); that the slices are uniform in time stays a HYPOTHESIS, consistent at slice resolution and untested below it; the 1 596-cycle timer and the 65 536 Hz output grid are HYPOTHESES
+### GBP-HW-345 — RUN 43's raw window, the first raw AUDIO blocks of a game: its level changes recur every 6.23438 slices — 1 596.0 AGB cycles under a 256-cycle slice, 10 512 Hz nominal — on odd and even slice boundaries alike, and never split a slice, so the two-slice grid of `GBP-HW-315` is the stimulus ROM's, not the path's; 12 blocks are missing inside the window, located by the content and matched by the header's own instants — FACT (arithmetic on one capture); that the slices are uniform in time stays a HYPOTHESIS, consistent at slice resolution, and below it depends on that open model; the 1 596-cycle timer and the 65 536 Hz output grid are HYPOTHESES; whether the source quantises its output on the slice grid or a slice does not integrate over its interval stays open (`U-GBP-012`'s physical half)
 
 GitHub Issue #120; `tools/u012game.py` (descriptive), through `tools/awrparse.py` and
 `tools/v18block.py`'s slice counts. The capture is `captures/local/GBP-AUDIO-012_sync-0001-run43-awr.bin`,
@@ -10313,33 +10318,38 @@ per boundary            91 80 93 83 89 92 93 81 85 84 79 83 79 85 89    chi-squa
   `GBP-HW-338`'s class: 29.5 µs of copy per block, 1 125–1 363 ticks, in the drain's slot. The design
   kept the window out of every arm (§V27.1), and it cost nothing there.
 - **FACT, arithmetic: no change splits a slice.** Beside every change, the steps at the adjacent
-  boundaries are as often of the opposite sign as of the same: 19 against 20 at 3 bits or more, 135
-  against 129 at 2. No two changes sit one slice apart. A source that changed at instants continuous in
+  boundaries are as often of the opposite sign as of the same, same against opposite: 19 against 20 at 3
+  bits or more, 129 against 135 at 2. No two changes sit one slice apart. A source that changed at instants continuous in
   time, read by slices that integrate it, would leave the slice holding each change at an intermediate
   count: same-sign neighbours and changes one slice apart, which a construction shows
-  (`tests/host/test_u012_game.py`). **So the level is constant inside each slice. The game's output is
-  quantised by its source, on a grid that coincides with the slices.**
-- **HYPOTHESIS, consistent at slice resolution and untested below it: the sixteen slices are uniform in
-  time.** The placed changes reach a coherence of 0.9583, 0.12 sampling sd above the 0.9582 that
-  changes on a uniform grid of slices must have (sd 0.0011). So the changes map one to one onto
-  consecutive, uniformly spaced slices: slice order is time order, one grid step per slice. **Nothing
-  below one slice is tested.** When the source quantises its own changes to the slice grid, a
-  displacement of the slice boundaries inside that grid's margin moves neither the coherence nor the
-  per-boundary counts. #120's review kept R at 0.9583 with boundaries displaced by 0.17 slice rms. The
-  per-boundary chi-square, 4.19 on 14 dof, has a lower tail of 0.0058: the counts are more even than
-  chance, the signature of a deterministic grid, not a test. The tones cannot test uniformity either
-  (`GBP-HW-340`; `U-GBP-041`: every tone's edges share one k). **One capture, one test passed at slice
-  resolution: the status does not move to CORROBORATED.** `tools/u012game.py`'s `sigma_2sd` assumes
-  changes at continuous instants, which this source does not make, so it bounds nothing here.
+  (`tests/host/test_u012_game.py`). **Two models give what the capture shows, and it cannot tell them
+  apart.** Either the source quantises its output on a grid that coincides with the slices, read by
+  slices that integrate, or the source changes at continuous instants and a slice reads its level once,
+  without integrating. Both are built in `WhetherChangesSplitSlices`. Which holds is `U-GBP-012`'s
+  physical half, what a slice's count integrates over, and it stays open.
+- **HYPOTHESIS, consistent at slice resolution: the sixteen slices are uniform in time.** The placed
+  changes reach a coherence of 0.9583, 0.12 sampling sd above the 0.9582 that changes on a uniform grid
+  of slices must have (sd 0.0011). So the changes map one to one onto consecutive, uniformly spaced
+  slices: slice order is time order, one grid step per slice. **Below one slice the answer depends on
+  the open model.** Under the first, a displacement of the slice boundaries inside the grid's margin
+  changes no slice's count, so nothing below one slice is tested: the construction's boundaries,
+  displaced by 0.194 slice rms, leave every count unchanged. Under the second, the same displacement
+  pulls the coherence to 0.939, so the capture's 0.9583 would bound the displacement. The per-boundary
+  chi-square, 4.19 on 14 dof, has a lower tail of 0.0058: the counts are more even than chance, the
+  signature of a deterministic grid, not a test. The tones cannot test uniformity either (`GBP-HW-340`;
+  `U-GBP-041`: every tone's edges share one k). **One capture, one test passed at slice resolution: the
+  status does not move to CORROBORATED.** `tools/u012game.py`'s `sigma_2sd` is that bound under the
+  second model. The capture neither establishes nor excludes that model, so the record states no bound.
 - **HYPOTHESIS: the game holds each sample for a 1 596-cycle timer period**, the 10 512 Hz mixing rate.
   P × 256 is 1 596.0, an integer, as a timer's period would be. No register of the game was read.
-- **HYPOTHESIS: the source's grid is a 65 536 Hz output rate.** Changes quantised to single slices are
-  what a `SOUNDBIAS` rate of 65 536 Hz would produce under uniform slices: one PWM frame of 256 AGB
-  cycles per slice (GBATEK, "4000088h - SOUNDBIAS", `external/gbatek` `64b5087a`). The register was not
-  observed.
+- **HYPOTHESIS, under the first model: the source's grid is a 65 536 Hz output rate.** Changes quantised
+  to single slices are what a `SOUNDBIAS` rate of 65 536 Hz would produce under uniform slices: one PWM
+  frame of 256 AGB cycles per slice (GBATEK, "4000088h - SOUNDBIAS", `external/gbatek` `64b5087a`). The
+  register was not observed.
 
 **What it does NOT establish.**
-- **The slices' timing below one slice.** A direct timing of the slices would be needed.
+- **The slices' timing below one slice, or which of the two models holds.** A direct timing of the slices,
+  or `U-GBP-012`'s physical half, would be needed.
 - Another game's rate, another scene's, or the transfer function from the AGB's output to a slice's
   count (`U-GBP-012`'s physical half).
 

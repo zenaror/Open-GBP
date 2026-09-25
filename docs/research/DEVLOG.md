@@ -16501,7 +16501,7 @@ pinned to this freeze.
 - **The event store fills at about one event per frame of a changing picture:** 65.61/s in RUN 43, where 16 384 records last 249.7 s. `GBP-HW-282` had measured it three days before `sync-0001` was built. The image carried `play-0001`'s refuted 4/s comment.
 - **The defect has two authors, and both are recorded.** The Orchestrator budgeted time and not events. The Executor set a 785 s wall and sized the frame store for it, not the event store. At his pace Phase 3 could not have run. That no pace could have finished all three phases is not established.
 - **A game's raw blocks.** Level changes recur every 6.23438 slices, on odd and even slices alike, and never split a slice. That is 1 596.0 AGB cycles at 256 a slice, a HYPOTHESIS, and 10 512 Hz nominal. So the two-slice grid was the tones' source, and `U-GBP-041`'s second question is answered.
-- **Uniform slices pass one test at slice resolution and stay a HYPOTHESIS.** The game's source quantises its own changes to the slice grid, so nothing below one slice is tested.
+- **Uniform slices pass one test at slice resolution and stay a HYPOTHESIS.** No change splits a slice, but two models give that: a source quantised on the slice grid, or a slice that reads its level once. Which holds is open, and below one slice the capture bounds the slices only under the second.
 - **The capture has a cost.** Twelve blocks are missing inside it, located by the content and matched by the header's timing.
 - **The game's bandwidth.** 1.5 % (pair) and 2.2 % (slice) of its energy lies above 2 048 Hz.
 
@@ -16509,16 +16509,23 @@ pinned to this freeze.
 - The first gap fit chose P by coherence after the fit, and that was circular. It found 14 blocks at a local optimum, and was replaced by a choice by total cost before any figure was recorded.
 - The first fold estimate leaked across the cut on a construction, and was replaced by the windowed spectral estimate.
 - An adversarial review before the commit (24 agents, 17 findings confirmed) withdrew three claims of the draft:
-  - a 0.064-slice bound on the slices, which the source's own quantisation leaves untested;
+  - a 0.064-slice bound on the slices, which rests on a slice model the capture does not establish;
   - "CORROBORATED" for uniform slices, which rests on one capture;
   - "no pace could have finished", which the arithmetic does not support.
 - The review also corrected the rest of the draft:
-  - the event-store mechanism, where unclean frames append nothing;
+  - the event-store mechanism, where unclean frames append no episode event;
   - the store-sizing advice;
   - the 785 s wall's attribution;
   - the window's resolution;
   - the skip-ledger registration;
   - the record-to-tool checks for the raw window's figures.
+- A second review round (12 agents, 10 findings confirmed, none refuted) checked those fixes. It corrected:
+  - the first round's own replacement: "no split" does not prove a source-quantised grid;
+  - the event bound's missing record kinds;
+  - `sync-0001` listed among the 120 s images;
+  - the on-screen phase marks attributed to the Operator, whose directive asked for the log;
+  - two figures cited from scratch scripts, now tests;
+  - the gaps in the record-to-tool checks.
 
 **New unknowns.** None. The event store's rate is explained. `U-GBP-035`'s 2026-09-22 addendum already carries its lesson, and RUN 43 is its second instance (`GBP-HW-344`).
 
