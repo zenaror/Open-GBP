@@ -16561,3 +16561,102 @@ pinned to this freeze.
 - The gate figure is on #121, taken after the last commit.
 
 **Next.** The Operator hears the new default in ordinary play on the next image, at no extra cost to him. That is the check that it is better in use. After it come the phase markers and the event budget for the next image, then the re-run design.
+
+## 2026-09-25 — Issue #122: the latency round's replacement designed — the audio chain walked down in one variable, a separate validation run first, and the proposed steps probed against the chain before the freeze
+
+**Goal.** Design the replacement for the two phases RUN 43 lost. §V27's Phase 2 was INCONCLUSIVE by (t4); its one completed setting was confirmed at the 384-sample floor, which censored the measurement. Its Phase 3 never ran.
+
+The Operator warned against delaying the video (OPERATOR OBSERVATION, #122):
+
+```text
+cuidado em atrasar video..... pois se nao, ao apertar um botao de ação, ainda vai existir um delay, so que de
+audio e video (mesmo que sincronizados, mas ai ambos atrasam em relacao ao controle)
+
+nao estou falando que nao pode... mas cuidado nesse tipo de pesar ao mexer
+```
+
+The Orchestrator redirected the design: walk the audio chain down, TARGET first and then AHEAD.
+
+**What the design found** (the report is `issuecomment-5837333048`; its figures come from `tools/v28ahead.py` and `tools/v28budget.py`).
+- **One variable.** TARGET and AHEAD move one variable for latency: S = TARGET + 128 × AHEAD. This is INFERENCE from the code: stock is conserved between corrections.
+  - Its c term predicts the ring's mean fill at TARGET − 71.6. RUN 43 measured −71.1 at each of the targets it held: 384, 512, 1 536, 2 048 and 3 584.
+  - AHEAD has never been varied on hardware, and nothing below TARGET 384 has been measured.
+- **AHEAD.** It protects against a stop of the producer only.
+  - The refill after a hand-off was measured on the stimulus ROM (RUN 40, 8-push arm, max 6.12 ms).
+  - The margins derived from it are 25.1 / 56.3 / 87.6 / 118.8 ms at AHEAD 1 / 2 / 3 / 4. Their transfer to a game and to AHEAD < 4 is INFERENCE.
+  - At TARGET ≥ 146 the AHEAD floor is a tail. In-session instruments measure the margin at the rung in force; a hold only bounds the underrun rate.
+- **The event budget.** It is given in events, beside each session plan and the memory that pays for it.
+  - The measured rate is 65.61/s, and the guard is 79/s.
+  - The validation run's wall is 503 s and the perceptual run's is 425 s. Both keep the ride-along's raw store.
+  - No wall above 804 s fits at the guards' rates.
+- **The verdicts.**
+  - `CENSORED`, per setting, recorded per end when the refusal happens.
+  - `AT THE VALIDATED FLOOR (T, A, S, L)`.
+
+  Two corrections to how §V27 was read: its (t4) is a count gate, and §V27 had no verdict for a confirmation at the scale's end.
+- **An O6 deviation in `sync-0001`, the Executor's.** Its post-session screen and gecko `SYNCEND` print `depths`, `plans` and `acted`, which derive from the corrections and the grid ends. They appeared after every answer, so no answer in RUN 43 was affected. The Orchestrator disclosed the matching half of his own on #122.
+
+**Two designs withdrawn on their own evidence, and why.**
+1. **The first step mechanism.** In the report's first draft, a step down dropped the next READY chunk and a step up inserted a silent chunk. Review round 1 withdrew it for two reasons:
+   - the two directions sounded different (a skip against a longer silence), so a step revealed which way the stick deepens;
+   - the old HELD splice sits AHEAD × 128 samples after the silence, so every AHEAD rung would announce itself.
+
+   ROTATE with one fixed mute replaced it: the mechanism the Phase 1 switches and Phase 2 STARTs already used.
+2. **The descent before the nulling, in one session.** It was proposed to validate the low rungs before his judgement (§18). Review round 2 withdrew it for four reasons:
+   - it validated less than claimed: no ROTATE step, no AHEAD 2 or 3, no raise of AHEAD and no save at the new layout would run before the nulling;
+   - it added an exposure confound: minutes at the bottom rung just before judging can move his point of simultaneity (HYPOTHESIS);
+   - the descent's outcome would set the instant the screen label changes;
+   - the first nulling START would follow an underrun.
+
+   A separate automatic validation run replaced it.
+
+**The five decisions** (the Orchestrator's, #122 `issuecomment-5837358461`):
+- two runs;
+- the ×2 rule stays a sizing heuristic and does not choose the ladder: AHEAD 1 and TARGET 192 go on the validation ladder because they are contested;
+- Phase 1 is dropped from the perceptual run. What is given up is a second look at the null guard that passed 3 of 6;
+- the steps are accepted, with host tests before the freeze;
+- the verdicts are accepted.
+
+**The steps, probed against the chain.** `tests/unit/test_v28_ahead_steps.c` builds `src/audio/gbp_aplay.c` and `gbp_atrans.c` with every use of `GBP_APLAY_AHEAD` read from a runtime value. The Makefile counts the 2 + 5 uses before the copy exists; `src/` is unchanged. Its results are a host-model FACT for the chain's code as probed. Their behaviour on hardware is unmeasured until the validation run.
+- **The defect, executed.** A ROTATE plan that lowers AHEAD with no surplus drop lands like a NULL at every begin where READY was whole. A4→A3 at T192 leaves READY 3 where 2 was due, an effective level of +129, and DROPs after the landing. Conservation holds throughout, so conservation alone cannot be the proof.
+- **The candidate.** Every step is ROTATE; a step that lowers AHEAD also drops the surplus READY fronts right after the begin. It was checked at mutes 5 and 6 on:
+  - every single-rung step of the ladder, in both directions;
+  - the refused step at every rung;
+  - TARGET steps at AHEAD 1–3;
+  - the STARTs along the ladder at mutes 11 and 18.
+
+  Every run was begun at four phases, under four feeds. Every run passes:
+  - the steady state before the plan;
+  - no fault, and the silence exactly the mute;
+  - masked: every chunk in READY at the landing, and the chunk the first audible hand-off plays, started after the plan;
+  - the executor's residue equal to the effective level;
+  - READY == AHEAD − 1 and the residue within the aim at a non-late landing;
+  - the fronts dropped equal to the rotations plus the surplus;
+  - no underrun;
+  - the ring settled in the band;
+  - conservation.
+- **The rule: no step's audible signature depends on the TARGET or AHEAD in force, which one moved, or the direction.** The signature is late, unmasked, a splice heard, the effective level at the landing, and the silence. It is identical across 13 plans of every kind, for the same feed and phase, in all 508 groups at both mutes. The groups cover:
+  - the smooth feed;
+  - a burst at each of the 110 pump calls;
+  - 16 seeds of the measured regime: RUN 43's 10.47 samples/s deficit, in jittered bursts.
+
+  It also holds under drain losses of 16 and 32 samples.
+- **D2-class losses: a trade-off for the freeze, measured.** These are 64–128 samples lost in the plan's first periods.
+  - At mute 5, a TARGET-down step can land with a splice heard after the silence, which no other kind of step does.
+  - At mute 6, none does.
+  - At mute 6 with the ladder anchored at TARGET 192, a 64-sample loss still lands one chunk late on some rungs and not others: 192 sits only 46 samples above the 129-sample gate.
+  - Anchored at TARGET 256, every loss up to 128 lands alike.
+  - RUN 43 had no loss of this class in its session. Its largest gap between decoded blocks was 0.526 ms (INFERENCE).
+- **The masking bound.** A splice heard is always flagged unmasked. The flag errs only on the safe side, where a begin before the refill started held one pre-plan chunk fewer than AHEAD; this happens with the macro as with the runtime value.
+- **Mutations of the final probe.** Each is a plausible implementation error; each is caught:
+
+  | mutation | failures | caught by |
+  |---|---|---|
+  | no surplus drop | 603 | 272 of them the landing check |
+  | the ROTATE top-up (`gbp_atrans.c:98`) left on the macro | 1 037 | 1 024 of them the landing check |
+  | the landing residue (`:77`) left on the macro | 512 | the executor's residue |
+  | the masking bound (`:86`) left on the macro | 18 | a splice heard, or a flag with none heard |
+
+  The probe's own review (a third round) found four gaps in its first version, and all four are now asserted: the chunk the first audible hand-off plays, the executor's residue, feeds that lose samples, and the masking bound.
+
+**Next.** The Operator has since inverted the order: the muffling first (#123). §V28's design stands and waits. For its freeze, weigh mute 6 and the TARGET 256 anchor against their costs: 31 ms more silence per step, and 15.6 ms less reach. When the build comes, the runtime AHEAD moves into `src/` and these assertions become its tests.
