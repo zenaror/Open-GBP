@@ -239,6 +239,12 @@ LEDGER = [
     (r"^the SD is not mounted on this host", "LOCAL_ARTIFACT_ABSENT",
      "the card is the Operator's hardware, absent from any other machine; build/swiss is checked in the same file and "
      "the identity gate of the part re-verifies the card before each boot"),
+    # Issue #120 (RUN 43). Each reads a file under captures/local/, ignored by design; what the record quotes from it
+    # is pinned without it, as each cover says.
+    (r"^RUN (%d|[0-9]+) is not archived in this checkout \(captures/local is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
+     "only RUN 21 and RUN 22 (play-0001) may skip: tests/host/test_vevents.py opens RUN 41-43 from the VERSIONED "
+     "fixtures unconditionally, so a missing fixture fails; RUN 21/22's rates are GBP-HW-282's, quoted with their "
+     "logs' hashes"),
 ]
 
 _COMPILED = [(re.compile(p), c, cover) for p, c, cover in LEDGER]
