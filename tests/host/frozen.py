@@ -99,6 +99,10 @@ BASES = {
     # Issue #110: the real-cartridge image's log -> report builder, frozen with the image, before any run
     "Issue #110 -- game-0001 and its report builder":
         "61291048757cbdf1bf0c2fbad9bdb57adbd4785d",
+    # Issue #117: the latency round (§V27), transcribed with its three pre-hardware amendments, and its gates frozen
+    # before the image exists
+    "Issue #117 -- §V27 transcribed, the latency round's gates frozen":
+        "adf79e2704ebbaaa9a94f6b298a0a35bcb792099",
 }
 
 
