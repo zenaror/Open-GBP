@@ -7582,6 +7582,26 @@ population was 54 logs, 13 at `0x90` and 41 at `0x92`; after it is **55: 13 at `
 at `0x92`**. The printed output above is the archive as it stands now. CLAIM 1 stays FACT;
 CLAIM 2 is untouched.
 
+**2026-09-25, Issue #120 — RUN 43 (`sync-0001-run43`) makes it 56 logs.** `sync-0001` is the
+latency round's image (GBP-AUDIO-012, `HARDWARE_TESTS.md` §V27), on `game-0002`'s service path.
+It ran on the same real cartridge, Yoshi's Island. It records `orig=92`, as the split predicts.
+Before the run was archived the population was 55 logs, 13 at `0x90` and 42 at `0x92`; after it
+is **56: 13 at `0x90` and 43 at `0x92`**. CLAIM 1 stays FACT; CLAIM 2 is untouched.
+
+**From this recount on, the current count is printed HERE, not in the block above.** Until RUN 42
+each recount rewrote the amended block's second line in place. Since Issues #116 and #118 the
+record's guards require every earlier entry to begin with its own earlier text, so that block now
+keeps the numbers RUN 42's recount gave it (55 logs), exactly as the first block keeps the
+original 34. The same command, run on the archive as it stands after RUN 43, prints
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     43 CONTROL semantic orig=92
+```
+
+and a later recount appends its own paragraph and block below this one.
+
 ---
 
 ### GBP-HW-273 — RUN 23: a LATE build with NO Game Pak reads CONTROL `0x90` — the empty diagonal cell of `GBP-HW-272` filled, and the build-era reading disconfirmed by measurement — FACT (recomputable from the archived log)

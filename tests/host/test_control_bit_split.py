@@ -74,7 +74,9 @@ LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92,
          "game-0001-run41": 0x92,
          # Issue #115: RUN 42, game-0002 (GBP-AUDIO-011) = game-0001 + one post-session record, Yoshi's Island,
          # orig=92 -- 55 logs
-         "game-0002-run42": 0x92}
+         "game-0002-run42": 0x92,
+         # Issue #120: RUN 43, sync-0001 (GBP-AUDIO-012) = the latency round, Yoshi's Island, orig=92 -- 56 logs
+         "sync-0001-run43": 0x92}
 
 WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0005", "stream-0005-run2",
              "stream-0005-run3", "stream-0006-run4", "stream-0007-run5", "stream-0008-run6", "stream-0009-run7",
@@ -200,13 +202,20 @@ class TheSplitIsRecomputedNotQuoted(unittest.TestCase):
         """
         e = entry()
         cmds = re.findall(r"```text\n(grep -ho [^\n]+)\n((?:\s+\d+ CONTROL[^\n]*\n)+)", e)
-        self.assertEqual(len(cmds), 2, "GBP-HW-272 should carry the original derivation and the amended one")
-        self.assertEqual(cmds[0][0], cmds[1][0], "the two blocks must run the SAME command")
+        # Issue #120: from RUN 43's recount on, each recount APPENDS its own printed block (the record's
+        # append-only guards, Issues #116 and #118, freeze the earlier text); the LAST block is the current
+        # one, the second keeps RUN 42's recount (55 logs), the first the original 34
+        self.assertGreaterEqual(len(cmds), 3, "GBP-HW-272 should carry the original derivation, the amended one "
+                                              "and, from Issue #120 on, one block per later recount")
+        self.assertEqual(len(set(c for c, _ in cmds)), 1, "every block must run the SAME command")
         self.assertIn("the archive AS IT STOOD when this entry was written", plain(e))
-        out = subprocess.run(["bash", "-c", cmds[1][0]], cwd=ROOT, capture_output=True, text=True, timeout=120)
+        self.assertEqual(dict((v, int(n)) for n, v in re.findall(r"\s*(\d+) CONTROL semantic orig=([0-9a-f]+)", cmds[1][1])),
+                         {"90": 13, "92": 42}, "the amended block keeps the numbers RUN 42's recount gave it")
+        self.assertIn("From this recount on, the current count is printed HERE, not in the block above.", plain(e))
+        out = subprocess.run(["bash", "-c", cmds[-1][0]], cwd=ROOT, capture_output=True, text=True, timeout=120)
         self.assertEqual(out.returncode, 0, out.stderr)
         got = dict((v, int(n)) for n, v in re.findall(r"\s*(\d+) CONTROL semantic orig=([0-9a-f]+)", out.stdout))
-        printed = dict((v, int(n)) for n, v in re.findall(r"\s*(\d+) CONTROL semantic orig=([0-9a-f]+)", cmds[1][1]))
+        printed = dict((v, int(n)) for n, v in re.findall(r"\s*(\d+) CONTROL semantic orig=([0-9a-f]+)", cmds[-1][1]))
         self.assertEqual(got, printed, "the amendment's printed output is not what the command produces now")
         self.assertEqual(got, {"90": len(CARTLESS) + sum(1 for v in LATER.values() if v == 0x90),
                                "92": len(WITH_CART) + sum(1 for v in LATER.values() if v == 0x92)}, out.stdout)
