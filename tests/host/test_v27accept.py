@@ -12,7 +12,11 @@ from math import comb
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+import frozen  # noqa: E402
 import v27accept as v  # noqa: E402
+
+KEY = "Issue #117 -- §V27 transcribed, the latency round's gates frozen"
+HT = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 
 CFG = {"deep": 2048, "shallow": 512, "floor": 384, "mute_chunks": 16, "step_mute_chunks": 4, "p2_lo": 384,
        "p2_hi": 3584, "p2_step": 128, "p3_step": 32, "p3_dwell_s": 6, "caps": {"p1": 300, "p2": 240, "p3": 180,
@@ -295,6 +299,35 @@ class ThePrintedVerdictCarriesEveryInput(unittest.TestCase):
                     "the threshold lies in (144, 152], width 8; the model's 145 inside",
                     "BISECT target  144  fill 126.0  underruns 1"):
             self.assertIn(tok, out, tok)
+
+
+class TheGatesAreNotEditedAfterTheyWereFrozen(unittest.TestCase):
+    def read(self, p):
+        with open(p, encoding="utf-8") as f:
+            return f.read()
+
+    def test_the_tool_is_byte_identical_to_its_freeze(self):
+        then = frozen.source(KEY, "tools/v27accept.py")
+        then = then.decode("utf-8") if isinstance(then, bytes) else then
+        self.assertEqual(then, self.read(os.path.join(ROOT, "tools", "v27accept.py")))
+
+    def test_the_frozen_part_of_V27_is_byte_identical_and_only_appended_to(self):
+        """§V27.0-§V27.12 as frozen; anything after them is a later `### V27.N`, N > 12, appended."""
+        then = frozen.source(KEY, "docs/research/HARDWARE_TESTS.md")
+        then = then.decode("utf-8") if isinstance(then, bytes) else then
+        now = self.read(HT)
+
+        def part(text):
+            i = text.index("\n## V27 — ")
+            j = text.find("\n## V28 ", i)
+            return text[i:] if j < 0 else text[i:j]
+
+        a, b = part(then), part(now)
+        self.assertTrue(b.startswith(a.rstrip("\n")))
+        import re
+        later = re.findall(r"^### V27\.(\d+) ", b[len(a.rstrip("\n")):], re.M)
+        self.assertTrue(all(int(n) > 12 for n in later), later)
+        self.assertEqual(re.findall(r"^### V27\.(\d+) ", a, re.M), [str(i) for i in range(13)])
 
 
 if __name__ == "__main__":
