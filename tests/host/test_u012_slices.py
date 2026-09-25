@@ -207,9 +207,17 @@ class TheCostsAreArithmeticInTodaysUnits(unittest.TestCase):
         self.assertIn("- Observed: 30.703 net DUP/s.", ev)                             # GBP-HW-325
         self.assertIn("32 028.483", ev)
         h = open(os.path.join(ROOT, "src", "audio", "gbp_aplay.h"), encoding="utf-8").read()
-        for tok in ("#define GBP_APLAY_RING          4096u", "#define GBP_APLAY_TARGET        2048u",
+        # AMENDED 2026-09-25 (GitHub Issue #121), on top: "today's units" are #118's, and #121 moved the default
+        # cushion to 0.125 s (512); TARGET's 2048 is read from the header #118 was written against (b1a72a4),
+        # through guards.show (a moved path fails, an absent commit skips), AFTER the checks HEAD still answers. The
+        # original line was:
+        #   for tok in ("#define GBP_APLAY_RING          4096u", "#define GBP_APLAY_TARGET        2048u", ...
+        for tok in ("#define GBP_APLAY_RING          4096u",
                     "#define GBP_APLAY_PUSHES         128u"):
             self.assertIn(tok, h)
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import guards
+        self.assertIn("#define GBP_APLAY_TARGET        2048u", guards.show("b1a72a4", "src/audio/gbp_aplay.h"))
 
 
 if __name__ == "__main__":

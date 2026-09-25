@@ -334,9 +334,12 @@ static void test_set_target_moves_the_decision(void)
         eqi(p.dup, cases[k].dup, "DUP follows 512 - BAND");
         eqi(p.drop, cases[k].drop, "DROP follows 512 + BAND");
     }
-    /* the same fills at the default target are all DUPs: the field is what the decision reads */
+    /* the same fills at the default target are all DUPs: the field is what the decision reads
+     * AMENDED 2026-09-25 (GitHub Issue #121), on top: the default was 2048 when this was written and is 512 (0.125 s)
+     * since, so the comparison target is set to that 2048 explicitly; the assertion is unchanged. */
     gbp_adec_init(&d, ring, GBP_APLAY_RING);
     gbp_aplay_init(&p, pool, silence, keep, events);
+    gbp_aplay_set_target(&p, 2048u);                         /* Issue #121: the default until then */
     give(&d, 540u, 7);
     eqi(produce_all(&p, &d) >= 0, 1, "a chunk completes at the default");
     eqi(p.dup, 1, "540 is far under 2048: a DUP");
@@ -529,6 +532,8 @@ static void test_ring_gated_counts_only_a_wanted_chunk(void)
     gbp_aplay_init(&p, pool, silence, keep, events);
     give(&d, 4u * GBP_APLAY_PUSHES + 100u, 5);
     for (k = 0; k < (int)GBP_APLAY_AHEAD; k++) { b = produce_all(&p, &d); gbp_aplay_queue(&p, b); }
+    /* AMENDED 2026-09-25 (GitHub Issue #121), on top: the message below describes the 2048 default (four DUPs, 104
+     * left). At 512 the four chunks take three DUPs and one DROP and leave 102, still under 129: the assertion holds. */
     eqi(d.count < GBP_APLAY_PUSHES + 1u, 1, "under 129 left (the DUPs of the default target took 4), READY full");
     eqi(gbp_aplay_produce(&p, &d), -1, "nothing starts");
     eqi(p.starved_steps, 1, "starved_steps counts the wait");
@@ -575,6 +580,29 @@ static void test_produce_discard_ignores_the_held_queue(void)
     eqi(gbp_aplay_produce(&p, &d), -1, "the ordinary producer continues it (queue full: it may not finish)");
 }
 
+/* Issue #121 (2026-09-25): the adopted cushion, 0.125 s, set in TIME. The default target is the decoder's rate times
+ * the cushion, a whole number of samples, and a fresh init holds it. The correction tests written relative to
+ * GBP_APLAY_TARGET (test_a_chunk, test_corrections_follow_the_fill, the mute, discard and rotation tests) now run at 512
+ * unchanged. Two were not relative to it: test_set_target_moves_the_decision's #117 comparison used an absolute 2048
+ * and is amended to set it explicitly; test_ring_gated_counts_only_a_wanted_chunk's absolute fill, 612, now takes one
+ * DROP and three DUPs instead of four DUPs and still leaves the ring under 129, so its assertion holds as written. The
+ * default was 2048 (0.5 s) in every build before #121; each executed image reproduces at its own commit
+ * (HARDWARE_TESTS §V23.9). */
+static void test_the_default_cushion_is_0_125_s(void)
+{
+    static struct gbp_aplay p;
+    printf("-- Issue #121: the default cushion is 0.125 s, 512 samples at 4 096 per second\n");
+    eqi(GBP_APLAY_CUSHION_US, 125000, "0.125 s, in microseconds");
+    eqi(GBP_ADEC_RATE, 4096, "today's decoded rate");
+    eqi(GBP_APLAY_TARGET, 512, "512 decoded samples");
+    eqi((long long)GBP_APLAY_TARGET * 1000000ll, (long long)GBP_APLAY_CUSHION_US * GBP_ADEC_RATE,
+        "exactly the time: no rounding");
+    eqi(GBP_APLAY_TARGET >= GBP_APLAY_TARGET_MIN && GBP_APLAY_TARGET <= GBP_APLAY_TARGET_MAX, 1,
+        "a target the clamp accepts as it is");
+    gbp_aplay_init(&p, pool, silence, keep, events);
+    eqi(p.target, 512, "a fresh init holds it");
+}
+
 int main(void)
 {
     test_crc_is_zlibs();
@@ -593,6 +621,7 @@ int main(void)
     test_a_discarded_chunk_takes_no_correction();
     test_the_rotation_primitives();
     test_ring_gated_counts_only_a_wanted_chunk();
+    test_the_default_cushion_is_0_125_s();
     printf("test_gbp_aplay: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
