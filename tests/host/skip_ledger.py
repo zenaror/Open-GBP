@@ -245,6 +245,10 @@ LEDGER = [
      "only RUN 21 and RUN 22 (play-0001) may skip: tests/host/test_vevents.py opens RUN 41-43 from the VERSIONED "
      "fixtures unconditionally, so a missing fixture fails; RUN 21/22's rates are GBP-HW-282's, quoted with their "
      "logs' hashes"),
+    (r"^the RUN 43 raw window is kept in captures/local/ only$", "LOCAL_ARTIFACT_ABSENT",
+     "the raw window is a commercial game's audio and is never versioned; tools/u012game.py's method is proved on "
+     "constructions by tests/host/test_u012_game.py classes that never skip, its hash is quoted in the record, and "
+     "tests/host/test_run43.py checks on every host that the record quotes the figures test_u012_game.PINS pins"),
 ]
 
 _COMPILED = [(re.compile(p), c, cover) for p, c, cover in LEDGER]
