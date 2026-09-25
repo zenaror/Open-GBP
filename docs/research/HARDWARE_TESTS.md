@@ -36828,3 +36828,611 @@ above 2 048 Hz that the runtime's decode drops (`GBP-HW-340`, arithmetic on RUN 
 conditional on `U-GBP-041`). **`L2 PASS` means the chain reproduces on the host what it produced on
 the console. It never meant the chain captures what the cartridge played.** Phase 6's gates were
 bit-exactness and stability, not fidelity.
+
+## V27 — THE LATENCY ROUND: is the perceived audio offset the cushion? A blinded A/B plus a nulling measurement, `TARGET` as the only variable — **PRE-REGISTERED 2026-09-24 (GitHub Issue #117); NOT BUILT, NOT RUN, NOT AUTHORISED HERE**
+
+*Transcribed verbatim from Issue #117's body (raw sha256 `24c9a0194c9c2aebd6ceeb981d00da292387a56adbe34b8f990ac87aa973c09e`, printed `42a3bde200aa180650f7676f60d0ec1f67f03016f4b743f1cc943c0c495e272a`; §V26.8's conventions: raw is the API's JSON body, printed is raw plus one line feed as `gh --jq` emits it), its `## V27.x` headings demoted one level, and from the three pre-hardware amendments as posted, each with its comment id and both hashes in its heading. The amendment window closed with §V27.11. The Orchestrator's text is not edited here; the Executor's part begins at §V27.12.*
+
+`U-GBP-046`: the Operator hears the audio lag the picture by about a second, only
+with our software, with button→video near zero. The decoded ring's designed
+cushion (`TARGET = 2048` samples = 0.5 s) plus the READY queue, the DMA and the
+FIR account for about 0.5–0.67 s — **most of his estimate, not all of it.** The
+residue is unaccounted.
+
+**These gates are frozen before anything is built.** §V27 goes into
+`HARDWARE_TESTS.md` from this text. Pre-hardware amendments are allowed, dated,
+with the prior text kept. Nothing here is rewritten after data.
+
+---
+
+### V27.0 The question, and the one variable
+
+**Is the perceived offset the cushion?**
+
+One variable: **`TARGET`**, the decoded ring's fill depth. Nothing else changes —
+not `RING`, not `AHEAD`, not the chunk size, not the push count, not the video
+path.
+
+**`U-GBP-045`'s trade is the reason this cannot simply be set shallow and
+shipped.** Cushion is what protects the drain from producer stretches. This run
+measures the cost side so the choice can be made on evidence instead of on which
+defect was noticed most recently.
+
+---
+
+### V27.1 Apply `GBP-HW-338` to this run's own design
+
+**No L2 keep runs during either comparison phase.** Bit-exactness is already
+established by RUN 42 and does not need re-establishing here, and `GBP-HW-338`
+showed the keep's CRC costs blocks in the window it runs in — worse on short
+production steps than on long ones, which is exactly the asymmetry that would
+contaminate an arm comparison.
+
+If any instrument must run during a phase, it runs in **both** arms and its cost
+is reported separately. **Balance does not excuse it** — a fixed cost added to
+two arms of different length does not cancel.
+
+---
+
+### V27.2 Phase 1 — blinded A/B (this is the falsifier)
+
+Two depths, presented as unlabelled `X` and `Y`, the Operator toggling freely
+between them and judging **which lags the picture more**.
+
+```text
+arm DEEP     TARGET = 2048   (today's value)
+arm SHALLOW  TARGET =  512
+```
+
+**Assignment to `X`/`Y` is chosen by the runtime** from the timebase at the first
+press, and is written **only to the SD log** — never to the live channel, never
+to an Issue, never to chat, and it is not read by anyone until his answer is
+posted verbatim.
+
+He knows the hypothesis; that is unavoidable and it does not matter, because he
+cannot know which of `X`/`Y` is shallow. He can only report what he perceives.
+
+### Phase 1 verdict
+
+```text
+CONFIRMS   he identifies the SHALLOW arm as the one that lags less
+REFUTES    he identifies the DEEP arm as lagging less,
+           or reports no perceptible difference
+```
+
+**The refutation arm is real and must be reported as a result, not retried.** If
+a 4x change in cushion — 0.5 s against 0.125 s, a predicted ~0.375 s shift, far
+above anyone's threshold for audio-video offset — does not move his perception,
+then the cushion is not what he is hearing and `U-GBP-046`'s residue is the whole
+effect. **That outcome is more valuable than a confirmation**, and nothing in the
+build or the procedure may make it harder to reach.
+
+---
+
+### V27.3 Phase 2 — nulling, which measures rather than asks
+
+After Phase 1 and only after it, he adjusts `TARGET` continuously until audio and
+picture look synchronised, then confirms. The `TARGET` at that point is a
+**measurement of the offset in samples**, and it is worth far more than any
+verbal estimate.
+
+```text
+range        TARGET in [128, 3584], steps of 128 samples (31.25 ms)
+start        randomised by the runtime, logged
+direction    the control-to-depth mapping is randomised and logged,
+             so "left" is not always "shallower"
+repeats      at least 3 settings, from different randomised starts
+```
+
+Phase 1 comes first so his A/B judgement is made before he has hunted through the
+range.
+
+### What Phase 2 can show that Phase 1 cannot
+
+```text
+he reaches sync at TARGET > 128      the residue is small; the chain explains
+                                     the offset; report the null TARGET and the
+                                     implied residue
+he reaches the floor and STILL
+sees the audio lag                   the residue is REAL and is bounded below by
+                                     what remains at the floor. That is a
+                                     measurement of the unaccounted term.
+```
+
+Both outcomes are results. Neither is a failure of the run.
+
+---
+
+### V27.4 The mechanistic gate, which is ours and not his
+
+Independently of anything he perceives:
+
+```text
+M1   the measured ring fill (LIVEFILL) tracks TARGET in both arms,
+     within the band the runtime already uses
+M2   underruns = 0 in both arms
+M3   overflow = 0 in both arms
+M4   the AUDIO loss rate is reported per arm, outside any instrument window
+```
+
+**`M1` is the manipulation check.** If the fill does not follow `TARGET`, the
+manipulation did not happen and **every perceptual result in the run is void** —
+INCONCLUSIVE, a build defect, not evidence about the hypothesis.
+
+`M4` is the cost side of `U-GBP-045`'s trade and is the number that will decide
+how shallow the runtime can actually go. **Report it; do not act on it here.**
+
+---
+
+### V27.5 INCONCLUSIVE arms, pre-registered
+
+```text
+(t1)  ring fill does not track TARGET (M1 fails)      -> INCONCLUSIVE, build defect
+(t2)  underruns > 0 in either arm                     -> Phase 1 INCONCLUSIVE:
+      audible dropouts are heard as instability, not as latency, and contaminate
+      the judgement. M1-M4 still report.
+(t3)  he presses before the prompt                    -> INCONCLUSIVE, as (s4)
+(t4)  fewer than 3 Phase 2 settings completed         -> Phase 2 INCONCLUSIVE,
+      Phase 1 unaffected
+(t5)  the assignment or the randomisation is absent
+      from the log                                    -> the run is unblinded and
+                                                         both phases are void
+```
+
+An INCONCLUSIVE arm is a measurement condition not met. It is **not** a
+refutation and **not** a confirmation.
+
+---
+
+### V27.6 The Operator's part
+
+He is the instrument again, so his declaration discipline is exactly RUN 42's:
+**his words are recorded verbatim before any figure from the log is computed or
+reaches him.** That order has been violated once in this project and it is not
+violated again.
+
+The procedure text, his questions and the freeze of what he is told beforehand
+are drafted by the Orchestrator and frozen in the Hardware Issue, as §V26.5 was.
+**Do not draft them in the build Issue.**
+
+---
+
+### V27.7 What this does NOT do
+
+- **It does not change `TARGET` in the runtime.** This run measures; the choice
+  is a separate decision with `U-GBP-045`'s cost in hand.
+- It does not touch the video path, the push count, or anything Phase 6 closed on.
+- It does not reopen Phase 6. The gates that closed it did not measure latency
+  and do not depend on `TARGET`.
+- It is not Phase 7.
+
+---
+
+### V27.8 Build scope
+
+Build the image and its report builder. **Do not run hardware**; staging is a
+separate Hardware Issue, as `21-game2` was.
+
+Commits and pushes are delegated. Build identity per `CLAUDE.md` §16 in the
+image, on screen and in the log.
+
+**Raise objections BEFORE building, with evidence.** In particular, if a
+host-side or Dolphin check suggests `TARGET = 512` underruns on this runtime, say
+so and propose a level — that is a pre-hardware amendment, it is dated, and the
+prior text stays. After the build, the levels are frozen.
+
+---
+
+### V27.9 PRE-HARDWARE AMENDMENT — 2026-09-24 — posted on #117 as `issuecomment-5823591878`, before any build (raw sha256 `c93993a90d81dade17f95fbbe4d4e24c67eafe93c4b6bf4074bfb3d67e4c203b`, printed `fbde82b25f684ba43563cec72702e57f877ffca9669241b5a4df9e0a07687629`)
+
+**Nothing has been built and no data exists.** §V27.0–§V27.8 stand as written and
+are not edited; this amends on top and governs where it decides. Every objection
+below was raised by the Executor **before** building, with evidence, which is the
+point at which an amendment is legitimate.
+
+**All six objections are accepted.** Four are accepted as proposed; three carry a
+change I am making for reasons stated.
+
+---
+
+#### The levels move to TIME, because #118 may change the unit
+
+`TARGET` is counted in decoded samples, and #118 is asking whether the decode
+should produce more of them per second. **A level frozen in samples is frozen in
+a unit that may change underneath it.**
+
+```text
+DEEP     0.500 s of cushion      = 2048 samples at today's 4096/s
+SHALLOW  0.125 s of cushion      =  512 samples
+FLOOR    0.09375 s of cushion    =  384 samples
+```
+
+**The seconds are the frozen quantity. The sample counts are today's
+realisation** and are recomputed, not renegotiated, if #118 changes the rate.
+
+---
+
+#### O1 — ACCEPTED, with a catch trial added
+
+The mute transition is right: fixed duration, identical in both directions,
+counted as its own event, never as an underrun, its seconds excluded from M2 and
+M4.
+
+**The residual cue you named is the problem, and naming it is not enough.** A
+shallower switch skips more content, so he could in principle key his judgement
+to the transition rather than to the lag — and a blinded test that is decided by
+an artefact of the switch is worse than no test, because it produces a confident
+answer.
+
+**Added: null transitions as catch trials.** A fraction of transitions go
+`DEEP -> DEEP` and `SHALLOW -> SHALLOW`, with the same mute, the same
+announcement, and the same everything else.
+
+```text
+if he reports a CHANGE on null transitions at a rate indistinguishable from
+chance          -> his judgement is keyed to the lag.  Phase 1 stands.
+
+if he reliably reports a change on null transitions
+                -> his judgement is keyed to the transition, not the lag.
+                   Phase 1 is INCONCLUSIVE -- not refuted, not confirmed.
+```
+
+This measures the cue instead of arguing about it, and it costs one extra branch
+in the schedule.
+
+---
+
+#### O2 — ACCEPTED as proposed
+
+M1 as I froze it would have voided the run by construction. That is my defect: I
+wrote "the band the runtime already uses" without checking the band against the
+archive, which is the same failure as pre-registering a rate that its own data
+could not reproduce.
+
+**M1, replaced:**
+
+```text
+per arm    the mean settled fill lies in [TARGET - 256, TARGET + 16]
+and        the two arms' means differ by DELTA-TARGET +/- 256 (1280 to 1792)
+```
+
+**The separation clause is the real manipulation check** — the absolute accuracy
+never mattered; the difference between the arms is the whole manipulation.
+
+---
+
+#### O3 — ACCEPTED, and it opens a phase rather than only raising a floor
+
+`TARGET < 145` can never DUP, so my floor of 128 underruns structurally. **The
+floor becomes 384** (0.09375 s), not 256: an underrun during the nulling
+contaminates the judgement, we cannot re-run cheaply, and covering the −155
+start-like transient is worth the tighter bound it costs.
+
+**But the depth at which the correction stops working is a number this project
+wants.** `U-GBP-045`'s whole trade is how shallow the cushion can go before
+losses return, and your O3 argument is a *model* saying 145 — a HYPOTHESIS, and
+the run can measure it.
+
+**Phase 3 — the descent, mechanistic only, no perceptual judgement.**
+
+```text
+after Phase 2, step TARGET down from FLOOR in 32-sample steps
+hold each depth long enough for the settled fill and the counters to be read
+record, per depth: settled fill, underruns, overflow, DUP, DROP, blocks lost
+stop at the first depth with an underrun, or at 128, whichever comes first
+```
+
+The Operator is not asked to judge anything in Phase 3; he holds one direction
+and watches. The result is **the minimum viable cushion, measured**, which is the
+cost side `U-GBP-045` has never had.
+
+If this predicts ~145 and measures ~145, that is a model confirmed. If it
+measures something else, the model is wrong and we learn where.
+
+---
+
+#### O4 — DECIDED
+
+```text
+Phase 1   cap 180 s      minimum for a verdict: the pre-registered schedule complete
+Phase 2   cap 240 s      minimum for a verdict: 3 settings  (t4)
+Phase 3   cap 120 s      no minimum; it reports what it reached
+session   hard cap 600 s, then teardown and save
+```
+
+**At a phase cap the phase ends and reports what it has.** Below its minimum it
+is INCONCLUSIVE per `(t4)`'s pattern, and the other phases are unaffected. A cap
+is an operational bound on the run, never a hardware property.
+
+---
+
+#### O5 — ACCEPTED
+
+The C-stick's four directions are the only free controls, so the toggle, the
+steps and the confirm live there and `Z` keeps ending the session. **The exact
+mapping is yours to propose in the build**; I freeze it into the Operator's
+checklist afterwards, with his typography.
+
+---
+
+#### O6 — ACCEPTED, and widened
+
+The screen and the live channel carry **none** of: the arm, `TARGET`, the fill,
+**and nothing derived from any of them** — including a counter, a graph or a
+phase label that differs between the arms. The SD log carries everything.
+
+**Widened because I watch the live channel.** The blinding has to hold against a
+second reader who is in contact with the Operator during the run. If the channel
+tells me the arm, one careless sentence from me unblinds his next answer, and
+that has already happened once in this project with a figure that was merely
+leaked early.
+
+---
+
+#### What #118 does to this
+
+The controlled half of #118 proceeds on RUN 33/34. **The game half cannot be
+answered from the archive** — the live family kept one decoded value per block
+and RUN 42's slices were never stored. Correct not to reconstruct them.
+
+**Propose, in the build, whether a short raw-block window can ride along in this
+same image** — a capture, not a manipulation, so it adds no variable to the
+latency question. RUN 30–35 stored 1280 whole blocks, about 0.3 s, which is
+short but enough for a bandwidth estimate on real game audio. If it cannot ride
+along without touching the latency phases, say so and it becomes its own run.
+
+---
+
+#### Unchanged
+
+The falsifier (§V27.2), the INCONCLUSIVE arms (§V27.5), the Operator's
+declaration order (§V27.6), and that this run **measures** and does not change
+`TARGET` in the runtime (§V27.7). **After the build, the levels are frozen.**
+
+---
+
+### V27.10 PRE-HARDWARE AMENDMENT — 2026-09-24 (second) — posted on #117 as `issuecomment-5824269964`, before any build (raw sha256 `1d6565add7ac897575d5005f593079b9f655d496e3fcc01768e6cc18422b01b6`, printed `bd614fad4754120db03f6ce1dc28eb17dbbd18460f85c17dc45ff93c687a8fa4`)
+
+**Still nothing built and no data.** §V27.0–§V27.9 stand; this amends on top.
+
+**Your labels objection is correct and decisive.** Fixed `X`/`Y` labels and null
+catch trials are mutually exclusive — a label that persists across a null
+announces the null, and a label that changes no longer denotes an arm. **No
+labels. The three-way judgement after every switch is adopted.**
+
+---
+
+#### The null is 1/2, not 1/3, and the schedule has to be sized for it
+
+This is the one place your proposal does not hold, and it matters because it is
+the difference between a significant result and one that looks significant.
+
+`P ≈ 0.020` for `>= 6/8` is right **only if his three answers are equiprobable
+under the null.** They will not be. **The mute announces that a switch
+happened**, so on a real switch he will rarely answer `SAME`. Once he reports a
+change, the direction is a **binary** choice, and the honest null is 1/2:
+
+```text
+>= 6 of 8 under chance 1/3     P = 129/6561  = 0.0197
+>= 6 of 8 under chance 1/2     P =  37/256   = 0.1445      not significant
+```
+
+A gate that assumes the null the design itself destroys is the same defect as a
+rate that could not reproduce its own count, and I am not signing another one.
+
+**Frozen: the conservative binary null, and a schedule with power under it.**
+
+```text
+schedule    12 REAL switches + 6 NULL switches, seeded, the seed logged
+statistic   D = real switches judged in the PREDICTED direction, of 12
+            (SAME counts as NOT in the predicted direction)
+
+D >= 10     CONFIRMS      P = 79/4096 = 0.0193 under chance 1/2
+D <= 6      REFUTES       at or below the conservative chance level
+D = 7,8,9   UNRESOLVED
+
+guard       nulls judged a change >= 4 of 6  ->  INCONCLUSIVE regardless of D:
+            the judgement is keyed to the transition, not to the lag
+```
+
+**Both refutation routes are real and neither is an escape hatch.** He may
+answer `SAME` to most real switches — a 4x cushion change he cannot hear — or he
+may report changes in no consistent direction. Both land at `D <= 6` and both
+mean the cushion is not what he is hearing. **If the hypothesis is right the
+effect is ~0.375 s, far above anyone's detection threshold, and `D` should be
+12 or near it.** A hypothesis this strong does not need a lenient bar, and giving
+it one would only make a confirmation worth less.
+
+#### Consequent caps, replacing §V27.9's O4 line for Phase 1 only
+
+```text
+Phase 1   cap 300 s (was 180)    minimum for a verdict: the 18 switches complete
+session   hard cap 720 s (was 600)
+```
+
+Phases 2 and 3 keep §V27.9's caps.
+
+#### How his per-switch answers are taken
+
+Through the C-stick, recorded by the runtime, **with no feedback of any kind on
+screen or on the live channel** — no running score, no confirmation that an
+answer was "registered" that differs between real and null, nothing.
+
+Those 18 judgements are **data**, not his declaration. His declaration in words
+comes afterwards and is recorded verbatim under §V27.6 as always. Do not conflate
+them: the counts decide Phase 1, his words are recorded beside them and gate
+nothing.
+
+---
+
+#### Accepted as proposed, no change
+
+- the mute transition's mechanics;
+- the ceiling reasoning. Your figure checks: `7.50 / 0.96 = 7.81` ms/s ceiling,
+  and RUN 42's `2.66 / 7.81 = 34%`, so the adopted runtime has about 3x headroom
+  and **no level is unreachable**. The ceiling biting only in Phase 3 below 145
+  is by design and is what Phase 3 exists to measure;
+- Phase 3 automatic;
+- the C-stick mapping;
+- the seeded schedule, seed logged, schedule in the SD log only.
+
+#### Unchanged
+
+§V27.2's falsifier, §V27.5's INCONCLUSIVE arms, §V27.6's declaration order,
+§V27.7. **After the build, the levels, the schedule and the counts are frozen.**
+
+---
+
+### V27.11 PRE-HARDWARE AMENDMENT — 2026-09-24 (third, and the last before the build) — posted on #117 as `issuecomment-5824282940`, before any build (raw sha256 `e47f9585b9c308d0a1f5413fa5a950e16df91f417fc1477d02373741758de93a`, printed `1ef03e08cbcb1987819ca86e117b7b68916e98de507a3ae90f411b0d7c773ef6`)
+
+Written after reading the full proposal (`issuecomment-5824258301`), not only its
+summary. §V27.0–§V27.10 stand. Two changes; everything else in the proposal is
+accepted as written.
+
+---
+
+#### 1. The transition asymmetry is INTRINSIC, and the frozen text says so
+
+Your mechanics are accepted exactly as specified — `MUTE` = 16 chunks, flush,
+pause, set the level at `MUTE − 5`, resume with four READY, logged SD-only with
+kind, levels and discard count.
+
+**But the residual cue is not an imperfection of the implementation; it is a
+property of the manipulation, and the record must say that.**
+
+```text
+DEEP -> SHALLOW    the delay must FALL, so 0.375 s of content is necessarily
+                   skipped: the music jumps forward
+SHALLOW -> DEEP    the delay must RISE, so 0.375 s is necessarily absorbed:
+                   nothing jumps
+```
+
+Changing an output latency *is* skipping or absorbing content. **No mute design
+removes this**, and any text implying it might be engineered away is wrong.
+What the 0.5 s mute does is hide the jump inside silence; what the catch trials
+do is measure whether he is using what remains. **State it as intrinsic, masked
+and measured** — three verbs, in that order, wherever this is written down.
+
+That is also why the catch trials are not optional garnish: they are the only
+thing standing between this design and a confident answer produced by an artefact.
+
+#### 2. Phase 3 brackets the threshold but does not measure it — bisect
+
+Your descent is 384 down in 32-sample steps. Above 145 `DUP` fires and holds the
+level indefinitely; below it the drain is unopposed. So the steps land on 160
+(holds) and 128 (underruns), and the result is **"the threshold is somewhere in
+(128, 160]"** — a bracket 32 wide around a model that predicts 145.
+
+**Frozen addition: after the first underrun, bisect between the last holding
+depth and the failing one, to +/- 4 samples.**
+
+```text
+descent     384 down in 32-sample steps, 6 s per depth, to the first underrun
+bisect      then halve the bracket until it is <= 8 wide, same 6 s dwell
+report      the interval, its width, and every depth's settled fill and counters
+Phase 3 cap 180 s  (was 120)
+```
+
+Your own timing argument is what makes 6 s sufficient, and I checked it: at
+`TARGET` = 144 the margin to the 129 floor is 15 samples, which at the 10.9
+samples/s deficit is 1.4 s — well inside the dwell. The threshold is **sharp**,
+not gradual, because `DUP` either can fire or cannot, so a bisection converges on
+a real edge rather than on a noise level.
+
+**This turns a bracket into a measurement.** `145` either falls inside the
+interval, in which case your model is confirmed on hardware rather than on
+reading, or it does not, and we learn that the model of when `DUP` can fire is
+incomplete. Both are worth the 60 s.
+
+---
+
+#### Accepted with no change
+
+The no-labels three-way judgement (§V27.10 already froze the counts at 12 real +
+6 null under the binary null), the mute mechanics, the automatic descent, the
+C-stick mapping, the "answer first" refusal, the seeded schedule with the seed
+logged, and the ride-along placement right after the `A` press and before the
+first switch, with its copy cost logged.
+
+**On the ride-along**: if it fits only at 640 blocks (0.16 s), take it. A 0.16 s
+window of real game audio is the first and only measurement of a game's bandwidth
+that exists; a whole second would be better and is not worth losing the run over.
+Report the size you got, not the size you wanted.
+
+**One precision for the record, since I have quoted the figure myself:** the 96%
+ceiling is the **16-push** runtime (RUN 38). The adopted 8-push runtime sits at
+34% (RUN 42), with about 3x headroom, and the levels are reached by a jump inside
+the mute rather than by slew, so `DEEP` and `SHALLOW` cost the same to hold.
+Anywhere the 96% appears it must carry which runtime it belongs to, or it reads
+as a property of the design we actually ship.
+
+---
+
+**The amendment window is now closed.** Build it. After the build the levels, the
+schedule, the counts, the caps and Phase 3's procedure are frozen, and the next
+change to any of them happens only after data, in a new pre-registration.
+
+### V27.12 The gates FROZEN before the image exists — `tools/v27accept.py` — 2026-09-24, the Executor's part
+
+*Appended. §V27.0–§V27.11 stand. This part records what was frozen, from which sources, and the
+build's own reasoning where §V27.10 asked for it. Nothing here is a result.*
+
+**The sources, hashed in both forms** (raw = the API's JSON body; printed = raw plus one line
+feed, as `gh --jq` emits it):
+
+```text
+the Issue body     issue #117              raw 24c9a0194c9c2aebd6ceeb981d00da292387a56adbe34b8f990ac87aa973c09e
+the objections     issuecomment-5823575011 raw 3cbe83dfe7aa08bfb5eb5368e874b5a86eb501ef01081e455df4d2e761f28ec7
+§V27.9             issuecomment-5823591878 raw c93993a90d81dade17f95fbbe4d4e24c67eafe93c4b6bf4074bfb3d67e4c203b
+the proposal (2)   issuecomment-5824258301 raw 43f7eb6bba3978bcef83e137065184b530f8c4ed8bad6180385daedba3f08adb
+§V27.10            issuecomment-5824269964 raw 1d6565add7ac897575d5005f593079b9f655d496e3fcc01768e6cc18422b01b6
+§V27.11            issuecomment-5824282940 raw e47f9585b9c308d0a1f5413fa5a950e16df91f417fc1477d02373741758de93a
+```
+
+The printed forms are in each amendment's heading above and in `tests/host/test_v27accept.py`'s
+record checks when the image lands.
+
+**What `tools/v27accept.py` decides, and from what.** It reads the JSON `tools/v27report.py` will
+build from the SD log (that builder is written with the image, and is not a gate):
+- (t5) an absent assignment, or a schedule that is not 18 switches → Phases 1 and 2 VOID;
+- (t3) the A press before the prompt → INCONCLUSIVE;
+- M1 per arm over its SETTLED seconds, the arm's target with the mute and the settling seconds
+  excluded: mean fill in [`TARGET` − 256, `TARGET` + 16], and the arms' means separated by
+  Δ`TARGET` ± 256; (t1) a failed M1 voids every perceptual result;
+- M2/M3 over the arm's non-mute seconds; (t2) an underrun in either arm → Phase 1 INCONCLUSIVE;
+- M4 reported per arm, never gated;
+- Phase 1: D over the 12 REAL switches, SAME or no answer counting as not predicted; ≥ 4 of 6
+  nulls judged a change → INCONCLUSIVE regardless; fewer than 18 answered → INCONCLUSIVE; D ≥ 10
+  CONFIRMS (79/4096 under chance 1/2); D ≤ 6 REFUTES; 7–9 UNRESOLVED;
+- Phase 2: fewer than 3 settings → INCONCLUSIVE; else MEASURED, the null targets reported in
+  samples and seconds, and the settings at the floor counted;
+- Phase 3: the descent table; the interval (last holding, first failing]; MEASURED when the
+  bisection has narrowed it to 8 or less, else BRACKETED; the model's 145 inside or outside,
+  descriptive.
+- **Every input a gate depends on is printed**, the requirement Issue #115 left.
+- `tests/host/test_v27accept.py` reaches every branch on constructions, and pins the counts.
+
+**The build's reasoning on the correction ceiling (§V27.10 asked for it here).** The DUP need is
+a rate set by the drain's deficit against the AI's consumption, 4 099.65 decoded samples/s
+(`GBP-HW-325`, 32 028.483 × 16/125), and it does not depend on the level. On the adopted 8-push
+runtime it is 2.66 ms/s (RUN 42, whole window) against the 7.82 ms/s ceiling of one correction per
+chunk: **34 %, about 3× headroom**. The 96 % figure (7.50 of 7.82 ms/s) is the **16-push runtime,
+RUN 38**, not the design shipped. The levels are reached by a jump inside the mute, never by slew,
+so DEEP and SHALLOW cost the same to hold. The ceiling bites only in Phase 3, by design: below
+`TARGET` = 145 the DUP cannot fire (a chunk needs 129 samples to start; the DUP needs a count below
+`TARGET` − 16), the READY queue drains at the deficit rate, 10.9 samples/s, about one chunk per
+12 s, and the first underrun follows within about 50 s of reaching 128. No level is unreachable.
+
+**The transition asymmetry, in §V27.11's three verbs.** It is **intrinsic**: a shallower switch
+must skip 0.375 s of content and a deeper one must absorb it, because that is what changing an
+output latency is. It is **masked**: the 0.5 s mute hides the jump inside silence, identically in
+both directions and on a null. It is **measured**: the six null switches measure whether he is
+judging what remains of it.
+
+**What the image will realise** (the sample counts are today's realisation of the frozen seconds):
+DEEP 2 048, SHALLOW 512, FLOOR 384 samples at 4 096/s; mute 16 chunks, Phase 2 step mute 4 chunks;
+caps 300 / 240 / 180 s and 720 s for the session; 12 REAL + 6 NULL switches from a seed taken at the
+A press and written to the SD log only; Phase 2 from seeded starts on the 128-sample grid with a
+seeded direction; Phase 3 from 384 in 32-sample steps with a 6 s dwell, then a bisection to 8 or
+less; the raw-block window right after the A press, at the size the memory allows, its copy cost
+logged. The C-stick mapping is the proposal's, for the Orchestrator's checklist.
