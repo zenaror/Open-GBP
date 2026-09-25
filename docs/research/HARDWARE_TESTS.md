@@ -37927,3 +37927,32 @@ Each entry gives what the defect would have done on the console, how it was foun
 - **After the report:** **X** saves the log and the raw window, **START** exits, then power off.
 - **The run's length:** up to 12 minutes after the origin (Phase 1 ≤ 5 min, Phase 2 ≤ 4 min, Phase 3 ≤ 3 min), less if he answers promptly and confirms three settings.
 - **The cartridge:** a GBA game the Operator knows, whose music plays continuously. Phase 1 needs sound to judge, and Phase 3 needs sound to find its edge. No save may be written.
+
+---
+
+### V27.18 The candidate STAGED — 2026-09-25 — `sync-0001` in slot `22-sync`
+
+*Appended. §V27.0–§V27.17 stand.*
+
+- **The authorisation.** The Orchestrator asked in the coordination channel for the staged `boot.dol`'s hash read from the medium: "Push when they land, then give me the slot and the staged `boot.dol`'s hash read from the medium, and I write the Operator's procedure" and "Finish the verification pass, commit, build, push, and send me `22-sync` and the `boot.dol` hash read from the medium". Both are quoted in the Executor's report.
+- **The Executor's report and record of the staging** is on #117 as `issuecomment-5831311668`:
+  - raw `7da29b22aa057c6c61dff0798c94fd359445b4482575edde44738466dad17f35`;
+  - printed `7b7749bd933dcd3345e664f70822215608f175a71047e5ebf435de5957dc244d`.
+
+The hash conventions are §V26.8's.
+
+```text
+slot         22-sync -- FROZEN in tools/swiss-layout.tsv at ab902f6fb3789d66c3ace4d92be9cdc5fc300399705eb97a4ae185235feb0941
+             (9e08c43) BEFORE the export; swiss_export --only 22-sync; "1 exported, 0 missing, 21 carried over"
+build/swiss  only 22-sync/boot.dol (new, 543 264 B) and INDEX.txt changed (075e621a... 6 758 B ->
+             0f3a521efe2ecee12ee06ade801d92e6d984f0e66a8994e908728998ec100474, 7 053 B); row 22-sync PINNED-VERIFIED;
+             01-21 byte-identical
+card         before: 23 files under SD_GC/Open-GBP, byte-identical to build/swiss (INDEX.txt 075e621a..., the state
+                     §V26.10 left); aout/run33-audio.bin cfe472d3...52b8; no GBP-AUDIO-012* anywhere; .Trash-1000 empty
+             write:  mkdir 22-sync; cp boot.dol; cp INDEX.txt; sync -- nothing else
+             after:  24 files; 22-sync/boot.dol 543 264 B ab902f6f...0941; INDEX.txt = build/swiss's; the other 22 files
+                     byte-identical to before; no GBP-AUDIO-012*; .Trash-1000 empty
+reads        every file hashed through dd iflag=direct (page cache bypassed), before and after
+```
+
+Anything named `GBP-AUDIO-012_sync-0001*` on the card from now on is the run's output.
