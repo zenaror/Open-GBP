@@ -40,7 +40,7 @@ def block_from(levels):
 class OnConstructions(unittest.TestCase):
     def test_a_slice_reads_back(self):
         a, b = pulse(7, 128), pulse(7, 100)
-        extra = 1 << (256 - 6)                          # one bit before the rise, in an even stream only
+        extra = 1 << (256 - 6)                          # bit 5, two before the rise, in an even stream only
         sl = slice_from([a | extra, a, a, a, b, b, b, b])
         r = v123frame.slice_record(sl)
         self.assertEqual((r["pairs"], r["superset"], r["one_pulse"], r["rise"], r["wa"], r["wb"], r["extras"]),
@@ -48,6 +48,11 @@ class OnConstructions(unittest.TestCase):
         self.assertTrue(r["identity"])
         self.assertFalse(r["a_eq_b"])
         self.assertEqual(sum(bin(x).count("1") for x in sl), 4 * 128 + 4 * 100 + 1)
+        self.assertEqual(r["even_runs"], [2, 1, 1, 1])  # bit 6 is clear: the extra is a second run
+        touch = 1 << (256 - 7)                          # bit 6, touching the pulse: still one run
+        far = 1 << 10                                   # an extra far from the pulse, in stream 2
+        r = v123frame.slice_record(slice_from([a | touch, a, a | far, a, b, b, b, b]))
+        self.assertEqual((r["even_runs"], r["extras"], r["identity"]), ([1, 2, 1, 1], 2, True))
 
     def test_what_breaks_the_reading_is_reported(self):
         a = pulse(7, 128)
@@ -58,6 +63,21 @@ class OnConstructions(unittest.TestCase):
         self.assertFalse(r["one_pulse"])
         r = v123frame.slice_record(slice_from([0, a, a, a, a, a, a, a]))
         self.assertFalse(r["superset"])                 # an even stream lacking its odd partner's bits
+
+    def test_a_flat_block_can_trade_a_for_b(self):
+        # the counts spread by nothing, and A and B trade a bit: flat, and not constant
+        def blk(pairs):
+            return b"".join(slice_from([pulse(7, wa)] * 4 + [pulse(7, wb)] * 4) for wa, wb in pairs)
+        cases = ((blk([(111, 114)] * 8 + [(112, 113)] * 8), (1, 0)), (blk([(111, 114)] * 16), (1, 1)),
+                 (blk([(111, 114)] * 8 + [(113, 116)] * 8), (0, 0)))
+        for b, want in cases:
+            orig = v123frame.load
+            v123frame.load = lambda kind, path, _b=b: [(None, [_b])]
+            try:
+                r = v123frame.analyse_capture("synthetic", "")
+            finally:
+                v123frame.load = orig
+            self.assertEqual((r["flat"], r["flat_ab_constant"]), want)
 
     def test_the_grid(self):
         cases = {"512-cycle (pair) grid": [128] * 6 + [140] * 10,
@@ -86,8 +106,14 @@ class TheTones(unittest.TestCase):
             self.assertLessEqual(r["extras_max"], 3)
             self.assertEqual((r["wa_min"], r["wa_max"]), (98, 158))
             self.assertEqual(r["rest"], {"128,128": 4096})
+            self.assertEqual(r["side_share"], 0.0)                 # A == B: no side at all
+            self.assertEqual(r["flat"], r["flat_ab_constant"])       # every flat tone block: A and B constant
         self.assertEqual(self.r["RUN33"]["rise"], {"6": 20480})
         self.assertEqual(self.r["RUN34"]["rise"], {"7": 20480})
+        self.assertEqual((self.r["RUN33"]["flat"], self.r["RUN34"]["flat"]), (1039, 1217))
+        # the even streams are NOT single runs: their extras also sit away from the pulse
+        self.assertEqual(self.r["RUN33"]["even_multi_run"], {"0": 8429, "2": 15, "4": 12, "6": 7})
+        self.assertEqual(self.r["RUN34"]["even_multi_run"], {"0": 8978, "2": 0, "4": 0, "6": 0})
 
     def test_the_tones_follow_the_pair_grid(self):
         for n, even in (("RUN33", 241), ("RUN34", 63)):
@@ -110,6 +136,9 @@ class TheGameWindow(unittest.TestCase):
         self.assertLessEqual(r["extras_max"], 10)
         self.assertEqual((r["pair_equal"], r["pair_n"], r["change_even"], r["change_odd"]), (4312, 5120, 703, 808))
         self.assertEqual(r["grid"], "256-cycle (slice) grid")
+        self.assertEqual(round(r["side_share"], 4), 0.0446)
+        self.assertEqual(r["even_multi_run"], {"0": 10240, "2": 459, "4": 1574, "6": 172})
+        self.assertEqual((r["flat"], r["flat_ab_constant"]), (1, 0))  # its one flat block trades A for B
 
 
 if __name__ == "__main__":
