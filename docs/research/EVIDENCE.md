@@ -10170,7 +10170,7 @@ residue by 0.25–0.28 s.** Only the sum is bounded.
 
 ---
 
-### GBP-HW-343 — The cost of 0.125 s against 0.5 s, measured inside one session: over RUN 43's interleaved Phase 1 dwells the SHALLOW arm lost AUDIO blocks at 0.871 of the DEEP arm's rate (90 % interval by dwell 0.798–0.977), with no underrun and no overflow in either — FACT (counts, one run; the interval is a resampling of whole dwells); no cost of the shallower cushion was detected in what the log records
+### GBP-HW-343 — The cost of 0.125 s against 0.5 s, measured inside one session: over RUN 43's interleaved Phase 1 dwells the SHALLOW arm lost AUDIO blocks at 0.871 of the DEEP arm's rate (90 % interval by dwell 0.798–0.977), with no underrun and no overflow in either — FACT (counts, one run; the interval is a resampling of whole dwells); no cost of the shallower cushion was detected in what the log records — **2026-09-25, Issue #121: the primary statistic is the exact permutation, one-sided p 0.068; the interval is descriptive, anti-conservative by a measured 15.75 % against 10 % (`TheIntervalsCoverage`); no increase detected, a lower loss not established; 0.125 s adopted; the statuses stand**
 
 GitHub Issue #120; `tools/v27derive.py`. §V27.4 froze `M4` as reported, never gated. The Operator has
 since asked for lower audio latency (#120), so this is the evidence for that change. The arms alternate
@@ -10205,6 +10205,16 @@ zero underruns in 71 s at 0.125 s: the rate is below 3/71 = 0.042 per second (95
   never per second, so their share per arm is not in the log.
 - **Why the shallow arm lost fewer blocks.** Nothing here varies a cause. It is not read as a benefit.
 - **Anything below 0.125 s as an arm.** 0.094 s was visited, not tested.
+
+**ADOPTED 2026-09-25 (GitHub Issue #121), on top; nothing above is rewritten.** 0.125 s is the chain's default
+cushion (`GBP_APLAY_TARGET`, set in time: 512 samples at today's 4 096 per second).
+**No increase in AUDIO loss was detected at 0.125 s, and a lower loss is not established.** The primary statistic is
+the exact permutation of the 12 dwells, one-sided p 63/924 = 0.068. It holds its size under the design's own
+null: 16 of 400 simulations rejected at one-sided 0.05, 4.0 % (`tests/host/test_v27derive.py`, `ThePermutationsSize`). The
+percentile interval, 0.798–0.977, is descriptive: under equal rates with this run's dwell exposures it excluded 1 in 63
+of 400 simulations, 15.75 % against its nominal 10 % (`tests/host/test_v27derive.py`, `TheIntervalsCoverage`). That
+is why its upper end sits below 1 while the exact test does not clear 0.05. The adoption reduces the
+audio-behind-video offset and does not remove it (`U-GBP-046` stays open), and nothing shallower is adopted. The default was 0.5 s (2048 samples) in every build before #121; each executed image reproduces at its own commit (`HARDWARE_TESTS.md` §V23.9), and `sync-0001`, which set its own levels through `gbp_aplay_set_target` (2048 / 512 / 384, literals in `gbp_async.c`) and so ran 0.125 s and 0.094 s in RUN 43, keeps them.
 
 ---
 

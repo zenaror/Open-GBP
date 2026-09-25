@@ -38218,3 +38218,12 @@ is 64 Hz: gaps cut the window into runs of at most 130 blocks.
 - **`TARGET` is unchanged in the runtime.** Phase 6 is not reopened.
 - **Whether to re-run Phases 2 and 3 is not decided here.** The next pre-registration has `GBP-HW-344`'s
   rate to be built on.
+
+#### V27.20.13 M4's primary statistic, and the adoption — 2026-09-25 (GitHub Issue #121), on top
+
+Wherever M4 is quoted, **the primary statistic is the exact permutation of the 12 dwells, one-sided p 0.068**. It
+holds its size under the design's own null: 16 of 400 simulations at one-sided 0.05 (`ThePermutationsSize`). The 90 % percentile interval, 0.798–0.977, is descriptive and anti-conservative by a
+measured 15.75 % against its nominal 10 % (`tests/host/test_v27derive.py`, `TheIntervalsCoverage`, `GBP-HW-343`).
+On that evidence #121 adopts 0.125 s as the chain's cushion. **No increase in AUDIO loss was detected at 0.125 s, and a
+lower loss is not established.** It reduces the offset and does not remove it (`U-GBP-046`). §V27.20.7's proposal
+block is unchanged; this line says which of its two figures carries the conclusion.

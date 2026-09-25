@@ -16532,3 +16532,32 @@ pinned to this freeze.
 **Tests.** The gate figure is on #120, taken on the committed tree after the last commit.
 
 **Next.** The re-run question, and the latency change, are the Orchestrator's to open. The next image needs the defects of §V27.20.11: the event store sized from the measured rate, the stale `EVGAP` text, the stale title, phase edges in-run and on screen, and DUP and `ring_gated` per second.
+
+## 2026-09-25 — Issue #121: the chain's cushion adopted at 0.125 s, set in time, on RUN 43's interleaved arms
+
+**Goal.** Adopt the Operator's latency directive, *"se perceber se é possivel reduzir um pouco mais, reduza a latencia do som"*, on the evidence RUN 43 produced.
+
+**Decision.** #121 adopts 0.125 s as the chain's default cushion, replacing 0.5 s. **No increase in AUDIO loss was detected at 0.125 s, and a lower loss is not established.** The primary statistic is the exact permutation of the 12 dwells, one-sided p 0.068. The percentile interval, 0.798–0.977, is descriptive and anti-conservative by a measured 15.75 % against 10 % (`GBP-HW-343`, `tests/host/test_v27derive.py` `TheIntervalsCoverage`). It reduces the offset and does not remove it; `U-GBP-046` stays open. Nothing shallower is adopted.
+
+**Changes.**
+- **The value in time.** `src/audio/gbp_aplay.h` states the cushion in microseconds, `GBP_APLAY_CUSHION_US`. `GBP_APLAY_TARGET` is now derived from it and from `GBP_ADEC_RATE`: 512 samples today. Compile-time asserts require a whole number of samples and a target the clamp accepts.
+- **The images before it.** The default was 0.5 s in every earlier build, and each executed image reproduces at its own commit (§V23.9). #109 applied the same rule when it moved the step default. Their sources are untouched and stay pinned byte for byte by their own image tests. `sync-0001` set its own levels through `gbp_aplay_set_target`, which is how RUN 43 ran its arms and Phase 2's floor, and it keeps them.
+- **Frozen tests amended on top, dated, with the prior text kept:**
+  - `test_gbp_aplay.c`'s #117 comparison now sets 2048 explicitly;
+  - `test_run42` and `test_u012_slices` read RUN 42's and #118's 2048 from the header those runs were built with.
+- **A first design rejected before the commit.** It kept `gbp_aplay_init()` at 0.5 s and added a second initializer for new images. It rested on a wrong premise, that the library default could not move under frozen images, and #109 shows otherwise. It also left a trap: an image built from `game-0002` would gate the AI's start at 0.5 s while the chain held 0.125 s. The review caught both.
+- **A second review round corrected the redesign before the commit:**
+  - an open-range guard over `poc/` that would have failed on the next image;
+  - a history read that could not tell a moved path from a missing commit;
+  - "every executed image ran 0.5 s", which `sync-0001` contradicts;
+  - a comment about the unit tests;
+  - an unmeasured "exact". The permutation's size is now measured: 16 of 400 at one-sided 0.05 (`ThePermutationsSize`).
+- **The records.** AUDIO.md §6, `GBP-HW-343`, §V27.20.13, `U-GBP-045` and `U-GBP-046` each carry the value and its cost in the same paragraph, and they name the primary statistic.
+- **The method rule.** `docs/RESEARCH_METHOD.md` gains "When two statistics disagree, calibrate one against the design instead of choosing". The Orchestrator named it at #120's closeout.
+
+**Tests.**
+- `tests/unit/test_gbp_aplay.c`: the default is 512 = 4 096 × 0.125 exactly, and a fresh init holds it. The correction tests written relative to the macro now run at 512. The ring-gated test's absolute fill now takes three DUPs and one DROP and still passes, and it carries a dated note.
+- `tests/host/test_cushion.py` holds the rest.
+- The gate figure is on #121, taken after the last commit.
+
+**Next.** The Operator hears the new default in ordinary play on the next image, at no extra cost to him. That is the check that it is better in use. After it come the phase markers and the event budget for the next image, then the re-run design.

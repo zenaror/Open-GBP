@@ -2236,7 +2236,7 @@ construction.
 the same image with raw episode preservation disabled, compared like for like.
 Neither is planned.
 
-## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open** — **Issue #108: by arm, the residue is still `produce`, and `neither` and VIDEO followed the arms (GBP-HW-334)** — **Issue #112 (RUN 41, a real game): both losses rose together while the picture worked hardest; the video workload added to the chain's is the new HYPOTHESIS (GBP-HW-336)** — **Issue #115 (RUN 42): that rise is L2's own keep window in every run (GBP-HW-338); the video-workload HYPOTHESIS loses its observation** — **Issue #116: without L2's window the stretch effect is larger (0.270, not 0.341), the half arm's residue is 0.198 gaps per cycle and stands, and RUN 38's 25.41 blocks/s is 24.50 (GBP-HW-339)** — **2026-09-25, Issue #120 (RUN 43): at 0.125 s of cushion against 0.5 s, inside one session, the loss rate is 0.871 (90 % 0.798–0.977) with no underrun in 71 s (GBP-HW-343); the correction's floor is unmeasured — Phase 3 did not run**
+## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open** — **Issue #108: by arm, the residue is still `produce`, and `neither` and VIDEO followed the arms (GBP-HW-334)** — **Issue #112 (RUN 41, a real game): both losses rose together while the picture worked hardest; the video workload added to the chain's is the new HYPOTHESIS (GBP-HW-336)** — **Issue #115 (RUN 42): that rise is L2's own keep window in every run (GBP-HW-338); the video-workload HYPOTHESIS loses its observation** — **Issue #116: without L2's window the stretch effect is larger (0.270, not 0.341), the half arm's residue is 0.198 gaps per cycle and stands, and RUN 38's 25.41 blocks/s is 24.50 (GBP-HW-339)** — **2026-09-25, Issue #120 (RUN 43): at 0.125 s of cushion against 0.5 s, inside one session, the loss rate is 0.871 (90 % 0.798–0.977) with no underrun in 71 s (GBP-HW-343); the correction's floor is unmeasured — Phase 3 did not run** — **2026-09-25, Issue #121: 0.125 s adopted; M4's primary statistic is the exact permutation, one-sided p 0.068; the interval is descriptive, anti-conservative by a measured 15.75 % against 10 % (`TheIntervalsCoverage`); no increase detected, a lower loss not established**
 
 **What is FACT.**
 - **The composed image drained less than the drain alone.** RUN 38's `live-0001` (the
@@ -2475,6 +2475,11 @@ either is added here.
 
 The residue's cause and the `neither` gaps stay open, unchanged.
 
+**2026-09-25 (GitHub Issue #121), on top.** 0.125 s is adopted as the chain's cushion. **No increase in AUDIO loss
+was detected at 0.125 s, and a lower loss is not established.** The primary statistic is the exact permutation of the
+dwells, one-sided p 0.068. The percentile interval quoted above is descriptive and anti-conservative by a measured
+15.75 % against 10 % (`GBP-HW-343`, `tests/host/test_v27derive.py` `TheIntervalsCoverage`). The correction's floor stays unmeasured, and so does the cost below 0.125 s.
+
 ## U-GBP-046 (P1, opened 2026-09-24, Issue #115) — the audio-to-video OFFSET: audio lags the picture with Open-GBP's runtime, and not with GBI or the Start-up Disc — **2026-09-25, Issue #120 (RUN 43): the cushion HYPOTHESIS is CORROBORATED — D = 12 of 12 (GBP-HW-341); the one Phase 2 setting was confirmed AT the 0.094 s floor, censored (GBP-HW-342); the residue stays unmeasured and the item STAYS OPEN**
 
 **What is observed — OPERATOR OBSERVATIONS, verbatim, in order** (#114, #115; `HARDWARE_TESTS.md`
@@ -2544,3 +2549,13 @@ input-and-video responsiveness OPERATOR OBSERVATION in its own right (`GBP-HW-33
   The change is its own Issue.
 
 The item stays OPEN, P1.
+
+**2026-09-25 (GitHub Issue #121), on top.** 0.125 s is adopted as the chain's cushion, replacing 0.5 s. **No increase
+in AUDIO loss was detected at 0.125 s, and a lower loss is not established** (`GBP-HW-343`). The primary statistic is
+the exact permutation of the 12 dwells, one-sided p 0.068; the percentile interval, 0.798–0.977, is descriptive and
+anti-conservative by a measured 15.75 % against 10 % (`tests/host/test_v27derive.py`, `TheIntervalsCoverage`). **It
+reduces the offset
+and does not remove it.** At 0.125 s the chain still holds the cushion, the READY queue's up to 0.125 s, the DMA chunk
+and the FIR. The sync point is censored at the 0.094 s floor, and what "seemed synchronised" bounds is the sum, chain
+plus residue, by a tolerance nothing here measures. The item stays OPEN. The check that the new default is better in
+use is the Operator's, in ordinary play, on the next image.
