@@ -37506,3 +37506,118 @@ poor trade.
 ---
 
 **The amendment window closes again here.** Build it.
+
+---
+
+### V27.14 PRE-HARDWARE AMENDMENT — 2026-09-24 (fifth: Phase 3's failure criterion, re-frozen from the build's arithmetic) — posted on #117 as `issuecomment-5825660123`, answering the objection `issuecomment-5825599668` (raw sha256 `fcd0158092c056f34736876d5c6490abcdd58e852b4c50b467746207adad82c6`, printed `b64f0ffe10a5ce3b725dac76538b63df1d3c3e305e6a3fa2bbddccdf32f10936`)
+
+**Your objection is correct, the re-freeze is granted, and the criterion I froze
+was a vacuous pass by construction.** I verified the arithmetic independently:
+
+```text
+the READY queue holds          4 x 128 = 512 samples
+it drains at the deficit       10.9 samples/s
+time to empty                  512 / 10.9 = 47.0 s
+the dwell                      6 s
+```
+
+`underruns > 0` cannot fire inside the dwell at any visited depth. Phase 3 as
+frozen would have printed *"NO UNDERRUN: every depth held, down to 128"* — a
+sentence that reads as **"128 is viable"** and means **"the dwell is shorter than
+the drain."**
+
+**That is silent-failure class 2, the vacuous pass**, which this project closed
+once already and which I then re-created inside a pre-registration written to
+measure something. Your alternative — keep the criterion and pre-register Phase 3
+as a null result by construction — is the honest version of a worthless
+measurement, and declining to build that is right.
+
+**And it is exactly what §V27.13's own rule forbids, one amendment earlier:** a
+frozen mechanism carries its arithmetic. I wrote that rule about myself and then
+froze a descent whose drain arithmetic I never worked. The rule stands; I am the
+first one it caught.
+
+---
+
+### 1. The predicate, ACCEPTED
+
+```text
+a depth FAILS when, over its dwell:   dup == 0  AND  starved > 0
+```
+
+Both observable inside 6 s. At `TARGET <= 145` the `DUP` cannot fire and the ring
+stalls at the 128 floor; at `TARGET >= 146` the `DUP` fires well inside the dwell
+and holds. Re-pin it in `v27accept`'s `phase_3` as §V22 AMENDMENT 1 was pinned.
+
+### 2. What it measures, and the verdict text must say both halves
+
+**This is not "the depth at which the audio fails".** It is **the depth at which
+the correction stops holding the level, after which an underrun is inevitable.**
+Those are different claims, separated by 47 s, and the second is the more useful
+operating limit — but only if it is named as itself.
+
+```text
+the verdict says       the lowest depth the correction can hold
+it does NOT say        the lowest depth at which audio survives
+```
+
+Any sentence that conflates them is the same defect in prose that the old
+criterion was in code.
+
+### 3. Bisect to width 2, not 8
+
+§V27.11 set `<= 8`. **That is too coarse to test the model it exists to test**: the
+model predicts 145, and `(144, 152]` contains 145 and also 152. Width 2 gives
+`(144, 146]`, which tests it to +/-1.
+
+```text
+descent    384 down to 128 in 32-sample steps, 9 depths, 6 s each   54 s
+bisect     to a bracket of width <= 2, 4 tests                       24 s
+```
+
+### 4. ADDED — a confirmation hold, so inevitability is observed and not modelled
+
+After the bisection, **hold at the highest FAILING depth for up to 60 s and look
+for a real underrun.** It needs 47.0 s and the budget has it:
+
+```text
+54 + 24 + 60 = 138 s        Phase 3 cap 180 s        44 s spare
+```
+
+```text
+underrun observed within the hold   the inevitability is OBSERVED.
+                                    "the correction stops at X, and audio then
+                                    fails" is one measurement, not a model plus
+                                    an extrapolation.
+not observed within the hold        report NOT OBSERVED, with the hold's length.
+                                    Never "held". The distinction is the whole
+                                    reason this amendment exists.
+```
+
+This is the same move as the bisection: turn a derived claim into an observed one
+while the console is already switched on. The deficit rate is itself a derived
+figure, and resting the conclusion on it when 60 s of hold can test it directly
+would be a choice to keep an assumption we could have retired.
+
+### 5. `SYNCDEPTH2` — keep it
+
+`starved`, `READY` and the fill at the dwell's start and end, plus the bin count
+behind `fill16`, per depth. It is what made this objection provable instead of
+arguable, and it is what will let the descent be re-read if the predicate turns
+out to need another look after data.
+
+---
+
+### On the eight defects your review rounds found
+
+The seeded initial level never reaching the chain, and the cut dwells reaching the
+gate whole, are both the shape of defect that produces a **confident wrong
+number** rather than a visible failure. Pinning each is right. **Do not compress
+that list when you write the build record** — a fixed defect that is not recorded
+is indistinguishable from one that was never there, and this image now carries
+enough machinery that the next reader will need the list more than we do.
+
+---
+
+**Push when the last fix lands.** Then the slot, and the staged `boot.dol`'s hash
+read from the medium, and I write the Operator's procedure.
