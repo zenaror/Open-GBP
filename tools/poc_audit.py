@@ -1330,6 +1330,105 @@ GAME_SYMBOL_CALLERS = {
 
 PROFILES["game"] = _game_profile()
 
+
+def _sync_profile():
+    """Issue #117: the `sync` profile IS the `game` profile with §V27's changes named (HARDWARE_TESTS
+    §V27, §V27.13). The image is game-0002 with:
+      * NO L2 keep: gbp_aplay_arm_l2 and gbp_aplay_sidecar are called from nowhere and the linker
+        drops them; no L2 sidecar is written (§V27.1);
+      * the chain's three new primitives (a runtime target, the mute the callback hands, the
+        discarded chunk) and the ring's discard, all reached from the pump slot and nowhere else,
+        the callback's mute being a load-and-decrement of one field inside gbp_aplay_irq_handoff;
+      * the session machine (gbp_async.o), fed from the tap (its blocks) and driven from the pump
+        slot (its ticks, the C-stick's events), started from the tap at gbp_alive's origin;
+      * the raw window (gbp_awr.o): armed and filled from the tap, closed in main after the session,
+        streamed to the card from main through one sink function -- the capture family's bar, with
+        gbp_crc32 (the serializer's CRC) and memcpy (the copy) as its only reaches;
+      * the C-stick read in the pump slot beside the pad sample input_step() takes (PAD_SubStick*),
+        and a fourth PAD_ButtonsHeld in pump: the Z edge (§V27's next-phase control);
+      * gbp_alive's own window end no longer ends anything: the pump never asks gbp_alive_finished.
+    `game` fails this image on exactly those points, which is what the audit says (9 findings).
+    """
+    p = copy.deepcopy(PROFILES["game"])
+    p["required_objects"] = p["required_objects"] + ("gbp_async.o", "gbp_atrans.o", "gbp_awr.o")
+    dropped = ("gbp_aplay_arm_l2", "gbp_aplay_sidecar")
+    p["elf_required"] = tuple(x for x in p["elf_required"] if x not in dropped) + (
+        "gbp_aplay_set_target", "gbp_aplay_mute", "gbp_aplay_produce_discard", "gbp_aplay_produce_uncorrected",
+        "gbp_aplay_drop_front", "gbp_atrans_init", "gbp_atrans_begin", "gbp_atrans_step",
+        "gbp_adec_discard", "gbp_async_init", "gbp_async_start", "gbp_async_tick", "gbp_async_switch",
+        "gbp_async_answer", "gbp_async_step", "gbp_async_confirm", "gbp_async_depth_done", "gbp_async_skip",
+        "gbp_async_block", "gbp_async_second_counters", "gbp_async_finished",
+        "gbp_awr_init", "gbp_awr_arm", "gbp_awr_block", "gbp_awr_note_cost", "gbp_awr_finish", "gbp_awr_stream")
+    p["elf_forbidden"] = p["elf_forbidden"] + dropped
+    p["main_must_call"] = tuple(x for x in p["main_must_call"] if x not in dropped + ("sdlog_stream_write",)) + (
+        "gbp_async_init", "gbp_atrans_init", "gbp_awr_init", "gbp_awr_finish", "gbp_awr_stream")
+    p["symbol_callers"] = dict(p["symbol_callers"])
+    p["symbol_callers"].update(SYNC_SYMBOL_CALLERS)
+    p["object_must_not_reference"] = dict(p["object_must_not_reference"])
+    p["object_must_not_reference"]["gbp_async.o"] = _CAPTURE_SYMBOLS
+    p["object_may_only_reference"] = dict(p["object_may_only_reference"])
+    p["object_may_only_reference"].update(SYNC_OBJECT_REFERENCES)
+    return p
+
+
+# §V27's call sites, read from sync-0001's listings and PINNED, on top of game's. live_step,
+# sync_control, sync_apply_plan, sync_dwell_done, trans_begin/trans_step and cs_edge are static and
+# GCC inlines them into pump(); sync_save_awr into main(); awr_sink is reached through a pointer.
+SYNC_SYMBOL_CALLERS = {
+    "gbp_aplay_arm_l2": {}, "gbp_aplay_sidecar": {},
+    "gbp_alive_finished": {"live_tap": 1},
+    "PAD_ButtonsHeld": {"pump": 4},
+    "PAD_SubStickX": {"pump": 2}, "PAD_SubStickY": {"pump": 2},
+    "sdlog_stream_write": {"awr_sink": 1},
+    "gbp_adec_pop": {"produce_impl": 1},
+    # the pump's own producer only: the executor's chunks (the held queue's top-up, the rotations) are all
+    # uncorrected (a top-up deciding its correction against the NEW level put a spurious sample into the
+    # held content: the executor's conservation check, review round 3)
+    "gbp_aplay_produce": {"pump": 1},
+    # the pump's AI start (ready >= 2); a Phase 3 dwell's end (its READY depth) in sync_dwell_done, now its own
+    # function (called from live_step and from main's post-session drain of a pending depth); a dwell's start
+    # (sync_apply_plan); the executor's two queue checks (ROTATE, HELD) and ROTATE's landing (the effective
+    # level counts READY beyond AHEAD - 1)
+    "gbp_aplay_ready": {"pump": 1, "sync_dwell_done": 1, "sync_apply_plan": 1, "gbp_atrans_step": 3},
+    # HELD's discards (under silence, and the one under way); ROTATE's rotation chunks (started, continued);
+    # ROTATE's front drop (after a rotation completes, from either path)
+    "gbp_aplay_produce_discard": {"gbp_atrans_step": 2},
+    # ROTATE's rotation (started, continued) and the held queue's top-up (ROTATE's and HELD's, merged)
+    "gbp_aplay_produce_uncorrected": {"gbp_atrans_step": 3},
+    # one source site (the static `rotated`, reached from two paths and inlined once)
+    "gbp_aplay_drop_front": {"gbp_atrans_step": 1},
+    # discard_chunk is inlined into produce_discard by GCC and dropped from the ELF: no site anywhere
+    "gbp_aplay_discard_chunk": {},
+    # the plan is applied by the executor: target and mute at its begin; the tap sets the seeded initial level
+    "gbp_aplay_set_target": {"gbp_atrans_begin": 1, "live_tap": 1}, "gbp_aplay_mute": {"gbp_atrans_begin": 1},
+    # the ring's discard: the begin's (ROTATE/UNMUTED at once), HELD's deferred one, its landing's pending one
+    # and its trim
+    "gbp_adec_discard": {"gbp_atrans_begin": 1, "gbp_atrans_step": 3},
+    "gbp_atrans_init": {"main": 1}, "gbp_atrans_begin": {"sync_apply_plan": 1}, "gbp_atrans_step": {"pump": 1},
+    "gbp_async_init": {"main": 1}, "gbp_async_start": {"live_tap": 1}, "gbp_async_block": {"live_tap": 1},
+    "gbp_async_finished": {"live_tap": 1, "pump": 1},
+    # skip: ONE call in main.c's source (live_step, the Z latch); GCC duplicates it in the ELF (the
+    # before/after comparison that counts a Z only when it ended a phase is laid out twice)
+    "gbp_async_tick": {"pump": 1}, "gbp_async_second_counters": {"pump": 1}, "gbp_async_skip": {"pump": 2},
+    # the three answers and the two steps are one call each with a computed argument (GCC merged them)
+    "gbp_async_switch": {"pump": 1}, "gbp_async_answer": {"pump": 1}, "gbp_async_step": {"pump": 1},
+    "gbp_async_confirm": {"pump": 1}, "gbp_async_depth_done": {"sync_dwell_done": 1},
+    "gbp_awr_init": {"main": 1}, "gbp_awr_arm": {"live_tap": 1}, "gbp_awr_block": {"live_tap": 1},
+    "gbp_awr_note_cost": {"live_tap": 1}, "gbp_awr_finish": {"main": 1}, "gbp_awr_stream": {"main": 1},
+}
+SYNC_OBJECT_REFERENCES = {
+    "gbp_aplay.o": ("gbp_adec_pop", "gbp_aresamp_init", "gbp_aresamp_push", "memset",
+                    "gbp_aplay_crc_update", "gbp_aplay_discard_chunk", ".bss.crc_table", ".bss.crc_ready", ".rodata"),
+    "gbp_async.o": ("memset", "memcpy", "__udivdi3", "gbp_async_xorshift32", "gbp_async_cfg_default"),
+    "gbp_atrans.o": ("memset", "gbp_adec_discard", "gbp_aplay_drop_front", "gbp_aplay_mute", "gbp_aplay_produce",
+                     "gbp_aplay_produce_discard", "gbp_aplay_produce_uncorrected", "gbp_aplay_ready",
+                     "gbp_aplay_set_target"),
+    "gbp_awr.o": ("memcpy", "memset", "gbp_crc32", "gbp_crc32_init", "gbp_crc32_update", "gbp_crc32_final",
+                  "__udivdi3", ".rodata"),
+}
+
+PROFILES["sync"] = _sync_profile()
+
 # Issue #86: AOUT-HW-001, the OUTPUT PATH image. It is not built on any GBP image, so its
 # profile is not derived from one: it is written as the set of things that must be ABSENT.
 # The point of the image is that the console is made to play without the Game Boy Player
