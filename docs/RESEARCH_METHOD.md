@@ -482,6 +482,30 @@ Before freezing, the reviewer computes the worst case from the frozen numbers an
 the freeze. A mechanism whose text carries no number that can be recomputed is not ready to
 freeze.
 
+### When two statistics disagree, calibrate them against the design instead of choosing (2026-09-25, GitHub Issue #121)
+
+**When two statistics of the same comparison disagree, calibrate them against the design that produced the data, and
+say which is primary and why. Do not pick the one whose answer is convenient.**
+
+**Where this came from.** RUN 43's M4 compared two cushion arms over six dwells each (`GBP-HW-343`):
+- a 90 % percentile interval, resampling dwells, gave 0.798–0.977 for the loss ratio, which excludes 1;
+- the exact permutation of the 12 dwells gave a one-sided p of 0.068, which does not clear 0.05.
+
+Both describe the same null, so both cannot be right. `tests/host/test_v27derive.py` (`TheIntervalsCoverage`)
+simulated that null in the design's own terms: equal rates, the run's own dwell exposures, Poisson losses. The
+interval excluded 1 in 63 of 400 simulations, **15.75 % against its nominal 10 %**. Under the same null the permutation rejected at one-sided 0.05 in 16 of 400 simulations, 4.0 %, and at
+two-sided 0.10 in 36 of 400, 9.0 % (`ThePermutationsSize`): it holds its size. So the permutation is primary, the interval is descriptive, and the conclusion follows the
+permutation: no increase was detected, and a lower loss is not established. #121 adopted 0.125 s on that sentence, not
+on the interval's.
+
+**How to satisfy the rule.**
+- Simulate the design's own null, with its own units and exposures, and measure each statistic's false-positive rate
+  there. A statistic that is anti-conservative for few clusters is not wrong. It is uncalibrated, and the
+  calibration is a finding.
+- Wherever the result is quoted, state three things together: the primary statistic, the measured calibration of the
+  other, and the conclusion the primary supports.
+- Cite the calibration by its test, not by an argument. That is the difference between a convention and a finding.
+
 ## Hardware test requests
 
 A hardware test request should be small and deterministic.
