@@ -16414,3 +16414,35 @@ observed, 96 % of today's ceiling).
 **Tests executed.** `make test-python` on the committed tree; the figure is in the #118 report.
 
 **Next.** #117's build resumes, with a proposal on whether a raw-block window can ride along.
+
+## 2026-09-24 — Issue #117: §V27 pre-registered — the latency round's gates frozen before the image exists
+
+**Goal.** Freeze, before any build, the round that asks whether the audio-behind-video offset is
+the decoded ring's cushion: `TARGET` the only variable, a blinded A/B with null catch trials, a
+nulling measurement, and a mechanistic descent to the depth at which the correction stops
+working.
+
+**What was frozen and from where.** §V27.0–§V27.8 from the Issue's body; §V27.9, §V27.10 and
+§V27.11 from the Orchestrator's three pre-hardware amendments, each answering objections the
+Executor raised with evidence before building. The amendment window closed with §V27.11. Every
+source is hashed in both forms in §V27.12. `tools/v27accept.py` is the gate, on synthetic reports
+only (`tests/host/test_v27accept.py`, 22 tests, every branch reached).
+
+**The objections that changed the design, in order.**
+- The correction slews at most one sample per chunk and is already mostly spent, so the levels
+  are reached by a jump inside a fixed 0.5 s mute, identical in both directions and on a null.
+- M1's band (±16) would have failed at today's `TARGET` in every archived run; it became
+  [`TARGET` − 256, `TARGET` + 16] per arm, with the separation of the arms as the real check.
+- Below `TARGET` = 145 the DUP can never fire, so Phase 2's floor rose to 384 and Phase 3 was
+  opened to measure that edge, by bisection.
+- Fixed X/Y labels and null catch trials are mutually exclusive, so the judgement is three-way
+  after every switch, with no labels; and the honest null for the direction is 1/2, so the
+  schedule became 12 REAL + 6 NULL with D ≥ 10 to confirm.
+- The transition asymmetry is intrinsic, masked and measured, in that order.
+
+**The ceiling, folded in.** The DUP need is a rate independent of the level: 34 % of the ceiling
+on the adopted 8-push runtime (RUN 42), about 3× headroom; the 96 % figure is the 16-push runtime
+(RUN 38). No level is unreachable; the ceiling bites only in Phase 3, by design.
+
+**Not done.** No image; no builder; nothing staged. The image and `tools/v27report.py` follow,
+pinned to this freeze.
