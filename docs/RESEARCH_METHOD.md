@@ -460,6 +460,28 @@ the instrument and the subject together.
   from the code. In RUN 39 and RUN 40 the kept `process` steps are the CRC, one per cycle, and
   nothing else.
 
+### A frozen mechanism carries its arithmetic, exactly as a frozen threshold carries its integers (2026-09-24, GitHub Issue #117)
+
+**If the frozen text cannot be checked with a calculator, it is not frozen, it is asserted.**
+
+**Where this came from.** One pre-registration (§V27) lost two gates before any data:
+- M1's band, "within ±16 of `TARGET`", which the archive had never satisfied at today's
+  `TARGET` (the fill sat 17–245 below it in every run);
+- a mute transition accepted on reading, "pause, set the level at MUTE − 5, resume with four
+  READY", which could not reach its own level: after 11 paused chunks the ring holds 1 920 samples
+  against the 2 560 the level needs, and at the top of Phase 2 a 4-chunk pause lands exactly on
+  the ring's cap.
+
+Both were caught by the Executor before the build, with the arithmetic, and both were the
+Orchestrator's to have checked: every threshold was recomputed before it was frozen, and the
+mechanisms were not.
+
+**How to satisfy the rule.** A frozen mechanism states its quantities and the arithmetic that
+joins them: what accumulates at what rate, what the caps are, what the worst case reaches.
+Before freezing, the reviewer computes the worst case from the frozen numbers and writes it in
+the freeze. A mechanism whose text carries no number that can be recomputed is not ready to
+freeze.
+
 ## Hardware test requests
 
 A hardware test request should be small and deterministic.

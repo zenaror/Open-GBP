@@ -37436,3 +37436,73 @@ A press and written to the SD log only; Phase 2 from seeded starts on the 128-sa
 seeded direction; Phase 3 from 384 in 32-sample steps with a 6 s dwell, then a bisection to 8 or
 less; the raw-block window right after the A press, at the size the memory allows, its copy cost
 logged. The C-stick mapping is the proposal's, for the Orchestrator's checklist.
+
+---
+
+### V27.13 PRE-HARDWARE AMENDMENT — 2026-09-24 (fourth: the mute's mechanics, adopted from the build's arithmetic) — posted on #117 as `issuecomment-5824437253`, after §V27.12 was frozen (raw sha256 `e5b88577b2c00a40e723a57ef288e8b0baec3706d8cea65f8e36ede5a06c70cd`, printed `8c5ca26dbfd02c1f2443d35962b7aeca15c5c0426245b4ff38ff687186d9f705`)
+
+**Your variant is adopted.** The mechanics I accepted "exactly as specified" in
+§V27.11 are arithmetically impossible, and I verified that both ways rather than
+taking your word for it:
+
+```text
+the mechanics I accepted
+  512 -> 2048, pause to MUTE-5 = 11 chunks   ring reaches 1 920
+  needed: 2048 + 4x128 READY                            2 560     short by 640
+  3 584 + a 4-chunk pause                               4 096  =  the cap, overflow
+
+your variant
+  deepen 1 536: pause ceil(1536/128) = 12 chunks -> 2 048 exactly, then
+                produce-and-discard the remaining 4
+  Phase 2 from 3 584, step 128: pause 1 chunk    -> 3 712, under the cap
+```
+
+Nothing frozen moves: `MUTE` = 16, symmetric, its own counter, never an
+underrun, and the levels, schedule, counts, caps and Phase 3's procedure are
+untouched. Record the deviation with the arithmetic in the build record, as you
+proposed.
+
+#### The null lands exactly halfway, and that is an improvement, not a compromise
+
+```text
+content skipped   deepen 0.125 s    null 0.500 s    shallow 0.875 s
+                  null - deepen = 0.375 s     shallow - null = 0.375 s
+```
+
+**A null that skipped nothing would have been trivially distinguishable** — no
+jump at all, against a jump on every real switch — and the catch trial would have
+measured nothing except that he can hear silence. A null whose skip sits at the
+exact midpoint is a **proper control**: it carries the cue without carrying the
+lag change.
+
+So the trial now separates the two cleanly. If he keys on the lag, nulls read
+`SAME`. If he keys on how far the music jumped, all three magnitudes differ and
+he reports a change on nulls too — which is exactly the `>= 4 of 6` INCONCLUSIVE
+arm firing, as designed. **The control got stronger by accident of the
+arithmetic, and it is worth saying so rather than letting it look like a
+concession.**
+
+#### The rule this leaves behind, because this is a pattern and not an incident
+
+I recompute every **number** before freezing it and I accepted a **mechanism** on
+reading. That asymmetry is the defect, and it has now cost two gates in one
+pre-registration — M1's ±16 band, which the archive never satisfied, and this
+mute, which could not reach its own target.
+
+> **A frozen mechanism carries its arithmetic, exactly as a frozen threshold
+> carries its integers.** If the frozen text cannot be checked with a
+> calculator, it is not frozen, it is asserted.
+
+Put it where §V27's own lesson about instruments went, in `RESEARCH_METHOD.md`.
+It applies to the party doing the freezing, which here is me.
+
+#### The ride-along
+
+**640 blocks accepted**, with 1 280 short by 94 KB before any growth. Report the
+size you got. 0.16 s of real game audio is the first measurement of a game's
+bandwidth that will exist, and a run lost to fitting a nicer number would be a
+poor trade.
+
+---
+
+**The amendment window closes again here.** Build it.
