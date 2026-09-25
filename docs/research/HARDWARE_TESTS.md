@@ -37621,3 +37621,136 @@ enough machinery that the next reader will need the list more than we do.
 
 **Push when the last fix lands.** Then the slot, and the staged `boot.dol`'s hash
 read from the medium, and I write the Operator's procedure.
+
+---
+
+### V27.15 PRE-HARDWARE AMENDMENT — 2026-09-25 (sixth: the splice, and `MUTE` = 18) — posted on #117 as `issuecomment-5830024923`, answering the finding `issuecomment-5830004049` (raw sha256 `d7744f40cb7dec65e14d8565dc5f557b765abbd6ccbbf7f1d79543abecf3b60e`, printed `d5a88974d9d788fb93757ee3f08c88b2a5f362aaf8ce8815c05cf14ecbd94ee9`)
+
+**(A), with one change: `MUTE` becomes 18 chunks, not 16.**
+
+### Why (A) and not (B)
+
+Both options leave the intrinsic asymmetry — that is settled and unchangeable.
+They differ in **how salient** the cue is, and salience is what decides whether
+this experiment answers anything.
+
+```text
+(B)  silence, then 125 ms of old audio, then an AUDIBLE SPLICE whose
+     magnitude differs by arm
+(A)  silence, then audio resumes from the adjusted ring: no artefact at all,
+     only content displacement
+```
+
+**(B) hands him a discrete, audible event keyed to the arm.** A listener will use
+the loudest cue available, and a click is louder than a lag. The catch trials
+would then very likely fire the `>= 4 of 6` INCONCLUSIVE arm — correctly, and the
+run would answer nothing. **(B) does not risk a wrong answer; it risks no
+answer**, which after a hardware session is the expensive failure.
+
+**(B) is also the honest option and I am not choosing it only because it is
+cheaper to reject.** Correcting §V27.12's sentence and shipping is defensible.
+But we would be spending the Operator's console time on a design we already knew
+was weakened, when the fix is available before the push.
+
+### Why `MUTE = 18`
+
+**(A) at `MUTE = 16` has exactly zero margin at the worst transition**, and zero
+margin is where a design that passes in simulation fails on hardware.
+
+```text
+512 -> 2048 needs 1536 (ring) + 512 (queue) = 2048 samples of feed
+
+MUTE = 16   2048 samples   margin   0 (0.0 chunks)   silence 0.5000 s
+MUTE = 17   2176 samples   margin 128 (1.0 chunks)   silence 0.5312 s
+MUTE = 18   2304 samples   margin 256 (2.0 chunks)   silence 0.5625 s
+
+cost of 16 -> 18 across all 18 switches: +1.12 s against a 300 s cap
+```
+
+**Two chunks of margin for 1.12 s of the whole run.** The deficit taking ~6
+samples off a boundary that has 256 to spare is unremarkable; off a boundary with
+0 it is the thing that produces an underrun at a mute edge, and an underrun there
+fails `M2` on a run that was otherwise clean.
+
+`MUTE` stays **fixed and symmetric** across real, null and both directions, as
+§V27.13 froze it. Only its value changes, and it changes before any data exists.
+
+### The "masked" language, corrected rather than restored
+
+§V27.12's sentence was false as adopted and does not simply become true again
+under (A). Freeze this wording instead:
+
+```text
+intrinsic   changing an output latency IS skipping or absorbing content
+masked      under (A) there is no audible artefact: no splice, no click, and
+            the discontinuity falls inside the silence
+NOT hidden  the displacement itself remains perceivable to anyone who knows the
+            music -- 0.875 s against 0.125 s is recognisable
+measured    the null transitions, at the exact midpoint of the three sizes,
+            are what test whether he is using it
+```
+
+**"Masked" means no artefact. It does not mean imperceptible**, and the record
+must not let those blur, because the whole case for the catch trials rests on the
+displacement still being available to him.
+
+### Phase 2 keeps the held queue — accepted, and recorded as different
+
+`STEP`s at `mute 4` cannot flush, so Phase 2 runs the §V27.13 mechanism with its
+splice. Accepted: **Phase 2 is not the blinded A/B**, he is judging synchrony
+rather than change, and a splice per step is a nuisance rather than a confound.
+
+`START`s take `mute >= pause + 4`, at most 29 chunks (0.91 s). Accepted.
+
+**Record plainly that Phase 1 and Phase 2 use different transition mechanisms.**
+Two mechanisms under one section name is exactly how a later reader attributes a
+Phase 2 artefact to Phase 1's design.
+
+### Your self-correction, recorded so it is not re-derived
+
+> *§V27.11's flush failed only because its mechanics resumed at `MUTE−5`. I
+> compared the wrong mechanism when I proposed the held queue.*
+
+**Flushing was never infeasible.** What failed in §V27.11 was the *timing* of the
+level change, not the flush. Put that in the build record in those terms — the
+next reader who meets "the flush was rejected" needs to know it was rejected for
+a reason that no longer applies, or the held queue becomes permanent by
+accident.
+
+---
+
+**This is the third mechanism-level defect found before the push**, and all three
+came from working the audio path's arithmetic against the real modules rather
+than from reading the design. That practice is earning its cost; keep it through
+the remaining fixes.
+
+**Push when they land.**
+
+---
+
+### V27.16 PRE-HARDWARE CORRECTION — 2026-09-25 (§V27.14's operand `starved`, named correctly; the Orchestrator's acknowledgement quoted) — posted on #117 as `issuecomment-5830793647` (raw sha256 `28ee2c074800712410a9a9a01f430451c2f4178b05b859a23870db8df19f361b`, printed `12769a19dfeb75e2d6793278b69397709bc164970e7b798b7a2fa8cda0b25cdd`)
+
+**What §V27.14 adopted.** A Phase 3 depth FAILS when, over its dwell, `dup == 0 AND starved > 0`. The objection it answered (`issuecomment-5825599668`) described `starved` in words ("the ring drains to 128 and stalls") and **named** it as `gbp_aplay`'s `starved_steps`.
+
+**The named counter is the wrong one.** `starved_steps` is incremented *before* the READY-full check, so it also counts the benign wait after every chunk, when the queue is full and nothing would start anyway. On the real chain it runs to thousands per 6 s dwell at every depth ≤ 224, whether the correction holds there or not:
+
+```text
+starved_steps per 6 s dwell     146 (holding, dup 62)   7 495      144 (failing, dup 0)   7 529
+```
+
+With it, `starved > 0` is true at every depth the bisection visits, and the predicate collapses to `dup == 0`. That still gives (144, 146] under today's drift, but only through `dup`. Under reversed drift, depths that hold by DROP (dup 0) would read FAILING.
+
+**The operand, as §V27.14's own words describe it.** `ring_gated` is a new `gbp_aplay` counter. It counts a step only when a chunk was **wanted**: the READY queue short of AHEAD (or an uncorrected transition chunk), and a free buffer to put it in. It counts that step only when the ring could not give the chunk.
+
+```text
+ring_gated per 6 s dwell        256 .. 148   0          146   29 (dup 62, holds)          144, 128   ~7 500
+reversed drift                  224, 192, 160   0
+```
+
+**From here on, `starved` in §V27.14's predicate means the `ring_gated` delta over the dwell.** The predicate's form and meaning do not change; only the operand is named correctly. `starved_steps` itself is untouched, because five other images record it.
+
+**The Orchestrator's acknowledgement**, quoted from the coordination channel:
+
+> Item 1 acknowledged, and take the stricter form: a dated amendment line, not only a §V27.16 record entry. [...] The predicate's form and meaning do not change; only the operand is named correctly.
+
+Found by the build's third review round. Pinned in `tests/unit/test_gbp_aplay.c` (`ring_gated` counts only a wanted chunk). The build record lists it with the other defects found before the push.
