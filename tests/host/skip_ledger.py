@@ -252,6 +252,11 @@ LEDGER = [
     (r"^the RUN 43 raw window is kept in captures/local/ only \(tools/v123frame\.py\)$", "LOCAL_ARTIFACT_ABSENT",
      "the raw window is a commercial game's audio and is never versioned; tools/v123frame.py's reading is proved on "
      "constructions and on the VERSIONED RUN 33 / RUN 34 tones by tests/host/test_v123frame.py classes that never skip"),
+    # Issue #124: the same raw window through tools/v124taps.py's two resamplers.
+    (r"^the RUN 43 raw window is kept in captures/local/ only \(tools/v124taps\.py\)$", "LOCAL_ARTIFACT_ABSENT",
+     "the raw window is a commercial game's audio and is never versioned; tools/v124taps.py's measure is proved on "
+     "constructions by tests/host/test_v124taps.py classes that never skip, and the rule's verdict (NOT SETTLED) is "
+     "carried by the VERSIONED RUN 33 alone"),
     (r"^the RUN 43 raw window is kept in captures/local/ only$", "LOCAL_ARTIFACT_ABSENT",
      "the raw window is a commercial game's audio and is never versioned; tools/u012game.py's method is proved on "
      "constructions by tests/host/test_u012_game.py classes that never skip, its hash is quoted in the record, and "

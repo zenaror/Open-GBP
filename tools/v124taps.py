@@ -3,7 +3,8 @@
 tools/v124taps.py — GitHub Issue #124, Round A: does a 32-tap resampler change the native decode's output in band,
 against the 16-tap one, by more than the source's own quantisation can carry? DESCRIPTIVE, host-side, on archived bytes.
 
-    tools/v124taps.py [--json <out>]
+    tools/v124taps.py [--json <out>]            the first rule, 16 taps at beta 5.65
+    tools/v124taps.py --sweep [--json <out>]    the beta sweep at 16 taps
 
 PRE-REGISTERED. This docstring, the constants below and the decision rule were committed BEFORE the tool was run on any
 archived capture; the commit that adds them carries only tests on constructions. The result is recorded with that
@@ -49,6 +50,23 @@ REPORTED BESIDE IT, descriptive, not a gate:
   signal     RMS_B of y_16 itself, the scale the difference sits under;
   max |d|    the largest single-output difference, in steps.
 
+THE BETA SWEEP -- a second pre-registration (#124), committed and pushed before the sweep is run. The first rule
+returned NOT SETTLED: one cell over the floor, RUN 33 in [0, 12 000] Hz, the 16-tap filter's passband roll-off (with
+its fold-in at 0.55 of the floor). Kaiser beta trades exactly those two, so the 16-tap DESIGN is swept and the
+CRITERION IS UNCHANGED:
+  the grid      beta in BETA_GRID, 16 taps, cut-off 16 000 Hz, nothing else varied;
+  the model     every kernel -- each 16-tap candidate and both 32-tap references -- normalised PER PHASE, every phase
+                summing to 1, as the chain's coefficient table is (gbp_aresamp_coef.h: every phase sums to 32 768).
+                The first rule's kernels were normalised as a whole; their phases' unequal DC gains turn x's ~256 DC
+                into a pattern at multiples of 256 Hz: 0.015 steps RMS between 16 and 32 taps at beta 5.65, over the
+                floor on its own at beta 2.0. The first rule's verdict stands as recorded; beta 5.65 is in this grid,
+                so its design is re-measured under the chain's normalisation beside it, never in its place;
+  the test      each beta against BOTH 32-tap candidates, both bands, every capture present -- THE SAME settled() rule;
+  the choice    among the betas that pass, the one whose worst cell (largest RMS / floor over captures, bands and
+                references) is smallest; ties to the larger beta (more stopband);
+  the fallback  if NO beta passes, the default is 32 taps -- the Orchestrator's pre-commitment on #124. Which of the
+                two 32-tap betas is not decided by this sweep; both candidates' figures go to #124.
+
 Standard library only; reads the captures, writes the JSON it is asked to.
 """
 import json
@@ -70,6 +88,7 @@ BANDS = (5256.0, 12000.0)
 SEG = 256                                   # outputs a periodogram segment: 8 ms, 125 Hz bins
 GUARD = 40                                  # outputs dropped at each end of a run (32 taps reach 16 inputs = 7.8 outputs)
 FOLD_HZ = 16000.0                           # the output's Nyquist: content above it can only alias
+BETA_GRID = (0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.65, 6.5, 7.86)   # the sweep's 16-tap betas, registered before it ran
 
 
 def floor_rms(band_hz):
@@ -77,8 +96,13 @@ def floor_rms(band_hz):
     return math.sqrt((1.0 / 12.0) * band_hz / (FIN / 2.0))
 
 
-def kernel(taps, beta):
+def kernel(taps, beta, per_phase=False):
+    """(coefficients, centre). v123chain's prototype, normalised as a whole (sum L); with per_phase, every phase -- the
+    coefficients one output uses, a residue class mod L -- scaled to sum 1, as gbp_aresamp_coef.h's table is."""
     h = v123chain.prototype(taps, beta, FIN, CUTOFF, L)
+    if per_phase:
+        sums = [sum(h[r::L]) for r in range(L)]
+        h = [v / sums[i % L] for i, v in enumerate(h)]
     return h, (len(h) - 1) // 2
 
 
@@ -147,10 +171,11 @@ class Acc(object):
         return math.sqrt(self.p / self.n) if self.n else None
 
 
-def measure(runs):
-    """runs: [[x values]]. The difference, fold-in and signal figures of every filter and band."""
-    ks = dict((("N%d_b%.2f" % f), kernel(*f)) for f in (SIXTEEN,) + THIRTY_TWO)
-    k16 = "N%d_b%.2f" % SIXTEEN
+def measure(runs, sixteen=SIXTEEN, per_phase=False):
+    """runs: [[x values]]. The difference, fold-in and signal figures of every filter and band, for the 16-tap design
+    `sixteen` (taps, beta) against both 32-tap candidates; per_phase normalises every kernel as the chain's table."""
+    ks = dict((("N%d_b%.2f" % f), kernel(f[0], f[1], per_phase)) for f in (sixteen,) + THIRTY_TWO)
+    k16 = "N%d_b%.2f" % sixteen
     out = {"bands": {}, "runs": len(runs), "inputs": sum(len(x) for x in runs)}
     for B in BANDS:
         diff = dict((name, Acc()) for name in ks if name != k16)
@@ -180,6 +205,37 @@ def settled(result):
     """The pre-registered rule on one capture: every band, every 32-tap candidate, RMS below the floor."""
     return all(d["rms"] is not None and d["rms"] < b["floor_rms"]
                for b in result["bands"].values() for d in b["diff"].values())
+
+
+def worst_ratio(results):
+    """The largest RMS / floor over the captures, bands and 32-tap references of one design."""
+    return max(d["ratio_to_floor"] for r in results for b in r["bands"].values() for d in b["diff"].values())
+
+
+def choose(by_beta):
+    """The registered choice: {beta: [capture results]} -> (beta, worst) of the passing beta with the smallest worst
+    cell, ties to the larger beta; or (None, None) when none passes -- the fallback, 32 taps."""
+    passing = [(worst_ratio(rs), -beta, beta) for beta, rs in by_beta.items() if all(settled(r) for r in rs)]
+    if not passing:
+        return None, None
+    w, _nb, beta = min(passing)
+    return beta, w
+
+
+def sweep(runs_by_capture, grid=BETA_GRID):
+    """Every beta of the grid at 16 taps against both 32-tap candidates, on every capture given ({name: runs})."""
+    names = sorted(runs_by_capture)
+    by_beta = dict((beta, [measure(runs_by_capture[n], (16, beta), per_phase=True) for n in names]) for beta in grid)
+    out = {"grid": list(grid), "captures": names, "betas": {}}
+    for beta, rs in by_beta.items():
+        out["betas"]["%.2f" % beta] = {
+            "settled": all(settled(r) for r in rs), "worst_ratio": worst_ratio(rs),
+            "ratios": dict((n, dict((B, dict((k, d["ratio_to_floor"]) for k, d in b["diff"].items()))
+                                    for B, b in r["bands"].items())) for n, r in zip(names, rs))}
+    beta, w = choose(by_beta)
+    out["chosen_beta"], out["chosen_worst"] = beta, w
+    out["fallback_32_taps"] = beta is None
+    return out
 
 
 # ---- the captures ---------------------------------------------------------------------------------------------------
@@ -215,7 +271,35 @@ def analyse():
             "captures_present": sorted(k for k, v in res.items() if v is not None)}
 
 
+def analyse_sweep():
+    runs = dict((n, tone_runs(n)) for n in ("RUN33", "RUN34"))
+    g = game_runs()
+    if g is not None:
+        runs["RUN43"] = g
+    return sweep(runs)
+
+
+def main_sweep(argv):
+    r = analyse_sweep()
+    for beta, b in sorted(r["betas"].items(), key=lambda kv: float(kv[0])):
+        cells = "; ".join("%s %s" % (n, " ".join("%s:%s" % (B, "/".join("%.3f" % v for _k, v in sorted(d.items())))
+                                                   for B, d in sorted(rb.items(), key=lambda kv: float(kv[0]))))
+                          for n, rb in sorted(b["ratios"].items()))
+        print("beta %s  %s  worst %.4f   %s" % (beta, "PASS" if b["settled"] else "fail", b["worst_ratio"], cells))
+    if r["fallback_32_taps"]:
+        print("no beta passes on %s: the registered fallback, 32 taps" % ", ".join(r["captures"]))
+    else:
+        print("chosen: beta %.2f, worst cell %.4f of the floor (captures %s)" % (
+            r["chosen_beta"], r["chosen_worst"], ", ".join(r["captures"])))
+    if "--json" in argv:
+        with open(argv[argv.index("--json") + 1], "w", encoding="utf-8") as f:
+            json.dump(r, f, sort_keys=True)
+    return 0
+
+
 def main(argv):
+    if "--sweep" in argv:
+        return main_sweep(argv)
     r = analyse()
     for name, c in r["captures"].items():
         if c is None:
