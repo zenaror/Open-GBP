@@ -37956,3 +37956,58 @@ reads        every file hashed through dd iflag=direct (page cache bypassed), be
 ```
 
 Anything named `GBP-AUDIO-012_sync-0001*` on the card from now on is the run's output.
+
+---
+
+### V27.19 PRE-HARDWARE AMENDMENT to §V27.17's Operator facts — 2026-09-25 — the jump is the reference; and the image's behaviour the procedure must match
+
+*Appended. §V27.0–§V27.18 stand. §V27.17's "What the Operator will see and do" is amended here, on top. Nothing in the image, the gates, the schedule, the counts or the caps moves.*
+
+**The Operator's correction, before the run**, verbatim. The Orchestrator posted it on Hardware Issue #119 as `issuecomment-5831743460` (raw sha256 `de11b6081852c04d973f90e67f344994509e904400b46f36727656ae6dbf0cf8`, printed `dcd024080197e8bd65b812a33cd6c708cd933fe87d8396d22cdddc50218abab9`):
+
+```text
+sobre o melhor momento para sincronizar, é quando se aperta A para o personagem
+pular... Ao apertar tem que emitir um som de pulo... Sincronizar com música
+continua não faz sentido, além de dificultar
+```
+
+§V27.17 said "the cartridge must have continuous music". That holds for Phase 1 and Phase 3. For Phase 2 it is not enough: nulling an audio-video offset needs an event that has both a moment on screen and a sound, and background music marks no instant the eye can see. The reference is the **jump**: `A` gives a jump the eye sees and a jump sound the ear hears. The pair has a common cause and travels the same two paths whose offset the run measures. The music stays, because Phases 1 and 3 need it.
+
+**It is his, and it is the second time.** The first time was the button→video against video→audio split in RUN 42, which refuted a global pipeline delay. A frozen procedure written by someone who is not holding the controller can be internally consistent and still ask for a judgement that cannot be made. This objection arrived before the run, the only time it costs nothing.
+
+**The image, checked against the correction (the Executor, reading the code, not recalling it).** Nothing in `sync-0001` assumes the audio is uninterrupted by gameplay, and no check keys on a steady spectral load:
+
+- **Every input the gate reads is independent of the content:**
+  - the AUDIO blocks per second, which arrive at the drain's rate whatever the game plays, silence and a jump alike;
+  - the ring's fill;
+  - the target, the mute and settling flags;
+  - underruns and overflow;
+  - the answers and the settings;
+  - Phase 3's `dup`, `starved` (`ring_gated`) and underruns.
+- **The chain decides DUP and DROP on the ring's fill, never on the samples.**
+- **The content-dependent code is inert or descriptive here.** The positive control's period decoder (`gbp_aperiod`) is fed only on `GBP_ALIVE_DO_CONTROL`, which the press origin never produces. `LIVEL` (the decoded stream's period) and `clipped` are descriptive records that no gate reads.
+- **A jump's sound is audio like any other.** Pressed during a switch's silence, it can fall in the skipped content and go unheard, or be heard displaced. Pressed near a Phase 2 STEP, it can be cut by that STEP's splice 125 ms after its silence. So **judge on jumps made after the sound has returned**.
+- **Presses.** `A` is forwarded to the cartridge and is none of our controls after the origin: later presses are only counted. The KEY log holds about 3 450 presses before further KEY lines are counted lost (`keylog_lost`). The SYNC records are never cut: their reserve is kept.
+
+**The image's behaviour the procedure must match** (checked against #119's checklist; each point is from the code, and the two Z cases were run on the real `gbp_async`):
+
+1. **Z acts only when HELD 1/4 s** (`PLAY_SESSION_END_HOLD_MS` 250). A tap does nothing.
+2. **Phase 1 → Phase 2 is automatic.** The 18th answer ends Phase 1, and Phase 2's first START begins by itself once the silence ends. **A Z after the 18th answer ends Phase 2 with no setting** (run: `settings=0 -> Phase 3`). Phase 2 would then be INCONCLUSIVE, fewer than 3 settings. **In Phase 1, Z is only for abandoning Phase 1.**
+3. **A Z in Phase 0**, before the first DOWN, opens and closes Phase 1 with no switch (run: `switches=0 -> Phase 2`). Phase 1 is then lost.
+4. **The console never asks anything during the session.** Nothing is printed, by the blinding (§V27.9 O6, §V27.10). Phase 2 ends at its 16th confirmation, at its cap (240 s), or with a held Z. "Three confirmations, then hold Z" is the intended way.
+5. **In Phase 3, a Z ends the session** and cuts the descent or the hold.
+6. **The game cannot be navigated before the A press.** Until the press the TV shows the text console: the picture is handed to the VI at the press, and the sound starts at the origin 1 s later. An `A` before the prompt makes the run INCONCLUSIVE by (t3). Getting to a place where he can jump happens after the press, in Phase 0. **Phase 0's time comes out of the session's 720 s**, and the phase caps (300 + 240 + 180) sum to it. With Phases 1 and 2 at their caps, every second spent in Phase 0 comes out of Phase 3's 138 s (descent, bisection, the hold). Navigating briskly, answering promptly and holding Z after three settings keeps the hold whole.
+7. **The identity on screen.** It is not in `build=`/`commit=`/`test=` form. The first screen, during the self-tests, reads:
+
+   ```text
+   Open-GBP GBP-AUDIO-012  PHASE 6's ACCEPTANCE, SECOND ATTEMPT (HARDWARE_TESTS V26; NOT PHYSICALLY VALIDATED)
+   Build : sync-0001   Commit: 8bb0d46
+   libogc: ...   Gecko: yes|no
+   OPENGBP-IDENT gbp-audio-sync sync-0001 8bb0d46
+   ```
+
+   The screen is then cleared, and the session's screen begins with `Open-GBP GBP-AUDIO-012  sync-0001  8bb0d46`.
+
+   **A defect found after the push.** It was found by reading the screen text against the checklist. The first line's title is game-0002's, never updated: the one identity string the build did not touch. The test ID, the build and the commit on that line, on every other screen line and in the SD log are right. The image is unchanged and stays the candidate. A checklist that says "if anything differs, STOP" must quote these lines as they are, or the run stops on a stale title.
+
+The procedure is the Orchestrator's (§V27.6). These are the facts it has to agree with.
