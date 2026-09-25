@@ -37754,3 +37754,176 @@ reversed drift                  224, 192, 160   0
 > Item 1 acknowledged, and take the stricter form: a dated amendment line, not only a §V27.16 record entry. [...] The predicate's form and meaning do not change; only the operand is named correctly.
 
 Found by the build's third review round. Pinned in `tests/unit/test_gbp_aplay.c` (`ring_gated` counts only a wanted chunk). The build record lists it with the other defects found before the push.
+
+---
+
+### V27.17 The image, BUILT — `sync-0001` (GBP-AUDIO-012) — NOT staged, NOT run: the three transition mechanisms, every defect found before the push, and what the Operator will see
+
+*Appended. §V27.0–§V27.16 stand. This records what the image is, the arithmetic §V27.13 asked to be recorded, the defects the build's reviews found (all of them, uncompressed, as §V27.15 asked), and the facts the Orchestrator's checklist needs. Nothing here is a result.*
+
+```text
+image      poc/gbp-audio-sync / sync-0001 / commit 8bb0d46 (clean) / TEST_ID GBP-AUDIO-012
+           (8bb0d46 moves one comment back onto its own define after the POC's commit 4d72660; the code is
+           unchanged, the image is built at 8bb0d46 and that build is the candidate)
+DOL        543 264 B   sha256 ab902f6fb3789d66c3ace4d92be9cdc5fc300399705eb97a4ae185235feb0941
+           two builds from an empty output directory at 8bb0d46, byte-identical (the ELF too);
+           embedded identity "OPENGBP-IDENT gbp-audio-sync sync-0001 8bb0d46"
+base       game-0002 (poc/gbp-audio-game2 at dc13f37, RUN 42's image). Of its 20 functions, 14 are
+           byte-identical; live_tap, live_screen, live_step, live_screen_report, submit_ready and main
+           are named as changed, and 11 functions are added (tests/host/test_sync_image.py)
+modules    src/audio/gbp_async   the session: §V27's phases, the seeded schedule, the plans with their
+                                 mechanism, the per-second rows, §V27.14's Phase 3      (2 138 host checks)
+           src/audio/gbp_atrans  the transition executor, three mechanisms, driven on the host against
+                                 the real gbp_aplay / gbp_adec at four hand-off phases  (2 315 checks)
+           src/gbp/gbp_awr       the raw AUDIO blocks ridden along (OGBPAWR1)           (157 checks)
+           gbp_aplay             a runtime target, the callback's mute, uncorrected production for a
+                                 transition (discarded or rotated), the front drop      (219 checks)
+           gbp_adec              a discard from the ring's head                         (68 checks)
+audit      profile sync (tools/poc_audit.py): 0 findings; both one-shot handlers identical to the
+           physically validated GBP-VIDEO-001 build. Every SYNC* record is written after the session
+           but SYNCCS and SYNCP2, which take the KEY lines' admission rule
+Dolphin    make sync-dolphin: the HSP device absent -> the pre-session flow, PASS; arena1_free 2 269 184 B
+slot       22-sync, frozen in tools/swiss-layout.tsv at this hash by the next commit, before any export.
+           NOT exported, NOT staged: staging and the Hardware Issue are the Orchestrator's
+gates      tools/v27accept.py: §V27.0–§V27.12 frozen at adf79e2; phase_3 amended for §V27.14 at 4e4bce9,
+           the tool's bytes pinned there by 2cc7c74; nothing else in it moved
+report     tools/v27report.py, frozen at 7c3bffd (awrparse at 22f386a), pinned by 2cc7c74: the SD log -> the
+           report; it recomputes the schedule
+           from the logged seed and refuses a log the seed does not explain, a log whose header reports a
+           dropped or truncated line, a log whose session never started (naming its cause), and a log with
+           a Phase 3 depth left unreported
+records    the log and sd:/open-gbp/GBP-AUDIO-012_sync-0001-awr.bin (tools/awrparse.py), both on X
+```
+
+#### Three transition mechanisms — recorded apart, as §V27.15 requires
+
+```text
+ROTATE   Phase 1's 18 switches (REAL and NULL alike), Phase 2's STARTs      the splice INSIDE the silence
+HELD     Phase 2's STEPs                                                    the splice 125 ms AFTER it, audible
+UNMUTED  Phase 3's depths                                                   no silence at all
+```
+
+- **ROTATE** (§V27.15's (A)). The callback hands `MUTE` = 18 chunks of silence, 0.5625 s; its silent hand-offs never dequeue READY. Under the silence, whenever the ring holds the aim or more, one fresh chunk is produced from the ring's head. It is produced uncorrected, exactly 128 samples, and joins the **back** of READY while the **front** chunk is dropped unplayed. The front drop writes `rq_head`, which is the callback's, so it is done only while the callback's next hand-off is silent (`mute ≥ 1`). After 4 rotations, every chunk held from before the plan has left from the front. That includes whatever a shallowing's begin-discard spliced behind them. READY is then contiguous with the ring, and everything skipped lies between the pause and READY's first sample: **inside the silence**. The aim is the level + 64 while two or more silent hand-offs remain, and the level − 64 while one remains. The reason is that the last silent period's chunk of feed arrives after the last rotation can be made. There is no trim at the first audible hand-off, because a trim there would splice after READY, audibly. The residue, within about ±64, is left to gbp_aplay's band, whose corrections are one sample per chunk, the chain's normal operation. A plan needs `mute ≥ pause + 4`: the climb plus 4 rotations before the last silent hand-off at the worst phase. Phase 1's worst case is 12 + 4 = 16 ≤ 18, two chunks of margin. A START takes `max(MUTE, pause + 4)`, at most 29 chunks = 0.906 s.
+- **HELD** (§V27.13's mechanism, kept for the STEPs by §V27.15). Mute 4 cannot rotate a whole queue: +128 plus a 512-sample refill need 640 of feed in 512. READY is held, the music resumes where it paused, and the skipped content is spliced out 125 ms after the silence, **audibly**. Under the silence, one chunk is discarded, uncorrected, whenever the ring holds a whole chunk above the level. On the first audible hand-off, a discard under way is converted into the refill that hand-off calls for. The level is what that refill sees at its start, and the excess is dropped from the ring's head, joining the splice. The ring lands exactly at the level with no correction after it. `mute ≥ pause + 1`.
+- **UNMUTED.** A Phase 3 depth sets the target and does any shallowing discard at once. The producer runs on, and where the ring settles is gbp_aplay's band, which is what the dwell measures.
+
+**The skip at `MUTE` 18** (§V27.13's arithmetic, re-derived, measured on the host at the same numbers): deepen 18 × 128 − 1 536 = **768** samples (0.1875 s); null 18 × 128 = **2 304** (0.5625 s); shallow 18 × 128 + 1 536 = **3 840** (0.9375 s). The null sits at the exact midpoint, ± 0.375 s.
+
+**Conservation, asserted as a check** (§V27.15 asked for it as a check, not as a property). From a plan's begin to its landing, fed = played + skipped + Δstock, where stock = the ring + READY × 128 + a chunk under way's taken pushes. It follows that, under the same silence, the skips of two plans differ by exactly the latency they change, less the residues' difference: null − deepen = shallow − null = 1 536 exactly. Content that stops being delayed by 0.375 s has to go somewhere. `tests/unit/test_gbp_atrans.c` asserts both at every hand-off phase and under the bursty feed. On its first run it caught defect 23 below.
+
+**Why a deepening or a null is masked whatever its rotations** (stated in `src/audio/gbp_atrans.h`, so it is checkable by reading). Under ROTATE, content leaves the ring's head either into READY's back or, once, by a shallowing's begin discard. READY loses chunks only at its front. A queue fed only at its back from the stream's head, and drained only at its front, holds a contiguous run that continues into the ring. So with no discard, the only discontinuity is the dropped fronts, right after the pause. A begin discard leaves one discontinuity behind the (at most AHEAD) chunks produced before it, until they have all left from the front. Hence `unmasked` ⟺ discard > 0 ∧ rotations < AHEAD.
+
+**The boundary.** READY's head belongs to the AI callback. ROTATE's front drop is done only while the callback's next hand-off is silent: that hand-off leaves the head alone, and the one after it is 31 ms away. A rotation completing after the silence has ended is queued with no drop (late: masked, READY one chunk long, the band DROPs the chunk).
+
+**The words, as §V27.15 froze them.** *Intrinsic*: changing an output latency is skipping or absorbing content. *Masked*: under ROTATE there is no audible artefact, no splice and no click; the discontinuity falls inside the silence. *Not hidden*: the displacement itself stays perceivable to anyone who knows the music. *Measured*: the nulls, at the exact midpoint. "Masked" means no artefact. It does not mean imperceptible.
+
+**The self-correction, in its own terms (§V27.15 asked for it).** Flushing was never infeasible. What failed in §V27.11 was the **timing**: its mechanics resumed production at `MUTE − 5`. I compared the wrong mechanism when I proposed the held queue in §V27.13. Letting the refill run through the whole silence makes the flush feasible, and ROTATE is that refill done one chunk at a time. The held queue survives only where the arithmetic still forbids a flush (the STEPs). For Phase 1 it was set aside because its splice is audible, and that reason still holds.
+
+#### Every defect found before the push, in the order found (§V27.15: not compressed)
+
+Each entry gives what the defect would have done on the console, how it was found, and where it is pinned. None reached a commit.
+
+**Found by the image's own tests**
+
+1. **A cut configuration record.** The first image printed one `SYNCCFG` line of 257 characters, and the ringlog cuts at 248. The builder would have refused the log for a missing field. Three records were split: `SYNCCFG`/`2`/`3`, `SYNCC`/`2`/`REF`, `SYNCAWR`/`C`. `tests/host/test_sync_image.py` now computes every SYNC* format string's width at its conversions' maxima, read from `main.c`.
+
+**Review round 1** (four lenses; each finding handed to a refuter)
+
+2. **The seeded initial level never reached the chain.** Half of all seeds, those drawing SHALLOW, ran Phase 0 at 2 048 while the rows said 512. The first REAL switch (512 → 2048) then executed against a chain already at 2 048, so it was a null scored as REAL, and D's ceiling became 11 of 12. The fix is `gbp_aplay_set_target` at the origin. Pinned in `test_sync_image.py`.
+3. **The picture froze at 64 s.** The VI hand-over stopped at gbp_alive's window end while the audio ran on to 720 s, which would have been a still picture for 11 of the 12 minutes. The base-diff test had pinned the bug by keeping `submit_ready` byte-identical. The hand-over now runs to the session's end, and `submit_ready` is named as changed.
+4. **A Phase 2 START outran its mute.** A START deepening by more than 2 048 ended its silence up to 1 152 samples short. The DUP then slewed the ring for ~40 s while the rows said the level was in force. The mute now covers the mechanism's need: `pause + 4` for ROTATE, `pause + 1` for HELD. Pinned in `tests/unit/test_gbp_async.c`.
+5. **Phase 3's `lost` was structurally 0.** Expected blocks were computed in truncated seconds (5 s against 6 s of blocks), which hid every loss under 4 096. It is now computed in ticks over the counted window.
+6. **The safety wall could pre-empt the session.** The wall sat 750 s from the control transform, only ~24 s of reaction above the session's 720 s from the origin, and the wait for A was unbounded. Now the press is admitted for 45 s after the prompt (`prompt_expired` after that), the wall is 785 s, and the frame store is 47 104 frames.
+7. **In-run SYNC lines bypassed the KEY admission rule.** `SYNCCS` and `SYNCP2` could eat the post-run tail. They now go through `sync_line_admit` (`lines_lost`), with a reserve of 1 280.
+8. **A cut dwell reached the gate as a whole observation.** This was the first form of the fix for it; entry 20 supersedes it.
+
+**Review round 2**
+
+9. **The executor ended a mute one discard short.** The normal producer then finished and queued the last discard chunk, so after every switch and step the ring landed 128 above the level, followed by ~113 DROPs over 3.5 s, and each skip was 31 ms short.
+10. **Phase 3's frozen 6 s dwell could never produce its own failure.** The READY queue drains in ~47 s, so the descent would have read "NO UNDERRUN down to 128", a vacuous pass. This went to the objection `issuecomment-5825599668` (raw `3358f04fc585c1b5…`, printed `59250cf8b473e059…`) and became §V27.14.
+11. **A cut dwell's fill averaged seconds it never lived.** The window now runs to the cut and never starts before the dwell's own second.
+12. **The records' vocabulary.** A Z whose skip was a no-op was still counted. C-stick edges lost to the dead time went uncounted (now `cs_dead`). `ended=null` was stored as a string. The fixture used a reason the image never emits. A no-session log was refused as "not a GBP-AUDIO-012 log"; it is now refused with its cause.
+
+**The phase sweep** (the executor moved to `src/audio/gbp_atrans` and was driven against the real `gbp_aplay`/`gbp_adec` at four hand-off phases)
+
+13. **A pause counted in hand-offs landed up to a chunk short.** Begun right before a hand-off, a climb of 16 from 128 dropped a 112-sample "overshoot" from a ring that had gained nothing. The climb is now counted in feed.
+14. **Counting discards one per hand-off missed the period the level was reached in.** A chunk was left over, the ring sat 128 high, and ~111 DROPs followed. Replaced by the level rule.
+15. **A plan begun right after a hand-off discarded the held queue's refill.** The producer then refilled from the ring after the mute, landing the ring a chunk low, and the DUP slewed it back. The queue is now finished first.
+16. **The landing waited for a discard under way.** That started the refill ~15 pump calls late, on ~16 samples of feed, which caused a DROP. HELD now converts that chunk into the refill.
+17. **A discarded chunk took a correction.** It removed 129 samples and counted one DROP per discard. Discards are now uncorrected.
+
+**The splice** (§V27.15)
+
+18. **Under §V27.13's held queue the skip was not masked.** The music resumed where it paused, and the skip was spliced out 125 ms after the silence, audibly. §V27.12's "masked" was false as adopted. This went to the finding `issuecomment-5830004049` (raw `1a862fb6993b40f4…`, printed `12cd79a200047d2c…`), then to §V27.15's (A) with MUTE 18, and was fixed by ROTATE.
+
+**Review round 3**
+
+19. **§V27.14's `starved`, as my objection named it, was the wrong counter** (§V27.16). `gbp_aplay`'s `starved_steps` is counted before the READY-full check, so it also counts the benign wait after every chunk. It runs to thousands per dwell at every depth ≤ 224, holding or failing: 7 495 at 146 (holding) against 7 529 at 144 (failing). The predicate had reduced to `dup == 0`, and under reversed drift a depth holding by DROP would have read FAILING. The operand is now `ring_gated`: a chunk WANTED and the ring short. That is what the objection described in words. It reads 0 from 256 to 148, 29 at 146 and ~7 500 at 144, and 0 under reversed drift. `starved_steps` is untouched. Pinned in `tests/unit/test_gbp_aplay.c`.
+20. **A cut dwell made a confident wrong number.** A Z or cap tens of ms into a dwell gives `dup == 0` (no DUP *yet*). A cut 20 ms into 146 turned (144, 146] into MEASURED (146, 148], "145 OUTSIDE". A partial dwell now observes neither holding nor failing: the builder routes it to `descent_unfinished`, and the gate excludes partial rows. The CONFIRM hold keeps its row. Pinned end to end in `tests/host/test_v27report.py` and `test_v27accept.py`.
+21. **A plan was applied over a running one.** The module's mute ends at the plan's instant + mute chunks; the executor lands on the first *audible* hand-off, up to a period later. A phase ended inside a switch's mute (Z, a cap, the 18th answer) began the next plan over the running switch, which was then recorded `done=0 mech=UNMUTED`. At P2 → P3 it also skipped HELD's work. This happened in 63 of 64 phases. Now the module's tick waits for the executor, plan-making C-stick edges are refused and counted (`cs_busy`), and a counted backstop records the running switch `done=2` (`preempts`, expected 0). Pinned in `tests/unit/test_gbp_atrans.c`, with the real `gbp_async` in main.c's order: without the hold 4 of 4 phases are pre-empted, with it none.
+22. **A late rotation's record was wrong; its sound was clean.** On hardware (bursty feed, pump gaps), 5–19 % of Phase 1 landings finish their last rotation after the last silent hand-off. That chunk is queued undropped and READY is one chunk long. The content stays contiguous, so the switch is still masked. But the residue read the ring alone and was off by exactly +128, and the report called these switches unmasked. The residue is now the effective level (ring + chunk under way + READY beyond AHEAD − 1). `masked` is judged by content. `unmasked` now means only a shallowing with fewer than AHEAD fronts dropped: a deepening or a null is contiguous whatever its rotations. The harness gained a bursty-feed sweep that reaches the late case (32 of 80) and pins all of it.
+23. **The held queue's top-up took a correction against the new level.** This put a spurious sample into, or took one out of, the held content. It was caught by the conservation check §V27.15 asked for (fed = played + skipped + Δstock, asserted at every phase). The top-up is now uncorrected.
+
+**The verification pass on round 3's fixes**
+
+24. **A Phase 3 dwell cut by a cap was never reported.** When a cap cuts a dwell, the tap usually reaches the module first, because it runs inside the service transaction, before the pump. It set `finished` with the cut dwell still pending, and `live_step` stopped ticking at `finished`, so the row was lost. Now the tick path runs while a depth is pending, a post-session drain acts as a backstop, and `SYNCP3` reports anything still pending (the builder refuses `pending=1`). Pinned in `tests/unit/test_gbp_async.c`.
+25. **A cut dwell whose DUP had already fired was discarded.** Such a dwell has held, because `dup` never decreases. It now keeps its row; only a cut dwell with `dup == 0` observes nothing.
+26. **The gate's printout never said Phase 3 was cut.** It now prints `ended=` and the cut rows ("read by neither side").
+27. **The records.** The builder had dropped `cs_busy` and `preempts`. A switch still running when the session stopped read `done=0 mech=UNMUTED`; it now reads `done=3` with its mechanism. `SYNCC2`'s `starved` is renamed `starved_steps`, because the report had one key for two quantities.
+
+#### The deviations from the frozen text, each with its arithmetic
+
+1. **The transitions** are the three mechanisms above. §V27.13's arithmetic is re-derived at `MUTE` 18: the skips are 768 / 2 304 / 3 840 samples.
+2. **`MUTE` = 18** (§V27.15): 0.5625 s for every switch, REAL and NULL alike. A START takes `max(18, pause + 4)` chunks, at most 29 (0.906 s). A STEP takes 4 (0.125 s).
+3. **The chain's target floor is 128** (`GBP_APLAY_TARGET_MIN`, one chunk), so §V27.11's Phase 3 floor of 128 is realisable literally. The previous floor was 129.
+4. **The raw window is 640 blocks** (2 621 440 B, 0.156 s of AUDIO). 1 280 did not fit by 94 KB (§V27.13 accepted 640). Its copy cost is logged (`SYNCAWRC`).
+5. **Z is "next phase"**: one per hold of 1/4 s, counted only when it ended a phase. Phase 3 is automatic and ends the session. The session cap of 720 s from the origin ends whatever is running.
+6. **The session runs past gbp_alive's 64 s window**: the decoder, the chain, the picture and the session all continue to the session's own end.
+7. **The A press is admitted for 45 s after the prompt**; after that the run ends as `prompt_expired`. The origin comes at most 0.11 + 5 + 45 + 1 = 51.11 s after the control transform, and the session ends at most 771.11 s after it. The safety wall is at 785 s, and the frame store holds 47 104 frames (785.07 s at 60 Hz, 788.7 s at the measured 59.727 Hz).
+8. **Nothing is printed during the session.** The two prompt lines come before the A press. The report after the session and the live channel's `SYNCEND` carry counts only, identical whatever the levels.
+9. **Records are split to fit the ringlog's 248 characters.** The in-run `SYNCCS`/`SYNCP2` lines take the KEY admission rule, and the tail reserve is 1 280 lines: RUN 42's ~490 post-run records plus the ~500 SYNC records.
+10. **§V27.14's Phase 3**:
+    - the predicate `dup == 0 AND starved > 0`, with `starved` being `ring_gated` (§V27.16);
+    - a bisection to width 2;
+    - the 60 s hold at the highest failing depth, ended early by the first underrun, and read as OBSERVED / NOT OBSERVED with its length;
+    - a cut dwell with no DUP yet observes nothing.
+
+    Budget: 9 × 6 + 4 × 6 + 60 = 138 s of the 180 s cap, leaving 42 s spare. §V27.14's "44 s spare" is 42 by its own figures, and the Orchestrator agreed.
+11. **`M1` never reads a landing.** Its settled seconds exclude any second overlapping the mute or the 2 s after it. A normal landing's residue (≤ 64; ≤ 48 outside the band) is corrected at 32 samples/s within 1.5 s. A late landing's +83..+140 takes about 3.5–4 s, so its tail reaches about 1.9 s into settled seconds. With about 3 late switches of 18, that is about +2 samples on an arm's mean. M1's band is [T − 256, T + 16], and the steady mean sits well inside it.
+
+#### What the Operator will see and do (the facts for the checklist; the text is the Orchestrator's, §V27.6)
+
+- **Before the A press**, the text console shows:
+  - `Cartridge: a GBA game the Operator knows. Link Port: nothing. BBA: absent.`
+  - `WAIT for the prompt below (about 5 s). Then press A within 45 s: the game appears.`
+  - `C-stick DOWN = switch. After each: LEFT = lags less, RIGHT = lags more, UP = the same.`
+  - `Phase 2: LEFT/RIGHT step, UP confirm. Hold Z 1/4 s = next phase. X only at the end.`
+  - then the prompt `>>> PRESS A within 45 s: the game appears. Then follow the checklist (C-stick). <<<`.
+
+  **A press later than 45 s after the prompt ends the run** (`prompt_expired`, nothing to judge): power off and start again.
+- **At the A press:** `A RECEIVED. The game appears now. C-stick DOWN switches; LEFT/RIGHT/UP answer.` and `Hold Z 1/4 s to move to the next phase. The report appears when the game disappears.` The picture is handed to the VI at the press. The origin comes 1 s later (game-0002's `GAME_ORIGIN_DELAY_MS`), and the decoder and the raw window start there. The sound starts once the ring holds the initial level: 0.125 s later at SHALLOW, 0.5 s at DEEP. That start happens once, is not compared against anything, and is not a judged quantity.
+- **The C-stick mapping** (accepted in §V27.10 as proposed):
+
+  ```text
+  Phase 1   C-stick DOWN   = switch: 0.5625 s of silence, then the game's sound again -- resuming
+                             displaced (masked: no click, no splice; the displacement is audible
+                             to anyone who knows the music, and that is what the nulls measure)
+            C-stick LEFT   = it lags LESS than before
+            C-stick RIGHT  = it lags MORE than before
+            C-stick UP     = the SAME
+            a switch is refused while the previous one is unanswered, during its silence, or
+            after the 18th; an answer is refused before the first switch
+  Phase 2   the phase opens with 0.56 s to 0.91 s of silence (the seeded start's distance), masked
+            C-stick LEFT / RIGHT = one step: 0.125 s of silence, then a short audible splice
+                                   125 ms later (Phase 2's STEPs keep the held queue, §V27.15);
+                                   which way is deeper is drawn per setting and never shown
+            C-stick UP     = confirm this setting (the next seeded start follows)
+  Phase 3   nothing to do: automatic, about 1.5 to 2.5 minutes
+  any       hold Z 1/4 s   = the next phase (Phase 1 -> 2 -> 3); X only after the report
+  ```
+
+  A C-stick move is one event per deflection past the threshold, with 250 ms of dead time. A refused move is counted, never signalled, and that includes a move made while the last transition is still landing (`cs_busy`).
+- **The report, when the game disappears:** the hardware status, the origin phase, the press counts, and one `SYNC` line of counts (the phase reached, switches answered of switches made, settings, depths, plans, C-stick events, Z skips, raw blocks). Nothing in it is derived from the levels.
+- **After the report:** **X** saves the log and the raw window, **START** exits, then power off.
+- **The run's length:** up to 12 minutes after the origin (Phase 1 ≤ 5 min, Phase 2 ≤ 4 min, Phase 3 ≤ 3 min), less if he answers promptly and confirms three settings.
+- **The cartridge:** a GBA game the Operator knows, whose music plays continuously. Phase 1 needs sound to judge, and Phase 3 needs sound to find its edge. No save may be written.

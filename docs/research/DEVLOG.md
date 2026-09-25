@@ -16446,3 +16446,33 @@ on the adopted 8-push runtime (RUN 42), about 3× headroom; the 96 % figure is t
 
 **Not done.** No image; no builder; nothing staged. The image and `tools/v27report.py` follow,
 pinned to this freeze.
+
+## 2026-09-25 — Issue #117: `sync-0001` built — the latency round's image, its three transition mechanisms, and 27 defects found before the push (NOT staged, NOT run)
+
+**Goal.** Build the image §V27 pre-registered, with the builder that turns its SD log into the report the frozen gate reads, and record every departure from the frozen text with its arithmetic.
+
+**What was built.** The image is `poc/gbp-audio-sync` (sync-0001, GBP-AUDIO-012), game-0002 with the L2 keep removed and §V27's session added, built on five modules:
+- `src/audio/gbp_async`, the session: phases, seeded schedule, plans, per-second rows and §V27.14's Phase 3;
+- `src/audio/gbp_atrans`, the executor, with three mechanisms recorded apart (ROTATE, HELD, UNMUTED);
+- `src/gbp/gbp_awr`, the raw window;
+- `gbp_aplay`'s target, mute, uncorrected transition chunks, front drop and `ring_gated`;
+- `gbp_adec`'s discard.
+
+`tools/v27report.py` builds the report, and `tools/awrparse.py` reads the container. The DOL built at `8bb0d46` is 543 264 B with sha256 `ab902f6fb3789d66…`. Two builds are byte-identical. The audit finds nothing, and both handlers are identical to GBP-VIDEO-001's. Dolphin passes. The slot is `22-sync`.
+
+**What changed in the frozen text, before any data, and why.** Every change came from working the audio path's arithmetic against the real modules:
+- **§V27.13.** §V27.11's flush-and-refill resumed at `MUTE − 5` and could not reach its levels, so the held queue was adopted.
+- **§V27.14.** Phase 3's `underruns > 0` could never fire within a 6 s dwell, because the queue drains in about 47 s. It was re-frozen as `dup == 0 AND starved > 0`, with a bisection to width 2 and a 60 s confirmation hold.
+- **§V27.15.** The held queue let the music resume where it paused, with the skip spliced 125 ms after the silence, audibly. (A) was adopted with `MUTE` 18. Phase 1's switches and Phase 2's STARTs now rotate the held queue out under the silence, and the splice falls inside it.
+- **§V27.16.** The operand my Phase 3 objection named (`starved_steps`) also counts the benign wait after every chunk. The operand is now `ring_gated`, a chunk wanted that the ring could not give. This line is dated, and the Orchestrator's acknowledgement is quoted.
+
+**What the reviews and the tests caught.** There were three adversarial review rounds, a phase sweep of the executor against the real chain, a bursty-feed sweep, a conservation check, and a verification pass on round 3's fixes. Together they found 27 defects before any commit. §V27.17 lists every one, uncompressed, with what it would have done on the console and where it is pinned. The three with the worst shape were each a *plausible record of the wrong thing*:
+- the seeded initial level never reached the chain, so half the seeds scored a null as REAL;
+- a plan applied over a running one lost that switch's record, deterministically, in 63 of 64 phases;
+- a dwell cut tens of ms in turned (144, 146] into a confident (146, 148].
+
+**The invariant.** Conservation (fed = played + skipped + Δstock) is asserted at every hand-off phase. It implies that the skips differ by exactly the latency they change: null − deepen = shallow − null = 1 536. It caught a one-sample defect on its first run.
+
+**Tests executed.** `make test-python` on the tree of this record: 3 001 passed, 7 skipped (the gate figure on the pushed commit is on #117). `make -C tests/unit`: 38 binaries, 0 failures (`test_gbp_atrans` 2 315, `test_gbp_async` 2 138, `test_gbp_aplay` 219 checks).
+
+**Not done.** Nothing was staged and nothing was run. The Hardware Issue, the Operator's procedure and his checklist are the Orchestrator's (§V27.6).
