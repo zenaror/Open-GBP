@@ -248,6 +248,10 @@ LEDGER = [
     (r"^the RUN 43 flat archive is not in this checkout \(captures/local is ignored\)$", "LOCAL_ARTIFACT_ABSENT",
      "tests/host/test_run43.py pins the VERSIONED log's hash and size unconditionally and recomputes every verdict "
      "from it; the three local files' hashes are quoted in HARDWARE_TESTS.md §V27.20.1 and captures/README.md"),
+    # Issue #123: the same raw window, read as stride-8 streams by tools/v123frame.py.
+    (r"^the RUN 43 raw window is kept in captures/local/ only \(tools/v123frame\.py\)$", "LOCAL_ARTIFACT_ABSENT",
+     "the raw window is a commercial game's audio and is never versioned; tools/v123frame.py's reading is proved on "
+     "constructions and on the VERSIONED RUN 33 / RUN 34 tones by tests/host/test_v123frame.py classes that never skip"),
     (r"^the RUN 43 raw window is kept in captures/local/ only$", "LOCAL_ARTIFACT_ABSENT",
      "the raw window is a commercial game's audio and is never versioned; tools/u012game.py's method is proved on "
      "constructions by tests/host/test_u012_game.py classes that never skip, its hash is quoted in the record, and "
