@@ -10082,3 +10082,301 @@ so it needed 29.05 samples/s of DUP = 7.09 ms/s, and 30.703/s = 7.50 ms/s was ob
   `U-GBP-045` and #117, not a result.
 
 One archive, two runs, arithmetic.
+
+---
+
+### GBP-HW-341 — RUN 43, the latency round's Phase 1: CONFIRMS — the Operator judged all 12 real cushion switches in the predicted direction, 3 of 6 null switches as a change, below the guard; M1, M2 and M3 PASS in both arms — FACT (the frozen gate's result, one run, one Operator); `U-GBP-046`'s cushion HYPOTHESIS becomes CORROBORATED; `A`'s words are not evidence of direction
+
+GitHub Issue #120; `HARDWARE_TESTS.md` §V27.20. `sync-0001` (GBP-AUDIO-012, commit `8bb0d46`), Yoshi's
+Island, on the physical GameCube and Game Boy Player. The console's SD log, 151 285 B, sha256
+`fd0652c3…52ae4bc`, goes through the frozen builder (`tools/v27report.py`, `7c3bffd`) and the frozen
+gate (`tools/v27accept.py`, amended at `4e4bce9`); `tests/host/test_run43.py` recomputes every figure
+here from the versioned copy.
+
+```text
+arm       TARGET        settled s  non-mute s  fill mean  M1 band      underruns  overflow
+DEEP      2 048 (0.5 s)        32          49     1 976.9  [1792, 2064]         0         0
+SHALLOW     512 (0.125 s)      53          71       440.9  [256, 528]           0         0
+separation 1 536.0 in [1280, 1792]            M1 PASS, M2 PASS, M3 PASS
+
+Phase 1   18 switches (12 REAL, 6 NULL), 18 answered
+          D = 12 of 12 REAL judged in the predicted direction    CONFIRMS (>= 10; P = 79/4096 under chance 1/2)
+          NULL judged a change: 3 of 6                           the guard (>= 4 of 6) not tripped
+```
+
+**What it establishes.**
+- **FACT.** Under the frozen rules, Phase 1 CONFIRMS: every shallowing was answered LESS and every
+  deepening MORE, from a schedule and a starting arm the console drew and wrote only to the SD log.
+- **FACT.** The manipulation happened: both arms' fill sat inside M1's band, 71 samples under the
+  target in each, and 1 536.0 apart. No underrun and no overflow in either arm.
+- **CORROBORATED: the decoded ring's cushion moves the audio-behind-video offset the Operator
+  perceives, in the direction the units predict.** `U-GBP-046` named two steps: the units' reading,
+  and a changed `TARGET` moving his perception the predicted way. This is the second.
+
+**The nulls, reported and not re-judged.** Switches 1, 3 and 15 were answered MORE and 5, 8 and 10
+SAME. None was answered LESS. Two of the three MOREs followed a deepening. The frozen guard is 4 of 6,
+so it decides nothing. A null carries the middle skip, 2 304 samples, between a deepening's 768 and a
+shallowing's 3 840 (§V27.15). Three nulls heard as a change say the switch itself was perceptible.
+
+**What it does NOT establish.**
+- **Anything from `A`.** His answer was *"Sim percebi"*: a difference was perceptible. It carries no
+  direction, and direction is the whole of D. **D comes only from the answers the console recorded
+  as he pressed them.**
+- **How much of the offset the cushion is.** Phase 1 is a direction test. The residue is
+  `GBP-HW-342`'s, and one setting does not measure it.
+- **A second listener, cartridge or console.** One Operator, one game, one GameCube, one Game Boy
+  Player.
+
+---
+
+### GBP-HW-342 — RUN 43's Phase 2: one setting of three before the stop, CONFIRMED AT THE FLOOR — 384 samples, 0.09375 s — after eight LEFT presses refused below it; the second setting went the other way to the top, came back five steps and was cut at 2 944, unconfirmed — FACT (the log's records); Phase 2 INCONCLUSIVE by (t4), as frozen; the null point is CENSORED at the floor
+
+GitHub Issue #120; `HARDWARE_TESTS.md` §V27.20; `tools/v27derive.py` (descriptive).
+
+```text
+setting 0   start 896, LEFT = shallower (seeded)
+            896 -> 768 -> 640 -> 512 -> 384      four LEFT steps, the last 6.2 s after the start
+            LEFT x 4 refused at the floor
+            384 -> 512 -> 384                    one RIGHT, one LEFT
+            LEFT x 4 refused at the floor
+            UP at 26.1 s: CONFIRMED 384
+setting 1   start 640, LEFT = deeper (seeded)
+            23 LEFT steps, 640 -> 3 584 (the top), in bursts, 28.7-46.0 s
+            LEFT x 4 refused at the top
+            5 RIGHT steps, 3 584 -> 2 944; the event store filled at 54.5 s, unconfirmed
+```
+
+**His `B`, resolved against the log.** *"Parecia sincronizado . Acredito que cheguei no fim da escala
+da esquerda, que diminuía .."* Both halves hold for setting 0. He reached the floor, pressed LEFT
+against it eight times, and confirmed there. So the confirmed setting is **at** the floor, not above
+it. The left end of setting 1 was the TOP of the scale, because its seeded mapping was the other one.
+His recollection, *"na segunda ou terceira ajuste"*, is the second setting, part-way, and agrees with
+`settings=1`: a setting counts when it is confirmed.
+
+**What it measures, and how little.** The only confirmed null point lies at or below 0.094 s of
+target cushion. It is censored: the scale stopped him, and he tried to go further. The ring's settled
+fill at 384 was 312.9 samples, 76 ms. The rest of the audio path is modelled, not measured: READY up to
+125 ms, the DMA chunk and the playing one 31–62 ms, the FIR about 2 ms. At the floor that is about
+0.23–0.27 s before any residue, and he called the total synchronised. **That bounds the TOTAL
+remaining offset by his own synchronisation tolerance, which is not measured. It does not bound the
+residue by 0.25–0.28 s.** Only the sum is bounded.
+
+**What it does NOT establish.**
+- **A measurement with a spread.** One setting, censored. §V27.3 asked for three.
+- **The correction's floor.** Phase 2's floor is 384 by construction (§V27.9 O3). Phase 3 is the
+  only thing that would have measured where the correction stops holding, and it did not run.
+  **Nothing about `U-GBP-045`'s cost side is inferred from where Phase 2 bottomed out.**
+- **Anything from setting 1's path.** It never confirmed. It is recorded, not read.
+
+---
+
+### GBP-HW-343 — The cost of 0.125 s against 0.5 s, measured inside one session: over RUN 43's interleaved Phase 1 dwells the SHALLOW arm lost AUDIO blocks at 0.871 of the DEEP arm's rate (90 % interval by dwell 0.798–0.977), with no underrun and no overflow in either — FACT (counts, one run; the interval is a resampling of whole dwells); no cost of the shallower cushion was detected in what the log records
+
+GitHub Issue #120; `tools/v27derive.py`. §V27.4 froze `M4` as reported, never gated. The Operator has
+since asked for lower audio latency (#120), so this is the evidence for that change. The arms alternate
+by dwell, 6 each. A dwell, not a second, is the resampled unit. No instrument runs in Phase 1: the raw
+window closes 38.3 s before its first switch. So `GBP-HW-338`'s three ways coincide: the whole phase,
+outside the instrument, and nothing inside.
+
+```text
+                 dwells  non-mute s  lost   per s   settled s  lost   per s   underruns  overflow
+DEEP    0.5 s        6         49     355   7.245          32   228   7.125           0         0
+SHALLOW 0.125 s      6         71     448   6.310          53   323   6.094           0         0
+SHALLOW / DEEP                              0.871  (90 %: 0.798-0.977)       0.855  (0.768-0.974)
+exact permutation of the 12 dwells: one-sided p 63/924 = 0.068, two-sided 126/924 = 0.136
+zero underruns in 71 s at 0.125 s: the rate is below 3/71 = 0.042 per second (95 %, rule of three)
+```
+
+**What it establishes.**
+- **FACT.** In this session, at 0.125 s of cushion the drain lost no more AUDIO blocks per second than
+  at 0.5 s: no increase was detected. The point estimate is lower, but a LOWER loss is not established.
+  The resampling interval stays below 1, yet with six dwells a side it is anti-conservative (#120's
+  review: under equal rates it excluded 1 in about 15 % of simulations, nominal 10 %), and the exact
+  permutation of the 12 dwells gives a one-sided p of 0.068. No underrun and no overflow occurred in
+  71 non-mute seconds at the shallow arm.
+- **FACT, descriptive.** Phase 2 held 384 (0.094 s) for 13 non-mute seconds, 9 settled, with no
+  underrun, 93 blocks lost and a settled fill of 312.9. Phase 2 is not an arm. Its seconds are where
+  his adjustment took the level.
+
+**What it does NOT establish.**
+- **That 0.125 s is safe over a session.** 71 seconds, the longest shallow dwell 30 s, bound an
+  underrun rate only to 0.042/s. A rarer underrun is not excluded.
+- **The correction's work per arm.** DUP and `ring_gated` are logged as session totals (2 376 and 348),
+  never per second, so their share per arm is not in the log.
+- **Why the shallow arm lost fewer blocks.** Nothing here varies a cause. It is not read as a benefit.
+- **Anything below 0.125 s as an arm.** 0.094 s was visited, not tested.
+
+---
+
+### GBP-HW-344 — The video state model's event store fills at about ONE EVENT PER FRAME of a changing picture: 65.61/s in RUN 43, so its 16 384 records last 249.7 s of capture, against the ~4 events/s the images' own comment assumes; the same rate was already FACT in `GBP-HW-282` three days before `sync-0001` was built — FACT (measured in RUN 43; RUN 21, RUN 22 and RUN 42 give the same order)
+
+GitHub Issue #120; `tools/vevents.py`, which reads the printed events and the counters of any log of
+this family. The mechanism is read from `src/gbp/gbp_vstate.c`, not assumed. While an episode is open,
+every CLEAN closed frame appends one `episode_stabilising`. The frame that opens an episode appends
+`episode_open` in its place, and the episode adds `episode_stable` plus `episode_close` when it settles
+or is capped at 60 frames. An unclean frame inside an open episode lengthens it and appends nothing: in
+RUN 43's printed head, episode 1 ran 18 frames and holds 12 records. A picture that keeps changing
+therefore emits about one event per clean frame. The episode path's own ceiling is a run of 3-frame
+stable episodes, 5 events per 3 frames. The one-off events, and one `predicate_disagreement` per
+disagreeing block, come on top. Read disagreements append nothing. RUN 43 had no predicate
+disagreement.
+
+```text
+run      image      events  dropped  capture s   frames   per s   per frame   16 384 last
+RUN 43   sync-0001  16 384        5    249.734   14 912   65.61     1.0987      249.7 s   stopped: event_store_cap
+RUN 42   game-0002   4 240        0     70.676    4 219   59.99     1.0050      273.1 s
+RUN 41   game-0001   2 177        0     75.247    4 493   28.93     0.4845      (61.33/s in its omitted middle)
+RUN 21   play-0001  16 384        3    273.810   16 354   59.84     1.0018      273.8 s   stopped: event_store_cap
+RUN 22   play-0001  11 894        0    201.995   12 064   58.88     0.9859      278.2 s
+
+16 384 records last   249.7 s at RUN 43's rate    274.3 s at one per frame (59.727 Hz)
+                      164.6 s at the episode path's ceiling (5/3 per frame)
+                      4 096 s at the comment's assumed 4 per second
+RUN 43, from the capture's start: origin 7.56 s, Phase 1 46.03-195.22 s, Phase 2 from 195.22 s,
+the store full at 249.73 s = 242.17 s after the origin; at least 13 794 of its 14 912 frames were inside an open
+episode (one open or stabilising record each; every other kind of record bounded above)
+```
+
+**What it establishes.**
+- **FACT.** The store fills at the frame rate while the picture changes: about 1.00 per frame in
+  RUN 21, RUN 22 and RUN 42, and 1.10 in RUN 43, whose 1 311 episodes (1 210 stable) add their
+  stable and close records to the per-frame ones. RUN 41's lower mean is a still picture for part of
+  its window: 61.33/s in its printed-out middle.
+- **FACT, arithmetic.** At RUN 43's rate the frozen session needed about 47 700 records to reach its
+  720 s cap: 720 s after the origin plus 7.6 s before it. It had 16 384, which lasted 242.2 s after the
+  origin. **At the pace the Operator kept, Phase 3 could not have run.** Phase 2 began 187.7 s after
+  the origin, 54.5 s before the store filled, against Phase 3's frozen budget of 138 s. `z=0` says he
+  never held Z, and every phase he spent time in was inside its frozen cap.
+- **Not established: that no pace could have finished all three phases.** 242.2 s less Phase 3's
+  138 s leaves 104.2 s for Phase 0, 18 answered switches and three settings. That is tight, and no
+  frozen minimum rules it out. #119 and #120 §2 state the stronger form; the arithmetic supports this
+  one. The defect does not depend on it: the session was budgeted in time and never in events.
+
+**How the defect was built — two parts, both recorded.**
+- **The Orchestrator's.** The session was budgeted in time, 300 + 240 + 138 s against 720 s, and never
+  in events. It is recorded as his, in his terms, on #119 and in #120 §2.
+- **The Executor's.** `play-0001`'s comment, *"~4 events/s is the ceiling assumed: 16384 records = 68
+  min"*, and its `_Static_assert(PLAY_EVENT_RECORDS >= PLAY_SAFETY_SECONDS * 4u)` were written on
+  2026-09-21. `GBP-HW-282` measured 59.81/s the next day. `stream-0016` (#59) applied that rate to its
+  own store. Both lines were then carried into `drain-0001`, `live-0001`, `trace-0001`, `split-0001`,
+  `game-0001`, `game-0002` and `sync-0001`, where no session was long enough for them to matter: each had a
+  120 s safety wall, under the 249 s the store lasts. §V27.10 raised the session cap to 720 s.
+  **Building `sync-0001`, the Executor set the safety wall at 785 s and sized the FRAME store for it,
+  with the arithmetic in the comment and a static assert (§V27.17, defect 6), and left the EVENT store
+  at 16 384 under a comment the archive had refuted.** §V27.13's rule, "a frozen mechanism carries its
+  arithmetic", was applied to one store of two.
+
+**What it does NOT establish.** A rate for another game or another screen. The rate depends on how much
+of the picture changes. A mostly still screen emits almost nothing. A store sized for a session must use at
+least the measured rate with a margin: RUN 43 ran 10 % above one event per frame. The episode ceiling of
+5/3 per frame bounds the episode path only, not the one-off events or predicate disagreements.
+
+`U-GBP-035`'s addendum of 2026-09-22 already carries the lesson: a long-session instrument must size this
+store for the session it intends. RUN 43 is its second instance.
+
+---
+
+### GBP-HW-345 — RUN 43's raw window, the first raw AUDIO blocks of a game: its level changes recur every 6.23438 slices — 1 596.0 AGB cycles under a 256-cycle slice, 10 512 Hz nominal — on odd and even slice boundaries alike, and never split a slice, so the two-slice grid of `GBP-HW-315` is the stimulus ROM's, not the path's, and the game's own output is quantised on a grid that coincides with the slices; 12 blocks are missing inside the window, located by the content and matched by the header's own instants — FACT (arithmetic on one capture); that the slices are uniform in time stays a HYPOTHESIS, consistent at slice resolution and untested below it; the 1 596-cycle timer and the 65 536 Hz output grid are HYPOTHESES
+
+GitHub Issue #120; `tools/u012game.py` (descriptive), through `tools/awrparse.py` and
+`tools/v18block.py`'s slice counts. The capture is `captures/local/GBP-AUDIO-012_sync-0001-run43-awr.bin`,
+2 621 580 B, sha256 `a70ce4c1…af735f80`. It is **not versioned**: it is 0.16 s of a commercial game's
+audio output (`RESEARCH_METHOD.md`, proprietary data), so `tests/host/test_u012_game.py` pins these
+figures only where that file is present, after proving the method on constructions.
+
+```text
+640 blocks, the drain's tap numbers 30 899..31 538 consecutive, 0.158 934 s from the first to the last
+changes >= 6 one-bits   1 286: 588 on EVEN boundaries, 698 on ODD; within a block 6 or 7 slices apart
+                        (493 and 136; 12 and 13 where one change was too small to show)
+beside every change     steps at the adjacent boundaries: same sign 19, opposite 20 at >= 3 bits
+                        (129 / 135 at 2 bits, 502 / 583 at 1); no two changes one slice apart
+fitted hold period      P = 6.23438 slices   = 1 596.0 AGB cycles at 256 per slice   = 10 512.0 Hz nominal
+missing blocks          12, one each, after stored blocks 96 131 261 265 276 388 392 404 521 532 536 566
+the header's instants   11.99 block periods beyond the 640 stored
+coherence               R = 0.9583 against the quantisation bound 0.9582 (sampling sd 0.0011)
+per boundary            91 80 93 83 89 92 93 81 85 84 79 83 79 85 89    chi-square 4.19 on 14 dof,
+                        lower tail 0.0058
+```
+
+**What it establishes.**
+- **FACT, arithmetic.** The game's output changes level at intervals of 6 or 7 slices, on odd boundaries
+  as often as on even ones. The tones of RUN 33 and RUN 34 changed only on even boundaries
+  (`GBP-HW-315`). **So the path carries single-slice changes, and the two-slice grid was the tones'
+  source.** That answers `U-GBP-041`'s second question.
+- **FACT, arithmetic.** Twelve blocks are missing inside the window, 1.8 % of 652 slots. The content
+  locates them: each shifts every later change by 16 slices mod P. The fit chooses P by total cost.
+  Choosing by coherence alone was circular: a slightly wrong P, compensated by extra gaps, returned 14
+  at a local optimum, and the tool was corrected before any figure was recorded. The header's first
+  and last instants, independently, span 11.99 block periods more than the stored blocks. **The window
+  lost blocks at about 75 per second.** Phase 0's other 37 non-mute seconds lost 7.24 per second,
+  and the first second after the origin, which holds the window, lost 16. **That is the capture's own cost**,
+  `GBP-HW-338`'s class: 29.5 µs of copy per block, 1 125–1 363 ticks, in the drain's slot. The design
+  kept the window out of every arm (§V27.1), and it cost nothing there.
+- **FACT, arithmetic: no change splits a slice.** Beside every change, the steps at the adjacent
+  boundaries are as often of the opposite sign as of the same: 19 against 20 at 3 bits or more, 135
+  against 129 at 2. No two changes sit one slice apart. A source that changed at instants continuous in
+  time, read by slices that integrate it, would leave the slice holding each change at an intermediate
+  count: same-sign neighbours and changes one slice apart, which a construction shows
+  (`tests/host/test_u012_game.py`). **So the level is constant inside each slice. The game's output is
+  quantised by its source, on a grid that coincides with the slices.**
+- **HYPOTHESIS, consistent at slice resolution and untested below it: the sixteen slices are uniform in
+  time.** The placed changes reach a coherence of 0.9583, 0.12 sampling sd above the 0.9582 that
+  changes on a uniform grid of slices must have (sd 0.0011). So the changes map one to one onto
+  consecutive, uniformly spaced slices: slice order is time order, one grid step per slice. **Nothing
+  below one slice is tested.** When the source quantises its own changes to the slice grid, a
+  displacement of the slice boundaries inside that grid's margin moves neither the coherence nor the
+  per-boundary counts. #120's review kept R at 0.9583 with boundaries displaced by 0.17 slice rms. The
+  per-boundary chi-square, 4.19 on 14 dof, has a lower tail of 0.0058: the counts are more even than
+  chance, the signature of a deterministic grid, not a test. The tones cannot test uniformity either
+  (`GBP-HW-340`; `U-GBP-041`: every tone's edges share one k). **One capture, one test passed at slice
+  resolution: the status does not move to CORROBORATED.** `tools/u012game.py`'s `sigma_2sd` assumes
+  changes at continuous instants, which this source does not make, so it bounds nothing here.
+- **HYPOTHESIS: the game holds each sample for a 1 596-cycle timer period**, the 10 512 Hz mixing rate.
+  P × 256 is 1 596.0, an integer, as a timer's period would be. No register of the game was read.
+- **HYPOTHESIS: the source's grid is a 65 536 Hz output rate.** Changes quantised to single slices are
+  what a `SOUNDBIAS` rate of 65 536 Hz would produce under uniform slices: one PWM frame of 256 AGB
+  cycles per slice (GBATEK, "4000088h - SOUNDBIAS", `external/gbatek` `64b5087a`). The register was not
+  observed.
+
+**What it does NOT establish.**
+- **The slices' timing below one slice.** A direct timing of the slices would be needed.
+- Another game's rate, another scene's, or the transfer function from the AGB's output to a slice's
+  count (`U-GBP-012`'s physical half).
+
+---
+
+### GBP-HW-346 — RUN 43's raw window by band: 1.48 % of a game's AC energy lies above 2 048 Hz on the pair decode and 2.19 % on the slice decode — 0.40 % in the game's own band up to 5 256 Hz, the rest the hold's images — while the runtime's block decode folds 0.09 % into its band and its boxcar removes 10.2 % of the in-band energy — FACT (arithmetic on one capture); every Hz figure is conditional on uniform slices and on the block rate; the resolution is 64 Hz
+
+GitHub Issue #120; `tools/u012game.py`. Only gap-free runs of stored blocks are used (from
+`GBP-HW-345`'s placement), cut into 6 segments of 64 blocks, Hann-windowed. The band edges are
+2 048 Hz (the block decode's Nyquist), 5 256 Hz (the game's Nyquist, 32 768 / P), 16 384 Hz (the pair
+decode's) and 32 768 Hz (the slice decode's).
+
+```text
+share of AC energy        0-2 048   2 048-5 256   5 256-16 384   16 384-32 768   above 2 048
+pair decode (32 768/s)    0.9852      0.0040        0.0108             -            0.0148
+slice decode (65 536/s)   0.9781      0.0040        0.0123           0.0055          0.0219
+window-free, every block  within a block 0.1165 of the AC energy; within a pair 0.0082
+the block decode          0.0009 of its AC energy is folded content from above 2 048 Hz;
+                          its 16-slice boxcar removes 0.1023 of the in-band energy (|H| = 0.638 at 2 048 Hz)
+resolution                the window, 652 block periods, 6.28 Hz; the longest gap-free run, 130 blocks, 31.5 Hz;
+                          a segment 64 Hz
+```
+
+**What it establishes.**
+- **FACT, arithmetic.** On this 0.16 s of this game, 98.5 % of the energy is inside the block decode's
+  band. The game's own band above it holds 0.40 %, and the hold's images hold 1.1–1.2 % more. The
+  slice decode adds 0.55 % above the pair decode's Nyquist.
+- **FACT, arithmetic.** The block decode's folding, which `GBP-HW-340` found on tones, is small here:
+  0.09 % of its energy. Its in-band loss is larger: the 16-slice boxcar attenuates everything toward
+  2 048 Hz, and removes 10.2 % of the in-band energy of this signal.
+- **The window-free figure is not a band.** 11.65 % of the AC energy varies within a block. That
+  includes in-band content's own variation over 244 µs. It is an upper bound on what a finer decode can
+  add, not a measurement of energy above a frequency.
+
+**What it does NOT establish.**
+- **Fine spectral structure.** Gaps cut the window into runs of at most 130 blocks. At 64 Hz a
+  Hann segment cannot separate musical notes a semitone apart below about 2 kHz. A harmonic comparison
+  like `GBP-HW-340`'s needs a known reference, and a game provides none.
+- **The game's audio in general.** 0.16 s, one scene, the first 0.16 s after the origin.
+- **What the Operator hears as muffled.** No listening test was made on these bytes.

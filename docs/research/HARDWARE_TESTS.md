@@ -38011,3 +38011,208 @@ continua não faz sentido, além de dificultar
    **A defect found after the push.** It was found by reading the screen text against the checklist. The first line's title is game-0002's, never updated: the one identity string the build did not touch. The test ID, the build and the commit on that line, on every other screen line and in the SD log are right. The image is unchanged and stays the candidate. A checklist that says "if anything differs, STOP" must quote these lines as they are, or the run stops on a stale title.
 
 The procedure is the Orchestrator's (§V27.6). These are the facts it has to agree with.
+
+---
+
+### V27.20 RUN 43 EXECUTED AND INGESTED — 2026-09-25 (GitHub Issue #120): Phase 1 CONFIRMS, D = 12 of 12; Phase 2 INCONCLUSIVE, its one setting confirmed AT the floor; Phase 3 NOT RUN — the event store filled 242.2 s after the origin
+
+*The Executor's ingestion. The Operator's declaration was posted verbatim on #119 before any figure was
+opened (`issuecomment-5832543719`). The run's pre-ingestion round hashed, archived and recounted the
+files; this section computes. Evidence: `GBP-HW-341` to `GBP-HW-346`.*
+
+#### V27.20.1 The files
+
+```text
+raw (logs/run43/, also read back from the card with dd iflag=direct: the same bytes)
+  GBP-AUDIO-012_sync-0001.log        151 285 B  fd0652c36d6b0d649fc58b0db4aab844287d2121067ca3e22d63208a252ae4bc
+  GBP-AUDIO-012_sync-0001-awr.bin  2 621 580 B  a70ce4c11effad1c843a9dca49b76f9cf2f2eafc7c5becf4567071a7af735f80
+archived FLAT (captures/local/, cp --update=none, cmp-verified)
+  GBP-AUDIO-012_sync-0001-run43.log, GBP-AUDIO-012_sync-0001-run43-awr.bin
+  GECKO-LIVE-run43-orchestrator-capture.txt   3 221 B  82a89d7073d3acc78b443bfdc61bafb48c5b012f6605ac70816ee0f0bc85c0db
+    (copied from the Orchestrator's session file; its hash is the Executor's, not a declared one)
+versioned (captures/fixtures/)
+  hw-gamecube-gbp-2026-09-25-sync-0001-run43.log               the log, byte for byte
+  hw-gamecube-gbp-2026-09-25-sync-0001-run43-declaration.json  his words, verbatim
+NOT versioned
+  the raw window: 0.16 s of a commercial game's audio output (RESEARCH_METHOD.md, proprietary data);
+  kept in captures/local/ only, and its tests skip without it
+image      sync-0001, commit 8bb0d46, slot 22-sync, boot.dol 543 264 B ab902f6f...0941
+integrity  lines=1294 dropped=0 truncated=0, the end marker present, no gap in the line numbers;
+           OGBPAWR1: 640 of 640 blocks, both CRCs good, tap numbers 30 899..31 538 consecutive
+```
+
+`GBP-HW-272` was recounted first, in its own commit. RUN 43 reads `orig=92`, the 56th log.
+
+#### V27.20.2 The Operator's declaration, verbatim, recorded before any figure
+
+```text
+A. Sim percebi
+B. Parecia sincronizado . Acredito que cheguei no fim da escala da esquerda, que diminuía ..
+C.
+D. Pass
+E. Normal
+F. Responderam
+G. Nada a declarar por enquanto
+```
+
+His recollection before it (#119, `issuecomment-5832516939`): *"Acredito que eu estava na fase 2, e o
+processo terminou... Acho que na segunda ou terceira ajuste"*. `C` is empty because Phase 3 never ran.
+
+#### V27.20.3 The frozen gate's output, byte for byte
+
+`tools/v27report.py` (`7c3bffd`) accepted the log and built the report. `tools/v27accept.py` (`4e4bce9`),
+given the declaration, printed:
+
+```text
+GBP-AUDIO-012 / sync-0001 / 8bb0d46
+  levels  DEEP 2048  SHALLOW 512  FLOOR 384 samples at 4096/s; mute 18 chunks, step mute 4; caps p1 300 p2 240 p3 180 session 720 s
+  blinding  assignment present; press before prompt False
+  DEEP    target 2048  settled s 32  live s 49  fill mean 1976.9  in [1792, 2064] True  underruns 0  overflow 0  lost 355 = 7.245/s
+  SHALLOW target 512  settled s 53  live s 71  fill mean 440.9  in [256, 528] True  underruns 0  overflow 0  lost 448 = 6.310/s
+  M1 PASS  separation 1536.0 in [1280, 1792] True;  M2 PASS;  M3 PASS;  M4 reported above
+  PHASE 1  CONFIRMS     switches 18 (real 12, null 6), answered 18, D 12, nulls judged a change 3, P(confirm | chance 1/2) 79/4096: D = 12 of 12 real switches in the predicted direction (>= 10; P = 79/4096 under chance 1/2); nulls judged a change 3 of 6
+      switch  0 REAL 2048 ->  512  discard  1536  answer LESS predicted LESS
+      switch  1 NULL  512 ->  512  discard     0  answer MORE predicted None
+      switch  2 REAL  512 -> 2048  discard     0  answer MORE predicted MORE
+      switch  3 NULL 2048 -> 2048  discard     0  answer MORE predicted None
+      switch  4 REAL 2048 ->  512  discard  1536  answer LESS predicted LESS
+      switch  5 NULL  512 ->  512  discard     0  answer SAME predicted None
+      switch  6 REAL  512 -> 2048  discard     0  answer MORE predicted MORE
+      switch  7 REAL 2048 ->  512  discard  1536  answer LESS predicted LESS
+      switch  8 NULL  512 ->  512  discard     0  answer SAME predicted None
+      switch  9 REAL  512 -> 2048  discard     0  answer MORE predicted MORE
+      switch 10 NULL 2048 -> 2048  discard     0  answer SAME predicted None
+      switch 11 REAL 2048 ->  512  discard  1536  answer LESS predicted LESS
+      switch 12 REAL  512 -> 2048  discard     0  answer MORE predicted MORE
+      switch 13 REAL 2048 ->  512  discard  1536  answer LESS predicted LESS
+      switch 14 REAL  512 -> 2048  discard     0  answer MORE predicted MORE
+      switch 15 NULL 2048 -> 2048  discard     0  answer MORE predicted None
+      switch 16 REAL 2048 ->  512  discard  1536  answer LESS predicted LESS
+      switch 17 REAL  512 -> 2048  discard     0  answer MORE predicted MORE
+  PHASE 2  INCONCLUSIVE 1 of 3 settings completed (t4)
+      setting 0  start 896  LEFT_SHALLOWER  6 steps -> 384
+  PHASE 3  NOT RUN      no depth recorded  (ended=None)
+  DECLARATION (his words, gating nothing): {"A": "Sim percebi", "B": "Parecia sincronizado . Acredito que cheguei no fim da escala da esquerda, que diminuía ..", "C": "", "D": "Pass", "E": "Normal", "F": "Responderam", "G": "Nada a declarar por enquanto", "recollection_before_the_declaration": "Acredito que eu estava na fase 2, e o processo terminou... Acho que na segunda\nou terceira ajuste", "source": "#119: issuecomment-5832543719, the Orchestrator's 'RUN 43 -- the Operator's declaration, verbatim, before any figure was opened' (answers A-G, C empty because Phase 3 never ran); issuecomment-5832516939, 'RUN 43 EXECUTED' (the recollection, with the line break as posted)"}
+```
+
+#### V27.20.4 Phase 1 — CONFIRMS (`GBP-HW-341`)
+
+**D = 12 of 12, with 3 of 6 nulls judged a change: CONFIRMS under the frozen rules.** The console drew
+the starting arm (DEEP) and the schedule from the timebase at the A press and wrote them only to the SD
+log. **`A`, *"Sim percebi"*, is not evidence for either verdict.** It says a difference was perceptible
+and nothing about its direction. D is taken only from the answers the console recorded as he pressed
+them.
+
+#### V27.20.5 Phase 2 — one setting, at the floor (`GBP-HW-342`)
+
+**He confirmed at 384, the floor, after pressing LEFT against it eight times.** So his `B` holds for the
+confirmed setting: *"Parecia sincronizado"* at the end of a scale whose left end shallowed. The second
+setting's seeded mapping was the other one: LEFT deepened. He went 23 steps to the TOP, pressed against
+it four times, came back five, and the store filled there. His *"na segunda ou terceira ajuste"* is
+that second setting, part-way. **Phase 2 is INCONCLUSIVE by (t4), as frozen.**
+
+What the one setting says: at a target of 0.094 s, with a settled ring of 76 ms and about 0.23–0.27 s
+modelled for the whole audio path, he judged audio and picture synchronised. **That bounds the TOTAL
+remaining offset by his synchronisation tolerance, which is unmeasured, not the residue by
+0.25–0.28 s.** The null point is censored at the floor.
+
+#### V27.20.6 Phase 3 — NOT RUN
+
+`depths=0`. **Nothing about the correction's floor is inferred from Phase 2.** Phase 2's floor is 384 by
+construction (§V27.9 O3). Phase 3 was the only thing that would have measured where the correction
+stops holding. `U-GBP-045`'s cost side below 0.125 s stays unmeasured.
+
+#### V27.20.7 M1–M4 per arm, and the latency the Operator asked for (`GBP-HW-343`)
+
+**M1, M2 and M3 PASS.** Both arms' fill tracked its target, 71 samples under it, and the arms sat
+1 536.0 apart. No underrun and no overflow occurred in either arm. **M4 by dwell:** the SHALLOW arm
+lost AUDIO blocks at 0.871 of the DEEP arm's rate, 6.310 against 7.245 per second, 90 % 0.798–0.977.
+With six dwells a side that interval is anti-conservative. The exact permutation of the 12 dwells
+gives a one-sided p of 0.068. **No increase was detected; a lower loss is not established.** No
+instrument ran in Phase 1.
+
+**The Operator's directive (#120): *"se perceber se é possivel reduzir um pouco mais, reduza a
+latencia do som."*** The value this run supports, in time, with its cost beside it:
+
+```text
+0.125 s      exercised as an ARM: 6 dwells, 71 non-mute seconds, interleaved with 0.5 s.
+             Cost measured: loss 0.871 of 0.5 s's (90 % 0.798-0.977; exact permutation p 0.068, so
+             no increase detected, a lower loss not established); no underrun, no overflow.
+             Not measured: an underrun rarer than 0.042/s (3/71, 95 %); the DUP work per arm (session
+             totals only); a dwell longer than 30 s; another game. THE VALUE THE RUN SUPPORTS.
+0.09375 s    visited in Phase 2 only: 13 non-mute seconds, no underrun. Not an arm. Not adopted.
+below that   unsupported: the correction's floor is unmeasured.
+```
+
+**What 0.125 s buys:** 0.375 s less target cushion. The measured settled fill falls from 1 976.9
+samples (0.483 s) to 440.9 (0.108 s). The rest of the path is unchanged. **The change itself is its
+own bounded Issue after #120. `TARGET` is not changed here.**
+
+#### V27.20.8 The transitions, as the executor carried them out
+
+`SYNCTXA begun=54 completed=53 faults=0 rotate=20 lates=0 unmasked=0 res=-26..-18`. Every Phase 1
+switch landed masked, by content, as §V27.15 requires. The one transition begun and not landed is the
+last Phase 2 step, the one the stop cut. `SYNCREF`'s 13 refusals are 1 answer given with no switch
+pending (Phase 1) and 12 steps at the ends of the scale (Phase 2): 8 at the floor, 4 at the top.
+`cs=84 acted=71` reconciles exactly with the in-run records.
+
+#### V27.20.9 The stop: the event store (`GBP-HW-344`)
+
+The store filled at **65.61 events/s**, 1.10 per frame of a changing picture. Its 16 384 records lasted
+249.7 s of capture, 242.2 s after the origin. At that rate the frozen session needed about 47 700 to
+reach its 720 s cap. At the pace he kept, Phase 3 could not have run: Phase 2 began 54.5 s before the
+store filled, against Phase 3's 138 s. That NO pace could have finished all three phases is not
+established. 104.2 s would have remained for Phase 0, the 18 switches and three settings.
+**Two defects built it, and both are recorded:**
+- **The Orchestrator's.** The session was budgeted in time and never in events (#119, #120 §2, his
+  words).
+- **The Executor's.** The image carried `play-0001`'s *"~4 events/s ... 68 min"* comment and a static
+  assert at 4/s. `GBP-HW-282` had refuted that rate on 2026-09-22 at 59.81/s. The Executor set the
+  785 s safety wall and sized the frame store for it (§V27.17, defect 6; §V27.10 set the 720 s session
+  cap), and left the event store untouched.
+
+#### V27.20.10 The ride-along (`GBP-HW-345`, `GBP-HW-346`)
+
+**The first raw blocks of a game.** Its level changes recur every 6.23438 slices: 1 596.0 AGB cycles at
+256 per slice, 10 512 Hz nominal. They fall on odd boundaries as often as even ones, so **the two-slice
+grid was the tones' source, not the path**. **Twelve blocks are missing inside the window.** The content
+locates them, and the header's own instants give 11.99. That is the capture's own cost, about 75 blocks
+per second inside its 0.159 s, against 7.24 per second over the rest of Phase 0. No change splits a slice,
+so the game's own output is quantised on a grid that coincides with the slices. The changes' coherence
+sits on that grid's bound, so slice order is time order. Uniform slices pass that one test at slice
+resolution and stay a HYPOTHESIS. Nothing below one slice is tested.
+**Bandwidth:** 1.48 % of the AC energy lies above 2 048 Hz on the pair decode and 2.19 % on the slice
+decode. The game's own band up to 5 256 Hz holds 0.40 %, and the rest is the hold's images. The block
+decode folds 0.09 % into its band, and its boxcar removes 10.2 % of the in-band energy. The resolution
+is 64 Hz: gaps cut the window into runs of at most 130 blocks.
+
+#### V27.20.11 Defects for the next image, none fixed here
+
+1. **The event store.** Size it from the measured rate, not from one event per frame. RUN 43 ran
+   1.0987 per frame, 65.61/s. The frozen session then needs about 47 700 records for 727.6 s, or 51 500
+   for the 785 s wall, before any margin, and the rate depends on the screen. The episode path's
+   ceiling of 5/3 per frame, 78 100 for 785 s, bounds the episode path only. The one-off events and one
+   `predicate_disagreement` per disagreeing block, none observed yet, come on top. The store's stop must
+   stay a clean, reported stop. Correct the comment and the static assert with it.
+2. **`EVGAP omitted=16192 (all of them are in the sidecar)` is false for this image.** Its sidecar is
+   the raw window, so the 16 192 omitted events exist nowhere. The text is `gbp_vstate_probe`'s,
+   written when the sidecar was a state dump.
+3. **The first screen's stale title** (§V27.19, point 7).
+4. **Phase edges.** `SYNCPH` gives each phase's start, end and reason in the SD log, but only after the
+   session. Phase 0 has no record of its own, and nothing marks a phase in-run or on screen. The
+   Operator asked for both (#120). The on-screen half must be checked for leak paths before it is
+   built: a plain count is safe, and anything that differs between real and null switches, or derives
+   from `TARGET` or the fill, is not.
+5. **DUP and `ring_gated` per second.** They are logged as session totals only, so the correction's
+   work per arm is not in the log.
+6. **A raw capture is an instrument with a cost.** This one cost 12 blocks in its window and stayed out
+   of every arm by design. The next must too, or be costed.
+
+#### V27.20.12 What this run does NOT settle
+
+- **`U-GBP-046` is not closed.** Phase 1 shows the cushion moves the perceived offset. The residue
+  needs Phase 2 with more than one setting.
+- **The correction's floor is unmeasured**, and so is `U-GBP-045`'s cost below 0.125 s.
+- **`TARGET` is unchanged in the runtime.** Phase 6 is not reopened.
+- **Whether to re-run Phases 2 and 3 is not decided here.** The next pre-registration has `GBP-HW-344`'s
+  rate to be built on.
