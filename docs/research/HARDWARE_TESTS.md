@@ -38227,3 +38227,5 @@ measured 15.75 % against its nominal 10 % (`tests/host/test_v27derive.py`, `TheI
 On that evidence #121 adopts 0.125 s as the chain's cushion. **No increase in AUDIO loss was detected at 0.125 s, and a
 lower loss is not established.** It reduces the offset and does not remove it (`U-GBP-046`). §V27.20.7's proposal
 block is unchanged; this line says which of its two figures carries the conclusion.
+
+**2026-09-25 (GitHub Issue #123), on top: the adopted cushion is PROVISIONAL.** It stands, and it is re-validated on the final audio path: the decode it was measured on is being rebuilt at the native rate (`GBP-HW-347`, `GBP-HW-348`), and a finer decode costs processing, which is latency (the Operator, #123).

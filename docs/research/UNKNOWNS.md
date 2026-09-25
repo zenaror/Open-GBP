@@ -501,7 +501,7 @@ occurrence on the first block of the first request. Direction: repeated
 captures (block sequence, flag periodicity) before a known-color
 cartridge (GBP-VIDEO-001 direction, DEVLOG 2026-09-16).
 
-## U-GBP-012 (P2 — **STILL OPEN**; 2026-09-22, Issue #58: the first experiment against it is PRE-REGISTERED, `HARDWARE_TESTS.md` §V8, GBP-AUDIO-001 — **NOT RUN, NOT AUTHORISED**, and a pre-registration answers nothing — **RUN 30 EXECUTED AND INGESTED 2026-09-22 (Issue #62, §V8.13): the first data with a cartridge running. AU = CARRIES / OTHER SHAPE. The prerequisite is answered; the FORMAT is not, and this item STAYS OPEN**) — AUDIO block format on hardware — **2026-09-24, Issue #118: the FORMAT half answered for the archived tones, by arithmetic (GBP-HW-340: slice pairs carry the tone at 32 768 values/s, Hz conditional on U-GBP-041; the block decode nothing above 2 048 Hz); for a game it needs a raw-block capture; the Operator reports the references not muffled (OPERATOR OBSERVATION); STAYS OPEN for the physical half** — **2026-09-25, Issue #120 (RUN 43): the first raw blocks of a GAME — its level held 6.23438 slices a sample (1 596.0 AGB cycles at 256 a slice, a HYPOTHESIS; 10 512 Hz nominal) and changing on single slices; 1.5 % (pair) and 2.2 % (slice) of its AC energy above 2 048 Hz (GBP-HW-345, GBP-HW-346); STAYS OPEN for the physical half**
+## U-GBP-012 (P2 — **STILL OPEN**; 2026-09-22, Issue #58: the first experiment against it is PRE-REGISTERED, `HARDWARE_TESTS.md` §V8, GBP-AUDIO-001 — **NOT RUN, NOT AUTHORISED**, and a pre-registration answers nothing — **RUN 30 EXECUTED AND INGESTED 2026-09-22 (Issue #62, §V8.13): the first data with a cartridge running. AU = CARRIES / OTHER SHAPE. The prerequisite is answered; the FORMAT is not, and this item STAYS OPEN**) — AUDIO block format on hardware — **2026-09-24, Issue #118: the FORMAT half answered for the archived tones, by arithmetic (GBP-HW-340: slice pairs carry the tone at 32 768 values/s, Hz conditional on U-GBP-041; the block decode nothing above 2 048 Hz); for a game it needs a raw-block capture; the Operator reports the references not muffled (OPERATOR OBSERVATION); STAYS OPEN for the physical half** — **2026-09-25, Issue #120 (RUN 43): the first raw blocks of a GAME — its level held 6.23438 slices a sample (1 596.0 AGB cycles at 256 a slice, a HYPOTHESIS; 10 512 Hz nominal) and changing on single slices; 1.5 % (pair) and 2.2 % (slice) of its AC energy above 2 048 Hz (GBP-HW-345, GBP-HW-346); STAYS OPEN for the physical half** — **2026-09-25, Issue #123: each slice holds ONE pulse in each of A and B (streams 1 = 3, 5 = 7), its width the level, so within the capture a slice carries one level a stream pair, whichever of GBP-HW-345's two models holds; the game changes it on single slices (GBP-HW-347, GBP-HW-348); what the PWM encodes against the AGB's own output stays the physical half, OPEN**
 
 Dolphin's PWM model ("1 bits contiguous and leading", 4096 Hz, 9-bit
 samples) comes from making the DISC happy, not from measurement.
@@ -730,6 +730,8 @@ game.
 What stays open: the physical half, what a slice's count integrates over. And every figure for
 another game or another scene.
 
+
+**2026-09-25 (GitHub Issue #123), on top.** A and B (streams 1 = 3 and 5 = 7) are each exactly one run of ones per slice (`GBP-HW-347`; the even streams are not, their extras also sit away from the pulse), so within the capture a slice carries one level a stream pair and no change inside it can be represented. Both of `GBP-HW-345`'s models predict that, so the structure does not separate them: whether the AGB's output was itself quantised to the slice grid, or the path reads it once a slice, is still not separable from these bytes. The game updates on single slices and the tones on pairs (`GBP-HW-348`). **The physical half stays OPEN.**
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the
@@ -2195,7 +2197,7 @@ single slice cannot represent an edge block. **Not run, not authorised there.**
   run one N per session. Full reads did not recover cleanly after N = 0x20, so the
   steps cannot share a session.
 
-## U-GBP-043 (P3, opened 2026-09-23, Issue #82) — the 1–3-bit spread between slices of a flat block, and whether a slice's bit arrangement carries anything its count does not
+## U-GBP-043 (P3, opened 2026-09-23, Issue #82) — the 1–3-bit spread between slices of a flat block, and whether a slice's bit arrangement carries anything its count does not — **2026-09-25, Issue #123: the spread lives in the even streams' extras — in the tones every flat block holds A and B constant over its sixteen slices, while RUN 43's one flat block trades A for B at constant A + B; the count is 4 wA + 4 wB + extras (GBP-HW-347); what the extras carry STAYS OPEN**
 
 `GBP-HW-314`. The spread is present in both silent control windows (spread 1
 only). It is only ever above the mode in RUN 33 (+1, once +2) and −2 to +3 in RUN 34, where it
@@ -2205,6 +2207,8 @@ slice-opening family (`07 03 …` in RUN 33, `01 01 …` in RUN 34; the runs als
 rest at different levels, 1025 and 1024). **Cause not established; no decode
 depends on it today.**
 
+
+**2026-09-25 (GitHub Issue #123), on top.** Read as eight stride-8 streams (`GBP-HW-347`), a slice is two pulses, A (streams 1 = 3) and B (5 = 7), and even streams that only ever add bits, the extras. The count is 4 wA + 4 wB + extras in every slice of RUN 33, RUN 34 and RUN 43. **In the tones the 1–3-bit spread is the extras:** in all 1 039 and 1 217 flat blocks of RUN 33 and RUN 34 (spread ≤ 3, `tools/v18block.py`), A and B are constant over the sixteen slices. RUN 43 has one flat block. Its spread is still the extras, but there A + B holds at 225 while A and B trade a bit, so a flat count hides a change of A against B. The extras are not confined to the pulses' edges: stream 0 holds more than one run of ones in 8 429, 8 978 and 10 240 slices of the three captures. **What they carry is not established.** A decode per stream does not read them.
 ## U-GBP-044 (P2, opened 2026-09-23, decided on Issue #84) — what produces the 13 start-up stalls of the shared service path, and where are the three the log does not locate?
 
 `GBP-HW-317`, FACT about the archive, is that the start-up signature is invariant.
@@ -2480,6 +2484,8 @@ was detected at 0.125 s, and a lower loss is not established.** The primary stat
 dwells, one-sided p 0.068. The percentile interval quoted above is descriptive and anti-conservative by a measured
 15.75 % against 10 % (`GBP-HW-343`, `tests/host/test_v27derive.py` `TheIntervalsCoverage`). The correction's floor stays unmeasured, and so does the cost below 0.125 s.
 
+**2026-09-25 (GitHub Issue #123), on top: the adopted cushion is PROVISIONAL.** It stands, and it is re-validated on the final audio path: the decode it was measured on is being rebuilt at the native rate (`GBP-HW-347`, `GBP-HW-348`), and a finer decode costs processing, which is latency (the Operator, #123).
+
 ## U-GBP-046 (P1, opened 2026-09-24, Issue #115) — the audio-to-video OFFSET: audio lags the picture with Open-GBP's runtime, and not with GBI or the Start-up Disc — **2026-09-25, Issue #120 (RUN 43): the cushion HYPOTHESIS is CORROBORATED — D = 12 of 12 (GBP-HW-341); the one Phase 2 setting was confirmed AT the 0.094 s floor, censored (GBP-HW-342); the residue stays unmeasured and the item STAYS OPEN**
 
 **What is observed — OPERATOR OBSERVATIONS, verbatim, in order** (#114, #115; `HARDWARE_TESTS.md`
@@ -2559,3 +2565,35 @@ and does not remove it.** At 0.125 s the chain still holds the cushion, the READ
 and the FIR. The sync point is censored at the 0.094 s floor, and what "seemed synchronised" bounds is the sum, chain
 plus residue, by a tolerance nothing here measures. The item stays OPEN. The check that the new default is better in
 use is the Operator's, in ordinary play, on the next image.
+
+**2026-09-25 (GitHub Issue #123), on top: the adopted cushion is PROVISIONAL.** It stands, and it is re-validated on the final audio path: the decode it was measured on is being rebuilt at the native rate (`GBP-HW-347`, `GBP-HW-348`), and a finer decode costs processing, which is latency (the Operator, #123).
+
+## U-GBP-047 (P2, opened 2026-09-25, Issue #123) — are streams A and B of an AUDIO slice the AGB's two output sides, and which is left?
+
+`GBP-HW-347`. A (streams 1 = 3) and B (streams 5 = 7) are equal in every slice of the tone ROMs, which route channel 1 to
+both sides (SOUNDCNT_L 0x1177), and differ in 87.6 % of the game's slices, with 4.46 % of its (mid, side) AC energy in
+the side. **HYPOTHESIS: they are the two sides.** If so, today's decode (`gbp_adec_popcount`) is a mono sum of both by
+construction, and a decode per stream is stereo. This replaces AUDIO.md's unnumbered "whether the one pulse per block
+is the AGB's left, right or mixed output".
+
+**What answers it:** a stimulus that routes a PSG channel to ONE side only (SOUNDCNT_L's side bits) and says which
+stream moves. It needs no new hardware and rides on any future stimulus run.
+
+## U-GBP-048 (P2, opened 2026-09-25, Issue #123) — why every slice of the tone ROMs holds one pulse per 256 cycles when nothing set SOUNDBIAS, and GBATEK's default is a 512-cycle frame
+
+`GBP-HW-348`. The tone ROMs never write SOUNDBIAS (0x04000088); GBATEK (a LEAD) gives its default, 0200h, as 9 bits at
+32 768 Hz, "N low bits, followed by 512-N high bits". Every tone slice holds one pulse per 256, and the tones' level
+changes only between pairs. **Candidates, all HYPOTHESES:**
+- the AGB emits a 9-bit sample as two 256-cycle frames (the tones' widths, 128 ± 2V, are all even, which would hide
+  it). This one also fits the tones' pair grid;
+- the devkitARM start-up or the BIOS left another resolution;
+- **the Game Boy Player itself raises the resolution for its own capture path** (the Orchestrator's, #123), the class
+  of undocumented GBP behaviour this project exists to find;
+- the path's own encoding sets one pulse per 256 cycles, whatever the AGB's frame (the review of #123).
+
+**Each must also explain the tones' pair grid**, which is what GBATEK's default 32 768 Hz rate predicts
+(`GBP-HW-348`). A raised AGB resolution alone predicts odd steps in about half of the tones' windows (INFERENCE), and
+there are none, so the second and third candidates hold only if the tones' samples still changed every 512 cycles.
+
+**What answers it, for the cost of two instructions:** a stimulus ROM that READS SOUNDBIAS at entry and reports the
+value, riding on the next stimulus run at no extra console time (the Orchestrator, #123).
