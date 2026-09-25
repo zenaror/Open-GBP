@@ -24,7 +24,7 @@ CPPFLAGS += -I$(ROOT)/src/common -I$(ROOT)/src/log -I$(ROOT)/src/gbp -I$(ROOT)/s
 # next to a wrong answer.
 HEADERS := $(wildcard $(ROOT)/src/common/*.h $(ROOT)/src/log/*.h $(ROOT)/src/gbp/*.h $(ROOT)/src/audio/*.h $(ROOT)/tests/mocks/*.h)
 
-TESTS    := test_ident test_ringlog test_gbp_vfull test_gbp_vvi test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4 test_gbp_avdump test_gbp_avsvc test_gbp_avseq test_gbp_video test_gbp_vsig test_gbp_vstate test_gbp_video_state test_gbp_vcolor test_gbp_vstream test_gbp_vwitness test_gbp_vdisp test_gbp_startup test_gbp_input test_gbp_session test_gbp_awin test_gbp_awindump test_gbp_adec test_gbp_adrain test_gbp_aperiod test_gbp_alive test_gbp_async test_gbp_aplay test_gbp_atrans test_gbp_atrace test_gbp_asplit
+TESTS    := test_ident test_ringlog test_gbp_vfull test_gbp_vvi test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4 test_gbp_avdump test_gbp_avsvc test_gbp_avseq test_gbp_video test_gbp_vsig test_gbp_vstate test_gbp_video_state test_gbp_vcolor test_gbp_vstream test_gbp_vwitness test_gbp_vdisp test_gbp_startup test_gbp_input test_gbp_session test_gbp_awin test_gbp_awindump test_gbp_awr test_gbp_adec test_gbp_adrain test_gbp_aperiod test_gbp_alive test_gbp_async test_gbp_aplay test_gbp_atrans test_gbp_atrace test_gbp_asplit
 BINS     := $(addprefix $(OUTDIR)/,$(TESTS))
 
 COMMON_SRC := $(ROOT)/src/common/opengbp_ident.c $(ROOT)/src/common/gbp_time64.c
@@ -141,6 +141,12 @@ $(OUTDIR)/test_gbp_awin: test_gbp_awin.c $(ROOT)/src/gbp/gbp_awin.c $(HEADERS) |
 
 $(OUTDIR)/test_gbp_awindump: test_gbp_awindump.c $(ROOT)/src/gbp/gbp_awindump.c $(ROOT)/src/gbp/gbp_awin.c $(ROOT)/src/gbp/gbp_crc32.c $(HEADERS) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_awindump.c $(ROOT)/src/gbp/gbp_awindump.c $(ROOT)/src/gbp/gbp_awin.c $(ROOT)/src/gbp/gbp_crc32.c
+
+# Issue #117: the raw-block ride-along of GBP-AUDIO-012 (OGBPAWR1). gbp_awr links
+# with gbp_crc32 alone -- stdint, string.h and nothing else -- so the store and
+# the serializer are exercised on the host with synthetic blocks.
+$(OUTDIR)/test_gbp_awr: test_gbp_awr.c $(ROOT)/src/gbp/gbp_awr.c $(ROOT)/src/gbp/gbp_crc32.c $(HEADERS) | $(OUTDIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_awr.c $(ROOT)/src/gbp/gbp_awr.c $(ROOT)/src/gbp/gbp_crc32.c
 
 # Issue #81: the AUDIO decoder and the 125/16 resampler. Integer only; they link
 # alone, with no libogc and no device, and are checked on synthetic blocks here.
