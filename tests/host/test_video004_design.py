@@ -203,6 +203,7 @@ class GroundedInRealArtifacts(unittest.TestCase):
                                         "poc/gbp-audio-game2/source/main.c",
                                         "poc/gbp-audio-live/source/main.c",
                                         "poc/gbp-audio-split/source/main.c",
+                                        "poc/gbp-audio-sync/source/main.c",
                                         "poc/gbp-audio-trace/source/main.c",
                                         "poc/gbp-audio-window-probe/source/main.c",
                                         "poc/gbp-play-session/source/main.c",
