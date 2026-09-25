@@ -39,6 +39,7 @@ void gbp_adec_init(struct gbp_adec *d, int16_t *ring, uint32_t cap)
     d->lost = 0u;
     d->overflow = 0u;
     d->clipped = 0u;
+    d->discarded = 0u;
 }
 
 void gbp_adec_calibrate(struct gbp_adec *d, const uint8_t *block)
@@ -119,4 +120,16 @@ int gbp_adec_pop(struct gbp_adec *d, int16_t *out)
     d->head = (d->head + 1u) % d->cap;
     d->count--;
     return 1;
+}
+
+uint32_t gbp_adec_discard(struct gbp_adec *d, uint32_t n)
+{
+    if (n > d->count)
+        n = d->count;
+    if (n == 0u)
+        return 0u;
+    d->head = (d->head + n) % d->cap;
+    d->count -= n;
+    d->discarded += n;
+    return n;
 }

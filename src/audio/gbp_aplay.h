@@ -41,6 +41,26 @@
  * A HANDED CHUNK IS FREED TWO HAND-OFFS LATER: the callback programs block k while
  * k-1 plays, so k-2 has finished (aout-0002's queue, RUN 36).
  *
+ * THE RUNTIME TARGET AND THE MUTE (GitHub Issue #117, HARDWARE_TESTS §V27). Three
+ * primitives the sync POC needs, none of which changes what a default-initialized
+ * chain does:
+ *   - `target` is the fill the corrections hold, a FIELD defaulting to GBP_APLAY_TARGET
+ *     (the macro stays, pinned by text); gbp_aplay_set_target() moves it, clamped so a
+ *     chunk can always start and the ring can always hold TARGET + BAND. BAND stays a
+ *     macro. The decision is still taken once, at the chunk's start, from the fill.
+ *   - `mute`, a count of silence chunks the CALLBACK hands next, whatever the READY
+ *     queue holds: a mute hand-off leaves rq untouched, counts neither a silence nor an
+ *     underrun, counts `mute_handed`, and logs -2 (a plain silence logs -1). It is one
+ *     32-bit store from the pump (gbp_aplay_mute) and one load-and-decrement in the
+ *     callback; no lock, nothing else shared. Its duration is exact: `chunks` x 31.25 ms
+ *     from the next hand-off, which is what a "fixed-duration mute, never an underrun"
+ *     needs (§V27.11). gbp_aplay_process treats -2 like -1 for freeing (no buffer) and
+ *     leaves it OUT of L2's record: a mute is not a playback event L2 was written for,
+ *     and §V27 never arms L2.
+ *   - gbp_aplay_discard_chunk() takes a chunk gbp_aplay_produce() just completed and
+ *     returns its buffer to the pool WITHOUT queueing it, counted in `discarded_chunks`:
+ *     production keeps consuming the ring at its normal rate while the output is muted.
+ *
  * L2 (§V22.2 with its preconditions). Armed by the POC inside C's window. From the
  * next chunk boundary it KEEPS: the resampler's state (history, position,
  * accumulator), every decoded sample it pops (pre-correction), every DUP / DROP at
@@ -104,6 +124,15 @@ extern "C" {
 #define GBP_APLAY_EV_DROP    2u
 #define GBP_APLAY_EV_SILENCE 3u
 
+/* what the hand-off log holds besides a buffer index (Issue #117 added the mute) */
+#define GBP_APLAY_HL_SILENCE (-1)
+#define GBP_APLAY_HL_MUTE    (-2)
+
+/* the bounds gbp_aplay_set_target() clamps to: a chunk must be able to start (PUSHES + 1
+ * samples, one more for a DROP) and the ring must hold TARGET + BAND without overflowing */
+#define GBP_APLAY_TARGET_MIN (GBP_APLAY_PUSHES)      /* §V27.11's floor of 128 is realisable literally */
+#define GBP_APLAY_TARGET_MAX (GBP_APLAY_RING - GBP_APLAY_BAND - 1u)
+
 enum gbp_aplay_buf { GBP_APLAY_FREE = 0, GBP_APLAY_FILLING, GBP_APLAY_READY, GBP_APLAY_HANDED };
 
 struct gbp_aplay_event { uint32_t kind, index; };
@@ -139,15 +168,26 @@ struct gbp_aplay {
      * same samples, the same arithmetic, the same DUP/DROP decision (taken at the chunk's start). */
     uint32_t (*step_pushes)(void *user, uint32_t seq);
     void    *step_pushes_user;
+    /* Issue #117 (§V27): the fill the corrections hold. GBP_APLAY_TARGET after init; moved
+     * only by gbp_aplay_set_target(), from the pump slot. Read once per chunk, at its start. */
+    uint32_t target;
     /* READY queue, producer -> callback */
     volatile uint8_t  rq[GBP_APLAY_POOL];
     volatile uint32_t rq_head, rq_tail;        /* head: the callback's, tail: the producer's */
-    /* hand-off log, callback -> producer: a buffer index, or -1 for silence */
+    /* hand-off log, callback -> producer: a buffer index, GBP_APLAY_HL_SILENCE or GBP_APLAY_HL_MUTE */
     volatile int8_t   hl[GBP_APLAY_LOG];
     volatile uint32_t hl_head, hl_tail;        /* head: the producer's, tail: the callback's */
     int      last_handed[2];                   /* the two most recent hand-offs, main side */
+    /* Issue #117: the mute. `mute` is the number of silence chunks the callback still hands
+     * before it takes the READY queue again: written whole by gbp_aplay_mute() (pump), read
+     * and decremented by the callback, one 32-bit access each way. `mute_handed` counts them. */
+    volatile uint32_t mute;
+    volatile uint32_t mute_handed;
     /* what happened, never silent */
     uint32_t produced, dup, drop, starved_steps, log_overflow;
+    uint32_t ring_gated;                       /* Issue #117: steps that WANTED a chunk and found the ring under 129 */
+    uint32_t discarded_chunks;                 /* Issue #117: completed chunks returned unqueued */
+    uint32_t dropped_front;                    /* Issue #117: READY chunks freed unplayed from the front */
     volatile uint32_t handed, underruns, silences;
     volatile uint8_t  playing;
     /* M */
@@ -171,13 +211,48 @@ int  gbp_aplay_produce(struct gbp_aplay *p, struct gbp_adec *d);
 void gbp_aplay_queue(struct gbp_aplay *p, int buf);
 uint32_t gbp_aplay_ready(const struct gbp_aplay *p);
 
+/* Issue #117. Producer side, all three.
+ * set_target: the fill the next chunks' DUP/DROP decision holds, clamped to
+ *   [GBP_APLAY_TARGET_MIN, GBP_APLAY_TARGET_MAX]. The chunk being produced keeps its decision.
+ * mute: the callback hands `chunks` chunks of silence next (0 cancels), see THE RUNTIME TARGET
+ *   AND THE MUTE. A store, nothing else.
+ * discard_chunk: a chunk gbp_aplay_produce() just returned, NOT to be queued: its buffer is FREE
+ *   again and `discarded_chunks` counts it. 1 when discarded; 0 when `buf` is not a completed,
+ *   unqueued chunk (out of range, still filling, READY, HANDED or already FREE), and nothing changes. */
+void gbp_aplay_set_target(struct gbp_aplay *p, uint32_t target);
+void gbp_aplay_mute(struct gbp_aplay *p, uint32_t chunks);
+int  gbp_aplay_discard_chunk(struct gbp_aplay *p, int buf);
+/* produce_discard: gbp_aplay_produce() with the READY-queue limit IGNORED (the queue is HELD full
+ * during a mute) and the completed chunk returned unqueued through gbp_aplay_discard_chunk(): the
+ * ring is consumed at production's normal rate while the callback hands silence. A chunk it STARTS
+ * takes no correction: it is never played, so it takes exactly 128 samples and counts no DUP or DROP
+ * (a correction there would change the discard's size and pollute the counters). Returns the
+ * discarded buffer's index, or -1 when nothing completed (ring short, pool full, or a chunk still
+ * in progress -- the same chunk continues on the next call, whichever producer makes it).
+ * PRECONDITION for both discards: never while L2 keeps (the kept stream would hold a chunk that
+ * is never handed); §V27's image never arms L2. */
+int  gbp_aplay_produce_discard(struct gbp_aplay *p, struct gbp_adec *d);
+
+/* produce_uncorrected: produce_discard's production (the READY-queue limit ignored, no correction:
+ * exactly 128 samples) but the completed chunk is RETURNED, not freed -- the caller flushes and queues
+ * it. The latency round's rotation (Issue #117, §V27.15): under silence a fresh chunk joins the back
+ * of the held queue while gbp_aplay_drop_front() frees its front. */
+int  gbp_aplay_produce_uncorrected(struct gbp_aplay *p, struct gbp_adec *d);
+
+/* drop_front: free the READY queue's front chunk unplayed (its content is skipped) and return its
+ * index, or -1 when the queue is empty or the callback's next hand-off is NOT silent (mute == 0):
+ * rq_head is the callback's and is touched here only while its next hand-off leaves it alone. */
+int  gbp_aplay_drop_front(struct gbp_aplay *p);
+
 /* Process what the callback handed: the L2 CRC and silence record, and freeing. */
 void gbp_aplay_process(struct gbp_aplay *p);
 
 /* Arm L2: the next chunk boundary starts keeping. */
 void gbp_aplay_arm_l2(struct gbp_aplay *p);
 
-/* The callback's side. Returns the bytes to hand to AUDIO_InitDMA. `t` is its instant. */
+/* The callback's side. Returns the bytes to hand to AUDIO_InitDMA. `t` is its instant.
+ * While `mute` > 0 it hands silence, decrements it and counts `mute_handed` -- the queue,
+ * `silences` and `underruns` untouched; M and `handed` still count the callback. */
 const uint8_t *gbp_aplay_irq_handoff(struct gbp_aplay *p, uint64_t t);
 
 /* The OGBPL2S1 sidecar (tools/v22accept.py's frozen format). Size, and the bytes. */

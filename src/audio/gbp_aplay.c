@@ -46,7 +46,33 @@ void gbp_aplay_init(struct gbp_aplay *p, uint8_t *pool, const uint8_t *silence, 
     p->events = events;
     p->cur = -1;
     p->last_handed[0] = p->last_handed[1] = -1;
+    p->target = GBP_APLAY_TARGET;                       /* Issue #117: the field's default is the macro */
     if (!crc_ready) crc_build();
+}
+
+/* ---- Issue #117: the runtime target, the mute, the discard (pump slot) ---------- */
+void gbp_aplay_set_target(struct gbp_aplay *p, uint32_t target)
+{
+    if (!p) return;
+    if (target < GBP_APLAY_TARGET_MIN) target = GBP_APLAY_TARGET_MIN;
+    if (target > GBP_APLAY_TARGET_MAX) target = GBP_APLAY_TARGET_MAX;
+    p->target = target;
+}
+
+void gbp_aplay_mute(struct gbp_aplay *p, uint32_t chunks)
+{
+    if (!p) return;
+    p->mute = chunks;                                   /* one 32-bit store; the callback decrements */
+}
+
+int gbp_aplay_discard_chunk(struct gbp_aplay *p, int buf)
+{
+    if (!p || buf < 0 || buf >= (int)GBP_APLAY_POOL) return 0;
+    /* a completed chunk is FILLING and no longer current; anything else is not ours to free */
+    if (p->state[buf] != GBP_APLAY_FILLING || buf == p->cur) return 0;
+    p->state[buf] = GBP_APLAY_FREE;
+    p->discarded_chunks++;
+    return 1;
 }
 
 static void l2_event(struct gbp_aplay *p, uint32_t kind, uint32_t index)
@@ -93,15 +119,26 @@ static int take(struct gbp_aplay *p, struct gbp_adec *d, int16_t *x)
     return 1;
 }
 
-int gbp_aplay_produce(struct gbp_aplay *p, struct gbp_adec *d)
+static int produce_impl(struct gbp_aplay *p, struct gbp_adec *d, int uncorrected)
 {
     uint32_t step = 0u;
     if (!p || !d) return -1;
     if (p->cur < 0) {
         int i, found = -1;
         /* a chunk is only started when the ring can finish it: 128 pushes, one more with a DROP */
-        if (d->count < GBP_APLAY_PUSHES + 1u) { p->starved_steps++; return -1; }
-        if (gbp_aplay_ready(p) >= GBP_APLAY_AHEAD) return -1;
+        if (d->count < GBP_APLAY_PUSHES + 1u) {
+            p->starved_steps++;                         /* every such step, the wait after a chunk included */
+            /* Issue #117 (§V27.14): the steps where a chunk was WANTED -- the queue short of AHEAD (or an
+             * uncorrected transition chunk) and a free buffer to put it in -- and the ring could not give
+             * it. starved_steps also counts the benign wait after every chunk while READY is full, which
+             * made it large at every depth <= 224 whether the correction held or not (review round 3) */
+            if (uncorrected || gbp_aplay_ready(p) < GBP_APLAY_AHEAD) {
+                for (i = 0; i < (int)GBP_APLAY_POOL; i++)
+                    if (p->state[i] == GBP_APLAY_FREE) { p->ring_gated++; break; }
+            }
+            return -1;
+        }
+        if (!uncorrected && gbp_aplay_ready(p) >= GBP_APLAY_AHEAD) return -1;
         for (i = 0; i < (int)GBP_APLAY_POOL; i++)
             if (p->state[i] == GBP_APLAY_FREE) { found = i; break; }
         if (found < 0) return -1;
@@ -114,9 +151,13 @@ int gbp_aplay_produce(struct gbp_aplay *p, struct gbp_adec *d)
         /* Issue #105: the chunk's step size, asked once, here; anything out of range is the default */
         p->cur_step = p->step_pushes ? p->step_pushes(p->step_pushes_user, p->produced) : GBP_APLAY_STEP_PUSHES;
         if (p->cur_step == 0u || p->cur_step > GBP_APLAY_PUSHES) p->cur_step = GBP_APLAY_STEP_PUSHES;
-        /* §V22.4: at most one counted correction per chunk, decided at its start */
-        p->cur_corr = (d->count < GBP_APLAY_TARGET - GBP_APLAY_BAND) ? GBP_APLAY_EV_DUP :
-                      (d->count > GBP_APLAY_TARGET + GBP_APLAY_BAND) ? GBP_APLAY_EV_DROP : 0u;
+        /* §V22.4: at most one counted correction per chunk, decided at its start; the fill it
+         * holds is p->target (GBP_APLAY_TARGET unless gbp_aplay_set_target moved it, Issue #117) */
+        p->cur_corr = uncorrected ? 0u :                /* a transition's chunk (Issue #117): exactly 128 samples
+                                                         * out and no correction counted -- the executor holds
+                                                         * the level, not the band */
+                      (d->count < p->target - GBP_APLAY_BAND) ? GBP_APLAY_EV_DUP :
+                      (d->count > p->target + GBP_APLAY_BAND) ? GBP_APLAY_EV_DROP : 0u;
         /* L2: a chunk boundary, acc 0 -- the kept state is the resampler's here */
         if (p->l2.armed && !p->l2.keeping && !p->l2.done) {
             p->l2.keeping = 1u;
@@ -161,6 +202,39 @@ int gbp_aplay_produce(struct gbp_aplay *p, struct gbp_adec *d)
     }
 }
 
+int gbp_aplay_produce(struct gbp_aplay *p, struct gbp_adec *d)
+{
+    return produce_impl(p, d, 0);
+}
+
+int gbp_aplay_produce_uncorrected(struct gbp_aplay *p, struct gbp_adec *d)
+{
+    return produce_impl(p, d, 1);
+}
+
+int gbp_aplay_produce_discard(struct gbp_aplay *p, struct gbp_adec *d)
+{
+    int b = produce_impl(p, d, 1);
+    if (b >= 0 && !gbp_aplay_discard_chunk(p, b)) return -1;   /* cannot happen: just completed, not current */
+    return b;
+}
+
+int gbp_aplay_drop_front(struct gbp_aplay *p)
+{
+    uint32_t h;
+    int b;
+    /* rq_head is the callback's. It is written here only while the callback's NEXT hand-off is silent
+     * (mute >= 1): that hand-off leaves rq_head alone, and the one after it is a whole chunk (31 ms)
+     * away -- this store is long done by then. */
+    if (!p || p->mute == 0u || p->rq_head == p->rq_tail) return -1;
+    h = p->rq_head;
+    b = (int)p->rq[h % GBP_APLAY_POOL];
+    p->state[b] = GBP_APLAY_FREE;
+    p->rq_head = h + 1u;
+    p->dropped_front++;
+    return b;
+}
+
 uint32_t gbp_aplay_ready(const struct gbp_aplay *p)
 {
     return p ? (uint32_t)(p->rq_tail - p->rq_head) : 0u;
@@ -179,16 +253,21 @@ void gbp_aplay_arm_l2(struct gbp_aplay *p)
     if (p && !p->l2.done && !p->l2.keeping) p->l2.armed = 1u;
 }
 
-/* The callback: interrupt context. Takes the oldest READY chunk, or hands silence. */
+/* The callback: interrupt context. Takes the oldest READY chunk, or hands silence -- or,
+ * while a mute runs (Issue #117), silence regardless, with the queue left as it is. */
 const uint8_t *gbp_aplay_irq_handoff(struct gbp_aplay *p, uint64_t t)
 {
-    int buf = -1;
+    int buf = GBP_APLAY_HL_SILENCE;
     if (p->measuring) {
         if (p->cb_count == 0u) p->cb_t_first = t;
         p->cb_t_last = t;
         p->cb_count = p->cb_count + 1u;
     }
-    if (p->rq_head != p->rq_tail) {
+    if (p->mute > 0u) {
+        p->mute = p->mute - 1u;                         /* the callback's only write to it */
+        p->mute_handed = p->mute_handed + 1u;
+        buf = GBP_APLAY_HL_MUTE;                        /* not a silence, not an underrun: asked for */
+    } else if (p->rq_head != p->rq_tail) {
         buf = (int)p->rq[p->rq_head % GBP_APLAY_POOL];
         p->rq_head = p->rq_head + 1u;
     } else {
@@ -217,7 +296,8 @@ void gbp_aplay_process(struct gbp_aplay *p)
             p->l2.handing = 1u;
             p->l2.crc = 0xFFFFFFFFu;
         }
-        if (p->l2.handing) {
+        /* a mute hand-off (Issue #117) is outside L2's record; it still advances the freeing below */
+        if (p->l2.handing && buf != GBP_APLAY_HL_MUTE) {
             if (buf < 0) {
                 l2_event(p, GBP_APLAY_EV_SILENCE, p->l2.window_chunks);
                 p->l2.silence_chunks++;

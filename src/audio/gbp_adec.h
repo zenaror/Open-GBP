@@ -61,6 +61,9 @@ struct gbp_adec {
     /* Issue #110 (§V25.7 3(b)): decoded samples whose value before the clip lay outside
      * +-GBP_ADEC_FULL. A COUNT only: the clipped sample is the one it always was. */
     uint32_t clipped;
+    /* Issue #117 (§V27): samples the consumer dropped from the ring's head on purpose,
+     * through gbp_adec_discard() -- a level change, never an overflow. */
+    uint32_t discarded;
 };
 
 /* Pure: the number of one-bits in one 4096-byte block, 0 .. 32768. */
@@ -85,6 +88,11 @@ int gbp_adec_push_lost(struct gbp_adec *d);
 
 /* Take the oldest sample. 1, or 0 when the ring is empty. */
 int gbp_adec_pop(struct gbp_adec *d, int16_t *out);
+
+/* Issue #117: drop the oldest min(n, count) samples without reading them, and return how
+ * many were dropped; `discarded` counts them. Only head and count move -- no other field
+ * changes. The consumer's context, the same as pop's. */
+uint32_t gbp_adec_discard(struct gbp_adec *d, uint32_t n);
 
 #ifdef __cplusplus
 }

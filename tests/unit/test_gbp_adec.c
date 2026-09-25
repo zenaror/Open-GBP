@@ -96,6 +96,41 @@ static void test_ring_overflow_and_lost(void)
     CHECK(gbp_adec_pop(&d, &s) == 0);
 }
 
+/* Issue #117 (§V27): gbp_adec_discard drops min(n, count) samples from the head, counts them,
+ * moves nothing else, and the next pop is the (n+1)-th sample -- across the ring's wrap too. */
+static void test_discard_from_the_head(void)
+{
+    struct gbp_adec d;
+    int16_t ring[8], s;
+    uint32_t k;
+    gbp_adec_init(&d, ring, 8);
+    /* a wrapped ring: head at 6, six samples 10..15 laid out as gbp_adec_push_block would */
+    d.head = 6u;
+    for (k = 0; k < 6u; k++) { d.ring[(d.head + d.count) % d.cap] = (int16_t)(10 + (int)k); d.count++; }
+    d.blocks_in = 6u; d.lost = 1u; d.overflow = 2u; d.clipped = 3u; d.last = 15;
+    CHECK(gbp_adec_discard(&d, 0u) == 0u && d.count == 6u && d.discarded == 0u);
+    /* n < count: two dropped, the third sample is next, the wrap crossed (head 6 -> 0) */
+    CHECK(gbp_adec_discard(&d, 2u) == 2u);
+    CHECK(d.count == 4u && d.head == 0u && d.discarded == 2u);
+    CHECK(gbp_adec_pop(&d, &s) == 1 && s == 12);
+    /* n == count: everything left, then the ring is empty */
+    CHECK(gbp_adec_discard(&d, 3u) == 3u);
+    CHECK(d.count == 0u && d.discarded == 5u);
+    CHECK(gbp_adec_pop(&d, &s) == 0);
+    /* n > count: only what is there */
+    for (k = 0; k < 3u; k++) { d.ring[(d.head + d.count) % d.cap] = (int16_t)(20 + (int)k); d.count++; }
+    CHECK(gbp_adec_discard(&d, 100u) == 3u);
+    CHECK(d.count == 0u && d.discarded == 8u);
+    CHECK(gbp_adec_pop(&d, &s) == 0);
+    /* no other field moved */
+    CHECK(d.blocks_in == 6u && d.lost == 1u && d.overflow == 2u && d.clipped == 3u && d.last == 15 && d.cap == 8u);
+    /* and a discard followed by pushes keeps the timebase's order: the ring still works */
+    d.rest_sum = 16384; d.rest_n = 1u;
+    make_block(16384 + 4096);
+    CHECK(gbp_adec_push_block(&d, blk) == 0);
+    CHECK(gbp_adec_pop(&d, &s) == 1 && s == 26214);
+}
+
 static void test_resampler_is_exact(void)
 {
     struct gbp_aresamp r;
@@ -227,6 +262,7 @@ int main(void)
     test_sample_formula();
     test_half_to_even();
     test_ring_overflow_and_lost();
+    test_discard_from_the_head();
     test_resampler_is_exact();
     test_resampler_dc_and_identity();
     printf("test_gbp_adec: %d checks, %d failures\n", checks, failures);
