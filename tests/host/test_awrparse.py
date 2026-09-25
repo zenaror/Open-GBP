@@ -18,6 +18,8 @@ import zlib
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import awrparse  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import frozen  # noqa: E402
 import u012slices  # noqa: E402
 
 BLOCK = 4096
@@ -249,6 +251,17 @@ class Constants(unittest.TestCase):
         self.assertIn('#define GBP_AWR_MAGIC         "OGBPAWR1"', src)
         self.assertIn('#define GBP_AWR_END           "OGBPAWRE"', src)
 
+
+
+class TheParserIsNotEditedAfterTheImage(unittest.TestCase):
+    """Frozen with the image, before any run: the container's parser is byte-identical to its commit."""
+    KEY = "Issue #117 -- gbp_awr, the raw AUDIO blocks ridden along"
+
+    def test_the_tool_is_byte_identical_to_its_freeze(self):
+        then = frozen.source(self.KEY, "tools/awrparse.py")
+        then = then.decode("utf-8") if isinstance(then, bytes) else then
+        with open(os.path.join(ROOT, "tools", "awrparse.py"), encoding="utf-8") as f:
+            self.assertEqual(then, f.read())
 
 if __name__ == "__main__":
     unittest.main()

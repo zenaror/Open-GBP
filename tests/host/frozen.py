@@ -103,6 +103,16 @@ BASES = {
     # before the image exists
     "Issue #117 -- §V27 transcribed, the latency round's gates frozen":
         "adf79e2704ebbaaa9a94f6b298a0a35bcb792099",
+    # Issue #117: §V27.14 re-froze Phase 3's criterion, width and hold before any data; the gate's bytes are
+    # pinned HERE from now on (§V27.0-§V27.12's text keeps the freeze above), as §V22 AMENDMENT 1's were
+    "Issue #117 -- §V27.14 applied":
+        "4e4bce93f1a811de08421ff4a9424da134b636f2",
+    # Issue #117: the raw-block container's parser, frozen with the image, before any run
+    "Issue #117 -- gbp_awr, the raw AUDIO blocks ridden along":
+        "22f386a92d69d3df621970514df3e9c9e0d90e22",
+    # Issue #117: the latency round's log -> report builder, frozen with the image, before any run
+    "Issue #117 -- v27report, the latency round's SD log":
+        "7c3bffd7b86ccc4226703e051e8c30c5fbdd51ef",
 }
 
 
