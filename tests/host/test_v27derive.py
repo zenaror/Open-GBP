@@ -96,6 +96,36 @@ class TheIntervalsCoverage(unittest.TestCase):
 EXCLUDED = 63                   # of 400: 15.75 %, against the nominal 10 %
 
 
+class ThePermutationsSize(unittest.TestCase):
+    """Issue #121's review: the rule the adoption produced asks for BOTH statistics to be calibrated against the
+    design, and the primary one had only been argued exact. Measured here under the same null as TheIntervalsCoverage
+    (equal rates, Poisson losses at 803/120 per second, RUN 43's dwell exposures, the same seed): how often the exact
+    permutation of the 12 dwells rejects at one-sided 0.05 and at two-sided 0.10."""
+    SIMS = 400
+
+    def test_the_permutation_holds_its_nominal_size_under_equal_rates(self):
+        import random
+        m = R.get()["m4"]
+        deep = [d["live"] for d in m["dwells"] if d["target"] == 2048]
+        shallow = [d["live"] for d in m["dwells"] if d["target"] == 512]
+        rng = random.Random(1200)
+        one = two = 0
+        for _ in range(self.SIMS):
+            dd = [{"lost": sum(TheIntervalsCoverage.poisson(rng, TheIntervalsCoverage.LAM) for _ in range(n)), "live": n}
+                  for n in deep]
+            ss = [{"lost": sum(TheIntervalsCoverage.poisson(rng, TheIntervalsCoverage.LAM) for _ in range(n)), "live": n}
+                  for n in shallow]
+            p = v27derive.permutation(dd, ss)
+            one += p["one_sided"][0] <= 0.05 * p["one_sided"][1]
+            two += p["two_sided"][0] <= 0.10 * p["two_sided"][1]
+        self.assertEqual((one, two), PERMUTATION_REJECTIONS)
+        self.assertLessEqual(one, 0.05 * self.SIMS + 2 * (0.05 * 0.95 * self.SIMS) ** 0.5)
+        self.assertLessEqual(two, 0.10 * self.SIMS + 2 * (0.10 * 0.90 * self.SIMS) ** 0.5)
+
+
+PERMUTATION_REJECTIONS = (16, 36)       # of 400: 4.0 % at one-sided 0.05, 9.0 % at two-sided 0.10
+
+
 class RUN43(unittest.TestCase):
     def test_the_timeline(self):
         t = R.get()["timeline"]
