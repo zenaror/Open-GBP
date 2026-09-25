@@ -116,7 +116,13 @@ class OnTopNeverRewritten(unittest.TestCase):
         h0 = re.search(r"^## U-GBP-045 .*$", old, re.M).group(0)
         h1 = re.search(r"^## U-GBP-045 .*$", new, re.M).group(0)
         self.assertTrue(h1.startswith(h0))
-        self.assertIn("Issue #116", re.findall(r"\*\*[^*]+\*\*", h1)[-1])
+        # #116's pointer was the heading's LAST bold segment when #116 closed (e2084ba): a fact about that commit, checked
+        # there. Issue #120 repaired this forward: requiring it to stay last forbade every later Issue a pointer; now
+        # it must only still be among the heading's bold segments, which begin with the base's heading.
+        at_116 = guards.show("e2084ba", UN)
+        at_116 = at_116.decode("utf-8") if isinstance(at_116, bytes) else at_116
+        self.assertIn("Issue #116", re.findall(r"\*\*[^*]+\*\*", re.search(r"^## U-GBP-045 .*$", at_116, re.M).group(0))[-1])
+        self.assertTrue(any("Issue #116" in x for x in re.findall(r"\*\*[^*]+\*\*", h1)))
         s0 = section(old, r"^## U-GBP-045 ")
         s1 = section(new, r"^## U-GBP-045 ")
         self.assertTrue(s1[len(h1):].startswith(s0[len(h0):].rstrip("\n")))
