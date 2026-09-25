@@ -501,7 +501,7 @@ occurrence on the first block of the first request. Direction: repeated
 captures (block sequence, flag periodicity) before a known-color
 cartridge (GBP-VIDEO-001 direction, DEVLOG 2026-09-16).
 
-## U-GBP-012 (P2 — **STILL OPEN**; 2026-09-22, Issue #58: the first experiment against it is PRE-REGISTERED, `HARDWARE_TESTS.md` §V8, GBP-AUDIO-001 — **NOT RUN, NOT AUTHORISED**, and a pre-registration answers nothing — **RUN 30 EXECUTED AND INGESTED 2026-09-22 (Issue #62, §V8.13): the first data with a cartridge running. AU = CARRIES / OTHER SHAPE. The prerequisite is answered; the FORMAT is not, and this item STAYS OPEN**) — AUDIO block format on hardware — **2026-09-24, Issue #118: the FORMAT half answered for the archived tones, by arithmetic (GBP-HW-340: slice pairs carry the tone at 32 768 values/s, Hz conditional on U-GBP-041; the block decode nothing above 2 048 Hz); for a game it needs a raw-block capture; the Operator reports the references not muffled (OPERATOR OBSERVATION); STAYS OPEN for the physical half**
+## U-GBP-012 (P2 — **STILL OPEN**; 2026-09-22, Issue #58: the first experiment against it is PRE-REGISTERED, `HARDWARE_TESTS.md` §V8, GBP-AUDIO-001 — **NOT RUN, NOT AUTHORISED**, and a pre-registration answers nothing — **RUN 30 EXECUTED AND INGESTED 2026-09-22 (Issue #62, §V8.13): the first data with a cartridge running. AU = CARRIES / OTHER SHAPE. The prerequisite is answered; the FORMAT is not, and this item STAYS OPEN**) — AUDIO block format on hardware — **2026-09-24, Issue #118: the FORMAT half answered for the archived tones, by arithmetic (GBP-HW-340: slice pairs carry the tone at 32 768 values/s, Hz conditional on U-GBP-041; the block decode nothing above 2 048 Hz); for a game it needs a raw-block capture; the Operator reports the references not muffled (OPERATOR OBSERVATION); STAYS OPEN for the physical half** — **2026-09-25, Issue #120 (RUN 43): the first raw blocks of a GAME — its level held 6.23438 slices a sample (1 596.0 AGB cycles at 256 a slice, a HYPOTHESIS; 10 512 Hz nominal) and changing on single slices; 1.5 % (pair) and 2.2 % (slice) of its AC energy above 2 048 Hz (GBP-HW-345, GBP-HW-346); STAYS OPEN for the physical half**
 
 Dolphin's PWM model ("1 bits contiguous and leading", 4096 Hz, 9-bit
 samples) comes from making the DISC happy, not from measurement.
@@ -711,6 +711,24 @@ the Operator (`GBP-HW-340`).**
 
 What stays open: the physical half (what a slice's count integrates over), and every figure for a
 game.
+
+**2026-09-25, Issue #120 (RUN 43) — the first raw blocks of a game, on top; nothing above is rewritten.**
+`sync-0001` kept 640 raw AUDIO blocks of Yoshi's Island, 0.159 s right after the origin
+(`GBP-HW-345`, `GBP-HW-346`, `tools/u012game.py`):
+- **The game's output is held samples.** Its level changes every 6.23438 slices: 1 596.0 AGB cycles
+  at 256 a slice, a HYPOTHESIS, and 10 512 Hz nominal. The changes fall on odd and even slices alike,
+  not on the pair grid the tones used, and none splits a slice. That is why #118 asked for all sixteen
+  slices.
+- **Its bandwidth, on those 0.159 s.** 1.48 % of the AC energy lies above 2 048 Hz on the pair decode
+  and 2.19 % on the slice decode. The game's own band up to 5 256 Hz holds 0.40 %, and the rest is the
+  hold's images. The runtime's block decode folds 0.09 % into its band, and its boxcar removes 10.2 %
+  of the in-band energy.
+- **Twelve blocks are missing inside the window.** They are located by the content and matched by the
+  header's own instants. They are the capture's own cost, so the spectra use gap-free runs only, at a
+  resolution of 64 Hz.
+
+What stays open: the physical half, what a slice's count integrates over. And every figure for
+another game or another scene.
 
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
@@ -2073,7 +2091,7 @@ press 2 and RUN 30 press 1 unexplained. The item stays open: the mechanism of th
 first-press silence is still not determined.
 
 
-## U-GBP-041 (P1, opened 2026-09-23, Issue #82) — are the sixteen slices of an AUDIO block UNIFORM in time, and is the two-slice transition grid the path's or the source's?
+## U-GBP-041 (P1, opened 2026-09-23, Issue #82) — are the sixteen slices of an AUDIO block UNIFORM in time, and is the two-slice transition grid the path's or the source's? — **2026-09-25, Issue #120 (RUN 43): the two-slice grid is the SOURCE's — a game's level changes fall on odd and even slices alike and never split one; the slices' uniformity passed one test at slice resolution and stays a HYPOTHESIS, untested below one slice (GBP-HW-345)**
 
 `GBP-HW-315`: slice order is time order between two-slice groups, and every
 transition in RUN 33 / RUN 34 falls on an even slice. Uniform spacing would make
@@ -2097,6 +2115,33 @@ would, under uniform slices, put transitions on odd slices or inside one. None o
 stimulus ROMs writes SOUNDBIAS (`stimulus/`, by grep), so every archived tone ran the BIOS default,
 which GBATEK's I/O map lists under BIOS. This is documentation agreeing with a HYPOTHESIS, and the
 item stays open (`GBP-HW-340`).
+
+**2026-09-25, Issue #120 (RUN 43) — the test this item named, run by a game; on top, nothing above is
+rewritten** (`GBP-HW-345`).
+- **"A tone whose half-period is not a whole number of two-slice units, so that k moves from edge to
+  edge by a predictable amount."** A game's held samples are that signal, at single-slice resolution.
+  Yoshi's Island's level changes recur every 6.23438 slices and land on all fifteen internal
+  boundaries.
+- **The second question: ANSWERED.** 698 of 1 286 changes fall on ODD boundaries. The path carries
+  single-slice changes, so the two-slice grid of RUN 33 and RUN 34 was their source's. The stimulus
+  ROMs never write SOUNDBIAS, so they ran the BIOS default, 32 768 Hz.
+- **The changes never split a slice.** Beside every change the adjacent boundaries step as often
+  against it as with it, 20 against 19 at 3 bits or more, and no two changes sit one slice apart. So
+  the level is constant inside each slice, and the game's output is quantised by its source on a grid
+  that coincides with the slices.
+- **The first question: one test passed at slice resolution; still a HYPOTHESIS.** The changes, placed
+  with the 12 missing blocks, reach a coherence of 0.9583. Changes on a uniform grid of slices must
+  have 0.9582, with a sampling sd of 0.0011. So slice order is time order, one grid step per slice.
+  **Nothing below one slice is tested.** Because the source quantises its own changes to the slice
+  grid, a displacement of the boundaries inside the grid's margin moves neither the coherence nor the
+  per-boundary counts. Those counts are more even than chance (chi-square 4.19 on 14 dof, lower tail
+  0.0058), a deterministic grid's signature and not a test. The tones cannot test it (above), so this is
+  one capture, and a second independent test or a direct timing of the slices is still owed.
+- **HYPOTHESIS, consistent: a slice is exactly 256 AGB cycles, one 65 536 Hz output frame.** The fitted
+  period times 256 is 1 596.0 cycles, an integer, as a timer's reload gives. A `SOUNDBIAS` rate of
+  65 536 Hz would give one PWM frame per slice. No register was read.
+
+What stays open: the first question, below one slice and beyond one capture.
 
 ## U-GBP-042 (P1 → **P3**, opened 2026-09-23, Issue #82; **ANSWERED FOR N = 0x20 by RUN 37, Issue #91: NO** — 0x100 and 0x400 untested, the mechanism unknown, no longer blocking) — can the AUDIO block (index 0x8) be read SHORTER than 0x1000, and does the device then deliver the next block normally?
 
@@ -2188,7 +2233,7 @@ construction.
 the same image with raw episode preservation disabled, compared like for like.
 Neither is planned.
 
-## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open** — **Issue #108: by arm, the residue is still `produce`, and `neither` and VIDEO followed the arms (GBP-HW-334)** — **Issue #112 (RUN 41, a real game): both losses rose together while the picture worked hardest; the video workload added to the chain's is the new HYPOTHESIS (GBP-HW-336)** — **Issue #115 (RUN 42): that rise is L2's own keep window in every run (GBP-HW-338); the video-workload HYPOTHESIS loses its observation** — **Issue #116: without L2's window the stretch effect is larger (0.270, not 0.341), the half arm's residue is 0.198 gaps per cycle and stands, and RUN 38's 25.41 blocks/s is 24.50 (GBP-HW-339)**
+## U-GBP-045 (P1, opened 2026-09-24 after RUN 38, Issue #99) — what costs the composed runtime's drain about 25 AUDIO blocks per second that the drain alone did not lose, and is that what the Operator heard as "vibrando"? — **2026-09-24, Issue #100: ONE cadence orders both losses, the AI chunk cycle (GBP-HW-327, CORROBORATED); which step of it is open** — **2026-09-24, Issue #103 (RUN 39): `P` names `produce` (GBP-HW-329); the direction, and K at the VIDEO resolution, are open** — **2026-09-24, Issue #107 (RUN 40): CAUSE — half-size production steps cut the losses to 0.341 (GBP-HW-332); the residue and the `neither` gaps are open** — **Issue #108: by arm, the residue is still `produce`, and `neither` and VIDEO followed the arms (GBP-HW-334)** — **Issue #112 (RUN 41, a real game): both losses rose together while the picture worked hardest; the video workload added to the chain's is the new HYPOTHESIS (GBP-HW-336)** — **Issue #115 (RUN 42): that rise is L2's own keep window in every run (GBP-HW-338); the video-workload HYPOTHESIS loses its observation** — **Issue #116: without L2's window the stretch effect is larger (0.270, not 0.341), the half arm's residue is 0.198 gaps per cycle and stands, and RUN 38's 25.41 blocks/s is 24.50 (GBP-HW-339)** — **2026-09-25, Issue #120 (RUN 43): at 0.125 s of cushion against 0.5 s, inside one session, the loss rate is 0.871 (90 % 0.798–0.977) with no underrun in 71 s (GBP-HW-343); the correction's floor is unmeasured — Phase 3 did not run**
 
 **What is FACT.**
 - **The composed image drained less than the drain alone.** RUN 38's `live-0001` (the
@@ -2412,7 +2457,22 @@ entry quotes was integrated over C's whole window, and L2 ran in 10 s of it (`GB
 What stays open is unchanged: the residue's cause, and the `neither` gaps. No hypothesis about
 either is added here.
 
-## U-GBP-046 (P1, opened 2026-09-24, Issue #115) — the audio-to-video OFFSET: audio lags the picture with Open-GBP's runtime, and not with GBI or the Start-up Disc
+**2026-09-25 (GitHub Issue #120, RUN 43), on top; nothing above is rewritten.**
+- **The cost side at 0.125 s, measured inside one session** (`GBP-HW-343`). Phase 1 interleaved
+  0.5 s and 0.125 s of target cushion, six dwells each. Per non-mute second the shallow arm lost
+  6.310 blocks and the deep arm 7.245. The ratio is 0.871, 90 % by dwell 0.798–0.977. Neither arm
+  had an underrun or an overflow. No instrument ran in Phase 1.
+- **What that does not cover:**
+  - an underrun rarer than 3/71 = 0.042 per second;
+  - the DUP work per arm, logged only as a session total;
+  - any depth below 0.125 s as an arm. Phase 2 visited 0.094 s for 13 seconds with no underrun,
+    and that is not a test.
+- **The correction's floor is unmeasured.** Phase 3 was the only part of #117 that would have found
+  it, and the event store stopped the run first (`GBP-HW-344`).
+
+The residue's cause and the `neither` gaps stay open, unchanged.
+
+## U-GBP-046 (P1, opened 2026-09-24, Issue #115) — the audio-to-video OFFSET: audio lags the picture with Open-GBP's runtime, and not with GBI or the Start-up Disc — **2026-09-25, Issue #120 (RUN 43): the cushion HYPOTHESIS is CORROBORATED — D = 12 of 12 (GBP-HW-341); the one Phase 2 setting was confirmed AT the 0.094 s floor, censored (GBP-HW-342); the residue stays unmeasured and the item STAYS OPEN**
 
 **What is observed — OPERATOR OBSERVATIONS, verbatim, in order** (#114, #115; `HARDWARE_TESTS.md`
 §V26.11.5):
@@ -2463,3 +2523,21 @@ with a before and after the Operator can hear.
 
 **Also observed, and kept:** button→video near zero, under gameplay load. It is an
 input-and-video responsiveness OPERATOR OBSERVATION in its own right (`GBP-HW-337`).
+
+**2026-09-25 (GitHub Issue #120, RUN 43), on top; nothing above is rewritten.**
+- **The second step was taken.** Phase 1 changed `TARGET` between 0.5 s and 0.125 s, blind. The
+  Operator judged all 12 real switches in the direction the units predict, and 3 of 6 nulls as a
+  change, below the frozen guard: **CONFIRMS** (`GBP-HW-341`). With the units' reading, **the cushion
+  HYPOTHESIS is CORROBORATED**, not FACT: one Operator, one game, one console. His `A`, *"Sim
+  percebi"*, carries no direction and is not part of that evidence.
+- **The residue is not measured.** Phase 2 confirmed one setting of three, at the floor, 0.094 s
+  target, after eight presses against it (`GBP-HW-342`). There he judged audio and picture
+  synchronised with about 0.23–0.27 s still modelled in the audio path. That bounds the total by his
+  tolerance, not the residue by a figure. The null point is censored at the floor.
+- **What would still refute the cushion as the main term:** a multi-setting nulling whose null
+  points sit far above the floor while the chain is shallow.
+- **The trade has its first cost figure** (`GBP-HW-343`, `U-GBP-045`): at 0.125 s no more blocks were
+  lost than at 0.5 s, and there was no underrun in 71 s. The Operator asked for lower latency (#120).
+  The change is its own Issue.
+
+The item stays OPEN, P1.

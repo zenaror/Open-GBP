@@ -16476,3 +16476,52 @@ pinned to this freeze.
 **Tests executed.** `make test-python` on the tree of this record: 3 001 passed, 7 skipped (the gate figure on the pushed commit is on #117). `make -C tests/unit`: 38 binaries, 0 failures (`test_gbp_atrans` 2 315, `test_gbp_async` 2 138, `test_gbp_aplay` 219 checks).
 
 **Not done.** Nothing was staged and nothing was run. The Hardware Issue, the Operator's procedure and his checklist are the Orchestrator's (§V27.6).
+
+## 2026-09-25 — Issue #120: RUN 43 ingested — Phase 1 CONFIRMS (D = 12 of 12); Phase 2's one setting at the floor; Phase 3 never ran, because the event store filled 242 s after the origin
+
+**Goal.** Ingest RUN 43 (`sync-0001`, GBP-AUDIO-012, Yoshi's Island) after the Operator's declaration was posted verbatim on #119, and derive the event store's fill rate, the capacity fact the next pre-registration needs.
+
+**Changes.**
+- `GBP-HW-272` was recounted first, in its own commit: 56 logs, RUN 43 at `0x92`. The recount now appends its printed block. Since #116 and #118, the record's append-only guards forbid rewriting the earlier one.
+- Three descriptive tools were added, each with tests on constructions and pins:
+  - `tools/v27derive.py`: the timeline, Phase 2's path, the C-stick edges reconciled, and M4 by dwell with a resampling interval;
+  - `tools/vevents.py`: the event store's rate, what fills it, and what a store permits;
+  - `tools/u012game.py`: the raw window, by block, pair and slice.
+- The log and the declaration were versioned. The raw window was not: it is 0.16 s of a commercial game's audio.
+- The records added `GBP-HW-341`–`GBP-HW-346`, §V27.20, and pointers and sections on `U-GBP-012`, `U-GBP-041`, `U-GBP-045` and `U-GBP-046`.
+- Two record guards were repaired forward, from equality with a later state to a prefix. Each keeps its original property as a fact about the commit that closed its Issue.
+
+**Result.**
+- **Phase 1 CONFIRMS.** D = 12 of 12, and 3 of 6 nulls were judged a change, below the guard. M1, M2 and M3 PASS. `U-GBP-046`'s cushion HYPOTHESIS is CORROBORATED. His `A`, *"Sim percebi"*, carries no direction and is not part of the evidence.
+- **Phase 2 is INCONCLUSIVE by (t4).** Its one setting was confirmed AT the 0.094 s floor after eight presses against it, so the null point is censored. The second setting's LEFT deepened, and he went to the top of the scale.
+- **Phase 3 did not run.** The correction's floor is unmeasured.
+- **M4 by dwell.** 0.125 s lost blocks at 0.871 of 0.5 s's rate, 90 % 0.798–0.977, with no underrun and no overflow. The exact permutation of the 12 dwells gives a one-sided p of 0.068, so no increase was detected and a lower loss is not established. That is the evidence for the latency reduction the Operator asked for. The run supports 0.125 s, stated beside its cost. The change is its own Issue.
+
+**Newly confirmed.**
+- **The event store fills at about one event per frame of a changing picture:** 65.61/s in RUN 43, where 16 384 records last 249.7 s. `GBP-HW-282` had measured it three days before `sync-0001` was built. The image carried `play-0001`'s refuted 4/s comment.
+- **The defect has two authors, and both are recorded.** The Orchestrator budgeted time and not events. The Executor set a 785 s wall and sized the frame store for it, not the event store. At his pace Phase 3 could not have run. That no pace could have finished all three phases is not established.
+- **A game's raw blocks.** Level changes recur every 6.23438 slices, on odd and even slices alike, and never split a slice. That is 1 596.0 AGB cycles at 256 a slice, a HYPOTHESIS, and 10 512 Hz nominal. So the two-slice grid was the tones' source, and `U-GBP-041`'s second question is answered.
+- **Uniform slices pass one test at slice resolution and stay a HYPOTHESIS.** The game's source quantises its own changes to the slice grid, so nothing below one slice is tested.
+- **The capture has a cost.** Twelve blocks are missing inside it, located by the content and matched by the header's timing.
+- **The game's bandwidth.** 1.5 % (pair) and 2.2 % (slice) of its energy lies above 2 048 Hz.
+
+**Rejected.**
+- The first gap fit chose P by coherence after the fit, and that was circular. It found 14 blocks at a local optimum, and was replaced by a choice by total cost before any figure was recorded.
+- The first fold estimate leaked across the cut on a construction, and was replaced by the windowed spectral estimate.
+- An adversarial review before the commit (24 agents, 17 findings confirmed) withdrew three claims of the draft:
+  - a 0.064-slice bound on the slices, which the source's own quantisation leaves untested;
+  - "CORROBORATED" for uniform slices, which rests on one capture;
+  - "no pace could have finished", which the arithmetic does not support.
+- The review also corrected the rest of the draft:
+  - the event-store mechanism, where unclean frames append nothing;
+  - the store-sizing advice;
+  - the 785 s wall's attribution;
+  - the window's resolution;
+  - the skip-ledger registration;
+  - the record-to-tool checks for the raw window's figures.
+
+**New unknowns.** None. The event store's rate is explained. `U-GBP-035`'s 2026-09-22 addendum already carries its lesson, and RUN 43 is its second instance (`GBP-HW-344`).
+
+**Tests.** The gate figure is on #120, taken on the committed tree after the last commit.
+
+**Next.** The re-run question, and the latency change, are the Orchestrator's to open. The next image needs the defects of §V27.20.11: the event store sized from the measured rate, the stale `EVGAP` text, the stale title, phase edges in-run and on screen, and DUP and `ring_gated` per second.
