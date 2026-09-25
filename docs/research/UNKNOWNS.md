@@ -2091,7 +2091,7 @@ press 2 and RUN 30 press 1 unexplained. The item stays open: the mechanism of th
 first-press silence is still not determined.
 
 
-## U-GBP-041 (P1, opened 2026-09-23, Issue #82) — are the sixteen slices of an AUDIO block UNIFORM in time, and is the two-slice transition grid the path's or the source's? — **2026-09-25, Issue #120 (RUN 43): the two-slice grid is the SOURCE's — a game's level changes fall on odd and even slices alike and never split one; the slices' uniformity passed one test at slice resolution and stays a HYPOTHESIS, untested below one slice (GBP-HW-345)**
+## U-GBP-041 (P1, opened 2026-09-23, Issue #82) — are the sixteen slices of an AUDIO block UNIFORM in time, and is the two-slice transition grid the path's or the source's? — **2026-09-25, Issue #120 (RUN 43): the two-slice grid is the SOURCE's — a game's level changes fall on odd and even slices alike and never split one; the slices' uniformity passed one test at slice resolution and stays a HYPOTHESIS; below one slice it depends on what a slice integrates, which is open (GBP-HW-345)**
 
 `GBP-HW-315`: slice order is time order between two-slice groups, and every
 transition in RUN 33 / RUN 34 falls on an even slice. Uniform spacing would make
@@ -2126,18 +2126,21 @@ rewritten** (`GBP-HW-345`).
   single-slice changes, so the two-slice grid of RUN 33 and RUN 34 was their source's. The stimulus
   ROMs never write SOUNDBIAS, so they ran the BIOS default, 32 768 Hz.
 - **The changes never split a slice.** Beside every change the adjacent boundaries step as often
-  against it as with it, 20 against 19 at 3 bits or more, and no two changes sit one slice apart. So
-  the level is constant inside each slice, and the game's output is quantised by its source on a grid
-  that coincides with the slices.
+  against it as with it, 20 against 19 at 3 bits or more, and no two changes sit one slice apart. Two models give that. Either the game's source quantises its output on a grid that
+  coincides with the slices, read by slices that integrate, or the source changes at continuous instants
+  and a slice reads its level once. Which holds is `U-GBP-012`'s physical half, and it is open.
 - **The first question: one test passed at slice resolution; still a HYPOTHESIS.** The changes, placed
   with the 12 missing blocks, reach a coherence of 0.9583. Changes on a uniform grid of slices must
   have 0.9582, with a sampling sd of 0.0011. So slice order is time order, one grid step per slice.
-  **Nothing below one slice is tested.** Because the source quantises its own changes to the slice
-  grid, a displacement of the boundaries inside the grid's margin moves neither the coherence nor the
-  per-boundary counts. Those counts are more even than chance (chi-square 4.19 on 14 dof, lower tail
+  **Below one slice it depends on the open model.** If the source quantises its own
+  changes to the slice grid, a displacement of the boundaries inside the grid's margin moves neither the
+  coherence nor the per-boundary counts, and nothing below one slice is tested. If a slice reads its level
+  once, the same displacement lowers the coherence, and the capture would bound it
+  (`tests/host/test_u012_game.py`, `WhetherChangesSplitSlices`, builds both). Those counts are more even than chance (chi-square 4.19 on 14 dof, lower tail
   0.0058), a deterministic grid's signature and not a test. The tones cannot test it (above), so this is
   one capture, and a second independent test or a direct timing of the slices is still owed.
-- **HYPOTHESIS, consistent: a slice is exactly 256 AGB cycles, one 65 536 Hz output frame.** The fitted
+- **HYPOTHESIS, consistent: a slice is exactly 256 AGB cycles** (and, under the first model, one 65 536 Hz
+  output frame). The fitted
   period times 256 is 1 596.0 cycles, an integer, as a timer's reload gives. A `SOUNDBIAS` rate of
   65 536 Hz would give one PWM frame per slice. No register was read.
 

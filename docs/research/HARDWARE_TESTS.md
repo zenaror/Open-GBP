@@ -38177,10 +38177,11 @@ established. 104.2 s would have remained for Phase 0, the 18 switches and three 
 256 per slice, 10 512 Hz nominal. They fall on odd boundaries as often as even ones, so **the two-slice
 grid was the tones' source, not the path**. **Twelve blocks are missing inside the window.** The content
 locates them, and the header's own instants give 11.99. That is the capture's own cost, about 75 blocks
-per second inside its 0.159 s, against 7.24 per second over the rest of Phase 0. No change splits a slice,
-so the game's own output is quantised on a grid that coincides with the slices. The changes' coherence
-sits on that grid's bound, so slice order is time order. Uniform slices pass that one test at slice
-resolution and stay a HYPOTHESIS. Nothing below one slice is tested.
+per second inside its 0.159 s, against 7.24 per second over the rest of Phase 0. No change splits a slice. Either the game's source quantises its output on a grid that coincides with the slices,
+or a slice reads its level without integrating it; which holds is open (`U-GBP-012`'s physical half). The
+changes' coherence sits on the slice-quantisation bound, so slice order is time order. Uniform slices pass
+that one test at slice resolution and stay a HYPOTHESIS. Below one slice the capture bounds them only under
+the second model, so the record states no bound.
 **Bandwidth:** 1.48 % of the AC energy lies above 2 048 Hz on the pair decode and 2.19 % on the slice
 decode. The game's own band up to 5 256 Hz holds 0.40 %, and the rest is the hold's images. The block
 decode folds 0.09 % into its band, and its boxcar removes 10.2 % of the in-band energy. The resolution
@@ -38199,9 +38200,10 @@ is 64 Hz: gaps cut the window into runs of at most 130 blocks.
    written when the sidecar was a state dump.
 3. **The first screen's stale title** (§V27.19, point 7).
 4. **Phase edges.** `SYNCPH` gives each phase's start, end and reason in the SD log, but only after the
-   session. Phase 0 has no record of its own, and nothing marks a phase in-run or on screen. The
-   Operator asked for both (#120). The on-screen half must be checked for leak paths before it is
-   built: a plain count is safe, and anything that differs between real and null switches, or derives
+   session. Phase 0 has no record of its own, and nothing marks a phase in-run or on screen. The Operator asked for
+   the log half (#120, `issuecomment-5832776597`, verbatim: *"quando for um log de varias fases igual esse,
+   se possivel identifique no log o inicio e fim das fases"*). The on-screen half is the Orchestrator's
+   proposal in the same comment, and it must be checked for leak paths before it is built: a plain count is safe, and anything that differs between real and null switches, or derives
    from `TARGET` or the fill, is not.
 5. **DUP and `ring_gated` per second.** They are logged as session totals only, so the correction's
    work per arm is not in the log.

@@ -178,10 +178,11 @@ class TheRecord(unittest.TestCase):
     def test_the_entries_exist_once_in_order_after_gbp_hw_340(self):
         ev = read(EV)
         ids = re.findall(r"^### (GBP-HW-3\d\d) ", ev, re.M)
-        self.assertEqual(ids[-7:], ["GBP-HW-340", "GBP-HW-341", "GBP-HW-342", "GBP-HW-343", "GBP-HW-344",
-                                    "GBP-HW-345", "GBP-HW-346"])
-        for i in ("GBP-HW-341", "GBP-HW-342", "GBP-HW-343", "GBP-HW-344", "GBP-HW-345", "GBP-HW-346"):
-            self.assertEqual(len(re.findall(r"^### %s " % i, ev, re.M)), 1, i)
+        new = ["GBP-HW-341", "GBP-HW-342", "GBP-HW-343", "GBP-HW-344", "GBP-HW-345", "GBP-HW-346"]
+        i = ids.index("GBP-HW-340")
+        self.assertEqual(ids[i + 1:i + 7], new)                 # later Issues append after these, in order
+        for x in ["GBP-HW-340"] + new:
+            self.assertEqual(len(re.findall(r"^### %s " % x, ev, re.M)), 1, x)
 
     def test_the_statuses_say_no_more_than_the_evidence(self):
         ev = read(EV)
@@ -261,6 +262,64 @@ class TheRecord(unittest.TestCase):
                     "lower tail %s" % P["tail"]):
             self.assertIn(tok, u41, tok)
         self.assertNotIn("0.064", u41)
+
+    def test_every_other_figure_of_the_window_is_the_pinned_one(self):
+        """#120's second review: the U-GBP-012 heading and section, GBP-HW-346's heading, §V27.20.10 and the
+        neighbour and interval counts are checked too, against the same PINS."""
+        P = ride.PINS
+        pa, ps = 100 * float(P["above_pair"]), 100 * float(P["above_slice"])
+        s1, o1 = P["neighbours"]["1"]
+        s2, o2 = P["neighbours"]["2"]
+        s3, o3 = P["neighbours"]["3+"]
+        band = ("%.2f %% of the AC energy lies above 2 048 Hz on the pair decode and %.2f %% on the slice decode" % (pa, ps),
+                "own band up to 5 256 Hz holds %.2f %%" % (100 * float(P["pair"][1])),
+                "folds %.2f %% into its band, and its boxcar removes %.1f %%" % (100 * float(P["fold"]),
+                                                                               100 * float(P["droop"])))
+        ev, u, ht = read(EV), read(UN), read(HT)
+        b345 = flat(entry(ev, "GBP-HW-345")[1])
+        for tok in ("(%d and %d;" % (P["intervals"][6], P["intervals"][7]),
+                    "(%d / %d at 2 bits, %d / %d at 1)" % (s2, o2, s1, o1),
+                    "same against opposite: %d against %d at 3 bits or more, %d against %d at 2" % (s3, o3, s2, o2)):
+            self.assertIn(tok, b345, tok)
+        h346 = flat(entry(ev, "GBP-HW-346")[0])
+        self.assertIn("%.2f %% of a game's AC energy lies above 2 048 Hz on the pair decode and %.2f %% on the slice "
+                      "decode" % (pa, ps), h346)
+        self.assertIn("folds %.2f %% into its band and its boxcar removes %.1f %%" % (100 * float(P["fold"]),
+                                                                                    100 * float(P["droop"])), h346)
+        h12 = flat(re.search(r"^## U-GBP-012 .*$", u, re.M).group(0))
+        self.assertIn("%.1f %% (pair) and %.1f %% (slice)" % (pa, ps), h12)
+        self.assertIn("held %s slices a sample (%s AGB cycles" % (P["P"], P["cycles"]), h12)
+        a = u.index("**2026-09-25, Issue #120 (RUN 43) — the first raw blocks of a game")
+        u12 = flat(u[a:u.index("\n## U-GBP-013 ", a)])
+        for tok in band + ("changes every %s slices: %s AGB cycles" % (P["P"], P["cycles"]),
+                           "resolution of %s Hz" % P["segment_hz"]):
+            self.assertIn(tok, u12, tok)
+        u41 = flat(u[u.index("**2026-09-25, Issue #120 (RUN 43) — the test this item named"):u.index("\n## U-GBP-042 ")])
+        self.assertIn("%d against %d at 3 bits or more" % (o3, s3), u41)
+        i = ht.index("#### V27.20.10 ")
+        v10 = flat(ht[i:ht.index("#### V27.20.11 ", i)])
+        for tok in band + ("recur every %s slices: %s AGB cycles" % (P["P"], P["cycles"]),
+                           "instants give %s" % P["timing"], "is %s Hz" % P["segment_hz"]):
+            self.assertIn(tok, v10, tok)
+
+    def test_the_permutation_and_the_event_bound_are_the_tools(self):
+        with open(LOG, encoding="utf-8") as f:
+            text = f.read()
+        pm = v27derive.derive(text)["m4"]["permutation"]
+        b343 = flat(entry(read(EV), "GBP-HW-343")[1])
+        self.assertIn("one-sided p %d/%d = %.3f, two-sided %d/%d = %.3f"
+                      % (pm["one_sided"][0], pm["one_sided"][1], pm["one_sided"][0] / float(pm["one_sided"][1]),
+                         pm["two_sided"][0], pm["two_sided"][1], pm["two_sided"][0] / float(pm["two_sided"][1])), b343)
+        self.assertIn("excluded 1 in 63 of 400 simulations, 15.75 %", b343)
+        r = vevents.analyse(text)
+        b344 = flat(entry(read(EV), "GBP-HW-344")[1])
+        n = r["episode_frames_at_least"]["records"]
+        self.assertIn("at least %d %03d of its %d %03d frames were inside an open episode"
+                      % (n // 1000, n % 1000, r["frames"] // 1000, r["frames"] % 1000), b344)
+        ep1 = int(re.search(r"^\d{6} EPISODE i=0 idx=\S+ state=\S+ flags=\S+ frames=(\d+)", text, re.M).group(1))
+        opst = sum(1 for m in re.finditer(r"^\d{6} EV seq=(\d+) t=\S+ type=(episode_open|episode_stabilising) f=\d+ "
+                                          r"ep=00000001 ", text, re.M) if int(m.group(1)) <= 128)
+        self.assertIn("episode 1 ran %d frames and holds %d open or stabilising records" % (ep1, opst), b344)
 
     def test_the_latency_proposal_travels_with_its_cost(self):
         s = v2720()
