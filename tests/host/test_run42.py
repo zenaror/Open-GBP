@@ -198,13 +198,20 @@ class TheAudioPathsDepthInItsOwnUnits(unittest.TestCase):
     def test_the_units(self):
         h = read(APLAY_H)
         self.assertIn("holding DECODED int16 samples,\n * one per AUDIO block", h)
-        for tok in ("#define GBP_APLAY_RING          4096u", "#define GBP_APLAY_TARGET        2048u",
+        # AMENDED 2026-09-25 (GitHub Issue #121), on top: the default cushion is 0.125 s since #121, so RUN 42's
+        # TARGET is read from the header RUN 42's image was built with (game-0002's freeze, dc13f37), where it was
+        # written; the other units are unchanged at HEAD. The original line was:
+        #   for tok in ("#define GBP_APLAY_RING          4096u", "#define GBP_APLAY_TARGET        2048u", ...
+        for tok in ("#define GBP_APLAY_RING          4096u",
                     "#define GBP_APLAY_AHEAD            4u", "#define GBP_APLAY_PUSHES         128u",
                     "#define GBP_APLAY_FRAMES        1000u"):
             self.assertIn(tok, h, tok)
         self.assertIn("the callback programs block k while\n * k-1 plays", h)
         self.assertIn("LIVECFG2 ring=4096 target=2048 band=16 chunk_frames=1000 chunk_bytes=4000 pool=16 ahead=4",
                       read(LOG))
+        import frozen                                          # the history-dependent check last (#121's review)
+        h42 = frozen.source("Issue #113 -- game-0002 and its report builder", "src/audio/gbp_aplay.h")
+        self.assertIn("#define GBP_APLAY_TARGET        2048u", h42)
 
     def test_the_measured_ring_fill(self):
         fill = Run.get()["rep"]["window"]["fill"]

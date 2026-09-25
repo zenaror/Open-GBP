@@ -13,7 +13,7 @@
  * THE CLOCKS (§V22.4, the decision made before the run). The drain delivers ~4096
  * samples per GameCube second; the AI consumes 32 000 x 16/125 of them per ITS
  * second, and its second is not proven to be the timebase's. The chain keeps the
- * ring's fill near GBP_APLAY_TARGET with COUNTED DROP / DUPLICATE of whole decoded
+ * ring's fill near its target (GBP_APLAY_TARGET by default) with COUNTED DROP / DUPLICATE of whole decoded
  * samples, at most one per chunk, applied BETWEEN the ring and the resampler -- never
  * a ratio servo, which would break 125/16 and L2 with it. Every correction is one
  * discrete event at a recorded index. L (gbp_alive) reads the samples BEFORE this.
@@ -45,7 +45,8 @@
  * primitives the sync POC needs, none of which changes what a default-initialized
  * chain does:
  *   - `target` is the fill the corrections hold, a FIELD defaulting to GBP_APLAY_TARGET
- *     (the macro stays, pinned by text); gbp_aplay_set_target() moves it, clamped so a
+ *     (the macro stays; since #121 it is the cushion in time, see THE CUSHION, IN TIME);
+ *     gbp_aplay_set_target() moves it, clamped so a
  *     chunk can always start and the ring can always hold TARGET + BAND. BAND stays a
  *     macro. The decision is still taken once, at the chunk's start, from the fill.
  *   - `mute`, a count of silence chunks the CALLBACK hands next, whatever the READY
@@ -92,7 +93,24 @@ extern "C" {
 #define GBP_APLAY_POOL            16u
 #define GBP_APLAY_AHEAD            4u    /* READY chunks kept ahead of the DMA */
 #define GBP_APLAY_RING          4096u    /* the decoder's ring: 1 s, 8 KiB (defers, never fixes, drift) */
-#define GBP_APLAY_TARGET        2048u    /* the fill the corrections hold, and the fill playback starts at */
+/* THE CUSHION, IN TIME (GitHub Issue #121, 2026-09-25). The fill the corrections hold, and the fill playback starts
+ * at, is a latency: every decoded sample of it is 1/GBP_ADEC_RATE s of audio played after the picture it belongs to.
+ * ADOPTED: 0.125 s. It was 0.5 s -- 2048 samples -- in every build before #121; each executed image reproduces at its
+ * own commit (HARDWARE_TESTS §V23.9), so none is retuned, and sync-0001, which pins its own levels (2048 / 512 / 384
+ * in gbp_async.c), keeps them.
+ * THE EVIDENCE (HARDWARE_TESTS §V27.20.7, §V27.20.13; GBP-HW-343). RUN 43 ran 0.125 s as an ARM, interleaved with
+ * 0.5 s inside one session on a real cartridge. NO INCREASE IN AUDIO LOSS WAS DETECTED AT 0.125 s, AND A LOWER LOSS IS
+ * NOT ESTABLISHED. The primary statistic is the exact permutation of the 12 dwells, one-sided p 0.068; the percentile
+ * interval, 0.798-0.977, is descriptive and anti-conservative by a measured 15.75 % against 10 %
+ * (tests/host/test_v27derive.py, TheIntervalsCoverage). No underrun and no overflow in 71 s, which puts the underrun
+ * rate below 3/71 = 0.042 per second at 95 % only (rule of three). It REDUCES the audio-behind-video offset and does
+ * not remove it: the chain still holds this cushion, the READY queue, the DMA chunk and the FIR (U-GBP-046 stays
+ * open). Nothing shallower is adopted: 0.09375 s was only visited in Phase 2's exploration, and the correction's
+ * floor is unmeasured (U-GBP-045).
+ * The value is set in TIME: the sample count is recomputed from GBP_ADEC_RATE, which #118 may still change, and never
+ * renegotiated. It must come out a whole number of samples within the clamp's bounds (asserted in gbp_aplay.c). */
+#define GBP_APLAY_CUSHION_US    125000u  /* ADOPTED 2026-09-25, GitHub Issue #121; 500 000 before */
+#define GBP_APLAY_TARGET        ((uint32_t)(((uint64_t)GBP_ADEC_RATE * GBP_APLAY_CUSHION_US) / 1000000u))  /* 512 */
 #define GBP_APLAY_BAND            16u    /* DUP below TARGET-BAND, DROP above TARGET+BAND (see THE CLOCKS) */
 /* One pump call produces at most this many pushes (62.5 frames). 8, ADOPTED by GitHub Issue #109
  * from RUN 40 (HARDWARE_TESTS §V24.10); 16 in every build before it.

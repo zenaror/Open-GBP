@@ -50,6 +50,12 @@ void gbp_aplay_init(struct gbp_aplay *p, uint8_t *pool, const uint8_t *silence, 
     if (!crc_ready) crc_build();
 }
 
+/* ---- Issue #121: the cushion in time, checked where it is compiled ------------------ */
+_Static_assert(((uint64_t)GBP_ADEC_RATE * GBP_APLAY_CUSHION_US) % 1000000u == 0u,
+               "the cushion must be a whole number of decoded samples at the decoder's rate");
+_Static_assert(GBP_APLAY_TARGET >= GBP_APLAY_TARGET_MIN && GBP_APLAY_TARGET <= GBP_APLAY_TARGET_MAX,
+               "the default cushion must be a target gbp_aplay_set_target() would accept unclamped");
+
 /* ---- Issue #117: the runtime target, the mute, the discard (pump slot) ---------- */
 void gbp_aplay_set_target(struct gbp_aplay *p, uint32_t target)
 {
