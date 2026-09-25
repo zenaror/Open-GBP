@@ -24,7 +24,7 @@ CPPFLAGS += -I$(ROOT)/src/common -I$(ROOT)/src/log -I$(ROOT)/src/gbp -I$(ROOT)/s
 # next to a wrong answer.
 HEADERS := $(wildcard $(ROOT)/src/common/*.h $(ROOT)/src/log/*.h $(ROOT)/src/gbp/*.h $(ROOT)/src/audio/*.h $(ROOT)/tests/mocks/*.h)
 
-TESTS    := test_ident test_ringlog test_gbp_vfull test_gbp_vvi test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4 test_gbp_avdump test_gbp_avsvc test_gbp_avseq test_gbp_video test_gbp_vsig test_gbp_vstate test_gbp_video_state test_gbp_vcolor test_gbp_vstream test_gbp_vwitness test_gbp_vdisp test_gbp_startup test_gbp_input test_gbp_session test_gbp_awin test_gbp_awindump test_gbp_awr test_gbp_adec test_gbp_adrain test_gbp_aperiod test_gbp_alive test_gbp_async test_gbp_aplay test_gbp_atrans test_gbp_atrace test_gbp_asplit
+TESTS    := test_ident test_ringlog test_gbp_vfull test_gbp_vvi test_gbp_detect test_gbp_probe test_gbp_replay test_gbp_init test_gbp_init_irq test_gbp_initirqa test_gbp_initirqb test_gbp_initirq4 test_gbp_avdump test_gbp_avsvc test_gbp_avseq test_gbp_video test_gbp_vsig test_gbp_vstate test_gbp_video_state test_gbp_vcolor test_gbp_vstream test_gbp_vwitness test_gbp_vdisp test_gbp_startup test_gbp_input test_gbp_session test_gbp_awin test_gbp_awindump test_gbp_awr test_gbp_adec test_gbp_adrain test_gbp_aperiod test_gbp_alive test_gbp_async test_gbp_aplay test_gbp_atrans test_gbp_atrace test_gbp_asplit test_v28_ahead_steps
 BINS     := $(addprefix $(OUTDIR)/,$(TESTS))
 
 COMMON_SRC := $(ROOT)/src/common/opengbp_ident.c $(ROOT)/src/common/gbp_time64.c
@@ -175,6 +175,27 @@ $(OUTDIR)/test_gbp_async: test_gbp_async.c $(ROOT)/src/audio/gbp_async.c $(HEADE
 # with the real session module, in main.c's order (the tick waits for the executor).
 $(OUTDIR)/test_gbp_atrans: test_gbp_atrans.c $(ROOT)/src/audio/gbp_atrans.c $(ROOT)/src/audio/gbp_async.c $(ROOT)/src/audio/gbp_aplay.c $(ROOT)/src/audio/gbp_adec.c $(ROOT)/src/audio/gbp_aresamp.c $(HEADERS) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_atrans.c $(ROOT)/src/audio/gbp_atrans.c $(ROOT)/src/audio/gbp_async.c $(ROOT)/src/audio/gbp_aplay.c $(ROOT)/src/audio/gbp_adec.c $(ROOT)/src/audio/gbp_aresamp.c
+
+# Issue #122: a PROBE of §V28's proposed nulling steps before the freeze -- the chain's own gbp_aplay.c and
+# gbp_atrans.c, copied with every use of the GBP_APLAY_AHEAD macro read from a runtime value (v28_ahead.h); the
+# rule checks that it replaced exactly the uses it expects (2 + 5) before the copy exists, so a new use in src/
+# stops every build here instead of leaving the probe on a stale premise. src/ itself is not changed.
+V28DIR := $(OUTDIR)/v28
+$(V28DIR)/gbp_aplay.c: $(ROOT)/src/audio/gbp_aplay.c | $(V28DIR)
+	sed 's/\bGBP_APLAY_AHEAD\b/gbp_v28_ahead/g' $< > $@.tmp
+	test "$$(grep -o gbp_v28_ahead $@.tmp | wc -l)" -eq 2
+	mv $@.tmp $@
+
+$(V28DIR)/gbp_atrans.c: $(ROOT)/src/audio/gbp_atrans.c | $(V28DIR)
+	sed 's/\bGBP_APLAY_AHEAD\b/gbp_v28_ahead/g' $< > $@.tmp
+	test "$$(grep -o gbp_v28_ahead $@.tmp | wc -l)" -eq 5
+	mv $@.tmp $@
+
+$(V28DIR):
+	mkdir -p $@
+
+$(OUTDIR)/test_v28_ahead_steps: test_v28_ahead_steps.c v28_ahead.h $(V28DIR)/gbp_aplay.c $(V28DIR)/gbp_atrans.c $(ROOT)/src/audio/gbp_adec.c $(ROOT)/src/audio/gbp_aresamp.c $(HEADERS) | $(OUTDIR)
+	$(CC) $(CPPFLAGS) -I. $(CFLAGS) -o $@ test_v28_ahead_steps.c -include v28_ahead.h $(V28DIR)/gbp_aplay.c $(V28DIR)/gbp_atrans.c $(ROOT)/src/audio/gbp_adec.c $(ROOT)/src/audio/gbp_aresamp.c
 
 $(OUTDIR)/test_gbp_asplit: test_gbp_asplit.c $(ROOT)/src/audio/gbp_asplit.c $(HEADERS) | $(OUTDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test_gbp_asplit.c $(ROOT)/src/audio/gbp_asplit.c
