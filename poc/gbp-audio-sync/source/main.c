@@ -602,10 +602,10 @@ static struct gbp_aplay ap;
 static uint8_t ap_pool[GBP_APLAY_POOL * GBP_APLAY_CHUNK_BYTES] ATTRIBUTE_ALIGN(32);
 static uint8_t ap_silence[GBP_APLAY_CHUNK_BYTES] ATTRIBUTE_ALIGN(32);
 /* ---- §V27: the session machine, the raw window, the transition's plan --------------------- */
-#define SYNC_AWR_BLOCKS 640u
+#define SYNC_AWR_BLOCKS 640u                     /* §V27.11: 1 280 do not fit game-0002's arena (94 KB short); 640 do */
 /* the A press is admitted this long after the prompt; then the run ends as `prompt_expired` (no
  * origin, nothing to judge) instead of running on to the safety wall */
-#define SYNC_PROMPT_BOUND_S 45u                  /* §V27.11: 1 280 do not fit game-0002's arena (94 KB short); 640 do */
+#define SYNC_PROMPT_BOUND_S 45u
 static struct gbp_async sync;
 static struct gbp_awr awr;
 static uint8_t awr_store[SYNC_AWR_BLOCKS * GBP_AWR_BLOCK_SIZE] ATTRIBUTE_ALIGN(32);   /* 2.5 MiB */
