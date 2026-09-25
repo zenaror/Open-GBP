@@ -140,8 +140,16 @@ class OnTopNeverRewritten(unittest.TestCase):
         self.assertIn("Hz conditional on U-GBP-041", h012)
         self.assertIn("(OPERATOR OBSERVATION)", h012)
         self.assertNotIn('answered "full"', new)
-        self.assertEqual(re.search(r"^## U-GBP-041 .*$", new, re.M).group(0),
+        # #118 recorded a consistency and added NO pointer to U-GBP-041's heading: that is a fact about #118's own
+        # closing commit (b1a72a4), checked there. Issue #120 repaired this forward: comparing the CURRENT heading for
+        # equality forbade every later Issue a pointer, which the append-only rule allows (RESEARCH_METHOD.md, "A
+        # heading that outlived its status"); the current heading must only still begin with the base's.
+        at_118 = guards.show("b1a72a4", UN)
+        at_118 = at_118.decode("utf-8") if isinstance(at_118, bytes) else at_118
+        self.assertEqual(re.search(r"^## U-GBP-041 .*$", at_118, re.M).group(0),
                          re.search(r"^## U-GBP-041 .*$", old, re.M).group(0))       # a consistency, no pointer
+        self.assertTrue(re.search(r"^## U-GBP-041 .*$", new, re.M).group(0).startswith(
+            re.search(r"^## U-GBP-041 .*$", old, re.M).group(0)))
         self.assertIn("STAYS OPEN for the physical half", new)
 
     def test_the_run_sections(self):
