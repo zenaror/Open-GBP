@@ -18,6 +18,7 @@ import v27accept as v  # noqa: E402
 KEY = "Issue #117 -- §V27 transcribed, the latency round's gates frozen"
 HT = os.path.join(ROOT, "docs", "research", "HARDWARE_TESTS.md")
 
+TB = 40500000                               # the 40.5 MHz timebase: ticks per second
 CFG = {"deep": 2048, "shallow": 512, "floor": 384, "mute_chunks": 16, "step_mute_chunks": 4, "p2_lo": 384,
        "p2_hi": 3584, "p2_step": 128, "p3_step": 32, "p3_dwell_s": 6, "caps": {"p1": 300, "p2": 240, "p3": 180,
                                                                                 "session": 720}}
@@ -88,14 +89,22 @@ def report(**kw):
          "nulling": [{"seq": 0, "start": 1024, "direction": "LEFT_DEEPER", "steps": 4, "target": 512, "t": 1300},
                      {"seq": 1, "start": 2560, "direction": "LEFT_SHALLOWER", "steps": 15, "target": 640, "t": 1400},
                      {"seq": 2, "start": 640, "direction": "LEFT_DEEPER", "steps": 1, "target": 512, "t": 1450}],
-         "descent": [{"target": t, "kind": "STEP", "fill_mean": t - 20.0, "underruns": 0, "overflow": 0, "dup": 60,
-                      "drop": 0, "lost": 30} for t in (384, 352, 320, 288, 256, 224, 192, 160)] +
-                    [{"target": 128, "kind": "STEP", "fill_mean": 110.0, "underruns": 3, "overflow": 0, "dup": 0,
-                      "drop": 0, "lost": 30},
-                     {"target": 144, "kind": "BISECT", "fill_mean": 126.0, "underruns": 1, "overflow": 0, "dup": 0,
-                      "drop": 0, "lost": 30},
-                     {"target": 152, "kind": "BISECT", "fill_mean": 133.0, "underruns": 0, "overflow": 0, "dup": 40,
-                      "drop": 0, "lost": 30}],
+         # §V27.14: a depth fails by dup == 0 and starved > 0 (an underrun is not the criterion); the bisection
+         # closes at width 2 and the hold at the highest failing depth follows
+         "descent": [dict(target=t, kind="STEP", fill_mean=t - 20.0, underruns=0, overflow=0, dup=60, drop=0, lost=30,
+                          starved=0, t_start=0, t_end=6 * TB, partial=0) for t in (384, 352, 320, 288, 256, 224, 192, 160)] +
+                    [dict(target=128, kind="STEP", fill_mean=110.0, underruns=0, overflow=0, dup=0, drop=0, lost=30,
+                          starved=40, t_start=0, t_end=6 * TB, partial=0),
+                     dict(target=144, kind="BISECT", fill_mean=126.0, underruns=0, overflow=0, dup=0, drop=0, lost=30,
+                          starved=12, t_start=0, t_end=6 * TB, partial=0),
+                     dict(target=152, kind="BISECT", fill_mean=135.0, underruns=0, overflow=0, dup=50, drop=0, lost=30,
+                          starved=0, t_start=0, t_end=6 * TB, partial=0),
+                     dict(target=148, kind="BISECT", fill_mean=131.0, underruns=0, overflow=0, dup=45, drop=0, lost=30,
+                          starved=0, t_start=0, t_end=6 * TB, partial=0),
+                     dict(target=146, kind="BISECT", fill_mean=129.5, underruns=0, overflow=0, dup=30, drop=0, lost=30,
+                          starved=0, t_start=0, t_end=6 * TB, partial=0),
+                     dict(target=144, kind="CONFIRM", fill_mean=100.0, underruns=1, overflow=0, dup=0, drop=0, lost=30,
+                          starved=900, t_start=0, t_end=47 * TB, partial=0)],
          "seconds": seconds(),
          "counters": {"underruns": 4, "overflow": 0, "silences": 0, "mute_chunks": 320, "dup": 1000, "drop": 5}}
     r.update(kw)
@@ -253,27 +262,107 @@ class Phase2(unittest.TestCase):
 
 
 class Phase3(unittest.TestCase):
+    """§V27.14: the criterion (dup == 0 and starved > 0), the width (2), the hold read apart, and the words."""
     def test_the_bisection_measures_the_edge(self):
         p = v.evaluate(report())["phase3"]
-        self.assertEqual((p["verdict"], p["interval"], p["width"], p["model_inside"]), ("MEASURED", [144, 152], 8, True))
+        self.assertEqual((p["verdict"], p["interval"], p["width"], p["model_inside"]), ("MEASURED", [144, 146], 2, True))
+        self.assertIn("the lowest depth the correction can hold", p["why"])
+        self.assertIn("NOT the lowest depth at which audio survives", p["why"])
+
+    def test_width_8_no_longer_measures(self):
+        """§V27.14 §3: (144, 152] contains 145 and 152 -- BRACKETED now, where §V27.11 said MEASURED."""
+        r = report()
+        r["descent"] = [d for d in r["descent"] if d["target"] not in (148, 146) or d["kind"] != "BISECT"]
+        p = v.evaluate(r)["phase3"]
+        self.assertEqual((p["verdict"], p["interval"], p["width"]), ("BRACKETED", [144, 152], 8))
+
+    def test_a_cut_dwell_whose_dup_fired_has_held(self):
+        """dup never decreases: a dwell cut after its DUP fired would have held whole; it keeps its row."""
+        r = report()
+        for d in r["descent"]:
+            if d["target"] == 146 and d["kind"] == "BISECT":
+                d.update(partial=1, dup=30, t_end=2 * TB)
+        p = v.evaluate(r)["phase3"]
+        self.assertEqual((p["verdict"], p["interval"]), ("MEASURED", [144, 146]))
+
+    def test_the_printout_says_the_phase_was_cut(self):
+        import json
+        import tempfile
+        r = report()
+        r["phases"]["p3"]["ended"] = "z"
+        r["descent_unfinished"] = [dict(target=140, kind="BISECT", fill_mean=None, underruns=0, overflow=0, dup=0, drop=0,
+                                        lost=0, starved=5, t_start=0, t_end=10, partial=1)]
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "r.json")
+            with open(p, "w") as f:
+                json.dump(r, f)
+            out = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "v27accept.py"), p],
+                                 capture_output=True, text=True, timeout=60).stdout
+        self.assertIn("(ended=z)", out)
+        self.assertIn("BISECT  target  140  CUT", out)
+        self.assertIn("(read by neither side)", out)
+        r["descent"] = []
+        p3 = v.evaluate(r)["phase3"]
+        self.assertEqual(p3["verdict"], "NOT RUN")
+        self.assertIn("no whole dwell: 1 cut ([140]), ended=z", p3["why"])
+
+    def test_a_cut_dwell_is_read_by_neither_side(self):
+        """A partial row observes nothing: dup 0 over the tens of ms before a cut is only no DUP yet (round 3)."""
+        r = report()
+        r["descent"].insert(-1, dict(target=146, kind="BISECT", fill_mean=120.0, underruns=0, overflow=0, dup=0, drop=0,
+                                     lost=0, starved=52, t_start=0, t_end=TB // 50, partial=1))
+        p = v.evaluate(r)["phase3"]
+        self.assertEqual((p["verdict"], p["interval"]), ("MEASURED", [144, 146]))
+        self.assertEqual(p["failing"].count(146), 0)
+
+    def test_an_underrun_alone_does_not_fail_a_depth(self):
+        """The frozen criterion was underruns > 0; §V27.14's is the correction's own failure."""
+        r = report()
+        for d in r["descent"]:
+            if d["target"] == 256:
+                d["underruns"] = 3                      # a burst of loss, the DUP still firing, nothing starved
+        self.assertNotIn(256, v.evaluate(r)["phase3"]["failing"])
+        for d in r["descent"]:
+            if d["target"] == 152:
+                d["starved"] = 5                        # starved but the DUP fired: the correction still holds
+        self.assertIn(152, v.evaluate(r)["phase3"]["holding"])
+
+    def test_the_hold_is_read_apart_and_never_says_held(self):
+        p = v.evaluate(report())["phase3"]
+        self.assertNotIn(144, p["holding"])
+        self.assertEqual(p["failing"].count(144), 1)    # the CONFIRM row is not a second bisection point
+        self.assertEqual((p["confirm"]["verdict"], p["confirm"]["target"], p["confirm"]["length_s"]), ("OBSERVED", 144, 47.0))
+        r = report()
+        r["descent"][-1].update(underruns=0, t_end=60 * TB)
+        c = v.evaluate(r)["phase3"]["confirm"]
+        self.assertEqual((c["verdict"], c["length_s"]), ("NOT OBSERVED", 60.0))
+        self.assertNotIn("held ", c["why"].replace('never "held"', ""))
+        self.assertIn('never "held"', c["why"])
+        r["descent"][-1].update(t_end=20 * TB, partial=1)
+        c = v.evaluate(r)["phase3"]["confirm"]
+        self.assertIn("the hold was cut", c["why"]); self.assertEqual(c["length_s"], 20.0)
 
     def test_a_descent_that_stops_at_the_step_only_brackets(self):
         r = report()
         r["descent"] = [d for d in r["descent"] if d["kind"] == "STEP"]
+        self.assertNotIn("confirm", v.evaluate(r)["phase3"])
         p = v.evaluate(r)["phase3"]
         self.assertEqual((p["verdict"], p["interval"], p["width"]), ("BRACKETED", [128, 160], 32))
 
-    def test_no_underrun_and_no_rows(self):
+    def test_no_failure_and_no_rows(self):
         r = report()
-        r["descent"] = [d for d in r["descent"] if d["underruns"] == 0]
-        self.assertEqual(v.evaluate(r)["phase3"]["verdict"], "NO UNDERRUN")
+        r["descent"] = [d for d in r["descent"] if not v.depth_fails(d) and d["kind"] != "CONFIRM"]
+        p = v.evaluate(r)["phase3"]
+        self.assertEqual(p["verdict"], "NOT REACHED")
+        self.assertIn("the correction held the level at every depth down to 146", p["why"])
         r["descent"] = []
         self.assertEqual(v.evaluate(r)["phase3"]["verdict"], "NOT RUN")
 
     def test_the_model_outside_the_interval_is_said(self):
         r = report()
         for d in r["descent"]:
-            d["underruns"] = 1 if d["target"] <= 192 else 0
+            fail = d["target"] <= 192
+            d.update(dup=0 if fail else 60, starved=10 if fail else 0)
         p = v.evaluate(r)["phase3"]
         self.assertEqual((p["interval"], p["model_inside"]), ([192, 224], False))
         self.assertIn("OUTSIDE", p["why"])
@@ -296,8 +385,10 @@ class ThePrintedVerdictCarriesEveryInput(unittest.TestCase):
                     "P(confirm | chance 1/2) 79/4096",
                     "switch  0 REAL 2048 ->  512", "answer LESS predicted LESS", "answer SAME predicted None",
                     "PHASE 2  MEASURED     3 settings; null TARGET 512..640", "PHASE 3  MEASURED",
-                    "the threshold lies in (144, 152], width 8; the model's 145 inside",
-                    "BISECT target  144  fill 126.0  underruns 1"):
+                    "the lowest depth the correction can hold lies in (144, 146], width 2", "the model's 145 inside",
+                    "PHASE 3 HOLD  OBSERVED", "an underrun at 144 within 47.0 s of holding it",
+                    "BISECT  target  144  FAILS fill 126.0  underruns 0  overflow 0  dup 0  starved 12",
+                    "CONFIRM target  144  -     fill 100.0  underruns 1"):
             self.assertIn(tok, out, tok)
 
 

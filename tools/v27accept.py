@@ -7,6 +7,9 @@ audio offset the cushion? `TARGET` is the only variable.
 
 FROZEN BEFORE THE IMAGE EXISTS, on synthetic reports only (tests/host/test_v27accept.py). §V27.0-§V27.11 as posted
 on #117; the amendment window closed with §V27.11. Nothing here is adjusted after data.
+§V27.14 (2026-09-24, before any run) re-froze PHASE 3's failure criterion and its width -- the frozen criterion
+`underruns > 0` could not fire inside a 6 s dwell at any visited depth (the READY queue drains in ~47 s) -- and
+added the confirmation hold; this file's phase_3 carries it, re-pinned as §V22 AMENDMENT 1 was.
 
 THE REPORT it reads (tools/v27report.py, written with the image) is a JSON with:
   cfg        deep, shallow, floor (samples: today's realisation of 0.500 / 0.125 / 0.09375 s), mute_chunks,
@@ -17,7 +20,8 @@ THE REPORT it reads (tools/v27report.py, written with the image) is a JSON with:
   switches   one per Phase 1 switch, in order: {seq, kind, from, to, t, discard, answer, t_answer}
              answer is "MORE", "LESS", "SAME" or null (never answered)
   nulling    one per confirmed Phase 2 setting: {seq, start, direction, steps, target, t}
-  descent    one per Phase 3 depth: {target, kind: "STEP"|"BISECT", fill_mean, underruns, overflow, dup, drop, lost}
+  descent    one per Phase 3 depth: {target, kind: "STEP"|"BISECT"|"CONFIRM", fill_mean, underruns, overflow, dup,
+             drop, lost, starved, t_start, t_end, partial}; CONFIRM is §V27.14's hold at the highest failing depth
   seconds    one per whole second of the session: {s, phase (1, 2 or 3; 0 before Phase 1), target, mute (bool),
              settling (bool), count (AUDIO blocks drained), fill (the second's mean fill), underruns, overflow};
              "settling" marks the seconds a transition's after-effects cover. THE ARMS ARE PHASE 1's SECONDS ONLY:
@@ -44,8 +48,18 @@ THE GATES, in §V27's words and numbers
         D 7..9  UNRESOLVED
   PHASE 2 (§V27.3, t4): fewer than 3 confirmed settings -> INCONCLUSIVE; else the null targets are REPORTED with
         their mean, min and max, in samples and seconds
-  PHASE 3 (§V27.11): the descent table; the interval (last holding depth, first failing depth] and, after the
-        bisection, its width; the predicted 145 inside it or not, DESCRIPTIVE
+  PHASE 3 (§V27.11, the criterion and the width re-frozen by §V27.14): a depth FAILS when, over its dwell,
+        dup == 0 AND starved > 0 -- the correction stopped holding the level (the DUP could not fire and the ring
+        could not give a WANTED chunk: `starved` is gbp_aplay's ring_gated over the dwell, never its starved_steps,
+        which also counts the wait after every chunk). A dwell cut before its end with dup == 0 observes nothing
+        (no DUP yet; the predicate is over the whole dwell) and is read by neither side; a cut dwell with dup > 0
+        has held (dup never decreases). It is NOT the
+        depth at which the audio fails: the underrun that follows is
+        inevitable but comes ~47 s later, longer than the dwell. The interval (highest failing, lowest holding]
+        is the lowest depth THE CORRECTION CAN HOLD; MEASURED when its width is <= 2, else BRACKETED; the
+        predicted 145 inside it or not, DESCRIPTIVE. The CONFIRM row (§V27.14 §4), the hold at the highest
+        failing depth, is read apart: an underrun in it -> the inevitability OBSERVED, with the hold's length;
+        none -> NOT OBSERVED, with the hold's length, never "held".
   The declaration (§V27.6): his words, recorded verbatim beside the counts; they gate nothing here.
 
 EVERY INPUT A GATE DEPENDS ON IS PRINTED (the requirement Issue #115 left: never only in the JSON).
@@ -63,6 +77,7 @@ P2_MIN_SETTINGS = 3
 M1_BELOW, M1_ABOVE = 256, 16               # [TARGET - 256, TARGET + 16]
 SEP_TOL = 256                              # DELTA-TARGET +/- 256
 DUP_FLOOR_MODEL = 145                      # the model §V27.11 asks Phase 3 to test: PUSHES + 1 + BAND
+P3_MEASURED_WIDTH = 2                      # §V27.14 §3: (144, 146] tests 145 to +/-1; §V27.11's 8 could not
 P_CONFIRMS = Fraction(79, 4096)            # P(D >= 10 | 12, 1/2)
 
 
@@ -181,25 +196,53 @@ def phase_2(report, unblinded, press_early, m1_ok):
     return out
 
 
+def depth_fails(row):
+    """§V27.14 §1: the correction stopped holding the level over the dwell."""
+    return row["dup"] == 0 and row["starved"] > 0
+
+
 def phase_3(report):
-    rows = report.get("descent", [])
-    holding = [r["target"] for r in rows if r["underruns"] == 0]
-    failing = [r["target"] for r in rows if r["underruns"] > 0]
-    out = {"depths": len(rows), "holding": holding, "failing": failing}
+    # a dwell cut before its end with dup == 0 is no observation: no DUP YET (review round 3: a cut 20 ms into
+    # 146 turned (144, 146] into a confident (146, 148]); with dup > 0 it has held (dup never decreases). The
+    # builder routes the former to descent_unfinished; this guard keeps a report built otherwise from bringing
+    # the defect back
+    rows = [r for r in report.get("descent", []) if r["kind"] != "CONFIRM" and not (r.get("partial") and r["dup"] == 0)]
+    holds = [r for r in report.get("descent", []) if r["kind"] == "CONFIRM"]
+    holding = [r["target"] for r in rows if not depth_fails(r)]
+    failing = [r["target"] for r in rows if depth_fails(r)]
+    unfinished = [r["target"] for r in report.get("descent_unfinished", [])]
+    ended = (report.get("phases") or {}).get("p3") or {}
+    out = {"depths": len(rows), "holding": holding, "failing": failing, "unfinished": unfinished,
+           "ended": ended.get("ended")}
     if not rows:
-        out.update(verdict="NOT RUN", why="no depth recorded")
+        out.update(verdict="NOT RUN", why=("no whole dwell: %d cut (%s), ended=%s -- the phase ran and observed nothing"
+                                           % (len(unfinished), unfinished, ended.get("ended")) if unfinished else
+                                           "no depth recorded"))
     elif not failing:
-        out.update(verdict="NO UNDERRUN", why="every depth held, down to %d" % min(holding))
+        out.update(verdict="NOT REACHED",
+                   why="no depth failed: the correction held the level at every depth down to %d; the edge lies "
+                       "below the descent" % min(holding))
     else:
-        lo = max(failing)                               # the deepest failing depth is the bracket's low end
+        lo = max(failing)                               # the highest failing depth is the bracket's low end
         hi = min(t for t in holding if t > lo) if any(t > lo for t in holding) else None
         width = (hi - lo) if hi is not None else None
         out.update(interval=[lo, hi], width=width, model=DUP_FLOOR_MODEL,
                    model_inside=(hi is not None and lo < DUP_FLOOR_MODEL <= hi),
-                   verdict="MEASURED" if width is not None and width <= 8 else "BRACKETED",
-                   why="first underrun below %s; the threshold lies in (%d, %s], width %s%s"
-                       % (hi, lo, hi, width, "; the model's 145 %s" % ("inside" if hi is not None and
-                                                                        lo < DUP_FLOOR_MODEL <= hi else "OUTSIDE")))
+                   verdict="MEASURED" if width is not None and width <= P3_MEASURED_WIDTH else "BRACKETED",
+                   why="the lowest depth the correction can hold lies in (%d, %s], width %s -- NOT the lowest depth "
+                       "at which audio survives%s"
+                       % (lo, hi, width, "; the model's 145 %s" % ("inside" if hi is not None and
+                                                                  lo < DUP_FLOOR_MODEL <= hi else "OUTSIDE")))
+    if holds:
+        h = holds[-1]
+        length_s = (h["t_end"] - h["t_start"]) / float(report.get("tb_hz", 40500000))
+        out["confirm"] = {"target": h["target"], "underruns": h["underruns"], "length_s": round(length_s, 3),
+                          "partial": bool(h.get("partial"))}
+        out["confirm"]["verdict"] = "OBSERVED" if h["underruns"] > 0 else "NOT OBSERVED"
+        out["confirm"]["why"] = ("an underrun at %d within %.1f s of holding it: the inevitability observed"
+                                 % (h["target"], length_s) if h["underruns"] > 0 else
+                                 "no underrun at %d in %.1f s of holding it%s -- not observed, never \"held\""
+                                 % (h["target"], length_s, " (the hold was cut)" if h.get("partial") else ""))
     return out
 
 
@@ -259,11 +302,19 @@ def main(argv):
         print("      setting %d  start %d  %s  %d steps -> %d" % (x["seq"], x["start"], x["direction"], x["steps"],
                                                                   x["target"]))
     p3 = r["phase3"]
-    print("  PHASE 3  %-12s %s" % (p3["verdict"], p3["why"]))
+    print("  PHASE 3  %-12s %s  (ended=%s)" % (p3["verdict"], p3["why"], p3.get("ended")))
+    if "confirm" in p3:
+        print("  PHASE 3 HOLD  %-12s %s" % (p3["confirm"]["verdict"], p3["confirm"]["why"]))
     for d in report.get("descent", []):
-        print("      %-6s target %4d  fill %s  underruns %d  overflow %d  dup %d  drop %d  lost %d"
+        print("      %-7s target %4d  %-5s fill %s  underruns %d  overflow %d  dup %d  starved %d  drop %d  lost %d"
+              % (d["kind"], d["target"], "-" if d["kind"] == "CONFIRM" else
+                 ("CUT" if d.get("partial") and d["dup"] == 0 else ("FAILS" if depth_fails(d) else "holds")),
+                 "-" if d.get("fill_mean") is None else "%.1f" % d["fill_mean"],
+                 d["underruns"], d["overflow"], d["dup"], d["starved"], d["drop"], d["lost"]))
+    for d in report.get("descent_unfinished", []):
+        print("      %-7s target %4d  CUT   fill %s  underruns %d  overflow %d  dup %d  starved %d  (read by neither side)"
               % (d["kind"], d["target"], "-" if d.get("fill_mean") is None else "%.1f" % d["fill_mean"],
-                 d["underruns"], d["overflow"], d["dup"], d["drop"], d["lost"]))
+                 d["underruns"], d["overflow"], d["dup"], d["starved"]))
     if decl is not None:
         print("  DECLARATION (his words, gating nothing): %s" % json.dumps(decl, ensure_ascii=False, sort_keys=True))
     if "--json" in argv:
