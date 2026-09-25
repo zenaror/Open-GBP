@@ -26,8 +26,9 @@ what the Issue asked for and the gate does not print.
    loss rates with a 90 % interval from resampling whole dwells within each arm (BOOT draws, seed BOOT_SEED -- a
    dwell, not a second, is the unit, because the arms alternate by dwell and seconds inside one are not independent);
    and, for an arm with no underrun in N non-mute seconds, the rule-of-three bound 3/N per second (95 %, Poisson).
-   WITH SIX DWELLS AN ARM THE PERCENTILE INTERVAL IS ANTI-CONSERVATIVE (Issue #120's review: under equal rates with
-   RUN 43's dwell exposures it excluded 1 in about 15 % of simulations, nominal 10 %). So the EXACT PERMUTATION of the
+   WITH SIX DWELLS AN ARM THE PERCENTILE INTERVAL IS ANTI-CONSERVATIVE: under equal rates, with RUN 43's dwell
+   exposures and Poisson losses, it excluded 1 in 63 of 400 simulations, 15.75 % against the nominal 10 %
+   (tests/host/test_v27derive.py, TheIntervalsCoverage). So the EXACT PERMUTATION of the
    arm labels over the dwells is printed beside it: every way of choosing which dwells are SHALLOW (C(12, 6) = 924
    for RUN 43), the one-sided p (a ratio at or below the observed) and the two-sided p (|log ratio| at or above).
    No instrument runs in Phase 1 (the raw window closes in Phase 0), so GBP-HW-338's three ways coincide: the whole

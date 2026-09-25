@@ -23,8 +23,10 @@ block rate; the counts in slices are not.
    would show as two steps of the SAME sign, one slice apart. `neighbours` counts, beside every transition, the
    steps at the adjacent internal boundaries (those not themselves transitions) of the same sign and of the
    opposite sign, by size (1, 2, >= 3 bits). Equal counts of both signs, and no transitions one slice apart, mean
-   the changes do not split slices: the level is constant inside each slice, so the SOURCE quantises its output to
-   a grid that coincides with the slices.
+   the changes do not split slices. TWO MODELS give that, and the capture cannot tell them apart: a source that
+   quantises its output on a grid coinciding with the slices, read by slices that integrate; or a source changing at
+   continuous instants, read by a slice that does NOT integrate over its interval (one read per slice). Which holds
+   is U-GBP-012's physical half, what a slice's count integrates over.
 
 2. THE HOLD PERIOD AND THE MISSING BLOCKS, fitted together. A game mixes at a fixed rate and holds each sample, so
    its level changes recur every P slices. Seen through the drain, a block the drain never delivered shifts every
@@ -45,11 +47,11 @@ block rate; the counts in slices are not.
    means the placement leaves nothing to explain beyond that quantisation. Its sampling spread comes from R_DRAWS
    simulated sets of as many uniform phases (seed R_SEED). sigma_2sd is the rms displacement of the slice
    boundaries, in slices, that would pull R down to R - 2 sd (Gaussian displacement) UNDER THE CONTINUOUS MODEL:
-   changes at continuous instants, each caught by the next (displaced) slice boundary. It is NOT a bound on the
-   slices when the source itself quantises its changes to a grid that coincides with the slices (see `neighbours`):
-   then a displacement inside the grid's margin changes neither which slice reads a change nor R, and nothing
-   below one slice is tested. RUN 43's changes do not split slices, so for RUN 43 sigma_2sd bounds nothing
-   (Issue #120's review; kept as the tool's number, never as a record's bound).
+   changes at continuous instants, each read at its (displaced) slice. It is NOT a bound on the slices under the
+   other model of `neighbours`, a source quantised on the slice grid: a displacement inside the grid's margin then
+   changes no slice's count, and nothing below one slice is tested (tests/host/test_u012_game.py,
+   WhetherChangesSplitSlices, builds both). RUN 43 does not decide between the models, so sigma_2sd is kept as the
+   tool's number and is never a record's bound.
    THE TIMING CROSS-CHECK is independent of the content: (t_last - t_first) x 4 096 / tb_hz - (n - 1) is how many
    block periods the header's own instants hold beyond the stored blocks. The two estimates are printed side by
    side; neither is adjusted to the other.

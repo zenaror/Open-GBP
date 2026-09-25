@@ -87,6 +87,69 @@ def integrating_stream(n_blocks, P, phase, seed, levels=(700, 1100)):
     return [vals[i * 16:(i + 1) * 16] for i in range(n_blocks)]
 
 
+def change_times(n_blocks, P, phase, seed, levels=(700, 1100)):
+    """A held sample stream: the instants of its changes and the level after each (lv[0] before the first)."""
+    rng = random.Random(seed)
+    total = n_blocks * 16
+    times, lv, j = [], [rng.randint(*levels)], 0
+    while phase + j * P < total + 2:
+        new = rng.randint(*levels)
+        while abs(new - lv[-1]) < 20:
+            new = rng.randint(*levels)
+        times.append(phase + j * P)
+        lv.append(new)
+        j += 1
+    return times, lv
+
+
+def level_at(times, lv, t):
+    k = 0
+    lo, hi = 0, len(times)
+    while lo < hi:                                   # the number of changes at or before t
+        mid = (lo + hi) // 2
+        if times[mid] <= t:
+            lo = mid + 1
+        else:
+            hi = mid
+    k = lo
+    return lv[k]
+
+
+# a fixed displacement of each slice boundary within a block: rms 0.194 slice, at most 0.29
+DISPLACE = [0.0, 0.21, -0.12, 0.29, -0.25, 0.08, -0.19, 0.24, -0.28, 0.15, -0.05, 0.27, -0.22, 0.11, -0.16, 0.19]
+
+
+def point_read(n_blocks, P, phase, seed, displace=None, at=0.5, noise=1):
+    """A source changing at CONTINUOUS instants, each slice reading its level ONCE, at x + at (+ its displacement)."""
+    times, lv = change_times(n_blocks, P, phase, seed)
+    rng = random.Random(seed + 1)
+    out = []
+    for x in range(n_blocks * 16):
+        d = displace[x % 16] if displace else 0.0
+        out.append(level_at(times, lv, x + at + d) + rng.randint(-noise, noise))
+    return [out[k * 16:(k + 1) * 16] for k in range(n_blocks)]
+
+
+def pwm_frames(n_blocks, P, phase, seed, displace=None, noise=1, full=2048):
+    """A source QUANTISED to one-slice frames (a change at t shows from frame ceil(t)), each frame a PWM pulse at its
+    start of duty level/full, read by slices that INTEGRATE a one-slice window [x + d, x + 1 + d)."""
+    times, lv = change_times(n_blocks, P, phase, seed)
+    rng = random.Random(seed + 1)
+    duty = [level_at(times, lv, float(k)) / float(full) for k in range(n_blocks * 16 + 2)]
+    out = []
+    for x in range(n_blocks * 16):
+        d = displace[x % 16] if displace else 0.0
+        a, b = x + d, x + 1 + d
+        ones = 0.0
+        for k in (x - 1, x, x + 1):
+            if k < 0:
+                continue
+            lo, hi = max(a, k), min(b, k + duty[k])
+            ones += max(0.0, hi - lo)
+        out.append(int(round(ones * full)) + rng.randint(-noise, noise))
+    return [out[k * 16:(k + 1) * 16] for k in range(n_blocks)]
+
+
 def drop(S, missing):
     """Remove the blocks at the given ORIGINAL indices."""
     return [s for k, s in enumerate(S) if k not in set(missing)]
@@ -154,6 +217,33 @@ class WhetherChangesSplitSlices(unittest.TestCase):
         same, opp = nb["steps"]["3+"]
         self.assertGreater(same, 10 * max(opp, 1))
         self.assertGreater(nb["adjacent_transitions"], 0)
+
+    def fit(self, S):
+        TR = u012game.transitions(S)
+        f = u012game.solve(TR)
+        n = sum(len(t) for t in TR)
+        _, sd = u012game.bound_spread(n, f["P"], draws=300)
+        return f, sd, u012game.neighbours(S, TR)
+
+    def test_two_models_give_the_capture_signature(self):
+        """A source quantised on the slice grid read by integrating slices, and a source changing at continuous
+        instants read once per slice: both leave no split slice and a coherence on the bound. The capture cannot
+        tell them apart; which holds is U-GBP-012's physical half."""
+        for S in (pwm_frames(640, P_TRUE, 0.37, 7), point_read(640, P_TRUE, 0.37, 7)):
+            f, sd, nb = self.fit(S)
+            self.assertEqual(nb["adjacent_transitions"], 0)
+            self.assertEqual(nb["steps"]["3+"], [0, 0])
+            self.assertLess(abs(f["R"] - u012game.quantisation_bound(f["P"])), 2 * sd)
+
+    def test_displaced_slices_are_invisible_on_the_grid_and_visible_to_a_point_read(self):
+        """The same displacement (DISPLACE, rms 0.194 slice) of the slice boundaries: under the quantised-grid model no
+        slice's count changes, so nothing below one slice is tested; under the point-read model the coherence falls
+        well below the bound, which is where tools/u012game.py's sigma_2sd would apply."""
+        rms = math.sqrt(sum(d * d for d in DISPLACE) / 16.0)
+        self.assertAlmostEqual(rms, 0.1942, places=3)
+        self.assertEqual(pwm_frames(640, P_TRUE, 0.37, 7, DISPLACE), pwm_frames(640, P_TRUE, 0.37, 7))
+        f, sd, _ = self.fit(point_read(640, P_TRUE, 0.37, 7, DISPLACE))
+        self.assertLess(f["R"], u012game.quantisation_bound(f["P"]) - 4 * sd)
 
     def test_the_chi_square_tail(self):
         self.assertAlmostEqual(u012game.chi2_cdf_even(2.0, 2), 1 - math.exp(-1.0), places=12)

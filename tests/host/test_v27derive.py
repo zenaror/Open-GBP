@@ -59,6 +59,43 @@ class OnAConstruction(unittest.TestCase):
         self.assertGreaterEqual(a[0][1], r)
 
 
+class TheIntervalsCoverage(unittest.TestCase):
+    """Issue #120's second review: with six dwells a side the percentile interval is ANTI-CONSERVATIVE. Measured here,
+    so the record cites a test and not a scratch script: equal rates (Poisson, the run's own pooled Phase 1 rate, 803
+    blocks over 120 s), RUN 43's own dwell exposures, SIMS simulations of the tool's interval at DRAWS resamples
+    each, all seeded. It excludes 1 in more than the nominal 10 % of them."""
+    SIMS, DRAWS, LAM = 400, 1000, 803 / 120.0
+
+    @staticmethod
+    def poisson(rng, lam):
+        import math
+        L, k, p = math.exp(-lam), 0, 1.0
+        while True:
+            p *= rng.random()
+            if p <= L:
+                return k
+            k += 1
+
+    def test_the_interval_excludes_1_too_often_under_equal_rates(self):
+        import random
+        m = R.get()["m4"]
+        deep = [d["live"] for d in m["dwells"] if d["target"] == 2048]
+        shallow = [d["live"] for d in m["dwells"] if d["target"] == 512]
+        self.assertEqual((deep, shallow), ([11, 10, 8, 3, 16, 1], [14, 10, 26, 3, 7, 11]))
+        rng = random.Random(1200)
+        excluded = 0
+        for i in range(self.SIMS):
+            dd = [{"lost": sum(self.poisson(rng, self.LAM) for _ in range(n)), "live": n} for n in deep]
+            ss = [{"lost": sum(self.poisson(rng, self.LAM) for _ in range(n)), "live": n} for n in shallow]
+            (lo, hi), _ = v27derive.interval(dd, ss, "lost", "live", draws=self.DRAWS, seed=i)
+            excluded += hi < 1.0 or lo > 1.0
+        self.assertGreater(excluded, 0.10 * self.SIMS)
+        self.assertEqual(excluded, EXCLUDED)
+
+
+EXCLUDED = 63                   # of 400: 15.75 %, against the nominal 10 %
+
+
 class RUN43(unittest.TestCase):
     def test_the_timeline(self):
         t = R.get()["timeline"]
