@@ -10216,6 +10216,8 @@ of 400 simulations, 15.75 % against its nominal 10 % (`tests/host/test_v27derive
 is why its upper end sits below 1 while the exact test does not clear 0.05. The adoption reduces the
 audio-behind-video offset and does not remove it (`U-GBP-046` stays open), and nothing shallower is adopted. The default was 0.5 s (2048 samples) in every build before #121; each executed image reproduces at its own commit (`HARDWARE_TESTS.md` §V23.9), and `sync-0001`, which set its own levels through `gbp_aplay_set_target` (2048 / 512 / 384, literals in `gbp_async.c`) and so ran 0.125 s and 0.094 s in RUN 43, keeps them.
 
+**2026-09-25 (GitHub Issue #123), on top: the adopted cushion is PROVISIONAL.** It stands, and it is re-validated on the final audio path: the decode it was measured on is being rebuilt at the native rate (`GBP-HW-347`, `GBP-HW-348`), and a finer decode costs processing, which is latency (the Operator, #123).
+
 ---
 
 ### GBP-HW-344 — The video state model's event store fills at about ONE EVENT PER FRAME of a changing picture: 65.61/s in RUN 43, so its 16 384 records last 249.7 s of capture, against the ~4 events/s the images' own comment assumes; the same rate was already FACT in `GBP-HW-282` three days before `sync-0001` was built — FACT (measured in RUN 43; RUN 21, RUN 22 and RUN 42 give the same order)
@@ -10400,3 +10402,277 @@ resolution                the window, 652 block periods, 6.28 Hz; the longest ga
   like `GBP-HW-340`'s needs a known reference, and a game provides none.
 - **The game's audio in general.** 0.16 s, one scene, the first 0.16 s after the origin.
 - **What the Operator hears as muffled.** No listening test was made on these bytes.
+
+---
+
+### GBP-HW-347 — an AUDIO slice read as eight stride-8 streams: streams 1 = 3 and 5 = 7 in every slice, each exactly ONE run of ones; every even stream a superset of its odd partner; the slice's one-bit count = 4 wA + 4 wB + the even streams' extras — in every slice of RUN 33, RUN 34 and RUN 43's raw window — FACT (counted, three captures); that a stream bit is a moment in time, and that A and B are the two output sides, are HYPOTHESES
+
+GitHub Issue #123; `tools/v123frame.py`, `tests/host/test_v123frame.py`. A slice is 32 groups of
+8 bytes; stream j is byte j of every group (bytes j, j + 8, …, j + 248), read most significant bit
+first: 256 bits. Call A the stream 1 = 3 and B the stream 5 = 7; wA and wB their one-bits; the
+extras the even streams' bits their odd partner lacks.
+
+```text
+                                  RUN 33 (tones)   RUN 34 (tones)   RUN 43 (game, raw window)
+slices                                20 480           20 480           10 240
+stream 1 == 3 and 5 == 7              20 480           20 480           10 240
+each odd stream one run of ones       20 480           20 480           10 240
+even stream a superset of its odd     20 480           20 480           10 240
+count == 4 wA + 4 wB + extras         20 480           20 480           10 240
+the run of ones starts at bit           6 (all)          7 (all)          7 (all)
+A == B                                20 480           20 480            1 267
+wA                                    98..158          98..158          83..135
+extras per slice                      <= 3             <= 3             <= 10
+even stream 0 > one run of ones        8 429            8 978           10 240
+even streams 2 / 4 / 6 > one run      15 / 12 / 7      0 / 0 / 0     459 / 1 574 / 172
+flat blocks, (wA, wB) constant      1 039 of 1 039   1 217 of 1 217      0 of 1
+control windows (wA, wB)             128,128 (all)    128,128 (all)        -
+side's share of (mid, side) AC        0                0                0.0446
+```
+
+**What it establishes.**
+- **FACT, counted.** The records' "1-bit PWM pulse, the sample its width in bits" (`GBP-HW-304`) has
+  an exact form: two streams, each one pulse per slice, and a slice's width per stream is an integer
+  0..256. The "8-byte transitions" (`GBP-HW-287`, `GBP-HW-296`) are group 0, where each pulse starts.
+- **FACT, counted.** The count today's decode reads is 4 wA + 4 wB + extras. In the tones,
+  `U-GBP-043`'s 1–3-bit spread between the slices of a flat block lives in the extras: in all 1 039 and
+  1 217 flat blocks of RUN 33 and RUN 34 (spread ≤ 3, `tools/v18block.py`), A and B are constant across
+  the sixteen slices. **Not in RUN 43:** its one flat block holds A + B at 225 while A and B trade a bit,
+  (111, 114) → (112, 113) → (113, 112), which a count cannot see.
+- **FACT, counted: A and B are single runs in every slice of the three captures; the even streams
+  are not always.** Some extras sit away from the pulse: stream 0 holds more than one run of ones in
+  8 429, 8 978 and 10 240 slices of the three captures. Streams 2, 4 and 6 do in 15 / 12 / 7 slices of
+  RUN 33, none of RUN 34, and 459 / 1 574 / 172 of RUN 43. Where the extras sit, and what they carry,
+  is UNKNOWN.
+- **HYPOTHESIS: A and B are the AGB's two output sides.** The tone ROMs route channel 1 to both
+  (SOUNDCNT_L 0x1177, `stimulus/agb-sweep/source/main.c`), and there A == B in every slice; the
+  game's differ in 87.6 % of slices. Which is left is UNKNOWN (`U-GBP-047`). If it holds, today's
+  decode is a MONO SUM of both sides, by construction: the 4.46 % of the game's (mid, side) AC energy
+  in the side is what it cannot keep.
+- **HYPOTHESIS: a stream bit is one AGB cycle.** 256 bits × 16 slices × 4 096 blocks/s = 2^24 per
+  stream, the AGB's clock. It rests on uniform slices (`U-GBP-041`). No timing measures below a slice.
+
+**The code it touches, named (RESEARCH_METHOD.md, 2026-09-25).** `src/audio/gbp_adec.c`'s
+`gbp_adec_popcount()` counts all 4 096 bytes: the sum over the block's sixteen slices of
+4 wA + 4 wB + extras, 64 (wA + wB) plus sixteen slices' extras when A and B hold. It is
+**knowingly unchanged** by #123, a host-only design round. A decode per slice per stream is the
+build's, after §V28's freeze, and reaches the console validated on these bytes and in Dolphin first
+(the Orchestrator's condition on #123).
+
+**What it does NOT establish.** The time order or the polarity inside a slice. What the extras
+carry. Whether the structure holds in GB/GBC mode, at another SOUNDBIAS resolution, or beyond these
+three captures.
+
+---
+
+### GBP-HW-348 — the level's update grid differs by capture: the tones change (wA, wB) only between slice pairs (241 + 63 changes, 0 inside a pair), the game inside 15.8 % of its pairs (703 changes on even boundaries, 808 on odd) — FACT (counted); read as 32 768 against 65 536 updates a second only under uniform slices; GBATEK's default 512-cycle FRAME is contradicted by the tones' one pulse per 256 bytes, while its default 32 768 Hz RATE agrees with their pair grid — LEAD against FACT, unresolved
+
+GitHub Issue #123; `tools/v123frame.py`. A pair is slices (2p, 2p + 1) of a block.
+
+```text
+                                   RUN 33     RUN 34     RUN 43
+pairs with equal (wA, wB)          10 240     10 240     4 312 of 5 120
+changes on even / odd boundaries   241 / 0    63 / 0     703 / 808
+grid                               512-cycle  512-cycle  256-cycle
+```
+
+**What it establishes.**
+- **FACT, counted.** The tones follow a two-slice grid, and their 304 changes are `GBP-HW-315`'s. The
+  game follows a one-slice grid, as `GBP-HW-345` found from the counts.
+- **FACT, arithmetic.** A decode per PAIR loses nothing at the tones (both slices are equal) and
+  averages two samples at the game. **A decode per slice per stream is exact at both.** #118's
+  recommendation, "keep all sixteen slices" (`GBP-HW-340`), stands.
+- **The grid is readable from the content.** The share of pairs whose two slices differ is 0 at the
+  tones and 15.8 % at the game. A still source shows neither and needs neither.
+- **LEAD against FACT, for the frame only.** GBATEK describes the default SOUNDBIAS (0200h) as 9 bits
+  at 32 768 Hz, "N low bits, followed by 512-N high bits". The tone ROMs never write SOUNDBIAS (no write
+  to 0x088 in their source or history), yet every one of their slices holds one pulse per 256. Why is
+  `U-GBP-048`. The tones' widths 128 ± 2V are all even, which would hide a 9-bit sample split across two
+  frames.
+- **LEAD agreeing with FACT, for the rate.** The tones' level changes only between pairs, which is
+  what GBATEK's default 32 768 Hz rate predicts under uniform slices. The restart of each tone window
+  follows a polled VBlank, and a frame is 280 896 cycles, 320 mod 512, so the phase against a 256-cycle
+  grid varies from press to press (`stimulus/agb-sweep/source/main.c`), and every tone's half-period is
+  a multiple of 512 cycles, so a window's parity is set at its restart. INFERENCE: a source updating
+  every 256 cycles would step on odd slices in about half of the eight windows, and all eight even has
+  odds of about 1 in 256. The windows step at slices 8, 12, 10, 14 and 14, 10, 6, 14 (`GBP-HW-315`):
+  none on an odd one. The game is not evidence against the default: by the MP2K lead below it set
+  another resolution.
+- **LEAD agreeing with a HYPOTHESIS.** Nintendo's MP2K/m4a sound driver (the pokeemerald
+  decompilation, pret @5eff786, `src/m4a.c:373`) sets resolution 1, 65 536 Hz. Its 10 512 Hz mode
+  programs a timer of 280896 / 176 = 1 596 cycles, `GBP-HW-345`'s fitted hold. Whether Yoshi's Island
+  uses that driver is not verified.
+
+**Correcting #123's framing on the record.** The Issue took the pair as the native sample from
+GBATEK's default frame. The Orchestrator withdrew it on these counts: *"the conclusion held only for
+the tones, and I generalised it from documentation to a case the documentation does not cover"*
+(#123).
+
+---
+
+### GBP-HW-349 — "at most one correction per chunk" has no recorded reason: §V22.4 decides that corrections are COUNTED events, not how many; the limit first appears as an image choice (`84bec72`, #92; §V22.10 argues only the band); the frozen L2 verifier accepts any number; and `gbp_aplay.c` credited it to §V22.4 — FACT (records and code); relaxed behind a runtime parameter whose default is the old rule, spread and bounded by the band's edge, host-tested — FACT for the code
+
+GitHub Issue #123; `src/audio/gbp_aplay.[ch]`, `tests/unit/test_gbp_aplay.c`.
+
+**The finding.**
+- §V22.4 (`HARDWARE_TESTS.md`) decides a counted DUP/DROP instead of a ratio servo, for L2's
+  exactness and so a correction is visible in the record. It states no per-chunk limit.
+- §V22.10 lists "Corrections: at most one per chunk, in a band of ±16 samples" among what the image
+  chose, and argues only the band's width.
+- `tools/v22accept.py:173-194` accepts any set of DUP and DROP indices.
+- A chunk is 128 pushes however many corrections it takes, so the phase is 0 at every boundary
+  regardless.
+- `gbp_aplay.c`'s comment read *"§V22.4: at most one counted correction per chunk"*. **A rule with a
+  citation nobody followed back is indistinguishable from a rule with a reason**, and this one set the
+  correction ceiling that #118 found binding at a finer decode (RESEARCH_METHOD.md, 2026-09-25).
+
+**What was built (a library change; the default is every earlier build's).**
+`gbp_aplay_set_corrections(p, k)` sets k corrections a chunk. It accepts a k that divides 128 and is
+no larger than 64: a DUP is two pushes, so a sub-block must hold two.
+
+**The chunk-start gate stays 128 + 1 at every k.** The decisions stop DROPping at the band's upper
+edge. A chunk started at s0 therefore takes at most 128 + (s0 − target − 16) samples, which s0 holds
+because target + 16 ≥ 128, or at most 128 when it starts inside the band. That is arithmetic. The
+third review's randomised run found no failed take without a mid-chunk discard.
+
+The default is 1. k is read once, at a chunk's start, where the gate was paid, and applies only while
+playing: before the AI starts, a prefill chunk takes at most one correction, since the ring filling up
+is not drift.
+
+Up to k corrections a chunk are SPREAD over k sub-blocks of 128 / k pushes. **Each sub-block is
+decided at its first push, by a corrected call, or not at all.** A sub-block whose first push an
+uncorrected call made is forgone.
+
+**Every decision is in the chunk's start frame:** the chunk-start level less the chunk's own net
+corrections so far (`cur_s0 + cur_pushes − cur_taken`), against the chunk-start target. So:
+- a chunk corrects at most as far as the band's edge;
+- samples that arrive while it is produced are not read as surplus;
+- a `set_target` or a discard made while it is produced acts from the next chunk.
+
+At k = 1 all of this is the chunk-start count and target, every earlier build's decision. Only a
+corrected call decides, and a chunk started uncorrected never corrects (`gbp_atrans`'s rule). The
+comment is corrected.
+
+**Two rules and one fix withdrawn before the commit, on three review rounds of #123.**
+
+The first rule decided each sub-block against the ring plus what the chunk had taken, and had three
+defects:
+- a matched feed arriving during production read as surplus. With 2-push calls, k = 8 made 1 201
+  corrections in 200 chunks where none was due (k = 16: 2 401; k = 64: 9 607);
+- a chunk never saw its own corrections, so one sample outside the band took all k. k = 64 cycled
+  529 → 465 → 529, 64 corrections a chunk for ever;
+- sub-blocks passed by uncorrected calls were caught up one a push, so DUPs landed on adjacent samples.
+
+It also accepted k = 128, whose one-push sub-blocks cannot hold a DUP (64 DUPs, not 128).
+
+The second rule fixed those with a latched chunk-start level. The second round found four more
+defects:
+- it still read the target live. A shallowing landing on a chunk under way (`set_target` plus a
+  discard, `gbp_atrans`'s UNMUTED) DROPped in every remaining sub-block. In the review's probe,
+  2 048 → 512 at k = 64, that was 60 DROPs and a next chunk 44 under the band. In the unit test's
+  1 024 → 512, it was 104 corrections over the chunk and the 20 after;
+- it admitted a gate above the band, k = 32 or 64 at a target near 128. Under a matched feed every
+  chunk then DROPped, and the AI underran (the review's simulation: k = 32 at target 128, 9 088 DROPs
+  and 69 underruns in 20 s);
+- it decided a passed sub-block late, once, which could still put a DUP beside the next sub-block's;
+- its prefill chunks took k DUPs each, where 64 would double every sample of the first chunks.
+
+The third round found the second rule's gate fix still wrong. It had clamped the target, or refused
+k, to keep the gate 128 + k at or below the band's upper edge. At that edge a matched feed delivered in
+batches still started every chunk over it, and each such chunk DROPped: k = 16 at target 128 underran.
+The review's simulation, with deliveries every 300 µs, gave 1 707 DROPs in 60 s, and the AI underran. The
+gate had never needed k. It is back at 128 + 1, and the clamp and the refusal are gone.
+
+Each defect of the three is now a test that fails on the version it was found in.
+
+**The host tests (FACT for the code).**
+- **k = 1 is unchanged.** Every existing test passes unchanged. A randomised differential run gives
+  the same hash of every chunk, hand-off and counter as `gbp_aplay.c` before #123, and a k = 2 mutant
+  does not. The run was 300 seeds × 20 000 operations of feed, discard, the three producers, hand-off,
+  process, drop-front, target, mute and step size, with L2 armed in a fifth of the seeds. The harness
+  is not versioned: it is a check made before the commit.
+- **Spread, at k = 1..64.** There is one correction per sub-block, each a whole sub-block after the
+  one before: DUPs 128 / k − 1 samples apart, DROPs 128 / k + 1. DUPs pop 128 − k samples and DROPs
+  128 + k, for 1 000 frames and an accumulator back at 0.
+- **Nothing to correct.** At the level with nothing fed, k = 8 corrects nothing. With a matched feed
+  arriving between 2-push calls, k = 1, 8, 16 and 64 correct nothing in 200 chunks.
+- **The band's edge.** One sample above the band under a balanced feed, k = 1, 8 and 64 each DROP
+  once, and every later chunk starts at the edge, 528.
+- **A deficit.** A deficit of 3 samples a chunk leaves one correction a chunk at a chunk-start fill of
+  227, far under the band, and four at 493, 3 under its lower edge: three DUPs a chunk repay it.
+- **k moved mid-chunk.** Moving k from 1 to 16 leaves that chunk one DROP and 129 samples, and the
+  next takes sixteen. Read live instead, the same move gave 16 DROPs and 144 samples to a chunk its
+  gate had admitted for 129.
+- **A chunk resumed after uncorrected calls.** It decides only at sub-block starts: k = 8 resumed at
+  push 56 takes five DUPs. At every step and resume point the review named (k 8 step 2 at 30, step 5
+  at 95; k 16 step 3 at 15; k 4 step 7 at 63), every DUP falls at a sub-block's first push.
+- **A chunk keeps its frame.** Dropping the level from 1 024 to 512 mid-chunk takes no correction in
+  that chunk and none in the 20 after, at k = 1, 8 and 64.
+- **A chunk finishes from the gate at any k.** At the lowest target, 128, a matched feed in batches of
+  about 8 and 15 samples takes no correction and never underruns, at k = 1, 16 and 64.
+- **Before playback.** A prefill chunk takes one DUP at k = 8, and eight once playing.
+
+**The code it touches, named.** `GBP_APLAY_KEEP_CAP` and `GBP_APLAY_EVENTS_CAP` size L2's record for
+one DROP a chunk and 1 024 corrections. With k > 1 a longer record marks itself overflowed, which is
+what it is built to do. They are **knowingly unchanged**, since no image sets k > 1. An image that arms
+L2 with k > 1 sizes them for its k (the header says so).
+
+**What it does NOT establish.**
+- The capacity a native rate needs on hardware.
+- Whether k corrections at 30.5 or 15.3 µs each are inaudible.
+- **A feed whose batches spread the chunk-start level past the band.** k = 1 already corrects every such
+  excursion back to the edge, and k > 1 corrects each up to k samples. In the review's simulation of a
+  matched feed in 16.683 ms batches, over 60 s, k = 1 made 509 DROPs and 506 DUPs, and k = 8 made 3 899
+  and 3 888. Batches of 7.8 or 11.7 ms made none at any k. Whether a feed spreads the level that far on
+  hardware, and whether k > 1 then needs a persistence rule, is open.
+
+That k = 8 at 32 768 Hz or 16 at 65 536 Hz slews as far as one at 4 096 Hz today (7.82 ms/s) is
+arithmetic (`tools/v123chain.py`). No image sets k > 1.
+
+---
+
+### GBP-HW-350 — what a native decode would cost the chain: production today measured on hardware at 119.1 ticks a push, 16 995 a chunk, 1.34 % of the CPU (RUN 40); a stereo decode per slice at 65 536 Hz modelled at 4.0 % (16 taps) to 6.1 % (32 taps), and — at today's call length, so as not to lengthen the drain's stretches — a longer refill, which leaves AHEAD 1 a margin of 17.3 / 10.5 ms on the nominal refill but 11.1 / 1.3 ms on the largest refill RUN 40 measured, scaled: at 32 taps AHEAD 1 is not a safe rung — FACT (the measured anchors); INFERENCE (everything native)
+
+GitHub Issue #123; `tools/v123chain.py`, `tests/host/test_v123chain.py`.
+
+```text
+measured (RUN 40, floorless)   non-first call median 1 021 ticks (8 pushes), 1 974 (16): 119.1 a push, 68.0 a call;
+                               a chunk of 8-push calls 16 995 ticks = 1.34 % of the CPU
+instruction model              the Gekko disassembly (-O2 -mcpu=750): 9 a tap, 27 a frame, 46 / 28 a push with /
+                               without an output; 15 a take and 8 a frame's store assumed; today's chunk 15 567 ticks
+                               modelled against 16 995 measured: calibration 1.092, applied to every estimate
+native, 65 536 Hz, stereo      16 taps: 51 140 ticks a chunk, 4.04 % of the CPU, 3.0 x today
+                               32 taps: 77 341 ticks, 6.12 %, 4.6 x today
+at today's call length         16 taps: 51 calls, a nominal refill of ~13.9 ms, AHEAD 1 / 2 margin 17.3 / 48.6 ms
+(nominal: one call a pump run  32 taps: 76 calls, ~20.7 ms, 10.5 / 41.8 ms          (today: 16 calls, ~4.4 ms)
+at RUN 43's 3 676 a second)
+on RUN 40's largest refill     16 taps: scaled ~20.1 ms, margin 11.1 / 42.4 ms; additive ~15.8 ms, 15.5 / 46.7 ms
+                               32 taps: scaled ~29.9 ms, margin 1.3 / 32.5 ms; additive ~22.6 ms, 8.7 / 39.9 ms
+                               today: scaled ~6.3 ms, additive ~6.2 ms; tools/v28ahead.py's AHEAD 1 margin 25.1 ms
+                               (6.12 ms against a nominal 4.23: x 1.447, + 1.89 ms)
+the decode's own instructions  16 384 a block today (the popcount, 4 a byte); 4 096 per slice per stream
+the filter, 65 536 -> 32 000   16 taps: 63.4 dB rejection folding into 0..5 256 Hz, 0.122 ms delay (today 1.953 ms)
+values a second                4 096 today; 131 072 stereo per slice
+```
+
+**What it establishes.**
+- **FACT.** Today's production cost on hardware, per call, push and chunk (RUN 40's floorless sample).
+- **INFERENCE, calibrated.** The native stereo decode's production is 3–4.6 times today's, 4–6 % of
+  the CPU. Values a second grow 32 times; the cost does not, because production scales with the
+  1 000 output frames a chunk, the taps and the channels, and the decode reads a quarter of the bytes.
+- **INFERENCE: the price is margin, not only CPU.** A production call is a stretch the drain cannot run
+  in, and longer stretches lose more blocks (`GBP-HW-332`). Held to today's call length, the work
+  becomes more calls a chunk and a longer refill, which is AHEAD's margin (`tools/v28ahead.py`).
+- **INFERENCE, on the measured basis: at 32 taps in stereo, AHEAD 1 is not a safe rung.** The nominal
+  refill is one call a pump run with no gap. RUN 40 measured more: a median of 4.86 ms and a largest of
+  6.12 ms against its nominal 4.23 ms. `tools/v28ahead.py`'s margins use the largest. On that basis
+  AHEAD 1 keeps 1.3 ms at 32 taps if the excess grows with the refill, and 8.7 ms if it is a fixed
+  tail; one run cannot say which. At 16 taps it keeps 11.1 to 15.5 ms, and AHEAD 2 keeps at least
+  32.5 ms at either.
+- **The latency.** The resampler's delay falls from 1.953 ms to 0.122–0.244 ms.
+
+**What it does NOT establish.** The per-input cost on hardware, which the one measured slope cannot
+separate from the taps' (the model's split is the disassembly's). Cache traffic. The drain slot's cost
+of the decode itself, never measured (`GBP-HW-327`). Whether the pump slot has the room: RUN 43 left
+about a third of its pump calls idle (INFERENCE from STREAMOWN). The first native image must time
+production per push and the decode per block.

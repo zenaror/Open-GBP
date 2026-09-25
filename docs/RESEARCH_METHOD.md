@@ -506,6 +506,25 @@ on the interval's.
   other, and the conclusion the primary supports.
 - Cite the calibration by its test, not by an argument. That is the difference between a convention and a finding.
 
+### A consequence is not finished until the code it touches is named, and a citation is not a reason until it is followed back (2026-09-25, GitHub Issue #123)
+
+Two failures of one family, both in the gap between the record and the code. Every artefact involved is individually
+correct, so no review of any one of them catches it.
+
+**The orphaned consequence** (the Orchestrator's, #123). `GBP-HW-315` (#82) recorded, hours after #81 wrote the
+decoder, that a block carries where in it a level change fell — at least 8× the resolution the one-value-per-block
+decode keeps. It was recorded correctly, in the right file, with the right status, and nobody went back to the
+decoder for two days. **When a new claim contradicts an assumption that existing code rests on, the claim is not
+finished until that code is named in it: changed, or recorded as knowingly unchanged with the reason.** `GBP-HW-347`
+is the first entry written under this rule.
+
+**The citation nobody followed back** (#123, `GBP-HW-349`). `gbp_aplay.c` read *"§V22.4: at most one counted
+correction per chunk"*. §V22.4 does not impose it: it decides that corrections are counted events, not how many. The
+rule was an image choice with no recorded reason, and it set the correction ceiling that #118 found binding at a finer
+decode. **A rule with a citation nobody followed back is indistinguishable from a rule with a reason.** Before a rule
+constrains a design, follow its citation to the text. If the text does not state the rule, record that, say where the
+rule actually came from, and correct the citation.
+
 ## Hardware test requests
 
 A hardware test request should be small and deterministic.
