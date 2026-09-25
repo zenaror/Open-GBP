@@ -411,7 +411,9 @@ class ThePlumbing(unittest.TestCase):
         self.assertEqual((rows["20"][1], rows["20"][2]), ("game", "gbp-audio-game"))
         # Issue #113: the second attempt took the next one, frozen before its export (§V26.9)
         self.assertEqual((rows["21"][1], rows["21"][2]), ("game2", "gbp-audio-game2"))
-        self.assertNotIn("22", rows)
+        # Issue #117: the latency round's image took the next one, frozen before its export (§V27.17)
+        self.assertEqual((rows["22"][1], rows["22"][2]), ("sync", "gbp-audio-sync"))
+        self.assertNotIn("23", rows)
 
     def test_what_is_staged_is_the_image_this_checkpoint_built(self):
         """The slot's bytes, when it is staged in this checkout. The DOL's own

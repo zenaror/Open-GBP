@@ -56,4 +56,5 @@
 19	split	gbp-audio-split	gbp-audio-split.dol	gbp-audio-split	build	1	2afe3aa606e6a6682b8e1fbfc758bade253195047e9b5f9624aadfa1ea467d2d
 20	game	gbp-audio-game	gbp-audio-game.dol	gbp-audio-game	build	1	2e73a39d931ee161df1144b4bfb01b358e21acb3ea5ceb3ede9a366378b76725
 21	game2	gbp-audio-game2	gbp-audio-game2.dol	gbp-audio-game2	build	1	ba8ab59598398849dd4757cb4823cab7ed355107f1dc92cbf2295cd5440e12fa
+22	sync	gbp-audio-sync	gbp-audio-sync.dol	gbp-audio-sync	build	1	ab902f6fb3789d66c3ace4d92be9cdc5fc300399705eb97a4ae185235feb0941
 80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1	-
