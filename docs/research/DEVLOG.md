@@ -16860,3 +16860,9 @@ At 32 768 Hz k = 8, and at 65 536 Hz k = 16, give today's 7.82 ms/s of slew.
 - **The next hardware run carries:** `agb-route`'s one-side and SOUNDBIAS tests, route-bias0200 with the click
   announced, and the §V28 validation ladder on the final decode.
 - **#125:** the reference implementations, narrow. The gbi/gbihf differential and the constant hits come first.
+
+**2026-09-25 (GitHub Issue #124), on top: after the push of `7a49035`.**
+- `RESEARCH_METHOD.md` gains "a claim about the record's contents requires reading the record". The Orchestrator
+  named it after two claims of absence, "idle" and "no reverse engineering", each contradicted by the record.
+- `GBP-HW-351` states on top that the shipped-object check found a representability defect, not a precision one, and
+  that the reversal condition holds in both bands.

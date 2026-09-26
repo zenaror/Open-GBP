@@ -525,6 +525,27 @@ decode. **A rule with a citation nobody followed back is indistinguishable from 
 constrains a design, follow its citation to the text. If the text does not state the rule, record that, say where the
 rule actually came from, and correct the citation.
 
+### A claim about the record's contents requires reading the record (2026-09-25, GitHub Issue #124)
+
+**An assertion that something has NOT been done needs the same evidence as an assertion that it has.** In a project
+whose record predates the session reading it, "I have not seen it" is not a finding. Before a claim about what the
+record lacks, read the record and cite what was read:
+- the files;
+- the git log;
+- the local commit graph, not only the remote.
+
+The Orchestrator made two such claims in one session, each one command away from its answer, and named the rule
+himself:
+- **"The Executor is idle."** It came from three signals that all meant the opposite. The remote lags by the length
+  of the gate by design, and two local commits sat ahead of it.
+- **"No reverse engineering has been done."** `EVIDENCE.md`'s own preamble records the 2026-09-13 static pass of the
+  Start-up Disc and of GBI (`tools/gciso.py`, `tools/gbi_unpack.py`, `tools/ghidra/*.java`). The true, narrower
+  claim was that no pass had been brought to bear on the audio questions, and whether that one touched audio was
+  unchecked.
+
+It is the same family as the orphaned consequence and the citation followed back above: each is a statement about
+what the record says, made without reading it.
+
 ## Hardware test requests
 
 A hardware test request should be small and deterministic.
