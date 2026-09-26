@@ -310,7 +310,7 @@ $(INITIRQ_OUT)/isr-audit.txt: $(INITIRQ_OUT)/hsp_backend_irq.objdump.txt tools/i
 	$(PYTHON) tools/isr_audit.py $< --report $@
 
 
-.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin drain-audit drain-dolphin aout-audit aout-dolphin aout-dolphin-play smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone stimulus-sweep swiss swiss-check all shell clean live-audit live-dolphin trace-audit trace-dolphin split-audit split-dolphin game-audit game-dolphin game2-audit game2-dolphin sync-audit sync-dolphin
+.PHONY: help env-check build inspect test-host test-unit test-python test stimulus stimulus-coord stimulus-coord2 color-dolphin color-audit stream-audit stream-dolphin stream-dolphin-gbp play-audit play-dolphin awin-audit awin-dolphin drain-audit drain-dolphin aout-audit aout-dolphin aout-dolphin-play smoke-dolphin probe-dolphin init-dolphin initirq-dolphin initirq-audit initirqa-dolphin initirqa-audit initirqb-dolphin initirqb-audit initirq4-dolphin initirq4-audit avsvc-dolphin avsvc-audit video-dolphin video-audit vstate-dolphin vstate-audit prehandler-wait stimulus-indexed stimulus-tone stimulus-sweep stimulus-route swiss swiss-check all shell clean live-audit live-dolphin trace-audit trace-dolphin split-audit split-dolphin game-audit game-dolphin game2-audit game2-dolphin sync-audit sync-dolphin
 
 help:
 	@sed -n '2,35p' $(firstword $(MAKEFILE_LIST))
@@ -665,6 +665,16 @@ STIM_SWEEP_ROM := build/stimulus/agb-sweep/agb-sweep.gba
 stimulus-sweep:
 	$(IN_CONTAINER) sh -c 'set -e; export DEVKITARM=$$DEVKITPRO/devkitARM; make --no-print-directory -C stimulus/agb-sweep'
 	@$(PYTHON) tools/gbahdr.py show $(STIM_SWEEP_ROM)
+
+# GBP-AUDIO-013 — `agb-route` (GitHub Issue #124, Round C): agb-sweep's stimulus with its LEFT/RIGHT routing as a
+# BUILD MODE and SOUNDBIAS read three times (at the ROM's entry before crt0, at main, after init). Four images, one
+# value apart: route-both (agb-sweep's APU writes byte for byte), route-left, route-right, and route-bias0200
+# (route-both with SOUNDBIAS written to its documented default after the entry read). Driven on the host by
+# tests/host/test_agb_route.py. NOT PHYSICALLY EXECUTED; no run is authorised. stimulus/agb-sweep is NOT touched.
+STIM_ROUTE_DIR := build/stimulus/agb-route
+stimulus-route:
+	$(IN_CONTAINER) sh -c 'set -e; export DEVKITARM=$$DEVKITPRO/devkitARM; make --no-print-directory -C stimulus/agb-route'
+	@for v in both left right bias0200; do $(PYTHON) tools/gbahdr.py show $(STIM_ROUTE_DIR)/$$v/agb-route-$$v.gba || exit 1; done
 
 # GBP-VIDEO-003 colour probe under Dolphin. AUXILIARY ONLY: Dolphin's GBPlayer model is
 # not physical truth and CANNOT say anything about colour mapping (§54 of the
