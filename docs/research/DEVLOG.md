@@ -16762,3 +16762,101 @@ At 32 768 Hz k = 8, and at 65 536 Hz k = 16, give today's 7.82 ms/s of slew.
   - a PSG channel routed to one side only (`U-GBP-047`).
 - **The native decoder is built after those decisions.** It reaches the console already validated on the archived bytes and in Dolphin, never as a bet. The Operator agreed that the muffling and latency tests may share one hardware run.
 - **§V28's freeze** then re-sizes AHEAD against the longer refill, on the measured basis: at 32 taps in stereo, AHEAD 1 is not a safe rung.
+
+## 2026-09-25 — Issue #124: Rounds A and C — 16 taps NOT SETTLED by a criterion registered before the data, then SETTLED at Kaiser β 4.0 by a registered sweep, the per-phase correction decisive; k = rate / 4 096; the sum before the resampler; `agb-route` built (NOT run)
+
+**Goal.**
+- **Round A:** the measurements that decide the native decoder.
+- **Round C:** the stimulus ROM that reads SOUNDBIAS and routes one side.
+- **Round B**, the decoder itself, waits on A. No image, no staging, no hardware.
+
+**Two corrections to #123's decisions, on the record** (the Orchestrator's, #124).
+- **The correction unit is one DECODED sample.** k = 8 at 65 536 Hz would give 3.910 ms/s against RUN 38's need of
+  7.09, which under-provisions the corrector by half. The form adopted is k = rate / 4 096, which keeps today's
+  envelope (244.1 µs) and capacity (7.819 ms/s) at once, and cuts one correction's peak distortion to a sixteenth
+  (15.259 µs).
+- **The two-halves reading of A and B predicts |wA − wB| ≤ 1, not A == B.** The measurement refutes it on the right
+  predicate: 6 788 of RUN 43's 10 240 slices differ by 2 to 10.
+
+  The Orchestrator named the class as his, the third instance: *derive the prediction from the reading and write it
+  down BEFORE looking at the data*, on host measurements as on hardware ones.
+
+**Decision: the sum happens BEFORE the resampler** (the Orchestrator's).
+- AHEAD 1 keeps 21.0 ms in the worst case, against today's 25.1.
+- Stereo later is an architecture change that costs AHEAD 1's safety: 21.0 → 11.1 ms. That is recorded in advance
+  (`GBP-HW-350`).
+
+**The tap measurement, pre-registered** (`GBP-HW-351`).
+- **The first rule** was committed and pushed at `10fa60a` before any capture was read. 16 taps are **NOT SETTLED**:
+  RUN 33's tones in [0, 12 000] Hz sit at 1.275 / 1.223 × the source's quantisation floor, and every other cell is
+  under it. The rule is one-directional: above the floor means UNKNOWN, not "it matters".
+
+  The Orchestrator named the stake. The failing content is square-wave PSG, which is the whole of GB/GBC audio
+  (Phase 7, next on the roadmap).
+- **The model was corrected before the β sweep**, disclosed before its commit. The chain's table is normalised PER
+  PHASE. Whole-sum kernels turn the signal's ~256 DC into a 256 Hz pattern: 0.030 steps at β 5.65 and 0.557 at β 2.0
+  for one filter on its own, and 0.015 between 16 and 32 taps at β 5.65.
+  Both normalisations are reported for every β, and only the per-phase figures decide. The correction does not rescue
+  the first verdict.
+- **The β sweep** was registered at `b5588e7` and `50a0c1a`, pushed before it ran. Per-phase kernels decide:
+  - **β 4.0 passes** (worst cell 0.630 × floor) and is chosen; β 5.0 also passes (0.981); every other β fails.
+  - **Under whole-sum kernels none passes** (β 4.0 at 1.207), so the correction is DECISIVE. It is accepted on its
+    independent ground, the shipped table's exact per-phase sum, and both columns are recorded.
+  - **The 32-tap choice, reported although the fallback did not fire:** β 7.86 (0.063 against a 128-tap β 10
+    reference, and 0.071 for β 5.65).
+  - **The object that runs** is β 4.0 as a [125][16] Q15 table, with phase 0's 17th tap dropped and quantised as
+    `tools/gen_aresamp.py` does. It is SETTLED at a worst cell of 0.628. The rounding error alone is ≤ 0.0047 of the
+    floor, and the dropped tap costs ≤ 0.032.
+  - **β 4.0 and β 5.0 both pass, and the minimax rule picks 4.0.** The trade is between bands. β 4.0 is the grid's
+    best in [0, 12 000] Hz, where the PSG harmonics sit. In the game band it is 6 to 12 times β 5.65's (per-phase),
+    though still under the floor.
+  - **The reversal condition:** if §V28 shows AHEAD 1 with margin to spare, 32 taps at β 7.86, with ten times the
+    headroom, cost 5.1 ms of it.
+- **The adopted-table property is now a test.** Every committed resampler table has every phase summing to exactly
+  one (`tests/host/test_resampler_tables.py`). A table that did not would put the DC artefact into the runtime.
+
+**Round C: `agb-route`** (`GBP-HW-352`, `stimulus/agb-route/`).
+- **Four images, one value apart:** route-both, which is `agb-sweep`'s APU writes byte for byte; route-left;
+  route-right; and route-bias0200, which writes SOUNDBIAS = 0x0200 after the entry read (the Orchestrator's fourth
+  image).
+- **SOUNDBIAS is read three times, E, M and I:**
+  - E, before crt0, by a stub that `tools/gbaentry.py` points the header's entry branch at;
+  - M, at main;
+  - I, after init.
+- **Shown on the first screen** as hex digits and bit cells.
+- **devkitARM's crt0 never touches palette RAM or 0x04000088.** That is a disassembly finding with the map's
+  addresses, and it is tested.
+- **The prediction is written before any run** (`U-GBP-048`): route-both's E reads resolution 0. The flash cart's
+  menu runs before the ROM, so E cannot separate the GBP from the BIOS or the menu.
+- **The one-side prediction is at the rest width** (`U-GBP-047`): under stereo, one stream pins within noise of 128.
+- **A test outwitted by the toolchain.** The assembler turned `ldr r1, =0x0200` into `mov r1, #0x200`, and the stub
+  check failed loudly. Rule: check the semantic effect, or enumerate every legal encoding (the Orchestrator's
+  refinement, from the round's coordination).
+- **The review before the commit found 19 items.** They were fixed before the commit:
+  - the representable table;
+  - the game-band comparison, which had mixed normalisations;
+  - the route bars' colour, which hid read-back mark 0;
+  - the stub, which was missing from the disassembly record;
+  - `.DELETE_ON_ERROR`;
+  - the table test's discovery, which is now by declaration under `src/`;
+  - U-GBP-048's full outcome map;
+  - the recorded ROM hashes;
+  - the wording.
+
+**Also.**
+- `corr_forgone` is counted in `gbp_aplay`, with its unit test, and the k = 1 differential is unchanged.
+- `tools/v123frame.py` counts |wA − wB|.
+
+**Tests.**
+- `tests/host/test_v124taps.py`: the constructions, the first rule's result, the sweep's.
+- `tests/host/test_agb_route.py`.
+- `tests/host/test_resampler_tables.py`.
+- `tests/host/test_v124_records.py`.
+- `tests/unit/test_gbp_aplay.c`: corr_forgone.
+- The gate figure is on #124, taken after the last commit.
+
+**Next.**
+- **Round B**, the native decoder, to the decisions above. It needs its own opening.
+- **The next hardware run carries:** `agb-route`'s one-side and SOUNDBIAS tests, route-bias0200 with the click
+  announced, and the §V28 validation ladder on the final decode.
+- **#125:** the reference implementations, narrow. The gbi/gbihf differential and the constant hits come first.
