@@ -1008,6 +1008,42 @@ static void test_before_playback_a_chunk_corrects_at_most_once(void)
     eqi(produce_all(&p, &d) >= 0 && p.dup == 1u + 8u, 1, "playing: eight");
 }
 
+static void forgone_case(struct gbp_aplay *p, struct gbp_adec *d, uint32_t k)
+{
+    gbp_adec_init(d, ring, GBP_APLAY_RING);
+    gbp_aplay_init(p, pool, silence, keep, events);
+    eqi(p->corr_forgone, 0, "zero after init");
+    eqi(gbp_aplay_set_corrections(p, k), 0, "k set");
+    p->playing = 1u;
+    give(d, GBP_APLAY_TARGET - GBP_APLAY_BAND - 200u, 5);         /* under the band: every decision would correct */
+}
+
+static void test_forgone_corrections_are_counted(void)
+{
+    /* Issue #124: corr_forgone counts the sub-blocks of a chunk STARTED corrected that no corrected call decided. */
+    static struct gbp_aplay p;
+    struct gbp_adec d;
+    int b, c;
+    forgone_case(&p, &d, 8u);
+    (void)gbp_aplay_produce(&p, &d);                                   /* sub-block 0 decided */
+    for (c = 0; c < 6; c++) (void)gbp_aplay_produce_uncorrected(&p, &d);  /* first pushes of 1..3 passed */
+    for (b = -1, c = 0; c < 64 && b < 0; c++) b = gbp_aplay_produce(&p, &d);
+    eqi(b >= 0 && p.corr_forgone == 3u, 1, "k 8, resumed at push 56: sub-blocks 1, 2 and 3 forgone");
+    eqi(p.dup, 5, "and the five decided ones corrected");
+    forgone_case(&p, &d, 8u);
+    (void)gbp_aplay_produce(&p, &d);
+    for (b = -1, c = 0; c < 64 && b < 0; c++) b = gbp_aplay_produce_uncorrected(&p, &d);
+    eqi(b >= 0 && p.corr_forgone == 7u, 1, "k 8, finished uncorrected: sub-blocks 1..7 forgone");
+    forgone_case(&p, &d, 8u);
+    eqi(produce_all(&p, &d) >= 0 && p.corr_forgone == 0u, 1, "k 8, corrected calls only: none forgone");
+    for (b = -1, c = 0; c < 64 && b < 0; c++) b = gbp_aplay_produce_uncorrected(&p, &d);
+    eqi(b >= 0 && p.corr_forgone == 0u, 1, "a chunk started uncorrected: none forgone");
+    forgone_case(&p, &d, 1u);
+    (void)gbp_aplay_produce(&p, &d);
+    for (b = -1, c = 0; c < 64 && b < 0; c++) b = gbp_aplay_produce_uncorrected(&p, &d);
+    eqi(b >= 0 && p.corr_forgone == 0u, 1, "k 1, finished uncorrected: zero by construction");
+}
+
 int main(void)
 {
     test_crc_is_zlibs();
@@ -1039,6 +1075,7 @@ int main(void)
     test_a_chunk_keeps_its_frame();
     test_a_chunk_finishes_from_the_gate_at_any_k();
     test_before_playback_a_chunk_corrects_at_most_once();
+    test_forgone_corrections_are_counted();
     printf("test_gbp_aplay: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

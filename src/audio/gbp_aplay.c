@@ -214,6 +214,7 @@ static int produce_impl(struct gbp_aplay *p, struct gbp_adec *d, int uncorrected
             p->cur_corr = (fill < p->cur_target - GBP_APLAY_BAND) ? GBP_APLAY_EV_DUP :
                           (fill > p->cur_target + GBP_APLAY_BAND) ? GBP_APLAY_EV_DROP : 0u;
             p->cur_corr_done = 0u;
+            p->corr_forgone += p->cur_pushes / (GBP_APLAY_PUSHES / p->cur_k) - p->cur_sub;  /* passed, undecided */
             p->cur_sub = p->cur_pushes / (GBP_APLAY_PUSHES / p->cur_k) + 1u;
         }
         if (!take(p, d, &x)) { p->starved_steps++; return -1; }   /* cannot happen: checked at the start */
@@ -237,6 +238,7 @@ static int produce_impl(struct gbp_aplay *p, struct gbp_adec *d, int uncorrected
     if (p->cur_pushes < GBP_APLAY_PUSHES) return -1;
     {
         const int done = p->cur;
+        if (!p->cur_uncorrected) p->corr_forgone += p->cur_k - p->cur_sub;   /* Issue #124: the rest, undecided */
         p->cur = -1;
         p->produced++;
         if (p->l2.keeping) {
