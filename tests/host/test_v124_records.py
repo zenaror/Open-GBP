@@ -80,6 +80,15 @@ class TheAmendments(unittest.TestCase):
         self.assertIn("The click is a one-directional partial readout", b)
 
 
+class TheMethodRule(unittest.TestCase):
+    def test_a_claim_about_the_record_requires_reading_it(self):
+        m = base.now(base.METHOD)
+        i = m.index("### A claim about the record's contents requires reading the record (2026-09-25, GitHub Issue #124)")
+        self.assertLess(i, m.index("\n## Hardware test requests"))
+        self.assertIn("An assertion that something has NOT been done needs the same evidence as an assertion that it has",
+                      base.flat(m[i:]))
+
+
 class TheFiguresAreTheTools(unittest.TestCase):
     def test_gbp_hw_351s_first_rule_ratios(self):
         b = base.flat(entry(base.now(EV), "GBP-HW-351")[1])

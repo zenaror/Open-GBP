@@ -10849,6 +10849,16 @@ RUN 43                  0.081 / 0.100   0.208 / 0.185
   `tests/host/test_resampler_tables.py` requires the latter of any two-dimensional integer table under `src/`, and
   requires the table to be listed as non-resampler otherwise.
 
+**2026-09-25 (GitHub Issue #124), on top: two points the Orchestrator asked to have stated.**
+- **The shipped-object check found a REPRESENTABILITY defect, not a precision one.** The ideal kernel is not an object
+  a [125][16] table can hold. No reasoning about rounding would have surfaced that, because the problem was shape.
+  That is the reason to measure the shipped object rather than argue about it.
+- **The reversal condition holds in BOTH bands.** If §V28's validation run shows AHEAD 1 with margin to spare, 32 taps
+  at beta 7.86 are better in both:
+  - in [0, 12 000] Hz, ten times the headroom;
+  - in the game band, where 16 taps at beta 4.0 sit 0.54–0.58 of the floor from the 32-tap designs, 32 taps at beta
+    7.86 sit 0.008 from the reference (RUN 33).
+
 ---
 
 ### GBP-HW-352 — `agb-route`, the stimulus for `U-GBP-047` and `U-GBP-048`: `agb-sweep`'s APU writes byte for byte in route-both, one value apart in route-left, route-right and route-bias0200, and SOUNDBIAS read at the ROM's entry before crt0, at main and after init; devkitARM's crt0 writes nothing in palette RAM and never 0x04000088 — FACT (host tests and the disassembly of the linked images); NOT PHYSICALLY EXECUTED
