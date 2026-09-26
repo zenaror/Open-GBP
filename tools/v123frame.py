@@ -20,7 +20,7 @@ WHAT IT COUNTS, per capture:
   rise        the first one-bit of stream 1: its position, per slice
   identity    the slice's one-bit count == 4 wA + 4 wB + extras, with wA, wB the ones in A and B and the extras the
               even-stream bits their odd partner lacks
-  A vs B      how often A == B
+  A vs B      how often A == B; how often |wA - wB| <= 1 (what a value split into two halves allows), and the largest
   grid        (wA, wB) equal inside each slice pair (2p, 2p + 1)? where A or B changes between adjacent slices of a
               block, on an EVEN boundary (between pairs) or an ODD one (inside a pair)
   rest        (wA, wB) in the captures' control windows (awin sidecars only: they mark them)
@@ -111,6 +111,7 @@ def analyse_capture(kind, path):
            "rise": {}, "pair_equal": 0, "pair_n": 0, "change_even": 0, "change_odd": 0,
            "rest": {}, "extras_max": 0, "wa_min": 256, "wa_max": 0,
            "even_multi_run": {"0": 0, "2": 0, "4": 0, "6": 0}, "flat": 0, "flat_ab_constant": 0,
+           "ab_within_1": 0, "ab_max": 0,
            "_m": [0.0, 0.0], "_s": [0.0, 0.0]}
     for wkind, blocks in load(kind, path):
         for blk in blocks:
@@ -129,6 +130,8 @@ def analyse_capture(kind, path):
                     out["even_multi_run"][e] += int(n > 1)
                 out["wa_min"] = min(out["wa_min"], r["wa"])
                 out["wa_max"] = max(out["wa_max"], r["wa"])
+                out["ab_within_1"] += int(abs(r["wa"] - r["wb"]) <= 1)
+                out["ab_max"] = max(out["ab_max"], abs(r["wa"] - r["wb"]))
                 mid, side = (r["wa"] + r["wb"]) / 2.0, (r["wa"] - r["wb"]) / 2.0
                 out["_m"][0] += mid
                 out["_m"][1] += mid * mid
@@ -179,6 +182,7 @@ def main(argv):
                                                                   else "none (no AC energy)"))
         print("   even streams with more than one run of ones, slices: %s; flat blocks %d, (wA, wB) constant in %d"
               % (r["even_multi_run"], r["flat"], r["flat_ab_constant"]))
+        print("   |wA - wB| <= 1 in %d slices; the largest %d" % (r["ab_within_1"], r["ab_max"]))
         if r["rest"]:
             print("   control windows (wA,wB): %s" % r["rest"])
     if "--json" in argv:

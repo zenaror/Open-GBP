@@ -185,5 +185,72 @@ class TheArchive(unittest.TestCase):
         self.assertFalse(all(v124taps.settled(r) for r in self.r.values()))
 
 
+class TheSweep(unittest.TestCase):
+    """The beta sweep, run after b5588e7..50a0c1a were pushed: per-phase kernels decide, beta 4.0 and 5.0 pass, the
+    registered choice is 4.0; under whole-sum kernels none passes, so the correction is DECISIVE for the pass. The
+    tones carry every worst cell; RUN 43 is checked where present."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.r = v124taps.sweep(dict((n, v124taps.tone_runs(n)) for n in ("RUN33", "RUN34")))
+
+    def test_which_betas_pass(self):
+        b = self.r["betas"]
+        self.assertEqual([k for k in sorted(b, key=float) if b[k]["settled"]], ["4.00", "5.00"])
+        self.assertEqual(dict((k, round(v["worst_ratio"], 3)) for k, v in b.items()),
+                         {"0.00": 11.344, "1.00": 8.75, "2.00": 4.542, "3.00": 1.847, "4.00": 0.63, "5.00": 0.981,
+                          "5.65": 1.271, "6.50": 1.631, "7.86": 2.168})
+
+    def test_the_registered_choice_is_beta_4(self):
+        self.assertEqual((self.r["chosen_beta"], round(self.r["chosen_worst"], 3)), (4.0, 0.63))
+        self.assertFalse(self.r["fallback_32_taps"])
+
+    def test_under_whole_sum_kernels_nothing_passes(self):
+        w = dict((k, v["whole"]) for k, v in self.r["betas"].items())
+        self.assertFalse(any(v["settled"] for v in w.values()))
+        self.assertEqual((round(w["4.00"]["worst_ratio"], 3), round(w["5.00"]["worst_ratio"], 3)), (1.207, 1.006))
+
+    def test_the_32_tap_choice_as_registered(self):
+        t = self.r["thirty_two"]
+        self.assertEqual(t["chosen"], "N32_b7.86")
+        self.assertEqual(dict((k, round(c["worst_ratio"], 3)) for k, c in t["candidates"].items()),
+                         {"N32_b5.65": 0.071, "N32_b7.86": 0.063})
+
+    def test_run43_passes_at_beta_4_and_5(self):
+        kind, path = v124taps.v123frame.CAPTURES["RUN43"]
+        if not os.path.isfile(path):
+            self.skipTest("the RUN 43 raw window is kept in captures/local/ only (tools/v124taps.py)")
+        g = v124taps.game_runs()
+        for beta, want in ((4.0, {"5256": (0.081, 0.1), "12000": (0.208, 0.185)}),
+                           (5.0, {"5256": (0.007, 0.022), "12000": (0.354, 0.327)})):
+            r = v124taps.measure(g, (16, beta), per_phase=True)
+            self.assertTrue(v124taps.settled(r), beta)
+            self.assertEqual(dict((B, tuple(round(b["diff"][k]["ratio_to_floor"], 3) for k in ("N32_b5.65", "N32_b7.86")))
+                                  for B, b in r["bands"].items()), want, beta)
+
+
+class TheShippedObject(unittest.TestCase):
+    """What runs is a [125][16] Q15 table, not the ideal kernel: beta 4.0 with phase 0's t = +8 tap dropped (a 16-tap
+    table cannot hold it), quantised as tools/gen_aresamp.py quantises, by the same rule. SETTLED; the rounding error
+    alone is under 0.005 of the floor and the dropped tap's effect under 0.035, on every capture."""
+
+    def test_every_phase_sums_to_exactly_32768_with_at_most_16_taps(self):
+        self.assertEqual(set(v124taps.q15_phase_sums(16, 4.0)), {32768})
+        self.assertLessEqual(max(v124taps.phase_tap_counts(16, 4.0)), 16)
+        self.assertEqual(max(v124taps.phase_tap_counts(16, 4.0, representable=False)), 17)   # the prototype's phase 0
+        h, c = v124taps.kernel(16, 4.0, per_phase=True, q15=True, representable=True)
+        y = v124taps.trimmed(v124taps.resample([256.0] * 2048, h, c))
+        self.assertLess(max(abs(v - 256.0) for v in y), 1e-9)             # a DC passes exactly
+
+    def test_the_representable_table_passes_on_the_tones(self):
+        r = v124taps.shipped(dict((n, v124taps.tone_runs(n)) for n in ("RUN33", "RUN34")))
+        self.assertTrue(r["settled"])
+        self.assertTrue(r["phase_sums_exact"])
+        self.assertEqual(round(r["worst_ratio"], 3), 0.628)
+        for n in r["captures"]:
+            self.assertLess(max(r["rounding"][n].values()), 0.005, n)
+            self.assertLess(max(r["dropped_tap"][n].values()), 0.035, n)
+
+
 if __name__ == "__main__":
     unittest.main()
