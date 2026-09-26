@@ -64,8 +64,14 @@ CRITERION IS UNCHANGED:
   the test      each beta against BOTH 32-tap candidates, both bands, every capture present -- THE SAME settled() rule;
   the choice    among the betas that pass, the one whose worst cell (largest RMS / floor over captures, bands and
                 references) is smallest; ties to the larger beta (more stopband);
-  the fallback  if NO beta passes, the default is 32 taps -- the Orchestrator's pre-commitment on #124. Which of the
-                two 32-tap betas is not decided by this sweep; both candidates' figures go to #124.
+  the fallback  if NO beta passes, the default is 32 taps -- the Orchestrator's pre-commitment on #124.
+  both norms    every beta is ALSO measured with whole-sum kernels and reported beside, descriptive: the per-phase
+                figures decide, and a reader sees what the correction bought each candidate. It does not rescue the
+                first rule's NOT SETTLED: the DC term it removes is <= 0.015 steps RMS against RUN 33's 0.223.
+  the 32 taps   which 32-tap beta, by the criterion rather than by taste: each 32-tap candidate against a LONG
+                REFERENCE, REFERENCE taps at its beta, per-phase normalised -- RMS_B(y_32 - y_ref) / floor, both bands,
+                every capture; the smaller worst cell is the 32-tap default, ties to the larger beta. Reported whether
+                or not the fallback fires.
 
 Standard library only; reads the captures, writes the JSON it is asked to.
 """
@@ -89,6 +95,7 @@ SEG = 256                                   # outputs a periodogram segment: 8 m
 GUARD = 40                                  # outputs dropped at each end of a run (32 taps reach 16 inputs = 7.8 outputs)
 FOLD_HZ = 16000.0                           # the output's Nyquist: content above it can only alias
 BETA_GRID = (0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.65, 6.5, 7.86)   # the sweep's 16-tap betas, registered before it ran
+REFERENCE = (128, 10.0)                     # the long reference for the 32-tap choice: 4x the taps, ~100 dB sidelobes
 
 
 def floor_rms(band_hz):
@@ -222,19 +229,49 @@ def choose(by_beta):
     return beta, w
 
 
-def sweep(runs_by_capture, grid=BETA_GRID):
-    """Every beta of the grid at 16 taps against both 32-tap candidates, on every capture given ({name: runs})."""
+def diff_ratios(runs, a, b, per_phase=True):
+    """{band: RMS_B(y_a - y_b) / floor(B)} over the runs, for designs a and b (taps, beta)."""
+    ka, kb = kernel(a[0], a[1], per_phase), kernel(b[0], b[1], per_phase)
+    acc = dict((B, Acc()) for B in BANDS)
+    for x in runs:
+        d = trimmed([p - q for p, q in zip(resample(x, *ka), resample(x, *kb))])
+        for B in BANDS:
+            acc[B].add(d, B)
+    return dict(("%d" % B, acc[B].rms() / floor_rms(B)) for B in BANDS)
+
+
+def choose_32(runs_by_capture, reference=REFERENCE):
+    """The registered 32-tap choice: each candidate against the long reference; the smaller worst cell, ties to the
+    larger beta."""
     names = sorted(runs_by_capture)
-    by_beta = dict((beta, [measure(runs_by_capture[n], (16, beta), per_phase=True) for n in names]) for beta in grid)
-    out = {"grid": list(grid), "captures": names, "betas": {}}
-    for beta, rs in by_beta.items():
-        out["betas"]["%.2f" % beta] = {
-            "settled": all(settled(r) for r in rs), "worst_ratio": worst_ratio(rs),
+    cands = {}
+    for c in THIRTY_TWO:
+        r = dict((n, diff_ratios(runs_by_capture[n], c, reference)) for n in names)
+        cands["N%d_b%.2f" % c] = {"ratios": r, "worst_ratio": max(v for rb in r.values() for v in rb.values()),
+                                  "beta": c[1]}
+    best = min(cands.items(), key=lambda kv: (kv[1]["worst_ratio"], -kv[1]["beta"]))
+    return {"reference": "N%d_b%.2f" % reference, "candidates": cands, "chosen": best[0]}
+
+
+def summary(rs, names):
+    return {"settled": all(settled(r) for r in rs), "worst_ratio": worst_ratio(rs),
             "ratios": dict((n, dict((B, dict((k, d["ratio_to_floor"]) for k, d in b["diff"].items()))
                                     for B, b in r["bands"].items())) for n, r in zip(names, rs))}
+
+
+def sweep(runs_by_capture, grid=BETA_GRID, with_32=True):
+    """Every beta of the grid at 16 taps against both 32-tap candidates, on every capture given ({name: runs}): the
+    per-phase figures decide; the whole-sum ones are reported beside; then the 32-tap choice."""
+    names = sorted(runs_by_capture)
+    by_beta = dict((beta, [measure(runs_by_capture[n], (16, beta), per_phase=True) for n in names]) for beta in grid)
+    whole = dict((beta, [measure(runs_by_capture[n], (16, beta), per_phase=False) for n in names]) for beta in grid)
+    out = {"grid": list(grid), "captures": names, "betas": {}}
+    for beta in grid:
+        out["betas"]["%.2f" % beta] = dict(summary(by_beta[beta], names), whole=summary(whole[beta], names))
     beta, w = choose(by_beta)
     out["chosen_beta"], out["chosen_worst"] = beta, w
     out["fallback_32_taps"] = beta is None
+    out["thirty_two"] = choose_32(runs_by_capture) if with_32 else None
     return out
 
 
@@ -285,12 +322,20 @@ def main_sweep(argv):
         cells = "; ".join("%s %s" % (n, " ".join("%s:%s" % (B, "/".join("%.3f" % v for _k, v in sorted(d.items())))
                                                    for B, d in sorted(rb.items(), key=lambda kv: float(kv[0]))))
                           for n, rb in sorted(b["ratios"].items()))
-        print("beta %s  %s  worst %.4f   %s" % (beta, "PASS" if b["settled"] else "fail", b["worst_ratio"], cells))
+        print("beta %s  %s  worst %.4f   %s   [whole-sum: %s, worst %.4f]" % (
+            beta, "PASS" if b["settled"] else "fail", b["worst_ratio"], cells,
+            "pass" if b["whole"]["settled"] else "fail", b["whole"]["worst_ratio"]))
     if r["fallback_32_taps"]:
         print("no beta passes on %s: the registered fallback, 32 taps" % ", ".join(r["captures"]))
     else:
         print("chosen: beta %.2f, worst cell %.4f of the floor (captures %s)" % (
             r["chosen_beta"], r["chosen_worst"], ", ".join(r["captures"])))
+    t = r["thirty_two"]
+    for name, c in sorted(t["candidates"].items()):
+        print("32 taps %s against %s: worst %.4f   %s" % (name, t["reference"], c["worst_ratio"], "; ".join(
+            "%s %s" % (n, " ".join("%s:%.3f" % (B, v) for B, v in sorted(rb.items(), key=lambda kv: float(kv[0]))))
+            for n, rb in sorted(c["ratios"].items()))))
+    print("32-tap default by the registered rule: %s" % t["chosen"])
     if "--json" in argv:
         with open(argv[argv.index("--json") + 1], "w", encoding="utf-8") as f:
             json.dump(r, f, sort_keys=True)
