@@ -64,6 +64,18 @@ class OnConstructions(unittest.TestCase):
         r = v123frame.slice_record(slice_from([0, a, a, a, a, a, a, a]))
         self.assertFalse(r["superset"])                 # an even stream lacking its odd partner's bits
 
+    def test_the_split_value_predicate_is_within_one(self):
+        # Issue #124: two halves of one value differ by at most 1; a difference of 2 is outside it
+        blk = b"".join(slice_from([pulse(7, wa)] * 4 + [pulse(7, wb)] * 4)
+                       for wa, wb in [(128, 128)] * 6 + [(128, 127)] * 5 + [(128, 126)] * 5)
+        orig = v123frame.load
+        v123frame.load = lambda kind, path, _b=blk: [(None, [_b])]
+        try:
+            r = v123frame.analyse_capture("synthetic", "")
+        finally:
+            v123frame.load = orig
+        self.assertEqual((r["ab_within_1"], r["ab_max"]), (11, 2))
+
     def test_a_flat_block_can_trade_a_for_b(self):
         # the counts spread by nothing, and A and B trade a bit: flat, and not constant
         def blk(pairs):
@@ -114,6 +126,8 @@ class TheTones(unittest.TestCase):
         # the even streams are NOT single runs: their extras also sit away from the pulse
         self.assertEqual(self.r["RUN33"]["even_multi_run"], {"0": 8429, "2": 15, "4": 12, "6": 7})
         self.assertEqual(self.r["RUN34"]["even_multi_run"], {"0": 8978, "2": 0, "4": 0, "6": 0})
+        for n in ("RUN33", "RUN34"):                                   # Issue #124: A == B, so |A - B| is 0
+            self.assertEqual((self.r[n]["ab_within_1"], self.r[n]["ab_max"]), (20480, 0))
 
     def test_the_tones_follow_the_pair_grid(self):
         for n, even in (("RUN33", 241), ("RUN34", 63)):
@@ -139,6 +153,8 @@ class TheGameWindow(unittest.TestCase):
         self.assertEqual(round(r["side_share"], 4), 0.0446)
         self.assertEqual(r["even_multi_run"], {"0": 10240, "2": 459, "4": 1574, "6": 172})
         self.assertEqual((r["flat"], r["flat_ab_constant"]), (1, 0))  # its one flat block trades A for B
+        # Issue #124: a value split into two halves allows |wA - wB| <= 1; 6 788 slices differ by 2 to 10
+        self.assertEqual((r["ab_within_1"], r["ab_max"]), (3452, 10))
 
 
 if __name__ == "__main__":

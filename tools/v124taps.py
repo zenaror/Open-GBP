@@ -5,6 +5,7 @@ against the 16-tap one, by more than the source's own quantisation can carry? DE
 
     tools/v124taps.py [--json <out>]            the first rule, 16 taps at beta 5.65
     tools/v124taps.py --sweep [--json <out>]    the beta sweep at 16 taps
+    tools/v124taps.py --shipped [--json <out>]  the chosen design as the Q15 table that runs
 
 PRE-REGISTERED. This docstring, the constants below and the decision rule were committed BEFORE the tool was run on any
 archived capture; the commit that adds them carries only tests on constructions. The result is recorded with that
@@ -73,6 +74,17 @@ CRITERION IS UNCHANGED:
                 every capture; the smaller worst cell is the 32-tap default, ties to the larger beta. Reported whether
                 or not the fallback fires.
 
+THE SHIPPED OBJECT (#124, after the sweep). The sweep measured ideal per-phase kernels; what runs is an INTEGER table
+of 125 phases x 16 taps, Q15, every phase summing to exactly 32 768. The prototype has taps x 125 + 1 coefficients, so
+its phase 0 holds 17 (t = -8 .. +8); a [125][16] table spans t = -8 .. 7 there (tools/gen_aresamp.py's t = 7 - m +
+p / 125), so the t = +8 tap is DROPPED before normalising (representable=True). The chosen design, 16 taps at beta 4.0,
+is then quantised as gen_aresamp quantises: each coefficient rounded to Q15, each phase's rounding residue folded into
+its largest tap. It is measured by THE SAME settled() rule against the two ideal 32-tap references; the rounding error
+(quantised - representable ideal) and the dropped tap's effect (representable ideal - full ideal) are reported against
+the floor. The criterion is the registered one. This check was not separately committed before it ran. The
+Orchestrator's estimate was posted on #124 first: independent rounding would give a DC term of about 0.08 of the
+floor on a 256-step level, the exact per-phase sum drives that term to zero, and the AC remainder is small.
+
 Standard library only; reads the captures, writes the JSON it is asked to.
 """
 import json
@@ -103,14 +115,45 @@ def floor_rms(band_hz):
     return math.sqrt((1.0 / 12.0) * band_hz / (FIN / 2.0))
 
 
-def kernel(taps, beta, per_phase=False):
+Q = 15
+
+
+def kernel(taps, beta, per_phase=False, q15=False, representable=False):
     """(coefficients, centre). v123chain's prototype, normalised as a whole (sum L); with per_phase, every phase -- the
-    coefficients one output uses, a residue class mod L -- scaled to sum 1, as gbp_aresamp_coef.h's table is."""
+    coefficients one output uses, a residue class mod L -- scaled to sum 1, as gbp_aresamp_coef.h's table is; with q15
+    also, quantised as tools/gen_aresamp.py does: rounded to Q15 and each phase's residue folded into its largest tap,
+    so every phase sums to exactly 1 << 15; with representable, the t = +8 tap of phase 0 dropped first, so every phase
+    has exactly `taps` coefficients as a [L][taps] table holds them."""
     h = v123chain.prototype(taps, beta, FIN, CUTOFF, L)
+    if representable:
+        h = h[:-1] + [0.0]                                   # index taps x L, t = +taps / 2: not in a [L][taps] table
     if per_phase:
         sums = [sum(h[r::L]) for r in range(L)]
         h = [v / sums[i % L] for i, v in enumerate(h)]
+    if q15:
+        q = [int(round(v * (1 << Q))) for v in h]
+        for r in range(L):
+            idx = list(range(r, len(q), L))
+            big = max(idx, key=lambda i: abs(q[i]))
+            q[big] += (1 << Q) - sum(q[i] for i in idx)
+        h = [v / float(1 << Q) for v in q]
     return h, (len(h) - 1) // 2
+
+
+def q15_phase_sums(taps, beta):
+    """The integer phase sums of the representable quantised table: all 1 << 15 by construction."""
+    h, _c = kernel(taps, beta, per_phase=True, q15=True, representable=True)
+    return [int(round(sum(h[r::L]) * (1 << Q))) for r in range(L)]
+
+
+def phase_tap_counts(taps, beta, representable=True):
+    """{taps a phase: phases}: the non-zero coefficients each phase uses."""
+    h, _c = kernel(taps, beta, per_phase=True, q15=True, representable=representable)
+    out = {}
+    for r in range(L):
+        n = sum(1 for v in h[r::L] if v != 0.0)
+        out[n] = out.get(n, 0) + 1
+    return out
 
 
 def resample(x, h, c):
@@ -178,10 +221,12 @@ class Acc(object):
         return math.sqrt(self.p / self.n) if self.n else None
 
 
-def measure(runs, sixteen=SIXTEEN, per_phase=False):
+def measure(runs, sixteen=SIXTEEN, per_phase=False, q15_16=False):
     """runs: [[x values]]. The difference, fold-in and signal figures of every filter and band, for the 16-tap design
-    `sixteen` (taps, beta) against both 32-tap candidates; per_phase normalises every kernel as the chain's table."""
-    ks = dict((("N%d_b%.2f" % f), kernel(f[0], f[1], per_phase)) for f in (sixteen,) + THIRTY_TWO)
+    `sixteen` (taps, beta) against both 32-tap candidates; per_phase normalises every kernel as the chain's table;
+    q15_16 quantises the 16-tap one as the shipped table is (the references stay ideal)."""
+    ks = dict((("N%d_b%.2f" % f), kernel(f[0], f[1], per_phase, q15_16 and f == sixteen, q15_16 and f == sixteen))
+              for f in (sixteen,) + THIRTY_TWO)
     k16 = "N%d_b%.2f" % sixteen
     out = {"bands": {}, "runs": len(runs), "inputs": sum(len(x) for x in runs)}
     for B in BANDS:
@@ -308,6 +353,39 @@ def analyse():
             "captures_present": sorted(k for k, v in res.items() if v is not None)}
 
 
+def pair_ratios(runs, ka, kb):
+    acc = dict((B, Acc()) for B in BANDS)
+    for x in runs:
+        d = trimmed([p - q for p, q in zip(resample(x, *ka), resample(x, *kb))])
+        for B in BANDS:
+            acc[B].add(d, B)
+    return dict(("%d" % B, acc[B].rms() / floor_rms(B)) for B in BANDS)
+
+
+def rounding_ratios(runs, design):
+    """{band: RMS_B(y_q15 - y_ideal) / floor}: the Q15 rounding alone, both representable at `taps` a phase."""
+    return pair_ratios(runs, kernel(design[0], design[1], True, True, True),
+                       kernel(design[0], design[1], True, False, True))
+
+
+def dropped_tap_ratios(runs, design):
+    """{band: RMS_B(y_representable - y_full) / floor}: what dropping phase 0's t = +8 tap changes, both ideal."""
+    return pair_ratios(runs, kernel(design[0], design[1], True, False, True),
+                       kernel(design[0], design[1], True, False, False))
+
+
+def shipped(runs_by_capture, design=(16, 4.0)):
+    """The quantised table of the chosen design, by the registered rule, and its rounding error."""
+    names = sorted(runs_by_capture)
+    rs = [measure(runs_by_capture[n], design, per_phase=True, q15_16=True) for n in names]
+    return {"design": "N%d_b%.2f" % design, "captures": names, "settled": all(settled(r) for r in rs),
+            "worst_ratio": worst_ratio(rs), "summary": summary(rs, names),
+            "rounding": dict((n, rounding_ratios(runs_by_capture[n], design)) for n in names),
+            "dropped_tap": dict((n, dropped_tap_ratios(runs_by_capture[n], design)) for n in names),
+            "phase_sums_exact": set(q15_phase_sums(*design)) == {1 << Q},
+            "taps_per_phase": phase_tap_counts(*design)}
+
+
 def analyse_sweep():
     runs = dict((n, tone_runs(n)) for n in ("RUN33", "RUN34"))
     g = game_runs()
@@ -342,7 +420,34 @@ def main_sweep(argv):
     return 0
 
 
+def main_shipped(argv):
+    runs = dict((n, tone_runs(n)) for n in ("RUN33", "RUN34"))
+    g = game_runs()
+    if g is not None:
+        runs["RUN43"] = g
+    r = shipped(runs)
+    print("%s, Q15, every phase summing to 32 768: %s; taps a phase %s" % (r["design"], r["phase_sums_exact"],
+                                                                         r["taps_per_phase"]))
+    for n, rb in sorted(r["summary"]["ratios"].items()):
+        print("  %s  %s" % (n, "  ".join("[0, %s] %s" % (B, " / ".join("%.3f" % v for _k, v in sorted(d.items())))
+                                          for B, d in sorted(rb.items(), key=lambda kv: float(kv[0])))))
+    for n, rb in sorted(r["rounding"].items()):
+        print("  rounding error alone, %s: %s" % (n, "  ".join("[0, %s] %.4f" % (B, v)
+                                                              for B, v in sorted(rb.items(), key=lambda kv: float(kv[0])))))
+    for n, rb in sorted(r["dropped_tap"].items()):
+        print("  phase 0's dropped t = +8 tap, %s: %s" % (n, "  ".join("[0, %s] %.4f" % (B, v)
+                                                                   for B, v in sorted(rb.items(), key=lambda kv: float(kv[0])))))
+    print("the shipped object %s: worst cell %.4f of the floor (captures %s)" % (
+        "SETTLED" if r["settled"] else "NOT SETTLED", r["worst_ratio"], ", ".join(r["captures"])))
+    if "--json" in argv:
+        with open(argv[argv.index("--json") + 1], "w", encoding="utf-8") as f:
+            json.dump(r, f, sort_keys=True)
+    return 0
+
+
 def main(argv):
+    if "--shipped" in argv:
+        return main_shipped(argv)
     if "--sweep" in argv:
         return main_sweep(argv)
     r = analyse()
