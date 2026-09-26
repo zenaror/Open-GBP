@@ -235,6 +235,10 @@ struct gbp_aplay {
     uint32_t ring_gated;                       /* Issue #117: steps that WANTED a chunk and found the ring under 129 */
     uint32_t discarded_chunks;                 /* Issue #117: completed chunks returned unqueued */
     uint32_t dropped_front;                    /* Issue #117: READY chunks freed unplayed from the front */
+    /* Issue #124: the sub-blocks of chunks STARTED corrected that were never decided -- an uncorrected call made their
+     * first push, so their correction is forgone (gbp_aplay_set_corrections). 0 at k = 1 by construction: the one
+     * sub-block is decided by the call that starts the chunk. What would bring back a persistence rule, counted. */
+    uint32_t corr_forgone;
     volatile uint32_t handed, underruns, silences;
     volatile uint8_t  playing;
     /* M */
