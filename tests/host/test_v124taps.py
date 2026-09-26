@@ -126,13 +126,25 @@ class TheSweepsRule(unittest.TestCase):
         # a 1 kHz tone of 60 steps: beta 5.65 and 7.86 pass and the smaller worst cell is chosen; beta 2.0 FAILS, with
         # the phases normalised: its sidelobes let the tone's own images through (64 536 Hz upsampled lands on 536 Hz),
         # a property of that design, not of the measure
-        r = v124taps.sweep({"T": [tone(1000.0, 60.0, 3000, dc=256.0)]}, grid=(2.0, 5.65, 7.86))
+        r = v124taps.sweep({"T": [tone(1000.0, 60.0, 3000, dc=256.0)]}, grid=(2.0, 5.65, 7.86), with_32=False)
         self.assertEqual(sorted(r["betas"]), ["2.00", "5.65", "7.86"])
         self.assertEqual([r["betas"][b]["settled"] for b in ("2.00", "5.65", "7.86")], [False, True, True])
         best = min(("5.65", "7.86"), key=lambda b: r["betas"][b]["worst_ratio"])
         self.assertEqual("%.2f" % r["chosen_beta"], best)
         self.assertFalse(r["fallback_32_taps"])
         self.assertEqual(r["captures"], ["T"])
+        self.assertIn("whole", r["betas"]["2.00"])                       # both normalisations reported
+        self.assertFalse(r["betas"]["2.00"]["whole"]["settled"])         # the whole-sum DC term adds to beta 2.0's
+
+    def test_the_reference_and_the_32_tap_choice(self):
+        self.assertEqual(v124taps.REFERENCE, (128, 10.0))
+        # a 1 kHz tone: both 32-tap designs sit far under the floor against the reference, and a choice is made
+        t = v124taps.choose_32({"T": [tone(1000.0, 60.0, 3000, dc=256.0)]})
+        self.assertEqual(t["reference"], "N128_b10.00")
+        self.assertEqual(sorted(t["candidates"]), ["N32_b5.65", "N32_b7.86"])
+        self.assertIn(t["chosen"], t["candidates"])
+        w = dict((k, c["worst_ratio"]) for k, c in t["candidates"].items())
+        self.assertEqual(t["chosen"], min(w, key=lambda k: (w[k], -t["candidates"][k]["beta"])))
 
 
 class TheArchive(unittest.TestCase):
