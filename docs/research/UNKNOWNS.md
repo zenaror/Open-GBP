@@ -2579,6 +2579,33 @@ is the AGB's left, right or mixed output".
 **What answers it:** a stimulus that routes a PSG channel to ONE side only (SOUNDCNT_L's side bits) and says which
 stream moves. It needs no new hardware and rides on any future stimulus run.
 
+
+**2026-09-25 (GitHub Issue #124), on top: three readings, one refuted, and the test's prediction written before it
+runs.**
+- **Stereo, the two output sides (HYPOTHESIS, leading).** It leads on two independent grounds. The tone ROM routes
+  channel 1 to both sides on purpose (`stimulus/agb-sweep/source/main.c:130-131`, SOUNDCNT_L 0x1177), and A == B in
+  every tone slice is what the reading must produce there: a prediction met. And its rival below is strained. (The
+  game's A != B in 87.6 % of its slices fits both readings and separates neither.)
+- **One channel at 131 072 Hz, A and B two consecutive 128-cycle samples (HYPOTHESIS, strained, not refuted; the
+  Orchestrator's).** A slow square wave is equal across 128 cycles and a 10.5 kHz source differs across most of
+  them, so it fits the counts. But A and B span the SAME slice and both rise at the same stream bit (6 in RUN 33, 7
+  in RUN 34 and RUN 43), and their widths reach 158 of 256 stream bits (`GBP-HW-347`), so under it a stream bit would
+  be half a cycle: a mapping of stream bits to time other than `GBP-HW-347`'s.
+- **A and B two halves of one sample value (REFUTED).** A value split in two predicts |wA - wB| <= 1 (an odd value's
+  halves differ by one) -- not A == B, the stronger predicate first written for it and withdrawn by the Orchestrator
+  on #124. RUN 43 has |wA - wB| >= 2 in 6 788 of its 10 240 slices, up to 10 (`tools/v123frame.py`'s ab_within_1 =
+  3 452); the tones have 0 in every slice. This reading is about A and B inside one slice; `U-GBP-048`'s first
+  candidate, a sample output as two 256-cycle frames, is about the two slices of a PAIR and is untouched by it.
+
+**The discriminating test and its prediction, written before any run.** `agb-route` (#124 Round C) is `agb-sweep`'s
+stimulus built three ways, one value apart: route-both (0x1177, the archived stimulus), route-left (0x1077), route-right
+(0x0177). A silent side is not a zero-width stream: the DAC's bias sits mid-scale, so a side carrying nothing still
+emits its REST width -- 128 per stream, the (wA, wB) of every control window in RUN 33 and RUN 34.
+- **Stereo:** in route-left and route-right, ONE of wA, wB varies with the tone while the other PINS within noise of
+  128, and which one swaps between the two builds.
+- **131 072 Hz:** BOTH keep varying in both builds.
+No run is authorised on #124.
+
 ## U-GBP-048 (P2, opened 2026-09-25, Issue #123) — why every slice of the tone ROMs holds one pulse per 256 cycles when nothing set SOUNDBIAS, and GBATEK's default is a 512-cycle frame
 
 `GBP-HW-348`. The tone ROMs never write SOUNDBIAS (0x04000088); GBATEK (a LEAD) gives its default, 0200h, as 9 bits at
@@ -2597,3 +2624,63 @@ there are none, so the second and third candidates hold only if the tones' sampl
 
 **What answers it, for the cost of two instructions:** a stimulus ROM that READS SOUNDBIAS at entry and reports the
 value, riding on the next stimulus run at no extra console time (the Orchestrator, #123).
+
+**2026-09-25 (GitHub Issue #124), on top: the register read three times, one image that writes its default, and what
+each outcome would mean -- written before any run.**
+
+`agb-route` (#124 Round C) reads SOUNDBIAS at three points and shows the three values on its first screen:
+- **E**, at the ROM's entry, before devkitARM's crt0, by a stub the header's entry branch lands on;
+- **M**, at main's first line, after crt0;
+- **I**, after the ROM's own init.
+
+A fourth image, route-bias0200, WRITES the documented default 0x0200 at entry, after E is read. It is one variable
+against route-both: a documented register restored to its documented default, AGB-side, and a power cycle recovers
+it (the Orchestrator's, #124).
+
+**What the reads can separate, and what they cannot.**
+- **E is not "the GBP".** The ROM reaches the AGB through the EZ-Flash Omega DE (`HARDWARE_TESTS.md` §V3.7), whose
+  own menu runs after the BIOS and before this ROM. So a non-default E means the GBP, the BIOS OR the flash cart's
+  menu, and this ROM cannot separate them. GBATEK (a LEAD) keeps 0x088 out of what a SOUNDCNT_X master disable
+  resets, so whatever the menu leaves stays.
+- **E != M** would be crt0. Its disassembly shows no store to 0x04000088 (`GBP-HW-352`), so E == M also checks that
+  reading -- in route-both, route-left and route-right. In route-bias0200 the stub itself writes 0x0200 between E and
+  M: there M and I must read 0x0200, and E against M says nothing about crt0.
+- **M != I** would be this ROM's own init.
+
+**The predictions per candidate, against the fixture bytes the tones already hold** (one pulse per 256 cycles per
+stream, identical in both slices of every pair, changes only between pairs):
+- **Candidate 1**, the sample output as two identical 256-cycle halves at resolution 0, predicts exactly those bytes
+  at 0x0200. So on route-bias0200, "pulses stay 256 in identical pairs" does NOT say SOUNDBIAS is irrelevant: it
+  fits this candidate.
+- **The Orchestrator's synthesis (a HYPOTHESIS, #124)** reads resolution 0 as two identical 256-cycle pulses per
+  512-cycle sample, and resolution 1 as one pulse per 256-cycle sample, with A and B the two channels. It fits:
+  - one pulse per 256 cycles at both settings;
+  - the tones' identical pairs;
+  - A == B in the tones;
+  - the game's 15.8 % of pairs that differ inside.
+
+  Checked against the game's hold, 6.23438 slices (`GBP-HW-345`): 5 120 / 6.23438 = 821.3 changes predicted inside
+  pairs against 808 measured (0.50 SE), and 718.6 predicted between pairs against 703 (0.63 SE). That is a
+  consistency check of the slice-grid finding against the hold, not a second measurement of the hold, though it
+  does test that the changes fall across slice boundaries rather than being quantised to pairs.
+
+  **Its prediction: route-both's E reads resolution bits 14-15 = 0.** If it does, the model holds. The provenance
+  question then stops mattering for the decode: whatever ran before us LEFT resolution 0, whether or not the menu
+  wrote it. ANY non-zero resolution breaks the model and leaves the tones' identical pairs needing another
+  explanation. Resolution 2 (131 072 Hz) would also bear on `U-GBP-047`'s rival reading, one channel at that rate;
+  resolution 3 (262 144 Hz) would contradict one pulse per 256 cycles under the synthesis's own reading.
+- **A raised resolution alone** predicts odd steps in about half of the tones' windows, and there are none. So a
+  candidate in which the GBP or the start-up raised the resolution holds only if the tones' samples still changed
+  every 512 cycles.
+- **The path's own encoding sets one pulse per 256 cycles, whatever the AGB's frame (candidate 4)** predicts nothing
+  about E, M or I. It predicts that route-bias0200's bytes carry the same structure as route-both's whatever E was:
+  one pulse per 256 per stream, identical pairs for these tones. If route-both's E is not 0x0200 and route-bias0200's
+  bytes change structure, candidate 4 is refuted. If E is already 0x0200, route-bias0200 cannot test it.
+
+**The click.** route-bias0200's write steps the DAC's rest level once at boot if E's level bits (1-9) differed from
+0x100, and GBATEK (a LEAD) calls an abrupt change audible. The Operator is told in advance that this one image may
+click once at boot. The click is a one-directional partial readout: heard means the LEVEL bits differed, a second
+channel agreeing with E's display. Not heard establishes nothing: a level step of a few LSB (1/512 of full scale
+each) may be inaudible. And neither says anything about bits 14-15, the field that matters.
+
+No run is authorised on #124.

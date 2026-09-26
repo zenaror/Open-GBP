@@ -10463,6 +10463,14 @@ build's, after §V28's freeze, and reaches the console validated on these bytes 
 carry. Whether the structure holds in GB/GBC mode, at another SOUNDBIAS resolution, or beyond these
 three captures.
 
+**2026-09-25 (GitHub Issue #124), on top: |wA - wB|, counted.** `tools/v123frame.py` now counts it.
+- **The tones.** 0 in every slice.
+- **RUN 43.** At most 1 in 3 452 of 10 240 slices, and 2 to 10 in the other 6 788.
+
+A sample value split into two halves allows |wA - wB| <= 1, so the reading of A and B as the halves of one value is
+refuted by those 6 788 slices (`U-GBP-047`). A and B as the two sides, or as two consecutive 128-cycle samples,
+stay open.
+
 ---
 
 ### GBP-HW-348 — the level's update grid differs by capture: the tones change (wA, wB) only between slice pairs (241 + 63 changes, 0 inside a pair), the game inside 15.8 % of its pairs (703 changes on even boundaries, 808 on odd) — FACT (counted); read as 32 768 against 65 536 updates a second only under uniform slices; GBATEK's default 512-cycle FRAME is contradicted by the tones' one pulse per 256 bytes, while its default 32 768 Hz RATE agrees with their pair grid — LEAD against FACT, unresolved
@@ -10629,6 +10637,28 @@ L2 with k > 1 sizes them for its k (the header says so).
 That k = 8 at 32 768 Hz or 16 at 65 536 Hz slews as far as one at 4 096 Hz today (7.82 ms/s) is
 arithmetic (`tools/v123chain.py`). No image sets k > 1.
 
+**2026-09-25 (GitHub Issue #124), on top: k from the decode rate, and what the corrector gives up.**
+
+**k = decode_rate / 4 096** (the Orchestrator's form). A correction is one DECODED sample, not one output frame. At
+k = rate / 4 096 both of today's properties hold at once:
+
+```text
+per-chunk envelope   today 1 x 244.141 us  = 244.1 us        k = 16 at 65 536 Hz: 16 x 15.259 us = 244.1 us
+capacity             today 32.03 x 1 / 4 096 = 7.819 ms/s    32.03 x 16 / 65 536 = 7.819 ms/s
+```
+
+- **k = 8 would under-provision the corrector by half.** At 65 536 Hz it gives 3.910 ms/s, against RUN 38's measured
+  need of 7.09 ms/s. That was the Orchestrator's first figure, with the wrong unit.
+- **The native corrector is gentler than today's, not merely equal.** The peak distortion of one correction falls
+  from 244.141 us to 15.259 us, a sixteenth, for the same total a chunk, spread over sixteen places instead of one.
+
+**corr_forgone.** `gbp_aplay` counts the sub-blocks of a chunk STARTED corrected that no corrected call decided: an
+uncorrected call made their first push, so their correction is forgone. It is 0 at k = 1 by construction, because the
+call that starts the chunk decides its one sub-block. Unit tests pin 3 for a chunk resumed at push 56, 7 for one
+finished uncorrected, and 0 for a corrected chunk, an uncorrected one, and k = 1. The persistence rule is declined on
+reasoning (the Orchestrator's, #124): this is the count that would bring it back. A randomised k = 1 differential
+against the code before #123 still gives the same hash.
+
 ---
 
 ### GBP-HW-350 — what a native decode would cost the chain: production today measured on hardware at 119.1 ticks a push, 16 995 a chunk, 1.34 % of the CPU (RUN 40); a stereo decode per slice at 65 536 Hz modelled at 4.0 % (16 taps) to 6.1 % (32 taps), and — at today's call length, so as not to lengthen the drain's stretches — a longer refill, which leaves AHEAD 1 a margin of 17.3 / 10.5 ms on the nominal refill but 11.1 / 1.3 ms on the largest refill RUN 40 measured, scaled: at 32 taps AHEAD 1 is not a safe rung — FACT (the measured anchors); INFERENCE (everything native)
@@ -10676,3 +10706,227 @@ separate from the taps' (the model's split is the disassembly's). Cache traffic.
 of the decode itself, never measured (`GBP-HW-327`). Whether the pump slot has the room: RUN 43 left
 about a third of its pump calls idle (INFERENCE from STREAMOWN). The first native image must time
 production per push and the decode per block.
+
+**2026-09-25 (GitHub Issue #124), on top: the sum goes BEFORE the resampler (the Orchestrator's decision).**
+
+Decision 1 decodes and carries A and B separately and routes the output as today's mono sum. Stereo sits behind a
+parameter that stays off: resolution ships alone, so the Operator's ear can attribute what changed. Where the sum
+happens decides the margin:
+
+```text
+                          CPU      AHEAD 1 keeps: nominal / RUN 40's largest refill scaled / additive
+sum before the resampler  2.05 %   24.1 / 21.0 / 22.3 ms      (today 25.1, tools/v28ahead.py)
+sum after it (stereo)     4.04 %   17.3 / 11.1 / 15.5 ms
+```
+
+Summed BEFORE, which is `tools/v123chain.py`'s 65536_N16_ch1 against ch2. All figures are INFERENCE.
+
+**Recorded in advance: turning stereo on costs AHEAD 1's safety.** Stereo makes the resampler dual-channel, which is
+an architecture change and not a routing change: 21.0 -> 11.1 ms in the worst case. Stereo and the lowest latency
+rung are in tension, and that is known before either is built. It is a trade for the Operator, with both numbers in
+hand, when `U-GBP-047` is settled.
+
+---
+
+### GBP-HW-351 — 16 or 32 taps for the native resampler, by a criterion registered before the data: 16 taps at Kaiser beta 5.65 NOT SETTLED (RUN 33's tones over the source's quantisation floor in [0, 12 000] Hz); after a correction of the model to the chain's per-phase table, a registered beta sweep SETTLES 16 taps at beta 4.0 — and the correction is decisive, since under whole-sum kernels no beta passes — FACT (arithmetic on the archive, per the registered rules); every Hz figure conditional on uniform slices
+
+GitHub Issue #124, Round A; `tools/v124taps.py`, `tests/host/test_v124taps.py`.
+
+**The pre-registrations.** Each rule was committed and pushed before its data was read:
+- the first rule at `10fa60a`;
+- the beta sweep at `b5588e7` and `50a0c1a`.
+
+**The measurement, fixed in those commits.**
+- **The signal.** Decision 1's decode: x = wA + wB per slice, summed before the resampler, 65 536/s nominal.
+- **The filters.** 16 taps against BOTH 32-tap candidates (beta 5.65 and 7.86), each evaluated ZERO-PHASE at the
+  same instants, so a difference is waveform and never delay.
+- **The measure.** The RMS of y_16 − y_32 in [0, 5 256] Hz (the game's band) and [0, 12 000] Hz, from Hann
+  periodograms over every run of RUN 33, RUN 34 and RUN 43.
+- **The floor.** The source's own quantisation: one integer step on the sum, white, which is 0.1156 and 0.1747
+  steps RMS in the two bands.
+- **The rule.** SETTLED only below the floor in both bands, against both references, on every capture. The rule
+  is one-directional: above the floor is UNKNOWN, not "it matters".
+
+**The first rule (16 taps, beta 5.65): NOT SETTLED.** 16-vs-32 RMS as a ratio to the floor, against beta 5.65 /
+beta 7.86:
+
+```text
+            [0, 5 256]      [0, 12 000]
+RUN 33      0.158 / 0.251   1.275 / 1.223   <- over
+RUN 34      0.132 / 0.236   0.269 / 0.288
+RUN 43      0.118 / 0.211   0.455 / 0.444
+```
+
+The excess is the 16-tap passband roll-off acting on the square waves' harmonics between 5 256 and 12 000 Hz. That
+is 0.87 dB at 12 kHz (`tools/v123chain.py`); the 16-tap fold-in from above 16 kHz is 0.55 of the floor there.
+
+**The stake** (the Orchestrator's, #124). The failing content is square-wave PSG. That is the whole of GB/GBC audio
+(Phase 7, `docs/ROADMAP.md`), not an artificial worst case. The game window passing speaks for DMA-PCM content only.
+
+**The model corrected, before the sweep, and disclosed before its commit.** The chain's coefficient table is
+normalised PER PHASE: every phase of `gbp_aresamp_coef.h` sums to exactly 32 768. The first rule's kernels were
+normalised as a whole. Their phases' unequal DC gains turn x's ~256 level into a pattern at multiples of 256 Hz, in
+band: 0.015 steps RMS between 16 and 32 taps at beta 5.65, and over the floor on its own at beta 2.0 (0.557). That
+filter cannot run in the chain. **This correction does not rescue the first rule's NOT SETTLED:** it removes at most
+~0.015 of RUN 33's 0.223. `tests/host/test_resampler_tables.py` now requires every committed resampler table to
+have every phase summing exactly to one: the property the pass rests on, checked on any adopted table.
+
+**The beta sweep at 16 taps, registered with the criterion unchanged.**
+- **The choice.** The passing beta with the smallest worst cell, ties to the larger beta.
+- **The fallback.** If none passes, 32 taps (the Orchestrator's pre-commitment).
+- **What decides.** Per-phase kernels decide. Whole-sum kernels are reported beside.
+
+```text
+beta    worst cell, per-phase (deciding)    whole-sum (beside)
+0.00    11.344  fail                        15.665  fail
+1.00     8.750  fail                        12.234  fail
+2.00     4.542  fail                         6.634  fail
+3.00     1.847  fail                         2.984  fail
+4.00     0.630  PASS  <- chosen              1.207  fail
+5.00     0.981  PASS                         1.006  fail
+5.65     1.271  fail                         1.275  fail
+6.50     1.631  fail                         1.632  fail
+7.86     2.168  fail                         2.170  fail
+
+beta 4.0, per-phase     [0, 5 256]      [0, 12 000]     against 32 taps beta 5.65 / 7.86
+RUN 33                  0.539 / 0.584   0.630 / 0.599
+RUN 34                  0.173 / 0.189   0.156 / 0.155
+RUN 43                  0.081 / 0.100   0.208 / 0.185
+```
+
+**The object that runs, measured too.** The sweep evaluated ideal kernels, but the chain runs an integer table:
+125 phases of 16 taps, Q15, every phase summing to exactly 32 768.
+- **What a 16-tap table can hold.** The prototype has taps × 125 + 1 coefficients, so its phase 0 holds 17 (t = −8
+  .. +8). A [125][16] table spans t = −8 .. 7 there (`tools/gen_aresamp.py`'s t = 7 − m + p/125), so the t = +8 tap
+  is dropped.
+- **The quantisation.** Beta 4.0 is then quantised as `gen_aresamp` does: each coefficient rounded, and each phase's
+  residue folded into its largest tap.
+- **The result, by the same rule against the ideal references.** SETTLED, worst cell 0.628.
+  - Every phase sums to 32 768 exactly and holds at most 16 non-zero taps.
+  - The rounding error alone is at most 0.0047 of the floor: RUN 33 0.0047 and 0.0043, RUN 34 0.0014 and 0.0015,
+    RUN 43 0.0010.
+  - The dropped tap changes at most 0.032: RUN 33 0.031, RUN 43 0.005, RUN 34 under 0.0001.
+- **The prediction it was checked against.** The Orchestrator's estimate was posted on #124 before this ran:
+  independent rounding would leave a DC term of about 0.08 of the floor on a 256-step level; the exact per-phase sum
+  drives that term to zero; and the AC remainder is small. The measurement is consistent with it.
+- **Not committed separately first.** The criterion is the registered one.
+
+**What it establishes.**
+- **FACT, per the registered rules.** 16 taps at beta 4.0, per-phase normalised, differ from both 32-tap designs by
+  less than the source's quantisation floor in both bands on all three captures. That holds both as the ideal
+  kernel and as the representable Q15 table. 16 taps are SETTLED ON EVIDENCE at beta 4.0. Beta 5.0 also passes
+  (worst cell 0.981), and the rule picks 4.0 (0.630).
+- **The trade is between the two bands. Read "beta 4.0 chosen" as the minimax across both, not as "best in the game
+  band".**
+  - **In [0, 12 000] Hz, where the PSG square waves' harmonics sit, beta 4.0 is the grid's best** on every capture.
+  - **In the game band, [0, 5 256] Hz, it is not.** It sits at 0.54–0.58 of the floor on RUN 33 against per-phase
+    beta 5.65's 0.088 / 0.049, which is 6 to 12 times higher. On RUN 43 it is 0.081 / 0.100 against 0.019 / 0.007.
+  - Beta 5.65 loses because it fails at 1.27 above the game band, on the square waves that are GB/GBC's whole audio.
+    The rule bought robustness across DMA-PCM and PSG content.
+  - There was luck: the rule was registered before the Orchestrator noticed that Phase 7's content class mattered.
+- **The reversal condition, written down so that it is revisited on evidence.** 32 taps at beta 7.86 sit at 0.063
+  against the reference, about ten times the headroom of 16 taps at beta 4.0 (0.630). They cost 5.1 ms of AHEAD 1's
+  worst-case margin at mono (21.0 -> 15.9 ms, `tools/v123chain.py`, INFERENCE). **If §V28's validation run shows
+  AHEAD 1 with margin to spare, 32 taps at beta 7.86 become nearly free, and the filter improves tenfold.**
+- **FACT: the per-phase correction is DECISIVE.** Under whole-sum kernels no beta passes: 1.207 at beta 4.0, 1.006
+  at 5.0. The correction favours low betas, which is what the sweep exists to try, and it was found while designing
+  that test. It is accepted on its independent justification: the shipped table is per-phase, and its sum is now a
+  tested property. It is not accepted because it helps. Both columns are recorded so that a reader can audit what it
+  bought.
+- **What beta 4.0 trades, like for like (per-phase).** Lower beta buys passband at the cost of stopband.
+  - Its game-band difference on RUN 33 is 0.54–0.58 of the floor, against 0.05–0.09 at beta 5.65: under the floor,
+    but no longer negligible.
+  - The first rule's 0.16–0.25 at beta 5.65 are WHOLE-SUM figures, and are mostly the DC artefact.
+  - The same trade is why beta 3.0 fails.
+- **The 32-tap choice, reported although the fallback did not fire.** Each 32-tap candidate was measured against a
+  128-tap beta 10 reference, per-phase, on the same floors and captures. Beta 7.86's worst cell is 0.063 and beta
+  5.65's is 0.071, so the rule picks beta 7.86.
+
+**What it does NOT establish.**
+- **Audibility, either way.** The floor is the source's resolution, not a threshold of hearing.
+- **Content other than these three captures.** One game window, and the two tone runs.
+- **The generator.** Round B's generator must produce this representable table and keep every phase at exactly one.
+  `tests/host/test_resampler_tables.py` requires the latter of any two-dimensional integer table under `src/`, and
+  requires the table to be listed as non-resampler otherwise.
+
+---
+
+### GBP-HW-352 — `agb-route`, the stimulus for `U-GBP-047` and `U-GBP-048`: `agb-sweep`'s APU writes byte for byte in route-both, one value apart in route-left, route-right and route-bias0200, and SOUNDBIAS read at the ROM's entry before crt0, at main and after init; devkitARM's crt0 writes nothing in palette RAM and never 0x04000088 — FACT (host tests and the disassembly of the linked images); NOT PHYSICALLY EXECUTED
+
+GitHub Issue #124, Round C:
+- the ROM: `stimulus/agb-route/` (`make stimulus-route`);
+- the entry patch: `tools/gbaentry.py`;
+- the tests: `tests/host/test_agb_route.py`.
+
+**The images, four from one source, one value apart:**
+
+```text
+route-both      SOUNDCNT_L 0x1177   agb-sweep's stimulus, the archived one (RUN 33, RUN 34)
+route-left      SOUNDCNT_L 0x1077   channel 1 on the left only (bit 12)
+route-right     SOUNDCNT_L 0x0177   channel 1 on the right only (bit 8)
+route-bias0200  route-both, and SOUNDBIAS written to 0x0200 at entry, AFTER the entry read
+```
+
+**What was checked (FACT for the code; the host has no APU and no real SOUNDBIAS).**
+- **route-both is the archived stimulus.** `agb-sweep` and `agb-route` are compiled for the host and driven through
+  the same key sequences, 13 presses including a mixed and a spoiled run. The APU registers hold the same words after
+  every press, with the same read-back marks and state. The one-side builds differ in SOUNDCNT_L alone. Everything
+  that writes the APU is `agb-sweep`'s text; only the mix constant's definition differs.
+- **SOUNDBIAS is read, never written, by `main.c`.** A register value planted before a full run of key sequences is
+  unchanged after it. The entry stub reads it before any store and writes it only in route-bias0200, after the read.
+- **The readout decodes.** Rows E, M and I read back, through an independent font table, as the values the three
+  reads saw. The entry row is four dashes when the stub's marker is absent. Orange bars, a colour nothing else on
+  the screen uses, sit beside the boxes on the edges the build's route names. The first version drew them in cyan,
+  over U-GBP-040's read-back mark 0 (the review of #124 found it); a test now requires all four marks whole on every
+  build.
+- **The built images.**
+  - The entry word branches to the stub, and re-applying `tools/gbaentry.py` is a no-op.
+  - The stub's words are the read, the stash, and the branch to crt0's start_vector, reading the expected literals.
+  - The header is valid. The logo area is empty, as for every stimulus here: delivery is `tools/gbaderive.py`'s.
+  - The canonical images, rebuilt after the review's fixes (`make stimulus-route`, devkitARM 15.2.0), and pinned by
+    `tests/host/test_agb_route.py` where built:
+
+    ```text
+    route-both      sha256 90854581793af57252438200f2d4f6ac03253cd6c1f1bcddad2432f3ceec5dc2
+    route-left      sha256 aff3d210043026b8fc6a8e04a5ea25c7cde40fe0d0a0f3daa1495f65e1c4a571
+    route-right     sha256 1a1b69abb02374b67d6ec01f5133b86762915ab9e4c70f62addc25fa26752f5f
+    route-bias0200  sha256 41d386870b24ff0eb4ca65225ae9fdfc54e1df67c8ed66cf5278ba3d4a24fa2c
+    ```
+
+**devkitARM's crt0, from its disassembly (FACT, for gba_crt0.o sha256 `840e276d...1d647fb4`, the one in
+`ghcr.io/extremscorner/libogc2:20260805`).** Linked into these images, crt0 writes:
+- IME (`str r0, [r0, #0x208]`, r0 = 0x04000000);
+- all 256 KiB of EWRAM (ClearMem from 0x02000000, 64 << 12 bytes, computed in registers);
+- the `__sbss` and `__bss` ranges;
+- the `__data`, `__iwram`, `__iwram_overlay` and `__ewram` copies;
+- one word, `fake_heap_end` = `__eheap_end`, in IWRAM.
+
+It then calls `__libc_init_array` and `main`. The linker map (route-both) puts every one of those ranges in EWRAM
+or IWRAM:
+
+```text
+__sbss_start__ 0x02000000   __sbss_end__ 0x02000000   __ewram_start 0x02000000   __ewram_end 0x02000000
+__bss_start__  0x03000000   __bss_end__  0x0300002c   __data_start__ 0x0300002c  __data_end__ 0x03000034
+__iwram_start__ 0x03000000  __iwram_end__ 0x03000000  __iwram_overlay_start 0x03000034
+fake_heap_end at 0x03000028 <- __eheap_end 0x02040000     stacks __sp_irq 0x03007fa0, __sp_usr 0x03007f00
+```
+
+No crt0 store addresses palette RAM (0x05000000..0x050003FF) or 0x04000088. So the stub's stash in OBJ palette RAM
+survives to main. In route-both, route-left and route-right, E == M checks this reading. In route-bias0200 the stub
+itself writes 0x0200 between E and M, so there E against M says nothing about crt0, and M and I must read 0x0200. Scope: crt0's own code. The C runtime's init array is outside it,
+and `__libc_init_array` has nothing of ours to call.
+
+**A test outwitted by the toolchain, and the rule it leaves.** The first stub check decoded route-bias0200's
+`ldr r1, =0x0200` as a PC-relative literal load. The assembler emitted `mov r1, #0x200`, because 0x200 is an ARM
+immediate. The check failed loudly, and that is the safe face of the defect. The same too-narrow decode, had the
+toolchain agreed with it today, would have passed while testing a coincidence, and would have stopped verifying the
+day the toolchain chose differently. That second face is the one to design against, and it is invisible (the
+Orchestrator, in the round's coordination; quoted in the #124 report).
+
+**Rule: an instruction-level check either enumerates every encoding the toolchain may legally choose or, better,
+asserts the semantic effect.** Enumeration is open-ended. The check now decodes both forms. That is proportionate
+here, and it is recorded as the weaker of the two.
+
+**What it does NOT establish.** Whether the stub runs on hardware, and so whether E is shown or dashed. What SOUNDBIAS
+holds on the Operator's AGB. Whether the readout is legible on his converter. That the flash cart's menu leaves the
+AGB in any particular state. No run is authorised.
