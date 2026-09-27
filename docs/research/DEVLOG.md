@@ -17807,3 +17807,38 @@ the bottom, ascend them, a refused step at the top, the largest START both ways 
 informational only and never gating the perceptual run, the four T192 rungs -- 8 more), each inheriting the
 AHEAD mechanism just built. `SYNCPE` emission, the GX label, Amendment C's O6-leak drop and the two-image build
 still wait on the new image's own `main.c` to exist.
+
+## 2026-09-27 — Issue #129/#130 continued: gbp_v28_3b -- the AHEAD hold that settles the 32-tap reversal
+## observation
+
+**3b first, then the sweep (the Orchestrator's own call)**: it follows the execution order (p0 -> 3a -> 3b ->
+sweep), depends only on 3a (done), exercises AHEAD in its simplest form before the sweep's 26 transitions stack
+on top of it, and 3b's own AHEAD-1 hold is the observation §128 §5 names as settling the 32-tap reversal
+condition (`GBP-HW-351`) -- the higher-value piece too.
+
+**`gbp_v28_3b` (commit `01865e7`).** AHEAD 4 -> 1 at 3a's own confirmed anchor (the TARGET never changes again in
+3b), held for up to 60 s, ending early at the first observed underrun; if one occurred, AHEAD 2 held for a FULL,
+separate 60 s -- #128 §2's own 120 s phase figure is 60 + 60, not "the remaining time" -- finishing there
+regardless of what AHEAD 2's own hold sees. Never a third level. The entry step and any escalation use the step
+mechanism (#128 §3: ROTATE, `GBP_V28_STEP_MUTE = 6`, added to `gbp_v28_ladder.h`'s own enumeration, unconverted
+like AHEAD), not 3a's UNMUTED transitions -- this is precisely the mechanism the perceptual run will use.
+
+Shares `gbp_v28_3a`'s own construction discipline exactly, reusing the same idioms rather than inventing new
+ones: a decided AHEAD change is held pending and retried every tick through `gbp_atrans2_begin()`'s own
+busy-gate; a cut hold is recorded partial, never whole; `hold_done()` fires on every tick until acknowledged,
+even after a cut sets `finished`.
+
+**Tests:** `tests/unit/test_gbp_v28_3b.c`, 44 checks against the REAL chain, mirroring `test_gbp_v28_3a.c`'s own
+two-layer shape (all 44 passed on the first run -- the shared idioms held): the entry step applying only once
+begun, the busy-begin regression, a clean AHEAD-1 hold finishing 3b, an underrun escalating to a full separate
+AHEAD-2 hold, AHEAD 2 finishing regardless of its own further underrun, cut-hold accounting (partial vs whole),
+`hold_done()` refused-and-counted with nothing pending, and the dishonest-vs-honest contrast under a forced-busy
+transition.
+
+The gate on the committed tree: `pytest -q tests/host` -- 3322 passed, 7 skipped, 0 failed; `make -C tests/unit`
+-- every binary green, 0 failures.
+
+**Next.** The sweep's step ladder (its own 26-transition sequence, frozen on Issue #129), inheriting both the
+shared begin-while-active gate and the AHEAD mechanism 3b already exercises; the `test_v28_ahead_steps.c`
+native-path matrix port, named as a pre-staging requirement (Orchestrator review); `SYNCPE` emission, the GX
+label, Amendment C's O6-leak drop and the two-image build, all still waiting on the new image's own `main.c`.
