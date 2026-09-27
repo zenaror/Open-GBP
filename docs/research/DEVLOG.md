@@ -17749,3 +17749,61 @@ question was asked, not added after it.
 **Next.** The remaining phase-kind handlers (3b's AHEAD hold, sweep's step ladder, nulling), each inheriting the
 same begin-while-active discipline from the shared gate now that it exists; `SYNCPE` emission, the GX label,
 Amendment C's O6-leak drop and the two-image build, all still waiting on the new image's own `main.c` to exist.
+
+## 2026-09-27 — Issue #129/#130 continued: AHEAD ported from a compile-time macro to a runtime field, the
+## prerequisite 3b and the step sweep both needed
+
+**Found by reading, before designing sweep.** `GBP_APLAY2_AHEAD` was still a compile-time macro on the native
+path (5 sites in `gbp_atrans2.c`, 2 in `gbp_aplay2.c`) — neither 3b's own AHEAD 4 -> 1 entry step nor the sweep's
+AHEAD-lowering/raising steps can be built against the real chain without it being a genuine runtime value.
+`tests/unit/test_v28_ahead_steps.c`'s own 14494-check probe only proved the arithmetic on the OLD path, via a
+build-time `sed` substitution into copies of the FROZEN `gbp_aplay.c`/`gbp_atrans.c` — its own header said so
+plainly: "the build carries the runtime AHEAD into src/ after the freeze." That carry-over had not happened on
+either path. The 2 + 5 site count matched the native path's own exactly, confirming the port is mechanical, not
+new design.
+
+**The Orchestrator's own design requirement, checked before approving: no array is sized by AHEAD** (`rq`,
+`state`, `seq` are all `GBP_APLAY2_POOL`), so raising it at runtime is memory-safe — `gbp_atrans2_begin()` clamps
+it to `[1, GBP_APLAY2_POOL]` instead, counted as a fault like an insufficient mute, never a hard refusal.
+
+**AHEAD changes ONLY through `gbp_atrans2_begin()`, never a bare setter** (commit `7c21dfe`): a setter callable
+mid-transition or outside a mute would leave the mute-length and surplus-drop accounting computed against the
+wrong value, and a lowering step called outside a mute would leave surplus READY chunks playing unmasked --
+precisely what §3's "drop the surplus fronts while the silence lasts" exists to prevent. The plan carries the
+target `ahead`; `begin()` applies it immediately (so the shared begin-while-active gate, `ff551e0`, covers AHEAD
+changes automatically, with no separate gate needed) and, for a lowering step, drops the surplus fronts right
+there under the mute, without replacement, counted in the new `ahead_drops` -- never for HELD, which #128's own
+review already retired for steps. `gbp_atrans2_min_mute()` takes `ahead` explicitly now, since it can no longer
+read a compile-time constant.
+
+**Every existing caller updated to pass its own unchanged ahead explicitly**, proving nothing silently changed:
+`test_gbp_atrans2.c`, `test_gbp_walker.c`, `poc/gbp-audio-native-probe/source/main.c` pass `GBP_APLAY2_AHEAD`
+(the untouched default); `gbp_v28_3a.c` passes `GBP_V28_A4` on every one of its own begin calls, per #128 §2's
+"stays at AHEAD 4" -- never left to the module's own compiled-in default of 1.
+
+**The one existing image built against this pair, rebuilt and Dolphin-smoke-tested**: `poc/gbp-audio-native-probe`
+(build id `audio2-0001`). `sha256_dol` changed as expected (the struct grew, exactly as it did for #127's own
+`chunk_corrections` field) -- `28ebcfad87...` -> `42ab9e5dd9...`. The self-test line is byte-identical:
+`OPENGBP-AUDIO2 SELFTEST result=PASS produced=2 dup=0 drop=0 atrans=1`, proving the untouched default is
+unaffected by the port.
+
+**Tests:** `tests/unit/test_gbp_atrans2.c` gained three direct tests (45 checks, was 31): a raise tops up and
+never drops; a lowering step drops the surplus and `gbp_aplay2`'s own `dropped_front` agrees with
+`gbp_atrans2`'s own `ahead_drops`; an out-of-range ahead clamps to `[1, POOL]` and counts a fault.
+`tests/unit/test_v28_ahead_steps.c`'s own 14494 checks (the OLD-path probe) ran unedited and green -- this round
+did not touch it.
+
+**Not done here, its own named successor**: porting `test_v28_ahead_steps.c`'s full matrix (mutes 5/6, four
+phases, bursts, D2-class losses, the masking bound) onto the native path, so it stops relying on the old-path
+probe. A modest, direct set of tests proves the mechanism; the exhaustive matrix is a separate, comparably-sized
+piece of work, not yet started.
+
+The gate on the committed tree: `pytest -q tests/host` -- 3321 passed, 7 skipped, 0 failed; `make -C tests/unit`
+-- every binary green, 0 failures (`test_v28_ahead_steps.c`'s own 14494 checks included, unedited).
+
+**Next.** Either the test_v28_ahead_steps.c native-path port, or straight into 3b's own handler (now unblocked)
+and the sweep's step sequence (its exact order frozen on Issue #129: descend the main 8 rungs, a refused step at
+the bottom, ascend them, a refused step at the top, the largest START both ways -- 18 GATE transitions; then,
+informational only and never gating the perceptual run, the four T192 rungs -- 8 more), each inheriting the
+AHEAD mechanism just built. `SYNCPE` emission, the GX label, Amendment C's O6-leak drop and the two-image build
+still wait on the new image's own `main.c` to exist.
