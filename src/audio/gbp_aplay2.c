@@ -181,6 +181,7 @@ static int produce_impl2(struct gbp_aplay2 *p, struct gbp_adec2 *d, int uncorrec
         p->cur_sub = 0u;
         p->cur_taken = 0u;
         p->cur_uncorrected = (uint8_t)(uncorrected ? 1u : 0u);
+        p->cur_corr0 = p->dup + p->drop;           /* #127 review: this chunk's own correction count, below */
         /* L2: a chunk boundary, acc 0 -- the kept state is the resampler's here */
         if (p->l2.armed && !p->l2.keeping && !p->l2.done) {
             p->l2.keeping = 1u;
@@ -226,6 +227,7 @@ static int produce_impl2(struct gbp_aplay2 *p, struct gbp_adec2 *d, int uncorrec
     {
         const int32_t done = p->cur;
         if (!p->cur_uncorrected) p->corr_forgone += p->cur_k - p->cur_sub;   /* the rest, undecided */
+        p->chunk_corrections = (p->dup + p->drop) - p->cur_corr0;   /* #127 review: this chunk's own count */
         p->cur = -1;
         p->produced++;
         if (p->l2.keeping) {

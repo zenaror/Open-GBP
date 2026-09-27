@@ -17555,3 +17555,59 @@ against the originals it was translated from. Two findings, both applied:
   read had not flagged as a violation of this project's specific automated rule; fixed to `int32_t`. Neither finding
   changed any generated code: the POC's DOL is byte-identical before and after (same `sha256_dol`), confirmed by
   rebuilding and re-running the Dolphin smoke test, still `PASS`.
+
+## 2026-09-27 — Issue #127 continued: the event budget answer conflated L2's own bounded window with a session-length store — the instrument fixed to log corrections per chunk, not per correction
+
+**The Orchestrator caught a real mistake in the closeout above's "event budget" line, before the freeze.** Its
+16384-slot `GBP_APLAY2_EVENTS_CAP` was correctly derived (headroom ratio 3.2, matching the frozen path's own), but
+that entry then reported "affords ~32.0 s of continuous worst-case correction events" as if this answered the
+Issue's own question — the session length a store permits for a §V28 validation run (hundreds of seconds). It does
+not: `GBP_APLAY2_EVENTS_CAP` belongs to L2, a mechanism `gbp_aplay.c` already had and this Issue only ported —
+ARMED for a short, BOUNDED window (`GBP_APLAY2_L2_CHUNKS = 320` chunks, 10 s, unchanged from the frozen path) and
+never intended to log a whole multi-hundred-second run. Conflating the two was a reporting error, not a code
+defect: the code does exactly what it always said it does.
+
+**Fact 1, verified directly against `l2_event2()` (`src/audio/gbp_aplay2.c`): when the log fills, `l2.overflowed`
+is set, the event is dropped (no per-event lost COUNTER, only the one boolean — inherited unchanged from
+`gbp_aplay.c`'s own `l2_event()`, not something this round introduced or regressed), and PRODUCTION IS COMPLETELY
+UNAFFECTED — `l2_event2()` is only ever called `if (p->l2.keeping)`, gated entirely inside L2's own armed window;
+the DUP/DROP correction itself, `push_one2()`, `p->dup++`/`p->drop++` and audio output all happen exactly as they
+would with L2 disabled.** Not a showstopper: a data-completeness question for L2's own OGBPL2S1 sidecar
+(`l2.overflowed` already says so), never a session-ending one, and it was never in question for a whole-session
+event log because no such log exists yet for this path — L2 is not it, and the SD2SP2/RAM-ring one CLAUDE.md §13
+describes is still the hardware-integration Issue's own build, not #127's.
+
+**Fact 2: the two figures do not disagree, they answer two different questions — "affords ~32 s" was the wrong
+one to report against a hundreds-of-seconds run.** `EVENTS_CAP / (L2_CHUNKS × k) = 3.2` (the ratio) and
+`EVENTS_CAP / (k × CHUNKS_PER_S) ≈ 32.0 s` (the same ratio, expressed as a duration: ≈ 3.2 × L2's own 10 s window)
+are both correct arithmetic on the SAME number for the SAME 10-second-scoped mechanism — the mistake was reporting
+the second one as if it bounded something else entirely.
+
+**The fix, per the Orchestrator's own instruction: log corrections per chunk, not per correction.** `gbp_aplay2`
+gained `chunk_corrections` (`src/audio/gbp_aplay2.[ch]`): the dup + drop COUNT of the chunk `gbp_aplay2_produce()`
+most recently completed (a snapshot of `dup + drop` taken at the chunk's start, `cur_corr0`, subtracted from the
+running totals at its end) — one small integer a chunk instead of up to `k` = 16 individual L2 events, carrying the
+same RATE information a §V28 analysis needs at 1/16th the record rate. It is not queued or stored by
+`gbp_aplay2` itself (no history, no cap, no overflow of its own): the caller samples and logs it, whenever and
+however it chooses — this is the instrument, not the store. `tests/unit/test_gbp_aplay2.c` gained two checks (93,
+was 86): the k = 16 correction test now also pins `chunk_corrections == 16`, and a new test proves it is a
+PER-CHUNK delta, not a running total, across two chunks with different correction counts (16, then 0).
+
+**The corrected total: 32.03 events/s (one record a chunk, at 32.03 chunks/s — CHUNKS_PER_S, unchanged whatever k
+is) against the OLD per-correction scheme's 512.5 events/s (k = 16 × CHUNKS_PER_S) — 1/16th, matching the fix's own
+design exactly.** The SAME 16384-slot budget `GBP_APLAY2_EVENTS_CAP` already reserves, applied to this instrument
+instead, affords `16384 / 32.03 ≈ 511.5 s` — comfortably past the "hundreds of seconds" a §V28 run needs, an
+illustrative figure only (no actual RAM/SD2SP2 arena exists for this path yet; sizing one for a real image is
+still the hardware-integration Issue's job, `tools/v28budget.py`'s own domain once a real capture exists to measure
+against). Other event types on this path (`starved_steps`, `ring_gated`, `discarded_chunks`, `dropped_front`,
+`silences`, `underruns`) are comparatively rare under nominal operation (none has its own per-chunk cadence the way
+a correction does) and are not separately budgeted this round — flagged, not computed, since assuming a rate for
+them without a captured session to measure would repeat exactly the mistake this entry corrects.
+
+**Tests:** `tests/unit/test_gbp_aplay2.c` now 93 (was 86). Dolphin smoke rerun after the struct size change (a new
+field): `PASS`, `sha256_dol` changed as expected (the pool/struct layout changed), the self-test line unchanged
+(`produced=2 dup=0 drop=0 atrans=1`). The gate on the committed tree: `pytest -q tests/host` -- 3284 passed,
+7 skipped, 0 failed; `make -C tests/unit` -- every binary green, 0 failures.
+
+**Review kept light**, per the Orchestrator's own instruction ("one small commit, light review") — no adversarial
+workflow this round; the fix is a small, additive field with its own two direct unit tests.

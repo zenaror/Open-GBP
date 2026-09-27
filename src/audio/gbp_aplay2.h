@@ -120,6 +120,7 @@ struct gbp_aplay2 {
     uint32_t cur_taken;                         /* samples this chunk has taken from the ring */
     uint8_t  cur_uncorrected;                   /* the chunk was started by an uncorrected call */
     uint32_t cur_step;                          /* this chunk's pushes per call, chosen at its start */
+    uint32_t cur_corr0;                         /* dup + drop at this chunk's start, for chunk_corrections below */
     /* mirrors gbp_aplay.h's Run B step_pushes hook: NULL means every chunk takes
      * GBP_APLAY2_STEP_PUSHES. Only the partition of the pushes into calls changes. */
     uint32_t (*step_pushes)(void *user, uint32_t seq);
@@ -144,6 +145,14 @@ struct gbp_aplay2 {
     uint32_t discarded_chunks;                  /* completed chunks returned unqueued */
     uint32_t dropped_front;                     /* READY chunks freed unplayed from the front */
     uint32_t corr_forgone;                      /* Issue #124's counter, ported unchanged (GBP-HW-349) */
+    /* #127's §V28 review: L2 logs one EVENT a correction (up to k = 16 a chunk, GBP_APLAY2_EVENTS_CAP-bounded,
+     * and only inside L2's own short ARMED window -- never meant as a whole-session log). A session-length
+     * correction-RATE log needs the rate, not every individual DUP/DROP: `chunk_corrections` is the dup + drop
+     * COUNT of the chunk gbp_aplay2_produce() most recently completed (valid once it returns >= 0), one small
+     * integer a chunk (32.03/s) instead of one L2 event a correction (up to 512.5/s) -- 1/16th the record rate
+     * for the SAME information a rate analysis needs. The caller samples and logs it itself; this field only
+     * holds the latest value, it does not queue or store a history. */
+    uint32_t chunk_corrections;
     uint32_t out_overflow;                      /* kept for compatibility with #126's own counter name; always 0
                                                   * on this path (the pool is fixed-size, never overflows a chunk:
                                                   * cur_frames caps at GBP_APLAY2_FRAMES by construction) */
