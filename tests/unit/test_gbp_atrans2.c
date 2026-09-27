@@ -212,7 +212,12 @@ static void test_rotate_with_discard(void)
     struct landing2 L = run2(GBP_ATRANS2_ROTATE, GBP_APLAY2_TARGET, GBP_APLAY2_TARGET - GBP_APLAY2_PUSHES, mute, 0u,
                             GBP_APLAY2_PUSHES);
     eqi(tr.completed, 1, "rotate+discard: completed");
-    eqi(L.discarded, GBP_APLAY2_PUSHES, "rotate+discard: the begin's own discard landed on the ring");
+    /* the begin's own discard (a shallowing), plus the landing's own ring trim down to target --
+     * two separate corrections, both counted in adec.discarded (Issue #129/#130's ROTATE trim) */
+    eqi(L.discarded, GBP_APLAY2_PUSHES + tr.trimmed,
+        "rotate+discard: the begin's own discard, plus the landing's own ring trim, landed on the ring");
+    eqi(L.count_after, GBP_APLAY2_TARGET - GBP_APLAY2_PUSHES,
+        "rotate+discard: the ring lands exactly at target, the landing's own trim removing the rest");
     if (tr.rotations >= GBP_APLAY2_AHEAD) check(!tr.unmasked, "rotate+discard: AHEAD rotations mask the splice");
     check_conservation2("rotate+discard", L);
 }

@@ -36,6 +36,18 @@
  * surplus READY fronts, without replacement, right at begin (counted in `ahead_drops`); one that
  * raises it only tops up, unchanged from today. `ahead` is clamped to [1, GBP_APLAY2_POOL] --
  * counted as a fault, like an insufficient mute, never a hard refusal.
+ *
+ * ROTATE TRIMS THE RING TO TARGET AT THE LANDING (GitHub Issue #129/#130, the Orchestrator's
+ * decision): a ROTATE landing can fall mid-cycle (the continuous produce+rotate loop pinned at
+ * `aim` runs for the whole mute, ending on a wall-clock hand-off count, not on the cycle's own
+ * phase), leaving the ring's own level (`d->count`) above target by up to about a chunk. HELD
+ * already trims its own landing this way (step_held2); ROTATE's own residue on this path measures
+ * about 4x the old path's own (#117's 15.6 ms vs this path's ~62.5 ms worst-case among the sweep's
+ * transitions), and the ring component alone drains only through the slow DUP/DROP corrector --
+ * seconds, not the one chunk period the READY component clears in -- long enough to inflate what a
+ * nulling judgment sees. `gbp_atrans2_step()` discards the ring's excess down to target at the
+ * landing, never below it (a shortfall is worse than the excess it fixes), before reporting
+ * `residue` -- masked (still inside the same landing step) and cheap (a ring-pointer advance).
  */
 #ifndef OPENGBP_GBP_ATRANS2_H
 #define OPENGBP_GBP_ATRANS2_H
@@ -68,8 +80,10 @@ struct gbp_atrans2 {
     uint32_t discards;                /* HELD: chunks discarded under silence */
     uint32_t rotations;               /* ROTATE: chunks rotated through READY (front dropped) */
     uint32_t topped;                  /* chunks handed back to finish the held queue (0 or 1) */
-    uint32_t trimmed;                 /* HELD: samples dropped at the landing */
-    int32_t  residue;                 /* ROTATE: the effective level minus the target at the landing, left to the band */
+    uint32_t trimmed;                 /* HELD, ROTATE: samples dropped from the ring at the landing */
+    int32_t  residue;                 /* ROTATE: the effective level minus the target at the landing, AFTER the
+                                        * ring's own trim (the READY component, if any, is left to the band --
+                                        * gbp_aplay2.h's own producer clears it in about one chunk period) */
     uint8_t  late;                    /* ROTATE: a rotation under way when the silence ended, queued undropped */
     uint8_t  unmasked;                /* ROTATE: a shallowing's pre-splice chunk still in READY (discard, < AHEAD rotations) */
     uint32_t short_by;                /* HELD: samples the ring lay below the level at the landing */
@@ -81,7 +95,7 @@ struct gbp_atrans2 {
                                        * of [1, GBP_APLAY2_POOL] (never; counted, corrected) */
     uint32_t begin_refused_active;    /* a begin() while already active: refused, counted, nothing touched */
     uint32_t ahead_drops;             /* surplus READY fronts dropped at begin by an ahead-lowering step */
-    uint32_t trim_max, trim_sum;      /* HELD */
+    uint32_t trim_max, trim_sum;      /* HELD, ROTATE */
     uint32_t shorts, short_max;       /* HELD: landings below the level */
     uint32_t converted;               /* HELD: landings that turned a discard under way into the refill */
     uint32_t rotate_landings, lates, unmaskeds;   /* ROTATE */
