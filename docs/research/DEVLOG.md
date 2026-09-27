@@ -17842,3 +17842,66 @@ The gate on the committed tree: `pytest -q tests/host` -- 3322 passed, 7 skipped
 shared begin-while-active gate and the AHEAD mechanism 3b already exercises; the `test_v28_ahead_steps.c`
 native-path matrix port, named as a pre-staging requirement (Orchestrator review); `SYNCPE` emission, the GX
 label, Amendment C's O6-leak drop and the two-image build, all still waiting on the new image's own `main.c`.
+
+## 2026-09-27 — Issue #129/#130 continued: ROTATE trims the ring to target at the landing
+
+**The measurement the Orchestrator asked for.** Before the sweep's own OUT_OF_BAND threshold could be set, the
+Orchestrator asked for one thing: the settle curve for the T256-anchor AHEAD steps the perceptual run actually
+nulls with (A4<->A3, A2<->A1, the A1->A2 raise), under smooth and bursty-worst feed, splitting the landing's
+`residue` into its ring component (`d->count - target`, drained only by the slow DUP/DROP corrector) and its
+READY component (`PUSHES * (ready - (ahead-1))`, cleared by the producer waiting). Measured (scratchpad-only
+diagnostic, not committed): READY excess cleared in 0-31 ms every time, benign as the Orchestrator's own
+reframing predicted. The ring excess (33-62 ms at landing) took 3.75-7.5 s to settle back within
+`GBP_APLAY2_BAND` -- against a nulling dwell (`gbp_async_cfg_default`'s own `p3_dwell_s`) of only 6 s, meaning
+the worst-measured case (7.5 s) could outlast the ENTIRE dwell the Operator's own nulling judgment runs on.
+
+**Root cause, not a coincidence.** A ROTATE landing can fall mid-cycle: once the ring reaches
+`aim = target +/- GBP_ATRANS2_AIM`, the module enters a continuous produce+rotate cycle that runs for the whole
+mute (masking behavior, not a bug), and the transition ends purely on a wall-clock hand-off count
+(`handed > t->mute`), independent of the cycle's own phase. This path's worst-case residue (~62.5 ms) is about
+4x the old path's own (#117's 15.6 ms) -- HELD already trims its own landing this way (`step_held2`); ROTATE
+never did.
+
+**The Orchestrator's decision (not the alternative this round proposed):** land the ring at target, with a trim
+inside the mute, at the landing -- never below target (a shortfall is worse than the excess it fixes), never
+after the mute ends (audible there). Rejected: gating a nulling step's judgment on a settled dwell -- a
+workaround that would leave the 120 s nulling budget (#128 §2) with very few steps, and fixes the test's
+tolerance rather than the product.
+
+**`gbp_atrans2.c`'s `step_rotate2()`**: at the landing (`handed > t->mute`), before computing `t->residue`,
+discards `d->count - t->target` from the ring (never negative), reusing HELD's own `trimmed`/`trim_sum`/
+`trim_max` accounting rather than inventing parallel fields. `residue` is now computed AFTER the trim, so it
+reports the effective level actually left behind, not the pre-trim number the trim just corrected.
+
+**Proof:** re-ran the settle curve after the fix -- ring_excess lands at exactly 0 in every one of the 6
+measured scenarios (was 2176-4096 samples; settle time was 3.75-7.5 s, now moot since there is no tail left to
+settle). The sweep's own 16 transitions (`tests/unit/test_v28_sweep_residue.c`, still its own uncommitted
+diagnostic, not this round's own deliverable) show the same effect at scale: worst |residue| across all 16
+transitions, 5 bursts and 4 phases dropped from 11264 to at most 2048 samples (31.25 ms) -- the benign READY
+component alone, exactly the class the old path's own review already tolerates.
+
+**One test needed updating**: `test_gbp_atrans2.c`'s own `test_rotate_with_discard` asserted the begin's own
+requested discard landed alone on the ring (`adec.discarded` delta == the discard amount); with the new trim,
+that delta now also carries the landing's own ring correction. Updated to check `discard + tr.trimmed`, and
+added a direct check that the ring lands exactly at target.
+
+**Not yet explained, flagged rather than hidden**: the settle time WITHOUT the fix came out in round multiples
+of one chunk period (31.25 ms) every time, as expected from a correction mechanism gated to at most one
++/-1-sample event per ~128-sample sub-block (16 per chunk) -- but the same 4096-sample landing excess settled in
+120 periods in one bursty scenario and 240 in another, and a period-by-period trace showed the correction rate
+itself is NOT constant through the tail: elevated and irregular in the periods right after landing (a
+transient from the mode switch itself), settling to a steady ~16 samples/period only further out. This is
+consistent with the quantization (whole-period steps) but not yet reduced to a single formula, and it no longer
+matters operationally -- the landing trim removes the excess before the correction loop ever needs to run.
+Recorded as an open, non-blocking curiosity, not chased further this round.
+
+**The gate on the committed tree** (before this segment's own uncommitted sweep-residue diagnostic and its
+`Makefile` entry, stashed out for the run): `pytest -q tests/host` -- 3322 passed, 7 skipped, 0 failed;
+`make -C tests/unit` -- every binary green, 0 failures (`test_gbp_atrans2` 46 checks, unchanged in count from the
+prior round since the new assertions replace the ones they made stale, not add to them).
+
+**Next.** The sweep's own `GBP_V28_START_MUTE` (the largest START transition's own frozen mute, `pause + ahead`
+for its climb, not the fixed `GBP_V28_STEP_MUTE`) -- not yet added; §18's "no unbounded wait" question (does the
+hand-off-counted mute have any wall-clock bound?) -- not yet investigated; `tests/unit/test_v28_sweep_residue.c`
+itself, and the sweep's own OUT_OF_BAND threshold, both still deliberately unmerged pending the Orchestrator's
+read of this round's own proof.
