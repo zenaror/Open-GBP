@@ -17191,3 +17191,149 @@ Counted for the Operator: **no planned console experiment was eliminated**. Two 
 prediction; the cushion floor's bound), two had their necessity established (the SOUNDBIAS reads; route-bias0200), and
 the decoder validation stands as it was. The next Hardware Issue carries the same images: `agb-route`'s four, and the
 §V28 ladder on the final decode.
+
+## 2026-09-27 — Issue #126: Round B built and host-validated — the native decoder at 65 536 Hz, resampled with the settled 16-tap β 4.0 table, k = 16 counted corrections; the fix is visible AND right (the fraction above 2 048 Hz lands in a plausible band against GBP-HW-340's known figures, and the shared low-band content agrees between the two paths) on RUN 33/34's tones and RUN 43's game window; no image, no hardware
+
+**Goal, fixed before the round (its own text, nothing added mid-round).** The decode RATE is the only variable:
+per slice, per stream, both summed before the resampler (mono), resampled 65 536 → 32 000 Hz with the Round A
+design (16 taps, β 4.0, GBP-HW-351), the drift architecture kept as-is and scaled (counted DUP/DROP, k = 16,
+GBP-HW-349), the cushion in time (0.125 s → 8192 samples), the frozen 4096 Hz path untouched. Host validation only:
+conservation, reproducibility, and the energy-above-2048 Hz gain must be visible on the same archived bytes.
+
+**A new path, not a moved default.** Every module is new:
+- `src/audio/gbp_adec2.[ch]`: per-slice, two-stream decode. wA + wB (streams at byte offsets 3 and 7 of each
+  8-byte group, `GBP-HW-347`) summed before calibration, one value per SLICE (16 a block, 65 536/s nominal). The
+  gain preserves gbp_adec's own sensitivity ratio exactly (0.125 of the range → 80 % of full scale, the constant
+  6.4): P_MAX = 512 instead of 32 768, so the denominator is 80 instead of 5 120 — the same ratio, so a listening
+  comparison isolates the rate change, never the loudness. This is a Round B design choice, not fixed by the Issue,
+  and is recorded in the header.
+- `tools/gen_aresamp2.py` / `src/audio/gbp_aresamp2_coef.h`: the exact object GBP-HW-351 settled (16 taps, Kaiser
+  β 4.0, cutoff 16 000 Hz), reshaped from `tools/v124taps.py`'s own `kernel()` into the [125][16] Q15 table
+  `gbp_aresamp2.c` walks — not rederived. `tests/host/test_v126_resampler2.py` cross-checks the reshape a second,
+  independent way. `tests/host/test_resampler_tables.py`'s discovery (written on #124 anticipating exactly this)
+  now sees both tables, each summing to exactly 32 768.
+- `src/audio/gbp_aresamp2.[ch]`: the same push-driven integer-accumulator engine as `gbp_aresamp.c`, unchanged in
+  structure, at L = 125 / M = 256 (a net DOWNSAMPLE, unlike the 4096 Hz path's upsample): at most one output a
+  push (`GBP_ARESAMP2_MAX_OUT = 1`), and the accumulator returns to 0 every 256 pushes (125 and 256 are coprime),
+  which is why a 2048-push chunk (a multiple of 256) always ends with `acc == 0`.
+- `src/audio/gbp_aplay2.[ch]`: the drift-correction layer, gbp_aplay.c's chunk/sub-block decision logic PORTED
+  (Issue #123's three review rounds settled it there; nothing re-derived), at PUSHES = 2048 (128 × 16), BAND = 256
+  (the same 3.906 ms width), k = 16 DEFAULT (this path's fixed value, unlike gbp_aplay's default of 1). Deliberately
+  NARROWER than gbp_aplay.c: no AI-chunk pool, no READY hand-off queue, no IRQ callback, no L2 CRC sidecar, no
+  mute/discard. Those are device-integration concerns Issue #126 puts out of scope ("No image, no staging, no
+  hardware... gets its own Issue once this validates"); what a host validation needs — output samples with the same
+  counted-DUP/DROP bookkeeping — is what is ported. When that later Issue opens, this is the layer to fold the
+  pool/queue/L2/mute machinery back onto.
+
+**Host validation** (`tests/host/harness_v126.c`, `tests/host/test_v126_chain.py`; RUN 33 and RUN 34, both
+versioned under `captures/fixtures/`, and RUN 43's game window, `captures/local/` — REQUIRED, not optional, per the
+Orchestrator: it is the only real game audio available and the whole point of the fix). Both the frozen path
+(gbp_adec.c + gbp_aresamp.c, run unchanged) and the new one decode the SAME archived bytes, both calibrated on
+window 0 (RUN 43: self-calibrated on the mean of its own 130-block gap-free run, `tools/u012game.py`'s largest
+run — it carries no separate silent control span the way RUN 33/34's OGBPAW1 sidecars do), both to 32 000 Hz PCM:
+
+```text
+                blocks  y1n/y2n (2000/2000 for the tones; 1016/1000 for RUN 43's shorter, non-chunk-aligned window)
+RUN 33            256    2000 / 2000     dup2=32  drop2=0  overflow=0  clipped=0  starved=0
+RUN 34            256    2000 / 2000     dup2=32  drop2=0  overflow=0  clipped=0  starved=0
+RUN 43            130    1016 / 1000     dup2=16  drop2=0  overflow=0  clipped=0  starved=0  (leftover2=48)
+```
+
+- **The fix is visible (secondary line — "more", not "right").** Energy above 2 048 Hz, `tools/v124taps.py`'s own
+  `band_power()` on the ACTUAL C output: RUN 33 2 596 → 8 625 910 (×3 320); RUN 34 89 912 → 9 289 710 (×103); RUN 43
+  10 140 → 562 959 (×55.5, on y1's shared prefix — see below). The test's threshold (×50, with real headroom on the
+  tightest case) is pinned from these measurements, not assumed.
+- **The fraction is right, not just bigger (the correctness check, Orchestrator instruction).** A bare ratio against
+  the OLD decode cannot distinguish a correct higher-bandwidth decode from a gain-error or aliasing bug inflating
+  the same ratio without reproducing the tone. `GBP-HW-340` already gives the IDEAL figure for RUN 33/34's exact
+  tones on the raw, unfiltered decode: 2.5–18.7 % of each tone's energy above 2 048 Hz. Round B's own chain measures
+  its OWN fraction after the signal passes the 16-tap/16 kHz-cutoff resampler (a low-pass filter that by
+  construction attenuates content near its own passband edge, so a materially lower but non-zero fraction is the
+  expected, correct outcome): RUN 33 1.43 %, RUN 34 2.16 %, RUN 43 2.36 % — against essentially 0 % on the frozen
+  path (RUN 33 0.000 %, RUN 34 0.021 %, RUN 43 0.036 %). `FRACTION_BAND = (0.5 %, 8 %)` in
+  `tests/host/test_v126_chain.py` is the data-derived, headroomed plausibility band this is checked against.
+- **The shared low band agrees between the two paths (review-round finding, fixed).** The ratio/fraction checks
+  above still cannot rule out a broadband-noise bug (noise concentrates energy above 2 048 Hz at least as readily as
+  real audio, and could land inside FRACTION_BAND by chance). `tools/v124taps.py`'s `split()` isolates the <=2048 Hz
+  content both paths represent from the SAME underlying signal (one FFT, bins above the fold zeroed); a best-lag
+  Pearson correlation (±64 samples, covering the two resamplers' different group delays) is required to exceed 0.7.
+  Measured: RUN 33 0.976 (lag 47), RUN 34 0.981 (lag 45), RUN 43 0.951 (lag within the same bound, on y1's shared
+  prefix) — against 0.03–0.16 for five trials of random noise or an index-scrambled real signal over the same lag
+  range. A wiring/indexing bug (misordered slices, swapped stream offsets) that still passed conservation,
+  reproducibility and the energy ratio would fail this check.
+- **Conservation.** Every decoded block gives exactly 16 samples; each completed chunk pops 2048 − dup + drop from
+  the decoder's ring (GBP-HW-349's k arithmetic), the rest sits as `leftover2`; every chunk resamples to EXACTLY
+  1000 output frames, regardless of correction activity (the property `acc == 0` at every boundary gives). Read
+  from a real run, not asserted. RUN 43's window is not sized to a whole number of chunks (130 blocks = 2080
+  decoded samples, one chunk consumes 2032 of them), so `len(y1) != len(y2)` there — every check that compares the
+  two paths sample-for-sample uses `y1[:len(y2)]`, the shared prefix both paths agree on having finished resampling.
+- **Reproducibility.** The same window decoded twice gives byte-identical PCM and counters, on all three captures.
+- **The dup activity (32 a run for RUN 33/34, 16 for RUN 43) is a cold-start transient**, not a defect: each window
+  starts with its ring far below the 0.125 s / 8192-sample target, so every sub-block DUPs until the fill would
+  catch up — which none of these short windows has time to do. A longer replay (§V28-scale) is where the
+  steady-state correction rate would be measured; that is out of scope here.
+
+**Unit tests.** `tests/unit/test_gbp_adec2.c` (118 checks): slice_sum on synthetic bytes, the calibration/gain
+formula (the derived 80-denominator arithmetic checked explicitly), clipping, the ring, overflow-per-sample,
+lost-block holds, discard. `tests/unit/test_gbp_aplay2.c` (52 checks, +4 in the review round): the defaults
+(k = 16, target = 8192, PUSHES = 2048, BAND = 256), a chunk at rest resamples to exactly 1000 frames with
+`acc == 0` after, the PUSHES + 1 gate, k = 16 DUPs spread one per 128-push sub-block (mirroring `gbp_aplay.c`'s own
+`test_k_corrections_are_spread_one_per_sub_block`, at this path's numbers), `corr_forgone`, at most one correction
+before playback, an uncorrected (transition) chunk takes none, `set_corrections`/`set_target` bounds, conservation
+under a bursty multi-call feed, an undersized output ring counting every sample it cannot hold rather than dropping
+it silently (`out_overflow`, the review round's finding, below), reproducibility. `tests/unit/test_gbp_aresamp2.c`
+(new in the review round, 9 checks): `gbp_aresamp2_init`/`_push` tested DIRECTLY for the first time (previously only
+exercised indirectly through `gbp_aplay2_produce`) — the accumulator's whole-period arithmetic (256 pushes, one full
+period since gcd(125,256) = 1, exactly 125 outputs and `acc` back to 0), a settled DC input reproducing exactly, and
+a single impulse's exact, independently-traced response sequence (this ratio's phase 0 is a genuine lowpass kernel,
+not a delta, unlike the frozen upsampler's — the peak lobe's sign is what the test checks, catching a coefficient
+sign-flip or a history/accumulator indexing bug the table's own correctness checks do not). All three build
+warning-free under the project's `-Wall -Wextra -Wpedantic -Wshadow -Wconversion`, and pass the same static purity
+pins (no float, no allocation, no blocking call, fixed-width types only) `tests/host/test_audio_runtime.py` already
+holds the frozen path to.
+
+**Not done, out of scope for #126, with what picks it up:**
+- Image build and staging, and the pool/queue/L2/mute port `gbp_aplay2` deliberately left out: the
+  hardware-integration Issue, once this validates (the Issue's own text).
+- The §V28 validation ladder and `agb-route`'s hardware run: the next Hardware Issue (`#125`'s closing table).
+- The architecture question (counted corrections vs a ratio steered from the fill or from measured clocks):
+  stays open, `GBP-HW-349`/`GBP-HW-350` (#125), not decided here.
+- A steady-state correction-rate measurement at this path's numbers (the run here is two chunks, a cold start
+  only): a longer host replay, when one is needed.
+
+**Review.** One round (the quota rule, #126's own text and the Operator's), lenses matched to what they need: strong
+lenses for arithmetic/mechanism/correctness (resampler-math, conservation-and-scope), cheap lenses for mechanical
+checks (wording vs source, test-name coverage vs the diff). 10 agents, 6 findings confirmed (2 duplicate reports of
+the same defect), 0 refuted, 1 low. All 6 fixed:
+1. **DEVLOG shipped with `{REVIEW_SUMMARY}`/`{GATE}` template tokens unfilled** (reported twice, high) — this
+   section and the gate line below are the fix.
+2. **`gbp_aplay2`'s output ring dropped samples silently on overflow** (medium) — `out_put()` returned -1 on a full
+   ring but `push_one2()` discarded the return value with no counter, unlike `gbp_adec2`'s own `ring_put2`, which
+   does count the identical condition. Fixed: `gbp_aplay2` gained an `out_overflow` counter (`gbp_aplay2.h`/`.c`),
+   incremented on every dropped sample; a new unit test drives it with a deliberately undersized ring and asserts
+   the exact count.
+3. **`test_v126_resampler2.py`'s "independent" re-derivation shared the formula AND the call with the code it
+   checks** (medium) — it called `v124taps.kernel()` a second time with identical arguments and the byte-for-byte
+   identical index expression `gen_aresamp2.table()` uses, so a shared error in either would reproduce identically
+   in both places and still pass. Fixed with the reviewer's own suggested stronger option: the check now cross-
+   validates against `tools/v123chain.py`'s `prototype()`, a raw-float Kaiser construction sharing no code path
+   with `v124taps.kernel()`, by normalized correlation per phase (worst measured: 0.9999999935 across all 125
+   phases) — genuinely independent of a shared derivation error, not only of a transcription slip.
+4. **The energy-above-2048 Hz test could not distinguish a correct decode from a broadband-noise bug** (medium) —
+   the exact defect the Orchestrator's own instruction (point 1, this entry) was already narrowing toward. Fixed
+   by the fraction-band check above AND the shared-low-band-correlation check above; the review round's own
+   negative controls (random noise, an index-scrambled real signal) are the evidence CORR_MIN's margin rests on.
+5. **`gbp_aresamp2_init`/`_push` had no direct unit test** (medium), only indirect coverage through
+   `gbp_aplay2_produce`. Fixed: `tests/unit/test_gbp_aresamp2.c`, described above.
+6. Low: DC-fallback comment wording in `gbp_adec2.h`, accepted as-is (no correctness or evidence impact).
+
+**Tests:** `tests/unit/test_gbp_adec2.c`, `tests/unit/test_gbp_aplay2.c`, `tests/unit/test_gbp_aresamp2.c` (all
+green, 0 failures); `tests/host/test_v126_resampler2.py` (rewritten independence check), `tests/host/test_v126_chain.py`
+(12 tests, up from 6: the fraction and low-band-correlation checks, and RUN 43's game window battery, all added),
+`tests/host/test_resampler_tables.py` (extended, not rewritten), `tests/host/test_audio_runtime.py` (unaffected,
+still green — the frozen path is untouched). The gate on the committed tree: `pytest -q tests/host` — 3281 passed,
+7 skipped, 103 subtests passed, 0 failed (1019 s); `make -C tests/unit` — every binary green, 0 failures, including
+the two new/extended ones above.
+
+**Next.** The hardware-integration Issue: port `gbp_aplay2`'s pool/queue/L2/mute layer, build and stage an image,
+the §V28 ladder on the final decode, `agb-route`'s hardware run.
