@@ -80,6 +80,52 @@ _Static_assert(GBP_V28_T192 >= GBP_APLAY2_TARGET_MIN && GBP_V28_T192 <= GBP_APLA
 #define GBP_V28_A2   2u
 #define GBP_V28_A1   1u
 
+/* ---- the auto-search grids (#122/gbp_async_cfg_default's p3/p2 fields) -----------------------
+ *
+ * 3a's descent (TARGET 384 -> 128 by 32, bisected) and nulling's scan (384..3584 by 128) are ALSO
+ * old-path (4096 Hz) sample counts -- the same unit slip Amendment A guards the ladder against
+ * applies here too, so they are derived the same way: stated as the old value, x16, never a
+ * hand-copied native literal. mute_chunks/step_mute_chunks/dwell/confirm/cap are chunk counts or
+ * seconds already, so they carry over unconverted (see AHEAD, above) and are not repeated here --
+ * the session/plan design (#129's own next slice) is what places these grids into a phase. */
+#define GBP_V28_OLD_P3_START   384u
+#define GBP_V28_OLD_P3_STEP     32u
+#define GBP_V28_OLD_P3_MIN     128u
+#define GBP_V28_OLD_P2_LO      384u
+#define GBP_V28_OLD_P2_HI     3584u
+#define GBP_V28_OLD_P2_STEP    128u
+
+#define GBP_V28_P3_START   (GBP_V28_OLD_P3_START * GBP_V28_NATIVE_RATIO)   /* 6144 */
+#define GBP_V28_P3_STEP    (GBP_V28_OLD_P3_STEP  * GBP_V28_NATIVE_RATIO)   /*  512 */
+#define GBP_V28_P3_MIN     (GBP_V28_OLD_P3_MIN   * GBP_V28_NATIVE_RATIO)   /* 2048 == GBP_APLAY2_TARGET_MIN */
+#define GBP_V28_P2_LO      (GBP_V28_OLD_P2_LO    * GBP_V28_NATIVE_RATIO)   /*  6144 */
+#define GBP_V28_P2_HI      (GBP_V28_OLD_P2_HI    * GBP_V28_NATIVE_RATIO)   /* 57344 */
+#define GBP_V28_P2_STEP    (GBP_V28_OLD_P2_STEP  * GBP_V28_NATIVE_RATIO)   /*  2048 */
+
+/* the grid's own endpoints must be reachable TARGETs, same as every ladder rung above.
+ *
+ * KNOWN GAP, stated rather than hidden: unlike the ladder's own T-values (all well under
+ * TARGET_MIN when read literally), GBP_V28_OLD_P2_HI (3584) already numerically falls inside
+ * [TARGET_MIN, TARGET_MAX] on its own -- so this bounds check alone would NOT catch a slip that
+ * left P2_HI un-derived while P2_LO/P2_STEP stayed correct. The divisibility check right below
+ * this one is what catches that specific case (3584 does not land on the grid P2_LO/P2_STEP
+ * derive), and tests/host/test_v28_ladder.py proves it does. */
+_Static_assert(GBP_V28_P3_START >= GBP_APLAY2_TARGET_MIN && GBP_V28_P3_START <= GBP_APLAY2_TARGET_MAX,
+    "GBP_V28_P3_START is out of GBP_APLAY2's TARGET bounds");
+_Static_assert(GBP_V28_P3_MIN >= GBP_APLAY2_TARGET_MIN && GBP_V28_P3_MIN <= GBP_APLAY2_TARGET_MAX,
+    "GBP_V28_P3_MIN is out of GBP_APLAY2's TARGET bounds");
+_Static_assert(GBP_V28_P2_LO >= GBP_APLAY2_TARGET_MIN && GBP_V28_P2_LO <= GBP_APLAY2_TARGET_MAX,
+    "GBP_V28_P2_LO is out of GBP_APLAY2's TARGET bounds");
+_Static_assert(GBP_V28_P2_HI >= GBP_APLAY2_TARGET_MIN && GBP_V28_P2_HI <= GBP_APLAY2_TARGET_MAX,
+    "GBP_V28_P2_HI is out of GBP_APLAY2's TARGET bounds");
+
+/* the descent/scan must land exactly on its own floor/ceiling -- a non-exact step would silently
+ * drift the search grid away from the values above. */
+_Static_assert((GBP_V28_P3_START - GBP_V28_P3_MIN) % GBP_V28_P3_STEP == 0u,
+    "GBP_V28_P3_START..P3_MIN is not an exact number of P3_STEPs");
+_Static_assert((GBP_V28_P2_HI - GBP_V28_P2_LO) % GBP_V28_P2_STEP == 0u,
+    "GBP_V28_P2_LO..P2_HI is not an exact number of P2_STEPs");
+
 #ifdef __cplusplus
 }
 #endif
