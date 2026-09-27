@@ -12,17 +12,22 @@ uint32_t gbp_atrans2_handoffs(const struct gbp_atrans2 *t, const struct gbp_apla
     return p->handed - t->handed_at_start;
 }
 
-uint32_t gbp_atrans2_min_mute(uint8_t mode, uint32_t pause)
+uint32_t gbp_atrans2_min_mute(uint8_t mode, uint32_t pause, uint32_t ahead)
 {
-    return mode == GBP_ATRANS2_ROTATE ? pause + GBP_APLAY2_AHEAD : mode == GBP_ATRANS2_HELD ? pause + 1u : 0u;
+    return mode == GBP_ATRANS2_ROTATE ? pause + ahead : mode == GBP_ATRANS2_HELD ? pause + 1u : 0u;
 }
 
 int gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec2 *d, uint64_t now, uint8_t mode,
-                      uint32_t mute, uint32_t pause, uint32_t discard, uint32_t target)
+                      uint32_t mute, uint32_t pause, uint32_t discard, uint32_t target, uint32_t ahead)
 {
-    uint32_t need;
+    uint32_t need, old_ahead, k;
     if (t->active) { t->begin_refused_active++; return 0; }   /* #117 entry 21, one level down (#129/#130) */
-    need = gbp_atrans2_min_mute(mode, pause);
+    if (ahead < 1u || ahead > GBP_APLAY2_POOL) {               /* corrected, never a hard refusal (like mute below) */
+        t->faults++;
+        if (ahead < 1u) ahead = 1u;
+        if (ahead > GBP_APLAY2_POOL) ahead = GBP_APLAY2_POOL;
+    }
+    need = gbp_atrans2_min_mute(mode, pause, ahead);
     if (mode == GBP_ATRANS2_UNMUTED) mute = 0u;
     else if (mute < need) { t->faults++; mute = need; }
     t->active = 1u;
@@ -34,7 +39,7 @@ int gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_ad
     t->discard_pending = (uint8_t)((mode == GBP_ATRANS2_HELD && discard) ? 1u : 0u);
     t->target = target;
     t->handed_at_start = p->handed;
-    t->discards = t->rotations = t->topped = t->trimmed = t->short_by = t->handed_seen = 0u;
+    t->discards = t->rotations = t->topped = t->trimmed = t->short_by = t->handed_seen = t->ahead_drops = 0u;
     t->residue = 0;
     t->late = t->unmasked = 0u;
     t->t_start = now;
@@ -43,6 +48,14 @@ int gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_ad
     gbp_aplay2_set_target(p, target);
     if (mute) gbp_aplay2_mute(p, mute);
     if (discard && mode != GBP_ATRANS2_HELD) (void)gbp_adec2_discard(d, discard);
+    old_ahead = p->ahead;
+    p->ahead = ahead;
+    /* §V28's own step mechanism: a step LOWERING ahead drops the surplus READY fronts, without
+     * replacement, right here, under the mute -- gbp_atrans2.h's own invariant, applied inside the
+     * one place ahead ever changes. Never for HELD (retired for steps, #128's own review). */
+    if (ahead < old_ahead && mode != GBP_ATRANS2_HELD)
+        for (k = ahead; k < old_ahead; k++)
+            if (gbp_aplay2_drop_front(p) >= 0) t->ahead_drops++;
     return 1;
 }
 
@@ -70,12 +83,12 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
     if (handed > t->mute) {
         if (t->rotating) { t->rotating = 0u; t->late = 1u; t->lates++; }
         t->residue = (int32_t)d->count + (p->cur >= 0 ? (int32_t)p->cur_pushes : 0)
-                   + (int32_t)GBP_APLAY2_PUSHES * ((int32_t)gbp_aplay2_ready(p) - (int32_t)(GBP_APLAY2_AHEAD - 1u))
+                   + (int32_t)GBP_APLAY2_PUSHES * ((int32_t)gbp_aplay2_ready(p) - (int32_t)(p->ahead - 1u))
                    - (int32_t)t->target;
         if (t->rotate_landings == 0u || t->residue < t->residue_min) t->residue_min = t->residue;
         if (t->rotate_landings == 0u || t->residue > t->residue_max) t->residue_max = t->residue;
         t->rotate_landings++;
-        if (t->discard > 0u && t->rotations < GBP_APLAY2_AHEAD) { t->unmasked = 1u; t->unmaskeds++; }
+        if (t->discard > 0u && t->rotations < p->ahead) { t->unmasked = 1u; t->unmaskeds++; }
         return finish2(t, now);
     }
     if (t->rotating) {
@@ -83,7 +96,7 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
         if (b >= 0) rotated2(t, p, b, to_queue);
         return 0;
     }
-    if (gbp_aplay2_ready(p) < GBP_APLAY2_AHEAD) {
+    if (gbp_aplay2_ready(p) < p->ahead) {
         const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
         if (b >= 0) { *to_queue = b; t->topped++; }
         return 0;
@@ -128,7 +141,7 @@ static int step_held2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_ad
         t->discarding = 0u;
         t->discards++;
     }
-    if (gbp_aplay2_ready(p) < GBP_APLAY2_AHEAD) {
+    if (gbp_aplay2_ready(p) < p->ahead) {
         const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
         if (b >= 0) { *to_queue = b; t->topped++; }
         return 0;

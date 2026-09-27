@@ -28,6 +28,15 @@
  * validation ladder). This module ships with AHEAD 1 so the ported chain can be driven and measured
  * directly (host replay, Dolphin), per #127's own text ("is AHEAD 1 safe? ... measure it").
  *
+ * `p->ahead` IS THE RUNTIME VALUE (GitHub Issue #129/#130, the Orchestrator's review): §V28's
+ * ladder needs AHEAD to move (4 down to 1, both directions), which a compile-time macro cannot do.
+ * `gbp_aplay2_init()` sets it to GBP_APLAY2_AHEAD, so untouched behaviour is unchanged; no array is
+ * sized by it (rq/state/seq are all GBP_APLAY2_POOL), so raising it at runtime is memory-safe.
+ * IT NEVER CHANGES EXCEPT THROUGH gbp_atrans2_begin(): a bare setter that could run outside a mute,
+ * or while a transition is active, would leave the mute-length and surplus-drop accounting
+ * computed against the WRONG value (gbp_atrans2.c's own `pause + ahead`, residue and rotation
+ * counts) -- see gbp_atrans2.h. There is deliberately no public `gbp_aplay2_set_ahead()`.
+ *
  * GBP_APLAY2_STEP_PUSHES = 128 preserves the frozen path's PER-CALL TIME GRANULARITY, not its raw
  * push count: 8 pushes at 4096 Hz is 1.953 ms of decode time a call; 128 pushes at 65536 Hz is the
  * same 1.953 ms. PROVISIONAL, exactly as gbp_aplay.h's own 8 was until RUN 40 measured it (#109):
@@ -126,6 +135,9 @@ struct gbp_aplay2 {
     uint32_t (*step_pushes)(void *user, uint32_t seq);
     void    *step_pushes_user;
     uint32_t target;                            /* the fill the corrections hold; GBP_APLAY2_TARGET after init */
+    uint32_t ahead;                             /* READY chunks kept ahead of the DMA; GBP_APLAY2_AHEAD after
+                                                  * init, changed only by gbp_atrans2_begin() -- see gbp_aplay2.h's
+                                                  * own header comment and gbp_atrans2.h */
     uint8_t  playing;                           /* before playback a chunk takes at most one correction */
     /* READY queue, producer -> callback */
     volatile uint8_t  rq[GBP_APLAY2_POOL];

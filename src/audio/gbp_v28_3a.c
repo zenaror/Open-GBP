@@ -48,7 +48,9 @@ int gbp_v28_3a_tick(struct gbp_v28_3a *s, struct gbp_atrans2 *t, struct gbp_apla
          * this can only be the previous depth's own climb, not yet landed (a bisection step may
          * DEEPEN, which takes more than one pump call) -- and 3a must NOT believe the new target
          * is in force, or it would count a dwell at a depth the ring never reached. */
-        if (!gbp_atrans2_begin(t, p, d, now, GBP_ATRANS2_UNMUTED, 0u, pause, discard, to)) return 0;
+        /* #128 §2: 3a stays at AHEAD 4 throughout -- passed explicitly here, never left to whatever
+         * gbp_aplay2_init()'s own default (GBP_APLAY2_AHEAD, currently 1) happens to be. */
+        if (!gbp_atrans2_begin(t, p, d, now, GBP_ATRANS2_UNMUTED, 0u, pause, discard, to, GBP_V28_A4)) return 0;
         s->begin_pending = 0u;
         s->dwell_active = 1u;
         s->t_set = now;

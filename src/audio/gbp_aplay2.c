@@ -54,6 +54,7 @@ void gbp_aplay2_init(struct gbp_aplay2 *p, uint8_t *pool, const uint8_t *silence
     p->cur = -1;
     p->last_handed[0] = p->last_handed[1] = -1;
     p->target = GBP_APLAY2_TARGET;
+    p->ahead = GBP_APLAY2_AHEAD;
     p->corr_per_chunk = GBP_APLAY2_K_DEFAULT;          /* this path's fixed default (GBP-HW-349) */
     if (!crc_ready) crc_build();
 }
@@ -155,13 +156,13 @@ static int produce_impl2(struct gbp_aplay2 *p, struct gbp_adec2 *d, int uncorrec
          * path's k = 16 too, #126). */
         if (d->count < GBP_APLAY2_PUSHES + 1u) {
             p->starved_steps++;
-            if (uncorrected || gbp_aplay2_ready(p) < GBP_APLAY2_AHEAD) {
+            if (uncorrected || gbp_aplay2_ready(p) < p->ahead) {
                 for (i = 0; i < (int)GBP_APLAY2_POOL; i++)
                     if (p->state[i] == GBP_APLAY2_FREE) { p->ring_gated++; break; }
             }
             return -1;
         }
-        if (!uncorrected && gbp_aplay2_ready(p) >= GBP_APLAY2_AHEAD) return -1;
+        if (!uncorrected && gbp_aplay2_ready(p) >= p->ahead) return -1;
         for (i = 0; i < (int)GBP_APLAY2_POOL; i++)
             if (p->state[i] == GBP_APLAY2_FREE) { found = i; break; }
         if (found < 0) return -1;

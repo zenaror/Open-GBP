@@ -27,6 +27,15 @@
  * gate is here, in the ONE place every handler shares, not duplicated in each one:
  * gbp_atrans2_begin() itself refuses (returns 0, counts `begin_refused_active`, touches nothing)
  * when `active` is already 1, rather than clobbering the running transition's state.
+ *
+ * THE PLAN CARRIES THE TARGET AHEAD (GitHub Issue #129/#130, the Orchestrator's review, on top of
+ * the same requirement): `gbp_aplay2`'s own `ahead` field (see gbp_aplay2.h) never changes except
+ * through `gbp_atrans2_begin()`, which applies it inside the mute together with the surplus drop
+ * -- never through a bare setter callable mid-transition, which would leave the mute-length and
+ * surplus-drop accounting computed against the wrong value. A step that LOWERS ahead drops the
+ * surplus READY fronts, without replacement, right at begin (counted in `ahead_drops`); one that
+ * raises it only tops up, unchanged from today. `ahead` is clamped to [1, GBP_APLAY2_POOL] --
+ * counted as a fault, like an insufficient mute, never a hard refusal.
  */
 #ifndef OPENGBP_GBP_ATRANS2_H
 #define OPENGBP_GBP_ATRANS2_H
@@ -68,8 +77,10 @@ struct gbp_atrans2 {
     uint64_t t_start, t_reached, t_end;
     /* since init */
     uint32_t begun, completed;
-    uint32_t faults;                  /* plans whose mute could not fit their mechanism (never; counted, raised) */
+    uint32_t faults;                  /* plans whose mute could not fit their mechanism, or whose ahead was out
+                                       * of [1, GBP_APLAY2_POOL] (never; counted, corrected) */
     uint32_t begin_refused_active;    /* a begin() while already active: refused, counted, nothing touched */
+    uint32_t ahead_drops;             /* surplus READY fronts dropped at begin by an ahead-lowering step */
     uint32_t trim_max, trim_sum;      /* HELD */
     uint32_t shorts, short_max;       /* HELD: landings below the level */
     uint32_t converted;               /* HELD: landings that turned a discard under way into the refill */
@@ -79,14 +90,16 @@ struct gbp_atrans2 {
 
 void gbp_atrans2_init(struct gbp_atrans2 *t);
 
-/* the mute a mechanism needs for a climb of `pause` chunks: ROTATE pause + GBP_APLAY2_AHEAD,
- * HELD pause + 1, UNMUTED 0 */
-uint32_t gbp_atrans2_min_mute(uint8_t mode, uint32_t pause);
+/* the mute a mechanism needs for a climb of `pause` chunks at the given `ahead`: ROTATE
+ * pause + ahead, HELD pause + 1, UNMUTED 0 */
+uint32_t gbp_atrans2_min_mute(uint8_t mode, uint32_t pause, uint32_t ahead);
 
-/* Apply a plan now. Returns 1 when applied, or 0 when refused because a transition is already
- * active (begin_refused_active counts it; nothing about the running transition is touched). */
+/* Apply a plan now, at the given `ahead` (p->ahead from this call on -- see the header comment
+ * above; a surplus drop happens here too, if ahead is lower than it was). Returns 1 when applied,
+ * or 0 when refused because a transition is already active (begin_refused_active counts it;
+ * nothing about the running transition, INCLUDING p->ahead, is touched). */
 int gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec2 *d, uint64_t now, uint8_t mode,
-                      uint32_t mute, uint32_t pause, uint32_t discard, uint32_t target);
+                      uint32_t mute, uint32_t pause, uint32_t discard, uint32_t target, uint32_t ahead);
 
 /* One pump call while active. Returns 1 on the call that completes the plan, else 0. `*to_queue` is
  * set to a produced chunk the CALLER must flush and queue, else -1. */
