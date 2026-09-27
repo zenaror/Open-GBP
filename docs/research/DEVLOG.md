@@ -17422,3 +17422,136 @@ rerun clean; gate figure to follow in the closeout commit.
 **Review kept light**, per the Orchestrator's own instruction ("it's one computation plus a test change") — no
 adversarial workflow this round; the method was proved on constructions (exact + off-nominal, band-limited synthetic
 squares) before being trusted on the archive, which is the round's own verification.
+
+## 2026-09-27 — Issue #127: the native decoder ported into the runtime path (pool, queue, L2, mute, `gbp_atrans2`); host-validated, Dolphin-executed; §V28's AHEAD-1/CPU figures partially verified against the real compiled code, not just modelled
+
+**Goal, fixed before the round.** Wire `gbp_adec2`/`gbp_aresamp2`/`gbp_aplay2` (#126) into the runtime audio path — the
+landing pool and queue, the L2 record, the transition executor (`gbp_atrans`, the mute), the drift corrector at
+k = 16 — as a NEW path; the frozen 4096 Hz path stays untouched for the frozen images. Measure, not model, the
+numbers §V28 needs before it can be frozen: the event budget, the AHEAD margin (is AHEAD 1 safe?), CPU, and the
+corrector's own spectral cost. Host and Dolphin only: no staging, no hardware.
+
+**`gbp_aplay2` gained the pool/queue/L2/mute layer `gbp_aplay.c` already has**, exactly (`src/audio/gbp_aplay2.[ch]`,
+rewritten): the AI chunk pool (`GBP_APLAY2_POOL = 16`, `GBP_APLAY2_CHUNK_BYTES = 4000`, unchanged from the frozen
+path — a chunk's DURATION is identical on both paths, 31.25 ms, since only the INPUT decode rate differs, not the
+32 000 Hz output), the READY queue and hand-off log, the L2 keep/hand/CRC record, `mute`/`discard_chunk`/
+`produce_discard`/`produce_uncorrected`/`drop_front`, `process()`, `irq_handoff()`, `arm_l2()` and the OGBPL2S1
+sidecar. `GBP_APLAY2_KEEP_CAP` and `GBP_APLAY2_EVENTS_CAP` are scaled for k = 16 corrections a chunk against the
+frozen path's k = 1 (`gbp_aplay.h`'s own rule for k > 1: "sizes both for PUSHES + k and its k"), keeping the SAME
+headroom ratio (events cap / (L2 window × k) = 3.2) the frozen path's own sizing has: `EVENTS_CAP = 16384`. The
+resampler/correction decision logic itself (produce_impl's gate, per-sub-block decision, `corr_forgone`) is
+UNCHANGED from #126. Review round: fixed five bare `int` locals/struct fields (`cur`, `last_handed`, `crc_ready`,
+loop/buffer-index locals) to `int32_t`, caught by the same fixed-width-types static-purity pin #126 already holds
+`gbp_adec2`/`gbp_aresamp2` to.
+
+**`GBP_APLAY2_AHEAD = 1` is THE QUESTION this round measures, not an established value** (GBP-HW-350 modelled,
+never measured, a mono/16-tap worst-case margin around 21.0 ms). `GBP_APLAY2_STEP_PUSHES = 128` preserves the
+frozen path's PER-CALL TIME granularity (8 pushes at 4096 Hz = 128 pushes at 65536 Hz = 1.953 ms), the best
+host-derived starting point in the absence of a hardware-measured call length (exactly how the frozen path's own
+8 was itself set from RUN 40, #109) — PROVISIONAL, same as the frozen path's was before its own measurement.
+
+**`gbp_atrans2` ports `gbp_atrans.c`'s three mechanisms (ROTATE, HELD, UNMUTED) unchanged in KIND**
+(`src/audio/gbp_atrans2.[ch]`, new), at this path's own `GBP_APLAY2_PUSHES` (2048) and `GBP_APLAY2_AHEAD` (1).
+`GBP_ATRANS2_AIM = GBP_APLAY2_PUSHES / 2` (a formula, not a re-copied constant): half a chunk in decode samples is
+also half a chunk in TIME on both paths (1024 samples at 65 536 Hz = 64 samples at 4 096 Hz = 7.8125 ms), since a
+chunk's duration is identical on both. `gbp_adec2_discard()` already existed (#126) with matching semantics to
+`gbp_adec_discard()`, so the port needed no new decoder-side primitive.
+
+**Host validation.** `tests/unit/test_gbp_aplay2.c` (86 checks, was 52 in #126): the #126 correction-logic tests
+adapted to the pool interface (`produce()` returns a completed BUFFER INDEX now, not a bool; `GBP_APLAY2_AHEAD == 1`
+means a corrected `produce()` refuses a second chunk while one is still queued, so every multi-chunk test now
+drains — queue, one simulated hand-off, `process()` — between chunks, matching a real caller's own job); NEW:
+queue/hand-off FIFO order, an empty-queue underrun, a chunk freed exactly two hand-offs later (three chunks driven
+in sequence to show it, not two — AHEAD == 1 makes the two-hand-offs-later rule observable one chunk at a time),
+mute leaving READY untouched, `discard_chunk` freeing without queueing, `arm_l2` keeping and handing off a window.
+`tests/unit/test_gbp_atrans2.c` (23 checks, new): each of the three mechanisms once (not gbp_atrans.c's original
+4-phase × bursty-feed sweep — DELIBERATELY NARROWER, since the algorithm is already proven and what changed here is
+the constants and the wiring, not the transitions themselves), the conservation identity (fed = played + skipped +
+delta stock) checked at every landing.
+
+**`tests/host/harness_v126.c` rewritten for the pool interface**: every completed chunk is drained at once (queued,
+handed off through `gbp_aplay2_irq_handoff()`, its big-endian bytes decoded back to plain int16 PCM -- L == R
+always in this format -- then `process()`ed) before the next block is fed. `drain_step()` calls `produce_ex()`
+repeatedly until NOTHING can happen this block (`cur < 0` and too few samples to start), not a fixed number of
+times: an earlier version polled a fixed, generous bound regardless, which inflated `starved_steps` into the
+hundreds of thousands with no real starvation behind it -- a harness artifact, not a chain property, caught by
+`tests/host/test_v126_chain.py`'s own `starved2 == 0` assertion (already exercising #126) still expecting the same
+zero it always has. All #126 host tests (15) pass unchanged on the ported path, RUN 33/34/43 alike.
+
+**Dolphin: execution only, real PowerPC.** `poc/gbp-audio-native-probe` (new; mirrors `poc/smoke-test`'s proven
+video/console/Gecko/SD2SP2 boilerplate unchanged, so `tools/dolphin_smoke.py`'s generic READY/HEARTBEAT detection
+needs no changes): a self-test feeds a SYNTHETIC decoded stream (no cartridge, no drain, no GBP/HSP register
+touched anywhere in the file) through `gbp_adec2` + `gbp_aplay2` + `gbp_atrans2` -- the same sequence
+`tests/unit/test_gbp_aplay2.c` proves on the host, compiled for the real Gekko/Broadway target this time. Built
+clean through the project's Docker toolchain (`powerpc-eabi-gcc -O2 -mogc -mcpu=750`); Dolphin smoke run:
+`OPENGBP-AUDIO2 SELFTEST result=PASS produced=2 dup=0 drop=0 atrans=1`, `RESULT: PASS (5.1 s)`. Execution only
+(CLAUDE.md §6.4): this proves the ported code runs on the real target architecture without crashing: it is not a
+correctness re-check, which the host suite already is.
+
+**§V28's numbers, MEASURED where practical this round, modelled where a fresh hardware run would be needed:**
+
+- **Corrector spectral cost, measured directly** (`harness_v126.c`'s `chain` vs `chain_uncorrected`, same window,
+  `tools/v124taps.band_power()`): RUN 33 total power ratio (corrected/uncorrected) 0.9999, fraction above 2048 Hz
+  1.207 % vs 1.202 % (uncorrected); RUN 34 ratio 0.9998, fraction 1.736 % vs 2.033 %. The corrector's own spectral
+  price, isolated from the decode+resample chain it sits on top of, is small (well under 1 % of total power on
+  both captures) and this is the item #126 explicitly deferred ("the item #126 deliberately set aside").
+- **CPU / AHEAD margin: GBP-HW-350's existing mono/16-tap INFERENCE (CPU 2.05 %, AHEAD-1 worst-case margin
+  20.985 ms ≈ "21.0 ms") partially VERIFIED against the REAL compiled object code**, not a fresh re-derivation.
+  `gbp_aresamp2.o` cross-compiled through the project's own Docker toolchain
+  (`powerpc-eabi-gcc -O2 -mogc -mcpu=750`) and disassembled (`powerpc-eabi-objdump -d`): the tap-loop's real
+  instruction count is 9 (rlwinm, lwzu, lhax, addi, mullw, mulhw, addc, adde, bdnz) -- an EXACT match to
+  `tools/v123chain.py`'s `TAP_INSTR = 9`. Decomposing `gbp_aresamp2_push`'s two paths by address range: the
+  "produces an output" path is ~190 instructions total, of which 144 is the tap loop (9 × 16) -- leaving ~46 for
+  everything else, an EXACT match to `PUSH_OUT_INSTR = 46`; the "no output" path is ~20, against the model's
+  assumed `PUSH_NONE_INSTR = 28` (the model is somewhat conservative here, if anything). `gbp_adec2_pop()`
+  disassembled too: it contains a real `divwu` (hardware division) on its hot path, computing the ring's modulo
+  wraparound -- MUCH more expensive per instruction than the model's uniform "1 instruction ≈ 1 cycle" assumption
+  (Gekko/Broadway's integer divide is a multi-cycle operation). Checked whether this is a NEW cost this round
+  introduces: it is not -- `gbp_adec.c`'s own `gbp_adec_pop()` has the byte-for-byte identical
+  `(head + 1) % cap` pattern, so the SAME division cost is already baked into RUN 40's real measured calibration
+  the whole model rests on; the two paths share the same per-instruction cost profile for this component, so the
+  calibration should transfer. Not independently re-measured this round: `FRAME_INSTR`, `TAKE_INSTR`,
+  `STORE_INSTR` and `gbp_aplay2`'s own `produce_impl2`/`put_frames2` instruction counts (`gbp_adec2`'s
+  disassembly and `gbp_aplay2.asm` are both saved under `build/`, ignored by Git, for whoever picks this up next).
+  Net effect: real confidence that GBP-HW-350's key assumptions hold for the SHIPPED code, not a fresh number --
+  the hardware-integration Issue is still where AHEAD 1 gets its final answer, on real hardware ticks.
+- **Event budget, in events.** k = 16 corrections a chunk at 32.03 chunks/s (`tools/v123chain.py`'s
+  `CHUNKS_PER_S`) is 512.5 correction events/s -- 16× the frozen path's k = 1 rate (32.03/s). `GBP_APLAY2_EVENTS_CAP`
+  (16384) affords 16384 / 512.5 ≈ 32.0 s of continuous worst-case (every sub-block corrects) correction events --
+  matching this module's own design intent (3.2× the 10 s L2 window). The SD2SP2 storage-arena budget
+  (`tools/v28budget.py`'s own RAM/AWR-arena model) is a separate, NOT-adapted question this round: it answers how
+  many SECONDS a given RAM+SD arena affords at a MEASURED real event rate from an actual capture, and no capture
+  of this path's own event rate exists yet (host/Dolphin only, #127's own scope) -- the hardware-integration Issue's
+  job, once one does.
+
+**Not done, out of scope for #127, with what picks it up:**
+- A real hardware run measuring this path's own per-push/per-call tick cost directly (replacing the partial
+  verification above with a genuine RUN 40-style measurement) and `tools/v28budget.py`'s own RAM/AWR arena model
+  applied to a real captured event rate: the hardware-integration Issue.
+- The architecture question (counted corrections vs a ratio steered from the fill or from measured clocks): stays
+  open, unchanged from #125/#126.
+- Stereo, the §V28 validation ladder itself, `agb-route`'s hardware run: unchanged from #126's own closing table.
+
+**Tests:** `tests/unit/test_gbp_aplay2.c` (86, was 52), `tests/unit/test_gbp_atrans2.c` (23, new); host suite
+(`tests/host/test_v126_chain.py`, 15) rerun unchanged on the ported path. A new POC also moved two frozen guards
+(`tests/host/test_poc_link_closure.py`'s multi-line `SRCS` parsing -- fixed to one line, matching every other
+multi-source POC's own Makefile convention -- and `tests/host/test_game_image_assessment.py`'s closed POC-directory
+list, extended by one entry, mirroring how each of Issues #39/#59/#84/#86/#92/#101/#105/#110/#113/#117 already
+extended it for their own POC). The gate on the committed tree: `pytest -q tests/host` -- 3284 passed, 7 skipped,
+0 failed; `make -C tests/unit` -- every binary green, 0 failures.
+
+**Review.** Two agents, per the Issue's own instruction: one on `gbp_aplay2`'s pool/queue/L2 concurrency and
+ordering (the producer/callback boundary, the two-hand-offs-later free rule, the k = 16 `KEEP_CAP`/`EVENTS_CAP`
+rescaling arithmetic), one on `gbp_atrans2`'s three-mechanism port (the residue/masking arithmetic specifically at
+`GBP_APLAY2_AHEAD = 1` — the round's own extreme, under-test value, where `AHEAD - 1u == 0u` is exercised for the
+first time — `min_mute()`, every call site against the original). Both independently rebuilt and ran the new unit
+tests fresh. **Verdict: no behavioral bug in either module** — a faithful, mechanical port, confirmed line-for-line
+against the originals it was translated from. Two findings, both applied:
+- a documentation-only arithmetic error in `gbp_atrans2.h`'s own comment (claimed 1024 samples at 65 536 Hz is
+  7.8125 ms; it is 15.625 ms — half the 31.25 ms chunk, as the surrounding text already said correctly) — fixed;
+- the fixed-width-types static-purity check (`tests/host/test_v126_chain.py`'s `NEW_SOURCES`) covered
+  `gbp_adec2`/`gbp_aplay2`/`gbp_aresamp2` but not the also-new `gbp_atrans2` — extended to include it, which then
+  caught one bare `int` (a local/parameter named `b` in `gbp_atrans2.c`, five occurrences) the review's own manual
+  read had not flagged as a violation of this project's specific automated rule; fixed to `int32_t`. Neither finding
+  changed any generated code: the POC's DOL is byte-identical before and after (same `sha256_dol`), confirmed by
+  rebuilding and re-running the Dolphin smoke test, still `PASS`.

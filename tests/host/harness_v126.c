@@ -9,6 +9,13 @@
  * chain_uncorrected (review round, #126) decodes ONLY the native path, with the drift corrector
  * disabled (gbp_aplay2_produce_ex's `uncorrected` flag) -- the decoder and resampler tested
  * without the separate, already-settled (#123) drift-correction algorithm's cold-start behavior.
+ *
+ * Issue #127 ported gbp_aplay2 onto the real pool/queue/hand-off layer (no more bare output ring):
+ * this harness now drains every completed chunk itself -- queue, one simulated hand-off
+ * (gbp_aplay2_irq_handoff), the hand-off's big-endian L/R-duplicated bytes decoded back to plain
+ * int16 PCM (L == R always, in this format), then process() -- exactly what a real callback site
+ * would do, immediately after each chunk (GBP_APLAY2_AHEAD == 1 on this path: a corrected produce()
+ * refuses to start a second chunk while one is still queued, so draining cannot be deferred).
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,7 +43,45 @@ static uint8_t *slurp(const char *p, size_t *n)
 
 static int16_t ring1[16];
 static int16_t ring2[GBP_APLAY2_RING];
-static int16_t out2buf[GBP_APLAY2_FRAMES * 8u];
+static uint8_t pool2[GBP_APLAY2_POOL * GBP_APLAY2_CHUNK_BYTES];
+static uint8_t silence2[GBP_APLAY2_CHUNK_BYTES];
+static int16_t keep2[GBP_APLAY2_KEEP_CAP];
+static struct gbp_aplay2_event events2[GBP_APLAY2_EVENTS_CAP];
+
+/* Make every bit of progress this block's new data allows: gbp_aplay2_produce() advances at most
+ * GBP_APLAY2_STEP_PUSHES (128) pushes a CALL, matching a real pump call's own bounded step (a real
+ * system calls it far more often than once a block; this harness must too, or a chunk starves on
+ * step granularity alone despite the ring holding plenty). -1 does not mean "stop": it also covers a
+ * chunk mid-progress that needs another call. Stops only once NOTHING can happen this block: no
+ * chunk in progress (cur < 0) and too few samples to start one -- the exact condition
+ * gbp_aplay2_produce_ex() itself would count as starved, so this harness never inflates that
+ * counter by polling past it. On every completed chunk: queue it, hand it off (one simulated
+ * callback), write its PCM to `o2` (big-endian L channel, L == R always here) and process(). */
+static void drain_step(struct gbp_aplay2 *p2, struct gbp_adec2 *d2, int uncorrected, uint32_t *y2n, FILE *o2)
+{
+    for (;;) {
+        int b;
+        if (p2->cur < 0 && d2->count < GBP_APLAY2_PUSHES + 1u) return;   /* genuinely nothing to do */
+        b = gbp_aplay2_produce_ex(p2, d2, uncorrected);
+        if (b < 0) {
+            /* a corrected call can also be gated by AHEAD (not "starved"): stop for this block */
+            if (p2->cur < 0) return;
+            continue;                                     /* mid-chunk: call again */
+        }
+        {
+            const uint8_t *bytes;
+            uint32_t k;
+            gbp_aplay2_queue(p2, b);
+            bytes = gbp_aplay2_irq_handoff(p2, 0u);
+            for (k = 0; k < GBP_APLAY2_FRAMES; k++) {
+                const int16_t v = (int16_t)((uint16_t)((uint32_t)bytes[4u * k] << 8) | bytes[4u * k + 1u]);
+                put16(o2, v);
+                (*y2n)++;
+            }
+            gbp_aplay2_process(p2);
+        }
+    }
+}
 
 /* chain <sidecar> <window> <out1.s16le> <out2.s16le> <counters.txt>: calibrate BOTH decoders on
  * window 0, decode window `window` through each full chain, write both 32000 Hz PCM streams and a
@@ -66,7 +111,7 @@ static int chain(const char *in, uint32_t window, const char *out1p, const char 
     gbp_adec_init(&d1, ring1, 16u);
     gbp_aresamp_init(&rs1);
     gbp_adec2_init(&d2, ring2, GBP_APLAY2_RING);
-    gbp_aplay2_init(&p2, out2buf, sizeof out2buf / sizeof out2buf[0]);
+    gbp_aplay2_init(&p2, pool2, silence2, keep2, events2);
     p2.playing = 1;
 
     gbp_asrc_replay_select(&r, 0u);
@@ -92,14 +137,11 @@ static int chain(const char *in, uint32_t window, const char *out1p, const char 
             uint32_t k, kn = gbp_aresamp_push(&rs1, s1, y);
             for (k = 0; k < kn; k++) { put16(o1, y[k]); y1n++; }
         }
-        /* the new path resamples inside gbp_aplay2_produce, one chunk (2048 pushes) at a time */
-        while (d2.count >= GBP_APLAY2_PUSHES + 1u && gbp_aplay2_produce(&p2, &d2, 0u)) { }
+        /* the new path resamples inside gbp_aplay2_produce, one call (GBP_APLAY2_STEP_PUSHES pushes,
+         * or a chunk's remainder) at a time; drain every chunk it completes at once (AHEAD == 1) */
+        drain_step(&p2, &d2, 0, &y2n, o2);
     }
     fclose(o1);
-    {
-        int16_t s2;
-        while (gbp_aplay2_pop(&p2, &s2)) { put16(o2, s2); y2n++; }
-    }
     fclose(o2);
 
     ct = fopen(ctrp, "w");
@@ -145,7 +187,7 @@ static int chain_uncorrected(const char *in, uint32_t window, uint32_t skip, con
     if (window >= r.windows) { fprintf(stderr, "window %u out of range (%u)\n", window, r.windows); return 4; }
 
     gbp_adec2_init(&d2, ring2, GBP_APLAY2_RING);
-    gbp_aplay2_init(&p2, out2buf, sizeof out2buf / sizeof out2buf[0]);
+    gbp_aplay2_init(&p2, pool2, silence2, keep2, events2);
     p2.playing = 1;
 
     gbp_asrc_replay_select(&r, 0u);
@@ -161,11 +203,10 @@ static int chain_uncorrected(const char *in, uint32_t window, uint32_t skip, con
         if (skipped < skip) { skipped++; continue; }
         if (gbp_adec2_push_block(&d2, blk) != 16u) { fprintf(stderr, "gbp_adec2 ring overflow\n"); return 6; }
         blocks++;
-        while (d2.count >= GBP_APLAY2_PUSHES + 1u && gbp_aplay2_produce_ex(&p2, &d2, 0u, 1)) { }
-    }
-    {
-        int16_t s2;
-        while (gbp_aplay2_pop(&p2, &s2)) { put16(o2, s2); y2n++; }
+        /* uncorrected: bypasses the AHEAD gate entirely (produce_impl2's uncorrected branch), so no
+         * draining is required between chunks here -- but this harness still drains every chunk to
+         * read its PCM out, exactly as chain() does. */
+        drain_step(&p2, &d2, 1, &y2n, o2);
     }
     fclose(o2);
 
@@ -203,7 +244,7 @@ static int chain_raw(const char *in, uint32_t nblocks, const char *out1p, const 
     gbp_adec_init(&d1, ring1, 16u);
     gbp_aresamp_init(&rs1);
     gbp_adec2_init(&d2, ring2, GBP_APLAY2_RING);
-    gbp_aplay2_init(&p2, out2buf, sizeof out2buf / sizeof out2buf[0]);
+    gbp_aplay2_init(&p2, pool2, silence2, keep2, events2);
     p2.playing = 1;
 
     for (i = 0; i < nblocks; i++) {
@@ -224,13 +265,9 @@ static int chain_raw(const char *in, uint32_t nblocks, const char *out1p, const 
             uint32_t k, kn = gbp_aresamp_push(&rs1, s1, y);
             for (k = 0; k < kn; k++) { put16(o1, y[k]); y1n++; }
         }
-        while (d2.count >= GBP_APLAY2_PUSHES + 1u && gbp_aplay2_produce(&p2, &d2, 0u)) { }
+        drain_step(&p2, &d2, 0, &y2n, o2);
     }
     fclose(o1);
-    {
-        int16_t s2;
-        while (gbp_aplay2_pop(&p2, &s2)) { put16(o2, s2); y2n++; }
-    }
     fclose(o2);
 
     ct = fopen(ctrp, "w");
