@@ -56,62 +56,6 @@ GBPP     endrift/gbpp f71afcdbdce1745ccc12ce4dcae7168cb9899530 + article endrift
 GBHWDB   gbhwdb.gekkio.fi/consoles/gbs/ (consulted 2026-09-13, 10 units).
 ```
 
-**2026-09-25 (GitHub Issue #125), on top: where the static-analysis outputs went, and the entries this Issue adds.**
-- **The decompiles of 2026-09-13…16 are gone, and the cause is established.** They, and the other analysis files that
-  the DISC- and GBI-derived entries were read from, lived under `build/analysis/` and `build/ghidra/`, inside the
-  build-products directory.
-  - On 2026-09-17 at 16:02 UTC, working around a stale-dentry build failure, the Executor renamed the whole `build/`
-    tree to `build.stale.<pid>` and created an empty `build/`.
-  - At 16:03 UTC it deleted the renamed tree with `rm -rf build.stale.*`, and the analysis outputs went with the build
-    products.
-
-  The session's transcript records both commands. The clean-build checks that ran `rm -rf build` from 16:19 UTC on
-  found nothing more to remove, but each of them would have repeated the loss. The DEVLOG last cites the outputs on
-  2026-09-16 (`build/analysis/ghidra/`, re-read), and no record reads them after that. What survives dates from
-  2026-09-21 on: `build/analysis/ghidra18/` (Issue #18) and the Ghidra project `build/ghidra/OpenGBP18`.
-- **What it costs.** The entries that cite DISC or GBI up to 2026-09-16 have no surviving artefact they were read
-  from. They can be re-derived: the inputs' hashes are recorded above, and the Ghidra scripts are versioned. But
-  checking any of them now means redoing that analysis, not reading a file.
-- **The hazard stands.** `build/` still holds `analysis/`, `ghidra/`, `archive/` and the staged images alongside the
-  build products. The documented recipes clear only `build/poc` (per image), or `build/poc` and `build/tests`
-  (`make clean`). One wipe of `build/` would repeat the loss. Moving analysis outputs to a surviving, documented,
-  hashed local path is a practice change, and #125's report asks the Orchestrator to schedule it. Until then, #125's
-  outputs carry a per-file manifest, committed at `docs/research/manifests/issue-125-ghidra125.sha256`: paths,
-  addresses and hashes, no content.
-- **Two more shorthands:**
-
-  ```text
-  GBIHF    Game Boy Interface High-Fidelity Edition; gbihf.dol sha256 47598482ef6821ca41fed0b283a747c266c7524c7bd6389
-           7a63ccf4bd4cf5f67 (packed); unpacked image sha256 2f59aac9b035efe130510adc951556adb006baed7ec512a83503991c
-           0c41a231 (638116 bytes) via tools/gbi_unpack.py.
-  GBISR    Speedrunning Edition; gbisr.dol sha256 c887877f375a0b2eac15435dc4cdbc075d0973dc83a69e8f11684647c077e9dd
-           (packed); unpacked image sha256 4c44dc926e7200776e9c1798f2a04d3d02e8c9136a027890098110fb647b35a6 (709084
-           bytes).
-           Both load at 0x80003100, VERIFIED by construction: their code builds the addresses of the audio tables,
-           the filter presets and the filter flag at that load (tools/v125ref.py).
-  LIBAESND the libogc family's audio library as LIBOGC2 carries it: libaesnd/aesndlib.c, include/aesndlib.h,
-           libaesnd/aesndmp3player.c, libaesnd/dspcode/dspmixer.s; with libogc/audio.c and libogc/system.c for the
-           AI rate bit and the SRAM sound-mode bit, and libogc/message.c for the message-queue object type.
-  ```
-- **The GBI shorthand's "libogc-rice r2191", followed back** (asked by the Orchestrator on #125, after his claim of
-  a libogc2 provenance contradicted it).
-  - **Where the string is.** The full string is `libogc-rice r2191.2a08d95`. It sits at offset 0x2840 of each packed
-    DOL (gbi, gbihf and gbisr alike), in the loader stub's data section, 28 bytes before the XOR+XZ payload at
-    0x285C. So it is FACT as the STUB's build banner.
-  - **What the payload carries.** The program itself carries no libogc version string: a search of the three unpacked
-    images for `libogc`, `rice`, `ogc2` and the `r<count>.<hash>` banner form finds none. So "libogc-rice r2191" says
-    what the stub was built with, not what GBI's program links.
-  - **Where the shorthand came from.** The 2026-09-13 shorthand (GBI's line above, and the DEVLOG of that day) attached
-    the stub's banner to the program without saying so.
-  - **What now carries the program's provenance.** GBI's library provenance rests on per-function matches only
-    (`GBP-AUD-004`), each recorded with the commit it was matched against. Functions matching different versions would
-    be informative, not an inconsistency.
-  - **Open.** Whether `2a08d95` lies in libogc2's lineage is UNKNOWN: `external/libogc2` is a shallow clone with no
-    history. A full clone would settle it. #125 does not do it, and a per-function match that needs a second version
-    will pick it up.
-- **`GBP-AUD-002` onward** (2026-09-25, #125) are static readings of the references' audio paths. They are appended at
-  the end of this file, not in the 2026-09-13 section.
-
 ---
 
 ## ENV-DOL-001 — Dolphin 2606a requires 32-byte-aligned DOL sections
@@ -11024,6 +10968,64 @@ here, and it is recorded as the weaker of the two.
 **What it does NOT establish.** Whether the stub runs on hardware, and so whether E is shown or dashed. What SOUNDBIAS
 holds on the Operator's AGB. Whether the readout is legible on his converter. That the flash cart's menu leaves the
 AGB in any particular state. No run is authorised.
+
+**2026-09-25 (GitHub Issue #125), on top: where the static-analysis outputs went, and the entries this Issue adds.**
+- **The decompiles of 2026-09-13…16 are gone, and the cause is established.** They, and the other analysis files that
+  the DISC- and GBI-derived entries were read from, lived under `build/analysis/` and `build/ghidra/`, inside the
+  build-products directory.
+  - On 2026-09-17 at 16:02 UTC, working around a stale-dentry build failure, the Executor renamed the whole `build/`
+    tree to `build.stale.<pid>` and created an empty `build/`.
+  - At 16:03 UTC it deleted the renamed tree with `rm -rf build.stale.*`, and the analysis outputs went with the build
+    products.
+
+  The session's transcript records both commands. The clean-build checks that ran `rm -rf build` from 16:19 UTC on
+  found nothing more to remove, but each of them would have repeated the loss. The DEVLOG last cites the outputs on
+  2026-09-16 (`build/analysis/ghidra/`, re-read), and no record reads them after that. What survives dates from
+  2026-09-21 on: `build/analysis/ghidra18/` (Issue #18) and the Ghidra project `build/ghidra/OpenGBP18`.
+- **What it costs.** The entries that cite DISC or GBI up to 2026-09-16 have no surviving artefact they were read
+  from. They can be re-derived: the inputs' hashes are recorded above, and the Ghidra scripts are versioned. But
+  checking any of them now means redoing that analysis, not reading a file.
+- **The hazard stands.** `build/` still holds `analysis/`, `ghidra/`, `archive/` and the staged images alongside the
+  build products. The documented recipes clear only `build/poc` (per image), or `build/poc` and `build/tests`
+  (`make clean`). One wipe of `build/` would repeat the loss. Moving analysis outputs to a surviving, documented,
+  hashed local path is a practice change, and #125's report asks the Orchestrator to schedule it. Until then, #125's
+  outputs carry a per-file manifest, committed at `docs/research/manifests/issue-125-ghidra125.sha256`: paths,
+  addresses and hashes, no content.
+- **Two more shorthands:**
+
+  ```text
+  GBIHF    Game Boy Interface High-Fidelity Edition; gbihf.dol sha256 47598482ef6821ca41fed0b283a747c266c7524c7bd6389
+           7a63ccf4bd4cf5f67 (packed); unpacked image sha256 2f59aac9b035efe130510adc951556adb006baed7ec512a83503991c
+           0c41a231 (638116 bytes) via tools/gbi_unpack.py.
+  GBISR    Speedrunning Edition; gbisr.dol sha256 c887877f375a0b2eac15435dc4cdbc075d0973dc83a69e8f11684647c077e9dd
+           (packed); unpacked image sha256 4c44dc926e7200776e9c1798f2a04d3d02e8c9136a027890098110fb647b35a6 (709084
+           bytes).
+           Both load at 0x80003100, VERIFIED by construction: their code builds the addresses of the audio tables,
+           the filter presets and the filter flag at that load (tools/v125ref.py).
+  LIBAESND the libogc family's audio library as LIBOGC2 carries it: libaesnd/aesndlib.c, include/aesndlib.h,
+           libaesnd/aesndmp3player.c, libaesnd/dspcode/dspmixer.s; with libogc/audio.c and libogc/system.c for the
+           AI rate bit and the SRAM sound-mode bit, and libogc/message.c for the message-queue object type.
+  ```
+- **The GBI shorthand's "libogc-rice r2191", followed back** (asked by the Orchestrator on #125, after his claim of
+  a libogc2 provenance contradicted it).
+  - **Where the string is.** The full string is `libogc-rice r2191.2a08d95`. It sits at offset 0x2840 of each packed
+    DOL (gbi, gbihf and gbisr alike), in the loader stub's data section, 28 bytes before the XOR+XZ payload at
+    0x285C. So it is FACT as the STUB's build banner.
+  - **What the payload carries.** The program itself carries no libogc version string: a search of the three unpacked
+    images for `libogc`, `rice`, `ogc2` and the `r<count>.<hash>` banner form finds none. So "libogc-rice r2191" says
+    what the stub was built with, not what GBI's program links.
+  - **Where the shorthand came from.** The 2026-09-13 shorthand (GBI's line above, and the DEVLOG of that day) attached
+    the stub's banner to the program without saying so.
+  - **What now carries the program's provenance.** GBI's library provenance rests on per-function matches only
+    (`GBP-AUD-004`), each recorded with the commit it was matched against. Functions matching different versions would
+    be informative, not an inconsistency.
+  - **Open.** Whether `2a08d95` lies in libogc2's lineage is UNKNOWN: `external/libogc2` is a shallow clone with no
+    history. A full clone would settle it. #125 does not do it, and a per-function match that needs a second version
+    will pick it up.
+- **`GBP-AUD-002` onward** (2026-09-25, #125) are static readings of the references' audio paths. They are appended at
+  the end of this file, not in the 2026-09-13 section.
+
+---
 
 ## The reference implementations' audio paths — a static reading, 2026-09-25 (GitHub Issue #125)
 
