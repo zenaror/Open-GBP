@@ -140,7 +140,7 @@ static void audio_selftest(struct audio_selftest_result *out)
     {
         int to_queue;
         selftest_give(&d, GBP_APLAY2_PUSHES + 1u, 100);
-        gbp_atrans2_begin(&t, &p, &d, 0u, GBP_ATRANS2_UNMUTED, 0u, 0u, 0u, GBP_APLAY2_TARGET);
+        gbp_atrans2_begin(&t, &p, &d, 0u, GBP_ATRANS2_UNMUTED, 0u, 0u, 0u, GBP_APLAY2_TARGET, GBP_APLAY2_AHEAD);
         if (gbp_atrans2_step(&t, &p, &d, 1u, &to_queue) != 1) ok = 0;
     }
 

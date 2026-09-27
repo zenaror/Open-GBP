@@ -300,7 +300,8 @@ static uint32_t drive_walker_against_a_running_transition(int honest)
     uint32_t i, k;
 
     now = steady2(512u);
-    gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, TRANSITION_MUTE_CHUNKS, 0u, 0u, 512u);
+    gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, TRANSITION_MUTE_CHUNKS, 0u, 0u, 512u,
+                     GBP_APLAY2_AHEAD);
     gbp_walker_start(&w, &PLAN, CALLS_PER_PERIOD, now);
 
     for (i = 0; i < 6u && !gbp_walker_finished(&w); i++) {

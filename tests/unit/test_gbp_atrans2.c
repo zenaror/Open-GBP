@@ -139,7 +139,7 @@ static struct landing2 run2(uint8_t mode, uint32_t from, uint32_t to, uint32_t m
             if (i == 0u && k == 0u) {
                 L.stock0 = stock2();
                 handed0 = ap.handed; silent0 = ap.mute_handed;
-                gbp_atrans2_begin(&tr, &ap, &adec, now, mode, mute, pause, discard, to);
+                gbp_atrans2_begin(&tr, &ap, &adec, now, mode, mute, pause, discard, to, GBP_APLAY2_AHEAD);
                 begun = 1;
             }
             pump2(now);
@@ -195,7 +195,7 @@ static void test_unmuted_with_discard(void)
 
 static void test_rotate_no_climb(void)
 {
-    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u);
+    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u, GBP_APLAY2_AHEAD);
     struct landing2 L = run2(GBP_ATRANS2_ROTATE, GBP_APLAY2_TARGET, GBP_APLAY2_TARGET, mute, 0u, 0u);
     eqi(tr.completed, 1, "rotate: completed");
     eqi(tr.faults, 0, "rotate: the mute the plan asked for was enough (no fault)");
@@ -208,7 +208,7 @@ static void test_rotate_with_discard(void)
 {
     /* a shallowing: the level drops by one chunk's worth, discarded at begin, masked once AHEAD
      * rotations have happened (AHEAD == 1 on this path, so the very first rotation masks it) */
-    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u);
+    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u, GBP_APLAY2_AHEAD);
     struct landing2 L = run2(GBP_ATRANS2_ROTATE, GBP_APLAY2_TARGET, GBP_APLAY2_TARGET - GBP_APLAY2_PUSHES, mute, 0u,
                             GBP_APLAY2_PUSHES);
     eqi(tr.completed, 1, "rotate+discard: completed");
@@ -219,7 +219,7 @@ static void test_rotate_with_discard(void)
 
 static void test_held_no_climb(void)
 {
-    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_HELD, 0u);
+    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_HELD, 0u, GBP_APLAY2_AHEAD);
     struct landing2 L = run2(GBP_ATRANS2_HELD, GBP_APLAY2_TARGET, GBP_APLAY2_TARGET, mute, 0u, 0u);
     eqi(tr.completed, 1, "held: completed");
     eqi(tr.faults, 0, "held: the mute the plan asked for was enough");
@@ -231,7 +231,7 @@ static void test_held_no_climb(void)
 static void test_held_with_climb(void)
 {
     const uint32_t pause = 3u;
-    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_HELD, pause);
+    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_HELD, pause, GBP_APLAY2_AHEAD);
     struct landing2 L = run2(GBP_ATRANS2_HELD, GBP_APLAY2_TARGET, GBP_APLAY2_TARGET + GBP_APLAY2_PUSHES, mute, pause,
                             0u);
     eqi(tr.completed, 1, "held+climb: completed");
@@ -246,25 +246,90 @@ static void test_held_with_climb(void)
 static void test_begin_refuses_a_plan_over_a_running_one(void)
 {
     uint64_t now = steady2(GBP_APLAY2_TARGET);
-    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u);
+    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u, GBP_APLAY2_AHEAD);
     int applied1, applied2;
     uint32_t target0, mute0;
     uint8_t mode0;
 
-    applied1 = gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, mute, 0u, 0u, GBP_APLAY2_TARGET + 512u);
+    applied1 = gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, mute, 0u, 0u, GBP_APLAY2_TARGET + 512u, GBP_APLAY2_AHEAD);
     eqi(applied1, 1, "begin while idle: applied");
     check(tr.active != 0u, "begin while idle: active");
     target0 = tr.target;
     mode0 = tr.mode;
     mute0 = tr.mute;
 
-    applied2 = gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_HELD, mute, 0u, 0u, GBP_APLAY2_TARGET - 512u);
+    applied2 = gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_HELD, mute, 0u, 0u, GBP_APLAY2_TARGET - 512u, GBP_APLAY2_AHEAD);
     eqi(applied2, 0, "begin while active: refused");
     eqi(tr.begin_refused_active, 1, "begin while active: counted");
     eqi(tr.target, target0, "begin while active: the running transition's target is untouched");
     eqi(tr.mode, mode0, "begin while active: the running transition's mode is untouched");
     eqi(tr.mute, mute0, "begin while active: the running transition's mute is untouched");
     check(tr.active != 0u, "begin while active: still active -- the running transition was not cancelled");
+}
+
+/* GitHub Issue #129/#130, Orchestrator review: AHEAD is now a runtime field (p->ahead), changed
+ * only through gbp_atrans2_begin(), applied inside the mute together with the surplus drop --
+ * never a bare setter. These are the mechanism's own direct tests; test_v28_ahead_steps.c's own
+ * exhaustive matrix (mutes 5/6, four phases, bursts, D2-class losses, the masking bound) stays
+ * the OLD path's probe for now -- porting it onto the native path is its own follow-up, not done
+ * here. */
+
+static void pump_until_landed2(uint64_t *now, uint32_t max_periods)
+{
+    uint32_t i, k;
+    for (i = 0; i < max_periods && tr.active; i++) {
+        (void)gbp_aplay2_irq_handoff(&ap, *now);
+        for (k = 0; k < CALLS_PER_PERIOD; k++) { give2(&adec, slice2(k), 100); pump2(*now); (*now)++; }
+    }
+}
+
+static void test_ahead_raise_tops_up_the_ready_queue(void)
+{
+    uint64_t now = steady2(GBP_APLAY2_TARGET);
+    const uint32_t new_ahead = 4u;
+    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u, new_ahead);
+    eqi(ap.ahead, 1, "steady2's own chain starts at the compiled-in default (GBP_APLAY2_AHEAD)");
+    (void)gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, mute, 0u, 0u, GBP_APLAY2_TARGET, new_ahead);
+    eqi(ap.ahead, new_ahead, "ahead changes at begin, immediately -- before the transition even lands");
+    pump_until_landed2(&now, 40u);
+    check(tr.active == 0u, "the raise lands within the bound");
+    eqi(tr.ahead_drops, 0, "a raise never drops anything");
+    check(gbp_aplay2_ready(&ap) + 1u >= new_ahead, "ready has topped up toward the new, higher ahead");
+}
+
+static void test_ahead_lower_drops_the_surplus_fronts(void)
+{
+    uint64_t now = steady2(GBP_APLAY2_TARGET);
+    const uint32_t raise_mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u, 4u);
+    const uint32_t lower_mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u, 1u);
+    uint32_t dropped0;
+    (void)gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, raise_mute, 0u, 0u, GBP_APLAY2_TARGET, 4u);
+    pump_until_landed2(&now, 40u);
+    check(tr.active == 0u, "the raise lands first, so there is a surplus to drop");
+    dropped0 = ap.dropped_front;
+    (void)gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, lower_mute, 0u, 0u, GBP_APLAY2_TARGET, 1u);
+    eqi(ap.ahead, 1, "ahead changes at begin, immediately, even before the plan lands");
+    check(tr.ahead_drops >= 1u, "a lowering step drops at least one surplus front at begin, without replacement");
+    eqi((long long)(ap.dropped_front - dropped0), (long long)tr.ahead_drops,
+        "gbp_aplay2's own dropped_front agrees with gbp_atrans2's own count");
+    pump_until_landed2(&now, 40u);
+    check(tr.active == 0u, "the lowering step lands too");
+}
+
+static void test_ahead_out_of_bounds_is_clamped_and_counted(void)
+{
+    uint64_t now = steady2(GBP_APLAY2_TARGET);
+    uint32_t faults0 = tr.faults;
+    (void)gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_UNMUTED, 0u, 0u, 0u, GBP_APLAY2_TARGET, 0u);
+    eqi(ap.ahead, 1, "an ahead of 0 clamps to the floor, 1");
+    check(tr.faults > faults0, "counted as a fault, not accepted silently");
+
+    now = steady2(GBP_APLAY2_TARGET);
+    faults0 = tr.faults;
+    (void)gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_UNMUTED, 0u, 0u, 0u, GBP_APLAY2_TARGET,
+                            GBP_APLAY2_POOL + 1u);
+    eqi(ap.ahead, GBP_APLAY2_POOL, "an ahead above GBP_APLAY2_POOL clamps to POOL");
+    check(tr.faults > faults0, "counted as a fault too");
 }
 
 int main(void)
@@ -276,6 +341,9 @@ int main(void)
     test_held_no_climb();
     test_held_with_climb();
     test_begin_refuses_a_plan_over_a_running_one();
+    test_ahead_raise_tops_up_the_ready_queue();
+    test_ahead_lower_drops_the_surplus_fronts();
+    test_ahead_out_of_bounds_is_clamped_and_counted();
     printf("test_gbp_atrans2: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

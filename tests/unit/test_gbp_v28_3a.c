@@ -154,10 +154,10 @@ static void test_begin_refused_counts_no_dwell_until_applied(void)
      * wants to begin its first depth. The honest gbp_v28_3a_tick() must count NOTHING for it. */
     struct gbp_v28_3a s;
     uint64_t now = steady2(GBP_V28_P3_START);
-    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u);
+    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u, GBP_V28_A4);
     int applied;
 
-    applied = gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, mute, 0u, 0u, GBP_V28_P3_START);
+    applied = gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, mute, 0u, 0u, GBP_V28_P3_START, GBP_V28_A4);
     eqi(applied, 1, "the forcing transition itself must apply, or this test proves nothing");
     check(tr.active != 0u, "gbp_atrans2 is busy for this test's own purpose");
 
@@ -343,7 +343,7 @@ static void dishonest_drive_one_period(uint32_t target, uint64_t *now)
 {
     uint32_t k;
     /* believes the begin succeeded whether or not it did -- the defect */
-    (void)gbp_atrans2_begin(&tr, &ap, &adec, *now, GBP_ATRANS2_UNMUTED, 0u, 0u, 0u, target);
+    (void)gbp_atrans2_begin(&tr, &ap, &adec, *now, GBP_ATRANS2_UNMUTED, 0u, 0u, 0u, target, GBP_V28_A4);
     if (tr.target != target) dishonest_depths_recorded_at_the_wrong_target++;
     for (k = 0; k < CALLS_PER_PERIOD; k++) { give2(&adec, slice2(k), 100); pump2(*now); (*now)++; }
 }
@@ -352,16 +352,16 @@ static void test_dishonest_vs_honest_under_a_forced_busy_transition(void)
 {
     struct gbp_v28_3a s;
     uint64_t now = steady2(GBP_V28_P3_START);
-    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u);
+    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u, GBP_V28_A4);
 
     dishonest_depths_recorded_at_the_wrong_target = 0u;
-    (void)gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, mute, 0u, 0u, GBP_V28_P3_START);
+    (void)gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, mute, 0u, 0u, GBP_V28_P3_START, GBP_V28_A4);
     dishonest_drive_one_period(GBP_V28_P3_START - GBP_V28_P3_STEP, &now);
     check(dishonest_depths_recorded_at_the_wrong_target >= 1u,
           "without the check: believes a depth is in force while the ring is still at the OLD one (the defect)");
 
     now = steady2(GBP_V28_P3_START);
-    (void)gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, mute, 0u, 0u, GBP_V28_P3_START);
+    (void)gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, mute, 0u, 0u, GBP_V28_P3_START, GBP_V28_A4);
     gbp_v28_3a_start(&s, TB_HZ, now);
     (void)drive(&s, &now, mute + 2u);
     check(s.dwell_active == 0u || tr.target == (uint32_t)s.cur,
