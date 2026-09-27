@@ -546,6 +546,38 @@ himself:
 It is the same family as the orphaned consequence and the citation followed back above: each is a statement about
 what the record says, made without reading it.
 
+### A deferral with no named successor is a decision to forget (2026-09-25, GitHub Issue #125)
+
+This is the orphaned-consequence rule above, applied to intentions instead of findings (the Orchestrator's, #125).
+
+**The instance.** On 2026-09-13 the DEVLOG listed gbihf and gbisr as "not analyzed yet (differential step deferred)",
+and named no successor. Twelve days later the differential was proposed as a new lead, on #125's opening. It took one
+round to do, and in the functions compared it found where the editions' audio differs: the default converter, the
+output ring and the start delay (`GBP-AUD-002`).
+
+**The family.** The Orchestrator named three failures on #125, and they share one shape: the record was right, and
+nothing carried the consequence forward.
+- `GBP-HW-315`'s audible consequence, which was never carried to the decoder.
+- The one-per-chunk rule's citation, which cited a section that did not impose it.
+- The gbihf differential.
+
+**The contrast, the same week** (the Orchestrator's, #125). Drawing GBI's stereo mapping from LIBAESND's source, the
+weak link was named when the conclusion was drawn: GBI's DSP microcode had not been compared. The settling check, a
+byte comparison, was requested in the same message, and it closed within the hour (`GBP-AUD-004`). That is the
+difference this rule is written for: a weak link flagged, acted on provisionally, and closed.
+
+**Rule: a deferral names its successor.** That is the Issue, the round or the condition that picks the work up. A
+deferral without one is recorded as a decision not to do it, in those words.
+
+**Analysis outputs that evidence rests on live where they survive** (the Orchestrator's, #125): at a documented local
+path, hashed, with the same discipline `captures/local/` has. An analysis whose output is disposable produces claims
+whose support is disposable. The decompiles of 2026-09-13…16 lived inside `build/`. On 2026-09-17 a wipe of the whole
+build tree, renamed aside and deleted to clear stale dentries, removed them (`EVIDENCE.md`'s preamble, on top).
+
+Moving them to such a path has a named successor: the Orchestrator's scheduling, which #125's report requests. Until
+then, an analysis round commits a per-file hash manifest of its outputs and cites it from its DEVLOG entry. The
+manifest holds paths, addresses and hashes, and no content; #125's is `docs/research/manifests/issue-125-ghidra125.sha256`.
+
 ## Hardware test requests
 
 A hardware test request should be small and deterministic.

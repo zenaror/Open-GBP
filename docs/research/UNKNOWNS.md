@@ -732,6 +732,12 @@ another game or another scene.
 
 
 **2026-09-25 (GitHub Issue #123), on top.** A and B (streams 1 = 3 and 5 = 7) are each exactly one run of ones per slice (`GBP-HW-347`; the even streams are not, their extras also sit away from the pulse), so within the capture a slice carries one level a stream pair and no change inside it can be represented. Both of `GBP-HW-345`'s models predict that, so the structure does not separate them: whether the AGB's output was itself quantised to the slice grid, or the path reads it once a slice, is still not separable from these bytes. The game updates on single slices and the tones on pairs (`GBP-HW-348`). **The physical half stays OPEN.**
+
+**2026-09-25 (GitHub Issue #125), on top: what the references read of a block.** Both reference implementations read
+only bytes 3 and 7 of each 8-byte group, streams A and B, and only their bit counts (`GBP-AUD-002`, `GBP-AUD-003`); the
+Start-up Disc counts them after conditioning the pulses. Neither reads the even streams. That is a LEAD about what two
+mature decoders take from the block, not about what the block holds. The physical half STAYS OPEN.
+
 ## U-GBP-013 (P3) — Meaning of the SRAM "GBS" word
 
 libogc2 validates its fields (GBP-SRAM-001); DISC presumably stores the
@@ -2148,6 +2154,19 @@ rewritten** (`GBP-HW-345`).
 
 What stays open: the first question, below one slice and beyond one capture.
 
+**2026-09-25 (GitHub Issue #125), on top: a lead from the Start-up Disc.** Before decoding, the Disc works on each
+stream's pulses (`GBP-AUD-003`):
+- **Rising edges.** It moves every rising edge that sits 1–2 bits off the dominant bit position of its alternating-edge
+  list onto that position. There are two such lists, so two dominant positions, per batch and stream.
+- **Pulse ends.** The dominant spacing class gives a period P. Where four consecutive pulse ENDS span three regular
+  periods, and all but the second have identical end bytes, it conforms the second to the first. That lengthens,
+  shortens or rewrites one pulse by up to a byte.
+
+INFERENCE: its authors saw sub-byte jitter on the rising edges, and isolated off-grid pulse ends, in the captured
+stream. The archive can test both on the host: take the rising-edge bit positions and the pulse-end positions and
+widths of streams 3 and 7, slice by slice, in RUN 33, RUN 34 and RUN 43. #125 is a reading round and does not do it.
+Its report proposes it for the opening of the next audio round (Round B), which is where it is picked up. STAYS OPEN.
+
 ## U-GBP-042 (P1 → **P3**, opened 2026-09-23, Issue #82; **ANSWERED FOR N = 0x20 by RUN 37, Issue #91: NO** — 0x100 and 0x400 untested, the mechanism unknown, no longer blocking) — can the AUDIO block (index 0x8) be read SHORTER than 0x1000, and does the device then deliver the next block normally?
 
 Every physical AUDIO read so far is the whole 0x1000: this project's 272 145 in
@@ -2209,6 +2228,11 @@ depends on it today.**
 
 
 **2026-09-25 (GitHub Issue #123), on top.** Read as eight stride-8 streams (`GBP-HW-347`), a slice is two pulses, A (streams 1 = 3) and B (5 = 7), and even streams that only ever add bits, the extras. The count is 4 wA + 4 wB + extras in every slice of RUN 33, RUN 34 and RUN 43. **In the tones the 1–3-bit spread is the extras:** in all 1 039 and 1 217 flat blocks of RUN 33 and RUN 34 (spread ≤ 3, `tools/v18block.py`), A and B are constant over the sixteen slices. RUN 43 has one flat block. Its spread is still the extras, but there A + B holds at 225 while A and B trade a bit, so a flat count hides a change of A against B. The extras are not confined to the pulses' edges: stream 0 holds more than one run of ones in 8 429, 8 978 and 10 240 slices of the three captures. **What they carry is not established.** A decode per stream does not read them.
+
+**2026-09-25 (GitHub Issue #125), on top.** Neither reference implementation reads the even streams at all
+(`GBP-AUD-004`). Whatever the extras carry, both mature decoders discard it. That is a LEAD that the extras carry
+nothing either implementation needed. What they carry STAYS OPEN.
+
 ## U-GBP-044 (P2, opened 2026-09-23, decided on Issue #84) — what produces the 13 start-up stalls of the shared service path, and where are the three the log does not locate?
 
 `GBP-HW-317`, FACT about the archive, is that the start-up signature is invariant.
@@ -2486,7 +2510,7 @@ dwells, one-sided p 0.068. The percentile interval quoted above is descriptive a
 
 **2026-09-25 (GitHub Issue #123), on top: the adopted cushion is PROVISIONAL.** It stands, and it is re-validated on the final audio path: the decode it was measured on is being rebuilt at the native rate (`GBP-HW-347`, `GBP-HW-348`), and a finer decode costs processing, which is latency (the Operator, #123).
 
-## U-GBP-046 (P1, opened 2026-09-24, Issue #115) — the audio-to-video OFFSET: audio lags the picture with Open-GBP's runtime, and not with GBI or the Start-up Disc — **2026-09-25, Issue #120 (RUN 43): the cushion HYPOTHESIS is CORROBORATED — D = 12 of 12 (GBP-HW-341); the one Phase 2 setting was confirmed AT the 0.094 s floor, censored (GBP-HW-342); the residue stays unmeasured and the item STAYS OPEN**
+## U-GBP-046 (P1, opened 2026-09-24, Issue #115) — the audio-to-video OFFSET: audio lags the picture with Open-GBP's runtime, and not with GBI or the Start-up Disc — **2026-09-25, Issue #120 (RUN 43): the cushion HYPOTHESIS is CORROBORATED — D = 12 of 12 (GBP-HW-341); the one Phase 2 setting was confirmed AT the 0.094 s floor, censored (GBP-HW-342); the residue stays unmeasured and the item STAYS OPEN** — **2026-09-25, Issue #125: the references' depths, read statically — GBI about 35–37 ms (Standard) or 23–25 ms (HF, SR) at start, the Start-up Disc about 10–25 ms, neither correcting drift by counted DUP/DROP (GBP-AUD-004, INFERENCE); the Disc's 17.09 ms is transport, not a cushion; STAYS OPEN**
 
 **What is observed — OPERATOR OBSERVATIONS, verbatim, in order** (#114, #115; `HARDWARE_TESTS.md`
 §V26.11.5):
@@ -2568,7 +2592,35 @@ use is the Operator's, in ordinary play, on the next image.
 
 **2026-09-25 (GitHub Issue #123), on top: the adopted cushion is PROVISIONAL.** It stands, and it is re-validated on the final audio path: the decode it was measured on is being rebuilt at the native rate (`GBP-HW-347`, `GBP-HW-348`), and a finer decode costs processing, which is latency (the Operator, #123).
 
-## U-GBP-047 (P2, opened 2026-09-25, Issue #123) — are streams A and B of an AUDIO slice the AGB's two output sides, and which is left?
+**2026-09-25 (GitHub Issue #125), on top: the references' depths, read, not measured.**
+- **GBI** (`GBP-AUD-002`). The voice starts only once a full 8.8 ms buffer is ready, and then after a delay: 24 ms in
+  the Standard edition, 12 ms in GBIHF and GBISR. The mixer adds 2–4 ms. INFERENCE: about 35–37 ms (Standard) and
+  23–25 ms (HF, SR) at start. The measured-ratio pitch matches the rates but does not steer the fill, which can drift
+  within the ring (70.3 ms Standard, 35.2 ms HF and SR).
+- **The Start-up Disc** (`GBP-AUD-003`). Its parts:
+  - a 640-sample ring, regulated around 180 samples (5.6 ms) by switching between two resampling ratios;
+  - two 5 ms AI buffers;
+  - batches of 16 blocks.
+
+  INFERENCE: about 10–25 ms from landing to the DAC.
+- **Transport, kept apart.** The Disc lands blocks in 70 buffers, which absorb 17.09 ms of consumer lag at 4 096
+  blocks/s. Its 250 ms watchdog is 1 024 blocks, 14.6 × that. **This is transport capacity, not an output cushion,
+  and it does not compare with our 125 ms.**
+- **Neither corrects drift by counted DUP/DROP.**
+  - The Disc switches between two resampling ratios.
+  - GBI sets a measured-ratio pitch on AESND's resampler, which does not interpolate: GBI's DSP microcode is LIBAESND's
+    own, byte for byte (`GBP-AUD-004`).
+  - Both pad with silence on an underrun. GBI drops its unplayed ring on an overrun. The Disc discards ring samples
+    while stopped, its ring's writer does not test for room, and what follows a busy landing buffer was not read.
+  - Ours corrects by counted DUP/DROP (`GBP-HW-349`).
+- **What it bounds.** INFERENCE: the references' code implies latencies of about 10–37 ms, 3.4 to 12.5 times
+  shallower than our adopted 0.125 s. That bounds what two mature implementations run on this path, not what is safe
+  for our chain: their chains are not ours, and our starvation data (`U-GBP-045`) is our own. Nor does a static
+  reading show that they run glitch-free at those depths.
+
+The item STAYS OPEN.
+
+## U-GBP-047 (P2, opened 2026-09-25, Issue #123) — are streams A and B of an AUDIO slice the AGB's two output sides, and which is left? — **2026-09-25, Issue #125: both reference implementations treat A and B as two channels and put A in the same halfword of the AI frame, LEFT under the one frame-order convention Dolphin and AESND share (GBP-AUD-004, a LEAD); their prediction for `agb-route`, written before any run: route-left moves wA**
 
 `GBP-HW-347`. A (streams 1 = 3) and B (streams 5 = 7) are equal in every slice of the tone ROMs, which route channel 1 to
 both sides (SOUNDCNT_L 0x1177), and differ in 87.6 % of the game's slices, with 4.46 % of its (mid, side) AC energy in
@@ -2606,7 +2658,28 @@ emits its REST width -- 128 per stream, the (wA, wB) of every control window in 
 - **131 072 Hz:** BOTH keep varying in both builds.
 No run is authorised on #124.
 
-## U-GBP-048 (P2, opened 2026-09-25, Issue #123) — why every slice of the tone ROMs holds one pulse per 256 cycles when nothing set SOUNDBIAS, and GBATEK's default is a 512-cycle frame
+**2026-09-25 (GitHub Issue #125), on top: what the two reference implementations do with A and B.**
+- **Both treat A and B as two channels** (`GBP-AUD-004`). They mix them only in an explicit mono mode, which both
+  select from the same console setting, the SRAM sound-mode bit. Neither reads A and B as two samples of one channel.
+  So two implementations take the stereo reading. For the hardware that is a LEAD, not a measurement, and the one-side
+  test still decides.
+- **Which halfword, and which side.**
+  - The Disc writes B, then A, into each AI frame.
+  - GBI writes A, then B, into each AESND voice frame. Its mixer puts a voice's first halfword into the AI frame's
+    second: GBI's DSP microcode is LIBAESND's own, byte for byte (`GBP-AUD-004`).
+
+  So both references put A in the AI frame's SECOND halfword. Which side that halfword drives rests on one convention,
+  the AI frame order: Dolphin reads it right-then-left, and LIBAESND's mixer comments call it left. **Under that
+  convention both put A on the LEFT.** Neither source observed this hardware.
+- **The references' prediction for `agb-route`, written before any run.** It sharpens #124's prediction and does not
+  replace it:
+  - route-left (SOUNDCNT_L 0x1077) moves **wA** with the tone, and pins **wB** within noise of the rest width 128;
+  - route-right (0x0177) moves wB and pins wA.
+
+  The opposite result would mean that the frame-order convention is wrong on this path, or that the references
+  disagree with the hardware. Either is a finding.
+
+## U-GBP-048 (P2, opened 2026-09-25, Issue #123) — why every slice of the tone ROMs holds one pulse per 256 cycles when nothing set SOUNDBIAS, and GBATEK's default is a 512-cycle frame — **2026-09-25, Issue #125: neither reference holds or builds the SOUNDBIAS address (a literal scan; indirect routes untested); the Start-up Disc's edge classes cover 256-, 128- and 64-cycle pulse spacings and none of 512 (GBP-AUD-004, INFERENCE); #124's prediction stands**
 
 `GBP-HW-348`. The tone ROMs never write SOUNDBIAS (0x04000088); GBATEK (a LEAD) gives its default, 0200h, as 9 bits at
 32 768 Hz, "N low bits, followed by 512-N high bits". Every tone slice holds one pulse per 256, and the tones' level
@@ -2684,3 +2757,28 @@ channel agreeing with E's display. Not heard establishes nothing: a level step o
 each) may be inaudible. And neither says anything about bits 14-15, the field that matters.
 
 No run is authorised on #124.
+
+**2026-09-25 (GitHub Issue #125), on top: what the references do about SOUNDBIAS and the pulse spacing.**
+- **The address.** Neither binary builds or holds `0x04000088` in the forms scanned: lis + addi/ori, lis + a load or
+  store, and aligned big- and little-endian words (steps 1-2, extended in #125's review; `tools/v125const.py`, tested).
+  INFERENCE: a GameCube program cannot address the AGB's I/O directly, so a reference could reach SOUNDBIAS only
+  through an AGB-side payload or a GBP/HSP write. A literal scan tests neither, so this says nothing about the third
+  candidate, the GBP raising the resolution.
+- **The Disc's edge classes.** Its conditioner regularises pulses spaced 32, 16 and 8 bytes of a stream apart, which
+  are 256, 128 and 64 cycles, and has no class for 64 bytes, 512 cycles (`GBP-AUD-003`). INFERENCE: the official
+  decoder was built for the spacings the tones show (`GBP-HW-348`), and did not expect GBATEK's 512-cycle default
+  frame in the captured stream. That fits two readings: the Orchestrator's synthesis, under which no resolution emits a
+  512-cycle pulse, and candidate 1. It reads no SOUNDBIAS value and separates none of the candidates.
+- **The decode rates, and what they say about the GBA's rate.**
+  - The Disc runs one chain for every cartridge, since nothing in it reads the cartridge type: one value per slice
+    pair, 32 768/s.
+  - GBI's filtered converter is cartridge-blind too: one value per slice, 65 536/s. It is the default in the Standard
+    and Speedrunning editions.
+  - Only GBI's digital mode chooses by cartridge: a pair sum for GBA (32 768/s) and a slice sum for GB/GBC (65 536/s).
+    It is GBIHF's default, and `--sound=digital` in the other two.
+
+  INFERENCE, a weak LEAD: that one choice, a pair rate for GBA and a slice rate for GB/GBC, fits GBATEK's default
+  32 768 Hz for GBA sound. The Disc's pair rate fits it too, but it is not chosen per cartridge.
+- **The prediction written on #124 stands unchanged:** route-both's E reads resolution 0.
+
+STAYS OPEN.
