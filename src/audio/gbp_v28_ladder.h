@@ -80,6 +80,12 @@ _Static_assert(GBP_V28_T192 >= GBP_APLAY2_TARGET_MIN && GBP_V28_T192 <= GBP_APLA
 #define GBP_V28_A2   2u
 #define GBP_V28_A1   1u
 
+/* The step mechanism's own fixed mute (#128 §3's resolution: mute 6, not 5, for the T256 anchor --
+ * "no splice heard at any loss" at mute 6 against mute 5's D2-class risk, Item 4's own host test).
+ * A chunk count, unconverted, like AHEAD above -- every nulling step, every refused step, 3b's own
+ * AHEAD-lowering entry and the step sweep all use it. NOT 3a's own descent, which stays UNMUTED. */
+#define GBP_V28_STEP_MUTE   6u
+
 /* ---- the auto-search grids (#122/gbp_async_cfg_default's p3/p2 fields) -----------------------
  *
  * 3a's descent (TARGET 384 -> 128 by 32, bisected) and nulling's scan (384..3584 by 128) are ALSO
