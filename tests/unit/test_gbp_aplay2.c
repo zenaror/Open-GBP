@@ -140,6 +140,33 @@ static void test_k_corrections_are_spread_one_per_sub_block(void)
     eqi((long long)p.corr_forgone, 0, "every sub-block was decided");
     eqi((long long)p.cur_taken, GBP_APLAY2_PUSHES - GBP_APLAY2_K_DEFAULT,
         "each DUP takes one sample from the ring for two resampler pushes: 2048 - 16");
+    eqi((long long)p.chunk_corrections, GBP_APLAY2_K_DEFAULT,
+        "review round (#127, §V28): this chunk's own dup+drop count, the per-chunk rate a session-length "
+        "log samples instead of one L2 event a correction");
+}
+
+/* review round (#127, §V28): chunk_corrections is a PER-CHUNK delta, not a running total -- it must reset to
+ * what THIS chunk alone did, not accumulate across chunks. */
+static void test_chunk_corrections_is_a_per_chunk_delta(void)
+{
+    struct gbp_aplay2 p;
+    struct gbp_adec2 d;
+    reset(&p, &d);
+    /* first chunk: far under the band, every sub-block DUPs */
+    give(&d, GBP_APLAY2_TARGET - GBP_APLAY2_BAND - 300u, 0);
+    eqi(drive(&p, &d, 0u), 1, "first chunk finishes");
+    eqi((long long)p.chunk_corrections, GBP_APLAY2_K_DEFAULT, "first chunk: sixteen corrections");
+    (void)gbp_aplay2_irq_handoff(&p, 1000u);   /* AHEAD == 1: drain so a second chunk can start */
+    gbp_aplay2_process(&p);
+    /* second chunk: topped up to exactly the gate (cur_s0 == PUSHES + 1, inside the band around TARGET is not
+     * required -- the band check is against cur_target, and TARGET_MIN == PUSHES, so feeding to land near
+     * TARGET keeps this chunk's own fill inside the band regardless of the ring's leftover from the first */
+    eqi(GBP_APLAY2_TARGET > d.count, 1, "sanity: the first chunk did not overshoot the target on its own");
+    give(&d, GBP_APLAY2_TARGET - d.count, 0);   /* top up to exactly TARGET: inside the band, no correction due */
+    eqi(drive(&p, &d, 0u), 1, "second chunk finishes");
+    eqi((long long)p.chunk_corrections, 0, "second chunk: fed exactly to the target, no correction due");
+    eqi((long long)p.dup + (long long)p.drop, (long long)GBP_APLAY2_K_DEFAULT,
+        "the running totals still hold only the first chunk's corrections");
 }
 
 static void test_corr_forgone_when_a_sub_block_is_passed_uncorrected(void)
@@ -420,6 +447,7 @@ int main(void)
     test_a_chunk_resamples_to_exactly_1000_frames_at_rest();
     test_the_gate_is_pushes_plus_one();
     test_k_corrections_are_spread_one_per_sub_block();
+    test_chunk_corrections_is_a_per_chunk_delta();
     test_corr_forgone_when_a_sub_block_is_passed_uncorrected();
     test_no_correction_below_playback();
     test_uncorrected_chunk_takes_none();
