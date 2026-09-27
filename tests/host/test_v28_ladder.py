@@ -59,9 +59,10 @@ GRID_BOUNDED = {                 # 3a's descent floor/ceiling, nulling's scan fl
     "GBP_V28_P2_HI": 57344,
 }
 
-GRID_STEPS = {                   # the grids' own step sizes -- not TARGETs, no bounds assert
-    "GBP_V28_P3_STEP": 512,
+GRID_STEPS = {                   # the grids' own step sizes, and 3a's bisection width -- not
+    "GBP_V28_P3_STEP": 512,       # TARGETs themselves, no bounds assert
     "GBP_V28_P2_STEP": 2048,
+    "GBP_V28_P3_BISECT_WIDTH": 32,
 }
 
 
