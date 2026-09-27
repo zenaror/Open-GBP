@@ -44,6 +44,10 @@ def lbz(rd, d, ra):
     return (34 << 26) | (rd << 21) | (ra << 16) | (d & 0xFFFF)
 
 
+def hits(ws, t):
+    return v125ref.built_addresses([(BASE, struct.pack(">%dI" % len(ws), *ws), True)], [t])[t]
+
+
 class TheResponses(unittest.TestCase):
     def test_fir_gain_on_known_kernels(self):
         self.assertAlmostEqual(v125ref.fir_response([1, 1], 0.0, 8.0), 1.0)
@@ -150,14 +154,19 @@ class TheAddresses(unittest.TestCase):
         self.assertEqual(v125ref.built_addresses(regions, [0x800B0AD9])[0x800B0AD9], [])
 
     def test_the_second_step_guards(self):
-        def hits(ws, t):
-            return v125ref.built_addresses([(BASE, struct.pack(">%dI" % len(ws), *ws), True)], [t])[t]
         self.assertEqual(hits([lis(3, 0x800B), addi(0, 3, 0x0A10), lbz(5, 0xC9, 0)], 0x800B0AD9), [])   # addi into r0
         self.assertEqual(hits([lis(3, 0x800B), addi(4, 3, 0x0A10), lbz(5, 0xC9, 6)], 0x800B0AD9), [])   # wrong base
         self.assertEqual(hits([lis(3, 0x800B), addi(4, 3, 0x0A10), lbz(5, 0, 4)], 0x800B0A10), [BASE])  # once
         for nops, want in ((7, [BASE]), (8, [])):                    # the second window counts from the addi
             ws = [lis(3, 0x800B), addi(4, 3, 0x0A10)] + [NOP] * nops + [lbz(5, 0xC9, 4)]
             self.assertEqual(hits(ws, 0x800B0AD9), want, nops)
+
+    def test_a_redefined_register_stops_further_credit(self):
+        # addi r3,r3,0x0A10 redefines r3 itself: 0x800B0A10 is credited once, but r3 no longer holds hi afterwards,
+        # so the following lbz off r3 must NOT be read as hi + 0xC9 (#125's review)
+        ws = [lis(3, 0x800B), addi(3, 3, 0x0A10), lbz(5, 0xC9, 3)]
+        self.assertEqual(hits(ws, 0x800B0AD9), [BASE])
+        self.assertEqual(hits(ws, 0x800B00C9), [])
 
     def test_a_blob_is_found_by_its_hash_at_aligned_offsets(self):
         import hashlib

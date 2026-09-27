@@ -2775,7 +2775,8 @@ No run is authorised on #124.
   - GBI's filtered converter is cartridge-blind too: one value per slice, 65 536/s. It is the default in the Standard
     and Speedrunning editions.
   - Only GBI's digital mode chooses by cartridge: a pair sum for GBA (32 768/s) and a slice sum for GB/GBC (65 536/s).
-    It is GBIHF's default, and `--sound=digital` in the other two.
+    It is GBIHF's default, and `--sound=digital` in the Standard edition. In GBISR the hand-off selects the digital
+converters when the flag is 0; its `--sound` handler was not read (`GBP-AUD-002`).
 
   INFERENCE, a weak LEAD: that one choice, a pair rate for GBA and a slice rate for GB/GBC, fits GBATEK's default
   32 768 Hz for GBA sound. The Disc's pair rate fits it too, but it is not chosen per cartridge.
