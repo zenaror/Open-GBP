@@ -1351,3 +1351,106 @@ which an Issue may give in its own text. None of it changes §5, §6 or
 `docs/RESEARCH_METHOD.md`: no Issue, label, milestone or Project field promotes
 evidence status, and operator declarations quoted in an Issue remain
 OPERATOR OBSERVATION.
+
+---
+
+## 31. Local retrieval — `open-gbp-rag` (Operator, 2026-09-22; both sessions)
+
+**If there is a RAG, use the RAG.** Se tem RAG, use o RAG. Before making a
+scientific decision, changing an evidence status, classifying a run, writing a
+gate, or editing code — and before any claim about what the historical record
+does or does not contain — query first, then open only the canonical range the
+hit points to.
+
+A local SQLite FTS5 index of the Open-GBP checkout, outside the repository, no
+network:
+
+```text
+~/Open-GBP-RAG/rag_index.py      build / refresh the index (explicit checkout path)
+~/Open-GBP-RAG/rag_query.py      locate material
+~/Open-GBP-RAG/open-gbp.sqlite   the database
+~/.claude/skills/open-gbp-rag/SKILL.md   the operating rule, shared by both sessions
+```
+
+```bash
+python3 ~/Open-GBP-RAG/rag_query.py "U-GBP-010 L R KEYPAD" --top 6
+python3 ~/Open-GBP-RAG/rag_query.py "CONTROL 0x02 cartridge" --source high
+python3 ~/Open-GBP-RAG/rag_query.py "keypad encode" --source code --path src/gbp
+python3 ~/Open-GBP-RAG/rag_index.py "/path/to/Open-GBP"     # refresh after commits
+```
+
+Each hit prints `file:start-end  [source class]  §heading`, a snippet, and the
+git HEAD the index was built at.
+
+### The rule that overrides convenience
+
+**RAG IS NEVER AUTHORITY.** A retrieval hit is a pointer, not a finding.
+
+Before making a scientific decision, changing an evidence status, classifying a
+run, writing a gate, or editing code, open the canonical file at the printed
+line range and read it. A snippet is a fragment chosen by a ranking function;
+it has no status, no date, and no context around it.
+
+**Never cite the index.** Cite the file, the lines, and the evidence id. A
+sentence like "the index says X" is not admissible anywhere in this project —
+not in an Issue, not in a commit message, not in `EVIDENCE.md`, not in a report
+to the Operator. If a claim's only support is a snippet, it is unsupported.
+
+**The index can be stale.** It carries the HEAD it was built at; if that is not
+the current HEAD, or ends in `-dirty`, treat every hit as a lead and re-read the
+file. Re-index after the Executor pushes.
+
+### The shared checkout (standing rule, Operator, 2026-09-22)
+
+The Orchestrator and the Executor currently share ONE physical checkout, so the
+working tree may hold another session's uncommitted work at any moment.
+
+- Never treat a modified or untracked working-tree file as scientific
+  authority. Validate only commits that are already on `origin/main`.
+- `git fetch origin` before validating anything reported as finished.
+- When the tree is dirty and the canonical text is needed:
+  `git show origin/main:<path>` — not the file on disk.
+- Never run `git reset`, `git clean`, `git restore`, `git checkout -- <file>`,
+  rebase or merge in this tree. Another session's work lives there.
+- Do not rebuild the index while `git status --porcelain` is non-empty.
+  `rag_index.py` refuses by default and says why; `--allow-dirty` exists only
+  for a deliberate, disposable index.
+- An index built from a dirty tree contains unpushed text. `rag_query.py`
+  prints a warning on every query when that is the case. Any recent-looking hit
+  must then be confirmed against `origin/main` before it is used for anything.
+- The Orchestrator does not edit Open-GBP files at all.
+
+### How to use it in a session
+
+1. The current bounded Issue is read IN FULL. Never retrieve it, never
+   summarise it from snippets. The Issue is the authorisation and the scope,
+   and a missed sentence is a missed constraint.
+2. Historical context: retrieve first. "What did RUN 13 conclude", "where was
+   U-GBP-017 last touched", "which build carried the KEY record" — search,
+   then open only what is decisive.
+3. Prefer 2–4 narrow searches over one broad one. Distinctive tokens work
+   best: an evidence id (`GBP-HW-272`), an unknown (`U-GBP-010`), a build id
+   (`play-0001`), a run number, a section (`V7.6`), a register (`KEYPAD`).
+4. `--top 6` is the default and is usually right. Raise it only when the
+   first six are plainly the wrong neighbourhood.
+5. Then open the canonical ranges — only the decisive ones. Two or three
+   ranges usually settle a question that would otherwise cost a whole file.
+6. Do NOT load `EVIDENCE.md`, `HARDWARE_TESTS.md` or `DEVLOG.md` wholesale by
+   default. They are the largest documents in the project and are
+   append-only. Retrieve the section, open the range.
+7. `--source` narrows the neighbourhood: `high` for the canonical set
+   (AGENTS, CLAUDE, HANDOFF, ROADMAP, RESEARCH_METHOD, EVIDENCE,
+   HARDWARE_TESTS, UNKNOWNS, the assessment), `medium` for the consolidated
+   protocol/hardware pages and the research path documents, `code` for
+   `src/`, `poc/`, `stimulus/`, `tools/`, `tests/`.
+
+### What is NOT in the index, deliberately
+
+- `input/` — the Operator's private proprietary material (§7). It must not
+  enter any derived artifact, and an index is a derived artifact.
+- `captures/`, `logs/` — raw run evidence. Raw bytes are the primary evidence
+  and are read directly from the file, never through a ranking function.
+- `build/`, `external/`, `.git`, generated objects, and every ROM, DOL, BIN or
+  image.
+
+If a question needs any of those, open them directly.
