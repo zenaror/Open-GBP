@@ -81,7 +81,24 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
                         uint32_t handed, int *to_queue)
 {
     if (handed > t->mute) {
+        uint32_t ring_excess;
         if (t->rotating) { t->rotating = 0u; t->late = 1u; t->lates++; }
+        /* Orchestrator direction, Issue #129/#130: the ring's own excess over target, trimmed at
+         * the landing, never below target (a shortfall would be worse than the excess it fixes).
+         * HELD already trims this way at its own landing (step_held2, above); ROTATE's landing can
+         * fire mid-cycle (the continuous produce+rotate loop pinned at `aim`, ending on a wall-clock
+         * hand-off count, not on the cycle's own phase) and this path's residue measures 4x the old
+         * path's own (#117's 15.6 ms vs this path's ~62.5 ms worst-case), with the ring component
+         * alone draining over seconds through the slow DUP/DROP corrector if left untrimmed -- long
+         * enough to inflate what a nulling judgment sees. The trim is masked (inside this same
+         * landing step, before the transition is reported complete) and cheap (a ring-pointer
+         * advance, no resample). */
+        ring_excess = d->count > t->target ? d->count - t->target : 0u;
+        if (ring_excess) {
+            t->trimmed = gbp_adec2_discard(d, ring_excess);
+            t->trim_sum += t->trimmed;
+            if (t->trimmed > t->trim_max) t->trim_max = t->trimmed;
+        }
         t->residue = (int32_t)d->count + (p->cur >= 0 ? (int32_t)p->cur_pushes : 0)
                    + (int32_t)GBP_APLAY2_PUSHES * ((int32_t)gbp_aplay2_ready(p) - (int32_t)(p->ahead - 1u))
                    - (int32_t)t->target;
