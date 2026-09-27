@@ -133,6 +133,10 @@ class TheLadderIsTheFrozenTable(unittest.TestCase):
         for name, value in (("GBP_V28_A4", 4), ("GBP_V28_A3", 3), ("GBP_V28_A2", 2), ("GBP_V28_A1", 1)):
             self.assertIn("#define %s   %du" % (name, value), h)
 
+    def test_the_step_mechanism_s_fixed_mute_is_6_unconverted(self):
+        h = code(read(LADDER_H))
+        self.assertIn("#define GBP_V28_STEP_MUTE   6u", h)
+
 
 class TheBoundsCheckIsCompiledIn(unittest.TestCase):
     def test_every_target_has_an_uncommented_bounds_assert_not_under_an_if(self):
