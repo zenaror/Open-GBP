@@ -86,6 +86,25 @@ _Static_assert(GBP_V28_T192 >= GBP_APLAY2_TARGET_MIN && GBP_V28_T192 <= GBP_APLA
  * AHEAD-lowering entry and the step sweep all use it. NOT 3a's own descent, which stays UNMUTED. */
 #define GBP_V28_STEP_MUTE   6u
 
+/* The largest START's OWN mute (Issue #129/#130, the Orchestrator's direction after the ROTATE
+ * landing trim): the step sweep's two START transitions (T256A1 <-> T704A4, #129's frozen
+ * sequence) climb the whole ladder in one plan -- the perceptual run's own STARTs never use
+ * GBP_V28_STEP_MUTE either (#128 §7). GBP_ATRANS2_ROTATE needs `pause + ahead` (gbp_atrans2.h's
+ * own gbp_atrans2_min_mute()); `pause` is the climb in chunks, the same ceiling-division formula
+ * gbp_v28_3a.c's own UNMUTED descent uses for a climb (`(to - from + PUSHES - 1) / PUSHES`), at
+ * the ladder's own largest span (T256 -> T704) and its own largest AHEAD (A4). A build-time
+ * constant, like STEP_MUTE above -- not computed per call, and not the fixed mute an ordinary
+ * rung or a refused step uses. */
+#define GBP_V28_START_PAUSE   ((GBP_V28_T704 - GBP_V28_T256 + GBP_APLAY2_PUSHES - 1u) / GBP_APLAY2_PUSHES)
+#define GBP_V28_START_MUTE    (GBP_V28_START_PAUSE + GBP_V28_A4)   /* 4 + 4 = 8 */
+
+_Static_assert(GBP_V28_START_PAUSE == 4u,
+    "gbp_v28_ladder: the T256->T704 climb's own pause changed -- recompute GBP_V28_START_MUTE");
+_Static_assert(GBP_V28_START_MUTE == 8u, "gbp_v28_ladder: GBP_V28_START_MUTE no longer 8 -- check the derivation");
+_Static_assert(GBP_V28_START_MUTE > GBP_V28_STEP_MUTE,
+    "gbp_v28_ladder: the largest START needs MORE mute than an ordinary rung, or STEP_MUTE already covers it "
+    "and this constant is not needed");
+
 /* ---- the auto-search grids (#122/gbp_async_cfg_default's p3/p2 fields) -----------------------
  *
  * 3a's descent (TARGET 384 -> 128 by 32, bisected) and nulling's scan (384..3584 by 128) are ALSO
