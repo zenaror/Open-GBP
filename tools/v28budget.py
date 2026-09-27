@@ -52,6 +52,13 @@ HEAP_FLOOR = 1650688          # GBP-HW-262: ENVFULL arena1_free=1650688 (RUN 14/
 MARGIN = 1.2
 GUARD_EVENTS_PER_S = 79       # ceil(65.606 x 1.2)
 GUARD_FRAMES_PER_S = 60       # main.c: PLAY_FRAME_RECORDS >= PLAY_SAFETY_SECONDS * 60u
+# GitHub Issue #127's §V28 review: the native path's own chunk_corrections rate, k = 16 corrections a chunk
+# canceled out (gbp_aplay2.h's GBP_APLAY2_K_DEFAULT does not appear here) since the count is logged once a CHUNK,
+# not once a correction -- CHUNKS_PER_S itself (tools/v123chain.py), independent of k. A SEPARATE store, sized at
+# CORR_RECORD_BYTES a record (the count fits a uint8_t; one byte kept in reserve), not the misc events stream's.
+NATIVE_CORR_RATE = 32.03
+CORR_RECORD_BYTES = 2
+GUARD_CORR_PER_S = math.ceil(NATIVE_CORR_RATE * MARGIN)  # 39
 WALL_S = 785                  # PLAY_SAFETY_SECONDS, from the control transform
 SESSION_S = 720               # cap_session, from the origin
 LATEST_ORIGIN_S = 51.11       # from the control transform
@@ -110,25 +117,30 @@ def facts(text):
 
 def rates(f):
     return {"measured": f["rate"], "margin": f["rate"] * MARGIN, "one_per_frame": vevents.FRAME_HZ,
-            "episode_ceiling": vevents.EPISODE_CEILING * vevents.FRAME_HZ}
+            "episode_ceiling": vevents.EPISODE_CEILING * vevents.FRAME_HZ,
+            "combined_native_trap": f["rate"] + NATIVE_CORR_RATE}
 
 
 def need(seconds, rate):
     return int(math.ceil(seconds * rate - 1e-9))
 
 
-def free_arena(f, events, frames, awr_kept):
-    """The free arena with stores of `events` and `frames` records, with or without the ride-along's store."""
+def free_arena(f, events, frames, awr_kept, corr=0):
+    """The free arena with stores of `events` and `frames` records, with or without the ride-along's store, and
+    `corr` records of the native path's own chunk_corrections store (GitHub Issue #127; see NATIVE_CORR_RATE), at
+    CORR_RECORD_BYTES each -- a SEPARATE, size-optimised store, not sharing the misc `events` stream's 64 B record
+    (`corr` defaults to 0: every existing caller and test is unaffected)."""
     delta = (events * f["event_record"] - f["event_bytes"]) + (frames * f["frame_record"] - f["frame_bytes"]) \
-        - (0 if awr_kept else f["awr_bytes"])
+        + corr * CORR_RECORD_BYTES - (0 if awr_kept else f["awr_bytes"])
     lo = -(-(f["bss_end"] + delta + f["xfb_bytes"]) // PAGE) * PAGE
     return f["arena1_hi"] - lo
 
 
-def option(f, events, frames, awr_kept):
-    free = free_arena(f, events, frames, awr_kept)
+def option(f, events, frames, awr_kept, corr=0):
+    free = free_arena(f, events, frames, awr_kept, corr)
     room = free - HEAP_FLOOR
-    return {"events": events, "frames": frames, "awr_kept": awr_kept, "event_bytes": events * f["event_record"],
+    return {"events": events, "frames": frames, "corr": corr, "awr_kept": awr_kept,
+            "event_bytes": events * f["event_record"], "corr_bytes": corr * CORR_RECORD_BYTES,
             "arena1_left": free, "above_floor": room, "floor_kept": room >= 0,
             "units": max(0, room // TEXTURE), "units_with_label": max(0, (room - LABEL) // TEXTURE),
             "seconds": dict((k, events / r) for k, r in rates(f).items())}
@@ -148,6 +160,30 @@ def wall_ceiling(f, awr_kept):
     """The largest whole-second wall whose event (x79/s) and frame (x60/s) stores keep the floor."""
     w = 0
     while free_arena(f, (w + 1) * GUARD_EVENTS_PER_S, (w + 1) * GUARD_FRAMES_PER_S, awr_kept) >= HEAP_FLOOR:
+        w += 1
+    return w
+
+
+def wall_ceiling_native(f, awr_kept):
+    """GitHub Issue #127's own §V28 review: the SAME wall_ceiling, with a THIRD, separate store for the native
+    path's chunk_corrections at GUARD_CORR_PER_S records/s (its own margin, its own CORR_RECORD_BYTES) -- the fix
+    for the trap combined_ceiling() below finds: keep the correction count OUT of the shared misc events stream."""
+    w = 0
+    while free_arena(f, (w + 1) * GUARD_EVENTS_PER_S, (w + 1) * GUARD_FRAMES_PER_S, awr_kept,
+                     (w + 1) * GUARD_CORR_PER_S) >= HEAP_FLOOR:
+        w += 1
+    return w
+
+
+def combined_ceiling(f, awr_kept):
+    """THE TRAP (review round, #127/§V28): if the native path's chunk_corrections were logged into the SAME
+    misc `events` stream instead of a store of its own -- no new allocation, just more entries at the EXISTING
+    64 B `event_record` size -- the store's effective demand rises from GUARD_EVENTS_PER_S (79/s) to
+    GUARD_EVENTS_PER_S + GUARD_CORR_PER_S (118/s), and the frame store is unaffected. Returns the wall ceiling
+    under that combined demand, for comparison against wall_ceiling_native()'s separate-store fix."""
+    w = 0
+    combined_guard = GUARD_EVENTS_PER_S + GUARD_CORR_PER_S
+    while free_arena(f, (w + 1) * combined_guard, (w + 1) * GUARD_FRAMES_PER_S, awr_kept) >= HEAP_FLOOR:
         w += 1
     return w
 
@@ -182,6 +218,9 @@ def analyse(text):
               ("p2", f["caps"]["p2"], f["actual"]["p2_until_stop"]), ("p3", f["caps"]["p3"], None),
               ("p3b", 60, None)]
     walls = {"awr_kept": wall_ceiling(f, True), "awr_dropped": wall_ceiling(f, False)}
+    native_walls = {"awr_kept": wall_ceiling_native(f, True), "awr_dropped": wall_ceiling_native(f, False),
+                    "combined_trap_awr_kept": combined_ceiling(f, True),
+                    "combined_trap_awr_dropped": combined_ceiling(f, False)}
     return {"facts": f, "rates": r, "spans_s": spans,
             "needed": dict((s, dict((k, need(v, rv)) for k, rv in r.items())) for s, v in spans.items()),
             "phases": [{"phase": p, "cap_s": c, "run43_s": a,
@@ -190,6 +229,7 @@ def analyse(text):
                        for p, c, a in phases],
             "plans": plans(f),
             "wall_ceiling_s": walls,
+            "wall_ceiling_native_s": native_walls,
             "options": {"today": option(f, f["event_bytes"] // f["event_record"], frames_now, True),
                         "largest_awr_kept": option(f, largest_events(f, frames_now, True), frames_now, True),
                         "largest_awr_dropped": option(f, largest_events(f, frames_now, False), frames_now, False),
@@ -223,12 +263,18 @@ def main(argv):
           "%d s without" % (GUARD_EVENTS_PER_S, GUARD_EVENTS_PER_S * out["facts"]["event_record"], GUARD_FRAMES_PER_S,
                             GUARD_FRAMES_PER_S * out["facts"]["frame_record"], out["wall_ceiling_s"]["awr_kept"],
                             out["wall_ceiling_s"]["awr_dropped"]))
+    nw = out["wall_ceiling_native_s"]
+    print("native path (#127): a SEPARATE chunk_corrections store (x%d/s = %d B/s) costs the wall ceiling %d s "
+          "with the ride-along, %d s without -- against the TRAP of sharing the misc events stream instead "
+          "(x%d/s combined), which caps it at %d s / %d s"
+          % (GUARD_CORR_PER_S, GUARD_CORR_PER_S * CORR_RECORD_BYTES, nw["awr_kept"], nw["awr_dropped"],
+             GUARD_EVENTS_PER_S + GUARD_CORR_PER_S, nw["combined_trap_awr_kept"], nw["combined_trap_awr_dropped"]))
     for k, o in out["options"].items():
         print("%-20s events %6d frames %6d awr %-5s arena1 left %9d B (%+9d vs floor)  76 800 B units %d (%d with label)  "
-              "buys %.1f s measured, %.1f s x1.2, %.1f s 5/3"
+              "buys %.1f s measured, %.1f s x1.2, %.1f s 5/3, %.1f s if it also carried #127's chunk_corrections"
               % (k, o["events"], o["frames"], o["awr_kept"], o["arena1_left"], o["above_floor"], o["units"],
                  o["units_with_label"], o["seconds"]["measured"], o["seconds"]["margin"],
-                 o["seconds"]["episode_ceiling"]))
+                 o["seconds"]["episode_ceiling"], o["seconds"]["combined_native_trap"]))
     if "--json" in argv:
         with open(argv[argv.index("--json") + 1], "w", encoding="utf-8") as fh:
             json.dump(out, fh, sort_keys=True)

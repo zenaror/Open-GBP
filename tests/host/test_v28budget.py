@@ -131,6 +131,23 @@ class Run43(unittest.TestCase):
     def test_the_wall_ceilings(self):
         self.assertEqual(self.r["wall_ceiling_s"], {"awr_kept": 646, "awr_dropped": 804})
 
+    def test_the_native_path_s_trap_and_its_fix_github_issue_127(self):
+        # #127 ported the native decoder's chunk_corrections counter; this pins the two ceiling framings the
+        # Planejador asked reconciled: the largest store the arena could ever build (separate store vs the
+        # combined-stream trap), and how long TODAY's existing fixed 16384-slot store lasts under the trap.
+        self.assertEqual((v28budget.NATIVE_CORR_RATE, v28budget.CORR_RECORD_BYTES, v28budget.GUARD_CORR_PER_S),
+                         (32.03, 2, 39))
+        self.assertAlmostEqual(self.r["rates"]["combined_native_trap"], self.r["rates"]["measured"] + 32.03, places=9)
+        self.assertEqual(self.r["wall_ceiling_native_s"],
+                         {"awr_kept": 643, "awr_dropped": 800, "combined_trap_awr_kept": 561,
+                          "combined_trap_awr_dropped": 699})
+        # today's store (16384 events), unchanged in size, folded into the combined trap rate instead of built fresh
+        self.assertEqual(round(self.r["options"]["today"]["seconds"]["combined_native_trap"], 1), 167.8)
+        self.assertLess(self.r["options"]["today"]["seconds"]["combined_native_trap"],
+                        self.r["plans"]["perceptual_no_phase1"]["wall_s"])
+        self.assertLess(self.r["options"]["today"]["seconds"]["combined_native_trap"],
+                        self.r["plans"]["validation_run"]["wall_s"])
+
     def test_the_options(self):
         o = self.r["options"]
         self.assertEqual([o[k]["events"] for k in ("today", "largest_awr_kept", "largest_awr_dropped",
