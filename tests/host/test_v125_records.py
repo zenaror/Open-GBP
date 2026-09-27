@@ -117,12 +117,13 @@ class OnTopNeverRewritten(unittest.TestCase):
 
 
 class TheRecordsDefect(unittest.TestCase):
-    def test_the_preamble_carries_cause_cost_hazard_and_shorthands(self):
+    def test_the_preamble_note_carries_cause_cost_hazard_and_shorthands(self):
+        # placed right before the #125 audio section, not in the 2026-09-13 preamble: that region is frozen byte for
+        # byte from c496f0b (test_run43.py's OnTopNeverRewritten), well before GBP-HW-341 onward even exist
         ev = base.now(EV)
-        pre = ev[:ev.index("\n## ENV-DOL-001")]
-        i = pre.index("**2026-09-25 (GitHub Issue #125), on top: where the static-analysis outputs went")
-        self.assertLess(i, pre.rindex("\n---\n"))
-        p = base.flat(pre[i:])
+        i = ev.index("**2026-09-25 (GitHub Issue #125), on top: where the static-analysis outputs went")
+        self.assertLess(i, ev.index("## The reference implementations' audio paths"))
+        p = base.flat(ev[i:])
         for phrase in ("On 2026-09-17 at 16:02 UTC, working around a stale-dentry build failure, the Executor renamed "
                        "the whole `build/` tree to `build.stale.<pid>` and created an empty `build/`.",
                        "At 16:03 UTC it deleted the renamed tree with `rm -rf build.stale.*`",
@@ -131,7 +132,7 @@ class TheRecordsDefect(unittest.TestCase):
                        "But checking any of them now means redoing that analysis, not reading a file.",
                        "**The hazard stands.**", "One wipe of `build/` would repeat the loss.", MANIFEST):
             self.assertIn(phrase, p)
-        squeezed = "".join(pre[i:].split())
+        squeezed = "".join(ev[i:].split())
         for h in ("47598482ef6821ca41fed0b283a747c266c7524c7bd63897a63ccf4bd4cf5f67",
                   "2f59aac9b035efe130510adc951556adb006baed7ec512a83503991c0c41a231",
                   "c887877f375a0b2eac15435dc4cdbc075d0973dc83a69e8f11684647c077e9dd",
@@ -341,9 +342,10 @@ class TheFiguresAreTheTools(unittest.TestCase):
         ev = base.flat(entry(base.now(EV), "GBP-AUD-004")[1])
         self.assertIn(v125ref.AESND_MIXER_SHA256, ev.replace(" ", ""))
         self.assertIn("It identifies the MICROCODE, not the library version GBI linked", ev)
-        pre = base.flat(base.now(EV)[:base.now(EV).index("\n## ENV-DOL-001")])
-        self.assertIn("`libogc-rice r2191.2a08d95`", pre)
-        self.assertIn("So it is FACT as the STUB's build banner.", pre)
+        note = base.flat(base.now(EV)[base.now(EV).index("The GBI shorthand's \"libogc-rice r2191\""):
+                                       base.now(EV).index("## The reference implementations' audio paths")])
+        self.assertIn("`libogc-rice r2191.2a08d95`", note)
+        self.assertIn("So it is FACT as the STUB's build banner.", note)
 
 
 if __name__ == "__main__":
