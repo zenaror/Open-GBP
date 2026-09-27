@@ -17337,3 +17337,88 @@ the two new/extended ones above.
 
 **Next.** The hardware-integration Issue: port `gbp_aplay2`'s pool/queue/L2/mute layer, build and stage an image,
 the §V28 ladder on the final decode, `agb-route`'s hardware run.
+
+## 2026-09-27 — Issue #126 continued: `FRACTION_BAND` was self-certifying — replaced by predict-then-measure, the drift corrector isolated first
+
+**This corrects the previous entry's "the fraction is right" bullet.** `FRACTION_BAND = (0.5 %, 8 %)` was fitted to
+the very outputs it checked, so it could not have failed on a real defect that stayed inside that band — the
+Orchestrator caught this directly (RUN 33's 1.43 % sat BELOW what even its lowest ideal harmonic alone predicts,
+which a genuine mix or a correct decode cannot give). `FRACTION_BAND` and the two RUN 33/34 assertions that used it
+are gone from `tests/host/test_v126_chain.py`; `RUN 43`'s fraction assertion is gone too (see below, not replaced).
+
+**The premise "RUN 33 mixes four tones" was also wrong, verified against the archive directly.** `awinparse.parse()`
++ `tools/v11sweep.window_period()` on the raw blocks: RUN 33 walks FREQUENCY across windows 1-4 (128/512/256/1024 Hz,
+GBP-HW-313), RUN 34 walks VOLUME (all four at 128 Hz); `test_v126_chain.py` reads window 1 of each — the SAME
+nominal 128 Hz tone in both runs, never a mix. That correction alone did not explain why RUN 33 (1.43 %) and RUN 34
+(2.16 %) still disagreed at the same nominal frequency.
+
+**Two further, real confounds, found in this order, each isolated before moving to the next:**
+1. **The drift corrector's cold-start DUPs stretch and phase-jump a short window's tone.** `harness_v126.c` gained
+   `chain_uncorrected` (`gbp_adec2` + `gbp_aresamp2` + `gbp_aplay2`, `gbp_aplay2_produce_ex`'s `uncorrected` flag —
+   the same mechanism `gbp_aplay.c`'s transition chunks already use — confirmed `dup2 == drop2 == 0`). A
+   zero-crossing fundamental estimator (`measure_f0()`, sub-sample via linear interpolation) showed WHY the
+   corrected path cannot be trusted for this: RUN 34's corrected-path 2.16 % agreed with the naive ideal-square
+   prediction by COINCIDENCE — its actual harmonic-only content (a leakage-free Goertzel decomposition at the
+   exact odd multiples of the measured fundamental, `harmonic_fraction()`) was 0.078 %, with the fundamental itself
+   measured at 113 Hz instead of 128 (32 DUPs in 2000 samples is roughly a 1.6 % stretch, moving the 17th harmonic
+   two FFT-scale bins and injecting a one-sample phase jump of about 24° at that harmonic — both smear high-frequency
+   content into non-harmonic energy a per-harmonic check cannot recover). `TheMethodTracksTheFundamental` proves the
+   estimator and the harmonic decomposition on synthetic squares BEFORE trusting them on the archive: an EXACT
+   128 Hz case and, critically, an OFF-NOMINAL 127.5 Hz case (a method that always reported 128.0 would pass the
+   exact case vacuously; the off-nominal case is the non-vacuity proof, and the ORIGINAL version of this check —
+   built after the failure, using only an exact tone — could not have caught its own blind spot).
+2. **RUN 34's press window has a real pre-tone lead-in; RUN 33's is negligible.** With the corrector off, only ONE
+   2048-push chunk (blocks 0-127) is available per window (256 blocks = exactly two chunks' worth, but the
+   `PUSHES + 1` starvation gate needs 2049 to start a second one and only 2048 remain — an edge case of this exact
+   block count, not a defect). Per-block bit-density on the raw blocks (`awinparse.windows()`) showed RUN 33's
+   window 1 oscillating at 128 Hz from block 0, while RUN 34's is FLAT for roughly its first 120 of 256 blocks. This
+   is already a FIXED, pre-registered rule: `tools/v11sweep.py`'s `ONSET_SLICE_BLOCKS = 96` / `sliced()` (§V11.9,
+   "the first onset blocks of a press window are discarded because the AGB has not reacted yet... never chosen from
+   the data") — the same rule `GBP-HW-340` applies to these windows. `chain_uncorrected` gained a `skip` parameter
+   (blocks discarded before decoding, not counted in calibration) so the harness could apply it directly.
+
+**With both confounds removed** (`skip = tools.v11sweep.ONSET_SLICE_BLOCKS`, corrector off): RUN 33 fundamental
+128.000000 Hz, coverage 99.64 %, harmonic fraction 2.23523 %; RUN 34 128.000000 Hz, coverage 99.64 %, fraction
+2.28647 %. `_reconstruct_filter()` un-reshapes `gen_aresamp2.table()` back into its flat prototype and evaluates its
+EXACT frequency response with `tools/v123chain.py`'s `response()` (DC gain checks out at exactly 125) — the real,
+shipped, quantized 16-tap filter barely attenuates below its own 16 kHz cutoff. **The decode is correct** — Round
+B's actual answer to the correctness question, not the coincidental agreement the first version of this check
+reported.
+
+**The prediction is measured through the IDENTICAL pipeline (second Orchestrator instruction), not a closed-form
+sum compared across a tolerance wide enough to absorb the gap.** `predicted_fraction(f0, n_samples)` builds an
+ideal square's harmonic series, each harmonic weighted by the real filter's response, truncated at Nyquist (so
+sampling it introduces no aliasing — unlike a naive `i % period` square wave, whose instantaneous edges alias
+every harmonic above Nyquist back into the measured band; an EARLIER version of `TheMethodTracksTheFundamental`
+used exactly that naive generator and measured a spurious +12 % bias on a clean synthetic 128 Hz tone, which
+was never a decode property, only that generator's own aliasing), of the SAME length as the real measurement, then
+measured by the identical `harmonic_fraction()`. Its own construction is clean by definition (`pred_coverage`
+== 1.000000, asserted). Prediction: 2.18331 %. Residuals: **RUN 33 +2.38 %, RUN 34 +4.72 % relative — an OPEN
+RESIDUAL, named rather than absorbed** (first Orchestrator instruction): the UNDERSTOOD precision (the pipeline's
+own gap between the closed-form infinite sum and this finite Goertzel measurement, under 0.05 % relative at the
+real conditions; the filter model, already exact in the prediction, not a separate error term) totals under 1 %.
+The residual exceeds that by roughly +1.4 % to +3.7 %, unattributed — candidates not yet checked: `gbp_adec2`/
+`gbp_aresamp2`'s fixed-point Q15 rounding noise, which a floating-point reference does not have; a small duty-cycle
+asymmetry in the real AGB's own PWM output that `GBP-HW-340` never separately measured. Recorded here, not chased
+further this round (the Issue's own scope is the rate change, not a sub-percent bias hunt).
+
+**On-tone verified two ways, neither reading the high-frequency content being checked:** `tools/v11sweep.
+classify_window()` on the RAW archived blocks (state `CARRIES`, period exactly matching the nominal tone, uniformity
+1.0 ≥ `UNIFORMITY_MIN`); and the zero-crossing fundamental on the DECODED PCM landing within `F0_REL_TOLERANCE` (1 %)
+of nominal (both runs landed exactly on it: `f0 - 128.0 == 0.0`, no residual frequency error at all).
+`HARMONIC_COVERAGE_MIN` (0.95) and `FRACTION_REL_TOLERANCE` (0.08, tightened from an initial 0.20 after the
+Orchestrator asked for the derivation as a number) are DERIVED from the sources above, admitting the named residual
+with headroom (RUN 34's 4.72 % sits at just over half the 8 % bound) rather than a number picked to fit either run.
+
+**RUN 43 keeps no per-tone fraction check.** Real game content has no known ideal tone to predict against, so the
+predict-then-measure method does not apply; its evidence is the visibility ratio and the low-band correlation
+(unchanged, both already independent of a fitted band).
+
+**Tests:** `tests/host/test_v126_chain.py` now 15 (was 12): removed the two `FRACTION_BAND` assertions (RUN 33/34)
+and RUN 43's, added `TheMethodTracksTheFundamental` (2 tests) and `ThePredictedFractionMatchesTheMeasuredHarmonics`
+(2 tests); `harness_v126.c` gained `chain_uncorrected` (with a `skip` parameter). Full host suite and C unit suite
+rerun clean; gate figure to follow in the closeout commit.
+
+**Review kept light**, per the Orchestrator's own instruction ("it's one computation plus a test change") — no
+adversarial workflow this round; the method was proved on constructions (exact + off-nominal, band-limited synthetic
+squares) before being trusted on the archive, which is the round's own verification.
