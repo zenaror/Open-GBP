@@ -17611,3 +17611,65 @@ field): `PASS`, `sha256_dol` changed as expected (the pool/struct layout changed
 
 **Review kept light**, per the Orchestrator's own instruction ("one small commit, light review") — no adversarial
 workflow this round; the fix is a small, additive field with its own two direct unit tests.
+
+## 2026-09-27 — Issue #129 begun: §V28's frozen design (#128) implemented on the native path — the ladder in native units, the grids extended, `gbp_walker` restructures the session as an ordered list of phase kinds
+
+**Amendment A, in full.** `src/audio/gbp_v28_ladder.h` states #128's ladder (T704..T192) and 3a's descent /
+nulling's scan grids (`gbp_async_cfg_default`'s own p3_start/p3_step/p3_min, p2_lo/p2_hi/p2_step) in native
+(65 536 Hz) samples, every value DERIVED from the old 4 096 Hz path's own by the rate ratio (x16), never a
+hand-copied literal, with a build-time `_Static_assert` against `GBP_APLAY2_TARGET_MIN`/`_MAX` on every TARGET and
+grid endpoint, plus a divisibility assert so the grids land exactly on their own floor/ceiling. A real, documented
+edge case: the literal old `P2_HI` (3584) already falls inside `[TARGET_MIN, TARGET_MAX]` numerically, so the
+bounds assert alone would not catch an un-derived `P2_HI` — the divisibility assert is what actually catches that
+slip, proven arithmetically (with C's own `uint32_t` wraparound) in `tests/host/test_v28_ladder.py`, not assumed.
+Commits `3b8340d`, `77c0875`.
+
+**The session/plan restructuring — NOT a port of `gbp_async`.** The Orchestrator's review (after independently
+checking the source, not from memory — the Operator's own standing instruction to use the RAG applies here too)
+found #128's two runs (`validation_run`: navigate -> 3a descent -> 3b hold -> sweep; `perceptual_no_phase1`:
+navigate -> nulling, Phase 1 dropped from BOTH) do not map onto `gbp_async`'s own single P0->P1->P2->P3 sequence —
+forcing that shape would be a rename wearing a costume. `src/audio/gbp_walker.{h,c}` (commit `0dd6944`) is instead
+a pure engine over an ORDERED LIST OF PHASE KINDS a plan supplies, so the two runs become two different lists over
+one engine; phase-kind domain logic (3a's bisection, 3b's hold, sweep's steps, nulling) is deferred to handlers
+above it, not yet built.
+
+Structurally closes two binding ordering defects the review named:
+- **Issue #117 entry 21** ("a plan was applied over a running one", deterministic in 63 of 64 phases without the
+  fix, `docs/research/HARDWARE_TESTS.md`'s 27-defect review) — the walker refuses every advance (start/end/complete)
+  while the caller's `transition_active` flag is true, INSIDE the module, not left to caller discipline. Corrected
+  a misattribution in review (first cited as Issue #124; verified against `git log`/`HARDWARE_TESTS.md` and is
+  #117's own entry — #124 is the 16-vs-32-tap settlement and unrelated). `tests/unit/test_gbp_walker.c` ports the
+  regression at two layers: a synthetic-flag unit layer, and an integration layer driving a REAL `gbp_atrans2`
+  transition in actual pump-call order — "4 of 4 phases preempted" when the flag is (deliberately, to reproduce the
+  historical defect) not read from the real `tr.active`, 0 when it is, per the review's own precision that a
+  synthetic flag alone proves only the logic, never the wiring.
+- **§V27.9's O4** (Phase 0 had no cap of its own in the old cfg, so it could silently eat later phases' budget) —
+  every phase, navigate/p0 included, carries its own explicit `cap_s` with no special case.
+
+A cut phase (a phase cap, the session cap, or an external stop) is never recorded `GBP_WALKER_END_COMPLETE` — only
+a phase's own handler calling `gbp_walker_phase_complete()` does that, mirroring #117's own "cut dwell" defect
+class (entries 8/11/20/24/25) at the sequencing layer.
+
+**An open coverage gap, named rather than left in a commit message (per the review's own point: a commit is not a
+tracker).** `gbp_atrans2_begin()` has no internal guard against being called while `t->active` is already 1 — it
+silently resets the in-flight transition's state. `gbp_walker` protects the BETWEEN-phases case (a phase boundary
+never launches a new plan over a running one); it does NOT protect a WITHIN-phase case, where a future phase
+handler (sweep issuing several ladder steps, or nulling issuing repeated C-stick-driven steps) calls
+`gbp_atrans2_begin()` more than once inside the same phase. No such handler exists yet, so there is no live gap
+today, but whichever phase-kind handler is built next MUST check `!tr.active` itself before its own `begin()`
+calls — `gbp_atrans2` will not stop it. `tests/unit/test_gbp_atrans2.c` still has no regression for
+"begin while already active" of its own (only the walker's own integration test exercises the between-phase case).
+Tracked here and in Issue #129's own scope list; not closed by this entry.
+
+**Tests:** `tests/host/test_v28_ladder.py` (21 checks across the ladder and grid classes); `tests/unit/test_gbp_walker.c`
+(41 checks, new). The gate on the committed tree, run independently before each commit above (the fork-produced
+commit `2d806aa`'s own "gate clean" claim was treated as unverified until this round's own run confirmed it):
+`pytest -q tests/host` — 3298 passed, 7 skipped, 0 failed; `make -C tests/unit` — every binary green, 0 failures,
+including both new ones.
+
+**Next.** The phase-kind handlers (3a's bisection, 3b's hold, sweep's steps, nulling), each its own slice; the
+shared `PLANS` table matched against `tools/v28budget.py`'s own `(phases_list, session_cap)` shape, with a test
+that they agree; `SYNCPE` emission from the walker's own edge bits; the two-image build via the `agb-route`
+Makefile precedent (a `VARIANTS`-style build-time selection, not a runtime key); Amendment C's O6-leak drop, which
+only applies once the new image's own screen/live-report code exists; and the `gbp_atrans2` "begin while active"
+gap named above, whenever the first phase handler that issues more than one plan per phase is built.
