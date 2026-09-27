@@ -239,6 +239,34 @@ static void test_held_with_climb(void)
     check_conservation2("held+climb", L);
 }
 
+/* GitHub Issue #129/#130, Orchestrator review: #117 entry 21 ("a plan applied over a running
+ * one") one level down, inside a single phase, for whichever future handler (§V28's 3a
+ * bisection, the step sweep) issues more than one plan per phase. The gate lives HERE, in the
+ * one place every handler shares, so it need not be duplicated in each one. */
+static void test_begin_refuses_a_plan_over_a_running_one(void)
+{
+    uint64_t now = steady2(GBP_APLAY2_TARGET);
+    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u);
+    int applied1, applied2;
+    uint32_t target0, mute0;
+    uint8_t mode0;
+
+    applied1 = gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_ROTATE, mute, 0u, 0u, GBP_APLAY2_TARGET + 512u);
+    eqi(applied1, 1, "begin while idle: applied");
+    check(tr.active != 0u, "begin while idle: active");
+    target0 = tr.target;
+    mode0 = tr.mode;
+    mute0 = tr.mute;
+
+    applied2 = gbp_atrans2_begin(&tr, &ap, &adec, now, GBP_ATRANS2_HELD, mute, 0u, 0u, GBP_APLAY2_TARGET - 512u);
+    eqi(applied2, 0, "begin while active: refused");
+    eqi(tr.begin_refused_active, 1, "begin while active: counted");
+    eqi(tr.target, target0, "begin while active: the running transition's target is untouched");
+    eqi(tr.mode, mode0, "begin while active: the running transition's mode is untouched");
+    eqi(tr.mute, mute0, "begin while active: the running transition's mute is untouched");
+    check(tr.active != 0u, "begin while active: still active -- the running transition was not cancelled");
+}
+
 int main(void)
 {
     test_unmuted();
@@ -247,6 +275,7 @@ int main(void)
     test_rotate_with_discard();
     test_held_no_climb();
     test_held_with_climb();
+    test_begin_refuses_a_plan_over_a_running_one();
     printf("test_gbp_atrans2: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

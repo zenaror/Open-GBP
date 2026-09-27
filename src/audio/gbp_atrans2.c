@@ -17,10 +17,12 @@ uint32_t gbp_atrans2_min_mute(uint8_t mode, uint32_t pause)
     return mode == GBP_ATRANS2_ROTATE ? pause + GBP_APLAY2_AHEAD : mode == GBP_ATRANS2_HELD ? pause + 1u : 0u;
 }
 
-void gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec2 *d, uint64_t now, uint8_t mode,
-                       uint32_t mute, uint32_t pause, uint32_t discard, uint32_t target)
+int gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec2 *d, uint64_t now, uint8_t mode,
+                      uint32_t mute, uint32_t pause, uint32_t discard, uint32_t target)
 {
-    const uint32_t need = gbp_atrans2_min_mute(mode, pause);
+    uint32_t need;
+    if (t->active) { t->begin_refused_active++; return 0; }   /* #117 entry 21, one level down (#129/#130) */
+    need = gbp_atrans2_min_mute(mode, pause);
     if (mode == GBP_ATRANS2_UNMUTED) mute = 0u;
     else if (mute < need) { t->faults++; mute = need; }
     t->active = 1u;
@@ -41,6 +43,7 @@ void gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_a
     gbp_aplay2_set_target(p, target);
     if (mute) gbp_aplay2_mute(p, mute);
     if (discard && mode != GBP_ATRANS2_HELD) (void)gbp_adec2_discard(d, discard);
+    return 1;
 }
 
 static int finish2(struct gbp_atrans2 *t, uint64_t now)
