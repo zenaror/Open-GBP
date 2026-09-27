@@ -17673,3 +17673,79 @@ that they agree; `SYNCPE` emission from the walker's own edge bits; the two-imag
 Makefile precedent (a `VARIANTS`-style build-time selection, not a runtime key); Amendment C's O6-leak drop, which
 only applies once the new image's own screen/live-report code exists; and the `gbp_atrans2` "begin while active"
 gap named above, whenever the first phase handler that issues more than one plan per phase is built.
+
+## 2026-09-27 — Issue #129/#130 continued: the shared begin-while-active gate, the TARGET-domain constant
+## enumeration, and gbp_v28_3a — the bisection descent ported onto gbp_walker/the native path
+
+**The shared gate (commit `ff551e0`).** Issue #117 entry 21 ("a plan applied over a running one", 63 of 64 phases
+deterministic without a guard) one level down: `gbp_walker`'s own busy-gate only refuses to ADVANCE BETWEEN
+phases, and has no view of a handler issuing more than one `gbp_atrans2` plan inside a single phase (§V28's 3a
+bisection, the step sweep — both do). Per the Orchestrator's review, closed ONCE, in the one place every handler
+shares, rather than duplicated per handler: `gbp_atrans2_begin()` now refuses (returns 0, counts the new
+`begin_refused_active`, touches nothing) when already active, instead of silently clobbering the running
+transition's state. Return type changes `void` -> `int`; no existing caller checked the old return, so this was
+source-compatible with every caller that already existed.
+
+**The constant enumeration (commit `2a4ca61`).** `p3_bisect_width` (2, old-path units) is compared directly
+against `hi - lo`, TARGET-domain values — the SECOND unit-slip gap found by reading, not the first (the ladder's
+own grids were the first). Per the Orchestrator's own instruction ("stop finding them one at a time, enumerate
+them once"), `gbp_v28_ladder.h` now carries a full enumeration of every TARGET-domain constant
+`gbp_async.h`/`.c` and `gbp_atrans.h`/`.c` compare against or assign to a sample count, checked directly against
+both files' current text: which are already converted, which are TARGET-domain but not needed (Phase 1 dropped
+from both #128 runs), which are chunk-relative and already re-derived by formula (no gap: `GBP_ATRANS_AIM` ->
+`GBP_ATRANS2_AIM`, `GBP_APLAY_BAND` -> `GBP_APLAY2_BAND`), and which are not TARGET-domain at all (chunk counts,
+seconds, the hardware timebase). Closes the class; a later constant is added to the right list, not a fresh
+instance of the comment.
+
+**`gbp_v28_3a` (commit `17d5dd6`): the descent itself, ported from `gbp_async.c`'s own Phase 3 (Issue #117, three
+review rounds settled the algorithm there).** The descent from `GBP_V28_P3_START` by `GBP_V28_P3_STEP` per
+`GBP_V28_3A_DWELL_S`, mode UNMUTED (unchanged from the old design — this is NOT #128 §3's new ROTATE/fixed-mute-6
+step mechanism, which is scoped to "every nulling step and every refused step" only, never 3a's own automatic
+depths); bisection on the first failing dwell (`dup == 0 && starved > 0`) to width `<= GBP_V28_P3_BISECT_WIDTH`;
+a confirm hold at the lowest failing depth with §V27.14 §4's own early exit on the first observed underrun
+(ported narrower than `gbp_async_second_counters()`, which also does whole-session per-second binning this
+module leaves to a session-wide accounting piece, not yet built); cut-dwell accounting (partial vs whole)
+mirroring gbp_async's own defect-fixed design exactly.
+
+**The Orchestrator's own requirement, applied at construction, not patched in after**: 3a starts a dwell only
+once its own `gbp_atrans2_begin()` call has actually applied. A decided depth change is held PENDING and retried
+every tick (mirroring `gbp_walker`'s own deferred-cap retry idiom) rather than assumed to have taken effect the
+instant it is decided — a bisection step may DEEPEN (climb), which takes more than one pump call to land, so the
+previous depth's own transition can still be running when the next one is decided. `tests/unit/test_gbp_v28_3a.c`
+forces `gbp_atrans2` busy at the exact moment 3a wants to begin and confirms zero depths are ever recorded for
+the one that was never applied; a deliberately-wrong "dishonest" driver (ignoring `begin()`'s own return, kept
+only in the test file to show the contrast, never in the module) demonstrably records a depth at the WRONG target
+under the identical forced-busy condition.
+
+**Tests:** `tests/unit/test_gbp_v28_3a.c`, 39 checks against the REAL `gbp_atrans2`/`gbp_aplay2`/`gbp_adec2` chain
+(no synthetic stand-in is possible here — the module calls `gbp_atrans2_begin()` directly): the first depth
+applying, the busy-begin regression above, holding steps, the floor holding without a bracket, an immediate
+first-depth failure opening no bracket, bisection converging within width (>= 5 depths recorded, not a trivial
+single close), the confirm hold ending the descent, its own early exit on an observed underrun, a cut dwell
+recorded partial, a dwell already ended before a cut staying whole, and `depth_done()` refused-and-counted with
+nothing pending. `tests/unit/test_gbp_atrans2.c` gained its own direct regression for the shared gate (31 checks,
+was 23): begin while idle applies, begin while active is refused and counted, and the running transition's own
+target/mode/mute are confirmed untouched.
+
+The gate on the committed tree, after every commit above: `pytest -q tests/host` — 3321 passed, 7 skipped, 0
+failed; `make -C tests/unit` — every binary green, 0 failures.
+
+**Per-second binning: decided, not left open (the Orchestrator's own review).** No 3a verdict (the floor,
+OBSERVED/NOT OBSERVED, the hold length) reads per-second data, so `gbp_v28_3a`'s own narrower
+`gbp_v28_3a_underrun_observed()` (the confirm hold's early exit only, not `gbp_async_second_counters()`'s whole
+per-second binning) is the right scope for THIS handler. If per-second data is needed at all, it is 3b's own
+AHEAD-margin accounting or the perceptual run's per-arm cost — built there, in that handler, when it is built, not
+a piece of gbp_v28_3a waiting on a maybe.
+
+**The cut-dwell-through-`finished` path already has its own test, checked and named on request.** The one
+`depth_done()` call `cut()` lets through after setting `finished = 1` — precisely the path #124's own "cut dwells
+reaching the gate whole" defect came from in the old design — is exercised by
+`tests/unit/test_gbp_v28_3a.c::test_a_cut_dwell_is_partial()`: it cuts an active dwell, confirms `depth_pending`
+still owes its call, calls `gbp_v28_3a_depth_done()` (entering with `over = s->finished == 1` already true), and
+asserts the recorded depth's `partial == 1`. `test_a_dwell_already_ended_before_a_cut_stays_whole()` is the other
+half: a dwell that ended on its own BEFORE the cut arrives is recorded `partial == 0`. Both existed before this
+question was asked, not added after it.
+
+**Next.** The remaining phase-kind handlers (3b's AHEAD hold, sweep's step ladder, nulling), each inheriting the
+same begin-while-active discipline from the shared gate now that it exists; `SYNCPE` emission, the GX label,
+Amendment C's O6-leak drop and the two-image build, all still waiting on the new image's own `main.c` to exist.
