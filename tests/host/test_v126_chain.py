@@ -134,7 +134,8 @@ F0_REL_TOLERANCE = 0.01
 CORR_LAG_MAX = 64
 CORR_MIN = 0.7
 
-NEW_SOURCES = ["gbp_adec2.c", "gbp_adec2.h", "gbp_aplay2.c", "gbp_aplay2.h", "gbp_aresamp2.c", "gbp_aresamp2.h"]
+NEW_SOURCES = ["gbp_adec2.c", "gbp_adec2.h", "gbp_aplay2.c", "gbp_aplay2.h", "gbp_aresamp2.c", "gbp_aresamp2.h",
+               "gbp_atrans2.c", "gbp_atrans2.h"]
 
 RUNTIME_SOURCES = ["gbp_adec.c", "gbp_aresamp.c", "gbp_adec2.c", "gbp_aplay2.c", "gbp_aresamp2.c"]
 LINKED = [os.path.join(AUDIO, f) for f in RUNTIME_SOURCES] + [
