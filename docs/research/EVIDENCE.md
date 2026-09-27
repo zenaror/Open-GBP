@@ -56,6 +56,62 @@ GBPP     endrift/gbpp f71afcdbdce1745ccc12ce4dcae7168cb9899530 + article endrift
 GBHWDB   gbhwdb.gekkio.fi/consoles/gbs/ (consulted 2026-09-13, 10 units).
 ```
 
+**2026-09-25 (GitHub Issue #125), on top: where the static-analysis outputs went, and the entries this Issue adds.**
+- **The decompiles of 2026-09-13…16 are gone, and the cause is established.** They, and the other analysis files that
+  the DISC- and GBI-derived entries were read from, lived under `build/analysis/` and `build/ghidra/`, inside the
+  build-products directory.
+  - On 2026-09-17 at 16:02 UTC, working around a stale-dentry build failure, the Executor renamed the whole `build/`
+    tree to `build.stale.<pid>` and created an empty `build/`.
+  - At 16:03 UTC it deleted the renamed tree with `rm -rf build.stale.*`, and the analysis outputs went with the build
+    products.
+
+  The session's transcript records both commands. The clean-build checks that ran `rm -rf build` from 16:19 UTC on
+  found nothing more to remove, but each of them would have repeated the loss. The DEVLOG last cites the outputs on
+  2026-09-16 (`build/analysis/ghidra/`, re-read), and no record reads them after that. What survives dates from
+  2026-09-21 on: `build/analysis/ghidra18/` (Issue #18) and the Ghidra project `build/ghidra/OpenGBP18`.
+- **What it costs.** The entries that cite DISC or GBI up to 2026-09-16 have no surviving artefact they were read
+  from. They can be re-derived: the inputs' hashes are recorded above, and the Ghidra scripts are versioned. But
+  checking any of them now means redoing that analysis, not reading a file.
+- **The hazard stands.** `build/` still holds `analysis/`, `ghidra/`, `archive/` and the staged images alongside the
+  build products. The documented recipes clear only `build/poc` (per image), or `build/poc` and `build/tests`
+  (`make clean`). One wipe of `build/` would repeat the loss. Moving analysis outputs to a surviving, documented,
+  hashed local path is a practice change, and #125's report asks the Orchestrator to schedule it. Until then, #125's
+  outputs carry a per-file manifest, committed at `docs/research/manifests/issue-125-ghidra125.sha256`: paths,
+  addresses and hashes, no content.
+- **Two more shorthands:**
+
+  ```text
+  GBIHF    Game Boy Interface High-Fidelity Edition; gbihf.dol sha256 47598482ef6821ca41fed0b283a747c266c7524c7bd6389
+           7a63ccf4bd4cf5f67 (packed); unpacked image sha256 2f59aac9b035efe130510adc951556adb006baed7ec512a83503991c
+           0c41a231 (638116 bytes) via tools/gbi_unpack.py.
+  GBISR    Speedrunning Edition; gbisr.dol sha256 c887877f375a0b2eac15435dc4cdbc075d0973dc83a69e8f11684647c077e9dd
+           (packed); unpacked image sha256 4c44dc926e7200776e9c1798f2a04d3d02e8c9136a027890098110fb647b35a6 (709084
+           bytes).
+           Both load at 0x80003100, VERIFIED by construction: their code builds the addresses of the audio tables,
+           the filter presets and the filter flag at that load (tools/v125ref.py).
+  LIBAESND the libogc family's audio library as LIBOGC2 carries it: libaesnd/aesndlib.c, include/aesndlib.h,
+           libaesnd/aesndmp3player.c, libaesnd/dspcode/dspmixer.s; with libogc/audio.c and libogc/system.c for the
+           AI rate bit and the SRAM sound-mode bit, and libogc/message.c for the message-queue object type.
+  ```
+- **The GBI shorthand's "libogc-rice r2191", followed back** (asked by the Orchestrator on #125, after his claim of
+  a libogc2 provenance contradicted it).
+  - **Where the string is.** The full string is `libogc-rice r2191.2a08d95`. It sits at offset 0x2840 of each packed
+    DOL (gbi, gbihf and gbisr alike), in the loader stub's data section, 28 bytes before the XOR+XZ payload at
+    0x285C. So it is FACT as the STUB's build banner.
+  - **What the payload carries.** The program itself carries no libogc version string: a search of the three unpacked
+    images for `libogc`, `rice`, `ogc2` and the `r<count>.<hash>` banner form finds none. So "libogc-rice r2191" says
+    what the stub was built with, not what GBI's program links.
+  - **Where the shorthand came from.** The 2026-09-13 shorthand (GBI's line above, and the DEVLOG of that day) attached
+    the stub's banner to the program without saying so.
+  - **What now carries the program's provenance.** GBI's library provenance rests on per-function matches only
+    (`GBP-AUD-004`), each recorded with the commit it was matched against. Functions matching different versions would
+    be informative, not an inconsistency.
+  - **Open.** Whether `2a08d95` lies in libogc2's lineage is UNKNOWN: `external/libogc2` is a shallow clone with no
+    history. A full clone would settle it. #125 does not do it, and a per-function match that needs a second version
+    will pick it up.
+- **`GBP-AUD-002` onward** (2026-09-25, #125) are static readings of the references' audio paths. They are appended at
+  the end of this file, not in the 2026-09-13 section.
+
 ---
 
 ## ENV-DOL-001 — Dolphin 2606a requires 32-byte-aligned DOL sections
@@ -10518,6 +10574,23 @@ the tones, and I generalised it from documentation to a case the documentation d
 
 ---
 
+**2026-09-25 (GitHub Issue #125), on top: the references' decode rate depends on the cartridge in one path, and this
+entry's framing did not consider it.** #123 framed the decode as per slice against per pair, and Round A fixed "x = wA
++ wB per slice" (`GBP-HW-351`). Neither this entry nor the Orchestrator's framing on #123 considered that the answer
+might depend on the cartridge. By his own account on #125, he argued "per slice, not per pair", then "per slice per
+channel". The references
+(`GBP-AUD-002`, `GBP-AUD-003`):
+- **GBI's digital path** sums per PAIR for a GBA cartridge and per SLICE for a GB/GBC cartridge. It keys the choice on
+  GBP CONTROL bit 0, CART_IS_GB, a bit that is FACT on our hardware (`REGISTERS.md` §3). It is GBIHF's default, and
+  `--sound=digital` in the Standard and Speedrunning editions.
+- **GBI's filtered path** is per slice for every cartridge. It is the default in the Standard and Speedrunning
+  editions.
+- **The Start-up Disc's window** is per pair for every cartridge.
+
+The arithmetic above stands: a decode per slice per stream is exact at both captures. What changes is the question
+Round B has to answer: whether the decode rate is a per-cartridge choice. It is a LEAD from the references, not a
+measurement. The Orchestrator asked that it be recorded as a correction to the #123 framing, not only as a finding.
+
 ### GBP-HW-349 — "at most one correction per chunk" has no recorded reason: §V22.4 decides that corrections are COUNTED events, not how many; the limit first appears as an image choice (`84bec72`, #92; §V22.10 argues only the band); the frozen L2 verifier accepts any number; and `gbp_aplay.c` credited it to §V22.4 — FACT (records and code); relaxed behind a runtime parameter whose default is the old rule, spread and bounded by the band's edge, host-tested — FACT for the code
 
 GitHub Issue #123; `src/audio/gbp_aplay.[ch]`, `tests/unit/test_gbp_aplay.c`.
@@ -10660,6 +10733,16 @@ reasoning (the Orchestrator's, #124): this is the count that would bring it back
 against the code before #123 still gives the same hash.
 
 ---
+
+**2026-09-25 (GitHub Issue #125), on top: k is the current design's parameter; the architecture question is open.**
+Neither reference corrects drift by counted DUP/DROP (`GBP-AUD-004`):
+- the Start-up Disc switches between two resampling ratios on its ring's fill;
+- GBI sets its voice's ratio from two measured clocks.
+
+So `k = rate / 4 096` enters Round B as a parameter of the current design, counted corrections on a fixed-ratio
+resampler, and NOT as a settled quantity. Whether Round B keeps counted corrections, or steers a resampling ratio from
+the fill or from measured clocks, is open, and Round B decides it on its own terms (the Orchestrator's, #125). The
+code is unchanged: `src/audio/gbp_aplay.c` runs k = 1 in every image, as above.
 
 ### GBP-HW-350 — what a native decode would cost the chain: production today measured on hardware at 119.1 ticks a push, 16 995 a chunk, 1.34 % of the CPU (RUN 40); a stereo decode per slice at 65 536 Hz modelled at 4.0 % (16 taps) to 6.1 % (32 taps), and — at today's call length, so as not to lengthen the drain's stretches — a longer refill, which leaves AHEAD 1 a margin of 17.3 / 10.5 ms on the nominal refill but 11.1 / 1.3 ms on the largest refill RUN 40 measured, scaled: at 32 taps AHEAD 1 is not a safe rung — FACT (the measured anchors); INFERENCE (everything native)
 
@@ -10940,3 +11023,420 @@ here, and it is recorded as the weaker of the two.
 **What it does NOT establish.** Whether the stub runs on hardware, and so whether E is shown or dashed. What SOUNDBIAS
 holds on the Operator's AGB. Whether the readout is legible on his converter. That the flash cart's menu leaves the
 AGB in any particular state. No run is authorised.
+
+## The reference implementations' audio paths — a static reading, 2026-09-25 (GitHub Issue #125)
+
+**How it was read.**
+- Ghidra 12.1.3 headless with `tools/ghidra/OpenGbpFunc.java`, on two kinds of program:
+  - the DISC and GBI programs of `build/ghidra/OpenGBP18`, opened read-only;
+  - throw-away imports of GBIHF and GBISR.
+- Where the reading began: at GBI's hand-off `0x8000b75c`, as agreed on #125.
+- Where the outputs are: `build/analysis/ghidra125/`, which is private. It holds 75 decompiles and 4 reference
+  lists. Their per-file manifest, holding paths, addresses and hashes but no content, is committed at
+  `docs/research/manifests/issue-125-ghidra125.sha256`.
+- Where the numbers come from:
+  - every number held in one of the references' TABLES or SDA constants is recomputed from the binaries by
+    `tools/v125ref.py`, which `tests/host/test_v125ref.py` tests;
+  - the rest is read from the code: rings, delays, buffers, thresholds, and the fades.
+- An adversarial review ran before the first commit and confirmed 21 defects in the first draft. All are corrected
+  below. The DEVLOG's #125 entry lists them.
+- Behaviour and parameters only; no code is reproduced.
+
+**Status (#125 §4).** Each line is **FACT (code) about the named reference**. For the hardware, each is a **LEAD**, and
+it moves no hardware claim's status. Every Hz figure assumes one stream bit per AGB cycle at 2^24 Hz and uniform
+slices (`U-GBP-041`, a HYPOTHESIS).
+
+### GBP-AUD-002 — GBI's audio path past the hand-off: streams 3 and 7 only, and only their centred bit counts; three converters (a byte-rate IIR sampled per slice, a pair sum for GBA and a slice sum for GB/GBC), the default chosen by an initialised flag (the IIR in the Standard and Speedrunning editions, the digital sums in the High-Fidelity edition); A and B two channels; libogc's AESND voice on a 48 kHz AI with a measured-ratio pitch, run by LIBAESND's own DSP microcode; in the functions compared, the editions differ in the default converter, the output ring (8 / 4 / 4 buffers) and the start delay (24 / 12 / 12 ms) — FACT (code) about GBI; a LEAD for the hardware
+
+**The hand-off** (`0x8000b75c` in GBI, `0x8000add8` in GBIHF, `0x8000c0f4` in GBISR). Each AUDIO block goes to one of
+three converters, chosen block by block. The hand-off first tests a filter flag:
+- **flag set: converter 3**, the filtered path, whatever the cartridge;
+- **flag clear: the digital path**, which splits on GBP CONTROL bit 0, CART_IS_GB (FACT on our hardware,
+  `REGISTERS.md` §3):
+  - converter 1 when the bit is 0, a GBA cartridge;
+  - converter 2 when it is 1, a GB/GBC cartridge.
+
+**The flag's initial value differs by edition.** It is an initialised data byte. One code site in each edition builds
+its address (`tools/v125ref.py`), and that site is the hand-off's own `lis` (`tools/v125ref.py` reports its address, the
+reading names the function):
+
+```text
+GBI Standard  1   converter 3 by default
+GBIHF         0   the digital converters by default
+GBISR         1   converter 3 by default
+```
+
+In the Standard edition and GBIHF only the `--sound` handler writes the flag: `digital` clears it, `analog` and
+`original` set it. In GBISR the handler was not read, only the flag's initial byte. An address-normalised comparison of
+the functions cannot see a data byte, and the first draft of this entry missed it (#125's review).
+
+Every converter returns 16 stereo 16-bit frames per block, which is 65 536 frames/s nominal.
+
+**What every converter reads: bytes 3 and 7 of each 8-byte group, streams A and B (`GBP-HW-347`), and never the even
+streams.** A byte's value is its CENTRED bit count, popcount − 4. It is held two ways, both found in all three
+editions by content, the content constructed from first principles (`tools/v125ref.py`):
+- an s16 table;
+- an f32 table of the same values × 8 192.
+
+The three converters:
+- **Converter 1 (GBA, digital): one value per slice PAIR.** It sums each stream's 64 centred counts over two slices and
+  writes the frame twice. Stereo writes A × 0x80 and B × 0x80; mono writes (A + B) × 0x40 to both halves. That gives
+  32 768 distinct values/s.
+- **Converter 2 (GB/GBC, digital): one value per SLICE**, from 32 counts per stream. Stereo scales by 0x100; mono
+  writes (A + B) × 0x80. That gives 65 536 values/s.
+- **Converter 3 (filtered): a 2nd-order IIR low-pass run once per stream BYTE, at 2^21 Hz, and sampled once per slice
+  with no further filtering.** It is still 0.110 at 32 768 Hz.
+  - **The default coefficients** are the `analog` preset: the initial values of the SDA coefficients equal it in all
+    three editions.
+  - **Its response at the byte rate:** DC 1.000; 1.207 at 5 256 Hz; a peak of **1.512 (+3.6 dB) at 9 081 Hz**; 1.154
+    at 12 000 Hz; **−3 dB at 14 828 Hz**.
+  - **The `original` preset** falls monotonically from its maximum at DC: 0.925 at 5 256 Hz, 0.422 at 12 000 Hz,
+    **−3 dB at 8 192 Hz**.
+  - **User coefficients.** `--sound=analog` also accepts five coefficients from the user.
+
+**Q3, the sides.**
+- **Stereo:** A goes to the voice frame's first halfword and B to the second. Where that lands in the AI frame is
+  read in `GBP-AUD-004`.
+- **Mono:** the scaled sum goes to both.
+- **Which one, at start:** the SRAM's sound-mode bit, flags bit 2. LIBOGC2's `SYS_GetSoundMode` reads the same bit
+  (FACT for the bit; its meaning, the console's sound setting, comes from the SDK naming). `--sound=mono|stereo`
+  overrides it.
+
+**The output path is libogc's AESND.** Matches with LIBAESND identify it:
+- the voice delay is stored × 48 at the voice's +0x24, `AESND_SetVoiceDelay`'s arithmetic;
+- the output-rate estimate starts at 54 MHz / 1124 as a float, AESND's `DSP_DEFAULT_FREQ`;
+- the voice format is 3, `VOICE_STEREO16`;
+- the voice callback acts on state 2, `VOICE_STATE_STREAM`;
+- the voice's stream and stop flags are `VOICE_STREAM` (0x40) and `VOICE_STOPPED` (0x200000);
+- the pitch is set as ratio × 65 536 + 0.5, `AESND_SetVoiceFrequencyRatio`'s arithmetic;
+- the library sets the AI's DMA rate to 48 kHz, clearing control bit 6 as `AUDIO_SetDSPSampleRate(AI_SAMPLERATE_48KHZ)`
+  does, and mixes into 2 ms buffers of 0x180 B.
+
+How the voice is fed:
+- **The ring.** It is made of 0x900-byte buffers, 576 frames or 8.79 ms at 65 536/s. The hand-off fills one buffer at
+  a time. The voice's callback takes the next filled buffer when AESND asks for one.
+- **Drift: a measured-ratio pitch, not a counted correction.** At every filled buffer, the voice's frequency ratio is
+  set to the ratio of two MEASURED rates, both timed on the timebase and refreshed about once a second:
+  - the frames produced per second;
+  - the frames the mixer outputs per second, counted per 2 ms AI buffer.
+
+  GBI's own code never counts, duplicates or drops a sample as a drift correction.
+- **How AESND applies the ratio.** GBI's DSP microcode is LIBAESND's own (below), and its mixer resamples without
+  interpolation: for each output frame it steps the input by the ratio and keeps the latest input frame. At 65 536 /
+  48 042.703125 = 1.3641, 26.7 % of the input frames are discarded, and the ratio decides which.
+- **The start.** The voice starts after a delay: 24 ms in the Standard edition, 12 ms in GBIHF and GBISR.
+- **An empty ring (underrun).** The callback STOPS the voice (`VOICE_STOPPED`, not AESND's pause flag) and re-arms the
+  delay. The hand-off clears the stop when it completes the next buffer. So silence is inserted: the wait for a full
+  buffer, plus the delay.
+- **A full ring (overrun).** The hand-off advances its write index without testing for room. When the callback finds
+  the buffer it last played equal to the write index, the writer has lapped it. The callback then drops the backlog,
+  setting the next index to the current one so that the ring reads as empty, and stops the voice the same way. That
+  loses up to 7 buffers (about 61 ms) in the Standard edition, and 3 in GBIHF and GBISR. (The same test also matches at
+  start, before the first buffer.)
+
+**The editions, compared function by function with the addresses normalised** (the converters, the hand-off, the voice
+callback, the GBP start). These are identical in all three:
+- the converters;
+- the hand-off's choice and pitch;
+- both tables;
+- both presets and the default coefficients;
+- the output-rate start;
+- the voice setup.
+
+They differ here:
+
+```text
+                 default converter     ring (buffers of 0x900 B)     start / empty-ring delay
+GBI  Standard    filtered (flag 1)     8   (70.3 ms at 65 536/s)     0x18 = 24 ms
+GBIHF            digital  (flag 0)     4   (35.2 ms)                 0x0C = 12 ms
+GBISR            filtered (flag 1)     4   (35.2 ms)                 0x0C = 12 ms
+```
+
+No other function was compared, so the editions' other library code is not shown identical; the DSP microcode is
+(a byte match, below). They also differ in one call in the Standard edition's GBP start, which GBIHF and GBISR both lack. It creates a
+2-entry libogc message queue (object type 6, `LWP_OBJTYPE_MBOX` in LIBOGC2). The only sender in the code read is a
+video frame handler that swaps the framebuffer and flushes the VI. INFERENCE: video, not audio.
+
+**The immediates that differ by presence in steps 1-2's scan are not audio:**
+- `li 125` (0x7D) is in gbi and gbisr and not in gbihf. Of gbi's three sites, the one read (`0x800062b4`, in
+  `main`) is a GX texture-matrix id in the video setup. The other two sit in library code and were not read.
+- 0x7FFF (three sites, in gbi only) sits in an image decoder's size limits and in an identifier allocator's bound,
+  which returns −10 when exhausted.
+
+**INFERENCE, the latency.** The voice starts only after a full 8.8 ms buffer, then waits the delay, and the mixer
+adds 2–4 ms. So every sample waits about 35–37 ms in the Standard edition, and 23–25 ms in GBIHF and GBISR, at start.
+The measured-ratio pitch matches the rates but does not steer the fill, which can drift within the ring (70.3 ms
+Standard, 35.2 ms HF and SR). Ours is 125 ms (`GBP-HW-343`). The references' figure is what a mature implementation
+runs on the same path, not what is safe for ours and not a property of the hardware; a static reading does not show
+that it runs glitch-free at that depth.
+
+**What it does NOT establish.**
+- What a stream carries physically.
+- Which side is left on the hardware.
+- That any of these decodes is right. It is what GBI does.
+- That the editions' library code outside the functions compared is identical.
+
+### GBP-AUD-003 — the Start-up Disc's audio path past the hand-off: 70 landing buffers (17.09 ms of transport); streams 3 and 7 packed into two bit streams whose pulses are conditioned (rising edges snapped to a dominant bit position; a pulse END conformed to its neighbours, which changes that pulse's width); each stream's centred bit count under a symmetric 256-byte window, one value per slice pair (32 768/s, −3 dB at 8 660 Hz), the same chain for every cartridge; a 4-tap resampler to a 32 kHz AI with a two-rate switch on a 180-sample fill; stereo puts B in the first halfword — FACT (code) about the Disc; a LEAD for the hardware
+
+**Landing: Q2's transport half.**
+- Slot 4 (AUDIO, `GBP-IRQ-005`) DMAs each block into the next of **70 static 0x1000-byte buffers** and posts it to a
+  70-message queue.
+- A buffer is freed only when the consumer thread has packed it.
+- If the next buffer is still busy, the block is not read. What happens after that was not read. It lies outside the
+  four questions, and leaving it is a decision of #125; a landing overrun seen in our own runs would reopen it.
+
+**70 blocks = 286 720 B = 17.09 ms of consumer lag absorbed, at the nominal 4 096 blocks/s. This is TRANSPORT
+capacity, not the output cushion.** Set against our 125 ms cushion, it compares two different things. The Disc's
+stream watchdog, 250 ms (DEVLOG 2026-09-13), is 1 024 blocks, 14.6 × the ring.
+
+**Packing.**
+- A consumer thread (stack 0x8000, priority 2) packs byte 3 and byte 7 of each 8-byte group into two per-channel BIT
+  streams, A and B, 512 B per block each.
+- It works in batches of 16 blocks, 3.906 ms each, and releases each buffer as soon as it is packed.
+- The last 97 bytes of each stream carry over into the next batch.
+
+**Conditioning, per stream and per batch.** What the code does is FACT; its purpose is INFERENCE.
+- **Rising edges.** It locates every rising edge at bit resolution. The rising-edge bytes go alternately into two
+  lists, and each list gets a histogram of the edge's bit position within the byte. Every edge 1–2 bits off ITS
+  LIST's dominant position is moved onto it, wrapping into the neighbouring byte where the edge crosses a byte
+  boundary.
+- **Spacing.** It classifies the spacing of successive rising edges into four classes:
+  - 32 ± 1 bytes (256 cycles);
+  - 16 ± 1 bytes (128);
+  - 8 ± 1 bytes (64);
+  - other.
+
+  The most frequent class gives a period P. "Other", which includes a 512-cycle spacing, gives none.
+- **Pulse ends.** A SEPARATE list holds the bytes where a pulse ENDS: the first non-0xFF byte after a run of 0xFF, or
+  a rising-edge byte whose last bit is 0. Take four consecutive ends e0..e3 sitting at e0, about e0 + P, e0 + 2P and
+  e0 + 3P, three periods, with identical bytes at e0, e2 and e3. The code then conforms e1 to e0:
+  - on time, e1's byte is overwritten with e0's;
+  - one byte early or late, the pulse is lengthened or shortened by a byte, and e0's byte is written at e0 + P.
+
+  **Because the decode counts bits, this changes that pulse's width, and so its decoded value.** With no period
+  (class "other"), nothing is regularised.
+- **Signal.** It raises a per-stream "signal present" flag when it finds edges, and the flag starts playback.
+
+INFERENCE: the Disc's authors saw two things in the captured stream:
+- jitter of 1–2 cycles on the pulses' rising edges;
+- isolated pulse ends off by up to a byte, or with a differing fall, inside an otherwise regular run of pulses.
+
+**Q1, the decode.** Per stream:
+- **A byte's value** is its centred bit count × 7 000: linear, 7 000 per bit, from −28 000 to +28 000.
+- **The window** is symmetric, 256 bytes long, with 74 negative taps, and sums to 1.000. It spans 2 048 cycles, eight
+  slices, and is evaluated every 64 bytes, one slice PAIR: **32 768 values/s per stream**.
+- **Its response at the byte rate**, with the byte's 8-cycle sum: −1.0 dB at 5 256 Hz, **−3 dB at 8 660 Hz**,
+  −6.3 dB at 12 000 Hz and −13.3 dB at 16 384 Hz. At 32 768, 65 536 and 131 072 Hz it is down 67, 88 and 100 dB.
+- **The same chain runs for every cartridge.** Nothing in the consumer, or in the functions it calls, reads the
+  cartridge type.
+
+Two stages follow the window:
+- **Mono** is (A + B) × 0.5, taken after this decimation.
+- **A 4-tap, 128-phase Q15 resampler** per output channel takes the result to the AI's rate. Its phases sum to
+  32 753–32 784.
+
+With the resampler's phase-averaged response, the whole chain is −1.9 dB at 5 256 Hz, **−3 dB at 6 483 Hz**, and
+−11.2 dB at 12 000 Hz.
+
+**The AI and the clock: Q2's output half.**
+- **The rate.** The AI's DMA rate is set to 32 kHz once, at AI init. The control register's bit 6 is set, which is
+  AI_DMAFR in LIBOGC2's `audio.c`. Three constants agree with it:
+  - the resampler's nominal step, 1.023987, which is 32 768 / 32 000 = 1.024 truncated to 16.16;
+  - the fades' unit of 32 frames;
+  - the 5 ms buffers.
+- **The buffers.** The AI plays two 0x280-byte buffers alternately, 160 frames (5 ms) each. Its callback fills one of
+  them from a float ring of 640 samples per channel (20 ms).
+- **Drift: a two-rate switch, not a counted correction.** Before each batch, the ring's fill is compared with 180
+  samples (5.6 ms):
+  - above it, the step is 1.025986, which gives 31 938.1 outputs/s;
+  - otherwise it is 1.019989, which gives 32 125.8/s.
+
+  These are −0.282 % and +0.304 % from the 32 028.483 Hz that RUN 38 measured (`GBP-HW-325`). The nominal step is in
+  the table, but the code read never selects it. No sample is counted, duplicated or dropped for drift: the
+  correction is the ratio. The ring's writer wraps its index without testing the read index, so the switch is what
+  keeps it from lapping. A writer that lapped would overwrite unplayed samples (INFERENCE).
+- **Start.** The ring holds its output until 320 samples (10 ms) are written. Playback then begins when the
+  conditioner reports signal.
+- **An empty ring (underrun).** The rest of that AI buffer keeps its content, which is zero when the Disc owns the AI:
+  silence is inserted. After six consecutive callbacks meet an empty ring, playback stops until signal returns. While
+  it is stopped, each callback moves the read index up to 160 samples toward the write index, and those samples are
+  discarded unplayed.
+- **INFERENCE, the cushion.** Three parts add up to roughly 10–25 ms from landing to the DAC:
+  - the ring, regulated around 180 samples with a batch's ~125 samples of sawtooth;
+  - the AI's two buffers, 5–10 ms;
+  - up to 3.9 ms of batching.
+
+**Level.**
+- **The volume curve** has 128 steps and follows (k / 127)² to within 7.5 × 10⁻⁶.
+- **The fades** count in units of 32 output frames:
+  - at start, to the stored volume over 300 or 1 000 units;
+  - at stop, to zero over 5;
+  - a volume setter takes its own duration.
+
+  Which of 300 or 1 000 applies is chosen by a state flag. Reading that flag is a decision not to do it in #125, since
+  it lies outside the four questions. The step value the init stores (0x43BB) is never applied, because every fade
+  recomputes its step from its target and its duration.
+- **The output** is clamped to 16 bits and ADDED to the buffer's content. That content is zero when the Disc owns the
+  AI. In init modes 1–2 another audio producer's output is chained in (INFERENCE from the callback's structure). Mode 3
+  also expects another producer's AI callback, but the Disc leaves it in place: it installs its own only as a probe,
+  restored at once, and runs no AI setup and registers no AUDIO landing.
+
+**Q3, the sides.**
+- **Stereo or mono** follows the same SRAM sound-mode bit GBI reads.
+- **Stereo:** B goes to the AI frame's FIRST halfword and A to the second.
+- **Mono:** the same value goes to both.
+
+**Q4.** main.dol neither builds nor holds the AGB's SOUNDBIAS address `0x04000088`, in the forms scanned. The scan (`tools/v125const.py`) was
+extended in #125's review to loads and stores off a `lis` and to little-endian words.
+
+**What it does NOT establish.** The first three points of `GBP-AUD-002`'s list.
+
+### GBP-AUD-004 — the two references on #125's four questions: they agree that only streams A and B are read, and only their bit counts, that A and B are two channels, that neither holds or builds the SOUNDBIAS address, and that A goes to the same halfword of the AI frame; they diverge on everything after the bit count (the decode's rate and filter, the output rate, the drift mechanism, the depth) — FACT (code) about each; for the hardware, a LEAD from two implementations
+
+```text
+                     START-UP DISC                               GBI
+Q1 streams read      3 and 7 (A, B); never the even streams      the same, in all three editions
+   a byte's value    centred bit count (x 7 000)                 centred bit count (x 1, or x 8 192)
+   decode            256-byte window every pair: 32 768/s,       filtered: 2nd-order IIR at the byte rate, sampled
+                     -3 dB 8 660 Hz; chain -3 dB 6 483 Hz;       per slice: 65 536/s, +3.6 dB at 9 081 Hz,
+                     the same for every cartridge                -3 dB 14 828 Hz; digital: pair sum (GBA), slice sum
+                                                                 (GB/GBC); default filtered (Standard, SR), digital (HF)
+   pulses            rising edges snapped; pulse ends             used as they arrive
+                     conformed (widths changed)
+Q2 output            AI at 32 kHz, 5 ms buffers                  AESND voice, AI at 48 kHz, 2 ms buffers
+   drift             two-rate switch on a 180-sample fill        measured-ratio pitch (AESND: no interpolation)
+   latency (INF.)    ~10-25 ms                                   ~35-37 ms (Standard), ~23-25 ms (HF, SR), at start
+   underrun          silence; stop after 6 empty callbacks       silence: stop, then a full buffer and the delay
+   overrun           landing: block not read; the ring's writer   the unplayed ring dropped (7 or 3 buffers)
+                     does not test for room
+   transport         70 blocks = 17.09 ms                        not read
+Q3 A in the AI frame second halfword (B first)                   second halfword (the voice's first, by its mixer)
+   stereo or mono    SRAM sound-mode bit                         the same bit; --sound overrides
+Q4 0x04000088        neither built nor held (scan)               neither built nor held (scan)
+```
+
+**Where they agree.** Each item is FACT about each reference. For the hardware, it is a LEAD from two implementations:
+- **The streams.** Both read only the odd streams, A and B, and only their bit counts; the Disc counts after it
+  conditions the pulses.
+- **A and B are two channels.** They are mixed only by an explicit mono mode, which both select from the same SRAM
+  bit. Neither reads them as two samples of one channel, which is `U-GBP-047`'s rival reading.
+- **The SOUNDBIAS address.** Neither binary builds or holds `0x04000088` in the forms scanned: lis + addi/ori, lis + a
+  load or store, and aligned big- and little-endian words (`tools/v125const.py`). INFERENCE: a GameCube program cannot
+  address the AGB's I/O directly, so a reference could reach SOUNDBIAS only through an AGB-side payload or a GBP/HSP
+  write. A literal scan tests neither, and whether any reference's HSP writes change SOUNDBIAS (`U-GBP-048`'s third
+  candidate) is not established by this reading.
+- **The halfword A takes.**
+  - The Disc writes B, then A, into each AI frame.
+  - GBI writes A, then B, into each AESND voice frame. Its mixer, LIBAESND's own microcode (below), puts a stereo
+    voice's first halfword into the AI frame's SECOND halfword.
+
+  So both put A in the AI frame's second halfword.
+
+**Which side that is rests on ONE convention, the AI frame order.** Dolphin's mixer reads AI DMA frames as "Big-endian
+RL-orderered stereo samples" (DOLPHIN `AudioCommon/Mixer.cpp`, `Mixer::PushSamples`), and LIBAESND's mixer comments
+call the second halfword left. **Under that convention, both references put A on the LEFT.** Neither source is an
+observation of this hardware. On the hardware, which stream is left stays UNKNOWN (`U-GBP-047`), and the one-side test
+decides it.
+
+**GBI's DSP microcode is LIBAESND's own** (the Orchestrator's check, #125). It is out of the edition differential:
+the three editions carry the same bytes. The 1 088-byte mixer microcode that GBI's
+library hands to the DSP is byte-identical in all three editions to the assembled `libaesnd/dspcode/dspmixer.s` of
+LIBOGC2 `ca03fb7`: `gcdsptool -c` in `ghcr.io/extremscorner/libogc2:20260805` gives sha256 `aad1814397f8a2f18458b2edbb29360fb7436030f2ca6fe283226a96876dbb3b`,
+the same bytes as that image's `libaesnd.a`. `tools/v125ref.py` finds that hash once in each unpacked image, at the
+address and length the library init gives the DSP task. devkitPro libogc's AESND microcode (1 000 bytes) does not
+occur. So the mixer's behaviour read from that source is FACT (code) for GBI, not an assumption about what it links:
+- a stereo voice's first halfword goes to the AI frame's second;
+- the resampler keeps the latest input frame and does not interpolate.
+
+**What the match identifies, and what it does not.** It identifies the MICROCODE, not the library version GBI linked:
+EVIDENCE's GBI shorthand records "libogc-rice r2191", and `dspmixer.s` may be unchanged across many versions. So the
+parts GBI takes from the libogc family can be read in their open source, and not by disassembly, only one function at a
+time. Each is matched first: the decompile's constants, flags, structure offsets and arithmetic against the source at a
+named commit, as #125 did for:
+- `AESND_SetVoiceDelay` (× 48 at +0x24);
+- `AESND_SetVoiceFrequencyRatio` (× 65 536 + 0.5);
+- `AESND_SetVoiceStop` and the stream flag (0x200000, 0x40);
+- `AUDIO_SetDSPSampleRate` (bit 6);
+- `SYS_GetSoundMode` (flags bit 2).
+
+Matched, the source's behaviour is FACT (code) for GBI, at a level anyone can check. Unmatched, it is a LEAD. The
+leverage is GBI's alone: the Start-up Disc is Nintendo SDK code, and nothing of it can be read this way (the
+Orchestrator's, #125).
+
+**Where they diverge.** Each divergence is documented, not resolved (#125 §4):
+- **The decode:** a pair-rate window at −3 dB 8.66 kHz, the same for every cartridge, against GBI's per-edition
+  default: a slice-rate biquad that peaks at +3.6 dB (Standard, SR), or cartridge-keyed sums (HF).
+- **The output rate:** 32 kHz against 48 kHz.
+- **The drift mechanism:** a two-rate switch of an interpolating resampler, against a measured-ratio pitch on a
+  resampler that does not interpolate.
+- **The depth.**
+
+INFERENCE: GBI's `original` preset, −3 dB at 8 192 Hz, is the closer of its two presets to the Disc's decimator.
+
+**A calibration of filter quality, and what it says about Round B** (the Orchestrator's, #125; INFERENCE on an
+OPERATOR OBSERVATION).
+- **What GBI does.** Its path outputs 65 536 frames/s, and the AESND mixer takes them to the AI's 48 042.703125 Hz
+  by keeping the latest frame: 65 536 / 48 042.703125 = 1.3641, so it discards 26.7 % of its input frames, with no
+  anti-alias filter.
+- **What the Operator heard.** He judges the references not muffled (`U-GBP-012`, OPERATOR OBSERVATION).
+- **The inference.** A resampler that crude is judged right because its RATE is sixteen times ours (65 536 against
+  4 096 values/s). So the muffling is the decode rate, not resampler quality. It confirms, from the opposite
+  direction, the conclusion Round A had already reached. It is also the first external measure of how much filter
+  quality the perceptual result needs: much less than our criterion demands.
+- **What follows for Round B.** Its value is dominated by the RATE change. β and taps are a refinement on top of it,
+  not part of the fix. Our filter criterion (`GBP-HW-351`) stays: it is stricter than an approved reference, and
+  stricter is free here. But no further round goes to filter quality while the rate is unfixed.
+- **The trade in failure modes.** Ours corrects drift continuously, one small counted correction at a time. The
+  references correct drift through the ratio, and otherwise do nothing until an underrun inserts silence or an
+  overrun discards a block or a ring. Their failure modes are coarser, not absent: a different trade, recorded as
+  one.
+
+**GBIHF's digital default, and what not to read into it** (the Orchestrator's, #125). It is not evidence that the
+digital path "sounds better". *Faithful* and *pleasant* are different goals, and why its authors chose it is not
+established. What survives any reading is this: the digital path costs far less than an IIR run at 2 MHz, and the
+edition named for fidelity is content with it.
+
+**The edge classes, read against `U-GBP-048`.** The Disc regularises pulses spaced 256, 128 and 64 cycles apart, and
+has no class for 512 cycles, GBATEK's default frame. INFERENCE: it was built for the spacings `GBP-HW-348` measures
+(one pulse per 256 cycles in the tones), and it is consistent with the reading in which no resolution emits a
+512-cycle pulse. It says nothing about what SOUNDBIAS holds.
+
+**The consequences for our code, named under the orphaned-consequence rule** (`RESEARCH_METHOD.md`, #123). All four are
+knowingly unchanged in #125, a reading round:
+- **`src/audio/gbp_adec.c`**, the decoder of one value per block. The native decoder of Round B replaces it. The
+  references' decodes are inputs to that round, not its specification.
+- **The cushion**, `GBP_APLAY_TARGET` in `src/audio/gbp_aplay.h`, 0.125 s (`GBP-HW-343`). The references' latencies,
+  about 10–37 ms (INFERENCE), are `U-GBP-046`'s bound.
+- **The corrections**, `src/audio/gbp_aplay.c`'s counted DUP/DROP.
+  - It runs at k = 1 by default and in every image (`GBP-HW-349`: no image sets k > 1). k = 16 is #124's figure for
+    Round B's 65 536 Hz decode, k = decode_rate / 4 096, not a running setting.
+  - Neither reference corrects drift by a counted DUP/DROP. One switches between two interpolated resampling ratios;
+    the other sets a measured-ratio pitch.
+  - Both references lose or pad samples outside steady state. Both pad with silence on an underrun. GBI drops its
+    unplayed ring on an overrun (`GBP-AUD-002`). The Disc discards ring samples while playback is stopped, its ring's
+    writer does not test for room, and what follows a busy landing buffer was not read (`GBP-AUD-003`).
+  - **k enters Round B as the current design's parameter, and the architecture question stays open** (the
+    Orchestrator's, #125; on top of `GBP-HW-349`). The question is whether to keep counted corrections on a
+    fixed-ratio resampler, or to steer a resampling ratio from the fill or from measured clocks. Round B decides it on
+    its own terms. "A reference does it this way" is a lead to a mechanism, not a design justification (CLAUDE.md §7).
+- **The resamplers.** There are two: today's `src/audio/gbp_aresamp.c` (4 096 → 32 000 Hz, `GBP_ARESAMP_TAPS` 16), and
+  the native 65 536 → 32 000 Hz one planned for Round B (`GBP-HW-351`, 16 taps at β 4.0). Neither reference is a model
+  for either:
+  - the Disc interpolates 4 taps after a 256-byte window;
+  - GBI's own stage is an IIR before an unfiltered per-slice sampling, and its rate conversion is AESND's mixer, which
+    keeps the latest frame.
+
+**Corrections to #125's interim comment** (issuecomment-5842152314), which is published and so is corrected here, not
+there:
+- **The Disc does not "demodulate the PWM by edge position".** Its edge stage conditions the bit streams, including
+  pulse widths. The decode COUNTS bits per byte under the window.
+- **0x7F0000 and 0x43BB are not filter states.** They are the gain's full scale, and a fade step the init stores and
+  no fade applies.
+- **GBI's `analog` preset peaks at +3.6 dB at 9 081 Hz, not +1.6 dB.** The comment quoted |H| at 5 256 Hz as the peak,
+  and gave −3 dB at "about 14.8 kHz": it is 14 828 Hz.
+- **GBI's voice does not "pause" on an empty ring, it STOPS.** "No DUP/DROP" holds only as "no counted drift
+  correction": GBI inserts silence on an underrun, drops its unplayed ring on an overrun, and AESND's resampler skips
+  frames.
+- **GBI's latency is the delay plus one FULL buffer plus the mixer's**, about 35–37 ms in the Standard edition, not
+  "about 24 ms plus at most one buffer".
+- **"GBI" there meant the Standard edition, and its default converter is not GBIHF's** (`GBP-AUD-002`).

@@ -16866,3 +16866,268 @@ At 32 768 Hz k = 8, and at 65 536 Hz k = 16, give today's 7.82 ms/s of slew.
   named it after two claims of absence, "idle" and "no reverse engineering", each contradicted by the record.
 - `GBP-HW-351` states on top that the shipped-object check found a representability defect, not a precision one, and
   that the reversal condition holds in both bands.
+
+## 2026-09-25 — Issue #125: the audio paths of GBI and the Start-up Disc read past the hand-off — both take only streams A and B and only their bit counts, as two channels, and put A in the same halfword of the AI frame; they diverge on everything after that; the decompiles of 2026-09-13…16 were lost when `build/` was wiped on 2026-09-17
+
+**Goal.** Four questions, which both references already answer:
+- **Q1**, the decode;
+- **Q2**, the depth;
+- **Q3**, the stereo routing;
+- **Q4**, SOUNDBIAS.
+
+The scope was narrow: the audio path and these four questions. The order was agreed with the Orchestrator on #125:
+the inventory; then the gbi/gbihf/gbisr differential and the constant hits; then a report; then Ghidra, starting at
+`0x8000b75c`. No image, no staging, no hardware.
+
+**Steps 0-2, reported on #125.**
+- **Step 0, the inventory.** Eight earlier passes had reached audio only up to the HSP hand-off.
+  - GBI's audio callback, `0x8000b75c`, had been decompiled on 2026-09-15/16, in `build/analysis/ghidra/`, and lost
+    with the rest. The 2026-09-15 entry names its callees: three "converters" and two `AUDIO_*`. No record ever
+    analysed its body, and the basis of those names is not recorded.
+  - gbihf and gbisr had never been analysed.
+- **Steps 1-2: `tools/v125const.py`.** It found no binary that builds SOUNDBIAS, and AI register counts equal across
+  the editions. Constant hits did not localise the audio path, as the Orchestrator's caution predicted.
+
+**Step 3, the reading** (`GBP-AUD-002`, `GBP-AUD-003`, `GBP-AUD-004`). What the references do is FACT (code); for the
+hardware it is a LEAD.
+- **Q1.**
+  - Both read only bytes 3 and 7 of each group, and both take their centred bit counts.
+  - **The Disc** first conditions the pulses:
+    - rising edges within 1–2 bits of their alternating list's dominant position (two per batch and stream) are
+      snapped onto it;
+    - a pulse end one byte off the dominant period, or on time with a differing byte, is conformed to its neighbours,
+      which changes that pulse's width.
+
+    It then windows 256 bytes every slice pair, 32 768/s, −3 dB at 8 660 Hz, the same chain for every cartridge. It
+    resamples with 4 taps to a 32 kHz AI, and the whole chain is −3 dB at 6 483 Hz.
+  - **GBI Standard and GBISR** default to a 2nd-order IIR at the byte rate, sampled per slice: +3.6 dB at 9 081 Hz,
+    −3 dB at 14 828 Hz. **GBIHF** defaults to the digital converters: a sum per pair for GBA cartridges and per slice
+    for GB/GBC cartridges, keyed on CONTROL bit 0.
+- **Q2.**
+  - **GBI:** an AESND voice at 48 kHz, rate-matched by a measured-ratio pitch. It starts once a full 8.8 ms buffer is
+    ready, after a delay of 24 ms (Standard) or 12 ms (HF, SR), fed by a ring of 8 or 4 buffers. About 35–37 or
+    23–25 ms of latency (INFERENCE).
+  - **The Disc:** a 640-sample ring regulated around 180 samples by a two-rate switch, 5 ms AI buffers, and 70
+    landing buffers, 17.09 ms of transport. About 10–25 ms (INFERENCE).
+  - **Neither corrects drift by counted DUP/DROP.** Both pad with silence on an underrun. GBI drops its unplayed ring
+    on an overrun, and its mixer, LIBAESND's own microcode byte for byte, keeps the latest frame without
+    interpolating: 26.7 % of the frames are discarded at 1.3641.
+- **Q3.** Both treat A and B as two channels and select stereo from the same SRAM sound-mode bit. Both put A in the
+  AI frame's second halfword: the Disc directly, GBI through its mixer. That is LEFT under the one frame-order
+  convention Dolphin and AESND share. On the hardware it stays UNKNOWN (`U-GBP-047`).
+  - The interim comment read these halfwords as opposite, and the Orchestrator held that up as the model for keeping
+    a divergence. It was a level mismatch: each program's own output was compared, before GBI's passes through its
+    mixer. His lesson: before preserving a divergence, check that both sides are measured at the same level.
+- **Q4.** Neither holds or builds the SOUNDBIAS address, in the forms scanned. The Disc's edge classes are 256, 128
+  and 64 cycles, with none for 512.
+
+**The differential, finished.** gbihf and gbisr were imported as throw-away Ghidra projects and compared function by
+function with GBI, the addresses normalised.
+- In the functions compared, the converters, the tables, the presets, the default coefficients, the rate matching and
+  the voice setup are identical. So is the DSP microcode: a byte match.
+- **Three figures differ:**
+  - the default converter (a data byte, 1 / 0 / 1);
+  - the output ring, 8 / 4 / 4 buffers;
+  - the voice delay, 24 / 12 / 12 ms.
+- **One call in the Standard edition's GBP start** is absent in HF and SR. It creates a message queue whose only sender
+  read is a video frame handler (INFERENCE: video).
+- **The steps 1-2 differences by presence are not audio.** Of gbi's three `li 125` sites, the one read is a GX
+  texture-matrix id; the other two, in library code, were not read. 0x7FFF sits in image-decoder and allocator
+  limits.
+
+The load address 0x80003100, until now assumed for gbihf and gbisr, is verified by construction: their code builds the
+anchors' addresses at that load.
+
+**The library, identified, and its provenance kept per function.** GBI's audio output is libogc's AESND. It matches
+LIBAESND on:
+- the delay unit;
+- the default rate;
+- the voice format;
+- the stream state;
+- the stream and stop flags;
+- the frequency-ratio arithmetic;
+- the 48 kHz AI;
+- the 2 ms buffers;
+- the DSP mixer microcode itself.
+
+**The microcode is a byte match.** GBI's 1 088-byte microcode is `gcdsptool -c` of `dspmixer.s` at LIBOGC2 `ca03fb7`
+(sha256 `aad18143…`), found by its hash in all three editions. The Orchestrator asked for that check in the same
+message that named the weak link, and it closed within the hour. So the mixer's halfword mapping and its latest-frame
+resampler are FACT (code) for GBI.
+
+**What the match does not identify.** It identifies the microcode, not the library version. The GBI shorthand's
+"libogc-rice r2191" turns out to be the packed DOL's LOADER-STUB banner (`libogc-rice r2191.2a08d95`, offset 0x2840);
+the program carries no version string. The Orchestrator's claim of a libogc2 provenance contradicted that shorthand,
+and his error exposed where it came from. The method that follows:
+- read the library, not the binary, only one function at a time;
+- each function behaviourally matched against a named commit first;
+- matched, FACT (code); unmatched, a LEAD;
+- per-function answers allowed to differ;
+- none of it helps with the Disc, which is Nintendo SDK code.
+
+**The adversarial review, before any commit, in two rounds.** The first round ran with 26 agents over the records, the
+reading, the tools and the tests. It confirmed 21 defects in the first draft, and all are corrected before the commit.
+The main ones:
+- **GBIHF's default converter** is the digital path, not the IIR. It is a data byte that a function comparison cannot
+  see.
+- **"No sample is ever inserted or dropped"** was false about both references. It is now narrowed to drift
+  correction, with the underrun and overrun behaviour stated.
+- **The Disc's regulariser** works on pulse ENDS, over three periods, and changes widths. The draft said rising edges
+  and four periods.
+- **The records defect's cause** was a rename-and-delete of `build/` at 16:02–16:03 UTC. The draft named the later
+  `rm -rf build` runs, which found nothing left to remove.
+- **The analog preset's peak** is at 9 081 Hz. The draft's 9 116 Hz was a rounding tie in the tool, pinned by two
+  tests that agreed with it.
+- **Our corrector runs at k = 1.** k = 16 is Round B's plan.
+- **The SOUNDBIAS claim** is scoped to the address, in the forms scanned. The scan now also covers loads and stores off
+  a `lis` and little-endian words.
+- **A hash manifest held only in `build/`** could not re-derive anything. The per-file manifest is now committed.
+- **Two records tests** would have broken the next Issue's legitimate amendments, and one test half was vacuous.
+
+Twenty-two low-severity items were also taken:
+- the Disc's two dominant positions;
+- the init modes;
+- the truncated nominal step;
+- the ratio 3.4–12.5;
+- AESND's mapping, which leaves one convention and not two;
+- the latency arithmetic;
+- the edge table checked in full;
+- the −3 dB search's preconditions;
+- rA = 0;
+- a bare `lis` counted only when unconsumed;
+- the unpacker's return type.
+
+**The second round** (10 agents) checked that the fixes landed. It confirmed 5 medium items and 20 low ones, all
+corrected:
+- **The Disc's overrun.** The Disc was again credited with "a drop on an overrun", which the first round's own verdict
+  had ruled out: what follows a busy landing buffer was not read. The ring writer's missing room test is now recorded
+  as the Disc's actual FACT (code).
+- **The init modes.** The first round's "modes 1–3" misread a probe-and-restore of the AI callback. Modes 1–2 chain
+  another producer; mode 3 leaves the AI and the AUDIO landing alone.
+- **The `refs` targets.** They were recorded nowhere, so the `refs` lists could not be re-derived. They are now
+  committed beside the manifest.
+- **The second-step guards** of the address reconstruction had no test.
+- **The tool** still printed a fade duration from a step no fade applies.
+
+The low items were scoping, the fade flag's deferral, the tests' own scope and docstrings, the skip class, and
+per-site counting.
+
+**The interim comment's errors are corrected on top, in `GBP-AUD-004`** (issuecomment-5842152314):
+- edge-position demodulation;
+- "filter states";
+- the +1.6 dB peak;
+- "pauses";
+- GBI's latency arithmetic;
+- GBIHF's default.
+
+The halfwords are read at the AI frame's level.
+
+**The Orchestrator's #123 framing, corrected on top of `GBP-HW-348`.** "Per slice, not per pair", then "per slice per
+channel": GBI's digital path answers per PAIR for GBA and per SLICE for GB/GBC, keyed on CONTROL bit 0 (FACT on our
+hardware). The answer can be cartridge-dependent, and Round B has to ask whether it is.
+
+**A calibration of filter quality** (the Orchestrator's, in `GBP-AUD-004`). The Operator judges GBI not muffled, and
+GBI resamples by keeping the latest frame, discarding 26.7 % of them. So the muffling is the decode RATE, not
+resampler quality. It is the first external measure of how much filter quality the perceptual result needs: much less
+than our criterion demands.
+
+**The stale gate** (#124's known failure) is gone. With the Operator's authorisation, the Orchestrator removed RUN 43's
+two files from the SD root, after hashing them equal on the card, in `logs/run43/` and in `captures/local/`.
+`test_no_console_log_is_left_on_the_sd_before_a_run` passes. The test did its job: it went red on real residue and
+stayed red for a day and a half without being silenced. The full gate on #125's committed tree is recorded in its own
+section of #125's report.
+
+**The records defect, established** (`EVIDENCE.md`'s preamble, on top). The decompiles of 2026-09-13…16 were under
+`build/analysis/` and `build/ghidra/`. On 2026-09-17 the Executor renamed `build/` aside to clear stale dentries, at
+16:02 UTC, and deleted it with `rm -rf build.stale.*` at 16:03 UTC; the outputs went with it. The later clean-build
+`rm -rf build` runs, from 16:19 UTC, found nothing more to remove. The DEVLOG last cites the outputs on 2026-09-16.
+
+The cost: the DISC-derived entries (about 23, the Orchestrator's count) are re-derivable but have no surviving
+artefact. The hazard stands for everything under `build/` that is not a build product. `RESEARCH_METHOD.md` gains "a
+deferral with no named successor is a decision to forget", and with it the practice of keeping analysis outputs where
+they survive.
+
+**#125's own outputs.** They are private, in `build/analysis/ghidra125/`. Their per-file manifest and the `refs`
+targets are committed:
+
+```text
+docs/research/manifests/issue-125-ghidra125.sha256   sha256 e7d9810de0bb72e19b484976a601a4878edbfce15c8fccff4b9f365499b956d9
+                         79 files, paths relative to build/analysis/ghidra125/, sorted, sha256sum format:
+                         75 decompiles (main.dol 30, gbi-unpacked.dol 31, gbihf-unpacked.dol 8,
+                         gbisr-unpacked.dol 6) and 4 reference lists
+docs/research/manifests/issue-125-ghidra125.refs-targets.txt
+                         the refs mode's targets per program, in the order each refs.tsv holds them
+hf/gbihf-unpacked.bin    2f59aac9b035efe130510adc951556adb006baed7ec512a83503991c0c41a231
+hf/gbihf-unpacked.dol    b9dbbe3138d21e3ed951ec5e41b8c4e12b4abffdcf6fee6eb9dca0dc32145627  (tools/bin2dol.py, 0x80003100)
+sr/gbisr-unpacked.bin    4c44dc926e7200776e9c1798f2a04d3d02e8c9136a027890098110fb647b35a6
+sr/gbisr-unpacked.dol    787bb72c97fed7afbf4ddc8bb1ee732c91f5ccb115b3fe02d511775c4d85539a
+projects                 hfproj/GBIHF125, srproj/GBISR125 (analysed imports); DISC and GBI read -readOnly in OpenGBP18
+```
+
+**To re-derive them,** run `OpenGbpFunc.java` against the images whose hashes are given:
+- in `decomp` mode, on the addresses the manifest's file names carry;
+- in `refs` mode, once per program, on the targets file's list in its order, into an empty directory, since refs mode
+  appends.
+
+Then compare file by file. A decompile's bytes also
+depend on the Ghidra version and on the analysis state, so a mismatch locates a difference; it does not by itself show
+that a reading was wrong.
+
+**Tools.**
+- `tools/v125const.py`: steps 1-2, with the scan widened by the review.
+- `tools/v125ref.py`: every number the entries quote from a reference's tables and SDA constants, recomputed. The
+  code-read figures are not recomputed: the rings, delays, buffers, thresholds and fades. It also finds the filter
+  flag's build site, and LIBAESND's microcode by its hash. It prints derived parameters and a few raw parameters; it
+  never prints the large tables or GBI's coefficients.
+- `tools/gbi_unpack.py`: the return annotation now matches the tuple it returns.
+
+**Tests.**
+- `tests/host/test_v125const.py`:
+  - on hand-assembled PowerPC words: every form, rA = 0, loads off a `lis`, a bare `lis`;
+  - IEEE constants, little-endian words, strings and the differential;
+  - the unpacker on a constructed packed DOL;
+  - on the private inputs, the steps 1-2 findings, with a positive control.
+- `tests/host/test_v125ref.py`:
+  - the responses on known kernels, the peak search, the −3 dB preconditions, the steps;
+  - the constructed tables, including the full first-rising-edge table;
+  - the one-step and two-step address reconstruction and its lookahead;
+  - on the private inputs, the figures the entries quote, the peak checked by an independent dense scan.
+- `tests/host/test_v125_records.py`:
+  - on top of `d2f109b`, the new ids;
+  - the amendments, as durable prefix checks that a later Issue's amendment does not break;
+  - the rule;
+  - the committed manifest, against the directory where it exists;
+  - the quoted figures equal to the tool's.
+
+**Not done, and what picks each up** (the rule this entry adds):
+- **The Disc's handling of a busy landing buffer**, beyond "not read". A decision not to do it in #125; a landing
+  overrun seen in our own runs would reopen it.
+- **The Disc's init modes 1–3**, beyond what the entry says. A decision not to do it: they concern other audio
+  producers, not the four questions.
+- **The Disc's fade-duration flag** (300 or 1 000 units) and **GBISR's `--sound` handler.** A decision not to do it in
+  #125.
+- **The rest of GBI's library, per function.** Picked up by Round B where it needs a mechanism, matched first.
+- **Whether `2a08d95` is in libogc2's lineage.** Picked up by the first per-function match that needs a second version.
+- **The archive test the Disc's conditioner suggests:** rising-edge jitter and off-grid pulse ends in RUN 33, RUN 34
+  and RUN 43 (`U-GBP-041`). Proposed in #125's report for the opening of Round B.
+- **Moving the analysis outputs out of `build/`.** Requested in #125's report, for the Orchestrator to schedule.
+
+**Next.**
+- **Round B,** the native decoder, opens after #125 with the list the Orchestrator decided on #125.
+  - **The #124 items:**
+    - the sum before the resampler;
+    - 16 taps at β 4.0;
+    - k = rate / 4 096;
+    - the 32-tap reversal condition.
+  - **#125's inputs,** as leads to mechanisms, not as designs:
+    - the Disc's pair-rate window and its pulse conditioning;
+    - GBI's byte-rate IIR and its cartridge-keyed digital sums;
+    - their drift mechanisms.
+  - **Additions:**
+    - **k is the current design's parameter.** The architecture question stays open: counted corrections, or a ratio
+      steered from the fill or from measured clocks.
+    - **Round B's value is dominated by the RATE change.** No further round goes to filter quality while the rate is
+      unfixed.
+    - **Whether the decode rate is a per-cartridge choice.**
+- **The next hardware run** carries `agb-route` with the references' prediction added (`U-GBP-047`): route-left moves
+  wA.

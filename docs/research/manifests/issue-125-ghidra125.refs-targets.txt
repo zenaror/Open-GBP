@@ -1,0 +1,7 @@
+# GitHub Issue #125: the `refs` targets per program, in the order OpenGbpFunc.java's refs mode appended them to each
+# refs.tsv (first column, order of first appearance). Addresses only. Run refs mode once per program on this list,
+# into an empty directory, to reproduce the refs.tsv files the manifest issue-125-ghidra125.sha256 hashes.
+gbi-unpacked.dol  refs 800b0ad8 800b0ad9 80095978 80095980 80095998
+gbihf-unpacked.dol  refs 8000a36c 8000b12c 8000b224 8000add8 8000ac10 80046900 80046b84 80046a18
+gbisr-unpacked.dol  refs 8000b234 8000d7bc 8000d670 800487c8 80048a4c
+main.dol  refs 80258da8 80258da9 80258daa 80258dac 80258db0 80258db4 80258dc0 80258dc1 80258dc2 80258dc8 80258dcc 80250300 80250310
