@@ -16,6 +16,17 @@
  * at 4 096 Hz -- not a coincidence, the same margin the frozen path's aim gives, at this path's rate.
  *
  * Pure over its two collaborators: no device, no printing, no allocation.
+ *
+ * GBP_ATRANS2_BEGIN REFUSES A PLAN OVER A RUNNING ONE (GitHub Issue #129/#130, Orchestrator
+ * review): Issue #117's entry 21 ("a plan was applied over a running one", deterministic in 63
+ * of 64 phases without a guard) is a defect at the SESSION layer (gbp_async/gbp_walker skipping
+ * a phase transition while busy); this is the SAME defect one level down, inside a single phase,
+ * whenever a handler (§V28's 3a bisection, the step sweep) issues more than one plan of its own.
+ * gbp_walker's own busy-gate does not reach here -- it only refuses to ADVANCE BETWEEN phases; it
+ * has no view of a handler calling gbp_atrans2_begin() a second time inside one phase. So the
+ * gate is here, in the ONE place every handler shares, not duplicated in each one:
+ * gbp_atrans2_begin() itself refuses (returns 0, counts `begin_refused_active`, touches nothing)
+ * when `active` is already 1, rather than clobbering the running transition's state.
  */
 #ifndef OPENGBP_GBP_ATRANS2_H
 #define OPENGBP_GBP_ATRANS2_H
@@ -58,6 +69,7 @@ struct gbp_atrans2 {
     /* since init */
     uint32_t begun, completed;
     uint32_t faults;                  /* plans whose mute could not fit their mechanism (never; counted, raised) */
+    uint32_t begin_refused_active;    /* a begin() while already active: refused, counted, nothing touched */
     uint32_t trim_max, trim_sum;      /* HELD */
     uint32_t shorts, short_max;       /* HELD: landings below the level */
     uint32_t converted;               /* HELD: landings that turned a discard under way into the refill */
@@ -71,9 +83,10 @@ void gbp_atrans2_init(struct gbp_atrans2 *t);
  * HELD pause + 1, UNMUTED 0 */
 uint32_t gbp_atrans2_min_mute(uint8_t mode, uint32_t pause);
 
-/* Apply a plan now. */
-void gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec2 *d, uint64_t now, uint8_t mode,
-                       uint32_t mute, uint32_t pause, uint32_t discard, uint32_t target);
+/* Apply a plan now. Returns 1 when applied, or 0 when refused because a transition is already
+ * active (begin_refused_active counts it; nothing about the running transition is touched). */
+int gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec2 *d, uint64_t now, uint8_t mode,
+                      uint32_t mute, uint32_t pause, uint32_t discard, uint32_t target);
 
 /* One pump call while active. Returns 1 on the call that completes the plan, else 0. `*to_queue` is
  * set to a produced chunk the CALLER must flush and queue, else -1. */
