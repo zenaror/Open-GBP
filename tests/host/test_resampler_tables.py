@@ -80,7 +80,10 @@ def phases_sum_exactly_one(rows, q):
 class EveryAdoptedTable(unittest.TestCase):
     def test_there_is_at_least_the_one_in_the_tree(self):
         self.assertIn(os.path.join(ROOT, "src", "audio", "gbp_aresamp_coef.h"), tables())
-        self.assertEqual(declared(), {(os.path.join(ROOT, "src", "audio", "gbp_aresamp_coef.h"), "GBP_ARESAMP_COEF")})
+        # GitHub Issue #126, Round B: the native decoder's table, another tap count's beta -- exactly what this
+        # docstring anticipated when it was written on #124.
+        self.assertEqual(declared(), {(os.path.join(ROOT, "src", "audio", "gbp_aresamp_coef.h"), "GBP_ARESAMP_COEF"),
+                                      (os.path.join(ROOT, "src", "audio", "gbp_aresamp2_coef.h"), "GBP_ARESAMP2_COEF")})
 
     def test_every_table_of_every_file_has_every_phase_summing_to_exactly_one(self):
         for path in tables():

@@ -269,6 +269,12 @@ LEDGER = [
      "the raw window is a commercial game's audio and is never versioned; tools/u012game.py's method is proved on "
      "constructions by tests/host/test_u012_game.py classes that never skip, its hash is quoted in the record, and "
      "tests/host/test_run43.py checks on every host that the record quotes the figures test_u012_game.PINS pins"),
+    # Issue #126: the same raw window, through the native decoder chain (tests/host/harness_v126.c's chain_raw).
+    (r"^the RUN 43 raw window is kept in captures/local/ only \(tests/host/test_v126_chain\.py\)$",
+     "LOCAL_ARTIFACT_ABSENT",
+     "RUN 33 and RUN 34 (VERSIONED fixtures) carry the same battery unconditionally in the same file; RUN 43's own "
+     "gap-free run is tools/u012game.py's already-proved method, and the game window is the only real-content case "
+     "of every check this class runs, so a checkout without it validates on the two tones alone"),
 ]
 
 _COMPILED = [(re.compile(p), c, cover) for p, c, cover in LEDGER]
