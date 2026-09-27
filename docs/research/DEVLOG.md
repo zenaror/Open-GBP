@@ -17905,3 +17905,68 @@ for its climb, not the fixed `GBP_V28_STEP_MUTE`) -- not yet added; §18's "no u
 hand-off-counted mute have any wall-clock bound?) -- not yet investigated; `tests/unit/test_v28_sweep_residue.c`
 itself, and the sweep's own OUT_OF_BAND threshold, both still deliberately unmerged pending the Orchestrator's
 read of this round's own proof.
+
+## 2026-09-27 — Issue #129/#130 continued: GBP_V28_START_MUTE, the sweep residue test merged, and §18
+
+**Correction to the prior entry (the Orchestrator's own catch)**: the prior entry compared the ring's pre-trim
+settle time (3.75-7.5 s) against "a nulling dwell of 6 s," citing `gbp_async_cfg_default`'s own `p3_dwell_s`.
+That figure is **3a's own** dwell (`GBP_V28_3A_DWELL_S`), and 3a's own steps use `GBP_ATRANS2_UNMUTED` -- the
+ROTATE trim never touches them, so 3a's settle is exactly the thing 3a itself measures, not an artifact of the
+bug the trim fixed. The comparison that matters is against **nulling's own** dwell, which does use ROTATE (the
+step mechanism) -- and nulling's own handler is not designed yet, so that dwell figure does not exist to compare
+against. "Moot" (the trim removes the tail before any dwell starts) is the correct conclusion regardless of
+which dwell is eventually chosen; only the specific number cited (6 s) was the wrong one's own.
+
+**`GBP_V28_START_MUTE` (commit `a09df75`)**: 8 = `pause(4) + ahead(4)`, the ladder's own largest climb
+(T256 -> T704, the step sweep's own two START transitions), derived by the same ceiling-division formula
+`gbp_v28_3a.c`'s own UNMUTED descent uses for a climb, with build-time asserts pinning the value and requiring
+it strictly larger than `GBP_V28_STEP_MUTE` (6) -- the perceptual run's own STARTs never use the ordinary rung's
+fixed mute either (#128 §7).
+
+**`tests/unit/test_v28_sweep_residue.c` merged (same commit), no longer a fitted ceiling (the Orchestrator's own
+correction)**: with the ROTATE landing trim in place, both halves of a landing became exact structural claims
+instead of a number to fit a ceiling around --
+  - TARGET: the ring after the trim never sits above target (any excess there is the trim failing to fire, a
+    genuine fault); up to `GBP_APLAY2_BAND` below is an allowed, unobserved, natural undershoot;
+  - AHEAD: READY at landing is exactly `ahead - 1` or `ahead` (the same LATE class `test_gbp_atrans.c`'s own
+    `check_rotate()` already tolerates for the old path).
+Running this against the two START transitions at the OLD `GBP_V28_STEP_MUTE` first (before adding the new
+constant) surfaced exactly the gap `GBP_V28_START_MUTE` fixes: `T256A1->T704A4` landed with the ring far short
+of target in 16 of 20 burst/phase combinations -- 6 mute chunks is not enough time for that climb. With
+`GBP_V28_START_MUTE`, all 320 runs (16 transitions x 5 bursts x 4 phases) pass both checks: worst |residue| is 0
+or 2048 samples (31.25 ms, the structural one-chunk READY-side term) uniformly across every transition.
+
+**§18, investigated (not yet acted on)**: the Orchestrator raised it as the round's safety priority, with a
+specific mental model -- "the mute counts hand-offs of produced chunks... if the feed stops, handed stops too,
+and the mute never ends." Tested directly before implementing anything: a synthetic run begins a ROTATE step
+then feeds ZERO samples for the whole mute (a total feed stall, simulating a stalled GBP or a pulled cartridge).
+The transition still lands cleanly at the expected period (`handed=7 > mute=6`), never hanging. Reading
+`gbp_aplay2_irq_handoff()` explains why: `p->handed = p->handed + 1u;` (and `p->mute`'s own decrement) execute
+UNCONDITIONALLY at the end of that function, regardless of whether that hand-off carried mute, a real chunk, or
+underrun silence -- `handed` counts IRQ CALLS, not produced chunks. `gbp_aplay.c`'s own old-path equivalent has
+the identical unconditional `p->handed = p->handed + 1u;` -- the same construction, faithfully ported (#127),
+answering the Orchestrator's own "check whether the old path had one" directly: neither path ever needed a
+separate backstop for this, because the mute's own landing check was ALREADY wall-clock-bound by construction,
+provided the real audio IRQ (the GameCube's own AI/DMA callback, which fires on a fixed schedule regardless of
+upstream data, silence-filling when starved -- exactly how the existing POCs call `gbp_aplay_irq_handoff()`/
+`gbp_aplay2_irq_handoff()`) keeps calling it.
+
+The residual risk this does NOT rule out: a backstop placed INSIDE `gbp_atrans2_step()` cannot protect against
+the one thing that could actually stop `handed` from advancing -- the future driver loop (the "new image's own
+main.c," not yet written) itself failing to call `gbp_aplay2_irq_handoff()`/`gbp_atrans2_step()` on every real
+audio tick, e.g. by gating its own calls on feed or decode availability. That risk is not reachable from inside
+this module; a counter added here would just duplicate a bound the mechanism already has, without covering the
+actual gap. Recorded as a requirement on the future driver loop's own design (call unconditionally, every real
+IRQ, matching the DMA's own behavior) rather than as a code change this round, pending the Orchestrator's read.
+
+**The gate on the committed tree**: `pytest -q tests/host` -- 3322 passed, 7 skipped, 0 failed;
+`make -C tests/unit` -- every binary green, 0 failures (`test_v28_sweep_residue` 1280 checks).
+
+**Next.** The Orchestrator's read of the §18 finding (agree no internal backstop is needed here, or ask for a
+redundant one regardless, e.g. an independent `now`-based deadline guarding against a bug in the handed
+accounting itself, distinct from the feed-stall case this round's test rules out); then the sweep handler
+module itself (the per-transition record structure already accepted: index, class GATE/INFO, mechanism
+STEP/REFUSED/START, outcome, fail_reason NONE/OUT_OF_BAND/UNDERRUN/UNMASKED, and the rest); the
+`test_v28_ahead_steps.c` native-path matrix port, still a named pre-staging item; `SYNCPE` emission, the GX
+label, Amendment C's O6-leak drop and the two-image build, all still waiting on the new image's own `main.c`
+(the same file this round's own §18 requirement is a design note for, once it exists).
