@@ -126,6 +126,55 @@ _Static_assert((GBP_V28_P3_START - GBP_V28_P3_MIN) % GBP_V28_P3_STEP == 0u,
 _Static_assert((GBP_V28_P2_HI - GBP_V28_P2_LO) % GBP_V28_P2_STEP == 0u,
     "GBP_V28_P2_LO..P2_HI is not an exact number of P2_STEPs");
 
+/* ---- 3a's bisection width -- the SECOND unit gap found by reading, not the first (the
+ * Orchestrator, #129/#130): p3_bisect_width (2, old-path units) is compared directly against
+ * hi - lo, which are TARGET-domain values (same unit as the ladder/grid above), so it needs the
+ * same x16 derivation -- 32 native samples, keeping the frozen design's 0.49 ms bisection
+ * resolution (2 old-path samples = 0.49 ms at 4096 Hz; 32 native samples = 0.49 ms at 65536 Hz,
+ * the SAME width, not sixteen times coarser or finer). It is not one of gbp_async_cfg's own
+ * p2_lo/p2_hi/p2_step/p3_start/p3_step/p3_min fields the earlier grid pass ported, which is
+ * exactly why it was missed once already -- see the enumeration below, which is what closes the
+ * class instead of the next instance. */
+#define GBP_V28_OLD_P3_BISECT_WIDTH   2u
+#define GBP_V28_P3_BISECT_WIDTH   (GBP_V28_OLD_P3_BISECT_WIDTH * GBP_V28_NATIVE_RATIO)   /* 32, 0.49 ms */
+
+/* ---- THE ENUMERATION (the Orchestrator, #129/#130): every TARGET-domain constant
+ * gbp_async.h/gbp_async.c and gbp_atrans.h/gbp_atrans.c compare against or assign to a sample
+ * count, closed as a CLASS rather than caught one instance at a time (the ladder was the first
+ * gap found this way, p3_bisect_width above the second). Checked directly against both files'
+ * current text, not from memory.
+ *
+ *   TARGET-domain, derived x16 above:
+ *     p2_lo, p2_hi, p2_step         (nulling's scan grid)              GBP_V28_P2_LO/HI/STEP
+ *     p3_start, p3_step, p3_min     (3a's descent grid)                GBP_V28_P3_START/STEP/MIN
+ *     p3_bisect_width               (3a's bisection convergence width) GBP_V28_P3_BISECT_WIDTH
+ *
+ *   TARGET-domain, but NOT NEEDED for #128's design (Phase 1 is dropped from BOTH runs, #128 §2
+ *   point 3 / #122's own accepted decision) -- deliberately left unconverted, not missed:
+ *     deep = 2048, shallow = 512, floor = 384   (Phase 1's own blinded A/B levels)
+ *
+ *   Chunk-relative, already re-derived by FORMULA rather than a literal (no gap):
+ *     GBP_ATRANS_AIM = 64 (half a chunk)  ->  GBP_ATRANS2_AIM = GBP_APLAY2_PUSHES / 2 (gbp_atrans2.h)
+ *     GBP_APLAY_BAND = 16 (gbp_aplay.h)   ->  GBP_APLAY2_BAND = 256 (gbp_aplay2.h, its own comment:
+ *                                             "16 x gbp_aplay's BAND, the same 3.906 ms width")
+ *
+ *   NOT TARGET-domain at all (chunk counts, seconds, or the hardware timebase -- correctly
+ *   unconverted, carrying over exactly as AHEAD does above):
+ *     mute_chunks = 18, step_mute_chunks = 4   (chunk counts; ALSO superseded by #128 §3's own
+ *                                                fixed mute = 6 for the new step mechanism -- not
+ *                                                used by #128's design at all, converted or not)
+ *     p3_dwell_s = 6, p3_confirm_s = 60, settling_s = 2                  (seconds)
+ *     cap_p1_s = 300, cap_p2_s = 240, cap_p3_s = 180, cap_session_s = 720 (seconds; p1's is moot,
+ *                                                                          Phase 1 dropped)
+ *     real = 12, null = 6                       (Phase 1's own switch-schedule counts, moot)
+ *     tb_hz = 40 500 000                        (the GameCube's own hardware timebase, not audio)
+ *     GBP_ASYNC_SWITCH_CAP = 18, GBP_ASYNC_P2_CAP = 16, GBP_ASYNC_DEPTH_CAP = 64,
+ *     GBP_ASYNC_SECONDS = 728                   (array-size/record caps, not sample thresholds)
+ *
+ * A later constant belongs in the FIRST list, converted here with the same x16 discipline and a
+ * bounds/divisibility assert where one applies, or the SECOND, with the same reason named -- not
+ * a fresh instance of this comment. */
+
 #ifdef __cplusplus
 }
 #endif
