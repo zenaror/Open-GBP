@@ -10582,7 +10582,8 @@ channel". The references
 (`GBP-AUD-002`, `GBP-AUD-003`):
 - **GBI's digital path** sums per PAIR for a GBA cartridge and per SLICE for a GB/GBC cartridge. It keys the choice on
   GBP CONTROL bit 0, CART_IS_GB, a bit that is FACT on our hardware (`REGISTERS.md` §3). It is GBIHF's default, and
-  `--sound=digital` in the Standard and Speedrunning editions.
+  `--sound=digital` in the Standard edition. In GBISR the hand-off selects the digital converters when the flag is 0,
+  its initial byte is 1, and the `--sound` handler was not read (`GBP-AUD-002`).
 - **GBI's filtered path** is per slice for every cartridge. It is the default in the Standard and Speedrunning
   editions.
 - **The Start-up Disc's window** is per pair for every cartridge.
@@ -11338,7 +11339,7 @@ call the second halfword left. **Under that convention, both references put A on
 observation of this hardware. On the hardware, which stream is left stays UNKNOWN (`U-GBP-047`), and the one-side test
 decides it.
 
-**GBI's DSP microcode is LIBAESND's own** (the Orchestrator's check, #125). It is out of the edition differential:
+**GBI's DSP microcode is LIBAESND's own** (asked for by the Orchestrator on #125). It is out of the edition differential:
 the three editions carry the same bytes. The 1 088-byte mixer microcode that GBI's
 library hands to the DSP is byte-identical in all three editions to the assembled `libaesnd/dspcode/dspmixer.s` of
 LIBOGC2 `ca03fb7`: `gcdsptool -c` in `ghcr.io/extremscorner/libogc2:20260805` gives sha256 `aad1814397f8a2f18458b2edbb29360fb7436030f2ca6fe283226a96876dbb3b`,
@@ -11381,15 +11382,17 @@ OPERATOR OBSERVATION).
 - **What the Operator heard.** He judges the references not muffled (`U-GBP-012`, OPERATOR OBSERVATION).
 - **The inference.** A resampler that crude is judged right because its RATE is sixteen times ours (65 536 against
   4 096 values/s). So the muffling is the decode rate, not resampler quality. It confirms, from the opposite
-  direction, the conclusion Round A had already reached. It is also the first external measure of how much filter
+  direction, the conclusion #118 and #123 had already reached (`GBP-HW-340`). It is also the first external measure
+  of how much filter
   quality the perceptual result needs: much less than our criterion demands.
 - **What follows for Round B.** Its value is dominated by the RATE change. β and taps are a refinement on top of it,
   not part of the fix. Our filter criterion (`GBP-HW-351`) stays: it is stricter than an approved reference, and
   stricter is free here. But no further round goes to filter quality while the rate is unfixed.
 - **The trade in failure modes.** Ours corrects drift continuously, one small counted correction at a time. The
-  references correct drift through the ratio, and otherwise do nothing until an underrun inserts silence or an
-  overrun discards a block or a ring. Their failure modes are coarser, not absent: a different trade, recorded as
-  one.
+  references correct drift through the ratio, and otherwise do nothing until an underrun inserts silence, or
+  an overrun discards the unplayed ring (GBI, `GBP-AUD-002`) or laps a ring writer that does not test for room (the
+  Disc, INFERENCE, `GBP-AUD-003`) -- what follows the Disc's busy landing buffer was not read. Their failure modes are
+  coarser, not absent: a different trade, recorded as one.
 
 **GBIHF's digital default, and what not to read into it** (the Orchestrator's, #125). It is not evidence that the
 digital path "sounds better". *Faithful* and *pleasant* are different goals, and why its authors chose it is not

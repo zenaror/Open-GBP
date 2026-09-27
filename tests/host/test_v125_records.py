@@ -76,9 +76,14 @@ def stamped(body):
 
 
 def own_text():
-    """#125's own claims: the three GBP-AUD entries and its stamped UNKNOWNS paragraphs, flattened."""
+    """#125's own claims: the three GBP-AUD entries (cut before any later Issue's first dated on-top paragraph, the
+    way stamped() cuts an UNKNOWNS entry) and its stamped UNKNOWNS paragraphs, flattened."""
     ev = base.now(EV)
-    parts = [entry(ev, eid)[1] for eid, _ in NEW_EV]
+    parts = []
+    for eid, _ in NEW_EV:
+        b = entry(ev, eid)[1]
+        j = b.find("\n**2026-10")           # #125 itself is dated 2026-09-25; a later Issue's note starts later
+        parts.append(b if j < 0 else b[:j])
     parts += [stamped(entry(base.now(UN), uid, base.UN_HEAD)[1]) for uid in NEW_UN]
     return parts
 

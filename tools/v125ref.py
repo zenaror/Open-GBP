@@ -213,9 +213,15 @@ def built_addresses(regions, targets, lookahead=8):
     by addi rE,rD,lo or a load/store d(rD) (hi + lo), or in two steps, addi rE,rD,lo then a load/store d(rE)
     (hi + lo + d), which is how a field of a structure is reached. rA = 0 is a literal zero, so a lis of r0 is never a
     base, at either step. The second step's load must read the addi's destination, within `lookahead` instructions
-    counted from the addi. Each lis is listed once per target."""
+    counted from the addi. Each lis is listed once per target. Scanning a register STOPS the instruction it is
+    redefined by (#125's review): a lis or addi whose destination is that register, or a D-form load into it."""
     hits = dict((t, []) for t in targets)
     sx = v125const.sext16
+    LOAD_DFORM = frozenset({32, 33, 34, 35, 40, 41, 42, 43, 46})   # D-form loads (32..47) that redefine their rD
+
+    def redefines(op, rt, reg):
+        return rt == reg and (op in (14, 15) or op in LOAD_DFORM)
+
     for base, buf, is_code in regions:
         if not is_code:
             continue
@@ -227,18 +233,22 @@ def built_addresses(regions, targets, lookahead=8):
             for j in range(i + 1, min(len(ws), i + 1 + lookahead)):
                 w2 = ws[j]
                 op2, ra2, rt2 = w2 >> 26, (w2 >> 16) & 31, (w2 >> 21) & 31
-                if ra2 != rd or not (op2 == 14 or op2 in DFORM):
-                    continue
-                v = (hi + sx(w2 & 0xFFFF)) & 0xFFFFFFFF
-                if v in hits and base + 4 * i not in hits[v]:
-                    hits[v].append(base + 4 * i)
-                if op2 == 14 and rt2 != 0:
-                    for k in range(j + 1, min(len(ws), j + 1 + lookahead)):
-                        w3 = ws[k]
-                        if w3 >> 26 in DFORM and (w3 >> 16) & 31 == rt2:
-                            v3 = (v + sx(w3 & 0xFFFF)) & 0xFFFFFFFF
-                            if v3 in hits and base + 4 * i not in hits[v3]:
-                                hits[v3].append(base + 4 * i)
+                if ra2 == rd and (op2 == 14 or op2 in DFORM):
+                    v = (hi + sx(w2 & 0xFFFF)) & 0xFFFFFFFF
+                    if v in hits and base + 4 * i not in hits[v]:
+                        hits[v].append(base + 4 * i)
+                    if op2 == 14 and rt2 != 0:
+                        for k in range(j + 1, min(len(ws), j + 1 + lookahead)):
+                            w3 = ws[k]
+                            op3, ra3, rt3 = w3 >> 26, (w3 >> 16) & 31, (w3 >> 21) & 31
+                            if redefines(op3, rt3, rt2):
+                                break
+                            if op3 in DFORM and ra3 == rt2:
+                                v3 = (v + sx(w3 & 0xFFFF)) & 0xFFFFFFFF
+                                if v3 in hits and base + 4 * i not in hits[v3]:
+                                    hits[v3].append(base + 4 * i)
+                if redefines(op2, rt2, rd):
+                    break
     return hits
 
 

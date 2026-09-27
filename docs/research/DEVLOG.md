@@ -17131,3 +17131,63 @@ that a reading was wrong.
     - **Whether the decode rate is a per-cartridge choice.**
 - **The next hardware run** carries `agb-route` with the references' prediction added (`U-GBP-047`): route-left moves
   wA.
+
+**2026-09-27 (GitHub Issue #125), on top: the closing table — what the reading changed for the physical experiments.**
+Specified by the Orchestrator on #125. Each line is FACT (code) about the reference named and a LEAD for the hardware.
+The last column has four states, and the decode rate is NOT counted as an elimination: no hardware experiment was ever
+planned for it, so none was saved.
+
+```text
+ELIMINATED  a question about what the REFERENCES do, answered by the reading; no hardware experiment needed for it
+NARROWED    the reading constrains the design or sharpens the prediction; the experiment still runs
+REQUIRED    only hardware answers it; a reading is a LEAD, never FACT, for our console
+SILENT      the references say nothing; the experiment stands, and its necessity is now ESTABLISHED
+```
+
+```text
+experiment / question        FACT about the Disc            FACT about GBI                 LEAD for the hardware        impact                     state
+---------------------------  -----------------------------  -----------------------------  ---------------------------  -------------------------  --------------------
+agb-route one-side           stereo: A -> the AI frame's    stereo: A -> the voice's       A on the LEFT under the AI   stereo routing: the        NARROWED + REQUIRED
+(route-left, route-right;    second halfword, B the first   first halfword, which the      frame order Dolphin and      one-side test's            (GBP-AUD-004,
+U-GBP-047)                   (GBP-AUD-003)                  mixer puts in the AI frame's   AESND's comments share       prediction is now:         U-GBP-047)
+                                                            second (GBP-AUD-002/004)                                    route-left moves wA,
+                                                                                                                        pins wB at 128
+agb-route SOUNDBIAS reads    0x04000088 neither built nor   the same (all three editions)  none about the register;     the reads E, M and I       SILENT: the reads'
+E, M, I (route-both;         held, in the forms scanned;                                   the edge classes fit the     stand as written on        necessity is
+U-GBP-048)                   edge classes 256/128/64                                       tones' 256-cycle pulses      #124; candidate 3          ESTABLISHED
+                             cycles, none for 512                                          (GBP-HW-348), a LEAD         (the GBP raising the
+                             (GBP-AUD-003)                                                                              resolution) untouched
+route-bias0200 and the       nothing (the address is not    nothing                        none                         unchanged                  SILENT
+click (U-GBP-048, cand. 4)   referenced)
+the cushion floor            ring around 180 samples        start delay 24 / 12 ms after   ~10-25 ms (Disc) and         the floor is still ours    NARROWED
+(§V27 Phase 2 nulling,       (5.6 ms), 5 ms AI buffers,     one 8.8 ms buffer; ring 8 / 4  ~35-37 / 23-25 ms (GBI) run  to measure; 0.125 s is     (U-GBP-046)
+§V28 AHEAD 1 margin)         16-block batches               buffers; 2 ms mixer buffers    on the same path             ~3.4-12.5x deeper
+                             (GBP-AUD-003)                  (GBP-AUD-002)                  (INFERENCE)
+the drift correction on the  a two-rate switch on the       a measured-ratio pitch;        no counted DUP/DROP is        k enters Round B as the    REQUIRED: our chain's
+final decode (L2 bit-exact,  ring's fill; underrun =        underrun = stop + delay;       needed by either mature      current design's           starvation (U-GBP-045)
+C clean; GBP-HW-349)         silence, stop after 6          overrun = the unplayed ring    implementation; both fail    parameter; the             is measured on our
+                             (GBP-AUD-003)                  dropped; the resampler keeps   coarsely, not never          architecture stays open    chain only
+                                                            the latest frame (GBP-AUD-002)
+the decode rate              256-byte window every slice    per slice by default (Std,     the block carries per-slice  a DESIGN choice for        NOT AN ELIMINATION:
+(Round B)                    pair, 32 768/s, every          SR); per pair for GBA and per  information -- already FACT  Round B; also: is the      no hardware experiment
+                             cartridge alike                slice for GB/GBC in digital    from our captures            rate per cartridge?        was ever planned for it
+                             (GBP-AUD-003)                  mode, HF's default             (GBP-HW-347/348)             (GBP-HW-348 on top)
+                                                            (GBP-AUD-002)
+the filter quality           window -3 dB 8 660 Hz; chain   IIR +3.6 dB at 9 081 Hz by     the Operator judges GBI not  Round B's value is the     NARROWED: no further
+(GBP-HW-351's criterion)     -3 dB 6 483 Hz                 default; the mixer discards    muffled (OPERATOR            rate change; beta and      round on filter quality
+                             (GBP-AUD-003)                  26.7 % of frames               OBSERVATION), so the         taps are a refinement;     while the rate is
+                                                            (GBP-AUD-002/004)              muffling is the rate         the criterion stays        unfixed (no experiment
+                                                                                           (INFERENCE)                                             was planned)
+the even streams' extras     never read                     never read                     nothing either decoder       none for the decode        SILENT (U-GBP-043
+(U-GBP-043)                  (GBP-AUD-003)                  (GBP-AUD-002)                  needed (GBP-AUD-004)                                    stays open; no
+                                                                                                                                                   experiment planned)
+pulse jitter and off-grid    the conditioner snaps 1-2-bit  none                           the authors expected jitter  a HOST test on the         host, not console:
+pulse ends (U-GBP-041)       rising-edge jitter and                                        and glitches in the          archive (RUN 33/34/43),    proposed for Round B's
+                             conforms off-grid ends                                        captured stream              proposed                   opening
+                             (GBP-AUD-003)                                                 (INFERENCE)
+```
+
+Counted for the Operator: **no planned console experiment was eliminated**. Two were narrowed (the one-side test's
+prediction; the cushion floor's bound), two had their necessity established (the SOUNDBIAS reads; route-bias0200), and
+the decoder validation stands as it was. The next Hardware Issue carries the same images: `agb-route`'s four, and the
+§V28 ladder on the final decode.
