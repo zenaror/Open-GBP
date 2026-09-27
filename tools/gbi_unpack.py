@@ -53,7 +53,8 @@ def find_payload(data: bytes):
     raise ValueError("no XOR-obfuscated XZ payload found")
 
 
-def unpack(data: bytes) -> bytes:
+def unpack(data: bytes) -> tuple:
+    """(the unpacked image, the payload's offset in the DOL, the payload's length)."""
     key, start, end = find_payload(data)
     end = min(end, len(data))
     obf = data[start:end]

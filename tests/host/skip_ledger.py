@@ -41,6 +41,8 @@ CLASSES = {
                             "checkpoint rebuilt the POC at its own commit. Skipping is honest (the local file is not "
                             "the artifact the record names) but it is also exactly when a staged image could have been "
                             "disturbed. Every entry here MUST name what covers the risk instead.",
+    "ANALYSIS_OUTPUT_ABSENT": "the file is a private static-analysis output (decompiles of proprietary binaries under "
+                              "build/analysis/), never versioned; only its committed manifest travels with a clone.",
     "NOT_APPLICABLE": "the fixture or record the test would read does not carry the thing being tested (a synthetic "
                       "file with no ACK, an observational record that does not exist in that version).",
 }
@@ -234,6 +236,12 @@ LEDGER = [
      "the docs checkpoint's own test pins the hash; test_staged_artifacts.py covers the staged copy"),
     (r"^RUN 17's log is a local capture", "LOCAL_ARTIFACT_ABSENT",
      "the run's figures are quoted in §V7.4 and §V7.6.3 and re-derived from the versioned fixtures where they exist"),
+    # Issue #125: the reference reading's private outputs (decompiles of proprietary binaries) live under build/,
+    # never versioned; their per-file manifest IS versioned and checked everywhere.
+    (r"^#125's analysis outputs are not in this checkout \(build/ is ignored\)$", "ANALYSIS_OUTPUT_ABSENT",
+     "the committed manifest docs/research/manifests/issue-125-ghidra125.sha256 is checked on every host (its format, "
+     "its count against the count EVIDENCE quotes, its hash against the DEVLOG's); where the outputs exist the same "
+     "test verifies every file and requires every decompile to be listed"),
     (r"^nothing is staged under build/swiss", "NOT_BUILT",
      "there is nothing to disturb; the moment a slot exists the same test checks it and cannot skip"),
     (r"^the SD is not mounted on this host", "LOCAL_ARTIFACT_ABSENT",
