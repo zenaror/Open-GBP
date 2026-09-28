@@ -38444,3 +38444,31 @@ Issue's scope; full `make -C tests/unit` green). Docker builds verified for all 
 matches `e7329d9b...`. Every other frozen slot re-hashed before and after — all unchanged.
 
 **Card verified, ready for RUN 51.**
+
+### V28.6 `23-v28v` re-pinned a fourth time: the `GBP-HW-272` recount alone moved the hash — 2026-09-28 (Issue #131/#133)
+
+The Orchestrator's own instruction: RUN 50's own raw log landing in `captures/local/` turned
+`tests/host/test_control_bit_split.py`/`test_gbc_path.py` red (the CONTROL-byte split's own
+count), and `CLAUDE.md` §18 requires a green gate before a physical candidate — "these four are
+expected red" is the exemption-list habit already refused once today. The recount itself
+(`EVIDENCE.md`'s new `GBP-HW-354`, commit `1f77bc4`) touched only `docs/research/DEVLOG.md`,
+`docs/research/EVIDENCE.md`, `tests/host/test_control_bit_split.py` and
+`tests/host/test_gbc_path.py` — no `poc/`, no `src/` — so a rebuild was not expected to change the
+DOL. **Checked rather than assumed, as instructed: it changed anyway.**
+
+```text
+sha256 af2d4f81082da74ea8e38003cd093acab49fe4901c65d7583bc1a33b622a5a2e
+```
+
+The reason is by design, not a defect: `opengbp_ident.c` embeds `OPENGBP_GIT_COMMIT`, the short
+git commit, into every build for its own on-screen/SD-log identity (`CLAUDE.md` §16, "Build
+identification" — the exact purpose the field exists for). The commit string itself changed
+(`4869954` → `1f77bc4`) even though no compiled source did, so the DOL's bytes changed with it —
+this is the identity mechanism working as intended, not a functional difference between the two
+builds. Reproduced identically across two separate clean Docker rebuilds before pinning.
+
+Manifest re-pinned a fourth time, test pin updated. Card re-staged while still in the reader:
+`23-v28v` copied and read back — matches `af2d4f81...`. Every other frozen slot re-hashed before
+and after the copy — all unchanged.
+
+**Card verified, still ready for RUN 51.**
