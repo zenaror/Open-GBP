@@ -229,7 +229,10 @@ static void test_clean_hold_at_ahead_1_finishes_3b(void)
         check(h->chunk_starts > 0u && h->mean_chunk_start > 0u, "chunk starts were sampled");
         check(h->mean_ring >= h->min_ring && h->mean_ring <= h->mean_chunk_start,
               "the mean ring lies between the minimum and the mean chunk-start level (the sawtooth's top)");
-        check(h->chunk_starts >= (GBP_V28_3B_HOLD_S - GBP_V28_STEP_MUTE - 3u), "about one chunk start per period");
+        /* one chunk start per hand-off period, counted once each: samples / calls-per-period periods */
+        check((uint64_t)h->chunk_starts * CALLS_PER_PERIOD * 100u >= (uint64_t)h->samples * 97u &&
+              (uint64_t)h->chunk_starts * CALLS_PER_PERIOD * 100u <= (uint64_t)h->samples * 103u,
+              "exactly one chunk start per hand-off period is counted (within 3 %)");
     }
 }
 

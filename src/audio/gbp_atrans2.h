@@ -92,8 +92,9 @@ enum gbp_atrans2_mode { GBP_ATRANS2_UNMUTED = 0, GBP_ATRANS2_HELD = 1, GBP_ATRAN
 /* Issue #136: the level-setting cut aims this far BELOW target. The landing call finds the ring after its own
  * recovery produce (128 pushes) and after whatever the pump's first call past the hand-off let the feed add
  * (65.5 samples per ms late); the sweep's band is [target - BAND, target], so a late call can only push the
- * ring toward the upper edge. 32 leaves the landing at target - 160 on an exact feed: 96 below the upper
- * edge (a landing call up to 2.4 ms late) and, with a feed 0.5 % slow, 51 above the lower one. */
+ * ring toward the upper edge. 32 leaves the landing at target - 160 on an exact feed: 160 below the upper edge
+ * (a landing call up to 2.44 ms late) and 96 above the lower one (76 at the console's 0.5 % feed deficit before the
+ * measured feed rate is folded in, about 96 after it). */
 #define GBP_ATRANS2_LAND_BIAS 32u
 
 /* `disc_rel` before the level was set (no cut yet): far below any real period */
@@ -137,7 +138,10 @@ struct gbp_atrans2 {
     uint32_t fill_short;              /* the samples the ring lacked at the discard point (the mute was too short) */
     uint32_t calls_prev;              /* gbp_atrans2_step() calls in the previous hand-off period */
     uint32_t to_build;                /* ROTATE: chunks to build after the level was set (ahead after a cut, else the top-up) */
-    uint32_t dropped_pre;             /* ROTATE: pre-cut chunks freed unplayed at the cut */
+    uint32_t dropped_pre;             /* ROTATE: queued chunks freed unplayed at the cut */
+    uint32_t old_chunks;              /* ROTATE: chunks queued BEFORE the level was set that are not yet replaced */
+    uint32_t mark, inflow_n, inflow_est;   /* ROTATE: the feed's measured inflow per period, from the ring's growth */
+    uint8_t  mark_valid, consumed_pre;
     uint64_t t_start, t_reached, t_end;
     /* since init */
     uint32_t begun, completed;

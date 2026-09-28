@@ -133,9 +133,18 @@ class TheLadderIsTheFrozenTable(unittest.TestCase):
         for name, value in (("GBP_V28_A4", 4), ("GBP_V28_A3", 3), ("GBP_V28_A2", 2), ("GBP_V28_A1", 1)):
             self.assertIn("#define %s   %du" % (name, value), h)
 
-    def test_the_step_mechanism_s_fixed_mute_is_6_unconverted(self):
+    def test_the_step_mechanism_s_fixed_mute_is_derived_and_7(self):
+        """Issue #136 amended #128 section 3's 6: the mute is BUILT from the measured ring deficit at the start of a
+        step and the AHEAD-4 climb, plus one period of margin (gbp_v28_ladder.h derives it; _Static_asserts pin 6 + 1)."""
         h = code(read(LADDER_H))
-        self.assertIn("#define GBP_V28_STEP_MUTE   6u", h)
+        self.assertIn("#define GBP_V28_STEP_MUTE    (GBP_V28_STEP_NEED + GBP_V28_MUTE_MARGIN)", h)
+        self.assertIn("_Static_assert(GBP_V28_STEP_NEED == 6u", h)
+        self.assertIn("GBP_V28_STEP_MUTE == 7u && GBP_V28_START_MUTE == 10u", h)
+
+    def test_the_largest_starts_mute_is_derived_and_10(self):
+        h = code(read(LADDER_H))
+        self.assertIn("#define GBP_V28_START_MUTE   (GBP_V28_START_NEED + GBP_V28_MUTE_MARGIN)", h)
+        self.assertIn("_Static_assert(GBP_V28_START_NEED == 9u", h)
 
 
 class TheBoundsCheckIsCompiledIn(unittest.TestCase):

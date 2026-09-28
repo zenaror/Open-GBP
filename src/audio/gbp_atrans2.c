@@ -45,7 +45,9 @@ int gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_ad
     t->residue = 0;
     t->late = t->unmasked = 0u;
     t->adjusted = 0u;
-    t->disc_n = t->rot_post = t->fill_short = t->calls_prev = t->to_build = t->dropped_pre = 0u;
+    t->disc_n = t->rot_post = t->fill_short = t->calls_prev = t->to_build = t->dropped_pre = t->old_chunks = 0u;
+    t->mark_valid = t->consumed_pre = 0u;
+    t->mark = t->inflow_n = t->inflow_est = 0u;
     t->disc_rel = GBP_ATRANS2_NO_CUT;
     t->t_start = now;
     t->t_reached = t->t_end = 0u;
@@ -76,15 +78,43 @@ static int finish2(struct gbp_atrans2 *t, uint64_t now)
 
 /* Issue #136: the ring's level is set INSIDE the mute, once, and every chunk that will be heard is
  * built after it. See gbp_atrans2.h ("THE ROTATE LEVEL IS SET IN SILENCE"). */
+
+/* The feed's own rate over this plan, measured, not assumed: before the cut nothing is consumed, so the ring's
+ * growth between two hand-off boundaries IS the inflow. Averaged from the first boundary (only the two ends
+ * matter, so a late pump call at either is one error spread over all the periods, not one per period). A chunk
+ * finished in the pre-cut phase consumed samples: the measurement restarts at the next boundary. */
+static void note_boundary2(struct gbp_atrans2 *t, const struct gbp_aplay2 *p, const struct gbp_adec2 *d, uint64_t now)
+{
+    uint32_t c = d->count;
+    if (t->adjusted) return;
+    if (p->t_ho_prev != 0u && p->t_ho_last > p->t_ho_prev && now >= p->t_ho_last) {
+        /* the ring as it stood at the hand-off INSTANT: this call ran a little after it, and a late one would
+         * otherwise read as extra inflow */
+        const uint64_t f = (uint64_t)GBP_APLAY2_PUSHES * (now - p->t_ho_last) / (p->t_ho_last - p->t_ho_prev);
+        c = f < c ? c - (uint32_t)f : 0u;
+    }
+    if (t->mark_valid && !t->consumed_pre && c >= t->mark) {
+        t->inflow_n++;
+        t->inflow_est = (c - t->mark) / t->inflow_n;
+    } else {
+        t->mark = c;
+        t->mark_valid = 1u;
+        t->consumed_pre = 0u;
+        t->inflow_n = 0u;
+        t->inflow_est = 0u;
+    }
+}
+
 static void adjust2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec2 *d, uint32_t handed, uint64_t now)
 {
     /* how far into the current hand-off period we are, in samples of inflow already gone: from the hand-off
      * instants when the chain has two of them (the callback's own clock, so a late pump call is measured,
      * not guessed), else from the call counts */
-    const uint32_t h_before = p->handed;
+    const uint32_t h_expected = t->handed_at_start + handed;   /* the hand-off count `handed` was taken at */
     const uint64_t tl = p->t_ho_last, tp = p->t_ho_prev;
     uint32_t frac_done;
-    uint32_t inflow, want;
+    uint32_t est = GBP_APLAY2_PUSHES, want;
+    uint64_t inflow;
     if (tp != 0u && tl > tp && now >= tl) {
         const uint64_t f = (uint64_t)GBP_APLAY2_PUSHES * (now - tl) / (tl - tp);
         frac_done = f < GBP_APLAY2_PUSHES ? (uint32_t)f : GBP_APLAY2_PUSHES;
@@ -94,10 +124,12 @@ static void adjust2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec
     } else {
         frac_done = 0u;
     }
-    if (p->handed != h_before) return;         /* a hand-off landed while reading: try again next call */
-    /* the ring the sequence must start from so that, after `ahead` whole-chunk rotations and the inflow
-     * until the landing call, it lands on target (the landing call's own recovery is left to the band) */
-    inflow = (t->mute + 1u - handed) * GBP_APLAY2_PUSHES - frac_done;
+    if (p->handed != h_expected) return;        /* a hand-off landed since `handed` was read: try again next call */
+    if (t->inflow_n > 0u && t->inflow_est >= GBP_APLAY2_PUSHES * 9u / 10u && t->inflow_est <= GBP_APLAY2_PUSHES * 11u / 10u)
+        est = t->inflow_est;
+    /* the ring the sequence must start from so that, after `ahead` whole-chunk builds and the inflow until the
+     * landing call, it lands on target (the landing call's own recovery is left to the band) */
+    inflow = ((uint64_t)(t->mute + 1u - handed) * GBP_APLAY2_PUSHES - frac_done) * est / GBP_APLAY2_PUSHES;
     {
         /* signed: at AHEAD 1 and a low target the ring the sequence needs at the cut is below zero (the inflow of
          * the two tail periods alone exceeds target + one chunk), i.e. cut the ring empty */
@@ -113,15 +145,24 @@ static void adjust2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec
         t->fill_short = want - d->count;       /* the mute was too short to fill the ring: counted, never hidden */
         t->fill_shorts++;
     }
-    if (t->disc_n > 0u) {
-        /* every queued chunk was built BEFORE the cut: none may be heard. They are freed here (silent: the
-         * callback is still handing silence) and `ahead` chunks are built from the cut ring in their place. */
-        while (gbp_aplay2_drop_front(p) >= 0) t->dropped_pre++;
-        t->to_build = p->ahead;
-    } else {
-        /* no cut, no discontinuity: what is queued is contiguous with the ring; only top the queue up */
-        t->to_build = p->ahead > gbp_aplay2_ready(p) ? p->ahead - gbp_aplay2_ready(p) : 0u;
-    }
+    /* `ahead` chunks are built from the ring, cut or not, each REPLACING the oldest queued one (queued behind it, then
+     * the oldest freed unplayed: silent, the callback is still handing silence), exactly the old rotation, so the
+     * queue is never empty before the unmute even if a build is late. After a cut every chunk queued now was built
+     * BEFORE it and none may be heard: they are all gone once `ahead` builds are done. With no cut the level accounting
+     * above still assumes `ahead` builds, so a ring that lacked the material lands short by exactly what it lacked,
+     * never above target. */
+    t->old_chunks = gbp_aplay2_ready(p);
+    t->to_build = p->ahead;
+}
+
+/* one build finished (a chunk the caller must queue): it replaces the oldest chunk queued before the level was set */
+static void built2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, int32_t b, int *to_queue)
+{
+    t->rotating = 0u;
+    t->rot_post++;
+    t->rotations++;
+    if (t->old_chunks > 0u && gbp_aplay2_drop_front(p) >= 0) { t->old_chunks--; t->dropped_pre++; }
+    *to_queue = b;
 }
 
 static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec2 *d, uint64_t now,
@@ -146,7 +187,7 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
         /* NOTHING is cut here: the landing runs after the first audible hand-off, so any discard now would
          * be heard, `ahead` chunks later (Issue #136). The level was set in silence; what is measured
          * below is what that left. */
-        if (t->disc_n > 0u && t->rot_post < t->to_build) { t->unmasked = 1u; t->unmaskeds++; }
+        if (t->disc_n > 0u && t->old_chunks > 0u) { t->unmasked = 1u; t->unmaskeds++; }   /* a pre-cut chunk would be heard */
         if (!t->adjusted) t->unadjusted++;
         t->residue = (int32_t)d->count + (p->cur >= 0 ? (int32_t)p->cur_pushes : 0)
                    + (int32_t)GBP_APLAY2_PUSHES * ((int32_t)gbp_aplay2_ready(p) - (int32_t)(p->ahead - 1u))
@@ -159,7 +200,7 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
     }
     if (t->rotating) {
         const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
-        if (b >= 0) { t->rotating = 0u; t->rot_post++; t->rotations++; *to_queue = b; }
+        if (b >= 0) built2(t, p, b, to_queue);
         return 0;
     }
     if (!t->reached && d->count >= t->target) { t->reached = 1u; t->t_reached = now; }
@@ -172,6 +213,7 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
             /* a chunk the ordinary producer had started before the plan began: finish it (queued, and if a cut
              * follows it is freed with the rest) -- the cut waits for nothing in flight */
             const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
+            t->consumed_pre = 1u;
             if (b >= 0) *to_queue = b;
         } else if (handed + 1u >= t->mute || d->count + 2u * GBP_APLAY2_PUSHES >= d->cap) {
             adjust2(t, p, d, handed, now);
@@ -181,7 +223,7 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
     if (t->rot_post < t->to_build && d->count > GBP_APLAY2_PUSHES) {
         const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
         t->rotating = 1u;
-        if (b >= 0) { t->rotating = 0u; t->rot_post++; t->rotations++; *to_queue = b; }
+        if (b >= 0) built2(t, p, b, to_queue);
     }
     return 0;
 }
@@ -243,7 +285,12 @@ int gbp_atrans2_step(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_ade
     t->handed_seen = handed;
     /* a hand-off boundary just passed (or this is the first call): the period's own call count
      * restarts, THIS call being its first (see gbp_atrans2.h's own calls_in_period comment) */
-    if (handed != t->handed_last) { t->calls_prev = t->calls_in_period; t->calls_in_period = 0u; t->handed_last = handed; }
+    if (handed != t->handed_last) {
+        t->calls_prev = t->calls_in_period;
+        t->calls_in_period = 0u;
+        t->handed_last = handed;
+        if (t->mode == GBP_ATRANS2_ROTATE) note_boundary2(t, p, d, now);
+    }
     t->calls_in_period++;
     if (t->mode == GBP_ATRANS2_ROTATE) return step_rotate2(t, p, d, now, handed, to_queue);
     if (t->mode == GBP_ATRANS2_HELD) return step_held2(t, p, d, now, handed, to_queue);

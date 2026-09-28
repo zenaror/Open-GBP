@@ -9,7 +9,7 @@
  * sees an underrun.
  *
  * THE ENTRY STEP (AHEAD 4 -> 1) AND ANY ESCALATION (AHEAD 1 -> 2) USE THE STEP MECHANISM
- * (#128 §3): mode ROTATE, mute GBP_V28_STEP_MUTE (6) -- NOT 3a's own UNMUTED transitions. This is
+ * (#128 §3): mode ROTATE, mute GBP_V28_STEP_MUTE (7 since Issue #136) -- NOT 3a's own UNMUTED transitions. This is
  * precisely the mechanism/margin the perceptual run will use, which is the whole point of 3b: it
  * is the observation #128 §5 names as settling the 32-tap reversal condition (`GBP-HW-351`).
  *

@@ -124,6 +124,10 @@ _Static_assert(GBP_V28_STEP_NEED == 6u, "gbp_v28_ladder: a step's mute need chan
 _Static_assert(GBP_V28_START_NEED == 9u, "gbp_v28_ladder: the largest climb's mute need changed from the measured 9 -- re-measure");
 _Static_assert(GBP_V28_STEP_MUTE == 7u && GBP_V28_START_MUTE == 10u,
     "gbp_v28_ladder: the mutes no longer 7 and 10 -- check the derivation and tell the Orchestrator (the Operator hears it)");
+/* the step's own need assumes no ordinary rung climbs more than one chunk: a wider rung needs a longer mute */
+_Static_assert(GBP_V28_T704 - GBP_V28_T576 <= GBP_APLAY2_PUSHES && GBP_V28_T576 - GBP_V28_T448 <= GBP_APLAY2_PUSHES &&
+               GBP_V28_T448 - GBP_V28_T320 <= GBP_APLAY2_PUSHES && GBP_V28_T320 - GBP_V28_T256 <= GBP_APLAY2_PUSHES,
+    "gbp_v28_ladder: an ordinary rung climbs more than one chunk -- GBP_V28_STEP_NEED must grow (Issue #136)");
 _Static_assert(GBP_V28_START_PAUSE == 4u,
     "gbp_v28_ladder: the T256->T704 climb's own pause changed -- recompute GBP_V28_START_MUTE");
 _Static_assert(GBP_V28_START_MUTE > GBP_V28_STEP_MUTE,
@@ -173,6 +177,8 @@ _Static_assert(GBP_V28_P2_HI >= GBP_APLAY2_TARGET_MIN && GBP_V28_P2_HI <= GBP_AP
  * drift the search grid away from the values above. */
 _Static_assert((GBP_V28_P3_START - GBP_V28_P3_MIN) % GBP_V28_P3_STEP == 0u,
     "GBP_V28_P3_START..P3_MIN is not an exact number of P3_STEPs");
+_Static_assert(GBP_V28_P2_STEP <= GBP_APLAY2_PUSHES,
+    "gbp_v28_ladder: the nulling step climbs more than one chunk -- GBP_V28_STEP_NEED must grow (Issue #136)");
 _Static_assert((GBP_V28_P2_HI - GBP_V28_P2_LO) % GBP_V28_P2_STEP == 0u,
     "GBP_V28_P2_LO..P2_HI is not an exact number of P2_STEPs");
 
