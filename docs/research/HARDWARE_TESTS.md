@@ -38908,3 +38908,70 @@ RUN 51: mean 10.75, dup 87 396, drop 224).
 
 **Stop.** The diagnosis of the landing, its fix and the build are §V28.11 and later. The perceptual run stays
 unauthorised: its nulling steps are exactly these +-1 transitions.
+
+### V28.11 The short landings of RUN 52: a host reproduction, the fix, and what it costs — 2026-09-28 (Issue #136)
+
+**What the host was missing (measured on the console, not assumed).** Every host test before this one ran the pump
+16 times per hand-off period and fed the ring exactly the rate the DMA consumes. Two properties of the console
+are in the RUN 52 log:
+
+- **the pump runs ~125 times per period**: the 3b hold's 60.0 s took 239 630 samples, 124.8 per 31.25 ms period;
+- **the feed is slower than the consumption**: `V28CORR mean_x100 = 1117` of a cap of 16 corrections per chunk and
+  `dup 99 619` against `drop 256`; over the sweep alone `dup` 10 547 in 1 098 chunks is 0.47 % (review's figure),
+  0.545 % over the run.
+
+**The mechanism (HYPOTHESIS, reproduced on the host; not observed inside the console).** A ROTATE transition
+subtracts one whole chunk (2048) from the ring per rotation. In the last muted period the rotation starts on the
+period's first call and the period's own inflow refills it, so the ring at the landing equals the ring at that
+period's start (less the landing recovery's 128). The landing trim only ever cuts (`gbp_adec2_discard`); nothing
+in the module can add a sample. Whatever level the ring had at the last period's start is therefore what the
+sweep judges, and that level is set by where the rotate loop's sawtooth stood, not by target. The old last-period
+aim was `target - GBP_ATRANS2_AIM`, i.e. rotate from almost any ring. On the host the ring at that start is
+exactly target (feed matches consumption, 16 calls), which is why 27 of 27 passed; on the console it varies and
+sits below target often enough that three GATE and four INFO moves landed 324-875 short. A numerical
+observation consistent with it, not a proof: the five same-target failures land at `target + AIM - 2048 + rho`
+with `rho` 149-232 (3229 = 4096 + 1024 - 2048 + 157, and so on), the bottom of the sawtooth just after a rotation
+started from `target + AIM`.
+
+**The reproduction, RED before the fix.** New `tests/unit/test_v28_sweep_landing.c`, on the real
+`gbp_atrans2`/`gbp_aplay2`/`gbp_adec2` chain, time-driven at 125 calls a period, the sweep's 18 GATE moves at 25
+begin phases each, seven cases: exact feed, 0.5 % and 1 % slow, 0.5 % fast, irregular call spacing exact and 0.5 %
+slow, 2 % stalls up to 8 ms, and a first call of the last period 3.5 ms late. On the previous source 8 of its 32
+checks fail, the worst shortfalls 700-940 samples (RUN 52 measured 826-875); on the fixed source 0 fail. The
+5-6 exact-feed failures matter most: the host fails with **exact** feed once the cadence is the console's.
+
+**The fix.** `gbp_atrans2.c step_rotate2()`: the last period's rotation aim is `target + GBP_ATRANS2_LAST_MARGIN`
+(512) instead of `target - GBP_ATRANS2_AIM`; earlier periods keep `target + AIM`. From a ring below that the
+rotation is skipped, the period's inflow lifts the ring past target and the existing trim cuts it back to exactly
+target. Review (fresh read-only agent, adversarial) found the first version, aim = target, has zero margin against
+a late first call of the last period (tolerance about 2 ms; RUN 52's audio delivery gaps reach 2.3 ms and its
+video gaps 5.5 ms); +512 tolerates 5 ms in its harness, and a margin of 0 is RED on the new late-call case.
+The same review confirmed with a trace copy that every last-period aim evaluation happens on the period's first
+call with `p->mute == 1`, none at `p->mute >= 2`, and that at 125 calls the rotation completes in 16 calls.
+
+**What it costs, and it is not small (review, measured).** The landing trim is larger: at the console's cadence
+the mean is 1 261-1 649 samples where the previous code trimmed nothing in 88 % of landings (mean 41-90, max
+363-740); the maximum is about 2 400. The trim is **not masked**: the landing runs after the first audible
+hand-off (`handed == mute + 1`, `p->mute == 0`, review's 875 logged landings), READY holds `ahead - 1` chunks
+built before the cut, so the splice falls about `ahead` chunks (31.25 ms each) after the mute ends and skips 20-30
+ms of content: about 33 ms after for AHEAD 1, 64 for AHEAD 2, 127 for AHEAD 4. The comments in the source that
+call the trim masked were not checked against the console and are corrected in `gbp_atrans2.h`; the sweep gate
+cannot see a splice (UNMASKED needs a begin discard, the sweep passes none); the console's own trim size was not
+logged before RUN 53 (13 of RUN 52's 28 landings sit exactly at target, so they were trimmed by an unknown
+amount). **The nulling steps of the perceptual run use ROTATE for every +-2048 step** and are the exposed consumer.
+Removing the splice needs the level set in silence at least `ahead` rotations before the landing, a redesign that
+is not in this change and is the Orchestrator's to decide. START climbs are inflow-limited (from a ring of 0,
+T256A1 -> T704A4 lands 1 130 short on either source); no aim fixes that.
+
+**What RUN 53 will record, all SD-only.** `V28_SWEEPM trim= late=` (the landing's own cut and whether a rotation
+was abandoned in flight); `V28_3BM ring0= min_ring_late= samples_late=` per 3b hold. `min_ring = 256` in RUN 52
+has two candidate readings the record cannot separate: a transient after the 3b entry landing (the same short
+landing, on a climb from 3a's floor), or a steady floor if the feed deficit exceeds the corrector's authority
+(the host's steady 3b hold reads min_ring about 1 955 at a 0.5 % deficit and about 180 at 1 %). On the fixed
+source the transient reading predicts min_ring and min_ring_late both about 2 050; a residual transient shows as
+min_ring < min_ring_late.
+
+**Tests.** `make -C tests/unit` green (56 binaries); `test_gbp_atrans2`'s conservation identity now counts the
+in-flight chunk's `cur_taken` (a DROP pushes one fewer than it takes); `test_gbp_v28_3b` and `test_gbp_v28_sweep`
+learn the new fields; `tests/host/test_v28verdict.py` reads and renders them, including the worst-case line length
+of the new lines against the 256-character log line. The full gate on the committed tree is recorded in §V28.12.

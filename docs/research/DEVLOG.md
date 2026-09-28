@@ -19412,3 +19412,28 @@ unauthorised.
 
 **Next.** Reproduce a short landing on the host with the two measured properties the host lacked (125 calls a
 period; a feed slower than the consumption), then fix the landing.
+
+## 2026-09-28 — Issue #136: the short landings reproduced on the host, the fix, and its cost (`HARDWARE_TESTS.md` §V28.11, `GBP-HW-360`)
+
+**Goal.** The Planejador's directive on #136: reproduce a short landing on the host before fixing, explain why the
+host never drove this, fix it, propose statuses.
+
+**Done.** The host was missing two console properties, both in the RUN 52 log: 125 pump calls per period (the
+hold's 239 630 samples in 60.0 s) and a feed 0.5 % slower than the consumption (`V28CORR`, DUP against DROP). With
+them the host lands short on the previous source, with **exact** feed as well, 700-940 samples, the console's size.
+`tests/unit/test_v28_sweep_landing.c` (RED before, GREEN after; a zero margin is RED on a late first call). Fix:
+the last muted period's rotation aim is `target + 512`. Diagnostics for RUN 53 (`trim=`, `late=`, `V28_3BM`).
+
+**What the review changed.** A fresh read-only adversarial review found: (MED) the trim is now large at every
+landing (mean 1.3-1.6 thousand samples, 5-20x) and audible, not masked: it runs after the first audible hand-off,
+so the splice falls about `ahead` chunks after the mute ends; the source's "masked" comments were never checked
+and are corrected; (MED) my first aim, `target`, had zero margin against a late first call (tolerance about 2 ms,
+the console's gaps reach 2.3 and 5.5 ms): `+512` and a test that fails at margin 0; (LOW) START climbs are
+inflow-limited and no aim fixes that; the "3 GATE + 2 INFO" figure was wrong (3 + 4). I also broke
+`test_gbp_atrans2` in the first commit (the conservation identity counted `cur_pushes`, missing a DROP); fixed in
+its own commit.
+
+**Not done, on purpose.** The splice is not removed: that needs the level set in silence at least `ahead`
+rotations before the landing, a redesign the Orchestrator decides. The perceptual run is not authorised.
+
+**Next.** Full gate on the committed tree, push, rebuild/re-pin/re-stage `23-v28v` for RUN 53 (§V28.12).
