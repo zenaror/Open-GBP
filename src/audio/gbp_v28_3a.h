@@ -128,6 +128,20 @@ int gbp_v28_3a_finished(const struct gbp_v28_3a *s);
 /* NULL if `index` is out of range (>= depths_n). */
 const struct gbp_v28_3a_depth *gbp_v28_3a_depth_record(const struct gbp_v28_3a *s, uint32_t index);
 
+/* Issue #128/#129/#130/#131, the Orchestrator's own correction on Amendment 1's first attempt:
+ * 3a's own confirmed floor for gbp_v28_anchor() (gbp_v28_ladder.h) -- the LOWEST DEPTH WHOSE DWELL
+ * ACTUALLY HELD, which is `hi`, NEVER `lo`. `lo` is the CONFIRM dwell's own target, the HIGHEST
+ * FAILING depth being re-tested (this header's own design comment above: "the bracket closed, a
+ * CONFIRM dwell holds the highest FAILING depth (lo)... NOT the lowest depth at which audio
+ * survives") -- #128 §3's own anchor rule needs the opposite bound. Concretely: `hi` once bisection
+ * has ever started (`bisecting`; `hi` is updated on every hold throughout bisection, line 161's own
+ * `else s->hi = cur`, so a cut mid-bisection still leaves the best available evidence, not a stale
+ * `last_hold` frozen at the pre-bisection value), or `last_hold` before any bisection began (the
+ * descent held straight down with no failure yet, so `hi` was never assigned a meaningful value of
+ * its own). Returns 0 (`*out` untouched) if `have_hold` is false -- no depth has ever held at all,
+ * matching `gbp_v28_anchor()`'s own `has_floor` parameter exactly. */
+int gbp_v28_3a_confirmed_floor(const struct gbp_v28_3a *s, uint32_t *out);
+
 #ifdef __cplusplus
 }
 #endif

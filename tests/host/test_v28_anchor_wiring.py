@@ -31,16 +31,16 @@ class Wiring(unittest.TestCase):
         src = read()
         self.assertRegex(src, r"gbp_v28_3b_start\s*\(\s*&s3b\s*,\s*v28_anchor\.target")
 
-    def test_the_floor_extraction_reads_bracket_closed_before_last_hold(self):
-        """3a's own confirmed floor: `lo` once the bracket closed (bisection converged on it),
-        `last_hold` otherwise (held straight to P3_MIN, no bisection needed) -- never `lo` alone,
-        which is only meaningful after bracket_closed."""
+    def test_the_floor_extraction_uses_the_dedicated_accessor_not_lo_directly(self):
+        """3a's own confirmed floor (the Orchestrator's own correction at #131's freeze): `lo` is
+        the CONFIRM dwell's own target, the HIGHEST FAILING depth being re-tested, never the lowest
+        HOLDING one -- main.c must call gbp_v28_3a_confirmed_floor() (gbp_v28_3a.h), never read
+        s3a.lo directly at this call site."""
         src = read()
-        self.assertRegex(src, r"s3a\.bracket_closed\s*\?\s*s3a\.lo\s*:\s*s3a\.last_hold")
-
-    def test_has_floor_reads_have_hold(self):
-        src = read()
-        self.assertRegex(src, r"s3a\.have_hold")
+        self.assertRegex(src, r"has_floor\s*=\s*gbp_v28_3a_confirmed_floor\s*\(\s*&s3a\s*,\s*&floor_native\s*\)")
+        # the exact first (backwards) attempt this test itself once passed against -- never again
+        self.assertNotRegex(src, r"s3a\.bracket_closed\s*\?\s*s3a\.lo\s*:\s*s3a\.last_hold")
+        self.assertNotRegex(src, r"gbp_v28_anchor\s*\([^;]*\bs3a\.lo\b")
 
     def test_gbp_v28_anchor_is_actually_called(self):
         src = read()

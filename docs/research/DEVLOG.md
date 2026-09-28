@@ -18770,3 +18770,42 @@ skipped, 0 failed, on the committed tree.
 
 **Next.** Both DOL hashes go to the Orchestrator for verification; Swiss staging waits on that
 confirmation, per the freeze's own explicit gate.
+
+## 2026-09-28 — Issue #128/#129/#130/#131: `gbp_v28_3a_confirmed_floor()`, correcting Amendment 1's own first attempt (`lo` vs `hi`)
+
+The Orchestrator's own review of the previous two commits (204bfa8, 2d4fdc0) found the first
+attempt at Amendment 1's floor extraction backwards: `s3a.bracket_closed ? s3a.lo : s3a.last_hold`
+reads `s->lo`, which `gbp_v28_3a.c`'s own bisection (lines 140-165) and `gbp_v28_3a.h`'s own design
+comment both establish as the FAILING depth -- the CONFIRM dwell's own re-test target, "the highest
+failing depth (lo)... NOT the lowest depth at which audio survives". #128 §3's own rule needs the
+opposite bound: the lowest depth whose dwell actually HELD, which is `s->hi` once bisection has
+started (updated on every hold throughout bisection, `else s->hi = cur`), or `s->last_hold`
+beforehand (the descent held straight down, `hi` was never assigned). A straddling bracket
+(`lo=4090` fails, `hi=4110` holds) anchors to T320 under the correct read and to T256 under the
+buggy one -- the two genuinely disagree, not merely off by a rounding edge.
+
+**Fix.** `gbp_v28_3a_confirmed_floor()` (`gbp_v28_3a.h`/`.c`), a new pure accessor: `s->bisecting ?
+s->hi : s->last_hold`, gated on `s->have_hold` (0 = no floor at all, matching `gbp_v28_anchor()`'s
+own `has_floor` parameter). `main.c`'s own 3a-to-3b transition now calls it instead of reading
+`s3a.lo`/`s3a.bracket_closed` inline. `gbp_v28_ladder.h`'s own doc comment on `gbp_v28_anchor()`
+corrected to point at the accessor and explain why `lo` is wrong at that call site.
+
+**Proof.** `tests/unit/test_gbp_v28_3a.c`: 4 new tests -- a first depth that fails outright (no
+floor at all); a descent that holds straight to `P3_MIN` (both reads agree, `bisecting` never set);
+a straddling bracket (hand-traced against the real `P3_START`/`P3_STEP`/`P3_BISECT_WIDTH`
+constants: holds 6144/5632/5120/4608, fails 4096, bisects to `lo=4096 hi=4128`) proving
+`gbp_v28_anchor()` on the correct floor (4128) gives T320 while on `lo` (4096) it gives T256, the
+two reads genuinely disagreeing; a cut mid-bisection, proving the floor tracks the LATEST `hi`, not
+the stale pre-bisection `last_hold`. RED/GREEN: reverted the accessor to the old buggy expression
+via `sed`, rebuilt -- exactly 5 failures, all and only in the two differentiating tests, all other
+67 checks (including the two behavior-identical new tests) still green; reverted back, 72/72 green
+again; `git diff` on `gbp_v28_3a.c` confirmed the only change is the new accessor function.
+`tests/host/test_v28_anchor_wiring.py`: the wiring test updated to assert the accessor call and to
+assert the old buggy expression and a bare `s3a.lo` read are both absent from `main.c`. 8/8.
+
+**Gate.** `make -C tests/unit`: 72/72 (`test_gbp_v28_3a`, was 50). `pytest -q tests/host`: figures
+in the tool-fix entry below (run together on the same committed tree).
+
+**Next.** Rebuild both images from the clean tree, post the corrected hashes for the Orchestrator's
+verification. Swiss staging still waits on that.
+

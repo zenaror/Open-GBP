@@ -186,3 +186,10 @@ const struct gbp_v28_3a_depth *gbp_v28_3a_depth_record(const struct gbp_v28_3a *
     if (!s || index >= s->depths_n) return NULL;
     return &s->depths[index];
 }
+
+int gbp_v28_3a_confirmed_floor(const struct gbp_v28_3a *s, uint32_t *out)
+{
+    if (!s || !s->have_hold) return 0;
+    *out = s->bisecting ? s->hi : s->last_hold;
+    return 1;
+}
