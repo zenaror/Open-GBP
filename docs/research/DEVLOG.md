@@ -18105,3 +18105,48 @@ target -- both land with the identical (ready, cur, ring) tuple, yet only one un
 missing a state variable; the Orchestrator's own candidates are the call's own position within the period and
 what feed arrives before the next production attempt. Then close it with the same discipline: named cause,
 fixed at its own call, proven red-before/green-after.
+
+## 2026-09-27 — Issue #129/#130 continued: entry 6's own fix committed and pushed; gbp_v28_3b's own entry-step
+## underrun closed at ITS exact cause -- a tension between two of this round's own fixes, not a third mechanism
+
+Entry 6's own fix (mute_carry, the exact rotation-start arithmetic, the landing call's own production recovery)
+committed as `e6ab0f7` and pushed, per the Orchestrator's own instruction, naming gbp_v28_3b's own entry-step
+underrun as open in the commit message rather than hiding it or adding a test that expected it.
+
+**The side-by-side trace the Orchestrator asked for, done precisely.** A steady 60 s hold at 3b's own anchor
+(`GBP_V28_P3_MIN`, AHEAD 1) is clean, the same tuple every period (ready = 0, cur = -1, ring at target) -- not
+infeasible. Yet 3b's own real entry step lands with THAT SAME tuple, exactly, and still underruns one hand-off
+later. Traced with `fprintf` either side of the ring trim, at the exact landing call: the ring held 8219 samples
+of surplus right before the trim (accumulated over the whole mute), and exactly 2048 right after -- the trim
+discards down to target, and `GBP_V28_P3_MIN` (2048) equals `GBP_APLAY2_PUSHES` exactly, so landing there always
+leaves `d->count == PUSHES`, one sample short of the `PUSHES + 1` `gbp_aplay2_produce()`'s own starvation guard
+needs to start a chunk at all -- not a timing gap, the trim erasing the recovery's own chance before it ran,
+every time a landing's own TARGET sits at that exact floor. Steady state never hits this: it has no trim of its
+own, and its own feed always arrives before its own production check, in the SAME call -- the missing state
+variable in the tuple was never a count or a phase, it was whether a TRIM had just run.
+
+**Fix, exactly as constrained (no special case for 2048, no change to TARGET_MIN/P3_MIN, no change to the
+`PUSHES + 1` guard): reorder, not special-case.** `step_rotate2()`'s landing branch now attempts the production
+recovery FIRST, against the ring's own full pre-trim surplus, THEN trims whatever that recovery leaves behind
+down to target -- the same final ring level as before at every OTHER target (comfortably above `PUSHES + 1`
+regardless), and now a genuine chance at the floor too, since the recovery draws on surplus the trim has not
+yet erased.
+
+**Proof (commit `f640577`).** `tests/unit/test_gbp_v28_3b.c` gains a direct test driving the real entry step to
+ITS OWN landing (`tr.active` back to 0 -- not `s.hold_active`, which gbp_v28_3b sets the instant `begin()`
+applies, well before the underlying mute elapses; the test's own first draft used that wrong instant and found
+nothing, for exactly the reason the Orchestrator's own diagnosis predicted a fitted check would miss it), then
+settles under ordinary feed and asserts `ap.underruns` never moves -- RED against the previous commit (1
+failure), GREEN against this one. `tests/unit/test_gbp_atrans2.c`'s own `rotate+discard` test needed widening
+(recovering before the trim can leave a fresh sub-block, up to `GBP_APLAY2_STEP_PUSHES`, already in flight on
+top of the ring's own exact landing at target -- conservation unaffected, only the ring-level check's own
+tolerance). Full proof set: residue matrix 0/1280 (worst |residue| now 128, one recovered sub-block, still well
+inside `GBP_APLAY2_BAND`); `drop_front()` 0/320 violations; entry 6, entry 22 AND 3b's own entry step all 0
+underruns in their own 60 s holds; `test_gbp_v28_sweep.c` 108/108. Full gate: `pytest -q tests/host` 3322/7
+skipped/0 failed; `make -C tests/unit` all green.
+
+**Next.** The `test_v28_ahead_steps.c` native-path matrix port, still a named pre-staging item; the main.c
+zero-feed integration test (§18's own named successor, Issue #129); `SYNCPE` emission, the GX label, Amendment
+C's O6-leak drop and the two-image build, all still waiting on that same `main.c` to exist; then the sweep
+handler's own remaining scope (the `GBP_V28_START_MUTE` sizing question is settled; what remains is whatever
+the Orchestrator's own read of this round's full proof set asks for next).
