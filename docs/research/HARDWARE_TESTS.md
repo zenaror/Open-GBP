@@ -38722,3 +38722,27 @@ until 19 records, only GATE rows fold in); the sweep's 60 s cap (nominal 33.5 s 
 27 took 33.0 s); the gate. The perceptual run is not authorised and is not written here.
 
 **Not done here.** Rebuild, re-pin and re-stage of `23-v28v` are recorded in §V28.9.
+
+### V28.9 `23-v28v` rebuilt, re-pinned a fifth time and re-staged for RUN 52 — 2026-09-28 (Issue #135)
+
+`validation_run` rebuilt from the clean commit `e629d96` (worktree clean, `GIT_DIRTY` empty), through the
+project Docker environment, **twice independently, identical bytes both times**:
+
+```text
+sha256 7cd5ac21a99f4a9f023fd6335c35584be9f4b863db7cac2fe1e3a5c40de7487a
+build  v28-validation-0001, commit e629d96, slot 23-v28v
+```
+
+`BUILD_ID` is still `v28-validation-0001`, as at RUN 50 and RUN 51: the image is identified by its commit
+and its hash (`OPENGBP_GIT_COMMIT` is embedded, `CLAUDE.md` §16), and each run's log is archived under its
+own run number. This build differs from the RUN 51 image (`af2d4f81...5a2e`, commit `1f77bc4`) by: the
+sweep's INFO reposition (T256A1 -> T704A4, record 0), the `V28_SWEEPM` line per record, 3b's
+`min_ready`/`min_ring`/`samples`, and the `SYNCPE p=3 edge=end` fix from `56c7777`. §V28.8 records what
+each is for and what it cannot show.
+
+Manifest re-pinned (`tools/swiss-layout.tsv`), test pin updated. Local export `--only 23-v28v` (hash
+matches the pin). Card (`/media/rafael/SD_GC/Open-GBP`): `23-v28v/boot.dol` copied and read back at
+`7cd5ac21...7487a`; every other frozen slot hashed before and after the copy: 23 of 24 identical, the
+one difference being `23-v28v` itself; `INDEX.txt` untouched (sha256 `e2f46d91...cfa67` before and after).
+
+This is the build RUN 52 runs. The perceptual run is not authorised and is not written here.
