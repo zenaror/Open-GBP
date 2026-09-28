@@ -212,7 +212,9 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
                  "GBP-AUDIO-012_sync-0001-run43.log": "92",
                  # Issue #132 (2026-09-28): RUN 44-47, agb-route's four variants, each with a GBA cartridge
                  "GBP-AUDIO-013_stream-0016-run44.log": "92", "GBP-AUDIO-013_stream-0016-run45.log": "92",
-                 "GBP-AUDIO-013_stream-0016-run46.log": "92", "GBP-AUDIO-013_stream-0016-run47.log": "92"}
+                 "GBP-AUDIO-013_stream-0016-run46.log": "92", "GBP-AUDIO-013_stream-0016-run47.log": "92",
+                 # Issue #131/#133 (2026-09-28): RUN 50, the gbp-audio-v28 fix run, a GBA cartridge
+                 "GBP-AUDIO-V28_v28-validation-0001-run50.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1
@@ -261,8 +263,11 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
         # the same way
         sync = {f for f in cart if "sync-0001" in f}
         self.assertEqual(len(sync), 1, sorted(sync))
+        # Issue #131/#133: RUN 50 (v28-validation-0001), the gbp-audio-v28 fix run; named the same way
+        v28 = {f for f in cart if "v28-validation" in f}
+        self.assertEqual(len(v28), 1, sorted(v28))
         self.assertTrue(all(re.search(r"(color|stream)", f)
-                            for f in cart - play - drain - live - trace - split - game - game2 - sync))
+                            for f in cart - play - drain - live - trace - split - game - game2 - sync - v28))
 
     def test_the_document_says_what_the_split_does_not_support(self):
         d = plain(read(DOC))

@@ -11499,3 +11499,29 @@ grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
 A later recount appends its own entry here, at the end of the file, under the next free
 `GBP-HW-` number — never inside `GBP-HW-272` again, and never inside this entry either, once a
 guard pins a prefix that includes it.
+
+---
+
+### GBP-HW-354 — GBP-HW-272's CLAIM 1 recomputed over 61 logs (RUN 50 adds one cartridge-present log, `0x92`): 13 at `0x90`, 48 at `0x92`, still FACT — the next terminal entry, `GBP-HW-353`'s own convention (Issue #120), never appended inside `GBP-HW-272` or `GBP-HW-353` either
+
+`GBP-HW-353`'s own entry already explains why a recount cannot land inside `GBP-HW-272` any more
+(`tests/host/test_run43.py`'s `OnTopNeverRewritten` guard, Issue #120): it is not repeated here.
+The same reasoning applies to `GBP-HW-353` itself, whether or not a guard currently pins it —
+this recount lands as its own numbered entry regardless, so the question never has to be answered
+under time pressure later.
+
+**The recount.** RUN 50 (`v28-validation-0001-run50`, Issue #131/#133 — the fix that finally
+measured §V28's own AHEAD-1 hold) ran with a GBA cartridge in the slot and records `orig=92`, as
+the split predicts. Before this run the population was 60 logs, 13 at `0x90` and 47 at `0x92`;
+after it, it is **61: 13 at `0x90` and 48 at `0x92`**. CLAIM 1 stays FACT and gains one log; CLAIM
+2 (`GBP-HW-272`, CORROBORATED) is untouched — one more cartridge-present log is one more sample in
+a cell that is already full.
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     48 CONTROL semantic orig=92
+```
+
+A later recount appends its own entry here, at the end of the file, under the next free
+`GBP-HW-` number — never inside `GBP-HW-272`, `GBP-HW-353` or this entry again.
