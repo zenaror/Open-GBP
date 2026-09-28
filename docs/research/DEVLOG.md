@@ -18729,3 +18729,44 @@ Orchestrator's own verification before any staging.
 figures in the commit message.
 
 **Next.** Awaiting the Orchestrator's own hash verification before Swiss staging is authorised.
+
+## 2026-09-28 — Issue #128/#129/#130/#131: `tools/v28verdict.py` updated for Amendments 1, 4 and 5
+
+Alongside the `gbp_v28_anchor()` fix itself (the previous entry), the classifier reading its own
+output needed three changes, all from the same freeze comment.
+
+**Amendment 1**: `hold_3b()` now reads the new `V28ANCHOR` record (`anchor_info()`) as the anchor's
+own authoritative source, not merely the `V28_3B` rows' own `anchor=`/`source=` fields (which do
+not exist at all when the anchor is `none`, since `gbp_v28_3b_start()` is never called then). The
+32-tap reversal condition is now evaluable ONLY when the anchor's own source is `rule` AND its
+target is exactly T256 -- a clean AHEAD-1 hold at some OTHER rung (3a's own floor could legitimately
+land the anchor at T320, T448, etc.) must never be misread as the reversal firing; that was
+precisely the risk Amendment 1 as a whole exists to close.
+
+**Amendment 4 (native units)**: `fmt_target()` prints every TARGET three ways -- native (65536 Hz),
+the old-path equivalent (÷16), milliseconds -- applied everywhere a TARGET reaches the report (3a's
+own confirmed floor, the anchor, sweep's own `from_t`/`to_t`). No comparison anywhere in the tool
+reads a bare old-unit literal against a native figure -- the exact class of error `gbp_v28_ladder.h`
+itself was built to close (Amendment A of #128), now guarded on the READING side too.
+
+**Amendment 5 (Z / partial runs)**: `admissibility()` no longer treats every one of the four phases
+as required. It now finds `last_reached` (the highest phase index with ANY `SYNCPE` record at all)
+and only requires a start+end pair for phases `0..last_reached`; anything past that is reported
+`not_reached`, neither PASS nor FAIL, never a problem. A phase that WAS reached but is missing its
+own end stays a real admissibility problem -- Amendment 5 narrows WHICH phases get evaluated, it
+does not weaken what "reached but incomplete" means. `used_z` is reported separately (any `SYNCPH`
+`reason=z`), so a reader can immediately tell an Operator-ended run from one that simply finished.
+
+**Proof.** `tests/host/test_v28verdict.py`: 3 new test classes (`FmtTarget`, `AnchorInfo`) plus
+additions to `Admissibility`/`Hold3B` -- a Z cut leaving two phases unreached and NOT flagged (while
+the one phase that DID start but never got its own end still IS flagged, the two kept distinct); a
+clean AHEAD-1 hold at a non-T256 rung correctly reported NOT EVALUABLE, never FIRED (the exact
+misreading Amendment 1 closes, now proven on the reading side too); `anchor=default`/`anchor=none`
+each read and reported correctly. `tests/host/test_v28_leak.py`/`test_v28_syncpe.py`: unaffected,
+re-run clean.
+
+**Gate.** `pytest -q tests/host`: 3385 passed (together with the anchor fix's own new tests), 7
+skipped, 0 failed, on the committed tree.
+
+**Next.** Both DOL hashes go to the Orchestrator for verification; Swiss staging waits on that
+confirmation, per the freeze's own explicit gate.

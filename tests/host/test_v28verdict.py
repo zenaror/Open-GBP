@@ -1,7 +1,8 @@
 """tests/host/test_v28verdict.py -- tools/v28verdict.py against synthetic gbp-audio-v28 logs built
 with the POC's own tag grammar (never a real capture). The Hardware Issue's own §4 is the authority;
 this proves the tool implements it, gate by gate, on both the clean case and each named admissibility/
-domain failure mode.
+domain failure mode, including Issue #131's own Amendment 1 (the anchor), Amendment 4 (native
+units), and Amendment 5 (Z / partial runs).
 """
 import os
 import sys
@@ -12,9 +13,15 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import v28verdict  # noqa: E402
 
+T256 = 4096  # gbp_v28_ladder.h's own GBP_V28_T256, native samples
+
 
 def syncpe_pair(p, why="complete"):
     return "SYNCPE p=%d edge=start t=%x why=none\nSYNCPE p=%d edge=end t=%x why=%s" % (p, p * 10 + 1, p, p * 10 + 9, why)
+
+
+def syncpe_start_only(p):
+    return "SYNCPE p=%d edge=start t=%x why=none" % (p, p * 10 + 1)
 
 
 def syncph(p, reason="complete"):
@@ -33,8 +40,13 @@ def a3_confirm(target, partial=0, underruns=0):
             "t_set=0 t_done=100" % (target, partial, underruns))
 
 
-def b3_hold(ahead, underrun_seen=0, partial=0):
-    return "V28_3B n=0 ahead=%d underrun_seen=%d partial=%d t_set=0 t_done=100" % (ahead, underrun_seen, partial)
+def anchor_line(target=T256, source="rule"):
+    return "V28ANCHOR target=%d source=%s" % (target, source)
+
+
+def b3_hold(ahead, underrun_seen=0, partial=0, anchor=T256, source="rule"):
+    return ("V28_3B n=0 ahead=%d anchor=%d source=%s underrun_seen=%d partial=%d t_set=0 t_done=100"
+            % (ahead, anchor, source, underrun_seen, partial))
 
 
 def sweep_gate_row(n, outcome=1, fail=0):
@@ -59,11 +71,27 @@ def full_clean_log():
     return "\n".join([
         CLEAN_ADMISSIBILITY,
         a3_confirm(3072, partial=0, underruns=0),
-        b3_hold(1, underrun_seen=0, partial=0),
+        anchor_line(T256, "rule"),
+        b3_hold(1, underrun_seen=0, partial=0, anchor=T256, source="rule"),
         "\n".join(sweep_gate_row(n) for n in range(18)),
         sweep_verdict(1),
         label(),
     ])
+
+
+class FmtTarget(unittest.TestCase):
+    def test_native_old_and_ms_all_appear(self):
+        s = v28verdict.fmt_target(4096)
+        self.assertIn("4096 native", s)
+        self.assertIn("256.0 old", s)          # 4096 / 16
+        self.assertIn("62.50 ms", s)           # 4096 / 65536 * 1000
+
+    def test_never_bare_old_unit_arithmetic_leaks_as_the_native_value(self):
+        # a reader must never be able to mistake the native figure for an old-path one
+        s = v28verdict.fmt_target(2048)        # P3_MIN
+        self.assertIn("2048 native", s)
+        self.assertIn("128.0 old", s)
+        self.assertIn("31.25 ms", s)
 
 
 class Admissibility(unittest.TestCase):
@@ -72,9 +100,12 @@ class Admissibility(unittest.TestCase):
         self.assertTrue(out["pass"], out["problems"])
         self.assertEqual(out["problems"], [])
         self.assertEqual(out["cut_reasons"], [])
+        self.assertEqual(out["not_reached"], [])
+        self.assertEqual(out["last_reached"], 3)
+        self.assertFalse(out["used_z"])
 
-    def test_a_missing_syncpe_edge_is_caught(self):
-        # phase 2's own end edge dropped
+    def test_a_missing_syncpe_edge_on_a_reached_phase_is_caught(self):
+        # phase 2's own end edge dropped, but phase 3 still ran -- phase 2 was clearly reached
         lines = CLEAN_ADMISSIBILITY.splitlines()
         lines = [l for l in lines if not (l.startswith("SYNCPE p=2 edge=end"))]
         out = v28verdict.admissibility("\n".join(lines))
@@ -105,6 +136,32 @@ class Admissibility(unittest.TestCase):
         self.assertFalse(out["pass"])
         self.assertIn("no V28C2 record", out["problems"])
 
+    def test_amendment_5_unreached_phases_are_not_flagged_as_problems(self):
+        """A Z cut mid-phase-1 (3a): phases 2 and 3 (3b, sweep) never started at all -- not a
+        problem, not evaluated, distinct from a phase that started but never got its own end."""
+        text = "\n".join([
+            syncpe_pair(0), syncph(0, "complete"),
+            syncpe_start_only(1), syncph(1, "z"),   # phase 1 reached and cut by Z -- its own end IS present via SYNCPH's backstop, but no SYNCPE end line here on purpose
+            "V28C2 discarded=0 starved_steps=0 lost=0 blocks_in=100 ring_discarded=0 trans_faults=0 "
+            "dropped_front=0 cs=0 acted=0 syncpe_lost=0 lines_lost=0",
+            "V28CORR n=100 overflow=0 min=0 max=5 mean_x100=250 cap=19617",
+        ])
+        out = v28verdict.admissibility(text)
+        self.assertEqual(out["not_reached"], [2, 3])
+        self.assertTrue(out["used_z"])
+        # phase 1 was reached (a start exists) but never got a SYNCPE end -- that IS a real problem,
+        # distinct from "not reached"
+        self.assertTrue(any("phase 1" in p and "no SYNCPE end" in p for p in out["problems"]), out["problems"])
+        self.assertFalse(any("phase 2" in p or "phase 3" in p for p in out["problems"]), out["problems"])
+
+    def test_last_reached_with_nothing_at_all_is_minus_one(self):
+        out = v28verdict.admissibility("V28C2 discarded=0 starved_steps=0 lost=0 blocks_in=0 "
+                                       "ring_discarded=0 trans_faults=0 dropped_front=0 cs=0 acted=0 "
+                                       "syncpe_lost=0 lines_lost=0\nV28CORR n=0 overflow=0 min=0 max=0 "
+                                       "mean_x100=0 cap=19617")
+        self.assertEqual(out["last_reached"], -1)
+        self.assertEqual(out["not_reached"], [0, 1, 2, 3])
+
 
 class Descent3A(unittest.TestCase):
     def test_the_last_confirm_is_the_measurement(self):
@@ -125,20 +182,61 @@ class Descent3A(unittest.TestCase):
         self.assertFalse(out["have"])
 
 
+class AnchorInfo(unittest.TestCase):
+    def test_reads_the_dedicated_record(self):
+        out = v28verdict.anchor_info(anchor_line(4096, "rule"))
+        self.assertTrue(out["have"])
+        self.assertEqual(out["target"], 4096)
+        self.assertEqual(out["source"], "rule")
+
+    def test_none_source_is_read_as_such(self):
+        out = v28verdict.anchor_info(anchor_line(0, "none"))
+        self.assertEqual(out["source"], "none")
+
+    def test_no_record_at_all(self):
+        out = v28verdict.anchor_info("")
+        self.assertFalse(out["have"])
+
+
 class Hold3B(unittest.TestCase):
-    def test_ahead1_clean_fires_the_reversal(self):
-        out = v28verdict.hold_3b(b3_hold(1, underrun_seen=0))
+    def test_ahead1_clean_at_t256_fires_the_reversal(self):
+        text = "\n".join([anchor_line(T256, "rule"), b3_hold(1, underrun_seen=0, anchor=T256, source="rule")])
+        out = v28verdict.hold_3b(text)
         self.assertTrue(out["ahead1_clean"])
+        self.assertTrue(out["reversal_evaluable"])
         self.assertTrue(out["reversal_fired"])
         self.assertFalse(out["have_ahead2"])
 
     def test_ahead1_underrun_does_not_fire_the_reversal_and_ahead2_appears(self):
-        text = "\n".join([b3_hold(1, underrun_seen=1), b3_hold(2, underrun_seen=0)])
+        text = "\n".join([anchor_line(T256, "rule"),
+                          b3_hold(1, underrun_seen=1, anchor=T256, source="rule"),
+                          b3_hold(2, underrun_seen=0, anchor=T256, source="rule")])
         out = v28verdict.hold_3b(text)
         self.assertFalse(out["ahead1_clean"])
         self.assertFalse(out["reversal_fired"])
         self.assertTrue(out["have_ahead2"])
         self.assertTrue(out["ahead2_clean"])
+
+    def test_amendment_1_a_clean_hold_at_a_non_t256_anchor_never_fires_the_reversal(self):
+        """The exact scenario Amendment 1 exists to prevent silently misreading: a clean AHEAD-1
+        hold at, say, T320 (a non-anchor rung 3a's own floor happened to land on) must NOT be read
+        as the reversal firing -- the condition is specifically about the T256 anchor."""
+        text = "\n".join([anchor_line(5120, "rule"), b3_hold(1, underrun_seen=0, anchor=5120, source="rule")])
+        out = v28verdict.hold_3b(text)
+        self.assertTrue(out["ahead1_clean"])
+        self.assertFalse(out["reversal_evaluable"])
+        self.assertFalse(out["reversal_fired"])
+
+    def test_anchor_default_is_reported_as_such(self):
+        text = "\n".join([anchor_line(T256, "default"), b3_hold(1, underrun_seen=0, anchor=T256, source="default")])
+        out = v28verdict.hold_3b(text)
+        self.assertEqual(out["anchor"]["source"], "default")
+        self.assertFalse(out["reversal_evaluable"])  # source must be "rule", not merely target==T256
+
+    def test_anchor_none_has_no_hold_at_all(self):
+        out = v28verdict.hold_3b(anchor_line(0, "none"))
+        self.assertEqual(out["anchor"]["source"], "none")
+        self.assertFalse(out["have_ahead1"])
 
 
 class Sweep(unittest.TestCase):
@@ -190,7 +288,14 @@ class FullRender(unittest.TestCase):
         text = v28verdict.render(v28verdict.analyse(full_clean_log()))
         self.assertIn("ADMISSIBILITY: PASS", text)
         self.assertIn("verdict=PASS", text)
+        self.assertIn("FIRED", text)  # the reversal condition, at the T256 anchor, clean
         self.assertNotIn("FAIL", text)
+
+    def test_targets_are_never_printed_as_a_bare_number(self):
+        text = v28verdict.render(v28verdict.analyse(full_clean_log()))
+        self.assertIn("native", text)
+        self.assertIn("old", text)
+        self.assertIn("ms", text)
 
     def test_main_reads_a_file_and_prints(self):
         import tempfile

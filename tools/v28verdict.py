@@ -7,8 +7,20 @@ never anything beyond it, and computes no verdict the Issue does not already sta
     tools/v28verdict.py <log-file>
 
 Reads main.c's own tag grammar directly (SYNCPE/SYNCPH via tools/v28syncpe.py; V28_3A/V28_3B/
-V28_SWEEP/V28_SWEEP_VERDICT/V28LABEL/V28C2/V28CORR as plain key=value lines, the same `kv()`
-convention tools/vevents.py already uses). Standard library only.
+V28ANCHOR/V28_SWEEP/V28_SWEEP_VERDICT/V28LABEL/V28C2/V28CORR as plain key=value lines, the same
+`kv()` convention tools/vevents.py already uses). Standard library only.
+
+UNITS (Issue #131's own Amendment 4, #128's own Amendment A): every TARGET the log carries is in
+NATIVE 65536 Hz samples. This tool never compares one against an old-path (4096 Hz) figure; it
+prints every TARGET three ways -- native, the old-path equivalent (/16), and milliseconds -- so a
+reader used to either unit reads the right number, and no old-unit literal sneaks into a comparison
+here the way it did in the ladder itself before Amendment A (gbp_v28_ladder.h's own history).
+
+Z / PARTIAL RUNS (Amendment 5): a phase the run never reached (cut by Z, or the run ended before
+reaching it) is NOT a gate failure -- it is simply not evaluated, reported as "not reached", never
+FAIL or PASS. Admissibility only requires SYNCPE start+end for phases 0..the last one actually
+reached; a phase's own PARTIAL record (3a/3b/sweep all mark one) is what says a REACHED phase was
+cut before its own natural end.
 """
 import os
 import re
@@ -18,12 +30,28 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import v28syncpe  # noqa: E402
 
 PHASE_NAMES = {0: "navigate", 1: "3a", 2: "3b", 3: "sweep"}
+N_PHASES = 4
 
 # gbp_v28_sweep.h's own enums (src/audio/gbp_v28_sweep.h) -- read directly, not re-derived.
 SWEEP_KLASS_GATE, SWEEP_KLASS_INFO = 0, 1
 SWEEP_OUTCOME_PASS = 1
 SWEEP_GATE_N = 18
 SWEEP_VERDICT_NAMES = {0: "PENDING", 1: "PASS", 2: "FAIL"}
+
+# gbp_v28_ladder.h's own enum gbp_v28_anchor_source.
+ANCHOR_SOURCE_NAMES = {"rule": "rule", "default": "default", "none": "none"}
+
+NATIVE_RATIO = 16          # gbp_v28_ladder.h's own GBP_V28_NATIVE_RATIO (65536 / 4096)
+NATIVE_RATE_HZ = 65536
+
+
+def fmt_target(native):
+    """'native (old, ms)' -- every TARGET printed in all three units at once, so a reader is never
+    left to silently assume which one a bare number is (the exact class of error Amendment A guards
+    the ladder itself against)."""
+    old = native / NATIVE_RATIO
+    ms = native * 1000.0 / NATIVE_RATE_HZ
+    return "%d native (%.1f old, %.2f ms)" % (native, old, ms)
 
 
 def kv(rest):
@@ -47,22 +75,27 @@ def find_last(text, tag):
 
 
 def admissibility(text):
-    """The capture layer: every phase's own SYNCPE start+end present, no store overflow/loss, and
-    every SYNCPH reason accounted for. A run that fails this is INCONCLUSIVE regardless of what the
-    domain gates below say (the Issue's own §4)."""
+    """The capture layer: every REACHED phase's own SYNCPE start+end present, no store overflow/
+    loss. A phase the run never reached (Z, or the run ended first) is not evaluated -- Amendment 5.
+    A run that fails an evaluated check is INCONCLUSIVE regardless of what the domain gates below
+    say (the Issue's own §4)."""
     syncpe = [r for r in (v28syncpe.parse_syncpe(l) for l in text.splitlines()) if r is not None]
     syncph = [r for r in (v28syncpe.parse_syncph(l) for l in text.splitlines()) if r is not None]
     v28c2 = find_last(text, "V28C2")
     v28corr = find_last(text, "V28CORR")
     problems = []
 
-    started = set(s["p"] for s in syncpe if s["edge"] == "start")
-    ended = set(s["p"] for s in syncpe if s["edge"] == "end")
-    for p in range(4):
+    started = set(int(s["p"]) for s in syncpe if s["edge"] == "start")
+    ended = set(int(s["p"]) for s in syncpe if s["edge"] == "end")
+    reached = started | ended
+    last_reached = max(reached) if reached else -1
+    not_reached = [p for p in range(N_PHASES) if p not in reached]
+
+    for p in range(last_reached + 1):
         if p not in started:
-            problems.append("phase %d (%s): no SYNCPE start" % (p, PHASE_NAMES.get(p, "?")))
+            problems.append("phase %d (%s): reached but no SYNCPE start" % (p, PHASE_NAMES.get(p, "?")))
         if p not in ended:
-            problems.append("phase %d (%s): no SYNCPE end" % (p, PHASE_NAMES.get(p, "?")))
+            problems.append("phase %d (%s): reached but no SYNCPE end" % (p, PHASE_NAMES.get(p, "?")))
 
     if v28c2 is None:
         problems.append("no V28C2 record")
@@ -77,8 +110,10 @@ def admissibility(text):
         problems.append("V28CORR overflow=%s (nonzero)" % v28corr["overflow"])
 
     cut = [(int(h["phase"]), h["reason"]) for h in syncph if h["reason"] != "complete"]
+    used_z = any(reason == "z" for _phase, reason in cut)
 
     return {"pass": len(problems) == 0, "problems": problems, "cut_reasons": cut,
+            "not_reached": not_reached, "last_reached": last_reached, "used_z": used_z,
             "syncpe_count": len(syncpe), "syncph_count": len(syncph)}
 
 
@@ -96,21 +131,36 @@ def descent_3a(text):
             "n_depths": len(rows)}
 
 
+def anchor_info(text):
+    """Issue #131's own Amendment 1: the anchor 3b actually held at, and where it came from (rule/
+    default/none), read from the dedicated V28ANCHOR record -- the only record of an anchor=none
+    finding, since V28_3B then has no rows of its own at all."""
+    r = find_last(text, "V28ANCHOR")
+    if r is None:
+        return {"have": False}
+    return {"have": True, "target": int(r["target"]), "source": r["source"]}
+
+
 def hold_3b(text):
-    """AHEAD 1 at the T256 anchor for 60 s; AHEAD 2 only if AHEAD 1 saw an underrun (Issue #128
-    §2). Also the 32-tap reversal condition (GBP-HW-351, Amendment B): recorded as fired/not fired
-    from AHEAD 1's own clean-or-not, never acted on this round."""
+    """AHEAD 1 at the anchor for 60 s; AHEAD 2 only if AHEAD 1 saw an underrun (Issue #128 §2).
+    Also the 32-tap reversal condition (GBP-HW-351, Amendment B): recorded as fired/not fired from
+    AHEAD 1's own clean-or-not, ONLY EVALUABLE when the anchor actually used is T256 (Issue #131's
+    own Amendment 1 -- any other anchor, or none, and the reversal is simply not evaluable, never
+    fired or not-fired)."""
     rows = find_all(text, "V28_3B")
+    anchor = anchor_info(text)
     by_ahead = {}
     for r in rows:
         by_ahead[int(r["ahead"])] = r
     a1 = by_ahead.get(1)
     a2 = by_ahead.get(2)
-    out = {"have_ahead1": a1 is not None, "have_ahead2": a2 is not None}
+    out = {"have_ahead1": a1 is not None, "have_ahead2": a2 is not None, "anchor": anchor}
     if a1 is not None:
         out["ahead1_clean"] = int(a1["underrun_seen"]) == 0
         out["ahead1_partial"] = int(a1["partial"]) != 0
-        out["reversal_fired"] = out["ahead1_clean"]
+        anchor_is_t256 = anchor["have"] and anchor["source"] == "rule" and anchor["target"] == 4096
+        out["reversal_evaluable"] = anchor_is_t256
+        out["reversal_fired"] = anchor_is_t256 and out["ahead1_clean"]
     if a2 is not None:
         out["ahead2_clean"] = int(a2["underrun_seen"]) == 0
         out["ahead2_partial"] = int(a2["partial"]) != 0
@@ -154,33 +204,50 @@ def render(out):
     for phase, reason in a["cut_reasons"]:
         lines.append("  note: phase %d (%s) ended with reason=%s (not `complete`)"
                      % (phase, PHASE_NAMES.get(phase, "?"), reason))
+    if a["not_reached"]:
+        lines.append("  not reached (neither PASS nor FAIL, not evaluated): phase(s) %s"
+                     % ", ".join("%d (%s)" % (p, PHASE_NAMES.get(p, "?")) for p in a["not_reached"]))
+    if a["used_z"]:
+        lines.append("  note: the Operator used Z -- gates for unreached phases above are not evaluated")
 
     d = out["descent_3a"]
     if not d["have"]:
         lines.append("3A: no CONFIRM record -- the descent did not reach a confirm hold")
     else:
-        lines.append("3A: lowest holding depth target=%d %s %s (over %d depths)"
-                     % (d["target"], "whole" if not d["partial"] else "PARTIAL",
+        lines.append("3A: lowest holding depth %s, %s, %s (over %d depths)"
+                     % (fmt_target(d["target"]), "whole" if not d["partial"] else "PARTIAL",
                         "clean" if d["clean"] else "underrun=%d" % d["underruns"], d["n_depths"]))
 
     h = out["hold_3b"]
-    if not h["have_ahead1"]:
-        lines.append("3B: no AHEAD-1 record")
+    anc = h["anchor"]
+    if not anc["have"]:
+        lines.append("3B: no V28ANCHOR record -- 3b's own phase was never reached")
+    elif anc["source"] == "none":
+        lines.append("3B: anchor=none (3a's own floor sits above every ladder rung) -- 3b did not hold")
     else:
-        lines.append("3B: AHEAD 1 %s%s" % ("clean" if h["ahead1_clean"] else "UNDERRUN",
-                                           " (partial)" if h["ahead1_partial"] else ""))
-        if h["have_ahead2"]:
-            lines.append("3B: AHEAD 2 %s%s" % ("clean" if h["ahead2_clean"] else "UNDERRUN",
-                                               " (partial)" if h["ahead2_partial"] else ""))
-        lines.append("3B: 32-tap reversal condition (GBP-HW-351) -- %s (recorded, Amendment B: not "
-                     "acted on this round)" % ("FIRED" if h["reversal_fired"] else "not fired"))
+        lines.append("3B: anchor %s, source=%s" % (fmt_target(anc["target"]), anc["source"]))
+        if not h["have_ahead1"]:
+            lines.append("3B: no AHEAD-1 record")
+        else:
+            lines.append("3B: AHEAD 1 %s%s" % ("clean" if h["ahead1_clean"] else "UNDERRUN",
+                                               " (partial)" if h["ahead1_partial"] else ""))
+            if h["have_ahead2"]:
+                lines.append("3B: AHEAD 2 %s%s" % ("clean" if h["ahead2_clean"] else "UNDERRUN",
+                                                   " (partial)" if h["ahead2_partial"] else ""))
+            if h["reversal_evaluable"]:
+                lines.append("3B: 32-tap reversal condition (GBP-HW-351) -- %s (recorded, Amendment B: "
+                             "not acted on this round)" % ("FIRED" if h["reversal_fired"] else "not fired"))
+            else:
+                lines.append("3B: 32-tap reversal condition (GBP-HW-351) -- NOT EVALUABLE (the anchor "
+                             "used is not T256)")
 
     s = out["sweep"]
     lines.append("SWEEP: %d records (%d GATE, %d INFO); verdict=%s"
                  % (s["n_records"], s["n_gate"], s["n_info"], s["verdict_name"]))
     for r in s["failing_gates"]:
-        lines.append("  FAIL gate n=%s: from (%s,%s) to (%s,%s) outcome=%s fail_reason=%s"
-                     % (r["n"], r["from_t"], r["from_a"], r["to_t"], r["to_a"], r["outcome"], r["fail"]))
+        lines.append("  FAIL gate n=%s: from %s (ahead %s) to %s (ahead %s) outcome=%s fail_reason=%s"
+                     % (r["n"], fmt_target(int(r["from_t"])), r["from_a"], fmt_target(int(r["to_t"])),
+                        r["to_a"], r["outcome"], r["fail"]))
 
     lbl = out["label"]
     if lbl["have"]:
