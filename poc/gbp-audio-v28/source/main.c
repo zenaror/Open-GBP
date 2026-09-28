@@ -1689,9 +1689,11 @@ int main(void)
                            (unsigned long)h->min_ready, (unsigned long)h->min_ring, (unsigned long)h->samples);
             /* Issue #136: the ring at the first sample after the entry landing, and its minimum once the
              * hold has settled -- what min_ring = 256 in RUN 52 could not separate. */
-            ringlog_printf(&rl, "V28_3BM n=%lu ring0=%lu min_ring_late=%lu samples_late=%lu",
+            ringlog_printf(&rl, "V28_3BM n=%lu ring0=%lu min_ring_late=%lu samples_late=%lu mean_ring=%lu mean_cs=%lu "
+                                "chunk_starts=%lu",
                            (unsigned long)j, (unsigned long)h->ring0, (unsigned long)h->min_ring_late,
-                           (unsigned long)h->samples_late);
+                           (unsigned long)h->samples_late, (unsigned long)h->mean_ring,
+                           (unsigned long)h->mean_chunk_start, (unsigned long)h->chunk_starts);
         }
         for (j = 0u; j < sweep.records_n && j < GBP_V28_SWEEP_N; j++) {
             const struct gbp_v28_sweep_record *r = gbp_v28_sweep_record_at(&sweep, j);
@@ -1713,9 +1715,9 @@ int main(void)
             /* Issue #136: where the ring's level was set (samples cut, and the hand-off period relative to the
              * first audible hand-off: negative is inside the mute, >= 0 is a cut AFTER unmute and fails the GATE row
              * as SPLICE), the rotations that rebuilt the queue after it, and whether the mute could fill the ring. */
-            ringlog_printf(&rl, "V28_SWEEPC n=%lu cut=%lu cut_rel=%ld rot_post=%lu fill_short=%lu late=%u",
+            ringlog_printf(&rl, "V28_SWEEPC n=%lu cut=%lu cut_rel=%ld rot_post=%lu fill_short=%lu dwell_cut=%lu late=%u",
                            (unsigned long)j, (unsigned long)r->cut, (long)r->cut_rel, (unsigned long)r->rot_post,
-                           (unsigned long)r->fill_short, (unsigned)r->late);
+                           (unsigned long)r->fill_short, (unsigned long)r->dwell_cut, (unsigned)r->late);
         }
         ringlog_printf(&rl, "V28_SWEEP_VERDICT v=%u", (unsigned)gbp_v28_sweep_verdict(&sweep));
 #else

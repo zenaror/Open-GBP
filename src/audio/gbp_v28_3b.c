@@ -57,6 +57,9 @@ int gbp_v28_3b_tick(struct gbp_v28_3b *s, struct gbp_atrans2 *t, struct gbp_apla
         s->cur_min_ring_late = UINT32_MAX;
         s->cur_samples_late = 0u;
         s->cur_t_first = 0u;
+        s->cur_sum_ring = s->cur_sum_cs = 0u;
+        s->cur_cs_n = 0u;
+        s->cur_cs_last = p->produced;
         return 0;
     }
 
@@ -71,6 +74,12 @@ int gbp_v28_3b_tick(struct gbp_v28_3b *s, struct gbp_atrans2 *t, struct gbp_apla
         if (now >= s->cur_t_first + (uint64_t)GBP_V28_3B_SETTLE_S * s->tb_hz) {
             if (d->count < s->cur_min_ring_late) s->cur_min_ring_late = d->count;
             s->cur_samples_late++;
+        }
+        s->cur_sum_ring += d->count;
+        if (p->cur >= 0 && p->cur_pushes <= GBP_APLAY2_STEP_PUSHES && p->produced != s->cur_cs_last) {
+            s->cur_cs_last = p->produced;                 /* a chunk began this call: its ring count is the level held */
+            s->cur_sum_cs += p->cur_s0;
+            s->cur_cs_n++;
         }
         s->cur_samples++;
     }
@@ -111,6 +120,9 @@ static void record_hold(struct gbp_v28_3b *s, uint8_t partial, uint64_t t_set, u
         rec->ring0 = s->cur_ring0;
         rec->samples_late = s->cur_samples_late;
         rec->min_ring_late = s->cur_samples_late ? s->cur_min_ring_late : 0u;
+        rec->mean_ring = s->cur_samples ? (uint32_t)(s->cur_sum_ring / s->cur_samples) : 0u;
+        rec->mean_chunk_start = s->cur_cs_n ? (uint32_t)(s->cur_sum_cs / s->cur_cs_n) : 0u;
+        rec->chunk_starts = s->cur_cs_n;
     }
     /* holds_n cannot exceed 2 by construction (AHEAD 1 then, at most, AHEAD 2) -- no overflow
      * counter needed the way gbp_v28_3a's own depths array has one. */
