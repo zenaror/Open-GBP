@@ -19377,3 +19377,38 @@ raw-log-only; it now renders INFO rows too.
 **Not done, on purpose.** Failures 2-17 not hunted in host code before RUN 52; no perceptual run.
 
 **Next.** Rebuild, re-pin and re-stage `23-v28v` (§V28.9); the Planejador writes RUN 52.
+
+## 2026-09-28 — Issue #136: RUN 52 ingested (`HARDWARE_TESTS.md` §V28.10, `GBP-HW-358`, `GBP-HW-359`)
+
+**Goal.** Ingest RUN 52 in its own checkpoint through `tools/v28verdict.py` at `39b4801`, then propose the
+statuses the Planejador asked for (the AHEAD-1 hold, `GBP-HW-351`) before any code moves.
+
+**Done.** Raw log hashed and matched to the archived copy; the frozen tool run on it, output kept byte for byte
+(the working-tree tool prints the same). §V28.10 carries the 28 sweep rows in one table with the measured
+from-state and the landed ring, and the Operator's two declarations verbatim. `GBP-HW-358` recounts CONTROL over 63
+logs (13 at `0x90`, 50 at `0x92`), the two archive-recount tests learn the new log. `GBP-HW-359` classifies.
+
+**What the ingestion showed.**
+
+- Every sweep failure is a SHORT landing, never above target, UNDERRUN or UNMASKED; every TARGET-only GATE move
+  passes; the five same-target failures land 792-875 samples short, the two others 324-393. The prelude
+  repositioned as designed and its own move failed short (393), which the Executor had said it might.
+- `samples = 239 630` in the 60.0 s hold is 124.8 calls per hand-off period. The pump runs ~125 times a period on
+  the console; every host test assumed 16.
+- `V28CORR mean_x100 = 1117` of a cap of 16 and 99 619 DUP against 256 DROP: the feed is slower than the
+  consumption and the corrector is near saturation on the DUP side.
+- `min_ring = 256` equals `BAND` and equals 2304 - 2048, the minimum of a chunk-sized sawtooth around the 3a
+  floor's failing depth. The hold's own dwell figures sit at 2344-2791. It is not shown to be a steady margin.
+
+**Statuses proposed (Executor's own; the Orchestrator ratifies).** 3a bracket CORROBORATED on three boots;
+AHEAD-1 hold CORROBORATED for the narrow claim, strengthened by a second boot on a different track, not FACT (one
+rig); `GBP-HW-351` still NOT established (`min_ready = 0` uninformative, `min_ring = 256` a different quantity and
+not shown steady); sweep FAIL 3 of 18, mechanism the subject of the next checkpoint.
+
+**Tests.** The two archive-recount tests updated to the 63-log population; nothing else run here.
+
+**Not done, on purpose.** No mechanism claimed in this checkpoint, no code, no rebuild. The perceptual run stays
+unauthorised.
+
+**Next.** Reproduce a short landing on the host with the two measured properties the host lacked (125 calls a
+period; a feed slower than the consumption), then fix the landing.
