@@ -11525,3 +11525,24 @@ grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
 
 A later recount appends its own entry here, at the end of the file, under the next free
 `GBP-HW-` number — never inside `GBP-HW-272`, `GBP-HW-353` or this entry again.
+
+---
+
+### GBP-HW-355 — GBP-HW-272's CLAIM 1 recomputed over 62 logs (RUN 51 adds one cartridge-present log, `0x92`): 13 at `0x90`, 49 at `0x92`, still FACT — the next terminal entry, `GBP-HW-353`/`GBP-HW-354`'s own convention (Issue #120), never appended inside any earlier entry
+
+**The recount.** RUN 51 (`v28-validation-0001-run51`, Issue #131/#133/#135 — the run that finally
+measured §V28's own AHEAD-1 hold clean, and found the sweep's own step mechanism fails 8 of 18 GATE
+transitions) ran with the same GBA cartridge in the slot and records `orig=92`, as the split
+predicts. Before this run the population was 61 logs, 13 at `0x90` and 48 at `0x92`; after it, it
+is **62: 13 at `0x90` and 49 at `0x92`**. CLAIM 1 stays FACT and gains one log; CLAIM 2
+(`GBP-HW-272`, CORROBORATED) is untouched — one more cartridge-present log is one more sample in a
+cell that is already full.
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     49 CONTROL semantic orig=92
+```
+
+A later recount appends its own entry here, at the end of the file, under the next free
+`GBP-HW-` number — never inside `GBP-HW-272` or any earlier continuation again.
