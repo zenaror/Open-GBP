@@ -441,6 +441,61 @@ static void test_reproducibility(void)
     eqi(memcmp(snap1, snap2, 4u * GBP_APLAY2_CHUNK_BYTES) == 0, 1, "the same output bytes, chunk for chunk");
 }
 
+/* ---- Issue #131 (RUN 48/RUN 49): gbp_aplay2_start_ready() -- sync-0001's own literal >= 2u is
+ * unreachable at AHEAD 1, because gbp_aplay2_ready() can never exceed p->ahead (produce_impl2()'s
+ * own gate refuses a new chunk once ready == ahead). §V28's own AHEAD-1 hold never got the chance
+ * to run with audio playing at all. ---- */
+
+static void test_start_ready_needs_the_target_fill_first(void)
+{
+    struct gbp_aplay2 p;
+    struct gbp_adec2 d;
+    reset(&p, &d);
+    eqi((long long)p.ahead, 1, "test setup: GBP_APLAY2_AHEAD's own default is 1, unchanged here");
+    give(&d, p.target - 1u, 100);
+    check(!gbp_aplay2_start_ready(&p, d.count), "not ready: the ring has not reached target yet");
+}
+
+static void test_start_ready_at_ahead_1_needs_only_the_one_ready_chunk_it_can_ever_hold(void)
+{
+    /* RED against sync-0001's own literal >= 2u, verified by reverting gbp_aplay2_start_ready()'s
+     * own body to it and rebuilding: ready never reaches 2 at AHEAD 1, so that gate is never
+     * satisfied here, however long this test is allowed to keep calling produce(). */
+    struct gbp_aplay2 p;
+    struct gbp_adec2 d;
+    int b = -1;
+    uint32_t i;
+    reset(&p, &d);
+    /* comfortably more than one chunk's own worth above target: a correction may consume a few
+     * samples either side of exactly GBP_APLAY2_PUSHES, and this feed is a one-shot batch, not
+     * the continuous stream a real capture would keep topping up concurrently. */
+    give(&d, p.target + 2u * GBP_APLAY2_PUSHES, 100);
+    check(!gbp_aplay2_start_ready(&p, d.count), "not ready yet: the ring reached target, nothing produced");
+    for (i = 0; i < GBP_APLAY2_PUSHES + 4u && b < 0; i++) b = gbp_aplay2_produce(&p, &d);
+    check(b >= 0, "test setup: one chunk completes");
+    gbp_aplay2_queue(&p, b);
+    eqi((long long)gbp_aplay2_ready(&p), 1, "test setup: exactly one ready chunk -- AHEAD 1's own ceiling");
+    check(gbp_aplay2_start_ready(&p, d.count),
+         "ready: one queued chunk is the whole cushion AHEAD 1 can ever hold, and must be enough");
+}
+
+static void test_ready_never_exceeds_ahead_whatever_the_feed_or_the_call_count(void)
+{
+    /* the deadlock's own arithmetic, independent of gbp_aplay2_start_ready()'s own body: no
+     * amount of feed or calling produce() again ever pushes ready past ahead. */
+    struct gbp_aplay2 p;
+    struct gbp_adec2 d;
+    uint32_t i;
+    reset(&p, &d);
+    give(&d, 8u * GBP_APLAY2_PUSHES, 100);      /* enough feed for several whole chunks */
+    for (i = 0; i < 8u * (GBP_APLAY2_PUSHES + 4u); i++) {
+        int b = gbp_aplay2_produce(&p, &d);
+        if (b >= 0) gbp_aplay2_queue(&p, b);
+    }
+    check(gbp_aplay2_ready(&p) <= p.ahead, "ready never exceeds ahead, however much feed or however many calls");
+    eqi((long long)gbp_aplay2_ready(&p), 1, "at AHEAD 1 specifically, ready settles at exactly 1, never 2");
+}
+
 int main(void)
 {
     test_defaults();
@@ -462,6 +517,9 @@ int main(void)
     test_arm_l2_keeps_and_hands_off_a_window();
     test_out_overflow_stays_zero_on_this_path();
     test_reproducibility();
+    test_start_ready_needs_the_target_fill_first();
+    test_start_ready_at_ahead_1_needs_only_the_one_ready_chunk_it_can_ever_hold();
+    test_ready_never_exceeds_ahead_whatever_the_feed_or_the_call_count();
     fprintf(stderr, "%d checks, %d failures\n", checks, failures);
     return failures != 0;
 }

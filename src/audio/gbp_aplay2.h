@@ -213,6 +213,19 @@ int gbp_aplay2_produce_ex(struct gbp_aplay2 *p, struct gbp_adec2 *d, int uncorre
 void gbp_aplay2_queue(struct gbp_aplay2 *p, int buf);
 uint32_t gbp_aplay2_ready(const struct gbp_aplay2 *p);
 
+/* Issue #131 (RUN 48/RUN 49): true once there is enough buffered to start DMA safely -- the ring
+ * has reached the target fill AND at least a small cushion of chunks is already READY. The
+ * cushion is min(p->ahead, 2): sync-0001's own original gate used a literal 2 (proven on real
+ * hardware at that path's fixed AHEAD 4), but `gbp_aplay2_ready()` can never exceed p->ahead
+ * (produce_impl2() refuses to start a new chunk once ready == ahead), so a literal 2 at AHEAD 1
+ * is UNREACHABLE by construction -- exactly the deadlock RUN 48/49 hit (§V28's own AHEAD-1 hold
+ * never got the chance to run with audio playing at all). min(ahead, 2) keeps the proven 2-chunk
+ * cushion at every AHEAD that can hold it, and is the largest cushion achievable at AHEAD 1 --
+ * one chunk ready to hand off immediately, so the very first hand-off is never itself an
+ * underrun. Correct at every legal AHEAD (gbp_atrans2_begin() clamps ahead to [1, GBP_APLAY2_POOL]
+ * before it is ever applied, so 0 is not a real case here). */
+int gbp_aplay2_start_ready(const struct gbp_aplay2 *p, uint32_t adec_count);
+
 void gbp_aplay2_mute(struct gbp_aplay2 *p, uint32_t chunks);
 int  gbp_aplay2_discard_chunk(struct gbp_aplay2 *p, int buf);
 

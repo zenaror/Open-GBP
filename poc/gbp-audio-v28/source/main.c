@@ -827,8 +827,22 @@ static void v28_control(uint64_t now)
     cs_events++;
     kind = gbp_walker_current_kind(&walker);
     if (d == CS_DOWN) {
-        if (kind == GBP_WALKER_NAVIGATE)
+        if (kind == GBP_WALKER_NAVIGATE) {
             acted = gbp_walker_phase_complete(&walker, now, tr.active);
+            /* Issue #131: the handler for whatever phase navigate just landed in must be STARTED
+             * here -- gbp_walker_phase_complete() only advances the WALKER's own index; nothing
+             * else ever called gbp_v28_3a_start()/gbp_v28_nulling_start() before this fix, so the
+             * handler struct sat at its static zero-init state for the phase's entire budget
+             * (3a: begin_pending never 1, tick() fell through every call, zero depths; nulling:
+             * rng never seeded off sync_seed, stuck at xorshift32's own fixed point, 0). */
+            if (acted) {
+                const enum gbp_walker_kind next = gbp_walker_current_kind(&walker);
+                if (next == GBP_WALKER_DESCENT_3A)
+                    gbp_v28_3a_start(&s3a, live.tb_hz, now);
+                else if (next == GBP_WALKER_NULLING)
+                    (void)gbp_v28_nulling_start(&nulling, &tr, &ap2, &adec2, now, sync_seed);
+            }
+        }
     } else if (kind == GBP_WALKER_NULLING) {
         if (d == CS_LEFT) acted = gbp_v28_nulling_step(&nulling, &tr, &ap2, &adec2, now, GBP_V28_NULLING_LEFT);
         else if (d == CS_RIGHT) acted = gbp_v28_nulling_step(&nulling, &tr, &ap2, &adec2, now, GBP_V28_NULLING_RIGHT);
@@ -1022,7 +1036,19 @@ static void live_step(void)
             case GBP_WALKER_HOLD_3B: {
                 const int f = gbp_v28_3b_tick(&s3b, &tr, &ap2, &adec2, now);
                 if (f & GBP_V28_3B_TICK_HOLD_DONE) gbp_v28_3b_hold_done(&s3b);
-                if (f & GBP_V28_3B_TICK_PHASE_COMPLETE) (void)gbp_walker_phase_complete(&walker, now, tr.active);
+                if (f & GBP_V28_3B_TICK_PHASE_COMPLETE) {
+                    (void)gbp_walker_phase_complete(&walker, now, tr.active);
+                    /* Issue #131: the same gap as 3a's own -- nothing ever called
+                     * gbp_v28_sweep_start() before this fix. sweep_tick()'s own "not dwelling yet"
+                     * branch does not require begin_pending to have been set, so it silently
+                     * skipped move 0's own gbp_atrans2_begin() and dwelled on whatever state
+                     * already existed -- RUN 48's own n=0 record (outcome=2 fail=1 residue=0) is
+                     * that artifact, void as a domain result; moves 1-26 recovered because
+                     * finalize_record() sets begin_pending=1 at the end of move 0's own processing
+                     * regardless. */
+                    if (gbp_walker_current_kind(&walker) == GBP_WALKER_SWEEP)
+                        gbp_v28_sweep_start(&sweep, live.tb_hz, now);
+                }
                 break;
             }
             case GBP_WALKER_SWEEP: {
@@ -1059,7 +1085,9 @@ static void live_step(void)
             const int f = gbp_v28_sweep_tick(&sweep, &tr, &ap2, &adec2, now);
             if (f & GBP_V28_SWEEP_TICK_PHASE_COMPLETE) (void)gbp_walker_phase_complete(&walker, now, tr.active);
         }
-        if (!ai_started && adec2.count >= ap2.target && gbp_aplay2_ready(&ap2) >= 2u) {
+        /* Issue #131: gbp_aplay2_start_ready() -- never a literal >= 2u, which is unreachable at
+         * AHEAD 1 by construction (gbp_aplay2.h's own comment on it). */
+        if (!ai_started && gbp_aplay2_start_ready(&ap2, adec2.count)) {
             const uint8_t *first;
             ai_started = 1;
             t_ai_start = now;

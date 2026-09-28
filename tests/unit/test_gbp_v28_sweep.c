@@ -130,6 +130,45 @@ static int drive(struct gbp_v28_sweep *s, uint64_t *now, uint32_t periods)
  * Layer 1: the algorithm, against the real chain.
  * ================================================================================================ */
 
+/* Issue #131 (RUN 48): gbp_v28_sweep_start() was never called anywhere in poc/gbp-audio-v28/
+ * source/main.c either -- the same gap as 3a's, but sweep_tick()'s own "not dwelling yet" branch
+ * (`if (!s->dwelling) { if (t->active) return 0; ...dwelling=1... }`) does not require
+ * begin_pending to have ever been true, so a never-started sweep silently SKIPS move 0's own
+ * gbp_atrans2_begin() call and dwells on whatever chain state already existed -- RUN 48's own
+ * n=0 record (`outcome=2 fail=1 residue=0`) is that artifact, void as a domain result. Proven
+ * directly: move 0 finalizes a record without gbp_atrans2_begin() ever being called
+ * (tr.begun stays 0), and move 1 recovers because finalize_record() sets begin_pending=1 at the
+ * end of move 0's own processing regardless of how move 0 itself got there. */
+static void test_a_never_started_sweep_skips_move_0_s_own_begin_then_recovers(void)
+{
+    struct gbp_v28_sweep s;
+    uint64_t now = steady2(GBP_V28_T704, GBP_V28_A4);
+    uint32_t i, k;
+    long long begun_at_move_0_finalize = -1;
+    memset(&s, 0, sizeof s);   /* the exact bug: gbp_v28_sweep_start() is never called */
+    check(tr.active == 0u, "test setup: nothing is transitioning yet");
+    /* one tick at a time, so the check lands EXACTLY when records_n first becomes 1 -- before
+     * move 1's own begin_pending has had a further tick to act on it. */
+    for (i = 0; i < 200u && s.records_n == 0u; i++) {
+        (void)gbp_aplay2_irq_handoff(&ap, now);
+        for (k = 0; k < CALLS_PER_PERIOD && s.records_n == 0u; k++) {
+            give2(&adec, slice2(k), 100);
+            pump2(now);
+            (void)gbp_v28_sweep_tick(&s, &tr, &ap, &adec, now);
+            if (s.records_n == 1u && begun_at_move_0_finalize < 0) begun_at_move_0_finalize = tr.begun;
+            now++;
+        }
+    }
+    eqi((long long)s.records_n, 1, "test setup: move 0's own dwell elapsed and finalized a record");
+    eqi(begun_at_move_0_finalize, 0,
+       "move 0's own gbp_atrans2_begin() was never called -- begin_pending was never 1 for it");
+    eqi((long long)s.index, 1, "sweep moved on to move 1");
+    eqi((long long)s.begin_pending, 1, "move 1's own begin_pending WAS set correctly, by finalize_record() itself");
+    (void)drive(&s, &now, 100u);   /* comfortably above one move's own worst-case mute + dwell */
+    check(tr.begun >= 1u, "move 1 recovers: its own gbp_atrans2_begin() DOES get called this time");
+    check(s.records_n >= 2u, "and move 1 (and beyond) finalize their own, real records");
+}
+
 static void test_a_full_run_completes_all_27_in_order(void)
 {
     struct gbp_v28_sweep s;
@@ -325,6 +364,7 @@ static void test_the_frozen_sequence_fits_the_sweep_s_60_s_cap(void)
 
 int main(void)
 {
+    test_a_never_started_sweep_skips_move_0_s_own_begin_then_recovers();
     test_a_full_run_completes_all_27_in_order();
     test_verdict_is_pending_until_all_18_gate_entries_are_in();
     test_a_gate_underrun_fails_that_entry_and_the_verdict();
