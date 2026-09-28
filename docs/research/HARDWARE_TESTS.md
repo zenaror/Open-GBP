@@ -38975,3 +38975,26 @@ min_ring < min_ring_late.
 in-flight chunk's `cur_taken` (a DROP pushes one fewer than it takes); `test_gbp_v28_3b` and `test_gbp_v28_sweep`
 learn the new fields; `tests/host/test_v28verdict.py` reads and renders them, including the worst-case line length
 of the new lines against the 256-character log line. The full gate on the committed tree is recorded in §V28.12.
+
+### V28.12 `23-v28v` rebuilt, re-pinned a sixth time and re-staged for RUN 53 — 2026-09-28 (Issue #136)
+
+`validation_run` rebuilt from the clean commit `e1eb4bd` (worktree clean, `GIT_DIRTY` empty) through the project
+Docker environment, **twice independently, identical bytes both times**:
+
+```text
+sha256 c40412b126658a54162d6a58fb85bbc0fe0028738120f30e5d1a84db3fbef117
+build  v28-validation-0001, commit e1eb4bd, slot 23-v28v
+```
+
+`BUILD_ID` is unchanged (the image is identified by commit and hash, `CLAUDE.md` §16). It differs from RUN 52's
+image (`7cd5ac21...7487a`, commit `e629d96`) by: the last muted period's rotation aim (§V28.11), `V28_SWEEPM`'s
+`trim=`/`late=`, and the `V28_3BM` line. Manifest re-pinned, test pin updated. Local export `--only 23-v28v`
+matches the pin; card (`/media/rafael/SD_GC/Open-GBP`): `23-v28v/boot.dol` copied and read back at
+`c40412b1...f117`; the other 23 frozen slots hashed before and after, identical; `INDEX.txt` untouched. RUN 52's raw
+log was archived before this copy (`captures/local/`, §V28.10).
+
+**Gate on the committed tree `e1eb4bd`:** `make test-python` 3418 passed / 7 skipped; `make -C tests/unit` exit 0,
+55 test binaries, 0 failures (§V28.11 said 56: 55 is right). The pin commit changes only the manifest, its test
+and this record; its own gate is recorded in the closeout on Issue #136.
+
+This is the build RUN 53 would run. The perceptual run is not authorised.
