@@ -2620,7 +2620,7 @@ use is the Operator's, in ordinary play, on the next image.
 
 The item STAYS OPEN.
 
-## U-GBP-047 (P2, opened 2026-09-25, Issue #123) — are streams A and B of an AUDIO slice the AGB's two output sides, and which is left? — **2026-09-25, Issue #125: both reference implementations treat A and B as two channels and put A in the same halfword of the AI frame, LEFT under the one frame-order convention Dolphin and AESND share (GBP-AUD-004, a LEAD); their prediction for `agb-route`, written before any run: route-left moves wA**
+## U-GBP-047 (P2, opened 2026-09-25, Issue #123) — are streams A and B of an AUDIO slice the AGB's two output sides, and which is left? — **2026-09-25, Issue #125: both reference implementations treat A and B as two channels and put A in the same halfword of the AI frame, LEFT under the one frame-order convention Dolphin and AESND share (GBP-AUD-004, a LEAD); their prediction for `agb-route`, written before any run: route-left moves wA** — **2026-09-28, Issue #132: RUN 45/46 executed; `question_stereo()` (frozen, unedited) reads INDETERMINATE on both, but the raw per-slice data and a new peak-based reading CONFIRM the prediction on both variants — HYPOTHESIS → CORROBORATED, read the amendment at the end of this entry before copying a status**
 
 `GBP-HW-347`. A (streams 1 = 3) and B (streams 5 = 7) are equal in every slice of the tone ROMs, which route channel 1 to
 both sides (SOUNDCNT_L 0x1177), and differ in 87.6 % of the game's slices, with 4.46 % of its (mid, side) AC energy in
@@ -2679,7 +2679,39 @@ No run is authorised on #124.
   The opposite result would mean that the frame-order convention is wrong on this path, or that the references
   disagree with the hardware. Either is a finding.
 
-## U-GBP-048 (P2, opened 2026-09-25, Issue #123) — why every slice of the tone ROMs holds one pulse per 256 cycles when nothing set SOUNDBIAS, and GBATEK's default is a 512-cycle frame — **2026-09-25, Issue #125: neither reference holds or builds the SOUNDBIAS address (a literal scan; indirect routes untested); the Start-up Disc's edge classes cover 256-, 128- and 64-cycle pulse spacings and none of 512 (GBP-AUD-004, INFERENCE); #124's prediction stands**
+**AMENDMENT 2026-09-28 (GitHub Issue #132), on top: RUN 45/46 executed. `question_stereo()`
+(frozen, unedited from Issue #130's own pin) reads admissible but INDETERMINATE on both — neither
+side's window-mean clears `MOVE_FLOOR`. Per #130's own stop condition that verdict is not
+renegotiated. HYPOTHESIS → CORROBORATED on separate grounds: the raw data and a new,
+purpose-built statistic, not the classifier's own recorded verdict.**
+
+The raw per-slice data (the same `wA`/`wB` reading `tools/v123frame.py` already established, read
+at finer grain than `question_stereo()`'s own window-mean) shows a clean, symmetric square wave —
+widths 158 and 98, equally often over the steady region — on `wA` only in RUN 45 (route-left) and
+`wB` only in RUN 46 (route-right): exactly the predicted routing. `question_stereo()`'s own
+deviation is a MEAN over many slices, and a symmetric oscillation's mean is `(158 + 98) / 2 ==
+REST_WIDTH == 128.0` exactly — the metric cancels the very effect it was built to detect. Two
+checks, both against the archived bytes:
+- **The period.** Four consecutive full cycles, each exactly 32 blocks, on both the RUN 45 `wA`
+  oscillation and the RUN 46 `wB` one. At the frozen `DRAIN_BLOCKS_PER_S = 4096.0`
+  (`tools/v11sweep.py`, `GBP-HW-301`), 32 blocks converts to exactly **128.0 Hz** — the tone
+  `agb-sweep` programs at the first press. The oscillation is the channel's own waveform, not a
+  framing or slicing artifact.
+- **The control windows.** Both streams read flat at exactly 128 — the RAW minimum and maximum,
+  not only the mean — in the pre-press control window of all four runs (RUN 44-47). A silent
+  window that also oscillated would have meant the pattern came from something other than the
+  channel; it does not.
+
+Both hold. `tools/v124route.py` gained `question_stereo_amplitude()` (Issue #132), a peak-based
+reading beside `question_stereo()` — which stays exactly as pinned and keeps its own recorded
+INDETERMINATE verdict — reusing the same admissibility, variant/prediction shape and
+`MOVE_FLOOR`/`RELATIVE_PIN_RATIO` comparison, with only the per-press statistic changed from a
+mean an oscillation cancels to a peak it cannot. Run on RUN 45/46's own real data (not synthetic):
+admissible, `separated=True`, `wA`/`wB` MOVED/PINNED exactly as predicted, `prediction_holds=True`
+on both. **FACT is not claimed**: the discriminating rule (peak, not mean) was recognised AFTER
+seeing this round's own data, which is HYPOTHESIS→CORROBORATED's own territory, not FACT's.
+
+## U-GBP-048 (P2, opened 2026-09-25, Issue #123) — why every slice of the tone ROMs holds one pulse per 256 cycles when nothing set SOUNDBIAS, and GBATEK's default is a 512-cycle frame — **2026-09-25, Issue #125: neither reference holds or builds the SOUNDBIAS address (a literal scan; indirect routes untested); the Start-up Disc's edge classes cover 256-, 128- and 64-cycle pulse spacings and none of 512 (GBP-AUD-004, INFERENCE); #124's prediction stands** — **2026-09-28, Issue #132: RUN 44 executed; route-both's E reads resolution bits 14-15 = 0, the prediction holds — HYPOTHESIS → CORROBORATED, read the amendment at the end of this entry before copying a status**
 
 `GBP-HW-348`. The tone ROMs never write SOUNDBIAS (0x04000088); GBATEK (a LEAD) gives its default, 0200h, as 9 bits at
 32 768 Hz, "N low bits, followed by 512-N high bits". Every tone slice holds one pulse per 256, and the tones' level
@@ -2783,3 +2815,22 @@ converters when the flag is 0; its `--sound` handler was not read (`GBP-AUD-002`
 - **The prediction written on #124 stands unchanged:** route-both's E reads resolution 0.
 
 STAYS OPEN.
+
+**AMENDMENT 2026-09-28 (GitHub Issue #132), on top: RUN 44 executed. `question_bias()` (frozen,
+unedited) on route-both's own `E`: the Operator's declaration (Issue #130, recorded before any
+figure was computed) reads `E = M = I = 0x0200` on all three rows, all four ROMs, `E` present every
+run (never `----`). `question_bias(0x0200, entry_ok=1)` reads `resolution_bits_14_15 = 0`: the
+"Orchestrator's synthesis" model's own prediction holds. HYPOTHESIS → CORROBORATED.**
+
+**What this settles and what it does not.** The resolution-bits reading is settled: a first
+physical measurement agrees with the synthesis model's own prediction, and `GBP-HW-352`'s
+disassembly finding (crt0 stores nothing to `0x04000088`) is now physically confirmed for this
+one read rather than resting on static analysis alone (`GBP-HW-352`'s own amendment, Issue #132).
+**Not settled by this run:** where the default `0x0200` came from — `E` was already at the
+documented default on every run, so route-bias0200's own discriminating power (a write AFTER `E`,
+testing whether the model's structure depends on the register at all) is not exercised by a run
+that never saw a non-default `E`. The wider synthesis model also assumes `A` and `B` are the two
+stereo channels — `U-GBP-047`'s own premise, CORROBORATED separately (Issue #132) but on
+different grounds (a raw-data finding, not `question_stereo()`'s own recorded verdict) — so the
+register reading and the channel-identity assumption underneath the synthesis are corroborated
+independently, not by the same measurement.

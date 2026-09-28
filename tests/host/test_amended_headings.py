@@ -75,11 +75,17 @@ class EveryAmendedHeadingCarriesItsPointer(unittest.TestCase):
         self.assertIn("GBP-HW-272", pop, sorted(pop))
 
     def test_each_one_points_at_the_amendment_that_changed_it(self):
+        """A heading may carry more than one pointer-shaped bold segment over its own history --
+        Issue #132 (U-GBP-047): an earlier segment sharpened a prediction without changing a
+        status, and a later one, appended after it, records the status change. The one that must
+        be the last thing in the heading is the LAST such segment (reconcile.heading_pointer()'s
+        own rule, `findall()[-1]`), not merely the first one `.search()` happens to find."""
         for i, head in sorted(amended().items()):
-            m = POINTER.search(head)
-            self.assertTrue(m, "%s: the heading carries no dated pointer to its amendment:\n  %s" % (i, head))
+            matches = list(POINTER.finditer(head))
+            self.assertTrue(matches, "%s: the heading carries no dated pointer to its amendment:\n  %s" % (i, head))
+            m = matches[-1]
             # the pointer is APPENDED: it is the last bold segment of the heading
-            self.assertEqual(head.rindex(m.group(0)) + len(m.group(0)), len(head.rstrip()),
+            self.assertEqual(m.end(), len(head.rstrip()),
                              "%s: the pointer is not the last thing in the heading" % i)
 
     def test_the_words_before_the_pointer_are_the_words_that_were_there(self):
