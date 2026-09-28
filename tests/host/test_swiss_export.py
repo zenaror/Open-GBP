@@ -359,11 +359,11 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         self.assertEqual(rows["21-game2"], "ba8ab59598398849dd4757cb4823cab7ed355107f1dc92cbf2295cd5440e12fa")
         # Issue #117 (2026-09-25): the latency round's image, frozen before its export (§V27.17)
         self.assertEqual(rows["22-sync"], "ab902f6fb3789d66c3ace4d92be9cdc5fc300399705eb97a4ae185235feb0941")
-        # Issue #131 (2026-09-28): the V28 validation round's image. RE-PINNED (Issue #131/#133):
-        # the original ad01bcef... rebuilt to a different hash once gbp_v28_3a.h's struct gained
-        # begin_pending_ticks (a field every plan's build compiles); this is the rebuild AFTER the
-        # missing-start fixes, the one RUN 50 actually runs.
-        self.assertEqual(rows["23-v28v"], "ce1dcf7ae8d82b01bc3da6b5f8bc3ccfa5b77052cbe89ec66568a3cc5d9c9375")
+        # Issue #131 (2026-09-28): the V28 validation round's image. RE-PINNED TWICE (Issue
+        # #131/#133): ad01bcef... -> ce1dcf7a... (the missing-start fixes, commit 260d6d7) ->
+        # d8a99726... (the moving hand-off marker in the label, commit 394c7a7, RUN 50-prep).
+        # Reproduced identically across two separate clean Docker rebuilds before pinning.
+        self.assertEqual(rows["23-v28v"], "d8a99726c23b755c5af10d1ea7b1f384596e1d2fd91ab211d7efee4f13d6fdcb")
         # Issue #131 (2026-09-28): diag_3a_stall's own diagnostic image, frozen before its export
         self.assertEqual(rows["24-v28d"], "bc8e33a9f6126f1905a7c288a5fb2bbebb4ef41ecab2d8bc039fec644affca55")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
