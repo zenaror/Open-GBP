@@ -38229,3 +38229,47 @@ lower loss is not established.** It reduces the offset and does not remove it (`
 block is unchanged; this line says which of its two figures carries the conclusion.
 
 **2026-09-25 (GitHub Issue #123), on top: the adopted cushion is PROVISIONAL.** It stands, and it is re-validated on the final audio path: the decode it was measured on is being rebuilt at the native rate (`GBP-HW-347`, `GBP-HW-348`), and a finer decode costs processing, which is latency (the Operator, #123).
+
+### V28.1 §V28's validation round — staged and RUN 48 EXECUTED, 2026-09-28 (Issues #128/#129/#130/#131): the reversal condition NOT EVALUABLE — no `V28_3A`/`V28_3B`/`V28ANCHOR` record at all, the DMA hand-off starved
+
+**The image, staged.** `gbp-audio-v28-validation_run`, build id `v28-validation-0001`, commit
+`ba7ca63`, DOL `516448 B`, `sha256 ad01bcefe31958d2e0c198dd015fee8975fd971e66f7d04a41c08e1d193e0054`
+(the Orchestrator's own review, after correcting a `lo`/`hi` floor-extraction defect in the first
+attempt — `EVIDENCE.md`'s audio history and `docs/research/DEVLOG.md`'s 2026-09-28 entries carry
+the fix). Staged in Swiss slot `23-v28v` (`tools/swiss-layout.tsv`), verified before and after
+against every other frozen slot on the card. The companion image, `perceptual_no_phase1` at the
+same commit (`sha256 165ee0b3a368feed18f10e3e50e18ca72490be9be32e3f05ff706ec6d8c2e828`), is NOT
+staged; its own Issue waits on this run.
+
+**RUN 48 (`v28-validation-0001`), executed 2026-09-28.** The plan ran end to end
+(`ok_session_ended`, `dropped=0 truncated=0`, 747 lines), and `SYNCPE` shows p1 at 138.0 s `cap`
+and p2 at 120.0 s `cap` — but the log carries **no `V28_3A`, no `V28_3B` and no `V28ANCHOR` record
+at all**: 3a completed no dwell, 3b no hold, and the reversal condition (`GBP-HW-351`) is **NOT
+EVALUABLE**. The counters:
+
+```text
+V28C  underruns=0 overflow=20214785 silences=0 mute_handed=162
+      dup=16 drop=29 produced=207 handed=188 ring_gated=548
+V28C2 starved_steps=657 blocks_in=1291230 ring_discarded=16707 dropped_front=178 trans_faults=0
+```
+
+`handed=188` over 315.8 s (about 0.6/s against the path's own ~16/s rate); `mute_handed=162` of
+those 188 (most of what reached the DMA was silence); `blocks_in=1291230` against
+`overflow=20214785` (the GBP's AUDIO delivery is alive; the decoder ring overflows because nothing
+drains it). `underruns=0` is a self-certifying record here — nothing playing cannot underrun.
+
+The sweep phase (the one phase that ran, all 27 moves in 5.8 s) recorded
+`V28_SWEEP_VERDICT v=2` (FAIL) on `n=0`; **not a domain result** — a sweep against a path handing
+silence is not the sweep the gate was written for, and its 27 records are kept as diagnostics only.
+
+The Operator's declaration (recorded first, on Issue #131, before any figure was computed):
+silent for the whole run, a brief broken passage at the very end — consistent with the counters
+above.
+
+**Not diagnosed here.** The Orchestrator's own review (posted on #131) directs the investigation
+in order: the DMA hand-off rate (`AUDIO_StartDMA`/`AUDIO_InitDMA` around `main.c:1017`); why 3a's
+dwell never completed in 138 s; a diff against `gbp-audio-sync` (RUN 43, the same chassis, the
+audio path the one thing replaced); and why every host test passes while hardware disagrees. No
+re-run and no perceptual Issue until this is diagnosed; the staged slot is untouched. Full
+write-up, evidence and the investigation's own findings belong on Issue #131 and a follow-up
+DEVLOG entry, not repeated here.
