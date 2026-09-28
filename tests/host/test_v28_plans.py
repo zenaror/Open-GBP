@@ -143,6 +143,29 @@ class TheTwoPlansAgreeWithVBudget(unittest.TestCase):
             self.assertNotIn("p1", names, "%s must not carry Phase 1 (#128 §2 point 3)" % py_name)
 
 
+class TheMakefileCleanTarget(unittest.TestCase):
+    """Issue #131: `make clean` for gbp-audio-v28 removed the wrong set of plan directories --
+    its own `clean:` target hardcoded validation_run and perceptual_no_phase1 and had never heard
+    of diag_3a_stall, so `make PLAN=diag_3a_stall clean; make PLAN=diag_3a_stall` silently relinked
+    a STALE cached build (the commit string embedded in it never advanced past an old dirty
+    build), the same "a routine command whose safety depends on state nothing checks" class this
+    project has hit before (RUN 43's own staging incident, `docs/research/DEVLOG.md`). Driven from
+    PLAN_C_NAME, not a hardcoded list, so a fourth plan is caught the same way automatically."""
+
+    def test_clean_removes_every_plan_this_header_knows_about(self):
+        mk = os.path.join(ROOT, "poc", "gbp-audio-v28", "Makefile")
+        with open(mk, encoding="utf-8") as f:
+            text = f.read()
+        m = re.search(r"^clean:\n(?:.*\n)*?\t@rm -rf ((?:[^\n]*\\\n)*[^\n]*)", text, re.M)
+        self.assertIsNotNone(m, "clean: target's own rm -rf line could not be found")
+        rm_line = re.sub(r"\\\n\s*", " ", m.group(1))
+        for plan_name in v28budget.PLANS:
+            if plan_name not in PLAN_C_NAME:
+                continue          # not a real gbp-audio-v28 build (v27_as_frozen etc.), no directory to clean
+            self.assertIn("$(APP_NAME)-%s" % plan_name, rm_line,
+                          "clean: does not remove %s's own build directory" % plan_name)
+
+
 class TheHeaderBuilds(unittest.TestCase):
     def test_the_plans_header_itself_builds(self):
         src = '#include "gbp_v28_plans.h"\nint main(void) { return (int)GBP_V28_VALIDATION_RUN.count; }\n'
