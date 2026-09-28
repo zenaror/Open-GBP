@@ -440,12 +440,19 @@ static void draw_quad(void)
 
 /* The label's own quad: top-centre of the black border, well clear of the 240x160 game quad
  * draw_quad() above centres (border height on each side is (efbHeight-160)/2, comfortably >16px
- * at every mode this project targets). */
+ * at every mode this project targets).
+ *
+ * RUN 48 (Issue #131): the Operator read "P2/4" as "F2/4" -- his TV cuts the top of the picture,
+ * and y0 = 8.0f sat inside that cut. A fixed 8px offset assumes no overscan at all, which no real
+ * CRT/composite/S-Video display gives. The margin assumed here is the standard 10% broadcast
+ * title-safe inset (SMPTE RP 218 / the convention libogc's own examples use), applied to
+ * efbHeight -- e.g. 48px at the common NTSC efbHeight of 480, comfortably clear of any ordinary
+ * overscan and still well above the 240x160 game quad's own top border. */
 static void draw_label_quad(void)
 {
     const f32 w = (f32)GBP_V28_LABEL_W, h = (f32)GBP_V28_LABEL_H;
     const f32 x0 = ((f32)rmode->fbWidth - w) * 0.5f;
-    const f32 y0 = 8.0f;
+    const f32 y0 = (f32)rmode->efbHeight * 0.10f;
 
     GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
         GX_Position2f32(x0,     y0);     GX_TexCoord2f32(0.0f, 0.0f);
