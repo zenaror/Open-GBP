@@ -19088,3 +19088,133 @@ confirmed clean, no new warnings.
 **Next.** Heavy review done; the fix goes back to hardware. Once reviewed, `validation_run`
 rebuilds, re-pins and re-stages `23-v28v`, and that re-run finally measures the AHEAD-1 hold with
 audio actually playing — which has never once happened in this project.
+
+## 2026-09-28 — Issue #131/#133: RUN 50 measured 3a for the first time, found the same class of bug one exit path narrower, fixed it generally
+
+**Goal.** RUN 50, the re-run against `23-v28v`'s validation-round hash (label marker, commit
+`394c7a7`, §V28.4). Three RUN-49 fixes plus the label marker had already gone to hardware; the
+question was whether the AHEAD-1 hold §V28 exists to measure would finally happen.
+
+**RUN 50's own result.** The RUN 49 fixes held decisively: `handed=9232` (was 188), `overflow=0`
+(was 20 214 785), `produced=9095`, 14 `V28_3A` records where RUN 48 had zero, audio audible to the
+Operator throughout. 3a measured natively for the first time: descent 6144 → 2048 in 512 steps,
+2048 fails, bisection 2304 (fail), 2432, 2368, 2336 (all hold), bracket closed at lo 2304 / hi
+2336. The AHEAD-1 hold still did not happen.
+
+**Defect A — the same shape, one exit path narrower.** `main.c`'s own DESCENT_3A case ran the
+anchor computation and `gbp_v28_3b_start()` ONLY inside `f & GBP_V28_3A_TICK_PHASE_COMPLETE` —
+the branch that fires when 3a's OWN algorithm decides it is done. RUN 50's own 3a ended by its
+phase's own cap instead (`why=cap`): `gbp_walker_tick()` advances the walker's index to 3b
+*before* `live_step()`'s own switch ever evaluates `GBP_WALKER_DESCENT_3A`'s case body that tick,
+so that branch never runs on the cut path at all. 3b sat at its own zero-init state for its whole
+120 s phase — no `V28ANCHOR`, no `V28_3B` record, the identical shape as RUN 48's original "no
+handler was ever started" defect, just narrowed from "reachable on no path" to "reachable on only
+one of two exit paths". The Orchestrator's own framing, verbatim, is now the general lesson this
+project carries forward: those two shapes are the same defect.
+
+Checking `HOLD_3B`'s own case turned up the identical latent shape for `gbp_v28_sweep_start()`
+(reachable only inside `f & GBP_V28_3B_TICK_PHASE_COMPLETE`, never on a 3b cap cut) — not yet
+exercised in any physical run (3b's own 120 s cap has real margin over its own worst-case hold
+duration, ~70 s), but the same bug waiting to fire the day it is. Fixed alongside 3a's own case
+in the same pass, not left for a future run to find independently.
+
+**The general fix.** Every handler start (`gbp_v28_3a_start`, `gbp_v28_3b_start`,
+`gbp_v28_sweep_start`, `gbp_v28_nulling_start`) now has EXACTLY ONE call site in `main.c`, inside a
+new `v28_dispatch_phase_start()`, driven off `walker.index` itself advancing — never a specific
+handler's own completion flag, never a specific caller (a button press, a `TICK_PHASE_COMPLETE`
+bit). `gbp_walker.c`'s own `begin_phase()` is the only place `index` ever changes, and it runs for
+BOTH a phase cap and a handler's own `gbp_walker_phase_complete()` — never for the session cap or
+a stop (which end the whole walk without touching `index`, correctly dispatching nothing since
+there is no next phase). So "index changed since the start last issued" is exactly "a new phase
+needs its own start()", independent of why the previous one ended. Removed the three scattered
+inline starts this replaced: `v28_control()`'s own NAVIGATE branch, `DESCENT_3A`'s and
+`HOLD_3B`'s own `TICK_PHASE_COMPLETE` branches.
+
+Placement matters and is documented in the function's own header comment: called AFTER every call
+in a tick that could advance the walker (the cap check, a handler's own `phase_complete()`,
+`v28_control()`'s dispatch) and BEFORE the sweep-tick call. `gbp_v28_3a_tick()`/`gbp_v28_3b_tick()`
+both no-op safely on all-zero state (tested), so a same-tick cap-cut transition costing one
+harmless no-op call in the main switch is fine; `gbp_v28_sweep_tick()` does NOT have that property
+— its own "not dwelling yet" branch silently skips move 0's own `gbp_atrans2_begin()` on unstarted
+state (RUN 48's own `n=0` artifact) — so sweep must always be started before its own first tick(),
+on every exit path, not only the one exercised so far.
+
+**The general structural test.** `tests/host/test_v28_plans.py`'s `TheHandlersAreStarted` gained
+`test_every_handler_start_has_exactly_one_call_site_and_it_is_in_the_shared_dispatcher`: every
+`KIND_START_FN` must have exactly one call site in `main.c` (comments stripped, so a doc comment
+merely naming a function cannot inflate the count), and that call site must sit inside
+`v28_dispatch_phase_start()`'s own body. RED-verified by reintroducing a second call site for
+`gbp_v28_3b_start()` (the exact shape of RUN 50's own defect) — the test failed with "2 != 1", as
+required, then GREEN restored. No exemption list, same discipline as the earlier
+`TheHandlersAreStarted` test this extends.
+
+**Defect B — 3a's own budget was exactly too tight; the cap is the NORMAL exit for the informative
+case, not an edge case.** 13 dwells × 6 s + a 60 s confirm = 138 s, exactly 3a's own phase cap.
+Proven exact, not merely observed: `GBP_V28_P3_START`(6144)/`P3_STEP`(512)/`P3_MIN`(2048) give
+exactly 9 STEP dwells (the descent grid has exactly 9 points), and a 512-wide bisection bracket
+against a 32-wide `P3_BISECT_WIDTH` always closes in exactly `log2(512/32) = 4` halvings (both are
+clean powers of two) — 13 dwells is not a probabilistic average, it is the worst case AND the case
+whenever the floor sits near the bottom of the ladder, which is exactly the region the whole round
+exists to measure. Worse: a budget equal to the exact worst-case sum is a LOSING race even with
+zero jitter, because the walker's own cap timer runs from the phase's own start while the
+confirm's own 60 s window can only start LATER than phase-start + 78 s (each of the prior 13
+depths' own `begin()` may be retried while `gbp_atrans2` is busy landing the previous one), and
+`gbp_walker_tick()`'s own cap check runs, every tick, before the switch that would let 3a's own
+`tick()` see its dwell end — so the walker always wins.
+
+**Fix chosen and why**: enlarge 3a's own phase cap to the proven exact worst case plus a real
+margin, rather than let the confirm shorten dynamically. Shortening the confirm would weaken the
+statistical claim a shortened hold can make about "no underrun" — the confirm's own 60 s figure is
+one of #128's frozen figures for a reason — while the worst-case sum is exactly and provably
+138 s, so a fixed, generous margin closes the race with no ambiguity left for a future run to
+rediscover. 138 → 168 s (30 s margin for `begin()` retries across up to 13 transitions and
+GameCube pump-loop cadence, ~16.6 ms per transition at most). **This changes a figure #128 §2
+froze** ("3a: ... 60 s confirm"); §2's own text is left as written, and `src/audio/gbp_v28_plans.h`
+/ `tools/v28budget.py` carry the amendment, cross-referenced. Session cap 438 → 468 s
+(60+168+120+60+60 slack). The SD-log stores this drives (`V28_WALL_S`, `PLAY_EVENT_RECORDS`,
+`PLAY_FRAME_RECORDS`, `CORR_CAP`) were recomputed from `tools/v28budget.py`'s own formulas, not
+hand-derived — running the tool after editing its `PLANS` table gave the exact figures main.c now
+carries, and the arena floor is kept with the same margin as before (+1 875 968 B with the
+ride-along).
+
+**Defect C, the Orchestrator's own question, closed by a test rather than by argument.** Does
+`gbp_v28_3a_confirmed_floor()` on a CUT confirm dwell (RUN 50's own actual shape once Defect B is
+accounted for) still read `hi`, or could a cut confirm somehow be mistaken for a "clean floor" at
+`lo` (the confirm's own re-tested target, not a holding depth at all)? A new unit test
+(`test_confirmed_floor_a_cut_confirm_still_reads_hi_never_lo`) reproduces the exact straddling
+bracket already proven elsewhere (lo=4096, hi=4128 — genuinely different, so the check is not
+vacuous), applies the confirm's own `begin()`, cuts it mid-dwell exactly as `v28_cut()` does for a
+real phase-cap cut, and confirms the floor is `hi`, unaffected: `bisecting` stays 1 across the cut
+(`gbp_v28_3a_cut()`/`depth_done()` never touch it), so `confirmed_floor()`'s own
+`bisecting ? hi : last_hold` reads the same final state regardless of how the confirm ended.
+RED-verified against the historical wrong extraction (`bisecting ? lo : last_hold`, the exact bug
+`gbp_v28_3a_confirmed_floor()` was corrected away from earlier in this Issue). **No third defect.**
+
+**Tests.** `tests/host/test_v28_plans.py` (new general structural test), `tests/unit/
+test_gbp_v28_3a.c` (new cut-confirm test, 90 checks total, 0 failures), `tests/unit/
+test_gbp_v28_plans.c` and `tests/host/test_v28budget.py` (updated for
+138→168/438→468/503→533/39737→42107/30180→31980/19617→20787). Both new tests RED-verified before
+being restored GREEN.
+
+**Gate.** `make -C tests/unit`: 0 failures throughout, all binaries. `pytest -q tests/host/`: 3403
+passed, 7 skipped, 4 failed — `test_control_bit_split.py` (3) and `test_gbc_path.py` (1), confirmed
+via `git stash` (this Issue's whole diff removed, same 4 failures, byte-identical) to be caused
+solely by `captures/local/GBP-AUDIO-V28_v28-validation-0001-run50.log`, RUN 50's own raw log newly
+archived to a directory the GBC-path archive-recount tests re-scan — outside this Issue's scope,
+a known class (`project-archive-recount-tests` in the Executor's own memory). Docker builds
+verified clean for all three `gbp-audio-v28` plans (`validation_run`, `perceptual_no_phase1`,
+`diag_3a_stall`), no new warnings.
+
+**`validation_run` rebuilt from the fixed, committed tree (commit `4869954`), twice independently,
+identical hash both times**: `e7329d9ba05c821b509200306047e1078d086c966bb276698419b7d5645a0f4f`.
+`23-v28v` re-pinned a third time this Issue, staged locally and on the card (read back, matches);
+every other frozen slot re-hashed before and after, unchanged.
+
+**Next.** RUN 51: the same measurement RUN 50 attempted, now with 3b reachable on every exit from
+3a and a budget that actually fits 3a's own worst case. Expected duration for the Operator's own
+procedure: 3a's own phase alone can run up to its full 168 s whenever the confirm dwell is
+reached (the informative case) — session cap 468 s total (60+168+120+60, +60 slack never spent in
+a normal run). If this run's own 3b measurement is itself cut short by ITS OWN cap for a similar
+reason, that would be a fourth, structurally distinct finding (3b's own hold durations are not
+descent/bisection-shaped, so the same arithmetic does not simply carry over) — not assumed fixed
+by today's work, watched for directly in RUN 51's own record.
