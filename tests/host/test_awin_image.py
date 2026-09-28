@@ -415,7 +415,9 @@ class ThePlumbing(unittest.TestCase):
         self.assertEqual((rows["22"][1], rows["22"][2]), ("sync", "gbp-audio-sync"))
         # Issue #131: the V28 validation round's image took the next one, frozen before its export
         self.assertEqual((rows["23"][1], rows["23"][2]), ("v28v", "gbp-audio-v28"))
-        self.assertNotIn("24", rows)
+        # Issue #131: diag_3a_stall's own diagnostic image, frozen before its export
+        self.assertEqual((rows["24"][1], rows["24"][2]), ("v28d", "gbp-audio-v28"))
+        self.assertNotIn("25", rows)
 
     def test_what_is_staged_is_the_image_this_checkpoint_built(self):
         """The slot's bytes, when it is staged in this checkout. The DOL's own

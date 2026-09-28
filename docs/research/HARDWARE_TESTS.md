@@ -38273,3 +38273,48 @@ audio path the one thing replaced); and why every host test passes while hardwar
 re-run and no perceptual Issue until this is diagnosed; the staged slot is untouched. Full
 write-up, evidence and the investigation's own findings belong on Issue #131 and a follow-up
 DEVLOG entry, not repeated here.
+
+### V28.2 The diagnosis of RUN 48, and `diag_3a_stall` staged for the next physical run — 2026-09-28 (Issue #131)
+
+**Static reading and the archive, ruled out or narrowed, each checked directly, not assumed:** the
+produce/pump gate matches `gbp-audio-sync`'s own shape byte for byte; 3a's own depth transitions
+are `GBP_ATRANS2_UNMUTED` and complete on the very next tick, never blocked by the hand-off rate;
+`gbp_atrans2`'s own `t->pause` is write-only, read nowhere; `AUDIO_StartDMA`'s own start path is
+structurally identical between the two images. A host harness
+(`tests/unit/test_v28_3a_dma_stall_integration.c`) tested whether a hand-off throttled to RUN 48's
+own measured ratio, with the feed at full rate, reproduces zero depth completions on its own:
+**REFUTED** — 3a completes 9 depths and finishes inside the budget. The archive's own phase
+timing (`SYNCPH`) puts 188 hand-offs over the sweep phase's own 5.81 s at 32.3/s, close to
+accounting for the whole run's `handed=188` alone — the question reframes from "why was the DMA
+slow" to "why did the hand-off not start sustainably until the sweep". Full reasoning:
+`docs/research/DEVLOG.md`'s own 2026-09-28 entry.
+
+**The diagnostic image, `diag_3a_stall`.** A third `gbp-audio-v28` plan: `navigate(60) + 3a(60)`,
+session cap 180 s (about two minutes of Operator time, instead of the full session's six). Build
+id `v28-diag3a-0001`, commit `07a982a`, DOL `516576 B`,
+`sha256 bc8e33a9f6126f1905a7c288a5fb2bbebb4ef41ecab2d8bc039fec644affca55` (independently reconfirmed
+by `sha256sum` against the local build product before staging). A new `V28DIAG` record at every
+phase edge (the same slot `SYNCPE` already prints from) carries `handed`, `mute_handed`,
+`produced`, `dropped_front`, `target`, `ahead`, `ready`, the free pool count,
+`tr.begin_refused_active`, `gbp_v28_3a`'s own new `begin_pending_ticks`, and an
+`ai_started`/`ai_stopped` history with ticks. Scoped to this plan only — `validation_run`'s and
+`perceptual_no_phase1`'s own log format are unchanged.
+
+**Staged in Swiss slot `24-v28d`** (`tools/swiss-layout.tsv`), pinned from the start (staged for a
+run that has not happened yet). The card copy is pending — it is in the Operator's hands as this
+is written — and will be done, hash read back and checked against every other frozen slot, when it
+returns to the PC.
+
+**`23-v28v`'s own staged pin is now STALE against HEAD.** `gbp_v28_3a.h`'s struct gained
+`begin_pending_ticks`, a field every plan's build compiles regardless of `PLAN`, so
+`validation_run` rebuilt from the current tree (`sha256 a553ad5fb58ee8aac1045265182ae647e3395ca09de37548719bb686f4e3f3d1`,
+commit `07a982a`) no longer matches the card's own pin (`ad01bcef...`, commit `ba7ca63`). Not
+restaged — `validation_run` is not being re-run yet — recorded here so the card image is never
+mistaken for current source. Re-staging happens together with the next actual `validation_run`
+rebuild, once this diagnosis is resolved.
+
+**A bug found and fixed on the way, general beyond this one image:** `gbp-audio-v28`'s own `clean:`
+Makefile target never knew about the third plan directory, so an early "rebuild" of `diag_3a_stall`
+silently relinked a stale object and kept an old commit string embedded in the DOL across two
+further commits, undetected by the build's own output. Full account, and the general lesson:
+`docs/research/DEVLOG.md`'s own 2026-09-28 entry, its own paragraph, not folded into this one.
