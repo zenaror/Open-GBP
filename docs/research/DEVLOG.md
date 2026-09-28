@@ -18383,3 +18383,56 @@ formats) are all resolved and implemented; the GX label remains open, needing a 
 before it can be built rather than guessed. The two physical hardware runs (validation, perceptual) each need
 their own Hardware Issue per `CLAUDE.md` §15, opened only after this checkpoint is reviewed -- not requested
 here.
+
+## 2026-09-28 — Issue #128/#129/#130: an independent adversarial review of `gbp-audio-v28` (e283aa5) found a
+## real ordering defect before any hardware run -- the caller never told 3a/3b/sweep a phase was cut
+
+Per the Orchestrator's own instruction ("heavy review... strong model on units, ordering, budget and leaks"),
+the checkpoint that built `poc/gbp-audio-v28` (e283aa5) was NOT taken as done on its own self-report. A
+fresh, independent review agent (no prior context, its own read of Issue #128's frozen text and every native
+handler header) was asked to break the four named lenses on purpose. Three came back clean after a genuine
+adversarial search (leaks, units, budget) -- stated explicitly, not silently passed over. The fourth,
+ordering, found a real defect, the highest-severity finding of the round.
+
+**The defect.** `main.c` never called `gbp_v28_3a_cut()`, `gbp_v28_3b_cut()` or `gbp_v28_sweep_cut()`
+anywhere, despite each header saying, verbatim, "call BEFORE the caller advances past [3a/3b/sweep]" --
+required at BOTH of `main.c`'s own force-end paths: `gbp_walker_tick()`'s own phase/session-cap cut, and
+`gbp_walker_stop()`'s own Z-hold. Without it, a dwell/hold/sweep-dwell still running when a cap or Z lands is
+not marked PARTIAL -- it is never recorded at all, the exact failure mode this codebase's own design
+principle (Issue #117 defects 8/11/20/24/25, restated in `gbp_v28_sweep.h`: "An unobserved GATE entry is never
+certified safe by omission") exists to prevent. Confirmed by direct inspection (`grep -n "_cut(" main.c`
+found zero call sites), not merely the review's own claim. Mitigating factor, also independently checked:
+`gbp_v28_sweep_verdict()` already refuses a PASS below `GATE_N` records, so a cut mid-sweep cannot produce a
+false-safe GATE certification -- the defect costs evidence completeness on a truncated `validation_run`, not
+a wrong verdict.
+
+**The fix has a real subtlety the first pass would have missed.** `gbp_v28_sweep_cut()` is self-contained: it
+writes the PARTIAL record directly. `gbp_v28_3a_cut()`/`gbp_v28_3b_cut()` are NOT -- they only mark state
+(`dwell_cut`/`depth_pending`, `finished=1`); the record is only pushed by a SEPARATE, REQUIRED follow-up call
+to `gbp_v28_3a_depth_done()`/`gbp_v28_3b_hold_done()` (exactly the two-call sequence
+`test_gbp_v28_3a.c`'s own `test_a_cut_dwell_is_partial()` already demonstrated at the module level -- re-read
+before trusting a first-draft fix that called only `_cut()` and would have left the record silently unflushed
+all over again, one call short). Final fix, `v28_cut()` in `main.c`, one small dispatch: 3a and 3b call
+`_cut()` then their own `_depth_done()`/`_hold_done()` with zeroed deltas (matching
+`gbp_v28_sweep_cut()`'s own explicit precedent -- "a PARTIAL record already tells the reader not to trust it
+as a full PASS"); sweep calls only `_cut()`. Called at both force-end sites, keyed on the phase kind captured
+BEFORE the call that may have cut it (`gbp_walker_current_kind()` only reads the phase in force NOW).
+
+**Proof, against the real chain, not main.c's own text.** `tests/unit/test_gbp_v28_3a.c` gains two new tests
+driving the REAL `gbp_walker` + `gbp_v28_3a` through the exact sequence: a one-phase plan with a 2 s cap
+(comfortably inside `GBP_V28_3A_DWELL_S`'s own 6 s natural end), drive to the cap, capture
+`gbp_walker_tick()`'s own `PHASE_END` bit. Without the caller's own `_cut()`+`_depth_done()` pair:
+`depths_n == 0`, the record genuinely gone. With it: `depths_n == 1`, `partial == 1`. 50 checks (was 39), 0
+failures. A second, smaller gap the same reviewer found: `tools/v28syncpe.py`'s `why=`/`reason=` fields
+matched ANY word, never checked against its own declared `WHY_VALUES` -- a damaged physical-hardware log
+could parse as valid. Fixed (`parse_syncpe()`/`parse_syncph()` now return `None` for an out-of-vocabulary
+value), two new tests in `test_v28_syncpe.py`, RED confirmed against the un-fixed parser before the fix,
+GREEN after.
+
+**Verified, not relayed.** Both images rebuilt clean in Docker after the fix (validation_run and
+perceptual_no_phase1, zero new warnings). `make -C tests/unit`: 33/33 (`test_gbp_v28_3a` 50/50). `pytest -q
+tests/host` (sequential, avoiding the known `test_vstate.py` race): clean. Every figure in this entry was
+run and read directly this round, not taken from either subagent's own report.
+
+**Next.** This closes the ordering gap the review found; nothing else from either lens needs action this
+round. The GX label and the two physical Hardware Issues remain as the prior entry states.

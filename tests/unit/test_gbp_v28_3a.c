@@ -16,6 +16,7 @@
 #include <string.h>
 #include "gbp_v28_3a.h"
 #include "gbp_v28_ladder.h"
+#include "gbp_walker.h"
 
 static int checks, failures;
 
@@ -368,6 +369,69 @@ static void test_dishonest_vs_honest_under_a_forced_busy_transition(void)
           "with the check (the real module): a dwell only ever runs once gbp_atrans2's own target agrees");
 }
 
+/* ================================================================================================
+ * The caller-side wiring gap the adversarial review of poc/gbp-audio-v28 (Issue #128/#129/#130,
+ * commit e283aa5) found: gbp_walker_tick()'s own PHASE_CAP/SESSION_CAP cut ends 3a's own phase
+ * WITHOUT the caller ever calling gbp_v28_3a_cut() -- 3a's header is explicit that this call is
+ * REQUIRED "BEFORE the caller advances past 3a", and without it a dwell cut mid-flight is not
+ * marked partial, it is simply never recorded at all. This reproduces the exact main.c sequence
+ * (gbp_walker_tick(), then a real caller either does or does not call the follow-up
+ * cut()+depth_done() pair) against the real gbp_walker + gbp_v28_3a chain, not a synthetic stand-in.
+ * ================================================================================================ */
+static const struct gbp_walker_phase_def ONE_3A_SHORT_CAP[1] = { { GBP_WALKER_DESCENT_3A, 2u } };
+static const struct gbp_walker_plan PLAN_ONE_3A_SHORT_CAP = { ONE_3A_SHORT_CAP, 1u, 100u };
+
+/* drives 3a (NOT the walker) to just past its own first depth's own apply, then to the walker's
+ * 2 s phase cap -- comfortably inside GBP_V28_3A_DWELL_S's own 6 s natural end, so the cap always
+ * fires first, mid-dwell. Returns the walker's own tick flags for that final call. */
+static int drive_to_the_walker_cap(struct gbp_walker *w, struct gbp_v28_3a *s, uint64_t *now,
+                                   enum gbp_walker_kind *kind_before)
+{
+    int flags;
+    gbp_walker_start(w, &PLAN_ONE_3A_SHORT_CAP, TB_HZ, *now);
+    gbp_v28_3a_start(s, TB_HZ, *now);
+    (void)drive(s, now, 1u);                  /* the first depth actually applies: dwell_active == 1 */
+    check(s->dwell_active == 1u, "test setup: the dwell is running before the walker's own cap");
+    (void)drive(s, now, 1u);                  /* now - t_origin == 2 s == the phase's own cap_s */
+    check(s->dwell_active == 1u, "test setup: still well inside GBP_V28_3A_DWELL_S's own 6 s natural end");
+    *kind_before = gbp_walker_current_kind(w);
+    flags = gbp_walker_tick(w, *now, tr.active);
+    check((flags & GBP_WALKER_TICK_PHASE_END) != 0, "test setup: the phase cap fires exactly here");
+    return flags;
+}
+
+static void test_a_walker_cap_cut_without_the_callers_own_cut_call_loses_the_record_silently(void)
+{
+    struct gbp_walker w;
+    struct gbp_v28_3a s;
+    uint64_t now = steady2(GBP_V28_P3_START);
+    enum gbp_walker_kind kind_before;
+    (void)drive_to_the_walker_cap(&w, &s, &now, &kind_before);
+    /* THE BUG, reproduced: the caller advances past 3a (the walker already has -- gbp_walker_tick()
+     * itself moved on) without ever calling gbp_v28_3a_cut()/_depth_done(). Nothing else will ever
+     * call them either: the walker no longer reports DESCENT_3A as its current kind, so a dispatch
+     * switch keyed on gbp_walker_current_kind() never reaches 3a again. */
+    eqi((long long)s.depths_n, 0, "without cut()+depth_done(): the in-progress dwell is lost, not even PARTIAL");
+    eqi((long long)s.finished, 0, "and the module itself does not even know it was cut");
+}
+
+static void test_a_walker_cap_cut_with_the_callers_own_cut_call_records_it_partial(void)
+{
+    struct gbp_walker w;
+    struct gbp_v28_3a s;
+    uint64_t now = steady2(GBP_V28_P3_START);
+    enum gbp_walker_kind kind_before;
+    (void)drive_to_the_walker_cap(&w, &s, &now, &kind_before);
+    /* THE FIX: exactly poc/gbp-audio-v28's own v28_cut() -- gbp_v28_3a_cut() marks it, then
+     * gbp_v28_3a_depth_done() (zeroed deltas: a PARTIAL record already signals distrust, the same
+     * convention gbp_v28_sweep_cut() states explicitly for its own dup/drop fields) flushes it. */
+    check(kind_before == GBP_WALKER_DESCENT_3A, "test setup: 3a was the phase that got cut");
+    gbp_v28_3a_cut(&s, now);
+    gbp_v28_3a_depth_done(&s, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+    eqi((long long)s.depths_n, 1, "with cut()+depth_done(): the in-progress dwell IS recorded");
+    check(gbp_v28_3a_depth_record(&s, 0)->partial == 1u, "...and marked PARTIAL, never a silent whole record");
+}
+
 int main(void)
 {
     test_start_begins_the_first_depth_once_applied();
@@ -382,6 +446,8 @@ int main(void)
     test_a_dwell_already_ended_before_a_cut_stays_whole();
     test_depth_done_with_nothing_pending_is_refused_and_counted();
     test_dishonest_vs_honest_under_a_forced_busy_transition();
+    test_a_walker_cap_cut_without_the_callers_own_cut_call_loses_the_record_silently();
+    test_a_walker_cap_cut_with_the_callers_own_cut_call_records_it_partial();
     printf("test_gbp_v28_3a: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

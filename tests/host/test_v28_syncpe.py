@@ -52,6 +52,23 @@ class RoundTrip(unittest.TestCase):
         self.assertIsNone(v28syncpe.parse_syncph("SYNCPE p=0 edge=start t=0 why=none"))
         self.assertIsNone(v28syncpe.parse_syncpe("KEYLOG events=1"))
 
+    def test_an_out_of_vocabulary_why_is_none_not_silently_accepted(self):
+        """A damaged/truncated physical log must not parse as if it were valid (CLAUDE.md section 11's
+        "malformed data" case): main.c's own syncpe_why() is a closed switch that can never emit a
+        value outside WHY_VALUES, but the reader must not assume the writer -- or the bytes read back
+        off a physical SD card -- agree. Otherwise-well-formed lines, wrong vocabulary only."""
+        self.assertIsNone(v28syncpe.parse_syncpe("SYNCPE p=0 edge=start t=10 why=bogus"))
+        self.assertIsNone(v28syncpe.parse_syncph("SYNCPH phase=0 t_start=10 t_end=20 ended=1 reason=bogus"))
+
+    def test_an_out_of_vocabulary_why_is_dropped_from_a_mixed_parse(self):
+        text = "\n".join([
+            "000001 SYNCPE p=0 edge=start t=10 why=none",
+            "000002 SYNCPE p=0 edge=end t=20 why=bogus",
+        ])
+        recs = v28syncpe.parse(text)
+        self.assertEqual(len(recs), 1)
+        self.assertEqual(recs[0]["edge"], "start")
+
     def test_parse_mixed_log_in_order(self):
         text = "\n".join([
             "000001 IDENT test=x",

@@ -733,6 +733,39 @@ static void v28_control(uint64_t now)
                        (unsigned long long)now);
 }
 
+/* Every handler that carries a dwell/hold/sweep-dwell of its own documents the SAME requirement
+ * ("call BEFORE the caller advances past [3a/3b/sweep]", gbp_v28_3a.h/3b.h/sweep.h): a phase cut
+ * from OUTSIDE the handler's own logic (a cap, the session cap, Z) must be reported to it before
+ * the walker moves on, or an in-progress record is silently never recorded at all -- not marked
+ * partial, simply absent (the adversarial review of e283aa5 found this call missing entirely).
+ * Safe to call for any kind, including one with no cut()/dwell concept (navigate, nulling): the
+ * default case is a no-op, and each _cut() itself is documented as inert on an already-ended
+ * record. `kind` is the phase that was CURRENT before the call that may have cut it -- captured by
+ * the caller, since gbp_walker_current_kind() only reads the phase in force NOW. */
+static void v28_cut(enum gbp_walker_kind kind, uint64_t now)
+{
+    switch (kind) {
+    case GBP_WALKER_DESCENT_3A:
+        gbp_v28_3a_cut(&s3a, now);
+        /* _cut() only MARKS the in-progress dwell (dwell_cut/depth_pending, finished=1); the actual
+         * record push is _depth_done()'s own job -- a no-op here (documented, tested:
+         * test_gbp_v28_3a.c's own test_a_cut_dwell_is_partial() calls both, in this order) unless
+         * cut() just set depth_pending. Zeroed deltas, matching gbp_v28_sweep_cut()'s own explicit
+         * precedent for a partial record: "a PARTIAL record already tells the reader not to trust
+         * it as a full PASS", so the exact counters do not matter here. */
+        gbp_v28_3a_depth_done(&s3a, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+        break;
+    case GBP_WALKER_HOLD_3B:
+        gbp_v28_3b_cut(&s3b, now);
+        gbp_v28_3b_hold_done(&s3b);   /* same two-step contract as 3a, see above */
+        break;
+    case GBP_WALKER_SWEEP:
+        gbp_v28_sweep_cut(&sweep, now);   /* self-contained: writes the record itself, no follow-up call */
+        break;
+    default: break;
+    }
+}
+
 /* ---- SYNCPE: the phase-edge grammar (see the file header) ------------------------------------ */
 static const char *syncpe_why(enum gbp_walker_end_reason r)
 {
@@ -783,14 +816,21 @@ static void live_step(void)
     if (sync_started && !gbp_walker_finished(&walker)) {
         int wflags = 0;
         if (session.end_requested && z_can_act) {
+            const enum gbp_walker_kind kind_before = gbp_walker_current_kind(&walker);
             wflags = gbp_walker_stop(&walker, now, tr.active);   /* Z: end the WHOLE walk (gbp_walker's own
                                                                     * semantics -- not gbp_async's "next phase") */
+            if (wflags) v28_cut(kind_before, now);               /* applied (not refused busy): report the cut */
             z_can_act = 0;
         }
         if (!(PAD_ButtonsHeld(PAD_CHAN0) & PAD_BUTTON_Z)) { z_can_act = 1; session.end_requested = 0; }
         if (!(wflags & GBP_WALKER_TICK_FINISHED)) {
             const int active = tr.active;
+            const enum gbp_walker_kind kind_before = gbp_walker_current_kind(&walker);
             int tick_flags = gbp_walker_tick(&walker, now, active);
+            /* gbp_walker_tick() only ever advances on TIMING (a phase/session cap): the handler's
+             * own gbp_walker_phase_complete() calls below are the ONLY other way a phase ends, and
+             * they are not this call -- so a PHASE_END bit here is always a cut, never a complete. */
+            if (tick_flags & GBP_WALKER_TICK_PHASE_END) v28_cut(kind_before, now);
             switch (gbp_walker_current_kind(&walker)) {
             case GBP_WALKER_DESCENT_3A: {
                 const int f = gbp_v28_3a_tick(&s3a, &tr, &ap2, &adec2, now);
