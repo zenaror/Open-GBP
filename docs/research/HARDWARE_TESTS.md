@@ -38346,3 +38346,35 @@ both before and after the copy and matched its pin unchanged throughout.
 
 This is the build RUN 50 runs: the first time §V28's own AHEAD-1 hold gets the chance to measure
 anything with audio actually playing.
+
+### V28.4 `23-v28v` re-pinned a second time: the label now shows a moving hand-off count, not a static flag — 2026-09-28 (Issue #131/#133)
+
+Independently verified before this round started: the Planejador's own re-hash of all 24 slots
+matched the pins above, `23-v28v`'s `build-info.txt` read `commit=260d6d7` with no `-dirty`, and no
+stale run files were left on the card.
+
+**The Operator's ear is the only mid-run signal RUN 50 has, and silence is ambiguous** (he could be
+standing in a quiet spot in the game, as §V28.1's own RUN 48 declaration shows he sometimes does).
+A static "started" mark (e.g. appending `" A"` once `ai_started` fires) proves the DMA started
+once; it cannot show started-then-stalled, the exact shape RUN 48 turned out to be, indistinguishable
+from healthy playback. `v28_label_text()`'s validation branch (`main.c`) now shows `ap2.handed`,
+the count of chunks actually handed to the AI DMA, alongside the phase/clock it already displayed:
+`"P%lu/%lu H%lu RUN %lus"`. A frozen number is now as diagnostic as a missing one. Perceptual
+branch untouched — `ap2.*` stays a NEVER field there; `tests/host/test_v28_label_handed.py` extends
+the leak-rule shape from `test_v28_leak.py` to this function (which that file does not cover),
+RED-verified by reverting to the old static format before being restored. Commit `394c7a7`.
+
+`validation_run` rebuilt from this commit, twice independently, both giving the same hash:
+
+```text
+sha256 d8a99726c23b755c5af10d1ea7b1f384596e1d2fd91ab211d7efee4f13d6fdcb
+```
+
+Manifest re-pinned (`tools/swiss-layout.tsv`), the test pin updated. Local export re-verified
+(`PINNED-VERIFIED`). Card re-staged while still in the reader: `23-v28v` copied to
+`/media/rafael/SD_GC/Open-GBP/23-v28v/boot.dol` and read back at the same hash; every other frozen
+slot (`12-stream` through `22-sync`, and `24-v28d`) re-hashed before and after the copy and
+unchanged throughout.
+
+**RUN 50's own procedure carries this marker's meaning**: if the `H` number never starts moving,
+the Operator stops the run and says so — the same instant the ear alone would have left ambiguous.
