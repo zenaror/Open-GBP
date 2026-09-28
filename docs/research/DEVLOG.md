@@ -18809,3 +18809,34 @@ in the tool-fix entry below (run together on the same committed tree).
 **Next.** Rebuild both images from the clean tree, post the corrected hashes for the Orchestrator's
 verification. Swiss staging still waits on that.
 
+## 2026-09-28 — Issue #128/#129/#130/#131: `tools/v28verdict.py`, dropping the reversal rule's spurious `source=="rule"` requirement
+
+The previous commit's (2d4fdc0) reversal-evaluability check required `anchor["source"] == "rule"`
+in addition to `target == 4096` (T256). #128 §5's own freeze text says only "the anchor used is
+T256" -- no source qualifier. A clean AHEAD-1 hold at T256 is the observation §5 names whether that
+T256 came from the rule (a confirmed floor at or below the lowest rung) or from the frozen default
+(no confirmed floor at all, `has_floor=0`) -- both are "the anchor used is T256". The extra
+requirement would have wrongly withheld FIRED from a legitimate T256-via-default hold.
+
+**Fix.** `hold_3b()`'s `anchor_is_t256` no longer checks `source`; `reversal_evaluable`/
+`reversal_fired` follow from `target == 4096` alone. `render()`'s own reversal-condition line now
+prints the anchor's source alongside FIRED/not-fired, so a reader can still tell rule from default
+apart -- the source is surfaced, never silently dropped, per the Orchestrator's own instruction.
+
+**Proof.** `tests/host/test_v28verdict.py`: the test that had asserted the wrong behavior
+(`reversal_evaluable` false for `source=default`) renamed and flipped --
+`test_anchor_default_still_evaluates_the_reversal` now asserts a clean T256/default hold reports
+`reversal_evaluable=True`, `reversal_fired=True`.
+
+**Gate.** `make -C tests/unit`: 72/72, 0 failures, 53 modules. `pytest -q tests/host`: 3384 passed,
+7 skipped, 103 subtests passed, 0 failed, on the committed tree (this entry and the previous one
+together).
+
+**Residual, not touched this round.** Issue #131's own frozen §4 body text still reads "the
+anchor's own source is rule and its target is T256" -- written by me in the Amendment 3 body edit,
+matching my own (then-wrong) code. The Orchestrator's own instruction after that edit was explicit:
+no further edits to a frozen body. The text is now known incorrect against the corrected rule
+above; flagged to the Orchestrator in the report rather than re-edited.
+
+**Next.** Both DOL hashes go to the Orchestrator for verification; Swiss staging waits on that
+confirmation.
