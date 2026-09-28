@@ -22,17 +22,22 @@ _SYNCPH = re.compile(r"^(?:\d+\s+)?SYNCPH\s+phase=(\d+)\s+t_start=([0-9a-fA-F]+)
 
 
 def parse_syncpe(line):
-    """{'p': int, 'edge': 'start'|'end', 't': int, 'why': str}, or None if `line` is not a SYNCPE line."""
+    """{'p': int, 'edge': 'start'|'end', 't': int, 'why': str}, or None if `line` is not a SYNCPE
+    line -- INCLUDING one that otherwise matches the grammar but carries a `why` outside
+    WHY_VALUES (a damaged or truncated physical-hardware log must not parse as if it were valid,
+    CLAUDE.md §11's "malformed data" case: `main.c`'s own `syncpe_why()` is a closed switch that can
+    never emit one, but the reader must not assume the writer -- or the bytes in between -- agree)."""
     m = _SYNCPE.match(line.strip())
-    if not m:
+    if not m or m.group(4) not in WHY_VALUES:
         return None
     return {"p": int(m.group(1)), "edge": m.group(2), "t": int(m.group(3), 16), "why": m.group(4)}
 
 
 def parse_syncph(line):
-    """{'phase': int, 't_start': int, 't_end': int, 'ended': bool, 'reason': str}, or None."""
+    """{'phase': int, 't_start': int, 't_end': int, 'ended': bool, 'reason': str}, or None --
+    including an out-of-vocabulary `reason` (see parse_syncpe()'s own comment)."""
     m = _SYNCPH.match(line.strip())
-    if not m:
+    if not m or m.group(5) not in WHY_VALUES:
         return None
     return {"phase": int(m.group(1)), "t_start": int(m.group(2), 16), "t_end": int(m.group(3), 16),
             "ended": m.group(4) == "1", "reason": m.group(5)}
