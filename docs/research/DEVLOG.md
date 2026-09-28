@@ -17970,3 +17970,79 @@ STEP/REFUSED/START, outcome, fail_reason NONE/OUT_OF_BAND/UNDERRUN/UNMASKED, and
 `test_v28_ahead_steps.c` native-path matrix port, still a named pre-staging item; `SYNCPE` emission, the GX
 label, Amendment C's O6-leak drop and the two-image build, all still waiting on the new image's own `main.c`
 (the same file this round's own §18 requirement is a design note for, once it exists).
+
+## 2026-09-27 — Issue #129/#130 continued: §18 accepted, the frozen sequence's own closure gap fixed,
+## gbp_v28_sweep built, and a REAL underrun found at AHEAD 1
+
+**§18 closed (the Orchestrator's own read).** The trace-based "the mute can take substantially more than 6
+periods to accumulate 6 hand-offs" line this round's own §18 concern was built on is contradicted by both the
+later trace and the code: the ROTATE landing residue's overfill came from rotations firing at `aim` inside a
+FIXED-length mute, never from a mute that itself stretches. `handed` counts IRQ calls unconditionally, so the
+mute's own landing check is wall-clock-bounded by construction, in both paths, as this round's own zero-feed
+test proved. No redundant deadline added inside `gbp_atrans2` -- a `now`-based check in `step()` would still
+depend on `step()` being called, so it could never cover the one place the real risk lives (a future driver
+loop gating `irq_handoff()` on feed). Recorded as a NAMED SUCCESSOR instead of an open note (Issue #129
+comment): once `main.c` exists, an integration-level zero-feed test, the same stall driven through the real
+driver loop, asserting a transition still completes -- listed as required before staging.
+
+**The frozen sequence's own closure gap (the Orchestrator's own catch, on my own question).** The sequence I
+asked about -- item 5's two largest STARTs ending at T704A4, item 6 (the T192 branch) starting at T256A4 --
+does not close, and the Orchestrator named the reason precisely: walking every adjacent pair of the main 8
+rungs in both directions, and the two STARTs one each way, both net to zero by construction (a line walked
+end to end and back, or a climb undone by its own descent) -- an interior rung can only be reached by an
+INTERIOR move, not by any reordering of what nets to zero. Fix: the repositioning move (T704A4 -> T256A4)
+opens the informational branch, recorded INFO, using GBP_V28_START_MUTE (a large jump, verified again rather
+than assumed) -- 27 moves in total, not 26; the budget re-derived accordingly (mutes at their own true
+values, the settle dwell near-zero with the trim in place, a short observation instead).
+
+**`gbp_v28_sweep` built (commit `f400fa7`).** The handler: a 27-entry frozen table (class, mechanism, from/to,
+mute), a begin-pending/dwelling state machine mirroring 3a/3b's own discipline, and per-entry records exactly
+as previously accepted (class, mechanism, from/to, outcome, fail_reason, timing, dup/drop/ahead_drops/
+unmasked). A GATE entry passes on the ROTATE trim's own structural TARGET+AHEAD checks (already proven by
+`test_v28_sweep_residue.c`) AND no underrun over its own mute plus a short (1 s) observation AND no unmasked
+splice; the verdict reads only the 18 GATE rows, INFO never dilutes or rescues it; a cut mid-dwell records
+PARTIAL, never PASS.
+
+**A calling-convention bug found and fixed while building the module's own test, not shipped**: driving
+`gbp_v28_sweep_tick()` BEFORE the caller's own pump slot (gbp_v28_3a/3b's own convention, harmless there since
+neither reads ring state) let one extra period of ordinary production run before this module noticed a
+landing, since `t->active` flips to 0 INSIDE that same pump slot's own `gbp_atrans2_step()` call. Every one of
+the 27 landing checks failed at first, off by exactly one slice (`GBP_APLAY2_PUSHES / 16`) -- reordering to
+call this module AFTER the pump slot fixed it outright; documented as this module's own explicit calling
+requirement (its header), since it differs from 3a/3b's.
+
+**A REAL finding, not a test artifact.** Under an ordinary smooth-feed run of the full 27-entry sequence,
+entry 6 (T256A2 -> T256A1, an AHEAD-lowering STEP landing AT AHEAD 1) underruns for real, one period after
+landing. READY at the landing was exactly 0 (`ahead - 1` for this destination -- a structurally VALID landing,
+not an OUT_OF_BAND fault), but AHEAD 1's own floor is 0: zero chunks of margin, so the very next hand-off
+after the mute ends finds nothing queued. An isolated repeat of the SAME transition (T256A2->T256A1, mute 6)
+at every one of 16 phases, from a fresh steady start, never reproduced it -- every phase landed one chunk
+LOOSER instead (READY == ahead, not ahead - 1). The tight landing is state the preceding five entries' own
+cascade produces, not something the isolated transition alone shows -- exactly why the sweep tests the real
+cascade, not just the isolated transitions `test_v28_sweep_residue.c` already covers. Every other entry
+passes; this is precisely what the sweep's own GATE is FOR (Issue #129: "any gate failure removes that
+transition from the perceptual ladder or blocks the perceptual run, and the reason is named"). NOT patched
+around in this module -- reported to the Orchestrator for a methodology decision (a cheap candidate: give an
+AHEAD-lowering step landing AT AHEAD 1 specifically one more chunk of margin, since `ahead - 1 = 0` is the one
+destination with no slack at all; not applied here, since it is exactly the design call the GATE exists to
+route to the Orchestrator, not one this module should make for itself).
+
+**Tests**: `tests/unit/test_gbp_v28_sweep.c`, 109 checks against the REAL chain -- a full run's own 27 records
+in the frozen order (class/mechanism/from/to spot-checked at the boundaries: the two refused steps, both
+STARTs, the repositioning, the T192 branch), entry 6's own real underrun recorded FAIL/UNDERRUN and the
+verdict FAIL from it (not a fitted expectation -- the test asserts what actually happens, found this round, not
+an assumed clean pass); PENDING-until-18-GATE-rows verdict timing; a SEPARATE, controlled stall proving the
+UNDERRUN classification generically (not tied to one index); the busy-begin regression; a cut before the first
+begin (abandoned, nothing to report) and a cut mid-dwell (PARTIAL); the 27-move budget, computed from the
+frozen table's own mute counts independent of the module's private TABLE, fitting the sweep's 60 s cap with
+comfortable margin (32.25 s of 60 s).
+
+The gate on the committed tree: `pytest -q tests/host` -- 3322 passed, 7 skipped, 0 failed; `make -C tests/unit`
+-- every binary green, 0 failures (`test_gbp_v28_sweep` 109 checks, `test_v28_sweep_residue` 1280 checks
+unaffected).
+
+**Next.** The Orchestrator's read of entry 6's own underrun (accept the GATE removing this rung from the
+perceptual ladder, or a design fix -- e.g. extra margin for any step landing at AHEAD 1); the
+`test_v28_ahead_steps.c` native-path matrix port, still a named pre-staging item; the main.c zero-feed
+integration test (§18's own named successor, Issue #129); `SYNCPE` emission, the GX label, Amendment C's
+O6-leak drop and the two-image build, all still waiting on that same `main.c` to exist.
