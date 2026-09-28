@@ -38,6 +38,19 @@ PLAN_C_NAME = {
     "diag_3a_stall": "GBP_V28_DIAG_3A_STALL",
 }
 
+MAIN = os.path.join(ROOT, "poc", "gbp-audio-v28", "source", "main.c")
+
+# GBP_WALKER_* kind -> the module-level function that must actually be CALLED (never merely
+# declared) somewhere main.c can reach, before that phase's own tick()/step() does anything real.
+# GBP_WALKER_NAVIGATE is deliberately absent: it has no separate handler struct of its own (it is
+# the walker's own phase 0), so there is nothing to start.
+KIND_START_FN = {
+    "GBP_WALKER_DESCENT_3A": "gbp_v28_3a_start",
+    "GBP_WALKER_HOLD_3B": "gbp_v28_3b_start",
+    "GBP_WALKER_SWEEP": "gbp_v28_sweep_start",
+    "GBP_WALKER_NULLING": "gbp_v28_nulling_start",
+}
+
 
 def read(p):
     with open(p, encoding="utf-8") as f:
@@ -141,6 +154,41 @@ class TheTwoPlansAgreeWithVBudget(unittest.TestCase):
         for py_name in PLAN_C_NAME:
             names, _secs, _cap = python_plan(py_name)
             self.assertNotIn("p1", names, "%s must not carry Phase 1 (#128 §2 point 3)" % py_name)
+
+
+class TheHandlersAreStarted(unittest.TestCase):
+    """Issue #131: `gbp_v28_3a_start()` was never called anywhere in main.c -- 3a sat at its
+    static zero-init state for its entire phase, tick() fell through every call, and the phase
+    only ever ended via the walker's own timeout. Checking what a general version of this test
+    would find, before writing it, turned up the SAME gap for `gbp_v28_sweep_start()` and
+    `gbp_v28_nulling_start()` -- no handler in this POC was ever started (the Orchestrator's own
+    words). Driven from the shared plans table, with no exemption list: a plan or handler added
+    later is checked the same way automatically, and this file does not get to decide any handler
+    is allowed to stay broken.
+
+    THE CLASS OF BUG THIS FIXES: tests/unit/test_v28_zero_feed_integration.c's own harness
+    reproduced "main.c's own DESCENT_3A wiring call-for-call" and passed -- because it called
+    start() itself, modelling the wiring as INTENDED rather than as WRITTEN. That is the same
+    shape as a test that agrees with the bug: the harness and the buggy code shared an
+    assumption, so the harness could not see the gap. Grepping the REAL main.c is what breaks
+    that symmetry -- main.c cannot be compiled or driven on the host, so this is the only way to
+    check what it actually does, the same shape test_v28_anchor_wiring.py already established."""
+
+    def test_every_handler_a_plan_uses_is_actually_started(self):
+        src = read(MAIN)
+        header = code(read(PLANS_H))
+        needed = set()
+        for py_name, c_name in PLAN_C_NAME.items():
+            for kind_token, _cap_expr in c_plan_array(header, c_name + "_PHASES"):
+                if kind_token in KIND_START_FN:
+                    needed.add(KIND_START_FN[kind_token])
+        self.assertTrue(needed, "no handler kind to check -- the population went silently empty")
+        for fn in sorted(needed):
+            calls = re.findall(r"\b%s\s*\(" % re.escape(fn), src)
+            self.assertGreater(len(calls), 0,
+                               "%s is declared but never called anywhere in main.c -- its own "
+                               "handler struct stays at its static zero-init state for its "
+                               "entire phase" % fn)
 
 
 class TheMakefileCleanTarget(unittest.TestCase):

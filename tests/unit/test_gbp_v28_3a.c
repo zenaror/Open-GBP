@@ -135,6 +135,25 @@ static int drive(struct gbp_v28_3a *s, uint64_t *now, uint32_t periods)
  * Layer 1: the algorithm, against the real chain.
  * ================================================================================================ */
 
+/* Issue #131 (RUN 48/RUN 49): gbp_v28_3a_start() was never called anywhere in poc/gbp-audio-v28/
+ * source/main.c -- s3a sat at its static zero-init state (matched by memset() here, never
+ * gbp_v28_3a_start()) for its entire phase. Proven directly: a never-started 3a, driven through
+ * a real, healthy, playing chain for far longer than one dwell would ever take, records nothing
+ * and never finishes -- begin_pending, dwell_active and finished are all 0, so gbp_v28_3a_tick()
+ * falls through every single call and returns 0, exactly RUN 48/49's own V28DIAG data
+ * (begin_refused=0, begin_pending_ticks=0, no V28_3A record at all). */
+static void test_a_never_started_3a_records_nothing_however_long_it_is_driven(void)
+{
+    struct gbp_v28_3a s;
+    uint64_t now = steady2(GBP_V28_P3_START);
+    memset(&s, 0, sizeof s);   /* the exact bug: gbp_v28_3a_start() is never called */
+    (void)drive(&s, &now, 3u * (GBP_V28_3A_DWELL_S + 1u));   /* far longer than one dwell needs */
+    eqi((long long)s.depths_n, 0, "a never-started 3a records zero depths, however long it runs");
+    eqi((long long)gbp_v28_3a_finished(&s), 0, "and never finishes either -- only a walker timeout ends the phase");
+    eqi((long long)s.begin_pending, 0, "begin_pending was never set to 1 -- start() is what does that");
+    eqi((long long)s.dwell_active, 0, "and nothing is ever dwelling");
+}
+
 static void test_start_begins_the_first_depth_once_applied(void)
 {
     struct gbp_v28_3a s;
@@ -543,6 +562,7 @@ static void test_confirmed_floor_a_cut_mid_bisection_uses_the_latest_hi(void)
 
 int main(void)
 {
+    test_a_never_started_3a_records_nothing_however_long_it_is_driven();
     test_start_begins_the_first_depth_once_applied();
     test_begin_refused_counts_no_dwell_until_applied();
     test_a_holding_depth_steps_down_by_p3_step();

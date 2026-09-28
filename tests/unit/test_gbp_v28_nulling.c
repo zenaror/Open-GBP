@@ -123,6 +123,35 @@ static void settle(uint64_t *now, uint32_t max_periods)
 #define S1_START   55296u
 #define S1_DIR     GBP_V28_NULLING_LEFT_DEEPER
 
+/* Issue #131 (RUN 48): gbp_v28_nulling_start() was never called anywhere in poc/gbp-audio-v28/
+ * source/main.c either. Unlike 3a and sweep, this one does not freeze or skip visibly -- a
+ * perceptual run would complete and look clean, which is why it is the worst of the three, not
+ * the least. Proven directly: without start(), n->rng never leaves 0 -- xorshift32's own fixed
+ * point (0 in, 0 out, forever) -- so every setting confirm()'s own lazy seeding draws is the SAME
+ * degenerate (start, direction) pair, never a real one. Setting 0 itself is worse still: only
+ * gbp_v28_nulling_start() ever seeds index 0 (confirm()'s own lazy path seeds the NEXT index,
+ * after recording the current one), so a never-started setting 0 is recorded with p2_start==0,
+ * p2_dir==0 -- raw zero-init, not even a valid grid point (GBP_V28_P2_LO is 6144). */
+static void test_a_never_started_nulling_draws_the_same_degenerate_setting_forever(void)
+{
+    uint64_t now = steady();
+    memset(&nl, 0, sizeof nl);   /* the exact bug: gbp_v28_nulling_start() is never called */
+    eqi((long long)nl.rng, 0, "test setup: rng at its raw zero-init value");
+
+    check(gbp_v28_nulling_confirm(&nl, &tr, &ap, &adec, now) == 1, "confirm() itself does not refuse");
+    eqi((long long)nl.rng, 0, "xorshift32's own fixed point: 0 in, 0 out -- rng never leaves 0");
+    eqi((long long)nl.settings[0].start, 0, "setting 0 was never seeded at all (only start() seeds index 0)");
+    eqi((long long)nl.settings[0].direction, 0, "-- recorded as raw zero-init, not a real draw");
+    eqi(nl.p2_start[1], GBP_V28_P2_LO, "index 1's own lazy seed IS drawn, but from rng==0: always P2_LO");
+    eqi(nl.p2_dir[1], GBP_V28_NULLING_LEFT_DEEPER, "-- and always the same direction, never the other one");
+
+    settle(&now, 40u);   /* land the transition confirm() just began, so a second confirm() is not refused-busy */
+    check(gbp_v28_nulling_confirm(&nl, &tr, &ap, &adec, now) == 1, "the second confirm() also does not refuse");
+    eqi((long long)nl.settings[1].start, GBP_V28_P2_LO, "setting 1 recorded the same degenerate value index 1 drew");
+    eqi(nl.p2_start[2], GBP_V28_P2_LO, "index 2 draws the SAME value again -- not a different one, forever");
+    eqi(nl.p2_dir[2], GBP_V28_NULLING_LEFT_DEEPER, "-- and the same direction again too");
+}
+
 static void test_start_seeds_and_begins(void)
 {
     uint64_t now = steady();
@@ -290,6 +319,7 @@ static void test_the_whole_cap_finishes_and_further_confirms_are_refused(void)
 
 int main(void)
 {
+    test_a_never_started_nulling_draws_the_same_degenerate_setting_forever();
     test_start_seeds_and_begins();
     test_step_value_that_is_not_a_stick_is_refused();
     test_step_deeper_and_shallower_move_by_one_grid_step();

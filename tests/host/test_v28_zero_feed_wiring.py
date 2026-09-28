@@ -98,7 +98,9 @@ class TheProduceStepDispatchIsUnconditionalOnFeed(unittest.TestCase):
         confirmed here so a reader of this file's own two tests does not mistake it for a second,
         conditionally-skipped per-tick handoff."""
         body = function_body(read(MAIN), "live_step")
-        self.assertIn("if (!ai_started && adec2.count >= ap2.target", body)
+        # Issue #131: the literal >= 2u this line used to read was unreachable at AHEAD 1 by
+        # construction -- gbp_aplay2_start_ready() replaces it, deriving the cushion from ahead.
+        self.assertIn("if (!ai_started && gbp_aplay2_start_ready(&ap2, adec2.count)", body)
         self.assertIn("ai_started = 1;", body)
         # exactly one handoff call inside live_step (the AI-start one); the per-tick one lives in
         # live_dma_cb(), not here.

@@ -283,6 +283,12 @@ uint32_t gbp_aplay2_ready(const struct gbp_aplay2 *p)
     return p ? (uint32_t)(p->rq_tail - p->rq_head) : 0u;
 }
 
+int gbp_aplay2_start_ready(const struct gbp_aplay2 *p, uint32_t adec_count)
+{
+    const uint32_t cushion = p->ahead < 2u ? p->ahead : 2u;
+    return adec_count >= p->target && gbp_aplay2_ready(p) >= cushion;
+}
+
 void gbp_aplay2_queue(struct gbp_aplay2 *p, int buf)
 {
     if (!p || buf < 0 || buf >= (int)GBP_APLAY2_POOL) return;
