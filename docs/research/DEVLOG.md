@@ -18210,3 +18210,62 @@ operator-input-driven through the GameCube controller stick, and no existing nat
 input at all; a design decision on scope is needed before writing code, given "heavy review... for the timing
 you can hear"); then `SYNCPE` markers, the GX label, Amendment C's O6-leak drop, the main.c zero-feed
 integration test and the two images, all still gated on a `main.c` that does not yet exist.
+
+## 2026-09-27 — Issue #129/#130 continued: `gbp_v28_nulling`, the native port of gbp_async's own Phase 2
+
+The Orchestrator's own answer to the nulling design question: option (a), the interface already exists.
+`gbp_async_step(a, now, stick)` (gbp_async.c) already takes the stick as a plain argument, and only
+`poc/gbp-audio-sync/source/main.c` reads the actual pad -- so the native handler gets the same shape, a pure
+step function with no idea a pad exists, host-tested the way `test_gbp_async.c` tests its own (including the
+refusal of a value that isn't a stick). Order: nulling first (host only), then the POC (heavy review, since it's
+the image that goes to hardware).
+
+**New module: `src/audio/gbp_v28_nulling.{h,c}`.** Ports gbp_async's own Phase 2 mechanics exactly:
+`draw_p2()`'s own seeded start-on-the-grid + 50/50 direction (own local `xorshift32()`, matching
+`gbp_async_xorshift32()`'s algorithm but not sharing its build -- the native §V28 modules never depend on the
+old path); the grid itself is `gbp_v28_ladder.h`'s own already-frozen `GBP_V28_P2_LO/HI/STEP` (Amendment A's
+own x16 derivation, done in an earlier round); the step, one grid unit deeper/shallower by the SAME XNOR
+gbp_async_step() uses (`(stick==LEFT) == (dir==LEFT_DEEPER)`); confirm, which records the setting and
+seeds/starts the next. Two deliberate departures, both faithful to gbp_async's own actual behavior, not
+inventions:
+
+- every step/confirm uses `GBP_V28_STEP_MUTE` (6), NOT gbp_async's own `step_mute_chunks` -- #128 §3's own
+  fixed step mute already supersedes it for nulling too (gbp_v28_ladder.h's own comment on the constant names
+  nulling explicitly, from an earlier round);
+- no `tick()`/`begin_pending` retry loop, unlike 3a/3b. 3a/3b redecide their OWN next target from an INTERNAL
+  timer (a dwell/hold ending), so their own previous transition can still be `t->active` at the exact instant
+  they try to begin the next one -- hence the retry. Nulling's only two decisions, step() and confirm(), are
+  each an EXTERNAL, single, synchronous call with no internal timer driving a redecision; `t->active` is
+  checked once, refused and counted if busy, never queued -- the same shape gbp_async_step()/
+  gbp_async_confirm() already have. AHEAD is read once from the chain at start() and held fixed for the whole
+  exercise, matching gbp_async's own Phase 2, which has no AHEAD concept at all.
+- `gbp_async_start()`'s own zero-seed guard (`x = seed ? seed : 1u` -- 0 is xorshift32's own fixed point) is
+  carried over unchanged, not an addition: a caller-supplied 0 is silently useless otherwise.
+
+**Proof.** New `tests/unit/test_gbp_v28_nulling.c`, same two-layer shape as `test_gbp_v28_3b.c` (the real
+gbp_atrans2/gbp_aplay2/gbp_adec2 chain, since the module calls `gbp_atrans2_begin()` directly): seeded
+start/direction values for a fixed seed, computed independently in Python (the same xorshift32 algorithm) and
+hardcoded, not re-derived from the module under test; `test_gbp_async.c`'s own Defect 2 ported directly (an
+invalid stick value refused and counted apart, checked BEFORE the busy check, both idle and mid-mute); deeper/
+shallower movement by exactly one grid step in both directions; busy refusal; the grid's own edge refusal;
+confirm recording + re-seeding + starting the next setting; confirm refused while busy; the whole
+`GBP_V28_NULLING_CAP` (16) settings recorded, `finished` set, a further confirm refused and counted apart from
+busy. 138 checks, 0 failures. Sanity-checked against a deliberate mutation (the deeper/shallower XNOR flipped):
+65 of 187 checks failed, exactly the ones touching direction -- reverted, clean again -- before trusting a
+first-pass all-green result, the same discipline this round's other work used.
+
+**A process note, not a defect.** The first post-commit `pytest -q tests/host` run this round showed 64
+failures, all in `tests/host/test_vstate.py`, several `FileNotFoundError`. Traced to running `make -C
+tests/unit clean && make -C tests/unit` CONCURRENTLY with `make test-python` in the same checkout -- the
+already-known race (`tests/unit`'s own rebuild of `test_gbp_vstate` touching `build/` at the same moment
+`test_vstate.py` reads it). Re-run sequentially (the unit gate to completion, then `pytest` alone): clean.
+Full gate: `make -C tests/unit` 33/33 binaries green (`test_gbp_v28_nulling` included, 138/138);
+`pytest -q tests/host` (sequential, no concurrent build) 3322 passed, 7 skipped, 0 failed, on the committed
+tree -- confirming the 64-failure run really was the race, not a regression.
+
+**Next.** The POC (`poc/gbp-audio-v28/`, copied from `poc/gbp-audio-sync/source/main.c` per the Orchestrator's
+own direction, NOT editing the frozen original): replace `gbp_async` with `gbp_walker` plus the native
+handlers, one source and two build-time images (`validation_run`, `perceptual_no_phase1`), keeping pad/SD code
+unchanged wherever it doesn't touch the audio path. Heavy review for the POC, since it is the image that goes
+to hardware. After that, `SYNCPE` markers, the GX label, Amendment C's O6-leak drop, and the zero-feed
+integration test all have somewhere to live. Nothing stages to Swiss until the §V28 Issue authorises it.
