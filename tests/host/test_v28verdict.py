@@ -311,6 +311,73 @@ class LabelCost(unittest.TestCase):
         self.assertFalse(out["have"])
 
 
+class Issue135Diagnostics(unittest.TestCase):
+    """RUN 52's own additions: the INFO prelude that opens the sweep, the measured from-state on every
+    V28_SWEEP line, and 3b's own margin minima. Logs without them (RUN 51's) must read as before."""
+
+    MAIN = os.path.join(ROOT, "poc", "gbp-audio-v28", "source", "main.c")
+
+    def test_the_prelude_is_one_more_info_row_and_never_a_gate(self):
+        prelude = ("V28_SWEEP n=0 klass=1 mech=2 from_t=4096 from_a=1 to_t=11264 to_a=4 outcome=2 fail=1 "
+                   "residue=-895 unmasked=0")
+        rows = [prelude] + [sweep_gate_row(n) for n in range(1, 19)] + [sweep_info_row(n) for n in range(19, 28)]
+        out = v28verdict.sweep("\n".join(rows) + "\n" + sweep_verdict(1))
+        self.assertEqual(out["n_gate"], 18)
+        self.assertEqual(out["n_info"], 10)
+        self.assertEqual(out["n_records"], 28)
+        self.assertEqual(out["failing_gates"], [])    # a failing prelude is not a failing GATE
+        self.assertEqual(out["verdict_name"], "PASS")
+
+    def test_measured_fields_are_rendered_for_a_failing_gate_and_optional_otherwise(self):
+        row = (sweep_gate_row(3, outcome=2, fail=1) + "\n"
+               "V28_SWEEPM n=3 meas_t=4096 meas_a=1 meas_ring=4100 meas_ready=1 ring=3000 ready=0 dup=2 drop=0 "
+               "t_land=abc")
+        log = full_clean_log().replace(sweep_gate_row(3), row)
+        text = v28verdict.render(v28verdict.analyse(log))
+        self.assertIn("measured from-state: target 4096 ahead 1 ring 4100 ready 1; landed ring 3000 ready 0", text)
+        plain = v28verdict.render(v28verdict.analyse(full_clean_log()))
+        self.assertNotIn("measured from-state", plain)
+
+    def test_the_prelude_start_state_is_rendered_although_it_is_info_and_passes_or_fails(self):
+        prelude = ("V28_SWEEP n=0 klass=1 mech=2 from_t=4096 from_a=1 to_t=11264 to_a=4 outcome=2 fail=1 "
+                   "residue=-204 unmasked=0\n"
+                   "V28_SWEEPM n=0 meas_t=4096 meas_a=1 meas_ring=5000 meas_ready=2 ring=3100 ready=1 dup=0 "
+                   "drop=0 t_land=abc")
+        rows = [prelude] + [sweep_gate_row(n) for n in range(1, 19)] + [sweep_info_row(n) for n in range(19, 28)]
+        log = full_clean_log().split("V28_SWEEP ")[0] + "\n".join(rows) + "\n" + sweep_verdict(1) + "\n"
+        text = v28verdict.render(v28verdict.analyse(log))
+        self.assertIn("INFO n=0: from", text)
+        self.assertIn("measured from-state: target 4096 ahead 1 ring 5000 ready 2; landed ring 3100 ready 1", text)
+        self.assertNotIn("FAIL gate", text)
+
+    def test_3b_margin_is_read_and_rendered_when_present_and_absent_otherwise(self):
+        row = b3_hold(1) + " min_ready=0 min_ring=2048 samples=1919"
+        log = full_clean_log().replace(b3_hold(1), row)
+        out = v28verdict.hold_3b(log)
+        self.assertEqual(out["margin_ahead1"], {"min_ready": 0, "min_ring": 2048, "samples": 1919})
+        self.assertIn("min READY 0, min ring 2048", v28verdict.render(v28verdict.analyse(log)))
+        self.assertNotIn("margin_ahead1", v28verdict.hold_3b(full_clean_log()))
+
+    def test_the_worst_case_print_lines_fit_the_console_log_line(self):
+        """LOG_LINE_LEN 256, less the 7-character `%06u ` prefix and the terminator: a longer line
+        would be silently truncated (ringlog's own snprintf), losing the tail fields first."""
+        import re
+        with open(self.MAIN, encoding="utf-8") as f:
+            src = f.read()
+        limit = int(re.search(r"#define LOG_LINE_LEN (\d+)", src).group(1)) - 8
+        for tag in ("V28_SWEEP n=", "V28_SWEEPM n=", "V28_3B n="):
+            i = src.index('"' + tag)
+            call = src[i:src.index(");", i)]
+            fmt = "".join(re.findall(r'"((?:[^"\\]|\\.)*)"', call.split("\n", 1)[0] + "\n" +
+                                     call.split("\n", 1)[1].split(",\n")[0]))
+            # widest values a run can plausibly reach: counters below a million, tick timestamps of
+            # 12 hex digits (a 2.8e14-tick run, 5 orders past the 468 s cap), residues of 7 characters
+            widths = {"%lu": "999999", "%llx": "f" * 12, "%ld": "-999999", "%u": "255", "%s": "default"}
+            for spec, w in widths.items():
+                fmt = fmt.replace(spec, w)
+            self.assertLessEqual(len(fmt), limit, "%s line would be truncated: %d > %d" % (tag, len(fmt), limit))
+
+
 class FullRender(unittest.TestCase):
     def test_a_clean_full_log_renders_without_any_fail_marker(self):
         text = v28verdict.render(v28verdict.analyse(full_clean_log()))
