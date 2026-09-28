@@ -92,6 +92,12 @@ struct gbp_v28_3a {
     struct gbp_v28_3a_depth depths[GBP_V28_3A_DEPTH_CAP];
     uint32_t depths_n, depths_overflow;
     uint32_t refused_depth_done;  /* depth_done() called with nothing pending: counted, never silent */
+    /* Issue #131 (RUN 48's own diagnostic build): how many ticks begin_pending stayed true, i.e.
+     * how many times gbp_atrans2_begin() was retried before it actually succeeded (or the module
+     * finished with it still pending) -- read-only bookkeeping, touches no decision this module
+     * makes. Counted per depth: main.c resets its own snapshot at every depth_done() the same way
+     * it already does for ap2/adec2's own delta counters. */
+    uint32_t begin_pending_ticks;
 };
 
 /* Begins the descent at GBP_V28_P3_START, AHEAD already fixed at GBP_V28_A4 by the CALLER --

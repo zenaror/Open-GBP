@@ -65,6 +65,27 @@ static const struct gbp_walker_plan GBP_V28_PERCEPTUAL_NO_PHASE1 = {
     GBP_V28_PERCEPTUAL_NO_PHASE1_PHASES, 2u, GBP_V28_PERCEPTUAL_NO_PHASE1_CAP_S
 };
 
+/* ---- diag_3a_stall: navigate -> 3a, short -- Issue #131 (RUN 48's own diagnostic build) -------
+ *
+ * RUN 48's own phase 1 (3a) ran its full 138 s budget without recording a single depth. This plan
+ * exists only to catch that same stall in about two minutes of Operator time instead of six: 3a's
+ * own dwell (GBP_V28_3A_DWELL_S = 6 s) needs far less than 60 s to record at least one depth if the
+ * hand-off is healthy, and a still-empty depths_n at this phase's own cap is itself the finding.
+ * validation_run stays the thing that gets re-run once this is understood -- this plan never
+ * replaces it, only isolates the one phase RUN 48 could not get past. */
+static const struct gbp_walker_phase_def GBP_V28_DIAG_3A_STALL_PHASES[2] = {
+    { GBP_WALKER_NAVIGATE,   GBP_V28_P0_ALLOWANCE_S },   /* p0, "allowance" */
+    { GBP_WALKER_DESCENT_3A, 60u },                       /* 3a, short -- RUN 48's own stall, caught faster */
+};
+#define GBP_V28_DIAG_3A_STALL_SUM_S (GBP_V28_P0_ALLOWANCE_S + 60u)
+#define GBP_V28_DIAG_3A_STALL_CAP_S (GBP_V28_DIAG_3A_STALL_SUM_S + GBP_V28_SLACK_S)
+_Static_assert(GBP_V28_DIAG_3A_STALL_CAP_S == 180u,
+    "gbp_v28_plans: diag_3a_stall's session cap no longer matches tools/v28budget.py's own 180");
+
+static const struct gbp_walker_plan GBP_V28_DIAG_3A_STALL = {
+    GBP_V28_DIAG_3A_STALL_PHASES, 2u, GBP_V28_DIAG_3A_STALL_CAP_S
+};
+
 #ifdef __cplusplus
 }
 #endif

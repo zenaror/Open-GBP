@@ -38,8 +38,11 @@ PLAN_DEFINE  := GBP_V28_PLAN_VALIDATION
 else ifeq ($(PLAN),perceptual_no_phase1)
 BUILD_ID     := v28-perceptual-0001
 PLAN_DEFINE  := GBP_V28_PLAN_PERCEPTUAL
+else ifeq ($(PLAN),diag_3a_stall)
+BUILD_ID     := v28-diag3a-0001
+PLAN_DEFINE  := GBP_V28_PLAN_DIAG_3A_STALL
 else
-$(error "Unknown PLAN '$(PLAN)': must be validation_run or perceptual_no_phase1")
+$(error "Unknown PLAN '$(PLAN)': must be validation_run, perceptual_no_phase1 or diag_3a_stall")
 endif
 
 STARTUP_MODE ?= GBP_STARTUP_NORMAL
