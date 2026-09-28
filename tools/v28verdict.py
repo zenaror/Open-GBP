@@ -168,6 +168,10 @@ def hold_3b(text):
     a1 = by_ahead.get(1)
     a2 = by_ahead.get(2)
     out = {"have_ahead1": a1 is not None, "have_ahead2": a2 is not None, "anchor": anchor}
+    for key, r in (("margin_ahead1", a1), ("margin_ahead2", a2)):
+        if r is not None and "samples" in r:      # Issue #135's own margin fields; absent in older logs
+            out[key] = {"min_ready": int(r["min_ready"]), "min_ring": int(r["min_ring"]),
+                        "samples": int(r["samples"])}
     if a1 is not None:
         out["ahead1_clean"] = int(a1["underrun_seen"]) == 0
         out["ahead1_partial"] = int(a1["partial"]) != 0
@@ -188,17 +192,21 @@ def hold_3b(text):
 
 
 def sweep(text):
-    """gbp_v28_sweep_verdict()'s own 18 GATE rows (TABLE[0..17]); the remaining 9 (T192's own 8
-    rungs + the one repositioning move) are recorded but never contribute to the verdict
-    (src/audio/gbp_v28_sweep.c's own comment, quoted in the Issue)."""
+    """gbp_v28_sweep_verdict()'s own 18 GATE rows; every INFO row (T192's own 8 rungs + the
+    repositioning move, and, from Issue #135 on, the PRELUDE row that opens the sweep -- 10 INFO rows
+    in a log that carries it, 9 in RUN 51's) is recorded but never contributes to the verdict
+    (src/audio/gbp_v28_sweep.c's own comment, quoted in the Issue). A log that carries the
+    V28_SWEEPM line per record (meas_*, ring, ready, dup, drop, t_land) has them read alongside,
+    keyed by n; an older log without them reads exactly as before."""
     rows = find_all(text, "V28_SWEEP")
     verdict_rows = find_all(text, "V28_SWEEP_VERDICT")
     gate_rows = [r for r in rows if int(r["klass"]) == SWEEP_KLASS_GATE]
     info_rows = [r for r in rows if int(r["klass"]) == SWEEP_KLASS_INFO]
     failing_gates = [r for r in gate_rows if int(r["outcome"]) != SWEEP_OUTCOME_PASS]
     verdict = int(verdict_rows[-1]["v"]) if verdict_rows else None
+    measured = {r["n"]: r for r in find_all(text, "V28_SWEEPM")}     # Issue #135; absent in RUN 51's log
     return {"n_records": len(rows), "n_gate": len(gate_rows), "n_info": len(info_rows),
-            "failing_gates": failing_gates, "verdict": verdict,
+            "failing_gates": failing_gates, "info_rows": info_rows, "measured": measured, "verdict": verdict,
             "verdict_name": SWEEP_VERDICT_NAMES.get(verdict, "?")}
 
 
@@ -251,6 +259,11 @@ def render(out):
         else:
             lines.append("3B: AHEAD 1 %s%s" % ("clean" if h["ahead1_clean"] else "UNDERRUN",
                                                " (partial)" if h["ahead1_partial"] else ""))
+            for key, name in (("margin_ahead1", "AHEAD 1"), ("margin_ahead2", "AHEAD 2")):
+                m = h.get(key)
+                if m is not None:
+                    lines.append("3B: %s margin over %d samples: min READY %d, min ring %d (native pushes)"
+                                 % (name, m["samples"], m["min_ready"], m["min_ring"]))
             if h["have_ahead2"]:
                 lines.append("3B: AHEAD 2 %s%s" % ("clean" if h["ahead2_clean"] else "UNDERRUN",
                                                    " (partial)" if h["ahead2_partial"] else ""))
@@ -269,6 +282,24 @@ def render(out):
         lines.append("  FAIL gate n=%s: from %s (ahead %s) to %s (ahead %s) outcome=%s fail_reason=%s"
                      % (r["n"], fmt_target(int(r["from_t"])), r["from_a"], fmt_target(int(r["to_t"])),
                         r["to_a"], r["outcome"], r["fail"]))
+        m = s["measured"].get(r["n"])
+        if m is not None:                          # Issue #135's own measured fields
+            lines.append("    measured from-state: target %s ahead %s ring %s ready %s; landed ring %s ready %s "
+                         "residue %s dup %s drop %s"
+                         % (m["meas_t"], m["meas_a"], m["meas_ring"], m["meas_ready"], m["ring"], m["ready"],
+                            r["residue"], m["dup"], m["drop"]))
+
+    for r in s["info_rows"]:                       # Issue #135: the prelude's own start state is RUN 52's headline datum
+        m = s["measured"].get(r["n"])
+        if m is None:
+            continue
+        lines.append("  INFO n=%s: from %s (ahead %s) to %s (ahead %s) outcome=%s fail_reason=%s residue %s"
+                     % (r["n"], fmt_target(int(r["from_t"])), r["from_a"], fmt_target(int(r["to_t"])),
+                        r["to_a"], r["outcome"], r["fail"], r["residue"]))
+        lines.append("    measured from-state: target %s ahead %s ring %s ready %s; landed ring %s ready %s "
+                     "dup %s drop %s"
+                     % (m["meas_t"], m["meas_a"], m["meas_ring"], m["meas_ready"], m["ring"], m["ready"],
+                        m["dup"], m["drop"]))
 
     lbl = out["label"]
     if lbl["have"]:
