@@ -19352,3 +19352,28 @@ SYNCPE-end fix); the perceptual run is not authorised and its Issue is not being
 **Next.** Diagnose the sweep's negative residue from `gbp_v28_sweep.c`, `gbp_atrans2.c` and the raw
 log: which failures are undershoot and which are the READY/AHEAD test (n=17's -204 is smaller than the
 256 band), what the +128 is, and how the Operator's p4 stutter lines up with the deliberate mutes.
+
+## 2026-09-28 — Issue #135: RUN 52's design — the sweep starts from where 3b left the chain, and the run now measures it
+
+**Goal.** Act on the Planejador's ratified reading of RUN 51: measure the sweep's start state and the AHEAD-1
+margin, reposition once before move 0, without touching the frozen GATE rows.
+
+**Done.** `GBP-HW-357` states the ratified statuses (no per-run FACT; the AHEAD-1 hold CORROBORATED for the
+narrow claim; `GBP-HW-351` FIRED by #131's rule, consequence NOT established, because that rule turned
+"margin to spare" into "a clean hold", which measures no margin; the sweep FAIL, cause UNKNOWN; the T256
+anchor not independent; the p4 stutter designed-in). Code: one INFO START (T256A1 -> T704A4) before move 0,
+a `V28_SWEEPM` line per record, 3b's minimum READY / ring slack, `v28verdict.py` reading both. The
+regression test was verified RED on the old source (residue -895 for n=0) before the change.
+
+**What the review changed.** A fresh read-only adversarial review confirmed no leftover 27/18 assumptions,
+the capture ordering, the line lengths (worst case 190/206 of 248), and that no frozen history was edited.
+Its high finding: RUN 51's own n=17 was the prelude's move and failed on hardware, so the prelude is a
+hypothesis for n=0 only and may land undershot itself; the header comment says so now. Its medium finding:
+the tool rendered measured state only for failing GATE rows, so the prelude's start state would have been
+raw-log-only; it now renders INFO rows too.
+
+**Tests.** Full gate on the committed tree: see §V28.9's own record.
+
+**Not done, on purpose.** Failures 2-17 not hunted in host code before RUN 52; no perceptual run.
+
+**Next.** Rebuild, re-pin and re-stage `23-v28v` (§V28.9); the Planejador writes RUN 52.
