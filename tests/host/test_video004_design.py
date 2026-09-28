@@ -192,7 +192,10 @@ class GroundedInRealArtifacts(unittest.TestCase):
         SEVEN: Run B's image is trace-0001 with production split, presentation unchanged. Issue #110
         makes it EIGHT: the real-cartridge image is live-0001 with §V25's changes, and it hands the
         presented frame to the VI again from the press until the window closes. Issue #113 makes it NINE:
-        game-0002 is game-0001 with one post-session record, presentation unchanged."""
+        game-0002 is game-0001 with one post-session record, presentation unchanged. Issue #129/#130
+        makes it TEN: gbp-audio-v28 is a NEW POC (not built from an existing one), §V28's own validation
+        round, built on gbp-audio-sync's own chassis (video/vstate/vqueue/vpresent/GX/input/session/SD
+        carried over unchanged) with the whole audio pipeline replaced by its native counterpart."""
         hits = []
         for root, _dirs, files in os.walk(os.path.join(ROOT, "poc")):
             for fn in files:
@@ -205,6 +208,7 @@ class GroundedInRealArtifacts(unittest.TestCase):
                                         "poc/gbp-audio-split/source/main.c",
                                         "poc/gbp-audio-sync/source/main.c",
                                         "poc/gbp-audio-trace/source/main.c",
+                                        "poc/gbp-audio-v28/source/main.c",
                                         "poc/gbp-audio-window-probe/source/main.c",
                                         "poc/gbp-play-session/source/main.c",
                                         "poc/gbp-video-stream-probe/source/main.c"], hits)

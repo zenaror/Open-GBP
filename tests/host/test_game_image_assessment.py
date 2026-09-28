@@ -203,9 +203,13 @@ class TheAssessmentIsRecordedAndNothingWasBuilt(unittest.TestCase):
         # and none of them part of THIS assessment. Issue #101 built Run A's image for §V23, the same way,
         # and Issue #105 Run B's for §V24, and Issue #110 Phase 6's real-cartridge image for §V25, and Issue #113
         # its second attempt for §V26, and Issue #117 the latency round's for §V27, and Issue #127 the native
-        # decoder's execution-only Dolphin probe (no HSP/GBP register, no image, no §V28 ladder)
+        # decoder's execution-only Dolphin probe (no HSP/GBP register, no image, no §V28 ladder). Issue
+        # #129/#130 (2026-09-28) BUILT poc/gbp-audio-v28, §V28's own two images (validation_run,
+        # perceptual_no_phase1): the frozen design (Issue #128) implemented -- the native audio chain
+        # (gbp_adec2/gbp_aresamp2/gbp_aplay2/gbp_atrans2) and gbp_walker + the §V28 handlers replacing
+        # gbp_async, on poc/gbp-audio-sync's own chassis (untouched). Not part of THIS assessment either.
         self.assertEqual(sorted(p for p in os.listdir(os.path.join(ROOT, "poc")) if os.path.isdir(os.path.join(ROOT, "poc", p))),
-                         ["audio-output-replay", "gbp-audio-drain-probe", "gbp-audio-game", "gbp-audio-game2", "gbp-audio-live", "gbp-audio-native-probe", "gbp-audio-split", "gbp-audio-sync", "gbp-audio-trace", "gbp-audio-window-probe",
+                         ["audio-output-replay", "gbp-audio-drain-probe", "gbp-audio-game", "gbp-audio-game2", "gbp-audio-live", "gbp-audio-native-probe", "gbp-audio-split", "gbp-audio-sync", "gbp-audio-trace", "gbp-audio-v28", "gbp-audio-window-probe",
                           "gbp-av-service-probe", "gbp-init-irq-deliver-probe", "gbp-init-irq-probe", "gbp-init-irq-program-probe", "gbp-init-irq-service-probe",
                           "gbp-init-probe", "gbp-play-session", "gbp-probe", "gbp-video-capture-probe", "gbp-video-color-probe", "gbp-video-state-probe",
                           "gbp-video-stream-probe", "smoke-test"])

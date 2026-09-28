@@ -18269,3 +18269,117 @@ handlers, one source and two build-time images (`validation_run`, `perceptual_no
 unchanged wherever it doesn't touch the audio path. Heavy review for the POC, since it is the image that goes
 to hardware. After that, `SYNCPE` markers, the GX label, Amendment C's O6-leak drop, and the zero-feed
 integration test all have somewhere to live. Nothing stages to Swiss until the §V28 Issue authorises it.
+
+## 2026-09-28 — Issue #128/#129/#130: `poc/gbp-audio-v28` built and host-validated -- both images
+
+Read Issue #128's own body (§1-§8) and its freeze comment (Amendments A-C) in full before writing any code, per
+the Orchestrator's own instruction. New POC `poc/gbp-audio-v28/`, one source, two images selected by the
+Makefile's `PLAN` variable (`validation_run` default, `perceptual_no_phase1`), built on `poc/gbp-audio-sync`'s
+own chassis (video/vstate/vqueue/vpresent/GX/input/session/keylog/SD-save/teardown/startup-profile all carried
+over UNCHANGED -- the frozen original is never edited) with the WHOLE audio pipeline replaced:
+`gbp_adec`/`gbp_aresamp`/`gbp_aplay`/`gbp_atrans` -> `gbp_adec2`/`gbp_aresamp2`/`gbp_aplay2`/`gbp_atrans2`, and
+`gbp_async`'s own hand-written P0..P3 session -> `gbp_walker` (a pure sequencer) dispatching to
+`gbp_v28_3a`/`3b`/`sweep`/`nulling`, each already built and host-tested this round. `gbp_awr` (the raw AUDIO
+window) is DROPPED entirely, the Orchestrator's own decision this round: no §V28 question reads it, its own
+copy cost shares the pump slot the validation run measures the AHEAD margin in, and dropping it raises the wall
+ceiling 646->804 s.
+
+**Realised scope is much smaller than gbp_async's own P1-P3 machinery, not by omission but by design**: 3a/3b/
+sweep/nulling each already own their own depth/hold/entry/setting records and busy-gated begin_pending retry
+against `gbp_atrans2_begin()`; `main.c`'s own job shrank to wiring `gbp_walker_current_kind()`'s dispatch,
+feeding each handler's own tick(), and logging what each module already exposes -- no per-second binning, no
+hand-rolled dwell/bisection logic duplicated in the POC (gbp_async's own approach), because that logic now
+lives in the handler modules themselves, proven independently by their own unit tests.
+
+**The leak rules (§7, Amendment C), split at COMPILE TIME, not runtime** (the Orchestrator's own instruction):
+`v28_screen_report()`/`v28_live_report()` are the ONLY functions that may print or `gecko_puts`, and are split
+`#if defined(GBP_V28_PLAN_PERCEPTUAL)`/`#else` -- the perceptual branch is the ONLY text that build's compiler
+ever parses, so a leak there is not merely hidden, it cannot exist in that binary. Amendment C (`depths`/
+`plans`/`acted`, UNIVERSAL, no exemption, confirmed by re-reading the amendment's own text) are absent from
+BOTH branches, not only the perceptual one. New `tests/host/test_v28_leak.py`: extracts the perceptual-only
+preprocessor branch text from both functions and asserts none of §7's own NEVER patterns (step counts, plans,
+acted, C-stick counts, refusal/busy counters, LEFT/RIGHT response, `p2_dir`, TARGET/AHEAD, anything read from
+gbp_atrans2/gbp_aplay2/gbp_adec2) appears in it, plus the Amendment C check against the WHOLE function (both
+branches). Sanity-checked against a deliberate mutation (added `nulling.steps` to the perceptual branch): the
+leak test caught it immediately (RED), reverted, clean again (GREEN) -- the same discipline this round's other
+work used, applied to a static-analysis test for the first time this round.
+
+**The C-stick (§7's own answer to the design question this round opened with)**: DOWN is live in BOTH images
+and ends `navigate` (`gbp_walker_phase_complete()`, busy-gated) at the first accepted press, or the phase's own
+60 s allowance cap otherwise -- `validation_run` has no OTHER operator-input phase at all (3a/3b/sweep are all
+autonomous), so DOWN's own busy-gate and `gbp_walker_current_kind()==NAVIGATE` guard together make every other
+press a structural no-op, never "acted". LEFT/RIGHT/UP are live only while `current_kind()==NULLING`, calling
+`gbp_v28_nulling_step()`/`_confirm()` directly (no retry queue, matching that module's own documented shape).
+`cs_events`/`cs_acted` are SD-only counters (`SYNCCS`), never reachable from either report function -- proven
+by `test_v28_leak.py`'s own `test_v28_control_never_prints_or_gecko_puts`.
+
+**SYNCPE, the phase-edge grammar (§7)**: `SYNCPE p=<n> edge=<start|end> t=<tick> why=<reason>`, an edge
+detector outside `gbp_walker.c` comparing each phase's own started/ended bits against the previous pump call's
+snapshot, admitted through the same `sync_line_admit()` gate KEYLOG/SYNCCS already use, with its own refusal
+counter. **No separate sub-edge tag was needed for the validation run's own 3a->3b/3b->sweep transitions,
+stated explicitly rather than invented**: one phase's own end and the next phase's own start are the SAME pump
+call's two new bits, already covered by the natural per-phase edges. Backstop `SYNCPH phase=<n> t_start=<tick>
+t_end=<tick> ended=<0|1> reason=<reason>`, over EVERY phase index INCLUDING 0 (sync-0001's own bug, §7: its
+loop started at `j=1u` -- not repeated here, and a host test pins it). **`why=probe` vs `why=z`, resolved
+cleanly, no fallback needed**: checked `gbp_vstate_probe.h`'s own stop-reason enum directly rather than
+guessing -- `GBP_VSTATE_STOP_SESSION_END` is set only when `cfg.session_end` (this build's `live_end`) becomes
+true, which only ever happens through `gbp_walker_finished()` (a clean COMPLETE/PHASE_CAP/SESSION_CAP/STOP) or
+the Z-triggered `gbp_walker_stop()` in the SAME tick; any OTHER stop reason at teardown (`SAFETY_BUDGET`,
+`FRAME_STORE_CAP`, `EVENT_STORE_CAP`, `DELIVERY_CAP`, ...) can only mean the run ended from OUTSIDE
+`gbp_walker` while a phase was still `started && !ended` -- exactly `why=probe`, and never confusable with `z`
+(which `gbp_walker_stop()` alone ever produces). New `tests/host/test_v28_syncpe.py`: a small parser
+(`tools/v28syncpe.py`, reusing `vevents.kv()`'s own token-splitting convention) round-trips every field through
+format -> parse -> the same values back, and pins the exact format strings/backstop loop bound against the
+real source (mirrors `test_sync_image.py`'s own `test_the_SD_records_carry_what_the_builder_reads`, so the
+ingestion side and the console side cannot drift apart silently). Two real bugs found while writing it (both in
+the test, not the module under test): the parser's own regex didn't allow for the ringlog's own leading
+sequence-number prefix, and a first draft of the round-trip test used C's own `%llx`/`%lu` inside a Python `%`
+format string, which Python does not understand -- both fixed before trusting a green run.
+
+**`chunk_corrections` (§5/§6): a dedicated store, never the shared misc-events stream** -- `struct
+v28_corr_record` (2 B), sized per plan at the wall's own `x GUARD_CORR_PER_S(39)` guard rate (19617 records,
+validation_run; 16575, perceptual_no_phase1), a build-time `_Static_assert` pinning it against the wall exactly
+as `PLAY_FRAME_RECORDS`/`PLAY_EVENT_RECORDS` already were. Fed once per produced chunk from `gbp_aplay2`'s own
+`chunk_corrections` field. **Scope decision, stated rather than silently narrowed**: this checkpoint keeps the
+store as the memory-budget arena §6 asks for (proving the SEPARATE-store fix, not the trap) and logs a bounded
+SD summary (`V28CORR`) at session end, not a full per-record text dump -- the Issue's own acceptance gates ask
+for the budget test to cover the store's cost and the trap it avoids, not a sidecar format this round never
+specified.
+
+**The GX label (§7's own paragraph) is NOT built this checkpoint, stated precisely rather than guessed at.**
+Its ownership/double-buffer/cost-counter machinery is well-specified (a second `gbp_vpresent` instance, released
+by the SAME draw-done token as the main quad, since both quads are drawn before the ONE `GX_SetDrawDone()` call
+libogc2's GX pipeline allows) -- but "libogc2's 8x16 font" names no symbol this checkpoint could verify without
+guessing at a libogc2 internal from outside the Docker image, exactly the class of unverified assumption
+`CLAUDE.md` §18 warns against chaining into a hardware-bound build. Left out cleanly (a comment at the exact
+`submit_ready()` call site names where it slots in), not half-built.
+
+**Amendment A's own build-time check (every ladder TARGET, converted, within `GBP_APLAY2_TARGET_MIN/MAX`) and
+the START-mute-vs-ladder check were already enforced globally by `gbp_v28_ladder.h`'s own `_Static_assert`s**
+from an earlier round -- simply including that header re-verifies both on every build; no new check was needed
+in the POC itself, confirmed rather than assumed by reading the header before writing this entry.
+
+**Build and verification, both plans:**
+- Docker (the project's own devkitPPC container): both `PLAN=validation_run` and
+  `PLAN=perceptual_no_phase1` build CLEAN on the first attempt -- zero warnings from this POC's own new code
+  (two pre-existing, unrelated warnings from `gbp_startup.h`, present in every POC that includes it).
+- Dolphin smoke, execution only (never as evidence of the timing figures, `CLAUDE.md` §6.4): both DOLs PASS
+  (gecko READY + `SELFTEST ok=1`, log, screen) -- one `build-info.txt` mismatch found and fixed first (the
+  Makefile's own `app=` field omitted the `-$(PLAN)` suffix the binary's embedded identity carries; a real,
+  if small, inconsistency, not a flaky test) and one screenshot-capture flake on the second DOL, reproduced
+  clean on an immediate retry (an X11/xdotool timing flake, not a DOL defect -- the identical check had just
+  passed for the other DOL under the same Dolphin invocation).
+- Adding a NEW `poc/` directory tripped four EXISTING closed-enumeration tests that keep a dated ledger of every
+  POC ever added (`test_game_image_assessment.py`'s own directory listing, `test_video004_design.py`'s own
+  "exactly N POCs call GX_Init", `test_vcolor.py`'s own pre-handler-wait allowlist) -- each updated with
+  `gbp-audio-v28`'s own dated entry, matching the exact convention every prior POC's own addition already
+  used, not a workaround.
+- `make -C tests/unit`: 33/33 green (unaffected; no native module changed). `pytest -q tests/host`, run
+  SEQUENTIALLY (not concurrently with any C build -- the known `test_vstate.py` race): 3339 passed, 7 skipped,
+  0 failed, on the committed tree.
+
+**Next.** The Orchestrator's own scope questions (raw window dropped, blinding split, C-stick mapping, record
+formats) are all resolved and implemented; the GX label remains open, needing a verified libogc2 font symbol
+before it can be built rather than guessed. The two physical hardware runs (validation, perceptual) each need
+their own Hardware Issue per `CLAUDE.md` §15, opened only after this checkpoint is reviewed -- not requested
+here.
