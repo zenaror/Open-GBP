@@ -62,7 +62,7 @@
  * verdict exactly like FAIL: an unobserved GATE entry is never certified safe by omission.
  *
  * BUDGET (Issue #129's own second comment, recomputed there): 27 moves, not 26; the STARTs and the
- * repositioning use GBP_V28_START_MUTE (12 since Issue #136; was 8), not GBP_V28_STEP_MUTE (6); the
+ * repositioning use GBP_V28_START_MUTE (10 since Issue #136; was 8), not GBP_V28_STEP_MUTE (7; was 6); the
  * ring lands at target inside the mute, so the settle dwell is a SHORT OBSERVATION window
  * (GBP_V28_SWEEP_DWELL_S), not a wait for the ring to drift back -- see the sum check below.
  *

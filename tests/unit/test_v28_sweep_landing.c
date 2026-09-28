@@ -47,7 +47,8 @@ static struct gbp_atrans2 tr;
 
 #define PERIOD_US       31250u    /* one hand-off period */
 #define STALL_MAX_US    2300.0    /* RUN 52's longest audio delivery gap (SEMGAP max 92 147 ticks at 40.5 MHz) */
-#define HW_CALLS        125u      /* pump calls per period on the hardware, see the header */
+static uint32_t calls_pp = 125u;  /* pump calls per period: the console's 124.8 (see the header); a case may lower it */
+#define HW_CALLS        calls_pp
 #define PHASES          25u       /* begin offsets across one period */
 #define SETTLE_PERIODS  24u       /* the corrector reaches its equilibrium before a move begins */
 
@@ -241,7 +242,7 @@ static void set_ring(uint32_t level)
 
 struct case_result {
     uint32_t runs, short_out, above, ready_bad, late_cut, stale_heard, late_rot, unadj, fill_short, heard;
-    uint32_t worst_short, disc_max, in_flight, underruns, lost;
+    uint32_t worst_short, disc_max, in_flight, underruns, lost, cut_late_rel;
     int32_t  off_min, off_max;
 };
 
@@ -301,6 +302,7 @@ static void run_case(double r, double sp, double st, double late, int at, uint32
             out->in_flight += mon_in_flight != 0u;
             out->underruns += ap.underruns != mon_underruns0;
             out->lost += mon_lost != 0u;
+            out->cut_late_rel += tr.disc_rel > -2;      /* the cut runs no later than the second-to-last period */
         }
     }
 }
@@ -332,6 +334,8 @@ static struct case_result test_case(const char *name, double r, double sp, doubl
     check(c.underruns == 0u, w);
     snprintf(w, sizeof w, "%s: no feed sample was lost for want of room in the ring", name);
     check(c.lost == 0u, w);
+    snprintf(w, sizeof w, "%s: the level is set at the second-to-last period at the latest, never in the last", name);
+    check(c.cut_late_rel == 0u, w);
     return c;
 }
 
@@ -341,8 +345,9 @@ int main(int argc, char **argv)
     build_other();
     {   /* on an exact feed the landing is DETERMINISTIC: target - 128 (the landing recovery's sub-block) - LAND_BIAS */
         const struct case_result c0 = test_case("hardware cadence, exact feed", 1.0, 0.0, 0.0, 0.0, 0, 1u);
-        check(c0.off_min >= -(int32_t)(128u + GBP_ATRANS2_LAND_BIAS) - 6 && c0.off_max <= -(int32_t)(128u + GBP_ATRANS2_LAND_BIAS) + 6,
-              "exact feed: every landing sits at target - 128 - LAND_BIAS, to within a few samples");
+        check(c0.off_min >= -160 - 6 && c0.off_max <= -160 + 6,
+              "exact feed: every landing sits at target - 160 (the recovery's 128 and the bias 32), to within a few samples");
+        check(GBP_ATRANS2_LAND_BIAS == 32u, "the landing bias is the 32 the header's tolerances are computed with");
     }
     test_case("hardware cadence, feed 0.5% slow", 0.995, 0.0, 0.0, 0.0, 0, 2u);
     test_case("hardware cadence, feed 1% slow", 0.99, 0.0, 0.0, 0.0, 0, 3u);
@@ -356,6 +361,11 @@ int main(int argc, char **argv)
      * tolerates 2.4 ms of it (GBP_ATRANS2_LAND_BIAS) */
     test_case("level-setting call 6 ms late", 1.0, 0.0, 0.0, 6000.0, -1, 10u);
     test_case("landing call 2 ms late", 1.0, 0.0, 0.0, 2000.0, 1, 11u);
+    /* the pump's minimum rate: the `ahead` builds need ahead x 16 calls inside the last two periods, so AHEAD 4 wants
+     * about 36 a period; a third of the console's 125 still passes (below 36 a build is left in flight at the landing) */
+    calls_pp = 48u;
+    test_case("pump at 48 calls a period, 0.5% slow", 0.995, 0.0, 0.0, 0.0, 0, 30u);
+    calls_pp = 125u;
     /* the other users, same properties, the two cases that bracket the console */
     cur_moves = OTHER;
     cur_n = n_other;

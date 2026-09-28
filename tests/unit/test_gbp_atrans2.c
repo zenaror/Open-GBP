@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "gbp_atrans2.h"
+#include "gbp_v28_ladder.h"
 
 static int checks, failures;
 
@@ -199,7 +200,7 @@ static void test_unmuted_with_discard(void)
 /* GBP_V28_STEP_MUTE (gbp_v28_ladder.h): the mute a step really runs with. The plan's own minimum
  * (gbp_atrans2_min_mute, 1 at AHEAD 1) is a floor for the queue, not for the RING: the level is set in the last two
  * periods and the ring can only have filled for as long as the mute lasted (Issue #136). */
-#define STEP_MUTE_6 6u
+#define STEP_MUTE_6 GBP_V28_STEP_MUTE
 
 static void test_rotate_no_climb(void)
 {
