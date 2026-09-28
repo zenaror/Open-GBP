@@ -18508,3 +18508,79 @@ known `test_vstate.py` race): clean.
 **Next.** Awaiting the Orchestrator's own read on the GX label's environment blocker (whether to
 pursue a real-IPL Dolphin invocation, accept the item as not built for this checkpoint, or another
 option). Once resolved, the two DOL hashes go to the Orchestrator to open the two Hardware Issues.
+
+## 2026-09-28 — Issue #128/#129/#130: the GX label built -- the previous blocker was the wrong API,
+## and a standing rule on subagent commits
+
+The Orchestrator's own correction on d5fe4c0's "blocked" finding: the probe tested
+`SYS_InitFont()`/`SYS_GetFontTexture()`, which decode the IPL ROM's own font -- empty under this
+project's `--exec <dol>` Dolphin boot for a reason that has nothing to do with the label. §7 names
+"libogc2's 8x16 font", which is `console_font_8x16` -- a plain data symbol COMPILED INTO libogc2
+itself, no IPL dependency at all, the same data `CON_Init`'s own console already renders legible
+text from. Citations given: `external/libogc2/libogc/console.c:87,130`, `console.h`'s
+`FONT_XSIZE 8`/`FONT_YSIZE 16` (checkout ca03fb7). Verified before writing a line of the label: that
+checkout predates this image's own libogc2 (r2442.094b250, no embedded commit hash to diff against
+directly), so `objdump -s` on the image's own compiled `console_font_8x16.o` (extracted from
+`$DEVKITPRO/libogc2/gamecube/lib/libogc.a`) was compared BYTE FOR BYTE against the checked-out
+source array at the three glyphs asked for -- 'A' (offset 0x410), '0' (0x300), ':' (0x3a0) -- exact
+matches at all three. The layout holds for this exact image, not assumed from a different commit.
+
+**Built**: a private double buffer (`label_tex[2]`, 256x16 RGB5A3, 8192 B each), NOT a second
+`gbp_vpresent` instance -- that module's own state machine is coupled to XFB target selection,
+which has no meaning for a texture-only label, so reusing it would be a mismatch. Both the label's
+own texture and the main quad's are drawn in the SAME GX batch and released by the SAME single
+draw-done token (`gbp_vpresent.c:103-143`'s own one-token rule); `label_render()` only ever writes
+the buffer NOT currently bound, so a write can never race the GP's own read of the one in flight.
+Re-rendered only when the text differs from what is shown. The label's own text
+(`v28_label_text()`) is the SAME plan-conditional split as `v28_screen_report()`/`v28_live_report()`
+-- phase name, the SAFE "setting k", a clock (elapsed seconds since the origin; a raw tick count
+would not be legible on a 16-pixel strip), never a leaking field.
+
+**A real bug found and fixed before trusting a screenshot, not after.** The first build rendered
+into `label_tex` in plain raster order (`dst[y*W+x]`). `GX_TF_RGB5A3` is NOT raster order -- it is
+4x4-texel TILES, left to right then top to bottom, the same permutation `gbp_vpix_tile_index()`
+already implements for the main quad's own conversion (`src/gbp/gbp_vpix.c`) -- a fact this file's
+own header documents but the label's own first draft did not carry over. The symptom, on an actual
+Dolphin screenshot: small shuffled 4x4 blocks where legible text should be. Fixed with
+`label_tile_index()`, the identical formula parameterised by the label's own 256px width instead of
+`GBP_VPIX_WIDTH`'s 240. Found the ONLY way this kind of bug is found honestly: by actually looking
+at a screenshot, not by trusting that "it compiled and didn't crash" meant it was correct.
+
+**How the screenshot was taken, since neither plan's own normal boot ever reaches the stream
+framebuffer under Dolphin** (no physical GBP/HSP means `service=0 deliveries=0`, an immediate
+`abort_inconsistent` -- the video path this label lives on needs real hardware to ever leave the
+text console at all, exactly the class of thing this project's own Dolphin section warns is never
+hardware evidence). A temporary diagnostic build only (never committed): the startup profile set to
+`GBP_STARTUP_DIAGNOSTIC` (already an existing, documented profile -- `selftest_visible=1`, which
+`display_selftest()`'s own EXISTING code already routes through `submit_ready()`, unmodified), a
+`gecko_puts()` marker placed so `dolphin_smoke.py --expect` could trigger the screenshot at the
+exact right instant instead of racing a fixed timeout, and (for one isolating run only) the
+phase-gated `VIDEO_SetNextFramebuffer` call forced unconditional to separate "is my new label code
+correct" from "does the pre-existing, unmodified phase-gating logic reach this branch under
+Dolphin" -- a SEPARATE, already-accepted question this checkpoint does not need to answer. All three
+probes reverted (`grep -n "TEMP:\|LABELTEST"` empty) before the final, committed build.
+
+**Proof, a screenshot actually read, both plans**: `validation_run` shows "P1/4 RUN <n>s" legible in
+the top border, above the self-test's own synthetic gradient quad; `perceptual_no_phase1` shows
+"PHASE 0 <n>s" -- both exactly `v28_label_text()`'s own two branches, no leaking field in either.
+
+**Cost, tracked as §7 asks** (in the SAME pump slot the validation run measures the AHEAD margin's
+own refill cost in): `label_ticks_last`/`label_ticks_max`/`label_renders`, reported once at session
+end (`V28LABEL` tag), SD-only.
+
+**Standing rule adopted this round, from the Orchestrator, after a fork committed+pushed d5fe4c0 AND
+sent its own completion report directly as a cross-session message, both without this session's own
+review first**: subagents never commit, push, or send cross-session messages, fork or not -- a fork
+inherits this session's own delegation, so a "review-only" prompt does not stop it from exercising
+that delegation anyway. Any future implementation work goes to a FRESH, non-fork subagent, told
+explicitly it may not touch git or SendMessage; this session reads the diff, runs the gates, and is
+the one that commits, pushes and relays results, always. Saved to memory
+(`feedback-subagents-never-commit-push.md`).
+
+**Gate, on the committed tree**: both images rebuilt clean in Docker (zero new warnings beyond the
+two pre-existing, unrelated ones), Dolphin smoke PASS (execution only) for both. `make -C tests/unit`
+and `pytest -q tests/host` (sequential, avoiding the known race): both clean -- figures in the commit
+message.
+
+**Next.** Final DOL hashes go to the Orchestrator to open the two Hardware Issues. Nothing stages to
+Swiss.
