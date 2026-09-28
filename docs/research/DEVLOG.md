@@ -18891,3 +18891,108 @@ before commit.
 **Next.** The Orchestrator reviews #132's proposed evidence-status changes (U-GBP-048 promotion,
 U-GBP-047's raw-data lead) before either is applied to `UNKNOWNS.md`/`EVIDENCE.md`. RUN 48
 (v28-validation-0001, slot `23-v28v`) is staged and still pending.
+
+## 2026-09-28 — Issue #131: RUN 48 measured no V28_3A record in 138 s; the DMA hand-off ran at
+0.6/s against an expected ~16-32/s, concentrated in the sweep phase; the throttled-hand-off-alone
+hypothesis REFUTED by a host harness; `diag_3a_stall`, a two-minute diagnostic build, staged next
+
+**RUN 48 (`v28-validation-0001`) executed and found a real defect**, reported first on #131: the
+plan ran end to end (`ok_session_ended`, `dropped=0 truncated=0`) but the log carries no `V28_3A`,
+no `V28_3B` and no `V28ANCHOR` record at all. `SYNCPH` gives the exact phase boundaries: navigate
+51.99 s (`complete`), 3a **138.00 s exact** (`cap` — the full budget, never completed), "3b"
+**120.00 s exact** (`cap` — `gbp_v28_3b_start()` was never called at all, since 3a never produced
+an anchor; the walker's own timer simply advanced past an unstarted `s3b`), sweep 5.81 s
+(`complete`, all 27 moves, real varying residues). `V28C`: `handed=188`, `mute_handed=162`,
+`produced=207`, `starved_steps=657`, `overflow=20214785` against `blocks_in=1291230` — the capture
+path is alive; almost nothing reaches the DMA.
+
+**Investigated in the order the freeze named, static reading first.** Ruled out, each checked
+against the actual source or the actual archive, not assumed: the produce/pump gate
+(`live.phase == GBP_ALIVE_WINDOW || ...`) is byte-for-byte the same shape as `gbp-audio-sync`'s own
+(RUN 43 played audio on this same chassis); 3a's own depth transitions pass `GBP_ATRANS2_UNMUTED`,
+which zeroes mute and completes on the very next `gbp_atrans2_step()` call — not blocked by the
+hand-off rate; `t->pause` is write-only in `gbp_atrans2.c`, read nowhere, so it cannot stall
+anything; `AUDIO_StartDMA`'s own start path (`main.c:1086-1094` in sync-0001) is structurally
+identical to v28's.
+
+**A host harness (`tests/unit/test_v28_3a_dma_stall_integration.c`) tested the leading hypothesis
+directly: does a hand-off throttled to RUN 48's own measured ratio, with the decode feed running
+at full rate, reproduce zero depth completions?** It reproduces main.c's own
+`GBP_WALKER_DESCENT_3A` wiring call-for-call, including the `depth_done()` call's own
+`ring_gated`-as-`starved` substitution. **REFUTED**: 3a completes 9 depths and finishes well inside
+the simulated 138 s budget. A second, independent signal: the scenario's own correction counts
+(`drop` climbing into the hundreds) look nothing like RUN 48's own (`dup=16, drop=29` over the
+WHOLE 315.8 s run) — a genuinely throttled, continuously-running hand-off would not produce that
+little correction activity. Kept as a permanent negative-result record.
+
+**The archive's own timeline reframed the question.** 188 hand-offs over the sweep's own 5.81 s is
+32.3/s — matching a healthy rate almost exactly, and close to accounting for the whole run's
+`handed=188` by itself. The sweep's own residues (128, -66, 30, -194...) are exactly what a working
+correction loop produces, which needs real hand-off activity to compute. So the question reframes
+from "why was the DMA slow" (nothing explains a genuine slow-but-steady rate) to **"why did the
+hand-off not start sustainably until the sweep"**. A `target`-stuck-at-default theory was proposed
+and then ruled out before any code was written: the decoder ring was overflowing the whole run
+(`overflow=20214785`, ring capacity 65536), so `adec2.count >= ap2.target` would have been
+trivially satisfied regardless of what `target` held — `ready >= 2` is the clause that must have
+failed, a different, unresolved story.
+
+**`diag_3a_stall` staged for the next physical run**, since the archive and static reading are now
+exhausted (Orchestrator's own direction): a third `gbp-audio-v28` plan, `navigate(60) + 3a(60)`,
+session cap 180 s, built to catch the same stall in about two minutes of Operator time instead of
+six. A new `V28DIAG` record at every phase edge (the same slot `SYNCPE` already prints from, its
+own independent `sync_line_admit()` check) carries `handed`, `mute_handed`, `produced`,
+`dropped_front`, `target`, `ahead`, `ready`, the free pool count, `tr.begin_refused_active`, a new
+`gbp_v28_3a` counter `begin_pending_ticks` (how many ticks its own `begin_pending` stayed true —
+read-only bookkeeping, no decision changes), and an `ai_started`/`ai_stopped` history with ticks —
+the question named as mattering most: did DMA start and then stop, or never start sustainably at
+all. `v28diag_edge()` and every call to it sit inside `#if defined(GBP_V28_PLAN_DIAG_3A_STALL)`;
+`validation_run`/`perceptual_no_phase1`'s own log format is untouched.
+
+**Gate.** `make -C tests/unit`: the new integration test, 2/2; `test_gbp_v28_3a` 75/75 (+3, the new
+`begin_pending_ticks` checks). `pytest -q tests/host/`: 3399 passed, 9 skipped, 0 failed, across
+three rounds of this work (RUN 44-47's own ingestion is a separate entry above).
+
+**`23-v28v`'s own staged pin is now STALE.** `gbp_v28_3a.h`'s struct gained `begin_pending_ticks`,
+a field every plan's build compiles regardless of `PLAN`, so `validation_run` rebuilt from the
+current tree no longer matches the pin the card carries (`ad01bcef...`, from commit `ba7ca63`; the
+current tree's own rebuild is `a553ad5f...`, commit `07a982a`). Not restaging — `validation_run`
+is not being re-run yet — but recorded here and on #131 so nobody re-runs validation from that card
+image believing it matches current source. Re-staging happens together with the next actual
+`validation_run` rebuild, once RUN 48's own diagnosis is resolved.
+
+**Next.** Stage `24-v28d` (`diag_3a_stall`) the usual way once the card is back at the PC: export,
+manifest row, copy, hash read back, every other frozen slot checked before and after. The
+Orchestrator opens the Hardware Issue once the staged hash is independently confirmed.
+
+## 2026-09-28 — Issue #131: an image can lie about its own identity — `gbp-audio-v28`'s own `clean`
+target never knew about a third plan directory, and a "rebuild" that reused a stale object silently
+kept an old commit string embedded in the DOL
+
+**What happened, mechanically.** `f75c962` added `PLAN=diag_3a_stall` to the Makefile's own PLAN
+selector, but its `clean:` target's own `rm -rf` line was still hardcoded to the original two plan
+output directories (`validation_run`, `perceptual_no_phase1`) — nobody had told it a third existed.
+`make PLAN=diag_3a_stall clean; make PLAN=diag_3a_stall`, run three separate times across this
+session, each reported success and a hash — but `clean` removed nothing for that plan, `make`
+decided the existing object files were still up to date, and the linker relinked exactly what it
+had before. The DOL's own embedded `OPENGBP_GIT_COMMIT` string, baked in from a `$(shell git ...)`
+evaluated fresh at every `make` invocation, kept reading an OLD dirty commit hash from the very
+first build, across two further commits that should have advanced it. Caught only by a direct
+`git status`/`git rev-parse HEAD` check run alongside a build and compared by hand — nothing in the
+build's own output flagged the mismatch.
+
+**Fixed** (`07a982a`): `clean:` now removes all three plan directories. **The regression test is
+driven from the shared plans table** (`v28budget.PLANS`/`PLAN_C_NAME`), not a hardcoded list of
+plan names, so a fourth plan added later is caught the same way automatically rather than needing
+someone to remember this incident. RED/GREEN verified: reverted the fix via `sed`, confirmed the
+new test fails exactly as expected; restored, confirmed green.
+
+**The general lesson, stated once so it need not be rediscovered.** A per-plan build output
+directory needs the plan list as its OWN single source — `clean:`'s own file list drifting from
+the Makefile's own `PLAN` selector is exactly the "a routine command whose safety depends on state
+nothing checks" class this project has hit before (`12-stream`'s own near-miss at staging,
+`docs/research/DEVLOG.md`'s 2026-09-21 entry; RUN 43's own hand-staged slot for the same reason).
+And a REBUILD PROVING NOTHING IS INDISTINGUISHABLE FROM A REBUILD PROVING SOMETHING unless the
+image's own claimed identity is checked against `git` directly — a build that "succeeds" and
+prints a hash is not evidence the source it claims to be built from is the source that produced it.
+The Operator's own step-7 check reads exactly this embedded commit string off the boot screen; had
+this gone uncaught, it would have passed his check while being the wrong build.
