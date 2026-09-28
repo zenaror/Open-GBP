@@ -38318,3 +38318,31 @@ Makefile target never knew about the third plan directory, so an early "rebuild"
 silently relinked a stale object and kept an old commit string embedded in the DOL across two
 further commits, undetected by the build's own output. Full account, and the general lesson:
 `docs/research/DEVLOG.md`'s own 2026-09-28 entry, its own paragraph, not folded into this one.
+
+### V28.3 RUN 49 (`diag_3a_stall`) separated the root cause: no handler was ever started; `23-v28v` re-pinned for RUN 50 — 2026-09-28 (Issue #131/#133)
+
+**Root cause.** `gbp_v28_3a_start()`, `gbp_v28_sweep_start()` and `gbp_v28_nulling_start()` were
+never called anywhere in `poc/gbp-audio-v28/source/main.c` — no handler in this POC was ever
+started. Severity differs per handler (3a: total freeze; sweep: self-recovers after move 0, voiding
+RUN 48's own `n=0 outcome=2` record as a domain result; nulling: silent, degenerate RNG, untested
+in any physical run so far). A second, independent defect: the DMA start gate's own literal
+`>= 2u` was unreachable at AHEAD 1 by construction. Full account, per-handler evidence and the
+tests: `docs/research/DEVLOG.md`'s own 2026-09-28 entry (commit `936e8ec`).
+
+**`23-v28v`'s own stale-pin warning (this section, above) is now RESOLVED.** `validation_run`
+rebuilt from the fixed tree, clean commit `260d6d7`:
+
+```text
+sha256 ce1dcf7ae8d82b01bc3da6b5f8bc3ccfa5b77052cbe89ec66568a3cc5d9c9375
+```
+
+independently reconfirmed by `sha256sum` against the local build product. Manifest re-pinned
+(`tools/swiss-layout.tsv`); local staging done (`--only 23-v28v`, hash reconfirmed against the
+pin). The card came back to the PC before this entry closed: `23-v28v` copied and read back from
+`/media/rafael/SD_GC/Open-GBP/23-v28v/boot.dol` at the same `ce1dcf7a...` hash; `24-v28d` (staged
+locally since §V28.2, never previously copied) copied and read back at its own pinned
+`bc8e33a9...`. Every other frozen slot on the card (`12-stream` through `22-sync`) was re-hashed
+both before and after the copy and matched its pin unchanged throughout.
+
+This is the build RUN 50 runs: the first time §V28's own AHEAD-1 hold gets the chance to measure
+anything with audio actually playing.
