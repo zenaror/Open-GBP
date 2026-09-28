@@ -57,10 +57,20 @@ class Manifest(unittest.TestCase):
             self.assertTrue(os.path.isdir(p), "missing POC %s" % r["source_poc"])
 
     def test_the_diagnostic_range_is_used_for_diagnostics(self):
-        """80-89 is reserved for physical diagnostics; the canonical POCs stay below."""
+        """80-89 is reserved for physical diagnostics; the canonical POCs stay below.
+
+        A row is a DIAGNOSTIC VARIANT of something else only when another row already carries
+        its source_poc as a canonical entry (out_dir == source_poc) -- e.g. 80-prewait beside
+        10-vstate, both source_poc=gbp-video-state-probe. Issue #131 (23-v28v): a POC built under
+        a non-default PLAN, with no such canonical sibling row, is not a diagnostic of anything
+        else -- it IS the canonical (and only) entry for its own source_poc, whatever its out_dir,
+        and belongs below 80 like any other.
+        """
+        canonical_source_pocs = {r["source_poc"] for r in self.rows if r["out_dir"] == r["source_poc"]}
         for r in self.rows:
             n = int(r["number"])
-            if r["out_dir"] != r["source_poc"]:      # a variant build, not the POC itself
+            is_variant = r["out_dir"] != r["source_poc"] and r["source_poc"] in canonical_source_pocs
+            if is_variant:
                 self.assertGreaterEqual(n, 80, "%s is a variant and belongs in a diagnostic range" % r["dir"])
             else:
                 self.assertLess(n, 80, "%s is a canonical POC and belongs below 80" % r["dir"])
@@ -349,9 +359,11 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         self.assertEqual(rows["21-game2"], "ba8ab59598398849dd4757cb4823cab7ed355107f1dc92cbf2295cd5440e12fa")
         # Issue #117 (2026-09-25): the latency round's image, frozen before its export (§V27.17)
         self.assertEqual(rows["22-sync"], "ab902f6fb3789d66c3ace4d92be9cdc5fc300399705eb97a4ae185235feb0941")
+        # Issue #131 (2026-09-28): the V28 validation round's image, frozen before its export
+        self.assertEqual(rows["23-v28v"], "ad01bcefe31958d2e0c198dd015fee8975fd971e66f7d04a41c08e1d193e0054")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
                          ["12-stream", "13-play", "14-audio", "15-drain", "16-aout", "17-live", "18-trace", "19-split",
-                          "20-game", "21-game2", "22-sync"])
+                          "20-game", "21-game2", "22-sync", "23-v28v"])
         # and every frozen hash is one HARDWARE_TESTS.md names, so the manifest cannot drift from the
         # record. ONE document, deliberately: an invariant that may be satisfied by either of two files
         # is weaker than one that must be satisfied by a named file, and this project has already paid
