@@ -162,14 +162,8 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
         const uint32_t window_left = calls_left_this_period
                                     + GBP_ATRANS2_CALLS_PER_HANDOFF * (t->mute - handed);
         if (window_left >= GBP_ATRANS2_CALLS_PER_HANDOFF) {
-            /* Issue #136 (RUN 52): the last period's rotation is a whole-chunk subtraction that the
-             * period's own inflow only refills to where the ring stood at its start. The trim below
-             * only cuts, nothing here can add, so a ring that lands short stays short. Take the
-             * subtraction only from a ring at or above target + GBP_ATRANS2_LAST_MARGIN; from a ring
-             * below it, skip it, and the period's inflow raises the ring past target, where the trim
-             * cuts it back. The margin is the tolerance to a late first call of the last period: the
-             * decision is taken there, and each 250 us it slips costs about 16 samples at landing. */
-            const uint32_t aim = t->target + (p->mute >= 2u ? GBP_ATRANS2_AIM : GBP_ATRANS2_LAST_MARGIN);
+            const uint32_t aim = p->mute >= 2u ? t->target + GBP_ATRANS2_AIM
+                                               : (t->target > GBP_ATRANS2_AIM ? t->target - GBP_ATRANS2_AIM : 0u);
             if (d->count >= aim) {
                 const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
                 t->rotating = 1u;
