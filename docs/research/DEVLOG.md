@@ -19245,3 +19245,67 @@ the committed tree this entry reports.
 
 **Next.** The Orchestrator writes RUN 51 with 168 s / 468 s and the real duration (about seven and
 a half minutes) for the Operator.
+
+## 2026-09-28 — Issue #131/#133/#135: RUN 51 ran clean (AHEAD-1 hold measured), ingestion found two tool/logging defects
+
+**RUN 51 executed and reported** (#135): all four phases `reason=complete`, the first run where
+none was cut. 3a's confirm ran its own full 60 s (2304 genuinely fails, bracket lo 2304/hi 2336
+confirmed rather than inferred). `V28ANCHOR target=4096 source=rule` (T256) independently selected
+the very rung #128 §3 froze. `V28_3B n=0 ahead=1 anchor=4096 underrun_seen=0 partial=0` — **AHEAD 1
+held clean at the T256 anchor for a full 60 s.** `GBP-HW-351`'s reversal condition FIRED, recorded
+per Amendment B, not acted on. `V28_SWEEP_VERDICT v=2` FAIL: 8 of 18 GATE moves fail, every one
+with a negative residue (the ring lands short of target) — admissible this time (the audio path
+was working, 33.0 s not 5.8 s), a real finding about the step mechanism, not an artifact.
+
+**Ingesting RUN 51 through `tools/v28verdict.py` unedited surfaced `ADMISSIBILITY: FAIL`**, for two
+reasons neither the Operator's own posted comment nor the informal summary above mentioned, because
+neither reads the pre-registered gate itself:
+
+1. **`V28C2 ring_discarded=15695 (nonzero)`.** `ring_discarded` (`adec2.discarded`, `gbp_adec2.h`'s
+   own doc comment: "samples the consumer dropped from the ring's head ON PURPOSE") is not a
+   capture-loss counter -- every downward TARGET transition drives it, and validation_run's own
+   3a descent and sweep's own ladder walk both ways make it structurally guaranteed nonzero for
+   ANY informative run. Issue #131 §4's own text already says so: "V28C2's own overflow/lost/
+   ring_discarded fields at 0 **WHERE THE DESIGN SAYS THEY SHOULD BE**" -- a qualifier
+   `admissibility()`'s own blanket zero-check ignored, folding it into the same loop as the
+   genuine loss counters (`lost`/`syncpe_lost`/`lines_lost`, which the design DOES guarantee at 0
+   and which correctly stayed 0 in RUN 51). Fixed: `ring_discarded` removed from that loop, the
+   other three kept. New tests (`test_ring_discarded_alone_never_fails_admissibility`,
+   `test_the_genuine_loss_counters_still_fail_admissibility_each`), RED-verified against the old
+   blanket check.
+
+2. **`phase 3 (sweep): reached but no SYNCPE end`.** Confirmed directly in the raw log: `SYNCPE
+   p=3 edge=start` with no matching `edge=end` anywhere, while `SYNCPH phase=3 ... ended=1
+   reason=complete` (main.c's own post-run "backstop" loop, Issue #131 §4's own words) carries the
+   real timestamps. Root cause, found by reading `live_step()`: sweep is validation_run's own LAST
+   phase, and its own completion is detected in a block positioned AFTER that same tick's
+   `syncpe_edges()` call (sweep's own tick must run after the pump slot's produce/step, its own
+   header comment) -- so a completion landing there is never observed that tick, and once it makes
+   the walker `finished`, the block `syncpe_edges()` lives in is gated
+   `!gbp_walker_finished(&walker)` and never runs again. Every validation_run that ever finishes
+   cleanly loses this one edge-log line, silently, forever -- RUN 51 is simply the first run to
+   reach it. Domain data was never at risk (SYNCPH's own backstop has it). Fixed: `syncpe_edges()`
+   called again, immediately, right after sweep's own `gbp_walker_phase_complete()` (idempotent by
+   construction, so the extra call costs nothing). New structural tests in `test_v28_syncpe.py`
+   (`TheLastPhaseGetsItsOwnSyncpeEndEdge`), RED-verified.
+
+**RUN 51's own admissibility, now**: re-run against the fixed tool, `ADMISSIBILITY: FAIL` persists
+for exactly one reason -- the now-root-caused, now-fixed-for-future-runs missing SYNCPE end for
+phase 3. This one run's own log cannot be retroactively repaired (the bytes are frozen), but the
+underlying defect is understood, fixed, and will never recur; SYNCPE's own missing edge is a
+redundant echo of data SYNCPH already carries in full. The Executor's own case, for the
+Orchestrator to weigh: RUN 51 should be treated as admissible in substance despite the tool's
+literal FAIL on this one point, argued rather than silently forced through the tool.
+
+**`GBP-HW-272`'s recount, a second time today**: RUN 51's own raw log landing in `captures/local/`
+(same mechanism as the entry above) -- `GBP-HW-355` appended (never `GBP-HW-272`/`353`/`354`
+touched). Before: 61 logs, 13/48. After: **62 logs, 13 at `0x90` / 49 at `0x92`**.
+`test_control_bit_split.py`'s `LATER`/`CONTINUATIONS` and `test_gbc_path.py`'s own `later` dict
+(plus its `v28` subset, now 2 not 1) updated. 27/27 green.
+
+**Gate.** Full `make test-python` and `make -C tests/unit` run clean on the committed tree this
+entry reports.
+
+**Next.** Evidence-status proposal for `GBP-HW-351`/the AHEAD-1 hold and the ladder's own figures
+(the Executor's own case, not quoted from the Orchestrator); then the sweep's own negative-residue
+diagnosis, a separate investigation.

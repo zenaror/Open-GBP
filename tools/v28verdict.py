@@ -100,7 +100,20 @@ def admissibility(text):
     if v28c2 is None:
         problems.append("no V28C2 record")
     else:
-        for field in ("lost", "ring_discarded", "syncpe_lost", "lines_lost"):
+        # RUN 51 (Issue #131/#133/#135): ring_discarded (V28C2's own field, printed from
+        # adec2.discarded) is NOT a capture-loss counter -- its own doc comment
+        # (gbp_adec2.h) reads "samples the consumer dropped from the ring's head ON
+        # PURPOSE". Every downward TARGET transition drives it: 3a's whole descent steps
+        # down repeatedly, sweep walks the ladder both ways -- so it is structurally
+        # guaranteed nonzero for any validation_run that gets past 3a's own first depth,
+        # which is every informative run this round can ever produce. The Issue's own
+        # text already says so: "V28C2's own overflow/lost/ring_discarded fields at 0
+        # WHERE THE DESIGN SAYS THEY SHOULD BE" -- a qualifier this loop used to ignore,
+        # blanket-failing admissibility on a healthy run's own normal descent (RUN 51's
+        # own ring_discarded=15695 with zero of the genuine loss counters below). `lost`/
+        # `syncpe_lost`/`lines_lost` stay checked: each is a real capture-integrity
+        # counter the design DOES guarantee at 0, with no domain mechanism that spends it.
+        for field in ("lost", "syncpe_lost", "lines_lost"):
             if field in v28c2 and int(v28c2[field]) != 0:
                 problems.append("V28C2 %s=%s (nonzero)" % (field, v28c2[field]))
 

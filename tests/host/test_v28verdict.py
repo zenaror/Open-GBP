@@ -124,6 +124,29 @@ class Admissibility(unittest.TestCase):
         self.assertFalse(out["pass"])
         self.assertTrue(any("lost=7" in p for p in out["problems"]), out["problems"])
 
+    def test_ring_discarded_alone_never_fails_admissibility(self):
+        """RUN 51 (Issue #131/#133/#135): ring_discarded (adec2.discarded) is documented as
+        "samples the consumer dropped from the ring's head ON PURPOSE" (gbp_adec2.h) -- every
+        downward TARGET transition drives it, so it is structurally guaranteed nonzero for any
+        validation_run informative enough to matter (3a's whole descent, sweep's own ladder walk
+        both ways). Issue #131 sec4's own text: "V28C2's own overflow/lost/ring_discarded fields
+        at 0 WHERE THE DESIGN SAYS THEY SHOULD BE" -- conditional, and the design does not say so
+        here. RED-verified against the historical blanket check (ring_discarded folded into the
+        same loop as the genuine loss counters) before this fix."""
+        text = CLEAN_ADMISSIBILITY.replace("ring_discarded=0", "ring_discarded=15695", 1)
+        out = v28verdict.admissibility(text)
+        self.assertTrue(out["pass"], out["problems"])
+        self.assertEqual(out["problems"], [])
+
+    def test_the_genuine_loss_counters_still_fail_admissibility_each(self):
+        """lost/syncpe_lost/lines_lost are real capture-integrity counters with no domain
+        mechanism that spends them (unlike ring_discarded) -- the design DOES guarantee 0."""
+        for field in ("lost", "syncpe_lost", "lines_lost"):
+            text = CLEAN_ADMISSIBILITY.replace("%s=0" % field, "%s=3" % field, 1)
+            out = v28verdict.admissibility(text)
+            self.assertFalse(out["pass"], field)
+            self.assertTrue(any("%s=3" % field in p for p in out["problems"]), (field, out["problems"]))
+
     def test_a_phase_cut_by_cap_is_recorded_not_a_hard_failure(self):
         text = CLEAN_ADMISSIBILITY.replace(syncph(1), syncph(1, reason="cap"))
         out = v28verdict.admissibility(text)
