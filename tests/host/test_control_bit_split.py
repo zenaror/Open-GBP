@@ -76,7 +76,11 @@ LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92,
          # orig=92 -- 55 logs
          "game-0002-run42": 0x92,
          # Issue #120: RUN 43, sync-0001 (GBP-AUDIO-012) = the latency round, Yoshi's Island, orig=92 -- 56 logs
-         "sync-0001-run43": 0x92}
+         "sync-0001-run43": 0x92,
+         # Issue #132 (RUN 44-47 ingestion, Issue #130): agb-route's four ROM variants (route-both,
+         # route-left, route-right, route-bias0200), each with its own GBA cartridge, orig=92 -- 60 logs
+         "stream-0016-run44": 0x92, "stream-0016-run45": 0x92,
+         "stream-0016-run46": 0x92, "stream-0016-run47": 0x92}
 
 WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0005", "stream-0005-run2",
              "stream-0005-run3", "stream-0006-run4", "stream-0007-run5", "stream-0008-run6", "stream-0009-run7",
@@ -94,12 +98,26 @@ def plain(s):
     return re.sub(r"\s+", " ", s).replace("`", "").replace("**", "").replace("*", "")
 
 
+# Issue #132: GBP-HW-272's own text is frozen by tests/host/test_run43.py's OnTopNeverRewritten
+# guard (Issue #120 pinned EVIDENCE.md's prefix at commit c496f0b, which already carries RUN 43's
+# own recount inside GBP-HW-272 -- the last one that entry ever gets). A later recount can no
+# longer append inside GBP-HW-272 without breaking that guard, so it is recorded as its own new
+# entry at the end of the file instead, and CONTINUATIONS names each one in order.
+CONTINUATIONS = ["GBP-HW-353"]
+
+
 def entry():
-    """The GBP-HW-272 entry, alone."""
+    """The GBP-HW-272 entry, plus every continuation entry CONTINUATIONS names, concatenated in
+    order. See CONTINUATIONS' own comment for why a later recount lives apart from GBP-HW-272."""
     d = read(EVIDENCE)
     i = d.index("### GBP-HW-272 ")
     j = d.index("\n### ", i + 1)
-    return d[i:j]
+    text = d[i:j]
+    for eid in CONTINUATIONS:
+        i2 = d.index("### %s " % eid)
+        j2 = d.index("\n### ", i2 + 1) if "\n### " in d[i2 + 1:] else len(d)
+        text += "\n" + d[i2:j2]
+    return text
 
 
 def docs_markdown():
