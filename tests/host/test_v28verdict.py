@@ -373,12 +373,34 @@ class Issue135Diagnostics(unittest.TestCase):
         self.assertIn("(none)", v28verdict.render(v28verdict.analyse(full_clean_log().replace(b3_hold(1), none))))
         self.assertNotIn("ring0", v28verdict.hold_3b(full_clean_log().replace(b3_hold(1), row))["margin_ahead1"])
 
-    def test_the_landing_trim_and_late_flag_are_rendered_when_present(self):
+    def test_the_cut_fields_are_rendered_when_present(self):
         row = (sweep_gate_row(3, outcome=2, fail=1) + "\n"
                "V28_SWEEPM n=3 meas_t=4096 meas_a=1 meas_ring=4100 meas_ready=1 ring=3000 ready=0 dup=2 drop=0 "
-               "trim=1500 late=1 t_land=abc")
+               "t_land=abc\nV28_SWEEPC n=3 cut=1500 cut_rel=-2 rot_post=4 fill_short=0 late=0")
         text = v28verdict.render(v28verdict.analyse(full_clean_log().replace(sweep_gate_row(3), row)))
-        self.assertIn("dup 2 drop 0 trim 1500 late 1", text)
+        self.assertIn("dup 2 drop 0 cut 1500 (period -2 vs unmute) rot_post 4 fill_short 0 late 0", text)
+        self.assertIn("fail_reason=1 (OUT_OF_BAND)", text)
+
+    def _log_with_cut(self, n, cut, rel, klass_row=None):
+        rows = ["V28_SWEEPC n=%d cut=%d cut_rel=%d rot_post=4 fill_short=0 late=0" % (k, 0, -2) for k in range(1, 19)]
+        rows[n - 1] = "V28_SWEEPC n=%d cut=%d cut_rel=%d rot_post=4 fill_short=0 late=0" % (n, cut, rel)
+        log = full_clean_log()
+        return log.replace("V28_SWEEP_VERDICT", "\n".join(rows) + "\nV28_SWEEP_VERDICT", 1)
+
+    def test_a_cut_after_unmute_in_a_gate_row_fails_the_pre_registered_gate_line(self):
+        """#122 section 1(c), registered on Issue #136 before RUN 53: read from the log's own records, whatever the module said."""
+        text = v28verdict.render(v28verdict.analyse(self._log_with_cut(5, 1400, 1)))
+        self.assertIn("no cut after unmute (Issue #136 GATE condition) -- FAIL at GATE n=5 (1400 samples, period 1)", text)
+
+    def test_cuts_inside_the_mute_pass_the_gate_line_and_an_old_log_says_not_recorded(self):
+        text = v28verdict.render(v28verdict.analyse(self._log_with_cut(5, 1400, -2)))
+        self.assertIn("no cut after unmute (Issue #136 GATE condition) -- PASS in every GATE row", text)
+        old = v28verdict.render(v28verdict.analyse(full_clean_log()))
+        self.assertIn("NOT RECORDED (this log predates it)", old)
+
+    def test_a_cut_with_zero_samples_at_a_late_period_is_no_cut(self):
+        text = v28verdict.render(v28verdict.analyse(self._log_with_cut(5, 0, 1)))
+        self.assertIn("-- PASS in every GATE row", text)
 
     def test_the_worst_case_print_lines_fit_the_console_log_line(self):
         """LOG_LINE_LEN 256, less the 7-character `%06u ` prefix and the terminator: a longer line
@@ -387,7 +409,7 @@ class Issue135Diagnostics(unittest.TestCase):
         with open(self.MAIN, encoding="utf-8") as f:
             src = f.read()
         limit = int(re.search(r"#define LOG_LINE_LEN (\d+)", src).group(1)) - 8
-        for tag in ("V28_SWEEP n=", "V28_SWEEPM n=", "V28_3B n=", "V28_3BM n="):
+        for tag in ("V28_SWEEP n=", "V28_SWEEPM n=", "V28_SWEEPC n=", "V28_3B n=", "V28_3BM n="):
             i = src.index('"' + tag)
             call = src[i:src.index(");", i)]
             fmt = "".join(re.findall(r'"((?:[^"\\]|\\.)*)"', call.split("\n", 1)[0] + "\n" +

@@ -210,7 +210,18 @@ def sweep(text):
     failing_gates = [r for r in gate_rows if int(r["outcome"]) != SWEEP_OUTCOME_PASS]
     verdict = int(verdict_rows[-1]["v"]) if verdict_rows else None
     measured = {r["n"]: r for r in find_all(text, "V28_SWEEPM")}     # Issue #135; absent in RUN 51's log
-    return {"n_records": len(rows), "n_gate": len(gate_rows), "n_info": len(info_rows),
+    cuts = {r["n"]: r for r in find_all(text, "V28_SWEEPC")}         # Issue #136; absent before RUN 53's build
+    for n, m in measured.items():
+        if n in cuts:
+            m.update(cuts[n])
+    # Issue #136, pre-registered before RUN 53 (#122 section 1(c)): NO CUT OF THE RING AFTER THE FIRST AUDIBLE
+    # HAND-OFF, in any GATE row. Read from the log's own V28_SWEEPC records (cut_rel >= 0 with cut > 0), whatever
+    # fail_reason the module gave the row.
+    klass_of = {r["n"]: int(r["klass"]) for r in rows}
+    late_cuts = sorted((int(n), int(c["cut"]), int(c["cut_rel"])) for n, c in cuts.items()
+                       if int(c["cut"]) > 0 and int(c["cut_rel"]) >= 0 and klass_of.get(n) == SWEEP_KLASS_GATE)
+    cut_gate = {"recorded": bool(cuts), "late_gate_cuts": late_cuts}
+    return {"n_records": len(rows), "n_gate": len(gate_rows), "n_info": len(info_rows), "cut_gate": cut_gate,
             "failing_gates": failing_gates, "info_rows": info_rows, "measured": measured, "verdict": verdict,
             "verdict_name": SWEEP_VERDICT_NAMES.get(verdict, "?")}
 
@@ -228,11 +239,23 @@ def analyse(text):
             "hold_3b": hold_3b(text), "sweep": sweep(text), "label": label_cost(text)}
 
 
+FAIL_NAMES = {0: "NONE", 1: "OUT_OF_BAND", 2: "UNDERRUN", 3: "UNMASKED", 4: "SPLICE"}    # gbp_v28_sweep.h's enum
+
+
+def _fail_name(v):
+    """The frozen tool printed the bare number; the number stays first, the name follows it (Issue #136 added 4)."""
+    try:
+        return "%s (%s)" % (v, FAIL_NAMES.get(int(v), "?"))
+    except ValueError:
+        return v
+
+
 def _trim_late(m):
     """Issue #136's landing fields (what the landing's trim cut; a rotation abandoned in flight), when the log has them."""
-    if "trim" not in m:
+    if "cut" not in m:
         return ""
-    return " trim %s late %s" % (m["trim"], m["late"])
+    return " cut %s (period %s vs unmute) rot_post %s fill_short %s late %s" % (m["cut"], m["cut_rel"], m["rot_post"],
+                                                                            m["fill_short"], m["late"])
 
 
 def render(out):
@@ -297,7 +320,7 @@ def render(out):
     for r in s["failing_gates"]:
         lines.append("  FAIL gate n=%s: from %s (ahead %s) to %s (ahead %s) outcome=%s fail_reason=%s"
                      % (r["n"], fmt_target(int(r["from_t"])), r["from_a"], fmt_target(int(r["to_t"])),
-                        r["to_a"], r["outcome"], r["fail"]))
+                        r["to_a"], r["outcome"], _fail_name(r["fail"])))
         m = s["measured"].get(r["n"])
         if m is not None:                          # Issue #135's own measured fields
             lines.append("    measured from-state: target %s ahead %s ring %s ready %s; landed ring %s ready %s "
@@ -311,11 +334,20 @@ def render(out):
             continue
         lines.append("  INFO n=%s: from %s (ahead %s) to %s (ahead %s) outcome=%s fail_reason=%s residue %s"
                      % (r["n"], fmt_target(int(r["from_t"])), r["from_a"], fmt_target(int(r["to_t"])),
-                        r["to_a"], r["outcome"], r["fail"], r["residue"]))
+                        r["to_a"], r["outcome"], _fail_name(r["fail"]), r["residue"]))
         lines.append("    measured from-state: target %s ahead %s ring %s ready %s; landed ring %s ready %s "
                      "dup %s drop %s%s"
                      % (m["meas_t"], m["meas_a"], m["meas_ring"], m["meas_ready"], m["ring"], m["ready"],
                         m["dup"], m["drop"], _trim_late(m)))
+
+    cg = s["cut_gate"]
+    if not cg["recorded"]:
+        lines.append("SWEEP: no cut after unmute (Issue #136 GATE condition) -- NOT RECORDED (this log predates it)")
+    elif cg["late_gate_cuts"]:
+        lines.append("SWEEP: no cut after unmute (Issue #136 GATE condition) -- FAIL at GATE n=%s"
+                     % ", ".join("%d (%d samples, period %d)" % c for c in cg["late_gate_cuts"]))
+    else:
+        lines.append("SWEEP: no cut after unmute (Issue #136 GATE condition) -- PASS in every GATE row")
 
     lbl = out["label"]
     if lbl["have"]:

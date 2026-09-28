@@ -49,9 +49,12 @@
  * pass).
  *
  * VERDICTS, KEPT APART (Issue #129, both comments): a GATE entry PASSes when it lands with no
- * OUT_OF_BAND fault (gbp_atrans2's own ROTATE landing trim makes this a STRUCTURAL check now, not a
- * fitted one -- see tests/unit/test_v28_sweep_residue.c), no UNDERRUN observed during its own mute
- * or dwell, and is masked by content (`tr.unmasked` clear -- #117's rule). ANY gate failure is
+ * OUT_OF_BAND fault (the landing ring in [target - BAND, target]; gbp_atrans2 sets the level inside the
+ * mute, tests/unit/test_v28_sweep_landing.c), no UNDERRUN observed during its own mute or dwell, no
+ * SPLICE (Issue #136, pre-registered before RUN 53: NO CUT OF THE RING AFTER THE FIRST AUDIBLE HAND-OFF,
+ * #122 section 1(c), whoever made it -- the level-setting cut landed at or after unmute, or the ring was cut
+ * at all during the dwell), and is masked by content (`tr.unmasked` clear: fewer than `ahead` rotations
+ * followed the cut leaves a pre-cut chunk to be heard). ANY gate failure is
  * reported by fail_reason, never silently folded into a generic FAIL. An INFORMATIONAL entry is
  * recorded in full, with the SAME fields, but never contributes to gbp_v28_sweep_verdict() -- only
  * the 18 GATE rows do. A dwell CUT before its own end is recorded PARTIAL, never PASS (Issue #117's
@@ -59,8 +62,8 @@
  * verdict exactly like FAIL: an unobserved GATE entry is never certified safe by omission.
  *
  * BUDGET (Issue #129's own second comment, recomputed there): 27 moves, not 26; the STARTs and the
- * repositioning use GBP_V28_START_MUTE (8), not GBP_V28_STEP_MUTE (6); with the ROTATE trim, the
- * ring lands at target immediately, so the settle dwell is a SHORT OBSERVATION window
+ * repositioning use GBP_V28_START_MUTE (12 since Issue #136; was 8), not GBP_V28_STEP_MUTE (6); the
+ * ring lands at target inside the mute, so the settle dwell is a SHORT OBSERVATION window
  * (GBP_V28_SWEEP_DWELL_S), not a wait for the ring to drift back -- see the sum check below.
  *
  * Shares gbp_v28_3a/3b's own construction discipline exactly: a decided plan is held PENDING and
@@ -90,15 +93,17 @@ extern "C" {
 #define GBP_V28_SWEEP_PRELUDE_N   1u   /* the INFO repositioning move that precedes the 27 frozen entries */
 #define GBP_V28_SWEEP_N          28u   /* PRELUDE_N + the 27 frozen entries */
 #define GBP_V28_SWEEP_DWELL_S     1u   /* a short post-landing observation, not a settle wait -- the
-                                        * ROTATE trim already lands the ring at target (see
-                                        * gbp_atrans2.c's own step_rotate2()) */
+                                        * level is already set inside the mute (see gbp_atrans2.h) */
 
 enum gbp_v28_sweep_class { GBP_V28_SWEEP_GATE = 0, GBP_V28_SWEEP_INFO = 1 };
 enum gbp_v28_sweep_mechanism { GBP_V28_SWEEP_STEP = 0, GBP_V28_SWEEP_REFUSED = 1, GBP_V28_SWEEP_START = 2 };
 enum gbp_v28_sweep_outcome { GBP_V28_SWEEP_PENDING = 0, GBP_V28_SWEEP_PASS = 1, GBP_V28_SWEEP_FAIL = 2,
                             GBP_V28_SWEEP_PARTIAL = 3 };
 enum gbp_v28_sweep_fail_reason { GBP_V28_SWEEP_FAIL_NONE = 0, GBP_V28_SWEEP_FAIL_OUT_OF_BAND = 1,
-                                 GBP_V28_SWEEP_FAIL_UNDERRUN = 2, GBP_V28_SWEEP_FAIL_UNMASKED = 3 };
+                                 GBP_V28_SWEEP_FAIL_UNDERRUN = 2, GBP_V28_SWEEP_FAIL_UNMASKED = 3,
+                                 /* Issue #136, pre-registered before RUN 53: a cut of the ring AFTER the first audible
+                                  * hand-off (#122 section 1(c): nothing audible in a step may depend on the AHEAD in force) */
+                                 GBP_V28_SWEEP_FAIL_SPLICE = 4 };
 enum gbp_v28_sweep_verdict { GBP_V28_SWEEP_VERDICT_PENDING = 0, GBP_V28_SWEEP_VERDICT_PASS = 1,
                             GBP_V28_SWEEP_VERDICT_FAIL = 2 };
 
@@ -119,9 +124,14 @@ struct gbp_v28_sweep_record {
     uint32_t meas_target, meas_ahead;           /* gbp_aplay2's own target/ahead when begin() applied */
     uint32_t meas_ring, meas_ready;             /* d->count / gbp_aplay2_ready() when begin() applied */
     uint32_t ring, ready;                       /* d->count / gbp_aplay2_ready() at the landing */
-    /* Issue #136: what the landing's own trim cut (samples; gbp_atrans2's tr.trimmed) and whether a
-     * rotation was still in flight and abandoned at the landing (tr.late). */
-    uint32_t trim;
+    /* Issue #136: where the ring's level was set. `cut` is the samples the one level-setting discard removed
+     * from the ring's head, `cut_rel` the hand-off period it ran in relative to the first audible hand-off
+     * (-1 the last silent period, -2 the one before; >= 0 is AFTER unmute and fails the GATE row as SPLICE),
+     * `rot_post` the rotations that followed it (each rebuilds one queued chunk; fewer than ahead leaves a
+     * pre-cut chunk to be heard and fails as UNMASKED), `fill_short` the samples the ring lacked at the cut
+     * (the mute could not fill it) and `late` a rotation still in flight when the silence ended. */
+    uint32_t cut, rot_post, fill_short;
+    int32_t  cut_rel;
     uint8_t  late;
 };
 
@@ -141,7 +151,9 @@ struct gbp_v28_sweep {
     int32_t  residue_at_land;                    /* gbp_atrans2's own tr.residue, snapshotted at the landing */
     uint32_t ahead_drops_at_land;                /* gbp_atrans2's own tr.ahead_drops, snapshotted at the landing */
     uint8_t  unmasked_at_land;                   /* gbp_atrans2's own tr.unmasked, snapshotted at the landing */
-    uint32_t trim_at_land;                       /* gbp_atrans2's own tr.trimmed, snapshotted at the landing */
+    uint32_t cut_at_land, rot_post_at_land, fill_short_at_land;   /* gbp_atrans2's cut fields, at the landing */
+    int32_t  cut_rel_at_land;
+    uint32_t disc_at_land;                       /* gbp_adec2's own cumulative `discarded`, snapshotted at the landing */
     uint8_t  late_at_land;                       /* gbp_atrans2's own tr.late, snapshotted at the landing */
     struct gbp_v28_sweep_record records[GBP_V28_SWEEP_N];
     uint32_t records_n;
