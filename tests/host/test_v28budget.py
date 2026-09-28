@@ -116,7 +116,8 @@ class Run43(unittest.TestCase):
                         v["records"]["margin"])) for k, v in pl.items())
         self.assertEqual(got, {"v27_as_frozen": (758.47, 720, -38.47, 785, 50583, 60699),
                                "v27_with_3b": (776.47, 720, -56.47, 785, 50583, 60699),
-                               "validation_run": (378, 438, 60, 503, 32082, 38498),
+                               # Issue #131/#133 (RUN 50, Defect B): 3a's own 138 -> 168 s margin
+                               "validation_run": (408, 468, 60, 533, 34050, 40860),
                                "perceptual_no_phase1": (300, 360, 60, 425, 26965, 32357),
                                "perceptual_phase1": (520, 580, 60, 645, 41398, 49677),
                                "one_session_descent_first": (618, 678, 60, 743, 47827, 57393),

@@ -40,6 +40,11 @@ PLAN_C_NAME = {
 
 MAIN = os.path.join(ROOT, "poc", "gbp-audio-v28", "source", "main.c")
 
+# Issue #131/#133 (RUN 50, Defect A): the ONE place every handler start is now issued from,
+# driven off the walker's own phase index advancing -- never a specific handler's own completion
+# flag or a specific caller. See its own header comment in main.c for the full reasoning.
+DISPATCH_FN = "v28_dispatch_phase_start"
+
 # GBP_WALKER_* kind -> the module-level function that must actually be CALLED (never merely
 # declared) somewhere main.c can reach, before that phase's own tick()/step() does anything real.
 # GBP_WALKER_NAVIGATE is deliberately absent: it has no separate handler struct of its own (it is
@@ -85,6 +90,27 @@ def c_plan_array(header, array_name):
         raise AssertionError("%s not found in gbp_v28_plans.h" % array_name)
     body = m.group(1)
     return re.findall(r"\{\s*(GBP_WALKER_\w+)\s*,\s*([\w()+]+)\s*\}", body)
+
+
+def function_body(src, name):
+    """The DEFINITION's own body text -- `{...}` matched by brace depth, starting at the first
+    `name(...)\\n{` in `src` (a forward declaration with no body, `name(...);`, never matches this
+    pattern, so a name declared earlier in the file cannot be mistaken for its own definition)."""
+    m = re.search(r"\b%s\s*\([^\n;]*\)\s*\n\{" % re.escape(name), src)
+    if not m:
+        raise AssertionError("%s's own definition was not found in main.c" % name)
+    i = m.end() - 1   # at the opening brace
+    depth = 0
+    j = i
+    while j < len(src):
+        if src[j] == "{":
+            depth += 1
+        elif src[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return src[i:j + 1]
+        j += 1
+    raise AssertionError("%s's own body never closes its opening brace" % name)
 
 
 def c_macro_value(header, name, seen=None):
@@ -189,6 +215,42 @@ class TheHandlersAreStarted(unittest.TestCase):
                                "%s is declared but never called anywhere in main.c -- its own "
                                "handler struct stays at its static zero-init state for its "
                                "entire phase" % fn)
+
+    def test_every_handler_start_has_exactly_one_call_site_and_it_is_in_the_shared_dispatcher(self):
+        """RUN 50 (Issue #133): `gbp_v28_3b_start()` WAS called somewhere in main.c -- the previous
+        test above would have passed -- but only inside DESCENT_3A's own `TICK_PHASE_COMPLETE`
+        branch, reachable when 3a's own algorithm decided it was done and UNREACHABLE when the
+        walker's own phase cap cut 3a instead, which is exactly what happened. "A start reachable
+        on only one of two exit paths is the same shape as a start reachable on no path" (the
+        Orchestrator's own framing) -- the general, durable form of this lesson: a handler start
+        must have EXACTLY ONE call site in main.c, and that call site must sit inside
+        v28_dispatch_phase_start(), the one place driven off the walker's own index advancing
+        rather than any specific exit reason. A second call site (even a correct-looking one)
+        risks a double start -- gbp_v28_3a_start()/gbp_v28_3b_start()/gbp_v28_sweep_start() all
+        memset() their own struct, so calling one twice for the same phase would silently wipe
+        real progress -- so "more than one" fails this exactly as hard as "none"."""
+        src = read(MAIN)
+        header = code(read(PLANS_H))
+        needed = set()
+        for py_name, c_name in PLAN_C_NAME.items():
+            for kind_token, _cap_expr in c_plan_array(header, c_name + "_PHASES"):
+                if kind_token in KIND_START_FN:
+                    needed.add(KIND_START_FN[kind_token])
+        self.assertTrue(needed, "no handler kind to check -- the population went silently empty")
+        stripped = code(src)   # comments stripped: a call-site count must not be inflated by a
+                                # doc comment that merely MENTIONS a function's own name in prose
+        dispatcher = function_body(stripped, DISPATCH_FN)
+        for fn in sorted(needed):
+            pat = r"\b%s\s*\(" % re.escape(fn)
+            calls = re.findall(pat, stripped)
+            self.assertEqual(len(calls), 1,
+                             "%s has %d call sites in main.c, not exactly 1 -- a start reachable "
+                             "on more than one path (or none) risks the same defect RUN 50 found, "
+                             "in one direction or the other" % (fn, len(calls)))
+            self.assertRegex(dispatcher, pat,
+                             "%s's own one call site is not inside %s() -- it is reachable only "
+                             "from whatever OTHER path calls it, the exact shape RUN 50 found for "
+                             "gbp_v28_3b_start()" % (fn, DISPATCH_FN))
 
 
 class TheMakefileCleanTarget(unittest.TestCase):

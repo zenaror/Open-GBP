@@ -29,14 +29,17 @@ static void test_validation_run(void)
     (void)gbp_walker_tick(&w, 60u, 0);
     check(gbp_walker_current_kind(&w) == GBP_WALKER_DESCENT_3A, "p0's own 60 s cap moves to 3a");
 
-    (void)gbp_walker_tick(&w, 60u + 138u, 0);
-    check(gbp_walker_current_kind(&w) == GBP_WALKER_HOLD_3B, "3a's own 138 s cap moves to 3b");
+    /* Issue #131/#133 (RUN 50, Defect B): 138 -> 168 -- 138 was the EXACT worst-case sum of 3a's
+     * own dwells (gbp_v28_plans.h's own header comment has the full derivation), leaving zero
+     * margin for the confirm's own natural end to ever beat the walker's own cap race. */
+    (void)gbp_walker_tick(&w, 60u + 168u, 0);
+    check(gbp_walker_current_kind(&w) == GBP_WALKER_HOLD_3B, "3a's own 168 s cap moves to 3b");
 
-    (void)gbp_walker_tick(&w, 60u + 138u + 120u, 0);
+    (void)gbp_walker_tick(&w, 60u + 168u + 120u, 0);
     check(gbp_walker_current_kind(&w) == GBP_WALKER_SWEEP, "3b's own 120 s cap moves to sweep");
 
-    (void)gbp_walker_tick(&w, 60u + 138u + 120u + 60u, 0);
-    check(gbp_walker_finished(&w) == 1, "sweep's own 60 s cap finishes the run (378 s < the 438 s session cap)");
+    (void)gbp_walker_tick(&w, 60u + 168u + 120u + 60u, 0);
+    check(gbp_walker_finished(&w) == 1, "sweep's own 60 s cap finishes the run (408 s < the 468 s session cap)");
 }
 
 static void test_perceptual_no_phase1(void)

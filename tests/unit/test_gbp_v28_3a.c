@@ -560,6 +560,46 @@ static void test_confirmed_floor_a_cut_mid_bisection_uses_the_latest_hi(void)
     check(floor != 6144u, "RED against last_hold: that stale value is genuinely NOT what this reads");
 }
 
+/* Issue #131/#133 (RUN 50, Defect C -- the Orchestrator's own question): does
+ * gbp_v28_3a_confirmed_floor() on a CUT confirm dwell (the phase's own cap arrived before the
+ * confirm's 60 s own naturally elapsed -- RUN 50's actual shape, once Defect B's tight budget is
+ * also accounted for) still read `hi`, or does a CUT confirm somehow get treated as a "clean
+ * floor" at `lo` (the confirm dwell's own TARGET, the HIGHEST FAILING depth being re-tested --
+ * gbp_v28_3a.h's own header comment) instead? Same straddling setup as
+ * test_confirmed_floor_a_straddling_bracket_uses_hi_not_lo() (lo/hi genuinely differ, so this is
+ * not a vacuous check), but cut the CONFIRM dwell itself mid-flight rather than letting it settle
+ * naturally. */
+static void test_confirmed_floor_a_cut_confirm_still_reads_hi_never_lo(void)
+{
+    struct gbp_v28_3a s;
+    uint64_t now = steady2(GBP_V28_P3_START);
+    uint32_t floor = 0u;
+    gbp_v28_3a_start(&s, TB_HZ, now);
+    settle_one_depth(&s, &now, 1);   /* 6144 holds */
+    settle_one_depth(&s, &now, 1);   /* 5632 holds */
+    settle_one_depth(&s, &now, 1);   /* 5120 holds */
+    settle_one_depth(&s, &now, 1);   /* 4608 holds -- last_hold = 4608 */
+    settle_one_depth(&s, &now, 0);   /* 4096 fails -- opens the bracket: lo=4096, hi=4608 */
+    while (!s.bracket_closed) settle_one_depth(&s, &now, 1);   /* every midpoint holds: only hi narrows */
+    check(s.confirming == 1u, "test setup: the closed bracket entered the confirm hold");
+    eqi((long long)s.cur_kind, (long long)GBP_V28_3A_CONFIRM, "test setup: the CURRENT dwell is the confirm");
+    eqi((long long)s.lo, 4096, "test setup: lo (the confirm's own target) is 4096");
+    eqi((long long)s.hi, 4128, "test setup: hi is 4128 -- genuinely different from lo, so this is not vacuous");
+    (void)drive(&s, &now, 1u);                        /* apply the confirm's own begin() -- NOT its own 60 s */
+    check(s.dwell_active == 1u, "test setup: the confirm dwell is running, cut before its own natural end");
+    check(s.cur == 4096u, "test setup: the confirm dwell's own depth is lo (4096), the one being re-tested");
+    gbp_v28_3a_cut(&s, now);                          /* the phase cap, RUN 50's own actual shape */
+    check(gbp_v28_3a_finished(&s) == 1, "a cut always finishes the descent, confirm included");
+    gbp_v28_3a_depth_done(&s, 0u, 0u, 0u, 0u, 0u, 0u, 0u);   /* zeroed deltas, matching v28_cut()'s own call */
+    check(gbp_v28_3a_depth_record(&s, s.depths_n - 1u)->partial == 1u,
+          "the cut confirm dwell is recorded PARTIAL, same as any other cut dwell");
+    check(gbp_v28_3a_confirmed_floor(&s, &floor) == 1, "a floor still exists after a cut confirm");
+    eqi((long long)floor, (long long)s.hi, "the floor is hi (4128), unaffected by the confirm's own cut -- "
+                                          "bisecting is still 1, hi was never touched by cut()/depth_done()");
+    check(floor != s.lo, "RED against a hypothetical \"cut confirm treated as a clean floor at lo\": "
+                        "lo (4096, the confirm's own re-tested target) is genuinely NOT what this reads");
+}
+
 int main(void)
 {
     test_a_never_started_3a_records_nothing_however_long_it_is_driven();
@@ -581,6 +621,7 @@ int main(void)
     test_confirmed_floor_holds_straight_to_p3_min();
     test_confirmed_floor_a_straddling_bracket_uses_hi_not_lo();
     test_confirmed_floor_a_cut_mid_bisection_uses_the_latest_hi();
+    test_confirmed_floor_a_cut_confirm_still_reads_hi_never_lo();
     printf("test_gbp_v28_3a: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

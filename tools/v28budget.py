@@ -73,7 +73,7 @@ PLANS = {
     # name: ([(phase, seconds, what the seconds are)], session cap or None for sum + SLACK_S)
     "v27_as_frozen": ([("p0", None, "RUN 43"), ("p1", 300, "cap"), ("p2", 240, "cap"), ("p3", 180, "cap")], 720),
     "v27_with_3b": ([("p0", None, "RUN 43"), ("p1", 300, "cap"), ("p2", 240, "cap"), ("p3", 198, "3a + 3b")], 720),
-    "validation_run": ([("p0", P0_ALLOWANCE_S, "allowance"), ("3a", 138, "§V27 budget"),
+    "validation_run": ([("p0", P0_ALLOWANCE_S, "allowance"), ("3a", 168, "§V27 budget + margin, Issue #133"),
                         ("3b", 120, "AHEAD holds: 1, then 2 on an underrun"), ("sweep", 60, "ROTATE steps")], None),
     "perceptual_no_phase1": ([("p0", P0_ALLOWANCE_S, "allowance"), ("nulling", 240, "cap")], None),
     "diag_3a_stall": ([("p0", P0_ALLOWANCE_S, "allowance"), ("3a", 60, "RUN 48's own stall, short")], None),
