@@ -90,6 +90,7 @@ void gbp_aplay2_mute(struct gbp_aplay2 *p, uint32_t chunks)
 {
     if (!p) return;
     p->mute = chunks;                                   /* one 32-bit store; the callback decrements */
+    p->mute_carry = 0u;                                 /* a fresh countdown; no decrement owed from before */
 }
 
 int gbp_aplay2_discard_chunk(struct gbp_aplay2 *p, int buf)
@@ -304,8 +305,15 @@ const uint8_t *gbp_aplay2_irq_handoff(struct gbp_aplay2 *p, uint64_t t)
         p->cb_t_last = t;
         p->cb_count = p->cb_count + 1u;
     }
-    if (p->mute > 0u) {
+    /* the decrement owed from the LAST silent hand-off, applied only now (gbp_aplay2.h's own
+     * mute_carry comment): this is what makes `mute` still read >= 1 for anything that reads it
+     * between hand-offs, through the hand-off it actually describes. */
+    if (p->mute_carry) {
         p->mute = p->mute - 1u;
+        p->mute_carry = 0u;
+    }
+    if (p->mute > 0u) {
+        p->mute_carry = 1u;
         p->mute_handed = p->mute_handed + 1u;
         buf = GBP_APLAY2_HL_MUTE;
     } else if (p->rq_head != p->rq_tail) {

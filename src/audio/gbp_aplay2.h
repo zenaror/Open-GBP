@@ -150,6 +150,20 @@ struct gbp_aplay2 {
      * READY queue again: written whole by gbp_aplay2_mute() (pump), read and decremented by the
      * callback, one 32-bit access each way. `mute_handed` counts them. */
     volatile uint32_t mute;
+    /* `mute` reads "still muted" through the hand-off it is actually true for, not one early
+     * (GitHub Issue #129/#130, the Orchestrator's diagnosis): the callback decides mute-vs-play
+     * using the value BEFORE decrementing (so exactly `mute` hand-offs are silent, unchanged), but
+     * a naive decrement-in-place would make `mute` read 0 already during the LAST of those silent
+     * hand-offs -- one whole period before any OTHER reader (gbp_atrans2's own aim-cycle gate,
+     * gbp_aplay2_drop_front()'s own guard) sees it. Both those readers trusted `mute` as "was the
+     * hand-off that just happened silent", and disagreed once only one of them was corrected
+     * separately (a produce+rotate cycle fired in a period drop_front() still, correctly, refused
+     * to drop in -- an uncompensated rotation that ate a climbing transition's own tight ring
+     * intake). One correct value, not two patched readers: `mute_carry` defers the decrement to the
+     * START of the FOLLOWING call, so `mute` itself reads >= 1 for the whole of the hand-off it
+     * describes, callback-internal only, mirroring `mute`'s own single-writer (pump)/
+     * single-reader-and-decrementer (callback) discipline. */
+    volatile uint32_t mute_carry;
     volatile uint32_t mute_handed;
     /* what happened, never silent */
     uint32_t produced, dup, drop, starved_steps, log_overflow;

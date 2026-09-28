@@ -48,6 +48,33 @@
  * nulling judgment sees. `gbp_atrans2_step()` discards the ring's excess down to target at the
  * landing, never below it (a shortfall is worse than the excess it fixes), before reporting
  * `residue` -- masked (still inside the same landing step) and cheap (a ring-pointer advance).
+ *
+ * ROTATE ONLY STARTS A NEW ROTATION WITH ENOUGH CALLS LEFT TO FINISH IT (GitHub Issue #129/#130,
+ * the Orchestrator's decision, closing a gap the ROTATE-trim and READY-floor work above exposed
+ * rather than caused): `gbp_aplay2_irq_handoff()`'s own `mute_carry` field gives every reader ONE
+ * consistent definition of "still muted" -- through the LAST silent hand-off, not one early (see
+ * gbp_aplay2.h) -- which is what gbp_v28_sweep's own entry 6 (an AHEAD-lowering STEP landing AT
+ * AHEAD 1, floor 0, no slack) needed to land with its queue warm instead of empty. But a NEW
+ * rotation STARTED without enough of its own hand-off period left has no guarantee of finishing;
+ * landing while it is still mid-flight would lose whatever ring content it already consumed (the
+ * landing branch above only resets `rotating`, it never completes or drops an abandoned one) --
+ * found on two climbing transitions at one specific burst timing, a real ring shortfall, not a
+ * disagreement and not a `gbp_aplay2_drop_front()` safety violation (proven separately, 320 driven
+ * transitions, 0 violations, with and without this fix).
+ *
+ * A coarser gate (refuse any new start once `handed == t->mute`, the LAST muted hand-off) also
+ * closes the shortfall, but it is NOT exact: measured directly (a real cascade, not a synthetic
+ * one), entry 6's own last natural rotation start lands at EXACTLY `GBP_ATRANS2_CALLS_PER_HANDOFF`
+ * calls of window left -- margin 0, sufficient -- and a period-level gate refuses that start too,
+ * reopening entry 6's own underrun to close the climbs' shortfall. The exact condition instead
+ * compares CALLS, not periods: `calls_in_period`/`handed_last` (this module's own bookkeeping, reset
+ * on every hand-off boundary gbp_atrans2_step() observes) give the calls left before the landing
+ * check, at exactly this call; a new rotation starts only if that is at least
+ * `GBP_ATRANS2_CALLS_PER_HANDOFF` (a fresh rotation's own need, under the default per-call cadence).
+ * Arithmetic over this module's own accounting, not a tuned threshold against `p->mute`'s own
+ * timing, and not conditional on AHEAD or direction (#122 section 1(c), quoted in #128 section 3).
+ * An ALREADY-rotating chunk (`t->rotating`, checked first, always ungated) is unaffected -- this
+ * only decides whether a NEW one may start.
  */
 #ifndef OPENGBP_GBP_ATRANS2_H
 #define OPENGBP_GBP_ATRANS2_H
@@ -63,6 +90,12 @@ extern "C" {
 enum gbp_atrans2_mode { GBP_ATRANS2_UNMUTED = 0, GBP_ATRANS2_HELD = 1, GBP_ATRANS2_ROTATE = 2 };
 
 #define GBP_ATRANS2_AIM (GBP_APLAY2_PUSHES / 2u)
+
+/* gbp_atrans2_step() calls a full hand-off period holds under the default per-call cadence
+ * (GBP_APLAY2_STEP_PUSHES, unhooked -- see gbp_aplay2.h's own step_pushes hook, not used by any
+ * #128/#129 handler): the SAME quantity a fresh ROTATE production needs to complete one chunk, so
+ * comparing the two is exact arithmetic on this module's own accounting, not a tuned constant. */
+#define GBP_ATRANS2_CALLS_PER_HANDOFF (GBP_APLAY2_PUSHES / GBP_APLAY2_STEP_PUSHES)
 
 struct gbp_atrans2 {
     uint8_t  active;
@@ -88,6 +121,11 @@ struct gbp_atrans2 {
     uint8_t  unmasked;                /* ROTATE: a shallowing's pre-splice chunk still in READY (discard, < AHEAD rotations) */
     uint32_t short_by;                /* HELD: samples the ring lay below the level at the landing */
     uint32_t handed_seen;
+    uint32_t handed_last;             /* ROTATE: `handed` as of the last gbp_atrans2_step() call, to detect a
+                                       * hand-off boundary crossing (see calls_in_period, below) */
+    uint32_t calls_in_period;          /* ROTATE: gbp_atrans2_step() calls seen so far THIS hand-off period,
+                                       * 1-indexed (this call counts) -- reset to 0 whenever `handed` changes,
+                                       * then incremented, so it is always this call's own 1-based position */
     uint64_t t_start, t_reached, t_end;
     /* since init */
     uint32_t begun, completed;
