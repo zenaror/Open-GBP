@@ -209,7 +209,10 @@ class TheDerivedResultIsRecomputedFromTheArchive(unittest.TestCase):
                  # Issue #115 (2026-09-24): RUN 42, game-0002 on Yoshi's Island
                  "GBP-AUDIO-011_game-0002-run42.log": "92",
                  # Issue #120 (2026-09-25): RUN 43, sync-0001 on Yoshi's Island
-                 "GBP-AUDIO-012_sync-0001-run43.log": "92"}
+                 "GBP-AUDIO-012_sync-0001-run43.log": "92",
+                 # Issue #132 (2026-09-28): RUN 44-47, agb-route's four variants, each with a GBA cartridge
+                 "GBP-AUDIO-013_stream-0016-run44.log": "92", "GBP-AUDIO-013_stream-0016-run45.log": "92",
+                 "GBP-AUDIO-013_stream-0016-run46.log": "92", "GBP-AUDIO-013_stream-0016-run47.log": "92"}
         for b, v in later.items():
             self.assertEqual(origins.get(b), v, b)
             counts[v] -= 1

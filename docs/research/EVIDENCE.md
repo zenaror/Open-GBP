@@ -11445,3 +11445,38 @@ there:
 - **GBI's latency is the delay plus one FULL buffer plus the mixer's**, about 35–37 ms in the Standard edition, not
   "about 24 ms plus at most one buffer".
 - **"GBI" there meant the Standard edition, and its default converter is not GBIHF's** (`GBP-AUD-002`).
+
+---
+
+### GBP-HW-353 — GBP-HW-272's CLAIM 1 recomputed over 60 logs (RUN 44–47 add four cartridge-present ones, `0x92` each): 13 at `0x90`, 47 at `0x92`, still FACT — recorded as its own entry because GBP-HW-272's own text is now frozen by `tests/host/test_run43.py`'s prefix guard (Issue #120), not appended in place
+
+`GBP-HW-272`'s own entry ends with "and a later recount appends its own paragraph and block below
+this one," and every recount through RUN 43 (`sync-0001-run43`, Issue #120) did exactly that,
+inside the entry, immediately before its closing `---`. **That convention stops here.** Issue #120
+also introduced `tests/host/test_run43.py`'s own `OnTopNeverRewritten` guard, which pins
+`docs/research/EVIDENCE.md` (among other files) to start with the EXACT bytes it held at commit
+`c496f0b` — the commit that performed RUN 43's own recount, so RUN 43's paragraph is already
+inside that frozen prefix. `GBP-HW-272` sits well before wherever that prefix currently ends,
+so editing anything inside it — including appending a further recount paragraph in place, tried
+and reverted while writing this entry — breaks that guard. Both guards are correct and neither is
+weakened here: the split stays recomputable from the files, and the record still only grows at its
+end; the way it grows changes to a new numbered entry every time `GBP-HW-272` itself cannot be
+touched again.
+
+**The recount.** RUN 44 (`stream-0016-run44`), RUN 45 (`stream-0016-run45`), RUN 46
+(`stream-0016-run46`) and RUN 47 (`stream-0016-run47`) — `agb-route`'s four ROM variants
+(route-both, route-left, route-right, route-bias0200; Issue #130), each with its own GBA cartridge
+in the slot — all four record `orig=92`, as the split predicts. Before these runs the population
+was 56 logs, 13 at `0x90` and 43 at `0x92`; after them it is **60: 13 at `0x90` and 47 at `0x92`**.
+CLAIM 1 stays FACT and gains four logs; CLAIM 2 (`GBP-HW-272`, CORROBORATED) is untouched — four
+more cartridge-present logs are four more samples in a cell that is already full.
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     47 CONTROL semantic orig=92
+```
+
+A later recount appends its own entry here, at the end of the file, under the next free
+`GBP-HW-` number — never inside `GBP-HW-272` again, and never inside this entry either, once a
+guard pins a prefix that includes it.

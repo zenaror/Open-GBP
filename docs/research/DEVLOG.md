@@ -18840,3 +18840,54 @@ above; flagged to the Orchestrator in the report rather than re-edited.
 
 **Next.** Both DOL hashes go to the Orchestrator for verification; Swiss staging waits on that
 confirmation.
+
+## 2026-09-28 — Issue #130/#132: RUN 44–47 ingested — `U-GBP-048`'s SOUNDBIAS prediction holds; `U-GBP-047` stays open under the frozen instrument, with a striking raw-data lead the mean-based classifier cannot see
+
+All eight archived RUN 44–47 files independently re-verified (`sha256sum`) against the
+Orchestrator's own record on #130 before anything was computed from them; all eight matched.
+
+**Admissibility checked first, not inferred from the screen.** The Operator noted the session
+ends around the fourth press, before the background turns yellow, and asked that this not be
+accepted on that reasoning. `question_stereo()`'s own admissibility gate (schedule `"F"`, one
+control window, four closed press windows) was run against the real data instead: both RUN 45
+and RUN 46 pass.
+
+**`U-GBP-048` (question_bias(), RUN 44, unedited): holds.** `E = M = I = 0x0200` on all four ROMs
+(Operator's declaration, leading zero confirmed) gives `resolution_bits_14_15 = 0`, matching the
+"Orchestrator's synthesis" model's own prediction. Proposed (not applied): HYPOTHESIS →
+CORROBORATED, and `GBP-HW-352`'s "NOT PHYSICALLY EXECUTED" qualifier dropped for the SOUNDBIAS-read
+portion specifically — both left for the Orchestrator's own review.
+
+**`U-GBP-047` (question_stereo(), RUN 45/46, unedited): does not confirm.** Both runs are
+admissible; `separated` is False on both, so the classifier's own criterion for "something moved
+at all" is not met — an INDETERMINATE reading, not a refutation, and per #130's own stop condition
+not renegotiated.
+
+**Why, and a new finding that is NOT part of that classification.** Reading the same sidecar bytes
+at the per-BLOCK grain (not the window-mean `question_stereo()` reports, and not a new or edited
+instrument — the same `tools/v123frame.py` slice reading, just not averaged away) shows a clean,
+symmetric 158/98 square wave on wA only in RUN 45 and on wB only in RUN 46 — exactly the predicted
+routing. `question_stereo()`'s own deviation metric is a MEAN over many slices, and a symmetric
+oscillation's mean lands back on the 128 rest anchor it is measured against regardless of
+amplitude — the classifier was built to detect a level SHIFT, not an oscillation, and this
+stimulus produces the latter. Reported to the Orchestrator as a lead for a future amplitude/peak
+instrument, designed and frozen before any data is read again — not as a reclassification: #130's
+own stop condition and `v11sweep.py`'s own docstring both forbid adjusting a frozen construction
+once a run has happened.
+
+**Cross-checks from the Operator's declaration**, all clean: no cyan `U-GBP-040` read-back mark on
+any of the four runs (four runs of every register reading back as written); the orange route bar
+matched each build's own edge on all four; nothing heard on any run (uninformative by design,
+14-audio has no audio-output call at all). Both procedural departures (the Operator's own card
+copy; RUN 47's aborted no-Mode-B boot and Mode-B re-run) are recorded on #130 and not repeated here.
+
+**Mechanical bookkeeping**: `GBP-HW-272`'s recount (`EVIDENCE.md`, appended, never rewritten in
+place) — four new cartridge-present logs, `orig=92` each, 60 logs total (13 at `0x90` / 47 at
+`0x92`); `tests/host/test_control_bit_split.py`'s `LATER` dict gained the four entries, 16/16 green.
+
+**Gate.** `pytest -q tests/host/test_control_bit_split.py`: 16/16. Full `make test-python` run
+before commit.
+
+**Next.** The Orchestrator reviews #132's proposed evidence-status changes (U-GBP-048 promotion,
+U-GBP-047's raw-data lead) before either is applied to `UNKNOWNS.md`/`EVIDENCE.md`. RUN 48
+(v28-validation-0001, slot `23-v28v`) is staged and still pending.
