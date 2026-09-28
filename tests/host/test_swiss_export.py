@@ -359,8 +359,11 @@ class FrozenSlotsCannotBeDestroyed(unittest.TestCase):
         self.assertEqual(rows["21-game2"], "ba8ab59598398849dd4757cb4823cab7ed355107f1dc92cbf2295cd5440e12fa")
         # Issue #117 (2026-09-25): the latency round's image, frozen before its export (§V27.17)
         self.assertEqual(rows["22-sync"], "ab902f6fb3789d66c3ace4d92be9cdc5fc300399705eb97a4ae185235feb0941")
-        # Issue #131 (2026-09-28): the V28 validation round's image, frozen before its export
-        self.assertEqual(rows["23-v28v"], "ad01bcefe31958d2e0c198dd015fee8975fd971e66f7d04a41c08e1d193e0054")
+        # Issue #131 (2026-09-28): the V28 validation round's image. RE-PINNED (Issue #131/#133):
+        # the original ad01bcef... rebuilt to a different hash once gbp_v28_3a.h's struct gained
+        # begin_pending_ticks (a field every plan's build compiles); this is the rebuild AFTER the
+        # missing-start fixes, the one RUN 50 actually runs.
+        self.assertEqual(rows["23-v28v"], "ce1dcf7ae8d82b01bc3da6b5f8bc3ccfa5b77052cbe89ec66568a3cc5d9c9375")
         # Issue #131 (2026-09-28): diag_3a_stall's own diagnostic image, frozen before its export
         self.assertEqual(rows["24-v28d"], "bc8e33a9f6126f1905a7c288a5fb2bbebb4ef41ecab2d8bc039fec644affca55")
         self.assertEqual(sorted(d for d, f in rows.items() if f != "-"),
