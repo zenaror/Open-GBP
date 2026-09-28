@@ -35,6 +35,7 @@ PHASE_KIND_C_NAME = {
 PLAN_C_NAME = {
     "validation_run": "GBP_V28_VALIDATION_RUN",
     "perceptual_no_phase1": "GBP_V28_PERCEPTUAL_NO_PHASE1",
+    "diag_3a_stall": "GBP_V28_DIAG_3A_STALL",
 }
 
 

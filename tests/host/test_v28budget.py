@@ -119,12 +119,16 @@ class Run43(unittest.TestCase):
                                "validation_run": (378, 438, 60, 503, 32082, 38498),
                                "perceptual_no_phase1": (300, 360, 60, 425, 26965, 32357),
                                "perceptual_phase1": (520, 580, 60, 645, 41398, 49677),
-                               "one_session_descent_first": (618, 678, 60, 743, 47827, 57393)})
+                               "one_session_descent_first": (618, 678, 60, 743, 47827, 57393),
+                               # Issue #131: diag_3a_stall -- navigate(60) + 3a(60), RUN 48's own
+                               # phase-1 stall caught in about two minutes instead of six
+                               "diag_3a_stall": (120, 180, 60, 245, 15156, 18187)})
         # the stores at each wall, against the floor, with and without the ride-along's raw store
         floor = dict((k, (v["awr_kept"]["floor_kept"], v["awr_dropped"]["floor_kept"])) for k, v in pl.items())
         self.assertEqual(floor, {"v27_as_frozen": (False, True), "v27_with_3b": (False, True),
                                  "validation_run": (True, True), "perceptual_no_phase1": (True, True),
-                                 "perceptual_phase1": (True, True), "one_session_descent_first": (False, True)})
+                                 "perceptual_phase1": (True, True), "one_session_descent_first": (False, True),
+                                 "diag_3a_stall": (True, True)})
         self.assertEqual(pl["perceptual_phase1"]["awr_kept"]["above_floor"], 16384)       # one wall-second from the edge
         self.assertEqual((pl["v27_as_frozen"]["events"], pl["v27_as_frozen"]["frames"]), (62015, 47100))
 

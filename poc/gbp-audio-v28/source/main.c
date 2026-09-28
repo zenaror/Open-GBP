@@ -155,11 +155,11 @@
 #endif
 #define TEST_ID "GBP-AUDIO-V28"
 
-#if defined(GBP_V28_PLAN_VALIDATION) && defined(GBP_V28_PLAN_PERCEPTUAL)
-#error "exactly one of GBP_V28_PLAN_VALIDATION / GBP_V28_PLAN_PERCEPTUAL must be defined"
+#if (defined(GBP_V28_PLAN_VALIDATION) + defined(GBP_V28_PLAN_PERCEPTUAL) + defined(GBP_V28_PLAN_DIAG_3A_STALL)) > 1
+#error "exactly one of GBP_V28_PLAN_VALIDATION / GBP_V28_PLAN_PERCEPTUAL / GBP_V28_PLAN_DIAG_3A_STALL must be defined"
 #endif
-#if !defined(GBP_V28_PLAN_VALIDATION) && !defined(GBP_V28_PLAN_PERCEPTUAL)
-#error "the Makefile must define exactly one of GBP_V28_PLAN_VALIDATION / GBP_V28_PLAN_PERCEPTUAL"
+#if !defined(GBP_V28_PLAN_VALIDATION) && !defined(GBP_V28_PLAN_PERCEPTUAL) && !defined(GBP_V28_PLAN_DIAG_3A_STALL)
+#error "the Makefile must define exactly one of GBP_V28_PLAN_VALIDATION / GBP_V28_PLAN_PERCEPTUAL / GBP_V28_PLAN_DIAG_3A_STALL"
 #endif
 
 static const char opengbp_ident_marker[] =
@@ -581,6 +581,8 @@ static uint8_t v28_anchor_computed;
 static const struct gbp_walker_plan *const V28_PLAN =
 #if defined(GBP_V28_PLAN_PERCEPTUAL)
     &GBP_V28_PERCEPTUAL_NO_PHASE1;
+#elif defined(GBP_V28_PLAN_DIAG_3A_STALL)
+    &GBP_V28_DIAG_3A_STALL;
 #else
     &GBP_V28_VALIDATION_RUN;
 #endif
@@ -886,6 +888,37 @@ static const char *syncpe_why(enum gbp_walker_end_reason r)
     }
 }
 
+#if defined(GBP_V28_PLAN_DIAG_3A_STALL)
+/* Issue #131 (RUN 48's own diagnostic build): the same phase-edge slot SYNCPE already prints
+ * from -- nothing here is timing-critical, it is read once per edge, the same as SYNCPE's own
+ * lines. Answers, per edge: was the hand-off callback ever running (handed/mute_handed); did
+ * production keep up (produced/dropped_front, target/ahead/ready, free pool); did 3a's own first
+ * begin() ever land (begin_refused_active, s3a's own begin_pending_ticks); and when DMA actually
+ * started/stopped (ai_started/ai_stopped, t_ai_start/t_ai_stop) -- the one question the
+ * Orchestrator's own review named as mattering most.
+ *
+ * ONLY IN THIS PLAN: validation_run and perceptual_no_phase1 are untouched by this whole block --
+ * their own SYNCPE lines and log format stay byte for byte what they were, per the Orchestrator's
+ * own instruction not to disturb validation_run while this is under diagnosis. */
+static void v28diag_edge(uint32_t p, const char *edge, uint64_t t)
+{
+    uint32_t free_pool = 0u, k;
+    for (k = 0; k < GBP_APLAY2_POOL; k++)
+        if (ap2.state[k] == GBP_APLAY2_FREE) free_pool++;
+    ringlog_printf(keylog_rl,
+                   "V28DIAG p=%lu edge=%s t=%llx handed=%lu mute_handed=%lu produced=%lu dropped_front=%lu "
+                   "target=%lu ahead=%lu ready=%lu free_pool=%lu begin_refused=%lu begin_pending_ticks=%lu "
+                   "ai_started=%u ai_stopped=%u t_ai_start=%llx t_ai_stop=%llx",
+                   (unsigned long)p, edge, (unsigned long long)t,
+                   (unsigned long)ap2.handed, (unsigned long)ap2.mute_handed, (unsigned long)ap2.produced,
+                   (unsigned long)ap2.dropped_front, (unsigned long)ap2.target, (unsigned long)ap2.ahead,
+                   (unsigned long)gbp_aplay2_ready(&ap2), (unsigned long)free_pool,
+                   (unsigned long)tr.begin_refused_active, (unsigned long)s3a.begin_pending_ticks,
+                   (unsigned int)ai_started, (unsigned int)ai_stopped,
+                   (unsigned long long)t_ai_start, (unsigned long long)t_ai_stop);
+}
+#endif /* GBP_V28_PLAN_DIAG_3A_STALL */
+
 static void syncpe_edges(void)
 {
     uint32_t i;
@@ -900,6 +933,12 @@ static void syncpe_edges(void)
                                (unsigned long long)r->t_start);
             else
                 syncpe_lines_lost++;
+#if defined(GBP_V28_PLAN_DIAG_3A_STALL)
+            if (sync_line_admit())
+                v28diag_edge(i, "start", r->t_start);
+            else
+                syncpe_lines_lost++;
+#endif
         }
         if (r->ended && !syncpe_ended_seen[i]) {
             syncpe_ended_seen[i] = 1u;
@@ -908,6 +947,12 @@ static void syncpe_edges(void)
                                (unsigned long long)r->t_end, syncpe_why(r->reason));
             else
                 syncpe_lines_lost++;
+#if defined(GBP_V28_PLAN_DIAG_3A_STALL)
+            if (sync_line_admit())
+                v28diag_edge(i, "end", r->t_end);
+            else
+                syncpe_lines_lost++;
+#endif
         }
     }
 }

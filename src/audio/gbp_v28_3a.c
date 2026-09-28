@@ -50,7 +50,10 @@ int gbp_v28_3a_tick(struct gbp_v28_3a *s, struct gbp_atrans2 *t, struct gbp_apla
          * is in force, or it would count a dwell at a depth the ring never reached. */
         /* #128 §2: 3a stays at AHEAD 4 throughout -- passed explicitly here, never left to whatever
          * gbp_aplay2_init()'s own default (GBP_APLAY2_AHEAD, currently 1) happens to be. */
-        if (!gbp_atrans2_begin(t, p, d, now, GBP_ATRANS2_UNMUTED, 0u, pause, discard, to, GBP_V28_A4)) return 0;
+        if (!gbp_atrans2_begin(t, p, d, now, GBP_ATRANS2_UNMUTED, 0u, pause, discard, to, GBP_V28_A4)) {
+            s->begin_pending_ticks++;
+            return 0;
+        }
         s->begin_pending = 0u;
         s->dwell_active = 1u;
         s->t_set = now;

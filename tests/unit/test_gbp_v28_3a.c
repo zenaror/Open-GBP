@@ -147,6 +147,8 @@ static void test_start_begins_the_first_depth_once_applied(void)
     check(s.dwell_active == 1u, "dwelling once the plan actually began");
     eqi((long long)s.cur, (long long)GBP_V28_P3_START, "the first depth is GBP_V28_P3_START");
     eqi(tr.target, (long long)GBP_V28_P3_START, "gbp_atrans2's own target agrees");
+    eqi((long long)s.begin_pending_ticks, 0,
+        "Issue #131: begin() applies on its own first try here -- no retries counted");
 }
 
 static void test_begin_refused_counts_no_dwell_until_applied(void)
@@ -171,6 +173,8 @@ static void test_begin_refused_counts_no_dwell_until_applied(void)
           "started only after gbp_atrans2 became free");
     if (s.depths_n == 0u) check(s.begin_pending == 1u || s.dwell_active == 1u,
                                 "still trying (or now dwelling), never silently gave up");
+    check(s.begin_pending_ticks > 0u,
+          "Issue #131: begin_pending_ticks counts the refused retries while gbp_atrans2 was busy");
 }
 
 static void test_a_holding_depth_steps_down_by_p3_step(void)
@@ -367,6 +371,10 @@ static void test_dishonest_vs_honest_under_a_forced_busy_transition(void)
     (void)drive(&s, &now, mute + 2u);
     check(s.dwell_active == 0u || tr.target == (uint32_t)s.cur,
           "with the check (the real module): a dwell only ever runs once gbp_atrans2's own target agrees");
+    /* Issue #131 (RUN 48's own diagnostic build): begin_pending_ticks counts exactly this scenario
+     * -- gbp_atrans2_begin() refused while busy, retried every tick until it actually lands. */
+    check(s.begin_pending_ticks > 0u,
+          "begin_pending_ticks counts the retries a forced-busy transition causes");
 }
 
 /* ================================================================================================
