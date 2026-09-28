@@ -1346,7 +1346,16 @@ static void v28_label_text(char *out, size_t cap, uint64_t now)
          * never load-bearing for DONE itself. */
         const unsigned long shown = (unsigned long)walker.index + 1u;
         const unsigned long count = (unsigned long)V28_PLAN->count;
-        snprintf(out, cap, "P%lu/%lu RUN %lus", shown < count ? shown : count, count, (unsigned long)elapsed_s);
+        /* Issue #131: RUN 48 was silent for 310s with every counter looking healthy until
+         * teardown; the Operator's ear was the only mid-run signal and silence is ambiguous (he
+         * could be in a quiet spot in the game). A static "started" mark can't tell a stall from
+         * healthy playback -- ap2.handed is the count of chunks actually handed to the AI DMA, so
+         * showing it here makes a stall (the number frozen) as visible as a start (the number
+         * appearing at all), without the Operator needing to know what "handed" means. Validation
+         * branch only, same as the rest of this split -- ap2.handed is not a SAFE field for the
+         * perceptual branch (comment above this function). */
+        snprintf(out, cap, "P%lu/%lu H%lu RUN %lus", shown < count ? shown : count, count,
+                 (unsigned long)ap2.handed, (unsigned long)elapsed_s);
     }
 #endif
 }
