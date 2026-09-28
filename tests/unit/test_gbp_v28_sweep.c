@@ -145,29 +145,23 @@ static void test_a_full_run_completes_all_27_in_order(void)
     check(gbp_v28_sweep_finished(&s) == 1, "finished once every entry has landed and dwelt");
     eqi(s.records_n, GBP_V28_SWEEP_N, "all 27 entries recorded, none abandoned or skipped");
 
-    /* A REAL FINDING, not a test artifact (found and verified while building this test -- see the
-     * DEVLOG entry this round): entry 6 (T256A2 -> T256A1, an AHEAD-lowering STEP landing AT
-     * AHEAD 1) lands in the "exact" class (READY == ahead-1 == 0 for this destination, the
-     * structurally tightest of the two landing classes gbp_atrans2's own ROTATE can produce) in
-     * THIS deterministic cascade -- and with READY at exactly 0 and zero chunks of margin, the
-     * very next hand-off after the mute ends finds nothing queued: a genuine one-period underrun,
-     * not a bookkeeping artifact. A fresh, isolated repeat of the SAME (T256A2->T256A1, mute 6)
-     * step at every one of the 16 phases never reproduced it (always landing in the OTHER, looser
-     * class instead) -- this is state the PRECEDING five entries' own cascade produces, not
-     * something the isolated transition alone would show. Every OTHER entry passes; this is
-     * exactly what the sweep's own GATE is FOR (Issue #129: "any gate failure removes that
-     * transition from the perceptual ladder or blocks the perceptual run, and the reason is
-     * named"). */
+    /* A REAL FINDING, once fixed at its own source (Issue #129/#130, the Orchestrator's own
+     * diagnosis chain): entry 6 (T256A2 -> T256A1, an AHEAD-lowering STEP landing AT AHEAD 1) used
+     * to underrun here, one period after landing -- traced, not guessed, to the landing call itself
+     * wasting its own pump-call slot (the call that finishes a transition never reaches the
+     * caller's own `gbp_aplay2_produce()`, unlike every ordinary steady-state call), so a fresh
+     * chunk's own rebuild always starts one call later than steady state's own rhythm. AHEAD >= 2
+     * absorbs that one-call delay with its own spare queued chunks; AHEAD 1's own floor is 0, no
+     * chunk to spare, so the SAME one-call-late rebuild finishes one call short exactly when the
+     * next hand-off needs it. `gbp_atrans2_step()`'s own landing branch now recovers that slot (an
+     * ordinary, corrected production attempt, the exact call the caller's own dispatch would have
+     * made one tick later) -- proven first against a real 60 s hold (0 underruns), and here again,
+     * against the real cascade this test drives: every one of the 27 entries now passes. */
     for (i = 0; i < s.records_n; i++) {
         const struct gbp_v28_sweep_record *r = gbp_v28_sweep_record_at(&s, i);
         check(r != NULL, "every recorded index is readable");
         if (!r) continue;
-        if (i == 6u) {
-            check(r->outcome == GBP_V28_SWEEP_FAIL, "entry 6 (T256A2->T256A1): a real, driven underrun");
-            check(r->fail_reason == GBP_V28_SWEEP_FAIL_UNDERRUN, "entry 6's own reason is UNDERRUN");
-        } else {
-            check(r->outcome == GBP_V28_SWEEP_PASS, "every other entry passes under this smooth-feed cascade");
-        }
+        check(r->outcome == GBP_V28_SWEEP_PASS, "a clean run under smooth feed passes every entry, entry 6 included");
     }
 
     /* spot-check the frozen sequence's own shape, not just its count */
@@ -202,8 +196,8 @@ static void test_a_full_run_completes_all_27_in_order(void)
     eqi((long long)gbp_v28_sweep_record_at(&s, 26)->to_target, (long long)GBP_V28_T256, "entry 26: T192 -> T256, "
           "back to the anchor");
 
-    check(gbp_v28_sweep_verdict(&s) == GBP_V28_SWEEP_VERDICT_FAIL,
-          "entry 6's own real underrun fails the verdict -- 17/18 passing does not rescue it");
+    check(gbp_v28_sweep_verdict(&s) == GBP_V28_SWEEP_VERDICT_PASS,
+          "18/18 GATE entries pass under this smooth-feed cascade: the verdict is PASS");
 }
 
 static void test_verdict_is_pending_until_all_18_gate_entries_are_in(void)

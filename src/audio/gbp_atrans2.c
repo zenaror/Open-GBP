@@ -40,6 +40,8 @@ int gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_ad
     t->target = target;
     t->handed_at_start = p->handed;
     t->discards = t->rotations = t->topped = t->trimmed = t->short_by = t->handed_seen = t->ahead_drops = 0u;
+    t->handed_last = 0u;
+    t->calls_in_period = 0u;
     t->residue = 0;
     t->late = t->unmasked = 0u;
     t->t_start = now;
@@ -106,6 +108,20 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
         if (t->rotate_landings == 0u || t->residue > t->residue_max) t->residue_max = t->residue;
         t->rotate_landings++;
         if (t->discard > 0u && t->rotations < p->ahead) { t->unmasked = 1u; t->unmaskeds++; }
+        /* the landing call itself must not waste its own slot (Orchestrator, #129/#130, traced to
+         * the exact call, not assumed): this call is what finishes the transition, so the
+         * CALLER'S OWN dispatch (`if (t->active) step() else produce()`) never reaches
+         * `gbp_aplay2_produce()` for it -- ordinary production only starts NEXT call. Steady-state
+         * running never loses a call this way (every call is a produce() call); a landing does,
+         * exactly once, and only here. For AHEAD >= 2 the spare chunks (`ahead - 1 >= 1`) absorb a
+         * rebuild that starts one call late without consequence; AHEAD 1's own floor is 0 -- no
+         * chunk to spare -- so the SAME one-call-late rebuild finishes one call short when the very
+         * next hand-off needs it (proven: gbp_v28_sweep's own entry 6, its rebuild ran the expected
+         * GBP_ATRANS2_CALLS_PER_HANDOFF calls at the expected rate, starting one call later than a
+         * steady rebuild ever does). Recovering that one call here -- an ordinary, CORRECTED
+         * production attempt, the exact call the caller's own dispatch would have made one tick
+         * later -- lands this call's own slot back on the steady phase, not one behind it. */
+        if (*to_queue < 0) *to_queue = gbp_aplay2_produce(p, d);
         return finish2(t, now);
     }
     if (t->rotating) {
@@ -119,13 +135,29 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
         return 0;
     }
     if (!t->reached && d->count >= t->target) { t->reached = 1u; t->t_reached = now; }
-    if (p->mute >= 1u) {
-        const uint32_t aim = p->mute >= 2u ? t->target + GBP_ATRANS2_AIM
-                                           : (t->target > GBP_ATRANS2_AIM ? t->target - GBP_ATRANS2_AIM : 0u);
-        if (d->count >= aim) {
-            const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
-            t->rotating = 1u;
-            if (b >= 0) rotated2(t, p, b, to_queue);
+    /* a NEW rotation may only START if the calls left before the landing check are at least the
+     * calls one needs to finish (Orchestrator, #129/#130) -- exact arithmetic over this module's
+     * own accounting (`calls_in_period`/`handed`/`t->mute`), not a tuned bound and not `p->mute`'s
+     * own timing: measured first (a real cascade drove entry 6's own last natural rotation start to
+     * EXACTLY `GBP_ATRANS2_CALLS_PER_HANDOFF` calls of window left, margin 0 -- a coarser
+     * `handed < t->mute` gate would have refused that exact, sufficient start, which is why this is
+     * counted in calls, not periods). Starting one anyway and having it still mid-flight at landing
+     * would lose whatever it already consumed -- the landing branch above only resets `rotating`,
+     * it never completes or drops an abandoned one. An ALREADY-rotating chunk (`t->rotating`,
+     * above) is UNGATED and unaffected -- this only decides whether a NEW one may start. */
+    {
+        const uint32_t calls_left_this_period = t->calls_in_period <= GBP_ATRANS2_CALLS_PER_HANDOFF
+                                               ? GBP_ATRANS2_CALLS_PER_HANDOFF - t->calls_in_period + 1u : 0u;
+        const uint32_t window_left = calls_left_this_period
+                                    + GBP_ATRANS2_CALLS_PER_HANDOFF * (t->mute - handed);
+        if (window_left >= GBP_ATRANS2_CALLS_PER_HANDOFF) {
+            const uint32_t aim = p->mute >= 2u ? t->target + GBP_ATRANS2_AIM
+                                               : (t->target > GBP_ATRANS2_AIM ? t->target - GBP_ATRANS2_AIM : 0u);
+            if (d->count >= aim) {
+                const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
+                t->rotating = 1u;
+                if (b >= 0) rotated2(t, p, b, to_queue);
+            }
         }
     }
     return 0;
@@ -186,6 +218,10 @@ int gbp_atrans2_step(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_ade
     if (!t->active) return 0;
     handed = gbp_atrans2_handoffs(t, p);
     t->handed_seen = handed;
+    /* a hand-off boundary just passed (or this is the first call): the period's own call count
+     * restarts, THIS call being its first (see gbp_atrans2.h's own calls_in_period comment) */
+    if (handed != t->handed_last) { t->calls_in_period = 0u; t->handed_last = handed; }
+    t->calls_in_period++;
     if (t->mode == GBP_ATRANS2_ROTATE) return step_rotate2(t, p, d, now, handed, to_queue);
     if (t->mode == GBP_ATRANS2_HELD) return step_held2(t, p, d, now, handed, to_queue);
     /* 3. UNMUTED: target and discard at begin; the band decides the rest. Done at once. */
