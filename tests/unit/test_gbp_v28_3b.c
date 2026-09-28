@@ -211,6 +211,28 @@ static void test_clean_hold_at_ahead_1_finishes_3b(void)
     eqi(s.holds_n, 1, "only one hold recorded");
     check(gbp_v28_3b_hold_record(&s, 0)->underrun_seen == 0u, "recorded clean");
     check(gbp_v28_3b_hold_record(&s, 0)->ahead == GBP_V28_A1, "at AHEAD 1");
+    {   /* Issue #135: the margin a clean hold measured (a clean hold alone says only "never zero") */
+        const struct gbp_v28_3b_hold *h = gbp_v28_3b_hold_record(&s, 0);
+        check(h->samples > (GBP_V28_3B_HOLD_S - GBP_V28_STEP_MUTE - 2u) * CALLS_PER_PERIOD,
+              "sampled on every tick from the entry landing to the end of the hold");
+        check(h->min_ready <= GBP_V28_A1, "the lowest READY level is recorded, and it is an AHEAD-1 level");
+        check(h->min_ring > 0u && h->min_ring <= GBP_V28_P3_MIN + GBP_APLAY2_BAND,
+              "the lowest ring level is recorded and sits at or below the anchor plus the band");
+    }
+}
+
+static void test_a_hold_that_sampled_nothing_records_zero_minima_not_the_sentinel(void)
+{
+    struct gbp_v28_3b s;
+    uint64_t now = steady_at_ahead4(GBP_V28_P3_MIN);
+    gbp_v28_3b_start(&s, GBP_V28_P3_MIN, TB_HZ, now);
+    (void)drive(&s, &now, 1u);                 /* begin applies; the ROTATE is still muting: nothing to sample */
+    gbp_v28_3b_cut(&s, now);
+    gbp_v28_3b_hold_done(&s);
+    eqi(s.holds_n, 1, "the cut hold is recorded");
+    eqi(gbp_v28_3b_hold_record(&s, 0)->samples, 0, "nothing was sampled while the entry transition was active");
+    eqi(gbp_v28_3b_hold_record(&s, 0)->min_ready, 0, "no samples: min_ready is 0, not UINT32_MAX");
+    eqi(gbp_v28_3b_hold_record(&s, 0)->min_ring, 0, "no samples: min_ring is 0, not UINT32_MAX");
 }
 
 static void test_underrun_during_ahead_1_escalates_to_ahead_2(void)
@@ -404,6 +426,7 @@ int main(void)
     test_the_entry_step_lands_without_a_real_underrun();
     test_begin_refused_counts_no_hold_until_applied();
     test_clean_hold_at_ahead_1_finishes_3b();
+    test_a_hold_that_sampled_nothing_records_zero_minima_not_the_sentinel();
     test_underrun_during_ahead_1_escalates_to_ahead_2();
     test_ahead_2_hold_finishes_regardless_of_its_own_underrun();
     test_a_cut_hold_is_partial();

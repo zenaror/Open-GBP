@@ -68,7 +68,7 @@ class Wiring(unittest.TestCase):
         printf call site's own format text and arguments, not one exact literal concatenation."""
         src = read()
         m = re.search(r'ringlog_printf\(&rl,\s*"V28_3B n=%lu ahead=%lu anchor=%lu source=%s '
-                     r'underrun_seen=%u partial=%u t_set=%llx\s*"\s*\n\s*"t_done=%llx"', src)
+                     r'underrun_seen=%u partial=%u t_set=%llx\s*"\s*\n\s*"t_done=%llx\s+min_ready=%lu min_ring=%lu samples=%lu"', src)
         self.assertIsNotNone(m, "V28_3B's own format string must carry anchor=%lu source=%s")
         self.assertIn("v28_anchor.target", src)
         self.assertIn("gbp_v28_anchor_source_name(v28_anchor.source)", src)

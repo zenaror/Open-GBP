@@ -4,7 +4,22 @@
  *
  * THE SEQUENCE IS FROZEN, NOT THIS MODULE'S TO DESIGN (Issue #129, "The sweep's sequence:
  * Orchestrator's decision", and its own follow-up correcting the sequence's own closure gap):
- * 27 transitions, in this exact deterministic order --
+ * 27 transitions, in this exact deterministic order, PRECEDED (Issue #135, RUN 51's own finding) by
+ * ONE informational repositioning move that is not part of the frozen 27 (see PRELUDE below) --
+ *
+ *   PRELUDE (1, INFO, record 0): T256A1 -> T704A4, a START. The 27 below assume the chain begins at
+ *                     (T704, A4); it does not -- 3b ends at (T256, A1) (begin_ahead(A1) at the
+ *                     anchor; it only escalates on an underrun, never restoring A4), so RUN 51's
+ *                     first STEP, T704A4 -> T576A4, was driven out of a chain that was not at T704A4.
+ *                     A HYPOTHESIS, for record n=0 ONLY: on the host, n=0 alone fails from
+ *                     (T256, A1) (residue -895) and all 27 pass from (T704, A4). It does NOT explain
+ *                     RUN 51's other failures, which the host never reproduced -- and RUN 51's own
+ *                     n=17 was this SAME move (T256A1 -> T704A4) and failed on hardware (residue
+ *                     -204), so the prelude may land undershot too. Its measured fields
+ *                     (V28_SWEEPM) are what will tell. The prelude is the same START as GATE row
+ *                     18's own T256A1 -> T704A4, kept out of the verdict; the frozen GATE rows and
+ *                     their from_* columns are NOT touched. Every record's `n` is the TABLE index,
+ *                     which is one more than the same move's n in RUN 51.
  *
  *   GATE (18, carries a verdict, runs FIRST on a clean chain):
  *     1-7   descend  T704A4 -> T576A4 -> T448A4 -> T320A4 -> T256A4 -> T256A3 -> T256A2 -> T256A1
@@ -14,7 +29,7 @@
  *     16    one refused step at the top      (same-level ROTATE, T704A4 -> T704A4)
  *     17-18 the largest START both ways:  T704A4 -> T256A1  and  T256A1 -> T704A4
  *
- *   INFORMATIONAL (9, never gates, runs LAST -- T192 carries the D2-class splice risk found in
+ *   INFORMATIONAL (9 after the prelude, never gates, runs LAST -- T192 carries the D2-class splice risk found in
  *   Item 4, so it never contaminates the gating measurement; the repositioning move that opens it
  *   is the SAME class of large jump the two STARTs above already cover, verified again here rather
  *   than assumed):
@@ -60,7 +75,7 @@
  * slot does, exactly as for 3a/3b); it knows nothing of gbp_walker, phases or the session; it never
  * reads a device or a clock beyond the `now` it is handed; it never decides what happens to a GATE
  * failure (removing a rung from the perceptual ladder, blocking the perceptual run) -- it only
- * produces the verdict and the 27 records #129 asks the validation run for.
+ * produces the verdict and the records (the 27 #129 asks for, plus the prelude) the validation run needs.
  */
 #ifndef OPENGBP_GBP_V28_SWEEP_H
 #define OPENGBP_GBP_V28_SWEEP_H
@@ -72,7 +87,8 @@
 extern "C" {
 #endif
 
-#define GBP_V28_SWEEP_N          27u
+#define GBP_V28_SWEEP_PRELUDE_N   1u   /* the INFO repositioning move that precedes the 27 frozen entries */
+#define GBP_V28_SWEEP_N          28u   /* PRELUDE_N + the 27 frozen entries */
 #define GBP_V28_SWEEP_DWELL_S     1u   /* a short post-landing observation, not a settle wait -- the
                                         * ROTATE trim already lands the ring at target (see
                                         * gbp_atrans2.c's own step_rotate2()) */
@@ -97,6 +113,12 @@ struct gbp_v28_sweep_record {
     uint32_t dup, drop;                         /* THIS entry's own deltas (gbp_aplay2's cumulative counters) */
     uint32_t ahead_drops;                       /* gbp_atrans2's own tr.ahead_drops for this entry */
     uint8_t  unmasked;                          /* gbp_atrans2's own tr.unmasked for this entry */
+    /* Issue #135 (RUN 52's own diagnostics; SD/ring log only, never a decision input): what the
+     * chain ACTUALLY was at the move's start (from_target/from_ahead above are the frozen table's
+     * own assumption, not a measurement) and at its landing. */
+    uint32_t meas_target, meas_ahead;           /* gbp_aplay2's own target/ahead when begin() applied */
+    uint32_t meas_ring, meas_ready;             /* d->count / gbp_aplay2_ready() when begin() applied */
+    uint32_t ring, ready;                       /* d->count / gbp_aplay2_ready() at the landing */
 };
 
 struct gbp_v28_sweep {
@@ -110,6 +132,7 @@ struct gbp_v28_sweep {
     uint64_t t_dwell_end;
     uint32_t dup0, drop0;                        /* gbp_aplay2's own dup/drop, snapshotted at begin */
     uint32_t underruns0;                         /* gbp_aplay2's own underruns, snapshotted at begin */
+    uint32_t meas_target0, meas_ahead0, meas_ring0, meas_ready0;   /* gbp_aplay2/gbp_adec2 state at begin */
     uint32_t ring_at_land, ready_at_land;         /* d->count/gbp_aplay2_ready(), snapshotted at the landing */
     int32_t  residue_at_land;                    /* gbp_atrans2's own tr.residue, snapshotted at the landing */
     uint32_t ahead_drops_at_land;                /* gbp_atrans2's own tr.ahead_drops, snapshotted at the landing */
@@ -153,7 +176,7 @@ int gbp_v28_sweep_finished(const struct gbp_v28_sweep *s);
 /* NULL if `index` is out of range (>= records_n). */
 const struct gbp_v28_sweep_record *gbp_v28_sweep_record_at(const struct gbp_v28_sweep *s, uint32_t index);
 
-/* PENDING while fewer than the 18 GATE entries have been recorded yet; otherwise PASS iff every
+/* PENDING until the prelude and the 18 GATE entries (19 records) are in; otherwise PASS iff every
  * GATE record's own outcome is PASS (a FAIL or a PARTIAL -- an unobserved GATE entry is never
  * certified safe by omission -- both fail it); INFO records never fold in. */
 enum gbp_v28_sweep_verdict gbp_v28_sweep_verdict(const struct gbp_v28_sweep *s);
