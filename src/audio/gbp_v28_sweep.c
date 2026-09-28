@@ -107,6 +107,8 @@ static void finalize_record(struct gbp_v28_sweep *s, const struct sweep_entry *e
     r->meas_ready = s->meas_ready0;
     r->ring = s->ring_at_land;
     r->ready = s->ready_at_land;
+    r->trim = s->trim_at_land;
+    r->late = s->late_at_land;
 
     if (underrun_delta > 0u) {
         r->outcome = GBP_V28_SWEEP_FAIL;
@@ -154,6 +156,8 @@ int gbp_v28_sweep_tick(struct gbp_v28_sweep *s, struct gbp_atrans2 *t, struct gb
         s->residue_at_land = t->residue;
         s->ahead_drops_at_land = t->ahead_drops;
         s->unmasked_at_land = t->unmasked;
+        s->trim_at_land = t->trimmed;
+        s->late_at_land = t->late;
         s->t_land = now;
         s->dwelling = 1u;
         s->t_dwell_end = now + (uint64_t)GBP_V28_SWEEP_DWELL_S * s->tb_hz;
@@ -201,6 +205,8 @@ void gbp_v28_sweep_cut(struct gbp_v28_sweep *s, uint64_t t_end)
         r->meas_ready = s->meas_ready0;
         r->ring = s->ring_at_land;
         r->ready = s->ready_at_land;
+        r->trim = s->trim_at_land;
+        r->late = s->late_at_land;
         r->outcome = GBP_V28_SWEEP_PARTIAL;
         r->fail_reason = GBP_V28_SWEEP_FAIL_NONE;
     }                                                          /* begin_pending (decided, not yet begun): abandoned,

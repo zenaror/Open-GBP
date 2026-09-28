@@ -1687,6 +1687,11 @@ int main(void)
                            gbp_v28_anchor_source_name(v28_anchor.source), (unsigned)h->underrun_seen,
                            (unsigned)h->partial, (unsigned long long)h->t_set, (unsigned long long)h->t_done,
                            (unsigned long)h->min_ready, (unsigned long)h->min_ring, (unsigned long)h->samples);
+            /* Issue #136: the ring at the first sample after the entry landing, and its minimum once the
+             * hold has settled -- what min_ring = 256 in RUN 52 could not separate. */
+            ringlog_printf(&rl, "V28_3BM n=%lu ring0=%lu min_ring_late=%lu samples_late=%lu",
+                           (unsigned long)j, (unsigned long)h->ring0, (unsigned long)h->min_ring_late,
+                           (unsigned long)h->samples_late);
         }
         for (j = 0u; j < sweep.records_n && j < GBP_V28_SWEEP_N; j++) {
             const struct gbp_v28_sweep_record *r = gbp_v28_sweep_record_at(&sweep, j);
@@ -1700,11 +1705,11 @@ int main(void)
              * same n, not more fields on the first: the first is already 112 characters and the
              * console log line is 256. */
             ringlog_printf(&rl, "V28_SWEEPM n=%lu meas_t=%lu meas_a=%lu meas_ring=%lu meas_ready=%lu ring=%lu "
-                                "ready=%lu dup=%lu drop=%lu t_land=%llx",
+                                "ready=%lu dup=%lu drop=%lu trim=%lu late=%u t_land=%llx",
                            (unsigned long)j, (unsigned long)r->meas_target, (unsigned long)r->meas_ahead,
                            (unsigned long)r->meas_ring, (unsigned long)r->meas_ready, (unsigned long)r->ring,
                            (unsigned long)r->ready, (unsigned long)r->dup, (unsigned long)r->drop,
-                           (unsigned long long)r->t_land);
+                           (unsigned long)r->trim, (unsigned)r->late, (unsigned long long)r->t_land);
         }
         ringlog_printf(&rl, "V28_SWEEP_VERDICT v=%u", (unsigned)gbp_v28_sweep_verdict(&sweep));
 #else

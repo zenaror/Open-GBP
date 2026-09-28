@@ -218,6 +218,13 @@ static void test_clean_hold_at_ahead_1_finishes_3b(void)
         check(h->min_ready <= GBP_V28_A1, "the lowest READY level is recorded, and it is an AHEAD-1 level");
         check(h->min_ring > 0u && h->min_ring <= GBP_V28_P3_MIN + GBP_APLAY2_BAND,
               "the lowest ring level is recorded and sits at or below the anchor plus the band");
+        /* Issue #136: the ring at the first sample, and the minimum once the hold has settled */
+        check(h->ring0 > 0u, "the ring at the first sample after the landing is recorded");
+        check(h->samples_late > 0u && h->samples_late < h->samples,
+              "the settled window is a proper subset of the samples: it starts GBP_V28_3B_SETTLE_S later");
+        eqi(h->samples - h->samples_late >= (GBP_V28_3B_SETTLE_S - 1u) * CALLS_PER_PERIOD, 1,
+            "about GBP_V28_3B_SETTLE_S seconds of samples precede the settled window");
+        check(h->min_ring_late >= h->min_ring, "the settled minimum can never be below the overall minimum");
     }
 }
 
@@ -233,6 +240,9 @@ static void test_a_hold_that_sampled_nothing_records_zero_minima_not_the_sentine
     eqi(gbp_v28_3b_hold_record(&s, 0)->samples, 0, "nothing was sampled while the entry transition was active");
     eqi(gbp_v28_3b_hold_record(&s, 0)->min_ready, 0, "no samples: min_ready is 0, not UINT32_MAX");
     eqi(gbp_v28_3b_hold_record(&s, 0)->min_ring, 0, "no samples: min_ring is 0, not UINT32_MAX");
+    eqi(gbp_v28_3b_hold_record(&s, 0)->ring0, 0, "no samples: ring0 is 0");
+    eqi(gbp_v28_3b_hold_record(&s, 0)->samples_late, 0, "no samples: no settled sample either");
+    eqi(gbp_v28_3b_hold_record(&s, 0)->min_ring_late, 0, "no settled sample: min_ring_late is 0, not UINT32_MAX");
 }
 
 static void test_underrun_during_ahead_1_escalates_to_ahead_2(void)

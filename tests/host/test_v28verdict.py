@@ -358,6 +358,28 @@ class Issue135Diagnostics(unittest.TestCase):
         self.assertIn("min READY 0, min ring 2048", v28verdict.render(v28verdict.analyse(log)))
         self.assertNotIn("margin_ahead1", v28verdict.hold_3b(full_clean_log()))
 
+    def test_3b_settled_margin_is_read_and_rendered_when_present_and_absent_otherwise(self):
+        """Issue #136: RUN 52's min_ring = 256 could not say a landing transient from a steady margin."""
+        row = b3_hold(1) + " min_ready=0 min_ring=256 samples=1919"
+        extra = "V28_3BM n=0 ring0=2304 min_ring_late=2110 samples_late=1500"
+        log = full_clean_log().replace(b3_hold(1), row + "\n" + extra)
+        out = v28verdict.hold_3b(log)
+        self.assertEqual(out["margin_ahead1"]["ring0"], 2304)
+        self.assertEqual(out["margin_ahead1"]["min_ring_late"], 2110)
+        self.assertEqual(out["margin_ahead1"]["samples_late"], 1500)
+        self.assertIn("ring at the first sample 2304; min ring over the 1500 samples taken 10 s or more after it 2110",
+                      v28verdict.render(v28verdict.analyse(log)))
+        none = b3_hold(1) + " min_ready=0 min_ring=256 samples=1919\nV28_3BM n=0 ring0=2304 min_ring_late=0 samples_late=0"
+        self.assertIn("(none)", v28verdict.render(v28verdict.analyse(full_clean_log().replace(b3_hold(1), none))))
+        self.assertNotIn("ring0", v28verdict.hold_3b(full_clean_log().replace(b3_hold(1), row))["margin_ahead1"])
+
+    def test_the_landing_trim_and_late_flag_are_rendered_when_present(self):
+        row = (sweep_gate_row(3, outcome=2, fail=1) + "\n"
+               "V28_SWEEPM n=3 meas_t=4096 meas_a=1 meas_ring=4100 meas_ready=1 ring=3000 ready=0 dup=2 drop=0 "
+               "trim=1500 late=1 t_land=abc")
+        text = v28verdict.render(v28verdict.analyse(full_clean_log().replace(sweep_gate_row(3), row)))
+        self.assertIn("dup 2 drop 0 trim 1500 late 1", text)
+
     def test_the_worst_case_print_lines_fit_the_console_log_line(self):
         """LOG_LINE_LEN 256, less the 7-character `%06u ` prefix and the terminator: a longer line
         would be silently truncated (ringlog's own snprintf), losing the tail fields first."""
@@ -365,7 +387,7 @@ class Issue135Diagnostics(unittest.TestCase):
         with open(self.MAIN, encoding="utf-8") as f:
             src = f.read()
         limit = int(re.search(r"#define LOG_LINE_LEN (\d+)", src).group(1)) - 8
-        for tag in ("V28_SWEEP n=", "V28_SWEEPM n=", "V28_3B n="):
+        for tag in ("V28_SWEEP n=", "V28_SWEEPM n=", "V28_3B n=", "V28_3BM n="):
             i = src.index('"' + tag)
             call = src[i:src.index(");", i)]
             fmt = "".join(re.findall(r'"((?:[^"\\]|\\.)*)"', call.split("\n", 1)[0] + "\n" +

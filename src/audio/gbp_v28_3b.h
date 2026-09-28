@@ -42,6 +42,7 @@ extern "C" {
 #endif
 
 #define GBP_V28_3B_HOLD_S   60u   /* #128 §2's own figure, per level */
+#define GBP_V28_3B_SETTLE_S 10u   /* Issue #136: samples this long after the first one feed the settled minimum */
 
 struct gbp_v28_3b_hold {
     uint32_t ahead;              /* 1 or 2 */
@@ -54,6 +55,12 @@ struct gbp_v28_3b_hold {
      * says only that the margin was never zero; these say how close it came. `samples` == 0 means
      * nothing was sampled (the two minima are then 0 and mean nothing). */
     uint32_t min_ready, min_ring, samples;
+    /* Issue #136 (RUN 52 read min_ring = 256 = 2304 - 2048, the 3a floor's own sawtooth minimum, in a hold
+     * whose target is 4096: a transient after the entry landing, not a steady margin, but the hold could not
+     * say). ring0 is the ring at the first sample after the landing; min_ring_late is the lowest ring among
+     * the samples taken GBP_V28_3B_SETTLE_S or more after that first one, `samples_late` counting them
+     * (0 means none, and min_ring_late is then 0 and means nothing). */
+    uint32_t ring0, min_ring_late, samples_late;
 };
 
 struct gbp_v28_3b {
@@ -70,6 +77,8 @@ struct gbp_v28_3b {
     uint64_t t_set;              /* when the CURRENT hold's plan actually began */
     uint64_t t_hold_end;
     uint32_t cur_min_ready, cur_min_ring, cur_samples;   /* the CURRENT hold's own running minima */
+    uint32_t cur_ring0, cur_min_ring_late, cur_samples_late;
+    uint64_t cur_t_first;        /* the CURRENT hold's first sample's own time */
     struct gbp_v28_3b_hold holds[2];     /* at most AHEAD 1, then AHEAD 2 -- never a third level */
     uint32_t holds_n;
     uint32_t refused_hold_done;  /* hold_done() called with nothing pending: counted, never silent */

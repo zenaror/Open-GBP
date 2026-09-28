@@ -168,10 +168,15 @@ def hold_3b(text):
     a1 = by_ahead.get(1)
     a2 = by_ahead.get(2)
     out = {"have_ahead1": a1 is not None, "have_ahead2": a2 is not None, "anchor": anchor}
+    settled = {r["n"]: r for r in find_all(text, "V28_3BM")}     # Issue #136; absent before RUN 53's build
     for key, r in (("margin_ahead1", a1), ("margin_ahead2", a2)):
         if r is not None and "samples" in r:      # Issue #135's own margin fields; absent in older logs
             out[key] = {"min_ready": int(r["min_ready"]), "min_ring": int(r["min_ring"]),
                         "samples": int(r["samples"])}
+            m = settled.get(r["n"])
+            if m is not None:
+                out[key].update({"ring0": int(m["ring0"]), "min_ring_late": int(m["min_ring_late"]),
+                                 "samples_late": int(m["samples_late"])})
     if a1 is not None:
         out["ahead1_clean"] = int(a1["underrun_seen"]) == 0
         out["ahead1_partial"] = int(a1["partial"]) != 0
@@ -223,6 +228,13 @@ def analyse(text):
             "hold_3b": hold_3b(text), "sweep": sweep(text), "label": label_cost(text)}
 
 
+def _trim_late(m):
+    """Issue #136's landing fields (what the landing's trim cut; a rotation abandoned in flight), when the log has them."""
+    if "trim" not in m:
+        return ""
+    return " trim %s late %s" % (m["trim"], m["late"])
+
+
 def render(out):
     lines = []
     a = out["admissibility"]
@@ -264,6 +276,10 @@ def render(out):
                 if m is not None:
                     lines.append("3B: %s margin over %d samples: min READY %d, min ring %d (native pushes)"
                                  % (name, m["samples"], m["min_ready"], m["min_ring"]))
+                    if "ring0" in m:                       # Issue #136: separates a landing transient from a steady margin
+                        lines.append("3B: %s ring at the first sample %d; min ring over the %d samples taken 10 s or "
+                                     "more after it %s" % (name, m["ring0"], m["samples_late"],
+                                                           m["min_ring_late"] if m["samples_late"] else "(none)"))
             if h["have_ahead2"]:
                 lines.append("3B: AHEAD 2 %s%s" % ("clean" if h["ahead2_clean"] else "UNDERRUN",
                                                    " (partial)" if h["ahead2_partial"] else ""))
@@ -285,9 +301,9 @@ def render(out):
         m = s["measured"].get(r["n"])
         if m is not None:                          # Issue #135's own measured fields
             lines.append("    measured from-state: target %s ahead %s ring %s ready %s; landed ring %s ready %s "
-                         "residue %s dup %s drop %s"
+                         "residue %s dup %s drop %s%s"
                          % (m["meas_t"], m["meas_a"], m["meas_ring"], m["meas_ready"], m["ring"], m["ready"],
-                            r["residue"], m["dup"], m["drop"]))
+                            r["residue"], m["dup"], m["drop"], _trim_late(m)))
 
     for r in s["info_rows"]:                       # Issue #135: the prelude's own start state is RUN 52's headline datum
         m = s["measured"].get(r["n"])
@@ -297,9 +313,9 @@ def render(out):
                      % (r["n"], fmt_target(int(r["from_t"])), r["from_a"], fmt_target(int(r["to_t"])),
                         r["to_a"], r["outcome"], r["fail"], r["residue"]))
         lines.append("    measured from-state: target %s ahead %s ring %s ready %s; landed ring %s ready %s "
-                     "dup %s drop %s"
+                     "dup %s drop %s%s"
                      % (m["meas_t"], m["meas_a"], m["meas_ring"], m["meas_ready"], m["ring"], m["ready"],
-                        m["dup"], m["drop"]))
+                        m["dup"], m["drop"], _trim_late(m)))
 
     lbl = out["label"]
     if lbl["have"]:
