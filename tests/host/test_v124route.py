@@ -68,6 +68,43 @@ def route_scenario(press_wa_values, press_wb_values, control_wa=128, control_wb=
     return anchors, windows
 
 
+def make_slice_block(wa, wb):
+    return b"".join(make_slice(wa, wb) for _ in range(BLOCK // SLICE))
+
+
+def oscillating_window(n_blocks, hi, lo, wb_const, period_blocks=2, moves="wa"):
+    """A press window whose wA (or wB, if moves="wb") alternates hi/lo every period_blocks // 2
+    blocks -- a symmetric square wave, the same shape RUN 45/46's own raw per-slice data showed
+    (Issue #132): a clean, period-locked oscillation around REST_WIDTH, invisible to a MEAN over
+    many periods (the mean of any whole number of periods is exactly (hi + lo) / 2), but not to a
+    PEAK reading. `period_blocks` must divide `n_blocks` for the window to hold a whole number of
+    periods -- an odd remainder would itself bias the mean away from (hi + lo) / 2, which would not
+    isolate the defect this scenario exists to demonstrate."""
+    half = period_blocks // 2
+    out = []
+    for i in range(n_blocks):
+        high = (i // half) % 2 == 0
+        a = hi if high else lo
+        if moves == "wa":
+            out.append(make_slice_block(a, wb_const))
+        else:
+            out.append(make_slice_block(wb_const, a))
+    return out
+
+
+def oscillating_route_scenario(hi, lo, moves="wa", control_wa=128, control_wb=128,
+                                press_keys=0x0001, period_blocks=2):
+    """Four closed press windows, each an oscillating square wave on `moves`'s own side and a flat
+    REST_WIDTH on the other -- the admissible shape question_stereo()/question_stereo_amplitude()
+    both require, built to demonstrate Issue #132's own finding rather than to probe edge cases."""
+    anchors = [make_anchor(0, closed=True)]
+    windows = [make_window(1, control_wa, control_wb)]
+    for _ in range(4):
+        anchors.append(make_anchor(1, keys=press_keys, closed=True))
+        windows.append(oscillating_window(PRESS_BLOCKS, hi, lo, 128, period_blocks=period_blocks, moves=moves))
+    return anchors, windows
+
+
 class QuestionStereo(unittest.TestCase):
     def test_route_left_prediction_holds_when_wa_moves_and_wb_pins(self):
         r = v124route.question_stereo(*route_scenario([140, 150, 160, 170], [128, 129, 127, 128]), variant="left")
@@ -155,6 +192,77 @@ class QuestionStereo(unittest.TestCase):
         self.assertEqual(r["control_wb"], 126.0)
         # the pin/move decision is against the frozen REST_WIDTH (128), not against this run's own
         # control reading, even though the control reading differs slightly from it here:
+        self.assertEqual(r["wb_class"], "PINNED")
+
+
+class QuestionStereoAmplitude(unittest.TestCase):
+    """Issue #132, Amendment C: question_stereo_amplitude(), a peak-based reading beside
+    question_stereo()'s own mean-based one. These scenarios are built to demonstrate the exact
+    defect RUN 45/46's own raw data exposed -- a symmetric oscillation whose window-mean cancels
+    to REST_WIDTH regardless of amplitude -- not to probe unrelated edge cases; QuestionStereo's
+    own class above already covers those for the shared admissibility/comparison logic."""
+
+    def test_the_old_classifier_misses_a_symmetric_oscillation_the_new_one_catches(self):
+        """The RED/GREEN pair this Issue's own finding is built on: the SAME synthetic data,
+        read by both functions. question_stereo() must reproduce RUN 45's own real verdict
+        (separated False, 0.0 deviation on the moving side) on data that is UNAMBIGUOUSLY
+        oscillating by construction; question_stereo_amplitude() must read it correctly."""
+        anchors, windows = oscillating_route_scenario(158, 98, moves="wa")
+        old = v124route.question_stereo(anchors, windows, variant="left")
+        new = v124route.question_stereo_amplitude(anchors, windows, variant="left")
+
+        self.assertTrue(old["admissible"])
+        self.assertEqual(old["deviation_wa"], 0.0, "the mean of a symmetric 158/98 oscillation is exactly REST_WIDTH")
+        self.assertFalse(old["separated"])
+        self.assertFalse(old["prediction_holds"], "question_stereo() cannot see this oscillation -- by design, unedited")
+
+        self.assertTrue(new["admissible"])
+        self.assertGreater(new["deviation_wa"], 20.0, "the peak reading must not cancel like the mean did")
+        self.assertEqual(new["deviation_wb"], 0.0, "wB is flat at REST_WIDTH in this scenario, on either statistic")
+        self.assertTrue(new["separated"])
+        self.assertEqual(new["wa_class"], "MOVED")
+        self.assertEqual(new["wb_class"], "PINNED")
+        self.assertTrue(new["prediction_holds"])
+
+    def test_route_right_amplitude_prediction_holds_symmetrically(self):
+        anchors, windows = oscillating_route_scenario(158, 98, moves="wb")
+        r = v124route.question_stereo_amplitude(anchors, windows, variant="right")
+        self.assertTrue(r["admissible"])
+        self.assertTrue(r["separated"])
+        self.assertEqual(r["wa_class"], "PINNED")
+        self.assertEqual(r["wb_class"], "MOVED")
+        self.assertTrue(r["prediction_holds"])
+
+    def test_the_same_oscillation_fails_the_other_variant_s_prediction(self):
+        anchors, windows = oscillating_route_scenario(158, 98, moves="wa")
+        left = v124route.question_stereo_amplitude(anchors, windows, variant="left")
+        right = v124route.question_stereo_amplitude(anchors, windows, variant="right")
+        self.assertTrue(left["prediction_holds"])
+        self.assertFalse(right["prediction_holds"])
+
+    def test_neither_side_swinging_is_indeterminate_not_stereo(self):
+        r = v124route.question_stereo_amplitude(*route_scenario([128, 129, 128, 127], [128, 127, 129, 128]),
+                                                  variant="left")
+        self.assertTrue(r["admissible"])
+        self.assertFalse(r["separated"])
+        self.assertFalse(r["prediction_holds"])
+
+    def test_only_route_left_or_route_right_are_pre_registered(self):
+        with self.assertRaises(ValueError):
+            v124route.question_stereo_amplitude(*route_scenario([128] * 4, [128] * 4), variant="both")
+
+    def test_admissibility_is_the_same_shape_as_question_stereo(self):
+        r = v124route.question_stereo_amplitude(*route_scenario([140, 150, 160], [128, 128, 128], n_press=3),
+                                                  variant="left")
+        self.assertFalse(r["admissible"])
+
+    def test_the_control_window_s_own_swing_is_reported_not_substituted(self):
+        anchors, windows = oscillating_route_scenario(158, 98, moves="wa", control_wa=131, control_wb=126)
+        r = v124route.question_stereo_amplitude(anchors, windows, variant="left")
+        self.assertTrue(r["admissible"])
+        self.assertEqual(r["control_swing_wa"], 3.0)
+        self.assertEqual(r["control_swing_wb"], 2.0)
+        # the pin/move decision is still against the frozen REST_WIDTH, not this run's own control:
         self.assertEqual(r["wb_class"], "PINNED")
 
 

@@ -162,6 +162,87 @@ def question_stereo(anchors, windows, variant):
     }
 
 
+def _peak_deviation(blocks, side):
+    """Peak |v - REST_WIDTH| over every RAW slice's `side` ("wa"/"wb") in `blocks` -- not a mean.
+    See question_stereo_amplitude()'s own docstring for why this statistic exists. 0.0 if `blocks`
+    is empty (an unarmed/empty window, matching _deviation()'s None-safety in spirit, but this
+    statistic feeds a max() across four presses, so 0.0 rather than None keeps that max well
+    defined without a caller-side filter)."""
+    vals = []
+    for blk in blocks:
+        for i in range(len(blk) // v123frame.SLICE):
+            rec = v123frame.slice_record(blk[i * v123frame.SLICE:(i + 1) * v123frame.SLICE])
+            vals.append(rec[side])
+    return max(abs(v - REST_WIDTH) for v in vals) if vals else 0.0
+
+
+def question_stereo_amplitude(anchors, windows, variant):
+    """U-GBP-047, Amendment C (Issue #132) -- a peak-amplitude reading BESIDE question_stereo()'s
+    own window-mean one. question_stereo() stays exactly as pinned (Issue #124/#125/#130) and
+    keeps its own recorded verdict; this is a NEW, separate function, never an edit to it.
+
+    THE DEFECT THIS CLOSES. RUN 45/46's own raw per-slice data (route-left/route-right) shows a
+    clean, symmetric square wave -- widths 158 and 98, equally often, over the steady region -- on
+    wA only in RUN 45 and wB only in RUN 46: exactly the predicted routing (Issue #125), and its
+    period (32 blocks at the frozen DRAIN_BLOCKS_PER_S = 4096.0, `tools/v11sweep.py`/`GBP-HW-301`)
+    converts to exactly 128.0 Hz, the tone `agb-sweep` programs at the first press. But
+    question_stereo()'s own deviation is `max(abs(v - REST_WIDTH) for v in <four per-window
+    MEANS>)`: a symmetric oscillation's mean is (158 + 98) / 2 == REST_WIDTH == 128.0 exactly, so
+    the metric reads 0.0 deviation on the MOVING side too, regardless of amplitude. A rule built to
+    detect a level SHIFT cannot see a channel that is switching -- the classifier's own verdict on
+    RUN 45/46 was INDETERMINATE for exactly this reason, not because nothing moved.
+
+    THE FIX. Read the PEAK absolute deviation from REST_WIDTH over every RAW slice in a press
+    window's own steady region (`_peak_deviation()`), take the largest of the four presses, and
+    otherwise use the SAME admissibility, the SAME variant/prediction shape, and the SAME
+    MOVE_FLOOR / RELATIVE_PIN_RATIO comparison (`_classify_stereo()`, unedited) as question_stereo()
+    -- only the per-press statistic changes, from a mean an oscillation cancels to a peak it cannot.
+    """
+    if variant not in VARIANT_PREDICTION:
+        raise ValueError("question_stereo_amplitude is pre-registered for route-left/route-right only, not %r"
+                          % (variant,))
+
+    press_anchor_idx = [i for i, a in enumerate(anchors) if a["kind"] == 1]
+    control_anchor_idx = [i for i, a in enumerate(anchors) if a["kind"] == 0]
+    press_keys = [anchors[i]["keys"] for i in press_anchor_idx]
+    axis = v11sweep.derive_schedule(press_keys)
+    bad = v11sweep.refusals(press_keys, axis)
+
+    if axis != "F" or bad or len(control_anchor_idx) != 1 or len(press_anchor_idx) != 4:
+        return {"admissible": False, "axis": axis, "refusals": bad,
+                "control_windows": len(control_anchor_idx), "press_windows": len(press_anchor_idx)}
+    if any(not (anchors[i]["flags"] & awinparse.F_CLOSED) for i in press_anchor_idx + control_anchor_idx):
+        return {"admissible": False, "axis": axis, "refusals": bad, "why": "a window did not close"}
+
+    control_blocks = windows[control_anchor_idx[0]]
+    press_blocks = [windows[i] for i in press_anchor_idx]
+
+    control_swing_wa = _peak_deviation(control_blocks, "wa")
+    control_swing_wb = _peak_deviation(control_blocks, "wb")
+    press_swing_wa = [_peak_deviation(v11sweep.sliced(b), "wa") for b in press_blocks]
+    press_swing_wb = [_peak_deviation(v11sweep.sliced(b), "wb") for b in press_blocks]
+
+    dev_wa = max(press_swing_wa)
+    dev_wb = max(press_swing_wb)
+    wa_class, wb_class, separated = _classify_stereo(dev_wa, dev_wb)
+    pred = VARIANT_PREDICTION[variant]
+    expect_wa = "MOVED" if pred["moves"] == "wa" else "PINNED"
+    expect_wb = "MOVED" if pred["moves"] == "wb" else "PINNED"
+    prediction_holds = separated and wa_class == expect_wa and wb_class == expect_wb
+
+    return {
+        "admissible": True, "axis": axis,
+        "control_swing_wa": control_swing_wa, "control_swing_wb": control_swing_wb,
+        "press_swing_wa": press_swing_wa, "press_swing_wb": press_swing_wb,
+        "deviation_wa": dev_wa, "deviation_wb": dev_wb,
+        "separated": separated,
+        "wa_class": wa_class, "wb_class": wb_class,
+        "expected": {"wa": expect_wa, "wb": expect_wb},
+        "prediction_holds": prediction_holds,
+        "rest_width": REST_WIDTH, "move_floor": MOVE_FLOOR, "relative_pin_ratio": RELATIVE_PIN_RATIO,
+    }
+
+
 def question_bias(entry_value, entry_ok):
     """U-GBP-048's prediction on `E` (the ROM's entry read), an OPERATOR OBSERVATION: "route-both's
     E reads resolution bits 14-15 = 0 ... ANY non-zero resolution breaks the model." `entry_ok`
