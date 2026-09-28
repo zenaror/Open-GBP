@@ -38378,3 +38378,69 @@ unchanged throughout.
 
 **RUN 50's own procedure carries this marker's meaning**: if the `H` number never starts moving,
 the Operator stops the run and says so — the same instant the ear alone would have left ambiguous.
+
+### V28.5 RUN 50 ran, measured 3a for the first time, and found three more findings — `23-v28v` re-pinned a third time — 2026-09-28 (Issue #131/#133)
+
+Independently verified before this round started: the Orchestrator's own re-hash of all 24 slots
+matched the §V28.4 pins, `23-v28v`'s `build-info.txt` read `commit=394c7a7` with no `-dirty`, and no
+stale run files were left on the card.
+
+**RUN 50 executed.** The four RUN 49 fixes held: `handed=9232` (was 188), `overflow=0` (was
+20 214 785), `produced=9095`, 14 `V28_3A` records (was 0), audio audible to the Operator throughout.
+3a measured, natively, for the first time: descent 6144 → 2048 in 512 steps (9 dwells), 2048 fails
+(`dup=0`), bisection 2304 (fail), 2432, 2368, 2336 (all hold, `dup≈3040`), bracket closed at
+**lo 2304 / hi 2336** — but the AHEAD-1 hold §V28 exists to measure still did not happen.
+
+**Defect A — 3b never started, same class as RUN 49's own three.** 3a's own exit into 3b was CUT
+by 3a's own phase cap, not completed by 3a's own algorithm (`why=cap`) — so the anchor computation
+and `gbp_v28_3b_start()`, which sat ONLY inside `DESCENT_3A`'s own `TICK_PHASE_COMPLETE` branch,
+never ran: 3b sat at its own zero-init state for its whole 120 s phase, no `V28ANCHOR`, no `V28_3B`.
+"A start reachable on only one of two exit paths is the same shape as a start reachable on no
+path" (the Orchestrator's own framing).
+
+**Defect B — 3a's own budget was exactly too tight, so the cap path is the NORMAL exit, not the
+exception.** 13 dwells × 6 s = 78 s, plus a 60 s confirm = 138 s, exactly 3a's own phase cap.
+Proven exact from `GBP_V28_P3_START`/`P3_STEP`/`P3_MIN`/`P3_BISECT_WIDTH` (9 STEP dwells to the
+descent grid's own end + 4 BISECT dwells, both fixed by the constants' own power-of-two ratio, +
+1 CONFIRM), matching RUN 50's own trace precisely — this is not a rare edge case, it is what
+happens whenever the floor sits near the bottom of the ladder, the informative region.
+
+**Fixed both, in one commit (`4869954`):**
+
+- every handler start (3a/3b/sweep/nulling) now has EXACTLY ONE call site, in a new
+  `v28_dispatch_phase_start()`, driven off the WALKER's own phase index advancing — never a
+  specific handler's own completion flag or a specific caller. `tests/host/test_v28_plans.py`'s
+  `TheHandlersAreStarted` gained a general structural test enforcing this, RED-verified;
+- 3a's own phase cap: 138 → **168 s** (the proven exact worst case + a 30 s margin for begin()
+  retries and pump-loop cadence). **A FROZEN #128 figure changing**: §2 names 138 s, left unedited
+  there — `src/audio/gbp_v28_plans.h` and `tools/v28budget.py` are the amendment. Session cap
+  438 → 468 s; the derived SD-log stores recomputed from `tools/v28budget.py`'s own formulas
+  (`V28_WALL_S` 503→533, `PLAY_EVENT_RECORDS` 39737→42107, `PLAY_FRAME_RECORDS` 30180→31980,
+  `CORR_CAP` 19617→20787), floor kept with margin (+1 875 968 B) confirmed by running it.
+
+**Defect C, the Orchestrator's own question, verified rather than reasoned about**: does
+`gbp_v28_3a_confirmed_floor()` on a CUT confirm dwell still read `hi`, never mistaken for a "clean
+floor" at `lo` (the confirm's own re-tested target)? A new unit test drives 3a through the same
+straddling-bracket setup already proven, cuts the confirm mid-dwell (RUN 50's own actual shape
+once Defect B's tight budget is accounted for), and confirms the floor is still `hi`, unaffected —
+`bisecting` stays 1, `cut()`/`depth_done()` never touch `hi`/`lo`. **No third defect.**
+
+**3a's own worst case, in seconds, for the Operator's procedure: 168 s is the phase's own hard cap
+(the proven 138 s worst case + 30 s margin); in practice, whenever the confirm dwell is reached at
+all (the informative case), expect the phase to run close to that full 168 s.** Session cap 468 s
+total (navigate 60 + 3a 168 + 3b 120 + sweep 60 + slack 60).
+
+`validation_run` rebuilt from `4869954`, twice independently, same hash both times:
+
+```text
+sha256 e7329d9ba05c821b509200306047e1078d086c966bb276698419b7d5645a0f4f
+```
+
+Manifest re-pinned a third time, test pin updated, gate green (`make test-python` 3403 passed +
+4 pre-existing unrelated failures in `test_control_bit_split.py`/`test_gbc_path.py`, confirmed via
+`git stash` to be caused solely by RUN 50's own newly-archived `captures/local/` log, outside this
+Issue's scope; full `make -C tests/unit` green). Docker builds verified for all three
+`gbp-audio-v28` plans. Card re-staged while still in the reader: `23-v28v` copied and read back —
+matches `e7329d9b...`. Every other frozen slot re-hashed before and after — all unchanged.
+
+**Card verified, ready for RUN 51.**
