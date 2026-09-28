@@ -169,7 +169,7 @@ static void test_a_never_started_sweep_skips_move_0_s_own_begin_then_recovers(vo
     check(s.records_n >= 2u, "and move 1 (and beyond) finalize their own, real records");
 }
 
-static void test_a_full_run_completes_all_27_in_order(void)
+static void test_a_full_run_completes_the_prelude_and_all_27_in_order(void)
 {
     struct gbp_v28_sweep s;
     uint64_t now = steady2(GBP_V28_T704, GBP_V28_A4);
@@ -179,13 +179,13 @@ static void test_a_full_run_completes_all_27_in_order(void)
     gbp_v28_sweep_start(&s, TB_HZ, now);
     check(s.begin_pending == 1u, "start() only decides the first entry -- begin_pending, not yet begun");
 
-    flags = drive(&s, &now, 800u);   /* comfortably above the ~600-period worst case (mutes + 27 dwells) */
+    flags = drive(&s, &now, 800u);   /* comfortably above the ~600-period worst case (mutes + 28 dwells) */
     check((flags & GBP_V28_SWEEP_TICK_PHASE_COMPLETE) != 0, "the whole sequence completes within the bound");
     check(gbp_v28_sweep_finished(&s) == 1, "finished once every entry has landed and dwelt");
-    eqi(s.records_n, GBP_V28_SWEEP_N, "all 27 entries recorded, none abandoned or skipped");
+    eqi(s.records_n, GBP_V28_SWEEP_N, "the prelude and all 27 entries recorded, none abandoned or skipped");
 
     /* A REAL FINDING, once fixed at its own source (Issue #129/#130, the Orchestrator's own
-     * diagnosis chain): entry 6 (T256A2 -> T256A1, an AHEAD-lowering STEP landing AT AHEAD 1) used
+     * diagnosis chain): entry 6 of the frozen 27, record 7 now (T256A2 -> T256A1, an AHEAD-lowering STEP landing AT AHEAD 1) used
      * to underrun here, one period after landing -- traced, not guessed, to the landing call itself
      * wasting its own pump-call slot (the call that finishes a transition never reaches the
      * caller's own `gbp_aplay2_produce()`, unlike every ordinary steady-state call), so a fresh
@@ -195,7 +195,7 @@ static void test_a_full_run_completes_all_27_in_order(void)
      * next hand-off needs it. `gbp_atrans2_step()`'s own landing branch now recovers that slot (an
      * ordinary, corrected production attempt, the exact call the caller's own dispatch would have
      * made one tick later) -- proven first against a real 60 s hold (0 underruns), and here again,
-     * against the real cascade this test drives: every one of the 27 entries now passes. */
+     * against the real cascade this test drives: every one of the 28 entries now passes. */
     for (i = 0; i < s.records_n; i++) {
         const struct gbp_v28_sweep_record *r = gbp_v28_sweep_record_at(&s, i);
         check(r != NULL, "every recorded index is readable");
@@ -203,52 +203,58 @@ static void test_a_full_run_completes_all_27_in_order(void)
         check(r->outcome == GBP_V28_SWEEP_PASS, "a clean run under smooth feed passes every entry, entry 6 included");
     }
 
+    /* Issue #135: record 0 is the INFO prelude, T256A1 -> T704A4, a START -- never a GATE row */
+    check(gbp_v28_sweep_record_at(&s, 0)->klass == GBP_V28_SWEEP_INFO, "record 0: the INFO prelude");
+    check(gbp_v28_sweep_record_at(&s, 0)->mechanism == GBP_V28_SWEEP_START, "record 0: the prelude is a START");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 0)->to_target, (long long)GBP_V28_T704, "record 0: to T704");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 0)->to_ahead, (long long)GBP_V28_A4, "record 0: to A4");
+
     /* spot-check the frozen sequence's own shape, not just its count */
-    check(gbp_v28_sweep_record_at(&s, 0)->klass == GBP_V28_SWEEP_GATE, "entry 0: GATE");
-    check(gbp_v28_sweep_record_at(&s, 0)->mechanism == GBP_V28_SWEEP_STEP, "entry 0: STEP");
-    eqi((long long)gbp_v28_sweep_record_at(&s, 0)->from_target, (long long)GBP_V28_T704, "entry 0: from T704");
-    eqi((long long)gbp_v28_sweep_record_at(&s, 0)->to_target, (long long)GBP_V28_T576, "entry 0: to T576");
+    check(gbp_v28_sweep_record_at(&s, 1)->klass == GBP_V28_SWEEP_GATE, "entry 1: GATE");
+    check(gbp_v28_sweep_record_at(&s, 1)->mechanism == GBP_V28_SWEEP_STEP, "entry 1: STEP");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 1)->from_target, (long long)GBP_V28_T704, "entry 1: from T704");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 1)->to_target, (long long)GBP_V28_T576, "entry 1: to T576");
 
-    check(gbp_v28_sweep_record_at(&s, 7)->mechanism == GBP_V28_SWEEP_REFUSED, "entry 7: the refused step at the "
+    check(gbp_v28_sweep_record_at(&s, 8)->mechanism == GBP_V28_SWEEP_REFUSED, "entry 8: the refused step at the "
           "bottom");
-    eqi((long long)gbp_v28_sweep_record_at(&s, 7)->from_target, (long long)GBP_V28_T256, "entry 7: at T256");
-    eqi((long long)gbp_v28_sweep_record_at(&s, 7)->from_ahead, (long long)GBP_V28_A1, "entry 7: at A1");
-    eqi((long long)gbp_v28_sweep_record_at(&s, 7)->to_target, (long long)GBP_V28_T256, "entry 7: same-level, T256");
-    eqi((long long)gbp_v28_sweep_record_at(&s, 7)->to_ahead, (long long)GBP_V28_A1, "entry 7: same-level, A1");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 8)->from_target, (long long)GBP_V28_T256, "entry 8: at T256");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 8)->from_ahead, (long long)GBP_V28_A1, "entry 8: at A1");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 8)->to_target, (long long)GBP_V28_T256, "entry 8: same-level, T256");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 8)->to_ahead, (long long)GBP_V28_A1, "entry 8: same-level, A1");
 
-    check(gbp_v28_sweep_record_at(&s, 15)->mechanism == GBP_V28_SWEEP_REFUSED, "entry 15: the refused step at the "
+    check(gbp_v28_sweep_record_at(&s, 16)->mechanism == GBP_V28_SWEEP_REFUSED, "entry 16: the refused step at the "
           "top");
 
-    check(gbp_v28_sweep_record_at(&s, 16)->mechanism == GBP_V28_SWEEP_START, "entry 16: the first largest START");
-    check(gbp_v28_sweep_record_at(&s, 16)->klass == GBP_V28_SWEEP_GATE, "entry 16: still GATE");
-    check(gbp_v28_sweep_record_at(&s, 17)->mechanism == GBP_V28_SWEEP_START, "entry 17: the second largest START");
-    check(gbp_v28_sweep_record_at(&s, 17)->klass == GBP_V28_SWEEP_GATE, "entry 17: still GATE, the last one");
+    check(gbp_v28_sweep_record_at(&s, 17)->mechanism == GBP_V28_SWEEP_START, "entry 17: the first largest START");
+    check(gbp_v28_sweep_record_at(&s, 17)->klass == GBP_V28_SWEEP_GATE, "entry 17: still GATE");
+    check(gbp_v28_sweep_record_at(&s, 18)->mechanism == GBP_V28_SWEEP_START, "entry 18: the second largest START");
+    check(gbp_v28_sweep_record_at(&s, 18)->klass == GBP_V28_SWEEP_GATE, "entry 18: still GATE, the last one");
 
-    check(gbp_v28_sweep_record_at(&s, 18)->klass == GBP_V28_SWEEP_INFO, "entry 18: INFO -- the repositioning move");
-    check(gbp_v28_sweep_record_at(&s, 18)->mechanism == GBP_V28_SWEEP_START, "entry 18: repositioning is a START");
-    eqi((long long)gbp_v28_sweep_record_at(&s, 18)->from_target, (long long)GBP_V28_T704, "entry 18: from T704");
-    eqi((long long)gbp_v28_sweep_record_at(&s, 18)->to_target, (long long)GBP_V28_T256, "entry 18: to T256");
+    check(gbp_v28_sweep_record_at(&s, 19)->klass == GBP_V28_SWEEP_INFO, "entry 19: INFO -- the second repositioning");
+    check(gbp_v28_sweep_record_at(&s, 19)->mechanism == GBP_V28_SWEEP_START, "entry 19: repositioning is a START");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 19)->from_target, (long long)GBP_V28_T704, "entry 19: from T704");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 19)->to_target, (long long)GBP_V28_T256, "entry 19: to T256");
 
-    for (i = 19; i < 27u; i++)
-        check(gbp_v28_sweep_record_at(&s, i)->klass == GBP_V28_SWEEP_INFO, "entries 19..26: the T192 branch is INFO");
-    eqi((long long)gbp_v28_sweep_record_at(&s, 19)->to_target, (long long)GBP_V28_T192, "entry 19: T256 -> T192");
-    eqi((long long)gbp_v28_sweep_record_at(&s, 26)->to_target, (long long)GBP_V28_T256, "entry 26: T192 -> T256, "
+    for (i = 20; i < 28u; i++)
+        check(gbp_v28_sweep_record_at(&s, i)->klass == GBP_V28_SWEEP_INFO, "entries 20..27: the T192 branch is INFO");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 20)->to_target, (long long)GBP_V28_T192, "entry 20: T256 -> T192");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 27)->to_target, (long long)GBP_V28_T256, "entry 27: T192 -> T256, "
           "back to the anchor");
 
     check(gbp_v28_sweep_verdict(&s) == GBP_V28_SWEEP_VERDICT_PASS,
           "18/18 GATE entries pass under this smooth-feed cascade: the verdict is PASS");
 }
 
-static void test_verdict_is_pending_until_all_18_gate_entries_are_in(void)
+static void test_verdict_is_pending_until_the_prelude_and_all_18_gate_entries_are_in(void)
 {
     struct gbp_v28_sweep s;
     uint64_t now = steady2(GBP_V28_T704, GBP_V28_A4);
     gbp_v28_sweep_start(&s, TB_HZ, now);
     check(gbp_v28_sweep_verdict(&s) == GBP_V28_SWEEP_VERDICT_PENDING, "nothing recorded yet: PENDING");
     (void)drive(&s, &now, 40u);   /* enough for a handful of GATE entries, not all 18 */
-    check(s.records_n > 0u && s.records_n < 18u, "this test's own setup: partway through GATE");
+    check(s.records_n > 0u && s.records_n < 19u, "this test's own setup: partway through GATE");
     check(gbp_v28_sweep_verdict(&s) == GBP_V28_SWEEP_VERDICT_PENDING,
-          "still PENDING with fewer than 18 GATE entries recorded");
+          "still PENDING with fewer than the prelude + 18 GATE records");
 }
 
 static void test_a_gate_underrun_fails_that_entry_and_the_verdict(void)
@@ -272,7 +278,7 @@ static void test_a_gate_underrun_fails_that_entry_and_the_verdict(void)
     /* feed normally the rest of the way to completion. */
     (void)drive(&s, &now, 800u);
     check(gbp_v28_sweep_finished(&s) == 1, "the sequence still runs to completion despite the earlier stall");
-    eqi(s.records_n, GBP_V28_SWEEP_N, "still all 27 recorded -- a FAIL does not stop the sweep");
+    eqi(s.records_n, GBP_V28_SWEEP_N, "still all 28 recorded -- a FAIL does not stop the sweep");
 
     for (i = 0; i < s.records_n; i++) {
         const struct gbp_v28_sweep_record *r = gbp_v28_sweep_record_at(&s, i);
@@ -337,6 +343,49 @@ static void test_a_cut_while_dwelling_is_partial(void)
           "a dwell cut before its own end is recorded PARTIAL, never PASS");
 }
 
+/* Issue #135 (RUN 51, RUN 52's design): the sweep does not begin at the (T704, A4) its frozen
+ * from_* columns assume -- it begins wherever 3b left the chain: 3b's own start is begin_ahead(A1)
+ * at the anchor (T256 = 4096 native for any 3a floor <= 4096), and it only ever escalates on an
+ * underrun, never restoring A4. Every other test in this file starts from steady2(T704, A4), which
+ * is why 27/27 passed here while RUN 51's n=0 failed on the console. This test drives the REAL
+ * start-from-3b state; it fails on a sweep with no reposition (n=0's landing residue is far
+ * negative) and passes with the single INFO reposition to (T704, A4). */
+static void test_the_sweep_started_from_3b_s_own_end_state_still_passes_every_gate_row(void)
+{
+    struct gbp_v28_sweep s;
+    uint64_t now = steady2(GBP_V28_T256, GBP_V28_A1);
+    uint32_t i, gate_rows = 0u;
+    gbp_v28_sweep_start(&s, TB_HZ, now);
+    (void)drive(&s, &now, 800u);
+    check(gbp_v28_sweep_finished(&s) == 1, "the sequence completes from 3b's own end state");
+    for (i = 0; i < s.records_n; i++) {
+        const struct gbp_v28_sweep_record *r = gbp_v28_sweep_record_at(&s, i);
+        if (r->klass != GBP_V28_SWEEP_GATE) continue;
+        gate_rows++;
+        if (r->outcome != GBP_V28_SWEEP_PASS)
+            printf("  (record %u: outcome=%u fail=%u residue=%ld)\n", (unsigned)i, r->outcome, r->fail_reason,
+                   (long)r->residue);
+        check(r->outcome == GBP_V28_SWEEP_PASS, "every GATE row passes when the chain starts where 3b leaves it");
+    }
+    eqi((long long)gate_rows, 18, "the 18 frozen GATE rows are all there, none added, none removed");
+
+    /* the measured from-state, logged beside the table's own assumed one (SD only, never a decision) */
+    eqi((long long)gbp_v28_sweep_record_at(&s, 0)->meas_target, (long long)GBP_V28_T256, "prelude: measured from target");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 0)->meas_ahead, (long long)GBP_V28_A1, "prelude: measured from ahead");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 1)->meas_target, (long long)GBP_V28_T704,
+        "first frozen move: measured from target is now what its table column assumed");
+    eqi((long long)gbp_v28_sweep_record_at(&s, 1)->meas_ahead, (long long)GBP_V28_A4,
+        "first frozen move: measured from ahead is now what its table column assumed");
+    for (i = 0; i < s.records_n; i++) {
+        const struct gbp_v28_sweep_record *r = gbp_v28_sweep_record_at(&s, i);
+        check(r->ring <= r->to_target && r->ring + GBP_APLAY2_BAND >= r->to_target,
+              "the landing ring level is recorded and sits inside the band");
+        check(r->ready == r->to_ahead || r->ready + 1u == r->to_ahead, "the landing READY level is recorded");
+        check(r->t_land >= r->t_begin && r->t_done >= r->t_land, "t_begin <= t_land <= t_done");
+    }
+    check(gbp_v28_sweep_verdict(&s) == GBP_V28_SWEEP_VERDICT_PASS, "the verdict is PASS from 3b's own end state");
+}
+
 /* ================================================================================================
  * Layer 2: the budget (Issue #129's own second comment: "recompute the budget ... check that the
  * total fits in the sweep's 60 s"). The frozen table's own mute counts (24 ordinary/refused STEP
@@ -347,7 +396,7 @@ static void test_a_cut_while_dwelling_is_partial(void)
 static void test_the_frozen_sequence_fits_the_sweep_s_60_s_cap(void)
 {
     const uint32_t step_entries = 24u;     /* 14 ordinary rungs (7 down + 7 up) + 2 refused + 8 T192 */
-    const uint32_t start_entries = 3u;     /* the 2 gating STARTs + the 1 informational repositioning */
+    const uint32_t start_entries = 4u;     /* the 2 gating STARTs + the 2 informational repositionings (the #135 prelude and the T192 one) */
     const uint64_t chunk_us = (uint64_t)GBP_APLAY2_PUSHES * 1000000u / GBP_ADEC2_RATE;   /* 31250, exact */
     const uint64_t mute_us = (uint64_t)step_entries * GBP_V28_STEP_MUTE * chunk_us
                            + (uint64_t)start_entries * GBP_V28_START_MUTE * chunk_us;
@@ -355,22 +404,23 @@ static void test_the_frozen_sequence_fits_the_sweep_s_60_s_cap(void)
     const uint64_t total_us = mute_us + dwell_us;
 
     eqi((long long)(step_entries + start_entries), (long long)GBP_V28_SWEEP_N,
-        "this test's own entry-class counts still sum to all 27");
+        "this test's own entry-class counts still sum to the prelude and all 27");
     check(chunk_us == 31250u, "one native chunk period is 31.25 ms, exactly -- or the budget below is wrong");
     printf("    mute %llu us + dwell %llu us = %llu us total (cap 60 000 000 us)\n",
            (unsigned long long)mute_us, (unsigned long long)dwell_us, (unsigned long long)total_us);
-    check(total_us <= 60000000ull, "the frozen 27-entry sequence fits the sweep phase's own 60 s cap");
+    check(total_us <= 60000000ull, "the prelude and the frozen 27-entry sequence fit the sweep phase's own 60 s cap");
 }
 
 int main(void)
 {
     test_a_never_started_sweep_skips_move_0_s_own_begin_then_recovers();
-    test_a_full_run_completes_all_27_in_order();
-    test_verdict_is_pending_until_all_18_gate_entries_are_in();
+    test_a_full_run_completes_the_prelude_and_all_27_in_order();
+    test_verdict_is_pending_until_the_prelude_and_all_18_gate_entries_are_in();
     test_a_gate_underrun_fails_that_entry_and_the_verdict();
     test_begin_refused_counts_nothing_until_applied();
     test_a_cut_before_the_first_begin_abandons_nothing_to_report();
     test_a_cut_while_dwelling_is_partial();
+    test_the_sweep_started_from_3b_s_own_end_state_still_passes_every_gate_row();
     test_the_frozen_sequence_fits_the_sweep_s_60_s_cap();
     printf("test_gbp_v28_sweep: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

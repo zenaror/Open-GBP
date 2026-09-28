@@ -1682,10 +1682,11 @@ int main(void)
         for (j = 0u; j < s3b.holds_n; j++) {
             const struct gbp_v28_3b_hold *h = gbp_v28_3b_hold_record(&s3b, j);
             ringlog_printf(&rl, "V28_3B n=%lu ahead=%lu anchor=%lu source=%s underrun_seen=%u partial=%u t_set=%llx "
-                                "t_done=%llx",
+                                "t_done=%llx min_ready=%lu min_ring=%lu samples=%lu",
                            (unsigned long)j, (unsigned long)h->ahead, (unsigned long)v28_anchor.target,
                            gbp_v28_anchor_source_name(v28_anchor.source), (unsigned)h->underrun_seen,
-                           (unsigned)h->partial, (unsigned long long)h->t_set, (unsigned long long)h->t_done);
+                           (unsigned)h->partial, (unsigned long long)h->t_set, (unsigned long long)h->t_done,
+                           (unsigned long)h->min_ready, (unsigned long)h->min_ring, (unsigned long)h->samples);
         }
         for (j = 0u; j < sweep.records_n && j < GBP_V28_SWEEP_N; j++) {
             const struct gbp_v28_sweep_record *r = gbp_v28_sweep_record_at(&sweep, j);
@@ -1694,6 +1695,16 @@ int main(void)
                            (unsigned long)j, (unsigned)r->klass, (unsigned)r->mechanism, (unsigned long)r->from_target,
                            (unsigned long)r->from_ahead, (unsigned long)r->to_target, (unsigned long)r->to_ahead,
                            (unsigned)r->outcome, (unsigned)r->fail_reason, (long)r->residue, (unsigned)r->unmasked);
+            /* Issue #135: what the chain ACTUALLY was at the move's start and at its landing (the
+             * line above prints the frozen table's own from_* assumption). A second line with the
+             * same n, not more fields on the first: the first is already 112 characters and the
+             * console log line is 256. */
+            ringlog_printf(&rl, "V28_SWEEPM n=%lu meas_t=%lu meas_a=%lu meas_ring=%lu meas_ready=%lu ring=%lu "
+                                "ready=%lu dup=%lu drop=%lu t_land=%llx",
+                           (unsigned long)j, (unsigned long)r->meas_target, (unsigned long)r->meas_ahead,
+                           (unsigned long)r->meas_ring, (unsigned long)r->meas_ready, (unsigned long)r->ring,
+                           (unsigned long)r->ready, (unsigned long)r->dup, (unsigned long)r->drop,
+                           (unsigned long long)r->t_land);
         }
         ringlog_printf(&rl, "V28_SWEEP_VERDICT v=%u", (unsigned)gbp_v28_sweep_verdict(&sweep));
 #else

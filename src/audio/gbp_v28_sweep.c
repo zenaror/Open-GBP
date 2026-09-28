@@ -14,6 +14,10 @@ struct sweep_entry {
  * comments). Do not reorder, add or remove an entry here without the same authority that froze the
  * sequence in the first place. */
 static const struct sweep_entry TABLE[GBP_V28_SWEEP_N] = {
+    /* INFO -- PRELUDE (Issue #135): 3b's own end state (the anchor T256 at AHEAD 1) to the (T704, A4)
+     * the 27 frozen entries below assume. The same START as GATE row 18's own T256A1 -> T704A4. */
+    { GBP_V28_SWEEP_INFO, GBP_V28_SWEEP_START, GBP_V28_T256, GBP_V28_A1, GBP_V28_T704, GBP_V28_A4,
+      GBP_V28_START_MUTE },
     /* GATE -- descend, 7 adjacent down-steps */
     { GBP_V28_SWEEP_GATE, GBP_V28_SWEEP_STEP, GBP_V28_T704, GBP_V28_A4, GBP_V28_T576, GBP_V28_A4, GBP_V28_STEP_MUTE },
     { GBP_V28_SWEEP_GATE, GBP_V28_SWEEP_STEP, GBP_V28_T576, GBP_V28_A4, GBP_V28_T448, GBP_V28_A4, GBP_V28_STEP_MUTE },
@@ -57,7 +61,7 @@ static const struct sweep_entry TABLE[GBP_V28_SWEEP_N] = {
     { GBP_V28_SWEEP_INFO, GBP_V28_SWEEP_STEP, GBP_V28_T192, GBP_V28_A4, GBP_V28_T256, GBP_V28_A4, GBP_V28_STEP_MUTE },
 };
 
-#define GATE_N   18u   /* TABLE[0..17]; TABLE[18..26] is the 9-entry INFO tail */
+#define GATE_N   18u   /* TABLE[1..18]; TABLE[0] is the INFO prelude, TABLE[19..27] the 9-entry INFO tail */
 
 void gbp_v28_sweep_start(struct gbp_v28_sweep *s, uint32_t tb_hz, uint64_t now)
 {
@@ -97,6 +101,12 @@ static void finalize_record(struct gbp_v28_sweep *s, const struct sweep_entry *e
     r->drop = p->drop - s->drop0;
     r->ahead_drops = s->ahead_drops_at_land;
     r->unmasked = s->unmasked_at_land;
+    r->meas_target = s->meas_target0;
+    r->meas_ahead = s->meas_ahead0;
+    r->meas_ring = s->meas_ring0;
+    r->meas_ready = s->meas_ready0;
+    r->ring = s->ring_at_land;
+    r->ready = s->ready_at_land;
 
     if (underrun_delta > 0u) {
         r->outcome = GBP_V28_SWEEP_FAIL;
@@ -121,6 +131,7 @@ int gbp_v28_sweep_tick(struct gbp_v28_sweep *s, struct gbp_atrans2 *t, struct gb
     e = &TABLE[s->index];
 
     if (s->begin_pending) {
+        const uint32_t m_target = p->target, m_ahead = p->ahead, m_ring = d->count, m_ready = gbp_aplay2_ready(p);
         if (!gbp_atrans2_begin(t, p, d, now, GBP_ATRANS2_ROTATE, e->mute, 0u, 0u, e->to_target, e->to_ahead))
             return 0;
         s->begin_pending = 0u;
@@ -128,6 +139,10 @@ int gbp_v28_sweep_tick(struct gbp_v28_sweep *s, struct gbp_atrans2 *t, struct gb
         s->dup0 = p->dup;
         s->drop0 = p->drop;
         s->underruns0 = p->underruns;
+        s->meas_target0 = m_target;
+        s->meas_ahead0 = m_ahead;
+        s->meas_ring0 = m_ring;
+        s->meas_ready0 = m_ready;
         return 0;
     }
 
@@ -180,6 +195,12 @@ void gbp_v28_sweep_cut(struct gbp_v28_sweep *s, uint64_t t_end)
         r->drop = 0u;
         r->ahead_drops = s->ahead_drops_at_land;
         r->unmasked = s->unmasked_at_land;
+        r->meas_target = s->meas_target0;
+        r->meas_ahead = s->meas_ahead0;
+        r->meas_ring = s->meas_ring0;
+        r->meas_ready = s->meas_ready0;
+        r->ring = s->ring_at_land;
+        r->ready = s->ready_at_land;
         r->outcome = GBP_V28_SWEEP_PARTIAL;
         r->fail_reason = GBP_V28_SWEEP_FAIL_NONE;
     }                                                          /* begin_pending (decided, not yet begun): abandoned,
@@ -203,9 +224,9 @@ const struct gbp_v28_sweep_record *gbp_v28_sweep_record_at(const struct gbp_v28_
 enum gbp_v28_sweep_verdict gbp_v28_sweep_verdict(const struct gbp_v28_sweep *s)
 {
     uint32_t i;
-    if (!s || s->records_n < GATE_N) return GBP_V28_SWEEP_VERDICT_PENDING;
-    for (i = 0; i < GATE_N; i++) {
-        if (s->records[i].klass != GBP_V28_SWEEP_GATE) continue;   /* GATE rows are TABLE[0..17] by construction */
+    if (!s || s->records_n < GBP_V28_SWEEP_PRELUDE_N + GATE_N) return GBP_V28_SWEEP_VERDICT_PENDING;
+    for (i = 0; i < GBP_V28_SWEEP_PRELUDE_N + GATE_N; i++) {
+        if (s->records[i].klass != GBP_V28_SWEEP_GATE) continue;   /* the INFO prelude never folds in */
         if (s->records[i].outcome != GBP_V28_SWEEP_PASS) return GBP_V28_SWEEP_VERDICT_FAIL;
     }
     return GBP_V28_SWEEP_VERDICT_PASS;

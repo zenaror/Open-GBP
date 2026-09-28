@@ -48,6 +48,12 @@ struct gbp_v28_3b_hold {
     uint8_t  underrun_seen;      /* an underrun was observed during THIS hold */
     uint8_t  partial;            /* cut before its own end -- never counted complete */
     uint64_t t_set, t_done;
+    /* Issue #135 (SD/ring log only, never a decision input): what the hold's own margin actually was
+     * -- the lowest READY level and the lowest ring level (gbp_adec2's own count) sampled on every
+     * tick after the entry transition landed, until the hold ended. A clean hold (underrun_seen = 0)
+     * says only that the margin was never zero; these say how close it came. `samples` == 0 means
+     * nothing was sampled (the two minima are then 0 and mean nothing). */
+    uint32_t min_ready, min_ring, samples;
 };
 
 struct gbp_v28_3b {
@@ -63,6 +69,7 @@ struct gbp_v28_3b {
     uint32_t pending_ahead;
     uint64_t t_set;              /* when the CURRENT hold's plan actually began */
     uint64_t t_hold_end;
+    uint32_t cur_min_ready, cur_min_ring, cur_samples;   /* the CURRENT hold's own running minima */
     struct gbp_v28_3b_hold holds[2];     /* at most AHEAD 1, then AHEAD 2 -- never a third level */
     uint32_t holds_n;
     uint32_t refused_hold_done;  /* hold_done() called with nothing pending: counted, never silent */
