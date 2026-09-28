@@ -85,6 +85,31 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
     if (handed > t->mute) {
         uint32_t ring_excess;
         if (t->rotating) { t->rotating = 0u; t->late = 1u; t->lates++; }
+        /* the landing call itself must not waste its own slot (Orchestrator, #129/#130, traced to
+         * the exact call, not assumed): this call is what finishes the transition, so the
+         * CALLER'S OWN dispatch (`if (t->active) step() else produce()`) never reaches
+         * `gbp_aplay2_produce()` for it -- ordinary production only starts NEXT call. Steady-state
+         * running never loses a call this way (every call is a produce() call); a landing does,
+         * exactly once, and only here. For AHEAD >= 2 the spare chunks (`ahead - 1 >= 1`) absorb a
+         * rebuild that starts one call late without consequence; AHEAD 1's own floor is 0 -- no
+         * chunk to spare -- so the SAME one-call-late rebuild finishes one call short when the very
+         * next hand-off needs it (proven: gbp_v28_sweep's own entry 6, its rebuild ran the expected
+         * GBP_ATRANS2_CALLS_PER_HANDOFF calls at the expected rate, starting one call later than a
+         * steady rebuild ever does). Recovering that one call here -- an ordinary, CORRECTED
+         * production attempt, the exact call the caller's own dispatch would have made one tick
+         * later -- lands this call's own slot back on the steady phase, not one behind it.
+         *
+         * BEFORE the trim below, not after (Orchestrator, #129/#130, a second call traced the same
+         * way): the trim discards the ring's own excess down to EXACTLY target, and a landing whose
+         * own TARGET equals GBP_APLAY2_PUSHES exactly (gbp_v28_3b's own anchor can be
+         * GBP_V28_P3_MIN) would then present the recovery with `d->count == PUSHES`, one sample
+         * short of the `PUSHES + 1` a fresh chunk needs to start at all -- not a timing gap, the
+         * trim's own surplus erased before the recovery ever saw it, at every landing whose target
+         * happens to sit at that exact floor. Recovering first, from whatever surplus the mute
+         * itself accumulated (steady state never needs this surplus and never has it artificially
+         * removed first), then trimming whatever the recovery's own consumption left behind, gives
+         * the recovery the SAME chance at every legal TARGET, including the floor. */
+        if (*to_queue < 0) *to_queue = gbp_aplay2_produce(p, d);
         /* Orchestrator direction, Issue #129/#130: the ring's own excess over target, trimmed at
          * the landing, never below target (a shortfall would be worse than the excess it fixes).
          * HELD already trims this way at its own landing (step_held2, above); ROTATE's landing can
@@ -108,20 +133,6 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
         if (t->rotate_landings == 0u || t->residue > t->residue_max) t->residue_max = t->residue;
         t->rotate_landings++;
         if (t->discard > 0u && t->rotations < p->ahead) { t->unmasked = 1u; t->unmaskeds++; }
-        /* the landing call itself must not waste its own slot (Orchestrator, #129/#130, traced to
-         * the exact call, not assumed): this call is what finishes the transition, so the
-         * CALLER'S OWN dispatch (`if (t->active) step() else produce()`) never reaches
-         * `gbp_aplay2_produce()` for it -- ordinary production only starts NEXT call. Steady-state
-         * running never loses a call this way (every call is a produce() call); a landing does,
-         * exactly once, and only here. For AHEAD >= 2 the spare chunks (`ahead - 1 >= 1`) absorb a
-         * rebuild that starts one call late without consequence; AHEAD 1's own floor is 0 -- no
-         * chunk to spare -- so the SAME one-call-late rebuild finishes one call short when the very
-         * next hand-off needs it (proven: gbp_v28_sweep's own entry 6, its rebuild ran the expected
-         * GBP_ATRANS2_CALLS_PER_HANDOFF calls at the expected rate, starting one call later than a
-         * steady rebuild ever does). Recovering that one call here -- an ordinary, CORRECTED
-         * production attempt, the exact call the caller's own dispatch would have made one tick
-         * later -- lands this call's own slot back on the steady phase, not one behind it. */
-        if (*to_queue < 0) *to_queue = gbp_aplay2_produce(p, d);
         return finish2(t, now);
     }
     if (t->rotating) {
