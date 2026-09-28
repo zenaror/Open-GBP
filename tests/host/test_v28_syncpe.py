@@ -5,6 +5,7 @@ console side cannot drift apart silently, the same discipline test_sync_image.py
 `test_the_SD_records_carry_what_the_builder_reads` uses for sync-0001).
 """
 import os
+import re
 import sys
 import unittest
 
@@ -112,6 +113,46 @@ class GrammarMatchesTheSource(unittest.TestCase):
         src = read(MAIN)
         self.assertIn("for (j = 0u; j < V28_PLAN->count; j++)", src)
         self.assertNotIn("for (j = 1u;", src)
+
+
+class TheLastPhaseGetsItsOwnSyncpeEndEdge(unittest.TestCase):
+    """RUN 51 (Issue #131/#133/#135): validation_run's own log carries `SYNCPE p=3 edge=start` with
+    NO matching `edge=end` anywhere, for a run SYNCPH itself confirms reached phase 3 and ended it
+    `reason=complete` (the backstop, `GrammarMatchesTheSource` above). The cause: sweep is
+    validation_run's own LAST phase, and its own completion is detected in a SEPARATE, LATER block
+    of `live_step()` than the one `syncpe_edges()` is called from (sweep's own tick must run AFTER
+    that same pump slot's produce/step call, its own header comment) -- so a completion landing
+    there is never observed by that tick's earlier `syncpe_edges()` call, and once it makes the
+    walker `finished`, the block `syncpe_edges()` lives in is gated `!gbp_walker_finished(&walker)`
+    and never runs again. The domain data was never at risk (SYNCPH's own backstop has it), only
+    this one redundant edge-log line -- but every validation_run that ever finishes cleanly would
+    silently lose it, forever, without this fix. `syncpe_edges()` is idempotent by construction (its
+    own `syncpe_started_seen`/`syncpe_ended_seen` arrays), so a second call costs nothing."""
+
+    def sweep_tick_block(self, src):
+        i = src.index("/* sweep's own tick, AFTER the pump slot's produce/step call above")
+        j = src.index("if (!ai_started && gbp_aplay2_start_ready", i)
+        return src[i:j]
+
+    def test_syncpe_edges_is_called_again_right_after_sweep_s_own_phase_complete(self):
+        block = self.sweep_tick_block(read(MAIN))
+        m = re.search(r"gbp_walker_phase_complete\(&walker, now, tr\.active\);\s*(?:/\*.*?\*/\s*)*syncpe_edges\(\);",
+                      block, re.S)
+        self.assertIsNotNone(m, "sweep's own TICK_PHASE_COMPLETE branch does not call syncpe_edges() again "
+                              "immediately after gbp_walker_phase_complete() -- SYNCPE p=3 edge=end would "
+                              "silently never be written for any run that reaches sweep's own natural end")
+
+    def test_the_second_call_is_inside_the_phase_complete_branch_not_unconditional(self):
+        """A second syncpe_edges() call OUTSIDE the `if (f & ...PHASE_COMPLETE)` branch would run
+        every tick sweep is active, which is harmless (idempotent) but pointless work every frame;
+        the fix belongs exactly where the gap is, not spread wider than the defect."""
+        block = self.sweep_tick_block(read(MAIN))
+        i = block.index("if (f & GBP_V28_SWEEP_TICK_PHASE_COMPLETE)")
+        branch = block[i:]
+        self.assertIn("syncpe_edges();", branch)
+        # and NOT present before the branch even opens (a stray unconditional call earlier in the block)
+        before = block[:i]
+        self.assertNotIn("syncpe_edges();", before)
 
 
 if __name__ == "__main__":

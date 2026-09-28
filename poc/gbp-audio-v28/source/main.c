@@ -1145,7 +1145,25 @@ static void live_step(void)
         /* sweep's own tick, AFTER the pump slot's produce/step call above (see its header comment) */
         if (sync_started && !gbp_walker_finished(&walker) && gbp_walker_current_kind(&walker) == GBP_WALKER_SWEEP) {
             const int f = gbp_v28_sweep_tick(&sweep, &tr, &ap2, &adec2, now);
-            if (f & GBP_V28_SWEEP_TICK_PHASE_COMPLETE) (void)gbp_walker_phase_complete(&walker, now, tr.active);
+            if (f & GBP_V28_SWEEP_TICK_PHASE_COMPLETE) {
+                (void)gbp_walker_phase_complete(&walker, now, tr.active);
+                /* RUN 51 (Issue #131/#133/#135): sweep is validation_run's own LAST phase, and this
+                 * is the ONLY call site of its own completion, positioned AFTER this tick's own
+                 * earlier syncpe_edges() call (above, inside the sync_started/!finished block) --
+                 * so a completion landing HERE never got observed that same tick, and once it makes
+                 * the walker finished, that block's own `!gbp_walker_finished(&walker)` guard shuts
+                 * syncpe_edges() out forever after. The result: SYNCPE p=3 edge=end is silently
+                 * never printed for ANY validation_run that reaches sweep's own natural end -- RUN
+                 * 51's own raw log has the proof (SYNCPE p=3 edge=start with no matching end,
+                 * SYNCPH phase=3 ended=1 reason=complete with the real timestamps, since SYNCPH's
+                 * own post-run loop is a SEPARATE, unconditional walk that main.c's own comment
+                 * already calls "the backstop"). The domain data was never at risk -- only this one
+                 * redundant edge-log line was missing, every time, for every run that ever finishes
+                 * cleanly. syncpe_edges() is idempotent (its own syncpe_started_seen/
+                 * syncpe_ended_seen arrays), so calling it again here, immediately, costs nothing
+                 * and closes the gap for every future run. */
+                syncpe_edges();
+            }
         }
         /* Issue #131: gbp_aplay2_start_ready() -- never a literal >= 2u, which is unreachable at
          * AHEAD 1 by construction (gbp_aplay2.h's own comment on it). */
