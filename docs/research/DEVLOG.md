@@ -18996,3 +18996,95 @@ image's own claimed identity is checked against `git` directly — a build that 
 prints a hash is not evidence the source it claims to be built from is the source that produced it.
 The Operator's own step-7 check reads exactly this embedded commit string off the boot screen; had
 this gone uncaught, it would have passed his check while being the wrong build.
+
+## 2026-09-28 — Issue #131/#133: RUN 49's own `diag_3a_stall` separated all three surviving
+readings on the first try — no handler in `gbp-audio-v28` was ever started, and the AHEAD-1 DMA
+start gate was unreachable by construction; both fixed, with tests independently red per handler
+
+**RUN 49 executed** (build `v28-diag3a-0001`, slot `24-v28d`, ~2 minutes) and its own `V28DIAG`
+records at every phase edge answered the question `diag_3a_stall` was built to ask. All four
+records (navigate start/end, 3a start/end) show `ahead=1`, `target=8192` — the compile-time
+defaults — unchanged across the entire 60 s of 3a. `begin_refused=0` and `begin_pending_ticks=0`
+throughout.
+
+**Root cause, verified directly against source before writing any fix.** `gbp_v28_3a_start()` is
+never called anywhere in `main.c` — `grep -n "gbp_v28_3a_start" poc/gbp-audio-v28/source/main.c`
+returns nothing. `gbp_atrans2_begin()`'s own full body has exactly one refusal path (`t->active`);
+neither `target` nor `ahead` ever changed, so it was never entered, not refused. With
+`begin_pending` permanently 0, `gbp_v28_3a_tick()` falls through every call and returns 0 forever —
+no `DEPTH_DONE`, no `PHASE_COMPLETE`; the phase only ends via the walker's own 60 s cap.
+
+**Checking what a general version of the fix's own test would find, before writing it, turned up
+the same gap for `gbp_v28_sweep_start()` and `gbp_v28_nulling_start()`.** Confirmed by grepping
+every linked `.c` file, not just `main.c`: each of the three start functions is called only from
+its own unit tests (which correctly call it themselves, testing the algorithm, not the wiring) and
+never from real source. No handler in this POC was ever started.
+
+**Severity differs per handler, each read against a never-started (zero-init) struct:**
+- **3a: total freeze**, as above.
+- **Sweep: self-recovers after move 0.** `gbp_v28_sweep_tick()`'s own "not dwelling yet" branch
+  (`if (!s->dwelling) { if (t->active) return 0; ...dwelling=1... }`) does not require
+  `begin_pending` to have ever been true — it snapshots whatever chain state already exists and
+  dwells on it, skipping move 0's own `gbp_atrans2_begin()` call entirely. RUN 48's own `n=0`
+  record (`outcome=2 fail=1 residue=0`) is that artifact — **void as a domain result, not a real
+  sweep failure**, a second and independent reason beyond the play path handing silence.
+  `finalize_record()` sets `begin_pending=1` at the end of move 0's own processing regardless, so
+  moves 1–26 ran with a real `begin_pending` and are genuine diagnostic data.
+- **Nulling: silent, not a freeze — the worst of the three.** `gbp_v28_nulling_start()` sets
+  `n->rng = seed_in ? seed_in : 1u` before seeding; without it, `n->rng` stays 0, xorshift32's own
+  fixed point (`0` in, `0` out, forever). `_step()`/`_confirm()` have no "not started" gate, so a
+  never-started nulling still runs — every setting's lazy seed (`confirm()`'s own
+  `if (n->p2_index >= n->p2_seeded) seed(...)`) draws the SAME degenerate `(P2_LO, DEEPER)` pair,
+  never a real one, and setting 0 itself is worse: only `start()` ever seeds index 0, so it is
+  recorded with `p2_start==0` — not even a valid grid point. A perceptual run would complete and
+  look clean while `V28SEED` logs a seed (`sync_seed`, already computed from `live.t_press`,
+  already printed at teardown) that was never actually applied anywhere. Untested in any physical
+  run so far — `perceptual_no_phase1` was not part of this round.
+
+**Fixed** (`936e8ec`): the three missing `_start()` calls, at the same transition points every
+OTHER handler's own start already used (`navigate`→3a, `navigate`→nulling in `v28_control()`;
+3b→sweep at 3b's own `PHASE_COMPLETE`) — the pattern 3a→3b already established, generalised to the
+three that lacked it.
+
+**A second, independent defect, found while verifying the first:** the DMA start gate's own
+literal `adec2.count >= ap2.target && gbp_aplay2_ready(&ap2) >= 2u` is unreachable at AHEAD 1 by
+construction — `gbp_aplay2_ready()` can never exceed `p->ahead` (`produce_impl2()`'s own gate
+refuses a new chunk once `ready == ahead`), and `gbp-audio-sync`'s own AHEAD is always 4, so this
+never bit there. Fixed with a new, testable function, `gbp_aplay2_start_ready()`, deriving the
+cushion as `min(ahead, 2)`: the proven 2-chunk cushion at every AHEAD that can hold it, and the
+largest cushion achievable at AHEAD 1 — one chunk ready, so the first hand-off is never itself an
+underrun.
+
+**Tests, each independently red against current source before its own fix** (the three handler
+tests reproduce the bug directly, by construction; the gate test verified red via a sed-revert
+rebuild): `test_a_never_started_3a_records_nothing_however_long_it_is_driven`
+(`test_gbp_v28_3a.c`); `test_a_never_started_sweep_skips_move_0_s_own_begin_then_recovers`
+(`test_gbp_v28_sweep.c`, checking `tr.begun` at the exact tick move 0's own record finalizes);
+`test_a_never_started_nulling_draws_the_same_degenerate_setting_forever`
+(`test_gbp_v28_nulling.c`); `test_start_ready_at_ahead_1_needs_only_the_one_ready_chunk_it_can_ever_hold`
++ `test_ready_never_exceeds_ahead_whatever_the_feed_or_the_call_count` (`test_gbp_aplay2.c`).
+
+**The durable, structural guard against the whole class**:
+`TheHandlersAreStarted::test_every_handler_a_plan_uses_is_actually_started`
+(`tests/host/test_v28_plans.py`), driven from the shared plans table, with no exemption list — a
+plan or handler added later is checked the same way automatically. **This is the test shape that
+actually catches it, and the reason is worth keeping**: `tests/unit/test_v28_zero_feed_integration.c`'s
+own harness reproduced "main.c's own `DESCENT_3A` wiring call-for-call" and passed, because it
+called `start()` itself — modelling the wiring as INTENDED rather than as WRITTEN, the same shape
+as a test that agrees with the bug. Grepping the real `main.c`, which cannot be compiled or driven
+on the host, is what breaks that symmetry; it is the only way to check what `main.c` actually does.
+An exemption list here — recording "sweep and nulling are expected broken" — would have
+institutionalised the defect in the suite instead of fixing it, and would need someone later to
+remember why it existed at all in order to remove it.
+
+**Other modules checked for the same exposure** (every `_start`/`_init` the linked `SRCS`
+declare): all resolve correctly, most through `gbp_vstate_probe.c`'s own internal wiring (a
+higher-level wrapper `main.c` calls, not `main.c` directly), none missing.
+
+**Gate.** `make -C tests/unit`: 0 failures throughout. `pytest -q tests/host/`: 3402 passed, 7
+skipped, 0 failed. Both Docker builds (`diag_3a_stall`, `perceptual_no_phase1`, `validation_run`)
+confirmed clean, no new warnings.
+
+**Next.** Heavy review done; the fix goes back to hardware. Once reviewed, `validation_run`
+rebuilds, re-pins and re-stages `23-v28v`, and that re-run finally measures the AHEAD-1 hold with
+audio actually playing — which has never once happened in this project.
