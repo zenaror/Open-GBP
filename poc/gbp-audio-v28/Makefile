@@ -137,6 +137,7 @@ info: $(OUTDIR)/build-info.txt
 
 clean:
 	@echo clean ...
-	@rm -rf $(ROOT)/build/poc/$(APP_NAME)-validation_run $(ROOT)/build/poc/$(APP_NAME)-perceptual_no_phase1
+	@rm -rf $(ROOT)/build/poc/$(APP_NAME)-validation_run $(ROOT)/build/poc/$(APP_NAME)-perceptual_no_phase1 \
+	        $(ROOT)/build/poc/$(APP_NAME)-diag_3a_stall
 
 -include $(DEPS)
