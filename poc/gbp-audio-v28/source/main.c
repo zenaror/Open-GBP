@@ -42,13 +42,36 @@
  * v28_live_report() below. tests/host/test_v28_leak.py proves no NEVER field's name can appear in
  * the perceptual branch's own text.
  *
- * THE GX LABEL (§7's own paragraph) IS NOT BUILT IN THIS CHECKPOINT. It needs a text rasteriser
- * ("libogc2's 8x16 font") whose exact exported symbol this checkpoint could not verify without
- * guessing at a libogc2 internal -- CLAUDE.md §18's own rule against chaining an unverified
- * assumption into a hardware-bound build. The ownership/double-buffer/cost-counter machinery
- * (a second gbp_vpresent instance, released by the SAME draw-done token as the main quad) is a
- * separate, low-risk piece; deferred here to keep this checkpoint's own risk bounded and reported
- * precisely rather than shipped half-verified. See the DEVLOG entry for this round.
+ * THE GX LABEL (§7's own paragraph) IS BUILT. The earlier checkpoint's own probe tested the WRONG
+ * symbol (SYS_InitFont()/SYS_GetFontTexture(), which decode the IPL ROM's own font -- empty under
+ * this project's `--exec <dol>` Dolphin boot, which never loads an IPL, and says nothing about
+ * hardware). §7 names "libogc2's 8x16 font", which is `console_font_8x16` -- a plain DEFINED data
+ * symbol compiled INTO libogc2 itself (confirmed by `nm` over this image's own libogc.a), no IPL
+ * dependency at all, and the SAME data CON_Init's own console already renders legible text from in
+ * every prior Dolphin screenshot. Its layout (`extern u8 console_font_8x16[]`, one glyph every 16
+ * bytes at `console_font_8x16[c * 16]`, one byte per row, bit 0x80 the leftmost pixel) is
+ * `external/libogc2`'s own `libogc/console.c:87,130` and `libogc/console.h`'s `FONT_XSIZE 8` /
+ * `FONT_YSIZE 16` -- and, since this image's own libogc2 (r2442.094b250) predates that checkout
+ * (ca03fb7) and cannot be diffed directly, VERIFIED ON THE BYTES: `objdump -s` on the image's own
+ * compiled `console_font_8x16.o` (extracted from `$DEVKITPRO/libogc2/gamecube/lib/libogc.a`) matches
+ * `external/libogc2`'s own source array byte-for-byte at glyphs 'A' (0x410), '0' (0x300) and ':'
+ * (0x3a0) -- the exact three the Orchestrator asked to spot-check.
+ *
+ * Rendered into a private, purpose-built 256x16 RGB5A3 double buffer (`label_tex[2]`), NOT a second
+ * `gbp_vpresent` instance: that module's own state machine is coupled to XFB target selection
+ * (`gbp_vpresent_xfb_target()`), which has no meaning for a texture-only label, so reusing it would
+ * be a mismatch, not a simplification. Both the label's own texture and the main quad's are always
+ * drawn in the SAME GX command batch and released by the SAME single draw-done token
+ * (`gbp_vpresent.c:103-143`'s own one-token rule) -- `label_render()` only ever writes the buffer
+ * NOT currently bound (`label_cur`), so there is never a write racing the GP's own read of the one
+ * currently in flight. Re-rendered only when the label's own text differs from what is already
+ * shown (`label_shown`), never every call. Opaque black background (`0x8000`), opaque white glyphs
+ * (`0xFFFF`) -- no blend-mode change needed, since `GX_SetTevOp(..., GX_REPLACE)` already governs
+ * both quads identically. Its own cost (this checkpoint's whole label block, in the SAME pump slot
+ * the validation run measures the AHEAD margin's own refill cost in) is tracked in `label_ticks_max`/
+ * `label_renders`, reported the same bounded, SD-only way every other counter in this file is.
+ * The label's own TEXT obeys the SAME leak rules as the rest of the screen (`v28_label_text()`,
+ * right beside `v28_screen_report()`/`v28_live_report()`, the identical plan-conditional split).
  *
  * SYNCPE, THE PHASE-EDGE GRAMMAR (§7): `SYNCPE p=<n> edge=<start|end> t=<tick> why=<reason>`,
  * `why` one of `none` (a start edge; also an end edge this build could not otherwise classify),
@@ -215,6 +238,58 @@ static uint16_t tex_buf[PLAY_TEX_BUFFERS][GBP_VPIX_TEX_BYTES / 2u] ATTRIBUTE_ALI
 static struct gbp_vpresent present;
 static GXTexObj tex_obj;
 
+/* ---- the GX label (Issue #128 §7): a private double buffer, released by the SAME draw-done token
+ * as the main quad -- see the file header's own comment for why this is not a second gbp_vpresent
+ * instance. libogc2's own 8x16 font (libogc/console.c:87, verified on this image's own bytes,
+ * see the header). */
+extern u8 console_font_8x16[];
+#define GBP_V28_LABEL_W       256u
+#define GBP_V28_LABEL_H        16u
+#define GBP_V28_LABEL_CHARS   (GBP_V28_LABEL_W / 8u)   /* 32, an 8-pixel-wide glyph each */
+#define GBP_V28_LABEL_BG   0x8000u   /* opaque (bit15) RGB555 black */
+#define GBP_V28_LABEL_FG   0xFFFFu   /* opaque (bit15) RGB555 white */
+static uint16_t label_tex[2][GBP_V28_LABEL_W * GBP_V28_LABEL_H] ATTRIBUTE_ALIGN(32);   /* 2 x 8192 B */
+static GXTexObj label_tex_obj;
+static uint32_t label_cur;                        /* which of label_tex[2] is bound/submitted now */
+static char label_shown[GBP_V28_LABEL_CHARS + 1];  /* the text label_tex[label_cur] actually holds */
+static uint32_t label_renders;                     /* re-renders (text actually changed), not calls */
+static uint32_t label_ticks_last, label_ticks_max; /* this checkpoint's own cost, in the pump slot */
+
+_Static_assert(GBP_V28_LABEL_W * GBP_V28_LABEL_H * 2u == 8192u, "one label buffer is 8192 B (16384 B, both)");
+
+/* GX_TF_RGB5A3 is NOT raster order: 4x4-texel tiles, left to right then top to bottom, the four
+ * rows of a tile consecutive (src/gbp/gbp_vpix.c's own gbp_vpix_tile_index(), the same permutation,
+ * parameterised by this label's own width instead of GBP_VPIX_WIDTH -- found the hard way, on a
+ * screenshot: a flat `dst[y*W+x]` write renders as shuffled 4x4 blocks, not text). */
+static size_t label_tile_index(uint32_t x, uint32_t y)
+{
+    const uint32_t tiles_x = GBP_V28_LABEL_W / 4u;
+    const uint32_t tx = x / 4u, ty = y / 4u, ix = x % 4u, iy = y % 4u;
+    const size_t tile = (size_t)ty * tiles_x + tx;
+    return tile * 16u + (size_t)iy * 4u + ix;
+}
+
+/* Renders `text` (at most GBP_V28_LABEL_CHARS characters, silently truncated beyond that -- the
+ * label is a bounded fixed-width strip, not a scroll) into `label_tex[buf]`. One byte per glyph row
+ * (console_font_8x16[c * 16 + row]), bit 0x80 the LEFTMOST pixel (libogc/console.c:139-160's own
+ * FONT_XSIZE==8 case). Opaque background first, so a shorter string does not show the PREVIOUS
+ * frame's own trailing glyphs -- a flat fill needs no tile mapping, every element gets the same
+ * value regardless of order. */
+static void label_render(uint32_t buf, const char *text)
+{
+    uint32_t x, y, i;
+    uint16_t *dst = label_tex[buf];
+    for (i = 0; i < GBP_V28_LABEL_W * GBP_V28_LABEL_H; i++) dst[i] = GBP_V28_LABEL_BG;
+    for (i = 0; text[i] != '\0' && i < GBP_V28_LABEL_CHARS; i++) {
+        const uint8_t *glyph = &console_font_8x16[(uint32_t)(uint8_t)text[i] * 16u];
+        for (y = 0; y < 16u; y++) {
+            const uint8_t row = glyph[y];
+            for (x = 0; x < 8u; x++)
+                if (row & (0x80u >> x)) dst[label_tile_index(i * 8u + x, y)] = GBP_V28_LABEL_FG;
+        }
+    }
+}
+
 _Static_assert(GBP_VPIX_TEX_BYTES % 32u == 0u, "texture size must be cache-line aligned");
 _Static_assert(GBP_VPIX_TEX_BYTES == 240u * 160u * 2u, "texture is 240x160 16-bit");
 _Static_assert(GBP_VPIX_FRAME_BYTES == 40u * 0xF00u, "a frame is 40 blocks of 0xF00");
@@ -363,8 +438,26 @@ static void draw_quad(void)
     GX_End();
 }
 
+/* The label's own quad: top-centre of the black border, well clear of the 240x160 game quad
+ * draw_quad() above centres (border height on each side is (efbHeight-160)/2, comfortably >16px
+ * at every mode this project targets). */
+static void draw_label_quad(void)
+{
+    const f32 w = (f32)GBP_V28_LABEL_W, h = (f32)GBP_V28_LABEL_H;
+    const f32 x0 = ((f32)rmode->fbWidth - w) * 0.5f;
+    const f32 y0 = 8.0f;
+
+    GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+        GX_Position2f32(x0,     y0);     GX_TexCoord2f32(0.0f, 0.0f);
+        GX_Position2f32(x0 + w, y0);     GX_TexCoord2f32(1.0f, 0.0f);
+        GX_Position2f32(x0 + w, y0 + h); GX_TexCoord2f32(1.0f, 1.0f);
+        GX_Position2f32(x0,     y0 + h); GX_TexCoord2f32(0.0f, 1.0f);
+    GX_End();
+}
+
 static void submit_ready(int buf, struct gbp_vqueue *account);
 static void offer_oldest_ready(void);
+static void v28_label_text(char *out, size_t cap, uint64_t now);
 
 static uint32_t selftest_headless;
 
@@ -987,14 +1080,13 @@ static void pump(void *user)
     offer_oldest_ready();
 }
 
-/* ---- GX LABEL: NOT BUILT THIS CHECKPOINT (see the file header). submit_ready() below draws only
- * the ONE quad it always drew; the second quad's own draw call slots in exactly where the header
- * comment says (between draw_quad() and GX_SetDrawDone()), released by the SAME token, once its
- * own text rasteriser is verified against the real libogc2 headers rather than guessed. */
+/* ---- GX LABEL (Issue #128 §7) -- see the file header for the design and its own evidence. */
 static void submit_ready(int buf, struct gbp_vqueue *account)
 {
     int xfb, cur;
     uint64_t t_dec;
+    uint32_t t0, t1;
+    char wanted[GBP_V28_LABEL_CHARS + 1];
 
     cur = xfb_current_index();
     t_dec = gettime();
@@ -1012,6 +1104,31 @@ static void submit_ready(int buf, struct gbp_vqueue *account)
     GX_InitTexObjFilterMode(&tex_obj, GX_NEAR, GX_NEAR);
     GX_LoadTexObj(&tex_obj, GX_TEXMAP0);
     draw_quad();
+
+    /* the label: same GX batch, same single draw-done token as the main quad above (see the file
+     * header) -- ticks counted around this whole block, the cost §7 asks to measure in this slot */
+    t0 = (uint32_t)gettick();
+    v28_label_text(wanted, sizeof wanted, t_dec);
+    if (strncmp(wanted, label_shown, sizeof label_shown) != 0) {
+        /* the OTHER buffer: label_cur is still bound to whatever the GP may still be reading until
+         * THIS call's own draw-done fires -- never rewritten here */
+        const uint32_t next = label_cur ^ 1u;
+        label_render(next, wanted);
+        DCFlushRange(label_tex[next], sizeof label_tex[next]);
+        strncpy(label_shown, wanted, sizeof label_shown - 1u);
+        label_shown[sizeof label_shown - 1u] = '\0';
+        label_cur = next;
+        label_renders++;
+    }
+    GX_InitTexObj(&label_tex_obj, label_tex[label_cur], GBP_V28_LABEL_W, GBP_V28_LABEL_H,
+                  GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
+    GX_InitTexObjFilterMode(&label_tex_obj, GX_NEAR, GX_NEAR);
+    GX_LoadTexObj(&label_tex_obj, GX_TEXMAP0);
+    draw_label_quad();
+    t1 = (uint32_t)gettick();
+    label_ticks_last = t1 - t0;
+    if (label_ticks_last > label_ticks_max) label_ticks_max = label_ticks_last;
+
     GX_SetDrawDone();
 
     GX_CopyDisp(xfb_stream_buf[xfb], GX_TRUE);
@@ -1081,6 +1198,24 @@ static void v28_live_report(void)
              (unsigned long)V28_PLAN->count, gbp_walker_finished(&walker));
 #endif
     gecko_puts(line);
+}
+
+/* The GX label's own text: the SAME plan-conditional split as the two functions just above --
+ * never a TARGET/AHEAD figure or anything from atrans2/aplay2/adec2 in the perceptual build, only
+ * the phase name, the SAFE "setting k", and a clock (elapsed seconds since the origin -- a raw tick
+ * count would not be legible on a 16-pixel-tall strip). */
+static void v28_label_text(char *out, size_t cap, uint64_t now)
+{
+    const uint32_t elapsed_s = live.tb_hz ? (uint32_t)((now - walker.t_origin) / live.tb_hz) : 0u;
+#if defined(GBP_V28_PLAN_PERCEPTUAL)
+    if (gbp_walker_current_kind(&walker) == GBP_WALKER_NULLING)
+        snprintf(out, cap, "NULL SET %lu %lus", (unsigned long)nulling.settings_n, (unsigned long)elapsed_s);
+    else
+        snprintf(out, cap, "PHASE 0 %lus", (unsigned long)elapsed_s);
+#else
+    snprintf(out, cap, "P%lu/%lu %s %lus", (unsigned long)walker.index + 1u, (unsigned long)V28_PLAN->count,
+             gbp_walker_finished(&walker) ? "DONE" : "RUN", (unsigned long)elapsed_s);
+#endif
 }
 
 static uint64_t t_video_ready, t_selftest_begin, t_selftest_end, t_probe_enter;
@@ -1302,6 +1437,10 @@ int main(void)
                        (unsigned long)(corr_n ? corr_min : 0u), (unsigned long)corr_max,
                        (unsigned long)(corr_n ? (unsigned long)((corr_sum * 100u) / corr_n) : 0u),
                        (unsigned long)CORR_CAP);
+        /* the label's own cost, in the SAME pump slot as the AHEAD-margin refill (Issue #128 §7) */
+        ringlog_printf(&rl, "V28LABEL renders=%lu ticks_last=%lu ticks_max=%lu",
+                       (unsigned long)label_renders, (unsigned long)label_ticks_last,
+                       (unsigned long)label_ticks_max);
 #if defined(GBP_V28_PLAN_VALIDATION)
         for (j = 0u; j < s3a.depths_n && j < GBP_V28_3A_DEPTH_CAP; j++) {
             const struct gbp_v28_3a_depth *d = gbp_v28_3a_depth_record(&s3a, j);
