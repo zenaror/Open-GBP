@@ -18046,3 +18046,62 @@ perceptual ladder, or a design fix -- e.g. extra margin for any step landing at 
 `test_v28_ahead_steps.c` native-path matrix port, still a named pre-staging item; the main.c zero-feed
 integration test (§18's own named successor, Issue #129); `SYNCPE` emission, the GX label, Amendment C's
 O6-leak drop and the two-image build, all still waiting on that same `main.c` to exist.
+
+## 2026-09-27 — Issue #129/#130 continued: entry 6's own underrun closed at its exact cause; a second, narrower
+## one found at gbp_v28_3b's own anchor
+
+**Diagnosed before fixing, per the Orchestrator's own instruction.** A steady 60 s hold at entry 6's own
+destination (T256, AHEAD 1), primed with a long settle rather than through the cascade: 0 underruns, the same
+recurring tuple every period right after the hand-off (`ready == ahead - 1`, `cur == -1`, ring at target) --
+not infeasible. The residue matrix's own last-natural-rotation-start measurement: every one of 320 combinations
+has a positive margin (worst +2); entry 6's own real cascade measured exactly margin 0 -- classification (a),
+rule-limited, confirming `GBP_V28_STEP_MUTE` itself never needed to change.
+
+**Three separate causes, found in sequence, each verified before moving to the next:**
+
+1. **One definition of "still muted".** `gbp_aplay2_irq_handoff()` checks-then-decrements `p->mute` (the
+   pre-decrement value decides mute-vs-play), so `p->mute` used to read 0 already on the transition's own LAST
+   silent hand-off -- one whole period before `gbp_atrans2`'s own aim-cycle gate and
+   `gbp_aplay2_drop_front()`'s own guard, which both read the SAME field, ever saw it. A period-level gate
+   fixing only the reader in `gbp_atrans2` made the two disagree for the first time (a produce+rotate cycle
+   firing where `drop_front()` still, correctly, refused the drop -- an uncompensated rotation that ate a
+   climbing transition's own tight ring intake). `mute_carry` (`gbp_aplay2.c`/`.h`) defers the decrement to the
+   START of the following call instead, so `mute` reads correctly through the WHOLE hand-off it describes --
+   one consistent value, both readers agree again automatically.
+2. **Exact rotation-start arithmetic.** `gbp_atrans2` tracks `calls_in_period`/`handed_last` and only starts a
+   NEW rotation if the calls left before the landing check are at least `GBP_ATRANS2_CALLS_PER_HANDOFF` --
+   arithmetic over this module's own accounting, not a tuned bound, not conditional on AHEAD or direction. A
+   coarser `handed < t->mute` gate also closes the climb shortfall, but it is not exact: it refuses entry 6's
+   own margin-0 start too, reopening its underrun to close the climbs'.
+3. **The landing call recovers its own production slot.** Even with (1) and (2), entry 6 still underran. Traced
+   to the exact call: the call that finishes a transition (`handed > t->mute`) is dispatched by the caller's
+   own `if (t->active) step() else produce()` -- so THAT call never reaches `gbp_aplay2_produce()`, unlike
+   every steady-state call, which always does. A fresh chunk's rebuild therefore always starts one call later
+   than steady state's own rhythm. AHEAD >= 2 absorbs the one-call delay with its own spare queued chunks
+   (`ahead - 1 >= 1`); AHEAD 1's floor is 0, so the identical one-call-late rebuild finishes one call short
+   exactly when the next hand-off needs it. `step_rotate2()`'s landing branch now attempts one ordinary,
+   corrected `gbp_aplay2_produce()` call before returning, recovering the slot the caller's own dispatch would
+   otherwise waste.
+
+**Proof (commit `e6ab0f7`).** Residue matrix: 0/1280, every landing at residue = 0 exactly (not merely within
+band -- the "late" class is gone along with the shortfall). `drop_front()`'s own safety property (never drops
+on an audible hand-off), proven directly rather than assumed: 0 violations over 320 driven transitions, with
+and without these fixes. Entry 6's own 60 s hold: 0 underruns (was 1). `tests/unit/test_gbp_v28_sweep.c`
+updated to assert all 27 entries PASS instead of entry 6's own hardcoded FAIL -- confirmed RED on the reverted
+code (2 failures) and GREEN on the fix (0), per the Orchestrator's own requirement that the test prove the
+regression before proving the repair. Full gate: `pytest -q tests/host` 3322/7 skipped/0 failed; `make -C
+tests/unit` all green.
+
+**Left OPEN, a DIFFERENT and narrower cause, not this round's own mechanism.** `gbp_v28_3b`'s own entry step
+(AHEAD 4 -> 1 at 3a's own confirmed anchor) still shows 1 underrun in a 60 s hold. It anchors at
+`GBP_V28_P3_MIN` (2048), exactly `GBP_APLAY2_PUSHES` -- the ring trim correctly lands it AT target, nothing to
+spare, but `gbp_aplay2_produce()`'s own starvation guard needs `d->count >= GBP_APLAY2_PUSHES + 1` to start a
+chunk at all -- one sample the trim cannot supply, regardless of timing. Not fixed here; the Orchestrator's own
+read is that this is not rare (3b's own anchor lands there by design, every time) and needs its own fix, not a
+special case for 2048 -- under investigation as its own, separate cause.
+
+**Next.** Find the exact first divergence between 3b's own landing (at P3_MIN) and steady state at the same
+target -- both land with the identical (ready, cur, ring) tuple, yet only one underruns, so the tuple itself is
+missing a state variable; the Orchestrator's own candidates are the call's own position within the period and
+what feed arrives before the next production attempt. Then close it with the same discipline: named cause,
+fixed at its own call, proven red-before/green-after.
