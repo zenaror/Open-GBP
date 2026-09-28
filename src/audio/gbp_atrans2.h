@@ -75,6 +75,30 @@
  * timing, and not conditional on AHEAD or direction (#122 section 1(c), quoted in #128 section 3).
  * An ALREADY-rotating chunk (`t->rotating`, checked first, always ungated) is unaffected -- this
  * only decides whether a NEW one may start.
+ *
+ * THE LAST PERIOD'S ROTATION IS TAKEN ONLY FROM A RING AT TARGET + GBP_ATRANS2_LAST_MARGIN (GitHub Issue
+ * #136, RUN 52's own measurement): a rotation subtracts a whole chunk, and in the last period the
+ * period's own inflow refills it to where the ring stood when the period began -- so the ring at the
+ * landing IS the ring at the start of that last period (less the landing recovery's 128 and whatever a
+ * late first call costs), whatever level that happens to be. The landing trim only cuts; nothing in this
+ * module can add a sample. Four GATE-and-INFO moves of RUN 52's sweep landed 792-875 samples short of
+ * target for that reason and stayed short (three GATE, two INFO in that range; two more INFO, 324 and
+ * 393). Before this change the last period's aim was target - GBP_ATRANS2_AIM (rotate from almost any
+ * ring). Now, from a ring below target + LAST_MARGIN the rotation is skipped, the period's inflow lifts
+ * the ring past target, and the trim cuts it back to exactly target.
+ *
+ * WHAT THIS COSTS, AND WHAT IT DOES NOT FIX (measured by review, Issue #136): the trim is larger. On the
+ * model at the hardware's 125 calls a period, the landing trim's mean is about 1300-1650 samples (was
+ * 40-250; 88 % of old landings trimmed nothing), at most about 2400. And it is NOT masked: the landing
+ * runs after the first audible hand-off (handed == mute + 1, p->mute == 0), READY holds ahead-1 chunks
+ * built before the cut, so the splice it makes falls about `ahead` chunks (31.25 ms each) after the mute
+ * ends and skips 20-30 ms of content. The claims elsewhere in this file that the trim is masked were
+ * never checked against the hardware, whose trim size was not logged before RUN 53 (`trim=` in
+ * V28_SWEEPM). The sweep's own gate cannot see a splice (UNMASKED needs a begin discard, the sweep passes
+ * none). Removing it needs the level set in silence at least `ahead` rotations before the landing, a
+ * redesign, not this change. Not visible to any host test before Issue #136: they feed the ring exactly
+ * the DMA's rate at 16 calls per period, where the ring at every period start is target
+ * (tests/unit/test_v28_sweep_landing.c is the hardware's cadence and feed).
  */
 #ifndef OPENGBP_GBP_ATRANS2_H
 #define OPENGBP_GBP_ATRANS2_H
@@ -90,6 +114,9 @@ extern "C" {
 enum gbp_atrans2_mode { GBP_ATRANS2_UNMUTED = 0, GBP_ATRANS2_HELD = 1, GBP_ATRANS2_ROTATE = 2 };
 
 #define GBP_ATRANS2_AIM (GBP_APLAY2_PUSHES / 2u)
+
+/* Issue #136: the last period's rotation starts only from target + this; see the paragraph above. */
+#define GBP_ATRANS2_LAST_MARGIN (GBP_APLAY2_BAND * 2u)
 
 /* gbp_atrans2_step() calls a full hand-off period holds under the default per-call cadence
  * (GBP_APLAY2_STEP_PUSHES, unhooked -- see gbp_aplay2.h's own step_pushes hook, not used by any
