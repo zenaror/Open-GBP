@@ -1,0 +1,101 @@
+"""tests/host/test_v28_syncpe.py -- GitHub Issue #128 section 7 / #129/#130: the SYNCPE/SYNCPH
+phase-edge grammar round-trips through tools/v28syncpe.py, and the exact format strings this test
+pins are the ones poc/gbp-audio-v28/source/main.c actually emits (so the ingestion side and the
+console side cannot drift apart silently, the same discipline test_sync_image.py's own
+`test_the_SD_records_carry_what_the_builder_reads` uses for sync-0001).
+"""
+import os
+import sys
+import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import v28syncpe  # noqa: E402
+
+MAIN = os.path.join(ROOT, "poc", "gbp-audio-v28", "source", "main.c")
+
+
+def read(p):
+    with open(p, encoding="utf-8") as f:
+        return f.read()
+
+
+class RoundTrip(unittest.TestCase):
+    def test_syncpe_start_edge(self):
+        line = "000123 SYNCPE p=0 edge=start t=1a2b3c why=none"
+        r = v28syncpe.parse_syncpe(line)
+        self.assertEqual(r, {"p": 0, "edge": "start", "t": 0x1a2b3c, "why": "none"})
+
+    def test_syncpe_end_edge_every_why_value(self):
+        for why in v28syncpe.WHY_VALUES:
+            line = "SYNCPE p=3 edge=end t=ffff why=%s" % why
+            r = v28syncpe.parse_syncpe(line)
+            self.assertEqual(r["p"], 3)
+            self.assertEqual(r["edge"], "end")
+            self.assertEqual(r["t"], 0xffff)
+            self.assertEqual(r["why"], why)
+
+    def test_syncph_summary_line(self):
+        line = "SYNCPH phase=2 t_start=100 t_end=200 ended=1 reason=complete"
+        r = v28syncpe.parse_syncph(line)
+        self.assertEqual(r, {"phase": 2, "t_start": 0x100, "t_end": 0x200, "ended": True, "reason": "complete"})
+
+    def test_syncph_unended_phase_reads_ended_false(self):
+        line = "SYNCPH phase=1 t_start=100 t_end=0 ended=0 reason=probe"
+        r = v28syncpe.parse_syncph(line)
+        self.assertFalse(r["ended"])
+        self.assertEqual(r["reason"], "probe")
+
+    def test_a_non_matching_line_is_none(self):
+        self.assertIsNone(v28syncpe.parse_syncpe("SYNCPH phase=0 t_start=0 t_end=0 ended=0 reason=none"))
+        self.assertIsNone(v28syncpe.parse_syncph("SYNCPE p=0 edge=start t=0 why=none"))
+        self.assertIsNone(v28syncpe.parse_syncpe("KEYLOG events=1"))
+
+    def test_parse_mixed_log_in_order(self):
+        text = "\n".join([
+            "000001 IDENT test=x",
+            "000002 SYNCPE p=0 edge=start t=10 why=none",
+            "000003 SYNCPE p=0 edge=end t=20 why=complete",
+            "000004 SYNCPH phase=0 t_start=10 t_end=20 ended=1 reason=complete",
+        ])
+        recs = v28syncpe.parse(text)
+        self.assertEqual([r["kind"] for r in recs], ["SYNCPE", "SYNCPE", "SYNCPH"])
+        self.assertEqual(recs[0]["edge"], "start")
+        self.assertEqual(recs[1]["why"], "complete")
+        self.assertEqual(recs[2]["reason"], "complete")
+
+    def test_a_full_round_trip_preserves_every_field(self):
+        """format (Python's %x stands in for ringlog_printf's own C %llx -- same hex text, no
+        leading 0x, which is all the parser reads) -> parse -> the same fields back out."""
+        formatted = "SYNCPE p=%u edge=%s t=%x why=%s" % (5, "end", 0xdeadbeef, "cap")
+        r = v28syncpe.parse_syncpe(formatted)
+        self.assertEqual(r, {"p": 5, "edge": "end", "t": 0xdeadbeef, "why": "cap"})
+
+
+class GrammarMatchesTheSource(unittest.TestCase):
+    """The format strings this parser is built against are the ones main.c actually writes."""
+
+    def test_syncpe_format_strings_present(self):
+        src = read(MAIN)
+        self.assertIn('"SYNCPE p=%lu edge=start t=%llx why=none"', src)
+        self.assertIn('"SYNCPE p=%lu edge=end t=%llx why=%s"', src)
+
+    def test_syncph_format_string_present(self):
+        src = read(MAIN)
+        self.assertIn('"SYNCPH phase=%lu t_start=%llx t_end=%llx ended=%u reason=%s"', src)
+
+    def test_why_values_match_syncpe_why(self):
+        src = read(MAIN)
+        for why in v28syncpe.WHY_VALUES:
+            self.assertIn('"%s"' % why, src, "syncpe_why()/the backstop must be able to emit %r" % why)
+
+    def test_the_backstop_loop_starts_at_phase_zero(self):
+        """sync-0001's own bug (Issue #128 section 7): its SYNCPH loop started at j=1u. Not repeated here."""
+        src = read(MAIN)
+        self.assertIn("for (j = 0u; j < V28_PLAN->count; j++)", src)
+        self.assertNotIn("for (j = 1u;", src)
+
+
+if __name__ == "__main__":
+    unittest.main()
