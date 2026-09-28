@@ -11546,3 +11546,60 @@ grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
 
 A later recount appends its own entry here, at the end of the file, under the next free
 `GBP-HW-` number — never inside `GBP-HW-272` or any earlier continuation again.
+
+---
+
+### GBP-HW-356 — RUN 51's first physical measurement of §V28: the 3a floor bracket lo 2304 / hi 2336 native repeats RUN 50's exactly — CORROBORATED (two boots, one console); AHEAD 1 at the T256 anchor held 60.0 s with no underrun — FACT of this run, CORROBORATED only for the narrow claim (16-tap chain, T256, this cartridge and scene); `GBP-HW-351`'s reversal condition FIRED and its consequence is NOT established (the run measured no underrun, not margin); the sweep FAILS 8 of 18 GATE moves on a working audio path, cause UNKNOWN (Issue #131/#133/#135) — the Executor's own proposal, for the Orchestrator to ratify
+
+**Source.** `logs/run51/GBP-AUDIO-V28_v28-validation-0001.log`, sha256
+`f8a40d11e39b4aec4130adce6641913db223565eb37a30320d5334319f3e3435`, 99 675 B, commit `1f77bc4`,
+769 lines, `dropped=0 truncated=0`, read through `tools/v28verdict.py`; the full record, tables and
+tool output are `HARDWARE_TESTS.md` §V28.7. RUN 50's bracket is `HARDWARE_TESTS.md` §V28.5.
+
+**Classified separately, because the run supports them to different degrees.**
+
+- **FACT of this run (a record, scoped).** Every `V28_3A`/`V28_3B`/`V28_SWEEP` row and `V28C*`
+  counter in that log, at that hash. Nothing more is claimed by this grade.
+- **CORROBORATED: the 3a floor bracket.** Highest failing 2304 native, lowest holding 2336 native
+  (35.16 / 35.64 ms), width 32 native (0.49 ms). RUN 50 and RUN 51 are two separate boots and two
+  complete descents on one console, one Game Boy Player and one cartridge, and agree exactly at the
+  bisection width. RUN 51 also confirms 2304 fails under a full 60 s hold (`underruns=33 dup=9`).
+  Not FACT: one rig, and the scene was not controlled between the two runs. The same grade the
+  project gave repeated single-rig measurements before (`GBP-HW-341`, D = 12 of 12).
+- **FACT of this run, CORROBORATED only when narrow: the AHEAD-1 hold.** `V28_3B ahead=1
+  anchor=4096 underrun_seen=0 partial=0`, 60.0 s, one record, no AHEAD-2 escalation. As a
+  statement about AHEAD 1 in general it is a HYPOTHESIS supported by one window. The narrow claim
+  "16-tap chain, T256, AHEAD 1, this cartridge and this passage: no underrun in 60 s, rate bounded
+  below 0.05/s at 95 % (#128 §2's rule of three, valid for a stationary process)" is
+  CORROBORATED, because `GBP-HW-350`/`351`'s model (INFERENCE over measured anchors) independently
+  has AHEAD 1 keeping margin at 16 taps and the direct hold agrees with it.
+- **`GBP-HW-351`: reversal condition FIRED, recorded, not acted on (#128 Amendment B); its
+  consequence NOT established; 351's own status is left unchanged.** The frozen rule (#131: anchor
+  source `rule` at T256 and a clean 60 s AHEAD-1 hold) is met. 351's own words are "AHEAD 1 with
+  margin to spare"; the run records whether an underrun occurred and carries no margin figure (the
+  log has none). `GBP-HW-350` puts AHEAD 1 at 32 taps in stereo at 1.3 to 8.7 ms on the largest
+  measured refill and calls it not a safe rung. The hold fits both readings; a margin measurement
+  or a 32-tap hold chooses between them.
+- **The anchor at T256 is not a confirmation.** `gbp_v28_anchor()` returns T256 for every floor up
+  to 4096 native (`src/audio/gbp_v28_ladder.h:241`) and the floor is 2336; the result means "the
+  floor lies below the lowest rung", not that the rule reproduced #128 §3.
+- **FACT of this run: the sweep verdict is FAIL** (`V28_SWEEP_VERDICT v=2`), 8 of 18 GATE moves,
+  all `fail_reason=1` (OUT_OF_BAND) with negative residue -204 to -2623; ten of 27 moves fail
+  counting the two INFO rows (n=20, n=23). Every passing move lands at residue exactly +128. **Its
+  cause is UNKNOWN.** `U-GBP-047`/`U-GBP-048` are untouched; the perceptual run is not authorised.
+- **OPERATOR OBSERVATION (not evidence of a mechanism):** "Na p4 está dando umas engasgadinhas"
+  (`p4` = the sweep), and that he held a steady musical passage on purpose. Kept beside the
+  counters, not absorbed into them.
+
+**What it does NOT establish.** Audibility of anything; that AHEAD 1 is safe at a 32-tap chain, in
+stereo, at any other rung, with another cartridge or scene, or for longer than 60 s; that the floor
+is the same on another console or Game Boy Player; the cause of any sweep failure; that the sweep's
+failing moves are one failure and not several (n=17's residue, -204, is smaller than the 256
+`GBP_APLAY2_BAND`; if residue tracks the ring's shortfall, n=17 cannot fail the undershoot test and
+must fail the READY/AHEAD test, which the diagnosis has to check, not assume).
+
+**Two tool/logging defects found while ingesting, fixed forward, neither changes a figure above:**
+`tools/v28verdict.py` counted `ring_discarded` as a loss (it is an intentional drop count), and
+`main.c` never wrote the last phase's `SYNCPE end` line (commit `56c7777`; the `23-v28v` DOL that
+ran RUN 51 does not contain the second fix and no rebuild has been done). One observation, not a
+fix: `gbp_v28_3a_underrun_observed()` has no caller, so 3a's 60 s confirm always runs whole.

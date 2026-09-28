@@ -19309,3 +19309,46 @@ entry reports.
 **Next.** Evidence-status proposal for `GBP-HW-351`/the AHEAD-1 hold and the ladder's own figures
 (the Executor's own case, not quoted from the Orchestrator); then the sweep's own negative-residue
 diagnosis, a separate investigation.
+
+## 2026-09-28 — Issue #131/#133/#135: RUN 51 ingested (`HARDWARE_TESTS.md` §V28.7, `GBP-HW-356`)
+
+**Goal.** Ingest RUN 51 in its own checkpoint through `tools/v28verdict.py`, then make the Executor's
+own evidence-status case for the AHEAD-1 hold, `GBP-HW-351` and the ladder figures.
+
+**Done.** Raw log hashed and matched to the archived copy; the tool run twice (as frozen at
+`14ffca6`, and at `56c7777`), output kept byte-for-byte, the two outputs differing by exactly the
+`ring_discarded` line. §V28.7 records the declaration verbatim, the 3a/3b/sweep rows, and the
+counters. `GBP-HW-356` carries the classifications.
+
+**What the ingestion showed beyond the headline.**
+
+- The tool's `3A: lowest holding depth 2304 ... underrun=33` line is the frozen gate's own reading
+  (the confirm record's target and its clean/underrun tag), but the label misleads: 2304 is the
+  highest FAILING depth. The lowest holding depth is 2336 (`hi`, `n=12`). Not edited (a label change
+  to a gate line after the data); proposed forward-only.
+- `gbp_v28_3a_underrun_observed()` has no caller: the confirm never ends at its first underrun. No
+  gate moves. Recorded, not fixed.
+- The anchor coming out at T256 is not an independent re-derivation: the rule returns T256 for any
+  floor up to 4096 native and the floor is 2336.
+- The log carries no margin figure at all. The AHEAD-1 hold says an underrun did not occur, not by
+  how much. `GBP-HW-351`'s reversal condition fired on its frozen rule, but 351's own words are
+  "margin to spare" and `GBP-HW-350` puts a 32-tap stereo AHEAD 1 at 1.3 to 8.7 ms; the hold is
+  compatible with both, so its consequence is not established.
+- Sweep table: ten of 27 moves fail (eight GATE, two INFO), the residue is bimodal (+128 exactly on
+  every pass, -204 to -2623 on every fail), and the failures do not sort by direction, jump size or
+  AHEAD.
+
+**Statuses proposed (Executor's own; the Orchestrator ratifies).** 3a bracket CORROBORATED (RUN 50 and
+RUN 51 agree exactly, one rig); AHEAD-1 hold FACT of this run, CORROBORATED only for the narrow claim,
+on model plus one hold; `GBP-HW-351` unchanged, firing recorded; sweep FAIL is FACT of this run, cause
+UNKNOWN.
+
+**Tests.** Nothing new run here beyond the gate on the committed tree (the previous checkpoint's suite
+was green at `56c7777`).
+
+**Not done, on purpose.** No rebuild, re-pin or re-stage of `23-v28v` (its DOL does not contain the
+SYNCPE-end fix); the perceptual run is not authorised and its Issue is not being written.
+
+**Next.** Diagnose the sweep's negative residue from `gbp_v28_sweep.c`, `gbp_atrans2.c` and the raw
+log: which failures are undershoot and which are the READY/AHEAD test (n=17's -204 is smaller than the
+256 band), what the +128 is, and how the Operator's p4 stutter lines up with the deliberate mutes.
