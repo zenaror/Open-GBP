@@ -18584,3 +18584,40 @@ message.
 
 **Next.** Final DOL hashes go to the Orchestrator to open the two Hardware Issues. Nothing stages to
 Swiss.
+
+## 2026-09-28 — Issue #128/#129/#130: a label nit before the hashes are pinned -- the same
+## post-finish display bug in three places, not one
+
+The Orchestrator's own read of 647be46's diff, before pinning the two hashes in the Hardware
+Issues: `gbp_walker_current_kind()` falls back to `GBP_WALKER_NAVIGATE` once `w->finished`
+(`gbp_walker.c:110`, verified directly, not just quoted) -- so the PERCEPTUAL label, checked-first
+on kind rather than on finished, goes back to "PHASE 0 <n>s" once the session ends, with its own
+clock still counting. In a blinded run that is indistinguishable from a restart, exactly the kind of
+thing that could cost a run to confusion rather than to a real defect.
+
+**Fix**: `v28_label_text()` checks `gbp_walker_finished(&walker)` FIRST, in both branches, and
+prints `DONE <n>s` -- a SAFE, kind-independent instant, no earlier than "setting k" already is. The
+validation branch's own `walker.index + 1` was checked against the Orchestrator's own conditional
+("if index can reach count, clamp it"): read `gbp_walker.c` directly -- `end_current_and_advance()`
+only ever begins the next phase while `index + 1 < count`, and finishes without incrementing index
+further otherwise; `end_current_and_finish()` (the session cap, a stop) does not touch index at all
+either. Index cannot reach count today, on either path -- but `finished` is checked first regardless
+now, so the clamp added is defensive, never load-bearing, and stated as such rather than presented as
+fixing a reachable case it does not. Confirmed separately: `gbp_walker_phase_complete()` already
+refuses (`gbp_walker.c:96`) once `w->finished`, so a DOWN press after the session already does
+nothing -- no separate guard was needed in `main.c`'s own C-stick dispatch.
+
+**Found alongside it, not asked for by name but the identical shape**: `v28_screen_report()` and
+`v28_live_report()` (the post-session screen line and the teardown gecko line) share the EXACT same
+bug in their own perceptual branches -- called exactly once, at teardown, so a session that reached
+NULLING and finished normally would report "phase 0"/`nulling: false` there too, indistinguishable
+from one that never started. Fixed with the same finished-first check, both functions, rather than
+left inconsistent with the label right beside them.
+
+**Verified**: `tests/host/test_v28_leak.py` (the perceptual branch's own no-NEVER-field proof) still
+6/6 -- the added finished-first prefix sits OUTSIDE the `#if defined(GBP_V28_PLAN_PERCEPTUAL)` block
+either function branches on, so the leak test's own `#if`/`#else` extraction is unaffected, and the
+prefix itself references nothing but `gbp_walker_finished()` and two literal strings. Both images
+rebuilt clean in Docker. Full gate figures in the commit message.
+
+**Next.** Send the two rebuilt hashes to the Orchestrator so the two Hardware Issues can be pinned.
