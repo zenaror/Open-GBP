@@ -53,7 +53,7 @@ static struct gbp_aplay2 ap;
 static struct gbp_adec2 adec;
 static struct gbp_atrans2 tr;
 
-#define CALLS_PER_PERIOD 16u
+#define CALLS_PER_PERIOD 125u   /* the console's own: 124.8 pump calls per hand-off period (RUN 52 log, Issue #136); not 16 */
 
 static int burst_at = -1;      /* -1: smooth (even slices); >= 0: one burst of a whole period's pushes here */
 

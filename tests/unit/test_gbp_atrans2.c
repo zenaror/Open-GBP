@@ -43,7 +43,7 @@ static struct gbp_aplay2 ap;
 static struct gbp_adec2 adec;
 static struct gbp_atrans2 tr;
 
-#define CALLS_PER_PERIOD 16u             /* GBP_APLAY2_PUSHES / GBP_APLAY2_STEP_PUSHES: exactly one chunk a period */
+#define CALLS_PER_PERIOD 125u   /* the console's own: 124.8 pump calls per hand-off period (RUN 52 log, Issue #136); not 16 */
 
 static void give2(struct gbp_adec2 *d, uint32_t n, int16_t v)
 {
@@ -196,43 +196,55 @@ static void test_unmuted_with_discard(void)
     check_conservation2("unmuted+discard", L);
 }
 
+/* GBP_V28_STEP_MUTE (gbp_v28_ladder.h): the mute a step really runs with. The plan's own minimum
+ * (gbp_atrans2_min_mute, 1 at AHEAD 1) is a floor for the queue, not for the RING: the level is set in the last two
+ * periods and the ring can only have filled for as long as the mute lasted (Issue #136). */
+#define STEP_MUTE_6 6u
+
 static void test_rotate_no_climb(void)
 {
-    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u, GBP_APLAY2_AHEAD);
-    struct landing2 L = run2(GBP_ATRANS2_ROTATE, GBP_APLAY2_TARGET, GBP_APLAY2_TARGET, mute, 0u, 0u);
+    struct landing2 L = run2(GBP_ATRANS2_ROTATE, GBP_APLAY2_TARGET, GBP_APLAY2_TARGET, STEP_MUTE_6, 0u, 0u);
     eqi(tr.completed, 1, "rotate: completed");
     eqi(tr.faults, 0, "rotate: the mute the plan asked for was enough (no fault)");
-    check(!tr.unmasked, "rotate: no begin discard, so nothing to unmask");
+    check(!tr.unmasked, "rotate: every cut was followed by AHEAD rotations, so nothing is left to unmask");
     check(L.ready_after == GBP_APLAY2_AHEAD - 1u || tr.late, "rotate: queue AHEAD - 1 at the landing, or a late rotation");
+    check(tr.disc_rel < 0, "rotate: the level was set BEFORE the first audible hand-off");
+    check(tr.rot_post >= GBP_APLAY2_AHEAD, "rotate: at least AHEAD rotations followed the cut");
+    check(L.count_after + GBP_APLAY2_BAND >= GBP_APLAY2_TARGET && L.count_after <= GBP_APLAY2_TARGET + GBP_APLAY2_STEP_PUSHES,
+          "rotate: the ring lands within the band below target (plus the landing recovery's in-flight sub-block)");
     check_conservation2("rotate (no climb)", L);
 }
 
 static void test_rotate_with_discard(void)
 {
-    /* a shallowing: the level drops by one chunk's worth, discarded at begin, masked once AHEAD
-     * rotations have happened (AHEAD == 1 on this path, so the very first rotation masks it) */
-    const uint32_t mute = gbp_atrans2_min_mute(GBP_ATRANS2_ROTATE, 0u, GBP_APLAY2_AHEAD);
-    struct landing2 L = run2(GBP_ATRANS2_ROTATE, GBP_APLAY2_TARGET, GBP_APLAY2_TARGET - GBP_APLAY2_PUSHES, mute, 0u,
-                            GBP_APLAY2_PUSHES);
+    /* a shallowing: the level drops by one chunk's worth, discarded at begin */
+    struct landing2 L = run2(GBP_ATRANS2_ROTATE, GBP_APLAY2_TARGET, GBP_APLAY2_TARGET - GBP_APLAY2_PUSHES, STEP_MUTE_6,
+                            0u, GBP_APLAY2_PUSHES);
     eqi(tr.completed, 1, "rotate+discard: completed");
-    /* the begin's own discard (a shallowing), plus the landing's own ring trim down to target --
-     * two separate corrections, both counted in adec.discarded (Issue #129/#130's ROTATE trim) */
-    eqi(L.discarded, GBP_APLAY2_PUSHES + tr.trimmed,
-        "rotate+discard: the begin's own discard, plus the landing's own ring trim, landed on the ring");
-    /* the ring lands exactly at target -- PLUS one sub-block's worth (GBP_APLAY2_STEP_PUSHES) the
-     * landing call's own production recovery (Issue #129/#130) already produced towards the NEXT
-     * chunk before returning. This is deterministic here, not a range: the recovery runs BEFORE the
-     * trim (this round's own fix) against the ring's full, still-untrimmed surplus, which this
-     * scenario's own synthetic feed always leaves comfortably above GBP_APLAY2_PUSHES + 1 -- the
-     * recovery is a SINGLE gbp_aplay2_produce() call, which advances at most one sub-block
-     * (cur_step, GBP_APLAY2_STEP_PUSHES by default) regardless of how much surplus is available, so
-     * it always succeeds here and never produces more than exactly one. landed2()'s own count_after
-     * already folds in cur_pushes when a chunk is left in flight. */
-    eqi(L.count_after, GBP_APLAY2_TARGET - GBP_APLAY2_PUSHES + GBP_APLAY2_STEP_PUSHES,
-        "rotate+discard: the ring lands exactly at target, plus the landing recovery's own exactly-one "
-        "in-flight sub-block");
-    if (tr.rotations >= GBP_APLAY2_AHEAD) check(!tr.unmasked, "rotate+discard: AHEAD rotations mask the splice");
+    /* the begin's own discard, plus the one cut that sets the level inside the mute (Issue #136); nothing is cut
+     * at the landing any more */
+    eqi(L.discarded, GBP_APLAY2_PUSHES + tr.disc_n,
+        "rotate+discard: the begin's own discard, plus the level-setting cut, landed on the ring");
+    eqi(tr.trimmed, 0, "rotate+discard: nothing is trimmed at the landing");
+    check(L.count_after + GBP_APLAY2_BAND >= GBP_APLAY2_TARGET - GBP_APLAY2_PUSHES &&
+          L.count_after <= GBP_APLAY2_TARGET - GBP_APLAY2_PUSHES + GBP_APLAY2_STEP_PUSHES,
+          "rotate+discard: the ring lands within the band below target (plus the landing recovery's in-flight sub-block)");
+    check(!tr.unmasked, "rotate+discard: AHEAD rotations followed every cut");
     check_conservation2("rotate+discard", L);
+}
+
+/* Issue #136: a mute too short to FILL the ring is reported, never hidden, and never turned into a cut: the
+ * ring lands short, `fill_short` says by how much, and nothing was discarded (so no splice either). */
+static void test_a_mute_too_short_to_fill_the_ring_is_reported_and_cuts_nothing(void)
+{
+    struct landing2 L = run2(GBP_ATRANS2_ROTATE, GBP_APLAY2_TARGET, GBP_APLAY2_TARGET + 6u * GBP_APLAY2_PUSHES, 3u, 0u, 0u);
+    eqi(tr.completed, 1, "short mute: completed");
+    check(tr.fill_short > 0u, "short mute: the samples the ring lacked at the level-setting point are reported");
+    eqi(tr.fill_shorts, 1, "short mute: counted once");
+    eqi(tr.disc_n, 0, "short mute: nothing was cut");
+    eqi(tr.trimmed, 0, "short mute: nothing was trimmed either");
+    check(L.count_after + GBP_APLAY2_BAND < GBP_APLAY2_TARGET + 6u * GBP_APLAY2_PUSHES,
+          "short mute: the ring lands short of target -- the honest result the sweep gate then shows");
 }
 
 static void test_held_no_climb(void)
@@ -356,6 +368,7 @@ int main(void)
     test_unmuted_with_discard();
     test_rotate_no_climb();
     test_rotate_with_discard();
+    test_a_mute_too_short_to_fill_the_ring_is_reported_and_cuts_nothing();
     test_held_no_climb();
     test_held_with_climb();
     test_begin_refuses_a_plan_over_a_running_one();

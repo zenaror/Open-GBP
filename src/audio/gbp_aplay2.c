@@ -306,6 +306,8 @@ void gbp_aplay2_arm_l2(struct gbp_aplay2 *p)
 const uint8_t *gbp_aplay2_irq_handoff(struct gbp_aplay2 *p, uint64_t t)
 {
     int32_t buf = GBP_APLAY2_HL_SILENCE;
+    p->t_ho_prev = p->t_ho_last;
+    p->t_ho_last = t;
     if (p->measuring) {
         if (p->cb_count == 0u) p->cb_t_first = t;
         p->cb_t_last = t;

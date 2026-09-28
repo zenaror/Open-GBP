@@ -165,6 +165,10 @@ struct gbp_aplay2 {
      * single-reader-and-decrementer (callback) discipline. */
     volatile uint32_t mute_carry;
     volatile uint32_t mute_handed;
+    /* Issue #136: the instants (the `t` the callback was given) of the last two hand-offs, so the pump side can
+     * tell how far into the current hand-off period it is, and how long a period is, in the caller's own units
+     * without counting its own calls. Zero until that many hand-offs happened. */
+    volatile uint64_t t_ho_last, t_ho_prev;
     /* what happened, never silent */
     uint32_t produced, dup, drop, starved_steps, log_overflow;
     uint32_t ring_gated;                        /* steps that WANTED a chunk and found the ring under target+1 */
