@@ -200,6 +200,61 @@ _Static_assert((GBP_V28_P2_HI - GBP_V28_P2_LO) % GBP_V28_P2_STEP == 0u,
  * bounds/divisibility assert where one applies, or the SECOND, with the same reason named -- not
  * a fresh instance of this comment. */
 
+/* ---- THE ANCHOR (Issue #128/#129/#130, the Orchestrator's Amendment 1 on Issue #131's own
+ * freeze): 3b holds AHEAD at THIS TARGET, never 3a's own raw confirmed floor directly. #128 §3's
+ * own rule: "the lowest ladder TARGET (192 + 128k) at or above 3a's lowest holding depth", with
+ * the frozen 320->256 override that already drops T192 from the perceptual ladder (#128 §3's own
+ * words: "T192... stay on the validation ladder only... do not carry into the perceptual run's own
+ * ladder"). So the anchor search is over the PERCEPTUAL ladder alone -- T256, T320, T448, T576,
+ * T704 -- never T192, and never a literal `192 + 128k` grid point that the override already
+ * excludes.
+ *
+ * The defect this closes: gbp_v28_3b_start() was called with 3a's own raw `last_hold`/`lo` --
+ * 3a bisects as low as GBP_V28_P3_MIN (2048 native, below even T192), so 3b could hold AHEAD 1 at
+ * a depth that sits on NO ladder rung at all, and the 32-tap reversal condition (`GBP-HW-351`)
+ * would then be read at a TARGET nobody could act on. This function is the fix: main.c computes
+ * 3a's own confirmed floor (see its own comment at the call site for exactly which gbp_v28_3a
+ * fields that is) and passes it here; gbp_v28_3b_start() then only ever sees a real ladder rung, or
+ * is not called at all (the NONE case, below). */
+enum gbp_v28_anchor_source {
+    GBP_V28_ANCHOR_RULE    = 0,   /* the smallest ladder rung >= 3a's own confirmed floor */
+    GBP_V28_ANCHOR_DEFAULT = 1,   /* 3a produced no confirmed floor (cut or partial): T256, frozen */
+    GBP_V28_ANCHOR_NONE    = 2    /* the floor sits above T704: no ladder rung reaches it */
+};
+
+struct gbp_v28_anchor {
+    uint32_t target;              /* meaningful only if source != GBP_V28_ANCHOR_NONE */
+    enum gbp_v28_anchor_source source;
+};
+
+/* `has_floor`: 3a's own `have_hold` -- whether the descent ever held a depth at all before it
+ * finished (cut, or a first depth that failed outright, both leave this false). `floor_native`:
+ * 3a's own confirmed floor in NATIVE samples, meaningful only if `has_floor` -- the caller's own
+ * job to compute correctly (bracket_closed ? lo : last_hold; see the main.c call site). */
+static inline struct gbp_v28_anchor gbp_v28_anchor(uint32_t floor_native, int has_floor)
+{
+    struct gbp_v28_anchor a;
+    if (!has_floor) { a.target = GBP_V28_T256; a.source = GBP_V28_ANCHOR_DEFAULT; return a; }
+    a.source = GBP_V28_ANCHOR_RULE;
+    if (floor_native <= GBP_V28_T256)      a.target = GBP_V28_T256;
+    else if (floor_native <= GBP_V28_T320) a.target = GBP_V28_T320;
+    else if (floor_native <= GBP_V28_T448) a.target = GBP_V28_T448;
+    else if (floor_native <= GBP_V28_T576) a.target = GBP_V28_T576;
+    else if (floor_native <= GBP_V28_T704) a.target = GBP_V28_T704;
+    else { a.target = 0u; a.source = GBP_V28_ANCHOR_NONE; }
+    return a;
+}
+
+static inline const char *gbp_v28_anchor_source_name(enum gbp_v28_anchor_source s)
+{
+    switch (s) {
+    case GBP_V28_ANCHOR_RULE:    return "rule";
+    case GBP_V28_ANCHOR_DEFAULT: return "default";
+    case GBP_V28_ANCHOR_NONE:    return "none";
+    default:                     return "?";
+    }
+}
+
 #ifdef __cplusplus
 }
 #endif

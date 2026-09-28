@@ -563,6 +563,14 @@ static struct gbp_v28_3b s3b;
 static struct gbp_v28_sweep sweep;
 static struct gbp_v28_nulling nulling;
 
+/* Issue #128/#129/#130, Amendment 1 on #131's own freeze: 3b holds AHEAD at the nearest perceptual
+ * ladder rung at or above 3a's own confirmed floor, never at 3a's own raw floor directly (see
+ * gbp_v28_anchor()'s own header comment, gbp_v28_ladder.h). Computed once at the 3a -> 3b
+ * transition (below); `v28_anchor_computed` distinguishes "not yet computed" from a genuine
+ * source=RULE(0) result, since both would otherwise read as an all-zero struct. */
+static struct gbp_v28_anchor v28_anchor;
+static uint8_t v28_anchor_computed;
+
 static const struct gbp_walker_plan *const V28_PLAN =
 #if defined(GBP_V28_PLAN_PERCEPTUAL)
     &GBP_V28_PERCEPTUAL_NO_PHASE1;
@@ -939,7 +947,23 @@ static void live_step(void)
                     d0_drop = ap2.drop; d0_ring_gated = ap2.ring_gated;
                 }
                 if (f & GBP_V28_3A_TICK_PHASE_COMPLETE) {
-                    gbp_v28_3b_start(&s3b, s3a.last_hold, live.tb_hz, now);
+                    /* 3a's own confirmed floor (Amendment 1): `lo` only once the bracket actually
+                     * closed (bisection converged on it, begin_depth(s, s->lo, CONFIRM)); before
+                     * that -- held straight down to P3_MIN with no bisection needed at all -- the
+                     * floor is `last_hold`, the last depth that held. `have_hold` false (the very
+                     * first depth already failed, dup==0 && starved>0) means no floor exists yet;
+                     * `lo`/`last_hold` are then still their own zero-initialised state and must not
+                     * be read -- gbp_v28_anchor()'s own `has_floor` parameter is exactly this gate. */
+                    const int has_floor = s3a.have_hold != 0u;
+                    const uint32_t floor_native = s3a.bracket_closed ? s3a.lo : s3a.last_hold;
+                    v28_anchor = gbp_v28_anchor(floor_native, has_floor);
+                    v28_anchor_computed = 1u;
+                    if (v28_anchor.source != GBP_V28_ANCHOR_NONE)
+                        gbp_v28_3b_start(&s3b, v28_anchor.target, live.tb_hz, now);
+                    /* GBP_V28_ANCHOR_NONE (the floor sits above T704, no ladder rung reaches it):
+                     * 3b does not hold at all -- gbp_v28_3b_start() is never called, s3b stays its
+                     * own zero-initialised state (holds_n==0, no V28_3B records), and the
+                     * V28ANCHOR line (teardown, below) is the ONLY record of this finding. */
                     (void)gbp_walker_phase_complete(&walker, now, tr.active);
                 }
                 break;
@@ -1481,11 +1505,19 @@ int main(void)
                            (unsigned long)d->drop, (unsigned long)d->starved, (unsigned long long)d->t_set,
                            (unsigned long long)d->t_done);
         }
+        /* Amendment 1: the anchor 3b actually held at (or GBP_V28_ANCHOR_NONE, meaning 3b never
+         * held at all) -- ONE line, since the anchor is constant for the whole phase; the only
+         * record of an anchor=none finding, since s3b then has no V28_3B records of its own. */
+        if (v28_anchor_computed)
+            ringlog_printf(&rl, "V28ANCHOR target=%lu source=%s",
+                           (unsigned long)v28_anchor.target, gbp_v28_anchor_source_name(v28_anchor.source));
         for (j = 0u; j < s3b.holds_n; j++) {
             const struct gbp_v28_3b_hold *h = gbp_v28_3b_hold_record(&s3b, j);
-            ringlog_printf(&rl, "V28_3B n=%lu ahead=%lu underrun_seen=%u partial=%u t_set=%llx t_done=%llx",
-                           (unsigned long)j, (unsigned long)h->ahead, (unsigned)h->underrun_seen, (unsigned)h->partial,
-                           (unsigned long long)h->t_set, (unsigned long long)h->t_done);
+            ringlog_printf(&rl, "V28_3B n=%lu ahead=%lu anchor=%lu source=%s underrun_seen=%u partial=%u t_set=%llx "
+                                "t_done=%llx",
+                           (unsigned long)j, (unsigned long)h->ahead, (unsigned long)v28_anchor.target,
+                           gbp_v28_anchor_source_name(v28_anchor.source), (unsigned)h->underrun_seen,
+                           (unsigned)h->partial, (unsigned long long)h->t_set, (unsigned long long)h->t_done);
         }
         for (j = 0u; j < sweep.records_n && j < GBP_V28_SWEEP_N; j++) {
             const struct gbp_v28_sweep_record *r = gbp_v28_sweep_record_at(&sweep, j);

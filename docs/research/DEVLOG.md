@@ -18679,3 +18679,53 @@ slot (`swiss_export.py`, the manifest row, the copy, the hash read back, every o
 own hash checked before and after), run the checklist with the Operator, and ingest the run in its
 own separate checkpoint Issue -- classification via `tools/v28verdict.py` against §4's own gates,
 nothing renegotiated after the result is seen.
+
+## 2026-09-28 — Issue #128/#129/#130/#131: Issue #131 frozen with five amendments -- Amendment 1 is
+## a real code defect, caught only at freeze, on the exact gate a physical run would have measured
+
+The Orchestrator's own freeze on #131 found Amendment 1 by reading the diff, not by trusting the
+"heavy review" this round's own earlier rounds already gave the surrounding code: `main.c:942`
+passed `s3a.last_hold` -- 3a's own RAW confirmed floor -- straight into `gbp_v28_3b_start()`, and
+`gbp_v28_3b.h`'s own header comment called that "the anchor". #128 itself never said that: §2 says
+"AHEAD 1 at THE ANCHOR", §5 says "the T256 anchor", §3 gives the actual rule -- "the lowest ladder
+TARGET (192 + 128k) at or above 3a's lowest holding depth", with the frozen 320->256 override. 3a
+bisects as low as `GBP_V28_P3_MIN` (2048 native), well below every perceptual-ladder rung -- so 3b
+could have held AHEAD 1 at a depth on NO ladder rung at all, and `GBP-HW-351`'s own 32-tap reversal
+condition would have been read at a TARGET nobody could act on. Caught before any hardware run, on
+a gate that exists specifically to settle that condition.
+
+**The fix, `gbp_v28_anchor()` (`src/audio/gbp_v28_ladder.h`), a pure function**: the smallest
+perceptual-ladder rung (T256/T320/T448/T576/T704 -- never T192, already excluded from the
+perceptual ladder by #128's own override) at or above a caller-supplied floor, or T256 as the
+frozen default if the caller has no confirmed floor at all (3a's own `have_hold` false -- its very
+first depth failed outright, a real, reachable case, not merely defensive: `gbp_v28_3a.c`'s own
+`if (!s->have_hold) { finished=1; return; }`), or `GBP_V28_ANCHOR_NONE` if the floor sits above
+T704 (no rung reaches it -- 3b does not hold at all, a finding, not silently absorbed).
+
+**The floor extraction itself has its own subtlety, verified by reading `gbp_v28_3a.c` directly,
+not assumed**: `s3a.lo` is only meaningful once `bracket_closed` (bisection actually converged on
+it, `begin_depth(s, s->lo, CONFIRM)`); before that, held straight down to `P3_MIN` with no
+bisection ever needed, the floor is `s3a.last_hold` instead. `main.c`'s own new call site:
+`s3a.bracket_closed ? s3a.lo : s3a.last_hold`, gated first by `s3a.have_hold` (both `lo` and
+`last_hold` are meaningless zero-initialised state if the very first depth already failed).
+
+**Every 3b record now carries the anchor and its source** (`rule`/`default`/`none`) -- a new
+dedicated `V28ANCHOR` record (the only trace of an `anchor=none` finding, since `s3b` then has no
+`V28_3B` rows of its own at all), plus `anchor=`/`source=` fields on every `V28_3B` row too.
+
+**Proof.** `tests/unit/test_gbp_v28_anchor.c`: `gbp_v28_anchor()` directly, at every floor value
+Amendment 1 named -- exactly on each of the five rungs, one native sample above each, `P3_MIN`
+(anchors to the lowest rung, the exact defect scenario this closes), above T704 (`NONE`), no floor
+at all (`DEFAULT`, `T256`, regardless of what garbage the floor value itself holds). 32 checks, 0
+failures. `tests/host/test_v28_anchor_wiring.py`: the structural companion `main.c` itself needs
+(it cannot be compiled or driven on the host at all -- confirmed directly, matching this round's own
+earlier `test_v28_zero_feed_integration.c` finding) -- proves the ACTUAL source text never passes
+`s3a.last_hold` straight into `gbp_v28_3b_start()` again, calls `gbp_v28_anchor()` with the correct
+two-field extraction, guards the hold call on `!= GBP_V28_ANCHOR_NONE`, and emits both new records.
+9 checks. Both images rebuilt clean in Docker (zero new warnings); new hashes posted for the
+Orchestrator's own verification before any staging.
+
+**Gate**: `make -C tests/unit` 35/35 (`test_gbp_v28_anchor` new, 32/32). `pytest -q tests/host`:
+figures in the commit message.
+
+**Next.** Awaiting the Orchestrator's own hash verification before Swiss staging is authorised.
