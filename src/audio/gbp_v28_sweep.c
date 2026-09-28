@@ -73,7 +73,7 @@ void gbp_v28_sweep_start(struct gbp_v28_sweep *s, uint32_t tb_hz, uint64_t now)
 
 static int out_of_band(uint32_t ring, uint32_t ready, uint32_t to_target, uint32_t to_ahead)
 {
-    if (ring > to_target) return 1;                        /* the trim should have caught this -- a fault */
+    if (ring > to_target) return 1;                        /* the level is aimed below target; above it is a fault */
     if (ring + GBP_APLAY2_BAND < to_target) return 1;       /* an undershoot beyond the allowed band */
     if (ready != to_ahead - 1u && ready != to_ahead) return 1;
     return 0;
@@ -82,10 +82,14 @@ static int out_of_band(uint32_t ring, uint32_t ready, uint32_t to_target, uint32
 /* Priority among co-occurring faults, most audible/severe first: an actual dropout (UNDERRUN) over
  * a splice that might be heard (UNMASKED) over a level/bookkeeping fault that may not be audible at
  * all (OUT_OF_BAND). Only one fail_reason is recorded; this is the order a co-occurrence picks. */
-static void finalize_record(struct gbp_v28_sweep *s, const struct sweep_entry *e, struct gbp_aplay2 *p, uint64_t now)
+static void finalize_record(struct gbp_v28_sweep *s, const struct sweep_entry *e, struct gbp_aplay2 *p,
+                            const struct gbp_adec2 *d, uint64_t now)
 {
     struct gbp_v28_sweep_record *r = &s->records[s->records_n++];
     const uint32_t underrun_delta = p->underruns - s->underruns0;
+    /* Issue #136: a cut after the first audible hand-off, from any source: the level-setting one landed late, or
+     * the ring was cut at all during the dwell that follows the landing */
+    const int splice = (s->cut_at_land > 0u && s->cut_rel_at_land >= 0) || d->discarded != s->disc_at_land;
 
     r->klass = e->klass;
     r->mechanism = e->mechanism;
@@ -107,12 +111,18 @@ static void finalize_record(struct gbp_v28_sweep *s, const struct sweep_entry *e
     r->meas_ready = s->meas_ready0;
     r->ring = s->ring_at_land;
     r->ready = s->ready_at_land;
-    r->trim = s->trim_at_land;
+    r->cut = s->cut_at_land;
+    r->cut_rel = s->cut_rel_at_land;
+    r->rot_post = s->rot_post_at_land;
+    r->fill_short = s->fill_short_at_land;
     r->late = s->late_at_land;
 
     if (underrun_delta > 0u) {
         r->outcome = GBP_V28_SWEEP_FAIL;
         r->fail_reason = GBP_V28_SWEEP_FAIL_UNDERRUN;
+    } else if (splice) {
+        r->outcome = GBP_V28_SWEEP_FAIL;
+        r->fail_reason = GBP_V28_SWEEP_FAIL_SPLICE;
     } else if (s->unmasked_at_land) {
         r->outcome = GBP_V28_SWEEP_FAIL;
         r->fail_reason = GBP_V28_SWEEP_FAIL_UNMASKED;
@@ -156,7 +166,11 @@ int gbp_v28_sweep_tick(struct gbp_v28_sweep *s, struct gbp_atrans2 *t, struct gb
         s->residue_at_land = t->residue;
         s->ahead_drops_at_land = t->ahead_drops;
         s->unmasked_at_land = t->unmasked;
-        s->trim_at_land = t->trimmed;
+        s->cut_at_land = t->disc_n;
+        s->cut_rel_at_land = t->disc_rel;
+        s->rot_post_at_land = t->rot_post;
+        s->fill_short_at_land = t->fill_short;
+        s->disc_at_land = d->discarded;
         s->late_at_land = t->late;
         s->t_land = now;
         s->dwelling = 1u;
@@ -166,7 +180,7 @@ int gbp_v28_sweep_tick(struct gbp_v28_sweep *s, struct gbp_atrans2 *t, struct gb
 
     if (now < s->t_dwell_end) return 0;                     /* still observing */
 
-    finalize_record(s, e, p, now);
+    finalize_record(s, e, p, d, now);
     s->index++;
     s->dwelling = 0u;
     if (s->index >= GBP_V28_SWEEP_N) {
@@ -205,7 +219,10 @@ void gbp_v28_sweep_cut(struct gbp_v28_sweep *s, uint64_t t_end)
         r->meas_ready = s->meas_ready0;
         r->ring = s->ring_at_land;
         r->ready = s->ready_at_land;
-        r->trim = s->trim_at_land;
+        r->cut = s->cut_at_land;
+        r->cut_rel = s->cut_rel_at_land;
+        r->rot_post = s->rot_post_at_land;
+        r->fill_short = s->fill_short_at_land;
         r->late = s->late_at_land;
         r->outcome = GBP_V28_SWEEP_PARTIAL;
         r->fail_reason = GBP_V28_SWEEP_FAIL_NONE;

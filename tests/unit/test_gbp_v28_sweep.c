@@ -44,7 +44,7 @@ static struct gbp_aplay2 ap;
 static struct gbp_adec2 adec;
 static struct gbp_atrans2 tr;
 
-#define CALLS_PER_PERIOD 16u
+#define CALLS_PER_PERIOD 125u   /* the console's own: 124.8 pump calls per hand-off period (RUN 52 log, Issue #136); not 16 */
 #define TB_HZ CALLS_PER_PERIOD   /* 1 second == 1 period, this harness's own convention */
 
 static int starve = 0;   /* 0: feed normally; 1: give2() a no-op, for the forced-underrun test */
@@ -382,15 +382,41 @@ static void test_the_sweep_started_from_3b_s_own_end_state_still_passes_every_ga
               "the landing ring level is recorded and sits inside the band");
         check(r->ready == r->to_ahead || r->ready + 1u == r->to_ahead, "the landing READY level is recorded");
         check(r->t_land >= r->t_begin && r->t_done >= r->t_land, "t_begin <= t_land <= t_done");
-        /* Issue #136: what the landing's own trim cut is recorded, and is a bounded excess */
-        /* a START drains up to 8 chunks' worth of level at one rotation per period in this 16-call harness
-         * (the hardware's own 125 calls a period drain far faster, tests/unit/test_v28_sweep_landing.c), so its
-         * trim is bounded by the level difference, not by a chunk */
-        if (r->mechanism != GBP_V28_SWEEP_START)
-            check(r->trim <= 2u * GBP_APLAY2_PUSHES, "a STEP's landing trim is recorded and stays within two chunks");
+        /* Issue #136: where the ring's level was set is recorded, and it is INSIDE the mute, followed by `ahead`
+         * rotations, with the mute long enough to have filled the ring */
+        check(r->cut == 0u || r->cut_rel < 0, "the level-setting cut ran before the first audible hand-off");
+        check(r->rot_post >= r->to_ahead, "at least AHEAD rotations rebuilt the queue after the cut");
+        eqi((long long)r->fill_short, 0, "the mute was long enough to fill the ring");
         check(r->late <= 1u, "the landing's own late flag is a boolean");
+        check(r->outcome == GBP_V28_SWEEP_PASS && r->fail_reason == GBP_V28_SWEEP_FAIL_NONE, "no fail reason");
     }
     check(gbp_v28_sweep_verdict(&s) == GBP_V28_SWEEP_VERDICT_PASS, "the verdict is PASS from 3b's own end state");
+}
+
+/* Issue #136, pre-registered before RUN 53 (#122 section 1(c)): a cut of the ring after the first audible
+ * hand-off fails the GATE row, whoever made it. Here a stray discard lands while the first record dwells. */
+#define PRELUDE_AND_TWO (GBP_V28_SWEEP_PRELUDE_N + 2u)
+static void test_a_cut_after_unmute_fails_the_gate_row_as_a_splice(void)
+{
+    struct gbp_v28_sweep s;
+    uint64_t now = steady2(GBP_V28_T256, GBP_V28_A1);
+    uint32_t guard = 0u;
+    int cut_done = 0;
+    gbp_v28_sweep_start(&s, TB_HZ, now);
+    while (!gbp_v28_sweep_finished(&s) && guard++ < 900u) {
+        (void)drive(&s, &now, 1u);
+        if (!cut_done && s.records_n == GBP_V28_SWEEP_PRELUDE_N + 2u && s.dwelling) {   /* GATE move 2, landed, dwelling */
+            (void)gbp_adec2_discard(&adec, 100u);
+            cut_done = 1;
+        }
+    }
+    check(cut_done, "this test's own setup: the stray cut ran while a GATE record dwelt");
+    {
+        const struct gbp_v28_sweep_record *r = gbp_v28_sweep_record_at(&s, PRELUDE_AND_TWO);
+        check(r->outcome == GBP_V28_SWEEP_FAIL && r->fail_reason == GBP_V28_SWEEP_FAIL_SPLICE,
+              "the record whose dwell was cut is FAIL/SPLICE");
+    }
+    check(gbp_v28_sweep_verdict(&s) == GBP_V28_SWEEP_VERDICT_FAIL, "a splice in a GATE row fails the verdict");
 }
 
 /* ================================================================================================
@@ -428,6 +454,7 @@ int main(void)
     test_a_cut_before_the_first_begin_abandons_nothing_to_report();
     test_a_cut_while_dwelling_is_partial();
     test_the_sweep_started_from_3b_s_own_end_state_still_passes_every_gate_row();
+    test_a_cut_after_unmute_fails_the_gate_row_as_a_splice();
     test_the_frozen_sequence_fits_the_sweep_s_60_s_cap();
     printf("test_gbp_v28_sweep: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

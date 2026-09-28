@@ -1705,11 +1705,17 @@ int main(void)
              * same n, not more fields on the first: the first is already 112 characters and the
              * console log line is 256. */
             ringlog_printf(&rl, "V28_SWEEPM n=%lu meas_t=%lu meas_a=%lu meas_ring=%lu meas_ready=%lu ring=%lu "
-                                "ready=%lu dup=%lu drop=%lu trim=%lu late=%u t_land=%llx",
+                                "ready=%lu dup=%lu drop=%lu t_land=%llx",
                            (unsigned long)j, (unsigned long)r->meas_target, (unsigned long)r->meas_ahead,
                            (unsigned long)r->meas_ring, (unsigned long)r->meas_ready, (unsigned long)r->ring,
                            (unsigned long)r->ready, (unsigned long)r->dup, (unsigned long)r->drop,
-                           (unsigned long)r->trim, (unsigned)r->late, (unsigned long long)r->t_land);
+                           (unsigned long long)r->t_land);
+            /* Issue #136: where the ring's level was set (samples cut, and the hand-off period relative to the
+             * first audible hand-off: negative is inside the mute, >= 0 is a cut AFTER unmute and fails the GATE row
+             * as SPLICE), the rotations that rebuilt the queue after it, and whether the mute could fill the ring. */
+            ringlog_printf(&rl, "V28_SWEEPC n=%lu cut=%lu cut_rel=%ld rot_post=%lu fill_short=%lu late=%u",
+                           (unsigned long)j, (unsigned long)r->cut, (long)r->cut_rel, (unsigned long)r->rot_post,
+                           (unsigned long)r->fill_short, (unsigned)r->late);
         }
         ringlog_printf(&rl, "V28_SWEEP_VERDICT v=%u", (unsigned)gbp_v28_sweep_verdict(&sweep));
 #else
