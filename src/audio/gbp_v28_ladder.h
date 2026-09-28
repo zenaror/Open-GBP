@@ -227,10 +227,12 @@ struct gbp_v28_anchor {
     enum gbp_v28_anchor_source source;
 };
 
-/* `has_floor`: 3a's own `have_hold` -- whether the descent ever held a depth at all before it
- * finished (cut, or a first depth that failed outright, both leave this false). `floor_native`:
- * 3a's own confirmed floor in NATIVE samples, meaningful only if `has_floor` -- the caller's own
- * job to compute correctly (bracket_closed ? lo : last_hold; see the main.c call site). */
+/* `has_floor`/`floor_native`: 3a's own confirmed floor -- the LOWEST DEPTH WHOSE DWELL ACTUALLY
+ * HELD, in native samples, meaningful only if `has_floor`. Compute both with
+ * gbp_v28_3a_confirmed_floor() (gbp_v28_3a.h), never `lo` directly: `lo` is the CONFIRM dwell's
+ * own target, the highest FAILING depth being re-tested, not the lowest holding one -- see that
+ * function's own header comment for the full reasoning (a first attempt at this got it backwards,
+ * caught only at Issue #131's own freeze). */
 static inline struct gbp_v28_anchor gbp_v28_anchor(uint32_t floor_native, int has_floor)
 {
     struct gbp_v28_anchor a;

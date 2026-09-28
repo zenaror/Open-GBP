@@ -947,15 +947,14 @@ static void live_step(void)
                     d0_drop = ap2.drop; d0_ring_gated = ap2.ring_gated;
                 }
                 if (f & GBP_V28_3A_TICK_PHASE_COMPLETE) {
-                    /* 3a's own confirmed floor (Amendment 1): `lo` only once the bracket actually
-                     * closed (bisection converged on it, begin_depth(s, s->lo, CONFIRM)); before
-                     * that -- held straight down to P3_MIN with no bisection needed at all -- the
-                     * floor is `last_hold`, the last depth that held. `have_hold` false (the very
-                     * first depth already failed, dup==0 && starved>0) means no floor exists yet;
-                     * `lo`/`last_hold` are then still their own zero-initialised state and must not
-                     * be read -- gbp_v28_anchor()'s own `has_floor` parameter is exactly this gate. */
-                    const int has_floor = s3a.have_hold != 0u;
-                    const uint32_t floor_native = s3a.bracket_closed ? s3a.lo : s3a.last_hold;
+                    /* 3a's own confirmed floor (Amendment 1, corrected at the Orchestrator's own
+                     * freeze review): gbp_v28_3a_confirmed_floor() -- the LOWEST HOLDING depth,
+                     * never `s3a.lo` directly, which is the CONFIRM dwell's own target (the
+                     * HIGHEST FAILING depth being re-tested; see that function's own header
+                     * comment, gbp_v28_3a.h). `has_floor` false leaves `floor_native` untouched --
+                     * gbp_v28_anchor()'s own `has_floor` parameter is exactly this gate. */
+                    uint32_t floor_native = 0u;
+                    const int has_floor = gbp_v28_3a_confirmed_floor(&s3a, &floor_native);
                     v28_anchor = gbp_v28_anchor(floor_native, has_floor);
                     v28_anchor_computed = 1u;
                     if (v28_anchor.source != GBP_V28_ANCHOR_NONE)

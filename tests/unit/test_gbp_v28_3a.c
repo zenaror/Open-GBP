@@ -432,6 +432,107 @@ static void test_a_walker_cap_cut_with_the_callers_own_cut_call_records_it_parti
     check(gbp_v28_3a_depth_record(&s, 0)->partial == 1u, "...and marked PARTIAL, never a silent whole record");
 }
 
+/* ================================================================================================
+ * gbp_v28_3a_confirmed_floor() (Issue #128/#129/#130/#131, the Orchestrator's own correction on
+ * Amendment 1's first attempt): the LOWEST HOLDING depth, never `lo` (the CONFIRM dwell's own
+ * target, the HIGHEST FAILING depth being re-tested -- see the function's own header comment,
+ * gbp_v28_3a.h).
+ * ================================================================================================ */
+
+/* advances the chain through ONE depth's own dwell and applies the outcome: holds (dup=1) or
+ * fails (starved=1), the same convention test_bisection_converges_to_width_le_bisect_width()
+ * already uses. */
+static void settle_one_depth(struct gbp_v28_3a *s, uint64_t *now, int holds)
+{
+    (void)drive(s, now, 1u + GBP_V28_3A_DWELL_S);
+    (void)gbp_v28_3a_tick(s, &tr, &ap, &adec, *now);
+    gbp_v28_3a_depth_done(s, 0u, 0u, 0u, holds ? 1u : 0u, 0u, 0u, holds ? 0u : 1u);
+}
+
+static void test_confirmed_floor_a_first_depth_that_fails_has_no_floor(void)
+{
+    struct gbp_v28_3a s;
+    uint64_t now = steady2(GBP_V28_P3_START);
+    uint32_t floor = 0xdeadbeefu;
+    gbp_v28_3a_start(&s, TB_HZ, now);
+    settle_one_depth(&s, &now, 0);   /* fails outright: have_hold stays 0 */
+    check(s.have_hold == 0u, "test setup: the very first depth failed, nothing ever held");
+    check(gbp_v28_3a_confirmed_floor(&s, &floor) == 0, "no floor at all: the accessor refuses");
+    eqi((long long)floor, (long long)0xdeadbeefu, "out is left untouched on refusal");
+}
+
+static void test_confirmed_floor_holds_straight_to_p3_min(void)
+{
+    struct gbp_v28_3a s;
+    uint64_t now = steady2(GBP_V28_P3_START);
+    uint32_t floor = 0u;
+    gbp_v28_3a_start(&s, TB_HZ, now);
+    while (!s.finished) settle_one_depth(&s, &now, 1);   /* every depth holds, all the way to P3_MIN */
+    check(s.bisecting == 0u, "test setup: never bisected -- held straight down, no failure at all");
+    check(gbp_v28_3a_confirmed_floor(&s, &floor) == 1, "a floor exists");
+    eqi((long long)floor, (long long)GBP_V28_P3_MIN, "the floor is P3_MIN, from last_hold (pre-bisection path)");
+}
+
+/* THE EXACT SCENARIO THE ORCHESTRATOR NAMED: a bracket whose lo/hi straddle T256 (4096) -- the
+ * lowest ladder rung -- so the WRONG extraction (lo) and the RIGHT one (hi) give DIFFERENT anchor
+ * rungs. Holds 6144/5632/5120/4608 (the descent's own natural 512-step grid), fails at 4096
+ * (opens the bracket lo=4096, hi=4608), then holds every subsequent midpoint so hi alone narrows:
+ * 4352, 4224, 4160, 4128 (width 4128-4096=32, stops). Final lo=4096 (T256 by the WRONG read: lo <=
+ * T256), hi=4128 (T320 by the RIGHT read: hi > T256, so the next rung up) -- and hi=4128 is what
+ * ACTUALLY held; lo=4096 is only what's known to FAIL. */
+static void test_confirmed_floor_a_straddling_bracket_uses_hi_not_lo(void)
+{
+    struct gbp_v28_3a s;
+    uint64_t now = steady2(GBP_V28_P3_START);
+    uint32_t floor = 0u;
+    gbp_v28_3a_start(&s, TB_HZ, now);
+    settle_one_depth(&s, &now, 1);   /* 6144 holds */
+    settle_one_depth(&s, &now, 1);   /* 5632 holds */
+    settle_one_depth(&s, &now, 1);   /* 5120 holds */
+    settle_one_depth(&s, &now, 1);   /* 4608 holds -- last_hold = 4608 */
+    settle_one_depth(&s, &now, 0);   /* 4096 fails -- opens the bracket: lo=4096, hi=4608 */
+    check(s.bisecting == 1u, "test setup: the bracket opened");
+    eqi((long long)s.lo, 4096, "test setup: lo is the failing depth, 4096 (T256 exactly)");
+    eqi((long long)s.hi, 4608, "test setup: hi is the last holding depth, 4608, before bisection narrows it");
+    while (!s.bracket_closed) settle_one_depth(&s, &now, 1);   /* every midpoint holds: only hi narrows */
+    eqi((long long)s.lo, 4096, "lo never moved: every midpoint held");
+    eqi((long long)s.hi, 4128, "hi narrowed to exactly 4128 (width 32, the bracket's own stop condition)");
+    check(gbp_v28_3a_confirmed_floor(&s, &floor) == 1, "a floor exists");
+    eqi((long long)floor, 4128, "the floor is hi (4128), NOT lo (4096) -- RED against the first attempt's own "
+                               "bracket_closed?lo:last_hold, which would have read 4096 here");
+    {
+        const struct gbp_v28_anchor wrong = gbp_v28_anchor(s.lo, 1);
+        const struct gbp_v28_anchor right = gbp_v28_anchor(floor, 1);
+        eqi((long long)wrong.target, (long long)GBP_V28_T256,
+            "the WRONG read (lo) anchors to T256 -- below the lowest depth that ever held");
+        eqi((long long)right.target, (long long)GBP_V28_T320,
+            "the RIGHT read (hi via the accessor) anchors to T320, the actual rule");
+        check(wrong.target != right.target, "the two reads genuinely disagree -- this is not a vacuous check");
+    }
+}
+
+static void test_confirmed_floor_a_cut_mid_bisection_uses_the_latest_hi(void)
+{
+    struct gbp_v28_3a s;
+    uint64_t now = steady2(GBP_V28_P3_START);
+    uint32_t floor = 0u;
+    gbp_v28_3a_start(&s, TB_HZ, now);
+    settle_one_depth(&s, &now, 1);   /* 6144 holds -- last_hold = 6144 */
+    settle_one_depth(&s, &now, 0);   /* 5632 fails -- opens the bracket: lo=5632, hi=6144 */
+    check(s.bisecting == 1u, "test setup: the bracket opened");
+    settle_one_depth(&s, &now, 1);   /* the first bisection midpoint holds -- hi narrows away from 6144 */
+    check(s.hi < 6144u, "test setup: hi actually moved during bisection, away from the stale pre-bisection value");
+    check(s.bracket_closed == 0u, "test setup: the bracket has not closed yet -- a genuine mid-bisection cut");
+    /* gbp_v28_3a_cut() only marks state (this file's own established two-call contract,
+     * test_a_cut_dwell_is_partial()) -- confirmed_floor() needs neither call, it reads
+     * s.hi/s.bisecting/s.have_hold directly, none of which the cut touches. */
+    gbp_v28_3a_cut(&s, now);
+    check(gbp_v28_3a_confirmed_floor(&s, &floor) == 1, "a floor still exists after the cut");
+    eqi((long long)floor, (long long)s.hi, "the floor is the LATEST hi, updated mid-bisection before the cut -- "
+                                          "not last_hold, frozen at the pre-bisection value");
+    check(floor != 6144u, "RED against last_hold: that stale value is genuinely NOT what this reads");
+}
+
 int main(void)
 {
     test_start_begins_the_first_depth_once_applied();
@@ -448,6 +549,10 @@ int main(void)
     test_dishonest_vs_honest_under_a_forced_busy_transition();
     test_a_walker_cap_cut_without_the_callers_own_cut_call_loses_the_record_silently();
     test_a_walker_cap_cut_with_the_callers_own_cut_call_records_it_partial();
+    test_confirmed_floor_a_first_depth_that_fails_has_no_floor();
+    test_confirmed_floor_holds_straight_to_p3_min();
+    test_confirmed_floor_a_straddling_bracket_uses_hi_not_lo();
+    test_confirmed_floor_a_cut_mid_bisection_uses_the_latest_hi();
     printf("test_gbp_v28_3a: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
