@@ -10889,7 +10889,7 @@ RUN 43                  0.081 / 0.100   0.208 / 0.185
 
 ---
 
-### GBP-HW-352 — `agb-route`, the stimulus for `U-GBP-047` and `U-GBP-048`: `agb-sweep`'s APU writes byte for byte in route-both, one value apart in route-left, route-right and route-bias0200, and SOUNDBIAS read at the ROM's entry before crt0, at main and after init; devkitARM's crt0 writes nothing in palette RAM and never 0x04000088 — FACT (host tests and the disassembly of the linked images); NOT PHYSICALLY EXECUTED
+### GBP-HW-352 — `agb-route`, the stimulus for `U-GBP-047` and `U-GBP-048`: `agb-sweep`'s APU writes byte for byte in route-both, one value apart in route-left, route-right and route-bias0200, and SOUNDBIAS read at the ROM's entry before crt0, at main and after init; devkitARM's crt0 writes nothing in palette RAM and never 0x04000088 — FACT (host tests and the disassembly of the linked images); NOT PHYSICALLY EXECUTED — **2026-09-28, Issue #132: RUN 44-47 physically executed all four images; route-both's own SOUNDBIAS entry read is no longer NOT PHYSICALLY EXECUTED — read the amendment at the end of this entry before copying that qualifier**
 
 GitHub Issue #124, Round C:
 - the ROM: `stimulus/agb-route/` (`make stimulus-route`);
@@ -11048,6 +11048,25 @@ AGB in any particular state. No run is authorised.
 **Status (#125 §4).** Each line is **FACT (code) about the named reference**. For the hardware, each is a **LEAD**, and
 it moves no hardware claim's status. Every Hz figure assumes one stream bit per AGB cycle at 2^24 Hz and uniform
 slices (`U-GBP-041`, a HYPOTHESIS).
+
+**AMENDMENT 2026-09-28 (GitHub Issue #132), on top: RUN 44 physically executed route-both's own
+SOUNDBIAS entry read.** The heading's own `NOT PHYSICALLY EXECUTED` qualifier is lifted for that
+read specifically. The Operator's declaration (Issue #130, recorded before any figure was
+computed): `E = M = I = 0x0200` on all three rows, all four ROMs; `E` present every run (never
+`----`). `tools/v124route.py`'s `question_bias(0x0200, entry_ok=1)` (unedited, pinned before this
+run) reads `resolution_bits_14_15 = 0`: the "Orchestrator's synthesis" model's own prediction
+holds. `E == M == I` on all four ROMs is also consistent with this entry's own disassembly finding
+above (crt0 stores nothing to `0x04000088`), now physically confirmed rather than resting on
+static analysis alone.
+
+**What stays NOT PHYSICALLY EXECUTED.** Everything else this entry documents: the other three
+images' own stimulus writes (route-left/route-right/route-bias0200's SOUNDCNT_L values, checked
+only by disassembly and host tests), and crt0's own disassembly as a general claim about the
+toolchain rather than about this one read. **What this one physical reading does not separate**
+(named already, above): whether `E` reflects the GBP, the BIOS, or the EZ-Flash Omega DE's own
+menu — `E` was already at the documented default on every run, so route-bias0200's own
+discriminating power (a write AFTER `E`) is not exercised by a run that never saw a non-default
+`E` to begin with.
 
 ### GBP-AUD-002 — GBI's audio path past the hand-off: streams 3 and 7 only, and only their centred bit counts; three converters (a byte-rate IIR sampled per slice, a pair sum for GBA and a slice sum for GB/GBC), the default chosen by an initialised flag (the IIR in the Standard and Speedrunning editions, the digital sums in the High-Fidelity edition); A and B two channels; libogc's AESND voice on a 48 kHz AI with a measured-ratio pitch, run by LIBAESND's own DSP microcode; in the functions compared, the editions differ in the default converter, the output ring (8 / 4 / 4 buffers) and the start delay (24 / 12 / 12 ms) — FACT (code) about GBI; a LEAD for the hardware
 
