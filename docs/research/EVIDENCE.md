@@ -11603,3 +11603,48 @@ must fail the READY/AHEAD test, which the diagnosis has to check, not assume).
 `main.c` never wrote the last phase's `SYNCPE end` line (commit `56c7777`; the `23-v28v` DOL that
 ran RUN 51 does not contain the second fix and no rebuild has been done). One observation, not a
 fix: `gbp_v28_3a_underrun_observed()` has no caller, so 3a's 60 s confirm always runs whole.
+
+
+### GBP-HW-357 — the statuses of `GBP-HW-356`, as ratified on Issue #135: "FACT of this run" is not a status; the AHEAD-1 hold is CORROBORATED for its narrow claim only; `GBP-HW-351` FIRED by #131's frozen rule with its consequence NOT established, because that rule turned "margin to spare" into "a clean hold"; the sweep is FAIL with cause UNKNOWN (Issue #135)
+
+**Why a new entry.** `GBP-HW-356` is committed and append-only; it says "FACT of this run" in its heading and
+body. The Planejador ratified its statuses on Issue #135 with exactly one wording change: the evidence
+vocabulary (`docs/RESEARCH_METHOD.md`) has FACT, CORROBORATED, HYPOTHESIS and UNKNOWN, and no per-run FACT.
+This entry states the ratified wording and supersedes `GBP-HW-356`'s wherever the two differ; nothing in
+`GBP-HW-356` is edited.
+
+**The ratified statuses.**
+
+- **The rows of the RUN 51 log** are a record: what the log contains, at its recorded hash
+  (`f8a40d11e39b4aec4130adce6641913db223565eb37a30320d5334319f3e3435`). They are not a claim with a status
+  of their own; the claims below carry the statuses.
+- **CORROBORATED: the 3a floor bracket** (lo 2304 / hi 2336 native), unchanged from `GBP-HW-356`.
+- **CORROBORATED, narrow claim only: the AHEAD-1 hold.** 16-tap chain, T256, this cartridge and scene, one
+  60.0 s window with no underrun. Not a statement about AHEAD 1 in general, not about 32 taps, not about
+  stereo, not about margin.
+- **`GBP-HW-351`: its reversal condition FIRED by #131's frozen operational rule; the consequence is NOT
+  established; 351's own status is unchanged.** Why: 351's own words are "AHEAD 1 with margin to spare". The
+  frozen rule #131 wrote turned that into "the anchor comes out at T256 and the 60 s AHEAD-1 hold is clean".
+  A clean hold measures no margin: a hold that ends without an underrun is the same record whether it kept
+  35 ms or 0.1 ms. So the rule fired on a proxy that cannot distinguish the two readings `GBP-HW-350` and
+  `GBP-HW-351` leave open, and the firing is recorded, not acted on.
+- **The T256 anchor is not an independent confirmation.** `gbp_v28_anchor()` returns T256 for every 3a floor
+  up to 4096 native, and the floor is 2336. The Planejador's earlier reading of it as a second confirmation
+  was an overclaim, corrected on Issue #135.
+- **The sweep verdict is FAIL, cause UNKNOWN.** 8 of 18 GATE moves, all `fail_reason=1` (OUT_OF_BAND), residues
+  -204 to -2623, every passing landing at exactly +128. `U-GBP-047`/`U-GBP-048` are untouched. The perceptual
+  run is not authorised.
+- **The p4 stutter the Operator reported is designed-in, not a finding.** The sweep's moves are deliberate mutes
+  (STEP_MUTE 6 periods, START_MUTE 8 periods, 31.25 ms each); a stutter during the sweep is what the phase
+  does. The Planejador's earlier reading of it as evidence was an overclaim, corrected on Issue #135. It stays
+  an OPERATOR OBSERVATION.
+
+**What this entry does not do.** It adds no measurement. It changes no gate, no figure and no status of any
+other entry.
+
+**A finding about the sweep's own start state, recorded in `HARDWARE_TESTS.md` §V28.8** (HYPOTHESIS for its
+effect on RUN 51's outcome; the mechanism in the code is read directly): 3b's `begin_ahead(A1)` leaves the
+chain at (T256 = 4096, AHEAD 1) and never restores AHEAD 4, so the sweep starts from (4096, A1) while the
+frozen table's `from_*` columns assume (T704, A4). The host model from (T704, A4) passes every GATE move; from
+(4096, A1) only the first move fails. That one failure is reproduced on the host; the other sixteen are not,
+so this finding does not explain the RUN 51 sweep and is not offered as its cause.

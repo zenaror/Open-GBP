@@ -38670,3 +38670,55 @@ from it; the classifications are recorded as `GBP-HW-356`).
 **Stop.** Nothing was rebuilt, re-pinned or re-staged. The perceptual run is not authorised and
 its Issue is not being written. Next: the sweep's negative residue, diagnosed from the code and
 the raw log.
+
+### V28.8 RUN 52's design (Issue #135): the sweep's start state, the SD-only diagnostics, one INFO reposition — 2026-09-28 (Issue #135)
+
+**The finding, read directly from the code (not a hardware result).** `gbp_v28_3b` opens its hold with
+`begin_ahead(A1)` at the anchor and only escalates to A2 on an underrun; it never restores A4. For any
+3a floor at or below 4096 native the anchor is T256 (`GBP_V28_LADDER` rule, `gbp_v28_ladder.h:241`), so
+the sweep begins at **(T256 = 4096, A1)**. The frozen sweep table's `from_*` columns assume **(T704,
+A4)**; nothing in `gbp_atrans2_begin()` reads `from_*` (it takes only the target and the AHEAD), so the
+columns were labels the chain never had to honour. RUN 51's move 0 (T704A4 -> T576A4) therefore ran
+out of a chain that was at (T256, A1).
+
+**Host probe (what it does and does not show).** With the real chain and a smooth feed:
+
+```text
+start (T704, A4)  : 27/27 moves pass
+start (T256, A1)  : move 0 only fails, residue -895 (RUN 51's n=0 on hardware: -2623)
+15 start states   : anchor rung T256..T704 x AHEAD 1/2/4, all 28 records of the new sweep pass
+```
+
+RUN 51's other seven GATE failures (n=2, 3, 8, 12, 15, 16, 17) and two INFO failures do **not** reproduce
+on the host from either start. That the prelude fixes n=0 on the host is a HYPOTHESIS about hardware
+n=0 only; it is not offered as the cause of the RUN 51 sweep FAIL, whose cause stays UNKNOWN. The
+failures 2-17 were deliberately not hunted in host code before RUN 52.
+
+**The adversarial review's own finding, recorded because it bounds what RUN 52 can show.** RUN 51's
+n=17 was the *same move* as the new prelude (START, T256A1 -> T704A4) and failed on hardware (residue
+-204); n=16 (the START the other way) failed at -385. The prelude may therefore land undershot, and
+move 0 would then still start from an off-nominal chain. That is a possible RUN 52 outcome, not a
+defect: the prelude is INFO and outside the verdict, and the measured fields below exist to tell
+those cases apart. The test that guards the change is RED on the old source for n=0 alone (residue -895)
+and green with the prelude; it shows the fix for that move on the host and nothing about the others.
+
+**What RUN 52's build adds (all outside the timing-critical path; SD log only).**
+
+| record | fields |
+| --- | --- |
+| `V28_SWEEP` | unchanged: `n klass mech from_t from_a to_t to_a outcome fail residue unmasked` |
+| `V28_SWEEPM` (new, one per record, same `n`) | `meas_t meas_a` (the chain's own target and AHEAD read before `begin`), `meas_ring meas_ready` (same instant), `ring ready dup drop t_land` (at landing) |
+| `V28_3B` | now also `min_ready min_ring samples` (the hold's minima over per-tick samples; `min_ring` is a minimum over tick instants, not a true trough) |
+
+`V28_SWEEPM` is a second line, not extra fields on `V28_SWEEP`: with them on one line the worst case is
+330 characters against the 248-character console log line, and the ring log truncates the tail. Record
+`n` is the TABLE index: the prelude is `n=0`, GATE rows are `n=1..18`, INFO rows `n=19..27`, so every `n`
+is one more than the same move's `n` in RUN 51. `meas_ring`/`meas_ready` go beyond the fields the Issue
+named; they are the same read as `meas_t`/`meas_a`. `tools/v28verdict.py` reads and renders them, the
+prelude's start state included; logs without them (RUN 51's) read as before.
+
+**Unchanged.** The frozen GATE rows and their `from_*` columns; `gbp_v28_sweep_verdict()` (PENDING
+until 19 records, only GATE rows fold in); the sweep's 60 s cap (nominal 33.5 s for 28 moves; RUN 51's
+27 took 33.0 s); the gate. The perceptual run is not authorised and is not written here.
+
+**Not done here.** Rebuild, re-pin and re-stage of `23-v28v` are recorded in §V28.9.
