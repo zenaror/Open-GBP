@@ -11716,3 +11716,30 @@ the 28 sweep rows are `HARDWARE_TESTS.md` §V28.10. The vocabulary is FACT, CORR
 **What it does NOT establish.** Audibility of anything; that AHEAD 1 is safe at a 32-tap chain, in stereo, at any
 other rung, with another cartridge type, or for longer than 60 s; that the floor is the same on another console or
 Game Boy Player; the cause of any sweep failure; that `min_ring = 256` is or is not a steady figure.
+
+
+### GBP-HW-360 — the mechanism of RUN 52's short landings: the ring at a ROTATE landing is the ring at the last period's start, and the trim only cuts — HYPOTHESIS, reproduced on the host with two console-measured properties; the fix is validated on the host only and costs a larger, unmasked landing trim (Issue #136)
+
+**Source.** `HARDWARE_TESTS.md` §V28.11 (the reproduction, the fix, the review); `logs/run52/...` sha256
+`6b80c29ef29b550a58cbb4a7a90cb583a4097cf2877c5a5e0886b84b01b9a214`; `src/audio/gbp_atrans2.c`; commit `e446f7a`.
+
+- **HYPOTHESIS: the cause of RUN 52's short landings.** In the last muted period a rotation subtracts a chunk
+  and the period's inflow refills it, so the landing ring equals the ring at that period's start; the landing
+  trim only cuts. Support: it is reproduced on the host, with 8 of 32 checks failing on the previous source and
+  the shortfalls of the same size as the console's (700-940 against 826-875), once the host takes the two
+  console-measured properties it lacked (125 pump calls a period, FACT of the log at 124.8; a feed 0.5 % slow,
+  0.47 % in the sweep, 0.545 % over the run, from `V28CORR` and the DUP/DROP counts); and the five same-target
+  failures fit `target + AIM - 2048 + rho` with `rho` 149-232. Not CORROBORATED: nothing inside the console was
+  observed, only the outcome; a second mechanism producing the same numbers is not excluded, and the host does not
+  reproduce the exact console pass/fail pattern.
+- **HYPOTHESIS, the fix works on the console:** the last period's rotation aim `target + 512`. Validated on the
+  host only (0 failures on seven feed and timing cases, 18 GATE moves, 25 begin phases). RUN 53 decides.
+- **FACT (code and measurement, review): its cost.** The landing trim's mean goes from 41-90 to 1 261-1 649
+  samples at the console's cadence (maximum about 2 400) and it lands after the first audible hand-off, so the
+  splice it makes is audible, about `ahead` chunks after the mute ends. The source's earlier "masked" claims were
+  never checked against the console.
+- **UNKNOWN: the trim size the console actually makes** (never logged before RUN 53), and the origin of
+  `min_ring = 256` (a landing transient, or a steady floor if the feed deficit exceeded the corrector).
+
+**What this does NOT establish.** That the sweep will pass on the console; that the splice is or is not audible;
+anything about the perceptual run, which stays unauthorised.
