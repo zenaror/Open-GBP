@@ -177,6 +177,9 @@ def hold_3b(text):
             if m is not None:
                 out[key].update({"ring0": int(m["ring0"]), "min_ring_late": int(m["min_ring_late"]),
                                  "samples_late": int(m["samples_late"])})
+                if "mean_ring" in m:                                   # Issue #136: the steady level against target
+                    out[key].update({"mean_ring": int(m["mean_ring"]), "mean_cs": int(m["mean_cs"]),
+                                     "chunk_starts": int(m["chunk_starts"])})
     if a1 is not None:
         out["ahead1_clean"] = int(a1["underrun_seen"]) == 0
         out["ahead1_partial"] = int(a1["partial"]) != 0
@@ -218,8 +221,11 @@ def sweep(text):
     # HAND-OFF, in any GATE row. Read from the log's own V28_SWEEPC records (cut_rel >= 0 with cut > 0), whatever
     # fail_reason the module gave the row.
     klass_of = {r["n"]: int(r["klass"]) for r in rows}
-    late_cuts = sorted((int(n), int(c["cut"]), int(c["cut_rel"])) for n, c in cuts.items()
-                       if int(c["cut"]) > 0 and int(c["cut_rel"]) >= 0 and klass_of.get(n) == SWEEP_KLASS_GATE)
+    late_cuts = sorted((int(n), int(c["cut"]) if int(c["cut_rel"]) >= 0 else int(c["dwell_cut"]),
+                        int(c["cut_rel"]) if int(c["cut_rel"]) >= 0 else 0)
+                       for n, c in cuts.items()
+                       if ((int(c["cut"]) > 0 and int(c["cut_rel"]) >= 0) or int(c.get("dwell_cut", 0)) > 0)
+                       and klass_of.get(n) == SWEEP_KLASS_GATE)
     cut_gate = {"recorded": bool(cuts), "late_gate_cuts": late_cuts}
     return {"n_records": len(rows), "n_gate": len(gate_rows), "n_info": len(info_rows), "cut_gate": cut_gate,
             "failing_gates": failing_gates, "info_rows": info_rows, "measured": measured, "verdict": verdict,
@@ -254,8 +260,9 @@ def _trim_late(m):
     """Issue #136's landing fields (what the landing's trim cut; a rotation abandoned in flight), when the log has them."""
     if "cut" not in m:
         return ""
-    return " cut %s (period %s vs unmute) rot_post %s fill_short %s late %s" % (m["cut"], m["cut_rel"], m["rot_post"],
-                                                                            m["fill_short"], m["late"])
+    where = "no cut" if int(m["cut_rel"]) <= -100 else "period %s vs unmute" % m["cut_rel"]
+    return " cut %s (%s) rot_post %s fill_short %s dwell_cut %s late %s" % (
+        m["cut"], where, m["rot_post"], m["fill_short"], m.get("dwell_cut", "?"), m["late"])
 
 
 def render(out):
@@ -303,6 +310,11 @@ def render(out):
                         lines.append("3B: %s ring at the first sample %d; min ring over the %d samples taken 10 s or "
                                      "more after it %s" % (name, m["ring0"], m["samples_late"],
                                                            m["min_ring_late"] if m["samples_late"] else "(none)"))
+                    if "mean_ring" in m:
+                        tgt = anc["target"] if anc["have"] else 0
+                        lines.append("3B: %s steady level: mean ring %d (%+d vs target %d), mean ring at chunk start %d "
+                                     "(%+d vs target) over %d chunks" % (name, m["mean_ring"], m["mean_ring"] - tgt, tgt,
+                                                                         m["mean_cs"], m["mean_cs"] - tgt, m["chunk_starts"]))
             if h["have_ahead2"]:
                 lines.append("3B: AHEAD 2 %s%s" % ("clean" if h["ahead2_clean"] else "UNDERRUN",
                                                    " (partial)" if h["ahead2_partial"] else ""))
@@ -345,7 +357,7 @@ def render(out):
         lines.append("SWEEP: no cut after unmute (Issue #136 GATE condition) -- NOT RECORDED (this log predates it)")
     elif cg["late_gate_cuts"]:
         lines.append("SWEEP: no cut after unmute (Issue #136 GATE condition) -- FAIL at GATE n=%s"
-                     % ", ".join("%d (%d samples, period %d)" % c for c in cg["late_gate_cuts"]))
+                     % ", ".join("%d (%d samples cut after the landing or at period %d)" % c for c in cg["late_gate_cuts"]))
     else:
         lines.append("SWEEP: no cut after unmute (Issue #136 GATE condition) -- PASS in every GATE row")
 

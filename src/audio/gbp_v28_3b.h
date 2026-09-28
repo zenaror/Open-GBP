@@ -61,6 +61,12 @@ struct gbp_v28_3b_hold {
      * the samples taken GBP_V28_3B_SETTLE_S or more after that first one, `samples_late` counting them
      * (0 means none, and min_ring_late is then 0 and means nothing). */
     uint32_t ring0, min_ring_late, samples_late;
+    /* Issue #136: the STEADY level. mean_ring is the ring's mean over every sample; mean_chunk_start the mean of the
+     * ring's count at the moment each chunk began (gbp_aplay2's own `cur_s0`), the level the DUP/DROP corrector holds
+     * against `target` (+-BAND), over `chunk_starts` chunks. On the calibrated host a feed 0.5 % slow gives a mean
+     * ring 1171 BELOW target and a chunk-start level at target - BAND: the ring sits under target in steady state,
+     * not only after a move. 0 when nothing was sampled. */
+    uint32_t mean_ring, mean_chunk_start, chunk_starts;
 };
 
 struct gbp_v28_3b {
@@ -78,7 +84,9 @@ struct gbp_v28_3b {
     uint64_t t_hold_end;
     uint32_t cur_min_ready, cur_min_ring, cur_samples;   /* the CURRENT hold's own running minima */
     uint32_t cur_ring0, cur_min_ring_late, cur_samples_late;
-    uint64_t cur_t_first;        /* the CURRENT hold's first sample's own time */
+    uint64_t cur_t_first;
+    uint64_t cur_sum_ring, cur_sum_cs;
+    uint32_t cur_cs_n, cur_cs_last;        /* the CURRENT hold's first sample's own time */
     struct gbp_v28_3b_hold holds[2];     /* at most AHEAD 1, then AHEAD 2 -- never a third level */
     uint32_t holds_n;
     uint32_t refused_hold_done;  /* hold_done() called with nothing pending: counted, never silent */

@@ -225,6 +225,11 @@ static void test_clean_hold_at_ahead_1_finishes_3b(void)
         eqi(h->samples - h->samples_late >= (GBP_V28_3B_SETTLE_S - 1u) * CALLS_PER_PERIOD, 1,
             "about GBP_V28_3B_SETTLE_S seconds of samples precede the settled window");
         check(h->min_ring_late >= h->min_ring, "the settled minimum can never be below the overall minimum");
+        /* the steady level: the mean ring sits between the minimum and the chunk-start level the corrector holds */
+        check(h->chunk_starts > 0u && h->mean_chunk_start > 0u, "chunk starts were sampled");
+        check(h->mean_ring >= h->min_ring && h->mean_ring <= h->mean_chunk_start,
+              "the mean ring lies between the minimum and the mean chunk-start level (the sawtooth's top)");
+        check(h->chunk_starts >= (GBP_V28_3B_HOLD_S - GBP_V28_STEP_MUTE - 3u), "about one chunk start per period");
     }
 }
 
@@ -243,6 +248,8 @@ static void test_a_hold_that_sampled_nothing_records_zero_minima_not_the_sentine
     eqi(gbp_v28_3b_hold_record(&s, 0)->ring0, 0, "no samples: ring0 is 0");
     eqi(gbp_v28_3b_hold_record(&s, 0)->samples_late, 0, "no samples: no settled sample either");
     eqi(gbp_v28_3b_hold_record(&s, 0)->min_ring_late, 0, "no settled sample: min_ring_late is 0, not UINT32_MAX");
+    eqi(gbp_v28_3b_hold_record(&s, 0)->mean_ring, 0, "no samples: mean_ring is 0");
+    eqi(gbp_v28_3b_hold_record(&s, 0)->chunk_starts, 0, "no samples: no chunk start counted");
 }
 
 static void test_underrun_during_ahead_1_escalates_to_ahead_2(void)
