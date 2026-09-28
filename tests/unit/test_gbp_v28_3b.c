@@ -137,6 +137,48 @@ static void test_start_begins_the_entry_step_once_applied(void)
     eqi(tr.target, (long long)GBP_V28_P3_MIN, "the anchor target is unchanged");
 }
 
+static void test_the_entry_step_lands_without_a_real_underrun(void)
+{
+    /* the REAL landing, not s.hold_active (which gbp_v28_3b sets the instant begin() applies, well
+     * before the underlying ROTATE transition's own mute elapses -- found the hard way building
+     * this exact test, Issue #129/#130): drive until tr.active itself returns to 0, a clean period
+     * boundary, then settle a few periods under ordinary smooth feed and check the real chain's
+     * own ap.underruns never moves. This is what a fitted READY-only check at the landing instant
+     * would miss: 3b's own entry step used to land with `ready`/`cur` matching steady state's own
+     * tuple exactly, and still underran one hand-off later, because gbp_v28_3b's own anchor
+     * (GBP_V28_P3_MIN) sits at GBP_APLAY2_PUSHES exactly, where the ROTATE landing's own ring trim
+     * left nothing for the landing call's own production recovery to work with. */
+    struct gbp_v28_3b s;
+    uint64_t now = steady_at_ahead4(GBP_V28_P3_MIN);
+    uint32_t i, k, u0;
+    gbp_v28_3b_start(&s, GBP_V28_P3_MIN, TB_HZ, now);
+    /* wait for the REAL landing (tr.active back to 0), not just s.begin_pending clearing -- begin()
+     * applying and the underlying ROTATE transition actually finishing are different instants (the
+     * cause this test exists to catch). */
+    for (i = 0; i < 40u && (s.begin_pending || tr.active); i++) {
+        (void)gbp_aplay2_irq_handoff(&ap, now);
+        for (k = 0; k < CALLS_PER_PERIOD; k++) {
+            give2(&adec, slice2(k), 100);
+            (void)gbp_v28_3b_tick(&s, &tr, &ap, &adec, now);
+            pump2(now);
+            now++;
+        }
+    }
+    check(tr.active == 0u, "this test's own setup: the entry step's own transition actually landed");
+    u0 = ap.underruns;
+    for (i = 0; i < 8u; i++) {
+        (void)gbp_aplay2_irq_handoff(&ap, now);
+        for (k = 0; k < CALLS_PER_PERIOD; k++) {
+            give2(&adec, slice2(k), 100);
+            (void)gbp_v28_3b_tick(&s, &tr, &ap, &adec, now);
+            pump2(now);
+            now++;
+        }
+    }
+    eqi((long long)ap.underruns, (long long)u0,
+        "no real underrun in the periods right after the entry step's own landing");
+}
+
 static void test_begin_refused_counts_no_hold_until_applied(void)
 {
     struct gbp_v28_3b s;
@@ -300,6 +342,7 @@ static void test_dishonest_vs_honest_under_a_forced_busy_transition(void)
 int main(void)
 {
     test_start_begins_the_entry_step_once_applied();
+    test_the_entry_step_lands_without_a_real_underrun();
     test_begin_refused_counts_no_hold_until_applied();
     test_clean_hold_at_ahead_1_finishes_3b();
     test_underrun_during_ahead_1_escalates_to_ahead_2();
