@@ -38472,3 +38472,201 @@ Manifest re-pinned a fourth time, test pin updated. Card re-staged while still i
 and after the copy — all unchanged.
 
 **Card verified, still ready for RUN 51.**
+
+### V28.7 RUN 51 ingested (Issue #135): all four phases `complete`, the AHEAD-1 hold measured clean, the sweep FAILS 8 of 18 GATE moves — 2026-09-28 (Issue #131/#133/#135)
+
+**Files and integrity.**
+
+```text
+raw log        logs/run51/GBP-AUDIO-V28_v28-validation-0001.log
+sha256         f8a40d11e39b4aec4130adce6641913db223565eb37a30320d5334319f3e3435   99 675 B
+archived       captures/local/GBP-AUDIO-V28_v28-validation-0001-run51.log  (byte-identical, recomputed)
+Gecko          captures/local/GECKO-GBP-AUDIO-V28-run51.txt
+build          v28-validation-0001, commit 1f77bc4, slot 23-v28v, boot.dol af2d4f81...5a2e (§V28.6)
+log            769 lines, dropped=0 truncated=0, ok_session_ended
+phases (#135)  p0 26.6 s / p1 138.0 s / p2 60.0 s / p3 33.0 s -- SYNCPH lines 772-775, all reason=complete
+```
+
+**The Operator's declaration, verbatim (Issue #135, comment of 2026-09-28).** OPERATOR OBSERVATION,
+not evidence of a mechanism:
+
+> estou evitando pegar uma area com monstros para fazer mais barulhos... no maximo aperto A rapidinho
+> no começo para ver o sync de audio
+
+> Na p4 está dando umas engasgadinhas
+
+(`p4` is the fourth phase, the sweep. He qualified RUN 50's stutter as possibly his own impression;
+he does not qualify this one.)
+
+**The frozen gate, read through `tools/v28verdict.py`.** Run twice, on the raw log, output kept
+byte-for-byte. First the tool exactly as it stood at the run's own freeze (`14ffca6`):
+
+```text
+ADMISSIBILITY: FAIL
+  - phase 3 (sweep): reached but no SYNCPE end
+  - V28C2 ring_discarded=15695 (nonzero)
+3A: lowest holding depth 2304 native (144.0 old, 35.16 ms), whole, underrun=33 (over 14 depths)
+3B: anchor 4096 native (256.0 old, 62.50 ms), source=rule
+3B: AHEAD 1 clean
+3B: 32-tap reversal condition (GBP-HW-351) -- FIRED, anchor source=rule (recorded, Amendment B: not acted on this round)
+SWEEP: 27 records (18 GATE, 9 INFO); verdict=FAIL
+  FAIL gate n=0: from 11264 native (704.0 old, 171.88 ms) (ahead 4) to 9216 native (576.0 old, 140.62 ms) (ahead 4) outcome=2 fail_reason=1
+  FAIL gate n=2: from 7168 native (448.0 old, 109.38 ms) (ahead 4) to 5120 native (320.0 old, 78.12 ms) (ahead 4) outcome=2 fail_reason=1
+  FAIL gate n=3: from 5120 native (320.0 old, 78.12 ms) (ahead 4) to 4096 native (256.0 old, 62.50 ms) (ahead 4) outcome=2 fail_reason=1
+  FAIL gate n=8: from 4096 native (256.0 old, 62.50 ms) (ahead 1) to 4096 native (256.0 old, 62.50 ms) (ahead 2) outcome=2 fail_reason=1
+  FAIL gate n=12: from 5120 native (320.0 old, 78.12 ms) (ahead 4) to 7168 native (448.0 old, 109.38 ms) (ahead 4) outcome=2 fail_reason=1
+  FAIL gate n=15: from 11264 native (704.0 old, 171.88 ms) (ahead 4) to 11264 native (704.0 old, 171.88 ms) (ahead 4) outcome=2 fail_reason=1
+  FAIL gate n=16: from 11264 native (704.0 old, 171.88 ms) (ahead 4) to 4096 native (256.0 old, 62.50 ms) (ahead 1) outcome=2 fail_reason=1
+  FAIL gate n=17: from 4096 native (256.0 old, 62.50 ms) (ahead 1) to 11264 native (704.0 old, 171.88 ms) (ahead 4) outcome=2 fail_reason=1
+LABEL COST: 7515 renders, ticks_last=977, ticks_max=4366 (informational, same pump slot as 3B's own AHEAD margin)
+```
+
+The tool at `56c7777` (this checkpoint's own tree) prints the identical text minus the
+`ring_discarded` line; `diff` of the two outputs is exactly that one line.
+
+**Two tool/logging defects, found by this ingestion, both fixed forward in `56c7777` and neither
+used to change a domain figure.**
+
+1. `tools/v28verdict.py` treated `V28C2 ring_discarded` as a loss counter. It is `adec2.discarded`,
+   the ring-head drops the descent makes on purpose; `#131` §4's own wording is "at 0 *where the
+   design says they should be*", and here (15 695) the design says nonzero. The genuine loss
+   counters (`lost`, `syncpe_lost`, `lines_lost`) remain checked, each RED-verified to fail alone.
+2. `main.c` never wrote `SYNCPE p=3 edge=end`. The sweep is `validation_run`'s last phase; its own
+   completion is observed after that tick's `syncpe_edges()` call, and once the walker is `finished`
+   the block holding that call never runs again. Every `validation_run` that finishes cleanly
+   loses this one line; RUN 51 is the first to finish. Fixed by calling `syncpe_edges()` right after
+   the sweep's own `gbp_walker_phase_complete()` (idempotent). **This changes `main.c`, so the
+   `23-v28v` DOL is not the one that ran RUN 51: no rebuild, re-pin or re-stage has been done, and
+   none is requested until the Orchestrator decides whether a RUN 52 needs it.**
+
+**Admissibility, the argued case (for the Orchestrator to weigh, not forced through the tool).**
+The tool still says `FAIL` on the one remaining line, and that line stays in this record. What is
+and is not missing: SYNCPH (the backstop `#131` §4 names) carries phase 3's real `t_start`/`t_end`
+and `reason=complete` (line 775); `syncpe_lost=0`, `lines_lost=0`, `lost=0`, `V28CORR overflow=0`,
+`dropped=0 truncated=0`; the cause is understood and fixed. I read the run as admissible in
+substance. What I did **not** do is add a "SYNCPE end optional for the last phase" exemption to the
+tool: that is the exemption-list habit refused earlier today, and the bytes of this one log cannot
+be repaired.
+
+**3a — the descent, from the raw `V28_3A` rows (lines 728-741).** Native units, 65 536 Hz.
+
+```text
+n=0..7   6144..2560 step 512  kind=0  hold: dup 16353 (first) then 3040-3051, underruns 2-7
+n=8      2048  kind=0  dup=0   underruns=3        FAIL  (dup 0 is the fail signature since RUN 50)
+n=9      2304  kind=1  dup=0   underruns=4        FAIL  (bisect)
+n=10     2432  kind=1  dup=3055                   hold
+n=11     2368  kind=1  dup=3041                   hold
+n=12     2336  kind=1  dup=3031                   hold
+n=13     2304  kind=2  dup=9   underruns=33  starved=210502   FAIL under the 60 s confirm
+```
+
+Bracket **lo 2304 (highest failing) / hi 2336 (lowest holding)**, width 32 native (0.49 ms); identical to
+RUN 50's, which closed on the same two numbers. **Reading the tool's 3A line correctly:** it
+prints the *confirm record's own target* under the label "lowest holding depth". That is what the
+frozen gate says to print (#131 §4: "the last `kind=2` record's own `target` is the measurement ...
+reported as (T, whole-or-partial, clean-or-underrun)"), so it is not a defect against the gate, but
+the label is misleading: the tuple `(2304, whole, underrun=33)` says 2304 **fails**. The lowest
+depth that held is `hi` = 2336 native (146.0 old units, 35.64 ms), read off `n=12`, and it is what
+`gbp_v28_3a_confirmed_floor()` returned to the anchor rule. A wording change to that label would
+be a change to a gate line after seeing the data, so I propose it, forward-only, to the
+Orchestrator and have not made it.
+
+**A finding the run makes visible: the confirm's early exit is not wired.**
+`gbp_v28_3a_underrun_observed()` (the §V27.14 §4 rule that ends a confirm hold at its first
+underrun) has no caller outside `tests/unit/test_gbp_v28_3a.c`. The 60 s confirm therefore always
+runs whole, which is why `underruns=33` accumulated instead of stopping at 1. It does not move any
+gate (the tuple is `underrun` either way, and the 138 s worst case already assumed a full 60 s),
+so it is recorded, not fixed, and not blocking; it is the same shape as RUN 48/49/50's unwired
+starts and is worth one line in whichever checkpoint next touches `main.c`.
+
+**3b — the anchor and the hold (lines 742-743).**
+
+```text
+V28ANCHOR target=4096 source=rule
+V28_3B n=0 ahead=1 anchor=4096 source=rule underrun_seen=0 partial=0   t_done-t_set = 60.0 s
+```
+
+`4096` native is T256, but the rule returns T256 for **any** floor up to 4096
+(`gbp_v28_ladder.h:241`), and 3a's own floor is 2336. So the anchor coming out at T256 is
+"the floor is below the lowest rung" and nothing more; it is not an independent re-derivation of
+#128 §3's frozen anchor, and I would not describe it as one. **No record in the log carries a
+margin figure** (`grep -ci margin` on the raw log: 0): the hold says an underrun did not occur, not
+by how much it did not.
+
+**Sweep — the 27 `V28_SWEEP` rows (lines 744-770).** GATE = n 0-17, INFO = n 18-26. `mech` is
+the step mechanism (0/1/2). Residue is `gbp_atrans2`'s snapshot at landing.
+
+```text
+n  mech  from -> to (target, ahead)       outcome  residue     n  mech  from -> to             outcome  residue
+0   0  11264A4 -> 9216A4                   FAIL    -2623      14   0   9216A4 -> 11264A4       pass      128
+1   0   9216A4 -> 7168A4                   pass      128      15   1  11264A4 -> 11264A4       FAIL     -663
+2   0   7168A4 -> 5120A4                   FAIL     -696      16   2  11264A4 -> 4096A1        FAIL     -385
+3   0   5120A4 -> 4096A4                   FAIL     -515      17   2   4096A1 -> 11264A4       FAIL     -204
+4   0   4096A4 -> 4096A3                   pass      128      18   2  11264A4 -> 4096A4 (INFO) pass      128
+5   0   4096A3 -> 4096A2                   pass      128      19   0   4096A4 -> 3072A4 (INFO) pass      128
+6   0   4096A2 -> 4096A1                   pass      128      20   0   3072A4 -> 3072A3 (INFO) FAIL     -730
+7   1   4096A1 -> 4096A1                   pass      128      21   0   3072A3 -> 3072A2 (INFO) pass      128
+8   0   4096A1 -> 4096A2                   FAIL     -713      22   0   3072A2 -> 3072A1 (INFO) pass      128
+9   0   4096A2 -> 4096A3                   pass      128      23   0   3072A1 -> 3072A2 (INFO) FAIL     -712
+10  0   4096A3 -> 4096A4                   pass      128      24   0   3072A2 -> 3072A3 (INFO) pass      128
+11  0   4096A4 -> 5120A4                   pass      128      25   0   3072A3 -> 3072A4 (INFO) pass      128
+12  0   5120A4 -> 7168A4                   FAIL     -763      26   0   3072A4 -> 4096A4 (INFO) pass      128
+13  0   7168A4 -> 9216A4                   pass      128
+```
+
+Every record has `unmasked=0`, every failure is `fail=1` (OUT_OF_BAND, not UNDERRUN or UNMASKED).
+**Ten of 27 moves fail, not eight: the two INFO failures (n=20, n=23) do not count toward the
+verdict but are the same signature.** Two facts the table shows before any hypothesis is
+formed: (a) the residue is **bimodal**: every passing move lands at exactly +128, every failing
+one at a negative value between -204 and -2623, with nothing in between; (b) by gate
+mechanism, mech 0 fails 5 of 14, mech 1 fails 1 of 2, mech 2 fails 2 of 2 (n=16, n=17). The
+failing moves do not sort by direction, by the size of the jump or by the AHEAD in force
+(n=8 and n=23 are both AHEAD 1 -> 2 at different targets; n=4..6 and n=9..10 are AHEAD changes
+that pass). Diagnosis is the next checkpoint, not this one.
+
+**Counters (line 724-726).**
+
+```text
+V28C  underruns=83 overflow=0 silences=83 mute_handed=174 dup=87396 drop=224 produced=8148 handed=8250 ring_gated=588850
+V28C2 discarded=0 starved_steps=768259 lost=0 blocks_in=1038702 ring_discarded=15695 trans_faults=0 dropped_front=152 cs=1 acted=1 syncpe_lost=0 lines_lost=0
+V28CORR n=8148 overflow=0 min=0 max=16 mean_x100=1075 cap=20787
+```
+
+The previous defects' fixes held: `handed=8250` (RUN 49: 188), `overflow=0`, every start ran, and no
+phase was cut (`reason=complete` four times).
+
+**Evidence, my own case** (the Orchestrator's proposal is to be weighed against it, not adopted
+from it; the classifications are recorded as `GBP-HW-356`).
+
+- *What the run directly observed* is FACT **of this run**, scoped: the rows above, in a log whose
+  hash is recorded. That is all "FACT" earns here.
+- *The 3a bracket* (lo 2304 / hi 2336) is the same in RUN 50 and RUN 51: two separate boots, two
+  complete descents, identical to the 32-native bisection width. That is a repeated measurement on
+  one console, one GBP, one cartridge: **CORROBORATED**, the same grade this project gave `D = 12
+  of 12` (`GBP-HW-341`), not FACT. RUN 51's confirm adds that 2304 fails under a full 60 s.
+- *The AHEAD-1 hold at T256* is one 60.0 s window, one boot, no underrun. Alone that is FACT of this
+  run and a HYPOTHESIS as a statement about AHEAD 1. What raises it is that `GBP-HW-350`/`351`'s model
+  (measured anchors, INFERENCE for the rest) has AHEAD 1 keeping 21.0 ms worst case at 16 taps in
+  mono and 11.1-15.5 ms in stereo; a model and a direct hold agreeing is two lines. (Which channel
+  mode the RUN 51 build ran is not part of the frozen gate, so which of those figures applies is
+  not settled here.) So the narrow claim
+  "**16-tap chain, T256, AHEAD 1, this cartridge and scene: no underrun in 60 s, bounded below
+  0.05/s at 95 % (#128 §2's rule of three)**" is **CORROBORATED**; I agree with the Orchestrator's
+  grade, for that reason and not for "one measurement".
+- *`GBP-HW-351`'s reversal condition.* Fired mechanically, recorded, not acted on (Amendment B).
+  But the text of 351 is "if the validation run shows AHEAD 1 **with margin to spare**", and the
+  run measures *no underrun*, not *margin*. `GBP-HW-350` also says that at **32** taps in stereo
+  AHEAD 1 keeps 1.3 ms (excess grows with the refill) to 8.7 ms (fixed tail) on the largest
+  measured refill, "not a safe rung", and that one run cannot say which; RUN 51 ran the 16-tap
+  chain and says nothing about that. **So the condition fired, and what it licenses is not established**:
+  the hold is compatible with 351's "32 taps nearly free" and with 350's "not safe at 32", and
+  needs a margin measurement (or a 32-tap hold) to choose. I propose to leave 351's status
+  unchanged and record the firing beside it.
+- *The anchor* coming out at T256 is not an independent confirmation (see 3b above).
+- *The sweep FAIL* is FACT of this run (a domain finding on a working audio path). Its cause is
+  UNKNOWN, `U-GBP-047`/`U-GBP-048` are untouched, and the perceptual run is not authorised by this
+  result.
+
+**Stop.** Nothing was rebuilt, re-pinned or re-staged. The perceptual run is not authorised and
+its Issue is not being written. Next: the sweep's negative residue, diagnosed from the code and
+the raw log.
