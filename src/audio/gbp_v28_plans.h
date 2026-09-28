@@ -9,11 +9,30 @@
  * directly and compares every field against this header's own text, so the two cannot drift
  * apart silently.
  *
- * validation_run        navigate(60, "allowance") -> 3a(138, "§V27 budget")
+ * validation_run        navigate(60, "allowance") -> 3a(168, "§V27 budget + margin, Issue #133")
  *                        -> 3b(120, "AHEAD holds: 1, then 2 on an underrun") -> sweep(60, "ROTATE steps")
- *                        session cap 438 (60+138+120+60 = 378, + GBP_V28_SLACK_S 60)
+ *                        session cap 468 (60+168+120+60 = 408, + GBP_V28_SLACK_S 60)
  * perceptual_no_phase1  navigate(60, "allowance") -> nulling(240, "cap")
  *                        session cap 360 (60+240 = 300, + GBP_V28_SLACK_S 60)
+ *
+ * 3a's OWN 138 -> 168 (Issue #131/#133, RUN 50, Defect B): 138 was the EXACT worst-case sum of
+ * 3a's own dwell durations -- 9 STEP dwells (GBP_V28_P3_START..P3_MIN, GBP_V28_P3_STEP=512, is
+ * exactly 9 grid points) + 4 BISECT dwells (a 512-wide bracket always closes to <=32 in exactly
+ * log2(512/32)=4 halvings, both constants being clean powers of two) + 1 CONFIRM hold, all at
+ * GBP_V28_3A_DWELL_S(6)/GBP_V28_3A_CONFIRM_S(60): 13x6 + 60 = 138 -- RUN 50's own trace hit this
+ * precisely (descent 6144->2048 in 512 steps, bisection 2304/2432/2368/2336, bracket closed at
+ * lo 2304/hi 2336). A phase cap set to the EXACT worst-case sum is not a margin of zero, it is a
+ * loss BY CONSTRUCTION: the walker's own cap timer runs from the phase's own start, while the
+ * confirm's own 60 s dwell starts only after every prior depth's own begin() has actually landed
+ * (gbp_atrans2_begin() may be retried, gbp_v28_3a.h's own header comment on begin_pending) --
+ * so the confirm's own natural end is NEVER earlier than phase-start + 138 s, and gbp_walker_tick()
+ * evaluates the cap with `>=` BEFORE the switch that would let 3a's own tick() see its dwell end
+ * (poc/gbp-audio-v28/source/main.c, live_step()) -- the walker always wins that race. 168 = 138
+ * (the proven exact worst case) + 30 s margin, covering begin-landing retries across up to 13
+ * depth transitions and GameCube pump-loop cadence (one video frame per tick,~16.6 ms slop per
+ * transition) with generous headroom. This is a FROZEN #128 figure changing: #128 §2 names 138 s
+ * for 3a's own budget, unedited there -- this header and tools/v28budget.py are the amendment,
+ * recorded in docs/research/HARDWARE_TESTS.md and docs/research/DEVLOG.md.
  *
  * Phase 1 is in NEITHER list (#128 §2 point 3: dropped from both runs). GBP_V28_P0_ALLOWANCE_S and
  * GBP_V28_SLACK_S are tools/v28budget.py's own P0_ALLOWANCE_S/SLACK_S (§V27.9's O4: navigate/p0
@@ -38,14 +57,15 @@ extern "C" {
 /* ---- validation_run: navigate -> 3a -> 3b -> sweep --------------------------------------- */
 static const struct gbp_walker_phase_def GBP_V28_VALIDATION_RUN_PHASES[4] = {
     { GBP_WALKER_NAVIGATE,   GBP_V28_P0_ALLOWANCE_S },   /* p0, "allowance" */
-    { GBP_WALKER_DESCENT_3A, 138u },                      /* 3a, "§V27 budget" */
+    { GBP_WALKER_DESCENT_3A, 168u },                      /* 3a, "§V27 budget + margin, Issue #133" --
+                                                            * this file's own header comment has the derivation */
     { GBP_WALKER_HOLD_3B,    120u },                      /* 3b, "AHEAD holds: 1, then 2 on an underrun" */
     { GBP_WALKER_SWEEP,       60u },                      /* sweep, "ROTATE steps" */
 };
-#define GBP_V28_VALIDATION_RUN_SUM_S (GBP_V28_P0_ALLOWANCE_S + 138u + 120u + 60u)
+#define GBP_V28_VALIDATION_RUN_SUM_S (GBP_V28_P0_ALLOWANCE_S + 168u + 120u + 60u)
 #define GBP_V28_VALIDATION_RUN_CAP_S (GBP_V28_VALIDATION_RUN_SUM_S + GBP_V28_SLACK_S)
-_Static_assert(GBP_V28_VALIDATION_RUN_CAP_S == 438u,
-    "gbp_v28_plans: validation_run's session cap no longer matches tools/v28budget.py's own 438");
+_Static_assert(GBP_V28_VALIDATION_RUN_CAP_S == 468u,
+    "gbp_v28_plans: validation_run's session cap no longer matches tools/v28budget.py's own 468");
 
 static const struct gbp_walker_plan GBP_V28_VALIDATION_RUN = {
     GBP_V28_VALIDATION_RUN_PHASES, 4u, GBP_V28_VALIDATION_RUN_CAP_S

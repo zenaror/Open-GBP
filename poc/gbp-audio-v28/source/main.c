@@ -183,11 +183,12 @@ static const char opengbp_ident_marker[] =
 #define PLAY_FRAME_RECORDS  25500u
 #define CORR_CAP            16575u
 #else
-#define V28_SESSION_CAP_S   GBP_V28_VALIDATION_RUN_CAP_S         /* 438 */
-#define V28_WALL_S          503u
-#define PLAY_EVENT_RECORDS  39737u
-#define PLAY_FRAME_RECORDS  30180u
-#define CORR_CAP            19617u
+#define V28_SESSION_CAP_S   GBP_V28_VALIDATION_RUN_CAP_S         /* 468, Issue #131/#133: 3a's own budget
+                                                                    * 138 -> 168 (Defect B) */
+#define V28_WALL_S          533u
+#define PLAY_EVENT_RECORDS  42107u
+#define PLAY_FRAME_RECORDS  31980u
+#define CORR_CAP            20787u
 #endif
 #define PLAY_SAFETY_SECONDS      V28_WALL_S
 #define PLAY_MAX_DELIVERIES      6000000u
@@ -578,6 +579,10 @@ static struct gbp_v28_nulling nulling;
 static struct gbp_v28_anchor v28_anchor;
 static uint8_t v28_anchor_computed;
 
+/* Issue #131/#133 (RUN 50, Defect A): the walker's own phase INDEX a handler start has already
+ * been issued for -- see v28_dispatch_phase_start() below, defined once walker/v28_cut() exist. */
+static uint32_t v28_started_phase_index;
+
 static const struct gbp_walker_plan *const V28_PLAN =
 #if defined(GBP_V28_PLAN_PERCEPTUAL)
     &GBP_V28_PERCEPTUAL_NO_PHASE1;
@@ -827,22 +832,13 @@ static void v28_control(uint64_t now)
     cs_events++;
     kind = gbp_walker_current_kind(&walker);
     if (d == CS_DOWN) {
-        if (kind == GBP_WALKER_NAVIGATE) {
+        if (kind == GBP_WALKER_NAVIGATE)
+            /* Issue #131 (RUN 48): starting whatever phase this lands in is NOT done here any
+             * more -- see v28_dispatch_phase_start()'s own header comment for why a per-caller
+             * start is exactly the defect RUN 50 (Issue #133) found for 3a -> 3b: reachable on
+             * only ONE of navigate's own two exit paths (a press, here; the walker's own 60 s
+             * allowance cap, which never ran through this function at all). */
             acted = gbp_walker_phase_complete(&walker, now, tr.active);
-            /* Issue #131: the handler for whatever phase navigate just landed in must be STARTED
-             * here -- gbp_walker_phase_complete() only advances the WALKER's own index; nothing
-             * else ever called gbp_v28_3a_start()/gbp_v28_nulling_start() before this fix, so the
-             * handler struct sat at its static zero-init state for the phase's entire budget
-             * (3a: begin_pending never 1, tick() fell through every call, zero depths; nulling:
-             * rng never seeded off sync_seed, stuck at xorshift32's own fixed point, 0). */
-            if (acted) {
-                const enum gbp_walker_kind next = gbp_walker_current_kind(&walker);
-                if (next == GBP_WALKER_DESCENT_3A)
-                    gbp_v28_3a_start(&s3a, live.tb_hz, now);
-                else if (next == GBP_WALKER_NULLING)
-                    (void)gbp_v28_nulling_start(&nulling, &tr, &ap2, &adec2, now, sync_seed);
-            }
-        }
     } else if (kind == GBP_WALKER_NULLING) {
         if (d == CS_LEFT) acted = gbp_v28_nulling_step(&nulling, &tr, &ap2, &adec2, now, GBP_V28_NULLING_LEFT);
         else if (d == CS_RIGHT) acted = gbp_v28_nulling_step(&nulling, &tr, &ap2, &adec2, now, GBP_V28_NULLING_RIGHT);
@@ -887,6 +883,85 @@ static void v28_cut(enum gbp_walker_kind kind, uint64_t now)
         gbp_v28_sweep_cut(&sweep, now);   /* self-contained: writes the record itself, no follow-up call */
         break;
     default: break;
+    }
+}
+
+/* Issue #131/#133: RUN 50 (Defect A) -- 3a's own exit into 3b was cut by 3a's own phase cap, not
+ * completed by 3a's own algorithm, so the anchor computation and gbp_v28_3b_start() (which sat
+ * ONLY inside DESCENT_3A's own `f & GBP_V28_3A_TICK_PHASE_COMPLETE` branch) never ran: 3b sat at
+ * its own zero-init state for its whole 120 s phase, the same shape as RUN 48's original "no
+ * handler was ever started" defect, just one exit path narrower. "A start reachable on only one
+ * of two exit paths is the same shape as a start reachable on no path" (the Orchestrator's own
+ * framing) -- so every handler start in this POC is now issued from exactly ONE place, driven
+ * off the WALKER's own phase index advancing, never a specific handler's own completion flag or
+ * a specific caller (a button press, a TICK_PHASE_COMPLETE bit).
+ *
+ * gbp_walker.c's own begin_phase() is the ONLY place `walker.index` ever changes, and it always
+ * runs inside end_current_and_advance() -- called for BOTH a phase cap (gbp_walker_tick()) and a
+ * handler's own gbp_walker_phase_complete() -- never for the session cap or a stop
+ * (end_current_and_finish(), which ends the WHOLE walk without touching `index`, correctly
+ * dispatching nothing here since there is no next phase to start). So "index changed since the
+ * start last issued" is exactly "a new phase needs its own start()", independent of why the
+ * previous one ended.
+ *
+ * MUST run before ANY tick() call for the new phase, every time -- not next tick, not "close
+ * enough". gbp_v28_3a_tick()/gbp_v28_3b_tick() both no-op safely on all-zero (never-started)
+ * state (tested: tests/unit/test_gbp_v28_3a.c's/test_gbp_v28_3b.c's own "never started" cases),
+ * so a transition landing inside live_step()'s own main switch on the SAME tick it happens (the
+ * cap-cut path: gbp_walker_tick() advances `index` before that switch reads
+ * gbp_walker_current_kind()) costs at most one harmless no-op call there. gbp_v28_sweep_tick()
+ * does NOT have that property: on unstarted state (begin_pending==0, dwelling==0) its own "not
+ * dwelling yet" branch does not require begin_pending to have been set, so it silently skips
+ * move 0's own gbp_atrans2_begin() and dwells on whatever transport state already exists --
+ * RUN 48's own n=0 record (outcome=2 fail=1 residue=0) is exactly that artifact. This function is
+ * therefore called from live_step() AFTER every call that could advance the walker this tick
+ * (gbp_walker_tick()'s own cap check, a handler's own gbp_walker_phase_complete(), v28_control()'s
+ * NAVIGATE dispatch) and BEFORE the sweep-tick call below -- so sweep is ALWAYS started before
+ * its own first tick(), on every exit path that leads to it, not only the one RUN 48/50 happened
+ * to exercise.
+ *
+ * tests/host/test_v28_plans.py's TheHandlersAreStarted now checks, structurally, that each
+ * KIND_START_FN has EXACTLY ONE call site in main.c and that it sits inside this function's own
+ * body -- the general, durable form of today's lesson: a start conditioned on a specific exit
+ * reason is the same defect shape whether it currently has zero reachable paths or one. */
+static void v28_dispatch_phase_start(uint64_t now)
+{
+    if (gbp_walker_finished(&walker) || walker.index == v28_started_phase_index) return;
+    v28_started_phase_index = walker.index;
+    switch (gbp_walker_current_kind(&walker)) {
+    case GBP_WALKER_DESCENT_3A:
+        gbp_v28_3a_start(&s3a, live.tb_hz, now);
+        break;
+    case GBP_WALKER_HOLD_3B: {
+        /* 3a's own confirmed floor (Amendment 1, corrected at the Orchestrator's own freeze
+         * review): gbp_v28_3a_confirmed_floor() -- the LOWEST HOLDING depth, never s3a.lo
+         * directly (gbp_v28_3a.h's own header comment). Computed HERE, exactly once, at the
+         * moment 3b is about to start: by construction 3a is already `finished` however this
+         * point was reached (its own algorithm, gbp_v28_3a_cut()+depth_done() via v28_cut() for
+         * a cap/session-cap/stop), so this reads the SAME final state regardless of which exit
+         * path got us here -- never only the one 3a's own TICK_PHASE_COMPLETE branch used to
+         * gate it on. */
+        uint32_t floor_native = 0u;
+        const int has_floor = gbp_v28_3a_confirmed_floor(&s3a, &floor_native);
+        v28_anchor = gbp_v28_anchor(floor_native, has_floor);
+        v28_anchor_computed = 1u;
+        if (v28_anchor.source != GBP_V28_ANCHOR_NONE)
+            gbp_v28_3b_start(&s3b, v28_anchor.target, live.tb_hz, now);
+        /* GBP_V28_ANCHOR_NONE (the floor sits above T704, no ladder rung reaches it): 3b does not
+         * hold at all -- gbp_v28_3b_start() is never called, s3b stays its own zero-initialised
+         * state (holds_n==0, no V28_3B records), and the V28ANCHOR line (teardown, below) is the
+         * ONLY record of this finding. */
+        break;
+    }
+    case GBP_WALKER_SWEEP:
+        gbp_v28_sweep_start(&sweep, live.tb_hz, now);
+        break;
+    case GBP_WALKER_NULLING:
+        (void)gbp_v28_nulling_start(&nulling, &tr, &ap2, &adec2, now, sync_seed);
+        break;
+    case GBP_WALKER_NAVIGATE:
+    default:
+        break;
     }
 }
 
@@ -1012,43 +1087,24 @@ static void live_step(void)
                     d0_underruns = ap2.underruns; d0_overflow = adec2.overflow; d0_dup = ap2.dup;
                     d0_drop = ap2.drop; d0_ring_gated = ap2.ring_gated;
                 }
-                if (f & GBP_V28_3A_TICK_PHASE_COMPLETE) {
-                    /* 3a's own confirmed floor (Amendment 1, corrected at the Orchestrator's own
-                     * freeze review): gbp_v28_3a_confirmed_floor() -- the LOWEST HOLDING depth,
-                     * never `s3a.lo` directly, which is the CONFIRM dwell's own target (the
-                     * HIGHEST FAILING depth being re-tested; see that function's own header
-                     * comment, gbp_v28_3a.h). `has_floor` false leaves `floor_native` untouched --
-                     * gbp_v28_anchor()'s own `has_floor` parameter is exactly this gate. */
-                    uint32_t floor_native = 0u;
-                    const int has_floor = gbp_v28_3a_confirmed_floor(&s3a, &floor_native);
-                    v28_anchor = gbp_v28_anchor(floor_native, has_floor);
-                    v28_anchor_computed = 1u;
-                    if (v28_anchor.source != GBP_V28_ANCHOR_NONE)
-                        gbp_v28_3b_start(&s3b, v28_anchor.target, live.tb_hz, now);
-                    /* GBP_V28_ANCHOR_NONE (the floor sits above T704, no ladder rung reaches it):
-                     * 3b does not hold at all -- gbp_v28_3b_start() is never called, s3b stays its
-                     * own zero-initialised state (holds_n==0, no V28_3B records), and the
-                     * V28ANCHOR line (teardown, below) is the ONLY record of this finding. */
+                if (f & GBP_V28_3A_TICK_PHASE_COMPLETE)
+                    /* Issue #131/#133 (RUN 50, Defect A): the anchor computation and
+                     * gbp_v28_3b_start() used to live here, reachable ONLY when 3a's own
+                     * algorithm decided this bit -- never when the walker's own phase cap cut 3a
+                     * instead, which is exactly what RUN 50 hit. Both now happen in
+                     * v28_dispatch_phase_start(), driven off the walker's own index advancing
+                     * (below v28_cut()'s own definition), on every exit path alike. */
                     (void)gbp_walker_phase_complete(&walker, now, tr.active);
-                }
                 break;
             }
             case GBP_WALKER_HOLD_3B: {
                 const int f = gbp_v28_3b_tick(&s3b, &tr, &ap2, &adec2, now);
                 if (f & GBP_V28_3B_TICK_HOLD_DONE) gbp_v28_3b_hold_done(&s3b);
-                if (f & GBP_V28_3B_TICK_PHASE_COMPLETE) {
+                if (f & GBP_V28_3B_TICK_PHASE_COMPLETE)
+                    /* Issue #131/#133: the same move as 3a's own just above -- gbp_v28_sweep_start()
+                     * used to live here, reachable only on 3b's own completion, never a cap cut.
+                     * Now v28_dispatch_phase_start()'s own job, same as every other handler. */
                     (void)gbp_walker_phase_complete(&walker, now, tr.active);
-                    /* Issue #131: the same gap as 3a's own -- nothing ever called
-                     * gbp_v28_sweep_start() before this fix. sweep_tick()'s own "not dwelling yet"
-                     * branch does not require begin_pending to have been set, so it silently
-                     * skipped move 0's own gbp_atrans2_begin() and dwelled on whatever state
-                     * already existed -- RUN 48's own n=0 record (outcome=2 fail=1 residue=0) is
-                     * that artifact, void as a domain result; moves 1-26 recovered because
-                     * finalize_record() sets begin_pending=1 at the end of move 0's own processing
-                     * regardless. */
-                    if (gbp_walker_current_kind(&walker) == GBP_WALKER_SWEEP)
-                        gbp_v28_sweep_start(&sweep, live.tb_hz, now);
-                }
                 break;
             }
             case GBP_WALKER_SWEEP: {
@@ -1066,6 +1122,12 @@ static void live_step(void)
         }
         v28_control(now);
         syncpe_edges();
+        /* Issue #131/#133: AFTER every call above that could have advanced the walker's own
+         * index this tick (gbp_walker_tick()'s own cap check, a handler's own
+         * gbp_walker_phase_complete() inside the switch just above, v28_control()'s NAVIGATE
+         * dispatch), and BEFORE the sweep-tick call below -- see v28_dispatch_phase_start()'s own
+         * header comment for why that ordering is load-bearing, not stylistic. */
+        v28_dispatch_phase_start(now);
         if (gbp_walker_finished(&walker)) live_end = 1;
     } else if (session.end_requested) {
         live_end = 1;
