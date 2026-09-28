@@ -216,15 +216,18 @@ static void test_rotate_with_discard(void)
      * two separate corrections, both counted in adec.discarded (Issue #129/#130's ROTATE trim) */
     eqi(L.discarded, GBP_APLAY2_PUSHES + tr.trimmed,
         "rotate+discard: the begin's own discard, plus the landing's own ring trim, landed on the ring");
-    /* the ring lands exactly at target -- PLUS whatever the landing call's own production recovery
-     * (Issue #129/#130) already produced towards the NEXT chunk before returning: 0 if it could not
-     * (the ring's own surplus is what the recovery draws on, ahead of the trim now, so it always
-     * can here), up to one sub-block's worth (GBP_APLAY2_STEP_PUSHES) if it could -- landed2()'s
-     * own count_after already folds in cur_pushes when a chunk is left in flight. */
-    check(L.count_after >= GBP_APLAY2_TARGET - GBP_APLAY2_PUSHES &&
-          L.count_after <= GBP_APLAY2_TARGET - GBP_APLAY2_PUSHES + GBP_APLAY2_STEP_PUSHES,
-          "rotate+discard: the ring lands exactly at target, plus at most the landing recovery's own "
-          "in-flight sub-block");
+    /* the ring lands exactly at target -- PLUS one sub-block's worth (GBP_APLAY2_STEP_PUSHES) the
+     * landing call's own production recovery (Issue #129/#130) already produced towards the NEXT
+     * chunk before returning. This is deterministic here, not a range: the recovery runs BEFORE the
+     * trim (this round's own fix) against the ring's full, still-untrimmed surplus, which this
+     * scenario's own synthetic feed always leaves comfortably above GBP_APLAY2_PUSHES + 1 -- the
+     * recovery is a SINGLE gbp_aplay2_produce() call, which advances at most one sub-block
+     * (cur_step, GBP_APLAY2_STEP_PUSHES by default) regardless of how much surplus is available, so
+     * it always succeeds here and never produces more than exactly one. landed2()'s own count_after
+     * already folds in cur_pushes when a chunk is left in flight. */
+    eqi(L.count_after, GBP_APLAY2_TARGET - GBP_APLAY2_PUSHES + GBP_APLAY2_STEP_PUSHES,
+        "rotate+discard: the ring lands exactly at target, plus the landing recovery's own exactly-one "
+        "in-flight sub-block");
     if (tr.rotations >= GBP_APLAY2_AHEAD) check(!tr.unmasked, "rotate+discard: AHEAD rotations mask the splice");
     check_conservation2("rotate+discard", L);
 }
