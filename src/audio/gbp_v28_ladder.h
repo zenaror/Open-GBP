@@ -80,53 +80,55 @@ _Static_assert(GBP_V28_T192 >= GBP_APLAY2_TARGET_MIN && GBP_V28_T192 <= GBP_APLA
 #define GBP_V28_A2   2u
 #define GBP_V28_A1   1u
 
-/* The step mechanism's own fixed mute (#128 §3's resolution: mute 6, not 5, for the T256 anchor --
- * "no splice heard at any loss" at mute 6 against mute 5's D2-class risk, Item 4's own host test).
- * A chunk count, unconverted, like AHEAD above -- every nulling step, every refused step, 3b's own
- * AHEAD-lowering entry and the step sweep all use it. NOT 3a's own descent, which stays UNMUTED. */
-#define GBP_V28_STEP_MUTE   6u
-
-/* The largest START's OWN mute. AMENDED by GitHub Issue #136 (2026-09-28, the Orchestrator's decision on
- * RUN 52's short landings): 8 -> 12. Same class of amendment as 3a's 138 -> 168 s, carried here with its
- * derivation so the number is never a bare constant again.
+/* THE TWO MUTES. Both AMENDED by GitHub Issue #136 (2026-09-28, the Orchestrator's decisions on RUN 52's
+ * short landings and on the audible splice the old landing trim made): STEP 6 -> 7 (#128 section 3's figure was
+ * 6, "no splice heard at any loss"), START 8 -> 10 (#128 section 7). Same class of amendment as 3a's
+ * 138 -> 168 s, carried here with its derivation so a mute is never a bare constant again. A chunk count,
+ * unconverted, like AHEAD above; every nulling step, every refused step, 3b's own AHEAD-lowering entry and the
+ * step sweep use STEP_MUTE, the sweep's two START transitions, its repositioning move and the perceptual run's
+ * STARTs use START_MUTE. NOT 3a's own descent, which stays UNMUTED.
  *
  * WHY A MUTE HAS A FLOOR (gbp_atrans2.h, "THE ROTATE LEVEL IS SET IN SILENCE"): every discontinuity of a step
- * (the one discard that sets the ring's level) happens inside the mute, and `ahead` rotations follow it so
- * that every chunk that will be HEARD is built from the already-cut ring. At the discard the ring must hold
- *     target + ahead x PUSHES - (the inflow of the two tail periods, 2 x PUSHES)
- * and the only source of samples is the feed, one PUSHES per hand-off period. From a ring of at least one
- * chunk at the start, the mute must therefore be at least
- *     ceil(target / PUSHES) + ahead - 1                                        (the FLOOR, below)
- * periods. The largest climb the ladder walks is T256 -> T704 at AHEAD 4 (the step sweep's two START
- * transitions, #129's frozen sequence; the perceptual run's own STARTs): 6 + 4 - 1 = 9.
+ * (the one discard that sets the ring's level) happens inside the mute, and `ahead` chunks are built from the cut
+ * ring, so that everything HEARD is built after it. Those builds consume ahead x PUSHES from the ring, and the
+ * only source of samples is the feed, one PUSHES per hand-off period, so
+ *     mute >= ahead + ceil((climb + the ring's deficit at the start) / PUSHES)
+ * periods, `climb` being how far the target rises. The deficit is MEASURED, not assumed: RUN 52's V28_SWEEPM
+ * records (meas_ring - from_target, 17 moves) put the ring at the start of a move 956 to 1878 samples BELOW
+ * target (the corrector is saturated on the DUP side, the feed is ~0.5 % slow), and 2666 below for the prelude,
+ * the state 3b's hold leaves. An earlier version of this comment derived 12 for START from a host that began
+ * every move ABOVE target; the adversarial review found it.
  *
- * MEASURED on the console-calibrated host (tests/unit/test_v28_sweep_landing.c: 124.8 pump calls per
- * period and a feed 0.5 % slow, both from the RUN 52 log; the smallest mute at which the landing is in band
- * for all 25 begin phases): exact feed 10, 0.5 % slow 10, 1 % slow 11. So the need exceeds the floor by two
- * periods (the feed deficit and the begin phase), and a margin of one period is kept on top, the margin
- * STEP_MUTE keeps (its worst need is 5: a +2048 climb at AHEAD 4). The extra silence over the old 8 is four
- * periods, 125 ms per START move; only START moves pay it, an ordinary step stays at 6.
+ *   STEP : the worst is a +PUSHES climb at AHEAD 4:  4 + ceil((2048 + 1878) / 2048) = 6
+ *   START: T256 -> T704 at AHEAD 4:                  4 + ceil((7168 + 2666) / 2048) = 9
  *
- * The build-time check #128 required: START_MUTE is built from the ladder's own FLOOR, so a ladder change that
- * raises the largest climb fails the build here instead of landing short on the console. */
-#define GBP_V28_START_PAUSE   ((GBP_V28_T704 - GBP_V28_T256 + GBP_APLAY2_PUSHES - 1u) / GBP_APLAY2_PUSHES)
-#define GBP_V28_START_FLOOR   (((GBP_V28_T704 + GBP_APLAY2_PUSHES - 1u) / GBP_APLAY2_PUSHES) + GBP_V28_A4 - 1u)   /* 9 */
-#define GBP_V28_START_SLACK   2u    /* measured need (11 at a 1 % feed deficit) minus the floor */
-#define GBP_V28_START_MARGIN  1u
-#define GBP_V28_START_MUTE    (GBP_V28_START_FLOOR + GBP_V28_START_SLACK + GBP_V28_START_MARGIN)   /* 12 */
+ * Both were also measured on the console-calibrated host (tests/unit/test_v28_sweep_landing.c: 124.8 pump
+ * calls per period and a feed 0.5 % slow, both from the RUN 52 log; the smallest mute at which the landing is in
+ * band for all 25 begin phases, four feeds, the measured begin rings): 6 and 9, unchanged by a 1 % feed deficit.
+ * One period of margin is kept on top of each, the margin an ordinary constant of this project keeps. The extra
+ * silence over the frozen figures is one period (31.25 ms) per step and two (62.5 ms) per START.
+ *
+ * The build-time check #128 required: the mutes are BUILT from the ladder's own numbers, so a change that raises
+ * a climb (T704, the step, AHEAD 4) fails the build here instead of landing short on the console. */
+#define GBP_V28_BEGIN_DEFICIT_STEP    1878u   /* the ring below target at the start of a step, RUN 52's worst of 17 */
+#define GBP_V28_BEGIN_DEFICIT_START   2666u   /* ... and at the prelude, the state 3b leaves */
+#define GBP_V28_MUTE_MARGIN           1u
+#define GBP_V28_STEP_NEED    (GBP_V28_A4 + (GBP_APLAY2_PUSHES + GBP_V28_BEGIN_DEFICIT_STEP + GBP_APLAY2_PUSHES - 1u) / GBP_APLAY2_PUSHES)
+#define GBP_V28_STEP_MUTE    (GBP_V28_STEP_NEED + GBP_V28_MUTE_MARGIN)
+#define GBP_V28_START_PAUSE  ((GBP_V28_T704 - GBP_V28_T256 + GBP_APLAY2_PUSHES - 1u) / GBP_APLAY2_PUSHES)
+#define GBP_V28_START_NEED   (GBP_V28_A4 + (GBP_V28_T704 - GBP_V28_T256 + GBP_V28_BEGIN_DEFICIT_START + GBP_APLAY2_PUSHES - 1u) / GBP_APLAY2_PUSHES)
+#define GBP_V28_START_MUTE   (GBP_V28_START_NEED + GBP_V28_MUTE_MARGIN)
 
+_Static_assert(GBP_V28_A4 == 4u, "gbp_v28_ladder: the deepest AHEAD changed -- re-measure both mutes (Issue #136)");
+_Static_assert(GBP_V28_STEP_NEED == 6u, "gbp_v28_ladder: a step's mute need changed from the measured 6 -- re-measure");
+_Static_assert(GBP_V28_START_NEED == 9u, "gbp_v28_ladder: the largest climb's mute need changed from the measured 9 -- re-measure");
+_Static_assert(GBP_V28_STEP_MUTE == 7u && GBP_V28_START_MUTE == 10u,
+    "gbp_v28_ladder: the mutes no longer 7 and 10 -- check the derivation and tell the Orchestrator (the Operator hears it)");
 _Static_assert(GBP_V28_START_PAUSE == 4u,
     "gbp_v28_ladder: the T256->T704 climb's own pause changed -- recompute GBP_V28_START_MUTE");
-_Static_assert(GBP_V28_START_FLOOR == 9u,
-    "gbp_v28_ladder: the largest climb's mute FLOOR changed -- re-measure the need (tests/unit/test_v28_sweep_landing.c) "
-    "and re-derive GBP_V28_START_MUTE");
-_Static_assert(GBP_V28_START_MUTE == 12u, "gbp_v28_ladder: GBP_V28_START_MUTE no longer 12 -- check the derivation");
 _Static_assert(GBP_V28_START_MUTE > GBP_V28_STEP_MUTE,
     "gbp_v28_ladder: the largest START needs MORE mute than an ordinary rung, or STEP_MUTE already covers it "
     "and this constant is not needed");
-/* the ordinary step's own floor: a +PUSHES climb at AHEAD 4 needs A4 + 1 periods (measured 5); one period of margin */
-_Static_assert(GBP_V28_STEP_MUTE >= GBP_V28_A4 + 1u + 1u,
-    "gbp_v28_ladder: STEP_MUTE no longer covers an AHEAD-4 climb plus one period of margin (Issue #136)");
 
 /* ---- the auto-search grids (#122/gbp_async_cfg_default's p3/p2 fields) -----------------------
  *
@@ -202,7 +204,7 @@ _Static_assert((GBP_V28_P2_HI - GBP_V28_P2_LO) % GBP_V28_P2_STEP == 0u,
  *     deep = 2048, shallow = 512, floor = 384   (Phase 1's own blinded A/B levels)
  *
  *   Chunk-relative, already re-derived by FORMULA rather than a literal (no gap):
- *     GBP_ATRANS_AIM = 64 (half a chunk)  ->  GBP_ATRANS2_AIM = GBP_APLAY2_PUSHES / 2 (gbp_atrans2.h)
+ *     GBP_ATRANS_AIM = 64 (half a chunk)  ->  the aim of the old ROTATE loop (removed, Issue #136)
  *     GBP_APLAY_BAND = 16 (gbp_aplay.h)   ->  GBP_APLAY2_BAND = 256 (gbp_aplay2.h, its own comment:
  *                                             "16 x gbp_aplay's BAND, the same 3.906 ms width")
  *

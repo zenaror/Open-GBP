@@ -130,8 +130,8 @@ struct gbp_v28_sweep_record {
      * `rot_post` the rotations that followed it (each rebuilds one queued chunk; fewer than ahead leaves a
      * pre-cut chunk to be heard and fails as UNMASKED), `fill_short` the samples the ring lacked at the cut
      * (the mute could not fill it) and `late` a rotation still in flight when the silence ended. */
-    uint32_t cut, rot_post, fill_short;
-    int32_t  cut_rel;
+    uint32_t cut, rot_post, fill_short, dwell_cut;   /* dwell_cut: samples cut from the ring AFTER the landing, by anyone */
+    int32_t  cut_rel;                                /* GBP_ATRANS2_NO_CUT (-100) when no cut was made */
     uint8_t  late;
 };
 
