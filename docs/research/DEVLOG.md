@@ -18150,3 +18150,63 @@ zero-feed integration test (§18's own named successor, Issue #129); `SYNCPE` em
 C's O6-leak drop and the two-image build, all still waiting on that same `main.c` to exist; then the sweep
 handler's own remaining scope (the `GBP_V28_START_MUTE` sizing question is settled; what remains is whatever
 the Orchestrator's own read of this round's full proof set asks for next).
+
+## 2026-09-27 — Issue #129/#130 continued: the native-path port of `test_v28_ahead_steps.c`'s remaining scope
+
+Per the Orchestrator's own instruction to take the rest of #129's pre-staging items in whichever order, this
+one first: the old 4096 Hz path's own `test_v28_ahead_steps.c` (646 lines, 7 groups) has three groups this
+session's own native-path work does NOT yet cover -- THE RULE (a step's own audible signature is identical
+across every kind, for the same feed and phase), D2-class losses (a drain that dropped decoded blocks in the
+plan's own first periods), and the masking bound under a feed stalled inside the mute. The other four groups
+(the defect, the candidate's own full landing checks, the tight-mute need, STARTs) are already exercised by
+this session's own `test_gbp_atrans2.c` and `test_v28_sweep_residue.c` -- not re-proven here.
+
+New file: `tests/unit/test_v28_ahead_native.c`, native units throughout (`gbp_v28_ladder.h`'s T704..T192,
+`GBP_V28_A4..A1`, `GBP_V28_STEP_MUTE`), reusing this session's own `land()`-style driver conventions
+(`test_v28_sweep_residue.c`) and conservation-aware harness (`test_gbp_atrans2.c`), extended with a smooth/
+burst/measured `struct feed`, drain-loss injection, and feed-stall injection.
+
+**Two harness bugs found and fixed before trusting a single number, the same discipline this round's own
+earlier diagnostics used.** First run: THE RULE and the losses sections came back clean (0 differences), but
+the masking bound came back with 0 splices heard across all 96 stalled shallowings -- suspicious on its own,
+since the OLD path's own ancestor test found real splices there. Root causes, both in the test file, not in
+`gbp_atrans2`/`gbp_aplay2`:
+
+1. Every `run()` call passed `discard = 0u` to `gbp_atrans2_begin()`. `unmasked` is defined
+   (`gbp_atrans2.h`) as `discard > 0 AND rotations < ahead, and nothing else` -- with `discard` always 0 the
+   flag can never fire. Checked every real native caller (`gbp_v28_sweep.c`, `gbp_v28_3a.c`, `gbp_v28_3b.c`):
+   all three always pass `discard = 0u` too, converging on a downward step through the landing's own ring
+   trim rather than an eager begin-time discard -- so `discard = 0u` is the CORRECT, faithful value for every
+   OTHER section (THE RULE, the losses), matching real production usage exactly. The masking bound is the one
+   section that specifically needs to drive the OTHER existing code path (`discard > 0`, a "shallowing"),
+   already unit-tested once at a single scenario by `test_gbp_atrans2.c`'s own `test_rotate_with_discard()` --
+   `run()` gained an explicit `discard` parameter, `0u` everywhere except the masking-bound section, which
+   passes the OLD file's own formula (`t0 - t1` when `t0 > t1`).
+2. Even with a nonzero discard, the "first audible hand-off plays a pre-plan chunk" check still read 0 every
+   time. It inferred audibility from `ap.mute == 0u` read from OUTSIDE the callback -- exactly the two-readers
+   trap this round's own `mute_carry` fix (Issue #129/#130, `e6ab0f7`) exists to warn about: the externally
+   visible `mute` value is one call stale by design. Fixed by reading the hand-off's own RETURN VALUE instead
+   (`gbp_aplay2_irq_handoff()` returns a pointer that equals `p->silence` for mute or a genuine underrun, and a
+   pool offset for anything actually played), with the queue head's index captured before the call, since the
+   call itself advances `rq_head`.
+
+**Result, after both fixes.** THE RULE: 104 loss-free groups (4 phases x [smooth + 16 bursts + 8 measured
+seeds]), 0 differ, 0 splices -- the native step mechanism fully masks a real production step (discard always
+0) within its own `GBP_V28_STEP_MUTE`, regardless of kind, feed or phase. D2-class losses (16/32/64/100/128
+samples, dropped at periods 0/2/4, anchor T256): 0 groups differ, 0 splices heard at any loss size -- the
+native mute budget absorbs these with margin. The masking bound (a real shallowing, `discard = T320 - T256`,
+feed stalled 1-6 periods, AHEAD 1-4): 47 of 96 stalled shallowings produce a genuine splice, every one flagged
+`unmasked`; the other 5 flag cautiously (fewer than AHEAD pre-plan chunks were held to begin with) and land
+within the OLD file's own bound (missed by at most the one chunk). 65 checks, 0 failures.
+
+**Proof.** `make -C tests/unit`: all 31 binaries green, `test_v28_ahead_native` included (65/65).
+`pytest -q tests/host`: 3322 passed, 7 skipped, 103 subtests, 0 failed, run on the committed tree (the one
+failure on the first pass was the untracked-file guard catching the new file before it was staged -- expected,
+not a defect; resolved by committing).
+
+**Next.** The remaining #129 pre-staging items, in the order chosen: the nulling handler (flagged for the
+Orchestrator first -- unlike navigate/3a/3b/sweep, the OLD path's own P2/nulling mechanism is real-time,
+operator-input-driven through the GameCube controller stick, and no existing native handler threads any pad
+input at all; a design decision on scope is needed before writing code, given "heavy review... for the timing
+you can hear"); then `SYNCPE` markers, the GX label, Amendment C's O6-leak drop, the main.c zero-feed
+integration test and the two images, all still gated on a `main.c` that does not yet exist.
