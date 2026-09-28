@@ -106,8 +106,11 @@ static uint64_t steady2(uint32_t from)
 
 static int32_t stock2(void)
 {
+    /* the in-flight chunk counts what it has TAKEN from the ring (cur_taken), not what it has pushed: a
+     * DROP pushes one sample fewer than it takes, a DUP one more. Since Issue #136 the landing's recovery
+     * call can see a ring well above target and start its chunk with a DROP, which cur_pushes misses. */
     return (int32_t)(adec.count + GBP_APLAY2_PUSHES * gbp_aplay2_ready(&ap)
-                     + (ap.cur >= 0 ? ap.cur_pushes : 0u));
+                     + (ap.cur >= 0 ? ap.cur_taken : 0u));
 }
 
 static uint32_t landed2(void)
