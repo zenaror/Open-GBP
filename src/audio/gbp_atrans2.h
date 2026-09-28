@@ -44,20 +44,28 @@
  * the ring at every period start is target; the comments that called the trim "masked" were never tested.
  *
  * WHAT IT DOES NOW. Nothing is consumed until the second-to-last hand-off period: the ring only fills, which
- * is silent and never a discontinuity. There, with nothing in flight and the queue whole, the level is set
- * with ONE discard (gbp_adec2_discard): the ring is cut to
+ * is silent and never a discontinuity (a chunk the ordinary producer had in flight at begin is finished first,
+ * and the old top-up of the queue toward the new AHEAD is gone: it built chunks the cut then threw away). There,
+ * with nothing in flight, the level is set with ONE discard (gbp_adec2_discard): the ring is cut to
  *     target + ahead x PUSHES - (the feed until the landing call) - GBP_ATRANS2_LAND_BIAS,
- * the feed measured from the callback's own hand-off instants (so a late pump call is compensated, not
- * guessed), then exactly `ahead` rotations follow, each building one chunk from the already-cut ring and
- * dropping the oldest queued one, so that every chunk that will be HEARD is built after the cut. The landing
- * cuts nothing. The ring lands at target - 160 on an exact feed (the recovery's 128 and the bias 32), 20 lower
- * per 0.5 % of feed deficit, inside the sweep's band [target - BAND, target].
+ * the feed measured from the callback's own hand-off instants (so a late pump call is compensated, not guessed;
+ * the call counts are the fallback), and every queued chunk, all built before the cut, is freed unplayed (the
+ * callback is still handing silence) and `ahead` chunks are built from the cut ring in their place. If the ring
+ * is about to fill (two chunks from its capacity) the cut comes early instead, or the feed's newest samples
+ * would be lost and the gap heard later, at a moment that depends on TARGET. The landing cuts nothing. The
+ * ring lands at target - 160 on an exact feed (the landing recovery's 128 and the bias 32), about 20 lower per
+ * 0.5 % of feed deficit, inside the sweep's band [target - BAND, target]; a landing call more than about 2.4 ms
+ * late (each ms adds 65.5 samples of feed) lands above target, which the gate reports.
  *
  * WHAT IT NEEDS. The ring must hold that level at the cut, and the only source of samples is the feed, one
- * PUSHES per period, so a mute has a FLOOR of about ceil(target / PUSHES) + ahead - 1 periods, whatever the
- * mechanism: gbp_v28_ladder.h derives GBP_V28_STEP_MUTE (6) and GBP_V28_START_MUTE (12) from it, measured on
- * the calibrated host. A mute too short to fill the ring is REPORTED (`fill_short`, `fill_shorts`), never
- * hidden and never turned into a cut: the ring lands short and the sweep gate shows it.
+ * PUSHES per period, so a mute has a FLOOR: ahead + ceil((climb + the ring's deficit at the start) / PUSHES)
+ * periods. The deficit is measured (RUN 52: the ring begins a move 956-1878 samples below target, 2666 at the
+ * prelude; on the calibrated host this is the corrector's steady state at the console's feed, not a
+ * transient). gbp_v28_ladder.h derives GBP_V28_STEP_MUTE (7) and GBP_V28_START_MUTE (10) from it. A mute too
+ * short to fill the ring is REPORTED (`fill_short`, `fill_shorts`), never hidden and never turned into a cut:
+ * the ring lands short and the sweep gate shows it. The `ahead` builds need ahead x 16 pump calls inside the
+ * last two periods: at the console's 125 a period there is a 3.5x margin; below about 36 a period (AHEAD 4) a
+ * build is still in flight at the landing (`late`), the queue holds a pre-cut chunk and the row fails.
  *
  * WHAT IS CHECKED. `disc_rel` is the period the cut ran in relative to the first audible hand-off (negative:
  * inside the mute), `rot_post` the rotations after it (`unmasked` if fewer than ahead, i.e. a pre-cut chunk
@@ -87,6 +95,9 @@ enum gbp_atrans2_mode { GBP_ATRANS2_UNMUTED = 0, GBP_ATRANS2_HELD = 1, GBP_ATRAN
  * ring toward the upper edge. 32 leaves the landing at target - 160 on an exact feed: 96 below the upper
  * edge (a landing call up to 2.4 ms late) and, with a feed 0.5 % slow, 51 above the lower one. */
 #define GBP_ATRANS2_LAND_BIAS 32u
+
+/* `disc_rel` before the level was set (no cut yet): far below any real period */
+#define GBP_ATRANS2_NO_CUT (-100)
 
 struct gbp_atrans2 {
     uint8_t  active;
@@ -125,6 +136,8 @@ struct gbp_atrans2 {
     uint32_t rot_post;                /* rotations completed after the discard: each rebuilds one queued chunk */
     uint32_t fill_short;              /* the samples the ring lacked at the discard point (the mute was too short) */
     uint32_t calls_prev;              /* gbp_atrans2_step() calls in the previous hand-off period */
+    uint32_t to_build;                /* ROTATE: chunks to build after the level was set (ahead after a cut, else the top-up) */
+    uint32_t dropped_pre;             /* ROTATE: pre-cut chunks freed unplayed at the cut */
     uint64_t t_start, t_reached, t_end;
     /* since init */
     uint32_t begun, completed;

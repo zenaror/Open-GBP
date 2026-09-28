@@ -45,8 +45,8 @@ int gbp_atrans2_begin(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_ad
     t->residue = 0;
     t->late = t->unmasked = 0u;
     t->adjusted = 0u;
-    t->disc_n = t->rot_post = t->fill_short = t->calls_prev = 0u;
-    t->disc_rel = 0;
+    t->disc_n = t->rot_post = t->fill_short = t->calls_prev = t->to_build = t->dropped_pre = 0u;
+    t->disc_rel = GBP_ATRANS2_NO_CUT;
     t->t_start = now;
     t->t_reached = t->t_end = 0u;
     t->begun++;
@@ -70,14 +70,6 @@ static int finish2(struct gbp_atrans2 *t, uint64_t now)
     t->t_end = now;
     t->completed++;
     return 1;
-}
-
-static void rotated2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, int32_t b, int *to_queue)
-{
-    t->rotating = 0u;
-    if (gbp_aplay2_drop_front(p) >= 0) t->rotations++;
-    else { t->late = 1u; t->lates++; }
-    *to_queue = b;
 }
 
 /* ---- 1. ROTATE ------------------------------------------------------------------------ */
@@ -121,6 +113,15 @@ static void adjust2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec
         t->fill_short = want - d->count;       /* the mute was too short to fill the ring: counted, never hidden */
         t->fill_shorts++;
     }
+    if (t->disc_n > 0u) {
+        /* every queued chunk was built BEFORE the cut: none may be heard. They are freed here (silent: the
+         * callback is still handing silence) and `ahead` chunks are built from the cut ring in their place. */
+        while (gbp_aplay2_drop_front(p) >= 0) t->dropped_pre++;
+        t->to_build = p->ahead;
+    } else {
+        /* no cut, no discontinuity: what is queued is contiguous with the ring; only top the queue up */
+        t->to_build = p->ahead > gbp_aplay2_ready(p) ? p->ahead - gbp_aplay2_ready(p) : 0u;
+    }
 }
 
 static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_adec2 *d, uint64_t now,
@@ -145,7 +146,7 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
         /* NOTHING is cut here: the landing runs after the first audible hand-off, so any discard now would
          * be heard, `ahead` chunks later (Issue #136). The level was set in silence; what is measured
          * below is what that left. */
-        if (t->disc_n > 0u && t->rot_post < p->ahead) { t->unmasked = 1u; t->unmaskeds++; }
+        if (t->disc_n > 0u && t->rot_post < t->to_build) { t->unmasked = 1u; t->unmaskeds++; }
         if (!t->adjusted) t->unadjusted++;
         t->residue = (int32_t)d->count + (p->cur >= 0 ? (int32_t)p->cur_pushes : 0)
                    + (int32_t)GBP_APLAY2_PUSHES * ((int32_t)gbp_aplay2_ready(p) - (int32_t)(p->ahead - 1u))
@@ -158,28 +159,29 @@ static int step_rotate2(struct gbp_atrans2 *t, struct gbp_aplay2 *p, struct gbp_
     }
     if (t->rotating) {
         const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
-        if (b >= 0) { rotated2(t, p, b, to_queue); if (t->adjusted) t->rot_post++; }
-        return 0;
-    }
-    if (gbp_aplay2_ready(p) < p->ahead) {
-        const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
-        if (b >= 0) { *to_queue = b; t->topped++; }
+        if (b >= 0) { t->rotating = 0u; t->rot_post++; t->rotations++; *to_queue = b; }
         return 0;
     }
     if (!t->reached && d->count >= t->target) { t->reached = 1u; t->t_reached = now; }
-    /* Before the last two hand-off periods nothing is consumed: the ring only fills, which is silent and
-     * never a discontinuity. In the second-to-last period, with nothing in flight and the queue whole,
-     * the level is set (one discard, in silence) and then `ahead` rotations follow, each building a chunk
-     * from the already-correct ring and dropping the oldest queued one, so that every chunk that will be
-     * heard is built after the cut. */
+    /* Until the second-to-last hand-off period nothing is consumed: the ring only fills, which is silent and
+     * never a discontinuity. Then, with nothing in flight, the level is set (one discard, in silence) and the
+     * chunks that will be heard are built from the cut ring. The cut also comes early if the ring is about
+     * to fill (the feed's newest samples would be lost, a gap heard later, its moment depending on TARGET). */
     if (!t->adjusted) {
-        if (handed + 1u >= t->mute && p->cur < 0) adjust2(t, p, d, handed, now);
+        if (p->cur >= 0) {
+            /* a chunk the ordinary producer had started before the plan began: finish it (queued, and if a cut
+             * follows it is freed with the rest) -- the cut waits for nothing in flight */
+            const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
+            if (b >= 0) *to_queue = b;
+        } else if (handed + 1u >= t->mute || d->count + 2u * GBP_APLAY2_PUSHES >= d->cap) {
+            adjust2(t, p, d, handed, now);
+        }
         return 0;
     }
-    if (t->rot_post < p->ahead) {
+    if (t->rot_post < t->to_build && d->count > GBP_APLAY2_PUSHES) {
         const int32_t b = gbp_aplay2_produce_uncorrected(p, d);
         t->rotating = 1u;
-        if (b >= 0) { rotated2(t, p, b, to_queue); t->rot_post++; }
+        if (b >= 0) { t->rotating = 0u; t->rot_post++; t->rotations++; *to_queue = b; }
     }
     return 0;
 }

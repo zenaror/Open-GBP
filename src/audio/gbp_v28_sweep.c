@@ -115,6 +115,7 @@ static void finalize_record(struct gbp_v28_sweep *s, const struct sweep_entry *e
     r->cut_rel = s->cut_rel_at_land;
     r->rot_post = s->rot_post_at_land;
     r->fill_short = s->fill_short_at_land;
+    r->dwell_cut = d->discarded - s->disc_at_land;
     r->late = s->late_at_land;
 
     if (underrun_delta > 0u) {
