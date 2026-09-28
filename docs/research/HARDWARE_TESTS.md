@@ -38746,3 +38746,165 @@ matches the pin). Card (`/media/rafael/SD_GC/Open-GBP`): `23-v28v/boot.dol` copi
 one difference being `23-v28v` itself; `INDEX.txt` untouched (sha256 `e2f46d91...cfa67` before and after).
 
 This is the build RUN 52 runs. The perceptual run is not authorised and is not written here.
+
+### V28.10 RUN 52 ingested (Issue #136): the AHEAD-1 hold reproduced on a second boot with a different track; the sweep fails 3 of 18 GATE moves, all short landings — 2026-09-28 (Issue #135/#136)
+
+**Files and integrity.**
+
+```text
+raw log        logs/run52/GBP-AUDIO-V28_v28-validation-0001.log
+sha256         6b80c29ef29b550a58cbb4a7a90cb583a4097cf2877c5a5e0886b84b01b9a214   106 567 B
+archived       captures/local/GBP-AUDIO-V28_v28-validation-0001-run52.log  (byte-identical, recomputed)
+Gecko          captures/local/GECKO-GBP-AUDIO-V28-run52.txt   sha256 dd30b7d9e9edbde7113c7285acdc6f96070bf29bdcb70927280736e376cc2579
+build          v28-validation-0001, commit e629d96, slot 23-v28v, boot.dol 7cd5ac21...7487a (§V28.9)
+log            825 lines, dropped=0 truncated=0, ok_session_ended
+phases         p0 50.17 s / p1 138.01 s / p2 60.0 s / p3 34.33 s -- SYNCPH lines 828-831, all reason=complete
+SYNCPE         p=3 edge=end IS present (line 311): the 56c7777 fix works; RUN 51 was the only run without it
+```
+
+**The Operator's declarations, verbatim (Issue #136).** OPERATOR OBSERVATION, not evidence of a mechanism.
+He changed the music for this run, asked beforehand:
+
+> vou deixar em outra musica agora, tudo bem?
+
+> na 4 os engasgos nao sao constantes... as vezes muda o ritmo
+
+The run's measurements depend on the AUDIO delivery rate, not on the content, but the change is recorded
+rather than assumed away; which track it was is not in the record. About p4: the landing-to-landing
+spacing of the sweep's 27 moves is 1.218 s for every STEP and REFUSED move and up to 1.28 s for a
+START (`t_land` in `V28_SWEEPM`, 40.5 MHz timebase), each move opening with a designed 187.5 ms mute
+(6 periods; 8 for a START); and every one of the 28 sweep records has an underrun delta of 0 (no record
+carries `fail_reason` UNDERRUN). So the record shows a designed, near-periodic gap with two spacings and no
+DMA underrun in p4. It does not explain "as vezes muda o ritmo" and I do not claim it does.
+
+**The frozen gate, read through `tools/v28verdict.py`.** The tool exactly as pre-registered on Issue #136
+(`39b4801`), run on the raw log, output kept byte-for-byte; the working-tree tool prints the identical text:
+
+```text
+ADMISSIBILITY: PASS
+3A: lowest holding depth 2304 native (144.0 old, 35.16 ms), whole, underrun=34 (over 14 depths)
+3B: anchor 4096 native (256.0 old, 62.50 ms), source=rule
+3B: AHEAD 1 clean
+3B: AHEAD 1 margin over 239630 samples: min READY 0, min ring 256 (native pushes)
+3B: 32-tap reversal condition (GBP-HW-351) -- FIRED, anchor source=rule (recorded, Amendment B: not acted on this round)
+SWEEP: 28 records (18 GATE, 10 INFO); verdict=FAIL
+  FAIL gate n=5: from 4096 native (256.0 old, 62.50 ms) (ahead 4) to 4096 native (256.0 old, 62.50 ms) (ahead 3) outcome=2 fail_reason=1
+    measured from-state: target 4096 ahead 4 ring 2796 ready 3; landed ring 3229 ready 2 residue -739 dup 515 drop 0
+  FAIL gate n=7: from 4096 native (256.0 old, 62.50 ms) (ahead 2) to 4096 native (256.0 old, 62.50 ms) (ahead 1) outcome=2 fail_reason=1
+    measured from-state: target 4096 ahead 2 ring 3140 ready 1; landed ring 3221 ready 0 residue -747 dup 515 drop 0
+  FAIL gate n=10: from 4096 native (256.0 old, 62.50 ms) (ahead 2) to 4096 native (256.0 old, 62.50 ms) (ahead 3) outcome=2 fail_reason=1
+    measured from-state: target 4096 ahead 2 ring 3109 ready 1; landed ring 3270 ready 2 residue -698 dup 516 drop 0
+  INFO n=0: from 4096 native (256.0 old, 62.50 ms) (ahead 1) to 11264 native (704.0 old, 171.88 ms) (ahead 4) outcome=2 fail_reason=1 residue -265
+    measured from-state: target 4096 ahead 1 ring 1430 ready 0; landed ring 10871 ready 3 dup 511 drop 0
+  INFO n=19: from 11264 native (704.0 old, 171.88 ms) (ahead 4) to 4096 native (256.0 old, 62.50 ms) (ahead 4) outcome=1 fail_reason=0 residue 37
+    measured from-state: target 11264 ahead 4 ring 10197 ready 3; landed ring 4005 ready 3 dup 390 drop 0
+  INFO n=20: from 4096 native (256.0 old, 62.50 ms) (ahead 4) to 3072 native (192.0 old, 46.88 ms) (ahead 4) outcome=1 fail_reason=0 residue 76
+    measured from-state: target 4096 ahead 4 ring 2476 ready 3; landed ring 3020 ready 3 dup 325 drop 0
+  INFO n=21: from 3072 native (192.0 old, 46.88 ms) (ahead 4) to 3072 native (192.0 old, 46.88 ms) (ahead 3) outcome=2 fail_reason=1 residue -701
+    measured from-state: target 3072 ahead 4 ring 1794 ready 3; landed ring 2243 ready 2 dup 512 drop 0
+  INFO n=22: from 3072 native (192.0 old, 46.88 ms) (ahead 3) to 3072 native (192.0 old, 46.88 ms) (ahead 2) outcome=1 fail_reason=0 residue 128
+    measured from-state: target 3072 ahead 3 ring 1714 ready 2; landed ring 3072 ready 1 dup 357 drop 16
+  INFO n=23: from 3072 native (192.0 old, 46.88 ms) (ahead 2) to 3072 native (192.0 old, 46.88 ms) (ahead 1) outcome=1 fail_reason=0 residue 128
+    measured from-state: target 3072 ahead 2 ring 1751 ready 1; landed ring 3072 ready 0 dup 356 drop 16
+  INFO n=24: from 3072 native (192.0 old, 46.88 ms) (ahead 1) to 3072 native (192.0 old, 46.88 ms) (ahead 2) outcome=1 fail_reason=0 residue 128
+    measured from-state: target 3072 ahead 1 ring 1654 ready 0; landed ring 3072 ready 1 dup 291 drop 16
+  INFO n=25: from 3072 native (192.0 old, 46.88 ms) (ahead 2) to 3072 native (192.0 old, 46.88 ms) (ahead 3) outcome=1 fail_reason=0 residue 128
+    measured from-state: target 3072 ahead 2 ring 1989 ready 1; landed ring 3072 ready 2 dup 309 drop 16
+  INFO n=26: from 3072 native (192.0 old, 46.88 ms) (ahead 3) to 3072 native (192.0 old, 46.88 ms) (ahead 4) outcome=2 fail_reason=1 residue -664
+    measured from-state: target 3072 ahead 3 ring 1911 ready 2; landed ring 2280 ready 3 dup 516 drop 0
+  INFO n=27: from 3072 native (192.0 old, 46.88 ms) (ahead 4) to 4096 native (256.0 old, 62.50 ms) (ahead 4) outcome=2 fail_reason=1 residue -196
+    measured from-state: target 3072 ahead 4 ring 1484 ready 3; landed ring 3772 ready 3 dup 501 drop 0
+LABEL COST: 8297 renders, ticks_last=828, ticks_max=4269 (informational, same pump slot as 3B's own AHEAD margin)
+```
+
+**3a — the descent, from the raw `V28_3A` rows (lines 755-768).** Native units, 65 536 Hz. Bracket **lo 2304
+(highest failing) / hi 2336 (lowest holding)**, width 32 native, on RUN 50, RUN 51 and RUN 52; the confirm at
+2304 fails a full 60 s again (`n=13 kind=2 underruns=34`). As in §V28.7, the tool's `3A: lowest holding depth
+2304` line prints the confirm record's own target: 2304 is the lowest FAILING depth; the lowest holding
+depth is 2336.
+
+**3b — the second clean AHEAD-1 hold (lines 769-770).**
+
+```text
+V28ANCHOR target=4096 source=rule
+V28_3B n=0 ahead=1 anchor=4096 source=rule underrun_seen=0 partial=0 t_set=796deb51400f7e t_done=796debe216eafe
+       min_ready=0 min_ring=256 samples=239630
+```
+
+`t_done - t_set` is 60.0 s. `samples = 239 630` over that hold is 124.8 samples per 31.25 ms period: the pump is
+called ~125 times per hand-off period on the console. Every earlier host test in this project assumed 16.
+`min_ready = 0` is uninformative at AHEAD 1: READY = ahead - 1 = 0 is the steady floor after every
+hand-off. `min_ring = 256` is the lowest ring level the hold sampled; it equals `BAND` and it equals
+2304 - 2048 (3a's failing depth minus one chunk, the minimum of a chunk-sized sawtooth whose top sits at
+2304). It is **not** the steady-state margin of a T256 hold: the sweep's own dwell samples at T256 and AHEAD 1
+(`meas_ring` 2344, 2791) sit far above it. Where it came from is HYPOTHESIS (§V28.11): the first samples after
+the 3b entry landing, which the hold cannot separate from the rest. It cannot be read as a margin for
+`GBP-HW-351`.
+
+**Sweep — the 28 `V28_SWEEP`/`V28_SWEEPM` records (lines 771-826).** Numbering as of #135: prelude n=0, GATE
+n=1..18, INFO n=19..27. `short` is target minus the landed ring; `residue = ring - target + 128` in every row
+(the +128 is the recovery produce's in-flight sub-block).
+
+```text
+n   class mech  from -> to (target A)        outcome  residue  meas_ring  landed_ring  short  dup  drop
+0   INFO  START    4096A1 -> 11264A4   FAIL     -265     1430    10871     393   511    0
+1   GATE  STEP    11264A4 ->  9216A4   pass      128     9750     9216       0   355   16
+2   GATE  STEP     9216A4 ->  7168A4   pass      128     7861     7168       0   308   16
+3   GATE  STEP     7168A4 ->  5120A4   pass      128     5958     5120       0   356   16
+4   GATE  STEP     5120A4 ->  4096A4   pass      102     3782     4070      26   357    0
+5   GATE  STEP     4096A4 ->  4096A3   FAIL     -739     2796     3229     867   515    0
+6   GATE  STEP     4096A3 ->  4096A2   pass      128     2512     4096       0   290   16
+7   GATE  STEP     4096A2 ->  4096A1   FAIL     -747     3140     3221     875   515    0
+8   GATE  REFUSED  4096A1 ->  4096A1   pass      128     2344     4096       0   357   16
+9   GATE  STEP     4096A1 ->  4096A2   pass      128     2791     4096       0   275   16
+10  GATE  STEP     4096A2 ->  4096A3   FAIL     -698     3109     3270     826   516    0
+11  GATE  STEP     4096A3 ->  4096A4   pass      128     2218     4096       0   308   16
+12  GATE  STEP     4096A4 ->  5120A4   pass      102     2646     5094      26   351    0
+13  GATE  STEP     5120A4 ->  7168A4   pass      128     3670     7168       0   340   16
+14  GATE  STEP     7168A4 ->  9216A4   pass      128     5990     9216       0   356   16
+15  GATE  STEP     9216A4 -> 11264A4   pass      128     7830    11264       0   324   16
+16  GATE  REFUSED 11264A4 -> 11264A4   pass      128     9766    11264       0   340   16
+17  GATE  START   11264A4 ->  4096A1   pass      128    10022     4096       0   325    0
+18  GATE  START    4096A1 -> 11264A4   pass      128     2902    11264       0   291   16
+19  INFO  START   11264A4 ->  4096A4   pass       37    10197     4005      91   390    0
+20  INFO  STEP     4096A4 ->  3072A4   pass       76     2476     3020      52   325    0
+21  INFO  STEP     3072A4 ->  3072A3   FAIL     -701     1794     2243     829   512    0
+22  INFO  STEP     3072A3 ->  3072A2   pass      128     1714     3072       0   357   16
+23  INFO  STEP     3072A2 ->  3072A1   pass      128     1751     3072       0   356   16
+24  INFO  STEP     3072A1 ->  3072A2   pass      128     1654     3072       0   291   16
+25  INFO  STEP     3072A2 ->  3072A3   pass      128     1989     3072       0   309   16
+26  INFO  STEP     3072A3 ->  3072A4   FAIL     -664     1911     2280     792   516    0
+27  INFO  STEP     3072A4 ->  4096A4   FAIL     -196     1484     3772     324   501    0
+```
+
+What the table shows before any hypothesis is formed:
+
+- **Every failure is a SHORT landing**, `fail_reason` 1 (OUT_OF_BAND), never UNDERRUN or UNMASKED, never above
+  target. The passing landings are either exactly at target (`drop=16` in all but n=17: one chunk's worth of corrector
+  DROPs) or within the 256 band (n=4, 12, 19 and 20, `short` 26-91).
+- **Every TARGET-only GATE move passes** (n=1..4, 12..15), and RUN 51's TARGET-move failures are gone.
+- **The 3 GATE failures are the same-target +-1 AHEAD moves n=5, n=7 and n=10; INFO n=21 and n=26 have the same
+  shape at T192.** Other +-1 AHEAD moves at the same target pass (n=6, 9, 11, 22-25), so neither direction nor
+  level decides it.
+- **The five same-target failures land 792-875 short.** Every failing row has `dup` 501-516 (the corrector
+  working on the shortfall through the dwell); every passing row has `dup` 275-390.
+- **The prelude worked as a reposition** (measured from-state 4096/A1 -> landed 10871/A4, `short` 393, INFO) and
+  its own move failed, as the Executor said it might before the run (RUN 51's n=17 was the same move).
+  GATE move 1 then began at the measured (T704, A4) it had always assumed.
+- INFO n=27 (T192 -> T256, a climb) also fails, 324 short, and n=0 (the prelude) 393 short: the failures are
+  not confined to the same-target moves.
+
+**Counters (lines 751-753).**
+
+```text
+V28C  underruns=91 overflow=0 silences=91 mute_handed=182 dup=99619 drop=256 produced=8933 handed=9045 ring_gated=616076
+V28C2 discarded=0 starved_steps=846553 lost=0 blocks_in=1138506 ring_discarded=17378 trans_faults=0 dropped_front=158 cs=1 acted=1 syncpe_lost=0 lines_lost=0
+V28CORR n=8933 overflow=0 min=0 max=16 mean_x100=1117 cap=20787
+```
+
+The corrector's mean is 11.17 corrections per chunk against a cap of 16, and 99 619 DUP against 256 DROP: the
+feed is slower than the consumption and the corrector is near saturation on the DUP side (the same figures in
+RUN 51: mean 10.75, dup 87 396, drop 224).
+
+**Stop.** The diagnosis of the landing, its fix and the build are §V28.11 and later. The perceptual run stays
+unauthorised: its nulling steps are exactly these +-1 transitions.

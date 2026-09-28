@@ -11648,3 +11648,71 @@ chain at (T256 = 4096, AHEAD 1) and never restores AHEAD 4, so the sweep starts 
 frozen table's `from_*` columns assume (T704, A4). The host model from (T704, A4) passes every GATE move; from
 (4096, A1) only the first move fails. That one failure is reproduced on the host; the other sixteen are not,
 so this finding does not explain the RUN 51 sweep and is not offered as its cause.
+
+
+### GBP-HW-358 — GBP-HW-272's CLAIM 1 recomputed over 63 logs (RUN 52 adds one cartridge-present log, `0x92`): 13 at `0x90`, 50 at `0x92`, still FACT — the next terminal entry, `GBP-HW-353` to `GBP-HW-355`'s own convention (Issue #120), never appended inside any earlier entry
+
+**The recount.** RUN 52 (`v28-validation-0001-run52`, Issue #136 — the run that reproduced §V28's AHEAD-1 hold
+on a second boot and cut the sweep's failures to three) ran with the same GBA cartridge in the slot and records
+`orig=92`, as the split predicts. Before this run the population was 62 logs, 13 at `0x90` and 49 at `0x92`;
+after it, it is **63: 13 at `0x90` and 50 at `0x92`**. CLAIM 1 stays FACT and gains one log; CLAIM 2
+(`GBP-HW-272`, CORROBORATED) is untouched — one more cartridge-present log is one more sample in a cell that is
+already full.
+
+```text
+grep -ho 'CONTROL semantic orig=[0-9a-f]*' captures/local/*.log | sort | uniq -c
+     13 CONTROL semantic orig=90
+     50 CONTROL semantic orig=92
+```
+
+A later recount appends its own entry here, at the end of the file, under the next free `GBP-HW-` number —
+never inside `GBP-HW-272` or any earlier continuation again.
+
+---
+
+### GBP-HW-359 — RUN 52's measurement of §V28: the 3a floor bracket lo 2304 / hi 2336 native holds on a third boot — CORROBORATED; AHEAD 1 at the T256 anchor held 60 s with no underrun on a second boot and a different track — CORROBORATED for the narrow claim, strengthened, not FACT; `GBP-HW-351`'s consequence still NOT established (`min_ring = 256` is not a margin); the sweep FAILS 3 of 18 GATE moves, every failure a short landing (Issue #136) — the Executor's proposal, for the Orchestrator to ratify
+
+**Source.** `logs/run52/GBP-AUDIO-V28_v28-validation-0001.log`, sha256
+`6b80c29ef29b550a58cbb4a7a90cb583a4097cf2877c5a5e0886b84b01b9a214`, 106 567 B, commit `e629d96`, 825 lines,
+`dropped=0 truncated=0`, read through `tools/v28verdict.py` at `39b4801`; the full record, the tool's output and
+the 28 sweep rows are `HARDWARE_TESTS.md` §V28.10. The vocabulary is FACT, CORROBORATED, HYPOTHESIS, UNKNOWN
+(`GBP-HW-357`: there is no per-run FACT).
+
+- **CORROBORATED: the 3a floor bracket.** Highest failing 2304 native, lowest holding 2336 native, width 32
+  native (0.49 ms), on RUN 50, RUN 51 and RUN 52: three boots, three complete descents, one console, one Game Boy
+  Player, one cartridge, identical to the bisection width; RUN 52's confirm fails 2304 under a full 60 s again
+  (`underruns=34`). Not FACT: one rig, and the scene changed between RUN 51 and RUN 52 (the Operator changed the
+  music, which does not move the figure).
+- **CORROBORATED, the narrow claim strengthened: the AHEAD-1 hold.** `V28_3B ahead=1 anchor=4096 underrun_seen=0
+  partial=0`, 60.0 s, no AHEAD-2 escalation, on two boots (RUN 51 and RUN 52) with two different stimuli. RUN 51's
+  status was CORROBORATED for one boot with one scene; the second boot on a different track removes the
+  "one scene" half of that caveat. What it now supports: **16-tap chain, T256, AHEAD 1, this console, Game Boy
+  Player and cartridge: no underrun in two independent 60 s windows on different music**, a combined 120 s that
+  bounds the underrun rate below 3/120 s = 0.025/s at 95 % (#128 §2's rule of three, valid for a stationary
+  process; two windows are not a proof of stationarity). What it does not support: another console or Game Boy
+  Player, another cartridge type, 32 taps, another rung, a longer hold, or a margin. Not FACT: one rig. One
+  caveat to keep: if 3b's entry landing left the ring far below its nominal level (§V28.11's HYPOTHESIS
+  for what `min_ring = 256` records), both holds began from a harder-than-nominal state; neither run says.
+- **`GBP-HW-351`: still NOT established, and `min_ring = 256` does not change that.** (a) `min_ready = 0` is
+  the steady floor at AHEAD 1 (READY = ahead - 1 = 0 after every hand-off); it would read 0 on a healthy run
+  and says nothing. (b) `min_ring = 256` is a decoder-ring level in native samples; `GBP-HW-350`/`351` and
+  #128 §5 price the 32-tap cost in modelled pipeline milliseconds (5.1 of 21.0), a different quantity, and
+  equating the two would be a unit error. (c) 256 is not shown to be a steady margin: it equals `BAND` and it
+  equals 2304 - 2048, the minimum of a chunk-sized sawtooth around 3a's failing depth, and the sweep's own dwell
+  samples at T256 and AHEAD 1 sit at 2344-2791. The record cannot separate a landing transient from a steady
+  floor; the next build logs the ring at the first sample and its minimum ten seconds later (Issue #136).
+  The frozen reversal rule FIRED again and is recorded, not acted on (#128 Amendment B).
+- **The sweep verdict is FAIL, 3 of 18 GATE moves (n=5, 7, 10), every one a short landing** (a record of the log, not a claim about mechanism).
+  `fail_reason` 1 (OUT_OF_BAND) with the landed ring 826-875 samples below target; INFO n=21 and n=26 fail the
+  same way at T192 (829, 792 short), INFO n=0 and n=27 fail shorter (393, 324). No failure is above target,
+  UNDERRUN or UNMASKED; every TARGET-only GATE move passes. RUN 51's 8 failures came down to 3. The
+  records are a record of what the log contains; the cause of the short landings is the subject of
+  `HARDWARE_TESTS.md` §V28.11 and is not established here. The perceptual run stays unauthorised.
+- **OPERATOR OBSERVATION (not evidence of a mechanism):** "na 4 os engasgos nao sao constantes... as vezes muda o
+  ritmo" (p4 = the sweep). The record shows a designed 187.5 ms mute opening every move, at 1.218 s spacing for
+  STEP and REFUSED moves and up to 1.28 s for a START, and no DMA underrun in any of the 28 records; it does
+  not explain a changing rhythm and no claim is made that it does.
+
+**What it does NOT establish.** Audibility of anything; that AHEAD 1 is safe at a 32-tap chain, in stereo, at any
+other rung, with another cartridge type, or for longer than 60 s; that the floor is the same on another console or
+Game Boy Player; the cause of any sweep failure; that `min_ring = 256` is or is not a steady figure.
