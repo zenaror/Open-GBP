@@ -9,6 +9,7 @@
 #include <string.h>
 #include "gbp_v28_3b.h"
 #include "gbp_v28_ladder.h"
+#include "gbp_walker.h"
 
 static int checks, failures;
 
@@ -339,6 +340,64 @@ static void test_dishonest_vs_honest_under_a_forced_busy_transition(void)
           "with the check (the real module): a hold only ever runs once gbp_atrans2's own ahead agrees");
 }
 
+/* ================================================================================================
+ * Layer 3: the SAME caller-side wiring gap poc/gbp-audio-v28's own main.c had (Issue #128/#129/
+ * #130, e283aa5/127cb6d, and tests/unit/test_gbp_v28_3a.c's own equivalent pair) -- proving 3b's
+ * own contract holds against the real gbp_walker too, not only against a direct gbp_v28_3b_cut()
+ * call at the module level (test_a_cut_hold_is_partial(), above).
+ * ================================================================================================ */
+static const struct gbp_walker_phase_def ONE_3B_SHORT_CAP[1] = { { GBP_WALKER_HOLD_3B, 15u } };
+static const struct gbp_walker_plan PLAN_ONE_3B_SHORT_CAP = { ONE_3B_SHORT_CAP, 1u, 100u };
+
+/* drives 3b (NOT the walker) through its own entry step's own apply (10 periods, matching
+ * test_start_begins_the_entry_step_once_applied()'s own margin) then on to the walker's 15 s
+ * phase cap -- comfortably inside GBP_V28_3B_HOLD_S's own 60 s natural end, so the cap always
+ * fires first, mid-hold. Returns the phase kind in force just before the cut (3b's own). */
+static enum gbp_walker_kind drive_to_the_walker_cap_3b(struct gbp_walker *w, struct gbp_v28_3b *s, uint64_t *now)
+{
+    enum gbp_walker_kind kind_before;
+    int flags;
+    gbp_walker_start(w, &PLAN_ONE_3B_SHORT_CAP, TB_HZ, *now);
+    gbp_v28_3b_start(s, GBP_V28_P3_MIN, TB_HZ, *now);
+    (void)drive(s, now, 10u);
+    check(s->hold_active == 1u, "test setup: the entry step applied, the AHEAD-1 hold is running");
+    (void)drive(s, now, 5u);                 /* now - t_origin == 15 s == the phase's own cap_s */
+    check(s->hold_active == 1u, "test setup: still well inside GBP_V28_3B_HOLD_S's own 60 s natural end");
+    kind_before = gbp_walker_current_kind(w);
+    flags = gbp_walker_tick(w, *now, tr.active);
+    check((flags & GBP_WALKER_TICK_PHASE_END) != 0, "test setup: the phase cap fires exactly here");
+    return kind_before;
+}
+
+static void test_a_walker_cap_cut_without_the_callers_own_cut_call_loses_the_record_silently(void)
+{
+    struct gbp_walker w;
+    struct gbp_v28_3b s;
+    uint64_t now = steady_at_ahead4(GBP_V28_P3_MIN);
+    (void)drive_to_the_walker_cap_3b(&w, &s, &now);
+    /* THE BUG, reproduced: the caller advances past 3b without ever calling gbp_v28_3b_cut()/
+     * _hold_done(). Nothing else will ever call them either -- the walker no longer reports
+     * HOLD_3B as its current kind. */
+    eqi((long long)s.holds_n, 0, "without cut()+hold_done(): the in-progress hold is lost, not even PARTIAL");
+    eqi((long long)s.finished, 0, "and the module itself does not even know it was cut");
+}
+
+static void test_a_walker_cap_cut_with_the_callers_own_cut_call_records_it_partial(void)
+{
+    struct gbp_walker w;
+    struct gbp_v28_3b s;
+    uint64_t now = steady_at_ahead4(GBP_V28_P3_MIN);
+    const enum gbp_walker_kind kind_before = drive_to_the_walker_cap_3b(&w, &s, &now);
+    /* THE FIX: exactly poc/gbp-audio-v28's own v28_cut() -- gbp_v28_3b_cut() marks it, then
+     * gbp_v28_3b_hold_done() flushes it (the same two-call contract 3a's own _depth_done() has;
+     * 3b's own hold_done() takes no extra deltas). */
+    check(kind_before == GBP_WALKER_HOLD_3B, "test setup: 3b was the phase that got cut");
+    gbp_v28_3b_cut(&s, now);
+    gbp_v28_3b_hold_done(&s);
+    eqi((long long)s.holds_n, 1, "with cut()+hold_done(): the in-progress hold IS recorded");
+    check(gbp_v28_3b_hold_record(&s, 0)->partial == 1u, "...and marked PARTIAL, never a silent whole record");
+}
+
 int main(void)
 {
     test_start_begins_the_entry_step_once_applied();
@@ -351,6 +410,8 @@ int main(void)
     test_a_hold_already_ended_before_a_cut_stays_whole();
     test_hold_done_with_nothing_pending_is_refused_and_counted();
     test_dishonest_vs_honest_under_a_forced_busy_transition();
+    test_a_walker_cap_cut_without_the_callers_own_cut_call_loses_the_record_silently();
+    test_a_walker_cap_cut_with_the_callers_own_cut_call_records_it_partial();
     printf("test_gbp_v28_3b: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

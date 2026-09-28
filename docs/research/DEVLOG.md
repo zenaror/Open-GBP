@@ -18436,3 +18436,75 @@ run and read directly this round, not taken from either subagent's own report.
 
 **Next.** This closes the ordering gap the review found; nothing else from either lens needs action this
 round. The GX label and the two physical Hardware Issues remain as the prior entry states.
+
+## 2026-09-28 — Issue #128/#129/#130: the GX label's own environment blocker, the 3b cut test, and
+## the zero-feed test's own named successor
+
+Three items the Orchestrator asked for before opening the §V28 hardware Issues.
+
+**1. The GX label -- CHECKED, not deferred again, and genuinely blocked in this environment.**
+`nm` over `libogc2/gamecube/lib/libogc.a` inside the Docker image confirms the 8x16 font exists: a
+defined data symbol `console_font_8x16` (undeclared in any header -- a private symbol of the
+library's own `console.c`) and a public API (`SYS_InitFont`, `SYS_GetFontTexture`,
+`SYS_GetFontTexel`, `SYS_GetFontWidth`, `SYS_GetFontEncoding`) declared in
+`ogc/system.h`, undocumented (no doxygen block, unlike every neighbouring `SYS_*` function).
+A temporary diagnostic probe (`SYS_InitFont(NULL)` then `SYS_GetFontWidth('A')`/
+`SYS_GetFontTexture('A', ...)`, gecko-reported, removed before committing) run through
+`tools/dolphin_smoke.py` on the actual `validation_run` DOL returns `Awidth=0`, `img=0x0` -- the
+font sheet is EMPTY under this project's own established Dolphin invocation (`--exec <dol>`, no
+real IPL/BIOS boot). A letter's advance width of 0 is unambiguous: the public `SYS_Font*` API
+depends on the IPL's own font ROM, which a raw `--exec` DOL boot never loads. Corroborating
+evidence, not assumed: no POC in this entire project has ever called `SYS_InitFont`/
+`SYS_GetFontTexture` (grepped `poc/`/`src/`), yet `CON_Init`'s own text console has rendered
+legible ASCII in every prior Dolphin screenshot this project has taken -- `CON_Init` cannot depend
+on the same IPL-resident font data this probe found empty, so it must use a separate, private
+mechanism (plausibly `console_font_8x16` itself, bundled in the archive, but its layout is
+undocumented and not safely guessable). Conclusion: the documented, public path is confirmed
+non-functional in this project's own smoke-test environment, and the only alternative would mean
+reverse-engineering an internal symbol's binary layout -- exactly the "unverified assumption chained
+into a hardware-bound build" `CLAUDE.md` section 18 warns against. Left unbuilt, again, but now on
+direct empirical evidence rather than a documentation gap; the probe was removed, main.c is
+otherwise unchanged by this item.
+
+**2. A cut test for 3b, mirroring the two for 3a (127cb6d).** `tests/unit/test_gbp_v28_3b.c` gains
+the same walker-driven pair: a one-phase `GBP_WALKER_HOLD_3B` plan with a 15 s cap (comfortably
+inside `GBP_V28_3B_HOLD_S`'s own 60 s natural end), driven past the entry step's own apply (10
+periods) to the cap. Without the caller's own `gbp_v28_3b_cut()`+`gbp_v28_3b_hold_done()` pair: the
+in-progress hold is lost, `holds_n` stays 0. With it: recorded, `partial == 1`. 57 checks (was 46),
+0 failures.
+
+**3. The zero-feed test's own named successor (docs/research/DEVLOG.md, 2026-09-27's own "section
+18" entry).** New `tests/unit/test_v28_zero_feed_integration.c`: drives the real
+`gbp_walker`+`gbp_v28_3b`+`gbp_atrans2`/`gbp_aplay2`/`gbp_adec2` chain through main.c's own
+three-call pump order (`gbp_aplay2_irq_handoff()` once a period, the handler's own `tick()` then
+produce-or-step then `process()` every pump call -- all unconditional, no feed gate of any kind,
+reproduced call-for-call, not reimplemented logic) under a TOTAL feed stall spanning the whole
+ROTATE entry step. `main.c` itself cannot be compiled or driven on the host (`<gccore.h>` and the
+rest of the GameCube-only SDK; checked directly against `tests/mocks/` and every existing
+`tests/unit/` file -- no such harness exists anywhere in this project), so this reproduces the real
+file's own call order rather than including it.
+
+**A genuine methodology bug this test's own sanity check caught before trusting a first green run**:
+the first draft asserted `hold_active == 1u` and `ap.ahead == GBP_V28_A1` as "the transition landed"
+-- but a mutation that dropped the `gbp_aplay2_irq_handoff()` call ENTIRELY still passed, because
+both of those flip the instant `gbp_atrans2_begin()` APPLIES (a single successful tick), not when
+the ROTATE transition actually LANDS (`handed > mute`, `tr.active` back to 0) -- the exact
+"applied-vs-landed" distinction `test_gbp_v28_3b.c`'s own `test_the_entry_step_lands_without_a_real_
+underrun()` already draws, missed on this file's own first pass. Fixed: the loop and assertions
+now key on `tr.active`/`s.begin_pending` (the same `s.begin_pending || tr.active` idiom), and the
+SAME mutation now fails both bound checks -- RED confirmed, reverted, GREEN. 4 checks, 0 failures.
+
+Structural companion, `tests/host/test_v28_zero_feed_wiring.py`: reads `main.c`'s own text and
+confirms `live_dma_cb()` (the real AI DMA hardware callback) contains no conditional at all before
+its handoff call, and that the produce/step dispatch inside `live_step()` carries no feed/decode-
+count gate beyond the legitimate session-scope condition carried over unchanged from sync-0001.
+Sanity-checked against a synthetic `if (adec2.count > 0u)` gate inserted around the dispatch (the
+exact regression this test exists to catch): fails; reverted, passes. 5 checks (2 test classes).
+
+**Gate, on the committed tree.** `make -C tests/unit`: 34/34 binaries green (`test_gbp_v28_3b`
+57/57, `test_v28_zero_feed_integration` new, 4/4). `pytest -q tests/host` (sequential, avoiding the
+known `test_vstate.py` race): clean.
+
+**Next.** Awaiting the Orchestrator's own read on the GX label's environment blocker (whether to
+pursue a real-IPL Dolphin invocation, accept the item as not built for this checkpoint, or another
+option). Once resolved, the two DOL hashes go to the Orchestrator to open the two Hardware Issues.
