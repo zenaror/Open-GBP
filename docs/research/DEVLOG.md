@@ -18621,3 +18621,61 @@ prefix itself references nothing but `gbp_walker_finished()` and two literal str
 rebuilt clean in Docker. Full gate figures in the commit message.
 
 **Next.** Send the two rebuilt hashes to the Orchestrator so the two Hardware Issues can be pinned.
+
+## 2026-09-28 — Issue #128/#129/#130: the validation_run Hardware Issue drafted (#131) and
+## `tools/v28verdict.py`, the pre-registered gate classifier
+
+Per the Orchestrator's own request: only `validation_run` gets a Hardware Issue now (Issue #128 §1
+point 2 -- the perceptual run's own ladder is set from THIS run's measurement, so
+`perceptual_no_phase1` waits). Drafted against RUN 43's own Hardware Issue (#119) as the concrete
+template, adapted for the one real difference: `validation_run` is fully automatic ("he judges
+nothing there", #128 §2) -- no blinded A/B protocol, no per-switch declaration, a single DOWN press
+the whole extent of the Operator's own role.
+
+**Posted as Issue #131**, `stage:backlog` (pending the Orchestrator's own freeze pass, the same
+one-shot review-and-freeze #128 itself used), with:
+- the §15 identity block (test ID `GBP-AUDIO-V28`/RUN 44, build `v28-validation-0001` commit
+  `a5cc3e3`, the source hash already independently verified twice this round);
+- the cartridge identity confirmed against the canonical record, not re-asked from memory:
+  `HARDWARE_TESTS.md §V7.8.2`'s own declared identity, "Yoshi's Island -- Super Mario Advance 3",
+  the same physical cartridge as RUN 41/42/43;
+- the Operator's own frozen pt-BR text and checklist, button x count typography throughout;
+- a short, general post-run declaration (no per-switch judgment to ask about here -- kept to the
+  "G" catch-all RUN 43's own template already names as never a formality, since that IS the whole
+  declaration this run needs);
+- pre-registered gates QUOTED, not paraphrased, from Issue #128's own text and from the actual
+  source (`gbp_v28_sweep.c`'s own verdict logic, `gbp_v28_ladder.h`'s own STEP_MUTE/START_MUTE
+  citations folded into the record grammar already committed): admissibility (every phase's own
+  SYNCPE edges present, no store overflow, no lost lines, a `cap`/`session` cut reported as a
+  finding rather than silently absorbed); 3a's own lowest holding depth (a measurement, not a
+  pass/fail); 3b's AHEAD 1/AHEAD 2 hold and the 32-tap reversal condition (`GBP-HW-351`, recorded
+  fired/not-fired per Amendment B, never acted on this round); `gbp_v28_sweep_verdict()`'s own 18
+  GATE / 9 INFO split, read directly from `gbp_v28_sweep.c` rather than re-derived from memory;
+  the label's own cost (`V28LABEL`), reported next to 3b's AHEAD-1 margin, informational only;
+- the new Swiss slot (23, `v28v`) proposed but NOT added to `tools/swiss-layout.tsv` yet --
+  the Issue's own freeze is what authorises staging it, matching "don't stage anything until
+  frozen";
+- reserved raw-file names, RUN 48-30's own pattern.
+
+**`tools/v28verdict.py`**: reads a saved SD log through `tools/v28syncpe.py`'s own grammar and the
+POC's own plain key=value tags (`V28_3A`/`V28_3B`/`V28_SWEEP`/`V28_SWEEP_VERDICT`/`V28LABEL`/
+`V28C2`/`V28CORR`), and prints every gate the Issue's own §4 freezes -- the Issue text is the
+authority, this tool implements it and decides nothing beyond it. `tests/host/test_v28verdict.py`:
+19 checks against synthetic logs built with the POC's own grammar (never a real capture) --
+the clean admissible case; a dropped SYNCPE edge; a `V28CORR` overflow; a `V28C2` nonzero loss
+field; a phase cut by `cap` (a note, not a hard admissibility failure); a sweep with fewer than 18
+records (PENDING); one failing GATE row (FAIL, and named); INFO rows never counted toward the 18;
+3b's AHEAD-1 clean vs. underrun (the reversal condition both ways, and AHEAD-2 only appearing when
+AHEAD-1 underran); the label cost read from the LAST record. Sanity-checked against a deliberate
+mutation (the sweep GATE/INFO klass filter swapped): 3 of 19 tests fail, exactly the sweep-lens
+ones -- reverted, clean again, before trusting the first-pass green.
+
+**Gate**: `pytest -q tests/host`: 3365 passed (19 more than the prior round, exactly the new
+suite), 7 skipped, 0 failed, on the committed tree. No native module touched, so the C unit gate is
+unaffected and was not re-run.
+
+**Next.** Awaiting the Orchestrator's own freeze pass on Issue #131. On freeze: stage the new Swiss
+slot (`swiss_export.py`, the manifest row, the copy, the hash read back, every other frozen slot's
+own hash checked before and after), run the checklist with the Operator, and ingest the run in its
+own separate checkpoint Issue -- classification via `tools/v28verdict.py` against §4's own gates,
+nothing renegotiated after the result is seen.
