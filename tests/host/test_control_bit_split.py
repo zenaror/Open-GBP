@@ -80,7 +80,11 @@ LATER = {"stream-0015-run23": 0x90, "stream-0015-run24": 0x92,
          # Issue #132 (RUN 44-47 ingestion, Issue #130): agb-route's four ROM variants (route-both,
          # route-left, route-right, route-bias0200), each with its own GBA cartridge, orig=92 -- 60 logs
          "stream-0016-run44": 0x92, "stream-0016-run45": 0x92,
-         "stream-0016-run46": 0x92, "stream-0016-run47": 0x92}
+         "stream-0016-run46": 0x92, "stream-0016-run47": 0x92,
+         # Issue #131/#133: RUN 50, the gbp-audio-v28 fix run (every handler start off the
+         # walker's own transition, 3a's own budget margin, confirmed_floor() verified on a cut
+         # confirm), a GBA cartridge in the slot, orig=92 -- 61 logs
+         "v28-validation-0001-run50": 0x92}
 
 WITH_CART = ["color-0001", "color-0002", "stream-0003", "stream-0004", "stream-0005", "stream-0005-run2",
              "stream-0005-run3", "stream-0006-run4", "stream-0007-run5", "stream-0008-run6", "stream-0009-run7",
@@ -103,7 +107,7 @@ def plain(s):
 # own recount inside GBP-HW-272 -- the last one that entry ever gets). A later recount can no
 # longer append inside GBP-HW-272 without breaking that guard, so it is recorded as its own new
 # entry at the end of the file instead, and CONTINUATIONS names each one in order.
-CONTINUATIONS = ["GBP-HW-353"]
+CONTINUATIONS = ["GBP-HW-353", "GBP-HW-354"]
 
 
 def entry():

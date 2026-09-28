@@ -19218,3 +19218,30 @@ a normal run). If this run's own 3b measurement is itself cut short by ITS OWN c
 reason, that would be a fourth, structurally distinct finding (3b's own hold durations are not
 descent/bisection-shaped, so the same arithmetic does not simply carry over) — not assumed fixed
 by today's work, watched for directly in RUN 51's own record.
+
+## 2026-09-28 — Issue #131/#133: `GBP-HW-272`'s recount, one more log — RUN 50's own gate went green
+
+RUN 50's own raw log (`GBP-AUDIO-V28_v28-validation-0001-run50.log`) archived to `captures/local/`
+turned `tests/host/test_control_bit_split.py` and `tests/host/test_gbc_path.py` red: both re-scan
+that directory, and a new cartridge-present log shifts the CONTROL-byte split's own count. The
+Orchestrator's own instruction, not an Executor decision: a physical candidate needs a green gate
+(`CLAUDE.md` §18), and "these four are expected red" is the exemption-list habit already refused
+once today for `TheHandlersAreStarted` — so the recount is done now, by the same convention
+`GBP-HW-353` set (Issue #120/#132): a NEW terminal entry, `GBP-HW-354`, never an edit to
+`GBP-HW-272` or `GBP-HW-353`.
+
+**The recount.** RUN 50 ran with a GBA cartridge in the slot, records `orig=92`. Before it: 60
+logs, 13 at `0x90` / 47 at `0x92`. After it: **61 logs, 13 at `0x90` / 48 at `0x92`**. CLAIM 1
+(`GBP-HW-272`, FACT) gains one log; CLAIM 2 (CORROBORATED) untouched. `GBP-HW-354` appended to
+`EVIDENCE.md`; `test_control_bit_split.py`'s `LATER` dict and `CONTINUATIONS` list both gained the
+entry; `test_gbc_path.py`'s own `later` dict (a separate enumeration, full filenames rather than
+basenames) gained it too, plus a new named `v28` subset alongside `play`/`drain`/`live`/etc. so the
+document's own final `(color|stream)` sweep does not have to match a filename that contains
+neither word.
+
+**Gate.** `pytest -q tests/host/test_control_bit_split.py tests/host/test_gbc_path.py`: 27/27
+green (was 4 failed). Full `make test-python` and `make -C tests/unit` run clean before commit, on
+the committed tree this entry reports.
+
+**Next.** The Orchestrator writes RUN 51 with 168 s / 468 s and the real duration (about seven and
+a half minutes) for the Operator.
