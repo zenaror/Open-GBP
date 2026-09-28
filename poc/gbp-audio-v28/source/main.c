@@ -1174,28 +1174,42 @@ static void offer_oldest_ready(void)
  * §V28 session, and it names only SAFE fields. depths/plans/acted (Amendment C) are absent from
  * BOTH branches, universally -- not only the perceptual one. tests/host/test_v28_leak.py greps
  * this exact function pair for every NEVER field. */
+/* Both functions below check gbp_walker_finished() FIRST, same reason and same fix as
+ * v28_label_text(): gbp_walker_current_kind() falls back to NAVIGATE once finished
+ * (gbp_walker.c:110), so a naive perceptual branch would report "phase 0"/nulling=false at
+ * teardown even on a session that reached NULLING and completed normally -- indistinguishable from
+ * one that never started, in the one place (the post-session report) a reader most needs that
+ * distinction. Found while fixing the label (Issue #128/#129/#130); the same symmetric bug, not
+ * asked for by name but the identical shape, so fixed alongside it rather than left for later. */
 static void v28_screen_report(void)
 {
+    if (gbp_walker_finished(&walker)) {
+        printf("  V28     done\n");
+        return;
+    }
 #if defined(GBP_V28_PLAN_PERCEPTUAL)
     printf("  V28     %s\n", gbp_walker_current_kind(&walker) == GBP_WALKER_NULLING ? "nulling" : "phase 0");
     if (gbp_walker_current_kind(&walker) == GBP_WALKER_NULLING)
         printf("  V28     setting %lu\n", (unsigned long)nulling.settings_n);
 #else
-    printf("  V28     phase %lu of %lu, %s\n", (unsigned long)walker.index + 1u, (unsigned long)V28_PLAN->count,
-           gbp_walker_finished(&walker) ? "finished" : "running");
+    printf("  V28     phase %lu of %lu, running\n", (unsigned long)walker.index + 1u, (unsigned long)V28_PLAN->count);
 #endif
 }
 
 static void v28_live_report(void)
 {
     char line[160];
+    if (gbp_walker_finished(&walker)) {
+        gecko_puts("OPENGBP-V28 done\n");
+        return;
+    }
 #if defined(GBP_V28_PLAN_PERCEPTUAL)
     snprintf(line, sizeof line, "OPENGBP-V28 phase=%s setting=%lu\n",
              gbp_walker_current_kind(&walker) == GBP_WALKER_NULLING ? "nulling" : "phase0",
              (unsigned long)nulling.settings_n);
 #else
-    snprintf(line, sizeof line, "OPENGBP-V28 phase=%lu of %lu finished=%d\n", (unsigned long)walker.index + 1u,
-             (unsigned long)V28_PLAN->count, gbp_walker_finished(&walker));
+    snprintf(line, sizeof line, "OPENGBP-V28 phase=%lu of %lu finished=0\n", (unsigned long)walker.index + 1u,
+             (unsigned long)V28_PLAN->count);
 #endif
     gecko_puts(line);
 }
@@ -1207,14 +1221,30 @@ static void v28_live_report(void)
 static void v28_label_text(char *out, size_t cap, uint64_t now)
 {
     const uint32_t elapsed_s = live.tb_hz ? (uint32_t)((now - walker.t_origin) / live.tb_hz) : 0u;
+    /* DONE is checked FIRST, in both branches: gbp_walker_current_kind() falls back to NAVIGATE
+     * once w->finished (gbp_walker.c:110), so checking kind before finished would show the
+     * perceptual label going back to "PHASE 0", indistinguishable from a restart in a blinded run
+     * (the Orchestrator's own finding on 647be46). DONE is a SAFE, kind-independent instant, no
+     * earlier than "setting k" already is. */
+    if (gbp_walker_finished(&walker)) {
+        snprintf(out, cap, "DONE %lus", (unsigned long)elapsed_s);
+        return;
+    }
 #if defined(GBP_V28_PLAN_PERCEPTUAL)
     if (gbp_walker_current_kind(&walker) == GBP_WALKER_NULLING)
         snprintf(out, cap, "NULL SET %lu %lus", (unsigned long)nulling.settings_n, (unsigned long)elapsed_s);
     else
         snprintf(out, cap, "PHASE 0 %lus", (unsigned long)elapsed_s);
 #else
-    snprintf(out, cap, "P%lu/%lu %s %lus", (unsigned long)walker.index + 1u, (unsigned long)V28_PLAN->count,
-             gbp_walker_finished(&walker) ? "DONE" : "RUN", (unsigned long)elapsed_s);
+    {
+        /* index cannot reach count today (gbp_walker.c never advances it past its own last begun
+         * value, on either the normal-completion or the cut path) -- but finished is already
+         * handled above regardless, so this is a defensive clamp against a display-only "P5/4",
+         * never load-bearing for DONE itself. */
+        const unsigned long shown = (unsigned long)walker.index + 1u;
+        const unsigned long count = (unsigned long)V28_PLAN->count;
+        snprintf(out, cap, "P%lu/%lu RUN %lus", shown < count ? shown : count, count, (unsigned long)elapsed_s);
+    }
 #endif
 }
 
