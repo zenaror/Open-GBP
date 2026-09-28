@@ -53,6 +53,10 @@ int gbp_v28_3b_tick(struct gbp_v28_3b *s, struct gbp_atrans2 *t, struct gbp_apla
         s->cur_min_ready = UINT32_MAX;
         s->cur_min_ring = UINT32_MAX;
         s->cur_samples = 0u;
+        s->cur_ring0 = 0u;
+        s->cur_min_ring_late = UINT32_MAX;
+        s->cur_samples_late = 0u;
+        s->cur_t_first = 0u;
         return 0;
     }
 
@@ -60,6 +64,14 @@ int gbp_v28_3b_tick(struct gbp_v28_3b *s, struct gbp_atrans2 *t, struct gbp_apla
         const uint32_t ready = gbp_aplay2_ready(p);
         if (ready < s->cur_min_ready) s->cur_min_ready = ready;
         if (d->count < s->cur_min_ring) s->cur_min_ring = d->count;
+        if (s->cur_samples == 0u) {
+            s->cur_ring0 = d->count;
+            s->cur_t_first = now;
+        }
+        if (now >= s->cur_t_first + (uint64_t)GBP_V28_3B_SETTLE_S * s->tb_hz) {
+            if (d->count < s->cur_min_ring_late) s->cur_min_ring_late = d->count;
+            s->cur_samples_late++;
+        }
         s->cur_samples++;
     }
 
@@ -96,6 +108,9 @@ static void record_hold(struct gbp_v28_3b *s, uint8_t partial, uint64_t t_set, u
         rec->samples = s->cur_samples;
         rec->min_ready = s->cur_samples ? s->cur_min_ready : 0u;
         rec->min_ring = s->cur_samples ? s->cur_min_ring : 0u;
+        rec->ring0 = s->cur_ring0;
+        rec->samples_late = s->cur_samples_late;
+        rec->min_ring_late = s->cur_samples_late ? s->cur_min_ring_late : 0u;
     }
     /* holds_n cannot exceed 2 by construction (AHEAD 1 then, at most, AHEAD 2) -- no overflow
      * counter needed the way gbp_v28_3a's own depths array has one. */

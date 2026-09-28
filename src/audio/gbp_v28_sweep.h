@@ -119,6 +119,10 @@ struct gbp_v28_sweep_record {
     uint32_t meas_target, meas_ahead;           /* gbp_aplay2's own target/ahead when begin() applied */
     uint32_t meas_ring, meas_ready;             /* d->count / gbp_aplay2_ready() when begin() applied */
     uint32_t ring, ready;                       /* d->count / gbp_aplay2_ready() at the landing */
+    /* Issue #136: what the landing's own trim cut (samples; gbp_atrans2's tr.trimmed) and whether a
+     * rotation was still in flight and abandoned at the landing (tr.late). */
+    uint32_t trim;
+    uint8_t  late;
 };
 
 struct gbp_v28_sweep {
@@ -137,6 +141,8 @@ struct gbp_v28_sweep {
     int32_t  residue_at_land;                    /* gbp_atrans2's own tr.residue, snapshotted at the landing */
     uint32_t ahead_drops_at_land;                /* gbp_atrans2's own tr.ahead_drops, snapshotted at the landing */
     uint8_t  unmasked_at_land;                   /* gbp_atrans2's own tr.unmasked, snapshotted at the landing */
+    uint32_t trim_at_land;                       /* gbp_atrans2's own tr.trimmed, snapshotted at the landing */
+    uint8_t  late_at_land;                       /* gbp_atrans2's own tr.late, snapshotted at the landing */
     struct gbp_v28_sweep_record records[GBP_V28_SWEEP_N];
     uint32_t records_n;
 };

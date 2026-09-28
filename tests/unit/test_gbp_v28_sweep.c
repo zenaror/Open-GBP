@@ -382,6 +382,13 @@ static void test_the_sweep_started_from_3b_s_own_end_state_still_passes_every_ga
               "the landing ring level is recorded and sits inside the band");
         check(r->ready == r->to_ahead || r->ready + 1u == r->to_ahead, "the landing READY level is recorded");
         check(r->t_land >= r->t_begin && r->t_done >= r->t_land, "t_begin <= t_land <= t_done");
+        /* Issue #136: what the landing's own trim cut is recorded, and is a bounded excess */
+        /* a START drains up to 8 chunks' worth of level at one rotation per period in this 16-call harness
+         * (the hardware's own 125 calls a period drain far faster, tests/unit/test_v28_sweep_landing.c), so its
+         * trim is bounded by the level difference, not by a chunk */
+        if (r->mechanism != GBP_V28_SWEEP_START)
+            check(r->trim <= 2u * GBP_APLAY2_PUSHES, "a STEP's landing trim is recorded and stays within two chunks");
+        check(r->late <= 1u, "the landing's own late flag is a boolean");
     }
     check(gbp_v28_sweep_verdict(&s) == GBP_V28_SWEEP_VERDICT_PASS, "the verdict is PASS from 3b's own end state");
 }
