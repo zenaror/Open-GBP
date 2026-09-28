@@ -227,11 +227,16 @@ class Hold3B(unittest.TestCase):
         self.assertFalse(out["reversal_evaluable"])
         self.assertFalse(out["reversal_fired"])
 
-    def test_anchor_default_is_reported_as_such(self):
+    def test_anchor_default_still_evaluates_the_reversal(self):
+        """#128's own freeze (§5): "the anchor used is T256" -- no source qualifier. A clean hold
+        at T256 is the observation named whether T256 came from the rule or from the frozen
+        default (no confirmed floor at all). An earlier draft of this tool required source=="rule"
+        too, which the freeze never asked for -- caught at the Orchestrator's own review."""
         text = "\n".join([anchor_line(T256, "default"), b3_hold(1, underrun_seen=0, anchor=T256, source="default")])
         out = v28verdict.hold_3b(text)
         self.assertEqual(out["anchor"]["source"], "default")
-        self.assertFalse(out["reversal_evaluable"])  # source must be "rule", not merely target==T256
+        self.assertTrue(out["reversal_evaluable"])
+        self.assertTrue(out["reversal_fired"])  # clean, at T256 -- FIRED, regardless of source
 
     def test_anchor_none_has_no_hold_at_all(self):
         out = v28verdict.hold_3b(anchor_line(0, "none"))

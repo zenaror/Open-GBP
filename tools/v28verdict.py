@@ -158,7 +158,14 @@ def hold_3b(text):
     if a1 is not None:
         out["ahead1_clean"] = int(a1["underrun_seen"]) == 0
         out["ahead1_partial"] = int(a1["partial"]) != 0
-        anchor_is_t256 = anchor["have"] and anchor["source"] == "rule" and anchor["target"] == 4096
+        # #128's own freeze text (§5): "the anchor used is T256" -- no source qualifier. A clean
+        # hold at T256 is the observation named whether that T256 came from the rule or from the
+        # frozen default (no confirmed floor at all): both are "the anchor used is T256". An
+        # earlier draft of this tool required source=="rule" too, which the freeze never asked
+        # for and would have wrongly withheld FIRED from a legitimate T256/default hold -- caught
+        # at the Orchestrator's own review of Amendment 1. The source is still reported alongside,
+        # never silently dropped, so a reader can tell rule from default apart regardless.
+        anchor_is_t256 = anchor["have"] and anchor["target"] == 4096
         out["reversal_evaluable"] = anchor_is_t256
         out["reversal_fired"] = anchor_is_t256 and out["ahead1_clean"]
     if a2 is not None:
@@ -235,8 +242,9 @@ def render(out):
                 lines.append("3B: AHEAD 2 %s%s" % ("clean" if h["ahead2_clean"] else "UNDERRUN",
                                                    " (partial)" if h["ahead2_partial"] else ""))
             if h["reversal_evaluable"]:
-                lines.append("3B: 32-tap reversal condition (GBP-HW-351) -- %s (recorded, Amendment B: "
-                             "not acted on this round)" % ("FIRED" if h["reversal_fired"] else "not fired"))
+                lines.append("3B: 32-tap reversal condition (GBP-HW-351) -- %s, anchor source=%s "
+                             "(recorded, Amendment B: not acted on this round)"
+                             % ("FIRED" if h["reversal_fired"] else "not fired", anc["source"]))
             else:
                 lines.append("3B: 32-tap reversal condition (GBP-HW-351) -- NOT EVALUABLE (the anchor "
                              "used is not T256)")
