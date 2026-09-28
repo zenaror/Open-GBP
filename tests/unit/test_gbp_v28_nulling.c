@@ -42,7 +42,7 @@ static struct gbp_adec2 adec;
 static struct gbp_atrans2 tr;
 static struct gbp_v28_nulling nl;
 
-#define CALLS_PER_PERIOD 16u
+#define CALLS_PER_PERIOD 125u   /* the console's own: 124.8 pump calls per hand-off period (RUN 52 log, Issue #136); not 16 */
 
 static void give2(struct gbp_adec2 *d, uint32_t n, int16_t v)
 {

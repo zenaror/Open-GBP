@@ -86,24 +86,47 @@ _Static_assert(GBP_V28_T192 >= GBP_APLAY2_TARGET_MIN && GBP_V28_T192 <= GBP_APLA
  * AHEAD-lowering entry and the step sweep all use it. NOT 3a's own descent, which stays UNMUTED. */
 #define GBP_V28_STEP_MUTE   6u
 
-/* The largest START's OWN mute (Issue #129/#130, the Orchestrator's direction after the ROTATE
- * landing trim): the step sweep's two START transitions (T256A1 <-> T704A4, #129's frozen
- * sequence) climb the whole ladder in one plan -- the perceptual run's own STARTs never use
- * GBP_V28_STEP_MUTE either (#128 §7). GBP_ATRANS2_ROTATE needs `pause + ahead` (gbp_atrans2.h's
- * own gbp_atrans2_min_mute()); `pause` is the climb in chunks, the same ceiling-division formula
- * gbp_v28_3a.c's own UNMUTED descent uses for a climb (`(to - from + PUSHES - 1) / PUSHES`), at
- * the ladder's own largest span (T256 -> T704) and its own largest AHEAD (A4). A build-time
- * constant, like STEP_MUTE above -- not computed per call, and not the fixed mute an ordinary
- * rung or a refused step uses. */
+/* The largest START's OWN mute. AMENDED by GitHub Issue #136 (2026-09-28, the Orchestrator's decision on
+ * RUN 52's short landings): 8 -> 12. Same class of amendment as 3a's 138 -> 168 s, carried here with its
+ * derivation so the number is never a bare constant again.
+ *
+ * WHY A MUTE HAS A FLOOR (gbp_atrans2.h, "THE ROTATE LEVEL IS SET IN SILENCE"): every discontinuity of a step
+ * (the one discard that sets the ring's level) happens inside the mute, and `ahead` rotations follow it so
+ * that every chunk that will be HEARD is built from the already-cut ring. At the discard the ring must hold
+ *     target + ahead x PUSHES - (the inflow of the two tail periods, 2 x PUSHES)
+ * and the only source of samples is the feed, one PUSHES per hand-off period. From a ring of at least one
+ * chunk at the start, the mute must therefore be at least
+ *     ceil(target / PUSHES) + ahead - 1                                        (the FLOOR, below)
+ * periods. The largest climb the ladder walks is T256 -> T704 at AHEAD 4 (the step sweep's two START
+ * transitions, #129's frozen sequence; the perceptual run's own STARTs): 6 + 4 - 1 = 9.
+ *
+ * MEASURED on the console-calibrated host (tests/unit/test_v28_sweep_landing.c: 124.8 pump calls per
+ * period and a feed 0.5 % slow, both from the RUN 52 log; the smallest mute at which the landing is in band
+ * for all 25 begin phases): exact feed 10, 0.5 % slow 10, 1 % slow 11. So the need exceeds the floor by two
+ * periods (the feed deficit and the begin phase), and a margin of one period is kept on top, the margin
+ * STEP_MUTE keeps (its worst need is 5: a +2048 climb at AHEAD 4). The extra silence over the old 8 is four
+ * periods, 125 ms per START move; only START moves pay it, an ordinary step stays at 6.
+ *
+ * The build-time check #128 required: START_MUTE is built from the ladder's own FLOOR, so a ladder change that
+ * raises the largest climb fails the build here instead of landing short on the console. */
 #define GBP_V28_START_PAUSE   ((GBP_V28_T704 - GBP_V28_T256 + GBP_APLAY2_PUSHES - 1u) / GBP_APLAY2_PUSHES)
-#define GBP_V28_START_MUTE    (GBP_V28_START_PAUSE + GBP_V28_A4)   /* 4 + 4 = 8 */
+#define GBP_V28_START_FLOOR   (((GBP_V28_T704 + GBP_APLAY2_PUSHES - 1u) / GBP_APLAY2_PUSHES) + GBP_V28_A4 - 1u)   /* 9 */
+#define GBP_V28_START_SLACK   2u    /* measured need (11 at a 1 % feed deficit) minus the floor */
+#define GBP_V28_START_MARGIN  1u
+#define GBP_V28_START_MUTE    (GBP_V28_START_FLOOR + GBP_V28_START_SLACK + GBP_V28_START_MARGIN)   /* 12 */
 
 _Static_assert(GBP_V28_START_PAUSE == 4u,
     "gbp_v28_ladder: the T256->T704 climb's own pause changed -- recompute GBP_V28_START_MUTE");
-_Static_assert(GBP_V28_START_MUTE == 8u, "gbp_v28_ladder: GBP_V28_START_MUTE no longer 8 -- check the derivation");
+_Static_assert(GBP_V28_START_FLOOR == 9u,
+    "gbp_v28_ladder: the largest climb's mute FLOOR changed -- re-measure the need (tests/unit/test_v28_sweep_landing.c) "
+    "and re-derive GBP_V28_START_MUTE");
+_Static_assert(GBP_V28_START_MUTE == 12u, "gbp_v28_ladder: GBP_V28_START_MUTE no longer 12 -- check the derivation");
 _Static_assert(GBP_V28_START_MUTE > GBP_V28_STEP_MUTE,
     "gbp_v28_ladder: the largest START needs MORE mute than an ordinary rung, or STEP_MUTE already covers it "
     "and this constant is not needed");
+/* the ordinary step's own floor: a +PUSHES climb at AHEAD 4 needs A4 + 1 periods (measured 5); one period of margin */
+_Static_assert(GBP_V28_STEP_MUTE >= GBP_V28_A4 + 1u + 1u,
+    "gbp_v28_ladder: STEP_MUTE no longer covers an AHEAD-4 climb plus one period of margin (Issue #136)");
 
 /* ---- the auto-search grids (#122/gbp_async_cfg_default's p3/p2 fields) -----------------------
  *

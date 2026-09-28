@@ -9,12 +9,6 @@
  * carries over unchanged in KIND -- only the numbers (PUSHES, AHEAD, the aim) scale with this
  * path's own chunk. Read gbp_atrans.h first; this header records only what differs.
  *
- * GBP_ATRANS2_AIM = GBP_APLAY2_PUSHES / 2 (half a chunk, exactly gbp_atrans.h's own derivation of
- * its AIM = 64 = 128 / 2) -- expressed as a formula so it never drifts from PUSHES again. Since a
- * chunk's DURATION is identical on both paths (31.25 ms), half a chunk in DECODE SAMPLES is also
- * half a chunk in TIME on both paths: 1024 samples at 65 536 Hz is the same 15.625 ms as 64 samples
- * at 4 096 Hz -- not a coincidence, the same margin the frozen path's aim gives, at this path's rate.
- *
  * Pure over its two collaborators: no device, no printing, no allocation.
  *
  * GBP_ATRANS2_BEGIN REFUSES A PLAN OVER A RUNNING ONE (GitHub Issue #129/#130, Orchestrator
@@ -37,44 +31,42 @@
  * raises it only tops up, unchanged from today. `ahead` is clamped to [1, GBP_APLAY2_POOL] --
  * counted as a fault, like an insufficient mute, never a hard refusal.
  *
- * ROTATE TRIMS THE RING TO TARGET AT THE LANDING (GitHub Issue #129/#130, the Orchestrator's
- * decision): a ROTATE landing can fall mid-cycle (the continuous produce+rotate loop pinned at
- * `aim` runs for the whole mute, ending on a wall-clock hand-off count, not on the cycle's own
- * phase), leaving the ring's own level (`d->count`) above target by up to about a chunk. HELD
- * already trims its own landing this way (step_held2); ROTATE's own residue on this path measures
- * about 4x the old path's own (#117's 15.6 ms vs this path's ~62.5 ms worst-case among the sweep's
- * transitions), and the ring component alone drains only through the slow DUP/DROP corrector --
- * seconds, not the one chunk period the READY component clears in -- long enough to inflate what a
- * nulling judgment sees. `gbp_atrans2_step()` discards the ring's excess down to target at the
- * landing, never below it (a shortfall is worse than the excess it fixes), before reporting
- * `residue` -- masked (still inside the same landing step) and cheap (a ring-pointer advance).
+ * THE ROTATE LEVEL IS SET IN SILENCE (GitHub Issue #136, the Orchestrator's decision on RUN 52; it
+ * REPLACES the landing trim and the aim/call-window gating of Issues #129/#130, which are gone).
  *
- * ROTATE ONLY STARTS A NEW ROTATION WITH ENOUGH CALLS LEFT TO FINISH IT (GitHub Issue #129/#130,
- * the Orchestrator's decision, closing a gap the ROTATE-trim and READY-floor work above exposed
- * rather than caused): `gbp_aplay2_irq_handoff()`'s own `mute_carry` field gives every reader ONE
- * consistent definition of "still muted" -- through the LAST silent hand-off, not one early (see
- * gbp_aplay2.h) -- which is what gbp_v28_sweep's own entry 6 (an AHEAD-lowering STEP landing AT
- * AHEAD 1, floor 0, no slack) needed to land with its queue warm instead of empty. But a NEW
- * rotation STARTED without enough of its own hand-off period left has no guarantee of finishing;
- * landing while it is still mid-flight would lose whatever ring content it already consumed (the
- * landing branch above only resets `rotating`, it never completes or drops an abandoned one) --
- * found on two climbing transitions at one specific burst timing, a real ring shortfall, not a
- * disagreement and not a `gbp_aplay2_drop_front()` safety violation (proven separately, 320 driven
- * transitions, 0 violations, with and without this fix).
+ * WHAT WAS WRONG. The previous ROTATE ran a produce+rotate loop for the whole mute, then at the landing
+ * discarded the ring's excess down to target. The landing runs AFTER the first audible hand-off
+ * (`handed == mute + 1`), so that cut spliced the stream `ahead` chunks after unmute (about 33 ms at AHEAD 1,
+ * 64 at AHEAD 2, 127 at AHEAD 4): the moment of an audible splice depended on the AHEAD in force, which #122
+ * section 1(c) forbids, and it could only cut, so a ring below target at the landing stayed below it. On the
+ * console (124.8 pump calls per period, a feed 0.5 % slow: both from the RUN 52 log) three GATE moves landed
+ * 826-875 samples short. Every host test before Issue #136 ran 16 calls a period with an exact feed, where
+ * the ring at every period start is target; the comments that called the trim "masked" were never tested.
  *
- * A coarser gate (refuse any new start once `handed == t->mute`, the LAST muted hand-off) also
- * closes the shortfall, but it is NOT exact: measured directly (a real cascade, not a synthetic
- * one), entry 6's own last natural rotation start lands at EXACTLY `GBP_ATRANS2_CALLS_PER_HANDOFF`
- * calls of window left -- margin 0, sufficient -- and a period-level gate refuses that start too,
- * reopening entry 6's own underrun to close the climbs' shortfall. The exact condition instead
- * compares CALLS, not periods: `calls_in_period`/`handed_last` (this module's own bookkeeping, reset
- * on every hand-off boundary gbp_atrans2_step() observes) give the calls left before the landing
- * check, at exactly this call; a new rotation starts only if that is at least
- * `GBP_ATRANS2_CALLS_PER_HANDOFF` (a fresh rotation's own need, under the default per-call cadence).
- * Arithmetic over this module's own accounting, not a tuned threshold against `p->mute`'s own
- * timing, and not conditional on AHEAD or direction (#122 section 1(c), quoted in #128 section 3).
- * An ALREADY-rotating chunk (`t->rotating`, checked first, always ungated) is unaffected -- this
- * only decides whether a NEW one may start.
+ * WHAT IT DOES NOW. Nothing is consumed until the second-to-last hand-off period: the ring only fills, which
+ * is silent and never a discontinuity. There, with nothing in flight and the queue whole, the level is set
+ * with ONE discard (gbp_adec2_discard): the ring is cut to
+ *     target + ahead x PUSHES - (the feed until the landing call) - GBP_ATRANS2_LAND_BIAS,
+ * the feed measured from the callback's own hand-off instants (so a late pump call is compensated, not
+ * guessed), then exactly `ahead` rotations follow, each building one chunk from the already-cut ring and
+ * dropping the oldest queued one, so that every chunk that will be HEARD is built after the cut. The landing
+ * cuts nothing. The ring lands at target - 160 on an exact feed (the recovery's 128 and the bias 32), 20 lower
+ * per 0.5 % of feed deficit, inside the sweep's band [target - BAND, target].
+ *
+ * WHAT IT NEEDS. The ring must hold that level at the cut, and the only source of samples is the feed, one
+ * PUSHES per period, so a mute has a FLOOR of about ceil(target / PUSHES) + ahead - 1 periods, whatever the
+ * mechanism: gbp_v28_ladder.h derives GBP_V28_STEP_MUTE (6) and GBP_V28_START_MUTE (12) from it, measured on
+ * the calibrated host. A mute too short to fill the ring is REPORTED (`fill_short`, `fill_shorts`), never
+ * hidden and never turned into a cut: the ring lands short and the sweep gate shows it.
+ *
+ * WHAT IS CHECKED. `disc_rel` is the period the cut ran in relative to the first audible hand-off (negative:
+ * inside the mute), `rot_post` the rotations after it (`unmasked` if fewer than ahead, i.e. a pre-cut chunk
+ * would be heard), and the sweep fails a GATE row as SPLICE for any cut at `disc_rel >= 0` or anywhere in the
+ * dwell that follows (tests/unit/test_v28_sweep_landing.c asserts both on the console-calibrated host, and
+ * that every chunk heard was built after the last cut: RED on the source before Issue #136 and on its first
+ * fix).
+ *
+ * HELD is unchanged (a mute of pause + 1, its own landing trim). UNMUTED has no mute.
  */
 #ifndef OPENGBP_GBP_ATRANS2_H
 #define OPENGBP_GBP_ATRANS2_H
@@ -89,13 +81,12 @@ extern "C" {
 
 enum gbp_atrans2_mode { GBP_ATRANS2_UNMUTED = 0, GBP_ATRANS2_HELD = 1, GBP_ATRANS2_ROTATE = 2 };
 
-#define GBP_ATRANS2_AIM (GBP_APLAY2_PUSHES / 2u)
-
-/* gbp_atrans2_step() calls a full hand-off period holds under the default per-call cadence
- * (GBP_APLAY2_STEP_PUSHES, unhooked -- see gbp_aplay2.h's own step_pushes hook, not used by any
- * #128/#129 handler): the SAME quantity a fresh ROTATE production needs to complete one chunk, so
- * comparing the two is exact arithmetic on this module's own accounting, not a tuned constant. */
-#define GBP_ATRANS2_CALLS_PER_HANDOFF (GBP_APLAY2_PUSHES / GBP_APLAY2_STEP_PUSHES)
+/* Issue #136: the level-setting cut aims this far BELOW target. The landing call finds the ring after its own
+ * recovery produce (128 pushes) and after whatever the pump's first call past the hand-off let the feed add
+ * (65.5 samples per ms late); the sweep's band is [target - BAND, target], so a late call can only push the
+ * ring toward the upper edge. 32 leaves the landing at target - 160 on an exact feed: 96 below the upper
+ * edge (a landing call up to 2.4 ms late) and, with a feed 0.5 % slow, 51 above the lower one. */
+#define GBP_ATRANS2_LAND_BIAS 32u
 
 struct gbp_atrans2 {
     uint8_t  active;
@@ -104,6 +95,7 @@ struct gbp_atrans2 {
     uint8_t  discarding;              /* HELD: a discard chunk of the executor's own is under way */
     uint8_t  rotating;                /* ROTATE: a rotation chunk is under way */
     uint8_t  discard_pending;         /* HELD: the shallowing discard, deferred until the queue is whole */
+    uint8_t  adjusted;                /* ROTATE: the ring's level has been set (Issue #136) */
     uint32_t mute;                    /* chunks of silence asked for */
     uint32_t pause;                   /* the plan's climb in chunks (the record's arithmetic; counted in feed) */
     uint32_t discard;                 /* samples dropped from the ring's head (a shallower level) */
@@ -126,6 +118,13 @@ struct gbp_atrans2 {
     uint32_t calls_in_period;          /* ROTATE: gbp_atrans2_step() calls seen so far THIS hand-off period,
                                        * 1-indexed (this call counts) -- reset to 0 whenever `handed` changes,
                                        * then incremented, so it is always this call's own 1-based position */
+    /* Issue #136, ROTATE: where the level was set, and what came of it */
+    uint32_t disc_n;                  /* samples cut from the ring's head by the level-setting discard */
+    int32_t  disc_rel;                /* the hand-off period it ran in, relative to the first audible hand-off
+                                       * (-1 = the last silent period, -2 the one before; >= 0 would be AFTER unmute) */
+    uint32_t rot_post;                /* rotations completed after the discard: each rebuilds one queued chunk */
+    uint32_t fill_short;              /* the samples the ring lacked at the discard point (the mute was too short) */
+    uint32_t calls_prev;              /* gbp_atrans2_step() calls in the previous hand-off period */
     uint64_t t_start, t_reached, t_end;
     /* since init */
     uint32_t begun, completed;
@@ -137,6 +136,7 @@ struct gbp_atrans2 {
     uint32_t shorts, short_max;       /* HELD: landings below the level */
     uint32_t converted;               /* HELD: landings that turned a discard under way into the refill */
     uint32_t rotate_landings, lates, unmaskeds;   /* ROTATE */
+    uint32_t unadjusted, fill_shorts;             /* ROTATE: landings whose level was never set / lacked material */
     int32_t  residue_min, residue_max;            /* ROTATE, over its landings */
 };
 
