@@ -57,6 +57,6 @@
 20	game	gbp-audio-game	gbp-audio-game.dol	gbp-audio-game	build	1	2e73a39d931ee161df1144b4bfb01b358e21acb3ea5ceb3ede9a366378b76725
 21	game2	gbp-audio-game2	gbp-audio-game2.dol	gbp-audio-game2	build	1	ba8ab59598398849dd4757cb4823cab7ed355107f1dc92cbf2295cd5440e12fa
 22	sync	gbp-audio-sync	gbp-audio-sync.dol	gbp-audio-sync	build	1	ab902f6fb3789d66c3ace4d92be9cdc5fc300399705eb97a4ae185235feb0941
-23	v28v	gbp-audio-v28	gbp-audio-v28-validation_run.dol	gbp-audio-v28-validation_run	build	1	7cd5ac21a99f4a9f023fd6335c35584be9f4b863db7cac2fe1e3a5c40de7487a
+23	v28v	gbp-audio-v28	gbp-audio-v28-validation_run.dol	gbp-audio-v28-validation_run	build	1	c40412b126658a54162d6a58fb85bbc0fe0028738120f30e5d1a84db3fbef117
 24	v28d	gbp-audio-v28	gbp-audio-v28-diag_3a_stall.dol	gbp-audio-v28-diag_3a_stall	build	1	bc8e33a9f6126f1905a7c288a5fb2bbebb4ef41ecab2d8bc039fec644affca55
 80	prewait	gbp-video-state-probe	gbp-video-state-probe.dol	gbp-video-state-probe-prewait	prehandler-wait	1	-
