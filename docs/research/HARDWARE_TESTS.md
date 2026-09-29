@@ -39894,3 +39894,83 @@ card       /media/rafael/SD_GC/Open-GBP/23-v28v/boot.dol, sha256 read back from 
 **What differs in the log against RUN 56.** `V28MARKS n= short=256 chunk=4000` and up to 48 `V28MARK i= j= left= dur= done=` lines after `V28DMAP`; everything else as RUN 56.
 
 **Stop condition.** The Executor ingests RUN 57 with `tools/v28verdict.py` and `tools/v28latency.py`, unedited: M1 or M2 (at CORROBORATED, §V28.26a) resolves the latency table's direction and lets the perceptual run's Hardware Issue be written; M3 or M4 does not.
+
+### V28.28 The perceptual image rebuilt on the frozen ladder — a design defect found before any run, and what changed — 2026-09-29 (Issue #139 / #141)
+
+*Appended. Nothing is staged, pinned or issued by this entry; the perceptual run stays unauthorised until RUN 57 resolves (Orchestrator, #139).*
+
+**The finding.** Preparing the perceptual image showed that the coded nulling handler (`gbp_v28_nulling`, #129/#130) did not implement #128 §3-§4, the frozen design. It was a port of `gbp_async`'s Phase 2: TARGET only, on a `p2` grid of 6 144 .. 57 344 native samples in 2 048 steps, at whatever AHEAD was in force (1, the `gbp_aplay2` default: the perceptual plan has no 3a or 3b), every seeded start under the STEP mute (7). Three consequences, each checkable in the code:
+
+1. **The floor was one rung too high.** T384 at AHEAD 1 is about 153 ms by the L table; the validated floor rung is T256 A1, 121 ms (held clean in RUN 55 and RUN 56). A null between 121 and 153 ms would have read "censored at the floor" 31 ms too high.
+2. **Far starts could not land.** A seeded start may jump from 6 144 to 57 344, a climb of about 51 000 samples. The mute a climb needs is `AHEAD + ceil((climb + deficit) / 2 048)` periods (`gbp_v28_ladder.h`): 31 for that climb, 7 was given. The landing would have come up short (`fill_short`), so the level a setting logged would not have been the level the ring had: the manipulation check void.
+3. **The landing battery never covered these starts.** It covered nulling STEPS of +-2 048 only.
+
+`GBP_V28_P2_*` had been added to the ladder header in #129 after a unit-conversion check (x16) and never checked against the design; the Orchestrator's #129 acceptance had the same scope (recorded on #139). The doubled ring's grid-top justification ("keep T57344") was made on the as-coded grid and is withdrawn; the ring stays (RUN 56 corroborated it neutral, and reverting costs a re-validation).
+
+**What the design says (#128 §3, §4, §7; unchanged).** The Operator moves the audio latency one rung at a time along the eight rungs the validation run held: T704A4, T576A4, T448A4, T320A4, T256A4, T256A3, T256A2, T256A1 (`GBP_V28_RUNG`, deepest first; the sweep's own GATE rows 1-7). A LEFT / RIGHT press is one rung, the step mechanism (ROTATE, `GBP_V28_STEP_MUTE` 7). A setting starts at a seeded rung under `GBP_V28_START_MUTE` (10, built from the ladder's largest climb, T256 -> T704). A press against an end is a same-level ROTATE with the same mute, counted per end. Every setting is reported as (T, A, modelled L); CENSORED per setting and per end; "AT THE VALIDATED FLOOR (T, A, L)" when every setting is censored at the floor. Every nulling step is now exactly a transition the sweep already validated (18 of 18 in RUN 55 and RUN 56); the 64 rung-to-rung STARTs are new.
+
+**What changed.**
+1. `gbp_v28_nulling` rebuilt on the ladder (same API, so `main.c`'s dispatch is unchanged): the seeded start is a rung (uniform over eight) and a 50/50 mapping; a step is one rung; a press against an end is a same-level ROTATE at the step mute, counted in `refused_floor` / `refused_top`; a start is a START. Each setting's record carries the START rung, the steps, the presses at each end, the confirmed rung and its (T, A), the ring's level and the READY chunks at the confirm, and the underruns and dropped samples DURING the setting (`V28_NULL`, `V28_NULLM`; SD log only).
+2. The `P2` constants (`GBP_V28_P2_LO/HI/STEP`, the un-derived-`P2_HI` test and the `V28CFG` fields) are removed; a test asserts they stay gone.
+3. The landing battery (`tests/unit/test_v28_sweep_landing.c`) runs all 64 rung-to-rung STARTs (the same-rung ones included) at `GBP_V28_START_MUTE`, at the console's cadence (124.8 pump calls a period, a feed 0.5 % slow, 1 % in one case, jitter, stalls), at both production steps and with the marks: every landing in band, none cut after the first audible hand-off.
+4. **The perceptual image carries no DMA instrumentation.** The DMA reads, the classifier and the marked block are compiled out (`GBP_V28_PLAN_PERCEPTUAL`); its callback is RUN 55's exactly (the hand-off and `AUDIO_InitDMA`). The reads write nothing, but the perceptual run exists for the Operator's judgement and not for instrumentation (Orchestrator, #139); RUN 56's per-phase loss read 0.01-0.02 points above RUN 55's with the reads in, and whether they caused it is not known. The image is otherwise the validation image's chain: the doubled ring, the 64-push production step, the label a clock only (it never reads `ap2`).
+5. `tools/v28null.py` reads a perceptual log: (T, A, L) per setting under a label (`bounded`, `assumed`, `M1`, `M2`), CENSORED per setting and per end, the frozen verdicts and the mechanistic gate.
+
+**Tests.** `tests/unit/test_gbp_v28_nulling.c` (443 checks), `tests/unit/test_v28_sweep_landing.c` (804 checks, the 64 STARTs), `tests/host/test_v28_run57_perceptual.py` (the ladder pinned against the sweep's own rows and transitions, no DMA instrumentation reachable in the perceptual branch, the records and their widths, the reader).
+
+**What this does NOT establish.** Anything about the Operator's judgement; that the ladder's rungs sound as the table says (L is INFERENCE, "assumed DMA semantics" until RUN 57); that the sweep's transitions hold at the perceptual run's own begin state (navigate's end, not 3b's).
+
+### V28.29 DRAFT — the perceptual run's Hardware Issue text and its PRE-REGISTERED predictions (NOT ISSUED; NOT STAGED) — 2026-09-29 (Issue #139 / #141)
+
+*Appended as a draft for the Orchestrator, who owns the Operator's procedure text, his questions and the freeze of what he is told beforehand (§V27.6; the same discipline binds this text: no (T, A), rung or L figure reaches an Issue comment before his declaration, #128 §7). Placeholders are marked `<...>`; they are filled at staging. The Issue is written only after RUN 57 resolves.*
+
+```text
+Title            [Hardware] GBP-AUDIO-V28 -- RUN <n> -- v28-perceptual-0001 (nulling on the ladder)
+Test ID          GBP-AUDIO-V28 / RUN <n>
+Build ID         v28-perceptual-0001, commit <short>, plan perceptual_no_phase1
+Slot             <to be pinned; no perceptual slot exists yet>
+boot.dol         sha256 <at staging: two identical Docker rebuilds; `strings` shows no V28MARK and no V28DMA>
+Plan             navigate(60) + nulling(240), session cap 360 s; the run ends at the cap, at 16 settings, or on Z held a quarter second
+Cartridge        Yoshi's Island -- Super Mario Advance 3 (the jump is the reference: press A, see Yoshi rise, hear the sound), same cartridge as RUN 48-57
+Link Port        nothing connected;   BBA absent;   same console and GBP;   recovery: power cycle
+```
+
+**The question.** At which audio-path latency does the Operator judge audio and picture aligned? The image lets him move the latency one rung at a time along the eight rungs the validation run held and confirm where they look synchronised; every setting is recorded as a rung, (T, A), and converted to a modelled L. **The unit of a result is the RUNG (31 ms, 15.6 ms at one step), not the millisecond**: L is INFERENCE (§V28.22, "assumed DMA semantics" until RUN 57 resolves; the label RUN 57 earns is applied by `tools/v28null.py --label`).
+
+**What is in the image, and what is not.** In: the native decoder path, the ring at 131 072 (RUN 56: neutral), the 64-push production step, the label a clock only (`NULL SET k Ns`, it never reads the chain), the ROTATE step and the START under their fixed mutes (218.75 ms and 312.5 ms of silence, the same at every step whatever the rung, the mapping or the end), the seeded start rung and stick mapping. Not in: the DMA reads, the marked block (RUN 57's instruments; none of it is compiled into this image), any figure of the chain on the screen or the live channel (accepted step counts, plans, acted, C-stick counters, refusals, the rung, TARGET, AHEAD, his answers: SD log only).
+
+**What the Operator does (facts for the Orchestrator's procedure text).** Press A at the prompt; play the game to a continuous stable music; C-stick DOWN ends navigate; in nulling LEFT / RIGHT are one rung each, UP confirms, Z held a quarter second ends the run, X saves at the end. A press against the end of the scale is not audible as such (it runs the same silence as any step). Up to 16 settings. The count is not predicted: RUN 43's nulling completed one setting and part of a second in 54.5 s before its store filled (about four in 240 s at that pace); the rule needs three (G5).
+
+### Predictions, frozen before the run
+
+```text
+MECHANISTIC (the Executor's gate, tools/v28null.py; it is NOT the Operator's and a failure voids the perceptual result at that setting, INCONCLUSIVE, a build defect and not evidence)
+ G1  at every confirm the ring is at or below the rung's TARGET and no more than 2 300 under it (RUN 56, 3b at T4096: minimum 2 256 = 1 840 under, mean chunk start target - 269)
+ G2  READY at every confirm is AHEAD - 1 or AHEAD
+ G3  no AI underrun and no dropped sample during any setting (V28_NULLM underruns 0, overflow 0)
+ G4  V28PHC p1 (nulling): loss 0.10-0.40 % (RUN 55, 56: 0.31-0.38 %), refuted above 0.5 %; taps == blocks_in, 0 failed, 0 wrong-length; ENVSTORE ok, no fault
+ G5  the run reaches at least 3 completed settings (t4: fewer is INCONCLUSIVE for the perceptual arm; the gates still report)
+ G6  every V28_NULL record's (T, A) is its rung's (the reader flags a defect otherwise); the assignment and the randomisation are in the log (t5)
+
+PERCEPTUAL (the Operator's nulls, recorded as (T, A) and read as L under the label RUN 57 earns; three outcomes are FORESEEN, none is a surprise)
+ O1  INTERIOR: at least half of the completed settings are confirmed on an interior rung. The reading is the null L (the median of the uncensored settings, the censored counts beside it); the
+     confirmed rungs agree to within TWO rungs of their median (62 ms) for at least 2/3 of the settings. More scatter than that is INCOHERENT, and #128 section 1 point 3 names the suspect
+     first: the splice cue on a ROTATE, which the nulling is meant to be immune to (a jump magnitude has no "synchronised" reading); a later run re-tests it deliberately.
+ O2  CENSORED AT THE FLOOR: every completed setting confirmed at T256 A1 after pressing against it: the verdict is "AT THE VALIDATED FLOOR (T256, A1, L 121.0 ms as tabulated, or 152.2 under +31.222)" and the
+     null lies AT OR BELOW it; a lower rung would need a shallower chain (the production gate puts the level at 94 ms, not a level the chain holds without underruns). RUN 43's ONE confirmed
+     setting was at ITS floor (target 384 old samples, 94 ms, the whole path modelled 0.23-0.27 s), "Parecia sincronizado" (HARDWARE_TESTS.md V27.20.5): that is the outcome the record most supports,
+     and the ladder's floor is far below RUN 43's (the audio path at T256 A1 is 121 ms), so the interior is the more probable place for the null this time.
+ O3  CENSORED AT THE TOP: every completed setting confirmed at T704 A4 after pressing against it: "AT THE LADDER'S TOP (T704, A4, L 324.4 ms as tabulated, 355.6 under +31.222)": the null lies at or
+     above the deepest rung. It is the SYMMETRIC reading (#128 section 4 names only the floor) and it is FORESEEN, not expected: RUN 43's 23 steps and four presses against the top of its old grid
+     (about 1 s) were in its SECOND, UNCONFIRMED setting, an exploration that returned; nothing in the record says he found sync above the ladder's top (324 ms). If it happens the reading is that
+     the picture's path is slower than the audio path at its deepest tolerated rung, and it is a finding, not a defect.
+ O4  A MIXED run (some settings censored, some interior) reports k of n at each end and estimates the null from the uncensored settings; the floor-censored ones lie at or below the floor (the median
+     is biased UP) and the top-censored at or above the top (biased DOWN), stated in the verdict itself.
+ O5  His words, verbatim, are recorded BEFORE any figure of the log is computed or reaches him.
+```
+
+**What the log carries.** `V28CFG ... rungs=8`; `SYNCPE` phase edges; `V28_NULL n= start= dir= steps= deeper= shallower= floor_refused= top_refused= rung= target= ahead= t=` and `V28_NULLM n= ring= ready= underruns= overflow=` per setting; `V28PHC`/`V28PHD` per phase; the `SYNCCS` C-stick events; `V28TAPS`. Read with `python3 tools/v28null.py <log> --label <bounded|assumed|M1|M2>` and `tools/v28verdict.py`, unedited.
+
+**What a resolved RUN 57 does to the label.** M1: as tabulated, CORROBORATED (the address stage assumed identical to the length stage, §V28.26a). M2: every L +31.222 ms. M3 / M4: the perceptual run waits (the table stays bounded). The (T, A) results do not depend on the label; only their conversion to ms does.
+
+**What this run does NOT do.** It does not change `TARGET` in the runtime (a separate decision with `U-GBP-045`'s cost in hand); it does not measure the audio-versus-video offset in ms (the video path's latency is not here: what the null gives is the audio path's latency at which he judged the two aligned, all else constant); it does not test the splice cue.

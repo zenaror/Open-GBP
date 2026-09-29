@@ -222,9 +222,9 @@ static const struct move MOVES[18] = {
 };
 
 /* the other users of the step mechanism: 3b's entry from every 3a floor the bracket can return (T2048 to T4096,
- * AHEAD 4 -> 1 and -> 2), the sweep's T192 INFO rungs, and the perceptual plan's nulling steps (+-2048 at
- * AHEAD 1 and 4, across the whole target range, GBP_V28_STEP_MUTE) */
-static struct move OTHER[96];
+ * AHEAD 4 -> 1 and -> 2), the sweep's T192 INFO rungs, the perceptual run's nulling STARTs (all 64 rung-to-rung jumps, GBP_V28_START_MUTE), and a
+ * large-target stress (GBP_V28_STEP_MUTE) */
+static struct move OTHER[192];
 static uint32_t n_other;
 static void add_other(const char *n, uint32_t ft, uint32_t fa, uint32_t tt, uint32_t ta, uint32_t mute)
 {
@@ -248,10 +248,18 @@ static void build_other(void)
     add_other("T192A4->A3", GBP_V28_T192, GBP_V28_A4, GBP_V28_T192, GBP_V28_A3, S);
     add_other("T192A3->A4", GBP_V28_T192, GBP_V28_A3, GBP_V28_T192, GBP_V28_A4, S);
     add_other("START T704A4->T256A4", GBP_V28_T704, GBP_V28_A4, GBP_V28_T256, GBP_V28_A4, ST);
+    /* Issue #141: the perceptual run's nulling STARTs (gbp_v28_nulling.c): a seeded jump from any of the eight rungs to any other, GBP_V28_START_MUTE, every pair (64, the
+     * same-rung ones included: a start may draw the rung the last setting confirmed). The largest climb, T256A1 -> T704A4, is the one START_MUTE is derived from. */
+    for (i = 0; i < GBP_V28_RUNGS; i++) {
+        uint32_t j;
+        for (j = 0; j < GBP_V28_RUNGS; j++)
+            add_other("perceptual START", GBP_V28_RUNG[i].target, GBP_V28_RUNG[i].ahead, GBP_V28_RUNG[j].target, GBP_V28_RUNG[j].ahead, ST);
+    }
+    /* large-target steps (no plan uses them since the nulling moved onto the ladder: kept as a capacity stress of the same mechanism) */
     for (tg = 6144u; tg <= 57344u; tg += 2048u * 5u)
         for (a = 1u; a <= 4u; a += 3u) {
-            add_other("nulling up", tg, a, tg + 2048u, a, S);
-            add_other("nulling down", tg + 2048u, a, tg, a, S);
+            add_other("large-target step up", tg, a, tg + 2048u, a, S);
+            add_other("large-target step down", tg + 2048u, a, tg, a, S);
         }
     /* Issue #139: the ring's own top. GBP_APLAY2_RING is 131 072; at AHEAD 4 a target of 122 880 needs target + 4 x 2048 = the whole ring at the cut, so the
      * capacity guard (gbp_atrans2.c: the cut comes early when the ring is within two chunks of full) is exercised by these moves, not by the nulling grid's
@@ -434,15 +442,15 @@ static void battery(uint32_t step)
      * AHEAD 4), at the mute's first hand-offs, exactly where a mark's 2.0 ms shorter interval feeds the level-setting call's fraction-of-period estimate: they land 36 to 120 samples below the band with a mark. That regime
      * is not reachable in the plan that carries the marks (the sweep's largest target is 11 264, the ring 131 072: asserted in main()), so they are left out of the marked battery and kept in the unmarked one. */
     cur_n = mark_lag ? n_other - 5u : n_other;
-    test_case("3b/T192/nulling: exact feed", 1.0, 0.0, 0.0, 0.0, 0, 21u);
-    test_case("3b/T192/nulling: 0.5% slow, jitter", 0.995, 0.7, 0.0, 0.0, 0, 22u);
+    test_case("other users (3b entries, T192, perceptual STARTs): exact feed", 1.0, 0.0, 0.0, 0.0, 0, 21u);
+    test_case("other users (3b entries, T192, perceptual STARTs): 0.5% slow, jitter", 0.995, 0.7, 0.0, 0.0, 0, 22u);
     /* Issue #139: the nulling grid's top (57344 to 59392) used to leave the ring within two chunks of its 65 536 capacity, so the cut came early and the landing
      * carried the feed deficit of the whole remaining mute: it tolerated about 0.7 %, not 1 %, and the 1 % case left those four moves out. With the ring at
      * 131 072 the grid's top is HALF-EMPTY and those four moves now pass at 1 %. The same regime still exists at the ring's OWN edge (target 122 880 at AHEAD 4:
      * target + 4 x 2048 = the whole ring): four moves touch 122 880 or 124 928 (120 832 -> 122 880 passes at 1 %; the last three, 122 880 -> 120 832, 122 880 -> 124 928 and
      * 124 928 -> 122 880, tolerate about 0.7 %) and those last three are left out of the 1 % case, kept in the exact and 0.5 % cases above. The ladder never goes there (P2_HI is 57 344). */
     cur_n = n_other - (mark_lag ? 5u : 3u);
-    test_case("3b/T192/nulling, the grid's top included: 1% slow", 0.99, 0.0, 0.0, 0.0, 0, 23u);
+    test_case("other users (3b entries, T192, perceptual STARTs), the grid's top included: 1% slow", 0.99, 0.0, 0.0, 0.0, 0, 23u);
     check(n_other >= 51u && OTHER[n_other - 1u].from_t == 124928u && OTHER[n_other - 3u].from_t == 122880u,
           "the last three moves are the ones at the ring's own edge (the 1 % case leaves exactly those out)");
     cur_moves = MOVES;

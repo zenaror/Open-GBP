@@ -19625,3 +19625,22 @@ The review found one substantive fault in my design: the start-address register 
 **Not done, on purpose.** The candidate (built, pinned and staged next); the perceptual run (stays unauthorised until the semantics resolve).
 
 **Next.** Two identical clean rebuilds of `validation_run`, `strings` for `V28MARKS`, the pin and the card, the hash to the Orchestrator.
+
+## 2026-09-29 — Issue #139 / #141: the perceptual image rebuilt on the frozen ladder — the coded nulling was a port that did not belong to the design (`HARDWARE_TESTS.md` §V28.28, §V28.29 draft)
+
+**Goal.** Prepare the perceptual image and its draft Hardware Issue while RUN 57 is pending (Orchestrator, #139): unstaged, unissued, no DMA mark.
+
+**Found.** The nulling handler was not the design's. #128 §3-§4 froze the eight-rung ladder (T704A4 ... T256A1), a step of one rung, a START under `START_MUTE` to a seeded rung, refused ends as same-level ROTATEs, CENSORED per setting and end. What was coded was `gbp_async`'s Phase 2 ported by unit conversion: TARGET only on a 6 144..57 344 grid at AHEAD 1, every start under the STEP mute. Its floor was one rung above the validated one (153 against 121 ms), its far starts needed 31 periods of mute and got 7, and the landing battery never covered them. #129's acceptance and the doubled ring's "grid top" justification rested on the same unchecked premise; the Orchestrator recorded both misses on #139 and withdrew the ring's justification, not the ring.
+
+**Done.** `gbp_v28_nulling` rebuilt on the ladder (same API); the `P2` constants and their tests removed (a test asserts they stay gone); the landing battery covers all 64 rung-to-rung STARTs at the console's cadence; the perceptual image carries no DMA instrumentation (the reads, the classifier and the marked block compiled out; the callback is RUN 55's); per-setting mechanistic records (`V28_NULLM`) and a reader (`tools/v28null.py`: (T, A, L) under a label, CENSORED per end, the verdicts, the gate); the draft Hardware Issue with its predictions in (T, A) and its three foreseen outcomes (interior, floor-censored, top-censored).
+
+**Two things worth their own lines.**
+
+1. **A unit-conversion check is not a design check.** The ladder header enumerated the `p2` constants as "TARGET-domain, derived x16" and closed the class of *unconverted* values; it could not ask whether the grid belonged to the design at all. What found it was reading the module against #128 while writing the draft's predictions: a prediction that has to be phrased in (T, A) cannot be written for a handler that steps TARGET at a fixed AHEAD.
+2. **My reading of RUN 43's top refusals differs from the one the Orchestrator's message carried, and the draft says so.** Its confirmed setting was at the FLOOR; the 23 steps and four presses against the top were in its second, unconfirmed setting. Top-censored is registered as foreseen and not expected.
+
+**Tests.** `tests/host/test_v28_run57_perceptual.py`, `tests/unit/test_gbp_v28_nulling.c`, `tests/unit/test_v28_sweep_landing.c`; the full gate is recorded in the closeout on Issue #139.
+
+**Not done, on purpose.** Staging, a slot, the Issue; the Operator's procedure text (the Orchestrator's, §V27.6).
+
+**Next.** Heavy review; two identical rebuilds and the `strings` check; then wait for RUN 57.
