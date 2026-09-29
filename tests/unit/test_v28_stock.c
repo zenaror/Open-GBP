@@ -13,7 +13,9 @@
  * shows is in how the stock is SPLIT, not in its total. At a chunk start READY = AHEAD - 1, so S = c + 2048 (AHEAD + 1) - 2048 phi (c = the ring at the
  * chunk's start, gbp_aplay2's cur_s0): the structure of #122's 4096 Hz formula, c + 128 (A + 1).
  *
- * WHAT IS PROVEN, on the REAL chain (gbp_aplay2 over gbp_adec2), time-driven at the console's cadence (122.8 pump calls a hand-off period, the AI's
+ * WHAT THIS SHOWS (it does NOT show the DMA semantics: the harness's `playing = programmed; programmed = <the chunk just taken>` IS the assumption; a wrong assumption
+ * is a wrong test, and a mutation that drops the programmed chunk fails only the formula check, not the flatness: the review of the derivation found this; the physical check is
+ * HARDWARE_TESTS.md V28.22a), on the REAL chain (gbp_aplay2 over gbp_adec2), time-driven at the console's cadence (122.8 pump calls a hand-off period, the AI's
  * 32 028.483 Hz period, RUN 55's feed deficits): (1) READY is AHEAD - 1 at every chunk start; (2) S is FLAT over the whole run to within a few tens of
  * samples (well under a millisecond) at AHEAD 1, 2 and 4, while the ring alone swings by about 1.5 chunks; (3) S at every chunk start equals
  * c + 2048 (AHEAD + 1) - 2048 phi to within one push (the formula IS the definition at that instant); (4) the ring's mean and minimum follow from c and the
